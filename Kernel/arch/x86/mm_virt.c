@@ -99,7 +99,7 @@ void MM_InstallVirtual()
  */
 void MM_PageFault(Uint Addr, Uint ErrorCode, tRegs *Regs)
 {
-	ENTER("xAddr bErrorCode", Addr, ErrorCode);
+	//ENTER("xAddr bErrorCode", Addr, ErrorCode);
 	
 	// -- Check for COW --
 	if( gaPageDir  [Addr>>22] & PF_PRESENT
@@ -112,7 +112,7 @@ void MM_PageFault(Uint Addr, Uint ErrorCode, tRegs *Regs)
 		gaPageTable[Addr>>12] &= PF_USER;
 		gaPageTable[Addr>>12] |= paddr|PF_PRESENT|PF_WRITE;
 		INVLPG( Addr & ~0xFFF );
-		LEAVE('-');
+		//LEAVE('-')
 		return;
 	}
 	
@@ -136,7 +136,6 @@ void MM_PageFault(Uint Addr, Uint ErrorCode, tRegs *Regs)
 	MM_DumpTables(0, -1);	
 	
 	Panic("Page Fault at 0x%x\n", Regs->eip);
-	LEAVE('-');
 }
 
 /**
