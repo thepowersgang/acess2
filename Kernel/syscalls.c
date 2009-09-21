@@ -19,7 +19,8 @@ extern Uint	Binary_Load(char *file, Uint *entryPoint);
 // === CODE ===
 void SyscallHandler(tSyscallRegs *Regs)
 {
-	Uint	ret=0, err=0;
+	Uint64	ret = 0;
+	Uint	err = 0;
 	#if DEBUG
 	ENTER("iThread iNum", gCurrentThread->TID, Regs->Num);
 	if(Regs->Num < NUM_SYSCALLS)
@@ -52,6 +53,9 @@ void SyscallHandler(tSyscallRegs *Regs)
 		ret = -1;
 		break;
 	
+	case SYS_GETPHYS:
+		ret = MM_GetPhysAddr(Regs->Arg1);
+		break;
 	// -- Map an address
 	case SYS_MAP:	MM_Map(Regs->Arg1, Regs->Arg2);	break;
 	// -- Allocate an address
@@ -144,7 +148,12 @@ void SyscallHandler(tSyscallRegs *Regs)
 		ret = -1;
 		break;
 	}
+	#if BITS < 64
+	Regs->Return = ret&0xFFFFFFFF;
+	Regs->RetHi = ret >> 32;
+	#else
 	Regs->Return = ret;
+	#endif
 	Regs->Error = err;
 	#if DEBUG
 	LOG("SyscallHandler: err = %i", err);
