@@ -222,8 +222,8 @@ tVFS_Node *VT_FindDir(tVFS_Node *Node, char *Name)
  */
 Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 {
-	ENTER("pNode XOffset XLength pBuffer",  Node, Offset, Length, Buffer);
-	LEAVE('i', 0);
+	//ENTER("pNode XOffset XLength pBuffer",  Node, Offset, Length, Buffer);
+	//LEAVE('i', 0);
 	return 0;
 }
 
