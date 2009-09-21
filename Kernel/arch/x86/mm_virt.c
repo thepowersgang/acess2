@@ -18,8 +18,6 @@
 #define KERNEL_STACK_END	0xFD000000
 #define PAGE_TABLE_ADDR	0xFD000000
 #define PAGE_DIR_ADDR	0xFD3F4000
-//#define PAGE_CR3_ADDR	0xFD3F47F4
-//#define TMP_CR3_ADDR	0xFD3F47F8	// Part of core instead of temp
 #define PAGE_CR3_ADDR	0xFD3F4FD0
 #define TMP_CR3_ADDR	0xFD3F4FD4	// Part of core instead of temp
 #define TMP_DIR_ADDR	0xFD3F5000	// Same
@@ -63,14 +61,17 @@ tPAddr	*gTmpCR3 = (void*)TMP_CR3_ADDR;
 // === CODE ===
 /**
  * \fn void MM_PreinitVirtual()
+ * \brief Maps the fractal mappings
  */
 void MM_PreinitVirtual()
 {
 	gaInitPageDir[ 0 ] = 0;
 	gaInitPageDir[ PAGE_TABLE_ADDR >> 22 ] = ((Uint)&gaInitPageDir - KERNEL_BASE) | 3;
 }
+
 /**
  * \fn void MM_InstallVirtual()
+ * \brief Sets up the constant page mappings
  */
 void MM_InstallVirtual()
 {
@@ -111,6 +112,8 @@ void MM_PageFault(Uint Addr, Uint ErrorCode, tRegs *Regs)
 		gaPageTable[Addr>>12] &= PF_USER;
 		gaPageTable[Addr>>12] |= paddr|PF_PRESENT|PF_WRITE;
 		INVLPG( Addr & ~0xFFF );
+		LEAVE('-');
+		return;
 	}
 	
 	// -- Check Error Code --
