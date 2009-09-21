@@ -2,7 +2,7 @@
  * AcessOS Microkernel Version
  * syscalls.c
  */
-#define DEBUG	1
+#define DEBUG	0
 
 #include <common.h>
 #include <syscalls.h>
