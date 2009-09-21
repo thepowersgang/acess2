@@ -45,7 +45,7 @@ $(BIN): $(OBJ) arch/$(ARCHDIR)/link.ld Makefile
 	@objdump $(BIN) -D > $(BIN).dsm
 	@cp $(BIN) /mnt/AcessFDD/
 	@wc -l $(SRCFILES) > LineCounts.$(ARCH).txt
-	@git commit
+	@git commit -a
 
 %.ao.$(ARCH): %.asm Makefile
 	@echo --- NASM -o $@

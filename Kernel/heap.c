@@ -234,6 +234,9 @@ void free(void *Ptr)
 	tHeapHead	*head;
 	tHeapFoot	*foot;
 	
+	LOG("Ptr = %p", Ptr);
+	LOG("Returns to %p", __builtin_return_address(0));
+	
 	// Alignment Check
 	if( (Uint)Ptr & (sizeof(Uint)-1) ) {
 		Warning("free - Passed a non-aligned address (%p)\n", Ptr);
