@@ -172,8 +172,8 @@ Uint GetSymbol(char *name)
 	{
 		if(gLoadedLibraries[i].Base == 0)	break;
 		
-		SysDebug(" GetSymbol: Trying 0x%x, '%s'\n",
-			gLoadedLibraries[i].Base, gLoadedLibraries[i].Name);
+		//SysDebug(" GetSymbol: Trying 0x%x, '%s'\n",
+		//	gLoadedLibraries[i].Base, gLoadedLibraries[i].Name);
 		if(GetSymbolFromBase(gLoadedLibraries[i].Base, name, &ret))	return ret;
 	}
 	SysDebug("GetSymbol: === Symbol '%s' not found ===\n", name);
