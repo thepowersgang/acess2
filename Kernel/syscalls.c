@@ -120,6 +120,14 @@ void SyscallHandler(tSyscallRegs *Regs)
 		#endif
 		break;
 	
+	case SYS_READ:
+		#if BITS < 64
+		VFS_Read( Regs->Arg1, Regs->Arg2|((Uint64)Regs->Arg3<<32), (void*)Regs->Arg4 );
+		#else
+		VFS_Read( Regs->Arg1, Regs->Arg2, (void*)Regs->Arg3 );
+		#endif
+		break;
+	
 	
 	// -- Debug
 	case SYS_DEBUG:
