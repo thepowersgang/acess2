@@ -1,0 +1,56 @@
+
+0
+SYS_EXIT	Kill this thread
+SYS_CLONE	Create a new thread
+SYS_KILL	Send a signal
+SYS_SIGNAL	Set signal Handler
+SYS_YIELD	Yield remainder of timestamp
+SYS_SLEEP	Sleep until messaged or signaled
+SYS_WAIT	Wait for a time or a message
+SYS_WAITTID	Wait for a thread to do something
+
+SYS_SETNAME	Set's the name of the current thread
+SYS_GETNAME	Get's the name of a thread
+SYS_GETTID	Get current thread ID
+SYS_GETPID	Get current thread group ID
+SYS_SETPRI	Set process priority
+
+SYS_SENDMSG	Send an IPC message
+SYS_GETMSG	Recieve an IPC message
+
+SYS_GETTIME	Get the current timestamp
+
+SYS_SPAWN	Spawn a new process
+SYS_EXECVE	Replace the current process
+SYS_LOADBIN	Load a binary into the current address space
+SYS_UNLOADBIN	Unload a loaded binary
+
+32
+SYS_GETPHYS	Get the physical address of a page
+SYS_MAP		Map a physical address
+SYS_ALLOCATE	Allocate a page
+SYS_UNMAP	Unmap a page
+SYS_PREALLOC	Preallocate a page
+SYS_SETFLAGS	Set a page's flags
+SYS_SHAREWITH	Share a page with another thread
+
+SYS_GETUID	Get current User ID
+SYS_GETGID	Get current Group ID
+SYS_SETUID	Set current user ID
+SYS_SETGID	Set current Group ID
+
+64
+SYS_OPEN	Open a file
+SYS_REOPEN	Close a file and reuse its handle
+SYS_CLOSE	Close a file
+SYS_READ	Read from an open file
+SYS_WRITE	Write to an open file
+SYS_IOCTL	Perform an IOCtl Call
+SYS_READDIR	Read from an open directory
+SYS_MKDIR	Create a new directory
+SYS_SYMLINK	Create a symbolic link
+SYS_GETACL	Get an ACL Value
+SYS_SETACL	Set an ACL Value
+SYS_FINFO	Get file information
+SYS_SEEK	Seek to a new position in the file
+SYS_TELL	Return the current file position
