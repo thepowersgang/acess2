@@ -524,6 +524,19 @@ void MM_SetFlags(Uint VAddr, Uint Flags, Uint Mask)
 		if( Flags & MM_PFLAG_KERNEL )	*ent &= ~PF_USER;
 		else	*ent |= PF_USER;
 	}
+	
+	// Copy-On-Write
+	if( Mask & MM_PFLAG_COW )
+	{
+		if( Flags & MM_PFLAG_COW ) {
+			*ent &= ~PF_WRITE;
+			*ent |= PF_COW;
+		}
+		else {
+			*ent &= ~PF_COW;
+			*ent |= PF_WRITE;
+		}
+	}
 }
 
 /**

@@ -70,16 +70,17 @@ Uint LoadLibrary(char *filename, char *SearchDir, char **envp)
 Uint IsFileLoaded(char *file)
 {
 	 int	i;
-	DEBUGS("IsFileLoaded: (file='%s')\n", file);
+	DEBUGS("IsFileLoaded: (file='%s')", file);
 	for( i = 0; i < MAX_LOADED_LIBRARIES; i++ )
 	{
 		if(gLoadedLibraries[i].Base == 0)	break;	// Last entry has Base set to NULL
+		DEBUGS(" strcmp('%s', '%s')", gLoadedLibraries[i].Name, file);
 		if(strcmp(gLoadedLibraries[i].Name, file) == 0) {
-			DEBUGS("IsFileLoaded: Found %i (0x%x)\n", i, gLoadedLibraries[i].Base);
+			DEBUGS("IsFileLoaded: Found %i (0x%x)", i, gLoadedLibraries[i].Base);
 			return gLoadedLibraries[i].Base;
 		}
 	}
-	DEBUGS("IsFileLoaded: Not Found\n");
+	DEBUGS("IsFileLoaded: Not Found");
 	return 0;
 }
 

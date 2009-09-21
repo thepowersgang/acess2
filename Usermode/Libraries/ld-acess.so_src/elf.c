@@ -1,7 +1,7 @@
 /*
- AcessOS 1 - Dynamic Loader
- By thePowersGang
-*/
+ * AcessOS 1 - Dynamic Loader
+ * By thePowersGang
+ */
 #include "common.h"
 #include "elf32.h"
 
