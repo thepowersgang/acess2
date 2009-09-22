@@ -76,11 +76,7 @@ void MM_Install(tMBoot_Info *MBoot)
 	memsetd(gaPageReferences, 1, kernelPages);
 	for( num = kernelPages; num < giPageCount; num++ )
 	{
-		//if(gaPageBitmap[ num2 / 32 ] == 0) {
-		//	memsetd(&gaPageReferences[num2], 0, 31-(num2&31));
-		//	num2 = (num2 + 32) & ~31;
-		//} else
-			gaPageReferences[num] = (gaPageBitmap[ num / 32 ] >> (num&31)) & 1;
+		gaPageReferences[num] = (gaPageBitmap[ num / 32 ] >> (num&31)) & 1;
 	}
 }
 
@@ -100,7 +96,7 @@ tPAddr MM_AllocPhys()
 	for(a=0;gaSuperBitmap[a]==-1&&a<num;a++);
 	if(a == num) {
 		RELEASE( &giPhysAlloc );
-		Warning("MM_AllocPhys - OUT OF MEMORY\n");
+		Warning("MM_AllocPhys - OUT OF MEMORY (Called by %p)",  __builtin_return_address(0));
 		return 0;
 	}
 	for(b=0;gaSuperBitmap[a]&(1<<b);b++);
