@@ -50,7 +50,8 @@ int main(int argc, char *argv[], char *envp[])
 	
 	//Command_Clear(0, NULL);
 	
-	write(_stdout, 36, "AcessOS/AcessBasic Shell Version 2\n");
+	write(_stdout, 1, "\n");
+	write(_stdout, 36, "Acess Shell Version 3\n");
 	write(_stdout, 30, " Based on CLI Shell for IOOS\n");
 	write(_stdout,  2, "\n");
 	for(;;)
