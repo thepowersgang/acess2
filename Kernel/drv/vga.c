@@ -6,11 +6,16 @@
 #include <tpl_drv_video.h>
 #include <modules.h>
 
+// === CONSTANTS ===
+#define	VGA_WIDTH	80
+#define	VGA_HEIGHT	25
+
 // === PROTOTYPES ===
  int	VGA_Install(char **Arguments);
 Uint64	VGA_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
  int	VGA_IOCtl(tVFS_Node *Node, int Id, void *Data);
 Uint16	VGA_int_GetWord(tVT_Char *Char);
+void	VGA_int_SetCursor(Sint16 x, Sint16 y);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, 0x000A, VGA, VGA_Install, NULL, NULL);
@@ -18,7 +23,7 @@ tDevFS_Driver	gVGA_DevInfo = {
 	NULL, "VGA",
 	{
 	.NumACLs = 0,
-	.Size = 80*25*sizeof(tVT_Char),
+	.Size = VGA_WIDTH*VGA_HEIGHT*sizeof(tVT_Char),
 	//.Read = VGA_Read,
 	.Write = VGA_Write,
 	.IOCtl = VGA_IOCtl
@@ -85,14 +90,17 @@ int VGA_IOCtl(tVFS_Node *Node, int Id, void *Data)
 	case DRV_IOCTL_VERSION:	*(int*)Data = 50;	return 1;
 	case DRV_IOCTL_LOOKUP:	return 0;
 	
-	case VIDEO_IOCTL_SETMODE:	return 0;	// Ignored (Text Only ATM)
 	case VIDEO_IOCTL_GETMODE:	return 0;	// Mode 0 only
+	case VIDEO_IOCTL_SETMODE:	return 0;	// Ignored (Text Only ATM)
 	case VIDEO_IOCTL_FINDMODE:	return 0;	// Text Only!
 	case VIDEO_IOCTL_MODEINFO:
 		if( ((tVideo_IOCtl_Mode*)Data)->id != 0)	return 0;
-		((tVideo_IOCtl_Mode*)Data)->width = 80;
-		((tVideo_IOCtl_Mode*)Data)->height = 25;
+		((tVideo_IOCtl_Mode*)Data)->width = VGA_WIDTH;
+		((tVideo_IOCtl_Mode*)Data)->height = VGA_HEIGHT;
 		((tVideo_IOCtl_Mode*)Data)->bpp = 4;
+		return 1;
+	case VIDEO_IOCTL_SETCURSOR:
+		VGA_int_SetCursor( ((tVideo_IOCtl_Pos*)Data)->x, ((tVideo_IOCtl_Pos*)Data)->y );
 		return 1;
 	}
 	return 0;
@@ -171,4 +179,19 @@ Uint16 VGA_int_GetWord(tVT_Char *Char)
 	ret |= col << 8;
 	
 	return ret;
+}
+
+/**
+ * \fn void VGA_int_SetCursor(Sint16 x, Sint16 y)
+ * \brief Updates the cursor position
+ */
+void VGA_int_SetCursor(Sint16 x, Sint16 y)
+{
+	 int	pos = x+y*VGA_WIDTH;
+	if(x == -1 || y == -1)
+		pos = -1;
+    outb(0x3D4, 14);
+    outb(0x3D5, pos >> 8);
+    outb(0x3D4, 15);
+    outb(0x3D5, pos);
 }

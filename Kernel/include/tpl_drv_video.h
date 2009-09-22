@@ -37,6 +37,8 @@ enum eTplVideo_IOCtl {
 	VIDEO_IOCTL_FINDMODE,
 	//! \brief Get mode info - (tVideo_IOCtl_Mode *info)
 	VIDEO_IOCTL_MODEINFO,
+	//! \brief Sets the cursor position (tVideo_IOCtl_Pos *pos)
+	VIDEO_IOCTL_SETCURSOR,
 	//! \brief Request access to Framebuffer - (void *dest), Return Boolean Success
 	VIDEO_IOCTL_REQLFB
 };
@@ -51,7 +53,12 @@ struct sVideo_IOCtl_Mode {
 	Uint16	height;	//!< Height
 	Uint16	bpp;	//!< Bits per Pixel
 };
+struct sVideo_IOCtl_Pos {
+	Sint16	x;
+	Sint16	y;
+};
 typedef struct sVideo_IOCtl_Mode	tVideo_IOCtl_Mode;	//!< Mode Type
+typedef struct sVideo_IOCtl_Pos	tVideo_IOCtl_Pos;	//!< Mode Type
 
 /**
  * \struct sVT_Char

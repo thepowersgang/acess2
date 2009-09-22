@@ -17,6 +17,8 @@
 #define	DEFAULT_HEIGHT	25
 #define	DEFAULT_COLOUR	(VT_COL_BLACK|(VT_COL_WHITE<<16))
 
+#define	VT_FLAG_HIDECSR	0x01
+
 enum eVT_Modes {
 	VT_MODE_TEXT8,	// UTF-8 Text Mode (VT100 Emulation)
 	VT_MODE_TEXT32,	// UTF-32 Text Mode (Acess Native)
@@ -30,6 +32,7 @@ enum eVT_Modes {
 // === TYPES ===
 typedef struct {
 	 int	Mode;
+	 int	Flags;
 	 int	Width, Height;
 	 int	ViewPos, WritePos;
 	Uint32	CurColour;
@@ -134,6 +137,7 @@ int VT_Install(char **Arguments)
 	for( i = 0; i < NUM_VTS; i++ )
 	{
 		gVT_Terminals[i].Mode = VT_MODE_TEXT8;
+		gVT_Terminals[i].Flags = 0;
 		gVT_Terminals[i].Width = DEFAULT_WIDTH;
 		gVT_Terminals[i].Height = DEFAULT_HEIGHT;
 		gVT_Terminals[i].CurColour = DEFAULT_COLOUR;
@@ -283,6 +287,7 @@ Uint64 VT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		//VT_int_PutString32(term, Buffer, Length);
 		break;
 	}
+	
 	//LEAVE('i', 0);
 	return 0;
 }
@@ -335,6 +340,15 @@ void VT_int_PutString(tVTerm *Term, Uint8 *Buffer, Uint Count)
 			i += ReadUTF8(&Buffer[i], &val);
 			VT_int_PutChar(Term, val);
 		}
+	}
+	
+	// Update cursor
+	if(Term->Flags & VT_FLAG_HIDECSR)
+	{
+		tVideo_IOCtl_Pos	pos;
+		pos.x = Term->WritePos % Term->Width;
+		pos.y = Term->WritePos / Term->Width;
+		VFS_IOCtl(giVT_OutputDevHandle, VIDEO_IOCTL_SETCURSOR, &pos);
 	}
 }
 
