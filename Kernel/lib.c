@@ -168,6 +168,8 @@ int strpos8(char *str, Uint32 Search)
  */
 int ReadUTF8(Uint8 *str, Uint32 *Val)
 {
+	*Val = 0xFFFD;	// Assume invalid character
+	
 	// ASCII
 	if( !(*str & 0x80) ) {
 		*Val = *str;
@@ -176,7 +178,6 @@ int ReadUTF8(Uint8 *str, Uint32 *Val)
 	
 	// Middle of a sequence
 	if( (*str & 0xC0) == 0x80 ) {
-		*Val = -1;
 		return 1;
 	}
 	
@@ -217,8 +218,53 @@ int ReadUTF8(Uint8 *str, Uint32 *Val)
 	}
 	
 	// UTF-8 Doesn't support more than four bytes
-	*Val = -1;
 	return 4;
+}
+
+/**
+ * \fn int WriteUTF8(Uint8 *str, Uint32 Val)
+ * \brief Write a UTF-8 character sequence to a string
+ */
+int WriteUTF8(Uint8 *str, Uint32 Val)
+{
+	// ASCII
+	if( Val < 128 ) {
+		*str = Val;
+		return 1;
+	}
+	
+	// Two Byte
+	if( Val < 0x8000 ) {
+		*str = 0xC0 | (Val >> 6);
+		str ++;
+		*str = 0x80 | (Val & 0x3F);
+		return 2;
+	}
+	
+	// Three Byte
+	if( Val < 0x10000 ) {
+		*str = 0xE0 | (Val >> 12);
+		str ++;
+		*str = 0x80 | ((Val >> 6) & 0x3F);
+		str ++;
+		*str = 0x80 | (Val & 0x3F);
+		return 3;
+	}
+	
+	// Four Byte
+	if( Val < 0x110000 ) {
+		*str = 0xF0 | (Val >> 18);
+		str ++;
+		*str = 0x80 | ((Val >> 12) & 0x3F);
+		str ++;
+		*str = 0x80 | ((Val >> 6) & 0x3F);
+		str ++;
+		*str = 0x80 | (Val & 0x3F);
+		return 4;
+	}
+	
+	// UTF-8 Doesn't support more than four bytes
+	return 0;
 }
 
 /**

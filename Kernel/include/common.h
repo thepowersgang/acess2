@@ -86,6 +86,7 @@ extern int	strpos(char *Str, char Ch);
 extern int	strpos8(char *str, Uint32 search);
 extern void	itoa(char *buf, Uint num, int base, int minLength, char pad);
 extern int	ReadUTF8(Uint8 *str, Uint32 *Val);
+extern int	WriteUTF8(Uint8 *str, Uint32 Val);
 // --- Heap ---
 extern void *malloc(size_t size);
 extern void	*realloc(void *ptr, size_t size);

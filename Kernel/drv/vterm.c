@@ -8,7 +8,7 @@
 
 // === CONSTANTS ===
 #define	NUM_VTS	4
-#define MAX_INPUT_BYTES	64
+#define MAX_INPUT_CHARS	64
 #define VT_SCROLLBACK	4	// 4 Screens of text
 #define DEFAULT_OUTPUT	"/Devices/VGA"
 #define DEFAULT_INPUT	"/Devices/PS2Keyboard"
@@ -17,11 +17,12 @@
 #define	DEFAULT_COLOUR	(VT_COL_BLACK|(VT_COL_WHITE<<16))
 
 enum eVT_Modes {
-	VT_MODE_TEXT,
-	VT_MODE_8BPP,
-	VT_MODE_16BPP,
-	VT_MODE_24BPP,
-	VT_MODE_32BPP,
+	VT_MODE_TEXT8,	// UTF-8 Text Mode (VT100 Emulation)
+	VT_MODE_TEXT32,	// UTF-32 Text Mode (Acess Native)
+	VT_MODE_8BPP,	// 256 Colour Mode
+	VT_MODE_16BPP,	// 16 bit Colour Mode
+	VT_MODE_24BPP,	// 24 bit Colour Mode
+	VT_MODE_32BPP,	// 32 bit Colour Mode
 	NUM_VT_MODES
 };
 
@@ -32,8 +33,9 @@ typedef struct {
 	 int	ViewPos, WritePos;
 	Uint32	CurColour;
 	char	Name[2];
-	 int	NumInputBytes;
-	Uint8	InputBuffer[MAX_INPUT_BYTES];
+	 int	InputRead;
+	 int	InputWrite;
+	Uint32	InputBuffer[MAX_INPUT_CHARS];
 	union {
 		tVT_Char	*Text;
 		Uint32		*Buffer;
@@ -48,6 +50,7 @@ tVFS_Node	*VT_FindDir(tVFS_Node *Node, char *Name);
 Uint64	VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
 Uint64	VT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
  int	VT_IOCtl(tVFS_Node *Node, int Id, void *Data);
+void	VT_KBCallBack(Uint32 Codepoint);
 void	VT_int_PutString(tVTerm *Term, Uint8 *Buffer, Uint Count);
  int	VT_int_ParseEscape(tVTerm *Term, char *Buffer);
 void	VT_int_PutChar(tVTerm *Term, Uint32 Ch);
@@ -129,7 +132,7 @@ int VT_Install(char **Arguments)
 	// Create Nodes
 	for( i = 0; i < NUM_VTS; i++ )
 	{
-		gVT_Terminals[i].Mode = VT_MODE_TEXT;
+		gVT_Terminals[i].Mode = VT_MODE_TEXT8;
 		gVT_Terminals[i].Width = DEFAULT_WIDTH;
 		gVT_Terminals[i].Height = DEFAULT_HEIGHT;
 		gVT_Terminals[i].CurColour = DEFAULT_COLOUR;
@@ -222,8 +225,37 @@ tVFS_Node *VT_FindDir(tVFS_Node *Node, char *Name)
  */
 Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 {
-	//ENTER("pNode XOffset XLength pBuffer",  Node, Offset, Length, Buffer);
-	//LEAVE('i', 0);
+	 int	pos = 0;
+	tVTerm	*term = &gVT_Terminals[ Node->Inode ];
+	
+	// Check current mode
+	switch(term->Mode)
+	{
+	case VT_MODE_TEXT8:
+		while(pos < Length)
+		{
+			while(term->InputRead == term->InputWrite)	Proc_Yield();
+			while(term->InputRead != term->InputWrite)
+			{
+				pos += WriteUTF8(Buffer+pos, term->InputBuffer[term->InputRead]);
+				term->InputRead ++;
+			}
+		}
+		break;
+	
+	case VT_MODE_TEXT32:
+		while(pos < Length)
+		{
+			while(term->InputRead == term->InputWrite)	Proc_Yield();
+			while(term->InputRead != term->InputWrite)
+			{
+				((Uint32*)Buffer)[pos] = term->InputBuffer[term->InputRead];
+				pos ++;
+				term->InputRead ++;
+			}
+		}
+		break;
+	}
 	return 0;
 }
 
@@ -240,8 +272,11 @@ Uint64 VT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	// Write
 	switch( term->Mode )
 	{
-	case VT_MODE_TEXT:
+	case VT_MODE_TEXT8:
 		VT_int_PutString(term, Buffer, Length);
+		break;
+	case VT_MODE_TEXT32:
+		//VT_int_PutString32(term, Buffer, Length);
 		break;
 	}
 	//LEAVE('i', 0);
@@ -255,6 +290,23 @@ Uint64 VT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 int VT_IOCtl(tVFS_Node *Node, int Id, void *Data)
 {
 	return 0;
+}
+
+/**
+ * \fn void VT_KBCallBack(Uint32 Codepoint)
+ * \brief Called on keyboard interrupt
+ */
+void VT_KBCallBack(Uint32 Codepoint)
+{
+	tVTerm	*term = &gVT_Terminals[giVT_CurrentTerminal];
+	
+	term->InputBuffer[ term->InputWrite ] = Codepoint;
+	term->InputWrite ++;
+	term->InputWrite %= MAX_INPUT_CHARS;
+	if(term->InputRead == term->InputWrite) {
+		term->InputRead ++;
+		term->InputRead %= MAX_INPUT_CHARS;
+	}
 }
 
 /**

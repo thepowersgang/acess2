@@ -23,7 +23,7 @@ void	KB_UpdateLEDs();
 // === GLOBALS ===
 MODULE_DEFINE(0, 0x0100, PS2Keybard, KB_Install, NULL, NULL);
 tDevFS_Driver	gKB_DevInfo = {
-	NULL, "PS2Kb",
+	NULL, "PS2Keyboard",
 	{
 	.NumACLs = 0,
 	.Size = -1,
@@ -181,8 +181,7 @@ void KB_IRQHandler()
 		}
 	}
 	
-	if(gKB_Callback)
-		gKB_Callback(ch);
+	if(gKB_Callback)	gKB_Callback(ch);
 }
 
 /**
