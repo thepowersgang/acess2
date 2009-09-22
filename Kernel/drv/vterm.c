@@ -513,11 +513,12 @@ void VT_int_UpdateScreen( tVTerm *Term, int UpdateAll )
 			&Term->Text[Term->ViewPos]
 			);
 	} else {
+		 int	pos = Term->WritePos - Term->WritePos % Term->Width;
 		VFS_WriteAt(
 			giVT_OutputDevHandle,
-			Term->ViewPos*sizeof(tVT_Char),
+			(pos - Term->ViewPos)*sizeof(tVT_Char),
 			Term->Width*sizeof(tVT_Char),
-			&Term->Text[Term->ViewPos]
+			&Term->Text[pos]
 			);
 	}
 }
