@@ -5,6 +5,7 @@
 #include <fs_devfs.h>
 #include <modules.h>
 #include <tpl_drv_video.h>
+#include <tpl_drv_keyboard.h>
 
 // === CONSTANTS ===
 #define	NUM_VTS	4
@@ -176,6 +177,8 @@ void VT_InitInput()
 {
 	giVT_InputDevHandle = VFS_Open(gsVT_InputDevice, VFS_OPENFLAG_READ);
 	LOG("giVT_InputDevHandle = %x\n", giVT_InputDevHandle);
+	if(giVT_InputDevHandle == -1)	return ;
+	VFS_IOCtl(giVT_InputDevHandle, KB_IOCTL_SETCALLBACK, VT_KBCallBack);
 }
 
 /**

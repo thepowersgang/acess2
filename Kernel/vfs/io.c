@@ -166,3 +166,17 @@ int VFS_Seek(int FD, Sint64 Distance, int Whence)
 	h->Position = Distance;
 	return 0;
 }
+
+/**
+ * \fn int VFS_IOCtl(int FD, int ID, void *Buffer)
+ */
+int VFS_IOCtl(int FD, int ID, void *Buffer)
+{
+	tVFS_Handle	*h;
+	
+	h = VFS_GetHandle(FD);
+	if(!h)	return -1;
+
+	if(!h->Node->IOCtl)	return -1;
+	return h->Node->IOCtl(h->Node, ID, Buffer);
+}

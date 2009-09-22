@@ -34,6 +34,8 @@ extern Uint64	VFS_Write(int FD, Uint64 Length, void *Buffer);
 extern Uint64	VFS_ReadAt(int FD, Uint64 Offset, Uint64 Length, void *Buffer);
 extern Uint64	VFS_WriteAt(int FD, Uint64 Offset, Uint64 Length, void *Buffer);
 
+extern int	VFS_IOCtl(int FD, int ID, void *Buffer);
+
 extern void	VFS_GetMemPath(void *Base, Uint Length, char *Dest);
 extern char	*VFS_GetTruePath(char *Path);
 
