@@ -205,11 +205,18 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
  */
 tPAddr MM_Allocate(Uint VAddr)
 {
+	tPAddr	paddr;
 	// Check if the directory is mapped
 	if( gaPageDir[ VAddr >> 22 ] == 0 )
 	{
 		// Allocate directory
-		gaPageDir[ VAddr >> 22 ] = MM_AllocPhys() | 3;
+		paddr = MM_AllocPhys();
+		if( paddr == 0 ) {
+			Warning("MM_Allocate - Out of Memory (Called by %p)", __builtin_return_address(0));
+			return 0;
+		}
+		// Map
+		gaPageDir[ VAddr >> 22 ] = paddr | 3;
 		// Mark as user
 		if(VAddr < MM_USER_MAX)	gaPageDir[ VAddr >> 22 ] |= PF_USER;
 		
@@ -223,13 +230,19 @@ tPAddr MM_Allocate(Uint VAddr)
 	}
 	
 	// Allocate
-	gaPageTable[ VAddr >> 12 ] = MM_AllocPhys() | 3;
+	paddr = MM_AllocPhys();
+	if( paddr == 0 ) {
+		Warning("MM_Allocate - Out of Memory (Called by %p)", __builtin_return_address(0));
+		return 0;
+	}
+	// Map
+	gaPageTable[ VAddr >> 12 ] = paddr | 3;
 	// Mark as user
 	if(VAddr < MM_USER_MAX)	gaPageTable[ VAddr >> 12 ] |= PF_USER;
 	// Invalidate Cache for address
 	INVLPG( VAddr & ~0xFFF );
 	
-	return gaPageTable[ VAddr >> 12 ] & ~0xFFF;
+	return paddr;
 }
 
 /**
