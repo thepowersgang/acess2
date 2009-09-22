@@ -87,3 +87,52 @@
 	pop ebp
 	ret
 %endmacro
+
+; System Call - 5 Arguments
+%macro SYSCALL5	2
+[global %1:func]
+%1:
+	push ebp
+	mov ebp, esp
+	push ebx
+	push edi
+	push esi
+	mov eax, %2
+	mov ebx, [ebp+8]
+	mov ecx, [ebp+12]
+	mov edx, [ebp+16]
+	mov edi, [ebp+20]
+	mov esi, [ebp+24]
+	int 0xAC
+	mov [_errno], ebx
+	pop esi
+	pop edi
+	pop ebx
+	pop ebp
+	ret
+%endmacro
+
+; System Call - 6 Arguments
+%macro SYSCALL6	2
+[global %1:func]
+%1:
+	push ebp
+	mov ebp, esp
+	push ebx
+	push edi
+	push esi
+	mov eax, %2
+	mov ebx, [ebp+8]
+	mov ecx, [ebp+12]
+	mov edx, [ebp+16]
+	mov edi, [ebp+20]
+	mov esi, [ebp+24]
+	mov ebp, [ebp+28]
+	int 0xAC
+	mov [_errno], ebx
+	pop esi
+	pop edi
+	pop ebx
+	pop ebp
+	ret
+%endmacro

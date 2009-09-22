@@ -332,6 +332,7 @@ void VT_int_PutString(tVTerm *Term, Uint8 *Buffer, Uint Count)
 	{
 		if( Buffer[i] == 0x1B )	// Escape Sequence
 		{
+			i ++;
 			i += VT_int_ParseEscape(Term, (char*)&Buffer[i]);
 			continue;
 		}

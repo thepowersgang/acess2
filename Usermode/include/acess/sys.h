@@ -30,6 +30,7 @@ struct s_sysFInfo {
 typedef struct s_sysFInfo	t_sysFInfo;
 
 // === FUNCTIONS ===
+void	_SysDebug(char *str, ...);
 // --- Proc ---
 void	sleep();
  int	clone(int flags, void *stack);

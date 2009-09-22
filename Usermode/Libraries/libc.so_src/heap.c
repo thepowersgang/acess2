@@ -34,7 +34,7 @@ EXPORT void	free(void *mem);
 EXPORT void	*realloc(void *mem, Uint bytes);
 EXPORT void	*sbrk(int increment);
 LOCAL void	*extendHeap(int bytes);
-LOCAL uint	brk(int delta);
+LOCAL uint	brk(Uint newpos);
 
 //Code
 
@@ -260,7 +260,7 @@ EXPORT void *sbrk(int increment)
 	static size_t oldEnd = 0;
 	static size_t curEnd = 0;
 
-	//SysDebug("sbrk: (increment=%i)\n", increment);
+	//_SysDebug("sbrk: (increment=%i)\n", increment);
 
 	if (oldEnd == 0)	curEnd = oldEnd = brk(0);
 
@@ -328,20 +328,25 @@ static void *FindHeapBase()
 	return NULL;
 }
 
-LOCAL uint brk(int delta)
+LOCAL uint brk(Uint newpos)
 {
 	static uint	curpos;
 	uint	pages;
 	uint	ret = curpos;
+	 int	delta;
+	
+	//_SysDebug("brk: (newpos=0x%x)", newpos);
 	
 	// Find initial position
 	if(curpos == 0)	curpos = (uint)FindHeapBase();
 	
 	// Get Current Position
-	if(delta == 0)
-	{
-		return curpos;
-	}
+	if(newpos == 0)	return curpos;
+	
+	if(newpos < curpos)	return newpos;
+	
+	delta = newpos - curpos;
+	//_SysDebug(" brk: delta = 0x%x", delta);
 	
 	// Do we need to add pages
 	if(curpos & 0xFFF && (curpos & 0xFFF) + delta < 0x1000)
