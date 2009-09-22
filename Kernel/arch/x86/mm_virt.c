@@ -105,10 +105,18 @@ void MM_PageFault(Uint Addr, Uint ErrorCode, tRegs *Regs)
 	 && gaPageTable[Addr>>12] & PF_COW )
 	{
 		tPAddr	paddr;
-		paddr = MM_DuplicatePage( Addr );
-		MM_DerefPhys( gaPageTable[Addr>>12] & ~0xFFF );
-		gaPageTable[Addr>>12] &= PF_USER;
-		gaPageTable[Addr>>12] |= paddr|PF_PRESENT|PF_WRITE;
+		if(MM_GetRefCount( gaPageTable[Addr>>12] & ~0xFFF ) == 0)
+		{
+			gaPageTable[Addr>>12] &= ~PF_COW;
+			gaPageTable[Addr>>12] |= PF_PRESENT|PF_WRITE;
+		}
+		else
+		{
+			paddr = MM_DuplicatePage( Addr );
+			MM_DerefPhys( gaPageTable[Addr>>12] & ~0xFFF );
+			gaPageTable[Addr>>12] &= PF_USER;
+			gaPageTable[Addr>>12] |= paddr|PF_PRESENT|PF_WRITE;
+		}
 		INVLPG( Addr & ~0xFFF );
 		//LEAVE('-')
 		return;

@@ -85,7 +85,7 @@ void MM_Install(tMBoot_Info *MBoot)
 }
 
 /**
- * \fn Uint32 MM_AllocPhys()
+ * \fn tPAddr MM_AllocPhys()
  * \brief Allocates a physical page
  */
 tPAddr MM_AllocPhys()
@@ -154,7 +154,7 @@ void MM_RefPhys(tPAddr Addr)
 /**
  * \fn void MM_DerefPhys(Uint32 Addr)
  */
-void MM_DerefPhys(Uint32 Addr)
+void MM_DerefPhys(tPAddr Addr)
 {
 	// Get page number
 	Addr >>= 12;
@@ -184,4 +184,19 @@ void MM_DerefPhys(Uint32 Addr)
 	
 	// Release spinlock
 	RELEASE( &giPhysAlloc );
+}
+
+/**
+ * \fn int MM_GetRefCount(tPAddr Addr)
+ */
+int MM_GetRefCount(tPAddr Addr)
+{
+	// Get page number
+	Addr >>= 12;
+	
+	// We don't care about non-ram pages
+	if(Addr >= giPageCount)	return -1;
+	
+	// Check if it is freed
+	return gaPageReferences[ Addr ];
 }
