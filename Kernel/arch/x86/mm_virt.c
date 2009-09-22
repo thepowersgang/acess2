@@ -212,7 +212,7 @@ tPAddr MM_Allocate(Uint VAddr)
 	}
 	// Check if the page is already allocated
 	else if( gaPageTable[ VAddr >> 12 ] != 0 ) {
-		Warning("MM_Allocate - Allocating to used address");
+		Warning("MM_Allocate - Allocating to used address (%p)", VAddr);
 		return gaPageTable[ VAddr >> 12 ] & ~0xFFF;
 	}
 	

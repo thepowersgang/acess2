@@ -247,6 +247,7 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 				LOG("WriteUTF8(%p, 0x%x)", Buffer+pos, term->InputBuffer[term->InputRead]);
 				pos += WriteUTF8(Buffer+pos, term->InputBuffer[term->InputRead]);
 				term->InputRead ++;
+				term->InputRead %= MAX_INPUT_CHARS;
 			}
 		}
 		break;
@@ -260,6 +261,7 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 				((Uint32*)Buffer)[pos] = term->InputBuffer[term->InputRead];
 				pos ++;
 				term->InputRead ++;
+				term->InputRead %= MAX_INPUT_CHARS;
 			}
 		}
 		break;
