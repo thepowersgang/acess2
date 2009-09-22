@@ -100,6 +100,7 @@ tPAddr MM_AllocPhys()
 	for(a=0;gaSuperBitmap[a]==-1&&a<num;a++);
 	if(a == num) {
 		RELEASE( &giPhysAlloc );
+		Warning("MM_AllocPhys - OUT OF MEMORY\n");
 		return 0;
 	}
 	for(b=0;gaSuperBitmap[a]&(1<<b);b++);

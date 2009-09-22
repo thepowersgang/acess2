@@ -447,6 +447,7 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 	
 	switch(Ch)
 	{
+	case 0:	return;	// Ignore NULL byte
 	case '\n':
 		Term->WritePos += Term->Width;
 	case '\r':
