@@ -345,7 +345,7 @@ void VT_int_PutString(tVTerm *Term, Uint8 *Buffer, Uint Count)
 	}
 	
 	// Update cursor
-	if(Term->Flags & VT_FLAG_HIDECSR)
+	if( !(Term->Flags & VT_FLAG_HIDECSR) )
 	{
 		tVideo_IOCtl_Pos	pos;
 		pos.x = Term->WritePos % Term->Width;

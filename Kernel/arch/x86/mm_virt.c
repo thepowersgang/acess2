@@ -28,8 +28,6 @@
 #define	TEMP_MAP_ADDR	0xFEFF0000	// Allows 16 "temp" pages
 #define	NUM_TEMP_PAGES	16
 
-#define	USE_COW	1
-
 #define	PF_PRESENT	0x1
 #define	PF_WRITE	0x2
 #define	PF_USER		0x4
@@ -392,7 +390,6 @@ Uint MM_Clone()
 				continue;
 			}
 			
-			#if USE_COW
 			// Refrence old page
 			MM_RefPhys( gaPageTable[i*1024+j] & ~0xFFF );
 			// Add to new table
@@ -402,10 +399,6 @@ Uint MM_Clone()
 			}
 			else
 				gaTmpTable[i*1024+j] = gaPageTable[i*1024+j];
-			LOG("gaTmpTable[0x%x] = 0x%x", i*1024+j, gaTmpTable[i*1024+j]);
-			#else
-			gaTmpTable[i*1024+j] = MM_DuplicatePage( (i*1024+j)<<12 ) | (gaPageTable[i*1024+j]&7);
-			#endif
 		}
 	}
 	
