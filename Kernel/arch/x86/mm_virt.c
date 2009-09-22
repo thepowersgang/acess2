@@ -232,7 +232,8 @@ tPAddr MM_Allocate(Uint VAddr)
 	// Allocate
 	paddr = MM_AllocPhys();
 	if( paddr == 0 ) {
-		Warning("MM_Allocate - Out of Memory (Called by %p)", __builtin_return_address(0));
+		Warning("MM_Allocate - Out of Memory when allocating at %p (Called by %p)",
+			VAddr, __builtin_return_address(0));
 		return 0;
 	}
 	// Map
