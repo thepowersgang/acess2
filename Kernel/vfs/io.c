@@ -169,6 +169,7 @@ int VFS_Seek(int FD, Sint64 Distance, int Whence)
 
 /**
  * \fn int VFS_IOCtl(int FD, int ID, void *Buffer)
+ * \brief Call an IO Control on a file
  */
 int VFS_IOCtl(int FD, int ID, void *Buffer)
 {
@@ -179,4 +180,47 @@ int VFS_IOCtl(int FD, int ID, void *Buffer)
 
 	if(!h->Node->IOCtl)	return -1;
 	return h->Node->IOCtl(h->Node, ID, Buffer);
+}
+
+// -- System Call Structures ---
+struct s_sysFInfo {
+	Uint	uid, gid;
+	Uint	flags;
+	Uint64	size;
+	Sint64	atime;
+	Sint64	mtime;
+	Sint64	ctime;
+	 int	numacls;
+	tVFS_ACL	acls[];
+};
+
+/**
+ * \fn int VFS_FInfo(int FD, struct s_sysFInfo *Dest, int MaxACLs)
+ * \brief Retrieve file information
+ * \return Number of ACLs stored
+ */
+int VFS_FInfo(int FD, struct s_sysFInfo *Dest, int MaxACLs)
+{
+	tVFS_Handle	*h;
+	 int	max;
+	
+	h = VFS_GetHandle(FD);
+	if(!h)	return -1;
+	
+	Dest->uid = h->Node->UID;
+	Dest->gid = h->Node->GID;
+	Dest->size = h->Node->Size;
+	Dest->atime = h->Node->ATime;
+	Dest->ctime = h->Node->MTime;
+	Dest->mtime = h->Node->CTime;
+	Dest->numacls = h->Node->NumACLs;
+	
+	Dest->flags = 0;
+	if(h->Node->Flags & VFS_FFLAG_DIRECTORY)	Dest->flags |= 0x10;
+	if(h->Node->Flags & VFS_FFLAG_SYMLINK)	Dest->flags |= 0x20;
+	
+	max = (MaxACLs < h->Node->NumACLs) ? MaxACLs : h->Node->NumACLs;
+	memcpy(&Dest->acls, h->Node->ACLs, max*sizeof(tVFS_ACL));
+	
+	return max;
 }

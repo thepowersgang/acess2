@@ -292,6 +292,10 @@ void Command_Clear(int argc, char **argv)
 	write(_stdout, 4, "\x1B[2J");	//Clear Screen
 }
 
+/**
+ * \fn void Command_Cd(int argc, char **argv)
+ * \brief Change directory
+ */
 void Command_Cd(int argc, char **argv)
 {
 	char	tmpPath[1024];
@@ -314,7 +318,7 @@ void Command_Cd(int argc, char **argv)
 	finfo(fp, &stats);
 	close(fp);
 	
-	if(!(stats.flags & FILEFLAG_DIRECTORY)) {
+	if( !(stats.flags & FILEFLAG_DIRECTORY) ) {
 		write(_stdout, 17, "Not a Directory\n");
 		return;
 	}

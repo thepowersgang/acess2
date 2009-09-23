@@ -15,6 +15,7 @@ extern Uint	Proc_SendMessage(Uint *Err, Uint Dest, Uint Length, void *Data);
 extern int	Proc_GetMessage(Uint *Err, Uint *Source, void *Buffer);
 extern int	Proc_Execve(char *File, char **ArgV, char **EnvP);
 extern Uint	Binary_Load(char *file, Uint *entryPoint);
+extern int	VFS_FInfo(int FD, void *Dest, int MaxACLs);
 
 // === CODE ===
 void SyscallHandler(tSyscallRegs *Regs)
@@ -132,6 +133,9 @@ void SyscallHandler(tSyscallRegs *Regs)
 		#endif
 		break;
 	
+	case SYS_FINFO:
+		ret = VFS_FInfo( Regs->Arg1, (void*)Regs->Arg2, Regs->Arg3 );
+		break;
 	
 	// -- Debug
 	case SYS_DEBUG:
@@ -143,7 +147,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 	default:
 		Warning("SyscallHandler: Unknown System Call %i", Regs->Num);
 		if(Regs->Num < NUM_SYSCALLS)
-			Warning(" Syscall %s", cSYSCALL_NAMES[Regs->Num]);
+			Warning(" Syscall '%s'", cSYSCALL_NAMES[Regs->Num]);
 		err = -ENOSYS;
 		ret = -1;
 		break;
