@@ -363,13 +363,13 @@ void VT_int_PutString(tVTerm *Term, Uint8 *Buffer, Uint Count)
 void VT_int_ClearLine(tVTerm *Term, int Num)
 {
 	 int	i;
-	ENTER("pTerm iNum", Term, Num);
-	for( i = Term->Width; i++; )
+	//ENTER("pTerm iNum", Term, Num);
+	for( i = Term->Width; i--; )
 	{
 		Term->Text[ Num*Term->Width + i ].Ch = 0;
 		Term->Text[ Num*Term->Width + i ].Colour = Term->CurColour;
 	}
-	LEAVE('-');
+	//LEAVE('-');
 }
 
 /**
