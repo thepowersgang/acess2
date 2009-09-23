@@ -10,7 +10,7 @@
 // === CONSTANTS ===
 #define	NUM_VTS	4
 #define MAX_INPUT_CHARS	64
-#define VT_SCROLLBACK	4	// 4 Screens of text
+#define VT_SCROLLBACK	1	// 4 Screens of text
 #define DEFAULT_OUTPUT	"/Devices/VGA"
 #define DEFAULT_INPUT	"/Devices/PS2Keyboard"
 #define	DEFAULT_WIDTH	80
@@ -145,8 +145,8 @@ int VT_Install(char **Arguments)
 		gVT_Terminals[i].WritePos = 0;
 		gVT_Terminals[i].ViewPos = 0;
 		
-		gVT_Terminals[i].Buffer = malloc( DEFAULT_WIDTH*DEFAULT_HEIGHT*sizeof(tVT_Char) );
-		memset( gVT_Terminals[i].Buffer, 0, DEFAULT_WIDTH*DEFAULT_HEIGHT*sizeof(tVT_Char) );
+		gVT_Terminals[i].Buffer = malloc( DEFAULT_WIDTH*DEFAULT_HEIGHT*VT_SCROLLBACK*sizeof(tVT_Char) );
+		memset( gVT_Terminals[i].Buffer, 0, DEFAULT_WIDTH*DEFAULT_HEIGHT*VT_SCROLLBACK*sizeof(tVT_Char) );
 		
 		gVT_Terminals[i].Name[0] = '0'+i;
 		gVT_Terminals[i].Name[1] = '\0';
@@ -508,7 +508,11 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 		base = Term->Width*(Term->Height*VT_SCROLLBACK-1);
 		
 		// Scroll Back
-		memcpy( Term->Text, &Term->Text[Term->Width], base*sizeof(tVT_Char) );
+		memcpy(
+			Term->Text,
+			&Term->Text[Term->Width],
+			Term->Width*(Term->Height-1)*VT_SCROLLBACK*sizeof(tVT_Char)
+			);
 		
 		// Clear last row
 		for( i = 0; i < Term->Width; i ++ )
