@@ -88,6 +88,7 @@ char	*gsVT_InputDevice = NULL;
 // === CODE ===
 /**
  * \fn int VT_Install(char **Arguments)
+ * \brief Installs the Virtual Terminal Driver
  */
 int VT_Install(char **Arguments)
 {
@@ -397,6 +398,7 @@ int VT_int_ParseEscape(tVTerm *Term, char *Buffer)
 					memset(Term->Text, 0, Term->Width*Term->Height*VT_SCROLLBACK*sizeof(tVT_Char));
 					Term->WritePos = 0;
 					Term->ViewPos = 0;
+					VT_int_UpdateScreen(Term, 1);
 				}
 				break;
 			// Set Font flags
@@ -489,7 +491,9 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 		Term->WritePos ++;
 		break;
 	}
+		
 	
+	// Move Screen
 	if(Term->WritePos >= Term->Width*Term->Height*VT_SCROLLBACK)
 	{
 		 int	base, i;
@@ -513,6 +517,11 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 			Term->Text[ base + i ].Colour = Term->CurColour;
 		}
 		
+		VT_int_UpdateScreen( Term, 1 );
+	}
+	else if(Term->WritePos > Term->Width*Term->Height+Term->ViewPos)
+	{
+		Term->ViewPos += Term->Width;
 		VT_int_UpdateScreen( Term, 1 );
 	}
 	else
