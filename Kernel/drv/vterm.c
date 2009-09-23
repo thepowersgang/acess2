@@ -357,6 +357,21 @@ void VT_int_PutString(tVTerm *Term, Uint8 *Buffer, Uint Count)
 }
 
 /**
+ * \fn void VT_int_ClearLine(tVTerm *Term, int Num)
+ * \brief Clears a line in a virtual terminal
+ */
+void VT_int_ClearLine(tVTerm *Term, int Num)
+{
+	 int	i;
+	memset(Term->Text, 0, Term->Width*Term->Height*VT_SCROLLBACK*sizeof(tVT_Char));
+	for( i = Term->Width; i++; )
+	{
+		Term->Text[ Num*Term->Width + i ].Ch = 0;
+		Term->Text[ Num*Term->Width + i ].Colour = Term->CurColour;
+	}
+}
+
+/**
  * \fn int VT_int_ParseEscape(tVTerm *Term, char *Buffer)
  * \brief Parses a VT100 Escape code
  */
@@ -394,11 +409,17 @@ int VT_int_ParseEscape(tVTerm *Term, char *Buffer)
 			//Clear By Line
 			case 'J':
 				// Clear Screen
-				if(args[0] == 2) {
-					memset(Term->Text, 0, Term->Width*Term->Height*VT_SCROLLBACK*sizeof(tVT_Char));
+				switch(args[0])
+				{
+				case 2:
+					{
+					 int	i = Term->Height * VT_SCROLLBACK;;
+					while( i-- )	VT_int_ClearLine(Term, i);
 					Term->WritePos = 0;
 					Term->ViewPos = 0;
 					VT_int_UpdateScreen(Term, 1);
+					}
+					break;
 				}
 				break;
 			// Set Font flags
