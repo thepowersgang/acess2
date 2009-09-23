@@ -363,12 +363,13 @@ void VT_int_PutString(tVTerm *Term, Uint8 *Buffer, Uint Count)
 void VT_int_ClearLine(tVTerm *Term, int Num)
 {
 	 int	i;
-	memset(Term->Text, 0, Term->Width*Term->Height*VT_SCROLLBACK*sizeof(tVT_Char));
+	ENTER("pTerm iNum", Term, Num);
 	for( i = Term->Width; i++; )
 	{
 		Term->Text[ Num*Term->Width + i ].Ch = 0;
 		Term->Text[ Num*Term->Width + i ].Colour = Term->CurColour;
 	}
+	LEAVE('-');
 }
 
 /**
@@ -413,7 +414,7 @@ int VT_int_ParseEscape(tVTerm *Term, char *Buffer)
 				{
 				case 2:
 					{
-					 int	i = Term->Height * VT_SCROLLBACK;;
+					 int	i = Term->Height * VT_SCROLLBACK;
 					while( i-- )	VT_int_ClearLine(Term, i);
 					Term->WritePos = 0;
 					Term->ViewPos = 0;
