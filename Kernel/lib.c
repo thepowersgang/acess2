@@ -5,6 +5,9 @@
 #include <common.h>
 
 // === CONSTANTS ===
+#define	RANDOM_SEED	0xACE55052
+#define	RANDOM_A	0x12231ADE
+#define	RANDOM_C	0x1BADBEEF
 //                          Jan Feb Mar Apr May  Jun  Jul  Aug  Sept Oct  Nov  Dec
 const short DAYS_BEFORE[] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
 #define UNIX_TO_2K	((30*365*3600*24) + (7*3600*24))	//Normal years + leap years
@@ -291,6 +294,26 @@ Sint64 timestamp(int sec, int mins, int hrs, int day, int month, int year)
 	stamp += UNIX_TO_2K;
 	
 	return stamp * 1000;
+}
+
+/**
+ * \fn Uint rand()
+ * \brief Pseudo random number generator
+ * \note Unknown effectiveness (made up on the spot)
+ */
+Uint rand()
+{
+	#if 0
+	static Uint	randomState = RANDOM_SEED;
+	Uint	ret = randomState;
+	 int	roll = randomState & 31;
+	randomState = (randomState << roll) | (randomState >> (32-roll));
+	randomState ^= 0x9A3C5E78;
+	return ret;
+	#else
+	static Uint	randomState = RANDOM_SEED;
+	return randomState = (RANDOM_A*randomState + RANDOM_C) & 0xFFFFFFFF;
+	#endif
 }
 
 EXPORT(timestamp);

@@ -11,7 +11,6 @@
 #endif
 
 // === CONSTANTS ===
-#define	RANDOM_SEED	0xACE55052
 #define	SWITCH_MAGIC	0xFFFACE55	// There is no code in this area
 #define	DEFAULT_QUANTUM	10
 #define	DEFAULT_TICKETS	5
@@ -345,6 +344,7 @@ void Proc_SetThreadName(char *NewName)
 
 /**
  * \fn Uint Proc_MakeUserStack()
+ * \brief Creates a new user stack
  */
 Uint Proc_MakeUserStack()
 {
@@ -684,6 +684,7 @@ static tThread *Proc_int_GetPrevThread(tThread **List, tThread *Thread)
 
 /**
  * \fn void Proc_DumpThreads()
+ * \brief Dums a list of currently running threads
  */
 void Proc_DumpThreads()
 {
@@ -707,7 +708,7 @@ void Proc_DumpThreads()
 
 /**
  * \fn void Proc_Scheduler(int CPU)
- * \brief Swap current task
+ * \brief Swap current thread and clears dead threads
  */
 void Proc_Scheduler(int CPU)
 {
@@ -818,19 +819,4 @@ int Proc_GetUID()
 int Proc_GetGID()
 {
 	return gCurrentThread->GID;
-}
-
-/**
- * \fn Uint rand()
- * \brief Pseudo random number generator
- * \note Unknown effectiveness (made up on the spot)
- */
-Uint rand()
-{
-	static Uint	randomState = RANDOM_SEED;
-	Uint	ret = randomState;
-	 int	roll = randomState & 31;
-	randomState = (randomState << roll) | (randomState >> (32-roll));
-	randomState ^= 0x9A3C5E78;
-	return ret;
 }
