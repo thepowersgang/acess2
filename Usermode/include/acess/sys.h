@@ -26,14 +26,14 @@ struct s_sysACL {
 			unsigned	id:	31;
 		};
 		uint32_t	object;
-	}
+	};
 	union {
 		struct {
 			unsigned	invert: 1;
 			unsigned	perms:	31;
 		};
 		uint32_t	rawperms;
-	}
+	};
 };
 struct s_sysFInfo {
 	uint	uid, gid;

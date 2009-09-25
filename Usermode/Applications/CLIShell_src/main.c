@@ -332,7 +332,7 @@ void Command_Cd(int argc, char **argv)
 void Command_Dir(int argc, char **argv)
 {
 	 int	dp, fp, dirLen;
-	//char	modeStr[11] = "RWXrwxRWX ";
+	char	modeStr[11] = "RWXrwxRWX ";
 	char	tmpPath[1024];
 	char	*fileName;
 	t_sysFInfo	info;
