@@ -24,6 +24,7 @@ extern int	giNumCPUs;
 extern int	giNextTID;
 extern int	giTotalTickets;
 extern int	giNumActiveThreads;
+extern tThread	gThreadZero;
 extern tThread	*gActiveThreads;
 extern tThread	*gSleepingThreads;
 extern tThread	*gDeleteThreads;
@@ -39,7 +40,7 @@ void	Proc_Scheduler();
 // === GLOBALS ===
 // --- Current State ---
 #if USE_MP
-tThread	**gCurrentThread = NULL;
+tThread	*gCurrentThread[MAX_CPUS] = NULL;
 #else
 tThread	*gCurrentThread = NULL;
 #endif
@@ -122,6 +123,12 @@ void ArchThreads_Init()
 		__asm__ __volatile__ ("ltr %%ax"::"a"(0x28+pos*8));
 	#if USE_MP
 	}
+	#endif
+	
+	#if USE_MP
+	gCurrentThread[0] = &gThreadZero;
+	#else
+	gCurrentThread = &gThreadZero;
 	#endif
 	
 	// Set timer frequency
