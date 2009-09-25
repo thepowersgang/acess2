@@ -106,6 +106,8 @@ int Root_MkNod(tVFS_Node *Node, char *Name, Uint Flags)
 	
 	prev->Next = child;
 	
+	parent->Node.Size ++;
+	
 	return 1;
 }
 
