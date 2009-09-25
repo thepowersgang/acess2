@@ -131,6 +131,14 @@ void ArchThreads_Init()
 	gCurrentThread = &gThreadZero;
 	#endif
 	
+	#if USE_PAE
+	gThreadZero.MemState.PDP[0] = 0;
+	gThreadZero.MemState.PDP[1] = 0;
+	gThreadZero.MemState.PDP[2] = 0;
+	#else
+	gThreadZero.MemState.CR3 = (Uint)gaInitPageDir;
+	#endif
+	
 	// Set timer frequency
 	outb(0x43, 0x34);	// Set Channel 0, Low/High, Rate Generator
 	outb(0x40, TIMER_DIVISOR&0xFF);	// Low Byte of Divisor
