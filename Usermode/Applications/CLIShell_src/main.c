@@ -335,7 +335,7 @@ void Command_Dir(int argc, char **argv)
 	 int	dp, fp, dirLen;
 	//char	modeStr[11] = "RWXrwxRWX ";
 	char	tmpPath[1024];
-	char	fileName[256];
+	char	*fileName;
 	t_sysFInfo	info;
 	
 	// Generate Directory Path
@@ -381,6 +381,8 @@ void Command_Dir(int argc, char **argv)
 		tmpPath[dirLen++] = '/';
 		tmpPath[dirLen] = '\0';
 	}
+	
+	fileName = (char*)(tmpPath+dirLen);
 	// Read Directory Content
 	while( (fp = readdir(dp, fileName)) )
 	{
@@ -390,8 +392,6 @@ void Command_Dir(int argc, char **argv)
 				write(_stdout, 42, "Invalid Permissions to traverse directory\n");
 			break;
 		}
-		// Create File Path
-		strcpy((char*)(tmpPath+dirLen), fileName);
 		// Open File
 		fp = open(tmpPath, 0);
 		if(fp == -1)	continue;
@@ -400,9 +400,10 @@ void Command_Dir(int argc, char **argv)
 		close(fp);
 		
 		// Colour Code
-		write(_stdout, 6, "\x1B[37m");	//White
-		if(info.flags & FILEFLAG_DIRECTORY)	//Directory Green
+		if(info.flags & FILEFLAG_DIRECTORY)	// Directory: Green
 			write(_stdout, 6, "\x1B[32m");
+		else
+			write(_stdout, 6, "\x1B[37m");	// Default: White
 		
 		//Print Mode
 		#if 0
@@ -418,15 +419,15 @@ void Command_Dir(int argc, char **argv)
 		write(_stdout, 10, modeStr);
 		#endif
 		
-		//Print Name
+		// Print Name
 		write(_stdout, strlen(fileName), fileName);
-		//Print slash if applicable
+		// Print slash if applicable
 		if(info.flags & FILEFLAG_DIRECTORY)
 			write(_stdout, 1, "/");
 		
-		// Revert Colout and end line
+		// Revert Colour and end line
 		write(_stdout, 6, "\x1B[37m");
-		write(_stdout, 2, "\n");
+		write(_stdout, 1, "\n");
 	}
 	// Close Directory
 	close(dp);

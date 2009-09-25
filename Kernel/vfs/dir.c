@@ -159,7 +159,7 @@ int VFS_ReadDir(int FD, char *Dest)
 			h->Position += (Uint)tmp;
 		else
 			h->Position ++;
-	} while((Uint)tmp < (Uint)VFS_MAXSKIP);
+	} while(tmp != NULL && (Uint)tmp < (Uint)VFS_MAXSKIP);
 	LOG("tmp = '%s'", tmp);
 	
 	if(!tmp) {
