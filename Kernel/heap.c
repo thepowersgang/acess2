@@ -7,6 +7,7 @@
 #include <heap.h>
 
 #define WARNINGS	1
+#define	DEBUG_TRACE	0
 
 // === CONSTANTS ===
 #define HEAP_BASE	0xE0800000
@@ -175,7 +176,9 @@ void *malloc(size_t Bytes)
 		if(head->Size == Bytes) {
 			head->Magic = MAGIC_USED;
 			RELEASE(&giHeapSpinlock);	// Release spinlock
+			#if DEBUG_TRACE
 			LOG("RETURN %p, to %p", best->Data, __builtin_return_address(0));
+			#endif
 			return best->Data;
 		}
 		
@@ -205,7 +208,9 @@ void *malloc(size_t Bytes)
 		// Check size
 		if(best->Size == Bytes) {
 			RELEASE(&giHeapSpinlock);	// Release spinlock
+			#if DEBUG_TRACE
 			LOG("RETURN %p, to %p", best->Data, __builtin_return_address(0));
+			#endif
 			return best->Data;
 		}
 	}
@@ -224,7 +229,9 @@ void *malloc(size_t Bytes)
 	best->Magic = MAGIC_USED;	// Mark block as used
 	
 	RELEASE(&giHeapSpinlock);	// Release spinlock
+	#if DEBUG_TRACE
 	LOG("RETURN %p, to %p", best->Data, __builtin_return_address(0));
+	#endif
 	return best->Data;
 }
 
@@ -237,8 +244,10 @@ void free(void *Ptr)
 	tHeapHead	*head;
 	tHeapFoot	*foot;
 	
+	#if DEBUG_TRACE
 	LOG("Ptr = %p", Ptr);
 	LOG("Returns to %p", __builtin_return_address(0));
+	#endif
 	
 	// Alignment Check
 	if( (Uint)Ptr & (sizeof(Uint)-1) ) {
