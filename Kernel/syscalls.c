@@ -143,6 +143,10 @@ void SyscallHandler(tSyscallRegs *Regs)
 	case SYS_FINFO:
 		ret = VFS_FInfo( Regs->Arg1, (void*)Regs->Arg2, Regs->Arg3 );
 		break;
+		
+	case SYS_READDIR:
+		ret = VFS_ReadDir( Regs->Arg1, (void*)Regs->Arg2 );
+		break;
 	
 	// -- Debug
 	case SYS_DEBUG:

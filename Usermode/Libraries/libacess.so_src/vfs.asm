@@ -14,3 +14,4 @@ SYSCALL4	read, SYS_READ	; int, int64_t, void*
 SYSCALL4	write, SYS_WRITE	; int, int64_t, void*
 SYSCALL4	seek, SYS_SEEK		; int, int64_t, int
 SYSCALL3	finfo, SYS_FINFO	; int, void*, int
+SYSCALL2	readdir, SYS_READDIR

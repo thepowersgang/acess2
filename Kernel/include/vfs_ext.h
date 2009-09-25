@@ -42,5 +42,6 @@ extern char	*VFS_GetTruePath(char *Path);
 extern int	VFS_Mount(char *Device, char *MountPoint, char *Filesystem, char *Options);
 extern int	VFS_MkDir(char *Path);
 extern int	VFS_Symlink(char *Link, char *Dest);
+extern int	VFS_ReadDir(int FD, char *Dest);
 
 #endif

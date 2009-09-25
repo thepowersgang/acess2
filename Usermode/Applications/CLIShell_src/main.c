@@ -15,9 +15,8 @@ char	*ReadCommandLine(int *Length);
 void	Parse_Args(char *str, char **dest);
 void	Command_Colour(int argc, char **argv);
 void	Command_Clear(int argc, char **argv);
-//void	Command_Ls(int argc, char **argv);
 void	Command_Cd(int argc, char **argv);
-//void	Command_Cat(int argc, char **argv);
+void	Command_Dir(int argc, char **argv);
 
 // ==== CONSTANT GLOBALS ====
 char	*cCOLOUR_NAMES[8] = {"black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"};
@@ -25,7 +24,8 @@ struct	{
 	char	*name;
 	void	(*fcn)(int argc, char **argv);
 }	cBUILTINS[] = {
-	{"colour", Command_Colour}, {"clear", Command_Clear}, {"cd", Command_Cd}
+	{"colour", Command_Colour}, {"clear", Command_Clear},
+	{"cd", Command_Cd}, {"dir", Command_Dir}
 };
 #define	BUILTIN_COUNT	(sizeof(cBUILTINS)/sizeof(cBUILTINS[0]))
 
@@ -111,22 +111,23 @@ int main(int argc, char *argv[], char *envp[])
 			continue;
 		}
 		// Check if the file is a directory
-		finfo( length, &info );
+		finfo( length, &info, 0 );
 		close( length );
 		if(info.flags & FILEFLAG_DIRECTORY) {
 			Print("`");Print(saArgs[1]);	// Error Message
 			Print("' is a directory.\n");
 			continue;
 		}
+		// Load new executable
 		pid = clone(CLONE_VM, 0);
-		if(pid == 0)	execve(gsTmpBuffer, &saArgs[1], NULL);
+		if(pid == 0)	execve(gsTmpBuffer, &saArgs[1], envp);
 		if(pid <= 0) {
 			Print("Unablt to create process: `");Print(gsTmpBuffer);Print("'\n");	// Error Message
 			//SysDebug("pid = %i\n", pid);
 		}
 		else {
-			 int	status
-			waitpid(pid, &status);
+			 int	status;
+			waittid(pid, &status);
 		}
 	}
 }
@@ -316,7 +317,7 @@ void Command_Cd(int argc, char **argv)
 		write(_stdout, 26, "Directory does not exist\n");
 		return;
 	}
-	finfo(fp, &stats);
+	finfo(fp, &stats, 0);
 	close(fp);
 	
 	if( !(stats.flags & FILEFLAG_DIRECTORY) ) {
@@ -327,3 +328,106 @@ void Command_Cd(int argc, char **argv)
 	strcpy(gsCurrentDirectory, tmpPath);
 }
 
+/**
+ */
+void Command_Dir(int argc, char **argv)
+{
+	 int	dp, fp, dirLen;
+	//char	modeStr[11] = "RWXrwxRWX ";
+	char	tmpPath[1024];
+	char	fileName[256];
+	t_sysFInfo	info;
+	
+	// Generate Directory Path
+	if(argc > 1)
+		dirLen = GeneratePath(argv[1], gsCurrentDirectory, tmpPath);
+	else
+	{
+		strcpy(tmpPath, gsCurrentDirectory);
+	}
+	dirLen = strlen(tmpPath);
+	
+	// Open Directory
+	dp = open(tmpPath, OPENFLAG_READ);
+	// Check if file opened
+	if(dp == -1)
+	{
+		//printf("Unable to open directory `%s', File cannot be found\n", tmpPath);
+		//write(_stdout, 27, "Unable to open directory `");
+		//write(_stdout, strlen(tmpPath)+1, tmpPath);
+		//write(_stdout, 25, "', File cannot be found\n");
+		return;
+	}
+	// Get File Stats
+	if( finfo(dp, &info, 0) == -1 )
+	{
+		close(dp);
+		write(_stdout, 34, "stat Failed, Bad File Descriptor\n");
+		return;
+	}
+	// Check if it's a directory
+	if(!(info.flags & FILEFLAG_DIRECTORY))
+	{
+		close(dp);
+		write(_stdout, 27, "Unable to open directory `");
+		write(_stdout, strlen(tmpPath)+1, tmpPath);
+		write(_stdout, 20, "', Not a directory\n");
+		return;
+	}
+	
+	// Append Shash for file paths
+	if(tmpPath[dirLen-1] != '/')
+	{
+		tmpPath[dirLen++] = '/';
+		tmpPath[dirLen] = '\0';
+	}
+	// Read Directory Content
+	while( (fp = readdir(dp, fileName)) )
+	{
+		if(fp < 0)
+		{
+			if(fp == -3)
+				write(_stdout, 42, "Invalid Permissions to traverse directory\n");
+			break;
+		}
+		// Create File Path
+		strcpy((char*)(tmpPath+dirLen), fileName);
+		// Open File
+		fp = open(tmpPath, 0);
+		if(fp == -1)	continue;
+		// Get File Stats
+		finfo(fp, &info, 0);
+		close(fp);
+		
+		// Colour Code
+		write(_stdout, 6, "\x1B[37m");	//White
+		if(info.flags & FILEFLAG_DIRECTORY)	//Directory Green
+			write(_stdout, 6, "\x1B[32m");
+		
+		//Print Mode
+		#if 0
+		if(stats.st_mode & 0400)	modeStr[0] = 'R';	else	modeStr[0] = '-';
+		if(stats.st_mode & 0200)	modeStr[1] = 'W';	else	modeStr[1] = '-';
+		if(stats.st_mode & 0100)	modeStr[2] = 'X';	else	modeStr[2] = '-';
+		if(stats.st_mode & 0040)	modeStr[3] = 'R';	else	modeStr[3] = '-';
+		if(stats.st_mode & 0020)	modeStr[4] = 'W';	else	modeStr[4] = '-';
+		if(stats.st_mode & 0010)	modeStr[5] = 'X';	else	modeStr[5] = '-';
+		if(stats.st_mode & 0004)	modeStr[6] = 'R';	else	modeStr[6] = '-';
+		if(stats.st_mode & 0002)	modeStr[7] = 'W';	else	modeStr[7] = '-';
+		if(stats.st_mode & 0001)	modeStr[8] = 'X';	else	modeStr[8] = '-';
+		write(_stdout, 10, modeStr);
+		#endif
+		
+		//Print Name
+		write(_stdout, strlen(fileName), fileName);
+		//Print slash if applicable
+		if(info.flags & FILEFLAG_DIRECTORY)
+			write(_stdout, 1, "/");
+		
+		// Revert Colout and end line
+		write(_stdout, 6, "\x1B[37m");
+		write(_stdout, 2, "\n");
+	}
+	// Close Directory
+	close(dp);
+}

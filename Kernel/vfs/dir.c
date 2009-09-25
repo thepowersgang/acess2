@@ -131,3 +131,29 @@ int VFS_Symlink(char *Name, char *Link)
 	
 	return 1;
 }
+
+/**
+ * \fn int VFS_ReadDir(int FD, char *Dest)
+ * \brief Read from a directory
+ */
+int VFS_ReadDir(int FD, char *Dest)
+{
+	tVFS_Handle	*h = VFS_GetHandle(FD);
+	char	*tmp;
+	
+	if(h)	return -1;
+	
+	if(h->Node->ReadDir == NULL)	return 0;
+	
+	tmp = h->Node->ReadDir(h->Node, h->Position);
+	
+	if(!tmp)	return 0;
+	
+	h->Position ++;
+	
+	strcpy(Dest, tmp);
+	
+	if(IsHeap(tmp))	free(tmp);
+	
+	return 1;
+}
