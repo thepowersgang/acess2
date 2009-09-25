@@ -15,7 +15,7 @@ tVFS_Node	*DevFS_FindDir(tVFS_Node *Node, char *Name);
 
 // === GLOBALS ===
 tVFS_Driver	gDevFS_Info = {
-	"devfs", 0, DevFS_InitDevice, NULL
+	"devfs", 0, DevFS_InitDevice, NULL, NULL
 	};
 tVFS_Node	gDevFS_RootNode = {
 	.NumACLs = 1,

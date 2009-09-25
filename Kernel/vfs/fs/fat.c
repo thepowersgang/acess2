@@ -39,7 +39,7 @@ typedef struct s_lfncache {
 // === PROTOTYPES ===
  int	FAT_Install(char **Arguments);
 tVFS_Node	*FAT_InitDevice(char *device, char *options);
-void	FAT_CloseDevice(tVFS_Node *node);
+void	FAT_Unmount(tVFS_Node *Node);
 Uint64	FAT_Read(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer);
 Uint64	FAT_Write(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer);
 char	*FAT_ReadDir(tVFS_Node *dirNode, int dirpos);
@@ -59,7 +59,7 @@ Uint32	*fat_cache[8];
 t_lfncache	*fat_lfncache;
 #endif
 tVFS_Driver	gFAT_FSInfo = {
-	"fat", 0, FAT_InitDevice, NULL
+	"fat", 0, FAT_InitDevice, FAT_Unmount, NULL
 	};
 
 // === CODE ===
@@ -244,26 +244,24 @@ tVFS_Node *FAT_InitDevice(char *Device, char *options)
 	node->FindDir = FAT_FindDir;
 	node->Relink = FAT_Relink;
 	node->MkNod = FAT_Mknod;
-	node->Close = FAT_CloseDevice;
+	//node->Close = FAT_CloseDevice;
 	
 	giFAT_PartCount ++;
 	return node;
 }
 
 /**
- * \fn void FAT_CloseDevice(tVFS_Node *node)
+ * \fn void FAT_Unmount(tVFS_Node *Node)
  * \brief Closes a mount and marks it as free
  */
-void FAT_CloseDevice(tVFS_Node *node)
+void FAT_Unmount(tVFS_Node *Node)
 {
-	node->ReferenceCount --;
-	
-	if(node->ReferenceCount > 0)	return;
-	
 	// Close Disk Handle
-	VFS_Close( gFAT_Disks[node->ImplInt].fileHandle );
-	Inode_ClearCache(gFAT_Disks[node->ImplInt].inodeHandle);
-	gFAT_Disks[node->ImplInt].fileHandle = -2;
+	VFS_Close( gFAT_Disks[Node->ImplInt].fileHandle );
+	// Clear Node Cache
+	Inode_ClearCache(gFAT_Disks[Node->ImplInt].inodeHandle);
+	// Mark as unused
+	gFAT_Disks[Node->ImplInt].fileHandle = -2;
 	return;
 }
 

@@ -19,7 +19,9 @@ tRamFS_File	*Root_int_AllocFile();
 
 // === GLOBALS ===
 tVFS_Driver	gRootFS_Info = {
-	"rootfs", 0, Root_InitDevice,
+	"rootfs", 0,
+	Root_InitDevice,
+	NULL,	// Unmount
 	NULL
 };
 tRamFS_File	RootFS_Files[MAX_FILES];
