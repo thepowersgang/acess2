@@ -31,7 +31,7 @@ struct	{
 
 // ==== LOCAL VARIABLES ====
 char	gsCommandBuffer[1024];
-char	*gsCurrentDirectory = "/";
+char	*gsCurrentDirectory = NULL;
 char	gsTmpBuffer[1024];
 char	**gasCommandHistory;
  int	giLastCommand = 0;
@@ -50,8 +50,19 @@ int main(int argc, char *argv[], char *envp[])
 	
 	//Command_Clear(0, NULL);
 	
+	{
+		char	*tmp = getenv("CWD");
+		if(tmp) {
+			gsCurrentDirectory = malloc(strlen(tmp)+1);
+			strcpy(gsCurrentDirectory, tmp);
+		} else {
+			gsCurrentDirectory = malloc(2);
+			strcpy(gsCurrentDirectory, "/");
+		}
+	}	
+	
 	write(_stdout, 1, "\n");
-	write(_stdout, 36, "Acess Shell Version 3\n");
+	write(_stdout, 22, "Acess Shell Version 3\n");
 	write(_stdout,  2, "\n");
 	for(;;)
 	{
@@ -59,6 +70,7 @@ int main(int argc, char *argv[], char *envp[])
 		if(saArgs[0])	free(saArgs);
 		if(!bCached)	free(sCommandStr);
 		bCached = 0;
+		write(_stdout, 1, "\n");
 		write(_stdout, strlen(gsCurrentDirectory), gsCurrentDirectory);
 		write(_stdout, 3, "$ ");
 		
@@ -324,6 +336,8 @@ void Command_Cd(int argc, char **argv)
 		return;
 	}
 	
+	free(gsCurrentDirectory);
+	gsCurrentDirectory = malloc(strlen(tmpPath)+1);
 	strcpy(gsCurrentDirectory, tmpPath);
 }
 

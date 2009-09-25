@@ -392,7 +392,7 @@ int VFS_Open(char *Path, Uint Mode)
 	if( !(Mode & VFS_OPENFLAG_NOLINK) && (node->Flags & VFS_FFLAG_SYMLINK) )
 	{
 		if( !node->Read ) {
-			LOG("No read method on symlink");
+			Warning("No read method on symlink");
 			LEAVE('i', -1);
 			return -1;
 		}

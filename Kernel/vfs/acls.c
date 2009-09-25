@@ -64,21 +64,15 @@ int VFS_GetACL(int FD, tVFS_ACL *Dest)
 	 int	i;
 	tVFS_Handle	*h = VFS_GetHandle(FD);
 	
-	ENTER("ph pDest", h, Dest);
-	
 	// Error check
 	if(!h) {
-		LEAVE('i', -1);
 		return -1;
 	}
-	
-	LOG("h->Node = %p", h->Node);
 	
 	// Root can do anything
 	if(Dest->Group == 0 && Dest->ID == 0) {
 		Dest->Inv = 0;
 		Dest->Perms = -1;
-		LEAVE('i', 1);
 		return 1;
 	}
 	
@@ -86,7 +80,6 @@ int VFS_GetACL(int FD, tVFS_ACL *Dest)
 	if( h->Node->NumACLs == 0 ) {
 		Dest->Inv = 0;
 		Dest->Perms = 0;
-		LEAVE('i', 0);
 		return 0;
 	}
 	
@@ -98,13 +91,11 @@ int VFS_GetACL(int FD, tVFS_ACL *Dest)
 		
 		Dest->Inv = h->Node->ACLs[i].Inv;
 		Dest->Perms = h->Node->ACLs[i].Perms;
-		LEAVE('i', 1);
 		return 1;
 	}
 	
 	
 	Dest->Inv = 0;
 	Dest->Perms = 0;
-	LEAVE('i', 0);
 	return 0;
 }

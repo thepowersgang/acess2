@@ -19,6 +19,7 @@ tVFS_Driver	gDevFS_Info = {
 	};
 tVFS_Node	gDevFS_RootNode = {
 	.NumACLs = 1,
+	.Flags = VFS_FFLAG_DIRECTORY,
 	.ACLs = &gVFS_ACL_EveryoneRW,
 	.ReadDir = DevFS_ReadDir,
 	.FindDir = DevFS_FindDir
