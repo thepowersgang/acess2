@@ -52,6 +52,7 @@ uint64_t	write(int fd, uint64_t length, void *buffer);
  int	seek(int fd, uint64_t offset, int whence);
  int	ioctl(int fd, int id, void *data);
  int	finfo(int fd, t_sysFInfo *info, int maxacls);
+ int	readdir(int fd, char *dest);
 
 // --- MEMORY ---
 uint64_t	_SysGetPhys(uint vaddr);

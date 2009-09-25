@@ -141,6 +141,8 @@ int VFS_ReadDir(int FD, char *Dest)
 	tVFS_Handle	*h = VFS_GetHandle(FD);
 	char	*tmp;
 	
+	ENTER("ph pDest", h, Dest);
+	
 	if(h)	return -1;
 	
 	if(h->Node->ReadDir == NULL)	return 0;
