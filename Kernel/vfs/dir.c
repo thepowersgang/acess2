@@ -148,6 +148,11 @@ int VFS_ReadDir(int FD, char *Dest)
 		return 0;
 	}
 	
+	if(h->Position >= h->Node->Size) {
+		LEAVE('i', 0);
+		return 0;
+	}
+	
 	tmp = h->Node->ReadDir(h->Node, h->Position);
 	LOG("tmp = '%s'", tmp);
 	
