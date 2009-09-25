@@ -143,14 +143,18 @@ int VFS_ReadDir(int FD, char *Dest)
 	
 	ENTER("ph pDest", h, Dest);
 	
-	if(h)	return -1;
-	
-	if(h->Node->ReadDir == NULL)	return 0;
+	if(!h || h->Node->ReadDir == NULL) {
+		LEAVE('i', 0);
+		return 0;
+	}
 	
 	tmp = h->Node->ReadDir(h->Node, h->Position);
 	LOG("tmp = '%s'", tmp);
 	
-	if(!tmp)	return 0;
+	if(!tmp) {
+		LEAVE('i', 0);
+		return 0;
+	}
 	
 	h->Position ++;
 	
@@ -158,5 +162,6 @@ int VFS_ReadDir(int FD, char *Dest)
 	
 	if(IsHeap(tmp))	free(tmp);
 	
+	LEAVE('i', 1);
 	return 1;
 }
