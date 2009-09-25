@@ -11,11 +11,17 @@
 
 // === IMPORTS ===
 extern int	Proc_Clone(Uint *Err, Uint Flags);
+extern int	Threads_WaitTID(int TID, int *status);
 extern Uint	Proc_SendMessage(Uint *Err, Uint Dest, Uint Length, void *Data);
 extern int	Proc_GetMessage(Uint *Err, Uint *Source, void *Buffer);
 extern int	Proc_Execve(char *File, char **ArgV, char **EnvP);
 extern Uint	Binary_Load(char *file, Uint *entryPoint);
 extern int	VFS_FInfo(int FD, void *Dest, int MaxACLs);
+extern int	Threads_SetName(char *NewName);
+extern int	Threads_GetPID();
+extern int	Threads_GetTID();
+extern int	Threads_GetUID();
+extern int	Threads_GetGID();
 
 // === CODE ===
 void SyscallHandler(tSyscallRegs *Regs)
@@ -31,13 +37,13 @@ void SyscallHandler(tSyscallRegs *Regs)
 	switch(Regs->Num)
 	{
 	// -- Exit the current thread
-	case SYS_EXIT:	Proc_Exit();	break;
+	case SYS_EXIT:	Threads_Exit();	break;
 	
 	// -- Put the current thread to sleep
-	case SYS_SLEEP:	Proc_Sleep();	Log(" SyscallHandler: %i is alive", gCurrentThread->TID);	break;
+	case SYS_SLEEP:	Threads_Sleep();	break;
 	
 	// -- Yield current timeslice
-	case SYS_YIELD:	Proc_Yield();	break;
+	case SYS_YIELD:	Threads_Yield();	break;
 	
 	// -- Clone the current thread
 	case SYS_CLONE:
@@ -54,6 +60,11 @@ void SyscallHandler(tSyscallRegs *Regs)
 		ret = -1;
 		break;
 	
+	// -- Wait for a thread
+	case SYS_WAITTID:
+		ret = Threads_WaitTID(Regs->Arg1, (void*)Regs->Arg2);
+		break;
+	
 	case SYS_GETPHYS:
 		ret = MM_GetPhysAddr(Regs->Arg1);
 		break;
@@ -65,11 +76,11 @@ void SyscallHandler(tSyscallRegs *Regs)
 	case SYS_UNMAP:		MM_Deallocate(Regs->Arg1);	break;
 	
 	// -- Get Thread/Process IDs
-	case SYS_GETTID:	ret = gCurrentThread->TID;	break;
-	case SYS_GETPID:	ret = gCurrentThread->TGID;	break;
+	case SYS_GETTID:	ret = Threads_GetTID();	break;
+	case SYS_GETPID:	ret = Threads_GetPID();	break;
 	// -- Get User/Group IDs
-	case SYS_GETUID:	ret = gCurrentThread->UID;	break;
-	case SYS_GETGID:	ret = gCurrentThread->GID;	break;
+	case SYS_GETUID:	ret = Threads_GetUID();	break;
+	case SYS_GETGID:	ret = Threads_GetGID();	break;
 	
 	// -- Send Message
 	case SYS_SENDMSG:
@@ -84,16 +95,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 	case SYS_SETNAME:
 		// Sanity Check
 		if(!Regs->Arg1) {	ret = -1;	err = -EINVAL;	break;	}
-		// Lock Process
-		LOCK( &gCurrentThread->IsLocked );
-		// Free old name
-		if(gCurrentThread->ThreadName && (Uint)gCurrentThread->ThreadName > 0xE0800000)
-			free(gCurrentThread->ThreadName);
-		// Change name
-		gCurrentThread->ThreadName = malloc( strlen( (char*)Regs->Arg1 ) + 1 );
-		strcpy(gCurrentThread->ThreadName, (char*)Regs->Arg1);
-		// Unlock
-		RELEASE( &gCurrentThread->IsLocked );
+		Threads_SetName( (void*)Regs->Arg1 );
 		break;
 	
 	// ---

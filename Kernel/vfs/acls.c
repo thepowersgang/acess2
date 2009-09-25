@@ -19,8 +19,8 @@ tVFS_ACL	gVFS_ACL_EveryoneRO = { {0,-1}, {0,VFS_PERM_READ} };
 int VFS_CheckACL(tVFS_Node *Node, Uint Permissions)
 {
 	 int	i;
-	 int	uid = Proc_GetUID();
-	 int	gid = Proc_GetGID();
+	 int	uid = Threads_GetUID();
+	 int	gid = Threads_GetGID();
 	
 	// Root can do anything
 	if(uid == 0)	return 1;

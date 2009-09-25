@@ -87,10 +87,12 @@ extern int	strpos8(char *str, Uint32 search);
 extern void	itoa(char *buf, Uint num, int base, int minLength, char pad);
 extern int	ReadUTF8(Uint8 *str, Uint32 *Val);
 extern int	WriteUTF8(Uint8 *str, Uint32 Val);
+extern Uint	rand();
 // --- Heap ---
 extern void *malloc(size_t size);
 extern void	*realloc(void *ptr, size_t size);
 extern void free(void *Ptr);
+extern int	IsHeap(void *Ptr);
 // --- Modules ---
 extern int	Module_LoadMem(void *Buffer, Uint Length, char *ArgStr);
 extern int	Module_LoadFile(char *Path, char *ArgStr);
@@ -99,11 +101,12 @@ extern Sint64	timestamp(int sec, int mins, int hrs, int day, int month, int year
 extern Sint64	now();
 // --- Threads ---
 extern  int	Proc_Spawn(char *Path);
-extern void	Proc_Exit();
-extern void	Proc_Yield();
-extern int	Proc_GetCfg(int Index);
-extern int	Proc_GetUID();
-extern int	Proc_GetGID();
+extern void	Threads_Exit();
+extern void	Threads_Yield();
+extern void	Threads_Sleep();
+extern int	Threads_GetCfg(int Index);
+extern int	Threads_GetUID();
+extern int	Threads_GetGID();
 extern int	SpawnTask(tThreadFunction Function, void *Arg);
 
 #include <binary_ext.h>

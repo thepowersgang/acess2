@@ -359,6 +359,23 @@ void *realloc(void *__ptr, size_t __size)
 	return NULL;
 }
 
+/**
+ * \fn int IsHeap(void *Ptr)
+ * \brief Checks if an address is a heap address
+ */
+int IsHeap(void *Ptr)
+{
+	tHeapHead	*head;
+	if((Uint)Ptr < (Uint)gHeapStart)	return 0;
+	if((Uint)Ptr > (Uint)gHeapEnd)	return 0;
+	
+	head = (void*)( (Uint)Ptr - sizeof(tHeapHead) );
+	if(head->Magic != MAGIC_USED && head->Magic != MAGIC_FREE)
+		return 0;
+	
+	return 1;
+}
+
 #if WARNINGS
 void Heap_Dump()
 {

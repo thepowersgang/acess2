@@ -98,34 +98,34 @@ int main(int argc, char *argv[], char *envp[])
 				break;
 			}
 		}
-		// Calling a file
-		if(length == BUILTIN_COUNT)
-		{
-			GeneratePath(saArgs[1], gsCurrentDirectory, gsTmpBuffer);
-			// Use length in place of fp
-			length = open(gsTmpBuffer, 0);
-			// Check file existence
-			if(length == -1) {
-				Print("Unknown Command: `");Print(saArgs[1]);Print("'\n");	// Error Message
-				continue;
-			}
-			// Check if the file is a directory
-			finfo( length, &info );
-			close( length );
-			if(info.flags & FILEFLAG_DIRECTORY) {
-				Print("`");Print(saArgs[1]);	// Error Message
-				Print("' is a directory.\n");
-				continue;
-			}
-			pid = clone(CLONE_VM, 0);
-			if(pid == 0)	execve(gsTmpBuffer, &saArgs[1], NULL);
-			if(pid <= 0) {
-				Print("Unablt to create process: `");Print(gsTmpBuffer);Print("'\n");	// Error Message
-				//SysDebug("pid = %i\n", pid);
-			}
-			else {
-				//waitpid(pid, K_WAITPID_DIE);
-			}
+		
+		if(length != BUILTIN_COUNT)	continue;
+		
+		// - Calling a file
+		GeneratePath(saArgs[1], gsCurrentDirectory, gsTmpBuffer);
+		// Use length in place of fp
+		length = open(gsTmpBuffer, 0);
+		// Check file existence
+		if(length == -1) {
+			Print("Unknown Command: `");Print(saArgs[1]);Print("'\n");	// Error Message
+			continue;
+		}
+		// Check if the file is a directory
+		finfo( length, &info );
+		close( length );
+		if(info.flags & FILEFLAG_DIRECTORY) {
+			Print("`");Print(saArgs[1]);	// Error Message
+			Print("' is a directory.\n");
+			continue;
+		}
+		pid = clone(CLONE_VM, 0);
+		if(pid == 0)	execve(gsTmpBuffer, &saArgs[1], NULL);
+		if(pid <= 0) {
+			Print("Unablt to create process: `");Print(gsTmpBuffer);Print("'\n");	// Error Message
+			//SysDebug("pid = %i\n", pid);
+		}
+		else {
+			//waitpid(pid, K_WAITPID_DIE);
 		}
 	}
 }

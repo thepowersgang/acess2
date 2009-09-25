@@ -12,9 +12,6 @@
 
 // === CONSTANTS ===
 #define	SWITCH_MAGIC	0xFFFACE55	// There is no code in this area
-#define	DEFAULT_QUANTUM	10
-#define	DEFAULT_TICKETS	5
-#define MAX_TICKETS		10
 #define TIMER_DIVISOR	11931	//~100Hz
 
 // === IMPORTS ===
@@ -22,59 +19,30 @@ extern tGDT	gGDT[];
 extern Uint	GetEIP();	// start.asm
 extern Uint32	gaInitPageDir[1024];	// start.asm
 extern void	Kernel_Stack_Top;
+extern volatile int	giThreadListLock;
+extern int	giNumCPUs;
+extern int	giNextTID;
+extern int	giTotalTickets;
+extern int	giNumActiveThreads;
+extern tThread	*gActiveThreads;
+extern tThread	*gSleepingThreads;
+extern tThread	*gDeleteThreads;
 
 // === PROTOTYPES ===
-void	Proc_Start();
+void	ArchThreads_Init();
+tThread	*Proc_GetCurThread();
 void	Proc_ChangeStack();
  int	Proc_Clone(Uint *Err, Uint Flags);
-void	Proc_Exit();
-void	Proc_Yield();
-void	Proc_Sleep();
-static tThread	*Proc_int_GetPrevThread(tThread **List, tThread *Thread);
 void	Proc_Scheduler();
-Sint64	now();
-Uint	rand();
 
 // === GLOBALS ===
-// -- Core Thread --
-tThread	gThreadZero = {
-	NULL, 0,	// Next, Lock
-	THREAD_STAT_ACTIVE,	// Status
-	0, 0,	// TID, TGID
-	0, 0,	// UID, GID
-	"ThreadZero",	// Name
-	0, 0, 0,	// ESP, EBP, EIP (Set on switch)
-	#if USE_PAE
-	{0,0,0},	// PML4 Entries
-	#else
-	(Uint)&gaInitPageDir-KERNEL_BASE,	// CR3
-	#endif
-	(Uint)&Kernel_Stack_Top,	// Kernel Stack (Unused as it is PL0)
-	NULL, NULL,	// Messages, Last Message
-	DEFAULT_QUANTUM, DEFAULT_QUANTUM,	// Quantum, Remaining
-	DEFAULT_TICKETS,
-	{0}	// Default config to zero
-	};
-// -- Processes --
-// --- Locks ---
-volatile int	giThreadListLock = 0;	///\note NEVER use a heap function while locked
 // --- Current State ---
 #if USE_MP
 tThread	**gCurrentThread = NULL;
-# define CUR_THREAD	gCurrentThread[0]
 #else
 tThread	*gCurrentThread = NULL;
-# define CUR_THREAD	gCurrentThread
 #endif
-volatile int	giNumActiveThreads = 0;
-volatile int	giTotalTickets = 0;
-volatile Uint	giNextTID = 1;
-// --- Thread Lists ---
-tThread	*gActiveThreads = NULL;		// Currently Running Threads
-tThread	*gSleepingThreads = NULL;	// Sleeping Threads
-tThread	*gDeleteThreads = NULL;		// Threads to delete
 // --- Multiprocessing ---
- int	giNumCPUs = 1;
 #if USE_MP
 tMPInfo	*gMPTable = NULL;
 #endif
@@ -88,13 +56,12 @@ tTSS	gTSS0 = {0};
 
 // === CODE ===
 /**
- * \fn void Proc_Start()
+ * \fn void ArchThreads_Init()
  * \brief Starts the process scheduler
  */
-void Proc_Start()
+void ArchThreads_Init()
 {
 	Uint	pos = 0;
-	
 	#if USE_MP
 	// -- Initialise Multiprocessing
 	// Find MP Floating Table
@@ -161,31 +128,27 @@ void Proc_Start()
 	outb(0x40, TIMER_DIVISOR&0xFF);	// Low Byte of Divisor
 	outb(0x40, (TIMER_DIVISOR>>8)&0xFF);	// High Byte
 	
-	// Create Initial Task
-	gActiveThreads = &gThreadZero;
-	gCurrentThread = &gThreadZero;
-	giTotalTickets = gThreadZero.NumTickets;
-	giNumActiveThreads = 1;
-	
 	// Create Per-Process Data Block
 	MM_Allocate(MM_PPD_CFG);
 	
 	// Change Stacks
 	Proc_ChangeStack();
 	
-	#if 1
-	// Create Idle Task
-	if(Proc_Clone(0, 0) == 0)
-	{
-		gCurrentThread->ThreadName = "Idle Thread";
-		Proc_SetTickets(0);	// Never called randomly
-		gCurrentThread->Quantum = 1;	// 1 slice quantum
-		for(;;)	__asm__ __volatile__ ("hlt");	// Just yeilds
-	}
-	#endif
-	
 	// Start Interrupts (and hence scheduler)
 	__asm__ __volatile__("sti");
+}
+
+/**
+ * \fn tThread *Proc_GetCurThread()
+ * \brief Gets the current thread
+ */
+tThread *Proc_GetCurThread()
+{
+	#if USE_MP
+	return NULL;
+	#else
+	return gCurrentThread;
+	#endif
 }
 
 /**
@@ -263,7 +226,7 @@ int Proc_Clone(Uint *Err, Uint Flags)
 	// Initialise Memory Space (New Addr space or kernel stack)
 	if(Flags & CLONE_VM) {
 		newThread->TGID = newThread->TID;
-		newThread->CR3 = MM_Clone();
+		newThread->MemState.CR3 = MM_Clone();
 	} else {
 		Uint	tmpEbp, oldEsp = esp;
 
@@ -297,6 +260,7 @@ int Proc_Clone(Uint *Err, Uint Flags)
 	newThread->Next = NULL;
 	newThread->IsLocked = 0;
 	newThread->TID = giNextTID++;
+	newThread->PTID = gCurrentThread->TID;
 
 	// Clear message list (messages are not inherited)
 	newThread->Messages = NULL;
@@ -306,8 +270,8 @@ int Proc_Clone(Uint *Err, Uint Flags)
 	newThread->Remaining = newThread->Quantum;
 	
 	// Save core machine state
-	newThread->ESP = esp;
-	newThread->EBP = ebp;
+	newThread->SavedState.ESP = esp;
+	newThread->SavedState.EBP = ebp;
 	eip = GetEIP();
 	if(eip == SWITCH_MAGIC) {
 		outb(0x20, 0x20);	// ACK Timer and return as child
@@ -315,9 +279,7 @@ int Proc_Clone(Uint *Err, Uint Flags)
 	}
 	
 	// Set EIP as parent
-	newThread->EIP = eip;
-	
-	//Log(" Proc_Clone: giTimestamp = %i.%07i", (Uint)giTimestamp, (Uint)giPartMiliseconds/214);
+	newThread->SavedState.EIP = eip;
 	
 	// Lock list and add to active
 	LOCK( &giThreadListLock );
@@ -330,17 +292,57 @@ int Proc_Clone(Uint *Err, Uint Flags)
 	return newThread->TID;
 }
 
+#if 0
 /**
- * \fn void Proc_SetThreadName()
- * \brief Sets the thread's name
+ * \fn void Proc_SetSignalHandler(int Num, void *Handler)
+ * \brief Sets the signal handler for a signal
  */
-void Proc_SetThreadName(char *NewName)
+void Proc_SetSignalHandler(int Num, void *Handler)
 {
-	if( (Uint)CUR_THREAD->ThreadName > 0xC0400000 )
-		free( CUR_THREAD->ThreadName );
-	CUR_THREAD->ThreadName = malloc(strlen(NewName)+1);
-	strcpy(CUR_THREAD->ThreadName, NewName);
+	if(Num < 0 || Num >= NSIG)	return;
+	
+	gCurrentThread->SignalHandlers[Num] = Handler;
 }
+
+/**
+ * \fn void Proc_SendSignal(int TID, int Num)
+ */
+void Proc_SendSignal(int TID, int Num)
+{
+	tThread	*thread = Proc_GetThread(TID);
+	void	*handler;
+	
+	if(!thread)	return ;
+	
+	handler = thread->SignalHandlers[Num];
+	
+	// Panic?
+	if(handler == SIG_ERR) {
+		Proc_Kill(TID);
+		return ;
+	}
+	// Dump Core?
+	if(handler == -2) {
+		Proc_Kill(TID);
+		return ;
+	}
+	// Ignore?
+	if(handler == -2)	return;
+	
+	// Check the type and handle if the thread is already in a signal
+	if(thread->CurSignal != 0) {
+		if(Num < _SIGTYPE_FATAL)
+			Proc_Kill(TID);
+		} else {
+			while(thread->CurSignal != 0)
+				Proc_Yield();
+		}
+	}
+	
+	//TODO: 
+}
+
+#endif
 
 /**
  * \fn Uint Proc_MakeUserStack()
@@ -435,153 +437,6 @@ void Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **
 }
 
 /**
- * \fn void Proc_Exit()
- * \brief Kill the current process
- */
-void Proc_Exit()
-{
-	tThread	*thread;
-	tMsg	*msg;
-	
-	///\note Double lock is needed due to overlap of locks
-	
-	// Lock thread (stop us recieving messages)
-	LOCK( &gCurrentThread->IsLocked );
-	
-	// Lock thread list
-	LOCK( &giThreadListLock );
-	
-	// Get previous thread on list
-	thread = Proc_int_GetPrevThread( &gActiveThreads, gCurrentThread );
-	if(!thread) {
-		Warning("Proc_Exit - Current thread is not on the active queue");
-		return;
-	}
-	
-	// Clear Message Queue
-	while( gCurrentThread->Messages )
-	{
-		msg = gCurrentThread->Messages->Next;
-		free( gCurrentThread->Messages );
-		gCurrentThread->Messages = msg;
-	}
-	
-	gCurrentThread->Remaining = 0;	// Clear Remaining Quantum
-	gCurrentThread->Quantum = 0;	// Clear Quantum to indicate dead thread
-	thread->Next = gCurrentThread->Next;	// Remove from active
-	
-	// Add to delete queue
-	if(gDeleteThreads) {
-		gCurrentThread->Next = gDeleteThreads;
-		gDeleteThreads = gCurrentThread;
-	} else {
-		gCurrentThread->Next = NULL;
-		gDeleteThreads = gCurrentThread;
-	}
-	
-	giNumActiveThreads --;
-	giTotalTickets -= gCurrentThread->NumTickets;
-	
-	// Mark thread as sleeping
-	gCurrentThread->Status = THREAD_STAT_DEAD;
-	
-	// Release spinlocks
-	RELEASE( &gCurrentThread->IsLocked );	// Released first so that it IS released
-	RELEASE( &giThreadListLock );
-	__asm__ __volatile__ ("hlt");
-}
-
-/**
- * \fn void Proc_Yield()
- * \brief Yield remainder of timeslice
- */
-void Proc_Yield()
-{
-	gCurrentThread->Quantum = 0;
-	__asm__ __volatile__ ("hlt");
-}
-
-/**
- * \fn void Proc_Sleep()
- * \brief Take the current process off the run queue
- */
-void Proc_Sleep()
-{
-	tThread *thread;
-	
-	//Log("Proc_Sleep: %i going to sleep", gCurrentThread->TID);
-	
-	// Acquire Spinlock
-	LOCK( &giThreadListLock );
-	
-	// Get thread before current thread
-	thread = Proc_int_GetPrevThread( &gActiveThreads, gCurrentThread );
-	if(!thread) {
-		Warning("Proc_Sleep - Current thread is not on the active queue");
-		return;
-	}
-	
-	// Don't sleep if there is a message waiting
-	if( gCurrentThread->Messages ) {
-		RELEASE( &giThreadListLock );
-		return;
-	}
-	
-	// Unset remaining timeslices (force a task switch on timer fire)
-	gCurrentThread->Remaining = 0;
-	
-	// Remove from active list
-	thread->Next = gCurrentThread->Next;
-	
-	// Add to Sleeping List (at the top)
-	gCurrentThread->Next = gSleepingThreads;
-	gSleepingThreads = gCurrentThread;
-	
-	// Reduce the active count & ticket count
-	giNumActiveThreads --;
-	giTotalTickets -= gCurrentThread->NumTickets;
-	
-	// Mark thread as sleeping
-	gCurrentThread->Status = THREAD_STAT_SLEEPING;
-	
-	// Release Spinlock
-	RELEASE( &giThreadListLock );
-	
-	__asm__ __volatile__ ("hlt");
-}
-
-/**
- * \fn void Thread_Wake( tThread *Thread )
- * \brief Wakes a sleeping/waiting thread up
- */
-void Thread_Wake(tThread *Thread)
-{
-	tThread	*prev;
-	switch(Thread->Status)
-	{
-	case THREAD_STAT_ACTIVE:	break;
-	case THREAD_STAT_SLEEPING:
-		LOCK( &giThreadListLock );
-		prev = Proc_int_GetPrevThread(&gSleepingThreads, Thread);
-		prev->Next = Thread->Next;	// Remove from sleeping queue
-		Thread->Next = gActiveThreads;	// Add to active queue
-		gActiveThreads = Thread;
-		Thread->Status = THREAD_STAT_ACTIVE;
-		RELEASE( &giThreadListLock );
-		break;
-	case THREAD_STAT_WAITING:
-		Warning("Thread_Wake - Waiting threads are not currently supported");
-		break;
-	case THREAD_STAT_DEAD:
-		Warning("Thread_Wake - Attempt to wake dead thread (%i)", Thread->TID);
-		break;
-	default:
-		Warning("Thread_Wake - Unknown process status (%i)\n", Thread->Status);
-		break;
-	}
-}
-
-/**
  * \fn int Proc_Demote(Uint *Err, int Dest, tRegs *Regs)
  * \brief Demotes a process to a lower permission level
  * \param Err	Pointer to user's errno
@@ -611,99 +466,6 @@ int Proc_Demote(Uint *Err, int Dest, tRegs *Regs)
 	if(!(Regs->gs & 4))	Regs->gs = ((Dest+1)<<4) | Dest;
 	
 	return 0;
-}
-
-/**
- * \fn void Proc_SetTickets(int Num)
- * \brief Sets the 'priority' of a task
- */
-void Proc_SetTickets(int Num)
-{
-	if(Num < 0)	return;
-	if(Num > MAX_TICKETS)	Num = MAX_TICKETS;
-	
-	LOCK( &giThreadListLock );
-	giTotalTickets -= gCurrentThread->NumTickets;
-	gCurrentThread->NumTickets = Num;
-	giTotalTickets += Num;
-	//LOG("giTotalTickets = %i", giTotalTickets);
-	RELEASE( &giThreadListLock );
-}
-
-/**
- * \fn tThread *Proc_GetThread(Uint TID)
- * \brief Gets a thread given its TID
- */
-tThread *Proc_GetThread(Uint TID)
-{
-	tThread *thread;
-	
-	// Search Active List
-	for(thread = gActiveThreads;
-		thread;
-		thread = thread->Next)
-	{
-		if(thread->TID == TID)
-			return thread;
-	}
-	
-	// Search Sleeping List
-	for(thread = gSleepingThreads;
-		thread;
-		thread = thread->Next)
-	{
-		if(thread->TID == TID)
-			return thread;
-	}
-	
-	return NULL;
-}
-
-/**
- * \fn static tThread *Proc_int_GetPrevThread(tThread *List, tThread *Thread)
- * \brief Gets the previous entry in a thead linked list
- */
-static tThread *Proc_int_GetPrevThread(tThread **List, tThread *Thread)
-{
-	tThread *ret;
-	// First Entry
-	if(*List == Thread) {
-		return (tThread*)List;
-	} else {
-		for(ret = *List;
-			ret->Next && ret->Next != Thread;
-			ret = ret->Next
-			);
-		// Error if the thread is not on the list
-		if(!ret->Next || ret->Next != Thread) {
-			return NULL;
-		}
-	}
-	return ret;
-}
-
-/**
- * \fn void Proc_DumpThreads()
- * \brief Dums a list of currently running threads
- */
-void Proc_DumpThreads()
-{
-	tThread	*thread;
-	
-	Log("Active Threads:");
-	for(thread=gActiveThreads;thread;thread=thread->Next)
-	{
-		Log(" %i (%i) - %s", thread->TID, thread->TGID, thread->ThreadName);
-		Log("  %i Tickets, Quantum %i", thread->NumTickets, thread->Quantum);
-		Log("  CR3 0x%x, KStack 0x%x", thread->CR3, thread->KernelStack);
-	}
-	Log("Sleeping Threads:");
-	for(thread=gSleepingThreads;thread;thread=thread->Next)
-	{
-		Log(" %i (%i) - %s", thread->TID, thread->TGID, thread->ThreadName);
-		Log("  %i Tickets, Quantum %i", thread->NumTickets, thread->Quantum);
-		Log("  CR3 0x%x, KStack 0x%x", thread->CR3, thread->KernelStack);
-	}
 }
 
 /**
@@ -749,9 +511,9 @@ void Proc_Scheduler(int CPU)
 	if(eip == SWITCH_MAGIC)	return;	// Check if a switch happened
 	
 	// Save machine state
-	gCurrentThread->ESP = esp;
-	gCurrentThread->EBP = ebp;
-	gCurrentThread->EIP = eip;
+	gCurrentThread->SavedState.ESP = esp;
+	gCurrentThread->SavedState.EBP = ebp;
+	gCurrentThread->SavedState.EIP = eip;
 	
 	// Special case: 1 thread
 	if(giNumActiveThreads == 1)
@@ -792,31 +554,13 @@ void Proc_Scheduler(int CPU)
 performSwitch:
 	// Set address space
 	//MM_SetCR3( gCurrentThread->CR3 );
-	__asm__ __volatile__ ("mov %0, %%cr3"::"a"(gCurrentThread->CR3));
+	__asm__ __volatile__ ("mov %0, %%cr3"::"a"(gCurrentThread->MemState.CR3));
 	// Switch threads
 	__asm__ __volatile__ (
 		"mov %1, %%esp\n\t"
 		"mov %2, %%ebp\n\t"
 		"jmp *%3" : :
-		"a"(SWITCH_MAGIC), "b"(gCurrentThread->ESP),
-		"d"(gCurrentThread->EBP), "c"(gCurrentThread->EIP));
+		"a"(SWITCH_MAGIC), "b"(gCurrentThread->SavedState.ESP),
+		"d"(gCurrentThread->SavedState.EBP), "c"(gCurrentThread->SavedState.EIP));
 	for(;;);	// Shouldn't reach here
-}
-
-// --- Process Structure Access Functions ---
-int Proc_GetPID()
-{
-	return gCurrentThread->TGID;
-}
-int Proc_GetTID()
-{
-	return gCurrentThread->TID;
-}
-int Proc_GetUID()
-{
-	return gCurrentThread->UID;
-}
-int Proc_GetGID()
-{
-	return gCurrentThread->GID;
 }

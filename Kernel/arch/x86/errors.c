@@ -7,7 +7,7 @@
 
 // === IMPORTS ===
 extern void	MM_PageFault(Uint Addr, Uint ErrorCode, tRegs *Regs);
-extern void Proc_DumpThreads();
+extern void Threads_Dump();
 
 // === CODE ===
 /**
@@ -46,7 +46,7 @@ void ErrorHandler(tRegs *Regs)
 	Warning(" CR3: 0x%08x", cr);
 	
 	// Dump running threads
-	Proc_DumpThreads();
+	Threads_Dump();
 	
 	for(;;)	__asm__ __volatile__ ("hlt");
 }

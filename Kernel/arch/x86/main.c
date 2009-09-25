@@ -17,10 +17,10 @@ extern void	Desctab_Install();
 extern void	MM_PreinitVirtual();
 extern void	MM_Install(tMBoot_Info *MBoot);
 extern void MM_InstallVirtual();
-extern void	Proc_Start();
+extern void	Threads_Init();
 extern Uint	Proc_Clone(Uint *Err, Uint Flags);
-extern void	Proc_Sleep();
-extern void	Proc_Exit();
+extern void	Threads_Sleep();
+extern void	Threads_Exit();
 
 // === GLOBALS ===
 
@@ -41,7 +41,7 @@ int kmain(Uint MbMagic, tMBoot_Info *MbInfo)
 	
 	Log("Starting Multitasking...");
 	// Start Multitasking
-	Proc_Start();
+	Threads_Init();
 	
 	Log("Starting VFS...");
 	// Load Virtual Filesystem
@@ -71,6 +71,6 @@ int kmain(Uint MbMagic, tMBoot_Info *MbInfo)
 	System_Init( (char*)(MbInfo->CommandLine + KERNEL_BASE) );
 	
 	// Sleep forever (sleeping beauty)
-	for(;;)	Proc_Sleep();
+	for(;;)	Threads_Sleep();
 	return 0;
 }

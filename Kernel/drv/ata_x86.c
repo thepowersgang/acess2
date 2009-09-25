@@ -793,7 +793,7 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	ATA_int_BusMasterWriteByte( cont << 3, 9 );	// Read and start
 	
 	// Wait for transfer to complete
-	while( gaATA_IRQs[cont] == 0 )	Proc_Yield();
+	while( gaATA_IRQs[cont] == 0 )	Threads_Yield();
 	
 	// Complete Transfer
 	ATA_int_BusMasterWriteByte( cont << 3, 0 );	// Write and stop

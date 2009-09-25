@@ -9,7 +9,7 @@
 #define E9(ch)	__asm__ __volatile__ ("outb %%al, $0xe9"::"a"(((Uint8)ch)))
 
 // === IMPORTS ===
-extern void Proc_DumpThreads();
+extern void Threads_Dump();
 
 // === GLOBALS ===
  int	gDebug_Level = 0;
@@ -183,7 +183,7 @@ void Panic(char *Fmt, ...)
 	va_end(args);
 	E9('\n');
 	
-	Proc_DumpThreads();
+	Threads_Dump();
 	
 	__asm__ __volatile__ ("xchg %bx, %bx");
 	__asm__ __volatile__ ("cli;\n\thlt");

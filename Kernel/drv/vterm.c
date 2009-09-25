@@ -242,10 +242,9 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	case VT_MODE_TEXT8:
 		while(pos < Length)
 		{
-			while(term->InputRead == term->InputWrite)	Proc_Yield();
+			while(term->InputRead == term->InputWrite)	Threads_Yield();
 			while(term->InputRead != term->InputWrite)
 			{
-				LOG("WriteUTF8(%p, 0x%x)", Buffer+pos, term->InputBuffer[term->InputRead]);
 				pos += WriteUTF8(Buffer+pos, term->InputBuffer[term->InputRead]);
 				term->InputRead ++;
 				term->InputRead %= MAX_INPUT_CHARS;
@@ -256,7 +255,7 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	case VT_MODE_TEXT32:
 		while(pos < Length)
 		{
-			while(term->InputRead == term->InputWrite)	Proc_Yield();
+			while(term->InputRead == term->InputWrite)	Threads_Yield();
 			while(term->InputRead != term->InputWrite)
 			{
 				((Uint32*)Buffer)[pos] = term->InputBuffer[term->InputRead];

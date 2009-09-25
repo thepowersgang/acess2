@@ -26,7 +26,7 @@ int Proc_SendMessage(Uint *Err, Uint Dest, int Length, void *Data)
 	}
 	
 	// Get thread
-	thread = Proc_GetThread( Dest );
+	thread = Threads_GetThread( Dest );
 	
 	// Error check
 	if(!thread) {	return -1;	}
@@ -40,7 +40,7 @@ int Proc_SendMessage(Uint *Err, Uint Dest, int Length, void *Data)
 	// Create message
 	msg = malloc( sizeof(tMsg)+Length );
 	msg->Next = NULL;
-	msg->Source = gCurrentThread->TID;
+	msg->Source = Proc_GetCurThread()->TID;
 	msg->Length = Length;
 	memcpy(msg->Data, Data, Length);
 	
@@ -55,7 +55,7 @@ int Proc_SendMessage(Uint *Err, Uint Dest, int Length, void *Data)
 	
 	RELEASE(&thread->IsLocked);
 	
-	Thread_Wake( thread );
+	Threads_Wake( thread );
 	
 	return 0;
 }
@@ -68,35 +68,36 @@ int Proc_GetMessage(Uint *Err, Uint *Source, void *Buffer)
 {
 	 int	ret;
 	void *tmp;
+	tThread	*cur = Proc_GetCurThread();
 	
 	// Check if queue has any items
-	if(!gCurrentThread->Messages) {
+	if(!cur->Messages) {
 		return 0;
 	}
 
-	LOCK( &gCurrentThread->IsLocked );
+	LOCK( &cur->IsLocked );
 	
 	if(Source)
-		*Source = gCurrentThread->Messages->Source;
+		*Source = cur->Messages->Source;
 	
 	// Get message length
 	if( !Buffer ) {
-		ret = gCurrentThread->Messages->Length;
-		RELEASE( &gCurrentThread->IsLocked );
+		ret = cur->Messages->Length;
+		RELEASE( &cur->IsLocked );
 		return ret;
 	}
 	
 	// Get message
 	if(Buffer != GETMSG_IGNORE)
-		memcpy(Buffer, gCurrentThread->Messages->Data, gCurrentThread->Messages->Length);
-	ret = gCurrentThread->Messages->Length;
+		memcpy(Buffer, cur->Messages->Data, cur->Messages->Length);
+	ret = cur->Messages->Length;
 	
 	// Remove from list
-	tmp = gCurrentThread->Messages->Next;
-	free(gCurrentThread->Messages);
-	gCurrentThread->Messages = tmp;
+	tmp = cur->Messages->Next;
+	free(cur->Messages);
+	cur->Messages = tmp;
 	
-	RELEASE( &gCurrentThread->IsLocked );
+	RELEASE( &cur->IsLocked );
 	
 	return ret;
 }

@@ -58,7 +58,7 @@ _GetEIP:
 	ret
 
 [extern _Proc_Clone]
-[extern _Proc_Exit]
+[extern _Threads_Exit]
 [global _SpawnTask]
 _SpawnTask:
 	; Call Proc_Clone with Flags=0
@@ -77,7 +77,7 @@ _SpawnTask:
 	; Child
 	push edx	; Argument
 	call ebx	; Function
-	call _Proc_Exit	; Kill Thread
+	call _Threads_Exit	; Kill Thread
 	
 .parent:
 	ret

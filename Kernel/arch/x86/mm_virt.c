@@ -381,7 +381,7 @@ Uint MM_ClearUser()
 Uint MM_Clone()
 {
 	Uint	i, j;
-	Uint	kStackBase = gCurrentThread->KernelStack - KERNEL_STACK_SIZE;
+	Uint	kStackBase = Proc_GetCurThread()->KernelStack - KERNEL_STACK_SIZE;
 	void	*tmp;
 	
 	//ENTER("");
@@ -621,7 +621,7 @@ Uint MM_MapTemp(tPAddr PAddr)
 			return TEMP_MAP_ADDR + (i << 12);
 		}
 		RELEASE( &gilTempMappings );
-		Proc_Yield();
+		Threads_Yield();
 	}
 }
 

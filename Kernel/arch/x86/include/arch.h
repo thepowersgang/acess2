@@ -42,6 +42,7 @@
 #define LOCK(lockptr)	do {int v=1;\
 	while(v)__asm__ __volatile__("lock xchgl %%eax, (%%edi)":"=a"(v):"a"(1),"D"(lockptr));}while(0)
 #define	RELEASE(lockptr)	__asm__ __volatile__("lock andl $0, (%%edi)"::"D"(lockptr));
+#define	HALT()	__asm__ __volatile__ ("hlt")
 
 // === TYPES ===
 typedef unsigned int	Uint;	// Unsigned machine native integer
@@ -108,6 +109,18 @@ typedef struct {
 	} __attribute__ ((packed));
 	Uint8	BaseHi;
 } __attribute__ ((packed)) tGDT;
+
+typedef struct {
+	#if USE_PAE
+	Uint	PDPT[4];
+	#else
+	Uint	CR3;
+	#endif
+} tMemoryState;
+
+typedef struct {
+	Uint	EIP, ESP, EBP;
+} tTaskState;
 
 // --- Interface Flags & Macros
 #define CLONE_VM	0x10
