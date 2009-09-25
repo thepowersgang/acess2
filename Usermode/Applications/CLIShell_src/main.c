@@ -336,6 +336,7 @@ void Command_Dir(int argc, char **argv)
 	char	tmpPath[1024];
 	char	*fileName;
 	t_sysFInfo	info;
+	t_sysACL	acl;
 	
 	// Generate Directory Path
 	if(argc > 1)
@@ -398,26 +399,31 @@ void Command_Dir(int argc, char **argv)
 		finfo(fp, &info, 0);
 		close(fp);
 		
+		//Print Mode
+		//#if 0
+		acl.group = 0;	acl.id = info.uid;
+		_SysGetACL(fp, &acl);
+		if(acl.perms & 1)	modeStr[0] = 'r';	else	modeStr[0] = '-';
+		if(acl.perms & 2)	modeStr[1] = 'w';	else	modeStr[1] = '-';
+		if(acl.perms & 8)	modeStr[2] = 'x';	else	modeStr[2] = '-';
+		acl.group = 1;	acl.id = info.gid;
+		_SysGetACL(fp, &acl);
+		if(acl.perms & 1)	modeStr[3] = 'r';	else	modeStr[3] = '-';
+		if(acl.perms & 1)	modeStr[4] = 'w';	else	modeStr[4] = '-';
+		if(acl.perms & 1)	modeStr[5] = 'x';	else	modeStr[5] = '-';
+		acl.group = 1;	acl.id = -1;
+		_SysGetACL(fp, &acl);
+		if(acl.perms & 1)	modeStr[6] = 'r';	else	modeStr[6] = '-';
+		if(acl.perms & 1)	modeStr[7] = 'w';	else	modeStr[7] = '-';
+		if(acl.perms & 1)	modeStr[8] = 'x';	else	modeStr[8] = '-';
+		write(_stdout, 10, modeStr);
+		//#endif
+		
 		// Colour Code
 		if(info.flags & FILEFLAG_DIRECTORY)	// Directory: Green
 			write(_stdout, 6, "\x1B[32m");
 		else
 			write(_stdout, 6, "\x1B[37m");	// Default: White
-		
-		//Print Mode
-		#if 0
-		if(stats.st_mode & 0400)	modeStr[0] = 'R';	else	modeStr[0] = '-';
-		if(stats.st_mode & 0200)	modeStr[1] = 'W';	else	modeStr[1] = '-';
-		if(stats.st_mode & 0100)	modeStr[2] = 'X';	else	modeStr[2] = '-';
-		if(stats.st_mode & 0040)	modeStr[3] = 'R';	else	modeStr[3] = '-';
-		if(stats.st_mode & 0020)	modeStr[4] = 'W';	else	modeStr[4] = '-';
-		if(stats.st_mode & 0010)	modeStr[5] = 'X';	else	modeStr[5] = '-';
-		if(stats.st_mode & 0004)	modeStr[6] = 'R';	else	modeStr[6] = '-';
-		if(stats.st_mode & 0002)	modeStr[7] = 'W';	else	modeStr[7] = '-';
-		if(stats.st_mode & 0001)	modeStr[8] = 'X';	else	modeStr[8] = '-';
-		write(_stdout, 10, modeStr);
-		#endif
-		
 		// Print Name
 		write(_stdout, strlen(fileName), fileName);
 		// Print slash if applicable
@@ -428,9 +434,9 @@ void Command_Dir(int argc, char **argv)
 		write(_stdout, 6, "\x1B[37m");
 		
 		// Put Size
-		printf(" Size: %i", info.size);
+		printf("\n", info.size);
 		
-		write(_stdout, 1, "\n");
+		//write(_stdout, 1, "\n");
 	}
 	// Close Directory
 	close(dp);

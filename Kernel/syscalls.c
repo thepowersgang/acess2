@@ -17,6 +17,7 @@ extern int	Proc_GetMessage(Uint *Err, Uint *Source, void *Buffer);
 extern int	Proc_Execve(char *File, char **ArgV, char **EnvP);
 extern Uint	Binary_Load(char *file, Uint *entryPoint);
 extern int	VFS_FInfo(int FD, void *Dest, int MaxACLs);
+extern int	VFS_GetACL(int FD, void *Dest);
 extern int	Threads_SetName(char *NewName);
 extern int	Threads_GetPID();
 extern int	Threads_GetTID();
@@ -24,6 +25,7 @@ extern int	Threads_GetUID();
 extern int	Threads_GetGID();
 
 // === CODE ===
+// TODO: Do sanity checking on arguments, ATM the user can really fuck with the kernel
 void SyscallHandler(tSyscallRegs *Regs)
 {
 	Uint64	ret = 0;
@@ -142,6 +144,10 @@ void SyscallHandler(tSyscallRegs *Regs)
 	
 	case SYS_FINFO:
 		ret = VFS_FInfo( Regs->Arg1, (void*)Regs->Arg2, Regs->Arg3 );
+		break;
+		
+	case SYS_GETACL:
+		ret = VFS_GetACL( Regs->Arg1, (void*)Regs->Arg2 );
 		break;
 		
 	case SYS_READDIR:

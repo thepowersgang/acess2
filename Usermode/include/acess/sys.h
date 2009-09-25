@@ -20,8 +20,20 @@
 
 // === TYPES ===
 struct s_sysACL {
-	uint32_t	object;
-	uint32_t	perms;
+	union {
+		struct {
+			unsigned	group: 1;
+			unsigned	id:	31;
+		};
+		uint32_t	object;
+	}
+	union {
+		struct {
+			unsigned	invert: 1;
+			unsigned	perms:	31;
+		};
+		uint32_t	rawperms;
+	}
 };
 struct s_sysFInfo {
 	uint	uid, gid;
@@ -34,6 +46,7 @@ struct s_sysFInfo {
 	struct s_sysACL	acls[];
 };
 typedef struct s_sysFInfo	t_sysFInfo;
+typedef struct s_sysACL	t_sysACL;
 
 // === FUNCTIONS ===
 void	_SysDebug(char *str, ...);
@@ -53,6 +66,7 @@ uint64_t	write(int fd, uint64_t length, void *buffer);
  int	ioctl(int fd, int id, void *data);
  int	finfo(int fd, t_sysFInfo *info, int maxacls);
  int	readdir(int fd, char *dest);
+ int	_SysGetACL(int fd, t_sysACL *dest);
 
 // --- MEMORY ---
 uint64_t	_SysGetPhys(uint vaddr);
