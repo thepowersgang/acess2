@@ -39,6 +39,8 @@ typedef struct s_sysFInfo	t_sysFInfo;
 void	_SysDebug(char *str, ...);
 // --- Proc ---
 void	sleep();
+void	wait(int miliseconds);
+ int	waittid(int id, int *status);
  int	clone(int flags, void *stack);
  int	execve(char *path, char **argv, char **envp);
 // --- VFS ---

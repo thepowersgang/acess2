@@ -65,19 +65,24 @@ void SyscallHandler(tSyscallRegs *Regs)
 		ret = Threads_WaitTID(Regs->Arg1, (void*)Regs->Arg2);
 		break;
 	
+	// -- Get the physical address of a page
 	case SYS_GETPHYS:
 		ret = MM_GetPhysAddr(Regs->Arg1);
 		break;
+	
 	// -- Map an address
 	case SYS_MAP:	MM_Map(Regs->Arg1, Regs->Arg2);	break;
+	
 	// -- Allocate an address
 	case SYS_ALLOCATE:	ret = MM_Allocate(Regs->Arg1);	break;
+	
 	// -- Unmap an address
 	case SYS_UNMAP:		MM_Deallocate(Regs->Arg1);	break;
 	
 	// -- Get Thread/Process IDs
 	case SYS_GETTID:	ret = Threads_GetTID();	break;
 	case SYS_GETPID:	ret = Threads_GetPID();	break;
+	
 	// -- Get User/Group IDs
 	case SYS_GETUID:	ret = Threads_GetUID();	break;
 	case SYS_GETGID:	ret = Threads_GetGID();	break;

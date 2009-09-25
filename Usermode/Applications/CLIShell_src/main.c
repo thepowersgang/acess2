@@ -125,7 +125,8 @@ int main(int argc, char *argv[], char *envp[])
 			//SysDebug("pid = %i\n", pid);
 		}
 		else {
-			//waitpid(pid, K_WAITPID_DIE);
+			 int	status
+			waitpid(pid, &status);
 		}
 	}
 }

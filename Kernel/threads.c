@@ -23,6 +23,7 @@ void	Threads_SetName(char *NewName);
 void	Threads_SetTickets(int Num);
  int	Threads_WaitTID(int TID, int *status);
 tThread	*Threads_GetThread(Uint TID);
+void	Threads_AddToDelete(tThread *Thread);
 tThread	*Threads_int_GetPrev(tThread **List, tThread *Thread);
 void	Threads_Exit(int TID, int Status);
 void	Threads_Kill(tThread *Thread, int Status);
@@ -164,10 +165,11 @@ int Threads_WaitTID(int TID, int *status)
 		{
 		case THREAD_STAT_ZOMBIE:
 			t->Status = THREAD_STAT_DEAD;
-			*status = 0;
+			if(status)	*status = 0;
+			Threads_AddToDelete( t );
 			break;
 		default:
-			*status = -1;
+			if(status)	*status = -1;
 			break;
 		}
 		return ret;
@@ -203,6 +205,22 @@ tThread *Threads_GetThread(Uint TID)
 	}
 	
 	return NULL;
+}
+
+/**
+ * \fn void Threads_AddToDelete(tThread *Thread)
+ * \brief Adds a thread to the delete queue
+ */
+void Threads_AddToDelete(tThread *Thread)
+{
+	// Add to delete queue
+	if(gDeleteThreads) {
+		Thread->Next = gDeleteThreads;
+		gDeleteThreads = Thread;
+	} else {
+		Thread->Next = NULL;
+		gDeleteThreads = Thread;
+	}
 }
 
 /**
@@ -298,14 +316,7 @@ void Threads_Kill(tThread *Thread, int Status)
 	if(Status == -1)
 	{
 		Thread->Status = THREAD_STAT_DEAD;
-		// Add to delete queue
-		if(gDeleteThreads) {
-			Thread->Next = gDeleteThreads;
-			gDeleteThreads = Thread;
-		} else {
-			Thread->Next = NULL;
-			gDeleteThreads = Thread;
-		}
+		Threads_AddToDelete( Thread );
 	} else {
 		Thread->Status = THREAD_STAT_ZOMBIE;
 	}
