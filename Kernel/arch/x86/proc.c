@@ -136,7 +136,7 @@ void ArchThreads_Init()
 	gThreadZero.MemState.PDP[1] = 0;
 	gThreadZero.MemState.PDP[2] = 0;
 	#else
-	gThreadZero.MemState.CR3 = (Uint)gaInitPageDir;
+	gThreadZero.MemState.CR3 = (Uint)gaInitPageDir - KERNEL_BASE;
 	#endif
 	
 	// Set timer frequency
