@@ -175,7 +175,7 @@ void *malloc(size_t Bytes)
 		if(head->Size == Bytes) {
 			head->Magic = MAGIC_USED;
 			RELEASE(&giHeapSpinlock);	// Release spinlock
-			LOG("RETURN %p", best->Data);
+			LOG("RETURN %p, to %p", best->Data, __builtin_return_address(0));
 			return best->Data;
 		}
 		
@@ -205,7 +205,7 @@ void *malloc(size_t Bytes)
 		// Check size
 		if(best->Size == Bytes) {
 			RELEASE(&giHeapSpinlock);	// Release spinlock
-			LOG("RETURN %p", best->Data);
+			LOG("RETURN %p, to %p", best->Data, __builtin_return_address(0));
 			return best->Data;
 		}
 	}
@@ -224,7 +224,7 @@ void *malloc(size_t Bytes)
 	best->Magic = MAGIC_USED;	// Mark block as used
 	
 	RELEASE(&giHeapSpinlock);	// Release spinlock
-	LOG("RETURN %p", best->Data);
+	LOG("RETURN %p, to %p", best->Data, __builtin_return_address(0));
 	return best->Data;
 }
 
