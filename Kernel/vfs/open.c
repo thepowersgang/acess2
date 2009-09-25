@@ -501,14 +501,19 @@ void VFS_Close(int FD)
  */
 tVFS_Handle *VFS_GetHandle(int FD)
 {
+	tVFS_Handle	*h;
+	
 	if(FD < 0)	return NULL;
 	
 	if(FD & VFS_KERNEL_FLAG) {
 		FD &= (VFS_KERNEL_FLAG - 1);
 		if(FD >= MAX_KERNEL_FILES)	return NULL;
-		return &gaKernelHandles[ FD ];
+		h = &gaKernelHandles[ FD ];
 	} else {
 		if(FD >= CFGINT(CFG_VFS_MAXFILES))	return NULL;
-		return &gaUserHandles[ FD ];
+		h = &gaUserHandles[ FD ];
 	}
+	
+	if(h->Node == NULL)	return NULL;
+	return h;
 }

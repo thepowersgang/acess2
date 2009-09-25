@@ -397,7 +397,6 @@ void Command_Dir(int argc, char **argv)
 		if(fp == -1)	continue;
 		// Get File Stats
 		finfo(fp, &info, 0);
-		close(fp);
 		
 		//Print Mode
 		//#if 0
@@ -418,6 +417,7 @@ void Command_Dir(int argc, char **argv)
 		if(acl.perms & 1)	modeStr[8] = 'x';	else	modeStr[8] = '-';
 		write(_stdout, 10, modeStr);
 		//#endif
+		close(fp);
 		
 		// Colour Code
 		if(info.flags & FILEFLAG_DIRECTORY)	// Directory: Green
