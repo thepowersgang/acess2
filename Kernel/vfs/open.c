@@ -224,7 +224,10 @@ tVFS_Node *VFS_ParsePath(char *Path, char **TruePath)
 		// Check permissions on root of filesystem
 		if( !VFS_CheckACL(curNode, VFS_PERM_EXECUTE) ) {
 			curNode->Close( curNode );
-			if(TruePath)	free(*TruePath);
+			if(TruePath) {
+				free(*TruePath);
+				*TruePath = NULL;
+			}
 			LEAVE('n');
 			return NULL;
 		}
@@ -232,7 +235,10 @@ tVFS_Node *VFS_ParsePath(char *Path, char **TruePath)
 		// Check if the node has a FindDir method
 		if(!curNode->FindDir) {
 			if(curNode->Close)	curNode->Close(curNode);
-			if(TruePath)	free(*TruePath);
+			if(TruePath) {
+				free(*TruePath);
+				*TruePath = NULL;
+			}
 			Path[nextSlash] = '/';
 			LEAVE('n');
 			return NULL;
@@ -248,8 +254,10 @@ tVFS_Node *VFS_ParsePath(char *Path, char **TruePath)
 		// Error Check
 		if(!curNode) {
 			LOG("Node '%s' not found in dir '%s'", &Path[ofs], Path);
-			if(TruePath)
+			if(TruePath) {
 				free(*TruePath);
+				*TruePath = NULL;
+			}
 			Path[nextSlash] = '/';
 			LEAVE('n');
 			return NULL;
@@ -257,18 +265,20 @@ tVFS_Node *VFS_ParsePath(char *Path, char **TruePath)
 		
 		// Handle Symbolic Links
 		if(curNode->Flags & VFS_FFLAG_SYMLINK) {
-			if(TruePath)
+			if(TruePath) {
 				free(*TruePath);
+				*TruePath = NULL;
+			}
 			tmp = malloc( curNode->Size + 1 );
 			curNode->Read( curNode, 0, curNode->Size, tmp );
 			tmp[ curNode->Size ] = '\0';
 			
 			// Parse Symlink Path
 			curNode = VFS_ParsePath(tmp, TruePath);
-			free(tmp);	// Free temp string
 			
 			// Error Check
 			if(!curNode) {
+				free(tmp);	// Free temp string
 				LEAVE('n');
 				return NULL;
 			}
@@ -277,6 +287,8 @@ tVFS_Node *VFS_ParsePath(char *Path, char **TruePath)
 			if(TruePath) {
 				*TruePath = tmp;
 				retLength = strlen(tmp);
+			} else {
+				free(tmp);	// Free temp string
 			}
 			
 			continue;
