@@ -1,9 +1,9 @@
 /*
- AcessOS Shell Version 2
-- Based on IOOS CLI Shell
-*/
+ * AcessOS Shell Version 3
+ */
 #include <acess/sys.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include "header.h"
 
 #define _stdin	0
@@ -52,7 +52,6 @@ int main(int argc, char *argv[], char *envp[])
 	
 	write(_stdout, 1, "\n");
 	write(_stdout, 36, "Acess Shell Version 3\n");
-	write(_stdout, 30, " Based on CLI Shell for IOOS\n");
 	write(_stdout,  2, "\n");
 	for(;;)
 	{
@@ -425,8 +424,12 @@ void Command_Dir(int argc, char **argv)
 		if(info.flags & FILEFLAG_DIRECTORY)
 			write(_stdout, 1, "/");
 		
-		// Revert Colour and end line
+		// Revert Colour
 		write(_stdout, 6, "\x1B[37m");
+		
+		// Put Size
+		printf(" Size: %i", info.size);
+		
 		write(_stdout, 1, "\n");
 	}
 	// Close Directory
