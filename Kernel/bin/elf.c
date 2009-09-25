@@ -6,7 +6,7 @@ ELF Executable Loader Code
 #include <binary.h>
 #include "bin_elf.h"
 
-#define DEBUG	1
+#define DEBUG	0
 #define DEBUG_WARN	1
 
 #if DEBUG
