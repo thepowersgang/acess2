@@ -153,15 +153,19 @@ int VFS_ReadDir(int FD, char *Dest)
 		return 0;
 	}
 	
-	tmp = h->Node->ReadDir(h->Node, h->Position);
+	do {
+		tmp = h->Node->ReadDir(h->Node, h->Position);
+		if((Uint)tmp < (Uint)VFS_MAXSKIP)
+			h->Position += (Uint)tmp;
+		else
+			h->Position ++;
+	} while((Uint)tmp < (Uint)VFS_MAXSKIP);
 	LOG("tmp = '%s'", tmp);
 	
 	if(!tmp) {
 		LEAVE('i', 0);
 		return 0;
 	}
-	
-	h->Position ++;
 	
 	strcpy(Dest, tmp);
 	

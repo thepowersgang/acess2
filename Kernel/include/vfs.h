@@ -85,6 +85,7 @@ typedef struct sVFS_Driver {
 } tVFS_Driver;
 
 // === GLOBALS ===
+#define	VFS_MAXSKIP	((void*)1024)
 #define	VFS_SKIP	((void*)1)
 #define	VFS_SKIPN(n)	((void*)(n))
 extern tVFS_Node	NULLNode;
