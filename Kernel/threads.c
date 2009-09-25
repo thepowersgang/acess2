@@ -405,6 +405,57 @@ void Threads_Wake(tThread *Thread)
 	}
 }
 
+#if 0
+/**
+ * \fn void Threads_SetSignalHandler(int Num, void *Handler)
+ * \brief Sets the signal handler for a signal
+ */
+void Threads_SetSignalHandler(int Num, void *Handler)
+{
+	if(Num < 0 || Num >= NSIG)	return;
+	
+	gCurrentThread->SignalHandlers[Num] = Handler;
+}
+
+/**
+ * \fn void Threads_SendSignal(int TID, int Num)
+ */
+void Threads_SendSignal(int TID, int Num)
+{
+	tThread	*thread = Proc_GetThread(TID);
+	void	*handler;
+	
+	if(!thread)	return ;
+	
+	handler = thread->SignalHandlers[Num];
+	
+	// Panic?
+	if(handler == SIG_ERR) {
+		Proc_Kill(TID);
+		return ;
+	}
+	// Dump Core?
+	if(handler == -2) {
+		Proc_Kill(TID);
+		return ;
+	}
+	// Ignore?
+	if(handler == -2)	return;
+	
+	// Check the type and handle if the thread is already in a signal
+	if(thread->CurSignal != 0) {
+		if(Num < _SIGTYPE_FATAL)
+			Proc_Kill(TID);
+		} else {
+			while(thread->CurSignal != 0)
+				Proc_Yield();
+		}
+	}
+	
+	//TODO: 
+}
+#endif
+
 // --- Process Structure Access Functions ---
 int Threads_GetPID()
 {
@@ -445,4 +496,43 @@ void Threads_Dump()
 		Log("  %i Tickets, Quantum %i", thread->NumTickets, thread->Quantum);
 		Log("  KStack 0x%x", thread->KernelStack);
 	}
+}
+
+/**
+ * \fn tThread *Threads_GetNextToRun(int CPU)
+ * \brief Gets the next thread to run
+ */
+tThread *Threads_GetNextToRun(int CPU)
+{
+	tThread	*thread;
+	 int	ticket;
+	 int	number;
+	
+	// Special case: 1 thread
+	if(giNumActiveThreads == 1)
+	{
+		return gActiveThreads;
+	}
+	
+	// Get the ticket number
+	ticket = number = rand() % giTotalTickets;
+	
+	// Find the next thread
+	for(thread=gActiveThreads;thread;thread=thread->Next)
+	{
+		if(thread->NumTickets > number)	break;
+		number -= thread->NumTickets;
+	}
+	
+	// Error Check
+	if(thread == NULL)
+	{
+		number = 0;
+		for(thread=gActiveThreads;thread;thread=thread->Next)
+			number += thread->NumTickets;
+		Panic("Bookeeping Failed - giTotalTicketCount (%i) != true count (%i)",
+			giTotalTickets, number);
+	}
+	
+	return thread;
 }

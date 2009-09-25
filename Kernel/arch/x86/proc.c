@@ -27,6 +27,7 @@ extern int	giNumActiveThreads;
 extern tThread	*gActiveThreads;
 extern tThread	*gSleepingThreads;
 extern tThread	*gDeleteThreads;
+extern tThread	*Threads_GetNextToRun(int CPU);
 
 // === PROTOTYPES ===
 void	ArchThreads_Init();
@@ -174,7 +175,7 @@ void Proc_ChangeStack()
 		return;
 	}
 
-	curBase = gCurrentThread->KernelStack;
+	curBase = (Uint)&Kernel_Stack_Top;
 	
 	LOG("curBase = 0x%x, newBase = 0x%x", curBase, newBase);
 
@@ -291,58 +292,6 @@ int Proc_Clone(Uint *Err, Uint Flags)
 	
 	return newThread->TID;
 }
-
-#if 0
-/**
- * \fn void Proc_SetSignalHandler(int Num, void *Handler)
- * \brief Sets the signal handler for a signal
- */
-void Proc_SetSignalHandler(int Num, void *Handler)
-{
-	if(Num < 0 || Num >= NSIG)	return;
-	
-	gCurrentThread->SignalHandlers[Num] = Handler;
-}
-
-/**
- * \fn void Proc_SendSignal(int TID, int Num)
- */
-void Proc_SendSignal(int TID, int Num)
-{
-	tThread	*thread = Proc_GetThread(TID);
-	void	*handler;
-	
-	if(!thread)	return ;
-	
-	handler = thread->SignalHandlers[Num];
-	
-	// Panic?
-	if(handler == SIG_ERR) {
-		Proc_Kill(TID);
-		return ;
-	}
-	// Dump Core?
-	if(handler == -2) {
-		Proc_Kill(TID);
-		return ;
-	}
-	// Ignore?
-	if(handler == -2)	return;
-	
-	// Check the type and handle if the thread is already in a signal
-	if(thread->CurSignal != 0) {
-		if(Num < _SIGTYPE_FATAL)
-			Proc_Kill(TID);
-		} else {
-			while(thread->CurSignal != 0)
-				Proc_Yield();
-		}
-	}
-	
-	//TODO: 
-}
-
-#endif
 
 /**
  * \fn Uint Proc_MakeUserStack()
@@ -475,7 +424,6 @@ int Proc_Demote(Uint *Err, int Dest, tRegs *Regs)
 void Proc_Scheduler(int CPU)
 {
 	Uint	esp, ebp, eip;
-	Uint	number, ticket;
 	tThread	*thread;
 	
 	// If the spinlock is set, let it complete
@@ -499,7 +447,7 @@ void Proc_Scheduler(int CPU)
 		return;
 	}
 	
-	// Reduce remaining quantum
+	// Reduce remaining quantum and continue timeslice if non-zero
 	if(gCurrentThread->Remaining--)	return;
 	// Reset quantum for next call
 	gCurrentThread->Remaining = gCurrentThread->Quantum;
@@ -515,34 +463,13 @@ void Proc_Scheduler(int CPU)
 	gCurrentThread->SavedState.EBP = ebp;
 	gCurrentThread->SavedState.EIP = eip;
 	
-	// Special case: 1 thread
-	if(giNumActiveThreads == 1)
-	{
-		// Check if a switch is needed (NumActive can be 1 after a sleep)
-		if(gActiveThreads == gCurrentThread)	return;
-		// Switch processes
-		gCurrentThread = gActiveThreads;
-		goto performSwitch;
-	}
-	
-	// Get the ticket number
-	ticket = number = rand() % giTotalTickets;
-	
-	// Find the next thread
-	for(thread=gActiveThreads;thread;thread=thread->Next)
-	{
-		if(thread->NumTickets > number)	break;
-		number -= thread->NumTickets;
-	}
+	// Get next thread
+	thread = Threads_GetNextToRun(CPU);
 	
 	// Error Check
-	if(thread == NULL)
-	{
-		number = 0;
-		for(thread=gActiveThreads;thread;thread=thread->Next)
-			number += thread->NumTickets;
-		Panic("Bookeeping Failed - giTotalTicketCount (%i) != true count (%i)",
-			giTotalTickets, number);
+	if(thread == NULL) {
+		Warning("Hmm... Threads_GetNextToRun returned NULL, I don't think this should happen.\n");
+		return;
 	}
 	
 	// Set current thread
@@ -551,9 +478,7 @@ void Proc_Scheduler(int CPU)
 	// Update Kernel Stack pointer
 	gTSSs[CPU].ESP0 = thread->KernelStack;
 	
-performSwitch:
 	// Set address space
-	//MM_SetCR3( gCurrentThread->CR3 );
 	__asm__ __volatile__ ("mov %0, %%cr3"::"a"(gCurrentThread->MemState.CR3));
 	// Switch threads
 	__asm__ __volatile__ (
