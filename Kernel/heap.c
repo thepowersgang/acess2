@@ -251,7 +251,7 @@ void free(void *Ptr)
 	
 	// Alignment Check
 	if( (Uint)Ptr & (sizeof(Uint)-1) ) {
-		Warning("free - Passed a non-aligned address (%p)\n", Ptr);
+		Warning("free - Passed a non-aligned address (%p)", Ptr);
 		return;
 	}
 	
@@ -265,7 +265,7 @@ void free(void *Ptr)
 	// Check memory block - Header
 	head = (void*)( (Uint)Ptr - sizeof(tHeapHead) );
 	if(head->Magic == MAGIC_FREE) {
-		Warning("free - Passed a freed block (%p)\n", head);
+		Warning("free - Passed a freed block (%p) by %p", head, __builtin_return_address(0));
 		return;
 	}
 	if(head->Magic != MAGIC_USED) {

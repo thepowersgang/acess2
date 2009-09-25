@@ -2,7 +2,7 @@
  * AcessOS Microkernel Version
  * syscalls.c
  */
-#define DEBUG	0
+#define DEBUG	1
 
 #include <common.h>
 #include <syscalls.h>
@@ -29,7 +29,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 	Uint64	ret = 0;
 	Uint	err = 0;
 	#if DEBUG
-	ENTER("iThread iNum", gCurrentThread->TID, Regs->Num);
+	ENTER("iThread iNum", Threads_GetTID(), Regs->Num);
 	if(Regs->Num < NUM_SYSCALLS)
 		LOG("Syscall %s", cSYSCALL_NAMES[Regs->Num]);
 	LOG("Arg1: 0x%x, Arg2: 0x%x, Arg3: 0x%x", Regs->Arg1, Regs->Arg2, Regs->Arg3);
