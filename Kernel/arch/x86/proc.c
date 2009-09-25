@@ -40,7 +40,7 @@ void	Proc_Scheduler();
 // === GLOBALS ===
 // --- Current State ---
 #if USE_MP
-tThread	*gCurrentThread[MAX_CPUS] = NULL;
+tThread	*gCurrentThread[MAX_CPUS] = {NULL};
 #else
 tThread	*gCurrentThread = NULL;
 #endif
@@ -141,7 +141,14 @@ void ArchThreads_Init()
 	
 	// Change Stacks
 	Proc_ChangeStack();
-	
+}
+
+/**
+ * \fn void Proc_Start()
+ * \brief Start process scheduler
+ */
+void Proc_Start()
+{
 	// Start Interrupts (and hence scheduler)
 	__asm__ __volatile__("sti");
 }

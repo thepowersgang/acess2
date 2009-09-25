@@ -13,6 +13,7 @@
 
 // === IMPORTS ===
 extern void	ArchThreads_Init();
+extern void	Proc_Start();
 extern tThread	*Proc_GetCurThread();
 extern int	Proc_Clone(Uint *Err, Uint Flags);
 
@@ -94,6 +95,8 @@ void Threads_Init()
 		for(;;)	__asm__ __volatile__ ("hlt");	// Just yeilds
 	}
 	#endif
+	
+	Proc_Start();
 }
 
 /**
