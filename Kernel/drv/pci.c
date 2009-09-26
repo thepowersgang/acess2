@@ -156,15 +156,19 @@ int PCI_Install(char **Arguments)
 }
 
 /**
- * \fn char *PCI_ReadDirRoot(tVFS_Node *node, int pos)
+ * \fn char *PCI_ReadDirRoot(tVFS_Node *Node, int Pos)
  * \brief Read from Root of PCI Driver
 */
-char *PCI_ReadDirRoot(tVFS_Node *node, int pos)
-{	
-	if(pos < 0 || pos >= giPCI_DeviceCount)
+char *PCI_ReadDirRoot(tVFS_Node *Node, int Pos)
+{
+	ENTER("pNode iPos", Node, Pos);
+	if(Pos < 0 || Pos >= giPCI_DeviceCount) {
+		LEAVE('n');
 		return NULL;
+	}
 	
-	return strdup( gPCI_Devices[pos].Name );
+	LEAVE('%s', gPCI_Devices[Pos].Name);
+	return strdup( gPCI_Devices[Pos].Name );
 }
 /**
  * \fn tVFS_Node *PCI_FindDirRoot(tVFS_Node *node, char *filename)
