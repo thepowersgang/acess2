@@ -141,7 +141,18 @@ void KB_IRQHandler()
 
 	// Ignore Non-Printable Characters
 	if(ch == 0 || ch & 0x80)		return;
-		
+	
+	
+	// --- Check for Kernel Magic Combos
+	if(gbaKB_States[KEY_LCTRL] && gbaKB_States[KEY_LALT])
+	{
+		switch(ch)
+		{
+		case 'd':	__asm__ __volatile__ ("xchg %bx, %bx");	break;
+		case 'p':	Threads_Dump();	break;
+		}
+	}
+	
 	// Is shift pressed
 	if(gbKB_ShiftState ^ gbKB_CapsState)
 	{
@@ -172,16 +183,6 @@ void KB_IRQHandler()
 			if('a' <= ch && ch <= 'z')
 				ch -= 0x20;
 			break;
-		}
-	}
-	
-	// --- Check for Kernel Magic Combos
-	if(gbaKB_States[KEY_LSHIFT] && gbaKB_States[KEY_RSHIFT])
-	{
-		switch(ch)
-		{
-		case 'D':	__asm__ __volatile__ ("xchg %bx, %bx");	break;
-		case 'P':	Threads_Dump();	break;
 		}
 	}
 	
