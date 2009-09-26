@@ -468,7 +468,7 @@ int	PCI_EnumDevice(Uint16 bus, Uint16 slot, Uint16 fcn, t_pciDevice *info)
 	info->Name[2] = '.';
 	info->Name[3] = '0' + slot/10;
 	info->Name[4] = '0' + slot%10;
-	info->Name[5] = '.';
+	info->Name[5] = ':';
 	info->Name[6] = '0' + fcn;
 	info->Name[7] = '\0';
 	
