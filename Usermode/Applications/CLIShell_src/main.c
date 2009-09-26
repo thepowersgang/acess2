@@ -339,6 +339,9 @@ void Command_Cd(int argc, char **argv)
 	free(gsCurrentDirectory);
 	gsCurrentDirectory = malloc(strlen(tmpPath)+1);
 	strcpy(gsCurrentDirectory, tmpPath);
+	
+	// Register change with kernel
+	chdir( gsCurrentDirectory );
 }
 
 /**

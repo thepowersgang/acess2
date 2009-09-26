@@ -54,3 +54,5 @@ SYS_SETACL	Set an ACL Value
 SYS_FINFO	Get file information
 SYS_SEEK	Seek to a new position in the file
 SYS_TELL	Return the current file position
+SYS_CHDIR	Change current directory
+SYS_GETCWD	Get current directory

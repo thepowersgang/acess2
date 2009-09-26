@@ -49,3 +49,5 @@
 %define SYS_FINFO	75	; Get file information
 %define SYS_SEEK	76	; Seek to a new position in the file
 %define SYS_TELL	77	; Return the current file position
+%define SYS_CHDIR	78	; Change current directory
+%define SYS_GETCWD	79	; Get current directory

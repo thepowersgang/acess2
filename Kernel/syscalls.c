@@ -18,11 +18,16 @@ extern int	Proc_Execve(char *File, char **ArgV, char **EnvP);
 extern Uint	Binary_Load(char *file, Uint *entryPoint);
 extern int	VFS_FInfo(int FD, void *Dest, int MaxACLs);
 extern int	VFS_GetACL(int FD, void *Dest);
+extern int	VFS_ChDir(char *Dest);
 extern int	Threads_SetName(char *NewName);
 extern int	Threads_GetPID();
 extern int	Threads_GetTID();
 extern int	Threads_GetUID();
 extern int	Threads_GetGID();
+
+// === PROTOTYPES ===
+ int	Syscall_ValidString(Uint Addr);
+ int	Syscall_Valid(int Size, Uint Addr);
 
 // === CODE ===
 // TODO: Do sanity checking on arguments, ATM the user can really fuck with the kernel
@@ -36,6 +41,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 		LOG("Syscall %s", cSYSCALL_NAMES[Regs->Num]);
 	LOG("Arg1: 0x%x, Arg2: 0x%x, Arg3: 0x%x", Regs->Arg1, Regs->Arg2, Regs->Arg3);
 	#endif
+	
 	switch(Regs->Num)
 	{
 	// -- Exit the current thread
@@ -145,13 +151,35 @@ void SyscallHandler(tSyscallRegs *Regs)
 	case SYS_FINFO:
 		ret = VFS_FInfo( Regs->Arg1, (void*)Regs->Arg2, Regs->Arg3 );
 		break;
-		
+	
+	// Get ACL Value
 	case SYS_GETACL:
+		if( !Syscall_Valid(8, Regs->Arg1) ) {
+			err = -EINVAL;
+			ret = -1;
+			break;
+		}
 		ret = VFS_GetACL( Regs->Arg1, (void*)Regs->Arg2 );
 		break;
-		
+	
+	// Read Directory
 	case SYS_READDIR:
+		if( !Syscall_ValidString(Regs->Arg2) ) {
+			err = -EINVAL;
+			ret = -1;
+			break;
+		}
 		ret = VFS_ReadDir( Regs->Arg1, (void*)Regs->Arg2 );
+		break;
+	
+	// Change Directory
+	case SYS_CHDIR:
+		if( !Syscall_ValidString(Regs->Arg1) ) {
+			err = -EINVAL;
+			ret = -1;
+			break;
+		}
+		ret = VFS_ChDir( (void*)Regs->Arg1 );
 		break;
 	
 	// -- Debug
@@ -182,3 +210,36 @@ void SyscallHandler(tSyscallRegs *Regs)
 	#endif
 }
 
+/**
+ * \fn int Syscall_ValidString(Uint Addr)
+ * \brief Checks if a memory address contains a valid string
+ */
+int Syscall_ValidString(Uint Addr)
+{
+	// Check 1st page
+	if(!MM_GetPhysAddr(Addr))	return 0;
+	
+	// Traverse String
+	while(*(char*)Addr)
+	{
+		if(!MM_GetPhysAddr(Addr))	return 0;
+		// Increment string pointer
+		Addr ++;
+	}
+	
+	return 1;
+}
+
+/**
+ * \fn int Syscall_Valid(int Size, Uint Addr)
+ * \brief Checks if a memory address is valid
+ */
+int Syscall_Valid(int Size, Uint Addr)
+{
+	while(Size--)
+	{
+		if(!MM_GetPhysAddr(Addr))	return 0;
+		Addr ++;
+	}
+	return 1;
+}

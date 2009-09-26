@@ -496,6 +496,41 @@ void VFS_Close(int FD)
 }
 
 /**
+ * \fn int VFS_ChDir(char *New)
+ * \brief Change current working directory
+ */
+int VFS_ChDir(char *New)
+{
+	char	*buf;
+	tVFS_Node	*node;
+	
+	// Create Absolute
+	buf = VFS_GetAbsPath(New);
+	if(buf == NULL)	return -1;
+	
+	// Check if path is valid
+	node = VFS_ParsePath(buf, NULL);
+	if(!node)	return -1;
+	
+	// Check if is a directory
+	if( !(node->Flags & VFS_FFLAG_DIRECTORY) ) {
+		if(node->Close)	node->Close(node);
+		return -1;
+	}
+	// Close node
+	if(node->Close)	node->Close(node);
+	
+	// Copy over
+	strcpy(buf, New);
+	
+	// Free old and set new
+	free( CFGPTR(CFG_VFS_CWD) );
+	CFGPTR(CFG_VFS_CWD) = buf;
+	
+	return 1;
+}
+
+/**
  * \fn tVFS_Handle *VFS_GetHandle(int FD)
  * \brief Gets a pointer to the handle information structure
  */

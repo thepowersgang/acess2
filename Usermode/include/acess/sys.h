@@ -57,6 +57,7 @@ void	wait(int miliseconds);
  int	clone(int flags, void *stack);
  int	execve(char *path, char **argv, char **envp);
 // --- VFS ---
+ int	chdir(char *dir);
  int	open(char *path, int flags);
  int	reopen(int fd, char *path, int flags);
 void	close(int fd);

@@ -53,6 +53,8 @@ enum eSyscalls {
 	SYS_FINFO,	// 75 - Get file information
 	SYS_SEEK,	// 76 - Seek to a new position in the file
 	SYS_TELL,	// 77 - Return the current file position
+	SYS_CHDIR,	// 78 - Change current directory
+	SYS_GETCWD,	// 79 - Get current directory
 	NUM_SYSCALLS,
 	SYS_DEBUG = 0x100	// 0x100 - Print a debug string
 };
@@ -71,6 +73,6 @@ static const char *cSYSCALL_NAMES[] = {
 	"","","","","SYS_OPEN","SYS_REOPEN",
 	"SYS_CLOSE","SYS_READ","SYS_WRITE","SYS_IOCTL","SYS_READDIR","SYS_MKDIR",
 	"SYS_SYMLINK","SYS_GETACL","SYS_SETACL","SYS_FINFO","SYS_SEEK","SYS_TELL",
-	""
+	"SYS_CHDIR","SYS_GETCWD",""
 };
 #endif
