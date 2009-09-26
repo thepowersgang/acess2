@@ -1,13 +1,13 @@
 /*
-AcessOS/AcessBasic v0.1
-PCI Bus Driver
-*/
+ * AcessOS/AcessBasic v0.1
+ * PCI Bus Driver
+ */
+#define DEBUG	1
 #include <common.h>
 #include <vfs.h>
 #include <fs_devfs.h>
 #include <drv_pci.h>
 
-#define DEBUG	0
 #define	LIST_DEVICES	1
 
 // === STRUCTURES ===
@@ -167,7 +167,7 @@ char *PCI_ReadDirRoot(tVFS_Node *Node, int Pos)
 		return NULL;
 	}
 	
-	LEAVE('%s', gPCI_Devices[Pos].Name);
+	LEAVE('s', gPCI_Devices[Pos].Name);
 	return strdup( gPCI_Devices[Pos].Name );
 }
 /**
