@@ -2,7 +2,7 @@
  * AcessOS/AcessBasic v0.1
  * PCI Bus Driver
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <common.h>
 #include <vfs.h>
 #include <fs_devfs.h>
