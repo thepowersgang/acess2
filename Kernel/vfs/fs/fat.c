@@ -8,7 +8,7 @@
 #include <vfs.h>
 #include "fs_fat.h"
 
-#define DEBUG	1
+#define DEBUG	0
 #define VERBOSE	1
 
 #if DEBUG

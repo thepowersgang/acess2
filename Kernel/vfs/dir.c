@@ -142,15 +142,15 @@ int VFS_ReadDir(int FD, char *Dest)
 	tVFS_Handle	*h = VFS_GetHandle(FD);
 	char	*tmp;
 	
-	ENTER("ph pDest", h, Dest);
+	//ENTER("ph pDest", h, Dest);
 	
 	if(!h || h->Node->ReadDir == NULL) {
-		LEAVE('i', 0);
+		//LEAVE('i', 0);
 		return 0;
 	}
 	
 	if(h->Node->Size != -1 && h->Position >= h->Node->Size) {
-		LEAVE('i', 0);
+		//LEAVE('i', 0);
 		return 0;
 	}
 	
@@ -162,10 +162,10 @@ int VFS_ReadDir(int FD, char *Dest)
 			h->Position ++;
 	} while(tmp != NULL && (Uint)tmp < (Uint)VFS_MAXSKIP);
 	
-	LOG("tmp = '%s'", READDIR_FIXUP(tmp));
+	//LOG("tmp = '%s'", READDIR_FIXUP(tmp));
 	
 	if(!tmp) {
-		LEAVE('i', 0);
+		//LEAVE('i', 0);
 		return 0;
 	}
 	
@@ -174,6 +174,6 @@ int VFS_ReadDir(int FD, char *Dest)
 	if((Uint)tmp & 1)
 		free(READDIR_FIXUP(tmp));
 	
-	LEAVE('i', 1);
+	//LEAVE('i', 1);
 	return 1;
 }

@@ -18,8 +18,9 @@ tVFS_Driver	gDevFS_Info = {
 	"devfs", 0, DevFS_InitDevice, NULL, NULL
 	};
 tVFS_Node	gDevFS_RootNode = {
-	.NumACLs = 1,
+	.Size = 0,
 	.Flags = VFS_FFLAG_DIRECTORY,
+	.NumACLs = 1,
 	.ACLs = &gVFS_ACL_EveryoneRW,
 	.ReadDir = DevFS_ReadDir,
 	.FindDir = DevFS_FindDir
@@ -35,7 +36,7 @@ int DevFS_AddDevice(tDevFS_Driver *Dev)
 {
 	Dev->Next = gDevFS_Drivers;
 	gDevFS_Drivers = Dev;
-	
+	gDevFS_RootNode.Size ++;
 	return giDevFS_NextID++;
 }
 
