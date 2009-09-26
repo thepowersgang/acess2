@@ -8,7 +8,7 @@
 #include <vfs.h>
 #include "fs_fat.h"
 
-#define DEBUG	0
+#define DEBUG	1
 #define VERBOSE	1
 
 #if DEBUG
@@ -73,7 +73,9 @@ int FAT_Install(char **Arguments)
 	return 0;
 }
 
-/* Reads the boot sector of a disk and prepares the structures for it
+/**
+ * \fn tVFS_Node *FAT_InitDevice(char *Device, char *options)
+ * \brief Reads the boot sector of a disk and prepares the structures for it
  */
 tVFS_Node *FAT_InitDevice(char *Device, char *options)
 {
@@ -146,7 +148,6 @@ tVFS_Node *FAT_InitDevice(char *Device, char *options)
 	#endif
 	
 	//Get Name
-	//puts(" Name: ");
 	if(diskInfo->type == FAT32) {
 		for(i=0;i<11;i++)
 			diskInfo->name[i] = (bs->spec.fat32.label[i] == ' ' ? '\0' : bs->spec.fat32.label[i]);
@@ -156,7 +157,6 @@ tVFS_Node *FAT_InitDevice(char *Device, char *options)
 			diskInfo->name[i] = (bs->spec.fat16.label[i] == ' ' ? '\0' : bs->spec.fat16.label[i]);
 	}
 	diskInfo->name[11] = '\0';
-	//puts(diskInfo->name); putch('\n');
 	
 	//Compute Root directory offset
 	if(diskInfo->type == FAT32)
@@ -224,16 +224,15 @@ tVFS_Node *FAT_InitDevice(char *Device, char *options)
 		Log(" FAT_InitDisk: Inode Cache handle is %i\n", gFAT_Disks[giFAT_PartCount].inodeHandle);
 	#endif
 	
-	//== VFS Interface
+	// == VFS Interface
 	node = &gFAT_Disks[giFAT_PartCount].rootNode;
-	//node->Name = gFAT_Disks[giFAT_PartCount].name;
 	node->Inode = diskInfo->rootOffset;
-	node->Size = bs->files_in_root;	//Unknown - To be set on readdir
+	node->Size = bs->files_in_root;	// Unknown - To be set on readdir
 	node->ImplInt = giFAT_PartCount;
 	
 	node->ReferenceCount = 1;
 	
-	node->UID = 0;	node->GID= 0;
+	node->UID = 0;	node->GID = 0;
 	node->NumACLs = 1;
 	node->ACLs = &gVFS_ACL_EveryoneRWX;
 	node->Flags = VFS_FFLAG_DIRECTORY;
