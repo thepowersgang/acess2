@@ -527,6 +527,7 @@ tVFS_Node *FAT_int_CreateNode(tVFS_Node *parent, fat_filetable *ft, char *LongFi
 		node.ReadDir = FAT_ReadDir;
 		node.FindDir = FAT_FindDir;
 		node.MkNod = FAT_Mknod;
+		node.Size = -1;
 	} else {
 		node.Read = FAT_Read;
 		node.Write = FAT_Write;
