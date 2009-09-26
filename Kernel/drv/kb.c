@@ -12,6 +12,9 @@
 // === CONSTANTS ===
 #define	KB_BUFFER_SIZE	1024
 
+// === IMPORTS ===
+void	Threads_Dump();
+
 // === PROTOTYPES ===
  int	KB_Install(char **Arguments);
 void	KB_IRQHandler();
@@ -178,6 +181,7 @@ void KB_IRQHandler()
 		switch(ch)
 		{
 		case 'D':	__asm__ __volatile__ ("xchg %bx, %bx");	break;
+		case 'P':	Threads_Dump();	break;
 		}
 	}
 	

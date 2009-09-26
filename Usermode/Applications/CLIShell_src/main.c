@@ -48,7 +48,7 @@ int main(int argc, char *argv[], char *envp[])
 	 int	bCached = 1;
 	t_sysFInfo	info;
 	
-	//Command_Clear(0, NULL);
+	Command_Clear(0, NULL);
 	
 	{
 		char	*tmp = getenv("CWD");
@@ -70,7 +70,6 @@ int main(int argc, char *argv[], char *envp[])
 		if(saArgs[0])	free(saArgs);
 		if(!bCached)	free(sCommandStr);
 		bCached = 0;
-		write(_stdout, 1, "\n");
 		write(_stdout, strlen(gsCurrentDirectory), gsCurrentDirectory);
 		write(_stdout, 3, "$ ");
 		
@@ -131,6 +130,7 @@ int main(int argc, char *argv[], char *envp[])
 		}
 		// Load new executable
 		pid = clone(CLONE_VM, 0);
+		printf("pid = %i\n", pid);
 		if(pid == 0)	execve(gsTmpBuffer, &saArgs[1], envp);
 		if(pid <= 0) {
 			Print("Unablt to create process: `");Print(gsTmpBuffer);Print("'\n");	// Error Message
@@ -155,6 +155,7 @@ char *ReadCommandLine(int *Length)
 	 
 	// Preset Variables
 	ret = malloc( space+1 );
+	if(!ret)	return NULL;
 	len = 0;
 	pos = 0;
 		
@@ -162,7 +163,22 @@ char *ReadCommandLine(int *Length)
 	do {
 		read(_stdin, 1, &ch);	// Read Character from stdin (read is a blocking call)
 		// Ignore control characters
-		if(ch < 0)	continue;
+		if(ch == '\x1B') {
+			read(_stdin, 1, &ch);	// Read control character
+			switch(ch)
+			{
+			case 'D':	if(pos)	pos--;	break;
+			case 'C':	if(pos<len)	pos++;	break;
+			case '[':
+				read(_stdin, 1, &ch);	// Read control character
+				switch(ch)
+				{
+				case 'D':	if(pos)	pos--;	break;
+				case 'C':	if(pos<len)	pos++;	break;
+				}
+			}
+			continue;
+		}
 		// Backspace
 		if(ch == '\b') {
 			if(len <= 0)		continue;	// Protect against underflows

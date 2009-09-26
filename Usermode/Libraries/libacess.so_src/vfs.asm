@@ -16,3 +16,4 @@ SYSCALL4	seek, SYS_SEEK		; int, int64_t, int
 SYSCALL3	finfo, SYS_FINFO	; int, void*, int
 SYSCALL2	readdir, SYS_READDIR	; int, char*
 SYSCALL2	_SysGetACL, SYS_GETACL	; int, void*
+SYSCALL1	chdir, SYS_CHDIR	; char*
