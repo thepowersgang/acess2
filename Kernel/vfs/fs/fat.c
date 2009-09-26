@@ -489,8 +489,6 @@ tVFS_Node *FAT_int_CreateNode(tVFS_Node *parent, fat_filetable *ft, char *LongFi
 	
 	ENTER("pParent pFT sLongFileName", parent, ft, LongFileName);
 	
-	// Get Name
-	//node.Name = FAT_int_CreateName(parent, ft, LongFileName);
 	// Set Other Data
 	node.Inode = ft->cluster | (ft->clusterHi<<16);
 	node.Size = ft->size;

@@ -148,7 +148,7 @@ int VFS_ReadDir(int FD, char *Dest)
 		return 0;
 	}
 	
-	if(h->Position >= h->Node->Size) {
+	if(h->Node->Size != -1 && h->Position >= h->Node->Size) {
 		LEAVE('i', 0);
 		return 0;
 	}
