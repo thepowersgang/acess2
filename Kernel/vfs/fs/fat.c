@@ -701,7 +701,7 @@ char *FAT_ReadDir(tVFS_Node *dirNode, int dirpos)
 		// Get the current length
 		len = strlen(lfn);
 		
-		// Sanity Check (FAT implementations do not allow >255 bytes)
+		// Sanity Check (FAT implementations should not allow >255 bytes)
 		if(len + 13 > 255)	return VFS_SKIP;
 		// Rebase all bytes
 		for(a=len+1;a--;)	lfn[a+13] = lfn[a];
@@ -745,7 +745,7 @@ char *FAT_ReadDir(tVFS_Node *dirNode, int dirpos)
 	#endif
 	
 	LEAVE('s', ret);
-	return ret;
+	return VFS_FREEPLZ(ret);
 }
 
 /**

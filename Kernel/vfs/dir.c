@@ -169,7 +169,8 @@ int VFS_ReadDir(int FD, char *Dest)
 	
 	strcpy(Dest, tmp);
 	
-	if(IsHeap(tmp))	free(tmp);
+	if((Uint)tmp & 1)
+		free((void*)( (Uint)tmp & ~1 ));
 	
 	LEAVE('i', 1);
 	return 1;

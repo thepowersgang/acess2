@@ -88,6 +88,7 @@ typedef struct sVFS_Driver {
 #define	VFS_MAXSKIP	((void*)1024)
 #define	VFS_SKIP	((void*)1)
 #define	VFS_SKIPN(n)	((void*)(n))
+#define VFS_FREEPLZ(ptr)	((void*)(((Uint)ptr)|1))
 extern tVFS_Node	NULLNode;
 extern tVFS_ACL	gVFS_ACL_EveryoneRWX;
 extern tVFS_ACL	gVFS_ACL_EveryoneRW;

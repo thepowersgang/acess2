@@ -412,8 +412,12 @@ void Command_Dir(int argc, char **argv)
 		// Get File Stats
 		finfo(fp, &info, 0);
 		
-		//Print Mode
-		//#if 0
+		if(info.flags & FILEFLAG_DIRECTORY)
+			write(_stdout, 1, "d");
+		else
+			write(_stdout, 1, "-");
+		
+		// Print Mode
 		acl.group = 0;	acl.id = info.uid;
 		_SysGetACL(fp, &acl);
 		if(acl.perms & 1)	modeStr[0] = 'r';	else	modeStr[0] = '-';
@@ -430,16 +434,16 @@ void Command_Dir(int argc, char **argv)
 		if(acl.perms & 1)	modeStr[7] = 'w';	else	modeStr[7] = '-';
 		if(acl.perms & 1)	modeStr[8] = 'x';	else	modeStr[8] = '-';
 		write(_stdout, 10, modeStr);
-		//#endif
 		close(fp);
 		
 		// Colour Code
 		if(info.flags & FILEFLAG_DIRECTORY)	// Directory: Green
 			write(_stdout, 6, "\x1B[32m");
-		else
-			write(_stdout, 6, "\x1B[37m");	// Default: White
+		// Default: White
+		
 		// Print Name
 		write(_stdout, strlen(fileName), fileName);
+		
 		// Print slash if applicable
 		if(info.flags & FILEFLAG_DIRECTORY)
 			write(_stdout, 1, "/");
@@ -447,10 +451,8 @@ void Command_Dir(int argc, char **argv)
 		// Revert Colour
 		write(_stdout, 6, "\x1B[37m");
 		
-		// Put Size
-		printf("\n", info.size);
-		
-		//write(_stdout, 1, "\n");
+		// Newline!
+		write(_stdout, 1, "\n");
 	}
 	// Close Directory
 	close(dp);
