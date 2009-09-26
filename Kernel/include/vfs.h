@@ -63,7 +63,7 @@ typedef struct sVFS_Node {
 	
 	//! Find an directory entry by name
 	struct sVFS_Node	*(*FindDir)(struct sVFS_Node *Node, char *Name);
-	//! Read from a directory
+	//! Read from a directory - MUST return a heap address
 	char	*(*ReadDir)(struct sVFS_Node *Node, int Pos);
 	//! Create a node in a directory
 	 int	(*MkNod)(struct sVFS_Node *Node, char *Name, Uint Flags);
@@ -88,7 +88,6 @@ typedef struct sVFS_Driver {
 #define	VFS_MAXSKIP	((void*)1024)
 #define	VFS_SKIP	((void*)1)
 #define	VFS_SKIPN(n)	((void*)(n))
-#define VFS_FREEPLZ(ptr)	((void*)(((Uint)ptr)|1))
 extern tVFS_Node	NULLNode;
 extern tVFS_ACL	gVFS_ACL_EveryoneRWX;
 extern tVFS_ACL	gVFS_ACL_EveryoneRW;

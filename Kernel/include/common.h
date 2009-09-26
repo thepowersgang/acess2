@@ -82,6 +82,7 @@ extern char	*strcpy(char *__dest, char *__src);
 extern int	strcmp(char *__dest, char *__src);
 extern int	strncmp(char *Str1, char *Str2, size_t num);
 extern int	strucmp(char *Str1, char *Str2);
+extern char	*strdup(char *__str);
 extern int	strpos(char *Str, char Ch);
 extern int	strpos8(char *str, Uint32 search);
 extern void	itoa(char *buf, Uint num, int base, int minLength, char pad);

@@ -743,7 +743,7 @@ char *FAT_ReadDir(tVFS_Node *dirNode, int dirpos)
 	#endif
 	
 	LEAVE('s', ret);
-	return VFS_FREEPLZ(ret);
+	return ret;
 }
 
 /**

@@ -115,6 +115,7 @@ tDevFS_Driver	gATA_DriverInfo = {
 	NULL, "ata",
 	{
 		.NumACLs = 1,
+		.Size = -1,
 		.Flags = VFS_FFLAG_DIRECTORY,
 		.ACLs = &gVFS_ACL_EveryoneRX,
 		.ReadDir = ATA_ReadDir,
@@ -247,6 +248,8 @@ void ATA_SetupVFS()
 		for( j = 0; j < gATA_Disks[i].NumPartitions; j ++ )
 			gATA_Nodes[ k++ ] = &gATA_Disks[i].Partitions[j].Node;
 	}
+	
+	gATA_DriverInfo.RootNode.Size = giATA_NumNodes;
 }
 
 /**
@@ -604,7 +607,7 @@ Uint16 ATA_GetBasePort(int Disk)
 char *ATA_ReadDir(tVFS_Node *Node, int Pos)
 {
 	if(Pos >= giATA_NumNodes || Pos < 0)	return NULL;
-	return gATA_Nodes[Pos]->ImplPtr;
+	return strdup( gATA_Nodes[Pos]->ImplPtr );
 }
 
 /**

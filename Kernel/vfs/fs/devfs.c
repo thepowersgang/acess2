@@ -64,7 +64,7 @@ char *DevFS_ReadDir(tVFS_Node *Node, int Pos)
 		dev = dev->Next
 		);
 	
-	return dev->Name;
+	return strdup(dev->Name);
 }
 
 /**

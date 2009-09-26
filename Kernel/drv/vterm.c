@@ -72,6 +72,7 @@ tDevFS_Driver	gVT_DrvInfo = {
 	NULL, "VTerm",
 	{
 	.Flags = VFS_FFLAG_DIRECTORY,
+	.Size = NUM_VTS,
 	.Inode = -1,
 	.NumACLs = 0,
 	.ReadDir = VT_ReadDir,
@@ -194,7 +195,7 @@ char *VT_ReadDir(tVFS_Node *Node, int Pos)
 {
 	if(Pos < 0)	return NULL;
 	if(Pos >= NUM_VTS)	return NULL;
-	return gVT_Terminals[Pos].Name;
+	return strdup( gVT_Terminals[Pos].Name );
 }
 
 /**

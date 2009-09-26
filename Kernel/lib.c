@@ -143,6 +143,18 @@ int strncmp(char *Str1, char *Str2, size_t num)
 }
 
 /**
+ * \fn char *strdup(char *str)
+ * \brief Duplicates a string
+ */
+char *strdup(char *str)
+{
+	char	*ret;
+	ret = malloc(strlen(str)+1);
+	strcpy(ret, str);
+	return ret;
+}
+
+/**
  * \fn int strpos8(char *str, Uint32 search)
  * \brief Search a string for a UTF-8 character
  */

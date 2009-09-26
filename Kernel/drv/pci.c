@@ -61,6 +61,7 @@ tDevFS_Driver	gPCI_DriverStruct = {
 	NULL, "pci",
 	{
 	.Flags = VFS_FFLAG_DIRECTORY,
+	.Size = -1,
 	.NumACLs = 1,
 	.ACLs = &gVFS_ACL_EveryoneRX,
 	.ReadDir = PCI_ReadDirRoot,
@@ -163,7 +164,7 @@ char *PCI_ReadDirRoot(tVFS_Node *node, int pos)
 	if(pos < 0 || pos >= giPCI_DeviceCount)
 		return NULL;
 	
-	return gPCI_Devices[pos].Name;
+	return strdup( gPCI_Devices[pos].Name );
 }
 /**
  * \fn tVFS_Node *PCI_FindDirRoot(tVFS_Node *node, char *filename)

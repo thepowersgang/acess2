@@ -132,7 +132,6 @@ int VFS_Symlink(char *Name, char *Link)
 	return 1;
 }
 
-#define READDIR_FIXUP(ptr)	(void*)( (Uint)(ptr) & ~1 )
 /**
  * \fn int VFS_ReadDir(int FD, char *Dest)
  * \brief Read from a directory
@@ -162,17 +161,15 @@ int VFS_ReadDir(int FD, char *Dest)
 			h->Position ++;
 	} while(tmp != NULL && (Uint)tmp < (Uint)VFS_MAXSKIP);
 	
-	//LOG("tmp = '%s'", READDIR_FIXUP(tmp));
+	//LOG("tmp = '%s'", tmp);
 	
 	if(!tmp) {
 		//LEAVE('i', 0);
 		return 0;
 	}
 	
-	strcpy(Dest, READDIR_FIXUP(tmp));
-	
-	if((Uint)tmp & 1)
-		free(READDIR_FIXUP(tmp));
+	strcpy(Dest, tmp);
+	free(tmp);
 	
 	//LEAVE('i', 1);
 	return 1;
