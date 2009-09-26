@@ -665,16 +665,16 @@ char *FAT_ReadDir(tVFS_Node *dirNode, int dirpos)
 	// Offset in sector
 	a = dirpos & 0xF;
 
-	LOG("offset=%i, a=%i\n", (Uint)offset, a);
+	LOG("offset=%i, a=%i", (Uint)offset, a);
 	
 	// Read Sector
 	VFS_ReadAt(disk->fileHandle, offset*512, 512, fileinfo);	// Read Dir Data
 	
-	LOG("name[0] = 0x%x\n", (Uint8)fileinfo[a].name[0]);
+	LOG("name[0] = 0x%x", (Uint8)fileinfo[a].name[0]);
 	//Check if this is the last entry
 	if(fileinfo[a].name[0] == '\0') {
 		dirNode->Size = dirpos;
-		LOG("End of list\n");
+		LOG("End of list");
 		LEAVE('n');
 		return NULL;	// break
 	}
