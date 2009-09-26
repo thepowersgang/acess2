@@ -73,12 +73,15 @@ int Root_MkNod(tVFS_Node *Node, char *Name, Uint Flags)
 	tRamFS_File	*child = parent->Data.FirstChild;
 	tRamFS_File	*prev = (tRamFS_File *) &parent->Data.FirstChild;
 	
-	Log("Root_MkNod: (Node=%p, Name='%s', Flags=0x%x)", Node, Name, Flags);
+	ENTER("pNode sName xFlags", Node, Name, Flags);
 	
 	// Find last child, while we're at it, check for duplication
 	for( ; child; prev = child, child = child->Next )
 	{
-		if(strcmp(child->Name, Name) == 0)	return 0;
+		if(strcmp(child->Name, Name) == 0) {
+			LEAVE('i', 0);
+			return 0;
+		}
 	}
 	
 	child = Root_int_AllocFile();
@@ -110,6 +113,7 @@ int Root_MkNod(tVFS_Node *Node, char *Name, Uint Flags)
 	
 	parent->Node.Size ++;
 	
+	LEAVE('i', 1);
 	return 1;
 }
 
@@ -181,12 +185,12 @@ Uint64 Root_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	{
 		void *tmp = realloc( file->Data.Bytes, Offset + Length );
 		if(tmp == NULL)	{
-			Warning("Root_Write - Increasing buffer size failed\n");
+			Warning("Root_Write - Increasing buffer size failed");
 			return -1;
 		}
 		file->Data.Bytes = tmp;
 		Node->Size = Offset + Length;
-		Log(" Root_Write: Expanded buffer to %i bytes\n", Node->Size);
+		//LOG("Expanded buffer to %i bytes", Node->Size);
 	}
 	
 	memcpy(file->Data.Bytes+Offset, Buffer, Length);

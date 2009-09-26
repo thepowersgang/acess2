@@ -90,9 +90,6 @@ int Module_LoadFile(char *Path, char *ArgString)
 		return 0;
 	}
 	
-	LOG("info = %p\n", info);
-	Debug_HexDump("info", info, 6*4);
-	
 	// Check magic number
 	if(info->Magic != MODULE_MAGIC)
 	{

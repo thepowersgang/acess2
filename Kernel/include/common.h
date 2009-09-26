@@ -47,9 +47,15 @@ extern void	Debug_Enter(char *FuncName, char *ArgTypes, ...);
 extern void	Debug_Log(char *FuncName, char *Fmt, ...);
 extern void	Debug_Leave(char *FuncName, char RetType, ...);
 extern void	Debug_HexDump(char *Header, void *Data, Uint Length);
-#define ENTER(_types...)	Debug_Enter((char*)__func__, _types)
-#define LOG(_fmt...)	Debug_Log((char*)__func__, _fmt)
-#define LEAVE(_t...)	Debug_Leave((char*)__func__, _t)
+#if DEBUG
+# define ENTER(_types...)	Debug_Enter((char*)__func__, _types)
+# define LOG(_fmt...)	Debug_Log((char*)__func__, _fmt)
+# define LEAVE(_t...)	Debug_Leave((char*)__func__, _t)
+#else
+# define ENTER(...)
+# define LOG(...)
+# define LEAVE(...)
+#endif
 // --- IO ---
 extern void	outb(Uint16 Port, Uint8 Data);
 extern void	outw(Uint16 Port, Uint16 Data);

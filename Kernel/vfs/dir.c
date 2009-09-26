@@ -1,7 +1,11 @@
 /*
+ * Acess2 VFS
+ * - Directory Management Functions
  */
-#include "vfs.h"
-#include "vfs_int.h"
+#define DEBUG	0
+#include <common.h>
+#include <vfs.h>
+#include <vfs_int.h>
 
 // === IMPORTS ===
 extern tVFS_Mount	*gRootMount;
@@ -34,7 +38,7 @@ int VFS_MkNod(char *Path, Uint Flags)
 	tVFS_Node	*parent;
 	 int	ret;
 	
-	Debug_Enter("VFS_MkNod", "sPath xFlags", Path, Flags);
+	ENTER("sPath xFlags", Path, Flags);
 	
 	absPath = VFS_GetAbsPath(Path);
 	
@@ -54,15 +58,15 @@ int VFS_MkNod(char *Path, Uint Flags)
 	if( !VFS_CheckACL(parent, VFS_PERM_EXECUTE|VFS_PERM_WRITE) ) {
 		if(parent->Close)	parent->Close( parent );
 		free(absPath);
-		Debug_Leave("VFS_MkNod", 'i', -1);
+		LEAVE('i', -1);
 		return -1;
 	}
 	
-	Debug_Log("VFS_MkNod", "parent = %p\n", parent);
+	LOG("parent = %p\n", parent);
 	
 	if(parent->MkNod == NULL) {
 		Warning("VFS_MkNod - Directory has no MkNod method");
-		Debug_Leave("VFS_MkNod", 'i', -1);
+		LEAVE('i', -1);
 		return -1;
 	}
 	
@@ -76,9 +80,12 @@ int VFS_MkNod(char *Path, Uint Flags)
 	if(parent->Close)	parent->Close( parent );
 	
 	// Error Check
-	if(ret == 0)	return -1;
+	if(ret == 0) {
+		LEAVE('i', -1);
+		return -1;
+	}
 	
-	Debug_Leave("VFS_MkNod", 'i', 0);
+	LEAVE('i', 0);
 	return 0;
 }
 
@@ -94,7 +101,7 @@ int VFS_Symlink(char *Name, char *Link)
 	 int	fp;
 	tVFS_Node	*destNode;
 	
-	//LogF("vfs_symlink: (name='%s', link='%s')\n", name, link);
+	//ENTER("sName sLink", Name, Link);
 	
 	// Get absolue path name
 	Link = VFS_GetAbsPath( Link );
