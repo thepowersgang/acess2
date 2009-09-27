@@ -2,26 +2,16 @@
  * AcessMicro VFS
  * - Open, Close and ChDir
  */
+#define DEBUG	0
 #include <common.h>
 #include "vfs.h"
 #include "vfs_int.h"
 #include "vfs_ext.h"
 
-#define DEBUG	0
-
-#if DEBUG
-#else
-# undef ENTER
-# undef LOG
-# undef LEAVE
-# define ENTER(...)
-# define LOG(...)
-# define LEAVE(...)
-#endif
-
 // === CONSTANTS ===
 #define	OPEN_MOUNT_ROOT	1
 #define MAX_KERNEL_FILES	128
+#define MAX_PATH_SLASHES	256
 
 // === IMPORTS ===
 extern tVFS_Node	gVFS_MemRoot;
@@ -42,7 +32,7 @@ char *VFS_GetAbsPath(char *Path)
 	 int	pathLen = strlen(Path);
 	 int	read, write;
 	 int	pos, slashNum=0, baseLen;
-	Uint	slashOffsets[256];
+	Uint	slashOffsets[MAX_PATH_SLASHES];
 	char	*cwd = CFGPTR(CFG_VFS_CWD);
 	 int	cwdLen;
 	
@@ -78,11 +68,14 @@ char *VFS_GetAbsPath(char *Path)
 		strcpy(&ret[cwdLen+1], Path);
 	
 		// Pre-fill the slash positions
-		pos = 0;
-		while( (pos = strpos( &ret[pos+1], '/' )) != -1 )
+		read = 1;	slashNum = 0;
+		while( (pos = strpos( &ret[read], '/' )) != -1 && slashNum < MAX_PATH_SLASHES )
+		{
+			read += pos+1;
 			slashOffsets[slashNum++] = pos;
+		}
 			
-		baseLen = cwdLen;
+		baseLen = cwdLen+1;
 	}
 	
 	// Remove . and ..
@@ -116,7 +109,7 @@ char *VFS_GetAbsPath(char *Path)
 			memcpy( &ret[write], &ret[read], pos-read+1 );
 		}
 		write = pos+1;
-		if(slashNum < 256)
+		if(slashNum < MAX_PATH_SLASHES)
 			slashOffsets[ slashNum++ ] = pos;
 		else {
 			LOG("Path '%s' has too many elements", Path);
