@@ -342,6 +342,15 @@ Uint64 FAT_Read(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer)
 		return 0;
 	}
 	
+	// Sanity Check offset
+	if(offset > node->Size){
+		return 0;
+	}
+	// Clamp Size
+	if(length + offset > node->Size) {
+		length = offset - node->Size;
+	}
+	
 	// Single Cluster including offset
 	if(length + offset < bpc)
 	{
@@ -349,7 +358,7 @@ Uint64 FAT_Read(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer)
 		memcpy( buffer, (void*)( tmpBuf + offset%bpc ), length );
 		free(tmpBuf);
 		LEAVE('i', 1);
-		return 1;
+		return length;
 	}
 	
 	preSkip = offset / bpc;
@@ -379,7 +388,7 @@ Uint64 FAT_Read(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer)
 	if (count == 1) {
 		free(tmpBuf);
 		LEAVE('i', 1);
-		return 1;
+		return length;
 	}
 	
 	cluster = FAT_int_GetFatValue(handle, cluster);
