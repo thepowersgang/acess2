@@ -11,7 +11,7 @@
 #endif
 
 // === FLAGS ===
-#define DEBUG_TRACE_SWITCH	1
+#define DEBUG_TRACE_SWITCH	0
 
 // === CONSTANTS ===
 #define	SWITCH_MAGIC	0xFFFACE55	// There is no code in this area

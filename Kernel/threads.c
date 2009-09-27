@@ -535,6 +535,8 @@ tThread *Threads_GetNextToRun(int CPU)
 		return gActiveThreads;
 	}
 	
+	Log("giNumActiveThreads=%i,giTotalTickets=%i",
+		giNumActiveThreads, giTotalTickets);
 	// Get the ticket number
 	ticket = number = rand() % giTotalTickets;
 	
