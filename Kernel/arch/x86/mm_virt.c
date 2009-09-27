@@ -383,6 +383,7 @@ Uint MM_ClearUser()
 Uint MM_Clone()
 {
 	Uint	i, j;
+	Uint	page = 0;
 	Uint	kStackBase = Proc_GetCurThread()->KernelStack - KERNEL_STACK_SIZE;
 	void	*tmp;
 	
@@ -400,29 +401,31 @@ Uint MM_Clone()
 		// Check if table is allocated
 		if( !(gaPageDir[i] & PF_PRESENT) ) {
 			gaTmpDir[i] = 0;
+			page += 1024;
 			continue;
 		}
 		
 		// Allocate new table
 		gaTmpDir[i] = MM_AllocPhys() | (gaPageDir[i] & 7);
-		INVLPG( &gaTmpTable[i*1024] );
+		INVLPG( &gaTmpTable[page] );
 		// Fill
-		for( j = 0; j < 1024; j ++ )
+		for( j = 0; j < 1024; j ++, page++ )
 		{
-			if( !(gaPageTable[i*1024+j] & PF_PRESENT) ) {
-				gaTmpTable[i*1024+j] = 0;
+			if( !(gaPageTable[page] & PF_PRESENT) ) {
+				gaTmpTable[page] = 0;
 				continue;
 			}
 			
 			// Refrence old page
-			MM_RefPhys( gaPageTable[i*1024+j] & ~0xFFF );
+			MM_RefPhys( gaPageTable[page] & ~0xFFF );
 			// Add to new table
-			if(gaPageTable[i*1024+j] & PF_WRITE) {
-				gaTmpTable[i*1024+j] = (gaPageTable[i*1024+j] & ~PF_WRITE) | PF_COW;
-				gaPageTable[i*1024+j] = (gaPageTable[i*1024+j] & ~PF_WRITE) | PF_COW;
+			if(gaPageTable[page] & PF_WRITE) {
+				gaTmpTable[page] = (gaPageTable[page] & ~PF_WRITE) | PF_COW;
+				gaPageTable[page] = (gaPageTable[page] & ~PF_WRITE) | PF_COW;
+				INVLPG( page << 12 );
 			}
 			else
-				gaTmpTable[i*1024+j] = gaPageTable[i*1024+j];
+				gaTmpTable[page] = gaPageTable[page];
 		}
 	}
 	
