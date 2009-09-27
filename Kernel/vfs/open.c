@@ -87,6 +87,8 @@ char *VFS_GetAbsPath(char *Path)
 		if(pos == -1)	pos = baseLen+pathLen;
 		else	pos += read;	// Else, Adjust to absolute
 		
+		Log("pos-read = %i", pos-read);
+		
 		// Check Length
 		if(pos - read <= 2)
 		{
