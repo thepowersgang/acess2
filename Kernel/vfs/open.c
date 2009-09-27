@@ -72,7 +72,7 @@ char *VFS_GetAbsPath(char *Path)
 		while( (pos = strpos( &ret[read], '/' )) != -1 && slashNum < MAX_PATH_SLASHES )
 		{
 			read += pos+1;
-			slashOffsets[slashNum++] = pos;
+			slashOffsets[slashNum++] = read;
 		}
 			
 		baseLen = cwdLen+1;
