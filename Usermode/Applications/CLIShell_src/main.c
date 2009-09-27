@@ -77,6 +77,11 @@ int main(int argc, char *argv[], char *envp[])
 		// Read Command line
 		sCommandStr = ReadCommandLine( &length );
 		
+		if(!sCommandStr) {
+			write(_stdout, 25, "PANIC: Out of heap space\n");
+			return -1;
+		}
+		
 		// Check if the command should be cached
 		if(gasCommandHistory == NULL || strcmp(sCommandStr, gasCommandHistory[giLastCommand]) != 0)
 		{
@@ -196,6 +201,12 @@ void Parse_Args(char *str, char **dest)
 {
 	 int	i = 1;
 	char	*buf = malloc( strlen(str) + 1 );
+	
+	if(buf == NULL) {
+		dest[0] = NULL;
+		Print("Parse_Args: Out of heap space!\n");
+		return ;
+	}
 	
 	strcpy(buf, str);
 	dest[0] = buf;

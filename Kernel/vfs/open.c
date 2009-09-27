@@ -121,6 +121,7 @@ char *VFS_GetAbsPath(char *Path)
 	
 	// `ret` should now be the absolute path
 	LEAVE('s', ret);
+	Log("VFS_GetAbsPath: RETURN '%s'", ret);
 	return ret;
 }
 
