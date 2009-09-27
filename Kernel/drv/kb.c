@@ -36,7 +36,7 @@ tDevFS_Driver	gKB_DevInfo = {
 };
 tKeybardCallback	gKB_Callback = NULL;
 Uint8	**gpKB_Map = gpKBDUS;
-Uint8	gbaKB_States[256];
+Uint8	gbaKB_States[3*256];
  int	gbKB_ShiftState = 0;
  int	gbKB_CapsState = 0;
  int	gbKB_KeyUp = 0;
@@ -109,9 +109,6 @@ void KB_IRQHandler()
 	// Check for unknown key
 	if(!ch && !gbKB_KeyUp)
 		Warning("UNK %i %x", giKB_KeyLayer, scancode);
-	
-	//if(keyNum > 128)
-		Log("keyNum = %i\n", keyNum);
 	
 	// Reset Layer
 	giKB_KeyLayer = 0;
