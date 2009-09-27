@@ -32,7 +32,7 @@ char *VFS_GetAbsPath(char *Path)
 	 int	pathLen = strlen(Path);
 	 int	read, write;
 	 int	pos, slashNum=1, baseLen;
-	Uint	slashOffsets[MAX_PATH_SLASHES] = {0};
+	Uint	slashOffsets[MAX_PATH_SLASHES] = {1};
 	char	*cwd = CFGPTR(CFG_VFS_CWD);
 	 int	cwdLen;
 	
@@ -100,7 +100,7 @@ char *VFS_GetAbsPath(char *Path)
 		// Only copy if the positions differ
 		if(read != write) {
 			Log("write = %i, read = %i", write, read);
-			memcpy( &ret[write], &ret[read], pos-read+1 );
+			memcpy( &ret[write], &ret[read], pos-read );
 		}
 		write = pos+1;
 		if(slashNum < MAX_PATH_SLASHES)
