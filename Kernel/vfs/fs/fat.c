@@ -349,9 +349,9 @@ Uint64 FAT_Read(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer)
 	}
 	// Clamp Size
 	if(offset + length > node->Size) {
-		Log("FAT_Read: Reading past EOF (%i+%i+ > %i), clamped to %i",
-			offset, length, node->Size, offset - node->Size);
-		length = offset - node->Size;
+		Log("FAT_Read: Reading past EOF (%lli + %lli > %lli), clamped to %lli",
+			offset, length, node->Size, node->Size - offset);
+		length = node->Size - offset;
 	}
 	
 	// Single Cluster including offset
