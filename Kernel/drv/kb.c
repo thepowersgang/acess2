@@ -36,7 +36,7 @@ tDevFS_Driver	gKB_DevInfo = {
 };
 tKeybardCallback	gKB_Callback = NULL;
 Uint8	**gpKB_Map = gpKBDUS;
-Uint8	gbaKB_States[3*256];
+Uint8	gbaKB_States[256];
  int	gbKB_ShiftState = 0;
  int	gbKB_CapsState = 0;
  int	gbKB_KeyUp = 0;
@@ -66,7 +66,7 @@ void KB_IRQHandler()
 {
 	Uint8	scancode;
 	Uint32	ch;
-	 int	keyNum;
+	// int	keyNum;
 
 	//if( inportb(0x64) & 0x20 )	return;
 	
@@ -105,7 +105,7 @@ void KB_IRQHandler()
 	
 	// Translate
 	ch = gpKB_Map[giKB_KeyLayer][scancode];
-	keyNum = giKB_KeyLayer * 256 + scancode;
+	//keyNum = giKB_KeyLayer * 256 + scancode;
 	// Check for unknown key
 	if(!ch && !gbKB_KeyUp)
 		Warning("UNK %i %x", giKB_KeyLayer, scancode);
@@ -117,7 +117,7 @@ void KB_IRQHandler()
 	if (gbKB_KeyUp)
 	{
 		gbKB_KeyUp = 0;
-		gbaKB_States[ keyNum ] = 0;	// Unset key state flag
+		gbaKB_States[ ch ] = 0;	// Unset key state flag
 		
 		if( !gbaKB_States[KEY_LSHIFT] && !gbaKB_States[KEY_RSHIFT] )
 			gbKB_ShiftState = 0;
@@ -129,7 +129,7 @@ void KB_IRQHandler()
 	}
 
 	// Set the bit relating to the key
-	gbaKB_States[keyNum] = 1;
+	gbaKB_States[ch] = 1;
 	if(ch == KEY_LSHIFT || ch == KEY_RSHIFT)
 		gbKB_ShiftState = 1;
 	
@@ -143,7 +143,7 @@ void KB_IRQHandler()
 	if(ch == 0 || ch & 0x80)		return;
 	
 	// --- Check for Kernel Magic Combos
-	if(gbaKB_States[KEY_LCTRL])// && gbaKB_States[KEY_LALT])
+	if(gbaKB_States[KEY_LCTRL] && gbaKB_States[KEY_LALT])
 	{
 		LOG("ch = 0x%02x", ch);
 		switch(ch)
