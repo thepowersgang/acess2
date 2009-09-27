@@ -94,7 +94,8 @@ void Threads_Init()
 		Threads_SetTickets(0);	// Never called randomly
 		cur->Quantum = 1;	// 1 slice quantum
 		for(;;) {
-			Log("Idle");
+			Log("---- Idle");
+			Threads_Dump();
 			__asm__ __volatile__ ("hlt");	// Just yeilds
 		}
 	}
