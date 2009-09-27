@@ -22,7 +22,6 @@ int main(int argc, char *argv[])
 	write(1, 13, "Hello, World!");
 	
 	tid = clone(CLONE_VM, 0);
-	__asm__ __volatile__("xchg %%bx, %%bx"::"a"(tid));
 	if(tid == 0)
 	{
 		execve(DEFAULT_SHELL, NULL, NULL);
