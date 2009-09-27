@@ -66,20 +66,10 @@ char *VFS_GetAbsPath(char *Path)
 		strcpy(ret, cwd);
 		ret[cwdLen] = '/';
 		strcpy(&ret[cwdLen+1], Path);
-	
-		// Pre-fill the slash positions
-		read = 1;	slashNum = 0;
-		while( (pos = strpos( &ret[read], '/' )) != -1 && slashNum < MAX_PATH_SLASHES )
-		{
-			read += pos+1;
-			slashOffsets[slashNum++] = read;
-		}
-			
-		baseLen = cwdLen+1;
 	}
 	
 	// Remove . and ..
-	read = write = baseLen;	// Cwd has already been parsed
+	read = write = 1;	// Cwd has already been parsed
 	for(; read < baseLen+pathLen; read = pos+1)
 	{
 		pos = strpos( &ret[read], '/' );
@@ -87,12 +77,12 @@ char *VFS_GetAbsPath(char *Path)
 		if(pos == -1)	pos = baseLen+pathLen;
 		else	pos += read;	// Else, Adjust to absolute
 		
-		Log("pos-read = %i", pos-read);
+		//Log("pos-read = %i", pos-read);
 		
 		// Check Length
 		if(pos - read <= 2)
 		{
-			Log("&ret[read] = '%s'", &ret[read]);
+			//Log("&ret[read] = '%s'", &ret[read]);
 			// Current Dir "."
 			if(strncmp(&ret[read], ".", pos-read) == 0)	continue;
 			// Parent ".."
