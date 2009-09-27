@@ -8,6 +8,7 @@
 #define	RANDOM_SEED	0xACE55052
 #define	RANDOM_A	0x00731ADE
 #define	RANDOM_C	12345
+#define	RANDOM_SPRUCE	0xf12b02b
 //                          Jan Feb Mar Apr May  Jun  Jul  Aug  Sept Oct  Nov  Dec
 const short DAYS_BEFORE[] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
 #define UNIX_TO_2K	((30*365*3600*24) + (7*3600*24))	//Normal years + leap years
@@ -325,7 +326,11 @@ Uint rand()
 	randomState ^= 0x9A3C5E78;
 	return ret;
 	#else
+	Uint	old = giRandomState;
 	giRandomState = (RANDOM_A*giRandomState + RANDOM_C) & 0xFFFFFFFF;
+	if(giRandomState == old) {
+		giRandomState += RANDOM_SPRUCE;
+	}
 	Log("giRandomState = 0x%x", giRandomState);
 	return giRandomState;
 	#endif
