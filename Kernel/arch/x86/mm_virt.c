@@ -161,8 +161,8 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 	Start >>= 12;	End >>= 12;
 	
 	Log("Directory Entries:");
-	for(page = Start >> 22;
-		page < End >> 22;
+	for(page = Start >> 10;
+		page < (End >> 10)+1;
 		page ++)
 	{
 		if(gaPageDir[page])
