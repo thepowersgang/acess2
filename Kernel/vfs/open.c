@@ -31,8 +31,9 @@ char *VFS_GetAbsPath(char *Path)
 	char	*ret;
 	 int	pathLen = strlen(Path);
 	 int	read, write;
-	 int	pos, slashNum=1, baseLen;
-	Uint	slashOffsets[MAX_PATH_SLASHES] = {1};
+	 int	pos, baseLen;
+	 int	slashNum = 0;
+	Uint	slashOffsets[MAX_PATH_SLASHES];
 	char	*cwd = CFGPTR(CFG_VFS_CWD);
 	 int	cwdLen;
 	
@@ -89,9 +90,12 @@ char *VFS_GetAbsPath(char *Path)
 			if(strncmp(&ret[read], "..", pos-read) == 0)
 			{
 				// If there is no higher, silently ignore
-				if(slashNum < 2)	continue;
+				if(slashNum < 1) {
+					write = 1;
+					continue;
+				}
 				// Reverse write pointer
-				write = slashOffsets[ --slashNum - 1 ];
+				write = slashOffsets[ --slashNum ];
 				continue;
 			}
 		}
@@ -102,7 +106,6 @@ char *VFS_GetAbsPath(char *Path)
 			Log("write = %i, read = %i", write, read);
 			memcpy( &ret[write], &ret[read], pos-read+1 );
 		}
-		write += (pos-read)+1;
 		
 		if(slashNum < MAX_PATH_SLASHES)
 			slashOffsets[ slashNum++ ] = write;
@@ -112,6 +115,9 @@ char *VFS_GetAbsPath(char *Path)
 			LEAVE('n');
 			return NULL;
 		}
+		
+		// Increment write pointer
+		write += (pos-read)+1;
 	}
 	
 	// `ret` should now be the absolute path
