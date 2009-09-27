@@ -311,7 +311,7 @@ int Proc_Clone(Uint *Err, Uint Flags)
 	// Lock list and add to active
 	Threads_AddActive(newThread);
 	
-	Threads_Dump();
+	//Threads_Dump();
 	
 	return newThread->TID;
 }

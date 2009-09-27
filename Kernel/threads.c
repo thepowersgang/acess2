@@ -96,8 +96,6 @@ void Threads_Init()
 		cur->Quantum = 1;	// 1 slice quantum
 		HALT();
 		for(;;) {
-			//Log("---- Idle");
-			//Threads_Dump();
 			HALT();	// Just yeilds
 		}
 	}
@@ -142,9 +140,7 @@ void Threads_SetTickets(int Num)
  * \brief Wait for a task to change state
  */
 int Threads_WaitTID(int TID, int *status)
-{
-	Threads_Dump();
-	
+{	
 	// Any Child
 	if(TID == -1) {
 		
