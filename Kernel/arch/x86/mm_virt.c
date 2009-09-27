@@ -9,6 +9,7 @@
  * 0xFE - Unused
  * 0xFF - System Calls / Kernel's User Code
  */
+#define DEBUG	1
 #include <common.h>
 #include <mm_phys.h>
 #include <proc.h>
