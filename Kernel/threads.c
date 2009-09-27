@@ -335,7 +335,7 @@ void Threads_Kill(tThread *Thread, int Status)
  */
 void Threads_Yield()
 {
-	Proc_GetCurThread()->Quantum = 0;
+	Proc_GetCurThread()->Remaining = 0;
 	HALT();
 }
 
