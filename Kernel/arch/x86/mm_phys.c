@@ -116,6 +116,7 @@ tPAddr MM_AllocPhys()
 
 	// Release Spinlock
 	RELEASE( &giPhysAlloc );
+	LOG("Allocated 0x%x\n", ret);
 	//LOG("ret = %x", ret);
 	return ret;
 }
@@ -174,6 +175,7 @@ void MM_DerefPhys(tPAddr Addr)
 	// Mark as free in bitmaps
 	if( gaPageReferences[ Addr ] == 0 )
 	{
+		LOG("Freed 0x%x\n", Addr);
 		gaPageBitmap[ Addr / 32 ] &= ~(1 << (Addr&31));
 		if(gaPageReferences[ Addr ] == 0)
 			gaSuperBitmap[ Addr >> 10 ] &= ~(1 << ((Addr >> 5)&31));
