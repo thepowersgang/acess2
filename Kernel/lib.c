@@ -7,7 +7,7 @@
 // === CONSTANTS ===
 #define	RANDOM_SEED	0xACE55052
 #define	RANDOM_A	0x00731ADE
-#define	RANDOM_C	0xBEEF1000
+#define	RANDOM_C	12345
 //                          Jan Feb Mar Apr May  Jun  Jul  Aug  Sept Oct  Nov  Dec
 const short DAYS_BEFORE[] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
 #define UNIX_TO_2K	((30*365*3600*24) + (7*3600*24))	//Normal years + leap years
