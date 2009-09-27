@@ -29,6 +29,7 @@ extern tThread	*gActiveThreads;
 extern tThread	*gSleepingThreads;
 extern tThread	*gDeleteThreads;
 extern tThread	*Threads_GetNextToRun(int CPU);
+extern void	Threads_Dump();
 
 // === PROTOTYPES ===
 void	ArchThreads_Init();
@@ -312,6 +313,8 @@ int Proc_Clone(Uint *Err, Uint Flags)
 	giTotalTickets += newThread->NumTickets;
 	RELEASE( &giThreadListLock );
 	
+	Threads_Dump();
+	
 	return newThread->TID;
 }
 
@@ -464,7 +467,7 @@ void Proc_Scheduler(int CPU)
 	
 	// Check if there is any tasks running
 	if(giNumActiveThreads == 0) {
-		Log("No Active threads, sleeping\n");
+		Log("No Active threads, sleeping");
 		__asm__ __volatile__ ("hlt");
 		return;
 	}
