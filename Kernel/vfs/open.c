@@ -102,9 +102,10 @@ char *VFS_GetAbsPath(char *Path)
 			Log("write = %i, read = %i", write, read);
 			memcpy( &ret[write], &ret[read], pos-read );
 		}
-		write = pos+1;
+		write += (pos-read)+1;
+		
 		if(slashNum < MAX_PATH_SLASHES)
-			slashOffsets[ slashNum++ ] = pos;
+			slashOffsets[ slashNum++ ] = write;
 		else {
 			LOG("Path '%s' has too many elements", Path);
 			free(ret);
