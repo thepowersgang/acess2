@@ -31,8 +31,8 @@ char *VFS_GetAbsPath(char *Path)
 	char	*ret;
 	 int	pathLen = strlen(Path);
 	 int	read, write;
-	 int	pos, slashNum=0, baseLen;
-	Uint	slashOffsets[MAX_PATH_SLASHES];
+	 int	pos, slashNum=1, baseLen;
+	Uint	slashOffsets[MAX_PATH_SLASHES] = {0};
 	char	*cwd = CFGPTR(CFG_VFS_CWD);
 	 int	cwdLen;
 	
@@ -69,7 +69,7 @@ char *VFS_GetAbsPath(char *Path)
 	}
 	
 	// Remove . and ..
-	read = write = 0;	// Cwd has already been parsed
+	read = write = 1;	// Cwd has already been parsed
 	for(; read < baseLen+pathLen; read = pos+1)
 	{
 		pos = strpos( &ret[read], '/' );
