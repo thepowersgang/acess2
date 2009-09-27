@@ -510,7 +510,8 @@ void VFS_Close(int FD)
 int VFS_ChDir(char *New)
 {
 	char	*buf;
-	tVFS_Node	*node;
+	 int	fd;
+	tVFS_Handle	*h;
 	
 	// Create Absolute
 	buf = VFS_GetAbsPath(New);
@@ -519,23 +520,25 @@ int VFS_ChDir(char *New)
 		return -1;
 	}
 	
-	// Check if path is valid
-	node = VFS_ParsePath(buf, NULL);
-	if(!node) {
+	// Check if path exists
+	fd = VFS_Open(buf, VFS_OPENFLAG_EXEC);
+	if(fd == -1) {
 		Log("VFS_ChDir: Path is invalid");
 		return -1;
 	}
 	
-	// Check if is a directory
-	if( !(node->Flags & VFS_FFLAG_DIRECTORY) ) {
-		Log("VFS_ChDir: Not a directory");
-		if(node->Close)	node->Close(node);
+	// Get node so we can check for directory
+	h = VFS_GetHandle(fd);
+	if( !(h->Node->Flags & VFS_FFLAG_DIRECTORY) ) {
+		Log("VFS_ChDir: Path is not a directory");
+		VFS_Close(fd);
 		return -1;
 	}
-	// Close node
-	if(node->Close)	node->Close(node);
 	
-	// Free old and set new
+	// Close file
+	VFS_Close(fd);
+	
+	// Free working directory and set new one
 	free( CFGPTR(CFG_VFS_CWD) );
 	CFGPTR(CFG_VFS_CWD) = buf;
 	
