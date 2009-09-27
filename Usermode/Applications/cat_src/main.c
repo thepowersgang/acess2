@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	printf("Contents of `%s'\n", argv[1]);
+	//printf("Contents of `%s'\n", argv[1]);
 	fd = open(argv[1], OPENFLAG_READ);
 	if(fd == -1) {
 		printf("Unable to open '%s' for reading\n", argv[1]);
@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
 
 	do {
 		num = read(fd, BUF_SIZE, buf);
-		printf("num = %i\n", num);
+		//printf("num = %i\n", num);
 		buf[num] = '\0';
 		printf("%s", buf);
 	} while(num == BUF_SIZE);
