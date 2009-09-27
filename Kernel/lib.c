@@ -7,13 +7,16 @@
 // === CONSTANTS ===
 #define	RANDOM_SEED	0xACE55052
 #define	RANDOM_A	0x12231ADE
-#define	RANDOM_C	0x1BADBEEF
+#define	RANDOM_C	0xBEEF1BAD
 //                          Jan Feb Mar Apr May  Jun  Jul  Aug  Sept Oct  Nov  Dec
 const short DAYS_BEFORE[] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
 #define UNIX_TO_2K	((30*365*3600*24) + (7*3600*24))	//Normal years + leap years
 
 // === PROTOTYPES ===
  int	ReadUTF8(Uint8 *str, Uint32 *Val);
+
+// === GLOBALS ===
+static Uint	giRandomState = RANDOM_SEED;
 
 // === CODE ===
 static const char cUCDIGITS[] = "0123456789ABCDEF";
@@ -316,15 +319,15 @@ Sint64 timestamp(int sec, int mins, int hrs, int day, int month, int year)
 Uint rand()
 {
 	#if 0
-	static Uint	randomState = RANDOM_SEED;
-	Uint	ret = randomState;
+	Uint	ret = giRandomState;
 	 int	roll = randomState & 31;
 	randomState = (randomState << roll) | (randomState >> (32-roll));
 	randomState ^= 0x9A3C5E78;
 	return ret;
 	#else
-	static Uint	randomState = RANDOM_SEED;
-	return randomState = (RANDOM_A*randomState + RANDOM_C) & 0xFFFFFFFF;
+	giRandomState = (RANDOM_A*giRandomState + RANDOM_C) & 0xFFFFFFFF;
+	Log("giRandomState = 0x%x", giRandomState);
+	return giRandomState;
 	#endif
 }
 
