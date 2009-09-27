@@ -2,7 +2,7 @@
  * Acess2
  * Common Binary Loader
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <common.h>
 #include <binary.h>
 
