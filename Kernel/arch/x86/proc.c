@@ -298,6 +298,7 @@ int Proc_Clone(Uint *Err, Uint Flags)
 	newThread->SavedState.EBP = ebp;
 	eip = GetEIP();
 	if(eip == SWITCH_MAGIC) {
+		Log("Thread %i running", Proc_GetCurThread()->TID);
 		outb(0x20, 0x20);	// ACK Timer and return as child
 		return 0;
 	}
