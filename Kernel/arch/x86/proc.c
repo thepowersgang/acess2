@@ -10,6 +10,9 @@
 # include <mp.h>
 #endif
 
+// === FLAGS ===
+#define DEBUG_TRACE_SWITCH	1
+
 // === CONSTANTS ===
 #define	SWITCH_MAGIC	0xFFFACE55	// There is no code in this area
 #define TIMER_DIVISOR	11931	//~100Hz
@@ -496,6 +499,14 @@ void Proc_Scheduler(int CPU)
 		Warning("Hmm... Threads_GetNextToRun returned NULL, I don't think this should happen.\n");
 		return;
 	}
+	
+	#if DEBUG_TRACE_SWITCH
+	Log("Switching to task %i, CR3 = 0x%x, EIP = %p",
+		thread->TID,
+		thread->MemState.CR3,
+		thread->SavedState.EIP
+		);
+	#endif
 	
 	// Set current thread
 	gCurrentThread = thread;

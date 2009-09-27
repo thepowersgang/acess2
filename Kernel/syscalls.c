@@ -57,8 +57,8 @@ void SyscallHandler(tSyscallRegs *Regs)
 	case SYS_CLONE:
 		// Call clone system call
 		ret = Proc_Clone(&err, Regs->Arg1);
-		// Change user stack if requested
-		if(ret == 0 && !(Regs->Arg1 & CLONE_VM))
+		// Change user stack if a new stack address is passed
+		if(ret == 0 && Regs->Arg2)
 			Regs->StackPointer = Regs->Arg2;
 		break;
 	
