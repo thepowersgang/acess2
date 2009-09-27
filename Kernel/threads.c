@@ -137,6 +137,8 @@ void Threads_SetTickets(int Num)
  */
 int Threads_WaitTID(int TID, int *status)
 {
+	Threads_Dump();
+	
 	// Any Child
 	if(TID == -1) {
 		

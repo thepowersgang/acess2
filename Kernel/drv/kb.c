@@ -142,7 +142,6 @@ void KB_IRQHandler()
 	// Ignore Non-Printable Characters
 	if(ch == 0 || ch & 0x80)		return;
 	
-	
 	// --- Check for Kernel Magic Combos
 	if(gbaKB_States[KEY_LCTRL])// && gbaKB_States[KEY_LALT])
 	{
