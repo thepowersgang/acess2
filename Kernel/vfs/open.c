@@ -92,6 +92,7 @@ char *VFS_GetAbsPath(char *Path)
 		// Check Length
 		if(pos - read <= 2)
 		{
+			Log("&ret[read] = '%s'", &ret[read]);
 			// Current Dir "."
 			if(strncmp(&ret[read], ".", pos-read) == 0)	continue;
 			// Parent ".."
