@@ -79,12 +79,9 @@ char *VFS_GetAbsPath(char *Path)
 		if(pos == -1)	pos = endLen;
 		else	pos += read;	// Else, Adjust to absolute
 		
-		//Log("pos-read = %i", pos-read);
-		
 		// Check Length
 		if(pos - read <= 2)
 		{
-			//Log("&ret[read] = '%s'", &ret[read]);
 			// Current Dir "."
 			if(strncmp(&ret[read], ".", pos-read) == 0)	continue;
 			// Parent ".."
@@ -104,9 +101,9 @@ char *VFS_GetAbsPath(char *Path)
 		
 		// Only copy if the positions differ
 		if(read != write) {
-			Log("write = %i, read = %i, pos-read+1 = %i", write, read, pos-read+1);
+			//Log("write = %i, read = %i, pos-read+1 = %i", write, read, pos-read+1);
 			memcpy( &ret[write], &ret[read], pos-read+1 );
-			Log("ret = '%s'", ret);
+			//Log("ret = '%s'", ret);
 		}
 		
 		if(slashNum < MAX_PATH_SLASHES)
