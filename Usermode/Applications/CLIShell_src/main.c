@@ -13,6 +13,7 @@
 // ==== PROTOTYPES ====
 char	*ReadCommandLine(int *Length);
 void	Parse_Args(char *str, char **dest);
+void	CallCommand(char **Args);
 void	Command_Colour(int argc, char **argv);
 void	Command_Clear(int argc, char **argv);
 void	Command_Cd(int argc, char **argv);
@@ -30,6 +31,7 @@ struct	{
 #define	BUILTIN_COUNT	(sizeof(cBUILTINS)/sizeof(cBUILTINS[0]))
 
 // ==== LOCAL VARIABLES ====
+char	**gasEnvironment;
 char	gsCommandBuffer[1024];
 char	*gsCurrentDirectory = NULL;
 char	gsTmpBuffer[1024];
@@ -43,10 +45,10 @@ int main(int argc, char *argv[], char *envp[])
 	char	*sCommandStr;
 	char	*saArgs[32];
 	 int	length = 0;
-	 int	pid = -1;
 	 int	iArgCount = 0;
 	 int	bCached = 1;
-	t_sysFInfo	info;
+	
+	gasEnvironment = envp;
 	
 	Command_Clear(0, NULL);
 	
@@ -61,7 +63,6 @@ int main(int argc, char *argv[], char *envp[])
 		}
 	}	
 	
-	write(_stdout, 1, "\n");
 	write(_stdout, 22, "Acess Shell Version 3\n");
 	write(_stdout,  2, "\n");
 	for(;;)
@@ -111,35 +112,8 @@ int main(int argc, char *argv[], char *envp[])
 		
 		if(length != BUILTIN_COUNT)	continue;
 		
-		// - Calling a file
-		GeneratePath(saArgs[1], gsCurrentDirectory, gsTmpBuffer);
-		// Use length in place of fp
-		length = open(gsTmpBuffer, 0);
-		// Check file existence
-		if(length == -1) {
-			Print("Unknown Command: `");Print(saArgs[1]);Print("'\n");	// Error Message
-			continue;
-		}
-		// Check if the file is a directory
-		finfo( length, &info, 0 );
-		close( length );
-		if(info.flags & FILEFLAG_DIRECTORY) {
-			Print("`");Print(saArgs[1]);	// Error Message
-			Print("' is a directory.\n");
-			continue;
-		}
-		// Load new executable
-		pid = clone(CLONE_VM, 0);
-		printf("pid = %i\n", pid);
-		if(pid == 0)	execve(gsTmpBuffer, &saArgs[1], envp);
-		if(pid <= 0) {
-			Print("Unablt to create process: `");Print(gsTmpBuffer);Print("'\n");	// Error Message
-			//SysDebug("pid = %i\n", pid);
-		}
-		else {
-			 int	status;
-			waittid(pid, &status);
-		}
+		// Shall we?
+		CallCommand( &saArgs[1] );
 	}
 }
 
@@ -250,6 +224,50 @@ void Parse_Args(char *str, char **dest)
 	if(i == 1) {
 		free(buf);
 		dest[0] = NULL;
+	}
+}
+
+/**
+ * \fn void CallCommand(char **Args)
+ */
+void CallCommand(char **Args)
+{
+	t_sysFInfo	info;
+	 int	pid = -1;
+	 int	fd = 0;
+	
+	
+	// - Calling a file
+	GeneratePath(Args[0], gsCurrentDirectory, gsTmpBuffer);
+	
+	
+	// Check file existence
+	fd = open(gsTmpBuffer, 0);
+	if(fd == -1) {
+		Print("Unknown Command: `");Print(Args[0]);Print("'\n");	// Error Message
+		return ;
+	}
+	
+	// Check if the file is a directory
+	finfo( fd, &info, 0 );
+	close( fd );
+	if(info.flags & FILEFLAG_DIRECTORY) {
+		Print("`");Print(gsTmpBuffer);	// Error Message
+		Print("' is a directory.\n");
+		return ;
+	}
+	
+	// Create new process
+	pid = clone(CLONE_VM, 0);
+	// Start Task
+	if(pid == 0)
+		execve(gsTmpBuffer, Args, gasEnvironment);
+	if(pid <= 0) {
+		Print("Unablt to create process: `");Print(gsTmpBuffer);Print("'\n");	// Error Message
+	}
+	else {
+		 int	status;
+		waittid(pid, &status);
 	}
 }
 

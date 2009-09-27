@@ -84,6 +84,6 @@ int CallUser(Uint entry, Uint sp)
 	__asm__ __volatile__ (
 	"mov %%eax, %%esp;\n\t"
 	"jmp *%%ecx"
-	: : "a"(sp-4), "c"(entry));
+	: : "a"(sp), "c"(entry));
 	for(;;);
 }
