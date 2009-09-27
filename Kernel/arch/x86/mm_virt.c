@@ -117,6 +117,7 @@ void MM_PageFault(Uint Addr, Uint ErrorCode, tRegs *Regs)
 			gaPageTable[Addr>>12] &= PF_USER;
 			gaPageTable[Addr>>12] |= paddr|PF_PRESENT|PF_WRITE;
 		}
+		LOG("Duplicated page at %p to 0x%x", Addr&~0xFFF, gaPageTable[Addr>>12]);
 		INVLPG( Addr & ~0xFFF );
 		//LEAVE('-')
 		return;
