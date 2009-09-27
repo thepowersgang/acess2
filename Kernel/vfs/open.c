@@ -102,7 +102,7 @@ char *VFS_GetAbsPath(char *Path)
 			Log("write = %i, read = %i", write, read);
 			memcpy( &ret[write], &ret[read], pos-read );
 		}
-		write += (pos-read)+1;
+		write += (pos-read);
 		
 		if(slashNum < MAX_PATH_SLASHES)
 			slashOffsets[ slashNum++ ] = write;
