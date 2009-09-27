@@ -538,8 +538,9 @@ int VFS_ChDir(char *New)
 	// Close file
 	VFS_Close(fd);
 	
-	// Free working directory and set new one
-	free( CFGPTR(CFG_VFS_CWD) );
+	// Free old working directory
+	if( CFGPTR(CFG_VFS_CWD) )	free( CFGPTR(CFG_VFS_CWD) );
+	// Set new
 	CFGPTR(CFG_VFS_CWD) = buf;
 	
 	Log("Updated CWD to '%s'", buf);

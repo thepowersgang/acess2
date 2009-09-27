@@ -236,6 +236,7 @@ void Proc_ChangeStack()
 int Proc_Clone(Uint *Err, Uint Flags)
 {
 	tThread	*newThread;
+	tThread	*cur = Proc_GetCurThread();
 	Uint	eip, esp, ebp;
 	
 	__asm__ __volatile__ ("mov %%esp, %0": "=r"(esp));
@@ -248,8 +249,10 @@ int Proc_Clone(Uint *Err, Uint Flags)
 		*Err = -ENOMEM;
 		return -1;
 	}
-	// Base new thread on old
-	memcpy(newThread, gCurrentThread, sizeof(tThread));
+	
+	// Base new thread on current
+	memcpy(newThread, cur, sizeof(tThread));
+	
 	// Initialise Memory Space (New Addr space or kernel stack)
 	if(Flags & CLONE_VM) {
 		newThread->TGID = newThread->TID;
@@ -266,20 +269,20 @@ int Proc_Clone(Uint *Err, Uint Flags)
 		}
 
 		// Get ESP as a used size
-		esp = gCurrentThread->KernelStack - esp;
+		esp = cur->KernelStack - esp;
 		// Copy used stack
-		memcpy( (void*)(newThread->KernelStack - esp), (void*)(gCurrentThread->KernelStack - esp), esp );
+		memcpy( (void*)(newThread->KernelStack - esp), (void*)(cur->KernelStack - esp), esp );
 		// Get ESP as an offset in the new stack
 		esp = newThread->KernelStack - esp;
 		// Adjust EBP
-		ebp = newThread->KernelStack - (gCurrentThread->KernelStack - ebp);
+		ebp = newThread->KernelStack - (cur->KernelStack - ebp);
 
 		// Repair EBPs & Stack Addresses
 		// Catches arguments also, but may trash stack-address-like values
 		for(tmpEbp = esp; tmpEbp < newThread->KernelStack; tmpEbp += 4)
 		{
-			if(oldEsp < *(Uint*)tmpEbp && *(Uint*)tmpEbp < gCurrentThread->KernelStack)
-				*(Uint*)tmpEbp += newThread->KernelStack - gCurrentThread->KernelStack;
+			if(oldEsp < *(Uint*)tmpEbp && *(Uint*)tmpEbp < cur->KernelStack)
+				*(Uint*)tmpEbp += newThread->KernelStack - cur->KernelStack;
 		}
 	}
 
@@ -287,7 +290,11 @@ int Proc_Clone(Uint *Err, Uint Flags)
 	newThread->Next = NULL;
 	newThread->IsLocked = 0;
 	newThread->TID = giNextTID++;
-	newThread->PTID = gCurrentThread->TID;
+	newThread->PTID = cur->TID;
+	
+	// Create copy of name
+	newThread->ThreadName = malloc(strlen(cur->ThreadName)+1);
+	strcpy(newThread->ThreadName, cur->ThreadName);
 
 	// Clear message list (messages are not inherited)
 	newThread->Messages = NULL;
