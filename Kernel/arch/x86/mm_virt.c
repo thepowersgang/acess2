@@ -386,10 +386,12 @@ Uint MM_ClearUser()
 		}
 		
 		MM_DerefPhys( gaPageDir[i] & ~0xFFF );
+		gaPageDir[i] = 0;
+		INVLPG( &gaPageTable[i*1024] );
 	}
+	INVLPG( gaPageDir );
 	
-	
-	return *gTmpCR3;
+	return *gaPageCR3;
 }
 
 /**
