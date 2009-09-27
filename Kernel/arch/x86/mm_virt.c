@@ -159,6 +159,22 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 	const tPAddr	MASK = ~0xF98;
 	
 	Start >>= 12;	End >>= 12;
+	
+	Log("Directory Entries:");
+	for(page = Start >> 22;
+		page < End >> 22;
+		page ++)
+	{
+		if(gaPageDir[page])
+		{
+			Log(" 0x%08x-0x%08x :: 0x%08x",
+				page<<22, ((page+1)<<22)-1,
+				gaPageDir[page]&~0xFFF
+				);
+		}
+	}
+	
+	Log("Table Entries:");
 	for(page = Start, curPos = Start<<12;
 		page < End;
 		curPos += 0x1000, page++)
@@ -168,7 +184,7 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 		||  (gaPageTable[page] & MASK) != expected)
 		{
 			if(expected) {
-				Log("0x%08x-0x%08x => 0x%08x-0x%08x (%s%s%s%s)",
+				Log(" 0x%08x-0x%08x => 0x%08x-0x%08x (%s%s%s%s)",
 					rangeStart, curPos - 1,
 					gaPageTable[rangeStart>>12] & ~0xFFF,
 					(expected & ~0xFFF) - 1,
