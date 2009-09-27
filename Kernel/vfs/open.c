@@ -31,7 +31,7 @@ char *VFS_GetAbsPath(char *Path)
 	char	*ret;
 	 int	pathLen = strlen(Path);
 	 int	read, write;
-	 int	pos, baseLen;
+	 int	pos, endLen;
 	 int	slashNum = 0;
 	Uint	slashOffsets[MAX_PATH_SLASHES];
 	char	*cwd = CFGPTR(CFG_VFS_CWD);
@@ -53,17 +53,18 @@ char *VFS_GetAbsPath(char *Path)
 	
 	// Check if the path is already absolute
 	if(Path[0] == '/') {
+		endLen = pathLen + 1;
 		ret = malloc(pathLen + 1);
 		if(!ret) {
 			Warning("VFS_GetAbsPath - malloc() returned NULL");
 			return NULL;
 		}
 		strcpy(ret, Path);
-		baseLen = 1;
 	} else {
 		cwdLen = strlen(cwd);
+		endLen = cwdLen + pathLen + 2;
 		// Prepend the current directory
-		ret = malloc(cwdLen+pathLen+2);
+		ret = malloc(endLen);
 		strcpy(ret, cwd);
 		ret[cwdLen] = '/';
 		strcpy(&ret[cwdLen+1], Path);
@@ -71,11 +72,11 @@ char *VFS_GetAbsPath(char *Path)
 	
 	// Remove . and ..
 	read = write = 1;	// Cwd has already been parsed
-	for(; read < baseLen+pathLen; read = pos+1)
+	for(; read < endLen; read = pos+1)
 	{
 		pos = strpos( &ret[read], '/' );
 		// If we are in the last section, force a break at the end of the itteration
-		if(pos == -1)	pos = baseLen+pathLen;
+		if(pos == -1)	pos = endLen;
 		else	pos += read;	// Else, Adjust to absolute
 		
 		//Log("pos-read = %i", pos-read);
