@@ -105,7 +105,7 @@ void MM_PageFault(Uint Addr, Uint ErrorCode, tRegs *Regs)
 	 && gaPageTable[Addr>>12] & PF_COW )
 	{
 		tPAddr	paddr;
-		if(MM_GetRefCount( gaPageTable[Addr>>12] & ~0xFFF ) == 0)
+		if(MM_GetRefCount( gaPageTable[Addr>>12] & ~0xFFF ) == 1)
 		{
 			gaPageTable[Addr>>12] &= ~PF_COW;
 			gaPageTable[Addr>>12] |= PF_PRESENT|PF_WRITE;
