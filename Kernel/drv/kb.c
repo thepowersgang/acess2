@@ -111,7 +111,7 @@ void KB_IRQHandler()
 		Warning("UNK %i %x", giKB_KeyLayer, scancode);
 	
 	if(keyNum > 128)
-		Log("keyNum = %i\n");
+		Log("keyNum = %i\n", keyNum);
 	
 	// Reset Layer
 	giKB_KeyLayer = 0;
