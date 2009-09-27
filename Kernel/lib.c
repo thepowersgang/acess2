@@ -319,21 +319,12 @@ Sint64 timestamp(int sec, int mins, int hrs, int day, int month, int year)
  */
 Uint rand()
 {
-	#if 0
-	Uint	ret = giRandomState;
-	 int	roll = randomState & 31;
-	randomState = (randomState << roll) | (randomState >> (32-roll));
-	randomState ^= 0x9A3C5E78;
-	return ret;
-	#else
 	Uint	old = giRandomState;
+	// Get the next state value
 	giRandomState = (RANDOM_A*giRandomState + RANDOM_C) & 0xFFFFFFFF;
-	if(giRandomState == old) {
-		giRandomState += RANDOM_SPRUCE;
-	}
-	Log("giRandomState = 0x%x", giRandomState);
+	// Check if it has changed, and if it hasn't, change it
+	if(giRandomState == old)	giRandomState += RANDOM_SPRUCE;
 	return giRandomState;
-	#endif
 }
 
 EXPORT(timestamp);

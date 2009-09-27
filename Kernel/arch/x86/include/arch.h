@@ -9,7 +9,7 @@
 // - Memory Layout
 #define	MM_USER_MIN	0x00200000
 #define	USER_STACK_SZ	0x00010000
-#define	USER_STACK_TOP	0x00200000
+#define	USER_STACK_TOP	0x00800000
 #define	MM_USER_MAX	0xBC000000
 #define	MM_PPD_MIN	0xBC000000	// Per-Process Data
 #define	MM_PPD_VFS	0xBC000000	// 

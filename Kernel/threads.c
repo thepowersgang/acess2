@@ -552,12 +552,12 @@ tThread *Threads_GetNextToRun(int CPU)
 		return gActiveThreads;
 	}
 	
-	Log(" Threads_GetNextToRun: giNumActiveThreads=%i,giTotalTickets=%i",
-		giNumActiveThreads, giTotalTickets);
+	//Log(" Threads_GetNextToRun: giNumActiveThreads=%i,giTotalTickets=%i",
+	//	giNumActiveThreads, giTotalTickets);
 	// Get the ticket number
 	ticket = number = rand() % giTotalTickets;
 	
-	Log(" Threads_GetNextToRun: ticket = %i", ticket);
+	//Log(" Threads_GetNextToRun: ticket = %i", ticket);
 	
 	// Find the next thread
 	for(thread=gActiveThreads;thread;thread=thread->Next)
