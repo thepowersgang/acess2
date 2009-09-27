@@ -93,7 +93,10 @@ void Threads_Init()
 		cur->ThreadName = "Idle Thread";
 		Threads_SetTickets(0);	// Never called randomly
 		cur->Quantum = 1;	// 1 slice quantum
-		for(;;)	__asm__ __volatile__ ("hlt");	// Just yeilds
+		for(;;) {
+			Log("Idle");
+			__asm__ __volatile__ ("hlt");	// Just yeilds
+		}
 	}
 	#endif
 	
