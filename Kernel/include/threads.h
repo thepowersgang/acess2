@@ -62,5 +62,6 @@ enum {
 extern tThread	*Proc_GetCurThread();
 extern tThread	*Threads_GetThread(Uint TID);
 extern void	Threads_Wake(tThread *Thread);
+extern void	Threads_AddActive(tThread *Thread);
 
 #endif

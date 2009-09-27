@@ -309,12 +309,7 @@ int Proc_Clone(Uint *Err, Uint Flags)
 	newThread->SavedState.EIP = eip;
 	
 	// Lock list and add to active
-	LOCK( &giThreadListLock );
-	newThread->Next = gActiveThreads;
-	gActiveThreads = newThread;
-	giNumActiveThreads ++;
-	giTotalTickets += newThread->NumTickets;
-	RELEASE( &giThreadListLock );
+	Threads_AddActive(newThread);
 	
 	Threads_Dump();
 	

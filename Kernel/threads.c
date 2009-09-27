@@ -30,6 +30,7 @@ void	Threads_Kill(tThread *Thread, int Status);
 void	Threads_Yield();
 void	Threads_Sleep();
 void	Threads_Wake(tThread *Thread);
+void	Threads_AddActive(tThread *Thread);
  int	Threads_GetPID();
  int	Threads_GetTID();
  int	Threads_GetUID();
@@ -424,6 +425,22 @@ void Threads_Wake(tThread *Thread)
 		Warning("Thread_Wake - Unknown process status (%i)\n", Thread->Status);
 		break;
 	}
+}
+
+/**
+ * \fn void Threads_AddActive(tThread *Thread)
+ * \brief Adds a thread to the active queue
+ */
+void Threads_AddActive(tThread *Thread)
+{
+	LOCK( &giThreadListLock );
+	Thread->Next = gActiveThreads;
+	gActiveThreads = Thread;
+	giNumActiveThreads ++;
+	giTotalTickets += Thread->NumTickets;
+	Log("Threads_AddActive: giNumActiveThreads = %i, giTotalTickets = %i",
+		giNumActiveThreads, giTotalTickets);
+	RELEASE( &giThreadListLock );
 }
 
 #if 0
