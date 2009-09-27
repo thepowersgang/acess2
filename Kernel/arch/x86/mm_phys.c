@@ -176,7 +176,7 @@ void MM_DerefPhys(tPAddr Addr)
 	// Mark as free in bitmaps
 	if( gaPageReferences[ Addr ] == 0 )
 	{
-		LOG("Freed 0x%x\n", Addr);
+		LOG("Freed 0x%x by %p\n", Addr<<12, __builtin_return_address(0));
 		gaPageBitmap[ Addr / 32 ] &= ~(1 << (Addr&31));
 		if(gaPageReferences[ Addr ] == 0)
 			gaSuperBitmap[ Addr >> 10 ] &= ~(1 << ((Addr >> 5)&31));
