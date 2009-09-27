@@ -438,8 +438,8 @@ void Threads_AddActive(tThread *Thread)
 	gActiveThreads = Thread;
 	giNumActiveThreads ++;
 	giTotalTickets += Thread->NumTickets;
-	Log("Threads_AddActive: giNumActiveThreads = %i, giTotalTickets = %i",
-		giNumActiveThreads, giTotalTickets);
+	//Log("Threads_AddActive: giNumActiveThreads = %i, giTotalTickets = %i",
+	//	giNumActiveThreads, giTotalTickets);
 	RELEASE( &giThreadListLock );
 }
 
@@ -552,10 +552,12 @@ tThread *Threads_GetNextToRun(int CPU)
 		return gActiveThreads;
 	}
 	
-	Log("giNumActiveThreads=%i,giTotalTickets=%i",
+	Log(" Threads_GetNextToRun: giNumActiveThreads=%i,giTotalTickets=%i",
 		giNumActiveThreads, giTotalTickets);
 	// Get the ticket number
 	ticket = number = rand() % giTotalTickets;
+	
+	Log(" Threads_GetNextToRun: ticket = %i", ticket);
 	
 	// Find the next thread
 	for(thread=gActiveThreads;thread;thread=thread->Next)
