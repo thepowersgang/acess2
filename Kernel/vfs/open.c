@@ -51,6 +51,10 @@ char *VFS_GetAbsPath(char *Path)
 	// Memory File
 	if(Path[0] == '$') {
 		ret = malloc(strlen(Path)+1);
+		if(!ret) {
+			Warning("VFS_GetAbsPath - malloc() returned NULL");
+			return NULL;
+		}
 		strcpy(ret, Path);
 		LEAVE('p', ret);
 		return ret;
@@ -59,6 +63,10 @@ char *VFS_GetAbsPath(char *Path)
 	// Check if the path is already absolute
 	if(Path[0] == '/') {
 		ret = malloc(pathLen + 1);
+		if(!ret) {
+			Warning("VFS_GetAbsPath - malloc() returned NULL");
+			return NULL;
+		}
 		strcpy(ret, Path);
 		baseLen = 1;
 	} else {
@@ -506,14 +514,21 @@ int VFS_ChDir(char *New)
 	
 	// Create Absolute
 	buf = VFS_GetAbsPath(New);
-	if(buf == NULL)	return -1;
+	if(buf == NULL) {
+		Log("VFS_ChDir: Path expansion failed");
+		return -1;
+	}
 	
 	// Check if path is valid
 	node = VFS_ParsePath(buf, NULL);
-	if(!node)	return -1;
+	if(!node) {
+		Log("VFS_ChDir: Path is invalid");
+		return -1;
+	}
 	
 	// Check if is a directory
 	if( !(node->Flags & VFS_FFLAG_DIRECTORY) ) {
+		Log("VFS_ChDir: Not a directory");
 		if(node->Close)	node->Close(node);
 		return -1;
 	}
