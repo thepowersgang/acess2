@@ -141,7 +141,8 @@ int strcmp(char *str1, char *str2)
  */
 int strncmp(char *Str1, char *Str2, size_t num)
 {
-	while(num-- && *Str1 && *Str1 == *Str2)
+	if(num == 0)	return 0;	// TODO: Check what should officially happen here
+	while(--num && *Str1 && *Str1 == *Str2)
 		Str1++, Str2++;
 	return *Str1-*Str2;
 }
