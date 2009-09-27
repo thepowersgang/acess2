@@ -89,9 +89,9 @@ char *VFS_GetAbsPath(char *Path)
 			if(strncmp(&ret[read], "..", pos-read) == 0)
 			{
 				// If there is no higher, silently ignore
-				if(!slashNum)	continue;
+				if(slashNum < 2)	continue;
 				// Reverse write pointer
-				write = slashOffsets[ --slashNum ];
+				write = slashOffsets[ --slashNum - 1 ];
 				continue;
 			}
 		}
