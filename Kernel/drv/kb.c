@@ -145,7 +145,6 @@ void KB_IRQHandler()
 	// --- Check for Kernel Magic Combos
 	if(gbaKB_States[KEY_LCTRL] && gbaKB_States[KEY_LALT])
 	{
-		LOG("ch = 0x%02x", ch);
 		switch(ch)
 		{
 		case 'd':	__asm__ __volatile__ ("xchg %bx, %bx");	break;
