@@ -14,16 +14,21 @@
  */
 int main(int argc, char *argv[])
 {
+	 int	tid;
 	open(DEFAULT_TERMINAL, OPENFLAG_READ);	// Stdin
 	open(DEFAULT_TERMINAL, OPENFLAG_WRITE);	// Stdout
 	open(DEFAULT_TERMINAL, OPENFLAG_WRITE);	// Stderr
 	
 	write(1, 13, "Hello, World!");
 	
-	if(clone(CLONE_VM, 0) == 0)
+	tid = clone(CLONE_VM, 0);
+	if(tid == 0)
 	{
 		execve(DEFAULT_SHELL, NULL, NULL);
+		for(;;) __asm__ __volatile__("hlt");
 	}
+	
+	__asm__ __volatile__("xchg %%bx, %%bx"::"a"(tid));
 	
 	for(;;)	sleep();
 	

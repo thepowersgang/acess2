@@ -2,20 +2,9 @@
  * Acess2
  * Common Binary Loader
  */
+#define DEBUG	1
 #include <common.h>
 #include <binary.h>
-
-#define DEBUG	0
-
-#if DEBUG
-#else
-# undef ENTER
-# undef LOG
-# undef LEAVE
-# define ENTER(...)
-# define LOG(...)
-# define LEAVE(...)
-#endif
 
 // === CONSTANTS ===
 #define BIN_LOWEST	MM_USER_MIN		// 1MiB
