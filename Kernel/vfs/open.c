@@ -103,8 +103,9 @@ char *VFS_GetAbsPath(char *Path)
 		
 		// Only copy if the positions differ
 		if(read != write) {
-			Log("write = %i, read = %i", write, read);
+			Log("write = %i, read = %i, pos-read+1 = %i", write, read, pos-read+1);
 			memcpy( &ret[write], &ret[read], pos-read+1 );
+			Log("ret = '%s'", ret);
 		}
 		
 		if(slashNum < MAX_PATH_SLASHES)
