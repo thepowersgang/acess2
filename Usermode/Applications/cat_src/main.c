@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	//printf("Contents of `%s'\n", argv[1]);
+	printf("Contents of `%s'\n", argv[1]);
 	fd = open(argv[1], OPENFLAG_READ);
 	if(fd == -1) {
 		printf("Unable to open '%s' for reading\n", argv[1]);

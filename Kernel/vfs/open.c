@@ -520,12 +520,11 @@ int VFS_ChDir(char *New)
 	// Close node
 	if(node->Close)	node->Close(node);
 	
-	// Copy over
-	strcpy(buf, New);
-	
 	// Free old and set new
 	free( CFGPTR(CFG_VFS_CWD) );
 	CFGPTR(CFG_VFS_CWD) = buf;
+	
+	Log("Updated CWD to '%s'", buf);
 	
 	return 1;
 }
