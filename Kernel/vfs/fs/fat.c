@@ -343,11 +343,14 @@ Uint64 FAT_Read(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer)
 	}
 	
 	// Sanity Check offset
-	if(offset > node->Size){
+	if(offset > node->Size) {
+		Log("FAT_Read: Reading past EOF (%i > %i)", offset, node->Size);
 		return 0;
 	}
 	// Clamp Size
-	if(length + offset > node->Size) {
+	if(offset + length > node->Size) {
+		Log("FAT_Read: Reading past EOF (%i+%i+ > %i), clamped to %i",
+			offset, length, node->Size, offset - node->Size);
 		length = offset - node->Size;
 	}
 	
