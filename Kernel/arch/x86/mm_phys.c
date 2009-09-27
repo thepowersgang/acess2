@@ -2,6 +2,7 @@
  AcessOS Microkernel Version
  mm_phys.c
 */
+#define DEBUG	1
 #include <common.h>
 #include <mboot.h>
 #include <mm_virt.h>
@@ -32,7 +33,7 @@ void MM_Install(tMBoot_Info *MBoot)
 	
 	// Initialise globals
 	giPageCount = (MBoot->HighMem >> 2) + 256;	// HighMem is a kByte value
-	Log("giPageCount = %i", giPageCount);
+	LOG("giPageCount = %i", giPageCount);
 	
 	// Get used page count
 	kernelPages = (Uint)&gKernelEnd - KERNEL_BASE;
@@ -65,7 +66,7 @@ void MM_Install(tMBoot_Info *MBoot)
 	}
 	
 	// Allocate References
-	Log("Reference Pages %i", (giPageCount*4+0xFFF)>>12);
+	LOG("Reference Pages %i", (giPageCount*4+0xFFF)>>12);
 	for(num = 0; num < (giPageCount*4+0xFFF)>>12; num++)
 	{
 		MM_Allocate( REFERENCE_BASE + (num<<12) );
