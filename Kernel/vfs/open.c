@@ -72,9 +72,10 @@ char *VFS_GetAbsPath(char *Path)
 	} else {
 		cwdLen = strlen(cwd);
 		// Prepend the current directory
-		ret = malloc(cwdLen+pathLen+1);
+		ret = malloc(cwdLen+pathLen+2);
 		strcpy(ret, cwd);
-		strcpy(&ret[cwdLen], Path);
+		ret[cwdLen] = '/';
+		strcpy(&ret[cwdLen+1], Path);
 	
 		// Pre-fill the slash positions
 		pos = 0;
@@ -127,7 +128,6 @@ char *VFS_GetAbsPath(char *Path)
 	
 	// `ret` should now be the absolute path
 	LEAVE('s', ret);
-	Log("VFS_GetAbsPath: RETURN '%s'", ret);
 	return ret;
 }
 
