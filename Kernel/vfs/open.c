@@ -69,7 +69,7 @@ char *VFS_GetAbsPath(char *Path)
 	}
 	
 	// Remove . and ..
-	read = write = 1;	// Cwd has already been parsed
+	read = write = 0;	// Cwd has already been parsed
 	for(; read < baseLen+pathLen; read = pos+1)
 	{
 		pos = strpos( &ret[read], '/' );
