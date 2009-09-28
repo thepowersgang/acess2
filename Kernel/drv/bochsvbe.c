@@ -51,6 +51,7 @@ Uint64	BGA_Write(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer);
 
 // === CONSTANTS ===
 const t_bga_mode	BGA_MODES[] = {
+	{},
 	{640,480,8, 0, 640*480},
 	{640,480,32, 0, 640*480*4},
 	{800,600,8, 0, 800*600},

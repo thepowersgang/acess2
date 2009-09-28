@@ -22,7 +22,7 @@ OBJ += heap.o messages.o debug.o modules.o lib.o syscalls.o system.o threads.o
 OBJ += binary.o bin/elf.o
 OBJ += vfs/main.o vfs/open.o vfs/acls.o vfs/dir.o vfs/io.o vfs/mount.o vfs/memfile.o vfs/nodecache.o
 OBJ += vfs/fs/root.o vfs/fs/devfs.o vfs/fs/fat.o
-OBJ += drv/pci.o drv/ata_x86.o drv/vterm.o drv/vga.o drv/kb.o
+OBJ += drv/fifo.o drv/pci.o drv/ata_x86.o drv/vterm.o drv/vga.o drv/kb.o
 OBJ := $(addsuffix .$(ARCH), $(OBJ))
 BIN = ../Acess2.$(ARCH).bin
 

@@ -601,10 +601,15 @@ int VT_Font_GetHeight(Uint32 Codepoint)
 	return FONT_HEIGHT;
 }
 
+/**
+ * \fn void VT_Font_Render(Uint32 Codepoint, void *Buffer, Uint32 BGC, Uint32 FGC)
+ * \brief Render a font character
+ */
 void VT_Font_Render(Uint32 Codepoint, void *Buffer, Uint32 BGC, Uint32 FGC)
 {
-//	Uint8	*font;
-	
+	//Uint8	*font;
+	//Uint32	*buf = Buffer;
+	//font = VT_Font_GetChar(Codepoint);
 }
 
 /**
