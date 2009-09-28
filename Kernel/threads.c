@@ -273,7 +273,7 @@ void Threads_Kill(tThread *Thread, int Status)
 	tMsg	*msg;
 	
 	// Kill all children
-	#if 1
+	#if 0
 	{
 		tThread	*child;
 		for(child = gActiveThreads;
