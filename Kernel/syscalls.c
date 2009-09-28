@@ -45,7 +45,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 	switch(Regs->Num)
 	{
 	// -- Exit the current thread
-	case SYS_EXIT:	Threads_Exit();	break;
+	case SYS_EXIT:	Threads_Exit(0, Regs->Arg1);	break;
 	
 	// -- Put the current thread to sleep
 	case SYS_SLEEP:	Threads_Sleep();	break;
