@@ -586,5 +586,6 @@ tThread *Threads_GetNextToRun(int CPU)
 void Threads_SegFault(tVAddr Addr)
 {
 	//Threads_SendSignal( Proc_GetCurThread()->TID, SIGSEGV );
-	Threads_Kill( Proc_GetCurThread(), 0 );
+	Log("Thread #%i committed a segfault at address %p\n", Proc_GetCurThread()->TID, Addr);
+	Threads_Exit( 0, 0 );
 }
