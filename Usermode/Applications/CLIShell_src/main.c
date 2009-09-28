@@ -28,13 +28,15 @@ struct	{
 	{"colour", Command_Colour}, {"clear", Command_Clear},
 	{"cd", Command_Cd}, {"dir", Command_Dir}
 };
+static char	*cDEFAULT_PATH[] = {"/Acess"};
 #define	BUILTIN_COUNT	(sizeof(cBUILTINS)/sizeof(cBUILTINS[0]))
 
 // ==== LOCAL VARIABLES ====
+ int	giNumPathDirs = 1;
+char	**gasPathDirs = cDEFAULT_PATH;
 char	**gasEnvironment;
 char	gsCommandBuffer[1024];
 char	*gsCurrentDirectory = NULL;
-char	gsTmpBuffer[1024];
 char	**gasCommandHistory;
  int	giLastCommand = 0;
  int	giCommandSpace = 0;
@@ -45,6 +47,7 @@ int main(int argc, char *argv[], char *envp[])
 	char	*sCommandStr;
 	char	*saArgs[32];
 	 int	length = 0;
+	 int	i;
 	 int	iArgCount = 0;
 	 int	bCached = 1;
 	
@@ -105,17 +108,15 @@ int main(int argc, char *argv[], char *envp[])
 		if(saArgs[1][0] == '\0')	continue;
 		
 		// Check Built-In Commands
-		//  [HACK] Mem Usage - Use Length in place of `i'
-		for(length=0;length<BUILTIN_COUNT;length++)
+		for( i = 0; i < BUILTIN_COUNT; i++ )
 		{
-			if(strcmp(saArgs[1], cBUILTINS[length].name) == 0)
+			if( strcmp(saArgs[1], cBUILTINS[i].name) == 0 )
 			{
-				cBUILTINS[length].fcn(iArgCount-1, &saArgs[1]);
+				cBUILTINS[i].fcn(iArgCount-1, &saArgs[1]);
 				break;
 			}
 		}
-		
-		if(length != BUILTIN_COUNT)	continue;
+		if(i != BUILTIN_COUNT)	continue;
 		
 		// Shall we?
 		CallCommand( &saArgs[1] );
@@ -135,8 +136,7 @@ char *ReadCommandLine(int *Length)
 	// Preset Variables
 	ret = malloc( space+1 );
 	if(!ret)	return NULL;
-	len = 0;
-	pos = 0;
+	len = 0;	pos = 0;
 		
 	// Read In Command Line
 	do {
@@ -246,35 +246,64 @@ void CallCommand(char **Args)
 	t_sysFInfo	info;
 	 int	pid = -1;
 	 int	fd = 0;
+	char	sTmpBuffer[1024];
+	char	*exefile = Args[0];
 	
-	
-	// - Calling a file
-	GeneratePath(Args[0], gsCurrentDirectory, gsTmpBuffer);
-	
-	
-	// Check file existence
-	fd = open(gsTmpBuffer, 0);
-	if(fd == -1) {
-		Print("Unknown Command: `");Print(Args[0]);Print("'\n");	// Error Message
-		return ;
+	if(exefile[0] == '/'
+	|| (exefile[0] == '.' && exefile[1] == '/')
+	|| (exefile[0] == '.' && exefile[1] == '.' && exefile[2] == '/')
+		)
+	{
+		GeneratePath(exefile, gsCurrentDirectory, sTmpBuffer);
+		// Check file existence
+		fd = open(sTmpBuffer, OPENFLAG_EXEC);
+		if(fd == -1) {
+			Print("Unknown Command: `");Print(Args[0]);Print("'\n");	// Error Message
+			return ;
+		}
+		
+		// Get File info and close file
+		finfo( fd, &info, 0 );
+		close( fd );
+		
+		// Check if the file is a directory
+		if(info.flags & FILEFLAG_DIRECTORY) {
+			Print("`");Print(sTmpBuffer);	// Error Message
+			Print("' is a directory.\n");
+			return ;
+		}
 	}
-	
-	// Check if the file is a directory
-	finfo( fd, &info, 0 );
-	close( fd );
-	if(info.flags & FILEFLAG_DIRECTORY) {
-		Print("`");Print(gsTmpBuffer);	// Error Message
-		Print("' is a directory.\n");
-		return ;
+	else
+	{
+		 int	i;
+		
+		// Check all components of $PATH
+		for( i = 0; i < giNumPathDirs; i++ )
+		{
+			GeneratePath(exefile, gasPathDirs[i], sTmpBuffer);
+			fd = open(sTmpBuffer, OPENFLAG_EXEC);
+			if(fd == -1)	continue;
+			finfo( fd, &info, 0 );
+			close( fd );
+			if(info.flags & FILEFLAG_DIRECTORY)	continue;
+			// Woohoo! We found a valid command
+			break;
+		}
+		
+		// Exhausted path directories
+		if( i == giNumPathDirs ) {
+			Print("Unknown Command: `");Print(exefile);Print("'\n");
+			return ;
+		}
 	}
 	
 	// Create new process
 	pid = clone(CLONE_VM, 0);
 	// Start Task
 	if(pid == 0)
-		execve(gsTmpBuffer, Args, gasEnvironment);
+		execve(sTmpBuffer, Args, gasEnvironment);
 	if(pid <= 0) {
-		Print("Unablt to create process: `");Print(gsTmpBuffer);Print("'\n");	// Error Message
+		Print("Unablt to create process: `");Print(sTmpBuffer);Print("'\n");	// Error Message
 	}
 	else {
 		 int	status;
@@ -294,7 +323,6 @@ void Command_Colour(int argc, char **argv)
 	// Verify Arg Count
 	if(argc < 2)
 	{
-		Print("Please specify a colour\n");
 		goto usage;
 	}
 	
@@ -335,6 +363,7 @@ void Command_Colour(int argc, char **argv)
 
 	// Function Usage (Requested via a Goto (I know it's ugly))
 usage:
+	Print("Usage: colour <foreground> [<background>]\n");
 	Print("Valid Colours are ");
 	for(fg=0;fg<8;fg++)
 	{
@@ -345,6 +374,10 @@ usage:
 	return;
 }
 
+/**
+ * \fn void Command_Clear(int argc, char **argv)
+ * \brief Clear the screen
+ */
 void Command_Clear(int argc, char **argv)
 {
 	write(_stdout, 4, "\x1B[2J");	//Clear Screen

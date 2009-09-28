@@ -256,7 +256,10 @@ tThread *Threads_int_GetPrev(tThread **List, tThread *Thread)
  */
 void Threads_Exit(int TID, int Status)
 {
-	Threads_Kill( Proc_GetCurThread(), (Uint)Status & 0xFF );
+	if( TID == 0 )
+		Threads_Kill( Proc_GetCurThread(), (Uint)Status & 0xFF );
+	else
+		Threads_Kill( Threads_GetThread(TID), (Uint)Status & 0xFF );
 }
 
 /**
@@ -270,14 +273,14 @@ void Threads_Kill(tThread *Thread, int Status)
 	tMsg	*msg;
 	
 	// Kill all children
-	#if 0
+	#if 1
 	{
 		tThread	*child;
 		for(child = gActiveThreads;
 			child;
 			child = child->Next)
 		{
-			if(child->PTID == gCurrentThread->TID)
+			if(child->PTID == Thread->TID)
 				Threads_Kill(child, -1);
 		}
 	}
@@ -453,6 +456,7 @@ void Threads_SetSignalHandler(int Num, void *Handler)
 
 /**
  * \fn void Threads_SendSignal(int TID, int Num)
+ * \brief Send a signal to a thread
  */
 void Threads_SendSignal(int TID, int Num)
 {
@@ -573,4 +577,14 @@ tThread *Threads_GetNextToRun(int CPU)
 	}
 	
 	return thread;
+}
+
+/**
+ * \fn void Threads_SegFault(tVAddr Addr)
+ * \brief Called when a Segment Fault occurs
+ */
+void Threads_SegFault(tVAddr Addr)
+{
+	//Threads_SendSignal( Proc_GetCurThread()->TID, SIGSEGV );
+	Threads_Kill( Proc_GetCurThread(), 0 );
 }

@@ -40,6 +40,7 @@
 // === IMPORTS ===
 extern Uint32	gaInitPageDir[1024];
 extern Uint32	gaInitPageTable[1024];
+extern void	Threads_SegFault(Uint Addr);
 
 // === PROTOTYPES ===
 void	MM_PreinitVirtual();
@@ -122,6 +123,12 @@ void MM_PageFault(Uint Addr, Uint ErrorCode, tRegs *Regs)
 		INVLPG( Addr & ~0xFFF );
 		//LEAVE('-')
 		return;
+	}
+	
+	// If it was a user, tell the thread handler
+	if(ErrorCode & 4) {
+		Threads_SegFault(Addr);
+		return ;
 	}
 	
 	// -- Check Error Code --

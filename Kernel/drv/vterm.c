@@ -472,7 +472,7 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 	
 	switch(Ch)
 	{
-	case 0:	return;	// Ignore NULL byte
+	case '\0':	return;	// Ignore NULL byte
 	case '\n':
 		Term->WritePos += Term->Width;
 	case '\r':
@@ -481,7 +481,7 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 	
 	case '\t':
 		do {
-			Term->Text[ Term->WritePos ].Ch = '\t';
+			Term->Text[ Term->WritePos ].Ch = '\0';
 			Term->Text[ Term->WritePos ].Colour = Term->CurColour;
 			Term->WritePos ++;
 		} while(Term->WritePos & 7);
@@ -493,7 +493,7 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 		
 		Term->WritePos --;
 		// Singe Character
-		if(Term->Text[ Term->WritePos ].Ch != '\t') {
+		if(Term->Text[ Term->WritePos ].Ch != '\0') {
 			Term->Text[ Term->WritePos ].Ch = 0;
 			Term->Text[ Term->WritePos ].Colour = Term->CurColour;
 			break;
@@ -504,7 +504,7 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 			Term->Text[ Term->WritePos ].Ch = 0;
 			Term->Text[ Term->WritePos ].Colour = Term->CurColour;
 			Term->WritePos --;
-		} while(Term->WritePos && i-- && Term->Text[ Term->WritePos ].Ch == '\t');
+		} while(Term->WritePos && i-- && Term->Text[ Term->WritePos ].Ch == '\0');
 		break;
 	
 	default:
