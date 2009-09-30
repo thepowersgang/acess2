@@ -95,6 +95,10 @@ void SyscallHandler(tSyscallRegs *Regs)
 	case SYS_GETUID:	ret = Threads_GetUID();	break;
 	case SYS_GETGID:	ret = Threads_GetGID();	break;
 	
+	// -- Set User/Group IDs
+	case SYS_SETUID:	Log("Setting User ID to %i", Regs->Arg1);	break;
+	case SYS_SETGID:	Log("Setting Group ID to %i", Regs->Arg1);	break;
+	
 	// -- Send Message
 	case SYS_SENDMSG:
 		ret = Proc_SendMessage(&err, Regs->Arg1, Regs->Arg2, (void*)Regs->Arg3);
