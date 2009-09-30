@@ -21,9 +21,10 @@ struct sFILE	*get_file_struct();
 
 // === GLOBALS ===
 struct sFILE	_iob[STDIO_MAX_STREAMS];	// IO Buffer
-struct sFILE	*stdin = &_iob[0];	// Standard Input
-struct sFILE	*stdout = &_iob[1];	// Standard Output
-struct sFILE	*stderr = &_iob[2];	// Standard Error
+struct sFILE	*stdin;	// Standard Input
+struct sFILE	*stdout;	// Standard Output
+struct sFILE	*stderr;	// Standard Error
+///\note Initialised in SoMain
 
 // === CODE ===
 /**
@@ -303,6 +304,10 @@ EXPORT void sprintfv(char *buf, const char *format, va_list args)
 			itoa(tmp, arg, 10, minSize, pad);
 			goto sprintf_puts;
 		//	break;
+		case 'p':	// Pointer
+			buf[pos++] = '*';
+			buf[pos++] = '0';
+			buf[pos++] = 'x';
 		case 'x':
 			itoa(tmp, arg, 16, minSize, pad);
 			goto sprintf_puts;
@@ -396,6 +401,8 @@ EXPORT int ssprintfv(char *format, va_list args)
 		case 'u':
 			itoa(tmp, arg, 10, minSize, pad);
 			goto sprintf_puts;
+		case 'p':	// Pointer
+			len += 3;
 		case 'x':
 			itoa(tmp, arg, 16, minSize, pad);
 			goto sprintf_puts;
@@ -458,7 +465,7 @@ EXPORT void itoa(char *buf, unsigned long num, int base, int minLength, char pad
  */
 EXPORT int printf(const char *format, ...)
 {
-	#if 0
+	#if 1
 	 int	size;
 	char	*buf;
 	va_list	args;
@@ -479,7 +486,8 @@ EXPORT int printf(const char *format, ...)
 	
 	free(buf);
 	return size;
-	#endif
+	
+	#else
 	
 	 int	ret;
 	va_list	args;
@@ -487,6 +495,7 @@ EXPORT int printf(const char *format, ...)
 	ret = fprintfv(stdout, (char*)format, args);
 	va_end(args);
 	return ret;
+	#endif
 }
 
 /**

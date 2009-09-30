@@ -24,6 +24,7 @@ typedef struct sKernelBin {
 // === IMPORTS ===
 extern int	Proc_Clone(Uint *Err, Uint Flags);
 extern void	Threads_SetName(char *Name);
+extern char	*Threads_GetName(int ID);
 extern Uint	MM_ClearUser();
 extern void	Threads_Exit();
 extern void	Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **EnvP, int DataSize);
@@ -145,7 +146,7 @@ int Proc_Execve(char *File, char **ArgV, char **EnvP)
 	free(savedFile);
 	if(bases[0] == 0)
 	{
-		Warning("Proc_Execve - Unable to load '%s'", File);
+		Warning("Proc_Execve - Unable to load '%s'", Threads_GetName(-1));
 		Threads_Exit();
 		for(;;);
 	}

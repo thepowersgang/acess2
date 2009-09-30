@@ -53,7 +53,7 @@ EXPORT void *malloc(size_t bytes)
 	
 	// Initialise Heap
 	if(_heap_start == NULL)
-	{LOCAL void	*sbrk(int delta);
+	{
 		_heap_start = sbrk(0);
 		_heap_end = _heap_start;
 		extendHeap(HEAP_INIT_SIZE);
@@ -208,10 +208,10 @@ EXPORT void *realloc(void *oldPos, size_t bytes)
 }
 
 /**
- \fn LOCAL void *extendHeap(int bytes)
- \brief Create a new block at the end of the heap area
- \param bytes	Integer - Size reqired
- \return Pointer to last free block
+ * \fn LOCAL void *extendHeap(int bytes)
+ * \brief Create a new block at the end of the heap area
+ * \param bytes	Integer - Size reqired
+ * \return Pointer to last free block
  */
 
 LOCAL void *extendHeap(int bytes)

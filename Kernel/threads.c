@@ -20,6 +20,7 @@ extern int	Proc_Clone(Uint *Err, Uint Flags);
 // === PROTOTYPES ===
 void	Threads_Init();
 void	Threads_SetName(char *NewName);
+char	*Threads_GetName(int ID);
 void	Threads_SetTickets(int Num);
  int	Threads_WaitTID(int TID, int *status);
 tThread	*Threads_GetThread(Uint TID);
@@ -115,6 +116,18 @@ void Threads_SetName(char *NewName)
 		free( cur->ThreadName );
 	cur->ThreadName = malloc(strlen(NewName)+1);
 	strcpy(cur->ThreadName, NewName);
+}
+
+/**
+ * \fn char *Threads_GetName(int ID)
+ * \brief Gets a thread's name
+ */
+char *Threads_GetName(int ID)
+{
+	if(ID == -1) {
+		return Proc_GetCurThread()->ThreadName;
+	}
+	return NULL;
 }
 
 /**
