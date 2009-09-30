@@ -23,9 +23,7 @@ typedef unsigned int	size_t;
 
 // --- StdLib ---
 extern int	atoi(const char *ptr);
-
-extern void *memcpy(void *dest, void *src, size_t count);
-extern void *memmove(void *dest, void *src, size_t count);
+extern void	exit(int status) __attribute__((noreturn));
 
 // --- Environment ---
 extern char	*getenv(const char *name);
@@ -35,12 +33,6 @@ extern void free(void *mem);
 extern void *malloc(unsigned int bytes);
 extern void *realloc(void *oldPos, unsigned int bytes);
 extern int	IsHeap(void *ptr);
-
-// --- Strings ---
-extern int	strlen(const char *string);
-extern int	strcmp(char *str1, char *str2);
-extern int	strncmp(char *str1, char *str2, size_t len);
-extern char	*strcpy(char *dst, const char *src);
 
 #ifndef SEEK_CUR
 # define SEEK_CUR	0

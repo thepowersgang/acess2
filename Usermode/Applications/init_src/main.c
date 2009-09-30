@@ -6,7 +6,7 @@
 // === CONSTANTS ===
 #define NULL	((void*)0)
 #define	DEFAULT_TERMINAL	"/Devices/VTerm/0"
-#define DEFAULT_SHELL	"/Acess/CLIShell"
+#define DEFAULT_SHELL	"/Acess/SBin/login"
 
 // === CODE ===
 /**

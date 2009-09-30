@@ -1,27 +1,14 @@
 /*
- * Acess2
+ * Acess 2
  * FAT12/16/32 Driver Version (Incl LFN)
  */
-//INCLUDES
+#define DEBUG	0
 #include <common.h>
 #include <modules.h>
 #include <vfs.h>
 #include "fs_fat.h"
 
-#define DEBUG	0
 #define VERBOSE	1
-
-#if DEBUG
-# define DEBUGS(v...)	Log(v)
-#else
-# define DEBUGS(v...)
-# undef ENTER
-# undef LOG
-# undef LEAVE
-# define ENTER(...)
-# define LOG(...)
-# define LEAVE(...)
-#endif
 
 #define CACHE_FAT	1	//!< Caches the FAT in memory
 #define USE_LFN		1	//!< Enables the use of Long File Names
@@ -213,16 +200,13 @@ tVFS_Node *FAT_InitDevice(char *Device, char *options)
 			fat_cache[giFAT_PartCount][i] = buf[i&127];
 		}
 	}
-	DEBUGS(" FAT_InitDisk: FAT Fully Cached\n");
+	LOG("FAT Fully Cached");
 	}
 	#endif /*CACHE_FAT*/
 	
 	//Initalise inode cache for FAT
 	gFAT_Disks[giFAT_PartCount].inodeHandle = Inode_GetHandle();
-	
-	#if DEBUG
-		Log(" FAT_InitDisk: Inode Cache handle is %i\n", gFAT_Disks[giFAT_PartCount].inodeHandle);
-	#endif
+	LOG("Inode Cache handle is %i", gFAT_Disks[giFAT_PartCount].inodeHandle);
 	
 	// == VFS Interface
 	node = &gFAT_Disks[giFAT_PartCount].rootNode;
@@ -292,9 +276,7 @@ static Uint32 FAT_int_GetFatValue(int handle, Uint32 cluster)
  */
 static void FAT_int_ReadCluster(int Handle, Uint32 Cluster, int Length, void *Buffer)
 {
-	#if DEBUG
 	ENTER("iHandle xCluster iLength pBuffer", Handle, Cluster, Length, Buffer);
-	#endif
 	VFS_ReadAt(
 		gFAT_Disks[Handle].fileHandle,
 		(gFAT_Disks[Handle].firstDataSect + (Cluster-2)*gFAT_Disks[Handle].bootsect.spc )
@@ -302,9 +284,7 @@ static void FAT_int_ReadCluster(int Handle, Uint32 Cluster, int Length, void *Bu
 		Length,
 		Buffer
 		);
-	#if DEBUG
 	LEAVE('-');
-	#endif
 }
 
 /**

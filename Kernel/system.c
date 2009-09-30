@@ -19,7 +19,7 @@ void	System_ExecuteScript();
 
 // === GLOBALS ===
 char	*gsInitPath = "/Acess/Bin/init";
-char	*gsConfigScript = "/Acess/BootConf.cfg";
+char	*gsConfigScript = "/Acess/Conf/BootConf.cfg";
 
 // === CODE ===
 void System_Init(char *ArgString)

@@ -97,6 +97,7 @@ extern tVFS_ACL	gVFS_ACL_EveryoneRO;
 // === FUNCTIONS ===
 extern int	VFS_AddDriver(tVFS_Driver *Info);
 extern tVFS_Driver	*VFS_GetFSByName(char *Name);
+extern tVFS_ACL	*VFS_UnixToAcessACL(Uint Mode, Uint Owner, Uint Group);
 
 // --- Node Cache --
 extern int	Inode_GetHandle();

@@ -11,9 +11,11 @@
 #define OPENFLAG_READ	0x02
 #define OPENFLAG_WRITE	0x04
 #define	OPENFLAG_NOLINK	0x40
-#define SEEK_SET	1
-#define SEEK_CUR	0
-#define SEEK_END	-1
+#ifndef SEEK_CUR
+# define SEEK_SET	1
+# define SEEK_CUR	0
+# define SEEK_END	-1
+#endif
 #define CLONE_VM	0x10
 #define FILEFLAG_DIRECTORY	0x10
 #define FILEFLAG_SYMLINK	0x20
@@ -51,11 +53,14 @@ typedef struct s_sysACL	t_sysACL;
 // === FUNCTIONS ===
 void	_SysDebug(char *str, ...);
 // --- Proc ---
+void	_exit(int status)	__attribute__((noreturn));
 void	sleep();
 void	wait(int miliseconds);
  int	waittid(int id, int *status);
  int	clone(int flags, void *stack);
  int	execve(char *path, char **argv, char **envp);
+void	setuid(int id);
+void	setgid(int id);
 // --- VFS ---
  int	chdir(char *dir);
  int	open(char *path, int flags);

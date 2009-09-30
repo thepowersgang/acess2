@@ -99,3 +99,39 @@ int VFS_GetACL(int FD, tVFS_ACL *Dest)
 	Dest->Perms = 0;
 	return 0;
 }
+
+/**
+ * \fn tVFS_ACL *VFS_UnixToAcessACL(Uint Mode, Uint Owner, Uint Group)
+ * \brief Converts UNIX permissions to three Acess ACL entries
+ */
+tVFS_ACL *VFS_UnixToAcessACL(Uint Mode, Uint Owner, Uint Group)
+{
+	tVFS_ACL	*ret = malloc(sizeof(tVFS_ACL)*3);
+	
+	// Error Check
+	if(!ret)	return NULL;
+	
+	// Owner
+	ret[0].Group = 0;	ret[0].ID = Owner;
+	ret[0].Inv = 0;		ret[0].Perms = 0;
+	if(Mode & 0400)	ret[0].Perms |= VFS_PERM_READ;
+	if(Mode & 0200)	ret[0].Perms |= VFS_PERM_WRITE;
+	if(Mode & 0100)	ret[0].Perms |= VFS_PERM_EXECUTE;
+	
+	// Group
+	ret[1].Group = 1;	ret[1].ID = Group;
+	ret[1].Inv = 0;		ret[1].Perms = 0;
+	if(Mode & 0040)	ret[1].Perms |= VFS_PERM_READ;
+	if(Mode & 0020)	ret[1].Perms |= VFS_PERM_WRITE;
+	if(Mode & 0010)	ret[1].Perms |= VFS_PERM_EXECUTE;
+	
+	// Global
+	ret[2].Group = 1;	ret[2].ID = Group;
+	ret[2].Inv = 0;		ret[2].Perms = 0;
+	if(Mode & 0004)	ret[2].Perms |= VFS_PERM_READ;
+	if(Mode & 0002)	ret[2].Perms |= VFS_PERM_WRITE;
+	if(Mode & 0001)	ret[2].Perms |= VFS_PERM_EXECUTE;
+	
+	// Return buffer
+	return ret;
+}

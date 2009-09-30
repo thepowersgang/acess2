@@ -13,7 +13,7 @@ CFLAGS = -Wall -fPIC -fno-builtin -fno-stack-protector $(CPPFLAGS)
 ASFLAGS = -felf
 LDFLAGS = -x -shared -soname libc.so.1 -Map map.txt -e SoMain -L$(ACESSDIR)/Usermode/Libraries -lacess
 
-OBJ_LIBC = heap.o stdlib.o stub.o env.o fileIO.o signals.o
+OBJ_LIBC = heap.o stdlib.o stub.o env.o fileIO.o signals.o string.o
 BIN = ../libc.so.1
 
 .PHONY:	all clean
