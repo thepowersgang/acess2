@@ -28,7 +28,7 @@ struct	{
 	{"colour", Command_Colour}, {"clear", Command_Clear},
 	{"cd", Command_Cd}, {"dir", Command_Dir}
 };
-static char	*cDEFAULT_PATH[] = {"/Acess"};
+static char	*cDEFAULT_PATH[] = {"/Acess/Bin"};
 #define	BUILTIN_COUNT	(sizeof(cBUILTINS)/sizeof(cBUILTINS[0]))
 
 // ==== LOCAL VARIABLES ====
