@@ -106,6 +106,9 @@ extern int	Module_LoadFile(char *Path, char *ArgStr);
 // --- Timing ---
 extern Sint64	timestamp(int sec, int mins, int hrs, int day, int month, int year);
 extern Sint64	now();
+extern int	Time_CreateTimer(int Delta, void *Callback, void *Argument);
+extern void	Time_RemoveTimer(int ID);
+extern void	Time_Delay(int Delay);
 // --- Threads ---
 extern  int	Proc_Spawn(char *Path);
 extern void	Threads_Exit();
