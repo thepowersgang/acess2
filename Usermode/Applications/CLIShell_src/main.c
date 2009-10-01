@@ -4,6 +4,7 @@
 #include <acess/sys.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include "header.h"
 
 #define _stdin	0
@@ -14,8 +15,9 @@
 char	*ReadCommandLine(int *Length);
 void	Parse_Args(char *str, char **dest);
 void	CallCommand(char **Args);
-void	Command_Colour(int argc, char **argv);
+void	Command_Logout(int argc, char **argv);
 void	Command_Clear(int argc, char **argv);
+void	Command_Colour(int argc, char **argv);
 void	Command_Cd(int argc, char **argv);
 void	Command_Dir(int argc, char **argv);
 
@@ -25,6 +27,7 @@ struct	{
 	char	*name;
 	void	(*fcn)(int argc, char **argv);
 }	cBUILTINS[] = {
+	{"exit", Command_Logout},	{"logout", Command_Logout},
 	{"colour", Command_Colour}, {"clear", Command_Clear},
 	{"cd", Command_Cd}, {"dir", Command_Dir}
 };
@@ -312,8 +315,27 @@ void CallCommand(char **Args)
 }
 
 /**
+ * \fn void Command_Logout(int argc, char **argv)
+ * \brief Exit the shell, logging the user out
+ */
+void Command_Logout(int argc, char **argv)
+{
+	exit(0);
+}
+
+/**
+ * \fn void Command_Clear(int argc, char **argv)
+ * \brief Clear the screen
+ */
+void Command_Clear(int argc, char **argv)
+{
+	write(_stdout, 4, "\x1B[2J");	//Clear Screen
+}
+
+/**
  * \fn void Command_Colour(int argc, char **argv)
- * \brief 
+ * \brief Set the colour of the shell prompt
+ * \note Conflicts with coloured `dir` display
  */
 void Command_Colour(int argc, char **argv)
 {
@@ -375,15 +397,6 @@ usage:
 }
 
 /**
- * \fn void Command_Clear(int argc, char **argv)
- * \brief Clear the screen
- */
-void Command_Clear(int argc, char **argv)
-{
-	write(_stdout, 4, "\x1B[2J");	//Clear Screen
-}
-
-/**
  * \fn void Command_Cd(int argc, char **argv)
  * \brief Change directory
  */
@@ -423,6 +436,8 @@ void Command_Cd(int argc, char **argv)
 }
 
 /**
+ * \fn void Command_Dir(int argc, char **argv)
+ * \brief Print the contents of a directory
  */
 void Command_Dir(int argc, char **argv)
 {
@@ -499,21 +514,24 @@ void Command_Dir(int argc, char **argv)
 			write(_stdout, 1, "-");
 		
 		// Print Mode
+		// - Owner
 		acl.group = 0;	acl.id = info.uid;
 		_SysGetACL(fp, &acl);
 		if(acl.perms & 1)	modeStr[0] = 'r';	else	modeStr[0] = '-';
 		if(acl.perms & 2)	modeStr[1] = 'w';	else	modeStr[1] = '-';
 		if(acl.perms & 8)	modeStr[2] = 'x';	else	modeStr[2] = '-';
+		// - Group
 		acl.group = 1;	acl.id = info.gid;
 		_SysGetACL(fp, &acl);
 		if(acl.perms & 1)	modeStr[3] = 'r';	else	modeStr[3] = '-';
-		if(acl.perms & 1)	modeStr[4] = 'w';	else	modeStr[4] = '-';
-		if(acl.perms & 1)	modeStr[5] = 'x';	else	modeStr[5] = '-';
+		if(acl.perms & 2)	modeStr[4] = 'w';	else	modeStr[4] = '-';
+		if(acl.perms & 8)	modeStr[5] = 'x';	else	modeStr[5] = '-';
+		// - World
 		acl.group = 1;	acl.id = -1;
 		_SysGetACL(fp, &acl);
 		if(acl.perms & 1)	modeStr[6] = 'r';	else	modeStr[6] = '-';
-		if(acl.perms & 1)	modeStr[7] = 'w';	else	modeStr[7] = '-';
-		if(acl.perms & 1)	modeStr[8] = 'x';	else	modeStr[8] = '-';
+		if(acl.perms & 2)	modeStr[7] = 'w';	else	modeStr[7] = '-';
+		if(acl.perms & 8)	modeStr[8] = 'x';	else	modeStr[8] = '-';
 		write(_stdout, 10, modeStr);
 		close(fp);
 		

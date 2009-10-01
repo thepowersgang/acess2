@@ -14,22 +14,21 @@ char	*GetPassword();
 int main(int argc, char *argv[])
 {
 	char	*sUsername, *sPassword;
-	 int	pid, uid;
+	 int	pid, uid = 0;
 	 int	status = 0;
 	tUserInfo	*uinfo;
 	
-	putchar('\n');
 	for(;;)
 	{
+		printf("\x1B[2J");	// Clear Screen
 		// Validate User
 		do {
+			if(uid == -1)	printf("\n");
 			sUsername = GetUsername();
 			sPassword = GetPassword();
+			printf("\n");
 		} while( (uid = ValidateUser(sUsername, sPassword)) == -1 );
-		putchar('\n');
-		
-		// Get user information
-		uinfo = GetUserInfo(uid);
+		printf("\n");
 		
 		// Create child process
 		pid = clone(CLONE_VM, 0);
@@ -42,12 +41,18 @@ int main(int argc, char *argv[])
 		// Spawn shell in a child process
 		if(pid == 0)
 		{
-			char	*argv[2] = {uinfo->Shell, 0};
-			char	**envp = NULL;
+			char	*child_argv[2] = {NULL, 0};
+			char	**child_envp = NULL;
+			
+			// Get user information
+			uinfo = GetUserInfo(uid);
+			
+			child_argv[0] = uinfo->Shell;
+			// Set Environment
 			setgid(uinfo->GID);
 			setuid(uid);
 			
-			execve(uinfo->Shell, argv, envp);
+			execve(uinfo->Shell, child_argv, child_envp);
 			exit(-1);
 		}
 		
