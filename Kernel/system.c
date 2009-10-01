@@ -8,6 +8,7 @@
 // === IMPORTS ===
 extern int	Modules_LoadBuiltins();
 extern int	PCI_Install();
+extern void	DMA_Install();
 
 // === PROTOTYPES ===
 void	System_Init(char *ArgString);
@@ -26,7 +27,7 @@ void System_Init(char *ArgString)
 {
 	// - Start Builtin Drivers & Filesystems
 	PCI_Install();
-	//ATA_Install();
+	DMA_Install();
 	Modules_LoadBuiltins();
 	
 	// - Parse Kernel's Command Line
