@@ -122,6 +122,12 @@ void SyscallHandler(tSyscallRegs *Regs)
 		ret = Proc_Execve((char*)Regs->Arg1, (char**)Regs->Arg2, (char**)Regs->Arg3);
 		break;
 	case SYS_LOADBIN:
+		if( !Syscall_ValidString(Regs->Arg1)
+		||  !Syscall_Valid(sizeof(Uint), Regs->Arg2) ) {
+			err = -EINVAL;
+			ret = -1;
+			break;
+		}
 		ret = Binary_Load((char*)Regs->Arg1, (Uint*)Regs->Arg2);
 		break;
 	
@@ -129,6 +135,11 @@ void SyscallHandler(tSyscallRegs *Regs)
 	// Virtual Filesystem
 	// ---
 	case SYS_OPEN:
+		if( !Syscall_ValidString(Regs->Arg1) ) {
+			err = -EINVAL;
+			ret = -1;
+			break;
+		}
 		ret = VFS_Open((char*)Regs->Arg1, Regs->Arg2 | VFS_OPENFLAG_USER);
 		break;
 	
