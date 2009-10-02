@@ -3,10 +3,10 @@
 -include ../Makefile.cfg
 
 COBJ = main.o
-BIN = ../cat
+BIN = ../ls
 
-CFLAGS  += -Wall -fno-builtin -fno-stack-protector
-LDFLAGS += 
+CFLAGS  += -Wall -fno-builtin
+LDFLAGS +=
 
 .PHONY : all clean
 

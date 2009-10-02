@@ -10,13 +10,19 @@
 #include <arch.h>
 #include <stdarg.h>
 
+enum eConfigTypes {
+	CFGT_NULL,
+	CFGT_INT,
+	CFGT_HEAPSTR,
+	CFGT_PTR
+};
 enum eConfigs {
 	CFG_VFS_CWD,
 	CFG_VFS_MAXFILES,
 	NUM_CFG_ENTRIES
 };
-#define CFGINT(_idx)	(*(Uint*)(MM_PPD_CFG+(_idx)*sizeof(void*)))
-#define CFGPTR(_idx)	(*(void**)(MM_PPD_CFG+(_idx)*sizeof(void*)))
+#define CFGINT(id)	(*Threads_GetCfgPtr(id))
+#define CFGPTR(id)	(*(void**)Threads_GetCfgPtr(id))
 
 // === CONSTANTS ===
 // --- Memory Flags --
@@ -43,6 +49,7 @@ extern void	Panic(char *Msg, ...);
 extern void	Warning(char *Msg, ...);
 extern void	Log(char *Fmt, ...);
 extern void	LogV(char *Fmt, va_list Args);
+extern void	LogF(char *Fmt, ...);
 extern void	Debug_Enter(char *FuncName, char *ArgTypes, ...);
 extern void	Debug_Log(char *FuncName, char *Fmt, ...);
 extern void	Debug_Leave(char *FuncName, char RetType, ...);
@@ -114,10 +121,10 @@ extern  int	Proc_Spawn(char *Path);
 extern void	Threads_Exit();
 extern void	Threads_Yield();
 extern void	Threads_Sleep();
-extern int	Threads_GetCfg(int Index);
 extern int	Threads_GetUID();
 extern int	Threads_GetGID();
 extern int	SpawnTask(tThreadFunction Function, void *Arg);
+extern Uint	*Threads_GetCfgPtr(int Id);
 
 #include <binary_ext.h>
 #include <vfs_ext.h>

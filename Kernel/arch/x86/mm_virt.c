@@ -41,6 +41,7 @@
 extern Uint32	gaInitPageDir[1024];
 extern Uint32	gaInitPageTable[1024];
 extern void	Threads_SegFault(Uint Addr);
+extern void	Error_Backtrace(Uint eip, Uint ebp);
 
 // === PROTOTYPES ===
 void	MM_PreinitVirtual();
@@ -145,11 +146,13 @@ void MM_PageFault(Uint Addr, Uint ErrorCode, tRegs *Regs)
 			);
 	}
 	
+	Log("Code at %p accessed %p", Regs->eip, Addr);
+	// Print Stack Backtrace
+	Error_Backtrace(Regs->eip, Regs->ebp);
+	
 	Log("gaPageDir[0x%x] = 0x%x", Addr>>22, gaPageDir[Addr>>22]);
 	if( gaPageDir[Addr>>22] & PF_PRESENT )
 		Log("gaPageTable[0x%x] = 0x%x", Addr>>12, gaPageTable[Addr>>12]);
-	
-	Log("Code at %p accessed %p\n", Regs->eip, Addr);
 	
 	MM_DumpTables(0, -1);	
 	

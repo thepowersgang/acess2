@@ -5,11 +5,17 @@
  */
 #include <common.h>
 #include <threads.h>
+#include <errno.h>
 
 // === CONSTANTS ===
 #define	DEFAULT_QUANTUM	10
 #define	DEFAULT_TICKETS	5
 #define MAX_TICKETS		10
+const enum eConfigTypes	cCONFIG_TYPES[] = {
+	CFGT_HEAPSTR,	// CFG_VFS_CWD
+	CFGT_INT,	// CFG_VFS_MAXFILES
+	CFGT_NULL
+};
 
 // === IMPORTS ===
 extern void	ArchThreads_Init();
@@ -22,6 +28,7 @@ void	Threads_Init();
 void	Threads_SetName(char *NewName);
 char	*Threads_GetName(int ID);
 void	Threads_SetTickets(int Num);
+tThread	*Threads_CloneTCB(Uint *Err, Uint Flags);
  int	Threads_WaitTID(int TID, int *status);
 tThread	*Threads_GetThread(Uint TID);
 void	Threads_AddToDelete(tThread *Thread);
@@ -146,6 +153,88 @@ void Threads_SetTickets(int Num)
 	giTotalTickets += Num;
 	//LOG("giTotalTickets = %i", giTotalTickets);
 	RELEASE( &giThreadListLock );
+}
+
+/**
+ * \fn tThread *Threads_CloneTCB(Uint *Err, Uint Flags)
+ */
+tThread *Threads_CloneTCB(Uint *Err, Uint Flags)
+{
+	tThread	*cur, *new;
+	 int	i;
+	cur = Proc_GetCurThread();
+	
+	new = malloc(sizeof(tThread));
+	if(new == NULL) {
+		*Err = -ENOMEM;
+		return NULL;
+	}
+	
+	new->Next = NULL;
+	new->IsLocked = 0;
+	new->Status = THREAD_STAT_ACTIVE;
+	new->RetStatus = 0;
+	
+	// Get Thread ID
+	new->TID = giNextTID++;
+	new->PTID = cur->TID;
+	
+	// Clone Name
+	new->ThreadName = malloc(strlen(cur->ThreadName)+1);
+	strcpy(new->ThreadName, cur->ThreadName);
+	
+	// Set Thread Group ID (PID)
+	if(Flags & CLONE_VM)
+		new->TGID = new->TID;
+	else
+		new->TGID = cur->TGID;
+	
+	// Messages are not inherited
+	new->Messages = NULL;
+	new->LastMessage = NULL;
+	
+	// Set State
+	new->Remaining = new->Quantum = cur->Quantum;
+	new->NumTickets = cur->NumTickets;
+	
+	// Set Signal Handlers
+	new->CurSignal = 0;
+	if(Flags & CLONE_VM)
+		memset(new->SignalHandlers, 0, sizeof(new->SignalHandlers));
+	else
+		memcpy(new->SignalHandlers, cur->SignalHandlers, sizeof(new->SignalHandlers));
+	memset(&new->SignalState, 0, sizeof(tTaskState));
+	
+	for( i = 0; i < NUM_CFG_ENTRIES; i ++ )
+	{
+		switch(cCONFIG_TYPES[i])
+		{
+		default:
+			new->Config[i] = cur->Config[i];
+			break;
+		case CFGT_HEAPSTR:
+			if(cur->Config[i])
+				new->Config[i] = (Uint) strdup( (void*)cur->Config[i] );
+			else
+				new->Config[i] = 0;
+			break;
+		}
+	}
+	
+	return new;
+}
+
+/**
+ * \fn Uint *Threads_GetCfgPtr(int Id)
+ */
+Uint *Threads_GetCfgPtr(int Id)
+{
+	if(Id < 0 || Id >= NUM_CFG_ENTRIES) {
+		Warning("Threads_GetCfgPtr: Index %i is out of bounds", Id);
+		return NULL;
+	}
+	
+	return &Proc_GetCurThread()->Config[Id];
 }
 
 /**
@@ -408,7 +497,7 @@ void Threads_Sleep()
 }
 
 
-/**
+/**c0108919:
  * \fn void Threads_Wake( tThread *Thread )
  * \brief Wakes a sleeping/waiting thread up
  */
@@ -559,9 +648,10 @@ tThread *Threads_GetNextToRun(int CPU)
 	 int	ticket;
 	 int	number;
 	
+	if(giNumActiveThreads == 0)	return NULL;
+	
 	// Special case: 1 thread
-	if(giNumActiveThreads == 1)
-	{
+	if(giNumActiveThreads == 1) {
 		return gActiveThreads;
 	}
 	

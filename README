@@ -1,0 +1,31 @@
+========
+ Acess2
+========
+
+Acess2 is [TPG]'s hobby operating system.
+
+The Acess kernel is SEMI-posix compilant, but will be a comatability
+library that emulates the different functions.
+
+=== Source Tree ===
+--- /Kernel ---
+The /Kernel tree contains the kernel sources.
+ Within the root of the tree is the miscelanious architecture agnostic
+   code for managing threads, loading modules and other things.
+ /Kernel/arch/<archname> - Architecture dependent code
+ /Kernel/bin - Binary file format parsers. Takes a binary file and
+   convertes it into a binary object that the loader can then load into memory.
+ /Kernel/vfs - The Virtual Filesystem
+ /Kernel/vfs/fs - The various filesystem drivers for the VFS.
+ /Kernel/drv - Drivers
+
+--- Usermode ---
+/Usermode contains the base acess system
+ /Usermode/Applications - Usermode applications such as the default
+   command shell and the login shell.
+ /Usermode/Libraries - Usermode shared libraries and crt0.o, currently
+   implemented are libacess (kernel interface), a basic libc and ld-acess
+   (dynamic linker).
+ /Usermode/include - Required include files for the shared libraries.
+
+=== Building ===

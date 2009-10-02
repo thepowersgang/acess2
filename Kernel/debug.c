@@ -314,7 +314,6 @@ void Debug_HexDump(char *Header, void *Data, Uint Length)
 		cdat --;
 	}
 	E9('\n');
-	
 }
 
 // --- EXPORTS ---

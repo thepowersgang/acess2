@@ -1,19 +1,15 @@
-# AcessOS Basic C Library
+# Acess2 Basic C Library
 # Makefile
 
-CC = gcc
-AS = nasm
-RM = @rm -f
-LD = ld
-OBJDUMP = objdump
-ACESSDIR = /home/hodgeja/Projects/Acess2
+-include ../Makefile.cfg
 
-CPPFLAGS = -I$(ACESSDIR)/Usermode/include
-CFLAGS = -Wall -fPIC -fno-builtin -fno-stack-protector $(CPPFLAGS)
-ASFLAGS = -felf
-LDFLAGS = -x -shared -soname libc.so.1 -Map map.txt -e SoMain -L$(ACESSDIR)/Usermode/Libraries -lacess
+CPPFLAGS += 
+CFLAGS   += 
+ASFLAGS  +=
+LDFLAGS  += -soname libc.so.1 -Map map.txt
 
-OBJ_LIBC = heap.o stdlib.o stub.o env.o fileIO.o signals.o string.o
+OBJ_LIBC = heap.o stdlib.o stub.o env.o fileIO.o string.o
+# signals.o
 BIN = ../libc.so.1
 
 .PHONY:	all clean
@@ -30,7 +26,7 @@ $(BIN): $(OBJ_LIBC)
 	$(OBJDUMP) -d $@ > libc.so.1.dsm
 	$(OBJDUMP) -x -r -R $@ > libc.so.1.dmp
 	cp ../libc.so.1 ../libc.so
-	cp ../libc.so.1 /mnt/AcessHDD/Acess2/Libs/
+	cp ../libc.so.1 $(DISTROOT)/Libs/
 
 # C Runtime 0
 ../crt0.o: crt0.asm

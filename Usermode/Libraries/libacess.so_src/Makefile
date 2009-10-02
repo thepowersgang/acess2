@@ -2,10 +2,7 @@
 #
 #
 
-AS = nasm
-LD = ld
-STRIP = strip
-RM = rm -f
+-include ../../../Makefile.cfg
 
 ASFLAGS = -felf
 LDFLAGS = -nostdlib -shared -I/Acess/Libs/ld-acess.so -e SoMain
@@ -21,9 +18,11 @@ clean:
 	$(RM) $(BIN) $(OBJ)
 
 $(BIN): $(OBJ)
-	$(LD) $(LDFLAGS) -o $(BIN) $(OBJ)
+	@echo --- $(LD) -shared -o $@
+	@$(LD) $(LDFLAGS) -o $(BIN) $(OBJ)
 	$(STRIP) $(BIN)
-	cp $(BIN) /mnt/AcessHDD/Acess2/Libs
+	cp $(BIN) $(DISTROOT)/Libs
 	
 %.ao: %.asm syscalls.inc.asm
-	$(AS) $(ASFLAGS) -o $@ $<
+	@echo $(AS) -o $@
+	@$(AS) $(ASFLAGS) -o $@ $<

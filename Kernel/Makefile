@@ -4,11 +4,9 @@
 # - The built objects and dependency files are suffixed with the arch name
 # - The final binary is Acess2.<ARCH>.bin
 
--include Makefile.cfg
+-include ../Makefile.cfg
 
 -include arch/$(ARCHDIR)/Makefile
-
-RM = rm -f
 
 MAKEDEP		= $(CC) -M
 
@@ -43,9 +41,9 @@ $(BIN): $(OBJ) arch/$(ARCHDIR)/link.ld Makefile
 	@echo --- LD -o $(BIN)
 	@$(LD) $(LDFLAGS) -o $(BIN) $(OBJ) -Map ../Map.$(ARCH).txt
 	@objdump $(BIN) -D > $(BIN).dsm
-	@cp $(BIN) /mnt/AcessFDD/
+	cp $(BIN) $(DISTROOT)
 	@wc -l $(SRCFILES) > LineCounts.$(ARCH).txt
-	@git commit -a
+#	@git commit -a
 
 %.ao.$(ARCH): %.asm Makefile
 	@echo --- NASM -o $@

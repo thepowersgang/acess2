@@ -1,0 +1,28 @@
+#
+# libgcc
+#
+
+-include ../Makefile.cfg
+
+OBJS = libgcc.o
+BIN = ../libgcc.so
+
+CFLAGS  += -Wall -Werror
+LDFLAGS += -soname libgcc.acess.so
+
+.PHONY: all clean
+
+all: $(BIN)
+
+clean:
+	$(RM) $(BIN) $(OBJS)
+
+$(BIN): $(OBJS)
+	@echo -- ld -o $@
+	@$(LD) $(LDFLAGS) -o $(BIN) $(OBJS)
+	@$(OBJDUMP) -d $(BIN) > libgcc.so.dsm
+	cp $(BIN) $(DISTROOT)/Libs
+
+$(OBJS): %.o: %.c
+	@echo -- gcc -o $@
+	@$(CC) $(CFLAGS) -o $@ -c $<

@@ -4,10 +4,10 @@
 # arch/i386/Makefile
 
 # Assuming build machine is 32-bit ELF
-CC = gcc
-AS = nasm
-LD = ld
-OBJDUMP = objdump
+#CC = gcc
+#AS = nasm
+#LD = ld
+#OBJDUMP = objdump
 
 CPPFLAGS	=
 CFLAGS		=

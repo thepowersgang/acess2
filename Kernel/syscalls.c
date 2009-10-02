@@ -119,6 +119,11 @@ void SyscallHandler(tSyscallRegs *Regs)
 	// Binary Control
 	// ---
 	case SYS_EXECVE:
+		if( !Syscall_ValidString(Regs->Arg1) ) {
+			err = -EINVAL;
+			ret = -1;
+			break;
+		}
 		ret = Proc_Execve((char*)Regs->Arg1, (char**)Regs->Arg2, (char**)Regs->Arg3);
 		break;
 	case SYS_LOADBIN:

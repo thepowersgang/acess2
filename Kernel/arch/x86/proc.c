@@ -33,6 +33,7 @@ extern tThread	*gSleepingThreads;
 extern tThread	*gDeleteThreads;
 extern tThread	*Threads_GetNextToRun(int CPU);
 extern void	Threads_Dump();
+extern tThread	*Threads_CloneTCB(Uint *Err, Uint Flags);
 
 // === PROTOTYPES ===
 void	ArchThreads_Init();
@@ -242,23 +243,18 @@ int Proc_Clone(Uint *Err, Uint Flags)
 	__asm__ __volatile__ ("mov %%esp, %0": "=r"(esp));
 	__asm__ __volatile__ ("mov %%ebp, %0": "=r"(ebp));
 	
-	// Create new thread structure
-	newThread = malloc( sizeof(tThread) );
-	if(!newThread) {
-		Warning("Proc_Clone - Out of memory when creating thread\n");
-		*Err = -ENOMEM;
-		return -1;
-	}
-	
-	// Base new thread on current
-	memcpy(newThread, cur, sizeof(tThread));
+	newThread = Threads_CloneTCB(Err, Flags);
+	if(!newThread)	return -1;
 	
 	// Initialise Memory Space (New Addr space or kernel stack)
 	if(Flags & CLONE_VM) {
-		newThread->TGID = newThread->TID;
 		newThread->MemState.CR3 = MM_Clone();
+		newThread->KernelStack = cur->KernelStack;
 	} else {
 		Uint	tmpEbp, oldEsp = esp;
+
+		// Set CR3
+		newThread->MemState.CR3 = cur->MemState.CR3;
 
 		// Create new KStack
 		newThread->KernelStack = MM_NewKStack();
@@ -285,23 +281,6 @@ int Proc_Clone(Uint *Err, Uint Flags)
 				*(Uint*)tmpEbp += newThread->KernelStack - cur->KernelStack;
 		}
 	}
-
-	// Set Pointer, Spinlock and TID
-	newThread->Next = NULL;
-	newThread->IsLocked = 0;
-	newThread->TID = giNextTID++;
-	newThread->PTID = cur->TID;
-	
-	// Create copy of name
-	newThread->ThreadName = malloc(strlen(cur->ThreadName)+1);
-	strcpy(newThread->ThreadName, cur->ThreadName);
-
-	// Clear message list (messages are not inherited)
-	newThread->Messages = NULL;
-	newThread->LastMessage = NULL;
-	
-	// Set remaining (sheduler expects remaining to be correct)
-	newThread->Remaining = newThread->Quantum;
 	
 	// Save core machine state
 	newThread->SavedState.ESP = esp;
@@ -317,8 +296,6 @@ int Proc_Clone(Uint *Err, Uint Flags)
 	
 	// Lock list and add to active
 	Threads_AddActive(newThread);
-	
-	//Threads_Dump();
 	
 	return newThread->TID;
 }

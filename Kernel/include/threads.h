@@ -16,6 +16,7 @@ typedef struct sMessage
 
 typedef struct sThread
 {
+	// --- threads.c's
 	struct sThread	*Next;	//!< Next thread in list
 	 int	IsLocked;	//!< Thread's spinlock
 	 int	Status;		//!< Thread Status
@@ -27,7 +28,9 @@ typedef struct sThread
 	Uint	UID, GID;	//!< User and Group
 	char	*ThreadName;	//!< Name of thread
 	
-	tVAddr	KernelStack;	//!< Kernel Stack Base
+	// --- arch/proc.c's responsibility
+	//! Kernel Stack Base
+	tVAddr	KernelStack;
 	
 	//! Memory Manager State
 	tMemoryState	MemState;
@@ -35,6 +38,7 @@ typedef struct sThread
 	//! State on task switch
 	tTaskState	SavedState;
 	
+	// --- threads.c's
 	 int	CurSignal;	//!< Signal currently being handled (0 for none)
 	tVAddr	SignalHandlers[NSIG];	//!< Signal Handler List
 	tTaskState	SignalState;	//!< Saved state for signal handler

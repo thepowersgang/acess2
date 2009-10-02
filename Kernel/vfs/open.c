@@ -61,7 +61,13 @@ char *VFS_GetAbsPath(char *Path)
 		}
 		strcpy(ret, Path);
 	} else {
-		cwdLen = strlen(cwd);
+		if(cwd == NULL) {
+			cwd = "/";
+			cwdLen = 1;
+		}
+		else {
+			cwdLen = strlen(cwd);
+		}
 		endLen = cwdLen + pathLen + 2;
 		// Prepend the current directory
 		ret = malloc(endLen);
@@ -119,6 +125,7 @@ char *VFS_GetAbsPath(char *Path)
 		write += (pos-read)+1;
 	}
 	
+	ret[write] = '\0';	// Cap string (to deal with . or .. being the last terms)
 	// `ret` should now be the absolute path
 	LEAVE('s', ret);
 	//Log("VFS_GetAbsPath: RETURN '%s'", ret);
@@ -534,7 +541,8 @@ int VFS_ChDir(char *New)
 	VFS_Close(fd);
 	
 	// Free old working directory
-	if( CFGPTR(CFG_VFS_CWD) )	free( CFGPTR(CFG_VFS_CWD) );
+	if( CFGPTR(CFG_VFS_CWD) )
+		free( CFGPTR(CFG_VFS_CWD) );
 	// Set new
 	CFGPTR(CFG_VFS_CWD) = buf;
 	

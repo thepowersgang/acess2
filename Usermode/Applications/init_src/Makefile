@@ -1,27 +1,24 @@
 #
-#
-#
 
-CC = gcc
-AS = nasm
-LD = ld
-RM = rm -f
+-include ../Makefile.cfg
 
-ASFLAGS = -felf
-CPPFLAGS = -nostdinc -I../../include
-CFLAGS = -Wall -Werror -O3 $(CPPFLAGS)
-LDFLAGS = -I/Acess/Libs/ld-acess.so -L../../Libraries ../../Libraries/crt0.o -lacess
+CPPFLAGS += 
+CFLAGS	 += -Wall -Werror -O3
+LDFLAGS  += 
 
-OBJ = main.o
 BIN = ../init
+OBJ = main.o
 
 .PHONY: all clean
 
 all: $(BIN)
 
+clean:
+	$(RM) $(BIN) $(OBJ)
+
 $(BIN): $(OBJ) Makefile
 	$(LD) $(LDFLAGS) $(OBJ) -o $(BIN)
-	cp $(BIN) /mnt/AcessHDD/Acess2/
+	cp $(BIN) $(DISTROOT)/SBin/
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
