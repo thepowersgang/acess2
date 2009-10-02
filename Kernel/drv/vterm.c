@@ -505,6 +505,8 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 			Term->Text[ Term->WritePos ].Colour = Term->CurColour;
 			Term->WritePos --;
 		} while(Term->WritePos && i-- && Term->Text[ Term->WritePos ].Ch == '\0');
+		if(Term->Text[ Term->WritePos ].Ch != '\0')
+			Term->WritePos ++;
 		break;
 	
 	default:

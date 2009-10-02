@@ -26,7 +26,6 @@ int main(int argc, char *argv[])
 			if(uid == -1)	printf("\n");
 			sUsername = GetUsername();
 			sPassword = GetPassword();
-			printf("\n");
 		} while( (uid = ValidateUser(sUsername, sPassword)) == -1 );
 		printf("\n");
 		

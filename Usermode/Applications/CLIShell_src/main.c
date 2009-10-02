@@ -144,7 +144,7 @@ char *ReadCommandLine(int *Length)
 	// Read In Command Line
 	do {
 		read(_stdin, 1, &ch);	// Read Character from stdin (read is a blocking call)
-		// Ignore control characters
+		// Control characters
 		if(ch == '\x1B') {
 			read(_stdin, 1, &ch);	// Read control character
 			switch(ch)
@@ -174,6 +174,13 @@ char *ReadCommandLine(int *Length)
 			write(_stdout, 1, &ch);
 			continue;
 		}
+		// Tab
+		if(ch == '\t') {
+			//TODO: Implement Tab-Completion
+			//Currently just ignore tabs
+			continue;
+		}
+		
 		// Expand Buffer
 		if(len > space) {
 			space += 256;

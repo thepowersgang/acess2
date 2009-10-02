@@ -128,7 +128,8 @@ void MM_PageFault(Uint Addr, Uint ErrorCode, tRegs *Regs)
 	
 	// If it was a user, tell the thread handler
 	if(ErrorCode & 4) {
-		Warning("User Pagefault: Instruction at %p accessed %p\n", Regs->eip, Addr);
+		Warning("User Pagefault: Instruction at %p accessed %p", Regs->eip, Addr);
+		__asm__ __volatile__ ("sti");	// Restart IRQs
 		Threads_SegFault(Addr);
 		return ;
 	}

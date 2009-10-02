@@ -265,7 +265,12 @@ int Threads_WaitTID(int TID, int *status)
 		tThread	*t = Threads_GetThread(TID);
 		 int	initStatus = t->Status;
 		 int	ret;
-		while(t->Status == initStatus)	Threads_Yield();
+		
+		if(initStatus != THREAD_STAT_ZOMBIE)
+			while(t->Status == initStatus) {
+				Threads_Yield();
+			}
+		
 		ret = t->RetStatus;
 		switch(t->Status)
 		{
@@ -362,6 +367,7 @@ void Threads_Exit(int TID, int Status)
 		Threads_Kill( Proc_GetCurThread(), (Uint)Status & 0xFF );
 	else
 		Threads_Kill( Threads_GetThread(TID), (Uint)Status & 0xFF );
+	for(;;)	HALT();	// Just in case
 }
 
 /**
@@ -433,6 +439,9 @@ void Threads_Kill(tThread *Thread, int Status)
 	// Release spinlocks
 	RELEASE( &Thread->IsLocked );	// Released first so that it IS released
 	RELEASE( &giThreadListLock );
+	
+	//Log("Thread %i went *hurk*", Thread->TID);
+	
 	if(Status != -1)	HALT();
 }
 
@@ -689,6 +698,6 @@ tThread *Threads_GetNextToRun(int CPU)
 void Threads_SegFault(tVAddr Addr)
 {
 	//Threads_SendSignal( Proc_GetCurThread()->TID, SIGSEGV );
-	Log("Thread #%i committed a segfault at address %p\n", Proc_GetCurThread()->TID, Addr);
-	Threads_Exit( 0, 0 );
+	Warning("Thread #%i committed a segfault at address %p", Proc_GetCurThread()->TID, Addr);
+	Threads_Exit( 0, -1 );
 }
