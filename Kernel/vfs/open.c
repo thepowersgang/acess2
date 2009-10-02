@@ -89,17 +89,22 @@ char *VFS_GetAbsPath(char *Path)
 		if(pos - read <= 2)
 		{
 			// Current Dir "."
-			if(strncmp(&ret[read], ".", pos-read) == 0)	continue;
+			if(strncmp(&ret[read], ".", pos-read) == 0) {
+				ret[write] = '\0';
+				continue;
+			}
 			// Parent ".."
 			if(strncmp(&ret[read], "..", pos-read) == 0)
 			{
 				// If there is no higher, silently ignore
 				if(slashNum < 1) {
 					write = 1;
+					ret[1] = '\0';
 					continue;
 				}
 				// Reverse write pointer
 				write = slashOffsets[ --slashNum ];
+				ret[write] = '\0';
 				continue;
 			}
 		}
@@ -125,7 +130,6 @@ char *VFS_GetAbsPath(char *Path)
 		write += (pos-read)+1;
 	}
 	
-	ret[write] = '\0';	// Cap string (to deal with . or .. being the last terms)
 	// `ret` should now be the absolute path
 	LEAVE('s', ret);
 	//Log("VFS_GetAbsPath: RETURN '%s'", ret);

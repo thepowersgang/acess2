@@ -23,8 +23,8 @@ int SoMain(Uint base, int arg1)
 {
 	 int	ret;
 	
-	SysDebug("SoMain: base = 0x%x", base);
-	SysDebug("SoMain: arg1 = 0x%x", arg1);
+	//SysDebug("SoMain: base = 0x%x", base);
+	//SysDebug("SoMain: arg1 = 0x%x", arg1);
 	 
 	// - Assume that the file pointer will be less than 4096
 	if(base < 0x1000) {
@@ -79,7 +79,7 @@ int DoRelocate( Uint base, char **envp, char *Filename )
 */
 int CallUser(Uint entry, Uint sp)
 {
-	SysDebug("CallUser: (entry=0x%x, sp=0x%x)", entry, sp);
+	//SysDebug("CallUser: (entry=0x%x, sp=0x%x)", entry, sp);
 	*(Uint*)(sp-4) = 0;	// Clear return address
 	__asm__ __volatile__ (
 	"mov %%eax, %%esp;\n\t"

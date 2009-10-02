@@ -455,7 +455,7 @@ void Threads_Sleep()
 	tThread *cur = Proc_GetCurThread();
 	tThread *thread;
 	
-	Log("Proc_Sleep: %i going to sleep", cur->TID);
+	//Log("Proc_Sleep: %i going to sleep", cur->TID);
 	
 	// Acquire Spinlock
 	LOCK( &giThreadListLock );

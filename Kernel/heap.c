@@ -280,7 +280,7 @@ void free(void *Ptr)
 		return;
 	}
 	if(foot->Magic != MAGIC_FOOT) {
-		Warning("free - Footer magic is invalid (%p, 0x%x)\n", head, foot->Magic);
+		Warning("free - Footer magic is invalid (%p, %p = 0x%x)\n", head, &foot->Magic, foot->Magic);
 		return;
 	}
 	

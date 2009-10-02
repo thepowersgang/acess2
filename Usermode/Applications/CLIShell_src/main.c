@@ -48,7 +48,7 @@ char	**gasCommandHistory;
 int main(int argc, char *argv[], char *envp[])
 {
 	char	*sCommandStr;
-	char	*saArgs[32];
+	char	*saArgs[32] = {0};
 	 int	length = 0;
 	 int	i;
 	 int	iArgCount = 0;

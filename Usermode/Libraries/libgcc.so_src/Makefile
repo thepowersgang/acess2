@@ -8,7 +8,7 @@ OBJS = libgcc.o
 BIN = ../libgcc.so
 
 CFLAGS  += -Wall -Werror
-LDFLAGS += -soname libgcc.acess.so
+LDFLAGS += -soname libgcc.so
 
 .PHONY: all clean
 
