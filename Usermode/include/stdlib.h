@@ -13,6 +13,9 @@ stdlib.h
 # define NULL	((void*)0)
 #endif
 
+#define EXIT_FAILURE	1
+#define EXIT_SUCCESS	0
+
 typedef unsigned int	size_t;
 
 // --- Spinlock Macros ---
@@ -24,6 +27,7 @@ typedef unsigned int	size_t;
 // --- StdLib ---
 extern int	atoi(const char *ptr);
 extern void	exit(int status) __attribute__((noreturn));
+extern void qsort(void *base, size_t nmemb, size_t size, int(*compar)(const void *, const void *));
 
 // --- Environment ---
 extern char	*getenv(const char *name);

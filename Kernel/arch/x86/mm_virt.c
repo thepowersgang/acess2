@@ -149,6 +149,8 @@ void MM_PageFault(Uint Addr, Uint ErrorCode, tRegs *Regs)
 	if( gaPageDir[Addr>>22] & PF_PRESENT )
 		Log("gaPageTable[0x%x] = 0x%x", Addr>>12, gaPageTable[Addr>>12]);
 	
+	Log("Code at %p accessed %p\n", Regs->eip, Addr);
+	
 	MM_DumpTables(0, -1);	
 	
 	Panic("Page Fault at 0x%x\n", Regs->eip);
@@ -168,6 +170,7 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 	
 	Start >>= 12;	End >>= 12;
 	
+	#if 0
 	Log("Directory Entries:");
 	for(page = Start >> 10;
 		page < (End >> 10)+1;
@@ -181,6 +184,7 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 				);
 		}
 	}
+	#endif
 	
 	Log("Table Entries:");
 	for(page = Start, curPos = Start<<12;

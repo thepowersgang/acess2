@@ -13,9 +13,6 @@
 #define _stdout	1
 #define _stdin	0
 
-// === IMPORTS ===
-extern int	fprintfv(FILE *fp, const char *format, va_list args);
-
 // === PROTOTYPES ===
 EXPORT int	atoi(const char *str);
 EXPORT void	exit(int status);
@@ -31,6 +28,34 @@ EXPORT void exit(int status)
 }
 
 /**
+ * \fn EXPORT void qsort(void *base, size_t nmemb, size_t size, int(*compar)(const void *, const void *))
+ * \brief Sort an array
+ * \note Uses a selection sort
+ */
+EXPORT void qsort(void *base, size_t nmemb, size_t size, int(*compar)(const void *, const void *))
+{
+	 int	i, j, min;
+	for( i = 0; i < (nmemb-1); i++ )
+	{
+		min = i;
+		for( j = i+1; j < nmemb; j++ )
+		{
+			if(compar(base+size*j, base + size*min) < 0) {
+				min = j;
+			}
+		}
+		if (i != min) {
+			char	swap[size];
+			memcpy(swap, base+size*i, size);
+			memcpy(base+size*i, base+size*min, size);
+			memcpy(base+size*i, swap, size);
+		}
+	}
+}
+
+/**
+ * \fn EXPORT int atoi(const char *str)
+ * \brief Convert a string to an integer
  */
 EXPORT int atoi(const char *str)
 {

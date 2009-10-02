@@ -22,7 +22,7 @@ $(BIN): $(COBJ)
 	@echo --- $(LD) -o $@
 	@$(LD) $(LDFLAGS) -o $@ $(COBJ) -Map Map.txt
 	objdump -d $(BIN) > $(BIN).dsm
-	cp $(BIN) /mnt/AcessHDD/Acess2/
+	cp $(BIN) /mnt/AcessHDD/Acess2/Bin/
 
 clean:
 	$(RM) $(COBJ) $(BIN)
