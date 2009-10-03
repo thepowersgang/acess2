@@ -60,7 +60,7 @@ int main(int argc, char *argv[])
 	// Check that it is a directory
 	finfo(fd, &info, 0);
 	if( !(info.flags & FILEFLAG_DIRECTORY) ) {
-		fprintf(stderr, "'%s' is a directory\n", gsDirectory);
+		fprintf(stderr, "'%s' is not a directory\n", gsDirectory);
 		close(fd);
 		return EXIT_FAILURE;
 	}
@@ -167,8 +167,6 @@ void ParseArguments(int argc, char *argv[])
 	
 	// Apply Defaults
 	if(!gsDirectory)	gsDirectory = ".";
-	
-	printf("gsDirectory = '%s'\n", gsDirectory);
 }
 
 /**
@@ -280,26 +278,33 @@ void DisplayFile(char *Filename)
 		if(perms & 0002)	permStr[8] = 'w';
 		if(perms & 0001)	permStr[9] = 'x';
 		printf("%s %4i %4i ", permStr, owner, group);
-		if(gbViewHumanReadable) {
+		if(gbViewHumanReadable && type != FTYPE_DIR) {
 			if(size < 2048) {	// < 2 KiB
-				printf("%8lli B   ", size);
+				printf("%4i B   ", size);
 			}
 			else if(size < 2048*1024) {	// < 2 MiB
-				printf("%8lli KiB ", size>>10);
+				printf("%4i KiB ", size>>10);
 			}
 			else if(size < (uint64_t)2048*1024*1024) {	// < 2 GiB
-				printf("%8lli MiB ", size>>20);
+				printf("%4i MiB ", size>>20);
 			}
 			else if(size < (uint64_t)2048*1024*1024*1024) {	// < 2 TiB
-				printf("%8lli GiB ", size>>30);
+				printf("%4i GiB ", size>>30);
 			}
 			else {	// Greater than 2 TiB
-				printf("%8i TiB ", size>>40);
+				printf("%4i TiB ", size>>40);
 			}
 		} else {
 			printf("%8i ", size);
 		}
 	}
 	
-	printf("%s\n", Filename);
+	switch(type)
+	{
+	case FTYPE_DIR:		printf("\x1B[32m");	break;	// Green
+	case FTYPE_SYMLINK:	printf("\x1B[34m");	break;	// Blue
+	case FTYPE_NORMAL:	break;
+	}
+	printf("%s%s\n", Filename, (type==FTYPE_DIR?"/":""));
+	printf("\x1B[00m");	// Reset
 }

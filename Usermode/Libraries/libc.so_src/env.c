@@ -1,8 +1,9 @@
 /*
-AcessOS C Library
-- Environment Handler
+ * Acess C Library
+ * - Environment Handler
 */
 #include <stdlib.h>
+#include <string.h>
 
 // === GLOBALS ===
 char **_envp = NULL;

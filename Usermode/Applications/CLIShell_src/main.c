@@ -469,10 +469,7 @@ void Command_Dir(int argc, char **argv)
 	// Check if file opened
 	if(dp == -1)
 	{
-		//printf("Unable to open directory `%s', File cannot be found\n", tmpPath);
-		write(_stdout, 27, "Unable to open directory `");
-		write(_stdout, strlen(tmpPath)+1, tmpPath);
-		write(_stdout, 25, "', File cannot be found\n");
+		printf("Unable to open directory `%s', File cannot be found\n", tmpPath);
 		return;
 	}
 	// Get File Stats

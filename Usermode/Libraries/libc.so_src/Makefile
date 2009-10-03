@@ -6,7 +6,7 @@
 CPPFLAGS += 
 CFLAGS   += 
 ASFLAGS  +=
-LDFLAGS  += -soname libc.so.1 -Map map.txt
+LDFLAGS  += -soname libc.so.1 -Map map.txt -lgcc
 
 OBJ_LIBC = heap.o stdlib.o stub.o env.o fileIO.o string.o
 # signals.o

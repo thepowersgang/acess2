@@ -1,9 +1,8 @@
 /* Acess GCC Helper Library
  *
  */
-#include <sys/sys.h>
-
-typedef unsigned long long int uint64_t;
+#include <acess/sys.h>
+#include <stdint.h>
 
 // === CODE ===
 int SoMain()
@@ -14,7 +13,7 @@ int SoMain()
 // --- Errors ---
 void __stack_chk_fail()
 {
-	write(1, 32, "FATAL ERROR: Stack Check Failed\n");
+	write(2, 32, "FATAL ERROR: Stack Check Failed\n");
 	_exit(-1);
 	for(;;);
 }

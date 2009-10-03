@@ -5,11 +5,12 @@
 #ifndef __STDIO_H
 #define __STDIO_H
 
+#include <stdarg.h>
+
 typedef struct sFILE	FILE;
 
 extern int	printf(const char *format, ...);
-extern void sprintfv(char *buf, const char *format, va_list args);
-extern int	ssprintfv(char *format, va_list args);
+extern int	vsprintf(char *buf, const char *format, va_list args);
 extern int	sprintf(char *buf, const char *format, ...);
 
 extern FILE	*fopen(char *file, char *mode);
@@ -23,6 +24,7 @@ extern int	fgetc(FILE *fp);
 extern int	fputc(int ch, FILE *fp);
 
 extern int	fprintf(FILE *fp, const char *format, ...);
+extern int	vfprintf(FILE *fp, const char *format, va_list args);
 
 extern FILE	*stdin;
 extern FILE	*stdout;

@@ -1,6 +1,7 @@
 /*
-AcessOS Basic C Library
-*/
+ * AcessOS Basic C Library
+ * stdio.c
+ */
 #include "config.h"
 #include <acess/sys.h>
 #include <stdlib.h>
@@ -16,7 +17,7 @@ AcessOS Basic C Library
 #define	_stdout	1
 
 // === PROTOTYPES ===
-EXPORT void	itoa(char *buf, unsigned long num, int base, int minLength, char pad);
+EXPORT void	itoa(char *buf, uint64_t num, int base, int minLength, char pad, int bSigned);
 struct sFILE	*get_file_struct();
 
 // === GLOBALS ===
@@ -124,10 +125,10 @@ EXPORT void fflush(FILE *fp)
 }
 
 /**
- * \fn int fprintfv(FILE *fp, const char *format, va_list args)
+ * \fn EXPORT int vfprintf(FILE *fp, const char *format, va_list args)
  * \brief Print to a file from a variable argument list
  */
-EXPORT int fprintfv(FILE *fp, const char *format, va_list args)
+EXPORT int vfprintf(FILE *fp, const char *format, va_list args)
 {
 	va_list	tmpList = args;
 	 int	size;
@@ -135,13 +136,13 @@ EXPORT int fprintfv(FILE *fp, const char *format, va_list args)
 	 
 	if(!fp || !format)	return -1;
 	
-	size = ssprintfv((char*)format, tmpList);
+	size = vsprintf(NULL, (char*)format, tmpList);
 	
 	buf = (char*)malloc(size+1);
 	buf[size] = '\0';
 	
 	// Print
-	sprintfv(buf, (char*)format, args);
+	vsprintf(buf, (char*)format, args);
 	
 	// Write to stream
 	write(fp->FD, size+1, buf);
@@ -164,7 +165,7 @@ EXPORT int fprintf(FILE *fp, const char *format, ...)
 	
 	// Get Size
 	va_start(args, format);
-	ret = fprintfv(fp, (char*)format, args);
+	ret = vfprintf(fp, (char*)format, args);
 	va_end(args);
 	
 	return ret;
@@ -238,33 +239,38 @@ EXPORT int	puts(const char *str)
 
 //sprintfv
 /**
- \fn EXPORT void sprintfv(char *buf, const char *format, va_list args)
+ \fn EXPORT void vsprintf(char *buf, const char *format, va_list args)
  \brief Prints a formatted string to a buffer
  \param buf	Pointer - Destination Buffer
  \param format	String - Format String
  \param args	VarArgs List - Arguments
 */
-EXPORT void sprintfv(char *buf, const char *format, va_list args)
+EXPORT int vsprintf(char *buf, const char *format, va_list args)
 {
 	char	tmp[33];
-	 int	c, arg, minSize;
+	 int	c, minSize;
 	 int	pos = 0;
 	char	*p;
 	char	pad;
+	uint64_t	arg;
+	 int	bLongLong;
 
 	tmp[32] = '\0';
 	
 	while((c = *format++) != 0)
 	{
-		//SysDebug("c = '%c'\n", c);
+		// Non-control character
 		if (c != '%') {
-			buf[pos++] = c;
+			if(buf)	buf[pos] = c;
+			pos ++;
 			continue;
 		}
 		
+		// Control Character
 		c = *format++;
-		if(c == '%') {
-			buf[pos++] = '%';
+		if(c == '%') {	// Literal %
+			if(buf)	buf[pos] = '%';
+			pos ++;
 			continue;
 		}
 		
@@ -285,156 +291,104 @@ EXPORT void sprintfv(char *buf, const char *format, va_list args)
 			}
 		}
 	
+		// Check for long long
+		bLongLong = 0;
+		if(c == 'l')
+		{
+			c = *format++;
+			if(c == 'l') {
+				bLongLong = 1;
+			}
+		}
+			
 		p = tmp;
-	
-		// Get Argument
-		arg = va_arg(args, int);
+		
 		// Get Type
-		switch (c) {
-		case 'd':
-		case 'i':
-			if(arg < 0) {
-				buf[pos++] = '-';
-				arg = -arg;
-			}
-			itoa(tmp, arg, 10, minSize, pad);
-			goto sprintf_puts;
-		//	break;
-		case 'u':
-			itoa(tmp, arg, 10, minSize, pad);
-			goto sprintf_puts;
-		//	break;
-		case 'p':	// Pointer
-			buf[pos++] = '*';
-			buf[pos++] = '0';
-			buf[pos++] = 'x';
-		case 'x':
-			itoa(tmp, arg, 16, minSize, pad);
-			goto sprintf_puts;
-		//	break;
-		case 'o':
-			itoa(tmp, arg, 8, minSize, pad);
-			goto sprintf_puts;
-		//	break;
-		case 'b':
-			itoa(tmp, arg, 2, minSize, pad);
-			goto sprintf_puts;
-		//	break;
-
-		case 's':
-			p = (void*)arg;
-		sprintf_puts:
-			if(!p)	p = "(null)";
-			while(*p)	buf[pos++] = *p++;
-			break;
-
-		default:
-			buf[pos++] = arg;
-			break;
-		}
-    }
-	buf[pos++] = '\0';
-}
-/*
-ssprintfv
-- Size, Stream, Print Formated, Variable Argument List
-*/
-/**
- \fn EXPORT int ssprintfv(char *format, va_list args)
- \brief Gets the total character count from a formatted string
- \param format	String - Format String
- \param args	VarArgs - Argument List
-*/
-EXPORT int ssprintfv(char *format, va_list args)
-{
-	char	tmp[33];
-	 int	c, arg, minSize;
-	 int	len = 0;
-	char	*p;
-	char	pad;
-
-	tmp[32] = '\0';
-	
-	while((c = *format++) != 0)
-	{
-		if (c != '%') {
-			len++;
-			continue;
-		}
-		
-		c = *format++;
-		
-		// Literal '%'
-		if(c == '%') {
-			len++;
-			continue;
-		}
-		
-		// Padding
-		if(c == '0') {
-			pad = '0';
-			c = *format++;
-		} else
-			pad = ' ';
-		minSize = 0;
-		if('1' <= c && c <= '9')
+		switch( c )
 		{
-			while('0' <= c && c <= '9')
-			{
-				minSize *= 10;
-				minSize += c - '0';
-				c = *format++;
-			}
-		}
+		// Signed Integer
+		case 'd':	case 'i':
+			// Get Argument
+			if(bLongLong)	arg = va_arg(args, int64_t);
+			else			arg = va_arg(args, int32_t);
+			itoa(tmp, arg, 10, minSize, pad, 1);
+			goto sprintf_puts;
 		
-		p = tmp;
-		arg = va_arg(args, int);
-		switch (c) {			
-		case 'd':
-		case 'i':
-			if(arg < 0) {
-				len ++;
-				arg = -arg;
-			}
-			itoa(tmp, arg, 10, minSize, pad);
-			goto sprintf_puts;
+		// Unsigned Integer
 		case 'u':
-			itoa(tmp, arg, 10, minSize, pad);
+			// Get Argument
+			if(bLongLong)	arg = va_arg(args, uint64_t);
+			else			arg = va_arg(args, uint32_t);
+			itoa(tmp, arg, 10, minSize, pad, 0);
 			goto sprintf_puts;
-		case 'p':	// Pointer
-			len += 3;
+		
+		// Pointer
+		case 'p':
+			if(buf) {
+				buf[pos] = '*';
+				buf[pos+1] = '0';
+				buf[pos+2] = 'x';
+			}
+			pos += 3;
+			// Fall through to hex
+		// Unsigned Hexadecimal
 		case 'x':
-			itoa(tmp, arg, 16, minSize, pad);
+			if(bLongLong)	arg = va_arg(args, uint64_t);
+			else			arg = va_arg(args, uint32_t);
+			itoa(tmp, arg, 16, minSize, pad, 0);
 			goto sprintf_puts;
+		
+		// Unsigned Octal
 		case 'o':
-			itoa(tmp, arg, 8, minSize, pad);
-			p = tmp;
+			if(bLongLong)	arg = va_arg(args, uint64_t);
+			else			arg = va_arg(args, uint32_t);
+			itoa(tmp, arg, 8, minSize, pad, 0);
 			goto sprintf_puts;
+		
+		// Unsigned binary
 		case 'b':
-			itoa(tmp, arg, 2, minSize, pad);
+			if(bLongLong)	arg = va_arg(args, uint64_t);
+			else			arg = va_arg(args, uint32_t);
+			itoa(tmp, arg, 2, minSize, pad, 0);
 			goto sprintf_puts;
 
+		// String
 		case 's':
-			p = (char*)arg;
+			arg = va_arg(args, uint32_t);
+			p = (void*)(intptr_t)arg;
 		sprintf_puts:
 			if(!p)	p = "(null)";
-			while(*p)	len++, p++;
+			if(buf) {
+				while(*p) {
+					buf[pos++] = *p++;
+				}
+			}
+			else {
+				while(*p) {
+					pos++; p++;
+				}
+			}
 			break;
 
+		// Unknown, just treat it as a character
 		default:
-			len ++;
+			arg = va_arg(args, uint32_t);
+			if(buf)	buf[pos] = arg;
+			pos ++;
 			break;
 		}
     }
-	return len;
+	if(buf)	buf[pos] = '\0';
+	
+	return pos;
 }
 
 const char cUCDIGITS[] = "0123456789ABCDEF";
 /**
- * \fn static void itoa(char *buf, unsigned long num, int base, int minLength, char pad)
+ * \fn static void itoa(char *buf, uint64_t num, int base, int minLength, char pad, int bSigned)
  * \brief Convert an integer into a character string
  */
-EXPORT void itoa(char *buf, unsigned long num, int base, int minLength, char pad)
+EXPORT void itoa(char *buf, uint64_t num, int base, int minLength, char pad, int bSigned)
 {
 	char	tmpBuf[32];
 	 int	pos=0, i;
@@ -445,17 +399,25 @@ EXPORT void itoa(char *buf, unsigned long num, int base, int minLength, char pad
 		return;
 	}
 	
+	if(bSigned && (int64_t)num < 0)
+	{
+		num = -num;
+		bSigned = 1;
+	} else
+		bSigned = 0;
+	
 	while(num > base-1) {
 		tmpBuf[pos] = cUCDIGITS[ num % base ];
-		num = (long) num / base;		//Shift {number} right 1 digit
+		num = (long) num / base;		// Shift {number} right 1 digit
 		pos++;
 	}
 
-	tmpBuf[pos++] = cUCDIGITS[ num % base ];		//Last digit of {number}
+	tmpBuf[pos++] = cUCDIGITS[ num % base ];		// Last digit of {number}
+	if(bSigned)	tmpBuf[pos++] = '-';	// Append sign symbol if needed
 	i = 0;
 	minLength -= pos;
 	while(minLength-- > 0)	buf[i++] = pad;
-	while(pos-- > 0)		buf[i++] = tmpBuf[pos];	//Reverse the order of characters
+	while(pos-- > 0)		buf[i++] = tmpBuf[pos];	// Reverse the order of characters
 	buf[i] = 0;
 }
 
@@ -470,21 +432,26 @@ EXPORT int printf(const char *format, ...)
 	char	*buf;
 	va_list	args;
 	
+	// Get final size
 	va_start(args, format);
-	size = ssprintfv((char*)format, args);
+	size = vsprintf(NULL, (char*)format, args);
 	va_end(args);
 	
+	// Allocate buffer
 	buf = (char*)malloc(size+1);
 	buf[size] = '\0';
 	
+	// Fill Buffer
 	va_start(args, format);
-	sprintfv(buf, (char*)format, args);
+	vsprintf(buf, (char*)format, args);
 	va_end(args);
 	
-	
+	// Send to stdout
 	write(_stdout, size+1, buf);
 	
+	// Free buffer
 	free(buf);
+	// Return
 	return size;
 	
 	#else
@@ -504,9 +471,10 @@ EXPORT int printf(const char *format, ...)
  */
 EXPORT int sprintf(char *buf, const char *format, ...)
 {
+	 int	ret;
 	va_list	args;
 	va_start(args, format);
-	sprintfv((char*)buf, (char*)format, args);
+	ret = vsprintf((char*)buf, (char*)format, args);
 	va_end(args);
-	return 1;
+	return ret;
 }
