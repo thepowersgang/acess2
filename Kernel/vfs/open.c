@@ -30,12 +30,13 @@ char *VFS_GetAbsPath(char *Path)
 {
 	char	*ret;
 	 int	pathLen = strlen(Path);
-	 int	read, write;
-	 int	pos, endLen;
-	 int	slashNum = 0;
-	Uint	slashOffsets[MAX_PATH_SLASHES];
+	char	*pathComps[MAX_PATH_SLASHES];
+	char	*tmpStr;
+	int		iPos = 0;
+	int		iPos2 = 0;
 	char	*cwd = CFGPTR(CFG_VFS_CWD);
 	 int	cwdLen;
+	
 	
 	ENTER("sPath", Path);
 	
@@ -53,7 +54,6 @@ char *VFS_GetAbsPath(char *Path)
 	
 	// Check if the path is already absolute
 	if(Path[0] == '/') {
-		endLen = pathLen + 1;
 		ret = malloc(pathLen + 1);
 		if(!ret) {
 			Warning("VFS_GetAbsPath - malloc() returned NULL");
@@ -68,71 +68,82 @@ char *VFS_GetAbsPath(char *Path)
 		else {
 			cwdLen = strlen(cwd);
 		}
-		endLen = cwdLen + pathLen + 2;
 		// Prepend the current directory
-		ret = malloc(endLen);
+		ret = malloc( cwdLen + 1 + pathLen + 1 );
 		strcpy(ret, cwd);
 		ret[cwdLen] = '/';
 		strcpy(&ret[cwdLen+1], Path);
 	}
 	
-	// Remove . and ..
-	read = write = 1;	// Cwd has already been parsed
-	for(; read < endLen; read = pos+1)
+	// Parse Path
+	pathComps[iPos++] = tmpStr = ret+1;
+	while(*tmpStr)
 	{
-		pos = strpos( &ret[read], '/' );
-		// If we are in the last section, force a break at the end of the itteration
-		if(pos == -1)	pos = endLen;
-		else	pos += read;	// Else, Adjust to absolute
-		
-		// Check Length
-		if(pos - read <= 2)
+		if(*tmpStr++ == '/')
 		{
-			// Current Dir "."
-			if(strncmp(&ret[read], ".", pos-read) == 0) {
-				ret[write] = '\0';
-				continue;
-			}
-			// Parent ".."
-			if(strncmp(&ret[read], "..", pos-read) == 0)
-			{
-				// If there is no higher, silently ignore
-				if(slashNum < 1) {
-					write = 1;
-					ret[1] = '\0';
-					continue;
-				}
-				// Reverse write pointer
-				write = slashOffsets[ --slashNum ];
-				ret[write] = '\0';
-				continue;
+			pathComps[iPos++] = tmpStr;
+			if(iPos == MAX_PATH_SLASHES) {
+				LOG("Path '%s' has too many elements", Path);
+				free(ret);
+				LEAVE('n');
+				return NULL;
 			}
 		}
-		
-		
-		// Only copy if the positions differ
-		if(read != write) {
-			//Log("write = %i, read = %i, pos-read+1 = %i", write, read, pos-read+1);
-			memcpy( &ret[write], &ret[read], pos-read+1 );
-			//Log("ret = '%s'", ret);
-		}
-		
-		if(slashNum < MAX_PATH_SLASHES)
-			slashOffsets[ slashNum++ ] = write;
-		else {
-			LOG("Path '%s' has too many elements", Path);
-			free(ret);
-			LEAVE('n');
-			return NULL;
-		}
-		
-		// Increment write pointer
-		write += (pos-read)+1;
 	}
+	pathComps[iPos] = NULL;
 	
-	// `ret` should now be the absolute path
+	// Cleanup
+	iPos2 = iPos = 0;
+	while(pathComps[iPos])
+	{
+		tmpStr = pathComps[iPos];
+		// Always Increment iPos
+		iPos++;
+		// ..
+		if(tmpStr[0] == '.' && tmpStr[1] == '.'	&& (tmpStr[2] == '/' || tmpStr[2] == '\0') )
+		{
+			if(iPos2 != 0)
+				iPos2 --;
+			continue;
+		}
+		// .
+		if(tmpStr[0] == '.' && (tmpStr[1] == '/' || tmpStr[1] == '\0') )
+		{
+			continue;
+		}
+		// Empty
+		if(tmpStr[0] == '/' || tmpStr[0] == '\0')
+		{
+			continue;
+		}
+		
+		// Set New Position
+		pathComps[iPos2] = tmpStr;
+		iPos2++;
+	}
+	pathComps[iPos2] = NULL;
+	
+	// Build New Path
+	iPos2 = 1;	iPos = 0;
+	ret[0] = '/';
+	while(pathComps[iPos])
+	{
+		tmpStr = pathComps[iPos];
+		while(*tmpStr && *tmpStr != '/')
+		{
+			ret[iPos2++] = *tmpStr;
+			tmpStr++;
+		}
+		ret[iPos2++] = '/';
+		iPos++;
+	}
+	if(iPos2 > 1)
+		ret[iPos2-1] = 0;
+	else
+		ret[iPos2] = 0;
+	
 	LEAVE('s', ret);
-	//Log("VFS_GetAbsPath: RETURN '%s'", ret);
+	Log("VFS_GetAbsPath: RETURN '%s'", ret);
 	return ret;
 }
 
@@ -173,7 +184,10 @@ tVFS_Node *VFS_ParsePath(char *Path, char **TruePath)
 	}
 	
 	// Check if there is anything mounted
-	if(!gMounts)	return NULL;
+	if(!gMounts) {
+		Warning("WTF! There's nothing mounted?");
+		return NULL;
+	}
 	
 	// Find Mountpoint
 	for(mnt = gMounts;
@@ -242,6 +256,7 @@ tVFS_Node *VFS_ParsePath(char *Path, char **TruePath)
 				free(*TruePath);
 				*TruePath = NULL;
 			}
+			Log("Permissions fail on '%s'", Path);
 			LEAVE('n');
 			return NULL;
 		}
@@ -254,6 +269,7 @@ tVFS_Node *VFS_ParsePath(char *Path, char **TruePath)
 				*TruePath = NULL;
 			}
 			Path[nextSlash] = '/';
+			Log("FindDir fail on '%s'", Path);
 			LEAVE('n');
 			return NULL;
 		}
@@ -272,6 +288,7 @@ tVFS_Node *VFS_ParsePath(char *Path, char **TruePath)
 				free(*TruePath);
 				*TruePath = NULL;
 			}
+			Log("Child fail on '%s' ('%s)", Path, &Path[ofs]);
 			Path[nextSlash] = '/';
 			LEAVE('n');
 			return NULL;
@@ -292,6 +309,7 @@ tVFS_Node *VFS_ParsePath(char *Path, char **TruePath)
 			
 			// Error Check
 			if(!curNode) {
+				Log("Symlink fail '%s'", tmp);
 				free(tmp);	// Free temp string
 				LEAVE('n');
 				return NULL;
@@ -346,6 +364,7 @@ tVFS_Node *VFS_ParsePath(char *Path, char **TruePath)
 	// Check if file was found
 	if(!tmpNode) {
 		LOG("Node '%s' not found in dir '%s'", &Path[ofs], Path);
+		Log("Child fail '%s' ('%s')", Path, &Path[ofs]);
 		if(TruePath)	free(*TruePath);
 		if(curNode->Close)	curNode->Close(curNode);
 		LEAVE('n');
@@ -420,6 +439,7 @@ int VFS_Open(char *Path, Uint Mode)
 	}
 	
 	if(!node) {
+		LOG("Cannot find node");
 		LEAVE('i', -1);
 		return -1;
 	}
@@ -434,6 +454,7 @@ int VFS_Open(char *Path, Uint Mode)
 	// Permissions Check
 	if( !VFS_CheckACL(node, i) ) {
 		node->Close( node );
+		Log("VFS_Open: Permissions Failed");
 		LEAVE('i', -1);
 		return -1;
 	}
@@ -445,6 +466,7 @@ int VFS_Open(char *Path, Uint Mode)
 		if( MM_GetPhysAddr( (Uint)gaUserHandles ) == 0 )
 		{
 			Uint	addr, size;
+			Log("Allocating %i user handles", CFGINT(CFG_VFS_MAXFILES));
 			size = CFGINT(CFG_VFS_MAXFILES) * sizeof(tVFS_Handle);
 			for(addr = 0; addr < size; addr += 0x1000)
 				MM_Allocate( (Uint)gaUserHandles + addr );
@@ -484,6 +506,7 @@ int VFS_Open(char *Path, Uint Mode)
 		}
 	}
 	
+	Log("VFS_Open: Out of handles");
 	LEAVE('i', -1);
 	return -1;
 }
@@ -550,7 +573,7 @@ int VFS_ChDir(char *New)
 	// Set new
 	CFGPTR(CFG_VFS_CWD) = buf;
 	
-	Log("Updated CWD to '%s'", buf);
+	//Log("Updated CWD to '%s'", buf);
 	
 	return 1;
 }

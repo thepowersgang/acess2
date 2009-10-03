@@ -260,6 +260,9 @@ void DisplayFile(char *Filename)
 		if(acl.perms & 1)	perms |= 0004;	// R
 		if(acl.perms & 2)	perms |= 0002;	// W
 		if(acl.perms & 8)	perms |= 0001;	// X
+		
+		// Close file
+		close(fd);
 	}
 	free(path);	// We're finished with it
 	

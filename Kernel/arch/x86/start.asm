@@ -32,7 +32,7 @@ start:
 	mov cr3, ecx
 	
 	mov ecx, cr0
-	or	ecx, 0x80000000
+	or	ecx, 0x80010000	; PG and WP
 	mov cr0, ecx
 	
 	lea ecx, [.higherHalf]

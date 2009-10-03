@@ -43,7 +43,7 @@ uint64_t __umoddi3(uint64_t Num, uint64_t Den)
 {
 	if(Den == 0)	// Call Div by Zero Error
 		__asm__ __volatile__ ("int $0");
-	while(Num > Den)
+	while(Num >= Den)
 		Num -= Den;
 	return Num;
 }
