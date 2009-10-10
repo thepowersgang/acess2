@@ -201,9 +201,22 @@ Uint64 Ext2_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	// Get Inode
 	Ext2_int_GetInode(Node, &inode);
 	
+	// Sanity Checks
+	if(Offset >= inode.i_size) {
+		LEAVE('i', 0);
+		return 0;
+	}
+	if(Offset + Length > inode.i_size)
+		Length = inode.i_size - Offset;
+	
 	block = Offset / disk->BlockSize;
 	Offset = Offset / disk->BlockSize;
 	base = Ext2_int_GetBlockAddr(disk, inode.i_block, block);
+	if(base == 0) {
+		Warning("[EXT2 ] NULL Block Detected in INode 0x%llx\n", Node->Inode);
+		LEAVE('i', 0);
+		return 0;
+	}
 	
 	// Read only block
 	if(Length <= disk->BlockSize - Offset)
@@ -224,6 +237,11 @@ Uint64 Ext2_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	while(remLen > disk->BlockSize)
 	{
 		base = Ext2_int_GetBlockAddr(disk, inode.i_block, block);
+		if(base == 0) {
+			Warning("[EXT2 ] NULL Block Detected in INode 0x%llx\n", Node->Inode);
+			LEAVE('i', 0);
+			return 0;
+		}
 		VFS_ReadAt( disk->FD, base, disk->BlockSize, Buffer);
 		Buffer += disk->BlockSize;
 		remLen -= disk->BlockSize;
