@@ -92,22 +92,27 @@ typedef struct {
 // === PROTOTYPES ===
  int	ATA_Install();
  int	ATA_SetupIO();
-static void	ATA_SetupPartitions();
- void	ATA_SetupVFS();
+void	ATA_SetupPartitions();
+void	ATA_SetupVFS();
  int	ATA_ScanDisk(int Disk);
 void	ATA_ParseGPT(int Disk);
 void	ATA_ParseMBR(int Disk);
 void	ATA_int_MakePartition(tATA_Partition *Part, int Disk, int Num, Uint64 Start, Uint64 Length);
 Uint16	ATA_GetBasePort(int Disk);
+// Filesystem Interface
 char	*ATA_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*ATA_FindDir(tVFS_Node *Node, char *Name);
 Uint64	ATA_ReadFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
+Uint64	ATA_WriteFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
  int	ATA_IOCtl(tVFS_Node *Node, int Id, void *Data);
-Uint	ATA_Read(Uint64 Address, Uint Count, void *Buffer, Uint Argument);
- int	ATA_ReadRaw(Uint8 Disk, Uint64 Address, Uint64 Count, void *Buffer);
+// Disk Read
+Uint	ATA_ReadRaw(Uint64 Address, Uint Count, void *Buffer, Uint Disk);
  int	ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer);
+// Disk Write
+// IRQs
 void	ATA_IRQHandlerPri(int unused);
 void	ATA_IRQHandlerSec(int unused);
+// Controller IO
 Uint8	ATA_int_BusMasterReadByte(int Ofs);
 void	ATA_int_BusMasterWriteByte(int Ofs, Uint8 Value);
 void	ATA_int_BusMasterWriteDWord(int Ofs, Uint32 Value);
@@ -208,9 +213,9 @@ int ATA_SetupIO()
 }
 
 /**
- * \fn static void	ATA_SetupPartitions()
+ * \fn void ATA_SetupPartitions()
  */
-static void	ATA_SetupPartitions()
+void ATA_SetupPartitions()
 {
 	 int	i;
 	for( i = 0; i < MAX_ATA_DISKS; i ++ )
@@ -648,8 +653,29 @@ tVFS_Node *ATA_FindDir(tVFS_Node *Node, char *Name)
  */
 Uint64 ATA_ReadFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 {
+	 int	disk = Node->Inode >> 8;
+	 int	part = Node->Inode & 0xFF;
+	
+	// Raw Disk Access
+	if(part == 0xFF)
+	{
+		if( Offset >= gATA_Disks[disk].Sectors * SECTOR_SIZE )
+			return 0;
+		if( Offset + Length > gATA_Disks[disk].Sectors*SECTOR_SIZE )
+			Length = gATA_Disks[disk].Sectors*SECTOR_SIZE - Offset;
+	}
+	// Partition
+	else
+	{
+		if( Offset >= gATA_Disks[disk].Partitions[part].Length * SECTOR_SIZE )
+			return 0;
+		if( Offset + Length > gATA_Disks[disk].Partitions[part].Length * SECTOR_SIZE )
+			Length = gATA_Disks[disk].Partitions[part].Length * SECTOR_SIZE - Offset;
+		Offset += gATA_Disks[disk].Partitions[part].Start * SECTOR_SIZE;
+	}
+	
 	//Log("ATA_ReadFS: (Node=%p, Offset=0x%llx, Length=0x%llx, Buffer=%p)", Node, Offset, Length, Buffer);
-	return DrvUtil_ReadBlock(Offset, Length, Buffer, ATA_Read, SECTOR_SIZE, Node->Inode);
+	return DrvUtil_ReadBlock(Offset, Length, Buffer, ATA_ReadRaw, SECTOR_SIZE, disk);
 }
 
 /**
@@ -675,53 +701,21 @@ int ATA_IOCtl(tVFS_Node *Node, int Id, void *Data)
 
 // --- Disk Access ---
 /**
- * \fn Uint ATA_Read(Uint64 Address, Uint Count, void *Buffer, Uint Argument)
+ * \fn Uint ATA_ReadRaw(Uint64 Address, Uint Count, void *Buffer, Uint Disk)
  */
-Uint ATA_Read(Uint64 Address, Uint Count, void *Buffer, Uint Argument)
-{
-	 int	ret;
-	 int	disk = Argument >> 8;
-	 int	part = Argument & 0xFF;
-	
-	// Raw Disk Access
-	if(part == 0xFF)
-	{
-		if( Address >= gATA_Disks[disk].Sectors )	return 0;
-		if( Address + Count > gATA_Disks[disk].Sectors )
-			Count = gATA_Disks[disk].Sectors - Address;
-		
-		ret = ATA_ReadRaw(disk, Address, Count, Buffer);
-		if(ret == 1)
-			return Count;
-		return 0;
-	}
-	
-	if( Address >= gATA_Disks[disk].Partitions[part].Length )	return 0;
-	if( Address + Count > gATA_Disks[disk].Partitions[part].Length )
-		Count = gATA_Disks[disk].Partitions[part].Length - Address;
-	
-	ret = ATA_ReadRaw(
-		disk,
-		gATA_Disks[disk].Partitions[part].Start + Address,
-		Count,
-		Buffer);
-	
-	if(ret == 1)	return Count;
-	
-	return 0;
-	
-}
-/**
- * \fn int ATA_ReadRaw(Uint8 Disk, Uint64 Address, Uint64 Count, void *Buffer)
- */
-int ATA_ReadRaw(Uint8 Disk, Uint64 Address, Uint64 Count, void *Buffer)
+Uint ATA_ReadRaw(Uint64 Address, Uint Count, void *Buffer, Uint Disk)
 {
 	 int	ret;
 	Uint	offset;
+	Uint	done = 0;
 	 
 	// Pass straight on to ATA_ReadDMAPage if we can
 	if(Count <= MAX_DMA_SECTORS)
-		return ATA_ReadDMA(Disk, Address, Count, Buffer);
+	{
+		ret = ATA_ReadDMA(Disk, Address, Count, Buffer);
+		if(ret == 0)	return 0;
+		return Count;
+	}
 	
 	// Else we will have to break up the transfer
 	offset = 0;
@@ -729,13 +723,16 @@ int ATA_ReadRaw(Uint8 Disk, Uint64 Address, Uint64 Count, void *Buffer)
 	{
 		ret = ATA_ReadDMA(Disk, Address+offset, MAX_DMA_SECTORS, Buffer+offset);
 		// Check for errors
-		if(ret != 1)	return ret;
+		if(ret != 1)	return done;
 		// Change Position
+		done += MAX_DMA_SECTORS;
 		Count -= MAX_DMA_SECTORS;
 		offset += MAX_DMA_SECTORS*SECTOR_SIZE;
 	}
 	
-	return ATA_ReadDMA(Disk, Address+offset, Count, Buffer+offset);
+	ret = ATA_ReadDMA(Disk, Address+offset, Count, Buffer+offset);
+	if(ret != 1)	return 0;
+	return done+Count;
 }
 
 /**
