@@ -69,9 +69,13 @@ void Time_Interrupt()
 		giPartMiliseconds -= 0x80000000;
 	}
 	
-	Log("giTimestamp = %lli", giTimestamp);
+	//Log("giTimestamp = %lli", giTimestamp);
 	
 	Timer_CallTimers();
+
+	// Make sure the RTC Fires again
+	outb(0x70, 0x0C); // Select register C
+	inb(0x71);	// Just throw away contents.
 }
 
 /**
@@ -114,7 +118,7 @@ void Timer_CallTimers()
 		i < NUM_TIMERS;
 		i ++)
 	{
-		Log("%i", i);
+		//Log("Timer %i", i);
 		if(gTimers[i].Callback == NULL)	continue;
 		Log("%i - %lli < %lli", i, giTimestamp, gTimers[i].FiresAfter);
 		if(giTimestamp < gTimers[i].FiresAfter)	continue;
