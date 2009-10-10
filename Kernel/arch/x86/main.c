@@ -18,6 +18,7 @@ extern void	MM_PreinitVirtual();
 extern void	MM_Install(tMBoot_Info *MBoot);
 extern void MM_InstallVirtual();
 extern void	Threads_Init();
+extern int	Time_Setup();
 extern Uint	Proc_Clone(Uint *Err, Uint Flags);
 extern void	Threads_Sleep();
 extern void	Threads_Exit();
@@ -42,6 +43,9 @@ int kmain(Uint MbMagic, tMBoot_Info *MbInfo)
 	Log("Starting Multitasking...");
 	// Start Multitasking
 	Threads_Init();
+	
+	// Start Timers
+	Time_Setup();
 	
 	Log("Starting VFS...");
 	// Load Virtual Filesystem

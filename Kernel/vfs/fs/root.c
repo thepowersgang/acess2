@@ -9,7 +9,7 @@
 #define MAX_FILES	64
 
 // === PROTOTYPES ===
-tVFS_Node	*Root_InitDevice(char *Device, char *Options);
+tVFS_Node	*Root_InitDevice(char *Device, char **Options);
  int	Root_MkNod(tVFS_Node *Node, char *Name, Uint Flags);
 tVFS_Node	*Root_FindDir(tVFS_Node *Node, char *Name);
 char	*Root_ReadDir(tVFS_Node *Node, int Pos);
@@ -33,10 +33,10 @@ tVFS_ACL	RootFS_ACLs[3] = {
 
 // === CODE ===
 /**
- * \fn tVFS_Node *Root_InitDevice(char *Device, char *Options)
+ * \fn tVFS_Node *Root_InitDevice(char *Device, char **Options)
  * \brief Initialise the root filesystem
  */
-tVFS_Node *Root_InitDevice(char *Device, char *Options)
+tVFS_Node *Root_InitDevice(char *Device, char **Options)
 {
 	tRamFS_File	*root;
 	if(strcmp(Device, "root") != 0) {

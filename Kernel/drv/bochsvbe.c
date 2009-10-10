@@ -30,34 +30,10 @@ typedef struct {
 	Uint32	fbSize;
 } t_bga_mode;
 
-
-// === PROTOTYPES ===
-// Driver
- int	BGA_Install(char **Arguments);
-void	BGA_Uninstall();
-// Internal
-void	BGA_int_WriteRegister(Uint16 reg, Uint16 value);
-Uint16	BGA_int_ReadRegister(Uint16 reg);
-void	BGA_int_SetBank(Uint16 bank);
-void	BGA_int_SetMode(Uint16 width, Uint16 height, Uint16 bpp);
- int	BGA_int_UpdateMode(int id);
- int	BGA_int_FindMode(tVideo_IOCtl_Mode *info);
- int	BGA_int_ModeInfo(tVideo_IOCtl_Mode *info);
- int	BGA_int_MapFB(void *Dest);
-// Filesystem
-Uint64	BGA_Read(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer);
-Uint64	BGA_Write(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer);
- int	BGA_Ioctl(tVFS_Node *node, int id, void *data);
-
 // === CONSTANTS ===
-const t_bga_mode	BGA_MODES[] = {
-	{},
-	{640,480,8, 0, 640*480},
-	{640,480,32, 0, 640*480*4},
-	{800,600,8, 0, 800*600},
-	{800,600,32, 0, 800*600*4},
+enum eMode_Flags {
+	MODEFLAG_TEXT = 1
 };
-#define	BGA_MODE_COUNT	(sizeof(BGA_MODES)/sizeof(BGA_MODES[0]))
 #define	BGA_LFB_MAXSIZE	(1024*768*4)
 #define	VBE_DISPI_BANK_ADDRESS	0xA0000
 #define VBE_DISPI_LFB_PHYSICAL_ADDRESS	0xE0000000
@@ -80,7 +56,26 @@ enum {
 	VBE_DISPI_INDEX_Y_OFFSET
 };
 
-// GLOBALS
+
+// === PROTOTYPES ===
+// Driver
+ int	BGA_Install(char **Arguments);
+void	BGA_Uninstall();
+// Internal
+void	BGA_int_WriteRegister(Uint16 reg, Uint16 value);
+Uint16	BGA_int_ReadRegister(Uint16 reg);
+void	BGA_int_SetBank(Uint16 bank);
+void	BGA_int_SetMode(Uint16 width, Uint16 height);
+ int	BGA_int_UpdateMode(int id);
+ int	BGA_int_FindMode(tVideo_IOCtl_Mode *info);
+ int	BGA_int_ModeInfo(tVideo_IOCtl_Mode *info);
+ int	BGA_int_MapFB(void *Dest);
+// Filesystem
+Uint64	BGA_Read(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer);
+Uint64	BGA_Write(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer);
+ int	BGA_Ioctl(tVFS_Node *node, int id, void *data);
+
+// === GLOBALS ===
 MODULE_DEFINE(0, 0x0032, BochsVBE, BGA_Install, NULL, NULL);
 tDevFS_Driver	gBGA_DriverStruct = {
 	NULL, "BochsGA",
@@ -93,6 +88,16 @@ tDevFS_Driver	gBGA_DriverStruct = {
  int	giBGA_CurrentMode = -1;
  int	giBGA_DriverId = -1;
 Uint	*gBGA_Framebuffer;
+t_bga_mode	gBGA_Modes[] = {
+	{},
+	{ 80,25, 32, MODEFLAG_TEXT, 80*25*8},	// 640 x 480
+	{100,37, 32, MODEFLAG_TEXT, 100*37*8},	// 800 x 600
+	{640,480,8, 0, 640*480},
+	{640,480,32, 0, 640*480*4},
+	{800,600,8, 0, 800*600},
+	{800,600,32, 0, 800*600*4},
+};
+#define	BGA_MODE_COUNT	(sizeof(gBGA_Modes)/sizeof(gBGA_Modes[0]))
 
 // === CODE ===
 /**
@@ -142,7 +147,7 @@ Uint64 BGA_Read(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer)
 	if(giBGA_CurrentMode == -1)	return -1;
 	
 	// Check Offset and Length against Framebuffer Size
-	if(off+len > BGA_MODES[giBGA_CurrentMode].fbSize)
+	if(off+len > gBGA_Modes[giBGA_CurrentMode].fbSize)
 		return -1;
 	
 	// Copy from Framebuffer
@@ -155,30 +160,58 @@ Uint64 BGA_Read(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer)
  * \brief Write to the framebuffer
  */
 Uint64 BGA_Write(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer)
-{
-	Uint8	*destBuf;
-	
-	DEBUGS("BGA_Write: (off=%i, len=0x%x)\n", off, len);
+{	
+	ENTER("xoff xlen", off, len);
 	
 	// Check Mode
-	if(giBGA_CurrentMode == -1)
+	if(giBGA_CurrentMode == -1) {
+		LEAVE('i', -1);
 		return -1;
+	}
+	
 	// Check Input against Frambuffer Size
-	if(off+len > BGA_MODES[giBGA_CurrentMode].fbSize)
+	if(off+len > gBGA_Modes[giBGA_CurrentMode].fbSize) {
+		LEAVE('i', -1);
 		return -1;
+	}
 	
-	destBuf = (Uint8*) ((Uint)gBGA_Framebuffer + (Uint)off);
+	// Text Mode
+	if( gBGA_Modes[giBGA_CurrentMode].flags & MODEFLAG_TEXT )
+	{
+		tVT_Char	*chars = buffer;
+		 int	pitch = gBGA_Modes[giBGA_CurrentMode].width * giVT_CharWidth;
+		Uint32	*dest;
+		dest = (void*)gBGA_Framebuffer;
+		dest += off * giVT_CharWidth;
+		len /= sizeof(tVT_Char);
+		while(len--)
+		{
+			VT_Font_Render(
+				chars->Ch,
+				dest, pitch,
+				VT_Colour12to24(chars->BGCol),
+				VT_Colour12to24(chars->FGCol)
+				);
+			dest += giVT_CharWidth;
+			chars++;
+		}
+	}
+	else
+	{
+		Uint8	*destBuf = (Uint8*) ((Uint)gBGA_Framebuffer + (Uint)off);
+		
+		LOG("buffer = %p\n", buffer);
+		LOG("Updating Framebuffer (%p to %p)\n", 
+			destBuf, destBuf + (Uint)len);
+		
+		
+		// Copy to Frambuffer
+		memcpy(destBuf, buffer, len);
+		
+		LOG("BGA Framebuffer updated\n");
+	}
 	
-	DEBUGS(" BGA_Write: *buffer = 0x%x\n", *(Uint*)buffer);
-	DEBUGS(" BGA_Write: Updating Framebuffer (0x%x - 0x%x bytes)\n", 
-		destBuf, destBuf + (Uint)len);
-	
-	
-	// Copy to Frambuffer
-	memcpy(destBuf, buffer, len);
-	
-	DEBUGS("BGA_Write: BGA Framebuffer updated\n");
-	
+	LEAVE('i', len);
 	return len;
 }
 
@@ -265,13 +298,13 @@ INT void BGA_int_SetBank(Uint16 bank)
  * \fn void BGA_int_SetMode(Uint16 width, Uint16 height, Uint16 bpp)
  * \brief Sets the video mode from the dimensions and bpp given
  */
-void BGA_int_SetMode(Uint16 width, Uint16 height, Uint16 bpp)
+void BGA_int_SetMode(Uint16 width, Uint16 height)
 {
 	DEBUGS("BGA_int_SetMode: (width=%i, height=%i, bpp=%i)\n", width, height, bpp);
 	BGA_int_WriteRegister(VBE_DISPI_INDEX_ENABLE, VBE_DISPI_DISABLED);
     BGA_int_WriteRegister(VBE_DISPI_INDEX_XRES,	width);
     BGA_int_WriteRegister(VBE_DISPI_INDEX_YRES,	height);
-    BGA_int_WriteRegister(VBE_DISPI_INDEX_BPP,	bpp);
+    BGA_int_WriteRegister(VBE_DISPI_INDEX_BPP,	32);
     BGA_int_WriteRegister(VBE_DISPI_INDEX_ENABLE, VBE_DISPI_ENABLED | VBE_DISPI_NOCLEARMEM | VBE_DISPI_LFB_ENABLED);
     //BGA_int_WriteRegister(VBE_DISPI_INDEX_ENABLE, VBE_DISPI_ENABLED | VBE_DISPI_NOCLEARMEM);
 }
@@ -282,8 +315,19 @@ void BGA_int_SetMode(Uint16 width, Uint16 height, Uint16 bpp)
  */
 int BGA_int_UpdateMode(int id)
 {
+	// Sanity Check
 	if(id < 0 || id >= BGA_MODE_COUNT)	return -1;
-	BGA_int_SetMode(BGA_MODES[id].width, BGA_MODES[id].height, BGA_MODES[id].bpp);
+	
+	// Check if it is a text mode
+	if( gBGA_Modes[id].flags & MODEFLAG_TEXT )
+		BGA_int_SetMode(
+			gBGA_Modes[id].width*giVT_CharWidth,
+			gBGA_Modes[id].height*giVT_CharHeight);
+	else	// Graphics?
+		BGA_int_SetMode(
+			gBGA_Modes[id].width,
+			gBGA_Modes[id].height);
+	
 	giBGA_CurrentMode = id;
 	return id;
 }
@@ -304,12 +348,12 @@ int BGA_int_FindMode(tVideo_IOCtl_Mode *info)
 	for(i = 0; i < BGA_MODE_COUNT; i++)
 	{
 		#if DEBUG >= 2
-		LogF("Mode %i (%ix%ix%i), ", i, BGA_MODES[i].width, BGA_MODES[i].height, BGA_MODES[i].bpp);
+		LogF("Mode %i (%ix%ix%i), ", i, gBGA_Modes[i].width, gBGA_Modes[i].height, gBGA_Modes[i].bpp);
 		#endif
 	
-		if(BGA_MODES[i].width == info->width
-		&& BGA_MODES[i].height == info->height
-		&& BGA_MODES[i].bpp == info->bpp)
+		if(gBGA_Modes[i].width == info->width
+		&& gBGA_Modes[i].height == info->height
+		&& gBGA_Modes[i].bpp == info->bpp)
 		{
 			#if DEBUG >= 2
 			LogF("Perfect!\n");
@@ -318,7 +362,7 @@ int BGA_int_FindMode(tVideo_IOCtl_Mode *info)
 			break;
 		}
 		
-		tmp = BGA_MODES[i].width * BGA_MODES[i].height * BGA_MODES[i].bpp;
+		tmp = gBGA_Modes[i].width * gBGA_Modes[i].height * gBGA_Modes[i].bpp;
 		tmp -= rqdProduct;
 		tmp = tmp < 0 ? -tmp : tmp;
 		factor = tmp * 100 / rqdProduct;
@@ -334,9 +378,9 @@ int BGA_int_FindMode(tVideo_IOCtl_Mode *info)
 		}
 	}
 	info->id = best;
-	info->width = BGA_MODES[best].width;
-	info->height = BGA_MODES[best].height;
-	info->bpp = BGA_MODES[best].bpp;
+	info->width = gBGA_Modes[best].width;
+	info->height = gBGA_Modes[best].height;
+	info->bpp = gBGA_Modes[best].bpp;
 	return best;
 }
 
@@ -352,9 +396,9 @@ int BGA_int_ModeInfo(tVideo_IOCtl_Mode *info)
 	
 	if(info->id < 0 || info->id >= BGA_MODE_COUNT)	return -1;
 	
-	info->width = BGA_MODES[info->id].width;
-	info->height = BGA_MODES[info->id].height;
-	info->bpp = BGA_MODES[info->id].bpp;
+	info->width = gBGA_Modes[info->id].width;
+	info->height = gBGA_Modes[info->id].height;
+	info->bpp = gBGA_Modes[info->id].bpp;
 	
 	return 1;
 }
@@ -371,10 +415,10 @@ int BGA_int_MapFB(void *Dest)
 	
 	// Sanity Check
 	if((Uint)Dest > 0xC0000000)	return 0;
-	if(BGA_MODES[giBGA_CurrentMode].bpp < 15)	return 0;	// Only non-pallete modes are supported
+	if(gBGA_Modes[giBGA_CurrentMode].bpp < 15)	return 0;	// Only non-pallete modes are supported
 	
 	// Count required pages
-	pages = (BGA_MODES[giBGA_CurrentMode].fbSize + 0xFFF) >> 12;
+	pages = (gBGA_Modes[giBGA_CurrentMode].fbSize + 0xFFF) >> 12;
 	
 	// Check if there is space
 	for( i = 0; i < pages; i++ )

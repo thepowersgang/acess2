@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
 	}
 
 	// Traverse Directory
-	while( (tmp = readdir(fd, buf)) )
+	while( (tmp = readdir(fd, buf)) > 0 )
 	{
 		// Error check
 		if(tmp < 0) {

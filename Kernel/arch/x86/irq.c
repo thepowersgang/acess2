@@ -8,7 +8,7 @@
 #define	MAX_CALLBACKS_PER_IRQ	4
 
 // === TYPES ===
-typedef void (*tIRQ_Callback)(void);
+typedef void (*tIRQ_Callback)(int);
 
 // === GLOBALS ===
 tIRQ_Callback	gIRQ_Handlers[16][MAX_CALLBACKS_PER_IRQ];
@@ -30,18 +30,18 @@ void IRQ_Handler(tRegs *Regs)
 	{
 		//Log(" IRQ_Handler: Call %p", gIRQ_Handlers[Regs->int_num][i]);
 		if( gIRQ_Handlers[Regs->int_num][i] )
-			gIRQ_Handlers[Regs->int_num][i]();
+			gIRQ_Handlers[Regs->int_num][i](Regs->int_num);
 	}
 	
-	outb(0x20, 0x20);	// ACK IRQ
 	if(Regs->int_num >= 8)
 		outb(0xA0, 0x20);	// ACK IRQ (Secondary PIC)
+	outb(0x20, 0x20);	// ACK IRQ
 }
 
 /**
- * \fn int IRQ_AddHandler( int Num, void (*Callback)(void) )
+ * \fn int IRQ_AddHandler( int Num, void (*Callback)(int) )
  */
-int IRQ_AddHandler( int Num, void (*Callback)(void) )
+int IRQ_AddHandler( int Num, void (*Callback)(int) )
 {
 	 int	i;
 	for( i = 0; i < MAX_CALLBACKS_PER_IRQ; i++ )

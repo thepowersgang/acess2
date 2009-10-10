@@ -12,13 +12,16 @@
 # define DEBUGS(v...)	
 #endif
 
+// === CONSTANTS ===
+#define	MAX_LOADED_LIBRARIES	64
+#define	MAX_STRINGS_BYTES	4096
+#define	SYSTEM_LIB_DIR	"/Acess/Libs/"
+
 // === PROTOTYPES ===
 Uint	IsFileLoaded(char *file);
  int	GetSymbolFromBase(Uint base, char *name, Uint *ret);
 
 // === GLOABLS ===
-#define	MAX_LOADED_LIBRARIES	64
-#define	MAX_STRINGS_BYTES	4096
 struct {
 	Uint	Base;
 	char	*Name;
@@ -28,23 +31,48 @@ char	*gsNextAvailString = gsLoadedStrings;
 //tLoadLib	*gpLoadedLibraries = NULL;
 
 // === CODE ===
-Uint LoadLibrary(char *filename, char *SearchDir, char **envp)
+char *FindLibrary(char *DestBuf, char *SoName, char *ExtraSearchDir)
+{	
+	// -- #1: Executable Specified
+	if(ExtraSearchDir)
+	{
+		strcpy(DestBuf, ExtraSearchDir);
+		strcat(DestBuf, "/");
+		strcat(DestBuf, SoName);
+		if(file_exists(DestBuf))	return DestBuf;
+	}
+	
+	// -- #2: System
+	strcpy(DestBuf, SYSTEM_LIB_DIR);
+	strcat(DestBuf, SoName);
+	if(file_exists(DestBuf))	return DestBuf;
+	
+	// -- #3: Current Directory
+	if(file_exists(SoName))	return SoName;
+	
+	return NULL;
+}
+
+/**
+ */
+Uint LoadLibrary(char *SoName, char *SearchDir, char **envp)
 {
-	char	sTmpName[1024] = "/Acess/Libs/";
+	char	sTmpName[1024];
+	char	*filename;
 	Uint	iArg;
 	void	(*fEntry)(int, int, char *[], char**);
 	
 	DEBUGS("LoadLibrary: (filename='%s', envp=0x%x)\n", filename, envp);
 	
 	// Create Temp Name
-	strcpy(&sTmpName[12], filename);
-	DEBUGS(" LoadLibrary: sTmpName='%s'\n", sTmpName);
+	filename = FindLibrary(sTmpName, SoName, SearchDir);
+	DEBUGS(" LoadLibrary: filename='%s'\n", filename);
 	
-	if( (iArg = IsFileLoaded(sTmpName)) )
+	if( (iArg = IsFileLoaded(filename)) )
 		return iArg;
 	
 	// Load Library
-	iArg = SysLoadBin(sTmpName, (Uint*)&fEntry);
+	iArg = SysLoadBin(filename, (Uint*)&fEntry);
 	if(iArg == 0) {
 		DEBUGS("LoadLibrary: RETURN 0\n");
 		return 0;
@@ -53,10 +81,10 @@ Uint LoadLibrary(char *filename, char *SearchDir, char **envp)
 	DEBUGS(" LoadLibrary: iArg=0x%x, iEntry=0x%x\n", iArg, fEntry);
 	
 	// Load Symbols
-	fEntry = (void*)DoRelocate( iArg, envp, sTmpName );
+	fEntry = (void*)DoRelocate( iArg, envp, filename );
 	
 	// Call Entrypoint
-	DEBUGS(" LoadLibrary: '%s' Entry 0x%x\n", filename, fEntry);
+	DEBUGS(" LoadLibrary: '%s' Entry 0x%x\n", SoName, fEntry);
 	fEntry(iArg, 0, NULL, envp);
 	
 	DEBUGS("LoadLibrary: RETURN 1\n");

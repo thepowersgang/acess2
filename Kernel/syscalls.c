@@ -152,6 +152,14 @@ void SyscallHandler(tSyscallRegs *Regs)
 		VFS_Close( Regs->Arg1 );
 		break;
 	
+	case SYS_SEEK:
+		ret = VFS_Seek( Regs->Arg1, Regs->Arg2, Regs->Arg3);
+		break;
+		
+	case SYS_TELL:
+		ret = VFS_Tell( Regs->Arg1 );
+		break;
+	
 	case SYS_WRITE:
 		#if BITS < 64
 		ret = VFS_Write( Regs->Arg1, Regs->Arg2|((Uint64)Regs->Arg3<<32), (void*)Regs->Arg4 );
@@ -200,6 +208,36 @@ void SyscallHandler(tSyscallRegs *Regs)
 			break;
 		}
 		ret = VFS_ChDir( (void*)Regs->Arg1 );
+		break;
+	
+	// IO Control
+	case SYS_IOCTL:
+		ret = VFS_IOCtl( Regs->Arg1, Regs->Arg2, (void*)Regs->Arg3 );
+		break;
+	
+	// Mount a filesystem
+	case SYS_MOUNT:
+		// Only root can mount filesystems
+		if(Threads_GetUID() != 0) {
+			err = -EACCES;
+			ret = -1;
+			break;
+		}
+		// Sanity check the paths
+		if(!Syscall_ValidString(Regs->Arg1)
+		|| !Syscall_ValidString(Regs->Arg2)
+		|| !Syscall_ValidString(Regs->Arg3)
+		|| !Syscall_ValidString(Regs->Arg4) ) {
+			err = -EINVAL;
+			ret = -1;
+			break;
+		}
+		ret = VFS_Mount(
+			(char*)Regs->Arg1,	// Device
+			(char*)Regs->Arg2,	// Mount point
+			(char*)Regs->Arg3,	// Filesystem
+			(char*)Regs->Arg4	// Options
+			);
 		break;
 	
 	// -- Debug

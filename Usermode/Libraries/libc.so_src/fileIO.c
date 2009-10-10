@@ -41,8 +41,8 @@ EXPORT FILE *freopen(FILE *fp, char *file, char *mode)
 	
 	if(fp->Flags) {
 		fflush(fp);
-		close(fp->FD);
-	}
+	} else
+		fp->FD = -1;
 	
 	// Get main mode
 	switch(mode[0])
@@ -82,7 +82,10 @@ EXPORT FILE *freopen(FILE *fp, char *file, char *mode)
 	}
 	
 	//Open File
-	fp->FD = reopen(fp->FD, file, openFlags);
+	if(fp->FD != -1)
+		fp->FD = reopen(fp->FD, file, openFlags);
+	else
+		fp->FD = open(file, openFlags);
 	if(fp->FD == -1) {
 		fp->Flags = 0;
 		return NULL;
@@ -123,6 +126,21 @@ EXPORT void fflush(FILE *fp)
 {
 	///\todo Implement
 }
+
+EXPORT long int ftell(FILE *fp)
+{
+	if(!fp || !fp->FD)	return -1;
+	
+	return tell(fp->FD);
+}
+
+EXPORT int fseek(FILE *fp, long int amt, int whence)
+{
+	if(!fp || !fp->FD)	return -1;
+	
+	return seek(fp->FD, amt, whence);
+}
+
 
 /**
  * \fn EXPORT int vfprintf(FILE *fp, const char *format, va_list args)
@@ -172,6 +190,8 @@ EXPORT int fprintf(FILE *fp, const char *format, ...)
 }
 
 /**
+ * \fn EXPORT size_t fwrite(void *ptr, size_t size, size_t num, FILE *fp)
+ * \brief Write to a stream
  */
 EXPORT size_t fwrite(void *ptr, size_t size, size_t num, FILE *fp)
 {
@@ -179,6 +199,20 @@ EXPORT size_t fwrite(void *ptr, size_t size, size_t num, FILE *fp)
 	if(!fp || !fp->FD)	return -1;
 	
 	ret = write(fp->FD, size*num, ptr);
+	
+	return ret;
+}
+
+/**
+ * \fn EXPORT size_t fread(void *ptr, size_t size, size_t num, FILE *fp)
+ * \brief Read from a stream
+ */
+EXPORT size_t fread(void *ptr, size_t size, size_t num, FILE *fp)
+{
+	 int	ret;
+	if(!fp || !fp->FD)	return -1;
+	
+	ret = read(fp->FD, size*num, ptr);
 	
 	return ret;
 }

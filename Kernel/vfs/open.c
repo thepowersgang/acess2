@@ -73,6 +73,7 @@ char *VFS_GetAbsPath(char *Path)
 		strcpy(ret, cwd);
 		ret[cwdLen] = '/';
 		strcpy(&ret[cwdLen+1], Path);
+		//Log("ret = '%s'\n", ret);
 	}
 	
 	// Parse Path
@@ -143,7 +144,7 @@ char *VFS_GetAbsPath(char *Path)
 		ret[iPos2] = 0;
 	
 	LEAVE('s', ret);
-	Log("VFS_GetAbsPath: RETURN '%s'", ret);
+	//Log("VFS_GetAbsPath: RETURN '%s'", ret);
 	return ret;
 }
 
@@ -220,7 +221,7 @@ tVFS_Node *VFS_ParsePath(char *Path, char **TruePath)
 	
 	// Sanity Check
 	/*if(!longestMount) {
-		Log("VFS_GetTruePath - ERROR: No Root Node\n");
+		Log("VFS_ParsePath - ERROR: No Root Node\n");
 		return NULL;
 	}*/
 	
@@ -256,7 +257,7 @@ tVFS_Node *VFS_ParsePath(char *Path, char **TruePath)
 				free(*TruePath);
 				*TruePath = NULL;
 			}
-			Log("Permissions fail on '%s'", Path);
+			//Log("Permissions fail on '%s'", Path);
 			LEAVE('n');
 			return NULL;
 		}
@@ -269,7 +270,7 @@ tVFS_Node *VFS_ParsePath(char *Path, char **TruePath)
 				*TruePath = NULL;
 			}
 			Path[nextSlash] = '/';
-			Log("FindDir fail on '%s'", Path);
+			//Log("FindDir fail on '%s'", Path);
 			LEAVE('n');
 			return NULL;
 		}
@@ -288,7 +289,7 @@ tVFS_Node *VFS_ParsePath(char *Path, char **TruePath)
 				free(*TruePath);
 				*TruePath = NULL;
 			}
-			Log("Child fail on '%s' ('%s)", Path, &Path[ofs]);
+			//Log("Child fail on '%s' ('%s)", Path, &Path[ofs]);
 			Path[nextSlash] = '/';
 			LEAVE('n');
 			return NULL;
@@ -466,7 +467,6 @@ int VFS_Open(char *Path, Uint Mode)
 		if( MM_GetPhysAddr( (Uint)gaUserHandles ) == 0 )
 		{
 			Uint	addr, size;
-			Log("Allocating %i user handles", CFGINT(CFG_VFS_MAXFILES));
 			size = CFGINT(CFG_VFS_MAXFILES) * sizeof(tVFS_Handle);
 			for(addr = 0; addr < size; addr += 0x1000)
 				MM_Allocate( (Uint)gaUserHandles + addr );
@@ -573,7 +573,7 @@ int VFS_ChDir(char *New)
 	// Set new
 	CFGPTR(CFG_VFS_CWD) = buf;
 	
-	//Log("Updated CWD to '%s'", buf);
+	Log("Updated CWD to '%s'", buf);
 	
 	return 1;
 }

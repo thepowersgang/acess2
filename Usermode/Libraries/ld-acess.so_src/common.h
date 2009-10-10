@@ -30,9 +30,11 @@ extern Uint	GetSymbol(char *name);
 extern int	GetSymbolFromBase(Uint base, char *name, Uint *ret);
 
 // === Library Functions ===
-extern void	strcpy(char *dest, char *src);
-extern int	strcmp(char *s1, char *s2);
-extern int	strlen(char *str);
+extern char	*strcpy(char *dest, const char *src);
+extern char	*strcat(char *dest, const char *src);
+extern int	strcmp(const char *s1, const char *s2);
+extern int	strlen(const char *str);
+extern int	file_exists(char *filename);
 
 // === System Calls ===
 extern void	SysExit();
@@ -40,6 +42,8 @@ extern void	SysDebug(char *fmt, ...);	//!< Now implemented in main.c
 extern void	SysDebugV(char *fmt, ...);
 extern Uint	SysLoadBin(char *path, Uint *entry);
 extern Uint	SysUnloadBin(Uint Base);
+extern int	open(char *filename, int flags);
+extern void	close(int fd);
 
 // === ELF Loader ===
 extern int	ElfGetSymbol(Uint Base, char *name, Uint *ret);

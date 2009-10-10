@@ -43,9 +43,12 @@ int VFS_Init()
 char *VFS_GetTruePath(char *Path)
 {
 	tVFS_Node	*node;
-	char	*ret;
+	char	*ret, *tmp;
 	
-	node = VFS_ParsePath(Path, &ret);
+	tmp = VFS_GetAbsPath(Path);
+	if(tmp == NULL)	return NULL;
+	node = VFS_ParsePath(tmp, &ret);
+	free(tmp);
 	
 	if(!node)	return NULL;
 	if(node->Close)	node->Close(node);

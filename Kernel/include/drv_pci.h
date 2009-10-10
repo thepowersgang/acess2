@@ -37,5 +37,6 @@ extern Uint32	PCI_GetBAR1(int id);
 extern Uint32	PCI_GetBAR3(int id);
 extern Uint32	PCI_GetBAR4(int id);
 extern Uint32	PCI_GetBAR5(int id);
+extern Uint16	PCI_AssignPort(int id, int bar, int count);
 
 #endif

@@ -16,11 +16,12 @@ ASFLAGS		+= -D ARCH=\"$(ARCH)\"
 LDFLAGS		+= -T arch/$(ARCHDIR)/link.ld
 
 OBJ = $(addprefix arch/$(ARCHDIR)/,$(A_OBJ))
-OBJ += heap.o messages.o debug.o modules.o lib.o syscalls.o system.o threads.o
+OBJ += heap.o messages.o debug.o modules.o lib.o syscalls.o system.o threads.o drvutil.o
 OBJ += binary.o bin/elf.o
 OBJ += vfs/main.o vfs/open.o vfs/acls.o vfs/dir.o vfs/io.o vfs/mount.o vfs/memfile.o vfs/nodecache.o
-OBJ += vfs/fs/root.o vfs/fs/devfs.o vfs/fs/fat.o
-OBJ += drv/dma.o drv/fifo.o drv/pci.o drv/ata_x86.o drv/vterm.o drv/vga.o drv/kb.o drv/fdd.o
+OBJ += vfs/fs/root.o vfs/fs/devfs.o vfs/fs/fat.o vfs/fs/ext2.o
+OBJ += drv/fifo.o drv/dma.o drv/pci.o drv/vterm.o drv/vga.o drv/kb.o
+OBJ += $(addprefix drv/, $(addsuffix .o,$(DRIVERS)))
 OBJ := $(addsuffix .$(ARCH), $(OBJ))
 BIN = ../Acess2.$(ARCH).bin
 
@@ -56,6 +57,8 @@ $(BIN): $(OBJ) arch/$(ARCHDIR)/link.ld Makefile
 
 include/syscalls.h:	syscalls.lst Makefile
 	php GenSyscalls.php
+
+Makefile:	../Makefile.cfg arch/$(ARCHDIR)/Makefile
 
 # Dependency Files
 -include $(DEPFILES)

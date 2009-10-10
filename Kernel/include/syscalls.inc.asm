@@ -51,3 +51,4 @@
 %define SYS_TELL	77	; Return the current file position
 %define SYS_CHDIR	78	; Change current directory
 %define SYS_GETCWD	79	; Get current directory
+%define SYS_MOUNT	80	; Mount a filesystem

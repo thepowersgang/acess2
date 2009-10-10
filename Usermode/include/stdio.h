@@ -5,6 +5,7 @@
 #ifndef __STDIO_H
 #define __STDIO_H
 
+#include <stdlib.h>
 #include <stdarg.h>
 
 typedef struct sFILE	FILE;
@@ -17,6 +18,8 @@ extern FILE	*fopen(char *file, char *mode);
 extern FILE	*freopen(FILE *fp, char *file, char *mode);
 extern void fclose(FILE *fp);
 extern void fflush(FILE *fp);
+extern long int	ftell(FILE *fp);
+extern int	fseek(FILE *fp, long int amt, int whence);
 
 extern size_t	fread(void *buf, size_t size, size_t n, FILE *fp);
 extern size_t	fwrite(void *buf, size_t size, size_t n, FILE *fp);

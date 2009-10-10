@@ -56,3 +56,4 @@ SYS_SEEK	Seek to a new position in the file
 SYS_TELL	Return the current file position
 SYS_CHDIR	Change current directory
 SYS_GETCWD	Get current directory
+SYS_MOUNT	Mount a filesystem

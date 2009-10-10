@@ -43,7 +43,7 @@ typedef struct sKernelSymbol {
 // === FUNCTIONS ===
 // --- Core ---
 extern void	System_Init(char *ArgString);
-extern int	IRQ_AddHandler(int Num, void (*Callback)(void));
+extern int	IRQ_AddHandler(int Num, void (*Callback)(int));
 // --- Debug ---
 extern void	Panic(char *Msg, ...);
 extern void	Warning(char *Msg, ...);
@@ -125,6 +125,8 @@ extern int	Threads_GetUID();
 extern int	Threads_GetGID();
 extern int	SpawnTask(tThreadFunction Function, void *Arg);
 extern Uint	*Threads_GetCfgPtr(int Id);
+// --- Simple Math ---
+extern int	DivUp(int num, int dem);
 
 #include <binary_ext.h>
 #include <vfs_ext.h>

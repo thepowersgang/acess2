@@ -7,15 +7,17 @@
  * \brief Second Extended Filesystem Driver
  * \todo Implement file read support
  */
+#define DEBUG	1
 #include <common.h>
 #include <vfs.h>
+#include <modules.h>
 #include "fs_ext2.h"
 
 // === STRUCTURES ===
 typedef struct {
 	 int	FD;
 	 int	CacheID;
-	vfs_node	RootNode;
+	tVFS_Node	RootNode;
 	
 	tExt2_SuperBlock	SuperBlock;
 	 int	BlockSize;
@@ -25,35 +27,40 @@ typedef struct {
 } tExt2_Disk;
 
 // === PROTOTYPES ===
-//Interface Functions
+ int	Ext2_Install(char **Arguments);
+// Interface Functions
 tVFS_Node	*Ext2_InitDevice(char *Device, char **Options);
-void		Ext2_UnMount(tVFS_Node *Node);
+void		Ext2_Unmount(tVFS_Node *Node);
 Uint64		Ext2_Read(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer);
 Uint64		Ext2_Write(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer);
+void		Ext2_CloseFile(tVFS_Node *Node);
 char		*Ext2_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*Ext2_FindDir(tVFS_Node *Node, char *FileName);
-tVFS_Node	*Ext2_MkNod(tVFS_Node *Node, char *Name, Uint Flags);
- int		Ext2_int_GetInode(vfs_node *Node, tExt2_Inode *Inode);
-tVFS_Node	*Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeId, char *Name, Uint64 VfsInode);
+ int		Ext2_MkNod(tVFS_Node *Node, char *Name, Uint Flags);
+// Internal Helpers
+ int		Ext2_int_GetInode(tVFS_Node *Node, tExt2_Inode *Inode);
+tVFS_Node	*Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeId, char *Name);
  int		Ext2_int_ReadInode(tExt2_Disk *Disk, Uint InodeId, tExt2_Inode *Inode);
 Uint64		Ext2_int_GetBlockAddr(tExt2_Disk *Disk, Uint32 *Blocks, int BlockNum);
 
 // === SEMI-GLOBALS ===
+MODULE_DEFINE(0, 0x5B /*v0.90*/, EXT2, Ext2_Install, NULL);
 tExt2_Disk	gExt2_disks[6];
  int	giExt2_count = 0;
-tVFS_Driver	gExt2_FSInfo = {NULL,
-	"ext2", 0, Ext2_InitDevice, Ext2_UnMount, NULL
+tVFS_Driver	gExt2_FSInfo = {
+	"ext2", 0, Ext2_InitDevice, Ext2_Unmount, NULL
 	};
 
 // === CODE ===
 
 /**
- * \fn void Ext2_Install()
+ * \fn int Ext2_Install(char **Arguments)
  * \brief Install the Ext2 Filesystem Driver
  */
-void Ext2_Install()
+int Ext2_Install(char **Arguments)
 {
 	VFS_AddDriver( &gExt2_FSInfo );
+	return 1;
 }
 
 /**
@@ -74,7 +81,7 @@ tVFS_Node *Ext2_InitDevice(char *Device, char **Options)
 	// Open Disk
 	fd = VFS_Open(Device, VFS_OPENFLAG_READ|VFS_OPENFLAG_WRITE);		//Open Device
 	if(fd == -1) {
-		Warning"[EXT2] Unable to open '%s'\n", Device);
+		Warning("[EXT2] Unable to open '%s'\n", Device);
 		return NULL;
 	}
 	
@@ -83,7 +90,7 @@ tVFS_Node *Ext2_InitDevice(char *Device, char **Options)
 	
 	// Sanity Check Magic value
 	if(sb.s_magic != 0xEF53) {
-		WarningEx("EXT2", "Volume '%s' is not an EXT2 volume\n", Device);
+		Warning("[EXT2 ] Volume '%s' is not an EXT2 volume\n", Device);
 		VFS_Close(fd);
 		return NULL;
 	}
@@ -94,7 +101,7 @@ tVFS_Node *Ext2_InitDevice(char *Device, char **Options)
 	
 	// Allocate Disk Information
 	disk = malloc(sizeof(tExt2_Disk) + sizeof(tExt2_Group)*groupCount);
-	disk->fd = fd;
+	disk->FD = fd;
 	memcpy(&disk->SuperBlock, &sb, 1024);
 	disk->GroupCount = groupCount;
 	
@@ -106,7 +113,7 @@ tVFS_Node *Ext2_InitDevice(char *Device, char **Options)
 	disk->BlockSize = 1024 << sb.s_log_block_size;
 	
 	// Read Group Information
-	VFS_ReadAt(disk->fd,
+	VFS_ReadAt(disk->FD,
 		sb.s_first_data_block * disk->BlockSize + 1024,
 		sizeof(tExt2_Group)*groupCount,
 		disk->Groups);
@@ -126,7 +133,7 @@ tVFS_Node *Ext2_InitDevice(char *Device, char **Options)
 	Ext2_int_ReadInode(disk, 2, &inode);
 	
 	// Create Root Node
-	memset(&disk->RootNode, 0, sizeof(vfs_node));
+	memset(&disk->RootNode, 0, sizeof(tVFS_Node));
 	disk->RootNode.Inode = 2;	// Root inode ID
 	disk->RootNode.ImplPtr = disk;	// Save disk pointer
 	disk->RootNode.Size = -1;	// Fill in later (on readdir)
@@ -158,7 +165,7 @@ void Ext2_Unmount(tVFS_Node *Node)
 {
 	tExt2_Disk	*disk = Node->ImplPtr;
 	
-	VFS_Close( disk->fd );
+	VFS_Close( disk->FD );
 	Inode_ClearCache( disk->CacheID );
 	memset(disk, 0, sizeof(tExt2_Disk)+disk->GroupCount*sizeof(tExt2_Group));
 	free(disk);
@@ -186,13 +193,13 @@ Uint64 Ext2_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	// Read only block
 	if(Length <= disk->BlockSize - Offset)
 	{
-		VFS_ReadAt( disk->fd, base+Offset, Length, Buffer);
+		VFS_ReadAt( disk->FD, base+Offset, Length, Buffer);
 		return Length;
 	}
 	
 	// Read first block
 	remLen = Length;
-	VFS_ReadAt( disk->fd, base + Offset, disk->BlockSize - Offset, Buffer);
+	VFS_ReadAt( disk->FD, base + Offset, disk->BlockSize - Offset, Buffer);
 	remLen -= disk->BlockSize - Offset;
 	Buffer += disk->BlockSize - Offset;
 	block ++;
@@ -201,7 +208,7 @@ Uint64 Ext2_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	while(remLen > disk->BlockSize)
 	{
 		base = Ext2_int_GetBlockAddr(disk, inode.i_block, block);
-		VFS_ReadAt( disk->fd, base, disk->BlockSize, Buffer);
+		VFS_ReadAt( disk->FD, base, disk->BlockSize, Buffer);
 		Buffer += disk->BlockSize;
 		remLen -= disk->BlockSize;
 		block ++;
@@ -209,7 +216,7 @@ Uint64 Ext2_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	
 	// Read last block
 	base = Ext2_int_GetBlockAddr(disk, inode.i_block, block);
-	VFS_ReadAt( disk->fd, base, remLen, Buffer);
+	VFS_ReadAt( disk->FD, base, remLen, Buffer);
 	
 	return Length;
 }
@@ -247,13 +254,13 @@ Uint64 Ext2_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		
 		// Write only block (if only one)
 		if(Offset + retLen <= disk->BlockSize) {
-			VFS_WriteAt(disk->fd, base+Offset, retLen, Buffer);
+			VFS_WriteAt(disk->FD, base+Offset, retLen, Buffer);
 			if(bNewBlocks)	return Length;
 			goto addBlocks;	// Ugh! A goto, but it seems unavoidable
 		}
 		
 		// Write First Block
-		VFS_WriteAt(disk->fd, base+Offset, disk->BlockSize-Offset, Buffer);
+		VFS_WriteAt(disk->FD, base+Offset, disk->BlockSize-Offset, Buffer);
 		Buffer += disk->BlockSize-Offset;
 		retLen -= disk->BlockSize-Offset;
 		block ++;
@@ -262,7 +269,7 @@ Uint64 Ext2_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		while(retLen > disk->BlockSize)
 		{
 			base = Ext2_int_GetBlockAddr(disk, inode.i_block, block);
-			VFS_WriteAt(disk->fd, base, disk->BlockSize, Buffer);
+			VFS_WriteAt(disk->FD, base, disk->BlockSize, Buffer);
 			Buffer += disk->BlockSize;
 			retLen -= disk->BlockSize;
 			block ++;
@@ -270,26 +277,26 @@ Uint64 Ext2_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		
 		// Write last block
 		base = Ext2_int_GetBlockAddr(disk, inode.i_block, block);
-		VFS_WriteAt(disk->fd, base, retLen, Buffer);
+		VFS_WriteAt(disk->FD, base, retLen, Buffer);
 		if(bNewBlocks)	return Length;	// Writing in only allocated space
 	}
 	
 addBlocks:
 	///\todo Implement block allocation
-	WarningEx("EXT2", "File extending is not yet supported");
+	Warning("[EXT2] File extending is not yet supported");
 	
 	return 0;
 }
 
 /**
- * \fn int Ext2_CloseFile(vfs_node *Node)
+ * \fn void Ext2_CloseFile(vfs_node *Node)
  * \brief Close a file (Remove it from the cache)
  */
-int Ext2_CloseFile(tVFS_Node *Node)
+void Ext2_CloseFile(tVFS_Node *Node)
 {
 	tExt2_Disk	*disk = Node->ImplPtr;
-	inode_uncacheNode(disk->CacheID, Node->impl);
-	return 1;
+	Inode_UncacheNode(disk->CacheID, Node->Inode);
+	return ;
 }
 
 /**
@@ -305,8 +312,6 @@ char *Ext2_ReadDir(tVFS_Node *Node, int Pos)
 	 int	block = 0, ofs = 0;
 	 int	entNum = 0;
 	tExt2_Disk	*disk = Node->ImplPtr;
-	Uint64	vfsInode = 0;
-	tVFS_Node	*retNode;
 	Uint	size;
 	
 	ENTER("pNode iPos", Node, Pos);
@@ -323,7 +328,7 @@ char *Ext2_ReadDir(tVFS_Node *Node, int Pos)
 	Base = inode.i_block[0] * disk->BlockSize;
 	while(Pos -- && size > 0)
 	{
-		VFS_ReadAt( disk->fd, Base+ofs, sizeof(tExt2_DirEnt), &dirent);
+		VFS_ReadAt( disk->FD, Base+ofs, sizeof(tExt2_DirEnt), &dirent);
 		ofs += dirent.rec_len;
 		size -= dirent.rec_len;
 		entNum ++;
@@ -331,8 +336,8 @@ char *Ext2_ReadDir(tVFS_Node *Node, int Pos)
 		if(ofs >= disk->BlockSize) {
 			block ++;
 			if( ofs > disk->BlockSize ) {
-				Warning("[EXT2] Directory Entry %i of inode %i ('%s') extends over a block boundary, ignoring\n",
-					entNum-1, Node->impl, Node->name);
+				Warning("[EXT2] Directory Entry %i of inode %i extends over a block boundary, ignoring\n",
+					entNum-1, Node->Inode);
 			}
 			ofs = 0;
 			Base = Ext2_int_GetBlockAddr( disk, inode.i_block, block );
@@ -342,17 +347,17 @@ char *Ext2_ReadDir(tVFS_Node *Node, int Pos)
 	if(size <= 0)	return NULL;
 	
 	// Read Entry
-	VFS_ReadAt( disk->fd, Base+ofs, sizeof(tExt2_DirEnt), &dirent );
+	VFS_ReadAt( disk->FD, Base+ofs, sizeof(tExt2_DirEnt), &dirent );
 	//LOG(" Ext2_ReadDir: dirent.inode = %i\n", dirent.inode);
 	//LOG(" Ext2_ReadDir: dirent.rec_len = %i\n", dirent.rec_len);
 	//LOG(" Ext2_ReadDir: dirent.name_len = %i\n", dirent.name_len);
-	VFS_ReadAt( disk->fd, Base+ofs+sizeof(tExt2_DirEnt), dirent.name_len, namebuf );
+	VFS_ReadAt( disk->FD, Base+ofs+sizeof(tExt2_DirEnt), dirent.name_len, namebuf );
 	namebuf[ dirent.name_len ] = '\0';	// Cap off string
 	
 	
 	// Ignore . and .. (these are done in the VFS)
 	if( (namebuf[0] == '.' && namebuf[1] == '\0')
-	||  (namebuf[0] == '.' && namebuf[1] == '.' && namebuf[2]=='\0'))
+	||  (namebuf[0] == '.' && namebuf[1] == '.' && namebuf[2]=='\0')) {
 		LEAVE('p', VFS_SKIP);
 		return VFS_SKIP;	// Skip
 	}
@@ -390,8 +395,8 @@ tVFS_Node *Ext2_FindDir(tVFS_Node *Node, char *Filename)
 	// Find File
 	while(size > 0)
 	{
-		VFS_ReadAt( disk->fd, Base+ofs, sizeof(tExt2_DirEnt), &dirent);
-		VFS_ReadAt( disk->fd, Base+ofs+sizeof(tExt2_DirEnt), dirent.name_len, namebuf );
+		VFS_ReadAt( disk->FD, Base+ofs, sizeof(tExt2_DirEnt), &dirent);
+		VFS_ReadAt( disk->FD, Base+ofs+sizeof(tExt2_DirEnt), dirent.name_len, namebuf );
 		namebuf[ dirent.name_len ] = '\0';	// Cap off string
 		// If it matches, create a node and return it
 		if(strcmp(namebuf, Filename) == 0)
@@ -405,8 +410,8 @@ tVFS_Node *Ext2_FindDir(tVFS_Node *Node, char *Filename)
 		if(ofs >= disk->BlockSize) {
 			block ++;
 			if( ofs > disk->BlockSize ) {
-				Warnin("[EXT2 ] Directory Entry %i of inode %i ('%s') extends over a block boundary, ignoring\n",
-					entNum-1, Node->impl, Node->name);
+				Warning("[EXT2 ] Directory Entry %i of inode %i extends over a block boundary, ignoring\n",
+					entNum-1, Node->Inode);
 			}
 			ofs = 0;
 			Base = Ext2_int_GetBlockAddr( disk, inode.i_block, block );
@@ -417,10 +422,10 @@ tVFS_Node *Ext2_FindDir(tVFS_Node *Node, char *Filename)
 }
 
 /**
- * \fn tVFS_Node *Ext2_MkNod(tVFS_Node *Parent, char *Name, int Flags)
+ * \fn int Ext2_MkNod(tVFS_Node *Parent, char *Name, Uint Flags)
  * \brief Create a new node
  */
-tVFS_Node *Ext2_MkNod(tVFS_Node *Parent, char *Name, int Flags)
+int Ext2_MkNod(tVFS_Node *Parent, char *Name, Uint Flags)
 {
 	return 0;
 }
@@ -455,7 +460,7 @@ tVFS_Node *Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeID, char *Name)
 	if( !Ext2_int_ReadInode(Disk, InodeID, &inode) )
 		return NULL;
 	
-	if( (tmpNode = inode_getCache(Disk->CacheID, InodeID)) )
+	if( (tmpNode = Inode_GetCache(Disk->CacheID, InodeID)) )
 		return tmpNode;
 	
 	
@@ -485,11 +490,11 @@ tVFS_Node *Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeID, char *Name)
 		break;
 	// Regular File
 	case EXT2_S_IFREG:
-		retNode.flags = 0;
+		retNode.Flags = 0;
 		break;
 	// Directory
 	case EXT2_S_IFDIR:
-		retNode.ReadRir = Ext2_ReadDir;
+		retNode.ReadDir = Ext2_ReadDir;
 		retNode.FindDir = Ext2_FindDir;
 		retNode.MkNod = Ext2_MkNod;
 		//retNode.Relink = Ext2_Relink;
@@ -497,12 +502,12 @@ tVFS_Node *Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeID, char *Name)
 		break;
 	// Unknown, Write protect and hide it to be safe 
 	default:
-		retNode.flags = VFS_FFLAG_READONLY|VFS_FFLAG_HIDDEN;
+		retNode.Flags = VFS_FFLAG_READONLY;//|VFS_FFLAG_HIDDEN;
 		break;
 	}
 	
 	// Check if the file should be hidden
-	if(Name[0] == '.')	retNode.Flags |= VFS_FFLAG_HIDDEN;
+	//if(Name[0] == '.')	retNode.Flags |= VFS_FFLAG_HIDDEN;
 	
 	// Set Timestamps
 	retNode.ATime = now();
@@ -532,11 +537,11 @@ int Ext2_int_ReadInode(tExt2_Disk *Disk, Uint InodeId, tExt2_Inode *Inode)
 	
 	//LogF(" Ext2_int_ReadInode: group=%i, subId = %i\n", group, subId);
 	
-	//Seek to Block - Absolute
-	vfs_seek(Disk->fd, Disk->Groups[group].bg_inode_table * Disk->BlockSize, SEEK_SET);
-	//Seeek to inode - Relative
-	vfs_seek(Disk->fd, sizeof(tExt2_Inode)*subId, SEEK_CUR);
-	vfs_read(Disk->fd, sizeof(tExt2_Inode), Inode);
+	// Read Inode
+	VFS_ReadAt(Disk->FD,
+		Disk->Groups[group].bg_inode_table * Disk->BlockSize + sizeof(tExt2_Inode)*subId,
+		sizeof(tExt2_Inode),
+		Inode);
 	return 1;
 }
 
@@ -556,7 +561,7 @@ Uint64 Ext2_int_GetBlockAddr(tExt2_Disk *Disk, Uint32 *Blocks, int BlockNum)
 	
 	// Single Indirect Blocks
 	iBlocks = malloc( Disk->BlockSize );
-	VFS_ReadAt(Disk->fd, (Uint64)Blocks[12]*Disk->BlockSize, Disk->BlockSize, iBlocks);
+	VFS_ReadAt(Disk->FD, (Uint64)Blocks[12]*Disk->BlockSize, Disk->BlockSize, iBlocks);
 	
 	BlockNum -= 12;
 	if(BlockNum < 256) {
@@ -568,16 +573,16 @@ Uint64 Ext2_int_GetBlockAddr(tExt2_Disk *Disk, Uint32 *Blocks, int BlockNum)
 	// Double Indirect Blocks
 	if(BlockNum < 256*256)
 	{
-		VFS_ReadAt(Disk->fd, (Uint64)Blocks[13]*Disk->BlockSize, Disk->BlockSize, iBlocks);
-		VFS_ReadAt(Disk->fd, (Uint64)iBlocks[BlockNum/256]*Disk->BlockSize, Disk->BlockSize, iBlocks);
+		VFS_ReadAt(Disk->FD, (Uint64)Blocks[13]*Disk->BlockSize, Disk->BlockSize, iBlocks);
+		VFS_ReadAt(Disk->FD, (Uint64)iBlocks[BlockNum/256]*Disk->BlockSize, Disk->BlockSize, iBlocks);
 		BlockNum = iBlocks[BlockNum%256];
 		free(iBlocks);
 		return (Uint64)BlockNum * Disk->BlockSize;
 	}
 	// Triple Indirect Blocks
-	VFS_ReadAt(Disk->fd, (Uint64)Blocks[14]*Disk->BlockSize, Disk->BlockSize, iBlocks);
-	VFS_ReadAt(Disk->fd, (Uint64)iBlocks[BlockNum/(256*256)]*Disk->BlockSize, Disk->BlockSize, iBlocks);
-	VFS_ReadAt(Disk->fd, (Uint64)iBlocks[(BlockNum/256)%256]*Disk->BlockSize, Disk->BlockSize, iBlocks);
+	VFS_ReadAt(Disk->FD, (Uint64)Blocks[14]*Disk->BlockSize, Disk->BlockSize, iBlocks);
+	VFS_ReadAt(Disk->FD, (Uint64)iBlocks[BlockNum/(256*256)]*Disk->BlockSize, Disk->BlockSize, iBlocks);
+	VFS_ReadAt(Disk->FD, (Uint64)iBlocks[(BlockNum/256)%256]*Disk->BlockSize, Disk->BlockSize, iBlocks);
 	BlockNum = iBlocks[BlockNum%256];
 	free(iBlocks);
 	return (Uint64)BlockNum * Disk->BlockSize;

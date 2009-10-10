@@ -593,25 +593,54 @@ void VT_int_UpdateScreen( tVTerm *Term, int UpdateAll )
 # include "vterm_font_8x16.h"
 #endif
 
+// === PROTOTYPES ===
+Uint8	*VT_Font_GetChar(Uint32 Codepoint);
 
-int VT_Font_GetWidth(Uint32 Codepoint)
+// === GLOBALS ===
+int	giVT_CharWidth = FONT_WIDTH;
+int	giVT_CharHeight = FONT_HEIGHT;
+
+// === CODE ===
+/**
+ * \fn void VT_Font_Render(Uint32 Codepoint, void *Buffer, int Pitch, Uint32 BGC, Uint32 FGC)
+ * \brief Render a font character
+ */
+void VT_Font_Render(Uint32 Codepoint, void *Buffer, int Pitch, Uint32 BGC, Uint32 FGC)
 {
-	return FONT_WIDTH;
-}
-int VT_Font_GetHeight(Uint32 Codepoint)
-{
-	return FONT_HEIGHT;
+	Uint8	*font;
+	Uint32	*buf = Buffer;
+	 int	x, y;
+	font = VT_Font_GetChar(Codepoint);
+	
+	for(y = 0; y < FONT_HEIGHT; y ++)
+	{
+		for(x = 0; x < FONT_WIDTH; x ++)
+		{
+			if(*font & (1 << (FONT_WIDTH-x)))
+				buf[x] = FGC;
+			else
+				buf[x] = BGC;
+		}
+		buf += Pitch;
+		font ++;
+	}
 }
 
 /**
- * \fn void VT_Font_Render(Uint32 Codepoint, void *Buffer, Uint32 BGC, Uint32 FGC)
- * \brief Render a font character
+ * \fn Uint32 VT_Colour12to24(Uint16 Col12)
+ * \brief Converts a 
  */
-void VT_Font_Render(Uint32 Codepoint, void *Buffer, Uint32 BGC, Uint32 FGC)
+Uint32 VT_Colour12to24(Uint16 Col12)
 {
-	//Uint8	*font;
-	//Uint32	*buf = Buffer;
-	//font = VT_Font_GetChar(Codepoint);
+	Uint32	ret;
+	 int	tmp;
+	tmp = Col12 & 0xF;
+	ret  = (tmp << 0) | (tmp << 4);
+	tmp = (Col12 & 0xF0) >> 4;
+	ret |= (tmp << 8) | (tmp << 12);
+	tmp = (Col12 & 0xF00) >> 8;
+	ret |= (tmp << 16) | (tmp << 20);
+	return ret;
 }
 
 /**
@@ -646,3 +675,8 @@ Uint8 *VT_Font_GetChar(Uint32 Codepoint)
 	
 	return &VTermFont[index*FONT_HEIGHT];
 }
+
+EXPORTAS(&giVT_CharWidth, giVT_CharWidth);
+EXPORTAS(&giVT_CharHeight, giVT_CharHeight);
+EXPORT(VT_Font_Render);
+EXPORT(VT_Colour12to24);

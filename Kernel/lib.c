@@ -160,6 +160,17 @@ char *strdup(char *str)
 }
 
 /**
+ * \fn int DivUp(int num, int dem)
+ * \brief Divide two numbers, rounding up
+ * \param num	Numerator
+ * \param dem	Denominator
+ */
+int DivUp(int num, int dem)
+{
+	return (num+dem-1)/dem;
+}
+
+/**
  * \fn int strpos8(char *str, Uint32 search)
  * \brief Search a string for a UTF-8 character
  */

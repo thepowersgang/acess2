@@ -79,7 +79,7 @@ typedef struct sVFS_Node {
 typedef struct sVFS_Driver {
 	char	*Name;
 	Uint	Flags;
-	tVFS_Node	*(*InitDevice)(char *Device, char *Options);
+	tVFS_Node	*(*InitDevice)(char *Device, char **Options);
 	void	(*Unmount)(tVFS_Node *Node);
 	struct sVFS_Driver	*Next;
 } tVFS_Driver;

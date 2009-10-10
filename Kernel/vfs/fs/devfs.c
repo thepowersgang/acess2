@@ -9,7 +9,7 @@
 
 // === PROTOTYPES ===
  int	DevFS_AddDevice(tDevFS_Driver *Dev);
-tVFS_Node	*DevFS_InitDevice(char *Device, char *Options);
+tVFS_Node	*DevFS_InitDevice(char *Device, char **Options);
 char	*DevFS_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*DevFS_FindDir(tVFS_Node *Node, char *Name);
 
@@ -41,11 +41,11 @@ int DevFS_AddDevice(tDevFS_Driver *Dev)
 }
 
 /**
- * \fn tVFS_Node *DevFS_InitDevice(char *Device, char *Options)
+ * \fn tVFS_Node *DevFS_InitDevice(char *Device, char **Options)
  * \brief Initialise the DevFS and detect double-mounting, or just do nothing
  * \stub
  */
-tVFS_Node *DevFS_InitDevice(char *Device, char *Options)
+tVFS_Node *DevFS_InitDevice(char *Device, char **Options)
 {
 	return &gDevFS_RootNode;
 }

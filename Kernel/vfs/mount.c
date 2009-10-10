@@ -60,7 +60,7 @@ int VFS_Mount(char *Device, char *MountPoint, char *Filesystem, char *ArgString)
 	memcpy( mnt->Options, ArgString, argLen+1 );
 	
 	// Initialise Volume
-	mnt->RootNode = fs->InitDevice(Device, ArgString);
+	mnt->RootNode = fs->InitDevice(Device, NULL);	//&ArgString);
 	if(!mnt->RootNode) {
 		free(mnt);
 		return -2;

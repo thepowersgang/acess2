@@ -51,8 +51,13 @@ struct sVideo_IOCtl_Mode {
 	short	id;		//!< Mide ID
 	Uint16	width;	//!< Width
 	Uint16	height;	//!< Height
-	Uint16	bpp;	//!< Bits per Pixel
+	Uint8	bpp;	//!< Bits per Pixel
+	Uint8	flags;	//!< Mode Flags
 };
+#define VIDEO_FLAG_TEXT	0x1	//!< Text Mode
+#define VIDEO_FLAG_SLOW	0x2	//!< Non-accelerated mode
+/**
+ */
 struct sVideo_IOCtl_Pos {
 	Sint16	x;
 	Sint16	y;
@@ -80,5 +85,10 @@ typedef struct sVT_Char	tVT_Char;
 #define	VT_COL_GREY		0x0888
 #define	VT_COL_LTGREY	0x0CCC
 #define	VT_COL_WHITE	0x0FFF
+
+extern int	giVT_CharWidth;
+extern int	giVT_CharHeight;
+extern void	VT_Font_Render(Uint32 Codepoint, void *Buffer, int Pitch, Uint32 BGC, Uint32 FGC);
+extern Uint32	VT_Colour12to24(Uint16 Col12);
 
 #endif

@@ -17,6 +17,7 @@
 # define SEEK_END	-1
 #endif
 #define CLONE_VM	0x10
+#define GETMSG_IGNORE	((void*)-1)
 #define FILEFLAG_DIRECTORY	0x10
 #define FILEFLAG_SYMLINK	0x20
 
@@ -51,28 +52,42 @@ typedef struct s_sysFInfo	t_sysFInfo;
 typedef struct s_sysACL	t_sysACL;
 
 // === FUNCTIONS ===
-void	_SysDebug(char *str, ...);
+extern void	_SysDebug(char *str, ...);
 // --- Proc ---
-void	_exit(int status)	__attribute__((noreturn));
-void	sleep();
-void	wait(int miliseconds);
- int	waittid(int id, int *status);
- int	clone(int flags, void *stack);
- int	execve(char *path, char **argv, char **envp);
-void	setuid(int id);
-void	setgid(int id);
+extern void	_exit(int status)	__attribute__((noreturn));
+extern void	sleep();
+extern void	yield();
+extern void	wait(int miliseconds);
+extern int	waittid(int id, int *status);
+extern int	clone(int flags, void *stack);
+extern int	execve(char *path, char **argv, char **envp);
+extern int	gettid();
+extern int	getpid();
+
+// --- Permissions ---
+extern int	getuid();
+extern int	getgid();
+extern void	setuid(int id);
+extern void	setgid(int id);
+
 // --- VFS ---
- int	chdir(char *dir);
- int	open(char *path, int flags);
- int	reopen(int fd, char *path, int flags);
-void	close(int fd);
-uint64_t	read(int fd, uint64_t length, void *buffer);
-uint64_t	write(int fd, uint64_t length, void *buffer);
- int	seek(int fd, uint64_t offset, int whence);
- int	ioctl(int fd, int id, void *data);
- int	finfo(int fd, t_sysFInfo *info, int maxacls);
- int	readdir(int fd, char *dest);
- int	_SysGetACL(int fd, t_sysACL *dest);
+extern int	chdir(char *dir);
+extern int	open(char *path, int flags);
+extern int	reopen(int fd, char *path, int flags);
+extern void	close(int fd);
+extern uint64_t	read(int fd, uint64_t length, void *buffer);
+extern uint64_t	write(int fd, uint64_t length, void *buffer);
+extern int	seek(int fd, uint64_t offset, int whence);
+extern uint64_t	tell(int fd);
+extern int	ioctl(int fd, int id, void *data);
+extern int	finfo(int fd, t_sysFInfo *info, int maxacls);
+extern int	readdir(int fd, char *dest);
+extern int	_SysGetACL(int fd, t_sysACL *dest);
+extern int	_SysMount(char *Device, char *Directory, char *Type, char *Options);
+
+// --- IPC ---
+extern int	SysSendMessage(int dest, int length, void *Data);
+extern int	SysGetMessage(int *src, void *Data);
 
 // --- MEMORY ---
 uint64_t	_SysGetPhys(uint vaddr);

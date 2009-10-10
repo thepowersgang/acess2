@@ -25,7 +25,7 @@ typedef struct s_lfncache {
 
 // === PROTOTYPES ===
  int	FAT_Install(char **Arguments);
-tVFS_Node	*FAT_InitDevice(char *device, char *options);
+tVFS_Node	*FAT_InitDevice(char *device, char **options);
 void	FAT_Unmount(tVFS_Node *Node);
 Uint64	FAT_Read(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer);
 Uint64	FAT_Write(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer);
@@ -36,7 +36,7 @@ tVFS_Node	*FAT_FindDir(tVFS_Node *dirNode, char *file);
 void	FAT_CloseFile(tVFS_Node *node);
 
 // === SEMI-GLOBALS ===
-MODULE_DEFINE(0, 0x5B /*v0.90*/, FAT32, FAT_Install, NULL);
+MODULE_DEFINE(0, 0x51 /*v0.80*/, FAT32, FAT_Install, NULL);
 tFAT_VolInfo	gFAT_Disks[8];
  int	giFAT_PartCount = 0;
 #if CACHE_FAT
@@ -61,10 +61,10 @@ int FAT_Install(char **Arguments)
 }
 
 /**
- * \fn tVFS_Node *FAT_InitDevice(char *Device, char *options)
+ * \fn tVFS_Node *FAT_InitDevice(char *Device, char **options)
  * \brief Reads the boot sector of a disk and prepares the structures for it
  */
-tVFS_Node *FAT_InitDevice(char *Device, char *options)
+tVFS_Node *FAT_InitDevice(char *Device, char **options)
 {
 	fat_bootsect *bs;
 	 int	i;

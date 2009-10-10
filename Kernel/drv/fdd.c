@@ -2,7 +2,7 @@
  * AcessOS 0.1
  * Floppy Disk Access Code
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <common.h>
 #include <modules.h>
 #include <fs_devfs.h>
@@ -114,7 +114,7 @@ static int	siFDD_SectorCacheSize = CACHE_SIZE;
 static t_floppySector	sFDD_SectorCache[CACHE_SIZE];
 #endif
 
-//=== CODE ===
+// === CODE ===
 /**
  * \fn char *FDD_ReadDir(tVFS_Node *Node, int pos)
  * \brief Read Directory
@@ -176,7 +176,7 @@ Uint64 FDD_ReadFS(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer)
 	int	disk;
 	Uint32	buf[128];
 	
-	ENTER("xoff xlen pbuffer", off, len, buffer)
+	ENTER("xoff xlen pbuffer", off, len, buffer);
 	
 	if(node == NULL) {
 		LEAVE('i', -1);
@@ -481,10 +481,10 @@ int FDD_IOCtl(tVFS_Node *node, int id, void *data)
 }
 
 /**
- * \fn void fdd_handler(void)
+ * \fn void fdd_handler(int unused)
  * \brief Handles IRQ6
  */
-void fdd_handler(void)
+void fdd_handler(int unused)
 {
     fdd_irq6 = 1;
 }

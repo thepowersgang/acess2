@@ -17,18 +17,17 @@ void	Parse_Args(char *str, char **dest);
 void	CallCommand(char **Args);
 void	Command_Logout(int argc, char **argv);
 void	Command_Clear(int argc, char **argv);
-void	Command_Colour(int argc, char **argv);
+void	Command_Help(int argc, char **argv);
 void	Command_Cd(int argc, char **argv);
 void	Command_Dir(int argc, char **argv);
 
 // ==== CONSTANT GLOBALS ====
-char	*cCOLOUR_NAMES[8] = {"black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"};
 struct	{
 	char	*name;
 	void	(*fcn)(int argc, char **argv);
 }	cBUILTINS[] = {
 	{"exit", Command_Logout},	{"logout", Command_Logout},
-	{"colour", Command_Colour}, {"clear", Command_Clear},
+	{"help", Command_Help}, {"clear", Command_Clear},
 	{"cd", Command_Cd}, {"dir", Command_Dir}
 };
 static char	*cDEFAULT_PATH[] = {"/Acess/Bin"};
@@ -77,8 +76,9 @@ int main(int argc, char *argv[], char *envp[])
 		if(saArgs[0])	free(saArgs);
 		if(!bCached)	free(sCommandStr);
 		bCached = 0;
+		
 		write(_stdout, strlen(gsCurrentDirectory), gsCurrentDirectory);
-		write(_stdout, 3, "$ ");
+		write(_stdout, 2, "$ ");
 		
 		// Read Command line
 		sCommandStr = ReadCommandLine( &length );
@@ -135,6 +135,7 @@ char *ReadCommandLine(int *Length)
 	char	*ret;
 	 int	len, pos, space = 1023;
 	char	ch;
+	// int	scrollbackPos = giLastCommand;
 	 
 	// Preset Variables
 	ret = malloc( space+1 );
@@ -149,14 +150,43 @@ char *ReadCommandLine(int *Length)
 			read(_stdin, 1, &ch);	// Read control character
 			switch(ch)
 			{
-			case 'D':	if(pos)	pos--;	break;
-			case 'C':	if(pos<len)	pos++;	break;
+			//case 'D':	if(pos)	pos--;	break;
+			//case 'C':	if(pos<len)	pos++;	break;
 			case '[':
 				read(_stdin, 1, &ch);	// Read control character
 				switch(ch)
 				{
-				case 'D':	if(pos)	pos--;	break;
-				case 'C':	if(pos<len)	pos++;	break;
+				#if 0
+				case 'A':	// Up
+					if( scrollbackPos > 0 )	break;
+					
+					free(ret);
+					ret = strdup( gasCommandHistory[--scrollbackPos] );
+					
+					len = strlen(ret);
+					while(pos--)	write(_stdout, 3, "\x1B[D");
+					while(pos++ < len)	write(_stdout, 3, "\x1B[C");
+					break;
+				case 'B':	// Down
+					if( scrollbackPos < giLastCommand-1 )	break;
+					free(ret);
+					ret = strdup( gasCommandHistory[++scrollbackPos] );
+					
+					len = strlen(ret);
+					while(pos--)	write(_stdout, 3, "\x1B[D");
+					while(pos++ < len)	write(_stdout, 3, "\x1B[C");
+					break;
+				#endif
+				case 'D':	// Left
+					if(pos == 0)	break;
+					pos --;
+					write(_stdout, 3, "\x1B[D");
+					break;
+				case 'C':	// Right
+					if(pos == len-1)	break;
+					pos++;
+					write(_stdout, 3, "\x1B[C");
+					break;
 				}
 			}
 			continue;
@@ -331,76 +361,32 @@ void Command_Logout(int argc, char **argv)
 }
 
 /**
+ * \fn void Command_Colour(int argc, char **argv)
+ * \brief Displays the help screen
+ */
+void Command_Help(int argc, char **argv)
+{
+	Print("Acess 2 Command Line Interface\n");
+	Print(" By John Hodge (thePowersGang / [TPG])\n");
+	Print("\n");
+	Print("Builtin Commands:\n");
+	Print(" logout: Return to the login prompt\n");
+	Print(" exit:   Same\n");
+	Print(" help:   Display this message\n");
+	Print(" clear:  Clear the screen\n");
+	Print(" cd:     Change the current directory\n");
+	Print(" dir:    Print the contents of the current directory\n");
+	//Print("\n");
+	return;
+}
+
+/**
  * \fn void Command_Clear(int argc, char **argv)
  * \brief Clear the screen
  */
 void Command_Clear(int argc, char **argv)
 {
 	write(_stdout, 4, "\x1B[2J");	//Clear Screen
-}
-
-/**
- * \fn void Command_Colour(int argc, char **argv)
- * \brief Set the colour of the shell prompt
- * \note Conflicts with coloured `dir` display
- */
-void Command_Colour(int argc, char **argv)
-{
-	int fg, bg;
-	char	clrStr[6] = "\x1B[37m";
-	
-	// Verify Arg Count
-	if(argc < 2)
-	{
-		goto usage;
-	}
-	
-	// Check Colour
-	for(fg=0;fg<8;fg++)
-		if(strcmp(cCOLOUR_NAMES[fg], argv[1]) == 0)
-			break;
-
-	// Foreground a valid colour
-	if(fg == 8) {
-		Print("Unknown Colour '");Print(argv[1]);Print("'\n");
-		goto usage;
-	}
-	// Set Foreground
-	clrStr[3] = '0' + fg;
-	write(_stdout, 6, clrStr);
-	
-	// Need to Set Background?
-	if(argc > 2)
-	{
-		for(bg=0;bg<8;bg++)
-			if(strcmp(cCOLOUR_NAMES[bg], argv[2]) == 0)
-				break;
-	
-		// Valid colour
-		if(bg == 8)
-		{
-			Print("Unknown Colour '");Print(argv[2]);Print("'\n");
-			goto usage;
-		}
-	
-		clrStr[2] = '4';
-		clrStr[3] = '0' + bg;
-		write(_stdout, 6, clrStr);
-	}
-	// Return
-	return;
-
-	// Function Usage (Requested via a Goto (I know it's ugly))
-usage:
-	Print("Usage: colour <foreground> [<background>]\n");
-	Print("Valid Colours are ");
-	for(fg=0;fg<8;fg++)
-	{
-		Print(cCOLOUR_NAMES[fg]);
-		write(_stdout, 3, ", ");
-	}
-	write(_stdout, 4, "\b\b\n");
-	return;
 }
 
 /**

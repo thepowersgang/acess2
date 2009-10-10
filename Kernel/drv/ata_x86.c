@@ -9,6 +9,7 @@
 #include <fs_devfs.h>
 #include <drv_pci.h>
 #include <tpl_drv_common.h>
+#include <drvutil.h>
 
 // === CONSTANTS ===
 #define	MAX_ATA_DISKS	4
@@ -102,10 +103,11 @@ char	*ATA_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*ATA_FindDir(tVFS_Node *Node, char *Name);
 Uint64	ATA_ReadFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
  int	ATA_IOCtl(tVFS_Node *Node, int Id, void *Data);
- int	ATA_Read(Uint8 Disk, Uint64 Address, Uint64 Count, void *Buffer);
+Uint	ATA_Read(Uint64 Address, Uint Count, void *Buffer, Uint Argument);
+ int	ATA_ReadRaw(Uint8 Disk, Uint64 Address, Uint64 Count, void *Buffer);
  int	ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer);
-void	ATA_IRQHandlerPri(void);
-void	ATA_IRQHandlerSec(void);
+void	ATA_IRQHandlerPri(int unused);
+void	ATA_IRQHandlerSec(int unused);
 Uint8	ATA_int_BusMasterReadByte(int Ofs);
 void	ATA_int_BusMasterWriteByte(int Ofs, Uint8 Value);
 void	ATA_int_BusMasterWriteDWord(int Ofs, Uint32 Value);
@@ -645,55 +647,8 @@ tVFS_Node *ATA_FindDir(tVFS_Node *Node, char *Name)
  * \fn Uint64 ATA_ReadFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
  */
 Uint64 ATA_ReadFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
-{
-	 int	ret;
-	 int	disk, part;
-	Uint64	sector, count;
-	
-	disk = Node->Inode >> 8;
-	part = Node->Inode & 0xFF;
-	
-	// Aligned Read
-	if(Offset % SECTOR_SIZE == 0 && Length % SECTOR_SIZE == 0)
-	{
-		sector = Offset / SECTOR_SIZE;
-		count = Length / SECTOR_SIZE;
-		// Raw Disk?
-		if(part == 0xFF)
-		{
-			// Bounds Check
-			if( sector >= gATA_Disks[disk].Sectors )	return 0;
-			if( sector + count > gATA_Disks[disk].Sectors )
-				count = gATA_Disks[disk].Sectors - sector;
-			// Read Data
-			ret = ATA_Read(disk, sector, count, Buffer);
-		}
-		else	// Or a partition
-		{
-			//Log(" ATA_ReadFS: %i:%i 0x%llx + 0x%llx\n", disk, part,
-			//	gATA_Disks[disk].Partitions[part].Start,
-			//	gATA_Disks[disk].Partitions[part].Length );
-			
-			// Bounds Check
-			if( sector >= gATA_Disks[disk].Partitions[part].Length )	return 0;
-			if( sector + count > gATA_Disks[disk].Partitions[part].Length )
-				count = gATA_Disks[disk].Partitions[part].Length - sector;
-			// Read Disk
-			ret = ATA_Read(disk,
-				gATA_Disks[disk].Partitions[part].Start + sector,
-				count,
-				Buffer);
-		}
-		// Check return value
-		if(ret == 1)
-			return count * SECTOR_SIZE;
-		else {
-			Warning("ATA_ReadFS: RETURN 0 (Read failed with ret = %i)", ret);
-			return 0;
-		}
-	}
-	Warning("ATA_ReadFS: RETURN 0 (Non-Aligned Read 0x%llx 0x%llx)", Offset, Length);
-	return 0;
+{	
+	return DrvUtil_ReadBlock(Offset, Length, Buffer, ATA_Read, SECTOR_SIZE, Node->Inode);
 }
 
 /**
@@ -719,9 +674,46 @@ int ATA_IOCtl(tVFS_Node *Node, int Id, void *Data)
 
 // --- Disk Access ---
 /**
- * \fn int ATA_Read(Uint8 Disk, Uint64 Address, Uint64 Count, void *Buffer)
+ * \fn Uint ATA_Read(Uint64 Address, Uint Count, void *Buffer, Uint Argument)
  */
-int ATA_Read(Uint8 Disk, Uint64 Address, Uint64 Count, void *Buffer)
+Uint ATA_Read(Uint64 Address, Uint Count, void *Buffer, Uint Argument)
+{
+	 int	ret;
+	 int	disk = Argument >> 8;
+	 int	part = Argument & 0xFF;
+	
+	// Raw Disk Access
+	if(part == 0xFF)
+	{
+		if( Address >= gATA_Disks[disk].Sectors )	return 0;
+		if( Address + Count > gATA_Disks[disk].Sectors )
+			Count = gATA_Disks[disk].Sectors - Address;
+		
+		ret = ATA_ReadRaw(disk, Address, Count, Buffer);
+		if(ret == 1)
+			return Count;
+		return 0;
+	}
+	
+	if( Address >= gATA_Disks[disk].Partitions[part].Length )	return 0;
+	if( Address + Count > gATA_Disks[disk].Partitions[part].Length )
+		Count = gATA_Disks[disk].Partitions[part].Length - Address;
+	
+	ret = ATA_ReadRaw(
+		disk,
+		gATA_Disks[disk].Partitions[part].Start + Address,
+		Count,
+		Buffer);
+	
+	if(ret == 1)	return Count;
+	
+	return 0;
+	
+}
+/**
+ * \fn int ATA_ReadRaw(Uint8 Disk, Uint64 Address, Uint64 Count, void *Buffer)
+ */
+int ATA_ReadRaw(Uint8 Disk, Uint64 Address, Uint64 Count, void *Buffer)
 {
 	 int	ret;
 	Uint	offset;
@@ -755,7 +747,7 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	Uint16	base;
 	
 	// Check if the count is small enough
-	if(Count > MAX_DMA_SECTORS)	return -1;
+	if(Count > MAX_DMA_SECTORS)	return 0;
 	
 	// Get exclusive access to the disk controller
 	LOCK( &giaATA_ControllerLock[ cont ] );
@@ -812,9 +804,9 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 }
 
 /**
- * \fn void ATA_IRQHandlerPri(void)
+ * \fn void ATA_IRQHandlerPri(int unused)
  */
-void ATA_IRQHandlerPri(void)
+void ATA_IRQHandlerPri(int unused)
 {
 	Uint8	val;
 	
@@ -829,9 +821,9 @@ void ATA_IRQHandlerPri(void)
 }
 
 /**
- * \fn void ATA_IRQHandlerSec(void)
+ * \fn void ATA_IRQHandlerSec(int unused)
  */
-void ATA_IRQHandlerSec(void)
+void ATA_IRQHandlerSec(int unused)
 {
 	Uint8	val;
 	// IRQ bit set for Secondary Controller

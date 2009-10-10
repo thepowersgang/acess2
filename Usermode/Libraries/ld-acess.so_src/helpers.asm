@@ -9,6 +9,8 @@
 [global _SysExit]
 [global _SysLoadBin]
 [global _SysUnloadBin]
+[global _open]
+[global _close]
 
 ; void SysDebugV(char *fmt, va_list Args)
 _SysDebug:
@@ -54,5 +56,24 @@ _SysUnloadBin:
 	mov eax, SYS_UNLOADBIN	; SYS_ULDBIN
 	mov ebx, [esp+0x8]	; Base
 	int	0xAC
+	pop ebx
+	ret
+
+; int close(char *name, int flags)
+_open:
+	push ebx
+	mov eax, SYS_OPEN
+	mov ebx, [esp+0x8]	; Filename
+	mov ecx, [esp+0xC]	; Flags
+	int 0xAC
+	pop ebx
+	ret
+
+; void close(int fd)
+_close:
+	push ebx
+	mov eax, SYS_CLOSE
+	mov ebx, [esp+0x8]	; File Descriptor
+	int 0xAC
 	pop ebx
 	ret

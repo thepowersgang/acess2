@@ -69,6 +69,8 @@ void Time_Interrupt()
 		giPartMiliseconds -= 0x80000000;
 	}
 	
+	Log("giTimestamp = %lli", giTimestamp);
+	
 	Timer_CallTimers();
 }
 
@@ -112,7 +114,9 @@ void Timer_CallTimers()
 		i < NUM_TIMERS;
 		i ++)
 	{
+		Log("%i", i);
 		if(gTimers[i].Callback == NULL)	continue;
+		Log("%i - %lli < %lli", i, giTimestamp, gTimers[i].FiresAfter);
 		if(giTimestamp < gTimers[i].FiresAfter)	continue;
 		callback = gTimers[i].Callback;
 		gTimers[i].Callback = NULL;
@@ -126,6 +130,9 @@ void Timer_CallTimers()
 int Time_CreateTimer(int Delta, void *Callback, void *Argument)
 {
 	 int	ret;
+	
+	if(Callback == NULL)	return -1;
+	
 	for(ret = 0;
 		ret < NUM_TIMERS;
 		ret++)
@@ -134,6 +141,8 @@ int Time_CreateTimer(int Delta, void *Callback, void *Argument)
 		gTimers[ret].Callback = Callback;
 		gTimers[ret].FiresAfter = giTimestamp + Delta;
 		gTimers[ret].Argument = Argument;
+		Log("Callback = %p", Callback);
+		Log("Timer %i fires at %lli", ret, gTimers[ret].FiresAfter);
 		return ret;
 	}
 	return -1;
