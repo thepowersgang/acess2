@@ -647,7 +647,8 @@ tVFS_Node *ATA_FindDir(tVFS_Node *Node, char *Name)
  * \fn Uint64 ATA_ReadFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
  */
 Uint64 ATA_ReadFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
-{	
+{
+	//Log("ATA_ReadFS: (Node=%p, Offset=0x%llx, Length=0x%llx, Buffer=%p)", Node, Offset, Length, Buffer);
 	return DrvUtil_ReadBlock(Offset, Length, Buffer, ATA_Read, SECTOR_SIZE, Node->Inode);
 }
 

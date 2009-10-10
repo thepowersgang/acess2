@@ -78,10 +78,13 @@ tVFS_Node *Ext2_InitDevice(char *Device, char **Options)
 	tExt2_SuperBlock	sb;
 	tExt2_Inode	inode;
 	
+	ENTER("sDevice pOptions", Device, Options);
+	
 	// Open Disk
 	fd = VFS_Open(Device, VFS_OPENFLAG_READ|VFS_OPENFLAG_WRITE);		//Open Device
 	if(fd == -1) {
-		Warning("[EXT2] Unable to open '%s'\n", Device);
+		Warning("[EXT2 ] Unable to open '%s'\n", Device);
+		LEAVE('n');
 		return NULL;
 	}
 	
@@ -92,15 +95,22 @@ tVFS_Node *Ext2_InitDevice(char *Device, char **Options)
 	if(sb.s_magic != 0xEF53) {
 		Warning("[EXT2 ] Volume '%s' is not an EXT2 volume\n", Device);
 		VFS_Close(fd);
+		LEAVE('n');
 		return NULL;
 	}
 	
 	// Get Group count
 	groupCount = DivUp(sb.s_blocks_count, sb.s_blocks_per_group);
-	//LogF(" Ext2_initDevice: groupCount = %i\n", groupCount);
+	LOG("groupCount = %i", groupCount);
 	
 	// Allocate Disk Information
 	disk = malloc(sizeof(tExt2_Disk) + sizeof(tExt2_Group)*groupCount);
+	if(!disk) {
+		Warning("[EXT2 ] Unable to allocate disk structure\n");
+		VFS_Close(fd);
+		LEAVE('n');
+		return NULL;
+	}
 	disk->FD = fd;
 	memcpy(&disk->SuperBlock, &sb, 1024);
 	disk->GroupCount = groupCount;
@@ -109,24 +119,26 @@ tVFS_Node *Ext2_InitDevice(char *Device, char **Options)
 	disk->CacheID = Inode_GetHandle();
 	
 	// Get Block Size
-	//LogF(" Ext2_initDevice: s_log_block_size = 0x%x\n", sb.s_log_block_size);
+	LOG("s_log_block_size = 0x%x", sb.s_log_block_size);
 	disk->BlockSize = 1024 << sb.s_log_block_size;
 	
 	// Read Group Information
-	VFS_ReadAt(disk->FD,
+	VFS_ReadAt(
+		disk->FD,
 		sb.s_first_data_block * disk->BlockSize + 1024,
 		sizeof(tExt2_Group)*groupCount,
-		disk->Groups);
+		disk->Groups
+		);
 	
-	#if 0
-	Log(" Ext2_initDevice: Block Group 0\n");
-	Log(" Ext2_initDevice: .bg_block_bitmap = 0x%x\n", disk->Groups[0].bg_block_bitmap);
-	Log(" Ext2_initDevice: .bg_inode_bitmap = 0x%x\n", disk->Groups[0].bg_inode_bitmap);
-	Log(" Ext2_initDevice: .bg_inode_table = 0x%x\n", disk->Groups[0].bg_inode_table);
-	Log(" Ext2_initDevice: Block Group 1\n");
-	Log(" Ext2_initDevice: .bg_block_bitmap = 0x%x\n", disk->Groups[1].bg_block_bitmap);
-	Log(" Ext2_initDevice: .bg_inode_bitmap = 0x%x\n", disk->Groups[1].bg_inode_bitmap);
-	Log(" Ext2_initDevice: .bg_inode_table = 0x%x\n", disk->Groups[1].bg_inode_table);
+	#if DEBUG
+	LOG("Block Group 0");
+	LOG(".bg_block_bitmap = 0x%x", disk->Groups[0].bg_block_bitmap);
+	LOG(".bg_inode_bitmap = 0x%x", disk->Groups[0].bg_inode_bitmap);
+	LOG(".bg_inode_table = 0x%x", disk->Groups[0].bg_inode_table);
+	LOG("Block Group 1");
+	LOG(".bg_block_bitmap = 0x%x", disk->Groups[1].bg_block_bitmap);
+	LOG(".bg_inode_bitmap = 0x%x", disk->Groups[1].bg_inode_bitmap);
+	LOG(".bg_inode_table = 0x%x", disk->Groups[1].bg_inode_table);
 	#endif
 	
 	// Get root Inode
@@ -149,11 +161,12 @@ tVFS_Node *Ext2_InitDevice(char *Device, char **Options)
 	disk->RootNode.NumACLs = 1;
 	disk->RootNode.ACLs = &gVFS_ACL_EveryoneRW;
 	
-	#if 0
-	Log(" Ext2_InitDevice: inode.i_size = 0x%x\n", inode.i_size);
-	Log(" Ext2_InitDevice: inode.i_block[0] = 0x%x\n", inode.i_block[0]);
+	#if DEBUG
+	LOG("inode.i_size = 0x%x", inode.i_size);
+	LOG("inode.i_block[0] = 0x%x", inode.i_block[0]);
 	#endif
 	
+	LEAVE('p', &disk->RootNode);
 	return &disk->RootNode;
 }
 
@@ -183,6 +196,8 @@ Uint64 Ext2_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	Uint	block;
 	Uint64	remLen;
 	
+	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
+	
 	// Get Inode
 	Ext2_int_GetInode(Node, &inode);
 	
@@ -194,6 +209,7 @@ Uint64 Ext2_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	if(Length <= disk->BlockSize - Offset)
 	{
 		VFS_ReadAt( disk->FD, base+Offset, Length, Buffer);
+		LEAVE('X', Length);
 		return Length;
 	}
 	
@@ -218,6 +234,7 @@ Uint64 Ext2_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	base = Ext2_int_GetBlockAddr(disk, inode.i_block, block);
 	VFS_ReadAt( disk->FD, base, remLen, Buffer);
 	
+	LEAVE('X', Length);
 	return Length;
 }
 
@@ -348,9 +365,9 @@ char *Ext2_ReadDir(tVFS_Node *Node, int Pos)
 	
 	// Read Entry
 	VFS_ReadAt( disk->FD, Base+ofs, sizeof(tExt2_DirEnt), &dirent );
-	//LOG(" Ext2_ReadDir: dirent.inode = %i\n", dirent.inode);
-	//LOG(" Ext2_ReadDir: dirent.rec_len = %i\n", dirent.rec_len);
-	//LOG(" Ext2_ReadDir: dirent.name_len = %i\n", dirent.name_len);
+	//LOG("dirent.inode = %i\n", dirent.inode);
+	//LOG("dirent.rec_len = %i\n", dirent.rec_len);
+	//LOG("dirent.name_len = %i\n", dirent.name_len);
 	VFS_ReadAt( disk->FD, Base+ofs+sizeof(tExt2_DirEnt), dirent.name_len, namebuf );
 	namebuf[ dirent.name_len ] = '\0';	// Cap off string
 	
