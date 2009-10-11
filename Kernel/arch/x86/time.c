@@ -8,7 +8,8 @@
 // === MACROS ===
 #define	NUM_TIMERS	8
 #define	TIMER_QUANTUM	100
-#define TIMER_FREQ	1024	//Hz
+#define TIMER_RATE	13	// (Max: 15, Min: 2) - 15 = 1Hz, 13 = 4Hz, 10 = 1024Hz
+#define TIMER_FREQ	(32768>>TIMER_RATE)	//Hz
 #define MS_PER_TICK_WHOLE	(1000/(TIMER_FREQ))
 #define MS_PER_TICK_FRACT	((Uint64)(1000*TIMER_FREQ-((Uint64)MS_PER_TICK_WHOLE)*0x80000000/TIMER_FREQ))
 
@@ -41,6 +42,14 @@ int Time_Setup()
 	outb(0x70, inb(0x70)&0x7F);	// Disable NMIs
 	__asm__ __volatile__ ("cli");	// Disable normal interrupts
 	
+	// Set IRQ8 firing rate
+	outb(0x70, 0x0A);	// Set the index to register A
+	val = inb(0x71); // Get the current value of register A
+	outb(0x70, 0x0A); // Reset index to A
+	val &= 0xF0;
+	val |= TIMER_RATE;
+	outb(0x71, val);	// Update the timer rate
+		
 	// Enable IRQ8
 	outb(0x70, 0x0B);	// Set the index to register B
 	val = inb(0x71);	// Read the current value of register B

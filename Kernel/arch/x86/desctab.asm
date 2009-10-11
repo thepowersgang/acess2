@@ -142,6 +142,7 @@ _Isr%1:
 %macro DEF_IRQ	1
 [global _Isr%1]
 _Isr%1:
+	;cli	; HACK!
 	push	0
 	push	%1
 	jmp	IRQCommon

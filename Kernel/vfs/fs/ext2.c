@@ -533,6 +533,7 @@ tVFS_Node *Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeID, char *Name)
 	// Regular File
 	case EXT2_S_IFREG:
 		retNode.Flags = 0;
+		retNode.Size |= (Uint64)inode.i_dir_acl << 32;
 		break;
 	// Directory
 	case EXT2_S_IFDIR:

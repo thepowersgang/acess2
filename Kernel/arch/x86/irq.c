@@ -33,9 +33,11 @@ void IRQ_Handler(tRegs *Regs)
 			gIRQ_Handlers[Regs->int_num][i](Regs->int_num);
 	}
 	
+	//Log(" IRQ_Handler: Resetting");
 	if(Regs->int_num >= 8)
 		outb(0xA0, 0x20);	// ACK IRQ (Secondary PIC)
 	outb(0x20, 0x20);	// ACK IRQ
+	//Log("IRQ_Handler: RETURN");
 }
 
 /**

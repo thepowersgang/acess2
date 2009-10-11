@@ -93,7 +93,7 @@ struct ext2_inode_s {
 	Uint32 i_block[15];	//!< Pointers to blocks
 	Uint32 i_version; 	//!< File version (for NFS)
 	Uint32 i_file_acl;	//!< File ACL
-	Uint32 i_dir_acl;	//!< Directory ACL
+	Uint32 i_dir_acl;	//!< Directory ACL / Extended File Size
 	Uint32 i_faddr; 	//!< Fragment address
 	union {
 		struct {

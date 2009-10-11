@@ -240,27 +240,41 @@ Uint64 Ne2k_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		return 0;
 	}
 	
+	// Make sure that the card is in page 0
 	outb(Card->IOBase + CMD, 0|0x22);	// Page 0, Start, NoDMA
-	// Send Size - Transmit Byte Count Register
+	
+	// Clear Remote DMA Flag
+	outb(Card->IOBase + ISR, 0x40);	// Bit 6
+	
+	// Send Size - Remote Byte Count Register
 	outb(Card->IOBase + TBCR0, Length & 0xFF);
 	outb(Card->IOBase + TBCR1, Length >> 8);
+	
 	// Send Size - Remote Byte Count Register
 	outb(Card->IOBase + RBCR0, Length & 0xFF);
 	outb(Card->IOBase + RBCR1, Length >> 8);
-	// Clear Remote DMA Flag
-	outb(Card->IOBase + ISR, 0x40);	// Bit 6
+	
 	// Set up transfer
 	outb(Card->IOBase + RSAR0, 0x00);	// Page Offset
 	outb(Card->IOBase + RSAR1, Ne2k_int_GetWritePage(Card, Length));	// Page Offset
 	// Start
-	outb(Card->IOBase + CMD, 0|0x18|0x4|0x2);	// Page 0, Transmit Packet, TXP, Start
+	//outb(Card->IOBase + CMD, 0|0x18|0x4|0x2);	// Page 0, Transmit Packet, TXP, Start
+	outb(Card->IOBase + CMD, 0|0x10|0x2);	// Page 0, Remote Write, Start
 	
 	// Send Data
 	for(rem = Length; rem; rem -= 2)
 		outw(Card->IOBase + 0x10, *buf++);
 	
+	while( inb(Card->IOBase + ISR) == 0)	// Wait for Remote DMA Complete
+		;	//Proc_Yield();
+	
+	outb( Card->IOBase + ISR, 0x40 );	// ACK Interrupt
+	
+	// Send Packet
+	outb(Card->IOBase + CMD, 0|0x10|0x4|0x2);
+	
 	// Complete DMA
-	outb(Card->IOBase + CMD, 0|0x20);
+	//outb(Card->IOBase + CMD, 0|0x20);
 	
 	LEAVE('i', Length);
 	return Length;
@@ -286,4 +300,14 @@ Uint8 Ne2k_int_GetWritePage(tCard *Card, Uint16 Length)
  */
 void Ne2k_IRQHandler(int IntNum)
 {
+	 int	i;
+	for( i = 0; i < giNe2k_CardCount; i++ )
+	{
+		if(gpNe2k_Cards[i].IRQ == IntNum) {
+			LOG("Clearing interrupts on card %i (0x%x)\n", i, inb( gpNe2k_Cards[i].IOBase + ISR ));
+			outb( gpNe2k_Cards[i].IOBase + ISR, 0xFF );	// Reset All
+			return ;
+		}
+	}
+	Warning("[NE2K ] Recieved Unknown IRQ %i", IntNum);
 }

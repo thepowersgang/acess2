@@ -770,7 +770,7 @@ Uint ATA_WriteRaw(Uint64 Address, Uint Count, void *Buffer, Uint Disk)
 	Uint	offset;
 	Uint	done = 0;
 	 
-	// Pass straight on to ATA_ReadDMAPage if we can
+	// Pass straight on to ATA_WriteDMA if we can
 	if(Count <= MAX_DMA_SECTORS)
 	{
 		ret = ATA_WriteDMA(Disk, Address, Count, Buffer);
@@ -797,7 +797,7 @@ Uint ATA_WriteRaw(Uint64 Address, Uint Count, void *Buffer, Uint Disk)
 }
 
 /**
- * \fn int ATA_ReadDMAPage(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
+ * \fn int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
  */
 int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 {

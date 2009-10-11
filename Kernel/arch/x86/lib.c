@@ -50,11 +50,15 @@ Uint32 ind(Uint16 Port)
 
 /**
  * \fn void *memset(void *Dest, int Val, Uint Num)
- * \brief Do a byte set of Dest
+ * \brief Do a byte granuality set of Dest
  */
 void *memset(void *Dest, int Val, Uint Num)
 {
-	__asm__ __volatile__ ("rep stosb" :: "D" (Dest), "a" (Val), "c" (Num));
+	__asm__ __volatile__ (
+		"rep stosl;\n\t"
+		"mov %3, %%ecx;\n\t"
+		"rep stosb"
+		:: "D" (Dest), "a" (Val), "c" (Num/4), "r" (Num&3));
 	return Dest;
 }
 /**
@@ -72,7 +76,15 @@ void *memsetd(void *Dest, Uint Val, Uint Num)
  */
 void *memcpy(void *Dest, void *Src, Uint Num)
 {
-	__asm__ __volatile__ ("rep movsb" :: "D" (Dest), "S" (Src), "c" (Num));
+	if((Uint)Dest & 3 || (Uint)Src & 3)
+		__asm__ __volatile__ ("rep movsb" :: "D" (Dest), "S" (Src), "c" (Num));
+	else {
+		__asm__ __volatile__ (
+			"rep movsl;\n\t"
+			"mov %3, %%ecx;\n\t"
+			"rep movsb"
+			:: "D" (Dest), "S" (Src), "c" (Num/4), "r" (Num&3));
+	}
 	return Dest;
 }
 /**
@@ -101,6 +113,7 @@ Uint64 __udivdi3(Uint64 Num, Uint64 Den)
 	if(Den == 32)	return Num >> 5;	// Speed Hacks
 	if(Den == 1024)	return Num >> 10;	// Speed Hacks
 	if(Den == 2048)	return Num >> 11;	// Speed Hacks
+	if(Den == 4096)	return Num >> 12;
 	
 	if(Num >> 32 == 0 && Den >> 32 == 0)
 		return (Uint32)Num / (Uint32)Den;
@@ -131,6 +144,7 @@ Uint64 __umoddi3(Uint64 Num, Uint64 Den)
 	if(Den == 32)	return Num & 31;	// Speed Hacks
 	if(Den == 1024)	return Num & 1023;	// Speed Hacks
 	if(Den == 2048)	return Num & 2047;	// Speed Hacks
+	if(Den == 4096)	return Num & 4095;	// Speed Hacks
 	
 	if(Num >> 32 == 0 && Den >> 32 == 0)
 		return (Uint32)Num % (Uint32)Den;
