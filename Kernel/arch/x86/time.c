@@ -51,7 +51,7 @@ int Time_Setup()
 	outb(0x70, inb(0x70)|0x80);	// Disable NMIs
 	
 	// Install IRQ Handler
-	IRQ_AddHandler(8, Time_Interrupt);
+	//IRQ_AddHandler(8, Time_Interrupt);
 	return 0;
 }
 

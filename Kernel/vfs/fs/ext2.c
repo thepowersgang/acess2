@@ -270,18 +270,25 @@ Uint64 Ext2_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	Uint64	allocSize;
 	 int	bNewBlocks = 0;
 	
+	Debug_HexDump("Ext2_Write", Buffer, Length);
+	
 	Ext2_int_GetInode(Node, &inode);
 	
-	// Round size up to block size
-	// block size is a power of two, so this will work
+	// Get the ammount of space already allocated
+	// - Round size up to block size
+	// - block size is a power of two, so this will work
 	allocSize = (inode.i_size + disk->BlockSize) & ~(disk->BlockSize-1);
+	
+	// Are we writing to inside the allocated space?
 	if( Offset < allocSize )
 	{
+		// Will we go out of it?
 		if(Offset + Length > allocSize) {
 			bNewBlocks = 1;
 			retLen = allocSize - Offset;
 		} else
 			retLen = Length;
+		
 		// Within the allocated space
 		block = Offset / disk->BlockSize;
 		Offset %= disk->BlockSize;
@@ -290,7 +297,7 @@ Uint64 Ext2_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		// Write only block (if only one)
 		if(Offset + retLen <= disk->BlockSize) {
 			VFS_WriteAt(disk->FD, base+Offset, retLen, Buffer);
-			if(bNewBlocks)	return Length;
+			if(!bNewBlocks)	return Length;
 			goto addBlocks;	// Ugh! A goto, but it seems unavoidable
 		}
 		
@@ -313,7 +320,7 @@ Uint64 Ext2_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		// Write last block
 		base = Ext2_int_GetBlockAddr(disk, inode.i_block, block);
 		VFS_WriteAt(disk->FD, base, retLen, Buffer);
-		if(bNewBlocks)	return Length;	// Writing in only allocated space
+		if(!bNewBlocks)	return Length;	// Writing in only allocated space
 	}
 	
 addBlocks:

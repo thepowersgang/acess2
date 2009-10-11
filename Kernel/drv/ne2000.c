@@ -3,6 +3,7 @@
  * 
  * See: ~/Sources/bochs/bochs.../iodev/ne2k.cc
  */
+#define	DEBUG	1
 #include <common.h>
 #include <modules.h>
 #include <fs_devfs.h>
@@ -143,7 +144,7 @@ int Ne2k_Install(char **Options)
 			outb( base + IMR, 0x00 );
 			outb( base + ISR, 0xFF );
 			outb( base + RCR, 0x20 );	// Reciever to Monitor
-			outb( base + TCR, 0x02 );	// Transmitter OFF
+			outb( base + TCR, 0x02 );	// Transmitter OFF (TCR.LB = 1, Internal Loopback)
 			outb( base + RBCR0, 6*4 );	// Remote Byte Count
 			outb( base + RBCR1, 0 );
 			outb( base + RSAR0, 0 );	// Clear Source Address
@@ -164,7 +165,7 @@ int Ne2k_Install(char **Options)
 			outb( base+ISR, 0xFF );	// Clear all ints
 			outb( base+CMD, 0x22 );	// No DMA, Start
 			outb( base+IMR, 0x3F );	// Set Interupt Mask
-			outb( base+RCR, 0x8F );	// Set WRAP and allow all packet matches
+			outb( base+RCR, 0x0F );	// Set WRAP and allow all packet matches
 			outb( base+TCR, 0x00 );	// Set Normal Transmitter mode
 			outb( base+TPSR, 0x40);	// Set Transmit Start
 			// Set MAC Address
@@ -231,11 +232,19 @@ Uint64 Ne2k_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	Uint16	*buf = Buffer;
 	 int	rem = Length;
 	
+	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
+	
 	// Sanity Check Length
-	if(Length > TX_BUF_SIZE)	return 0;
+	if(Length > TX_BUF_SIZE) {
+		LEAVE('i', 0);
+		return 0;
+	}
 	
 	outb(Card->IOBase + CMD, 0|0x22);	// Page 0, Start, NoDMA
-	// Send Size
+	// Send Size - Transmit Byte Count Register
+	outb(Card->IOBase + TBCR0, Length & 0xFF);
+	outb(Card->IOBase + TBCR1, Length >> 8);
+	// Send Size - Remote Byte Count Register
 	outb(Card->IOBase + RBCR0, Length & 0xFF);
 	outb(Card->IOBase + RBCR1, Length >> 8);
 	// Clear Remote DMA Flag
@@ -244,12 +253,17 @@ Uint64 Ne2k_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	outb(Card->IOBase + RSAR0, 0x00);	// Page Offset
 	outb(Card->IOBase + RSAR1, Ne2k_int_GetWritePage(Card, Length));	// Page Offset
 	// Start
-	outb(Card->IOBase + CMD, 0|0x12);	// Page 0, Start, DMA
+	outb(Card->IOBase + CMD, 0|0x18|0x4|0x2);	// Page 0, Transmit Packet, TXP, Start
 	
 	// Send Data
 	for(rem = Length; rem; rem -= 2)
 		outw(Card->IOBase + 0x10, *buf++);
-	return 0;
+	
+	// Complete DMA
+	outb(Card->IOBase + CMD, 0|0x20);
+	
+	LEAVE('i', Length);
+	return Length;
 }
 
 /**

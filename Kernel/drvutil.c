@@ -130,7 +130,7 @@ Uint64 DrvUtil_WriteBlock(Uint64 Start, Uint64 Length, void *Buffer,
 	// Read central blocks
 	if(num)
 	{
-		LOG("Reading %i blocks", num);
+		LOG("Writing %i blocks", num);
 		ret = WriteBlocks(block, num, Buffer, Argument);
 		if(ret != num ) {
 			LEAVE('X', leading + ret * BlockSize);
@@ -141,7 +141,7 @@ Uint64 DrvUtil_WriteBlock(Uint64 Start, Uint64 Length, void *Buffer,
 	// Read last tailing block
 	if(tailings != 0)
 	{
-		LOG("Reading %i bytes from last block", tailings);
+		LOG("Writing %i bytes to last block", tailings);
 		block += num;
 		Buffer += num * BlockSize;
 		// Read

@@ -311,7 +311,7 @@ void Debug_HexDump(char *Header, void *Data, Uint Length)
 		Uint	byte = *cdat;
 		LogF("%02x ", byte);
 		Length--;
-		cdat --;
+		cdat ++;
 	}
 	E9('\n');
 }

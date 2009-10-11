@@ -105,10 +105,12 @@ tVFS_Node	*ATA_FindDir(tVFS_Node *Node, char *Name);
 Uint64	ATA_ReadFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
 Uint64	ATA_WriteFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
  int	ATA_IOCtl(tVFS_Node *Node, int Id, void *Data);
-// Disk Read
+// Read/Write Interface/Quantiser
 Uint	ATA_ReadRaw(Uint64 Address, Uint Count, void *Buffer, Uint Disk);
+Uint	ATA_WriteRaw(Uint64 Address, Uint Count, void *Buffer, Uint Disk);
+// Read/Write DMA
  int	ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer);
-// Disk Write
+ int	ATA_WriteDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer);
 // IRQs
 void	ATA_IRQHandlerPri(int unused);
 void	ATA_IRQHandlerSec(int unused);
@@ -326,7 +328,7 @@ int ATA_ScanDisk(int Disk)
 		= node->CTime = now();
 	
 	node->Read = ATA_ReadFS;
-	//node->Write = ATA_WriteFS;
+	node->Write = ATA_WriteFS;
 	node->IOCtl = ATA_IOCtl;
 
 
@@ -590,6 +592,7 @@ void ATA_int_MakePartition(tATA_Partition *Part, int Disk, int Num, Uint64 Start
 	Part->Node.ImplPtr = Part->Name;
 	
 	Part->Node.Read = ATA_ReadFS;
+	Part->Node.Write = ATA_WriteFS;
 	Part->Node.IOCtl = ATA_IOCtl;
 	LOG("Made '%s' (&Node=%p)", Part->Name, &Part->Node);
 	LEAVE('-');
@@ -683,7 +686,30 @@ Uint64 ATA_ReadFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
  */
 Uint64 ATA_WriteFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 {
-	return 0;
+	 int	disk = Node->Inode >> 8;
+	 int	part = Node->Inode & 0xFF;
+	
+	// Raw Disk Access
+	if(part == 0xFF)
+	{
+		if( Offset >= gATA_Disks[disk].Sectors * SECTOR_SIZE )
+			return 0;
+		if( Offset + Length > gATA_Disks[disk].Sectors*SECTOR_SIZE )
+			Length = gATA_Disks[disk].Sectors*SECTOR_SIZE - Offset;
+	}
+	// Partition
+	else
+	{
+		if( Offset >= gATA_Disks[disk].Partitions[part].Length * SECTOR_SIZE )
+			return 0;
+		if( Offset + Length > gATA_Disks[disk].Partitions[part].Length * SECTOR_SIZE )
+			Length = gATA_Disks[disk].Partitions[part].Length * SECTOR_SIZE - Offset;
+		Offset += gATA_Disks[disk].Partitions[part].Start * SECTOR_SIZE;
+	}
+	
+	Log("ATA_WriteFS: (Node=%p, Offset=0x%llx, Length=0x%llx, Buffer=%p)", Node, Offset, Length, Buffer);
+	Debug_HexDump("ATA_WriteFS", Buffer, Length);
+	return DrvUtil_WriteBlock(Offset, Length, Buffer, ATA_ReadRaw, ATA_WriteRaw, SECTOR_SIZE, disk);
 }
 
 /**
@@ -731,6 +757,41 @@ Uint ATA_ReadRaw(Uint64 Address, Uint Count, void *Buffer, Uint Disk)
 	}
 	
 	ret = ATA_ReadDMA(Disk, Address+offset, Count, Buffer+offset);
+	if(ret != 1)	return 0;
+	return done+Count;
+}
+
+/**
+ * \fn Uint ATA_WriteRaw(Uint64 Address, Uint Count, void *Buffer, Uint Disk)
+ */
+Uint ATA_WriteRaw(Uint64 Address, Uint Count, void *Buffer, Uint Disk)
+{
+	 int	ret;
+	Uint	offset;
+	Uint	done = 0;
+	 
+	// Pass straight on to ATA_ReadDMAPage if we can
+	if(Count <= MAX_DMA_SECTORS)
+	{
+		ret = ATA_WriteDMA(Disk, Address, Count, Buffer);
+		if(ret == 0)	return 0;
+		return Count;
+	}
+	
+	// Else we will have to break up the transfer
+	offset = 0;
+	while(Count > MAX_DMA_SECTORS)
+	{
+		ret = ATA_WriteDMA(Disk, Address+offset, MAX_DMA_SECTORS, Buffer+offset);
+		// Check for errors
+		if(ret != 1)	return done;
+		// Change Position
+		done += MAX_DMA_SECTORS;
+		Count -= MAX_DMA_SECTORS;
+		offset += MAX_DMA_SECTORS*SECTOR_SIZE;
+	}
+	
+	ret = ATA_WriteDMA(Disk, Address+offset, Count, Buffer+offset);
 	if(ret != 1)	return 0;
 	return done+Count;
 }
@@ -794,6 +855,72 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	
 	// Copy to destination buffer
 	memcpy( Buffer, gATA_Buffers[cont], Count*SECTOR_SIZE );
+	
+	// Release controller lock
+	RELEASE( &giaATA_ControllerLock[ cont ] );
+	
+	return 1;
+}
+
+/**
+ * \fn int ATA_WriteDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
+ */
+int ATA_WriteDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
+{
+	 int	cont = (Disk>>1)&1;	// Controller ID
+	 int	disk = Disk & 1;
+	Uint16	base;
+	
+	// Check if the count is small enough
+	if(Count > MAX_DMA_SECTORS)	return 0;
+	
+	// Get exclusive access to the disk controller
+	LOCK( &giaATA_ControllerLock[ cont ] );
+	
+	// Set Size
+	gATA_PRDTs[ cont ].Bytes = Count * SECTOR_SIZE;
+	
+	// Get Port Base
+	base = ATA_GetBasePort(Disk);
+	
+	// Set up transfer
+	outb(base+0x01, 0x00);
+	if( Address > 0x0FFFFFFF )	// Use LBA48
+	{
+		outb(base+0x6, 0x40 | (disk << 4));
+		outb(base+0x2, 0 >> 8);	// Upper Sector Count
+		outb(base+0x3, Address >> 24);	// Low 2 Addr
+		outb(base+0x3, Address >> 28);	// Mid 2 Addr
+		outb(base+0x3, Address >> 32);	// High 2 Addr
+	}
+	else
+	{
+		outb(base+0x06, 0xE0 | (disk << 4) | ((Address >> 24) & 0x0F));	//Disk,Magic,High addr
+	}
+	
+	outb(base+0x02, (Uint8) Count);		// Sector Count
+	outb(base+0x03, (Uint8) Address);		// Low Addr
+	outb(base+0x04, (Uint8) (Address >> 8));	// Middle Addr
+	outb(base+0x05, (Uint8) (Address >> 16));	// High Addr
+	if( Address > 0x0FFFFFFF )
+		outb(base+0x07, HDD_DMA_W48);	// Write Command (LBA48)
+	else
+		outb(base+0x07, HDD_DMA_W28);	// Write Command (LBA28)
+	
+	// Reset IRQ Flag
+	gaATA_IRQs[cont] = 0;
+	
+	// Copy to output buffer
+	memcpy( gATA_Buffers[cont], Buffer, Count*SECTOR_SIZE );
+	
+	// Start transfer
+	ATA_int_BusMasterWriteByte( cont << 3, 1 );	// Write and start
+	
+	// Wait for transfer to complete
+	while( gaATA_IRQs[cont] == 0 )	Threads_Yield();
+	
+	// Complete Transfer
+	ATA_int_BusMasterWriteByte( cont << 3, 0 );	// Write and stop
 	
 	// Release controller lock
 	RELEASE( &giaATA_ControllerLock[ cont ] );

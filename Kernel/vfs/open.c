@@ -365,7 +365,7 @@ tVFS_Node *VFS_ParsePath(char *Path, char **TruePath)
 	// Check if file was found
 	if(!tmpNode) {
 		LOG("Node '%s' not found in dir '%s'", &Path[ofs], Path);
-		Log("Child fail '%s' ('%s')", Path, &Path[ofs]);
+		//Log("Child fail '%s' ('%s')", Path, &Path[ofs]);
 		if(TruePath)	free(*TruePath);
 		if(curNode->Close)	curNode->Close(curNode);
 		LEAVE('n');
