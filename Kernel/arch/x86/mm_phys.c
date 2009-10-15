@@ -1,7 +1,7 @@
 /*
- AcessOS Microkernel Version
- mm_phys.c
-*/
+ * Acess2
+ * - Physical memory manager
+ */
 #define DEBUG	1
 #include <common.h>
 #include <mboot.h>

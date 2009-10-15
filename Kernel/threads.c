@@ -464,7 +464,7 @@ void Threads_Sleep()
 	tThread *cur = Proc_GetCurThread();
 	tThread *thread;
 	
-	//Log("Proc_Sleep: %i going to sleep", cur->TID);
+	Log("Proc_Sleep: %i going to sleep", cur->TID);
 	
 	// Acquire Spinlock
 	LOCK( &giThreadListLock );
@@ -472,7 +472,8 @@ void Threads_Sleep()
 	// Get thread before current thread
 	thread = Threads_int_GetPrev( &gActiveThreads, cur );
 	if(!thread) {
-		Warning("Proc_Sleep - Current thread is not on the active queue");
+		Warning("Threads_Sleep - Current thread is not on the active queue");
+		Threads_Dump();
 		return;
 	}
 	
@@ -502,11 +503,11 @@ void Threads_Sleep()
 	// Release Spinlock
 	RELEASE( &giThreadListLock );
 	
-	HALT();
+	while(cur->Status != THREAD_STAT_ACTIVE)	HALT();
 }
 
 
-/**c0108919:
+/**
  * \fn void Threads_Wake( tThread *Thread )
  * \brief Wakes a sleeping/waiting thread up
  */
@@ -630,18 +631,23 @@ int Threads_GetGID()
 void Threads_Dump()
 {
 	tThread	*thread;
+	tThread	*cur = Proc_GetCurThread();
 	
 	Log("Active Threads:");
 	for(thread=gActiveThreads;thread;thread=thread->Next)
 	{
-		Log(" %i (%i) - %s", thread->TID, thread->TGID, thread->ThreadName);
+		Log("%c%i (%i) - %s",
+			(thread==cur?'*':' '),
+			thread->TID, thread->TGID, thread->ThreadName);
 		Log("  %i Tickets, Quantum %i", thread->NumTickets, thread->Quantum);
 		Log("  KStack 0x%x", thread->KernelStack);
 	}
 	Log("Sleeping Threads:");
 	for(thread=gSleepingThreads;thread;thread=thread->Next)
 	{
-		Log(" %i (%i) - %s", thread->TID, thread->TGID, thread->ThreadName);
+		Log("%c%i (%i) - %s",
+			(thread==cur?'*':' '),
+			thread->TID, thread->TGID, thread->ThreadName);
 		Log("  %i Tickets, Quantum %i", thread->NumTickets, thread->Quantum);
 		Log("  KStack 0x%x", thread->KernelStack);
 	}

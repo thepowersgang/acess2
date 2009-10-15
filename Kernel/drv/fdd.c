@@ -92,7 +92,7 @@ Uint64	FDD_ReadFS(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer);
  int	FDD_Install(char **Arguments);
 
 // === GLOBALS ===
-//MODULE_DEFINE(0, 0x004B, FDD, FDD_Install, NULL, NULL);
+MODULE_DEFINE(0, 0x004B, FDD, FDD_Install, NULL, NULL);
 static t_floppyDevice	fdd_devices[2];
 static volatile int	fdd_inUse = 0;
 static volatile int	fdd_irq6 = 0;

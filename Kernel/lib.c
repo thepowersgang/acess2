@@ -70,7 +70,7 @@ int tolower(int c)
  * \fn int strucmp(char *Str1, char *Str2)
  * \brief Compare \a Str1 and \a Str2 case-insensitively
  */
-int strucmp(char *Str1, char *Str2)
+int strucmp(const char *Str1, const char *Str2)
 {
 	while(*Str1 && tolower(*Str1) == tolower(*Str2))
 		Str1++, Str2++;
@@ -81,7 +81,7 @@ int strucmp(char *Str1, char *Str2)
  * \fn int strpos(char *Str, char Ch)
  * \brief Search a string for an ascii character
  */
-int strpos(char *Str, char Ch)
+int strpos(const char *Str, char Ch)
 {
 	 int	pos;
 	for(pos=0;Str[pos];pos++)
@@ -104,7 +104,7 @@ int ByteSum(void *Ptr, int Size)
  * \fn Uint strlen(char *__str)
  * \brief Get the length of string
  */
-Uint strlen(char *__str)
+Uint strlen(const char *__str)
 {
 	Uint	ret = 0;
 	while(*__str++)	ret++;
@@ -115,7 +115,7 @@ Uint strlen(char *__str)
  * \fn char *strcpy(char *__str1, char *__str2)
  * \brief Copy a string to a new location
  */
-char *strcpy(char *__str1, char *__str2)
+char *strcpy(char *__str1, const char *__str2)
 {
 	while(*__str2)
 		*__str1++ = *__str2++;
@@ -128,7 +128,7 @@ char *strcpy(char *__str1, char *__str2)
  * \brief Compare two strings return the difference between
  *        the first non-matching characters.
  */
-int strcmp(char *str1, char *str2)
+int strcmp(const char *str1, const char *str2)
 {
 	while(*str1 && *str1 == *str2)
 		str1++, str2++;
@@ -139,7 +139,7 @@ int strcmp(char *str1, char *str2)
  * \fn int strncmp(char *Str1, char *Str2, size_t num)
  * \brief Compare strings \a Str1 and \a Str2 to a maximum of \a num characters
  */
-int strncmp(char *Str1, char *Str2, size_t num)
+int strncmp(const char *Str1, const char *Str2, size_t num)
 {
 	if(num == 0)	return 0;	// TODO: Check what should officially happen here
 	while(--num && *Str1 && *Str1 == *Str2)
@@ -151,7 +151,7 @@ int strncmp(char *Str1, char *Str2, size_t num)
  * \fn char *strdup(char *str)
  * \brief Duplicates a string
  */
-char *strdup(char *str)
+char *strdup(const char *str)
 {
 	char	*ret;
 	ret = malloc(strlen(str)+1);
@@ -174,7 +174,7 @@ int DivUp(int num, int dem)
  * \fn int strpos8(char *str, Uint32 search)
  * \brief Search a string for a UTF-8 character
  */
-int strpos8(char *str, Uint32 Search)
+int strpos8(const char *str, Uint32 Search)
 {
 	 int	pos;
 	Uint32	val = 0;

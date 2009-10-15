@@ -14,9 +14,13 @@
 #include <mm_phys.h>
 #include <proc.h>
 
-#define KERNEL_STACKS	0xF0000000
+#define KERNEL_STACKS		0xF0000000
 #define	KERNEL_STACK_SIZE	0x00002000
-#define KERNEL_STACK_END	0xFD000000
+#define KERNEL_STACKS_END	0xFD000000
+#define WORKER_STACKS		0x00100000	// Thread0 Only!
+#define	WORKER_STACK_SIZE	KERNEL_STACK_SIZE
+#define WORKER_STACKS_END	0xB0000000
+#define	NUM_WORKER_STACKS	((WORKER_STACKS_END-WORKER_STACKS)/WORKER_STACK_SIZE)
 #define PAGE_TABLE_ADDR	0xFD000000
 #define PAGE_DIR_ADDR	0xFD3F4000
 #define PAGE_CR3_ADDR	0xFD3F4FD0
@@ -58,6 +62,9 @@ tPAddr	*gaTmpTable = (void*)TMP_TABLE_ADDR;
 tPAddr	*gaTmpDir = (void*)TMP_DIR_ADDR;
 tPAddr	*gTmpCR3 = (void*)TMP_CR3_ADDR;
  int	gilTempMappings = 0;
+ int	gilTempFractal = 0;
+Uint32	gWorkerStacks[NUM_WORKER_STACKS/32];
+ int	giLastUsedWorker = 0;
 
 // === CODE ===
 /**
@@ -83,7 +90,7 @@ void MM_InstallVirtual()
 	{
 		if( gaPageDir[ i ] )	continue;
 		// Skip stack tables, they are process unique
-		if( i > KERNEL_STACKS >> 22 && i < KERNEL_STACK_END >> 22) {
+		if( i > KERNEL_STACKS >> 22 && i < KERNEL_STACKS_END >> 22) {
 			gaPageDir[ i ] = 0;
 			continue;
 		}
@@ -128,6 +135,12 @@ void MM_PageFault(Uint Addr, Uint ErrorCode, tRegs *Regs)
 	
 	// If it was a user, tell the thread handler
 	if(ErrorCode & 4) {
+		Warning("%s %s %s memory%s",
+			(ErrorCode&4?"User":"Kernel"),
+			(ErrorCode&2?"write to":"read from"),
+			(ErrorCode&1?"bad/locked":"non-present"),
+			(ErrorCode&16?" (Instruction Fetch)":"")
+			);
 		Warning("User Pagefault: Instruction at %p accessed %p", Regs->eip, Addr);
 		__asm__ __volatile__ ("sti");	// Restart IRQs
 		Threads_SegFault(Addr);
@@ -417,11 +430,12 @@ Uint MM_ClearUser()
 Uint MM_Clone()
 {
 	Uint	i, j;
+	Uint	ret;
 	Uint	page = 0;
 	Uint	kStackBase = Proc_GetCurThread()->KernelStack - KERNEL_STACK_SIZE;
 	void	*tmp;
 	
-	//ENTER("");
+	LOCK( &gilTempFractal );
 	
 	// Create Directory Table
 	*gTmpCR3 = MM_AllocPhys() | 3;
@@ -484,7 +498,7 @@ Uint MM_Clone()
 	
 	// Allocate kernel stack
 	for(i = KERNEL_STACKS >> 22;
-		i < KERNEL_STACK_END >> 22;
+		i < KERNEL_STACKS_END >> 22;
 		i ++ )
 	{
 		// Check if directory is allocated
@@ -528,8 +542,11 @@ Uint MM_Clone()
 		}
 	}
 	
-	//LEAVE('x', *gTmpCR3 & ~0xFFF);
-	return *gTmpCR3 & ~0xFFF;
+	ret = *gTmpCR3 & ~0xFFF;
+	RELEASE( &gilTempFractal );
+	
+	//LEAVE('x', ret);
+	return ret;
 }
 
 /**
@@ -540,7 +557,7 @@ Uint MM_NewKStack()
 {
 	Uint	base = KERNEL_STACKS;
 	Uint	i;
-	for(;base<KERNEL_STACK_END;base+=KERNEL_STACK_SIZE)
+	for(;base<KERNEL_STACKS_END;base+=KERNEL_STACK_SIZE)
 	{
 		if(MM_GetPhysAddr(base) != 0)	continue;
 		for(i=0;i<KERNEL_STACK_SIZE;i+=0x1000) {
@@ -550,6 +567,99 @@ Uint MM_NewKStack()
 	}
 	Warning("MM_NewKStack - No address space left\n");
 	return 0;
+}
+
+/**
+ * \fn Uint MM_NewWorkerStack()
+ * \brief Creates a new worker stack
+ */
+Uint MM_NewWorkerStack()
+{
+	Uint	esp, ebp;
+	Uint	oldstack;
+	Uint	base, addr;
+	 int	i, j;
+	Uint	*tmpPage;
+	tPAddr	pages[WORKER_STACK_SIZE>>12];
+	
+	// Get the old ESP and EBP
+	__asm__ __volatile__ ("mov %%esp, %0": "=r"(esp));
+	__asm__ __volatile__ ("mov %%ebp, %0": "=r"(ebp));
+	
+	// Find a free worker stack address
+	for(base = giLastUsedWorker; base < NUM_WORKER_STACKS; base++)
+	{
+		// Used block
+		if( gWorkerStacks[base/32] == -1 ) {
+			base += 31;	base &= ~31;
+			base --;	// Counteracted by the base++
+			continue;
+		}
+		// Used stack
+		if( gWorkerStacks[base/32] & (1 << base) ) {
+			continue;
+		}
+	}
+	if(base >= NUM_WORKER_STACKS) {
+		Warning("Uh-oh! Out of worker stacks");
+		return 0;
+	}
+	
+	// It's ours now!
+	gWorkerStacks[base/32] |= (1 << base);
+	// Make life easier for later calls
+	giLastUsedWorker = base;
+	// We have one
+	base = WORKER_STACKS + base * WORKER_STACK_SIZE;
+	
+	// Acquire the lock for the temp fractal mappings
+	LOCK(&gilTempFractal);
+	
+	// Set the temp fractals to TID0's address space
+	*gTmpCR3 = (Uint)gaInitPageDir | 3;
+	INVLPG( gaTmpDir );
+	
+	// Check if the directory is mapped (we are assuming that the stacks
+	// will fit neatly in a directory
+	if(gaTmpDir[ base >> 22 ] == 0) {
+		gaTmpDir[ base >> 22 ] = MM_AllocPhys() | 3;
+		INVLPG( &gaTmpTable[ (base>>22) & ~0x3FF ] );
+	}
+	
+	// Mapping Time!
+	for( addr = 0; addr < WORKER_STACK_SIZE; addr += 0x1000 )
+	{
+		pages[ addr >> 12 ] = MM_AllocPhys();
+		gaTmpTable[ (base + addr) >> 12 ] = pages[addr>>12] | 3;
+	}
+	// Release the temp mapping lock
+	RELEASE(&gilTempFractal);
+	
+	// Copy the old stack
+	oldstack = (esp + KERNEL_STACK_SIZE-1) & ~(KERNEL_STACK_SIZE-1);
+	esp = oldstack - esp;	// ESP as an offset in the stack
+	
+	i = (WORKER_STACK_SIZE>>12) - 1;
+	// Copy the contents of the old stack to the new one, altering the addresses
+	// `addr` is refering to bytes from the stack base (mem downwards)
+	for(addr = 0; addr < esp; addr += 0x1000)
+	{
+		Uint	*stack = (Uint*)( oldstack-(addr+0x1000) );
+		tmpPage = (void*)MM_MapTemp( pages[i] );
+		// Copy old stack
+		for(j = 0; j < 1024; j++)
+		{
+			// Possible Stack address?
+			if(oldstack-esp < stack[j] && stack[j] < oldstack)
+				tmpPage[j] = base - (oldstack - stack[j]);
+			else	// Seems not, best leave it alone
+				tmpPage[j] = stack[j];
+		}
+		MM_FreeTemp((Uint)tmpPage);
+		i --;
+	}
+	
+	return base;
 }
 
 /**

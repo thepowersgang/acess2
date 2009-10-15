@@ -70,11 +70,25 @@ void *memsetd(void *Dest, Uint Val, Uint Num)
 	return Dest;
 }
 
+/**
+ * \fn int memcmp(const void *m1, const void *m2, Uint Num)
+ * \brief Compare two pieces of memory
+ */
+int memcmp(const void *m1, const void *m2, Uint Num)
+{
+	while(Num--)
+	{
+		if(*(Uint8*)m1 != *(Uint8*)m2)	break;
+		m1 ++;
+		m2 ++;
+	}
+	return *(Uint8*)m1 - *(Uint8*)m2;
+}
 
 /**
  * \fn void *memcpy(void *Dest, void *Src, Uint Num)
  */
-void *memcpy(void *Dest, void *Src, Uint Num)
+void *memcpy(void *Dest, const void *Src, Uint Num)
 {
 	if((Uint)Dest & 3 || (Uint)Src & 3)
 		__asm__ __volatile__ ("rep movsb" :: "D" (Dest), "S" (Src), "c" (Num));
@@ -90,7 +104,7 @@ void *memcpy(void *Dest, void *Src, Uint Num)
 /**
  * \fn void *memcpyd(void *Dest, void *Src, Uint Num)
  */
-void *memcpyd(void *Dest, void *Src, Uint Num)
+void *memcpyd(void *Dest, const void *Src, Uint Num)
 {
 	__asm__ __volatile__ ("rep movsl" :: "D" (Dest), "S" (Src), "c" (Num));
 	return Dest;
@@ -152,6 +166,15 @@ Uint64 __umoddi3(Uint64 Num, Uint64 Den)
 	while(Num > Den)
 		Num -= Den;
 	return Num;
+}
+
+Uint16 LittleEndian16(Uint16 Val)
+{
+	return Val;
+}
+Uint16 BigEndian16(Uint16 Val)
+{
+	return ((Val&0xFF)<<8) | ((Val>>8)&0xFF);
 }
 
 // --- EXPORTS ---

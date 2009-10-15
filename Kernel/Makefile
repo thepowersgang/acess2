@@ -19,10 +19,12 @@ OBJ = $(addprefix arch/$(ARCHDIR)/,$(A_OBJ))
 OBJ += heap.o messages.o debug.o modules.o lib.o syscalls.o system.o threads.o drvutil.o
 OBJ += binary.o bin/elf.o
 OBJ += vfs/main.o vfs/open.o vfs/acls.o vfs/dir.o vfs/io.o vfs/mount.o vfs/memfile.o vfs/nodecache.o
-OBJ += vfs/fs/root.o vfs/fs/devfs.o vfs/fs/fat.o vfs/fs/ext2.o
+OBJ += vfs/fs/root.o vfs/fs/devfs.o
+OBJ += $(addprefix vfs/fs/, $(addsuffix .o,$(FILESYSTEMS)))
 OBJ += drv/fifo.o drv/dma.o drv/pci.o drv/vterm.o drv/vga.o drv/kb.o
 OBJ += $(addprefix drv/, $(addsuffix .o,$(DRIVERS)))
 OBJ := $(addsuffix .$(ARCH), $(OBJ))
+MODS += $(addprefix ../Modules/, $(addsuffix .o.$(ARCH),$(MODULES)))
 BIN = ../Acess2.$(ARCH).bin
 
 DEPFILES  = $(filter %.o.$(ARCH),$(OBJ))
@@ -38,9 +40,9 @@ all: $(BIN)
 clean:
 	@$(RM) $(BIN) $(OBJ) $(DEPFILES)
 
-$(BIN): $(OBJ) arch/$(ARCHDIR)/link.ld Makefile
+$(BIN): $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile
 	@echo --- LD -o $(BIN)
-	@$(LD) $(LDFLAGS) -o $(BIN) $(OBJ) -Map ../Map.$(ARCH).txt
+	@$(LD) $(LDFLAGS) -o $(BIN) $(OBJ) $(MODS) -Map ../Map.$(ARCH).txt
 	@objdump $(BIN) -D > $(BIN).dsm
 	cp $(BIN) $(DISTROOT)
 	@wc -l $(SRCFILES) > LineCounts.$(ARCH).txt
@@ -51,9 +53,13 @@ $(BIN): $(OBJ) arch/$(ARCHDIR)/link.ld Makefile
 	@$(AS) $(ASFLAGS) $< -o $@
 
 %.o.$(ARCH): %.c Makefile
+#	if exists %*/Makefile
+#	@make -C %*/ all
+#	else
 	@echo --- GCC -o $@
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $<
 	@$(MAKEDEP) $(CPPFLAGS) -MT $@ -o $*.d.$(ARCH) $<
+#	endif
 
 include/syscalls.h:	syscalls.lst Makefile
 	php GenSyscalls.php

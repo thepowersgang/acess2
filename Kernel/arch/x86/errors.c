@@ -4,6 +4,7 @@
  * - CPU Error Handler
  */
 #include <common.h>
+#include <proc.h>
 
 // === CONSTANTS ===
 #define	MAX_BACKTRACE	8	//!< Maximum distance to trace the stack backwards

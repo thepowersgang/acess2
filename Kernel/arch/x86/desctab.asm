@@ -8,7 +8,7 @@ MAX_CPUS	equ	1
 %else
 MAX_CPUS	equ	8
 %endif
-GDT_SIZE	equ	(1+2*2+MAX_CPUS)*8	; 4 Permission levels
+GDT_SIZE	equ	(1+2*2+1+MAX_CPUS)*8
 
 [section .data]
 ; GDT
@@ -21,6 +21,7 @@ _gGDT:
 	dd 0x0000FFFF, 0x00CF9200	; 10 PL0 Data
 	dd 0x0000FFFF, 0x00CFFA00	; 18 PL3 Code
 	dd 0x0000FFFF, 0x00CFF200	; 20 PL3 Data
+	dd 0, 0	; Double Fault TSS
 	times MAX_CPUS	dd 0, 0
 _gGDTptr:
 	dw	GDT_SIZE-1

@@ -232,10 +232,10 @@ void System_ExecuteScript()
 		}
 		// - Load Module
 		else if(strncmp("module ", fData+i, 6) == 0) {
+			//char	*tmp;
 			i += 7;
 			i += System_Int_GetString(fData+i, &sArg1);
 			if(!sArg1)	goto read2eol;
-			//Log("[CFG ] Load Module '%s'\n", sArg1);
 			Module_LoadFile(sArg1, "");	//!\todo Use the rest of the line as the argument string
 		}
 		// - Load Module

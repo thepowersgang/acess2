@@ -34,6 +34,7 @@ extern tThread	*gDeleteThreads;
 extern tThread	*Threads_GetNextToRun(int CPU);
 extern void	Threads_Dump();
 extern tThread	*Threads_CloneTCB(Uint *Err, Uint Flags);
+extern void	Isr7();
 
 // === PROTOTYPES ===
 void	ArchThreads_Init();
@@ -60,6 +61,13 @@ tTSS	*gTSSs = NULL;
 #if !USE_MP
 tTSS	gTSS0 = {0};
 #endif
+// --- Error Recovery ---
+char	gaDoubleFaultStack[1024];
+tTSS	gDoubleFault_TSS = {
+	.ESP0 = (Uint)&gaDoubleFaultStack[1023],
+	.SS0 = 0x10,
+	.EIP = (Uint)Isr7
+};
 
 // === CODE ===
 /**
@@ -106,6 +114,15 @@ void ArchThreads_Init()
 	#if USE_MP
 	}
 	
+	// Initialise Double Fault TSS
+	gGDT[5].LimitLow = sizeof(tTSS);
+	gGDT[5].LimitHi = 0;
+	gGDT[5].Access = 0x89;	// Type
+	gGDT[5].Flags = 0x4;
+	gGDT[5].BaseLow = (Uint)&gDoubleFault_TSS & 0xFFFF;
+	gGDT[5].BaseMid = (Uint)&gDoubleFault_TSS >> 16;
+	gGDT[5].BaseHi = (Uint)&gDoubleFault_TSS >> 24;
+	
 	// Initialise TSS
 	for(pos=0;pos<giNumCPUs;pos++)
 	{
@@ -114,18 +131,18 @@ void ArchThreads_Init()
 	#endif
 		gTSSs[pos].SS0 = 0x10;
 		gTSSs[pos].ESP0 = 0;	// Set properly by scheduler
-		gGDT[5+pos].LimitLow = sizeof(tTSS);
-		gGDT[5+pos].LimitHi = 0;
-		gGDT[5+pos].Access = 0x89;	// Type
-		gGDT[5+pos].Flags = 0x4;
-		gGDT[5+pos].BaseLow = (Uint)&gTSSs[pos] & 0xFFFF;
-		gGDT[5+pos].BaseMid = (Uint)&gTSSs[pos] >> 16;
-		gGDT[5+pos].BaseHi = (Uint)&gTSSs[pos] >> 24;
+		gGDT[6+pos].LimitLow = sizeof(tTSS);
+		gGDT[6+pos].LimitHi = 0;
+		gGDT[6+pos].Access = 0x89;	// Type
+		gGDT[6+pos].Flags = 0x4;
+		gGDT[6+pos].BaseLow = (Uint)&gTSSs[pos] & 0xFFFF;
+		gGDT[6+pos].BaseMid = (Uint)&gTSSs[pos] >> 16;
+		gGDT[6+pos].BaseHi = (Uint)&gTSSs[pos] >> 24;
 	#if USE_MP
 	}
 	for(pos=0;pos<giNumCPUs;pos++) {
 	#endif
-		__asm__ __volatile__ ("ltr %%ax"::"a"(0x28+pos*8));
+		__asm__ __volatile__ ("ltr %%ax"::"a"(0x30+pos*8));
 	#if USE_MP
 	}
 	#endif
@@ -298,6 +315,50 @@ int Proc_Clone(Uint *Err, Uint Flags)
 	Threads_AddActive(newThread);
 	
 	return newThread->TID;
+}
+
+/**
+ * \fn int Proc_SpawnWorker()
+ * \brief Spawns a new worker thread
+ */
+int Proc_SpawnWorker()
+{
+	tThread	*new, *cur;
+	Uint	eip, esp, ebp;
+	
+	cur = Proc_GetCurThread();
+	
+	// Create new thread
+	new = malloc( sizeof(tThread) );
+	if(!new) {
+		Warning("Proc_SpawnWorker - Out of heap space!\n");
+		return -1;
+	}
+	memcpy(new, &gThreadZero, sizeof(tThread));
+	// Set Thread ID
+	new->TID = giNextTID++;
+	// Set kernel stack
+	new->KernelStack = MM_NewWorkerStack();
+
+	// Get ESP and EBP based in the new stack
+	__asm__ __volatile__ ("mov %%esp, %0": "=r"(esp));
+	__asm__ __volatile__ ("mov %%ebp, %0": "=r"(ebp));
+	esp = cur->KernelStack - (new->KernelStack - esp);
+	ebp = new->KernelStack - (cur->KernelStack - ebp);	
+	
+	// Save core machine state
+	new->SavedState.ESP = esp;
+	new->SavedState.EBP = ebp;
+	eip = GetEIP();
+	if(eip == SWITCH_MAGIC) {
+		outb(0x20, 0x20);	// ACK Timer and return as child
+		return 0;
+	}
+	
+	// Set EIP as parent
+	new->SavedState.EIP = eip;
+	
+	return new->TID;
 }
 
 /**

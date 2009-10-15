@@ -13,6 +13,8 @@
 #include <modules.h>
 #include "fs_ext2.h"
 
+#define EXT2_UPDATE_WRITEBACK	1
+
 // === STRUCTURES ===
 typedef struct {
 	 int	FD;
@@ -42,6 +44,9 @@ tVFS_Node	*Ext2_FindDir(tVFS_Node *Node, char *FileName);
 tVFS_Node	*Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeId, char *Name);
  int		Ext2_int_ReadInode(tExt2_Disk *Disk, Uint InodeId, tExt2_Inode *Inode);
 Uint64		Ext2_int_GetBlockAddr(tExt2_Disk *Disk, Uint32 *Blocks, int BlockNum);
+Uint32		Ext2_int_AllocateInode(tExt2_Disk *Disk, Uint32 Parent);
+Uint32		Ext2_int_AllocateBlock(tExt2_Disk *Disk, Uint32 PrevBlock);
+void		Ext2_int_UpdateSuperblock(tExt2_Disk *Disk);
 
 // === SEMI-GLOBALS ===
 MODULE_DEFINE(0, 0x5B /*v0.90*/, EXT2, Ext2_Install, NULL);
@@ -478,7 +483,6 @@ int Ext2_MkNod(tVFS_Node *Parent, char *Name, Uint Flags)
 
 
 /**
- \internal
  \fn int Ext2_int_GetInode(vfs_node *Node, tExt2_Inode *Inode)
  \brief Gets the inode descriptor for a node
  \param node	node to get the Inode of
@@ -629,4 +633,106 @@ Uint64 Ext2_int_GetBlockAddr(tExt2_Disk *Disk, Uint32 *Blocks, int BlockNum)
 	BlockNum = iBlocks[BlockNum%256];
 	free(iBlocks);
 	return (Uint64)BlockNum * Disk->BlockSize;
+}
+
+/**
+ * \fn Uint32 Ext2_int_AllocateInode(tExt2_Disk *Disk, Uint32 Parent)
+ * \brief Allocate an inode (from the current group preferably)
+ * \param Disk	EXT2 Disk Information Structure
+ * \param Parent	Inode ID of the parent (used to locate the child nearby)
+ */
+Uint32 Ext2_int_AllocateInode(tExt2_Disk *Disk, Uint32 Parent)
+{
+//	Uint	block = (Parent - 1) / Disk->SuperBlock.s_inodes_per_group;
+	return 0;
+}
+
+/**
+ * \fn Uint32 Ext2_int_AllocateBlock(tExt2_Disk *Disk, Uint32 PrevBlock)
+ * \brief Allocate a block from the best possible location
+ * \param Disk	EXT2 Disk Information Structure
+ * \param PrevBlock	Previous block ID in the file
+ */
+Uint32 Ext2_int_AllocateBlock(tExt2_Disk *Disk, Uint32 PrevBlock)
+{
+	 int	bpg = Disk->SuperBlock.s_blocks_per_group;
+	Uint	blockgroup = PrevBlock / bpg;
+	Uint	bitmap[Disk->BlockSize/sizeof(Uint)];
+	Uint	bitsperblock = 8*Disk->BlockSize;
+	 int	i, j = 0;
+	Uint	block;
+	
+	// Are there any free blocks?
+	if(Disk->SuperBlock.s_free_blocks_count == 0)	return 0;
+	
+	if(Disk->Groups[blockgroup].bg_free_blocks_count > 0)
+	{
+		// Search block group's bitmap
+		for(i = 0; i < bpg; i++)
+		{
+			// Get the block in the bitmap block
+			j = i & (bitsperblock-1);
+			
+			// Read in if needed
+			if(j == 0) {
+				VFS_ReadAt(
+					Disk->FD,
+					(Uint64)Disk->Groups[blockgroup].bg_block_bitmap + i / bitsperblock,
+					Disk->BlockSize,
+					bitmap
+					);
+			}
+			
+			// Fast Check
+			if( bitmap[j/32] == -1 ) {
+				j = (j + 31) & ~31;
+				continue;
+			}
+			
+			// Is the bit set?
+			if( bitmap[j/32] & (1 << (j%32)) )
+				continue;
+			
+			// Ooh! We found one
+			break;
+		}
+		if( i < bpg ) {
+			Warning("[EXT2 ] Inconsistency detected, Group Free Block count is non-zero when no free blocks exist");
+			goto	checkAll;	// Search the entire filesystem for a free block
+			// Goto needed for neatness
+		}
+		
+		// Mark as used
+		bitmap[j/32] |= (1 << (j%32));
+		VFS_WriteAt(
+			Disk->FD,
+			(Uint64)Disk->Groups[blockgroup].bg_block_bitmap + i / bitsperblock,
+			Disk->BlockSize,
+			bitmap
+			);
+		block = i;
+		Disk->Groups[blockgroup].bg_free_blocks_count --;
+	}
+	else
+	{
+	checkAll:
+		Warning("[EXT2 ] TODO - Implement using blocks outside the current block group");
+		return 0;
+	}
+	
+	// Reduce global count
+	Disk->SuperBlock.s_free_blocks_count --;
+	#if EXT2_UPDATE_WRITEBACK
+	Ext2_int_UpdateSuperblock(Disk);
+	#endif
+	
+	return block;
+}
+
+/**
+ * \fn void Ext2_int_UpdateSuperblock(tExt2_Disk *Disk)
+ */
+void Ext2_int_UpdateSuperblock(tExt2_Disk *Disk)
+{
+	VFS_WriteAt(Disk->FD, 1024, 1024, &Disk->SuperBlock);
 }
