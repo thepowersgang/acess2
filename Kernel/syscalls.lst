@@ -24,6 +24,7 @@ SYS_SPAWN	Spawn a new process
 SYS_EXECVE	Replace the current process
 SYS_LOADBIN	Load a binary into the current address space
 SYS_UNLOADBIN	Unload a loaded binary
+SYS_LOADMOD	Load a module into the kernel
 
 32
 SYS_GETPHYS	Get the physical address of a page
