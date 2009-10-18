@@ -21,14 +21,14 @@ mboot:
 	dd mboot - KERNEL_BASE	;Location of Multiboot Header
 	
 [section .text]
-[extern _kmain]
+[extern kmain]
 [global start]
 start:
 	; Set up stack
-	mov esp, _Kernel_Stack_Top
+	mov esp, Kernel_Stack_Top
 	
 	; Start Paging
-	mov ecx, _gaInitPageDir - KERNEL_BASE
+	mov ecx, gaInitPageDir - KERNEL_BASE
 	mov cr3, ecx
 	
 	mov ecx, cr0
@@ -39,12 +39,12 @@ start:
 	jmp ecx
 .higherHalf:
 
-	mov DWORD [_gaInitPageDir], 0
+	mov DWORD [gaInitPageDir], 0
 
 	; Call the kernel
 	push ebx	; Multiboot Info
 	push eax	; Multiboot Magic Value
-	call _kmain
+	call kmain
 
 	; Halt the Machine
 	cli
@@ -52,20 +52,20 @@ start:
 	hlt
 	jmp .hlt
 
-[global _GetEIP]
-_GetEIP:
+[global GetEIP]
+GetEIP:
 	mov eax, [esp]
 	ret
 
-[extern _Proc_Clone]
-[extern _Threads_Exit]
-[global _SpawnTask]
-_SpawnTask:
+[extern Proc_Clone]
+[extern Threads_Exit]
+[global SpawnTask]
+SpawnTask:
 	; Call Proc_Clone with Flags=0
 	xor eax, eax
 	push eax
 	push eax
-	call _Proc_Clone
+	call Proc_Clone
 	add esp, 8	; Remove arguments from stack
 	
 	test eax, eax
@@ -77,29 +77,29 @@ _SpawnTask:
 	; Child
 	push edx	; Argument
 	call ebx	; Function
-	call _Threads_Exit	; Kill Thread
+	call Threads_Exit	; Kill Thread
 	
 .parent:
 	ret
 
 [section .initpd]
-[global _gaInitPageDir]
-[global _gaInitPageTable]
+[global gaInitPageDir]
+[global gaInitPageTable]
 align 0x1000
-_gaInitPageDir:
-	dd	_gaInitPageTable-KERNEL_BASE+3	; 0x00
+gaInitPageDir:
+	dd	gaInitPageTable-KERNEL_BASE+3	; 0x00
 	times 1024-256-1	dd	0
-	dd	_gaInitPageTable-KERNEL_BASE+3	; 0xC0
+	dd	gaInitPageTable-KERNEL_BASE+3	; 0xC0
 	times 256-1	dd	0
 align 0x1000
-_gaInitPageTable:
+gaInitPageTable:
 	%assign i 0
 	%rep 1024
 	dd	i*0x1000+3
 	%assign i i+1
 	%endrep
-[global _Kernel_Stack_Top]
+[global Kernel_Stack_Top]
 ALIGN 0x1000
 	times 1024	dd	0
-_Kernel_Stack_Top:
+Kernel_Stack_Top:
 	

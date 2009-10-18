@@ -12,8 +12,8 @@ GDT_SIZE	equ	(1+2*2+1+MAX_CPUS)*8
 
 [section .data]
 ; GDT
-[global _gGDT]
-_gGDT:
+[global gGDT]
+gGDT:
 	; PL0 - Kernel
 	; PL3 - User
 	dd 0x00000000, 0x00000000	; 00 NULL Entry
@@ -23,22 +23,22 @@ _gGDT:
 	dd 0x0000FFFF, 0x00CFF200	; 20 PL3 Data
 	dd 0, 0	; Double Fault TSS
 	times MAX_CPUS	dd 0, 0
-_gGDTptr:
+gGDTptr:
 	dw	GDT_SIZE-1
-	dd	_gGDT
+	dd	gGDT
 ; IDT
 ALIGN 8
-_gIDT:
+gIDT:
 	times	256	dd	0x00080000,0x00000F00
-_gIDTPtr:
+gIDTPtr:
 	dw	256 * 16 - 1	; Limit
-	dd	_gIDT		; Base
+	dd	gIDT		; Base
 
 [section .text]
-[global _Desctab_Install]
-_Desctab_Install:
+[global Desctab_Install]
+Desctab_Install:
 	; Set GDT
-	lgdt [_gGDTptr]
+	lgdt [gGDTptr]
 	mov ax, 0x10	; PL0 Data
 	mov ss, ax
 	mov ds, ax
@@ -50,18 +50,18 @@ _Desctab_Install:
 
 	; Set IDT
 %macro SETISR	1
-	mov eax, _Isr%1
-	mov	WORD [_gIDT + %1*8], ax
+	mov eax, Isr%1
+	mov	WORD [gIDT + %1*8], ax
 	shr eax, 16
-	mov	WORD [_gIDT + %1*8+6], ax
-	mov	ax, WORD [_gIDT + %1*8 + 4]
+	mov	WORD [gIDT + %1*8+6], ax
+	mov	ax, WORD [gIDT + %1*8 + 4]
 	or ax, 0x8000
-	mov	WORD [_gIDT + %1*8 + 4], ax
+	mov	WORD [gIDT + %1*8 + 4], ax
 %endmacro
 %macro SETUSER	1
-	mov	ax, WORD [_gIDT + %1*8 + 4]
+	mov	ax, WORD [gIDT + %1*8 + 4]
 	or ax, 0x6000
-	mov	WORD [_gIDT + %1*8 + 4], ax
+	mov	WORD [gIDT + %1*8 + 4], ax
 %endmacro
 	%assign	i	0
 	%rep 32
@@ -79,7 +79,7 @@ _Desctab_Install:
 	%endrep
 
 	; Load IDT
-	lidt [_gIDTPtr]
+	lidt [gIDTPtr]
 
 	; Remap PIC
 	push edx	; Save EDX
@@ -117,15 +117,15 @@ _Desctab_Install:
 ; = Define ISRs =
 ; ===============
 %macro	ISR_ERRNO	1
-[global _Isr%1]
-_Isr%1:
+[global Isr%1]
+Isr%1:
 	;xchg bx, bx
 	push	%1
 	jmp	ErrorCommon
 %endmacro
 %macro	ISR_NOERR	1
-[global _Isr%1]
-_Isr%1:
+[global Isr%1]
+Isr%1:
 	xchg bx, bx
 	push	0
 	push	%1
@@ -133,16 +133,16 @@ _Isr%1:
 %endmacro
 
 %macro DEF_SYSCALL	1
-[global _Isr%1]
-_Isr%1:
+[global Isr%1]
+Isr%1:
 	push	0
 	push	%1
 	jmp	SyscallCommon
 %endmacro
 
 %macro DEF_IRQ	1
-[global _Isr%1]
-_Isr%1:
+[global Isr%1]
+Isr%1:
 	;cli	; HACK!
 	push	0
 	push	%1
@@ -186,8 +186,8 @@ DEF_SYSCALL	0xAC	; Acess System Call
 
 ; IRQs
 ; - Timer
-[global _Isr240]
-_Isr240:
+[global Isr240]
+Isr240:
 	push 0
 	jmp SchedulerBase
 ; - Assignable
@@ -200,7 +200,7 @@ _Isr240:
 ; ---------------------
 ; Common error handling
 ; ---------------------
-[extern _ErrorHandler]
+[extern ErrorHandler]
 ErrorCommon:
 	pusha
 	push ds
@@ -209,7 +209,7 @@ ErrorCommon:
 	push gs
 	
 	push esp
-	call _ErrorHandler
+	call ErrorHandler
 	add esp, 4
 	
 	pop gs
@@ -223,7 +223,7 @@ ErrorCommon:
 ; --------------------------
 ; Common System Call Handler
 ; --------------------------
-[extern _SyscallHandler]
+[extern SyscallHandler]
 SyscallCommon:
 	pusha
 	push ds
@@ -232,7 +232,7 @@ SyscallCommon:
 	push gs
 	
 	push esp
-	call _SyscallHandler
+	call SyscallHandler
 	add esp, 4
 	
 	pop gs
@@ -246,7 +246,7 @@ SyscallCommon:
 ; ------------
 ; IRQ Handling
 ; ------------
-[extern _IRQ_Handler]
+[extern IRQ_Handler]
 IRQCommon:
 	pusha
 	push ds
@@ -255,7 +255,7 @@ IRQCommon:
 	push gs
 	
 	push esp
-	call _IRQ_Handler
+	call IRQ_Handler
 	add esp, 4
 	
 	pop gs
@@ -269,7 +269,7 @@ IRQCommon:
 ; --------------
 ; Task Scheduler
 ; --------------
-[extern _Proc_Scheduler]
+[extern Proc_Scheduler]
 SchedulerBase:
 	pusha
 	push ds
@@ -280,7 +280,7 @@ SchedulerBase:
 	mov eax, [esp+12*4]	; CPU Number
 	push eax	; Pus as argument
 	
-	call _Proc_Scheduler
+	call Proc_Scheduler
 	
 	add esp, 4	; Remove Argument
 	

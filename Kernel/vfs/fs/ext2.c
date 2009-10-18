@@ -88,7 +88,7 @@ tVFS_Node *Ext2_InitDevice(char *Device, char **Options)
 	// Open Disk
 	fd = VFS_Open(Device, VFS_OPENFLAG_READ|VFS_OPENFLAG_WRITE);		//Open Device
 	if(fd == -1) {
-		Warning("[EXT2 ] Unable to open '%s'\n", Device);
+		Warning("[EXT2 ] Unable to open '%s'", Device);
 		LEAVE('n');
 		return NULL;
 	}
@@ -98,7 +98,7 @@ tVFS_Node *Ext2_InitDevice(char *Device, char **Options)
 	
 	// Sanity Check Magic value
 	if(sb.s_magic != 0xEF53) {
-		Warning("[EXT2 ] Volume '%s' is not an EXT2 volume\n", Device);
+		Warning("[EXT2 ] Volume '%s' is not an EXT2 volume", Device);
 		VFS_Close(fd);
 		LEAVE('n');
 		return NULL;
@@ -111,7 +111,7 @@ tVFS_Node *Ext2_InitDevice(char *Device, char **Options)
 	// Allocate Disk Information
 	disk = malloc(sizeof(tExt2_Disk) + sizeof(tExt2_Group)*groupCount);
 	if(!disk) {
-		Warning("[EXT2 ] Unable to allocate disk structure\n");
+		Warning("[EXT2 ] Unable to allocate disk structure");
 		VFS_Close(fd);
 		LEAVE('n');
 		return NULL;
@@ -218,7 +218,7 @@ Uint64 Ext2_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	Offset = Offset / disk->BlockSize;
 	base = Ext2_int_GetBlockAddr(disk, inode.i_block, block);
 	if(base == 0) {
-		Warning("[EXT2 ] NULL Block Detected in INode 0x%llx\n", Node->Inode);
+		Warning("[EXT2 ] NULL Block Detected in INode 0x%llx", Node->Inode);
 		LEAVE('i', 0);
 		return 0;
 	}
@@ -243,7 +243,7 @@ Uint64 Ext2_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	{
 		base = Ext2_int_GetBlockAddr(disk, inode.i_block, block);
 		if(base == 0) {
-			Warning("[EXT2 ] NULL Block Detected in INode 0x%llx\n", Node->Inode);
+			Warning("[EXT2 ] NULL Block Detected in INode 0x%llx", Node->Inode);
 			LEAVE('i', 0);
 			return 0;
 		}
@@ -367,7 +367,7 @@ char *Ext2_ReadDir(tVFS_Node *Node, int Pos)
 	Ext2_int_GetInode(Node, &inode);
 	size = inode.i_size;
 	
-	LOG("inode.i_block[0] = 0x%x\n", inode.i_block[0]);
+	LOG("inode.i_block[0] = 0x%x", inode.i_block[0]);
 	
 	// Find Entry
 	// Get First Block
@@ -383,7 +383,7 @@ char *Ext2_ReadDir(tVFS_Node *Node, int Pos)
 		if(ofs >= disk->BlockSize) {
 			block ++;
 			if( ofs > disk->BlockSize ) {
-				Warning("[EXT2] Directory Entry %i of inode %i extends over a block boundary, ignoring\n",
+				Warning("[EXT2] Directory Entry %i of inode %i extends over a block boundary, ignoring",
 					entNum-1, Node->Inode);
 			}
 			ofs = 0;
@@ -391,13 +391,17 @@ char *Ext2_ReadDir(tVFS_Node *Node, int Pos)
 		}
 	}
 	
-	if(size <= 0)	return NULL;
+	// Check for the end of the list
+	if(size <= 0) {
+		LEAVE('n');
+		return NULL;
+	}
 	
 	// Read Entry
 	VFS_ReadAt( disk->FD, Base+ofs, sizeof(tExt2_DirEnt), &dirent );
-	//LOG("dirent.inode = %i\n", dirent.inode);
-	//LOG("dirent.rec_len = %i\n", dirent.rec_len);
-	//LOG("dirent.name_len = %i\n", dirent.name_len);
+	//LOG("dirent.inode = %i", dirent.inode);
+	//LOG("dirent.rec_len = %i", dirent.rec_len);
+	//LOG("dirent.name_len = %i", dirent.name_len);
 	VFS_ReadAt( disk->FD, Base+ofs+sizeof(tExt2_DirEnt), dirent.name_len, namebuf );
 	namebuf[ dirent.name_len ] = '\0';	// Cap off string
 	
@@ -457,7 +461,7 @@ tVFS_Node *Ext2_FindDir(tVFS_Node *Node, char *Filename)
 		if(ofs >= disk->BlockSize) {
 			block ++;
 			if( ofs > disk->BlockSize ) {
-				Warning("[EXT2 ] Directory Entry %i of inode %i extends over a block boundary, ignoring\n",
+				Warning("[EXT2 ] Directory Entry %i of inode %i extends over a block boundary, ignoring",
 					entNum-1, Node->Inode);
 			}
 			ofs = 0;
@@ -573,7 +577,8 @@ int Ext2_int_ReadInode(tExt2_Disk *Disk, Uint InodeId, tExt2_Inode *Inode)
 {
 	 int	group, subId;
 	
-	//LogF("Ext2_int_ReadInode: (Disk=%p, InodeId=%i, Inode=%p)\n", Disk, InodeId, Inode);
+	//LogF("Ext2_int_ReadInode: (Disk=%p, InodeId=%i, Inode=%p)", Disk, InodeId, Inode);
+	//ENTER("pDisk iInodeId pInode", Disk, InodeId, Inode);
 	
 	if(InodeId == 0)	return 0;
 	
@@ -582,7 +587,7 @@ int Ext2_int_ReadInode(tExt2_Disk *Disk, Uint InodeId, tExt2_Inode *Inode)
 	group = InodeId / Disk->SuperBlock.s_inodes_per_group;
 	subId = InodeId % Disk->SuperBlock.s_inodes_per_group;
 	
-	//LogF(" Ext2_int_ReadInode: group=%i, subId = %i\n", group, subId);
+	//LOG("group=%i, subId = %i", group, subId);
 	
 	// Read Inode
 	VFS_ReadAt(Disk->FD,

@@ -2,7 +2,7 @@
  * Acess2 VFS
  * - Directory Management Functions
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <common.h>
 #include <vfs.h>
 #include <vfs_int.h>
@@ -34,17 +34,26 @@ int VFS_MkDir(char *Path)
 int VFS_MkNod(char *Path, Uint Flags)
 {
 	char	*absPath, *name;
-	 int	pos=0, oldpos = 0;
+	 int	pos = 0, oldpos = 0;
+	 int	next = 0;
 	tVFS_Node	*parent;
 	 int	ret;
 	
 	ENTER("sPath xFlags", Path, Flags);
 	
 	absPath = VFS_GetAbsPath(Path);
+	LOG("absPath = '%s'", absPath);
 	
-	while( (pos = strpos8(&absPath[pos+1], '/')) != -1 )	oldpos = pos;
+	while( (next = strpos(&absPath[pos+1], '/')) != -1 ) {
+		LOG("next = %i", next);
+		pos += next+1;
+		LOG("pos = %i", pos);
+		oldpos = pos;
+	}
 	absPath[oldpos] = '\0';	// Mutilate path
 	name = &absPath[oldpos+1];
+	
+	LOG("absPath = '%s', name = '%s'", absPath, name);
 	
 	// Check for root
 	if(absPath[0] == '\0')
@@ -62,7 +71,7 @@ int VFS_MkNod(char *Path, Uint Flags)
 		return -1;
 	}
 	
-	LOG("parent = %p\n", parent);
+	LOG("parent = %p", parent);
 	
 	if(parent->MkNod == NULL) {
 		Warning("VFS_MkNod - Directory has no MkNod method");

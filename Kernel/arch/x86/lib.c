@@ -176,6 +176,14 @@ Uint16 BigEndian16(Uint16 Val)
 {
 	return ((Val&0xFF)<<8) | ((Val>>8)&0xFF);
 }
+Uint32 LittleEndian32(Uint32 Val)
+{
+	return Val;
+}
+Uint32 BigEndian32(Uint32 Val)
+{
+	return ((Val&0xFF)<<24) | ((Val&0xFF00)<<8) | ((Val>>8)&0xFF00) | ((Val>>24)&0xFF);
+}
 
 // --- EXPORTS ---
 EXPORT(memcpy);	EXPORT(memset);

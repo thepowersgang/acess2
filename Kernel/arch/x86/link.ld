@@ -28,13 +28,13 @@ SECTIONS {
 		*(.initpd)
 		*(.rodata)
 		*(.rdata)
-		_gKernelModules = .;
+		gKernelModules = .;
 		*(KMODULES)
-		_gKernelModulesEnd = .;
+		gKernelModulesEnd = .;
 		. = ALIGN(4);
-		_gKernelSymbols = .;
+		gKernelSymbols = .;
 		*(KEXPORT)
-		_gKernelSymbolsEnd = .;
+		gKernelSymbolsEnd = .;
 
 	}
 	
@@ -52,5 +52,5 @@ SECTIONS {
 		*(.bss)
 		_ebss = .;
 	}
-	_gKernelEnd = (. + 0xFFF)&0xFFFFF000;
+	gKernelEnd = (. + 0xFFF)&0xFFFFF000;
 }

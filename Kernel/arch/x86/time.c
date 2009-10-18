@@ -80,7 +80,7 @@ void Time_Interrupt()
 	
 	//Log("giTimestamp = %lli", giTimestamp);
 	
-	//Timer_CallTimers();
+	Timer_CallTimers();
 
 	// Make sure the RTC Fires again
 	outb(0x70, 0x0C); // Select register C
@@ -127,9 +127,7 @@ void Timer_CallTimers()
 		i < NUM_TIMERS;
 		i ++)
 	{
-		//Log("Timer %i", i);
 		if(gTimers[i].Callback == NULL)	continue;
-		Log("%i - %lli < %lli", i, giTimestamp, gTimers[i].FiresAfter);
 		if(giTimestamp < gTimers[i].FiresAfter)	continue;
 		callback = gTimers[i].Callback;
 		gTimers[i].Callback = NULL;
@@ -154,8 +152,8 @@ int Time_CreateTimer(int Delta, void *Callback, void *Argument)
 		gTimers[ret].Callback = Callback;
 		gTimers[ret].FiresAfter = giTimestamp + Delta;
 		gTimers[ret].Argument = Argument;
-		Log("Callback = %p", Callback);
-		Log("Timer %i fires at %lli", ret, gTimers[ret].FiresAfter);
+		//Log("Callback = %p", Callback);
+		//Log("Timer %i fires at %lli", ret, gTimers[ret].FiresAfter);
 		return ret;
 	}
 	return -1;

@@ -74,9 +74,10 @@ extern Uint32	ind(Uint16 Port);
 extern Uint64	inq(Uint16 Port);
 // --- Memory ---
 extern tPAddr	MM_Allocate(Uint VAddr);
-extern void	MM_Deallocate(Uint VAddr);
-extern int	MM_Map(Uint VAddr, tPAddr PAddr);
-extern tPAddr	MM_GetPhysAddr(Uint VAddr);
+extern void	MM_Deallocate(Uint VAddr);	//!< Deallocate a page
+extern int	MM_Map(Uint VAddr, tPAddr PAddr);	//!< Map a page
+extern tPAddr	MM_GetPhysAddr(Uint VAddr);	//!< Get the physical address of a page
+extern int	MM_IsUser(Uint VAddr, int Length);	//!< Checks if a memory address is valid user memory
 extern void	MM_SetFlags(Uint VAddr, Uint Flags, Uint Mask);
 extern Uint	MM_MapTemp(tPAddr PAddr);
 extern void	MM_FreeTemp(Uint PAddr);
@@ -90,6 +91,10 @@ extern void *memcpy(void *dest, const void *src, Uint count);
 extern void *memcpyd(void *dest, const void *src, Uint count);
 extern void *memset(void *dest, int val, Uint count);
 extern void *memsetd(void *dest, Uint val, Uint count);
+extern Uint16	LittleEndian16(Uint16 Val);
+extern Uint16	BigEndian16(Uint16 Val);
+extern Uint32	LittleEndian32(Uint32 Val);
+extern Uint32	BigEndian32(Uint32 Val);
 // --- Strings ---
 extern Uint	strlen(const char *Str);
 extern char	*strcpy(char *__dest, const char *__src);

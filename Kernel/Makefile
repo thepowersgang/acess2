@@ -11,7 +11,7 @@
 MAKEDEP		= $(CC) -M
 
 CPPFLAGS	+= -I./include -I./arch/$(ARCHDIR)/include -DARCH=$(ARCH)
-CFLAGS		+= -Wall -Werror -O3 -fno-stack-protector -fno-builtin -fleading-underscore
+CFLAGS		+= -Wall -Werror -O3 -fno-stack-protector -fno-builtin
 ASFLAGS		+= -D ARCH=\"$(ARCH)\"
 LDFLAGS		+= -T arch/$(ARCHDIR)/link.ld
 
