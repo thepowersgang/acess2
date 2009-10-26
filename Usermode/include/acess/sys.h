@@ -71,9 +71,9 @@ extern void	setuid(int id);
 extern void	setgid(int id);
 
 // --- VFS ---
-extern int	chdir(char *dir);
-extern int	open(char *path, int flags);
-extern int	reopen(int fd, char *path, int flags);
+extern int	chdir(const char *dir);
+extern int	open(const char *path, int flags);
+extern int	reopen(int fd, const char *path, int flags);
 extern void	close(int fd);
 extern uint64_t	read(int fd, uint64_t length, void *buffer);
 extern uint64_t	write(int fd, uint64_t length, void *buffer);
@@ -83,7 +83,7 @@ extern int	ioctl(int fd, int id, void *data);
 extern int	finfo(int fd, t_sysFInfo *info, int maxacls);
 extern int	readdir(int fd, char *dest);
 extern int	_SysGetACL(int fd, t_sysACL *dest);
-extern int	_SysMount(char *Device, char *Directory, char *Type, char *Options);
+extern int	_SysMount(const char *Device, const char *Directory, const char *Type, const char *Options);
 
 // --- IPC ---
 extern int	SysSendMessage(int dest, int length, void *Data);

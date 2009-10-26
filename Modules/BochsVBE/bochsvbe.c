@@ -85,8 +85,8 @@ tDevFS_Driver	gBGA_DriverStruct = {
 Uint	*gBGA_Framebuffer;
 t_bga_mode	gBGA_Modes[] = {
 	{},
-	{ 80,25, 32, MODEFLAG_TEXT, 80*25*8},	// 640 x 480
-	{100,37, 32, MODEFLAG_TEXT, 100*37*8},	// 800 x 600
+	{ 80,25, 12, MODEFLAG_TEXT, 80*25*8},	// 640 x 480
+	{100,37, 12, MODEFLAG_TEXT, 100*37*8},	// 800 x 600
 	{640,480,8, 0, 640*480},
 	{640,480,32, 0, 640*480*4},
 	{800,600,8, 0, 800*600},
@@ -176,8 +176,10 @@ Uint64 BGA_Write(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer)
 		tVT_Char	*chars = buffer;
 		 int	pitch = gBGA_Modes[giBGA_CurrentMode].width * giVT_CharWidth;
 		Uint32	*dest;
+		off /= sizeof(tVT_Char);
 		dest = (void*)gBGA_Framebuffer;
-		dest += off * giVT_CharWidth;
+		dest += (off / gBGA_Modes[giBGA_CurrentMode].width) * giVT_CharHeight * pitch;
+		dest += (off % gBGA_Modes[giBGA_CurrentMode].width) * giVT_CharWidth;
 		len /= sizeof(tVT_Char);
 		while(len--)
 		{
@@ -400,9 +402,9 @@ int BGA_int_FindMode(tVideo_IOCtl_Mode *info)
 int BGA_int_ModeInfo(tVideo_IOCtl_Mode *info)
 {
 	// Sanity Check
-	if( !MM_IsUser( (Uint)info, sizeof(tVideo_IOCtl_Mode) ) ) {
-		return -EINVAL;
-	}
+	//if( !MM_IsUser( (Uint)info, sizeof(tVideo_IOCtl_Mode) ) ) {
+	//	return -EINVAL;
+	//}
 	
 	if(info->id < 0 || info->id >= BGA_MODE_COUNT)	return -1;
 	

@@ -8,14 +8,20 @@
 #include <stdlib.h>
 #include <stdarg.h>
 
+// === Types ===
 typedef struct sFILE	FILE;
 
+// === CONSTANTS ===
+#define EOF	(-1)
+
+// --- Standard IO ---
 extern int	printf(const char *format, ...);
 extern int	vsprintf(char *buf, const char *format, va_list args);
 extern int	sprintf(char *buf, const char *format, ...);
 
-extern FILE	*fopen(char *file, char *mode);
-extern FILE	*freopen(FILE *fp, char *file, char *mode);
+extern FILE	*fopen(const char *file, const char *mode);
+extern FILE	*freopen(const char *file, const char *mode, FILE *fp);
+extern FILE	*fdopen(int fd, const char *modes);
 extern void fclose(FILE *fp);
 extern void fflush(FILE *fp);
 extern long int	ftell(FILE *fp);

@@ -1,22 +1,16 @@
 /*
-AcessOS LibC
-
-stdlib.h
-*/
+ * AcessOS LibC
+ * stdlib.h
+ */
 #ifndef __STDLIB_H
 #define __STDLIB_H
 
+#include <stddef.h>
 #include <stdarg.h>
 #include <sys/types.h>
 
-#ifndef NULL
-# define NULL	((void*)0)
-#endif
-
 #define EXIT_FAILURE	1
 #define EXIT_SUCCESS	0
-
-typedef unsigned int	size_t;
 
 // --- Spinlock Macros ---
 #define DEFLOCK(_name)	static int _spinlock_##_name=0;
@@ -25,6 +19,7 @@ typedef unsigned int	size_t;
 #define UNLOCK(_name) __asm__ __volatile__("lock andl $0, (%0)"::"D"(&_spinlock_##_name))
 
 // --- StdLib ---
+extern void	_exit(int code);	//NOTE: Also defined in acess/sys.h
 extern int	atoi(const char *ptr);
 extern void	exit(int status) __attribute__((noreturn));
 extern void qsort(void *base, size_t nmemb, size_t size, int(*compar)(const void *, const void *));

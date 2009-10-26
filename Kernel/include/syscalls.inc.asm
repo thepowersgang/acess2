@@ -22,6 +22,7 @@
 %define SYS_EXECVE	17	; Replace the current process
 %define SYS_LOADBIN	18	; Load a binary into the current address space
 %define SYS_UNLOADBIN	19	; Unload a loaded binary
+%define SYS_LOADMOD	20	; Load a module into the kernel
 
 %define SYS_GETPHYS	32	; Get the physical address of a page
 %define SYS_MAP	33	; 	Map a physical address

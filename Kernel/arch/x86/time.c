@@ -87,10 +87,10 @@ void Time_Interrupt()
 	inb(0x71);	// Just throw away contents.
 }
 
+#if 0
 /**
  * \fn void Time_TimerThread()
  */
-#if 0
 void Time_TimerThread()
 {
 	Sint64	next;

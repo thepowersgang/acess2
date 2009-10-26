@@ -43,7 +43,7 @@ int DevFS_AddDevice(tDevFS_Driver *Dev)
 /**
  * \fn tVFS_Node *DevFS_InitDevice(char *Device, char **Options)
  * \brief Initialise the DevFS and detect double-mounting, or just do nothing
- * \stub
+ * \note STUB
  */
 tVFS_Node *DevFS_InitDevice(char *Device, char **Options)
 {

@@ -36,7 +36,7 @@ tVFS_Node	*FAT_FindDir(tVFS_Node *dirNode, char *file);
 void	FAT_CloseFile(tVFS_Node *node);
 
 // === SEMI-GLOBALS ===
-MODULE_DEFINE(0, 0x51 /*v0.80*/, FAT32, FAT_Install, NULL);
+MODULE_DEFINE(0, 0x51 /*v0.80*/, FAT32, FAT_Install, NULL, NULL);
 tFAT_VolInfo	gFAT_Disks[8];
  int	giFAT_PartCount = 0;
 #if CACHE_FAT

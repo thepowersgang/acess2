@@ -29,9 +29,9 @@ struct sFILE	*stderr;	// Standard Error
 
 // === CODE ===
 /**
- * \fn FILE *freopen(FILE *fp, char *file, char *mode)
+ * \fn FILE *freopen(char *file, char *mode, FILE *fp)
  */
-EXPORT FILE *freopen(FILE *fp, char *file, char *mode)
+EXPORT FILE *freopen(const char *file, const char *mode, FILE *fp)
 {
 	 int	openFlags = 0;
 	 int	i;
@@ -98,12 +98,12 @@ EXPORT FILE *freopen(FILE *fp, char *file, char *mode)
 	return fp;
 }
 /**
- \fn FILE *fopen(char *file, char *mode)
+ \fn FILE *fopen(const char *file, const char *mode)
  \brief Opens a file and returns the pointer
  \param file	String - Filename to open
  \param mode	Mode to open in
 */
-EXPORT FILE *fopen(char *file, char *mode)
+EXPORT FILE *fopen(const char *file, const char *mode)
 {
 	FILE	*retFile;
 	
@@ -113,7 +113,7 @@ EXPORT FILE *fopen(char *file, char *mode)
 	// Create Return Structure
 	retFile = get_file_struct();
 	
-	return freopen(retFile, file, mode);
+	return freopen(file, mode, retFile);
 }
 
 EXPORT void fclose(FILE *fp)

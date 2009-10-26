@@ -69,7 +69,7 @@ int Ext2_Install(char **Arguments)
 }
 
 /**
- \fn tVFS_Node *Ext2_initDevice(char *Device, char **Options)
+ \fn tVFS_Node *Ext2_InitDevice(char *Device, char **Options)
  \brief Initializes a device to be read by by the driver
  \param Device	String - Device to read from
  \param Options	NULL Terminated array of option strings
@@ -336,7 +336,7 @@ addBlocks:
 }
 
 /**
- * \fn void Ext2_CloseFile(vfs_node *Node)
+ * \fn void Ext2_CloseFile(tVFS_Node *Node)
  * \brief Close a file (Remove it from the cache)
  */
 void Ext2_CloseFile(tVFS_Node *Node)
@@ -487,11 +487,11 @@ int Ext2_MkNod(tVFS_Node *Parent, char *Name, Uint Flags)
 
 
 /**
- \fn int Ext2_int_GetInode(vfs_node *Node, tExt2_Inode *Inode)
- \brief Gets the inode descriptor for a node
- \param node	node to get the Inode of
- \param inode	Destination
-*/
+ * \fn int Ext2_int_GetInode(tVFS_Node *Node, tExt2_Inode *Inode)
+ * \brief Gets the inode descriptor for a node
+ * \param Node	node to get the Inode of
+ * \param Inode	Destination
+ */
 int Ext2_int_GetInode(tVFS_Node *Node, tExt2_Inode *Inode)
 {
 	return Ext2_int_ReadInode(Node->ImplPtr, Node->Inode, Inode);

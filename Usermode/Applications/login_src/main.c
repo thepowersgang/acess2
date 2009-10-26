@@ -22,11 +22,19 @@ int main(int argc, char *argv[])
 	{
 		printf("\x1B[2J");	// Clear Screen
 		// Validate User
-		do {
-			if(uid == -1)	printf("\n");
+		for(;;)
+		{
 			sUsername = GetUsername();
 			sPassword = GetPassword();
-		} while( (uid = ValidateUser(sUsername, sPassword)) == -1 );
+			if( (uid = ValidateUser(sUsername, sPassword)) == -1 )
+			{
+				printf("\nInvalid username or password for '%s'\n", sUsername);
+				free(sUsername);
+				free(sPassword);
+			}
+			else
+				break;
+		}
 		printf("\n");
 		
 		// Create child process
@@ -67,7 +75,7 @@ int main(int argc, char *argv[])
  */
 char *GetUsername()
 {
-	char	ret[BUFLEN];
+	char	ret[BUFLEN] = {0};
 	 int	pos = 0;
 	char	ch;
 	

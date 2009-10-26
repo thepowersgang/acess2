@@ -6,40 +6,48 @@
 #include <modules.h>
 #include <tpl_drv_video.h>
 #include <tpl_drv_keyboard.h>
+#include <tpl_drv_terminal.h>
+#include <errno.h>
 
 // === CONSTANTS ===
+#define VERSION	((0<<8)|(50))
+
 #define	NUM_VTS	4
-#define MAX_INPUT_CHARS	64
-#define VT_SCROLLBACK	1	// 4 Screens of text
-#define DEFAULT_OUTPUT	"/Devices/VGA"
-#define DEFAULT_INPUT	"/Devices/PS2Keyboard"
+#define MAX_INPUT_CHARS32	64
+#define MAX_INPUT_CHARS8	(MAX_INPUT_CHARS32*4)
+#define VT_SCROLLBACK	1	// 2 Screens of text
+#define DEFAULT_OUTPUT	"VGA"
+//#define DEFAULT_OUTPUT	"/Devices/BochsGA"
+#define DEFAULT_INPUT	"PS2Keyboard"
 #define	DEFAULT_WIDTH	80
 #define	DEFAULT_HEIGHT	25
 #define	DEFAULT_COLOUR	(VT_COL_BLACK|(0xAAA<<16))
 
 #define	VT_FLAG_HIDECSR	0x01
 
-enum eVT_Modes {
-	VT_MODE_TEXT8,	// UTF-8 Text Mode (VT100 Emulation)
-	VT_MODE_TEXT32,	// UTF-32 Text Mode (Acess Native)
-	VT_MODE_8BPP,	// 256 Colour Mode
-	VT_MODE_16BPP,	// 16 bit Colour Mode
-	VT_MODE_24BPP,	// 24 bit Colour Mode
-	VT_MODE_32BPP,	// 32 bit Colour Mode
-	NUM_VT_MODES
+enum eVT_InModes {
+	VT_INMODE_TEXT8,	// UTF-8 Text Mode (VT100 Emulation)
+	VT_INMODE_TEXT32,	// UTF-32 Text Mode (Acess Native)
+	NUM_VT_INMODES
 };
 
 // === TYPES ===
 typedef struct {
-	 int	Mode;
-	 int	Flags;
-	 int	Width, Height;
-	 int	ViewPos, WritePos;
-	Uint32	CurColour;
-	char	Name[2];
-	 int	InputRead;
-	 int	InputWrite;
-	Uint32	InputBuffer[MAX_INPUT_CHARS];
+	 int	Mode;	//!< Current Mode (see ::eTplTerminal_Modes)
+	 int	Flags;	//!< Flags (see VT_FLAG_*)
+	short	Width;	//!< Virtual Width
+	short	Height;	//!< Virtual Height
+	short	RealWidth;	//!< Real Width
+	short	RealHeight;	//!< Real Height
+	
+	 int	ViewPos;	//!< View Buffer Offset (Text Only)
+	 int	WritePos;	//!< Write Buffer Offset (Text Only)
+	Uint32	CurColour;	//!< Current Text Colour
+	char	Name[2];	//!< Name of the terminal
+	
+	 int	InputRead;	//!< Input buffer read position
+	 int	InputWrite;	//!< Input buffer write position
+	char	InputBuffer[MAX_INPUT_CHARS8];
 	union {
 		tVT_Char	*Text;
 		Uint32		*Buffer;
@@ -51,9 +59,11 @@ typedef struct {
  int	VT_Install(char **Arguments);
 char	*VT_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*VT_FindDir(tVFS_Node *Node, char *Name);
+ int	VT_Root_IOCtl(tVFS_Node *Node, int Id, void *Data);
 Uint64	VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
 Uint64	VT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
- int	VT_IOCtl(tVFS_Node *Node, int Id, void *Data);
+ int	VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data);
+void	VT_SetTerminal(int ID);
 void	VT_KBCallBack(Uint32 Codepoint);
 void	VT_int_PutString(tVTerm *Term, Uint8 *Buffer, Uint Count);
  int	VT_int_ParseEscape(tVTerm *Term, char *Buffer);
@@ -67,7 +77,7 @@ const Uint16	caVT100Colours[] = {
 	};
 
 // === GLOBALS ===
-MODULE_DEFINE(0, 0x0032, VTerm, VT_Install, NULL, NULL);
+MODULE_DEFINE(0, VERSION, VTerm, VT_Install, NULL, DEFAULT_OUTPUT, DEFAULT_INPUT, NULL);
 tDevFS_Driver	gVT_DrvInfo = {
 	NULL, "VTerm",
 	{
@@ -76,15 +86,22 @@ tDevFS_Driver	gVT_DrvInfo = {
 	.Inode = -1,
 	.NumACLs = 0,
 	.ReadDir = VT_ReadDir,
-	.FindDir = VT_FindDir
+	.FindDir = VT_FindDir,
+	.IOCtl = VT_Root_IOCtl
 	}
 };
+// --- Terminals ---
 tVTerm	gVT_Terminals[NUM_VTS];
+ int	giVT_CurrentTerminal = 0;
+// --- Driver Handles ---
 char	*gsVT_OutputDevice = NULL;
 char	*gsVT_InputDevice = NULL;
  int	giVT_OutputDevHandle = -2;
  int	giVT_InputDevHandle = -2;
- int	giVT_CurrentTerminal = 0;
+// --- Key States --- (Used for VT Switching/Magic Combos)
+ int	gbVT_CtrlDown = 0;
+ int	gbVT_AltDown = 0;
+ int	gbVT_SysrqDown = 0;
 
 // === CODE ===
 /**
@@ -129,8 +146,8 @@ int VT_Install(char **Arguments)
 	}
 	
 	// Apply Defaults
-	if(!gsVT_OutputDevice)	gsVT_OutputDevice = DEFAULT_OUTPUT;
-	if(!gsVT_InputDevice)	gsVT_InputDevice = DEFAULT_INPUT;
+	if(!gsVT_OutputDevice)	gsVT_OutputDevice = "/Devices/"DEFAULT_OUTPUT;
+	if(!gsVT_InputDevice)	gsVT_InputDevice = "/Devices/"DEFAULT_INPUT;
 	
 	LOG("Using '%s' as output", gsVT_OutputDevice);
 	LOG("Using '%s' as input", gsVT_InputDevice);
@@ -138,7 +155,7 @@ int VT_Install(char **Arguments)
 	// Create Nodes
 	for( i = 0; i < NUM_VTS; i++ )
 	{
-		gVT_Terminals[i].Mode = VT_MODE_TEXT8;
+		gVT_Terminals[i].Mode = TERM_MODE_TEXT;
 		gVT_Terminals[i].Flags = 0;
 		gVT_Terminals[i].Width = DEFAULT_WIDTH;
 		gVT_Terminals[i].Height = DEFAULT_HEIGHT;
@@ -152,11 +169,12 @@ int VT_Install(char **Arguments)
 		gVT_Terminals[i].Name[0] = '0'+i;
 		gVT_Terminals[i].Name[1] = '\0';
 		gVT_Terminals[i].Node.Inode = i;
+		gVT_Terminals[i].Node.ImplPtr = &gVT_Terminals[i];
 		gVT_Terminals[i].Node.NumACLs = 0;	// Only root can open virtual terminals
 		
 		gVT_Terminals[i].Node.Read = VT_Read;
 		gVT_Terminals[i].Node.Write = VT_Write;
-		gVT_Terminals[i].Node.IOCtl = VT_IOCtl;
+		gVT_Terminals[i].Node.IOCtl = VT_Terminal_IOCtl;
 	}
 	
 	// Add to DevFS
@@ -173,6 +191,7 @@ void VT_InitOutput()
 {
 	giVT_OutputDevHandle = VFS_Open(gsVT_OutputDevice, VFS_OPENFLAG_WRITE);
 	LOG("giVT_OutputDevHandle = %x\n", giVT_OutputDevHandle);
+	VT_SetTerminal( 0 );
 }
 
 /**
@@ -229,6 +248,44 @@ tVFS_Node *VT_FindDir(tVFS_Node *Node, char *Name)
 }
 
 /**
+ * \fn int VT_Root_IOCtl(tVFS_Node *Node, int Id, void *Data)
+ * \brief Control the VTerm Driver
+ */
+int VT_Root_IOCtl(tVFS_Node *Node, int Id, void *Data)
+{
+	 int	len;
+	switch(Id)
+	{
+	case DRV_IOCTL_TYPE:	return DRV_TYPE_MISC;
+	case DRV_IOCTL_IDENT:	memcpy(Data, "VT\0\0", 4);	return 0;
+	case DRV_IOCTL_VERSION:	return VERSION;
+	case DRV_IOCTL_LOOKUP:	return 0;
+	
+	case 4:	// Get Video Driver
+		if(Data)	strcpy(Data, gsVT_OutputDevice);
+		return strlen(gsVT_OutputDevice);
+	
+	case 5:	// Set Video Driver
+		if(!Data)	return -EINVAL;
+		if(Threads_GetUID() != 0)	return -EACCES;
+		
+		len = strlen(Data);
+		
+		free(gsVT_OutputDevice);
+		
+		gsVT_OutputDevice = malloc(len+1);
+		strcpy(gsVT_OutputDevice, Data);
+		
+		VFS_Close(giVT_OutputDevHandle);
+		giVT_OutputDevHandle = -1;
+		
+		VT_InitOutput();
+		return 1;
+	}
+	return 0;
+}
+
+/**
  * \fn Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
  * \brief Read from a virtual terminal
  */
@@ -240,29 +297,29 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	// Check current mode
 	switch(term->Mode)
 	{
-	case VT_MODE_TEXT8:
+	case TERM_MODE_TEXT:
 		while(pos < Length)
 		{
 			while(term->InputRead == term->InputWrite)	Threads_Yield();
-			while(term->InputRead != term->InputWrite)
-			{
-				pos += WriteUTF8(Buffer+pos, term->InputBuffer[term->InputRead]);
-				term->InputRead ++;
-				term->InputRead %= MAX_INPUT_CHARS;
-			}
+			
+			((char*)Buffer)[pos] = term->InputBuffer[term->InputRead];
+			pos ++;
+			term->InputRead ++;
+			term->InputRead %= MAX_INPUT_CHARS8;
 		}
 		break;
 	
-	case VT_MODE_TEXT32:
+	case TERM_MODE_FB:
+	case TERM_MODE_OPENGL:
 		while(pos < Length)
 		{
 			while(term->InputRead == term->InputWrite)	Threads_Yield();
 			while(term->InputRead != term->InputWrite)
 			{
-				((Uint32*)Buffer)[pos] = term->InputBuffer[term->InputRead];
+				((Uint32*)Buffer)[pos] = ((Uint32*)term->InputBuffer)[term->InputRead];
 				pos ++;
 				term->InputRead ++;
-				term->InputRead %= MAX_INPUT_CHARS;
+				term->InputRead %= MAX_INPUT_CHARS32;
 			}
 		}
 		break;
@@ -283,11 +340,8 @@ Uint64 VT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	// Write
 	switch( term->Mode )
 	{
-	case VT_MODE_TEXT8:
+	case TERM_MODE_TEXT:
 		VT_int_PutString(term, Buffer, Length);
-		break;
-	case VT_MODE_TEXT32:
-		//VT_int_PutString32(term, Buffer, Length);
 		break;
 	}
 	
@@ -296,12 +350,76 @@ Uint64 VT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 }
 
 /**
- * \fn int VT_IOCtl(tVFS_Node *Node, int Id, void *Data)
+ * \fn int VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data)
  * \brief Call an IO Control on a virtual terminal
  */
-int VT_IOCtl(tVFS_Node *Node, int Id, void *Data)
+int VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data)
 {
+	 int	*iData = Data;
+	tVTerm	*term = Node->ImplPtr;
+	switch(Id)
+	{
+	case DRV_IOCTL_TYPE:	return DRV_TYPE_TERMINAL;
+	case DRV_IOCTL_IDENT:	memcpy(Data, "VT\0\0", 4);	return 0;
+	case DRV_IOCTL_VERSION:	return VERSION;
+	case DRV_IOCTL_LOOKUP:	return 0;
+	
+	// Get/Set the mode (and apply any changes)
+	case TERM_IOCTL_MODETYPE:
+		if(Data == NULL)	return term->Mode;
+		term->Mode = *iData;
+		// Update the screen dimensions
+		if(giVT_CurrentTerminal == Node->Inode)
+			VT_SetTerminal( giVT_CurrentTerminal );
+		break;
+	
+	// Get/set the terminal width
+	case TERM_IOCTL_WIDTH:
+		if(Data == NULL)	return term->Width;
+		term->Width = *iData;
+		break;
+	
+	// Get/set the terminal height
+	case TERM_IOCTL_HEIGHT:
+		if(Data == NULL)	return term->Height;
+		term->Height = *iData;
+		break;
+	
+	default:
+		return -1;
+	}
 	return 0;
+}
+
+/**
+ * \fn void VT_SetTerminal(int ID)
+ * \brief Set the current terminal
+ */
+void VT_SetTerminal(int ID)
+{
+	tVideo_IOCtl_Mode	mode = {0};
+	 int	modeNum;
+	
+	// Create the video mode
+	mode.width = gVT_Terminals[ ID ].Width;
+	mode.height = gVT_Terminals[ ID ].Height;
+	// - Text Mode
+	if(gVT_Terminals[ ID ].Mode == TERM_MODE_TEXT) {
+		mode.bpp = 12;
+		mode.flags = VIDEO_FLAG_TEXT;
+	}
+	// - Framebuffer or 3D
+	else {
+		mode.bpp = 32;
+		mode.flags = 0;
+	}
+	
+	// Set video mode
+	VFS_IOCtl( giVT_OutputDevHandle, VIDEO_IOCTL_FINDMODE, &mode );
+	modeNum = mode.id;
+	gVT_Terminals[ ID ].RealWidth = mode.width;
+	gVT_Terminals[ ID ].RealHeight = mode.height;
+	VFS_IOCtl( giVT_OutputDevHandle, VIDEO_IOCTL_SETMODE, &modeNum );
 }
 
 /**
@@ -312,12 +430,113 @@ void VT_KBCallBack(Uint32 Codepoint)
 {
 	tVTerm	*term = &gVT_Terminals[giVT_CurrentTerminal];
 	
-	term->InputBuffer[ term->InputWrite ] = Codepoint;
-	term->InputWrite ++;
-	term->InputWrite %= MAX_INPUT_CHARS;
-	if(term->InputRead == term->InputWrite) {
-		term->InputRead ++;
-		term->InputRead %= MAX_INPUT_CHARS;
+	// How the hell did we get a Codepoint of zero?
+	if(Codepoint == 0)	return;
+	
+	// Key Up
+	if( Codepoint & 0x80000000 )
+	{
+		Codepoint &= 0x7FFFFFFF;
+		switch(Codepoint)
+		{
+		case KEY_LALT:
+		case KEY_RALT:
+			gbVT_AltDown = 0;
+			break;
+		case KEY_LCTRL:
+		case KEY_RCTRL:
+			gbVT_CtrlDown = 0;
+			break;
+		}
+		return;
+	}
+	
+	switch(Codepoint)
+	{
+	case KEY_LALT:
+	case KEY_RALT:
+		gbVT_AltDown = 1;
+		break;
+	case KEY_LCTRL:
+	case KEY_RCTRL:
+		gbVT_CtrlDown = 1;
+		break;
+	
+	default:
+		if(!gbVT_AltDown || !gbVT_CtrlDown)
+			break;
+		switch(Codepoint)
+		{
+		case KEY_F1:
+			giVT_CurrentTerminal = 0;
+			break;
+		case KEY_F2:
+			giVT_CurrentTerminal = 0;
+			break;
+		case KEY_F3:
+			giVT_CurrentTerminal = 0;
+			break;
+		case KEY_F4:
+			giVT_CurrentTerminal = 0;
+			break;
+		}
+		return;
+	}
+	
+	// Encode key
+	if(term->Mode == TERM_MODE_TEXT)
+	{
+		Uint8	buf[6] = {0};
+		 int	len;
+		
+		// Ignore Modifer Keys
+		if(Codepoint > KEY_MODIFIERS)	return;
+		
+		// Get UTF-8/ANSI Encoding
+		switch(Codepoint)
+		{
+		case KEY_LEFT:
+			buf[0] = '\x1B';	buf[1] = '[';
+			buf[2] = 'D';	len = 3;
+			break;
+		case KEY_RIGHT:
+			buf[0] = '\x1B';	buf[1] = '[';
+			buf[2] = 'C';	len = 3;
+			break;
+		default:
+			len = WriteUTF8( buf, Codepoint );
+			//Log("Codepoint = 0x%x", Codepoint);
+			break;
+		}
+		
+		//Log("len = %i, buf = %s", len, buf);
+		
+		// Write
+		if( MAX_INPUT_CHARS8 - term->InputWrite >= len )
+			memcpy( &term->InputBuffer[term->InputWrite], buf, len );
+		else {
+			memcpy( &term->InputBuffer[term->InputWrite], buf, MAX_INPUT_CHARS8 - term->InputWrite );
+			memcpy( &term->InputBuffer[0], buf, len - (MAX_INPUT_CHARS8 - term->InputWrite) );
+		}
+		// Roll the buffer over
+		term->InputWrite += len;
+		term->InputWrite %= MAX_INPUT_CHARS8;
+		if( (term->InputWrite - term->InputRead + MAX_INPUT_CHARS8)%MAX_INPUT_CHARS8 < len ) {
+			term->InputRead = term->InputWrite + 1;
+			term->InputRead %= MAX_INPUT_CHARS8;
+		}
+		
+	}
+	else
+	{
+		// Encode the raw UTF-32 Key
+		((Uint32*)term->InputBuffer)[ term->InputWrite ] = Codepoint;
+		term->InputWrite ++;
+		term->InputWrite %= MAX_INPUT_CHARS32;
+		if(term->InputRead == term->InputWrite) {
+			term->InputRead ++;
+			term->InputRead %= MAX_INPUT_CHARS32;
+		}
 	}
 }
 
@@ -380,6 +599,7 @@ int VT_int_ParseEscape(tVTerm *Term, char *Buffer)
 {
 	char	c;
 	 int	argc = 0, j = 1;
+	 int	tmp;
 	 int	args[4] = {0,0,0,0};
 	
 	switch(Buffer[0]) {
@@ -393,7 +613,7 @@ int VT_int_ParseEscape(tVTerm *Term, char *Buffer)
 				args[argc] += c-'0';
 				c = Buffer[++j];
 			}
-			argc ++;
+			if( j != 1 )	argc ++;
 		} while(c == ';');
 		
 		// Get string (what does this do?)
@@ -406,8 +626,32 @@ int VT_int_ParseEscape(tVTerm *Term, char *Buffer)
 		// Get Command
 		if(	('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z'))
 		{
-			switch(c) {
-			//Clear By Line
+			switch(c)
+			{
+			// Left
+			case 'D':
+				if(argc == 1)	tmp = args[0];
+				else	tmp = 1;
+				
+				if( Term->WritePos-(tmp-1) % Term->Width == 0 )
+					Term->WritePos -= Term->WritePos % Term->Width;
+				else
+					Term->WritePos -= tmp;
+				Log("Left by %i", tmp);
+				break;
+			
+			// Right
+			case 'C':
+				if(argc == 1)	tmp = args[0];
+				else	tmp = 1;
+				if( (Term->WritePos + tmp) % Term->Width == 0 ) {
+					Term->WritePos -= Term->WritePos % Term->Width;
+					Term->WritePos += Term->Width - 1;
+				} else
+					Term->WritePos += tmp;
+				break;
+			
+			// Clear By Line
 			case 'J':
 				// Clear Screen
 				switch(args[0])

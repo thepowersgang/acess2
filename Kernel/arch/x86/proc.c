@@ -386,7 +386,7 @@ Uint Proc_MakeUserStack()
 
 
 /**
- * \fn void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, char **ArgV, char **EnvP, int DataSize)
+ * \fn void Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **EnvP, int DataSize)
  * \brief Starts a user task
  */
 void Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **EnvP, int DataSize)
@@ -457,6 +457,8 @@ void Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **
  * \fn int Proc_Demote(Uint *Err, int Dest, tRegs *Regs)
  * \brief Demotes a process to a lower permission level
  * \param Err	Pointer to user's errno
+ * \param Dest	New Permission Level
+ * \param Regs	Pointer to user's register structure
  */
 int Proc_Demote(Uint *Err, int Dest, tRegs *Regs)
 {

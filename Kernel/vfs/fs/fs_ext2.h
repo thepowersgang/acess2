@@ -1,8 +1,8 @@
 /**
- Acess Version 1
- \file fs_ext2_int.h
- \brief EXT2 Filesystem Driver
-*/
+ * Acess2
+ * \file fs_ext2.h
+ * \brief EXT2 Filesystem Driver
+ */
 
 /**
  \name Inode Flag Values
@@ -35,11 +35,16 @@
 
 #define EXT2_NAME_LEN 255	//!< Maximum Name Length
 
-//STRUCTURES
+// === TYPEDEFS ===
+typedef struct ext2_inode_s			tExt2_Inode;	//!< Inode Type
+typedef struct ext2_super_block_s	tExt2_SuperBlock;	//!< Superblock Type
+typedef struct ext2_group_desc_s	tExt2_Group;	//!< Group Descriptor Type
+typedef struct ext2_dir_entry_s		tExt2_DirEnt;	//!< Directory Entry Type
+
+// === STRUCTURES ===
 /**
- \struct ext2_super_block_s
- \brief EXT2 Superblock Structure
-*/
+ * \brief EXT2 Superblock Structure
+ */
 struct ext2_super_block_s {
 	Uint32	s_inodes_count;		//!< Inodes count
 	Uint32	s_blocks_count;		//!< Blocks count
@@ -70,9 +75,9 @@ struct ext2_super_block_s {
 };
 
 /**
- \struct ext2_inode_s
- \brief EXT2 Inode Definition
-*/
+ * \struct ext2_inode_s
+ * \brief EXT2 Inode Definition
+ */
 struct ext2_inode_s {
 	Uint16 i_mode;	//!< File mode
 	Uint16 i_uid;	//!< Owner Uid
@@ -120,9 +125,9 @@ struct ext2_inode_s {
 };
 
 /**
- \struct ext2_group_desc_s
- \brief EXT2 Group Descriptor
-*/
+ * \struct ext2_group_desc_s
+ * \brief EXT2 Group Descriptor
+ */
 struct ext2_group_desc_s {
 	Uint32	bg_block_bitmap;	//!< Blocks bitmap block
 	Uint32	bg_inode_bitmap;	//!< Inodes bitmap block
@@ -135,10 +140,9 @@ struct ext2_group_desc_s {
 };
 
 /**
- \struct ext2_dir_entry
- \brief EXT2 Directory Entry
- \note The name may take up less than 255 characters
-*/
+ * \brief EXT2 Directory Entry
+ * \note The name may take up less than 255 characters
+ */
 struct ext2_dir_entry_s {
 	Uint32	inode;		//!< Inode number
 	Uint16	rec_len; 	//!< Directory entry length
@@ -146,9 +150,3 @@ struct ext2_dir_entry_s {
 	Uint8	type;		//!< File Type
 	char	name[];		//!< File name
 };
-
-//TYPEDEFS
-typedef struct ext2_inode_s			tExt2_Inode;	//!< Inode Type
-typedef struct ext2_super_block_s	tExt2_SuperBlock;	//!< Superblock Type
-typedef struct ext2_group_desc_s	tExt2_Group;	//!< Group Descriptor Type
-typedef struct ext2_dir_entry_s		tExt2_DirEnt;	//!< Directory Entry Type

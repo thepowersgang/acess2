@@ -54,16 +54,21 @@ struct sVideo_IOCtl_Mode {
 	Uint8	bpp;	//!< Bits per Pixel
 	Uint8	flags;	//!< Mode Flags
 };
-#define VIDEO_FLAG_TEXT	0x1	//!< Text Mode
+typedef struct sVideo_IOCtl_Mode	tVideo_IOCtl_Mode;	//!< Mode Type
+/**
+ * \brief Text Mode Flag
+ * \note A text mode should have the ::sVideo_IOCtl_Mode.bpp set to 12
+ */
+#define VIDEO_FLAG_TEXT	0x1
 #define VIDEO_FLAG_SLOW	0x2	//!< Non-accelerated mode
+
+typedef struct sVideo_IOCtl_Pos	tVideo_IOCtl_Pos;	//!< Position Type
 /**
  */
 struct sVideo_IOCtl_Pos {
-	Sint16	x;
-	Sint16	y;
+	Sint16	x;	//!< X Coordinate
+	Sint16	y;	//!< Y Coordinate
 };
-typedef struct sVideo_IOCtl_Mode	tVideo_IOCtl_Mode;	//!< Mode Type
-typedef struct sVideo_IOCtl_Pos	tVideo_IOCtl_Pos;	//!< Mode Type
 
 /**
  * \struct sVT_Char

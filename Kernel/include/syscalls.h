@@ -26,6 +26,7 @@ enum eSyscalls {
 	SYS_EXECVE,	// 17 - Replace the current process
 	SYS_LOADBIN,	// 18 - Load a binary into the current address space
 	SYS_UNLOADBIN,	// 19 - Unload a loaded binary
+	SYS_LOADMOD,	// 20 - Load a module into the kernel
 
 	SYS_GETPHYS = 32,	// 32 - Get the physical address of a page
 	SYS_MAP,	// 33 - 	Map a physical address
@@ -64,7 +65,7 @@ static const char *cSYSCALL_NAMES[] = {
 	"SYS_EXIT","SYS_CLONE","SYS_KILL","SYS_SIGNAL","SYS_YIELD","SYS_SLEEP",
 	"SYS_WAIT","SYS_WAITTID","SYS_SETNAME","SYS_GETNAME","SYS_GETTID","SYS_GETPID",
 	"SYS_SETPRI","SYS_SENDMSG","SYS_GETMSG","SYS_GETTIME","SYS_SPAWN","SYS_EXECVE",
-	"SYS_LOADBIN","SYS_UNLOADBIN","","","","",
+	"SYS_LOADBIN","SYS_UNLOADBIN","SYS_LOADMOD","","","",
 	"","","","","","",
 	"","","SYS_GETPHYS","SYS_MAP","SYS_ALLOCATE","SYS_UNMAP",
 	"SYS_PREALLOC","SYS_SETFLAGS","SYS_SHAREWITH","SYS_GETUID","SYS_GETGID","SYS_SETUID",

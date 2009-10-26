@@ -9,6 +9,7 @@
 extern int	Modules_LoadBuiltins();
 extern int	PCI_Install();
 extern void	DMA_Install();
+extern void	Debug_SetKTerminal(char *File);
 
 // === PROTOTYPES ===
 void	System_Init(char *ArgString);
@@ -28,6 +29,9 @@ void System_Init(char *ArgString)
 	PCI_Install();
 	DMA_Install();
 	Modules_LoadBuiltins();
+	
+	// Set the debug to be echoed to the terminal
+	Debug_SetKTerminal("/Devices/vterm/0");
 	
 	// - Parse Kernel's Command Line
 	System_ParseCommandLine(ArgString);

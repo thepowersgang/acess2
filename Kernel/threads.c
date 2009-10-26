@@ -335,7 +335,7 @@ void Threads_AddToDelete(tThread *Thread)
 }
 
 /**
- * \fn tThread *Threads_int_GetPrev(tThread *List, tThread *Thread)
+ * \fn tThread *Threads_int_GetPrev(tThread **List, tThread *Thread)
  * \brief Gets the previous entry in a thead linked list
  */
 tThread *Threads_int_GetPrev(tThread **List, tThread *Thread)
@@ -373,7 +373,8 @@ void Threads_Exit(int TID, int Status)
 /**
  * \fn void Threads_Kill(tThread *Thread, int Status)
  * \brief Kill a thread
- * \param TID	Thread ID (0 for current)
+ * \param Thread	Thread to kill
+ * \param Status	Status code to return to the parent
  */
 void Threads_Kill(tThread *Thread, int Status)
 {

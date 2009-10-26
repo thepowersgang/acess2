@@ -12,6 +12,8 @@
  * \brief Send an IPC message
  * \param Err	Pointer to the errno variable
  * \param Dest	Destination Thread
+ * \param Length	Length of the message
+ * \param Data	Message data
  */
 int Proc_SendMessage(Uint *Err, Uint Dest, int Length, void *Data)
 {
@@ -63,6 +65,9 @@ int Proc_SendMessage(Uint *Err, Uint Dest, int Length, void *Data)
 /**
  * \fn int Proc_GetMessage(Uint *Err, Uint *Source, void *Buffer)
  * \brief Gets a message
+ * \param Err	Pointer to \a errno
+ * \param Source	Where to put the source TID
+ * \param Buffer	Buffer to place the message data (set to NULL to just get message length)
  */
 int Proc_GetMessage(Uint *Err, Uint *Source, void *Buffer)
 {

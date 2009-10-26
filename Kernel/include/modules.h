@@ -17,9 +17,9 @@
 # error "Unknown architecture when determining MODULE_ARCH_ID ('" #ARCH "')"
 #endif
 
-#define MODULE_DEFINE(_flags,_ver,_ident,_entry,_deps...)	char *_DriverDeps_##_ident[]={_deps};\
+#define MODULE_DEFINE(_flags,_ver,_ident,_entry,_deinit,_deps...)	char *_DriverDeps_##_ident[]={_deps};\
 	tModule __attribute__ ((section ("KMODULES"),unused)) _DriverInfo_##_ident=\
-	{MODULE_MAGIC,MODULE_ARCH_ID,_flags,_ver,NULL,#_ident,_entry,_DriverDeps_##_ident}
+	{MODULE_MAGIC,MODULE_ARCH_ID,_flags,_ver,NULL,#_ident,_entry,_deinit,_DriverDeps_##_ident}
 
 typedef struct sModule {
 	Uint32	Magic;
@@ -29,6 +29,7 @@ typedef struct sModule {
 	struct sModule	*Next;
 	char	*Name;
 	 int	(*Init)(char **Arguments);
+	void	(*Deinit)();
 	char	**Dependencies;	// NULL Terminated List
 } __attribute__((packed)) tModule;
 

@@ -86,7 +86,8 @@ int memcmp(const void *m1, const void *m2, Uint Num)
 }
 
 /**
- * \fn void *memcpy(void *Dest, void *Src, Uint Num)
+ * \fn void *memcpy(void *Dest, const void *Src, Uint Num)
+ * \brief Copy \a Num bytes from \a Src to \a Dest
  */
 void *memcpy(void *Dest, const void *Src, Uint Num)
 {
@@ -102,7 +103,8 @@ void *memcpy(void *Dest, const void *Src, Uint Num)
 	return Dest;
 }
 /**
- * \fn void *memcpyd(void *Dest, void *Src, Uint Num)
+ * \fn void *memcpyd(void *Dest, const void *Src, Uint Num)
+ * \brief Copy \a Num DWORDs from \a Src to \a Dest
  */
 void *memcpyd(void *Dest, const void *Src, Uint Num)
 {

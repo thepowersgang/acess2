@@ -174,7 +174,7 @@ void MM_PageFault(Uint Addr, Uint ErrorCode, tRegs *Regs)
 }
 
 /**
- * \fn void MM_DumpTables(Uint Start, Uint End)
+ * \fn void MM_DumpTables(tVAddr Start, tVAddr End)
  * \brief Dumps the layout of the page tables
  */
 void MM_DumpTables(tVAddr Start, tVAddr End)

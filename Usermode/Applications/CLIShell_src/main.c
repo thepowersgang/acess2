@@ -135,7 +135,9 @@ char *ReadCommandLine(int *Length)
 	char	*ret;
 	 int	len, pos, space = 1023;
 	char	ch;
-	// int	scrollbackPos = giLastCommand;
+	#if 1
+	 int	scrollbackPos = giLastCommand;
+	#endif
 	 
 	// Preset Variables
 	ret = malloc( space+1 );
@@ -145,8 +147,13 @@ char *ReadCommandLine(int *Length)
 	// Read In Command Line
 	do {
 		read(_stdin, 1, &ch);	// Read Character from stdin (read is a blocking call)
+		
+		if(ch == '\n')	break;
+		
+		switch(ch)
+		{
 		// Control characters
-		if(ch == '\x1B') {
+		case '\x1B':
 			read(_stdin, 1, &ch);	// Read control character
 			switch(ch)
 			{
@@ -158,23 +165,32 @@ char *ReadCommandLine(int *Length)
 				{
 				#if 0
 				case 'A':	// Up
-					if( scrollbackPos > 0 )	break;
-					
-					free(ret);
-					ret = strdup( gasCommandHistory[--scrollbackPos] );
-					
-					len = strlen(ret);
-					while(pos--)	write(_stdout, 3, "\x1B[D");
-					while(pos++ < len)	write(_stdout, 3, "\x1B[C");
+					{
+						 int	oldLen = len;
+						if( scrollbackPos > 0 )	break;
+						
+						free(ret);
+						ret = strdup( gasCommandHistory[--scrollbackPos] );
+						
+						len = strlen(ret);
+						while(pos--)	write(_stdout, 3, "\x1B[D");
+						write(_stdout, len, ret);	pos = len;
+						while(pos++ < oldLen)	write(_stdout, 1, " ");
+					}
 					break;
 				case 'B':	// Down
-					if( scrollbackPos < giLastCommand-1 )	break;
-					free(ret);
-					ret = strdup( gasCommandHistory[++scrollbackPos] );
-					
-					len = strlen(ret);
-					while(pos--)	write(_stdout, 3, "\x1B[D");
-					while(pos++ < len)	write(_stdout, 3, "\x1B[C");
+					{
+						 int	oldLen = len;
+						if( scrollbackPos < giLastCommand-1 )	break;
+						
+						free(ret);
+						ret = strdup( gasCommandHistory[++scrollbackPos] );
+						
+						len = strlen(ret);
+						while(pos--)	write(_stdout, 3, "\x1B[D");
+						write(_stdout, len, ret);	pos = len;
+						while(pos++ < oldLen)	write(_stdout, 1, " ");
+					}
 					break;
 				#endif
 				case 'D':	// Left
@@ -183,49 +199,74 @@ char *ReadCommandLine(int *Length)
 					write(_stdout, 3, "\x1B[D");
 					break;
 				case 'C':	// Right
-					if(pos == len-1)	break;
+					if(pos == len)	break;
 					pos++;
 					write(_stdout, 3, "\x1B[C");
 					break;
 				}
 			}
-			continue;
-		}
+			break;
+		
 		// Backspace
-		if(ch == '\b') {
-			if(len <= 0)		continue;	// Protect against underflows
+		case '\b':
+			if(len <= 0)		break;	// Protect against underflows
+			write(_stdout, 1, &ch);
 			if(pos == len) {	// Simple case of end of string
-				len --;	pos--;
-			} else {
+				len --;
+				pos--;
+			}
+			else {
+				char	buf[7] = "\x1B[000D";
+				buf[2] += ((len-pos+1)/100) % 10;
+				buf[3] += ((len-pos+1)/10) % 10;
+				buf[4] += (len-pos+1) % 10;
+				write(_stdout, len-pos, &ret[pos]);	// Move Text
+				ch = ' ';	write(_stdout, 1, &ch);	ch = '\b';	// Clear deleted character
+				write(_stdout, 7, buf);	// Update Cursor
+				// Alter Buffer
 				memmove(&ret[pos-1], &ret[pos], len-pos);
 				pos --;
 				len --;
 			}
-			write(_stdout, 1, &ch);
-			continue;
-		}
+			break;
+		
 		// Tab
-		if(ch == '\t') {
+		case '\t':
 			//TODO: Implement Tab-Completion
 			//Currently just ignore tabs
-			continue;
-		}
+			break;
 		
-		// Expand Buffer
-		if(len > space) {
-			space += 256;
-			ret = realloc(ret, space+1);
-			if(!ret)	return NULL;
+		default:		
+			// Expand Buffer
+			if(len+1 > space) {
+				space += 256;
+				ret = realloc(ret, space+1);
+				if(!ret)	return NULL;
+			}
+			
+			// Editing inside the buffer
+			if(pos != len) {
+				char	buf[7] = "\x1B[000D";
+				buf[2] += ((len-pos)/100) % 10;
+				buf[3] += ((len-pos)/10) % 10;
+				buf[4] += (len-pos) % 10;
+				write(_stdout, 1, &ch);	// Print new character
+				write(_stdout, len-pos, &ret[pos]);	// Move Text
+				write(_stdout, 7, buf);	// Update Cursor
+				memmove( &ret[pos+1], &ret[pos], len-pos );
+			}
+			else {
+				write(_stdout, 1, &ch);
+			}
+			ret[pos++] = ch;
+			len ++;
+			break;
 		}
-		
-		write(_stdout, 1, &ch);
-		ret[pos++] = ch;
-		len ++;
 	} while(ch != '\n');
 	
-	// Remove newline
-	pos --;
-	ret[pos] = '\0';
+	// Cap String
+	ret[len] = '\0';
+	printf("\n");
 	
 	// Return length
 	if(Length)	*Length = len;

@@ -171,7 +171,7 @@ int DivUp(int num, int dem)
 }
 
 /**
- * \fn int strpos8(char *str, Uint32 search)
+ * \fn int strpos8(const char *str, Uint32 search)
  * \brief Search a string for a UTF-8 character
  */
 int strpos8(const char *str, Uint32 Search)

@@ -29,8 +29,8 @@ tDevFS_Driver	gKB_DevInfo = {
 	NULL, "PS2Keyboard",
 	{
 	.NumACLs = 0,
-	.Size = -1,
-	.Read = KB_Read,
+	.Size = 0,
+	//.Read = KB_Read,
 	.IOCtl = KB_IOCtl
 	}
 };
@@ -122,8 +122,8 @@ void KB_IRQHandler()
 		if( !gbaKB_States[KEY_LSHIFT] && !gbaKB_States[KEY_RSHIFT] )
 			gbKB_ShiftState = 0;
 		
-		KB_AddBuffer(KEY_KEYUP);
-		KB_AddBuffer(ch);
+		if(ch != 0 && gKB_Callback)
+			gKB_Callback( ch & 0x80000000 );
 		
 		return;
 	}
@@ -140,7 +140,7 @@ void KB_IRQHandler()
 	}
 
 	// Ignore Non-Printable Characters
-	if(ch == 0 || ch & 0x80)		return;
+	if(ch == 0)		return;
 	
 	// --- Check for Kernel Magic Combos
 	if(gbaKB_States[KEY_LCTRL] && gbaKB_States[KEY_LALT])
@@ -157,6 +157,7 @@ void KB_IRQHandler()
 	{
 		switch(ch)
 		{
+		case 0:	break;
 		case '`':	ch = '~';	break;
 		case '1':	ch = '!';	break;
 		case '2':	ch = '@';	break;
@@ -185,48 +186,7 @@ void KB_IRQHandler()
 		}
 	}
 	
-	if(gKB_Callback)	gKB_Callback(ch);
-}
-
-/**
- * \fn void KB_AddBuffer(char ch)
- * \brief Add to the keyboard ring buffer
- */
-void KB_AddBuffer(char ch)
-{
-	// Add to buffer
-	gaKB_Buffer[ giKB_InsertPoint++ ] = ch;
-	// - Wrap
-	if( giKB_InsertPoint == KB_BUFFER_SIZE )	giKB_InsertPoint = 0;
-	// - Force increment read pointer
-	if( giKB_InsertPoint == giKB_ReadPoint )	giKB_ReadPoint ++;
-}
-
-/**
- * \fn Uint64 KB_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Dest)
- * \brief Read from the ring buffer
- * \param Node	Unused
- * \param Offset	Unused (Character Device)
- * \param Length	Number of bytes to read
- * \param Dest	Destination
- */
-Uint64 KB_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Dest)
-{
-	 int	pos = 0;
-	char	*dstbuf = Dest;
-	
-	if(giKB_InUse)	return -1;
-	giKB_InUse = 1;
-	
-	while(giKB_ReadPoint != giKB_InsertPoint && pos < Length)
-	{
-		dstbuf[pos++] = gaKB_Buffer[ giKB_ReadPoint++ ];
-		if( giKB_ReadPoint == KB_BUFFER_SIZE )	giKB_InsertPoint = 0;
-	}
-	
-	giKB_InUse = 0;
-	
-	return Length;
+	if(gKB_Callback && ch != 0)	gKB_Callback(ch);
 }
 
 /**

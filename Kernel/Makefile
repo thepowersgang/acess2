@@ -24,7 +24,7 @@ OBJ += $(addprefix vfs/fs/, $(addsuffix .o,$(FILESYSTEMS)))
 OBJ += drv/fifo.o drv/dma.o drv/pci.o drv/vterm.o drv/vga.o drv/kb.o
 OBJ += $(addprefix drv/, $(addsuffix .o,$(DRIVERS)))
 OBJ := $(addsuffix .$(ARCH), $(OBJ))
-MODS += $(addprefix ../Modules/, $(addsuffix .o.$(ARCH),$(MODULES)))
+MODS += $(addprefix ../Modules/, $(addsuffix .xo.$(ARCH),$(MODULES)))
 BIN = ../Acess2.$(ARCH).bin
 
 DEPFILES  = $(filter %.o.$(ARCH),$(OBJ))
@@ -60,6 +60,9 @@ $(BIN): $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $<
 	@$(MAKEDEP) $(CPPFLAGS) -MT $@ -o $*.d.$(ARCH) $<
 #	endif
+
+%.xo.$(ARCH):
+	@make -C $* all
 
 include/syscalls.h:	syscalls.lst Makefile
 	php GenSyscalls.php

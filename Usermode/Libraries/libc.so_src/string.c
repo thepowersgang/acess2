@@ -35,6 +35,35 @@ EXPORT char *strcpy(char *dst, const char *src)
 }
 
 /**
+ * \fn EXPORT char *strncpy(char *dst, const char *src)
+ * \brief Copy at most \a num characters from \a src to \a dst
+ * \return \a dst
+ */
+EXPORT char *strncpy(char *dst, const char *src, size_t num)
+{
+	char *to = dst;
+	while(*src && num--)	*to++ = *src++;
+	*to = '\0';
+	return dst;
+}
+
+/**
+ * \fn EXPORT char *strcat(char *dst, const char *src)
+ * \brief Append a string onto another
+ */
+EXPORT char *strcat(char *dst, const char *src)
+{
+	char	*to = dst;
+	// Find the end
+	while(*to)	to++;
+	// Copy
+	while(*src)	*to++ = *src++;
+	// End string
+	*to = '\0';
+	return dst;
+}
+
+/**
  * \fn EXPORT int strlen(const char *str)
  * \brief Get the length of a string
  */
@@ -70,6 +99,52 @@ EXPORT char *strdup(const char *str)
 	if(ret == NULL)	return NULL;
 	strcpy(ret, str);
 	return ret;
+}
+
+/**
+ * \fn EXPORT char *strchr(char *str, int character)
+ * \brief Locate a character in a string
+ */
+EXPORT char *strchr(char *str, int character)
+{
+	while(*str)
+	{
+		if(*str == character)	return str;
+	}
+	return NULL;
+}
+
+/**
+ * \fn EXPORT char *strrchr(char *str, int character)
+ * \brief Locate the last occurance of a character in a string
+ */
+EXPORT char *strrchr(char *str, int character)
+{
+	 int	i;
+	i = strlen(str)-1;
+	while(i--)
+	{
+		if(str[i] == character)	return &str[i];
+	}
+	return NULL;
+}
+
+/**
+ * \fn EXPORT char *strstr(char *str1, const char *str2)
+ * \brief Search a \a str1 for the first occurance of \a str2
+ */
+EXPORT char *strstr(char *str1, const char *str2)
+{
+	const char	*test = str2;
+	
+	while(*str1)
+	{
+		if(*test == '\0')	return str1;
+		if(*str1 == *test)	test++;
+		else	test = str2;
+		str1 ++;
+	}
+	return NULL;
 }
 
 // --- Memory ---
@@ -110,4 +185,41 @@ EXPORT void *memmove(void *dest, const void *src, size_t count)
 	else
     	for(;count--;) *dp++ = *sp++;
     return dest;
+}
+
+/**
+ * \fn EXPORT int memcmp(const void *mem1, const void *mem2, size_t count)
+ * \brief Compare two regions of memory
+ * \param mem1	Region 1
+ * \param mem2	Region 2
+ * \param count	Number of bytes to check
+ */
+EXPORT int memcmp(const void *mem1, const void *mem2, size_t count)
+{
+	while(count--)
+	{
+		if( *(unsigned char*)mem1 != *(unsigned char*)mem2 )
+			return *(unsigned char*)mem1 - *(unsigned char*)mem2;
+		mem1 ++;
+		mem2 ++;
+	}
+	return 0;
+}
+
+/**
+ * \fn EXPORT void *memchr(void *ptr, int value, size_t num)
+ * \brief Locates the first occurence of \a value starting at \a ptr
+ * \param ptr	Starting memory location
+ * \param value	Value to find
+ * \param num	Size of memory area to check
+ */
+EXPORT void *memchr(void *ptr, int value, size_t num)
+{
+	while(num--)
+	{
+		if( *(unsigned char*)ptr == (unsigned char)value )
+			return ptr;
+		ptr ++;
+	}
+	return NULL;
 }

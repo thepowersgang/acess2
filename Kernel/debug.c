@@ -5,16 +5,21 @@
 #include <common.h>
 #include <stdarg.h>
 
-// === MACROS ===
-#define E9(ch)	__asm__ __volatile__ ("outb %%al, $0xe9"::"a"(((Uint8)ch)))
-
 // === IMPORTS ===
 extern void Threads_Dump();
 
 // === GLOBALS ===
  int	gDebug_Level = 0;
+ int	giDebug_KTerm = -1;
 
 // === CODE ===
+static void E9(char ch)
+{
+	if(giDebug_KTerm != -1)
+		VFS_Write(giDebug_KTerm, 1, &ch);
+	__asm__ __volatile__ ( "outb %%al, $0xe9" :: "a"(((Uint8)ch)) );
+}
+
 static void E9_Str(char *Str)
 {
 	while(*Str)	E9(*Str++);
@@ -188,6 +193,13 @@ void Panic(char *Fmt, ...)
 	__asm__ __volatile__ ("xchg %bx, %bx");
 	__asm__ __volatile__ ("cli;\n\thlt");
 	for(;;)	__asm__ __volatile__ ("hlt");
+}
+
+void Debug_SetKTerminal(char *File)
+{
+	if(giDebug_KTerm != -1)
+		VFS_Close(giDebug_KTerm);
+	giDebug_KTerm = VFS_Open(File, VFS_OPENFLAG_WRITE);
 }
 
 void Debug_Enter(char *FuncName, char *ArgTypes, ...)
