@@ -31,7 +31,7 @@ void System_Init(char *ArgString)
 	Modules_LoadBuiltins();
 	
 	// Set the debug to be echoed to the terminal
-	Debug_SetKTerminal("/Devices/vterm/0");
+	Debug_SetKTerminal("/Devices/VTerm/6");
 	
 	// - Parse Kernel's Command Line
 	System_ParseCommandLine(ArgString);

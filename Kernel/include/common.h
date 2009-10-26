@@ -110,6 +110,7 @@ extern int	WriteUTF8(Uint8 *str, Uint32 Val);
 extern Uint	rand();
 // --- Heap ---
 extern void *malloc(size_t size);
+extern void *calloc(size_t num, size_t size);
 extern void	*realloc(void *ptr, size_t size);
 extern void free(void *Ptr);
 extern int	IsHeap(void *Ptr);

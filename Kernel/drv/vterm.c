@@ -12,12 +12,12 @@
 // === CONSTANTS ===
 #define VERSION	((0<<8)|(50))
 
-#define	NUM_VTS	4
+#define	NUM_VTS	7
 #define MAX_INPUT_CHARS32	64
 #define MAX_INPUT_CHARS8	(MAX_INPUT_CHARS32*4)
 #define VT_SCROLLBACK	1	// 2 Screens of text
 #define DEFAULT_OUTPUT	"VGA"
-//#define DEFAULT_OUTPUT	"/Devices/BochsGA"
+//#define DEFAULT_OUTPUT	"BochsGA"
 #define DEFAULT_INPUT	"PS2Keyboard"
 #define	DEFAULT_WIDTH	80
 #define	DEFAULT_HEIGHT	25
@@ -69,6 +69,7 @@ void	VT_int_PutString(tVTerm *Term, Uint8 *Buffer, Uint Count);
  int	VT_int_ParseEscape(tVTerm *Term, char *Buffer);
 void	VT_int_PutChar(tVTerm *Term, Uint32 Ch);
 void	VT_int_UpdateScreen( tVTerm *Term, int UpdateAll );
+void	VT_int_ChangeMode(tVTerm *Term, int NewMode);
 
 // === CONSTANTS ===
 const Uint16	caVT100Colours[] = {
@@ -163,8 +164,7 @@ int VT_Install(char **Arguments)
 		gVT_Terminals[i].WritePos = 0;
 		gVT_Terminals[i].ViewPos = 0;
 		
-		gVT_Terminals[i].Buffer = malloc( DEFAULT_WIDTH*DEFAULT_HEIGHT*VT_SCROLLBACK*sizeof(tVT_Char) );
-		memset( gVT_Terminals[i].Buffer, 0, DEFAULT_WIDTH*DEFAULT_HEIGHT*VT_SCROLLBACK*sizeof(tVT_Char) );
+		gVT_Terminals[i].Buffer = calloc( DEFAULT_WIDTH*DEFAULT_HEIGHT*VT_SCROLLBACK, sizeof(tVT_Char) );
 		
 		gVT_Terminals[i].Name[0] = '0'+i;
 		gVT_Terminals[i].Name[1] = '\0';
@@ -314,13 +314,10 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		while(pos < Length)
 		{
 			while(term->InputRead == term->InputWrite)	Threads_Yield();
-			while(term->InputRead != term->InputWrite)
-			{
-				((Uint32*)Buffer)[pos] = ((Uint32*)term->InputBuffer)[term->InputRead];
-				pos ++;
-				term->InputRead ++;
-				term->InputRead %= MAX_INPUT_CHARS32;
-			}
+			((Uint32*)Buffer)[pos] = ((Uint32*)term->InputBuffer)[term->InputRead];
+			pos ++;
+			term->InputRead ++;
+			term->InputRead %= MAX_INPUT_CHARS32;
 		}
 		break;
 	}
@@ -367,7 +364,11 @@ int VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data)
 	// Get/Set the mode (and apply any changes)
 	case TERM_IOCTL_MODETYPE:
 		if(Data == NULL)	return term->Mode;
-		term->Mode = *iData;
+		
+		if(term->Mode != *iData) {
+			VT_int_ChangeMode(term, *iData);
+		}
+		
 		// Update the screen dimensions
 		if(giVT_CurrentTerminal == Node->Inode)
 			VT_SetTerminal( giVT_CurrentTerminal );
@@ -420,6 +421,13 @@ void VT_SetTerminal(int ID)
 	gVT_Terminals[ ID ].RealWidth = mode.width;
 	gVT_Terminals[ ID ].RealHeight = mode.height;
 	VFS_IOCtl( giVT_OutputDevHandle, VIDEO_IOCTL_SETMODE, &modeNum );
+	
+	// Update current terminal ID
+	Log("Changed terminal from %i to %i", giVT_CurrentTerminal, ID);
+	giVT_CurrentTerminal = ID;
+	
+	// Update the screen
+	VT_int_UpdateScreen( &gVT_Terminals[ ID ], 1 );
 }
 
 /**
@@ -467,20 +475,19 @@ void VT_KBCallBack(Uint32 Codepoint)
 			break;
 		switch(Codepoint)
 		{
-		case KEY_F1:
-			giVT_CurrentTerminal = 0;
-			break;
-		case KEY_F2:
-			giVT_CurrentTerminal = 0;
-			break;
-		case KEY_F3:
-			giVT_CurrentTerminal = 0;
-			break;
-		case KEY_F4:
-			giVT_CurrentTerminal = 0;
-			break;
+		case KEY_F1:	VT_SetTerminal(0);	return;
+		case KEY_F2:	VT_SetTerminal(1);	return;
+		case KEY_F3:	VT_SetTerminal(2);	return;
+		case KEY_F4:	VT_SetTerminal(3);	return;
+		case KEY_F5:	VT_SetTerminal(4);	return;
+		case KEY_F6:	VT_SetTerminal(5);	return;
+		case KEY_F7:	VT_SetTerminal(6);	return;
+		case KEY_F8:	VT_SetTerminal(7);	return;
+		case KEY_F9:	VT_SetTerminal(8);	return;
+		case KEY_F10:	VT_SetTerminal(9);	return;
+		case KEY_F11:	VT_SetTerminal(10);	return;
+		case KEY_F12:	VT_SetTerminal(11);	return;
 		}
-		return;
 	}
 	
 	// Encode key
@@ -637,7 +644,6 @@ int VT_int_ParseEscape(tVTerm *Term, char *Buffer)
 					Term->WritePos -= Term->WritePos % Term->Width;
 				else
 					Term->WritePos -= tmp;
-				Log("Left by %i", tmp);
 				break;
 			
 			// Right
@@ -808,22 +814,60 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
  */
 void VT_int_UpdateScreen( tVTerm *Term, int UpdateAll )
 {
-	if(UpdateAll) {
+	// Only update if this is the current terminal
+	if( Term != &gVT_Terminals[giVT_CurrentTerminal] )	return;
+	
+	if( Term->Mode == TERM_MODE_TEXT )
+	{
+		if(UpdateAll) {
+			VFS_WriteAt(
+				giVT_OutputDevHandle,
+				0,
+				Term->Width*Term->Height*sizeof(tVT_Char),
+				&Term->Text[Term->ViewPos]
+				);
+		} else {
+			 int	pos = Term->WritePos - Term->WritePos % Term->Width;
+			VFS_WriteAt(
+				giVT_OutputDevHandle,
+				(pos - Term->ViewPos)*sizeof(tVT_Char),
+				Term->Width*sizeof(tVT_Char),
+				&Term->Text[pos]
+				);
+		}
+	}
+	else
+	{
 		VFS_WriteAt(
 			giVT_OutputDevHandle,
 			0,
-			Term->Width*Term->Height*sizeof(tVT_Char),
-			&Term->Text[Term->ViewPos]
-			);
-	} else {
-		 int	pos = Term->WritePos - Term->WritePos % Term->Width;
-		VFS_WriteAt(
-			giVT_OutputDevHandle,
-			(pos - Term->ViewPos)*sizeof(tVT_Char),
-			Term->Width*sizeof(tVT_Char),
-			&Term->Text[pos]
+			Term->Width*Term->Height*sizeof(Uint32),
+			&Term->Buffer
 			);
 	}
+}
+
+/**
+ * \fn void VT_int_ChangeMode(tVTerm *Term, int NewMode)
+ * \brief Change the mode of a VTerm
+ */
+void VT_int_ChangeMode(tVTerm *Term, int NewMode)
+{	
+	switch(NewMode)
+	{
+	case TERM_MODE_TEXT:
+		free(Term->Buffer);
+		Term->Text = calloc( Term->Width*Term->Height*VT_SCROLLBACK, sizeof(tVT_Char) );
+		break;
+	case TERM_MODE_FB:
+		free(Term->Text);
+		Term->Buffer = calloc( Term->Width*Term->Height, sizeof(Uint32) );
+		break;
+	case TERM_MODE_OPENGL:
+		return;
+	}
+	
+	Term->Mode = NewMode;
 }
 
 // ---

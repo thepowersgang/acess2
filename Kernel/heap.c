@@ -369,6 +369,22 @@ void *realloc(void *__ptr, size_t __size)
 }
 
 /**
+ * \fn void *calloc(size_t num, size_t size)
+ * \brief Allocate and Zero a buffer in memory
+ * \param num	Number of elements
+ * \param size	Size of each element
+ */
+void *calloc(size_t num, size_t size)
+{
+	void	*ret = malloc(num*size);
+	if(ret == NULL)	return NULL;
+	
+	memset( ret, 0, num*size );
+	
+	return ret;
+}
+
+/**
  * \fn int IsHeap(void *Ptr)
  * \brief Checks if an address is a heap address
  */
