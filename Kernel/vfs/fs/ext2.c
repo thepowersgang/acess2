@@ -5,9 +5,10 @@
 /**
  * \file fs/ext2.c
  * \brief Second Extended Filesystem Driver
- * \todo Implement file read support
+ * \todo Implement file full write support
  */
 #define DEBUG	1
+#define VERBOSE	0
 #include <common.h>
 #include <vfs.h>
 #include <modules.h>
@@ -135,7 +136,7 @@ tVFS_Node *Ext2_InitDevice(char *Device, char **Options)
 		disk->Groups
 		);
 	
-	#if DEBUG
+	#if VERBOSE
 	LOG("Block Group 0");
 	LOG(".bg_block_bitmap = 0x%x", disk->Groups[0].bg_block_bitmap);
 	LOG(".bg_inode_bitmap = 0x%x", disk->Groups[0].bg_inode_bitmap);

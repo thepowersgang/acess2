@@ -24,7 +24,7 @@ void	KB_UpdateLEDs();
  int	KB_IOCtl(tVFS_Node *Node, int Id, void *Data);
 
 // === GLOBALS ===
-MODULE_DEFINE(0, 0x0100, PS2Keybard, KB_Install, NULL, NULL);
+MODULE_DEFINE(0, 0x0100, PS2Keyboard, KB_Install, NULL, NULL);
 tDevFS_Driver	gKB_DevInfo = {
 	NULL, "PS2Keyboard",
 	{

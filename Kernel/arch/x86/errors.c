@@ -112,3 +112,28 @@ void Error_Backtrace(Uint eip, Uint ebp)
 	}
 	LogF("\n");
 }
+
+/**
+ * \fn void StartupPrint(char *Str)
+ */
+void StartupPrint(char *Str)
+{
+	Uint16	*buf = (void*)0xC00B8000;
+	 int	i = 0;
+	static int	line = 0;
+	while(*Str)
+	{
+		buf[line*80 + i++] = *Str | 0x0700;
+		Str ++;
+	}
+	
+	while(i < 80)	buf[line*80 + i++] = 0x0720;
+	
+	line ++;
+	if(line == 25)
+	{
+		line --;
+		memcpy(buf, &buf[80], 80*24*2);
+		memset(&buf[80*24], 0, 80*2);
+	}
+}

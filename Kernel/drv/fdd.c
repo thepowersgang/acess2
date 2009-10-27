@@ -2,7 +2,7 @@
  * AcessOS 0.1
  * Floppy Disk Access Code
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <common.h>
 #include <modules.h>
 #include <fs_devfs.h>
@@ -144,14 +144,14 @@ int FDD_Install(char **Arguments)
 	gFDD_Devices[0].track[0] = -1;
 	gFDD_Devices[1].track[1] = -1;
 	
+	Log("[FDD ] Detected Disk 0: %s and Disk 1: %s\n", cFDD_TYPES[data>>4], cFDD_TYPES[data&0xF]);
+	
 	// Clear FDD IRQ Flag
 	FDD_SensInt(0x3F0, NULL, NULL);
 	// Install IRQ6 Handler
 	IRQ_AddHandler(6, FDD_IRQHandler);
 	// Reset Primary FDD Controller
 	FDD_Reset(0);
-	
-	Log("[FDD ] Detected Disk 0: %s and Disk 1: %s\n", cFDD_TYPES[data>>4], cFDD_TYPES[data&0xF]);
 	
 	// Initialise Root Node
 	gFDD_DriverInfo.RootNode.CTime = gFDD_DriverInfo.RootNode.MTime

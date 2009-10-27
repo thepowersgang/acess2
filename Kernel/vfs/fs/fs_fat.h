@@ -130,6 +130,9 @@ struct drv_fat_volinfo_s {
 	fat_bootsect	bootsect;	//!< Boot Sector
 	tVFS_Node	rootNode;	//!< Root Node
 	 int		inodeHandle;	//!< Inode Cache Handle
+	#if CACHE_FAT
+	Uint32	*FATCache;	//!< FAT Cache
+	#endif
 };
 
 typedef struct drv_fat_volinfo_s tFAT_VolInfo;

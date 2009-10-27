@@ -4,7 +4,7 @@
 
 Acess2 is [TPG]'s hobby operating system.
 
-The Acess kernel is SEMI-posix compilant, but will be a comatability
+The Acess kernel is SEMI-posix compilant, but there will be a comatability
 library that emulates the different functions.
 
 === Source Tree ===
@@ -29,3 +29,16 @@ The /Kernel tree contains the kernel sources.
  /Usermode/include - Required include files for the shared libraries.
 
 === Building ===
+Compiling Acess is relatively simple (at the moment)
+First edit /Makefile.cfg and set the build programs (making sure they match
+  the architecture you are building for).
+Then select the architecture to build (At the moment only x86:i386 works).
+Edit the FILESYSTEMS variable to alter what filesystems are comipled in 
+  (see /Kernel/vfs/fs for what filesystems are included).
+DRIVERS defines what device drivers are to be included from the Kernel
+  tree (see /Kernel/drv for a list).
+MODULES defines what modules should be statically linked with the kernel
+  (see /Modules for a list)
+
+Finally set the source root directory (ACESSDIR) and the destination
+  directory (DISTROOT) then call make in the source root.

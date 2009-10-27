@@ -55,6 +55,9 @@ typedef struct {
 	tVFS_Node	Node;
 } tVTerm;
 
+// === IMPORTS ===
+extern void	Debug_SetKTerminal(char *File);
+
 // === PROTOTYPES ===
  int	VT_Install(char **Arguments);
 char	*VT_ReadDir(tVFS_Node *Node, int Pos);
@@ -179,6 +182,9 @@ int VT_Install(char **Arguments)
 	
 	// Add to DevFS
 	DevFS_AddDevice( &gVT_DrvInfo );
+	
+	// Set kernel output to VT0
+	//Debug_SetKTerminal("/Devices/VTerm/0");
 	
 	return 0;
 }

@@ -12,8 +12,9 @@
  int	Module_IsLoaded(char *Name);
 
 // === IMPORTS ===
+extern void	StartupPrint(char *Str);
 extern tModule	gKernelModules[];
-extern void		gKernelModulesEnd;
+extern void	gKernelModulesEnd;
 
 // === GLOBALS ===
  int	giNumBuiltinModules = 0;
@@ -23,18 +24,82 @@ tModule	*gLoadedModules = NULL;
 // === CODE ===
 int Modules_LoadBuiltins()
 {
-	 int	i;
+	 int	i, j, k;
+	 int	numToInit = 0;
+	Uint8	*baIsLoaded;
+	char	**deps;
+	
 	giNumBuiltinModules = (Uint)&gKernelModulesEnd - (Uint)&gKernelModules;
 	giNumBuiltinModules /= sizeof(tModule);
 	
+	baIsLoaded = calloc( giNumBuiltinModules, sizeof(*baIsLoaded) );
+	
+	// Pass 1 - Are the dependencies compiled in?
 	for( i = 0; i < giNumBuiltinModules; i++ )
 	{
-		Log("Initialising %p '%s' v%i.%i...",
-			&gKernelModules[i],
-			gKernelModules[i].Name,
-			gKernelModules[i].Version>>8, gKernelModules[i].Version & 0xFF
-			);
-		gKernelModules[i].Init(NULL);
+		deps = gKernelModules[i].Dependencies;
+		if(deps)
+		{
+			for( j = 0; deps[j]; j++ )
+			{
+				for( k = 0; k < giNumBuiltinModules; k++ ) {
+					if(strcmp(deps[j], gKernelModules[k].Name) == 0)
+						break;
+				}
+				if(k == giNumBuiltinModules) {
+					Warning("Unable to find dependency '%s' for '%s' in kernel",
+						deps[j], gKernelModules[i].Name);
+					
+					baIsLoaded[i] = -1;	// Don't Load
+					break;
+				}
+			}
+		}
+		numToInit ++;
+	}
+	
+	// Pass 2 - Intialise
+	while(numToInit)
+	{
+		for( i = 0; i < giNumBuiltinModules; i++ )
+		{
+			if( baIsLoaded[i] )	continue;	// Ignore already loaded modules
+			
+			if( deps )
+			{
+				for( j = 0; deps[j]; j++ )
+				{
+					for( k = 0; k < giNumBuiltinModules; k++ ) {
+						if(strcmp(deps[j], gKernelModules[k].Name) == 0)
+							break;
+					}
+					// `k` is assumed to be less than `giNumBuiltinModules`
+					
+					// If a dependency failed, skip and mark as failed
+					if( baIsLoaded[k] == -1 ) {
+						baIsLoaded[i] = -1;
+						numToInit --;
+						break;
+					}
+					// If a dependency is not intialised, skip
+					if( !baIsLoaded[k] )	break;
+				}
+				// Check if we broke out
+				if( deps[j] )	continue;
+			}
+			
+			// All Dependencies OK? Initialise
+			StartupPrint(gKernelModules[i].Name);
+			Log("Initialising %p '%s' v%i.%i...",
+				&gKernelModules[i],
+				gKernelModules[i].Name,
+				gKernelModules[i].Version>>8, gKernelModules[i].Version & 0xFF
+				);
+			gKernelModules[i].Init(NULL);
+			// Mark as loaded
+			baIsLoaded[i] = 1;
+			numToInit --;
+		}
 	}
 	
 	return 0;

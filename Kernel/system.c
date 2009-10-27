@@ -10,6 +10,7 @@ extern int	Modules_LoadBuiltins();
 extern int	PCI_Install();
 extern void	DMA_Install();
 extern void	Debug_SetKTerminal(char *File);
+extern void	StartupPrint(char *Str);
 
 // === PROTOTYPES ===
 void	System_Init(char *ArgString);
@@ -26,11 +27,15 @@ char	*gsConfigScript = "/Acess/Conf/BootConf.cfg";
 void System_Init(char *ArgString)
 {
 	// - Start Builtin Drivers & Filesystems
+	StartupPrint("Scanning PCI Bus...");
 	PCI_Install();
+	StartupPrint("Loading DMA...");
 	DMA_Install();
+	StartupPrint("Loading staticly compiled modules...");
 	Modules_LoadBuiltins();
 	
 	// Set the debug to be echoed to the terminal
+	StartupPrint("Kernel now echoes to VT6 (Ctrl-Alt-F7)");
 	Debug_SetKTerminal("/Devices/VTerm/6");
 	
 	// - Parse Kernel's Command Line
