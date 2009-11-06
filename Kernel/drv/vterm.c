@@ -24,6 +24,7 @@
 #define	DEFAULT_COLOUR	(VT_COL_BLACK|(0xAAA<<16))
 
 #define	VT_FLAG_HIDECSR	0x01
+#define	VT_FLAG_HASFB	0x10	//!< Set if the VTerm has requested the Framebuffer
 
 enum eVT_InModes {
 	VT_INMODE_TEXT8,	// UTF-8 Text Mode (VT100 Emulation)
@@ -184,7 +185,7 @@ int VT_Install(char **Arguments)
 	DevFS_AddDevice( &gVT_DrvInfo );
 	
 	// Set kernel output to VT0
-	//Debug_SetKTerminal("/Devices/VTerm/0");
+	Debug_SetKTerminal("/Devices/VTerm/0");
 	
 	return 0;
 }

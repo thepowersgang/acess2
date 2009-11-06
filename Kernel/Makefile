@@ -21,7 +21,7 @@ OBJ += binary.o bin/elf.o
 OBJ += vfs/main.o vfs/open.o vfs/acls.o vfs/dir.o vfs/io.o vfs/mount.o vfs/memfile.o vfs/nodecache.o
 OBJ += vfs/fs/root.o vfs/fs/devfs.o
 OBJ += $(addprefix vfs/fs/, $(addsuffix .o,$(FILESYSTEMS)))
-OBJ += drv/fifo.o drv/dma.o drv/pci.o drv/kb.o drv/vga.o drv/vterm.o
+OBJ += drv/fifo.o drv/dma.o drv/iocache.o drv/pci.o drv/kb.o drv/vga.o drv/vterm.o
 OBJ += $(addprefix drv/, $(addsuffix .o,$(DRIVERS)))
 OBJ := $(addsuffix .$(ARCH), $(OBJ))
 MODS += $(addprefix ../Modules/, $(addsuffix .xo.$(ARCH),$(MODULES)))
@@ -33,12 +33,15 @@ DEPFILES := $(DEPFILES:%.o.$(ARCH)=%.d.$(ARCH))
 SRCFILES  = $(OBJ:%.o.$(ARCH)=%.c)
 SRCFILES := $(SRCFILES:%.ao.$(ARCH)=%.asm)
 
-.PHONY: all clean
+.PHONY: all clean apidoc
 
 all: $(BIN)
 
 clean:
 	@$(RM) $(BIN) $(OBJ) $(DEPFILES)
+
+apidoc:
+	doxygen Doxyfile.api
 
 $(BIN): $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile
 	@echo --- LD -o $(BIN)

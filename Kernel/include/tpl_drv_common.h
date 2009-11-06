@@ -1,8 +1,11 @@
+/*
+ * Acess2
+ * - Common Driver Interface
+ */
 /**
- AcessOS Version 1
- \file tpl_drv_common.h
- \brief Common Driver Interface Definitions
-*/
+ * \file tpl_drv_common.h
+ * \brief Common Driver Interface Definitions
+ */
 #ifndef _TPL_COMMON_H
 #define _TPL_COMMON_H
 
@@ -18,7 +21,7 @@ enum eTplDrv_IOCtl {
 	/// \brief Get driver version - (int *ver)
 	DRV_IOCTL_VERSION,
 	/// \brief Get a IOCtl from a symbolic name
-	DRV_IOCTL_LOOKUP,
+	DRV_IOCTL_LOOKUP
 };
 
 /**
@@ -39,6 +42,17 @@ enum eTplDrv_Type {
 };
 
 // === FUNCTIONS ===
+/**
+ * \fn int GetIOCtlId(int Class, char *Name)
+ * \brief Transforms a symbolic name into an ID
+ * \param Class	::eTplDrv_Type type to use
+ * \param Name	Symbolic name to resolve
+ * 
+ * This function is designed to be used by device drivers to implement
+ * ::eTplDrv_IOCtl.DRV_IOCTL_LOOKUP easily given that they conform to
+ * the standard interfaces (::eTplDrv_Type except DRV_TYPE_MISC) and do
+ * not add their own call numbers.
+ */
 extern int	GetIOCtlId(int Class, char *Name);
 
 #endif

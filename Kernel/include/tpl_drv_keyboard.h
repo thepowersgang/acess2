@@ -21,9 +21,15 @@ enum eTplKeyboard_IOCtl {
 	KB_IOCTL_SETCALLBACK
 };
 
-typedef void (*tKeybardCallback)(Uint32);
+/**
+ * \brief Callback type for KB_IOCTL_SETCALLBACK
+ */
+typedef void (*tKeybardCallback)(Uint32 Key);
 
-enum {
+/**
+ * \brief Symbolic key codes
+ */
+enum eTplKeyboard_KeyCodes {
 	KEY_ESC = 0x1B,
 	
 	KEY_NP_MASK = 0x80,	//End of ASCII Range

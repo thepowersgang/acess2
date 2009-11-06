@@ -44,9 +44,8 @@ enum eTplVideo_IOCtl {
 };
 
 /**
- \struct sVideo_IOCtl_Mode
- \brief Mode Structure used in IOCtl Calls
-*/
+ * \brief Mode Structure used in IOCtl Calls
+ */
 struct sVideo_IOCtl_Mode {
 	short	id;		//!< Mide ID
 	Uint16	width;	//!< Width
@@ -55,45 +54,76 @@ struct sVideo_IOCtl_Mode {
 	Uint8	flags;	//!< Mode Flags
 };
 typedef struct sVideo_IOCtl_Mode	tVideo_IOCtl_Mode;	//!< Mode Type
+
+//! \name Video Mode flags
+//! \{
 /**
  * \brief Text Mode Flag
  * \note A text mode should have the ::sVideo_IOCtl_Mode.bpp set to 12
  */
 #define VIDEO_FLAG_TEXT	0x1
-#define VIDEO_FLAG_SLOW	0x2	//!< Non-accelerated mode
-
-typedef struct sVideo_IOCtl_Pos	tVideo_IOCtl_Pos;	//!< Position Type
 /**
+ * \brief Slow (non-accellerated mode)
  */
+#define VIDEO_FLAG_SLOW	0x2
+//! \}
+
+/**
+ * \brief Describes a position in the video framebuffer
+ */
+typedef struct sVideo_IOCtl_Pos	tVideo_IOCtl_Pos;
 struct sVideo_IOCtl_Pos {
 	Sint16	x;	//!< X Coordinate
 	Sint16	y;	//!< Y Coordinate
 };
 
 /**
- * \struct sVT_Char
  * \brief Virtual Terminal Representation of a character
  */
+typedef struct sVT_Char	tVT_Char;
 struct sVT_Char {
-	Uint32	Ch;
+	Uint32	Ch;	//!< UTF-32 Character
 	union {
 		struct {
-			Uint16	BGCol;
-			Uint16	FGCol;
+			Uint16	BGCol;	//!< 12-bit Foreground Colour
+			Uint16	FGCol;	//!< 12-bit Background Colour
 		};
-		Uint32	Colour;
+		Uint32	Colour;	//!< Compound colour for ease of access
 	};
 };
-typedef struct sVT_Char	tVT_Char;
 
+/**
+ * \name Basic builtin colour definitions
+ * \{
+ */
 #define	VT_COL_BLACK	0x0000
 #define	VT_COL_GREY		0x0888
 #define	VT_COL_LTGREY	0x0CCC
 #define	VT_COL_WHITE	0x0FFF
+/**
+ * \}
+ */
 
+//! \brief Defines the width of a rendered character
 extern int	giVT_CharWidth;
+//! \brief Defines the height of a rendered character
 extern int	giVT_CharHeight;
+/**
+ * \fn void VT_Font_Render(Uint32 Codepoint, void *Buffer, int Pitch, Uint32 BGC, Uint32 FGC)
+ * \brief Renders a character to a buffer
+ * \param Codepoint	Unicode character to render
+ * \param Buffer	Buffer to render to (32-bpp)
+ * \param Pitch	Number of DWords per line
+ * \param BGC	32-bit Background Colour
+ * \param FGC	32-bit Foreground Colour
+ */
 extern void	VT_Font_Render(Uint32 Codepoint, void *Buffer, int Pitch, Uint32 BGC, Uint32 FGC);
+/**
+ * \fn Uint32 VT_Colour12to24(Uint16 Col12)
+ * \brief Converts a colour from 12bpp to 32bpp
+ * \param Col12	12-bpp input colour
+ * \return	Expanded 32-bpp (24-bit colour) version of \a Col12
+ */
 extern Uint32	VT_Colour12to24(Uint16 Col12);
 
 #endif

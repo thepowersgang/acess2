@@ -24,7 +24,7 @@ clean:
 $(BIN): $(OBJ)
 	@echo --- $(LD) -o $@
 	@$(LD) -T ../link.ld -shared -o $@ $(OBJ)
-	@echo --- $(LD) -o ../$(NAME).o.$(ARCH)
+	@echo --- $(LD) -o $(KOBJ)
 	@$(CC) -Wl,-r -nostdlib -o $(KOBJ) $(OBJ)
 
 %.o.$(ARCH): %.c Makefile ../Makefile.tpl ../../Makefile.cfg 
