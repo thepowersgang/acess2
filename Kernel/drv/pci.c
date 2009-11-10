@@ -553,9 +553,10 @@ Uint8 PCI_CfgReadByte(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset)
 
 
 // === EXPORTS ===
-/*
+//*
 EXPORT(PCI_CountDevices);
 EXPORT(PCI_GetDevice);
+EXPORT(PCI_GetDeviceByClass);
 EXPORT(PCI_AssignPort);
 EXPORT(PCI_GetIRQ);
-*/
+//*/

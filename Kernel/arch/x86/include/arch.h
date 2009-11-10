@@ -44,6 +44,12 @@
 # define	MAX_CPUS	1
 #endif
 
+#if USE_PAE
+# define	PHYS_BITS	48
+#else
+# define	PHYS_BITS	32
+#endif
+
 // === MACROS ===
 #define LOCK(lockptr)	do {int v=1;\
 	while(v)__asm__ __volatile__("lock xchgl %%eax, (%%edi)":"=a"(v):"a"(1),"D"(lockptr));}while(0)

@@ -23,7 +23,8 @@ clean:
 
 $(BIN): $(OBJ)
 	@echo --- $(LD) -o $@
-	@$(LD) -T ../link.ld -shared -o $@ $(OBJ)
+	@$(LD) -T ../link.ld -shared -nostdlib -o $@ $(OBJ)
+#	@$(LD) -shared -nostdlib -o $@ $(OBJ)
 	@echo --- $(LD) -o $(KOBJ)
 	@$(CC) -Wl,-r -nostdlib -o $(KOBJ) $(OBJ)
 

@@ -725,7 +725,7 @@ Uint Binary_Relocate(void *Base)
 	}
 	
 	Warning("[BIN ] 0x%x is an unknown file type. (0x%x 0x%x 0x%x 0x%x)",
-		Base, ident&0xFF, ident>>8, ident>>16, ident>>24);
+		Base, ident&0xFF, (ident>>8)&0xFF, (ident>>16)&0xFF, (ident>>24)&0xFF);
 	return 0;
 }
 

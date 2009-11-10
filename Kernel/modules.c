@@ -175,6 +175,12 @@ int Module_LoadFile(char *Path, char *ArgString)
 		return 0;
 	}
 	
+	Log("Initialising %p '%s' v%i.%i...",
+				info,
+				info->Name,
+				info->Version>>8, info->Version & 0xFF
+				);
+	
 	// Call Initialiser
 	//if( info->Init( ArgString ) != 0 )
 	if( info->Init( NULL ) == 0 )

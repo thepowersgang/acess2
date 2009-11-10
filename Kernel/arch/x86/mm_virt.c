@@ -44,15 +44,15 @@
 // === IMPORTS ===
 extern Uint32	gaInitPageDir[1024];
 extern Uint32	gaInitPageTable[1024];
-extern void	Threads_SegFault(Uint Addr);
+extern void	Threads_SegFault(tVAddr Addr);
 extern void	Error_Backtrace(Uint eip, Uint ebp);
 
 // === PROTOTYPES ===
 void	MM_PreinitVirtual();
 void	MM_InstallVirtual();
-void	MM_PageFault(Uint Addr, Uint ErrorCode, tRegs *Regs);
+void	MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs);
 void	MM_DumpTables(tVAddr Start, tVAddr End);
-tPAddr	MM_DuplicatePage(Uint VAddr);
+tPAddr	MM_DuplicatePage(tVAddr VAddr);
 
 // === GLOBALS ===
 tPAddr	*gaPageTable = (void*)PAGE_TABLE_ADDR;
@@ -102,10 +102,10 @@ void MM_InstallVirtual()
 }
 
 /**
- * \fn void MM_PageFault(Uint Addr, Uint ErrorCode, tRegs *Regs)
+ * \fn void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
  * \brief Called on a page fault
  */
-void MM_PageFault(Uint Addr, Uint ErrorCode, tRegs *Regs)
+void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 {
 	//ENTER("xAddr bErrorCode", Addr, ErrorCode);
 	
@@ -248,9 +248,9 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 }
 
 /**
- * \fn tPAddr MM_Allocate(Uint VAddr)
+ * \fn tPAddr MM_Allocate(tVAddr VAddr)
  */
-tPAddr MM_Allocate(Uint VAddr)
+tPAddr MM_Allocate(tVAddr VAddr)
 {
 	tPAddr	paddr;
 	// Check if the directory is mapped
@@ -294,9 +294,9 @@ tPAddr MM_Allocate(Uint VAddr)
 }
 
 /**
- * \fn void MM_Deallocate(Uint VAddr)
+ * \fn void MM_Deallocate(tVAddr VAddr)
  */
-void MM_Deallocate(Uint VAddr)
+void MM_Deallocate(tVAddr VAddr)
 {
 	if( gaPageDir[ VAddr >> 22 ] == 0 ) {
 		Warning("MM_Deallocate - Directory not mapped");
@@ -315,10 +315,10 @@ void MM_Deallocate(Uint VAddr)
 }
 
 /**
- * \fn tPAddr MM_GetPhysAddr(Uint Addr)
+ * \fn tPAddr MM_GetPhysAddr(tVAddr Addr)
  * \brief Checks if the passed address is accesable
  */
-tPAddr MM_GetPhysAddr(Uint Addr)
+tPAddr MM_GetPhysAddr(tVAddr Addr)
 {
 	if( !(gaPageDir[Addr >> 22] & 1) )
 		return 0;
@@ -328,19 +328,19 @@ tPAddr MM_GetPhysAddr(Uint Addr)
 }
 
 /**
- * \fn void MM_SetCR3(Uint CR3)
+ * \fn void MM_SetCR3(tPAddr CR3)
  * \brief Sets the current process space
  */
-void MM_SetCR3(Uint CR3)
+void MM_SetCR3(tPAddr CR3)
 {
 	__asm__ __volatile__ ("mov %0, %%cr3"::"r"(CR3));
 }
 
 /**
- * \fn int MM_Map(Uint VAddr, tPAddr PAddr)
+ * \fn int MM_Map(tVAddr VAddr, tPAddr PAddr)
  * \brief Map a physical page to a virtual one
  */
-int MM_Map(Uint VAddr, tPAddr PAddr)
+int MM_Map(tVAddr VAddr, tPAddr PAddr)
 {
 	//ENTER("xVAddr xPAddr", VAddr, PAddr);
 	// Sanity check
@@ -390,10 +390,10 @@ int MM_Map(Uint VAddr, tPAddr PAddr)
 }
 
 /**
- * \fn Uint MM_ClearUser()
+ * \fn tVAddr MM_ClearUser()
  * \brief Clear user's address space
  */
-Uint MM_ClearUser()
+tVAddr MM_ClearUser()
 {
 	Uint	i, j;
 	
@@ -424,15 +424,15 @@ Uint MM_ClearUser()
 }
 
 /**
- * \fn Uint MM_Clone()
+ * \fn tPAddr MM_Clone()
  * \brief Clone the current address space
  */
-Uint MM_Clone()
+tPAddr MM_Clone()
 {
 	Uint	i, j;
-	Uint	ret;
+	tVAddr	ret;
 	Uint	page = 0;
-	Uint	kStackBase = Proc_GetCurThread()->KernelStack - KERNEL_STACK_SIZE;
+	tVAddr	kStackBase = Proc_GetCurThread()->KernelStack - KERNEL_STACK_SIZE;
 	void	*tmp;
 	
 	LOCK( &gilTempFractal );
@@ -550,12 +550,12 @@ Uint MM_Clone()
 }
 
 /**
- * \fn Uint MM_NewKStack()
+ * \fn tVAddr MM_NewKStack()
  * \brief Create a new kernel stack
  */
-Uint MM_NewKStack()
+tVAddr MM_NewKStack()
 {
-	Uint	base = KERNEL_STACKS;
+	tVAddr	base = KERNEL_STACKS;
 	Uint	i;
 	for(;base<KERNEL_STACKS_END;base+=KERNEL_STACK_SIZE)
 	{
@@ -570,10 +570,10 @@ Uint MM_NewKStack()
 }
 
 /**
- * \fn Uint MM_NewWorkerStack()
+ * \fn tVAddr MM_NewWorkerStack()
  * \brief Creates a new worker stack
  */
-Uint MM_NewWorkerStack()
+tVAddr MM_NewWorkerStack()
 {
 	Uint	esp, ebp;
 	Uint	oldstack;
@@ -663,10 +663,10 @@ Uint MM_NewWorkerStack()
 }
 
 /**
- * \fn void MM_SetFlags(Uint VAddr, Uint Flags, Uint Mask)
+ * \fn void MM_SetFlags(tVAddr VAddr, Uint Flags, Uint Mask)
  * \brief Sets the flags on a page
  */
-void MM_SetFlags(Uint VAddr, Uint Flags, Uint Mask)
+void MM_SetFlags(tVAddr VAddr, Uint Flags, Uint Mask)
 {
 	tPAddr	*ent;
 	if( !(gaPageDir[VAddr >> 22] & 1) )	return ;
@@ -703,10 +703,10 @@ void MM_SetFlags(Uint VAddr, Uint Flags, Uint Mask)
 }
 
 /**
- * \fn tPAddr MM_DuplicatePage(Uint VAddr)
+ * \fn tPAddr MM_DuplicatePage(tVAddr VAddr)
  * \brief Duplicates a virtual page to a physical one
  */
-tPAddr MM_DuplicatePage(Uint VAddr)
+tPAddr MM_DuplicatePage(tVAddr VAddr)
 {
 	tPAddr	ret;
 	Uint	temp;
@@ -744,7 +744,7 @@ tPAddr MM_DuplicatePage(Uint VAddr)
  * \brief Create a temporary memory mapping
  * \todo Show Luigi Barone (C Lecturer) and see what he thinks
  */
-Uint MM_MapTemp(tPAddr PAddr)
+tVAddr MM_MapTemp(tPAddr PAddr)
 {
 	 int	i;
 	
@@ -775,10 +775,10 @@ Uint MM_MapTemp(tPAddr PAddr)
 }
 
 /**
- * \fn void MM_FreeTemp(Uint PAddr)
+ * \fn void MM_FreeTemp(tVAddr PAddr)
  * \brief Free's a temp mapping
  */
-void MM_FreeTemp(Uint VAddr)
+void MM_FreeTemp(tVAddr VAddr)
 {
 	 int	i = VAddr >> 12;
 	//ENTER("xVAddr", VAddr);
@@ -790,10 +790,10 @@ void MM_FreeTemp(Uint VAddr)
 }
 
 /**
- * \fn Uint MM_MapHWPage(tPAddr PAddr, Uint Number)
+ * \fn tVAddr MM_MapHWPage(tPAddr PAddr, Uint Number)
  * \brief Allocates a contigous number of pages
  */
-Uint MM_MapHWPage(tPAddr PAddr, Uint Number)
+tVAddr MM_MapHWPage(tPAddr PAddr, Uint Number)
 {
 	 int	i, j;
 	
@@ -828,10 +828,82 @@ Uint MM_MapHWPage(tPAddr PAddr, Uint Number)
 }
 
 /**
- * \fn void MM_UnmapHWPage(Uint VAddr, Uint Number)
+ * \fn tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
+ * \brief Allocates DMA physical memory
+ * \param Pages	Number of pages required
+ * \param MaxBits	Maximum number of bits the physical address can have
+ * \param PhysAddr	Pointer to the location to place the physical address allocated
+ * \return Virtual address allocate
+ */
+tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
+{
+	tPAddr	maxCheck = (1 << MaxBits);
+	tPAddr	phys;
+	tVAddr	ret;
+	
+	ENTER("iPages iMaxBits pPhysAddr", Pages, MaxBits, PhysAddr);
+	
+	// Sanity Check
+	if(MaxBits < 12 || !PhysAddr) {
+		LEAVE('i', 0);
+		return 0;
+	}
+	
+	// Bound
+	if(MaxBits >= PHYS_BITS)	maxCheck = -1;
+	
+	// Fast Allocate
+	if(Pages == 1 && MaxBits >= PHYS_BITS)
+	{
+		phys = MM_AllocPhys();
+		*PhysAddr = phys;
+		ret = MM_MapHWPage(phys, 1);
+		if(ret == 0) {
+			MM_DerefPhys(phys);
+			LEAVE('i', 0);
+			return 0;
+		}
+		LEAVE('x', ret);
+		return ret;
+	}
+	
+	// Slow Allocate
+	phys = MM_AllocPhysRange(Pages);
+	// - Was it allocated?
+	if(phys == 0) {
+		LEAVE('i', 0);
+		return 0;
+	}
+	// - Check if the memory is OK
+	if(phys + (Pages-1)*0x1000 > maxCheck)
+	{
+		// Deallocate and return 0
+		for(;Pages--;phys+=0x1000)
+			MM_DerefPhys(phys);
+		LEAVE('i', 0);
+		return 0;
+	}
+	
+	// Allocated successfully, now map
+	ret = MM_MapHWPage(phys, Pages);
+	if( ret == 0 ) {
+		// If it didn't map, free then return 0
+		for(;Pages--;phys+=0x1000)
+			MM_DerefPhys(phys);
+		LEAVE('i', 0);
+		return 0;
+	}
+	
+	*PhysAddr = phys;
+	LEAVE('x', ret);
+	return ret;
+}
+
+/**
+ * \fn void MM_UnmapHWPage(tVAddr VAddr, Uint Number)
  * \brief Unmap a hardware page
  */
-void MM_UnmapHWPage(Uint VAddr, Uint Number)
+void MM_UnmapHWPage(tVAddr VAddr, Uint Number)
 {
 	 int	i, j;
 	// Sanity Check
@@ -855,4 +927,5 @@ EXPORT(MM_GetPhysAddr);
 EXPORT(MM_Map);
 //EXPORT(MM_Unmap);
 EXPORT(MM_MapHWPage);
+EXPORT(MM_AllocDMA);
 EXPORT(MM_UnmapHWPage);

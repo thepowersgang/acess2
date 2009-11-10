@@ -102,7 +102,6 @@ tPAddr MM_AllocPhys()
 	}
 	for(b=0;gaSuperBitmap[a]&(1<<b);b++);
 	for(c=0;gaPageBitmap[a*32+b]&(1<<c);c++);
-	//for(c=0;gaPageReferences[a*32*32+b*32+c]>0;c++);
 	
 	// Mark page used
 	if(gaPageReferences)
@@ -117,8 +116,47 @@ tPAddr MM_AllocPhys()
 
 	// Release Spinlock
 	RELEASE( &giPhysAlloc );
-	//LOG("Allocated 0x%x\n", ret);
-	//LOG("ret = %x", ret);
+	
+	return ret;
+}
+
+/**
+ * \fn tPAddr MM_AllocPhysRange(int Pages)
+ * \brief Allocate a range of physical pages
+ * \param Pages	Number of pages to allocate
+ */
+tPAddr MM_AllocPhysRange(int Pages)
+{
+	 int	num = giPageCount / 32 / 32;
+	 int	a, b, c;
+	Uint32	ret;
+	
+	LOCK( &giPhysAlloc );
+	
+	// Find free page
+	for(a=0;gaSuperBitmap[a]==-1&&a<num;a++);
+	if(a == num) {
+		RELEASE( &giPhysAlloc );
+		Warning("MM_AllocPhys - OUT OF MEMORY (Called by %p)", __builtin_return_address(0));
+		return 0;
+	}
+	for(b=0;gaSuperBitmap[a]&(1<<b);b++);
+	for(c=0;gaPageBitmap[a*32+b]&(1<<c);c++);
+	
+	// Mark page used
+	if(gaPageReferences)
+		gaPageReferences[a*32*32+b*32+c] = 1;
+	gaPageBitmap[ a*32+b ] |= 1 << c;
+	
+	// Get address
+	ret = (a << 22) + (b << 17) + (c << 12);
+	
+	// Mark used block
+	if(gaPageBitmap[ a*32+b ] == -1)	gaSuperBitmap[a] |= 1 << b;
+
+	// Release Spinlock
+	RELEASE( &giPhysAlloc );
+	
 	return ret;
 }
 

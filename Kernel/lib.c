@@ -56,7 +56,7 @@ void itoa(char *buf, Uint num, int base, int minLength, char pad)
 }
 
 /**
- * \fn int tolower(int __c)
+ * \fn int tolower(int c)
  * \brief Converts a character to lower case
  */
 int tolower(int c)
@@ -78,7 +78,7 @@ int strucmp(const char *Str1, const char *Str2)
 }
 
 /**
- * \fn int strpos(char *Str, char Ch)
+ * \fn int strpos(const char *Str, char Ch)
  * \brief Search a string for an ascii character
  */
 int strpos(const char *Str, char Ch)
@@ -92,6 +92,8 @@ int strpos(const char *Str, char Ch)
 }
 
 /**
+ * \fn int ByteSum(void *Ptr, int Size)
+ * \brief Adds the bytes in a memory region and returns the sum
  */
 int ByteSum(void *Ptr, int Size)
 {
@@ -101,7 +103,7 @@ int ByteSum(void *Ptr, int Size)
 }
 
 /**
- * \fn Uint strlen(char *__str)
+ * \fn Uint strlen(const char *__str)
  * \brief Get the length of string
  */
 Uint strlen(const char *__str)
@@ -112,7 +114,7 @@ Uint strlen(const char *__str)
 }
 
 /**
- * \fn char *strcpy(char *__str1, char *__str2)
+ * \fn char *strcpy(const char *__str1, const char *__str2)
  * \brief Copy a string to a new location
  */
 char *strcpy(char *__str1, const char *__str2)
@@ -124,7 +126,7 @@ char *strcpy(char *__str1, const char *__str2)
 }
 
 /**
- * \fn int strcmp(char *str1, char *str2)
+ * \fn int strcmp(const char *str1, const char *str2)
  * \brief Compare two strings return the difference between
  *        the first non-matching characters.
  */
@@ -136,7 +138,7 @@ int strcmp(const char *str1, const char *str2)
 }
 
 /**
- * \fn int strncmp(char *Str1, char *Str2, size_t num)
+ * \fn int strncmp(const char *Str1, const char *Str2, size_t num)
  * \brief Compare strings \a Str1 and \a Str2 to a maximum of \a num characters
  */
 int strncmp(const char *Str1, const char *Str2, size_t num)
@@ -148,14 +150,14 @@ int strncmp(const char *Str1, const char *Str2, size_t num)
 }
 
 /**
- * \fn char *strdup(char *str)
+ * \fn char *strdup(const char *Str)
  * \brief Duplicates a string
  */
-char *strdup(const char *str)
+char *strdup(const char *Str)
 {
 	char	*ret;
-	ret = malloc(strlen(str)+1);
-	strcpy(ret, str);
+	ret = malloc(strlen(Str)+1);
+	strcpy(ret, Str);
 	return ret;
 }
 

@@ -135,3 +135,11 @@ tVFS_ACL *VFS_UnixToAcessACL(Uint Mode, Uint Owner, Uint Group)
 	// Return buffer
 	return ret;
 }
+
+// === EXPORTS ===
+// --- Variables ---
+EXPORTV(gVFS_ACL_EveryoneRWX);
+EXPORTV(gVFS_ACL_EveryoneRW);
+EXPORTV(gVFS_ACL_EveryoneRX);
+// --- Functions ---
+EXPORT(VFS_UnixToAcessACL);
