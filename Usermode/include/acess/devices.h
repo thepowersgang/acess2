@@ -44,4 +44,7 @@ enum eDrv_Mouse {
 	MSE_IOCTL_MAX_Y
 };
 
+// === Terminal ===
+#include "devices/terminal.h"
+
 #endif

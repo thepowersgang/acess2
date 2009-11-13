@@ -1,8 +1,10 @@
 /**
  * Acess2
- * \file fs_ext2.h
+ * \file ext2fs.h
  * \brief EXT2 Filesystem Driver
  */
+#ifndef _EXT2FS_H_
+#define _EXT2FS_H_
 
 /**
  \name Inode Flag Values
@@ -88,7 +90,7 @@ struct ext2_inode_s {
 	Uint32 i_dtime; //!< Deletion Time
 	Uint16 i_gid;	//!< Group Id
 	Uint16 i_links_count;	//!< Links count
-	Uint32 i_blocks;	//!< Blocks count
+	Uint32 i_blocks;	//!< Number of blocks allocated for the file
 	Uint32 i_flags;	//!< File flags
 	union {
 		Uint32 linux_reserved1;	//!< Linux: Reserved
@@ -150,3 +152,5 @@ struct ext2_dir_entry_s {
 	Uint8	type;		//!< File Type
 	char	name[];		//!< File name
 };
+
+#endif

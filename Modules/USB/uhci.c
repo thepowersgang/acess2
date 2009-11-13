@@ -60,8 +60,8 @@ int UHCI_Initialise()
 	if(i == MAX_CONTROLLERS) {
 		Warning("[UHCI ] Over "EXPAND_STR(MAX_CONTROLLERS)" UHCI controllers detected, ignoring rest");
 	}
-	LEAVE('i', 0);
-	return 0;
+	LEAVE('i', i);
+	return i;
 }
 
 /**
@@ -73,9 +73,9 @@ void UHCI_Cleanup()
 }
 
 /**
- * \fn int UHCI_IOCtl(tVFS_Node *Node, int ID, void *Data)
+ * \brief Sends a packet to a device endpoint
  */
-int UHCI_IOCtl(tVFS_Node *Node, int ID, void *Data)
+int UHCI_SendPacket(int ControllerId, int Device, int Endpoint, void *Data, int Length)
 {
 	return 0;
 }

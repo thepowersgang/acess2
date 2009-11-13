@@ -40,5 +40,10 @@ DRIVERS defines what device drivers are to be included from the Kernel
 MODULES defines what modules should be statically linked with the kernel
   (see /Modules for a list)
 
-Finally set the source root directory (ACESSDIR) and the destination
-  directory (DISTROOT) then call make in the source root.
+Set the source root directory (ACESSDIR) and the destination  directory
+ (DISTROOT).
+
+Now you can compile the kernel and usermode applications by calling make
+ in the source root.
+
+

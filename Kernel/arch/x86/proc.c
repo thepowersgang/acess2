@@ -560,10 +560,11 @@ void Proc_Scheduler(int CPU)
 	__asm__ __volatile__ ("mov %0, %%cr3"::"a"(gCurrentThread->MemState.CR3));
 	// Switch threads
 	__asm__ __volatile__ (
-		"mov %1, %%esp\n\t"
-		"mov %2, %%ebp\n\t"
-		"jmp *%3" : :
+		"mov %1, %%esp\n\t"	// Restore ESP
+		"mov %2, %%ebp\n\t"	// and EBP
+		"jmp *%3" : :	// And return to where we saved state (Proc_Clone or Proc_Scheduler)
 		"a"(SWITCH_MAGIC), "b"(gCurrentThread->SavedState.ESP),
-		"d"(gCurrentThread->SavedState.EBP), "c"(gCurrentThread->SavedState.EIP));
+		"d"(gCurrentThread->SavedState.EBP), "c"(gCurrentThread->SavedState.EIP)
+		);
 	for(;;);	// Shouldn't reach here
 }

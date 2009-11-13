@@ -17,6 +17,12 @@ extern void Threads_Dump();
 void	Error_Backtrace(Uint eip, Uint ebp);
 
 // === CODE ===
+void __stack_chk_fail()
+{
+	Panic("FATAL ERROR: Stack Check Failed\n");
+	for(;;);
+}
+
 /**
  * \fn void ErrorHandler(tRegs *Regs)
  * \brief General Error Handler

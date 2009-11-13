@@ -16,8 +16,8 @@
 #define MAX_INPUT_CHARS32	64
 #define MAX_INPUT_CHARS8	(MAX_INPUT_CHARS32*4)
 #define VT_SCROLLBACK	1	// 2 Screens of text
-#define DEFAULT_OUTPUT	"VGA"
-//#define DEFAULT_OUTPUT	"BochsGA"
+//#define DEFAULT_OUTPUT	"VGA"
+#define DEFAULT_OUTPUT	"BochsGA"
 #define DEFAULT_INPUT	"PS2Keyboard"
 #define	DEFAULT_WIDTH	80
 #define	DEFAULT_HEIGHT	25
@@ -197,7 +197,7 @@ int VT_Install(char **Arguments)
 void VT_InitOutput()
 {
 	giVT_OutputDevHandle = VFS_Open(gsVT_OutputDevice, VFS_OPENFLAG_WRITE);
-	LOG("giVT_OutputDevHandle = %x\n", giVT_OutputDevHandle);
+	Log("giVT_OutputDevHandle = %x\n", giVT_OutputDevHandle);
 	VT_SetTerminal( 0 );
 }
 
@@ -896,7 +896,7 @@ void VT_int_ChangeMode(tVTerm *Term, int NewMode)
 Uint8	*VT_Font_GetChar(Uint32 Codepoint);
 
 // === GLOBALS ===
-int	giVT_CharWidth = FONT_WIDTH;
+int	giVT_CharWidth = FONT_WIDTH+1;
 int	giVT_CharHeight = FONT_HEIGHT;
 
 // === CODE ===
@@ -909,13 +909,14 @@ void VT_Font_Render(Uint32 Codepoint, void *Buffer, int Pitch, Uint32 BGC, Uint3
 	Uint8	*font;
 	Uint32	*buf = Buffer;
 	 int	x, y;
+	
 	font = VT_Font_GetChar(Codepoint);
 	
 	for(y = 0; y < FONT_HEIGHT; y ++)
 	{
 		for(x = 0; x < FONT_WIDTH; x ++)
 		{
-			if(*font & (1 << (FONT_WIDTH-x)))
+			if(*font & (1 << (FONT_WIDTH-x-1)))
 				buf[x] = FGC;
 			else
 				buf[x] = BGC;
