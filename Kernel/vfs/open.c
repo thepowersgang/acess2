@@ -34,6 +34,8 @@ char *VFS_GetAbsPath(char *Path)
 	char	*tmpStr;
 	int		iPos = 0;
 	int		iPos2 = 0;
+	char	*chroot = CFGPTR(CFG_VFS_CHROOT);
+	 int	chrootLen;
 	char	*cwd = CFGPTR(CFG_VFS_CWD);
 	 int	cwdLen;
 	
@@ -52,14 +54,22 @@ char *VFS_GetAbsPath(char *Path)
 		return ret;
 	}
 	
+	if( chroot == NULL ) {
+		chroot = "";
+		chrootLen = 0;
+	} else {
+		chrootLen = strlen(chroot);
+	}
+	
 	// Check if the path is already absolute
 	if(Path[0] == '/') {
-		ret = malloc(pathLen + 1);
+		ret = malloc(chrootLen + pathLen + 1);
 		if(!ret) {
 			Warning("VFS_GetAbsPath - malloc() returned NULL");
 			return NULL;
 		}
-		strcpy(ret, Path);
+		strcpy(ret, chroot);
+		strcpy(ret+chrootLen, Path);
 	} else {
 		if(cwd == NULL) {
 			cwd = "/";
@@ -574,6 +584,55 @@ int VFS_ChDir(char *New)
 	CFGPTR(CFG_VFS_CWD) = buf;
 	
 	Log("Updated CWD to '%s'", buf);
+	
+	return 1;
+}
+
+/**
+ * \fn int VFS_ChRoot(char *New)
+ * \brief Change current root directory
+ */
+int VFS_ChRoot(char *New)
+{
+	char	*buf;
+	 int	fd;
+	tVFS_Handle	*h;
+	
+	if(New[0] == '/' && New[1] == '\0')
+		return 1;	// What a useless thing to ask!
+	
+	// Create Absolute
+	buf = VFS_GetAbsPath(New);
+	if(buf == NULL) {
+		LOG("Path expansion failed");
+		return -1;
+	}
+	
+	// Check if path exists
+	fd = VFS_Open(buf, VFS_OPENFLAG_EXEC);
+	if(fd == -1) {
+		LOG("Path is invalid");
+		return -1;
+	}
+	
+	// Get node so we can check for directory
+	h = VFS_GetHandle(fd);
+	if( !(h->Node->Flags & VFS_FFLAG_DIRECTORY) ) {
+		LOG("Path is not a directory");
+		VFS_Close(fd);
+		return -1;
+	}
+	
+	// Close file
+	VFS_Close(fd);
+	
+	// Free old working directory
+	if( CFGPTR(CFG_VFS_CHROOT) )
+		free( CFGPTR(CFG_VFS_CHROOT) );
+	// Set new
+	CFGPTR(CFG_VFS_CHROOT) = buf;
+	
+	LOG("Updated Root to '%s'", buf);
 	
 	return 1;
 }
