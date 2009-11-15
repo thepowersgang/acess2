@@ -36,6 +36,7 @@ enum eConfigTypes {
 enum eConfigs {
 	CFG_VFS_CWD,
 	CFG_VFS_MAXFILES,
+	CFG_VFS_CHROOT,
 	NUM_CFG_ENTRIES
 };
 #define CFGINT(id)	(*Threads_GetCfgPtr(id))
