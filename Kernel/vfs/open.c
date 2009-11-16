@@ -39,7 +39,6 @@ char *VFS_GetAbsPath(char *Path)
 	char	*cwd = CFGPTR(CFG_VFS_CWD);
 	 int	cwdLen;
 	
-	
 	ENTER("sPath", Path);
 	
 	// Memory File
@@ -54,6 +53,7 @@ char *VFS_GetAbsPath(char *Path)
 		return ret;
 	}
 	
+	// - Fetch ChRoot
 	if( chroot == NULL ) {
 		chroot = "";
 		chrootLen = 0;
@@ -63,13 +63,12 @@ char *VFS_GetAbsPath(char *Path)
 	
 	// Check if the path is already absolute
 	if(Path[0] == '/') {
-		ret = malloc(chrootLen + pathLen + 1);
+		ret = malloc(pathLen + 1);
 		if(!ret) {
 			Warning("VFS_GetAbsPath - malloc() returned NULL");
 			return NULL;
 		}
-		strcpy(ret, chroot);
-		strcpy(ret+chrootLen, Path);
+		strcpy(ret, Path);
 	} else {
 		if(cwd == NULL) {
 			cwd = "/";
@@ -152,6 +151,14 @@ char *VFS_GetAbsPath(char *Path)
 		ret[iPos2-1] = 0;
 	else
 		ret[iPos2] = 0;
+	
+	
+	// Prepend the chroot
+	tmpStr = malloc(chrootLen + strlen(ret) + 1);
+	strcpy( tmpStr, chroot );
+	strcpy( tmpStr+chrootLen, ret );
+	free(ret);
+	ret = tmpStr;
 	
 	LEAVE('s', ret);
 	//Log("VFS_GetAbsPath: RETURN '%s'", ret);
