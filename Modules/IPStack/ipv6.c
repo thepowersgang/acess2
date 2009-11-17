@@ -7,6 +7,7 @@
 #include "ipv6.h"
 
 // === IMPORTS ===
+extern tInterface	*gIP_Interfaces;
 extern Uint32	IPv4_Netmask(int FixedBits);
 
 // === PROTOTYPES ===
@@ -46,8 +47,11 @@ tInterface *IPv6_GetInterface(tAdapter *Adapter, tIPv6 Address, int Broadcast)
 	tInterface	*iface = NULL;
 	Uint32	netmask;
 	
-	for( iface = Adapter->Interfaces; iface; iface = iface->Next)
+	for( iface = gIP_Interfaces; iface; iface = iface->Next)
 	{
+		// Check for this adapter
+		if( iface->Adapter != Adapter )	continue;
+		
 		// Skip non-IPv6 Interfaces
 		if( iface->Type != 6 )	continue;
 		

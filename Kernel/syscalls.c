@@ -9,6 +9,19 @@
 #include <proc.h>
 #include <errno.h>
 
+#define CHECK_NUM_NULLOK(v,size)	do {\
+	if((v)&&!Syscall_Valid((size),(Uint)(v))){ret=-1;err=-EINVAL;break;}\
+	}while(0)
+#define CHECK_STR_NULLOK(v)	do {\
+	if((v)&&!Syscall_ValidString((Uint)(v))){ret=-1;err=-EINVAL;break;}\
+	}while(0)
+#define CHECK_NUM_NONULL(v,size)	do {\
+	if(!(v)||!Syscall_Valid((size),(Uint)(v))){ret=-1;err=-EINVAL;break;}\
+	}while(0)
+#define CHECK_STR_NONULL(v)	do {\
+	if(!(v)||!Syscall_ValidString((Uint)(v))){ret=-1;err=-EINVAL;break;}\
+	}while(0)
+
 // === IMPORTS ===
 extern int	Proc_Clone(Uint *Err, Uint Flags);
 extern int	Threads_WaitTID(int TID, int *status);
@@ -70,6 +83,9 @@ void SyscallHandler(tSyscallRegs *Regs)
 	
 	// -- Wait for a thread
 	case SYS_WAITTID:
+		// Sanity Check (Status can be NULL)
+		CHECK_NUM_NULLOK( Regs->Arg2, sizeof(int) );
+		// TID, *Status
 		ret = Threads_WaitTID(Regs->Arg1, (void*)Regs->Arg2);
 		break;
 	
@@ -101,29 +117,52 @@ void SyscallHandler(tSyscallRegs *Regs)
 	
 	// -- Send Message
 	case SYS_SENDMSG:
+		CHECK_NUM_NONULL(Regs->Arg3, Regs->Arg2);
+		// Destination, Size, *Data
 		ret = Proc_SendMessage(&err, Regs->Arg1, Regs->Arg2, (void*)Regs->Arg3);
 		break;
 	// -- Check for messages
 	case SYS_GETMSG:
+		CHECK_NUM_NULLOK(Regs->Arg1, sizeof(Uint));
+		//NOTE: Uncertain due to length being unknown
+		// (Proc_GetMessage should check itself)
+		CHECK_NUM_NULLOK(Regs->Arg2, sizeof(Uint)*4);
+		// *Source, *Data
 		ret = Proc_GetMessage(&err, (Uint*)Regs->Arg1, (void*)Regs->Arg2);
 		break;
 	
 	// -- Set the thread's name
 	case SYS_SETNAME:
-		// Sanity Check
-		if(!Regs->Arg1) {	ret = -1;	err = -EINVAL;	break;	}
-		Threads_SetName( (void*)Regs->Arg1 );
+		CHECK_STR_NONULL(Regs->Arg1);
+		Threads_SetName( (char*)Regs->Arg1 );
 		break;
 	
 	// ---
 	// Binary Control
 	// ---
 	case SYS_EXECVE:
-		if( !Syscall_ValidString(Regs->Arg1) ) {
-			err = -EINVAL;
-			ret = -1;
-			break;
+		CHECK_STR_NONULL(Regs->Arg1);
+		{
+			 int	i;
+			char	**tmp = (char**)Regs->Arg2;
+			// Check ArgV (traverse array checking all string pointers)
+			CHECK_NUM_NONULL( tmp, sizeof(char**) );
+			for(i=0;tmp[i];i++) {
+				CHECK_NUM_NULLOK( &tmp[i], sizeof(char*) );
+				CHECK_STR_NONULL( tmp[i] );
+			}
+			// Check EnvP also
+			// - EnvP can be NULL
+			if( Regs->Arg3 )
+			{
+				tmp = (char**)Regs->Arg3;
+				for(i=0;tmp[i];i++) {
+					CHECK_NUM_NULLOK( &tmp[i], sizeof(char*) );
+					CHECK_STR_NONULL( tmp[i] );
+				}
+			}
 		}
+		// Path, **Argv, **Envp
 		ret = Proc_Execve((char*)Regs->Arg1, (char**)Regs->Arg2, (char**)Regs->Arg3);
 		break;
 	case SYS_LOADBIN:
@@ -133,6 +172,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 			ret = -1;
 			break;
 		}
+		// Path, *Entrypoint
 		ret = Binary_Load((char*)Regs->Arg1, (Uint*)Regs->Arg2);
 		break;
 	
@@ -153,7 +193,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 		break;
 	
 	case SYS_SEEK:
-		ret = VFS_Seek( Regs->Arg1, Regs->Arg2, Regs->Arg3);
+		ret = VFS_Seek( Regs->Arg1, Regs->Arg2, Regs->Arg3 );
 		break;
 		
 	case SYS_TELL:
@@ -161,28 +201,24 @@ void SyscallHandler(tSyscallRegs *Regs)
 		break;
 	
 	case SYS_WRITE:
-		#if BITS < 64
-		ret = VFS_Write( Regs->Arg1, Regs->Arg2|((Uint64)Regs->Arg3<<32), (void*)Regs->Arg4 );
-		#else
+		CHECK_NUM_NONULL( Regs->Arg3, Regs->Arg2 );
 		ret = VFS_Write( Regs->Arg1, Regs->Arg2, (void*)Regs->Arg3 );
-		#endif
 		break;
 	
 	case SYS_READ:
-		#if BITS < 64
-		ret = VFS_Read( Regs->Arg1, Regs->Arg2|((Uint64)Regs->Arg3<<32), (void*)Regs->Arg4 );
-		#else
+		CHECK_NUM_NONULL( Regs->Arg3, Regs->Arg2 );
 		ret = VFS_Read( Regs->Arg1, Regs->Arg2, (void*)Regs->Arg3 );
-		#endif
 		break;
 	
 	case SYS_FINFO:
+		CHECK_NUM_NONULL( Regs->Arg2, sizeof(struct s_sysFInfo) + Regs->Arg3*sizeof(tVFS_ACL) );
+		// FP, Dest, MaxACLs
 		ret = VFS_FInfo( Regs->Arg1, (void*)Regs->Arg2, Regs->Arg3 );
 		break;
 	
 	// Get ACL Value
 	case SYS_GETACL:
-		if( !Syscall_Valid(8, Regs->Arg1) ) {
+		if( !Syscall_Valid(sizeof(tVFS_ACL), Regs->Arg1) ) {
 			err = -EINVAL;
 			ret = -1;
 			break;
@@ -192,7 +228,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 	
 	// Read Directory
 	case SYS_READDIR:
-		if( !Syscall_ValidString(Regs->Arg2) ) {
+		if( !Syscall_Valid(8, Regs->Arg2) ) {
 			err = -EINVAL;
 			ret = -1;
 			break;
@@ -212,6 +248,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 	
 	// IO Control
 	case SYS_IOCTL:
+		// All sanity checking should be done by the driver
 		ret = VFS_IOCtl( Regs->Arg1, Regs->Arg2, (void*)Regs->Arg3 );
 		break;
 	
@@ -241,10 +278,12 @@ void SyscallHandler(tSyscallRegs *Regs)
 		break;
 	
 	// -- Debug
+	#if DEBUG_BUILD
 	case SYS_DEBUG:
 		Log((char*)Regs->Arg1,
 			Regs->Arg2, Regs->Arg3, Regs->Arg4, Regs->Arg5, Regs->Arg6);
 		break;
+	#endif
 	
 	// -- Default (Return Error)
 	default:
@@ -263,7 +302,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 	#endif
 	Regs->Error = err;
 	#if DEBUG
-	LOG("SyscallHandler: err = %i", err);
+	LOG("err = %i", err);
 	LEAVE('x', ret);
 	#endif
 }
@@ -274,18 +313,10 @@ void SyscallHandler(tSyscallRegs *Regs)
  */
 int Syscall_ValidString(Uint Addr)
 {
-	// Check 1st page
-	if(!MM_GetPhysAddr(Addr))	return 0;
+	// Check if the memory is user memory
+	if(!MM_IsUser(Addr))	return 0;
 	
-	// Traverse String
-	while(*(char*)Addr)
-	{
-		if(!MM_GetPhysAddr(Addr))	return 0;
-		// Increment string pointer
-		Addr ++;
-	}
-	
-	return 1;
+	return CheckString( (char*)Addr );
 }
 
 /**
@@ -294,10 +325,7 @@ int Syscall_ValidString(Uint Addr)
  */
 int Syscall_Valid(int Size, Uint Addr)
 {
-	while(Size--)
-	{
-		if(!MM_GetPhysAddr(Addr))	return 0;
-		Addr ++;
-	}
-	return 1;
+	if(!MM_IsUser(Addr))	return 0;
+	
+	return CheckMem( (void*)Addr, Size );
 }

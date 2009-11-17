@@ -182,18 +182,6 @@ int VFS_IOCtl(int FD, int ID, void *Buffer)
 	return h->Node->IOCtl(h->Node, ID, Buffer);
 }
 
-// -- System Call Structures ---
-struct s_sysFInfo {
-	Uint	uid, gid;
-	Uint	flags;
-	Uint64	size;
-	Sint64	atime;
-	Sint64	mtime;
-	Sint64	ctime;
-	 int	numacls;
-	tVFS_ACL	acls[];
-};
-
 /**
  * \fn int VFS_FInfo(int FD, struct s_sysFInfo *Dest, int MaxACLs)
  * \brief Retrieve file information

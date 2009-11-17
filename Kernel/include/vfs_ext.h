@@ -19,6 +19,33 @@
 #define SEEK_CUR	0
 #define SEEK_END	-1
 
+// -- System Call Structures ---
+/**
+ * \brief ACL Defintion Structure
+ */
+typedef struct sVFS_ACL
+{
+	struct {
+		unsigned Group:	1;	//!< Group (as opposed to user) flag
+		unsigned ID:	31;	//!< ID of Group/User (-1 for nobody/world)
+	};
+	struct {
+		unsigned Inv:	1;	//!< Invert Permissions
+		unsigned Perms:	31;	//!< Permission Flags
+	};
+} tVFS_ACL;
+
+struct s_sysFInfo {
+	Uint	uid, gid;
+	Uint	flags;
+	Uint64	size;
+	Sint64	atime;
+	Sint64	mtime;
+	Sint64	ctime;
+	 int	numacls;
+	tVFS_ACL	acls[];
+};
+
 // === FUNCTIONS ===
 extern int	VFS_Init();
 

@@ -24,6 +24,8 @@ enum eTplDrv_IOCtl {
 	DRV_IOCTL_LOOKUP
 };
 
+#define	DRV_IOCTLNAMES	"type", "ident", "version", "lookup"
+
 /**
  * \enum eTplDrv_Type
  * \brief Driver Types returned by DRV_IOCTL_TYPE
@@ -40,19 +42,5 @@ enum eTplDrv_Type {
 	DRV_TYPE_JOYSTICK,	//!< Joystick / Gamepad
 	DRV_TYPE_NETWORK	//!< Network Device
 };
-
-// === FUNCTIONS ===
-/**
- * \fn int GetIOCtlId(int Class, char *Name)
- * \brief Transforms a symbolic name into an ID
- * \param Class	::eTplDrv_Type type to use
- * \param Name	Symbolic name to resolve
- * 
- * This function is designed to be used by device drivers to implement
- * ::eTplDrv_IOCtl.DRV_IOCTL_LOOKUP easily given that they conform to
- * the standard interfaces (::eTplDrv_Type except DRV_TYPE_MISC) and do
- * not add their own call numbers.
- */
-extern int	GetIOCtlId(int Class, char *Name);
 
 #endif

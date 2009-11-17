@@ -16,7 +16,7 @@ BIN = ../login
 all: $(BIN)
 
 clean:
-	$(RM) $(BIN) $(OBJ)
+	$(RM) $(BIN) $(OBJ) login.dsm
 
 $(BIN): $(OBJ)
 	@echo --- $(LD) -o $@

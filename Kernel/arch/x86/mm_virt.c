@@ -327,6 +327,22 @@ tPAddr MM_GetPhysAddr(tVAddr Addr)
 	return (gaPageTable[Addr >> 12] & ~0xFFF) | (Addr & 0xFFF);
 }
 
+
+/**
+ * \fn int MM_IsUser(tVAddr Addr)
+ * \brief Checks if a page is user accessable
+ */
+int MM_IsUser(tVAddr Addr)
+{
+	if( !(gaPageDir[Addr >> 22] & 1) )
+		return 0;
+	if( !(gaPageTable[Addr >> 12] & 1) )
+		return 0;
+	if( !(gaPageTable[Addr >> 12] & PF_USER) )
+		return 0;
+	return 1;
+}
+
 /**
  * \fn void MM_SetCR3(tPAddr CR3)
  * \brief Sets the current process space

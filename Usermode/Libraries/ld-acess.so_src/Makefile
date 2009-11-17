@@ -18,7 +18,7 @@ LDFLAGS  = -T link.ld -Map map.txt -Bstatic
 all:	$(BIN)
 
 clean:
-	$(RM) $(BIN) $(AOBJ) $(COBJ)
+	$(RM) $(BIN) $(AOBJ) $(COBJ) ld-acess.dmp ld-acess.dsm link.txt map.txt
 
 $(BIN): $(AOBJ) $(COBJ)
 	@echo --- $(LD) -shared -o $@

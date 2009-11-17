@@ -38,7 +38,7 @@ SRCFILES := $(SRCFILES:%.ao.$(ARCH)=%.asm)
 all: $(BIN)
 
 clean:
-	@$(RM) $(BIN) $(OBJ) $(DEPFILES)
+	@$(RM) $(BIN) $(BIN).dsm ../Map.$(ARCH).txt LineCounts.$(ARCH).txt $(OBJ) $(DEPFILES)
 
 apidoc:
 	doxygen Doxyfile.api

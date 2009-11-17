@@ -19,7 +19,7 @@ $(BIN): $(COBJ)
 	cp $(BIN) $(DISTROOT)/Bin/
 
 clean:
-	$(RM) $(COBJ) $(BIN)
+	$(RM) $(COBJ) $(BIN) $(BIN).dsm Map.txt
 
 $(COBJ): %.o: %.c
 	@echo --- GCC -o $@

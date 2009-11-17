@@ -41,21 +41,6 @@
 //! \}
 
 /**
- * \brief ACL Defintion Structure
- */
-typedef struct sVFS_ACL
-{
-	struct {
-		unsigned Group:	1;	//!< Group (as opposed to user) flag
-		unsigned ID:	31;	//!< ID of Group/User (-1 for nobody/world)
-	};
-	struct {
-		unsigned Inv:	1;	//!< Invert Permissions
-		unsigned Perms:	31;	//!< Permission Flags
-	};
-} tVFS_ACL;
-
-/**
  * \name VFS Node Flags
  * \{
  */

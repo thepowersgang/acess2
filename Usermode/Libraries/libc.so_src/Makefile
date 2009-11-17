@@ -17,7 +17,7 @@ BIN = ../libc.so.1
 all: $(BIN) $(OBJ_LIBC)
 
 clean:
-	$(RM) $(BIN) $(OBJ_LIBC)
+	$(RM) $(BIN) ../libc.so $(OBJ_LIBC) libc.so.1.dsm libc.so.1.dmp map.txt
 
 # Core C Library
 $(BIN): $(OBJ_LIBC)

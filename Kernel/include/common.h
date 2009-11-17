@@ -161,10 +161,9 @@ extern tPAddr	MM_GetPhysAddr(tVAddr VAddr);
 /**
  * \brief Checks is a memory range is user accessable
  * \param VAddr	Base address to check
- * \param Length	Number of bytes to check
  * \return 1 if the memory is all user-accessable, 0 otherwise
  */
-extern int	MM_IsUser(tVAddr VAddr, int Length);
+extern int	MM_IsUser(tVAddr VAddr);
 /**
  * \brief Set the access flags on a page
  * \param VAddr	Virtual address of the page
@@ -242,6 +241,15 @@ extern void *memsetd(void *dest, Uint val, Uint count);
 /**
  * \}
  */
+/**
+ * \name Memory Validation
+ * \{
+ */
+extern int	CheckString(char *String);
+extern int	CheckMem(void *Mem, int Num);
+/**
+ * \}
+ */
 
 // --- Endianness ---
 /**
@@ -272,6 +280,7 @@ extern int	strpos8(const char *str, Uint32 search);
 extern void	itoa(char *buf, Uint num, int base, int minLength, char pad);
 extern int	ReadUTF8(Uint8 *str, Uint32 *Val);
 extern int	WriteUTF8(Uint8 *str, Uint32 Val);
+extern int	LookupString(char **Array, char *Needle);
 /**
  * \}
  */

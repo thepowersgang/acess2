@@ -341,5 +341,91 @@ Uint rand()
 	return giRandomState;
 }
 
+/// \name Memory Validation
+/// \{
+/**
+ * \brief Checks if a string resides fully in valid memory
+ */
+int CheckString(char *String)
+{
+	// Check 1st page
+	if( MM_IsUser( (tVAddr)String ) )
+	{
+		// Traverse String
+		while( *String )
+		{
+			if( !MM_IsUser( (tVAddr)String ) )
+				return 0;
+			// Increment string pointer
+			String ++;
+		}
+		return 1;
+	}
+	else if( MM_GetPhysAddr( (tVAddr)String ) )
+	{
+		// Traverse String
+		while( *String )
+		{
+			if( !MM_GetPhysAddr( (tVAddr)String ) )
+				return 0;
+			// Increment string pointer
+			String ++;
+		}
+		return 1;
+	}
+	return 0;
+}
+
+/**
+ * \brief Check if a sized memory region is valid memory
+ */
+int CheckMem(void *Mem, int NumBytes)
+{
+	tVAddr	addr = (tVAddr)Mem;
+	
+	if( MM_IsUser( addr ) )
+	{
+		while( NumBytes-- )
+		{
+			if( !MM_IsUser( addr ) )
+				return 0;
+			addr ++;
+		}
+		return 1;
+	}
+	else if( MM_GetPhysAddr( addr ) )
+	{
+		while( NumBytes-- )
+		{
+			if( !MM_GetPhysAddr( addr ) )
+				return 0;
+			addr ++;
+		}
+		return 1;
+	}
+	return 0;
+}
+/// \}
+
+/**
+ * \brief Search a string array for \a Needle
+ * \note Helper function for eTplDrv_IOCtl::DRV_IOCTL_LOOKUP
+ */
+int LookupString(char **Array, char *Needle)
+{
+	 int	i;
+	for( i = 0; Array[i]; i++ )
+	{
+		if(strcmp(Array[i], Needle) == 0)	return i;
+	}
+	return -1;
+}
+
+EXPORT(strdup);
+EXPORT(strcmp);
+EXPORT(strcpy);
+
 EXPORT(timestamp);
 EXPORT(ReadUTF8);
+EXPORT(CheckMem);
+EXPORT(CheckString);

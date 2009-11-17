@@ -14,7 +14,7 @@ COBJ = main.o lib.o
 all: $(BIN)
 
 clean:
-	$(RM) $(COBJ) $(BIN)
+	$(RM) $(COBJ) $(BIN) $(BIN).dsm Map.txt
 
 $(BIN): $(COBJ)
 	@echo --- $(LD) -o $@

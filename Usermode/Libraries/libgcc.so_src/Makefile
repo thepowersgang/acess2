@@ -15,7 +15,7 @@ LDFLAGS += -soname libgcc.so
 all: $(BIN)
 
 clean:
-	$(RM) $(BIN) $(OBJS)
+	$(RM) $(BIN) $(OBJS) libgcc.so.dsm
 
 $(BIN): $(OBJS)
 	@echo -- ld -o $@

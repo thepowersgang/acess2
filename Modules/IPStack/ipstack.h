@@ -54,12 +54,12 @@ struct sInterface {
  */
 struct sAdapter {
 	struct sAdapter	*Next;
-	char	*Device;
+	
 	 int	DeviceFD;
+	 int	NRef;
 	
 	tMacAddr	MacAddr;
-	
-	tInterface	*Interfaces;
+	char	Device[];
 };
 
 static const tMacAddr cMAC_BROADCAST = {{0xFF,0xFF,0xFF,0xFF,0xFF,0xFF}};

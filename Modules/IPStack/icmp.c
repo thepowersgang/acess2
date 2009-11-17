@@ -27,6 +27,6 @@ void ICMP_Initialise()
  */
 void ICMP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffer)
 {
-	tICMPHeader	*hdr = Buffer;
+	//tICMPHeader	*hdr = Buffer;
 	
 }

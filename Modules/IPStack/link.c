@@ -19,6 +19,8 @@ struct {
 /**
  * \fn void Link_RegisterType(Uint16 Type, tPacketCallback Callback)
  * \brief Registers a callback for a specific packet type
+ * 
+ * \todo Make thread safe (place a mutex on the list)
  */
 void Link_RegisterType(Uint16 Type, tPacketCallback Callback)
 {
@@ -34,7 +36,7 @@ void Link_RegisterType(Uint16 Type, tPacketCallback Callback)
 		if(gaRegisteredTypes[i].Callback == NULL)	break;
 	}
 	
-	if(i + 1 == 0)
+	if(i == -1)
 	{
 		tmp = realloc(gaRegisteredTypes, (giRegisteredTypes+1)*sizeof(*gaRegisteredTypes));
 		if(!tmp)	Panic("[NET  ] Out of heap space!");
@@ -90,7 +92,7 @@ void Link_WatchDevice(tAdapter *Adapter)
 		tEthernetHeader	*hdr = (void*)buf;
 		 int	ret, i;
 		
-		// Wait for a packet
+		// Wait for a packet (Read on a network device is blocking)
 		ret = VFS_Read(Adapter->DeviceFD, MAX_PACKET_SIZE, buf);
 		if(ret == -1)	break;
 		
@@ -105,7 +107,7 @@ void Link_WatchDevice(tAdapter *Adapter)
 			if(gaRegisteredTypes[i].Type == hdr->Type)	continue;
 		}
 		// No? Ignore it
-		if( i + 1 == 0 )	continue;
+		if( i == -1 )	continue;
 		
 		// Call the callback
 		gaRegisteredTypes[i].Callback(
@@ -115,4 +117,6 @@ void Link_WatchDevice(tAdapter *Adapter)
 			hdr->Data
 			);
 	}
+	
+	Log("[NET  ] Watcher terminated (file closed)");
 }

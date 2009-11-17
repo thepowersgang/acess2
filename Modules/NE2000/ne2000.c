@@ -4,6 +4,7 @@
  * See: ~/Sources/bochs/bochs.../iodev/ne2k.cc
  */
 #define	DEBUG	1
+#define VERSION	((0<<8)|50)
 #include <common.h>
 #include <modules.h>
 #include <fs_devfs.h>
@@ -76,12 +77,13 @@ typedef struct sNe2k_Card {
  int	Ne2k_Install(char **Arguments);
 char	*Ne2k_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*Ne2k_FindDir(tVFS_Node *Node, char *Name);
+ int	Ne2k_IOCtl(tVFS_Node *Node, int ID, void *Data);
 Uint64	Ne2k_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
 Uint8	Ne2k_int_GetWritePage(tCard *Card, Uint16 Length);
 void	Ne2k_IRQHandler(int IntNum);
 
 // === GLOBALS ===
-MODULE_DEFINE(0, 0x0032, Ne2k, Ne2k_Install, NULL, NULL);
+MODULE_DEFINE(0, VERSION, Ne2k, Ne2k_Install, NULL, NULL);
 tDevFS_Driver	gNe2k_DriverInfo = {
 	NULL, "ne2k",
 	{
@@ -193,6 +195,7 @@ int Ne2k_Install(char **Options)
 			gpNe2k_Cards[ k ].Node.NumACLs = 0;	// Root Only
 			gpNe2k_Cards[ k ].Node.CTime = now();
 			gpNe2k_Cards[ k ].Node.Write = Ne2k_Write;
+			gpNe2k_Cards[ k ].Node.IOCtl = Ne2k_IOCtl;
 		}
 	}
 	
@@ -223,8 +226,43 @@ tVFS_Node *Ne2k_FindDir(tVFS_Node *Node, char *Name)
 	return &gpNe2k_Cards[ Name[0]-'0' ].Node;
 }
 
+static const char *casIOCtls[] = { DRV_IOCTLNAMES, DRV_NETWORK_IOCTLNAMES, NULL };
+/**
+ * \fn int Ne2k_IOCtl(tVFS_Node *Node, int ID, void *Data)
+ * \brief IOCtl calls for a network device
+ */
+int Ne2k_IOCtl(tVFS_Node *Node, int ID, void *Data)
+{
+	switch( ID )
+	{
+	case DRV_IOCTL_TYPE:	return DRV_TYPE_NETWORK;
+	case DRV_IOCTL_IDENT:
+		if(!CheckMem(Data, 4))	return -1;
+		memcpy(Data, "NE2K", 4);
+		return 1;
+	case DRV_IOCTL_VERSION:	return VERSION;
+	case DRV_IOCTL_LOOKUP:
+		if(!CheckString(Data))	return -1;
+		return LookupString( casIOCtls, Data );
+	}
+	
+	// If this is the root, return
+	if( Node == &gNe2k_DriverInfo.Node )	return 0;
+	
+	// Device specific settings
+	switch( ID )
+	{
+	case NET_IOCTL_GETMAC:
+		if(!CheckMem(Data, 6))	return -1;
+		memcpy( Data, ((tCard*)Node->ImplPtr)->MacAddr, 6 );
+		return 1;
+	}
+	return 0;
+}
+
 /**
  * \fn Uint64 Ne2k_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+ * \brief Send a packet from the network card
  */
 Uint64 Ne2k_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 {

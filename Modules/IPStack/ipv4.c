@@ -6,6 +6,9 @@
 #include "link.h"
 #include "ipv4.h"
 
+// === IMPORTS ===
+extern tInterface	*gIP_Interfaces;
+
 // === PROTOTYPES ===
  int	IPv4_Initialise();
 void	IPv4_int_GetPacket(tAdapter *Interface, tMacAddr From, int Length, void *Buffer);
@@ -33,7 +36,7 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 {
 	tIPv4Header	*hdr = Buffer;
 	tInterface	*iface;
-	char	*data;
+	Uint8	*data;
 	 int	dataLength;
 	if(Length < sizeof(tIPv4Header))	return;
 	
@@ -69,8 +72,9 @@ tInterface *IPv4_GetInterface(tAdapter *Adapter, tIPv4 Address, int Broadcast)
 	tInterface	*iface = NULL;
 	Uint32	netmask;
 	
-	for( iface = Adapter->Interfaces; iface; iface = iface->Next)
+	for( iface = gIP_Interfaces; iface; iface = iface->Next)
 	{
+		if( iface->Adapter != Adapter )	continue;
 		if( iface->Type != 4 )	continue;
 		if( IP4_EQU(Address, iface->IP4.Address) )
 			return iface;

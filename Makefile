@@ -25,15 +25,18 @@ all:
 	@$(MAKE) all --no-print-directory -C Usermode/Applications/cat_src
 	@echo === ls
 	@$(MAKE) all --no-print-directory -C Usermode/Applications/ls_src
+	@echo === mount
+	@$(MAKE) all --no-print-directory -C Usermode/Applications/mount_src
 
 clean:
-	make clean --no-print-directory -C Kernel/
-	make clean --no-print-directory -C Usermode/Libraries/ld-acess.so_src
-	make clean --no-print-directory -C Usermode/Libraries/libacess.so_src
-	make clean --no-print-directory -C Usermode/Libraries/libc.so_src
-	make clean --no-print-directory -C Usermode/Libraries/libgcc.so_src
-	make clean --no-print-directory -C Usermode/Applications/init_src
-	make clean --no-print-directory -C Usermode/Applications/login_src
-	make clean --no-print-directory -C Usermode/Applications/CLIShell_src
-	make clean --no-print-directory -C Usermode/Applications/cat_src
-	make clean --no-print-directory -C Usermode/Applications/ls_src
+	@make clean --no-print-directory -C Kernel/
+	@make clean --no-print-directory -C Usermode/Libraries/ld-acess.so_src
+	@make clean --no-print-directory -C Usermode/Libraries/libacess.so_src
+	@make clean --no-print-directory -C Usermode/Libraries/libc.so_src
+	@make clean --no-print-directory -C Usermode/Libraries/libgcc.so_src
+	@make clean --no-print-directory -C Usermode/Applications/init_src
+	@make clean --no-print-directory -C Usermode/Applications/login_src
+	@make clean --no-print-directory -C Usermode/Applications/CLIShell_src
+	@make clean --no-print-directory -C Usermode/Applications/cat_src
+	@make clean --no-print-directory -C Usermode/Applications/ls_src
+	@make clean --no-print-directory -C Usermode/Applications/mount_src
