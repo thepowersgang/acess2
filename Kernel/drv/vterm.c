@@ -197,7 +197,6 @@ int VT_Install(char **Arguments)
 void VT_InitOutput()
 {
 	giVT_OutputDevHandle = VFS_Open(gsVT_OutputDevice, VFS_OPENFLAG_WRITE);
-	Log("giVT_OutputDevHandle = %x\n", giVT_OutputDevHandle);
 	VT_SetTerminal( 0 );
 }
 
@@ -208,7 +207,6 @@ void VT_InitOutput()
 void VT_InitInput()
 {
 	giVT_InputDevHandle = VFS_Open(gsVT_InputDevice, VFS_OPENFLAG_READ);
-	LOG("giVT_InputDevHandle = %x\n", giVT_InputDevHandle);
 	if(giVT_InputDevHandle == -1)	return ;
 	VFS_IOCtl(giVT_InputDevHandle, KB_IOCTL_SETCALLBACK, VT_KBCallBack);
 }
@@ -495,9 +493,9 @@ void VT_KBCallBack(Uint32 Codepoint)
 		case KEY_F11:	VT_SetTerminal(10);	return;
 		case KEY_F12:	VT_SetTerminal(11);	return;
 		case KEY_PGUP:
-			break;
+			return;
 		case KEY_PGDOWN:
-			break;
+			return;
 		}
 	}
 	

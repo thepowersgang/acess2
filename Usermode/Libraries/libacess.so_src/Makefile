@@ -20,7 +20,7 @@ clean:
 $(BIN): $(OBJ)
 	@echo --- $(LD) -shared -o $@
 	@$(LD) $(LDFLAGS) -o $(BIN) $(OBJ)
-	$(STRIP) $(BIN)
+	@$(STRIP) $(BIN)
 	cp $(BIN) $(DISTROOT)/Libs
 	
 %.ao: %.asm syscalls.inc.asm

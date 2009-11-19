@@ -200,7 +200,7 @@ void Debug_SetKTerminal(char *File)
 	if(giDebug_KTerm != -1)
 		VFS_Close(giDebug_KTerm);
 	giDebug_KTerm = VFS_Open(File, VFS_OPENFLAG_WRITE);
-	Log("Opend '%s' as %i\n", File, giDebug_KTerm);
+	Log("Opened '%s' as %i\n", File, giDebug_KTerm);
 }
 
 void Debug_Enter(char *FuncName, char *ArgTypes, ...)
@@ -330,6 +330,7 @@ void Debug_HexDump(char *Header, void *Data, Uint Length)
 }
 
 // --- EXPORTS ---
+EXPORT(Log);
 EXPORT(Warning);
 EXPORT(Debug_Enter);
 EXPORT(Debug_Log);

@@ -212,3 +212,12 @@ int VFS_FInfo(int FD, struct s_sysFInfo *Dest, int MaxACLs)
 	
 	return max;
 }
+
+// === EXPORTS ===
+EXPORT(VFS_Read);
+EXPORT(VFS_Write);
+EXPORT(VFS_ReadAt);
+EXPORT(VFS_WriteAt);
+EXPORT(VFS_IOCtl);
+EXPORT(VFS_Seek);
+EXPORT(VFS_Tell);

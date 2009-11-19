@@ -8,23 +8,24 @@ CFLAGS   +=
 ASFLAGS  +=
 LDFLAGS  += -soname libc.so.1 -Map map.txt -lgcc
 
-OBJ_LIBC = heap.o stdlib.o stub.o env.o fileIO.o string.o
+OBJ = stub.o heap.o stdlib.o env.o fileIO.o string.o
+DEPFILES := $(OBJ:%.o=%.d)
 # signals.o
 BIN = ../libc.so.1
 
 .PHONY:	all clean
 
-all: $(BIN) $(OBJ_LIBC)
+all: $(BIN)
 
 clean:
-	$(RM) $(BIN) ../libc.so $(OBJ_LIBC) libc.so.1.dsm libc.so.1.dmp map.txt
+	$(RM) $(BIN) ../libc.so $(OBJ) $(DEPFILES) libc.so.1.dsm libc.so.1.dmp map.txt
 
 # Core C Library
-$(BIN): $(OBJ_LIBC)
+$(BIN): $(OBJ)
 	@echo --- ld -shared -o $@
-	@$(LD) $(LDFLAGS) $(OBJ_LIBC) -o $@
-	$(OBJDUMP) -d $@ > libc.so.1.dsm
-	$(OBJDUMP) -x -r -R $@ > libc.so.1.dmp
+	@$(LD) $(LDFLAGS) $(OBJ) -o $@
+	@$(OBJDUMP) -d $@ > libc.so.1.dsm
+	@$(OBJDUMP) -x -r -R $@ > libc.so.1.dmp
 	cp ../libc.so.1 ../libc.so
 	cp ../libc.so.1 $(DISTROOT)/Libs/
 
@@ -33,10 +34,11 @@ $(BIN): $(OBJ_LIBC)
 	@echo --- $(AS) -o $@
 	@$(AS) $(ASFLAGS) -o $@ $<
 
-$(filter %.o, $(OBJ_LIBC)): %.o: %.c config.h
+$(filter %.o, $(OBJ)): %.o: %.c
 	@echo --- $(CC) -o $@
 	@$(CC) $(CFLAGS) -DBUILD_SO -o $@ -c $<
+	@$(MAKEDEP) $(CPPFLAGS) -MT $@ -o $*.d $<
 
-$(filter %.ao, $(OBJ_LIBC)): %.ao: %.asm
+$(filter %.ao, $(OBJ)): %.ao: %.asm
 	@echo --- $(AS) -o $@
 	@$(AS) $(ASFLAGS) -o $@ $<

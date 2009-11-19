@@ -14,11 +14,14 @@ OBJ = main.o
 all: $(BIN)
 
 clean:
-	$(RM) $(BIN) $(OBJ)
+	$(RM) $(BIN) $(OBJ) $(BIN).dsm
 
 $(BIN): $(OBJ) Makefile
-	$(LD) $(LDFLAGS) $(OBJ) -o $(BIN)
+	@echo --- ld -o $(BIN)
+	@$(LD) $(LDFLAGS) $(OBJ) -o $(BIN)
+	$(OBJDUMP) -d $(BIN) > $(BIN).dsm
 	cp $(BIN) $(DISTROOT)/SBin/
 
 %.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+	@echo --- cc -o $@
+	@$(CC) $(CFLAGS) -c $< -o $@

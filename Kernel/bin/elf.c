@@ -277,6 +277,7 @@ int Elf_Relocate(void *Base)
 	Elf32_Dyn	*dynamicTab = NULL;	// Dynamic Table Pointer
 	char	*dynstrtab = NULL;	// .dynamic String Table
 	Elf32_Sym	*dynsymtab = NULL;
+	 int	bFailed = 0;
 	
 	ENTER("pBase", Base);
 	
@@ -393,8 +394,7 @@ int Elf_Relocate(void *Base)
 		{
 			ptr = (void*)(iBaseDiff + rel[i].r_offset);
 			if( !Elf_Int_DoRelocate(rel[i].r_info, ptr, *ptr, dynsymtab, (Uint)Base) ) {
-				LEAVE('x', 0);
-				return 0;
+				bFailed = 1;
 			}
 		}
 	}
@@ -406,8 +406,7 @@ int Elf_Relocate(void *Base)
 		{
 			ptr = (void*)(iBaseDiff + rela[i].r_offset);
 			if( !Elf_Int_DoRelocate(rel[i].r_info, ptr, rela[i].r_addend, dynsymtab, (Uint)Base) ) {
-				LEAVE('x', 0);
-				return 0;
+				bFailed = 1;
 			}
 		}
 	}
@@ -423,8 +422,7 @@ int Elf_Relocate(void *Base)
 			{
 				ptr = (void*)(iBaseDiff + pltRel[i].r_offset);
 				if( !Elf_Int_DoRelocate(pltRel[i].r_info, ptr, *ptr, dynsymtab, (Uint)Base) ) {
-					LEAVE('x', 0);
-					return 0;
+					bFailed = 1;
 				}
 			}
 		}
@@ -436,11 +434,15 @@ int Elf_Relocate(void *Base)
 			{
 				ptr = (void*)((Uint)Base + pltRela[i].r_offset);
 				if( !Elf_Int_DoRelocate(pltRela[i].r_info, ptr, pltRela[i].r_addend, dynsymtab, (Uint)Base) ) {
-					LEAVE('x', 0);
-					return 0;
+					bFailed = 1;
 				}
 			}
 		}
+	}
+	
+	if(bFailed) {
+		LEAVE('i', 0);
+		return 0;
 	}
 	
 	LEAVE('x', hdr->entrypoint);

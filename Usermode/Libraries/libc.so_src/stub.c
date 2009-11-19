@@ -4,8 +4,12 @@
 #include "stdio_int.h"
 #include "lib.h"
 
+#define USE_CPUID	0
+
 // === PROTOTYPES ===
+#if USE_CPUID
 static void	cpuid(uint32_t Num, uint32_t *EAX, uint32_t *EBX, uint32_t *EDX, uint32_t *ECX);
+#endif
 
 // === GLOBALS ===
 extern char **_envp;
@@ -14,7 +18,9 @@ extern struct sFILE	*stdin;
 extern struct sFILE	*stdout;
 extern struct sFILE	*stderr;
 // --- CPU Features ---
+#if USE_CPUID
 tCPUID	gCPU_Features;
+#endif
 
 // === CODE ===
 /**
@@ -38,19 +44,20 @@ int SoMain(unsigned int BaseAddress, int argc, char **argv, char **envp)
 	stderr = &_iob[2];
 	stderr->FD = 2;	stderr->Flags = FILE_FLAG_MODE_WRITE;
 	
-	/*
+	#if USE_CPUID
 	{
 		uint32_t	ecx, edx;
 		cpuid(1, NULL, NULL, &edx, &ecx);
 		gCPU_Features.SSE  = edx & (1 << 25);	// SSE
 		gCPU_Features.SSE2 = edx & (1 << 26);	// SSE2
 	}
-	*/
+	#endif
 	
 	return 1;
 }
 
 
+#if USE_CPUID
 /**
  * \brief Call the CPUID opcode
  */
@@ -69,3 +76,4 @@ static void cpuid(uint32_t Num, uint32_t *EAX, uint32_t *EBX, uint32_t *EDX, uin
 	if(EDX)	*EDX = edx;
 	if(ECX)	*ECX = ecx;
 }
+#endif

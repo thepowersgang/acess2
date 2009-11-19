@@ -5,7 +5,7 @@
 
 // === CONSTANTS ===
 #define NULL	((void*)0)
-#define NUM_TERMS	4
+#define NUM_TERMS	1
 #define	DEFAULT_TERMINAL	"/Devices/VTerm/0"
 #define DEFAULT_SHELL	"/Acess/SBin/login"
 
@@ -17,24 +17,28 @@
 int main(int argc, char *argv[])
 {
 	 int	tid;
-	// int	i;
-	char	termpath[sizeof(DEFAULT_TERMINAL)+1] = DEFAULT_TERMINAL;
+	 int	i;
+	char	termpath[sizeof(DEFAULT_TERMINAL)] = DEFAULT_TERMINAL;
+	char	*child_argv[2] = {DEFAULT_SHELL, 0};
 	
-	//for( i = 0; i < NUM_TERMS; i++ )
-	//{
-		//termpath[ sizeof(DEFAULT_TERMINAL)-1 ] = '0' + i;
-		open(termpath, OPENFLAG_READ);	// Stdin
-		open(termpath, OPENFLAG_WRITE);	// Stdout
-		open(termpath, OPENFLAG_WRITE);	// Stderr
-		
+	for( i = 0; i < NUM_TERMS; i++ )
+	{		
 		tid = clone(CLONE_VM, 0);
 		if(tid == 0)
 		{
-			execve(DEFAULT_SHELL, NULL, NULL);
-			for(;;) __asm__ __volatile__("hlt");
+			termpath[sizeof(DEFAULT_TERMINAL)-2] = '0' + i;
+			
+			//__asm__ __volatile__ ("int $0xAC" :: "a" (256), "b" ("%s"), "c" (termpath));
+			
+			open(termpath, OPENFLAG_READ);	// Stdin
+			open(termpath, OPENFLAG_WRITE);	// Stdout
+			open(termpath, OPENFLAG_WRITE);	// Stderr
+			execve(DEFAULT_SHELL, child_argv, NULL);
+			for(;;)	sleep();
 		}
-	//}
+	}
 	
+	// TODO: Implement message watching
 	for(;;)	sleep();
 	
 	return 42;

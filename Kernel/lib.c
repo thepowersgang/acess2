@@ -421,11 +421,15 @@ int LookupString(char **Array, char *Needle)
 	return -1;
 }
 
+EXPORT(strlen);
 EXPORT(strdup);
 EXPORT(strcmp);
+EXPORT(strncmp);
 EXPORT(strcpy);
+//EXPORT(strncpy);
 
 EXPORT(timestamp);
 EXPORT(ReadUTF8);
 EXPORT(CheckMem);
 EXPORT(CheckString);
+EXPORT(LookupString);

@@ -9,18 +9,14 @@
 #include <proc.h>
 #include <errno.h>
 
-#define CHECK_NUM_NULLOK(v,size)	do {\
-	if((v)&&!Syscall_Valid((size),(Uint)(v))){ret=-1;err=-EINVAL;break;}\
-	}while(0)
-#define CHECK_STR_NULLOK(v)	do {\
-	if((v)&&!Syscall_ValidString((Uint)(v))){ret=-1;err=-EINVAL;break;}\
-	}while(0)
-#define CHECK_NUM_NONULL(v,size)	do {\
-	if(!(v)||!Syscall_Valid((size),(Uint)(v))){ret=-1;err=-EINVAL;break;}\
-	}while(0)
-#define CHECK_STR_NONULL(v)	do {\
-	if(!(v)||!Syscall_ValidString((Uint)(v))){ret=-1;err=-EINVAL;break;}\
-	}while(0)
+#define CHECK_NUM_NULLOK(v,size)	\
+	if((v)&&!Syscall_Valid((size),(Uint)(v))){ret=-1;err=-EINVAL;break;}
+#define CHECK_STR_NULLOK(v)	\
+	if((v)&&!Syscall_ValidString((Uint)(v))){ret=-1;err=-EINVAL;break;}
+#define CHECK_NUM_NONULL(v,size)	\
+	if(!(v)||!Syscall_Valid((size),(Uint)(v))){ret=-1;err=-EINVAL;break;}
+#define CHECK_STR_NONULL(v)	\
+	if(!(v)||!Syscall_ValidString((Uint)(v))){ret=-1;err=-EINVAL;break;}
 
 // === IMPORTS ===
 extern int	Proc_Clone(Uint *Err, Uint Flags);
@@ -48,12 +44,12 @@ void SyscallHandler(tSyscallRegs *Regs)
 {
 	Uint64	ret = 0;
 	Uint	err = 0;
-	#if DEBUG
+	
 	ENTER("iThread iNum", Threads_GetTID(), Regs->Num);
 	if(Regs->Num < NUM_SYSCALLS)
 		LOG("Syscall %s", cSYSCALL_NAMES[Regs->Num]);
-	LOG("Arg1: 0x%x, Arg2: 0x%x, Arg3: 0x%x", Regs->Arg1, Regs->Arg2, Regs->Arg3);
-	#endif
+	LOG("Arg1: 0x%x, Arg2: 0x%x, Arg3: 0x%x, Arg4: 0x%x", Regs->Arg1, Regs->Arg2, Regs->Arg3, Regs->Arg4);
+	//#endif
 	
 	switch(Regs->Num)
 	{
@@ -142,13 +138,15 @@ void SyscallHandler(tSyscallRegs *Regs)
 	// ---
 	case SYS_EXECVE:
 		CHECK_STR_NONULL(Regs->Arg1);
+		//Log(" Regs = {Arg2: %x, Arg3: %x}", Regs->Arg2, Regs->Arg3);
 		{
 			 int	i;
 			char	**tmp = (char**)Regs->Arg2;
 			// Check ArgV (traverse array checking all string pointers)
 			CHECK_NUM_NONULL( tmp, sizeof(char**) );
+			//Log("tmp = %p", tmp);
 			for(i=0;tmp[i];i++) {
-				CHECK_NUM_NULLOK( &tmp[i], sizeof(char*) );
+				CHECK_NUM_NONULL( &tmp[i], sizeof(char*) );
 				CHECK_STR_NONULL( tmp[i] );
 			}
 			// Check EnvP also
@@ -156,6 +154,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 			if( Regs->Arg3 )
 			{
 				tmp = (char**)Regs->Arg3;
+				//Log("tmp = %p", tmp);
 				for(i=0;tmp[i];i++) {
 					CHECK_NUM_NULLOK( &tmp[i], sizeof(char*) );
 					CHECK_STR_NONULL( tmp[i] );
@@ -278,12 +277,12 @@ void SyscallHandler(tSyscallRegs *Regs)
 		break;
 	
 	// -- Debug
-	#if DEBUG_BUILD
+	//#if DEBUG_BUILD
 	case SYS_DEBUG:
 		Log((char*)Regs->Arg1,
 			Regs->Arg2, Regs->Arg3, Regs->Arg4, Regs->Arg5, Regs->Arg6);
 		break;
-	#endif
+	//#endif
 	
 	// -- Default (Return Error)
 	default:
@@ -294,6 +293,11 @@ void SyscallHandler(tSyscallRegs *Regs)
 		ret = -1;
 		break;
 	}
+	
+	if(err != 0) {
+		LOG("ID: %i, Return errno = %i", Regs->Num, err);
+	}
+	
 	#if BITS < 64
 	Regs->Return = ret&0xFFFFFFFF;
 	Regs->RetHi = ret >> 32;

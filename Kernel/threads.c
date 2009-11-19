@@ -708,3 +708,6 @@ void Threads_SegFault(tVAddr Addr)
 	Warning("Thread #%i committed a segfault at address %p", Proc_GetCurThread()->TID, Addr);
 	Threads_Exit( 0, -1 );
 }
+
+// === EXPORTS ===
+EXPORT(Threads_GetUID);

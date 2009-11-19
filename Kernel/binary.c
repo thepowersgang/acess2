@@ -9,6 +9,7 @@
 // === CONSTANTS ===
 #define BIN_LOWEST	MM_USER_MIN		// 1MiB
 #define BIN_GRANUALITY	0x10000		// 64KiB
+//! \todo Move 0xBC000000 to mm_virt.h
 #define BIN_HIGHEST	(0xBC000000-BIN_GRANUALITY)		// Just below the kernel
 #define	KLIB_LOWEST	MM_MODULE_MIN
 #define KLIB_GRANUALITY	0x8000		// 32KiB
@@ -321,6 +322,8 @@ Uint Binary_MapIn(tBinary *binary)
 		else
 			MM_SetFlags( addr, MM_PFLAG_COW, -1 );
 	}
+	
+	//Log("Mapped '%s' to 0x%x", binary->TruePath, base);
 	
 	//LOG("*0x%x = 0x%x\n", binary->Pages[0].Virtual, *(Uint*)binary->Pages[0].Virtual);
 	

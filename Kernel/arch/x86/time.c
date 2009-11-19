@@ -177,3 +177,9 @@ void Time_Delay(int Delay)
 	Sint64	dest = giTimestamp + Delay;
 	while(dest < giTimestamp)	Threads_Yield();
 }
+
+// === EXPORTS ===
+EXPORT(now);
+EXPORT(Time_CreateTimer);
+EXPORT(Time_RemoveTimer);
+EXPORT(Time_Delay);

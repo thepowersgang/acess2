@@ -666,3 +666,7 @@ tVFS_Handle *VFS_GetHandle(int FD)
 	if(h->Node == NULL)	return NULL;
 	return h;
 }
+
+// === EXPORTS ===
+EXPORT(VFS_Open);
+EXPORT(VFS_Close);

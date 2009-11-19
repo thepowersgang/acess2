@@ -34,11 +34,11 @@ struct sInterface {
 	struct sInterface	*Next;
 	tVFS_Node	Node;
 	tAdapter	*Adapter;
-	 int	Type;	// 4 for IPv4 and 6 for IPv6
+	 int	Type;	// 0 for disabled, 4 for IPv4 and 6 for IPv6
 	union {
 		struct	{
 			tIPv6	Address;
-			 int	SubnetBits;
+			 int	SubnetBits;	//Should this be outside the union?
 		}	IP6;
 		
 		struct {

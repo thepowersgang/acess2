@@ -568,3 +568,6 @@ void Proc_Scheduler(int CPU)
 		);
 	for(;;);	// Shouldn't reach here
 }
+
+// === EXPORTS ===
+EXPORT(Proc_SpawnWorker);

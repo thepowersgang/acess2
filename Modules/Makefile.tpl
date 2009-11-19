@@ -25,6 +25,7 @@ $(BIN): $(OBJ)
 	@echo --- $(LD) -o $@
 	@$(LD) -T ../link.ld -shared -nostdlib -o $@ $(OBJ)
 #	@$(LD) -shared -nostdlib -o $@ $(OBJ)
+	cp $@ $(DISTROOT)/Modules/$(NAME).kmd
 	@echo --- $(LD) -o $(KOBJ)
 	@$(CC) -Wl,-r -nostdlib -o $(KOBJ) $(OBJ)
 

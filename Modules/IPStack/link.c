@@ -39,7 +39,10 @@ void Link_RegisterType(Uint16 Type, tPacketCallback Callback)
 	if(i == -1)
 	{
 		tmp = realloc(gaRegisteredTypes, (giRegisteredTypes+1)*sizeof(*gaRegisteredTypes));
-		if(!tmp)	Panic("[NET  ] Out of heap space!");
+		if(!tmp) {
+			Warning("[NET  ] Out of heap space!");
+			return ;
+		}
 		i = giRegisteredTypes;
 		giRegisteredTypes ++;
 		gaRegisteredTypes = tmp;
@@ -77,7 +80,8 @@ void Link_WatchDevice(tAdapter *Adapter)
 	 int	tid = Proc_SpawnWorker();	// Create a new worker thread
 	
 	if(tid < 0) {
-		Panic("[NET  ] Unable to create watcher thread for '%s'", Adapter->Device);
+		Warning("[NET  ] Unable to create watcher thread for '%s'", Adapter->Device);
+		return ;
 	}
 	
 	if(tid > 0) {

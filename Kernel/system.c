@@ -252,7 +252,7 @@ void System_ExecuteScript()
 			i += 7;
 			i += System_Int_GetString(fData+i, &sArg1);
 			if(!sArg1)	goto read2eol;
-			Log("[CFG ] Load EDI Module '%s'\n", sArg1);
+			Log("[CFG  ] Load EDI Module '%s'", sArg1);
 			Module_LoadFile(sArg1, "");
 		}
 		// - Symlink
@@ -262,7 +262,7 @@ void System_ExecuteScript()
 			if(!sArg1)	goto read2eol;
 			i += System_Int_GetString(fData+i, &sArg2);
 			if(!sArg2)	goto read2eol;
-			Log("[CFG ] Symlink '%s' pointing to '%s'\n", sArg1, sArg2);
+			Log("[CFG  ] Symlink '%s' pointing to '%s'", sArg1, sArg2);
 			VFS_Symlink(sArg1, sArg2);
 		}
 		// - New Directory
@@ -270,7 +270,7 @@ void System_ExecuteScript()
 			i += 6;
 			i += System_Int_GetString(fData+i, &sArg1);
 			if(!sArg1)	goto read2eol;
-			Log("[CFG ] New Directory '%s'\n", sArg1);
+			Log("[CFG  ] New Directory '%s'", sArg1);
 			VFS_MkDir(sArg1);
 		}
 		// - Spawn a task
@@ -278,7 +278,7 @@ void System_ExecuteScript()
 			i += 6;
 			i += System_Int_GetString(fData+i, &sArg1);
 			if(!sArg1)	goto read2eol;
-			Log("[CFG ] Starting '%s' as a new task\n", sArg1);
+			Log("[CFG  ] Starting '%s' as a new task", sArg1);
 			Proc_Spawn(sArg1);
 		}
 		else {

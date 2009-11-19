@@ -140,7 +140,10 @@ EXPORT void *malloc(size_t bytes)
 */
 EXPORT void free(void *mem)
 {
-	heap_head	*head = mem;
+	heap_head	*head = (void*)((intptr_t)mem-sizeof(heap_head));
+	
+	// Sanity please!
+	if(!mem)	return;
 	
 	if(head->magic != MAGIC)	//Valid Heap Address
 		return;
@@ -148,19 +151,19 @@ EXPORT void free(void *mem)
 	head->magic = MAGIC_FREE;
 	
 	//Unify Right
-	if((Uint)head + head->size < (Uint)_heap_end)
+	if((intptr_t)head + head->size < (intptr_t)_heap_end)
 	{
-		heap_head	*nextHead = (heap_head*)((Uint)head + head->size);
+		heap_head	*nextHead = (heap_head*)((intptr_t)head + head->size);
 		if(nextHead->magic == MAGIC_FREE) {	//Is the next block free
 			head->size += nextHead->size;	//Amalgamate
 			nextHead->magic = 0;	//For Security
 		}
 	}
 	//Unify Left
-	if((Uint)head - sizeof(heap_foot) > (Uint)_heap_start)
+	if((intptr_t)head - sizeof(heap_foot) > (intptr_t)_heap_start)
 	{
 		heap_head	*prevHead;
-		heap_foot	*prevFoot = (heap_foot *)((Uint)head - sizeof(heap_foot));
+		heap_foot	*prevFoot = (heap_foot *)((intptr_t)head - sizeof(heap_foot));
 		if(prevFoot->magic == MAGIC) {
 			prevHead = prevFoot->header;
 			if(prevHead->magic == MAGIC_FREE) {
@@ -304,10 +307,12 @@ EXPORT int IsHeap(void *ptr)
  */
 static void *FindHeapBase()
 {
+	#if 0
 	#define MAX		0xC0000000	// Address
 	#define THRESHOLD	512	// Pages
 	uint	addr;
 	uint	stretch = 0;
+	uint64_t	tmp;
 	
 	// Scan address space
 	for(addr = 0;
@@ -315,17 +320,25 @@ static void *FindHeapBase()
 		addr += 0x1000
 		)
 	{
-		if( _SysGetPhys(addr) == 0 ) {
+		tmp = _SysGetPhys(addr);
+		if( tmp != 0 ) {
 			stretch = 0;
 		} else {
 			stretch ++;
 			if(stretch > THRESHOLD)
 			{
-				return (void*)( addr + stretch*0x1000 );
+				return (void*)( addr - stretch*0x1000 );
 			}
 		}
+		//__asm__ __volatile__ (
+		//	"push %%ebx;mov %%edx,%%ebx;int $0xAC;pop %%ebx"
+		//	::"a"(256),"d"("%x"),"c"(addr));
 	}
+	
 	return NULL;
+	#else
+	return (void*)0x00900000;
+	#endif
 }
 
 LOCAL uint brk(Uint newpos)

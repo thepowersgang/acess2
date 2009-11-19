@@ -444,3 +444,8 @@ void Heap_Dump()
 	}
 }
 #endif
+
+// === EXPORTS ===
+EXPORT(malloc);
+EXPORT(realloc);
+EXPORT(free);

@@ -143,3 +143,6 @@ void StartupPrint(char *Str)
 		memset(&buf[80*24], 0, 80*2);
 	}
 }
+
+// === EXPORTS ===
+EXPORT(__stack_chk_fail);

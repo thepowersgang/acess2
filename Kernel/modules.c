@@ -46,7 +46,6 @@ int Modules_LoadBuiltins()
 					if(strcmp(deps[j], gKernelModules[k].Name) == 0)
 						break;
 				}
-				Log("%s requires %s\n", gKernelModules[i].Name, deps[j]);
 				if(k == giNumBuiltinModules) {
 					Warning("Unable to find dependency '%s' for '%s' in kernel",
 						deps[j], gKernelModules[i].Name);
@@ -78,7 +77,6 @@ int Modules_LoadBuiltins()
 					}
 					// `k` is assumed to be less than `giNumBuiltinModules`
 					
-					Log("baIsLoaded[%i(%s)] = %i\n", k, deps[j], baIsLoaded[k]);
 					// If a dependency failed, skip and mark as failed
 					if( baIsLoaded[k] == -1 ) {
 						baIsLoaded[i] = -1;

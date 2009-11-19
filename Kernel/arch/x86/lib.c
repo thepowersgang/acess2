@@ -189,8 +189,12 @@ Uint32 BigEndian32(Uint32 Val)
 
 // --- EXPORTS ---
 EXPORT(memcpy);	EXPORT(memset);
+EXPORT(memcmp);
 //EXPORT(memcpyw);	EXPORT(memsetw);
 EXPORT(memcpyd);	EXPORT(memsetd);
 EXPORT(inb);	EXPORT(inw);	EXPORT(ind);
 EXPORT(outb);	EXPORT(outw);	EXPORT(outd);
 EXPORT(__udivdi3);	EXPORT(__umoddi3);
+
+EXPORT(LittleEndian16);	EXPORT(BigEndian16);
+EXPORT(LittleEndian32);	EXPORT(BigEndian32);

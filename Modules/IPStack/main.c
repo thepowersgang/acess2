@@ -52,12 +52,15 @@ int IPStack_Install(char **Arguments)
 	// Install Handlers
 	ARP_Initialise();
 	
-	// Parse module arguments
-	for( i = 0; Arguments[i]; i++ )
+	if(Arguments)
 	{
-		//if(strcmp(Arguments[i], "Device") == '=') {
-		//	
-		//}
+		// Parse module arguments
+		for( i = 0; Arguments[i]; i++ )
+		{
+			//if(strcmp(Arguments[i], "Device") == '=') {
+			//	
+			//}
+		}
 	}
 	
 	return 1;
@@ -117,9 +120,17 @@ tVFS_Node *IPStack_FindDir(tVFS_Node *Node, char *Name)
 	return &iface->Node;
 }
 
-static const char *casIOCtls[] = { DRV_IOCTLNAMES, "add_interface", NULL };
+static const char *casIOCtls_Root[] = { DRV_IOCTLNAMES, "add_interface", NULL };
+static const char *casIOCtls_Iface[] = {
+	DRV_IOCTLNAMES,
+	"getset_type",
+	"get_address", "set_address",
+	"getset_subnet",
+	"get_gateway", "set_gateway",
+	NULL
+	};
 /**
- * \brief Handles IOCtls for the IPStack root
+ * \brief Handles IOCtls for the IPStack root/interfaces
  */
 int IPStack_IOCtl(tVFS_Node *Node, int ID, void *Data)
 {
@@ -139,17 +150,144 @@ int IPStack_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	
 	case DRV_IOCTL_LOOKUP:
 		if( !CheckString( Data ) )	return -1;
-		return LookupString( (char**)casIOCtls, (char*)Data );
-	
-	// --- Non-Standard IOCtls ---
-	/*
-	 * add_interface
-	 * - Adds a new IP interface and binds it to a device
-	 */
-	case 4:
-		if( !CheckString( Data ) )	return -1;
-		return IPStack_AddInterface(Data);
+		
+		if( Node == &gIP_DriverInfo.RootNode )
+			return LookupString( (char**)casIOCtls_Root, (char*)Data );
+		else
+			return LookupString( (char**)casIOCtls_Iface, (char*)Data );
 	}
+	
+	if(Node == &gIP_DriverInfo.RootNode)
+	{
+		switch(ID)
+		{
+		/*
+		 * add_interface
+		 * - Adds a new IP interface and binds it to a device
+		 */
+		case 4:
+			if( Threads_GetUID() != 0 )	return -1;
+			if( !CheckString( Data ) )	return -1;
+			return IPStack_AddInterface(Data);
+		}
+		return 0;	
+	}
+	else
+	{
+		tInterface	*iface = (tInterface*)Node->ImplPtr;
+		switch(ID)
+		{
+		/*
+		 * getset_type
+		 * - Get/Set the interface type
+		 */
+		case 4:
+			// Get Type?
+			if( !Data )	return iface->Type;
+			// Ok, it's set type
+			if( Threads_GetUID() != 0 )	return -1;
+			if( !CheckMem( Data, sizeof(int) ) )	return -1;
+			switch( *(int*)Data )
+			{
+			case 0:	// Disable
+				iface->Type = 0;
+				memset(&iface->IP6, 0, sizeof(tIPv6));	// Clear address
+				break;
+			case 4:	// IPv4
+				iface->Type = 4;
+				memset(&iface->IP4, 0, sizeof(tIPv4));
+				break;
+			case 6:	// IPv6
+				iface->Type = 6;
+				memset(&iface->IP6, 0, sizeof(tIPv6));
+				break;
+			default:
+				return -1;
+			}
+			return 0;
+		
+		/*
+		 * get_address
+		 * - Get the interface's address
+		 */
+		case 5:
+			switch(iface->Type)
+			{
+			case 0:	return 1;
+			case 4:
+				if( !CheckMem( Data, sizeof(tIPv4) ) )	return -1;
+				memcpy( Data, &iface->IP4, sizeof(tIPv4) );
+				return 1;
+			case 6:
+				if( !CheckMem( Data, sizeof(tIPv6) ) )	return -1;
+				memcpy( Data, &iface->IP6, sizeof(tIPv6) );
+				return 1;
+			}
+			return 0;
+		
+		/*
+		 * set_address
+		 * - Get the interface's address
+		 */
+		case 6:
+			if( Threads_GetUID() != 0 )	return -1;
+			switch(iface->Type)
+			{
+			case 0:	return 1;
+			case 4:
+				if( !CheckMem( Data, sizeof(tIPv4) ) )	return -1;
+				iface->Type = 0;	// One very hacky mutex/trash protector
+				memcpy( &iface->IP4, Data, sizeof(tIPv4) );
+				iface->Type = 4;
+				return 1;
+			case 6:
+				if( !CheckMem( Data, sizeof(tIPv6) ) )	return -1;
+				iface->Type = 0;
+				memcpy( &iface->IP6, Data, sizeof(tIPv6) );
+				iface->Type = 6;
+				return 1;
+			}
+			return 0;
+		
+		/*
+		 * getset_subnet
+		 * - Get/Set the bits in the address subnet
+		 */
+		case 7:
+			// Get?
+			if( Data == NULL )
+			{
+				switch( iface->Type )
+				{
+				case 4:		return iface->IP4.SubnetBits;
+				case 6:		return iface->IP6.SubnetBits;
+				default:	return 0;
+				}
+			}
+			
+			// Ok, set.
+			if( Threads_GetUID() != 0 )	return -1;
+			if( !CheckMem(Data, sizeof(int)) )	return -1;
+			
+			// Check and set the subnet bits
+			switch( iface->Type )
+			{
+			case 4:
+				if( *(int*)Data < 0 || *(int*)Data > 31 )	return -1;
+				iface->IP4.SubnetBits = *(int*)Data;
+				return iface->IP4.SubnetBits;
+			case 6:
+				if( *(int*)Data < 0 || *(int*)Data > 127 )	return -1;
+				iface->IP6.SubnetBits = *(int*)Data;
+				return iface->IP6.SubnetBits;
+			default:
+				break;
+			}
+			
+			return 0;
+		}
+	}
+	
 	return 0;
 }
 
