@@ -5,7 +5,7 @@
 -include ../../Makefile.cfg
 
 CPPFLAGS = -I../../Kernel/include -I../../Kernel/arch/$(ARCHDIR)/include -DARCH=$(ARCH)
-CFLAGS = -Wall -Werror $(CPPFLAGS)
+CFLAGS = -Wall -Werror -fno-stack-protector $(CPPFLAGS)
 
 OBJ := $(addsuffix .$(ARCH),$(OBJ))
 BIN = ../$(NAME).kmd.$(ARCH)
@@ -19,12 +19,13 @@ DEPFILES := $(DEPFILES:%.o.$(ARCH)=%.d.$(ARCH))
 all: $(BIN)
 
 clean:
-	$(RM) $(BIN) $(KOBJ) $(OBJ) $(DEPFILES)
+	$(RM) $(BIN) $(BIN).dsm $(KOBJ) $(OBJ) $(DEPFILES)
 
 $(BIN): $(OBJ)
 	@echo --- $(LD) -o $@
 	@$(LD) -T ../link.ld -shared -nostdlib -o $@ $(OBJ)
 #	@$(LD) -shared -nostdlib -o $@ $(OBJ)
+	@$(OBJDUMP) -d $(BIN) > $(BIN).dsm
 	cp $@ $(DISTROOT)/Modules/$(NAME).kmd
 	@echo --- $(LD) -o $(KOBJ)
 	@$(CC) -Wl,-r -nostdlib -o $(KOBJ) $(OBJ)

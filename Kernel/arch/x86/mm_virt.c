@@ -63,7 +63,7 @@ tPAddr	*gaTmpDir = (void*)TMP_DIR_ADDR;
 tPAddr	*gTmpCR3 = (void*)TMP_CR3_ADDR;
  int	gilTempMappings = 0;
  int	gilTempFractal = 0;
-Uint32	gWorkerStacks[NUM_WORKER_STACKS/32];
+Uint32	gWorkerStacks[(NUM_WORKER_STACKS+31)/32];
  int	giLastUsedWorker = 0;
 
 // === CODE ===
@@ -615,6 +615,7 @@ tVAddr MM_NewWorkerStack()
 		if( gWorkerStacks[base/32] & (1 << base) ) {
 			continue;
 		}
+		break;
 	}
 	if(base >= NUM_WORKER_STACKS) {
 		Warning("Uh-oh! Out of worker stacks");

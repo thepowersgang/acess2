@@ -9,6 +9,7 @@
 #include <modules.h>
 #include <fs_devfs.h>
 #include <drv_pci.h>
+#include <tpl_drv_network.h>
 
 // === CONSTANTS ===
 #define	MEM_START	0x40
@@ -91,7 +92,8 @@ tDevFS_Driver	gNe2k_DriverInfo = {
 	.ACLs = &gVFS_ACL_EveryoneRX,
 	.Flags = VFS_FFLAG_DIRECTORY,
 	.ReadDir = Ne2k_ReadDir,
-	.FindDir = Ne2k_FindDir
+	.FindDir = Ne2k_FindDir,
+	.IOCtl = Ne2k_IOCtl
 	}
 };
 Uint16	gNe2k_BaseAddress;
@@ -233,30 +235,56 @@ static const char *casIOCtls[] = { DRV_IOCTLNAMES, DRV_NETWORK_IOCTLNAMES, NULL 
  */
 int Ne2k_IOCtl(tVFS_Node *Node, int ID, void *Data)
 {
+	 int	tmp;
+	ENTER("pNode iID pData", Node, ID, Data);
 	switch( ID )
 	{
-	case DRV_IOCTL_TYPE:	return DRV_TYPE_NETWORK;
+	case DRV_IOCTL_TYPE:
+		LEAVE('i', DRV_TYPE_NETWORK);
+		return DRV_TYPE_NETWORK;
+	
 	case DRV_IOCTL_IDENT:
-		if(!CheckMem(Data, 4))	return -1;
+		if(!CheckMem(Data, 4)) {
+			LEAVE('i', -1);
+			return -1;
+		}
 		memcpy(Data, "NE2K", 4);
+		LEAVE('i', 1);
 		return 1;
-	case DRV_IOCTL_VERSION:	return VERSION;
+	
+	case DRV_IOCTL_VERSION:
+		LEAVE('x', VERSION);
+		return VERSION;
+	
 	case DRV_IOCTL_LOOKUP:
-		if(!CheckString(Data))	return -1;
-		return LookupString( casIOCtls, Data );
+		if( !CheckString(Data) ) {
+			LEAVE('i', -1);
+			return -1;
+		}
+		tmp = LookupString( (char**)casIOCtls, Data );
+		LEAVE('i', tmp);
+		return tmp;
 	}
 	
 	// If this is the root, return
-	if( Node == &gNe2k_DriverInfo.Node )	return 0;
+	if( Node == &gNe2k_DriverInfo.RootNode ) {
+		LEAVE('i', 0);
+		return 0;
+	}
 	
 	// Device specific settings
 	switch( ID )
 	{
 	case NET_IOCTL_GETMAC:
-		if(!CheckMem(Data, 6))	return -1;
+		if( !CheckMem(Data, 6) ) {
+			LEAVE('i', -1);
+			return -1;
+		}
 		memcpy( Data, ((tCard*)Node->ImplPtr)->MacAddr, 6 );
+		LEAVE('i', 1);
 		return 1;
 	}
+	LEAVE('i', 0);
 	return 0;
 }
 

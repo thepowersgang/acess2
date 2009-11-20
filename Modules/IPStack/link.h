@@ -10,6 +10,7 @@ typedef void (*tPacketCallback)(tAdapter *Interface, tMacAddr From, int Length, 
 
 extern void	Link_RegisterType(Uint16 Type, tPacketCallback Callback);
 extern void	Link_SendPacket(tAdapter *Interface, Uint16 Type, tMacAddr To, int Length, void *Buffer);
+extern void	Link_WatchDevice(tAdapter *Adapter);
 
 // === INTERNAL ===
 typedef struct sEthernetHeader	tEthernetHeader;

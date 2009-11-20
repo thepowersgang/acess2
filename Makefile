@@ -4,24 +4,24 @@
 
 .PHONY: all clean
 
-MODULES = IPStack
+MODULES = FS_Ext2 FDD BochsGA IPStack NE2000
 USRLIBS = ld-acess.so libacess.so libgcc.so libc.so
-USRAPPS = init login CLIShell cat ls mount
+USRAPPS = init login CLIShell cat ls mount ifconfig
 
 all:
 	@for mod in $(MODULES); do \
-	(echo === $$mod && $(MAKE) all --no-print-directory -C Modules/$$mod) \
+	(echo === Module: $$mod && $(MAKE) all --no-print-directory -C Modules/$$mod) \
 	done
 	
 	@echo === Kernel
 	@$(MAKE) all --no-print-directory -C Kernel
 	
 	@for lib in $(USRLIBS); do \
-	(echo === $$lib && $(MAKE) all --no-print-directory -C Usermode/Libraries/`echo $$lib`_src) \
+	(echo === User Library: $$lib && $(MAKE) all --no-print-directory -C Usermode/Libraries/`echo $$lib`_src) \
 	done
 	
 	@for app in $(USRAPPS); do \
-	(echo === $$app && $(MAKE) all --no-print-directory -C Usermode/Applications/`echo $$app`_src) \
+	(echo === User Application: $$app && $(MAKE) all --no-print-directory -C Usermode/Applications/`echo $$app`_src) \
 	done
 
 #	@echo === ld-acess.so
@@ -46,6 +46,10 @@ all:
 #	@$(MAKE) all --no-print-directory -C Usermode/Applications/mount_src
 
 clean:
+	@for mod in $(MODULES); do \
+	($(MAKE) clean --no-print-directory -C Modules/$$mod) \
+	done
+	
 	@make clean --no-print-directory -C Kernel/
 	
 	@for lib in $(USRLIBS); do \
