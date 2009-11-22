@@ -36,11 +36,11 @@ tDevFS_Driver	gIP_DriverInfo = {
 	.IOCtl = IPStack_IOCtl
 	}
 };
- int	glIP_Interfaces = 0;
+tSpinlock	glIP_Interfaces = 0;
 tInterface	*gIP_Interfaces = NULL;
 tInterface	*gIP_Interfaces_Last = NULL;
  int	giIP_NextIfaceId = 1;
- int	glIP_Adapters = 0;
+tSpinlock	glIP_Adapters = 0;
 tAdapter	*gIP_Adapters = NULL;
 
 // === CODE ===

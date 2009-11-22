@@ -69,7 +69,7 @@ Uint8	USB_TokenCRC(void *Data, int len);
 /**
  * \note X^16 + X15 + X^2 + 1
  */
-Uint16	USB_TokenCRC(void *Data, int len);
+Uint16	USB_DataCRC(void *Data, int len);
 
 // === STRUCTURES ===
 /**

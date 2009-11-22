@@ -103,12 +103,13 @@ extern void	Debug_HexDump(char *Header, void *Data, Uint Length);
 # define LOG(_fmt...)	Debug_Log((char*)__func__, _fmt)
 # define LEAVE(_t...)	Debug_Leave((char*)__func__, _t)
 # define LEAVE_RET(_t,_v...)	do{LEAVE(_t,_v);return _v;}while(0)
-//# define LEAVE_RET(_t)	do{LEAVE(_t);return;}
+# define LEAVE_RET0()	do{LEAVE('-');return;}while(0)
 #else
 # define ENTER(...)
 # define LOG(...)
 # define LEAVE(...)
 # define LEAVE_RET(_t,_v...)	return (_v)
+# define LEAVE_RET0()	return
 #endif
 /**
  * \}

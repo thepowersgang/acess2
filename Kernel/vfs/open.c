@@ -15,7 +15,7 @@
 
 // === IMPORTS ===
 extern tVFS_Node	gVFS_MemRoot;
-extern tVFS_Mount	*gRootMount;
+extern tVFS_Mount	*gVFS_RootMount;
 
 // === GLOBALS ===
 tVFS_Handle	*gaUserHandles = (void*)MM_PPD_VFS;
@@ -172,7 +172,7 @@ char *VFS_GetAbsPath(char *Path)
 tVFS_Node *VFS_ParsePath(char *Path, char **TruePath)
 {
 	tVFS_Mount	*mnt;
-	tVFS_Mount	*longestMount = gRootMount;	// Root is first
+	tVFS_Mount	*longestMount = gVFS_RootMount;	// Root is first
 	 int	cmp, retLength = 0;
 	 int	ofs, nextSlash;
 	tVFS_Node	*curNode, *tmpNode;
@@ -194,21 +194,21 @@ tVFS_Node *VFS_ParsePath(char *Path, char **TruePath)
 	
 	if(Path[0] == '/' && Path[1] == '\0') {
 		if(TruePath) {
-			*TruePath = malloc( gRootMount->MountPointLen+1 );
-			strcpy(*TruePath, gRootMount->MountPoint);
+			*TruePath = malloc( gVFS_RootMount->MountPointLen+1 );
+			strcpy(*TruePath, gVFS_RootMount->MountPoint);
 		}
-		LEAVE('p', gRootMount->RootNode);
-		return gRootMount->RootNode;
+		LEAVE('p', gVFS_RootMount->RootNode);
+		return gVFS_RootMount->RootNode;
 	}
 	
 	// Check if there is anything mounted
-	if(!gMounts) {
+	if(!gVFS_Mounts) {
 		Warning("WTF! There's nothing mounted?");
 		return NULL;
 	}
 	
 	// Find Mountpoint
-	for(mnt = gMounts;
+	for(mnt = gVFS_Mounts;
 		mnt;
 		mnt = mnt->Next)
 	{

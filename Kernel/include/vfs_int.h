@@ -36,7 +36,7 @@ typedef struct sVFS_Proc {
 } tVFS_Proc;
 
 // === GLOBALS ===
-extern tVFS_Mount	*gMounts;
+extern tVFS_Mount	*gVFS_Mounts;
 
 // === PROTOTYPES ===
 // --- OPEN.C ---

@@ -135,7 +135,7 @@ char *ReadCommandLine(int *Length)
 	char	*ret;
 	 int	len, pos, space = 1023;
 	char	ch;
-	#if 1
+	#if 0
 	 int	scrollbackPos = giLastCommand;
 	#endif
 	 

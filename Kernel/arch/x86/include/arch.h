@@ -51,6 +51,7 @@
 #endif
 
 // === MACROS ===
+typedef volatile int	tSpinlock;
 #define LOCK(lockptr)	do {int v=1;\
 	while(v)__asm__ __volatile__("lock xchgl %%eax, (%%edi)":"=a"(v):"a"(1),"D"(lockptr));}while(0)
 #define	RELEASE(lockptr)	__asm__ __volatile__("lock andl $0, (%%edi)"::"D"(lockptr));

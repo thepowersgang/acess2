@@ -8,9 +8,14 @@
 
 -include arch/$(ARCHDIR)/Makefile
 
+-include Makefile.BuildNum
+
+KERNEL_VERSION = 0.5
+
 MAKEDEP		= $(CC) -M
 
-CPPFLAGS	+= -I./include -I./arch/$(ARCHDIR)/include -DARCH=$(ARCH)
+CPPFLAGS	+= -I./include -I./arch/$(ARCHDIR)/include
+CPPFLAGS    += -DARCH=$(ARCH) -DKERNEL_VERSION=$(KERNEL_VERSION) -DBUILD_NUM=$(BUILD_NUM)
 CFLAGS		+= -Wall -Werror -O3 -fno-stack-protector -fno-builtin
 ASFLAGS		+= -D ARCH=\"$(ARCH)\"
 LDFLAGS		+= -T arch/$(ARCHDIR)/link.ld
@@ -21,7 +26,7 @@ OBJ += binary.o bin/elf.o
 OBJ += vfs/main.o vfs/open.o vfs/acls.o vfs/dir.o vfs/io.o vfs/mount.o vfs/memfile.o vfs/nodecache.o
 OBJ += vfs/fs/root.o vfs/fs/devfs.o
 OBJ += $(addprefix vfs/fs/, $(addsuffix .o,$(FILESYSTEMS)))
-OBJ += drv/fifo.o drv/dma.o drv/iocache.o drv/pci.o drv/kb.o drv/vga.o drv/vterm.o
+OBJ += drv/proc.o drv/fifo.o drv/dma.o drv/iocache.o drv/pci.o drv/kb.o drv/vga.o drv/vterm.o
 OBJ += $(addprefix drv/, $(addsuffix .o,$(DRIVERS)))
 OBJ := $(addsuffix .$(ARCH), $(OBJ))
 MODS += $(addprefix ../Modules/, $(addsuffix .xo.$(ARCH),$(MODULES)))
@@ -49,7 +54,7 @@ $(BIN): $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile
 	@objdump $(BIN) -D > $(BIN).dsm
 	cp $(BIN) $(DISTROOT)
 	@wc -l $(SRCFILES) > LineCounts.$(ARCH).txt
-#	@git commit -a
+	@echo BUILD_NUM = `calc $(BUILD_NUM)+1` > Makefile.BuildNum
 
 %.ao.$(ARCH): %.asm Makefile
 	@echo --- NASM -o $@

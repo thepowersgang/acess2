@@ -18,7 +18,7 @@ typedef struct sThread
 {
 	// --- threads.c's
 	struct sThread	*Next;	//!< Next thread in list
-	 int	IsLocked;	//!< Thread's spinlock
+	tSpinlock	IsLocked;	//!< Thread's spinlock
 	 int	Status;		//!< Thread Status
 	 int	RetStatus;	//!< Return Status
 	
@@ -43,7 +43,7 @@ typedef struct sThread
 	tVAddr	SignalHandlers[NSIG];	//!< Signal Handler List
 	tTaskState	SignalState;	//!< Saved state for signal handler
 	
-	tMsg	*Messages;	//!< Message Queue
+	tMsg * volatile	Messages;	//!< Message Queue
 	tMsg	*LastMessage;	//!< Last Message (speeds up insertion)
 	
 	 int	Quantum, Remaining;	//!< Quantum Size and remaining timesteps

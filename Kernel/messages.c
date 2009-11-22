@@ -99,7 +99,7 @@ int Proc_GetMessage(Uint *Err, Uint *Source, void *Buffer)
 	
 	// Remove from list
 	tmp = cur->Messages->Next;
-	free(cur->Messages);
+	free( (void*)cur->Messages );
 	cur->Messages = tmp;
 	
 	RELEASE( &cur->IsLocked );

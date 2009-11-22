@@ -3,6 +3,7 @@
  * Virtual File System
  */
 #include <common.h>
+#include <fs_sysfs.h>
 #include "vfs.h"
 #include "vfs_int.h"
 #include "vfs_ext.h"
@@ -11,10 +12,23 @@
 extern tVFS_Driver	gRootFS_Info;
 extern tVFS_Driver	gDevFS_Info;
 
+// === PROTOTYPES ===
+ int	VFS_Init();
+char	*VFS_GetTruePath(char *Path);
+void	VFS_GetMemPath(void *Base, Uint Length, char *Dest);
+tVFS_Driver	*VFS_GetFSByName(char *Name);
+ int	VFS_AddDriver(tVFS_Driver *Info);
+void	VFS_UpdateDriverFile();
+
 // === GLOBALS ===
 tVFS_Node	NULLNode = {0};
-static int	siDriverListLock = 0;
+tSpinlock	siDriverListLock = 0;
 tVFS_Driver	*gVFS_Drivers = NULL;
+char	*gsVFS_DriverFile = NULL;
+ int	giVFS_DriverFileID = 0;
+
+char	*gsVFS_MountFile = NULL;
+ int	giVFS_MountFileID = 0;
 
 // === CODE ===
 /**
@@ -26,6 +40,11 @@ int VFS_Init()
 	// Core Drivers
 	gVFS_Drivers = &gRootFS_Info;
 	gVFS_Drivers->Next = &gDevFS_Info;
+	VFS_UpdateDriverFile();
+	
+	// Register with SysFS
+	giVFS_MountFileID = SysFS_RegisterFile("VFS/Mounts", NULL, 0);
+	giVFS_DriverFileID = SysFS_RegisterFile("VFS/Drivers", NULL, 0);
 	
 	VFS_Mount("root", "/", "rootfs", "");
 	VFS_MkDir("/Devices");
@@ -99,5 +118,38 @@ int VFS_AddDriver(tVFS_Driver *Info)
 	gVFS_Drivers = Info;
 	RELEASE( &siDriverListLock );
 	
+	VFS_UpdateDriverFile();
+	
 	return 0;
+}
+
+/**
+ * \fn void VFS_UpdateDriverFile()
+ * \brief Updates the driver list file
+ */
+void VFS_UpdateDriverFile()
+{
+	tVFS_Driver	*drv;
+	 int	len = 0;
+	char	*buf;
+	
+	// Format:
+	// <name>\n
+	for( drv = gVFS_Drivers; drv; drv = drv->Next )
+	{
+		len += 1 + strlen(drv->Name);
+	}
+	buf = malloc(len+1);
+	len = 0;
+	for( drv = gVFS_Drivers; drv; drv = drv->Next )
+	{
+		strcpy( &buf[len], drv->Name );
+		len += strlen(drv->Name);
+		buf[len++] = '\n';
+	}
+	buf[len] = '\0';
+	
+	SysFS_UpdateFile( giVFS_DriverFileID, buf, len );
+	if(gsVFS_DriverFile)	free(gsVFS_DriverFile);
+	gsVFS_DriverFile = buf;
 }

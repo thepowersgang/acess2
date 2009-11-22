@@ -4,11 +4,20 @@
 #include <common.h>
 #include <vfs.h>
 #include <vfs_int.h>
+#include <fs_sysfs.h>
+
+// === IMPORTS ===
+extern int	giVFS_MountFileID;
+extern char	*gsVFS_MountFile;
+
+// === PROTOTYPES ===
+ int	VFS_Mount(char *Device, char *MountPoint, char *Filesystem, char *ArgString);
+void	VFS_UpdateMountFile();
 
 // === GLOBALS ===
  int	glVFS_MountList = 0;
-tVFS_Mount	*gMounts;
-tVFS_Mount	*gRootMount = NULL;
+tVFS_Mount	*gVFS_Mounts;
+tVFS_Mount	*gVFS_RootMount = NULL;
 
 // === CODE ===
 /**
@@ -67,15 +76,72 @@ int VFS_Mount(char *Device, char *MountPoint, char *Filesystem, char *ArgString)
 	}
 	
 	// Set root
-	if(!gRootMount)	gRootMount = mnt;
+	if(!gVFS_RootMount)	gVFS_RootMount = mnt;
 	
 	// Add to mount list
 	LOCK( &glVFS_MountList );
-	mnt->Next = gMounts;
-	gMounts = mnt;
+	{
+		tVFS_Mount	*tmp;
+		mnt->Next = NULL;
+		if(gVFS_Mounts) {
+			for( tmp = gVFS_Mounts; tmp->Next; tmp = tmp->Next );
+			tmp->Next = mnt;
+		}
+		else {
+			gVFS_Mounts = mnt;
+		}
+	}
 	RELEASE( &glVFS_MountList );
 	
 	Log("VFS_Mount: Mounted '%s' to '%s' ('%s')", Device, MountPoint, Filesystem);
 	
+	VFS_UpdateMountFile();
+	
 	return 0;
+}
+
+/**
+ * \fn void VFS_UpdateMountFile()
+ * \brief Updates the mount file buffer
+ */
+void VFS_UpdateMountFile()
+{
+	 int	len = 0;
+	char	*buf;
+	tVFS_Mount	*mnt;
+	
+	// Format:
+	// <device>\t<location>\t<type>\t<options>\n
+	
+	for(mnt = gVFS_Mounts; mnt; mnt = mnt->Next)
+	{
+		len += 4 + strlen(mnt->Device) + strlen(mnt->MountPoint)
+			+ strlen(mnt->Filesystem->Name) + strlen(mnt->Options);
+	}
+	
+	buf = malloc( len + 1 );
+	len = 0;
+	for(mnt = gVFS_Mounts; mnt; mnt = mnt->Next)
+	{
+		strcpy( &buf[len], mnt->Device );
+		len += strlen(mnt->Device);
+		buf[len++] = '\t';
+		
+		strcpy( &buf[len], mnt->MountPoint );
+		len += strlen(mnt->MountPoint);
+		buf[len++] = '\t';
+		
+		strcpy( &buf[len], mnt->Filesystem->Name );
+		len += strlen(mnt->Filesystem->Name);
+		buf[len++] = '\t';
+		
+		strcpy( &buf[len], mnt->Options );
+		len += strlen(mnt->Options);
+		buf[len++] = '\n';
+	}
+	buf[len] = 0;
+	
+	SysFS_UpdateFile( giVFS_MountFileID, buf, len );
+	if( gsVFS_MountFile )	free( gsVFS_MountFile );
+	gsVFS_MountFile = buf;
 }
