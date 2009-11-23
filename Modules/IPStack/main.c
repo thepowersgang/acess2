@@ -12,7 +12,8 @@
 #include <tpl_drv_network.h>
 
 // === IMPORTS ===
- int	ARP_Initialise();
+extern int	ARP_Initialise();
+extern int	IPv4_Initialise();
 
 // === PROTOTYPES ===
  int	IPStack_Install(char **Arguments);
@@ -54,6 +55,7 @@ int IPStack_Install(char **Arguments)
 	
 	// Install Handlers
 	ARP_Initialise();
+	IPv4_Initialise();
 	
 	if(Arguments)
 	{

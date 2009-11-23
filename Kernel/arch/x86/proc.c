@@ -337,13 +337,14 @@ int Proc_SpawnWorker()
 	memcpy(new, &gThreadZero, sizeof(tThread));
 	// Set Thread ID
 	new->TID = giNextTID++;
-	// Set kernel stack
+	// Create a new worker stack (in PID0's address space)
+	// The stack is relocated by this code
 	new->KernelStack = MM_NewWorkerStack();
 
 	// Get ESP and EBP based in the new stack
 	__asm__ __volatile__ ("mov %%esp, %0": "=r"(esp));
 	__asm__ __volatile__ ("mov %%ebp, %0": "=r"(ebp));
-	esp = cur->KernelStack - (new->KernelStack - esp);
+	esp = new->KernelStack - (cur->KernelStack - esp);
 	ebp = new->KernelStack - (cur->KernelStack - ebp);	
 	
 	// Save core machine state
@@ -357,6 +358,9 @@ int Proc_SpawnWorker()
 	
 	// Set EIP as parent
 	new->SavedState.EIP = eip;
+	// Mark as active
+	new->Status = THREAD_STAT_ACTIVE;
+	Threads_AddActive( new );
 	
 	return new->TID;
 }
@@ -557,7 +561,8 @@ void Proc_Scheduler(int CPU)
 	gTSSs[CPU].ESP0 = thread->KernelStack;
 	
 	// Set address space
-	__asm__ __volatile__ ("mov %0, %%cr3"::"a"(gCurrentThread->MemState.CR3));
+	if( gCurrentThread->MemState.CR3 != 0 )
+		__asm__ __volatile__ ("mov %0, %%cr3"::"a"(gCurrentThread->MemState.CR3));
 	// Switch threads
 	__asm__ __volatile__ (
 		"mov %1, %%esp\n\t"	// Restore ESP

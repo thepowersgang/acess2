@@ -135,8 +135,9 @@ int DoAutoConfig( char *Device )
 {
 	 int	tmp, fd;
 	char	path[sizeof(IPSTACK_ROOT)+5+1];	// ip000
-	uint8_t	addr[4] = {192,168,1,39};
-	uint8_t	gw[4] = {192,168,1,1};
+	uint8_t	addr[4] = {10,0,0,55};
+	uint8_t	gw[4] = {10,0,0,1};
+	 int	subnet = 8;
 	
 	tmp = AddInterface(Device);
 	if( tmp < 0 )	return tmp;
@@ -158,14 +159,16 @@ int DoAutoConfig( char *Device )
 	// Set Address
 	ioctl(fd, ioctl(fd, 3, "set_address"), addr);
 	// Set Subnet
-	tmp = 24;
-	ioctl(fd, ioctl(fd, 3, "getset_subnet"), &tmp);
+	ioctl(fd, ioctl(fd, 3, "getset_subnet"), &subnet);
 	// Set Gateway
 	ioctl(fd, ioctl(fd, 3, "set_gateway"), gw);
 	
 	close(fd);
 	
-	printf("Set address to 192.168.1.39/24 (GW: 192.168.1.1)\n");
+	printf("Set address to %i.%i.%i.%i/%i (GW: %i.%i.%i.%i)\n",
+		addr[0], addr[1], addr[2], addr[3],
+		subnet,
+		gw[0], gw[1], gw[2], gw[3]);
 	
 	return 0;
 }

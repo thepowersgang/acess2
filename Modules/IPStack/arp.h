@@ -19,7 +19,7 @@ struct sArpRequest4 {
 	tIPv4	SourceIP;
 	tMacAddr	DestMac;
 	tIPv4	DestIP;
-};
+} __attribute__((packed));
 
 struct sArpRequest6 {
 	Uint16	HWType;
@@ -30,6 +30,6 @@ struct sArpRequest6 {
 	tIPv6	SourceIP;
 	tMacAddr	DestMac;
 	tIPv6	DestIP;
-};
+} __attribute__((packed));
 
 #endif

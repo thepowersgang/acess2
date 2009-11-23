@@ -1,7 +1,10 @@
 #
 #
 
-OBJ = main.o link.o arp.o ipv4.o ipv6.o
+OBJ  = main.o link.o arp.o
+OBJ += ipv4.o icmp.o
+OBJ += ipv6.o
+OBJ += udp.o
 NAME = IPStack
 
 -include ../Makefile.tpl

@@ -3,7 +3,7 @@
  * 
  * See: ~/Sources/bochs/bochs.../iodev/ne2k.cc
  */
-#define	DEBUG	1
+#define	DEBUG	0
 #define VERSION	((0<<8)|50)
 #include <common.h>
 #include <modules.h>
@@ -20,6 +20,7 @@
 #define TX_FIRST	(MEM_START+RX_BUF_SIZE)
 #define TX_LAST		(MEM_END)
 #define	TX_BUF_SIZE	0x40
+#define	MAX_PACKET_QUEUE	10
 
 static const struct {
 	Uint16	Vendor;
@@ -60,10 +61,17 @@ enum eNe2k_Page0Write {
 	IMR		//!< interrupt mask register (init)
 };
 
+enum eNe2k_Page1Read {
+	CURR = 7	//!< current page
+};
+
 // === TYPES ===
 typedef struct sNe2k_Card {
 	Uint16	IOBase;	//!< IO Port Address from PCI
 	Uint8	IRQ;	//!< IRQ Assigned from PCI
+	
+	 int	NumWaitingPackets;
+	 int	NextRXPage;
 	
 	 int	NextMemPage;	//!< Next Card Memory page to use
 	
@@ -80,6 +88,7 @@ char	*Ne2k_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*Ne2k_FindDir(tVFS_Node *Node, char *Name);
  int	Ne2k_IOCtl(tVFS_Node *Node, int ID, void *Data);
 Uint64	Ne2k_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
+Uint64	Ne2k_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
 Uint8	Ne2k_int_GetWritePage(tCard *Card, Uint16 Length);
 void	Ne2k_IRQHandler(int IntNum);
 
@@ -120,8 +129,8 @@ int Ne2k_Install(char **Options)
 	
 	// Enumerate Cards
 	k = 0;
-	gpNe2k_Cards = malloc( giNe2k_CardCount * sizeof(tCard) );
-	memsetd(gpNe2k_Cards, 0, giNe2k_CardCount * sizeof(tCard) / 4);
+	gpNe2k_Cards = calloc( giNe2k_CardCount, sizeof(tCard) );
+	
 	for( i = 0; i < NUM_COMPAT_DEVICES; i ++ )
 	{
 		count = PCI_CountDevices( csaCOMPAT_DEVICES[i].Vendor, csaCOMPAT_DEVICES[i].Device, 0 );
@@ -133,6 +142,7 @@ int Ne2k_Install(char **Options)
 			gpNe2k_Cards[ k ].IOBase = base;
 			gpNe2k_Cards[ k ].IRQ = PCI_GetIRQ( id );
 			gpNe2k_Cards[ k ].NextMemPage = 64;
+			gpNe2k_Cards[ k ].NextRXPage = RX_FIRST;
 			
 			// Install IRQ Handler
 			IRQ_AddHandler(gpNe2k_Cards[ k ].IRQ, Ne2k_IRQHandler);
@@ -143,6 +153,8 @@ int Ne2k_Install(char **Options)
 			outb( base + ISR, 0x80 );
 			
 			// Initialise Card
+			outb( base + CMD, 0x40|0x21 );	// Page 1, No DMA, Stop
+			outb( base + CURR, RX_FIRST );	// Current RX page
 			outb( base + CMD, 0x21 );	// No DMA and Stop
 			outb( base + DCR, 0x49 );	// Set WORD mode
 			outb( base + IMR, 0x00 );
@@ -156,12 +168,12 @@ int Ne2k_Install(char **Options)
 			outb( base + CMD, 0x0A );	// Remote Read, Start
 			
 			// Read MAC Address
-			gpNe2k_Cards[ k ].MacAddr[0] = inb(base+0x10);	inb(base+0x10);
-			gpNe2k_Cards[ k ].MacAddr[1] = inb(base+0x10);	inb(base+0x10);
-			gpNe2k_Cards[ k ].MacAddr[2] = inb(base+0x10);	inb(base+0x10);
-			gpNe2k_Cards[ k ].MacAddr[3] = inb(base+0x10);	inb(base+0x10);
-			gpNe2k_Cards[ k ].MacAddr[4] = inb(base+0x10);	inb(base+0x10);
-			gpNe2k_Cards[ k ].MacAddr[5] = inb(base+0x10);	inb(base+0x10);
+			gpNe2k_Cards[ k ].MacAddr[0] = inb(base+0x10);//	inb(base+0x10);
+			gpNe2k_Cards[ k ].MacAddr[1] = inb(base+0x10);//	inb(base+0x10);
+			gpNe2k_Cards[ k ].MacAddr[2] = inb(base+0x10);//	inb(base+0x10);
+			gpNe2k_Cards[ k ].MacAddr[3] = inb(base+0x10);//	inb(base+0x10);
+			gpNe2k_Cards[ k ].MacAddr[4] = inb(base+0x10);//	inb(base+0x10);
+			gpNe2k_Cards[ k ].MacAddr[5] = inb(base+0x10);//	inb(base+0x10);
 			
 			outb( base+PSTART, RX_FIRST);	// Set Receive Start
 			outb( base+BNRY, RX_LAST-1);	// Set Boundary Page
@@ -197,6 +209,7 @@ int Ne2k_Install(char **Options)
 			gpNe2k_Cards[ k ].Node.NumACLs = 0;	// Root Only
 			gpNe2k_Cards[ k ].Node.CTime = now();
 			gpNe2k_Cards[ k ].Node.Write = Ne2k_Write;
+			gpNe2k_Cards[ k ].Node.Read = Ne2k_Read;
 			gpNe2k_Cards[ k ].Node.IOCtl = Ne2k_IOCtl;
 		}
 	}
@@ -331,7 +344,7 @@ Uint64 Ne2k_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	for(rem = Length; rem; rem -= 2)
 		outw(Card->IOBase + 0x10, *buf++);
 	
-	while( inb(Card->IOBase + ISR) == 0)	// Wait for Remote DMA Complete
+	while( inb(Card->IOBase + ISR) == 0 )	// Wait for Remote DMA Complete
 		;	//Proc_Yield();
 	
 	outb( Card->IOBase + ISR, 0x40 );	// ACK Interrupt
@@ -341,6 +354,106 @@ Uint64 Ne2k_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	
 	// Complete DMA
 	//outb(Card->IOBase + CMD, 0|0x20);
+	
+	LEAVE('i', Length);
+	return Length;
+}
+
+/**
+ * \fn Uint64 Ne2k_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+ * \brief Wait for and read a packet from the network card
+ */
+Uint64 Ne2k_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+{
+	tCard	*Card = (tCard*)Node->ImplPtr;
+	Uint8	page;
+	Uint8	data[256];
+	 int	i;
+	struct {
+		Uint8	Status;
+		Uint8	NextPacketPage;
+		Uint16	Length;	// Little Endian
+	}	*pktHdr;
+	
+	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
+	
+	while(Card->NumWaitingPackets == 0)	Threads_Yield();
+	
+	// Make sure that the card is in page 0
+	outb(Card->IOBase + CMD, 0|0x22);	// Page 0, Start, NoDMA
+	
+	// Get BOUNDARY
+	page = Card->NextRXPage;
+	
+	// Set up transfer
+	outb(Card->IOBase + RBCR0, 0);
+	outb(Card->IOBase + RBCR1, 1);	// 256-bytes
+	outb(Card->IOBase + RSAR0, 0x00);	// Page Offset
+	outb(Card->IOBase + RSAR1, page);	// Page Number
+	
+	outb(Card->IOBase + CMD, 0|0x08|0x2);	// Page 0, Remote Read, Start
+	
+	// Clear Remote DMA Flag
+	outb(Card->IOBase + ISR, 0x40);	// Bit 6
+	
+	// Read data
+	for(i = 0; i < 128; i ++)
+		((Uint16*)data)[i] = inw(Card->IOBase + 0x10);
+	
+	pktHdr = (void*)data;
+	//Log("Ne2k_Read: Recieved packet (%i bytes)", pktHdr->Length);
+	
+	// Have we read all the required bytes yet?
+	if(pktHdr->Length < 256 - 4)
+	{
+		if(Length > pktHdr->Length)
+			Length = pktHdr->Length;
+		memcpy(Buffer, &data[4], Length);
+		page ++;
+		if(page == RX_LAST+1)	page = RX_FIRST;
+	}
+	// No? oh damn, now we need to allocate a buffer
+	else {
+		 int	j = 256/2;
+		char	*buf = malloc( (pktHdr->Length + 4 + 255) & ~255 );
+		
+		if(!buf) {
+			LEAVE('i', -1);
+			return -1;
+		}
+		
+		memcpy(buf, data, 256);
+		
+		page ++;
+		while(page != pktHdr->NextPacketPage)
+		{
+			if(page == RX_LAST+1)	page = RX_FIRST;
+			
+			outb(Card->IOBase + RBCR0, 0);
+			outb(Card->IOBase + RBCR1, 1);	// 256-bytes
+			outb(Card->IOBase + RSAR0, 0x00);	// Page Offset
+			outb(Card->IOBase + RSAR1, page);	// Page Number
+			outb(Card->IOBase + CMD, 0|0x08|0x2);	// Page 0, Remote Read, Start
+			
+			for(i = 0; i < 128; i ++)
+				((Uint16*)buf)[j+i] = inw(Card->IOBase + 0x10);
+			j += 128;
+			page ++;
+		}
+		
+		if(Length > pktHdr->Length)
+			Length = pktHdr->Length;
+		memcpy(Buffer, &buf[4], Length);
+	}
+	
+	// Write BNRY
+	if(page == RX_FIRST)
+		outb( Card->IOBase + BNRY, RX_LAST );
+	else
+		outb( Card->IOBase + BNRY, page-1 );
+	// Set next RX Page and decrement the waiting list
+	Card->NextRXPage = page;
+	Card->NumWaitingPackets --;
 	
 	LEAVE('i', Length);
 	return Length;
@@ -367,10 +480,28 @@ Uint8 Ne2k_int_GetWritePage(tCard *Card, Uint16 Length)
 void Ne2k_IRQHandler(int IntNum)
 {
 	 int	i;
+	Uint8	byte;
 	for( i = 0; i < giNe2k_CardCount; i++ )
 	{
-		if(gpNe2k_Cards[i].IRQ == IntNum) {
-			LOG("Clearing interrupts on card %i (0x%x)\n", i, inb( gpNe2k_Cards[i].IOBase + ISR ));
+		if(gpNe2k_Cards[i].IRQ == IntNum)
+		{
+			byte = inb( gpNe2k_Cards[i].IOBase + ISR );
+			
+			// 0: Packet recieved (no error)
+			if( byte & 1 )
+			{
+				gpNe2k_Cards[i].NumWaitingPackets ++;
+				if( gpNe2k_Cards[i].NumWaitingPackets > MAX_PACKET_QUEUE )
+					gpNe2k_Cards[i].NumWaitingPackets = MAX_PACKET_QUEUE;
+			}
+			// 1: Packet sent (no error)
+			// 2: Recieved with error
+			// 3: Transmission Halted (Excessive Collisions)
+			// 4: Recieve Buffer Exhausted
+			// 5: 
+			// 6: Remote DMA Complete
+			// 7: Reset
+			//LOG("Clearing interrupts on card %i (was 0x%x)\n", i, byte);
 			outb( gpNe2k_Cards[i].IOBase + ISR, 0xFF );	// Reset All
 			return ;
 		}

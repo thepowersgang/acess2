@@ -19,16 +19,16 @@ typedef void	(*tIPCallback)(tInterface *Interface, void *Address, int Length, vo
 union uIPv4 {
 	Uint32	L;
 	Uint8	B[4];
-};
+} __attribute__((packed));
 
 union uIPv6 {
 	Uint32	L[4];
 	Uint8	B[16];
-};
+} __attribute__((packed));
 
 struct sMacAddr {
 	Uint8	B[6];
-};
+} __attribute__((packed));
 
 struct sInterface {
 	struct sInterface	*Next;
@@ -78,6 +78,6 @@ static const tMacAddr cMAC_BROADCAST = {{0xFF,0xFF,0xFF,0xFF,0xFF,0xFF}};
 #define htonl(in)	BigEndian32(in)
 #define ntonb(v)	(v)
 #define ntohs(in)	BigEndian16(in)
-#define ntohl(in)	BigEndian16(in)
+#define ntohl(in)	BigEndian32(in)
 
 #endif

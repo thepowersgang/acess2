@@ -12,9 +12,10 @@ typedef struct sIPv4Header	tIPv4Header;
 struct sIPv4Header
 {
 	struct {
-		unsigned Version:	4;	// = 4
+		// Spec says Version is first, but stupid bit ordering
 		unsigned HeaderLength:	4;	// in 4-byte chunks
-	};
+		unsigned Version:	4;	// = 4
+	} __attribute__((packed));
 	Uint8	DiffServices;	// Differentiated Services
 	Uint16	TotalLength;
 	Uint16	Identifcation;
@@ -24,7 +25,7 @@ struct sIPv4Header
 		unsigned DontFragment:	1;
 		unsigned MoreFragments:	1;
 		unsigned FragOffLow:	5;
-	};
+	} __attribute__((packed));
 	Uint8	FragOffHi;	// Number of 8-byte blocks from the original start
 	
 	Uint8	TTL;	// Max number of hops effectively
@@ -35,12 +36,15 @@ struct sIPv4Header
 	tIPv4	Destination;
 	
 	Uint8	Options[];
-};
+} __attribute__((packed));
 
 #define IP4PROT_ICMP	1
 #define IP4PROT_TCP	6
 #define IP4PROT_UDP	17
 
 #define IPV4_ETHERNET_ID	0x0800
+
+// === FUNCTIONS ===
+extern int	IPv4_RegisterCallback(int ID, tIPCallback Callback);
 
 #endif

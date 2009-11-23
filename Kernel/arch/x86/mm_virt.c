@@ -15,7 +15,7 @@
 #include <proc.h>
 
 #define KERNEL_STACKS		0xF0000000
-#define	KERNEL_STACK_SIZE	0x00002000
+#define	KERNEL_STACK_SIZE	0x00008000
 #define KERNEL_STACKS_END	0xFD000000
 #define WORKER_STACKS		0x00100000	// Thread0 Only!
 #define	WORKER_STACK_SIZE	KERNEL_STACK_SIZE
@@ -628,19 +628,23 @@ tVAddr MM_NewWorkerStack()
 	giLastUsedWorker = base;
 	// We have one
 	base = WORKER_STACKS + base * WORKER_STACK_SIZE;
+	//Log(" MM_NewWorkerStack: base = 0x%x", base);
 	
 	// Acquire the lock for the temp fractal mappings
 	LOCK(&gilTempFractal);
 	
 	// Set the temp fractals to TID0's address space
-	*gTmpCR3 = (Uint)gaInitPageDir | 3;
+	*gTmpCR3 = ((Uint)gaInitPageDir - KERNEL_BASE) | 3;
+	//Log(" MM_NewWorkerStack: *gTmpCR3 = 0x%x", *gTmpCR3);
 	INVLPG( gaTmpDir );
 	
+	
 	// Check if the directory is mapped (we are assuming that the stacks
-	// will fit neatly in a directory
+	// will fit neatly in a directory)
+	//Log(" MM_NewWorkerStack: gaTmpDir[ 0x%x ] = 0x%x", base>>22, gaTmpDir[ base >> 22 ]);
 	if(gaTmpDir[ base >> 22 ] == 0) {
 		gaTmpDir[ base >> 22 ] = MM_AllocPhys() | 3;
-		INVLPG( &gaTmpTable[ (base>>22) & ~0x3FF ] );
+		INVLPG( &gaTmpTable[ (base>>12) & ~0x3FF ] );
 	}
 	
 	// Mapping Time!
@@ -649,12 +653,16 @@ tVAddr MM_NewWorkerStack()
 		pages[ addr >> 12 ] = MM_AllocPhys();
 		gaTmpTable[ (base + addr) >> 12 ] = pages[addr>>12] | 3;
 	}
+	*gTmpCR3 = 0;
 	// Release the temp mapping lock
 	RELEASE(&gilTempFractal);
 	
 	// Copy the old stack
 	oldstack = (esp + KERNEL_STACK_SIZE-1) & ~(KERNEL_STACK_SIZE-1);
 	esp = oldstack - esp;	// ESP as an offset in the stack
+	
+	// Make `base` be the top of the stack
+	base += WORKER_STACK_SIZE;
 	
 	i = (WORKER_STACK_SIZE>>12) - 1;
 	// Copy the contents of the old stack to the new one, altering the addresses
@@ -672,10 +680,11 @@ tVAddr MM_NewWorkerStack()
 			else	// Seems not, best leave it alone
 				tmpPage[j] = stack[j];
 		}
-		MM_FreeTemp((Uint)tmpPage);
+		MM_FreeTemp((tVAddr)tmpPage);
 		i --;
 	}
 	
+	//Log("MM_NewWorkerStack: RETURN 0x%x", base);
 	return base;
 }
 
