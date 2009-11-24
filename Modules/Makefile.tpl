@@ -2,9 +2,11 @@
 # Acess2 Module/Driver Templater Makefile
 # Makefile.tpl
 
+_CPPFLAGS := $(CPPFLAGS)
+
 -include ../../Makefile.cfg
 
-CPPFLAGS = -I../../Kernel/include -I../../Kernel/arch/$(ARCHDIR)/include -DARCH=$(ARCH)
+CPPFLAGS = -I../../Kernel/include -I../../Kernel/arch/$(ARCHDIR)/include -DARCH=$(ARCH) $(_CPPFLAGS)
 CFLAGS = -Wall -Werror -fno-stack-protector $(CPPFLAGS)
 
 OBJ := $(addsuffix .$(ARCH),$(OBJ))

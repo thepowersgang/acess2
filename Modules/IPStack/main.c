@@ -1,6 +1,6 @@
 /*
  * Acess2 IP Stack
- * - Address Resolution Protocol
+ * - Stack Initialisation
  */
 #define DEBUG	0
 #define VERSION	((0<<8)|10)

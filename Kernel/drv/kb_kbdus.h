@@ -3,7 +3,7 @@
 #define _KBDUS_H
 
 // - BASE (NO PREFIX)
-Uint8	gpKBDUS1[256] = {
+Uint32	gpKBDUS1[256] = {
 /*00*/	0,  KEY_ESC, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b', '\t',
 /*10*/	'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n', KEY_LCTRL, 'a', 's',
 /*20*/	'd', 'f', 'g', 'h', 'j', 'k', 'l', ';','\'', '`', KEY_LSHIFT,'\\', 'z', 'x', 'c', 'v',
@@ -25,7 +25,7 @@ Uint8	gpKBDUS1[256] = {
 /*F0*/	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 // - 0xE0 Prefixed
-Uint8	gpKBDUS2[256] = {
+Uint32	gpKBDUS2[256] = {
 //   	0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
 /*00*/	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //0-F
 /*10*/	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, KEY_KPENTER, KEY_RCTRL, 0, 0,
@@ -47,7 +47,7 @@ Uint8	gpKBDUS2[256] = {
 /*F0*/	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 // - 0xE1 Prefixed
-Uint8	gpKBDUS3[256] = {
+Uint32	gpKBDUS3[256] = {
 //   	0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
 /*00*/	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //0-F
 /*10*/	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, KEY_PAUSE, 0, 0,
@@ -68,6 +68,6 @@ Uint8	gpKBDUS3[256] = {
 };
 
 
-Uint8	*gpKBDUS[3] = { gpKBDUS1, gpKBDUS2, gpKBDUS3 };
+Uint32	*gpKBDUS[3] = { gpKBDUS1, gpKBDUS2, gpKBDUS3 };
 
 #endif

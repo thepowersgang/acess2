@@ -35,17 +35,20 @@ tDevFS_Driver	gKB_DevInfo = {
 	}
 };
 tKeybardCallback	gKB_Callback = NULL;
-Uint8	**gpKB_Map = gpKBDUS;
-Uint8	gbaKB_States[256];
+Uint32	**gpKB_Map = gpKBDUS;
+Uint8	gbaKB_States[3][256];
  int	gbKB_ShiftState = 0;
  int	gbKB_CapsState = 0;
  int	gbKB_KeyUp = 0;
  int	giKB_KeyLayer = 0;
+#if USE_KERNEL_MAGIC
+ int	gbKB_MagicState = 0;
+#endif
 //Uint64	giKB_ReadBase = 0;
-Uint8	gaKB_Buffer[KB_BUFFER_SIZE];	//!< Keyboard Ring Buffer
-volatile int	giKB_InsertPoint = 0;	//!< Writing location marker
-volatile int	giKB_ReadPoint = 0;	//!< Reading location marker
-volatile int	giKB_InUse = 0;		//!< Lock marker
+//Uint32	gaKB_Buffer[KB_BUFFER_SIZE];	//!< Keyboard Ring Buffer
+//volatile int	giKB_InsertPoint = 0;	//!< Writing location marker
+//volatile int	giKB_ReadPoint = 0;	//!< Reading location marker
+//volatile int	giKB_InUse = 0;		//!< Lock marker
 
 // === CODE ===
 /**
@@ -74,6 +77,8 @@ void KB_IRQHandler()
 
 	// Ignore ACKs
 	if(scancode == 0xFA) {
+		// Oh man! This is anachic (I'm leaving it here to represent the
+		// mess that acess once was
 		//kb_lastChar = KB_ACK;
 		return;
 	}
@@ -110,40 +115,52 @@ void KB_IRQHandler()
 	if(!ch && !gbKB_KeyUp)
 		Warning("UNK %i %x", giKB_KeyLayer, scancode);
 	
-	// Reset Layer
-	giKB_KeyLayer = 0;
-	
 	// Key Up?
 	if (gbKB_KeyUp)
 	{
 		gbKB_KeyUp = 0;
-		gbaKB_States[ ch ] = 0;	// Unset key state flag
+		gbaKB_States[giKB_KeyLayer][scancode] = 0;	// Unset key state flag
 		
-		if( !gbaKB_States[KEY_LSHIFT] && !gbaKB_States[KEY_RSHIFT] )
-			gbKB_ShiftState = 0;
+		#if USE_KERNEL_MAGIC
+		if(ch == KEY_LCTRL)	gbKB_MagicState &= ~1;
+		if(ch == KEY_LALT)	gbKB_MagicState &= ~2;
+		#endif
 		
+		if(ch == KEY_LSHIFT)	gbKB_ShiftState &= ~1;
+		if(ch == KEY_RSHIFT)	gbKB_ShiftState &= ~2;
+		
+		// Call callback
 		if(ch != 0 && gKB_Callback)
 			gKB_Callback( ch & 0x80000000 );
 		
+		// Reset Layer
+		giKB_KeyLayer = 0;
 		return;
 	}
 
 	// Set the bit relating to the key
-	gbaKB_States[ch] = 1;
-	if(ch == KEY_LSHIFT || ch == KEY_RSHIFT)
-		gbKB_ShiftState = 1;
+	gbaKB_States[giKB_KeyLayer][scancode] = 1;
+	// Set shift key bits
+	if(ch == KEY_LSHIFT)	gbKB_ShiftState |= 1;
+	if(ch == KEY_RSHIFT)	gbKB_ShiftState |= 2;
 	
 	// Check for Caps Lock
 	if(ch == KEY_CAPSLOCK) {
 		gbKB_CapsState = !gbKB_CapsState;
 		KB_UpdateLEDs();
 	}
+	
+	// Reset Layer
+	giKB_KeyLayer = 0;
 
 	// Ignore Non-Printable Characters
 	if(ch == 0)		return;
 	
 	// --- Check for Kernel Magic Combos
-	if(gbaKB_States[KEY_LCTRL] && gbaKB_States[KEY_LALT])
+	#if USE_KERNEL_MAGIC
+	if(ch == KEY_LCTRL)	gbKB_MagicState |= 1;
+	if(ch == KEY_LALT)	gbKB_MagicState |= 2;
+	if(gbKB_MagicState == 3)
 	{
 		switch(ch)
 		{
@@ -151,9 +168,11 @@ void KB_IRQHandler()
 		case 'p':	Threads_Dump();	break;
 		}
 	}
+	#endif
 	
 	// Is shift pressed
-	if(gbKB_ShiftState ^ gbKB_CapsState)
+	// - Darn ugly hacks !(!x) means (bool)x
+	if( !(!gbKB_ShiftState) ^ gbKB_CapsState)
 	{
 		switch(ch)
 		{

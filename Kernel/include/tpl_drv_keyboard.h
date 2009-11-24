@@ -32,7 +32,7 @@ typedef void (*tKeybardCallback)(Uint32 Key);
 enum eTplKeyboard_KeyCodes {
 	KEY_ESC = 0x1B,
 	
-	KEY_NP_MASK = 0x80,	//End of ASCII Range
+	KEY_NP_MASK = 0x40000000,	//End of ASCII Range
 	
 	KEY_CAPSLOCK,
 	KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT,
@@ -48,7 +48,7 @@ enum eTplKeyboard_KeyCodes {
 	KEY_WIN, KEY_MENU,
 	
 	// Modifiers
-	KEY_MODIFIERS = 0xC0,
+	KEY_MODIFIERS = 0x60000000,
 	KEY_LCTRL, KEY_RCTRL,
 	KEY_LALT, KEY_RALT,
 	KEY_LSHIFT, KEY_RSHIFT,

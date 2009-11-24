@@ -503,7 +503,7 @@ void VT_KBCallBack(Uint32 Codepoint)
 	if(term->Mode == TERM_MODE_TEXT)
 	{
 		Uint8	buf[6] = {0};
-		 int	len;
+		 int	len = 0;
 		
 		// Ignore Modifer Keys
 		if(Codepoint > KEY_MODIFIERS)	return;
@@ -512,20 +512,43 @@ void VT_KBCallBack(Uint32 Codepoint)
 		switch(Codepoint)
 		{
 		case KEY_LEFT:
-			buf[0] = '\x1B';	buf[1] = '[';
-			buf[2] = 'D';	len = 3;
+			buf[0] = '\x1B';	buf[1] = '[';	buf[2] = 'D';
+			len = 3;
 			break;
 		case KEY_RIGHT:
-			buf[0] = '\x1B';	buf[1] = '[';
-			buf[2] = 'C';	len = 3;
+			buf[0] = '\x1B';	buf[1] = '[';	buf[2] = 'C';
+			len = 3;
 			break;
+		case KEY_UP:
+			buf[0] = '\x1B';	buf[1] = '[';	buf[2] = 'A';
+			len = 3;
+			break;
+		case KEY_DOWN:
+			buf[0] = '\x1B';	buf[1] = '[';	buf[2] = 'B';
+			len = 3;
+			break;
+		
+		case KEY_PGUP:
+			buf[0] = '\x1B';	buf[1] = '[';	buf[2] = '5';	// Some overline also
+			//len = 4;	// Commented out until I'm sure
+			break;
+		case KEY_PGDOWN:
+			len = 0;
+			break;
+		
+		// Attempt to encode in UTF-8
 		default:
 			len = WriteUTF8( buf, Codepoint );
-			//Log("Codepoint = 0x%x", Codepoint);
+			if(len == 0) {
+				Warning("Codepoint (%x) is unrepresentable in UTF-8", Codepoint);
+			}
 			break;
 		}
 		
-		//Log("len = %i, buf = %s", len, buf);
+		if(len == 0) {
+			// Unprintable / Don't Pass
+			return;
+		}
 		
 		// Write
 		if( MAX_INPUT_CHARS8 - term->InputWrite >= len )

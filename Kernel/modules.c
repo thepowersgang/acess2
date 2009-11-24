@@ -6,6 +6,7 @@
 #include <modules.h>
 
 // === PROTOTYPES ===
+ int	Modules_LoadBuiltins();
  int	Module_LoadMem(void *Buffer, Uint Length, char *ArgString);
  int	Module_LoadFile(char *Path, char *ArgString);
  int	Module_int_ResolveDeps(tModule *Info);

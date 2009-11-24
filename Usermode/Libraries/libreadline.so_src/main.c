@@ -13,7 +13,7 @@
 char *Readline(tReadline *Info)
 {
 	char	*ret;
-	 int	len, pos, space = 1023;
+	 int	len, pos, space = 1023-8-8;	// optimised for the heap manager
 	char	ch;
 	 int	scrollbackPos = Info->NumHistory;
 	 
@@ -148,15 +148,18 @@ char *Readline(tReadline *Info)
 	//if(Length)	*Length = len;
 	
 	// Add to history
-	if( strcmp( Info->History[ Info->NumHistory-1 ], ret) != 0 )
+	if( Info->UseHistory )
 	{
-		void	*tmp;
-		Info->NumHistory ++;
-		tmp = realloc( Info->History, Info->NumHistory * sizeof(char*) );
-		if(tmp != NULL)
+		if( strcmp( Info->History[ Info->NumHistory-1 ], ret) != 0 )
 		{
-			Info->History = tmp;
-			Info->History[ Info->NumHistory-1 ] = strdup(ret);
+			void	*tmp;
+			Info->NumHistory ++;
+			tmp = realloc( Info->History, Info->NumHistory * sizeof(char*) );
+			if(tmp != NULL)
+			{
+				Info->History = tmp;
+				Info->History[ Info->NumHistory-1 ] = strdup(ret);
+			}
 		}
 	}
 	
