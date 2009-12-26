@@ -2,14 +2,17 @@
  * Acess2 IDE Harddisk Driver
  * drv/ide.c
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <common.h>
 #include <modules.h>
 #include <vfs.h>
 #include <fs_devfs.h>
 #include <drv_pci.h>
 #include <tpl_drv_common.h>
-#include <drvutil.h>
+#include <tpl_drv_disk.h>
+
+// --- Flags ---
+#define START_BEFORE_CMD	0
 
 // === CONSTANTS ===
 #define	MAX_ATA_DISKS	4
@@ -175,15 +178,14 @@ int ATA_Install()
 int ATA_SetupIO()
 {
 	 int	ent;
-	Uint	addr;
+	tPAddr	addr;
 	
 	ENTER("");
 	
 	// Get IDE Controller's PCI Entry
 	ent = PCI_GetDeviceByClass(0x0101, 0xFFFF, -1);
-	LOG("ent = %i\n", ent);
+	LOG("ent = %i", ent);
 	gATA_BusMasterBase = PCI_GetBAR4( ent );
-	LOG("gATA_BusMasterBase = 0x%x\n", gATA_BusMasterBase);
 	if( gATA_BusMasterBase == 0 ) {
 		Warning("It seems that there is no Bus Master Controller on this machine, get one");
 		LEAVE('i', 0);
@@ -195,6 +197,11 @@ int ATA_SetupIO()
 			gATA_BusMasterBasePtr = (void*)(0xC0000000|gATA_BusMasterBase);
 		else
 			gATA_BusMasterBasePtr = (void*)( MM_MapHWPage( gATA_BusMasterBase, 1 ) + (gATA_BusMasterBase&0xFFF) );
+		LOG("gATA_BusMasterBasePtr = %p", gATA_BusMasterBasePtr);
+	}
+	else {
+		// Bit 0 is left set as a flag to other functions
+		LOG("gATA_BusMasterBase = 0x%x", gATA_BusMasterBase & ~1);
 	}
 	
 	IRQ_AddHandler( gATA_IRQPri, ATA_IRQHandlerPri );
@@ -203,12 +210,17 @@ int ATA_SetupIO()
 	gATA_PRDTs[0].PBufAddr = MM_GetPhysAddr( (Uint)&gATA_Buffers[0] );
 	gATA_PRDTs[1].PBufAddr = MM_GetPhysAddr( (Uint)&gATA_Buffers[1] );
 	
-	LOG("gATA_PRDTs = {0x%x, 0x%x}", gATA_PRDTs[0].PBufAddr, gATA_PRDTs[1].PBufAddr);
+	LOG("gATA_PRDTs = {PBufAddr: 0x%x, PBufAddr: 0x%x}", gATA_PRDTs[0].PBufAddr, gATA_PRDTs[1].PBufAddr);
 	
 	addr = MM_GetPhysAddr( (Uint)&gATA_PRDTs[0] );
+	LOG("addr = 0x%x", addr);
 	ATA_int_BusMasterWriteDWord(4, addr);
 	addr = MM_GetPhysAddr( (Uint)&gATA_PRDTs[1] );
+	LOG("addr = 0x%x", addr);
 	ATA_int_BusMasterWriteDWord(12, addr);
+	
+	outb(IDE_PRI_BASE+1, 1);
+	outb(IDE_SEC_BASE+1, 1);
 	
 	LEAVE('i', 1);
 	return 1;
@@ -275,7 +287,11 @@ int ATA_ScanDisk(int Disk)
 	 int	i;
 	tVFS_Node	*node;
 	
+	ENTER("iDisk", Disk);
+	
 	base = ATA_GetBasePort( Disk );
+	
+	LOG("base = 0x%x", base);
 	
 	// Send Disk Selector
 	if(Disk == 1 || Disk == 3)
@@ -286,12 +302,18 @@ int ATA_ScanDisk(int Disk)
 	// Send IDENTIFY
 	outb(base+7, 0xEC);
 	val = inb(base+7);	// Read status
-	if(val == 0)	return 0;	// Disk does not exist
+	if(val == 0) {
+		LEAVE('i', 0);
+		return 0;	// Disk does not exist
+	}
 	
 	// Poll until BSY clears and DRQ sets or ERR is set
 	while( ((val & 0x80) || !(val & 0x08)) && !(val & 1))	val = inb(base+7);
 	
-	if(val & 1)	return 0;	// Error occured, so return false
+	if(val & 1) {
+		LEAVE('i', 0);
+		return 0;	// Error occured, so return false
+	}
 	
 	// Read Data
 	for(i=0;i<256;i++)	buf[i] = inw(base);
@@ -302,6 +324,8 @@ int ATA_ScanDisk(int Disk)
 	else
 		gATA_Disks[ Disk ].Sectors = identify->Sectors28;
 	
+	
+	LOG("gATA_Disks[ Disk ].Sectors = 0x%x", gATA_Disks[ Disk ].Sectors);
 	
 	if( gATA_Disks[ Disk ].Sectors / (2048*1024) )
 		Log("Disk %i: 0x%llx Sectors (%i GiB)", Disk,
@@ -333,6 +357,7 @@ int ATA_ScanDisk(int Disk)
 
 
 	// --- Scan Partitions ---
+	LOG("Reading MBR");
 	// Read Boot Sector
 	ATA_ReadDMA( Disk, 0, 1, mbr );
 	
@@ -342,6 +367,7 @@ int ATA_ScanDisk(int Disk)
 	else	// No? Just parse the MBR
 		ATA_ParseMBR(Disk);
 	
+	LEAVE('i', 0);
 	return 1;
 }
 
@@ -364,6 +390,8 @@ void ATA_ParseMBR(int Disk)
 	tMBR	mbr;
 	Uint64	extendedLBA;
 	
+	ENTER("iDisk", Disk);
+	
 	// Read Boot Sector
 	ATA_ReadDMA( Disk, 0, 1, &mbr );
 	
@@ -379,6 +407,7 @@ void ATA_ParseMBR(int Disk)
 			)
 		{
 			if( mbr.Parts[i].SystemID == 0xF || mbr.Parts[i].SystemID == 5 ) {
+				LOG("Extended Partition");
 				if(extendedLBA != 0) {
 					Warning("Disk %i has multiple extended partitions, ignoring rest", Disk);
 					continue;
@@ -386,6 +415,7 @@ void ATA_ParseMBR(int Disk)
 				extendedLBA = mbr.Parts[i].LBAStart;
 				continue;
 			}
+			LOG("Primary Partition");
 			
 			gATA_Disks[Disk].NumPartitions ++;
 			continue;
@@ -433,6 +463,7 @@ void ATA_ParseMBR(int Disk)
 			}
 		}
 	}
+	LOG("gATA_Disks[Disk].NumPartitions = %i", gATA_Disks[Disk].NumPartitions);
 	
 	// Create patition array
 	gATA_Disks[Disk].Partitions = malloc( gATA_Disks[Disk].NumPartitions * sizeof(tATA_Partition) );
@@ -441,6 +472,7 @@ void ATA_ParseMBR(int Disk)
 	extendedLBA = 0;
 	for( i = 0; i < 4; i ++ )
 	{
+		Log("mbr.Parts[%i].SystemID = 0x%02x", i, mbr.Parts[i].SystemID);
 		if( mbr.Parts[i].SystemID == 0 )	continue;
 		if(	mbr.Parts[i].Boot == 0x0 || mbr.Parts[i].Boot == 0x80 )	// LBA 28
 		{
@@ -567,6 +599,8 @@ void ATA_ParseMBR(int Disk)
 			}
 		}
 	}
+	
+	LEAVE('-');
 }
 
 /**
@@ -631,7 +665,11 @@ tVFS_Node *ATA_FindDir(tVFS_Node *Node, char *Name)
 	if(Name[0] < 'A' || Name[0] > 'A'+MAX_ATA_DISKS)
 		return NULL;
 	// Raw Disk
-	if(Name[1] == '\0')	return &gATA_Disks[Name[0]-'A'].Node;
+	if(Name[1] == '\0') {
+		if( gATA_Disks[Name[0]-'A'].Sectors == 0 )
+			return NULL;
+		return &gATA_Disks[Name[0]-'A'].Node;
+	}
 	
 	// Partitions
 	if(Name[1] < '0' || '9' < Name[1])	return NULL;
@@ -805,8 +843,15 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	 int	disk = Disk & 1;
 	Uint16	base;
 	
+	ENTER("iDisk XAddress iCount pBuffer", Disk, Address, Count, Buffer);
+	
 	// Check if the count is small enough
-	if(Count > MAX_DMA_SECTORS)	return 0;
+	if(Count > MAX_DMA_SECTORS) {
+		Warning("Passed too many sectors for a bulk DMA read (%i > %i)",
+			Count, MAX_DMA_SECTORS);
+		LEAVE('i');
+		return 0;
+	}
 	
 	// Get exclusive access to the disk controller
 	LOCK( &giaATA_ControllerLock[ cont ] );
@@ -816,6 +861,9 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	
 	// Get Port Base
 	base = ATA_GetBasePort(Disk);
+	
+	// Reset IRQ Flag
+	gaATA_IRQs[cont] = 0;
 	
 	// Set up transfer
 	outb(base+0x01, 0x00);
@@ -836,22 +884,36 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	outb(base+0x03, (Uint8) Address);		// Low Addr
 	outb(base+0x04, (Uint8) (Address >> 8));	// Middle Addr
 	outb(base+0x05, (Uint8) (Address >> 16));	// High Addr
+	
+	LOG("Starting Transfer");
+	#if START_BEFORE_CMD
+	// Start transfer
+	ATA_int_BusMasterWriteByte( cont << 3, 9 );	// Read and start
 	if( Address > 0x0FFFFFFF )
 		outb(base+0x07, HDD_DMA_R48);	// Read Command (LBA48)
 	else
 		outb(base+0x07, HDD_DMA_R28);	// Read Command (LBA28)
-	
-	// Reset IRQ Flag
-	gaATA_IRQs[cont] = 0;
-	
+	#else
+	if( Address > 0x0FFFFFFF )
+		outb(base+0x07, HDD_DMA_R48);	// Read Command (LBA48)
+	else
+		outb(base+0x07, HDD_DMA_R28);	// Read Command (LBA28)
 	// Start transfer
 	ATA_int_BusMasterWriteByte( cont << 3, 9 );	// Read and start
+	#endif
 	
 	// Wait for transfer to complete
-	while( gaATA_IRQs[cont] == 0 )	Threads_Yield();
+	//ATA_int_BusMasterWriteByte( (cont << 3) + 2, 0x4 );
+	while( gaATA_IRQs[cont] == 0 ) {
+		//Uint8	val = ATA_int_BusMasterReadByte( (cont << 3) + 2, 0x4 );
+		//LOG("val = 0x%02x", val);
+		Threads_Yield();
+	}
 	
 	// Complete Transfer
 	ATA_int_BusMasterWriteByte( cont << 3, 0 );	// Write and stop
+	
+	LOG("Transfer Completed & Acknowledged");
 	
 	// Copy to destination buffer
 	memcpy( Buffer, gATA_Buffers[cont], Count*SECTOR_SIZE );
@@ -859,6 +921,7 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	// Release controller lock
 	RELEASE( &giaATA_ControllerLock[ cont ] );
 	
+	LEAVE('i', 1);
 	return 1;
 }
 
@@ -937,8 +1000,9 @@ void ATA_IRQHandlerPri(int unused)
 	
 	// IRQ bit set for Primary Controller
 	val = ATA_int_BusMasterReadByte( 0x2 );
+	LOG("IRQ val = 0x%x", val);
 	if(val & 4) {
-		//Log(" ATA_IRQHandlerPri: IRQ hit (val = 0x%x)", val);
+		LOG("IRQ hit (val = 0x%x)", val);
 		ATA_int_BusMasterWriteByte( 0x2, 4 );
 		gaATA_IRQs[0] = 1;
 		return ;
@@ -954,7 +1018,7 @@ void ATA_IRQHandlerSec(int unused)
 	// IRQ bit set for Secondary Controller
 	val = ATA_int_BusMasterReadByte( 0xA );
 	if(val & 4) {
-		//Log(" ATA_IRQHandlerSec: IRQ hit (val = 0x%x)", val);
+		LOG("IRQ hit (val = 0x%x)", val);
 		ATA_int_BusMasterWriteByte( 0xA, 4 );
 		gaATA_IRQs[1] = 1;
 		return ;

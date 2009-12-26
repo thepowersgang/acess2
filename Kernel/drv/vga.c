@@ -90,8 +90,7 @@ int VGA_IOCtl(tVFS_Node *Node, int Id, void *Data)
 	case DRV_IOCTL_VERSION:	*(int*)Data = 50;	return 1;
 	case DRV_IOCTL_LOOKUP:	return 0;
 	
-	case VIDEO_IOCTL_GETMODE:	return 0;	// Mode 0 only
-	case VIDEO_IOCTL_SETMODE:	return 0;	// Ignored (Text Only ATM)
+	case VIDEO_IOCTL_GETSETMODE:	return 0;	// Mode 0 only
 	case VIDEO_IOCTL_FINDMODE:	return 0;	// Text Only!
 	case VIDEO_IOCTL_MODEINFO:
 		if( ((tVideo_IOCtl_Mode*)Data)->id != 0)	return 0;

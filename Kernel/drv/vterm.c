@@ -425,7 +425,7 @@ void VT_SetTerminal(int ID)
 	modeNum = mode.id;
 	gVT_Terminals[ ID ].RealWidth = mode.width;
 	gVT_Terminals[ ID ].RealHeight = mode.height;
-	VFS_IOCtl( giVT_OutputDevHandle, VIDEO_IOCTL_SETMODE, &modeNum );
+	VFS_IOCtl( giVT_OutputDevHandle, VIDEO_IOCTL_GETSETMODE, &modeNum );
 	
 	// Update current terminal ID
 	Log("Changed terminal from %i to %i", giVT_CurrentTerminal, ID);

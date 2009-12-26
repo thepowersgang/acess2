@@ -98,9 +98,13 @@ int Modules_LoadBuiltins()
 				gKernelModules[i].Name,
 				gKernelModules[i].Version>>8, gKernelModules[i].Version & 0xFF
 				);
-			gKernelModules[i].Init(NULL);
+			if( gKernelModules[i].Init(NULL) == 0 ) {
+				Log("Loading Failed, all modules that depend on this will also fail");
+				baIsLoaded[i] = -1;
+			}
 			// Mark as loaded
-			baIsLoaded[i] = 1;
+			else
+				baIsLoaded[i] = 1;
 			numToInit --;
 		}
 	}
@@ -116,7 +120,7 @@ int Module_LoadMem(void *Buffer, Uint Length, char *ArgString)
 {
 	char	path[VFS_MEMPATH_SIZE];
 	
-	VFS_GetMemPath(Buffer, Length, path);
+	VFS_GetMemPath(path, Buffer, Length);
 	
 	return Module_LoadFile( path, ArgString );
 }

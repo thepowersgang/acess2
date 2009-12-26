@@ -14,6 +14,8 @@
 # Project related configuration options
 #---------------------------------------------------------------------------
 
+LAYOUT_FILE = DoxygenLayout.xml
+
 # This tag specifies the encoding used for all characters in the config file 
 # that follow. The default is UTF-8 which is also the encoding used for all 
 # text before the first occurrence of this tag. Doxygen uses libiconv (or the 
@@ -564,7 +566,11 @@ WARN_LOGFILE           =
 # directories like "/usr/src/myproject". Separate the files or directories 
 # with spaces.
 
-INPUT                  = include/vfs.h include/fs_devfs.h include/iocache.h include/
+INPUT                  = include/apidoc_mainpage.h \
+                         include/binary.h \
+                         include/vfs.h include/vfs_ext.h \
+						 include/fs_devfs.h \
+                         include/iocache.h include/
 
 # This tag can be used to specify the character encoding of the source files 
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding, which is 

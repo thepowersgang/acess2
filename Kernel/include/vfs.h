@@ -11,35 +11,6 @@
 
 #include <common.h>
 
-//! \name ACL Permissions
-//! \{
-/**
- * \brief Readable
- */
-#define VFS_PERM_READ	0x00000001
-/**
- * \brief Writeable
- */
-#define VFS_PERM_WRITE	0x00000002
-/**
- * \brief Append allowed
- */
-#define VFS_PERM_APPEND	0x00000004
-/**
- * \brief Executable
- */
-#define VFS_PERM_EXECUTE	0x00000008
-/**
- * \brief All permissions granted
- */
-#define VFS_PERM_ALL	0x7FFFFFFF	// Mask for permissions
-/**
- * \brief Denies instead of granting permissions
- * \note Denials take precedence
- */
-#define VFS_PERM_DENY	0x80000000	// Inverts permissions
-//! \}
-
 /**
  * \name VFS Node Flags
  * \{
@@ -53,6 +24,7 @@
 
 /**
  * \brief VFS Node
+ * \todo Complete / Finalise
  */
 typedef struct sVFS_Node {	
 	Uint64	Inode;	//!< Inode ID
@@ -75,33 +47,84 @@ typedef struct sVFS_Node {
 	 int	NumACLs;	//!< Number of ACL entries
 	tVFS_ACL	*ACLs;	//!< ACL Entries
 	
-	//! Reference the node
+	/**
+	 * \brief Reference the node
+	 * \param Node Pointer to this node
+	 */
 	void	(*Reference)(struct sVFS_Node *Node);
-	//! Close (dereference) the node
+	/**
+	 * \brief Close (dereference) the node
+	 * \param Node	Pointer to this node
+	 */
 	void	(*Close)(struct sVFS_Node *Node);
-	//! Send an IO Control
+	
+	/**
+	 * \brief Send an IO Control
+	 * \param Node	Pointer to this node
+	 * \param Id	IOCtl call number
+	 * \param Data	Pointer to data to pass to the driver
+	 * \return Implementation defined
+	 */
 	 int	(*IOCtl)(struct sVFS_Node *Node, int Id, void *Data);
 	
-	//! \brief Read from the file
+	/**
+	 * \brief Read from the file
+	 * \param Node	Pointer to this node
+	 * \param Offset	Byte offset in the file
+	 * \param Length	Number of bytes to read
+	 * \param Buffer	Destination for read data
+	 * \return Number of bytes read
+	 */
 	Uint64	(*Read)(struct sVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
-	//! \brief Write to the file
+	/**
+	 * \brief Write to the file
+	 * \param Node	Pointer to this node
+	 * \param Offset	Byte offser in the file
+	 * \param Length	Number of bytes to write
+	 * \param Buffer	Source of written data
+	 * \return Number of bytes read
+	 */
 	Uint64	(*Write)(struct sVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
 	
-	//! \brief Find an directory entry by name
-	//! \note The node returned must be accessable until ::tVFS_Node.Close is called
+	/**
+	 * \brief Find an directory entry by name
+	 * \param Node	Pointer to this node
+	 * \param Name	Name of the file wanted
+	 * \return Pointer to the requested node or NULL if it cannot be found
+	 * \note The node returned must be accessable until ::tVFS_Node.Close
+	 *       is called and ReferenceCount reaches zero.
+	 */
 	struct sVFS_Node	*(*FindDir)(struct sVFS_Node *Node, char *Name);
 	
-	//! \brief Read from a directory
-	//! \note MUST return a heap address
+	/**
+	 * \brief Read from a directory
+	 * \param Node	Pointer to this node
+	 * \param Pos	Offset in the directory
+	 * \return Pointer to the name of the item on the heap (will be freed
+	 *         by the caller). If the directory end has been reached, NULL
+	 *         will be returned.
+	 *         If an item is required to be skipped either &::NULLNode,
+	 *         ::VFS_SKIP or ::VFS_SKIPN(0...1023) will be returned.
+	 */
 	char	*(*ReadDir)(struct sVFS_Node *Node, int Pos);
 	
-	//! \brief Create a node in a directory
+	/**
+	 * \brief Create a node in a directory
+	 * \param Node	Pointer to this node
+	 * \param Name	Name of the new child
+	 * \param Flags	Flags to apply to the new child (directory or symlink)
+	 * \return Boolean success
+	 */
 	 int	(*MkNod)(struct sVFS_Node *Node, char *Name, Uint Flags);
 	
-	//! \brief Relink (Rename/Remove) a file/directory
+	/**
+	 * \brief Relink (Rename/Remove) a file/directory
+	 * \param Node	Pointer to this node
+	 * \param OldName	Name of the item to move/delete
+	 * \param NewName	New name (or NULL if unlinking is wanted)
+	 * \return Boolean Success
+	 */
 	 int	(*Relink)(struct sVFS_Node *Node, char *OldName, char *NewName);
-	
-	//!< \todo Complete
 } tVFS_Node;
 
 /**

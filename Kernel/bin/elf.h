@@ -151,7 +151,7 @@ struct elf32_rela_s {
 };
 
 enum {
-	R_386_NONE=0,	// none
+	R_386_NONE = 0,	// none
 	R_386_32,	// S+A
 	R_386_PC32,	// S+A-P
 	R_386_GOT32,	// G+A-P
@@ -170,7 +170,7 @@ enum {
 #define	ELF32_R_INFO(s,t)	(((s)<<8)+((t)&0xFF))	// Takes a type and symbol index and returns an info value
 
 struct elf32_dyn_s {
-	Uint16	d_tag;
+	Uint32	d_tag;
 	Uint32	d_val;	//Also d_ptr
 };
 

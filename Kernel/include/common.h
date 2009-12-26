@@ -60,6 +60,11 @@ enum eConfigs {
 /**
  * \}
  */
+// --- Interface Flags & Macros
+#define CLONE_VM	0x10
+
+// === Types ===
+typedef void (*tThreadFunction)(void*);
 
 // === Kernel Export Macros ===
 /**
@@ -159,7 +164,7 @@ extern int	MM_Map(tVAddr VAddr, tPAddr PAddr);
 /**
  * \brief Get the physical address of \a VAddr
  * \param VAddr	Address of the page to get the physical address of
- * \return Physical page mapped at \A VAddr
+ * \return Physical page mapped at \a VAddr
  */
 extern tPAddr	MM_GetPhysAddr(tVAddr VAddr);
 /**

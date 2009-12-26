@@ -21,21 +21,21 @@ tVFS_Mount	*gVFS_RootMount = NULL;
 
 // === CODE ===
 /**
- * \fn int VFS_Mount(char *Device, char *MountPoint, char *Filesystem, char *ArgString)
+ * \fn int VFS_Mount(char *Device, char *MountPoint, char *Filesystem, char *Options)
  * \brief Mount a device
  * \param Device	Device string to mount
  * \param MountPoint	Destination for the mount
  * \param Filesystem	Filesystem to use for the mount
- * \param ArgString		Options to be passed to the filesystem
+ * \param Options		Options to be passed to the filesystem
  * \return -1 on Invalid FS, -2 on No Mem, 0 on success
  */
-int VFS_Mount(char *Device, char *MountPoint, char *Filesystem, char *ArgString)
+int VFS_Mount(char *Device, char *MountPoint, char *Filesystem, char *Options)
 {
 	tVFS_Mount	*mnt;
 	tVFS_Driver	*fs;
 	 int	deviceLen = strlen(Device);
 	 int	mountLen = strlen(MountPoint);
-	 int	argLen = strlen(ArgString);
+	 int	argLen = strlen(Options);
 	
 	// Get the filesystem
 	fs = VFS_GetFSByName(Filesystem);
@@ -66,7 +66,7 @@ int VFS_Mount(char *Device, char *MountPoint, char *Filesystem, char *ArgString)
 	memcpy( mnt->MountPoint, MountPoint, mountLen+1 );
 	
 	mnt->Options = &mnt->StrData[deviceLen+1+mountLen+1];
-	memcpy( mnt->Options, ArgString, argLen+1 );
+	memcpy( mnt->Options, Options, argLen+1 );
 	
 	// Initialise Volume
 	mnt->RootNode = fs->InitDevice(Device, NULL);	//&ArgString);

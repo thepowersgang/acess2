@@ -550,17 +550,16 @@ void VFS_Close(int FD)
 }
 
 /**
- * \fn int VFS_ChDir(char *New)
  * \brief Change current working directory
  */
-int VFS_ChDir(char *New)
+int VFS_ChDir(char *Dest)
 {
 	char	*buf;
 	 int	fd;
 	tVFS_Handle	*h;
 	
 	// Create Absolute
-	buf = VFS_GetAbsPath(New);
+	buf = VFS_GetAbsPath(Dest);
 	if(buf == NULL) {
 		Log("VFS_ChDir: Path expansion failed");
 		return -1;

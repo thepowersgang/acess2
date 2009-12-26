@@ -6,7 +6,7 @@
 #include <common.h>
 #include <modules.h>
 #include <fs_devfs.h>
-#include <tpl_drv_common.h>
+#include <tpl_drv_disk.h>
 #include <dma.h>
 #include <iocache.h>
 
@@ -17,7 +17,7 @@
 #define FDD_VERSION	 ((0<<8)|(75))
 
 // --- Options
-#define USE_CACHE	1	// Use Sector Cache
+#define USE_CACHE	0	// Use Sector Cache
 #define	CACHE_SIZE	32	// Number of cachable sectors
 #define FDD_SEEK_TIMEOUT	10	// Timeout for a seek operation
 #define MOTOR_ON_DELAY	500		// Miliseconds
@@ -33,6 +33,9 @@ typedef struct {
 	 int	track[2];
 	 int	timer;
 	tVFS_Node	Node;
+	#if !USE_CACHE
+	tIOCache	*CacheHandle;
+	#endif
 } t_floppyDevice;
 
 /**
@@ -83,6 +86,8 @@ char	*FDD_ReadDir(tVFS_Node *Node, int pos);
 tVFS_Node	*FDD_FindDir(tVFS_Node *dirNode, char *Name);
  int	FDD_IOCtl(tVFS_Node *Node, int ID, void *Data);
 Uint64	FDD_ReadFS(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer);
+// --- 1st Level Disk Access
+Uint	FDD_ReadSectors(Uint64 SectorAddr, Uint Count, void *Buffer, Uint Disk);
 // --- Raw Disk Access
  int	FDD_ReadSector(Uint32 disk, Uint64 lba, void *Buffer);
  int	FDD_WriteSector(Uint32 Disk, Uint64 LBA, void *Buffer);
@@ -195,7 +200,7 @@ int FDD_Install(char **Arguments)
 	// Register with devfs
 	DevFS_AddDevice(&gFDD_DriverInfo);
 	
-	return 0;
+	return 1;
 }
 
 /**
@@ -225,26 +230,26 @@ char *FDD_ReadDir(tVFS_Node *Node, int pos)
  * \fn tVFS_Node *FDD_FindDir(tVFS_Node *Node, char *filename);
  * \brief Find File Routine (for vfs_node)
  */
-tVFS_Node *FDD_FindDir(tVFS_Node *Node, char *filename)
+tVFS_Node *FDD_FindDir(tVFS_Node *Node, char *Filename)
 {
 	 int	i;
 	
-	ENTER("sfilename", filename);
+	ENTER("sFilename", Filename);
 	
 	// Sanity check string
-	if(filename == NULL) {
+	if(Filename == NULL) {
 		LEAVE('n');
 		return NULL;
 	}
 	
 	// Check string length (should be 1)
-	if(filename[0] == '\0' || filename[1] != '\0') {
+	if(Filename[0] == '\0' || Filename[1] != '\0') {
 		LEAVE('n');
 		return NULL;
 	}
 	
 	// Get First character
-	i = filename[0] - '0';
+	i = Filename[0] - '0';
 	
 	// Check for 1st disk and if it is present return
 	if(i == 0 && gFDD_Devices[0].type != 0) {
@@ -263,103 +268,153 @@ tVFS_Node *FDD_FindDir(tVFS_Node *Node, char *filename)
 	return NULL;
 }
 
+static const char	*casIOCTLS[] = {DRV_IOCTLNAMES,DRV_DISK_IOCTLNAMES,NULL};
 /**
- * \fn int FDD_IOCtl(tVFS_Node *node, int id, void *data)
+ * \fn int FDD_IOCtl(tVFS_Node *Node, int id, void *data)
  * \brief Stub ioctl function
  */
-int FDD_IOCtl(tVFS_Node *node, int id, void *data)
+int FDD_IOCtl(tVFS_Node *Node, int ID, void *Data)
 {
-	switch(id)
+	switch(ID)
 	{
-	case DRV_IOCTL_TYPE:	return DRV_TYPE_DISK;
-	case DRV_IOCTL_IDENT:	memcpy(data, "FDD\0", 4);	return 1;
-	case DRV_IOCTL_VERSION:	return FDD_VERSION;
-	default:	return 0;
+	case DRV_IOCTL_TYPE:
+		return DRV_TYPE_DISK;
+	
+	case DRV_IOCTL_IDENT:
+		if(!CheckMem(Data, 4))	return -1;
+		memcpy(Data, "FDD\0", 4);
+		return 1;
+	
+	case DRV_IOCTL_VERSION:
+		return FDD_VERSION;
+	
+	case DRV_IOCTL_LOOKUP:
+		if(!CheckString(Data))	return -1;
+		return LookupString((char**)casIOCTLS, Data);
+	
+	case DISK_IOCTL_GETBLOCKSIZE:
+		return 512;	
+	
+	default:
+		return 0;
 	}
 }
 
 /**
- * \fn Uint64 fdd_readFS(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer)
+ * \fn Uint64 FDD_ReadFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
  * \brief Read Data from a disk
 */
-Uint64 FDD_ReadFS(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer)
+Uint64 FDD_ReadFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 {
-	int i = 0;
-	int	disk;
-	Uint32	buf[128];
+	 int	i = 0;
+	 int	disk;
+	//Uint32	buf[128];
 	
-	ENTER("xoff xlen pbuffer", off, len, buffer);
+	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
 	
-	if(node == NULL) {
+	if(Node == NULL) {
 		LEAVE('i', -1);
 		return -1;
 	}
 	
-	if(node->Inode != 0 && node->Inode != 1) {
+	if(Node->Inode != 0 && Node->Inode != 1) {
 		LEAVE('i', -1);
 		return -1;
 	}
 	
-	disk = node->Inode;
+	disk = Node->Inode;
 	
 	// Update Accessed Time
-	node->ATime = now();
+	Node->ATime = now();
 	
-	if((off & 0x1FF) || (len & 0x1FF))
+	#if 0
+	if((Offset & 0x1FF) || (Length & 0x1FF))
 	{
 		// Un-Aligned Offset/Length
-		 int	startOff = off>>9;
-		 int	sectOff = off&0x1FF;
-		 int	sectors = (len+0x1FF)>>9;
+		 int	startOff = Offset >> 9;
+		 int	sectOff = Offset & 0x1FF;
+		 int	sectors = (Length + 0x1FF) >> 9;
 	
 		LOG("Non-aligned Read");
 		
 		//Read Starting Sector
 		if(!FDD_ReadSector(disk, startOff, buf))
 			return 0;
-		memcpy(buffer, (char*)(buf+sectOff), len>512-sectOff?512-sectOff:len);
+		memcpy(Buffer, (char*)(buf+sectOff), Length > 512-sectOff ? 512-sectOff : Length);
 		
-		//If the data size is one sector or less
-		if(len <= 512-sectOff) {
-			LEAVE('X', len);
-			return len;	//Return
+		// If the data size is one sector or less
+		if(Length <= 512-sectOff)
+		{
+			LEAVE('X', Length);
+			return Length;	//Return
 		}
-		buffer += 512-sectOff;
+		Buffer += 512-sectOff;
 	
 		//Read Middle Sectors
-		for(i=1;i<sectors-1;i++)	{
+		for( i = 1; i < sectors - 1; i++ )
+		{
 			if(!FDD_ReadSector(disk, startOff+i, buf)) {
 				LEAVE('i', -1);
 				return -1;
 			}
-			memcpy(buffer, buf, 512);
-			buffer += 512;
+			memcpy(Buffer, buf, 512);
+			Buffer += 512;
 		}
 	
 		//Read End Sectors
 		if(!FDD_ReadSector(disk, startOff+i, buf))
 			return 0;
-		memcpy(buffer, buf, (len&0x1FF)-sectOff);
+		memcpy(Buffer, buf, (len&0x1FF)-sectOff);
 		
-		LEAVE('X', len);
-		return len;
+		LEAVE('X', Length);
+		return Length;
 	}
 	else
 	{
-		 int	count = len >> 9;
-		 int	sector = off >> 9;
+		 int	count = Length >> 9;
+		 int	sector = Offset >> 9;
 		LOG("Aligned Read");
 		//Aligned Offset and Length - Simple Code
-		for(i=0;i<count;i++)
+		for( i = 0; i < count; i ++ )
 		{
 			FDD_ReadSector(disk, sector, buf);
 			memcpy(buffer, buf, 512);
 			buffer += 512;
 			sector++;
 		}
-		LEAVE('i', len);
-		return len;
+		LEAVE('i', Length);
+		return Length;
 	}
+	#endif
+	
+	i = DrvUtil_ReadBlock(Offset, Length, Buffer, FDD_ReadSectors, 512, disk);
+	LEAVE('i', i);
+	return i;
+}
+
+/**
+ * \fn Uint FDD_ReadSectors(Uint64 SectorAddr, Uint Count, void *Buffer, Uint32 Disk)
+ * \brief Reads \a Count contiguous sectors from a disk
+ * \param SectorAddr	Address of the first sector
+ * \param Count	Number of sectors to read
+ * \param Buffer	Destination Buffer
+ * \param Disk	Disk Number
+ * \return Number of sectors read
+ * \note Used as a ::DrvUtil_ReadBlock helper
+ */
+Uint FDD_ReadSectors(Uint64 SectorAddr, Uint Count, void *Buffer, Uint Disk)
+{
+	Uint	ret = 0;
+	while(Count --)
+	{
+		if( FDD_ReadSector(Disk, SectorAddr, Buffer) != 1 )
+			return ret;
+		
+		Buffer = (void*)( (tVAddr)Buffer + 512 );
+		SectorAddr ++;
+		ret ++;
+	}
+	return ret;
 }
 
 /**
@@ -393,7 +448,7 @@ int FDD_ReadSector(Uint32 Disk, Uint64 SectorAddr, void *Buffer)
 	LOG("Read %i from Disk", lba);
 	FDD_FreeCacheSpinlock();
 	#else
-	if( IOCache_Read( gFDD_Devices[Disk].Cache, SectorAddr, Buffer ) == 1 ) {
+	if( IOCache_Read( gFDD_Devices[Disk].CacheHandle, SectorAddr, Buffer ) == 1 ) {
 		LEAVE('i', 1);
 		return 1;
 	}
@@ -402,7 +457,7 @@ int FDD_ReadSector(Uint32 Disk, Uint64 SectorAddr, void *Buffer)
 	base = cPORTBASE[Disk>>1];
 	
 	LOG("Calculating Disk Dimensions");
-	//Get CHS position
+	// Get CHS position
 	if(FDD_int_GetDims(gFDD_Devices[Disk].type, lba, &cyl, &head, &sec, &spt) != 1) {
 		LEAVE('i', -1);
 		return -1;
@@ -495,6 +550,17 @@ int FDD_ReadSector(Uint32 Disk, Uint64 SectorAddr, void *Buffer)
 
 	LEAVE('i', 1);
 	return 1;
+}
+
+/**
+ * \fn int FDD_WriteSector(Uint32 Disk, Uint64 LBA, void *Buffer)
+ * \brief Write a sector to the floppy disk
+ * \note Not Implemented
+ */
+int FDD_WriteSector(Uint32 Disk, Uint64 LBA, void *Buffer)
+{
+	Warning("[FDD  ] Read Only at the moment");
+	return -1;
 }
 
 /**

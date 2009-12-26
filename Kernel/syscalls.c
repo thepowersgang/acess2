@@ -25,9 +25,6 @@ extern Uint	Proc_SendMessage(Uint *Err, Uint Dest, Uint Length, void *Data);
 extern int	Proc_GetMessage(Uint *Err, Uint *Source, void *Buffer);
 extern int	Proc_Execve(char *File, char **ArgV, char **EnvP);
 extern Uint	Binary_Load(char *file, Uint *entryPoint);
-extern int	VFS_FInfo(int FD, void *Dest, int MaxACLs);
-extern int	VFS_GetACL(int FD, void *Dest);
-extern int	VFS_ChDir(char *Dest);
 extern int	Threads_SetName(char *NewName);
 extern int	Threads_GetPID();
 extern int	Threads_GetTID();
@@ -210,7 +207,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 		break;
 	
 	case SYS_FINFO:
-		CHECK_NUM_NONULL( Regs->Arg2, sizeof(struct s_sysFInfo) + Regs->Arg3*sizeof(tVFS_ACL) );
+		CHECK_NUM_NONULL( Regs->Arg2, sizeof(tFInfo) + Regs->Arg3*sizeof(tVFS_ACL) );
 		// FP, Dest, MaxACLs
 		ret = VFS_FInfo( Regs->Arg1, (void*)Regs->Arg2, Regs->Arg3 );
 		break;

@@ -29,31 +29,77 @@
  * \extends eTplDrv_IOCtl
  */
 enum eTplVideo_IOCtl {
-	//! \brief Set Mode - (int mode)
-	VIDEO_IOCTL_SETMODE = 4,
-	//! \brief Get Mode - (int *mode)
-	VIDEO_IOCTL_GETMODE,
-	//! \brief Find a matching mode - (tVideo_IOCtl_Mode *info)
+	/**
+	 * ioctl(..., int *mode)
+	 * \brief Get/Set Mode
+	 * \return Current mode ID or -1 on error
+	 * 
+	 * If \a mode is non-NULL, the current video mode is set to \a *mode.
+	 * This updated ID is then returned to the user.
+	 */
+	VIDEO_IOCTL_GETSETMODE = 4,
+	
+	/**
+	 * ioctl(..., tVideo_IOCtl_Mode *info)
+	 * \brief Find a matching mode
+	 * \return 1 if a mode was found, 0 otherwise
+	 * 
+	 * Using avaliable modes matching the \a bpp and \a flags fields
+	 * set the \a id field to the mode id of the mode with the closest
+	 * \a width and \a height.
+	 */
 	VIDEO_IOCTL_FINDMODE,
-	//! \brief Get mode info - (tVideo_IOCtl_Mode *info)
+	
+	/**
+	 * ioctl(..., tVideo_IOCtl_Mode *info)
+	 * \brief Get mode info
+	 * \return 1 if the mode exists, 0 otherwise
+	 * 
+	 * Set \a info's fields to the mode specified by the \a id field.
+	 */
 	VIDEO_IOCTL_MODEINFO,
-	//! \brief Sets the cursor position (tVideo_IOCtl_Pos *pos)
+	
+	/**
+	 * ioctl(..., tVideo_IOCtl_Pos *pos)
+	 * \brief Sets the cursor position
+	 * \return Boolean success
+	 * 
+	 * Set the text mode cursor position (if it is supported)
+	 * If the \a pos is set to (-1,-1) the cursor is hidden, otherwise
+	 * \a pos MUST be within the current screen size (as given by the
+	 * current mode's tVideo_IOCtl_Mode.width and tVideo_IOCtl_Mode.height
+	 * fields).
+	 */
 	VIDEO_IOCTL_SETCURSOR,
-	//! \brief Request access to Framebuffer - (void *dest), Return Boolean Success
+	
+	/**
+	 * ioctl(..., tVAddr MapTo)
+	 * \brief Request access to Framebuffer
+	 * \return Boolean Success
+	 * 
+	 * Requests the driver to allow the user direct access to the
+	 * framebuffer by mapping it to the supplied address.
+	 * If the driver does not allow this boolean FALSE (0) is returned,
+	 * else if the call succeeds (and the framebuffer ends up mapped) boolean
+	 * TRUE (1) is returned.
+	 */
 	VIDEO_IOCTL_REQLFB
 };
 
 /**
  * \brief Mode Structure used in IOCtl Calls
+ * 
+ * Defines a video mode supported by (or requested of) this driver (depending
+ * on what ioctl call is used)
  */
-struct sVideo_IOCtl_Mode {
-	short	id;		//!< Mide ID
+typedef struct sVideo_IOCtl_Mode
+{
+	short	id;		//!< Mode ID
 	Uint16	width;	//!< Width
 	Uint16	height;	//!< Height
-	Uint8	bpp;	//!< Bits per Pixel
+	Uint8	bpp;	//!< Bits per Unit (Character or Pixel, depending on \a flags)
 	Uint8	flags;	//!< Mode Flags
-};
-typedef struct sVideo_IOCtl_Mode	tVideo_IOCtl_Mode;	//!< Mode Type
+}	tVideo_IOCtl_Mode;
 
 //! \name Video Mode flags
 //! \{
@@ -71,17 +117,17 @@ typedef struct sVideo_IOCtl_Mode	tVideo_IOCtl_Mode;	//!< Mode Type
 /**
  * \brief Describes a position in the video framebuffer
  */
-typedef struct sVideo_IOCtl_Pos	tVideo_IOCtl_Pos;
-struct sVideo_IOCtl_Pos {
+typedef struct sVideo_IOCtl_Pos
+{
 	Sint16	x;	//!< X Coordinate
 	Sint16	y;	//!< Y Coordinate
-};
+}	tVideo_IOCtl_Pos;
 
 /**
  * \brief Virtual Terminal Representation of a character
  */
-typedef struct sVT_Char	tVT_Char;
-struct sVT_Char {
+typedef struct sVT_Char
+{
 	Uint32	Ch;	//!< UTF-32 Character
 	union {
 		struct {
@@ -90,7 +136,7 @@ struct sVT_Char {
 		};
 		Uint32	Colour;	//!< Compound colour for ease of access
 	};
-};
+}	tVT_Char;
 
 /**
  * \name Basic builtin colour definitions
@@ -110,19 +156,23 @@ extern int	giVT_CharWidth;
 extern int	giVT_CharHeight;
 /**
  * \fn void VT_Font_Render(Uint32 Codepoint, void *Buffer, int Pitch, Uint32 BGC, Uint32 FGC)
- * \brief Renders a character to a buffer
+ * \brief Driver helper that renders a character to a buffer
  * \param Codepoint	Unicode character to render
  * \param Buffer	Buffer to render to (32-bpp)
  * \param Pitch	Number of DWords per line
  * \param BGC	32-bit Background Colour
  * \param FGC	32-bit Foreground Colour
+ * 
+ * This function is provided to help video drivers to support a simple
+ * text mode by keeping the character rendering abstracted from the driver,
+ * easing the driver development and reducing code duplication.
  */
 extern void	VT_Font_Render(Uint32 Codepoint, void *Buffer, int Pitch, Uint32 BGC, Uint32 FGC);
 /**
  * \fn Uint32 VT_Colour12to24(Uint16 Col12)
  * \brief Converts a colour from 12bpp to 32bpp
  * \param Col12	12-bpp input colour
- * \return	Expanded 32-bpp (24-bit colour) version of \a Col12
+ * \return Expanded 32-bpp (24-bit colour) version of \a Col12
  */
 extern Uint32	VT_Colour12to24(Uint16 Col12);
 

@@ -137,13 +137,13 @@ Uint64 VFS_Tell(int FD)
 }
 
 /**
- * \fn int VFS_Seek(int FD, Sint64 Distance, int Whence)
+ * \fn int VFS_Seek(int FD, Sint64 Offset, int Whence)
  * \brief Seek to a new location
  * \param FD	File descriptor
- * \param Distance	Where to go
+ * \param Offset	Where to go
  * \param Whence	From where
  */
-int VFS_Seek(int FD, Sint64 Distance, int Whence)
+int VFS_Seek(int FD, Sint64 Offset, int Whence)
 {
 	tVFS_Handle	*h;
 	
@@ -152,18 +152,18 @@ int VFS_Seek(int FD, Sint64 Distance, int Whence)
 	
 	// Set relative to current position
 	if(Whence == 0) {
-		h->Position += Distance;
+		h->Position += Offset;
 		return 0;
 	}
 	
 	// Set relative to end of file
 	if(Whence < 0) {
-		h->Position = h->Node->Size - Distance;
+		h->Position = h->Node->Size - Offset;
 		return 0;
 	}
 	
 	// Set relative to start of file
-	h->Position = Distance;
+	h->Position = Offset;
 	return 0;
 }
 
@@ -183,11 +183,11 @@ int VFS_IOCtl(int FD, int ID, void *Buffer)
 }
 
 /**
- * \fn int VFS_FInfo(int FD, struct s_sysFInfo *Dest, int MaxACLs)
+ * \fn int VFS_FInfo(int FD, tFInfo *Dest, int MaxACLs)
  * \brief Retrieve file information
  * \return Number of ACLs stored
  */
-int VFS_FInfo(int FD, struct s_sysFInfo *Dest, int MaxACLs)
+int VFS_FInfo(int FD, tFInfo *Dest, int MaxACLs)
 {
 	tVFS_Handle	*h;
 	 int	max;

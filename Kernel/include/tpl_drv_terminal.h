@@ -8,7 +8,6 @@
 #include <tpl_drv_common.h>
 
 /**
- * \enum eTplTerminal_IOCtl
  * \brief Common Terminal IOCtl Calls
  * \extends eTplDrv_IOCtl
  */
@@ -16,18 +15,22 @@ enum eTplTerminal_IOCtl {
 	/**
 	 * ioctl(..., int *mode)
 	 * \brief Get/Set the current video mode type
-	 * see ::eTplTerminal_Modes
-	 * \note If the mode is set the mode is changed at this call
+	 * \param mode Pointer to an integer with the new mode number (or NULL)
+	 *             If \a mode is non-NULL the current terminal mode is changed/updated
+	 *             to the mode indicated by \a *mode
+	 * \note See ::eTplTerminal_Modes
+	 * \return Current/new terminal mode
 	*/
 	TERM_IOCTL_MODETYPE = 4,
 	
 	/**
 	 * ioctl(..., int *width)
 	 * \brief Get/set the display width
-	 * \param width	Pointer to an integer containing the new width
-	 * \return Current width
+	 * \param width	Pointer to an integer containing the new width (or NULL)
+	 * \return Current/new width
 	 * 
-	 * Set `width` to NULL to just return the current width
+	 * If \a width is non-NULL the current width is updated (but is not
+	 * applied until ::TERM_IOCTL_MODETYPE is called with \a mode non-NULL.
 	 */
 	TERM_IOCTL_WIDTH,
 	
@@ -37,28 +40,33 @@ enum eTplTerminal_IOCtl {
 	 * \param height	Pointer to an integer containing the new height
 	 * \return Current height
 	 * 
-	 * Set \a height to NULL to just return the current height
+	 * If \a height is non-NULL the current height is updated (but is not
+	 * applied until ::TERM_IOCTL_MODETYPE is called with a non-NULL \a mode.
 	 */
 	TERM_IOCTL_HEIGHT,
 	
 	/**
 	 * ioctl(..., tTerm_IOCtl_Mode *info)
-	 * \brief Queries the current driver about it's modes
-	 * \param info	A pointer to a ::tTerm_IOCtl_Mode with .ID set to the mode index
+	 * \brief Queries the current driver about it's native modes
+	 * \param info	A pointer to a ::tTerm_IOCtl_Mode with \a ID set to
+	 *        the mode index (or NULL)
 	 * \return Number of modes
 	 * 
-	 * \a info can be NULL
+	 * If \a info is NULL, the number of avaliable vative display modes
+	 * is returned. These display modes will have sequential ID numbers
+	 * from zero up to this value.
+	 * 
+	 * \note The id field of \a info is not for use with ::TERM_IOCTL_MODETYPE
+	 *       This field is just for indexing the mode to get its information.
 	 */
 	TERM_IOCTL_QUERYMODE
 };
-
-typedef struct sTerm_IOCtl_Mode	tTerm_IOCtl_Mode;
 
 /**
  * \brief Virtual Terminal Mode
  * Describes a VTerm mode to the caller of ::TERM_IOCTL_QUERYMODE
  */
-struct sTerm_IOCtl_Mode
+typedef struct sTerm_IOCtl_Mode
 {
 	short	ID;		//!< Zero Based index of mode
 	short	DriverID;	//!< Driver's ID number (from ::tVideo_IOCtl_Mode)
@@ -69,7 +77,7 @@ struct sTerm_IOCtl_Mode
 		unsigned bText: 1;	//!< Text Mode marker
 		unsigned unused:	7;
 	};
-};
+}	tTerm_IOCtl_Mode;
 
 /**
  * \brief Terminal Modes
@@ -97,6 +105,9 @@ enum eTplTerminal_Modes {
 	 */
 	TERM_MODE_OPENGL,
 	
+	/**
+	 * \brief Number of terminal modes
+	 */
 	NUM_TERM_MODES
 };
 

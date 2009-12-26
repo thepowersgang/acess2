@@ -1,25 +1,13 @@
 /*
-Acess v0.1
-ELF Executable Loader Code
-*/
+ * Acess v0.1
+ * ELF Executable Loader Code
+ */
+#define DEBUG	0
 #include <common.h>
 #include <binary.h>
-#include "bin_elf.h"
+#include "elf.h"
 
-#define DEBUG	0
 #define DEBUG_WARN	1
-
-#if DEBUG
-# define DEBUGS(v...)	Log(v)
-#else
-# define DEBUGS(v...)
-# undef ENTER
-# undef LOG
-# undef LEAVE
-# define ENTER(...)
-# define LOG(...)
-# define LEAVE(...)
-#endif
 
 
 // === PROTOTYPES ===

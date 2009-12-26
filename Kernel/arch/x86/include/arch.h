@@ -77,8 +77,6 @@ typedef Uint32	tPAddr;
 #endif
 typedef Uint32	tVAddr;
 
-typedef void (*tThreadFunction)(void*);
-
 typedef struct {
     Uint	gs, fs, es, ds;
     Uint	edi, esi, ebp, kesp;
@@ -134,8 +132,5 @@ typedef struct {
 typedef struct {
 	Uint	EIP, ESP, EBP;
 } tTaskState;
-
-// --- Interface Flags & Macros
-#define CLONE_VM	0x10
 
 #endif	// !defined(_ARCH_H_)

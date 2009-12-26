@@ -4,6 +4,7 @@
  * 
  * By thePowersGang (John Hodge)
  */
+#define DEBUG	0
 #include <common.h>
 #include <iocache.h>
 
@@ -77,14 +78,19 @@ int IOCache_Read( tIOCache *Cache, Uint64 Sector, void *Buffer )
 {
 	tIOCache_Ent	*ent;
 	
+	ENTER("pCache XSector pBuffer", Cache, Sector, Buffer);
+	
 	// Sanity Check!
-	if(!Cache || !Buffer)
+	if(!Cache || !Buffer) {
+		LEAVE('i', -1);
 		return -1;
+	}
 	
 	// Lock
 	LOCK( &Cache->Lock );
 	if(Cache->CacheSize == 0) {
 		RELEASE( &Cache->Lock );
+		LEAVE('i', -1);
 		return -1;
 	}
 	
@@ -96,6 +102,7 @@ int IOCache_Read( tIOCache *Cache, Uint64 Sector, void *Buffer )
 			memcpy(Buffer, ent->Data, Cache->SectorSize);
 			ent->LastAccess = now();
 			RELEASE( &Cache->Lock );
+			LEAVE('i', 1);
 			return 1;
 		}
 		// It's a sorted list, so as soon as we go past `Sector` we know
@@ -104,6 +111,7 @@ int IOCache_Read( tIOCache *Cache, Uint64 Sector, void *Buffer )
 	}
 	
 	RELEASE( &Cache->Lock );
+	LEAVE('i', 0);
 	return 0;
 }
 

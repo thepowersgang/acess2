@@ -4,7 +4,7 @@
  */
 #define DEBUG	0
 #include <common.h>
-#include <drvutil.h>
+#include <tpl_drv_disk.h>
 
 // === CODE ===
 Uint64 DrvUtil_ReadBlock(Uint64 Start, Uint64 Length, void *Buffer,

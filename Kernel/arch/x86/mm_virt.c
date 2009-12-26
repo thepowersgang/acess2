@@ -168,9 +168,9 @@ void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 	if( gaPageDir[Addr>>22] & PF_PRESENT )
 		Log("gaPageTable[0x%x] = 0x%x", Addr>>12, gaPageTable[Addr>>12]);
 	
-	MM_DumpTables(0, -1);	
+	//MM_DumpTables(0, -1);	
 	
-	Panic("Page Fault at 0x%x\n", Regs->eip);
+	Panic("Page Fault at 0x%x (Accessed 0x%x)", Regs->eip, Addr);
 }
 
 /**
@@ -329,16 +329,16 @@ tPAddr MM_GetPhysAddr(tVAddr Addr)
 
 
 /**
- * \fn int MM_IsUser(tVAddr Addr)
+ * \fn int MM_IsUser(tVAddr VAddr)
  * \brief Checks if a page is user accessable
  */
-int MM_IsUser(tVAddr Addr)
+int MM_IsUser(tVAddr VAddr)
 {
-	if( !(gaPageDir[Addr >> 22] & 1) )
+	if( !(gaPageDir[VAddr >> 22] & 1) )
 		return 0;
-	if( !(gaPageTable[Addr >> 12] & 1) )
+	if( !(gaPageTable[VAddr >> 12] & 1) )
 		return 0;
-	if( !(gaPageTable[Addr >> 12] & PF_USER) )
+	if( !(gaPageTable[VAddr >> 12] & PF_USER) )
 		return 0;
 	return 1;
 }

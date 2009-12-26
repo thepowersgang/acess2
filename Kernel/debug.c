@@ -5,19 +5,42 @@
 #include <common.h>
 #include <stdarg.h>
 
+#define DEBUG_TO_E9	1
+#define DEBUG_TO_SERIAL	1
+#define	SERIAL_PORT	0x3F8
+
 // === IMPORTS ===
 extern void Threads_Dump();
 
 // === GLOBALS ===
  int	gDebug_Level = 0;
  int	giDebug_KTerm = -1;
+ int	gbDebug_SerialSetup = 0;
 
 // === CODE ===
 static void E9(char ch)
 {
 	if(giDebug_KTerm != -1)
 		VFS_Write(giDebug_KTerm, 1, &ch);
+	
+	#if DEBUG_TO_SERIAL
+	if(!gbDebug_SerialSetup) {
+		outb(SERIAL_PORT + 1, 0x00);    // Disable all interrupts
+		outb(SERIAL_PORT + 3, 0x80);    // Enable DLAB (set baud rate divisor)
+		outb(SERIAL_PORT + 0, 0x03);    // Set divisor to 3 (lo byte) 38400 baud
+		outb(SERIAL_PORT + 1, 0x00);    //                  (hi byte)
+		outb(SERIAL_PORT + 3, 0x03);    // 8 bits, no parity, one stop bit
+		outb(SERIAL_PORT + 2, 0xC7);    // Enable FIFO with 14-byte threshold and clear it
+		outb(SERIAL_PORT + 4, 0x0B);    // IRQs enabled, RTS/DSR set
+		gbDebug_SerialSetup = 1;
+	}
+	while( (inb(SERIAL_PORT + 5) & 0x20) == 0 );
+	outb(SERIAL_PORT, ch);
+	#endif
+	
+	#if DEBUG_TO_E9
 	__asm__ __volatile__ ( "outb %%al, $0xe9" :: "a"(((Uint8)ch)) );
+	#endif
 }
 
 static void E9_Str(char *Str)

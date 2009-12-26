@@ -15,7 +15,7 @@ extern tVFS_Driver	gDevFS_Info;
 // === PROTOTYPES ===
  int	VFS_Init();
 char	*VFS_GetTruePath(char *Path);
-void	VFS_GetMemPath(void *Base, Uint Length, char *Dest);
+void	VFS_GetMemPath(char *Dest, void *Base, Uint Length);
 tVFS_Driver	*VFS_GetFSByName(char *Name);
  int	VFS_AddDriver(tVFS_Driver *Info);
 void	VFS_UpdateDriverFile();
@@ -76,10 +76,10 @@ char *VFS_GetTruePath(char *Path)
 }
 
 /**
- * \fn void VFS_GetMemPath(void *Base, Uint Length, char *Dest)
+ * \fn void VFS_GetMemPath(char *Dest, void *Base, Uint Length)
  * \brief Create a VFS memory pointer path
  */
-void VFS_GetMemPath(void *Base, Uint Length, char *Dest)
+void VFS_GetMemPath(char *Dest, void *Base, Uint Length)
 {
 	Log("VFS_GetMemPath: (Base=%p, Length=0x%x, Dest=%p)", Base, Length, Dest);
 	Dest[0] = '$';

@@ -1,0 +1,24 @@
+Acess2 Binary File Loader Specifcation
+--------------------------------------
+
+Binary file loaders are defined by creating a \a tBinaryType variable that
+is registered with the kernel.
+
+\a tBinaryType contains seven fields.
+-#	\a Next
+	This field is used internally by the kernel and should be set to NULL
+	when the definition is initialise and not changed by the driver.
+-#	\a Ident
+	This field tells the kernel how to recognise this file format. If the
+	first 32-bits of the file (ANDed with the \a Mask field) match this
+	value, the file will be passed to this loader.
+-#	\a Mask
+	Determines what bits in the first 32-bits of the file matter for the
+	identifcation.
+-#	\a Name
+	This is a C string that uniquely identifies this binary format.
+-#	\a Load
+	This field is a pointer to a function that takes a VFS Handle of the
+	source exectuable file as an argument and returns a \a tBinary
+	pointer that defines the location and attributes of the exectable's
+	segments. (See \a tBinary for more information)

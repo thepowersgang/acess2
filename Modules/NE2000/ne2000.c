@@ -216,7 +216,7 @@ int Ne2k_Install(char **Options)
 	
 	gNe2k_DriverInfo.RootNode.Size = giNe2k_CardCount;
 	DevFS_AddDevice( &gNe2k_DriverInfo );
-	return 0;
+	return 1;
 }
 
 /**

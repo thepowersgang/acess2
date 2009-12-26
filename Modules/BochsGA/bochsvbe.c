@@ -250,12 +250,11 @@ INT int BGA_Ioctl(tVFS_Node *node, int ID, void *Data)
 		ret = 0;
 		break;
 		
-	case VIDEO_IOCTL_SETMODE:
-		ret = BGA_int_UpdateMode(*(int*)(Data));
-		break;
-		
-	case VIDEO_IOCTL_GETMODE:
-		ret = giBGA_CurrentMode;
+	case VIDEO_IOCTL_GETSETMODE:
+		if( Data )
+			ret = BGA_int_UpdateMode(*(int*)(Data));
+		else
+			ret = giBGA_CurrentMode;
 		break;
 	
 	case VIDEO_IOCTL_FINDMODE:
