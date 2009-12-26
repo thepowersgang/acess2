@@ -16,7 +16,7 @@ $(BIN): $(COBJ)
 	@echo --- $(LD) -o $@
 	@$(LD) $(LDFLAGS) -o $@ $(COBJ) -Map Map.txt
 	@objdump -d $(BIN) > $(BIN).dsm
-	cp $(BIN) $(DISTROOT)/Bin/
+	$(xCP) $(BIN) $(DISTROOT)/Bin/
 
 clean:
 	@$(RM) $(COBJ) $(BIN) $(BIN).dsm Map.txt

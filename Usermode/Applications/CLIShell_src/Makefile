@@ -20,7 +20,7 @@ $(BIN): $(COBJ)
 	@echo --- $(LD) -o $@
 	@$(LD) $(LDFLAGS) -o $@ $(COBJ) -Map Map.txt
 	objdump -d $(BIN) > $(BIN).dsm
-	cp $(BIN) $(DISTROOT)/Bin/
+	$(xCP) $(BIN) $(DISTROOT)/Bin/
 
 $(COBJ): %.o: %.c
 	@echo --- GCC -o $@

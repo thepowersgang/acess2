@@ -25,7 +25,7 @@ $(BIN): $(AOBJ) $(COBJ)
 	@$(LD) $(LDFLAGS) -o $(BIN) $(AOBJ) $(COBJ) > link.txt
 	$(OBJDUMP) -x $(BIN) > ld-acess.dmp
 	$(OBJDUMP) -d $(BIN) > ld-acess.dsm
-	cp $(BIN) $(DISTROOT)/Libs
+	$(xCP) $(BIN) $(DISTROOT)/Libs/
 
 $(COBJ): %.o: %.c
 	@echo $(CC) -o $@

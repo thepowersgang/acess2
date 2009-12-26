@@ -20,8 +20,8 @@ $(BIN): $(OBJ) Makefile
 	@echo --- ld -o $(BIN)
 	@$(LD) $(LDFLAGS) $(OBJ) -o $(BIN)
 	$(OBJDUMP) -d $(BIN) > $(BIN).dsm
-	cp $(BIN) $(DISTROOT)/SBin/
+	$(xCP) $(BIN) $(DISTROOT)/SBin/
 
 %.o: %.c
-	@echo --- cc -o $@
+	@echo --- $(CC) -o $@
 	@$(CC) $(CFLAGS) -c $< -o $@

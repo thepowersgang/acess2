@@ -21,7 +21,7 @@ $(BIN): $(OBJ)
 	@echo --- $(LD) -shared -o $@
 	@$(LD) $(LDFLAGS) -o $(BIN) $(OBJ)
 	@$(STRIP) $(BIN)
-	cp $(BIN) $(DISTROOT)/Libs
+	$(xCP) $(BIN) $(DISTROOT)/Libs
 	
 %.ao: %.asm syscalls.inc.asm
 	@echo $(AS) -o $@

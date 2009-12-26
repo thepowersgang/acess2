@@ -28,7 +28,7 @@ $(BIN): $(OBJ)
 	@$(LD) -T ../link.ld -shared -nostdlib -o $@ $(OBJ)
 #	@$(LD) -shared -nostdlib -o $@ $(OBJ)
 	@$(OBJDUMP) -d $(BIN) > $(BIN).dsm
-	cp $@ $(DISTROOT)/Modules/$(NAME).kmd
+	$(xCP) $@ $(DISTROOT)/Modules/$(NAME).kmd
 	@echo --- $(LD) -o $(KOBJ)
 	@$(CC) -Wl,-r -nostdlib -o $(KOBJ) $(OBJ)
 

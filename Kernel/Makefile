@@ -52,7 +52,7 @@ $(BIN): $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile
 	@echo --- LD -o $(BIN)
 	@$(LD) $(LDFLAGS) -o $(BIN) $(OBJ) $(MODS) -Map ../Map.$(ARCH).txt
 	@objdump $(BIN) -D > $(BIN).dsm
-	cp $(BIN) $(DISTROOT)
+	$(xCP) $(BIN) $(DISTROOT)
 	@wc -l $(SRCFILES) > LineCounts.$(ARCH).txt
 	@echo BUILD_NUM = `calc $(BUILD_NUM)+1` > Makefile.BuildNum
 

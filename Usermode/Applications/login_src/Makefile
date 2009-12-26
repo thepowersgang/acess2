@@ -21,7 +21,7 @@ clean:
 $(BIN): $(OBJ)
 	@echo --- $(LD) -o $@
 	@$(LD) $(LDFLAGS) $(OBJ) -o $@
-	cp $(BIN) $(DISTROOT)/SBin/
+	$(xCP) $(BIN) $(DISTROOT)/SBin/
 	objdump -d $(BIN) > login.dsm
 
 %.o: %.c Makefile

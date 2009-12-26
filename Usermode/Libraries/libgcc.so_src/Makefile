@@ -21,7 +21,7 @@ $(BIN): $(OBJS)
 	@echo -- ld -o $@
 	@$(LD) $(LDFLAGS) -o $(BIN) $(OBJS)
 	@$(OBJDUMP) -d $(BIN) > libgcc.so.dsm
-	cp $(BIN) $(DISTROOT)/Libs
+	$(xCP) $(BIN) $(DISTROOT)/Libs
 
 $(OBJS): %.o: %.c
 	@echo -- gcc -o $@

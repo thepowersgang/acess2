@@ -27,7 +27,7 @@ $(BIN): $(OBJ)
 	@$(OBJDUMP) -d $@ > libc.so.1.dsm
 	@$(OBJDUMP) -x -r -R $@ > libc.so.1.dmp
 	cp ../libc.so.1 ../libc.so
-	cp ../libc.so.1 $(DISTROOT)/Libs/
+	$(xCP) ../libc.so.1 $(DISTROOT)/Libs/
 
 # C Runtime 0
 ../crt0.o: crt0.asm
