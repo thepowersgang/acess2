@@ -42,6 +42,8 @@ MODULES defines what modules should be statically linked with the kernel
 
 Set the source root directory (ACESSDIR) and the destination  directory
  (DISTROOT).
+You may also want to edit Usermode/Filesystem/Conf/BootConf.cfg before
+ installing.
 
 Now you can compile the kernel and usermode applications by calling make
  in the source root.
