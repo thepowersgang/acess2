@@ -9,6 +9,7 @@ USRLIBS = ld-acess.so libacess.so libgcc.so libc.so
 USRAPPS = init login CLIShell cat ls mount ifconfig
 
 all:
+	@echo === Filesystem && $(MAKE) all --no-print-directory -C Usermode/Filesystem
 	@for mod in $(MODULES); do \
 	(echo === Module: $$mod && $(MAKE) all --no-print-directory -C Modules/$$mod) \
 	done
@@ -25,6 +26,7 @@ all:
 	done
 
 clean:
+#	@$(MAKE) clean --no-print-directory -C Usermode/Filesystem
 	@for mod in $(MODULES); do \
 	($(MAKE) clean --no-print-directory -C Modules/$$mod) \
 	done
