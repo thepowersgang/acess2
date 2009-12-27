@@ -38,12 +38,15 @@ DEPFILES := $(DEPFILES:%.o.$(ARCH)=%.d.$(ARCH))
 SRCFILES  = $(OBJ:%.o.$(ARCH)=%.c)
 SRCFILES := $(SRCFILES:%.ao.$(ARCH)=%.asm)
 
-.PHONY: all clean apidoc
+.PHONY: all clean install apidoc
 
 all: $(BIN)
 
 clean:
 	@$(RM) $(BIN) $(BIN).dsm ../Map.$(ARCH).txt LineCounts.$(ARCH).txt $(OBJ) $(DEPFILES)
+
+install: $(BIN)
+	$(xCP) $(BIN) $(DISTROOT)
 
 apidoc:
 	doxygen Doxyfile.api
@@ -52,7 +55,6 @@ $(BIN): $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile
 	@echo --- LD -o $(BIN)
 	@$(LD) $(LDFLAGS) -o $(BIN) $(OBJ) $(MODS) -Map ../Map.$(ARCH).txt
 	@objdump $(BIN) -D > $(BIN).dsm
-	$(xCP) $(BIN) $(DISTROOT)
 	@wc -l $(SRCFILES) > LineCounts.$(ARCH).txt
 	@echo BUILD_NUM = `calc $(BUILD_NUM)+1` > Makefile.BuildNum
 

@@ -13,12 +13,15 @@ DEPFILES := $(OBJ:%.o=%.d)
 # signals.o
 BIN = ../libc.so.1
 
-.PHONY:	all clean
+.PHONY:	all clean install
 
 all: $(BIN)
 
 clean:
 	$(RM) $(BIN) ../libc.so $(OBJ) $(DEPFILES) libc.so.1.dsm libc.so.1.dmp map.txt
+
+install: $(BIN)
+	$(xCP) ../libc.so.1 $(DISTROOT)/Libs/
 
 # Core C Library
 $(BIN): $(OBJ)
@@ -27,7 +30,6 @@ $(BIN): $(OBJ)
 	@$(OBJDUMP) -d $@ > libc.so.1.dsm
 	@$(OBJDUMP) -x -r -R $@ > libc.so.1.dmp
 	cp ../libc.so.1 ../libc.so
-	$(xCP) ../libc.so.1 $(DISTROOT)/Libs/
 
 # C Runtime 0
 ../crt0.o: crt0.asm

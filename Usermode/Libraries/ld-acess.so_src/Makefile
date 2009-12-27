@@ -13,19 +13,21 @@ ASFLAGS  = -felf
 LDFLAGS  = -T link.ld -Map map.txt -Bstatic
 
 
-.PHONY: all clean
+.PHONY: all clean install
 
 all:	$(BIN)
 
 clean:
 	$(RM) $(BIN) $(AOBJ) $(COBJ) ld-acess.dmp ld-acess.dsm link.txt map.txt
 
+install: $(BIN)
+	$(xCP) $(BIN) $(DISTROOT)/Libs/
+
 $(BIN): $(AOBJ) $(COBJ)
 	@echo --- $(LD) -shared -o $@
 	@$(LD) $(LDFLAGS) -o $(BIN) $(AOBJ) $(COBJ) > link.txt
 	$(OBJDUMP) -x $(BIN) > ld-acess.dmp
 	$(OBJDUMP) -d $(BIN) > ld-acess.dsm
-	$(xCP) $(BIN) $(DISTROOT)/Libs/
 
 $(COBJ): %.o: %.c
 	@echo $(CC) -o $@

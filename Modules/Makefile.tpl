@@ -23,12 +23,13 @@ all: $(BIN)
 clean:
 	$(RM) $(BIN) $(BIN).dsm $(KOBJ) $(OBJ) $(DEPFILES)
 
+install: $(BIN)
+	$(xCP) $(BIN) $(DISTROOT)/Modules/$(NAME).kmd
+
 $(BIN): $(OBJ)
 	@echo --- $(LD) -o $@
 	@$(LD) -T ../link.ld -shared -nostdlib -o $@ $(OBJ)
-#	@$(LD) -shared -nostdlib -o $@ $(OBJ)
 	@$(OBJDUMP) -d $(BIN) > $(BIN).dsm
-	$(xCP) $@ $(DISTROOT)/Modules/$(NAME).kmd
 	@echo --- $(LD) -o $(KOBJ)
 	@$(CC) -Wl,-r -nostdlib -o $(KOBJ) $(OBJ)
 

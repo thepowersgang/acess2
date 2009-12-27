@@ -161,7 +161,12 @@ void Inode_ClearCache(int Handle)
 	tInodeCache	*prev = (tInodeCache*) &gVFS_InodeCache;
 	tCachedInode	*ent, *next;
 	
-	cache = Inode_int_GetFSCache(Handle);
+	// Find the cache
+	for(
+		cache = gVFS_InodeCache;
+		cache && cache->Handle < Handle;
+		prev = cache, cache = cache->Next
+		);
 	if(!cache)	return;
 	
 	// Search Cache

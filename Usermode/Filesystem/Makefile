@@ -23,3 +23,5 @@ $(DIRS):
 
 $(FILES):
 	$(xCP) $< $(DISTROOT)/$@
+
+force: ;
