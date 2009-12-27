@@ -167,7 +167,7 @@ void Inode_ClearCache(int Handle)
 		cache && cache->Handle < Handle;
 		prev = cache, cache = cache->Next
 		);
-	if(!cache)	return;
+	if(!cache || cache->Handle != Handle)	return;
 	
 	// Search Cache
 	ent = cache->FirstNode;
