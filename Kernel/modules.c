@@ -5,6 +5,9 @@
 #include <common.h>
 #include <modules.h>
 
+#define	USE_EDI	0
+#define	USE_UDI	1
+
 // === PROTOTYPES ===
  int	Modules_LoadBuiltins();
  int	Module_LoadMem(void *Buffer, Uint Length, char *ArgString);
@@ -13,6 +16,9 @@
  int	Module_IsLoaded(char *Name);
 
 // === IMPORTS ===
+#if USE_UDI
+extern int	UDI_LoadDriver(void *Base);
+#endif
 extern void	StartupPrint(char *Str);
 extern tModule	gKernelModules[];
 extern void	gKernelModulesEnd;
@@ -149,6 +155,14 @@ int Module_LoadFile(char *Path, char *ArgString)
 		{
 			Binary_Relocate(base);	// Relocate
 			return Module_InitEDI( base );	// And intialise
+		}
+		#endif
+		
+		#if USE_UDI
+		if( Binary_FindSymbol(base, "udi_init_info", NULL ) == 0 )
+		{
+			Binary_Relocate(base);	// Relocate
+			return UDI_LoadDriver( base );	// And intialise
 		}
 		#endif
 		
