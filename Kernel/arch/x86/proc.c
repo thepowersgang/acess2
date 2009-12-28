@@ -115,9 +115,6 @@ void ArchThreads_Init()
 	}
 	#endif
 	
-	Log("sizeof(tTSS) = %i", sizeof(tTSS));
-	Log("sizeof(tGDT) = %i", sizeof(tGDT));
-	
 	// Initialise Double Fault TSS
 	gGDT[5].LimitLow = sizeof(tTSS);
 	gGDT[5].LimitHi = 0;
@@ -134,7 +131,6 @@ void ArchThreads_Init()
 	#else
 	pos = 0;
 	#endif
-		Log("pos = %i", pos);
 		gTSSs[pos].SS0 = 0x10;
 		gTSSs[pos].ESP0 = 0;	// Set properly by scheduler
 		gGDT[6+pos].BaseLow = ((Uint)(&gTSSs[pos])) & 0xFFFF;

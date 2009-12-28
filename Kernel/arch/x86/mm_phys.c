@@ -34,7 +34,7 @@ void MM_Install(tMBoot_Info *MBoot)
 	
 	// Initialise globals
 	giPageCount = (MBoot->HighMem >> 2) + 256;	// HighMem is a kByte value
-	LOG("giPageCount = %i", giPageCount);
+	//LOG("giPageCount = %i", giPageCount);
 	
 	// Get used page count
 	kernelPages = (Uint)&gKernelEnd - KERNEL_BASE;
@@ -67,13 +67,13 @@ void MM_Install(tMBoot_Info *MBoot)
 	}
 	
 	// Allocate References
-	LOG("Reference Pages %i", (giPageCount*4+0xFFF)>>12);
+	//LOG("Reference Pages %i", (giPageCount*4+0xFFF)>>12);
 	for(num = 0; num < (giPageCount*4+0xFFF)>>12; num++)
 	{
 		MM_Allocate( REFERENCE_BASE + (num<<12) );
 	}
 	
-	LOG("Filling");
+	//LOG("Filling");
 	// Fill references
 	gaPageReferences = (void*)REFERENCE_BASE;
 	memsetd(gaPageReferences, 1, kernelPages);
