@@ -116,10 +116,12 @@ void ArchThreads_Init()
 	#endif
 	
 	// Initialise Double Fault TSS
+	/*
 	gGDT[5].LimitLow = sizeof(tTSS);
 	gGDT[5].LimitHi = 0;
 	gGDT[5].Access = 0x89;	// Type
 	gGDT[5].Flags = 0x4;
+	*/
 	gGDT[5].BaseLow = (Uint)&gDoubleFault_TSS & 0xFFFF;
 	gGDT[5].BaseMid = (Uint)&gDoubleFault_TSS >> 16;
 	gGDT[5].BaseHi = (Uint)&gDoubleFault_TSS >> 24;
@@ -136,10 +138,12 @@ void ArchThreads_Init()
 		gGDT[6+pos].BaseLow = ((Uint)(&gTSSs[pos])) & 0xFFFF;
 		gGDT[6+pos].BaseMid = ((Uint)(&gTSSs[pos])) >> 16;
 		gGDT[6+pos].BaseHi = ((Uint)(&gTSSs[pos])) >> 24;
+		/*
 		gGDT[6+pos].LimitLow = sizeof(tTSS);
 		gGDT[6+pos].LimitHi = 0;
 		gGDT[6+pos].Access = 0x89;	// Type
 		gGDT[6+pos].Flags = 0x4;
+		*/
 	#if USE_MP
 	}
 	for(pos=0;pos<giNumCPUs;pos++) {
