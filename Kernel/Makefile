@@ -20,10 +20,10 @@ CFLAGS		+= -Wall -Werror -O3 -fno-stack-protector -fno-builtin
 ASFLAGS		+= -D ARCH=\"$(ARCH)\"
 LDFLAGS		+= -T arch/$(ARCHDIR)/link.ld
 
-if $(KERNEL_DEBUG) != "" then
+ifeq ($(DEBUG_BUILD),yes)
 	LDFLAGS += -g
-if $(KERNEL_DEBUG) != "" then
 	CFLAGS += -g
+endif
 
 OBJ = $(addprefix arch/$(ARCHDIR)/,$(A_OBJ))
 OBJ += heap.o messages.o debug.o modules.o lib.o syscalls.o system.o threads.o drvutil.o

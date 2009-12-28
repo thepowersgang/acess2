@@ -3,7 +3,7 @@
  * Architecture Independent System Init
  * system.c
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <common.h>
 
 // === TYPES ===
