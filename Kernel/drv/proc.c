@@ -108,7 +108,7 @@ tSysFS_Ent	*gSysFS_FileList;
 int SysFS_Install(char **Options)
 {
 	DevFS_AddDevice( &gSysFS_DriverInfo );
-	return 0;
+	return MODULE_INIT_SUCCESS;
 }
 
 /**
@@ -171,7 +171,7 @@ int SysFS_RegisterFile(char *Path, char *Data, int Length)
 				ent->Node.Size ++;
 			else
 				gSysFS_DriverInfo.RootNode.Size ++;
-			LOG("Added directory '%s'\n", child->Name);
+			LOG("Added directory '%s'", child->Name);
 		}
 		
 		ent = child;

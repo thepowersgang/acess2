@@ -151,7 +151,7 @@ int FDD_Install(char **Arguments)
 	gFDD_Devices[0].track[0] = -1;
 	gFDD_Devices[1].track[1] = -1;
 	
-	Log("[FDD ] Detected Disk 0: %s and Disk 1: %s\n", cFDD_TYPES[data>>4], cFDD_TYPES[data&0xF]);
+	Log("[FDD ] Detected Disk 0: %s and Disk 1: %s", cFDD_TYPES[data>>4], cFDD_TYPES[data&0xF]);
 	
 	// Clear FDD IRQ Flag
 	FDD_SensInt(0x3F0, NULL, NULL);

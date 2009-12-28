@@ -2,7 +2,7 @@
  * Acess2 IDE Harddisk Driver
  * drv/ide.c
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <common.h>
 #include <modules.h>
 #include <vfs.h>
@@ -166,9 +166,9 @@ int ATA_Install()
 	ATA_SetupVFS();
 	
 	if( DevFS_AddDevice( &gATA_DriverInfo ) == 0 )
-		return 0;
+		return MODULE_INIT_FAILURE;
 	
-	return 1;
+	return MODULE_INIT_SUCCESS;
 }
 
 /**
@@ -187,9 +187,9 @@ int ATA_SetupIO()
 	LOG("ent = %i", ent);
 	gATA_BusMasterBase = PCI_GetBAR4( ent );
 	if( gATA_BusMasterBase == 0 ) {
-		Warning("It seems that there is no Bus Master Controller on this machine, get one");
-		LEAVE('i', 0);
-		return 0;
+		Warning("It seems that there is no Bus Master Controller on this machine. Get one");
+		LEAVE('i', MODULE_INIT_FAILURE);
+		return MODULE_INIT_FAILURE;
 	}
 	if( !(gATA_BusMasterBase & 1) )
 	{
@@ -222,8 +222,8 @@ int ATA_SetupIO()
 	outb(IDE_PRI_BASE+1, 1);
 	outb(IDE_SEC_BASE+1, 1);
 	
-	LEAVE('i', 1);
-	return 1;
+	LEAVE('i', MODULE_INIT_SUCCESS);
+	return MODULE_INIT_SUCCESS;
 }
 
 /**

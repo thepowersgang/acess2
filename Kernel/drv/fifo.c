@@ -62,7 +62,7 @@ tPipe	*gFIFO_NamedPipes = NULL;
 int FIFO_Install(char **Options)
 {
 	DevFS_AddDevice( &gFIFO_DriverInfo );
-	return 0;
+	return MODULE_INIT_SUCCESS;
 }
 
 /**

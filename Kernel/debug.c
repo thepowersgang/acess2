@@ -223,7 +223,7 @@ void Debug_SetKTerminal(char *File)
 	if(giDebug_KTerm != -1)
 		VFS_Close(giDebug_KTerm);
 	giDebug_KTerm = VFS_Open(File, VFS_OPENFLAG_WRITE);
-	Log("Opened '%s' as %i\n", File, giDebug_KTerm);
+	Log("Opened '%s' as 0x%x", File, giDebug_KTerm);
 }
 
 void Debug_Enter(char *FuncName, char *ArgTypes, ...)

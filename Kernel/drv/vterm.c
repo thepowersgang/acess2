@@ -187,7 +187,7 @@ int VT_Install(char **Arguments)
 	// Set kernel output to VT0
 	Debug_SetKTerminal("/Devices/VTerm/0");
 	
-	return 0;
+	return MODULE_INIT_SUCCESS;
 }
 
 /**
@@ -750,7 +750,7 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 {
 	 int	i;
 	//ENTER("pTerm xCh", Term, Ch);
-	//LOG("Term = {WritePos:%i, ViewPos:%i}\n", Term->WritePos, Term->ViewPos);
+	//LOG("Term = {WritePos:%i, ViewPos:%i}", Term->WritePos, Term->ViewPos);
 	
 	switch(Ch)
 	{

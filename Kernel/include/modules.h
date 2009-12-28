@@ -33,4 +33,7 @@ typedef struct sModule {
 	char	**Dependencies;	// NULL Terminated List
 } __attribute__((packed)) tModule;
 
+#define MODULE_INIT_SUCCESS	1
+#define MODULE_INIT_FAILURE	0
+
 #endif
