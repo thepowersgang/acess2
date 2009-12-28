@@ -42,6 +42,8 @@ MODULES defines what modules should be statically linked with the kernel
 
 Set the source root directory (ACESSDIR) and the destination  directory
  (DISTROOT).
+To be able to build usermode programs, Usermode/Libraries/acess.ld needs
+ to be edited to change the SEARCH_DIR directive to the correct path.
 You may also want to edit Usermode/Filesystem/Conf/BootConf.cfg before
  installing.
 

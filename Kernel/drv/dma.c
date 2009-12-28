@@ -32,7 +32,7 @@ t_dmaChannel	dma_channels[8];
  */
 void DMA_Install()
 {
-	int i;
+	Uint	i;
 	for(i=8;i--;)
 	{
 		outb( cMASKPORT[i], 0x04 | (i & 0x3) ); // mask channel
@@ -49,32 +49,32 @@ void DMA_Install()
 		
 		dma_channels[i].mode = 0;
 		dma_addresses[i] = (char*)DMA_ADDRESS(i);
-		dma_addresses[i] += 0xC0000000;
+		dma_addresses[i] += KERNEL_BASE;
 	}
 }
 
 /**
- * \fn void DMA_SetChannel(int channel, int length, int read)
+ * \fn void DMA_SetChannel(int Channel, int length, int read)
  * \brief Set DMA Channel Length and RW
  */
-void DMA_SetChannel(int channel, int length, int read)
+void DMA_SetChannel(int Channel, int length, int read)
 {
-	channel &= 7;
-	read = read && 1;
+	Uint	chan = Channel & 7;
+	read = !!read;
 	if(length > DMA_SIZE)	length = DMA_SIZE;
 	length --;	//Adjust for DMA
 	//__asm__ __volatile__ ("cli");
-	outb( cMASKPORT[channel], 0x04 | (channel & 0x3) );		// mask channel
-	outb( cCLEARPORT[channel], 0x00 );
-	outb( cMODEPORT[channel], (0x44 + (!read)*4) | (channel & 0x3) );
-	outb( cADDRPORT[channel], LOWB(DMA_ADDRESS(channel)) );		// send address
-	outb( cADDRPORT[channel], HIB(DMA_ADDRESS(channel)) );		// send address
-	outb( cPAGEPORT[channel], HIW(DMA_ADDRESS(channel)) );		// send page
-	outb( cCOUNTPORT[channel], LOWB(length) );      // send size
-	outb( cCOUNTPORT[channel], HIB(length) );       // send size
-	outb( cMASKPORT[channel], channel & 0x3 );              // unmask channel
-	dma_addresses[channel] = (char*)DMA_ADDRESS(channel);
-	dma_addresses[channel] += 0xC0000000;
+	outb( cMASKPORT[chan], 0x04 | (chan & 0x3) );		// mask channel
+	outb( cCLEARPORT[chan], 0x00 );
+	outb( cMODEPORT[chan], (0x44 + (!read)*4) | (chan & 0x3) );
+	outb( cADDRPORT[chan], LOWB(DMA_ADDRESS(chan)) );		// send address
+	outb( cADDRPORT[chan], HIB(DMA_ADDRESS(chan)) );		// send address
+	outb( cPAGEPORT[chan], HIW(DMA_ADDRESS(chan)) );		// send page
+	outb( cCOUNTPORT[chan], LOWB(length) );      // send size
+	outb( cCOUNTPORT[chan], HIB(length) );       // send size
+	outb( cMASKPORT[chan], chan & 0x3 );              // unmask channel
+	dma_addresses[chan] = (char*)DMA_ADDRESS(chan);
+	dma_addresses[chan] += KERNEL_BASE;
 	//__asm__ __volatile__ ("sti");
 }
 

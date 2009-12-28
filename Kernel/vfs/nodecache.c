@@ -158,7 +158,7 @@ void Inode_UncacheNode(int Handle, Uint64 Inode)
 void Inode_ClearCache(int Handle)
 {
 	tInodeCache	*cache;
-	tInodeCache	*prev = (tInodeCache*) &gVFS_InodeCache;
+	tInodeCache	*prev = NULL;
 	tCachedInode	*ent, *next;
 	
 	// Find the cache
@@ -184,7 +184,10 @@ void Inode_ClearCache(int Handle)
 	}
 	
 	// Free Cache
-	prev->Next = cache->Next;
+	if(prev == NULL)
+		gVFS_InodeCache = cache->Next;
+	else
+		prev->Next = cache->Next;
 	free(cache);
 }
 
