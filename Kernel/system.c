@@ -5,6 +5,19 @@
  */
 #include <common.h>
 
+// === TYPES ===
+typedef struct
+{
+	 int	TrueLine;
+	 int	nParts;
+	char	**Parts;
+}	tConfigLine;
+typedef struct
+{
+	 int	nLines;
+	tConfigLine	Lines[];
+}	tConfigFile;
+
 // === IMPORTS ===
 extern int	Modules_LoadBuiltins();
 extern int	PCI_Install();
@@ -18,7 +31,7 @@ void	System_ParseCommandLine(char *ArgString);
 void	System_ParseVFS(char *Arg);
 void	System_ParseSetting(char *Arg);
 void	System_ExecuteScript();
- int	System_Int_GetString(char *Str, char **Dest);
+tConfigFile	*System_Int_ParseFile(char *File);
 
 // === GLOBALS ===
 char	*gsConfigScript = "/Acess/Conf/BootConf.cfg";
@@ -185,9 +198,10 @@ void System_ExecuteScript()
 {
 	 int	fp;
 	 int	fLen = 0;
-	 int	i = 0, lineStart;
-	char	*sArg1, *sArg2, *sArg3;
+	 int	i = 0;
 	char	*fData;
+	tConfigFile	*file;
+	tConfigLine	*line;
 	
 	// Open Script
 	fp = VFS_Open(gsConfigScript, VFS_OPENFLAG_READ);
@@ -205,156 +219,224 @@ void System_ExecuteScript()
 	fData[fLen] = '\0';
 	VFS_Close(fp);
 	
-	// Read Script
-	while(i < fLen)
+	
+	
+	// Parse File
+	file = System_Int_ParseFile(fData);
+	
+	// Loop lines
+	for( i = 0; i < file->nLines; i++ )
 	{
-		sArg1 = sArg2 = sArg3 = NULL;
+		line = &file->Lines[i];
+		if( line->nParts == 0 )	continue;	// Skip blank
 		
-		lineStart = i;
-		// Clear leading whitespace and find empty lines
-		while(i < fLen && (fData[i] == ' ' || fData[i]=='\t'))	i ++;
-		if(i == fLen)	break;
-		if(fData[i] == '\n') {
-			i++;
-			continue;
+		// Mount
+		if( strcmp(line->Parts[0], "mount") == 0 ) {
+			if( line->nParts != 4 ) {
+				Warning("Configuration command 'mount' requires 3 arguments, %i given",
+					line->nParts-1);
+				continue;
+			}
+			//Log("[CFG ] Mount '%s' to '%s' (%s)",
+			//	line->Parts[1], line->Parts[2], line->Parts[3]);
+			//! \todo Use an optional 4th argument for the options string
+			VFS_Mount(line->Parts[1], line->Parts[2], line->Parts[3], "");
 		}
-		
-		// Comment
-		if(fData[i] == ';' || fData[i] == '#') {
-			while(i < fLen && fData[i] != '\n')	i ++;
-			i ++;
-			continue;
+		// Module
+		else if(strcmp(line->Parts[0], "module") == 0) {
+			if( line->nParts < 2 || line->nParts > 3 ) {
+				Warning("Configuration command 'module' requires 1 or 2 arguments, %i given",
+					line->nParts-1);
+				continue;
+			}
+			if( line->nParts == 3 )
+				Module_LoadFile(line->Parts[1], line->Parts[2]);
+			else
+				Module_LoadFile(line->Parts[1], "");
 		}
-		
-		// Commands
-		// - Mount
-		if(strncmp("mount ", fData+i, 6) == 0) {
-			i += 6;
-			i += System_Int_GetString(fData+i, &sArg1);
-			if(!sArg1)	goto read2eol;
-			i += System_Int_GetString(fData+i, &sArg2);
-			if(!sArg2)	goto read2eol;
-			i += System_Int_GetString(fData+i, &sArg3);
-			if(!sArg3)	goto read2eol;
-			//Log("[CFG ] Mount '%s' to '%s' (%s)\n", sArg1, sArg2, sArg3);
-			VFS_Mount(sArg1, sArg2, sArg3, "");
+		// UDI Module
+		else if(strcmp(line->Parts[0], "udimod") == 0) {
+			if( line->nParts != 2 ) {
+				Warning("Configuration command 'udimod' requires 1 argument, %i given",
+					line->nParts-1);
+				continue;
+			}
+			Log("[CFG  ] Load UDI Module '%s'", line->Parts[1]);
+			Module_LoadFile(line->Parts[1], "");
 		}
-		// - Load Module
-		else if(strncmp("module ", fData+i, 6) == 0) {
-			//char	*tmp;
-			i += 7;
-			i += System_Int_GetString(fData+i, &sArg1);
-			if(!sArg1)	goto read2eol;
-			Module_LoadFile(sArg1, "");	//!\todo Use the rest of the line as the argument string
+		// EDI Module
+		else if(strcmp(line->Parts[0], "edimod") == 0) {
+			if( line->nParts != 2 ) {
+				Warning("Configuration command 'edimod' requires 1 argument, %i given",
+					line->nParts-1);
+				continue;
+			}
+			Log("[CFG  ] Load EDI Module '%s'", line->Parts[1]);
+			Module_LoadFile(line->Parts[1], "");
 		}
-		// - Load Module (UDI)
-		else if(strncmp("udimod ", fData+i, 6) == 0) {
-			//char	*tmp;
-			i += 7;
-			i += System_Int_GetString(fData+i, &sArg1);
-			if(!sArg1)	goto read2eol;
-			Module_LoadFile(sArg1, "");
+		// Symbolic Link
+		else if(strcmp(line->Parts[0], "symlink") == 0) {
+			if( line->nParts != 3 ) {
+				Warning("Configuration command 'symlink' requires 2 arguments, %i given",
+					line->nParts-1);
+				continue;
+			}
+			Log("[CFG  ] Symlink '%s' pointing to '%s'",
+				line->Parts[1], line->Parts[2]);
+			VFS_Symlink(line->Parts[1], line->Parts[2]);
 		}
-		// - Load Module (EDI)
-		else if(strncmp("edimod ", fData+i, 6) == 0) {
-			i += 7;
-			i += System_Int_GetString(fData+i, &sArg1);
-			if(!sArg1)	goto read2eol;
-			Log("[CFG  ] Load EDI Module '%s'", sArg1);
-			Module_LoadFile(sArg1, "");
+		// Create Directory
+		else if(strcmp(line->Parts[0], "mkdir") == 0) {
+			if( line->nParts != 3 ) {
+				Warning("Configuration command 'mkdir' requires 1 argument, %i given",
+					line->nParts-1);
+				continue;
+			}
+			Log("[CFG  ] New Directory '%s'", line->Parts[1]);
+			VFS_MkDir(line->Parts[1]);
 		}
-		// - Symlink
-		else if(strncmp("symlink ", fData+i, 7) == 0) {
-			i += 8;
-			i += System_Int_GetString(fData+i, &sArg1);
-			if(!sArg1)	goto read2eol;
-			i += System_Int_GetString(fData+i, &sArg2);
-			if(!sArg2)	goto read2eol;
-			Log("[CFG  ] Symlink '%s' pointing to '%s'", sArg1, sArg2);
-			VFS_Symlink(sArg1, sArg2);
-		}
-		// - New Directory
-		else if(strncmp("mkdir ", fData+i, 5) == 0) {
-			i += 6;
-			i += System_Int_GetString(fData+i, &sArg1);
-			if(!sArg1)	goto read2eol;
-			Log("[CFG  ] New Directory '%s'", sArg1);
-			VFS_MkDir(sArg1);
-		}
-		// - Spawn a task
-		else if(strncmp("spawn ", fData+i, 5) == 0) {
-			i += 6;
-			i += System_Int_GetString(fData+i, &sArg1);
-			if(!sArg1)	goto read2eol;
-			Log("[CFG  ] Starting '%s' as a new task", sArg1);
-			Proc_Spawn(sArg1);
+		// Spawn a process
+		else if(strcmp(line->Parts[0], "spawn") == 0) {
+			if( line->nParts != 3 ) {
+				Warning("Configuration command 'spawn' requires 1 argument, %i given",
+					line->nParts-1);
+				continue;
+			}
+			Log("[CFG  ] Starting '%s' as a new task", line->Parts[1]);
+			Proc_Spawn(line->Parts[1]);
 		}
 		else {
-			Warning("Unknown configuration command, Line: '%s'", fData+i);
-			goto read2eol;
+			Warning("Unknown configuration command '%s' on line %i",
+				line->Parts[0],
+				line->TrueLine
+				);
 		}
-	read2eol:
-		if(sArg1)	free(sArg1);
-		if(sArg2)	free(sArg2);
-		if(sArg3)	free(sArg3);
-		// Skip to EOL
-		while(i < fLen && fData[i] != '\n')	i++;
-		i ++;	// Skip \n
 	}
-	free(fData);
+	
+	// Clean up after ourselves
+	for( i = 0; i < file->nLines; i++ ) {
+		free( file->Lines[i].Parts );
+	}
+	free( file );
+	free( fData );
 }
 
 /**
- * \fn int System_Int_GetString(char *Str, char **Dest)
- * \brief Gets a string from another
- * \note Destructive
- * \param Str	Input String
- * \param Dest	Pointer to output pointer
- * \return Characters eaten from input
+ * \brief Parses a config file
+ * \param FileData	Read/Write buffer containing the config file data
+ *                  (will be modified)
+ * \return ::tConfigFile structure that represents the original contents
+ *         of \a FileData
  */
-int System_Int_GetString(char *Str, char **Dest)
+tConfigFile	*System_Int_ParseFile(char *FileData)
 {
-	 int	pos = 0;
-	 int	start = 0;
-	 int	len;
-	 
-	//LogF("GetString: (Str='%s', Dest=0x%x)\n", Str, Dest);
-	 
-	while(Str[pos] == ' ' || Str[pos] == '\t')	pos++;
-	if(Str[pos] == '\n' || Str[pos] == '\0') {
-		*Dest = NULL;
-		return pos;
+	char	*ptr;
+	char	*start;
+	 int	nLines = 0;
+	 int	i, j;
+	tConfigFile	*ret;
+	
+	// Prescan and count the number of lines
+	for(ptr = FileData; *ptr; ptr++)
+	{		
+		if(*ptr != '\n')	continue;
+		
+		if(ptr == FileData) {
+			nLines ++;
+			continue;
+		}
+		
+		#if 0	// Don't handle windows style EOLs
+		if(ptr[-1] == '\r')
+		{
+			if( &ptr[-1] == FileData ) {
+				nLines ++;
+				continue;
+			}
+			if(ptr[-2] == '\\')	continue;
+		}
+		#endif
+		
+		// Escaped EOL
+		if(ptr[-1] == '\\')	continue;
+		
+		nLines ++;
 	}
 	
-	// Quoted String
-	if(Str[pos] == '"')
+	// Ok so we have `nLines` lines, now to allocate our return
+	ret = malloc( sizeof(tConfigFile) + sizeof(tConfigLine)*nLines );
+	ret->nLines = nLines;
+	
+	// Read the file for real
+	for(
+		ptr = FileData, i = 0;
+		*ptr;
+		i++
+		)
 	{
-		pos ++;
-		start = pos;
-		while(Str[pos] != '"')	pos++;
+		start = ptr;
 		
-		len = pos - start;
-		*Dest = malloc( len + 1 );
-		memcpy( *Dest, Str+start, len );
-		(*Dest)[len] = '\0';
+		ret->Lines[i].nParts = 0;
 		
-		//LogF("GetString: RETURN *Dest = '%s'\n", *Dest);
+		// Count parts
+		for(;;)
+		{
+			// Read leading whitespace
+			while( *ptr && (*ptr == '\t' || *ptr == ' ') )	ptr++;
+			
+			// End of line/file
+			if( *ptr == '\0' || *ptr == '\n' )	break;
+			// Comment
+			if( *ptr == '#' || *ptr == ';' )	break;
+			
+			ret->Lines[i].nParts ++;
+			// Quoted
+			if( *ptr == '"' ) {
+				ptr ++;
+				while( *ptr && !(*ptr == '"' && ptr[-1] == '\\') && *ptr != '\n' )
+					ptr++;
+				continue;
+			}
+			// Unquoted
+			while( *ptr && !(*ptr == '\t' || *ptr == ' ') )
+				ptr++;
+		}
 		
-		pos++;
-		return pos;
+		// Allocate part list
+		ret->Lines[i].Parts = malloc( sizeof(char*) * ret->Lines[i].nParts );
+		
+		// Fill list
+		for( ptr = start, j = 0; ; j++ )
+		{
+			// Read leading whitespace
+			while( *ptr && (*ptr == '\t' || *ptr == ' ') )	ptr++;
+			
+			// End of line/file
+			if( *ptr == '\0' || *ptr == '\n' )	break;
+			// Comment
+			if( *ptr == '#' || *ptr == ';' )	break;
+			
+			
+			ret->Lines[i].Parts[j] = ptr;
+			
+			// Quoted
+			if( *ptr == '"' ) {
+				ptr ++;
+				while( *ptr && !(*ptr == '"' && ptr[-1] == '\\') && *ptr != '\n' )
+					ptr++;
+			}
+			// Unquoted
+			else {
+				while( *ptr && !(*ptr == '\t' || *ptr == ' ') )
+					ptr++;
+			}
+			
+			// Break if we have reached NULL
+			if( *ptr == '\0' )	break;
+			*ptr = '\0';	// Cap off string
+			ptr ++;	// And increment for the next round
+		}
 	}
 	
-	// Non-Quoted String - Whitespace deliminated
-	start = pos;
-	while(Str[pos] != ' ' && Str[pos] != '\t' && Str[pos] != '\n')	pos++;
-	
-	len = pos - start;
-	//LogF(" GetString: len = %i\n", len);
-	*Dest = malloc( len + 1 );
-	memcpy( *Dest, Str+start, len );
-	(*Dest)[len] = '\0';
-	
-	//LogF("GetString: RETURN *Dest = '%s'\n", *Dest);
-	
-	return pos;
+	return ret;
 }
