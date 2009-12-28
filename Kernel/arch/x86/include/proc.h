@@ -25,7 +25,7 @@ typedef struct sTSS {
 	Uint32	ES, CS, DS, SS, FS, GS;
 	Uint32	LDTR;
 	Uint16	Resvd, IOPB;	// IO Permissions Bitmap
-} tTSS;
+} __attribute__((packed)) tTSS;
 
 // === FUNCTIONS ===
 extern void	Proc_Start();

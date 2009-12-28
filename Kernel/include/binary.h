@@ -7,6 +7,20 @@
 #define _BINARY_H
 
 // === TYPES ===
+typedef struct sBinaryPage
+{
+	/**
+	 * \brief Physical address, or file offset
+	 * 
+	 * Physical address of this page or, when the file is not yet
+	 * loaded, this is a file offset (or -1 for uninitialised data)
+	 */
+	tPAddr	Physical;
+	tVAddr	Virtual;	//!< Virtual load address
+	Uint16	Size;	//!< Number of bytes to load from the file
+	Uint16	Flags;	//!< Load Flags
+} __attribute__ ((packed))	tBinaryPage;
+
 /**
  * \brief Defines a binary file
  * 
@@ -57,18 +71,7 @@ typedef struct sBinary
 	 * \brief Array of pages defined by this binary
 	 * \note Contains \a NumPages entries
 	 */
-	struct {
-		/**
-		 * \brief Physical address, or file offset
-		 * 
-		 * Physical address of this page or, when the file is not yet
-		 * loaded, this is a file offset (or -1 for uninitialised data)
-		 */
-		tPAddr	Physical;
-		tVAddr	Virtual;	//!< Virtual load address
-		Uint16	Size;	//!< Number of bytes to load from the file
-		Uint16	Flags;	//!< Load Flags
-	}	Pages[];
+	tBinaryPage	Pages[];
 }	tBinary;
 
 /**

@@ -41,6 +41,12 @@
 
 #define INVLPG(addr)	__asm__ __volatile__ ("invlpg (%0)"::"r"(addr))
 
+#if USE_PAE
+typedef Uint64	tTabEnt;
+#else
+typedef Uint32	tTabEnt;
+#endif
+
 // === IMPORTS ===
 extern Uint32	gaInitPageDir[1024];
 extern Uint32	gaInitPageTable[1024];
@@ -55,12 +61,18 @@ void	MM_DumpTables(tVAddr Start, tVAddr End);
 tPAddr	MM_DuplicatePage(tVAddr VAddr);
 
 // === GLOBALS ===
-tPAddr	*gaPageTable = (void*)PAGE_TABLE_ADDR;
-tPAddr	*gaPageDir = (void*)PAGE_DIR_ADDR;
-tPAddr	*gaPageCR3 = (void*)PAGE_CR3_ADDR;
-tPAddr	*gaTmpTable = (void*)TMP_TABLE_ADDR;
-tPAddr	*gaTmpDir = (void*)TMP_DIR_ADDR;
-tPAddr	*gTmpCR3 = (void*)TMP_CR3_ADDR;
+#define gaPageTable	((tTabEnt*)PAGE_TABLE_ADDR)
+#define gaPageDir	((tTabEnt*)PAGE_DIR_ADDR)
+#define gaPageCR3	((tTabEnt*)PAGE_CR3_ADDR)
+#define gaTmpTable	((tTabEnt*)TMP_TABLE_ADDR)
+#define gaTmpDir	((tTabEnt*)TMP_DIR_ADDR)
+#define gTmpCR3	((tTabEnt*)TMP_CR3_ADDR)
+//tPAddr	*gaPageTable = (void*)PAGE_TABLE_ADDR;
+//tPAddr	*gaPageDir = (void*)PAGE_DIR_ADDR;
+//tPAddr	*gaPageCR3 = (void*)PAGE_CR3_ADDR;
+//tPAddr	*gaTmpTable = (void*)TMP_TABLE_ADDR;
+//tPAddr	*gaTmpDir = (void*)TMP_DIR_ADDR;
+//tPAddr	*gTmpCR3 = (void*)TMP_CR3_ADDR;
  int	gilTempMappings = 0;
  int	gilTempFractal = 0;
 Uint32	gWorkerStacks[(NUM_WORKER_STACKS+31)/32];
@@ -75,6 +87,7 @@ void MM_PreinitVirtual()
 {
 	gaInitPageDir[ 0 ] = 0;
 	gaInitPageDir[ PAGE_TABLE_ADDR >> 22 ] = ((Uint)&gaInitPageDir - KERNEL_BASE) | 3;
+	INVLPG( PAGE_TABLE_ADDR );
 }
 
 /**
@@ -253,13 +266,17 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 tPAddr MM_Allocate(tVAddr VAddr)
 {
 	tPAddr	paddr;
+	//ENTER("xVAddr", VAddr);
+	//__asm__ __volatile__ ("xchg %bx,%bx");
 	// Check if the directory is mapped
 	if( gaPageDir[ VAddr >> 22 ] == 0 )
 	{
 		// Allocate directory
 		paddr = MM_AllocPhys();
+		//LOG("paddr = 0x%llx (new table)", paddr);
 		if( paddr == 0 ) {
 			Warning("MM_Allocate - Out of Memory (Called by %p)", __builtin_return_address(0));
+			LEAVE('i',0);
 			return 0;
 		}
 		// Map
@@ -268,19 +285,23 @@ tPAddr MM_Allocate(tVAddr VAddr)
 		if(VAddr < MM_USER_MAX)	gaPageDir[ VAddr >> 22 ] |= PF_USER;
 		
 		INVLPG( &gaPageDir[ VAddr >> 22 ] );
+		//LOG("Clearing new table");
 		memsetd( &gaPageTable[ (VAddr >> 12) & ~0x3FF ], 0, 1024 );
 	}
 	// Check if the page is already allocated
 	else if( gaPageTable[ VAddr >> 12 ] != 0 ) {
 		Warning("MM_Allocate - Allocating to used address (%p)", VAddr);
+		//LEAVE('X', gaPageTable[ VAddr >> 12 ] & ~0xFFF);
 		return gaPageTable[ VAddr >> 12 ] & ~0xFFF;
 	}
 	
 	// Allocate
 	paddr = MM_AllocPhys();
+	//LOG("paddr = 0x%llx", paddr);
 	if( paddr == 0 ) {
 		Warning("MM_Allocate - Out of Memory when allocating at %p (Called by %p)",
 			VAddr, __builtin_return_address(0));
+		//LEAVE('i',0);
 		return 0;
 	}
 	// Map
@@ -290,6 +311,7 @@ tPAddr MM_Allocate(tVAddr VAddr)
 	// Invalidate Cache for address
 	INVLPG( VAddr & ~0xFFF );
 	
+	//LEAVE('X', paddr);
 	return paddr;
 }
 
@@ -694,7 +716,7 @@ tVAddr MM_NewWorkerStack()
  */
 void MM_SetFlags(tVAddr VAddr, Uint Flags, Uint Mask)
 {
-	tPAddr	*ent;
+	tTabEnt	*ent;
 	if( !(gaPageDir[VAddr >> 22] & 1) )	return ;
 	if( !(gaPageTable[VAddr >> 12] & 1) )	return ;
 	

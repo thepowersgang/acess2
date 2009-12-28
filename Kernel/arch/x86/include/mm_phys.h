@@ -7,8 +7,9 @@
 
 // === FUNCTIONS ===
 extern tPAddr	MM_AllocPhys();
-extern void	MM_RefPhys(Uint32 Addr);
-extern void	MM_DerefPhys(Uint32 Addr);
+extern tPAddr	MM_AllocPhysRange(int Pages);
+extern void	MM_RefPhys(tPAddr Addr);
+extern void	MM_DerefPhys(tPAddr Addr);
 extern int	MM_GetRefCount(tPAddr Addr);
 
 #endif

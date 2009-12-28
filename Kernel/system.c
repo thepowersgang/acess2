@@ -3,6 +3,7 @@
  * Architecture Independent System Init
  * system.c
  */
+#define DEBUG	1
 #include <common.h>
 
 // === TYPES ===
@@ -198,7 +199,7 @@ void System_ExecuteScript()
 {
 	 int	fp;
 	 int	fLen = 0;
-	 int	i = 0;
+	 int	i;
 	char	*fData;
 	tConfigFile	*file;
 	tConfigLine	*line;
@@ -287,7 +288,7 @@ void System_ExecuteScript()
 		}
 		// Create Directory
 		else if(strcmp(line->Parts[0], "mkdir") == 0) {
-			if( line->nParts != 3 ) {
+			if( line->nParts != 2 ) {
 				Warning("Configuration command 'mkdir' requires 1 argument, %i given",
 					line->nParts-1);
 				continue;
@@ -297,7 +298,7 @@ void System_ExecuteScript()
 		}
 		// Spawn a process
 		else if(strcmp(line->Parts[0], "spawn") == 0) {
-			if( line->nParts != 3 ) {
+			if( line->nParts != 2 ) {
 				Warning("Configuration command 'spawn' requires 1 argument, %i given",
 					line->nParts-1);
 				continue;
@@ -315,6 +316,7 @@ void System_ExecuteScript()
 	
 	// Clean up after ourselves
 	for( i = 0; i < file->nLines; i++ ) {
+		if( file->Lines[i].nParts == 0 )	continue;	// Skip blank
 		free( file->Lines[i].Parts );
 	}
 	free( file );
@@ -332,9 +334,11 @@ tConfigFile	*System_Int_ParseFile(char *FileData)
 {
 	char	*ptr;
 	char	*start;
-	 int	nLines = 0;
+	 int	nLines = 1;
 	 int	i, j;
 	tConfigFile	*ret;
+	
+	ENTER("pFileData", FileData);
 	
 	// Prescan and count the number of lines
 	for(ptr = FileData; *ptr; ptr++)
@@ -346,22 +350,13 @@ tConfigFile	*System_Int_ParseFile(char *FileData)
 			continue;
 		}
 		
-		#if 0	// Don't handle windows style EOLs
-		if(ptr[-1] == '\r')
-		{
-			if( &ptr[-1] == FileData ) {
-				nLines ++;
-				continue;
-			}
-			if(ptr[-2] == '\\')	continue;
-		}
-		#endif
-		
 		// Escaped EOL
 		if(ptr[-1] == '\\')	continue;
 		
 		nLines ++;
 	}
+	
+	LOG("nLines = %i", nLines);
 	
 	// Ok so we have `nLines` lines, now to allocate our return
 	ret = malloc( sizeof(tConfigFile) + sizeof(tConfigLine)*nLines );
@@ -382,12 +377,19 @@ tConfigFile	*System_Int_ParseFile(char *FileData)
 		for(;;)
 		{
 			// Read leading whitespace
-			while( *ptr && (*ptr == '\t' || *ptr == ' ') )	ptr++;
+			while( *ptr == '\t' || *ptr == ' ' )	ptr++;
 			
 			// End of line/file
-			if( *ptr == '\0' || *ptr == '\n' )	break;
+			if( *ptr == '\0' || *ptr == '\n' ) {
+				if(*ptr == '\n')	ptr ++;
+				break;
+			}
 			// Comment
-			if( *ptr == '#' || *ptr == ';' )	break;
+			if( *ptr == '#' || *ptr == ';' ) {
+				while( *ptr && *ptr != '\n' )	ptr ++;
+				if(*ptr == '\n')	ptr ++;
+				break;
+			}
 			
 			ret->Lines[i].nParts ++;
 			// Quoted
@@ -398,8 +400,15 @@ tConfigFile	*System_Int_ParseFile(char *FileData)
 				continue;
 			}
 			// Unquoted
-			while( *ptr && !(*ptr == '\t' || *ptr == ' ') )
+			while( *ptr && !(*ptr == '\t' || *ptr == ' ') && *ptr != '\n' )
 				ptr++;
+		}
+		
+		LOG("ret->Lines[%i].nParts = %i", i, ret->Lines[i].nParts);
+		
+		if( ret->Lines[i].nParts == 0 ) {
+			ret->Lines[i].Parts = NULL;
+			continue;
 		}
 		
 		// Allocate part list
@@ -409,13 +418,19 @@ tConfigFile	*System_Int_ParseFile(char *FileData)
 		for( ptr = start, j = 0; ; j++ )
 		{
 			// Read leading whitespace
-			while( *ptr && (*ptr == '\t' || *ptr == ' ') )	ptr++;
+			while( *ptr == '\t' || *ptr == ' ' )	ptr++;
 			
 			// End of line/file
-			if( *ptr == '\0' || *ptr == '\n' )	break;
+			if( *ptr == '\0' || *ptr == '\n' ) {
+				if(*ptr == '\n')	ptr ++;
+				break;
+			}
 			// Comment
-			if( *ptr == '#' || *ptr == ';' )	break;
-			
+			if( *ptr == '#' || *ptr == ';' ) {
+				while( *ptr && *ptr != '\n' )	ptr ++;
+				if(*ptr == '\n')	ptr ++;
+				break;
+			}
 			
 			ret->Lines[i].Parts[j] = ptr;
 			
@@ -427,16 +442,27 @@ tConfigFile	*System_Int_ParseFile(char *FileData)
 			}
 			// Unquoted
 			else {
-				while( *ptr && !(*ptr == '\t' || *ptr == ' ') )
+				while( *ptr != '\t' && *ptr != ' ' && *ptr != '\n' )
 					ptr++;
 			}
 			
 			// Break if we have reached NULL
-			if( *ptr == '\0' )	break;
+			if( *ptr == '\0' ) {
+				LOG("ret->Lines[%i].Parts[%i] = '%s'", i, j, ret->Lines[i].Parts[j]);
+				break;
+			}
+			if( *ptr == '\n' ) {
+				*ptr = '\0';
+				LOG("ret->Lines[%i].Parts[%i] = '%s'", i, j, ret->Lines[i].Parts[j]);
+				ptr ++;
+				break;
+			}
 			*ptr = '\0';	// Cap off string
+			LOG("ret->Lines[%i].Parts[%i] = '%s'", i, j, ret->Lines[i].Parts[j]);
 			ptr ++;	// And increment for the next round
 		}
 	}
 	
+	LEAVE('p', ret);
 	return ret;
 }

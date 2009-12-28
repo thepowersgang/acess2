@@ -33,7 +33,7 @@ struct sElf32_Ehdr {
 	Uint16	shentsize;	//!< Section Header Entry Size
 	Uint16	shentcount;	//!< Section Header Entry Count
 	Uint16	shstrindex;	//!< Section Header String Table Index
-};
+} __attribute__ ((packed));
 
 /**
  \name Executable Types
@@ -101,7 +101,7 @@ struct sElf32_Shent {
 	Uint32	info;
 	Uint32	addralign;
 	Uint32	entsize;
-};	//sizeof = 40
+} __attribute__ ((packed));	//sizeof = 40
 
 struct elf_sym_s {
 	union {
@@ -113,7 +113,7 @@ struct elf_sym_s {
 	Uint8	info;
 	Uint8	other;
 	Uint16	shndx;
-};
+} __attribute__ ((packed));
 #define	STN_UNDEF	0	// Undefined Symbol
 
 enum {
@@ -137,18 +137,18 @@ struct sElf32_Phdr {
 	Uint32	MemSize;
 	Uint32	Flags;
 	Uint32	Align;
-};
+} __attribute__ ((packed));
 
 struct elf32_rel_s {
 	Uint32	r_offset;
 	Uint32	r_info;
-};
+} __attribute__ ((packed));
 
 struct elf32_rela_s {
 	Uint32	r_offset;
 	Uint32	r_info;
 	Sint32	r_addend;
-};
+} __attribute__ ((packed));
 
 enum {
 	R_386_NONE = 0,	// none
@@ -172,7 +172,7 @@ enum {
 struct elf32_dyn_s {
 	Uint32	d_tag;
 	Uint32	d_val;	//Also d_ptr
-};
+} __attribute__ ((packed));
 
 enum {
 	DT_NULL,	//!< Marks End of list

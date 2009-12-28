@@ -13,9 +13,10 @@
 extern void	gKernelEnd;
 
 // === PROTOTYPES ===
-Uint32	MM_AllocPhys();
-void	MM_RefPhys(Uint32 Addr);
-void	MM_DerefPhys(Uint32 Addr);
+tPAddr	MM_AllocPhys();
+tPAddr	MM_AllocPhysRange(int Pages);
+void	MM_RefPhys(tPAddr Addr);
+void	MM_DerefPhys(tPAddr Addr);
 
 // === GLOBALS ===
  int	giPhysAlloc = 0;
@@ -72,6 +73,7 @@ void MM_Install(tMBoot_Info *MBoot)
 		MM_Allocate( REFERENCE_BASE + (num<<12) );
 	}
 	
+	LOG("Filling");
 	// Fill references
 	gaPageReferences = (void*)REFERENCE_BASE;
 	memsetd(gaPageReferences, 1, kernelPages);
@@ -89,7 +91,7 @@ tPAddr MM_AllocPhys()
 {
 	 int	num = giPageCount / 32 / 32;
 	 int	a, b, c;
-	Uint32	ret;
+	tPAddr	ret;
 	
 	LOCK( &giPhysAlloc );
 	
@@ -129,7 +131,7 @@ tPAddr MM_AllocPhysRange(int Pages)
 {
 	 int	num = giPageCount / 32 / 32;
 	 int	a, b, c;
-	Uint32	ret;
+	tPAddr	ret;
 	
 	LOCK( &giPhysAlloc );
 	

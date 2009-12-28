@@ -76,7 +76,7 @@ tBinary *Elf_Load(int fp)
 	LOG("iPageCount = %i", iPageCount);
 	
 	// Allocate Information Structure
-	ret = malloc( sizeof(tBinary) + 3*sizeof(Uint)*iPageCount );
+	ret = malloc( sizeof(tBinary) + sizeof(tBinaryPage)*iPageCount );
 	// Fill Info Struct
 	ret->Entry = hdr.entrypoint;
 	ret->Base = -1;		// Set Base to maximum value
@@ -107,8 +107,6 @@ tBinary *Elf_Load(int fp)
 		
 		// Find Base
 		if(phtab[i].VAddr < ret->Base)	ret->Base = phtab[i].VAddr;
-
-		k = 0;
 		
 		LOG("phtab[%i] = {VAddr:0x%x,Offset:0x%x,FileSize:0x%x}",
 			i, phtab[i].VAddr, phtab[i].Offset, phtab[i].FileSize);
@@ -123,7 +121,7 @@ tBinary *Elf_Load(int fp)
 		
 		// Get Pages
 		count = ( (phtab[i].VAddr&0xFFF) + phtab[i].FileSize + 0xFFF) >> 12;
-		for(;k<count;k++)
+		for( k = 0; k < count; k ++ )
 		{
 			ret->Pages[j+k].Virtual = phtab[i].VAddr + (k<<12);
 			ret->Pages[j+k].Physical = phtab[i].Offset + (k<<12);	// Store the offset in the physical address

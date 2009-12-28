@@ -20,6 +20,11 @@ CFLAGS		+= -Wall -Werror -O3 -fno-stack-protector -fno-builtin
 ASFLAGS		+= -D ARCH=\"$(ARCH)\"
 LDFLAGS		+= -T arch/$(ARCHDIR)/link.ld
 
+if $(KERNEL_DEBUG) != "" then
+	LDFLAGS += -g
+if $(KERNEL_DEBUG) != "" then
+	CFLAGS += -g
+
 OBJ = $(addprefix arch/$(ARCHDIR)/,$(A_OBJ))
 OBJ += heap.o messages.o debug.o modules.o lib.o syscalls.o system.o threads.o drvutil.o
 OBJ += binary.o bin/elf.o
@@ -54,7 +59,7 @@ apidoc:
 $(BIN): $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile
 	@echo --- LD -o $(BIN)
 	@$(LD) $(LDFLAGS) -o $(BIN) $(OBJ) $(MODS) -Map ../Map.$(ARCH).txt
-	@objdump $(BIN) -D > $(BIN).dsm
+	@objdump $(BIN) -D -S > $(BIN).dsm
 	@wc -l $(SRCFILES) > LineCounts.$(ARCH).txt
 	@echo BUILD_NUM = `calc $(BUILD_NUM)+1` > Makefile.BuildNum
 

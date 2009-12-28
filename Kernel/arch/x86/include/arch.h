@@ -70,11 +70,7 @@ typedef signed long		Sint32;
 typedef signed long long	Sint64;
 typedef Uint	size_t;
 
-#if USE_PAE
 typedef Uint64	tPAddr;
-#else
-typedef Uint32	tPAddr;
-#endif
 typedef Uint32	tVAddr;
 
 typedef struct {

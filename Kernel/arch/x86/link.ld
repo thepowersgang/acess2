@@ -36,7 +36,19 @@ SECTIONS {
 		*(KEXPORT)
 		gKernelSymbolsEnd = .;
 
+
 	}
+	/*
+	.debug_abbrev : { *(.debug_abbrev) }
+	.debug_info : { *(.debug_info) }
+	.debug_line : { *(.debug_line) }
+	.debug_loc : { *(.debug_loc) }
+	.debug_pubnames : { *(.debug_pubnames) }
+	.debug_aranges : { *(.debug_aranges) }
+	.debug_ranges : { *(.debug_ranges) }
+	.debug_str : { *(.debug_str) }
+	.debug_frame : { *(.debug_frame) }
+	*/
 	
 	.padata ALIGN (0x1000) : AT(ADDR(.padata) - 0xC0000000) {
 		*(.padata)
