@@ -3,7 +3,7 @@
  * drv/ide.c
  */
 #define DEBUG	0
-#include <common.h>
+#include <acess.h>
 #include <modules.h>
 #include <vfs.h>
 #include <fs_devfs.h>

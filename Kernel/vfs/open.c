@@ -3,7 +3,7 @@
  * - Open, Close and ChDir
  */
 #define DEBUG	0
-#include <common.h>
+#include <acess.h>
 #include "vfs.h"
 #include "vfs_int.h"
 #include "vfs_ext.h"

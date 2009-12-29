@@ -3,7 +3,7 @@
  * Device Filesystem (DevFS)
  * - vfs/fs/devfs.c
  */
-#include <common.h>
+#include <acess.h>
 #include <vfs.h>
 #include <fs_devfs.h>
 

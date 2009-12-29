@@ -4,6 +4,7 @@
 #ifndef _SYS_DEVICES_TERMINAL_H
 #define _SYS_DEVICES_TERMINAL_H
 
+#include <stdint.h>
 
 enum eDrv_Terminal {
 	TERM_IOCTL_MODETYPE = 4,
@@ -15,15 +16,12 @@ enum eDrv_Terminal {
 
 struct sTerm_IOCtl_Mode
 {
-	short	ID;		//!< Zero Based index of mode
-	short	DriverID;	//!< Driver's ID number (from ::tVideo_IOCtl_Mode)
-	Uint16	Height;	//!< Height
-	Uint16	Width;	//!< Width
-	Uint8	Depth;	//!< Bits per cell
-	struct {
-		unsigned bText: 1;	//!< Text Mode marker
-		unsigned unused:	7;
-	};
+	int16_t	ID;		//!< Zero Based index of mode
+	int16_t	DriverID;	//!< Driver's ID number (from ::tVideo_IOCtl_Mode)
+	uint16_t	Height;	//!< Height
+	uint16_t	Width;	//!< Width
+	uint8_t	Depth;	//!< Bits per cell
+	uint8_t	Flags;	//!< Flags (1: Text Mode)
 };
 
 /**

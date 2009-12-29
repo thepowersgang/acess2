@@ -2,7 +2,7 @@
  * AcessMicro VFS
  * - File IO Passthru's
  */
-#include <common.h>
+#include <acess.h>
 #include "vfs.h"
 #include "vfs_int.h"
 

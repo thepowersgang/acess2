@@ -3,7 +3,7 @@
  * arch/x86/errors.c
  * - CPU Error Handler
  */
-#include <common.h>
+#include <acess.h>
 #include <proc.h>
 
 // === CONSTANTS ===

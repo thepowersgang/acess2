@@ -5,7 +5,7 @@
  */
 #define	DEBUG	0
 #define VERSION	((0<<8)|50)
-#include <common.h>
+#include <acess.h>
 #include <modules.h>
 #include <fs_devfs.h>
 #include <drv_pci.h>

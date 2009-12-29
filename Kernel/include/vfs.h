@@ -9,7 +9,7 @@
 #ifndef _VFS_H
 #define _VFS_H
 
-#include <common.h>
+#include <acess.h>
 
 /**
  * \name VFS Node Flags

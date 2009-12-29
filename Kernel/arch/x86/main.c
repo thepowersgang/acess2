@@ -3,7 +3,7 @@
  * x86 Kernel Main
  * arch/x86/main.c
  */
-#include <common.h>
+#include <acess.h>
 #include <mboot.h>
 #include <init.h>
 #include <mm_virt.h>

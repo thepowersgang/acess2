@@ -2,7 +2,7 @@
  * AcessOS Microkernel Version
  * irq.c
  */
-#include <common.h>
+#include <acess.h>
 
 // === CONSTANTS ===
 #define	MAX_CALLBACKS_PER_IRQ	4

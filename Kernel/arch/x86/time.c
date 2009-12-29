@@ -3,7 +3,7 @@
  * Timekeeping
  * arch/x86/time.c
  */
-#include <common.h>
+#include <acess.h>
 
 // === MACROS ===
 #define	NUM_TIMERS	8

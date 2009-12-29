@@ -1,7 +1,7 @@
 /*
  * Acess2 Virtual Terminal Driver
  */
-#include <common.h>
+#include <acess.h>
 #include <fs_devfs.h>
 #include <modules.h>
 #include <tpl_drv_video.h>

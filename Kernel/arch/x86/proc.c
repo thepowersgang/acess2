@@ -2,7 +2,7 @@
  * AcessOS Microkernel Version
  * proc.c
  */
-#include <common.h>
+#include <acess.h>
 #include <proc.h>
 #include <mm_virt.h>
 #include <errno.h>

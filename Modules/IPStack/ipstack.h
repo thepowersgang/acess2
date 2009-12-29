@@ -5,7 +5,7 @@
 #ifndef _IPSTACK_H_
 #define _IPSTACK_H_
 
-#include <common.h>
+#include <acess.h>
 #include <vfs.h>
 
 typedef union uIPv4	tIPv4;

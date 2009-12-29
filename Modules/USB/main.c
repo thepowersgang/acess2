@@ -4,7 +4,7 @@
  */
 #define VERSION	( (0<<8)| 5 )
 #define DEBUG	1
-#include <common.h>
+#include <acess.h>
 #include <vfs.h>
 #include <fs_devfs.h>
 #include <modules.h>

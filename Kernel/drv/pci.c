@@ -3,7 +3,7 @@
  * PCI Bus Driver
  */
 #define DEBUG	0
-#include <common.h>
+#include <acess.h>
 #include <vfs.h>
 #include <fs_devfs.h>
 #include <drv_pci.h>

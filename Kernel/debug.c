@@ -2,7 +2,7 @@
  * AcessOS Microkernel Version
  * debug.c
  */
-#include <common.h>
+#include <acess.h>
 #include <stdarg.h>
 
 #define DEBUG_TO_E9	1

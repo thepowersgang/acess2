@@ -3,7 +3,7 @@
  * Common Binary Loader
  */
 #define DEBUG	0
-#include <common.h>
+#include <acess.h>
 #include <binary.h>
 
 // === CONSTANTS ===

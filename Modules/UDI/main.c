@@ -30,7 +30,9 @@ int UDI_Install(char **Arguments)
 int UDI_LoadDriver(void *Base)
 {
 	udi_init_t	*info;
+	char	*udiprops;
 	 int	i, j;
+	
 	if( Binary_FindSymbol(Base, "udi_init_info", (Uint*)&info) == 0) {
 		Binary_Unload(Base);
 		return 0;

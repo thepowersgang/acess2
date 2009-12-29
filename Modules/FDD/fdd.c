@@ -3,7 +3,7 @@
  * Floppy Disk Access Code
  */
 #define DEBUG	0
-#include <common.h>
+#include <acess.h>
 #include <modules.h>
 #include <fs_devfs.h>
 #include <tpl_drv_disk.h>

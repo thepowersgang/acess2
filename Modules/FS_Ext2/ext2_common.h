@@ -8,7 +8,7 @@
  */
 #ifndef _EXT2_COMMON_H
 #define _EXT2_COMMON_H
-#include <common.h>
+#include <acess.h>
 #include <vfs.h>
 #include "ext2fs.h"
 

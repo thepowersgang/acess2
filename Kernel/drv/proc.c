@@ -3,7 +3,7 @@
  * - Kernel Status Driver
  */
 #define DEBUG	1
-#include <common.h>
+#include <acess.h>
 #include <modules.h>
 #include <fs_devfs.h>
 #include <fs_sysfs.h>

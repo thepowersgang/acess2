@@ -5,7 +5,7 @@
  * \warning This driver does NOT support the Bochs PCI VGA driver
 */
 #define DEBUG	0
-#include <common.h>
+#include <acess.h>
 #include <errno.h>
 #include <modules.h>
 #include <vfs.h>

@@ -2,7 +2,7 @@
  * Acess2
  * Common Library Functions
  */
-#include <common.h>
+#include <acess.h>
 
 // === CONSTANTS ===
 #define	RANDOM_SEED	0xACE55052

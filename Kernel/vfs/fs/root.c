@@ -2,6 +2,7 @@
  * AcessMicro VFS
  * - Root Filesystem Driver
  */
+#include <acess.h>
 #include <vfs.h>
 #include <vfs_ramfs.h>
 

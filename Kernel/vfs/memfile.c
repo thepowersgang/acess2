@@ -1,6 +1,9 @@
-/*
+/* 
+ * Acess 2
+ * Virtual File System
+ * - Memory Pseudo Files
  */
-#include <common.h>
+#include <acess.h>
 #include <vfs.h>
 
 // === PROTOTYPES ===

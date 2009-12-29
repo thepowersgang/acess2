@@ -2,7 +2,7 @@
  * AcessOS Microkernel Version
  * lib.c
  */
-#include <common.h>
+#include <acess.h>
 
 // === CODE ===
 void Spinlock(int *lock)

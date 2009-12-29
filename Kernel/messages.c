@@ -2,7 +2,7 @@
  * AcessOS Microkernel Version
  * messages.c
  */
-#include <common.h>
+#include <acess.h>
 #include <proc.h>
 #include <errno.h>
 

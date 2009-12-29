@@ -2,7 +2,7 @@
  * AcessOS Microkernel Version
  * heap.c
  */
-#include <common.h>
+#include <acess.h>
 #include <mm_virt.h>
 #include <heap.h>
 

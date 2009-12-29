@@ -2,7 +2,7 @@
  * Acess 2
  * Virtual File System
  */
-#include <common.h>
+#include <acess.h>
 #include <fs_sysfs.h>
 #include "vfs.h"
 #include "vfs_int.h"

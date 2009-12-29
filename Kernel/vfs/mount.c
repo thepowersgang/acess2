@@ -1,7 +1,7 @@
 /* 
  * Acess Micro - VFS Server version 1
  */
-#include <common.h>
+#include <acess.h>
 #include <vfs.h>
 #include <vfs_int.h>
 #include <fs_sysfs.h>

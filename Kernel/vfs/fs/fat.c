@@ -8,7 +8,7 @@
 #define CACHE_FAT	1	//!< Caches the FAT in memory
 #define USE_LFN		1	//!< Enables the use of Long File Names
 
-#include <common.h>
+#include <acess.h>
 #include <modules.h>
 #include <vfs.h>
 #include "fs_fat.h"

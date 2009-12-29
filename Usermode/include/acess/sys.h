@@ -11,6 +11,7 @@
 #define OPENFLAG_READ	0x02
 #define OPENFLAG_WRITE	0x04
 #define	OPENFLAG_NOLINK	0x40
+#define	OPENFLAG_CREATE	0x40
 #ifndef SEEK_CUR
 # define SEEK_SET	1
 # define SEEK_CUR	0

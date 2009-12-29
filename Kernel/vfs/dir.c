@@ -3,7 +3,7 @@
  * - Directory Management Functions
  */
 #define DEBUG	0
-#include <common.h>
+#include <acess.h>
 #include <vfs.h>
 #include <vfs_int.h>
 

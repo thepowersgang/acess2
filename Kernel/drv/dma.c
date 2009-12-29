@@ -2,7 +2,7 @@
  * AcessOS 1.0
  * DMA Driver
  */
-#include <common.h>
+#include <acess.h>
 
 #define DMA_SIZE	(0x2400)
 #define DMA_ADDRESS(c)	((c)*DMA_SIZE+0x500)	//Save Space for IDT and BDA

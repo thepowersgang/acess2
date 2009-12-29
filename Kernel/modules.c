@@ -2,7 +2,7 @@
  * Acess2
  * - Module Loader
  */
-#include <common.h>
+#include <acess.h>
 #include <modules.h>
 
 #define	USE_EDI	0
@@ -144,14 +144,17 @@ int Module_LoadFile(char *Path, char *ArgString)
 	base = Binary_LoadKernel(Path);
 	
 	// Error check
-	if(base == NULL)	return 0;
+	if(base == NULL) {
+		Warning("Module_LoadFile: Unable to load '%s'", Path);
+		return 0;
+	}
 	
 	// Check for Acess Driver
 	if( Binary_FindSymbol(base, "DriverInfo", (Uint*)&info ) == 0 )
 	{
 		#if USE_EDI
 		// Check for EDI Driver
-		if( Binary_FindSymbol(base, "driver_init", NULL ) == 0 )
+		if( Binary_FindSymbol(base, "driver_init", NULL ) != 0 )
 		{
 			Binary_Relocate(base);	// Relocate
 			return Module_InitEDI( base );	// And intialise
@@ -159,7 +162,7 @@ int Module_LoadFile(char *Path, char *ArgString)
 		#endif
 		
 		#if USE_UDI
-		if( Binary_FindSymbol(base, "udi_init_info", NULL ) == 0 )
+		if( Binary_FindSymbol(base, "udi_init_info", NULL ) != 0 )
 		{
 			Binary_Relocate(base);	// Relocate
 			return UDI_LoadDriver( base );	// And intialise
@@ -169,9 +172,9 @@ int Module_LoadFile(char *Path, char *ArgString)
 		// Unknown module type?, return error
 		Binary_Unload(base);
 		#if USE_EDI
-		Warning("Module_LoadMem: Module has neither a Module Info struct, nor an EDI entrypoint");
+		Warning("Module_LoadFile: Module has neither a Module Info struct, nor an EDI entrypoint");
 		#else
-		Warning("Module_LoadMem: Module does not have a Module Info struct");
+		Warning("Module_LoadFile: Module does not have a Module Info struct");
 		#endif
 		return 0;
 	}
@@ -179,14 +182,14 @@ int Module_LoadFile(char *Path, char *ArgString)
 	// Check magic number
 	if(info->Magic != MODULE_MAGIC)
 	{
-		Warning("Module_LoadMem: Module's magic value is invalid (0x%x != 0x%x)", info->Magic, MODULE_MAGIC);
+		Warning("Module_LoadFile: Module's magic value is invalid (0x%x != 0x%x)", info->Magic, MODULE_MAGIC);
 		return 0;
 	}
 	
 	// Check Architecture
 	if(info->Arch != MODULE_ARCH_ID)
 	{
-		Warning("Module_LoadMem: Module is for a different architecture");
+		Warning("Module_LoadFile: Module is for a different architecture");
 		return 0;
 	}
 	
