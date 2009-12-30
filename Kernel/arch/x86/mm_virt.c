@@ -14,24 +14,41 @@
 #include <mm_phys.h>
 #include <proc.h>
 
+#if USE_PAE
+# define TAB	21
+# define DIR	30
+#else
+# define TAB	22
+#endif
+
 #define KERNEL_STACKS		0xF0000000
 #define	KERNEL_STACK_SIZE	0x00008000
-#define KERNEL_STACKS_END	0xFD000000
+#define KERNEL_STACKS_END	0xFC000000
 #define WORKER_STACKS		0x00100000	// Thread0 Only!
 #define	WORKER_STACK_SIZE	KERNEL_STACK_SIZE
 #define WORKER_STACKS_END	0xB0000000
 #define	NUM_WORKER_STACKS	((WORKER_STACKS_END-WORKER_STACKS)/WORKER_STACK_SIZE)
-#define PAGE_TABLE_ADDR	0xFD000000
-#define PAGE_DIR_ADDR	0xFD3F4000
-#define PAGE_CR3_ADDR	0xFD3F4FD0
-#define TMP_CR3_ADDR	0xFD3F4FD4	// Part of core instead of temp
-#define TMP_DIR_ADDR	0xFD3F5000	// Same
-#define TMP_TABLE_ADDR	0xFD400000
-#define	HW_MAP_ADDR		0xFD800000
-#define	HW_MAP_MAX		0xFEFF0000
+
+#define PAE_PAGE_TABLE_ADDR	0xFC000000	// 16 MiB
+#define PAE_PAGE_DIR_ADDR	0xFCFC0000	// 16 KiB
+#define PAE_PAGE_PDPT_ADDR	0xFCFC3F00	// 32 bytes
+#define PAE_TMP_PDPT_ADDR	0xFCFC3F20	// 32 bytes
+#define PAE_TMP_DIR_ADDR	0xFCFE0000	// 16 KiB
+#define PAE_TMP_TABLE_ADDR	0xFD000000	// 16 MiB
+
+#define PAGE_TABLE_ADDR	0xFC000000
+#define PAGE_DIR_ADDR	0xFC3F0000
+#define PAGE_CR3_ADDR	0xFC3F0FC0
+#define TMP_CR3_ADDR	0xFC3F0FC4	// Part of core instead of temp
+#define TMP_DIR_ADDR	0xFC3F1000	// Same
+#define TMP_TABLE_ADDR	0xFC400000
+
+#define HW_MAP_ADDR		0xFE000000
+#define	HW_MAP_MAX		0xFFEF0000
 #define	NUM_HW_PAGES	((HW_MAP_MAX-HW_MAP_ADDR)/0x1000)
-#define	TEMP_MAP_ADDR	0xFEFF0000	// Allows 16 "temp" pages
+#define	TEMP_MAP_ADDR	0xFFEF0000	// Allows 16 "temp" pages
 #define	NUM_TEMP_PAGES	16
+#define LAST_BLOCK_ADDR	0xFFFF0000	// Free space for kernel provided user code/ *(-1) protection
 
 #define	PF_PRESENT	0x1
 #define	PF_WRITE	0x2
@@ -63,16 +80,18 @@ tPAddr	MM_DuplicatePage(tVAddr VAddr);
 // === GLOBALS ===
 #define gaPageTable	((tTabEnt*)PAGE_TABLE_ADDR)
 #define gaPageDir	((tTabEnt*)PAGE_DIR_ADDR)
-#define gaPageCR3	((tTabEnt*)PAGE_CR3_ADDR)
 #define gaTmpTable	((tTabEnt*)TMP_TABLE_ADDR)
 #define gaTmpDir	((tTabEnt*)TMP_DIR_ADDR)
-#define gTmpCR3	((tTabEnt*)TMP_CR3_ADDR)
-//tPAddr	*gaPageTable = (void*)PAGE_TABLE_ADDR;
-//tPAddr	*gaPageDir = (void*)PAGE_DIR_ADDR;
-//tPAddr	*gaPageCR3 = (void*)PAGE_CR3_ADDR;
-//tPAddr	*gaTmpTable = (void*)TMP_TABLE_ADDR;
-//tPAddr	*gaTmpDir = (void*)TMP_DIR_ADDR;
-//tPAddr	*gTmpCR3 = (void*)TMP_CR3_ADDR;
+#define gpPageCR3	((tTabEnt*)PAGE_CR3_ADDR)
+#define gpTmpCR3	((tTabEnt*)TMP_CR3_ADDR)
+
+#define gaPAE_PageTable	((tTabEnt*)PAE_PAGE_TABLE_ADDR)
+#define gaPAE_PageDir	((tTabEnt*)PAE_PAGE_DIR_ADDR)
+#define gaPAE_MainPDPT	((tTabEnt*)PAE_PAGE_PDPT_ADDR)
+#define gaPAE_TmpTable	((tTabEnt*)PAE_TMP_DIR_ADDR)
+#define gaPAE_TmpDir	((tTabEnt*)PAE_TMP_DIR_ADDR)
+#define gaPAE_TmpPDPT	((tTabEnt*)PAE_TMP_PDPT_ADDR)
+ int	gbUsePAE = 0;
  int	gilTempMappings = 0;
  int	gilTempFractal = 0;
 Uint32	gWorkerStacks[(NUM_WORKER_STACKS+31)/32];
@@ -85,8 +104,13 @@ Uint32	gWorkerStacks[(NUM_WORKER_STACKS+31)/32];
  */
 void MM_PreinitVirtual()
 {
+	#if USE_PAE
+	gaInitPDPT[ 0 ] = 0;
+	gaInitPageDir[ ((PAGE_TABLE_ADDR >> TAB)-3*512+3)*2 ] = ((tTabEnt)&gaInitPageDir - KERNEL_BASE) | 3;
+	#else
 	gaInitPageDir[ 0 ] = 0;
-	gaInitPageDir[ PAGE_TABLE_ADDR >> 22 ] = ((Uint)&gaInitPageDir - KERNEL_BASE) | 3;
+	gaInitPageDir[ PAGE_TABLE_ADDR >> 22 ] = ((tTabEnt)&gaInitPageDir - KERNEL_BASE) | 3;
+	#endif
 	INVLPG( PAGE_TABLE_ADDR );
 }
 
@@ -98,6 +122,23 @@ void MM_InstallVirtual()
 {
 	 int	i;
 	
+	#if USE_PAE
+	// --- Pre-Allocate kernel tables
+	for( i = KERNEL_BASE >> TAB; i < 1024*4; i ++ )
+	{
+		if( gaPAE_PageDir[ i ] )	continue;
+		
+		// Skip stack tables, they are process unique
+		if( i > KERNEL_STACKS >> TAB && i < KERNEL_STACKS_END >> TAB) {
+			gaPAE_PageDir[ i ] = 0;
+			continue;
+		}
+		// Preallocate table
+		gaPAE_PageDir[ i ] = MM_AllocPhys() | 3;
+		INVLPG( &gaPAE_PageTable[i*512] );
+		memset( &gaPAE_PageTable[i*512], 0, 0x1000 );
+	}
+	#else
 	// --- Pre-Allocate kernel tables
 	for( i = KERNEL_BASE>>22; i < 1024; i ++ )
 	{
@@ -112,6 +153,7 @@ void MM_InstallVirtual()
 		INVLPG( &gaPageTable[i*1024] );
 		memset( &gaPageTable[i*1024], 0, 0x1000 );
 	}
+	#endif
 }
 
 /**
@@ -458,7 +500,7 @@ tVAddr MM_ClearUser()
 	}
 	INVLPG( gaPageDir );
 	
-	return *gaPageCR3;
+	return *gpPageCR3;
 }
 
 /**
@@ -476,9 +518,9 @@ tPAddr MM_Clone()
 	LOCK( &gilTempFractal );
 	
 	// Create Directory Table
-	*gTmpCR3 = MM_AllocPhys() | 3;
+	*gpTmpCR3 = MM_AllocPhys() | 3;
 	INVLPG( gaTmpDir );
-	//LOG("Allocated Directory (%x)", *gTmpCR3);
+	//LOG("Allocated Directory (%x)", *gpTmpCR3);
 	memsetd( gaTmpDir, 0, 1024 );
 	
 	// Copy Tables
@@ -520,7 +562,7 @@ tPAddr MM_Clone()
 	{
 		// Fractal
 		if( i == (PAGE_TABLE_ADDR >> 22) ) {
-			gaTmpDir[ PAGE_TABLE_ADDR >> 22 ] = *gTmpCR3;
+			gaTmpDir[ PAGE_TABLE_ADDR >> 22 ] = *gpTmpCR3;
 			continue;
 		}
 		
@@ -580,7 +622,7 @@ tPAddr MM_Clone()
 		}
 	}
 	
-	ret = *gTmpCR3 & ~0xFFF;
+	ret = *gpTmpCR3 & ~0xFFF;
 	RELEASE( &gilTempFractal );
 	
 	//LEAVE('x', ret);
@@ -656,8 +698,8 @@ tVAddr MM_NewWorkerStack()
 	LOCK(&gilTempFractal);
 	
 	// Set the temp fractals to TID0's address space
-	*gTmpCR3 = ((Uint)gaInitPageDir - KERNEL_BASE) | 3;
-	//Log(" MM_NewWorkerStack: *gTmpCR3 = 0x%x", *gTmpCR3);
+	*gpTmpCR3 = ((Uint)gaInitPageDir - KERNEL_BASE) | 3;
+	//Log(" MM_NewWorkerStack: *gpTmpCR3 = 0x%x", *gpTmpCR3);
 	INVLPG( gaTmpDir );
 	
 	
@@ -675,7 +717,7 @@ tVAddr MM_NewWorkerStack()
 		pages[ addr >> 12 ] = MM_AllocPhys();
 		gaTmpTable[ (base + addr) >> 12 ] = pages[addr>>12] | 3;
 	}
-	*gTmpCR3 = 0;
+	*gpTmpCR3 = 0;
 	// Release the temp mapping lock
 	RELEASE(&gilTempFractal);
 	
