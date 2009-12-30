@@ -1,6 +1,7 @@
 /*
  * Acess2 Virtual Terminal Driver
  */
+#define DEBUG	1
 #include <acess.h>
 #include <fs_devfs.h>
 #include <modules.h>
@@ -12,7 +13,7 @@
 // === CONSTANTS ===
 #define VERSION	((0<<8)|(50))
 
-#define	NUM_VTS	7
+#define	NUM_VTS	8
 #define MAX_INPUT_CHARS32	64
 #define MAX_INPUT_CHARS8	(MAX_INPUT_CHARS32*4)
 #define VT_SCROLLBACK	1	// 2 Screens of text
@@ -359,42 +360,54 @@ int VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data)
 {
 	 int	*iData = Data;
 	tVTerm	*term = Node->ImplPtr;
+	ENTER("pNode iId pData", Node, Id, Data);
+	
 	switch(Id)
 	{
-	case DRV_IOCTL_TYPE:	return DRV_TYPE_TERMINAL;
-	case DRV_IOCTL_IDENT:	memcpy(Data, "VT\0\0", 4);	return 0;
-	case DRV_IOCTL_VERSION:	return VERSION;
-	case DRV_IOCTL_LOOKUP:	return 0;
+	case DRV_IOCTL_TYPE:
+		LEAVE('i', DRV_TYPE_TERMINAL);
+		return DRV_TYPE_TERMINAL;
+	case DRV_IOCTL_IDENT:
+		memcpy(Data, "VT\0\0", 4);
+		LEAVE('i', 0);
+		return 0;
+	case DRV_IOCTL_VERSION:
+		LEAVE('x', VERSION);
+		return VERSION;
+	case DRV_IOCTL_LOOKUP:
+		LEAVE('i', 0);
+		return 0;
 	
 	// Get/Set the mode (and apply any changes)
 	case TERM_IOCTL_MODETYPE:
-		if(Data == NULL)	return term->Mode;
-		
-		if(term->Mode != *iData) {
-			VT_int_ChangeMode(term, *iData);
+		if(Data != NULL)
+		{
+			if(term->Mode != *iData)
+				VT_int_ChangeMode(term, *iData);
+			
+			// Update the screen dimensions
+			if(giVT_CurrentTerminal == Node->Inode)
+				VT_SetTerminal( giVT_CurrentTerminal );
 		}
-		
-		// Update the screen dimensions
-		if(giVT_CurrentTerminal == Node->Inode)
-			VT_SetTerminal( giVT_CurrentTerminal );
-		break;
+		LEAVE('i', term->Mode);
+		return term->Mode;
 	
 	// Get/set the terminal width
 	case TERM_IOCTL_WIDTH:
-		if(Data == NULL)	return term->Width;
-		term->Width = *iData;
-		break;
+		if(Data != NULL)	term->Width = *iData;
+		Log("VT_Terminal_IOCtl - RETURN term->Width = %i", term->Width);
+		LEAVE('i', term->Width);
+		return term->Width;
 	
 	// Get/set the terminal height
 	case TERM_IOCTL_HEIGHT:
-		if(Data == NULL)	return term->Height;
-		term->Height = *iData;
-		break;
-	
-	default:
-		return -1;
+		if(Data != NULL)	term->Height = *iData;
+		Log("VT_Terminal_IOCtl - RETURN term->Height = %i", term->Height);
+		LEAVE('i', term->Height);
+		return term->Height;
 	}
-	return 0;
+	LEAVE('i', -1);
+	return -1;
 }
 
 /**

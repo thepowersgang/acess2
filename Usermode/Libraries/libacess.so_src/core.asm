@@ -5,7 +5,7 @@
 
 [BITS 32]
 [section .data]
-[global _errno]
+[global _errno:data (4)]
 _errno:
 	dd	0
 

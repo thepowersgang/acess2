@@ -52,6 +52,9 @@ struct s_sysFInfo {
 typedef struct s_sysFInfo	t_sysFInfo;
 typedef struct s_sysACL	t_sysACL;
 
+// === VARIABLES ===
+extern int	_errno;
+
 // === FUNCTIONS ===
 extern void	_SysDebug(char *str, ...);
 // --- Proc ---
