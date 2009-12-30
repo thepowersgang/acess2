@@ -10,13 +10,11 @@ typedef struct {
 	udi_cb_t	gcb;
 } udi_mgmt_cb_t;
 
-
 typedef struct {
 	udi_cb_t	gcb;
 	udi_trevent_t	trace_mask;
 	udi_index_t	meta_idx;
 } udi_usage_cb_t;
-
 
 typedef struct {
 	udi_cb_t	gcb;
@@ -41,5 +39,11 @@ typedef const struct {
 	udi_devmgmt_req_op_t	*devmgmt_req_op;
 	udi_final_cleanup_req_op_t	*final_cleanup_req_op;
 } udi_mgmt_ops_t;
+
+extern void udi_devmgmt_ack(udi_mgmt_cb_t *cb, udi_ubit8_t flags, udi_status_t status)
+/* Values for flags */
+#define UDI_DMGMT_NONTRANSPARENT	(1U<<0)
+/* Meta-Specific Status Codes */
+#define UDI_DMGMT_STAT_ROUTING_CHANGE	(UDI_STAT_META_SPECIFIC|1)
 
 #endif

@@ -161,4 +161,13 @@ typedef struct {
 	void	*rdata;
 } udi_chan_context_t;
 
+// === FUNCTIONS ===
+extern void	udi_final_cleanup_ack(udi_mgmt_cb_t *cb);
+
+// --- Channel Events ---
+extern void udi_channel_event_complete(udi_channel_event_cb_t *cb, udi_status_t status);
+
+
+
+
 #endif
