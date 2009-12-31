@@ -152,7 +152,18 @@ void E9_Fmt(const char *format, va_list *args)
 			if(!p)		p = "(null)";
 			while(*p)	E9(*p++);
 			break;
-			
+		
+		// Single Character / Array
+		case 'c':
+			if(minSize == 1) {
+				E9(arg);
+				break;
+			}
+			p = (char*)(Uint)arg;
+			if(!p)	goto printString;
+			while(minSize--)	E9(*p++);
+			break;
+		
 		default:	E9(arg);	break;
 		}
     }

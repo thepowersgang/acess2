@@ -52,15 +52,13 @@ tThread	*gCurrentThread = NULL;
 #endif
 // --- Multiprocessing ---
 #if USE_MP
-tMPInfo	*gMPTable = NULL;
+tMPInfo	*gMPFloatPtr = NULL;
 #endif
 #if USE_PAE
 Uint32	*gPML4s[4] = NULL;
 #endif
 tTSS	*gTSSs = NULL;
-#if !USE_MP
 tTSS	gTSS0 = {0};
-#endif
 // --- Error Recovery ---
 char	gaDoubleFaultStack[1024];
 tTSS	gDoubleFault_TSS = {
@@ -77,42 +75,82 @@ tTSS	gDoubleFault_TSS = {
 void ArchThreads_Init()
 {
 	Uint	pos = 0;
+	
 	#if USE_MP
+	tMPTable	*mptable;
+	
 	// -- Initialise Multiprocessing
 	// Find MP Floating Table
-	// - EBDA
-	for(pos = KERNEL_BASE|0x9FC00; pos < (KERNEL_BASE|0xA0000); pos += 16) {
-		if( *(Uint*)(pos) == MPTABLE_IDENT ) {
-			if(ByteSum( (void*)pos, sizeof(tMPInfo) ) != 0)	continue;
-			gMPTable = (void*)pos;
+	// - EBDA/Last 1Kib (640KiB)
+	for(pos = KERNEL_BASE|0x9F000; pos < (KERNEL_BASE|0xA0000); pos += 16) {
+		if( *(Uint*)(pos) == MPPTR_IDENT ) {
+			Log("Possible %p", pos);
+			if( ByteSum((void*)pos, sizeof(tMPInfo)) != 0 )	continue;
+			gMPFloatPtr = (void*)pos;
 			break;
 		}
 	}
-	// - Last KiB
-	if(!gMPTable) {
-		
+	// - Last KiB (512KiB base mem)
+	if(!gMPFloatPtr) {
+		for(pos = KERNEL_BASE|0x7F000; pos < (KERNEL_BASE|0x80000); pos += 16) {
+			if( *(Uint*)(pos) == MPPTR_IDENT ) {
+				Log("Possible %p", pos);
+				if( ByteSum((void*)pos, sizeof(tMPInfo)) != 0 )	continue;
+				gMPFloatPtr = (void*)pos;
+				break;
+			}
+		}
 	}
 	// - BIOS ROM
-	if(!gMPTable) {
-		for(pos = KERNEL_BASE|0xF0000; pos < (KERNEL_BASE|0x100000); pos += 16) {
-			if( *(Uint*)(pos) == MPTABLE_IDENT ) {
-				if(ByteSum( (void*)pos, sizeof(tMPInfo) ) != 0)	continue;
-				gMPTable = (void*)pos;
+	if(!gMPFloatPtr) {
+		for(pos = KERNEL_BASE|0xE0000; pos < (KERNEL_BASE|0x100000); pos += 16) {
+			if( *(Uint*)(pos) == MPPTR_IDENT ) {
+				Log("Possible %p", pos);
+				if( ByteSum((void*)pos, sizeof(tMPInfo)) != 0 )	continue;
+				gMPFloatPtr = (void*)pos;
 				break;
 			}
 		}
 	}
 	
 	// If the MP Table Exists, parse it
-	if(gMPTable)
+	if(gMPFloatPtr)
 	{
+		Log("gMPFloatPtr = %p", gMPFloatPtr);
+		Log("*gMPFloatPtr = {");
+		Log("\t.Sig = 0x%08x", gMPFloatPtr->Sig);
+		Log("\t.MPConfig = 0x%08x", gMPFloatPtr->MPConfig);
+		Log("\t.Length = 0x%02x", gMPFloatPtr->Length);
+		Log("\t.Version = 0x%02x", gMPFloatPtr->Version);
+		Log("\t.Checksum = 0x%02x", gMPFloatPtr->Checksum);
+		Log("\t.Features = [0x%02x,0x%02x,0x%02x,0x%02x,0x%02x]",
+			gMPFloatPtr->Features[0],	gMPFloatPtr->Features[1],
+			gMPFloatPtr->Features[2],	gMPFloatPtr->Features[3],
+			gMPFloatPtr->Features[4]
+			);
+		Log("}");
+		
+		mptable = (void*)( KERNEL_BASE|gMPFloatPtr->MPConfig );
+		Log("mptable = %p", mptable);
+		Log("*mptable = {");
+		Log("\t.Sig = 0x%08x", mptable->Sig);
+		Log("\t.BaseTableLength = 0x%04x", mptable->BaseTableLength);
+		Log("\t.SpecRev = 0x%02x", mptable->SpecRev);
+		Log("\t.Checksum = 0x%02x", mptable->Checksum);
+		Log("\t.OEMID = '%8c'", mptable->OemID);
+		Log("\t.ProductID = '%8c'", mptable->ProductID);
+		Log("}");
+		
 		Panic("Uh oh... MP Table Parsing is unimplemented\n");
-	} else {
-	#endif
+	}
+	else {
+		Log("No MP Table was found, assuming uniprocessor\n");
 		giNumCPUs = 1;
 		gTSSs = &gTSS0;
-	#if USE_MP
 	}
+	#else
+	giNumCPUs = 1;
+	gTSSs = &gTSS0;
 	#endif
 	
 	// Initialise Double Fault TSS
@@ -247,7 +285,7 @@ void Proc_ChangeStack()
 			*(Uint*)tmpEbp += newBase - curBase;
 	}
 	
-	gCurrentThread->KernelStack = newBase;
+	Proc_GetCurThread()->KernelStack = newBase;
 	
 	__asm__ __volatile__ ("mov %0, %%esp"::"r"(esp));
 	__asm__ __volatile__ ("mov %0, %%ebp"::"r"(ebp));
@@ -527,10 +565,17 @@ void Proc_Scheduler(int CPU)
 		return;
 	}
 	
+	// Get current thread
+	#if USE_MP
+	thread = gCurrentThread[CPU];
+	#else
+	curThread = gCurrentThread;
+	#endif
+	
 	// Reduce remaining quantum and continue timeslice if non-zero
-	if(gCurrentThread->Remaining--)	return;
+	if(thread->Remaining--)	return;
 	// Reset quantum for next call
-	gCurrentThread->Remaining = gCurrentThread->Quantum;
+	thread->Remaining = thread->Quantum;
 	
 	// Get machine state
 	__asm__ __volatile__ ("mov %%esp, %0":"=r"(esp));
@@ -539,9 +584,9 @@ void Proc_Scheduler(int CPU)
 	if(eip == SWITCH_MAGIC)	return;	// Check if a switch happened
 	
 	// Save machine state
-	gCurrentThread->SavedState.ESP = esp;
-	gCurrentThread->SavedState.EBP = ebp;
-	gCurrentThread->SavedState.EIP = eip;
+	thread->SavedState.ESP = esp;
+	thread->SavedState.EBP = ebp;
+	thread->SavedState.EIP = eip;
 	
 	// Get next thread
 	thread = Threads_GetNextToRun(CPU);
@@ -561,21 +606,28 @@ void Proc_Scheduler(int CPU)
 	#endif
 	
 	// Set current thread
+	#if USE_MP
+	gCurrentThread[CPU] = thread;
+	#else
 	gCurrentThread = thread;
+	#endif
 	
 	// Update Kernel Stack pointer
 	gTSSs[CPU].ESP0 = thread->KernelStack;
 	
 	// Set address space
-	if( gCurrentThread->MemState.CR3 != 0 )
-		__asm__ __volatile__ ("mov %0, %%cr3"::"a"(gCurrentThread->MemState.CR3));
+	#if USE_PAE
+	# error "Todo: Implement PAE Address space switching"
+	#else
+		__asm__ __volatile__ ("mov %0, %%cr3"::"a"(thread->MemState.CR3));
+	#endif
 	// Switch threads
 	__asm__ __volatile__ (
 		"mov %1, %%esp\n\t"	// Restore ESP
 		"mov %2, %%ebp\n\t"	// and EBP
 		"jmp *%3" : :	// And return to where we saved state (Proc_Clone or Proc_Scheduler)
-		"a"(SWITCH_MAGIC), "b"(gCurrentThread->SavedState.ESP),
-		"d"(gCurrentThread->SavedState.EBP), "c"(gCurrentThread->SavedState.EIP)
+		"a"(SWITCH_MAGIC), "b"(thread->SavedState.ESP),
+		"d"(thread->SavedState.EBP), "c"(thread->SavedState.EIP)
 		);
 	for(;;);	// Shouldn't reach here
 }

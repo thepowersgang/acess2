@@ -163,7 +163,7 @@ int SysFS_RegisterFile(char *Path, char *Data, int Length)
 					ent->Node.ImplPtr = child;
 				//else
 				//	gSysFS_DriverInfo.RootNode.ImplPtr = child;
-				// ^^^ Impossible (There is already /Version
+				// ^^^ Impossible (There is already /Version)
 			}
 			else
 				prev->Next = child;
@@ -171,7 +171,7 @@ int SysFS_RegisterFile(char *Path, char *Data, int Length)
 				ent->Node.Size ++;
 			else
 				gSysFS_DriverInfo.RootNode.Size ++;
-			LOG("Added directory '%s'", child->Name);
+			Log("[SYSFS] Added directory '%s'", child->Name);
 		}
 		
 		ent = child;

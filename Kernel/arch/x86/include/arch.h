@@ -30,6 +30,10 @@
 // Uses no advanced features
 # define	USE_MP	0
 # define	USE_PAE	0
+#elif ARCH == i486
+// MP Only
+# define	USE_MP	1
+# define	USE_PAE	0
 #elif ARCH == i586
 // All Enabled
 # define	USE_MP	1

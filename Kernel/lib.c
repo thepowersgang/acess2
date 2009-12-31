@@ -92,12 +92,12 @@ int strpos(const char *Str, char Ch)
 }
 
 /**
- * \fn int ByteSum(void *Ptr, int Size)
+ * \fn Uint8 ByteSum(void *Ptr, int Size)
  * \brief Adds the bytes in a memory region and returns the sum
  */
-int ByteSum(void *Ptr, int Size)
+Uint8 ByteSum(void *Ptr, int Size)
 {
-	 int	sum = 0;
+	Uint8	sum = 0;
 	while(Size--)	sum += *(Uint8*)Ptr++;
 	return sum;
 }
