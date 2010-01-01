@@ -19,6 +19,7 @@
 
 // === IMPORTS ===
 extern tGDT	gGDT[];
+extern void APStartup();	// 16-bit AP startup code
 extern Uint	GetEIP();	// start.asm
 extern Uint32	gaInitPageDir[1024];	// start.asm
 extern void	Kernel_Stack_Top;
@@ -38,21 +39,25 @@ extern void	Isr7();
 
 // === PROTOTYPES ===
 void	ArchThreads_Init();
+#if USE_MP
+void	MP_StartAP(int CPU);
+void	MP_SendIPI(Uint8 APICID, int Vector, int DeliveryMode);
+#endif
+void	Proc_Start();
 tThread	*Proc_GetCurThread();
 void	Proc_ChangeStack();
  int	Proc_Clone(Uint *Err, Uint Flags);
 void	Proc_Scheduler();
 
 // === GLOBALS ===
-// --- Current State ---
-#if USE_MP
-tThread	*gCurrentThread[MAX_CPUS] = {NULL};
-#else
-tThread	*gCurrentThread = NULL;
-#endif
 // --- Multiprocessing ---
 #if USE_MP
 tMPInfo	*gMPFloatPtr = NULL;
+tIOAPIC	*gpMP_LocalAPIC = NULL;
+Uint8	gaAPIC_to_CPU[256] = {0};
+tCPU	gaCPUs[MAX_CPUS];
+#else
+tThread	*gCurrentThread = NULL;
 #endif
 #if USE_PAE
 Uint32	*gPML4s[4] = NULL;
@@ -78,6 +83,9 @@ void ArchThreads_Init()
 	
 	#if USE_MP
 	tMPTable	*mptable;
+	
+	// Mark BSP as active
+	gaCPUs[0].State = 2;
 	
 	// -- Initialise Multiprocessing
 	// Find MP Floating Table
@@ -116,6 +124,8 @@ void ArchThreads_Init()
 	// If the MP Table Exists, parse it
 	if(gMPFloatPtr)
 	{
+		 int	i;
+	 	tMPTable_Ent	*ents;
 		Log("gMPFloatPtr = %p", gMPFloatPtr);
 		Log("*gMPFloatPtr = {");
 		Log("\t.Sig = 0x%08x", gMPFloatPtr->Sig);
@@ -139,7 +149,93 @@ void ArchThreads_Init()
 		Log("\t.Checksum = 0x%02x", mptable->Checksum);
 		Log("\t.OEMID = '%8c'", mptable->OemID);
 		Log("\t.ProductID = '%8c'", mptable->ProductID);
+		Log("\t.OEMTablePtr = %p'", mptable->OEMTablePtr);
+		Log("\t.OEMTableSize = 0x%04x", mptable->OEMTableSize);
+		Log("\t.EntryCount = 0x%04x", mptable->EntryCount);
+		Log("\t.LocalAPICMemMap = 0x%08x", mptable->LocalAPICMemMap);
+		Log("\t.ExtendedTableLen = 0x%04x", mptable->ExtendedTableLen);
+		Log("\t.ExtendedTableChecksum = 0x%02x", mptable->ExtendedTableChecksum);
 		Log("}");
+		
+		gpMP_LocalAPIC = (void*)MM_MapHWPage(mptable->LocalAPICMemMap, 1);
+		
+		ents = mptable->Entries;
+		giNumCPUs = 0;
+		
+		for( i = 0; i < mptable->EntryCount; i ++ )
+		{
+			 int	entSize = 0;
+			switch( ents->Type )
+			{
+			case 0:	// Processor
+				entSize = 20;
+				Log("%i: Processor", i);
+				Log("\t.APICID = %i", ents->Proc.APICID);
+				Log("\t.APICVer = 0x%02x", ents->Proc.APICVer);
+				Log("\t.CPUFlags = 0x%02x", ents->Proc.CPUFlags);
+				Log("\t.CPUSignature = 0x%08x", ents->Proc.CPUSignature);
+				Log("\t.FeatureFlags = 0x%08x", ents->Proc.FeatureFlags);
+				
+				// Check if there is too many processors
+				if(giNumCPUs >= MAX_CPUS) {
+					giNumCPUs ++;	// If `giNumCPUs` > MAX_CPUS later, it will be clipped
+					break;
+				}
+				
+				// Initialise CPU Info
+				gaAPIC_to_CPU[ents->Proc.APICID] = giNumCPUs;
+				gaCPUs[giNumCPUs].APICID = ents->Proc.APICID;
+				gaCPUs[giNumCPUs].State = 0;
+				giNumCPUs ++;
+				
+				// Send IPI
+				MP_StartAP( giNumCPUs-1 );
+				
+				break;
+			case 1:	// Bus
+				entSize = 8;
+				Log("%i: Bus", i);
+				Log("\t.ID = %i", ents->Bus.ID);
+				Log("\t.TypeString = '%6c'", ents->Bus.TypeString);
+				break;
+			case 2:	// I/O APIC
+				entSize = 8;
+				Log("%i: I/O APIC", i);
+				Log("\t.ID = %i", ents->IOAPIC.ID);
+				Log("\t.Version = 0x%02x", ents->IOAPIC.Version);
+				Log("\t.Flags = 0x%02x", ents->IOAPIC.Flags);
+				Log("\t.Addr = 0x%08x", ents->IOAPIC.Addr);
+				break;
+			case 3:	// I/O Interrupt Assignment
+				entSize = 8;
+				Log("%i: I/O Interrupt Assignment", i);
+				Log("\t.IntType = %i", ents->IOInt.IntType);
+				Log("\t.Flags = 0x%04x", ents->IOInt.Flags);
+				Log("\t.SourceBusID = 0x%02x", ents->IOInt.SourceBusID);
+				Log("\t.SourceBusIRQ = 0x%02x", ents->IOInt.SourceBusIRQ);
+				Log("\t.DestAPICID = 0x%02x", ents->IOInt.DestAPICID);
+				Log("\t.DestAPICIRQ = 0x%02x", ents->IOInt.DestAPICIRQ);
+				break;
+			case 4:	// Local Interrupt Assignment
+				entSize = 8;
+				Log("%i: Local Interrupt Assignment", i);
+				Log("\t.IntType = %i", ents->LocalInt.IntType);
+				Log("\t.Flags = 0x%04x", ents->LocalInt.Flags);
+				Log("\t.SourceBusID = 0x%02x", ents->LocalInt.SourceBusID);
+				Log("\t.SourceBusIRQ = 0x%02x", ents->LocalInt.SourceBusIRQ);
+				Log("\t.DestLocalAPICID = 0x%02x", ents->LocalInt.DestLocalAPICID);
+				Log("\t.DestLocalAPICIRQ = 0x%02x", ents->LocalInt.DestLocalAPICIRQ);
+				break;
+			default:
+				Log("%i: Unknown (%i)", i, ents->Type);
+				break;
+			}
+			ents = (void*)( (Uint)ents + entSize );
+		}
+		
+		if( giNumCPUs > MAX_CPUS ) {
+			Warning("Too many CPUs detected (%i), only using %i of them", giNumCPUs, MAX_CPUS);
+		}
 		
 		Panic("Uh oh... MP Table Parsing is unimplemented\n");
 	}
@@ -176,12 +272,6 @@ void ArchThreads_Init()
 		gGDT[6+pos].BaseLow = ((Uint)(&gTSSs[pos])) & 0xFFFF;
 		gGDT[6+pos].BaseMid = ((Uint)(&gTSSs[pos])) >> 16;
 		gGDT[6+pos].BaseHi = ((Uint)(&gTSSs[pos])) >> 24;
-		/*
-		gGDT[6+pos].LimitLow = sizeof(tTSS);
-		gGDT[6+pos].LimitHi = 0;
-		gGDT[6+pos].Access = 0x89;	// Type
-		gGDT[6+pos].Flags = 0x4;
-		*/
 	#if USE_MP
 	}
 	for(pos=0;pos<giNumCPUs;pos++) {
@@ -192,7 +282,7 @@ void ArchThreads_Init()
 	#endif
 	
 	#if USE_MP
-	gCurrentThread[0] = &gThreadZero;
+	gaCPUs[0].Current = &gThreadZero;
 	#else
 	gCurrentThread = &gThreadZero;
 	#endif
@@ -217,6 +307,25 @@ void ArchThreads_Init()
 	Proc_ChangeStack();
 }
 
+#if USE_MP
+void MP_StartAP(int CPU)
+{
+	Log("Starting AP %i (APIC %i)", CPU, gaCPUs[CPU].APICID);
+	// Set location of AP startup code and mark for a warm restart
+	*(Uint16*)(KERNEL_BASE|0x467) = (Uint)&APStartup - (KERNEL_BASE|0xFFFF0);
+	*(Uint16*)(KERNEL_BASE|0x469) = 0xFFFF;
+	outb(0x70, 0x0F);	outb(0x71, 0x0A);	// Warm Reset
+	MP_SendIPI(gaCPUs[CPU].APICID, 0, 5);
+}
+
+void MP_SendIPI(Uint8 APICID, int Vector, int DeliveryMode)
+{
+	Uint32	addr = (Uint)gpMP_LocalAPIC + 0x20 + (APICID<<3);
+	
+	*(Uint32*)addr = ((DeliveryMode & 7) << 8) | (Vector & 0xFF);
+}
+#endif
+
 /**
  * \fn void Proc_Start()
  * \brief Start process scheduler
@@ -234,7 +343,8 @@ void Proc_Start()
 tThread *Proc_GetCurThread()
 {
 	#if USE_MP
-	return NULL;
+	gpMP_LocalAPIC->Addr = 0;
+	return gaCPUs[ gaAPIC_to_CPU[gpMP_LocalAPIC->Value.Byte] ].Current;
 	#else
 	return gCurrentThread;
 	#endif
@@ -567,7 +677,7 @@ void Proc_Scheduler(int CPU)
 	
 	// Get current thread
 	#if USE_MP
-	thread = gCurrentThread[CPU];
+	thread = gaCPUs[CPU].Current;
 	#else
 	curThread = gCurrentThread;
 	#endif
@@ -607,7 +717,7 @@ void Proc_Scheduler(int CPU)
 	
 	// Set current thread
 	#if USE_MP
-	gCurrentThread[CPU] = thread;
+	gaCPUs[CPU].Current = thread;
 	#else
 	gCurrentThread = thread;
 	#endif

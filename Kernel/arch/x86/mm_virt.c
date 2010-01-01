@@ -958,18 +958,9 @@ tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 	}
 	
 	// Slow Allocate
-	phys = MM_AllocPhysRange(Pages);
+	phys = MM_AllocPhysRange(Pages, MaxBits);
 	// - Was it allocated?
 	if(phys == 0) {
-		LEAVE('i', 0);
-		return 0;
-	}
-	// - Check if the memory is OK
-	if(phys + (Pages-1)*0x1000 > maxCheck)
-	{
-		// Deallocate and return 0
-		for(;Pages--;phys+=0x1000)
-			MM_DerefPhys(phys);
 		LEAVE('i', 0);
 		return 0;
 	}

@@ -11,6 +11,15 @@
 #define GETMSG_IGNORE	((void*)-1)
 
 // === TYPES ===
+#if USE_MP
+typedef struct sCPU
+{
+	Uint8	APICID;
+	Uint8	State;	// 0: Unavaliable, 1: Idle, 2: Active
+	Uint16	Resvd;
+	tThread	*Current;
+}	tCPU;
+#endif
 
 typedef struct sTSS {
 	Uint32	Link;

@@ -21,17 +21,22 @@ CLEAN_USRAPPS = $(addprefix clean-,$(USRAPPS))
 INSTALL_MODULES = $(addprefix install-,$(MODULES))
 INSTALL_USRLIBS = $(addprefix install-,$(USRLIBS))
 INSTALL_USRAPPS = $(addprefix install-,$(USRAPPS))
+ALLINSTALL_MODULES = $(addprefix allinstall-,$(MODULES))
+ALLINSTALL_USRLIBS = $(addprefix allinstall-,$(USRLIBS))
+ALLINSTALL_USRAPPS = $(addprefix allinstall-,$(USRAPPS))
 
 .PHONY: all clean install \
 	$(ALL_MODULES) all-Kernel $(ALL_USRLIBS) $(ALL_USRAPPS) \
+	$(ALLINSTALL_MODULES) allinstall-Kernel $(ALLINSTALL_USRLIBS) $(ALLINSTALL_USRAPPS) \
 	$(CLEAN_MODULES) clean-Kernel $(CLEAN_USRLIBS) $(CLEAN_USRAPPS) \
 	$(INSTALL_MODULES) install-Kernel $(INSTALL_USRLIBS) $(INSTALL_USRAPPS)
 
 all:	$(ALL_MODULES) all-Kernel $(ALL_USRLIBS) $(ALL_USRAPPS)
+all-install:	$(ALLINSTALL_MODULES) all-Kernel $(ALLINSTALL_USRLIBS) $(ALLINSTALL_USRAPPS)
 clean:	$(CLEAN_MODULES) clean-Kernel $(CLEAN_USRLIBS) $(CLEAN_USRAPPS)
 install:	$(INSTALL_MODULES) install-Kernel $(INSTALL_USRLIBS) $(INSTALL_USRAPPS)
 
-
+# Compile Only
 $(ALL_MODULES): all-%:
 	@echo === Module: $* && $(SUBMAKE) all -C Modules/$*
 all-Kernel:
@@ -41,6 +46,17 @@ $(ALL_USRLIBS): all-%:
 $(ALL_USRAPPS): all-%:
 	@echo === User Application: $* && $(SUBMAKE) all -C Usermode/Applications/$*_src
 
+# Compile & Install
+$(ALLINSTALL_MODULES): allinstall-%:
+	@echo === Module: $* && $(SUBMAKE) all install -C Modules/$*
+allinstall-Kernel:
+	@echo === Kernel && $(SUBMAKE) all install -C Kernel
+$(ALLINSTALL_USRLIBS): allinstall-%:
+	@echo === User Library: $* && $(SUBMAKE) all install -C Usermode/Libraries/$*_src
+$(ALLINSTALL_USRAPPS): allinstall-%:
+	@echo === User Application: $* && $(SUBMAKE) all install -C Usermode/Applications/$*_src
+
+# Clean up compilation
 $(CLEAN_MODULES): clean-%:
 	@$(SUBMAKE) clean -C Modules/$*
 clean-Kernel:
@@ -50,6 +66,7 @@ $(CLEAN_USRLIBS): clean-%:
 $(CLEAN_USRAPPS): clean-%:
 	@$(SUBMAKE) clean -C Usermode/Applications/$*_src
 
+# Install
 $(INSTALL_MODULES): install-%:
 	@$(SUBMAKE) install -C Modules/$*
 install-Kernel:

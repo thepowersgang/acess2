@@ -15,6 +15,49 @@ typedef struct sMPInfo {
 	Uint8	Features[5];	// 2-4 are unused
 } tMPInfo;
 
+typedef union uMPTable_Ent {
+	Uint8	Type;
+	struct {
+		Uint8	Type;
+		Uint8	APICID;
+		Uint8	APICVer;
+		Uint8	CPUFlags;	// bit 0: Enabled, bit 1: Boot Processor
+		Uint32	CPUSignature;	// Stepping, Model, Family
+		Uint32	FeatureFlags;
+		Uint32	Reserved[2];
+	} __attribute__((packed))	Proc;	// 0x00
+	struct {
+		Uint8	Type;
+		Uint8	ID;
+		char	TypeString[6];
+	} __attribute__((packed))	Bus;	// 0x01
+	struct {
+		Uint8	Type;
+		Uint8	ID;
+		Uint8	Version;
+		Uint8	Flags;	// bit 0: Enabled
+		Uint32	Addr;
+	} __attribute__((packed))	IOAPIC;	// 0x02
+	struct {
+		Uint8	Type;
+		Uint8	IntType;
+		Uint16	Flags;	// 0,1: Polarity, 2,3: Trigger Mode
+		Uint8	SourceBusID;
+		Uint8	SourceBusIRQ;
+		Uint8	DestAPICID;
+		Uint8	DestAPICIRQ;
+	} __attribute__((packed))	IOInt;
+	struct {
+		Uint8	Type;
+		Uint8	IntType;
+		Uint16	Flags;	// 0,1: Polarity, 2,3: Trigger Mode
+		Uint8	SourceBusID;
+		Uint8	SourceBusIRQ;
+		Uint8	DestLocalAPICID;
+		Uint8	DestLocalAPICIRQ;
+	} __attribute__((packed))	LocalInt;
+} __attribute__((packed)) tMPTable_Ent;
+
 typedef struct sMPTable {
 	Uint32	Sig;
 	Uint16	BaseTableLength;
@@ -32,16 +75,18 @@ typedef struct sMPTable {
 	Uint16	ExtendedTableLen;
 	Uint8	ExtendedTableChecksum;
 	Uint8	Reserved;
+	
+	tMPTable_Ent	Entries[];
 } tMPTable;
 
-typedef struct sMPTable_Proc {
-	Uint8	Type;	// 0x00
-	Uint8	APICID;
-	Uint8	APICVer;
-	Uint8	CPUFlags;	// bit 0: Disabled, bit 1: Boot Processor
-	Uint32	CPUSignature;	// Stepping, Model, Family
-	Uint32	FeatureFlags;
-	Uint32	Reserved[2];
-} tMPTable_Proc;
+typedef volatile struct {
+	Uint8	Addr;
+	Uint8	Resvd[3];
+	Uint32	Resvd2[3];
+	union {
+		Uint8	Byte;
+		Uint32	DWord;
+	}	Value;
+}	tIOAPIC;
 
 #endif

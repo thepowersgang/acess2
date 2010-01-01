@@ -3,16 +3,17 @@
 ; desctab.asm
 [BITS 32]
 
-%if ARCH == "i386"
-MAX_CPUS	equ	1
-%else
+%if USE_MP
 MAX_CPUS	equ	8
+%else
+MAX_CPUS	equ	1
 %endif
 GDT_SIZE	equ	(1+2*2+1+MAX_CPUS)*8
 
 [section .data]
 ; GDT
 [global gGDT]
+[global gGDTptr]
 gGDT:
 	; PL0 - Kernel
 	; PL3 - User

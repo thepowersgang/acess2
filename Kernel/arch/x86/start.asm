@@ -52,6 +52,52 @@ start:
 	hlt
 	jmp .hlt
 
+; 
+; Multiprocessing AP Startup Code (Must be within 0x10FFF0)
+;
+%if USE_MP
+[extern gGDTptr]
+[extern gpMP_LocalAPIC]
+[extern gaAPIC_to_CPU]
+[extern gaCPUs]
+[global APStartup]
+
+[bits 16]
+APStartup:
+	xchg bx, bx	; MAGIC BREAK!
+	mov ax, 0xFFFF
+	mov ds, ax
+	lgdt [DWORD ds:gGDTptr-0xFFFF0]
+	mov eax, cr0
+	or	al, 1
+	mov	cr0, eax
+	jmp 08h:DWORD .ProtectedMode
+[bits 32]
+.ProtectedMode:
+	; Start Paging
+	mov eax, gaInitPageDir - KERNEL_BASE
+	mov cr3, eax
+	mov eax, cr0
+	or	eax, 0x80010000	; PG and WP
+	mov cr0, eax
+	; Jump to higher half
+	lea eax, [.higherHalf]
+	jmp eax
+.higherHalf:
+	mov eax, [gpMP_LocalAPIC]
+	mov DWORD [eax], 0
+	xor ecx, ecx
+	mov cl, BYTE [eax+0x10]
+	; CL is now local APIC ID
+	mov cl, BYTE [gaAPIC_to_CPU+ecx]
+	; CL is now the CPU ID
+	mov BYTE [gaCPUs+ecx*8+1], 1
+	; CPU is now marked as initialised
+.hlt:
+	hlt
+	jmp .hlt
+%endif
+
 [global GetEIP]
 GetEIP:
 	mov eax, [esp]

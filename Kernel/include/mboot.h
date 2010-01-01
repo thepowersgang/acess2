@@ -14,6 +14,9 @@ typedef struct {
 	Uint32	CommandLine;
 	Uint32	ModuleCount;
 	Uint32	Modules;
+	Uint32	SymbolInfo[4];	// #32 UNUSED
+	Uint32	MMapLength;
+	Uint32	MMapAddr;		// #40
 } tMBoot_Info;
 
 typedef struct {
@@ -22,5 +25,12 @@ typedef struct {
 	char	*String;
 	Uint32	Resvd;
 } tMBoot_Module;
+
+typedef struct {
+	Uint32	Size;	// (May be at offset -4)
+	Uint64	Base;
+	Uint64	Length;
+	Uint32	Type;	//1:RAM,Else Reserved
+} __attribute__ ((packed)) tMBoot_MMapEnt;
 
 #endif

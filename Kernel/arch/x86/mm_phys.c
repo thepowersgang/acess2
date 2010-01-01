@@ -2,10 +2,12 @@
  * Acess2
  * - Physical memory manager
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include <mboot.h>
 #include <mm_virt.h>
+
+#define USE_STACK	1
 
 #define	REFERENCE_BASE	0xE0400000
 
@@ -14,13 +16,15 @@ extern void	gKernelEnd;
 
 // === PROTOTYPES ===
 tPAddr	MM_AllocPhys();
-tPAddr	MM_AllocPhysRange(int Pages);
+tPAddr	MM_AllocPhysRange(int Pages, int MaxBits);
 void	MM_RefPhys(tPAddr Addr);
 void	MM_DerefPhys(tPAddr Addr);
 
 // === GLOBALS ===
- int	giPhysAlloc = 0;
-Uint	giPageCount = 0;
+Uint64	giPhysAlloc = 0;	// Number of allocated pages
+Uint64	giPageCount = 0;	// Total number of pages
+Uint64	giLastPossibleFree = 0;	// Last possible free page (before all pages are used)
+
 Uint32	gaSuperBitmap[1024];	// Blocks of 1024 Pages
 Uint32	gaPageBitmap[1024*1024/32];	// Individual pages
 Uint32	*gaPageReferences;
@@ -30,26 +34,57 @@ void MM_Install(tMBoot_Info *MBoot)
 {
 	Uint	kernelPages, num;
 	Uint	i;
+	Uint64	maxAddr = 0;
 	tMBoot_Module	*mods;
+	tMBoot_MMapEnt	*ent;
 	
-	// Initialise globals
-	giPageCount = (MBoot->HighMem >> 2) + 256;	// HighMem is a kByte value
-	//LOG("giPageCount = %i", giPageCount);
+	// --- Find largest address
+	MBoot->MMapAddr |= KERNEL_BASE;
+	ent = (void *)( MBoot->MMapAddr );
+	while( (Uint)ent < MBoot->MMapAddr + MBoot->MMapLength )
+	{
+		// Adjust for size
+		ent->Size += 4;
+		
+		// If entry is RAM and is above `maxAddr`, change `maxAddr`
+		if(ent->Type == 1 && ent->Base + ent->Length > maxAddr)
+			maxAddr = ent->Base + ent->Length;
+		// Go to next entry
+		ent = (tMBoot_MMapEnt *)( (Uint)ent + ent->Size );
+	}
+	
+	if(maxAddr == 0) {	
+		giPageCount = (MBoot->HighMem >> 2) + 256;	// HighMem is a kByte value
+	}
+	else {
+		giPageCount = maxAddr >> 12;
+	}
+	giLastPossibleFree = giPageCount - 1;
+	
+	memsetd(gaPageBitmap, 0xFFFFFFFF, giPageCount/32);
+	
+	// Set up allocateable space
+	ent = (void *)( MBoot->MMapAddr );
+	while( (Uint)ent < MBoot->MMapAddr + MBoot->MMapLength )
+	{		
+		memsetd( &gaPageBitmap[ent->Base/(4096*32)], 0, ent->Length/(4096*32) );
+		ent = (tMBoot_MMapEnt *)( (Uint)ent + ent->Size );
+	}
 	
 	// Get used page count
-	kernelPages = (Uint)&gKernelEnd - KERNEL_BASE;
+	kernelPages = (Uint)&gKernelEnd - KERNEL_BASE - 0x100000;
 	kernelPages += 0xFFF;	// Page Align
 	kernelPages >>= 12;
 	
 	// Fill page bitmap
 	num = kernelPages/32;
-	memsetd(gaPageBitmap, -1, num);
-	gaPageBitmap[ num ] = (1 << (kernelPages & 31)) - 1;
+	memsetd( &gaPageBitmap[0x100000/(4096*32)], -1, num );
+	gaPageBitmap[ 0x100000/(4096*32) + num ] = (1 << (kernelPages & 31)) - 1;
 	
 	// Fill Superpage bitmap
 	num = kernelPages/(32*32);
-	memsetd(gaSuperBitmap, -1, num);
-	gaSuperBitmap[ num ] = (1 << ((kernelPages / 32) & 31)) - 1;
+	memsetd( &gaSuperBitmap[0x100000/(4096*32*32)], -1, num );
+	gaSuperBitmap[ 0x100000/(4096*32*32) + num ] = (1 << ((kernelPages / 32) & 31)) - 1;
 	
 	// Mark Multiboot's pages as taken
 	// - Structure
@@ -85,76 +120,183 @@ void MM_Install(tMBoot_Info *MBoot)
 
 /**
  * \fn tPAddr MM_AllocPhys()
- * \brief Allocates a physical page
+ * \brief Allocates a physical page from the general pool
  */
 tPAddr MM_AllocPhys()
 {
-	 int	num = giPageCount / 32 / 32;
-	 int	a, b, c;
+	// int	a, b, c;
+	 int	indx;
 	tPAddr	ret;
+	
+	ENTER("");
 	
 	LOCK( &giPhysAlloc );
 	
 	// Find free page
-	for(a=0;gaSuperBitmap[a]==-1&&a<num;a++);
-	if(a == num) {
+	// Scan downwards
+	#if 1
+	LOG("giLastPossibleFree = %i", giLastPossibleFree);
+	for( indx = giLastPossibleFree; indx >= 0; )
+	{
+		if( gaSuperBitmap[indx>>10] == -1 ) {
+			indx -= 1024;
+			continue;
+		}
+		if( gaPageBitmap[indx>>5] == -1 ) {
+			indx -= 32;
+			continue;
+		}
+		
+		if( gaPageBitmap[indx>>5] & (1 << (indx&31)) ) {
+			indx --;
+			continue;
+		}
+		break;
+	}
+	LOG("indx = %i", indx);
+	#else
+	c = giLastPossibleFree % 32;
+	b = (giLastPossibleFree / 32) % 32;
+	a = giLastPossibleFree / 1024;
+	
+	LOG("a=%i,b=%i,c=%i", a, b, c);
+	for( ; gaSuperBitmap[a] == -1 && a >= 0; a-- );
+	if(a < 0) {
 		RELEASE( &giPhysAlloc );
 		Warning("MM_AllocPhys - OUT OF MEMORY (Called by %p)", __builtin_return_address(0));
+		LEAVE('i', 0);
 		return 0;
 	}
-	for(b=0;gaSuperBitmap[a]&(1<<b);b++);
-	for(c=0;gaPageBitmap[a*32+b]&(1<<c);c++);
+	for( ; gaSuperBitmap[a] & (1<<b); b-- );
+	for( ; gaPageBitmap[a*32+b] & (1<<c); c-- );
+	LOG("a=%i,b=%i,c=%i", a, b, c);
+	indx = (a << 10) | (b << 5) | c;
+	#endif
 	
 	// Mark page used
 	if(gaPageReferences)
-		gaPageReferences[a*32*32+b*32+c] = 1;
-	gaPageBitmap[ a*32+b ] |= 1 << c;
+		gaPageReferences[ indx ] = 1;
+	gaPageBitmap[ indx>>5 ] |= 1 << (indx&31);
+	
 	
 	// Get address
-	ret = (a << 22) + (b << 17) + (c << 12);
+	ret = indx << 12;
+	giLastPossibleFree = indx;
 	
 	// Mark used block
-	if(gaPageBitmap[ a*32+b ] == -1)	gaSuperBitmap[a] |= 1 << b;
+	if(gaPageBitmap[ indx>>5 ] == -1)
+		gaSuperBitmap[indx>>10] |= 1 << ((indx>>5)&31);
 
 	// Release Spinlock
 	RELEASE( &giPhysAlloc );
 	
+	LEAVE('X', ret);
+	//Log("MM_AllocPhys: RETURN 0x%x", ret);
 	return ret;
 }
 
 /**
- * \fn tPAddr MM_AllocPhysRange(int Pages)
+ * \fn tPAddr MM_AllocPhysRange(int Pages, int MaxBits)
  * \brief Allocate a range of physical pages
  * \param Pages	Number of pages to allocate
+ * \param MaxBits	Maximum number of address bits to use
  */
-tPAddr MM_AllocPhysRange(int Pages)
+tPAddr MM_AllocPhysRange(int Pages, int MaxBits)
 {
-	 int	num = giPageCount / 32 / 32;
-	 int	a, b, c;
+	 int	a, b;
+	 int	i, idx, sidx;
 	tPAddr	ret;
 	
+	// Sanity Checks
+	if(MaxBits < 0)	return 0;
+	if(MaxBits > PHYS_BITS)	MaxBits = PHYS_BITS;
+	
+	// Lock
 	LOCK( &giPhysAlloc );
 	
+	// Set up search state
+	if( giLastPossibleFree > ((tPAddr)1 << (MaxBits-12)) ) {
+		sidx = (tPAddr)1 << (MaxBits-12);
+	}
+	else {
+		sidx = giLastPossibleFree;
+	}
+	idx = sidx / 32;
+	sidx %= 32;
+	b = idx % 32;
+	a = idx / 32;
+	
 	// Find free page
-	for(a=0;gaSuperBitmap[a]==-1&&a<num;a++);
-	if(a == num) {
+	for( ; gaSuperBitmap[a] == -1 && a --; );
+	if(a < 0) {
 		RELEASE( &giPhysAlloc );
-		Warning("MM_AllocPhys - OUT OF MEMORY (Called by %p)", __builtin_return_address(0));
+		Warning("MM_AllocPhysRange - OUT OF MEMORY (Called by %p)", __builtin_return_address(0));
 		return 0;
 	}
-	for(b=0;gaSuperBitmap[a]&(1<<b);b++);
-	for(c=0;gaPageBitmap[a*32+b]&(1<<c);c++);
+	for( ; gaSuperBitmap[a] & (1 << b); b-- );
+	idx = a * 32 + b;
+	for( ; gaPageBitmap[idx] & (1 << sidx); sidx-- );
 	
-	// Mark page used
-	if(gaPageReferences)
-		gaPageReferences[a*32*32+b*32+c] = 1;
-	gaPageBitmap[ a*32+b ] |= 1 << c;
+	// Check if the gap is large enough
+	while( idx >= 0 )
+	{
+		// Find a free page
+		for( ; ; )
+		{
+			// Bulk Skip
+			if( gaPageBitmap[idx] == -1 ) {
+				idx --;
+				sidx = 31;
+				continue;
+			}
+			
+			if( gaPageBitmap[idx] & (1 << sidx) ) {
+				sidx --;
+				if(sidx < 0) {	sidx = 31;	idx --;	}
+				if(idx < 0)	break;
+				continue;
+			}
+			break;
+		}
+		if( idx < 0 )	break;
+		
+		// Check if it is a free range
+		for( i = 0; i < Pages; i++ )
+		{
+			// Used page? break
+			if( gaPageBitmap[idx] & (1 << sidx) )
+				break;
+			
+			sidx --;
+			if(sidx < 0) {	sidx = 31;	idx --;	}
+			if(idx < 0)	break;
+		}
+		
+		if( i == Pages )
+			break;
+	}
+	
+	// Check if an address was found
+	if( idx < 0 ) {
+		RELEASE( &giPhysAlloc );
+		Warning("MM_AllocPhysRange - OUT OF MEMORY (Called by %p)", __builtin_return_address(0));
+	}
+	
+	// Mark pages used
+	for( i = 0; i < Pages; i++ )
+	{
+		if(gaPageReferences)
+			gaPageReferences[idx*32+sidx] = 1;
+		gaPageBitmap[ idx ] |= 1 << sidx;
+		sidx ++;
+		if(sidx == 32) {	sidx = 0;	idx ++;	}
+	}
 	
 	// Get address
-	ret = (a << 22) + (b << 17) + (c << 12);
+	ret = (idx << 17) | (sidx << 12);
 	
 	// Mark used block
-	if(gaPageBitmap[ a*32+b ] == -1)	gaSuperBitmap[a] |= 1 << b;
+	if(gaPageBitmap[ idx ] == -1)	gaSuperBitmap[idx/32] |= 1 << (idx%32);
 
 	// Release Spinlock
 	RELEASE( &giPhysAlloc );

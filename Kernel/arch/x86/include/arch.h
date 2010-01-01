@@ -26,19 +26,7 @@
 #define BITS	32
 
 // - Processor/Machine Specific Features
-#if ARCH == i386
-// Uses no advanced features
-# define	USE_MP	0
-# define	USE_PAE	0
-#elif ARCH == i486
-// MP Only
-# define	USE_MP	1
-# define	USE_PAE	0
-#elif ARCH == i586
-// All Enabled
-# define	USE_MP	1
-# define	USE_PAE	1
-#else
+#if ARCH != i386 && ARCH != i486 && ARCH != i586
 # error "Unknown architecture '" #ARCH "'"
 #endif
 
