@@ -105,10 +105,10 @@ Uint32	gWorkerStacks[(NUM_WORKER_STACKS+31)/32];
 void MM_PreinitVirtual()
 {
 	#if USE_PAE
-	gaInitPDPT[ 0 ] = 0;
+	//gaInitPDPT[ 0 ] = 0;
 	gaInitPageDir[ ((PAGE_TABLE_ADDR >> TAB)-3*512+3)*2 ] = ((tTabEnt)&gaInitPageDir - KERNEL_BASE) | 3;
 	#else
-	gaInitPageDir[ 0 ] = 0;
+	//gaInitPageDir[ 0 ] = 0;	// Needed for SMP startup code
 	gaInitPageDir[ PAGE_TABLE_ADDR >> 22 ] = ((tTabEnt)&gaInitPageDir - KERNEL_BASE) | 3;
 	#endif
 	INVLPG( PAGE_TABLE_ADDR );

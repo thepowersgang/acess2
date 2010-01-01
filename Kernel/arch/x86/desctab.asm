@@ -13,7 +13,6 @@ GDT_SIZE	equ	(1+2*2+1+MAX_CPUS)*8
 [section .data]
 ; GDT
 [global gGDT]
-[global gGDTptr]
 gGDT:
 	; PL0 - Kernel
 	; PL3 - User
@@ -24,22 +23,25 @@ gGDT:
 	dd 0x0000FFFF, 0x00CFF200	; 20 PL3 Data
 	dd 26*4-1, 0x00408900	; Double Fault TSS
 	times MAX_CPUS	dd 26*4-1, 0x00408900
-gGDTptr:
+[global gGDTPtr]
+gGDTPtr:
 	dw	GDT_SIZE-1
 	dd	gGDT
 ; IDT
 ALIGN 8
 gIDT:
 	times	256	dd	0x00080000,0x00000F00
+[global gIDTPtr]
 gIDTPtr:
 	dw	256 * 16 - 1	; Limit
 	dd	gIDT		; Base
 
 [section .text]
+
 [global Desctab_Install]
 Desctab_Install:
 	; Set GDT
-	lgdt [gGDTptr]
+	lgdt [gGDTPtr]
 	mov ax, 0x10	; PL0 Data
 	mov ss, ax
 	mov ds, ax

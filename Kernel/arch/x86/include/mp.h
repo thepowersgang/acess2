@@ -80,13 +80,26 @@ typedef struct sMPTable {
 } tMPTable;
 
 typedef volatile struct {
-	Uint8	Addr;
-	Uint8	Resvd[3];
-	Uint32	Resvd2[3];
+	Uint32	Addr;
+	Uint32	Resvd1[3];
 	union {
 		Uint8	Byte;
+		Uint16	Word;
 		Uint32	DWord;
 	}	Value;
+	Uint32	Resvd2[3];
 }	tIOAPIC;
+
+typedef struct {
+	Uint32	Val;
+	Uint32	Padding[3];
+}	tReg;
+
+typedef volatile struct {
+	tReg	_unused;
+	tReg	_unused2;
+	tReg	ID;
+	tReg	Version;
+}	tAPIC;
 
 #endif

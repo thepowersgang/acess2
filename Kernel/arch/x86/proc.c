@@ -53,7 +53,7 @@ void	Proc_Scheduler();
 // --- Multiprocessing ---
 #if USE_MP
 tMPInfo	*gMPFloatPtr = NULL;
-tIOAPIC	*gpMP_LocalAPIC = NULL;
+tAPIC	*gpMP_LocalAPIC = NULL;
 Uint8	gaAPIC_to_CPU[256] = {0};
 tCPU	gaCPUs[MAX_CPUS];
 #else
@@ -176,6 +176,12 @@ void ArchThreads_Init()
 				Log("\t.CPUSignature = 0x%08x", ents->Proc.CPUSignature);
 				Log("\t.FeatureFlags = 0x%08x", ents->Proc.FeatureFlags);
 				
+				
+				if( !(ents->Proc.CPUFlags & 1) ) {
+					Log("DISABLED");
+					break;
+				}
+				
 				// Check if there is too many processors
 				if(giNumCPUs >= MAX_CPUS) {
 					giNumCPUs ++;	// If `giNumCPUs` > MAX_CPUS later, it will be clipped
@@ -189,7 +195,10 @@ void ArchThreads_Init()
 				giNumCPUs ++;
 				
 				// Send IPI
-				MP_StartAP( giNumCPUs-1 );
+				if( !(ents->Proc.CPUFlags & 2) )
+				{
+					MP_StartAP( giNumCPUs-1 );
+				}
 				
 				break;
 			case 1:	// Bus
@@ -320,9 +329,17 @@ void MP_StartAP(int CPU)
 
 void MP_SendIPI(Uint8 APICID, int Vector, int DeliveryMode)
 {
-	Uint32	addr = (Uint)gpMP_LocalAPIC + 0x20 + (APICID<<3);
+	Uint32	addr = (Uint)gpMP_LocalAPIC + 0x300;
+	Uint32	val;
 	
-	*(Uint32*)addr = ((DeliveryMode & 7) << 8) | (Vector & 0xFF);
+	// Hi
+	val = (Uint)APICID << 24;
+	Log("*%p = 0x%08x", addr+0x10, val);
+	*(Uint32*)(addr+0x10) = val;
+	// Low (and send)
+	val = ((DeliveryMode & 7) << 8) | (Vector & 0xFF);
+	Log("*%p = 0x%08x", addr, val);
+	*(Uint32*)addr = val;
 }
 #endif
 
@@ -343,8 +360,7 @@ void Proc_Start()
 tThread *Proc_GetCurThread()
 {
 	#if USE_MP
-	gpMP_LocalAPIC->Addr = 0;
-	return gaCPUs[ gaAPIC_to_CPU[gpMP_LocalAPIC->Value.Byte] ].Current;
+	return gaCPUs[ gaAPIC_to_CPU[gpMP_LocalAPIC->ID.Val&0xFF] ].Current;
 	#else
 	return gCurrentThread;
 	#endif
@@ -679,7 +695,7 @@ void Proc_Scheduler(int CPU)
 	#if USE_MP
 	thread = gaCPUs[CPU].Current;
 	#else
-	curThread = gCurrentThread;
+	thread = gCurrentThread;
 	#endif
 	
 	// Reduce remaining quantum and continue timeslice if non-zero

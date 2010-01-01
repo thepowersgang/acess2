@@ -39,8 +39,6 @@ start:
 	jmp ecx
 .higherHalf:
 
-	mov DWORD [gaInitPageDir], 0
-
 	; Call the kernel
 	push ebx	; Multiboot Info
 	push eax	; Multiboot Magic Value
@@ -56,22 +54,27 @@ start:
 ; Multiprocessing AP Startup Code (Must be within 0x10FFF0)
 ;
 %if USE_MP
-[extern gGDTptr]
+[extern gGDT]
+[extern gGDTPtr]
+[extern gIDTPtr]
 [extern gpMP_LocalAPIC]
 [extern gaAPIC_to_CPU]
 [extern gaCPUs]
-[global APStartup]
+lGDTPtr:	; Local GDT Pointer
+	dw	2*8-1
+	dd	gGDT-KERNEL_BASE
 
 [bits 16]
+[global APStartup]
 APStartup:
 	xchg bx, bx	; MAGIC BREAK!
 	mov ax, 0xFFFF
 	mov ds, ax
-	lgdt [DWORD ds:gGDTptr-0xFFFF0]
+	lgdt [DWORD ds:lGDTPtr-KERNEL_BASE-0xFFFF0]
 	mov eax, cr0
 	or	al, 1
 	mov	cr0, eax
-	jmp 08h:DWORD .ProtectedMode
+	jmp 08h:DWORD .ProtectedMode-KERNEL_BASE
 [bits 32]
 .ProtectedMode:
 	; Start Paging
@@ -84,6 +87,10 @@ APStartup:
 	lea eax, [.higherHalf]
 	jmp eax
 .higherHalf:
+	; Load True GDT & IDT
+	lgdt [gGDTPtr]
+	lidt [gIDTPtr]
+
 	mov eax, [gpMP_LocalAPIC]
 	mov DWORD [eax], 0
 	xor ecx, ecx
@@ -93,6 +100,7 @@ APStartup:
 	; CL is now the CPU ID
 	mov BYTE [gaCPUs+ecx*8+1], 1
 	; CPU is now marked as initialised
+	sti
 .hlt:
 	hlt
 	jmp .hlt
