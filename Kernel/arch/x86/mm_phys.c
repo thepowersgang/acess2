@@ -352,6 +352,9 @@ void MM_DerefPhys(tPAddr Addr)
 	// Lock Structures
 	LOCK( &giPhysAlloc );
 	
+	if( giLastPossibleFree < Addr )
+		giLastPossibleFree = Addr;
+
 	// Dereference
 	gaPageReferences[ Addr ] --;
 	
