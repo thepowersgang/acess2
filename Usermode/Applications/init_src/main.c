@@ -5,7 +5,7 @@
 
 // === CONSTANTS ===
 #define NULL	((void*)0)
-#define NUM_TERMS	1
+#define NUM_TERMS	4
 #define	DEFAULT_TERMINAL	"/Devices/VTerm/0"
 #define DEFAULT_SHELL	"/Acess/SBin/login"
 

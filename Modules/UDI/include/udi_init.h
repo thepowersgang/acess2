@@ -17,6 +17,9 @@ typedef struct udi_limits_s		udi_limits_t;
 typedef struct udi_chan_context_s	udi_chan_context_t;
 typedef struct udi_child_chan_context_s	udi_child_chan_context_t;
 
+typedef void	udi_op_t(void);
+typedef udi_op_t * const	udi_ops_vector_t;
+
 /**
  * \brief UDI Initialisation Structure
  * 
@@ -240,15 +243,6 @@ struct udi_gcb_init_s
 // ===
 // ===
 /**
- * \brief 
- */
-struct udi_init_context_s
-{
-	udi_index_t	region_idx;
-	udi_limits_t	limits;
-};
-
-/**
  * \brief Environement Imposed Limits
  */
 struct udi_limits_s
@@ -281,6 +275,15 @@ struct udi_limits_s
 	 * \see ::udi_timer_start_repeating, ::udi_timer_start
 	 */
 	udi_ubit32_t	min_timer_res;
+};
+
+/**
+ * \brief Primary Region Context data
+ */
+struct udi_init_context_s
+{
+	udi_index_t	region_idx;
+	udi_limits_t	limits;
 };
 
 /**

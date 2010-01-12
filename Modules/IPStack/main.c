@@ -79,7 +79,7 @@ int IPStack_Install(char **Arguments)
 char *IPStack_ReadDir(tVFS_Node *Node, int Pos)
 {
 	tInterface	*iface;
-	char	name[] = "ip0\0\0\0";
+	char	*name;
 	ENTER("pNode iPos", Node, Pos);
 	
 	// Traverse the list
@@ -91,23 +91,31 @@ char *IPStack_ReadDir(tVFS_Node *Node, int Pos)
 		return NULL;
 	}
 	
+	name = malloc(6);
+	name[0] = 'i';
+	name[1] = 'p';
+	
 	// Create the name
 	Pos = iface->Node.ImplInt;
-	if(Pos < 10)
+	if(Pos < 10) {
 		name[2] = '0' + Pos;
+		name[3] = '\0';
+	}
 	else if(Pos < 100) {
 		name[2] = '0' + Pos/10;
 		name[3] = '0' + Pos%10;
+		name[4] = '\0';
 	}
 	else {
 		name[2] = '0' + Pos/100;
 		name[3] = '0' + (Pos/10)%10;
 		name[4] = '0' + Pos%10;
+		name[5] = '\0';
 	}
 	
 	LEAVE('s', name);
 	// Return the pre-generated name
-	return strdup(name);
+	return name;
 }
 
 /**

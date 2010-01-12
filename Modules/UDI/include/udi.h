@@ -135,7 +135,11 @@ typedef const udi_ubit8_t	udi_layout_t;
  * \}
  */
 
+
 // === INCLUDE SUB-SECTIONS ===
+#include "udi_log.h"	// Management Metalanguage
+#include "udi_attr.h"	// Management Metalanguage
+#include "udi_cb.h"	// Management Metalanguage
 #include "udi_meta_mgmt.h"	// Management Metalanguage
 #include "udi_init.h"	// Init
 
