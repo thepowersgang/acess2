@@ -1,173 +1,142 @@
-/*
- * Acess2 UDI Support
- * udi.h
+/**
+ * \file udi.h
  */
-#ifndef _UDI_H_
-#define _UDI_H_
+#ifndef _UDI_ARCH_H_
+#define _UDI_ARCH_H_
 
-#include <udi_arch.h>
+// Use the core acess file to use the specific size types (plus va_arg)
+#include <acess.h>
 
-typedef void	udi_op_t(void);
+typedef Sint8	udi_sbit8_t;	/* signed 8-bit: -2^7..2^7-1 */
+typedef Sint16	udi_sbit16_t;	/* signed 16-bit: -2^15..2^15-1 */
+typedef Sint32	udi_sbit32_t;	/* signed 32-bit: -2^31..2^31-1 */
+typedef Uint8	udi_ubit8_t;	/* unsigned 8-bit: 0..28-1 */
+typedef Uint16	udi_ubit16_t;	/* unsigned 16-bit: 0..216-1 */
+typedef Uint32	udi_ubit32_t;	/* unsigned 32-bit: 0..232-1 */
 
-typedef udi_op_t const	*udi_ops_vector_t;
+typedef udi_ubit8_t	udi_boolean_t;	/* 0=False; 1..28-1=True */
+#define FALSE	0
+#define TRUE	1
 
-typedef const udi_ubit8_t	udi_layout_t;
+typedef size_t	udi_size_t;	/* buffer size */
+typedef size_t	udi_index_t;	/* zero-based index type */
 
-typedef udi_ubit32_t	udi_trevent_t;
-
-#include <_udi/values.h>
-
-typedef struct {
-     udi_channel_t	channel;
-     void	*context;
-     void	*scratch;
-     void	*initiator_context;
-     udi_origin_t	origin;
-} udi_cb_t;
+/* Channel Handle */
+typedef void	*udi_channel_t;
+#define UDI_NULL_CHANNEL	NULL
 
 /**
- * \name Attributes
+ * \brief Buffer Path
+ */
+typedef void	*udi_buf_path_t;
+#define UDI_NULL_BUF_PATH	NULL
+
+typedef void	*udi_origin_t;
+#define UDI_NULL_ORIGIN	NULL
+
+typedef Sint64	udi_timestamp_t;
+
+#define UDI_HANDLE_IS_NULL(handle, handle_type)	(handle == NULL)
+#define UDI_HANDLE_ID(handle, handle_type)	((Uint32)handle)
+
+/**
+ * \name va_arg wrapper
  * \{
  */
-#define UDI_MAX_ATTR_NAMELEN 32
-#define UDI_MAX_ATTR_SIZE    64
-typedef struct {
-     char	attr_name[UDI_MAX_ATTR_NAMELEN];
-     udi_ubit8_t	attr_value[UDI_MAX_ATTR_SIZE];
-     udi_ubit8_t	attr_length;
-     udi_instance_attr_type_t	attr_type;
-} udi_instance_attr_list_t;
-
-typedef struct {
-     char	attr_name[UDI_MAX_ATTR_NAMELEN];
-     udi_ubit8_t	attr_min[UDI_MAX_ATTR_SIZE];
-     udi_ubit8_t	attr_min_len;
-     udi_ubit8_t	attr_max[UDI_MAX_ATTR_SIZE];
-     udi_ubit8_t	attr_max_len;
-     udi_instance_attr_type_t	attr_type;
-     udi_ubit32_t	attr_stride;
-} udi_filter_element_t;
+#define UDI_VA_ARG(pvar, type, va_code)	va_arg(pvar,type)
+#define UDI_VA_UBIT8_T
+#define UDI_VA_SBIT8_T
+#define UDI_VA_UBIT16_T
+#define UDI_VA_SBIT16_T
+#define UDI_VA_UBIT32_T
+#define UDI_VA_SBIT32_T
+#define UDI_VA_BOOLEAN_T
+#define UDI_VA_INDEX_T
+#define UDI_VA_SIZE_T
+#define UDI_VA_STATUS_T
+#define UDI_VA_CHANNEL_T
+#define UDI_VA_ORIGIN_T
+#define UDI_VA_POINTER
 /**
  * \}
  */
 
-
-
-#include <_udi/meta_mgmt.h>
+/**
+ * \brief Status Type
+ */
+typedef udi_ubit32_t	udi_status_t;
 
 /**
+ * \name Values and Flags for udi_status_t
+ * \{
  */
-typedef const struct {
-	udi_index_t	cb_idx;
-	udi_size_t	scratch_requirement;
-} udi_gcb_init_t;
+#define UDI_STATUS_CODE_MASK		0x0000FFFF
+#define UDI_STAT_META_SPECIFIC		0x00008000
+#define UDI_SPECIFIC_STATUS_MASK	0x00007FFF
+#define UDI_CORRELATE_OFFSET		16
+#define UDI_CORRELATE_MASK			0xFFFF0000
+/* Common Status Values */
+#define UDI_OK						0
+#define UDI_STAT_NOT_SUPPORTED		1
+#define UDI_STAT_NOT_UNDERSTOOD		2
+#define UDI_STAT_INVALID_STATE		3
+#define UDI_STAT_MISTAKEN_IDENTITY	4
+#define UDI_STAT_ABORTED			5
+#define UDI_STAT_TIMEOUT			6
+#define UDI_STAT_BUSY				7
+#define UDI_STAT_RESOURCE_UNAVAIL	8
+#define UDI_STAT_HW_PROBLEM			9
+#define UDI_STAT_NOT_RESPONDING		10
+#define UDI_STAT_DATA_UNDERRUN		11
+#define UDI_STAT_DATA_OVERRUN		12
+#define UDI_STAT_DATA_ERROR			13
+#define UDI_STAT_PARENT_DRV_ERROR	14
+#define UDI_STAT_CANNOT_BIND		15
+#define UDI_STAT_CANNOT_BIND_EXCL	16
+#define UDI_STAT_TOO_MANY_PARENTS	17
+#define UDI_STAT_BAD_PARENT_TYPE	18
+#define UDI_STAT_TERMINATED			19
+#define UDI_STAT_ATTR_MISMATCH		20
+/**
+ * \}
+ */
 
 /**
+ * \name Data Layout Specifiers
+ * \{
  */
-typedef const struct {
-	udi_index_t	ops_idx;
-	udi_index_t	cb_idx;
-} udi_cb_select_t;
-
+typedef const udi_ubit8_t	udi_layout_t;
+/* Specific-Length Layout Type Codes */
+#define UDI_DL_UBIT8_T                   1
+#define UDI_DL_SBIT8_T                   2
+#define UDI_DL_UBIT16_T                  3
+#define UDI_DL_SBIT16_T                  4
+#define UDI_DL_UBIT32_T                  5
+#define UDI_DL_SBIT32_T                  6
+#define UDI_DL_BOOLEAN_T                 7
+#define UDI_DL_STATUS_T                  8
+/* Abstract Element Layout Type Codes */
+#define UDI_DL_INDEX_T                   20
+/* Opaque Handle Element Layout Type Codes */
+#define UDI_DL_CHANNEL_T                 30
+#define UDI_DL_ORIGIN_T                  32
+/* Indirect Element Layout Type Codes */
+#define UDI_DL_BUF                       40
+#define UDI_DL_CB                        41
+#define UDI_DL_INLINE_UNTYPED            42
+#define UDI_DL_INLINE_DRIVER_TYPED       43
+#define UDI_DL_MOVABLE_UNTYPED           44
+/* Nested Element Layout Type Codes */
+#define UDI_DL_INLINE_TYPED              50
+#define UDI_DL_MOVABLE_TYPED             51
+#define UDI_DL_ARRAY                     52
+#define UDI_DL_END                       0
 /**
+ * \}
  */
-typedef const struct {
-	udi_index_t	cb_idx;
-	udi_index_t	meta_idx;
-	udi_index_t	meta_cb_num;
-	udi_size_t	scratch_requirement;
-	udi_size_t	inline_size;
-	udi_layout_t	*inline_layout;
-} udi_cb_init_t;
 
-/**
- * The \a udi_ops_init_t structure contains information the environment
- * needs to subsequently create channel endpoints for a particular type of ops
- * vector and control block usage. This structure is part of \a udi_init_info.
- */
-typedef const struct {
-	udi_index_t	ops_idx;	//!< Non Zero driver assigned number
-	udi_index_t	meta_idx;	//!< Metalanguage Selector
-	udi_index_t	meta_ops_num;	//!< Metalanguage Operation
-	udi_size_t	chan_context_size;
-	udi_ops_vector_t	*ops_vector;	//!< Array of function pointers
-	const udi_ubit8_t	*op_flags;
-} udi_ops_init_t;
-
-/**
- */
-typedef const struct {
-	udi_index_t	region_idx;
-	udi_size_t	rdata_size;
-} udi_secondary_init_t;
-
-
-/**
- */
-typedef const struct {
-	udi_mgmt_ops_t	*mgmt_ops;
-	const udi_ubit8_t	*mgmt_op_flags;
-	udi_size_t	mgmt_scratch_requirement;
-	udi_ubit8_t	enumeration_attr_list_length;
-	udi_size_t	rdata_size;
-	udi_size_t	child_data_size;
-	udi_ubit8_t	per_parent_paths;
-} udi_primary_init_t;
-
-/**
- */
-typedef const struct {
-	udi_primary_init_t	*primary_init_info;
-	udi_secondary_init_t	*secondary_init_list;	//!< Array
-	udi_ops_init_t	*ops_init_list;
-	udi_cb_init_t	*cb_init_list;
-	udi_gcb_init_t	*gcb_init_list;
-	udi_cb_select_t	*cb_select_list;
-} udi_init_t;
-
-
-//
-// == Regions ==
-//
-
-/**
- * udi_limits_t reflects implementation-dependent system limits, such as
- * memory allocation and timer resolution limits, for a particular region. These
- * limits may vary from region to region, but will remain constant for the life of
- * a region.
- */
-typedef struct {
-	udi_size_t	max_legal_alloc;
-	udi_size_t	max_safe_alloc;
-	udi_size_t	max_trace_log_formatted_len;
-	udi_size_t	max_instance_attr_len;
-	udi_ubit32_t	min_curtime_res;
-	udi_ubit32_t	min_timer_res;
-} udi_limits_t;
-
-/**
-The \a udi_init_context_t structure is stored at the front of the region
-data area of each newly created region, providing initial data that a driver will
-need to begin executing in the region. A pointer to this structure (and therefore
-the region data area as a whole) is made available to the driver as the initial
-channel context for its first channel.
- */
-typedef struct {
-	udi_index_t	region_idx;
-	udi_limits_t	limits;
-} udi_init_context_t;
-
-typedef struct {
-	void	*rdata;
-} udi_chan_context_t;
-
-// === FUNCTIONS ===
-extern void	udi_final_cleanup_ack(udi_mgmt_cb_t *cb);
-
-// --- Channel Events ---
-extern void udi_channel_event_complete(udi_channel_event_cb_t *cb, udi_status_t status);
-
-
-
+// === INCLUDE SUB-SECTIONS ===
+#include "udi_meta_mgmt.h"	// Management Metalanguage
+#include "udi_init.h"	// Init
 
 #endif

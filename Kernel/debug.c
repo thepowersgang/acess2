@@ -56,7 +56,7 @@ void E9_Fmt(const char *format, va_list *args)
 	char	*p = NULL;
 	 int	isLongLong = 0;
 	Uint64	arg;
-  
+	
 	while((c = *format++) != 0)
 	{
 		// Non control character
@@ -305,6 +305,10 @@ void Debug_Leave(char *FuncName, char RetType, ...)
 	
 	va_start(args, RetType);
 	
+	if( i == -1 ) {
+		gDebug_Level = 0;
+		i = 0;
+	}
 	// Indenting
 	while(i--)	E9(' ');
 	

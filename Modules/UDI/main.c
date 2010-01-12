@@ -3,7 +3,7 @@
  */
 #define DEBUG	0
 #define VERSION	((0<<8)|1)
-#include <common.h>
+#include <acess.h>
 #include <modules.h>
 #include <udi.h>
 
@@ -30,12 +30,20 @@ int UDI_Install(char **Arguments)
 int UDI_LoadDriver(void *Base)
 {
 	udi_init_t	*info;
-	char	*udiprops;
+	char	*udiprops = NULL;
+	 int	udiprops_size;
 	 int	i, j;
 	
 	if( Binary_FindSymbol(Base, "udi_init_info", (Uint*)&info) == 0) {
 		Binary_Unload(Base);
 		return 0;
+	}
+	
+	if( Binary_FindSymbol(Base, "_udiprops", (Uint*)&udiprops) == 0 ) {
+		Warning("[UDI  ] _udiprops is not defined, this is usually bad");
+	}
+	else {
+		Binary_FindSymbol(Base, "_udiprops_size", (Uint*)&udiprops_size);
 	}
 	
 	Log("primary_init_info = %p", info->primary_init_info);

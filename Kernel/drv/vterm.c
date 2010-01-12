@@ -10,6 +10,8 @@
 #include <tpl_drv_terminal.h>
 #include <errno.h>
 
+#define	USE_CTRL_ALT	0
+
 // === CONSTANTS ===
 #define VERSION	((0<<8)|(50))
 
@@ -465,6 +467,10 @@ void VT_KBCallBack(Uint32 Codepoint)
 		Codepoint &= 0x7FFFFFFF;
 		switch(Codepoint)
 		{
+		#if !USE_CTRL_ALT
+		case KEY_RSHIFT:	gbVT_CtrlDown = 0;	break;
+		case KEY_LSHIFT:	gbVT_AltDown = 0;	break;
+		#else
 		case KEY_LALT:
 		case KEY_RALT:
 			gbVT_AltDown = 0;
@@ -473,12 +479,17 @@ void VT_KBCallBack(Uint32 Codepoint)
 		case KEY_RCTRL:
 			gbVT_CtrlDown = 0;
 			break;
+		#endif
 		}
 		return;
 	}
 	
 	switch(Codepoint)
 	{
+	#if !USE_CTRL_ALT
+	case KEY_RSHIFT:	gbVT_CtrlDown = 1;	break;
+	case KEY_LSHIFT:	gbVT_AltDown = 1;	break;
+	#else
 	case KEY_LALT:
 	case KEY_RALT:
 		gbVT_AltDown = 1;
@@ -487,10 +498,13 @@ void VT_KBCallBack(Uint32 Codepoint)
 	case KEY_RCTRL:
 		gbVT_CtrlDown = 1;
 		break;
+	#endif
 	
 	default:
+		#if USE_CTRL_ALT
 		if(!gbVT_AltDown || !gbVT_CtrlDown)
 			break;
+		#endif
 		switch(Codepoint)
 		{
 		case KEY_F1:	VT_SetTerminal(0);	return;

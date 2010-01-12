@@ -804,3 +804,7 @@ Uint Binary_FindSymbol(void *Base, char *Name, Uint *val)
 		Base, ident&0xFF, ident>>8, ident>>16, ident>>24);
 	return 0;
 }
+
+// === EXPORTS ===
+EXPORT(Binary_FindSymbol);
+EXPORT(Binary_Unload);

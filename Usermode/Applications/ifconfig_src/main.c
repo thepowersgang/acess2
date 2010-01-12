@@ -135,8 +135,8 @@ int DoAutoConfig( char *Device )
 {
 	 int	tmp, fd;
 	char	path[sizeof(IPSTACK_ROOT)+5+1];	// ip000
-	uint8_t	addr[4] = {10,0,0,55};
-	uint8_t	gw[4] = {10,0,0,1};
+	uint8_t	addr[4] = {10,0,2,55};
+	uint8_t	gw[4] = {10,0,2,1};
 	 int	subnet = 8;
 	
 	tmp = AddInterface(Device);

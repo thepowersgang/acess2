@@ -84,5 +84,7 @@ include/syscalls.h:	syscalls.lst Makefile
 
 Makefile:	../Makefile.cfg arch/$(ARCHDIR)/Makefile
 
+drv/proc.o.%: Makefile.BuildNum
+
 # Dependency Files
 -include $(DEPFILES)

@@ -52,6 +52,7 @@ void	Proc_Scheduler();
 // === GLOBALS ===
 // --- Multiprocessing ---
 #if USE_MP
+volatile int	giNumInitingCPUs = 0;
 tMPInfo	*gMPFloatPtr = NULL;
 tAPIC	*gpMP_LocalAPIC = NULL;
 Uint8	gaAPIC_to_CPU[256] = {0};
@@ -244,7 +245,11 @@ void ArchThreads_Init()
 		
 		if( giNumCPUs > MAX_CPUS ) {
 			Warning("Too many CPUs detected (%i), only using %i of them", giNumCPUs, MAX_CPUS);
+			giNumCPUs = MAX_CPUS;
 		}
+	
+		while( giNumInitingCPUs )
+			MM_FinishVirtualInit();
 		
 		Panic("Uh oh... MP Table Parsing is unimplemented\n");
 	}
@@ -256,6 +261,7 @@ void ArchThreads_Init()
 	#else
 	giNumCPUs = 1;
 	gTSSs = &gTSS0;
+	MM_FinishVirtualInit();
 	#endif
 	
 	// Initialise Double Fault TSS
@@ -325,6 +331,7 @@ void MP_StartAP(int CPU)
 	*(Uint16*)(KERNEL_BASE|0x469) = 0xFFFF;
 	outb(0x70, 0x0F);	outb(0x71, 0x0A);	// Warm Reset
 	MP_SendIPI(gaCPUs[CPU].APICID, 0, 5);
+	giNumInitingCPUs ++;
 }
 
 void MP_SendIPI(Uint8 APICID, int Vector, int DeliveryMode)
@@ -739,7 +746,7 @@ void Proc_Scheduler(int CPU)
 	#endif
 	
 	// Update Kernel Stack pointer
-	gTSSs[CPU].ESP0 = thread->KernelStack;
+	gTSSs[CPU].ESP0 = thread->KernelStack-4;
 	
 	// Set address space
 	#if USE_PAE

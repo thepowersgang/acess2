@@ -205,6 +205,7 @@ Isr240:
 ; ---------------------
 [extern ErrorHandler]
 ErrorCommon:
+	;xchg bx, bx
 	pusha
 	push ds
 	push es

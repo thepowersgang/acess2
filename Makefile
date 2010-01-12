@@ -4,11 +4,13 @@
 # (Oh man! This is hacky, but beautiful at the same time, much like the
 # rest of Acess)
 
+-include Makefile.cfg
+
 .PHONY: all clean
 
 SUBMAKE = $(MAKE) --no-print-directory
 
-MODULES = FS_Ext2 FDD BochsGA IPStack NE2000 USB
+MODULES += $(DYNMODS)
 USRLIBS = ld-acess.so libacess.so libgcc.so libc.so
 USRAPPS = init login CLIShell cat ls mount ifconfig
 
@@ -31,8 +33,10 @@ ALLINSTALL_USRAPPS = $(addprefix allinstall-,$(USRAPPS))
 	$(CLEAN_MODULES) clean-Kernel $(CLEAN_USRLIBS) $(CLEAN_USRAPPS) \
 	$(INSTALL_MODULES) install-Kernel $(INSTALL_USRLIBS) $(INSTALL_USRAPPS)
 
+kmode:	$(ALLINSTALL_MODULES) allinstall-Kernel
+
 all:	$(ALL_MODULES) all-Kernel $(ALL_USRLIBS) $(ALL_USRAPPS)
-all-install:	$(ALLINSTALL_MODULES) all-Kernel $(ALLINSTALL_USRLIBS) $(ALLINSTALL_USRAPPS)
+all-install:	$(ALLINSTALL_MODULES) allinstall-Kernel $(ALLINSTALL_USRLIBS) $(ALLINSTALL_USRAPPS)
 clean:	$(CLEAN_MODULES) clean-Kernel $(CLEAN_USRLIBS) $(CLEAN_USRAPPS)
 install:	$(INSTALL_MODULES) install-Kernel $(INSTALL_USRLIBS) $(INSTALL_USRAPPS)
 

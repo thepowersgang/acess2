@@ -10,6 +10,7 @@
  * 0xFF - System Calls / Kernel's User Code
  */
 #define DEBUG	1
+#define SANITY	1
 #include <acess.h>
 #include <mm_phys.h>
 #include <proc.h>
@@ -105,10 +106,8 @@ Uint32	gWorkerStacks[(NUM_WORKER_STACKS+31)/32];
 void MM_PreinitVirtual()
 {
 	#if USE_PAE
-	//gaInitPDPT[ 0 ] = 0;
 	gaInitPageDir[ ((PAGE_TABLE_ADDR >> TAB)-3*512+3)*2 ] = ((tTabEnt)&gaInitPageDir - KERNEL_BASE) | 3;
 	#else
-	//gaInitPageDir[ 0 ] = 0;	// Needed for SMP startup code
 	gaInitPageDir[ PAGE_TABLE_ADDR >> 22 ] = ((tTabEnt)&gaInitPageDir - KERNEL_BASE) | 3;
 	#endif
 	INVLPG( PAGE_TABLE_ADDR );
@@ -157,6 +156,18 @@ void MM_InstallVirtual()
 }
 
 /**
+ * \brief Cleans up the SMP required mappings
+ */
+void MM_FinishVirtualInit()
+{
+	#if USE_PAE
+	gaInitPDPT[ 0 ] = 0;
+	#else
+	gaInitPageDir[ 0 ] = 0;
+	#endif
+}
+
+/**
  * \fn void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
  * \brief Called on a page fault
  */
@@ -177,6 +188,7 @@ void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 		}
 		else
 		{
+			//Log("MM_PageFault: COW - MM_DuplicatePage(0x%x)", Addr);
 			paddr = MM_DuplicatePage( Addr );
 			MM_DerefPhys( gaPageTable[Addr>>12] & ~0xFFF );
 			gaPageTable[Addr>>12] &= PF_USER;
@@ -318,7 +330,7 @@ tPAddr MM_Allocate(tVAddr VAddr)
 		//LOG("paddr = 0x%llx (new table)", paddr);
 		if( paddr == 0 ) {
 			Warning("MM_Allocate - Out of Memory (Called by %p)", __builtin_return_address(0));
-			LEAVE('i',0);
+			//LEAVE('i',0);
 			return 0;
 		}
 		// Map
@@ -524,7 +536,7 @@ tPAddr MM_Clone()
 	memsetd( gaTmpDir, 0, 1024 );
 	
 	// Copy Tables
-	for(i=0;i<768;i++)
+	for( i = 0; i < 768; i ++)
 	{
 		// Check if table is allocated
 		if( !(gaPageDir[i] & PF_PRESENT) ) {
@@ -802,6 +814,8 @@ tPAddr MM_DuplicatePage(tVAddr VAddr)
 	Uint	temp;
 	 int	wasRO = 0;
 	
+	//ENTER("xVAddr", VAddr);
+	
 	// Check if mapped
 	if( !(gaPageDir  [VAddr >> 22] & PF_PRESENT) )	return 0;
 	if( !(gaPageTable[VAddr >> 12] & PF_PRESENT) )	return 0;
@@ -826,6 +840,7 @@ tPAddr MM_DuplicatePage(tVAddr VAddr)
 	if(!wasRO)	gaPageTable[VAddr >> 12] |= PF_WRITE;
 	INVLPG(VAddr);
 	
+	//LEAVE('X', ret);
 	return ret;
 }
 

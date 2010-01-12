@@ -13,7 +13,6 @@
 #include <drv_pci.h>
 #include <tpl_drv_video.h>
 
-//#define INT	static
 #define INT
 
 // === TYPEDEFS ===

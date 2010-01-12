@@ -60,6 +60,7 @@ start:
 [extern gpMP_LocalAPIC]
 [extern gaAPIC_to_CPU]
 [extern gaCPUs]
+[extern giNumInitingCPUs]
 lGDTPtr:	; Local GDT Pointer
 	dw	2*8-1
 	dd	gGDT-KERNEL_BASE
@@ -99,6 +100,8 @@ APStartup:
 	mov cl, BYTE [gaAPIC_to_CPU+ecx]
 	; CL is now the CPU ID
 	mov BYTE [gaCPUs+ecx*8+1], 1
+	; Decrement the remaining CPU count
+	dec DWORD [giNumInitingCPUs]
 	; CPU is now marked as initialised
 	sti
 .hlt:

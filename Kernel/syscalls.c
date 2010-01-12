@@ -46,7 +46,6 @@ void SyscallHandler(tSyscallRegs *Regs)
 	if(Regs->Num < NUM_SYSCALLS)
 		LOG("Syscall %s", cSYSCALL_NAMES[Regs->Num]);
 	LOG("Arg1: 0x%x, Arg2: 0x%x, Arg3: 0x%x, Arg4: 0x%x", Regs->Arg1, Regs->Arg2, Regs->Arg3, Regs->Arg4);
-	//#endif
 	
 	switch(Regs->Num)
 	{
@@ -158,6 +157,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 				}
 			}
 		}
+		LEAVE('s', "Assuming 0");
 		// Path, **Argv, **Envp
 		ret = Proc_Execve((char*)Regs->Arg1, (char**)Regs->Arg2, (char**)Regs->Arg3);
 		break;
@@ -304,7 +304,10 @@ void SyscallHandler(tSyscallRegs *Regs)
 	Regs->Error = err;
 	#if DEBUG
 	LOG("err = %i", err);
-	LEAVE('x', ret);
+	if(Regs->Num != SYS_EXECVE)
+		LEAVE('x', ret);
+	else
+		LOG("Actual %i", ret);
 	#endif
 }
 
