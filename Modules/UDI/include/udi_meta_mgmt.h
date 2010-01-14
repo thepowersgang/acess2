@@ -69,19 +69,8 @@ typedef void udi_enumerate_ack_op_t(udi_enumerate_cb_t *cb, udi_ubit8_t enumerat
  * \{
  */
 typedef void udi_devmgmt_req_op_t(udi_mgmt_cb_t *cb, udi_ubit8_t mgmt_op, udi_ubit8_t parent_ID);
-/* Values for mgmt_op */
-#define UDI_DMGMT_PREPARE_TO_SUSPEND 1
-#define UDI_DMGMT_SUSPEND            2
-#define UDI_DMGMT_SHUTDOWN           3
-#define UDI_DMGMT_PARENT_SUSPENDED   4
-#define UDI_DMGMT_RESUME             5
-#define UDI_DMGMT_UNBIND             6
 
 typedef void udi_devmgmt_ack_op_t(udi_mgmt_cb_t *cb, udi_ubit8_t flags, udi_status_t status);
-/* Values for flags */
-#define UDI_DMGMT_NONTRANSPARENT          (1U<<0)
-/* Meta-Specific Status Codes */
-#define UDI_DMGMT_STAT_ROUTING_CHANGE     (UDI_STAT_META_SPECIFIC|1)
 /**
  * \}
  */
@@ -136,5 +125,32 @@ struct udi_enumerate_cb_s
 };
 /* Special parent_ID filter values */
 #define UDI_ANY_PARENT_ID	0
+
+/**
+ * \brief 
+ */
+extern void	udi_devmgmt_req(udi_mgmt_cb_t *cb, udi_ubit8_t mgmt_op, udi_ubit8_t parent_ID );
+/**
+ * \brief Values for ::udi_devmgmt_req \a mgmt_op
+ */
+enum eDMGMT
+{
+	UDI_DMGMT_PREPARE_TO_SUSPEND = 1,
+	UDI_DMGMT_SUSPEND,
+	UDI_DMGMT_SHUTDOWN,
+	UDI_DMGMT_PARENT_SUSPENDED,
+	UDI_DMGMT_RESUME,
+	UDI_DMGMT_UNBIND
+};
+
+extern void	udi_devmgmt_ack(udi_mgmt_cb_t *cb, udi_ubit8_t flags, udi_status_t status);
+//!\brief Values for flags
+#define UDI_DMGMT_NONTRANSPARENT	(1U<<0)
+//!\brief Meta-Specific Status Codes
+#define UDI_DMGMT_STAT_ROUTING_CHANGE	(UDI_STAT_META_SPECIFIC|1)
+
+extern void udi_final_cleanup_req(udi_mgmt_cb_t *cb);
+extern void udi_final_cleanup_ack(udi_mgmt_cb_t *cb);
+
 
 #endif

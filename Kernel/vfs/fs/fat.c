@@ -648,14 +648,12 @@ char *FAT_ReadDir(tVFS_Node *dirNode, int dirpos)
 		offset += (cluster - 2) * disk->bootsect.spc;
 	}
 	// Sector in cluster
-	if(disk->bootsect.spc == 1)
-		offset += (dirpos / 16);
-	else
+	if(disk->bootsect.spc != 1)
 		offset += (dirpos / 16) % disk->bootsect.spc;
 	// Offset in sector
 	a = dirpos % 16;
 
-	LOG("offset=%i, a=%i", (Uint)offset, a);
+	LOG("offset=%i, a=%i", offset, a);
 	
 	// Read Sector
 	VFS_ReadAt(disk->fileHandle, offset*512, 512, fileinfo);	// Read Dir Data
