@@ -256,17 +256,23 @@ static Uint32 FAT_int_GetFatValue(tFAT_VolInfo *Disk, Uint32 cluster)
 	#if !CACHE_FAT
 	Uint32	ofs = Disk->bootsect.resvSectCount*512;
 	#endif
-	ENTER("iHandle xCluster", handle, cluster);
+	ENTER("pDisk xCluster", Disk, cluster);
 	#if CACHE_FAT
 	val = Disk->FATCache[cluster];
+	if(Disk->type == FAT12 && val == EOC_FAT12)	val = -1;
+	if(Disk->type == FAT16 && val == EOC_FAT16)	val = -1;
+	if(Disk->type == FAT32 && val == EOC_FAT32)	val = -1;
 	#else
 	if(Disk->type == FAT12) {
 		VFS_ReadAt(Disk->fileHandle, ofs+(cluster>>1)*3, 3, &val);
 		val = (cluster&1 ? val&0xFFF : val>>12);
+		if(val == EOC_FAT12)	val = -1;
 	} else if(Disk->type == FAT16) {
 		VFS_ReadAt(Disk->fileHandle, ofs+cluster*2, 2, &val);
+		if(val == EOC_FAT16)	val = -1;
 	} else {
 		VFS_ReadAt(Disk->fileHandle, ofs+cluster*4, 4, &val);
+		if(val == EOC_FAT32)	val = -1;
 	}
 	#endif /*CACHE_FAT*/
 	LEAVE('x', val);
@@ -278,6 +284,7 @@ static Uint32 FAT_int_GetFatValue(tFAT_VolInfo *Disk, Uint32 cluster)
 static void FAT_int_ReadCluster(int Handle, Uint32 Cluster, int Length, void *Buffer)
 {
 	ENTER("iHandle xCluster iLength pBuffer", Handle, Cluster, Length, Buffer);
+	//Log("Cluster = %i (0x%x)", Cluster, Cluster);
 	VFS_ReadAt(
 		gFAT_Disks[Handle].fileHandle,
 		(gFAT_Disks[Handle].firstDataSect + (Cluster-2)*gFAT_Disks[Handle].bootsect.spc )
@@ -299,7 +306,6 @@ Uint64 FAT_Read(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer)
 	 int	i, cluster, pos;
 	 int	bpc;
 	void	*tmpBuf;
-	Uint	eocMarker;
 	tFAT_VolInfo	*disk = &gFAT_Disks[node->ImplInt];
 	
 	ENTER("Xoffset Xlength pbuffer", offset, length, buffer);
@@ -311,17 +317,6 @@ Uint64 FAT_Read(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer)
 	
 	// Cluster is stored in Inode Field
 	cluster = node->Inode;
-	
-	// Get EOC Marker
-	if     (disk->type == FAT12)	eocMarker = EOC_FAT12;
-	else if(disk->type == FAT16)	eocMarker = EOC_FAT16;
-	else if(disk->type == FAT32)	eocMarker = EOC_FAT32;
-	else {
-		Log("ERROR: Unsupported FAT Variant.\n");
-		free(tmpBuf);
-		LEAVE('i', 0);
-		return 0;
-	}
 	
 	// Sanity Check offset
 	if(offset > node->Size) {
@@ -351,8 +346,10 @@ Uint64 FAT_Read(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer)
 	//Skip previous clusters
 	for(i=preSkip;i--;)	{
 		cluster = FAT_int_GetFatValue(disk, cluster);
-		if(cluster == eocMarker) {
+		if(cluster == -1) {
 			Warning("FAT_Read - Offset is past end of cluster chain mark");
+			LEAVE('i', 0);
+			return 0;
 		}
 	}
 	
@@ -391,7 +388,7 @@ Uint64 FAT_Read(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer)
 		memcpy((void*)(buffer+pos), tmpBuf, bpc);
 		pos += bpc;
 		cluster = FAT_int_GetFatValue(disk, cluster);
-		if(cluster == eocMarker) {
+		if(cluster == -1) {
 			Warning("FAT_Read - Read past End of Cluster Chain");
 			free(tmpBuf);
 			LEAVE('i', 0);
@@ -486,6 +483,7 @@ tVFS_Node *FAT_int_CreateNode(tVFS_Node *parent, fat_filetable *ft, char *LongFi
 	// Set Other Data
 	node.Inode = ft->cluster | (ft->clusterHi<<16);
 	node.Size = ft->size;
+	LOG("ft->size = %i", ft->size);
 	node.ImplInt = parent->ImplInt;
 	node.UID = 0;	node.GID = 0;
 	node.NumACLs = 1;
@@ -612,25 +610,21 @@ char *FAT_ReadDir(tVFS_Node *dirNode, int dirpos)
 	
 	// Get Byte Offset and skip
 	offset = dirpos * sizeof(fat_filetable);
-	preSkip = (offset >> 9) / disk->bootsect.spc;	// >>9 == /512
+	preSkip = offset / (512 * disk->bootsect.spc);
+	LOG("disk->bootsect.spc = %i", disk->bootsect.spc);
+	LOG("dirNode->size = %i", dirNode->Size);
 	cluster = dirNode->Inode;	// Cluster ID
 	
 	// Do Cluster Skip
 	// - Pre FAT32 had a reserved area for the root.
-	if( !(disk->type != FAT32 && cluster == disk->rootOffset) )
+	if( disk->type == FAT32 || cluster != disk->rootOffset )
 	{
 		//Skip previous clusters
 		for(a=preSkip;a--;)	{
 			cluster = FAT_int_GetFatValue(disk, cluster);
+			// Check for end of cluster chain
+			if(cluster == -1) {	LEAVE('n');	return NULL;}
 		}
-	}
-	
-	// Check for end of cluster chain
-	if((disk->type == FAT12 && cluster == EOC_FAT12)
-	|| (disk->type == FAT16 && cluster == EOC_FAT16)
-	|| (disk->type == FAT32 && cluster == EOC_FAT32)) {
-		LEAVE('n');
-		return NULL;
 	}
 	
 	// Bounds Checking (Used to spot heap overflows)
@@ -642,7 +636,7 @@ char *FAT_ReadDir(tVFS_Node *dirNode, int dirpos)
 		return NULL;
 	}
 	
-	LOG("cluster=0x%x, dirpos=%i\n", cluster, dirpos);
+	LOG("cluster=0x%x, dirpos=%i", cluster, dirpos);
 	
 	// Compute Offsets
 	// - Pre FAT32 cluster base (in sectors)
@@ -659,7 +653,7 @@ char *FAT_ReadDir(tVFS_Node *dirNode, int dirpos)
 	else
 		offset += (dirpos / 16) % disk->bootsect.spc;
 	// Offset in sector
-	a = dirpos & 0xF;
+	a = dirpos % 16;
 
 	LOG("offset=%i, a=%i", (Uint)offset, a);
 	
@@ -668,7 +662,7 @@ char *FAT_ReadDir(tVFS_Node *dirNode, int dirpos)
 	
 	LOG("name[0] = 0x%x", (Uint8)fileinfo[a].name[0]);
 	//Check if this is the last entry
-	if(fileinfo[a].name[0] == '\0') {
+	if( fileinfo[a].name[0] == '\0' ) {
 		dirNode->Size = dirpos;
 		LOG("End of list");
 		LEAVE('n');
@@ -676,8 +670,8 @@ char *FAT_ReadDir(tVFS_Node *dirNode, int dirpos)
 	}
 	
 	// Check for empty entry
-	if((Uint8)fileinfo[a].name[0] == 0xE5) {
-		LOG("Empty Entry\n");
+	if( (Uint8)fileinfo[a].name[0] == 0xE5 ) {
+		LOG("Empty Entry");
 		LEAVE('p', VFS_SKIP);
 		return VFS_SKIP;	// Skip
 	}
@@ -765,8 +759,10 @@ tVFS_Node *FAT_FindDir(tVFS_Node *node, char *name)
 	ENTER("pnode sname", node, name);
 	
 	// Fast Returns
-	if(!name)	return NULL;
-	if(name[0] == '\0')	return NULL;
+	if(!name || name[0] == '\0') {
+		LEAVE('n');
+		return NULL;
+	}
 	
 	#if USE_LFN
 	lfn = FAT_int_GetLFN(node);
@@ -783,6 +779,7 @@ tVFS_Node *FAT_FindDir(tVFS_Node *node, char *name)
 	{
 		// Load sector
 		if((i & 0xF) == 0) {
+			//Log("FAT_FindDir: diskOffset = 0x%x", diskOffset);
 			VFS_ReadAt(disk->fileHandle, diskOffset, 512, fileinfo);
 			diskOffset += 512;
 		}
@@ -822,7 +819,7 @@ tVFS_Node *FAT_FindDir(tVFS_Node *node, char *name)
 			// Get Real Filename
 			FAT_int_ProperFilename(tmpName, fileinfo[i&0xF].name);
 		
-			LOG("tmpName = '%s'\n", tmpName);
+			LOG("tmpName = '%s'", tmpName);
 		
 			//Only Long name is case sensitive, 8.3 is not
 			#if USE_LFN
@@ -857,6 +854,7 @@ tVFS_Node *FAT_FindDir(tVFS_Node *node, char *name)
 			if( dirCluster == disk->rootOffset && disk->type != FAT32 )
 				continue;
 			dirCluster = FAT_int_GetFatValue(disk, dirCluster);
+			if(dirCluster == -1)	break;
 			diskOffset = (disk->firstDataSect+(dirCluster-2)*disk->bootsect.spc)*512;
 		}
 	}

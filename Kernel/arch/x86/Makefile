@@ -32,3 +32,4 @@ endif
 A_OBJ  = start.ao main.o lib.o desctab.ao errors.o irq.o
 A_OBJ += mm_phys.o mm_virt.o
 A_OBJ += proc.o time.o
+#A_OBJ += gdb_stub.o

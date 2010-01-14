@@ -14,3 +14,5 @@ void udi_log_write( udi_log_write_call_t *callback, udi_cb_t *gcb,
 {
 	Log("UDI Log");
 }
+
+EXPORT(udi_log_write);

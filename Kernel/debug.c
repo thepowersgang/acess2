@@ -8,6 +8,7 @@
 #define DEBUG_TO_E9	1
 #define DEBUG_TO_SERIAL	1
 #define	SERIAL_PORT	0x3F8
+#define	GDB_SERIAL_PORT	0x2F8
 
 // === IMPORTS ===
 extern void Threads_Dump();
@@ -16,8 +17,41 @@ extern void Threads_Dump();
  int	gDebug_Level = 0;
  int	giDebug_KTerm = -1;
  int	gbDebug_SerialSetup = 0;
+ int	gbGDB_SerialSetup = 0;
 
 // === CODE ===
+int putDebugChar(char ch)
+{
+	if(!gbGDB_SerialSetup) {
+		outb(GDB_SERIAL_PORT + 1, 0x00);    // Disable all interrupts
+		outb(GDB_SERIAL_PORT + 3, 0x80);    // Enable DLAB (set baud rate divisor)
+		outb(GDB_SERIAL_PORT + 0, 0x03);    // Set divisor to 3 (lo byte) 38400 baud
+		outb(GDB_SERIAL_PORT + 1, 0x00);    //                  (hi byte)
+		outb(GDB_SERIAL_PORT + 3, 0x03);    // 8 bits, no parity, one stop bit
+		outb(GDB_SERIAL_PORT + 2, 0xC7);    // Enable FIFO with 14-byte threshold and clear it
+		outb(GDB_SERIAL_PORT + 4, 0x0B);    // IRQs enabled, RTS/DSR set
+		gbDebug_SerialSetup = 1;
+	}
+	while( (inb(GDB_SERIAL_PORT + 5) & 0x20) == 0 );
+	outb(GDB_SERIAL_PORT, ch);
+	return 0;
+}
+int getDebugChar()
+{
+	if(!gbGDB_SerialSetup) {
+		outb(GDB_SERIAL_PORT + 1, 0x00);    // Disable all interrupts
+		outb(GDB_SERIAL_PORT + 3, 0x80);    // Enable DLAB (set baud rate divisor)
+		outb(GDB_SERIAL_PORT + 0, 0x03);    // Set divisor to 3 (lo byte) 38400 baud
+		outb(GDB_SERIAL_PORT + 1, 0x00);    //                  (hi byte)
+		outb(GDB_SERIAL_PORT + 3, 0x03);    // 8 bits, no parity, one stop bit
+		outb(GDB_SERIAL_PORT + 2, 0xC7);    // Enable FIFO with 14-byte threshold and clear it
+		outb(GDB_SERIAL_PORT + 4, 0x0B);    // IRQs enabled, RTS/DSR set
+		gbDebug_SerialSetup = 1;
+	}
+	while( (inb(GDB_SERIAL_PORT + 5) & 1) == 0)	;
+	return inb(GDB_SERIAL_PORT);
+}
+
 static void E9(char ch)
 {
 	if(giDebug_KTerm != -1)

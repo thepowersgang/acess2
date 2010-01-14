@@ -6,7 +6,7 @@
 #include <modules.h>
 
 #define	USE_EDI	0
-#define	USE_UDI	0
+#define	USE_UDI	1
 
 // === PROTOTYPES ===
  int	Modules_LoadBuiltins();

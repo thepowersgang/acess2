@@ -635,6 +635,7 @@ int FDD_int_GetDims(int type, int lba, int *c, int *h, int *s, int *spt)
 		*s = (lba % 18) + 1;
 		*c = lba / 36;
 		*h = (lba / 18) & 1;
+		//Log("1440k - lba=%i(0x%x), *s=%i,*c=%i,*h=%i", lba, lba, *s, *c, *h);
 		break;
 		
 	// 2880Kb 3.5"
