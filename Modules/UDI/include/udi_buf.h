@@ -91,10 +91,10 @@ extern void udi_buf_write(
  * \brief Reads data from a buffer into driver space
  */
 extern void udi_buf_read(
-     udi_buf_t	*src_buf,
-     udi_size_t	src_off,
-     udi_size_t	src_len,
-     void *dst_mem );
+	udi_buf_t	*src_buf,
+	udi_size_t	src_off,
+	udi_size_t	src_len,
+	void	*dst_mem );
 
 /**
  * \brief Frees a buffer

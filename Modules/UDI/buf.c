@@ -9,6 +9,7 @@
 // === EXPORTS ===
 EXPORT(udi_buf_copy);
 EXPORT(udi_buf_write);
+EXPORT(udi_buf_read);
 EXPORT(udi_buf_free);
 
 // === CODE ===
@@ -24,7 +25,7 @@ void udi_buf_copy(
 	udi_buf_path_t path_handle
 	)
 {
-	Warning("%s Unimplemented", __func__);
+	UNIMPLEMENTED();
 }
 
 void udi_buf_write(
@@ -38,10 +39,19 @@ void udi_buf_write(
 	udi_buf_path_t path_handle
 	)
 {
-	Warning("%s Unimplemented", __func__);
+	UNIMPLEMENTED();
+}
+
+void udi_buf_read(
+	udi_buf_t	*src_buf,
+	udi_size_t	src_off,
+	udi_size_t	src_len,
+	void	*dst_mem )
+{
+	UNIMPLEMENTED();
 }
 
 void udi_buf_free(udi_buf_t *buf)
 {
-	Warning("%s Unimplemented", __func__);
+	UNIMPLEMENTED();
 }
