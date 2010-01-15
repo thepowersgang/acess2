@@ -32,7 +32,8 @@ int UDI_LoadDriver(void *Base)
 	udi_init_t	*info;
 	char	*udiprops = NULL;
 	 int	udiprops_size;
-	 int	i, j;
+	 int	i;
+	// int	j;
 	
 	Log("UDI_LoadDriver: (Base=%p)", Base);
 	
@@ -48,23 +49,44 @@ int UDI_LoadDriver(void *Base)
 		Binary_FindSymbol(Base, "_udiprops_size", (Uint*)&udiprops_size);
 	}
 	
-	Log("primary_init_info = %p", info->primary_init_info);
+	Log("primary_init_info = %p = {", info->primary_init_info);
+	{
+		Log(" .mgmt_ops = %p = {", info->primary_init_info->mgmt_ops);
+		Log("  .usage_ind_op: %p() - 0x%02x",
+			info->primary_init_info->mgmt_ops->usage_ind_op,
+			info->primary_init_info->mgmt_op_flags[0]
+			);
+		Log("  .enumerate_req_op: %p() - 0x%02x",
+			info->primary_init_info->mgmt_ops->enumerate_req_op,
+			info->primary_init_info->mgmt_op_flags[1]
+			);
+		Log("  .devmgmt_req_op: %p() - 0x%02x",
+			info->primary_init_info->mgmt_ops->devmgmt_req_op,
+			info->primary_init_info->mgmt_op_flags[2]
+			);
+		Log("  .final_cleanup_req_op: %p() - 0x%02x",
+			info->primary_init_info->mgmt_ops->final_cleanup_req_op,
+			info->primary_init_info->mgmt_op_flags[3]
+			);
+		Log(" }");
+		Log(" .mgmt_scratch_requirement = 0x%x", info->primary_init_info->mgmt_scratch_requirement);
+		Log(" .enumeration_attr_list_length = 0x%x", info->primary_init_info->enumeration_attr_list_length);
+		Log(" .rdata_size = 0x%x", info->primary_init_info->rdata_size);
+		Log(" .child_data_size = 0x%x", info->primary_init_info->child_data_size);
+		Log(" .per_parent_paths = 0x%x", info->primary_init_info->per_parent_paths);
+	}
+	Log("}");
 	Log("secondary_init_list = %p", info->secondary_init_list);
 	Log("ops_init_list = %p", info->ops_init_list);
 	
 	for( i = 0; info->ops_init_list[i].ops_idx; i++ )
 	{
 		Log("info->ops_init_list[%i] = {", i);
-		Log(" .ops_idx = %i", info->ops_init_list[i].ops_idx);
-		Log(" .meta_idx = %i", info->ops_init_list[i].meta_idx);
-		Log(" .meta_ops_num = %i", info->ops_init_list[i].meta_ops_num);
-		Log(" .chan_context_size = %i", info->ops_init_list[i].chan_context_size);
-		Log(" .ops_vector = {");
-		for( j = 0; info->ops_init_list[i].ops_vector; j++ )
-		{
-			Log("%i: %p()", j, info->ops_init_list[i].ops_vector);
-		}
-		Log(" }");
+		Log(" .ops_idx = 0x%x", info->ops_init_list[i].ops_idx);
+		Log(" .meta_idx = 0x%x", info->ops_init_list[i].meta_idx);
+		Log(" .meta_ops_num = 0x%x", info->ops_init_list[i].meta_ops_num);
+		Log(" .chan_context_size = 0x%x", info->ops_init_list[i].chan_context_size);
+		Log(" .ops_vector = %p", info->ops_init_list[i].ops_vector);
 		Log(" .op_flags = %p", info->ops_init_list[i].op_flags);
 		Log("}");
 	}

@@ -6,6 +6,7 @@
 #define _COMMON_H
 
 #define NULL	((void*)0)
+#define PACKED	__attribute__ ((packed))
 
 #include <arch.h>
 #include <stdarg.h>
@@ -73,7 +74,7 @@ typedef void (*tThreadFunction)(void*);
  */
 typedef struct sKernelSymbol {
 	char	*Name;
-	unsigned int	Value;
+	Uint	Value;
 } tKernelSymbol;
 #define	EXPORT(_name)	tKernelSymbol _kexp_##_name __attribute__((section ("KEXPORT"),unused))={#_name, (Uint)_name}
 #define	EXPORTV(_name)	tKernelSymbol _kexp_##_name __attribute__((section ("KEXPORT"),unused))={#_name, (Uint)&_name}
