@@ -156,7 +156,6 @@ int Module_LoadFile(char *Path, char *ArgString)
 		// Check for EDI Driver
 		if( Binary_FindSymbol(base, "driver_init", NULL ) != 0 )
 		{
-			Binary_Relocate(base);	// Relocate
 			return Module_InitEDI( base );	// And intialise
 		}
 		#endif
@@ -164,7 +163,6 @@ int Module_LoadFile(char *Path, char *ArgString)
 		#if USE_UDI
 		if( Binary_FindSymbol(base, "udi_init_info", NULL ) != 0 )
 		{
-			Binary_Relocate(base);	// Relocate
 			return UDI_LoadDriver( base );	// And intialise
 		}
 		#endif

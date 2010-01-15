@@ -461,7 +461,7 @@ int Elf_Int_DoRelocate(Uint r_info, Uint32 *ptr, Uint32 addend, Elf32_Sym *symta
 		if( !Elf_GetSymbol((void*)base, sSymName, &val) )	// Search this binary first
 			if( !Binary_GetSymbol( sSymName, &val ) )
 				return 0;
-		//LOG("R_386_32 *0x%x += 0x%x('%s')", ptr, val, sSymName);
+		LOG("R_386_32 *0x%x += 0x%x('%s')", ptr, val, sSymName);
 		*ptr = val + addend;
 		break;
 		
@@ -470,7 +470,7 @@ int Elf_Int_DoRelocate(Uint r_info, Uint32 *ptr, Uint32 addend, Elf32_Sym *symta
 		if( !Elf_GetSymbol( (void*)base, sSymName, &val ) )
 			if( !Binary_GetSymbol( sSymName, &val ) )
 				return 0;
-		//LOG("R_386_PC32 *0x%x = 0x%x + 0x%x('%s') - 0x%x", ptr, *ptr, val, sSymName, (Uint)ptr );
+		LOG("R_386_PC32 *0x%x = 0x%x + 0x%x('%s') - 0x%x", ptr, *ptr, val, sSymName, (Uint)ptr );
 		// TODO: Check if it needs the true value of ptr or the compiled value
 		// NOTE: Testing using true value
 		*ptr = val + addend - (Uint)ptr;
@@ -481,7 +481,7 @@ int Elf_Int_DoRelocate(Uint r_info, Uint32 *ptr, Uint32 addend, Elf32_Sym *symta
 		if( !Elf_GetSymbol( (void*)base, sSymName, &val ) )
 			if( !Binary_GetSymbol( sSymName, &val ) )
 				return 0;
-		//LOG("R_386_GLOB_DAT *0x%x = 0x%x (%s)", ptr, val, sSymName);
+		LOG("R_386_GLOB_DAT *0x%x = 0x%x (%s)", ptr, val, sSymName);
 		*ptr = val;
 		break;
 	
@@ -490,13 +490,13 @@ int Elf_Int_DoRelocate(Uint r_info, Uint32 *ptr, Uint32 addend, Elf32_Sym *symta
 		if( !Elf_GetSymbol( (void*)base, sSymName, &val ) )
 			if( !Binary_GetSymbol( sSymName, &val ) )
 				return 0;
-		//LOG("R_386_JMP_SLOT *0x%x = 0x%x (%s)", ptr, val, sSymName);
+		LOG("R_386_JMP_SLOT *0x%x = 0x%x (%s)", ptr, val, sSymName);
 		*ptr = val;
 		break;
 
 	// Base Address (B+A)
 	case R_386_RELATIVE:
-		//LOG("R_386_RELATIVE *0x%x = 0x%x + 0x%x", ptr, base, addend);
+		LOG("R_386_RELATIVE *0x%x = 0x%x + 0x%x", ptr, base, addend);
 		*ptr = base + addend;
 		break;
 		
