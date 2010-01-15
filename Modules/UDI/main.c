@@ -34,6 +34,8 @@ int UDI_LoadDriver(void *Base)
 	 int	udiprops_size;
 	 int	i, j;
 	
+	Log("UDI_LoadDriver: (Base=%p)", Base);
+	
 	if( Binary_FindSymbol(Base, "udi_init_info", (Uint*)&info) == 0) {
 		Binary_Unload(Base);
 		return 0;

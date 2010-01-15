@@ -21,18 +21,21 @@ typedef udi_ubit8_t	udi_boolean_t;	/* 0=False; 1..28-1=True */
 typedef size_t	udi_size_t;	/* buffer size */
 typedef size_t	udi_index_t;	/* zero-based index type */
 
+typedef void	*_udi_handle_t;
+#define	_NULL_HANDLE	NULL
+
 /* Channel Handle */
-typedef void	*udi_channel_t;
-#define UDI_NULL_CHANNEL	NULL
+typedef _udi_handle_t	*udi_channel_t;
+#define UDI_NULL_CHANNEL	_NULL_HANDLE
 
 /**
  * \brief Buffer Path
  */
-typedef void	*udi_buf_path_t;
-#define UDI_NULL_BUF_PATH	NULL
+typedef _udi_handle_t	udi_buf_path_t;
+#define UDI_NULL_BUF_PATH	_NULL_HANDLE
 
-typedef void	*udi_origin_t;
-#define UDI_NULL_ORIGIN	NULL
+typedef _udi_handle_t	udi_origin_t;
+#define UDI_NULL_ORIGIN	_NULL_HANDLE
 
 typedef Sint64	udi_timestamp_t;
 
@@ -137,10 +140,15 @@ typedef const udi_ubit8_t	udi_layout_t;
 
 
 // === INCLUDE SUB-SECTIONS ===
-#include "udi_log.h"	// Management Metalanguage
-#include "udi_attr.h"	// Management Metalanguage
-#include "udi_cb.h"	// Management Metalanguage
-#include "udi_meta_mgmt.h"	// Management Metalanguage
-#include "udi_init.h"	// Init
+#include "udi/cb.h"	// Control Blocks
+#include "udi/log.h"	// Logging
+#include "udi/attr.h"	// Attributes
+#include "udi/strmem.h"	// String/Memory
+#include "udi/buf.h"	// Buffers
+#include "udi/mem.h"	// Memory Management
+#include "udi/imc.h"	// Inter-module Communication
+#include "udi/meta_mgmt.h"	// Management Metalanguage
+#include "udi/meta_gio.h"	// General IO Metalanguage
+#include "udi/init.h"	// Init
 
 #endif

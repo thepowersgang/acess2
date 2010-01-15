@@ -539,7 +539,7 @@ int Elf_GetSymbol(void *Base, char *Name, Uint *ret)
 	// Check Bucket
 	i = pBuckets[ iNameHash ];
 	if(symtab[i].shndx != SHN_UNDEF && strcmp(symtab[i].name, Name) == 0) {
-		*ret = symtab[ i ].value;
+		if(ret)	*ret = symtab[ i ].value;
 		return 1;
 	}
 	
@@ -548,7 +548,7 @@ int Elf_GetSymbol(void *Base, char *Name, Uint *ret)
 	{
 		i = pChains[i];
 		if(symtab[i].shndx != SHN_UNDEF && strcmp(symtab[ i ].name, Name) == 0) {
-			*ret = symtab[ i ].value;
+			if(ret)	*ret = symtab[ i ].value;
 			return 1;
 		}
 	}

@@ -1,10 +1,9 @@
 /**
- * \file bc.c
+ * \file cb.c
  * \author John Hodge (thePowersGang)
  */
 #include <acess.h>
 #include <udi.h>
-#include <udi_cb.h>
 
 // === EXPORTS ===
 EXPORT(udi_cb_alloc);

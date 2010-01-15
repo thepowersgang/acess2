@@ -4,7 +4,14 @@
  */
 #include <acess.h>
 #include <udi.h>
-#include <udi_meta_mgmt.h>
+
+// === EXPORTS ===
+EXPORT(udi_devmgmt_req);
+EXPORT(udi_devmgmt_ack);
+EXPORT(udi_final_cleanup_req);
+EXPORT(udi_final_cleanup_ack);
+EXPORT(udi_static_usage);
+EXPORT(udi_enumerate_no_children);
 
 // === CODE ===
 void udi_devmgmt_req(udi_mgmt_cb_t *cb, udi_ubit8_t mgmt_op, udi_ubit8_t parent_ID )
@@ -31,8 +38,12 @@ void udi_final_cleanup_ack(udi_mgmt_cb_t *cb)
 	LEAVE('-');
 }
 
-// === EXPORTS ===
-EXPORT(udi_devmgmt_req);
-EXPORT(udi_devmgmt_ack);
-EXPORT(udi_final_cleanup_req);
-EXPORT(udi_final_cleanup_ack);
+void udi_static_usage(udi_usage_cb_t *cb, udi_ubit8_t resource_level)
+{
+	UNIMPLEMENTED();
+}
+
+void udi_enumerate_no_children(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_level)
+{
+	UNIMPLEMENTED();
+}

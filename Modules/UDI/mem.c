@@ -4,7 +4,10 @@
  */
 #include <acess.h>
 #include <udi.h>
-#include <udi_mem.h>
+
+// === EXPORTS ===
+EXPORT(udi_mem_alloc);
+EXPORT(udi_mem_free);
 
 // === CODE ===
 void udi_mem_alloc(
@@ -27,7 +30,3 @@ void udi_mem_free(void *target_mem)
 {
 	free(target_mem);
 }
-
-// === EXPORTS ===
-EXPORT(udi_mem_alloc);
-EXPORT(udi_mem_free);

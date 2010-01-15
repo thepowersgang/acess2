@@ -21,7 +21,7 @@ typedef void udi_usage_ind_op_t(udi_usage_cb_t *cb, udi_ubit8_t resource_level);
 #define UDI_RESOURCES_NORMAL       3
 #define UDI_RESOURCES_PLENTIFUL    4
 /* Proxy */
-extern udi_usage_ind_op_t	udi_static_usage;
+extern void	udi_static_usage(udi_usage_cb_t *cb, udi_ubit8_t resource_level);
 /**
  * \}
  */
@@ -41,7 +41,7 @@ typedef void udi_enumerate_req_op_t(udi_enumerate_cb_t *cb, udi_ubit8_t enumerat
 #define UDI_ENUMERATE_DIRECTED        5
 #define UDI_ENUMERATE_RELEASE         6
 /* Proxy */
-extern udi_enumerate_req_op_t	udi_enumerate_no_children;
+extern void udi_enumerate_no_children(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_level);
 /**
  * \}
  */

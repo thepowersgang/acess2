@@ -4,7 +4,6 @@
  */
 #include <acess.h>
 #include <udi.h>
-#include <udi_meta_gio.h>
 
 // === EXPORTS ===
 EXPORT(udi_gio_bind_req);

@@ -4,7 +4,6 @@
  */
 #include <acess.h>
 #include <udi.h>
-#include <udi_buf.h>
 
 // === EXPORTS ===
 EXPORT(udi_buf_copy);

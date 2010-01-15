@@ -4,7 +4,15 @@
  */
 #include <acess.h>
 #include <udi.h>
-#include <udi_imc.h>
+
+// === EXPORTS ===
+EXPORT(udi_channel_anchor);
+EXPORT(udi_channel_spawn);
+EXPORT(udi_channel_set_context);
+EXPORT(udi_channel_op_abort);
+EXPORT(udi_channel_close);
+EXPORT(udi_channel_event_ind);
+EXPORT(udi_channel_event_complete);
 
 // === CODE ===
 /**
@@ -59,12 +67,3 @@ void udi_channel_event_complete(udi_channel_event_cb_t *cb, udi_status_t status)
 {
 	Warning("%s Unimplemented", __func__);
 }
-
-// === EXPORTS ===
-EXPORT(udi_channel_anchor);
-EXPORT(udi_channel_spawn);
-EXPORT(udi_channel_set_context);
-EXPORT(udi_channel_op_abort);
-EXPORT(udi_channel_close);
-EXPORT(udi_channel_event_ind);
-EXPORT(udi_channel_event_complete);

@@ -4,9 +4,6 @@
 #ifndef _UDI_META_GIO_H_
 #define _UDI_META_GIO_H_
 
-#include <udi_imc.h>
-#include <udi_buf.h>
-
 typedef const struct udi_gio_provider_ops_s	udi_gio_provider_ops_t;
 typedef const struct udi_gio_client_ops_s	udi_gio_client_ops_t;
 typedef struct udi_gio_bind_cb_s	udi_gio_bind_cb_t;

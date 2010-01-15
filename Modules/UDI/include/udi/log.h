@@ -4,9 +4,6 @@
 #ifndef _UDI_LOG_H_
 #define _UDI_LOG_H_
 
-// Required Files
-#include "udi_cb.h"
-
 /**
  * \brief Trace Event
  */
