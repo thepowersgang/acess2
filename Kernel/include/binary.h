@@ -22,6 +22,19 @@ typedef struct sBinaryPage
 } __attribute__ ((packed))	tBinaryPage;
 
 /**
+ * \brief Flags for ::tBinaryPage.Flags
+ * \name Binary Page Flags
+ * \{
+ */
+//! \brief Read-only
+#define BIN_PAGEFLAG_RO		0x0001
+//! \brief Executable
+#define BIN_PAGEFLAG_EXEC	0x0002
+/**
+ * \}
+ */
+
+/**
  * \brief Defines a binary file
  * 
  * This structure defines and maintains the state of a binary during and
@@ -143,5 +156,7 @@ typedef struct sBinaryType
  * the search to use pointer comparisons instead of string comparisons.
  */
 extern char	*Binary_RegInterp(char *Path);
+
+extern  int	Binary_RegisterType(tBinaryType *Type);
 
 #endif

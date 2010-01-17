@@ -27,7 +27,7 @@ endif
 
 OBJ = $(addprefix arch/$(ARCHDIR)/,$(A_OBJ))
 OBJ += heap.o messages.o debug.o modules.o lib.o syscalls.o system.o threads.o drvutil.o
-OBJ += binary.o bin/elf.o
+OBJ += binary.o bin/elf.o bin/pe.o
 OBJ += vfs/main.o vfs/open.o vfs/acls.o vfs/dir.o vfs/io.o vfs/mount.o vfs/memfile.o vfs/nodecache.o
 OBJ += vfs/fs/root.o vfs/fs/devfs.o
 OBJ += $(addprefix vfs/fs/, $(addsuffix .o,$(FILESYSTEMS)))

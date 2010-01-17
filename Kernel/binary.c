@@ -56,6 +56,16 @@ tBinaryType	*gRegBinTypes = &gELF_Info;
  
 // === FUNCTIONS ===
 /**
+ * \brief Registers a binary type
+ */
+int Binary_RegisterType(tBinaryType *Type)
+{
+	Type->Next = gRegBinTypes;
+	gRegBinTypes = Type;
+	return 1;
+}
+
+/**
  * \fn int Proc_Spawn(char *Path)
  */
 int Proc_Spawn(char *Path)
@@ -317,10 +327,19 @@ Uint Binary_MapIn(tBinary *binary)
 		addr += base;
 		LOG("%i - 0x%x to 0x%x", i, addr, binary->Pages[i].Physical);
 		MM_Map( addr, (Uint) (binary->Pages[i].Physical) );
-		if( binary->Pages[i].Physical & 1)	// Read-Only
+		
+		// Read-Only?
+		if( binary->Pages[i].Flags & BIN_PAGEFLAG_RO)
 			MM_SetFlags( addr, MM_PFLAG_RO, -1 );
 		else
 			MM_SetFlags( addr, MM_PFLAG_COW, -1 );
+		
+		// Execute?
+		if( binary->Pages[i].Flags & BIN_PAGEFLAG_EXEC )
+			MM_SetFlags( addr, MM_PFLAG_EXEC, -1 );
+		else
+			MM_SetFlags( addr, MM_PFLAG_EXEC, 0 );
+		
 	}
 	
 	//Log("Mapped '%s' to 0x%x", binary->TruePath, base);
@@ -420,23 +439,30 @@ tBinary *Binary_DoLoad(char *truePath)
 		Uint	dest;
 		tPAddr	paddr;
 		paddr = (Uint)MM_AllocPhys();
+		if(paddr == 0) {
+			Warning("Binary_DoLoad - Physical memory allocation failed");
+			for( ; i--; ) {
+				MM_DerefPhys( pBinary->Pages[i].Physical );
+			}
+			return NULL;
+		}
 		MM_RefPhys( paddr );	// Make sure it is _NOT_ freed until we want it to be
 		dest = MM_MapTemp( paddr );
 		dest += pBinary->Pages[i].Virtual & 0xFFF;
 		LOG("dest = 0x%x, paddr = 0x%x", dest, paddr);
-		LOG("Pages[%i]={Physical:0x%x,Virtual:0x%x,Size:0x%x}",
+		LOG("Pages[%i]={Physical:0x%llx,Virtual:%p,Size:0x%x}",
 			i, pBinary->Pages[i].Physical, pBinary->Pages[i].Virtual, pBinary->Pages[i].Size);
 		
 		// Pure Empty Page
 		if(pBinary->Pages[i].Physical == -1) {
 			LOG("%i - ZERO", i);
-			memsetd( (void*)dest, 0, 1024 );
+			memsetd( (void*)dest, 0, 1024 - (pBinary->Pages[i].Virtual & 0xFFF)/4 );
 		}
 		else
 		{
 			VFS_Seek( fp, pBinary->Pages[i].Physical, 1 );
 			if(pBinary->Pages[i].Size != 0x1000) {
-				LOG("%i - 0x%x - 0x%x bytes",
+				LOG("%i - 0x%llx - 0x%x bytes",
 					i, pBinary->Pages[i].Physical, pBinary->Pages[i].Size);
 				memset( (void*)dest, 0, 0x1000 -(dest&0xFFF) );
 				VFS_Read( fp, pBinary->Pages[i].Size, (void*)dest );
@@ -678,13 +704,9 @@ void *Binary_LoadKernel(char *file)
 		LOG("%i - 0x%x to 0x%x", i, addr, pBinary->Pages[i].Physical);
 		MM_Map( addr, (Uint) (pBinary->Pages[i].Physical) );
 		MM_SetFlags( addr, MM_PFLAG_KERNEL, MM_PFLAG_KERNEL );
-		#if 0	// Why was this here? It's the kernel
-		if( pBinary->Pages[i].Physical & 1)	// Read-Only
+		
+		if( pBinary->Pages[i].Flags & BIN_PAGEFLAG_RO)	// Read-Only?
 			MM_SetFlags( addr, MM_PFLAG_RO, MM_PFLAG_KERNEL );
-		else
-			MM_SetFlags( addr, MM_PFLAG_COW, MM_PFLAG_KERNEL );
-			//MM_SetCOW( addr );
-		#endif
 	}
 
 	// Relocate Library
