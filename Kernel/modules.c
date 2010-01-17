@@ -27,6 +27,7 @@ extern void	gKernelModulesEnd;
  int	giNumBuiltinModules = 0;
  int	giModuleSpinlock = 0;
 tModule	*gLoadedModules = NULL;
+tModuleLoader	*gModule_Loaders = NULL;
 
 // === CODE ===
 int Modules_LoadBuiltins()
@@ -119,6 +120,20 @@ int Modules_LoadBuiltins()
 }
 
 /**
+ * \brief Registers a tModuleLoader with the kernel
+ * \param Loader	Pointer to loader structure (must be persistent)
+ */
+int Module_RegisterLoader(tModuleLoader *Loader)
+{
+	if(!Loader)	return 1;
+	
+	Loader->Next = gModule_Loaders;
+	gModule_Loaders = Loader;
+	
+	return 0;
+}
+
+/**
  * \fn int Module_LoadMem(void *Buffer, Uint Length, char *ArgString)
  * \brief Load a module from a memory location
  */
@@ -152,18 +167,19 @@ int Module_LoadFile(char *Path, char *ArgString)
 	// Check for Acess Driver
 	if( Binary_FindSymbol(base, "DriverInfo", (Uint*)&info ) == 0 )
 	{
+		tModuleLoader	*tmp;
+		for( tmp = gModule_Loaders; tmp; tmp = tmp->Next)
+		{
+			if( tmp->Detector(base) == 0 )	continue;
+			
+			return tmp->Loader(base);
+		}
+		
 		#if USE_EDI
 		// Check for EDI Driver
 		if( Binary_FindSymbol(base, "driver_init", NULL ) != 0 )
 		{
 			return Module_InitEDI( base );	// And intialise
-		}
-		#endif
-		
-		#if USE_UDI
-		if( Binary_FindSymbol(base, "udi_init_info", NULL ) != 0 )
-		{
-			return UDI_LoadDriver( base );	// And intialise
 		}
 		#endif
 		

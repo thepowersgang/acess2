@@ -9,10 +9,14 @@
 
 // === PROTOTYPES ===
  int	UDI_Install(char **Arguments);
+ int	UDI_DetectDriver(void *Base);
  int	UDI_LoadDriver(void *Base);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, UDI, UDI_Install, NULL, NULL);
+tModuleLoader	gUDI_Loader = {
+	NULL, "UDI", UDI_DetectDriver, UDI_LoadDriver, NULL
+};
 
 // === CODE ===
 /**
@@ -21,6 +25,19 @@ MODULE_DEFINE(0, VERSION, UDI, UDI_Install, NULL, NULL);
  */
 int UDI_Install(char **Arguments)
 {
+	Module_RegisterLoader( &gUDI_Loader );
+	return 1;
+}
+
+/**
+ * \brief Detects if a driver should be loaded by the UDI subsystem
+ */
+int UDI_DetectDriver(void *Base)
+{
+	if( Binary_FindSymbol(Base, "udi_init_info", NULL) == 0) {
+		return 0;
+	}
+	
 	return 1;
 }
 
@@ -31,7 +48,7 @@ int UDI_LoadDriver(void *Base)
 {
 	udi_init_t	*info;
 	char	*udiprops = NULL;
-	 int	udiprops_size;
+	 int	udiprops_size = 0;
 	 int	i;
 	// int	j;
 	
@@ -47,7 +64,9 @@ int UDI_LoadDriver(void *Base)
 	}
 	else {
 		Binary_FindSymbol(Base, "_udiprops_size", (Uint*)&udiprops_size);
+		Log("udiprops = %p, udiprops_size = 0x%x", udiprops, udiprops_size);
 	}
+	
 	
 	Log("primary_init_info = %p = {", info->primary_init_info);
 	{

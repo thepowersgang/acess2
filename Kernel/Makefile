@@ -15,9 +15,9 @@ KERNEL_VERSION = 0.5
 MAKEDEP		= $(CC) -M
 
 CPPFLAGS	+= -I./include -I./arch/$(ARCHDIR)/include
-CPPFLAGS    += -DARCH=$(ARCH) -DKERNEL_VERSION=$(KERNEL_VERSION) -DBUILD_NUM=$(BUILD_NUM)
+CPPFLAGS    += -DARCH=$(ARCH) -DARCHDIR=$(ARCHDIR) -DKERNEL_VERSION=$(KERNEL_VERSION) -DBUILD_NUM=$(BUILD_NUM)
 CFLAGS		+= -Wall -Werror -O3 -fno-stack-protector -fno-builtin
-ASFLAGS		+= -D ARCH=\"$(ARCH)\"
+ASFLAGS		+= -D ARCH=\"$(ARCH)\" -D ARCHDIR=\"$(ARCHDIR)\"
 LDFLAGS		+= -T arch/$(ARCHDIR)/link.ld
 
 ifeq ($(DEBUG_BUILD),yes)

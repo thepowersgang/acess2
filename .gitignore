@@ -5,3 +5,10 @@
 *.d
 *.ao
 *.ao.*
+*.so
+*.bin.*
+*.dsm.*
+*.dsm
+*.dmp
+Map.txt
+map.txt

@@ -8,13 +8,13 @@
 #define MODULE_MAGIC	('A'|('M'<<8)|('D'<<16)|('\2'<<24))
 
 // IA32 - Architecture 1
-#if ARCH == i386 || ARCH == i586
+#if ARCHDIR == x86
 # define MODULE_ARCH_ID	1
 // IA64 - Architecture 2
-#elif ARCH == x64 || ARCH == x86_64
+#elif ARCHDIR == x64
 # define MODULE_ARCH_ID	2
 #else
-# error "Unknown architecture when determining MODULE_ARCH_ID ('" #ARCH "')"
+# error "Unknown architecture when determining MODULE_ARCH_ID ('" #ARCHDIR "')"
 #endif
 
 #define MODULE_DEFINE(_flags,_ver,_ident,_entry,_deinit,_deps...)	char *_DriverDeps_##_ident[]={_deps};\
@@ -35,5 +35,25 @@ typedef struct sModule {
 
 #define MODULE_INIT_SUCCESS	1
 #define MODULE_INIT_FAILURE	0
+
+/**
+ * \brief Module Loader definition
+ * 
+ * Allows a module to extend the loader to recognise other module types
+ * E.g. EDI, UDI, Windows, Linux, ...
+ */
+typedef struct sModuleLoader {
+	struct sModuleLoader	*Next;	//!< Kernel Only - Next loader in list
+	char	*Name;	//!< Friendly name for the loader
+	 int	(*Detector)(void *Base);	//!< Simple detector function
+	 int	(*Loader)(void *Base);	//!< Initialises the module
+	 int	(*Unloader)(void *Base);	//!< Calls module's cleanup
+} PACKED tModuleLoader;
+
+/**
+ * \brief Registers a tModuleLoader with the kernel
+ * \param Loader	Pointer to loader structure (must be persistent)
+ */
+extern int	Module_RegisterLoader(tModuleLoader *Loader);
 
 #endif
