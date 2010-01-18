@@ -7,6 +7,7 @@
 #include "link.h"
 
 #define	ARP_CACHE_SIZE	64
+#define	ARP_MAX_AGE		(60*60*1000)	// 1Hr
 
 // === IMPORTS ===
 extern tInterface	*IPv4_GetInterface(tAdapter *Adapter, tIPv4 Address, int Broadcast);
@@ -23,8 +24,11 @@ struct sARP_Cache {
 	tIPv4	IP4;
 	tIPv6	IP6;
 	Sint64	LastUpdate;
+	Sint64	LastUsed;
 }	*gaARP_Cache;
  int	giARP_CacheSpace;
+ int	giARP_LastUpdateID = 0;
+tSpinlock	glARP_Cache;
 
 // === CODE ===
 /**
@@ -39,6 +43,45 @@ int ARP_Initialise()
 	
 	Link_RegisterType(0x0806, ARP_int_GetPacket);
 	return 1;
+}
+
+/**
+ * \brief Resolves a MAC address from an IPv4 address
+ */
+tMacAddr ARP_Resolve4(tInterface *Interface, tIPv4 Address)
+{
+	 int	lastID;
+	 int	i;
+	
+	LOCK( &glARP_Cache );
+	for( i = 0; i < giARP_CacheSpace; i++ )
+	{
+		if(gaARP_Cache[i].IP4.L != Address.L)	continue;
+		
+		// Check if the entry needs to be refreshed
+		if( now() - gaARP_Cache[i].LastUpdate > ARP_MAX_AGE )	break;
+		
+		RELEASE( &glARP_Cache );
+		return gaARP_Cache[i].MAC;
+	}
+	RELEASE( &glARP_Cache );
+	
+	lastID = giARP_LastUpdateID;
+	ARP_int_Resolve4(Interface, Address);
+	for(;;)
+	{
+		while(lastID == giARP_LastUpdateID)	Threads_Yield();
+		
+		LOCK( &glARP_Cache );
+		for( i = 0; i < giARP_CacheSpace; i++ )
+		{
+			if(gaARP_Cache[i].IP4.L != Address.L)	continue;
+			
+			RELEASE( &glARP_Cache );
+			return gaARP_Cache[i].MAC;
+		}
+		RELEASE( &glARP_Cache );
+	}
 }
 
 /**
@@ -160,6 +203,7 @@ void ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffe
 	
 	case 2:	// Ooh! A response!
 		// Find an entry for the MAC address in the cache
+		LOCK(&glARP_Cache);
 		for( i = giARP_CacheSpace; i--; )
 		{
 			if(gaARP_Cache[oldest].LastUpdate > gaARP_Cache[i].LastUpdate) {
@@ -190,10 +234,12 @@ void ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffe
 			break;
 		default:
 			Log("[ARP  ] Unknown Protocol Address size (%i)", req4->SWSize);
+			RELEASE(&glARP_Cache);
 			return ;
 		}
 		
 		gaARP_Cache[i].LastUpdate = now();
+		RELEASE(&glARP_Cache);
 		break;
 	}
 }

@@ -34,6 +34,7 @@ struct sInterface {
 	struct sInterface	*Next;
 	tVFS_Node	Node;
 	tAdapter	*Adapter;
+	 int	TimeoutDelay;	// Time in miliseconds before a connection times out
 	 int	Type;	// 0 for disabled, 4 for IPv4 and 6 for IPv6
 	union {
 		struct	{

@@ -18,4 +18,16 @@ struct sICMPHeader
 	Uint16	Sequence;
 };
 
+// === CONSTANTS ===
+enum eICMPTypes
+{
+	ICMP_ECHOREPLY = 1,
+	ICMP_UNREACHABLE = 3,
+	ICMP_QUENCH = 4,
+	ICMP_REDIRECT = 5,
+	ICMP_ALTADDR = 6,
+	ICMP_ECHOREQ = 8,
+	ICMP_TRACE = 30	// Information Request
+};
+
 #endif

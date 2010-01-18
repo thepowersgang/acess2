@@ -11,12 +11,18 @@
 #include <tpl_drv_common.h>
 #include <tpl_drv_network.h>
 
+// === CONSTANTS ===
+//! Default timeout value, 30 seconds
+#define DEFAULT_TIMEOUT	(30*1000)
+
 // === IMPORTS ===
 extern int	ARP_Initialise();
 extern int	IPv4_Initialise();
+extern int	IPv4_Ping(tInterface *Iface, tIPv4 Addr);
 
 // === PROTOTYPES ===
  int	IPStack_Install(char **Arguments);
+ int	IPStack_IOCtlRoot(tVFS_Node *Node, int ID, void *Data);
 char	*IPStack_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*IPStack_FindDir(tVFS_Node *Node, char *Name);
  int	IPStack_IOCtl(tVFS_Node *Node, int ID, void *Data);
@@ -34,7 +40,7 @@ tDevFS_Driver	gIP_DriverInfo = {
 	.Flags = VFS_FFLAG_DIRECTORY,
 	.ReadDir = IPStack_ReadDir,
 	.FindDir = IPStack_FindDir,
-	.IOCtl = IPStack_IOCtl
+	.IOCtl = IPStack_IOCtlRoot
 	}
 };
 tSpinlock	glIP_Interfaces = 0;
@@ -158,18 +164,10 @@ tVFS_Node *IPStack_FindDir(tVFS_Node *Node, char *Name)
 }
 
 static const char *casIOCtls_Root[] = { DRV_IOCTLNAMES, "add_interface", NULL };
-static const char *casIOCtls_Iface[] = {
-	DRV_IOCTLNAMES,
-	"getset_type",
-	"get_address", "set_address",
-	"getset_subnet",
-	"get_gateway", "set_gateway",
-	NULL
-	};
 /**
- * \brief Handles IOCtls for the IPStack root/interfaces
+ * \brief Handles IOCtls for the IPStack root
  */
-int IPStack_IOCtl(tVFS_Node *Node, int ID, void *Data)
+int IPStack_IOCtlRoot(tVFS_Node *Node, int ID, void *Data)
 {
 	 int	tmp;
 	ENTER("pNode iID pData", Node, ID, Data);
@@ -200,194 +198,251 @@ int IPStack_IOCtl(tVFS_Node *Node, int ID, void *Data)
 			tmp = LookupString( (char**)casIOCtls_Iface, (char*)Data );
 		LEAVE('i', tmp);
 		return tmp;
-	}
-	
-	if(Node == &gIP_DriverInfo.RootNode)
-	{
-		switch(ID)
-		{
+		
 		/*
 		 * add_interface
 		 * - Adds a new IP interface and binds it to a device
 		 */
-		case 4:
-			if( Threads_GetUID() != 0 )	LEAVE_RET('i', -1);
-			if( !CheckString( Data ) )	LEAVE_RET('i', -1);
-			tmp = IPStack_AddInterface(Data);
-			LEAVE_RET('i', tmp);
-		}
-		LEAVE('i', 0);
-		return 0;	
+	case 4:
+		if( Threads_GetUID() != 0 )	LEAVE_RET('i', -1);
+		if( !CheckString( Data ) )	LEAVE_RET('i', -1);
+		tmp = IPStack_AddInterface(Data);
+		LEAVE_RET('i', tmp);
 	}
-	else
+	LEAVE('i', 0);
+	return 0;
+}
+
+static const char *casIOCtls_Iface[] = {
+	DRV_IOCTLNAMES,
+	"getset_type",
+	"get_address", "set_address",
+	"getset_subnet",
+	"get_gateway", "set_gateway",
+	"ping",
+	NULL
+	};
+/**
+ * \brief Handles IOCtls for the IPStack interfaces
+ */
+int IPStack_IOCtl(tVFS_Node *Node, int ID, void *Data)
+{
+	 int	tmp;
+	tInterface	*iface = (tInterface*)Node->ImplPtr;
+	ENTER("pNode iID pData", Node, ID, Data);
+	
+	switch(ID)
 	{
-		tInterface	*iface = (tInterface*)Node->ImplPtr;
-		switch(ID)
+	// --- Standard IOCtls (0-3) ---
+	case DRV_IOCTL_TYPE:
+		LEAVE('i', DRV_TYPE_MISC);
+		return DRV_TYPE_MISC;
+	
+	case DRV_IOCTL_IDENT:
+		if( !CheckMem( Data, 4 ) )	LEAVE_RET('i', -1);
+		memcpy(Data, "IP\0\0", 4);
+		LEAVE('i', 1);
+		return 1;
+	
+	case DRV_IOCTL_VERSION:
+		LEAVE('x', VERSION);
+		return VERSION;
+	
+	case DRV_IOCTL_LOOKUP:
+		if( !CheckString( Data ) )	LEAVE_RET('i', -1);
+		LOG("Lookup '%s'", Data);
+		if( Node == &gIP_DriverInfo.RootNode )
+			tmp = LookupString( (char**)casIOCtls_Root, (char*)Data );
+		else
+			tmp = LookupString( (char**)casIOCtls_Iface, (char*)Data );
+		LEAVE('i', tmp);
+		return tmp;
+	
+	/*
+	 * getset_type
+	 * - Get/Set the interface type
+	 */
+	case 4:
+		// Set Type?
+		if( Data )
 		{
-		/*
-		 * getset_type
-		 * - Get/Set the interface type
-		 */
-		case 4:
-			// Set Type?
-			if( Data )
-			{
-				// Ok, it's set type
-				if( Threads_GetUID() != 0 ) {
-					LOG("Attempt by non-root to alter an interface (%i)", Threads_GetUID());
-					LEAVE('i', -1);
-					return -1;
-				}
-				if( !CheckMem( Data, sizeof(int) ) ) {
-					LOG("Invalid pointer %p", Data);
-					LEAVE('i', -1);
-					return -1;
-				}
-				switch( *(int*)Data )
-				{
-				case 0:	// Disable
-					iface->Type = 0;
-					memset(&iface->IP6, 0, sizeof(tIPv6));	// Clear address
-					break;
-				case 4:	// IPv4
-					iface->Type = 4;
-					memset(&iface->IP4, 0, sizeof(tIPv4));
-					break;
-				case 6:	// IPv6
-					iface->Type = 6;
-					memset(&iface->IP6, 0, sizeof(tIPv6));
-					break;
-				default:
-					LEAVE('i', -1);
-					return -1;
-				}
+			// Ok, it's set type
+			if( Threads_GetUID() != 0 ) {
+				LOG("Attempt by non-root to alter an interface (%i)", Threads_GetUID());
+				LEAVE('i', -1);
+				return -1;
 			}
-			LEAVE('i', iface->Type);
-			return iface->Type;
-		
-		/*
-		 * get_address
-		 * - Get the interface's address
-		 */
-		case 5:
-			switch(iface->Type)
-			{
-			case 0:	LEAVE_RET('i', 1);
-			case 4:
-				if( !CheckMem( Data, sizeof(tIPv4) ) )	LEAVE_RET('i', -1);
-				memcpy( Data, &iface->IP4.Address, sizeof(tIPv4) );
-				LEAVE_RET('i', 1);
-			case 6:
-				if( !CheckMem( Data, sizeof(tIPv6) ) )	LEAVE_RET('i', -1);
-				memcpy( Data, &iface->IP6.Address, sizeof(tIPv6) );
-				LEAVE_RET('i', 1);
+			if( !CheckMem( Data, sizeof(int) ) ) {
+				LOG("Invalid pointer %p", Data);
+				LEAVE('i', -1);
+				return -1;
 			}
-			LEAVE_RET('i', 0);
-		
-		/*
-		 * set_address
-		 * - Get the interface's address
-		 */
-		case 6:
-			if( Threads_GetUID() != 0 )	LEAVE_RET('i', -1);
-			switch(iface->Type)
+			switch( *(int*)Data )
 			{
-			case 0:	LEAVE_RET('i', 1);
-			case 4:
-				if( !CheckMem( Data, sizeof(tIPv4) ) )	LEAVE_RET('i', -1);
-				iface->Type = 0;	// One very hacky mutex/trash protector
-				memcpy( &iface->IP4.Address, Data, sizeof(tIPv4) );
-				iface->Type = 4;
-				LEAVE_RET('i', 1);
-			case 6:
-				if( !CheckMem( Data, sizeof(tIPv6) ) )	LEAVE_RET('i', -1);
+			case 0:	// Disable
 				iface->Type = 0;
-				memcpy( &iface->IP6.Address, Data, sizeof(tIPv6) );
+				memset(&iface->IP6, 0, sizeof(tIPv6));	// Clear address
+				break;
+			case 4:	// IPv4
+				iface->Type = 4;
+				memset(&iface->IP4, 0, sizeof(tIPv4));
+				break;
+			case 6:	// IPv6
 				iface->Type = 6;
-				LEAVE_RET('i', 1);
+				memset(&iface->IP6, 0, sizeof(tIPv6));
+				break;
+			default:
+				LEAVE('i', -1);
+				return -1;
 			}
-			LEAVE_RET('i', 0);
-		
-		/*
-		 * getset_subnet
-		 * - Get/Set the bits in the address subnet
-		 */
-		case 7:
-			// Get?
-			if( Data == NULL )
-			{
-				switch( iface->Type )
-				{
-				case 4:		LEAVE_RET('i', iface->IP4.SubnetBits);
-				case 6:		LEAVE_RET('i', iface->IP6.SubnetBits);
-				default:	LEAVE_RET('i', 0);
-				}
-			}
-			
-			// Ok, set.
-			if( Threads_GetUID() != 0 )	LEAVE_RET('i', -1);
-			if( !CheckMem(Data, sizeof(int)) )	LEAVE_RET('i', -1);
-			
-			// Check and set the subnet bits
+		}
+		LEAVE('i', iface->Type);
+		return iface->Type;
+	
+	/*
+	 * get_address
+	 * - Get the interface's address
+	 */
+	case 5:
+		switch(iface->Type)
+		{
+		case 0:	LEAVE_RET('i', 1);
+		case 4:
+			if( !CheckMem( Data, sizeof(tIPv4) ) )	LEAVE_RET('i', -1);
+			memcpy( Data, &iface->IP4.Address, sizeof(tIPv4) );
+			LEAVE_RET('i', 1);
+		case 6:
+			if( !CheckMem( Data, sizeof(tIPv6) ) )	LEAVE_RET('i', -1);
+			memcpy( Data, &iface->IP6.Address, sizeof(tIPv6) );
+			LEAVE_RET('i', 1);
+		}
+		LEAVE_RET('i', 0);
+	
+	/*
+	 * set_address
+	 * - Get the interface's address
+	 */
+	case 6:
+		if( Threads_GetUID() != 0 )	LEAVE_RET('i', -1);
+		switch(iface->Type)
+		{
+		case 0:	LEAVE_RET('i', 1);
+		case 4:
+			if( !CheckMem( Data, sizeof(tIPv4) ) )	LEAVE_RET('i', -1);
+			iface->Type = 0;	// One very hacky mutex/trash protector
+			memcpy( &iface->IP4.Address, Data, sizeof(tIPv4) );
+			iface->Type = 4;
+			LEAVE_RET('i', 1);
+		case 6:
+			if( !CheckMem( Data, sizeof(tIPv6) ) )	LEAVE_RET('i', -1);
+			iface->Type = 0;
+			memcpy( &iface->IP6.Address, Data, sizeof(tIPv6) );
+			iface->Type = 6;
+			LEAVE_RET('i', 1);
+		}
+		LEAVE_RET('i', 0);
+	
+	/*
+	 * getset_subnet
+	 * - Get/Set the bits in the address subnet
+	 */
+	case 7:
+		// Get?
+		if( Data == NULL )
+		{
 			switch( iface->Type )
 			{
-			case 4:
-				if( *(int*)Data < 0 || *(int*)Data > 31 )	LEAVE_RET('i', -1);
-				iface->IP4.SubnetBits = *(int*)Data;
-				LEAVE_RET('i', iface->IP4.SubnetBits);
-			case 6:
-				if( *(int*)Data < 0 || *(int*)Data > 127 )	LEAVE_RET('i', -1);
-				iface->IP6.SubnetBits = *(int*)Data;
-				LEAVE_RET('i', iface->IP6.SubnetBits);
-			default:
-				break;
+			case 4:		LEAVE_RET('i', iface->IP4.SubnetBits);
+			case 6:		LEAVE_RET('i', iface->IP6.SubnetBits);
+			default:	LEAVE_RET('i', 0);
 			}
-			
-			LEAVE('i', 0);
-			return 0;
-			
-		/*
-		 * get_gateway
-		 * - Get the interface's IPv4 gateway
-		 */
-		case 8:
-			switch(iface->Type)
-			{
-			case 0:
-				LEAVE_RET('i', 1);
-			case 4:
-				if( !CheckMem( Data, sizeof(tIPv4) ) )	LEAVE_RET('i', -1);
-				memcpy( Data, &iface->IP4.Gateway, sizeof(tIPv4) );
-				LEAVE_RET('i', 1);
-			case 6:
-				LEAVE_RET('i', 1);
-			}
-			LEAVE('i', 0);
-			return 0;
-		
-		/*
-		 * set_gateway
-		 * - Get the interface's IPv4 gateway
-		 */
-		case 9:
-			if( Threads_GetUID() != 0 )	LEAVE_RET('i', -1);
-			switch(iface->Type)
-			{
-			case 0:
-				LEAVE_RET('i', 1);
-			
-			case 4:
-				if( !CheckMem( Data, sizeof(tIPv4) ) )	LEAVE_RET('i', -1);
-				iface->Type = 0;	// One very hacky mutex/trash protector
-				memcpy( &iface->IP4.Gateway, Data, sizeof(tIPv4) );
-				iface->Type = 4;
-				LEAVE_RET('i', 1);
-				
-			case 6:
-				LEAVE_RET('i', 1);
-			}
-			LEAVE_RET('i', 0);
 		}
+		
+		// Ok, set.
+		if( Threads_GetUID() != 0 )	LEAVE_RET('i', -1);
+		if( !CheckMem(Data, sizeof(int)) )	LEAVE_RET('i', -1);
+		
+		// Check and set the subnet bits
+		switch( iface->Type )
+		{
+		case 4:
+			if( *(int*)Data < 0 || *(int*)Data > 31 )	LEAVE_RET('i', -1);
+			iface->IP4.SubnetBits = *(int*)Data;
+			LEAVE_RET('i', iface->IP4.SubnetBits);
+		case 6:
+			if( *(int*)Data < 0 || *(int*)Data > 127 )	LEAVE_RET('i', -1);
+			iface->IP6.SubnetBits = *(int*)Data;
+			LEAVE_RET('i', iface->IP6.SubnetBits);
+		default:
+			break;
+		}
+		
+		LEAVE('i', 0);
+		return 0;
+		
+	/*
+	 * get_gateway
+	 * - Get the interface's IPv4 gateway
+	 */
+	case 8:
+		switch(iface->Type)
+		{
+		case 0:
+			LEAVE_RET('i', 1);
+		case 4:
+			if( !CheckMem( Data, sizeof(tIPv4) ) )	LEAVE_RET('i', -1);
+			memcpy( Data, &iface->IP4.Gateway, sizeof(tIPv4) );
+			LEAVE_RET('i', 1);
+		case 6:
+			LEAVE_RET('i', 1);
+		}
+		LEAVE('i', 0);
+		return 0;
+	
+	/*
+	 * set_gateway
+	 * - Get/Set the interface's IPv4 gateway
+	 */
+	case 9:
+		if( Threads_GetUID() != 0 )	LEAVE_RET('i', -1);
+		switch(iface->Type)
+		{
+		case 0:
+			LEAVE_RET('i', 1);
+		
+		case 4:
+			if( !CheckMem( Data, sizeof(tIPv4) ) )	LEAVE_RET('i', -1);
+			iface->Type = 0;	// One very hacky mutex/trash protector
+			memcpy( &iface->IP4.Gateway, Data, sizeof(tIPv4) );
+			iface->Type = 4;
+			LEAVE_RET('i', 1);
+			
+		case 6:
+			LEAVE_RET('i', 1);
+		}
+		break;
+	
+	/*
+	 * ping
+	 * - Send an ICMP Echo
+	 */
+	case 10:
+		switch(iface->Type)
+		{
+		case 0:
+			LEAVE_RET('i', 1);
+		
+		case 4:
+			if( !CheckMem( Data, sizeof(tIPv4) ) )	LEAVE_RET('i', -1);
+			tmp = IPv4_Ping(iface, *(tIPv4*)Data);
+			LEAVE('i', tmp);
+			return tmp;
+			
+		case 6:
+			LEAVE_RET('i', 1);
+		}
+		break;
+	
 	}
 	
 	LEAVE('i', 0);
@@ -424,6 +479,9 @@ int IPStack_AddInterface(char *Device)
 	iface->Node.ReadDir = NULL;
 	iface->Node.FindDir = NULL;
 	iface->Node.IOCtl = IPStack_IOCtl;
+	
+	// Set Defaults
+	iface->TimeoutDelay = DEFAULT_TIMEOUT;
 	
 	// Get adapter handle
 	iface->Adapter = IPStack_GetAdapter(Device);

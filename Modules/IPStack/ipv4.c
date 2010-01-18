@@ -6,10 +6,14 @@
 #include "link.h"
 #include "ipv4.h"
 
+#define DEFAULT_TTL	32
+
 // === IMPORTS ===
 extern tInterface	*gIP_Interfaces;
 extern void	ICMP_Initialise();
+extern  int	ICMP_Ping(tInterface *Interface, tIPv4 Addr);
 extern void	UDP_Initialise();
+extern tMacAddr	ARP_Resolve4(tInterface *Interface, tIPv4 Address);
 
 // === PROTOTYPES ===
  int	IPv4_Initialise();
@@ -17,6 +21,8 @@ extern void	UDP_Initialise();
 void	IPv4_int_GetPacket(tAdapter *Interface, tMacAddr From, int Length, void *Buffer);
 tInterface	*IPv4_GetInterface(tAdapter *Adapter, tIPv4 Address, int Broadcast);
 Uint32	IPv4_Netmask(int FixedBits);
+Uint16	IPv4_Checksum(void *Buf, int Size);
+ int	IPv4_Ping(tInterface *Iface, tIPv4 Addr);
 
 // === GLOBALS ===
 tIPCallback	gaIPv4_Callbacks[256];
@@ -42,6 +48,33 @@ int IPv4_RegisterCallback(int ID, tIPCallback Callback)
 	if( ID < 0 || ID > 255 )	return 0;
 	if( gaIPv4_Callbacks[ID] )	return 0;
 	gaIPv4_Callbacks[ID] = Callback;
+	return 1;
+}
+
+/**
+ * \brief Creates and sends an IPv4 Packet
+ */
+int IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, int Length, void *Data)
+{
+	tMacAddr	to = ARP_Resolve4(Iface, Address);
+	 int	bufSize = sizeof(tIPv4Header) + Length;
+	char	buf[bufSize];
+	tIPv4Header	*hdr = (void*)buf;
+	
+	memcpy(&hdr->Options[0], Data, Length);
+	hdr->Version = 4;
+	hdr->HeaderLength = htons( sizeof(tIPv4Header) );
+	hdr->DiffServices = 0;	// TODO: Check
+	hdr->TotalLength = htons( bufSize );
+	hdr->Identifcation = htons( ID );	// TODO: Check
+	hdr->TTL = DEFAULT_TTL;
+	hdr->Protocol = Protocol;
+	hdr->HeaderChecksum = 0;	// Will be set later
+	hdr->Source = Iface->IP4.Address;
+	hdr->Destination = Address;
+	hdr->HeaderChecksum = htons( IPv4_Checksum(hdr, sizeof(tIPv4Header)) );
+	
+	Link_SendPacket(Iface->Adapter, IPV4_ETHERNET_ID, to, bufSize, buf);
 	return 1;
 }
 
@@ -155,4 +188,31 @@ Uint32 IPv4_Netmask(int FixedBits)
 	ret <<= (32-FixedBits);
 	// Returs a little endian netmask
 	return ret;
+}
+
+/**
+ * \brief Calculate the IPv4 Checksum
+ */
+Uint16 IPv4_Checksum(void *Buf, int Size)
+{
+	Uint16	sum = 0;
+	Uint16	*arr = Buf;
+	 int	i;
+	
+	Size = (Size + 1) >> 1;
+	for(i = 0; i < Size; i++ )
+	{
+		if((int)sum + arr[i] > 0xFFFF)
+			sum ++;	// Simulate 1's complement
+		sum += arr[i];
+	}
+	return ~sum;
+}
+
+/**
+ * \brief Sends an ICMP Echo and waits for a reply
+ */
+int IPv4_Ping(tInterface *Iface, tIPv4 Addr)
+{
+	return ICMP_Ping(Iface, Addr);
 }
