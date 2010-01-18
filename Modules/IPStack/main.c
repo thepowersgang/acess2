@@ -192,10 +192,7 @@ int IPStack_IOCtlRoot(tVFS_Node *Node, int ID, void *Data)
 	case DRV_IOCTL_LOOKUP:
 		if( !CheckString( Data ) )	LEAVE_RET('i', -1);
 		LOG("Lookup '%s'", Data);
-		if( Node == &gIP_DriverInfo.RootNode )
-			tmp = LookupString( (char**)casIOCtls_Root, (char*)Data );
-		else
-			tmp = LookupString( (char**)casIOCtls_Iface, (char*)Data );
+		tmp = LookupString( (char**)casIOCtls_Root, (char*)Data );
 		LEAVE('i', tmp);
 		return tmp;
 		
@@ -251,10 +248,7 @@ int IPStack_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	case DRV_IOCTL_LOOKUP:
 		if( !CheckString( Data ) )	LEAVE_RET('i', -1);
 		LOG("Lookup '%s'", Data);
-		if( Node == &gIP_DriverInfo.RootNode )
-			tmp = LookupString( (char**)casIOCtls_Root, (char*)Data );
-		else
-			tmp = LookupString( (char**)casIOCtls_Iface, (char*)Data );
+		tmp = LookupString( (char**)casIOCtls_Iface, (char*)Data );
 		LEAVE('i', tmp);
 		return tmp;
 	

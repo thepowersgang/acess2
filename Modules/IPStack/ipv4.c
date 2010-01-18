@@ -74,6 +74,8 @@ int IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, int 
 	hdr->Destination = Address;
 	hdr->HeaderChecksum = htons( IPv4_Checksum(hdr, sizeof(tIPv4Header)) );
 	
+	Log("[IPv4 ] Sending packet to %i.%i.%i.%i",
+		Address.B[0], Address.B[1], Address.B[2], Address.B[3]);
 	Link_SendPacket(Iface->Adapter, IPV4_ETHERNET_ID, to, bufSize, buf);
 	return 1;
 }
