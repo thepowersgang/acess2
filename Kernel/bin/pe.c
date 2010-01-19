@@ -198,6 +198,7 @@ int PE_Relocate(void *Base)
 	ENTER("pBase", Base);
 	dosHdr = Base;
 	peHeaders = (void*)( iBase + dosHdr->PeHdrOffs );
+	LOG("Prefered Base %p", peHeaders->OptHeader.ImageBase);
 	peSections = (void*)( iBase + sizeof(tPE_IMAGE_HEADERS) );
 	
 	directory = (void*)(peSections[0].RVA + iBase);
