@@ -269,7 +269,7 @@ tVFS_Node *VFS_ParsePath(char *Path, char **TruePath)
 	
 		// Check permissions on root of filesystem
 		if( !VFS_CheckACL(curNode, VFS_PERM_EXECUTE) ) {
-			curNode->Close( curNode );
+			if(curNode->Close)	curNode->Close( curNode );
 			if(TruePath) {
 				free(*TruePath);
 				*TruePath = NULL;
@@ -280,7 +280,8 @@ tVFS_Node *VFS_ParsePath(char *Path, char **TruePath)
 		}
 		
 		// Check if the node has a FindDir method
-		if(!curNode->FindDir) {
+		if( !curNode->FindDir )
+		{
 			if(curNode->Close)	curNode->Close(curNode);
 			if(TruePath) {
 				free(*TruePath);
@@ -295,8 +296,7 @@ tVFS_Node *VFS_ParsePath(char *Path, char **TruePath)
 		// Get Child Node
 		tmpNode = curNode->FindDir(curNode, &Path[ofs]);
 		LOG("tmpNode = %p", tmpNode);
-		if(curNode->Close)
-			curNode->Close(curNode);
+		if(curNode->Close)	curNode->Close(curNode);
 		curNode = tmpNode;
 		
 		// Error Check
@@ -319,6 +319,13 @@ tVFS_Node *VFS_ParsePath(char *Path, char **TruePath)
 				*TruePath = NULL;
 			}
 			tmp = malloc( curNode->Size + 1 );
+			if(!curNode->Read) {
+				Warning("VFS_ParsePath - Read of node %p is NULL (%s)",
+					curNode, Path);
+				if(curNode->Close)	curNode->Close(curNode);
+				LEAVE('n');
+				return NULL;
+			}
 			curNode->Read( curNode, 0, curNode->Size, tmp );
 			tmp[ curNode->Size ] = '\0';
 			
@@ -471,7 +478,7 @@ int VFS_Open(char *Path, Uint Mode)
 	
 	// Permissions Check
 	if( !VFS_CheckACL(node, i) ) {
-		node->Close( node );
+		if(node->Close)	node->Close( node );
 		Log("VFS_Open: Permissions Failed");
 		LEAVE('i', -1);
 		return -1;

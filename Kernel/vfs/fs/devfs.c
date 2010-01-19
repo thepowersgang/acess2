@@ -21,7 +21,7 @@ tVFS_Node	gDevFS_RootNode = {
 	.Size = 0,
 	.Flags = VFS_FFLAG_DIRECTORY,
 	.NumACLs = 1,
-	.ACLs = &gVFS_ACL_EveryoneRW,
+	.ACLs = &gVFS_ACL_EveryoneRX,
 	.ReadDir = DevFS_ReadDir,
 	.FindDir = DevFS_FindDir
 	};

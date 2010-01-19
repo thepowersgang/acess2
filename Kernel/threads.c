@@ -620,11 +620,13 @@ int Threads_GetTID()
 }
 tUID Threads_GetUID()
 {
-	tThread	*t = Proc_GetCurThread();
-	int ret = t->UID;
-	Log("Threads_GetUID: TID %i, return %i", t->TID, ret);
-	return ret;
+	return Proc_GetCurThread()->UID;
 }
+tGID Threads_GetGID()
+{
+	return Proc_GetCurThread()->GID;
+}
+
 int Threads_SetUID(Uint *Errno, tUID ID)
 {
 	tThread	*t = Proc_GetCurThread();
@@ -637,10 +639,6 @@ int Threads_SetUID(Uint *Errno, tUID ID)
 	return 0;
 }
 
-tGID Threads_GetGID()
-{
-	return Proc_GetCurThread()->GID;
-}
 int Threads_SetGID(Uint *Errno, tGID ID)
 {
 	tThread	*t = Proc_GetCurThread();

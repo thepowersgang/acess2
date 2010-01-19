@@ -26,10 +26,15 @@ tVFS_Driver	gRootFS_Info = {
 	NULL
 };
 tRamFS_File	RootFS_Files[MAX_FILES];
-tVFS_ACL	RootFS_ACLs[3] = {
+tVFS_ACL	RootFS_DirACLs[3] = {
 	{{0,0}, {0,VFS_PERM_ALL}},	// Owner (Root)
 	{{1,0}, {0,VFS_PERM_ALL}},	// Group (Root)
-	{{0,-1}, {0,VFS_PERM_ALL}}	// World (Nobody)
+	{{0,-1}, {0,VFS_PERM_ALL^VFS_PERM_WRITE}}	// World (Nobody)
+};
+tVFS_ACL	RootFS_FileACLs[3] = {
+	{{0,0}, {0,VFS_PERM_ALL^VFS_PERM_EXECUTE}},	// Owner (Root)
+	{{1,0}, {0,VFS_PERM_ALL^VFS_PERM_EXECUTE}},	// Group (Root)
+	{{0,-1}, {0,VFS_PERM_READ}}	// World (Nobody)
 };
 
 // === CODE ===
@@ -53,7 +58,7 @@ tVFS_Node *Root_InitDevice(char *Device, char **Options)
 		= root->Node.MTime
 		= root->Node.ATime = now();
 	root->Node.NumACLs = 3;
-	root->Node.ACLs = RootFS_ACLs;
+	root->Node.ACLs = RootFS_DirACLs;
 	
 	//root->Node.Close = Root_CloseFile;	// Not Needed (It's a RAM Disk!)
 	//root->Node.Relink = Root_RelinkRoot;	// Not Needed (Why relink the root of the tree)
@@ -97,15 +102,20 @@ int Root_MkNod(tVFS_Node *Node, char *Name, Uint Flags)
 	
 	child->Node.ImplPtr = child;
 	child->Node.Flags = Flags;
-	child->Node.NumACLs = 0;
+	child->Node.NumACLs = 3;
 	child->Node.Size = 0;
 	
 	if(Flags & VFS_FFLAG_DIRECTORY)
 	{
+		child->Node.ACLs = RootFS_DirACLs;
 		child->Node.ReadDir = Root_ReadDir;
 		child->Node.FindDir = Root_FindDir;
 		child->Node.MkNod = Root_MkNod;
 	} else {
+		if(Flags & VFS_FFLAG_SYMLINK)
+			child->Node.ACLs = RootFS_DirACLs;
+		else
+			child->Node.ACLs = RootFS_FileACLs;
 		child->Node.Read = Root_Read;
 		child->Node.Write = Root_Write;
 	}

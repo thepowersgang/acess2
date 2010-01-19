@@ -26,34 +26,46 @@ int VFS_CheckACL(tVFS_Node *Node, Uint Permissions)
 	if(uid == 0)	return 1;
 	
 	// Root only file?, fast return
-	if( Node->NumACLs == 0 )	return 0;
+	if( Node->NumACLs == 0 ) {
+		Log("VFS_CheckACL - %p inaccesable, NumACLs = 0", Node);
+		return 0;
+	}
 	
 	// Check Deny Permissions
 	for(i=0;i<Node->NumACLs;i++)
 	{
 		if(!Node->ACLs[i].Inv)	continue;	// Ignore ALLOWs
-		if(Node->ACLs[i].ID != -1)
+		if(Node->ACLs[i].ID != 0x7FFFFFFF)
 		{
 			if(!Node->ACLs[i].Group && Node->ACLs[i].ID != uid)	continue;
 			if(Node->ACLs[i].Group && Node->ACLs[i].ID != gid)	continue;
 		}
 		
-		if(Node->ACLs[i].Perms & Permissions)	return 0;
+		//Log("Deny %x", Node->ACLs[i].Perms);
+		
+		if(Node->ACLs[i].Perms & Permissions) {
+			Log("VFS_CheckACL - %p inaccesable, %x denied",
+				Node, Node->ACLs[i].Perms & Permissions);
+			return 0;
+		}
 	}
 	
 	// Check for allow permissions
 	for(i=0;i<Node->NumACLs;i++)
 	{
 		if(Node->ACLs[i].Inv)	continue;	// Ignore DENYs
-		if(Node->ACLs[i].ID != -1)
+		if(Node->ACLs[i].ID != 0x7FFFFFFF)
 		{
 			if(!Node->ACLs[i].Group && Node->ACLs[i].ID != uid)	continue;
 			if(Node->ACLs[i].Group && Node->ACLs[i].ID != gid)	continue;
 		}
 		
+		//Log("Allow %x", Node->ACLs[i].Perms);
+		
 		if((Node->ACLs[i].Perms & Permissions) == Permissions)	return 1;
 	}
 	
+	Log("VFS_CheckACL - %p inaccesable, %x not allowed", Node, Permissions);
 	return 0;
 }
 /**
