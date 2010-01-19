@@ -10,6 +10,12 @@
 
 #include <arch.h>
 #include <stdarg.h>
+#include "errno.h"
+
+// --- Types ---
+typedef Uint	tUID;
+typedef Uint	tGID;
+typedef Sint64	tTimestamp;
 
 // --- Helper Macros ---
 /**
@@ -358,8 +364,8 @@ extern int	Proc_Spawn(char *Path);
 extern void	Threads_Exit();
 extern void	Threads_Yield();
 extern void	Threads_Sleep();
-extern int	Threads_GetUID();
-extern int	Threads_GetGID();
+extern tUID	Threads_GetUID();
+extern tGID	Threads_GetGID();
 extern int	SpawnTask(tThreadFunction Function, void *Arg);
 extern Uint	*Threads_GetCfgPtr(int Id);
 /**

@@ -13,7 +13,7 @@ clean:
 	@$(RM) $(OBJ) $(BIN) $(BIN).dsm Map.txt
 
 install: $(BIN)
-	$(xCP) $(BIN) $(DISTROOT)/Bin/
+	$(xCP) $(BIN) $(DISTROOT)/$(DIR)/
 
 $(BIN): $(OBJ)
 	@echo --- $(LD) -o $@

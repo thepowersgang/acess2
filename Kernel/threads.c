@@ -41,8 +41,10 @@ void	Threads_Wake(tThread *Thread);
 void	Threads_AddActive(tThread *Thread);
  int	Threads_GetPID();
  int	Threads_GetTID();
- int	Threads_GetUID();
- int	Threads_GetGID();
+tUID	Threads_GetUID();
+ int	Threads_SetUID(Uint *Errno, tUID ID);
+tGID	Threads_GetGID();
+ int	Threads_SetGID(Uint *Errno, tUID ID);
 void	Threads_Dump();
 
 // === GLOBALS ===
@@ -616,13 +618,39 @@ int Threads_GetTID()
 {
 	return Proc_GetCurThread()->TID;
 }
-int Threads_GetUID()
+tUID Threads_GetUID()
 {
-	return Proc_GetCurThread()->UID;
+	tThread	*t = Proc_GetCurThread();
+	int ret = t->UID;
+	Log("Threads_GetUID: TID %i, return %i", t->TID, ret);
+	return ret;
 }
-int Threads_GetGID()
+int Threads_SetUID(Uint *Errno, tUID ID)
+{
+	tThread	*t = Proc_GetCurThread();
+	if( t->UID != 0 ) {
+		*Errno = -EACCES;
+		return -1;
+	}
+	Log("Threads_SetUID - Setting User ID to %i", ID);
+	t->UID = ID;
+	return 0;
+}
+
+tGID Threads_GetGID()
 {
 	return Proc_GetCurThread()->GID;
+}
+int Threads_SetGID(Uint *Errno, tGID ID)
+{
+	tThread	*t = Proc_GetCurThread();
+	if( t->UID != 0 ) {
+		*Errno = -EACCES;
+		return -1;
+	}
+	Log("Threads_SetGID - Setting Group ID to %i", ID);
+	t->GID = ID;
+	return 0;
 }
 
 /**

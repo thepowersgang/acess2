@@ -22,9 +22,11 @@ tUserInfo	gUserInfo;
  */
 int ValidateUser(char *Username, char *Password)
 {
+	printf("Username: %s\n", Username);
 	if(Username == NULL)	return -1;
 	if(Password == NULL)	return -1;
 	if(strcmp(Username, "root") == 0)	return 0;
+	if(strcmp(Username, "tpg") == 0)	return 1;
 	return -1;
 }
 
@@ -33,13 +35,22 @@ int ValidateUser(char *Username, char *Password)
  * \brief Gets a users information
  */
 tUserInfo *GetUserInfo(int UID)
-{
-	if(UID != 0)	return NULL;
-	
-	gUserInfo.UID = 0;
-	gUserInfo.GID = 0;
+{	
+	gUserInfo.UID = UID;
+	gUserInfo.GID = UID;
 	gUserInfo.Shell = "/Acess/Bin/CLIShell";
-	gUserInfo.Home = "/Acess/Root";
+	switch(UID)
+	{
+	case 0:
+		gUserInfo.Home = "/Acess/Root";
+		break;
+	case 1:
+		gUserInfo.Home = "/Acess/Users/tpg";
+		break;
+	default:
+		gUserInfo.Home = "/Acess/Users/Guest";
+		break;
+	}
 	return &gUserInfo;
 }
 

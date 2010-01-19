@@ -28,8 +28,10 @@ extern Uint	Binary_Load(char *file, Uint *entryPoint);
 extern int	Threads_SetName(char *NewName);
 extern int	Threads_GetPID();
 extern int	Threads_GetTID();
-extern int	Threads_GetUID();
-extern int	Threads_GetGID();
+extern tUID	Threads_GetUID();
+extern int	Threads_SetUID(Uint *errno, tUID ID);
+extern tGID	Threads_GetGID();
+extern int	Threads_SetGID(Uint *errno, tGID ID);
 
 // === PROTOTYPES ===
  int	Syscall_ValidString(Uint Addr);
@@ -40,7 +42,7 @@ extern int	Threads_GetGID();
 void SyscallHandler(tSyscallRegs *Regs)
 {
 	Uint64	ret = 0;
-	Uint	err = 0;
+	Uint	err = -EOK;
 	
 	ENTER("iThread iNum", Threads_GetTID(), Regs->Num);
 	if(Regs->Num < NUM_SYSCALLS)
@@ -104,8 +106,8 @@ void SyscallHandler(tSyscallRegs *Regs)
 	case SYS_GETGID:	ret = Threads_GetGID();	break;
 	
 	// -- Set User/Group IDs
-	case SYS_SETUID:	Log("Setting User ID to %i", Regs->Arg1);	break;
-	case SYS_SETGID:	Log("Setting Group ID to %i", Regs->Arg1);	break;
+	case SYS_SETUID:	ret = Threads_SetUID(&err, Regs->Arg1);	break;
+	case SYS_SETGID:	ret = Threads_SetGID(&err, Regs->Arg1);	break;
 	
 	// -- Send Message
 	case SYS_SENDMSG:

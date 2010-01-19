@@ -8,5 +8,6 @@ LDFLAGS  +=
 
 BIN = ../init
 OBJ = main.o
+DIR = SBin
 
 -include ../Makefile.tpl
