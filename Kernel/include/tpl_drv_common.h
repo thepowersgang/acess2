@@ -47,11 +47,11 @@ enum eTplDrv_IOCtl {
 	DRV_IOCTL_TYPE,
 	
 	/**
-	 * ioctl(..., char *dest[4])
+	 * ioctl(..., char *dest[32])
 	 * \brief Get driver identifier string
 	 * \return 0 on no error
 	 * 
-	 * This call sets the 4-byte array \a dest to the drivers 4-byte
+	 * This call sets the 32-byte array \a dest to the drivers 31 charater
 	 * identifier. This identifier must be unique to the driver series.
 	 */
 	DRV_IOCTL_IDENT,
@@ -59,10 +59,10 @@ enum eTplDrv_IOCtl {
 	/**
 	 * ioctl(...)
 	 * \brief Get driver version number
-	 * \return 24-bit BCD version number (2.2)
+	 * \return 24-bit BCD version number (2.2.2)
 	 * 
-	 * This call returns the 6-digit (2 major, 2 minor, 2 patch) version number
-	 * of the driver.
+	 * This call returns the 6-digit (2 major, 2 minor, 2 patch) version
+	 * number of the driver.
 	 */
 	DRV_IOCTL_VERSION,
 	

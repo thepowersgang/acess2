@@ -20,6 +20,8 @@
 #define EXPAND_CONCAT(x,y) CONCAT(x,y)
 #define STR(x) #x
 #define EXPAND_STR(x) STR(x)
+
+#define VER3(major,minor,patch)	((((major)&0xFF)<<16)|(((minor)&0xFF)<<8)|((patch)&0xFF))
 /**
  * \}
  */
