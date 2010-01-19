@@ -55,6 +55,9 @@ typedef struct sVFS_Node {
 	/**
 	 * \brief Close (dereference) the node
 	 * \param Node	Pointer to this node
+	 * 
+	 * Usually .Close is used to write any changes to the node back to
+	 * the persistent storage.
 	 */
 	void	(*Close)(struct sVFS_Node *Node);
 	
