@@ -3,7 +3,7 @@
  * - Stack Initialisation
  */
 #define DEBUG	0
-#define VERSION	VER3(0,10,0)
+#define VERSION	VER2(0,10)
 #include "ipstack.h"
 #include "link.h"
 #include <modules.h>

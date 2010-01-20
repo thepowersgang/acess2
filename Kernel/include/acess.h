@@ -27,7 +27,7 @@ typedef Sint64	tTimestamp;
 #define STR(x) #x
 #define EXPAND_STR(x) STR(x)
 
-#define VER3(major,minor,patch)	((((major)&0xFF)<<16)|(((minor)&0xFF)<<8)|((patch)&0xFF))
+#define VER2(major,minor)	((((major)&0xFF)<<8)|((minor)&0xFF))
 /**
  * \}
  */
