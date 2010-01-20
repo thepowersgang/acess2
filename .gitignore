@@ -6,8 +6,8 @@
 *.ao
 *.ao.*
 *.so
-*.bin.*
-*.dsm.*
+*.i486
+*.i386
 *.dsm
 *.dmp
 Map.txt
