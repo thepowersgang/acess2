@@ -7,7 +7,10 @@
 #include <acess.h>
 #include "common.h"
 
-// == GLOBALS ===
+// === PROTOTYPES ===
+Uint64	ATA_MBR_int_ReadExt(int Disk, Uint64 Addr, Uint64 *Base, Uint64 *Length);
+
+// === GLOBALS ===
 
 // === CODE ===
 /**

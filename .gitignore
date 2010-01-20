@@ -8,6 +8,7 @@
 *.so
 *.i486
 *.i386
+*.bin
 *.dsm
 *.dmp
 Map.txt
