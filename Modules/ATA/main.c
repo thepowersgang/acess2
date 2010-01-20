@@ -10,48 +10,27 @@
 #include <drv_pci.h>
 #include <tpl_drv_common.h>
 #include <tpl_drv_disk.h>
+#include "common.h"
 
 // --- Flags ---
 #define START_BEFORE_CMD	0
 
-// === CONSTANTS ===
-#define	MAX_ATA_DISKS	4
-#define	SECTOR_SIZE		512
-#define	MAX_DMA_SECTORS	(0x1000 / SECTOR_SIZE)
-
-#define	IDE_PRI_BASE	0x1F0
-#define	IDE_SEC_BASE	0x170
-
-#define	IDE_PRDT_LAST	0x8000
-/**
- \enum HddControls
- \brief Commands to be sent to HDD_CMD
-*/
-enum HddControls {
-	HDD_PIO_R28 = 0x20,
-	HDD_PIO_R48 = 0x24,
-	HDD_DMA_R48 = 0x25,
-	HDD_PIO_W28 = 0x30,
-	HDD_PIO_W48 = 0x34,
-	HDD_DMA_W48 = 0x35,
-	HDD_DMA_R28 = 0xC8,
-	HDD_DMA_W28 = 0xCA,
-};
-
 // === STRUCTURES ===
-typedef struct {
+typedef struct
+{
 	Uint32	PBufAddr;
 	Uint16	Bytes;
 	Uint16	Flags;
-} tPRDT_Ent;
-typedef struct {
+} __attribute__ ((packed))	tPRDT_Ent;
+typedef struct
+{
 	Uint16	Flags;		// 1
 	Uint16	Usused1[9];	// 10
 	char	SerialNum[20];	// 20
 	Uint16	Usused2[3];	// 23
 	char	FirmwareVer[8];	// 27
 	char	ModelNumber[40];	// 47
-	Uint16	SectPerInt;	// 48 - and with 0xFF to get true value;
+	Uint16	SectPerInt;	// 48 - AND with 0xFF to get true value;
 	Uint16	Unused3;	// 49
 	Uint16	Capabilities[2];	// 51
 	Uint16	Unused4[2];	// 53
@@ -62,35 +41,10 @@ typedef struct {
 	Uint16	Unused6[100-62];
 	Uint64	Sectors48;
 	Uint16	Unused7[256-104];
-} tIdentify;
-typedef struct {
-	Uint8	BootCode[0x1BE];
-	struct {
-		Uint8	Boot;
-		Uint8	Unused1;	// Also CHS Start
-		Uint16	StartHi;	// Also CHS Start
-		Uint8	SystemID;
-		Uint8	Unused2;	// Also CHS Length
-		Uint16	LengthHi;	// Also CHS Length
-		Uint32	LBAStart;
-		Uint32	LBALength;
-	} __attribute__ ((packed)) Parts[4];
-	Uint16	BootFlag;	// = 0xAA 55
-} __attribute__ ((packed)) tMBR;
+} __attribute__ ((packed))	tIdentify;
 
-typedef struct {
-	Uint64	Start;
-	Uint64	Length;
-	char	Name[4];
-	tVFS_Node	Node;
-} tATA_Partition;
-typedef struct {
-	Uint64	Sectors;
-	char	Name[2];
-	tVFS_Node	Node;
-	 int	NumPartitions;
-	tATA_Partition	*Partitions;
-} tATA_Disk;
+// === IMPORTS ===
+extern void	ATA_ParseMBR(int Disk);
 
 // === PROTOTYPES ===
  int	ATA_Install();
@@ -99,7 +53,6 @@ void	ATA_SetupPartitions();
 void	ATA_SetupVFS();
  int	ATA_ScanDisk(int Disk);
 void	ATA_ParseGPT(int Disk);
-void	ATA_ParseMBR(int Disk);
 void	ATA_int_MakePartition(tATA_Partition *Part, int Disk, int Num, Uint64 Start, Uint64 Length);
 Uint16	ATA_GetBasePort(int Disk);
 // Filesystem Interface
@@ -372,238 +325,6 @@ int ATA_ScanDisk(int Disk)
 }
 
 /**
- * \fn void ATA_ParseGPT(int Disk)
- * \brief Parses the GUID Partition Table
- */
-void ATA_ParseGPT(int Disk)
-{
-	///\todo Support GPT Disks
-	Warning("GPT Disks are currently unsupported");
-}
-
-/**
- * \fn void ATA_ParseMBR(int Disk)
- */
-void ATA_ParseMBR(int Disk)
-{
-	 int	i, j = 0, k = 4;
-	tMBR	mbr;
-	Uint64	extendedLBA;
-	
-	ENTER("iDisk", Disk);
-	
-	// Read Boot Sector
-	ATA_ReadDMA( Disk, 0, 1, &mbr );
-	
-	// Count Partitions
-	gATA_Disks[Disk].NumPartitions = 0;
-	extendedLBA = 0;
-	for( i = 0; i < 4; i ++ )
-	{
-		if( mbr.Parts[i].SystemID == 0 )	continue;
-		if(
-			mbr.Parts[i].Boot == 0x0 || mbr.Parts[i].Boot == 0x80	// LBA 28
-		||	mbr.Parts[i].Boot == 0x1 || mbr.Parts[i].Boot == 0x81	// LBA 48
-			)
-		{
-			if( mbr.Parts[i].SystemID == 0xF || mbr.Parts[i].SystemID == 5 ) {
-				LOG("Extended Partition");
-				if(extendedLBA != 0) {
-					Warning("Disk %i has multiple extended partitions, ignoring rest", Disk);
-					continue;
-				}
-				extendedLBA = mbr.Parts[i].LBAStart;
-				continue;
-			}
-			LOG("Primary Partition");
-			
-			gATA_Disks[Disk].NumPartitions ++;
-			continue;
-		}
-		// Invalid Partition, so don't count it
-	}
-	while(extendedLBA != 0)
-	{
-		if( ATA_ReadDMA( Disk, extendedLBA, 1, &mbr ) != 0 )
-			break;	// Stop on Errors
-		
-		extendedLBA = 0;
-		
-		if( mbr.Parts[0].SystemID == 0 )	continue;
-		if(	mbr.Parts[0].Boot == 0x0 || mbr.Parts[0].Boot == 0x80	// LBA 28
-		||	mbr.Parts[0].Boot == 0x1 || mbr.Parts[0].Boot == 0x81	// LBA 48
-			)
-		{
-			if(mbr.Parts[0].SystemID == 0xF || mbr.Parts[0].SystemID == 0x7)
-				extendedLBA = mbr.Parts[0].LBAStart;
-			else
-				gATA_Disks[Disk].NumPartitions ++;
-		}
-		
-		if( mbr.Parts[1].SystemID == 0 )	continue;
-		if(	mbr.Parts[1].Boot == 0x0 || mbr.Parts[1].Boot == 0x80	// LBA 28
-		||	mbr.Parts[1].Boot == 0x1 || mbr.Parts[1].Boot == 0x81	// LBA 48
-			)
-		{
-			if(mbr.Parts[1].SystemID == 0xF || mbr.Parts[1].SystemID == 0x7) {
-				if(extendedLBA == 0) {
-					Warning("Disk %i has twp forward link in the extended partition",
-						Disk);
-					break;
-				}
-				extendedLBA = mbr.Parts[1].LBAStart;
-			}
-			else {
-				if(extendedLBA != 0) {
-					Warning("Disk %i lacks a forward link in the extended partition",
-						Disk);
-					break;
-				}
-				gATA_Disks[Disk].NumPartitions ++;
-			}
-		}
-	}
-	LOG("gATA_Disks[Disk].NumPartitions = %i", gATA_Disks[Disk].NumPartitions);
-	
-	// Create patition array
-	gATA_Disks[Disk].Partitions = malloc( gATA_Disks[Disk].NumPartitions * sizeof(tATA_Partition) );
-	
-	// --- Fill Partition Info ---
-	extendedLBA = 0;
-	for( i = 0; i < 4; i ++ )
-	{
-		Log("mbr.Parts[%i].SystemID = 0x%02x", i, mbr.Parts[i].SystemID);
-		if( mbr.Parts[i].SystemID == 0 )	continue;
-		if(	mbr.Parts[i].Boot == 0x0 || mbr.Parts[i].Boot == 0x80 )	// LBA 28
-		{
-			if( mbr.Parts[1].SystemID == 0xF || mbr.Parts[1].SystemID == 5 ) {
-				if(extendedLBA != 0) {
-					Warning("Disk %i has multiple extended partitions, ignoring rest", Disk);
-					continue;
-				}
-				extendedLBA = mbr.Parts[1].LBAStart;
-				continue;
-			}
-			// Create Partition
-			ATA_int_MakePartition( &gATA_Disks[Disk].Partitions[j], Disk, i,
-				mbr.Parts[i].LBAStart, mbr.Parts[i].LBALength
-				);
-			j ++;
-			continue;
-		}
-		if(	mbr.Parts[i].Boot == 0x1 || mbr.Parts[i].Boot == 0x81 )	// LBA 48
-		{
-			if( mbr.Parts[i].SystemID == 0xF || mbr.Parts[i].SystemID == 5 ) {
-				if(extendedLBA != 0) {
-					Warning("Disk %i has multiple extended partitions, ignoring rest", Disk);
-					continue;
-				}
-				extendedLBA = (mbr.Parts[i].StartHi << 16) | mbr.Parts[i].LBAStart;
-				continue;
-			}
-			ATA_int_MakePartition( &gATA_Disks[Disk].Partitions[j], Disk, i,
-				(mbr.Parts[i].StartHi << 16) | mbr.Parts[i].LBAStart,
-				(mbr.Parts[i].LengthHi << 16) | mbr.Parts[i].LBALength
-				);
-			j ++;
-		}
-		// Invalid Partition, so don't count it
-	}
-	// Scan extended partition
-	while(extendedLBA != 0)
-	{
-		if( ATA_ReadDMA( Disk, extendedLBA, 1, &mbr ) != 0 )
-			break;	// Stop on Errors
-		
-		extendedLBA = 0;
-		
-		// Check first entry (should be partition)
-		if( mbr.Parts[0].SystemID != 0)
-		{
-			if( mbr.Parts[0].Boot == 0x0 || mbr.Parts[0].Boot == 0x80 )	// LBA 28
-			{
-				// Forward Link to next Extended partition entry
-				if(mbr.Parts[0].SystemID == 0xF || mbr.Parts[0].SystemID == 0x7)
-					extendedLBA = mbr.Parts[0].LBAStart;
-				else {
-					ATA_int_MakePartition( &gATA_Disks[Disk].Partitions[j], Disk, k,
-						mbr.Parts[0].LBAStart, mbr.Parts[0].LBALength
-						);
-					j ++;	k ++;
-				}
-			}
-			else if( mbr.Parts[0].Boot == 0x1 || mbr.Parts[0].Boot == 0x81 )	// LBA 48
-			{
-				if(mbr.Parts[0].SystemID == 0xF || mbr.Parts[0].SystemID == 0x7)
-					extendedLBA = (mbr.Parts[0].StartHi << 16) | mbr.Parts[0].LBAStart;
-				else {
-					ATA_int_MakePartition( &gATA_Disks[Disk].Partitions[j], Disk, k,
-						(mbr.Parts[0].StartHi << 16) | mbr.Parts[0].LBAStart,
-						(mbr.Parts[0].LengthHi << 16) | mbr.Parts[0].LBALength
-						);
-					j ++;	k ++;
-				}
-			}
-		}
-		
-		// Check second entry (should be forward link)
-		if( mbr.Parts[1].SystemID != 0)
-		{
-			if(mbr.Parts[1].Boot == 0x0 || mbr.Parts[1].Boot == 0x80 )	// LBA 28
-			{
-				if(mbr.Parts[1].SystemID == 0xF || mbr.Parts[1].SystemID == 0x7) {
-					if(extendedLBA == 0) {
-						Warning("Disk %i has twp forward link in the extended partition",
-							Disk);
-						break;
-					}
-					extendedLBA = mbr.Parts[1].LBAStart;
-				}
-				else
-				{
-					if(extendedLBA != 0) {
-						Warning("Disk %i lacks a forward link in the extended partition",
-							Disk);
-						break;
-					}
-					ATA_int_MakePartition( &gATA_Disks[Disk].Partitions[j], Disk, k,
-						mbr.Parts[1].LBAStart, mbr.Parts[1].LBALength
-						);
-					j ++;	k ++;
-				}
-				
-			}
-			else if( mbr.Parts[1].Boot == 0x1 || mbr.Parts[1].Boot == 0x81 )	// LBA 48
-			{
-				if(mbr.Parts[1].SystemID == 0xF || mbr.Parts[1].SystemID == 0x7) {
-					if(extendedLBA == 0) {
-						Warning("Disk %i has twp forward link in the extended partition",
-							Disk);
-						break;
-					}
-					extendedLBA = (mbr.Parts[1].StartHi << 16) | mbr.Parts[1].LBAStart;
-				}
-				else
-				{
-					if(extendedLBA != 0) {
-						Warning("Disk %i lacks a forward link in the extended partition",
-							Disk);
-						break;
-					}
-					ATA_int_MakePartition( &gATA_Disks[Disk].Partitions[j], Disk, k,
-						(mbr.Parts[1].StartHi << 16) | mbr.Parts[1].LBAStart,
-						(mbr.Parts[1].LengthHi << 16) | mbr.Parts[1].LBALength
-						);
-					j ++;	k ++;
-				}
-			}
-		}
-	}
-	
-	LEAVE('-');
-}
-
-/**
  * \fn void ATA_int_MakePartition(tATA_Partition *Part, int Disk, int Num, Uint64 Start, Uint64 Length)
  * \brief Fills a parition's information structure
  */
@@ -630,6 +351,16 @@ void ATA_int_MakePartition(tATA_Partition *Part, int Disk, int Num, Uint64 Start
 	Part->Node.IOCtl = ATA_IOCtl;
 	LOG("Made '%s' (&Node=%p)", Part->Name, &Part->Node);
 	LEAVE('-');
+}
+
+/**
+ * \fn void ATA_ParseGPT(int Disk)
+ * \brief Parses the GUID Partition Table
+ */
+void ATA_ParseGPT(int Disk)
+{
+	///\todo Support GPT Disks
+	Warning("GPT Disks are currently unsupported");
 }
 
 /**
