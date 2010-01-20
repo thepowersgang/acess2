@@ -1,6 +1,6 @@
 /*
  * Acess2 IDE Harddisk Driver
- * drv/ide.c
+ * - main.c
  */
 #define DEBUG	0
 #include <acess.h>

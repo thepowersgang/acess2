@@ -1,7 +1,7 @@
 #
 #
 
-OBJ = ata_x86.o
+OBJ = main.o
 NAME = ATA
 
 -include ../Makefile.tpl
