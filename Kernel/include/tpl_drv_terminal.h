@@ -97,13 +97,15 @@ enum eTplTerminal_Modes {
 	 */
 	TERM_MODE_FB,
 	
+	TERM_MODE_2DACCEL,
+	
 	/**
 	 * \brief OpenGL 2D/3D
 	 * Writes to the terminal file will send 3D commands
 	 * Reads will return UTF-32 characters
 	 * \note May or may not stay in the spec
 	 */
-	TERM_MODE_OPENGL,
+	TERM_MODE_3D,
 	
 	/**
 	 * \brief Number of terminal modes
@@ -111,5 +113,17 @@ enum eTplTerminal_Modes {
 	NUM_TERM_MODES
 };
 
+enum eTplTerminal_2D_Commands
+{
+	TERM_2DCMD_NOP,
+	
+	/**
+	 * (Uint16 X, Y, W, H, Uint32 Data[])
+	 * \param X,Y	Coordinates of Top-Left corner
+	 * \param W,H	Dimensions
+	 * \param Data	32-bpp pixel data
+	 */
+	TERM_2DCMD_PUSH,
+};
 
 #endif

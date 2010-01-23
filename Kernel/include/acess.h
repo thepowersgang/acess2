@@ -293,6 +293,7 @@ extern Uint32	BigEndian32(Uint32 Val);
  * \name Strings
  * \{
  */
+extern int	sprintf(char *__s, const char *__format, ...);
 extern Uint	strlen(const char *Str);
 extern char	*strcpy(char *__dest, const char *__src);
 extern int	strcmp(const char *__str1, const char *__str2);
@@ -304,7 +305,8 @@ extern int	strpos8(const char *str, Uint32 search);
 extern void	itoa(char *buf, Uint num, int base, int minLength, char pad);
 extern int	ReadUTF8(Uint8 *str, Uint32 *Val);
 extern int	WriteUTF8(Uint8 *str, Uint32 Val);
-extern int	LookupString(char **Array, char *Needle);
+extern int	ModUtil_SetIdent(char *Dest, char *Value);
+extern int	ModUtil_LookupString(char **Array, char *Needle);
 extern Uint8	ByteSum(void *Ptr, int Size);
 /**
  * \}

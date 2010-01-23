@@ -318,7 +318,7 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		break;
 	
 	case TERM_MODE_FB:
-	case TERM_MODE_OPENGL:
+	//case TERM_MODE_:
 		while(pos < Length)
 		{
 			while(term->InputRead == term->InputWrite)	Threads_Yield();
@@ -922,8 +922,8 @@ void VT_int_ChangeMode(tVTerm *Term, int NewMode)
 		free(Term->Text);
 		Term->Buffer = calloc( Term->Width*Term->Height, sizeof(Uint32) );
 		break;
-	case TERM_MODE_OPENGL:
-		return;
+	//case TERM_MODE_OPENGL:
+	//	return;
 	}
 	
 	Term->Mode = NewMode;

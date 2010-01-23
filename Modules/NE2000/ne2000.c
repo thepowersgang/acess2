@@ -257,24 +257,16 @@ int Ne2k_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		return DRV_TYPE_NETWORK;
 	
 	case DRV_IOCTL_IDENT:
-		if(!CheckMem(Data, 4)) {
-			LEAVE('i', -1);
-			return -1;
-		}
-		memcpy(Data, "NE2K", 4);
-		LEAVE('i', 1);
-		return 1;
+		tmp = ModUtil_SetIdent(Data, "Ne2k");
+		LEAVE('i', tmp);
+		return tmp;
 	
 	case DRV_IOCTL_VERSION:
 		LEAVE('x', VERSION);
 		return VERSION;
 	
 	case DRV_IOCTL_LOOKUP:
-		if( !CheckString(Data) ) {
-			LEAVE('i', -1);
-			return -1;
-		}
-		tmp = LookupString( (char**)casIOCtls, Data );
+		tmp = ModUtil_LookupString( (char**)casIOCtls, Data );
 		LEAVE('i', tmp);
 		return tmp;
 	}

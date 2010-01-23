@@ -4,6 +4,7 @@
  */
 #define DEBUG	0
 #define VERSION	VER2(0,10)
+#define IDENT	IPStack
 #include "ipstack.h"
 #include "link.h"
 #include <modules.h>
@@ -30,7 +31,7 @@ tVFS_Node	*IPStack_FindDir(tVFS_Node *Node, char *Name);
 tAdapter	*IPStack_GetAdapter(char *Path);
 
 // === GLOBALS ===
-MODULE_DEFINE(0, VERSION, IPStack, IPStack_Install, NULL, NULL);
+MODULE_DEFINE(0, VERSION, IDENT, IPStack_Install, NULL, NULL);
 tDevFS_Driver	gIP_DriverInfo = {
 	NULL, "ip",
 	{
@@ -180,8 +181,7 @@ int IPStack_IOCtlRoot(tVFS_Node *Node, int ID, void *Data)
 		return DRV_TYPE_MISC;
 	
 	case DRV_IOCTL_IDENT:
-		if( !CheckMem( Data, 4 ) )	LEAVE_RET('i', -1);
-		memcpy(Data, "IP\0\0", 4);
+		tmp = ModUtil_SetIdent(Data, STR(IDENT));
 		LEAVE('i', 1);
 		return 1;
 	
@@ -190,9 +190,7 @@ int IPStack_IOCtlRoot(tVFS_Node *Node, int ID, void *Data)
 		return VERSION;
 	
 	case DRV_IOCTL_LOOKUP:
-		if( !CheckString( Data ) )	LEAVE_RET('i', -1);
-		LOG("Lookup '%s'", Data);
-		tmp = LookupString( (char**)casIOCtls_Root, (char*)Data );
+		tmp = ModUtil_LookupString( (char**)casIOCtls_Root, (char*)Data );
 		LEAVE('i', tmp);
 		return tmp;
 		
@@ -236,8 +234,7 @@ int IPStack_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		return DRV_TYPE_MISC;
 	
 	case DRV_IOCTL_IDENT:
-		if( !CheckMem( Data, 4 ) )	LEAVE_RET('i', -1);
-		memcpy(Data, "IP\0\0", 4);
+		tmp = ModUtil_SetIdent(Data, STR(IDENT));
 		LEAVE('i', 1);
 		return 1;
 	
@@ -246,9 +243,7 @@ int IPStack_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		return VERSION;
 	
 	case DRV_IOCTL_LOOKUP:
-		if( !CheckString( Data ) )	LEAVE_RET('i', -1);
-		LOG("Lookup '%s'", Data);
-		tmp = LookupString( (char**)casIOCtls_Iface, (char*)Data );
+		tmp = ModUtil_LookupString( (char**)casIOCtls_Iface, (char*)Data );
 		LEAVE('i', tmp);
 		return tmp;
 	

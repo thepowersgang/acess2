@@ -4,9 +4,13 @@
 
 _CPPFLAGS := $(CPPFLAGS)
 
--include ../../Makefile.cfg
+CFGFILES = 
+CFGFILES += $(shell test -f ../../Makefile.cfg && echo ../../Makefile.cfg)
+CFGFILES += $(shell test -f ../Makefile.cfg && echo ../Makefile.cfg)
+CFGFILES += $(shell test -f Makefile.cfg && echo Makefile.cfg)
+-include $(CFGFILES)
 
-CPPFLAGS = -I../../Kernel/include -I../../Kernel/arch/$(ARCHDIR)/include -DARCH=$(ARCH) $(_CPPFLAGS)
+CPPFLAGS = -I$(ACESSDIR)/Kernel/include -I$(ACESSDIR)/Kernel/arch/$(ARCHDIR)/include -DARCH=$(ARCH) $(_CPPFLAGS)
 CFLAGS = -Wall -Werror -fno-stack-protector $(CPPFLAGS)
 
 OBJ := $(addsuffix .$(ARCH),$(OBJ))
@@ -28,12 +32,12 @@ install: $(BIN)
 
 $(BIN): $(OBJ)
 	@echo --- $(LD) -o $@
-	@$(LD) -T ../link.ld -shared -nostdlib -o $@ $(OBJ)
+	@$(LD) -T $(ACESSDIR)/Modules/link.ld -shared -nostdlib -o $@ $(OBJ)
 	@$(OBJDUMP) -d $(BIN) > $(BIN).dsm
 	@echo --- $(LD) -o $(KOBJ)
 	@$(CC) -Wl,-r -nostdlib -o $(KOBJ) $(OBJ)
 
-%.o.$(ARCH): %.c Makefile ../Makefile.tpl ../../Makefile.cfg 
+%.o.$(ARCH): %.c Makefile ../Makefile.tpl $(CFGFILES)
 	@echo --- $(CC) -o $@
 	@$(CC) $(CFLAGS) -o $@ -c $<
 	@$(CC) -M $(CPPFLAGS) -MT $@ -o $*.d.$(ARCH) $<

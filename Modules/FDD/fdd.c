@@ -277,23 +277,12 @@ int FDD_IOCtl(tVFS_Node *Node, int ID, void *Data)
 {
 	switch(ID)
 	{
-	case DRV_IOCTL_TYPE:
-		return DRV_TYPE_DISK;
+	case DRV_IOCTL_TYPE:	return DRV_TYPE_DISK;
+	case DRV_IOCTL_IDENT:	return ModUtil_SetIdent(Data, "FDD");
+	case DRV_IOCTL_VERSION:	return FDD_VERSION;
+	case DRV_IOCTL_LOOKUP:	return ModUtil_LookupString((char**)casIOCTLS, Data);
 	
-	case DRV_IOCTL_IDENT:
-		if(!CheckMem(Data, 4))	return -1;
-		memcpy(Data, "FDD\0", 4);
-		return 1;
-	
-	case DRV_IOCTL_VERSION:
-		return FDD_VERSION;
-	
-	case DRV_IOCTL_LOOKUP:
-		if(!CheckString(Data))	return -1;
-		return LookupString((char**)casIOCTLS, Data);
-	
-	case DISK_IOCTL_GETBLOCKSIZE:
-		return 512;	
+	case DISK_IOCTL_GETBLOCKSIZE:	return 512;	
 	
 	default:
 		return 0;

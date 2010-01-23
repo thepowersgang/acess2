@@ -116,6 +116,7 @@ tVFS_Node *FAT_InitDevice(char *Device, char **options)
 		case FAT12:	sFatType = "FAT12";	break;
 		case FAT16:	sFatType = "FAT16";	break;
 		case FAT32:	sFatType = "FAT32";	break;
+		default:	sFatType = "UNKNOWN";	break;
 		}
 		if(iSize <= 2*1024) {
 			sSize = "KiB";

@@ -55,6 +55,148 @@ void itoa(char *buf, Uint num, int base, int minLength, char pad)
 	buf[i] = 0;
 }
 
+#define PUTCH(c)	do{if(pos==__maxlen)break;if(__s){__s[pos++]=(c);}else{pos++;}}while(0)
+int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
+{
+	char	c, pad = ' ';
+	 int	minSize = 0;
+	char	tmpBuf[34];	// For Integers
+	char	*p = NULL;
+	 int	isLongLong = 0;
+	Uint64	val;
+	size_t	pos = 0;
+	
+	while((c = *__format++) != 0)
+	{
+		// Non control character
+		if(c != '%') { PUTCH(c); continue; }
+		
+		c = *__format++;
+		
+		// Literal %
+		if(c == '%') { PUTCH('%'); continue; }
+		
+		// Pointer - Done first for debugging
+		if(c == 'p') {
+			Uint	ptr = va_arg(args, Uint);
+			PUTCH('*');	PUTCH('0');	PUTCH('x');
+			p = tmpBuf;
+			itoa(p, ptr, 16, BITS/4, '0');
+			goto printString;
+		}
+		
+		// Get Argument
+		val = va_arg(args, Uint);
+		
+		// - Padding
+		if(c == '0') {
+			pad = '0';
+			c = *__format++;
+		}
+		else
+			pad = ' ';
+		
+		// - Minimum length
+		minSize = 1;
+		if('1' <= c && c <= '9')
+		{
+			minSize = 0;
+			while('0' <= c && c <= '9')
+			{
+				minSize *= 10;
+				minSize += c - '0';
+				c = *__format++;
+			}
+		}
+		
+		// - Default, Long or LongLong?
+		isLongLong = 0;
+		if(c == 'l')	// Long is actually the default on x86
+		{
+			c = *__format++;
+			if(c == 'l') {
+				#if BITS == 32
+				val |= (Uint64)va_arg(args, Uint) << 32;
+				#endif
+				c = *__format++;
+				isLongLong = 1;
+			}
+		}
+		
+		// - Now get the format code
+		p = tmpBuf;
+		switch(c)
+		{
+		case 'd':
+		case 'i':
+			if( (isLongLong && val >> 63) || (!isLongLong && val >> 31) ) {
+				PUTCH('-');
+				val = -val;
+			}
+			itoa(p, val, 10, minSize, pad);
+			goto printString;
+		case 'u':
+			itoa(p, val, 10, minSize, pad);
+			goto printString;
+		case 'x':
+			itoa(p, val, 16, minSize, pad);
+			goto printString;
+		case 'o':
+			itoa(p, val, 8, minSize, pad);
+			goto printString;
+		case 'b':
+			itoa(p, val, 2, minSize, pad);
+			goto printString;
+
+		case 'B':	//Boolean
+			if(val)	p = "True";
+			else	p = "False";
+			goto printString;
+		
+		// String - Null Terminated Array
+		case 's':
+			p = (char*)(Uint)val;
+		printString:
+			if(!p)		p = "(null)";
+			while(*p)	PUTCH(*p++);
+			break;
+		
+		case 'C':	// Non-Null Terminated Character Array
+			p = (char*)(Uint)val;
+			if(!p)	goto printString;
+			while(minSize--)	PUTCH(*p++);
+			break;
+		
+		// Single Character
+		case 'c':
+		default:
+			PUTCH( (Uint8)val );
+			break;
+		}
+	}
+	
+	if(__s && pos != __maxlen)
+		__s[pos] = '\0';
+		
+	
+	return pos;
+}
+#undef PUTCH
+
+/**
+ */
+int sprintf(char *__s, const char *__format, ...)
+{
+	va_list	args;
+	 int	ret;
+	
+	va_start(args, __format);
+	ret = vsnprintf(__s, -1, __format, args);
+	va_end(args);
+	
+	return ret;
+}
+
 /**
  * \fn int tolower(int c)
  * \brief Converts a character to lower case
@@ -122,6 +264,19 @@ char *strcpy(char *__str1, const char *__str2)
 	while(*__str2)
 		*__str1++ = *__str2++;
 	*__str1 = '\0';	// Terminate String
+	return __str1;
+}
+
+/**
+ * \fn char *strcpy(const char *__str1, const char *__str2)
+ * \brief Copy a string to a new location
+ */
+char *strncpy(char *__str1, const char *__str2, size_t max)
+{
+	while(*__str2 && max-- >= 1)
+		*__str1++ = *__str2++;
+	if(max)
+		*__str1 = '\0';	// Terminate String
 	return __str1;
 }
 
@@ -411,9 +566,10 @@ int CheckMem(void *Mem, int NumBytes)
  * \brief Search a string array for \a Needle
  * \note Helper function for eTplDrv_IOCtl::DRV_IOCTL_LOOKUP
  */
-int LookupString(char **Array, char *Needle)
+int ModUtil_LookupString(char **Array, char *Needle)
 {
 	 int	i;
+	if( !CheckString(Needle) )	return -1;
 	for( i = 0; Array[i]; i++ )
 	{
 		if(strcmp(Array[i], Needle) == 0)	return i;
@@ -421,15 +577,23 @@ int LookupString(char **Array, char *Needle)
 	return -1;
 }
 
+int ModUtil_SetIdent(char *Dest, char *Value)
+{
+	if( !CheckMem(Dest, 32) )	return -1;
+	strncpy(Dest, Value, 32);
+	return 1;
+}
+
 EXPORT(strlen);
 EXPORT(strdup);
 EXPORT(strcmp);
 EXPORT(strncmp);
 EXPORT(strcpy);
-//EXPORT(strncpy);
+EXPORT(strncpy);
 
 EXPORT(timestamp);
 EXPORT(ReadUTF8);
 EXPORT(CheckMem);
 EXPORT(CheckString);
-EXPORT(LookupString);
+EXPORT(ModUtil_LookupString);
+EXPORT(ModUtil_SetIdent);

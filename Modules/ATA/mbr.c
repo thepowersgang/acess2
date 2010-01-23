@@ -34,8 +34,7 @@ void ATA_ParseMBR(int Disk)
 	for( i = 0; i < 4; i ++ )
 	{
 		if( mbr.Parts[i].SystemID == 0 )	continue;
-		if(
-			mbr.Parts[i].Boot == 0x0 || mbr.Parts[i].Boot == 0x80	// LBA 28
+		if(	mbr.Parts[i].Boot == 0x0 || mbr.Parts[i].Boot == 0x80	// LBA 28
 		||	mbr.Parts[i].Boot == 0x1 || mbr.Parts[i].Boot == 0x81	// LBA 48
 			)
 		{
