@@ -118,9 +118,10 @@ void SyscallHandler(tSyscallRegs *Regs)
 	// -- Check for messages
 	case SYS_GETMSG:
 		CHECK_NUM_NULLOK(Regs->Arg1, sizeof(Uint));
-		//NOTE: Uncertain due to length being unknown
-		// (Proc_GetMessage should check itself)
-		CHECK_NUM_NULLOK(Regs->Arg2, sizeof(Uint)*4);
+		if( Regs->Arg2 && Regs->Arg2 != -1 && !MM_IsUser(Regs->Arg2) )
+		{
+			err = -EINVAL;	ret = -1;	break;
+		}
 		// *Source, *Data
 		ret = Proc_GetMessage(&err, (Uint*)Regs->Arg1, (void*)Regs->Arg2);
 		break;

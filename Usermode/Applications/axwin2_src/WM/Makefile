@@ -1,0 +1,11 @@
+# Project: Acess GUI Window Manager
+
+-include ../../Makefile.cfg
+
+CPPFLAGS += -I../include
+
+DIR = Apps/AxWin/1.0
+BIN = ../AxWinWM
+OBJ = main.o helpers.o commandline.o video.o messages.o
+
+-include ../../Makefile.tpl

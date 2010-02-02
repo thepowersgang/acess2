@@ -94,7 +94,15 @@ int Proc_GetMessage(Uint *Err, Uint *Source, void *Buffer)
 	
 	// Get message
 	if(Buffer != GETMSG_IGNORE)
+	{
+		if( !CheckMem( Buffer, cur->Messages->Length ) )
+		{
+			*Err = -EINVAL;
+			RELEASE( &cur->IsLocked );
+			return -1;
+		}
 		memcpy(Buffer, cur->Messages->Data, cur->Messages->Length);
+	}
 	ret = cur->Messages->Length;
 	
 	// Remove from list
