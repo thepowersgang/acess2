@@ -59,7 +59,13 @@ enum eTplTerminal_IOCtl {
 	 * \note The id field of \a info is not for use with ::TERM_IOCTL_MODETYPE
 	 *       This field is just for indexing the mode to get its information.
 	 */
-	TERM_IOCTL_QUERYMODE
+	TERM_IOCTL_QUERYMODE,
+	
+	/**
+	 * ioctl(...)
+	 * \brief Forces the current terminal to be shown
+	 */
+	TERM_IOCTL_FORCESHOW
 };
 
 /**

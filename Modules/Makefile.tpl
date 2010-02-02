@@ -5,6 +5,7 @@
 _CPPFLAGS := $(CPPFLAGS)
 
 CFGFILES = 
+CFGFILES += $(shell test -f ../../../Makefile.cfg && echo ../../../Makefile.cfg)
 CFGFILES += $(shell test -f ../../Makefile.cfg && echo ../../Makefile.cfg)
 CFGFILES += $(shell test -f ../Makefile.cfg && echo ../Makefile.cfg)
 CFGFILES += $(shell test -f Makefile.cfg && echo Makefile.cfg)

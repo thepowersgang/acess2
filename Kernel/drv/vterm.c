@@ -19,8 +19,8 @@
 #define MAX_INPUT_CHARS32	64
 #define MAX_INPUT_CHARS8	(MAX_INPUT_CHARS32*4)
 #define VT_SCROLLBACK	1	// 2 Screens of text
-#define DEFAULT_OUTPUT	"VGA"
-//#define DEFAULT_OUTPUT	"BochsGA"
+//#define DEFAULT_OUTPUT	"VGA"
+#define DEFAULT_OUTPUT	"BochsGA"
 #define DEFAULT_INPUT	"PS2Keyboard"
 #define	DEFAULT_WIDTH	80
 #define	DEFAULT_HEIGHT	25
@@ -348,6 +348,28 @@ Uint64 VT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	case TERM_MODE_TEXT:
 		VT_int_PutString(term, Buffer, Length);
 		break;
+	case TERM_MODE_FB:
+		if( term->RealWidth > term->Width || term->RealHeight > term->Height )
+		{
+			#if 0
+			 int	x, y, h;
+			x = Offset/4;	y = x / term->Width;	x %= term->Width;
+			w = Length/4+x;	h = w / term->Width;	w %= term->Width;
+			while(h--)
+			{
+				VFS_WriteAt( giVT_OutputDevHandle,
+					(x+y*term->RealWidth)*4,
+					term->Width * 4,
+					Buffer
+					);
+				Buffer = (void*)( (Uint)Buffer + term->Width*term->Height*4 );
+			}
+			#endif
+			return 0;
+		}
+		else {
+			return VFS_WriteAt( giVT_OutputDevHandle, Offset, Length, Buffer );
+		}
 	}
 	
 	//LEAVE('i', 0);
@@ -363,6 +385,10 @@ int VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data)
 	 int	*iData = Data;
 	tVTerm	*term = Node->ImplPtr;
 	ENTER("pNode iId pData", Node, Id, Data);
+	
+	if(Id >= DRV_IOCTL_LOOKUP) {
+		if( Threads_GetUID() != 0 )	return -1;
+	}
 	
 	switch(Id)
 	{
@@ -407,6 +433,11 @@ int VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data)
 		Log("VT_Terminal_IOCtl - RETURN term->Height = %i", term->Height);
 		LEAVE('i', term->Height);
 		return term->Height;
+	
+	case TERM_IOCTL_FORCESHOW:
+		VT_SetTerminal( Node->Inode );
+		LEAVE('i', 1);
+		return 1;
 	}
 	LEAVE('i', -1);
 	return -1;

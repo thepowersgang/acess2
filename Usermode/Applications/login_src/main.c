@@ -57,7 +57,8 @@ int main(int argc, char *argv[])
 			child_argv[0] = uinfo->Shell;
 			// Set Environment
 			setgid(uinfo->GID);
-			setuid(uid);
+			//setuid(uid);
+			setuid(uinfo->UID);
 			
 			execve(uinfo->Shell, child_argv, child_envp);
 			exit(-1);

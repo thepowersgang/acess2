@@ -17,9 +17,12 @@
 # error "Unknown architecture when determining MODULE_ARCH_ID ('" #ARCHDIR "')"
 #endif
 
-#define MODULE_DEFINE(_flags,_ver,_ident,_entry,_deinit,_deps...)	char *_DriverDeps_##_ident[]={_deps};\
-	tModule __attribute__ ((section ("KMODULES"),unused)) _DriverInfo_##_ident=\
-	{MODULE_MAGIC,MODULE_ARCH_ID,_flags,_ver,NULL,#_ident,_entry,_deinit,_DriverDeps_##_ident}
+#define MODULE_DEFINE(_flags,_ver,_ident,_entry,_deinit,_deps...) \
+	char *EXPAND_CONCAT(_DriverDeps_,_ident)[]={_deps};\
+	tModule __attribute__ ((section ("KMODULES"),unused))\
+	EXPAND_CONCAT(_DriverInfo_,_ident)=\
+	{MODULE_MAGIC,MODULE_ARCH_ID,_flags,_ver,NULL,EXPAND_STR(_ident),\
+	_entry,_deinit,EXPAND_CONCAT(_DriverDeps_,_ident)}
 
 typedef struct sModule {
 	Uint32	Magic;

@@ -22,11 +22,11 @@ tUserInfo	gUserInfo;
  */
 int ValidateUser(char *Username, char *Password)
 {
-	printf("Username: %s\n", Username);
 	if(Username == NULL)	return -1;
 	if(Password == NULL)	return -1;
 	if(strcmp(Username, "root") == 0)	return 0;
 	if(strcmp(Username, "tpg") == 0)	return 1;
+	if(strcmp(Username, "gui") == 0)	return 2;
 	return -1;
 }
 
@@ -46,6 +46,11 @@ tUserInfo *GetUserInfo(int UID)
 		break;
 	case 1:
 		gUserInfo.Home = "/Acess/Users/tpg";
+		break;
+	case 2:
+		gUserInfo.UID = 0;	//HACK!
+		gUserInfo.Home = "/Acess/Users/gui";
+		gUserInfo.Shell = "/Acess/Apps/AxWin/1.0/AxWinWM";
 		break;
 	default:
 		gUserInfo.Home = "/Acess/Users/Guest";

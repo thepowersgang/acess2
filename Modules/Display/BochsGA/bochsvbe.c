@@ -154,7 +154,7 @@ Uint64 BGA_Read(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer)
  * \fn Uint64 BGA_Write(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer)
  * \brief Write to the framebuffer
  */
-Uint64 BGA_Write(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer)
+Uint64 BGA_Write(tVFS_Node *node, Uint64 off, Uint64 len, void *Buffer)
 {	
 	ENTER("xoff xlen", off, len);
 	
@@ -165,7 +165,7 @@ Uint64 BGA_Write(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer)
 	}
 	
 	// Check Input against Frambuffer Size
-	if(off+len > gBGA_Modes[giBGA_CurrentMode].fbSize) {
+	if(off + len > gBGA_Modes[giBGA_CurrentMode].fbSize) {
 		LEAVE('i', -1);
 		return -1;
 	}
@@ -173,7 +173,7 @@ Uint64 BGA_Write(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer)
 	// Text Mode
 	if( gBGA_Modes[giBGA_CurrentMode].flags & MODEFLAG_TEXT )
 	{
-		tVT_Char	*chars = buffer;
+		tVT_Char	*chars = Buffer;
 		 int	pitch = gBGA_Modes[giBGA_CurrentMode].width * giVT_CharWidth;
 		 int	x, y;
 		Uint32	*dest;
@@ -209,15 +209,15 @@ Uint64 BGA_Write(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer)
 	{
 		Uint8	*destBuf = (Uint8*) ((Uint)gBGA_Framebuffer + (Uint)off);
 		
-		LOG("buffer = %p\n", buffer);
-		LOG("Updating Framebuffer (%p to %p)\n", 
+		Log("buffer = %p", Buffer);
+		Log("Updating Framebuffer (%p to %p)",
 			destBuf, destBuf + (Uint)len);
 		
 		
 		// Copy to Frambuffer
-		memcpy(destBuf, buffer, len);
+		memcpy(destBuf, Buffer, len);
 		
-		LOG("BGA Framebuffer updated\n");
+		Log("BGA Framebuffer updated");
 	}
 	
 	LEAVE('i', len);
