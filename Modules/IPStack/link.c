@@ -86,7 +86,6 @@ void Link_SendPacket(tAdapter *Adapter, Uint16 Type, tMacAddr To, int Length, vo
 	*(Uint32*) &hdr->Data[Length] = 0;
 	*(Uint32*) &hdr->Data[Length] = htonl( Link_CalculateCRC(buf, bufSize) );
 	
-	
 	VFS_Write(Adapter->DeviceFD, bufSize, buf);
 }
 

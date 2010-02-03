@@ -63,7 +63,7 @@ int IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, int 
 	
 	memcpy(&hdr->Options[0], Data, Length);
 	hdr->Version = 4;
-	hdr->HeaderLength = htons( sizeof(tIPv4Header) );
+	hdr->HeaderLength = sizeof(tIPv4Header)/4;
 	hdr->DiffServices = 0;	// TODO: Check
 	hdr->TotalLength = htons( bufSize );
 	hdr->Identifcation = htons( ID );	// TODO: Check
@@ -95,7 +95,7 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	//Log("[IPv4 ] Version = %i", hdr->Version);
 	Log("[IPv4 ] HeaderLength = %i", hdr->HeaderLength);
 	Log("[IPv4 ] DiffServices = %i", hdr->DiffServices);
-	//Log("[IPv4 ] TotalLength = %i", ntohs(hdr->TotalLength) );
+	Log("[IPv4 ] TotalLength = %i", ntohs(hdr->TotalLength) );
 	//Log("[IPv4 ] Identifcation = %i", ntohs(hdr->Identifcation) );
 	//Log("[IPv4 ] TTL = %i", hdr->TTL );
 	Log("[IPv4 ] Protocol = %i", hdr->Protocol );
@@ -117,7 +117,7 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	
 	// Check Packet length
 	if( ntohs(hdr->TotalLength) > Length) {
-		Log("[IPv4 ] hdr->TotalLength(%i) > Length(%i)", hdr->TotalLength, Length);
+		Log("[IPv4 ] hdr->TotalLength(%i) > Length(%i)", ntohs(hdr->TotalLength), Length);
 		return;
 	}
 	
@@ -131,7 +131,7 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	// Defragment
 	//TODO
 	
-	dataLength = hdr->TotalLength - sizeof(tIPv4Header);
+	dataLength = ntohs(hdr->TotalLength) - sizeof(tIPv4Header);
 	data = &hdr->Options[0];
 	
 	// Send it on
@@ -201,6 +201,8 @@ Uint16 IPv4_Checksum(void *Buf, int Size)
 	Uint16	*arr = Buf;
 	 int	i;
 	
+	Log("IPv4_Checksum: (%p, %i)", Buf, Size);
+	
 	Size = (Size + 1) >> 1;
 	for(i = 0; i < Size; i++ )
 	{
@@ -208,7 +210,7 @@ Uint16 IPv4_Checksum(void *Buf, int Size)
 			sum ++;	// Simulate 1's complement
 		sum += arr[i];
 	}
-	return ~sum;
+	return htons( ~sum );
 }
 
 /**

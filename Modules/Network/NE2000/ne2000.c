@@ -75,7 +75,7 @@ typedef struct sNe2k_Card {
 	
 	 int	NextMemPage;	//!< Next Card Memory page to use
 	
-	Uint8	Buffer[RX_BUF_SIZE];
+	Uint8	Buffer[RX_BUF_SIZE*256];
 	
 	char	Name[2];	// "0"
 	tVFS_Node	Node;
@@ -302,11 +302,16 @@ Uint64 Ne2k_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	tCard	*Card = (tCard*)Node->ImplPtr;
 	Uint16	*buf = Buffer;
 	 int	rem = Length;
+	 int	page;
 	
 	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
 	
 	// Sanity Check Length
-	if(Length > TX_BUF_SIZE) {
+	if(Length > TX_BUF_SIZE*256) {
+		Warning(
+			"Ne2k_Write - Attempting to send over TX_BUF_SIZE(%i) bytes (%i)",
+			TX_BUF_SIZE*256, Length
+			);
 		LEAVE('i', 0);
 		return 0;
 	}
@@ -327,7 +332,8 @@ Uint64 Ne2k_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	
 	// Set up transfer
 	outb(Card->IOBase + RSAR0, 0x00);	// Page Offset
-	outb(Card->IOBase + RSAR1, Ne2k_int_GetWritePage(Card, Length));	// Page Offset
+	page = Ne2k_int_GetWritePage(Card, Length);
+	outb(Card->IOBase + RSAR1, page);	// Page Offset
 	// Start
 	//outb(Card->IOBase + CMD, 0|0x18|0x4|0x2);	// Page 0, Transmit Packet, TXP, Start
 	outb(Card->IOBase + CMD, 0|0x10|0x2);	// Page 0, Remote Write, Start
@@ -342,6 +348,7 @@ Uint64 Ne2k_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	outb( Card->IOBase + ISR, 0x40 );	// ACK Interrupt
 	
 	// Send Packet
+	outb(Card->IOBase + TPSR, page);
 	outb(Card->IOBase + CMD, 0|0x10|0x4|0x2);
 	
 	// Complete DMA

@@ -37,6 +37,7 @@ void ICMP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buff
 {
 	tICMPHeader	*hdr = Buffer;
 	
+	Log("[ICMP ] Length = %i", Length);
 	Log("[ICMP ] hdr->Type = %i", hdr->Type);
 	Log("[ICMP ] hdr->Code = %i", hdr->Code);
 	Log("[ICMP ] hdr->Checksum = 0x%x", ntohs(hdr->Checksum));
@@ -45,6 +46,7 @@ void ICMP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buff
 	
 	switch(hdr->Type)
 	{
+	// -- 0: Echo Reply
 	case ICMP_ECHOREPLY:
 		if(hdr->Code != 0) {
 			Warning("[ICMP ] Code == %i for ICMP Echo Reply, should be 0", hdr->Code);
@@ -55,6 +57,20 @@ void ICMP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buff
 			return ;
 		}
 		gICMP_PingSlots[hdr->ID].bArrived = 1;
+		break;
+	
+	// -- 8: Echo Request
+	case ICMP_ECHOREQ:
+		if(hdr->Code != 0) {
+			Warning("[ICMP ] Code == %i for ICMP Echo Request, should be 0", hdr->Code);
+			return ;
+		}
+		Log("[ICMP ] Replying");
+		hdr->Type = ICMP_ECHOREPLY;
+		hdr->Checksum = 0;
+		hdr->Checksum = htons( IPv4_Checksum(hdr, Length) );
+		Log("[ICMP ] Checksum = 0x%04x", hdr->Checksum);
+		IPv4_SendPacket(Interface, *(tIPv4*)Address, 1, ntohs(hdr->Sequence), Length, hdr);
 		break;
 	}
 	
@@ -86,7 +102,7 @@ int ICMP_Ping(tInterface *Interface, tIPv4 Addr)
 	hdr->ID = i;
 	hdr->Sequence = ~i;
 	hdr->Checksum = htons( IPv4_Checksum(hdr, sizeof(buf)) );
-	IPv4_SendPacket(Interface, Addr, 1, i, 32, buf);
+	IPv4_SendPacket(Interface, Addr, 1, i, sizeof(buf), buf);
 	
 	return -1;
 }

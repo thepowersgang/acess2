@@ -21,7 +21,7 @@ struct sICMPHeader
 // === CONSTANTS ===
 enum eICMPTypes
 {
-	ICMP_ECHOREPLY = 1,
+	ICMP_ECHOREPLY = 0,
 	ICMP_UNREACHABLE = 3,
 	ICMP_QUENCH = 4,
 	ICMP_REDIRECT = 5,
