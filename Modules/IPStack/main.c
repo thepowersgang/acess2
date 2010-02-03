@@ -4,7 +4,6 @@
  */
 #define DEBUG	0
 #define VERSION	VER2(0,10)
-#define IDENT	IPStack
 #include "ipstack.h"
 #include "link.h"
 #include <modules.h>
@@ -31,7 +30,7 @@ tVFS_Node	*IPStack_FindDir(tVFS_Node *Node, char *Name);
 tAdapter	*IPStack_GetAdapter(char *Path);
 
 // === GLOBALS ===
-MODULE_DEFINE(0, VERSION, IDENT, IPStack_Install, NULL, NULL);
+MODULE_DEFINE(0, VERSION, IPStack, IPStack_Install, NULL, NULL);
 tDevFS_Driver	gIP_DriverInfo = {
 	NULL, "ip",
 	{
@@ -181,7 +180,7 @@ int IPStack_IOCtlRoot(tVFS_Node *Node, int ID, void *Data)
 		return DRV_TYPE_MISC;
 	
 	case DRV_IOCTL_IDENT:
-		tmp = ModUtil_SetIdent(Data, STR(IDENT));
+		tmp = ModUtil_SetIdent(Data, "IPStack");
 		LEAVE('i', 1);
 		return 1;
 	
