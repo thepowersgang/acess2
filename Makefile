@@ -11,7 +11,7 @@
 SUBMAKE = $(MAKE) --no-print-directory
 
 MODULES += $(DYNMODS)
-USRLIBS = ld-acess.so libacess.so libgcc.so libc.so
+USRLIBS = crt0.o ld-acess.so libacess.so libgcc.so libc.so
 USRAPPS = init login CLIShell cat ls mount ifconfig
 
 ALL_MODULES = $(addprefix all-,$(MODULES))

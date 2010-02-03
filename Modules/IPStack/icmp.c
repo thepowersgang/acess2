@@ -52,7 +52,7 @@ void ICMP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buff
 			Warning("[ICMP ] Code == %i for ICMP Echo Reply, should be 0", hdr->Code);
 			return ;
 		}
-		if(hdr->ID != ~hdr->Sequence) {
+		if(hdr->ID != (Uint16)~hdr->Sequence) {
 			Warning("[ICMP ] ID and Sequence values do not match");
 			return ;
 		}
@@ -82,7 +82,8 @@ void ICMP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buff
  */
 int ICMP_Ping(tInterface *Interface, tIPv4 Addr)
 {
-	//Sint64	ts;
+	Sint64	ts;
+	Sint64	end;
 	char	buf[32] = "\x8\0\0\0\0\0\0\0Acess2 I"
                       "P/TCP Stack 1.0\0";
 	tICMPHeader	*hdr = (void*)buf;
@@ -104,5 +105,13 @@ int ICMP_Ping(tInterface *Interface, tIPv4 Addr)
 	hdr->Checksum = htons( IPv4_Checksum(hdr, sizeof(buf)) );
 	IPv4_SendPacket(Interface, Addr, 1, i, sizeof(buf), buf);
 	
-	return -1;
+	ts = now();
+	end = ts + Interface->TimeoutDelay;
+	while( !gICMP_PingSlots[i].bArrived && now() < end)	Threads_Yield();
+	
+	ts = now() - ts;
+	if(ts > Interface->TimeoutDelay)
+		return -1;
+	
+	return (int)ts;
 }

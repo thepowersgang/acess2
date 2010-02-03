@@ -29,6 +29,7 @@ The /Kernel tree contains the kernel sources.
  /Usermode/include - Required include files for the shared libraries.
 
 === Building ===
+Required Tools: GNU Toolchain (GCC,Gas,binutils), NASM, mtools, GNU calc
 Compiling Acess is relatively simple (at the moment)
 First edit /Makefile.cfg and set the build programs (making sure they match
   the architecture you are building for).
