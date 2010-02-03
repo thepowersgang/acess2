@@ -257,11 +257,11 @@ extern void	MM_DerefPhys(tPAddr PAddr);
  * \name Memory Manipulation
  * \{
  */
-extern int	memcmp(const void *m1, const void *m2, Uint count);
-extern void *memcpy(void *dest, const void *src, Uint count);
-extern void *memcpyd(void *dest, const void *src, Uint count);
-extern void *memset(void *dest, int val, Uint count);
-extern void *memsetd(void *dest, Uint val, Uint count);
+extern int	memcmp(const void *m1, const void *m2, size_t count);
+extern void *memcpy(void *dest, const void *src, size_t count);
+extern void *memcpyd(void *dest, const void *src, size_t count);
+extern void *memset(void *dest, int val, size_t count);
+extern void *memsetd(void *dest, Uint32 val, size_t count);
 /**
  * \}
  */

@@ -49,10 +49,10 @@ Uint32 ind(Uint16 Port)
 }
 
 /**
- * \fn void *memset(void *Dest, int Val, Uint Num)
+ * \fn void *memset(void *Dest, int Val, size_t Num)
  * \brief Do a byte granuality set of Dest
  */
-void *memset(void *Dest, int Val, Uint Num)
+void *memset(void *Dest, int Val, size_t Num)
 {
 	__asm__ __volatile__ (
 		"rep stosl;\n\t"
@@ -62,19 +62,19 @@ void *memset(void *Dest, int Val, Uint Num)
 	return Dest;
 }
 /**
- * \fn void *memsetd(void *Dest, Uint Val, Uint Num)
+ * \brief Set double words
  */
-void *memsetd(void *Dest, Uint Val, Uint Num)
+void *memsetd(void *Dest, Uint32 Val, size_t Num)
 {
 	__asm__ __volatile__ ("rep stosl" :: "D" (Dest), "a" (Val), "c" (Num));
 	return Dest;
 }
 
 /**
- * \fn int memcmp(const void *m1, const void *m2, Uint Num)
+ * \fn int memcmp(const void *m1, const void *m2, size_t Num)
  * \brief Compare two pieces of memory
  */
-int memcmp(const void *m1, const void *m2, Uint Num)
+int memcmp(const void *m1, const void *m2, size_t Num)
 {
 	while(Num--)
 	{
@@ -86,10 +86,10 @@ int memcmp(const void *m1, const void *m2, Uint Num)
 }
 
 /**
- * \fn void *memcpy(void *Dest, const void *Src, Uint Num)
+ * \fn void *memcpy(void *Dest, const void *Src, size_t Num)
  * \brief Copy \a Num bytes from \a Src to \a Dest
  */
-void *memcpy(void *Dest, const void *Src, Uint Num)
+void *memcpy(void *Dest, const void *Src, size_t Num)
 {
 	if((Uint)Dest & 3 || (Uint)Src & 3)
 		__asm__ __volatile__ ("rep movsb" :: "D" (Dest), "S" (Src), "c" (Num));
@@ -103,10 +103,10 @@ void *memcpy(void *Dest, const void *Src, Uint Num)
 	return Dest;
 }
 /**
- * \fn void *memcpyd(void *Dest, const void *Src, Uint Num)
+ * \fn void *memcpyd(void *Dest, const void *Src, size_t Num)
  * \brief Copy \a Num DWORDs from \a Src to \a Dest
  */
-void *memcpyd(void *Dest, const void *Src, Uint Num)
+void *memcpyd(void *Dest, const void *Src, size_t Num)
 {
 	__asm__ __volatile__ ("rep movsl" :: "D" (Dest), "S" (Src), "c" (Num));
 	return Dest;
