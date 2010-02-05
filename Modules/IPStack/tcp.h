@@ -53,8 +53,9 @@ struct sTCPConnection
 	 int	State;
 	Uint16	LocalPort;
 	Uint16	RemotePort;
+	tVFS_Node	Node;
 	
-	tInterface	*LocalInterface;
+	tInterface	*Interface;
 	union {
 		tIPv4	v4;
 		tIPv6	v6;

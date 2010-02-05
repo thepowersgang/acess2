@@ -23,11 +23,14 @@ extern int	IPv4_Ping(tInterface *Iface, tIPv4 Addr);
 // === PROTOTYPES ===
  int	IPStack_Install(char **Arguments);
  int	IPStack_IOCtlRoot(tVFS_Node *Node, int ID, void *Data);
-char	*IPStack_ReadDir(tVFS_Node *Node, int Pos);
-tVFS_Node	*IPStack_FindDir(tVFS_Node *Node, char *Name);
- int	IPStack_IOCtl(tVFS_Node *Node, int ID, void *Data);
+char	*IPStack_Root_ReadDir(tVFS_Node *Node, int Pos);
+tVFS_Node	*IPStack_Root_FindDir(tVFS_Node *Node, char *Name);
+ int	IPStack_Root_IOCtl(tVFS_Node *Node, int ID, void *Data);
  int	IPStack_AddInterface(char *Device);
 tAdapter	*IPStack_GetAdapter(char *Path);
+char	*IPStack_Iface_ReadDir(tVFS_Node *Node, int Pos);
+tVFS_Node	*IPStack_Iface_FindDir(tVFS_Node *Node, char *Name);
+ int	IPStack_Iface_IOCtl(tVFS_Node *Node, int ID, void *Data);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, IPStack, IPStack_Install, NULL, NULL);
@@ -38,9 +41,9 @@ tDevFS_Driver	gIP_DriverInfo = {
 	.NumACLs = 1,
 	.ACLs = &gVFS_ACL_EveryoneRX,
 	.Flags = VFS_FFLAG_DIRECTORY,
-	.ReadDir = IPStack_ReadDir,
-	.FindDir = IPStack_FindDir,
-	.IOCtl = IPStack_IOCtlRoot
+	.ReadDir = IPStack_Root_ReadDir,
+	.FindDir = IPStack_Root_FindDir,
+	.IOCtl = IPStack_Root_IOCtl
 	}
 };
 tSpinlock	glIP_Interfaces = 0;
@@ -49,6 +52,7 @@ tInterface	*gIP_Interfaces_Last = NULL;
  int	giIP_NextIfaceId = 1;
 tSpinlock	glIP_Adapters = 0;
 tAdapter	*gIP_Adapters = NULL;
+tSocketFile	*gIP_FileTemplates;
 
 // === CODE ===
 /**
@@ -80,9 +84,19 @@ int IPStack_Install(char **Arguments)
 }
 
 /**
+ * \brief Adds a file to the socket list
+ */
+int IPStack_AddFile(tSocketFile *File)
+{
+	File->Next = gIP_FileTemplates;
+	gIP_FileTemplates = File;
+	return 0;
+}
+
+/**
  * \brief Read from the IP Stack's Device Directory
  */
-char *IPStack_ReadDir(tVFS_Node *Node, int Pos)
+char *IPStack_Root_ReadDir(tVFS_Node *Node, int Pos)
 {
 	tInterface	*iface;
 	char	*name;
@@ -127,7 +141,7 @@ char *IPStack_ReadDir(tVFS_Node *Node, int Pos)
 /**
  * \brief Get the node of an interface
  */
-tVFS_Node *IPStack_FindDir(tVFS_Node *Node, char *Name)
+tVFS_Node *IPStack_Root_FindDir(tVFS_Node *Node, char *Name)
 {
 	 int	i, num;
 	tInterface	*iface;
@@ -167,7 +181,7 @@ static const char *casIOCtls_Root[] = { DRV_IOCTLNAMES, "add_interface", NULL };
 /**
  * \brief Handles IOCtls for the IPStack root
  */
-int IPStack_IOCtlRoot(tVFS_Node *Node, int ID, void *Data)
+int IPStack_Root_IOCtl(tVFS_Node *Node, int ID, void *Data)
 {
 	 int	tmp;
 	ENTER("pNode iID pData", Node, ID, Data);
@@ -207,6 +221,40 @@ int IPStack_IOCtlRoot(tVFS_Node *Node, int ID, void *Data)
 	return 0;
 }
 
+/**
+ * \brief Read from an interface's directory
+ */
+char *IPStack_Iface_ReadDir(tVFS_Node *Node, int Pos)
+{
+	tSocketFile	*file = gIP_FileTemplates;
+	while(Pos-- && file)	file = file->Next;
+	
+	if(!file)	return NULL;
+	
+	return strdup(file->Name);
+}
+
+/**
+ * \brief Gets a named node from an interface directory
+ */
+tVFS_Node *IPStack_Iface_FindDir(tVFS_Node *Node, char *Name)
+{
+	tSocketFile	*file = gIP_FileTemplates;
+	
+	// Get file definition
+	for(;file;file = file->Next)
+	{
+		if( strcmp(file->Name, Name) == 0 )	break;
+	}
+	if(!file)	return NULL;
+	
+	// Pass the buck!
+	return file->Init(Node->ImplPtr);
+}
+
+/**
+ * \brief Names for interface IOCtl Calls
+ */
 static const char *casIOCtls_Iface[] = {
 	DRV_IOCTLNAMES,
 	"getset_type",
@@ -219,7 +267,7 @@ static const char *casIOCtls_Iface[] = {
 /**
  * \brief Handles IOCtls for the IPStack interfaces
  */
-int IPStack_IOCtl(tVFS_Node *Node, int ID, void *Data)
+int IPStack_Iface_IOCtl(tVFS_Node *Node, int ID, void *Data)
 {
 	 int	tmp;
 	tInterface	*iface = (tInterface*)Node->ImplPtr;
@@ -464,9 +512,9 @@ int IPStack_AddInterface(char *Device)
 	iface->Node.Size = 0;
 	iface->Node.NumACLs = 1;
 	iface->Node.ACLs = &gVFS_ACL_EveryoneRX;
-	iface->Node.ReadDir = NULL;
-	iface->Node.FindDir = NULL;
-	iface->Node.IOCtl = IPStack_IOCtl;
+	iface->Node.ReadDir = IPStack_Iface_ReadDir;
+	iface->Node.FindDir = IPStack_Iface_FindDir;
+	iface->Node.IOCtl = IPStack_Iface_IOCtl;
 	
 	// Set Defaults
 	iface->TimeoutDelay = DEFAULT_TIMEOUT;

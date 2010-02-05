@@ -8,6 +8,12 @@
 // === PROTOTYPES ===
 void	UDP_Initialise();
 void	UDP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffer);
+// --- Channel
+tVFS_Node	*UDP_Channel_Init(tInterface *Interface);
+Uint64	UDP_Channel_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
+Uint64	UDP_Channel_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
+ int	UDP_Channel_IOCtl(tVFS_Node *Node, int ID, void *Data);
+void	UDP_Channel_Close(tVFS_Node *Node);
 
 // === GLOBALS ===
 

@@ -13,6 +13,7 @@ typedef union uIPv6	tIPv6;
 typedef struct sMacAddr	tMacAddr;
 typedef struct sAdapter	tAdapter;
 typedef struct sInterface	tInterface;
+typedef struct sSocketFile	tSocketFile;
 
 typedef void	(*tIPCallback)(tInterface *Interface, void *Address, int Length, void *Buffer);
 
@@ -63,6 +64,17 @@ struct sAdapter {
 	char	Device[];
 };
 
+/**
+ * \brief Describes a socket file definition
+ */
+struct sSocketFile
+{
+	struct sSocketFile	*Next;
+	const char	*Name;
+	
+	tVFS_Node	*(*Init)(tInterface *Interface);
+};
+
 static const tMacAddr cMAC_BROADCAST = {{0xFF,0xFF,0xFF,0xFF,0xFF,0xFF}};
 
 #define MAC_SET(t,v)	memcpy(&(t),&(v),sizeof(tMacAddr))
@@ -80,5 +92,7 @@ static const tMacAddr cMAC_BROADCAST = {{0xFF,0xFF,0xFF,0xFF,0xFF,0xFF}};
 #define ntonb(v)	(v)
 #define ntohs(in)	BigEndian16(in)
 #define ntohl(in)	BigEndian32(in)
+
+extern int	IPStack_AddFile(tSocketFile *File);
 
 #endif
