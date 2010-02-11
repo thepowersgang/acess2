@@ -12,7 +12,6 @@
 extern tInterface	*gIP_Interfaces;
 extern void	ICMP_Initialise();
 extern  int	ICMP_Ping(tInterface *Interface, tIPv4 Addr);
-extern void	UDP_Initialise();
 extern tMacAddr	ARP_Resolve4(tInterface *Interface, tIPv4 Address);
 
 // === PROTOTYPES ===
@@ -34,7 +33,6 @@ tIPCallback	gaIPv4_Callbacks[256];
 int IPv4_Initialise()
 {
 	ICMP_Initialise();
-	UDP_Initialise();
 	Link_RegisterType(IPV4_ETHERNET_ID, IPv4_int_GetPacket);
 	return 1;
 }
@@ -135,7 +133,10 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	data = &hdr->Options[0];
 	
 	// Send it on
-	gaIPv4_Callbacks[hdr->Protocol] (iface, &hdr->Source, dataLength, data);
+	if( gaIPv4_Callbacks[hdr->Protocol] )
+		gaIPv4_Callbacks[hdr->Protocol] (iface, &hdr->Source, dataLength, data);
+	else
+		Log("[IPv4 ] Unknown Protocol %i", hdr->Protocol);
 }
 
 /**

@@ -17,6 +17,8 @@
 
 // === IMPORTS ===
 extern int	ARP_Initialise();
+extern void	UDP_Initialise();
+extern void	TCP_Initialise();
 extern int	IPv4_Initialise();
 extern int	IPv4_Ping(tInterface *Iface, tIPv4 Addr);
 
@@ -66,6 +68,8 @@ int IPStack_Install(char **Arguments)
 	// Install Handlers
 	ARP_Initialise();
 	IPv4_Initialise();
+	TCP_Initialise();
+	UDP_Initialise();
 	
 	if(Arguments)
 	{
@@ -111,26 +115,24 @@ char *IPStack_Root_ReadDir(tVFS_Node *Node, int Pos)
 		return NULL;
 	}
 	
-	name = malloc(6);
-	name[0] = 'i';
-	name[1] = 'p';
+	name = malloc(4);
 	
 	// Create the name
 	Pos = iface->Node.ImplInt;
 	if(Pos < 10) {
-		name[2] = '0' + Pos;
-		name[3] = '\0';
+		name[0] = '0' + Pos;
+		name[1] = '\0';
 	}
 	else if(Pos < 100) {
-		name[2] = '0' + Pos/10;
-		name[3] = '0' + Pos%10;
-		name[4] = '\0';
+		name[0] = '0' + Pos/10;
+		name[1] = '0' + Pos%10;
+		name[2] = '\0';
 	}
 	else {
-		name[2] = '0' + Pos/100;
-		name[3] = '0' + (Pos/10)%10;
-		name[4] = '0' + Pos%10;
-		name[5] = '\0';
+		name[0] = '0' + Pos/100;
+		name[1] = '0' + (Pos/10)%10;
+		name[2] = '0' + Pos%10;
+		name[3] = '\0';
 	}
 	
 	LEAVE('s', name);
@@ -148,12 +150,7 @@ tVFS_Node *IPStack_Root_FindDir(tVFS_Node *Node, char *Name)
 	
 	ENTER("pNode sName", Node, Name);
 	
-	if(Name[0] != 'i' || Name[1] != 'p') {
-		LEAVE('n');
-		return NULL;
-	}
-	
-	i = 2;	num = 0;
+	i = 0;	num = 0;
 	while('0' <= Name[i] && Name[i] <= '9')
 	{
 		num *= 10;

@@ -3,14 +3,17 @@
  * - TCP Handling
  */
 #include "ipstack.h"
+#include "ipv4.h"
 #include "tcp.h"
 
 #define TCP_MIN_DYNPORT	0x1000
+#define TCP_MAX_HALFOPEN	1024	// Should be enough
 
 // === PROTOTYPES ===
 void	TCP_Initialise();
-void	*TCP_Open(tInterface *Interface, Uint16 LocalPort, void *Address, Uint16 Port);
+void	TCP_StartConnection(tTCPConnection *Conn);
 void	TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffer);
+void	TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Header);
 Uint16	TCP_GetUnusedPort();
  int	TCP_AllocatePort(Uint16 Port);
  int	TCP_DeallocatePort(Uint16 Port);
@@ -33,7 +36,9 @@ tSocketFile	gTCP_ClientFile = {NULL, "tcpc", TCP_Client_Init};
 
 // === GLOBALS ===
  int	giTCP_NumHalfopen = 0;
+tSpinlock	glTCP_Listeners;
 tTCPListener	*gTCP_Listeners;
+tSpinlock	glTCP_OutbountCons;
 tTCPConnection	*gTCP_OutbountCons;
 Uint32	gaTCP_PortBitmap[0x800];
  int	giTCP_NextOutPort = TCP_MIN_DYNPORT;
@@ -47,10 +52,10 @@ void TCP_Initialise()
 {
 	IPStack_AddFile(&gTCP_ServerFile);
 	IPStack_AddFile(&gTCP_ClientFile);
+	IPv4_RegisterCallback(IP4PROT_TCP, TCP_GetPacket);
 }
 
 /**
- * \fn void *TCP_Open(tInterface *Interface, Uint16 LocalPort, void *Address, Uint16 Port)
  * \brief Open a connection to another host using TCP
  */
 void TCP_StartConnection(tTCPConnection *Conn)
@@ -69,6 +74,26 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 	tTCPHeader	*hdr = Buffer;
 	tTCPListener	*srv;
 	tTCPConnection	*conn;
+	
+	Log("[TCP  ] sizeof(tTCPHeader) = %i", sizeof(tTCPHeader));
+	Log("[TCP  ] DestPort = %i", ntohs(hdr->DestPort));
+	Log("[TCP  ] DestPort = %i", ntohs(hdr->DestPort));
+	Log("[TCP  ] SequenceNumber = %i", ntohl(hdr->SequenceNumber));
+	Log("[TCP  ] AcknowlegementNumber = %i", ntohl(hdr->AcknowlegementNumber));
+	Log("[TCP  ] DataOffset = %i", hdr->DataOffset >> 4);
+	Log("[TCP  ] Flags = {");
+	Log("[TCP  ]   CWR = %B", !!(hdr->Flags & TCP_FLAG_CWR));
+	Log("[TCP  ]   ECE = %B", !!(hdr->Flags & TCP_FLAG_ECE));
+	Log("[TCP  ]   URG = %B", !!(hdr->Flags & TCP_FLAG_URG));
+	Log("[TCP  ]   ACK = %B", !!(hdr->Flags & TCP_FLAG_ACK));
+	Log("[TCP  ]   PSH = %B", !!(hdr->Flags & TCP_FLAG_PSH));
+	Log("[TCP  ]   RST = %B", !!(hdr->Flags & TCP_FLAG_RST));
+	Log("[TCP  ]   SYN = %B", !!(hdr->Flags & TCP_FLAG_SYN));
+	Log("[TCP  ]   FIN = %B", !!(hdr->Flags & TCP_FLAG_FIN));
+	Log("[TCP  ] }");
+	Log("[TCP  ] WindowSize = %i", htons(hdr->WindowSize));
+	Log("[TCP  ] Checksum = 0x%x", htons(hdr->Checksum));
+	Log("[TCP  ] UrgentPointer = 0x%x", htons(hdr->UrgentPointer));
 	
 	// Check Servers
 	{
@@ -95,7 +120,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 					continue;
 				
 				// We have a response!
-				//TODO
+				TCP_INT_HandleConnectionPacket(conn, hdr)
 				
 				return;
 			}
@@ -112,9 +137,29 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 	{
 		for( conn = gTCP_OutbountCons; conn; conn = conn->Next )
 		{
-			// TODO
+			// Check that it is coming in on the same interface
+			if(conn->Interface != Interface)	continue;
+			
+			// Check Source Port
+			if(conn->RemotePort != hdr->SourcePort)	continue;
+			
+			// Check Source IP
+			if(conn->Interface->Type == 6 && !IP6_EQU(conn->RemoteIP.v6, *(tIPv6*)Address))
+				continue;
+			if(conn->Interface->Type == 4 && !IP4_EQU(conn->RemoteIP.v4, *(tIPv4*)Address))
+				continue;
+			
+			TCP_INT_HandleConnectionPacket(conn, hdr)
 		}
 	}
+}
+
+/**
+ * \brief Handles a packet sent to a specific connection
+ */
+void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Header)
+{
+	
 }
 
 /**
@@ -177,7 +222,26 @@ int TCP_DeallocatePort(Uint16 Port)
 // --- Server
 tVFS_Node *TCP_Server_Init(tInterface *Interface)
 {
-	return NULL;
+	tTCPListener	*srv = malloc( sizeof(tTCPListener) );
+	
+	srv->Interface = Interface;
+	srv->Port = 0;
+	srv->Connections = NULL;
+	srv->Next = NULL;
+	srv->Node.ImplPtr = srv;
+	srv->Node.NumACLs = 1;
+	srv->Node.ACLs = &gVFS_ACL_EveryoneRW;
+	srv->Node.ReadDir = TCP_Server_ReadDir;
+	srv->Node.FindDir = TCP_Server_FindDir;
+	srv->Node.IOCtl = TCP_Server_IOCtl;
+	srv->Node.Close = TCP_Server_Close;
+	
+	LOCK(&glTCP_Listeners);
+	srv->Next = gTCP_Listeners;
+	gTCP_Listeners = srv;
+	RELEASE(&glTCP_Listeners);
+	
+	return &srv->Node;
 }
 
 char *TCP_Server_ReadDir(tVFS_Node *Node, int Pos)
@@ -192,7 +256,36 @@ tVFS_Node *TCP_Server_FindDir(tVFS_Node *Node, char *Name)
 
 int TCP_Server_IOCtl(tVFS_Node *Node, int ID, void *Data)
 {
+	tTCPListener	*srv = Node->ImplPtr;
+	
+	switch(ID)
+	{
+	case 4:	// Get/Set Port
+		if(!Data)
+			return srv->Port;
+		
+		if(srv->Port)
+			return -1;
+		
+		if(!CheckMem(Data, sizeof(Uint16)))
+			return -1;
+		
+		if(Threads_GetUID() != 0 && *(Uint16*)Data < 1024)
+			return -1;
+		
+		srv->Port = *(Uint16*)Data;
+		if(srv->Port == 0)
+			srv->Port = TCP_GetUnusedPort();
+		else
+			TCP_AllocatePort(srv->Port);
+		return srv->Port;
+	}
 	return 0;
+}
+
+void TCP_Server_Close(tVFS_Node *Node)
+{
+	free(Node->ImplPtr);
 }
 
 // --- Client
@@ -214,6 +307,11 @@ tVFS_Node *TCP_Client_Init(tInterface *Interface)
 	conn->Node.IOCtl = TCP_Client_IOCtl;
 	conn->Node.Close = TCP_Client_Close;
 	
+	LOCK(&glTCP_OutbountCons);
+	conn->Next = gTCP_OutbountCons;
+	gTCP_OutbountCons = conn;
+	RELEASE(&glTCP_OutbountCons);
+	
 	return &conn->Node;
 }
 
@@ -233,7 +331,7 @@ int TCP_Client_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	
 	switch(ID)
 	{
-	case 5:	// Get/Set local port
+	case 4:	// Get/Set local port
 		if(!Data)
 			return conn->LocalPort;
 		if(conn->State != TCP_ST_CLOSED)
@@ -247,14 +345,14 @@ int TCP_Client_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		conn->LocalPort = *(Uint16*)Data;
 		return 0;
 	
-	case 6:	// Get/Set remote port
+	case 5:	// Get/Set remote port
 		if(!Data)	return conn->RemotePort;
 		if(conn->State != TCP_ST_CLOSED)	return -1;
 		if(!CheckMem(Data, sizeof(Uint16)))	return -1;
 		conn->RemotePort = *(Uint16*)Data;
 		return 0;
 	
-	case 7:	// Set Remote IP
+	case 6:	// Set Remote IP
 		if( conn->State != TCP_ST_CLOSED )
 			return -1;
 		if( conn->Interface->Type == 4 )
@@ -269,7 +367,7 @@ int TCP_Client_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		}
 		return 0;
 	
-	case 8:	// Connect
+	case 7:	// Connect
 		if(conn->LocalPort == -1)
 			conn->LocalPort = TCP_GetUnusedPort();
 		if(conn->RemotePort == -1)
