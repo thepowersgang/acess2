@@ -61,43 +61,46 @@ enum eTCPFlags
 
 struct sTCPListener
 {
-	struct sTCPListener	*Next;
-	Uint16	Port;
-	tInterface	*Interface;
-	tVFS_Node	Node;
-	 int	NextID;
-	tTCPConnection	*Connections;
+	struct sTCPListener	*Next;	//!< Next server in the list
+	Uint16	Port;		//!< Listening port (0 disables the server)
+	tInterface	*Interface;	//!< Listening Interface
+	tVFS_Node	Node;	//!< Server Directory node
+	 int	NextID;		//!< Name of the next connection
+	tSpinlock	lConnections;	//!< Spinlock for connections
+	tTCPConnection	*Connections;	//!< Connections (linked list)
+	volatile tTCPConnection	*NewConnections;
 };
 
 struct sTCPConnection
 {
 	struct sTCPConnection	*Next;
-	 int	State;
-	Uint16	LocalPort;
-	Uint16	RemotePort;
-	tVFS_Node	Node;
+	 int	State;	//!< Connection state (see ::eTCPConnectionState)
+	Uint16	LocalPort;	//!< Local port
+	Uint16	RemotePort;	//!< Remote port
+	tInterface	*Interface;	//!< Listening Interface
+	tVFS_Node	Node;	//!< Node
 	
-	 int	NextSequenceSend;
-	 int	NextSequenceRcv;
+	 int	NextSequenceSend;	//!< Next sequence value for outbound packets
+	 int	NextSequenceRcv;	//!< Next expected sequence value for inbound
 	
-	 int	nQueuedPackets;
+	 int	nQueuedPackets;	//!< Number of packets not ACKed
 	struct {
 		 int	Sequence;
 		void	*Data;
-	}	*QueuedPackets;
+	}	*QueuedPackets;	//!< Non-ACKed packets
 	
 	
-	 int	nFuturePackets;
+	 int	nFuturePackets;	//!< Number of packets recieved that are out of sequence
 	struct {
 		 int	SequenceNum;
 		void	*Data;
-	}	**FuturePackets;
+	}	**FuturePackets;	//!< Out of sequence packets
 	
-	tInterface	*Interface;
 	union {
 		tIPv4	v4;
 		tIPv6	v6;
-	} RemoteIP;	// Type is determined by LocalInterface->Type
+	} RemoteIP;	//!< Remote IP Address
+	// Type is determined by LocalInterface->Type
 };
 
 enum eTCPConnectionState

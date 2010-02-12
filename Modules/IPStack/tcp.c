@@ -59,7 +59,14 @@ void TCP_Initialise()
  * \brief Open a connection to another host using TCP
  */
 void TCP_StartConnection(tTCPConnection *Conn)
-{	
+{
+	tTCPHeader	hdr;
+	
+	hdr->SourcePort = Conn->LocalPort;
+	hdr->DestPort = Conn->RemotePort;
+	hdr->SequenceNumber = rand();
+	hdr->DataOffset = (sizeof(tTCPHeader)+3)/4;
+	hdr->Flags = TCP_FLAG_SYN;
 	// SEND PACKET
 	// Send a TCP SYN to the target to open the connection
 	return ;
@@ -99,6 +106,8 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 	{
 		for( srv = gTCP_Listeners; srv; srv = srv->Next )
 		{
+			// Check if the server is active
+			if(srv->Port == 0)	continue;
 			// Check the interface
 			if(srv->Interface && srv->Interface != Interface)	continue;
 			// Check the destination port
@@ -226,6 +235,7 @@ tVFS_Node *TCP_Server_Init(tInterface *Interface)
 	
 	srv->Interface = Interface;
 	srv->Port = 0;
+	srv->NextID = 0;
 	srv->Connections = NULL;
 	srv->Next = NULL;
 	srv->Node.ImplPtr = srv;
@@ -244,11 +254,33 @@ tVFS_Node *TCP_Server_Init(tInterface *Interface)
 	return &srv->Node;
 }
 
+/**
+ * \brief Wait for a new connection and return the connection ID
+ * \note Blocks until a new connection is made
+ * \param Node	Server node
+ * \param Pos	Position (ignored)
+ */
 char *TCP_Server_ReadDir(tVFS_Node *Node, int Pos)
 {
-	return NULL;
+	tTCPListener	*srv = Node->ImplPtr;
+	tTCPConnection	*conn;
+	char	*ret;
+	
+	while( srv->NewConnections == NULL )	Threads_Yield();
+	
+	conn = srv->NewConnections;
+	srv->NewConnections = conn->Next;
+	
+	ret = malloc(9);
+	itoa(ret, conn->ImplInt, 16, '0', 8);
+	return ret;
 }
 
+/**
+ * \brief Gets a client connection node
+ * \param Node	Server node
+ * \param Name	Hexadecimal ID of the node
+ */
 tVFS_Node *TCP_Server_FindDir(tVFS_Node *Node, char *Name)
 {
 	return NULL;
@@ -261,22 +293,28 @@ int TCP_Server_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	switch(ID)
 	{
 	case 4:	// Get/Set Port
-		if(!Data)
+		if(!Data)	// Get Port
 			return srv->Port;
 		
-		if(srv->Port)
+		if(srv->Port)	// Wait, you can't CHANGE the port
 			return -1;
 		
-		if(!CheckMem(Data, sizeof(Uint16)))
+		if(!CheckMem(Data, sizeof(Uint16)))	// Sanity check
 			return -1;
 		
-		if(Threads_GetUID() != 0 && *(Uint16*)Data < 1024)
+		// Permissions check
+		if(Threads_GetUID() != 0
+		&& *(Uint16*)Data != 0
+		&& *(Uint16*)Data < 1024)
 			return -1;
 		
+		// TODO: Check if a port is in use
+		
+		// Set Port
 		srv->Port = *(Uint16*)Data;
-		if(srv->Port == 0)
+		if(srv->Port == 0)	// Allocate a random port
 			srv->Port = TCP_GetUnusedPort();
-		else
+		else	// Else, mark this as used
 			TCP_AllocatePort(srv->Port);
 		return srv->Port;
 	}
