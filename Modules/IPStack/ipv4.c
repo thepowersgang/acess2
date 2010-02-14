@@ -51,6 +51,12 @@ int IPv4_RegisterCallback(int ID, tIPCallback Callback)
 
 /**
  * \brief Creates and sends an IPv4 Packet
+ * \param Iface	Interface
+ * \param Address	Destination IP
+ * \param Protocol	Protocol ID
+ * \param ID	Some random ID number
+ * \param Length	Data Length
+ * \param Data	Packet Data
  */
 int IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, int Length, void *Data)
 {
@@ -70,7 +76,7 @@ int IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, int 
 	hdr->HeaderChecksum = 0;	// Will be set later
 	hdr->Source = Iface->IP4.Address;
 	hdr->Destination = Address;
-	hdr->HeaderChecksum = htons( IPv4_Checksum(hdr, sizeof(tIPv4Header)) );
+	hdr->HeaderChecksum = IPv4_Checksum(hdr, sizeof(tIPv4Header));
 	
 	Log("[IPv4 ] Sending packet to %i.%i.%i.%i",
 		Address.B[0], Address.B[1], Address.B[2], Address.B[3]);
@@ -211,7 +217,7 @@ Uint16 IPv4_Checksum(void *Buf, int Size)
 			sum ++;	// Simulate 1's complement
 		sum += arr[i];
 	}
-	return htons( ~sum );
+	return ~sum ;
 }
 
 /**

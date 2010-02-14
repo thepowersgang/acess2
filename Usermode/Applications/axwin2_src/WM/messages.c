@@ -60,13 +60,13 @@ void Messages_Handle(tAxWin_Message *Msg, tMessages_Handle_Callback *Respond, in
 {
 	switch(Msg->ID)
 	{
-	case MSG_REQ_PING:
-		Msg->ID = MSG_RSP_PONG;
+	case MSG_SREQ_PING:
+		Msg->ID = MSG_SRSP_PONG;
 		Respond(ID, sizeof(Msg->ID), Msg);
 		break;
 	default:
-		fprintf(stderr, "WARNING: Unknown message %i from %i (%p)\n",
-			Msg->ID, ID, Respond);
+		fprintf(stderr, "WARNING: Unknown message %i from %i (%p)\n", Msg->ID, ID, Respond);
+		_SysDebug("WARNING: Unknown message %i from %i (%p)\n", Msg->ID, ID, Respond);
 		break;
 	}
 }

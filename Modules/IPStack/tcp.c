@@ -64,12 +64,43 @@ void TCP_StartConnection(tTCPConnection *Conn)
 	
 	hdr->SourcePort = Conn->LocalPort;
 	hdr->DestPort = Conn->RemotePort;
-	hdr->SequenceNumber = rand();
+	Conn->NextSequenceSend = rand();
+	hdr->SequenceNumber = Conn->NextSequenceSend;
 	hdr->DataOffset = (sizeof(tTCPHeader)+3)/4;
 	hdr->Flags = TCP_FLAG_SYN;
+	hdr->WindowSize = 0;	// TODO
+	hdr->Checksum = 0;	// TODO
+	hdr->UrgentPointer = 0;
 	// SEND PACKET
-	// Send a TCP SYN to the target to open the connection
+	TCP_SendPacket( Conn, sizeof(tTCPHeader), &hdr );
 	return ;
+}
+
+/**
+ * \brief Sends a packet from the specified connection, calculating the checksums
+ * \param Conn	Connection
+ * \param Length	Length of data
+ * \param Data	Packet data
+ */
+void TCP_SendPacket( tTCPConnection *Conn, size_t Length, tTCPHeader *Data )
+{
+	size_t	buflen;
+	Uint32	*buf;
+	switch( Conn->Interface.Type )
+	{
+	case 4:
+		buflen = 4 + 4 + 4 + ((Length+1)&1);
+		buf = malloc( buflen );
+		buf[0] = Conn->Interface.IP4.Address.L;
+		buf[1] = Conn->RemoteIP.v4.L;
+		buf[2] = (htons(Length)<<16) | (6<<8) | 0;
+		Data->Checksum = 0;
+		memcpy( &buf[3], Data, buflen );
+		Data->Checksum = IPv4_Checksum( buf, buflen );
+		free(buf);
+		IPv4_SendPacket(Conn->Interface, Conn->RemoteIP.v4, IP4PROT_TCP, 0, sizeof(tTCPHeader), &hdr);
+		break;
+	}
 }
 
 /**
