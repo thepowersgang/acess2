@@ -7,11 +7,15 @@
 #include <stdint.h>
 
 // === CONSTANTS ===
+#ifndef NULL
+# define NULL	((void*)0)
+#endif
+
 #define OPENFLAG_EXEC	0x01
 #define OPENFLAG_READ	0x02
 #define OPENFLAG_WRITE	0x04
 #define	OPENFLAG_NOLINK	0x40
-#define	OPENFLAG_CREATE	0x40
+#define	OPENFLAG_CREATE	0x80
 #ifndef SEEK_CUR
 # define SEEK_SET	1
 # define SEEK_CUR	0
@@ -23,6 +27,8 @@
 #define FILEFLAG_SYMLINK	0x20
 
 // === TYPES ===
+typedef uint	pid_t;
+
 struct s_sysACL {
 	union {
 		struct {
@@ -90,8 +96,8 @@ extern int	_SysGetACL(int fd, t_sysACL *dest);
 extern int	_SysMount(const char *Device, const char *Directory, const char *Type, const char *Options);
 
 // --- IPC ---
-extern int	SysSendMessage(int dest, int length, void *Data);
-extern int	SysGetMessage(int *src, void *Data);
+extern int	SysSendMessage(pid_t dest, uint length, void *Data);
+extern int	SysGetMessage(pid_t *src, void *Data);
 
 // --- MEMORY ---
 uint64_t	_SysGetPhys(uint vaddr);

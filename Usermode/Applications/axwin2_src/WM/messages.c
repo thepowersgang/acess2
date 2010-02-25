@@ -22,13 +22,13 @@ void	Messages_Handle(tAxWin_Message *Msg, tMessages_Handle_Callback *Respond, in
 void Messages_PollIPC()
 {
 	 int	len;
-	 int	tid = 0;
+	pid_t	tid = 0;
 	char	staticBuf[STATICBUF_SIZE];
 	tAxWin_Message	*msg;
 	
 	// Wait for a message
-	while( (len = SysGetMessage(&tid, NULL)) )
-		yield();
+	while( (len = SysGetMessage(&tid, NULL)) == 0 )
+		sleep();
 	
 	// Allocate the space for it
 	if( len <= STATICBUF_SIZE )

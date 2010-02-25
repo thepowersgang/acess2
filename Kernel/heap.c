@@ -30,7 +30,7 @@ void	free(void *Ptr);
 void	Heap_Dump();
 
 // === GLOBALS ===
- int	giHeapSpinlock;
+ int	glHeap;
 void	*gHeapStart;
 void	*gHeapEnd;
 
@@ -140,7 +140,7 @@ void *malloc(size_t Bytes)
 	Bytes = (Bytes + sizeof(tHeapHead) + sizeof(tHeapFoot) + BLOCK_SIZE-1) & ~(BLOCK_SIZE-1);
 	
 	// Lock Heap
-	LOCK(&giHeapSpinlock);
+	LOCK(&glHeap);
 	
 	// Traverse Heap
 	for( head = gHeapStart;
@@ -154,6 +154,7 @@ void *malloc(size_t Bytes)
 			Warning("Size of heap address %p is invalid not aligned (0x%x)", head, head->Size);
 			Heap_Dump();
 			#endif
+			RELEASE(&glHeap);
 			return NULL;
 		}
 		
@@ -165,7 +166,7 @@ void *malloc(size_t Bytes)
 			Warning("Magic of heap address %p is invalid (0x%x)", head, head->Magic);
 			Heap_Dump();
 			#endif
-			RELEASE(&giHeapSpinlock);	// Release spinlock
+			RELEASE(&glHeap);	// Release spinlock
 			return NULL;
 		}
 		
@@ -175,7 +176,7 @@ void *malloc(size_t Bytes)
 		// Perfect fit
 		if(head->Size == Bytes) {
 			head->Magic = MAGIC_USED;
-			RELEASE(&giHeapSpinlock);	// Release spinlock
+			RELEASE(&glHeap);	// Release spinlock
 			#if DEBUG_TRACE
 			LOG("RETURN %p, to %p", best->Data, __builtin_return_address(0));
 			#endif
@@ -202,12 +203,12 @@ void *malloc(size_t Bytes)
 		best = Heap_Extend( Bytes );
 		// Check for errors
 		if(!best) {
-			RELEASE(&giHeapSpinlock);	// Release spinlock
+			RELEASE(&glHeap);	// Release spinlock
 			return NULL;
 		}
 		// Check size
 		if(best->Size == Bytes) {
-			RELEASE(&giHeapSpinlock);	// Release spinlock
+			RELEASE(&glHeap);	// Release spinlock
 			#if DEBUG_TRACE
 			LOG("RETURN %p, to %p", best->Data, __builtin_return_address(0));
 			#endif
@@ -228,7 +229,7 @@ void *malloc(size_t Bytes)
 	best->Size = Bytes;		// Update size in old header
 	best->Magic = MAGIC_USED;	// Mark block as used
 	
-	RELEASE(&giHeapSpinlock);	// Release spinlock
+	RELEASE(&glHeap);	// Release spinlock
 	#if DEBUG_TRACE
 	LOG("RETURN %p, to %p", best->Data, __builtin_return_address(0));
 	#endif
@@ -285,7 +286,7 @@ void free(void *Ptr)
 	}
 	
 	// Lock
-	LOCK( &giHeapSpinlock );
+	LOCK( &glHeap );
 	
 	// Mark as free
 	head->Magic = MAGIC_FREE;
@@ -293,7 +294,7 @@ void free(void *Ptr)
 	Heap_Merge( head );
 	
 	// Release
-	RELEASE( &giHeapSpinlock );
+	RELEASE( &glHeap );
 }
 
 /**

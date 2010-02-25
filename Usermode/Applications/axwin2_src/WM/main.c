@@ -38,7 +38,8 @@ int main(int argc, char *argv[])
 	// Main Loop
 	for(;;)
 	{
-		yield();
+		Messages_PollIPC();
+		//yield();
 	}
 	return 0;
 }

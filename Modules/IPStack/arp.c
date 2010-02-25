@@ -16,7 +16,7 @@ extern tInterface	*IPv6_GetInterface(tAdapter *Adapter, tIPv6 Address, int Broad
 
 // === PROTOTYPES ===
  int	ARP_Initialise();
- int	ARP_int_Resolve4(tInterface *Interface, tIPv4 Address);
+tMacAddr	ARP_Resolve4(tInterface *Interface, tIPv4 Address);
 void	ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffer);
 
 // === GLOBALS ===
@@ -64,6 +64,7 @@ tMacAddr ARP_Resolve4(tInterface *Interface, tIPv4 Address)
 {
 	 int	lastID;
 	 int	i;
+	struct sArpRequest4	req;
 	
 	ENTER("pInterface xAddress", Interface, Address);
 	
@@ -87,7 +88,25 @@ tMacAddr ARP_Resolve4(tInterface *Interface, tIPv4 Address)
 	RELEASE( &glARP_Cache4 );
 	
 	lastID = giARP_LastUpdateID;
-	ARP_int_Resolve4(Interface, Address);
+	
+	// Create request
+	Log("[ARP4 ] Asking for address %i.%i.%i.%i",
+		Address.B[0], Address.B[1], Address.B[2], Address.B[3]
+		);
+	req.HWType = htons(1);	// Ethernet
+	req.Type   = htons(0x0800);
+	req.HWSize = 6;
+	req.SWSize = 4;
+	req.Request = htons(1);
+	req.SourceMac = Interface->Adapter->MacAddr;
+	req.SourceIP = Interface->IP4.Address;
+	req.DestMac = cMAC_BROADCAST;
+	req.DestIP = Address;
+	
+	// Send Request
+	Link_SendPacket(Interface->Adapter, 0x0806, req.DestMac, sizeof(struct sArpRequest4), &req);
+	
+	// Wait for a reply
 	for(;;)
 	{
 		while(lastID == giARP_LastUpdateID)	Threads_Yield();
@@ -103,33 +122,6 @@ tMacAddr ARP_Resolve4(tInterface *Interface, tIPv4 Address)
 		}
 		RELEASE( &glARP_Cache4 );
 	}
-}
-
-/**
- * \fn int ARP_int_Resolve4(tInterface *Interface, tIPv4 Address)
- * \brief Request the network to resolve an IPv4 Address
- * \return Boolean Success
- */
-int ARP_int_Resolve4(tInterface *Interface, tIPv4 Address)
-{
-	struct sArpRequest4	req;
-	
-	Log("[ARP4 ] Asking for address %i.%i.%i.%i",
-		Address.B[0], Address.B[1], Address.B[2], Address.B[3]
-		);
-	req.HWType = htons(0x100);	// Ethernet
-	req.Type   = htons(0x0800);
-	req.HWSize = 6;
-	req.SWSize = 4;
-	req.Request = htons(1);
-	req.SourceMac = Interface->Adapter->MacAddr;
-	req.SourceIP = Interface->IP4.Address;
-	req.DestMac = cMAC_BROADCAST;
-	req.DestIP = Address;
-	
-	Link_SendPacket(Interface->Adapter, 0x0806, req.DestMac, sizeof(struct sArpRequest4), &req);
-	
-	return 0;
 }
 
 /**

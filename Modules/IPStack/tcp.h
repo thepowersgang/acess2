@@ -68,7 +68,7 @@ struct sTCPListener
 	 int	NextID;		//!< Name of the next connection
 	tSpinlock	lConnections;	//!< Spinlock for connections
 	tTCPConnection	*Connections;	//!< Connections (linked list)
-	volatile tTCPConnection	*NewConnections;
+	 tTCPConnection	*volatile NewConnections;
 };
 
 struct sTCPConnection

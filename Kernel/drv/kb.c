@@ -58,6 +58,7 @@ int KB_Install(char **Arguments)
 {
 	IRQ_AddHandler(1, KB_IRQHandler);
 	DevFS_AddDevice( &gKB_DevInfo );
+	//Log("KB_Install: Installed");
 	return 1;
 }
 
@@ -72,17 +73,19 @@ void KB_IRQHandler()
 	// int	keyNum;
 
 	//if( inportb(0x64) & 0x20 )	return;
-	
+
 	scancode = inb(0x60); // Read from the keyboard's data buffer
+
+	Log("KB_IRQHandler: scancode = 0x%02x", scancode);
 
 	// Ignore ACKs
 	if(scancode == 0xFA) {
 		// Oh man! This is anachic (I'm leaving it here to represent the
-		// mess that acess once was
+		// mess that Acess once was)
 		//kb_lastChar = KB_ACK;
 		return;
 	}
-	
+
 	// Layer +1
 	if(scancode == 0xE0) {
 		giKB_KeyLayer = 1;
@@ -93,7 +96,7 @@ void KB_IRQHandler()
 		giKB_KeyLayer = 2;
 		return;
 	}
-	
+
 	#if KB_ALT_SCANCODES
 	if(scancode == 0xF0)
 	{
@@ -107,32 +110,32 @@ void KB_IRQHandler()
 		gbKB_KeyUp = 1;
 	}
 	#endif
-	
+
 	// Translate
 	ch = gpKB_Map[giKB_KeyLayer][scancode];
 	//keyNum = giKB_KeyLayer * 256 + scancode;
 	// Check for unknown key
 	if(!ch && !gbKB_KeyUp)
 		Warning("UNK %i %x", giKB_KeyLayer, scancode);
-	
+
 	// Key Up?
 	if (gbKB_KeyUp)
 	{
 		gbKB_KeyUp = 0;
 		gbaKB_States[giKB_KeyLayer][scancode] = 0;	// Unset key state flag
-		
+
 		#if USE_KERNEL_MAGIC
 		if(ch == KEY_LCTRL)	gbKB_MagicState &= ~1;
 		if(ch == KEY_LALT)	gbKB_MagicState &= ~2;
 		#endif
-		
+
 		if(ch == KEY_LSHIFT)	gbKB_ShiftState &= ~1;
 		if(ch == KEY_RSHIFT)	gbKB_ShiftState &= ~2;
-		
+
 		// Call callback
 		if(ch != 0 && gKB_Callback)
 			gKB_Callback( ch & 0x80000000 );
-		
+
 		// Reset Layer
 		giKB_KeyLayer = 0;
 		return;
@@ -143,19 +146,19 @@ void KB_IRQHandler()
 	// Set shift key bits
 	if(ch == KEY_LSHIFT)	gbKB_ShiftState |= 1;
 	if(ch == KEY_RSHIFT)	gbKB_ShiftState |= 2;
-	
+
 	// Check for Caps Lock
 	if(ch == KEY_CAPSLOCK) {
 		gbKB_CapsState = !gbKB_CapsState;
 		KB_UpdateLEDs();
 	}
-	
+
 	// Reset Layer
 	giKB_KeyLayer = 0;
 
 	// Ignore Non-Printable Characters
 	if(ch == 0)		return;
-	
+
 	// --- Check for Kernel Magic Combos
 	#if USE_KERNEL_MAGIC
 	if(ch == KEY_LCTRL)	gbKB_MagicState |= 1;
@@ -169,7 +172,7 @@ void KB_IRQHandler()
 		}
 	}
 	#endif
-	
+
 	// Is shift pressed
 	// - Darn ugly hacks !(!x) means (bool)x
 	if( !(!gbKB_ShiftState) ^ gbKB_CapsState)
@@ -204,7 +207,7 @@ void KB_IRQHandler()
 			break;
 		}
 	}
-	
+
 	if(gKB_Callback && ch != 0)	gKB_Callback(ch);
 }
 
@@ -215,12 +218,12 @@ void KB_IRQHandler()
 void KB_UpdateLEDs()
 {
 	Uint8	leds;
-	
+
 	leds = (gbKB_CapsState ? 4 : 0);
-	
+
 	while( inb(0x64) & 2 );	// Wait for bit 2 to unset
 	outb(0x60, 0xED);	// Send update command
-	
+
 	while( inb(0x64) & 2 );	// Wait for bit 2 to unset
 	outb(0x60, leds);
 }
@@ -237,7 +240,7 @@ int KB_IOCtl(tVFS_Node *Node, int Id, void *Data)
 	case DRV_IOCTL_IDENT:	memcpy(Data, "KB\0\0", 4);	return 1;
 	case DRV_IOCTL_VERSION:	return 0x100;
 	case DRV_IOCTL_LOOKUP:	return 0;
-	
+
 	// Sets the Keyboard Callback
 	case KB_IOCTL_SETCALLBACK:
 		// Sanity Check
@@ -247,7 +250,7 @@ int KB_IOCtl(tVFS_Node *Node, int Id, void *Data)
 		// Set Callback
 		gKB_Callback = Data;
 		return 1;
-	
+
 	default:
 		return 0;
 	}

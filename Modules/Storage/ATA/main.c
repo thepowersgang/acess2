@@ -2,7 +2,7 @@
  * Acess2 IDE Harddisk Driver
  * - main.c
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <acess.h>
 #include <modules.h>
 #include <vfs.h>
@@ -110,17 +110,17 @@ tPRDT_Ent	gATA_PRDTs[2] = {
 int ATA_Install()
 {
 	int	ret;
-	
+
 	ret = ATA_SetupIO();
 	if(ret != 1)	return ret;
-	
+
 	ATA_SetupPartitions();
-	
+
 	ATA_SetupVFS();
-	
+
 	if( DevFS_AddDevice( &gATA_DriverInfo ) == 0 )
 		return MODULE_INIT_FAILURE;
-	
+
 	return MODULE_INIT_SUCCESS;
 }
 
@@ -132,9 +132,9 @@ int ATA_SetupIO()
 {
 	 int	ent;
 	tPAddr	addr;
-	
+
 	ENTER("");
-	
+
 	// Get IDE Controller's PCI Entry
 	ent = PCI_GetDeviceByClass(0x0101, 0xFFFF, -1);
 	LOG("ent = %i", ent);
@@ -156,25 +156,25 @@ int ATA_SetupIO()
 		// Bit 0 is left set as a flag to other functions
 		LOG("gATA_BusMasterBase = 0x%x", gATA_BusMasterBase & ~1);
 	}
-	
+
 	IRQ_AddHandler( gATA_IRQPri, ATA_IRQHandlerPri );
 	IRQ_AddHandler( gATA_IRQSec, ATA_IRQHandlerSec );
-	
+
 	gATA_PRDTs[0].PBufAddr = MM_GetPhysAddr( (Uint)&gATA_Buffers[0] );
 	gATA_PRDTs[1].PBufAddr = MM_GetPhysAddr( (Uint)&gATA_Buffers[1] );
-	
+
 	LOG("gATA_PRDTs = {PBufAddr: 0x%x, PBufAddr: 0x%x}", gATA_PRDTs[0].PBufAddr, gATA_PRDTs[1].PBufAddr);
-	
+
 	addr = MM_GetPhysAddr( (Uint)&gATA_PRDTs[0] );
 	LOG("addr = 0x%x", addr);
 	ATA_int_BusMasterWriteDWord(4, addr);
 	addr = MM_GetPhysAddr( (Uint)&gATA_PRDTs[1] );
 	LOG("addr = 0x%x", addr);
 	ATA_int_BusMasterWriteDWord(12, addr);
-	
+
 	outb(IDE_PRI_BASE+1, 1);
 	outb(IDE_SEC_BASE+1, 1);
-	
+
 	LEAVE('i', MODULE_INIT_SUCCESS);
 	return MODULE_INIT_SUCCESS;
 }
@@ -201,7 +201,7 @@ void ATA_SetupPartitions()
 void ATA_SetupVFS()
 {
 	 int	i, j, k;
-	
+
 	// Count number of nodes needed
 	giATA_NumNodes = 0;
 	for( i = 0; i < MAX_ATA_DISKS; i++ )
@@ -210,10 +210,10 @@ void ATA_SetupVFS()
 		giATA_NumNodes ++;
 		giATA_NumNodes += gATA_Disks[i].NumPartitions;
 	}
-	
+
 	// Allocate Node space
 	gATA_Nodes = malloc( giATA_NumNodes * sizeof(void*) );
-	
+
 	// Set nodes
 	k = 0;
 	for( i = 0; i < MAX_ATA_DISKS; i++ )
@@ -223,7 +223,7 @@ void ATA_SetupVFS()
 		for( j = 0; j < gATA_Disks[i].NumPartitions; j ++ )
 			gATA_Nodes[ k++ ] = &gATA_Disks[i].Partitions[j].Node;
 	}
-	
+
 	gATA_DriverInfo.RootNode.Size = giATA_NumNodes;
 }
 
@@ -239,19 +239,19 @@ int ATA_ScanDisk(int Disk)
 	Uint8	val;
 	 int	i;
 	tVFS_Node	*node;
-	
+
 	ENTER("iDisk", Disk);
-	
+
 	base = ATA_GetBasePort( Disk );
-	
+
 	LOG("base = 0x%x", base);
-	
+
 	// Send Disk Selector
 	if(Disk == 1 || Disk == 3)
 		outb(base+6, 0xB0);
 	else
 		outb(base+6, 0xA0);
-	
+
 	// Send IDENTIFY
 	outb(base+7, 0xEC);
 	val = inb(base+7);	// Read status
@@ -259,27 +259,27 @@ int ATA_ScanDisk(int Disk)
 		LEAVE('i', 0);
 		return 0;	// Disk does not exist
 	}
-	
+
 	// Poll until BSY clears and DRQ sets or ERR is set
 	while( ((val & 0x80) || !(val & 0x08)) && !(val & 1))	val = inb(base+7);
-	
+
 	if(val & 1) {
 		LEAVE('i', 0);
 		return 0;	// Error occured, so return false
 	}
-	
+
 	// Read Data
 	for(i=0;i<256;i++)	buf[i] = inw(base);
-	
+
 	// Populate Disk Structure
 	if(identify->Sectors48 != 0)
 		gATA_Disks[ Disk ].Sectors = identify->Sectors48;
 	else
 		gATA_Disks[ Disk ].Sectors = identify->Sectors28;
-	
-	
+
+
 	LOG("gATA_Disks[ Disk ].Sectors = 0x%x", gATA_Disks[ Disk ].Sectors);
-	
+
 	if( gATA_Disks[ Disk ].Sectors / (2048*1024) )
 		Log("Disk %i: 0x%llx Sectors (%i GiB)", Disk,
 			gATA_Disks[ Disk ].Sectors, gATA_Disks[ Disk ].Sectors / (2048*1024));
@@ -289,21 +289,21 @@ int ATA_ScanDisk(int Disk)
 	else
 		Log("Disk %i: 0x%llx Sectors (%i KiB)", Disk,
 			gATA_Disks[ Disk ].Sectors, gATA_Disks[ Disk ].Sectors / 2);
-	
+
 	// Create Name
 	gATA_Disks[ Disk ].Name[0] = 'A'+Disk;
 	gATA_Disks[ Disk ].Name[1] = '\0';
-	
+
 	// Get pointer to vfs node and populate it
 	node = &gATA_Disks[ Disk ].Node;
 	node->Size = gATA_Disks[Disk].Sectors * SECTOR_SIZE;
 	node->NumACLs = 0;	// Means Superuser only can access it
 	node->Inode = (Disk << 8) | 0xFF;
 	node->ImplPtr = gATA_Disks[ Disk ].Name;
-	
+
 	node->ATime = node->MTime
 		= node->CTime = now();
-	
+
 	node->Read = ATA_ReadFS;
 	node->Write = ATA_WriteFS;
 	node->IOCtl = ATA_IOCtl;
@@ -313,13 +313,13 @@ int ATA_ScanDisk(int Disk)
 	LOG("Reading MBR");
 	// Read Boot Sector
 	ATA_ReadDMA( Disk, 0, 1, mbr );
-	
+
 	// Check for a GPT table
 	if(mbr->Parts[0].SystemID == 0xEE)
 		ATA_ParseGPT(Disk);
 	else	// No? Just parse the MBR
 		ATA_ParseMBR(Disk);
-	
+
 	LEAVE('i', 0);
 	return 1;
 }
@@ -345,7 +345,7 @@ void ATA_int_MakePartition(tATA_Partition *Part, int Disk, int Num, Uint64 Start
 	Part->Node.NumACLs = 0;	// Only root can read/write raw block devices
 	Part->Node.Inode = (Disk << 8) | Num;
 	Part->Node.ImplPtr = Part->Name;
-	
+
 	Part->Node.Read = ATA_ReadFS;
 	Part->Node.Write = ATA_WriteFS;
 	Part->Node.IOCtl = ATA_IOCtl;
@@ -401,7 +401,7 @@ tVFS_Node *ATA_FindDir(tVFS_Node *Node, char *Name)
 			return NULL;
 		return &gATA_Disks[Name[0]-'A'].Node;
 	}
-	
+
 	// Partitions
 	if(Name[1] < '0' || '9' < Name[1])	return NULL;
 	if(Name[2] == '\0') {	// <= 9
@@ -412,12 +412,12 @@ tVFS_Node *ATA_FindDir(tVFS_Node *Node, char *Name)
 	// > 9
 	if('0' > Name[2] || '9' < Name[2])	return NULL;
 	if(Name[3] != '\0')	return NULL;
-	
+
 	part = (Name[1] - '0') * 10;
 	part += Name[2] - '0';
 	part --;
 	return &gATA_Disks[Name[0]-'A'].Partitions[part].Node;
-	
+
 }
 
 /**
@@ -427,7 +427,7 @@ Uint64 ATA_ReadFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 {
 	 int	disk = Node->Inode >> 8;
 	 int	part = Node->Inode & 0xFF;
-	
+
 	// Raw Disk Access
 	if(part == 0xFF)
 	{
@@ -445,7 +445,7 @@ Uint64 ATA_ReadFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 			Length = gATA_Disks[disk].Partitions[part].Length * SECTOR_SIZE - Offset;
 		Offset += gATA_Disks[disk].Partitions[part].Start * SECTOR_SIZE;
 	}
-	
+
 	//Log("ATA_ReadFS: (Node=%p, Offset=0x%llx, Length=0x%llx, Buffer=%p)", Node, Offset, Length, Buffer);
 	return DrvUtil_ReadBlock(Offset, Length, Buffer, ATA_ReadRaw, SECTOR_SIZE, disk);
 }
@@ -457,7 +457,7 @@ Uint64 ATA_WriteFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 {
 	 int	disk = Node->Inode >> 8;
 	 int	part = Node->Inode & 0xFF;
-	
+
 	// Raw Disk Access
 	if(part == 0xFF)
 	{
@@ -475,7 +475,7 @@ Uint64 ATA_WriteFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 			Length = gATA_Disks[disk].Partitions[part].Length * SECTOR_SIZE - Offset;
 		Offset += gATA_Disks[disk].Partitions[part].Start * SECTOR_SIZE;
 	}
-	
+
 	Log("ATA_WriteFS: (Node=%p, Offset=0x%llx, Length=0x%llx, Buffer=%p)", Node, Offset, Length, Buffer);
 	Debug_HexDump("ATA_WriteFS", Buffer, Length);
 	return DrvUtil_WriteBlock(Offset, Length, Buffer, ATA_ReadRaw, ATA_WriteRaw, SECTOR_SIZE, disk);
@@ -503,7 +503,7 @@ Uint ATA_ReadRaw(Uint64 Address, Uint Count, void *Buffer, Uint Disk)
 	 int	ret;
 	Uint	offset;
 	Uint	done = 0;
-	 
+
 	// Pass straight on to ATA_ReadDMAPage if we can
 	if(Count <= MAX_DMA_SECTORS)
 	{
@@ -511,7 +511,7 @@ Uint ATA_ReadRaw(Uint64 Address, Uint Count, void *Buffer, Uint Disk)
 		if(ret == 0)	return 0;
 		return Count;
 	}
-	
+
 	// Else we will have to break up the transfer
 	offset = 0;
 	while(Count > MAX_DMA_SECTORS)
@@ -524,7 +524,7 @@ Uint ATA_ReadRaw(Uint64 Address, Uint Count, void *Buffer, Uint Disk)
 		Count -= MAX_DMA_SECTORS;
 		offset += MAX_DMA_SECTORS*SECTOR_SIZE;
 	}
-	
+
 	ret = ATA_ReadDMA(Disk, Address+offset, Count, Buffer+offset);
 	if(ret != 1)	return 0;
 	return done+Count;
@@ -538,7 +538,7 @@ Uint ATA_WriteRaw(Uint64 Address, Uint Count, void *Buffer, Uint Disk)
 	 int	ret;
 	Uint	offset;
 	Uint	done = 0;
-	 
+
 	// Pass straight on to ATA_WriteDMA if we can
 	if(Count <= MAX_DMA_SECTORS)
 	{
@@ -546,7 +546,7 @@ Uint ATA_WriteRaw(Uint64 Address, Uint Count, void *Buffer, Uint Disk)
 		if(ret == 0)	return 0;
 		return Count;
 	}
-	
+
 	// Else we will have to break up the transfer
 	offset = 0;
 	while(Count > MAX_DMA_SECTORS)
@@ -559,7 +559,7 @@ Uint ATA_WriteRaw(Uint64 Address, Uint Count, void *Buffer, Uint Disk)
 		Count -= MAX_DMA_SECTORS;
 		offset += MAX_DMA_SECTORS*SECTOR_SIZE;
 	}
-	
+
 	ret = ATA_WriteDMA(Disk, Address+offset, Count, Buffer+offset);
 	if(ret != 1)	return 0;
 	return done+Count;
@@ -573,9 +573,9 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	 int	cont = (Disk>>1)&1;	// Controller ID
 	 int	disk = Disk & 1;
 	Uint16	base;
-	
+
 	ENTER("iDisk XAddress iCount pBuffer", Disk, Address, Count, Buffer);
-	
+
 	// Check if the count is small enough
 	if(Count > MAX_DMA_SECTORS) {
 		Warning("Passed too many sectors for a bulk DMA read (%i > %i)",
@@ -583,19 +583,19 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 		LEAVE('i');
 		return 0;
 	}
-	
+
 	// Get exclusive access to the disk controller
 	LOCK( &giaATA_ControllerLock[ cont ] );
-	
+
 	// Set Size
 	gATA_PRDTs[ cont ].Bytes = Count * SECTOR_SIZE;
-	
+
 	// Get Port Base
 	base = ATA_GetBasePort(Disk);
-	
+
 	// Reset IRQ Flag
 	gaATA_IRQs[cont] = 0;
-	
+
 	// Set up transfer
 	outb(base+0x01, 0x00);
 	if( Address > 0x0FFFFFFF )	// Use LBA48
@@ -610,12 +610,12 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	{
 		outb(base+0x06, 0xE0 | (disk << 4) | ((Address >> 24) & 0x0F));	//Disk,Magic,High addr
 	}
-	
+
 	outb(base+0x02, (Uint8) Count);		// Sector Count
 	outb(base+0x03, (Uint8) Address);		// Low Addr
 	outb(base+0x04, (Uint8) (Address >> 8));	// Middle Addr
 	outb(base+0x05, (Uint8) (Address >> 16));	// High Addr
-	
+
 	LOG("Starting Transfer");
 	#if START_BEFORE_CMD
 	// Start transfer
@@ -632,7 +632,7 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	// Start transfer
 	ATA_int_BusMasterWriteByte( cont << 3, 9 );	// Read and start
 	#endif
-	
+
 	// Wait for transfer to complete
 	//ATA_int_BusMasterWriteByte( (cont << 3) + 2, 0x4 );
 	while( gaATA_IRQs[cont] == 0 ) {
@@ -640,18 +640,18 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 		//LOG("val = 0x%02x", val);
 		Threads_Yield();
 	}
-	
+
 	// Complete Transfer
 	ATA_int_BusMasterWriteByte( cont << 3, 0 );	// Write and stop
-	
+
 	LOG("Transfer Completed & Acknowledged");
-	
+
 	// Copy to destination buffer
 	memcpy( Buffer, gATA_Buffers[cont], Count*SECTOR_SIZE );
-	
+
 	// Release controller lock
 	RELEASE( &giaATA_ControllerLock[ cont ] );
-	
+
 	LEAVE('i', 1);
 	return 1;
 }
@@ -664,19 +664,19 @@ int ATA_WriteDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	 int	cont = (Disk>>1)&1;	// Controller ID
 	 int	disk = Disk & 1;
 	Uint16	base;
-	
+
 	// Check if the count is small enough
 	if(Count > MAX_DMA_SECTORS)	return 0;
-	
+
 	// Get exclusive access to the disk controller
 	LOCK( &giaATA_ControllerLock[ cont ] );
-	
+
 	// Set Size
 	gATA_PRDTs[ cont ].Bytes = Count * SECTOR_SIZE;
-	
+
 	// Get Port Base
 	base = ATA_GetBasePort(Disk);
-	
+
 	// Set up transfer
 	outb(base+0x01, 0x00);
 	if( Address > 0x0FFFFFFF )	// Use LBA48
@@ -691,7 +691,7 @@ int ATA_WriteDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	{
 		outb(base+0x06, 0xE0 | (disk << 4) | ((Address >> 24) & 0x0F));	//Disk,Magic,High addr
 	}
-	
+
 	outb(base+0x02, (Uint8) Count);		// Sector Count
 	outb(base+0x03, (Uint8) Address);		// Low Addr
 	outb(base+0x04, (Uint8) (Address >> 8));	// Middle Addr
@@ -700,25 +700,25 @@ int ATA_WriteDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 		outb(base+0x07, HDD_DMA_W48);	// Write Command (LBA48)
 	else
 		outb(base+0x07, HDD_DMA_W28);	// Write Command (LBA28)
-	
+
 	// Reset IRQ Flag
 	gaATA_IRQs[cont] = 0;
-	
+
 	// Copy to output buffer
 	memcpy( gATA_Buffers[cont], Buffer, Count*SECTOR_SIZE );
-	
+
 	// Start transfer
 	ATA_int_BusMasterWriteByte( cont << 3, 1 );	// Write and start
-	
+
 	// Wait for transfer to complete
 	while( gaATA_IRQs[cont] == 0 )	Threads_Yield();
-	
+
 	// Complete Transfer
 	ATA_int_BusMasterWriteByte( cont << 3, 0 );	// Write and stop
-	
+
 	// Release controller lock
 	RELEASE( &giaATA_ControllerLock[ cont ] );
-	
+
 	return 1;
 }
 
@@ -728,7 +728,7 @@ int ATA_WriteDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 void ATA_IRQHandlerPri(int unused)
 {
 	Uint8	val;
-	
+
 	// IRQ bit set for Primary Controller
 	val = ATA_int_BusMasterReadByte( 0x2 );
 	LOG("IRQ val = 0x%x", val);
@@ -748,6 +748,7 @@ void ATA_IRQHandlerSec(int unused)
 	Uint8	val;
 	// IRQ bit set for Secondary Controller
 	val = ATA_int_BusMasterReadByte( 0xA );
+	LOG("IRQ val = 0x%x", val);
 	if(val & 4) {
 		LOG("IRQ hit (val = 0x%x)", val);
 		ATA_int_BusMasterWriteByte( 0xA, 4 );
@@ -785,7 +786,7 @@ void ATA_int_BusMasterWriteByte(int Ofs, Uint8 Value)
  */
 void ATA_int_BusMasterWriteDWord(int Ofs, Uint32 Value)
 {
-	
+
 	if( gATA_BusMasterBase & 1 )
 		outd( (gATA_BusMasterBase & ~1) + Ofs, Value );
 	else

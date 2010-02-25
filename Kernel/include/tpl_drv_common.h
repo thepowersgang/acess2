@@ -82,6 +82,19 @@ enum eTplDrv_IOCtl {
 //! These are the official lookup names of the core calls
 #define	DRV_IOCTLNAMES	"type", "ident", "version", "lookup"
 
+#define BASE_IOCTLS(_type, _ident, _version, _ioctls)	\
+	case DRV_IOCTL_TYPE:	LEAVE('i', (_type));	return (_type);\
+	case DRV_IOCTL_IDENT: {\
+		int tmp = ModUtil_SetIdent(Data, (_ident));\
+		LEAVE('i', tmp);	return tmp;\
+		}\
+	case DRV_IOCTL_VERSION:	LEAVE('x', (_version));	return (_version);\
+	case DRV_IOCTL_LOOKUP:{\
+		int tmp = ModUtil_LookupString( (char**)(_ioctls), (char*)Data );\
+		LEAVE('i', tmp);\
+		return tmp;\
+		}
+
 /**
  * \enum eTplDrv_Type
  * \brief Driver Types returned by DRV_IOCTL_TYPE

@@ -56,22 +56,22 @@ static void E9(char ch)
 {
 	if(giDebug_KTerm != -1)
 		VFS_Write(giDebug_KTerm, 1, &ch);
-	
+
 	#if DEBUG_TO_SERIAL
 	if(!gbDebug_SerialSetup) {
-		outb(SERIAL_PORT + 1, 0x00);    // Disable all interrupts
-		outb(SERIAL_PORT + 3, 0x80);    // Enable DLAB (set baud rate divisor)
-		outb(SERIAL_PORT + 0, 0x03);    // Set divisor to 3 (lo byte) 38400 baud
-		outb(SERIAL_PORT + 1, 0x00);    //                  (hi byte)
-		outb(SERIAL_PORT + 3, 0x03);    // 8 bits, no parity, one stop bit
-		outb(SERIAL_PORT + 2, 0xC7);    // Enable FIFO with 14-byte threshold and clear it
-		outb(SERIAL_PORT + 4, 0x0B);    // IRQs enabled, RTS/DSR set
+		outb(SERIAL_PORT + 1, 0x00);	// Disable all interrupts
+		outb(SERIAL_PORT + 3, 0x80);	// Enable DLAB (set baud rate divisor)
+		outb(SERIAL_PORT + 0, 0x03);	// Set divisor to 3 (lo byte) 38400 baud
+		outb(SERIAL_PORT + 1, 0x00);	//                  (hi byte)
+		outb(SERIAL_PORT + 3, 0x03);	// 8 bits, no parity, one stop bit
+		outb(SERIAL_PORT + 2, 0xC7);	// Enable FIFO with 14-byte threshold and clear it
+		outb(SERIAL_PORT + 4, 0x0B);	// IRQs enabled, RTS/DSR set
 		gbDebug_SerialSetup = 1;
 	}
 	while( (inb(SERIAL_PORT + 5) & 0x20) == 0 );
 	outb(SERIAL_PORT, ch);
 	#endif
-	
+
 	#if DEBUG_TO_E9
 	__asm__ __volatile__ ( "outb %%al, $0xe9" :: "a"(((Uint8)ch)) );
 	#endif
@@ -90,7 +90,7 @@ void E9_Fmt(const char *format, va_list *args)
 	char	*p = NULL;
 	 int	isLongLong = 0;
 	Uint64	arg;
-	
+
 	while((c = *format++) != 0)
 	{
 		// Non control character
@@ -98,15 +98,15 @@ void E9_Fmt(const char *format, va_list *args)
 			E9(c);
 			continue;
 		}
-		
+
 		c = *format++;
-		
+
 		// Literal %
 		if(c == '%') {
 			E9('%');
 			continue;
 		}
-		
+
 		// Pointer
 		if(c == 'p') {
 			Uint	ptr = va_arg(*args, Uint);
@@ -115,17 +115,17 @@ void E9_Fmt(const char *format, va_list *args)
 			itoa(p, ptr, 16, BITS/4, '0');
 			goto printString;
 		}
-		
+
 		// Get Argument
 		arg = va_arg(*args, Uint);
-		
+
 		// Padding
 		if(c == '0') {
 			pad = '0';
 			c = *format++;
 		} else
 			pad = ' ';
-		
+
 		// Minimum length
 		minSize = 1;
 		if('1' <= c && c <= '9')
@@ -138,7 +138,7 @@ void E9_Fmt(const char *format, va_list *args)
 				c = *format++;
 			}
 		}
-		
+
 		// Long (default)
 		isLongLong = 0;
 		if(c == 'l') {
@@ -151,7 +151,7 @@ void E9_Fmt(const char *format, va_list *args)
 				isLongLong = 1;
 			}
 		}
-		
+
 		p = tmpBuf;
 		switch (c) {
 		case 'd':
@@ -179,14 +179,14 @@ void E9_Fmt(const char *format, va_list *args)
 			if(arg)	E9_Str("True");
 			else	E9_Str("False");
 			break;
-		
+
 		case 's':
 			p = (char*)(Uint)arg;
 		printString:
 			if(!p)		p = "(null)";
 			while(*p)	E9(*p++);
 			break;
-		
+
 		// Single Character / Array
 		case 'c':
 			if(minSize == 1) {
@@ -197,7 +197,7 @@ void E9_Fmt(const char *format, va_list *args)
 			if(!p)	goto printString;
 			while(minSize--)	E9(*p++);
 			break;
-		
+
 		default:	E9(arg);	break;
 		}
     }
@@ -218,11 +218,11 @@ void LogV(char *Fmt, va_list Args)
 void LogF(char *Fmt, ...)
 {
 	va_list	args;
-	
+
 	va_start(args, Fmt);
-	
+
 	E9_Fmt(Fmt, &args);
-	
+
 	va_end(args);
 }
 /**
@@ -231,7 +231,7 @@ void LogF(char *Fmt, ...)
 void Log(char *Fmt, ...)
 {
 	va_list	args;
-	
+
 	E9_Str("Log: ");
 	va_start(args, Fmt);
 	E9_Fmt(Fmt, &args);
@@ -255,9 +255,9 @@ void Panic(char *Fmt, ...)
 	E9_Fmt(Fmt, &args);
 	va_end(args);
 	E9('\n');
-	
+
 	Threads_Dump();
-	
+
 	__asm__ __volatile__ ("xchg %bx, %bx");
 	__asm__ __volatile__ ("cli;\n\thlt");
 	for(;;)	__asm__ __volatile__ ("hlt");
@@ -276,13 +276,13 @@ void Debug_Enter(char *FuncName, char *ArgTypes, ...)
 	va_list	args;
 	 int	i = gDebug_Level ++;
 	 int	pos;
-	
+
 	va_start(args, ArgTypes);
-	
+
 	while(i--)	E9(' ');
-	
+
 	E9_Str(FuncName);	E9_Str(": (");
-	
+
 	while(*ArgTypes)
 	{
 		pos = strpos(ArgTypes, ' ');
@@ -307,11 +307,11 @@ void Debug_Enter(char *FuncName, char *ArgTypes, ...)
 		if(pos != -1) {
 			E9(',');	E9(' ');
 		}
-		
+
 		if(pos == -1)	break;
 		ArgTypes = &ArgTypes[pos+1];
 	}
-	
+
 	va_end(args);
 	E9(')');	E9('\n');
 }
@@ -320,14 +320,14 @@ void Debug_Log(char *FuncName, char *Fmt, ...)
 {
 	va_list	args;
 	 int	i = gDebug_Level;
-	
+
 	va_start(args, Fmt);
-	
+
 	while(i--)	E9(' ');
-	
+
 	E9_Str(FuncName);	E9_Str(": ");
 	E9_Fmt(Fmt, &args);
-	
+
 	va_end(args);
 	E9('\n');
 }
@@ -336,24 +336,24 @@ void Debug_Leave(char *FuncName, char RetType, ...)
 {
 	va_list	args;
 	 int	i = --gDebug_Level;
-	
+
 	va_start(args, RetType);
-	
+
 	if( i == -1 ) {
 		gDebug_Level = 0;
 		i = 0;
 	}
 	// Indenting
 	while(i--)	E9(' ');
-	
+
 	E9_Str(FuncName);	E9_Str(": RETURN");
-	
+
 	// No Return
 	if(RetType == '-') {
 		E9('\n');
 		return;
 	}
-	
+
 	E9(' ');
 	switch(RetType)
 	{
@@ -367,7 +367,7 @@ void Debug_Leave(char *FuncName, char RetType, ...)
 	case 'X':	E9_Fmt("0x%llx", &args);	break;
 	}
 	E9('\n');
-	
+
 	va_end(args);
 }
 
@@ -377,7 +377,7 @@ void Debug_HexDump(char *Header, void *Data, Uint Length)
 	Uint	pos = 0;
 	E9_Str(Header);
 	LogF(" (Hexdump of %p)\n", Data);
-	
+
 	while(Length >= 16)
 	{
 		Log("%04x: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
@@ -389,7 +389,7 @@ void Debug_HexDump(char *Header, void *Data, Uint Length)
 		cdat += 16;
 		pos += 16;
 	}
-	
+
 	LogF("Log: %04x: ", pos);
 	while(Length)
 	{

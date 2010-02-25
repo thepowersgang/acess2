@@ -61,7 +61,6 @@ void DumpInterfaces(int DumpAll)
 	while( readdir(dp, filename) )
 	{
 		if(filename[0] == '.')	continue;
-		if(filename[0] != 'i' || filename[1] != 'p')	continue;
 		
 		fd = open(path, OPENFLAG_READ);
 		if(fd == -1) {
@@ -142,7 +141,7 @@ int DoAutoConfig( char *Device )
 	tmp = AddInterface(Device);
 	if( tmp < 0 )	return tmp;
 	
-	sprintf(path, IPSTACK_ROOT"/ip%i", tmp);
+	sprintf(path, IPSTACK_ROOT"/%i", tmp);
 	
 	fd = open(path, OPENFLAG_READ);
 	if( fd == -1 ) {
