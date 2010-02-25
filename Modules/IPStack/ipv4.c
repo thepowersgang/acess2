@@ -69,6 +69,13 @@ int IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, int 
 	hdr->Version = 4;
 	hdr->HeaderLength = sizeof(tIPv4Header)/4;
 	hdr->DiffServices = 0;	// TODO: Check
+	
+	hdr->Reserved = 0;
+	hdr->DontFragment = 0;
+	hdr->MoreFragments = 0;
+	hdr->FragOffLow = 0;
+	hdr->FragOffHi = 0;
+	
 	hdr->TotalLength = htons( bufSize );
 	hdr->Identifcation = htons( ID );	// TODO: Check
 	hdr->TTL = DEFAULT_TTL;

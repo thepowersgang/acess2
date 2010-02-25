@@ -125,7 +125,7 @@ void UDP_SendPacket(tUDPChannel *Channel, void *Data, size_t Length)
 		hdr = malloc(sizeof(tUDPHeader)+Length);
 		hdr->SourcePort = htons( Channel->LocalPort );
 		hdr->DestPort = htons( Channel->RemotePort );
-		hdr->Length = htons( Length );
+		hdr->Length = htons( sizeof(tUDPHeader) + Length );
 		hdr->Checksum = 0;	// Checksum can be zero on IPv4
 		memcpy(hdr->Data, Data, Length);
 		// Pass on the the IPv4 Layer

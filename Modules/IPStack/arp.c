@@ -152,8 +152,15 @@ void ARP_UpdateCache4(tIPv4 SWAddr, tMacAddr HWAddr)
 		gaARP_Cache4[i].IP = SWAddr;
 	}
 	
+	Log("[ARP  ] Caching %i.%i.%i.%i (%02x:%02x:%02x:%02x:%02x:%02x) in %i",
+		SWAddr.B[0], SWAddr.B[1], SWAddr.B[2], SWAddr.B[3],
+		HWAddr.B[0], HWAddr.B[1], HWAddr.B[2], HWAddr.B[3], HWAddr.B[4], HWAddr.B[5],
+		i
+		);
+		
 	gaARP_Cache4[i].MAC = HWAddr;
 	gaARP_Cache4[i].LastUpdate = now();
+	giARP_LastUpdateID ++;
 	RELEASE(&glARP_Cache4);
 }
 
@@ -187,6 +194,7 @@ void ARP_UpdateCache6(tIPv6 SWAddr, tMacAddr HWAddr)
 	
 	gaARP_Cache6[i].IP = SWAddr;
 	gaARP_Cache6[i].LastUpdate = now();
+	giARP_LastUpdateID ++;
 	RELEASE(&glARP_Cache6);
 }
 
@@ -303,6 +311,10 @@ void ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffe
 			return ;
 		}
 		
+		break;
+	
+	default:
+		Warning("[ARP  ] Unknown Request ID %i", ntohs(req4->Request));
 		break;
 	}
 }
