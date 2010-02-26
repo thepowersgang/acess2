@@ -20,9 +20,62 @@ const short DAYS_BEFORE[] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 3
 static Uint	giRandomState = RANDOM_SEED;
 
 // === CODE ===
+/**
+ * \brief Convert a string into an integer
+ */
+int atoi(const char *string)
+{
+	 int	ret = 0;
+	
+	// Clear non-numeric characters
+	while( !('0' <= *string && *string <= '9') )	string++;
+	
+	if(*string == '0')
+	{
+		string ++;
+		if(*string == 'x')
+		{
+			// Hex
+			string ++;
+			for( ;; ) {
+				ret *= 16;
+				if('0' <= *string && *string <= '9')
+					ret += *string - '0';
+				else if('A' <= *string && *string <= 'F')
+					ret += *string - 'A' + 10;
+				else if('a' <= *string && *string <= 'f')
+					ret += *string - 'a' + 10;
+				else
+					break;
+				string ++;
+			}
+		}
+		else
+		{
+			for( ;; )
+			{
+				ret *= 8;
+				if('0' <= *string && *string <= '7')
+					ret += *string - '0';
+				else
+					break;
+			}
+		}
+	}
+	else
+	{
+		for( ; '0' <= *string && *string <= '9'; string++)
+		{
+			ret *= 10;
+			ret += *string - '0';
+		}
+	}
+	return ret;
+}
+
 static const char cUCDIGITS[] = "0123456789ABCDEF";
 /**
- * \fn static void itoa(char *buf, Uint num, int base, int minLength, char pad)
+ * \fn void itoa(char *buf, Uint num, int base, int minLength, char pad)
  * \brief Convert an integer into a character string
  */
 void itoa(char *buf, Uint num, int base, int minLength, char pad)

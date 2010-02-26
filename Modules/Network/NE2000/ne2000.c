@@ -3,7 +3,7 @@
  * 
  * See: ~/Sources/bochs/bochs.../iodev/ne2k.cc
  */
-#define	DEBUG	0
+#define	DEBUG	1
 #define VERSION	((0<<8)|50)
 #include <acess.h>
 #include <modules.h>
@@ -309,7 +309,7 @@ Uint64 Ne2k_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	// Sanity Check Length
 	if(Length > TX_BUF_SIZE*256) {
 		Warning(
-			"Ne2k_Write - Attempting to send over TX_BUF_SIZE(%i) bytes (%i)",
+			"Ne2k_Write - Attempting to send over TX_BUF_SIZE*256 (%i) bytes (%i)",
 			TX_BUF_SIZE*256, Length
 			);
 		LEAVE('i', 0);
@@ -339,8 +339,9 @@ Uint64 Ne2k_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	outb(Card->IOBase + CMD, 0|0x10|0x2);	// Page 0, Remote Write, Start
 	
 	// Send Data
-	for(rem = Length; rem; rem -= 2)
+	for(rem = Length; rem > 0; rem -= 2) {
 		outw(Card->IOBase + 0x10, *buf++);
+	}
 	
 	while( inb(Card->IOBase + ISR) == 0 )	// Wait for Remote DMA Complete
 		;	//Proc_Yield();

@@ -45,7 +45,7 @@ int UHCI_Initialise()
 		base = PCI_AssignPort( id, 4, 0x20 );
 		gUHCI_Controllers[i].IOBase = base;
 		
-		LOG("Controller PCI #%i: IO Base = 0x%x", id, base);
+		Log("[USB  ] Controller PCI #%i: IO Base = 0x%x", id, base);
 		
 		// Initialise Host
 		ret = UHCI_Int_InitHost(&gUHCI_Controllers[i]);
@@ -75,8 +75,9 @@ void UHCI_Cleanup()
 /**
  * \brief Sends a packet to a device endpoint
  */
-int UHCI_SendPacket(int ControllerId, int Device, int Endpoint, void *Data, int Length)
+int UHCI_SendPacket(int ControllerId, int Length)
 {
+	//tUHCI_TD	*td = UHCI_AllocateTD();
 	return 0;
 }
 

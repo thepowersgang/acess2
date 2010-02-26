@@ -93,7 +93,7 @@ tMacAddr ARP_Resolve4(tInterface *Interface, tIPv4 Address)
 	Log("[ARP4 ] Asking for address %i.%i.%i.%i",
 		Address.B[0], Address.B[1], Address.B[2], Address.B[3]
 		);
-	req.HWType = htons(1);	// Ethernet
+	req.HWType = htons(0x0001);	// Ethernet
 	req.Type   = htons(0x0800);
 	req.HWSize = 6;
 	req.SWSize = 4;

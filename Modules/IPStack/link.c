@@ -70,7 +70,7 @@ void Link_RegisterType(Uint16 Type, tPacketCallback Callback)
  */
 void Link_SendPacket(tAdapter *Adapter, Uint16 Type, tMacAddr To, int Length, void *Buffer)
 {
-	 int	bufSize = sizeof(tEthernetHeader) + Length + 4;
+	 int	bufSize = sizeof(tEthernetHeader) + ((Length+3)&~3) + 4;
 	Uint8	buf[bufSize];	// dynamic stack arrays ftw!
 	tEthernetHeader	*hdr = (void*)buf;
 	
@@ -83,8 +83,8 @@ void Link_SendPacket(tAdapter *Adapter, Uint16 Type, tMacAddr To, int Length, vo
 	
 	memcpy(hdr->Data, Buffer, Length);
 	
-	*(Uint32*) &hdr->Data[Length] = 0;
-	*(Uint32*) &hdr->Data[Length] = htonl( Link_CalculateCRC(buf, bufSize) );
+	*(Uint32*) &hdr->Data[bufSize-4] = 0;
+	*(Uint32*) &hdr->Data[bufSize-4] = htonl( Link_CalculateCRC(buf, bufSize) );
 	
 	VFS_Write(Adapter->DeviceFD, bufSize, buf);
 }

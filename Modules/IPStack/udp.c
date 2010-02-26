@@ -14,7 +14,7 @@ void	UDP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 // --- Listening Server
 tVFS_Node	*UDP_Server_Init(tInterface *Interface);
 char	*UDP_Server_ReadDir(tVFS_Node *Node, int ID);
-tVFS_Node	UDP_Server_FindDir(tVFS_Node *Node, char *Name);
+tVFS_Node	*UDP_Server_FindDir(tVFS_Node *Node, char *Name);
  int	UDP_Server_IOCtl(tVFS_Node *Node, int ID, void *Data);
 void	UDP_Server_Close(tVFS_Node *Node);
 // --- Client Channels
@@ -29,11 +29,16 @@ Uint16	UDP_int_AllocatePort();
 void	UDP_int_FreePort(Uint16 Port);
 
 // === GLOBALS ===
+tSpinlock	glUDP_Servers;
+tUDPServer	*gpUDP_Servers;
+
 tSpinlock	glUDP_Channels;
 tUDPChannel	*gpUDP_Channels;
+
 tSpinlock	glUDP_Ports;
 Uint32	gUDP_Ports[0x10000/32];
-//tSocketFile	gUDP_ServerFile = {NULL, "udps", UDP_Server_Init};
+
+tSocketFile	gUDP_ServerFile = {NULL, "udps", UDP_Server_Init};
 tSocketFile	gUDP_ClientFile = {NULL, "udpc", UDP_Channel_Init};
 
 // === CODE ===
@@ -43,48 +48,45 @@ tSocketFile	gUDP_ClientFile = {NULL, "udpc", UDP_Channel_Init};
  */
 void UDP_Initialise()
 {
+	IPStack_AddFile(&gUDP_ServerFile);
 	IPStack_AddFile(&gUDP_ClientFile);
 	IPv4_RegisterCallback(IP4PROT_UDP, UDP_GetPacket);
 }
 
 /**
- * \fn void UDP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffer)
- * \brief Handles a packet from the IP Layer
+ * \brief Scan a list of tUDPChannel's and find process the first match
+ * \return 0 if no match was found, -1 on error and 1 if a match was found
  */
-void UDP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffer)
+int UDP_int_ScanList(tUDPChannel *List, tInterface *Interface, void *Address, int Length, void *Buffer)
 {
 	tUDPHeader	*hdr = Buffer;
 	tUDPChannel	*chan;
 	tUDPPacket	*pack;
 	 int	len;
 	
-	Log("[UDP  ] hdr->SourcePort = %i", ntohs(hdr->SourcePort));
-	Log("[UDP  ] hdr->DestPort = %i", ntohs(hdr->DestPort));
-	Log("[UDP  ] hdr->Length = %i", ntohs(hdr->Length));
-	Log("[UDP  ] hdr->Checksum = 0x%x", ntohs(hdr->Checksum));
-	
-	// Check registered connections
-	LOCK(&glUDP_Channels);
-	for(chan = gpUDP_Channels;
+	for(chan = List;
 		chan;
 		chan = chan->Next)
 	{
 		if(chan->Interface != Interface)	continue;
+		//Log("[UDP  ] Local (0x%04x) == Dest (0x%04x)", chan->LocalPort, ntohs(hdr->DestPort));
 		if(chan->LocalPort != ntohs(hdr->DestPort))	continue;
+		//Log("[UDP  ] Remote (0x%04x) == Source (0x%04x)", chan->RemotePort, ntohs(hdr->SourcePort));
 		if(chan->RemotePort != ntohs(hdr->SourcePort))	continue;
 		
 		if(Interface->Type == 4) {
-			if(IP4_EQU(chan->RemoteAddr.v4, *(tIPv4*)Address))	continue;
+			if(!IP4_EQU(chan->RemoteAddr.v4, *(tIPv4*)Address))	continue;
 		}
 		else if(Interface->Type == 6) {
-			if(IP6_EQU(chan->RemoteAddr.v6, *(tIPv6*)Address))	continue;
+			if(!IP6_EQU(chan->RemoteAddr.v6, *(tIPv6*)Address))	continue;
 		}
 		else {
 			Warning("[UDP  ] Address type %i unknown", Interface->Type);
 			RELEASE(&glUDP_Channels);
-			return ;
+			return -1;
 		}
 		
+		Log("[UDP  ] Recieved packet for %p", chan);
 		// Create the cached packet
 		len = ntohs(hdr->Length);
 		pack = malloc(sizeof(tUDPPacket) + len);
@@ -100,12 +102,50 @@ void UDP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 			chan->QueueEnd = chan->Queue = pack;
 		RELEASE(&chan->lQueue);
 		RELEASE(&glUDP_Channels);
-		return ;
+		return 1;
 	}
+	return 0;
+}
+
+/**
+ * \fn void UDP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffer)
+ * \brief Handles a packet from the IP Layer
+ */
+void UDP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffer)
+{
+	tUDPHeader	*hdr = Buffer;
+	tUDPServer	*srv;
+	 int	ret;
+	
+	Log("[UDP  ] hdr->SourcePort = %i", ntohs(hdr->SourcePort));
+	Log("[UDP  ] hdr->DestPort = %i", ntohs(hdr->DestPort));
+	Log("[UDP  ] hdr->Length = %i", ntohs(hdr->Length));
+	Log("[UDP  ] hdr->Checksum = 0x%x", ntohs(hdr->Checksum));
+	
+	// Check registered connections
+	LOCK(&glUDP_Channels);
+	ret = UDP_int_ScanList(gpUDP_Channels, Interface, Address, Length, Buffer);
+	RELEASE(&glUDP_Channels);
+	if(ret != 0)	return ;
+	
 	
 	// TODO: Server/Listener
+	LOCK(&glUDP_Servers);
+	for(srv = gpUDP_Servers;
+		srv;
+		srv = srv->Next)
+	{
+		if(srv->Interface != Interface)	continue;
+		if(srv->ListenPort != ntohs(hdr->DestPort))	continue;
+		ret = UDP_int_ScanList(srv->Channels, Interface, Address, Length, Buffer);
+		if(ret != 0)	break;
+		
+		// Add connection
+		Warning("[UDP  ] TODO - Add channel on connection");
+		//TODO
+	}
+	RELEASE(&glUDP_Servers);
 	
-	RELEASE(&glUDP_Channels);
 }
 
 /**
@@ -134,6 +174,184 @@ void UDP_SendPacket(tUDPChannel *Channel, void *Data, size_t Length)
 		free(hdr);
 		break;
 	}
+}
+
+// --- Listening Server
+tVFS_Node *UDP_Server_Init(tInterface *Interface)
+{
+	tUDPServer	*new;
+	new = calloc( sizeof(tUDPServer), 1 );
+	if(!new)	return NULL;
+	
+	new->Node.ImplPtr = new;
+	new->Node.Flags = VFS_FFLAG_DIRECTORY;
+	new->Node.NumACLs = 1;
+	new->Node.ACLs = &gVFS_ACL_EveryoneRX;
+	new->Node.ReadDir = UDP_Server_ReadDir;
+	new->Node.FindDir = UDP_Server_FindDir;
+	new->Node.IOCtl = UDP_Server_IOCtl;
+	new->Node.Close = UDP_Server_Close;
+	
+	LOCK(&glUDP_Servers);
+	new->Next = gpUDP_Servers;
+	gpUDP_Servers = new;
+	RELEASE(&glUDP_Servers);
+	
+	return &new->Node;
+}
+
+/**
+ * \brief Wait for a connection and return its ID in a string
+ */
+char *UDP_Server_ReadDir(tVFS_Node *Node, int ID)
+{
+	tUDPServer	*srv = Node->ImplPtr;
+	tUDPChannel	*chan;
+	char	*ret;
+	
+	if( srv->ListenPort == 0 )	return NULL;
+	
+	// Lock (so another thread can't collide with us here) and wait for a connection
+	LOCK( &srv->Lock );
+	while( srv->NewChannels == NULL )	Threads_Yield();
+	// Pop the connection off the new list
+	chan = srv->NewChannels;
+	srv->NewChannels = chan->Next;
+	// Release the lock
+	RELEASE( &srv->Lock );
+	
+	// Create the ID string and return it
+	ret = malloc(11+1);
+	sprintf(ret, "%i", chan->Node.ImplInt);
+	
+	return ret;
+}
+
+/**
+ * \brief Take a string and find the channel
+ */
+tVFS_Node *UDP_Server_FindDir(tVFS_Node *Node, char *Name)
+{
+	tUDPServer	*srv = Node->ImplPtr;
+	tUDPChannel	*chan;
+	 int	id = atoi(Name);
+	
+	for(chan = srv->Channels;
+		chan;
+		chan = chan->Next)
+	{
+		if( chan->Node.ImplInt < id )	continue;
+		if( chan->Node.ImplInt > id )	break;	// Go sorted lists!
+		
+		return &chan->Node;
+	}
+	
+	return NULL;
+}
+
+/**
+ * \brief Names for server IOCtl Calls
+ */
+static const char *casIOCtls_Server[] = {
+	DRV_IOCTLNAMES,
+	"getset_listenport",
+	NULL
+	};
+/**
+ * \brief Channel IOCtls
+ */
+int UDP_Server_IOCtl(tVFS_Node *Node, int ID, void *Data)
+{
+	tUDPServer	*srv = Node->ImplPtr;
+	
+	ENTER("pNode iID pData", Node, ID, Data);
+	switch(ID)
+	{
+	BASE_IOCTLS(DRV_TYPE_MISC, "UDP Server", 0x100, casIOCtls_Server);
+	
+	case 4:	// getset_localport (returns bool success)
+		if(!Data)	LEAVE_RET('i', srv->ListenPort);
+		if(!CheckMem( Data, sizeof(Uint16) ) ) {
+			LOG("Invalid pointer %p", Data);
+			LEAVE_RET('i', -1);
+		}
+		// Set port
+		srv->ListenPort = *(Uint16*)Data;
+		// Permissions check (Ports lower than 1024 are root-only)
+		if(srv->ListenPort != 0 && srv->ListenPort < 1024) {
+			if( Threads_GetUID() != 0 ) {
+				LOG("Attempt by non-superuser to listen on port %i", srv->ListenPort);
+				srv->ListenPort = 0;
+				LEAVE_RET('i', -1);
+			}
+		}
+		// Allocate a random port if requested
+		if( srv->ListenPort == 0 )
+			srv->ListenPort = UDP_int_AllocatePort();
+		else
+		{
+			// Else, mark the requested port as used
+			if( UDP_int_MarkPortAsUsed(srv->ListenPort) == 0 ) {
+				LOG("Port %i us currently in use", srv->ListenPort);
+				srv->ListenPort = 0;
+				LEAVE_RET('i', -1);
+			}
+			LEAVE_RET('i', 1);
+		}
+		LEAVE_RET('i', 1);
+	
+	default:
+		LEAVE_RET('i', -1);
+	}
+	LEAVE_RET('i', 0);
+}
+
+void UDP_Server_Close(tVFS_Node *Node)
+{
+	tUDPServer	*srv = Node->ImplPtr;
+	tUDPServer	*prev;
+	tUDPChannel	*chan;
+	tUDPPacket	*tmp;
+	
+	
+	// Remove from the main list first
+	LOCK(&glUDP_Servers);
+	if(gpUDP_Servers == srv)
+		gpUDP_Servers = gpUDP_Servers->Next;
+	else
+	{
+		for(prev = gpUDP_Servers;
+			prev->Next && prev->Next != srv;
+			prev = prev->Next);
+		if(!prev->Next)
+			Warning("[UDP  ] Bookeeping Fail, server %p is not in main list", srv);
+		else
+			prev->Next = prev->Next->Next;
+	}
+	RELEASE(&glUDP_Servers);
+	
+	
+	LOCK(&srv->Lock);
+	for(chan = srv->Channels;
+		chan;
+		chan = chan->Next)
+	{
+		// Clear Queue
+		LOCK(&chan->lQueue);
+		while(chan->Queue)
+		{
+			tmp = chan->Queue;
+			chan->Queue = tmp->Next;
+			free(tmp);
+		}
+		RELEASE(&chan->lQueue);
+		
+		// Free channel structure
+		free(chan);
+	}
+	RELEASE(&srv->Lock);
+	
+	free(srv);
 }
 
 // --- Client Channels

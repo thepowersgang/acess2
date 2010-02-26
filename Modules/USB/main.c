@@ -74,7 +74,6 @@ tVFS_Node *USB_FindDir(tVFS_Node *Node, char *Name)
 }
 
 /**
- * \fn int USB_IOCtl(tVFS_Node *Node, int Id, void *Data)
  * \brief Handles IOCtl Calls to the USB driver
  */
 int USB_IOCtl(tVFS_Node *Node, int Id, void *Data)

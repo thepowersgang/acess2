@@ -59,6 +59,19 @@ void ICMP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buff
 		gICMP_PingSlots[hdr->ID].bArrived = 1;
 		break;
 	
+	// -- 3: Destination Unreachable
+	case ICMP_UNREACHABLE:
+		switch(hdr->Code)
+		{
+		case 3:	// Port Unreachable
+			Log("[ICMP ] Destination Unreachable (Port Unreachable)");
+			break;
+		default:
+			Log("[ICMP ] Destination Unreachable (Code %i)", hdr->Code);
+			break;
+		}
+		break;
+	
 	// -- 8: Echo Request
 	case ICMP_ECHOREQ:
 		if(hdr->Code != 0) {
@@ -71,6 +84,8 @@ void ICMP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buff
 		hdr->Checksum = htons( IPv4_Checksum(hdr, Length) );
 		Log("[ICMP ] Checksum = 0x%04x", hdr->Checksum);
 		IPv4_SendPacket(Interface, *(tIPv4*)Address, 1, ntohs(hdr->Sequence), Length, hdr);
+		break;
+	default:
 		break;
 	}
 	

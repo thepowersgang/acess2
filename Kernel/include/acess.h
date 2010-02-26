@@ -303,6 +303,7 @@ extern char	*strdup(const char *Str);
 extern int	strpos(const char *Str, char Ch);
 extern int	strpos8(const char *str, Uint32 search);
 extern void	itoa(char *buf, Uint num, int base, int minLength, char pad);
+extern int	atoi(const char *string);
 extern int	ReadUTF8(Uint8 *str, Uint32 *Val);
 extern int	WriteUTF8(Uint8 *str, Uint32 Val);
 extern int	ModUtil_SetIdent(char *Dest, char *Value);

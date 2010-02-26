@@ -9,6 +9,7 @@
 #include "ipv4.h"
 
 typedef struct sUDPHeader	tUDPHeader;
+typedef struct sUDPServer	tUDPServer;
 typedef struct sUDPPacket	tUDPPacket;
 typedef struct sUDPChannel	tUDPChannel;
 
@@ -42,6 +43,21 @@ struct sUDPChannel
 	tSpinlock	lQueue;
 	tUDPPacket	* volatile Queue;
 	tUDPPacket	*QueueEnd;
+};
+
+struct sUDPServer
+{
+	struct sUDPServer	*Next;
+	
+	tVFS_Node	Node;
+	
+	tInterface	*Interface;
+	Uint16	ListenPort;
+	 int	NextID;
+	 int	NumChannels;
+	tUDPChannel	*Channels;
+	tSpinlock	Lock;
+	tUDPChannel	* volatile NewChannels;
 };
 
 #endif
