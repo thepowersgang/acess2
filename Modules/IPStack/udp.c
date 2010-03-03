@@ -11,6 +11,8 @@
 // === PROTOTYPES ===
 void	UDP_Initialise();
 void	UDP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffer);
+void	UDP_Unreachable(tInterface *Interface, int Code, void *Address, int Length, void *Buffer);
+void	UDP_SendPacket(tUDPChannel *Channel, void *Data, size_t Length);
 // --- Listening Server
 tVFS_Node	*UDP_Server_Init(tInterface *Interface);
 char	*UDP_Server_ReadDir(tVFS_Node *Node, int ID);
@@ -50,6 +52,7 @@ void UDP_Initialise()
 {
 	IPStack_AddFile(&gUDP_ServerFile);
 	IPStack_AddFile(&gUDP_ClientFile);
+	//IPv4_RegisterCallback(IP4PROT_UDP, UDP_GetPacket, UDP_Unreachable);
 	IPv4_RegisterCallback(IP4PROT_UDP, UDP_GetPacket);
 }
 
@@ -69,9 +72,7 @@ int UDP_int_ScanList(tUDPChannel *List, tInterface *Interface, void *Address, in
 		chan = chan->Next)
 	{
 		if(chan->Interface != Interface)	continue;
-		//Log("[UDP  ] Local (0x%04x) == Dest (0x%04x)", chan->LocalPort, ntohs(hdr->DestPort));
 		if(chan->LocalPort != ntohs(hdr->DestPort))	continue;
-		//Log("[UDP  ] Remote (0x%04x) == Source (0x%04x)", chan->RemotePort, ntohs(hdr->SourcePort));
 		if(chan->RemotePort != ntohs(hdr->SourcePort))	continue;
 		
 		if(Interface->Type == 4) {
@@ -145,6 +146,14 @@ void UDP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 		//TODO
 	}
 	RELEASE(&glUDP_Servers);
+	
+}
+
+/**
+ * \brief Handle an ICMP Unrechable Error
+ */
+void UDP_Unreachable(tInterface *Interface, int Code, void *Address, int Length, void *Buffer)
+{
 	
 }
 

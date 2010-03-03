@@ -115,10 +115,10 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 	tTCPConnection	*conn;
 
 	Log("[TCP  ] sizeof(tTCPHeader) = %i", sizeof(tTCPHeader));
+	Log("[TCP  ] SourcePort = %i", ntohs(hdr->SourcePort));
 	Log("[TCP  ] DestPort = %i", ntohs(hdr->DestPort));
-	Log("[TCP  ] DestPort = %i", ntohs(hdr->DestPort));
-	Log("[TCP  ] SequenceNumber = %i", ntohl(hdr->SequenceNumber));
-	Log("[TCP  ] AcknowlegementNumber = %i", ntohl(hdr->AcknowlegementNumber));
+	Log("[TCP  ] SequenceNumber = 0x%x", ntohl(hdr->SequenceNumber));
+	Log("[TCP  ] AcknowlegementNumber = 0x%x", ntohl(hdr->AcknowlegementNumber));
 	Log("[TCP  ] DataOffset = %i", hdr->DataOffset >> 4);
 	Log("[TCP  ] Flags = {");
 	Log("[TCP  ]   CWR = %B", !!(hdr->Flags & TCP_FLAG_CWR));
@@ -167,7 +167,51 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 			}
 
 			// Open a new connection (well, check that it's a SYN)
-			//TODO
+			if(hdr->Flags != TCP_FLAG_SYN) {
+				Log("[TCP  ] Packet is not a SYN");
+				continue;
+			}
+			
+			conn = calloc(1, sizeof(tTCPConnection));
+			conn->State = TCP_ST_HALFOPEN;
+			conn->LocalPort = srv->Port;
+			conn->RemotePort = hdr->SourcePort;
+			conn->Interface = Interface;
+			
+			switch(Interface->Type)
+			{
+			case 4:	conn->RemoteIP.v4 = *(tIPv4*)Address;	break;
+			case 6:	conn->RemoteIP.v6 = *(tIPv6*)Address;	break;
+			}
+			
+			conn->NextSequenceRcv = ntohl( hdr->SequenceNumber );
+			conn->NextSequenceSend = rand();
+			
+			// Create node
+			conn->Node.NumACLs = 1;
+			conn->Node.ACLs = &gVFS_ACL_EveryoneRW;
+			conn->Node.ImplInt = srv->NextID ++;
+			conn->Node.Read = TCP_Client_Read;
+			conn->Node.Write = TCP_Client_Write;
+			//conn->Node.Close = TCP_SrvConn_Close;
+			
+			// Hmm... Theoretically, this lock will never have to wait,
+			// as the interface is locked to the watching thread, and this
+			// runs in the watching thread. But, it's a good idea to have
+			// it, just in case
+			LOCK(&srv->lConnections);
+			conn->Next = srv->Connections;
+			srv->Connections = conn;
+			RELEASE(&srv->lConnections);
+
+			// Send the SYN ACK
+			Log("[TCP  ] TODO: Sending SYN ACK");
+			hdr->Flags |= TCP_FLAG_ACK;
+			hdr->AcknowlegementNumber = hdr->SequenceNumber;
+			hdr->SequenceNumber = conn->NextSequenceSend;
+			hdr->DestPort = hdr->SourcePort;
+			hdr->SourcePort = srv->Port;
+			TCP_SendPacket( conn, sizeof(tTCPHeader), hdr );
 
 			break;
 		}

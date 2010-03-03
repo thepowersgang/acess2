@@ -54,7 +54,7 @@ void ICMP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buff
 		}
 		if(hdr->ID != (Uint16)~hdr->Sequence) {
 			Warning("[ICMP ] ID and Sequence values do not match");
-			return ;
+			//return ;
 		}
 		gICMP_PingSlots[hdr->ID].bArrived = 1;
 		break;
@@ -70,6 +70,7 @@ void ICMP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buff
 			Log("[ICMP ] Destination Unreachable (Code %i)", hdr->Code);
 			break;
 		}
+//		IPv4_Unreachable( Interface, hdr->Code, htons(hdr->Length)-sizeof(tICMPHeader), hdr->Data );
 		break;
 	
 	// -- 8: Echo Request

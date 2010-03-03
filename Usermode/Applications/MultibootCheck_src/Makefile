@@ -1,4 +1,4 @@
-# Project: cat
+# Project: Multiboot Check
 
 -include ../Makefile.cfg
 

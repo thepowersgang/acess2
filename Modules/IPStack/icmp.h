@@ -16,6 +16,7 @@ struct sICMPHeader
 	Uint16	Checksum;
 	Uint16	ID;
 	Uint16	Sequence;
+	Uint8	Data[];
 };
 
 // === CONSTANTS ===
