@@ -6,15 +6,15 @@
 #include "ipv4.h"
 #include "tcp.h"
 
-#define TCP_MIN_DYNPORT	0x1000
+#define TCP_MIN_DYNPORT	0xC000
 #define TCP_MAX_HALFOPEN	1024	// Should be enough
 
 // === PROTOTYPES ===
 void	TCP_Initialise();
 void	TCP_StartConnection(tTCPConnection *Conn);
-void	TCP_SendPacket( tTCPConnection *Conn, size_t Length, tTCPHeader *Data );
+void	TCP_SendPacket(tTCPConnection *Conn, size_t Length, tTCPHeader *Data);
 void	TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffer);
-void	TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Header);
+void	TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Header, int Length);
 Uint16	TCP_GetUnusedPort();
  int	TCP_AllocatePort(Uint16 Port);
  int	TCP_DeallocatePort(Uint16 Port);
@@ -161,7 +161,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 					continue;
 
 				// We have a response!
-				TCP_INT_HandleConnectionPacket(conn, hdr);
+				TCP_INT_HandleConnectionPacket(conn, hdr, Length);
 
 				return;
 			}
@@ -171,6 +171,8 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 				Log("[TCP  ] Packet is not a SYN");
 				continue;
 			}
+			
+			// TODO: Check for halfopen max
 			
 			conn = calloc(1, sizeof(tTCPConnection));
 			conn->State = TCP_ST_HALFOPEN;
@@ -234,7 +236,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 			if(conn->Interface->Type == 4 && !IP4_EQU(conn->RemoteIP.v4, *(tIPv4*)Address))
 				continue;
 
-			TCP_INT_HandleConnectionPacket(conn, hdr);
+			TCP_INT_HandleConnectionPacket(conn, hdr, Length);
 		}
 	}
 }
@@ -242,9 +244,59 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 /**
  * \brief Handles a packet sent to a specific connection
  */
-void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Header)
-{
-
+void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Header, int Length)
+{	
+	tTCPStoredPacket	*pkt;
+	 int	dataLen;
+	
+	Connection->State = TCP_ST_OPEN;
+	if(Header->Flags & TCP_FLAG_SYN) {
+		Connection->NextSequenceRcv = Header->SequenceNumber + 1;
+	}
+	
+	if(Header->Flags & TCP_FLAG_ACK) {
+		// TODO: Process an ACKed Packet
+		Log("[TCP  ] Conn %p, Packet 0x%x ACKed", Connection, Header->AcknowlegementNumber);
+		return ;
+	}
+	
+	// Allocate and fill cached packet
+	dataLen =  Length - (Header->DataOffset&0xF)*4;
+	pkt = malloc( dataLen + sizeof(tTCPStoredPacket) );
+	pkt->Next = NULL;
+	pkt->Sequence = Header->SequenceNumber;
+	memcpy(pkt->Data, (Uint8*)Header + (Header->DataOffset&0xF)*4, dataLen);
+	
+	if( Header->SequenceNumber != Connection->NextSequenceRcv )
+	{
+		tTCPStoredPacket	*tmp, *prev;
+		for(tmp = Connection->FuturePackets;
+			tmp;
+			prev = tmp, tmp = tmp->Next)
+		{
+			if(tmp->Sequence > pkt->Sequence)	break;
+		}
+		if(prev)
+			prev->Next = pkt;
+		else
+			Connection->FuturePackets = pkt;
+		pkt->Next = tmp;
+	}
+	else
+	{
+		LOCK( &Connection->lRecievedPackets );
+		if(Connection->RecievedPackets)
+		{
+			Connection->RecievedPacketsTail->Next = pkt;
+			Connection->RecievedPacketsTail = pkt;
+		}
+		else
+		{
+			Connection->RecievedPackets = pkt;
+			Connection->RecievedPacketsTail = pkt;
+		}
+		RELEASE( &Connection->lRecievedPackets );
+	}
 }
 
 /**

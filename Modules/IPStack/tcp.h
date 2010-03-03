@@ -9,6 +9,7 @@
 
 typedef struct sTCPHeader	tTCPHeader;
 typedef struct sTCPListener	tTCPListener;
+typedef struct sTCPStoredPacket	tTCPStoredPacket;
 typedef struct sTCPConnection	tTCPConnection;
 
 struct sTCPHeader
@@ -71,6 +72,13 @@ struct sTCPListener
 	 tTCPConnection	*volatile NewConnections;
 };
 
+struct sTCPStoredPacket
+{
+	struct sTCPStoredPacket	*Next;
+	Uint32	Sequence;
+	Uint8	Data[];
+};
+
 struct sTCPConnection
 {
 	struct sTCPConnection	*Next;
@@ -83,18 +91,13 @@ struct sTCPConnection
 	 int	NextSequenceSend;	//!< Next sequence value for outbound packets
 	 int	NextSequenceRcv;	//!< Next expected sequence value for inbound
 	
-	 int	nQueuedPackets;	//!< Number of packets not ACKed
-	struct {
-		 int	Sequence;
-		void	*Data;
-	}	*QueuedPackets;	//!< Non-ACKed packets
+	tTCPStoredPacket	*QueuedPackets;	//!< Non-ACKed packets
 	
+	tSpinlock	lRecievedPackets;
+	tTCPStoredPacket	*RecievedPackets;	//!< Unread Packets
+	tTCPStoredPacket	*RecievedPacketsTail;	//!< Unread Packets (End of list)
 	
-	 int	nFuturePackets;	//!< Number of packets recieved that are out of sequence
-	struct {
-		 int	SequenceNum;
-		void	*Data;
-	}	**FuturePackets;	//!< Out of sequence packets
+	tTCPStoredPacket	*FuturePackets;	//!< Out of sequence packets
 	
 	union {
 		tIPv4	v4;
