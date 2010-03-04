@@ -125,7 +125,7 @@ int AddInterface( char *Device )
 		return -1;
 	}
 	
-	printf("-- Added '"IPSTACK_ROOT"/ip%i' using device %s\n", ret, Device);
+	printf("-- Added '"IPSTACK_ROOT"/%i' using device %s\n", ret, Device);
 	
 	return ret;
 }

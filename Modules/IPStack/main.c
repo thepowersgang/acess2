@@ -92,6 +92,7 @@ int IPStack_Install(char **Arguments)
  */
 int IPStack_AddFile(tSocketFile *File)
 {
+	Log("IPStack_AddFile: %s", File->Name);
 	File->Next = gIP_FileTemplates;
 	gIP_FileTemplates = File;
 	return 0;
@@ -224,7 +225,10 @@ int IPStack_Root_IOCtl(tVFS_Node *Node, int ID, void *Data)
 char *IPStack_Iface_ReadDir(tVFS_Node *Node, int Pos)
 {
 	tSocketFile	*file = gIP_FileTemplates;
-	while(Pos-- && file)	file = file->Next;
+	while(Pos-- && file) {
+		Log("IPStack_Iface_ReadDir: %s", file->Name);
+		file = file->Next;
+	}
 	
 	if(!file)	return NULL;
 	
@@ -242,6 +246,7 @@ tVFS_Node *IPStack_Iface_FindDir(tVFS_Node *Node, char *Name)
 	for(;file;file = file->Next)
 	{
 		if( strcmp(file->Name, Name) == 0 )	break;
+		Log("IPStack_Iface_FindDir: strcmp('%s', '%s')", file->Name, Name);
 	}
 	if(!file)	return NULL;
 	
@@ -506,7 +511,7 @@ int IPStack_AddInterface(char *Device)
 	iface->Node.ImplPtr = iface;
 	iface->Node.ImplInt = giIP_NextIfaceId++;
 	iface->Node.Flags = VFS_FFLAG_DIRECTORY;
-	iface->Node.Size = 0;
+	iface->Node.Size = -1;
 	iface->Node.NumACLs = 1;
 	iface->Node.ACLs = &gVFS_ACL_EveryoneRX;
 	iface->Node.ReadDir = IPStack_Iface_ReadDir;

@@ -92,7 +92,7 @@ void TCP_SendPacket( tTCPConnection *Conn, size_t Length, tTCPHeader *Data )
 	switch( Conn->Interface->Type )
 	{
 	case 4:	// Append IPv4 Pseudo Header
-		buflen = 4 + 4 + 4 + ((Length+1)&1);
+		buflen = 4 + 4 + 4 + ((Length+1)&~1);
 		buf = malloc( buflen );
 		buf[0] = Conn->Interface->IP4.Address.L;
 		buf[1] = Conn->RemoteIP.v4.L;
@@ -140,13 +140,17 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 	{
 		for( srv = gTCP_Listeners; srv; srv = srv->Next )
 		{
+			Log("[TCP  ] Server %p, Port = 0x%04x", srv, srv->Port);
 			// Check if the server is active
 			if(srv->Port == 0)	continue;
 			// Check the interface
+			Log("[TCP  ]  Interface = %p (== %p ?)", srv->Interface, Interface);
 			if(srv->Interface && srv->Interface != Interface)	continue;
 			// Check the destination port
-			if(srv->Port != hdr->DestPort)	continue;
-
+			Log("[TCP  ]  hdr->DestPort = 0x%04x", ntohs(hdr->DestPort));
+			if(srv->Port != htons(hdr->DestPort))	continue;
+			
+			Log("[TCP  ] Matches");
 			// Is this in an established connection?
 			for( conn = srv->Connections; conn; conn = conn->Next )
 			{
@@ -154,7 +158,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 				if(conn->Interface != Interface)	continue;
 
 				// Check Source Port
-				if(conn->RemotePort != hdr->SourcePort)	continue;
+				if(conn->RemotePort != ntohs(hdr->SourcePort))	continue;
 
 				// Check Source IP
 				if(conn->Interface->Type == 6 && !IP6_EQU(conn->RemoteIP.v6, *(tIPv6*)Address))
@@ -168,6 +172,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 				return;
 			}
 
+			Log("[TCP  ] Opening Connection");
 			// Open a new connection (well, check that it's a SYN)
 			if(hdr->Flags != TCP_FLAG_SYN) {
 				Log("[TCP  ] Packet is not a SYN");
@@ -179,7 +184,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 			conn = calloc(1, sizeof(tTCPConnection));
 			conn->State = TCP_ST_HALFOPEN;
 			conn->LocalPort = srv->Port;
-			conn->RemotePort = hdr->SourcePort;
+			conn->RemotePort = ntohs(hdr->SourcePort);
 			conn->Interface = Interface;
 			
 			switch(Interface->Type)
@@ -212,9 +217,9 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 			Log("[TCP  ] TODO: Sending SYN ACK");
 			hdr->Flags |= TCP_FLAG_ACK;
 			hdr->AcknowlegementNumber = hdr->SequenceNumber;
-			hdr->SequenceNumber = conn->NextSequenceSend;
+			hdr->SequenceNumber = htonl(conn->NextSequenceSend);
 			hdr->DestPort = hdr->SourcePort;
-			hdr->SourcePort = srv->Port;
+			hdr->SourcePort = htonl(srv->Port);
 			TCP_SendPacket( conn, sizeof(tTCPHeader), hdr );
 
 			break;
@@ -230,7 +235,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 			if(conn->Interface != Interface)	continue;
 
 			// Check Source Port
-			if(conn->RemotePort != hdr->SourcePort)	continue;
+			if(conn->RemotePort != ntohs(hdr->SourcePort))	continue;
 
 			// Check Source IP
 			if(conn->Interface->Type == 6 && !IP6_EQU(conn->RemoteIP.v6, *(tIPv6*)Address))
@@ -429,6 +434,8 @@ tVFS_Node *TCP_Server_Init(tInterface *Interface)
 	srv->NextID = 0;
 	srv->Connections = NULL;
 	srv->Next = NULL;
+	srv->Node.Flags = VFS_FFLAG_DIRECTORY;
+	srv->Node.Size = -1;
 	srv->Node.ImplPtr = srv;
 	srv->Node.NumACLs = 1;
 	srv->Node.ACLs = &gVFS_ACL_EveryoneRW;
@@ -477,6 +484,9 @@ tVFS_Node *TCP_Server_FindDir(tVFS_Node *Node, char *Name)
 	return NULL;
 }
 
+/**
+ * \brief Handle IOCtl calls
+ */
 int TCP_Server_IOCtl(tVFS_Node *Node, int ID, void *Data)
 {
 	tTCPListener	*srv = Node->ImplPtr;
@@ -507,6 +517,9 @@ int TCP_Server_IOCtl(tVFS_Node *Node, int ID, void *Data)
 			srv->Port = TCP_GetUnusedPort();
 		else	// Else, mark this as used
 			TCP_AllocatePort(srv->Port);
+		
+		Log("[TCP  ] Server %p listening on port %i", srv, srv->Port);
+		
 		return srv->Port;
 	}
 	return 0;

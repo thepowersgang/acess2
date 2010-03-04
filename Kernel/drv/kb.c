@@ -76,7 +76,7 @@ void KB_IRQHandler()
 
 	scancode = inb(0x60); // Read from the keyboard's data buffer
 
-	Log("KB_IRQHandler: scancode = 0x%02x", scancode);
+	//Log("KB_IRQHandler: scancode = 0x%02x", scancode);
 
 	// Ignore ACKs
 	if(scancode == 0xFA) {
