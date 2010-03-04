@@ -75,6 +75,7 @@ struct sTCPListener
 struct sTCPStoredPacket
 {
 	struct sTCPStoredPacket	*Next;
+	size_t	Length;
 	Uint32	Sequence;
 	Uint8	Data[];
 };
@@ -91,13 +92,39 @@ struct sTCPConnection
 	 int	NextSequenceSend;	//!< Next sequence value for outbound packets
 	 int	NextSequenceRcv;	//!< Next expected sequence value for inbound
 	
+	/**
+	 * \brief Non-ACKed packets
+	 * \note FIFO list
+	 * \{
+	 */
+	tSpinlock	lQueuedPackets;
 	tTCPStoredPacket	*QueuedPackets;	//!< Non-ACKed packets
+	/**
+	 * \}
+	 */
 	
+	/**
+	 * \brief Unread Packets
+	 * \note Double ended list (fifo)
+	 * \{
+	 */
 	tSpinlock	lRecievedPackets;
 	tTCPStoredPacket	*RecievedPackets;	//!< Unread Packets
 	tTCPStoredPacket	*RecievedPacketsTail;	//!< Unread Packets (End of list)
+	/**
+	 * \}
+	 */
 	
+	/**
+	 * \brief Out of sequence packets
+	 * \note Sorted list to improve times
+	 * \{
+	 */
+	tSpinlock	lFuturePackets;	//!< Future packets spinlock
 	tTCPStoredPacket	*FuturePackets;	//!< Out of sequence packets
+	/**
+	 * \}
+	 */
 	
 	union {
 		tIPv4	v4;

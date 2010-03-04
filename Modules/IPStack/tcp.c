@@ -15,6 +15,8 @@ void	TCP_StartConnection(tTCPConnection *Conn);
 void	TCP_SendPacket(tTCPConnection *Conn, size_t Length, tTCPHeader *Data);
 void	TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffer);
 void	TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Header, int Length);
+void	TCP_INT_AppendRecieved(tTCPConnection *Connection, tTCPStoredPacket *Ptk);
+void	TCP_INT_UpdateRecievedFromFuture(tTCPConnection *Connection);
 Uint16	TCP_GetUnusedPort();
  int	TCP_AllocatePort(Uint16 Port);
  int	TCP_DeallocatePort(Uint16 Port);
@@ -267,9 +269,12 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 	pkt->Sequence = Header->SequenceNumber;
 	memcpy(pkt->Data, (Uint8*)Header + (Header->DataOffset&0xF)*4, dataLen);
 	
+	// Is this packet the next expected packet?
 	if( Header->SequenceNumber != Connection->NextSequenceRcv )
 	{
 		tTCPStoredPacket	*tmp, *prev;
+		// No? Well, let's cache it and look at it later
+		LOCK( &Connection->lFuturePackets );
 		for(tmp = Connection->FuturePackets;
 			tmp;
 			prev = tmp, tmp = tmp->Next)
@@ -281,21 +286,79 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 		else
 			Connection->FuturePackets = pkt;
 		pkt->Next = tmp;
+		RELEASE( &Connection->lFuturePackets );
 	}
 	else
 	{
-		LOCK( &Connection->lRecievedPackets );
-		if(Connection->RecievedPackets)
-		{
-			Connection->RecievedPacketsTail->Next = pkt;
-			Connection->RecievedPacketsTail = pkt;
+		// Ooh, Goodie! Add it to the recieved list
+		TCP_INT_AppendRecieved(Connection, pkt);
+		Connection->NextSequenceRcv ++;
+		
+		// TODO: This should be moved out of the watcher thread,
+		// so that a single lost packet on one connection doesn't cause
+		// all connections on the interface to lag.
+		TCP_INT_UpdateRecievedFromFuture(Connection);
+	}
+	
+	// TODO: Check ACK code validity
+	Header->AcknowlegementNumber = pkt->Sequence;
+	Header->SequenceNumber = Connection->NextSequenceSend;
+	Header->Flags |= TCP_FLAG_ACK;
+	TCP_SendPacket( Connection, sizeof(tTCPHeader), Header );
+}
+
+/**
+ * \brief Appends a packet to the recieved list
+ */
+void TCP_INT_AppendRecieved(tTCPConnection *Connection, tTCPStoredPacket *Pkt)
+{
+	LOCK( &Connection->lRecievedPackets );
+	if(Connection->RecievedPackets)
+	{
+		Connection->RecievedPacketsTail->Next = Pkt;
+		Connection->RecievedPacketsTail = Pkt;
+	}
+	else
+	{
+		Connection->RecievedPackets = Pkt;
+		Connection->RecievedPacketsTail = Pkt;
+	}
+	RELEASE( &Connection->lRecievedPackets );
+}
+
+/**
+ * \brief Updates the connections recieved list from the future list
+ */
+void TCP_INT_UpdateRecievedFromFuture(tTCPConnection *Connection)
+{
+	tTCPStoredPacket	*pkt, *prev;
+	for(;;)
+	{
+		prev = NULL;
+		// Look for the next expected packet in the cache.
+		LOCK( &Connection->lFuturePackets );
+		for(pkt = Connection->FuturePackets;
+			pkt && pkt->Sequence < Connection->NextSequenceRcv;
+			prev = pkt, pkt = pkt->Next);
+		
+		// If we can't find the expected next packet, stop looking
+		if(!pkt || pkt->Sequence > Connection->NextSequenceRcv) {
+			RELEASE( &Connection->lFuturePackets );
+			return;
 		}
+		
+		// Delete packet from future list
+		if(prev)
+			prev->Next = pkt->Next;
 		else
-		{
-			Connection->RecievedPackets = pkt;
-			Connection->RecievedPacketsTail = pkt;
-		}
-		RELEASE( &Connection->lRecievedPackets );
+			Connection->FuturePackets = pkt->Next;
+		
+		// Release list
+		RELEASE( &Connection->lFuturePackets );
+		
+		// Looks like we found one
+		TCP_INT_AppendRecieved(Connection, pkt);
+		Connection->NextSequenceRcv ++;
 	}
 }
 
@@ -455,6 +518,9 @@ void TCP_Server_Close(tVFS_Node *Node)
 }
 
 // --- Client
+/**
+ * \brief Create a client node
+ */
 tVFS_Node *TCP_Client_Init(tInterface *Interface)
 {
 	tTCPConnection	*conn = malloc( sizeof(tTCPConnection) );
@@ -481,9 +547,49 @@ tVFS_Node *TCP_Client_Init(tInterface *Interface)
 	return &conn->Node;
 }
 
+/**
+ * \brief Wait for a packet and return it
+ * \note If \a Length is smaller than the size of the packet, the rest
+ *       of the packet's data will be discarded.
+ */
 Uint64 TCP_Client_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 {
-	return 0;
+	tTCPConnection	*conn = Node->ImplPtr;
+	tTCPStoredPacket	*pkt;
+	
+	// Check if connection is open
+	if( conn->State != TCP_ST_OPEN )	return 0;
+	
+	// Poll packets
+	for(;;)
+	{
+		// Sleep until the packet is recieved
+		while( conn->RecievedPackets == NULL )
+			Threads_Yield();
+		//	Threads_Sleep();
+		
+		// Lock list and check if there is a packet
+		LOCK( &conn->lRecievedPackets );
+		if( conn->RecievedPackets == NULL ) {
+			// If not, release the lock and return to waiting
+			RELEASE( &conn->lRecievedPackets );
+			continue;
+		}
+		
+		// Get packet pointer
+		pkt = conn->RecievedPackets;
+		conn->RecievedPackets = pkt->Next;
+		// Release the lock (we don't need it any more)
+		RELEASE( &conn->lRecievedPackets );
+		
+		// Copy Data
+		if(Length > pkt->Length)	Length = pkt->Length;
+		memcpy(Buffer, pkt->Data, Length);
+		
+		// Free packet and return
+		free(pkt);
+		return Length;
+	}
 }
 
 Uint64 TCP_Client_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
