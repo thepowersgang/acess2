@@ -380,10 +380,15 @@ void Debug_HexDump(char *Header, void *Data, Uint Length)
 
 	while(Length >= 16)
 	{
-		Log("%04x: %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
+		#define	CH(n)	((' '<=cdat[(n)]&&cdat[(n)]<=0x7F) ? cdat[(n)] : '.')
+		Log("%04x: %02x %02x %02x %02x %02x %02x %02x %02x"
+			" %02x %02x %02x %02x %02x %02x %02x %02x"
+			"  %c%c%c%c%c%c%c%c %c%c%c%c%c%c%c%c",
 			pos,
 			cdat[0], cdat[1], cdat[2], cdat[3], cdat[4], cdat[5], cdat[6], cdat[7],
-			cdat[8], cdat[9], cdat[10], cdat[11], cdat[12], cdat[13], cdat[14], cdat[15]
+			cdat[8], cdat[9], cdat[10], cdat[11], cdat[12], cdat[13], cdat[14], cdat[15],
+			CH(0),	CH(1),	CH(2),	CH(3),	CH(4),	CH(5),	CH(6),	CH(7),
+			CH(8),	CH(9),	CH(10),	CH(11),	CH(12),	CH(13),	CH(14),	CH(15)
 			);
 		Length -= 16;
 		cdat += 16;

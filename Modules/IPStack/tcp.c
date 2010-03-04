@@ -69,7 +69,7 @@ void TCP_StartConnection(tTCPConnection *Conn)
 	hdr.DestPort = Conn->RemotePort;
 	Conn->NextSequenceSend = rand();
 	hdr.SequenceNumber = Conn->NextSequenceSend;
-	hdr.DataOffset = (sizeof(tTCPHeader)+3)/4;
+	hdr.DataOffset = (sizeof(tTCPHeader)/4) << 4;
 	hdr.Flags = TCP_FLAG_SYN;
 	hdr.WindowSize = 0;	// TODO
 	hdr.Checksum = 0;	// TODO
@@ -101,7 +101,7 @@ void TCP_SendPacket( tTCPConnection *Conn, size_t Length, tTCPHeader *Data )
 		memcpy( &buf[3], Data, Length );
 		Data->Checksum = IPv4_Checksum( buf, buflen );
 		free(buf);
-		IPv4_SendPacket(Conn->Interface, Conn->RemoteIP.v4, IP4PROT_TCP, 0, buflen, buf);
+		IPv4_SendPacket(Conn->Interface, Conn->RemoteIP.v4, IP4PROT_TCP, 0, Length, Data);
 		break;
 	}
 }
@@ -116,48 +116,57 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 	tTCPListener	*srv;
 	tTCPConnection	*conn;
 
-	Log("[TCP  ] sizeof(tTCPHeader) = %i", sizeof(tTCPHeader));
-	Log("[TCP  ] SourcePort = %i", ntohs(hdr->SourcePort));
-	Log("[TCP  ] DestPort = %i", ntohs(hdr->DestPort));
+	Log("[TCP  ] SourcePort = %i, DestPort = %i",
+		ntohs(hdr->SourcePort), ntohs(hdr->DestPort));
 	Log("[TCP  ] SequenceNumber = 0x%x", ntohl(hdr->SequenceNumber));
 	Log("[TCP  ] AcknowlegementNumber = 0x%x", ntohl(hdr->AcknowlegementNumber));
 	Log("[TCP  ] DataOffset = %i", hdr->DataOffset >> 4);
 	Log("[TCP  ] Flags = {");
-	Log("[TCP  ]   CWR = %B", !!(hdr->Flags & TCP_FLAG_CWR));
-	Log("[TCP  ]   ECE = %B", !!(hdr->Flags & TCP_FLAG_ECE));
-	Log("[TCP  ]   URG = %B", !!(hdr->Flags & TCP_FLAG_URG));
-	Log("[TCP  ]   ACK = %B", !!(hdr->Flags & TCP_FLAG_ACK));
-	Log("[TCP  ]   PSH = %B", !!(hdr->Flags & TCP_FLAG_PSH));
-	Log("[TCP  ]   RST = %B", !!(hdr->Flags & TCP_FLAG_RST));
-	Log("[TCP  ]   SYN = %B", !!(hdr->Flags & TCP_FLAG_SYN));
-	Log("[TCP  ]   FIN = %B", !!(hdr->Flags & TCP_FLAG_FIN));
+	Log("[TCP  ]   CWR = %B, ECE = %B",
+		!!(hdr->Flags & TCP_FLAG_CWR), !!(hdr->Flags & TCP_FLAG_ECE));
+	Log("[TCP  ]   URG = %B, ACK = %B",
+		!!(hdr->Flags & TCP_FLAG_URG), !!(hdr->Flags & TCP_FLAG_ACK));
+	Log("[TCP  ]   PSH = %B, RST = %B",
+		!!(hdr->Flags & TCP_FLAG_PSH), !!(hdr->Flags & TCP_FLAG_RST));
+	Log("[TCP  ]   SYN = %B, FIN = %B",
+		!!(hdr->Flags & TCP_FLAG_SYN), !!(hdr->Flags & TCP_FLAG_FIN));
 	Log("[TCP  ] }");
 	Log("[TCP  ] WindowSize = %i", htons(hdr->WindowSize));
 	Log("[TCP  ] Checksum = 0x%x", htons(hdr->Checksum));
 	Log("[TCP  ] UrgentPointer = 0x%x", htons(hdr->UrgentPointer));
 
+	if( Length > (hdr->DataOffset >> 4)*4 )
+	{
+		Debug_HexDump(
+			"[TCP  ] Packet Data = ",
+			(Uint8*)hdr + (hdr->DataOffset >> 4)*4,
+			Length - (hdr->DataOffset >> 4)*4
+			);
+	}
+
 	// Check Servers
 	{
 		for( srv = gTCP_Listeners; srv; srv = srv->Next )
 		{
-			Log("[TCP  ] Server %p, Port = 0x%04x", srv, srv->Port);
 			// Check if the server is active
 			if(srv->Port == 0)	continue;
 			// Check the interface
-			Log("[TCP  ]  Interface = %p (== %p ?)", srv->Interface, Interface);
 			if(srv->Interface && srv->Interface != Interface)	continue;
 			// Check the destination port
-			Log("[TCP  ]  hdr->DestPort = 0x%04x", ntohs(hdr->DestPort));
 			if(srv->Port != htons(hdr->DestPort))	continue;
 			
-			Log("[TCP  ] Matches");
+			Log("[TCP  ] Matches server %p", srv);
 			// Is this in an established connection?
 			for( conn = srv->Connections; conn; conn = conn->Next )
 			{
+				Log("[TCP  ] conn->Interface(%p) == Interface(%p)",
+					conn->Interface, Interface);
 				// Check that it is coming in on the same interface
 				if(conn->Interface != Interface)	continue;
 
 				// Check Source Port
+				Log("[TCP  ] conn->RemotePort(%i) == hdr->SourcePort(%i)",
+					conn->RemotePort, ntohs(hdr->SourcePort));
 				if(conn->RemotePort != ntohs(hdr->SourcePort))	continue;
 
 				// Check Source IP
@@ -166,6 +175,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 				if(conn->Interface->Type == 4 && !IP4_EQU(conn->RemoteIP.v4, *(tIPv4*)Address))
 					continue;
 
+				Log("[TCP  ] Matches connection %p", conn);
 				// We have a response!
 				TCP_INT_HandleConnectionPacket(conn, hdr, Length);
 
@@ -176,7 +186,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 			// Open a new connection (well, check that it's a SYN)
 			if(hdr->Flags != TCP_FLAG_SYN) {
 				Log("[TCP  ] Packet is not a SYN");
-				continue;
+				return ;
 			}
 			
 			// TODO: Check for halfopen max
@@ -193,7 +203,8 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 			case 6:	conn->RemoteIP.v6 = *(tIPv6*)Address;	break;
 			}
 			
-			conn->NextSequenceRcv = ntohl( hdr->SequenceNumber );
+			conn->NextSequenceRcv = ntohl( hdr->SequenceNumber ) + 1;
+			// + (Length-(hdr->DataOffset>>4)*4);
 			conn->NextSequenceSend = rand();
 			
 			// Create node
@@ -208,21 +219,28 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 			// as the interface is locked to the watching thread, and this
 			// runs in the watching thread. But, it's a good idea to have
 			// it, just in case
+			// Oh, wait, there is a case where a wildcard can be used
+			// (srv->Interface == NULL) so having the lock is a good idea
 			LOCK(&srv->lConnections);
-			conn->Next = srv->Connections;
-			srv->Connections = conn;
+			if( !srv->Connections )
+				srv->Connections = conn;
+			else
+				srv->ConnectionsTail->Next = conn;
+			srv->ConnectionsTail = conn;
+			if(!srv->NewConnections)
+				srv->NewConnections = conn;
 			RELEASE(&srv->lConnections);
 
 			// Send the SYN ACK
-			Log("[TCP  ] TODO: Sending SYN ACK");
 			hdr->Flags |= TCP_FLAG_ACK;
-			hdr->AcknowlegementNumber = hdr->SequenceNumber;
+			hdr->AcknowlegementNumber = htonl(conn->NextSequenceRcv);
 			hdr->SequenceNumber = htonl(conn->NextSequenceSend);
 			hdr->DestPort = hdr->SourcePort;
-			hdr->SourcePort = htonl(srv->Port);
+			hdr->SourcePort = htons(srv->Port);
+			hdr->DataOffset = (sizeof(tTCPHeader)/4) << 4;
 			TCP_SendPacket( conn, sizeof(tTCPHeader), hdr );
 
-			break;
+			return ;
 		}
 	}
 
@@ -244,8 +262,11 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 				continue;
 
 			TCP_INT_HandleConnectionPacket(conn, hdr, Length);
+			return ;
 		}
 	}
+	
+	Log("[TCP  ] No Match");
 }
 
 /**
@@ -261,23 +282,37 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 		Connection->NextSequenceRcv = Header->SequenceNumber + 1;
 	}
 	
+	// Get length of data
+	dataLen = Length - (Header->DataOffset>>4)*4;
+	Log("[TCP  ] HandleConnectionPacket - dataLen = %i", dataLen);
+	
 	if(Header->Flags & TCP_FLAG_ACK) {
 		// TODO: Process an ACKed Packet
 		Log("[TCP  ] Conn %p, Packet 0x%x ACKed", Connection, Header->AcknowlegementNumber);
-		return ;
 	}
 	
+	if(dataLen == 0)	return ;
+	
+	// NOTES:
+	// Flags
+	//    PSH - Has Data?
+	// /NOTES
+	
 	// Allocate and fill cached packet
-	dataLen =  Length - (Header->DataOffset&0xF)*4;
 	pkt = malloc( dataLen + sizeof(tTCPStoredPacket) );
 	pkt->Next = NULL;
-	pkt->Sequence = Header->SequenceNumber;
-	memcpy(pkt->Data, (Uint8*)Header + (Header->DataOffset&0xF)*4, dataLen);
+	pkt->Sequence = ntohl(Header->SequenceNumber);
+	pkt->Length = dataLen;
+	memcpy(pkt->Data, (Uint8*)Header + (Header->DataOffset>>4)*4, dataLen);
 	
 	// Is this packet the next expected packet?
-	if( Header->SequenceNumber != Connection->NextSequenceRcv )
+	if( pkt->Sequence != Connection->NextSequenceRcv )
 	{
 		tTCPStoredPacket	*tmp, *prev;
+		
+		Log("[TCP  ] Out of sequence packet (0x%08x != 0x%08x)",
+			pkt->Sequence, Connection->NextSequenceRcv);
+		
 		// No? Well, let's cache it and look at it later
 		LOCK( &Connection->lFuturePackets );
 		for(tmp = Connection->FuturePackets;
@@ -306,9 +341,10 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 	}
 	
 	// TODO: Check ACK code validity
-	Header->AcknowlegementNumber = pkt->Sequence;
-	Header->SequenceNumber = Connection->NextSequenceSend;
-	Header->Flags |= TCP_FLAG_ACK;
+	Header->AcknowlegementNumber = ntohl(pkt->Sequence);
+	Header->SequenceNumber = ntohl(Connection->NextSequenceSend);
+	Header->Flags &= TCP_FLAG_SYN;
+	Header->Flags = TCP_FLAG_ACK;
 	TCP_SendPacket( Connection, sizeof(tTCPHeader), Header );
 }
 
@@ -464,13 +500,27 @@ char *TCP_Server_ReadDir(tVFS_Node *Node, int Pos)
 	tTCPConnection	*conn;
 	char	*ret;
 
-	while( srv->NewConnections == NULL )	Threads_Yield();
+	Log("[TCP  ] Thread %i waiting for a connection", Threads_GetTID());
+	for(;;)
+	{
+		LOCK( &srv->lConnections );
+		if( srv->NewConnections != NULL )	break;
+		RELEASE( &srv->lConnections );
+		Threads_Yield();
+		continue;
+	}
+	
 
+	// Increment the new list (the current connection is still on the 
+	// normal list
 	conn = srv->NewConnections;
 	srv->NewConnections = conn->Next;
+	
+	RELEASE( &srv->lConnections );
 
 	ret = malloc(9);
-	itoa(ret, Node->ImplInt, 16, '0', 8);
+	itoa(ret, Node->ImplInt, 16, 8, '0');
+	Log("TCP_Server_ReadDir: RETURN '%s'", ret);
 	return ret;
 }
 
@@ -481,7 +531,27 @@ char *TCP_Server_ReadDir(tVFS_Node *Node, int Pos)
  */
 tVFS_Node *TCP_Server_FindDir(tVFS_Node *Node, char *Name)
 {
-	return NULL;
+	tTCPConnection	*conn;
+	tTCPListener	*srv = Node->ImplPtr;
+	char	tmp[9];
+	 int	id = atoi(Name);
+	
+	// Sanity Check
+	itoa(tmp, id, 16, 8, '0');
+	if(strcmp(tmp, Name) != 0)	return NULL;
+	
+	// Search
+	LOCK( &srv->lConnections );
+	for(conn = srv->Connections;
+		conn && conn->Node.ImplInt != id;
+		conn = conn->Next);
+	RELEASE( &srv->lConnections );
+	
+	// If not found, ret NULL
+	if(!conn)	return NULL;
+	
+	// Return node
+	return &conn->Node;
 }
 
 /**
@@ -570,22 +640,20 @@ Uint64 TCP_Client_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buff
 	tTCPConnection	*conn = Node->ImplPtr;
 	tTCPStoredPacket	*pkt;
 	
+	Log("TCP_Client_Read: (Length=%i)", Length);
+	
 	// Check if connection is open
 	if( conn->State != TCP_ST_OPEN )	return 0;
 	
 	// Poll packets
 	for(;;)
-	{
-		// Sleep until the packet is recieved
-		while( conn->RecievedPackets == NULL )
-			Threads_Yield();
-		//	Threads_Sleep();
-		
+	{		
 		// Lock list and check if there is a packet
 		LOCK( &conn->lRecievedPackets );
 		if( conn->RecievedPackets == NULL ) {
-			// If not, release the lock and return to waiting
+			// If not, release the lock, yield and try again
 			RELEASE( &conn->lRecievedPackets );
+			Threads_Yield();
 			continue;
 		}
 		
@@ -594,6 +662,8 @@ Uint64 TCP_Client_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buff
 		conn->RecievedPackets = pkt->Next;
 		// Release the lock (we don't need it any more)
 		RELEASE( &conn->lRecievedPackets );
+		
+		Log("TCP_Client_Read: pkt->Length = %i", pkt->Length);
 		
 		// Copy Data
 		if(Length > pkt->Length)	Length = pkt->Length;

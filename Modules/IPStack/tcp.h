@@ -19,7 +19,7 @@ struct sTCPHeader
 	Uint32	SequenceNumber;
 	Uint32	AcknowlegementNumber;
 	#if 0
-	struct {
+	struct {	// Lowest to highest
 		unsigned Reserved:	4;
 		unsigned DataOffset: 4;	// Size of the header in 32-bit words
 	} __attribute__ ((packed));
@@ -69,7 +69,8 @@ struct sTCPListener
 	 int	NextID;		//!< Name of the next connection
 	tSpinlock	lConnections;	//!< Spinlock for connections
 	tTCPConnection	*Connections;	//!< Connections (linked list)
-	 tTCPConnection	*volatile NewConnections;
+	tTCPConnection	*volatile NewConnections;
+	tTCPConnection	*ConnectionsTail;
 };
 
 struct sTCPStoredPacket

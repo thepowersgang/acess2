@@ -13,6 +13,8 @@
 #include "errno.h"
 
 // --- Types ---
+typedef  int	tPID;
+typedef  int	tTID;
 typedef Uint	tUID;
 typedef Uint	tGID;
 typedef Sint64	tTimestamp;
@@ -367,6 +369,8 @@ extern int	Proc_Spawn(char *Path);
 extern void	Threads_Exit();
 extern void	Threads_Yield();
 extern void	Threads_Sleep();
+extern tPID	Threads_GetPID();
+extern tTID	Threads_GetTID();
 extern tUID	Threads_GetUID();
 extern tGID	Threads_GetGID();
 extern int	SpawnTask(tThreadFunction Function, void *Arg);

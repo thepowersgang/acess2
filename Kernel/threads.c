@@ -610,11 +610,11 @@ void Threads_SendSignal(int TID, int Num)
 #endif
 
 // --- Process Structure Access Functions ---
-int Threads_GetPID()
+tPID Threads_GetPID()
 {
 	return Proc_GetCurThread()->TGID;
 }
-int Threads_GetTID()
+tTID Threads_GetTID()
 {
 	return Proc_GetCurThread()->TID;
 }
