@@ -78,10 +78,31 @@ enum eTplDrv_IOCtl {
 	DRV_IOCTL_LOOKUP
 };
 
-//! \brief eTplDrv_IOCtl.DRV_IOCTL_LOOKUP names for the core IOCtls
-//! These are the official lookup names of the core calls
+/**
+ * \brief eTplDrv_IOCtl.DRV_IOCTL_LOOKUP names for the core IOCtls
+ * These are the official lookup names of the core calls
+ */
 #define	DRV_IOCTLNAMES	"type", "ident", "version", "lookup"
 
+/**
+ * \brief Helper macro for the base IOCtl calls
+ * \param _type	Type number from eTplDrv_Type to return
+ * \param _ident	String of max 32-characters that identifies this driver
+ * \param _version	Driver's 8.8.8 BCD version number
+ * \param _ioctls	Pointer to the IOCtls string array
+ * \warning If you have DEBUG enabled in the calling file, this function
+ *          will do LEAVE()s before returning, so make sure that the
+ *          IOCtl function is ENTER()ed when using debug with this macro
+ * 
+ * Usage: (Id is the IOCtl call ID)
+ * \code
+ * switch(Id)
+ * {
+ * BASE_IOCTLS(DRV_TYPE_MISC, "Ident", 0x100, csaIOCtls)
+ * // Your IOCtls go here, starting at index 4
+ * }
+ * \endcode
+ */
 #define BASE_IOCTLS(_type, _ident, _version, _ioctls)	\
 	case DRV_IOCTL_TYPE:	LEAVE('i', (_type));	return (_type);\
 	case DRV_IOCTL_IDENT: {\

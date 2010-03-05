@@ -132,7 +132,8 @@ int FIFO_MkNod(tVFS_Node *Node, char *Name, Uint Flags)
 }
 
 /**
- * \fn void FIFO_Close(vfs_node *Node)
+ * \fn void FIFO_Close(tVFS_Node *Node)
+ * \brief Close a FIFO end
  */
 void FIFO_Close(tVFS_Node *Node)
 {

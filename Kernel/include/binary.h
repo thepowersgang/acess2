@@ -7,6 +7,13 @@
 #define _BINARY_H
 
 // === TYPES ===
+/**
+ * \brief Representation of a page in a binary file
+ * 
+ * Tells the binary loader where the page data resides on disk and where
+ * to load it to (relative to the binary base). Once the data is read,
+ * the \a Physical field contains the physical address of the page.
+ */
 typedef struct sBinaryPage
 {
 	/**
@@ -157,6 +164,17 @@ typedef struct sBinaryType
  */
 extern char	*Binary_RegInterp(char *Path);
 
+/**
+ * \brief Registers a binary type with the kernel's loader
+ * \param Type	Pointer to the loader's type structure
+ * \return Boolean success
+ * \note The structure \a Type must be persistant (usually it will be a
+ *       constant global variable)
+ * 
+ * This function tells the binary loader about a new file type, and gives
+ * it the functions to read the type into a ::tBinary structure, relocate
+ * it and to find the value of symbols defined within the binary.
+ */
 extern  int	Binary_RegisterType(tBinaryType *Type);
 
 #endif

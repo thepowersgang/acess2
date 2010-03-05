@@ -262,7 +262,7 @@ int tolower(int c)
 }
 
 /**
- * \fn int strucmp(char *Str1, char *Str2)
+ * \fn int strucmp(const char *Str1, const char *Str2)
  * \brief Compare \a Str1 and \a Str2 case-insensitively
  */
 int strucmp(const char *Str1, const char *Str2)
@@ -309,7 +309,7 @@ Uint strlen(const char *__str)
 }
 
 /**
- * \fn char *strcpy(const char *__str1, const char *__str2)
+ * \fn char *strcpy(char *__str1, const char *__str2)
  * \brief Copy a string to a new location
  */
 char *strcpy(char *__str1, const char *__str2)
@@ -321,7 +321,7 @@ char *strcpy(char *__str1, const char *__str2)
 }
 
 /**
- * \fn char *strcpy(const char *__str1, const char *__str2)
+ * \fn char *strncpy(char *__str1, const char *__str2, size_t max)
  * \brief Copy a string to a new location
  */
 char *strncpy(char *__str1, const char *__str2, size_t max)

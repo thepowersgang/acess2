@@ -43,7 +43,7 @@ tBinary *Binary_DoLoad(char *truePath);
 void	Binary_Dereference(tBinary *Info);
 Uint	Binary_Relocate(void *Base);
 Uint	Binary_GetSymbolEx(char *Name, Uint *Value);
-Uint	Binary_FindSymbol(void *Base, char *Name, Uint *val);
+Uint	Binary_FindSymbol(void *Base, char *Name, Uint *Val);
 
 // === GLOBALS ===
  int	glBinListLock = 0;
@@ -245,17 +245,16 @@ Uint Binary_Load(char *file, Uint *entryPoint)
 }
 
 /**
- \fn tBinary *Binary_GetInfo(char *truePath)
- \brief Finds a matching binary entry
- \param truePath	File Identifier (True path name)
-*/
-tBinary *Binary_GetInfo(char *truePath)
+ * \brief Finds a matching binary entry
+ * \param TruePath	File Identifier (True path name)
+ */
+tBinary *Binary_GetInfo(char *TruePath)
 {
 	tBinary	*pBinary;
 	pBinary = glLoadedBinaries;
 	while(pBinary)
 	{
-		if(strcmp(pBinary->TruePath, truePath) == 0)
+		if(strcmp(pBinary->TruePath, TruePath) == 0)
 			return pBinary;
 		pBinary = pBinary->Next;
 	}
@@ -548,22 +547,22 @@ void Binary_Dereference(tBinary *Info)
 }
 
 /**
- \fn char *Binary_RegInterp(char *path)
- \brief Registers an Interpreter
- \param path	Path to interpreter provided by executable
-*/
-char *Binary_RegInterp(char *path)
+ * \fn char *Binary_RegInterp(char *Path)
+ * \brief Registers an Interpreter
+ * \param Path	Path to interpreter provided by executable
+ */
+char *Binary_RegInterp(char *Path)
 {
 	 int	i;
 	// NULL Check Argument
-	if(path == NULL)	return NULL;
+	if(Path == NULL)	return NULL;
 	// NULL Check the array
 	if(gsaRegInterps == NULL)
 	{
 		giRegInterps = 1;
 		gsaRegInterps = malloc( sizeof(char*) );
-		gsaRegInterps[0] = malloc( strlen(path) );
-		strcpy(gsaRegInterps[0], path);
+		gsaRegInterps[0] = malloc( strlen(Path) );
+		strcpy(gsaRegInterps[0], Path);
 		return gsaRegInterps[0];
 	}
 	
@@ -577,8 +576,8 @@ char *Binary_RegInterp(char *path)
 	// Interpreter is not in list
 	giRegInterps ++;
 	gsaRegInterps = malloc( sizeof(char*)*giRegInterps );
-	gsaRegInterps[i] = malloc( strlen(path) );
-	strcpy(gsaRegInterps[i], path);
+	gsaRegInterps[i] = malloc( strlen(Path) );
+	strcpy(gsaRegInterps[i], Path);
 	return gsaRegInterps[i];
 }
 
@@ -586,11 +585,12 @@ char *Binary_RegInterp(char *path)
 // Kernel Binary Handling
 // ============
 /**
- * \fn void *Binary_LoadKernel(char *path)
+ * \fn void *Binary_LoadKernel(char *File)
  * \brief Load a binary into kernel space
  * \note This function shares much with #Binary_Load, but does it's own mapping
+ * \param File	File to load into the kernel
  */
-void *Binary_LoadKernel(char *file)
+void *Binary_LoadKernel(char *File)
 {
 	char	*sTruePath;
 	tBinary	*pBinary;
@@ -805,13 +805,13 @@ Uint Binary_GetSymbolEx(char *Name, Uint *Value)
 }
 
 /**
- * \fn Uint Binary_GetSymbolBin(void *Base, char *Name, Uint *val)
+ * \fn Uint Binary_FindSymbol(void *Base, char *Name, Uint *Val)
  * \brief Get a symbol from the specified library
  * \param Base	Base address
  * \param Name	Name of symbol to find
- * \param val	Pointer to place final value
+ * \param Val	Pointer to place final value
  */
-Uint Binary_FindSymbol(void *Base, char *Name, Uint *val)
+Uint Binary_FindSymbol(void *Base, char *Name, Uint *Val)
 {
 	Uint32	ident = *(Uint32*) Base;
 	tBinaryType	*bt = gRegBinTypes;
@@ -819,7 +819,7 @@ Uint Binary_FindSymbol(void *Base, char *Name, Uint *val)
 	for(; bt; bt = bt->Next)
 	{
 		if( (ident & bt->Mask) == (Uint)bt->Ident )
-			return bt->GetSymbol(Base, Name, val);
+			return bt->GetSymbol(Base, Name, Val);
 	}
 	
 	Warning("[BIN ] 0x%x is an unknown file type. (0x%x 0x%x 0x%x 0x%x)",

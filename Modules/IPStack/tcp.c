@@ -48,8 +48,9 @@ Uint32	gaTCP_PortBitmap[0x800];
 
 // === CODE ===
 /**
- * \fn void TCP_Initialise()
  * \brief Initialise the TCP Layer
+ * 
+ * Registers the client and server files and the GetPacket callback
  */
 void TCP_Initialise()
 {
@@ -60,6 +61,7 @@ void TCP_Initialise()
 
 /**
  * \brief Open a connection to another host using TCP
+ * \param Conn	Connection structure
  */
 void TCP_StartConnection(tTCPConnection *Conn)
 {
@@ -74,7 +76,7 @@ void TCP_StartConnection(tTCPConnection *Conn)
 	hdr.WindowSize = 0;	// TODO
 	hdr.Checksum = 0;	// TODO
 	hdr.UrgentPointer = 0;
-	// SEND PACKET
+	
 	TCP_SendPacket( Conn, sizeof(tTCPHeader), &hdr );
 	return ;
 }
@@ -83,7 +85,7 @@ void TCP_StartConnection(tTCPConnection *Conn)
  * \brief Sends a packet from the specified connection, calculating the checksums
  * \param Conn	Connection
  * \param Length	Length of data
- * \param Data	Packet data
+ * \param Data	Packet data (cast as a TCP Header)
  */
 void TCP_SendPacket( tTCPConnection *Conn, size_t Length, tTCPHeader *Data )
 {
@@ -107,8 +109,11 @@ void TCP_SendPacket( tTCPConnection *Conn, size_t Length, tTCPHeader *Data )
 }
 
 /**
- * \fn void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffer)
  * \brief Handles a packet from the IP Layer
+ * \param Interface	Interface the packet arrived from
+ * \param Address	Pointer to the addres structure
+ * \param Length	Size of packet in bytes
+ * \param Buffer	Packet data
  */
 void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffer)
 {
@@ -204,7 +209,6 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 			}
 			
 			conn->NextSequenceRcv = ntohl( hdr->SequenceNumber ) + 1;
-			// + (Length-(hdr->DataOffset>>4)*4);
 			conn->NextSequenceSend = rand();
 			
 			// Create node
@@ -271,6 +275,9 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 
 /**
  * \brief Handles a packet sent to a specific connection
+ * \param Connection	TCP Connection pointer
+ * \param Header	TCP Packet pointer
+ * \param Length	Length of the packet
  */
 void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Header, int Length)
 {	
@@ -350,6 +357,8 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 
 /**
  * \brief Appends a packet to the recieved list
+ * \param Connection	Connection structure
+ * \param Pkt	Packet structure on heap
  */
 void TCP_INT_AppendRecieved(tTCPConnection *Connection, tTCPStoredPacket *Pkt)
 {
@@ -369,6 +378,11 @@ void TCP_INT_AppendRecieved(tTCPConnection *Connection, tTCPStoredPacket *Pkt)
 
 /**
  * \brief Updates the connections recieved list from the future list
+ * \param Connection	Connection structure
+ * 
+ * Updates the recieved packets list with packets from the future (out 
+ * of order) packets list that are now able to be added in direct
+ * sequence.
  */
 void TCP_INT_UpdateRecievedFromFuture(tTCPConnection *Connection)
 {

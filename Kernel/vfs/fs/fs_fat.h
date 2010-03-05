@@ -3,13 +3,16 @@
  * FAT12/16/32 Driver
  * vfs/fs/fs_fat.h
  */
+#ifndef _FS_FAT_H_
+#define _FS_FAT_H_
 
 // === On Disk Structures ===
 /**
- \struct fat_bootsect_s
- \brief Bootsector format
-*/
-struct fat_bootsect_s {
+ * \struct fat_bootsect_s
+ * \brief Bootsector format
+ */
+struct fat_bootsect_s
+{
 	Uint8	jmp[3];	//!< Jump Instruction
 	char	oemname[8];	//!< OEM Name. Typically MSDOS1.1
 	Uint16	bps;	//!< Bytes per Sector. Assumed to be 512
@@ -58,7 +61,6 @@ struct fat_bootsect_s {
 */
 struct fat_filetable_s {
 	char	name[11];	//!< 8.3 Name
-	//char	ext[3];	//!< Extention
 	Uint8	attrib;	//!< File Attributes.
 	Uint8	ntres;	//!< Reserved for NT - Set to 0
 	Uint8	ctimems;	//!< 10ths of a second ranging from 0-199 (2 seconds)
@@ -87,29 +89,53 @@ struct fat_longfilename_s {
 	Uint16	name3[2];	//!< Last 2 characters of name
 } __attribute__((packed));
 
-#define ATTR_READONLY	0x01
-#define ATTR_HIDDEN		0x02
-#define ATTR_SYSTEM		0x04
-#define ATTR_VOLUMEID	0x08
-#define ATTR_DIRECTORY	0x10
+/**
+ * \name File Attributes
+ * \brief Flag values for ::fat_filetable_s.attrib
+ * \{
+ */
+#define ATTR_READONLY	0x01	//!< Read-only file
+#define ATTR_HIDDEN		0x02	//!< Hidden File
+#define ATTR_SYSTEM		0x04	//!< System File
+#define ATTR_VOLUMEID	0x08	//!< Volume ID (Deprecated)
+#define ATTR_DIRECTORY	0x10	//!< Directory
+/**
+ * \brief File needs archiving
+ * \note User set flag, no significance to the FS driver
+ */
 #define ATTR_ARCHIVE	0x20
+/**
+ * \brief Meta Attribute 
+ * 
+ * If ::fat_filetable_s.attrib equals ATTR_LFN the file is a LFN entry
+ */
 #define	ATTR_LFN		(ATTR_READONLY | ATTR_HIDDEN | ATTR_SYSTEM | ATTR_VOLUMEID)
+/**
+ * \}
+ */
 
 /**
- \enum eFatType
- \brief Internal Ids for FAT types
-*/
-enum eFatType {
-//	FAT_NULL,	//!< NULL Entry
+ * \brief Internal IDs for FAT types
+ */
+enum eFatType
+{
 	FAT12,	//!< FAT12 Volume
 	FAT16,	//!< FAT16 Volume
 	FAT32,	//!< FAT32 Volume
-//	FAT_LAST	//!< LAST Entry. Unused
 };
 
-#define	EOC_FAT12	0x0FFF
-#define	EOC_FAT16	0xFFFF
-#define	EOC_FAT32	0x0FFFFFF
+/**
+ * \name End of Cluster marks
+ * \brief FAT values that indicate the end of a cluster chain in
+ *        different versions.
+ * \{
+ */
+#define	EOC_FAT12	0x0FFF	//!< FAT-12 Mark
+#define	EOC_FAT16	0xFFFF	//!< FAT-16 Mark
+#define	EOC_FAT32	0x0FFFFFF	//!< FAT-32 Mark
+/**
+ * \}
+ */
 
 typedef struct fat_bootsect_s fat_bootsect;
 typedef struct fat_filetable_s fat_filetable;
@@ -117,10 +143,11 @@ typedef struct fat_longfilename_s fat_longfilename;
 
 // === Memory Structures ===
 /**
- \struct drv_fat_volinfo_s
- \brief Representation of a volume in memory
-*/
-struct drv_fat_volinfo_s {
+ * \struct drv_fat_volinfo_s
+ * \brief Representation of a volume in memory
+ */
+struct drv_fat_volinfo_s
+{
 	 int	fileHandle;	//!< File Handle
 	 int	type;	//!< FAT Type. See eFatType
 	char	name[12];	//!< Volume Name (With NULL Terminator)
@@ -136,3 +163,5 @@ struct drv_fat_volinfo_s {
 };
 
 typedef struct drv_fat_volinfo_s tFAT_VolInfo;
+
+#endif

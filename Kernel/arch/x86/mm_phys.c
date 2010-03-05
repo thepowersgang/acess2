@@ -17,8 +17,8 @@ extern void	gKernelEnd;
 // === PROTOTYPES ===
 tPAddr	MM_AllocPhys();
 tPAddr	MM_AllocPhysRange(int Pages, int MaxBits);
-void	MM_RefPhys(tPAddr Addr);
-void	MM_DerefPhys(tPAddr Addr);
+void	MM_RefPhys(tPAddr PAddr);
+void	MM_DerefPhys(tPAddr PAddr);
 
 // === GLOBALS ===
 Uint64	giPhysAlloc = 0;	// Number of allocated pages
@@ -305,46 +305,48 @@ tPAddr MM_AllocPhysRange(int Pages, int MaxBits)
 }
 
 /**
- * \fn void MM_RefPhys(tPAddr Addr)
+ * \fn void MM_RefPhys(tPAddr PAddr)
  */
-void MM_RefPhys(tPAddr Addr)
+void MM_RefPhys(tPAddr PAddr)
 {
 	// Get page number
-	Addr >>= 12;
+	PAddr >>= 12;
 	
 	// We don't care about non-ram pages
-	if(Addr >= giPageCount)	return;
+	if(PAddr >= giPageCount)	return;
 	
 	// Lock Structures
 	LOCK( &giPhysAlloc );
 	
 	// Reference the page
 	if(gaPageReferences)
-		gaPageReferences[ Addr ] ++;
+		gaPageReferences[ PAddr ] ++;
 	
 	// Mark as used
-	gaPageBitmap[ Addr / 32 ] |= 1 << (Addr&31);
+	gaPageBitmap[ PAddr / 32 ] |= 1 << (PAddr&31);
 	
 	// Mark used block
-	if(gaPageBitmap[ Addr / 32 ] == -1)	gaSuperBitmap[Addr/1024] |= 1 << ((Addr/32)&31);
+	if(gaPageBitmap[ PAddr / 32 ] == -1)
+		gaSuperBitmap[PAddr/1024] |= 1 << ((PAddr/32)&31);
 	
 	// Release Spinlock
 	RELEASE( &giPhysAlloc );
 }
 
 /**
- * \fn void MM_DerefPhys(Uint32 Addr)
+ * \fn void MM_DerefPhys(tPAddr PAddr)
+ * \brief Dereferences a physical page
  */
-void MM_DerefPhys(tPAddr Addr)
+void MM_DerefPhys(tPAddr PAddr)
 {
 	// Get page number
-	Addr >>= 12;
+	PAddr >>= 12;
 	
 	// We don't care about non-ram pages
-	if(Addr >= giPageCount)	return;
+	if(PAddr >= giPageCount)	return;
 	
 	// Check if it is freed
-	if(gaPageReferences[ Addr ] == 0) {
+	if(gaPageReferences[ PAddr ] == 0) {
 		Warning("MM_DerefPhys - Non-referenced memory dereferenced");
 		return;
 	}
@@ -352,19 +354,19 @@ void MM_DerefPhys(tPAddr Addr)
 	// Lock Structures
 	LOCK( &giPhysAlloc );
 	
-	if( giLastPossibleFree < Addr )
-		giLastPossibleFree = Addr;
+	if( giLastPossibleFree < PAddr )
+		giLastPossibleFree = PAddr;
 
 	// Dereference
-	gaPageReferences[ Addr ] --;
+	gaPageReferences[ PAddr ] --;
 	
 	// Mark as free in bitmaps
-	if( gaPageReferences[ Addr ] == 0 )
+	if( gaPageReferences[ PAddr ] == 0 )
 	{
-		//LOG("Freed 0x%x by %p\n", Addr<<12, __builtin_return_address(0));
-		gaPageBitmap[ Addr / 32 ] &= ~(1 << (Addr&31));
-		if(gaPageReferences[ Addr ] == 0)
-			gaSuperBitmap[ Addr >> 10 ] &= ~(1 << ((Addr >> 5)&31));
+		//LOG("Freed 0x%x by %p\n", PAddr<<12, __builtin_return_address(0));
+		gaPageBitmap[ PAddr / 32 ] &= ~(1 << (PAddr&31));
+		if(gaPageReferences[ PAddr ] == 0)
+			gaSuperBitmap[ PAddr >> 10 ] &= ~(1 << ((PAddr >> 5)&31));
 	}
 	
 	// Release spinlock

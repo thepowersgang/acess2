@@ -103,6 +103,11 @@ enum eTplTerminal_Modes {
 	 */
 	TERM_MODE_FB,
 	
+	/**
+	 * \brief 32bpp 2D Accellerated mode
+	 * Writes to the terminal file will be read as a command stream
+	 * defined in ::eTplTerminal_2D_Commands
+	 */
 	TERM_MODE_2DACCEL,
 	
 	/**
@@ -119,17 +124,27 @@ enum eTplTerminal_Modes {
 	NUM_TERM_MODES
 };
 
+/**
+ * \brief 2D Command IDs
+ * \todo Complete this structure
+ * 
+ * Command IDs for when the terminal type is eTplTerminal_Modes.TERM_MODE_2DACCEL
+ */
 enum eTplTerminal_2D_Commands
 {
+	/**
+	 * \brief No Operation - Used for padding
+	 */
 	TERM_2DCMD_NOP,
 	
 	/**
 	 * (Uint16 X, Y, W, H, Uint32 Data[])
+	 * \brief Blits a bitmap to the display
 	 * \param X,Y	Coordinates of Top-Left corner
 	 * \param W,H	Dimensions
 	 * \param Data	32-bpp pixel data
 	 */
-	TERM_2DCMD_PUSH,
+	TERM_2DCMD_PUSH
 };
 
 #endif

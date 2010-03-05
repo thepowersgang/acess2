@@ -2,9 +2,7 @@
  * \file apidoc_mainpage.h
  * \brief API Documentation Home Page
  * \author John Hodge (thePowersGang)
- */
-
-/**
+ * 
  * \mainpage Acess 2 Kernel API Documentation
  * 
  * \section intro Introduction

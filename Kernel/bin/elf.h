@@ -1,16 +1,15 @@
 /**
- Acess v1
- \file bin_elf.h
- \brief ELF Exeutable Loader
-*/
+ * \file elf.h
+ * \brief ELF Exeutable Loader
+ */
 #ifndef _BIN_ELF_H
 #define _BIN_ELF_H
 
 /**
- \struct elf_header_s
- \brief ELF File Header
-*/
-struct sElf32_Ehdr {
+ * \brief ELF File Header
+ */
+struct sElf32_Ehdr
+{
 	union {
 		char	ident[16];	//!< Identifier Bytes
 		struct {
@@ -36,17 +35,18 @@ struct sElf32_Ehdr {
 } __attribute__ ((packed));
 
 /**
- \name Executable Types
- \{
-*/
-#define	ET_NONE		0	//!< NULL Type
-#define	ET_REL		1	//!< Relocatable (Object)
-#define ET_EXEC		2	//!< Executable
-#define ET_DYN		3	//!< Dynamic Library
-#define ET_CORE		4	//!< Core?
-#define ET_LOPROC	0xFF00	//!< Low Impl Defined
-#define ET_HIPROC	0xFFFF	//!< High Impl Defined
-//! \}
+ * \brief Executable Types
+ */
+enum eElf32_ExecTypes
+{
+	ET_NONE	= 0,	//!< NULL Type
+	ET_REL	= 1,	//!< Relocatable (Object)
+	ET_EXEC	= 2,	//!< Executable
+	ET_DYN	= 3,	//!< Dynamic Library
+	ET_CORE	= 4,	//!< Core?
+	ET_LOPROC = 0xFF00,	//!< Low Impl Defined
+	ET_HIPROC = 0xFFFF	//!< High Impl Defined
+};
 
 /**
  \name Section IDs

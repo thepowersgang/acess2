@@ -19,8 +19,8 @@
 #define MAX_INPUT_CHARS32	64
 #define MAX_INPUT_CHARS8	(MAX_INPUT_CHARS32*4)
 #define VT_SCROLLBACK	1	// 2 Screens of text
-//#define DEFAULT_OUTPUT	"VGA"
-#define DEFAULT_OUTPUT	"BochsGA"
+#define DEFAULT_OUTPUT	"VGA"
+//#define DEFAULT_OUTPUT	"BochsGA"
 #define DEFAULT_INPUT	"PS2Keyboard"
 #define	DEFAULT_WIDTH	80
 #define	DEFAULT_HEIGHT	25
@@ -484,6 +484,11 @@ void VT_SetTerminal(int ID)
 /**
  * \fn void VT_KBCallBack(Uint32 Codepoint)
  * \brief Called on keyboard interrupt
+ * \param Codepoint	Pseudo-UTF32 character
+ * 
+ * Handles a key press and sends the key code to the user's buffer.
+ * If the code creates a kernel-magic sequence, it is not passed to the
+ * user and is handled in-kernel.
  */
 void VT_KBCallBack(Uint32 Codepoint)
 {

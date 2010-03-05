@@ -11,7 +11,7 @@ extern int	giVFS_MountFileID;
 extern char	*gsVFS_MountFile;
 
 // === PROTOTYPES ===
- int	VFS_Mount(char *Device, char *MountPoint, char *Filesystem, char *ArgString);
+ int	VFS_Mount(char *Device, char *MountPoint, char *Filesystem, char *Options);
 void	VFS_UpdateMountFile();
 
 // === GLOBALS ===
@@ -21,13 +21,16 @@ tVFS_Mount	*gVFS_RootMount = NULL;
 
 // === CODE ===
 /**
- * \fn int VFS_Mount(char *Device, char *MountPoint, char *Filesystem, char *Options)
  * \brief Mount a device
  * \param Device	Device string to mount
  * \param MountPoint	Destination for the mount
  * \param Filesystem	Filesystem to use for the mount
  * \param Options		Options to be passed to the filesystem
  * \return -1 on Invalid FS, -2 on No Mem, 0 on success
+ * 
+ * Mounts the filesystem on \a Device at \a MountPoint using the driver
+ * \a Filesystem. The options in the string \a Options is passed to the
+ * driver's mount.
  */
 int VFS_Mount(char *Device, char *MountPoint, char *Filesystem, char *Options)
 {
@@ -101,8 +104,9 @@ int VFS_Mount(char *Device, char *MountPoint, char *Filesystem, char *Options)
 }
 
 /**
- * \fn void VFS_UpdateMountFile()
  * \brief Updates the mount file buffer
+ * 
+ * Updates the ProcFS mounts file buffer to match the current mounts list.
  */
 void VFS_UpdateMountFile()
 {

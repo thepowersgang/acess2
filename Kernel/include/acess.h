@@ -179,11 +179,11 @@ extern void	MM_Deallocate(tVAddr VAddr);
  */
 extern int	MM_Map(tVAddr VAddr, tPAddr PAddr);
 /**
- * \brief Get the physical address of \a VAddr
- * \param VAddr	Address of the page to get the physical address of
- * \return Physical page mapped at \a VAddr
+ * \brief Get the physical address of \a Addr
+ * \param Addr	Address of the page to get the physical address of
+ * \return Physical page mapped at \a Addr
  */
-extern tPAddr	MM_GetPhysAddr(tVAddr VAddr);
+extern tPAddr	MM_GetPhysAddr(tVAddr Addr);
 /**
  * \brief Checks is a memory range is user accessable
  * \param VAddr	Base address to check
