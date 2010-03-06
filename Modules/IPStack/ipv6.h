@@ -11,11 +11,18 @@ typedef struct sIPv6Header	tIPv6Header;
 
 struct sIPv6Header
 {
+	#if 1
+	// High 4: Version
+	// Next: Traffic Class
+	// Low 20: Flow Label
+	Uint32	Head;
+	#else
 	struct {
 		unsigned Version:	4;
 		unsigned TrafficClass:	8;
 		unsigned FlowLabel:	20;
 	};
+	#endif
 	Uint16	PayloadLength;
 	Uint8	NextHeader;	// Type of payload data
 	Uint8	HopLimit;

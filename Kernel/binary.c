@@ -569,7 +569,7 @@ char *Binary_RegInterp(char *Path)
 	// Scan Array
 	for( i = 0; i < giRegInterps; i++ )
 	{
-		if(strcmp(gsaRegInterps[i], path) == 0)
+		if(strcmp(gsaRegInterps[i], Path) == 0)
 			return gsaRegInterps[i];
 	}
 	
@@ -599,16 +599,16 @@ void *Binary_LoadKernel(char *File)
 	Uint	addr;
 	 int	i;
 
-	ENTER("sfile", file);
+	ENTER("sfile", File);
 	
 	// Sanity Check Argument
-	if(file == NULL) {
+	if(File == NULL) {
 		LEAVE('n');
 		return 0;
 	}
 
 	// Get True File Path
-	sTruePath = VFS_GetTruePath(file);
+	sTruePath = VFS_GetTruePath(File);
 	if(sTruePath == NULL) {
 		LEAVE('n');
 		return 0;

@@ -21,6 +21,8 @@ extern void	UDP_Initialise();
 extern void	TCP_Initialise();
 extern int	IPv4_Initialise();
 extern int	IPv4_Ping(tInterface *Iface, tIPv4 Addr);
+extern int	IPv6_Initialise();
+//extern int	IPv6_Ping(tInterface *Iface, tIPv6 Addr);
 
 // === PROTOTYPES ===
  int	IPStack_Install(char **Arguments);
@@ -65,9 +67,12 @@ int IPStack_Install(char **Arguments)
 {
 	 int	i = 0;
 	
-	// Install Handlers
+	// Layer 2 - Data Link Layer
 	ARP_Initialise();
+	// Layer 3 - Network Layer
 	IPv4_Initialise();
+	IPv6_Initialise();
+	// Layer 4 - Transport Layer
 	TCP_Initialise();
 	UDP_Initialise();
 	
