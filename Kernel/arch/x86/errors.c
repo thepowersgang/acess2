@@ -16,6 +16,18 @@ extern void Threads_Dump();
 // === PROTOTYPES ===
 void	Error_Backtrace(Uint eip, Uint ebp);
 
+// === GLOBALS ===
+const char *csaERROR_NAMES[] = {
+	"Divide By Zero", "Debug", "NMI Exception", "INT3",
+	"INTO", "Out of Bounds", "Invalid Opcode", "Coprocessor not avaliable",
+	"Double Fault", "Coprocessor Segment Overrun", "Bad TSS", "Segment Not Present",
+	"Stack Fault Exception", "GPF", "#PF", "Reserved",
+	"Floating Point Exception", "Alignment Check Exception", "Machine Check Exception",	"Reserved",
+	"Reserved", "Reserved", "Reserved", "Reserved",
+	"Reserved", "Reserved", "Reserved", "Reserved",
+	"Reserved", "Reserved", "Reserved", "Reserved"
+	};
+
 // === CODE ===
 void __stack_chk_fail()
 {
@@ -39,24 +51,34 @@ void ErrorHandler(tRegs *Regs)
 		return ;
 	}
 	
-	Warning("CPU Error %i, Code: 0x%x", Regs->int_num, Regs->err_code);
+	Warning("CPU Error %i - %s, Code: 0x%x",
+		Regs->int_num, csaERROR_NAMES[Regs->int_num], Regs->err_code);
 	Warning(" CS:EIP = 0x%04x:%08x", Regs->cs, Regs->eip);
 	Warning(" SS:ESP = 0x%04x:%08x", Regs->ss, Regs->esp);
 	Warning(" EFLAGS = 0x%08x", Regs->eflags);
-	Warning(" EAX %08x EBX %08x", Regs->eax, Regs->ebx);
-	Warning(" ECX %08x EDX %08x", Regs->ecx, Regs->edx);
-	Warning(" ESP %08x EBP %08x", Regs->esp, Regs->ebp);
-	Warning(" ESI %08x EDI %08x", Regs->esi, Regs->edi);
-	Warning(" DS %04x ES %04x", Regs->ds, Regs->es);
-	Warning(" FS %04x GS %04x", Regs->fs, Regs->gs);
+	Warning(" EAX %08x ECX %08x EDX %08x EBX %08x",
+		Regs->eax, Regs->ecx, Regs->edx, Regs->ebx);
+	Warning(" ESP %08x EBP %08x ESI %08x EDI %08x",
+		Regs->esp, Regs->ebp, Regs->esi, Regs->edi);
+	Warning(" DS %04x ES %04x FS %04x GS %04x",
+		Regs->ds, Regs->es, Regs->fs, Regs->gs);
 	
 	// Control Registers
 	__asm__ __volatile__ ("mov %%cr0, %0":"=r"(cr));
-	Warning(" CR0: 0x%08x", cr);
+	Warning(" CR0 0x%08x", cr);
 	__asm__ __volatile__ ("mov %%cr2, %0":"=r"(cr));
-	Warning(" CR2: 0x%08x", cr);
+	Warning(" CR2 0x%08x", cr);
 	__asm__ __volatile__ ("mov %%cr3, %0":"=r"(cr));
-	Warning(" CR3: 0x%08x", cr);
+	Warning(" CR3 0x%08x", cr);
+	
+	switch( Regs->int_num )
+	{
+	case 6:
+		Warning(" Offending bytes: %02x %02x %02x %02x",
+			*(Uint8*)Regs->eip+0, *(Uint8*)Regs->eip+1,
+			*(Uint8*)Regs->eip+2, *(Uint8*)Regs->eip+3);
+		break;
+	}
 	
 	// Print Stack Backtrace
 	Error_Backtrace(Regs->eip, Regs->ebp);

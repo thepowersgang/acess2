@@ -408,7 +408,8 @@ Uint FDD_ReadSectors(Uint64 SectorAddr, Uint Count, void *Buffer, Uint Disk)
 
 /**
  * \fn int FDD_ReadSector(Uint32 Disk, Uint64 SectorAddr, void *Buffer)
- * \fn Read a sector from disk
+ * \brief Read a sector from disk
+ * \todo Make real-hardware safe (account for read errors)
 */
 int FDD_ReadSector(Uint32 Disk, Uint64 SectorAddr, void *Buffer)
 {
