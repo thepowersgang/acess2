@@ -11,36 +11,39 @@
  * The documentation covers filesystem drivers, binary formats and the
  * various device driver interface standards.
  * 
- * \section VFS
- * The core of Acess is the VFS, or Virtual File System. The VFS abstracts
- * away from the user the differences between different filesystems,
- * network protocols and types of hardware.
- * The core of the VFS is the concept of a VFS Node (represented by the
- * ::tVFS_Node type). A node defines a file (either a normal file, directory
- * or some device abstraction), it's attributes (size, flags, timestamps)
- * and the functions used to access and modify it.
+ * \section index	"Sections"
+ * - \ref modules.h "Module Definitions"
+ *  - Describes how a module is defined in Acess
+ * - \ref binary.h	"Binary Formats"
+ *  - Explains how to register a new binary format with the kernel
+ * - \ref vfs.h	"VFS - The Virtual File System"
+ *  - The VFS is the core of Acess's driver architecture
+ * - \ref drivers	"Device Drivers"
+ *  - Describes how drivers should use the VFS to expose themselves to the
+ *    user.
+ *  - Drivers for specific types of hardware must behave in the specific
+ *    way described here.
  * 
- * \subsection filesystems Filesystem Drivers
- * Acess filesystems register themselves with the VFS by calling
- * ::VFS_AddDriver with a ::tVFS_Driver structure that defines the driver's
- * name, flags and mount function.
- * Filesystem drivers take the 
+ * \page drivers Device Drivers
  * 
- * \section binfmt Binary Formats
- * See binary.h
+ * \section toc	Contents
+ * - \ref drvintro	"Introduction"
+ * - \ref drv_misc "Miscelanious Devices"
+ * - \ref drv_video	"Video Drivers"
  * 
- * \section drivers	Device Drivers
+ * \section drvintro	Introduction
  * All Acess2 device drivers communicate with user-level (and other parts
  * of the greater kernel) via the VFS. They register themselves in a similar
  * way to how filesystem drivers do, however instead of registering with
  * the VFS core, they register with a special filesystem driver called the
- * DevFS (fs_devfs.h). DevFS exports the ::DevFS_AddDevice function that
- * takes a ::tDevFS_Driver structure as an agument that defines the
- * driver's name and the VFS node of it's root. This root is used to
- * provide the user access to the driver's function via IOCtl calls and
- * by Read/Write calls. Drivers are also able to expose a readonly buffer
- * by using ProcDev, usually to provide state information (such as usage
- * statistics and other misc information)
+ * \ref fs_devfs.h "Device Filesystem" (devfs). The DevFS provides the
+ * ::DevFS_AddDevice function that takes a ::tDevFS_Driver structure as
+ * an agument. This structure specifies the driver's name and its root
+ * VFS node. This node is used to provide the user access to the
+ * driver's functions via IOCtl calls and Reading or Writing to the driver
+ * file. Drivers are also able to expose a readonly buffer by using
+ * \ref fs_proc.h ProcDev, usually to provide state information or device
+ * capabilities for the the user.
  * 
  * The device driver interfaces are all based on the core specifcation
  * in tpl_drv_common.h (Common Device Driver definitions).
@@ -49,6 +52,15 @@
  * driver must implement, if the driver author so wants to, they can add
  * IOCtl calls and/or files (where allowed by the type specifcation) to
  * their device's VFS layout.
+ * 
+ * \subsection drv_misc Miscelanious Devices
+ * If a device type does not have a specifcation for it, the driver can
+ * identify itself as a miscelanious device by returning DRV_TYPE_MISC
+ * from \ref DRV_IOCTL_TYPE.
+ * A misc device must at least implement the IOCtl calls defined in the
+ * \ref tpl_drv_common.h "Common Device Driver definitions", allowing it
+ * to be identified easily by the user and for interfacing programs to
+ * utilise the DRV_IOCTL_LOOKUP call.
  * 
  * \subsection drv_video Video Devices
  * Video drivers are based on a framebuffer model (unless in 3D mode,

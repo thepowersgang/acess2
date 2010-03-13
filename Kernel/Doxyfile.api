@@ -568,6 +568,7 @@ WARN_LOGFILE           =
 
 INPUT                  = include/apidoc_mainpage.h \
                          include/binary.h \
+                         include/modules.h \
                          include/vfs.h include/vfs_ext.h \
 						 include/fs_devfs.h \
                          include/iocache.h include/
