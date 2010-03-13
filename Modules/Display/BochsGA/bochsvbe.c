@@ -107,20 +107,20 @@ int BGA_Install(char **Arguments)
 	// NOTE: This driver was written for 0xB0C4, but they seem to be backwards compatable
 	if(bga_version < 0xB0C4 || bga_version > 0xB0C5) {
 		Warning("[BGA ] Bochs Adapter Version is not 0xB0C4 or 0xB0C5, instead 0x%x", bga_version);
-		return 0;
+		return MODULE_ERR_NOTNEEDED;
 	}
 	
 	// Install Device
 	giBGA_DriverId = DevFS_AddDevice( &gBGA_DriverStruct );
 	if(giBGA_DriverId == -1) {
 		Warning("[BGA ] Unable to register with DevFS, maybe already loaded?");
-		return 0;
+		return MODULE_ERR_MISC;
 	}
 	
 	// Map Framebuffer to hardware address
 	gBGA_Framebuffer = (void *) MM_MapHWPage(VBE_DISPI_LFB_PHYSICAL_ADDRESS, 768);	// 768 pages (3Mb)
 	
-	return 1;
+	return MODULE_ERR_OK;
 }
 
 /**

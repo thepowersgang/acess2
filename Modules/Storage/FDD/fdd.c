@@ -200,7 +200,7 @@ int FDD_Install(char **Arguments)
 	// Register with devfs
 	DevFS_AddDevice(&gFDD_DriverInfo);
 	
-	return 1;
+	return MODULE_ERR_OK;
 }
 
 /**

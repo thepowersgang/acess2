@@ -127,6 +127,11 @@ int Ne2k_Install(char **Options)
 		giNe2k_CardCount += PCI_CountDevices( csaCOMPAT_DEVICES[i].Vendor, csaCOMPAT_DEVICES[i].Device, 0 );
 	}
 	
+	if( giNe2k_CardCount == 0 ) {
+		Log("[Ne2k ] No cards detected\n");
+		return MODULE_ERR_NOTNEEDED;
+	}
+	
 	// Enumerate Cards
 	k = 0;
 	gpNe2k_Cards = calloc( giNe2k_CardCount, sizeof(tCard) );
@@ -216,7 +221,7 @@ int Ne2k_Install(char **Options)
 	
 	gNe2k_DriverInfo.RootNode.Size = giNe2k_CardCount;
 	DevFS_AddDevice( &gNe2k_DriverInfo );
-	return 1;
+	return MODULE_ERR_OK;
 }
 
 /**

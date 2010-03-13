@@ -55,7 +55,7 @@ tVFS_Driver	gFAT_FSInfo = {
 int FAT_Install(char **Arguments)
 {
 	VFS_AddDriver( &gFAT_FSInfo );
-	return MODULE_INIT_SUCCESS;
+	return MODULE_ERR_OK;
 }
 
 /**

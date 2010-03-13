@@ -50,7 +50,7 @@ int VGA_Install(char **Arguments)
 	// Install DevFS
 	DevFS_AddDevice( &gVGA_DevInfo );
 	
-	return 1;
+	return MODULE_ERR_OK;
 }
 
 /**

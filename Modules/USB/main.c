@@ -44,7 +44,7 @@ int USB_Install(char **Arguments)
 {
 	UHCI_Initialise();
 	Warning("[USB  ] Not Complete - Devel Only");
-	return 1;
+	return MODULE_ERR_OK;
 }
 
 /**

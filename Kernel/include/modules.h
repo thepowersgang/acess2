@@ -36,8 +36,15 @@ typedef struct sModule {
 	char	**Dependencies;	// NULL Terminated List
 } __attribute__((packed)) tModule;
 
-#define MODULE_INIT_SUCCESS	1
-#define MODULE_INIT_FAILURE	0
+enum eModuleErrors
+{
+	MODULE_ERR_OK,	//!< No Error
+	MODULE_ERR_MISC,	//!< Misc Error
+	MODULE_ERR_NOTNEEDED,	//!< Module not needed
+	MODULE_ERR_MALLOC,	//!< Error with malloc/realloc/calloc
+	
+	MODULE_ERR_MAX
+};
 
 /**
  * \brief Module Loader definition

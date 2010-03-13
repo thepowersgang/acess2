@@ -26,7 +26,7 @@ tModuleLoader	gUDI_Loader = {
 int UDI_Install(char **Arguments)
 {
 	Module_RegisterLoader( &gUDI_Loader );
-	return 1;
+	return MODULE_ERR_OK;
 }
 
 /**

@@ -15,9 +15,9 @@ void USB_MakeToken(void *Buf, int PID, int Addr, int EndP)
 	Uint8	*tok = Buf;
 	 int	crc = 0;	//USB_TokenCRC();
 	
-	tok[0] = PID;
-	tok[1] = Addr | ((EndP&1)<<7);
-	tok[2] = (EndP >> 1) | crc;
+	tok[0] = PID & 0xFF;
+	tok[1] = (Addr & 0x7F) | ((EndP&1)<<7);
+	tok[2] = ((EndP >> 1) & 0x7) | crc;
 }
 
 #if 0

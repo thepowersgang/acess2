@@ -108,7 +108,7 @@ tSysFS_Ent	*gSysFS_FileList;
 int SysFS_Install(char **Options)
 {
 	DevFS_AddDevice( &gSysFS_DriverInfo );
-	return MODULE_INIT_SUCCESS;
+	return MODULE_ERR_OK;
 }
 
 /**

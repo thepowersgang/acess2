@@ -33,16 +33,19 @@ tModuleLoader	*gModule_Loaders = NULL;
 int Modules_LoadBuiltins()
 {
 	 int	i, j, k;
+	 int	ret;
 	 int	numToInit = 0;
 	Uint8	*baIsLoaded;
 	char	**deps;
 	
+	// Count modules
 	giNumBuiltinModules = (Uint)&gKernelModulesEnd - (Uint)&gKernelModules;
 	giNumBuiltinModules /= sizeof(tModule);
 	
+	// Allocate loaded array
 	baIsLoaded = calloc( giNumBuiltinModules, sizeof(*baIsLoaded) );
 	
-	// Pass 1 - Are the dependencies compiled in?
+	// Pass 1 - Check for dependencies
 	for( i = 0; i < giNumBuiltinModules; i++ )
 	{
 		deps = gKernelModules[i].Dependencies;
@@ -55,8 +58,10 @@ int Modules_LoadBuiltins()
 						break;
 				}
 				if(k == giNumBuiltinModules) {
-					Warning("Unable to find dependency '%s' for '%s' in kernel",
-						deps[j], gKernelModules[i].Name);
+					Warning(
+						"[MOD  ] Dependency '%s' for module '%s' was not compiled in",
+						deps[j], gKernelModules[i].Name
+						);
 					
 					baIsLoaded[i] = -1;	// Don't Load
 					break;
@@ -66,7 +71,7 @@ int Modules_LoadBuiltins()
 		numToInit ++;
 	}
 	
-	// Pass 2 - Intialise
+	// Pass 2 - Intialise modules in order
 	while(numToInit)
 	{
 		for( i = 0; i < giNumBuiltinModules; i++ )
@@ -84,6 +89,7 @@ int Modules_LoadBuiltins()
 							break;
 					}
 					// `k` is assumed to be less than `giNumBuiltinModules`
+					// We checked this in pass 1
 					
 					// If a dependency failed, skip and mark as failed
 					if( baIsLoaded[k] == -1 ) {
@@ -91,22 +97,40 @@ int Modules_LoadBuiltins()
 						numToInit --;
 						break;
 					}
-					// If a dependency is not intialised, skip
+					// If a dependency is not intialised, skip this module
+					// and come back later
 					if( !baIsLoaded[k] )	break;
 				}
-				// Check if we broke out
+				// Check for breakouts
 				if( deps[j] )	continue;
 			}
 			
 			// All Dependencies OK? Initialise
 			StartupPrint(gKernelModules[i].Name);
-			Log("Initialising %p '%s' v%i.%i...",
+			Log("[MOD  ] Initialising %p '%s' v%i.%i...",
 				&gKernelModules[i],
 				gKernelModules[i].Name,
 				gKernelModules[i].Version>>8, gKernelModules[i].Version & 0xFF
 				);
-			if( gKernelModules[i].Init(NULL) == 0 ) {
-				Log("Loading Failed, all modules that depend on this will also fail");
+			
+			ret = gKernelModules[i].Init(NULL);
+			if( ret != MODULE_ERR_OK ) {
+				Log("[MOD  ] Loading Failed, all modules that depend on this will also fail");
+				switch(ret)
+				{
+				case MODULE_ERR_MISC:
+					Log("[MOD  ] Reason: Miscelanious");
+					break;
+				case MODULE_ERR_NOTNEEDED:
+					Log("[MOD  ] Reason: Module not needed (probably hardware not found)");
+					break;
+				case MODULE_ERR_MALLOC:
+					Log("[MOD  ] Reason: Error in malloc/realloc/calloc, probably not good");
+					break;
+				default:
+					Log("[MOD  ] Reason - Unknown code %i", ret);
+					break;
+				}
 				baIsLoaded[i] = -1;
 			}
 			// Mark as loaded
@@ -115,6 +139,8 @@ int Modules_LoadBuiltins()
 			numToInit --;
 		}
 	}
+	
+	free(baIsLoaded);
 	
 	return 0;
 }

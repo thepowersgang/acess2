@@ -41,7 +41,7 @@ tVFS_Driver	gExt2_FSInfo = {
 int Ext2_Install(char **Arguments)
 {
 	VFS_AddDriver( &gExt2_FSInfo );
-	return 1;
+	return MODULE_ERR_OK;
 }
 
 /**

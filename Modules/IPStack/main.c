@@ -89,7 +89,7 @@ int IPStack_Install(char **Arguments)
 	
 	DevFS_AddDevice( &gIP_DriverInfo );
 	
-	return 1;
+	return MODULE_ERR_OK;
 }
 
 /**

@@ -67,7 +67,7 @@ int KB_Install(char **Arguments)
 	IRQ_AddHandler(1, KB_IRQHandler);
 	DevFS_AddDevice( &gKB_DevInfo );
 	//Log("KB_Install: Installed");
-	return 1;
+	return MODULE_ERR_OK;
 }
 
 /**

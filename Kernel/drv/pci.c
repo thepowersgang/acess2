@@ -4,6 +4,7 @@
  */
 #define DEBUG	0
 #include <acess.h>
+#include <modules.h>
 #include <vfs.h>
 #include <fs_devfs.h>
 #include <drv_pci.h>
@@ -89,7 +90,6 @@ int PCI_Install(char **Arguments)
 		gaPCI_PortBitmap[i] = -1;
 	for( i = 0; i < MAX_RESERVED_PORT % 32; i ++ )
 		gaPCI_PortBitmap[MAX_RESERVED_PORT / 32] = 1 << i;
-	//LogF("Done.\n");
 	
 	// Scan Busses
 	for( bus = 0; bus < giPCI_BusCount; bus++ )
@@ -140,11 +140,14 @@ int PCI_Install(char **Arguments)
 		if(tmpPtr != gPCI_Devices)
 			break;
 	}
+	
+	if(giPCI_DeviceCount == 0)
+		return MODULE_ERR_NOTNEEDED;
+	
 	tmpPtr = realloc(gPCI_Devices, giPCI_DeviceCount*sizeof(t_pciDevice));
 	if(tmpPtr == NULL)
-		return 0;
+		return MODULE_ERR_MALLOC;
 	gPCI_Devices = tmpPtr;
-	//LogF("Done.\n");
 	
 	// Complete Driver Structure	
 	gPCI_DriverStruct.RootNode.Size = giPCI_DeviceCount;
@@ -152,7 +155,7 @@ int PCI_Install(char **Arguments)
 	// And add to DevFS
 	DevFS_AddDevice(&gPCI_DriverStruct);
 	
-	return 1;
+	return MODULE_ERR_OK;
 }
 
 /**

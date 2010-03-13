@@ -190,7 +190,7 @@ int VT_Install(char **Arguments)
 	// Set kernel output to VT0
 	Debug_SetKTerminal("/Devices/VTerm/0");
 	
-	return MODULE_INIT_SUCCESS;
+	return MODULE_ERR_OK;
 }
 
 /**
