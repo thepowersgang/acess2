@@ -32,6 +32,15 @@ tModuleLoader	*gModule_Loaders = NULL;
 tModule	*gLoadingModules = NULL;
 
 // === CODE ===
+/**
+ * \brief Initialises a module
+ * \param Module	Pointer to the module header
+ * \return Zero on success, eModuleErrors or -1 on error
+ * \retval -1	Returned if a dependency fails, or a circular dependency
+ *              exists.
+ * \retval 0	Returned on success
+ * \retval >0	Error code form the module's initialisation function
+ */
 int Module_int_Initialise(tModule *Module)
 {
 	 int	i, j;
@@ -134,6 +143,9 @@ int Module_int_Initialise(tModule *Module)
 	LEAVE_RET('i', 0);
 }
 
+/**
+ * \brief Initialises builtin modules
+ */
 int Modules_LoadBuiltins()
 {
 	 int	i;
