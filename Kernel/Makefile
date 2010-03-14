@@ -28,9 +28,6 @@ endif
 OBJ = $(addprefix arch/$(ARCHDIR)/,$(A_OBJ))
 OBJ += heap.o messages.o debug.o modules.o lib.o syscalls.o system.o threads.o drvutil.o
 OBJ += $(addprefix vfs/fs/, $(addsuffix .o,$(FILESYSTEMS)))
-# These are first to make vterm be the first driver initialised (apart
-# its dependencies), allowing logging to exist throughout the loading
-# process.
 OBJ += drv/vterm.o drv/proc.o drv/fifo.o drv/dma.o drv/iocache.o drv/pci.o drv/kb.o drv/vga.o
 OBJ += binary.o bin/elf.o bin/pe.o
 OBJ += vfs/main.o vfs/open.o vfs/acls.o vfs/dir.o vfs/io.o vfs/mount.o vfs/memfile.o vfs/nodecache.o

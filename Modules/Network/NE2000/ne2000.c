@@ -128,7 +128,7 @@ int Ne2k_Install(char **Options)
 	}
 	
 	if( giNe2k_CardCount == 0 ) {
-		Log("[Ne2k ] No cards detected\n");
+		Warning("[Ne2k ] No cards detected");
 		return MODULE_ERR_NOTNEEDED;
 	}
 	
