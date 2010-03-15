@@ -81,18 +81,20 @@ enum FloppyCommands {
 // === PROTOTYPES ===
 // --- Filesystem
  int	FDD_Install(char **Arguments);
+void	FDD_UnloadModule();
+// --- VFS Methods
 char	*FDD_ReadDir(tVFS_Node *Node, int pos);
 tVFS_Node	*FDD_FindDir(tVFS_Node *dirNode, char *Name);
  int	FDD_IOCtl(tVFS_Node *Node, int ID, void *Data);
 Uint64	FDD_ReadFS(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer);
-// --- 1st Level Disk Access
+// --- Functions for IOCache/DrvUtil
 Uint	FDD_ReadSectors(Uint64 SectorAddr, Uint Count, void *Buffer, Uint Disk);
 // --- Raw Disk Access
  int	FDD_ReadSector(Uint32 disk, Uint64 lba, void *Buffer);
  int	FDD_WriteSector(Uint32 Disk, Uint64 LBA, void *Buffer);
 // --- Helpers
 void	FDD_IRQHandler(int Num);
-void	FDD_WaitIRQ();
+inline void	FDD_WaitIRQ();
 void	FDD_SensInt(int base, Uint8 *sr0, Uint8 *cyl);
 void	FDD_int_SendByte(int base, char byte);
  int	FDD_int_GetByte(int base);
@@ -186,6 +188,22 @@ int FDD_Install(char **Arguments)
 	DevFS_AddDevice(&gFDD_DriverInfo);
 	
 	return MODULE_ERR_OK;
+}
+
+/**
+ * \brief Prepare the module for removal
+ */
+void FDD_UnloadModule()
+{
+	 int	i;
+	//DevFS_DelDevice( &gFDD_DriverInfo );
+	LOCK(&glFDD);
+	for(i=0;i<4;i++) {
+		Time_RemoveTimer(gFDD_Devices[i].timer);
+		FDD_int_StopMotor(i);
+	}
+	RELEASE(&glFDD);
+	//IRQ_Clear(6);
 }
 
 /**
@@ -549,7 +567,7 @@ void FDD_IRQHandler(int Num)
  * \fn FDD_WaitIRQ()
  * \brief Wait for an IRQ6
  */
-void FDD_WaitIRQ()
+inline void FDD_WaitIRQ()
 {
 	// Wait for IRQ
 	while(!gbFDD_IrqFired)	Threads_Yield();
@@ -583,8 +601,9 @@ void FDD_int_SendByte(int base, char byte)
         }
         inb(0x80);	//Delay
     }
+	
 	#if WARN
-		Warning("FDD_int_SendByte - Timeout sending byte 0x%x to base 0x%x\n", byte, base);
+	Warning("FDD_int_SendByte - Timeout sending byte 0x%x to base 0x%x\n", byte, base);
 	#endif
 }
 
@@ -702,21 +721,4 @@ void FDD_int_StopMotor(int disk)
 	state &= ~( 1 << (4+disk) );
 	outb( cPORTBASE[ disk>>1 ] + PORT_DIGOUTPUT, state );
     gFDD_Devices[disk].motorState = 0;
-}
-
-/**
- * \fn void ModuleUnload()
- * \brief Prepare the module for removal
- */
-void ModuleUnload()
-{
-	 int	i;
-	//DevFS_DelDevice( &gFDD_DriverInfo );
-	LOCK(&glFDD);
-	for(i=0;i<4;i++) {
-		Time_RemoveTimer(gFDD_Devices[i].timer);
-		FDD_int_StopMotor(i);
-	}
-	RELEASE(&glFDD);
-	//IRQ_Clear(6);
 }
