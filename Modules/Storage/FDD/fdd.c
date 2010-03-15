@@ -94,12 +94,6 @@ Uint	FDD_ReadSectors(Uint64 SectorAddr, Uint Count, void *Buffer, Uint Disk);
 void	FDD_IRQHandler(int Num);
 void	FDD_WaitIRQ();
 void	FDD_SensInt(int base, Uint8 *sr0, Uint8 *cyl);
-inline void	FDD_AquireSpinlock();
-inline void	FDD_FreeSpinlock();
-#if USE_CACHE
-inline void FDD_AquireCacheSpinlock();
-inline void FDD_FreeCacheSpinlock();
-#endif
 void	FDD_int_SendByte(int base, char byte);
  int	FDD_int_GetByte(int base);
 void	FDD_Reset(int id);
@@ -385,7 +379,7 @@ int FDD_ReadSector(Uint32 Disk, Uint64 SectorAddr, void *Buffer)
 	LOG("Cyl=%i, Head=%i, Sector=%i", cyl, head, sec);
 	LOG("Acquire Spinlock");
 	
-	FDD_AquireSpinlock();
+	LOCK(&glFDD);
 	
 	// Seek to track
 	outb(base + CALIBRATE_DRIVE, 0);
@@ -431,7 +425,7 @@ int FDD_ReadSector(Uint32 Disk, Uint64 SectorAddr, void *Buffer)
 	
 	// Release Spinlock
 	LOG("Realeasing Spinlock and setting motor to stop");
-	FDD_FreeSpinlock();
+	RELEASE(&glFDD);
 	
 	// Don't turn the motor off now, wait for a while
 	gFDD_Devices[Disk].timer = Time_CreateTimer(MOTOR_OFF_DELAY, FDD_int_StopMotor, (void*)Disk);
@@ -569,16 +563,6 @@ void FDD_SensInt(int base, Uint8 *sr0, Uint8 *cyl)
 	else	FDD_int_GetByte(base);
 	if(cyl)	*cyl = FDD_int_GetByte(base);
 	else	FDD_int_GetByte(base);
-}
-
-inline void FDD_AquireSpinlock()
-{
-	LOCK(&glFDD);
-}
-
-inline void FDD_FreeSpinlock()
-{
-	RELEASE(&glFDD)
 }
 
 /**
@@ -726,11 +710,13 @@ void FDD_int_StopMotor(int disk)
  */
 void ModuleUnload()
 {
-	int i;
-	FDD_AquireSpinlock();
+	 int	i;
+	//DevFS_DelDevice( &gFDD_DriverInfo );
+	LOCK(&glFDD);
 	for(i=0;i<4;i++) {
 		Time_RemoveTimer(gFDD_Devices[i].timer);
 		FDD_int_StopMotor(i);
 	}
+	RELEASE(&glFDD);
 	//IRQ_Clear(6);
 }
