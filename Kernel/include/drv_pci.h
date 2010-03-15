@@ -1,12 +1,16 @@
-/*
- * Acess 2
- * PCI Bus Driver
- * drv_pci.h
+/**
+ * \file drv_pci.h
+ * \brief PCI Bus Driver
+ * \author John Hodge (thePowersGang)
  */
 #ifndef _DRV_PCI_H
 #define _DRV_PCI_H
 
-enum e_PciClasses {
+/**
+ * \brief PCI Class Codes
+ */
+enum ePCIClasses
+{
 	PCI_CLASS_PRE20 = 0x00,
 	PCI_CLASS_STORAGE,
 	PCI_CLASS_NETWORK,
@@ -22,13 +26,20 @@ enum e_PciClasses {
 	PCI_CLASS_SERIALBUS,
 	PCI_CLASS_MISC = 0xFF
 };
-enum e_PciOverClasses {
+
+enum ePCIOverClasses
+{
 	PCI_OC_PCIBRIDGE = 0x0604,
 	PCI_OC_SCSI = 0x0100
 };
 
-
+/**
+ * \brief Count PCI Devices
+ * 
+ * Counts the number of devices with specified Vendor and Device IDs
+ */
 extern int	PCI_CountDevices(Uint16 vendor, Uint16 device, Uint16 fcn);
+
 extern int	PCI_GetDevice(Uint16 vendor, Uint16 device, Uint16 fcn, int idx);
 extern int	PCI_GetDeviceByClass(Uint16 class, Uint16 mask, int prev);
 extern Uint8	PCI_GetIRQ(int id);

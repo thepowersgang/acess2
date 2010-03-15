@@ -12,18 +12,21 @@
 #define	LIST_DEVICES	1
 
 // === STRUCTURES ===
-typedef struct s_pciDevice {
+typedef struct sPCIDevice
+{
 	Uint16	bus, slot, fcn;
 	Uint16	vendor, device;
 	union {
-		struct {Uint8 class, subclass;};
+		struct {
+			Uint8 class, subclass;
+		};
 		Uint16	oc;
 	};
 	Uint16	revision;
 	Uint32	ConfigCache[256/4];
 	char	Name[8];
 	tVFS_Node	Node;
-} t_pciDevice;
+} tPCIDevice;
 
 // === CONSTANTS ===
 #define SPACE_STEP	5
@@ -46,7 +49,7 @@ Uint32	PCI_GetBAR4(int id);
 Uint32	PCI_GetBAR5(int id);
 Uint16	PCI_AssignPort(int id, int bar, int count);
 
- int	PCI_EnumDevice(Uint16 bus, Uint16 dev, Uint16 fcn, t_pciDevice *info);
+ int	PCI_EnumDevice(Uint16 bus, Uint16 dev, Uint16 fcn, tPCIDevice *info);
 Uint32	PCI_CfgReadDWord(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset);
 void	PCI_CfgWriteDWord(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset, Uint32 data);
 Uint16	PCI_CfgReadWord(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset);
@@ -57,7 +60,7 @@ Uint8	PCI_CfgReadByte(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset);
  int	giPCI_BusCount = 1;
  int	giPCI_InodeHandle = -1;
  int	giPCI_DeviceCount = 0;
-t_pciDevice	*gPCI_Devices = NULL;
+tPCIDevice	*gPCI_Devices = NULL;
 tDevFS_Driver	gPCI_DriverStruct = {
 	NULL, "pci",
 	{
@@ -80,7 +83,7 @@ int PCI_Install(char **Arguments)
 {
 	 int	bus, dev, fcn, i;
 	 int	space = 0;
-	t_pciDevice	devInfo;
+	tPCIDevice	devInfo;
 	void	*tmpPtr = NULL;
 	
 	// Build Portmap
@@ -107,7 +110,7 @@ int PCI_Install(char **Arguments)
 				if(giPCI_DeviceCount == space)
 				{
 					space += SPACE_STEP;
-					tmpPtr = realloc(gPCI_Devices, space*sizeof(t_pciDevice));
+					tmpPtr = realloc(gPCI_Devices, space*sizeof(tPCIDevice));
 					if(tmpPtr == NULL)
 						break;
 					gPCI_Devices = tmpPtr;
@@ -121,7 +124,7 @@ int PCI_Install(char **Arguments)
 					giPCI_BusCount++;
 				}
 				devInfo.Node.Inode = giPCI_DeviceCount;
-				memcpy(&gPCI_Devices[giPCI_DeviceCount], &devInfo, sizeof(t_pciDevice));
+				memcpy(&gPCI_Devices[giPCI_DeviceCount], &devInfo, sizeof(tPCIDevice));
 				giPCI_DeviceCount ++;
 				#if LIST_DEVICES
 				Log("[PCI ] Device %i,%i:%i => 0x%x:0x%x",
@@ -144,7 +147,7 @@ int PCI_Install(char **Arguments)
 	if(giPCI_DeviceCount == 0)
 		return MODULE_ERR_NOTNEEDED;
 	
-	tmpPtr = realloc(gPCI_Devices, giPCI_DeviceCount*sizeof(t_pciDevice));
+	tmpPtr = realloc(gPCI_Devices, giPCI_DeviceCount*sizeof(tPCIDevice));
 	if(tmpPtr == NULL)
 		return MODULE_ERR_MALLOC;
 	gPCI_Devices = tmpPtr;
@@ -369,7 +372,7 @@ Uint16 PCI_AssignPort(int id, int bar, int count)
 	Uint16	portVals;
 	 int	gran=0;
 	 int	i, j;
-	t_pciDevice	*dev;
+	tPCIDevice	*dev;
 	
 	//LogF("PCI_AssignPort: (id=%i,bar=%i,count=%i)\n", id, bar, count);
 	
@@ -426,9 +429,9 @@ Uint16 PCI_AssignPort(int id, int bar, int count)
 }
 
 /**
- * \fn int	PCI_EnumDevice(Uint16 bus, Uint16 slot, Uint16 fcn, t_pciDevice *info)
+ * \fn int	PCI_EnumDevice(Uint16 bus, Uint16 slot, Uint16 fcn, tPCIDevice *info)
  */
-int	PCI_EnumDevice(Uint16 bus, Uint16 slot, Uint16 fcn, t_pciDevice *info)
+int	PCI_EnumDevice(Uint16 bus, Uint16 slot, Uint16 fcn, tPCIDevice *info)
 {
 	Uint16	vendor;
 	 int	i;

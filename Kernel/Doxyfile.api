@@ -571,7 +571,8 @@ INPUT                  = include/apidoc_mainpage.h \
                          include/modules.h \
                          include/vfs.h include/vfs_ext.h \
 						 include/fs_devfs.h \
-                         include/iocache.h include/
+                         include/iocache.h \
+                         include/apidoc/arch_x86.h
 
 # This tag can be used to specify the character encoding of the source files 
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding, which is 
