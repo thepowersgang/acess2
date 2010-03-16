@@ -179,28 +179,14 @@ void Ext2_CloseFile(tVFS_Node *Node)
 //==================================
 //=       INTERNAL FUNCTIONS       =
 //==================================
-
-
-/**
- * \fn int Ext2_int_GetInode(tVFS_Node *Node, tExt2_Inode *Inode)
- * \brief Gets the inode descriptor for a node
- * \param Node	node to get the Inode of
- * \param Inode	Destination
- */
-int Ext2_int_GetInode(tVFS_Node *Node, tExt2_Inode *Inode)
-{
-	return Ext2_int_ReadInode(Node->ImplPtr, Node->Inode, Inode);
-}
-
 /**
  * \fn int Ext2_int_ReadInode(tExt2_Disk *Disk, Uint InodeId, tExt2_Inode *Inode)
  * \brief Read an inode into memory
  */
-int Ext2_int_ReadInode(tExt2_Disk *Disk, Uint InodeId, tExt2_Inode *Inode)
+int Ext2_int_ReadInode(tExt2_Disk *Disk, Uint32 InodeId, tExt2_Inode *Inode)
 {
 	 int	group, subId;
 	
-	//LogF("Ext2_int_ReadInode: (Disk=%p, InodeId=%i, Inode=%p)", Disk, InodeId, Inode);
 	//ENTER("pDisk iInodeId pInode", Disk, InodeId, Inode);
 	
 	if(InodeId == 0)	return 0;
@@ -217,6 +203,35 @@ int Ext2_int_ReadInode(tExt2_Disk *Disk, Uint InodeId, tExt2_Inode *Inode)
 		Disk->Groups[group].bg_inode_table * Disk->BlockSize + sizeof(tExt2_Inode)*subId,
 		sizeof(tExt2_Inode),
 		Inode);
+	
+	//LEAVE('i', 1);
+	return 1;
+}
+
+/**
+ * \brief Write a modified inode out to disk
+ */
+int Ext2_int_WriteInode(tExt2_Disk *Disk, Uint32 InodeId, tExt2_Inode *Inode)
+{
+	 int	group, subId;
+	ENTER("pDisk iInodeId pInode", Disk, InodeId, Inode);
+	
+	if(InodeId == 0)	return 0;
+	
+	InodeId --;	// Inodes are numbered starting at 1
+	
+	group = InodeId / Disk->SuperBlock.s_inodes_per_group;
+	subId = InodeId % Disk->SuperBlock.s_inodes_per_group;
+	
+	LOG("group=%i, subId = %i", group, subId);
+	
+	// Write Inode
+	VFS_WriteAt(Disk->FD,
+		Disk->Groups[group].bg_inode_table * Disk->BlockSize + sizeof(tExt2_Inode)*subId,
+		sizeof(tExt2_Inode),
+		Inode);
+	
+	LEAVE('i', 1);
 	return 1;
 }
 
@@ -230,6 +245,8 @@ int Ext2_int_ReadInode(tExt2_Disk *Disk, Uint InodeId, tExt2_Inode *Inode)
 Uint64 Ext2_int_GetBlockAddr(tExt2_Disk *Disk, Uint32 *Blocks, int BlockNum)
 {
 	Uint32	*iBlocks;
+	 int	dwPerBlock = Disk->BlockSize / 4;
+	
 	// Direct Blocks
 	if(BlockNum < 12)
 		return (Uint64)Blocks[BlockNum] * Disk->BlockSize;
@@ -239,26 +256,30 @@ Uint64 Ext2_int_GetBlockAddr(tExt2_Disk *Disk, Uint32 *Blocks, int BlockNum)
 	VFS_ReadAt(Disk->FD, (Uint64)Blocks[12]*Disk->BlockSize, Disk->BlockSize, iBlocks);
 	
 	BlockNum -= 12;
-	if(BlockNum < 256) {
+	if(BlockNum < dwPerBlock)
+	{
 		BlockNum = iBlocks[BlockNum];
 		free(iBlocks);
 		return (Uint64)BlockNum * Disk->BlockSize;
 	}
 	
+	BlockNum -= dwPerBlock;
 	// Double Indirect Blocks
-	if(BlockNum < 256*256)
+	if(BlockNum < dwPerBlock*dwPerBlock)
 	{
 		VFS_ReadAt(Disk->FD, (Uint64)Blocks[13]*Disk->BlockSize, Disk->BlockSize, iBlocks);
-		VFS_ReadAt(Disk->FD, (Uint64)iBlocks[BlockNum/256]*Disk->BlockSize, Disk->BlockSize, iBlocks);
-		BlockNum = iBlocks[BlockNum%256];
+		VFS_ReadAt(Disk->FD, (Uint64)iBlocks[BlockNum/dwPerBlock]*Disk->BlockSize, Disk->BlockSize, iBlocks);
+		BlockNum = iBlocks[BlockNum%dwPerBlock];
 		free(iBlocks);
 		return (Uint64)BlockNum * Disk->BlockSize;
 	}
+	
+	BlockNum -= dwPerBlock*dwPerBlock;
 	// Triple Indirect Blocks
 	VFS_ReadAt(Disk->FD, (Uint64)Blocks[14]*Disk->BlockSize, Disk->BlockSize, iBlocks);
-	VFS_ReadAt(Disk->FD, (Uint64)iBlocks[BlockNum/(256*256)]*Disk->BlockSize, Disk->BlockSize, iBlocks);
-	VFS_ReadAt(Disk->FD, (Uint64)iBlocks[(BlockNum/256)%256]*Disk->BlockSize, Disk->BlockSize, iBlocks);
-	BlockNum = iBlocks[BlockNum%256];
+	VFS_ReadAt(Disk->FD, (Uint64)iBlocks[BlockNum/(dwPerBlock*dwPerBlock)]*Disk->BlockSize, Disk->BlockSize, iBlocks);
+	VFS_ReadAt(Disk->FD, (Uint64)iBlocks[(BlockNum/dwPerBlock)%dwPerBlock]*Disk->BlockSize, Disk->BlockSize, iBlocks);
+	BlockNum = iBlocks[BlockNum%dwPerBlock];
 	free(iBlocks);
 	return (Uint64)BlockNum * Disk->BlockSize;
 }

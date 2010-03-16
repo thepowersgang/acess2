@@ -37,7 +37,8 @@ char *Ext2_ReadDir(tVFS_Node *Node, int Pos)
 	ENTER("pNode iPos", Node, Pos);
 	
 	// Read directory's inode
-	Ext2_int_GetInode(Node, &inode);
+	//Ext2_int_GetInode(Node, &inode);
+	Ext2_int_ReadInode(disk, Node->Inode, &inode);
 	size = inode.i_size;
 	
 	LOG("inode.i_block[0] = 0x%x", inode.i_block[0]);
@@ -110,7 +111,7 @@ tVFS_Node *Ext2_FindDir(tVFS_Node *Node, char *Filename)
 	Uint	size;
 	
 	// Read directory's inode
-	Ext2_int_GetInode(Node, &inode);
+	Ext2_int_ReadInode(disk, Node->Inode, &inode);
 	size = inode.i_size;
 	
 	// Get First Block

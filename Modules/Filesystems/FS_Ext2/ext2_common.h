@@ -30,16 +30,16 @@ typedef struct {
 // === FUNCTIONS ===
 // --- Common ---
 extern void	Ext2_CloseFile(tVFS_Node *Node);
-extern int	Ext2_int_GetInode(tVFS_Node *Node, tExt2_Inode *Inode);
 extern Uint64	Ext2_int_GetBlockAddr(tExt2_Disk *Disk, Uint32 *Blocks, int BlockNum);
 extern void	Ext2_int_UpdateSuperblock(tExt2_Disk *Disk);
+extern int	Ext2_int_ReadInode(tExt2_Disk *Disk, Uint32 InodeId, tExt2_Inode *Inode);
+extern int	Ext2_int_WriteInode(tExt2_Disk *Disk, Uint32 InodeId, tExt2_Inode *Inode);
 // --- Dir ---
 extern char	*Ext2_ReadDir(tVFS_Node *Node, int Pos);
 extern tVFS_Node	*Ext2_FindDir(tVFS_Node *Node, char *FileName);
 extern int	Ext2_MkNod(tVFS_Node *Node, char *Name, Uint Flags);
 // --- Read ---
 extern Uint64	Ext2_Read(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer);
-extern int	Ext2_int_ReadInode(tExt2_Disk *Disk, Uint InodeId, tExt2_Inode *Inode);
 // --- Write ---
 extern Uint64	Ext2_Write(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer);
 

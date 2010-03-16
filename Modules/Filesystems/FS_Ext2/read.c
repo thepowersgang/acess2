@@ -13,7 +13,6 @@
 
 // === PROTOTYPES ===
 Uint64		Ext2_Read(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer);
- int		Ext2_int_ReadInode(tExt2_Disk *Disk, Uint InodeId, tExt2_Inode *Inode);
 
 // === CODE ===
 /**
@@ -31,7 +30,7 @@ Uint64 Ext2_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
 	
 	// Get Inode
-	Ext2_int_GetInode(Node, &inode);
+	Ext2_int_ReadInode(disk, Node->Inode, &inode);
 	
 	// Sanity Checks
 	if(Offset >= inode.i_size) {
