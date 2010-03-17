@@ -107,7 +107,7 @@ void	FDD_int_StartMotor(int disk);
  int	FDD_int_GetDims(int type, int lba, int *c, int *h, int *s, int *spt);
 
 // === GLOBALS ===
-MODULE_DEFINE(0, FDD_VERSION, FDD, FDD_Install, NULL, NULL);
+MODULE_DEFINE(0, FDD_VERSION, FDD, FDD_Install, NULL, "ISADMA", NULL);
 t_floppyDevice	gFDD_Devices[2];
 tSpinlock	glFDD;
 volatile int	gbFDD_IrqFired = 0;
@@ -142,6 +142,10 @@ int FDD_Install(char **Arguments)
 	gFDD_Devices[1].track[1] = -1;
 	
 	Log("[FDD ] Detected Disk 0: %s and Disk 1: %s", cFDD_TYPES[data>>4], cFDD_TYPES[data&0xF]);
+	
+	if( data == 0 ) {
+		return MODULE_ERR_NOTNEEDED;
+	}
 	
 	// Clear FDD IRQ Flag
 	FDD_SensInt(0x3F0, NULL, NULL);
@@ -347,32 +351,12 @@ int FDD_ReadSector(Uint32 Disk, Uint64 SectorAddr, void *Buffer)
 	 int	i;
 	 int	lba = SectorAddr;
 	
-	ENTER("iDisk XSectorAddr pBuffer", disk, SectorAddr, Buffer);
+	ENTER("iDisk XSectorAddr pBuffer", Disk, SectorAddr, Buffer);
 	
-	#if USE_CACHE
-	FDD_AquireCacheSpinlock();
-	for( i = 0; i < siFDD_SectorCacheSize; i++ )
-	{
-		if(sFDD_SectorCache[i].timestamp == 0)	continue;
-		if( sFDD_SectorCache[i].disk == Disk
-		 && sFDD_SectorCache[i].sector == lba)
-		{
-			LOG("Found %i in cache %i", lba, i);
-			memcpy(Buffer, sFDD_SectorCache[i].data, 512);
-			sFDD_SectorCache[i].timestamp = now();
-			FDD_FreeCacheSpinlock();
-			LEAVE('i', 1);
-			return 1;
-		}
-	}
-	LOG("Read %i from Disk", lba);
-	FDD_FreeCacheSpinlock();
-	#else
 	if( IOCache_Read( gFDD_Devices[Disk].CacheHandle, SectorAddr, Buffer ) == 1 ) {
 		LEAVE('i', 1);
 		return 1;
 	}
-	#endif
 	
 	base = cPORTBASE[Disk >> 1];
 	
@@ -383,20 +367,20 @@ int FDD_ReadSector(Uint32 Disk, Uint64 SectorAddr, void *Buffer)
 		LEAVE('i', -1);
 		return -1;
 	}
+	LOG("Cyl=%i, Head=%i, Sector=%i", cyl, head, sec);
 	
-	// Remove Old Timer
-	Time_RemoveTimer(gFDD_Devices[Disk].timer);
-	// Check if Motor is on
-	if(gFDD_Devices[Disk].motorState == 0)	FDD_int_StartMotor(Disk);
+	LOCK(&glFDD);	// Lock to stop the motor stopping on us
+	Time_RemoveTimer(gFDD_Devices[Disk].timer);	// Remove Old Timer
+	// Start motor if needed
+	if(gFDD_Devices[Disk].motorState != 2)	FDD_int_StartMotor(Disk);
+	RELEASE(&glFDD);
 	
 	LOG("Wait for the motor to spin up");
 	
 	// Wait for spinup
 	while(gFDD_Devices[Disk].motorState == 1)	Threads_Yield();
 	
-	LOG("Cyl=%i, Head=%i, Sector=%i", cyl, head, sec);
 	LOG("Acquire Spinlock");
-	
 	LOCK(&glFDD);
 	
 	// Seek to track
@@ -717,8 +701,12 @@ void FDD_int_StartMotor(int disk)
 void FDD_int_StopMotor(int disk)
 {
 	Uint8	state;
+	if( IS_LOCKED(&glFDD) )	return ;
+	ENTER("iDisk", disk);
+	
 	state = inb( cPORTBASE[ disk>>1 ] + PORT_DIGOUTPUT );
 	state &= ~( 1 << (4+disk) );
 	outb( cPORTBASE[ disk>>1 ] + PORT_DIGOUTPUT, state );
     gFDD_Devices[disk].motorState = 0;
+    LEAVE('-');
 }

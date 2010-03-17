@@ -76,7 +76,7 @@ void	ATA_int_BusMasterWriteByte(int Ofs, Uint8 Value);
 void	ATA_int_BusMasterWriteDWord(int Ofs, Uint32 Value);
 
 // === GLOBALS ===
-MODULE_DEFINE(0, 0x0032, i386ATA, ATA_Install, NULL, NULL);
+MODULE_DEFINE(0, 0x0032, i386ATA, ATA_Install, NULL, "PCI", NULL);
 tDevFS_Driver	gATA_DriverInfo = {
 	NULL, "ata",
 	{

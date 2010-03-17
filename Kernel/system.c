@@ -21,7 +21,7 @@ typedef struct
 
 // === IMPORTS ===
 extern int	Modules_LoadBuiltins();
-extern int	PCI_Install();
+//extern int	PCI_Install();
 extern void	DMA_Install();
 extern void	Debug_SetKTerminal(char *File);
 extern void	StartupPrint(char *Str);
@@ -41,8 +41,8 @@ char	*gsConfigScript = "/Acess/Conf/BootConf.cfg";
 void System_Init(char *ArgString)
 {
 	// - Start Builtin Drivers & Filesystems
-	StartupPrint("Scanning PCI Bus...");
-	PCI_Install();
+	//StartupPrint("Scanning PCI Bus...");
+	//PCI_Install();
 	StartupPrint("Loading DMA...");
 	DMA_Install();
 	StartupPrint("Loading staticly compiled modules...");

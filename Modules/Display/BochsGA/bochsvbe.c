@@ -70,7 +70,7 @@ Uint64	BGA_Write(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer);
  int	BGA_Ioctl(tVFS_Node *node, int id, void *data);
 
 // === GLOBALS ===
-MODULE_DEFINE(0, 0x0032, BochsGA, BGA_Install, NULL, NULL);
+MODULE_DEFINE(0, 0x0032, BochsGA, BGA_Install, NULL, "PCI", NULL);
 tDevFS_Driver	gBGA_DriverStruct = {
 	NULL, "BochsGA",
 	{

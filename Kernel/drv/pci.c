@@ -56,7 +56,7 @@ Uint16	PCI_CfgReadWord(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset);
 Uint8	PCI_CfgReadByte(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset);
 
 // === GLOBALS ===
-//MODULE_DEFINE(0, 0x0100, PCI, PCI_Install, NULL);
+MODULE_DEFINE(0, 0x0100, PCI, PCI_Install, NULL, NULL);
  int	giPCI_BusCount = 1;
  int	giPCI_InodeHandle = -1;
  int	giPCI_DeviceCount = 0;
@@ -97,15 +97,13 @@ int PCI_Install(char **Arguments)
 	// Scan Busses
 	for( bus = 0; bus < giPCI_BusCount; bus++ )
 	{
-		for( dev = 0; dev < 10; dev++ )	// 10 Devices per bus
+		for( dev = 0; dev < 32; dev++ )	// 32 Devices per bus
 		{
-			for( fcn = 0; fcn < 8; fcn++ )	// 8 functions per device
+			for( fcn = 0; fcn < 8; fcn++ )	// Max 8 functions per device
 			{
 				// Check if the device/function exists
 				if(!PCI_EnumDevice(bus, dev, fcn, &devInfo))
-				{
 					continue;
-				}
 				
 				if(giPCI_DeviceCount == space)
 				{
@@ -118,20 +116,26 @@ int PCI_Install(char **Arguments)
 				if(devInfo.oc == PCI_OC_PCIBRIDGE)
 				{
 					#if LIST_DEVICES
-					Log("[PCI ] Bridge @ %i,%i:%i (0x%x:0x%x)",
+					Log("[PCI  ] Bridge @ %i,%i:%i (0x%x:0x%x)",
 						bus, dev, fcn, devInfo.vendor, devInfo.device);
 					#endif
 					giPCI_BusCount++;
 				}
+				else
+				{
+					#if LIST_DEVICES
+					Log("[PCI  ] Device %i,%i:%i %04x => 0x%04x:0x%04x",
+						bus, dev, fcn, devInfo.oc, devInfo.vendor, devInfo.device);
+					#endif
+				}
+				
 				devInfo.Node.Inode = giPCI_DeviceCount;
 				memcpy(&gPCI_Devices[giPCI_DeviceCount], &devInfo, sizeof(tPCIDevice));
 				giPCI_DeviceCount ++;
-				#if LIST_DEVICES
-				Log("[PCI ] Device %i,%i:%i => 0x%x:0x%x",
-					bus, dev, fcn, devInfo.vendor, devInfo.device);
-				#endif
 				
 				// WTF is this for?
+				// Maybe bit 23 must be set for the device to be valid?
+				// - Actually, maybe 23 means that there are sub-functions
 				if(fcn == 0) {
 					if( !(devInfo.ConfigCache[3] & 0x800000) )
 						break;
@@ -290,8 +294,8 @@ int PCI_GetDeviceByClass(Uint16 class, Uint16 mask, int prev)
 	
 	for( ; i < giPCI_DeviceCount; i++ )
 	{
-		if((gPCI_Devices[i].oc & mask) != class)	continue;
-		return i;
+		if((gPCI_Devices[i].oc & mask) == class)
+			return i;
 	}
 	return -1;
 }
