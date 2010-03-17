@@ -111,7 +111,7 @@ int ICMP_Ping(tInterface *Interface, tIPv4 Addr)
 		{
 			if(gICMP_PingSlots[i].Interface == NULL)	break;
 		}
-		if(gICMP_PingSlots[i].Interface == NULL)	break;
+		if( i < PING_SLOTS )	break;
 		Threads_Yield();
 	}
 	gICMP_PingSlots[i].Interface = Interface;

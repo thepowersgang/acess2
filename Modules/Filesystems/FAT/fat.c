@@ -16,8 +16,10 @@
 
 // === TYPES ===
 #if USE_LFN
-typedef struct s_lfncache {
-	Uint	Inode, Impl;
+typedef struct s_lfncache
+{
+	Uint	Inode;
+	tFAT_VolInfo	*Disk;
 	 int	id;
 	char	Name[256];
 	struct s_lfncache	*Next;
@@ -28,24 +30,29 @@ typedef struct s_lfncache {
  int	FAT_Install(char **Arguments);
 tVFS_Node	*FAT_InitDevice(char *device, char **options);
 void	FAT_Unmount(tVFS_Node *Node);
-Uint64	FAT_Read(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer);
-Uint64	FAT_Write(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer);
-char	*FAT_ReadDir(tVFS_Node *dirNode, int dirpos);
-tVFS_Node	*FAT_FindDir(tVFS_Node *dirNode, char *file);
+
+Uint32	FAT_int_GetFatValue(tFAT_VolInfo *Disk, Uint32 Cluster);
+Uint32	FAT_int_AllocateCluster(tFAT_VolInfo *Disk, Uint32 Previous);
+
+void	FAT_int_ReadCluster(tFAT_VolInfo *Disk, Uint32 Cluster, int Length, void *Buffer);
+void	FAT_int_WriteCluster(tFAT_VolInfo *Disk, Uint32 Cluster, void *Buffer);
+
+Uint64	FAT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
+Uint64	FAT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
+char	*FAT_ReadDir(tVFS_Node *Node, int ID);
+tVFS_Node	*FAT_FindDir(tVFS_Node *Node, char *Name);
  int	FAT_Mknod(tVFS_Node *Node, char *Name, Uint Flags);
  int	FAT_Relink(tVFS_Node *node, char *OldName, char *NewName);
 void	FAT_CloseFile(tVFS_Node *node);
 
 // === SEMI-GLOBALS ===
-MODULE_DEFINE(0, 0x51 /*v0.80*/, VFAT, FAT_Install, NULL, NULL);
+MODULE_DEFINE(0, (0<<8)|50 /*v0.50*/, VFAT, FAT_Install, NULL, NULL);
 tFAT_VolInfo	gFAT_Disks[8];
  int	giFAT_PartCount = 0;
 #if USE_LFN
 t_lfncache	*fat_lfncache;
 #endif
-tVFS_Driver	gFAT_FSInfo = {
-	"fat", 0, FAT_InitDevice, FAT_Unmount, NULL
-	};
+tVFS_Driver	gFAT_FSInfo = {"fat", 0, FAT_InitDevice, FAT_Unmount, NULL};
 
 // === CODE ===
 /**
@@ -59,18 +66,18 @@ int FAT_Install(char **Arguments)
 }
 
 /**
- * \fn tVFS_Node *FAT_InitDevice(char *Device, char **options)
+ * \fn tVFS_Node *FAT_InitDevice(char *Device, char **Options)
  * \brief Reads the boot sector of a disk and prepares the structures for it
  */
-tVFS_Node *FAT_InitDevice(char *Device, char **options)
+tVFS_Node *FAT_InitDevice(char *Device, char **Options)
 {
 	fat_bootsect *bs;
 	 int	i;
-	Uint32	FATSz, RootDirSectors, TotSec, CountofClusters;
+	Uint32	FATSz, RootDirSectors, TotSec;
 	tVFS_Node	*node = NULL;
 	tFAT_VolInfo	*diskInfo = &gFAT_Disks[giFAT_PartCount];
 	
-	//Temporary Pointer
+	// Temporary Pointer
 	bs = &diskInfo->bootsect;
 	
 	//Open device and read boot sector
@@ -87,8 +94,8 @@ tVFS_Node *FAT_InitDevice(char *Device, char **options)
 		return NULL;
 	}
 	
-	//FAT Type Determining
-	// From Microsoft FAT Specifcation
+	// FAT Type Determining
+	// - From Microsoft FAT Specifcation
 	RootDirSectors = ((bs->files_in_root*32) + (bs->bps - 1)) / bs->bps;
 	
 	if(bs->fatSz16 != 0)		FATSz = bs->fatSz16;
@@ -97,11 +104,11 @@ tVFS_Node *FAT_InitDevice(char *Device, char **options)
 	if(bs->totalSect16 != 0)		TotSec = bs->totalSect16;
 	else						TotSec = bs->totalSect32;
 	
-	CountofClusters = (TotSec - (bs->resvSectCount + (bs->fatCount * FATSz) + RootDirSectors)) / bs->spc;
+	diskInfo->ClusterCount = (TotSec - (bs->resvSectCount + (bs->fatCount * FATSz) + RootDirSectors)) / bs->spc;
 	
-	if(CountofClusters < 4085)
+	if(diskInfo->ClusterCount < 4085)
 		diskInfo->type = FAT12;
-	else if(CountofClusters < 65525)
+	else if(diskInfo->ClusterCount < 65525)
 		diskInfo->type = FAT16;
 	else
 		diskInfo->type = FAT32;
@@ -109,7 +116,7 @@ tVFS_Node *FAT_InitDevice(char *Device, char **options)
 	#if VERBOSE
 	{
 		char	*sFatType, *sSize;
-		Uint	iSize = CountofClusters * bs->spc / 2;
+		Uint	iSize = diskInfo->ClusterCount * bs->spc * bs->bps / 1024;
 		
 		switch(diskInfo->type)
 		{
@@ -133,7 +140,7 @@ tVFS_Node *FAT_InitDevice(char *Device, char **options)
 	}
 	#endif
 	
-	//Get Name
+	// Get Name
 	if(diskInfo->type == FAT32) {
 		for(i=0;i<11;i++)
 			diskInfo->name[i] = (bs->spec.fat32.label[i] == ' ' ? '\0' : bs->spec.fat32.label[i]);
@@ -144,13 +151,11 @@ tVFS_Node *FAT_InitDevice(char *Device, char **options)
 	}
 	diskInfo->name[11] = '\0';
 	
-	//Compute Root directory offset
+	// Compute Root directory offset
 	if(diskInfo->type == FAT32)
 		diskInfo->rootOffset = bs->spec.fat32.rootClust;
 	else
 		diskInfo->rootOffset = (FATSz * bs->fatCount) / bs->spc;
-	
-	diskInfo->clusterCount = CountofClusters;
 	
 	diskInfo->firstDataSect = bs->resvSectCount + (bs->fatCount * FATSz) + RootDirSectors;
 	
@@ -158,17 +163,18 @@ tVFS_Node *FAT_InitDevice(char *Device, char **options)
 	#if CACHE_FAT
 	{
 	Uint32	Ofs;
-	diskInfo->FATCache = (Uint32*)malloc(sizeof(Uint32)*CountofClusters);
+	diskInfo->FATCache = (Uint32*)malloc(sizeof(Uint32)*diskInfo->ClusterCount);
 	if(diskInfo->FATCache == NULL) {
 		Warning("FAT_InitDisk - Heap Exhausted\n");
 		return NULL;
 	}
 	Ofs = bs->resvSectCount*512;
-	if(diskInfo->type == FAT12) {
+	if(diskInfo->type == FAT12)
+	{
 		Uint32	val;
 		 int	j;
 		char	buf[1536];
-		for(i=0;i<CountofClusters/2;i++) {
+		for(i = 0; i < diskInfo->ClusterCount/2; i++) {
 			j = i & 511;	//%512
 			if( j == 0 ) {
 				VFS_ReadAt(diskInfo->fileHandle, Ofs, 3*512, buf);
@@ -179,9 +185,10 @@ tVFS_Node *FAT_InitDevice(char *Device, char **options)
 			diskInfo->FATCache[i*2+1] = (val>>12) & 0xFFF;
 		}
 	}
-	if(diskInfo->type == FAT16) {
+	else if(diskInfo->type == FAT16)
+	{
 		Uint16	buf[256];
-		for(i=0;i<CountofClusters;i++) {
+		for(i=0;i<diskInfo->ClusterCount;i++) {
 			if( (i & 255) == 0 ) {
 				VFS_ReadAt(diskInfo->fileHandle, Ofs, 512, buf);
 				Ofs += 512;
@@ -189,9 +196,10 @@ tVFS_Node *FAT_InitDevice(char *Device, char **options)
 			diskInfo->FATCache[i] = buf[i&255];
 		}
 	}
-	if(diskInfo->type == FAT32) {
+	else if(diskInfo->type == FAT32)
+	{
 		Uint32	buf[128];
-		for(i=0;i<CountofClusters;i++) {
+		for(i=0;i<diskInfo->ClusterCount;i++) {
 			if( (i & 127) == 0 ) {
 				VFS_ReadAt(diskInfo->fileHandle, Ofs, 512, buf);
 				Ofs += 512;
@@ -203,15 +211,18 @@ tVFS_Node *FAT_InitDevice(char *Device, char **options)
 	}
 	#endif /*CACHE_FAT*/
 	
-	//Initalise inode cache for FAT
+	diskInfo->BytesPerCluster = bs->spc * bs->bps;
+	
+	// Initalise inode cache for filesystem
 	diskInfo->inodeHandle = Inode_GetHandle();
 	LOG("Inode Cache handle is %i", diskInfo->inodeHandle);
 	
 	// == VFS Interface
 	node = &diskInfo->rootNode;
-	node->Inode = diskInfo->rootOffset;
-	node->Size = bs->files_in_root;	// Unknown - To be set on readdir
-	node->ImplInt = giFAT_PartCount;
+	node->Size = bs->files_in_root;
+	node->Inode = diskInfo->rootOffset;	// 0:31 - Cluster, 32:63 - Parent Directory Cluster
+	node->ImplPtr = diskInfo;	// Disk info pointer
+	node->ImplInt = 0;	// 0:15 - Directory Index, 16: Dirty Flag
 	
 	node->ReferenceCount = 1;
 	
@@ -226,38 +237,48 @@ tVFS_Node *FAT_InitDevice(char *Device, char **options)
 	node->FindDir = FAT_FindDir;
 	node->Relink = FAT_Relink;
 	node->MkNod = FAT_Mknod;
-	//node->Close = FAT_CloseDevice;
+	//node->Close = FAT_Unmount;
 	
 	giFAT_PartCount ++;
 	return node;
 }
 
 /**
- * \fn void FAT_Unmount(tVFS_Node *Node)
  * \brief Closes a mount and marks it as free
+ * \param Node	Mount Root
+ * 
+ * \todo Remove FAT Cache
+ * \todo Clear LFN Cache
+ * \todo Check that all files are closed and flushed
  */
 void FAT_Unmount(tVFS_Node *Node)
 {
+	tFAT_VolInfo	*disk = Node->ImplPtr;
+	
 	// Close Disk Handle
-	VFS_Close( gFAT_Disks[Node->ImplInt].fileHandle );
+	VFS_Close( disk->fileHandle );
 	// Clear Node Cache
-	Inode_ClearCache(gFAT_Disks[Node->ImplInt].inodeHandle);
+	Inode_ClearCache(disk->inodeHandle);
 	// Mark as unused
-	gFAT_Disks[Node->ImplInt].fileHandle = -2;
+	disk->fileHandle = -2;
 	return;
 }
 
+/*
+ * === FILE IO ===
+ */
 /**
- * \fn static Uint32 FAT_int_GetFatValue(tFAT_VolInfo *Disk, Uint32 cluster)
+ * \fn Uint32 FAT_int_GetFatValue(tFAT_VolInfo *Disk, Uint32 cluster)
  * \brief Fetches a value from the FAT
  */
-static Uint32 FAT_int_GetFatValue(tFAT_VolInfo *Disk, Uint32 cluster)
+Uint32 FAT_int_GetFatValue(tFAT_VolInfo *Disk, Uint32 cluster)
 {
 	Uint32	val = 0;
 	#if !CACHE_FAT
 	Uint32	ofs = Disk->bootsect.resvSectCount*512;
 	#endif
 	ENTER("pDisk xCluster", Disk, cluster);
+	LOCK( &Disk->lFAT );
 	#if CACHE_FAT
 	val = Disk->FATCache[cluster];
 	if(Disk->type == FAT12 && val == EOC_FAT12)	val = -1;
@@ -276,21 +297,116 @@ static Uint32 FAT_int_GetFatValue(tFAT_VolInfo *Disk, Uint32 cluster)
 		if(val == EOC_FAT32)	val = -1;
 	}
 	#endif /*CACHE_FAT*/
+	RELEASE( &Disk->lFAT );
 	LEAVE('x', val);
 	return val;
 }
 
-/* Reads a cluster's data
+/**
+ * \brief Allocate a new cluster
  */
-static void FAT_int_ReadCluster(int Handle, Uint32 Cluster, int Length, void *Buffer)
+Uint32 FAT_int_AllocateCluster(tFAT_VolInfo *Disk, Uint32 Previous)
 {
-	ENTER("iHandle xCluster iLength pBuffer", Handle, Cluster, Length, Buffer);
+	Uint32	ret = Previous;
+	#if CACHE_FAT
+	Uint32	eoc;
+	
+	LOCK(Disk->lFAT);
+	for(ret = Previous; ret < Disk->ClusterCount; ret++)
+	{
+		if(Disk->FATCache[ret] == 0)
+			goto append;
+	}
+	for(ret = 0; ret < Previous; ret++)
+	{
+		if(Disk->FATCache[ret] == 0)
+			goto append;
+	}
+	
+	RELEASE(Disk->lFAT);
+	return 0;
+	
+append:
+	switch(Disk->type)
+	{
+	case FAT12:	eoc = EOC_FAT12;	break;
+	case FAT16:	eoc = EOC_FAT16;	break;
+	case FAT32:	eoc = EOC_FAT32;	break;
+	default:	return 0;
+	}
+	
+	Disk->FATCache[ret] = eoc;
+	Disk->FATCache[Previous] = ret;
+	
+	RELEASE(Disk->lFAT);
+	return ret;
+	#else
+	Uint32	val;
+	//Uint8	buf[512];
+	Warning("[FAT  ] TODO: Implement cluster allocation with non cached FAT");
+	return 0;
+	
+	if(Disk->type == FAT12) {
+		VFS_ReadAt(Disk->fileHandle, ofs+(Previous>>1)*3, 3, &val);
+		if( Previous & 1 ) {
+			val &= 0xFFF000;
+			val |= ret;
+		}
+		else {
+			val &= 0xFFF;
+			val |= ret<<12;
+		}
+		VFS_WriteAt(Disk->fileHandle, ofs+(Previous>>1)*3, 3, &val);
+		
+		VFS_ReadAt(Disk->fileHandle, ofs+(Cluster>>1)*3, 3, &val);
+		if( Cluster & 1 ) {
+			val &= 0xFFF000;
+			val |= eoc;
+		}
+		else {
+			val &= 0x000FFF;
+			val |= eoc<<12;
+		}
+		VFS_WriteAt(Disk->fileHandle, ofs+(Cluster>>1)*3, 3, &val);
+	} else if(Disk->type == FAT16) {
+		VFS_ReadAt(Disk->fileHandle, ofs+Previous*2, 2, &ret);
+		VFS_ReadAt(Disk->fileHandle, ofs+Cluster*2, 2, &eoc);
+	} else {
+		VFS_ReadAt(Disk->fileHandle, ofs+Previous*4, 4, &ret);
+		VFS_ReadAt(Disk->fileHandle, ofs+Cluster*4, 4, &eoc);
+	}
+	return ret;
+	#endif
+}
+
+/**
+ * \brief Read a cluster
+ */
+void FAT_int_ReadCluster(tFAT_VolInfo *Disk, Uint32 Cluster, int Length, void *Buffer)
+{
+	ENTER("pDisk xCluster iLength pBuffer", Disk, Cluster, Length, Buffer);
 	//Log("Cluster = %i (0x%x)", Cluster, Cluster);
 	VFS_ReadAt(
-		gFAT_Disks[Handle].fileHandle,
-		(gFAT_Disks[Handle].firstDataSect + (Cluster-2)*gFAT_Disks[Handle].bootsect.spc )
-			* gFAT_Disks[Handle].bootsect.bps,
+		Disk->fileHandle,
+		(Disk->firstDataSect + (Cluster-2)*Disk->bootsect.spc )
+			* Disk->bootsect.bps,
 		Length,
+		Buffer
+		);
+	LEAVE('-');
+}
+
+/**
+ * \brief Write a cluster to disk
+ */
+void FAT_int_WriteCluster(tFAT_VolInfo *Disk, Uint32 Cluster, void *Buffer)
+{
+	ENTER("pDisk xCluster pBuffer", Disk, Cluster, Buffer);
+	VFS_ReadAt(
+		Disk->fileHandle,
+		(Disk->firstDataSect + (Cluster-2)*Disk->bootsect.spc )
+			* Disk->bootsect.bps,
+		Disk->BytesPerCluster,
 		Buffer
 		);
 	LEAVE('-');
@@ -300,42 +416,41 @@ static void FAT_int_ReadCluster(int Handle, Uint32 Cluster, int Length, void *Bu
  * \fn Uint64 FAT_Read(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer)
  * \brief Reads data from a specified file
  */
-Uint64 FAT_Read(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer)
+Uint64 FAT_Read(tVFS_Node *Node, Uint64 offset, Uint64 length, void *buffer)
 {
 	 int	preSkip, count;
-	 int	handle = node->ImplInt;
 	 int	i, cluster, pos;
 	 int	bpc;
 	void	*tmpBuf;
-	tFAT_VolInfo	*disk = &gFAT_Disks[node->ImplInt];
+	tFAT_VolInfo	*disk = Node->ImplPtr;
 	
-	ENTER("Xoffset Xlength pbuffer", offset, length, buffer);
+	ENTER("pNode Xoffset Xlength pbuffer", Node, offset, length, buffer);
 	
 	// Calculate and Allocate Bytes Per Cluster
-	bpc = disk->bootsect.spc * disk->bootsect.bps;
+	bpc = disk->BytesPerCluster;
 	tmpBuf = (void*) malloc(bpc);
-	LOG("malloc'd %i bytes", bpc);
+	if( !tmpBuf ) 	return 0;
 	
 	// Cluster is stored in Inode Field
-	cluster = node->Inode;
+	cluster = Node->Inode & 0xFFFFFFFF;
 	
 	// Sanity Check offset
-	if(offset > node->Size) {
+	if(offset > Node->Size) {
 		//LOG("Reading past EOF (%i > %i)", offset, node->Size);
 		LEAVE('i', 0);
 		return 0;
 	}
 	// Clamp Size
-	if(offset + length > node->Size) {
+	if(offset + length > Node->Size) {
 		//LOG("Reading past EOF (%lli + %lli > %lli), clamped to %lli",
 		//	offset, length, node->Size, node->Size - offset);
-		length = node->Size - offset;
+		length = Node->Size - offset;
 	}
 	
 	// Single Cluster including offset
 	if(length + offset < bpc)
 	{
-		FAT_int_ReadCluster(handle, cluster, bpc, tmpBuf);
+		FAT_int_ReadCluster(disk, cluster, bpc, tmpBuf);
 		memcpy( buffer, (void*)( tmpBuf + offset%bpc ), length );
 		free(tmpBuf);
 		LEAVE('i', 1);
@@ -361,7 +476,7 @@ Uint64 FAT_Read(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer)
 	pos = bpc - offset%bpc;
 	
 	// Read 1st Cluster
-	FAT_int_ReadCluster(handle, cluster, bpc, tmpBuf);
+	FAT_int_ReadCluster(disk, cluster, bpc, tmpBuf);
 	memcpy(
 		buffer,
 		(void*)( tmpBuf + (bpc-pos) ),
@@ -385,7 +500,7 @@ Uint64 FAT_Read(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer)
 	//Read the rest of the cluster data
 	for( i = 1; i < count-1; i++ )
 	{
-		FAT_int_ReadCluster(handle, cluster, bpc, tmpBuf);
+		FAT_int_ReadCluster(disk, cluster, bpc, tmpBuf);
 		memcpy((void*)(buffer+pos), tmpBuf, bpc);
 		pos += bpc;
 		cluster = FAT_int_GetFatValue(disk, cluster);
@@ -397,7 +512,7 @@ Uint64 FAT_Read(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer)
 		}
 	}
 	
-	FAT_int_ReadCluster(handle, cluster, bpc, tmpBuf);
+	FAT_int_ReadCluster(disk, cluster, bpc, tmpBuf);
 	memcpy((void*)(buffer+pos), tmpBuf, length-pos);
 	
 	#if DEBUG
@@ -410,18 +525,115 @@ Uint64 FAT_Read(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer)
 }
 
 /**
- * \fn Uint64 FAT_Write(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer)
+ * \brief Write to a file
+ * \param Node	File Node
+ * \param Offset	Offset within file
+ * \param Length	Size of data to write
+ * \param Buffer	Data source
  */
-Uint64 FAT_Write(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer)
+Uint64 FAT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 {
-	return 0;
+	tFAT_VolInfo	*disk = Node->ImplPtr;
+	void	*tmpBuf;
+	 int	remLength = Length;
+	Uint32	cluster, tmpCluster;
+	 int	bNewCluster = 0;
+	
+	if(Offset > Node->Size)	return 0;
+	
+	// Seek Clusters
+	cluster = Node->Inode & 0xFFFFFFFF;
+	while( Offset > disk->BytesPerCluster )
+	{
+		cluster = FAT_int_GetFatValue( disk, cluster );
+		if(cluster == -1) {
+			Warning("[FAT  ] EOC Unexpectedly Reached");
+			return 0;
+		}
+		Offset -= disk->BytesPerCluster;
+	}
+	if( Offset == disk->BytesPerCluster )
+	{
+		Uint32	tmp = FAT_int_AllocateCluster(disk, cluster);
+		if(!tmp)	return 0;
+		cluster = tmp;
+		Offset -= disk->BytesPerCluster;
+	}
+	
+	if( Offset + Length < disk->BytesPerCluster )
+	{
+		tmpBuf = malloc( disk->BytesPerCluster );
+		
+		// Read-Modify-Write
+		FAT_int_ReadCluster( disk, cluster, disk->BytesPerCluster, tmpBuf );
+		memcpy(	tmpBuf + Offset, Buffer, Length );
+		FAT_int_WriteCluster( disk, cluster, tmpBuf );
+		
+		free(tmpBuf);
+		return Length;
+	}
+	
+	// Clean up changes within a cluster
+	if( Offset )
+	{
+		tmpBuf = malloc( disk->BytesPerCluster );
+		
+		// Read-Modify-Write
+		FAT_int_ReadCluster( disk, cluster, disk->BytesPerCluster, tmpBuf );
+		memcpy(	tmpBuf + Offset, Buffer, disk->BytesPerCluster - Offset );
+		FAT_int_WriteCluster( disk, cluster, tmpBuf );
+		
+		free(tmpBuf);
+		
+		remLength -= disk->BytesPerCluster - Offset;
+		Buffer += disk->BytesPerCluster - Offset;
+		
+		// Get next cluster (allocating if needed)
+		tmpCluster = FAT_int_GetFatValue(disk, cluster);
+		if(tmpCluster == -1) {
+			tmpCluster = FAT_int_AllocateCluster(disk, cluster);
+			if( tmpCluster == 0 ) {
+				return Length - remLength;
+			}
+		}
+		cluster = tmpCluster;
+	}
+	
+	while( remLength > disk->BytesPerCluster )
+	{
+		FAT_int_WriteCluster( disk, cluster, Buffer );
+		Buffer += disk->BytesPerCluster;
+		
+		// Get next cluster (allocating if needed)
+		tmpCluster = FAT_int_GetFatValue(disk, cluster);
+		if(tmpCluster == -1) {
+			bNewCluster = 1;
+			tmpCluster = FAT_int_AllocateCluster(disk, cluster);
+			if( tmpCluster == 0 ) {
+				return Length - remLength;
+			}
+		}
+		cluster = tmpCluster;
+	}
+	
+	// Finish off
+	tmpBuf = malloc( disk->BytesPerCluster );
+	if( bNewCluster )
+		memset(tmpBuf, 0, disk->BytesPerCluster);
+	else
+		FAT_int_ReadCluster( disk, cluster, disk->BytesPerCluster, tmpBuf );
+	memcpy(	tmpBuf, Buffer, remLength );
+	FAT_int_WriteCluster( disk, cluster, tmpBuf );
+	free( tmpBuf );
+	
+	return Length;
 }
 
 /**
- * \fn static void FAT_int_ProperFilename(char *dest, char *src)
+ * \fn void FAT_int_ProperFilename(char *dest, char *src)
  * \brief Converts a FAT directory entry name into a proper filename
  */
-static void FAT_int_ProperFilename(char *dest, char *src)
+void FAT_int_ProperFilename(char *dest, char *src)
 {
 	 int	a, b;
 	
@@ -439,7 +651,7 @@ static void FAT_int_ProperFilename(char *dest, char *src)
 	}
 	dest[b] = '\0';
 	#if DEBUG
-	//Log("FAT_int_ProperFilename: dest='%s'", dest);
+	//LOG("dest='%s'", dest);
 	#endif
 }
 
@@ -478,6 +690,7 @@ tVFS_Node *FAT_int_CreateNode(tVFS_Node *parent, fat_filetable *ft, char *LongFi
 {
 	tVFS_Node	node = {0};
 	tVFS_Node	*ret;
+	tFAT_VolInfo	*disk = parent->ImplPtr;
 	
 	ENTER("pParent pFT sLongFileName", parent, ft, LongFileName);
 	
@@ -485,14 +698,19 @@ tVFS_Node *FAT_int_CreateNode(tVFS_Node *parent, fat_filetable *ft, char *LongFi
 	node.Inode = ft->cluster | (ft->clusterHi<<16);
 	node.Size = ft->size;
 	LOG("ft->size = %i", ft->size);
-	node.ImplInt = parent->ImplInt;
+	node.ImplPtr = parent->ImplPtr;
 	node.UID = 0;	node.GID = 0;
 	node.NumACLs = 1;
-	node.ACLs = &gVFS_ACL_EveryoneRWX;	// RWXRWXRWX
 	
 	node.Flags = 0;
 	if(ft->attrib & ATTR_DIRECTORY)	node.Flags |= VFS_FFLAG_DIRECTORY;
-	if(ft->attrib & ATTR_READONLY)	node.Flags |= VFS_FFLAG_READONLY;
+	if(ft->attrib & ATTR_READONLY) {
+		node.Flags |= VFS_FFLAG_READONLY;
+		node.ACLs = &gVFS_ACL_EveryoneRX;	// R-XR-XR-X
+	}
+	else {
+		node.ACLs = &gVFS_ACL_EveryoneRWX;	// RWXRWXRWX
+	}
 	
 	node.ATime = timestamp(0,0,0,
 			((ft->adate&0x1F)-1),	//Days
@@ -528,7 +746,7 @@ tVFS_Node *FAT_int_CreateNode(tVFS_Node *parent, fat_filetable *ft, char *LongFi
 	node.Close = FAT_CloseFile;
 	node.Relink = FAT_Relink;
 	
-	ret = Inode_CacheNode(gFAT_Disks[parent->ImplInt].inodeHandle, &node);
+	ret = Inode_CacheNode(disk->inodeHandle, &node);
 	LEAVE('p', ret);
 	return ret;
 }
@@ -544,13 +762,13 @@ char *FAT_int_GetLFN(tVFS_Node *node)
 	tmp = fat_lfncache;
 	while(tmp)
 	{
-		if(tmp->Inode == node->Inode && tmp->Impl == node->ImplInt)
+		if(tmp->Inode == node->Inode && tmp->Disk == node->ImplPtr)
 			return tmp->Name;
 		tmp = tmp->Next;
 	}
 	tmp = malloc(sizeof(t_lfncache));
 	tmp->Inode = node->Inode;
-	tmp->Impl = node->ImplInt;
+	tmp->Disk = node->ImplPtr;
 	memset(tmp->Name, 0, 256);
 	
 	tmp->Next = fat_lfncache;
@@ -579,7 +797,7 @@ void FAT_int_DelLFN(tVFS_Node *node)
 	tmp = fat_lfncache;
 	while(tmp && tmp->Next)
 	{
-		if(tmp->Inode == node->Inode && tmp->Impl == node->ImplInt)
+		if(tmp->Inode == node->Inode && tmp->Disk == node->ImplPtr)
 		{
 			free(tmp->Next);
 			tmp->Next = tmp->Next->Next;
@@ -591,15 +809,15 @@ void FAT_int_DelLFN(tVFS_Node *node)
 #endif
 
 /**
- \fn char *FAT_ReadDir(tVFS_Node *dirNode, int dirPos)
- \param dirNode	Node structure of directory
- \param dirPos	Directory position
+ \fn char *FAT_ReadDir(tVFS_Node *Node, int ID)
+ \param Node	Node structure of directory
+ \param ID	Directory position
 **/
-char *FAT_ReadDir(tVFS_Node *dirNode, int dirpos)
+char *FAT_ReadDir(tVFS_Node *Node, int ID)
 {
 	fat_filetable	fileinfo[16];	//Sizeof=32, 16 per sector
 	 int	a=0;
-	tFAT_VolInfo	*disk = &gFAT_Disks[dirNode->ImplInt&7];
+	tFAT_VolInfo	*disk = Node->ImplPtr;
 	Uint32	cluster, offset;
 	 int	preSkip;
 	char	*ret;
@@ -607,14 +825,14 @@ char *FAT_ReadDir(tVFS_Node *dirNode, int dirpos)
 	char	*lfn = NULL;
 	#endif
 	
-	ENTER("pDirNode iDirPos", dirNode, dirpos);
+	ENTER("pNode iID", Node, ID);
 	
 	// Get Byte Offset and skip
-	offset = dirpos * sizeof(fat_filetable);
+	offset = ID * sizeof(fat_filetable);
 	preSkip = offset / (512 * disk->bootsect.spc);
 	LOG("disk->bootsect.spc = %i", disk->bootsect.spc);
-	LOG("dirNode->size = %i", dirNode->Size);
-	cluster = dirNode->Inode;	// Cluster ID
+	LOG("Node->size = %i", Node->Size);
+	cluster = Node->Inode & 0xFFFFFFFF;	// Cluster ID
 	
 	// Do Cluster Skip
 	// - Pre FAT32 had a reserved area for the root.
@@ -629,15 +847,15 @@ char *FAT_ReadDir(tVFS_Node *dirNode, int dirpos)
 	}
 	
 	// Bounds Checking (Used to spot heap overflows)
-	if(cluster > disk->clusterCount + 2)
+	if(cluster > disk->ClusterCount + 2)
 	{
 		Warning("FAT_ReadDir - Cluster ID is over cluster count (0x%x>0x%x)",
-			cluster, disk->clusterCount+2);
+			cluster, disk->ClusterCount+2);
 		LEAVE('n');
 		return NULL;
 	}
 	
-	LOG("cluster=0x%x, dirpos=%i", cluster, dirpos);
+	LOG("cluster=0x%x, ID=%i", cluster, ID);
 	
 	// Compute Offsets
 	// - Pre FAT32 cluster base (in sectors)
@@ -650,9 +868,9 @@ char *FAT_ReadDir(tVFS_Node *dirNode, int dirpos)
 	}
 	// Sector in cluster
 	if(disk->bootsect.spc != 1)
-		offset += (dirpos / 16) % disk->bootsect.spc;
+		offset += (ID / 16) % disk->bootsect.spc;
 	// Offset in sector
-	a = dirpos % 16;
+	a = ID % 16;
 
 	LOG("offset=%i, a=%i", offset, a);
 	
@@ -662,7 +880,7 @@ char *FAT_ReadDir(tVFS_Node *dirNode, int dirpos)
 	LOG("name[0] = 0x%x", (Uint8)fileinfo[a].name[0]);
 	//Check if this is the last entry
 	if( fileinfo[a].name[0] == '\0' ) {
-		dirNode->Size = dirpos;
+		Node->Size = ID;
 		LOG("End of list");
 		LEAVE('n');
 		return NULL;	// break
@@ -677,7 +895,7 @@ char *FAT_ReadDir(tVFS_Node *dirNode, int dirpos)
 	
 	#if USE_LFN
 	// Get Long File Name Cache
-	lfn = FAT_int_GetLFN(dirNode);
+	lfn = FAT_int_GetLFN(Node);
 	if(fileinfo[a].attrib == ATTR_LFN)
 	{
 		fat_longfilename	*lfnInfo;
@@ -723,12 +941,12 @@ char *FAT_ReadDir(tVFS_Node *dirNode, int dirpos)
 		fileinfo[a].name[8], fileinfo[a].name[9], fileinfo[a].name[10] );
 	
 	#if USE_LFN
-	//node = FAT_int_CreateNode(dirNode, &fileinfo[a], lfn);
-	ret = FAT_int_CreateName(dirNode, &fileinfo[a], lfn);
+	//node = FAT_int_CreateNode(Node, &fileinfo[a], lfn);
+	ret = FAT_int_CreateName(Node, &fileinfo[a], lfn);
 	lfn[0] = '\0';
 	#else
-	//node = FAT_int_CreateNode(dirNode, &fileinfo[a], NULL);
-	ret = FAT_int_CreateName(dirNode, &fileinfo[a], NULL);
+	//node = FAT_int_CreateNode(Node, &fileinfo[a], NULL);
+	ret = FAT_int_CreateName(Node, &fileinfo[a], NULL);
 	#endif
 	
 	LEAVE('s', ret);
@@ -739,7 +957,7 @@ char *FAT_ReadDir(tVFS_Node *dirNode, int dirpos)
  * \fn tVFS_Node *FAT_FindDir(tVFS_Node *node, char *name)
  * \brief Finds an entry in the current directory
  */
-tVFS_Node *FAT_FindDir(tVFS_Node *node, char *name)
+tVFS_Node *FAT_FindDir(tVFS_Node *Node, char *name)
 {
 	fat_filetable	fileinfo[16];
 	char	tmpName[11];
@@ -751,11 +969,11 @@ tVFS_Node *FAT_FindDir(tVFS_Node *node, char *name)
 	 int	i=0;
 	tVFS_Node	*tmpNode;
 	Uint64	diskOffset;
-	tFAT_VolInfo	*disk = &gFAT_Disks[node->ImplInt];
+	tFAT_VolInfo	*disk = Node->ImplPtr;
 	Uint32	dirCluster;
 	Uint32	cluster;
 	
-	ENTER("pnode sname", node, name);
+	ENTER("pNode sname", Node, name);
 	
 	// Fast Returns
 	if(!name || name[0] == '\0') {
@@ -764,10 +982,10 @@ tVFS_Node *FAT_FindDir(tVFS_Node *node, char *name)
 	}
 	
 	#if USE_LFN
-	lfn = FAT_int_GetLFN(node);
+	lfn = FAT_int_GetLFN(Node);
 	#endif
 	
-	dirCluster = node->Inode;
+	dirCluster = Node->Inode & 0xFFFFFFFF;
 	// Seek to Directory
 	if( dirCluster == disk->rootOffset && disk->type != FAT32 )
 		diskOffset = (disk->bootsect.resvSectCount+dirCluster*disk->bootsect.spc) << 9;
@@ -831,9 +1049,9 @@ tVFS_Node *FAT_FindDir(tVFS_Node *node, char *name)
 				if(tmpNode == NULL)	// Node is not cached
 				{
 					#if USE_LFN
-					tmpNode = FAT_int_CreateNode(node, &fileinfo[i&0xF], lfn);
+					tmpNode = FAT_int_CreateNode(Node, &fileinfo[i&0xF], lfn);
 					#else
-					tmpNode = FAT_int_CreateNode(node, &fileinfo[i&0xF], NULL);
+					tmpNode = FAT_int_CreateNode(Node, &fileinfo[i&0xF], NULL);
 					#endif
 				}
 				#if USE_LFN
@@ -886,15 +1104,16 @@ int FAT_Relink(tVFS_Node *Node, char *OldName, char *NewName)
  */
 void FAT_CloseFile(tVFS_Node *Node)
 {
+	tFAT_VolInfo	*disk = Node->ImplPtr;
 	if(Node == NULL)	return ;
 	
-	Inode_UncacheNode(gFAT_Disks[Node->ImplInt].inodeHandle, Node->Inode);
+	Inode_UncacheNode(disk->inodeHandle, Node->Inode);
 	#if USE_LFN
-	if(	!Inode_GetCache(gFAT_Disks[Node->ImplInt].inodeHandle, Node->Inode)
-	&&	Node->Flags & VFS_FFLAG_DIRECTORY)
+	// If node has been uncached and is a directory, delete the LFN cache
+	if(	!Inode_GetCache(disk->inodeHandle, Node->Inode) && Node->Flags & VFS_FFLAG_DIRECTORY)
 		FAT_int_DelLFN(Node);
 	else	// Get Cache references the node, so dereference it
-		Inode_UncacheNode(gFAT_Disks[Node->ImplInt].inodeHandle, Node->Inode);
+		Inode_UncacheNode(disk->inodeHandle, Node->Inode);
 	#endif
 	return ;
 }

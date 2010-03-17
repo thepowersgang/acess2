@@ -132,7 +132,7 @@ enum eFatType
  */
 #define	EOC_FAT12	0x0FFF	//!< FAT-12 Mark
 #define	EOC_FAT16	0xFFFF	//!< FAT-16 Mark
-#define	EOC_FAT32	0x0FFFFFF	//!< FAT-32 Mark
+#define	EOC_FAT32	0x00FFFFFF	//!< FAT-32 Mark
 /**
  * \}
  */
@@ -151,12 +151,14 @@ struct drv_fat_volinfo_s
 	 int	fileHandle;	//!< File Handle
 	 int	type;	//!< FAT Type. See eFatType
 	char	name[12];	//!< Volume Name (With NULL Terminator)
+	tSpinlock	lFAT;	//!< Lock to prevent double-writing to the FAT
 	Uint32	firstDataSect;	//!< First data sector
 	Uint32	rootOffset;	//!< Root Offset (clusters)
-	Uint32	clusterCount;	//!< Total Cluster Count
+	Uint32	ClusterCount;	//!< Total Cluster Count
 	fat_bootsect	bootsect;	//!< Boot Sector
 	tVFS_Node	rootNode;	//!< Root Node
-	 int		inodeHandle;	//!< Inode Cache Handle
+	 int	BytesPerCluster;
+	 int	inodeHandle;	//!< Inode Cache Handle
 	#if CACHE_FAT
 	Uint32	*FATCache;	//!< FAT Cache
 	#endif

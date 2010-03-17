@@ -42,6 +42,8 @@ Uint64 Ext2_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	allocSize = (inode.i_size + disk->BlockSize-1) & ~(disk->BlockSize-1);
 	
 	// Are we writing to inside the allocated space?
+	if( Offset > allocSize )	return 0;
+	
 	if( Offset < allocSize )
 	{
 		// Will we go out of it?
@@ -84,12 +86,14 @@ Uint64 Ext2_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		VFS_WriteAt(disk->FD, base, retLen, Buffer);
 		if(!bNewBlocks)	return Length;	// Writing in only allocated space
 	}
+	else
+		base = Ext2_int_GetBlockAddr(disk, inode.i_block, allocSize/disk->BlockSize-1);
 	
 addBlocks:
 	Warning("[EXT2 ] File extending is untested");
 	
 	// Allocate blocks and copy data to them
-	retLen = Length - allocSize;
+	retLen = Length - (allocSize-Offset);
 	while( retLen > disk->BlockSize )
 	{
 		// Allocate a block

@@ -1,0 +1,8 @@
+Dir "SBin" {
+	File "init" "../../../Usermode/Applications/init"
+	File "login" "../../../Usermode/Applications/login"
+}
+Dir "Bin" {
+	File "CLIShell" "../../../Usermode/Applications/CLIShell"
+	File "ls" "../../../Usermode/Applications/ls"
+}

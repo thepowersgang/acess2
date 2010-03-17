@@ -315,7 +315,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 	// Is this packet the next expected packet?
 	if( pkt->Sequence != Connection->NextSequenceRcv )
 	{
-		tTCPStoredPacket	*tmp, *prev;
+		tTCPStoredPacket	*tmp, *prev = NULL;
 		
 		Log("[TCP  ] Out of sequence packet (0x%08x != 0x%08x)",
 			pkt->Sequence, Connection->NextSequenceRcv);

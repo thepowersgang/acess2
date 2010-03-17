@@ -2,6 +2,6 @@
 #
 
 OBJ = main.o
-NAME = FS_NFS
+NAME = NFS
 
 -include ../Makefile.tpl
