@@ -56,7 +56,7 @@ Uint64 InitRD_ReadFile(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buff
 	if(Offset + Length > Node->Size)
 		Length = Node->Size - Offset;
 	
-	memcpy(Buffer, Node->ImplPtr, Length);
+	memcpy(Buffer, Node->ImplPtr+Offset, Length);
 	
 	return Length;
 }
@@ -81,6 +81,8 @@ tVFS_Node *InitRD_FindDir(tVFS_Node *Node, char *Name)
 {
 	 int	i;
 	tInitRD_File	*dir = Node->ImplPtr;
+	
+	Log("InirRD_FindDir: Name = '%s'", Name);
 	
 	for( i = 0; i < Node->Size; i++ )
 	{

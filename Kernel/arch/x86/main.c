@@ -51,11 +51,12 @@ int kmain(Uint MbMagic, tMBoot_Info *MbInfo)
 	// Load Virtual Filesystem
 	VFS_Init();
 	
-	Log("Loading Modules...");
+	Log("Loading Modules... (%i of them)", MbInfo->ModuleCount);
 	
 	// Load initial modules
 	mods = (void*)( MbInfo->Modules + KERNEL_BASE );
-	for(i=0;i<MbInfo->ModuleCount;i++)
+	Log("MbInfo = %p", MbInfo);
+	for( i = 0; i < MbInfo->ModuleCount; i ++ )
 	{
 		// Adjust into higher half
 		mods[i].Start += KERNEL_BASE;
@@ -68,6 +69,7 @@ int kmain(Uint MbMagic, tMBoot_Info *MbInfo)
 		{
 			Warning("Unable to load module\n");
 		}
+		Log("Done. (MbInfo = %p)", MbInfo);
 	}
 	
 	// Pass on to Independent Loader
@@ -75,6 +77,7 @@ int kmain(Uint MbMagic, tMBoot_Info *MbInfo)
 	System_Init( (char*)(MbInfo->CommandLine + KERNEL_BASE) );
 	
 	// Sleep forever (sleeping beauty)
-	for(;;)	Threads_Sleep();
+	for(;;)
+		Threads_Sleep();
 	return 0;
 }

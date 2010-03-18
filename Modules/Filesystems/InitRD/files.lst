@@ -5,4 +5,14 @@ Dir "SBin" {
 Dir "Bin" {
 	File "CLIShell" "../../../Usermode/Applications/CLIShell"
 	File "ls" "../../../Usermode/Applications/ls"
+	File "cat" "../../../Usermode/Applications/cat"
+}
+Dir "Libs" {
+	File "ld-acess.so" "../../../Usermode/Libraries/ld-acess.so"
+	File "libacess.so" "../../../Usermode/Libraries/libacess.so"
+	File "libc.so.1" "../../../Usermode/Libraries/libc.so.1"
+	File "libgcc.so" "../../../Usermode/Libraries/libgcc.so"
+}
+Dir "Conf" {
+	File "BootConf.cfg" "../../../Usermode/Filesystem/Conf/BootConf.cfg"
 }

@@ -26,7 +26,7 @@ extern void	gKernelModulesEnd;
 
 // === GLOBALS ===
  int	giNumBuiltinModules = 0;
- int	giModuleSpinlock = 0;
+tSpinlock	glModuleSpinlock;
 tModule	*gLoadedModules = NULL;
 tModuleLoader	*gModule_Loaders = NULL;
 tModule	*gLoadingModules = NULL;
@@ -114,31 +114,33 @@ int Module_int_Initialise(tModule *Module)
 	
 	ret = Module->Init(NULL);
 	if( ret != MODULE_ERR_OK ) {
-		Log("[MOD  ] Loading Failed, all modules that depend on this will also fail");
 		switch(ret)
 		{
 		case MODULE_ERR_MISC:
-			Log("[MOD  ] Reason: Miscelanious");
+			Warning("[MOD  ] Unable to load, reason: Miscelanious");
 			break;
 		case MODULE_ERR_NOTNEEDED:
-			Log("[MOD  ] Reason: Module not needed (probably hardware not found)");
+			Warning("[MOD  ] Unable to load, reason: Module not needed (probably hardware not found)");
 			break;
 		case MODULE_ERR_MALLOC:
-			Log("[MOD  ] Reason: Error in malloc/realloc/calloc, probably not good");
+			Warning("[MOD  ] Unable to load, reason: Error in malloc/realloc/calloc, probably not good");
 			break;
 		default:
-			Log("[MOD  ] Reason - Unknown code %i", ret);
+			Warning("[MOD  ] Unable to load reason - Unknown code %i", ret);
 			break;
 		}
 		LEAVE_RET('i', ret);
+		return ret;
 	}
 	
 	// Remove from loading list
 	gLoadingModules = gLoadingModules->Next;
 	
 	// Add to loaded list
+	LOCK( &glModuleSpinlock );
 	Module->Next = gLoadedModules;
 	gLoadedModules = Module;
+	RELEASE( &glModuleSpinlock );
 	
 	LEAVE_RET('i', 0);
 }
@@ -250,6 +252,13 @@ int Module_LoadFile(char *Path, char *ArgString)
 		return 0;
 	}
 	
+	#if 1
+	if( Module_int_Initialise( info ) )
+	{
+		Binary_Unload(base);
+		return 0;
+	}
+	#else
 	// Resolve Dependencies
 	if( !Module_int_ResolveDeps(info) ) {
 		Binary_Unload(base);
@@ -271,10 +280,11 @@ int Module_LoadFile(char *Path, char *ArgString)
 	}
 	
 	// Add to list
-	LOCK( &giModuleSpinlock );
+	LOCK( &glModuleSpinlock );
 	info->Next = gLoadedModules;
 	gLoadedModules = info;
-	RELEASE( &giModuleSpinlock );
+	RELEASE( &glModuleSpinlock );
+	#endif
 	
 	return 1;
 }

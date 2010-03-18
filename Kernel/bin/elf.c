@@ -57,7 +57,12 @@ tBinary *Elf_Load(int fp)
 	}
 	
 	// Read Program Header Table
-	phtab = malloc(sizeof(Elf32_Phdr)*hdr.phentcount);
+	phtab = malloc( sizeof(Elf32_Phdr) * hdr.phentcount );
+	if( !phtab ) {
+		LEAVE('n');
+		return NULL;
+	}
+	LOG("hdr.phoff = 0x%08x", hdr.phoff);
 	VFS_Seek(fp, hdr.phoff, SEEK_SET);
 	VFS_Read(fp, sizeof(Elf32_Phdr)*hdr.phentcount, phtab);
 	
@@ -88,7 +93,17 @@ tBinary *Elf_Load(int fp)
 	for( i = 0; i < hdr.phentcount; i++ )
 	{
 		 int	lastSize;
-		LOG("phtab[%i].Type = 0x%x", i, phtab[i].Type);
+		//LOG("phtab[%i].Type = 0x%x", i, phtab[i].Type);
+		LOG("phtab[%i] = {", i);
+		LOG(" .Type = 0x%08x", phtab[i].Type);
+		LOG(" .Offset = 0x%08x", phtab[i].Offset);
+		LOG(" .VAddr = 0x%08x", phtab[i].VAddr);
+		LOG(" .PAddr = 0x%08x", phtab[i].PAddr);
+		LOG(" .FileSize = 0x%08x", phtab[i].FileSize);
+		LOG(" .MemSize = 0x%08x", phtab[i].MemSize);
+		LOG(" .Flags = 0x%08x", phtab[i].Flags);
+		LOG(" .Align = 0x%08x", phtab[i].Align);
+		LOG(" }");
 		// Get Interpreter Name
 		if( phtab[i].Type == PT_INTERP )
 		{

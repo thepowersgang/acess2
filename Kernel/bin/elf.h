@@ -130,9 +130,9 @@ enum {
 
 struct sElf32_Phdr {
 	Uint32	Type;
-	Uint	Offset;
-	Uint	VAddr;
-	Uint	PAddr;
+	Uint32	Offset;
+	Uint32	VAddr;
+	Uint32	PAddr;
 	Uint32	FileSize;
 	Uint32	MemSize;
 	Uint32	Flags;

@@ -66,6 +66,10 @@ Uint LoadLibrary(char *SoName, char *SearchDir, char **envp)
 	
 	// Create Temp Name
 	filename = FindLibrary(sTmpName, SoName, SearchDir);
+	if(filename == NULL) {
+		DEBUGS("LoadLibrary: RETURN 0\n");
+		return 0;
+	}
 	DEBUGS(" LoadLibrary: filename='%s'\n", filename);
 	
 	if( (iArg = IsFileLoaded(filename)) )

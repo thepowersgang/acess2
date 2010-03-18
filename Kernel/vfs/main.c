@@ -20,6 +20,9 @@ tVFS_Driver	*VFS_GetFSByName(char *Name);
  int	VFS_AddDriver(tVFS_Driver *Info);
 void	VFS_UpdateDriverFile();
 
+// === EXPORTS ===
+EXPORT(VFS_AddDriver);
+
 // === GLOBALS ===
 tVFS_Node	NULLNode = {0};
 tSpinlock	siDriverListLock = 0;
@@ -86,6 +89,7 @@ void VFS_GetMemPath(char *Dest, void *Base, Uint Length)
 	itoa( &Dest[1], (Uint)Base, 16, BITS/4, '0' );
 	Dest[BITS/4+1] = ':';
 	itoa( &Dest[BITS/4+2], Length, 16, BITS/4, '0' );
+	Dest[BITS/2+2] = '\0';
 	
 	Log("VFS_GetMemPath: Dest = \"%s\"", Dest);
 }

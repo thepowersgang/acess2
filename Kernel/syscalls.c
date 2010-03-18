@@ -168,7 +168,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 		if( !Syscall_ValidString(Regs->Arg1)
 		||  !Syscall_Valid(sizeof(Uint), Regs->Arg2) ) {
 			err = -EINVAL;
-			ret = -1;
+			ret = 0;
 			break;
 		}
 		// Path, *Entrypoint

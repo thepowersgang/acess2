@@ -190,7 +190,7 @@ Uint Binary_Load(char *file, Uint *entryPoint)
 	sTruePath = VFS_GetTruePath(file);
 	
 	if(sTruePath == NULL) {
-		Warning("[BIN ] '%s' does not exist.", file);
+		Warning("[BIN  ] '%s' does not exist.", file);
 		LEAVE('x', 0);
 		return 0;
 	}
