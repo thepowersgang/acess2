@@ -82,7 +82,7 @@ tVFS_Node *InitRD_FindDir(tVFS_Node *Node, char *Name)
 	 int	i;
 	tInitRD_File	*dir = Node->ImplPtr;
 	
-	Log("InirRD_FindDir: Name = '%s'", Name);
+	//Log("InirRD_FindDir: Name = '%s'", Name);
 	
 	for( i = 0; i < Node->Size; i++ )
 	{

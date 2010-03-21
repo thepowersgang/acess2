@@ -7,14 +7,18 @@
 #include <modules.h>
 
 #define	USE_EDI	0
-#define	USE_UDI	1
+#define	USE_UDI	0
 
 // === PROTOTYPES ===
- int	Modules_LoadBuiltins();
+ int	Modules_LoadBuiltins(void);
+ int	Module_RegisterLoader(tModuleLoader *Loader);
  int	Module_LoadMem(void *Buffer, Uint Length, char *ArgString);
  int	Module_LoadFile(char *Path, char *ArgString);
  int	Module_int_ResolveDeps(tModule *Info);
  int	Module_IsLoaded(char *Name);
+
+// === EXPORTS ===
+EXPORT(Module_RegisterLoader);
 
 // === IMPORTS ===
 #if USE_UDI

@@ -26,7 +26,7 @@ ifeq ($(DEBUG_BUILD),yes)
 endif
 
 OBJ = $(addprefix arch/$(ARCHDIR)/,$(A_OBJ))
-OBJ += heap.o messages.o debug.o modules.o lib.o syscalls.o system.o threads.o drvutil.o
+OBJ += heap.o messages.o debug.o modules.o lib.o syscalls.o system.o threads.o drvutil.o logging.o
 OBJ += $(addprefix vfs/fs/, $(addsuffix .o,$(FILESYSTEMS)))
 OBJ += drv/vterm.o drv/proc.o drv/fifo.o drv/iocache.o drv/dma.o drv/pci.o drv/kb.o drv/vga.o
 OBJ += binary.o bin/elf.o bin/pe.o

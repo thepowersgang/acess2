@@ -199,6 +199,13 @@ int Ne2k_Install(char **Options)
 			Ne2k_WriteReg(base, MAC5, gpNe2k_Cards[ k ].MacAddr[5]);
 			*/
 			
+			Log_Log("NE2K", "Card %i 0x%04x %02x:%02x:%02x:%02x:%02x:%02x",
+				k, base,
+				gpNe2k_Cards[k].MacAddr[0], gpNe2k_Cards[k].MacAddr[1],
+				gpNe2k_Cards[k].MacAddr[2], gpNe2k_Cards[k].MacAddr[3],
+				gpNe2k_Cards[k].MacAddr[4], gpNe2k_Cards[k].MacAddr[5]
+				);
+			
 			Log("[NE2K]: Card #%i: IRQ=%i, IOBase=0x%x",
 				k, gpNe2k_Cards[ k ].IRQ, gpNe2k_Cards[ k ].IOBase);
 			Log("MAC Address %x:%x:%x:%x:%x:%x",

@@ -1117,12 +1117,3 @@ void FAT_CloseFile(tVFS_Node *Node)
 	#endif
 	return ;
 }
-
-/**
- * \fn void fat_install()
- * \brief Add the FAT Filesystem to the VFS
- */
-void fat_install()
-{
-	VFS_AddDriver( &gFAT_FSInfo );
-}

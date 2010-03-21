@@ -45,6 +45,24 @@
  */
 #define VFS_FFLAG_SYMLINK	0x04
 /**
+ * \brief Set User ID Flag
+ * 
+ * Allows an executable file to change it's executing user to the file's
+ * owner.
+ * In the case of a directory, it means that all immediate children will
+ * inherit the UID of the parent.
+ */
+#define VFS_FFLAG_SETUID	0x08
+/**
+ * \brief Set Group ID Flag
+ * 
+ * Allows an executable file to change it's executing group to the file's
+ * owning group.
+ * In the case of a directory, it means that all immediate children will
+ * inherit the GID of the parent.
+ */
+#define VFS_FFLAG_SETGID	0x10
+/**
  * \}
  */
 
@@ -54,7 +72,8 @@
  * This structure provides the VFS with the functions required to read/write
  * the file (or directory) that it represents.
  */
-typedef struct sVFS_Node {
+typedef struct sVFS_Node
+{
 	/**
 	 * \name Identifiers
 	 * \brief Fields used by the driver to identify what data this node

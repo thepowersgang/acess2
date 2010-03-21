@@ -14,7 +14,55 @@ const short DAYS_BEFORE[] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 3
 #define UNIX_TO_2K	((30*365*3600*24) + (7*3600*24))	//Normal years + leap years
 
 // === PROTOTYPES ===
+ int	atoi(const char *string);
+void	itoa(char *buf, Uint num, int base, int minLength, char pad);
+ int	vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args);
+ int	sprintf(char *__s, const char *__format, ...);
+ int	tolower(int c);
+ int	strucmp(const char *Str1, const char *Str2);
+ int	strpos(const char *Str, char Ch);
+ Uint8	ByteSum(void *Ptr, int Size);
+size_t	strlen(const char *__s);
+char	*strcpy(char *__str1, const char *__str2);
+char	*strncpy(char *__str1, const char *__str2, size_t max);
+ int	strcmp(const char *str1, const char *str2);
+ int	strncmp(const char *str1, const char *str2, size_t num);
+char	*strdup(const char *Str);
+ int	DivUp(int num, int dem);
+ int	strpos8(const char *str, Uint32 Search);
  int	ReadUTF8(Uint8 *str, Uint32 *Val);
+ int	WriteUTF8(Uint8 *str, Uint32 Val);
+Sint64	timestamp(int sec, int mins, int hrs, int day, int month, int year);
+Uint	rand(void);
+ int	CheckString(char *String);
+ int	CheckMem(void *Mem, int NumBytes);
+ int	ModUtil_LookupString(char **Array, char *Needle);
+ int	ModUtil_SetIdent(char *Dest, char *Value);
+
+// === EXPORTS ===
+EXPORT(atoi);
+EXPORT(itoa);
+EXPORT(vsnprintf);
+EXPORT(sprintf);
+EXPORT(tolower);
+EXPORT(strucmp);
+EXPORT(strpos);
+EXPORT(ByteSum);
+EXPORT(strlen);
+EXPORT(strcpy);
+EXPORT(strncpy);
+EXPORT(strcmp);
+EXPORT(strncmp);
+EXPORT(strdup);
+EXPORT(DivUp);
+EXPORT(strpos8);
+EXPORT(ReadUTF8);
+EXPORT(WriteUTF8);
+EXPORT(timestamp);
+EXPORT(CheckString);
+EXPORT(CheckMem);
+EXPORT(ModUtil_LookupString);
+EXPORT(ModUtil_SetIdent);
 
 // === GLOBALS ===
 static Uint	giRandomState = RANDOM_SEED;
@@ -226,6 +274,9 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 			PUTCH( (Uint8)val );
 			break;
 		}
+		
+		if(pos == __maxlen)
+			break;
 	}
 	
 	if(__s && pos != __maxlen)
@@ -539,7 +590,7 @@ Sint64 timestamp(int sec, int mins, int hrs, int day, int month, int year)
  * \brief Pseudo random number generator
  * \note Unknown effectiveness (made up on the spot)
  */
-Uint rand()
+Uint rand(void)
 {
 	Uint	old = giRandomState;
 	// Get the next state value
@@ -636,17 +687,3 @@ int ModUtil_SetIdent(char *Dest, char *Value)
 	strncpy(Dest, Value, 32);
 	return 1;
 }
-
-EXPORT(strlen);
-EXPORT(strdup);
-EXPORT(strcmp);
-EXPORT(strncmp);
-EXPORT(strcpy);
-EXPORT(strncpy);
-
-EXPORT(timestamp);
-EXPORT(ReadUTF8);
-EXPORT(CheckMem);
-EXPORT(CheckString);
-EXPORT(ModUtil_LookupString);
-EXPORT(ModUtil_SetIdent);

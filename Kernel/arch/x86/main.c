@@ -12,16 +12,18 @@
 #define	VGA_ERRORS	0
 
 // === IMPORTS ===
-extern void	Heap_Install();
-extern void	Desctab_Install();
-extern void	MM_PreinitVirtual();
+extern void	Heap_Install(void);
+extern void	Desctab_Install(void);
+extern void	MM_PreinitVirtual(void);
 extern void	MM_Install(tMBoot_Info *MBoot);
-extern void MM_InstallVirtual();
-extern void	Threads_Init();
-extern int	Time_Setup();
+extern void MM_InstallVirtual(void);
+extern void	Threads_Init(void);
+extern int	Time_Setup(void);
 extern Uint	Proc_Clone(Uint *Err, Uint Flags);
-extern void	Threads_Sleep();
-extern void	Threads_Exit();
+extern void	Threads_Sleep(void);
+extern void	Threads_Exit(void);
+
+extern int	Modules_LoadBuiltins(void);
 
 // === GLOBALS ===
 
@@ -50,6 +52,10 @@ int kmain(Uint MbMagic, tMBoot_Info *MbInfo)
 	Log("Starting VFS...");
 	// Load Virtual Filesystem
 	VFS_Init();
+	
+	// Initialise builtin modules
+	Log("Initialising builtin modules...");
+	Modules_LoadBuiltins();
 	
 	Log("Loading Modules... (%i of them)", MbInfo->ModuleCount);
 	

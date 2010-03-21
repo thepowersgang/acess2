@@ -296,6 +296,7 @@ extern Uint32	BigEndian32(Uint32 Val);
  * \name Strings
  * \{
  */
+extern int	vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args);
 extern int	sprintf(char *__s, const char *__format, ...);
 extern Uint	strlen(const char *Str);
 extern char	*strcpy(char *__dest, const char *__src);

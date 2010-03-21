@@ -6,11 +6,11 @@
 #include <stdio.h>
 
 #define	MOUNTABLE_FILE	"/Acess/Conf/Mountable"
-#define	MOUNTED_FILE	"/Acess/Conf/Mounted"
+#define	MOUNTED_FILE	"/Devices/System/VFS/Mounts"
 
 // === PROTOTYPES ===
 void	ShowUsage();
- int	GetMountDefs(char **spDevice, char **spDir, char **spType, char **spOptions);
+ int	GetMountDefs(char *Ident, char **spDevice, char **spDir, char **spType, char **spOptions);
 
 // === CODE ===
 /**
@@ -41,6 +41,7 @@ int main(int argc, char *argv[])
 		{
 			switch(arg[1])
 			{
+			// -t <driver> :: Filesystem driver to use
 			case 't':	sType = argv[++i];	break;
 			case '-':
 				//TODO: Long Arguments
@@ -51,11 +52,13 @@ int main(int argc, char *argv[])
 			continue;
 		}
 		
+		// Device?
 		if(sDevice == NULL) {
 			sDevice = arg;
 			continue;
 		}
 		
+		// Directory?
 		if(sDir == NULL) {
 			sDir = arg;
 			continue;
@@ -77,7 +80,8 @@ int main(int argc, char *argv[])
 	if(sDir == NULL || getuid() != 0)
 	{
 		// Check if it is defined in the mounts file
-		if(GetMountDefs(&sDevice, &sDir, &sType, &sOptions) == 0)
+		// - At this point sDevice could be a device name or a mount point
+		if(GetMountDefs(sDevice, &sDevice, &sDir, &sType, &sOptions) == 0)
 		{
 			if(sDir == NULL)
 				fprintf(stderr, "Unable to find '%s' in '%s'\n",
@@ -136,12 +140,12 @@ void ShowUsage(char *ProgName)
 }
 
 /**
- * \fn int GetMountDefs(char **spDevice, char **spDir, char **spType, char **spOptions)
+ * \fn int GetMountDefs(char *Ident, char **spDevice, char **spDir, char **spType, char **spOptions)
  * \brief Reads the mountable definitions file and returns the corresponding entry
  * \param spDevice	Pointer to a string (pointer) determining the device (also is the input for this function)
  * \note STUB
  */
-int GetMountDefs(char **spDevice, char **spDir, char **spType, char **spOptions)
+int GetMountDefs(char *Ident, char **spDevice, char **spDir, char **spType, char **spOptions)
 {
 	// TODO: Read the mounts file (after deciding what it will be)
 	return 0;

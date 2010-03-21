@@ -39,18 +39,10 @@ char	*gsConfigScript = "/Acess/Conf/BootConf.cfg";
 
 // === CODE ===
 void System_Init(char *ArgString)
-{
-	// - Start Builtin Drivers & Filesystems
-	//StartupPrint("Scanning PCI Bus...");
-	//PCI_Install();
-	StartupPrint("Loading DMA...");
-	DMA_Install();
-	StartupPrint("Loading staticly compiled modules...");
-	Modules_LoadBuiltins();
-	
+{	
 	// Set the debug to be echoed to the terminal
-	StartupPrint("Kernel now echoes to VT6 (Ctrl-Alt-F7)");
-	Debug_SetKTerminal("/Devices/VTerm/6");
+	StartupPrint("Kernel now echoes to VT7 (Ctrl-Alt-F8)");
+	Debug_SetKTerminal("/Devices/VTerm/7");
 	
 	// - Parse Kernel's Command Line
 	System_ParseCommandLine(ArgString);
@@ -77,8 +69,10 @@ void System_ParseCommandLine(char *ArgString)
 	str = ArgString;
 	for( argc = 0; argc < 32; argc++ )
 	{
-		while(*str == ' ')	str++;	// Eat Whitespace
-		if(*str == '\0') {	argc--;	break;}	// End of string
+		// Eat Whitespace
+		while(*str == ' ')	str++;
+		// Check for the end of the string
+		if(*str == '\0') {	argc--;	break;}	
 		argv[argc] = str;
 		while(*str && *str != ' ')
 		{
@@ -88,7 +82,7 @@ void System_ParseCommandLine(char *ArgString)
 			}*/
 			str++;
 		}
-		if(*str == '\0')	break;	// End of string
+		if(*str == '\0')	break;	// Check for EOS
 		*str = '\0';	// Cap off argument string
 		str ++;	// and increment the string pointer
 	}
@@ -172,10 +166,10 @@ void System_ParseSetting(char *Arg)
 	// Check for boolean/flag (no '=')
 	if(*value == '\0')
 	{
-		if(strcmp(Arg, "") == 0) {
-		} else {
+		//if(strcmp(Arg, "") == 0) {
+		//} else {
 			Warning("Kernel flag '%s' is not recognised", Arg);
-		}
+		//}
 	}
 	else
 	{
@@ -225,14 +219,15 @@ void System_ExecuteScript()
 	// Parse File
 	file = System_Int_ParseFile(fData);
 	
-	// Loop lines
+	// Parse each line
 	for( i = 0; i < file->nLines; i++ )
 	{
 		line = &file->Lines[i];
 		if( line->nParts == 0 )	continue;	// Skip blank
 		
-		// Mount
-		if( strcmp(line->Parts[0], "mount") == 0 ) {
+		// Mount Device
+		if( strcmp(line->Parts[0], "mount") == 0 )
+		{
 			if( line->nParts != 4 ) {
 				Warning("Configuration command 'mount' requires 3 arguments, %i given",
 					line->nParts-1);
@@ -243,8 +238,9 @@ void System_ExecuteScript()
 			//! \todo Use an optional 4th argument for the options string
 			VFS_Mount(line->Parts[1], line->Parts[2], line->Parts[3], "");
 		}
-		// Module
-		else if(strcmp(line->Parts[0], "module") == 0) {
+		// Load a Module
+		else if(strcmp(line->Parts[0], "module") == 0)
+		{
 			if( line->nParts < 2 || line->nParts > 3 ) {
 				Warning("Configuration command 'module' requires 1 or 2 arguments, %i given",
 					line->nParts-1);
@@ -255,8 +251,9 @@ void System_ExecuteScript()
 			else
 				Module_LoadFile(line->Parts[1], "");
 		}
-		// UDI Module
-		else if(strcmp(line->Parts[0], "udimod") == 0) {
+		// Load a UDI Module
+		else if(strcmp(line->Parts[0], "udimod") == 0)
+		{
 			if( line->nParts != 2 ) {
 				Warning("Configuration command 'udimod' requires 1 argument, %i given",
 					line->nParts-1);
@@ -265,8 +262,9 @@ void System_ExecuteScript()
 			Log("[CFG  ] Load UDI Module '%s'", line->Parts[1]);
 			Module_LoadFile(line->Parts[1], "");
 		}
-		// EDI Module
-		else if(strcmp(line->Parts[0], "edimod") == 0) {
+		// Load a EDI Module
+		else if(strcmp(line->Parts[0], "edimod") == 0)
+		{
 			if( line->nParts != 2 ) {
 				Warning("Configuration command 'edimod' requires 1 argument, %i given",
 					line->nParts-1);
@@ -275,8 +273,9 @@ void System_ExecuteScript()
 			Log("[CFG  ] Load EDI Module '%s'", line->Parts[1]);
 			Module_LoadFile(line->Parts[1], "");
 		}
-		// Symbolic Link
-		else if(strcmp(line->Parts[0], "symlink") == 0) {
+		// Create a Symbolic Link
+		else if(strcmp(line->Parts[0], "symlink") == 0)
+		{
 			if( line->nParts != 3 ) {
 				Warning("Configuration command 'symlink' requires 2 arguments, %i given",
 					line->nParts-1);
@@ -286,8 +285,9 @@ void System_ExecuteScript()
 				line->Parts[1], line->Parts[2]);
 			VFS_Symlink(line->Parts[1], line->Parts[2]);
 		}
-		// Create Directory
-		else if(strcmp(line->Parts[0], "mkdir") == 0) {
+		// Create a Directory
+		else if(strcmp(line->Parts[0], "mkdir") == 0)
+		{
 			if( line->nParts != 2 ) {
 				Warning("Configuration command 'mkdir' requires 1 argument, %i given",
 					line->nParts-1);
@@ -297,7 +297,8 @@ void System_ExecuteScript()
 			VFS_MkDir(line->Parts[1]);
 		}
 		// Spawn a process
-		else if(strcmp(line->Parts[0], "spawn") == 0) {
+		else if(strcmp(line->Parts[0], "spawn") == 0)
+		{
 			if( line->nParts != 2 ) {
 				Warning("Configuration command 'spawn' requires 1 argument, %i given",
 					line->nParts-1);
