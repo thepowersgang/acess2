@@ -79,7 +79,7 @@ void Log_AddEvent(char *Ident, int Level, char *Format, va_list Args)
 	
 	len = vsnprintf(NULL, 256, Format, Args);
 	
-	Log("len = %i", len);
+	//Log("len = %i", len);
 	
 	ent = malloc(sizeof(tLogEntry)+len+1);
 	ent->Time = now();
@@ -88,8 +88,8 @@ void Log_AddEvent(char *Ident, int Level, char *Format, va_list Args)
 	ent->Length = len;
 	vsnprintf( ent->Data, 256, Format, Args );
 	
-	Log("ent->Ident = '%s'", ent->Ident);
-	Log("ent->Data = '%s'", ent->Data);
+	//Log("ent->Ident = '%s'", ent->Ident);
+	//Log("ent->Data = '%s'", ent->Data);
 	
 	LOCK( &glLog );
 	
@@ -118,7 +118,7 @@ void Log_AddEvent(char *Ident, int Level, char *Format, va_list Args)
  */
 void Log_Int_PrintMessage(tLogEntry *Entry)
 {
-	LogF("%018i% [%8s] %s\n",
+	LogF("%018lli%s [%8s] %s\n",
 		Entry->Time,
 		csaLevelCodes[Entry->Level],
 		Entry->Ident,

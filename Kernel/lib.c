@@ -174,7 +174,7 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 	Uint64	val;
 	size_t	pos = 0;
 	
-	Log("vsnprintf: (__s=%p, __maxlen=%i, __format='%s', ...)\n", __s, __maxlen, __format);
+	//Log("vsnprintf: (__s=%p, __maxlen=%i, __format='%s', ...)", __s, __maxlen, __format);
 	
 	while((c = *__format++) != 0)
 	{

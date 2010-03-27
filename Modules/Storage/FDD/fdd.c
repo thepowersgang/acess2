@@ -145,7 +145,7 @@ int FDD_Install(char **Arguments)
 	gFDD_Devices[0].track[0] = -1;
 	gFDD_Devices[1].track[1] = -1;
 	
-	Log("[FDD ] Detected Disk 0: %s and Disk 1: %s", cFDD_TYPES[data>>4], cFDD_TYPES[data&0xF]);
+	Log_Log("FDD", "Detected Disk 0: %s and Disk 1: %s", cFDD_TYPES[data>>4], cFDD_TYPES[data&0xF]);
 	
 	if( data == 0 ) {
 		return MODULE_ERR_NOTNEEDED;
@@ -471,14 +471,24 @@ int FDD_int_ReadWriteSector(Uint32 Disk, Uint64 SectorAddr, int Write, void *Buf
 		
 		if(st1 & 0x02) {
 			LOG("Floppy not writable");
-			i = FDD_MAX_READWRITE_ATTEMPTS;
+			i = FDD_MAX_READWRITE_ATTEMPTS+1;
 			break;
 		}
+		
+		// Success!
+		break;
 	}
 	
 	// Release Spinlock
 	LOG("Realeasing Spinlock and setting motor to stop");
 	RELEASE(&glFDD);
+	
+	if(i == FDD_MAX_READWRITE_ATTEMPTS) {
+		Log_Warning("FDD", "Exceeded %i attempts in %s the disk",
+			FDD_MAX_READWRITE_ATTEMPTS,
+			(Write ? "writing to" : "reading from")
+			);
+	}
 	
 	// Don't turn the motor off now, wait for a while
 	gFDD_Devices[Disk].timer = Time_CreateTimer(MOTOR_OFF_DELAY, FDD_int_StopMotor, (void*)Disk);
