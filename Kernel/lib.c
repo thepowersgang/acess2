@@ -156,7 +156,14 @@ void itoa(char *buf, Uint num, int base, int minLength, char pad)
 	buf[i] = 0;
 }
 
-#define PUTCH(c)	do{if(pos==__maxlen)break;if(__s){__s[pos++]=(c);}else{pos++;}}while(0)
+/**
+ * \brief Append a character the the vsnprintf output
+ */
+#define PUTCH(c)	do{\
+	char ch=(c);\
+	if(pos==__maxlen){return pos;}\
+	if(__s){__s[pos++]=ch;}else{pos++;}\
+	}while(0)
 int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 {
 	char	c, pad = ' ';
@@ -167,12 +174,15 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 	Uint64	val;
 	size_t	pos = 0;
 	
+	Log("vsnprintf: (__s=%p, __maxlen=%i, __format='%s', ...)\n", __s, __maxlen, __format);
+	
 	while((c = *__format++) != 0)
 	{
 		// Non control character
 		if(c != '%') { PUTCH(c); continue; }
 		
 		c = *__format++;
+		//Log("pos = %i", pos);
 		
 		// Literal %
 		if(c == '%') { PUTCH('%'); continue; }
@@ -188,6 +198,8 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		
 		// Get Argument
 		val = va_arg(args, Uint);
+		//Log("val = %x", val);
+
 		
 		// - Padding
 		if(c == '0') {
@@ -258,6 +270,7 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		case 's':
 			p = (char*)(Uint)val;
 		printString:
+			//Log("p = '%s'", p);
 			if(!p)		p = "(null)";
 			while(*p)	PUTCH(*p++);
 			break;
@@ -274,14 +287,10 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 			PUTCH( (Uint8)val );
 			break;
 		}
-		
-		if(pos == __maxlen)
-			break;
 	}
 	
 	if(__s && pos != __maxlen)
 		__s[pos] = '\0';
-		
 	
 	return pos;
 }

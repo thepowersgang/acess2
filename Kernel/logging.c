@@ -21,7 +21,7 @@ enum eLogLevels
 	LOG_LEVEL_DEBUG,
 	NUM_LOG_LEVELS
 };
-const char	csaLevelCodes[] = {'k','p','f','e','w','n','l','d'};
+const char	*csaLevelCodes[] = {"k","p","f","e","w","n","l","d"};
 
 // === TYPES ===
 typedef struct sLogEntry
@@ -29,7 +29,7 @@ typedef struct sLogEntry
 	struct sLogEntry	*Next;
 	struct sLogEntry	*LevelNext;
 	Sint64	Time;
-	Uint64	Ident;
+	char	Ident[8];
 	 int	Level;
 	 int	Length;
 	char	Data[];
@@ -47,10 +47,19 @@ void	Log_KernelPanic(char *Ident, char *Message, ...);
 void	Log_Panic(char *Ident, char *Message, ...);
 void	Log_Error(char *Ident, char *Message, ...);
 void	Log_Warning(char *Ident, char *Message, ...);
-void	Log_Log(char *Ident, char *Message, ...);
 void	Log_Notice(char *Ident, char *Message, ...);
+void	Log_Log(char *Ident, char *Message, ...);
 void	Log_Debug(char *Ident, char *Message, ...);
-static Uint64	Log_Int_GetIdent(const char *Str);
+//static Uint64	Log_Int_GetIdent(const char *Str);
+
+// === EXPORTS ===
+EXPORT(Log_KernelPanic);
+EXPORT(Log_Panic);
+EXPORT(Log_Error);
+EXPORT(Log_Warning);
+EXPORT(Log_Notice);
+EXPORT(Log_Log);
+EXPORT(Log_Debug);
 
 // === GLOBALS ===
 tSpinlock	glLog;
@@ -65,18 +74,22 @@ void Log_AddEvent(char *Ident, int Level, char *Format, va_list Args)
 {
 	 int	len;
 	tLogEntry	*ent;
-	Uint64	ident = Log_Int_GetIdent(Ident);
 	
 	if( Level >= NUM_LOG_LEVELS )	return;
 	
 	len = vsnprintf(NULL, 256, Format, Args);
 	
+	Log("len = %i", len);
+	
 	ent = malloc(sizeof(tLogEntry)+len+1);
 	ent->Time = now();
-	ent->Ident = ident;
+	strncpy(ent->Ident, Ident, 7);
 	ent->Level = Level;
 	ent->Length = len;
 	vsnprintf( ent->Data, 256, Format, Args );
+	
+	Log("ent->Ident = '%s'", ent->Ident);
+	Log("ent->Data = '%s'", ent->Data);
 	
 	LOCK( &glLog );
 	
@@ -105,10 +118,10 @@ void Log_AddEvent(char *Ident, int Level, char *Format, va_list Args)
  */
 void Log_Int_PrintMessage(tLogEntry *Entry)
 {
-	LogF("%018%c [%8s] %s\n",
+	LogF("%018i% [%8s] %s\n",
 		Entry->Time,
 		csaLevelCodes[Entry->Level],
-		&Entry->Ident,
+		Entry->Ident,
 		Entry->Data
 		);
 }
@@ -189,31 +202,4 @@ void Log_Debug(char *Ident, char *Message, ...)
 	va_start(args, Message);
 	Log_AddEvent(Ident, LOG_LEVEL_DEBUG, Message, args);
 	va_end(args);
-}
-
-/**
- * \brief Converts a string into a 64-bit ident
- */
-static Uint64 Log_Int_GetIdent(const char *Str)
-{
-	Uint64	ret = 0;
-	 int	i;
-	char	ch;
-	
-	for( i = 0; Str[i] && i < 7; i++ )
-	{
-		ch = Str[i];
-		
-		if(ch < ' ')
-			ch = '?';
-		else if(ch > '~')
-			ch = '?';
-		
-		ret |= (Uint64)ch << 8*i;
-	}
-	
-	for( ; i < 7; i++ )
-		ret |= 0x20 << (8*i);
-	
-	return ret;
 }

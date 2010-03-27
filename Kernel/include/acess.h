@@ -101,6 +101,15 @@ extern void	System_Init(char *ArgString);
 // --- IRQs ---
 extern int	IRQ_AddHandler(int Num, void (*Callback)(int));
 
+// --- Logging ---
+extern void	Log_KernelPanic(char *Ident, char *Message, ...);
+extern void	Log_Panic(char *Ident, char *Message, ...);
+extern void	Log_Error(char *Ident, char *Message, ...);
+extern void	Log_Warning(char *Ident, char *Message, ...);
+extern void	Log_Log(char *Ident, char *Message, ...);
+extern void	Log_Notice(char *Ident, char *Message, ...);
+extern void	Log_Debug(char *Ident, char *Message, ...);
+
 // --- Debug ---
 /**
  * \name Debugging and Errors
@@ -300,6 +309,7 @@ extern int	vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list a
 extern int	sprintf(char *__s, const char *__format, ...);
 extern Uint	strlen(const char *Str);
 extern char	*strcpy(char *__dest, const char *__src);
+extern char	*strncpy(char *__dest, const char *__src, size_t max);
 extern int	strcmp(const char *__str1, const char *__str2);
 extern int	strncmp(const char *Str1, const char *Str2, size_t num);
 extern int	strucmp(const char *Str1, const char *Str2);

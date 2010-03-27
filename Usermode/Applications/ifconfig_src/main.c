@@ -70,6 +70,13 @@ void DumpInterfaces(int DumpAll)
 		type = ioctl(fd, 4, NULL);
 		
 		printf("%s:\t", filename);
+		{
+			int len = ioctl(fd, ioctl(fd, 3, "get_device"), NULL);
+			char *buf = malloc(len+1);
+			ioctl(fd, ioctl(fd, 3, "get_device"), buf);
+			printf("'%s'\t", buf);
+			free(buf);
+		}
 		switch(type)
 		{
 		case 0:

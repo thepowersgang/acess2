@@ -18,10 +18,23 @@ enum eAxWin_Messages
 	// Server Requests
 	MSG_SREQ_PING,
 	// - Windows
-	MSG_SREQ_NEWWINDOW,	// (short x, y, w, h, uint32_t flags)
-	MSG_SREQ_GETFLAGS,	MSG_SREQ_SETFLAGS,
-	MSG_SREQ_GETRECT,	MSG_SREQ_SETRECT,
+	MSG_SREQ_REGISTER,	// bool (char[] Name) - Registers this PID with the Window Manager
+	
+	MSG_SREQ_ADDTAB,	// ELEMENT (char[] Name) - Adds a tab to the window
+	MSG_SREQ_DELTAB,	// void (TAB Tab)	- Closes a tab
+	
+	MSG_SREQ_NEWDIALOG,	// ELEMENT (ELEMENT Parent, char[] Name)	- Creates a dialog
+	MSG_SREQ_DELDIALOG,	// void (ELEMENT Dialog)	- Closes a dialog
+	
+	MSG_SREQ_SETNAME,	// void (ELEMENT Element, char[] Name)
+	MSG_SREQ_GETNAME,	// char[] (ELEMENT Element)
+	
+	// - Builtin Elements
+	MSG_SREQ_INSERT,	// void (ELEMENT Parent, eAxWin_Controls Type, u32 Flags)
+	
 	// - Drawing
+	//  All drawing functions take an ELEMENT as their first parameter.
+	//  This must be either a Tab, Dialog or Canvas control
 	MSG_SREQ_SETCOL,
 	MSG_SREQ_PSET,
 	MSG_SREQ_LINE,	MSG_SREQ_CURVE,
@@ -30,9 +43,7 @@ enum eAxWin_Messages
 	MSG_SREQ_SETFONT,	MSG_SREQ_PUTTEXT,
 	
 	// Server Responses
-	MSG_SRSP_PONG,
-	MSG_SRSP_WINDOW,	// Returns the new window ID
-	MSG_SRSP_IMG,	// Returns the image ID
+	MSG_SRSP_RETURN,	// {int RequestID, void[] Return Value} - Returns a value from a server request
 	
 	NUM_MSG
 };

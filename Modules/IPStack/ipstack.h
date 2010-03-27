@@ -61,6 +61,7 @@ struct sAdapter {
 	 int	NRef;
 	
 	tMacAddr	MacAddr;
+	 int	DeviceLen;
 	char	Device[];
 };
 

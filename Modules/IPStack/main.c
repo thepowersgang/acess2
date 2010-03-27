@@ -268,6 +268,7 @@ static const char *casIOCtls_Iface[] = {
 	"get_address", "set_address",
 	"getset_subnet",
 	"get_gateway", "set_gateway",
+	"get_device",
 	"ping",
 	NULL
 	};
@@ -466,10 +467,22 @@ int IPStack_Iface_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		break;
 	
 	/*
+	 * get_device
+	 * - Gets the name of the attached device
+	 */
+	case 10:
+		if( Data == NULL )
+			LEAVE_RET('i', iface->Adapter->DeviceLen);
+		if( !CheckMem( Data, iface->Adapter->DeviceLen+1 ) )
+			LEAVE_RET('i', -1);
+		strcpy( Data, iface->Adapter->Device );
+		return iface->Adapter->DeviceLen;
+	
+	/*
 	 * ping
 	 * - Send an ICMP Echo
 	 */
-	case 10:
+	case 11:
 		switch(iface->Type)
 		{
 		case 0:
@@ -588,6 +601,7 @@ tAdapter *IPStack_GetAdapter(char *Path)
 	// Fill Structure
 	strcpy( dev->Device, Path );
 	dev->NRef = 1;
+	dev->DeviceLen = strlen(Path);
 	
 	// Open Device
 	dev->DeviceFD = VFS_Open( dev->Device, VFS_OPENFLAG_READ|VFS_OPENFLAG_WRITE );
