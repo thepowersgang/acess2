@@ -106,8 +106,8 @@ extern void	Log_KernelPanic(char *Ident, char *Message, ...);
 extern void	Log_Panic(char *Ident, char *Message, ...);
 extern void	Log_Error(char *Ident, char *Message, ...);
 extern void	Log_Warning(char *Ident, char *Message, ...);
-extern void	Log_Log(char *Ident, char *Message, ...);
 extern void	Log_Notice(char *Ident, char *Message, ...);
+extern void	Log_Log(char *Ident, char *Message, ...);
 extern void	Log_Debug(char *Ident, char *Message, ...);
 
 // --- Debug ---

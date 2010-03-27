@@ -2,16 +2,20 @@
  * Acess 2
  * FAT12/16/32 Driver Version (Incl LFN)
  */
+/**
+ * \todo Implement changing of the parent directory when a file is written to
+ * \todo Implement file creation / deletion
+ */
 #define DEBUG	0
 #define VERBOSE	1
-
-#define CACHE_FAT	1	//!< Caches the FAT in memory
-#define USE_LFN		1	//!< Enables the use of Long File Names
 
 #include <acess.h>
 #include <modules.h>
 #include <vfs.h>
 #include "fs_fat.h"
+
+#define CACHE_FAT	1	//!< Caches the FAT in memory
+#define USE_LFN		1	//!< Enables the use of Long File Names
 
 
 // === TYPES ===
@@ -83,14 +87,14 @@ tVFS_Node *FAT_InitDevice(char *Device, char **Options)
 	//Open device and read boot sector
 	diskInfo->fileHandle = VFS_Open(Device, VFS_OPENFLAG_READ|VFS_OPENFLAG_WRITE);
 	if(diskInfo->fileHandle == -1) {
-		Log_Warning("FAT", "Unable to open device '%s'", Device);
+		Log_Notice("FAT", "Unable to open device '%s'", Device);
 		return NULL;
 	}
 	
 	VFS_ReadAt(diskInfo->fileHandle, 0, 512, bs);
 	
 	if(bs->bps == 0 || bs->spc == 0) {
-		Log_Warning("FAT", "Error in FAT Boot Sector\n");
+		Log_Notice("FAT", "Error in FAT Boot Sector\n");
 		return NULL;
 	}
 	
@@ -136,7 +140,7 @@ tVFS_Node *FAT_InitDevice(char *Device, char **Options)
 			sSize = "GiB";
 			iSize >>= 20;
 		}
-		Log_Log("FAT", "'%s' %s, %i %s", Device, sFatType, iSize, sSize);
+		Log_Notice("FAT", "'%s' %s, %i %s", Device, sFatType, iSize, sSize);
 	}
 	#endif
 	
@@ -265,7 +269,9 @@ void FAT_Unmount(tVFS_Node *Node)
 }
 
 /*
- * === FILE IO ===
+ * ====================
+ *   FAT Manipulation
+ * ====================
  */
 /**
  * \fn Uint32 FAT_int_GetFatValue(tFAT_VolInfo *Disk, Uint32 cluster)
@@ -379,6 +385,11 @@ append:
 	#endif
 }
 
+/*
+ * ====================
+ *      Cluster IO
+ * ====================
+ */
 /**
  * \brief Read a cluster
  */
@@ -412,6 +423,10 @@ void FAT_int_WriteCluster(tFAT_VolInfo *Disk, Uint32 Cluster, void *Buffer)
 	LEAVE('-');
 }
 
+/* ====================
+ *       File IO
+ * ====================
+ */
 /**
  * \fn Uint64 FAT_Read(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer)
  * \brief Reads data from a specified file
@@ -629,6 +644,10 @@ Uint64 FAT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	return Length;
 }
 
+/* ====================
+ *  File Names & Nodes
+ * ====================
+ */
 /**
  * \fn void FAT_int_ProperFilename(char *dest, char *src)
  * \brief Converts a FAT directory entry name into a proper filename
@@ -808,6 +827,10 @@ void FAT_int_DelLFN(tVFS_Node *node)
 }
 #endif
 
+/* ====================
+ *     Directory IO
+ * ====================
+ */
 /**
  \fn char *FAT_ReadDir(tVFS_Node *Node, int ID)
  \param Node	Node structure of directory
