@@ -85,7 +85,7 @@ static void Debug_Puts(char *Str)
 void Debug_Fmt(const char *format, va_list *args)
 {
 	char	c, pad = ' ';
-	 int	minSize = 0;
+	 int	minSize = 0, len;
 	char	tmpBuf[34];	// For Integers
 	char	*p = NULL;
 	 int	isLongLong = 0;
@@ -182,6 +182,9 @@ void Debug_Fmt(const char *format, va_list *args)
 
 		case 's':
 			p = (char*)(Uint)arg;
+			if(!p)		p = "(null)";
+			len = strlen(p);
+			while(len++ < minSize)	Debug_Putchar(pad);
 		printString:
 			if(!p)		p = "(null)";
 			while(*p)	Debug_Putchar(*p++);

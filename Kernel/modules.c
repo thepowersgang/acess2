@@ -84,7 +84,7 @@ int Module_int_Initialise(tModule *Module)
 				break;
 		}
 		if( mod ) {
-			Warning("[MOD  ] Circular dependency detected");
+			Log_Warning("Module", "Circular dependency detected");
 			LEAVE_RET('i', -1);
 		}
 		
@@ -95,7 +95,7 @@ int Module_int_Initialise(tModule *Module)
 				break;
 		}
 		if( i == giNumBuiltinModules ) {
-			Warning("[MOD  ] Dependency '%s' for module '%s' failed");
+			Log_Warning("Module", "Dependency '%s' for module '%s' failed");
 			return -1;
 		}
 		
@@ -111,7 +111,7 @@ int Module_int_Initialise(tModule *Module)
 	
 	// All Dependencies OK? Initialise
 	StartupPrint(Module->Name);
-	Log("[MOD  ] Initialising %p '%s' v%i.%i...",
+	Log_Log("Module", "Initialising %p '%s' v%i.%i...",
 		Module, Module->Name,
 		Module->Version >> 8, Module->Version & 0xFF
 		);
@@ -121,16 +121,16 @@ int Module_int_Initialise(tModule *Module)
 		switch(ret)
 		{
 		case MODULE_ERR_MISC:
-			Warning("[MOD  ] Unable to load, reason: Miscelanious");
+			Log_Warning("Module", "Unable to load, reason: Miscelanious");
 			break;
 		case MODULE_ERR_NOTNEEDED:
-			Warning("[MOD  ] Unable to load, reason: Module not needed (probably hardware not found)");
+			Log_Warning("Module", "Unable to load, reason: Module not needed");
 			break;
 		case MODULE_ERR_MALLOC:
-			Warning("[MOD  ] Unable to load, reason: Error in malloc/realloc/calloc, probably not good");
+			Log_Warning("Module", "Unable to load, reason: Error in malloc/realloc/calloc, probably not good");
 			break;
 		default:
-			Warning("[MOD  ] Unable to load reason - Unknown code %i", ret);
+			Log_Warning("Module", "Unable to load reason - Unknown code %i", ret);
 			break;
 		}
 		LEAVE_RET('i', ret);
@@ -209,7 +209,7 @@ int Module_LoadFile(char *Path, char *ArgString)
 	
 	// Error check
 	if(base == NULL) {
-		Warning("Module_LoadFile: Unable to load '%s'", Path);
+		Log_Warning("Module", "Module_LoadFile - Unable to load '%s'", Path);
 		return 0;
 	}
 	
@@ -235,9 +235,9 @@ int Module_LoadFile(char *Path, char *ArgString)
 		// Unknown module type?, return error
 		Binary_Unload(base);
 		#if USE_EDI
-		Warning("Module_LoadFile: Module has neither a Module Info struct, nor an EDI entrypoint");
+		Log_Warning("Module", "Module '%s' has neither a Module Info struct, nor an EDI entrypoint", Path);
 		#else
-		Warning("Module_LoadFile: Module does not have a Module Info struct");
+		Log_Warning("Module", "Module '%s' does not have a Module Info struct", Path);
 		#endif
 		return 0;
 	}
@@ -245,14 +245,14 @@ int Module_LoadFile(char *Path, char *ArgString)
 	// Check magic number
 	if(info->Magic != MODULE_MAGIC)
 	{
-		Warning("Module_LoadFile: Module's magic value is invalid (0x%x != 0x%x)", info->Magic, MODULE_MAGIC);
+		Log_Warning("Module", "Module's magic value is invalid (0x%x != 0x%x)", info->Magic, MODULE_MAGIC);
 		return 0;
 	}
 	
 	// Check Architecture
 	if(info->Arch != MODULE_ARCH_ID)
 	{
-		Warning("Module_LoadFile: Module is for a different architecture");
+		Log_Warning("Module", "Module is for a different architecture");
 		return 0;
 	}
 	
@@ -269,7 +269,7 @@ int Module_LoadFile(char *Path, char *ArgString)
 		return 0;
 	}
 	
-	Log("Initialising %p '%s' v%i.%i...",
+	Log_Log("Module", "Initialising %p '%s' v%i.%i...",
 				info,
 				info->Name,
 				info->Version>>8, info->Version & 0xFF
@@ -308,7 +308,7 @@ int Module_int_ResolveDeps(tModule *Info)
 	{
 		// Check if the module is loaded
 		if( !Module_IsLoaded(*names) ) {
-			Warning("Module `%s' requires `%s', which is not loaded\n", Info->Name, *names);
+			Log_Warning("Module", "Module `%s' requires `%s', which is not loaded\n", Info->Name, *names);
 			return 0;
 		}
 	}

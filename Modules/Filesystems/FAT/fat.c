@@ -83,14 +83,14 @@ tVFS_Node *FAT_InitDevice(char *Device, char **Options)
 	//Open device and read boot sector
 	diskInfo->fileHandle = VFS_Open(Device, VFS_OPENFLAG_READ|VFS_OPENFLAG_WRITE);
 	if(diskInfo->fileHandle == -1) {
-		Warning("FAT_InitDisk - Unable to open device '%s'", Device);
+		Log_Warning("FAT", "Unable to open device '%s'", Device);
 		return NULL;
 	}
 	
 	VFS_ReadAt(diskInfo->fileHandle, 0, 512, bs);
 	
 	if(bs->bps == 0 || bs->spc == 0) {
-		Warning("FAT_InitDisk - Error in FAT Boot Sector\n");
+		Log_Warning("FAT", "Error in FAT Boot Sector\n");
 		return NULL;
 	}
 	
@@ -136,7 +136,7 @@ tVFS_Node *FAT_InitDevice(char *Device, char **Options)
 			sSize = "GiB";
 			iSize >>= 20;
 		}
-		Log("[FAT ] '%s' %s, %i %s", Device, sFatType, iSize, sSize);
+		Log_Log("FAT", "'%s' %s, %i %s", Device, sFatType, iSize, sSize);
 	}
 	#endif
 	
@@ -165,7 +165,7 @@ tVFS_Node *FAT_InitDevice(char *Device, char **Options)
 	Uint32	Ofs;
 	diskInfo->FATCache = (Uint32*)malloc(sizeof(Uint32)*diskInfo->ClusterCount);
 	if(diskInfo->FATCache == NULL) {
-		Warning("FAT_InitDisk - Heap Exhausted\n");
+		Log_Warning("FAT", "Heap Exhausted\n");
 		return NULL;
 	}
 	Ofs = bs->resvSectCount*512;
@@ -343,7 +343,7 @@ append:
 	#else
 	Uint32	val;
 	//Uint8	buf[512];
-	Warning("[FAT  ] TODO: Implement cluster allocation with non cached FAT");
+	Log_Warning("FAT", "TODO: Implement cluster allocation with non cached FAT");
 	return 0;
 	
 	if(Disk->type == FAT12) {
@@ -547,7 +547,7 @@ Uint64 FAT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	{
 		cluster = FAT_int_GetFatValue( disk, cluster );
 		if(cluster == -1) {
-			Warning("[FAT  ] EOC Unexpectedly Reached");
+			Log_Warning("FAT", "EOC Unexpectedly Reached");
 			return 0;
 		}
 		Offset -= disk->BytesPerCluster;
@@ -849,7 +849,7 @@ char *FAT_ReadDir(tVFS_Node *Node, int ID)
 	// Bounds Checking (Used to spot heap overflows)
 	if(cluster > disk->ClusterCount + 2)
 	{
-		Warning("FAT_ReadDir - Cluster ID is over cluster count (0x%x>0x%x)",
+		Log_Warning("FAT", "Cluster ID is over cluster count (0x%x>0x%x)",
 			cluster, disk->ClusterCount+2);
 		LEAVE('n');
 		return NULL;

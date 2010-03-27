@@ -128,7 +128,7 @@ int Ne2k_Install(char **Options)
 	}
 	
 	if( giNe2k_CardCount == 0 ) {
-		Warning("[Ne2k ] No cards detected");
+		Log_Warning("Ne2k", "No cards detected");
 		return MODULE_ERR_NOTNEEDED;
 	}
 	
@@ -199,19 +199,11 @@ int Ne2k_Install(char **Options)
 			Ne2k_WriteReg(base, MAC5, gpNe2k_Cards[ k ].MacAddr[5]);
 			*/
 			
-			Log_Log("NE2K", "Card %i 0x%04x %02x:%02x:%02x:%02x:%02x:%02x",
-				k, base,
+			Log_Log("Ne2k", "Card %i 0x%04x IRQ%i %02x:%02x:%02x:%02x:%02x:%02x",
+				k, base, gpNe2k_Cards[ k ].IRQ,
 				gpNe2k_Cards[k].MacAddr[0], gpNe2k_Cards[k].MacAddr[1],
 				gpNe2k_Cards[k].MacAddr[2], gpNe2k_Cards[k].MacAddr[3],
 				gpNe2k_Cards[k].MacAddr[4], gpNe2k_Cards[k].MacAddr[5]
-				);
-			
-			Log("[NE2K]: Card #%i: IRQ=%i, IOBase=0x%x",
-				k, gpNe2k_Cards[ k ].IRQ, gpNe2k_Cards[ k ].IOBase);
-			Log("MAC Address %x:%x:%x:%x:%x:%x",
-				gpNe2k_Cards[ k ].MacAddr[0], gpNe2k_Cards[ k ].MacAddr[1],
-				gpNe2k_Cards[ k ].MacAddr[2], gpNe2k_Cards[ k ].MacAddr[3],
-				gpNe2k_Cards[ k ].MacAddr[4], gpNe2k_Cards[ k ].MacAddr[5]
 				);
 			
 			// Set VFS Node
@@ -320,7 +312,8 @@ Uint64 Ne2k_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	
 	// Sanity Check Length
 	if(Length > TX_BUF_SIZE*256) {
-		Warning(
+		Log_Warning(
+			"Ne2k",
 			"Ne2k_Write - Attempting to send over TX_BUF_SIZE*256 (%i) bytes (%i)",
 			TX_BUF_SIZE*256, Length
 			);
@@ -518,5 +511,5 @@ void Ne2k_IRQHandler(int IntNum)
 			return ;
 		}
 	}
-	Warning("[NE2K ] Recieved Unknown IRQ %i", IntNum);
+	Log_Warning("Ne2k", "Recieved Unknown IRQ %i", IntNum);
 }

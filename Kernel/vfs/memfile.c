@@ -60,8 +60,6 @@ tVFS_Node *VFS_MemFile_Create(tVFS_Node *Unused, char *Path)
 	// Check for NULL byte
 	if(*str != '\0') 	return NULL;
 	
-	Log(" VFS_MemFile_Create: base=0x%x, size=0x%x", base, size);
-	
 	// Allocate and fill node
 	ret = malloc(sizeof(tVFS_Node));
 	memset(ret, 0, sizeof(tVFS_Node));

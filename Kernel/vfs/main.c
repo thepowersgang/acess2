@@ -84,14 +84,11 @@ char *VFS_GetTruePath(char *Path)
  */
 void VFS_GetMemPath(char *Dest, void *Base, Uint Length)
 {
-	Log("VFS_GetMemPath: (Base=%p, Length=0x%x, Dest=%p)", Base, Length, Dest);
 	Dest[0] = '$';
 	itoa( &Dest[1], (Uint)Base, 16, BITS/4, '0' );
 	Dest[BITS/4+1] = ':';
 	itoa( &Dest[BITS/4+2], Length, 16, BITS/4, '0' );
 	Dest[BITS/2+2] = '\0';
-	
-	Log("VFS_GetMemPath: Dest = \"%s\"", Dest);
 }
 
 /**

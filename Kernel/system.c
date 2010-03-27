@@ -48,7 +48,7 @@ void System_Init(char *ArgString)
 	System_ParseCommandLine(ArgString);
 	
 	// - Execute the Config Script
-	Log("Executing config script...");
+	Log_Log("CFG", "Executing config script...");
 	System_ExecuteScript();
 }
 
@@ -63,7 +63,7 @@ void System_ParseCommandLine(char *ArgString)
 	 int	i;
 	char	*str;
 	
-	Log("Kernel Command Line: \"%s\"", ArgString);
+	Log_Log("CFG", "Kernel Invocation \"%s\"", ArgString);
 	
 	// --- Get Arguments ---
 	str = ArgString;
@@ -114,7 +114,7 @@ void System_ParseVFS(char *Arg)
 	
 	// Check if the equals was found
 	if( *value == '\0' ) {
-		Warning("Expected '=' in the string '%s'", Arg);
+		Log_Warning("CFG", "Expected '=' in the string '%s'", Arg);
 		return ;
 	}
 	
@@ -125,7 +125,7 @@ void System_ParseVFS(char *Arg)
 	// - Symbolic Link <link>=<destination>
 	if(value[0] == '/')
 	{
-		Log("Symbolic link '%s' pointing to '%s'", Arg, value);
+		Log_Log("CFG", "Symbolic link '%s' pointing to '%s'", Arg, value);
 		VFS_Symlink(Arg, value);
 	}
 	// - Mount <mountpoint>=<fs>:<device>
@@ -140,13 +140,13 @@ void System_ParseVFS(char *Arg)
 		}
 		// Create Mountpoint
 		if( (fd = VFS_Open(Arg, 0)) == -1 ) {
-			Log("Creating directory '%s'", Arg, value);
+			Log_Log("CFG", "Creating directory '%s'", Arg, value);
 			VFS_MkDir( Arg );
 		} else {
 			VFS_Close(fd);
 		}
 		// Mount
-		Log("Mounting '%s' to '%s' ('%s')", dev, Arg, value);
+		Log_Log("CFG", "Mounting '%s' to '%s' ('%s')", dev, Arg, value);
 		VFS_Mount(dev, Arg, value, "");
 	}
 }
@@ -168,7 +168,7 @@ void System_ParseSetting(char *Arg)
 	{
 		//if(strcmp(Arg, "") == 0) {
 		//} else {
-			Warning("Kernel flag '%s' is not recognised", Arg);
+			Log_Warning("CFG", "Kernel flag '%s' is not recognised", Arg);
 		//}
 	}
 	else
@@ -177,10 +177,10 @@ void System_ParseSetting(char *Arg)
 		value ++;	// and eat it's position
 		
 		if(strcmp(Arg, "SCRIPT") == 0) {
-			Log("Config Script: '%s'", value);
+			Log_Log("CFG", "Config Script: '%s'", value);
 			gsConfigScript = value;
 		} else {
-			Warning("Kernel config setting '%s' is not recognised", Arg);
+			Log_Warning("CFG", "Kernel config setting '%s' is not recognised", Arg);
 		}
 		
 	}
@@ -201,7 +201,7 @@ void System_ExecuteScript()
 	// Open Script
 	fp = VFS_Open(gsConfigScript, VFS_OPENFLAG_READ);
 	if(fp == -1) {
-		Warning("[CFG] Passed script '%s' does not exist", gsConfigScript);
+		Log_Warning("CFG", "Passed script '%s' does not exist", gsConfigScript);
 		return;
 	}
 	
@@ -229,11 +229,11 @@ void System_ExecuteScript()
 		if( strcmp(line->Parts[0], "mount") == 0 )
 		{
 			if( line->nParts != 4 ) {
-				Warning("Configuration command 'mount' requires 3 arguments, %i given",
+				Log_Warning("CFG", "Configuration command 'mount' requires 3 arguments, %i given",
 					line->nParts-1);
 				continue;
 			}
-			//Log("[CFG ] Mount '%s' to '%s' (%s)",
+			//Log_Log("CFG", "Mount '%s' to '%s' (%s)",
 			//	line->Parts[1], line->Parts[2], line->Parts[3]);
 			//! \todo Use an optional 4th argument for the options string
 			VFS_Mount(line->Parts[1], line->Parts[2], line->Parts[3], "");
@@ -242,7 +242,8 @@ void System_ExecuteScript()
 		else if(strcmp(line->Parts[0], "module") == 0)
 		{
 			if( line->nParts < 2 || line->nParts > 3 ) {
-				Warning("Configuration command 'module' requires 1 or 2 arguments, %i given",
+				Log_Warning("CFG",
+					"Configuration command 'module' requires 1 or 2 arguments, %i given",
 					line->nParts-1);
 				continue;
 			}
@@ -255,33 +256,33 @@ void System_ExecuteScript()
 		else if(strcmp(line->Parts[0], "udimod") == 0)
 		{
 			if( line->nParts != 2 ) {
-				Warning("Configuration command 'udimod' requires 1 argument, %i given",
+				Log_Warning("CFG", "Configuration command 'udimod' requires 1 argument, %i given",
 					line->nParts-1);
 				continue;
 			}
-			Log("[CFG  ] Load UDI Module '%s'", line->Parts[1]);
+			Log_Log("CFG", "Load UDI Module '%s'", line->Parts[1]);
 			Module_LoadFile(line->Parts[1], "");
 		}
 		// Load a EDI Module
 		else if(strcmp(line->Parts[0], "edimod") == 0)
 		{
 			if( line->nParts != 2 ) {
-				Warning("Configuration command 'edimod' requires 1 argument, %i given",
+				Log_Warning("CFG", "Configuration command 'edimod' requires 1 argument, %i given",
 					line->nParts-1);
 				continue;
 			}
-			Log("[CFG  ] Load EDI Module '%s'", line->Parts[1]);
+			Log_Log("CFG", "Load EDI Module '%s'", line->Parts[1]);
 			Module_LoadFile(line->Parts[1], "");
 		}
 		// Create a Symbolic Link
 		else if(strcmp(line->Parts[0], "symlink") == 0)
 		{
 			if( line->nParts != 3 ) {
-				Warning("Configuration command 'symlink' requires 2 arguments, %i given",
+				Log_Warning("CFG", "Configuration command 'symlink' requires 2 arguments, %i given",
 					line->nParts-1);
 				continue;
 			}
-			Log("[CFG  ] Symlink '%s' pointing to '%s'",
+			Log_Log("CFG", "Symlink '%s' pointing to '%s'",
 				line->Parts[1], line->Parts[2]);
 			VFS_Symlink(line->Parts[1], line->Parts[2]);
 		}
@@ -289,26 +290,26 @@ void System_ExecuteScript()
 		else if(strcmp(line->Parts[0], "mkdir") == 0)
 		{
 			if( line->nParts != 2 ) {
-				Warning("Configuration command 'mkdir' requires 1 argument, %i given",
+				Log_Warning("CFG", "Configuration command 'mkdir' requires 1 argument, %i given",
 					line->nParts-1);
 				continue;
 			}
-			Log("[CFG  ] New Directory '%s'", line->Parts[1]);
+			Log_Log("CFG", "New Directory '%s'", line->Parts[1]);
 			VFS_MkDir(line->Parts[1]);
 		}
 		// Spawn a process
 		else if(strcmp(line->Parts[0], "spawn") == 0)
 		{
 			if( line->nParts != 2 ) {
-				Warning("Configuration command 'spawn' requires 1 argument, %i given",
+				Log_Warning("CFG", "Configuration command 'spawn' requires 1 argument, %i given",
 					line->nParts-1);
 				continue;
 			}
-			Log("[CFG  ] Starting '%s' as a new task", line->Parts[1]);
+			Log_Log("CFG", "Starting '%s' as a new task", line->Parts[1]);
 			Proc_Spawn(line->Parts[1]);
 		}
 		else {
-			Warning("Unknown configuration command '%s' on line %i",
+			Log_Warning("CFG", "Unknown configuration command '%s' on line %i",
 				line->Parts[0],
 				line->TrueLine
 				);

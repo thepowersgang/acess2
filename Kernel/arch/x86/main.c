@@ -57,11 +57,10 @@ int kmain(Uint MbMagic, tMBoot_Info *MbInfo)
 	Log("Initialising builtin modules...");
 	Modules_LoadBuiltins();
 	
-	Log("Loading Modules... (%i of them)", MbInfo->ModuleCount);
+	Log("Loading %i Modules...", MbInfo->ModuleCount);
 	
 	// Load initial modules
 	mods = (void*)( MbInfo->Modules + KERNEL_BASE );
-	Log("MbInfo = %p", MbInfo);
 	for( i = 0; i < MbInfo->ModuleCount; i ++ )
 	{
 		// Adjust into higher half
@@ -73,9 +72,8 @@ int kmain(Uint MbMagic, tMBoot_Info *MbInfo)
 		
 		if( !Module_LoadMem( (void *)mods[i].Start, mods[i].End-mods[i].Start, (char *)mods[i].String ) )
 		{
-			Warning("Unable to load module\n");
+			Log_Warning("ARCH", "Unable to load module\n");
 		}
-		Log("Done. (MbInfo = %p)", MbInfo);
 	}
 	
 	// Pass on to Independent Loader

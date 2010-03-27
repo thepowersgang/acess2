@@ -43,7 +43,7 @@ int VFS_Mount(char *Device, char *MountPoint, char *Filesystem, char *Options)
 	// Get the filesystem
 	fs = VFS_GetFSByName(Filesystem);
 	if(!fs) {
-		Warning("VFS_Mount - Unknown FS Type '%s'", Filesystem);
+		Log_Warning("VFS", "VFS_Mount - Unknown FS Type '%s'", Filesystem);
 		return -1;
 	}
 	
@@ -96,7 +96,7 @@ int VFS_Mount(char *Device, char *MountPoint, char *Filesystem, char *Options)
 	}
 	RELEASE( &glVFS_MountList );
 	
-	Log("VFS_Mount: Mounted '%s' to '%s' ('%s')", Device, MountPoint, Filesystem);
+	Log_Log("VFS", "Mounted '%s' to '%s' ('%s')", Device, MountPoint, Filesystem);
 	
 	VFS_UpdateMountFile();
 	
