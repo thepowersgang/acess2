@@ -20,6 +20,7 @@
 #define FDD_SEEK_TIMEOUT	10	// Timeout for a seek operation
 #define MOTOR_ON_DELAY	500		// Miliseconds
 #define MOTOR_OFF_DELAY	2000	// Miliseconds
+#define	FDD_MAX_READWRITE_ATTEMPTS	16
 
 // === TYPEDEFS ===
 /**
@@ -51,6 +52,9 @@ typedef struct {
 static const char	*cFDD_TYPES[] = {"None", "360kB 5.25\"", "1.2MB 5.25\"", "720kB 3.5\"", "1.44MB 3.5\"", "2.88MB 3.5\"" };
 static const int	cFDD_SIZES[] = { 0, 360*1024, 1200*1024, 720*1024, 1440*1024, 2880*1024 };
 static const short	cPORTBASE[] = { 0x3F0, 0x370 };
+#if DEBUG
+static const char	*cFDD_STATUSES[] = {NULL, "Error", "Invalid command", "Drive not ready"};
+#endif
 
 enum FloppyPorts {
 	PORT_STATUSA	= 0x0,
@@ -339,24 +343,15 @@ Uint FDD_ReadSectors(Uint64 SectorAddr, Uint Count, void *Buffer, Uint Disk)
 	return ret;
 }
 
-/**
- * \fn int FDD_ReadSector(Uint32 Disk, Uint64 SectorAddr, void *Buffer)
- * \brief Read a sector from disk
- * \todo Make real-hardware safe (account for read errors)
-*/
-int FDD_ReadSector(Uint32 Disk, Uint64 SectorAddr, void *Buffer)
+int FDD_int_ReadWriteSector(Uint32 Disk, Uint64 SectorAddr, int Write, void *Buffer)
 {
 	 int	cyl, head, sec;
 	 int	spt, base;
 	 int	i;
 	 int	lba = SectorAddr;
+	Uint8	st0, st1, st2, rcy, rhe, rse, bps;	//	Status Values
 	
 	ENTER("iDisk XSectorAddr pBuffer", Disk, SectorAddr, Buffer);
-	
-	if( IOCache_Read( gFDD_Devices[Disk].CacheHandle, SectorAddr, Buffer ) == 1 ) {
-		LEAVE('i', 1);
-		return 1;
-	}
 	
 	base = cPORTBASE[Disk >> 1];
 	
@@ -389,6 +384,7 @@ int FDD_ReadSector(Uint32 Disk, Uint64 SectorAddr, void *Buffer)
 	while(FDD_int_SeekTrack(Disk, head, (Uint8)cyl) == 0 && i++ < FDD_SEEK_TIMEOUT )
 		Threads_Yield();
 	if( i > FDD_SEEK_TIMEOUT ) {
+		RELEASE(&glFDD);
 		LEAVE('i', 0);
 		return 0;
 	}
@@ -396,34 +392,89 @@ int FDD_ReadSector(Uint32 Disk, Uint64 SectorAddr, void *Buffer)
 		
 	// Read Data from DMA
 	LOG("Setting DMA for read");
-	DMA_SetChannel(2, 512, 1);	// Read 512 Bytes from channel 2
+	DMA_SetChannel(2, 512, !Write);	// Read 512 Bytes from channel 2
 	
-	LOG("Sending read command");
+	LOG("Sending command");
 	
 	//Threads_Wait(100);	// Wait for Head to settle
 	Time_Delay(100);
-	FDD_int_SendByte(base, READ_SECTOR);	// Was 0xE6
-	FDD_int_SendByte(base, (head << 2) | (Disk&1));
-	FDD_int_SendByte(base, (Uint8)cyl);
-	FDD_int_SendByte(base, (Uint8)head);
-	FDD_int_SendByte(base, (Uint8)sec);
-	FDD_int_SendByte(base, 0x02);	// Bytes Per Sector (Real BPS=128*2^{val})
-	FDD_int_SendByte(base, spt);	// SPT
-	FDD_int_SendByte(base, 0x1B);	// Gap Length (27 is default)
-	FDD_int_SendByte(base, 0xFF);	// Data Length
 	
-	// Wait for IRQ
-	LOG("Waiting for Data to be read");
-	FDD_WaitIRQ();
-	
-	// Read Data from DMA
-	LOG(" FDD_ReadSector: Reading Data");
-	DMA_ReadData(2, 512, Buffer);
-	
-	// Clear Input Buffer
-	LOG("Clearing Input Buffer");
-	FDD_int_GetByte(base); FDD_int_GetByte(base); FDD_int_GetByte(base);
-	FDD_int_GetByte(base); FDD_int_GetByte(base); FDD_int_GetByte(base); FDD_int_GetByte(base);
+	for( i = 0; i < FDD_MAX_READWRITE_ATTEMPTS; i ++ )
+	{
+		if( Write )
+			FDD_int_SendByte(base, READ_SECTOR);	// Was 0xE6
+		else
+			FDD_int_SendByte(base, READ_SECTOR);	// Was 0xE6
+		FDD_int_SendByte(base, (head << 2) | (Disk&1));
+		FDD_int_SendByte(base, (Uint8)cyl);
+		FDD_int_SendByte(base, (Uint8)head);
+		FDD_int_SendByte(base, (Uint8)sec);
+		FDD_int_SendByte(base, 0x02);	// Bytes Per Sector (Real BPS=128*2^{val})
+		FDD_int_SendByte(base, spt);	// SPT
+		FDD_int_SendByte(base, 0x1B);	// Gap Length (27 is default)
+		FDD_int_SendByte(base, 0xFF);	// Data Length
+		
+		// Wait for IRQ
+		if( Write ) {
+			LOG("Writing Data");
+			DMA_WriteData(2, 512, Buffer);
+			LOG("Waiting for Data to be written");
+			FDD_WaitIRQ();
+		}
+		else {
+			LOG("Waiting for data to be read");
+			FDD_WaitIRQ();
+			LOG("Reading Data");
+			DMA_ReadData(2, 512, Buffer);
+		}
+		
+		// Clear Input Buffer
+		LOG("Clearing Input Buffer");
+		// Status Values
+		st0 = FDD_int_GetByte(base);
+		st1 = FDD_int_GetByte(base);
+		st2 = FDD_int_GetByte(base);
+		
+		// Cylinder, Head and Sector (mutilated in some way
+		rcy = FDD_int_GetByte(base);
+		rhe = FDD_int_GetByte(base);
+		rse = FDD_int_GetByte(base);
+		// Should be the BPS set above (0x02)
+		bps = FDD_int_GetByte(base);
+		
+		// Check Status
+		// - Error Code
+		if(st0 & 0xC0) {
+			LOG("Error (st0 & 0xC0) \"%s\"", cFDD_STATUSES[st0 >> 6]);
+			continue;
+        }
+        // - Status Flags
+        if(st0 & 0x08) {	LOG("Drive not ready");	continue; 	}
+        if(st1 & 0x80) {	LOG("End of Cylinder");	continue;	}
+		if(st1 & 0x20) {	LOG("CRC Error");	continue;	}
+		if(st1 & 0x10) {	LOG("Controller Timeout");	continue;	}
+		if(st1 & 0x04) {	LOG("No Data Found");	continue;	}
+		if(st1 & 0x01 || st2 & 0x01) {
+			LOG("No Address mark found");
+			continue;
+		}
+        if(st2 & 0x40) {	LOG("Deleted address mark");	continue;	}
+		if(st2 & 0x20) {	LOG("CRC error in data");	continue;	}
+		if(st2 & 0x10) {	LOG("Wrong Cylinder");	continue;	}
+		if(st2 & 0x04) {	LOG("uPD765 sector not found");	continue;	}
+		if(st2 & 0x02) {	LOG("Bad Cylinder");	continue;	}
+		
+		if(bps != 0x2) {
+			LOG("Returned BPS = 0x%02x, not 0x02", bps);
+			continue;
+		}
+		
+		if(st1 & 0x02) {
+			LOG("Floppy not writable");
+			i = FDD_MAX_READWRITE_ATTEMPTS;
+			break;
+		}
+	}
 	
 	// Release Spinlock
 	LOG("Realeasing Spinlock and setting motor to stop");
@@ -432,10 +483,45 @@ int FDD_ReadSector(Uint32 Disk, Uint64 SectorAddr, void *Buffer)
 	// Don't turn the motor off now, wait for a while
 	gFDD_Devices[Disk].timer = Time_CreateTimer(MOTOR_OFF_DELAY, FDD_int_StopMotor, (void*)Disk);
 
-	IOCache_Add( gFDD_Devices[Disk].CacheHandle, SectorAddr, Buffer );
+	if( i < FDD_MAX_READWRITE_ATTEMPTS ) {
+		LEAVE('i', 0);
+		return 0;
+	}
+	else {
+		LEAVE('i', 1);
+		return 1;
+	}
+}
 
-	LEAVE('i', 1);
-	return 1;
+/**
+ * \fn int FDD_ReadSector(Uint32 Disk, Uint64 SectorAddr, void *Buffer)
+ * \brief Read a sector from disk
+ * \todo Make real-hardware safe (account for read errors)
+*/
+int FDD_ReadSector(Uint32 Disk, Uint64 SectorAddr, void *Buffer)
+{
+	 int	ret;
+	
+	ENTER("iDisk XSectorAddr pBuffer", Disk, SectorAddr, Buffer);
+	
+	if( IOCache_Read( gFDD_Devices[Disk].CacheHandle, SectorAddr, Buffer ) == 1 ) {
+		LEAVE('i', 1);
+		return 1;
+	}
+	
+	// Pass to general function
+	ret = FDD_int_ReadWriteSector(Disk, SectorAddr, 0, Buffer);
+
+	if( ret == 0 ) {
+		IOCache_Add( gFDD_Devices[Disk].CacheHandle, SectorAddr, Buffer );
+		LEAVE('i', 1);
+		return 1;
+	}
+	else {
+		LOG("Reading failed");
+		LEAVE('i', 0);
+		return 0;
+	}
 }
 
 /**

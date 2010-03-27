@@ -105,3 +105,19 @@ int DMA_ReadData(int channel, int count, void *buffer)
 	memcpy(buffer, dma_addresses[channel], count);
 	return 0;
 }
+
+/**
+ * \fn void DMA_WriteData(int channel, int count, void *buffer)
+ * \brief Write data to a DMA buffer
+ */
+int DMA_WriteData(int channel, int count, void *buffer)
+{
+	if(channel < 0 || channel > 7)
+		return -1;
+	if(count < 0 || count > DMA_SIZE)
+		return -2;
+	
+	memcpy(dma_addresses[channel], buffer, count);
+	
+	return 0;
+}
