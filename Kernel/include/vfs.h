@@ -324,7 +324,7 @@ extern tVFS_Node	*Inode_GetCache(int Handle, Uint64 Inode);
  */
 extern tVFS_Node	*Inode_CacheNode(int Handle, tVFS_Node *Node);
 /**
- * \fn void Inode_UncacheNode(int Handle, Uint64 Inode)
+ * \fn int Inode_UncacheNode(int Handle, Uint64 Inode)
  * \brief Dereferences (and removes if needed) a node from the cache
  * \param Handle	A handle returned by Inode_GetHandle()
  * \param Inode	Value of the Inode field of the ::tVFS_Node you want to remove
