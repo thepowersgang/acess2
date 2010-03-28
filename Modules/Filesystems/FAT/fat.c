@@ -592,13 +592,22 @@ Uint64 FAT_Read(tVFS_Node *Node, Uint64 offset, Uint64 length, void *buffer)
 		return length;
 	}
 	
+	#if 0
+	if( FAT_int_GetAddress(Node, offset, &addr) )
+	{
+		Log_Warning("FAT", "Offset is past end of cluster chain mark");
+		LEAVE('i', 0);
+		return 0;
+	}
+	#endif
+	
 	preSkip = offset / bpc;
 	
 	//Skip previous clusters
 	for(i=preSkip;i--;)	{
 		cluster = FAT_int_GetFatValue(disk, cluster);
 		if(cluster == -1) {
-			Warning("FAT_Read - Offset is past end of cluster chain mark");
+			Log_Warning("FAT", "Offset is past end of cluster chain mark");
 			LEAVE('i', 0);
 			return 0;
 		}
@@ -956,6 +965,11 @@ int FAT_int_WriteDirEntry(tVFS_Node *Node, int ID, fat_filetable *Entry)
 }
 
 #if USE_LFN
+// I should probably more tightly associate the LFN cache with the node
+// somehow, maybe by adding a field to tVFS_Node before locking it
+// Maybe .Cache or something like that (something that is free'd by the
+// Inode_UncacheNode function)
+	
 /**
  * \fn char *FAT_int_GetLFN(tVFS_Node *node)
  * \brief Return pointer to LFN cache entry
@@ -1151,7 +1165,7 @@ tVFS_Node *FAT_FindDir(tVFS_Node *Node, char *name)
 		}
 		
 		//Check if the files are free
-		if(fileinfo[i&0xF].name[0] == '\0')	break;		//Free and last
+		if(fileinfo[i&0xF].name[0] == '\0')	break;	// Free and last
 		if(fileinfo[i&0xF].name[0] == '\xE5')	continue;	//Free
 		
 		
@@ -1235,26 +1249,34 @@ int FAT_Relink(tVFS_Node *Node, char *OldName, char *NewName)
 {
 	tVFS_Node	*child;
 	fat_filetable	ft = {0};
-	Uint32	cluster;
-	 int	ofs;
+	 int	ret;
 	
 	child = FAT_FindDir(Node, OldName);
-	if(!child)	return 0;
+	if(!child)	return ENOTFOUND;
 	
 	// Delete?
 	if( NewName == NULL )
 	{
 		child->ImplInt |= FAT_FLAG_DELETE;	// Mark for deletion on close
-		cluster = Node->Inode & 0xFFFFFFFF;
-		ofs = child->ImplInt & 0xFFFF;
+		
+		// Delete from the directory
 		ft.name[0] = '\xE9';
+		FAT_int_WriteDirEntry(Node, child->ImplInt & 0xFFFF, &ft);
+		
+		// Return success
+		ret = EOK;
 	}
 	// Rename
 	else
 	{
+		Log_Warning("FAT", "Renaming no yet supported %p ('%s' => '%s')",
+			Node, OldName, NewName);
+		ret = ENOTIMPL;
 	}
 	
-	return 0;
+	// Close child
+	child->Close( child );
+	return ret;
 }
 
 /**
@@ -1266,16 +1288,23 @@ void FAT_CloseFile(tVFS_Node *Node)
 	tFAT_VolInfo	*disk = Node->ImplPtr;
 	if(Node == NULL)	return ;
 	
-	if( Node->ImplInt & FAT_FLAG_DIRTY ) {
-		#if 0
-		// Write back
-		FAT_int_UpdateDirEntry(
-			Node->Inode >> 32, Node->ImplInt & 0xFFFF,
-			Node
-			);
-		#endif
+	// Update the node if it's dirty (don't bother if it's marked for
+	// deletion)
+	if( Node->ImplInt & FAT_FLAG_DIRTY && !(Node->ImplInt & FAT_FLAG_DELETE) )
+	{
+		tFAT_VolInfo	buf[16];
+		tFAT_VolInfo	*ft = &buf[ (Node->ImplInt & 0xFFFF) % 16 ];
+		
+		FAT_int_ReadDirSector(Node, (Node->ImplInt & 0xFFFF)/16, buf);
+		ft->size = Node->Size;
+		// TODO: update adate, mtime, mdate
+		FAT_int_WriteDirEntry(Node, Node->ImplInt & 0xFFFF, ft);
+		
+		Node->ImplInt &= ~FAT_FLAG_DIRTY;
 	}
 	
+	// TODO: Make this more thread safe somehow, probably by moving the
+	// Inode_UncacheNode higher up and saving the cluster value somewhere
 	if( Node->ReferenceCount == 1 )
 	{
 		// Delete LFN Cache

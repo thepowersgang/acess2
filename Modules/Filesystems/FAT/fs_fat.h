@@ -66,7 +66,7 @@ struct fat_filetable_s {
 	Uint8	ctimems;	//!< 10ths of a second ranging from 0-199 (2 seconds)
 	Uint16	ctime;	//!< Creation Time
 	Uint16	cdate;	//!< Creation Date
-	Uint16	adate;	//!< Accessed Data. No Time feild though
+	Uint16	adate;	//!< Accessed Date. No Time feild though
 	Uint16	clusterHi;	//!< High Cluster. 0 for FAT12 and FAT16
 	Uint16	mtime;	//!< Last Modified Time
 	Uint16	mdate;	//!< Last Modified Date

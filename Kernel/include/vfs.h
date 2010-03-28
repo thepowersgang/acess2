@@ -87,11 +87,19 @@ typedef struct sVFS_Node
 	 * \}
 	 */
 	
+	/**
+	 * \name Node State
+	 * \brief Stores the misc information about the node
+	 * \{
+	 */
 	 int	ReferenceCount;	//!< Number of times the node is used
 	
 	Uint64	Size;	//!< File Size
 	
 	Uint32	Flags;	//!< File Flags
+	/**
+	 * \}
+	 */
 	
 	/**
 	 * \name Times
@@ -219,7 +227,7 @@ typedef struct sVFS_Node
 	 * \param Node	Pointer to this node
 	 * \param OldName	Name of the item to move/delete
 	 * \param NewName	New name (or NULL if unlinking is wanted)
-	 * \return Boolean Success
+	 * \return Zero on Success, non-zero on error (see errno.h)
 	 */
 	 int	(*Relink)(struct sVFS_Node *Node, char *OldName, char *NewName);
 	 
