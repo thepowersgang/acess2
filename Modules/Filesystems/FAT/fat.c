@@ -12,7 +12,7 @@
  * \todo Implement changing of the parent directory when a file is written to
  * \todo Implement file creation / deletion
  */
-#define DEBUG	1
+#define DEBUG	0
 #define VERBOSE	1
 
 #define CACHE_FAT	1	//!< Caches the FAT in memory
@@ -105,7 +105,7 @@ tVFS_Node *FAT_InitDevice(char *Device, char **Options)
 	VFS_ReadAt(diskInfo->fileHandle, 0, 512, bs);
 	
 	if(bs->bps == 0 || bs->spc == 0) {
-		Log_Notice("FAT", "Error in FAT Boot Sector\n");
+		Log_Notice("FAT", "Error in FAT Boot Sector");
 		return NULL;
 	}
 	
@@ -180,7 +180,7 @@ tVFS_Node *FAT_InitDevice(char *Device, char **Options)
 	Uint32	Ofs;
 	diskInfo->FATCache = (Uint32*)malloc(sizeof(Uint32)*diskInfo->ClusterCount);
 	if(diskInfo->FATCache == NULL) {
-		Log_Warning("FAT", "Heap Exhausted\n");
+		Log_Warning("FAT", "Heap Exhausted");
 		return NULL;
 	}
 	Ofs = bs->resvSectCount*512;
@@ -639,8 +639,8 @@ Uint64 FAT_Read(tVFS_Node *Node, Uint64 offset, Uint64 length, void *buffer)
 	cluster = FAT_int_GetFatValue(disk, cluster);
 	
 	#if DEBUG
-	LOG("pos=%i\n", pos);
-	LOG("Reading the rest of the clusters\n");
+	LOG("pos=%i", pos);
+	LOG("Reading the rest of the clusters");
 	#endif
 	
 	
@@ -663,7 +663,7 @@ Uint64 FAT_Read(tVFS_Node *Node, Uint64 offset, Uint64 length, void *buffer)
 	memcpy((void*)(buffer+pos), tmpBuf, length-pos);
 	
 	#if DEBUG
-	LOG("Free tmpBuf(0x%x) and Return\n", tmpBuf);
+	LOG("Free tmpBuf(0x%x) and Return", tmpBuf);
 	#endif
 	
 	free(tmpBuf);
