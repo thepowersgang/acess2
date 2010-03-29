@@ -3,12 +3,13 @@
  * Linker Script
  */
 
-lowStart = start - 0xC0000000;
-ENTRY(lowStart)
+//lowStart = start - 0xC0000000;
+ENTRY(start)
 OUTPUT_FORMAT(elf32-i386)
 
 SECTIONS {
 	. = 0x100000;
+	__load_addr = .;
 	.multiboot : AT(ADDR(.multiboot)) {
 		*(.multiboot)
 	}
@@ -58,6 +59,7 @@ SECTIONS {
 		*(.data)
 	}
 
+	__bss_start = .;
 	.bss : AT(ADDR(.bss) - 0xC0000000) {
 		_sbss = .;
 		*(COMMON)

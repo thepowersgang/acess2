@@ -39,10 +39,12 @@ void MM_Install(tMBoot_Info *MBoot)
 	tMBoot_MMapEnt	*ent;
 	
 	// --- Find largest address
+	Log("MBoot->MMapAddr = %08x", MBoot->MMapAddr);
 	MBoot->MMapAddr |= KERNEL_BASE;
 	ent = (void *)( MBoot->MMapAddr );
 	while( (Uint)ent < MBoot->MMapAddr + MBoot->MMapLength )
 	{
+		Log(" ent->Size = %08x", ent->Size);
 		// Adjust for size
 		ent->Size += 4;
 		
@@ -89,10 +91,12 @@ void MM_Install(tMBoot_Info *MBoot)
 	// Mark Multiboot's pages as taken
 	// - Structure
 	MM_RefPhys( (Uint)MBoot - KERNEL_BASE );
+	Log("MBoot->ModuleCount = %i", MBoot->ModuleCount);
 	// - Module List
 	for(i = (MBoot->ModuleCount*sizeof(tMBoot_Module)+0xFFF)>12; i--; )
 		MM_RefPhys( MBoot->Modules + (i << 12) );
 	// - Modules
+	Log("MBoot->Modules = %p", MBoot->Modules);
 	mods = (void*)(MBoot->Modules + KERNEL_BASE);
 	for(i = 0; i < MBoot->ModuleCount; i++)
 	{

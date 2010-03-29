@@ -5,6 +5,8 @@
 #ifndef _MBOOT_H
 #define _MBOOT_H
 
+#define MULTIBOOT_MAGIC	0x2BADB002
+
 // === TYPES ===
 typedef struct {
 	Uint32	Flags;

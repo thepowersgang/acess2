@@ -5,6 +5,7 @@
  */
 #include <acess.h>
 #include <mboot.h>
+#include <multiboot2.h>
 #include <init.h>
 #include <mm_virt.h>
 #include <mp.h>
@@ -26,19 +27,46 @@ extern void	Threads_Exit(void);
 extern int	Modules_LoadBuiltins(void);
 
 // === GLOBALS ===
+char	*gsBootCmdLine = NULL;
 
 // === CODE ===
-int kmain(Uint MbMagic, tMBoot_Info *MbInfo)
+int kmain(Uint MbMagic, void *MbInfoPtr)
 {
 	 int	i;
 	tMBoot_Module	*mods;
+	tMBoot_Info	*mbInfo;
 	
-	// Adjust Multiboot structure address
-	MbInfo = (void*)( (Uint)MbInfo + KERNEL_BASE );
+	Log("MbMagic = %08x", MbMagic);
+	Log("MbInfoPtr = %p", MbInfoPtr);
 	
+	// Set up non-boot info dependent stuff
 	Desctab_Install();	// Set up GDT and IDT
 	MM_PreinitVirtual();	// Initialise vital mappings
-	MM_Install( MbInfo );	// Set up physical memory manager
+	
+	switch(MbMagic)
+	{
+	// Multiboot 1
+	case MULTIBOOT_MAGIC:
+		// Adjust Multiboot structure address
+		mbInfo = (void*)( (Uint)MbInfoPtr + KERNEL_BASE );
+		gsBootCmdLine = (char*)(mbInfo->CommandLine + KERNEL_BASE);
+		
+		MM_Install( mbInfo );	// Set up physical memory manager
+		break;
+	
+	// Multiboot 2
+	case MULTIBOOT2_MAGIC:
+		Warning("Multiboot 2 Not yet supported");
+		//MM_InstallMBoot2( MbInfo );	// Set up physical memory manager
+		return 0;
+		break;
+	
+	default:
+		Panic("Multiboot magic invalid %08x, expected %08x or %08x\n",
+			MbMagic, MULTIBOOT_MAGIC, MULTIBOOT2_MAGIC);
+		return 0;
+	}
+	
 	MM_InstallVirtual();	// Clean up virtual address space
 	Heap_Install();		// Create initial heap
 	
@@ -57,11 +85,11 @@ int kmain(Uint MbMagic, tMBoot_Info *MbInfo)
 	Log("Initialising builtin modules...");
 	Modules_LoadBuiltins();
 	
-	Log("Loading %i Modules...", MbInfo->ModuleCount);
+	Log("Loading %i Modules...", mbInfo->ModuleCount);
 	
 	// Load initial modules
-	mods = (void*)( MbInfo->Modules + KERNEL_BASE );
-	for( i = 0; i < MbInfo->ModuleCount; i ++ )
+	mods = (void*)( mbInfo->Modules + KERNEL_BASE );
+	for( i = 0; i < mbInfo->ModuleCount; i ++ )
 	{
 		// Adjust into higher half
 		mods[i].Start += KERNEL_BASE;
@@ -78,7 +106,7 @@ int kmain(Uint MbMagic, tMBoot_Info *MbInfo)
 	
 	// Pass on to Independent Loader
 	Log("Loading Configuration...");
-	System_Init( (char*)(MbInfo->CommandLine + KERNEL_BASE) );
+	System_Init( gsBootCmdLine );
 	
 	// Sleep forever (sleeping beauty)
 	for(;;)

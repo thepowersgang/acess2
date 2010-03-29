@@ -5,6 +5,9 @@
 
 KERNEL_BASE	equ 0xC0000000
 
+[extern __load_addr]
+[extern __bss_start]
+[extern gKernelEnd]
 [section .multiboot]
 mboot:
     ; Multiboot macros to make a few lines later more readable
@@ -19,6 +22,37 @@ mboot:
     dd MULTIBOOT_HEADER_FLAGS
     dd MULTIBOOT_CHECKSUM
 	dd mboot - KERNEL_BASE	;Location of Multiboot Header
+	
+; Multiboot 2 Header
+mboot2:
+    MULTIBOOT2_HEADER_MAGIC	equ 0xE85250D6
+    MULTIBOOT2_HEADER_ARCH	equ 0
+    MULTIBOOT2_HEADER_LENGTH	equ (mboot2_end-mboot2)
+    MULTIBOOT2_CHECKSUM	equ -(MULTIBOOT2_HEADER_MAGIC + MULTIBOOT2_HEADER_ARCH + MULTIBOOT2_HEADER_LENGTH)
+	
+    dd MULTIBOOT2_HEADER_MAGIC
+    dd MULTIBOOT2_HEADER_ARCH
+    dd MULTIBOOT2_HEADER_LENGTH
+    dd MULTIBOOT2_CHECKSUM
+	; MBoot2 Address Header
+	dw	2, 0
+	dd	8 + 16
+	dd	mboot2	; Location of Multiboot Header
+	dd	__load_addr - KERNEL_BASE	; Kernel Load base
+	dd	__bss_start - KERNEL_BASE	; Kernel Data End
+	dd	gKernelEnd - KERNEL_BASE	; Kernel BSS End
+	; MBoot2 Entry Point Tag
+	dw	3, 0
+	dd	8 + 4
+	dd	start - KERNEL_BASE
+	; MBoot2 Module Alignment Tag
+	dw	6, 0
+	dd	12	; ???
+	dd	0	; Search me, seems it wants padding
+	; Terminator
+	dw	0, 0
+	dd	8
+mboot2_end:
 	
 [section .text]
 [extern kmain]
