@@ -15,7 +15,7 @@
 
 #define INT
 
-// === TYPEDEFS ===
+// === TYPES ===
 typedef struct {
 	Uint16	width;
 	Uint16	height;

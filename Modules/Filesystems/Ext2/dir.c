@@ -57,7 +57,7 @@ char *Ext2_ReadDir(tVFS_Node *Node, int Pos)
 		if(ofs >= disk->BlockSize) {
 			block ++;
 			if( ofs > disk->BlockSize ) {
-				Warning("[EXT2] Directory Entry %i of inode %i extends over a block boundary, ignoring",
+				Log_Warning("EXT2", "Directory Entry %i of inode %i extends over a block boundary, ignoring",
 					entNum-1, Node->Inode);
 			}
 			ofs = 0;
@@ -135,7 +135,7 @@ tVFS_Node *Ext2_FindDir(tVFS_Node *Node, char *Filename)
 		if(ofs >= disk->BlockSize) {
 			block ++;
 			if( ofs > disk->BlockSize ) {
-				Warning("[EXT2 ] Directory Entry %i of inode %i extends over a block boundary, ignoring",
+				Log_Warning("EXT2", "Directory Entry %i of inode %i extends over a block boundary, ignoring",
 					entNum-1, Node->Inode);
 			}
 			ofs = 0;
@@ -220,7 +220,7 @@ tVFS_Node *Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeID, char *Name)
 	//if(Name[0] == '.')	retNode.Flags |= VFS_FFLAG_HIDDEN;
 	
 	// Set Timestamps
-	retNode.ATime = now();
+	retNode.ATime = inode.i_atime * 1000;
 	retNode.MTime = inode.i_mtime * 1000;
 	retNode.CTime = inode.i_ctime * 1000;
 	

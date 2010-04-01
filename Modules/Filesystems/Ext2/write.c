@@ -90,7 +90,7 @@ Uint64 Ext2_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		base = Ext2_int_GetBlockAddr(disk, inode.i_block, allocSize/disk->BlockSize-1);
 	
 addBlocks:
-	Warning("[EXT2 ] File extending is untested");
+	Log_Notice("EXT2", "File extending is untested");
 	
 	// Allocate blocks and copy data to them
 	retLen = Length - (allocSize-Offset);
@@ -201,7 +201,7 @@ Uint32 Ext2_int_AllocateBlock(tExt2_Disk *Disk, Uint32 PrevBlock)
 	else
 	{
 	checkAll:
-		Warning("[EXT2 ] TODO - Implement using blocks outside the current block group");
+		Log_Warning("EXT2", "TODO - Implement using blocks outside the current block group");
 		return 0;
 	}
 	

@@ -13,7 +13,7 @@
 void USB_MakeToken(void *Buf, int PID, int Addr, int EndP)
 {
 	Uint8	*tok = Buf;
-	 int	crc = 0;	//USB_TokenCRC();
+	 int	crc = 0;
 	
 	tok[0] = PID & 0xFF;
 	tok[1] = (Addr & 0x7F) | ((EndP&1)<<7);
@@ -21,13 +21,17 @@ void USB_MakeToken(void *Buf, int PID, int Addr, int EndP)
 }
 
 #if 0
-void USB_SendPacket(int Controller, int PID, int Dev, int Endpoint, void *Data, int Length)
+void USB_SendData(int Controller, int Dev, int Endpoint, void *Data, int Length)
 {
-	uint8_t	buf[Length/*+??*/];
+	Uint8	buf[Length+3+2/*?*/];
+	
+	USB_MakeToken(buf, PID_DATA0, Dev, Endpoint);
+	
 	switch(Controller & 0xF00)
 	{
-	case 1:
+	case 1:	// UHCI
 		UHCI_SendPacket(Controller & 0xFF);
+		break;
 	}
 }
 #endif

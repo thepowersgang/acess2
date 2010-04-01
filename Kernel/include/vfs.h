@@ -97,6 +97,12 @@ typedef struct sVFS_Node
 	Uint64	Size;	//!< File Size
 	
 	Uint32	Flags;	//!< File Flags
+	
+	/**
+	 * Pointer to cached data (FS Specific)
+	 * \note Inode_* will free when the node is uncached this if needed
+	 */
+	void	*Data;
 	/**
 	 * \}
 	 */

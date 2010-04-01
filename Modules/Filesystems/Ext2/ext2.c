@@ -33,7 +33,6 @@ tVFS_Driver	gExt2_FSInfo = {
 	};
 
 // === CODE ===
-
 /**
  * \fn int Ext2_Install(char **Arguments)
  * \brief Install the Ext2 Filesystem Driver
@@ -64,7 +63,7 @@ tVFS_Node *Ext2_InitDevice(char *Device, char **Options)
 	// Open Disk
 	fd = VFS_Open(Device, VFS_OPENFLAG_READ|VFS_OPENFLAG_WRITE);		//Open Device
 	if(fd == -1) {
-		Warning("[EXT2 ] Unable to open '%s'", Device);
+		Log_Warning("EXT2", "Unable to open '%s'", Device);
 		LEAVE('n');
 		return NULL;
 	}
@@ -74,7 +73,7 @@ tVFS_Node *Ext2_InitDevice(char *Device, char **Options)
 	
 	// Sanity Check Magic value
 	if(sb.s_magic != 0xEF53) {
-		Warning("[EXT2 ] Volume '%s' is not an EXT2 volume", Device);
+		Log_Warning("EXT2", "Volume '%s' is not an EXT2 volume", Device);
 		VFS_Close(fd);
 		LEAVE('n');
 		return NULL;
@@ -87,7 +86,7 @@ tVFS_Node *Ext2_InitDevice(char *Device, char **Options)
 	// Allocate Disk Information
 	disk = malloc(sizeof(tExt2_Disk) + sizeof(tExt2_Group)*groupCount);
 	if(!disk) {
-		Warning("[EXT2 ] Unable to allocate disk structure");
+		Log_Warning("EXT2", "Unable to allocate disk structure");
 		VFS_Close(fd);
 		LEAVE('n');
 		return NULL;
@@ -187,7 +186,7 @@ int Ext2_int_ReadInode(tExt2_Disk *Disk, Uint32 InodeId, tExt2_Inode *Inode)
 {
 	 int	group, subId;
 	
-	//ENTER("pDisk iInodeId pInode", Disk, InodeId, Inode);
+	ENTER("pDisk iInodeId pInode", Disk, InodeId, Inode);
 	
 	if(InodeId == 0)	return 0;
 	
@@ -196,7 +195,7 @@ int Ext2_int_ReadInode(tExt2_Disk *Disk, Uint32 InodeId, tExt2_Inode *Inode)
 	group = InodeId / Disk->SuperBlock.s_inodes_per_group;
 	subId = InodeId % Disk->SuperBlock.s_inodes_per_group;
 	
-	//LOG("group=%i, subId = %i", group, subId);
+	LOG("group=%i, subId = %i", group, subId);
 	
 	// Read Inode
 	VFS_ReadAt(Disk->FD,
@@ -204,7 +203,7 @@ int Ext2_int_ReadInode(tExt2_Disk *Disk, Uint32 InodeId, tExt2_Inode *Inode)
 		sizeof(tExt2_Inode),
 		Inode);
 	
-	//LEAVE('i', 1);
+	LEAVE('i', 1);
 	return 1;
 }
 
@@ -216,7 +215,10 @@ int Ext2_int_WriteInode(tExt2_Disk *Disk, Uint32 InodeId, tExt2_Inode *Inode)
 	 int	group, subId;
 	ENTER("pDisk iInodeId pInode", Disk, InodeId, Inode);
 	
-	if(InodeId == 0)	return 0;
+	if(InodeId == 0) {
+		LEAVE('i', 0);
+		return 0;
+	}
 	
 	InodeId --;	// Inodes are numbered starting at 1
 	
@@ -229,7 +231,8 @@ int Ext2_int_WriteInode(tExt2_Disk *Disk, Uint32 InodeId, tExt2_Inode *Inode)
 	VFS_WriteAt(Disk->FD,
 		Disk->Groups[group].bg_inode_table * Disk->BlockSize + sizeof(tExt2_Inode)*subId,
 		sizeof(tExt2_Inode),
-		Inode);
+		Inode
+		);
 	
 	LEAVE('i', 1);
 	return 1;
@@ -293,6 +296,7 @@ Uint64 Ext2_int_GetBlockAddr(tExt2_Disk *Disk, Uint32 *Blocks, int BlockNum)
 Uint32 Ext2_int_AllocateInode(tExt2_Disk *Disk, Uint32 Parent)
 {
 //	Uint	block = (Parent - 1) / Disk->SuperBlock.s_inodes_per_group;
+	Log_Warning("EXT2", "Ext2_int_AllocateInode is unimplemented");
 	return 0;
 }
 

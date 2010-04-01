@@ -88,6 +88,9 @@ struct sUSBHost
 struct sUSBDevice
 {
 	tUSBHost	*Host;
+	 int	MaxControl;
+	 int	MaxBulk;
+	 int	MaxISync;
 };
 
 #endif
