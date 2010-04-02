@@ -5,14 +5,31 @@
  * Text mode entry with history
  */
 #include <readline.h>
+#include <acess/sys.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+#define STDIN_FD	0
+#define STDOUT_FD	1
+
+// === PROTOTYPES ===
+ int	SoMain();
+tReadline	*Readline_CreateInstance(int bUseHistory);
+char	*Readline(tReadline *Info);
 
 // === GLOBALS ===
 
 // === CODE ===
+int SoMain()
+{
+	return 0;
+}
+
 char *Readline(tReadline *Info)
 {
 	char	*ret;
+	char	*orig;
 	 int	len, pos, space = 1023-8-8;	// optimised for the heap manager
 	char	ch;
 	 int	scrollbackPos = Info->NumHistory;
@@ -21,10 +38,12 @@ char *Readline(tReadline *Info)
 	ret = malloc( space+1 );
 	if(!ret)	return NULL;
 	len = 0;	pos = 0;
-		
+	
+	orig = ret;
+	
 	// Read In Command Line
 	do {
-		read(_stdin, 1, &ch);	// Read Character from stdin (read is a blocking call)
+		read(STDIN_FD, 1, &ch);	// Read Character from stdin (read is a blocking call)
 		
 		if(ch == '\n')	break;
 		
@@ -32,13 +51,13 @@ char *Readline(tReadline *Info)
 		{
 		// Control characters
 		case '\x1B':
-			read(_stdin, 1, &ch);	// Read control character
+			read(STDIN_FD, 1, &ch);	// Read control character
 			switch(ch)
 			{
 			//case 'D':	if(pos)	pos--;	break;
 			//case 'C':	if(pos<len)	pos++;	break;
 			case '[':
-				read(_stdin, 1, &ch);	// Read control character
+				read(STDIN_FD, 1, &ch);	// Read control character
 				switch(ch)
 				{
 				case 'A':	// Up
@@ -46,13 +65,13 @@ char *Readline(tReadline *Info)
 						 int	oldLen = len;
 						if( scrollbackPos <= 0 )	break;
 						
-						free(ret);
+						if(ret != orig)	free(ret);
 						ret = strdup( Info->History[--scrollbackPos] );
 						
-						len = strlen(ret);
-						while(pos--)	write(_stdout, 3, "\x1B[D");
-						write(_stdout, len, ret);	pos = len;
-						while(pos++ < oldLen)	write(_stdout, 1, " ");
+						space = len = strlen(ret);
+						while(pos-->1)	write(STDOUT_FD, 3, "\x1B[D");
+						write(STDOUT_FD, len, ret);	pos = len;
+						while(pos++ < oldLen)	write(STDOUT_FD, 1, " ");
 					}
 					break;
 				case 'B':	// Down
@@ -60,24 +79,24 @@ char *Readline(tReadline *Info)
 						 int	oldLen = len;
 						if( scrollbackPos >= Info->NumHistory )	break;
 						
-						free(ret);
+						if(ret != orig)	free(ret);
 						ret = strdup( Info->History[scrollbackPos++] );
 						
-						len = strlen(ret);
-						while(pos--)	write(_stdout, 3, "\x1B[D");
-						write(_stdout, len, ret);	pos = len;
-						while(pos++ < oldLen)	write(_stdout, 1, " ");
+						space = len = strlen(ret);
+						while(pos-->1)	write(STDOUT_FD, 3, "\x1B[D");
+						write(STDOUT_FD, len, ret);	pos = len;
+						while(pos++ < oldLen)	write(STDOUT_FD, 1, " ");
 					}
 					break;
 				case 'D':	// Left
 					if(pos == 0)	break;
 					pos --;
-					write(_stdout, 3, "\x1B[D");
+					write(STDOUT_FD, 3, "\x1B[D");
 					break;
 				case 'C':	// Right
 					if(pos == len)	break;
 					pos++;
-					write(_stdout, 3, "\x1B[C");
+					write(STDOUT_FD, 3, "\x1B[C");
 					break;
 				}
 			}
@@ -86,7 +105,7 @@ char *Readline(tReadline *Info)
 		// Backspace
 		case '\b':
 			if(len <= 0)		break;	// Protect against underflows
-			write(_stdout, 1, &ch);
+			write(STDOUT_FD, 1, &ch);
 			if(pos == len) {	// Simple case of end of string
 				len --;
 				pos--;
@@ -96,9 +115,9 @@ char *Readline(tReadline *Info)
 				buf[2] += ((len-pos+1)/100) % 10;
 				buf[3] += ((len-pos+1)/10) % 10;
 				buf[4] += (len-pos+1) % 10;
-				write(_stdout, len-pos, &ret[pos]);	// Move Text
-				ch = ' ';	write(_stdout, 1, &ch);	ch = '\b';	// Clear deleted character
-				write(_stdout, 7, buf);	// Update Cursor
+				write(STDOUT_FD, len-pos, &ret[pos]);	// Move Text
+				ch = ' ';	write(STDOUT_FD, 1, &ch);	ch = '\b';	// Clear deleted character
+				write(STDOUT_FD, 7, buf);	// Update Cursor
 				// Alter Buffer
 				memmove(&ret[pos-1], &ret[pos], len-pos);
 				pos --;
@@ -116,7 +135,12 @@ char *Readline(tReadline *Info)
 			// Expand Buffer
 			if(len+1 > space) {
 				space += 256;
-				ret = realloc(ret, space+1);
+				if(ret == orig) {
+					orig = ret = realloc(ret, space+1);
+				}
+				else {
+					ret = realloc(ret, space+1);
+				}
 				if(!ret)	return NULL;
 			}
 			
@@ -126,13 +150,13 @@ char *Readline(tReadline *Info)
 				buf[2] += ((len-pos)/100) % 10;
 				buf[3] += ((len-pos)/10) % 10;
 				buf[4] += (len-pos) % 10;
-				write(_stdout, 1, &ch);	// Print new character
-				write(_stdout, len-pos, &ret[pos]);	// Move Text
-				write(_stdout, 7, buf);	// Update Cursor
+				write(STDOUT_FD, 1, &ch);	// Print new character
+				write(STDOUT_FD, len-pos, &ret[pos]);	// Move Text
+				write(STDOUT_FD, 7, buf);	// Update Cursor
 				memmove( &ret[pos+1], &ret[pos], len-pos );
 			}
 			else {
-				write(_stdout, 1, &ch);
+				write(STDOUT_FD, 1, &ch);
 			}
 			ret[pos++] = ch;
 			len ++;
@@ -150,7 +174,7 @@ char *Readline(tReadline *Info)
 	// Add to history
 	if( Info->UseHistory )
 	{
-		if( strcmp( Info->History[ Info->NumHistory-1 ], ret) != 0 )
+		if( !Info->History || strcmp( Info->History[ Info->NumHistory-1 ], ret) != 0 )
 		{
 			void	*tmp;
 			Info->NumHistory ++;
@@ -162,6 +186,8 @@ char *Readline(tReadline *Info)
 			}
 		}
 	}
+	
+	if(ret != orig)	free(orig);
 	
 	return ret;
 }

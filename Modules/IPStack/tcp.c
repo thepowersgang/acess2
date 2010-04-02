@@ -482,6 +482,13 @@ tVFS_Node *TCP_Server_Init(tInterface *Interface)
 {
 	tTCPListener	*srv = malloc( sizeof(tTCPListener) );
 
+	Log_Debug("TCP", "srv = %p", srv);
+
+	if( srv == NULL ) {
+		Log_Warning("TCP", "malloc failed for listener (%i) bytes", sizeof(tTCPListener));
+		return NULL;
+	}
+
 	srv->Interface = Interface;
 	srv->Port = 0;
 	srv->NextID = 0;

@@ -64,6 +64,7 @@ int KB_Install(char **Arguments)
 	temp = inb(0x61);
 	outb(0x61, temp | 0x80);
 	outb(0x61, temp & 0x7F);
+	inb(0x60);	// Clear keyboard buffer
 	
 	IRQ_AddHandler(1, KB_IRQHandler);
 	DevFS_AddDevice( &gKB_DevInfo );
@@ -81,7 +82,8 @@ void KB_IRQHandler()
 	Uint32	ch;
 	// int	keyNum;
 
-	//if( inportb(0x64) & 0x20 )	return;
+	// Check port 0x64 to tell if this is from the aux port
+	if( inb(0x64) & 0x20 )	return;
 
 	scancode = inb(0x60); // Read from the keyboard's data buffer
 	//Log_Debug("Keyboard", "scancode = %02x", scancode);
