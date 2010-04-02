@@ -15,7 +15,7 @@ CPPFLAGS = -I$(ACESSDIR)/Kernel/include -I$(ACESSDIR)/Kernel/arch/$(ARCHDIR)/inc
 CFLAGS = -Wall -Werror -fno-stack-protector $(CPPFLAGS) -O3
 
 OBJ := $(addsuffix .$(ARCH),$(OBJ))
-ifeq ($(CATEGORY),)
+ifneq ($(CATEGORY),)
 	BIN := ../$(CATEGORY)_$(NAME).kmd.$(ARCH)
 else
 	BIN := ../$(NAME).kmd.$(ARCH)

@@ -224,7 +224,7 @@ extern void	MM_FreeTemp(tVAddr VAddr);
  * \param PAddr	Physical address to map in
  * \param Number	Number of pages to map
  */
-extern tVAddr	MM_MapHWPage(tPAddr PAddr, Uint Number);
+extern tVAddr	MM_MapHWPages(tPAddr PAddr, Uint Number);
 /**
  * \brief Allocates DMA physical memory
  * \param Pages	Number of pages required
@@ -238,7 +238,7 @@ extern tVAddr	MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr);
  * \param VAddr	Virtual address allocate by ::MM_MapHWPage or ::MM_AllocDMA
  * \param Number	Number of pages to free
  */
-extern void	MM_UnmapHWPage(tVAddr VAddr, Uint Number);
+extern void	MM_UnmapHWPages(tVAddr VAddr, Uint Number);
 /**
  * \brief Allocate a single physical page
  * \return Physical address allocated
@@ -381,12 +381,14 @@ extern int	Proc_Spawn(char *Path);
 extern void	Threads_Exit();
 extern void	Threads_Yield();
 extern void	Threads_Sleep();
+extern void	Threads_WakeTID(tTID Thread);
 extern tPID	Threads_GetPID();
 extern tTID	Threads_GetTID();
 extern tUID	Threads_GetUID();
 extern tGID	Threads_GetGID();
 extern int	SpawnTask(tThreadFunction Function, void *Arg);
 extern Uint	*Threads_GetCfgPtr(int Id);
+extern int	Threads_SetName(char *NewName);
 /**
  * \}
  */

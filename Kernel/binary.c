@@ -24,7 +24,6 @@ typedef struct sKernelBin {
 
 // === IMPORTS ===
 extern int	Proc_Clone(Uint *Err, Uint Flags);
-extern void	Threads_SetName(char *Name);
 extern char	*Threads_GetName(int ID);
 extern void	Threads_Exit(int, int);
 extern Uint	MM_ClearUser();

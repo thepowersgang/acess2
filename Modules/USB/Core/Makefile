@@ -2,6 +2,6 @@
 #
 
 OBJ = main.o uhci.o
-NAME = USB
+NAME = Core
 
 -include ../Makefile.tpl

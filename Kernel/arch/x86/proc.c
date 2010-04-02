@@ -15,6 +15,7 @@
 
 // === CONSTANTS ===
 #define	SWITCH_MAGIC	0xFFFACE55	// There is no code in this area
+// Base is 1193182
 #define TIMER_DIVISOR	11931	//~100Hz
 
 // === IMPORTS ===
@@ -47,6 +48,7 @@ void	Proc_Start();
 tThread	*Proc_GetCurThread();
 void	Proc_ChangeStack();
  int	Proc_Clone(Uint *Err, Uint Flags);
+void	Proc_StartProcess(Uint16 SS, Uint Stack, Uint Flags, Uint16 CS, Uint IP);
 void	Proc_Scheduler();
 
 // === GLOBALS ===
@@ -601,13 +603,18 @@ void Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **
 	while(*Bases)
 		*--stack = *Bases++;
 	*--stack = 0;	// Return Address
-	delta = (Uint)stack;	// Reuse delta to save SP
 	
-	*--stack = ss;		//Stack Segment
-	*--stack = delta;	//Stack Pointer
-	*--stack = 0x0202;	//EFLAGS (Resvd (0x2) and IF (0x20))
-	*--stack = cs;		//Code Segment
-	*--stack = Entrypoint;	//EIP
+	Proc_StartProcess(ss, (Uint)stack, 0x202, cs, Entrypoint);
+}
+
+void Proc_StartProcess(Uint16 SS, Uint Stack, Uint Flags, Uint16 CS, Uint IP)
+{
+	Uint	*stack = (void*)Stack;
+	*--stack = SS;		//Stack Segment
+	*--stack = Stack;	//Stack Pointer
+	*--stack = Flags;	//EFLAGS (Resvd (0x2) and IF (0x20))
+	*--stack = CS;		//Code Segment
+	*--stack = IP;	//EIP
 	//PUSHAD
 	*--stack = 0xAAAAAAAA;	// eax
 	*--stack = 0xCCCCCCCC;	// ecx
@@ -618,10 +625,10 @@ void Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **
 	*--stack = 0x51515151;	// esi
 	*--stack = 0xB4B4B4B4;	// ebp
 	//Individual PUSHs
-	*--stack = ss;	// ds
-	*--stack = ss;	// es
-	*--stack = ss;	// fs
-	*--stack = ss;	// gs
+	*--stack = SS;	// ds
+	*--stack = SS;	// es
+	*--stack = SS;	// fs
+	*--stack = SS;	// gs
 	
 	__asm__ __volatile__ (
 	"mov %%eax,%%esp;\n\t"	// Set stack pointer

@@ -25,7 +25,7 @@ extern int	Proc_Clone(Uint *Err, Uint Flags);
 
 // === PROTOTYPES ===
 void	Threads_Init();
-void	Threads_SetName(char *NewName);
+ int	Threads_SetName(char *NewName);
 char	*Threads_GetName(int ID);
 void	Threads_SetTickets(int Num);
 tThread	*Threads_CloneTCB(Uint *Err, Uint Flags);
@@ -118,13 +118,14 @@ void Threads_Init()
  * \fn void Threads_SetName(char *NewName)
  * \brief Sets the current thread's name
  */
-void Threads_SetName(char *NewName)
+int Threads_SetName(char *NewName)
 {
 	tThread	*cur = Proc_GetCurThread();
 	if( IsHeap(cur->ThreadName) )
 		free( cur->ThreadName );
 	cur->ThreadName = malloc(strlen(NewName)+1);
 	strcpy(cur->ThreadName, NewName);
+	return 0;
 }
 
 /**
@@ -467,7 +468,7 @@ void Threads_Sleep()
 	tThread *cur = Proc_GetCurThread();
 	tThread *thread;
 	
-	Log("Proc_Sleep: %i going to sleep", cur->TID);
+	Log_Log("Threads", "%i going to sleep", cur->TID);
 	
 	// Acquire Spinlock
 	LOCK( &giThreadListLock );
@@ -506,7 +507,9 @@ void Threads_Sleep()
 	// Release Spinlock
 	RELEASE( &giThreadListLock );
 	
-	while(cur->Status != THREAD_STAT_ACTIVE)	HALT();
+	while(cur->Status == THREAD_STAT_SLEEPING)	HALT();
+	//HALT();
+	Log_Debug("VM8086", "What a lovely sleep");
 }
 
 
@@ -521,11 +524,14 @@ void Threads_Wake(tThread *Thread)
 	{
 	case THREAD_STAT_ACTIVE:	break;
 	case THREAD_STAT_SLEEPING:
+		Log_Log("Threads", "Waking %i (%p) from sleeping", Thread->TID, Thread);
 		LOCK( &giThreadListLock );
 		prev = Threads_int_GetPrev(&gSleepingThreads, Thread);
 		prev->Next = Thread->Next;	// Remove from sleeping queue
 		Thread->Next = gActiveThreads;	// Add to active queue
 		gActiveThreads = Thread;
+		giNumActiveThreads ++;
+		giTotalTickets += Thread->NumTickets;
 		Thread->Status = THREAD_STAT_ACTIVE;
 		RELEASE( &giThreadListLock );
 		break;
@@ -539,6 +545,11 @@ void Threads_Wake(tThread *Thread)
 		Warning("Thread_Wake - Unknown process status (%i)\n", Thread->Status);
 		break;
 	}
+}
+
+void Threads_WakeTID(tTID Thread)
+{
+	Threads_Wake( Threads_GetThread(Thread) );
 }
 
 /**
@@ -690,10 +701,15 @@ tThread *Threads_GetNextToRun(int CPU)
 	 int	ticket;
 	 int	number;
 	
-	if(giNumActiveThreads == 0)	return NULL;
+	if(giNumActiveThreads == 0) {
+		//Log_Debug("Threads", "CPU%i has no threads to run", CPU);
+		return NULL;
+	}
 	
 	// Special case: 1 thread
 	if(giNumActiveThreads == 1) {
+		//Log_Debug("Threads", "CPU%i has only one thread %i %s",
+		//	CPU, gActiveThreads->TID, gActiveThreads->ThreadName);
 		return gActiveThreads;
 	}
 	
@@ -720,6 +736,9 @@ tThread *Threads_GetNextToRun(int CPU)
 		Panic("Bookeeping Failed - giTotalTicketCount (%i) != true count (%i)",
 			giTotalTickets, number);
 	}
+	
+	//Log_Debug("Threads", "Switching CPU%i to %p (%s)",
+	//	CPU, thread, thread->ThreadName);
 	
 	return thread;
 }

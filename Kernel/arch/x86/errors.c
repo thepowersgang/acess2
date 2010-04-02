@@ -11,6 +11,7 @@
 
 // === IMPORTS ===
 extern void	MM_PageFault(Uint Addr, Uint ErrorCode, tRegs *Regs);
+extern void	VM8086_GPF(tRegs *Regs);
 extern void Threads_Dump();
 
 // === PROTOTYPES ===
@@ -44,10 +45,20 @@ void ErrorHandler(tRegs *Regs)
 	Uint	cr;
 	__asm__ __volatile__ ("cli");
 	
+	//Log_Debug("X86", "Error %i at 0x%08x", Regs->int_num, Regs->eip);
+	
+	// Page Fault
 	if(Regs->int_num == 14)
 	{
 		__asm__ __volatile__ ("mov %%cr2, %0":"=r"(cr));
 		MM_PageFault( cr, Regs->err_code, Regs );
+		return ;
+	}
+	
+	// VM8086 GPF
+	if(Regs->int_num == 13 && Regs->eflags & 0x20000)
+	{
+		VM8086_GPF(Regs);
 		return ;
 	}
 	

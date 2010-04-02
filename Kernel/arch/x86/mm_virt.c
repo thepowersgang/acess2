@@ -895,10 +895,10 @@ void MM_FreeTemp(tVAddr VAddr)
 }
 
 /**
- * \fn tVAddr MM_MapHWPage(tPAddr PAddr, Uint Number)
+ * \fn tVAddr MM_MapHWPages(tPAddr PAddr, Uint Number)
  * \brief Allocates a contigous number of pages
  */
-tVAddr MM_MapHWPage(tPAddr PAddr, Uint Number)
+tVAddr MM_MapHWPages(tPAddr PAddr, Uint Number)
 {
 	 int	i, j;
 	
@@ -962,7 +962,7 @@ tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 	{
 		phys = MM_AllocPhys();
 		*PhysAddr = phys;
-		ret = MM_MapHWPage(phys, 1);
+		ret = MM_MapHWPages(phys, 1);
 		if(ret == 0) {
 			MM_DerefPhys(phys);
 			LEAVE('i', 0);
@@ -981,7 +981,7 @@ tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 	}
 	
 	// Allocated successfully, now map
-	ret = MM_MapHWPage(phys, Pages);
+	ret = MM_MapHWPages(phys, Pages);
 	if( ret == 0 ) {
 		// If it didn't map, free then return 0
 		for(;Pages--;phys+=0x1000)
@@ -996,10 +996,10 @@ tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 }
 
 /**
- * \fn void MM_UnmapHWPage(tVAddr VAddr, Uint Number)
+ * \fn void MM_UnmapHWPages(tVAddr VAddr, Uint Number)
  * \brief Unmap a hardware page
  */
-void MM_UnmapHWPage(tVAddr VAddr, Uint Number)
+void MM_UnmapHWPages(tVAddr VAddr, Uint Number)
 {
 	 int	i, j;
 	// Sanity Check
@@ -1022,6 +1022,6 @@ void MM_UnmapHWPage(tVAddr VAddr, Uint Number)
 EXPORT(MM_GetPhysAddr);
 EXPORT(MM_Map);
 //EXPORT(MM_Unmap);
-EXPORT(MM_MapHWPage);
+EXPORT(MM_MapHWPages);
 EXPORT(MM_AllocDMA);
-EXPORT(MM_UnmapHWPage);
+EXPORT(MM_UnmapHWPages);
