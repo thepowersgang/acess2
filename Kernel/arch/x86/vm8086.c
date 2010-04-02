@@ -16,7 +16,9 @@ enum eVM8086_Opcodes
 	VM8086_OP_PUSHF	= 0x9C,
 	VM8086_OP_POPF	= 0x9D,
 	VM8086_OP_INT_I	= 0xCD,
-	VM8086_OP_IRET	= 0xCF
+	VM8086_OP_IRET	= 0xCF,
+	VM8086_OP_IN_AD	= 0xEC,
+	VM8086_OP_IN_ADX= 0xED
 };
 #define VM8086_PAGES_PER_INST	4
 
@@ -69,7 +71,7 @@ int VM8086_Install(char **Arguments)
 		// Map ROM Area
 		for(i=0xA0;i<0x100;i++) {
 			MM_Map( i * 0x1000, i * 0x1000 );
-			MM_SetFlags( i * 0x1000, MM_PFLAG_RO, MM_PFLAG_RO );	// Set Read Only
+			//MM_SetFlags( i * 0x1000, MM_PFLAG_RO, MM_PFLAG_RO );	// Set Read Only
 		}
 		MM_Map( 0, 0 );	// IVT / BDA
 		for(i=0x70;i<0x80;i++) {
@@ -155,7 +157,7 @@ void VM8086_GPF(tRegs *Regs)
 			//Log_Log("VM8086", "gpVM8086_State = %p", gpVM8086_State);
 		}
 		
-		//Log_Log("VM8086", "We have a task");
+		//Log_Log("VM8086", "We have a task (%p)", gpVM8086_State);
 		Regs->esp -= 2;	*(Uint16*)( (Regs->ss<<4) + (Regs->esp&0xFFFF) ) = VM8086_MAGIC_CS;
 		Regs->esp -= 2;	*(Uint16*)( (Regs->ss<<4) + (Regs->esp&0xFFFF) ) = VM8086_MAGIC_IP;
 		Regs->esp -= 2;	*(Uint16*)( (Regs->ss<<4) + (Regs->esp&0xFFFF) ) = gpVM8086_State->CS;
@@ -211,12 +213,52 @@ void VM8086_GPF(tRegs *Regs)
 		}
 		break;
 	
-	case 0xCF:	//IRET
+	case VM8086_OP_IRET:	//IRET
 		Regs->eip = *(Uint16*)( Regs->ss*16 + (Regs->esp&0xFFFF) );	Regs->esp += 2;
 		Regs->cs  = *(Uint16*)( Regs->ss*16 + (Regs->esp&0xFFFF) );	Regs->esp += 2;
 		#if TRACE_EMU
 		Log_Debug("VM8086", "IRET to %04x:%04x", Regs->cs, Regs->eip);
 		#endif
+		break;
+	
+	
+	case VM8086_OP_IN_AD:	//IN AL, DX
+		Regs->eax &= 0xFFFFFF00;
+		Regs->eax |= inb(Regs->edx&0xFFFF);
+		#if TRACE_EMU
+		Log_Debug("VM8086", "Emulated IN AL, DX (Port 0x%x)\n", Regs->edx&0xFFFF);
+		#endif
+		break;
+	case VM8086_OP_IN_ADX:	//IN AX, DX
+		Regs->eax &= 0xFFFF0000;
+		Regs->eax |= inw(Regs->edx&0xFFFF);
+		#if TRACE_EMU
+		Log_Debug("VM8086", "Emulated IN AX, DX (Port 0x%x)\n", Regs->edx&0xFFFF);
+		#endif
+		break;
+		
+	case 0xEE:	//OUT DX, AL
+		outb(Regs->edx&0xFFFF, Regs->eax&0xFF);
+		#if TRACE_EMU
+		Log_Debug("VM8086", "Emulated OUT DX, AL (*0x%04x = 0x%02x)\n", Regs->edx&0xFFFF, Regs->eax&0xFF);
+		#endif
+		break;
+	case 0xEF:	//OUT DX, AX
+		outw(Regs->edx&0xFFFF, Regs->eax&0xFFFF);
+		#if TRACE_EMU
+		Log_Debug("VM8086", "Emulated OUT DX, AX (*0x%04x = 0x%04x)\n", Regs->edx&0xFFFF, Regs->eax&0xFFFF);
+		#endif
+		break;
+		
+	// TODO: Decide on allowing VM8086 Apps to enable/disable interrupts
+	case 0xFA:	//CLI
+		break;
+	case 0xFB:	//STI
+		break;
+	
+	case 0x66:
+		Log_Warning("VM8086", "Code at %04x:%04x attempted to use an operand override, ignored",
+			Regs->cs, Regs->eip);
 		break;
 	
 	default:

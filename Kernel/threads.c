@@ -468,7 +468,7 @@ void Threads_Sleep()
 	tThread *cur = Proc_GetCurThread();
 	tThread *thread;
 	
-	Log_Log("Threads", "%i going to sleep", cur->TID);
+	//Log_Log("Threads", "%i going to sleep", cur->TID);
 	
 	// Acquire Spinlock
 	LOCK( &giThreadListLock );
@@ -507,9 +507,7 @@ void Threads_Sleep()
 	// Release Spinlock
 	RELEASE( &giThreadListLock );
 	
-	while(cur->Status == THREAD_STAT_SLEEPING)	HALT();
-	//HALT();
-	Log_Debug("VM8086", "What a lovely sleep");
+	while(cur->Status != THREAD_STAT_ACTIVE)	HALT();
 }
 
 
@@ -524,7 +522,7 @@ void Threads_Wake(tThread *Thread)
 	{
 	case THREAD_STAT_ACTIVE:	break;
 	case THREAD_STAT_SLEEPING:
-		Log_Log("Threads", "Waking %i (%p) from sleeping", Thread->TID, Thread);
+		//Log_Log("Threads", "Waking %i (%p) from sleeping", Thread->TID, Thread);
 		LOCK( &giThreadListLock );
 		prev = Threads_int_GetPrev(&gSleepingThreads, Thread);
 		prev->Next = Thread->Next;	// Remove from sleeping queue

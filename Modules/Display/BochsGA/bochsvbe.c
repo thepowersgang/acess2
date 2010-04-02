@@ -1,7 +1,6 @@
 /**
  * \file drv_bochsvbe.c
- * \brief BGA (Bochs Graphic Adapter) Driver
- * \note for Acess2
+ * \brief BGA (Bochs Graphic Adapter) Driver for Acess2
  * \warning This driver does NOT support the Bochs PCI VGA driver
 */
 #define DEBUG	0

@@ -339,7 +339,10 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 	{
 		// Ooh, Goodie! Add it to the recieved list
 		TCP_INT_AppendRecieved(Connection, pkt);
-		Connection->NextSequenceRcv ++;
+		if(dataLen)
+			Connection->NextSequenceRcv += dataLen;
+		else
+			Connection->NextSequenceRcv += 1;
 		
 		// TODO: This should be moved out of the watcher thread,
 		// so that a single lost packet on one connection doesn't cause
@@ -348,7 +351,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 	}
 	
 	// TODO: Check ACK code validity
-	Header->AcknowlegementNumber = ntohl(pkt->Sequence);
+	Header->AcknowlegementNumber = ntohl(pkt->Sequence) + dataLen;
 	Header->SequenceNumber = ntohl(Connection->NextSequenceSend);
 	Header->Flags &= TCP_FLAG_SYN;
 	Header->Flags = TCP_FLAG_ACK;

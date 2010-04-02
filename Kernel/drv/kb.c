@@ -84,7 +84,7 @@ void KB_IRQHandler()
 	//if( inportb(0x64) & 0x20 )	return;
 
 	scancode = inb(0x60); // Read from the keyboard's data buffer
-	Log_Debug("KB", "scancode = %02x");
+	//Log_Debug("Keyboard", "scancode = %02x", scancode);
 
 	//Log("KB_IRQHandler: scancode = 0x%02x", scancode);
 
@@ -126,7 +126,7 @@ void KB_IRQHandler()
 	//keyNum = giKB_KeyLayer * 256 + scancode;
 	// Check for unknown key
 	if(!ch && !gbKB_KeyUp)
-		Warning("UNK %i %x", giKB_KeyLayer, scancode);
+		Log_Warning("Keyboard", "UNK %i %x", giKB_KeyLayer, scancode);
 
 	// Key Up?
 	if (gbKB_KeyUp)
@@ -173,11 +173,11 @@ void KB_IRQHandler()
 	#if USE_KERNEL_MAGIC
 	if(ch == KEY_LCTRL) {
 		gbKB_MagicState |= 1;
-		Log_Log("KB", "Kernel Magic LCTRL Down\n");
+		//Log_Log("Keyboard", "Kernel Magic LCTRL Down\n");
 	}
 	if(ch == KEY_LALT) {
 		gbKB_MagicState |= 2;
-		Log_Log("KB", "Kernel Magic LALT Down\n");
+		//Log_Log("Keyboard", "Kernel Magic LALT Down\n");
 	}
 	if(gbKB_MagicState == 3)
 	{

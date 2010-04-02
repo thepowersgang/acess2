@@ -4,6 +4,7 @@
  */
 #include <acess.h>
 #include <proc.h>
+#include <desctab.h>
 #include <mm_virt.h>
 #include <errno.h>
 #if USE_MP
@@ -20,6 +21,7 @@
 
 // === IMPORTS ===
 extern tGDT	gGDT[];
+extern tIDT	gIDT[];
 extern void APStartup();	// 16-bit AP startup code
 extern Uint	GetEIP();	// start.asm
 extern Uint32	gaInitPageDir[1024];	// start.asm
@@ -36,7 +38,7 @@ extern tThread	*gDeleteThreads;
 extern tThread	*Threads_GetNextToRun(int CPU);
 extern void	Threads_Dump();
 extern tThread	*Threads_CloneTCB(Uint *Err, Uint Flags);
-extern void	Isr7();
+extern void	Isr8();	// Double Fault
 
 // === PROTOTYPES ===
 void	ArchThreads_Init();
@@ -72,7 +74,12 @@ char	gaDoubleFaultStack[1024];
 tTSS	gDoubleFault_TSS = {
 	.ESP0 = (Uint)&gaDoubleFaultStack[1023],
 	.SS0 = 0x10,
-	.EIP = (Uint)Isr7
+	.CR3 = (Uint)gaInitPageDir - KERNEL_BASE,
+	.EIP = (Uint)Isr8,
+	.ESP = (Uint)&gaDoubleFaultStack[1023],
+	.CS = 0x08,	.SS = 0x10,
+	.DS = 0x10,	.ES = 0x10,
+	.FS = 0x10,	.GS = 0x10,
 };
 
 // === CODE ===
@@ -276,6 +283,17 @@ void ArchThreads_Init()
 	gGDT[5].BaseLow = (Uint)&gDoubleFault_TSS & 0xFFFF;
 	gGDT[5].BaseMid = (Uint)&gDoubleFault_TSS >> 16;
 	gGDT[5].BaseHi = (Uint)&gDoubleFault_TSS >> 24;
+	
+	Log_Debug("Proc", "gIDT[8] = {OffsetLo:%04x, CS:%04x, Flags:%04x, OffsetHi:%04x}", 
+		gIDT[8].OffsetLo, gIDT[8].CS, gIDT[8].Flags, gIDT[8].OffsetHi);
+	gIDT[8].OffsetLo = 0;
+	gIDT[8].CS = 5<<3;
+	gIDT[8].Flags = 0x8500;
+	gIDT[8].OffsetHi = 0;
+	Log_Debug("Proc", "gIDT[8] = {OffsetLo:%04x, CS:%04x, Flags:%04x, OffsetHi:%04x}", 
+		gIDT[8].OffsetLo, gIDT[8].CS, gIDT[8].Flags, gIDT[8].OffsetHi);
+	
+	//__asm__ __volatile__ ("xchg %bx, %bx");
 	
 	#if USE_MP
 	// Initialise Normal TSS(s)

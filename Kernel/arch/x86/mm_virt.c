@@ -9,7 +9,7 @@
  * 0xFE - Unused
  * 0xFF - System Calls / Kernel's User Code
  */
-#define DEBUG	1
+#define DEBUG	0
 #define SANITY	1
 #include <acess.h>
 #include <mm_phys.h>
@@ -208,7 +208,7 @@ void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 			(ErrorCode&1?"bad/locked":"non-present"),
 			(ErrorCode&16?" (Instruction Fetch)":"")
 			);
-		Warning("User Pagefault: Instruction at %p accessed %p", Regs->eip, Addr);
+		Warning("User Pagefault: Instruction at %04x:%08x accessed %p", Regs->cs, Regs->eip, Addr);
 		__asm__ __volatile__ ("sti");	// Restart IRQs
 		Threads_SegFault(Addr);
 		return ;

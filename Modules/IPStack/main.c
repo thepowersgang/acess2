@@ -97,7 +97,7 @@ int IPStack_Install(char **Arguments)
  */
 int IPStack_AddFile(tSocketFile *File)
 {
-	Log("IPStack_AddFile: %s", File->Name);
+	Log_Log("IPStack", "Added file '%s'", File->Name);
 	File->Next = gIP_FileTemplates;
 	gIP_FileTemplates = File;
 	return 0;

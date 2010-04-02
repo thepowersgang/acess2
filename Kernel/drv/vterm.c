@@ -157,8 +157,8 @@ int VT_Install(char **Arguments)
 	if(!gsVT_OutputDevice)	gsVT_OutputDevice = "/Devices/"DEFAULT_OUTPUT;
 	if(!gsVT_InputDevice)	gsVT_InputDevice = "/Devices/"DEFAULT_INPUT;
 	
-	LOG("Using '%s' as output", gsVT_OutputDevice);
-	LOG("Using '%s' as input", gsVT_InputDevice);
+	Log_Log("VTerm", "Using '%s' as output", gsVT_OutputDevice);
+	Log_Log("VTerm", "Using '%s' as input", gsVT_InputDevice);
 	
 	// Create Nodes
 	for( i = 0; i < NUM_VTS; i++ )
@@ -474,7 +474,7 @@ void VT_SetTerminal(int ID)
 	VFS_IOCtl( giVT_OutputDevHandle, VIDEO_IOCTL_GETSETMODE, &modeNum );
 	
 	// Update current terminal ID
-	Log("Changed terminal from %i to %i", giVT_CurrentTerminal, ID);
+	Log_Log("VTerm", "Changed terminal from %i to %i", giVT_CurrentTerminal, ID);
 	giVT_CurrentTerminal = ID;
 	
 	// Update the screen

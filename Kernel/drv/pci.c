@@ -116,7 +116,7 @@ int PCI_Install(char **Arguments)
 				if(devInfo.oc == PCI_OC_PCIBRIDGE)
 				{
 					#if LIST_DEVICES
-					Log("[PCI  ] Bridge @ %i,%i:%i (0x%x:0x%x)",
+					Log_Log("PCI", "Bridge @ %i,%i:%i (0x%x:0x%x)",
 						bus, dev, fcn, devInfo.vendor, devInfo.device);
 					#endif
 					giPCI_BusCount++;
@@ -124,7 +124,7 @@ int PCI_Install(char **Arguments)
 				else
 				{
 					#if LIST_DEVICES
-					Log("[PCI  ] Device %i,%i:%i %04x => 0x%04x:0x%04x",
+					Log_Log("PCI", "Device %i,%i:%i %04x => 0x%04x:0x%04x",
 						bus, dev, fcn, devInfo.oc, devInfo.vendor, devInfo.device);
 					#endif
 				}
@@ -156,7 +156,7 @@ int PCI_Install(char **Arguments)
 		return MODULE_ERR_MALLOC;
 	gPCI_Devices = tmpPtr;
 	
-	// Complete Driver Structure	
+	// Complete Driver Structure
 	gPCI_DriverStruct.RootNode.Size = giPCI_DeviceCount;
 	
 	// And add to DevFS

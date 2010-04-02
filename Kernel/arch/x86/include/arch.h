@@ -99,18 +99,6 @@ typedef struct {
 } tSyscallRegs;
 
 typedef struct {
-	Uint16	LimitLow;
-	Uint16	BaseLow;
-	Uint8	BaseMid;
-	Uint8	Access;
-	struct {
-		unsigned LimitHi:	4;
-		unsigned Flags:		4;
-	} __attribute__ ((packed));
-	Uint8	BaseHi;
-} __attribute__ ((packed)) tGDT;
-
-typedef struct {
 	#if USE_PAE
 	Uint	PDPT[4];
 	#else
