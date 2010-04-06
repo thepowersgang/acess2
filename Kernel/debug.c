@@ -90,6 +90,7 @@ void Debug_Fmt(const char *format, va_list *args)
 	char	*p = NULL;
 	 int	isLongLong = 0;
 	Uint64	arg;
+	 int	bPadLeft = 0;
 
 	while((c = *format++) != 0)
 	{
@@ -118,6 +119,12 @@ void Debug_Fmt(const char *format, va_list *args)
 
 		// Get Argument
 		arg = va_arg(*args, Uint);
+
+		// - Padding Side Flag
+		if(c == '+') {
+			bPadLeft = 1;
+			c = *format++;
+		}
 
 		// Padding
 		if(c == '0') {
@@ -175,6 +182,11 @@ void Debug_Fmt(const char *format, va_list *args)
 			itoa(p, arg, 2, minSize, pad);
 			goto printString;
 
+		printString:
+			if(!p)		p = "(null)";
+			while(*p)	Debug_Putchar(*p++);
+			break;
+
 		case 'B':	//Boolean
 			if(arg)	Debug_Puts("True");
 			else	Debug_Puts("False");
@@ -184,10 +196,9 @@ void Debug_Fmt(const char *format, va_list *args)
 			p = (char*)(Uint)arg;
 			if(!p)		p = "(null)";
 			len = strlen(p);
-			while(len++ < minSize)	Debug_Putchar(pad);
-		printString:
-			if(!p)		p = "(null)";
+			if( !bPadLeft )	while(len++ < minSize)	Debug_Putchar(pad);
 			while(*p)	Debug_Putchar(*p++);
+			if( bPadLeft )	while(len++ < minSize)	Debug_Putchar(pad);
 			break;
 
 		// Single Character / Array

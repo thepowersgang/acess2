@@ -74,9 +74,16 @@ static Uint	giRandomState = RANDOM_SEED;
 int atoi(const char *string)
 {
 	 int	ret = 0;
+	 int	bNeg = 0;
+	
+	//Log("atoi: (string='%s')", string);
 	
 	// Clear non-numeric characters
-	while( !('0' <= *string && *string <= '9') )	string++;
+	while( !('0' <= *string && *string <= '9') && *string != '-' )	string++;
+	if( *string == '-' ) {
+		bNeg = 1;
+		while( !('0' <= *string && *string <= '9') )	string++;
+	}
 	
 	if(*string == '0')
 	{
@@ -85,32 +92,34 @@ int atoi(const char *string)
 		{
 			// Hex
 			string ++;
-			for( ;; ) {
-				ret *= 16;
-				if('0' <= *string && *string <= '9')
+			for( ;; string ++ )
+			{
+				if('0' <= *string && *string <= '9') {
+					ret *= 16;
 					ret += *string - '0';
-				else if('A' <= *string && *string <= 'F')
+				}
+				else if('A' <= *string && *string <= 'F') {
+					ret *= 16;
 					ret += *string - 'A' + 10;
-				else if('a' <= *string && *string <= 'f')
+				}
+				else if('a' <= *string && *string <= 'f') {
+					ret *= 16;
 					ret += *string - 'a' + 10;
+				}
 				else
 					break;
-				string ++;
 			}
 		}
-		else
+		else	// Octal
 		{
-			for( ;; )
+			for( ; '0' <= *string && *string <= '7'; string ++ )
 			{
 				ret *= 8;
-				if('0' <= *string && *string <= '7')
-					ret += *string - '0';
-				else
-					break;
+				ret += *string - '0';
 			}
 		}
 	}
-	else
+	else	// Decimal
 	{
 		for( ; '0' <= *string && *string <= '9'; string++)
 		{
@@ -118,6 +127,11 @@ int atoi(const char *string)
 			ret += *string - '0';
 		}
 	}
+	
+	if(bNeg)	ret = -ret;
+	
+	//Log("atoi: RETURN %i", ret);
+	
 	return ret;
 }
 
@@ -173,6 +187,8 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 	 int	isLongLong = 0;
 	Uint64	val;
 	size_t	pos = 0;
+	// Flags
+	// int	bPadLeft = 0;
 	
 	//Log("vsnprintf: (__s=%p, __maxlen=%i, __format='%s', ...)", __s, __maxlen, __format);
 	
@@ -199,7 +215,6 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		// Get Argument
 		val = va_arg(args, Uint);
 		//Log("val = %x", val);
-
 		
 		// - Padding
 		if(c == '0') {
