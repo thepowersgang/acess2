@@ -294,23 +294,25 @@ void *VM8086_Allocate(tVM8086 *State, int Size, Uint16 *Segment, Uint16 *Offset)
 {
 	 int	i, j, base = 0;
 	 int	nBlocks, rem;
-	Uint32	bmp;
 	
 	Size = (Size + 127) & ~127;
-	nBlocks = Size >> 7;
+	nBlocks = Size / 128;
 	
 	if(Size > 4096)	return NULL;
 	
 	for( i = 0; i < VM8086_PAGES_PER_INST; i++ )
 	{
 		if( State->Internal->AllocatedPages[i].VirtBase == 0 )	continue;
-		bmp = State->Internal->AllocatedPages[i].Bitmap;
+		
+		
+		//Log_Debug("VM8086", "AllocatedPages[%i].Bitmap = 0b%b", i, State->Internal->AllocatedPages[i].Bitmap);
+		
 		rem = nBlocks;
 		base = 0;
 		// Scan the bitmap for a free block
-		for( j = 0; j < 32-nBlocks; j++ ) {
-			if( bmp & (1 << j) ) {
-				base = 0;
+		for( j = 0; j < 32; j++ ) {
+			if( State->Internal->AllocatedPages[i].Bitmap & (1 << j) ) {
+				base = j;
 				rem = nBlocks;
 			}
 			else {
@@ -321,6 +323,7 @@ void *VM8086_Allocate(tVM8086 *State, int Size, Uint16 *Segment, Uint16 *Offset)
 						State->Internal->AllocatedPages[i].Bitmap |= 1 << (base + j);
 					*Segment = State->Internal->AllocatedPages[i].PhysAddr / 16 + base * 8;
 					*Offset = 0;
+					//Log_Debug("VM8086", "Allocated at #%i,%04x", i, base*128);
 					return (void*)( State->Internal->AllocatedPages[i].VirtBase + base * 128 );
 				}
 			}
@@ -344,6 +347,7 @@ void *VM8086_Allocate(tVM8086 *State, int Size, Uint16 *Segment, Uint16 *Offset)
 		
 	for( j = 0; j < nBlocks; j++ )
 		State->Internal->AllocatedPages[i].Bitmap |= 1 << j;
+	//Log_Debug("VM8086", "AllocatedPages[%i].Bitmap = 0b%b", i, State->Internal->AllocatedPages[i].Bitmap);
 	*Segment = State->Internal->AllocatedPages[i].PhysAddr / 16;
 	*Offset = 0;
 	return (void*) State->Internal->AllocatedPages[i].VirtBase;

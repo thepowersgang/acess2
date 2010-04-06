@@ -118,7 +118,7 @@ void Log_AddEvent(char *Ident, int Level, char *Format, va_list Args)
  */
 void Log_Int_PrintMessage(tLogEntry *Entry)
 {
-	LogF("%018lli%s [%8s] %s\n",
+	LogF("%018lli%s [%+8s] %s\n",
 		Entry->Time,
 		csaLevelCodes[Entry->Level],
 		Entry->Ident,

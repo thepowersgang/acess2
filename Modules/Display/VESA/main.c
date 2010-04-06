@@ -70,10 +70,11 @@ int Vesa_Install(char **Arguments)
 		return MODULE_ERR_NOTNEEDED;
 	}
 	
+	Log_Debug("Vesa", "info->VideoModes = %04x:%04x", info->VideoModes.seg, info->VideoModes.ofs);
 	modes = (Uint16 *) VM8086_GetPointer(gpVesa_BiosState, info->VideoModes.seg, info->VideoModes.ofs);
 	
 	// Read Modes
-	for( giVesaModeCount = 1; modes[giVesaModeCount] != 0xFFFF; giVesaModeCount++ );
+	for( giVesaModeCount = 0; modes[giVesaModeCount] != 0xFFFF; giVesaModeCount++ );
 	gVesa_Modes = (tVesa_Mode *)malloc( giVesaModeCount * sizeof(tVesa_Mode) );
 	
 	// Insert Text Mode
@@ -94,8 +95,6 @@ int Vesa_Install(char **Arguments)
 		gpVesa_BiosState->ES = modeinfoPtr.seg;
 		gpVesa_BiosState->DI = modeinfoPtr.ofs;
 		VM8086_Int(gpVesa_BiosState, 0x10);
-		
-		Log_Debug("Vesa", "gpVesa_BiosState->AX = 0x%04x", gpVesa_BiosState->AX);
 		
 		// Parse Info
 		gVesa_Modes[i].flags = 0;
