@@ -70,22 +70,22 @@ int kmain(Uint MbMagic, void *MbInfoPtr)
 	MM_InstallVirtual();	// Clean up virtual address space
 	Heap_Install();		// Create initial heap
 	
-	Log("Starting Multitasking...");
+	//Log_Log("Arch", "Starting Multitasking...");
 	// Start Multitasking
 	Threads_Init();
 	
 	// Start Timers
 	Time_Setup();
 	
-	Log("Starting VFS...");
+	Log_Log("Arch", "Starting VFS...");
 	// Load Virtual Filesystem
 	VFS_Init();
 	
 	// Initialise builtin modules
-	Log("Initialising builtin modules...");
+	Log_Log("Arch", "Initialising builtin modules...");
 	Modules_LoadBuiltins();
 	
-	Log("Loading %i Modules...", mbInfo->ModuleCount);
+	Log_Log("Arch", "Loading %i Modules...", mbInfo->ModuleCount);
 	
 	// Load initial modules
 	mods = (void*)( mbInfo->Modules + KERNEL_BASE );
@@ -96,16 +96,16 @@ int kmain(Uint MbMagic, void *MbInfoPtr)
 		mods[i].End += KERNEL_BASE;
 		mods[i].String += KERNEL_BASE;
 		
-		Log("Loading '%s'", mods[i].String);
+		Log_Log("Arch", "Loading '%s'", mods[i].String);
 		
 		if( !Module_LoadMem( (void *)mods[i].Start, mods[i].End-mods[i].Start, (char *)mods[i].String ) )
 		{
-			Log_Warning("ARCH", "Unable to load module\n");
+			Log_Warning("Arch", "Unable to load module\n");
 		}
 	}
 	
 	// Pass on to Independent Loader
-	Log("Loading Configuration...");
+	Log_Log("Arch", "Starting system");
 	System_Init( gsBootCmdLine );
 	
 	// Sleep forever (sleeping beauty)

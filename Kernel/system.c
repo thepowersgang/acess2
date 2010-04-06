@@ -533,6 +533,7 @@ tConfigFile	*System_Int_ParseFile(char *FileData)
 			// Quoted
 			if( *ptr == '"' ) {
 				ptr ++;
+				ret->Lines[i].Parts[j] = ptr;
 				while( *ptr && !(*ptr == '"' && ptr[-1] == '\\') && *ptr != '\n' )
 					ptr++;
 			}
