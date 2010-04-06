@@ -21,6 +21,7 @@
 #define VT_SCROLLBACK	1	// 2 Screens of text
 #define DEFAULT_OUTPUT	"VGA"
 //#define DEFAULT_OUTPUT	"BochsGA"
+//#define DEFAULT_OUTPUT	"Vesa"
 #define DEFAULT_INPUT	"PS2Keyboard"
 #define	DEFAULT_WIDTH	80
 #define	DEFAULT_HEIGHT	25

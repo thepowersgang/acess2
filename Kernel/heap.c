@@ -252,36 +252,37 @@ void free(void *Ptr)
 	
 	// Alignment Check
 	if( (Uint)Ptr & (sizeof(Uint)-1) ) {
-		Warning("free - Passed a non-aligned address (%p)", Ptr);
+		Log_Warning("Heap", "free - Passed a non-aligned address (%p)", Ptr);
 		return;
 	}
 	
 	// Sanity check
 	if((Uint)Ptr < (Uint)gHeapStart || (Uint)Ptr > (Uint)gHeapEnd)
 	{
-		Warning("free - Passed a non-heap address (%p)\n", Ptr);
+		Log_Warning("Heap", "free - Passed a non-heap address (%p < %p < %p)\n",
+			gHeapStart, Ptr, gHeapEnd);
 		return;
 	}
 	
 	// Check memory block - Header
 	head = (void*)( (Uint)Ptr - sizeof(tHeapHead) );
 	if(head->Magic == MAGIC_FREE) {
-		Warning("free - Passed a freed block (%p) by %p", head, __builtin_return_address(0));
+		Log_Warning("Heap", "free - Passed a freed block (%p) by %p", head, __builtin_return_address(0));
 		return;
 	}
 	if(head->Magic != MAGIC_USED) {
-		Warning("free - Magic value is invalid (%p, 0x%x)\n", head, head->Magic);
+		Log_Warning("Heap", "free - Magic value is invalid (%p, 0x%x)\n", head, head->Magic);
 		return;
 	}
 	
 	// Check memory block - Footer
 	foot = (void*)( (Uint)head + head->Size - sizeof(tHeapFoot) );
 	if(foot->Head != head) {
-		Warning("free - Footer backlink is incorrect (%p, 0x%x)\n", head, foot->Head);
+		Log_Warning("Heap", "free - Footer backlink is incorrect (%p, 0x%x)\n", head, foot->Head);
 		return;
 	}
 	if(foot->Magic != MAGIC_FOOT) {
-		Warning("free - Footer magic is invalid (%p, %p = 0x%x)\n", head, &foot->Magic, foot->Magic);
+		Log_Warning("Heap", "free - Footer magic is invalid (%p, %p = 0x%x)\n", head, &foot->Magic, foot->Magic);
 		return;
 	}
 	
@@ -387,13 +388,14 @@ void *calloc(size_t num, size_t size)
 
 /**
  * \fn int IsHeap(void *Ptr)
- * \brief Checks if an address is a heap address
+ * \brief Checks if an address is a heap pointer
  */
 int IsHeap(void *Ptr)
 {
 	tHeapHead	*head;
 	if((Uint)Ptr < (Uint)gHeapStart)	return 0;
 	if((Uint)Ptr > (Uint)gHeapEnd)	return 0;
+	if((Uint)Ptr & (sizeof(Uint)-1))	return 0;
 	
 	head = (void*)( (Uint)Ptr - sizeof(tHeapHead) );
 	if(head->Magic != MAGIC_USED && head->Magic != MAGIC_FREE)

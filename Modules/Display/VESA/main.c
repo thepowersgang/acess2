@@ -2,7 +2,7 @@
  * AcessOS 1
  * Video BIOS Extensions (Vesa) Driver
  */
-#define DEBUG	0
+#define DEBUG	1
 #define VERSION	0x100
 
 #include <acess.h>
@@ -28,7 +28,7 @@ Uint64	Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, Vesa, Vesa_Install, NULL, "PCI", "VM8086", NULL);
 tDevFS_Driver	gVesa_DriverStruct = {
-	NULL, "VESA",
+	NULL, "Vesa",
 	{
 	.Read = Vesa_Read,
 	.Write = Vesa_Write,
@@ -79,8 +79,11 @@ int Vesa_Install(char **Arguments)
 	// Insert Text Mode
 	gVesa_Modes[0].width = 80;
 	gVesa_Modes[0].height = 25;
-	gVesa_Modes[0].bpp = 4;
+	gVesa_Modes[0].bpp = 12;
 	gVesa_Modes[0].code = 0x3;
+	gVesa_Modes[0].flags = VIDEO_FLAG_TEXT;
+	gVesa_Modes[0].fbSize = 80*25*2;
+	gVesa_Modes[0].framebuffer = 0xB8000;
 	
 	for( i = 1; i < giVesaModeCount; i++ )
 	{
@@ -91,6 +94,8 @@ int Vesa_Install(char **Arguments)
 		gpVesa_BiosState->ES = modeinfoPtr.seg;
 		gpVesa_BiosState->DI = modeinfoPtr.ofs;
 		VM8086_Int(gpVesa_BiosState, 0x10);
+		
+		Log_Debug("Vesa", "gpVesa_BiosState->AX = 0x%04x", gpVesa_BiosState->AX);
 		
 		// Parse Info
 		gVesa_Modes[i].flags = 0;
@@ -109,7 +114,7 @@ int Vesa_Install(char **Arguments)
 		gVesa_Modes[i].bpp = modeinfo->bpp;
 		
 		#if DEBUG
-		LogF(" Vesa_Install: 0x%x - %ix%ix%i\n",
+		Log_Log("Vesa", "0x%x - %ix%ix%i",
 			gVesa_Modes[i].code, gVesa_Modes[i].width, gVesa_Modes[i].height, gVesa_Modes[i].bpp);
 		#endif
 	}
@@ -137,11 +142,44 @@ Uint64 Vesa_Read(tVFS_Node *Node, Uint64 off, Uint64 len, void *buffer)
  */
 Uint64 Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 {
-	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Bufffer);
+	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
 
 	if(Buffer == NULL) {
 		LEAVE('i', 0);
 		return 0;
+	}
+
+	// Default Text mode
+	if( giVesaCurrentMode == 0 )
+	{
+		Uint8	*fb = (Uint8 *)(KERNEL_BASE|0xB8000);
+		Uint32	*buf = Buffer;
+		if( Offset + Length > 25*80*8 ) {
+			Log_Warning("VESA", "Vesa_Write - Framebuffer Overflow");
+			LEAVE('i', 0);
+			return 0;
+		}
+		
+		fb += 2*Offset;
+		for(; Length > 0; Length -= 8, fb += 2)
+		{
+			if( *buf < 0x80 )
+				*fb = *buf & 0x7F;
+			else
+				*fb = 0x00;
+			buf ++;
+			
+			fb[1] = 0;
+			fb[1] |= (*buf & 0x888) == 0x888 ? 0x8 : 0;
+			fb[1] |= (*buf & 0x700) > 0x300 ? 0x4 : 0;
+			fb[1] |= (*buf & 0x070) > 0x030 ? 0x2 : 0;
+			fb[1] |= (*buf & 0x007) > 0x003 ? 0x1 : 0;
+			fb[1] |= (*buf & 0x888000) == 0x888000 ? 0x80 : 0;
+			fb[1] |= (*buf & 0x700000) > 0x300000 ? 0x40 : 0;
+			fb[1] |= (*buf & 0x070000) > 0x030000 ? 0x20 : 0;
+			fb[1] |= (*buf & 0x007000) > 0x003000 ? 0x10 : 0;
+			buf ++;
+		}
 	}
 
 	if( gVesa_Modes[giVesaCurrentMode].framebuffer == 0 ) {
@@ -206,7 +244,7 @@ int Vesa_Int_SetMode(int mode)
 	gpVesa_BiosState->AX = 0x4F02;
 	gpVesa_BiosState->BX = gVesa_Modes[mode].code;
 	if(gVesa_Modes[mode].flags & FLAG_LFB) {
-		LogF(" Vesa_Int_SetMode: Using LFB\n");
+		Log_Log("VESA", "Using LFB");
 		gpVesa_BiosState->BX |= 0x4000;	// Bit 14 - Use LFB
 	}
 	
@@ -218,8 +256,8 @@ int Vesa_Int_SetMode(int mode)
 	giVesaPageCount = (gVesa_Modes[mode].fbSize + 0xFFF) >> 12;
 	gVesaFramebuffer = (void*)MM_MapHWPages(gVesa_Modes[mode].framebuffer, giVesaPageCount);
 	
-	LogF(" Vesa_Int_SetMode: Fb (Phys) = 0x%x\n", gVesa_Modes[mode].framebuffer);
-	LogF(" Vesa_Int_SetMode: Fb (Virt) = 0x%x\n", gVesaFramebuffer);
+	LogF("Vesa", "Framebuffer (Phys) = 0x%x", gVesa_Modes[mode].framebuffer);
+	LogF("Vesa", "Framebuffer (Virt) = 0x%x", gVesaFramebuffer);
 	
 	// Record Mode Set
 	giVesaCurrentMode = mode;
@@ -234,22 +272,23 @@ int Vesa_Int_FindMode(tVideo_IOCtl_Mode *data)
 	 int	i;
 	 int	best = -1, bestFactor = 1000;
 	 int	factor, tmp;
-	#if DEBUG
-	LogF("Vesa_Int_FindMode: (data={width:%i,height:%i,bpp:%i})\n", data->width, data->height, data->bpp);
-	#endif
+	
+	ENTER("idata->width idata->height idata->bpp", data->width, data->height, data->bpp);
+	
+	if(data->flags & VIDEO_FLAG_TEXT) {
+		LEAVE('i', 0);
+		return 0;
+	}
+	
 	for(i=0;i<giVesaModeCount;i++)
 	{
-		#if DEBUG >= 2
-		LogF("Mode %i (%ix%ix%i), ", i, gVesa_Modes[i].width, gVesa_Modes[i].height, gVesa_Modes[i].bpp);
-		#endif
+		LOG("Mode %i (%ix%ix%i)", i, gVesa_Modes[i].width, gVesa_Modes[i].height, gVesa_Modes[i].bpp);
 	
 		if(gVesa_Modes[i].width == data->width
 		&& gVesa_Modes[i].height == data->height
 		&& gVesa_Modes[i].bpp == data->bpp)
 		{
-			#if DEBUG >= 2
-			LogF("Perfect!\n");
-			#endif
+			LOG("Perfect!");
 			best = i;
 			break;
 		}
@@ -259,9 +298,7 @@ int Vesa_Int_FindMode(tVideo_IOCtl_Mode *data)
 		tmp = tmp < 0 ? -tmp : tmp;
 		factor = tmp * 100 / (data->width * data->height * data->bpp);
 		
-		#if DEBUG >= 2
-		LogF("factor = %i\n", factor);
-		#endif
+		LOG("factor = %i", factor);
 		
 		if(factor < bestFactor)
 		{
@@ -273,6 +310,7 @@ int Vesa_Int_FindMode(tVideo_IOCtl_Mode *data)
 	data->width = gVesa_Modes[best].width;
 	data->height = gVesa_Modes[best].height;
 	data->bpp = gVesa_Modes[best].bpp;
+	LEAVE('i', best);
 	return best;
 }
 

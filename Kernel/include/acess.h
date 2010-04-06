@@ -328,6 +328,7 @@ extern Uint8	ByteSum(void *Ptr, int Size);
  */
 
 extern Uint	rand();
+extern int	CallWithArgArray(void *Function, int NArgs, Uint *Args);
 
 // --- Heap ---
 /**

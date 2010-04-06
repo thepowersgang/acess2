@@ -148,6 +148,26 @@ GetEIP:
 	mov eax, [esp]
 	ret
 
+; int CallWithArgArray(void *Ptr, int NArgs, Uint *Args)
+; Call a function passing the array as arguments
+[global CallWithArgArray]
+CallWithArgArray:
+	push ebp
+	mov ebp, esp
+	mov ecx, [ebp+12]	; Get NArgs
+	mov edx, [ebp+16]
+
+.top:
+	mov eax, [edx+ecx*4-4]
+	push eax
+	loop .top
+	
+	mov eax, [ebp+8]
+	call eax
+	lea esp, [ebp]
+	pop ebp
+	ret
+
 [extern Proc_Clone]
 [extern Threads_Exit]
 [global SpawnTask]

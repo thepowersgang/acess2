@@ -6,6 +6,9 @@
 #define DEBUG	0
 #include <acess.h>
 
+#define N_VARIABLES	16
+#define N_MAX_ARGS	BITS
+
 // === TYPES ===
 typedef struct
 {
@@ -18,6 +21,15 @@ typedef struct
 	 int	nLines;
 	tConfigLine	Lines[];
 }	tConfigFile;
+typedef struct
+{
+	char	*Name;		// Name
+	 int	MinArgs;	// Minimum number of arguments
+	 int	MaxArgs;	// Maximum number of arguments
+	Uint	IntArgs;	// Bitmap of arguments that should be treated as integers
+	void	*Func;		// Function pointer
+	Uint	OptDefaults[N_MAX_ARGS];	// Default values for optional arguments
+}	tConfigCommand;
 
 // === IMPORTS ===
 extern int	Modules_LoadBuiltins();
@@ -33,6 +45,22 @@ void	System_ParseVFS(char *Arg);
 void	System_ParseSetting(char *Arg);
 void	System_ExecuteScript();
 tConfigFile	*System_Int_ParseFile(char *File);
+
+// === CONSTANTS ===
+const tConfigCommand	caConfigCommands[] = {
+	{"module", 1,2, 0, Module_LoadFile, {(Uint)"",0}},	// Load a module from a file
+	{"spawn", 1,1, 0, Proc_Spawn, {0}},		// Spawn a process
+	// --- VFS ---
+	{"mount", 3,4, 0, VFS_Mount, {(Uint)"",0}},		// Mount a device
+	{"symlink", 2,2, 0, VFS_Symlink, {0}},	// Create a Symbolic Link
+	{"mkdir", 1,1, 0, VFS_MkDir, {0}},		// Create a Directory
+	{"open", 1,2, 0, VFS_Open, {VFS_OPENFLAG_READ,0}},	// Open a file
+	{"close", 1,1, 0x1, VFS_Close, {0}},	// Close an open file
+	{"ioctl", 3,3, 0x3, VFS_IOCtl, {0}},	// Call an IOCtl
+	
+	{"", 0,0, 0, NULL, {0}}
+};
+#define NUM_CONFIG_COMMANDS	(sizeof(caConfigCommands)/sizeof(caConfigCommands[0]))
 
 // === GLOBALS ===
 char	*gsConfigScript = "/Acess/Conf/BootConf.cfg";
@@ -193,8 +221,13 @@ void System_ExecuteScript()
 {
 	 int	fp;
 	 int	fLen = 0;
-	 int	i;
+	 int	i, j, k;
+	 int	val;
+	 int	result = 0;
+	 int	variables[N_VARIABLES];
+	 int	bReplaced[N_MAX_ARGS];
 	char	*fData;
+	char	*jmpTarget;
 	tConfigFile	*file;
 	tConfigLine	*line;
 	
@@ -215,7 +248,6 @@ void System_ExecuteScript()
 	VFS_Close(fp);
 	
 	
-	
 	// Parse File
 	file = System_Int_ParseFile(fData);
 	
@@ -225,88 +257,146 @@ void System_ExecuteScript()
 		line = &file->Lines[i];
 		if( line->nParts == 0 )	continue;	// Skip blank
 		
-		// Mount Device
-		if( strcmp(line->Parts[0], "mount") == 0 )
-		{
-			if( line->nParts != 4 ) {
-				Log_Warning("Config", "Configuration command 'mount' requires 3 arguments, %i given",
-					line->nParts-1);
-				continue;
+		if(line->Parts[0][0] == ':')	continue;	// Ignore labels
+		
+		// Prescan and eliminate variables
+		for( j = 1; j < line->nParts; j++ ) {
+			Log_Debug("Config", "Arg #%i is '%s'", j, line->Parts[j]);
+			bReplaced[j] = 0;
+			if( line->Parts[j][0] != '$' )	continue;
+			if( line->Parts[j][1] == '?' ) {
+				val = result;
 			}
-			//Log_Log("Config", "Mount '%s' to '%s' (%s)",
-			//	line->Parts[1], line->Parts[2], line->Parts[3]);
-			//! \todo Use an optional 4th argument for the options string
-			VFS_Mount(line->Parts[1], line->Parts[2], line->Parts[3], "");
+			else {
+				val = atoi( &line->Parts[j][1] );
+				if( val < 0 || val > N_VARIABLES )	continue;
+				val = variables[ val ];
+			}
+			Log_Debug("Config", "Replaced arg %i ('%s') with 0x%x", j, line->Parts[j], val);
+			line->Parts[j] = malloc( BITS/8+2+1 );
+			sprintf(line->Parts[j], "0x%x", val);
+			bReplaced[j] = 1;
 		}
-		// Load a Module
-		else if(strcmp(line->Parts[0], "module") == 0)
+		
+		for( j = 0; j < NUM_CONFIG_COMMANDS; j++ )
 		{
-			if( line->nParts < 2 || line->nParts > 3 ) {
-				Log_Warning("CFG",
-					"Configuration command 'module' requires 1 or 2 arguments, %i given",
+			Uint	args[N_MAX_ARGS];
+			if(strcmp(line->Parts[0], caConfigCommands[j].Name) != 0)	continue;
+			
+			Log_Debug("Config", "Command '%s', %i args passed", line->Parts[0], line->nParts-1);
+			
+			if( line->nParts - 1 < caConfigCommands[j].MinArgs ) {
+				Log_Warning("Config",
+					"Configuration command '%s' requires at least %i arguments, %i given",
+					caConfigCommands[j].Name, caConfigCommands[j].MinArgs, line->nParts-1
+					);
+				break;
+			}
+			
+			if( line->nParts - 1 > caConfigCommands[j].MaxArgs ) {
+				Log_Warning("Config",
+					"Configuration command '%s' takes at most %i arguments, %i given",
+					caConfigCommands[j].Name, caConfigCommands[j].MaxArgs, line->nParts-1
+					);
+				break;
+			}
+			
+			for( k = caConfigCommands[j].MaxArgs-1; k > line->nParts - 1; k-- ) {
+				args[k] = caConfigCommands[j].OptDefaults[k];
+			}
+			
+			for( k = line->nParts-1; k--; )
+			{
+				if( caConfigCommands[j].IntArgs & (1 << k) ) {
+					args[k] = atoi(line->Parts[k+1]);
+				}
+				else {
+					args[k] = (Uint)line->Parts[k+1];
+				}
+				Log_Debug("Config", "args[%i] = 0x%x", k, args[k]);
+			}
+			result = CallWithArgArray(caConfigCommands[j].Func, caConfigCommands[j].MaxArgs, args);
+			Log_Debug("Config", "result = %i", result);
+			break;
+		}
+		if( j < NUM_CONFIG_COMMANDS )	continue;
+			
+		// --- State and Variables ---
+		if(strcmp(line->Parts[0], "set") == 0)
+		{
+			 int	to, value;
+			if( line->nParts-1 != 2 ) {
+				Log_Warning("Config", "Configuration command 'set' requires 2 arguments, %i given",
 					line->nParts-1);
 				continue;
 			}
-			if( line->nParts == 3 )
-				Module_LoadFile(line->Parts[1], line->Parts[2]);
+			
+			to = atoi(line->Parts[1]);
+			value = atoi(line->Parts[2]);
+			
+			variables[to] = value;
+			result = value;
+		}
+		// if <val1> <op> <val2> <dest>
+		else if(strcmp(line->Parts[0], "if") == 0)
+		{
+			if( line->nParts-1 != 4 ) {
+				Log_Warning("Config", "Configuration command 'if' requires 4 arguments, %i given",
+					line->nParts-1);
+			}
+			
+			result = atoi(line->Parts[1]);
+			val = atoi(line->Parts[3]);
+			
+			jmpTarget = line->Parts[4];
+			
+			Log_Log("Config", "IF 0x%x %s 0x%x THEN GOTO %s",
+				result, line->Parts[2], val, jmpTarget);
+			
+			if( strcmp(line->Parts[2], "<" ) == 0 ) {
+				if( result < val )	goto jumpToLabel;
+			}
+			else if( strcmp(line->Parts[2], "<=") == 0 ) {
+				if( result <= val )	goto jumpToLabel;
+			}
+			else if( strcmp(line->Parts[2], ">" ) == 0 ) {
+				if (result > val )	goto jumpToLabel;
+			}
+			else if( strcmp(line->Parts[2], ">=") == 0 ) {
+				if( result >= val )	goto jumpToLabel;
+			}
+			else if( strcmp(line->Parts[2],  "=") == 0 ) {
+				if( result == val )	goto jumpToLabel;
+			}
+			else if( strcmp(line->Parts[2], "!=") == 0 ) {
+				if( result != val )	goto jumpToLabel;
+			}
+			else {
+				Log_Warning("Config", "Unknown comparision '%s' in `if`", line->Parts[2]);
+			}
+			
+		}
+		else if(strcmp(line->Parts[0], "goto") == 0) {
+			if( line->nParts-1 != 1 ) {
+				Log_Warning("Config", "Configuration command 'goto' requires 1 arguments, %i given",
+					line->nParts-1);
+			}
+			jmpTarget = line->Parts[1];
+		
+		jumpToLabel:
+			for( j = 0; j < file->nLines; j ++ )
+			{
+				if(file->Lines[j].nParts == 0)
+					continue;
+				if(file->Lines[j].Parts[0][0] != ':')
+					continue;
+				if( strcmp(file->Lines[j].Parts[0]+1, jmpTarget) == 0)
+					break;
+			}
+			if( j == file->nLines )
+				Log_Warning("Config", "Unable to find label '%s'", jmpTarget);
 			else
-				Module_LoadFile(line->Parts[1], "");
-		}
-		// Load a UDI Module
-		else if(strcmp(line->Parts[0], "udimod") == 0)
-		{
-			if( line->nParts != 2 ) {
-				Log_Warning("Config", "Configuration command 'udimod' requires 1 argument, %i given",
-					line->nParts-1);
-				continue;
-			}
-			Log_Log("Config", "Load UDI Module '%s'", line->Parts[1]);
-			Module_LoadFile(line->Parts[1], "");
-		}
-		// Load a EDI Module
-		else if(strcmp(line->Parts[0], "edimod") == 0)
-		{
-			if( line->nParts != 2 ) {
-				Log_Warning("Config", "Configuration command 'edimod' requires 1 argument, %i given",
-					line->nParts-1);
-				continue;
-			}
-			Log_Log("Config", "Load EDI Module '%s'", line->Parts[1]);
-			Module_LoadFile(line->Parts[1], "");
-		}
-		// Create a Symbolic Link
-		else if(strcmp(line->Parts[0], "symlink") == 0)
-		{
-			if( line->nParts != 3 ) {
-				Log_Warning("Config", "Configuration command 'symlink' requires 2 arguments, %i given",
-					line->nParts-1);
-				continue;
-			}
-			Log_Log("Config", "Symlink '%s' pointing to '%s'",
-				line->Parts[1], line->Parts[2]);
-			VFS_Symlink(line->Parts[1], line->Parts[2]);
-		}
-		// Create a Directory
-		else if(strcmp(line->Parts[0], "mkdir") == 0)
-		{
-			if( line->nParts != 2 ) {
-				Log_Warning("Config", "Configuration command 'mkdir' requires 1 argument, %i given",
-					line->nParts-1);
-				continue;
-			}
-			Log_Log("Config", "New Directory '%s'", line->Parts[1]);
-			VFS_MkDir(line->Parts[1]);
-		}
-		// Spawn a process
-		else if(strcmp(line->Parts[0], "spawn") == 0)
-		{
-			if( line->nParts != 2 ) {
-				Log_Warning("Config", "Configuration command 'spawn' requires 1 argument, %i given",
-					line->nParts-1);
-				continue;
-			}
-			Log_Log("Config", "Starting '%s' as a new task", line->Parts[1]);
-			Proc_Spawn(line->Parts[1]);
+				i = j;
 		}
 		else {
 			Log_Warning("Config", "Unknown configuration command '%s' on line %i",
@@ -319,6 +409,10 @@ void System_ExecuteScript()
 	// Clean up after ourselves
 	for( i = 0; i < file->nLines; i++ ) {
 		if( file->Lines[i].nParts == 0 )	continue;	// Skip blank
+		for( j = 0; j < file->Lines[i].nParts; j++ ) {
+			if(IsHeap(file->Lines[i].Parts[j]))
+				free(file->Lines[i].Parts[j]);
+		}
 		free( file->Lines[i].Parts );
 	}
 	free( file );

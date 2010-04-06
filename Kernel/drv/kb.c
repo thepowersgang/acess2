@@ -88,12 +88,10 @@ void KB_IRQHandler()
 	scancode = inb(0x60); // Read from the keyboard's data buffer
 	//Log_Debug("Keyboard", "scancode = %02x", scancode);
 
-	//Log("KB_IRQHandler: scancode = 0x%02x", scancode);
-
 	// Ignore ACKs
 	if(scancode == 0xFA) {
-		// Oh man! This is anachic (I'm leaving it here to represent the
-		// mess that Acess once was)
+		// Oh man! This is anarchic (I'm leaving it here to represent
+		// the mess that Acess once was)
 		//kb_lastChar = KB_ACK;
 		return;
 	}
