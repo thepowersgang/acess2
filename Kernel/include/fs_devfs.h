@@ -21,10 +21,15 @@ typedef struct sDevFS_Driver
 // === FUNCTIONS ===
 /**
  * \fn int DevFS_AddDevice(tDevFS_Driver *Dev)
- * \brief Registers a device in the Device filesystem
- * \param Dev	Pointer to a persistant structure that represents the driver
+ * \brief Registers a device in the Device Filesystem
+ * \param Device	Pointer to a persistant structure that represents the driver
  * \return Boolean success
  */
-extern int	DevFS_AddDevice(tDevFS_Driver *Dev);
+extern int	DevFS_AddDevice(tDevFS_Driver *Device);
+
+/**
+ * \brief Unregisters a device with the Device Filesystem
+ */
+extern void	DevFS_DelDevice(tDevFS_Driver *Device);
 
 #endif

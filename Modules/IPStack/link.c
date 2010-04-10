@@ -41,7 +41,7 @@ void Link_RegisterType(Uint16 Type, tPacketCallback Callback)
 	for( i = giRegisteredTypes; i -- ; )
 	{
 		if(gaRegisteredTypes[i].Type == Type) {
-			Warning("[NET  ] Attempt to register 0x%x twice", Type);
+			Log_Warning("NET", "Attempt to register 0x%x twice", Type);
 			return ;
 		}
 		// Ooh! Free slot!
@@ -52,7 +52,7 @@ void Link_RegisterType(Uint16 Type, tPacketCallback Callback)
 	{
 		tmp = realloc(gaRegisteredTypes, (giRegisteredTypes+1)*sizeof(*gaRegisteredTypes));
 		if(!tmp) {
-			Warning("[NET  ] Out of heap space!");
+			Log_Warning("NET", "Out of heap space!");
 			return ;
 		}
 		i = giRegisteredTypes;
@@ -74,7 +74,7 @@ void Link_SendPacket(tAdapter *Adapter, Uint16 Type, tMacAddr To, int Length, vo
 	Uint8	buf[bufSize];	// dynamic stack arrays ftw!
 	tEthernetHeader	*hdr = (void*)buf;
 	
-	Log("[NET  ] Sending %i bytes to %02x:%02x:%02x:%02x:%02x:%02x (Type 0x%x)",
+	Log_Log("NET", "Sending %i bytes to %02x:%02x:%02x:%02x:%02x:%02x (Type 0x%x)",
 		Length, To.B[0], To.B[1], To.B[2], To.B[3], To.B[4], To.B[5], Type);
 	
 	hdr->Dest = To;
@@ -98,12 +98,12 @@ void Link_WatchDevice(tAdapter *Adapter)
 	 int	tid = Proc_SpawnWorker();	// Create a new worker thread
 	
 	if(tid < 0) {
-		Warning("[NET  ] Unable to create watcher thread for '%s'", Adapter->Device);
+		Log_Warning("NET", "Unable to create watcher thread for '%s'", Adapter->Device);
 		return ;
 	}
 	
 	if(tid > 0) {
-		Log("[NET  ] Watching '%s' using tid %i", Adapter->Device, tid);
+		Log_Log("NET", "Watching '%s' using tid %i", Adapter->Device, tid);
 		return ;
 	}
 	
@@ -123,20 +123,20 @@ void Link_WatchDevice(tAdapter *Adapter)
 		if(ret == -1)	break;
 		
 		if(ret <= sizeof(tEthernetHeader)) {
-			Log("[NET  ] Recieved an undersized packet");
+			Log_Log("NET", "Recieved an undersized packet");
 			continue;
 		}
 		
-		Log("[NET  ] Packet from %02x:%02x:%02x:%02x:%02x:%02x",
+		Log_Log("NET", "Packet from %02x:%02x:%02x:%02x:%02x:%02x",
 			hdr->Src.B[0], hdr->Src.B[1], hdr->Src.B[2],
 			hdr->Src.B[3], hdr->Src.B[4], hdr->Src.B[5]
 			);
-		Log("[NET  ] to %02x:%02x:%02x:%02x:%02x:%02x",
+		Log_Log("NET", "to %02x:%02x:%02x:%02x:%02x:%02x",
 			hdr->Dest.B[0], hdr->Dest.B[1], hdr->Dest.B[2],
 			hdr->Dest.B[3], hdr->Dest.B[4], hdr->Dest.B[5]
 			);
 		checksum = *(Uint32*)&hdr->Data[ret-sizeof(tEthernetHeader)-4];
-		Log("[NET  ] Checksum 0x%08x", checksum);
+		Log_Log("NET", "Checksum 0x%08x", checksum);
 		
 		// Check if there is a registered callback for this packet type
 		for( i = giRegisteredTypes; i--; )
@@ -145,7 +145,7 @@ void Link_WatchDevice(tAdapter *Adapter)
 		}
 		// No? Ignore it
 		if( i == -1 ) {
-			Log("[NET  ] Unregistered type 0x%x", ntohs(hdr->Type));
+			Log_Log("NET", "Unregistered type 0x%x", ntohs(hdr->Type));
 			continue;
 		}
 		
@@ -158,7 +158,7 @@ void Link_WatchDevice(tAdapter *Adapter)
 			);
 	}
 	
-	Log("[NET  ] Watcher terminated (file closed)");
+	Log_Log("NET", "Watcher terminated (file closed)");
 }
 
 // From http://www.cl.cam.ac.uk/research/srg/bluebook/21/crc/node6.html

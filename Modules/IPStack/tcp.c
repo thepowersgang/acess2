@@ -121,24 +121,24 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 	tTCPListener	*srv;
 	tTCPConnection	*conn;
 
-	Log("[TCP  ] SourcePort = %i, DestPort = %i",
+	Log_Log("TCP", "SourcePort = %i, DestPort = %i",
 		ntohs(hdr->SourcePort), ntohs(hdr->DestPort));
-	Log("[TCP  ] SequenceNumber = 0x%x", ntohl(hdr->SequenceNumber));
-	Log("[TCP  ] AcknowlegementNumber = 0x%x", ntohl(hdr->AcknowlegementNumber));
-	Log("[TCP  ] DataOffset = %i", hdr->DataOffset >> 4);
-	Log("[TCP  ] Flags = {");
-	Log("[TCP  ]   CWR = %B, ECE = %B",
+	Log_Log("TCP", "SequenceNumber = 0x%x", ntohl(hdr->SequenceNumber));
+	Log_Log("TCP", "AcknowlegementNumber = 0x%x", ntohl(hdr->AcknowlegementNumber));
+	Log_Log("TCP", "DataOffset = %i", hdr->DataOffset >> 4);
+	Log_Log("TCP", "Flags = {");
+	Log_Log("TCP", "  CWR = %B, ECE = %B",
 		!!(hdr->Flags & TCP_FLAG_CWR), !!(hdr->Flags & TCP_FLAG_ECE));
-	Log("[TCP  ]   URG = %B, ACK = %B",
+	Log_Log("TCP", "  URG = %B, ACK = %B",
 		!!(hdr->Flags & TCP_FLAG_URG), !!(hdr->Flags & TCP_FLAG_ACK));
-	Log("[TCP  ]   PSH = %B, RST = %B",
+	Log_Log("TCP", "  PSH = %B, RST = %B",
 		!!(hdr->Flags & TCP_FLAG_PSH), !!(hdr->Flags & TCP_FLAG_RST));
-	Log("[TCP  ]   SYN = %B, FIN = %B",
+	Log_Log("TCP", "  SYN = %B, FIN = %B",
 		!!(hdr->Flags & TCP_FLAG_SYN), !!(hdr->Flags & TCP_FLAG_FIN));
-	Log("[TCP  ] }");
-	Log("[TCP  ] WindowSize = %i", htons(hdr->WindowSize));
-	Log("[TCP  ] Checksum = 0x%x", htons(hdr->Checksum));
-	Log("[TCP  ] UrgentPointer = 0x%x", htons(hdr->UrgentPointer));
+	Log_Log("TCP", "}");
+	Log_Log("TCP", "WindowSize = %i", htons(hdr->WindowSize));
+	Log_Log("TCP", "Checksum = 0x%x", htons(hdr->Checksum));
+	Log_Log("TCP", "UrgentPointer = 0x%x", htons(hdr->UrgentPointer));
 
 	if( Length > (hdr->DataOffset >> 4)*4 )
 	{
@@ -160,17 +160,17 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 			// Check the destination port
 			if(srv->Port != htons(hdr->DestPort))	continue;
 			
-			Log("[TCP  ] Matches server %p", srv);
+			Log_Log("TCP", "Matches server %p", srv);
 			// Is this in an established connection?
 			for( conn = srv->Connections; conn; conn = conn->Next )
 			{
-				Log("[TCP  ] conn->Interface(%p) == Interface(%p)",
+				Log_Log("TCP", "conn->Interface(%p) == Interface(%p)",
 					conn->Interface, Interface);
 				// Check that it is coming in on the same interface
 				if(conn->Interface != Interface)	continue;
 
 				// Check Source Port
-				Log("[TCP  ] conn->RemotePort(%i) == hdr->SourcePort(%i)",
+				Log_Log("TCP", "conn->RemotePort(%i) == hdr->SourcePort(%i)",
 					conn->RemotePort, ntohs(hdr->SourcePort));
 				if(conn->RemotePort != ntohs(hdr->SourcePort))	continue;
 
@@ -180,17 +180,17 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 				if(conn->Interface->Type == 4 && !IP4_EQU(conn->RemoteIP.v4, *(tIPv4*)Address))
 					continue;
 
-				Log("[TCP  ] Matches connection %p", conn);
+				Log_Log("TCP", "Matches connection %p", conn);
 				// We have a response!
 				TCP_INT_HandleConnectionPacket(conn, hdr, Length);
 
 				return;
 			}
 
-			Log("[TCP  ] Opening Connection");
+			Log_Log("TCP", "Opening Connection");
 			// Open a new connection (well, check that it's a SYN)
 			if(hdr->Flags != TCP_FLAG_SYN) {
-				Log("[TCP  ] Packet is not a SYN");
+				Log_Log("TCP", "Packet is not a SYN");
 				return ;
 			}
 			
@@ -270,7 +270,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 		}
 	}
 	
-	Log("[TCP  ] No Match");
+	Log_Log("TCP", "No Match");
 }
 
 /**
@@ -291,11 +291,11 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 	
 	// Get length of data
 	dataLen = Length - (Header->DataOffset>>4)*4;
-	Log("[TCP  ] HandleConnectionPacket - dataLen = %i", dataLen);
+	Log_Log("TCP", "HandleConnectionPacket - dataLen = %i", dataLen);
 	
 	if(Header->Flags & TCP_FLAG_ACK) {
 		// TODO: Process an ACKed Packet
-		Log("[TCP  ] Conn %p, Packet 0x%x ACKed", Connection, Header->AcknowlegementNumber);
+		Log_Log("TCP", "Conn %p, Packet 0x%x ACKed", Connection, Header->AcknowlegementNumber);
 	}
 	
 	if(dataLen == 0)	return ;
@@ -317,7 +317,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 	{
 		tTCPStoredPacket	*tmp, *prev = NULL;
 		
-		Log("[TCP  ] Out of sequence packet (0x%08x != 0x%08x)",
+		Log_Log("TCP", "Out of sequence packet (0x%08x != 0x%08x)",
 			pkt->Sequence, Connection->NextSequenceRcv);
 		
 		// No? Well, let's cache it and look at it later
@@ -480,7 +480,9 @@ int TCP_DeallocatePort(Uint16 Port)
 // --- Server
 tVFS_Node *TCP_Server_Init(tInterface *Interface)
 {
-	tTCPListener	*srv = malloc( sizeof(tTCPListener) );
+	tTCPListener	*srv;
+	
+	srv = malloc( sizeof(tTCPListener) );
 
 	Log_Debug("TCP", "srv = %p", srv);
 
@@ -524,7 +526,7 @@ char *TCP_Server_ReadDir(tVFS_Node *Node, int Pos)
 	tTCPConnection	*conn;
 	char	*ret;
 
-	Log("[TCP  ] Thread %i waiting for a connection", Threads_GetTID());
+	Log_Log("TCP", "Thread %i waiting for a connection", Threads_GetTID());
 	for(;;)
 	{
 		LOCK( &srv->lConnections );
@@ -612,7 +614,7 @@ int TCP_Server_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		else	// Else, mark this as used
 			TCP_AllocatePort(srv->Port);
 		
-		Log("[TCP  ] Server %p listening on port %i", srv, srv->Port);
+		Log_Log("TCP", "Server %p listening on port %i", srv, srv->Port);
 		
 		return srv->Port;
 	}

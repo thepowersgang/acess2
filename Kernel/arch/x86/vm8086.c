@@ -74,7 +74,7 @@ int VM8086_Install(char **Arguments)
 			//MM_SetFlags( i * 0x1000, MM_PFLAG_RO, MM_PFLAG_RO );	// Set Read Only
 		}
 		MM_Map( 0, 0 );	// IVT / BDA
-		for(i=0x70;i<0x80;i++) {
+		for(i=0x10;i<0x9F;i++) {
 			MM_Map( i * 0x1000, i * 0x1000 );	MM_DerefPhys( i * 0x1000 );
 		}
 		MM_Map( 0x9F000, 0x9F000 );	// Stack / EBDA

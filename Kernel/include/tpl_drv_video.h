@@ -12,12 +12,20 @@
  * but they may choose not to allow direct user access to the framebuffer.
  * 
  * \section Screen Contents
- * Reads and writes to the driver's file while in component colour modes
+ * Writes to the driver's file while in component colour modes
  * must correspond to a change of the contents of the screen. The framebuffer
  * must start at offset 0 in the file.
  * In pallete colour modes the LFB is preceded by a 1024 byte pallete (allowing
  * room for 256 entries of 32-bits each)
-*/
+ * Reading from the screen must either return zero, or read from the
+ * framebuffer.
+ * 
+ * \section Mode Support
+ * All video drivers must support at least one text mode (Mode #0)
+ * For each graphics mode the driver exposes, there must be a corresponding
+ * text mode with the same resolution, this mode will be used when the
+ * user switches to a text Virtual Terminal while in graphics mode.
+ */
 #ifndef _TPL_VIDEO_H
 #define _TPL_VIDEO_H
 
@@ -58,6 +66,17 @@ enum eTplVideo_IOCtl {
 	 * Set \a info's fields to the mode specified by the \a id field.
 	 */
 	VIDEO_IOCTL_MODEINFO,
+	
+	/**
+	 * ioctl(..., int *NewFormat)
+	 * \brief Switches between Text, Framebuffer and 3D modes
+	 * \param NewFormat	Pointer to the new format code (see eTplVideo_BufFormats)
+	 * \return Original format
+	 * 
+	 * Enabes and disables the video text mode, changing the behavior of
+	 * writes to the device file.
+	 */
+	VIDEO_IOCTL_SETBUFFORMAT,
 	
 	/**
 	 * ioctl(..., tVideo_IOCtl_Pos *pos)
@@ -101,18 +120,15 @@ typedef struct sVideo_IOCtl_Mode
 	Uint8	flags;	//!< Mode Flags
 }	tVideo_IOCtl_Mode;
 
-//! \name Video Mode flags
-//! \{
 /**
- * \brief Text Mode Flag
- * \note A text mode should have the ::sVideo_IOCtl_Mode.bpp set to 12
+ * \brief Buffer Format Codes
  */
-#define VIDEO_FLAG_TEXT	0x1
-/**
- * \brief Slow (non-accellerated mode)
- */
-#define VIDEO_FLAG_SLOW	0x2
-//! \}
+enum eTplVideo_BufFormats
+{
+	VIDEO_BUFFMT_TEXT,
+	VIDEO_BUFFMT_FRAMEBUFFER,
+	VIDEO_BUFFMT_3DSTREAM
+};
 
 /**
  * \brief Describes a position in the video framebuffer

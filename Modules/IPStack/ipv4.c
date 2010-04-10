@@ -85,7 +85,7 @@ int IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, int 
 	hdr->Destination = Address;
 	hdr->HeaderChecksum = IPv4_Checksum(hdr, sizeof(tIPv4Header));
 	
-	Log("[IPv4 ] Sending packet to %i.%i.%i.%i",
+	Log_Log("IPv4", "Sending packet to %i.%i.%i.%i",
 		Address.B[0], Address.B[1], Address.B[2], Address.B[3]);
 	Link_SendPacket(Iface->Adapter, IPV4_ETHERNET_ID, to, bufSize, buf);
 	return 1;
@@ -103,23 +103,23 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	 int	dataLength;
 	if(Length < sizeof(tIPv4Header))	return;
 	
-	//Log("[IPv4 ] Version = %i", hdr->Version);
-	Log("[IPv4 ] HeaderLength = %i", hdr->HeaderLength);
-	Log("[IPv4 ] DiffServices = %i", hdr->DiffServices);
-	Log("[IPv4 ] TotalLength = %i", ntohs(hdr->TotalLength) );
-	//Log("[IPv4 ] Identifcation = %i", ntohs(hdr->Identifcation) );
-	//Log("[IPv4 ] TTL = %i", hdr->TTL );
-	Log("[IPv4 ] Protocol = %i", hdr->Protocol );
-	//Log("[IPv4 ] HeaderChecksum = 0x%x", ntohs(hdr->HeaderChecksum) );
-	Log("[IPv4 ] Source = %i.%i.%i.%i",
+	//Log_Log("IPv4", "Version = %i", hdr->Version);
+	Log_Log("IPv4", "HeaderLength = %i", hdr->HeaderLength);
+	Log_Log("IPv4", "DiffServices = %i", hdr->DiffServices);
+	Log_Log("IPv4", "TotalLength = %i", ntohs(hdr->TotalLength) );
+	//Log_Log("IPv4", "Identifcation = %i", ntohs(hdr->Identifcation) );
+	//Log_Log("IPv4", "TTL = %i", hdr->TTL );
+	Log_Log("IPv4", "Protocol = %i", hdr->Protocol );
+	//Log_Log("IPv4", "HeaderChecksum = 0x%x", ntohs(hdr->HeaderChecksum) );
+	Log_Log("IPv4", "Source = %i.%i.%i.%i",
 		hdr->Source.B[0], hdr->Source.B[1], hdr->Source.B[2], hdr->Source.B[3] );
-	Log("[IPv4 ] Destination = %i.%i.%i.%i",
+	Log_Log("IPv4", "Destination = %i.%i.%i.%i",
 		hdr->Destination.B[0], hdr->Destination.B[1],
 		hdr->Destination.B[2], hdr->Destination.B[3] );
 	
 	// Check that the version IS IPv4
 	if(hdr->Version != 4) {
-		Log("[IPv4 ] hdr->Version(%i) != 4", hdr->Version);
+		Log_Log("IPv4", "hdr->Version(%i) != 4", hdr->Version);
 		return;
 	}
 	
@@ -128,14 +128,14 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	
 	// Check Packet length
 	if( ntohs(hdr->TotalLength) > Length) {
-		Log("[IPv4 ] hdr->TotalLength(%i) > Length(%i)", ntohs(hdr->TotalLength), Length);
+		Log_Log("IPv4", "hdr->TotalLength(%i) > Length(%i)", ntohs(hdr->TotalLength), Length);
 		return;
 	}
 	
 	// Get Interface (allowing broadcasts)
 	iface = IPv4_GetInterface(Adapter, hdr->Destination, 1);
 	if(!iface) {
-		Log("[IPv4 ] Ignoring Packet (Not for us)");
+		Log_Log("IPv4", "Ignoring Packet (Not for us)");
 		return;	// Not for us? Well, let's ignore it
 	}
 	
@@ -149,7 +149,7 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	if( gaIPv4_Callbacks[hdr->Protocol] )
 		gaIPv4_Callbacks[hdr->Protocol] (iface, &hdr->Source, dataLength, data);
 	else
-		Log("[IPv4 ] Unknown Protocol %i", hdr->Protocol);
+		Log_Log("IPv4", "Unknown Protocol %i", hdr->Protocol);
 }
 
 /**

@@ -231,7 +231,6 @@ char *IPStack_Iface_ReadDir(tVFS_Node *Node, int Pos)
 {
 	tSocketFile	*file = gIP_FileTemplates;
 	while(Pos-- && file) {
-		Log("IPStack_Iface_ReadDir: %s", file->Name);
 		file = file->Next;
 	}
 	
@@ -251,7 +250,6 @@ tVFS_Node *IPStack_Iface_FindDir(tVFS_Node *Node, char *Name)
 	for(;file;file = file->Next)
 	{
 		if( strcmp(file->Name, Name) == 0 )	break;
-		Log("IPStack_Iface_FindDir: strcmp('%s', '%s')", file->Name, Name);
 	}
 	if(!file)	return NULL;
 	
@@ -513,8 +511,11 @@ int IPStack_Iface_IOCtl(tVFS_Node *Node, int ID, void *Data)
 int IPStack_AddInterface(char *Device)
 {
 	tInterface	*iface;
+	tAdapter	*card;
 	
 	ENTER("sDevice", Device);
+	
+	card = IPStack_GetAdapter(Device);
 	
 	iface = malloc(sizeof(tInterface));
 	if(!iface) {
@@ -527,7 +528,6 @@ int IPStack_AddInterface(char *Device)
 	
 	// Create Node
 	iface->Node.ImplPtr = iface;
-	iface->Node.ImplInt = giIP_NextIfaceId++;
 	iface->Node.Flags = VFS_FFLAG_DIRECTORY;
 	iface->Node.Size = -1;
 	iface->Node.NumACLs = 1;
@@ -546,6 +546,10 @@ int IPStack_AddInterface(char *Device)
 		LEAVE('i', -1);
 		return -1;	// Return ERR_YOUFAIL
 	}
+	
+	// Delay setting ImplInt until after the adapter is opened
+	// Keeps things simple
+	iface->Node.ImplInt = giIP_NextIfaceId++;
 	
 	// Append to list
 	LOCK( &glIP_Interfaces );
