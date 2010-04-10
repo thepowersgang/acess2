@@ -90,7 +90,7 @@ tMacAddr ARP_Resolve4(tInterface *Interface, tIPv4 Address)
 	lastID = giARP_LastUpdateID;
 	
 	// Create request
-	Log("[ARP4 ] Asking for address %i.%i.%i.%i",
+	Log_Log("ARP4", "Asking for address %i.%i.%i.%i",
 		Address.B[0], Address.B[1], Address.B[2], Address.B[3]
 		);
 	req.HWType = htons(0x0001);	// Ethernet
@@ -152,7 +152,7 @@ void ARP_UpdateCache4(tIPv4 SWAddr, tMacAddr HWAddr)
 		gaARP_Cache4[i].IP = SWAddr;
 	}
 	
-	Log("[ARP  ] Caching %i.%i.%i.%i (%02x:%02x:%02x:%02x:%02x:%02x) in %i",
+	Log_Log("ARP4", "Caching %i.%i.%i.%i (%02x:%02x:%02x:%02x:%02x:%02x) in %i",
 		SWAddr.B[0], SWAddr.B[1], SWAddr.B[2], SWAddr.B[3],
 		HWAddr.B[0], HWAddr.B[1], HWAddr.B[2], HWAddr.B[3], HWAddr.B[4], HWAddr.B[5],
 		i
@@ -210,19 +210,25 @@ void ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffe
 	
 	// Sanity Check Packet
 	if( Length < sizeof(tArpRequest4) ) {
-		Log("[ARP  ] Recieved undersized packet");
+		Log_Log("ARP", "Recieved undersized packet");
 		return ;
 	}
 	if( ntohs(req4->Type) != 0x0800 ) {
-		Log("[ARP  ] Recieved a packet with a bad type 0x%x", ntohs(req4->Type));
+		Log_Log("ARP", "Recieved a packet with a bad type 0x%x", ntohs(req4->Type));
 		return ;
 	}
 	if( req4->HWSize != 6 ) {
-		Log("[ARP  ] Recieved a packet with HWSize != 6 (%i)", req4->HWSize);
+		Log_Log("ARP", "Recieved a packet with HWSize != 6 (%i)", req4->HWSize);
 		return;
 	}
 	if( !MAC_EQU(req4->SourceMac, From) ) {
-		Log("[ARP  ] ARP spoofing detected", req4->HWSize);
+		Log_Log("ARP", "ARP spoofing detected "
+			"(%02x%02x:%02x%02x:%02x%02x != %02x%02x:%02x%02x:%02x%02x)",
+			req4->SourceMac.B[0], req4->SourceMac.B[1], req4->SourceMac.B[2],
+			req4->SourceMac.B[3], req4->SourceMac.B[4], req4->SourceMac.B[5],
+			From.B[0], From.B[1], From.B[2],
+			From.B[3], From.B[4], From.B[5]
+			);
 		return;
 	}
 	

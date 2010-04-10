@@ -348,14 +348,14 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 		// so that a single lost packet on one connection doesn't cause
 		// all connections on the interface to lag.
 		TCP_INT_UpdateRecievedFromFuture(Connection);
-	}
 	
-	// TODO: Check ACK code validity
-	Header->AcknowlegementNumber = ntohl(pkt->Sequence) + dataLen;
-	Header->SequenceNumber = ntohl(Connection->NextSequenceSend);
-	Header->Flags &= TCP_FLAG_SYN;
-	Header->Flags = TCP_FLAG_ACK;
-	TCP_SendPacket( Connection, sizeof(tTCPHeader), Header );
+		// TODO: Check ACK code validity
+		Header->AcknowlegementNumber = ntohl(pkt->Sequence) + dataLen;
+		Header->SequenceNumber = ntohl(Connection->NextSequenceSend);
+		Header->Flags &= TCP_FLAG_SYN;
+		Header->Flags = TCP_FLAG_ACK;
+		TCP_SendPacket( Connection, sizeof(tTCPHeader), Header );
+	}
 }
 
 /**

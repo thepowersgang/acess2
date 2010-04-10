@@ -82,9 +82,9 @@ static const tMacAddr cMAC_BROADCAST = {{0xFF,0xFF,0xFF,0xFF,0xFF,0xFF}};
 #define IP4_SET(t,v)	(t).L = (v).L;
 #define IP6_SET(t,v)	memcpy(&(t),&(v),sizeof(tIPv6))
 
-#define MAC_EQU(a,b)	memcmp(&(a),&(b),sizeof(tMacAddr))
+#define MAC_EQU(a,b)	(memcmp(&(a),&(b),sizeof(tMacAddr))==0)
 #define IP4_EQU(a,b)	((a).L==(b).L)
-#define IP6_EQU(a,b)	memcmp(&(a),&(b),sizeof(tIPv6))
+#define IP6_EQU(a,b)	(memcmp(&(a),&(b),sizeof(tIPv6))==0)
 
 // === FUNCTIONS ===
 #define htonb(v)	(v)
