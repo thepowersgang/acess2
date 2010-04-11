@@ -2,7 +2,7 @@
 #
 
 OBJ = main.o files.o
-NAME = FS_InitRD
+NAME = InitRD
 
 -include ../Makefile.tpl
 

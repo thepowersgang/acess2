@@ -67,10 +67,7 @@ char	*gsConfigScript = "/Acess/Conf/BootConf.cfg";
 
 // === CODE ===
 void System_Init(char *ArgString)
-{	
-	// Set the debug to be echoed to the terminal
-	StartupPrint("Kernel now echoes to VT7 (Ctrl-Alt-F8)");
-	Debug_SetKTerminal("/Devices/VTerm/7");
+{
 	
 	// - Parse Kernel's Command Line
 	System_ParseCommandLine(ArgString);
@@ -78,6 +75,10 @@ void System_Init(char *ArgString)
 	// - Execute the Config Script
 	Log_Log("Config", "Executing config script...");
 	System_ExecuteScript();
+	
+	// Set the debug to be echoed to the terminal
+	Log_Log("Config", "Kernel now echoes to VT7 (Ctrl-Alt-F8)");
+	Debug_SetKTerminal("/Devices/VTerm/7");
 }
 
 /**
@@ -206,7 +207,10 @@ void System_ParseSetting(char *Arg)
 		
 		if(strcmp(Arg, "SCRIPT") == 0) {
 			Log_Log("Config", "Config Script: '%s'", value);
-			gsConfigScript = value;
+			if(strlen(value) == 0)
+				gsConfigScript = NULL;
+			else
+				gsConfigScript = value;
 		} else {
 			Log_Warning("Config", "Kernel config setting '%s' is not recognised", Arg);
 		}
