@@ -83,7 +83,7 @@ void KB_IRQHandler()
 	// int	keyNum;
 
 	// Check port 0x64 to tell if this is from the aux port
-	if( inb(0x64) & 0x20 )	return;
+	//if( inb(0x64) & 0x20 )	return;
 
 	scancode = inb(0x60); // Read from the keyboard's data buffer
 	//Log_Debug("Keyboard", "scancode = %02x", scancode);
