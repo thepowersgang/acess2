@@ -12,11 +12,11 @@
  * \todo Implement changing of the parent directory when a file is written to
  * \todo Implement file creation / deletion
  */
-#define DEBUG	0
+#define DEBUG	1
 #define VERBOSE	1
 
 #define CACHE_FAT	1	//!< Caches the FAT in memory
-#define USE_LFN		1	//!< Enables the use of Long File Names
+#define USE_LFN		0	//!< Enables the use of Long File Names
 #define	SUPPORT_WRITE	0
 
 #include <acess.h>
@@ -238,7 +238,8 @@ tVFS_Node *FAT_InitDevice(char *Device, char **Options)
 	
 	// == VFS Interface
 	node = &diskInfo->rootNode;
-	node->Size = bs->files_in_root;
+	//node->Size = bs->files_in_root;
+	node->Size = -1;
 	node->Inode = diskInfo->rootOffset;	// 0:31 - Cluster, 32:63 - Parent Directory Cluster
 	node->ImplPtr = diskInfo;	// Disk info pointer
 	node->ImplInt = 0;	// 0:15 - Directory Index, 16: Dirty Flag, 17: Deletion Flag
@@ -599,14 +600,14 @@ Uint64 FAT_Read(tVFS_Node *Node, Uint64 offset, Uint64 length, void *buffer)
 	
 	// Sanity Check offset
 	if(offset > Node->Size) {
-		LOG("Reading past EOF (%i > %i)", offset, node->Size);
+		LOG("Reading past EOF (%i > %i)", offset, Node->Size);
 		LEAVE('i', 0);
 		return 0;
 	}
 	// Clamp Size
 	if(offset + length > Node->Size) {
 		LOG("Reading past EOF (%lli + %lli > %lli), clamped to %lli",
-			offset, length, node->Size, node->Size - offset);
+			offset, length, Node->Size, Node->Size - offset);
 		length = Node->Size - offset;
 	}
 	
@@ -856,14 +857,11 @@ void FAT_int_ProperFilename(char *dest, char *src)
 char *FAT_int_CreateName(fat_filetable *ft, char *LongFileName)
 {
 	char	*ret;
-	 int	len;
 	ENTER("pft sLongFileName", ft, LongFileName);
 	#if USE_LFN
 	if(LongFileName && LongFileName[0] != '\0')
 	{	
-		len = strlen(LongFileName);
-		ret = malloc(len+1);
-		strcpy(ret, LongFileName);
+		ret = strdup(LongFileName);
 	}
 	else
 	{

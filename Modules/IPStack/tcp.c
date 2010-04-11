@@ -73,7 +73,7 @@ void TCP_StartConnection(tTCPConnection *Conn)
 	hdr.SequenceNumber = Conn->NextSequenceSend;
 	hdr.DataOffset = (sizeof(tTCPHeader)/4) << 4;
 	hdr.Flags = TCP_FLAG_SYN;
-	hdr.WindowSize = 0;	// TODO
+	hdr.WindowSize = 0xFFFF;	// Max
 	hdr.Checksum = 0;	// TODO
 	hdr.UrgentPointer = 0;
 	

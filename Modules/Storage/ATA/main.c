@@ -2,7 +2,7 @@
  * Acess2 IDE Harddisk Driver
  * - main.c
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include <modules.h>
 #include <vfs.h>
