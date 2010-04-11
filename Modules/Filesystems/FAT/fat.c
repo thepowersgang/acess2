@@ -60,6 +60,9 @@ tVFS_Node	*FAT_FindDir(tVFS_Node *Node, char *Name);
  int	FAT_Relink(tVFS_Node *node, char *OldName, char *NewName);
 void	FAT_CloseFile(tVFS_Node *node);
 
+// === Options ===
+ int	giFAT_MaxCachedClusters = 1024*512/4;
+
 // === SEMI-GLOBALS ===
 MODULE_DEFINE(0, (0<<8)|50 /*v0.50*/, VFAT, FAT_Install, NULL, NULL);
 tFAT_VolInfo	gFAT_Disks[8];
@@ -176,53 +179,54 @@ tVFS_Node *FAT_InitDevice(char *Device, char **Options)
 	
 	//Allow for Caching the FAT
 	#if CACHE_FAT
+	if( diskInfo->ClusterCount <= giFAT_MaxCachedClusters )
 	{
-	Uint32	Ofs;
-	diskInfo->FATCache = (Uint32*)malloc(sizeof(Uint32)*diskInfo->ClusterCount);
-	if(diskInfo->FATCache == NULL) {
-		Log_Warning("FAT", "Heap Exhausted");
-		return NULL;
-	}
-	Ofs = bs->resvSectCount*512;
-	if(diskInfo->type == FAT12)
-	{
-		Uint32	val;
-		 int	j;
-		char	buf[1536];
-		for(i = 0; i < diskInfo->ClusterCount/2; i++) {
-			j = i & 511;	//%512
-			if( j == 0 ) {
-				VFS_ReadAt(diskInfo->fileHandle, Ofs, 3*512, buf);
-				Ofs += 3*512;
-			}
-			val = *((int*)(buf+j*3));
-			diskInfo->FATCache[i*2] = val & 0xFFF;
-			diskInfo->FATCache[i*2+1] = (val>>12) & 0xFFF;
+		Uint32	Ofs;
+		diskInfo->FATCache = (Uint32*)malloc(sizeof(Uint32)*diskInfo->ClusterCount);
+		if(diskInfo->FATCache == NULL) {
+			Log_Warning("FAT", "Heap Exhausted");
+			return NULL;
 		}
-	}
-	else if(diskInfo->type == FAT16)
-	{
-		Uint16	buf[256];
-		for(i=0;i<diskInfo->ClusterCount;i++) {
-			if( (i & 255) == 0 ) {
-				VFS_ReadAt(diskInfo->fileHandle, Ofs, 512, buf);
-				Ofs += 512;
+		Ofs = bs->resvSectCount*512;
+		if(diskInfo->type == FAT12)
+		{
+			Uint32	val;
+			 int	j;
+			char	buf[1536];
+			for(i = 0; i < diskInfo->ClusterCount/2; i++) {
+				j = i & 511;	//%512
+				if( j == 0 ) {
+					VFS_ReadAt(diskInfo->fileHandle, Ofs, 3*512, buf);
+					Ofs += 3*512;
+				}
+				val = *((int*)(buf+j*3));
+				diskInfo->FATCache[i*2] = val & 0xFFF;
+				diskInfo->FATCache[i*2+1] = (val>>12) & 0xFFF;
 			}
-			diskInfo->FATCache[i] = buf[i&255];
 		}
-	}
-	else if(diskInfo->type == FAT32)
-	{
-		Uint32	buf[128];
-		for(i=0;i<diskInfo->ClusterCount;i++) {
-			if( (i & 127) == 0 ) {
-				VFS_ReadAt(diskInfo->fileHandle, Ofs, 512, buf);
-				Ofs += 512;
+		else if(diskInfo->type == FAT16)
+		{
+			Uint16	buf[256];
+			for(i=0;i<diskInfo->ClusterCount;i++) {
+				if( (i & 255) == 0 ) {
+					VFS_ReadAt(diskInfo->fileHandle, Ofs, 512, buf);
+					Ofs += 512;
+				}
+				diskInfo->FATCache[i] = buf[i&255];
 			}
-			diskInfo->FATCache[i] = buf[i&127];
 		}
-	}
-	LOG("FAT Fully Cached");
+		else if(diskInfo->type == FAT32)
+		{
+			Uint32	buf[128];
+			for(i=0;i<diskInfo->ClusterCount;i++) {
+				if( (i & 127) == 0 ) {
+					VFS_ReadAt(diskInfo->fileHandle, Ofs, 512, buf);
+					Ofs += 512;
+				}
+				diskInfo->FATCache[i] = buf[i&127];
+			}
+		}
+		LOG("FAT Fully Cached");
 	}
 	#endif /*CACHE_FAT*/
 	
@@ -362,27 +366,33 @@ int FAT_int_GetAddress(tVFS_Node *Node, Uint64 Offset, Uint64 *Addr, Uint32 *Clu
 Uint32 FAT_int_GetFatValue(tFAT_VolInfo *Disk, Uint32 cluster)
 {
 	Uint32	val = 0;
-	#if !CACHE_FAT
-	Uint32	ofs = Disk->bootsect.resvSectCount*512;
-	#endif
+	Uint32	ofs;
 	ENTER("pDisk xCluster", Disk, cluster);
 	LOCK( &Disk->lFAT );
 	#if CACHE_FAT
-	val = Disk->FATCache[cluster];
-	if(Disk->type == FAT12 && val == EOC_FAT12)	val = -1;
-	if(Disk->type == FAT16 && val == EOC_FAT16)	val = -1;
-	if(Disk->type == FAT32 && val == EOC_FAT32)	val = -1;
-	#else
-	if(Disk->type == FAT12) {
-		VFS_ReadAt(Disk->fileHandle, ofs+(cluster>>1)*3, 3, &val);
-		val = (cluster&1 ? val&0xFFF : val>>12);
-		if(val == EOC_FAT12)	val = -1;
-	} else if(Disk->type == FAT16) {
-		VFS_ReadAt(Disk->fileHandle, ofs+cluster*2, 2, &val);
-		if(val == EOC_FAT16)	val = -1;
-	} else {
-		VFS_ReadAt(Disk->fileHandle, ofs+cluster*4, 4, &val);
-		if(val == EOC_FAT32)	val = -1;
+	if( Disk->ClusterCount <= giFAT_MaxCachedClusters )
+	{
+		val = Disk->FATCache[cluster];
+		if(Disk->type == FAT12 && val == EOC_FAT12)	val = -1;
+		if(Disk->type == FAT16 && val == EOC_FAT16)	val = -1;
+		if(Disk->type == FAT32 && val == EOC_FAT32)	val = -1;
+	}
+	else
+	{
+	#endif
+		ofs = Disk->bootsect.resvSectCount*512;
+		if(Disk->type == FAT12) {
+			VFS_ReadAt(Disk->fileHandle, ofs+(cluster>>1)*3, 3, &val);
+			val = (cluster&1 ? val&0xFFF : val>>12);
+			if(val == EOC_FAT12)	val = -1;
+		} else if(Disk->type == FAT16) {
+			VFS_ReadAt(Disk->fileHandle, ofs+cluster*2, 2, &val);
+			if(val == EOC_FAT16)	val = -1;
+		} else {
+			VFS_ReadAt(Disk->fileHandle, ofs+cluster*4, 4, &val);
+			if(val == EOC_FAT32)	val = -1;
+		}
+	#if CACHE_FAT
 	}
 	#endif /*CACHE_FAT*/
 	RELEASE( &Disk->lFAT );
@@ -398,78 +408,85 @@ Uint32 FAT_int_AllocateCluster(tFAT_VolInfo *Disk, Uint32 Previous)
 {
 	Uint32	ret = Previous;
 	#if CACHE_FAT
-	Uint32	eoc;
-	
-	LOCK(Disk->lFAT);
-	for(ret = Previous; ret < Disk->ClusterCount; ret++)
+	if( Disk->ClusterCount <= giFAT_MaxCachedClusters )
 	{
-		if(Disk->FATCache[ret] == 0)
-			goto append;
-	}
-	for(ret = 0; ret < Previous; ret++)
-	{
-		if(Disk->FATCache[ret] == 0)
-			goto append;
-	}
-	
-	RELEASE(Disk->lFAT);
-	return 0;
-	
-append:
-	switch(Disk->type)
-	{
-	case FAT12:	eoc = EOC_FAT12;	break;
-	case FAT16:	eoc = EOC_FAT16;	break;
-	case FAT32:	eoc = EOC_FAT32;	break;
-	default:	return 0;
-	}
-	
-	Disk->FATCache[ret] = eoc;
-	Disk->FATCache[Previous] = ret;
-	
-	RELEASE(Disk->lFAT);
-	return ret;
-	#else
-	Uint32	val;
-	//Uint8	buf[512];
-	Log_Warning("FAT", "TODO: Implement cluster allocation with non cached FAT");
-	return 0;
-	
-	switch(Disk->type)
-	{
-	case FAT12:
-		VFS_ReadAt(Disk->fileHandle, ofs+(Previous>>1)*3, 3, &val);
-		if( Previous & 1 ) {
-			val &= 0xFFF000;
-			val |= ret;
-		}
-		else {
-			val &= 0xFFF;
-			val |= ret<<12;
-		}
-		VFS_WriteAt(Disk->fileHandle, ofs+(Previous>>1)*3, 3, &val);
+		Uint32	eoc;
 		
-		VFS_ReadAt(Disk->fileHandle, ofs+(ret>>1)*3, 3, &val);
-		if( Cluster & 1 ) {
-			val &= 0xFFF000;
-			val |= eoc;
+		LOCK(Disk->lFAT);
+		for(ret = Previous; ret < Disk->ClusterCount; ret++)
+		{
+			if(Disk->FATCache[ret] == 0)
+				goto append;
 		}
-		else {
-			val &= 0x000FFF;
-			val |= eoc<<12;
+		for(ret = 0; ret < Previous; ret++)
+		{
+			if(Disk->FATCache[ret] == 0)
+				goto append;
 		}
-		VFS_WriteAt(Disk->fileHandle, ofs+(ret>>1)*3, 3, &val);
-		break;
-	case FAT16:
-		VFS_ReadAt(Disk->fileHandle, ofs+Previous*2, 2, &ret);
-		VFS_WriteAt(Disk->fileHandle, ofs+ret*2, 2, &eoc);
-		break;
-	case FAT32:
-		VFS_ReadAt(Disk->fileHandle, ofs+Previous*4, 4, &ret);
-		VFS_WriteAt(Disk->fileHandle, ofs+ret*4, 4, &eoc);
-		break;
+		
+		RELEASE(Disk->lFAT);
+		return 0;
+	
+	append:
+		switch(Disk->type)
+		{
+		case FAT12:	eoc = EOC_FAT12;	break;
+		case FAT16:	eoc = EOC_FAT16;	break;
+		case FAT32:	eoc = EOC_FAT32;	break;
+		default:	return 0;
+		}
+		
+		Disk->FATCache[ret] = eoc;
+		Disk->FATCache[Previous] = ret;
+		
+		RELEASE(Disk->lFAT);
+		return ret;
 	}
-	return ret;
+	else
+	{
+	#endif
+		Uint32	val;
+		Uint32	ofs = Disk->bootsect.resvSectCount*512;
+		Log_Warning("FAT", "TODO: Implement cluster allocation with non cached FAT");
+		return 0;
+		
+		switch(Disk->type)
+		{
+		case FAT12:
+			VFS_ReadAt(Disk->fileHandle, ofs+(Previous>>1)*3, 3, &val);
+			if( Previous & 1 ) {
+				val &= 0xFFF000;
+				val |= ret;
+			}
+			else {
+				val &= 0xFFF;
+				val |= ret<<12;
+			}
+			VFS_WriteAt(Disk->fileHandle, ofs+(Previous>>1)*3, 3, &val);
+			
+			VFS_ReadAt(Disk->fileHandle, ofs+(ret>>1)*3, 3, &val);
+			if( Cluster & 1 ) {
+				val &= 0xFFF000;
+				val |= eoc;
+			}
+			else {
+				val &= 0x000FFF;
+				val |= eoc<<12;
+			}
+			VFS_WriteAt(Disk->fileHandle, ofs+(ret>>1)*3, 3, &val);
+			break;
+		case FAT16:
+			VFS_ReadAt(Disk->fileHandle, ofs+Previous*2, 2, &ret);
+			VFS_WriteAt(Disk->fileHandle, ofs+ret*2, 2, &eoc);
+			break;
+		case FAT32:
+			VFS_ReadAt(Disk->fileHandle, ofs+Previous*4, 4, &ret);
+			VFS_WriteAt(Disk->fileHandle, ofs+ret*4, 4, &eoc);
+			break;
+		}
+		return ret;
+	#if CACHE_FAT
+	}
 	#endif
 }
 
@@ -481,41 +498,49 @@ Uint32 FAT_int_FreeCluster(tFAT_VolInfo *Disk, Uint32 Cluster)
 {
 	Uint32	ret;
 	#if CACHE_FAT
-	LOCK(Disk->lFAT);
-	
-	ret = Disk->FATCache[Cluster];
-	Disk->FATCache[Cluster] = 0;
-	
-	RELEASE(Disk->lFAT);
-	#else
-	Uint32	val;
-	LOCK(Disk->lFAT);
-	switch(Disk->type)
+	if( Disk->ClusterCount <= giFAT_MaxCachedClusters )
 	{
-	case FAT12:
-		VFS_ReadAt(Disk->fileHandle, ofs+(Cluster>>1)*3, 3, &val);
-		if( Cluster & 1 ) {
-			ret = val & 0xFFF0000;
-			val &= 0xFFF;
-		}
-		else {
-			ret = val & 0xFFF;
-			val &= 0xFFF000;
-		}
-		VFS_WriteAt(Disk->fileHandle, ofs+(Previous>>1)*3, 3, &val);
-		break;
-	case FAT16:
-		VFS_ReadAt(Disk->fileHandle, ofs+Previous*2, 2, &ret);
-		val = 0;
-		VFS_WriteAt(Disk->fileHandle, ofs+Cluster*2, 2, &val);
-		break;
-	case FAT32:
-		VFS_ReadAt(Disk->fileHandle, ofs+Previous*4, 4, &ret);
-		val = 0;
-		VFS_WriteAt(Disk->fileHandle, ofs+Cluster*2, 2, &val);
-		break;
+		LOCK(Disk->lFAT);
+		
+		ret = Disk->FATCache[Cluster];
+		Disk->FATCache[Cluster] = 0;
+		
+		RELEASE(Disk->lFAT);
 	}
-	RELEASE(Disk->lFAT);
+	else
+	{
+	#endif
+		Uint32	val;
+		Uint32	ofs = Disk->bootsect.resvSectCount*512;
+		LOCK(Disk->lFAT);
+		switch(Disk->type)
+		{
+		case FAT12:
+			VFS_ReadAt(Disk->fileHandle, ofs+(Cluster>>1)*3, 3, &val);
+			if( Cluster & 1 ) {
+				ret = val & 0xFFF0000;
+				val &= 0xFFF;
+			}
+			else {
+				ret = val & 0xFFF;
+				val &= 0xFFF000;
+			}
+			VFS_WriteAt(Disk->fileHandle, ofs+(Previous>>1)*3, 3, &val);
+			break;
+		case FAT16:
+			VFS_ReadAt(Disk->fileHandle, ofs+Previous*2, 2, &ret);
+			val = 0;
+			VFS_WriteAt(Disk->fileHandle, ofs+Cluster*2, 2, &val);
+			break;
+		case FAT32:
+			VFS_ReadAt(Disk->fileHandle, ofs+Previous*4, 4, &ret);
+			val = 0;
+			VFS_WriteAt(Disk->fileHandle, ofs+Cluster*2, 2, &val);
+			break;
+		}
+		RELEASE(Disk->lFAT);
+	#if CACHE_FAT
+	}
 	#endif
 	if(Disk->type == FAT12 && ret == EOC_FAT12)	ret = -1;
 	if(Disk->type == FAT16 && ret == EOC_FAT16)	ret = -1;
@@ -574,14 +599,14 @@ Uint64 FAT_Read(tVFS_Node *Node, Uint64 offset, Uint64 length, void *buffer)
 	
 	// Sanity Check offset
 	if(offset > Node->Size) {
-		//LOG("Reading past EOF (%i > %i)", offset, node->Size);
+		LOG("Reading past EOF (%i > %i)", offset, node->Size);
 		LEAVE('i', 0);
 		return 0;
 	}
 	// Clamp Size
 	if(offset + length > Node->Size) {
-		//LOG("Reading past EOF (%lli + %lli > %lli), clamped to %lli",
-		//	offset, length, node->Size, node->Size - offset);
+		LOG("Reading past EOF (%lli + %lli > %lli), clamped to %lli",
+			offset, length, node->Size, node->Size - offset);
 		length = Node->Size - offset;
 	}
 	
@@ -639,12 +664,12 @@ Uint64 FAT_Read(tVFS_Node *Node, Uint64 offset, Uint64 length, void *buffer)
 	cluster = FAT_int_GetFatValue(disk, cluster);
 	
 	#if DEBUG
-	LOG("pos=%i", pos);
+	LOG("pos = %i", pos);
 	LOG("Reading the rest of the clusters");
 	#endif
 	
 	
-	//Read the rest of the cluster data
+	// Read the rest of the cluster data
 	for( i = 1; i < count-1; i++ )
 	{
 		FAT_int_ReadCluster(disk, cluster, bpc, tmpBuf);
