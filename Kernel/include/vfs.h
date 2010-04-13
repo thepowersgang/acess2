@@ -5,6 +5,16 @@
 /**
  * \file vfs.h
  * \brief Acess VFS Layer
+ * 
+ * The Acess Virtual File System (VFS) provides abstraction of multiple
+ * physical filesystems, network storage and devices (both hardware and
+ * virtual) to the user.
+ * 
+ * The core of the VFS is the concept of a \ref tVFS_Node "VFS Node".
+ * A VFS Node represents a "file" in the VFS tree, this can be any sort
+ * of file (an ordinary file, a directory, a symbolic link or a device)
+ * depending on the bits set in the \ref tVFS_Node.Flags Flags field.
+ * - For more information see "VFS Node Flags"
  */
 #ifndef _VFS_H
 #define _VFS_H
@@ -12,41 +22,120 @@
 #include <acess.h>
 
 /**
- * \name VFS Node Flags
+ * \name tVFS_Node Flags
+ * \brief Flag values for tVFS_Node.Flags
  * \{
  */
-#define VFS_FFLAG_READONLY	0x01	//!< Read-only file
-#define VFS_FFLAG_DIRECTORY	0x02	//!< Directory
-#define VFS_FFLAG_SYMLINK	0x04	//!< Symbolic Link
+//! \todo Is this still needed
+#define VFS_FFLAG_READONLY	0x01	//!< Readonly File
+/**
+ * \brief Directory Flag
+ * 
+ * This flag marks the tVFS_Node as describing a directory, and says
+ * that the tVFS_Node.FindDir, tVFS_Node.ReadDir, tVFS_Node.MkNod and
+ * tVFS_Node.Relink function pointers are valid.
+ * For a directory the tVFS_Node.Size field contains the number of files
+ * within the directory, or -1 for undetermined.
+ */
+#define VFS_FFLAG_DIRECTORY	0x02
+/**
+ * \brief Symbolic Link Flag
+ * 
+ * Marks a file as a symbolic link
+ */
+#define VFS_FFLAG_SYMLINK	0x04
+/**
+ * \brief Set User ID Flag
+ * 
+ * Allows an executable file to change it's executing user to the file's
+ * owner.
+ * In the case of a directory, it means that all immediate children will
+ * inherit the UID of the parent.
+ */
+#define VFS_FFLAG_SETUID	0x08
+/**
+ * \brief Set Group ID Flag
+ * 
+ * Allows an executable file to change it's executing group to the file's
+ * owning group.
+ * In the case of a directory, it means that all immediate children will
+ * inherit the GID of the parent.
+ */
+#define VFS_FFLAG_SETGID	0x10
 /**
  * \}
  */
 
 /**
  * \brief VFS Node
- * \todo Complete / Finalise
+ * 
+ * This structure provides the VFS with the functions required to read/write
+ * the file (or directory) that it represents.
  */
-typedef struct sVFS_Node {	
-	Uint64	Inode;	//!< Inode ID
+typedef struct sVFS_Node
+{
+	/**
+	 * \name Identifiers
+	 * \brief Fields used by the driver to identify what data this node
+	 *        corresponds to.
+	 * \{
+	 */
+	Uint64	Inode;	//!< Inode ID (Essentially another ImplInt)
 	Uint	ImplInt;	//!< Implementation Usable Integer
 	void	*ImplPtr;	//!< Implementation Usable Pointer
+	/**
+	 * \}
+	 */
 	
+	/**
+	 * \name Node State
+	 * \brief Stores the misc information about the node
+	 * \{
+	 */
 	 int	ReferenceCount;	//!< Number of times the node is used
 	
 	Uint64	Size;	//!< File Size
 	
 	Uint32	Flags;	//!< File Flags
 	
+	/**
+	 * Pointer to cached data (FS Specific)
+	 * \note Inode_* will free when the node is uncached this if needed
+	 */
+	void	*Data;
+	/**
+	 * \}
+	 */
+	
+	/**
+	 * \name Times
+	 * \{
+	 */
 	Sint64	ATime;	//!< Last Accessed Time
 	Sint64	MTime;	//!< Last Modified Time
 	Sint64	CTime;	//!< Creation Time
+	/**
+	 * \}
+	 */
 	
-	Uint	UID;	//!< Owning User
-	Uint	GID;	//!< Owning Group
+	/**
+	 * \name Access controll
+	 * \{
+	 */
+	tUID	UID;	//!< ID of Owning User
+	tGID	GID;	//!< ID of Owning Group
 	
 	 int	NumACLs;	//!< Number of ACL entries
-	tVFS_ACL	*ACLs;	//!< ACL Entries
+	tVFS_ACL	*ACLs;	//!< Access Controll List pointer
+	/**
+	 * \}
+	 */
 	
+	/**
+	 * \name Common Functions
+	 * \brief Functions that are used no matter the value of .Flags
+	 * \{
+	 */
 	/**
 	 * \brief Reference the node
 	 * \param Node Pointer to this node
@@ -71,6 +160,17 @@ typedef struct sVFS_Node {
 	 int	(*IOCtl)(struct sVFS_Node *Node, int Id, void *Data);
 	
 	/**
+	 * }
+	 */
+	
+	/**
+	 * \name Buffer Functions
+	 * \brief Functions for accessing a buffer-type file (normal file or
+	 *        symbolic link)
+	 * \{
+	 */
+	
+	/**
 	 * \brief Read from the file
 	 * \param Node	Pointer to this node
 	 * \param Offset	Byte offset in the file
@@ -89,6 +189,14 @@ typedef struct sVFS_Node {
 	 */
 	Uint64	(*Write)(struct sVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
 	
+	/**
+	 * }
+	 */
+	
+	/**
+	 * \name Directory Functions
+	 * \{
+	 */
 	/**
 	 * \brief Find an directory entry by name
 	 * \param Node	Pointer to this node
@@ -125,9 +233,13 @@ typedef struct sVFS_Node {
 	 * \param Node	Pointer to this node
 	 * \param OldName	Name of the item to move/delete
 	 * \param NewName	New name (or NULL if unlinking is wanted)
-	 * \return Boolean Success
+	 * \return Zero on Success, non-zero on error (see errno.h)
 	 */
 	 int	(*Relink)(struct sVFS_Node *Node, char *OldName, char *NewName);
+	 
+	 /**
+	  * }
+	  */
 } tVFS_Node;
 
 /**
@@ -158,7 +270,8 @@ typedef struct sVFS_Driver
 
 extern tVFS_Node	NULLNode;	//!< NULL VFS Node (Ignored/Skipped)
 /**
- * \name Simple ACLs to aid writing drivers
+ * \name Static ACLs
+ * \brief Simple ACLs to aid writing drivers
  * \{
  */
 extern tVFS_ACL	gVFS_ACL_EveryoneRWX;	//!< Everyone Read/Write/Execute
@@ -193,8 +306,15 @@ extern tVFS_Driver	*VFS_GetFSByName(char *Name);
 extern tVFS_ACL	*VFS_UnixToAcessACL(Uint Mode, Uint Owner, Uint Group);
 
 // --- Node Cache --
-//! \name Node Cache
-//! \{
+/**
+ * \name Node Cache
+ * \brief Functions to allow a node to be cached in memory by the VFS
+ * 
+ * These functions store a node for the driver, to prevent it from having
+ * to re-generate the node on each call to FindDir. It also allows for
+ * fast cleanup when a filesystem is unmounted.
+ * \{
+ */
 /**
  * \fn int Inode_GetHandle()
  * \brief Gets a unique handle to the Node Cache
@@ -218,7 +338,7 @@ extern tVFS_Node	*Inode_GetCache(int Handle, Uint64 Inode);
  */
 extern tVFS_Node	*Inode_CacheNode(int Handle, tVFS_Node *Node);
 /**
- * \fn void Inode_UncacheNode(int Handle, Uint64 Inode)
+ * \fn int Inode_UncacheNode(int Handle, Uint64 Inode)
  * \brief Dereferences (and removes if needed) a node from the cache
  * \param Handle	A handle returned by Inode_GetHandle()
  * \param Inode	Value of the Inode field of the ::tVFS_Node you want to remove
@@ -231,6 +351,8 @@ extern void	Inode_UncacheNode(int Handle, Uint64 Inode);
  */
 extern void	Inode_ClearCache(int Handle);
 
-//! \}
+/**
+ * \}
+ */
 
 #endif

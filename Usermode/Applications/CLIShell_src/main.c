@@ -1,11 +1,16 @@
 /*
  * AcessOS Shell Version 3
  */
+#define USE_READLINE	0
 #include <acess/sys.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include "header.h"
+
+#if USE_READLINE
+# include "readline.h"
+#endif
 
 #define _stdin	0
 #define _stdout	1
@@ -51,7 +56,15 @@ int main(int argc, char *argv[], char *envp[])
 	 int	length = 0;
 	 int	i;
 	 int	iArgCount = 0;
+	#if !USE_READLINE
 	 int	bCached = 1;
+	#else
+	tReadline	readline_state = {0};
+	#endif
+	
+	#if USE_READLINE
+	readline_state.UseHistory = 1;
+	#endif
 	
 	gasEnvironment = envp;
 	
@@ -74,13 +87,19 @@ int main(int argc, char *argv[], char *envp[])
 	{
 		// Free last command & arguments
 		if(saArgs[0])	free(saArgs);
+		#if !USE_READLINE
 		if(!bCached)	free(sCommandStr);
 		bCached = 0;
+		#endif
 		
 		write(_stdout, strlen(gsCurrentDirectory), gsCurrentDirectory);
 		write(_stdout, 2, "$ ");
 		
 		// Read Command line
+		#if USE_READLINE
+		sCommandStr = Readline( &readline_state );
+		length = strlen(sCommandStr);
+		#else
 		sCommandStr = ReadCommandLine( &length );
 		
 		if(!sCommandStr) {
@@ -99,6 +118,7 @@ int main(int argc, char *argv[], char *envp[])
 			gasCommandHistory[ giLastCommand ] = sCommandStr;
 			bCached = 1;
 		}
+		#endif
 		
 		// Parse Command Line into arguments
 		Parse_Args(sCommandStr, saArgs);
@@ -123,6 +143,10 @@ int main(int argc, char *argv[], char *envp[])
 		
 		// Shall we?
 		CallCommand( &saArgs[1] );
+		
+		#if USE_READLINE
+		free( sCommandStr );
+		#endif
 	}
 }
 

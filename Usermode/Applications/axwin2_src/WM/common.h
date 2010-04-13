@@ -9,6 +9,9 @@
 #include <stdio.h>
 #include <stdint.h>
 
+#include "wm.h"
+
+// === GLOBALS ===
 extern char	*gsTerminalDevice;
 extern char	*gsMouseDevice;
 

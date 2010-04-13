@@ -52,7 +52,7 @@ int getDebugChar()
 	return inb(GDB_SERIAL_PORT);
 }
 
-static void E9(char ch)
+static void Debug_Putchar(char ch)
 {
 	if(giDebug_KTerm != -1)
 		VFS_Write(giDebug_KTerm, 1, &ch);
@@ -77,25 +77,26 @@ static void E9(char ch)
 	#endif
 }
 
-static void E9_Str(char *Str)
+static void Debug_Puts(char *Str)
 {
-	while(*Str)	E9(*Str++);
+	while(*Str)	Debug_Putchar(*Str++);
 }
 
-void E9_Fmt(const char *format, va_list *args)
+void Debug_Fmt(const char *format, va_list *args)
 {
 	char	c, pad = ' ';
-	 int	minSize = 0;
+	 int	minSize = 0, len;
 	char	tmpBuf[34];	// For Integers
 	char	*p = NULL;
 	 int	isLongLong = 0;
 	Uint64	arg;
+	 int	bPadLeft = 0;
 
 	while((c = *format++) != 0)
 	{
 		// Non control character
 		if( c != '%' ) {
-			E9(c);
+			Debug_Putchar(c);
 			continue;
 		}
 
@@ -103,14 +104,14 @@ void E9_Fmt(const char *format, va_list *args)
 
 		// Literal %
 		if(c == '%') {
-			E9('%');
+			Debug_Putchar('%');
 			continue;
 		}
 
 		// Pointer
 		if(c == 'p') {
 			Uint	ptr = va_arg(*args, Uint);
-			E9('*');	E9('0');	E9('x');
+			Debug_Putchar('*');	Debug_Putchar('0');	Debug_Putchar('x');
 			p = tmpBuf;
 			itoa(p, ptr, 16, BITS/4, '0');
 			goto printString;
@@ -118,6 +119,12 @@ void E9_Fmt(const char *format, va_list *args)
 
 		// Get Argument
 		arg = va_arg(*args, Uint);
+
+		// - Padding Side Flag
+		if(c == '+') {
+			bPadLeft = 1;
+			c = *format++;
+		}
 
 		// Padding
 		if(c == '0') {
@@ -157,7 +164,7 @@ void E9_Fmt(const char *format, va_list *args)
 		case 'd':
 		case 'i':
 			if( (isLongLong && arg >> 63) || (!isLongLong && arg >> 31) ) {
-				E9('-');
+				Debug_Putchar('-');
 				arg = -arg;
 			}
 			itoa(p, arg, 10, minSize, pad);
@@ -175,43 +182,43 @@ void E9_Fmt(const char *format, va_list *args)
 			itoa(p, arg, 2, minSize, pad);
 			goto printString;
 
+		printString:
+			if(!p)		p = "(null)";
+			while(*p)	Debug_Putchar(*p++);
+			break;
+
 		case 'B':	//Boolean
-			if(arg)	E9_Str("True");
-			else	E9_Str("False");
+			if(arg)	Debug_Puts("True");
+			else	Debug_Puts("False");
 			break;
 
 		case 's':
 			p = (char*)(Uint)arg;
-		printString:
 			if(!p)		p = "(null)";
-			while(*p)	E9(*p++);
+			len = strlen(p);
+			if( !bPadLeft )	while(len++ < minSize)	Debug_Putchar(pad);
+			while(*p)	Debug_Putchar(*p++);
+			if( bPadLeft )	while(len++ < minSize)	Debug_Putchar(pad);
 			break;
 
 		// Single Character / Array
 		case 'c':
 			if(minSize == 1) {
-				E9(arg);
+				Debug_Putchar(arg);
 				break;
 			}
 			p = (char*)(Uint)arg;
 			if(!p)	goto printString;
-			while(minSize--)	E9(*p++);
+			while(minSize--)	Debug_Putchar(*p++);
 			break;
 
-		default:	E9(arg);	break;
+		default:
+			Debug_Putchar(arg);
+			break;
 		}
     }
 }
 
-/**
- * \fn void LogV(char *Fmt, va_list Args)
- */
-void LogV(char *Fmt, va_list Args)
-{
-	E9_Str("Log: ");
-	E9_Fmt(Fmt, &Args);
-	E9('\n');
-}
 /**
  * \fn void LogF(char *Msg, ...)
  */
@@ -221,7 +228,7 @@ void LogF(char *Fmt, ...)
 
 	va_start(args, Fmt);
 
-	E9_Fmt(Fmt, &args);
+	Debug_Fmt(Fmt, &args);
 
 	va_end(args);
 }
@@ -232,29 +239,29 @@ void Log(char *Fmt, ...)
 {
 	va_list	args;
 
-	E9_Str("Log: ");
+	Debug_Puts("Log: ");
 	va_start(args, Fmt);
-	E9_Fmt(Fmt, &args);
+	Debug_Fmt(Fmt, &args);
 	va_end(args);
-	E9('\n');
+	Debug_Putchar('\n');
 }
 void Warning(char *Fmt, ...)
 {
 	va_list	args;
-	E9_Str("Warning: ");
+	Debug_Puts("Warning: ");
 	va_start(args, Fmt);
-	E9_Fmt(Fmt, &args);
+	Debug_Fmt(Fmt, &args);
 	va_end(args);
-	E9('\n');
+	Debug_Putchar('\n');
 }
 void Panic(char *Fmt, ...)
 {
 	va_list	args;
-	E9_Str("Panic: ");
+	Debug_Puts("Panic: ");
 	va_start(args, Fmt);
-	E9_Fmt(Fmt, &args);
+	Debug_Fmt(Fmt, &args);
 	va_end(args);
-	E9('\n');
+	Debug_Putchar('\n');
 
 	Threads_Dump();
 
@@ -268,7 +275,7 @@ void Debug_SetKTerminal(char *File)
 	if(giDebug_KTerm != -1)
 		VFS_Close(giDebug_KTerm);
 	giDebug_KTerm = VFS_Open(File, VFS_OPENFLAG_WRITE);
-	Log("Opened '%s' as 0x%x", File, giDebug_KTerm);
+	Log_Log("Debug", "Opened '%s' as 0x%x", File, giDebug_KTerm);
 }
 
 void Debug_Enter(char *FuncName, char *ArgTypes, ...)
@@ -279,33 +286,33 @@ void Debug_Enter(char *FuncName, char *ArgTypes, ...)
 
 	va_start(args, ArgTypes);
 
-	while(i--)	E9(' ');
+	while(i--)	Debug_Putchar(' ');
 
-	E9_Str(FuncName);	E9_Str(": (");
+	Debug_Puts(FuncName);	Debug_Puts(": (");
 
 	while(*ArgTypes)
 	{
 		pos = strpos(ArgTypes, ' ');
 		if(pos != -1)	ArgTypes[pos] = '\0';
 		if(pos == -1 || pos > 1) {
-			E9_Str(ArgTypes+1);
-			E9('=');
+			Debug_Puts(ArgTypes+1);
+			Debug_Putchar('=');
 		}
 		if(pos != -1)	ArgTypes[pos] = ' ';
 		switch(*ArgTypes)
 		{
-		case 'p':	E9_Fmt("%p", &args);	break;
-		case 's':	E9_Fmt("'%s'", &args);	break;
-		case 'i':	E9_Fmt("%i", &args);	break;
-		case 'u':	E9_Fmt("%u", &args);	break;
-		case 'x':	E9_Fmt("0x%x", &args);	break;
-		case 'b':	E9_Fmt("0b%b", &args);	break;
+		case 'p':	Debug_Fmt("%p", &args);	break;
+		case 's':	Debug_Fmt("'%s'", &args);	break;
+		case 'i':	Debug_Fmt("%i", &args);	break;
+		case 'u':	Debug_Fmt("%u", &args);	break;
+		case 'x':	Debug_Fmt("0x%x", &args);	break;
+		case 'b':	Debug_Fmt("0b%b", &args);	break;
 		// Extended (64-Bit)
-		case 'X':	E9_Fmt("0x%llx", &args);	break;
-		case 'B':	E9_Fmt("0b%llb", &args);	break;
+		case 'X':	Debug_Fmt("0x%llx", &args);	break;
+		case 'B':	Debug_Fmt("0b%llb", &args);	break;
 		}
 		if(pos != -1) {
-			E9(',');	E9(' ');
+			Debug_Putchar(',');	Debug_Putchar(' ');
 		}
 
 		if(pos == -1)	break;
@@ -313,7 +320,7 @@ void Debug_Enter(char *FuncName, char *ArgTypes, ...)
 	}
 
 	va_end(args);
-	E9(')');	E9('\n');
+	Debug_Putchar(')');	Debug_Putchar('\n');
 }
 
 void Debug_Log(char *FuncName, char *Fmt, ...)
@@ -323,13 +330,13 @@ void Debug_Log(char *FuncName, char *Fmt, ...)
 
 	va_start(args, Fmt);
 
-	while(i--)	E9(' ');
+	while(i--)	Debug_Putchar(' ');
 
-	E9_Str(FuncName);	E9_Str(": ");
-	E9_Fmt(Fmt, &args);
+	Debug_Puts(FuncName);	Debug_Puts(": ");
+	Debug_Fmt(Fmt, &args);
 
 	va_end(args);
-	E9('\n');
+	Debug_Putchar('\n');
 }
 
 void Debug_Leave(char *FuncName, char RetType, ...)
@@ -344,29 +351,29 @@ void Debug_Leave(char *FuncName, char RetType, ...)
 		i = 0;
 	}
 	// Indenting
-	while(i--)	E9(' ');
+	while(i--)	Debug_Putchar(' ');
 
-	E9_Str(FuncName);	E9_Str(": RETURN");
+	Debug_Puts(FuncName);	Debug_Puts(": RETURN");
 
 	// No Return
 	if(RetType == '-') {
-		E9('\n');
+		Debug_Putchar('\n');
 		return;
 	}
 
-	E9(' ');
+	Debug_Putchar(' ');
 	switch(RetType)
 	{
-	case 'n':	E9_Str("NULL");	break;
-	case 'p':	E9_Fmt("%p", &args);	break;
-	case 's':	E9_Fmt("'%s'", &args);	break;
-	case 'i':	E9_Fmt("%i", &args);	break;
-	case 'u':	E9_Fmt("%u", &args);	break;
-	case 'x':	E9_Fmt("0x%x", &args);	break;
+	case 'n':	Debug_Puts("NULL");	break;
+	case 'p':	Debug_Fmt("%p", &args);	break;
+	case 's':	Debug_Fmt("'%s'", &args);	break;
+	case 'i':	Debug_Fmt("%i", &args);	break;
+	case 'u':	Debug_Fmt("%u", &args);	break;
+	case 'x':	Debug_Fmt("0x%x", &args);	break;
 	// Extended (64-Bit)
-	case 'X':	E9_Fmt("0x%llx", &args);	break;
+	case 'X':	Debug_Fmt("0x%llx", &args);	break;
 	}
-	E9('\n');
+	Debug_Putchar('\n');
 
 	va_end(args);
 }
@@ -375,7 +382,7 @@ void Debug_HexDump(char *Header, void *Data, Uint Length)
 {
 	Uint8	*cdat = Data;
 	Uint	pos = 0;
-	E9_Str(Header);
+	Debug_Puts(Header);
 	LogF(" (Hexdump of %p)\n", Data);
 
 	while(Length >= 16)
@@ -403,7 +410,7 @@ void Debug_HexDump(char *Header, void *Data, Uint Length)
 		Length--;
 		cdat ++;
 	}
-	E9('\n');
+	Debug_Putchar('\n');
 }
 
 // --- EXPORTS ---

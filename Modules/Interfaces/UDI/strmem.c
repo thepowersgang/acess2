@@ -11,6 +11,12 @@ EXPORT(udi_snprintf);
 // === CODE ===
 udi_size_t udi_snprintf(char *s, udi_size_t max_bytes, const char *format, ...)
 {
-	s[0] = '\0';
-	return 0;
+	udi_size_t	ret;
+	va_list	args;
+	va_start(args, format);
+	
+	ret = vsnprintf(s, max_bytes, format, args);
+	
+	va_end(args);
+	return ret;
 }

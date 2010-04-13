@@ -68,7 +68,7 @@ tSysFS_Ent	gSysFS_Version = {
 		.FindDir = SysFS_Comm_FindDir
 	}
 };
-// Root of the SysFS tree (just used for clean code)
+// Root of the SysFS tree (just used to keep the code clean)
 tSysFS_Ent	gSysFS_Root = {
 	NULL, NULL,
 	NULL,
@@ -77,11 +77,6 @@ tSysFS_Ent	gSysFS_Root = {
 		.Size = 1,
 		.ImplPtr = &gSysFS_Version,
 		.ImplInt = (Uint)&gSysFS_Root	// Self-Link
-	//	.NumACLs = 1,
-	//	.ACLs = &gVFS_ACL_EveryoneRX,
-	//	.Flags = VFS_FFLAG_DIRECTORY,
-	//	.ReadDir = SysFS_Comm_ReadDir,
-	//	.FindDir = SysFS_Comm_FindDir
 	}
 };
 tDevFS_Driver	gSysFS_DriverInfo = {
@@ -108,7 +103,7 @@ tSysFS_Ent	*gSysFS_FileList;
 int SysFS_Install(char **Options)
 {
 	DevFS_AddDevice( &gSysFS_DriverInfo );
-	return MODULE_INIT_SUCCESS;
+	return MODULE_ERR_OK;
 }
 
 /**
@@ -171,7 +166,7 @@ int SysFS_RegisterFile(char *Path, char *Data, int Length)
 				ent->Node.Size ++;
 			else
 				gSysFS_DriverInfo.RootNode.Size ++;
-			Log("[SYSFS] Added directory '%s'", child->Name);
+			Log_Log("SysFS", "Added directory '%s'", child->Name);
 		}
 		
 		ent = child;
@@ -194,7 +189,7 @@ int SysFS_RegisterFile(char *Path, char *Data, int Length)
 			break;
 	}
 	if( child ) {
-		Warning("[SYSFS] '%s' is taken (in '%s')\n", &Path[start], Path);
+		Log_Warning("SysFS", "'%s' is taken (in '%s')\n", &Path[start], Path);
 		return 0;
 	}
 	
@@ -228,7 +223,7 @@ int SysFS_RegisterFile(char *Path, char *Data, int Length)
 	child->ListNext = gSysFS_FileList;
 	gSysFS_FileList = child;
 	
-	Log("[SYSFS] Added '%s' (%p)", Path, Data);
+	Log_Log("SysFS", "Added '%s' (%p)", Path, Data);
 	
 	return child->Node.Inode;
 }
@@ -297,7 +292,7 @@ int SysFS_RemoveFile(int ID)
 		if( ent == file )	break;
 	}
 	if(!ent) {
-		Warning("[SYSFS] Bookkeeping Error: File in list, but not in directory");
+		Log_Warning("SysFS", "Bookkeeping Error: File in list, but not in directory");
 		return 0;
 	}
 	

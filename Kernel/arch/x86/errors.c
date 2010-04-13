@@ -11,6 +11,7 @@
 
 // === IMPORTS ===
 extern void	MM_PageFault(Uint Addr, Uint ErrorCode, tRegs *Regs);
+extern void	VM8086_GPF(tRegs *Regs);
 extern void Threads_Dump();
 
 // === PROTOTYPES ===
@@ -42,8 +43,15 @@ void __stack_chk_fail()
 void ErrorHandler(tRegs *Regs)
 {
 	Uint	cr;
+	
+	//if( Regs && !(Regs->int_num == 13 && Regs->eflags & 0x20000) )
+	//	__asm__ __volatile__ ("xchg %bx, %bx");
+	//Log_Debug("X86", "Regs = %p", Regs);
+	//Log_Debug("X86", "Error %i at 0x%08x", Regs->int_num, Regs->eip);
+	
 	__asm__ __volatile__ ("cli");
 	
+	// Page Fault
 	if(Regs->int_num == 14)
 	{
 		__asm__ __volatile__ ("mov %%cr2, %0":"=r"(cr));
@@ -51,10 +59,20 @@ void ErrorHandler(tRegs *Regs)
 		return ;
 	}
 	
+	// VM8086 GPF
+	if(Regs->int_num == 13 && Regs->eflags & 0x20000)
+	{
+		VM8086_GPF(Regs);
+		return ;
+	}
+	
 	Warning("CPU Error %i - %s, Code: 0x%x",
 		Regs->int_num, csaERROR_NAMES[Regs->int_num], Regs->err_code);
 	Warning(" CS:EIP = 0x%04x:%08x", Regs->cs, Regs->eip);
-	Warning(" SS:ESP = 0x%04x:%08x", Regs->ss, Regs->esp);
+	if(Regs->cs == 0x08)
+		Warning(" SS:ESP = 0x0010:%08x", 0x10, (Uint)Regs+sizeof(tRegs));
+	else
+		Warning(" SS:ESP = 0x%04x:%08x", Regs->ss, Regs->esp);
 	Warning(" EFLAGS = 0x%08x", Regs->eflags);
 	Warning(" EAX %08x ECX %08x EDX %08x EBX %08x",
 		Regs->eax, Regs->ecx, Regs->edx, Regs->ebx);
@@ -73,7 +91,7 @@ void ErrorHandler(tRegs *Regs)
 	
 	switch( Regs->int_num )
 	{
-	case 6:
+	case 6:	// #UD
 		Warning(" Offending bytes: %02x %02x %02x %02x",
 			*(Uint8*)Regs->eip+0, *(Uint8*)Regs->eip+1,
 			*(Uint8*)Regs->eip+2, *(Uint8*)Regs->eip+3);

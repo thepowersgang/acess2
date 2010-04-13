@@ -29,6 +29,7 @@ gGDTPtr:
 	dd	gGDT
 ; IDT
 ALIGN 8
+[global gIDT]
 gIDT:
 	times	256	dd	0x00080000,0x00000F00
 [global gIDTPtr]
@@ -146,7 +147,6 @@ Isr%1:
 %macro DEF_IRQ	1
 [global Isr%1]
 Isr%1:
-	;cli	; HACK!
 	push	0
 	push	%1
 	jmp	IRQCommon
@@ -212,6 +212,12 @@ ErrorCommon:
 	push fs
 	push gs
 	
+	mov ax, 0x10
+	mov ds, ax
+	mov es, ax
+	mov fs, ax
+	mov gs, ax
+	
 	push esp
 	call ErrorHandler
 	add esp, 4
@@ -258,6 +264,12 @@ IRQCommon:
 	push fs
 	push gs
 	
+	mov ax, 0x10
+	mov ds, ax
+	mov es, ax
+	mov fs, ax
+	mov gs, ax
+	
 	push esp
 	call IRQ_Handler
 	add esp, 4
@@ -280,6 +292,12 @@ SchedulerBase:
 	push es
 	push fs
 	push gs
+	
+	mov ax, 0x10
+	mov ds, ax
+	mov es, ax
+	mov fs, ax
+	mov gs, ax
 	
 	mov eax, [esp+12*4]	; CPU Number
 	push eax	; Pus as argument

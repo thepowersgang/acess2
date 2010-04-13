@@ -2,7 +2,7 @@
  * Acess2 IDE Harddisk Driver
  * - main.c
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include <modules.h>
 #include <vfs.h>
@@ -76,7 +76,7 @@ void	ATA_int_BusMasterWriteByte(int Ofs, Uint8 Value);
 void	ATA_int_BusMasterWriteDWord(int Ofs, Uint32 Value);
 
 // === GLOBALS ===
-MODULE_DEFINE(0, 0x0032, i386ATA, ATA_Install, NULL, NULL);
+MODULE_DEFINE(0, 0x0032, i386ATA, ATA_Install, NULL, "PCI", NULL);
 tDevFS_Driver	gATA_DriverInfo = {
 	NULL, "ata",
 	{
@@ -112,16 +112,16 @@ int ATA_Install()
 	int	ret;
 
 	ret = ATA_SetupIO();
-	if(ret != 1)	return ret;
+	if(ret)	return ret;
 
 	ATA_SetupPartitions();
 
 	ATA_SetupVFS();
 
 	if( DevFS_AddDevice( &gATA_DriverInfo ) == 0 )
-		return MODULE_INIT_FAILURE;
+		return MODULE_ERR_MISC;
 
-	return MODULE_INIT_SUCCESS;
+	return MODULE_ERR_OK;
 }
 
 /**
@@ -141,15 +141,17 @@ int ATA_SetupIO()
 	gATA_BusMasterBase = PCI_GetBAR4( ent );
 	if( gATA_BusMasterBase == 0 ) {
 		Warning("It seems that there is no Bus Master Controller on this machine. Get one");
-		LEAVE('i', MODULE_INIT_FAILURE);
-		return MODULE_INIT_FAILURE;
+		LEAVE('i', MODULE_ERR_NOTNEEDED);
+		return MODULE_ERR_NOTNEEDED;
 	}
+	
+	// Map memory
 	if( !(gATA_BusMasterBase & 1) )
 	{
 		if( gATA_BusMasterBase < 0x100000 )
 			gATA_BusMasterBasePtr = (void*)(0xC0000000|gATA_BusMasterBase);
 		else
-			gATA_BusMasterBasePtr = (void*)( MM_MapHWPage( gATA_BusMasterBase, 1 ) + (gATA_BusMasterBase&0xFFF) );
+			gATA_BusMasterBasePtr = (void*)( MM_MapHWPages( gATA_BusMasterBase, 1 ) + (gATA_BusMasterBase&0xFFF) );
 		LOG("gATA_BusMasterBasePtr = %p", gATA_BusMasterBasePtr);
 	}
 	else {
@@ -157,6 +159,7 @@ int ATA_SetupIO()
 		LOG("gATA_BusMasterBase = 0x%x", gATA_BusMasterBase & ~1);
 	}
 
+	// Register IRQs and get Buffers
 	IRQ_AddHandler( gATA_IRQPri, ATA_IRQHandlerPri );
 	IRQ_AddHandler( gATA_IRQSec, ATA_IRQHandlerSec );
 
@@ -172,11 +175,13 @@ int ATA_SetupIO()
 	LOG("addr = 0x%x", addr);
 	ATA_int_BusMasterWriteDWord(12, addr);
 
+	// Enable controllers
 	outb(IDE_PRI_BASE+1, 1);
 	outb(IDE_SEC_BASE+1, 1);
 
-	LEAVE('i', MODULE_INIT_SUCCESS);
-	return MODULE_INIT_SUCCESS;
+	// return
+	LEAVE('i', MODULE_ERR_OK);
+	return MODULE_ERR_OK;
 }
 
 /**

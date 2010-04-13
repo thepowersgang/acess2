@@ -39,10 +39,12 @@ void MM_Install(tMBoot_Info *MBoot)
 	tMBoot_MMapEnt	*ent;
 	
 	// --- Find largest address
+	Log("MBoot->MMapAddr = %08x", MBoot->MMapAddr);
 	MBoot->MMapAddr |= KERNEL_BASE;
 	ent = (void *)( MBoot->MMapAddr );
 	while( (Uint)ent < MBoot->MMapAddr + MBoot->MMapLength )
 	{
+		Log(" ent->Size = %08x", ent->Size);
 		// Adjust for size
 		ent->Size += 4;
 		
@@ -71,7 +73,7 @@ void MM_Install(tMBoot_Info *MBoot)
 		ent = (tMBoot_MMapEnt *)( (Uint)ent + ent->Size );
 	}
 	
-	// Get used page count
+	// Get used page count (Kernel)
 	kernelPages = (Uint)&gKernelEnd - KERNEL_BASE - 0x100000;
 	kernelPages += 0xFFF;	// Page Align
 	kernelPages >>= 12;
@@ -89,10 +91,12 @@ void MM_Install(tMBoot_Info *MBoot)
 	// Mark Multiboot's pages as taken
 	// - Structure
 	MM_RefPhys( (Uint)MBoot - KERNEL_BASE );
+	Log("MBoot->ModuleCount = %i", MBoot->ModuleCount);
 	// - Module List
 	for(i = (MBoot->ModuleCount*sizeof(tMBoot_Module)+0xFFF)>12; i--; )
 		MM_RefPhys( MBoot->Modules + (i << 12) );
 	// - Modules
+	Log("MBoot->Modules = %p", MBoot->Modules);
 	mods = (void*)(MBoot->Modules + KERNEL_BASE);
 	for(i = 0; i < MBoot->ModuleCount; i++)
 	{
@@ -207,8 +211,13 @@ tPAddr MM_AllocPhysRange(int Pages, int MaxBits)
 	 int	i, idx, sidx;
 	tPAddr	ret;
 	
+	ENTER("iPages iMaxBits", Pages, MaxBits);
+	
 	// Sanity Checks
-	if(MaxBits < 0)	return 0;
+	if(MaxBits < 0) {
+		LEAVE('i', 0);
+		return 0;
+	}
 	if(MaxBits > PHYS_BITS)	MaxBits = PHYS_BITS;
 	
 	// Lock
@@ -226,16 +235,28 @@ tPAddr MM_AllocPhysRange(int Pages, int MaxBits)
 	b = idx % 32;
 	a = idx / 32;
 	
+	#if 0
+	LOG("a=%i, b=%i, idx=%i, sidx=%i", a, b, idx, sidx);
+	
 	// Find free page
-	for( ; gaSuperBitmap[a] == -1 && a --; );
+	for( ; gaSuperBitmap[a] == -1 && a --; )	b = 31;
 	if(a < 0) {
 		RELEASE( &giPhysAlloc );
 		Warning("MM_AllocPhysRange - OUT OF MEMORY (Called by %p)", __builtin_return_address(0));
+		LEAVE('i', 0);
 		return 0;
 	}
-	for( ; gaSuperBitmap[a] & (1 << b); b-- );
+	LOG("a = %i", a);
+	for( ; gaSuperBitmap[a] & (1 << b); b-- )	sidx = 31;
+	LOG("b = %i", b);
 	idx = a * 32 + b;
-	for( ; gaPageBitmap[idx] & (1 << sidx); sidx-- );
+	for( ; gaPageBitmap[idx] & (1 << sidx); sidx-- )
+		LOG("gaPageBitmap[%i] = 0x%08x", idx, gaPageBitmap[idx]);
+	
+	LOG("idx = %i, sidx = %i", idx, sidx);
+	#else
+	
+	#endif
 	
 	// Check if the gap is large enough
 	while( idx >= 0 )
@@ -280,6 +301,8 @@ tPAddr MM_AllocPhysRange(int Pages, int MaxBits)
 	if( idx < 0 ) {
 		RELEASE( &giPhysAlloc );
 		Warning("MM_AllocPhysRange - OUT OF MEMORY (Called by %p)", __builtin_return_address(0));
+		LEAVE('i', 0);
+		return 0;
 	}
 	
 	// Mark pages used
@@ -289,7 +312,7 @@ tPAddr MM_AllocPhysRange(int Pages, int MaxBits)
 			gaPageReferences[idx*32+sidx] = 1;
 		gaPageBitmap[ idx ] |= 1 << sidx;
 		sidx ++;
-		if(sidx == 32) {	sidx = 0;	idx ++;	}
+		if(sidx == 32) { sidx = 0;	idx ++;	}
 	}
 	
 	// Get address
@@ -301,6 +324,7 @@ tPAddr MM_AllocPhysRange(int Pages, int MaxBits)
 	// Release Spinlock
 	RELEASE( &giPhysAlloc );
 	
+	LEAVE('X', ret);
 	return ret;
 }
 

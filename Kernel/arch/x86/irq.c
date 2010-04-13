@@ -49,12 +49,12 @@ int IRQ_AddHandler( int Num, void (*Callback)(int) )
 	for( i = 0; i < MAX_CALLBACKS_PER_IRQ; i++ )
 	{
 		if( gIRQ_Handlers[Num][i] == NULL ) {
-			Log("IRQ_AddHandler: Added IRQ%i Cb#%i %p", Num, i, Callback);
+			Log_Log("IRQ", "Added IRQ%i Cb#%i %p", Num, i, Callback);
 			gIRQ_Handlers[Num][i] = Callback;
 			return 1;
 		}
 	}
 
-	Warning("IRQ_AddHandler - No free callbacks on IRQ%i", Num);
+	Log_Warning("IRQ", "No free callbacks on IRQ%i", Num);
 	return 0;
 }

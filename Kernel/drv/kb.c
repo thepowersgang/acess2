@@ -11,6 +11,7 @@
 
 // === CONSTANTS ===
 #define	KB_BUFFER_SIZE	1024
+#define	USE_KERNEL_MAGIC	1
 
 // === IMPORTS ===
 void	Threads_Dump();
@@ -63,11 +64,12 @@ int KB_Install(char **Arguments)
 	temp = inb(0x61);
 	outb(0x61, temp | 0x80);
 	outb(0x61, temp & 0x7F);
+	inb(0x60);	// Clear keyboard buffer
 	
 	IRQ_AddHandler(1, KB_IRQHandler);
 	DevFS_AddDevice( &gKB_DevInfo );
 	//Log("KB_Install: Installed");
-	return 1;
+	return MODULE_ERR_OK;
 }
 
 /**
@@ -80,16 +82,16 @@ void KB_IRQHandler()
 	Uint32	ch;
 	// int	keyNum;
 
-	//if( inportb(0x64) & 0x20 )	return;
+	// Check port 0x64 to tell if this is from the aux port
+	//if( inb(0x64) & 0x20 )	return;
 
 	scancode = inb(0x60); // Read from the keyboard's data buffer
-
-	//Log("KB_IRQHandler: scancode = 0x%02x", scancode);
+	//Log_Debug("Keyboard", "scancode = %02x", scancode);
 
 	// Ignore ACKs
 	if(scancode == 0xFA) {
-		// Oh man! This is anachic (I'm leaving it here to represent the
-		// mess that Acess once was)
+		// Oh man! This is anarchic (I'm leaving it here to represent
+		// the mess that Acess once was)
 		//kb_lastChar = KB_ACK;
 		return;
 	}
@@ -124,7 +126,7 @@ void KB_IRQHandler()
 	//keyNum = giKB_KeyLayer * 256 + scancode;
 	// Check for unknown key
 	if(!ch && !gbKB_KeyUp)
-		Warning("UNK %i %x", giKB_KeyLayer, scancode);
+		Log_Warning("Keyboard", "UNK %i %x", giKB_KeyLayer, scancode);
 
 	// Key Up?
 	if (gbKB_KeyUp)
@@ -169,8 +171,14 @@ void KB_IRQHandler()
 
 	// --- Check for Kernel Magic Combos
 	#if USE_KERNEL_MAGIC
-	if(ch == KEY_LCTRL)	gbKB_MagicState |= 1;
-	if(ch == KEY_LALT)	gbKB_MagicState |= 2;
+	if(ch == KEY_LCTRL) {
+		gbKB_MagicState |= 1;
+		//Log_Log("Keyboard", "Kernel Magic LCTRL Down\n");
+	}
+	if(ch == KEY_LALT) {
+		gbKB_MagicState |= 2;
+		//Log_Log("Keyboard", "Kernel Magic LALT Down\n");
+	}
 	if(gbKB_MagicState == 3)
 	{
 		switch(ch)

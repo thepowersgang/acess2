@@ -14,7 +14,55 @@ const short DAYS_BEFORE[] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 3
 #define UNIX_TO_2K	((30*365*3600*24) + (7*3600*24))	//Normal years + leap years
 
 // === PROTOTYPES ===
+ int	atoi(const char *string);
+void	itoa(char *buf, Uint num, int base, int minLength, char pad);
+ int	vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args);
+ int	sprintf(char *__s, const char *__format, ...);
+ int	tolower(int c);
+ int	strucmp(const char *Str1, const char *Str2);
+ int	strpos(const char *Str, char Ch);
+ Uint8	ByteSum(void *Ptr, int Size);
+size_t	strlen(const char *__s);
+char	*strcpy(char *__str1, const char *__str2);
+char	*strncpy(char *__str1, const char *__str2, size_t max);
+ int	strcmp(const char *str1, const char *str2);
+ int	strncmp(const char *str1, const char *str2, size_t num);
+char	*strdup(const char *Str);
+ int	DivUp(int num, int dem);
+ int	strpos8(const char *str, Uint32 Search);
  int	ReadUTF8(Uint8 *str, Uint32 *Val);
+ int	WriteUTF8(Uint8 *str, Uint32 Val);
+Sint64	timestamp(int sec, int mins, int hrs, int day, int month, int year);
+Uint	rand(void);
+ int	CheckString(char *String);
+ int	CheckMem(void *Mem, int NumBytes);
+ int	ModUtil_LookupString(char **Array, char *Needle);
+ int	ModUtil_SetIdent(char *Dest, char *Value);
+
+// === EXPORTS ===
+EXPORT(atoi);
+EXPORT(itoa);
+EXPORT(vsnprintf);
+EXPORT(sprintf);
+EXPORT(tolower);
+EXPORT(strucmp);
+EXPORT(strpos);
+EXPORT(ByteSum);
+EXPORT(strlen);
+EXPORT(strcpy);
+EXPORT(strncpy);
+EXPORT(strcmp);
+EXPORT(strncmp);
+EXPORT(strdup);
+EXPORT(DivUp);
+EXPORT(strpos8);
+EXPORT(ReadUTF8);
+EXPORT(WriteUTF8);
+EXPORT(timestamp);
+EXPORT(CheckString);
+EXPORT(CheckMem);
+EXPORT(ModUtil_LookupString);
+EXPORT(ModUtil_SetIdent);
 
 // === GLOBALS ===
 static Uint	giRandomState = RANDOM_SEED;
@@ -26,9 +74,16 @@ static Uint	giRandomState = RANDOM_SEED;
 int atoi(const char *string)
 {
 	 int	ret = 0;
+	 int	bNeg = 0;
+	
+	//Log("atoi: (string='%s')", string);
 	
 	// Clear non-numeric characters
-	while( !('0' <= *string && *string <= '9') )	string++;
+	while( !('0' <= *string && *string <= '9') && *string != '-' )	string++;
+	if( *string == '-' ) {
+		bNeg = 1;
+		while( !('0' <= *string && *string <= '9') )	string++;
+	}
 	
 	if(*string == '0')
 	{
@@ -37,32 +92,34 @@ int atoi(const char *string)
 		{
 			// Hex
 			string ++;
-			for( ;; ) {
-				ret *= 16;
-				if('0' <= *string && *string <= '9')
+			for( ;; string ++ )
+			{
+				if('0' <= *string && *string <= '9') {
+					ret *= 16;
 					ret += *string - '0';
-				else if('A' <= *string && *string <= 'F')
+				}
+				else if('A' <= *string && *string <= 'F') {
+					ret *= 16;
 					ret += *string - 'A' + 10;
-				else if('a' <= *string && *string <= 'f')
+				}
+				else if('a' <= *string && *string <= 'f') {
+					ret *= 16;
 					ret += *string - 'a' + 10;
+				}
 				else
 					break;
-				string ++;
 			}
 		}
-		else
+		else	// Octal
 		{
-			for( ;; )
+			for( ; '0' <= *string && *string <= '7'; string ++ )
 			{
 				ret *= 8;
-				if('0' <= *string && *string <= '7')
-					ret += *string - '0';
-				else
-					break;
+				ret += *string - '0';
 			}
 		}
 	}
-	else
+	else	// Decimal
 	{
 		for( ; '0' <= *string && *string <= '9'; string++)
 		{
@@ -70,6 +127,11 @@ int atoi(const char *string)
 			ret += *string - '0';
 		}
 	}
+	
+	if(bNeg)	ret = -ret;
+	
+	//Log("atoi: RETURN %i", ret);
+	
 	return ret;
 }
 
@@ -108,7 +170,14 @@ void itoa(char *buf, Uint num, int base, int minLength, char pad)
 	buf[i] = 0;
 }
 
-#define PUTCH(c)	do{if(pos==__maxlen)break;if(__s){__s[pos++]=(c);}else{pos++;}}while(0)
+/**
+ * \brief Append a character the the vsnprintf output
+ */
+#define PUTCH(c)	do{\
+	char ch=(c);\
+	if(pos==__maxlen){return pos;}\
+	if(__s){__s[pos++]=ch;}else{pos++;}\
+	}while(0)
 int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 {
 	char	c, pad = ' ';
@@ -118,6 +187,10 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 	 int	isLongLong = 0;
 	Uint64	val;
 	size_t	pos = 0;
+	// Flags
+	// int	bPadLeft = 0;
+	
+	//Log("vsnprintf: (__s=%p, __maxlen=%i, __format='%s', ...)", __s, __maxlen, __format);
 	
 	while((c = *__format++) != 0)
 	{
@@ -125,6 +198,7 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		if(c != '%') { PUTCH(c); continue; }
 		
 		c = *__format++;
+		//Log("pos = %i", pos);
 		
 		// Literal %
 		if(c == '%') { PUTCH('%'); continue; }
@@ -140,6 +214,7 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		
 		// Get Argument
 		val = va_arg(args, Uint);
+		//Log("val = %x", val);
 		
 		// - Padding
 		if(c == '0') {
@@ -210,6 +285,7 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		case 's':
 			p = (char*)(Uint)val;
 		printString:
+			//Log("p = '%s'", p);
 			if(!p)		p = "(null)";
 			while(*p)	PUTCH(*p++);
 			break;
@@ -230,7 +306,6 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 	
 	if(__s && pos != __maxlen)
 		__s[pos] = '\0';
-		
 	
 	return pos;
 }
@@ -539,7 +614,7 @@ Sint64 timestamp(int sec, int mins, int hrs, int day, int month, int year)
  * \brief Pseudo random number generator
  * \note Unknown effectiveness (made up on the spot)
  */
-Uint rand()
+Uint rand(void)
 {
 	Uint	old = giRandomState;
 	// Get the next state value
@@ -636,17 +711,3 @@ int ModUtil_SetIdent(char *Dest, char *Value)
 	strncpy(Dest, Value, 32);
 	return 1;
 }
-
-EXPORT(strlen);
-EXPORT(strdup);
-EXPORT(strcmp);
-EXPORT(strncmp);
-EXPORT(strcpy);
-EXPORT(strncpy);
-
-EXPORT(timestamp);
-EXPORT(ReadUTF8);
-EXPORT(CheckMem);
-EXPORT(CheckString);
-EXPORT(ModUtil_LookupString);
-EXPORT(ModUtil_SetIdent);

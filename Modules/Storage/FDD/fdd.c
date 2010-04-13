@@ -17,17 +17,17 @@
 #define FDD_VERSION	 ((0<<8)|(75))
 
 // --- Options
-#define USE_CACHE	0	// Use Sector Cache
-#define	CACHE_SIZE	32	// Number of cachable sectors
 #define FDD_SEEK_TIMEOUT	10	// Timeout for a seek operation
 #define MOTOR_ON_DELAY	500		// Miliseconds
 #define MOTOR_OFF_DELAY	2000	// Miliseconds
+#define	FDD_MAX_READWRITE_ATTEMPTS	16
 
 // === TYPEDEFS ===
 /**
  * \brief Representation of a floppy drive
  */
-typedef struct {
+typedef struct sFloppyDrive
+{
 	 int	type;
 	volatile int	motorState;	//2 - On, 1 - Spinup, 0 - Off
 	 int	track[2];
@@ -52,6 +52,9 @@ typedef struct {
 static const char	*cFDD_TYPES[] = {"None", "360kB 5.25\"", "1.2MB 5.25\"", "720kB 3.5\"", "1.44MB 3.5\"", "2.88MB 3.5\"" };
 static const int	cFDD_SIZES[] = { 0, 360*1024, 1200*1024, 720*1024, 1440*1024, 2880*1024 };
 static const short	cPORTBASE[] = { 0x3F0, 0x370 };
+#if DEBUG
+static const char	*cFDD_STATUSES[] = {NULL, "Error", "Invalid command", "Drive not ready"};
+#endif
 
 enum FloppyPorts {
 	PORT_STATUSA	= 0x0,
@@ -82,25 +85,21 @@ enum FloppyCommands {
 // === PROTOTYPES ===
 // --- Filesystem
  int	FDD_Install(char **Arguments);
+void	FDD_UnloadModule();
+// --- VFS Methods
 char	*FDD_ReadDir(tVFS_Node *Node, int pos);
 tVFS_Node	*FDD_FindDir(tVFS_Node *dirNode, char *Name);
  int	FDD_IOCtl(tVFS_Node *Node, int ID, void *Data);
 Uint64	FDD_ReadFS(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer);
-// --- 1st Level Disk Access
+// --- Functions for IOCache/DrvUtil
 Uint	FDD_ReadSectors(Uint64 SectorAddr, Uint Count, void *Buffer, Uint Disk);
 // --- Raw Disk Access
  int	FDD_ReadSector(Uint32 disk, Uint64 lba, void *Buffer);
  int	FDD_WriteSector(Uint32 Disk, Uint64 LBA, void *Buffer);
 // --- Helpers
 void	FDD_IRQHandler(int Num);
-void	FDD_WaitIRQ();
+inline void	FDD_WaitIRQ();
 void	FDD_SensInt(int base, Uint8 *sr0, Uint8 *cyl);
-inline void	FDD_AquireSpinlock();
-inline void	FDD_FreeSpinlock();
-#if USE_CACHE
-inline void FDD_AquireCacheSpinlock();
-inline void FDD_FreeCacheSpinlock();
-#endif
 void	FDD_int_SendByte(int base, char byte);
  int	FDD_int_GetByte(int base);
 void	FDD_Reset(int id);
@@ -112,10 +111,10 @@ void	FDD_int_StartMotor(int disk);
  int	FDD_int_GetDims(int type, int lba, int *c, int *h, int *s, int *spt);
 
 // === GLOBALS ===
-MODULE_DEFINE(0, FDD_VERSION, FDD, FDD_Install, NULL, NULL);
+MODULE_DEFINE(0, FDD_VERSION, FDD, FDD_Install, NULL, "ISADMA", NULL);
 t_floppyDevice	gFDD_Devices[2];
-volatile int	fdd_inUse = 0;
-volatile int	fdd_irq6 = 0;
+tSpinlock	glFDD;
+volatile int	gbFDD_IrqFired = 0;
 tDevFS_Driver	gFDD_DriverInfo = {
 	NULL, "fdd",
 	{
@@ -128,11 +127,6 @@ tDevFS_Driver	gFDD_DriverInfo = {
 	.IOCtl = FDD_IOCtl
 	}
 };
-#if USE_CACHE
-int	siFDD_CacheInUse = 0;
-int	siFDD_SectorCacheSize = CACHE_SIZE;
-t_floppySector	sFDD_SectorCache[CACHE_SIZE];
-#endif
 
 // === CODE ===
 /**
@@ -151,7 +145,11 @@ int FDD_Install(char **Arguments)
 	gFDD_Devices[0].track[0] = -1;
 	gFDD_Devices[1].track[1] = -1;
 	
-	Log("[FDD ] Detected Disk 0: %s and Disk 1: %s", cFDD_TYPES[data>>4], cFDD_TYPES[data&0xF]);
+	Log_Log("FDD", "Detected Disk 0: %s and Disk 1: %s", cFDD_TYPES[data>>4], cFDD_TYPES[data&0xF]);
+	
+	if( data == 0 ) {
+		return MODULE_ERR_NOTNEEDED;
+	}
 	
 	// Clear FDD IRQ Flag
 	FDD_SensInt(0x3F0, NULL, NULL);
@@ -169,7 +167,7 @@ int FDD_Install(char **Arguments)
 	gFDD_Devices[0].Node.Flags = 0;
 	gFDD_Devices[0].Node.NumACLs = 0;
 	gFDD_Devices[0].Node.Read = FDD_ReadFS;
-	gFDD_Devices[0].Node.Write = NULL;//fdd_writeFS;
+	gFDD_Devices[0].Node.Write = NULL;//FDD_WriteFS;
 	memcpy(&gFDD_Devices[1].Node, &gFDD_Devices[0].Node, sizeof(tVFS_Node));
 	
 	gFDD_Devices[1].Node.Inode = 1;
@@ -179,50 +177,57 @@ int FDD_Install(char **Arguments)
 	gFDD_Devices[1].Node.Size = cFDD_SIZES[data & 0xF];
 	
 	// Create Sector Cache
-	#if USE_CACHE
-	//sFDD_SectorCache = malloc(sizeof(*sFDD_SectorCache)*CACHE_SIZE);
-	//siFDD_SectorCacheSize = CACHE_SIZE;
-	#else
-	if( cFDD_SIZES[data >> 4] ) {
+	if( cFDD_SIZES[data >> 4] )
+	{
 		gFDD_Devices[0].CacheHandle = IOCache_Create(
 			FDD_WriteSector, 0, 512,
 			gFDD_Devices[0].Node.Size / (512*4)
 			);	// Cache is 1/4 the size of the disk
 	}
-	if( cFDD_SIZES[data & 15] ) {
+	if( cFDD_SIZES[data & 15] )
+	{
 		gFDD_Devices[1].CacheHandle = IOCache_Create(
 			FDD_WriteSector, 0, 512,
 			gFDD_Devices[1].Node.Size / (512*4)
 			);	// Cache is 1/4 the size of the disk
 	}
-	#endif
 	
 	// Register with devfs
 	DevFS_AddDevice(&gFDD_DriverInfo);
 	
-	return 1;
+	return MODULE_ERR_OK;
+}
+
+/**
+ * \brief Prepare the module for removal
+ */
+void FDD_UnloadModule()
+{
+	 int	i;
+	//DevFS_DelDevice( &gFDD_DriverInfo );
+	LOCK(&glFDD);
+	for(i=0;i<4;i++) {
+		Time_RemoveTimer(gFDD_Devices[i].timer);
+		FDD_int_StopMotor(i);
+	}
+	RELEASE(&glFDD);
+	//IRQ_Clear(6);
 }
 
 /**
  * \fn char *FDD_ReadDir(tVFS_Node *Node, int pos)
  * \brief Read Directory
  */
-char *FDD_ReadDir(tVFS_Node *Node, int pos)
+char *FDD_ReadDir(tVFS_Node *Node, int Pos)
 {
 	char	name[2] = "0\0";
-	//Update Accessed Time
-	//gFDD_DrvInfo.rootNode.atime = now();
+
+	if(Pos >= 2 || Pos < 0)	return NULL;
 	
-	//Check for bounds
-	if(pos >= 2 || pos < 0)
-		return NULL;
+	if(gFDD_Devices[Pos].type == 0)	return VFS_SKIP;
 	
-	if(gFDD_Devices[pos].type == 0)
-		return VFS_SKIP;
+	name[0] += Pos;
 	
-	name[0] += pos;
-	
-	//Return
 	return strdup(name);
 }
 
@@ -295,9 +300,7 @@ int FDD_IOCtl(tVFS_Node *Node, int ID, void *Data)
 */
 Uint64 FDD_ReadFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 {
-	 int	i = 0;
-	 int	disk;
-	//Uint32	buf[128];
+	 int	ret;
 	
 	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
 	
@@ -311,78 +314,12 @@ Uint64 FDD_ReadFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		return -1;
 	}
 	
-	disk = Node->Inode;
-	
-	// Update Accessed Time
-	Node->ATime = now();
-	
-	#if 0
-	if((Offset & 0x1FF) || (Length & 0x1FF))
-	{
-		// Un-Aligned Offset/Length
-		 int	startOff = Offset >> 9;
-		 int	sectOff = Offset & 0x1FF;
-		 int	sectors = (Length + 0x1FF) >> 9;
-	
-		LOG("Non-aligned Read");
-		
-		//Read Starting Sector
-		if(!FDD_ReadSector(disk, startOff, buf))
-			return 0;
-		memcpy(Buffer, (char*)(buf+sectOff), Length > 512-sectOff ? 512-sectOff : Length);
-		
-		// If the data size is one sector or less
-		if(Length <= 512-sectOff)
-		{
-			LEAVE('X', Length);
-			return Length;	//Return
-		}
-		Buffer += 512-sectOff;
-	
-		//Read Middle Sectors
-		for( i = 1; i < sectors - 1; i++ )
-		{
-			if(!FDD_ReadSector(disk, startOff+i, buf)) {
-				LEAVE('i', -1);
-				return -1;
-			}
-			memcpy(Buffer, buf, 512);
-			Buffer += 512;
-		}
-	
-		//Read End Sectors
-		if(!FDD_ReadSector(disk, startOff+i, buf))
-			return 0;
-		memcpy(Buffer, buf, (len&0x1FF)-sectOff);
-		
-		LEAVE('X', Length);
-		return Length;
-	}
-	else
-	{
-		 int	count = Length >> 9;
-		 int	sector = Offset >> 9;
-		LOG("Aligned Read");
-		//Aligned Offset and Length - Simple Code
-		for( i = 0; i < count; i ++ )
-		{
-			FDD_ReadSector(disk, sector, buf);
-			memcpy(buffer, buf, 512);
-			buffer += 512;
-			sector++;
-		}
-		LEAVE('i', Length);
-		return Length;
-	}
-	#endif
-	
-	i = DrvUtil_ReadBlock(Offset, Length, Buffer, FDD_ReadSectors, 512, disk);
-	LEAVE('i', i);
-	return i;
+	ret = DrvUtil_ReadBlock(Offset, Length, Buffer, FDD_ReadSectors, 512, Node->Inode);
+	LEAVE('i', ret);
+	return ret;
 }
 
 /**
- * \fn Uint FDD_ReadSectors(Uint64 SectorAddr, Uint Count, void *Buffer, Uint32 Disk)
  * \brief Reads \a Count contiguous sectors from a disk
  * \param SectorAddr	Address of the first sector
  * \param Count	Number of sectors to read
@@ -406,6 +343,166 @@ Uint FDD_ReadSectors(Uint64 SectorAddr, Uint Count, void *Buffer, Uint Disk)
 	return ret;
 }
 
+int FDD_int_ReadWriteSector(Uint32 Disk, Uint64 SectorAddr, int Write, void *Buffer)
+{
+	 int	cyl, head, sec;
+	 int	spt, base;
+	 int	i;
+	 int	lba = SectorAddr;
+	Uint8	st0, st1, st2, rcy, rhe, rse, bps;	//	Status Values
+	
+	ENTER("iDisk XSectorAddr pBuffer", Disk, SectorAddr, Buffer);
+	
+	base = cPORTBASE[Disk >> 1];
+	
+	LOG("Calculating Disk Dimensions");
+	// Get CHS position
+	if(FDD_int_GetDims(gFDD_Devices[Disk].type, lba, &cyl, &head, &sec, &spt) != 1)
+	{
+		LEAVE('i', -1);
+		return -1;
+	}
+	LOG("Cyl=%i, Head=%i, Sector=%i", cyl, head, sec);
+	
+	LOCK(&glFDD);	// Lock to stop the motor stopping on us
+	Time_RemoveTimer(gFDD_Devices[Disk].timer);	// Remove Old Timer
+	// Start motor if needed
+	if(gFDD_Devices[Disk].motorState != 2)	FDD_int_StartMotor(Disk);
+	RELEASE(&glFDD);
+	
+	LOG("Wait for the motor to spin up");
+	
+	// Wait for spinup
+	while(gFDD_Devices[Disk].motorState == 1)	Threads_Yield();
+	
+	LOG("Acquire Spinlock");
+	LOCK(&glFDD);
+	
+	// Seek to track
+	outb(base + CALIBRATE_DRIVE, 0);
+	i = 0;
+	while(FDD_int_SeekTrack(Disk, head, (Uint8)cyl) == 0 && i++ < FDD_SEEK_TIMEOUT )
+		Threads_Yield();
+	if( i > FDD_SEEK_TIMEOUT ) {
+		RELEASE(&glFDD);
+		LEAVE('i', 0);
+		return 0;
+	}
+	//FDD_SensInt(base, NULL, NULL);	// Wait for IRQ
+		
+	// Read Data from DMA
+	LOG("Setting DMA for read");
+	DMA_SetChannel(2, 512, !Write);	// Read 512 Bytes from channel 2
+	
+	LOG("Sending command");
+	
+	//Threads_Wait(100);	// Wait for Head to settle
+	Time_Delay(100);
+	
+	for( i = 0; i < FDD_MAX_READWRITE_ATTEMPTS; i ++ )
+	{
+		if( Write )
+			FDD_int_SendByte(base, READ_SECTOR);	// Was 0xE6
+		else
+			FDD_int_SendByte(base, READ_SECTOR);	// Was 0xE6
+		FDD_int_SendByte(base, (head << 2) | (Disk&1));
+		FDD_int_SendByte(base, (Uint8)cyl);
+		FDD_int_SendByte(base, (Uint8)head);
+		FDD_int_SendByte(base, (Uint8)sec);
+		FDD_int_SendByte(base, 0x02);	// Bytes Per Sector (Real BPS=128*2^{val})
+		FDD_int_SendByte(base, spt);	// SPT
+		FDD_int_SendByte(base, 0x1B);	// Gap Length (27 is default)
+		FDD_int_SendByte(base, 0xFF);	// Data Length
+		
+		// Wait for IRQ
+		if( Write ) {
+			LOG("Writing Data");
+			DMA_WriteData(2, 512, Buffer);
+			LOG("Waiting for Data to be written");
+			FDD_WaitIRQ();
+		}
+		else {
+			LOG("Waiting for data to be read");
+			FDD_WaitIRQ();
+			LOG("Reading Data");
+			DMA_ReadData(2, 512, Buffer);
+		}
+		
+		// Clear Input Buffer
+		LOG("Clearing Input Buffer");
+		// Status Values
+		st0 = FDD_int_GetByte(base);
+		st1 = FDD_int_GetByte(base);
+		st2 = FDD_int_GetByte(base);
+		
+		// Cylinder, Head and Sector (mutilated in some way
+		rcy = FDD_int_GetByte(base);
+		rhe = FDD_int_GetByte(base);
+		rse = FDD_int_GetByte(base);
+		// Should be the BPS set above (0x02)
+		bps = FDD_int_GetByte(base);
+		
+		// Check Status
+		// - Error Code
+		if(st0 & 0xC0) {
+			LOG("Error (st0 & 0xC0) \"%s\"", cFDD_STATUSES[st0 >> 6]);
+			continue;
+        }
+        // - Status Flags
+        if(st0 & 0x08) {	LOG("Drive not ready");	continue; 	}
+        if(st1 & 0x80) {	LOG("End of Cylinder");	continue;	}
+		if(st1 & 0x20) {	LOG("CRC Error");	continue;	}
+		if(st1 & 0x10) {	LOG("Controller Timeout");	continue;	}
+		if(st1 & 0x04) {	LOG("No Data Found");	continue;	}
+		if(st1 & 0x01 || st2 & 0x01) {
+			LOG("No Address mark found");
+			continue;
+		}
+        if(st2 & 0x40) {	LOG("Deleted address mark");	continue;	}
+		if(st2 & 0x20) {	LOG("CRC error in data");	continue;	}
+		if(st2 & 0x10) {	LOG("Wrong Cylinder");	continue;	}
+		if(st2 & 0x04) {	LOG("uPD765 sector not found");	continue;	}
+		if(st2 & 0x02) {	LOG("Bad Cylinder");	continue;	}
+		
+		if(bps != 0x2) {
+			LOG("Returned BPS = 0x%02x, not 0x02", bps);
+			continue;
+		}
+		
+		if(st1 & 0x02) {
+			LOG("Floppy not writable");
+			i = FDD_MAX_READWRITE_ATTEMPTS+1;
+			break;
+		}
+		
+		// Success!
+		break;
+	}
+	
+	// Release Spinlock
+	LOG("Realeasing Spinlock and setting motor to stop");
+	RELEASE(&glFDD);
+	
+	if(i == FDD_MAX_READWRITE_ATTEMPTS) {
+		Log_Warning("FDD", "Exceeded %i attempts in %s the disk",
+			FDD_MAX_READWRITE_ATTEMPTS,
+			(Write ? "writing to" : "reading from")
+			);
+	}
+	
+	// Don't turn the motor off now, wait for a while
+	gFDD_Devices[Disk].timer = Time_CreateTimer(MOTOR_OFF_DELAY, FDD_int_StopMotor, (void*)Disk);
+
+	if( i < FDD_MAX_READWRITE_ATTEMPTS ) {
+		LEAVE('i', 0);
+		return 0;
+	}
+	else {
+		LEAVE('i', 1);
+		return 1;
+	}
+}
+
 /**
  * \fn int FDD_ReadSector(Uint32 Disk, Uint64 SectorAddr, void *Buffer)
  * \brief Read a sector from disk
@@ -413,133 +510,28 @@ Uint FDD_ReadSectors(Uint64 SectorAddr, Uint Count, void *Buffer, Uint Disk)
 */
 int FDD_ReadSector(Uint32 Disk, Uint64 SectorAddr, void *Buffer)
 {
-	 int	cyl, head, sec;
-	 int	spt, base;
-	 int	i;
-	 int	lba = SectorAddr;
+	 int	ret;
 	
-	ENTER("idisk Xlba pbuf", disk, lba, buf);
+	ENTER("iDisk XSectorAddr pBuffer", Disk, SectorAddr, Buffer);
 	
-	#if USE_CACHE
-	FDD_AquireCacheSpinlock();
-	for( i = 0; i < siFDD_SectorCacheSize; i++ )
-	{
-		if(sFDD_SectorCache[i].timestamp == 0)	continue;
-		if(sFDD_SectorCache[i].disk == Disk
-		&& sFDD_SectorCache[i].sector == lba) {
-			LOG("Found %i in cache %i", lba, i);
-			memcpy(Buffer, sFDD_SectorCache[i].data, 512);
-			sFDD_SectorCache[i].timestamp = now();
-			FDD_FreeCacheSpinlock();
-			LEAVE('i', 1);
-			return 1;
-		}
-	}
-	LOG("Read %i from Disk", lba);
-	FDD_FreeCacheSpinlock();
-	#else
 	if( IOCache_Read( gFDD_Devices[Disk].CacheHandle, SectorAddr, Buffer ) == 1 ) {
 		LEAVE('i', 1);
 		return 1;
 	}
-	#endif
 	
-	base = cPORTBASE[Disk>>1];
-	
-	LOG("Calculating Disk Dimensions");
-	// Get CHS position
-	if(FDD_int_GetDims(gFDD_Devices[Disk].type, lba, &cyl, &head, &sec, &spt) != 1) {
-		LEAVE('i', -1);
-		return -1;
-	}
-	
-	// Remove Old Timer
-	Time_RemoveTimer(gFDD_Devices[Disk].timer);
-	// Check if Motor is on
-	if(gFDD_Devices[Disk].motorState == 0) {
-		FDD_int_StartMotor(Disk);
-	}
-	
-	LOG("Wait for Motor Spinup");
-	
-	// Wait for spinup
-	while(gFDD_Devices[Disk].motorState == 1)	Threads_Yield();
-	
-	LOG("C:%i,H:%i,S:%i", cyl, head, sec);
-	LOG("Acquire Spinlock");
-	
-	FDD_AquireSpinlock();
-	
-	// Seek to track
-	outb(base+CALIBRATE_DRIVE, 0);
-	i = 0;
-	while(FDD_int_SeekTrack(Disk, head, (Uint8)cyl) == 0 && i++ < FDD_SEEK_TIMEOUT )	Threads_Yield();
-	//FDD_SensInt(base, NULL, NULL);	// Wait for IRQ
-	
-	LOG("Setting DMA for read");
-	
-	//Read Data from DMA
-	DMA_SetChannel(2, 512, 1);	// Read 512 Bytes
-	
-	LOG("Sending read command");
-	
-	//Threads_Wait(100);	// Wait for Head to settle
-	Time_Delay(100);
-	FDD_int_SendByte(base, READ_SECTOR);	// Was 0xE6
-	FDD_int_SendByte(base, (head << 2) | (Disk&1));
-	FDD_int_SendByte(base, (Uint8)cyl);
-	FDD_int_SendByte(base, (Uint8)head);
-	FDD_int_SendByte(base, (Uint8)sec);
-	FDD_int_SendByte(base, 0x02);	// Bytes Per Sector (Real BPS=128*2^{val})
-	FDD_int_SendByte(base, spt);	// SPT
-	FDD_int_SendByte(base, 0x1B);	// Gap Length (27 is default)
-	FDD_int_SendByte(base, 0xFF);	// Data Length
-	
-	// Wait for IRQ
-	LOG("Waiting for Data to be read");
-	FDD_WaitIRQ();
-	
-	// Read Data from DMA
-	LOG(" FDD_ReadSector: Reading Data");
-	DMA_ReadData(2, 512, Buffer);
-	
-	// Clear Input Buffer
-	LOG("Clearing Input Buffer");
-	FDD_int_GetByte(base); FDD_int_GetByte(base); FDD_int_GetByte(base);
-	FDD_int_GetByte(base); FDD_int_GetByte(base); FDD_int_GetByte(base); FDD_int_GetByte(base);
-	
-	LOG("Realeasing Spinlock and Setting motor to stop");
-	// Release Spinlock
-	FDD_FreeSpinlock();
-	
-	//Set timer to turn off motor affter a gap
-	gFDD_Devices[Disk].timer = Time_CreateTimer(MOTOR_OFF_DELAY, FDD_int_StopMotor, (void*)Disk);	//One Shot Timer
+	// Pass to general function
+	ret = FDD_int_ReadWriteSector(Disk, SectorAddr, 0, Buffer);
 
-	#if USE_CACHE
-	{
-		FDD_AquireCacheSpinlock();
-		int oldest = 0;
-		for(i=0;i<siFDD_SectorCacheSize;i++)
-		{
-			if(sFDD_SectorCache[i].timestamp == 0) {
-				oldest = i;
-				break;
-			}
-			if(sFDD_SectorCache[i].timestamp < sFDD_SectorCache[oldest].timestamp)
-				oldest = i;
-		}
-		sFDD_SectorCache[oldest].timestamp = now();
-		sFDD_SectorCache[oldest].disk = Disk;
-		sFDD_SectorCache[oldest].sector = lba;
-		memcpy(sFDD_SectorCache[oldest].data, Buffer, 512);
-		FDD_FreeCacheSpinlock();
+	if( ret == 0 ) {
+		IOCache_Add( gFDD_Devices[Disk].CacheHandle, SectorAddr, Buffer );
+		LEAVE('i', 1);
+		return 1;
 	}
-	#else
-	IOCache_Add( gFDD_Devices[Disk].CacheHandle, SectorAddr, Buffer );
-	#endif
-
-	LEAVE('i', 1);
-	return 1;
+	else {
+		LOG("Reading failed");
+		LEAVE('i', 0);
+		return 0;
+	}
 }
 
 /**
@@ -648,18 +640,18 @@ int FDD_int_GetDims(int type, int lba, int *c, int *h, int *s, int *spt)
  */
 void FDD_IRQHandler(int Num)
 {
-    fdd_irq6 = 1;
+    gbFDD_IrqFired = 1;
 }
 
 /**
  * \fn FDD_WaitIRQ()
  * \brief Wait for an IRQ6
  */
-void FDD_WaitIRQ()
+inline void FDD_WaitIRQ()
 {
 	// Wait for IRQ
-	while(!fdd_irq6)	Threads_Yield();
-	fdd_irq6 = 0;
+	while(!gbFDD_IrqFired)	Threads_Yield();
+	gbFDD_IrqFired = 0;
 }
 
 void FDD_SensInt(int base, Uint8 *sr0, Uint8 *cyl)
@@ -670,30 +662,6 @@ void FDD_SensInt(int base, Uint8 *sr0, Uint8 *cyl)
 	if(cyl)	*cyl = FDD_int_GetByte(base);
 	else	FDD_int_GetByte(base);
 }
-
-void FDD_AquireSpinlock()
-{
-	while(fdd_inUse)
-		Threads_Yield();
-	fdd_inUse = 1;
-}
-
-inline void FDD_FreeSpinlock()
-{
-	fdd_inUse = 0;
-}
-
-#if USE_CACHE
-inline void FDD_AquireCacheSpinlock()
-{
-	while(siFDD_CacheInUse)	Threads_Yield();
-	siFDD_CacheInUse = 1;
-}
-inline void FDD_FreeCacheSpinlock()
-{
-	siFDD_CacheInUse = 0;
-}
-#endif
 
 /**
  * void FDD_int_SendByte(int base, char byte)
@@ -713,8 +681,9 @@ void FDD_int_SendByte(int base, char byte)
         }
         inb(0x80);	//Delay
     }
+	
 	#if WARN
-		Warning("FDD_int_SendByte - Timeout sending byte 0x%x to base 0x%x\n", byte, base);
+	Warning("FDD_int_SendByte - Timeout sending byte 0x%x to base 0x%x\n", byte, base);
 	#endif
 }
 
@@ -828,23 +797,12 @@ void FDD_int_StartMotor(int disk)
 void FDD_int_StopMotor(int disk)
 {
 	Uint8	state;
+	if( IS_LOCKED(&glFDD) )	return ;
+	ENTER("iDisk", disk);
+	
 	state = inb( cPORTBASE[ disk>>1 ] + PORT_DIGOUTPUT );
 	state &= ~( 1 << (4+disk) );
 	outb( cPORTBASE[ disk>>1 ] + PORT_DIGOUTPUT, state );
     gFDD_Devices[disk].motorState = 0;
-}
-
-/**
- * \fn void ModuleUnload()
- * \brief Prepare the module for removal
- */
-void ModuleUnload()
-{
-	int i;
-	FDD_AquireSpinlock();
-	for(i=0;i<4;i++) {
-		Time_RemoveTimer(gFDD_Devices[i].timer);
-		FDD_int_StopMotor(i);
-	}
-	//IRQ_Clear(6);
+    LEAVE('-');
 }

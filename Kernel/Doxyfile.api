@@ -568,9 +568,13 @@ WARN_LOGFILE           =
 
 INPUT                  = include/apidoc_mainpage.h \
                          include/binary.h \
+                         include/modules.h \
                          include/vfs.h include/vfs_ext.h \
 						 include/fs_devfs.h \
-                         include/iocache.h include/
+                         include/iocache.h \
+                         include/apidoc/arch_x86.h \
+                         include/tpl_drv_common.h \
+                         include/tpl_drv_video.h
 
 # This tag can be used to specify the character encoding of the source files 
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding, which is 

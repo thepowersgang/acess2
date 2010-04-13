@@ -24,7 +24,6 @@ typedef struct sKernelBin {
 
 // === IMPORTS ===
 extern int	Proc_Clone(Uint *Err, Uint Flags);
-extern void	Threads_SetName(char *Name);
 extern char	*Threads_GetName(int ID);
 extern void	Threads_Exit(int, int);
 extern Uint	MM_ClearUser();
@@ -190,7 +189,7 @@ Uint Binary_Load(char *file, Uint *entryPoint)
 	sTruePath = VFS_GetTruePath(file);
 	
 	if(sTruePath == NULL) {
-		Warning("[BIN ] '%s' does not exist.", file);
+		Warning("[BIN  ] '%s' does not exist.", file);
 		LEAVE('x', 0);
 		return 0;
 	}

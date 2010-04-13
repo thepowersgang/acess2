@@ -1,16 +1,20 @@
 /*
- * AcessOS Microkernel Version
+ * Acess2
  * errno.h
  */
 #ifndef _ERRNO_H
 #define _ERRNO_H
 
-enum eErrorNums {
+enum eErrorNums
+{
 	EOK,
 	ENOSYS,
 	EINVAL,
 	ENOMEM,
-	EACCES
+	EACCES,
+	ENOTFOUND,
+	EREADONLY,
+	ENOTIMPL
 };
 
 #endif

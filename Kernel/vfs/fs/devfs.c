@@ -8,7 +8,8 @@
 #include <fs_devfs.h>
 
 // === PROTOTYPES ===
- int	DevFS_AddDevice(tDevFS_Driver *Dev);
+ int	DevFS_AddDevice(tDevFS_Driver *Device);
+void	DevFS_DelDevice(tDevFS_Driver *Device);
 tVFS_Node	*DevFS_InitDevice(char *Device, char **Options);
 char	*DevFS_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*DevFS_FindDir(tVFS_Node *Node, char *Name);
@@ -27,17 +28,73 @@ tVFS_Node	gDevFS_RootNode = {
 	};
 tDevFS_Driver	*gDevFS_Drivers = NULL;
  int	giDevFS_NextID = 1;
+tSpinlock	glDevFS_ListLock;
 
 // === CODE ===
 /**
- * \fn int DevFS_AddDevice(tDevFS_Driver *Dev)
+ * \fn int DevFS_AddDevice(tDevFS_Driver *Device)
  */
-int DevFS_AddDevice(tDevFS_Driver *Dev)
+int DevFS_AddDevice(tDevFS_Driver *Device)
 {
-	Dev->Next = gDevFS_Drivers;
-	gDevFS_Drivers = Dev;
-	gDevFS_RootNode.Size ++;
-	return giDevFS_NextID++;
+	 int	ret = 0;
+	tDevFS_Driver	*dev;
+	
+	LOCK( &glDevFS_ListLock );
+	
+	// Check if the device is already registered or the name is taken
+	for( dev = gDevFS_Drivers; dev; dev = dev->Next )
+	{
+		if(dev == Device)	break;
+		if(strcmp(dev->Name, Device->Name) == 0)	break;
+	}
+	
+	if(dev) {
+		if(dev == Device)
+			Log_Warning("DevFS", "Device %p '%s' attempted to register itself twice",
+				dev, dev->Name);
+		else
+			Log_Warning("DevFS", "Device %p attempted to register '%s' which was owned by %p",
+				Device, dev->Name, dev);
+		ret = 0;	// Error
+	}
+	else {
+		Device->Next = gDevFS_Drivers;
+		gDevFS_Drivers = Device;
+		gDevFS_RootNode.Size ++;
+		ret = giDevFS_NextID ++;
+	}
+	RELEASE( &glDevFS_ListLock );
+	
+	return ret;
+}
+
+/**
+ * \brief Delete a device from the DevFS folder
+ */
+void DevFS_DelDevice(tDevFS_Driver *Device)
+{
+	tDevFS_Driver	*prev = NULL, *dev;
+	
+	LOCK( &glDevFS_ListLock );
+	// Search list for device
+	for(dev = gDevFS_Drivers;
+		dev && dev != Device;
+		prev = dev, dev = dev->Next
+		);
+	
+	// Check if it was found
+	if(dev)
+	{
+		if(prev)
+			prev->Next = Device->Next;
+		else
+			gDevFS_Drivers = Device->Next;
+	}
+	else
+		Log_Warning("DevFS", "Attempted to unregister device %p '%s' which was not registered",
+			Device, Device->Name);
+	
+	RELEASE( &glDevFS_ListLock );
 }
 
 /**
@@ -64,7 +121,10 @@ char *DevFS_ReadDir(tVFS_Node *Node, int Pos)
 		dev = dev->Next
 		);
 	
-	return strdup(dev->Name);
+	if(dev)
+		return strdup(dev->Name);
+	else
+		return NULL;
 }
 
 /**
@@ -96,3 +156,4 @@ tVFS_Node *DevFS_FindDir(tVFS_Node *Node, char *Name)
 
 // --- EXPORTS ---
 EXPORT(DevFS_AddDevice);
+EXPORT(DevFS_DelDevice);

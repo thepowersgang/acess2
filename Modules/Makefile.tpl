@@ -12,10 +12,14 @@ CFGFILES += $(shell test -f Makefile.cfg && echo Makefile.cfg)
 -include $(CFGFILES)
 
 CPPFLAGS = -I$(ACESSDIR)/Kernel/include -I$(ACESSDIR)/Kernel/arch/$(ARCHDIR)/include -DARCH=$(ARCH) $(_CPPFLAGS)
-CFLAGS = -Wall -Werror -fno-stack-protector $(CPPFLAGS)
+CFLAGS = -Wall -Werror -fno-stack-protector $(CPPFLAGS) -O3
 
 OBJ := $(addsuffix .$(ARCH),$(OBJ))
-BIN = ../$(NAME).kmd.$(ARCH)
+ifneq ($(CATEGORY),)
+	BIN := ../$(CATEGORY)_$(NAME).kmd.$(ARCH)
+else
+	BIN := ../$(NAME).kmd.$(ARCH)
+endif
 KOBJ = ../$(NAME).xo.$(ARCH)
 
 DEPFILES  = $(filter %.o.$(ARCH),$(OBJ))

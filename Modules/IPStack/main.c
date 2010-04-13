@@ -89,7 +89,7 @@ int IPStack_Install(char **Arguments)
 	
 	DevFS_AddDevice( &gIP_DriverInfo );
 	
-	return 1;
+	return MODULE_ERR_OK;
 }
 
 /**
@@ -97,7 +97,7 @@ int IPStack_Install(char **Arguments)
  */
 int IPStack_AddFile(tSocketFile *File)
 {
-	Log("IPStack_AddFile: %s", File->Name);
+	Log_Log("IPStack", "Added file '%s'", File->Name);
 	File->Next = gIP_FileTemplates;
 	gIP_FileTemplates = File;
 	return 0;
@@ -231,7 +231,6 @@ char *IPStack_Iface_ReadDir(tVFS_Node *Node, int Pos)
 {
 	tSocketFile	*file = gIP_FileTemplates;
 	while(Pos-- && file) {
-		Log("IPStack_Iface_ReadDir: %s", file->Name);
 		file = file->Next;
 	}
 	
@@ -251,7 +250,6 @@ tVFS_Node *IPStack_Iface_FindDir(tVFS_Node *Node, char *Name)
 	for(;file;file = file->Next)
 	{
 		if( strcmp(file->Name, Name) == 0 )	break;
-		Log("IPStack_Iface_FindDir: strcmp('%s', '%s')", file->Name, Name);
 	}
 	if(!file)	return NULL;
 	
@@ -268,6 +266,7 @@ static const char *casIOCtls_Iface[] = {
 	"get_address", "set_address",
 	"getset_subnet",
 	"get_gateway", "set_gateway",
+	"get_device",
 	"ping",
 	NULL
 	};
@@ -466,10 +465,22 @@ int IPStack_Iface_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		break;
 	
 	/*
+	 * get_device
+	 * - Gets the name of the attached device
+	 */
+	case 10:
+		if( Data == NULL )
+			LEAVE_RET('i', iface->Adapter->DeviceLen);
+		if( !CheckMem( Data, iface->Adapter->DeviceLen+1 ) )
+			LEAVE_RET('i', -1);
+		strcpy( Data, iface->Adapter->Device );
+		return iface->Adapter->DeviceLen;
+	
+	/*
 	 * ping
 	 * - Send an ICMP Echo
 	 */
-	case 10:
+	case 11:
 		switch(iface->Type)
 		{
 		case 0:
@@ -500,8 +511,11 @@ int IPStack_Iface_IOCtl(tVFS_Node *Node, int ID, void *Data)
 int IPStack_AddInterface(char *Device)
 {
 	tInterface	*iface;
+	tAdapter	*card;
 	
 	ENTER("sDevice", Device);
+	
+	card = IPStack_GetAdapter(Device);
 	
 	iface = malloc(sizeof(tInterface));
 	if(!iface) {
@@ -514,7 +528,6 @@ int IPStack_AddInterface(char *Device)
 	
 	// Create Node
 	iface->Node.ImplPtr = iface;
-	iface->Node.ImplInt = giIP_NextIfaceId++;
 	iface->Node.Flags = VFS_FFLAG_DIRECTORY;
 	iface->Node.Size = -1;
 	iface->Node.NumACLs = 1;
@@ -533,6 +546,10 @@ int IPStack_AddInterface(char *Device)
 		LEAVE('i', -1);
 		return -1;	// Return ERR_YOUFAIL
 	}
+	
+	// Delay setting ImplInt until after the adapter is opened
+	// Keeps things simple
+	iface->Node.ImplInt = giIP_NextIfaceId++;
 	
 	// Append to list
 	LOCK( &glIP_Interfaces );
@@ -588,6 +605,7 @@ tAdapter *IPStack_GetAdapter(char *Path)
 	// Fill Structure
 	strcpy( dev->Device, Path );
 	dev->NRef = 1;
+	dev->DeviceLen = strlen(Path);
 	
 	// Open Device
 	dev->DeviceFD = VFS_Open( dev->Device, VFS_OPENFLAG_READ|VFS_OPENFLAG_WRITE );

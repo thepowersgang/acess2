@@ -6,10 +6,10 @@
 *.ao
 *.ao.*
 *.so
+*.so.*
 *.i486
 *.i386
 *.bin
 *.dsm
 *.dmp
-Map.txt
-map.txt
+*.txt

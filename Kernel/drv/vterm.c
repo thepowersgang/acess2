@@ -21,6 +21,7 @@
 #define VT_SCROLLBACK	1	// 2 Screens of text
 #define DEFAULT_OUTPUT	"VGA"
 //#define DEFAULT_OUTPUT	"BochsGA"
+//#define DEFAULT_OUTPUT	"Vesa"
 #define DEFAULT_INPUT	"PS2Keyboard"
 #define	DEFAULT_WIDTH	80
 #define	DEFAULT_HEIGHT	25
@@ -41,13 +42,10 @@ typedef struct {
 	 int	Flags;	//!< Flags (see VT_FLAG_*)
 	short	Width;	//!< Virtual Width
 	short	Height;	//!< Virtual Height
-	short	RealWidth;	//!< Real Width
-	short	RealHeight;	//!< Real Height
 	
 	 int	ViewPos;	//!< View Buffer Offset (Text Only)
 	 int	WritePos;	//!< Write Buffer Offset (Text Only)
 	Uint32	CurColour;	//!< Current Text Colour
-	char	Name[2];	//!< Name of the terminal
 	
 	 int	InputRead;	//!< Input buffer read position
 	 int	InputWrite;	//!< Input buffer write position
@@ -56,6 +54,7 @@ typedef struct {
 		tVT_Char	*Text;
 		Uint32		*Buffer;
 	};
+	char	Name[2];	//!< Name of the terminal
 	tVFS_Node	Node;
 } tVTerm;
 
@@ -101,6 +100,10 @@ tDevFS_Driver	gVT_DrvInfo = {
 // --- Terminals ---
 tVTerm	gVT_Terminals[NUM_VTS];
  int	giVT_CurrentTerminal = 0;
+// --- Video State ---
+short	giVT_RealWidth;	//!< Real Width
+short	giVT_RealHeight;	//!< Real Height
+ int	gbVT_TextMode = 1;
 // --- Driver Handles ---
 char	*gsVT_OutputDevice = NULL;
 char	*gsVT_InputDevice = NULL;
@@ -157,8 +160,8 @@ int VT_Install(char **Arguments)
 	if(!gsVT_OutputDevice)	gsVT_OutputDevice = "/Devices/"DEFAULT_OUTPUT;
 	if(!gsVT_InputDevice)	gsVT_InputDevice = "/Devices/"DEFAULT_INPUT;
 	
-	LOG("Using '%s' as output", gsVT_OutputDevice);
-	LOG("Using '%s' as input", gsVT_InputDevice);
+	Log_Log("VTerm", "Using '%s' as output", gsVT_OutputDevice);
+	Log_Log("VTerm", "Using '%s' as input", gsVT_InputDevice);
 	
 	// Create Nodes
 	for( i = 0; i < NUM_VTS; i++ )
@@ -190,7 +193,7 @@ int VT_Install(char **Arguments)
 	// Set kernel output to VT0
 	Debug_SetKTerminal("/Devices/VTerm/0");
 	
-	return MODULE_INIT_SUCCESS;
+	return MODULE_ERR_OK;
 }
 
 /**
@@ -349,7 +352,7 @@ Uint64 VT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		VT_int_PutString(term, Buffer, Length);
 		break;
 	case TERM_MODE_FB:
-		if( term->RealWidth > term->Width || term->RealHeight > term->Height )
+		if( giVT_RealWidth > term->Width || giVT_RealHeight > term->Height )
 		{
 			#if 0
 			 int	x, y, h;
@@ -443,38 +446,41 @@ int VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data)
 	return -1;
 }
 
+void VT_SetResolution(int IsTextMode, int Width, int Height)
+{
+	tVideo_IOCtl_Mode	mode = {0};
+	 int	tmp;
+	
+	// Create the video mode
+	mode.width = Width;
+	mode.height = Height;
+	mode.bpp = 32;
+	mode.flags = 0;
+	
+	// Set video mode
+	VFS_IOCtl( giVT_OutputDevHandle, VIDEO_IOCTL_FINDMODE, &mode );
+	tmp = mode.id;
+	giVT_RealWidth = mode.width;
+	giVT_RealHeight = mode.height;
+	VFS_IOCtl( giVT_OutputDevHandle, VIDEO_IOCTL_GETSETMODE, &tmp );
+	
+	
+	
+	if(IsTextMode)
+		tmp = VIDEO_BUFFMT_TEXT;
+	else
+		tmp = VIDEO_BUFFMT_FRAMEBUFFER;
+	VFS_IOCtl( giVT_OutputDevHandle, VIDEO_IOCTL_SETBUFFORMAT, &tmp );
+}
+
 /**
  * \fn void VT_SetTerminal(int ID)
  * \brief Set the current terminal
  */
 void VT_SetTerminal(int ID)
-{
-	tVideo_IOCtl_Mode	mode = {0};
-	 int	modeNum;
-	
-	// Create the video mode
-	mode.width = gVT_Terminals[ ID ].Width;
-	mode.height = gVT_Terminals[ ID ].Height;
-	// - Text Mode
-	if(gVT_Terminals[ ID ].Mode == TERM_MODE_TEXT) {
-		mode.bpp = 12;
-		mode.flags = VIDEO_FLAG_TEXT;
-	}
-	// - Framebuffer or 3D
-	else {
-		mode.bpp = 32;
-		mode.flags = 0;
-	}
-	
-	// Set video mode
-	VFS_IOCtl( giVT_OutputDevHandle, VIDEO_IOCTL_FINDMODE, &mode );
-	modeNum = mode.id;
-	gVT_Terminals[ ID ].RealWidth = mode.width;
-	gVT_Terminals[ ID ].RealHeight = mode.height;
-	VFS_IOCtl( giVT_OutputDevHandle, VIDEO_IOCTL_GETSETMODE, &modeNum );
-	
+{	
 	// Update current terminal ID
-	Log("Changed terminal from %i to %i", giVT_CurrentTerminal, ID);
+	Log_Log("VTerm", "Changed terminal from %i to %i", giVT_CurrentTerminal, ID);
 	giVT_CurrentTerminal = ID;
 	
 	// Update the screen
@@ -914,21 +920,41 @@ void VT_int_UpdateScreen( tVTerm *Term, int UpdateAll )
 	
 	if( Term->Mode == TERM_MODE_TEXT )
 	{
-		if(UpdateAll) {
-			VFS_WriteAt(
-				giVT_OutputDevHandle,
-				0,
-				Term->Width*Term->Height*sizeof(tVT_Char),
-				&Term->Text[Term->ViewPos]
-				);
-		} else {
-			 int	pos = Term->WritePos - Term->WritePos % Term->Width;
-			VFS_WriteAt(
-				giVT_OutputDevHandle,
-				(pos - Term->ViewPos)*sizeof(tVT_Char),
-				Term->Width*sizeof(tVT_Char),
-				&Term->Text[pos]
-				);
+		if(gbVT_TextMode)
+		{
+			if(UpdateAll) {
+				VFS_WriteAt(
+					giVT_OutputDevHandle,
+					0,
+					Term->Width*Term->Height*sizeof(tVT_Char),
+					&Term->Text[Term->ViewPos]
+					);
+			} else {
+				 int	pos = Term->WritePos - Term->WritePos % Term->Width;
+				VFS_WriteAt(
+					giVT_OutputDevHandle,
+					(pos - Term->ViewPos)*sizeof(tVT_Char),
+					Term->Width*sizeof(tVT_Char),
+					&Term->Text[pos]
+					);
+			}
+		}
+		else
+		{
+			//TODO: Do VT Rendered Text
+			#if 0
+			if( UpdateAll ) {
+				VT_RenderText(0, Term->Width*Term->Height, &Term->Text[Term->ViewPos]);
+			}
+			else {
+				 int	pos = Term->WritePos - Term->WritePos % Term->Width;
+				VT_RenderText(
+					pos - Term->ViewPos,
+					Term->Width,
+					&Term->Text[pos]
+					);
+			}
+			#endif
 		}
 	}
 	else

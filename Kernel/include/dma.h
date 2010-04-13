@@ -6,5 +6,6 @@
 
 extern void	DMA_SetChannel(int channel, int length, int read);
 extern int	DMA_ReadData(int channel, int count, void *buffer);
+extern int	DMA_WriteData(int channel, int count, void *buffer);
 
 #endif

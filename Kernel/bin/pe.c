@@ -29,7 +29,7 @@ tBinaryType	gPE_Loader = {
 int PE_Install(char **Arguments)
 {
 	Binary_RegisterType(&gPE_Loader);
-	return 1;
+	return MODULE_ERR_OK;
 }
 
 /**

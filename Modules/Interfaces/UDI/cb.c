@@ -1,23 +1,17 @@
 /**
  * \file cb.c
  * \author John Hodge (thePowersGang)
+ * \brief Control block code
  */
 #include <acess.h>
 #include <udi.h>
 
-// === EXPORTS ===
-EXPORT(udi_cb_alloc);
-EXPORT(udi_cb_alloc_dynamic);
-EXPORT(udi_cb_alloc_batch);
-EXPORT(udi_cb_free);
-EXPORT(udi_cancel);
-
 // === CODE ===
 void udi_cb_alloc (
-	udi_cb_alloc_call_t *callback,
-	udi_cb_t *gcb,
-	udi_index_t cb_idx,
-	udi_channel_t default_channel
+	udi_cb_alloc_call_t	*callback,	//!< Function to be called when the CB is allocated
+	udi_cb_t	*gcb,	//!< Parent Control Block
+	udi_index_t	cb_idx,
+	udi_channel_t	default_channel
 	)
 {
 	UNIMPLEMENTED();
@@ -36,8 +30,8 @@ void udi_cb_alloc_dynamic(
 }
 
 void udi_cb_alloc_batch(
-	udi_cb_alloc_batch_call_t	*callback,
-	udi_cb_t	*gcb,
+	udi_cb_alloc_batch_call_t	*callback,	//!< 
+	udi_cb_t	*gcb,	//!< 
 	udi_index_t	cb_idx,
 	udi_index_t	count,
 	udi_boolean_t	with_buf,
@@ -57,3 +51,10 @@ void udi_cancel(udi_cancel_call_t *callback, udi_cb_t *gcb)
 {
 	UNIMPLEMENTED();
 }
+
+// === EXPORTS ===
+EXPORT(udi_cb_alloc);
+EXPORT(udi_cb_alloc_dynamic);
+EXPORT(udi_cb_alloc_batch);
+EXPORT(udi_cb_free);
+EXPORT(udi_cancel);

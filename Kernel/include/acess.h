@@ -8,6 +8,7 @@
 #define NULL	((void*)0)
 #define PACKED	__attribute__ ((packed))
 
+#include <stdint.h>
 #include <arch.h>
 #include <stdarg.h>
 #include "errno.h"
@@ -99,6 +100,15 @@ extern void	System_Init(char *ArgString);
 
 // --- IRQs ---
 extern int	IRQ_AddHandler(int Num, void (*Callback)(int));
+
+// --- Logging ---
+extern void	Log_KernelPanic(char *Ident, char *Message, ...);
+extern void	Log_Panic(char *Ident, char *Message, ...);
+extern void	Log_Error(char *Ident, char *Message, ...);
+extern void	Log_Warning(char *Ident, char *Message, ...);
+extern void	Log_Notice(char *Ident, char *Message, ...);
+extern void	Log_Log(char *Ident, char *Message, ...);
+extern void	Log_Debug(char *Ident, char *Message, ...);
 
 // --- Debug ---
 /**
@@ -214,7 +224,7 @@ extern void	MM_FreeTemp(tVAddr VAddr);
  * \param PAddr	Physical address to map in
  * \param Number	Number of pages to map
  */
-extern tVAddr	MM_MapHWPage(tPAddr PAddr, Uint Number);
+extern tVAddr	MM_MapHWPages(tPAddr PAddr, Uint Number);
 /**
  * \brief Allocates DMA physical memory
  * \param Pages	Number of pages required
@@ -228,7 +238,7 @@ extern tVAddr	MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr);
  * \param VAddr	Virtual address allocate by ::MM_MapHWPage or ::MM_AllocDMA
  * \param Number	Number of pages to free
  */
-extern void	MM_UnmapHWPage(tVAddr VAddr, Uint Number);
+extern void	MM_UnmapHWPages(tVAddr VAddr, Uint Number);
 /**
  * \brief Allocate a single physical page
  * \return Physical address allocated
@@ -295,9 +305,11 @@ extern Uint32	BigEndian32(Uint32 Val);
  * \name Strings
  * \{
  */
+extern int	vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args);
 extern int	sprintf(char *__s, const char *__format, ...);
 extern Uint	strlen(const char *Str);
 extern char	*strcpy(char *__dest, const char *__src);
+extern char	*strncpy(char *__dest, const char *__src, size_t max);
 extern int	strcmp(const char *__str1, const char *__str2);
 extern int	strncmp(const char *Str1, const char *Str2, size_t num);
 extern int	strucmp(const char *Str1, const char *Str2);
@@ -316,6 +328,7 @@ extern Uint8	ByteSum(void *Ptr, int Size);
  */
 
 extern Uint	rand();
+extern int	CallWithArgArray(void *Function, int NArgs, Uint *Args);
 
 // --- Heap ---
 /**
@@ -369,12 +382,14 @@ extern int	Proc_Spawn(char *Path);
 extern void	Threads_Exit();
 extern void	Threads_Yield();
 extern void	Threads_Sleep();
+extern void	Threads_WakeTID(tTID Thread);
 extern tPID	Threads_GetPID();
 extern tTID	Threads_GetTID();
 extern tUID	Threads_GetUID();
 extern tGID	Threads_GetGID();
 extern int	SpawnTask(tThreadFunction Function, void *Arg);
 extern Uint	*Threads_GetCfgPtr(int Id);
+extern int	Threads_SetName(char *NewName);
 /**
  * \}
  */

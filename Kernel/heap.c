@@ -151,7 +151,7 @@ void *malloc(size_t Bytes)
 		// Alignment Check
 		if( head->Size & (BLOCK_SIZE-1) ) {
 			#if WARNINGS
-			Warning("Size of heap address %p is invalid not aligned (0x%x)", head, head->Size);
+			Log_Warning("Heap", "Size of heap address %p is invalid not aligned (0x%x)", head, head->Size);
 			Heap_Dump();
 			#endif
 			RELEASE(&glHeap);
@@ -163,7 +163,7 @@ void *malloc(size_t Bytes)
 		// Error check
 		if(head->Magic != MAGIC_FREE)	{
 			#if WARNINGS
-			Warning("Magic of heap address %p is invalid (0x%x)", head, head->Magic);
+			Log_Warning("Heap", "Magic of heap address %p is invalid (0x%x)", head, head->Magic);
 			Heap_Dump();
 			#endif
 			RELEASE(&glHeap);	// Release spinlock
@@ -178,9 +178,9 @@ void *malloc(size_t Bytes)
 			head->Magic = MAGIC_USED;
 			RELEASE(&glHeap);	// Release spinlock
 			#if DEBUG_TRACE
-			LOG("RETURN %p, to %p", best->Data, __builtin_return_address(0));
+			Log("[Heap   ] Malloc'd %p (%i bytes), returning to %p", head->Data, head->Size,  __builtin_return_address(0));
 			#endif
-			return best->Data;
+			return head->Data;
 		}
 		
 		// Break out of loop
@@ -210,7 +210,7 @@ void *malloc(size_t Bytes)
 		if(best->Size == Bytes) {
 			RELEASE(&glHeap);	// Release spinlock
 			#if DEBUG_TRACE
-			LOG("RETURN %p, to %p", best->Data, __builtin_return_address(0));
+			Log("[Heap   ] Malloc'd %p (%i bytes), returning to %p", best->Data, best->Size, __builtin_return_address(0));
 			#endif
 			return best->Data;
 		}
@@ -231,7 +231,7 @@ void *malloc(size_t Bytes)
 	
 	RELEASE(&glHeap);	// Release spinlock
 	#if DEBUG_TRACE
-	LOG("RETURN %p, to %p", best->Data, __builtin_return_address(0));
+	Log("[Heap   ] Malloc'd %p (%i bytes), returning to %p", best->Data, best->Size, __builtin_return_address(0));
 	#endif
 	return best->Data;
 }
@@ -246,42 +246,43 @@ void free(void *Ptr)
 	tHeapFoot	*foot;
 	
 	#if DEBUG_TRACE
-	LOG("Ptr = %p", Ptr);
-	LOG("Returns to %p", __builtin_return_address(0));
+	Log_Log("Heap", "free: Ptr = %p", Ptr);
+	Log_Log("Heap", "free: Returns to %p", __builtin_return_address(0));
 	#endif
 	
 	// Alignment Check
 	if( (Uint)Ptr & (sizeof(Uint)-1) ) {
-		Warning("free - Passed a non-aligned address (%p)", Ptr);
+		Log_Warning("Heap", "free - Passed a non-aligned address (%p)", Ptr);
 		return;
 	}
 	
 	// Sanity check
 	if((Uint)Ptr < (Uint)gHeapStart || (Uint)Ptr > (Uint)gHeapEnd)
 	{
-		Warning("free - Passed a non-heap address (%p)\n", Ptr);
+		Log_Warning("Heap", "free - Passed a non-heap address (%p < %p < %p)\n",
+			gHeapStart, Ptr, gHeapEnd);
 		return;
 	}
 	
 	// Check memory block - Header
 	head = (void*)( (Uint)Ptr - sizeof(tHeapHead) );
 	if(head->Magic == MAGIC_FREE) {
-		Warning("free - Passed a freed block (%p) by %p", head, __builtin_return_address(0));
+		Log_Warning("Heap", "free - Passed a freed block (%p) by %p", head, __builtin_return_address(0));
 		return;
 	}
 	if(head->Magic != MAGIC_USED) {
-		Warning("free - Magic value is invalid (%p, 0x%x)\n", head, head->Magic);
+		Log_Warning("Heap", "free - Magic value is invalid (%p, 0x%x)\n", head, head->Magic);
 		return;
 	}
 	
 	// Check memory block - Footer
 	foot = (void*)( (Uint)head + head->Size - sizeof(tHeapFoot) );
 	if(foot->Head != head) {
-		Warning("free - Footer backlink is incorrect (%p, 0x%x)\n", head, foot->Head);
+		Log_Warning("Heap", "free - Footer backlink is incorrect (%p, 0x%x)\n", head, foot->Head);
 		return;
 	}
 	if(foot->Magic != MAGIC_FOOT) {
-		Warning("free - Footer magic is invalid (%p, %p = 0x%x)\n", head, &foot->Magic, foot->Magic);
+		Log_Warning("Heap", "free - Footer magic is invalid (%p, %p = 0x%x)\n", head, &foot->Magic, foot->Magic);
 		return;
 	}
 	
@@ -387,13 +388,14 @@ void *calloc(size_t num, size_t size)
 
 /**
  * \fn int IsHeap(void *Ptr)
- * \brief Checks if an address is a heap address
+ * \brief Checks if an address is a heap pointer
  */
 int IsHeap(void *Ptr)
 {
 	tHeapHead	*head;
 	if((Uint)Ptr < (Uint)gHeapStart)	return 0;
 	if((Uint)Ptr > (Uint)gHeapEnd)	return 0;
+	if((Uint)Ptr & (sizeof(Uint)-1))	return 0;
 	
 	head = (void*)( (Uint)Ptr - sizeof(tHeapHead) );
 	if(head->Magic != MAGIC_USED && head->Magic != MAGIC_FREE)
@@ -412,31 +414,31 @@ void Heap_Dump()
 	while( (Uint)head < (Uint)gHeapEnd )
 	{		
 		foot = (void*)( (Uint)head + head->Size - sizeof(tHeapFoot) );
-		Log("%p (0x%x): 0x%08lx 0x%lx", head, MM_GetPhysAddr((Uint)head), head->Size, head->Magic);
-		Log("%p 0x%lx", foot->Head, foot->Magic);
-		Log("");
+		Log_Log("Heap", "%p (0x%x): 0x%08lx 0x%lx", head, MM_GetPhysAddr((Uint)head), head->Size, head->Magic);
+		Log_Log("Heap", "%p 0x%lx", foot->Head, foot->Magic);
+		Log_Log("Heap", "");
 		
 		// Sanity Check Header
 		if(head->Size == 0) {
-			Log("HALTED - Size is zero");
+			Log_Warning("Heap", "HALTED - Size is zero");
 			break;
 		}
 		if(head->Size & (BLOCK_SIZE-1)) {
-			Log("HALTED - Size is malaligned");
+			Log_Warning("Heap", "HALTED - Size is malaligned");
 			break;
 		}
 		if(head->Magic != MAGIC_FREE && head->Magic != MAGIC_USED) {
-			Log("HALTED - Head Magic is Bad");
+			Log_Warning("Heap", "HALTED - Head Magic is Bad");
 			break;
 		}
 		
 		// Check footer
 		if(foot->Magic != MAGIC_FOOT) {
-			Log("HALTED - Foot Magic is Bad");
+			Log_Warning("Heap", "HALTED - Foot Magic is Bad");
 			break;
 		}
 		if(head != foot->Head) {
-			Log("HALTED - Footer backlink is invalid");
+			Log_Warning("Heap", "HALTED - Footer backlink is invalid");
 			break;
 		}
 		

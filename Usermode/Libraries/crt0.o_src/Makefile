@@ -2,8 +2,7 @@
 #
 #
 
-AS = nasm
-RM = rm -f
+-include ../Makefile.cfg
 
 ASFLAGS = -felf
 

@@ -121,9 +121,9 @@ void Inode_UncacheNode(int Handle, Uint64 Inode)
 	tCachedInode	*ent, *prev;
 	
 	cache = Inode_int_GetFSCache(Handle);
-	if(!cache)	return;
+	if(!cache)	return ;
 	
-	if(Inode > cache->MaxCached)	return;
+	if(Inode > cache->MaxCached)	return ;
 	
 	// Search Cache
 	ent = cache->FirstNode;
@@ -147,8 +147,10 @@ void Inode_UncacheNode(int Handle, Uint64 Inode)
 				
 			free(ent);
 		}
-		return;
+		return ;
 	}
+	
+	return ;
 }
 
 /**

@@ -2,18 +2,23 @@
  * Acess2
  * - Module Loader
  */
+#define DEBUG	0
 #include <acess.h>
 #include <modules.h>
 
 #define	USE_EDI	0
-#define	USE_UDI	1
+#define	USE_UDI	0
 
 // === PROTOTYPES ===
- int	Modules_LoadBuiltins();
+ int	Modules_LoadBuiltins(void);
+ int	Module_RegisterLoader(tModuleLoader *Loader);
  int	Module_LoadMem(void *Buffer, Uint Length, char *ArgString);
  int	Module_LoadFile(char *Path, char *ArgString);
  int	Module_int_ResolveDeps(tModule *Info);
  int	Module_IsLoaded(char *Name);
+
+// === EXPORTS ===
+EXPORT(Module_RegisterLoader);
 
 // === IMPORTS ===
 #if USE_UDI
@@ -25,95 +30,139 @@ extern void	gKernelModulesEnd;
 
 // === GLOBALS ===
  int	giNumBuiltinModules = 0;
- int	giModuleSpinlock = 0;
+tSpinlock	glModuleSpinlock;
 tModule	*gLoadedModules = NULL;
 tModuleLoader	*gModule_Loaders = NULL;
+tModule	*gLoadingModules = NULL;
 
 // === CODE ===
+/**
+ * \brief Initialises a module
+ * \param Module	Pointer to the module header
+ * \return Zero on success, eModuleErrors or -1 on error
+ * \retval -1	Returned if a dependency fails, or a circular dependency
+ *              exists.
+ * \retval 0	Returned on success
+ * \retval >0	Error code form the module's initialisation function
+ */
+int Module_int_Initialise(tModule *Module)
+{
+	 int	i, j;
+	 int	ret;
+	char	**deps;
+	tModule	*mod;
+	
+	ENTER("pModule", Module);
+	
+	deps = Module->Dependencies;
+	
+	// Check if the module has been loaded
+	for( mod = gLoadedModules; mod; mod = mod->Next )
+	{
+		if(mod == Module)	LEAVE_RET('i', 0);
+	}
+	
+	// Add to the "loading" (prevents circular deps)
+	Module->Next = gLoadingModules;
+	gLoadingModules = Module;
+	
+	// Scan dependency list
+	for( j = 0; deps && deps[j]; j++ )
+	{
+		// Check if the module is already loaded
+		for( mod = gLoadedModules; mod; mod = mod->Next )
+		{
+			if(strcmp(deps[j], mod->Name) == 0)
+				break;
+		}
+		if( mod )	continue;	// Dependency is loaded, check the rest
+		
+		// Ok, check if it's loading
+		for( mod = gLoadingModules->Next; mod; mod = mod->Next )
+		{
+			if(strcmp(deps[j], mod->Name) == 0)
+				break;
+		}
+		if( mod ) {
+			Log_Warning("Module", "Circular dependency detected");
+			LEAVE_RET('i', -1);
+		}
+		
+		// So, if it's not loaded, we better load it then
+		for( i = 0; i < giNumBuiltinModules; i ++ )
+		{
+			if( strcmp(deps[j], gKernelModules[i].Name) == 0 )
+				break;
+		}
+		if( i == giNumBuiltinModules ) {
+			Log_Warning("Module", "Dependency '%s' for module '%s' failed");
+			return -1;
+		}
+		
+		// Dependency is not loaded, so load it
+		ret = Module_int_Initialise( &gKernelModules[i] );
+		if( ret )
+		{
+			// The only "ok" error is NOTNEEDED
+			if(ret != MODULE_ERR_NOTNEEDED)
+				LEAVE_RET('i', -1);
+		}
+	}
+	
+	// All Dependencies OK? Initialise
+	StartupPrint(Module->Name);
+	Log_Log("Module", "Initialising %p '%s' v%i.%i...",
+		Module, Module->Name,
+		Module->Version >> 8, Module->Version & 0xFF
+		);
+	
+	ret = Module->Init(NULL);
+	if( ret != MODULE_ERR_OK ) {
+		switch(ret)
+		{
+		case MODULE_ERR_MISC:
+			Log_Warning("Module", "Unable to load, reason: Miscelanious");
+			break;
+		case MODULE_ERR_NOTNEEDED:
+			Log_Warning("Module", "Unable to load, reason: Module not needed");
+			break;
+		case MODULE_ERR_MALLOC:
+			Log_Warning("Module", "Unable to load, reason: Error in malloc/realloc/calloc, probably not good");
+			break;
+		default:
+			Log_Warning("Module", "Unable to load reason - Unknown code %i", ret);
+			break;
+		}
+		LEAVE_RET('i', ret);
+		return ret;
+	}
+	
+	// Remove from loading list
+	gLoadingModules = gLoadingModules->Next;
+	
+	// Add to loaded list
+	LOCK( &glModuleSpinlock );
+	Module->Next = gLoadedModules;
+	gLoadedModules = Module;
+	RELEASE( &glModuleSpinlock );
+	
+	LEAVE_RET('i', 0);
+}
+
+/**
+ * \brief Initialises builtin modules
+ */
 int Modules_LoadBuiltins()
 {
-	 int	i, j, k;
-	 int	numToInit = 0;
-	Uint8	*baIsLoaded;
-	char	**deps;
+	 int	i;
 	
+	// Count modules
 	giNumBuiltinModules = (Uint)&gKernelModulesEnd - (Uint)&gKernelModules;
 	giNumBuiltinModules /= sizeof(tModule);
 	
-	baIsLoaded = calloc( giNumBuiltinModules, sizeof(*baIsLoaded) );
-	
-	// Pass 1 - Are the dependencies compiled in?
 	for( i = 0; i < giNumBuiltinModules; i++ )
 	{
-		deps = gKernelModules[i].Dependencies;
-		if(deps)
-		{
-			for( j = 0; deps[j]; j++ )
-			{
-				for( k = 0; k < giNumBuiltinModules; k++ ) {
-					if(strcmp(deps[j], gKernelModules[k].Name) == 0)
-						break;
-				}
-				if(k == giNumBuiltinModules) {
-					Warning("Unable to find dependency '%s' for '%s' in kernel",
-						deps[j], gKernelModules[i].Name);
-					
-					baIsLoaded[i] = -1;	// Don't Load
-					break;
-				}
-			}
-		}
-		numToInit ++;
-	}
-	
-	// Pass 2 - Intialise
-	while(numToInit)
-	{
-		for( i = 0; i < giNumBuiltinModules; i++ )
-		{
-			if( baIsLoaded[i] )	continue;	// Ignore already loaded modules
-		
-			deps = gKernelModules[i].Dependencies;
-			
-			if( deps )
-			{
-				for( j = 0; deps[j]; j++ )
-				{
-					for( k = 0; k < giNumBuiltinModules; k++ ) {
-						if(strcmp(deps[j], gKernelModules[k].Name) == 0)
-							break;
-					}
-					// `k` is assumed to be less than `giNumBuiltinModules`
-					
-					// If a dependency failed, skip and mark as failed
-					if( baIsLoaded[k] == -1 ) {
-						baIsLoaded[i] = -1;
-						numToInit --;
-						break;
-					}
-					// If a dependency is not intialised, skip
-					if( !baIsLoaded[k] )	break;
-				}
-				// Check if we broke out
-				if( deps[j] )	continue;
-			}
-			
-			// All Dependencies OK? Initialise
-			StartupPrint(gKernelModules[i].Name);
-			Log("Initialising %p '%s' v%i.%i...",
-				&gKernelModules[i],
-				gKernelModules[i].Name,
-				gKernelModules[i].Version>>8, gKernelModules[i].Version & 0xFF
-				);
-			if( gKernelModules[i].Init(NULL) == 0 ) {
-				Log("Loading Failed, all modules that depend on this will also fail");
-				baIsLoaded[i] = -1;
-			}
-			// Mark as loaded
-			else
-				baIsLoaded[i] = 1;
-			numToInit --;
-		}
+		Module_int_Initialise( &gKernelModules[i] );
 	}
 	
 	return 0;
@@ -160,7 +209,7 @@ int Module_LoadFile(char *Path, char *ArgString)
 	
 	// Error check
 	if(base == NULL) {
-		Warning("Module_LoadFile: Unable to load '%s'", Path);
+		Log_Warning("Module", "Module_LoadFile - Unable to load '%s'", Path);
 		return 0;
 	}
 	
@@ -186,9 +235,9 @@ int Module_LoadFile(char *Path, char *ArgString)
 		// Unknown module type?, return error
 		Binary_Unload(base);
 		#if USE_EDI
-		Warning("Module_LoadFile: Module has neither a Module Info struct, nor an EDI entrypoint");
+		Log_Warning("Module", "Module '%s' has neither a Module Info struct, nor an EDI entrypoint", Path);
 		#else
-		Warning("Module_LoadFile: Module does not have a Module Info struct");
+		Log_Warning("Module", "Module '%s' does not have a Module Info struct", Path);
 		#endif
 		return 0;
 	}
@@ -196,24 +245,31 @@ int Module_LoadFile(char *Path, char *ArgString)
 	// Check magic number
 	if(info->Magic != MODULE_MAGIC)
 	{
-		Warning("Module_LoadFile: Module's magic value is invalid (0x%x != 0x%x)", info->Magic, MODULE_MAGIC);
+		Log_Warning("Module", "Module's magic value is invalid (0x%x != 0x%x)", info->Magic, MODULE_MAGIC);
 		return 0;
 	}
 	
 	// Check Architecture
 	if(info->Arch != MODULE_ARCH_ID)
 	{
-		Warning("Module_LoadFile: Module is for a different architecture");
+		Log_Warning("Module", "Module is for a different architecture");
 		return 0;
 	}
 	
+	#if 1
+	if( Module_int_Initialise( info ) )
+	{
+		Binary_Unload(base);
+		return 0;
+	}
+	#else
 	// Resolve Dependencies
 	if( !Module_int_ResolveDeps(info) ) {
 		Binary_Unload(base);
 		return 0;
 	}
 	
-	Log("Initialising %p '%s' v%i.%i...",
+	Log_Log("Module", "Initialising %p '%s' v%i.%i...",
 				info,
 				info->Name,
 				info->Version>>8, info->Version & 0xFF
@@ -228,10 +284,11 @@ int Module_LoadFile(char *Path, char *ArgString)
 	}
 	
 	// Add to list
-	LOCK( &giModuleSpinlock );
+	LOCK( &glModuleSpinlock );
 	info->Next = gLoadedModules;
 	gLoadedModules = info;
-	RELEASE( &giModuleSpinlock );
+	RELEASE( &glModuleSpinlock );
+	#endif
 	
 	return 1;
 }
@@ -251,7 +308,7 @@ int Module_int_ResolveDeps(tModule *Info)
 	{
 		// Check if the module is loaded
 		if( !Module_IsLoaded(*names) ) {
-			Warning("Module `%s' requires `%s', which is not loaded\n", Info->Name, *names);
+			Log_Warning("Module", "Module `%s' requires `%s', which is not loaded\n", Info->Name, *names);
 			return 0;
 		}
 	}
