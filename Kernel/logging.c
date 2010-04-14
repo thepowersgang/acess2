@@ -29,9 +29,9 @@ typedef struct sLogEntry
 	struct sLogEntry	*Next;
 	struct sLogEntry	*LevelNext;
 	Sint64	Time;
-	char	Ident[8];
 	 int	Level;
 	 int	Length;
+	char	Ident[9];
 	char	Data[];
 }	tLogEntry;
 typedef struct sLogList
@@ -83,7 +83,7 @@ void Log_AddEvent(char *Ident, int Level, char *Format, va_list Args)
 	
 	ent = malloc(sizeof(tLogEntry)+len+1);
 	ent->Time = now();
-	strncpy(ent->Ident, Ident, 7);
+	strncpy(ent->Ident, Ident, 8);
 	ent->Level = Level;
 	ent->Length = len;
 	vsnprintf( ent->Data, 256, Format, Args );
