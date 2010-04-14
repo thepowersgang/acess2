@@ -328,6 +328,8 @@ int FAT_int_GetAddress(tVFS_Node *Node, Uint64 Offset, Uint64 *Addr, Uint32 *Clu
 		if(Cluster)	*Cluster = cluster;
 	}
 	
+	LOG("cluster = %08x", cluster);
+	
 	// Bounds Checking (Used to spot corruption)
 	if(cluster > disk->ClusterCount + 2)
 	{
@@ -976,6 +978,7 @@ int FAT_int_ReadDirSector(tVFS_Node *Node, int Sector, fat_filetable *Buffer)
 		return 1;
 	}
 	
+	LOG("addr = 0x%llx", addr);
 	// Read Sector
 	if(VFS_ReadAt(disk->fileHandle, addr, 512, Buffer) != 512)
 	{
@@ -1106,6 +1109,7 @@ char *FAT_ReadDir(tVFS_Node *Node, int ID)
 	
 	if(FAT_int_ReadDirSector(Node, ID/16, fileinfo))
 	{
+		LOG("End of chain, end of dir");
 		LEAVE('n');
 		return NULL;
 	}
@@ -1113,9 +1117,7 @@ char *FAT_ReadDir(tVFS_Node *Node, int ID)
 	// Offset in sector
 	a = ID % 16;
 
-	LOG("a = %i", a);
-	
-	LOG("name[0] = 0x%x", (Uint8)fileinfo[a].name[0]);
+	LOG("fileinfo[%i].name[0] = 0x%x", a, (Uint8)fileinfo[a].name[0]);
 	
 	// Check if this is the last entry
 	if( fileinfo[a].name[0] == '\0' ) {
@@ -1128,8 +1130,10 @@ char *FAT_ReadDir(tVFS_Node *Node, int ID)
 	// Check for empty entry
 	if( (Uint8)fileinfo[a].name[0] == 0xE5 ) {
 		LOG("Empty Entry");
-		LEAVE('p', VFS_SKIP);
-		return VFS_SKIP;	// Skip
+		//LEAVE('p', VFS_SKIP);
+		//return VFS_SKIP;	// Skip
+		LEAVE('n');
+		return NULL;	// Skip
 	}
 	
 	#if USE_LFN
