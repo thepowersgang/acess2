@@ -18,7 +18,7 @@
 #define	NUM_VTS	8
 #define MAX_INPUT_CHARS32	64
 #define MAX_INPUT_CHARS8	(MAX_INPUT_CHARS32*4)
-#define VT_SCROLLBACK	1	// 2 Screens of text
+#define VT_SCROLLBACK	2	// 2 Screens of text
 #define DEFAULT_OUTPUT	"VGA"
 //#define DEFAULT_OUTPUT	"BochsGA"
 //#define DEFAULT_OUTPUT	"Vesa"
@@ -100,6 +100,7 @@ tDevFS_Driver	gVT_DrvInfo = {
 // --- Terminals ---
 tVTerm	gVT_Terminals[NUM_VTS];
  int	giVT_CurrentTerminal = 0;
+tVTerm	*gpVT_CurTerm = &gVT_Terminals[0];
 // --- Video State ---
 short	giVT_RealWidth;	//!< Real Width
 short	giVT_RealHeight;	//!< Real Height
@@ -482,6 +483,16 @@ void VT_SetTerminal(int ID)
 	// Update current terminal ID
 	Log_Log("VTerm", "Changed terminal from %i to %i", giVT_CurrentTerminal, ID);
 	giVT_CurrentTerminal = ID;
+	gpVT_CurTerm = &gVT_Terminals[ID];
+	
+	// Update cursor
+	if( !(gpVT_CurTerm->Flags & VT_FLAG_HIDECSR) )
+	{
+		tVideo_IOCtl_Pos	pos;
+		pos.x = gpVT_CurTerm->WritePos % gpVT_CurTerm->Width;
+		pos.y = gpVT_CurTerm->WritePos / gpVT_CurTerm->Width;
+		VFS_IOCtl(giVT_OutputDevHandle, VIDEO_IOCTL_SETCURSOR, &pos);
+	}
 	
 	// Update the screen
 	VT_int_UpdateScreen( &gVT_Terminals[ ID ], 1 );
@@ -562,8 +573,16 @@ void VT_KBCallBack(Uint32 Codepoint)
 		case KEY_F11:	VT_SetTerminal(10);	return;
 		case KEY_F12:	VT_SetTerminal(11);	return;
 		case KEY_PGUP:
+			if( gpVT_CurTerm->ViewPos > gpVT_CurTerm->Width )
+				gpVT_CurTerm->ViewPos -= gpVT_CurTerm->Width;
+			else
+				gpVT_CurTerm->ViewPos = 0;
 			return;
 		case KEY_PGDOWN:
+			if( gpVT_CurTerm->ViewPos < gpVT_CurTerm->Width*(gpVT_CurTerm->Height*(VT_SCROLLBACK-1)) )
+				gpVT_CurTerm->ViewPos += gpVT_CurTerm->Width;
+			else
+				gpVT_CurTerm->ViewPos = gpVT_CurTerm->Width*(gpVT_CurTerm->Height*(VT_SCROLLBACK-1));
 			return;
 		}
 	}
@@ -674,7 +693,7 @@ void VT_int_PutString(tVTerm *Term, Uint8 *Buffer, Uint Count)
 	}
 	
 	// Update cursor
-	if( !(Term->Flags & VT_FLAG_HIDECSR) )
+	if( Term == gpVT_CurTerm && !(Term->Flags & VT_FLAG_HIDECSR) )
 	{
 		tVideo_IOCtl_Pos	pos;
 		pos.x = Term->WritePos % Term->Width;
