@@ -42,7 +42,7 @@
  * VFS node. This node is used to provide the user access to the
  * driver's functions via IOCtl calls and Reading or Writing to the driver
  * file. Drivers are also able to expose a readonly buffer by using
- * \ref fs_proc.h ProcDev, usually to provide state information or device
+ * \ref fs_sysfs.h "ProcDev", usually to provide state information or device
  * capabilities for the the user.
  * 
  * The device driver interfaces are all based on the core specifcation
@@ -69,4 +69,19 @@
  * framebuffer (this may not be the true framebuffer, to allow for double-buffering)
  * to the user. See the full documentation in tpl_drv_video.h for the
  * complete specifcation.
+ * 
+ * \subsection drv_disk Disk/Storage Devices
+ * Storage devices present themselves as a linear collection of bytes.
+ * Reads and writes to the device need not be aligned to the stated block
+ * size, but it is suggested that users of a storage device file align
+ * their accesses to block boundaries.
+ * The functions DrvUtil_ReadBlock and DrvUtil_WriteBlock are provided
+ * to storage drivers to assist in handling non-alinged reads and writes.
+ * 
+ * \see tpl_drv_common.h Common Spec.
+ * \see tpl_drv_video.h Video Device Spec.
+ * \see tpl_drv_keyboard.h Keyboard Device Spec.
+ * \see tpl_drv_disk.h Disk/Storage Device Spec.
+ * \see tpl_drv_network.h Network Device Spec.
+ * \see tpl_drv_terminal.h Virtual Terminal Spec.
  */

@@ -40,10 +40,10 @@ enum eTplDisk_IOCtl {
 	DISK_IOCTL_GETBLOCKSIZE = 4,
 	
 	/**
-	 * ioctl(..., tTplDisk_CacheRegion *Region)
+	 * ioctl(..., tTplDisk_CacheRegion *RegionInfo)
 	 * \brief Sets the cache importantce and protocol for a section of
 	 *        memory.
-	 * \param Region	Pointer to a region information structure
+	 * \param RegionInfo	Pointer to a region information structure
 	 * \return Boolean failure
 	 */
 	DISK_IOCTL_SETCACHEREGION,
@@ -51,12 +51,24 @@ enum eTplDisk_IOCtl {
 	/**
 	 * ioctl(..., Uint64 *Info[2])
 	 * \brief Asks the driver to precache a region of disk.
-	 * \param Info	64-bit Address and Size pair describing the area to cache
+	 * \param Region	64-bit Address and Size pair describing the area to cache
 	 * \return Number of blocks cached
 	 */
-	DISK_IOCTL_PRECACHE
+	DISK_IOCTL_PRECACHE,
+	
+	/**
+	 * ioclt(..., Uint64 *Region[2])
+	 * \brief Asks to driver to flush the region back to disk
+	 * \param Region	64-bit Address and Size pair describing the area to flush
+	 * \note If Region[0] == -1 then the entire disk's cache is flushed
+	 * \return Number of blocks flushed (or 0 for entire disk)
+	 */
+	DISK_IOCTL_FLUSH
 };
 
+/**
+ * \brief Describes the cache parameters of a region on the disk
+ */
 typedef struct sTplDisk_CacheRegion
 {
 	Uint64	Base;	//!< Base of cache region
@@ -71,7 +83,11 @@ typedef struct sTplDisk_CacheRegion
 	 */
 	Uint8	Flags;
 	Uint8	Priority;	//!< Lower is a higher proritory
-	Uint16	CacheSize;	//!< Maximum size of cache, in blocks
+	/**
+	 * \brief Maximum size of cache, in blocks
+	 * \note If CacheSize is zero, the implemenation defined limit is used
+	 */
+	Uint16	CacheSize;
 }	tTplDisk_CacheRegion;
 
 /**
@@ -80,8 +96,9 @@ typedef struct sTplDisk_CacheRegion
 enum eTplDisk_CacheProtocols
 {
 	/**
-	 * \brief Region is not cached
+	 * \brief Don't cache the region
 	 */
+	
 	DISK_CACHEPROTO_DONTCACHE,
 	/**
 	 * \brief Most recently used blocks cached
@@ -98,22 +115,30 @@ enum eTplDisk_CacheProtocols
 	/**
 	 * \brief Cache only on demand
 	 * 
-	 * Only cache when the ::DISK_IOCTL_PRECACHE ioctl is used
+	 * Only cache when the ::DISK_IOCTL_PRECACHE IOCtl is used
 	 */
 	DISK_CACHEPROTO_EXPLICIT
 };
+
+/**
+ * \brief Flags for the cache
+ */
 enum eTplDisk_CacheFlags
 {
-	DISK_CACHEFLAG_WRITETHROUGH
+	/**
+	 * \brief Write all changes to the region straight back to media
+	 */
+	DISK_CACHEFLAG_WRITETHROUGH = 0x10
 };
 
 /**
  * \brief IOCtl name strings
  */
-#define	DRV_DISK_IOCTLNAMES	"get_block_size", "set_cache_region"
+#define	DRV_DISK_IOCTLNAMES	"get_block_size","set_cache_region","set_precache"
 
 /**
- * \section Disk Driver Utilities
+ * \name Disk Driver Utilities
+ * \{
  */
 
 /**
@@ -151,5 +176,9 @@ extern Uint64 DrvUtil_ReadBlock(Uint64 Start, Uint64 Length, void *Buffer,
 extern Uint64 DrvUtil_WriteBlock(Uint64 Start, Uint64 Length, void *Buffer,
 	tDrvUtil_Callback ReadBlocks, tDrvUtil_Callback WriteBlocks,
 	Uint64 BlockSize, Uint Argument);
+
+/**
+ * \}
+ */
 
 #endif
