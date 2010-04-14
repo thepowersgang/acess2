@@ -6,22 +6,22 @@
 CPPFLAGS += 
 CFLAGS   += 
 ASFLAGS  +=
-LDFLAGS  += -soname libc.so.1 -Map map.txt -lgcc
+LDFLAGS  += -soname libc.so -Map map.txt -lgcc
 
 OBJ = stub.o heap.o stdlib.o env.o fileIO.o string.o
 DEPFILES := $(OBJ:%.o=%.d)
 # signals.o
-BIN = ../libc.so.1
+BIN = ../libc.so
 
 .PHONY:	all clean install
 
 all: $(BIN)
 
 clean:
-	$(RM) $(BIN) ../libc.so $(OBJ) $(DEPFILES) libc.so.1.dsm libc.so.1.dmp map.txt
+	$(RM) $(BIN) $(OBJ) $(DEPFILES) libc.so.dsm libc.so.dmp map.txt
 
 install: $(BIN)
-	$(xCP) ../libc.so.1 $(DISTROOT)/Libs/
+	$(xCP) $(BIN) $(DISTROOT)/Libs/
 
 # Core C Library
 $(BIN): $(OBJ)
@@ -29,7 +29,6 @@ $(BIN): $(OBJ)
 	@$(LD) $(LDFLAGS) $(OBJ) -o $@
 	@$(OBJDUMP) -d $@ > libc.so.1.dsm
 	@$(OBJDUMP) -x -r -R $@ > libc.so.1.dmp
-	cp ../libc.so.1 ../libc.so
 
 # C Runtime 0
 ../crt0.o: crt0.asm

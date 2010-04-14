@@ -3,7 +3,7 @@
  * FAT12/16/32 Driver Version (Incl LFN)
  * 
  * NOTE: This driver will only support _reading_ long file names, not
- * writing. I don't even know why i'm adding write-support. FAT sucks.
+ * writing. I don't even know why I'm adding write-support. FAT sucks.
  * 
  * Known Bugs:
  * - LFN Is buggy in FAT_ReadDir
@@ -12,11 +12,11 @@
  * \todo Implement changing of the parent directory when a file is written to
  * \todo Implement file creation / deletion
  */
-#define DEBUG	1
+#define DEBUG	0
 #define VERBOSE	1
 
 #define CACHE_FAT	1	//!< Caches the FAT in memory
-#define USE_LFN		0	//!< Enables the use of Long File Names
+#define USE_LFN		1	//!< Enables the use of Long File Names
 #define	SUPPORT_WRITE	0
 
 #include <acess.h>
@@ -1130,10 +1130,13 @@ char *FAT_ReadDir(tVFS_Node *Node, int ID)
 	// Check for empty entry
 	if( (Uint8)fileinfo[a].name[0] == 0xE5 ) {
 		LOG("Empty Entry");
-		//LEAVE('p', VFS_SKIP);
-		//return VFS_SKIP;	// Skip
+		#if 0	// Stop on empty entry?
 		LEAVE('n');
-		return NULL;	// Skip
+		return NULL;	// Stop
+		#else
+		LEAVE('p', VFS_SKIP);
+		return VFS_SKIP;	// Skip
+		#endif
 	}
 	
 	#if USE_LFN
@@ -1262,6 +1265,8 @@ tVFS_Node *FAT_FindDir(tVFS_Node *Node, char *Name)
 		{
 			// Remove LFN if it does not apply
 			if(lfnId != i)	lfn[0] = '\0';
+		#else
+		if(fileinfo[i&0xF].attrib == ATTR_LFN)	continue;
 		#endif
 			// Get Real Filename
 			FAT_int_ProperFilename(tmpName, fileinfo[i&0xF].name);
