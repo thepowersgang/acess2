@@ -3,6 +3,10 @@
  * \brief Disk Driver Interface Definitions
  * \author John Hodge (thePowersGang)
  * 
+ * \section Nomeclature
+ * All addreses are 64-bit counts of bytes from the logical beginning of
+ * the disk unless explicitly stated.
+ * 
  * \section dirs VFS Layout
  * Disk drivers have a flexible directory layout. The root directory can
  * contain subdirectories, with the only conditions being that all nodes
@@ -33,13 +37,84 @@ enum eTplDisk_IOCtl {
 	 * \brief Get the block size
 	 * \return Size of a hardware block for this device
 	 */
-	DISK_IOCTL_GETBLOCKSIZE = 4
+	DISK_IOCTL_GETBLOCKSIZE = 4,
+	
+	/**
+	 * ioctl(..., tTplDisk_CacheRegion *Region)
+	 * \brief Sets the cache importantce and protocol for a section of
+	 *        memory.
+	 * \param Region	Pointer to a region information structure
+	 * \return Boolean failure
+	 */
+	DISK_IOCTL_SETCACHEREGION,
+	
+	/**
+	 * ioctl(..., Uint64 *Info[2])
+	 * \brief Asks the driver to precache a region of disk.
+	 * \param Info	64-bit Address and Size pair describing the area to cache
+	 * \return Number of blocks cached
+	 */
+	DISK_IOCTL_PRECACHE
+};
+
+typedef struct sTplDisk_CacheRegion
+{
+	Uint64	Base;	//!< Base of cache region
+	Uint64	Length;	//!< Size of cache region
+	/**
+	 * \brief Cache Protocol & Flags
+	 * 
+	 * The low 4 bits denot the cache protocol to be used by the
+	 * region (see ::eTplDisk_CacheProtocols for a list).
+	 * The high 4 bits denote flags to apply to the cache (see
+	 * ::eTplDisk_CacheFlags)
+	 */
+	Uint8	Flags;
+	Uint8	Priority;	//!< Lower is a higher proritory
+	Uint16	CacheSize;	//!< Maximum size of cache, in blocks
+}	tTplDisk_CacheRegion;
+
+/**
+ * \brief Cache protocols to use
+ */
+enum eTplDisk_CacheProtocols
+{
+	/**
+	 * \brief Region is not cached
+	 */
+	DISK_CACHEPROTO_DONTCACHE,
+	/**
+	 * \brief Most recently used blocks cached
+	 * \note This is the default action for undefined regions
+	 */
+	DISK_CACHEPROTO_RECENTLYUSED,
+	/**
+	 * \brief Cache the entire region in memory
+	 * 
+	 * This is a faster version of setting Length to CacheSize*BlockSize
+	 */
+	DISK_CACHEPROTO_FULLCACHE,
+	
+	/**
+	 * \brief Cache only on demand
+	 * 
+	 * Only cache when the ::DISK_IOCTL_PRECACHE ioctl is used
+	 */
+	DISK_CACHEPROTO_EXPLICIT
+};
+enum eTplDisk_CacheFlags
+{
+	DISK_CACHEFLAG_WRITETHROUGH
 };
 
 /**
  * \brief IOCtl name strings
  */
-#define	DRV_DISK_IOCTLNAMES	"get_block_size"
+#define	DRV_DISK_IOCTLNAMES	"get_block_size", "set_cache_region"
+
+/**
+ * \section Disk Driver Utilities
+ */
 
 /**
  * \brief Callback function type used by DrvUtil_ReadBlock and DrvUtil_WriteBlock

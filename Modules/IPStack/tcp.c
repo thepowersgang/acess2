@@ -350,7 +350,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 		TCP_INT_UpdateRecievedFromFuture(Connection);
 	
 		// TODO: Check ACK code validity
-		Header->AcknowlegementNumber = ntohl(pkt->Sequence) + dataLen;
+		Header->AcknowlegementNumber = ntohl(Connection->NextSequenceRcv);
 		Header->SequenceNumber = ntohl(Connection->NextSequenceSend);
 		Header->Flags &= TCP_FLAG_SYN;
 		Header->Flags = TCP_FLAG_ACK;
@@ -416,7 +416,7 @@ void TCP_INT_UpdateRecievedFromFuture(tTCPConnection *Connection)
 		
 		// Looks like we found one
 		TCP_INT_AppendRecieved(Connection, pkt);
-		Connection->NextSequenceRcv ++;
+		Connection->NextSequenceRcv += pkt->Length;
 	}
 }
 

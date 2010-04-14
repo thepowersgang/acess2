@@ -90,8 +90,8 @@ struct sTCPConnection
 	tInterface	*Interface;	//!< Listening Interface
 	tVFS_Node	Node;	//!< Node
 	
-	 int	NextSequenceSend;	//!< Next sequence value for outbound packets
-	 int	NextSequenceRcv;	//!< Next expected sequence value for inbound
+	Uint32	NextSequenceSend;	//!< Next sequence value for outbound packets
+	Uint32	NextSequenceRcv;	//!< Next expected sequence value for inbound
 	
 	/**
 	 * \brief Non-ACKed packets
