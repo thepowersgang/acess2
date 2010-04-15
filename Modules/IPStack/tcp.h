@@ -106,12 +106,11 @@ struct sTCPConnection
 	
 	/**
 	 * \brief Unread Packets
-	 * \note Double ended list (fifo)
+	 * \note Ring buffer
 	 * \{
 	 */
 	tSpinlock	lRecievedPackets;
-	tTCPStoredPacket	*RecievedPackets;	//!< Unread Packets
-	tTCPStoredPacket	*RecievedPacketsTail;	//!< Unread Packets (End of list)
+	tRingBuffer	*RecievedBuffer;
 	/**
 	 * \}
 	 */
