@@ -14,7 +14,12 @@ enum eErrorNums
 	EACCES,
 	ENOTFOUND,
 	EREADONLY,
-	ENOTIMPL
+	ENOTIMPL,
+	ENOENT,
+	ENFILE,
+	ENOTDIR,
+	
+	NUM_ERRS
 };
 
 #endif

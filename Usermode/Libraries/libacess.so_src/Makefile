@@ -25,6 +25,6 @@ $(BIN): $(OBJ)
 	@$(LD) $(LDFLAGS) -o $(BIN) $(OBJ)
 	@$(STRIP) $(BIN)
 	
-%.ao: %.asm syscalls.inc.asm
+%.ao: %.asm syscalls.inc.asm ../../../Kernel/include/syscalls.inc.asm
 	@echo $(AS) -o $@
 	@$(AS) $(ASFLAGS) -o $@ $<

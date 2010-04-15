@@ -535,6 +535,107 @@ int VFS_Open(char *Path, Uint Mode)
 	return -1;
 }
 
+
+/**
+ * \brief Open a file from an open directory
+ */
+int VFS_OpenChild(Uint *Errno, int FD, char *Name, Uint Mode)
+{
+	tVFS_Handle	*h;
+	tVFS_Node	*node;
+	 int	i;
+	
+	// Get handle
+	h = VFS_GetHandle(FD);
+	if(h == NULL) {
+		Log_Warning("VFS", "VFS_OpenChild - Invalid file handle 0x%x", FD);
+		if(Errno)	*Errno = EINVAL;
+		LEAVE('i', -1);
+		return -1;
+	}
+	
+	// Check for directory
+	if( !(h->Node->Flags & VFS_FFLAG_DIRECTORY) ) {
+		Log_Warning("VFS", "VFS_OpenChild - Passed handle is not a directory", FD);
+		if(Errno)	*Errno = ENOTDIR;
+		LEAVE('i', -1);
+		return -1;
+	}
+	
+	// Find Child
+	node = h->Node->FindDir(h->Node, Name);
+	if(!node) {
+		if(Errno)	*Errno = ENOENT;
+		LEAVE('i', -1);
+		return -1;
+	}
+	
+	i = 0;
+	i |= (Mode & VFS_OPENFLAG_EXEC) ? VFS_PERM_EXECUTE : 0;
+	i |= (Mode & VFS_OPENFLAG_READ) ? VFS_PERM_READ : 0;
+	i |= (Mode & VFS_OPENFLAG_WRITE) ? VFS_PERM_WRITE : 0;
+	
+	// Permissions Check
+	if( !VFS_CheckACL(node, i) ) {
+		if(node->Close)	node->Close( node );
+		Log_Notice("VFS", "VFS_OpenChild - Permissions Failed");
+		if(Errno)	*Errno = EACCES;
+		LEAVE('i', -1);
+		return -1;
+	}
+	
+	// Check for a user open
+	if(Mode & VFS_OPENFLAG_USER)
+	{
+		// Allocate Buffer
+		if( MM_GetPhysAddr( (Uint)gaUserHandles ) == 0 )
+		{
+			Uint	addr, size;
+			size = CFGINT(CFG_VFS_MAXFILES) * sizeof(tVFS_Handle);
+			for(addr = 0; addr < size; addr += 0x1000)
+				MM_Allocate( (Uint)gaUserHandles + addr );
+			memset( gaUserHandles, 0, size );
+		}
+		// Get a handle
+		for(i=0;i<CFGINT(CFG_VFS_MAXFILES);i++)
+		{
+			if(gaUserHandles[i].Node)	continue;
+			gaUserHandles[i].Node = node;
+			gaUserHandles[i].Position = 0;
+			gaUserHandles[i].Mode = Mode;
+			LEAVE('i', i);
+			return i;
+		}
+	}
+	else
+	{
+		// Allocate space if not already
+		if( MM_GetPhysAddr( (Uint)gaKernelHandles ) == 0 )
+		{
+			Uint	addr, size;
+			size = MAX_KERNEL_FILES * sizeof(tVFS_Handle);
+			for(addr = 0; addr < size; addr += 0x1000)
+				MM_Allocate( (Uint)gaKernelHandles + addr );
+			memset( gaKernelHandles, 0, size );
+		}
+		// Get a handle
+		for(i=0;i<MAX_KERNEL_FILES;i++)
+		{
+			if(gaKernelHandles[i].Node)	continue;
+			gaKernelHandles[i].Node = node;
+			gaKernelHandles[i].Position = 0;
+			gaKernelHandles[i].Mode = Mode;
+			LEAVE('x', i|VFS_KERNEL_FLAG);
+			return i|VFS_KERNEL_FLAG;
+		}
+	}
+	
+	Log_Error("VFS", "VFS_OpenChild - Out of handles");
+	if(Errno)	*Errno = ENFILE;
+	LEAVE('i', -1);
+	return -1;
+}
+
 /**
  * \fn void VFS_Close(int FD)
  * \brief Closes an open file handle
@@ -546,7 +647,7 @@ void VFS_Close(int FD)
 	// Get handle
 	h = VFS_GetHandle(FD);
 	if(h == NULL) {
-		Warning("Invalid file handle passed to VFS_Close, 0x%x\n", FD);
+		Log_Warning("VFS", "Invalid file handle passed to VFS_Close, 0x%x\n", FD);
 		return;
 	}
 	

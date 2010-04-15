@@ -235,6 +235,16 @@ void SyscallHandler(tSyscallRegs *Regs)
 		ret = VFS_ReadDir( Regs->Arg1, (void*)Regs->Arg2 );
 		break;
 	
+	// Open a file that is a entry in an open directory
+	case SYS_OPENCHILD:
+		if( !Syscall_ValidString(Regs->Arg2) ) {
+			err = -EINVAL;
+			ret = -1;
+			break;
+		}
+		ret = VFS_OpenChild( &err, Regs->Arg1, (char*)Regs->Arg2, Regs->Arg3);
+		break;
+	
 	// Change Directory
 	case SYS_CHDIR:
 		if( !Syscall_ValidString(Regs->Arg1) ) {

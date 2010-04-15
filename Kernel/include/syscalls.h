@@ -47,16 +47,17 @@ enum eSyscalls {
 	SYS_WRITE,	// 68 - Write to an open file
 	SYS_IOCTL,	// 69 - Perform an IOCtl Call
 	SYS_READDIR,	// 70 - Read from an open directory
-	SYS_MKDIR,	// 71 - Create a new directory
-	SYS_SYMLINK,	// 72 - Create a symbolic link
-	SYS_GETACL,	// 73 - Get an ACL Value
-	SYS_SETACL,	// 74 - Set an ACL Value
-	SYS_FINFO,	// 75 - Get file information
-	SYS_SEEK,	// 76 - Seek to a new position in the file
-	SYS_TELL,	// 77 - Return the current file position
-	SYS_CHDIR,	// 78 - Change current directory
-	SYS_GETCWD,	// 79 - Get current directory
-	SYS_MOUNT,	// 80 - Mount a filesystem
+	SYS_OPENCHILD,	// 71 - Open a child entry in a directory
+	SYS_MKDIR,	// 72 - Create a new directory
+	SYS_SYMLINK,	// 73 - Create a symbolic link
+	SYS_GETACL,	// 74 - Get an ACL Value
+	SYS_SETACL,	// 75 - Set an ACL Value
+	SYS_FINFO,	// 76 - Get file information
+	SYS_SEEK,	// 77 - Seek to a new position in the file
+	SYS_TELL,	// 78 - Return the current file position
+	SYS_CHDIR,	// 79 - Change current directory
+	SYS_GETCWD,	// 80 - Get current directory
+	SYS_MOUNT,	// 81 - Mount a filesystem
 	NUM_SYSCALLS,
 	SYS_DEBUG = 0x100	// 0x100 - Print a debug string
 };
@@ -73,8 +74,8 @@ static const char *cSYSCALL_NAMES[] = {
 	"","","","","","",
 	"","","","","","",
 	"","","","","SYS_OPEN","SYS_REOPEN",
-	"SYS_CLOSE","SYS_READ","SYS_WRITE","SYS_IOCTL","SYS_READDIR","SYS_MKDIR",
-	"SYS_SYMLINK","SYS_GETACL","SYS_SETACL","SYS_FINFO","SYS_SEEK","SYS_TELL",
-	"SYS_CHDIR","SYS_GETCWD","SYS_MOUNT",""
+	"SYS_CLOSE","SYS_READ","SYS_WRITE","SYS_IOCTL","SYS_READDIR","SYS_OPENCHILD",
+	"SYS_MKDIR","SYS_SYMLINK","SYS_GETACL","SYS_SETACL","SYS_FINFO","SYS_SEEK",
+	"SYS_TELL","SYS_CHDIR","SYS_GETCWD","SYS_MOUNT",""
 };
 #endif

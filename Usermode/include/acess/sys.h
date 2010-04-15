@@ -92,6 +92,7 @@ extern uint64_t	tell(int fd);
 extern int	ioctl(int fd, int id, void *data);
 extern int	finfo(int fd, t_sysFInfo *info, int maxacls);
 extern int	readdir(int fd, char *dest);
+extern int	_SysOpenChild(int fd, char *name, int flags);
 extern int	_SysGetACL(int fd, t_sysACL *dest);
 extern int	_SysMount(const char *Device, const char *Directory, const char *Type, const char *Options);
 
