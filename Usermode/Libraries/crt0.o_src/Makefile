@@ -6,11 +6,11 @@
 
 ASFLAGS = -felf
 
-.PHONY: all clean
+.PHONY: all clean install
 
 all: ../crt0.o
 
-install:
+install: ../crt0.o
 
 clean:
 	$(RM) ../crt0.o
