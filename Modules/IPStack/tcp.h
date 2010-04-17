@@ -136,8 +136,11 @@ struct sTCPConnection
 enum eTCPConnectionState
 {
 	TCP_ST_CLOSED,
+	TCP_ST_SYN_SENT,
 	TCP_ST_HALFOPEN,
-	TCP_ST_OPEN
+	TCP_ST_OPEN,
+	TCP_ST_FIN_SENT,
+	TCP_ST_FINISHED
 };
 
 #endif

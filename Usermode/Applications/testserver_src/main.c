@@ -50,9 +50,9 @@ int main(int argc, char *argv[])
 		
 		#define RET_STR	"HTTP/1.1 200 OK\r\n"\
 			"Content-Type: text/plain\r\n"\
-			"Content-Length: 6\r\n"\
+			"Content-Length: 92\r\n"\
 			"\r\n"\
-			"Hello!"
+			"<html><head><title>Acess2 Web Server</title></head><body><h1>Hello World!</h1></body></html>\r\n"
 		
 		write(con, sizeof(RET_STR), RET_STR);
 		

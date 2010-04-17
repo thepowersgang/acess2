@@ -104,8 +104,8 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	if(Length < sizeof(tIPv4Header))	return;
 	
 	//Log_Log("IPv4", "Version = %i", hdr->Version);
-	Log_Log("IPv4", "HeaderLength = %i", hdr->HeaderLength);
-	Log_Log("IPv4", "DiffServices = %i", hdr->DiffServices);
+	//Log_Log("IPv4", "HeaderLength = %i", hdr->HeaderLength);
+	//Log_Log("IPv4", "DiffServices = %i", hdr->DiffServices);
 	Log_Log("IPv4", "TotalLength = %i", ntohs(hdr->TotalLength) );
 	//Log_Log("IPv4", "Identifcation = %i", ntohs(hdr->Identifcation) );
 	//Log_Log("IPv4", "TTL = %i", hdr->TTL );
