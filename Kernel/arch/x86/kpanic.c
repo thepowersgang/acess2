@@ -59,6 +59,9 @@ void KernelPanic_SetMode()
 {
 	 int	i;
 	
+	// Some routines call this function twice, let's avoid that, shall we?
+	if( giKP_Pos )	return ;
+	
 	// Restore VGA 0xB8000 text mode
 	#if 1
 	for( i = 0; i < NUM_REGVALUES; i++ )
