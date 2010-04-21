@@ -52,11 +52,14 @@ int getDebugChar()
 	return inb(GDB_SERIAL_PORT);
 }
 
+volatile int	gbInPutChar = 0;
+
 static void Debug_Putchar(char ch)
 {
-	if(giDebug_KTerm != -1)
-		VFS_Write(giDebug_KTerm, 1, &ch);
-
+	#if DEBUG_TO_E9
+	__asm__ __volatile__ ( "outb %%al, $0xe9" :: "a"(((Uint8)ch)) );
+	#endif
+	
 	#if DEBUG_TO_SERIAL
 	if(!gbDebug_SerialSetup) {
 		outb(SERIAL_PORT + 1, 0x00);	// Disable all interrupts
@@ -71,10 +74,12 @@ static void Debug_Putchar(char ch)
 	while( (inb(SERIAL_PORT + 5) & 0x20) == 0 );
 	outb(SERIAL_PORT, ch);
 	#endif
-
-	#if DEBUG_TO_E9
-	__asm__ __volatile__ ( "outb %%al, $0xe9" :: "a"(((Uint8)ch)) );
-	#endif
+	
+	if(gbInPutChar)	return ;
+	gbInPutChar = 1;
+	if(giDebug_KTerm != -1)
+		VFS_Write(giDebug_KTerm, 1, &ch);
+	gbInPutChar = 0;
 }
 
 static void Debug_Puts(char *Str)
@@ -272,10 +277,16 @@ void Panic(char *Fmt, ...)
 
 void Debug_SetKTerminal(char *File)
 {
-	if(giDebug_KTerm != -1)
-		VFS_Close(giDebug_KTerm);
-	giDebug_KTerm = VFS_Open(File, VFS_OPENFLAG_WRITE);
-	Log_Log("Debug", "Opened '%s' as 0x%x", File, giDebug_KTerm);
+	 int	tmp;
+	if(giDebug_KTerm != -1) {
+		tmp = giDebug_KTerm;
+		giDebug_KTerm = -1;
+		VFS_Close(tmp);
+	}
+	tmp = VFS_Open(File, VFS_OPENFLAG_WRITE);
+	Log_Log("Debug", "Opened '%s' as 0x%x", File, tmp);
+	giDebug_KTerm = tmp;
+	Log_Log("Debug", "Returning to %p", __builtin_return_address(0));
 }
 
 void Debug_Enter(char *FuncName, char *ArgTypes, ...)

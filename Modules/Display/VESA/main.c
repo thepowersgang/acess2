@@ -37,7 +37,7 @@ tDevFS_Driver	gVesa_DriverStruct = {
 };
 tSpinlock	glVesa_Lock;
 tVM8086	*gpVesa_BiosState;
- int	giVesaCurrentMode = -1;
+ int	giVesaCurrentMode = 0;
  int	giVesaCurrentFormat = VIDEO_BUFFMT_TEXT;
  int	giVesaDriverId = -1;
 char	*gVesaFramebuffer = (void*)0xC00A0000;
@@ -109,6 +109,7 @@ int Vesa_Install(char **Arguments)
 			gVesa_Modes[i].fbSize = 0;
 		}
 		
+		gVesa_Modes[i].pitch = modeinfo->pitch;
 		gVesa_Modes[i].width = modeinfo->Xres;
 		gVesa_Modes[i].height = modeinfo->Yres;
 		gVesa_Modes[i].bpp = modeinfo->bpp;
@@ -152,8 +153,8 @@ Uint64 Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	// Default Text mode
 	if( giVesaCurrentMode == 0 )
 	{
-		Uint8	*fb = (Uint8 *)(KERNEL_BASE|0xB8000);
-		Uint32	*buf = Buffer;
+		Uint16	*fb = (Uint16*)(KERNEL_BASE|0xB8000);
+		tVT_Char	*chars = Buffer;
 		 int	rem;
 		
 		if( giVesaCurrentFormat != VIDEO_BUFFMT_TEXT ) {
@@ -162,31 +163,31 @@ Uint64 Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 			return -1;
 		}
 		
-		if( Offset + Length > 25*80*8 ) {
+		if( Offset + Length > 25*80*sizeof(tVT_Char) ) {
 			Log_Warning("VESA", "Vesa_Write - Framebuffer Overflow");
 			LEAVE('i', 0);
 			return 0;
 		}
 		
-		fb += 2*Offset;
-		for(rem = Length / sizeof(tVT_Char); rem --; fb += 2)
+		fb += 2*(Offset/sizeof(tVT_Char));
+		LOG("fb = %p", fb);
+		for(rem = Length / sizeof(tVT_Char); rem --; fb ++, chars++)
 		{
-			if( *buf < 0x80 )
-				*fb = *buf & 0x7F;
+			if( chars->Ch < 0x80 )
+				*fb = chars->Ch & 0x7F;
 			else
 				*fb = 0x00;
-			buf ++;
 			
-			fb[1] = 0;
-			fb[1] |= (*buf & 0x888) == 0x888 ? 0x8 : 0;
-			fb[1] |= (*buf & 0x700) > 0x300 ? 0x4 : 0;
-			fb[1] |= (*buf & 0x070) > 0x030 ? 0x2 : 0;
-			fb[1] |= (*buf & 0x007) > 0x003 ? 0x1 : 0;
-			fb[1] |= (*buf & 0x888000) == 0x888000 ? 0x80 : 0;
-			fb[1] |= (*buf & 0x700000) > 0x300000 ? 0x40 : 0;
-			fb[1] |= (*buf & 0x070000) > 0x030000 ? 0x20 : 0;
-			fb[1] |= (*buf & 0x007000) > 0x003000 ? 0x10 : 0;
-			buf ++;
+			*fb |= (chars->FGCol & 0x888) == 0x888 ? 0x8 : 0;
+			*fb |= (chars->FGCol & 0x700) > 0x300 ? 0x4 : 0;
+			*fb |= (chars->FGCol & 0x070) > 0x030 ? 0x2 : 0;
+			*fb |= (chars->FGCol & 0x007) > 0x003 ? 0x1 : 0;
+			*fb |= (chars->BGCol & 0x888) == 0x888 ? 0x80 : 0;
+			*fb |= (chars->BGCol & 0x700) > 0x300 ? 0x40 : 0;
+			*fb |= (chars->BGCol & 0x070) > 0x030 ? 0x20 : 0;
+			*fb |= (chars->BGCol & 0x007) > 0x003 ? 0x10 : 0;
+			//LOG("%08x (%03x,%03x) = %04x",
+			//	chars->Ch, chars->BGCol, chars->FGCol, *fb);
 		}
 		Length /= sizeof(tVT_Char);
 		Length *= sizeof(tVT_Char);
@@ -213,8 +214,10 @@ Uint64 Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		
 		Offset /= sizeof(tVT_Char);
 		dest = (void*)gVesaFramebuffer;
-		x = (Offset % gVesa_Modes[giVesaCurrentMode].width) * giVT_CharWidth;
-		y = (Offset / gVesa_Modes[giVesaCurrentMode].width) * giVT_CharHeight;
+		LOG("gVesa_Modes[%i].width = %i", giVesaCurrentMode, gVesa_Modes[giVesaCurrentMode].width);
+		x = (Offset % (gVesa_Modes[giVesaCurrentMode].width/giVT_CharWidth)) * giVT_CharWidth;
+		y = (Offset / (gVesa_Modes[giVesaCurrentMode].width/giVT_CharWidth)) * giVT_CharHeight;
+		LOG("(x,y) = (%i,%i)", x, y);
 		
 		// Sanity Check
 		if(y > gVesa_Modes[giVesaCurrentMode].height) {

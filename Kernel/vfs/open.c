@@ -759,6 +759,8 @@ tVFS_Handle *VFS_GetHandle(int FD)
 {
 	tVFS_Handle	*h;
 	
+	//Log_Debug("VFS", "VFS_GetHandle: (FD=0x%x)", FD);
+	
 	if(FD < 0)	return NULL;
 	
 	if(FD & VFS_KERNEL_FLAG) {
@@ -771,6 +773,7 @@ tVFS_Handle *VFS_GetHandle(int FD)
 	}
 	
 	if(h->Node == NULL)	return NULL;
+	//Log_Debug("VFS", "VFS_GetHandle: RETURN %p", h);
 	return h;
 }
 

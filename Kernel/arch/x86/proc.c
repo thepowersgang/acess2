@@ -779,6 +779,14 @@ void Proc_Scheduler(int CPU)
 	#else
 		__asm__ __volatile__ ("mov %0, %%cr3"::"a"(thread->MemState.CR3));
 	#endif
+	
+	#if 0
+	if(thread->SavedState.ESP > 0xC0000000
+	&& thread->SavedState.ESP < thread->KernelStack-0x2000) {
+		Log_Warning("Proc", "Possible bad ESP %p (PID %i)", thread->SavedState.ESP);
+	}
+	#endif
+	
 	// Switch threads
 	__asm__ __volatile__ (
 		"mov %1, %%esp\n\t"	// Restore ESP

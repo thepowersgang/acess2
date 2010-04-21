@@ -1,7 +1,7 @@
 /*
  * Acess2 Virtual Terminal Driver
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include <fs_devfs.h>
 #include <modules.h>
@@ -104,7 +104,6 @@ tVTerm	*gpVT_CurTerm = &gVT_Terminals[0];
 // --- Video State ---
 short	giVT_RealWidth;	//!< Real Width
 short	giVT_RealHeight;	//!< Real Height
- int	gbVT_TextMode = 1;
 // --- Driver Handles ---
 char	*gsVT_OutputDevice = NULL;
 char	*gsVT_InputDevice = NULL;
@@ -152,7 +151,6 @@ int VT_Install(char **Arguments)
 				strcpy(gsVT_InputDevice, args[1]);
 				args ++;
 				break;
-			
 			}
 		}
 	}
@@ -194,6 +192,7 @@ int VT_Install(char **Arguments)
 	// Set kernel output to VT0
 	Debug_SetKTerminal("/Devices/VTerm/0");
 	
+	Log_Log("VTerm", "Returning %i", MODULE_ERR_OK);
 	return MODULE_ERR_OK;
 }
 
@@ -237,7 +236,7 @@ tVFS_Node *VT_FindDir(tVFS_Node *Node, char *Name)
 {
 	 int	num;
 	
-	//ENTER("pNode sName", Node, Name);
+	ENTER("pNode sName", Node, Name);
 	
 	// Open the input and output files if needed
 	if(giVT_OutputDevHandle == -2)	VT_InitOutput();
@@ -255,7 +254,7 @@ tVFS_Node *VT_FindDir(tVFS_Node *Node, char *Name)
 		return NULL;
 	}
 	// Return node
-	//LEAVE('p', &gVT_Terminals[num].Node);
+	LEAVE('p', &gVT_Terminals[num].Node);
 	return &gVT_Terminals[num].Node;
 }
 
@@ -321,8 +320,8 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		}
 		break;
 	
-	case TERM_MODE_FB:
-	//case TERM_MODE_:
+	//case TERM_MODE_FB:
+	default:
 		while(pos < Length)
 		{
 			while(term->InputRead == term->InputWrite)	Threads_Yield();
@@ -343,8 +342,6 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 Uint64 VT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 {
 	tVTerm	*term = &gVT_Terminals[ Node->Inode ];
-	
-	//ENTER("pNode XOffset XLength pBuffer",  Node, Offset, Length, Buffer);
 	
 	// Write
 	switch( term->Mode )
@@ -376,7 +373,6 @@ Uint64 VT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		}
 	}
 	
-	//LEAVE('i', 0);
 	return 0;
 }
 
@@ -905,7 +901,7 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 		memcpy(
 			Term->Text,
 			&Term->Text[Term->Width],
-			Term->Width*(Term->Height-1)*VT_SCROLLBACK*sizeof(tVT_Char)
+			(Term->Width*Term->Height*VT_SCROLLBACK-Term->Width)*sizeof(tVT_Char)
 			);
 		
 		// Clear last row
@@ -915,11 +911,13 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 			Term->Text[ base + i ].Colour = Term->CurColour;
 		}
 		
+		//LOG("Scrolled buffer");
 		VT_int_UpdateScreen( Term, 1 );
 	}
 	else if(Term->WritePos > Term->Width*Term->Height+Term->ViewPos)
 	{
 		Term->ViewPos += Term->Width;
+		//LOG("Scrolled screen");
 		VT_int_UpdateScreen( Term, 1 );
 	}
 	else
@@ -939,41 +937,27 @@ void VT_int_UpdateScreen( tVTerm *Term, int UpdateAll )
 	
 	if( Term->Mode == TERM_MODE_TEXT )
 	{
-		if(gbVT_TextMode)
-		{
-			if(UpdateAll) {
-				VFS_WriteAt(
-					giVT_OutputDevHandle,
-					0,
-					Term->Width*Term->Height*sizeof(tVT_Char),
-					&Term->Text[Term->ViewPos]
-					);
-			} else {
-				 int	pos = Term->WritePos - Term->WritePos % Term->Width;
-				VFS_WriteAt(
-					giVT_OutputDevHandle,
-					(pos - Term->ViewPos)*sizeof(tVT_Char),
-					Term->Width*sizeof(tVT_Char),
-					&Term->Text[pos]
-					);
-			}
-		}
-		else
-		{
-			//TODO: Do VT Rendered Text
-			#if 0
-			if( UpdateAll ) {
-				VT_RenderText(0, Term->Width*Term->Height, &Term->Text[Term->ViewPos]);
-			}
-			else {
-				 int	pos = Term->WritePos - Term->WritePos % Term->Width;
-				VT_RenderText(
-					pos - Term->ViewPos,
-					Term->Width,
-					&Term->Text[pos]
-					);
-			}
-			#endif
+		if(UpdateAll) {
+			//LOG("UpdateAll = 1");
+			//LOG("VFS_WriteAt(0x%x, 0, %i*sizeof(tVT_Char), &Term->Text[%i])",
+			//	giVT_OutputDevHandle, Term->Width*Term->Height, Term->ViewPos);
+			VFS_WriteAt(
+				giVT_OutputDevHandle,
+				0,
+				Term->Width*Term->Height*sizeof(tVT_Char),
+				&Term->Text[Term->ViewPos]
+				);
+		} else {
+			 int	pos = Term->WritePos - Term->WritePos % Term->Width;
+			//LOG("UpdateAll = 0");
+			//LOG("VFS_WriteAt(0x%x, %i*sizeof(tVT_Char), %i*sizeof(tVT_Char), &Term->Text[%i])",
+			//	giVT_OutputDevHandle, (pos - Term->ViewPos), Term->Width, pos);
+			VFS_WriteAt(
+				giVT_OutputDevHandle,
+				(pos - Term->ViewPos)*sizeof(tVT_Char),
+				Term->Width*sizeof(tVT_Char),
+				&Term->Text[pos]
+				);
 		}
 	}
 	else

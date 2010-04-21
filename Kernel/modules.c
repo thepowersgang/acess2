@@ -136,6 +136,7 @@ int Module_int_Initialise(tModule *Module)
 		LEAVE_RET('i', ret);
 		return ret;
 	}
+	LOG("ret = %i", ret);
 	
 	// Remove from loading list
 	gLoadingModules = gLoadingModules->Next;
