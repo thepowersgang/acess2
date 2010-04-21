@@ -19,8 +19,8 @@
 #define MAX_INPUT_CHARS32	64
 #define MAX_INPUT_CHARS8	(MAX_INPUT_CHARS32*4)
 #define VT_SCROLLBACK	2	// 2 Screens of text
-//#define DEFAULT_OUTPUT	"VGA"
-#define DEFAULT_OUTPUT	"BochsGA"
+#define DEFAULT_OUTPUT	"VGA"
+//#define DEFAULT_OUTPUT	"BochsGA"
 //#define DEFAULT_OUTPUT	"Vesa"
 #define DEFAULT_INPUT	"PS2Keyboard"
 #define	DEFAULT_WIDTH	80

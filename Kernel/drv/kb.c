@@ -183,6 +183,7 @@ void KB_IRQHandler()
 	{
 		switch(ch)
 		{
+		case 'q':	*((int*)1) = 0;	break;
 		case 'd':	__asm__ __volatile__ ("xchg %bx, %bx");	break;
 		case 'p':	Threads_Dump();	break;
 		}

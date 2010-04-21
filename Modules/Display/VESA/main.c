@@ -133,7 +133,7 @@ int Vesa_Install(char **Arguments)
 Uint64 Vesa_Read(tVFS_Node *Node, Uint64 off, Uint64 len, void *buffer)
 {
 	#if DEBUG >= 2
-	LogF("Vesa_Read: () - NULL\n");
+	Log("Vesa_Read: () - NULL\n");
 	#endif
 	return 0;
 }
@@ -317,7 +317,7 @@ int Vesa_Ioctl(tVFS_Node *Node, int ID, void *Data)
 int Vesa_Int_SetMode(int mode)
 {	
 	#if DEBUG
-	LogF("Vesa_Int_SetMode: (mode=%i)\n", mode);
+	Log("Vesa_Int_SetMode: (mode=%i)", mode);
 	#endif
 	
 	// Sanity Check values
@@ -343,8 +343,8 @@ int Vesa_Int_SetMode(int mode)
 	giVesaPageCount = (gVesa_Modes[mode].fbSize + 0xFFF) >> 12;
 	gVesaFramebuffer = (void*)MM_MapHWPages(gVesa_Modes[mode].framebuffer, giVesaPageCount);
 	
-	LogF("Vesa", "Framebuffer (Phys) = 0x%x", gVesa_Modes[mode].framebuffer);
-	LogF("Vesa", "Framebuffer (Virt) = 0x%x", gVesaFramebuffer);
+	Log("Vesa", "Framebuffer (Phys) = 0x%x", gVesa_Modes[mode].framebuffer);
+	Log("Vesa", "Framebuffer (Virt) = 0x%x", gVesaFramebuffer);
 	
 	// Record Mode Set
 	giVesaCurrentMode = mode;
