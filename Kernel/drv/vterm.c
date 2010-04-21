@@ -19,9 +19,9 @@
 #define MAX_INPUT_CHARS32	64
 #define MAX_INPUT_CHARS8	(MAX_INPUT_CHARS32*4)
 #define VT_SCROLLBACK	2	// 2 Screens of text
-#define DEFAULT_OUTPUT	"VGA"
+//#define DEFAULT_OUTPUT	"VGA"
 //#define DEFAULT_OUTPUT	"BochsGA"
-//#define DEFAULT_OUTPUT	"Vesa"
+#define DEFAULT_OUTPUT	"Vesa"
 #define DEFAULT_INPUT	"PS2Keyboard"
 #define	DEFAULT_WIDTH	80
 #define	DEFAULT_HEIGHT	25
@@ -63,6 +63,8 @@ extern void	Debug_SetKTerminal(char *File);
 
 // === PROTOTYPES ===
  int	VT_Install(char **Arguments);
+void	VT_InitOutput(void);
+void	VT_InitInput(void);
 char	*VT_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*VT_FindDir(tVFS_Node *Node, char *Name);
  int	VT_Root_IOCtl(tVFS_Node *Node, int Id, void *Data);
@@ -190,6 +192,9 @@ int VT_Install(char **Arguments)
 	// Add to DevFS
 	DevFS_AddDevice( &gVT_DrvInfo );
 	
+	VT_InitOutput();
+	VT_InitInput();
+	
 	// Set kernel output to VT0
 	Debug_SetKTerminal("/Devices/VTerm/0");
 	
@@ -204,6 +209,9 @@ int VT_Install(char **Arguments)
 void VT_InitOutput()
 {
 	giVT_OutputDevHandle = VFS_Open(gsVT_OutputDevice, VFS_OPENFLAG_WRITE);
+	if(giVT_InputDevHandle == -1) {
+		Log_Warning("VTerm", "Oh F**k, I can't open the video device '%s'", gsVT_OutputDevice);
+	}
 	VT_SetTerminal( 0 );
 	VT_SetResolution(1, 640, 480);
 }
@@ -463,12 +471,7 @@ void VT_SetResolution(int IsTextMode, int Width, int Height)
 	giVT_RealHeight = mode.height;
 	VFS_IOCtl( giVT_OutputDevHandle, VIDEO_IOCTL_GETSETMODE, &tmp );
 	
-	
-	
-	if(IsTextMode)
-		tmp = VIDEO_BUFFMT_TEXT;
-	else
-		tmp = VIDEO_BUFFMT_FRAMEBUFFER;
+	tmp = IsTextMode ? VIDEO_BUFFMT_TEXT : VIDEO_BUFFMT_FRAMEBUFFER;
 	VFS_IOCtl( giVT_OutputDevHandle, VIDEO_IOCTL_SETBUFFORMAT, &tmp );
 }
 
