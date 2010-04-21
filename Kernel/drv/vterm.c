@@ -1,7 +1,7 @@
 /*
  * Acess2 Virtual Terminal Driver
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <acess.h>
 #include <fs_devfs.h>
 #include <modules.h>
@@ -19,8 +19,8 @@
 #define MAX_INPUT_CHARS32	64
 #define MAX_INPUT_CHARS8	(MAX_INPUT_CHARS32*4)
 #define VT_SCROLLBACK	2	// 2 Screens of text
-#define DEFAULT_OUTPUT	"VGA"
-//#define DEFAULT_OUTPUT	"BochsGA"
+//#define DEFAULT_OUTPUT	"VGA"
+#define DEFAULT_OUTPUT	"BochsGA"
 //#define DEFAULT_OUTPUT	"Vesa"
 #define DEFAULT_INPUT	"PS2Keyboard"
 #define	DEFAULT_WIDTH	80
@@ -69,6 +69,7 @@ tVFS_Node	*VT_FindDir(tVFS_Node *Node, char *Name);
 Uint64	VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
 Uint64	VT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
  int	VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data);
+void	VT_SetResolution(int IsTextMode, int Width, int Height);
 void	VT_SetTerminal(int ID);
 void	VT_KBCallBack(Uint32 Codepoint);
 void	VT_int_PutString(tVTerm *Term, Uint8 *Buffer, Uint Count);
@@ -204,6 +205,7 @@ void VT_InitOutput()
 {
 	giVT_OutputDevHandle = VFS_Open(gsVT_OutputDevice, VFS_OPENFLAG_WRITE);
 	VT_SetTerminal( 0 );
+	VT_SetResolution(1, 640, 480);
 }
 
 /**
@@ -489,6 +491,11 @@ void VT_SetTerminal(int ID)
 		pos.y = gpVT_CurTerm->WritePos / gpVT_CurTerm->Width;
 		VFS_IOCtl(giVT_OutputDevHandle, VIDEO_IOCTL_SETCURSOR, &pos);
 	}
+	
+	if( gpVT_CurTerm->Mode == TERM_MODE_TEXT )
+		VT_SetResolution( 1, gpVT_CurTerm->Width*giVT_CharWidth, gpVT_CurTerm->Height*giVT_CharHeight );
+	else
+		VT_SetResolution( 0, gpVT_CurTerm->Width, gpVT_CurTerm->Height );
 	
 	// Update the screen
 	VT_int_UpdateScreen( &gVT_Terminals[ ID ], 1 );
@@ -1009,7 +1016,7 @@ void VT_int_ChangeMode(tVTerm *Term, int NewMode)
 Uint8	*VT_Font_GetChar(Uint32 Codepoint);
 
 // === GLOBALS ===
-int	giVT_CharWidth = FONT_WIDTH+1;
+int	giVT_CharWidth = FONT_WIDTH;
 int	giVT_CharHeight = FONT_HEIGHT;
 
 // === CODE ===

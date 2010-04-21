@@ -78,12 +78,11 @@ tDevFS_Driver	gBGA_DriverStruct = {
  int	giBGA_BufferFormat = 0;
 tVideo_IOCtl_Pos	gBGA_CursorPos = {-1,-1};
 Uint	*gBGA_Framebuffer;
-tBGA_Mode	gpBGA_CurrentMode;
+const tBGA_Mode	*gpBGA_CurrentMode;
 const tBGA_Mode	gBGA_Modes[] = {
-	{},
-	{640,480,32, 0, 640*480*4},
-	{800,600,32, 0, 800*600*4},
-	{1024,768,32, 0, 1024*768*4}
+	{640,480,32, 640*480*4},
+	{800,600,32, 800*600*4},
+	{1024,768,32, 1024*768*4}
 };
 #define	BGA_MODE_COUNT	(sizeof(gBGA_Modes)/sizeof(gBGA_Modes[0]))
 
@@ -111,7 +110,7 @@ int BGA_Install(char **Arguments)
 	}
 	
 	// Map Framebuffer to hardware address
-	gBGA_Framebuffer = (void *) MM_MapHWPage(VBE_DISPI_LFB_PHYSICAL_ADDRESS, 768);	// 768 pages (3Mb)
+	gBGA_Framebuffer = (void *) MM_MapHWPages(VBE_DISPI_LFB_PHYSICAL_ADDRESS, 768);	// 768 pages (3Mb)
 	
 	return MODULE_ERR_OK;
 }
@@ -122,7 +121,7 @@ int BGA_Install(char **Arguments)
 void BGA_Uninstall()
 {
 	DevFS_DelDevice( &gBGA_DriverStruct );
-	MM_UnmapHWPage( VBE_DISPI_LFB_PHYSICAL_ADDRESS, 768 );
+	MM_UnmapHWPages( VBE_DISPI_LFB_PHYSICAL_ADDRESS, 768 );
 }
 
 /**
@@ -153,8 +152,8 @@ Uint64 BGA_Write(tVFS_Node *node, Uint64 off, Uint64 len, void *Buffer)
 	
 	// Check Mode
 	if(giBGA_CurrentMode == -1) {
-		LEAVE('i', -1);
-		return -1;
+		Log_Notice("BGA", "Setting video mode to #0 (640x480x32)");
+		BGA_int_UpdateMode(0);	// Mode Zero is 640x480
 	}
 	
 	// Text Mode
@@ -163,41 +162,39 @@ Uint64 BGA_Write(tVFS_Node *node, Uint64 off, Uint64 len, void *Buffer)
 	case VIDEO_BUFFMT_TEXT:
 		{
 		tVT_Char	*chars = Buffer;
-		 int	pitch = gpBGA_CurrentMode->width * giVT_CharWidth;
-		 int	x, y;
+		 int	x, y;	// Characters/Rows
+		 int	widthInChars = gpBGA_CurrentMode->width/giVT_CharWidth;
 		Uint32	*dest;
 		
 		off /= sizeof(tVT_Char);
-		dest = (void*)gBGA_Framebuffer;
-		x = (off % gpBGA_CurrentMode->width) * giVT_CharWidth;
-		y = (off / gpBGA_CurrentMode->width) * giVT_CharHeight;
+		len /= sizeof(tVT_Char);
+		
+		x = (off % widthInChars);
+		y = (off / widthInChars);
 		
 		// Sanity Check
-		if(y > gpBGA_CurrentMode->height) {
+		if(y > gpBGA_CurrentMode->height / giVT_CharHeight) {
 			LEAVE('i', 0);
 			return 0;
 		}
 		
-		dest += y * pitch;
-		dest += x * giVT_CharWidth;
-		len /= sizeof(tVT_Char);
+		dest = (Uint32 *)gBGA_Framebuffer;
+		dest += y * gpBGA_CurrentMode->width * giVT_CharHeight;
 		while(len--)
 		{
 			VT_Font_Render(
 				chars->Ch,
-				dest, pitch,
+				dest + x*giVT_CharWidth, gpBGA_CurrentMode->width,
 				VT_Colour12to24(chars->BGCol),
 				VT_Colour12to24(chars->FGCol)
 				);
 			
-			dest += giVT_CharWidth;
-			
 			chars ++;
-			x += giVT_CharWidth;
-			if( x >= pitch ) {
+			x ++;
+			if( x >= widthInChars ) {
 				x = 0;
-				y += giVT_CharHeight;
-				dest += pitch*(giVT_CharHeight-1);
+				y ++;	// Why am I keeping track of this?
+				dest += gpBGA_CurrentMode->width*giVT_CharHeight;
 			}
 		}
 		}
@@ -344,15 +341,9 @@ int BGA_int_UpdateMode(int id)
 	// Sanity Check
 	if(id < 0 || id >= BGA_MODE_COUNT)	return -1;
 	
-	// Check if it is a text mode
-	if( gBGA_Modes[id].flags & MODEFLAG_TEXT )
-		BGA_int_SetMode(
-			gBGA_Modes[id].width*giVT_CharWidth,
-			gBGA_Modes[id].height*giVT_CharHeight);
-	else	// Graphics?
-		BGA_int_SetMode(
-			gBGA_Modes[id].width,
-			gBGA_Modes[id].height);
+	BGA_int_SetMode(
+		gBGA_Modes[id].width,
+		gBGA_Modes[id].height);
 	
 	giBGA_CurrentMode = id;
 	gpBGA_CurrentMode = &gBGA_Modes[id];
@@ -378,10 +369,6 @@ int BGA_int_FindMode(tVideo_IOCtl_Mode *info)
 		#if DEBUG >= 2
 		LogF("Mode %i (%ix%ix%i), ", i, gBGA_Modes[i].width, gBGA_Modes[i].height, gBGA_Modes[i].bpp);
 		#endif
-		
-		// Check if this mode is the same type as what we want
-		if( !(gBGA_Modes[i].flags & MODEFLAG_TEXT) != !(info->flags & VIDEO_FLAG_TEXT) )
-			continue;
 		
 		// Ooh! A perfect match
 		if(gBGA_Modes[i].width == info->width
@@ -417,10 +404,6 @@ int BGA_int_FindMode(tVideo_IOCtl_Mode *info)
 	info->height = gBGA_Modes[best].height;
 	info->bpp = gBGA_Modes[best].bpp;
 	
-	info->flags = 0;
-	if(gBGA_Modes[best].flags & MODEFLAG_TEXT)
-		info->flags |= VIDEO_FLAG_TEXT;
-	
 	return best;
 }
 
@@ -440,10 +423,6 @@ int BGA_int_ModeInfo(tVideo_IOCtl_Mode *info)
 	info->width = gBGA_Modes[info->id].width;
 	info->height = gBGA_Modes[info->id].height;
 	info->bpp = gBGA_Modes[info->id].bpp;
-	
-	info->flags = 0;
-	if(gBGA_Modes[info->id].flags & MODEFLAG_TEXT)
-		info->flags |= VIDEO_FLAG_TEXT;
 	
 	return 1;
 }
