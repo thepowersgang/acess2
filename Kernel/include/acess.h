@@ -115,11 +115,12 @@ extern void	Log_Debug(char *Ident, char *Message, ...);
  * \name Debugging and Errors
  * \{
  */
-extern void	Panic(char *Msg, ...);
-extern void	Warning(char *Msg, ...);
-extern void	Log(char *Fmt, ...);
-extern void	LogV(char *Fmt, va_list Args);
-extern void	LogF(char *Fmt, ...);
+extern void	Debug_KernelPanic();	//!< Initiate a kernel panic
+extern void	Panic(char *Msg, ...);	//!< Print a panic message (initiates a kernel panic)
+extern void	Warning(char *Msg, ...);	//!< Print a warning message
+extern void	LogF(char *Fmt, ...);	//!< Print a log message without a trailing newline
+extern void	Log(char *Fmt, ...);	//!< Print a log message
+extern void	LogV(char *Fmt, va_list Args);	//!< va_list Log message
 extern void	Debug_Enter(char *FuncName, char *ArgTypes, ...);
 extern void	Debug_Log(char *FuncName, char *Fmt, ...);
 extern void	Debug_Leave(char *FuncName, char RetType, ...);

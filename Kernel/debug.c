@@ -11,13 +11,16 @@
 #define	GDB_SERIAL_PORT	0x2F8
 
 // === IMPORTS ===
-extern void Threads_Dump();
+extern void Threads_Dump(void);
+extern void	KernelPanic_SetMode(void);
+extern void	KernelPanic_PutChar(char Ch);
 
 // === GLOBALS ===
  int	gDebug_Level = 0;
  int	giDebug_KTerm = -1;
  int	gbDebug_SerialSetup = 0;
  int	gbGDB_SerialSetup = 0;
+ int	gbDebug_IsKPanic = 0;
 
 // === CODE ===
 int putDebugChar(char ch)
@@ -75,11 +78,16 @@ static void Debug_Putchar(char ch)
 	outb(SERIAL_PORT, ch);
 	#endif
 	
-	if(gbInPutChar)	return ;
-	gbInPutChar = 1;
-	if(giDebug_KTerm != -1)
-		VFS_Write(giDebug_KTerm, 1, &ch);
-	gbInPutChar = 0;
+	if( !gbDebug_IsKPanic )
+	{
+		if(gbInPutChar)	return ;
+		gbInPutChar = 1;
+		if(giDebug_KTerm != -1)
+			VFS_Write(giDebug_KTerm, 1, &ch);
+		gbInPutChar = 0;
+	}
+	else
+		KernelPanic_PutChar(ch);
 }
 
 static void Debug_Puts(char *Str)
@@ -224,6 +232,12 @@ void Debug_Fmt(const char *format, va_list *args)
     }
 }
 
+void Debug_KernelPanic()
+{
+	gbDebug_IsKPanic = 1;
+	KernelPanic_SetMode();
+}
+
 /**
  * \fn void LogF(char *Msg, ...)
  */
@@ -262,6 +276,9 @@ void Warning(char *Fmt, ...)
 void Panic(char *Fmt, ...)
 {
 	va_list	args;
+	
+	Debug_KernelPanic();
+	
 	Debug_Puts("Panic: ");
 	va_start(args, Fmt);
 	Debug_Fmt(Fmt, &args);

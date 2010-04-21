@@ -214,6 +214,8 @@ void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 		return ;
 	}
 	
+	Debug_KernelPanic();
+	
 	// -- Check Error Code --
 	if(ErrorCode & 8)
 		Warning("Reserved Bits Trashed!");

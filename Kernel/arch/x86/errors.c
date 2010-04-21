@@ -66,6 +66,7 @@ void ErrorHandler(tRegs *Regs)
 		return ;
 	}
 	
+	Debug_KernelPanic();
 	Warning("CPU Error %i - %s, Code: 0x%x",
 		Regs->int_num, csaERROR_NAMES[Regs->int_num], Regs->err_code);
 	Warning(" CS:EIP = 0x%04x:%08x", Regs->cs, Regs->eip);
