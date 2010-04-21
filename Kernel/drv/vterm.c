@@ -1,7 +1,7 @@
 /*
  * Acess2 Virtual Terminal Driver
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include <fs_devfs.h>
 #include <modules.h>
