@@ -224,6 +224,12 @@ Uint64 Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		x = Offset % widthInChars;
 		y = Offset / widthInChars;
 		LOG("(x,y) = (%i,%i) = [%i,%i]", x, y, x * giVT_CharWidth, y * giVT_CharHeight * pitch);
+		LOG("(w,h) = (%i,%i) = [%i,%i]",
+			(int)(Length % widthInChars),
+			(int)(Length / widthInChars),
+			(int)((Length % widthInChars) * giVT_CharWidth),
+			(int)((Length / widthInChars) * giVT_CharHeight * pitch)
+			);
 		
 		// Sanity Check
 		if(y > gVesa_Modes[giVesaCurrentMode].height/giVT_CharHeight) {
@@ -240,19 +246,18 @@ Uint64 Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		{
 			VT_Font_Render(
 				chars->Ch,
-				dest, pitch,
+				dest + x*giVT_CharWidth, pitch,
 				VT_Colour12to24(chars->BGCol),
 				VT_Colour12to24(chars->FGCol)
 				);
 			
-			dest += giVT_CharWidth;
 			
 			chars ++;
 			x ++;
-			if( x >= pitch ) {
+			if( x >= widthInChars ) {
 				x = 0;
-				y ++ ;
-				dest += pitch*(giVT_CharHeight-1);
+				y ++;
+				dest += pitch*giVT_CharHeight;
 			}
 		}
 		Length *= sizeof(tVT_Char);

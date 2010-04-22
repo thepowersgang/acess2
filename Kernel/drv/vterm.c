@@ -211,9 +211,10 @@ void VT_InitOutput()
 	giVT_OutputDevHandle = VFS_Open(gsVT_OutputDevice, VFS_OPENFLAG_WRITE);
 	if(giVT_InputDevHandle == -1) {
 		Log_Warning("VTerm", "Oh F**k, I can't open the video device '%s'", gsVT_OutputDevice);
+		return ;
 	}
 	VT_SetTerminal( 0 );
-	VT_SetResolution(1, 640, 480);
+	VT_SetResolution(1, 640, 400);
 }
 
 /**
