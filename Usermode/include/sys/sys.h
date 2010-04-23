@@ -37,4 +37,4 @@ extern int	sendmsg(int dest, unsigned int *Data);
 extern int	pollmsg(int *src, unsigned int *Data);
 extern int	getmsg(int *src, unsigned int *Data);
 
-extern int	_SysSetFaultHandler(void (*Handler)(int));
+extern int	_SysSetFaultHandler(int (*Handler)(int));

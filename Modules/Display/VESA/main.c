@@ -238,6 +238,8 @@ Uint64 Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		}
 		
 		if( Offset + Length > heightInChars*widthInChars ) {
+			Log_Debug("VESA", "%i + %i > %i*%i (%i)",
+				(int)Offset, (int)Length, heightInChars, widthInChars, heightInChars*widthInChars);
 			Length = heightInChars*widthInChars - Offset;
 			Log_Notice("VESA", "Clipping write size to %i characters", (int)Length);
 		}

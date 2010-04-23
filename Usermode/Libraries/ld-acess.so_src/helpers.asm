@@ -9,6 +9,7 @@
 [global _SysExit]
 [global _SysLoadBin]
 [global _SysUnloadBin]
+[global _SysSetFaultHandler]
 [global _open]
 [global _close]
 
@@ -73,6 +74,14 @@ _open:
 _close:
 	push ebx
 	mov eax, SYS_CLOSE
+	mov ebx, [esp+0x8]	; File Descriptor
+	int 0xAC
+	pop ebx
+	ret
+
+_SysSetFaultHandler:
+	push ebx
+	mov eax, SYS_SETFAULTHANDLER
 	mov ebx, [esp+0x8]	; File Descriptor
 	int 0xAC
 	pop ebx

@@ -12,20 +12,20 @@
 # define DEBUGS(v...)	
 #endif
 
-// === CONSTANTS ===
-#define	MAX_LOADED_LIBRARIES	64
-#define	MAX_STRINGS_BYTES	4096
-#define	SYSTEM_LIB_DIR	"/Acess/Libs/"
-
 // === PROTOTYPES ===
 Uint	IsFileLoaded(char *file);
  int	GetSymbolFromBase(Uint base, char *name, Uint *ret);
 
-// === GLOABLS ===
-struct {
-	Uint	Base;
+// === CONSTANTS ===
+const struct {
+	Uint	Value;
 	char	*Name;
-}	gLoadedLibraries[MAX_LOADED_LIBRARIES];
+}	caLocalExports[] = {
+	{gLoadedLibraries, "gLoadedLibraries"}
+};
+
+// === GLOABLS ===
+tLoadedLib	gLoadedLibraries[MAX_LOADED_LIBRARIES];
 char	gsLoadedStrings[MAX_STRINGS_BYTES];
 char	*gsNextAvailString = gsLoadedStrings;
 //tLoadLib	*gpLoadedLibraries = NULL;
@@ -200,6 +200,12 @@ Uint GetSymbol(char *name)
 {
 	 int	i;
 	Uint	ret;
+	for(i=0;i<sizeof(caLocalExports)/sizeof(caLocalExports[0]);i++)
+	{
+		if( strcmp(caLocalExports[i].Name, name) == 0 )
+			return caLocalExports[i].Value;
+	}
+	
 	for(i=0;i<sizeof(gLoadedLibraries)/sizeof(gLoadedLibraries[0]);i++)
 	{
 		if(gLoadedLibraries[i].Base == 0)	break;

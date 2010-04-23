@@ -125,8 +125,37 @@ typedef struct sVideo_IOCtl_Mode
  */
 enum eTplVideo_BufFormats
 {
+	/**
+	 * \brief Text Mode
+	 * 
+	 * The device file presents itself as an array of ::tVT_Char
+	 * each describing a character cell on the screen.
+	 * These cells are each \a giVT_CharWidth pixels wide and
+	 * \a giVT_CharHeight high.
+	 */
 	VIDEO_BUFFMT_TEXT,
+	/**
+	 * \brief Framebuffer Mode
+	 * 
+	 * The device file presents as an array of 32-bpp pixels describing
+	 * the entire screen. The format of a single pixel is in xRGB format
+	 * (top 8 bits ignored, next 8 bits red, next 8 bits green and
+	 * the bottom 8 bits blue)
+	 */
 	VIDEO_BUFFMT_FRAMEBUFFER,
+	/**
+	 * \brief 2D Accelerated Mode
+	 * 
+	 * The device file acts as a character device, accepting a stream of
+	 * commands described in eTplVideo_2DCommands when written to.
+	 */
+	VIDEO_BUFFMT_2DSTREAM,
+	/**
+	 * \brief 3D Accelerated Mode
+	 * 
+	 * The device file acts as a character device, accepting a stream of
+	 * commands described in eTplVideo_3DCommands when written to.
+	 */
 	VIDEO_BUFFMT_3DSTREAM
 };
 
