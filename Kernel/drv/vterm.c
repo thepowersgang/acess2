@@ -488,7 +488,7 @@ void VT_SetTerminal(int ID)
 	gpVT_CurTerm = &gVT_Terminals[ID];
 	
 	// Update cursor
-	if( !(gpVT_CurTerm->Flags & VT_FLAG_HIDECSR) )
+	if( gpVT_CurTerm->Mode == TERM_MODE_TEXT && !(gpVT_CurTerm->Flags & VT_FLAG_HIDECSR) )
 	{
 		tVideo_IOCtl_Pos	pos;
 		pos.x = gpVT_CurTerm->WritePos % gpVT_CurTerm->Width;
@@ -675,41 +675,6 @@ void VT_KBCallBack(Uint32 Codepoint)
 }
 
 /**
- * \fn void VT_int_PutString(tVTerm *Term, Uint8 *Buffer, Uint Count)
- * \brief Print a string to the Virtual Terminal
- */
-void VT_int_PutString(tVTerm *Term, Uint8 *Buffer, Uint Count)
-{
-	Uint32	val;
-	 int	i;
-	for( i = 0; i < Count; i++ )
-	{
-		if( Buffer[i] == 0x1B )	// Escape Sequence
-		{
-			i ++;
-			i += VT_int_ParseEscape(Term, (char*)&Buffer[i]);
-			continue;
-		}
-		
-		if( Buffer[i] < 128 )	// Plain ASCII
-			VT_int_PutChar(Term, Buffer[i]);
-		else {	// UTF-8
-			i += ReadUTF8(&Buffer[i], &val);
-			VT_int_PutChar(Term, val);
-		}
-	}
-	
-	// Update cursor
-	if( Term == gpVT_CurTerm && !(Term->Flags & VT_FLAG_HIDECSR) )
-	{
-		tVideo_IOCtl_Pos	pos;
-		pos.x = Term->WritePos % Term->Width;
-		pos.y = Term->WritePos / Term->Width;
-		VFS_IOCtl(giVT_OutputDevHandle, VIDEO_IOCTL_SETCURSOR, &pos);
-	}
-}
-
-/**
  * \fn void VT_int_ClearLine(tVTerm *Term, int Num)
  * \brief Clears a line in a virtual terminal
  */
@@ -838,6 +803,43 @@ int VT_int_ParseEscape(tVTerm *Term, char *Buffer)
 }
 
 /**
+ * \fn void VT_int_PutString(tVTerm *Term, Uint8 *Buffer, Uint Count)
+ * \brief Print a string to the Virtual Terminal
+ */
+void VT_int_PutString(tVTerm *Term, Uint8 *Buffer, Uint Count)
+{
+	Uint32	val;
+	 int	i;
+	for( i = 0; i < Count; i++ )
+	{
+		if( Buffer[i] == 0x1B )	// Escape Sequence
+		{
+			i ++;
+			i += VT_int_ParseEscape(Term, (char*)&Buffer[i]);
+			continue;
+		}
+		
+		if( Buffer[i] < 128 )	// Plain ASCII
+			VT_int_PutChar(Term, Buffer[i]);
+		else {	// UTF-8
+			i += ReadUTF8(&Buffer[i], &val);
+			VT_int_PutChar(Term, val);
+		}
+	}
+	// Update Screen
+	VT_int_UpdateScreen( Term, 0 );
+	
+	// Update cursor
+	if( Term == gpVT_CurTerm && !(Term->Flags & VT_FLAG_HIDECSR) )
+	{
+		tVideo_IOCtl_Pos	pos;
+		pos.x = Term->WritePos % Term->Width;
+		pos.y = Term->WritePos / Term->Width;
+		VFS_IOCtl(giVT_OutputDevHandle, VIDEO_IOCTL_SETCURSOR, &pos);
+	}
+}
+
+/**
  * \fn void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
  * \brief Write a single character to a VTerm
  */
@@ -851,6 +853,7 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 	{
 	case '\0':	return;	// Ignore NULL byte
 	case '\n':
+		VT_int_UpdateScreen( Term, 0 );	// Update the line before newlining
 		Term->WritePos += Term->Width;
 	case '\r':
 		Term->WritePos -= Term->WritePos % Term->Width;
@@ -931,8 +934,6 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 		//LOG("Scrolled screen");
 		VT_int_UpdateScreen( Term, 1 );
 	}
-	else
-		VT_int_UpdateScreen( Term, 0 );
 	
 	//LEAVE('-');
 }

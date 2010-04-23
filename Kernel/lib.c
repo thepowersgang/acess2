@@ -181,14 +181,14 @@ void itoa(char *buf, Uint num, int base, int minLength, char pad)
 int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 {
 	char	c, pad = ' ';
-	 int	minSize = 0;
+	 int	minSize = 0, len;
 	char	tmpBuf[34];	// For Integers
 	char	*p = NULL;
 	 int	isLongLong = 0;
 	Uint64	val;
 	size_t	pos = 0;
 	// Flags
-	// int	bPadLeft = 0;
+	 int	bPadLeft = 0;
 	
 	//Log("vsnprintf: (__s=%p, __maxlen=%i, __format='%s', ...)", __s, __maxlen, __format);
 	
@@ -214,7 +214,12 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		
 		// Get Argument
 		val = va_arg(args, Uint);
-		//Log("val = %x", val);
+		
+		// - Padding Side Flag
+		if(c == '+') {
+			bPadLeft = 1;
+			c = *__format++;
+		}
 		
 		// - Padding
 		if(c == '0') {
@@ -285,9 +290,11 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		case 's':
 			p = (char*)(Uint)val;
 		printString:
-			//Log("p = '%s'", p);
 			if(!p)		p = "(null)";
+			len = strlen(p);
+			if( !bPadLeft )	while(len++ < minSize)	PUTCH(pad);
 			while(*p)	PUTCH(*p++);
+			if( bPadLeft )	while(len++ < minSize)	PUTCH(pad);
 			break;
 		
 		case 'C':	// Non-Null Terminated Character Array

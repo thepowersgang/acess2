@@ -9,11 +9,20 @@
 #define DEBUG_TO_SERIAL	1
 #define	SERIAL_PORT	0x3F8
 #define	GDB_SERIAL_PORT	0x2F8
+#define DEBUG_USE_VSNPRINTF	1
+#define	DEBUG_MAX_LINE_LEN	256
 
 // === IMPORTS ===
 extern void Threads_Dump(void);
 extern void	KernelPanic_SetMode(void);
 extern void	KernelPanic_PutChar(char Ch);
+
+// === PROTOTYPES ===
+ int	putDebugChar(char ch);
+ int	getDebugChar();
+static void	Debug_Putchar(char ch);
+static void	Debug_Puts(char *Str);
+void	Debug_Fmt(const char *format, va_list args);
 
 // === GLOBALS ===
  int	gDebug_Level = 0;
@@ -21,6 +30,7 @@ extern void	KernelPanic_PutChar(char Ch);
  int	gbDebug_SerialSetup = 0;
  int	gbGDB_SerialSetup = 0;
  int	gbDebug_IsKPanic = 0;
+volatile int	gbInPutChar = 0;
 
 // === CODE ===
 int putDebugChar(char ch)
@@ -54,8 +64,6 @@ int getDebugChar()
 	while( (inb(GDB_SERIAL_PORT + 5) & 1) == 0)	;
 	return inb(GDB_SERIAL_PORT);
 }
-
-volatile int	gbInPutChar = 0;
 
 static void Debug_Putchar(char ch)
 {
@@ -92,11 +100,56 @@ static void Debug_Putchar(char ch)
 
 static void Debug_Puts(char *Str)
 {
-	while(*Str)	Debug_Putchar(*Str++);
+	 int	len = 0;
+	while( *Str )
+	{
+		#if DEBUG_TO_E9
+		__asm__ __volatile__ ( "outb %%al, $0xe9" :: "a" ((Uint8)*Str) );
+		#endif
+		
+		#if DEBUG_TO_SERIAL
+		if(!gbDebug_SerialSetup) {
+			outb(SERIAL_PORT + 1, 0x00);	// Disable all interrupts
+			outb(SERIAL_PORT + 3, 0x80);	// Enable DLAB (set baud rate divisor)
+			outb(SERIAL_PORT + 0, 0x03);	// Set divisor to 3 (lo byte) 38400 baud
+			outb(SERIAL_PORT + 1, 0x00);	//                  (hi byte)
+			outb(SERIAL_PORT + 3, 0x03);	// 8 bits, no parity, one stop bit
+			outb(SERIAL_PORT + 2, 0xC7);	// Enable FIFO with 14-byte threshold and clear it
+			outb(SERIAL_PORT + 4, 0x0B);	// IRQs enabled, RTS/DSR set
+			gbDebug_SerialSetup = 1;
+		}
+		while( (inb(SERIAL_PORT + 5) & 0x20) == 0 );
+		outb(SERIAL_PORT, *Str);
+		#endif
+		
+		if( gbDebug_IsKPanic )
+			KernelPanic_PutChar(*Str);
+		len ++;
+		Str ++;
+	}
+	
+	Str -= len;
+	
+	if( !gbDebug_IsKPanic && giDebug_KTerm != -1)
+	{
+		if(gbInPutChar)	return ;
+		gbInPutChar = 1;
+		VFS_Write(giDebug_KTerm, len, Str);
+		gbInPutChar = 0;
+	}
 }
 
-void Debug_Fmt(const char *format, va_list *args)
+void Debug_Fmt(const char *format, va_list args)
 {
+	#if DEBUG_USE_VSNPRINTF
+	char	buf[DEBUG_MAX_LINE_LEN];
+	 int	len;
+	len = vsnprintf(buf, DEBUG_MAX_LINE_LEN-1, format, args);
+	//if( len < DEBUG_MAX_LINE )
+		// do something
+	Debug_Puts(buf);
+	return ;
+	#else
 	char	c, pad = ' ';
 	 int	minSize = 0, len;
 	char	tmpBuf[34];	// For Integers
@@ -230,6 +283,7 @@ void Debug_Fmt(const char *format, va_list *args)
 			break;
 		}
     }
+    #endif
 }
 
 void Debug_KernelPanic()
@@ -247,7 +301,7 @@ void LogF(char *Fmt, ...)
 
 	va_start(args, Fmt);
 
-	Debug_Fmt(Fmt, &args);
+	Debug_Fmt(Fmt, args);
 
 	va_end(args);
 }
@@ -260,7 +314,7 @@ void Log(char *Fmt, ...)
 
 	Debug_Puts("Log: ");
 	va_start(args, Fmt);
-	Debug_Fmt(Fmt, &args);
+	Debug_Fmt(Fmt, args);
 	va_end(args);
 	Debug_Putchar('\n');
 }
@@ -269,7 +323,7 @@ void Warning(char *Fmt, ...)
 	va_list	args;
 	Debug_Puts("Warning: ");
 	va_start(args, Fmt);
-	Debug_Fmt(Fmt, &args);
+	Debug_Fmt(Fmt, args);
 	va_end(args);
 	Debug_Putchar('\n');
 }
@@ -281,7 +335,7 @@ void Panic(char *Fmt, ...)
 	
 	Debug_Puts("Panic: ");
 	va_start(args, Fmt);
-	Debug_Fmt(Fmt, &args);
+	Debug_Fmt(Fmt, args);
 	va_end(args);
 	Debug_Putchar('\n');
 
@@ -329,15 +383,15 @@ void Debug_Enter(char *FuncName, char *ArgTypes, ...)
 		if(pos != -1)	ArgTypes[pos] = ' ';
 		switch(*ArgTypes)
 		{
-		case 'p':	Debug_Fmt("%p", &args);	break;
-		case 's':	Debug_Fmt("'%s'", &args);	break;
-		case 'i':	Debug_Fmt("%i", &args);	break;
-		case 'u':	Debug_Fmt("%u", &args);	break;
-		case 'x':	Debug_Fmt("0x%x", &args);	break;
-		case 'b':	Debug_Fmt("0b%b", &args);	break;
+		case 'p':	Debug_Fmt("%p", args);	break;
+		case 's':	Debug_Fmt("'%s'", args);	break;
+		case 'i':	Debug_Fmt("%i", args);	break;
+		case 'u':	Debug_Fmt("%u", args);	break;
+		case 'x':	Debug_Fmt("0x%x", args);	break;
+		case 'b':	Debug_Fmt("0b%b", args);	break;
 		// Extended (64-Bit)
-		case 'X':	Debug_Fmt("0x%llx", &args);	break;
-		case 'B':	Debug_Fmt("0b%llb", &args);	break;
+		case 'X':	Debug_Fmt("0x%llx", args);	break;
+		case 'B':	Debug_Fmt("0b%llb", args);	break;
 		}
 		if(pos != -1) {
 			Debug_Putchar(',');	Debug_Putchar(' ');
@@ -361,7 +415,7 @@ void Debug_Log(char *FuncName, char *Fmt, ...)
 	while(i--)	Debug_Putchar(' ');
 
 	Debug_Puts(FuncName);	Debug_Puts(": ");
-	Debug_Fmt(Fmt, &args);
+	Debug_Fmt(Fmt, args);
 
 	va_end(args);
 	Debug_Putchar('\n');
@@ -393,13 +447,13 @@ void Debug_Leave(char *FuncName, char RetType, ...)
 	switch(RetType)
 	{
 	case 'n':	Debug_Puts("NULL");	break;
-	case 'p':	Debug_Fmt("%p", &args);	break;
-	case 's':	Debug_Fmt("'%s'", &args);	break;
-	case 'i':	Debug_Fmt("%i", &args);	break;
-	case 'u':	Debug_Fmt("%u", &args);	break;
-	case 'x':	Debug_Fmt("0x%x", &args);	break;
+	case 'p':	Debug_Fmt("%p", args);	break;
+	case 's':	Debug_Fmt("'%s'", args);	break;
+	case 'i':	Debug_Fmt("%i", args);	break;
+	case 'u':	Debug_Fmt("%u", args);	break;
+	case 'x':	Debug_Fmt("0x%x", args);	break;
 	// Extended (64-Bit)
-	case 'X':	Debug_Fmt("0x%llx", &args);	break;
+	case 'X':	Debug_Fmt("0x%llx", args);	break;
 	}
 	Debug_Putchar('\n');
 
