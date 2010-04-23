@@ -1013,7 +1013,7 @@ void MM_UnmapHWPages(tVAddr VAddr, Uint Number)
 	
 	for( j = 0; j < Number; j++ )
 	{
-		MM_DerefPhys( gaPageTable[ (HW_MAP_ADDR >> 12) + i + j ] );
+		MM_DerefPhys( gaPageTable[ (HW_MAP_ADDR >> 12) + i + j ] & ~0xFFF );
 		gaPageTable[ (HW_MAP_ADDR >> 12) + i + j ] = 0;
 	}
 	

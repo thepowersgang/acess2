@@ -17,11 +17,13 @@ typedef struct sMessage
 typedef struct sThread
 {
 	// --- threads.c's
+	//  0
 	struct sThread	*Next;	//!< Next thread in list
 	tSpinlock	IsLocked;	//!< Thread's spinlock
 	volatile int	Status;		//!< Thread Status
 	 int	RetStatus;	//!< Return Status
 	
+	// 16
 	Uint	TID;	//!< Thread ID
 	Uint	TGID;	//!< Thread Group (Process)
 	Uint	PTID;	//!< Parent Thread ID
@@ -29,19 +31,22 @@ typedef struct sThread
 	char	*ThreadName;	//!< Name of thread
 	
 	// --- arch/proc.c's responsibility
+	// 40
 	//! Kernel Stack Base
 	tVAddr	KernelStack;
 	
+	// 44 (x86)
 	//! Memory Manager State
 	tMemoryState	MemState;
 	
+	// 48 (x86)
 	//! State on task switch
 	tTaskState	SavedState;
 	
 	// --- threads.c's
-	 int	CurSignal;	//!< Signal currently being handled (0 for none)
-	tVAddr	SignalHandlers[NSIG];	//!< Signal Handler List
-	tTaskState	SignalState;	//!< Saved state for signal handler
+	// 60
+	 int	CurFaultNum;	//!< Current fault number, 0: none
+	tVAddr	FaultHandler;	//!< Fault Handler
 	
 	tMsg * volatile	Messages;	//!< Message Queue
 	tMsg	*LastMessage;	//!< Last Message (speeds up insertion)

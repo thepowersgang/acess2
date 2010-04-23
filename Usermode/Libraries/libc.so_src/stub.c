@@ -3,6 +3,8 @@
  */
 #include "stdio_int.h"
 #include "lib.h"
+#include <stdio.h>
+#include <sys/sys.h>
 
 #define USE_CPUID	0
 
@@ -10,6 +12,7 @@
 #if USE_CPUID
 static void	cpuid(uint32_t Num, uint32_t *EAX, uint32_t *EBX, uint32_t *EDX, uint32_t *ECX);
 #endif
+void	ErrorHandler(int Fault);
 
 // === GLOBALS ===
 extern char **_envp;
@@ -53,9 +56,15 @@ int SoMain(unsigned int BaseAddress, int argc, char **argv, char **envp)
 	}
 	#endif
 	
+	_SysSetFaultHandler(ErrorHandler);
+	
 	return 1;
 }
 
+void ErrorHandler(int Fault)
+{
+	fprintf(stderr, "Fault = %i\n", Fault);
+}
 
 #if USE_CPUID
 /**

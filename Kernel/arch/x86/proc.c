@@ -39,6 +39,7 @@ extern tThread	*Threads_GetNextToRun(int CPU);
 extern void	Threads_Dump();
 extern tThread	*Threads_CloneTCB(Uint *Err, Uint Flags);
 extern void	Isr8();	// Double Fault
+extern void	Proc_AlterUserReturnAddr();
 
 // === PROTOTYPES ===
 void	ArchThreads_Init();
@@ -51,6 +52,7 @@ tThread	*Proc_GetCurThread();
 void	Proc_ChangeStack();
  int	Proc_Clone(Uint *Err, Uint Flags);
 void	Proc_StartProcess(Uint16 SS, Uint Stack, Uint Flags, Uint16 CS, Uint IP);
+void	Proc_CallFaultHandler(tThread *Thread);
 void	Proc_Scheduler();
 
 // === GLOBALS ===
@@ -691,6 +693,18 @@ int Proc_Demote(Uint *Err, int Dest, tRegs *Regs)
 	if(!(Regs->gs & 4))	Regs->gs = ((Dest+1)<<4) | Dest;
 	
 	return 0;
+}
+
+/**
+ * \brief Calls a signal handler in user mode
+ * \note Used for signals
+ */
+void Proc_CallFaultHandler(tThread *Thread)
+{
+	// Rewinds the stack and calls the user function
+	// Never returns
+	__asm__ __volatile__ ("mov %0, %%ebp;\n\tcall Proc_AlterUserReturnAddr" :: "r"(Thread->FaultHandler));
+	for(;;);
 }
 
 /**

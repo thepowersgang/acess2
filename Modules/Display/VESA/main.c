@@ -68,7 +68,7 @@ int Vesa_Install(char **Arguments)
 	// Call Interrupt
 	VM8086_Int(gpVesa_BiosState, 0x10);
 	if(gpVesa_BiosState->AX != 0x004F) {
-		Log_Warning("VESA", "Vesa_Install - VESA/VBE Unsupported (AX = 0x%x)\n", gpVesa_BiosState->AX);
+		Log_Warning("VESA", "Vesa_Install - VESA/VBE Unsupported (AX = 0x%x)", gpVesa_BiosState->AX);
 		return MODULE_ERR_NOTNEEDED;
 	}
 	
@@ -211,7 +211,8 @@ Uint64 Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		{
 		tVT_Char	*chars = Buffer;
 		 int	pitch = gVesa_Modes[giVesaCurrentMode].width;
-		 int	widthInChars;
+		 int	widthInChars = gVesa_Modes[giVesaCurrentMode].width/giVT_CharWidth;
+		 int	heightInChars = gVesa_Modes[giVesaCurrentMode].height/giVT_CharHeight;
 		 int	x, y;
 		Uint32	*dest = (void*)gpVesa_Framebuffer;
 		 int	i;
@@ -220,7 +221,6 @@ Uint64 Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		Offset /= sizeof(tVT_Char);
 		
 		LOG("gVesa_Modes[%i].width = %i", giVesaCurrentMode, gVesa_Modes[giVesaCurrentMode].width);
-		widthInChars = gVesa_Modes[giVesaCurrentMode].width/giVT_CharWidth;
 		x = Offset % widthInChars;
 		y = Offset / widthInChars;
 		LOG("(x,y) = (%i,%i) = [%i,%i]", x, y, x * giVT_CharWidth, y * giVT_CharHeight * pitch);
@@ -232,9 +232,14 @@ Uint64 Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 			);
 		
 		// Sanity Check
-		if(y > gVesa_Modes[giVesaCurrentMode].height/giVT_CharHeight) {
+		if(y > heightInChars) {
 			LEAVE('i', 0);
 			return 0;
+		}
+		
+		if( Offset + Length > heightInChars*widthInChars ) {
+			Length = heightInChars*widthInChars - Offset;
+			Log_Notice("VESA", "Clipping write size to %i characters", (int)Length);
 		}
 		
 		dest += y * giVT_CharHeight * pitch;
@@ -250,7 +255,6 @@ Uint64 Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 				VT_Colour12to24(chars->BGCol),
 				VT_Colour12to24(chars->FGCol)
 				);
-			
 			
 			chars ++;
 			x ++;
@@ -301,6 +305,7 @@ Uint64 Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 int Vesa_Ioctl(tVFS_Node *Node, int ID, void *Data)
 {
 	 int	ret;
+	//Log_Debug("VESA", "Vesa_Ioctl: (Node=%p, ID=%i, Data=%p)", Node, ID, Data);
 	switch(ID)
 	{
 	case DRV_IOCTL_TYPE:	return DRV_TYPE_VIDEO;
@@ -323,6 +328,9 @@ int Vesa_Ioctl(tVFS_Node *Node, int ID, void *Data)
 			giVesaCurrentFormat = *(int*)Data;
 		}
 		return ret;
+	
+	case VIDEO_IOCTL_SETCURSOR:	// Set cursor position
+		return 0;
 	
 	case VIDEO_IOCTL_REQLFB:	// Request Linear Framebuffer
 		return 0;

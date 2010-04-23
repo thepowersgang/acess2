@@ -59,7 +59,9 @@ void KernelPanic_SetMode()
 {
 	 int	i;
 	
-	// Some routines call this function twice, let's avoid that, shall we?
+	// This function is called by Panic(), but MM_PageFault and the
+	// CPU exception handers also call it, so let's not clear the screen
+	// twice
 	if( giKP_Pos )	return ;
 	
 	// Restore VGA 0xB8000 text mode

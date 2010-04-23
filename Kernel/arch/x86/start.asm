@@ -168,31 +168,6 @@ CallWithArgArray:
 	pop ebp
 	ret
 
-[extern Proc_Clone]
-[extern Threads_Exit]
-[global SpawnTask]
-SpawnTask:
-	; Call Proc_Clone with Flags=0
-	xor eax, eax
-	push eax
-	push eax
-	call Proc_Clone
-	add esp, 8	; Remove arguments from stack
-	
-	test eax, eax
-	jnz .parent
-	
-	; In child, so now set up stack frame
-	mov ebx, [esp+4]	; Child Function
-	mov edx, [esp+8]	; Argument
-	; Child
-	push edx	; Argument
-	call ebx	; Function
-	call Threads_Exit	; Kill Thread
-	
-.parent:
-	ret
-
 [section .initpd]
 [global gaInitPageDir]
 [global gaInitPageTable]

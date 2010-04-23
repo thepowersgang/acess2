@@ -13,12 +13,14 @@
 #define VM8086_STACK_OFS	0x0AFE
 enum eVM8086_Opcodes
 {
-	VM8086_OP_PUSHF	= 0x9C,
-	VM8086_OP_POPF	= 0x9D,
-	VM8086_OP_INT_I	= 0xCD,
-	VM8086_OP_IRET	= 0xCF,
-	VM8086_OP_IN_AD	= 0xEC,
-	VM8086_OP_IN_ADX= 0xED
+	VM8086_OP_PUSHF   = 0x9C,
+	VM8086_OP_POPF    = 0x9D,
+	VM8086_OP_INT_I   = 0xCD,
+	VM8086_OP_IRET    = 0xCF,
+	VM8086_OP_IN_AD   = 0xEC,
+	VM8086_OP_IN_ADX  = 0xED,
+	VM8086_OP_OUT_AD  = 0xEE,
+	VM8086_OP_OUT_ADX = 0xEF
 };
 #define VM8086_PAGES_PER_INST	4
 
@@ -45,12 +47,15 @@ MODULE_DEFINE(0, 0x100, VM8086, VM8086_Install, NULL, NULL);
 tSpinlock	glVM8086_Process;
 tPID	gVM8086_WorkerPID;
 tTID	gVM8086_CallingThread;
-tVM8086	* volatile gpVM8086_State;
+tVM8086	* volatile gpVM8086_State = (void*)-1;	// Set to -1 to avoid race conditions
 
 // === FUNCTIONS ===
 int VM8086_Install(char **Arguments)
 {
 	tPID	pid;	
+	
+	// Lock to avoid race conditions
+	LOCK( &glVM8086_Process );
 	
 	// Create BIOS Call process
 	pid = Proc_Clone(NULL, CLONE_VM);
@@ -139,6 +144,11 @@ void VM8086_GPF(tRegs *Regs)
 	if(Regs->eip == VM8086_MAGIC_IP && Regs->cs == VM8086_MAGIC_CS
 	&& Threads_GetPID() == gVM8086_WorkerPID)
 	{
+		if( gpVM8086_State == (void*)-1 ) {
+			Log_Log("VM8086", "Worker thread ready and waiting");
+			RELEASE( &glVM8086_Process );	// Release lock obtained in VM8086_Install
+			gpVM8086_State = NULL;
+		}
 		if( gpVM8086_State ) {
 			gpVM8086_State->AX = Regs->eax;	gpVM8086_State->CX = Regs->ecx;
 			gpVM8086_State->DX = Regs->edx;	gpVM8086_State->BX = Regs->ebx;
@@ -176,7 +186,7 @@ void VM8086_GPF(tRegs *Regs)
 		return ;
 	}
 	
-	opcode = *(Uint8*)( KERNEL_BASE + (Regs->cs*16) + (Regs->eip) );
+	opcode = *(Uint8*)( (Regs->cs*16) + (Regs->eip) );
 	Regs->eip ++;
 	switch(opcode)
 	{
@@ -237,13 +247,13 @@ void VM8086_GPF(tRegs *Regs)
 		#endif
 		break;
 		
-	case 0xEE:	//OUT DX, AL
+	case VM8086_OP_OUT_AD:	//OUT DX, AL
 		outb(Regs->edx&0xFFFF, Regs->eax&0xFF);
 		#if TRACE_EMU
 		Log_Debug("VM8086", "Emulated OUT DX, AL (*0x%04x = 0x%02x)\n", Regs->edx&0xFFFF, Regs->eax&0xFF);
 		#endif
 		break;
-	case 0xEF:	//OUT DX, AX
+	case VM8086_OP_OUT_ADX:	//OUT DX, AX
 		outw(Regs->edx&0xFFFF, Regs->eax&0xFFFF);
 		#if TRACE_EMU
 		Log_Debug("VM8086", "Emulated OUT DX, AX (*0x%04x = 0x%04x)\n", Regs->edx&0xFFFF, Regs->eax&0xFFFF);
@@ -257,8 +267,31 @@ void VM8086_GPF(tRegs *Regs)
 		break;
 	
 	case 0x66:
-		Log_Warning("VM8086", "Code at %04x:%04x attempted to use an operand override, ignored",
-			Regs->cs, Regs->eip);
+		opcode = *(Uint8*)( (Regs->cs*16) + (Regs->eip&0xFFFF));
+		switch( opcode )
+		{
+		case VM8086_OP_IN_ADX:	//IN AX, DX
+			Regs->eax = ind(Regs->edx&0xFFFF);
+			#if TRACE_EMU
+			Log_Debug("VM8086", "Emulated IN EAX, DX (Port 0x%x)\n", Regs->edx&0xFFFF);
+			#endif
+			break;
+		case VM8086_OP_OUT_ADX:	//OUT DX, AX
+			outd(Regs->edx&0xFFFF, Regs->eax);
+			#if TRACE_EMU
+			Log_Debug("VM8086", "Emulated OUT DX, EAX (*0x%04x = 0x%08x)\n", Regs->edx&0xFFFF, Regs->eax);
+			#endif
+			break;
+		default:
+			Log_Error("VM8086", "Error - Unknown opcode 66 %02x caused a GPF at %04x:%04x",
+				Regs->cs, Regs->eip,
+				opcode
+				);
+			// Force an end to the call
+			Regs->cs = VM8086_MAGIC_CS;
+			Regs->eip = VM8086_MAGIC_IP;
+			break;
+		}
 		break;
 	
 	default:

@@ -36,3 +36,5 @@ extern int	getpid();	// Get Process ID
 extern int	sendmsg(int dest, unsigned int *Data);
 extern int	pollmsg(int *src, unsigned int *Data);
 extern int	getmsg(int *src, unsigned int *Data);
+
+extern int	_SysSetFaultHandler(void (*Handler)(int));

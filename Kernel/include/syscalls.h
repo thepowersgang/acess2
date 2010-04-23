@@ -9,7 +9,7 @@ enum eSyscalls {
 	SYS_EXIT,	// 0 - Kill this thread
 	SYS_CLONE,	// 1 - Create a new thread
 	SYS_KILL,	// 2 - Send a signal
-	SYS_SIGNAL,	// 3 - Set signal Handler
+	SYS_SETFAULTHANDLER,	// 3 - Set signal Handler
 	SYS_YIELD,	// 4 - Yield remainder of timestamp
 	SYS_SLEEP,	// 5 - Sleep until messaged or signaled
 	SYS_WAIT,	// 6 - Wait for a time or a message
@@ -63,7 +63,7 @@ enum eSyscalls {
 };
 
 static const char *cSYSCALL_NAMES[] = {
-	"SYS_EXIT","SYS_CLONE","SYS_KILL","SYS_SIGNAL","SYS_YIELD","SYS_SLEEP",
+	"SYS_EXIT","SYS_CLONE","SYS_KILL","SYS_SETFAULTHANDLER","SYS_YIELD","SYS_SLEEP",
 	"SYS_WAIT","SYS_WAITTID","SYS_SETNAME","SYS_GETNAME","SYS_GETTID","SYS_GETPID",
 	"SYS_SETPRI","SYS_SENDMSG","SYS_GETMSG","SYS_GETTIME","SYS_SPAWN","SYS_EXECVE",
 	"SYS_LOADBIN","SYS_UNLOADBIN","SYS_LOADMOD","","","",

@@ -32,6 +32,7 @@ extern tUID	Threads_GetUID();
 extern int	Threads_SetUID(Uint *errno, tUID ID);
 extern tGID	Threads_GetGID();
 extern int	Threads_SetGID(Uint *errno, tGID ID);
+extern int	Threads_SetFaultHandler(Uint Handler);
 
 // === PROTOTYPES ===
  int	Syscall_ValidString(Uint Addr);
@@ -59,6 +60,11 @@ void SyscallHandler(tSyscallRegs *Regs)
 	
 	// -- Yield current timeslice
 	case SYS_YIELD:	Threads_Yield();	break;
+	
+	// -- Set Error Handler
+	case SYS_SETFAULTHANDLER:
+		Threads_SetFaultHandler(Regs->Arg1);
+		break;
 	
 	// -- Clone the current thread
 	case SYS_CLONE:

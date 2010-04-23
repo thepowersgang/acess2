@@ -5,7 +5,7 @@
 %define SYS_EXIT	0	; Kill this thread
 %define SYS_CLONE	1	; Create a new thread
 %define SYS_KILL	2	; Send a signal
-%define SYS_SIGNAL	3	; Set signal Handler
+%define SYS_SETFAULTHANDLER	3	; Set signal Handler
 %define SYS_YIELD	4	; Yield remainder of timestamp
 %define SYS_SLEEP	5	; Sleep until messaged or signaled
 %define SYS_WAIT	6	; Wait for a time or a message
