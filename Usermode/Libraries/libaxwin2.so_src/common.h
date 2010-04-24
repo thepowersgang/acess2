@@ -22,5 +22,6 @@ enum eAxWin_Modes
 
 // === Variables ===
 extern int	giAxWin_Mode;
+extern int	giAxWin_PID;
 
 #endif

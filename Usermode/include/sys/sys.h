@@ -1,6 +1,8 @@
 /*
  Syscall Definitions
 */
+#ifndef _SYS_SYS_H_
+#define _SYS_SYS_H_
 
 #include <sys/types.h>
 
@@ -25,7 +27,7 @@ extern int	close(int fp);
 extern int	read(int fp, int len, void *buf);
 extern int	write(int fp, int len, void *buf);
 extern int	tell(int fp);
-extern void seek(int fp, int dist, int flag);
+extern void seek(int fp, int64_t dist, int flag);
 extern int	fstat(int fp, t_fstat *st);
 extern int	ioctl(int fp, int call, void *arg);
 extern int	readdir(int fp, char *file);
@@ -37,4 +39,6 @@ extern int	sendmsg(int dest, unsigned int *Data);
 extern int	pollmsg(int *src, unsigned int *Data);
 extern int	getmsg(int *src, unsigned int *Data);
 
-extern int	_SysSetFaultHandler(int (*Handler)(int));
+#endif
+
+#endif

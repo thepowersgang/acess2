@@ -1,10 +1,11 @@
 /*
  * Acess2 System Interface Header
  */
-#ifndef _SYS_SYS_H_
-#define _SYS_SYS_H_
+#ifndef _ACESS_SYS_H_
+#define _ACESS_SYS_H_
 
 #include <stdint.h>
+#include <sys/types.h>
 
 // === CONSTANTS ===
 #ifndef NULL
@@ -27,8 +28,6 @@
 #define FILEFLAG_SYMLINK	0x20
 
 // === TYPES ===
-typedef uint	pid_t;
-
 struct s_sysACL {
 	union {
 		struct {
@@ -73,6 +72,7 @@ extern int	clone(int flags, void *stack);
 extern int	execve(char *path, char **argv, char **envp);
 extern int	gettid();
 extern int	getpid();
+extern int	_SysSetFaultHandler(int (*Handler)(int));
 
 // --- Permissions ---
 extern int	getuid();
@@ -87,7 +87,7 @@ extern int	reopen(int fd, const char *path, int flags);
 extern void	close(int fd);
 extern uint	read(int fd, uint length, void *buffer);
 extern uint	write(int fd, uint length, void *buffer);
-extern int	seek(int fd, uint64_t offset, int whence);
+extern int	seek(int fd, int64_t offset, int whence);
 extern uint64_t	tell(int fd);
 extern int	ioctl(int fd, int id, void *data);
 extern int	finfo(int fd, t_sysFInfo *info, int maxacls);

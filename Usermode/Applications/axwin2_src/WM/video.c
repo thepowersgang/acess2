@@ -7,13 +7,14 @@
 #include <acess/devices/terminal.h>
 
 // === PROTOTYPES ===
-void	Video_Setup();
-void	Video_Update();
+void	Video_Setup(void);
+void	Video_Update(void);
+void	Video_FillRect(short X, short Y, short W, short H, uint32_t Color);
 
 // === GLOBALS ===
 
 // === CODE ===
-void Video_Setup()
+void Video_Setup(void)
 {
 	 int	tmpInt;
 	
@@ -58,8 +59,20 @@ void Video_Setup()
 	Video_Update();
 }
 
-void Video_Update()
+void Video_Update(void)
 {
-	seek(giTerminalFD, 0, SEEK_SET);
+	//seek(giTerminalFD, 0, SEEK_SET);
+	seek(giTerminalFD, 0, 1);
 	write(giTerminalFD, giScreenWidth*giScreenHeight*4, gpScreenBuffer);
+}
+
+void Video_FillRect(short X, short Y, short W, short H, uint32_t Color)
+{
+	uint32_t	*buf = gpScreenBuffer + Y*giScreenWidth + X;
+	
+	while( H -- )
+	{
+		memset32( buf, Color, W );
+		buf += giScreenWidth;
+	}
 }

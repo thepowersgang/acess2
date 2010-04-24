@@ -62,7 +62,11 @@ void Messages_Handle(tAxWin_Message *Msg, tMessages_Handle_Callback *Respond, in
 	{
 	case MSG_SREQ_PING:
 		Msg->ID = MSG_SRSP_PONG;
-		Respond(ID, sizeof(Msg->ID), Msg);
+		Msg->Size = 2;
+		Msg->SRsp_Pong.Major = 0;
+		Msg->SRsp_Pong.Minor = 1;
+		Msg->SRsp_Pong.Build = -1;
+		Messages_RespondIPC(ID, sizeof(Msg->ID), Msg);
 		break;
 	default:
 		fprintf(stderr, "WARNING: Unknown message %i from %i (%p)\n", Msg->ID, ID, Respond);

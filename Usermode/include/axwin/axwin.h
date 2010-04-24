@@ -7,11 +7,14 @@
 #define _AXWIN_AXWIN_H
 
 // === Core Types ===
-typedef unsigned int	tAxWin_Handle;
+typedef void	*tAxWin_Handle;
 
 // === Messaging ===
 #include "messages.h"
 extern int	AxWin_MessageLoop();
+extern int	AxWin_SendMessage(tAxWin_Message *Message);
+extern tAxWin_Message	*AxWin_WaitForMessage(void);
+extern int	AxWin_HandleMessage(tAxWin_Message *Message);
 
 // === Window Control ===
 /**
@@ -30,7 +33,7 @@ typedef int	tAxWin_MessageCallback(tAxWin_Message *);
 /**
  * \}
  */
-extern tAxWin_Window	AxWin_CreateWindow(
+extern tAxWin_Window	*AxWin_CreateWindow(
 		int16_t X, int16_t Y, int16_t W, int16_t H,
 		uint32_t Flags, tAxWin_MessageCallback *Callback);
 

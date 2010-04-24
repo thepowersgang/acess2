@@ -7,7 +7,8 @@
 
 // === IMPORTS ===
 extern void	ParseCommandline(int argc, char *argv[]);
-extern void	Video_Setup();
+extern void	Video_Setup(void);
+extern void	Messages_PollIPC(void);
 
 // === GLOBALS ===
 char	*gsTerminalDevice = NULL;
@@ -34,6 +35,7 @@ int main(int argc, char *argv[])
 	}
 	
 	Video_Setup();
+	Interface_Render();
 	
 	// Main Loop
 	for(;;)
