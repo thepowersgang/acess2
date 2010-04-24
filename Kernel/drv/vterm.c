@@ -353,6 +353,7 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 Uint64 VT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 {
 	tVTerm	*term = &gVT_Terminals[ Node->Inode ];
+	 int	size;
 	
 	// Write
 	switch( term->Mode )
@@ -361,6 +362,19 @@ Uint64 VT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		VT_int_PutString(term, Buffer, Length);
 		break;
 	case TERM_MODE_FB:
+		size = term->Width*term->Height*4;
+		if( Offset > size ) {
+			Log_Notice("VTerm", "VT_Write: Offset (0x%llx) > FBSize (0x%x)",
+				Offset, size);
+			return 0;
+		}
+		
+		if( Offset + Length > size ) {
+			Log_Notice("VTerm", "VT_Write: Offset+Length (0x%llx) > FBSize (0x%x)",
+				Offset+Length, size);
+			Length = size - Offset;
+		}
+		
 		memcpy( (void*)((Uint)term->Buffer + (Uint)Offset), Buffer, Length );
 		
 		if( Node->Inode == giVT_CurrentTerminal )
@@ -428,6 +442,7 @@ int VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data)
 	case TERM_IOCTL_MODETYPE:
 		if(Data != NULL)
 		{
+			Log_Log("VTerm", "VTerm %i mode set to %i", (int)Node->Inode, *iData);
 			// Update mode if needed
 			if(term->Mode != *iData)
 				VT_int_ChangeMode(term, *iData);
@@ -454,6 +469,8 @@ int VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data)
 		return term->Height;
 	
 	case TERM_IOCTL_FORCESHOW:
+		Log_Log("VTerm", "Thread %i forced VTerm %i to be shown",
+			Threads_GetTID(), (int)Node->Inode);
 		VT_SetTerminal( Node->Inode );
 		LEAVE('i', 1);
 		return 1;
@@ -1006,9 +1023,11 @@ void VT_int_ChangeMode(tVTerm *Term, int NewMode)
 		Term->Text = calloc( Term->Width*Term->Height*VT_SCROLLBACK, sizeof(tVT_Char) );
 		break;
 	case TERM_MODE_FB:
-		Log_Log("VTerm", "Set VT %p to framebuffer mode", Term);
+		Log_Log("VTerm", "Set VT %p to framebuffer mode (%ix%i)", Term,
+			Term->Width, Term->Height);
 		free(Term->Text);
 		Term->Buffer = calloc( Term->Width*Term->Height, sizeof(Uint32) );
+		Log_Debug("VTerm", "Term->Buffer = %p", Term->Buffer);
 		break;
 	//case TERM_MODE_2DACCEL:
 	//case TERM_MODE_3DACCEL:
