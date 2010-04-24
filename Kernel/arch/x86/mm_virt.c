@@ -1024,17 +1024,21 @@ tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 void MM_UnmapHWPages(tVAddr VAddr, Uint Number)
 {
 	 int	i, j;
+	
+	//Log_Debug("VirtMem", "MM_UnmapHWPages: (VAddr=0x%08x, Number=%i)", VAddr, Number);
+	
 	// Sanity Check
-	if(VAddr < HW_MAP_ADDR || VAddr-Number*0x1000 > HW_MAP_MAX)	return;
+	if(VAddr < HW_MAP_ADDR || VAddr+Number*0x1000 > HW_MAP_MAX)	return;
 	
 	i = VAddr >> 12;
 	
 	LOCK( &gilTempMappings );	// Temp and HW share a directory, so they share a lock
 	
+	
 	for( j = 0; j < Number; j++ )
 	{
-		MM_DerefPhys( gaPageTable[ (HW_MAP_ADDR >> 12) + i + j ] & ~0xFFF );
-		gaPageTable[ (HW_MAP_ADDR >> 12) + i + j ] = 0;
+		MM_DerefPhys( gaPageTable[ i + j ] & ~0xFFF );
+		gaPageTable[ i + j ] = 0;
 	}
 	
 	RELEASE( &gilTempMappings );
