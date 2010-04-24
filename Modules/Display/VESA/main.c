@@ -25,6 +25,9 @@ Uint64	Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
  int	Vesa_Int_SetMode(int Mode);
  int	Vesa_Int_FindMode(tVideo_IOCtl_Mode *data);
  int	Vesa_Int_ModeInfo(tVideo_IOCtl_Mode *data);
+// --- 2D Acceleration Functions --
+void	Vesa_2D_Fill(void *Ent, Uint16 X, Uint16 Y, Uint16 W, Uint16 H, Uint32 Colour);
+void	Vesa_2D_Blit(void *Ent, Uint16 DstX, Uint16 DstY, Uint16 SrcX, Uint16 SrcY, Uint16 W, Uint16 H);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, Vesa, Vesa_Install, NULL, "PCI", "VM8086", NULL);
@@ -45,6 +48,11 @@ char	*gpVesa_Framebuffer = (void*)VESA_DEFAULT_FRAMEBUFFER;
 tVesa_Mode	*gVesa_Modes;
  int	giVesaModeCount = 0;
  int	giVesaPageCount = 0;
+tDrvUtil_Video_2DHandlers	gVesa_2DFunctions = {
+	NULL,
+	Vesa_2D_Fill,
+	Vesa_2D_Blit
+};
 
 //CODE
 int Vesa_Install(char **Arguments)
@@ -291,6 +299,14 @@ Uint64 Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		LOG("BGA Framebuffer updated");
 		}
 		break;
+	
+	case VIDEO_BUFFMT_2DSTREAM:
+		Length = DrvUtil_Video_2DStream(
+			NULL,	// Single framebuffer, so Ent is unused
+			Buffer, Length, &gVesa_2DFunctions, sizeof(gVesa_2DFunctions)
+			);
+		break;
+	
 	default:
 		LEAVE('i', -1);
 		return -1;
@@ -428,4 +444,59 @@ int Vesa_Int_ModeInfo(tVideo_IOCtl_Mode *data)
 	data->height = gVesa_Modes[data->id].height;
 	data->bpp = gVesa_Modes[data->id].bpp;
 	return 1;
+}
+
+// ------------------------
+// --- 2D Accelleration ---
+// ------------------------
+void Vesa_2D_Fill(void *Ent, Uint16 X, Uint16 Y, Uint16 W, Uint16 H, Uint32 Colour)
+{
+	 int	scrnwidth = gVesa_Modes[giVesaCurrentMode].width;
+	Uint32	*buf = (Uint32*)gpVesa_Framebuffer + Y*scrnwidth + X;
+	while( H -- ) {
+		memsetd(buf, Colour, W);
+		buf += scrnwidth;
+	}
+}
+
+void Vesa_2D_Blit(void *Ent, Uint16 DstX, Uint16 DstY, Uint16 SrcX, Uint16 SrcY, Uint16 W, Uint16 H)
+{
+	 int	scrnwidth = gVesa_Modes[giVesaCurrentMode].width;
+	 int	dst = DstY*scrnwidth + DstX;
+	 int	src = SrcY*scrnwidth + SrcX;
+	 int	tmp;
+	
+	//Log("Vesa_2D_Blit: (Ent=%p, DstX=%i, DstY=%i, SrcX=%i, SrcY=%i, W=%i, H=%i)",
+	//	Ent, DstX, DstY, SrcX, SrcY, W, H);
+	
+	if(SrcX + W > scrnwidth)
+		W = scrnwidth - SrcX;
+	if(DstX + W > scrnwidth)
+		W = scrnwidth - DstX;
+	if(SrcY + H > gVesa_Modes[giVesaCurrentMode].height)
+		H = gVesa_Modes[giVesaCurrentMode].height - SrcY;
+	if(DstY + H > gVesa_Modes[giVesaCurrentMode].height)
+		H = gVesa_Modes[giVesaCurrentMode].height - DstY;
+	
+	if( dst > src ) {
+		// Reverse copy
+		dst += H*scrnwidth;
+		src += H*scrnwidth;
+		while( H -- ) {
+			dst -= scrnwidth;
+			src -= scrnwidth;
+			tmp = W;
+			for( tmp = W; tmp --; ) {
+				*((Uint32*)gpVesa_Framebuffer + dst + tmp) = *((Uint32*)gpVesa_Framebuffer + src + tmp);
+			}
+		}
+	}
+	else {
+		// Normal copy is OK
+		while( H -- ) {
+			memcpyd((Uint32*)gpVesa_Framebuffer + dst, (Uint32*)gpVesa_Framebuffer + src, W);
+			dst += scrnwidth;
+			src += scrnwidth;
+		}
+	}
 }

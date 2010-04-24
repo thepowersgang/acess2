@@ -160,6 +160,38 @@ enum eTplVideo_BufFormats
 };
 
 /**
+ * \brief 
+ */
+enum eTplVideo_2DCommands
+{
+	/**
+	 * \brief No Operation
+	 */
+	VIDEO_2DOP_NOP,
+	/**
+	 * \brief Fill a region
+	 * \param X	Uint16 - Leftmost pixels of the region
+	 * \param Y	Uint16 - Topmost pixels of the region
+	 * \param W	Uint16 - Width of the region
+	 * \param H	Uint16 - Height of the region
+	 * \param Colour	Uint32 - Value to fill with
+	 */
+	VIDEO_2DOP_FILL,
+	/**
+	 * \brief Copy a region from one part of the framebuffer to another
+	 * \param DestX	Uint16 - Leftmost pixels of the destination
+	 * \param DestY	Uint16 - Topmost pixels of the destination
+	 * \param SrcX	Uint16 - Leftmost pixels of the source
+	 * \param SrcY	Uint16 - Topmost pixels of the source
+	 * \param Width	Uint16 - Width of the region
+	 * \param Height	Uint16 - Height of the region
+	 */
+	VIDEO_2DOP_BLIT,
+
+	NUM_VIDEO_2DOPS
+};
+
+/**
  * \brief Describes a position in the video framebuffer
  */
 typedef struct sVideo_IOCtl_Pos
@@ -220,5 +252,21 @@ extern void	VT_Font_Render(Uint32 Codepoint, void *Buffer, int Pitch, Uint32 BGC
  * \return Expanded 32-bpp (24-bit colour) version of \a Col12
  */
 extern Uint32	VT_Colour12to24(Uint16 Col12);
+
+/**
+ * 
+ */
+typedef struct sDrvUtil_Video_2DHandlers
+{
+	void	*Nop;
+	void	(*Fill)(void *Ent, Uint16 X, Uint16 Y, Uint16 W, Uint16 H, Uint32 Colour);
+	void	(*Blit)(void *Ent, Uint16 DestX, Uint16 DestY, Uint16 SrcX, Uint16 SrcY, Uint16 W, Uint16 H);
+}	tDrvUtil_Video_2DHandlers;
+
+/**
+ * \brief 
+ */
+extern Uint64	DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
+	tDrvUtil_Video_2DHandlers *Handlers, int SizeofHandlers);
 
 #endif

@@ -77,6 +77,7 @@ void	VT_KBCallBack(Uint32 Codepoint);
 void	VT_int_PutString(tVTerm *Term, Uint8 *Buffer, Uint Count);
  int	VT_int_ParseEscape(tVTerm *Term, char *Buffer);
 void	VT_int_PutChar(tVTerm *Term, Uint32 Ch);
+void	VT_int_ScrollFramebuffer( tVTerm *Term );
 void	VT_int_UpdateScreen( tVTerm *Term, int UpdateAll );
 void	VT_int_ChangeMode(tVTerm *Term, int NewMode);
 
@@ -920,13 +921,13 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 		Term->WritePos ++;
 		break;
 	}
-		
 	
 	// Move Screen
 	if(Term->WritePos >= Term->Width*Term->Height*VT_SCROLLBACK)
 	{
 		 int	base, i;
 		Term->WritePos -= Term->Width;
+		VT_int_UpdateScreen( Term, 0 );
 		
 		// Update view position
 		base = Term->Width*Term->Height*(VT_SCROLLBACK-1);
@@ -951,16 +952,56 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 		}
 		
 		//LOG("Scrolled buffer");
-		VT_int_UpdateScreen( Term, 1 );
+		VT_int_ScrollFramebuffer( Term );
+		VT_int_UpdateScreen( Term, 0 );
 	}
-	else if(Term->WritePos >= Term->Width*Term->Height+Term->ViewPos)
+	else if(Term->WritePos >= Term->ViewPos + Term->Width*Term->Height)
 	{
-		Term->ViewPos += Term->Width;
 		//LOG("Scrolled screen");
-		VT_int_UpdateScreen( Term, 1 );
+		Term->WritePos -= Term->Width;
+		VT_int_UpdateScreen( Term, 0 );
+		Term->WritePos += Term->Width;
+		
+		Term->ViewPos += Term->Width;
+		VT_int_ScrollFramebuffer( Term );
+		VT_int_UpdateScreen( Term, 0 );
 	}
 	
 	//LEAVE('-');
+}
+
+/**
+ * \fn void VT_int_ScrollFramebuffer( tVTerm *Term )
+ * \note Scrolls the framebuffer by 1 text line
+ */
+void VT_int_ScrollFramebuffer( tVTerm *Term )
+{
+	 int	tmp;
+	struct {
+		Uint8	Op;
+		Uint16	DstX, DstY;
+		Uint16	SrcX, SrcY;
+		Uint16	W, H;
+	} PACKED	buf;
+	// Only update if this is the current terminal
+	if( Term != gpVT_CurTerm )	return;
+	
+	// This should only be called in text mode
+	
+	tmp = VIDEO_BUFFMT_2DSTREAM;
+	VFS_IOCtl(giVT_OutputDevHandle, VIDEO_IOCTL_SETBUFFORMAT, &tmp);
+	
+	buf.Op = VIDEO_2DOP_BLIT;
+	buf.DstX = 0;	buf.DstY = 0;
+	buf.SrcX = 0;	buf.SrcY = giVT_CharHeight;
+	buf.W = Term->Width * giVT_CharWidth;
+	buf.H = (Term->Height-1) * giVT_CharHeight;
+	
+	VFS_WriteAt(giVT_OutputDevHandle, 0, 1+12, &buf);
+	
+	// Restore old mode
+	tmp = VIDEO_BUFFMT_TEXT;
+	VFS_IOCtl(giVT_OutputDevHandle, VIDEO_IOCTL_SETBUFFORMAT, &tmp);
 }
 
 /**
