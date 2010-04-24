@@ -109,7 +109,7 @@ Proc_AlterUserReturnAddr:
 	
 	push 0x23	; SS
 	push ecx	; ESP
-	push 0x22	; EFLAGS
+	push 0x202	; EFLAGS (IP and Rsvd)
 	push 0x1B	; CS
 	push ebp	; EIP
 	
