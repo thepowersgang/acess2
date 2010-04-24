@@ -361,26 +361,31 @@ Uint64 VT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		VT_int_PutString(term, Buffer, Length);
 		break;
 	case TERM_MODE_FB:
-		if( giVT_RealWidth > term->Width || giVT_RealHeight > term->Height )
+		memcpy( (void*)((Uint)term->Buffer + (Uint)Offset), Buffer, Length );
+		
+		if( Node->Inode == giVT_CurrentTerminal )
 		{
-			#if 0
-			 int	x, y, h;
-			x = Offset/4;	y = x / term->Width;	x %= term->Width;
-			w = Length/4+x;	h = w / term->Width;	w %= term->Width;
-			while(h--)
+			if( giVT_RealWidth > term->Width || giVT_RealHeight > term->Height )
 			{
-				VFS_WriteAt( giVT_OutputDevHandle,
-					(x+y*term->RealWidth)*4,
-					term->Width * 4,
-					Buffer
-					);
-				Buffer = (void*)( (Uint)Buffer + term->Width*term->Height*4 );
+				#if 0
+				 int	x, y, h;
+				x = Offset/4;	y = x / term->Width;	x %= term->Width;
+				w = Length/4+x;	h = w / term->Width;	w %= term->Width;
+				while(h--)
+				{
+					VFS_WriteAt( giVT_OutputDevHandle,
+						(x+y*term->RealWidth)*4,
+						term->Width * 4,
+						Buffer
+						);
+					Buffer = (void*)( (Uint)Buffer + term->Width*term->Height*4 );
+				}
+				#endif
+				return 0;
 			}
-			#endif
-			return 0;
-		}
-		else {
-			return VFS_WriteAt( giVT_OutputDevHandle, Offset, Length, Buffer );
+			else {
+				return VFS_WriteAt( giVT_OutputDevHandle, Offset, Length, Buffer );
+			}
 		}
 	}
 	
@@ -398,6 +403,8 @@ int VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data)
 	ENTER("pNode iId pData", Node, Id, Data);
 	
 	if(Id >= DRV_IOCTL_LOOKUP) {
+		// Only root can fiddle with graphics modes
+		// TODO: Remove this and replace with user ownership
 		if( Threads_GetUID() != 0 )	return -1;
 	}
 	
@@ -421,11 +428,12 @@ int VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data)
 	case TERM_IOCTL_MODETYPE:
 		if(Data != NULL)
 		{
+			// Update mode if needed
 			if(term->Mode != *iData)
 				VT_int_ChangeMode(term, *iData);
 			
 			// Update the screen dimensions
-			if(giVT_CurrentTerminal == Node->Inode)
+			if(Node->Inode == giVT_CurrentTerminal)
 				VT_SetTerminal( giVT_CurrentTerminal );
 		}
 		LEAVE('i', term->Mode);
@@ -928,7 +936,7 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 		//LOG("Scrolled buffer");
 		VT_int_UpdateScreen( Term, 1 );
 	}
-	else if(Term->WritePos > Term->Width*Term->Height+Term->ViewPos)
+	else if(Term->WritePos >= Term->Width*Term->Height+Term->ViewPos)
 	{
 		Term->ViewPos += Term->Width;
 		//LOG("Scrolled screen");
@@ -945,10 +953,11 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 void VT_int_UpdateScreen( tVTerm *Term, int UpdateAll )
 {
 	// Only update if this is the current terminal
-	if( Term != &gVT_Terminals[giVT_CurrentTerminal] )	return;
+	if( Term != gpVT_CurTerm )	return;
 	
-	if( Term->Mode == TERM_MODE_TEXT )
+	switch( Term->Mode )
 	{
+	case TERM_MODE_TEXT:
 		if(UpdateAll) {
 			//LOG("UpdateAll = 1");
 			//LOG("VFS_WriteAt(0x%x, 0, %i*sizeof(tVT_Char), &Term->Text[%i])",
@@ -971,15 +980,15 @@ void VT_int_UpdateScreen( tVTerm *Term, int UpdateAll )
 				&Term->Text[pos]
 				);
 		}
-	}
-	else
-	{
+		break;
+	case TERM_MODE_FB:
 		VFS_WriteAt(
 			giVT_OutputDevHandle,
 			0,
 			Term->Width*Term->Height*sizeof(Uint32),
-			&Term->Buffer
+			Term->Buffer
 			);
+		break;
 	}
 }
 
@@ -992,14 +1001,17 @@ void VT_int_ChangeMode(tVTerm *Term, int NewMode)
 	switch(NewMode)
 	{
 	case TERM_MODE_TEXT:
+		Log_Log("VTerm", "Set VT %p to text mode", Term);
 		free(Term->Buffer);
 		Term->Text = calloc( Term->Width*Term->Height*VT_SCROLLBACK, sizeof(tVT_Char) );
 		break;
 	case TERM_MODE_FB:
+		Log_Log("VTerm", "Set VT %p to framebuffer mode", Term);
 		free(Term->Text);
 		Term->Buffer = calloc( Term->Width*Term->Height, sizeof(Uint32) );
 		break;
-	//case TERM_MODE_OPENGL:
+	//case TERM_MODE_2DACCEL:
+	//case TERM_MODE_3DACCEL:
 	//	return;
 	}
 	
