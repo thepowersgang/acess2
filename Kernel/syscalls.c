@@ -201,7 +201,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 		#if BITS == 64
 		ret = VFS_Seek( Regs->Arg1, Regs->Arg2, Regs->Arg3 );
 		#else
-		ret = VFS_Seek( Regs->Arg1, Regs->Arg2|((Uint64)Regs->Arg3<<64), Regs->Arg4 );
+		ret = VFS_Seek( Regs->Arg1, Regs->Arg2|(((Uint64)Regs->Arg3)<<32), Regs->Arg4 );
 		#endif
 		break;
 		
