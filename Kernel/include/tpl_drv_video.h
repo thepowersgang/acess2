@@ -160,7 +160,9 @@ enum eTplVideo_BufFormats
 };
 
 /**
- * \brief 
+ * \brief 2D Accellerated Video Commands
+ * 
+ * Commands passed in the command stream for ::VIDEO_BUFFMT_2DSTREAM
  */
 enum eTplVideo_2DCommands
 {
@@ -254,17 +256,46 @@ extern void	VT_Font_Render(Uint32 Codepoint, void *Buffer, int Pitch, Uint32 BGC
 extern Uint32	VT_Colour12to24(Uint16 Col12);
 
 /**
- * 
+ * \brief Handlers for eTplVideo_2DCommands
  */
 typedef struct sDrvUtil_Video_2DHandlers
 {
+	/**
+	 * \brief No Operation, Ignored
+	 * \see VIDEO_2DOP_NOP
+	 */
 	void	*Nop;
+	/**
+	 * \brief Fill a buffer region
+	 * \param X	Lefthand edge
+	 * \param Y	Top edge
+	 * \param W	Width
+	 * \param H	Height
+	 * \param Colour	Colour to fill with
+	 * \see VIDEO_2DOP_FILL
+	 */
 	void	(*Fill)(void *Ent, Uint16 X, Uint16 Y, Uint16 W, Uint16 H, Uint32 Colour);
+	/**
+	 * \brief Fill a buffer region
+	 * \param DestX	Lefthand edge of destination
+	 * \param DestY	Top edge of destination
+	 * \param SrcX	Lefthand edge of source
+	 * \param SrcY	Top edge of source
+	 * \param W	Width
+	 * \param H	Height
+	 * \see VIDEO_2DOP_BLIT
+	 */
 	void	(*Blit)(void *Ent, Uint16 DestX, Uint16 DestY, Uint16 SrcX, Uint16 SrcY, Uint16 W, Uint16 H);
 }	tDrvUtil_Video_2DHandlers;
 
 /**
- * \brief 
+ * \brief Handle a 2D operation stream for a driver
+ * \param Ent	Value to pass to handlers
+ * \param Buffer	Stream buffer
+ * \param Length	Length of stream
+ * \param Handlers	Handlers to use for the stream
+ * \param SizeofHandlers	Size of \a tDrvUtil_Video_2DHandlers according
+ *        to the driver. Used as version control and error avoidence.
  */
 extern Uint64	DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
 	tDrvUtil_Video_2DHandlers *Handlers, int SizeofHandlers);
