@@ -4,6 +4,7 @@ heap.c - Heap Manager
 */
 #include <acess/sys.h>
 #include <stdlib.h>
+#include <string.h>
 #include "lib.h"
 
 // === Constants ===
@@ -14,7 +15,7 @@ heap.c - Heap Manager
 
 typedef unsigned int Uint;
 
-//Typedefs
+// === TYPES ===
 typedef struct {
 	Uint	magic;
 	Uint	size;
@@ -24,12 +25,13 @@ typedef struct {
 	Uint	magic;
 }	heap_foot;
 
-//Globals
-void	*_heap_start = NULL;
-void	*_heap_end = NULL;
+// === LOCAL VARIABLES ===
+static void	*_heap_start = NULL;
+static void	*_heap_end = NULL;
 
-//Prototypes
-EXPORT void	*malloc(Uint bytes);
+// === PROTOTYPES ===
+EXPORT void	*malloc(size_t bytes);
+EXPORT void	*calloc(size_t bytes, size_t count);
 EXPORT void	free(void *mem);
 EXPORT void	*realloc(void *mem, Uint bytes);
 EXPORT void	*sbrk(int increment);
@@ -131,6 +133,20 @@ EXPORT void *malloc(size_t bytes)
 	//Don't Split the block
 	((heap_head*)bestMatchAddr)->magic = MAGIC;
 	return (void*)(bestMatchAddr+sizeof(heap_head));
+}
+
+/**
+ * \fn EXPORT void *calloc(size_t bytes, size_t count)
+ * \brief Allocate and zero a block of memory
+ * \param __nmemb	Number of memeber elements
+ * \param __size	Size of one element
+ */
+EXPORT void *calloc(size_t __nmemb, size_t __size)
+{
+	void	*ret = malloc(__size*__nmemb);
+	if(!ret)	return NULL;
+	memset(ret, 0, __size*__nmemb);
+	return ret;
 }
 
 /**

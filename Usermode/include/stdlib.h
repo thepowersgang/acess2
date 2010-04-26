@@ -19,7 +19,7 @@
 #define UNLOCK(_name) __asm__ __volatile__("lock andl $0, (%0)"::"D"(&_spinlock_##_name))
 
 // --- StdLib ---
-extern void	_exit(int code);	//NOTE: Also defined in acess/sys.h
+extern void	_exit(int code) __attribute__((noreturn));	//NOTE: Also defined in acess/sys.h
 extern int	atoi(const char *ptr);
 extern void	exit(int status) __attribute__((noreturn));
 extern void qsort(void *base, size_t nmemb, size_t size, int(*compar)(const void *, const void *));
@@ -29,8 +29,9 @@ extern char	*getenv(const char *name);
 
 // --- Heap ---
 extern void free(void *mem);
-extern void *malloc(unsigned int bytes);
-extern void *realloc(void *oldPos, unsigned int bytes);
+extern void *malloc(size_t bytes);
+extern void *calloc(size_t __nmemb, size_t __size);
+extern void *realloc(void *__ptr, size_t __size);
 extern int	IsHeap(void *ptr);
 
 #ifndef SEEK_CUR
