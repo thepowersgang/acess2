@@ -38,14 +38,14 @@ void IPv6_int_GetPacket(tAdapter *Interface, tMacAddr From, int Length, void *Bu
 		return;
 	
 	Log("[IPv6 ] hdr = {");
-	Log("[IPv6 ]  .Version = %i", (hdr->Head >> (20+8)) & 0xF );
-	Log("[IPv6 ]  .TrafficClass = %i", (hdr->Head >> (20)) & 0xFF );
-	Log("[IPv6 ]  .FlowLabel = %i", hdr->Head & 0xFFFFF );
+	Log("[IPv6 ]  .Version       = %i", (hdr->Head >> (20+8)) & 0xF );
+	Log("[IPv6 ]  .TrafficClass  = %i", (hdr->Head >> (20)) & 0xFF );
+	Log("[IPv6 ]  .FlowLabel     = %i", hdr->Head & 0xFFFFF );
 	Log("[IPv6 ]  .PayloadLength = 0x%04x", ntohs(hdr->PayloadLength) );
-	Log("[IPv6 ]  .NextHeader = 0x%02x", hdr->NextHeader );
-	Log("[IPv6 ]  .HopLimit = 0x%02x", hdr->HopLimit );
-	Log("[IPv6 ]  .Source = %04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x", hdr->Source );
-	Log("[IPv6 ]  .Destination = %04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x", hdr->Destination );
+	Log("[IPv6 ]  .NextHeader    = 0x%02x", hdr->NextHeader );
+	Log("[IPv6 ]  .HopLimit      = 0x%02x", hdr->HopLimit );
+	Log("[IPv6 ]  .Source        = %04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x", hdr->Source );
+	Log("[IPv6 ]  .Destination   = %04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x", hdr->Destination );
 	Log("[IPv6 ] }");
 	
 }

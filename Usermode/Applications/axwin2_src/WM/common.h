@@ -24,7 +24,8 @@ extern int	giMouseFD;
 
 // === Functions ===
 extern void	memset32(void *ptr, uint32_t val, size_t count);
-extern void	Video_FillRect(short X, short Y, short W, short H, uint32_t Color);
 extern void	Video_Update(void);
-
+extern void	Video_FillRect(short X, short Y, short W, short H, uint32_t Color);
+extern void	Video_DrawRect(short X, short Y, short W, short H, uint32_t Color);
+extern void	Video_DrawText(short X, short Y, short W, short H, void *Font, int Point, uint32_t Color, char *Text);
 #endif

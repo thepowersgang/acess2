@@ -95,9 +95,6 @@ typedef struct sKernelSymbol {
  */
 
 // === FUNCTIONS ===
-// --- Core ---
-extern void	System_Init(char *ArgString);
-
 // --- IRQs ---
 extern int	IRQ_AddHandler(int Num, void (*Callback)(int));
 
@@ -315,6 +312,7 @@ extern int	strcmp(const char *__str1, const char *__str2);
 extern int	strncmp(const char *Str1, const char *Str2, size_t num);
 extern int	strucmp(const char *Str1, const char *Str2);
 extern char	*strdup(const char *Str);
+extern char	**str_split(const char *__str, char __ch);
 extern int	strpos(const char *Str, char Ch);
 extern int	strpos8(const char *str, Uint32 search);
 extern void	itoa(char *buf, Uint num, int base, int minLength, char pad);

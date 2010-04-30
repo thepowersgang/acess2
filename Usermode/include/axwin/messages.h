@@ -50,6 +50,7 @@ enum eAxWin_Messages
 	MSG_SREQ_SETFONT,	MSG_SREQ_PUTTEXT,
 	
 	// Server Responses
+	MSG_SRSP_VERSION,
 	MSG_SRSP_RETURN,	// {int RequestID, void[] Return Value} - Returns a value from a server request
 	
 	NUM_MSG
@@ -79,7 +80,7 @@ struct sAxWin_SReq_NewWindow
  * \brief Server Response - Pong
  * \see eAxWin_Messages.MSG_SRSP_PONG
  */
-struct sAxWin_SRsp_Pong
+struct sAxWin_SRsp_Version
 {
 	uint8_t	Major;
 	uint8_t	Minor;

@@ -15,8 +15,6 @@
  * Writes to the driver's file while in component colour modes
  * must correspond to a change of the contents of the screen. The framebuffer
  * must start at offset 0 in the file.
- * In pallete colour modes the LFB is preceded by a 1024 byte pallete (allowing
- * room for 256 entries of 32-bits each)
  * Reading from the screen must either return zero, or read from the
  * framebuffer.
  * 
@@ -189,6 +187,17 @@ enum eTplVideo_2DCommands
 	 * \param Height	Uint16 - Height of the region
 	 */
 	VIDEO_2DOP_BLIT,
+
+
+	/**
+	 * \brief Copy a region from video memory to the framebuffer
+	 */
+	VIDEO_2DOP_BLITBUF,
+
+	/**
+	 * \brief Copy and scale a region from video memory to the framebuffer
+	 */
+	VIDEO_2DOP_BLITSCALEBUF,
 
 	NUM_VIDEO_2DOPS
 };

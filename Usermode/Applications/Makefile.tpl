@@ -2,8 +2,10 @@
 #
 #
 
-CFLAGS  += -Wall -fno-builtin -fno-stack-protector
+CFLAGS  += -Wall -fno-builtin -fno-stack-protector -g
 LDFLAGS += 
+
+DEPFILES := $(OBJ:%.o=%.d)
 
 .PHONY : all clean install
 
@@ -17,9 +19,12 @@ install: $(BIN)
 
 $(BIN): $(OBJ)
 	@echo --- $(LD) -o $@
-	@$(LD) $(LDFLAGS) -o $@ $(OBJ) -Map Map.txt
-	@objdump -d $(BIN) > $(BIN).dsm
+	@$(LD) -g $(LDFLAGS) -o $@ $(OBJ) -Map Map.txt
+	@objdump -d -S $(BIN) > $(BIN).dsm
 
 $(OBJ): %.o: %.c
 	@echo --- GCC -o $@
-	@$(CC) $(CFLAGS) $(CPPFLAGS) -c $? -o $@
+	@$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
+	@$(CC) -M -MT $@ $(CPPFLAGS) $< -o $*.d
+
+-include $(DEPFILES)

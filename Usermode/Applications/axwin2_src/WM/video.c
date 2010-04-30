@@ -70,9 +70,31 @@ void Video_FillRect(short X, short Y, short W, short H, uint32_t Color)
 {
 	uint32_t	*buf = gpScreenBuffer + Y*giScreenWidth + X;
 	
+	_SysDebug("Video_FillRect: (X=%i, Y=%i, W=%i, H=%i, Color=%08x)",
+		X, Y, W, H, Color);
+	
+	if(W < 0 || X < 0 || X >= giScreenWidth)	return ;
+	if(X + W > giScreenWidth)	W = giScreenWidth - X;
+	
+	if(H < 0 || H < 0 || H >= giScreenHeight)	return ;
+	if(Y + H > giScreenHeight)	H = giScreenHeight - Y;
+	
 	while( H -- )
 	{
 		memset32( buf, Color, W );
 		buf += giScreenWidth;
 	}
+}
+
+void Video_DrawRect(short X, short Y, short W, short H, uint32_t Color)
+{	
+	Video_FillRect(X, Y, W, 1, Color);
+	Video_FillRect(X, Y+H-1, W, 1, Color);
+	Video_FillRect(X, Y, 1, H, Color);
+	Video_FillRect(X+W-1, Y, 1, H, Color);
+}
+
+void Video_DrawText(short X, short Y, short W, short H, void *Font, int Point, uint32_t Color, char *Text)
+{
+	// TODO!
 }

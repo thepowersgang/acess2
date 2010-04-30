@@ -266,10 +266,11 @@ int Threads_WaitTID(int TID, int *status)
 		 int	initStatus = t->Status;
 		 int	ret;
 		
-		if(initStatus != THREAD_STAT_ZOMBIE)
+		if(initStatus != THREAD_STAT_ZOMBIE) {
 			while(t->Status == initStatus) {
 				Threads_Yield();
 			}
+		}
 		
 		ret = t->RetStatus;
 		switch(t->Status)

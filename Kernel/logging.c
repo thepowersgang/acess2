@@ -21,7 +21,11 @@ enum eLogLevels
 	LOG_LEVEL_DEBUG,
 	NUM_LOG_LEVELS
 };
-const char	*csaLevelCodes[] = {"k","p","f","e","w","n","l","d"};
+const char	*csaLevelColours[] = {
+		"\x1B[35m", "\x1B[34m", "\x1B[36m", "\x1B[31m",
+		"\x1B[33m", "\x1B[32m", "\x1B[0m", "\x1B[0m"
+		};
+const char	*csaLevelCodes[] =  {"k","p","f","e","w","n","l","d"};
 
 // === TYPES ===
 typedef struct sLogEntry
@@ -118,7 +122,8 @@ void Log_AddEvent(char *Ident, int Level, char *Format, va_list Args)
  */
 void Log_Int_PrintMessage(tLogEntry *Entry)
 {
-	LogF("%018lli%s [%+8s] %s\n",
+	LogF("%s%018lli%s [%+8s] %s\x1B[0m\n",
+		csaLevelColours[Entry->Level],
 		Entry->Time,
 		csaLevelCodes[Entry->Level],
 		Entry->Ident,

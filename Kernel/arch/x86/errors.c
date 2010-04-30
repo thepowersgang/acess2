@@ -71,7 +71,7 @@ void ErrorHandler(tRegs *Regs)
 		Regs->int_num, csaERROR_NAMES[Regs->int_num], Regs->err_code);
 	Warning(" CS:EIP = 0x%04x:%08x", Regs->cs, Regs->eip);
 	if(Regs->cs == 0x08)
-		Warning(" SS:ESP = 0x0010:%08x", 0x10, (Uint)Regs+sizeof(tRegs));
+		Warning(" SS:ESP = 0x0010:%08x", (Uint)Regs+sizeof(tRegs));
 	else
 		Warning(" SS:ESP = 0x%04x:%08x", Regs->ss, Regs->esp);
 	Warning(" EFLAGS = 0x%08x", Regs->eflags);

@@ -23,11 +23,20 @@ extern int	Time_Setup(void);
 extern Uint	Proc_Clone(Uint *Err, Uint Flags);
 extern void	Threads_Sleep(void);
 extern void	Threads_Exit(void);
+// --- Core ---
+extern void	System_Init(char *Commandline);
 
-extern int	Modules_LoadBuiltins(void);
+// === PROTOTYPES ===
+void	Arch_LoadBootModules(void);
 
 // === GLOBALS ===
 char	*gsBootCmdLine = NULL;
+struct {
+	void	*Base;
+	Uint	Size;
+	char	*ArgString;
+}	*gaArch_BootModules;
+ int	giArch_NumBootModules = 0;
 
 // === CODE ===
 int kmain(Uint MbMagic, void *MbInfoPtr)
@@ -81,35 +90,44 @@ int kmain(Uint MbMagic, void *MbInfoPtr)
 	// Load Virtual Filesystem
 	VFS_Init();
 	
-	// Initialise builtin modules
-	Log_Log("Arch", "Initialising builtin modules...");
-	Modules_LoadBuiltins();
-	
-	Log_Log("Arch", "Loading %i Modules...", mbInfo->ModuleCount);
-	
 	// Load initial modules
 	mods = (void*)( mbInfo->Modules + KERNEL_BASE );
+	giArch_NumBootModules = mbInfo->ModuleCount;
+	gaArch_BootModules = malloc( giArch_NumBootModules * sizeof(*gaArch_BootModules) );
 	for( i = 0; i < mbInfo->ModuleCount; i ++ )
 	{
 		// Adjust into higher half
-		mods[i].Start += KERNEL_BASE;
-		mods[i].End += KERNEL_BASE;
+		mods[i].Start  += KERNEL_BASE;
+		mods[i].End    += KERNEL_BASE;
 		mods[i].String += KERNEL_BASE;
 		
-		Log_Log("Arch", "Loading '%s'", mods[i].String);
-		
-		if( !Module_LoadMem( (void *)mods[i].Start, mods[i].End-mods[i].Start, (char *)mods[i].String ) )
-		{
-			Log_Warning("Arch", "Unable to load module\n");
-		}
+		gaArch_BootModules[i].Base = (void *)mods[i].Start;
+		gaArch_BootModules[i].Size = mods[i].End - mods[i].Start;
+		gaArch_BootModules[i].ArgString = (char *)mods[i].String;
 	}
 	
 	// Pass on to Independent Loader
 	Log_Log("Arch", "Starting system");
-	System_Init( gsBootCmdLine );
+	System_Init(gsBootCmdLine);
 	
 	// Sleep forever (sleeping beauty)
 	for(;;)
 		Threads_Sleep();
 	return 0;
+}
+
+void Arch_LoadBootModules(void)
+{
+	 int	i;
+	for( i = 0; i < giArch_NumBootModules; i ++ )
+	{
+		Log_Log("Arch", "Loading '%s'", gaArch_BootModules[i].ArgString);
+		
+		if( !Module_LoadMem( gaArch_BootModules[i].Base, gaArch_BootModules[i].Size, gaArch_BootModules[i].ArgString ) )
+		{
+			Log_Warning("Arch", "Unable to load module\n");
+		}
+	}
+	Log_Log("Arch", "Boot modules loaded");
+	free( gaArch_BootModules );
 }

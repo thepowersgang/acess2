@@ -18,13 +18,14 @@
 #define	NUM_VTS	8
 #define MAX_INPUT_CHARS32	64
 #define MAX_INPUT_CHARS8	(MAX_INPUT_CHARS32*4)
-#define VT_SCROLLBACK	2	// 2 Screens of text
-//#define DEFAULT_OUTPUT	"VGA"
 //#define DEFAULT_OUTPUT	"BochsGA"
 #define DEFAULT_OUTPUT	"Vesa"
 #define DEFAULT_INPUT	"PS2Keyboard"
-#define	DEFAULT_WIDTH	80
-#define	DEFAULT_HEIGHT	25
+#define	DEFAULT_WIDTH	640
+#define	DEFAULT_HEIGHT	480
+#define DEFAULT_SCROLLBACK	2	// 2 Screens of text + current screen
+#define	TEXTTERM_WIDTH	(BOOT_WIDTH/8)
+#define	TEXTTERM_HEIGHT	(BOOT_WIDTH/16)
 #define	DEFAULT_COLOUR	(VT_COL_BLACK|(0xAAA<<16))
 
 #define	VT_FLAG_HIDECSR	0x01
@@ -71,7 +72,8 @@ tVFS_Node	*VT_FindDir(tVFS_Node *Node, char *Name);
 Uint64	VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
 Uint64	VT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
  int	VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data);
-void	VT_SetResolution(int IsTextMode, int Width, int Height);
+void	VT_SetResolution(int Width, int Height);
+void	VT_SetMode(int Mode);
 void	VT_SetTerminal(int ID);
 void	VT_KBCallBack(Uint32 Codepoint);
 void	VT_int_PutString(tVTerm *Term, Uint8 *Buffer, Uint Count);
@@ -83,6 +85,8 @@ void	VT_int_ChangeMode(tVTerm *Term, int NewMode);
 
 // === CONSTANTS ===
 const Uint16	caVT100Colours[] = {
+		// Black, Red, Green, Yellow, Blue, Purple, Cyan, Gray
+		// Same again, but bright
 		VT_COL_BLACK, 0x700, 0x070, 0x770, 0x007, 0x707, 0x077, 0xAAA,
 		VT_COL_GREY, 0xF00, 0x0F0, 0xFF0, 0x00F, 0xF0F, 0x0FF, VT_COL_WHITE
 	};
@@ -106,8 +110,9 @@ tVTerm	gVT_Terminals[NUM_VTS];
  int	giVT_CurrentTerminal = 0;
 tVTerm	*gpVT_CurTerm = &gVT_Terminals[0];
 // --- Video State ---
-short	giVT_RealWidth;	//!< Real Width
-short	giVT_RealHeight;	//!< Real Height
+short	giVT_RealWidth  = DEFAULT_WIDTH;	//!< Screen Width
+short	giVT_RealHeight = DEFAULT_HEIGHT;	//!< Screen Height
+ int	giVT_Scrollback = DEFAULT_SCROLLBACK;
 // --- Driver Handles ---
 char	*gsVT_OutputDevice = NULL;
 char	*gsVT_InputDevice = NULL;
@@ -125,36 +130,35 @@ char	*gsVT_InputDevice = NULL;
  */
 int VT_Install(char **Arguments)
 {
-	char	**args = Arguments;
-	char	*arg;
 	 int	i;
 	
 	// Scan Arguments
 	if(Arguments)
 	{
+		char	**args = Arguments;
+		char	*arg, *opt, *val;
 		for( ; (arg = *args); args++ )
 		{
-			if(arg[0] != '-')	continue;
+			Log_Debug("VTerm", "Argument '%s'", arg);
+			opt = arg;
+			val = arg + strpos(arg, '=');	*val++ = '\0';
 			
-			switch(arg[1])
-			{
-			// Set output device
-			case 'o':
-				if(args[1] ==  NULL)	break;
+			if( strcmp(opt, "Video") == 0 ) {
 				if(gsVT_OutputDevice)	free(gsVT_OutputDevice);
-				gsVT_OutputDevice = malloc(strlen(args[1])+1);
-				strcpy(gsVT_OutputDevice, args[1]);
-				args ++;
-				break;
-			
-			// Set input device
-			case 'i':
-				if(args[1] == NULL)	break;
+				gsVT_OutputDevice = strdup(val);
+			}
+			else if( strcmp(opt, "Input") == 0 ) {
 				if(gsVT_InputDevice)	free(gsVT_InputDevice);
-				gsVT_InputDevice = malloc(strlen(args[1])+1);
-				strcpy(gsVT_InputDevice, args[1]);
-				args ++;
-				break;
+				gsVT_InputDevice = strdup(val);
+			}
+			else if( strcmp(opt, "Width") == 0 ) {
+				giVT_RealWidth = atoi( val );
+			}
+			else if( strcmp(opt, "Height") == 0 ) {
+				giVT_RealHeight = atoi( val );
+			}
+			else if( strcmp(opt, "Scrollback") == 0 ) {
+				giVT_Scrollback = atoi( val );
 			}
 		}
 	}
@@ -171,13 +175,16 @@ int VT_Install(char **Arguments)
 	{
 		gVT_Terminals[i].Mode = TERM_MODE_TEXT;
 		gVT_Terminals[i].Flags = 0;
-		gVT_Terminals[i].Width = DEFAULT_WIDTH;
-		gVT_Terminals[i].Height = DEFAULT_HEIGHT;
+		gVT_Terminals[i].Width = giVT_RealWidth/giVT_CharWidth;
+		gVT_Terminals[i].Height = giVT_RealHeight/giVT_CharHeight;
 		gVT_Terminals[i].CurColour = DEFAULT_COLOUR;
 		gVT_Terminals[i].WritePos = 0;
 		gVT_Terminals[i].ViewPos = 0;
 		
-		gVT_Terminals[i].Buffer = calloc( DEFAULT_WIDTH*DEFAULT_HEIGHT*VT_SCROLLBACK, sizeof(tVT_Char) );
+		gVT_Terminals[i].Buffer = calloc(
+			gVT_Terminals[i].Width*gVT_Terminals[i].Height*(giVT_Scrollback+1),
+			sizeof(tVT_Char)
+			);
 		
 		gVT_Terminals[i].Name[0] = '0'+i;
 		gVT_Terminals[i].Name[1] = '\0';
@@ -214,8 +221,9 @@ void VT_InitOutput()
 		Log_Warning("VTerm", "Oh F**k, I can't open the video device '%s'", gsVT_OutputDevice);
 		return ;
 	}
+	VT_SetResolution(giVT_RealWidth, giVT_RealHeight);
 	VT_SetTerminal( 0 );
-	VT_SetResolution(1, 640, 400);
+	VT_SetMode( VIDEO_BUFFMT_TEXT );
 }
 
 /**
@@ -425,6 +433,7 @@ int VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data)
 	
 	switch(Id)
 	{
+	// --- Core Defined
 	case DRV_IOCTL_TYPE:
 		LEAVE('i', DRV_TYPE_TERMINAL);
 		return DRV_TYPE_TERMINAL;
@@ -443,7 +452,12 @@ int VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data)
 	case TERM_IOCTL_MODETYPE:
 		if(Data != NULL)
 		{
+			if( CheckMem(Data, sizeof(int)) == 0 ) {
+				LEAVE('i', -1);
+				return -1;
+			}
 			Log_Log("VTerm", "VTerm %i mode set to %i", (int)Node->Inode, *iData);
+			
 			// Update mode if needed
 			if(term->Mode != *iData)
 				VT_int_ChangeMode(term, *iData);
@@ -457,14 +471,26 @@ int VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data)
 	
 	// Get/set the terminal width
 	case TERM_IOCTL_WIDTH:
-		if(Data != NULL)	term->Width = *iData;
+		if(Data != NULL) {
+			if( CheckMem(Data, sizeof(int)) == 0 ) {
+				LEAVE('i', -1);
+				return -1;
+			}
+			term->Width = *iData;
+		}
 		Log("VT_Terminal_IOCtl - RETURN term->Width = %i", term->Width);
 		LEAVE('i', term->Width);
 		return term->Width;
 	
 	// Get/set the terminal height
 	case TERM_IOCTL_HEIGHT:
-		if(Data != NULL)	term->Height = *iData;
+		if(Data != NULL) {
+			if( CheckMem(Data, sizeof(int)) == 0 ) {
+				LEAVE('i', -1);
+				return -1;
+			}
+			term->Height = *iData;
+		}
 		Log("VT_Terminal_IOCtl - RETURN term->Height = %i", term->Height);
 		LEAVE('i', term->Height);
 		return term->Height;
@@ -480,10 +506,11 @@ int VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data)
 	return -1;
 }
 
-void VT_SetResolution(int IsTextMode, int Width, int Height)
+void VT_SetResolution(int Width, int Height)
 {
 	tVideo_IOCtl_Mode	mode = {0};
 	 int	tmp;
+	 int	i;
 	
 	// Create the video mode
 	mode.width = Width;
@@ -494,12 +521,41 @@ void VT_SetResolution(int IsTextMode, int Width, int Height)
 	// Set video mode
 	VFS_IOCtl( giVT_OutputDevHandle, VIDEO_IOCTL_FINDMODE, &mode );
 	tmp = mode.id;
-	giVT_RealWidth = mode.width;
-	giVT_RealHeight = mode.height;
+	if( Width != mode.width || Height != mode.height )
+	{
+		Log_Warning("VTerm",
+			"Selected resolution (%ix%i is not supported) by the device, using (%ix%i)",
+			giVT_RealWidth, giVT_RealHeight,
+			mode.width, mode.height
+			);
+	}
 	VFS_IOCtl( giVT_OutputDevHandle, VIDEO_IOCTL_GETSETMODE, &tmp );
 	
-	tmp = IsTextMode ? VIDEO_BUFFMT_TEXT : VIDEO_BUFFMT_FRAMEBUFFER;
-	VFS_IOCtl( giVT_OutputDevHandle, VIDEO_IOCTL_SETBUFFORMAT, &tmp );
+	// Resize text terminals if needed
+	if( giVT_RealWidth != mode.width || giVT_RealHeight != mode.height )
+	{
+		 int	newBufSize = (giVT_RealWidth/giVT_CharWidth)
+					*(giVT_RealHeight/giVT_CharHeight)
+					*(giVT_Scrollback+1);
+		//tVT_Char	*tmp;
+		// Resize the text terminals
+		giVT_RealWidth = mode.width;
+		giVT_RealHeight = mode.height;
+		for( i = 0; i < NUM_VTS; i ++ )
+		{
+			if( gVT_Terminals[i].Mode != TERM_MODE_TEXT )	continue;
+			
+			gVT_Terminals[i].Text = realloc(
+				gVT_Terminals[i].Text,
+				newBufSize*sizeof(tVT_Char)
+				);
+		}
+	}
+}
+
+void VT_SetMode(int Mode)
+{
+	VFS_IOCtl( giVT_OutputDevHandle, VIDEO_IOCTL_SETBUFFORMAT, &Mode );
 }
 
 /**
@@ -523,9 +579,9 @@ void VT_SetTerminal(int ID)
 	}
 	
 	if( gpVT_CurTerm->Mode == TERM_MODE_TEXT )
-		VT_SetResolution( 1, gpVT_CurTerm->Width*giVT_CharWidth, gpVT_CurTerm->Height*giVT_CharHeight );
+		VT_SetMode( VIDEO_BUFFMT_TEXT );
 	else
-		VT_SetResolution( 0, gpVT_CurTerm->Width, gpVT_CurTerm->Height );
+		VT_SetMode( VIDEO_BUFFMT_FRAMEBUFFER );
 	
 	// Update the screen
 	VT_int_UpdateScreen( &gVT_Terminals[ ID ], 1 );
@@ -612,10 +668,10 @@ void VT_KBCallBack(Uint32 Codepoint)
 				gpVT_CurTerm->ViewPos = 0;
 			return;
 		case KEY_PGDOWN:
-			if( gpVT_CurTerm->ViewPos < gpVT_CurTerm->Width*(gpVT_CurTerm->Height*(VT_SCROLLBACK-1)) )
+			if( gpVT_CurTerm->ViewPos < gpVT_CurTerm->Width*gpVT_CurTerm->Height*(giVT_Scrollback-1) )
 				gpVT_CurTerm->ViewPos += gpVT_CurTerm->Width;
 			else
-				gpVT_CurTerm->ViewPos = gpVT_CurTerm->Width*(gpVT_CurTerm->Height*(VT_SCROLLBACK-1));
+				gpVT_CurTerm->ViewPos = gpVT_CurTerm->Width*gpVT_CurTerm->Height*(giVT_Scrollback-1);
 			return;
 		}
 	}
@@ -725,28 +781,36 @@ int VT_int_ParseEscape(tVTerm *Term, char *Buffer)
 	char	c;
 	 int	argc = 0, j = 1;
 	 int	tmp;
-	 int	args[4] = {0,0,0,0};
+	 int	args[6] = {0,0,0,0};
 	
-	switch(Buffer[0]) {
+	switch(Buffer[0])
+	{
 	//Large Code
 	case '[':
 		// Get Arguments
-		c = Buffer[1];
-		do {
-			while('0' <= c && c <= '9') {
-				args[argc] *= 10;
-				args[argc] += c-'0';
-				c = Buffer[++j];
-			}
-			if( j != 1 )	argc ++;
-		} while(c == ';');
+		c = Buffer[j++];
+		if( '0' <= c && c <= '9' )
+		{
+			do {
+				while('0' <= c && c <= '9') {
+					args[argc] *= 10;
+					args[argc] += c-'0';
+					c = Buffer[j++];
+				}
+				argc ++;
+			} while(c == ';');
+		}
 		
+		/*
 		// Get string (what does this do?)
 		if(c == '"') {
-			c = Buffer[++j];
+			c = Buffer[j++];
 			while(c != '"')
-				c = Buffer[++j];
+				c = Buffer[j++];
 		}
+		*/
+		
+		//Log_Debug("VTerm", "argc = %i", argc);
 		
 		// Get Command
 		if(	('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z'))
@@ -782,7 +846,7 @@ int VT_int_ParseEscape(tVTerm *Term, char *Buffer)
 				{
 				case 2:
 					{
-					 int	i = Term->Height * VT_SCROLLBACK;
+					 int	i = Term->Height * (giVT_Scrollback + 1);
 					while( i-- )	VT_int_ClearLine(Term, i);
 					Term->WritePos = 0;
 					Term->ViewPos = 0;
@@ -817,15 +881,18 @@ int VT_int_ParseEscape(tVTerm *Term, char *Buffer)
 					}
 				}
 				break;
+			default:
+				Log_Warning("VTerm", "Unknown control sequence");
+				break;
 			}
 		}
 		break;
 		
-	default:
-		break;
+	default:	break;
 	}
 	
-	return j + 1;
+	//Log_Debug("VTerm", "j = %i, Buffer = '%s'", j, Buffer);
+	return j;
 }
 
 /**
@@ -841,7 +908,7 @@ void VT_int_PutString(tVTerm *Term, Uint8 *Buffer, Uint Count)
 		if( Buffer[i] == 0x1B )	// Escape Sequence
 		{
 			i ++;
-			i += VT_int_ParseEscape(Term, (char*)&Buffer[i]);
+			i += VT_int_ParseEscape(Term, (char*)&Buffer[i]) - 1;
 			continue;
 		}
 		
@@ -923,25 +990,25 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 	}
 	
 	// Move Screen
-	if(Term->WritePos >= Term->Width*Term->Height*VT_SCROLLBACK)
+	if(Term->WritePos >= Term->Width*Term->Height*(giVT_Scrollback+1))
 	{
 		 int	base, i;
 		Term->WritePos -= Term->Width;
 		VT_int_UpdateScreen( Term, 0 );
 		
 		// Update view position
-		base = Term->Width*Term->Height*(VT_SCROLLBACK-1);
+		base = Term->Width*Term->Height*(giVT_Scrollback-1);
 		if(Term->ViewPos < base)	Term->ViewPos += Term->Width;
 		if(Term->ViewPos > base)	Term->ViewPos = base;
 		
 		// Scroll terminal cache
-		base = Term->Width*(Term->Height*VT_SCROLLBACK-1);
+		base = Term->Width*(Term->Height*(giVT_Scrollback+1)-1);
 		
 		// Scroll Back
 		memcpy(
 			Term->Text,
 			&Term->Text[Term->Width],
-			(Term->Width*Term->Height*VT_SCROLLBACK-Term->Width)*sizeof(tVT_Char)
+			(Term->Width*Term->Height*(giVT_Scrollback+1)-Term->Width)*sizeof(tVT_Char)
 			);
 		
 		// Clear last row
@@ -1061,7 +1128,7 @@ void VT_int_ChangeMode(tVTerm *Term, int NewMode)
 	case TERM_MODE_TEXT:
 		Log_Log("VTerm", "Set VT %p to text mode", Term);
 		free(Term->Buffer);
-		Term->Text = calloc( Term->Width*Term->Height*VT_SCROLLBACK, sizeof(tVT_Char) );
+		Term->Text = calloc( Term->Width*Term->Height*(giVT_Scrollback+1), sizeof(tVT_Char) );
 		break;
 	case TERM_MODE_FB:
 		Log_Log("VTerm", "Set VT %p to framebuffer mode (%ix%i)", Term,

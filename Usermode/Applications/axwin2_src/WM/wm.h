@@ -11,11 +11,9 @@ typedef struct sElement
 	struct sElement	*LastChild;
 	struct sElement	*NextSibling;
 	
-	
-	short	CachedX;
-	short	CachedY;
-	short	CachedW;
-	short	CachedH;
+	short	PaddingL, PaddingR;
+	short	PaddingT, PaddingB;
+	short	GapSize;
 	
 	short	Size;	// Size attribute
 	
@@ -23,6 +21,10 @@ typedef struct sElement
 	void	*Data;
 	
 	uint32_t	Flags;
+	
+	// -- Render Cache
+	short	CachedX, CachedY;
+	short	CachedW, CachedH;
 }	tElement;
 
 typedef struct sTab
@@ -51,10 +53,57 @@ typedef struct sApplication
 // === CONSTANTS ===
 enum eElementFlags
 {
-	ELEFLAG_VISIBLE     = 0x001,	ELEFLAG_INVISIBLE   = 0x000,
-	ELEFLAG_VERTICAL    = 0x002,	ELEFLAG_HORIZONTAL  = 0x000,
-	ELEFLAG_WRAP        = 0x004,	ELEFLAG_NOWRAP      = 0x000,
+	/**
+	 * \brief Rendered
+	 * 
+	 * If set, the element will be ignored in calculating sizes and
+	 * rendering.
+	 */
+	ELEFLAG_NORENDER    = 0x001,
+	/**
+	 * \brief Element visibility
+	 * 
+	 * If set, the element is not drawn.
+	 */
+	ELEFLAG_INVISIBLE   = 0x002,
+	
+	/**
+	 * \brief Position an element absulutely
+	 */
+	ELEFLAG_ABSOLUTEPOS = 0x004,
+	
+	/**
+	 * \brief Fixed size element
+	 */
+	ELEFLAG_FIXEDSIZE   = 0x008,
+	
+	/**
+	 * \brief Element "orientation"
+	 */
+	ELEFLAG_VERTICAL    = 0x010,//	ELEFLAG_HORIZONTAL  = 0x000,
+	/**
+	 * \brief Action for text that overflows
+	 */
+	ELEFLAG_WRAP        = 0x020,//	ELEFLAG_NOWRAP      = 0x000,
+	/**
+	 * \brief Cross size action
+	 * 
+	 * If this flag is set, the element will only be as large (across
+	 * its parent) as is needed to encase the contents of the element.
+	 * Otherwise, the element will expand to fill all avaliable space.
+	 */
+	ELEFLAG_NOEXPAND    = 0x040,	//	ELEFLAG_EXPAND      = 0x000
+	
+	/**
+	 * \brief Center alignment
+	 */
+	ELEFLAG_ALIGN_CENTER= 0x080,
+	/**
+	 * \brief Right/Bottom alignment
+	 */
+	ELEFLAG_ALIGN_END = 0x100
 };
+
 /**
  */
 enum eElementTypes
@@ -67,11 +116,11 @@ enum eElementTypes
 	
 	ELETYPE_BUTTON,	//!< Push Button
 	ELETYPE_TEXT,	//!< Text
+	ELETYPE_IMAGE,	//!< Image
 	
 	ELETYPE_SPACER,	//!< Visual Spacer
-	ELETYPE_GAP,	//!< Alignment Gap
 	
-	NUM_ELETYPES
+	MAX_ELETYPES	= 0x100
 };
 
 // === FUNCTIONS ===

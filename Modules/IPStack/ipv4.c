@@ -103,6 +103,7 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	 int	dataLength;
 	if(Length < sizeof(tIPv4Header))	return;
 	
+	#if 0
 	//Log_Log("IPv4", "Version = %i", hdr->Version);
 	//Log_Log("IPv4", "HeaderLength = %i", hdr->HeaderLength);
 	//Log_Log("IPv4", "DiffServices = %i", hdr->DiffServices);
@@ -116,7 +117,8 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	Log_Log("IPv4", "Destination = %i.%i.%i.%i",
 		hdr->Destination.B[0], hdr->Destination.B[1],
 		hdr->Destination.B[2], hdr->Destination.B[3] );
-	
+	#endif	
+
 	// Check that the version IS IPv4
 	if(hdr->Version != 4) {
 		Log_Log("IPv4", "hdr->Version(%i) != 4", hdr->Version);

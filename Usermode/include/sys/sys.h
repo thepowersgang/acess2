@@ -40,5 +40,3 @@ extern int	pollmsg(int *src, unsigned int *Data);
 extern int	getmsg(int *src, unsigned int *Data);
 
 #endif
-
-#endif
