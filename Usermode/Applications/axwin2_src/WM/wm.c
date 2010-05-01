@@ -40,8 +40,6 @@ tElement *WM_CreateElement(tElement *Parent, int Type, int Flags)
 {
 	tElement	*ret;
 	
-	if(Type < 0 || Type > NUM_ELETYPES)	return NULL;
-	
 	ret = calloc(sizeof(tElement), 1);
 	if(!ret)	return NULL;
 	
@@ -92,7 +90,7 @@ void WM_SetText(tElement *Element, char *Text)
 	{
 	case ELETYPE_IMAGE:
 		if(Element->Data)	free(Element->Data);
-		Element->Data = LoadImage( Element->Text );
+		Element->Data = Image_Load( Element->Text );
 		if(!Element->Data) {
 			Element->Flags &= ~ELEFLAG_FIXEDSIZE;
 			return ;
@@ -113,9 +111,14 @@ void WM_SetText(tElement *Element, char *Text)
 }
 
 // --- Pre-Rendering ---
-#if 0
+#if 1
 void WM_UpdateDimensions(tElement *Element, int Pass)
 {
+	 int 	fixedSize = 0, maxCross = 0;
+	 int	nFixed = 0, nChildren = 0;
+	 int	minSize = 0;
+	tElement	*child;
+	
 	// Pass zero intialises
 	if( Pass == 0 )
 	{
@@ -131,11 +134,17 @@ void WM_UpdateDimensions(tElement *Element, int Pass)
 				else
 					Element->CachedW = Element->Size;
 			}
+			
+			if( !(Element->Flags & ELEFLAG_NOEXPAND) )
+			{
+				if( Element->Parent->Flags & ELEFLAG_VERTICAL )
+					Element->CachedW = Element->Parent->CachedW;
+				else
+					Element->CachedH = Element->Parent->CachedH;
+			}
 		}
 	}
 
-	 int 	fixedSize = 0, maxCross = 0;
-	 int	nFixed = 0, nChildren = 0;
 	for( child = Element->FirstChild; child; child = child->NextSibling )
 	{
 		WM_UpdateDimensions( child, 0 );
@@ -144,22 +153,33 @@ void WM_UpdateDimensions(tElement *Element, int Pass)
 		{
 			if( child->CachedH ) {
 				fixedSize += child->CachedH;
+				minSize += child->CachedH;
 				nFixed ++;
 			}
+			else
+				minSize += child->MinHeight;
+			
 			if( maxCross < child->CachedW )
-				maxCross = child->CachedW;
+				maxCross = child->CachedW;;
 		}
 		else
 		{
 			if( child->CachedW ) {
 				fixedSize += child->CachedW;
+				minSize += child->CachedW;
 				nFixed ++;
 			}
+			else
+				minSize += child->MinWidth;
+			
 			if( maxCross < child->CachedH )
 				maxCross = child->CachedH;
 		}
 		nChildren ++;
 	}
+	_SysDebug("WM_UpdateDimensions: nFixed=%i, fixedSize=%i, minSize=%i, maxCross=%i",
+		nFixed, fixedSize, minSize, maxCross
+		);
 
 
 	// If we don't have our dimensions, get the child dimensions
@@ -212,22 +232,26 @@ void WM_UpdateDimensions(tElement *Element, int Pass)
 			// Get the size of them
 			if(child->Size)
 				tmp = child->Size;
-			else if(dynSize < Element->MinSize)
-				tmp = child->MinSize;
 			else
 				tmp = dynSize;
 			
-			if( Element->Flags & ELEFLAG_VERTICAL )
+			if( Element->Flags & ELEFLAG_VERTICAL ) {
+				if( tmp < child->MinHeight )
+					tmp = child->MinHeight;
 				child->CachedH = tmp;
-			else
+			}
+			else {
+				if( tmp < child->MinWidth )
+					tmp = child->MinWidth;
 				child->CachedW = tmp;
+			}
 			
 			WM_UpdateDimensions(child, 1);
 		}
 	}
 }
 
-#endif
+#else
 
 /**
  * \brief Updates the dimensions of an element
@@ -399,6 +423,7 @@ void WM_UpdateDimensions(tElement *Element, int Pass)
 	// We should be done
 	// Next function will do the coordinates
 }
+#endif
 
 
 /**

@@ -10,6 +10,7 @@ extern void	ParseCommandline(int argc, char *argv[]);
 extern void	Video_Setup(void);
 extern void	WM_Update(void);
 extern void	Messages_PollIPC(void);
+extern void	Interface_Init(void);
 
 // === GLOBALS ===
 char	*gsTerminalDevice = NULL;

@@ -87,7 +87,7 @@ char *GetUsername()
 	while( (ch = fgetc(stdin)) != -1 && ch != '\n' )
 	{
 		if(ch == '\b') {
-			if( pos == 0 )	continue;
+			if( pos <= 0 )	continue;
 			pos --;
 			ret[pos] = '\0';
 		}
@@ -123,7 +123,7 @@ char *GetPassword()
 	while( (ch = fgetc(stdin)) != -1 && ch != '\n' )
 	{
 		if(ch == '\b') {
-			if( pos == 0 )	continue;
+			if( pos <= 0 )	continue;
 			pos --;
 			ret[pos] = '\0';
 		}

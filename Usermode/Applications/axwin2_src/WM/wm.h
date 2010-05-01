@@ -13,6 +13,7 @@ typedef struct sElement
 	
 	short	PaddingL, PaddingR;
 	short	PaddingT, PaddingB;
+	short	MinWidth, MinHeight;
 	short	GapSize;
 	
 	short	Size;	// Size attribute

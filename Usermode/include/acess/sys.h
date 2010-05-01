@@ -61,7 +61,7 @@ typedef struct s_sysACL	t_sysACL;
 extern int	_errno;
 
 // === FUNCTIONS ===
-extern void	_SysDebug(char *str, ...);
+extern void	_SysDebug(const char *format, ...);
 // --- Proc ---
 extern void	_exit(int status)	__attribute__((noreturn));
 extern void	sleep();
