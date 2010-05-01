@@ -390,26 +390,36 @@ Uint64 VT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		{
 			if( giVT_RealWidth > term->Width || giVT_RealHeight > term->Height )
 			{
-				#if 0
-				 int	x, y, h;
+				 int	x, y, w, h;
 				x = Offset/4;	y = x / term->Width;	x %= term->Width;
 				w = Length/4+x;	h = w / term->Width;	w %= term->Width;
+				// Center
+				x += (giVT_RealWidth - term->Width) / 2;
+				y += (giVT_RealHeight - term->Height) / 2;
 				while(h--)
 				{
 					VFS_WriteAt( giVT_OutputDevHandle,
-						(x+y*term->RealWidth)*4,
+						(x + y * giVT_RealWidth)*4,
 						term->Width * 4,
 						Buffer
 						);
-					Buffer = (void*)( (Uint)Buffer + term->Width*term->Height*4 );
+					Buffer = (void*)( (Uint)Buffer + term->Width*4 );
+					y ++;
 				}
-				#endif
 				return 0;
 			}
 			else {
 				return VFS_WriteAt( giVT_OutputDevHandle, Offset, Length, Buffer );
 			}
 		}
+	
+	case TERM_MODE_2DACCEL:
+	//case TERM_MODE_3DACCEL:
+		if( Node->Inode == giVT_CurrentTerminal )
+		{
+			VFS_Write( giVT_OutputDevHandle, Length, Buffer );
+		}
+		break;
 	}
 	
 	return 0;
