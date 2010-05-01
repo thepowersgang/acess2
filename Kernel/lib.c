@@ -489,7 +489,6 @@ char **str_split(const char *__str, char __ch)
 	{
 		if(__str[i] == __ch) {
 			*start++ = '\0';
-			Log_Debug("Lib", "str_split: ret[%i] = '%s'", j-1, ret[j-1]);
 			ret[j++] = start;
 		}
 		else {
@@ -498,10 +497,6 @@ char **str_split(const char *__str, char __ch)
 	}
 	*start = '\0';
 	ret[j] = NULL;
-	Log_Debug("Lib", "str_split: ret[%i] = '%s'", j-1, ret[j-1]);
-	
-	for( j = 0; j < len; j++ )
-		Log_Debug("Lib", "str_split: ret[%i] = '%s'", j, ret[j]);
 	
 	return ret;
 }
