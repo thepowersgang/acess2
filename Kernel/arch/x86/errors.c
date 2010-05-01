@@ -12,7 +12,8 @@
 // === IMPORTS ===
 extern void	MM_PageFault(Uint Addr, Uint ErrorCode, tRegs *Regs);
 extern void	VM8086_GPF(tRegs *Regs);
-extern void Threads_Dump();
+extern void Threads_Dump(void);
+extern void	Threads_Fault(int Num);
 
 // === PROTOTYPES ===
 void	Error_Backtrace(Uint eip, Uint ebp);
@@ -63,6 +64,28 @@ void ErrorHandler(tRegs *Regs)
 	if(Regs->int_num == 13 && Regs->eflags & 0x20000)
 	{
 		VM8086_GPF(Regs);
+		return ;
+	}
+	
+	// Check if it's a user mode fault
+	if( Regs->eip < KERNEL_BASE || (Regs->cs & 3) == 3 ) {
+		Log_Warning("Arch", "User Fault -  %s, Code: 0x%x",
+			csaERROR_NAMES[Regs->int_num], Regs->err_code);
+		Log_Warning("Arch", "at CS:EIP %04x:%08x",
+			Regs->cs, Regs->eip);
+		switch( Regs->int_num )
+		{
+		// Division by Zero
+		case  0:	Threads_Fault(FAULT_DIV0);	break;
+		// Invalid opcode
+		case  6:	Threads_Fault(FAULT_OPCODE);	break;
+		// GPF
+		case 13:	Threads_Fault(FAULT_ACCESS);	break;
+		// Floating Point Exception
+		case 16:	Threads_Fault(FAULT_FLOAT);	break;
+		
+		default:	Threads_Fault(FAULT_MISC);	break;
+		}
 		return ;
 	}
 	

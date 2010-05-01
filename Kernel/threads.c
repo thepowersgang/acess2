@@ -565,7 +565,7 @@ void Threads_AddActive(tThread *Thread)
 }
 
 /**
- * \fn void Threads_SetSignalHandler(Uint Handler)
+ * \fn void Threads_SetFaultHandler(Uint Handler)
  * \brief Sets the signal handler for a signal
  */
 void Threads_SetFaultHandler(Uint Handler)
@@ -605,6 +605,8 @@ void Threads_Fault(int Num)
 		Threads_Kill(thread, -1);	// For now, just kill
 		HALT();
 	}
+	
+	thread->CurFaultNum = Num;
 	
 	Proc_CallFaultHandler(thread);
 }

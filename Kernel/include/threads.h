@@ -67,6 +67,16 @@ enum {
 	THREAD_STAT_DEAD
 };
 
+enum eFaultNumbers
+{
+	FAULT_MISC,
+	FAULT_PAGE,
+	FAULT_ACCESS,
+	FAULT_DIV0,
+	FAULT_OPCODE,
+	FAULT_FLOAT
+};
+
 // === FUNCTIONS ===
 extern tThread	*Proc_GetCurThread();
 extern tThread	*Threads_GetThread(Uint TID);
