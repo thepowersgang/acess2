@@ -54,10 +54,8 @@ void	Log_Warning(char *Ident, char *Message, ...);
 void	Log_Notice(char *Ident, char *Message, ...);
 void	Log_Log(char *Ident, char *Message, ...);
 void	Log_Debug(char *Ident, char *Message, ...);
-//static Uint64	Log_Int_GetIdent(const char *Str);
 
 // === EXPORTS ===
-EXPORT(Log_KernelPanic);
 EXPORT(Log_Panic);
 EXPORT(Log_Error);
 EXPORT(Log_Warning);

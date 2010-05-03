@@ -193,44 +193,38 @@ void WM_UpdateDimensions(tElement *Element, int Pass)
 	// Pass 2 - Set sizes and recurse
 	for( child = Element->FirstChild; child; child = child->NextSibling )
 	{
-		// Cross Size
-		if( child->FixedCross ) {
-			if( Element->Flags & ELEFLAG_VERTICAL )
-				child->CachedW = child->FixedCross;
-			else
-				child->CachedH = child->FixedCross;
-		}
-		else {
-			 int	cross;
-			_SysDebug("%p,%p ->MinCross = %i", Element, child, child->MinCross);
-			// Expand to fill?
-			// TODO: Extra flag so options are (Expand, Equal, Wrap)
-			if( child->Flags & ELEFLAG_NOEXPAND )
-				cross = child->MinCross;
-			else
-				cross = fullCross;
-			
-			_SysDebug("%p,%p - cross = %i", Element, child, cross);
-			
-			if( Element->Flags & ELEFLAG_VERTICAL )
-				child->CachedW = cross;
-			else
-				child->CachedH = cross;
-		}
+		 int	cross, with;
 		
-		// With size
-		if( child->FixedWith ) {
-			if( Element->Flags & ELEFLAG_VERTICAL )
-				child->CachedH = child->FixedWith;
-			else
-				child->CachedW = child->FixedWith;
-		}
-		else {
-			if( Element->Flags & ELEFLAG_VERTICAL )
-				child->CachedH = dynWith;
-			else
-				child->CachedW = dynWith;
-		}
+		_SysDebug("%p,%p ->MinCross = %i", Element, child, child->MinCross);
+
+		
+		// --- Cross Size ---
+		if( child->FixedCross )
+			cross = child->FixedCross;
+		// Expand to fill?
+		// TODO: Extra flag so options are (Expand, Equal, Wrap)
+		else if( child->Flags & ELEFLAG_NOEXPAND )
+			cross = child->MinCross;
+		else
+			cross = fullCross;
+		_SysDebug("%p,%p - cross = %i", Element, child, cross);
+		if( Element->Flags & ELEFLAG_VERTICAL )
+			child->CachedW = cross;
+		else
+			child->CachedH = cross;
+		
+		// --- With Size ---
+		if( child->FixedWith)
+			with = child->FixedWith;
+		else if( child->Flags & ELEFLAG_NOSTRETCH )
+			with = child->MinWith;
+		else
+			with = dynWith;
+		_SysDebug("%p,%p - with = %i", Element, child, with);
+		if( Element->Flags & ELEFLAG_VERTICAL )
+			child->CachedH = with;
+		else
+			child->CachedW = with;
 		
 		WM_UpdateDimensions(child, 0);
 	}

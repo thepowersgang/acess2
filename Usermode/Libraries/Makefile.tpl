@@ -13,7 +13,7 @@ install: $(BIN)
 
 $(BIN): $(OBJ)
 	$(LD) $(LDFLAGS) -o $(BIN) $(OBJ)
-	@$(OBJDUMP) -d $(BIN) > $(BIN).dsm
+	@$(OBJDUMP) -d -S $(BIN) > $(BIN).dsm
 
 %.o: %.c
 	$(CC) $(CFLAGS) -o $@ -c $<

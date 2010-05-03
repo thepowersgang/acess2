@@ -17,7 +17,7 @@
 #define	_stdout	1
 
 // === PROTOTYPES ===
-EXPORT void	itoa(char *buf, uint64_t num, int base, int minLength, char pad, int bSigned);
+EXPORT void	itoa(char *buf, uint64_t num, uint base, int minLength, char pad, int bSigned);
 struct sFILE	*get_file_struct();
 
 // === GLOBALS ===
@@ -294,7 +294,7 @@ EXPORT int vsprintf(char * __s, const char *__format, va_list __args)
 */
 EXPORT int vsnprintf(char *buf, size_t __maxlen, const char *format, va_list args)
 {
-	char	tmp[33];
+	char	tmp[65];
 	 int	c, minSize;
 	 int	pos = 0;
 	char	*p;
@@ -377,6 +377,9 @@ EXPORT int vsnprintf(char *buf, size_t __maxlen, const char *format, va_list arg
 				buf[pos+2] = 'x';
 			}
 			pos += 3;
+			arg = va_arg(args, uint32_t);
+			itoa(tmp, arg, 16, minSize, pad, 0);
+			goto sprintf_puts;
 			// Fall through to hex
 		// Unsigned Hexadecimal
 		case 'x':
@@ -405,6 +408,7 @@ EXPORT int vsnprintf(char *buf, size_t __maxlen, const char *format, va_list arg
 			p = (void*)(intptr_t)arg;
 		sprintf_puts:
 			if(!p)	p = "(null)";
+			//_SysDebug("vsnprintf: p = '%s'", p);
 			if(buf) {
 				while(*p) {
 					if(pos < __maxlen)	buf[pos] = *p;
@@ -428,6 +432,8 @@ EXPORT int vsnprintf(char *buf, size_t __maxlen, const char *format, va_list arg
     }
 	if(buf && pos < __maxlen)	buf[pos] = '\0';
 	
+	//_SysDebug("vsnprintf: buf = '%s'", buf);
+	
 	return pos;
 }
 
@@ -436,13 +442,13 @@ const char cUCDIGITS[] = "0123456789ABCDEF";
  * \fn static void itoa(char *buf, uint64_t num, int base, int minLength, char pad, int bSigned)
  * \brief Convert an integer into a character string
  */
-EXPORT void itoa(char *buf, uint64_t num, int base, int minLength, char pad, int bSigned)
+EXPORT void itoa(char *buf, uint64_t num, size_t base, int minLength, char pad, int bSigned)
 {
-	char	tmpBuf[32];
+	char	tmpBuf[64];
 	 int	pos=0, i;
 
 	if(!buf)	return;
-	if(base > 16) {
+	if(base > 16 || base < 2) {
 		buf[0] = 0;
 		return;
 	}
@@ -455,13 +461,13 @@ EXPORT void itoa(char *buf, uint64_t num, int base, int minLength, char pad, int
 		bSigned = 0;
 	
 	while(num > base-1) {
-		tmpBuf[pos] = cUCDIGITS[ num % base ];
-		num = (long) num / base;		// Shift {number} right 1 digit
-		pos++;
+		tmpBuf[pos++] = cUCDIGITS[ num % base ];
+		num = (uint64_t) num / (uint64_t)base;		// Shift {number} right 1 digit
 	}
 
 	tmpBuf[pos++] = cUCDIGITS[ num % base ];		// Last digit of {number}
 	if(bSigned)	tmpBuf[pos++] = '-';	// Append sign symbol if needed
+	
 	i = 0;
 	minLength -= pos;
 	while(minLength-- > 0)	buf[i++] = pad;

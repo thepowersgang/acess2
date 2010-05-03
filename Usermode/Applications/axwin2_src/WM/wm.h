@@ -98,16 +98,18 @@ enum eElementFlags
 	 * its parent) as is needed to encase the contents of the element.
 	 * Otherwise, the element will expand to fill all avaliable space.
 	 */
-	ELEFLAG_NOEXPAND    = 0x040,	//	ELEFLAG_EXPAND      = 0x000
+	ELEFLAG_NOEXPAND    = 0x040,
+	
+	ELEFLAG_NOSTRETCH   = 0x080,
 	
 	/**
 	 * \brief Center alignment
 	 */
-	ELEFLAG_ALIGN_CENTER= 0x080,
+	ELEFLAG_ALIGN_CENTER= 0x100,
 	/**
 	 * \brief Right/Bottom alignment
 	 */
-	ELEFLAG_ALIGN_END = 0x100
+	ELEFLAG_ALIGN_END = 0x200
 };
 
 /**
