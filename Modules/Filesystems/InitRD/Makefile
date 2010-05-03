@@ -2,6 +2,7 @@
 #
 
 OBJ = main.o files.o
+EXTRA = files.c
 NAME = InitRD
 
 -include ../Makefile.tpl

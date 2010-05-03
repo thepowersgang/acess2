@@ -14,6 +14,7 @@ extern void	Decorator_RenderWidget(tElement *Element);
 
 // === PROTOTYPES ===
 tElement	*WM_CreateElement(tElement *Parent, int Type, int Flags);
+void	WM_UpdateMinDims(tElement *Element);
 void	WM_SetFlags(tElement *Element, int Flags);
 void	WM_SetSize(tElement *Element, int Size);
 void	WM_SetText(tElement *Element, char *Text);
@@ -47,6 +48,7 @@ tElement *WM_CreateElement(tElement *Parent, int Type, int Flags)
 	ret->Type = Type;
 	if(Parent == NULL)	Parent = &gWM_RootElement;
 	ret->Parent = Parent;
+	ret->Flags = Flags;
 	
 	// Append to parent's list
 	ret->NextSibling = Parent->LastChild;
@@ -58,9 +60,17 @@ tElement *WM_CreateElement(tElement *Parent, int Type, int Flags)
 	ret->PaddingT = 2;
 	ret->PaddingB = 2;
 	
+	if( gaWM_WidgetTypes[Type].Init )
+		gaWM_WidgetTypes[Type].Init(ret);
+	
+	WM_UpdateMinDims(ret->Parent);
+	
 	return ret;
 }
 
+/**
+ * \brief Alter an element's flags 
+ */
 void WM_SetFlags(tElement *Element, int Flags)
 {
 	// Permissions are handled in the message handler
@@ -76,7 +86,7 @@ void WM_SetFlags(tElement *Element, int Flags)
 void WM_SetSize(tElement *Element, int Size)
 {
 	if(!Element)	return ;
-	Element->Size = Size;
+	Element->FixedWith = Size;
 	return ;
 }
 
@@ -96,14 +106,18 @@ void WM_SetText(tElement *Element, char *Text)
 			return ;
 		}
 		
-		Element->Flags |= ELEFLAG_FIXEDSIZE;
+		//Element->Flags |= ELEFLAG_FIXEDSIZE;
 		Element->CachedW = ((tImage*)Element->Data)->Width;
 		Element->CachedH = ((tImage*)Element->Data)->Height;
 		
-		if(Element->Parent && Element->Parent->Flags & ELEFLAG_VERTICAL)
-			Element->Size = Element->CachedH;
-		else
-			Element->Size = Element->CachedW;
+		if(Element->Parent && Element->Parent->Flags & ELEFLAG_VERTICAL) {
+			Element->MinCross = ((tImage*)Element->Data)->Width;
+			Element->MinWith = ((tImage*)Element->Data)->Height;
+		}
+		else {
+			Element->MinWith = ((tImage*)Element->Data)->Width;
+			Element->MinCross = ((tImage*)Element->Data)->Height;
+		}
 		break;
 	}
 	
@@ -111,148 +125,6 @@ void WM_SetText(tElement *Element, char *Text)
 }
 
 // --- Pre-Rendering ---
-#if 1
-void WM_UpdateDimensions(tElement *Element, int Pass)
-{
-	 int 	fixedSize = 0, maxCross = 0;
-	 int	nFixed = 0, nChildren = 0;
-	 int	minSize = 0;
-	tElement	*child;
-	
-	// Pass zero intialises
-	if( Pass == 0 )
-	{
-		// If not a fixed size element, initialise the sizes
-		if( !(Element->Flags & ELEFLAG_FIXEDSIZE) )
-		{
-			Element->CachedH = 0;
-			Element->CachedW = 0;
-			if( Element->Size )
-			{
-				if( Element->Parent->Flags & ELEFLAG_VERTICAL )
-					Element->CachedH = Element->Size;
-				else
-					Element->CachedW = Element->Size;
-			}
-			
-			if( !(Element->Flags & ELEFLAG_NOEXPAND) )
-			{
-				if( Element->Parent->Flags & ELEFLAG_VERTICAL )
-					Element->CachedW = Element->Parent->CachedW;
-				else
-					Element->CachedH = Element->Parent->CachedH;
-			}
-		}
-	}
-
-	for( child = Element->FirstChild; child; child = child->NextSibling )
-	{
-		WM_UpdateDimensions( child, 0 );
-		
-		if( Element->Flags & ELEFLAG_VERTICAL )
-		{
-			if( child->CachedH ) {
-				fixedSize += child->CachedH;
-				minSize += child->CachedH;
-				nFixed ++;
-			}
-			else
-				minSize += child->MinHeight;
-			
-			if( maxCross < child->CachedW )
-				maxCross = child->CachedW;;
-		}
-		else
-		{
-			if( child->CachedW ) {
-				fixedSize += child->CachedW;
-				minSize += child->CachedW;
-				nFixed ++;
-			}
-			else
-				minSize += child->MinWidth;
-			
-			if( maxCross < child->CachedH )
-				maxCross = child->CachedH;
-		}
-		nChildren ++;
-	}
-	_SysDebug("WM_UpdateDimensions: nFixed=%i, fixedSize=%i, minSize=%i, maxCross=%i",
-		nFixed, fixedSize, minSize, maxCross
-		);
-
-
-	// If we don't have our dimensions, get the child dimensions
-	if( Element->CachedW == 0 || Element->CachedH == 0 )
-	{	
-		if( Element->Flags & ELEFLAG_VERTICAL )
-		{
-			if( Element->CachedW == 0 && maxCross )
-				Element->CachedW = Element->PaddingL
-					+ Element->PaddingR + maxCross;
-			
-			if( Element->CachedH == 0 && nFixed == nChildren )
-				Element->CachedH = Element->PaddingT
-					+ Element->PaddingB + fixedSize
-					+ nChildren * Element->GapSize;
-		}
-		else
-		{
-			if( maxCross )
-				Element->CachedH = Element->PaddingT
-					+ Element->PaddingB + maxCross;
-			
-			if( Element->CachedW == 0 && nFixed == nChildren )
-				Element->CachedW = Element->PaddingL
-					+ Element->PaddingR + fixedSize
-					+ nChildren * Element->GapSize;
-		}
-	}
-	
-	// Now, if we have the "length" of the widget, we can size the children
-	if( (Element->Flags & ELEFLAG_VERTICAL && Element->CachedH > 0)
-	 || (!(Element->Flags & ELEFLAG_VERTICAL) && Element->CachedW > 0) )
-	{
-		 int	dynSize;
-		
-		// Calculate the size of dynamically sized elements
-		if( Element->Flags & ELEFLAG_VERTICAL )
-			dynSize = Element->CachedH - Element->PaddingT
-				 - Element->PaddingB - fixedSize;
-		else
-			dynSize = Element->CachedW - Element->PaddingL
-				 - Element->PaddingR - fixedSize;
-		dynSize /= nChildren - nFixed;
-		
-		// Itterate children again
-		for( child = Element->FirstChild; child; child = child->NextSibling )
-		{
-			 int	tmp;
-			
-			// Get the size of them
-			if(child->Size)
-				tmp = child->Size;
-			else
-				tmp = dynSize;
-			
-			if( Element->Flags & ELEFLAG_VERTICAL ) {
-				if( tmp < child->MinHeight )
-					tmp = child->MinHeight;
-				child->CachedH = tmp;
-			}
-			else {
-				if( tmp < child->MinWidth )
-					tmp = child->MinWidth;
-				child->CachedW = tmp;
-			}
-			
-			WM_UpdateDimensions(child, 1);
-		}
-	}
-}
-
-#else
-
 /**
  * \brief Updates the dimensions of an element
  * 
@@ -263,168 +135,106 @@ void WM_UpdateDimensions(tElement *Element, int Pass)
 void WM_UpdateDimensions(tElement *Element, int Pass)
 {
 	tElement	*child;
-	 int	fixedChildSize = 0;
-	 int	dynamicSize;
 	 int	nChildren = 0;
 	 int	nFixed = 0;
+	 int	maxCross = 0;
+	 int	fixedSize = 0;
+	 int	fullCross, dynWith;
 	
-	_SysDebug("WM_UpdateDimensions: (Element=%p{Flags:0x%x}, Pass=%i)",
-		Element, Element->Flags,
-		Pass);
-	
-	if( Pass == 0 )
-	{
-		if( Element->Flags & ELEFLAG_NORENDER )	return ;
-		
-		if( !(Element->Flags & ELEFLAG_ABSOLUTEPOS) ) {
-			Element->CachedX = 0;
-			Element->CachedY = 0;
-		}
-		if( !(Element->Flags & ELEFLAG_FIXEDSIZE) ) {
-			Element->CachedW = 0;
-			Element->CachedH = 0;
-		}
-	}
-	
-	if( !(Element->Flags & ELEFLAG_FIXEDSIZE) ) {
-		// If the element is sized, fix its dimension(s)
-		if(Element->Size)
-		{
-			if(Element->Flags & ELEFLAG_NOEXPAND)
-			{
-				Element->CachedW = Element->Size;
-				Element->CachedH = Element->Size;
-			}
-			else {
-				if( Element->Parent->Flags & ELEFLAG_VERTICAL ) {
-					Element->CachedH = Element->Size;
-					Element->CachedW = Element->Parent->CachedW;
-					if(Element->CachedW)
-						Element->CachedW -= (Element->Parent->PaddingL + Element->Parent->PaddingR);
-				}
-				else {
-					Element->CachedW = Element->Size;
-					Element->CachedH = Element->Parent->CachedH;
-					if(Element->CachedH)
-						Element->CachedH -= (Element->Parent->PaddingT + Element->Parent->PaddingB);
-				}
-			}
-		}
-		else {
-			// Ok, so now we need to calculate the size of all child elements
-			// However, if ELEFLAG_NOEXPAND is not set, we can still set one
-			// dimension
-			if( !(Element->Flags & ELEFLAG_NOEXPAND) ) {
-				if( Element->Parent->Flags & ELEFLAG_VERTICAL ) {
-					Element->CachedW = Element->Parent->CachedW;
-					if(Element->CachedW)
-						Element->CachedW -= (Element->Parent->PaddingL + Element->Parent->PaddingR);
-				}
-				else {
-					Element->CachedH = Element->Parent->CachedH;
-					if(Element->CachedH)
-						Element->CachedH -= (Element->Parent->PaddingT + Element->Parent->PaddingB);
-				}
-			}
-		}
-	}
-	
-	// Process Children (first pass)
-	for( child = Element->FirstChild; child; child = child->NextSibling )
-	{
-		if( child->Flags & ELEFLAG_NORENDER )	continue;
-		WM_UpdateDimensions(child, 0);
-		
-		// Children that don't inherit positions are ignored
-		if( child->Flags & ELEFLAG_ABSOLUTEPOS )	continue;
-		
-		fixedChildSize += child->Size;
-		if(child->Size > 0)
-			nFixed ++;
-		nChildren ++;
-		
-		// If we are wrapping the children, get the largest cross size
-		if( !(Element->Flags & ELEFLAG_FIXEDSIZE)
-		 && Element->Flags & ELEFLAG_NOEXPAND
-		 && Element->Size == 0 )
-		{
-			if( Element->Flags & ELEFLAG_VERTICAL ) {
-				if( Element->CachedW < child->CachedW )
-					Element->CachedW = child->CachedW;
-			}
-			else {
-				if( Element->CachedH < child->CachedH )
-					Element->CachedH = child->CachedH;
-			}
-		}
-	}
-	
-	// Let's avoid a #DIV0 shall we?
-	if( nChildren > 0 )
-	{
-		// Calculate the size of dynamically sized children
-		if( Element->Flags & ELEFLAG_VERTICAL ) {
-			if( Element->CachedH == 0 ) {
-				if( nFixed == nChildren )
-					Element->CachedH = fixedChildSize;
-				else
-					return ;
-			}
-			dynamicSize = (Element->CachedH - (Element->PaddingT + Element->PaddingB)  - fixedChildSize) / nChildren;
-		}
-		else {
-			if( Element->CachedW == 0 ) {
-				if( nFixed == nChildren )
-					Element->CachedW = fixedChildSize;
-				else
-					return ;
-			}
-			dynamicSize = (Element->CachedW - (Element->PaddingL + Element->PaddingR) - fixedChildSize) / nChildren;
-		}
-		
-		// Process Children (second pass)
-		for( child = Element->FirstChild; child; child = child->NextSibling )
-		{
-			if( child->Flags & ELEFLAG_NORENDER )	continue;
-			// Children that don't inherit positions are ignored
-			if( child->Flags & ELEFLAG_ABSOLUTEPOS )	continue;
-			
-			if(!child->Size) {
-				if(child->Flags & ELEFLAG_VERTICAL)
-					child->CachedH = dynamicSize;
-				else
-					child->CachedW = dynamicSize;
-			}
-			
-			WM_UpdateDimensions(child, 1);
-			
-			// If we are wrapping the children, get the largest cross size
-			if( Element->Flags & ELEFLAG_NOEXPAND ) {
-				if( Element->Flags & ELEFLAG_VERTICAL ) {
-					if( Element->CachedW < child->CachedW )
-						Element->CachedW = child->CachedW;
-				}
-				else {
-					if( Element->CachedH < child->CachedH )
-						Element->CachedH = child->CachedH;
-				}
-			}
-		}
-	}
-	
-	// Add the padding
-	//Element->CachedW += Element->PaddingL + Element->PaddingR;
-	//Element->CachedH += Element->PaddingT + Element->PaddingB;
-	
-	_SysDebug("Pass %i, Element %p %ix%i",
-		Pass, Element, Element->CachedW, Element->CachedH
+	_SysDebug("%p -> Flags = 0x%x", Element, Element->Flags);
+	_SysDebug("%p ->CachedH = %i, ->PaddingT = %i, ->PaddingB = %i",
+		Element, Element->CachedH, Element->PaddingT, Element->PaddingB
+		);
+	_SysDebug("%p ->CachedW = %i, ->PaddingL = %i, ->PaddingR = %i",
+		Element, Element->CachedW, Element->PaddingL, Element->PaddingR
 		);
 	
-	// We should be done
-	// Next function will do the coordinates
+	// Pass 1
+	for( child = Element->FirstChild; child; child = child->NextSibling )
+	{
+		if( child->Flags & ELEFLAG_ABSOLUTEPOS )
+			continue ;
+		
+		_SysDebug("%p,%p ->FixedWith = %i", Element, child, child->FixedWith);
+		if( child->FixedWith )
+		{
+			nFixed ++;
+			fixedSize += child->FixedWith;
+		}
+		
+		if( child->FixedCross && maxCross < child->FixedCross )
+			maxCross = child->FixedCross;
+		if( child->MinCross && maxCross < child->MinCross )
+			maxCross = child->MinCross;
+		nChildren ++;
+	}
+	
+	_SysDebug("%p - nChildren = %i, nFixed = %i", Element, nChildren, nFixed);
+	if( nChildren > nFixed ) {
+		if( Element->Flags & ELEFLAG_VERTICAL )
+			dynWith = Element->CachedH - Element->PaddingT
+				- Element->PaddingB;
+		else
+			dynWith = Element->CachedW - Element->PaddingL
+				- Element->PaddingR;
+		dynWith -= fixedSize;
+		if( dynWith < 0 )	return ;
+		dynWith /= nChildren - nFixed;
+		_SysDebug("%p - dynWith = %i", Element, dynWith);
+	}
+	
+	if( Element->Flags & ELEFLAG_VERTICAL )
+		fullCross = Element->CachedW - Element->PaddingL - Element->PaddingR;
+	else
+		fullCross = Element->CachedH - Element->PaddingT - Element->PaddingB;
+	
+	_SysDebug("%p - fullCross = %i", Element, fullCross);
+	
+	// Pass 2 - Set sizes and recurse
+	for( child = Element->FirstChild; child; child = child->NextSibling )
+	{
+		// Cross Size
+		if( child->FixedCross ) {
+			if( Element->Flags & ELEFLAG_VERTICAL )
+				child->CachedW = child->FixedCross;
+			else
+				child->CachedH = child->FixedCross;
+		}
+		else {
+			 int	cross;
+			_SysDebug("%p,%p ->MinCross = %i", Element, child, child->MinCross);
+			// Expand to fill?
+			// TODO: Extra flag so options are (Expand, Equal, Wrap)
+			if( child->Flags & ELEFLAG_NOEXPAND )
+				cross = child->MinCross;
+			else
+				cross = fullCross;
+			
+			_SysDebug("%p,%p - cross = %i", Element, child, cross);
+			
+			if( Element->Flags & ELEFLAG_VERTICAL )
+				child->CachedW = cross;
+			else
+				child->CachedH = cross;
+		}
+		
+		// With size
+		if( child->FixedWith ) {
+			if( Element->Flags & ELEFLAG_VERTICAL )
+				child->CachedH = child->FixedWith;
+			else
+				child->CachedW = child->FixedWith;
+		}
+		else {
+			if( Element->Flags & ELEFLAG_VERTICAL )
+				child->CachedH = dynWith;
+			else
+				child->CachedW = dynWith;
+		}
+		
+		WM_UpdateDimensions(child, 0);
+	}
 }
-#endif
-
 
 /**
  * \brief Updates the position of an element
@@ -480,6 +290,52 @@ void WM_UpdatePosition(tElement *Element)
 	_SysDebug("Element %p (%i,%i)",
 		 Element, Element->CachedX, Element->CachedY
 		);
+}
+
+
+/**
+ * \brief Update the minimum dimensions of the element
+ * \note Called after a child's minimum dimensions have changed
+ */
+void WM_UpdateMinDims(tElement *Element)
+{
+	tElement	*child;
+	
+	if(!Element)	return;
+	
+	Element->MinCross = 0;
+	Element->MinWith = 0;
+	
+	for(child = Element->FirstChild; child; child = child->NextSibling)
+	{
+		if( Element->Parent &&
+			(Element->Flags & ELEFLAG_VERTICAL) == (Element->Parent->Flags & ELEFLAG_VERTICAL)
+			)
+		{
+			if(child->FixedCross)
+				Element->MinCross += child->FixedCross;
+			else
+				Element->MinCross += child->MinCross;
+			if(child->FixedWith)
+				Element->MinWith += child->FixedWith;
+			else
+				Element->MinWith += child->MinWith;
+		}
+		else
+		{
+			if(child->FixedCross)
+				Element->MinWith += child->FixedCross;
+			else
+				Element->MinWith += child->MinCross;
+			if(child->FixedWith)
+				Element->MinCross += child->FixedWith;
+			else
+				Element->MinCross += child->MinWith;
+		}
+	}
+	
+	// Recurse upwards
+	WM_UpdateMinDims(Element->Parent);
 }
 
 // --- Render ---

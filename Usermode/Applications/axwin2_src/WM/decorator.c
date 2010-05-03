@@ -35,7 +35,7 @@ void Decorator_RenderWidget(tElement *Element)
 			BOX_BORDER
 			);
 		Video_FillRect(
-			Element->CachedX, Element->CachedY,
+			Element->CachedX+1, Element->CachedY+1,
 			Element->CachedW-2, Element->CachedH-2,
 			BOX_BGCOLOUR
 			);

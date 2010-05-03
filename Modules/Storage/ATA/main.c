@@ -140,7 +140,8 @@ int ATA_SetupIO()
 	LOG("ent = %i", ent);
 	gATA_BusMasterBase = PCI_GetBAR4( ent );
 	if( gATA_BusMasterBase == 0 ) {
-		Warning("It seems that there is no Bus Master Controller on this machine. Get one");
+		Log_Warning("ATA", "It seems that there is no Bus Master Controller on this machine. Get one");
+		// TODO: Use PIO mode instead
 		LEAVE('i', MODULE_ERR_NOTNEEDED);
 		return MODULE_ERR_NOTNEEDED;
 	}

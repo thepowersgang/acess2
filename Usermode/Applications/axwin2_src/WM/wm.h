@@ -13,12 +13,17 @@ typedef struct sElement
 	
 	short	PaddingL, PaddingR;
 	short	PaddingT, PaddingB;
-	short	MinWidth, MinHeight;
 	short	GapSize;
 	
-	short	Size;	// Size attribute
+	short	FixedWith;	// Fixed Long Size attribute (height)
+	short	FixedCross;	// Fixed Cross Size attribute (width)
 	
 	char	*Text;
+	
+	// -- Attributes maitained by the element code
+	// Not touched by the user
+	short	MinWith;	// Minimum long size
+	short	MinCross;	// Minimum cross size
 	void	*Data;
 	
 	uint32_t	Flags;

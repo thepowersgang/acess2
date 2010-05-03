@@ -76,7 +76,7 @@ void Video_FillRect(short X, short Y, short W, short H, uint32_t Color)
 	if(W < 0 || X < 0 || X >= giScreenWidth)	return ;
 	if(X + W > giScreenWidth)	W = giScreenWidth - X;
 	
-	if(H < 0 || H < 0 || H >= giScreenHeight)	return ;
+	if(H < 0 || Y < 0 || Y >= giScreenHeight)	return ;
 	if(Y + H > giScreenHeight)	H = giScreenHeight - Y;
 	
 	while( H -- )
