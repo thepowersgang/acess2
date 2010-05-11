@@ -3,7 +3,7 @@
  * messages.c
  */
 #include <acess.h>
-#include <proc.h>
+#include <threads.h>
 #include <errno.h>
 
 // === CODE ===

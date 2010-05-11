@@ -5,6 +5,7 @@
 #define DEBUG	0
 #include <acess.h>
 #include <binary.h>
+#include <mm_virt.h>
 
 // === CONSTANTS ===
 #define BIN_LOWEST	MM_USER_MIN		// 1MiB
@@ -454,7 +455,7 @@ tBinary *Binary_DoLoad(char *truePath)
 		// Pure Empty Page
 		if(pBinary->Pages[i].Physical == -1) {
 			LOG("%i - ZERO", i);
-			memsetd( (void*)dest, 0, 1024 - (pBinary->Pages[i].Virtual & 0xFFF)/4 );
+			memset( (void*)dest, 0, 1024 - (pBinary->Pages[i].Virtual & 0xFFF) );
 		}
 		else
 		{

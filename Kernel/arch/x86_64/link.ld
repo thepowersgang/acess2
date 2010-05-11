@@ -1,0 +1,73 @@
+/*
+ * AcessMicro Kernel
+ * Linker Script
+ */
+
+_kernel_base = 0xFFFF800000000000;
+
+//lowStart = start - _kernel_base;
+ENTRY(start)
+OUTPUT_FORMAT(elf64-x86-64)
+
+SECTIONS {
+	. = 0x100000;
+	__load_addr = .;
+	.multiboot : AT(ADDR(.multiboot)) {
+		*(.multiboot)
+	}
+	
+	. += _kernel_base;
+	
+	.text ALIGN(0x1000): AT(ADDR(.text) - _kernel_base) {
+		*(.text)
+	}
+	
+	.usertext ALIGN(0x1000): AT(ADDR(.usertext) - _kernel_base) {
+		_UsertextBase = .;
+		*(.usertext)
+	}
+	_UsertextEnd = .;
+	
+	.rodata ALIGN(0x1000): AT(ADDR(.rodata) - _kernel_base) {
+		*(.initpd)
+		*(.rodata)
+		*(.rdata)
+		gKernelModules = .;
+		*(KMODULES)
+		gKernelModulesEnd = .;
+		. = ALIGN(4);
+		gKernelSymbols = .;
+		*(KEXPORT)
+		gKernelSymbolsEnd = .;
+
+
+	}
+	/*
+	.debug_abbrev : { *(.debug_abbrev) }
+	.debug_info : { *(.debug_info) }
+	.debug_line : { *(.debug_line) }
+	.debug_loc : { *(.debug_loc) }
+	.debug_pubnames : { *(.debug_pubnames) }
+	.debug_aranges : { *(.debug_aranges) }
+	.debug_ranges : { *(.debug_ranges) }
+	.debug_str : { *(.debug_str) }
+	.debug_frame : { *(.debug_frame) }
+	*/
+	
+	.padata ALIGN (0x1000) : AT(ADDR(.padata) - _kernel_base) {
+		*(.padata)
+	}
+	
+	.data ALIGN (0x1000) : AT(ADDR(.data) - _kernel_base) {
+		*(.data)
+	}
+
+	__bss_start = .;
+	.bss : AT(ADDR(.bss) - _kernel_base) {
+		_sbss = .;
+		*(COMMON)
+		*(.bss)
+		_ebss = .;
+	}
+	gKernelEnd = (. + 0xFFF)&0xFFFFFFFFFFFFF000;
+}

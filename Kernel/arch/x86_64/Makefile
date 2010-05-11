@@ -10,7 +10,7 @@
 #OBJDUMP = objdump
 
 CPPFLAGS	=
-CFLAGS		=
+CFLAGS		= $(KERNEL_CFLAGS)
 ASFLAGS		= -f elf
 
 ifeq ($(ARCH),amd64)

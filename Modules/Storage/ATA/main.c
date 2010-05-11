@@ -150,7 +150,7 @@ int ATA_SetupIO()
 	if( !(gATA_BusMasterBase & 1) )
 	{
 		if( gATA_BusMasterBase < 0x100000 )
-			gATA_BusMasterBasePtr = (void*)(KERNEL_BASE|gATA_BusMasterBase);
+			gATA_BusMasterBasePtr = (void*)(KERNEL_BASE | (tVAddr)gATA_BusMasterBase);
 		else
 			gATA_BusMasterBasePtr = (void*)( MM_MapHWPages( gATA_BusMasterBase, 1 ) + (gATA_BusMasterBase&0xFFF) );
 		LOG("gATA_BusMasterBasePtr = %p", gATA_BusMasterBasePtr);
@@ -164,15 +164,15 @@ int ATA_SetupIO()
 	IRQ_AddHandler( gATA_IRQPri, ATA_IRQHandlerPri );
 	IRQ_AddHandler( gATA_IRQSec, ATA_IRQHandlerSec );
 
-	gATA_PRDTs[0].PBufAddr = MM_GetPhysAddr( (Uint)&gATA_Buffers[0] );
-	gATA_PRDTs[1].PBufAddr = MM_GetPhysAddr( (Uint)&gATA_Buffers[1] );
+	gATA_PRDTs[0].PBufAddr = MM_GetPhysAddr( (tVAddr)&gATA_Buffers[0] );
+	gATA_PRDTs[1].PBufAddr = MM_GetPhysAddr( (tVAddr)&gATA_Buffers[1] );
 
 	LOG("gATA_PRDTs = {PBufAddr: 0x%x, PBufAddr: 0x%x}", gATA_PRDTs[0].PBufAddr, gATA_PRDTs[1].PBufAddr);
 
-	addr = MM_GetPhysAddr( (Uint)&gATA_PRDTs[0] );
+	addr = MM_GetPhysAddr( (tVAddr)&gATA_PRDTs[0] );
 	LOG("addr = 0x%x", addr);
 	ATA_int_BusMasterWriteDWord(4, addr);
-	addr = MM_GetPhysAddr( (Uint)&gATA_PRDTs[1] );
+	addr = MM_GetPhysAddr( (tVAddr)&gATA_PRDTs[1] );
 	LOG("addr = 0x%x", addr);
 	ATA_int_BusMasterWriteDWord(12, addr);
 
@@ -238,9 +238,11 @@ void ATA_SetupVFS()
  */
 int ATA_ScanDisk(int Disk)
 {
-	Uint16	buf[256];
-	tIdentify	*identify = (void*)buf;
-	tMBR	*mbr = (void*)buf;
+	union {
+		Uint16	buf[256];
+		tIdentify	identify;
+		tMBR	mbr;
+	}	data;
 	Uint16	base;
 	Uint8	val;
 	 int	i;
@@ -275,13 +277,13 @@ int ATA_ScanDisk(int Disk)
 	}
 
 	// Read Data
-	for(i=0;i<256;i++)	buf[i] = inw(base);
+	for(i=0;i<256;i++)	data.buf[i] = inw(base);
 
 	// Populate Disk Structure
-	if(identify->Sectors48 != 0)
-		gATA_Disks[ Disk ].Sectors = identify->Sectors48;
+	if(data.identify.Sectors48 != 0)
+		gATA_Disks[ Disk ].Sectors = data.identify.Sectors48;
 	else
-		gATA_Disks[ Disk ].Sectors = identify->Sectors28;
+		gATA_Disks[ Disk ].Sectors = data.identify.Sectors28;
 
 
 	LOG("gATA_Disks[ Disk ].Sectors = 0x%x", gATA_Disks[ Disk ].Sectors);
@@ -318,10 +320,10 @@ int ATA_ScanDisk(int Disk)
 	// --- Scan Partitions ---
 	LOG("Reading MBR");
 	// Read Boot Sector
-	ATA_ReadDMA( Disk, 0, 1, mbr );
+	ATA_ReadDMA( Disk, 0, 1, &data.mbr );
 
 	// Check for a GPT table
-	if(mbr->Parts[0].SystemID == 0xEE)
+	if(data.mbr.Parts[0].SystemID == 0xEE)
 		ATA_ParseGPT(Disk);
 	else	// No? Just parse the MBR
 		ATA_ParseMBR(Disk);

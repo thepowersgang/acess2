@@ -7,9 +7,6 @@
 
 #include <threads.h>
 
-// === CONSTANTS ===
-#define GETMSG_IGNORE	((void*)-1)
-
 // === TYPES ===
 #if USE_MP
 typedef struct sCPU

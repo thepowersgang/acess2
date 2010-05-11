@@ -4,6 +4,7 @@
  */
 #define DEBUG	0
 #include <acess.h>
+#include <mm_virt.h>
 #include "vfs.h"
 #include "vfs_int.h"
 #include "vfs_ext.h"

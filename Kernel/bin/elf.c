@@ -297,7 +297,7 @@ int Elf_Relocate(void *Base)
 				Warning("ELF", "Elf_Relocate - Multiple PT_DYNAMIC segments\n");
 				continue;
 			}
-			dynamicTab = (void *) phtab[i].VAddr;
+			dynamicTab = (void *) (tVAddr) phtab[i].VAddr;
 			j = i;	// Save Dynamic Table ID
 			break;
 		}
@@ -326,20 +326,20 @@ int Elf_Relocate(void *Base)
 		// --- Symbol Table ---
 		case DT_SYMTAB:
 			dynamicTab[j].d_val += iBaseDiff;
-			dynsymtab = (void*)(dynamicTab[j].d_val);
+			dynsymtab = (void*) (tVAddr) dynamicTab[j].d_val;
 			hdr->misc.SymTable = dynamicTab[j].d_val;	// Saved in unused bytes of ident
 			break;
 		
 		// --- String Table ---
 		case DT_STRTAB:
 			dynamicTab[j].d_val += iBaseDiff;
-			dynstrtab = (void*)(dynamicTab[j].d_val);
+			dynstrtab = (void*) (tVAddr) dynamicTab[j].d_val;
 			break;
 		
 		// --- Hash Table --
 		case DT_HASH:
 			dynamicTab[j].d_val += iBaseDiff;
-			iSymCount = ((Uint*)(dynamicTab[j].d_val))[1];
+			iSymCount = ((Uint*)((tVAddr)dynamicTab[j].d_val))[1];
 			hdr->misc.HashTable = dynamicTab[j].d_val;	// Saved in unused bytes of ident
 			break;
 		}

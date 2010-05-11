@@ -10,11 +10,11 @@
 
 SUBMAKE = $(MAKE) --no-print-directory
 
-MODULES += $(DYNMODS)
+#MODULES += $(DYNMODS)
 USRLIBS := crt0.o acess.ld ld-acess.so libacess.so libgcc.so libc.so
 USRAPPS := init login CLIShell cat ls mount ifconfig
 
-#ALL_DYNMODS = $(addprefix all-,$(DYNMODS))
+ALL_DYNMODS = $(addprefix all-,$(DYNMODS))
 ALL_MODULES := $(addprefix all-,$(MODULES))
 ALL_USRLIBS := $(addprefix all-,$(USRLIBS))
 ALL_USRAPPS := $(addprefix all-,$(USRAPPS))
@@ -43,6 +43,8 @@ clean:	$(CLEAN_DYNMODS) $(CLEAN_MODULES) clean-Kernel $(CLEAN_USRLIBS) $(CLEAN_U
 install:	$(INSTALL_DYNMODS) $(INSTALL_MODULES) install-Kernel $(INSTALL_USRLIBS) $(INSTALL_USRAPPS)
 
 # Compile Only
+$(ALL_DYNMODS): all-%:
+	@echo === Dynamic Module: $* && BUILDTYPE=dynamic $(SUBMAKE) all -C Modules/$*
 $(ALL_MODULES): all-%:
 	@echo === Module: $* && $(SUBMAKE) all -C Modules/$*
 all-Kernel:
@@ -53,8 +55,8 @@ $(ALL_USRAPPS): all-%:
 	@echo === User Application: $* && $(SUBMAKE) all -C Usermode/Applications/$*_src
 
 # Compile & Install
-#$(AI_DYNMODS): allinstall-%:
-#	@echo === Dynamic Module: $* && STATIC_MODULE=yes $(SUBMAKE) all install -C Modules/$*
+$(AI_DYNMODS): allinstall-%:
+	@echo === Dynamic Module: $* && BUILDTYPE=dynamic $(SUBMAKE) all install -C Modules/$*
 $(AI_MODULES): allinstall-%:
 	@echo === Module: $* && $(SUBMAKE) all install -C Modules/$*
 allinstall-Kernel:

@@ -4,26 +4,33 @@
 
 _CPPFLAGS := $(CPPFLAGS)
 
-CFGFILES = 
+CFGFILES := 
 CFGFILES += $(shell test -f ../../../Makefile.cfg && echo ../../../Makefile.cfg)
 CFGFILES += $(shell test -f ../../Makefile.cfg && echo ../../Makefile.cfg)
 CFGFILES += $(shell test -f ../Makefile.cfg && echo ../Makefile.cfg)
 CFGFILES += $(shell test -f Makefile.cfg && echo Makefile.cfg)
 -include $(CFGFILES)
 
-CPPFLAGS = -I$(ACESSDIR)/Kernel/include -I$(ACESSDIR)/Kernel/arch/$(ARCHDIR)/include -DARCH=$(ARCH) $(_CPPFLAGS)
-CFLAGS = -Wall -Werror -fno-stack-protector $(CPPFLAGS) -O3
+CPPFLAGS := -I$(ACESSDIR)/Kernel/include -I$(ACESSDIR)/Kernel/arch/$(ARCHDIR)/include -DARCH=$(ARCH) $(_CPPFLAGS)
+CFLAGS := $(KERNEL_CFLAGS) -Wall -Werror -fno-stack-protector $(CPPFLAGS) -O3 -fno-builtin
 
-OBJ := $(addsuffix .$(ARCH),$(OBJ))
-ifneq ($(CATEGORY),)
-	BIN := ../$(CATEGORY)_$(NAME).kmd.$(ARCH)
+ifeq ($(BUILDTYPE),dynamic)
+	_SUFFIX := dyn_$(ARCH)
+	ifneq ($(CATEGORY),)
+		BIN := ../$(CATEGORY)_$(NAME).kmd.$(ARCH)
+	else
+		BIN := ../$(NAME).kmd.$(ARCH)
+	endif
+	CFLAGS += -fPIC
 else
-	BIN := ../$(NAME).kmd.$(ARCH)
+	_SUFFIX := st_$(ARCH)
+	BIN := ../$(NAME).xo.$(ARCH)
 endif
-KOBJ = ../$(NAME).xo.$(ARCH)
 
-DEPFILES  = $(filter %.o.$(ARCH),$(OBJ))
-DEPFILES := $(DEPFILES:%.o.$(ARCH)=%.d.$(ARCH))
+OBJ := $(addsuffix .$(_SUFFIX),$(OBJ))
+
+DEPFILES := $(filter %.o.$(_SUFFIX),$(OBJ))
+DEPFILES := $(DEPFILES:%.o.$(_SUFFIX)=%.d.$(ARCH))
 
 .PHONY: all clean
 
@@ -35,14 +42,19 @@ clean:
 install: $(BIN)
 	$(xCP) $(BIN) $(DISTROOT)/Modules/$(NAME).kmd
 
-$(BIN): $(OBJ)
+ifeq ($(BUILDTYPE),dynamic)
+$(BIN): %.kmd.$(ARCH): $(OBJ)
 	@echo --- $(LD) -o $@
-	@$(LD) -T $(ACESSDIR)/Modules/link.ld -shared -nostdlib -o $@ $(OBJ)
+#	$(LD) -T $(ACESSDIR)/Modules/link.ld --allow-shlib-undefined -shared -nostdlib -o $@ $(OBJ)
+	$(LD) --allow-shlib-undefined -shared -nostdlib -o $@ $(OBJ)
 	@$(OBJDUMP) -d $(BIN) > $(BIN).dsm
-	@echo --- $(LD) -o $(KOBJ)
-	@$(CC) -Wl,-r -nostdlib -o $(KOBJ) $(OBJ)
+else
+$(BIN): %.xo.$(ARCH): $(OBJ)
+	@echo --- $(LD) -o $@
+	@$(LD) -r -o $@ $(OBJ)
+endif
 
-%.o.$(ARCH): %.c Makefile ../Makefile.tpl $(CFGFILES)
+%.o.$(_SUFFIX): %.c Makefile ../Makefile.tpl $(CFGFILES)
 	@echo --- $(CC) -o $@
 	@$(CC) $(CFLAGS) -o $@ -c $<
 	@$(CC) -M $(CPPFLAGS) -MT $@ -o $*.d.$(ARCH) $<

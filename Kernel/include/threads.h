@@ -5,6 +5,7 @@
 
 #include <arch.h>
 #include <signal.h>
+#include <proc.h>
 
 typedef struct sMessage
 {
@@ -76,6 +77,8 @@ enum eFaultNumbers
 	FAULT_OPCODE,
 	FAULT_FLOAT
 };
+
+#define GETMSG_IGNORE	((void*)-1)
 
 // === FUNCTIONS ===
 extern tThread	*Proc_GetCurThread();

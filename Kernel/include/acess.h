@@ -8,7 +8,7 @@
 #define NULL	((void*)0)
 #define PACKED	__attribute__ ((packed))
 
-#include <stdint.h>
+//#include <stdint.h>
 #include <arch.h>
 #include <stdarg.h>
 #include "errno.h"

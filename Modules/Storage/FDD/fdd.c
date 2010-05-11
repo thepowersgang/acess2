@@ -447,10 +447,10 @@ int FDD_int_ReadWriteSector(Uint32 Disk, Uint64 SectorAddr, int Write, void *Buf
 		if(st0 & 0xC0) {
 			LOG("Error (st0 & 0xC0) \"%s\"", cFDD_STATUSES[st0 >> 6]);
 			continue;
-        }
-        // - Status Flags
-        if(st0 & 0x08) {	LOG("Drive not ready");	continue; 	}
-        if(st1 & 0x80) {	LOG("End of Cylinder");	continue;	}
+	    }
+	    // - Status Flags
+	    if(st0 & 0x08) {	LOG("Drive not ready");	continue; 	}
+	    if(st1 & 0x80) {	LOG("End of Cylinder");	continue;	}
 		if(st1 & 0x20) {	LOG("CRC Error");	continue;	}
 		if(st1 & 0x10) {	LOG("Controller Timeout");	continue;	}
 		if(st1 & 0x04) {	LOG("No Data Found");	continue;	}
@@ -458,7 +458,7 @@ int FDD_int_ReadWriteSector(Uint32 Disk, Uint64 SectorAddr, int Write, void *Buf
 			LOG("No Address mark found");
 			continue;
 		}
-        if(st2 & 0x40) {	LOG("Deleted address mark");	continue;	}
+	    if(st2 & 0x40) {	LOG("Deleted address mark");	continue;	}
 		if(st2 & 0x20) {	LOG("CRC error in data");	continue;	}
 		if(st2 & 0x10) {	LOG("Wrong Cylinder");	continue;	}
 		if(st2 & 0x04) {	LOG("uPD765 sector not found");	continue;	}
@@ -491,7 +491,7 @@ int FDD_int_ReadWriteSector(Uint32 Disk, Uint64 SectorAddr, int Write, void *Buf
 	}
 	
 	// Don't turn the motor off now, wait for a while
-	gFDD_Devices[Disk].timer = Time_CreateTimer(MOTOR_OFF_DELAY, FDD_int_StopMotor, (void*)Disk);
+	gFDD_Devices[Disk].timer = Time_CreateTimer(MOTOR_OFF_DELAY, FDD_int_StopMotor, (void*)(tVAddr)Disk);
 
 	if( i < FDD_MAX_READWRITE_ATTEMPTS ) {
 		LEAVE('i', 0);
@@ -640,7 +640,7 @@ int FDD_int_GetDims(int type, int lba, int *c, int *h, int *s, int *spt)
  */
 void FDD_IRQHandler(int Num)
 {
-    gbFDD_IrqFired = 1;
+	gbFDD_IrqFired = 1;
 }
 
 /**
@@ -669,18 +669,18 @@ void FDD_SensInt(int base, Uint8 *sr0, Uint8 *cyl)
  */
 void FDD_int_SendByte(int base, char byte)
 {
-    volatile int state;
-    int timeout = 128;
-    for( ; timeout--; )
-    {
-        state = inb(base + PORT_MAINSTATUS);
-        if ((state & 0xC0) == 0x80)
-        {
-            outb(base + PORT_DATA, byte);
-            return;
-        }
-        inb(0x80);	//Delay
-    }
+	volatile int state;
+	int timeout = 128;
+	for( ; timeout--; )
+	{
+	    state = inb(base + PORT_MAINSTATUS);
+	    if ((state & 0xC0) == 0x80)
+	    {
+	        outb(base + PORT_DATA, byte);
+	        return;
+	    }
+	    inb(0x80);	//Delay
+	}
 	
 	#if WARN
 	Warning("FDD_int_SendByte - Timeout sending byte 0x%x to base 0x%x\n", byte, base);
@@ -693,16 +693,16 @@ void FDD_int_SendByte(int base, char byte)
  */
 int FDD_int_GetByte(int base)
 {
-    volatile int state;
-    int timeout;
-    for( timeout = 128; timeout--; )
-    {
-        state = inb((base + PORT_MAINSTATUS));
-        if ((state & 0xd0) == 0xd0)
-	        return inb(base + PORT_DATA);
-        inb(0x80);
-    }
-    return -1;
+	volatile int state;
+	int timeout;
+	for( timeout = 128; timeout--; )
+	{
+	    state = inb((base + PORT_MAINSTATUS));
+	    if ((state & 0xd0) == 0xd0)
+		    return inb(base + PORT_DATA);
+	    inb(0x80);
+	}
+	return -1;
 }
 
 /**
@@ -787,7 +787,7 @@ void FDD_int_StartMotor(int disk)
 	state |= 1 << (4+disk);
 	outb( cPORTBASE[ disk>>1 ] + PORT_DIGOUTPUT, state );
 	gFDD_Devices[disk].motorState = 1;
-	gFDD_Devices[disk].timer = Time_CreateTimer(MOTOR_ON_DELAY, FDD_int_TimerCallback, (void*)disk);
+	gFDD_Devices[disk].timer = Time_CreateTimer(MOTOR_ON_DELAY, FDD_int_TimerCallback, (void*)(tVAddr)disk);
 }
 
 /**
@@ -803,6 +803,6 @@ void FDD_int_StopMotor(int disk)
 	state = inb( cPORTBASE[ disk>>1 ] + PORT_DIGOUTPUT );
 	state &= ~( 1 << (4+disk) );
 	outb( cPORTBASE[ disk>>1 ] + PORT_DIGOUTPUT, state );
-    gFDD_Devices[disk].motorState = 0;
-    LEAVE('-');
+	gFDD_Devices[disk].motorState = 0;
+	LEAVE('-');
 }
