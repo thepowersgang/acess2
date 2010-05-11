@@ -150,7 +150,7 @@ int ATA_SetupIO()
 	if( !(gATA_BusMasterBase & 1) )
 	{
 		if( gATA_BusMasterBase < 0x100000 )
-			gATA_BusMasterBasePtr = (void*)(0xC0000000|gATA_BusMasterBase);
+			gATA_BusMasterBasePtr = (void*)(KERNEL_BASE|gATA_BusMasterBase);
 		else
 			gATA_BusMasterBasePtr = (void*)( MM_MapHWPages( gATA_BusMasterBase, 1 ) + (gATA_BusMasterBase&0xFFF) );
 		LOG("gATA_BusMasterBasePtr = %p", gATA_BusMasterBasePtr);
