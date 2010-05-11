@@ -693,23 +693,16 @@ tThread *Threads_GetNextToRun(int CPU)
 	 int	number;
 	
 	if(giNumActiveThreads == 0) {
-		//Log_Debug("Threads", "CPU%i has no threads to run", CPU);
 		return NULL;
 	}
 	
 	// Special case: 1 thread
 	if(giNumActiveThreads == 1) {
-		//Log_Debug("Threads", "CPU%i has only one thread %i %s",
-		//	CPU, gActiveThreads->TID, gActiveThreads->ThreadName);
 		return gActiveThreads;
 	}
 	
-	//Log(" Threads_GetNextToRun: giNumActiveThreads=%i,giTotalTickets=%i",
-	//	giNumActiveThreads, giTotalTickets);
 	// Get the ticket number
 	ticket = number = rand() % giTotalTickets;
-	
-	//Log(" Threads_GetNextToRun: ticket = %i", ticket);
 	
 	// Find the next thread
 	for(thread=gActiveThreads;thread;thread=thread->Next)
@@ -727,9 +720,6 @@ tThread *Threads_GetNextToRun(int CPU)
 		Panic("Bookeeping Failed - giTotalTicketCount (%i) != true count (%i)",
 			giTotalTickets, number);
 	}
-	
-	//Log_Debug("Threads", "Switching CPU%i to %p (%s)",
-	//	CPU, thread, thread->ThreadName);
 	
 	return thread;
 }
