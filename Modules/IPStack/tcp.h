@@ -90,8 +90,8 @@ struct sTCPConnection
 	tInterface	*Interface;	//!< Listening Interface
 	tVFS_Node	Node;	//!< Node
 	
-	 int	NextSequenceSend;	//!< Next sequence value for outbound packets
-	 int	NextSequenceRcv;	//!< Next expected sequence value for inbound
+	Uint32	NextSequenceSend;	//!< Next sequence value for outbound packets
+	Uint32	NextSequenceRcv;	//!< Next expected sequence value for inbound
 	
 	/**
 	 * \brief Non-ACKed packets
@@ -106,12 +106,11 @@ struct sTCPConnection
 	
 	/**
 	 * \brief Unread Packets
-	 * \note Double ended list (fifo)
+	 * \note Ring buffer
 	 * \{
 	 */
 	tSpinlock	lRecievedPackets;
-	tTCPStoredPacket	*RecievedPackets;	//!< Unread Packets
-	tTCPStoredPacket	*RecievedPacketsTail;	//!< Unread Packets (End of list)
+	tRingBuffer	*RecievedBuffer;
 	/**
 	 * \}
 	 */
@@ -137,8 +136,11 @@ struct sTCPConnection
 enum eTCPConnectionState
 {
 	TCP_ST_CLOSED,
+	TCP_ST_SYN_SENT,
 	TCP_ST_HALFOPEN,
-	TCP_ST_OPEN
+	TCP_ST_OPEN,
+	TCP_ST_FIN_SENT,
+	TCP_ST_FINISHED
 };
 
 #endif

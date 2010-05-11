@@ -3,13 +3,25 @@
  */
 #include "stdio_int.h"
 #include "lib.h"
+#include <stdio.h>
+#include <sys/sys.h>
 
 #define USE_CPUID	0
+
+// === TYPES ===
+typedef struct {
+	intptr_t	Base;
+	char	*Name;
+}	tLoadedLib;
 
 // === PROTOTYPES ===
 #if USE_CPUID
 static void	cpuid(uint32_t Num, uint32_t *EAX, uint32_t *EBX, uint32_t *EDX, uint32_t *ECX);
 #endif
+ int	ErrorHandler(int Fault);
+
+// === IMPORTS ===
+extern tLoadedLib	gLoadedLibraries[64];
 
 // === GLOBALS ===
 extern char **_envp;
@@ -53,9 +65,25 @@ int SoMain(unsigned int BaseAddress, int argc, char **argv, char **envp)
 	}
 	#endif
 	
+	// Set Error handler
+	_SysSetFaultHandler(ErrorHandler);
+	
 	return 1;
 }
 
+int ErrorHandler(int Fault)
+{
+	 int	i;
+	fprintf(stderr, "ErrorHandler: (Fault = %i)\n", Fault);
+	fprintf(stderr, "Loaded Libraries:\n");
+	for( i = 0; i < 64; i ++ )
+	{
+		//if(gLoadedLibraries[i].Base == 0)	continue;
+	//	fprintf(stderr, "%02i: %p  %s\n", i, gLoadedLibraries[i].Base, gLoadedLibraries[i].Name);
+	}
+	fprintf(stderr, "\n");
+	return -1;
+}
 
 #if USE_CPUID
 /**

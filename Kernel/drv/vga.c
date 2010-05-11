@@ -1,6 +1,7 @@
 /*
  * Acess2 VGA Controller Driver
  */
+#define DEBUG	0
 #include <acess.h>
 #include <fs_devfs.h>
 #include <tpl_drv_video.h>

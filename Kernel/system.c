@@ -32,31 +32,32 @@ typedef struct
 }	tConfigCommand;
 
 // === IMPORTS ===
+extern void	Arch_LoadBootModules();
 extern int	Modules_LoadBuiltins();
-//extern int	PCI_Install();
-extern void	DMA_Install();
+extern void	Modules_SetBuiltinParams(char *Name, char *ArgString);
 extern void	Debug_SetKTerminal(char *File);
-extern void	StartupPrint(char *Str);
 
 // === PROTOTYPES ===
-void	System_Init(char *ArgString);
+void	System_Init(char *Commandline);
 void	System_ParseCommandLine(char *ArgString);
+void	System_ExecuteCommandLine(void);
 void	System_ParseVFS(char *Arg);
+void	System_ParseModuleArgs(char *Arg);
 void	System_ParseSetting(char *Arg);
-void	System_ExecuteScript();
+void	System_ExecuteScript(void);
 tConfigFile	*System_Int_ParseFile(char *File);
 
 // === CONSTANTS ===
 const tConfigCommand	caConfigCommands[] = {
-	{"module", 1,2, 0, Module_LoadFile, {(Uint)"",0}},	// Load a module from a file
-	{"spawn", 1,1, 0, Proc_Spawn, {0}},		// Spawn a process
+	{"module",  1,2, 00, Module_LoadFile, {(Uint)"",0}},	// Load a module from a file
+	{"spawn",   1,1, 00, Proc_Spawn, {0}},		// Spawn a process
 	// --- VFS ---
-	{"mount", 3,4, 0, VFS_Mount, {(Uint)"",0}},		// Mount a device
-	{"symlink", 2,2, 0, VFS_Symlink, {0}},	// Create a Symbolic Link
-	{"mkdir", 1,1, 0, VFS_MkDir, {0}},		// Create a Directory
-	{"open", 1,2, 0, VFS_Open, {VFS_OPENFLAG_READ,0}},	// Open a file
-	{"close", 1,1, 0x1, VFS_Close, {0}},	// Close an open file
-	{"ioctl", 3,3, 0x3, VFS_IOCtl, {0}},	// Call an IOCtl
+	{"mount",   3,4, 00, VFS_Mount, {(Uint)"",0}},		// Mount a device
+	{"symlink", 2,2, 00, VFS_Symlink, {0}},	// Create a Symbolic Link
+	{"mkdir",   1,1, 00, VFS_MkDir, {0}},		// Create a Directory
+	{"open",    1,2, 00, VFS_Open,  {VFS_OPENFLAG_READ,0}},	// Open a file
+	{"close",   1,1, 01, VFS_Close, {0}},	// Close an open file
+	{"ioctl",   3,3, 03, VFS_IOCtl, {0}},	// Call an IOCtl
 	
 	{"", 0,0, 0, NULL, {0}}
 };
@@ -64,13 +65,21 @@ const tConfigCommand	caConfigCommands[] = {
 
 // === GLOBALS ===
 char	*gsConfigScript = "/Acess/Conf/BootConf.cfg";
+char	*argv[32];
+ int	argc;
 
 // === CODE ===
-void System_Init(char *ArgString)
+void System_Init(char *CommandLine)
 {
+	// Parse Kernel's Command Line
+	System_ParseCommandLine(CommandLine);
 	
-	// - Parse Kernel's Command Line
-	System_ParseCommandLine(ArgString);
+	// Initialise modules
+	Log_Log("Config", "Initialising builtin modules...");
+	Modules_LoadBuiltins();
+	Arch_LoadBootModules();
+	
+	System_ExecuteCommandLine();
 	
 	// - Execute the Config Script
 	Log_Log("Config", "Executing config script...");
@@ -87,8 +96,6 @@ void System_Init(char *ArgString)
  */
 void System_ParseCommandLine(char *ArgString)
 {
-	char	*argv[32];
-	 int	argc;
 	 int	i;
 	char	*str;
 	
@@ -103,13 +110,13 @@ void System_ParseCommandLine(char *ArgString)
 		// Check for the end of the string
 		if(*str == '\0') {	argc--;	break;}	
 		argv[argc] = str;
-		while(*str && *str != ' ')
-		{
-			/*if(*str == '"') {
-				while(*str && !(*str == '"' && str[-1] != '\\'))
-					str ++;
-			}*/
-			str++;
+		if(*str == '"') {
+			while(*str && !(*str == '"' && str[-1] != '\\'))
+				str ++;
+		}
+		else {
+			while(*str && *str != ' ')
+				str++;
 		}
 		if(*str == '\0')	break;	// Check for EOS
 		*str = '\0';	// Cap off argument string
@@ -118,13 +125,44 @@ void System_ParseCommandLine(char *ArgString)
 	if(argc < 32)
 		argc ++;	// Count last argument
 	
-	// --- Parse Arguments ---
+	// --- Parse Arguments (Pass 1) ---
 	for( i = 1; i < argc; i++ )
 	{
-		if( argv[i][0] == '/' )
-			System_ParseVFS( argv[i] );
-		else
+		switch(argv[i][0])
+		{
+		// --- VFS ---
+		// Ignored on this pass
+		case '/':
+			break;
+		
+		// --- Module Paramaters ---
+		// -VTerm:Width=640,Height=480,Scrollback=2
+		case '-':
+			System_ParseModuleArgs( argv[i] );
+			break;
+		// --- Config Options ---
+		// SCRIPT=/Acess/Conf/BootConf.cfg
+		default:
 			System_ParseSetting( argv[i] );
+			break;
+		}
+	}
+}
+
+void System_ExecuteCommandLine(void)
+{
+	 int	i;
+	for( i = 1; i < argc; i++ )
+	{
+		switch(argv[i][0])
+		{
+		// --- VFS ---
+		// Mount    /System=ext2:/Devices/ATA/A1
+		// Symlink  /Acess=/System/Acess2
+		case '/':
+			System_ParseVFS( argv[i] );
+			break;
+		}
 	}
 }
 
@@ -181,6 +219,37 @@ void System_ParseVFS(char *Arg)
 }
 
 /**
+ * \biref Parse a module argument string
+ */
+void System_ParseModuleArgs(char *Arg)
+{
+	char	*name, *args;
+	 int	i;
+	
+	// Remove '-'	
+	name = Arg + 1;
+	
+	// Find the start of the args
+	i = strpos(name, ':');
+	if( i == -1 ) {
+		Log_Warning("Config", "Module spec with no arguments");
+		#if 1
+		return ;
+		#else
+		i = strlen(name);
+		args = name + i;
+		#endif
+	}
+	else {
+		name[i] = '\0';
+		args = name + i + 1;
+	}
+	
+	Log_Log("Config", "Setting boot parameters for '%s' to '%s'", name, args);
+	Modules_SetBuiltinParams(name, args);
+}
+
+/**
  * \fn void System_ParseSetting(char *Arg)
  */
 void System_ParseSetting(char *Arg)
@@ -220,8 +289,9 @@ void System_ParseSetting(char *Arg)
 
 /**
  * \fn void System_ExecuteScript()
+ * \brief Reads and parses the boot configuration script
  */
-void System_ExecuteScript()
+void System_ExecuteScript(void)
 {
 	 int	fp;
 	 int	fLen = 0;
@@ -242,10 +312,11 @@ void System_ExecuteScript()
 		return;
 	}
 	
-	// Read into memory buffer
+	// Get length
 	VFS_Seek(fp, 0, SEEK_END);
 	fLen = VFS_Tell(fp);
 	VFS_Seek(fp, 0, SEEK_SET);
+	// Read into memory buffer
 	fData = malloc(fLen+1);
 	VFS_Read(fp, fLen, fData);
 	fData[fLen] = '\0';
@@ -419,6 +490,8 @@ void System_ExecuteScript()
 		}
 		free( file->Lines[i].Parts );
 	}
+	
+	// Free data
 	free( file );
 	free( fData );
 }

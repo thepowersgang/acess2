@@ -2,12 +2,17 @@
  * Acess2 IP Stack
  * - TCP Handling
  */
+#define DEBUG	1
 #include "ipstack.h"
 #include "ipv4.h"
 #include "tcp.h"
 
 #define TCP_MIN_DYNPORT	0xC000
 #define TCP_MAX_HALFOPEN	1024	// Should be enough
+
+#define TCP_MAX_PACKET_SIZE	1024
+#define TCP_WINDOW_SIZE	0x2000
+#define TCP_RECIEVE_BUFFER_SIZE	0x4000
 
 // === PROTOTYPES ===
 void	TCP_Initialise();
@@ -60,28 +65,6 @@ void TCP_Initialise()
 }
 
 /**
- * \brief Open a connection to another host using TCP
- * \param Conn	Connection structure
- */
-void TCP_StartConnection(tTCPConnection *Conn)
-{
-	tTCPHeader	hdr;
-
-	hdr.SourcePort = Conn->LocalPort;
-	hdr.DestPort = Conn->RemotePort;
-	Conn->NextSequenceSend = rand();
-	hdr.SequenceNumber = Conn->NextSequenceSend;
-	hdr.DataOffset = (sizeof(tTCPHeader)/4) << 4;
-	hdr.Flags = TCP_FLAG_SYN;
-	hdr.WindowSize = 0xFFFF;	// Max
-	hdr.Checksum = 0;	// TODO
-	hdr.UrgentPointer = 0;
-	
-	TCP_SendPacket( Conn, sizeof(tTCPHeader), &hdr );
-	return ;
-}
-
-/**
  * \brief Sends a packet from the specified connection, calculating the checksums
  * \param Conn	Connection
  * \param Length	Length of data
@@ -123,6 +106,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 
 	Log_Log("TCP", "SourcePort = %i, DestPort = %i",
 		ntohs(hdr->SourcePort), ntohs(hdr->DestPort));
+/*
 	Log_Log("TCP", "SequenceNumber = 0x%x", ntohl(hdr->SequenceNumber));
 	Log_Log("TCP", "AcknowlegementNumber = 0x%x", ntohl(hdr->AcknowlegementNumber));
 	Log_Log("TCP", "DataOffset = %i", hdr->DataOffset >> 4);
@@ -139,6 +123,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 	Log_Log("TCP", "WindowSize = %i", htons(hdr->WindowSize));
 	Log_Log("TCP", "Checksum = 0x%x", htons(hdr->Checksum));
 	Log_Log("TCP", "UrgentPointer = 0x%x", htons(hdr->UrgentPointer));
+*/
 
 	if( Length > (hdr->DataOffset >> 4)*4 )
 	{
@@ -208,12 +193,15 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 			case 6:	conn->RemoteIP.v6 = *(tIPv6*)Address;	break;
 			}
 			
+			conn->RecievedBuffer = RingBuffer_Create( TCP_RECIEVE_BUFFER_SIZE );
+			
 			conn->NextSequenceRcv = ntohl( hdr->SequenceNumber ) + 1;
 			conn->NextSequenceSend = rand();
 			
 			// Create node
 			conn->Node.NumACLs = 1;
 			conn->Node.ACLs = &gVFS_ACL_EveryoneRW;
+			conn->Node.ImplPtr = conn;
 			conn->Node.ImplInt = srv->NextID ++;
 			conn->Node.Read = TCP_Client_Read;
 			conn->Node.Write = TCP_Client_Write;
@@ -243,7 +231,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 			hdr->SourcePort = htons(srv->Port);
 			hdr->DataOffset = (sizeof(tTCPHeader)/4) << 4;
 			TCP_SendPacket( conn, sizeof(tTCPHeader), hdr );
-
+			conn->NextSequenceSend ++;
 			return ;
 		}
 	}
@@ -284,9 +272,25 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 	tTCPStoredPacket	*pkt;
 	 int	dataLen;
 	
-	Connection->State = TCP_ST_OPEN;
 	if(Header->Flags & TCP_FLAG_SYN) {
-		Connection->NextSequenceRcv = Header->SequenceNumber + 1;
+		Connection->NextSequenceRcv = ntohl(Header->SequenceNumber) + 1;
+	}
+	
+	if( Connection->State == TCP_ST_SYN_SENT )
+	{
+		if( (Header->Flags & (TCP_FLAG_SYN|TCP_FLAG_ACK)) == (TCP_FLAG_SYN|TCP_FLAG_ACK) ) {
+			
+			Header->DestPort = Header->SourcePort;
+			Header->SourcePort = htons(Connection->LocalPort);
+			Header->AcknowlegementNumber = htonl(Connection->NextSequenceRcv);
+			Header->SequenceNumber = htonl(Connection->NextSequenceSend);
+			Header->WindowSize = htons(TCP_WINDOW_SIZE);
+			Header->Flags = TCP_FLAG_ACK;
+			Header->DataOffset = (sizeof(tTCPHeader)/4) << 4;
+			Log_Log("TCP", "ACKing SYN-ACK");
+			TCP_SendPacket( Connection, sizeof(tTCPHeader), Header );
+			Connection->State = TCP_ST_OPEN;
+		}
 	}
 	
 	// Get length of data
@@ -298,7 +302,28 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 		Log_Log("TCP", "Conn %p, Packet 0x%x ACKed", Connection, Header->AcknowlegementNumber);
 	}
 	
-	if(dataLen == 0)	return ;
+	// TODO: Check what to do here
+	if(Header->Flags & TCP_FLAG_FIN) {
+		if( Connection->State == TCP_ST_FIN_SENT ) {
+			Connection->State = TCP_ST_FINISHED;
+			return ;
+		}
+		else {
+			Connection->State = TCP_ST_FINISHED;
+			Header->DestPort = Header->SourcePort;
+			Header->SourcePort = htons(Connection->LocalPort);
+			Header->AcknowlegementNumber = htonl(Connection->NextSequenceRcv);
+			Header->SequenceNumber = htonl(Connection->NextSequenceSend);
+			Header->Flags = TCP_FLAG_ACK;
+			TCP_SendPacket( Connection, sizeof(tTCPHeader), Header );
+			return ;
+		}
+	}
+	
+	if(dataLen == 0) {
+		Log_Log("TCP", "Empty Packet");
+		return ;
+	}
 	
 	// NOTES:
 	// Flags
@@ -313,6 +338,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 	memcpy(pkt->Data, (Uint8*)Header + (Header->DataOffset>>4)*4, dataLen);
 	
 	// Is this packet the next expected packet?
+	// TODO: Fix this to check if the packet is in the window.
 	if( pkt->Sequence != Connection->NextSequenceRcv )
 	{
 		tTCPStoredPacket	*tmp, *prev = NULL;
@@ -339,22 +365,26 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 	{
 		// Ooh, Goodie! Add it to the recieved list
 		TCP_INT_AppendRecieved(Connection, pkt);
-		if(dataLen)
-			Connection->NextSequenceRcv += dataLen;
-		else
-			Connection->NextSequenceRcv += 1;
+		free(pkt);
+		Log_Log("TCP", "0x%08x += %i", Connection->NextSequenceRcv, dataLen);
+		Connection->NextSequenceRcv += dataLen;
 		
 		// TODO: This should be moved out of the watcher thread,
 		// so that a single lost packet on one connection doesn't cause
 		// all connections on the interface to lag.
 		TCP_INT_UpdateRecievedFromFuture(Connection);
 	
-		// TODO: Check ACK code validity
-		Header->AcknowlegementNumber = ntohl(pkt->Sequence) + dataLen;
-		Header->SequenceNumber = ntohl(Connection->NextSequenceSend);
-		Header->Flags &= TCP_FLAG_SYN;
-		Header->Flags = TCP_FLAG_ACK;
+		// ACK Packet
+		Header->DestPort = Header->SourcePort;
+		Header->SourcePort = htons(Connection->LocalPort);
+		Header->AcknowlegementNumber = htonl(Connection->NextSequenceRcv);
+		Header->SequenceNumber = htonl(Connection->NextSequenceSend);
+		Header->WindowSize = htons(TCP_WINDOW_SIZE);
+		Header->Flags &= TCP_FLAG_SYN;	// Eliminate all flags save for SYN
+		Header->Flags |= TCP_FLAG_ACK;	// Add ACK
+		Log_Log("TCP", "Sending ACK for 0x%08x", Connection->NextSequenceRcv);
 		TCP_SendPacket( Connection, sizeof(tTCPHeader), Header );
+		//Connection->NextSequenceSend ++;
 	}
 }
 
@@ -366,16 +396,17 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 void TCP_INT_AppendRecieved(tTCPConnection *Connection, tTCPStoredPacket *Pkt)
 {
 	LOCK( &Connection->lRecievedPackets );
-	if(Connection->RecievedPackets)
+	if(Connection->RecievedBuffer->Length + Pkt->Length > Connection->RecievedBuffer->Space )
 	{
-		Connection->RecievedPacketsTail->Next = Pkt;
-		Connection->RecievedPacketsTail = Pkt;
+		Log_Error("TCP", "Buffer filled, packet dropped (%s)",
+		//	TCP_INT_DumpConnection(Connection)
+			""
+			);
+		return ;
 	}
-	else
-	{
-		Connection->RecievedPackets = Pkt;
-		Connection->RecievedPacketsTail = Pkt;
-	}
+	
+	RingBuffer_Write( Connection->RecievedBuffer, Pkt->Data, Pkt->Length );
+	
 	RELEASE( &Connection->lRecievedPackets );
 }
 
@@ -416,7 +447,8 @@ void TCP_INT_UpdateRecievedFromFuture(tTCPConnection *Connection)
 		
 		// Looks like we found one
 		TCP_INT_AppendRecieved(Connection, pkt);
-		Connection->NextSequenceRcv ++;
+		Connection->NextSequenceRcv += pkt->Length;
+		free(pkt);
 	}
 }
 
@@ -484,8 +516,6 @@ tVFS_Node *TCP_Server_Init(tInterface *Interface)
 	
 	srv = malloc( sizeof(tTCPListener) );
 
-	Log_Debug("TCP", "srv = %p", srv);
-
 	if( srv == NULL ) {
 		Log_Warning("TCP", "malloc failed for listener (%i) bytes", sizeof(tTCPListener));
 		return NULL;
@@ -495,6 +525,8 @@ tVFS_Node *TCP_Server_Init(tInterface *Interface)
 	srv->Port = 0;
 	srv->NextID = 0;
 	srv->Connections = NULL;
+	srv->ConnectionsTail = NULL;
+	srv->NewConnections = NULL;
 	srv->Next = NULL;
 	srv->Node.Flags = VFS_FFLAG_DIRECTORY;
 	srv->Node.Size = -1;
@@ -525,6 +557,8 @@ char *TCP_Server_ReadDir(tVFS_Node *Node, int Pos)
 	tTCPListener	*srv = Node->ImplPtr;
 	tTCPConnection	*conn;
 	char	*ret;
+	
+	ENTER("pNode iPos", Node, Pos);
 
 	Log_Log("TCP", "Thread %i waiting for a connection", Threads_GetTID());
 	for(;;)
@@ -538,15 +572,21 @@ char *TCP_Server_ReadDir(tVFS_Node *Node, int Pos)
 	
 
 	// Increment the new list (the current connection is still on the 
-	// normal list
+	// normal list)
 	conn = srv->NewConnections;
 	srv->NewConnections = conn->Next;
+	
+	LOG("conn = %p", conn);
+	LOG("srv->Connections = %p", srv->Connections);
+	LOG("srv->NewConnections = %p", srv->NewConnections);
+	LOG("srv->ConnectionsTail = %p", srv->ConnectionsTail);
 	
 	RELEASE( &srv->lConnections );
 
 	ret = malloc(9);
-	itoa(ret, Node->ImplInt, 16, 8, '0');
-	Log("TCP_Server_ReadDir: RETURN '%s'", ret);
+	itoa(ret, conn->Node.ImplInt, 16, 8, '0');
+	Log_Log("TCP", "Thread %i got '%s'", Threads_GetTID(), ret);
+	LEAVE('s', ret);
 	return ret;
 }
 
@@ -562,21 +602,40 @@ tVFS_Node *TCP_Server_FindDir(tVFS_Node *Node, char *Name)
 	char	tmp[9];
 	 int	id = atoi(Name);
 	
+	ENTER("pNode sName", Node, Name);
+	
 	// Sanity Check
 	itoa(tmp, id, 16, 8, '0');
-	if(strcmp(tmp, Name) != 0)	return NULL;
+	if(strcmp(tmp, Name) != 0) {
+		LOG("'%s' != '%s' (%08x)", Name, tmp, id);
+		LEAVE('n');
+		return NULL;
+	}
+	
+	Log_Debug("TCP", "srv->Connections = %p", srv->Connections);
+	Log_Debug("TCP", "srv->NewConnections = %p", srv->NewConnections);
+	Log_Debug("TCP", "srv->ConnectionsTail = %p", srv->ConnectionsTail);
 	
 	// Search
 	LOCK( &srv->lConnections );
 	for(conn = srv->Connections;
-		conn && conn->Node.ImplInt != id;
-		conn = conn->Next);
+		conn;
+		conn = conn->Next)
+	{
+		LOG("conn->Node.ImplInt = %i", conn->Node.ImplInt);
+		if(conn->Node.ImplInt == id)	break;
+	}
 	RELEASE( &srv->lConnections );
 	
 	// If not found, ret NULL
-	if(!conn)	return NULL;
+	if(!conn) {
+		LOG("Connection %i not found", id);
+		LEAVE('n');
+		return NULL;
+	}
 	
 	// Return node
+	LEAVE('p', &conn->Node);
 	return &conn->Node;
 }
 
@@ -636,8 +695,8 @@ tVFS_Node *TCP_Client_Init(tInterface *Interface)
 
 	conn->State = TCP_ST_CLOSED;
 	conn->Interface = Interface;
-	conn->LocalPort = 0;
-	conn->RemotePort = 0;
+	conn->LocalPort = -1;
+	conn->RemotePort = -1;
 	memset( &conn->RemoteIP, 0, sizeof(conn->RemoteIP) );
 
 	conn->Node.ImplPtr = conn;
@@ -647,6 +706,8 @@ tVFS_Node *TCP_Client_Init(tInterface *Interface)
 	conn->Node.Write = TCP_Client_Write;
 	conn->Node.IOCtl = TCP_Client_IOCtl;
 	conn->Node.Close = TCP_Client_Close;
+
+	conn->RecievedBuffer = RingBuffer_Create( TCP_RECIEVE_BUFFER_SIZE );
 
 	LOCK(&glTCP_OutbountCons);
 	conn->Next = gTCP_OutbountCons;
@@ -664,46 +725,123 @@ tVFS_Node *TCP_Client_Init(tInterface *Interface)
 Uint64 TCP_Client_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 {
 	tTCPConnection	*conn = Node->ImplPtr;
-	tTCPStoredPacket	*pkt;
+	char	*destbuf = Buffer;
+	size_t	len;
 	
-	Log("TCP_Client_Read: (Length=%i)", Length);
+	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
+	LOG("conn = %p", conn);
+	LOG("conn->State = %i", conn->State);
 	
 	// Check if connection is open
-	if( conn->State != TCP_ST_OPEN )	return 0;
+	while( conn->State == TCP_ST_HALFOPEN || conn->State == TCP_ST_SYN_SENT )
+		Threads_Yield();
+	if( conn->State != TCP_ST_OPEN ) {
+		LEAVE('i', 0);
+		return 0;
+	}
 	
 	// Poll packets
 	for(;;)
-	{		
+	{
 		// Lock list and check if there is a packet
 		LOCK( &conn->lRecievedPackets );
-		if( conn->RecievedPackets == NULL ) {
+		if( conn->RecievedBuffer->Length == 0 ) {
 			// If not, release the lock, yield and try again
 			RELEASE( &conn->lRecievedPackets );
 			Threads_Yield();
 			continue;
 		}
 		
-		// Get packet pointer
-		pkt = conn->RecievedPackets;
-		conn->RecievedPackets = pkt->Next;
+		// Attempt to read all `Length` bytes
+		len = RingBuffer_Read( destbuf, conn->RecievedBuffer, Length );
+		
 		// Release the lock (we don't need it any more)
 		RELEASE( &conn->lRecievedPackets );
-		
-		Log("TCP_Client_Read: pkt->Length = %i", pkt->Length);
-		
-		// Copy Data
-		if(Length > pkt->Length)	Length = pkt->Length;
-		memcpy(Buffer, pkt->Data, Length);
-		
-		// Free packet and return
-		free(pkt);
-		return Length;
+	
+		LEAVE('i', len);
+		return len;
 	}
 }
 
+/**
+ * \brief Send a data packet on a connection
+ */
+void TCP_INT_SendDataPacket(tTCPConnection *Connection, size_t Length, void *Data)
+{
+	char	buf[sizeof(tTCPHeader)+Length];
+	tTCPHeader	*packet = (void*)buf;
+	
+	packet->SourcePort = htons(Connection->LocalPort);
+	packet->DestPort = htons(Connection->RemotePort);
+	packet->DataOffset = (sizeof(tTCPHeader)/4)*16;
+	packet->WindowSize = TCP_WINDOW_SIZE;
+	
+	packet->AcknowlegementNumber = htonl(Connection->NextSequenceRcv);
+	packet->SequenceNumber = htonl(Connection->NextSequenceSend);
+	packet->Flags = TCP_FLAG_PSH|TCP_FLAG_ACK;	// Hey, ACK if you can!
+	
+	memcpy(packet->Options, Data, Length);
+	
+	TCP_SendPacket( Connection, sizeof(tTCPHeader)+Length, packet );
+	
+	Connection->NextSequenceSend += Length;
+}
+
+/**
+ * \brief Send some bytes on a connection
+ */
 Uint64 TCP_Client_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 {
-	return 0;
+	tTCPConnection	*conn = Node->ImplPtr;
+	size_t	rem = Length;
+	
+	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
+	
+	// Check if connection is open
+	while( conn->State == TCP_ST_HALFOPEN || conn->State == TCP_ST_SYN_SENT )
+		Threads_Yield();
+	if( conn->State != TCP_ST_OPEN ) {
+		LEAVE('i', 0);
+		return 0;
+	}
+	
+	while( rem > TCP_MAX_PACKET_SIZE )
+	{
+		TCP_INT_SendDataPacket(conn, TCP_MAX_PACKET_SIZE, Buffer);
+		Buffer += TCP_MAX_PACKET_SIZE;
+	}
+	
+	TCP_INT_SendDataPacket(conn, rem, Buffer);
+	
+	LEAVE('i', Length);
+	return Length;
+}
+
+/**
+ * \brief Open a connection to another host using TCP
+ * \param Conn	Connection structure
+ */
+void TCP_StartConnection(tTCPConnection *Conn)
+{
+	tTCPHeader	hdr;
+
+	Conn->State = TCP_ST_SYN_SENT;
+
+	hdr.SourcePort = htons(Conn->LocalPort);
+	hdr.DestPort = htons(Conn->RemotePort);
+	Conn->NextSequenceSend = rand();
+	hdr.SequenceNumber = htonl(Conn->NextSequenceSend);
+	hdr.DataOffset = (sizeof(tTCPHeader)/4) << 4;
+	hdr.Flags = TCP_FLAG_SYN;
+	hdr.WindowSize = htons(TCP_WINDOW_SIZE);	// Max
+	hdr.Checksum = 0;	// TODO
+	hdr.UrgentPointer = 0;
+	
+	TCP_SendPacket( Conn, sizeof(tTCPHeader), &hdr );
+	
+	Conn->NextSequenceSend ++;
+	Conn->State = TCP_ST_SYN_SENT;
+	return ;
 }
 
 /**
@@ -752,7 +890,7 @@ int TCP_Client_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		return 0;
 
 	case 7:	// Connect
-		if(conn->LocalPort == -1)
+		if(conn->LocalPort == 0xFFFF)
 			conn->LocalPort = TCP_GetUnusedPort();
 		if(conn->RemotePort == -1)
 			return 0;
@@ -766,5 +904,23 @@ int TCP_Client_IOCtl(tVFS_Node *Node, int ID, void *Data)
 
 void TCP_Client_Close(tVFS_Node *Node)
 {
-	free(Node->ImplPtr);
+	tTCPConnection	*conn = Node->ImplPtr;
+	tTCPHeader	packet;
+	
+	packet.SourcePort = htons(conn->LocalPort);
+	packet.DestPort = htons(conn->RemotePort);
+	packet.DataOffset = (sizeof(tTCPHeader)/4)*16;
+	packet.WindowSize = TCP_WINDOW_SIZE;
+	
+	packet.AcknowlegementNumber = 0;
+	packet.SequenceNumber = htonl(conn->NextSequenceSend);
+	packet.Flags = TCP_FLAG_FIN;
+	
+	conn->State = TCP_ST_FIN_SENT;
+	
+	TCP_SendPacket( conn, sizeof(tTCPHeader), &packet );
+	
+	while( conn->State == TCP_ST_FIN_SENT )	Threads_Yield();
+	
+	free(conn);
 }

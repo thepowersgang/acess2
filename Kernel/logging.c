@@ -21,7 +21,11 @@ enum eLogLevels
 	LOG_LEVEL_DEBUG,
 	NUM_LOG_LEVELS
 };
-const char	*csaLevelCodes[] = {"k","p","f","e","w","n","l","d"};
+const char	*csaLevelColours[] = {
+		"\x1B[35m", "\x1B[34m", "\x1B[36m", "\x1B[31m",
+		"\x1B[33m", "\x1B[32m", "\x1B[0m", "\x1B[0m"
+		};
+const char	*csaLevelCodes[] =  {"k","p","f","e","w","n","l","d"};
 
 // === TYPES ===
 typedef struct sLogEntry
@@ -29,9 +33,9 @@ typedef struct sLogEntry
 	struct sLogEntry	*Next;
 	struct sLogEntry	*LevelNext;
 	Sint64	Time;
-	char	Ident[8];
 	 int	Level;
 	 int	Length;
+	char	Ident[9];
 	char	Data[];
 }	tLogEntry;
 typedef struct sLogList
@@ -50,10 +54,8 @@ void	Log_Warning(char *Ident, char *Message, ...);
 void	Log_Notice(char *Ident, char *Message, ...);
 void	Log_Log(char *Ident, char *Message, ...);
 void	Log_Debug(char *Ident, char *Message, ...);
-//static Uint64	Log_Int_GetIdent(const char *Str);
 
 // === EXPORTS ===
-EXPORT(Log_KernelPanic);
 EXPORT(Log_Panic);
 EXPORT(Log_Error);
 EXPORT(Log_Warning);
@@ -83,7 +85,7 @@ void Log_AddEvent(char *Ident, int Level, char *Format, va_list Args)
 	
 	ent = malloc(sizeof(tLogEntry)+len+1);
 	ent->Time = now();
-	strncpy(ent->Ident, Ident, 7);
+	strncpy(ent->Ident, Ident, 8);
 	ent->Level = Level;
 	ent->Length = len;
 	vsnprintf( ent->Data, 256, Format, Args );
@@ -118,7 +120,8 @@ void Log_AddEvent(char *Ident, int Level, char *Format, va_list Args)
  */
 void Log_Int_PrintMessage(tLogEntry *Entry)
 {
-	LogF("%018lli%s [%+8s] %s\n",
+	LogF("%s%018lli%s [%+8s] %s\x1B[0m\n",
+		csaLevelColours[Entry->Level],
 		Entry->Time,
 		csaLevelCodes[Entry->Level],
 		Entry->Ident,

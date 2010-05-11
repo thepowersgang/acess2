@@ -95,9 +95,6 @@ typedef struct sKernelSymbol {
  */
 
 // === FUNCTIONS ===
-// --- Core ---
-extern void	System_Init(char *ArgString);
-
 // --- IRQs ---
 extern int	IRQ_AddHandler(int Num, void (*Callback)(int));
 
@@ -115,11 +112,12 @@ extern void	Log_Debug(char *Ident, char *Message, ...);
  * \name Debugging and Errors
  * \{
  */
-extern void	Panic(char *Msg, ...);
-extern void	Warning(char *Msg, ...);
-extern void	Log(char *Fmt, ...);
-extern void	LogV(char *Fmt, va_list Args);
-extern void	LogF(char *Fmt, ...);
+extern void	Debug_KernelPanic();	//!< Initiate a kernel panic
+extern void	Panic(char *Msg, ...);	//!< Print a panic message (initiates a kernel panic)
+extern void	Warning(char *Msg, ...);	//!< Print a warning message
+extern void	LogF(char *Fmt, ...);	//!< Print a log message without a trailing newline
+extern void	Log(char *Fmt, ...);	//!< Print a log message
+extern void	LogV(char *Fmt, va_list Args);	//!< va_list Log message
 extern void	Debug_Enter(char *FuncName, char *ArgTypes, ...);
 extern void	Debug_Log(char *FuncName, char *Fmt, ...);
 extern void	Debug_Leave(char *FuncName, char RetType, ...);
@@ -314,6 +312,7 @@ extern int	strcmp(const char *__str1, const char *__str2);
 extern int	strncmp(const char *Str1, const char *Str2, size_t num);
 extern int	strucmp(const char *Str1, const char *Str2);
 extern char	*strdup(const char *Str);
+extern char	**str_split(const char *__str, char __ch);
 extern int	strpos(const char *Str, char Ch);
 extern int	strpos8(const char *str, Uint32 search);
 extern void	itoa(char *buf, Uint num, int base, int minLength, char pad);
@@ -399,5 +398,6 @@ extern int	DivUp(int num, int dem);
 
 #include <binary_ext.h>
 #include <vfs_ext.h>
+#include <adt.h>
 
 #endif

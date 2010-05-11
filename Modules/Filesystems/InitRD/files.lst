@@ -11,7 +11,7 @@ Dir "Bin" {
 Dir "Libs" {
 	File "ld-acess.so" "../../../Usermode/Libraries/ld-acess.so"
 	File "libacess.so" "../../../Usermode/Libraries/libacess.so"
-	File "libc.so.1" "../../../Usermode/Libraries/libc.so.1"
+	File "libc.so.1" "../../../Usermode/Libraries/libc.so"
 	File "libgcc.so" "../../../Usermode/Libraries/libgcc.so"
 }
 Dir "Conf" {

@@ -266,5 +266,15 @@ extern int	VFS_Symlink(char *Name, char *Link);
  * \return Boolean Success
  */
 extern int	VFS_ReadDir(int FD, char *Dest);
+/**
+ * \brief Opens a file via an open directory
+ * \note The file to open must be a direct child of the parent
+ * \param Errno	Error number
+ * \param FD	Parent Directory
+ * \param Name	Child name
+ * \param Mode	Open mode
+ * \return File handle (same as returned from VFS_Open)
+ */
+extern int	VFS_OpenChild(Uint *Errno, int FD, char *Name, Uint Mode);
 
 #endif

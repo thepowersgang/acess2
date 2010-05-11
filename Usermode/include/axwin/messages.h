@@ -9,6 +9,13 @@
 #include <stdint.h>
 
 typedef struct sAxWin_Message	tAxWin_Message;
+typedef struct sAxWin_RetMsg	tAxWin_RetMsg;
+
+// Higherarchy:
+// - HANDLE
+//  + ELEMENT
+//   > DIALOG
+//   > TAB
 
 /**
  * \brief Message IDs
@@ -20,11 +27,11 @@ enum eAxWin_Messages
 	// - Windows
 	MSG_SREQ_REGISTER,	// bool (char[] Name) - Registers this PID with the Window Manager
 	
-	MSG_SREQ_ADDTAB,	// ELEMENT (char[] Name) - Adds a tab to the window
+	MSG_SREQ_ADDTAB,	// TAB (char[] Name) - Adds a tab to the window
 	MSG_SREQ_DELTAB,	// void (TAB Tab)	- Closes a tab
 	
-	MSG_SREQ_NEWDIALOG,	// ELEMENT (ELEMENT Parent, char[] Name)	- Creates a dialog
-	MSG_SREQ_DELDIALOG,	// void (ELEMENT Dialog)	- Closes a dialog
+	MSG_SREQ_NEWDIALOG,	// DIALOG (TAB Parent, char[] Name)	- Creates a dialog
+	MSG_SREQ_DELDIALOG,	// void (DIALOG Dialog)	- Closes a dialog
 	
 	MSG_SREQ_SETNAME,	// void (ELEMENT Element, char[] Name)
 	MSG_SREQ_GETNAME,	// char[] (ELEMENT Element)
@@ -43,6 +50,7 @@ enum eAxWin_Messages
 	MSG_SREQ_SETFONT,	MSG_SREQ_PUTTEXT,
 	
 	// Server Responses
+	MSG_SRSP_VERSION,
 	MSG_SRSP_RETURN,	// {int RequestID, void[] Return Value} - Returns a value from a server request
 	
 	NUM_MSG
@@ -72,7 +80,7 @@ struct sAxWin_SReq_NewWindow
  * \brief Server Response - Pong
  * \see eAxWin_Messages.MSG_SRSP_PONG
  */
-struct sAxWin_SRsp_Pong
+struct sAxWin_SRsp_Version
 {
 	uint8_t	Major;
 	uint8_t	Minor;
@@ -98,14 +106,18 @@ struct sAxWin_Message
 {
 	uint16_t	ID;
 	uint16_t	Size;	//!< Size in DWORDS
+	char	Data[];
+};
+
+struct sAxWin_RetMsg
+{
+	uint16_t	ReqID;
+	uint16_t	Rsvd;
 	union
 	{
-		struct sAxWin_SReq_Ping	SReq_Pong;
-		struct sAxWin_SReq_NewWindow	SReq_NewWindow;
-		
-		// Server Responses
-		struct sAxWin_SRsp_Pong	SRsp_Pong;
-		struct sAxWin_SRsp_NewWindow	SRsp_Window;
+		 uint8_t	Bool;
+		uint32_t	Handle;
+		 int	Integer;
 	};
 };
 

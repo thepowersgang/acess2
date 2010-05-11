@@ -5,8 +5,82 @@
 #define DEBUG	0
 #include <acess.h>
 #include <tpl_drv_disk.h>
+#include <tpl_drv_video.h>
 
 // === CODE ===
+// --- Video Driver Helpers ---
+Uint64 DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
+	tDrvUtil_Video_2DHandlers *Handlers, int SizeofHandlers)
+{
+	Uint8	*stream = Buffer;
+	 int	rem = Length;
+	 int	op;
+	while( rem )
+	{
+		rem --;
+		op = *stream++;
+		
+		if(op > NUM_VIDEO_2DOPS) {
+			Log_Warning("DrvUtil", "DrvUtil_Video_2DStream: Unknown"
+				" operation %i", op);
+		}
+		
+		if(op*4 > SizeofHandlers) {
+			Log_Warning("DrvUtil", "DrvUtil_Video_2DStream: Driver does"
+				" not support op %i", op);
+			return Length-rem;
+		}
+		
+		switch(op)
+		{
+		case VIDEO_2DOP_NOP:	break;
+		
+		case VIDEO_2DOP_FILL:
+			if(rem < 12)	return Length-rem;
+			
+			if(!Handlers->Fill) {
+				Log_Warning("DrvUtil", "DrvUtil_Video_2DStream: Driver"
+					" does not support VIDEO_2DOP_FILL");
+				return Length-rem;
+			}
+			
+			Handlers->Fill(
+				Ent,
+				*(Uint16*)(&stream[0]), *(Uint16*)(&stream[2]),
+				*(Uint16*)(&stream[4]), *(Uint16*)(&stream[6]),
+				*(Uint32*)(&stream[8])
+				);
+			
+			rem -= 12;
+			stream += 12;
+			break;
+		
+		case VIDEO_2DOP_BLIT:
+			if(rem < 12)	return Length-rem;
+			
+			if(!Handlers->Blit) {
+				Log_Warning("DrvUtil", "DrvUtil_Video_2DStream: Driver"
+					" does not support VIDEO_2DOP_BLIT");
+				return Length-rem;
+			}
+			
+			Handlers->Blit(
+				Ent,
+				*(Uint16*)(&stream[0]), *(Uint16*)(&stream[2]),
+				*(Uint16*)(&stream[4]), *(Uint16*)(&stream[6]),
+				*(Uint16*)(&stream[8]), *(Uint16*)(&stream[10])
+				);
+			
+			rem -= 12;
+			stream += 12;
+			break;
+		
+		}
+	}
+	return 0;
+}
+
+// --- Disk Driver Helpers ---
 Uint64 DrvUtil_ReadBlock(Uint64 Start, Uint64 Length, void *Buffer,
 	tDrvUtil_Callback ReadBlocks, Uint64 BlockSize, Uint Argument)
 {

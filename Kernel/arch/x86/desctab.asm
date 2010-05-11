@@ -190,6 +190,7 @@ DEF_SYSCALL	0xAC	; Acess System Call
 ; IRQs
 ; - Timer
 [global Isr240]
+[extern SchedulerBase]
 Isr240:
 	push 0
 	jmp SchedulerBase
@@ -280,41 +281,4 @@ IRQCommon:
 	pop ds
 	popa
 	add esp, 8	; Error Code and ID
-	iret
-
-; --------------
-; Task Scheduler
-; --------------
-[extern Proc_Scheduler]
-SchedulerBase:
-	pusha
-	push ds
-	push es
-	push fs
-	push gs
-	
-	mov ax, 0x10
-	mov ds, ax
-	mov es, ax
-	mov fs, ax
-	mov gs, ax
-	
-	mov eax, [esp+12*4]	; CPU Number
-	push eax	; Pus as argument
-	
-	call Proc_Scheduler
-	
-	add esp, 4	; Remove Argument
-	
-	pop gs
-	pop fs
-	pop es
-	pop ds
-
-	mov dx, 0x20
-	mov al, 0x20
-	out dx, al		; ACK IRQ
-	popa
-	add esp, 4	; CPU ID
-	; No Error code / int num
 	iret

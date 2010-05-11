@@ -3,7 +3,7 @@
 SYS_EXIT	Kill this thread
 SYS_CLONE	Create a new thread
 SYS_KILL	Send a signal
-SYS_SIGNAL	Set signal Handler
+SYS_SETFAULTHANDLER	Set signal Handler
 SYS_YIELD	Yield remainder of timestamp
 SYS_SLEEP	Sleep until messaged or signaled
 SYS_WAIT	Wait for a time or a message
@@ -48,6 +48,7 @@ SYS_READ	Read from an open file
 SYS_WRITE	Write to an open file
 SYS_IOCTL	Perform an IOCtl Call
 SYS_READDIR	Read from an open directory
+SYS_OPENCHILD	Open a child entry in a directory
 SYS_MKDIR	Create a new directory
 SYS_SYMLINK	Create a symbolic link
 SYS_GETACL	Get an ACL Value

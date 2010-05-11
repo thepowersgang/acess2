@@ -22,6 +22,7 @@ extern void	ArchThreads_Init();
 extern void	Proc_Start();
 extern tThread	*Proc_GetCurThread();
 extern int	Proc_Clone(Uint *Err, Uint Flags);
+extern void	Proc_CallFaultHandler(tThread *Thread);
 
 // === PROTOTYPES ===
 void	Threads_Init();
@@ -62,7 +63,7 @@ tThread	gThreadZero = {
 	{0},	// Saved State
 	{0},	// VM State
 	
-	0, {0}, {0},	// Signal State
+	0, 0,	// Current Fault, Fault Handler
 	
 	NULL, NULL,	// Messages, Last Message
 	DEFAULT_QUANTUM, DEFAULT_QUANTUM,	// Quantum, Remaining
@@ -201,12 +202,8 @@ tThread *Threads_CloneTCB(Uint *Err, Uint Flags)
 	new->NumTickets = cur->NumTickets;
 	
 	// Set Signal Handlers
-	new->CurSignal = 0;
-	if(Flags & CLONE_VM)
-		memset(new->SignalHandlers, 0, sizeof(new->SignalHandlers));
-	else
-		memcpy(new->SignalHandlers, cur->SignalHandlers, sizeof(new->SignalHandlers));
-	memset(&new->SignalState, 0, sizeof(tTaskState));
+	new->CurFaultNum = 0;
+	new->FaultHandler = cur->FaultHandler;
 	
 	for( i = 0; i < NUM_CFG_ENTRIES; i ++ )
 	{
@@ -269,10 +266,11 @@ int Threads_WaitTID(int TID, int *status)
 		 int	initStatus = t->Status;
 		 int	ret;
 		
-		if(initStatus != THREAD_STAT_ZOMBIE)
+		if(initStatus != THREAD_STAT_ZOMBIE) {
 			while(t->Status == initStatus) {
 				Threads_Yield();
 			}
+		}
 		
 		ret = t->RetStatus;
 		switch(t->Status)
@@ -566,57 +564,52 @@ void Threads_AddActive(tThread *Thread)
 	RELEASE( &giThreadListLock );
 }
 
-#if 0
 /**
- * \fn void Threads_SetSignalHandler(int Num, void *Handler)
+ * \fn void Threads_SetFaultHandler(Uint Handler)
  * \brief Sets the signal handler for a signal
  */
-void Threads_SetSignalHandler(int Num, void *Handler)
-{
-	if(Num < 0 || Num >= NSIG)	return;
-	
-	gCurrentThread->SignalHandlers[Num] = Handler;
+void Threads_SetFaultHandler(Uint Handler)
+{	
+	Log_Log("Threads", "Threads_SetFaultHandler: Handler = %p", Handler);
+	Proc_GetCurThread()->FaultHandler = Handler;
 }
 
 /**
- * \fn void Threads_SendSignal(int TID, int Num)
- * \brief Send a signal to a thread
+ * \fn void Threads_Fault(int Num)
+ * \brief Calls a fault handler
  */
-void Threads_SendSignal(int TID, int Num)
+void Threads_Fault(int Num)
 {
-	tThread	*thread = Proc_GetThread(TID);
-	void	*handler;
+	tThread	*thread = Proc_GetCurThread();
+	
+	Log_Log("Threads", "Threads_Fault: thread = %p", thread);
 	
 	if(!thread)	return ;
 	
-	handler = thread->SignalHandlers[Num];
+	Log_Log("Threads", "Threads_Fault: thread->FaultHandler = %p", thread->FaultHandler);
 	
-	// Panic?
-	if(handler == SIG_ERR) {
-		Proc_Kill(TID);
+	switch(thread->FaultHandler)
+	{
+	case 0:	// Panic?
+		Threads_Kill(thread, -1);
+		HALT();
+		return ;
+	case 1:	// Dump Core?
+		Threads_Kill(thread, -1);
+		HALT();
 		return ;
 	}
-	// Dump Core?
-	if(handler == -2) {
-		Proc_Kill(TID);
-		return ;
-	}
-	// Ignore?
-	if(handler == -2)	return;
 	
-	// Check the type and handle if the thread is already in a signal
-	if(thread->CurSignal != 0) {
-		if(Num < _SIGTYPE_FATAL)
-			Proc_Kill(TID);
-		} else {
-			while(thread->CurSignal != 0)
-				Proc_Yield();
-		}
+	// Double Fault? Oh, F**k
+	if(thread->CurFaultNum != 0) {
+		Threads_Kill(thread, -1);	// For now, just kill
+		HALT();
 	}
 	
-	//TODO: 
+	thread->CurFaultNum = Num;
+	
+	Proc_CallFaultHandler(thread);
 }
-#endif
 
 // --- Process Structure Access Functions ---
 tPID Threads_GetPID()
@@ -747,9 +740,9 @@ tThread *Threads_GetNextToRun(int CPU)
  */
 void Threads_SegFault(tVAddr Addr)
 {
-	//Threads_SendSignal( Proc_GetCurThread()->TID, SIGSEGV );
 	Warning("Thread #%i committed a segfault at address %p", Proc_GetCurThread()->TID, Addr);
-	Threads_Exit( 0, -1 );
+	Threads_Fault( 1 );
+	//Threads_Exit( 0, -1 );
 }
 
 // === EXPORTS ===

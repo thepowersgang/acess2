@@ -10,7 +10,9 @@
 #define	USE_UDI	0
 
 // === PROTOTYPES ===
- int	Modules_LoadBuiltins(void);
+ int	Module_int_Initialise(tModule *Module, char *ArgString);
+void	Modules_LoadBuiltins(void);
+void	Modules_SetBuiltinParams(char *Name, char *ArgString);
  int	Module_RegisterLoader(tModuleLoader *Loader);
  int	Module_LoadMem(void *Buffer, Uint Length, char *ArgString);
  int	Module_LoadFile(char *Path, char *ArgString);
@@ -34,6 +36,7 @@ tSpinlock	glModuleSpinlock;
 tModule	*gLoadedModules = NULL;
 tModuleLoader	*gModule_Loaders = NULL;
 tModule	*gLoadingModules = NULL;
+char	**gasBuiltinModuleArgs;
 
 // === CODE ===
 /**
@@ -45,11 +48,12 @@ tModule	*gLoadingModules = NULL;
  * \retval 0	Returned on success
  * \retval >0	Error code form the module's initialisation function
  */
-int Module_int_Initialise(tModule *Module)
+int Module_int_Initialise(tModule *Module, char *ArgString)
 {
 	 int	i, j;
 	 int	ret;
 	char	**deps;
+	char	**args;
 	tModule	*mod;
 	
 	ENTER("pModule", Module);
@@ -100,7 +104,10 @@ int Module_int_Initialise(tModule *Module)
 		}
 		
 		// Dependency is not loaded, so load it
-		ret = Module_int_Initialise( &gKernelModules[i] );
+		ret = Module_int_Initialise(
+			&gKernelModules[i],
+			gasBuiltinModuleArgs ? gasBuiltinModuleArgs[i] : NULL
+			);
 		if( ret )
 		{
 			// The only "ok" error is NOTNEEDED
@@ -116,7 +123,15 @@ int Module_int_Initialise(tModule *Module)
 		Module->Version >> 8, Module->Version & 0xFF
 		);
 	
-	ret = Module->Init(NULL);
+	if( ArgString )
+		args = str_split( ArgString, ',' );
+	else
+		args = NULL;
+	
+	ret = Module->Init(args);
+	
+	if(args)	free(args);
+	
 	if( ret != MODULE_ERR_OK ) {
 		switch(ret)
 		{
@@ -136,6 +151,7 @@ int Module_int_Initialise(tModule *Module)
 		LEAVE_RET('i', ret);
 		return ret;
 	}
+	LOG("ret = %i", ret);
 	
 	// Remove from loading list
 	gLoadingModules = gLoadingModules->Next;
@@ -152,7 +168,7 @@ int Module_int_Initialise(tModule *Module)
 /**
  * \brief Initialises builtin modules
  */
-int Modules_LoadBuiltins()
+void Modules_LoadBuiltins()
 {
 	 int	i;
 	
@@ -162,10 +178,37 @@ int Modules_LoadBuiltins()
 	
 	for( i = 0; i < giNumBuiltinModules; i++ )
 	{
-		Module_int_Initialise( &gKernelModules[i] );
+		Module_int_Initialise(
+			&gKernelModules[i],
+			(gasBuiltinModuleArgs ? gasBuiltinModuleArgs[i] : NULL)
+			);
 	}
 	
-	return 0;
+	if( gasBuiltinModuleArgs != NULL )
+		free(gasBuiltinModuleArgs);
+}
+
+/**
+ * \brief Sets the parameters for a builtin module
+ */
+void Modules_SetBuiltinParams(char *Name, char *ArgString)
+{
+	 int	i;
+	if( gasBuiltinModuleArgs == NULL ) {
+		giNumBuiltinModules = (Uint)&gKernelModulesEnd - (Uint)&gKernelModules;
+		giNumBuiltinModules /= sizeof(tModule);
+		gasBuiltinModuleArgs = calloc( giNumBuiltinModules, sizeof(char*) );
+	}
+	
+	for( i = 0; i < giNumBuiltinModules; i ++ )
+	{
+		if(strcmp( gKernelModules[i].Name, Name ) == 0) {
+			gasBuiltinModuleArgs[i] = ArgString;
+			return ;
+		}
+	}
+	
+	Log_Warning("Modules", "Unknown builtin kernel module '%s'", Name);
 }
 
 /**
@@ -257,7 +300,7 @@ int Module_LoadFile(char *Path, char *ArgString)
 	}
 	
 	#if 1
-	if( Module_int_Initialise( info ) )
+	if( Module_int_Initialise( info, ArgString ) )
 	{
 		Binary_Unload(base);
 		return 0;

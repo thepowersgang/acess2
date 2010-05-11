@@ -15,8 +15,6 @@
  * Writes to the driver's file while in component colour modes
  * must correspond to a change of the contents of the screen. The framebuffer
  * must start at offset 0 in the file.
- * In pallete colour modes the LFB is preceded by a 1024 byte pallete (allowing
- * room for 256 entries of 32-bits each)
  * Reading from the screen must either return zero, or read from the
  * framebuffer.
  * 
@@ -125,9 +123,83 @@ typedef struct sVideo_IOCtl_Mode
  */
 enum eTplVideo_BufFormats
 {
+	/**
+	 * \brief Text Mode
+	 * 
+	 * The device file presents itself as an array of ::tVT_Char
+	 * each describing a character cell on the screen.
+	 * These cells are each \a giVT_CharWidth pixels wide and
+	 * \a giVT_CharHeight high.
+	 */
 	VIDEO_BUFFMT_TEXT,
+	/**
+	 * \brief Framebuffer Mode
+	 * 
+	 * The device file presents as an array of 32-bpp pixels describing
+	 * the entire screen. The format of a single pixel is in xRGB format
+	 * (top 8 bits ignored, next 8 bits red, next 8 bits green and
+	 * the bottom 8 bits blue)
+	 */
 	VIDEO_BUFFMT_FRAMEBUFFER,
+	/**
+	 * \brief 2D Accelerated Mode
+	 * 
+	 * The device file acts as a character device, accepting a stream of
+	 * commands described in eTplVideo_2DCommands when written to.
+	 */
+	VIDEO_BUFFMT_2DSTREAM,
+	/**
+	 * \brief 3D Accelerated Mode
+	 * 
+	 * The device file acts as a character device, accepting a stream of
+	 * commands described in eTplVideo_3DCommands when written to.
+	 */
 	VIDEO_BUFFMT_3DSTREAM
+};
+
+/**
+ * \brief 2D Accellerated Video Commands
+ * 
+ * Commands passed in the command stream for ::VIDEO_BUFFMT_2DSTREAM
+ */
+enum eTplVideo_2DCommands
+{
+	/**
+	 * \brief No Operation
+	 */
+	VIDEO_2DOP_NOP,
+	/**
+	 * \brief Fill a region
+	 * \param X	Uint16 - Leftmost pixels of the region
+	 * \param Y	Uint16 - Topmost pixels of the region
+	 * \param W	Uint16 - Width of the region
+	 * \param H	Uint16 - Height of the region
+	 * \param Colour	Uint32 - Value to fill with
+	 */
+	VIDEO_2DOP_FILL,
+	/**
+	 * \brief Copy a region from one part of the framebuffer to another
+	 * \param DestX	Uint16 - Leftmost pixels of the destination
+	 * \param DestY	Uint16 - Topmost pixels of the destination
+	 * \param SrcX	Uint16 - Leftmost pixels of the source
+	 * \param SrcY	Uint16 - Topmost pixels of the source
+	 * \param Width	Uint16 - Width of the region
+	 * \param Height	Uint16 - Height of the region
+	 */
+	VIDEO_2DOP_BLIT,
+
+
+	/**
+	 * \brief Copy a region from video memory to the framebuffer
+	 */
+	VIDEO_2DOP_BLITBUF,
+
+	/**
+	 * \brief Copy and scale a region from video memory to the framebuffer
+	 */
+	VIDEO_2DOP_BLITSCALEBUF,
+
+	NUM_VIDEO_2DOPS
 };
 
 /**
@@ -191,5 +263,50 @@ extern void	VT_Font_Render(Uint32 Codepoint, void *Buffer, int Pitch, Uint32 BGC
  * \return Expanded 32-bpp (24-bit colour) version of \a Col12
  */
 extern Uint32	VT_Colour12to24(Uint16 Col12);
+
+/**
+ * \brief Handlers for eTplVideo_2DCommands
+ */
+typedef struct sDrvUtil_Video_2DHandlers
+{
+	/**
+	 * \brief No Operation, Ignored
+	 * \see VIDEO_2DOP_NOP
+	 */
+	void	*Nop;
+	/**
+	 * \brief Fill a buffer region
+	 * \param X	Lefthand edge
+	 * \param Y	Top edge
+	 * \param W	Width
+	 * \param H	Height
+	 * \param Colour	Colour to fill with
+	 * \see VIDEO_2DOP_FILL
+	 */
+	void	(*Fill)(void *Ent, Uint16 X, Uint16 Y, Uint16 W, Uint16 H, Uint32 Colour);
+	/**
+	 * \brief Fill a buffer region
+	 * \param DestX	Lefthand edge of destination
+	 * \param DestY	Top edge of destination
+	 * \param SrcX	Lefthand edge of source
+	 * \param SrcY	Top edge of source
+	 * \param W	Width
+	 * \param H	Height
+	 * \see VIDEO_2DOP_BLIT
+	 */
+	void	(*Blit)(void *Ent, Uint16 DestX, Uint16 DestY, Uint16 SrcX, Uint16 SrcY, Uint16 W, Uint16 H);
+}	tDrvUtil_Video_2DHandlers;
+
+/**
+ * \brief Handle a 2D operation stream for a driver
+ * \param Ent	Value to pass to handlers
+ * \param Buffer	Stream buffer
+ * \param Length	Length of stream
+ * \param Handlers	Handlers to use for the stream
+ * \param SizeofHandlers	Size of \a tDrvUtil_Video_2DHandlers according
+ *        to the driver. Used as version control and error avoidence.
+ */
+extern Uint64	DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
+	tDrvUtil_Video_2DHandlers *Handlers, int SizeofHandlers);
 
 #endif

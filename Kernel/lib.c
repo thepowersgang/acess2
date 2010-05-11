@@ -28,10 +28,11 @@ char	*strncpy(char *__str1, const char *__str2, size_t max);
  int	strcmp(const char *str1, const char *str2);
  int	strncmp(const char *str1, const char *str2, size_t num);
 char	*strdup(const char *Str);
- int	DivUp(int num, int dem);
+char	**str_split(const char *__str, char __ch);
  int	strpos8(const char *str, Uint32 Search);
  int	ReadUTF8(Uint8 *str, Uint32 *Val);
  int	WriteUTF8(Uint8 *str, Uint32 Val);
+ int	DivUp(int num, int dem);
 Sint64	timestamp(int sec, int mins, int hrs, int day, int month, int year);
 Uint	rand(void);
  int	CheckString(char *String);
@@ -54,8 +55,9 @@ EXPORT(strncpy);
 EXPORT(strcmp);
 EXPORT(strncmp);
 EXPORT(strdup);
-EXPORT(DivUp);
+EXPORT(str_split);
 EXPORT(strpos8);
+EXPORT(DivUp);
 EXPORT(ReadUTF8);
 EXPORT(WriteUTF8);
 EXPORT(timestamp);
@@ -181,14 +183,14 @@ void itoa(char *buf, Uint num, int base, int minLength, char pad)
 int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 {
 	char	c, pad = ' ';
-	 int	minSize = 0;
+	 int	minSize = 0, len;
 	char	tmpBuf[34];	// For Integers
 	char	*p = NULL;
 	 int	isLongLong = 0;
 	Uint64	val;
 	size_t	pos = 0;
 	// Flags
-	// int	bPadLeft = 0;
+	 int	bPadLeft = 0;
 	
 	//Log("vsnprintf: (__s=%p, __maxlen=%i, __format='%s', ...)", __s, __maxlen, __format);
 	
@@ -214,7 +216,12 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		
 		// Get Argument
 		val = va_arg(args, Uint);
-		//Log("val = %x", val);
+		
+		// - Padding Side Flag
+		if(c == '+') {
+			bPadLeft = 1;
+			c = *__format++;
+		}
 		
 		// - Padding
 		if(c == '0') {
@@ -225,8 +232,12 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 			pad = ' ';
 		
 		// - Minimum length
-		minSize = 1;
-		if('1' <= c && c <= '9')
+		if(c == '*') {
+			minSize = val;
+			val = va_arg(args, Uint);
+			c = *__format++;
+		}
+		else if('1' <= c && c <= '9')
 		{
 			minSize = 0;
 			while('0' <= c && c <= '9')
@@ -236,6 +247,8 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 				c = *__format++;
 			}
 		}
+		else
+			minSize = 1;
 		
 		// - Default, Long or LongLong?
 		isLongLong = 0;
@@ -285,14 +298,17 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		case 's':
 			p = (char*)(Uint)val;
 		printString:
-			//Log("p = '%s'", p);
 			if(!p)		p = "(null)";
+			len = strlen(p);
+			if( !bPadLeft )	while(len++ < minSize)	PUTCH(pad);
 			while(*p)	PUTCH(*p++);
+			if( bPadLeft )	while(len++ < minSize)	PUTCH(pad);
 			break;
 		
 		case 'C':	// Non-Null Terminated Character Array
 			p = (char*)(Uint)val;
 			if(!p)	goto printString;
+			//while(minSize--)	PUTCH(*p++);
 			while(minSize--)	PUTCH(*p++);
 			break;
 		
@@ -441,6 +457,47 @@ char *strdup(const char *Str)
 	char	*ret;
 	ret = malloc(strlen(Str)+1);
 	strcpy(ret, Str);
+	return ret;
+}
+
+/**
+ * \brief Split a string using the passed character
+ * \return NULL terminated array of strings on the heap
+ * \param __str	String to split
+ * \param __ch	Character to split by
+ */
+char **str_split(const char *__str, char __ch)
+{
+	 int	i, j;
+	 int	len = 1;
+	char	**ret;
+	char	*start;
+	
+	for( i = 0; __str[i]; i++ )
+	{
+		if(__str[i] == __ch)
+			len ++;
+	}
+	
+	ret = malloc( sizeof(char*)*(len+1) + (i + 1) );
+	if( !ret )	return NULL;
+	
+	j = 1;
+	start = (char *)&ret[len+1];
+	ret[0] = start;
+	for( i = 0; __str[i]; i++ )
+	{
+		if(__str[i] == __ch) {
+			*start++ = '\0';
+			ret[j++] = start;
+		}
+		else {
+			*start++ = __str[i]; 
+		}
+	}
+	*start = '\0';
+	ret[j] = NULL;
+	
 	return ret;
 }
 

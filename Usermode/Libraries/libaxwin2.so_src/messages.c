@@ -13,7 +13,22 @@
 tAxWin_Message	*AxWin_WaitForMessage();
  int	AxWin_HandleMessage(tAxWin_Message *Message);
 
+// ===  ===
+
 // === CODE ===
+int AxWin_SendMessage(tAxWin_Message *Message)
+{
+	switch(giAxWin_Mode)
+	{
+	case AXWIN_MODE_IPC:
+		SysSendMessage(giAxWin_PID, Message->Size*4, Message);
+		break;
+	default:
+		break;
+	}
+	return 0;
+}
+
 /**
  * \brief Loop forever, checking and waiting for messages
  */

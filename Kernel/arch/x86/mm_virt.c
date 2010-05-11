@@ -66,6 +66,7 @@ typedef Uint32	tTabEnt;
 #endif
 
 // === IMPORTS ===
+extern void	_UsertextEnd, _UsertextBase;
 extern Uint32	gaInitPageDir[1024];
 extern Uint32	gaInitPageTable[1024];
 extern void	Threads_SegFault(tVAddr Addr);
@@ -153,6 +154,12 @@ void MM_InstallVirtual()
 		memset( &gaPageTable[i*1024], 0, 0x1000 );
 	}
 	#endif
+	
+	// Unset kernel on the User Text pages
+	for( i = ((tVAddr)&_UsertextEnd-(tVAddr)&_UsertextBase+0xFFF)/4096; i--; ) {
+		Log("MM_SetFlags( 0x%08x, 0, MM_PFLAG_KERNEL)", (tVAddr)&_UsertextBase + i*4096);
+		MM_SetFlags( (tVAddr)&_UsertextBase + i*4096, 0, MM_PFLAG_KERNEL );
+	}
 }
 
 /**
@@ -213,6 +220,8 @@ void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 		Threads_SegFault(Addr);
 		return ;
 	}
+	
+	Debug_KernelPanic();
 	
 	// -- Check Error Code --
 	if(ErrorCode & 8)
@@ -779,15 +788,25 @@ void MM_SetFlags(tVAddr VAddr, Uint Flags, Uint Mask)
 	// Read-Only
 	if( Mask & MM_PFLAG_RO )
 	{
-		if( Flags & MM_PFLAG_RO )	*ent &= ~PF_WRITE;
-		else 	*ent |= PF_WRITE;
+		if( Flags & MM_PFLAG_RO ) {
+			*ent &= ~PF_WRITE;
+		}
+		else {
+			gaPageDir[VAddr >> 22] |= PF_WRITE;
+			*ent |= PF_WRITE;
+		}
 	}
 	
 	// Kernel
 	if( Mask & MM_PFLAG_KERNEL )
 	{
-		if( Flags & MM_PFLAG_KERNEL )	*ent &= ~PF_USER;
-		else	*ent |= PF_USER;
+		if( Flags & MM_PFLAG_KERNEL ) {
+			*ent &= ~PF_USER;
+		}
+		else {
+			gaPageDir[VAddr >> 22] |= PF_USER;
+			*ent |= PF_USER;
+		}
 	}
 	
 	// Copy-On-Write
@@ -802,6 +821,9 @@ void MM_SetFlags(tVAddr VAddr, Uint Flags, Uint Mask)
 			*ent |= PF_WRITE;
 		}
 	}
+	
+	//Log("MM_SetFlags: *ent = 0x%08x, gaPageDir[%i] = 0x%08x",
+	//	*ent, VAddr >> 22, gaPageDir[VAddr >> 22]);
 }
 
 /**
@@ -1002,17 +1024,21 @@ tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 void MM_UnmapHWPages(tVAddr VAddr, Uint Number)
 {
 	 int	i, j;
+	
+	//Log_Debug("VirtMem", "MM_UnmapHWPages: (VAddr=0x%08x, Number=%i)", VAddr, Number);
+	
 	// Sanity Check
-	if(VAddr < HW_MAP_ADDR || VAddr-Number*0x1000 > HW_MAP_MAX)	return;
+	if(VAddr < HW_MAP_ADDR || VAddr+Number*0x1000 > HW_MAP_MAX)	return;
 	
 	i = VAddr >> 12;
 	
 	LOCK( &gilTempMappings );	// Temp and HW share a directory, so they share a lock
 	
+	
 	for( j = 0; j < Number; j++ )
 	{
-		MM_DerefPhys( gaPageTable[ (HW_MAP_ADDR >> 12) + i + j ] );
-		gaPageTable[ (HW_MAP_ADDR >> 12) + i + j ] = 0;
+		MM_DerefPhys( gaPageTable[ i + j ] & ~0xFFF );
+		gaPageTable[ i + j ] = 0;
 	}
 	
 	RELEASE( &gilTempMappings );

@@ -103,7 +103,7 @@ Uint64 VFS_Write(int FD, Uint64 Length, void *Buffer)
 
 /**
  * \fn Uint64 VFS_WriteAt(int FD, Uint64 Offset, Uint64 Length, void *Buffer)
- * \brief Write data to a file at a given offset (atomic)
+ * \brief Write data to a file at a given offset
  */
 Uint64 VFS_WriteAt(int FD, Uint64 Offset, Uint64 Length, void *Buffer)
 {
@@ -149,6 +149,9 @@ int VFS_Seek(int FD, Sint64 Offset, int Whence)
 	
 	h = VFS_GetHandle(FD);
 	if(!h)	return -1;
+	
+	//Log_Debug("VFS", "VFS_Seek: (fd=0x%x, Offset=0x%llx, Whence=%i)",
+	//	FD, Offset, Whence);
 	
 	// Set relative to current position
 	if(Whence == 0) {

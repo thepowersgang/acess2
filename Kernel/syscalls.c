@@ -32,6 +32,7 @@ extern tUID	Threads_GetUID();
 extern int	Threads_SetUID(Uint *errno, tUID ID);
 extern tGID	Threads_GetGID();
 extern int	Threads_SetGID(Uint *errno, tGID ID);
+extern int	Threads_SetFaultHandler(Uint Handler);
 
 // === PROTOTYPES ===
  int	Syscall_ValidString(Uint Addr);
@@ -59,6 +60,11 @@ void SyscallHandler(tSyscallRegs *Regs)
 	
 	// -- Yield current timeslice
 	case SYS_YIELD:	Threads_Yield();	break;
+	
+	// -- Set Error Handler
+	case SYS_SETFAULTHANDLER:
+		Threads_SetFaultHandler(Regs->Arg1);
+		break;
 	
 	// -- Clone the current thread
 	case SYS_CLONE:
@@ -192,7 +198,11 @@ void SyscallHandler(tSyscallRegs *Regs)
 		break;
 	
 	case SYS_SEEK:
+		#if BITS == 64
 		ret = VFS_Seek( Regs->Arg1, Regs->Arg2, Regs->Arg3 );
+		#else
+		ret = VFS_Seek( Regs->Arg1, Regs->Arg2|(((Uint64)Regs->Arg3)<<32), Regs->Arg4 );
+		#endif
 		break;
 		
 	case SYS_TELL:
@@ -233,6 +243,16 @@ void SyscallHandler(tSyscallRegs *Regs)
 			break;
 		}
 		ret = VFS_ReadDir( Regs->Arg1, (void*)Regs->Arg2 );
+		break;
+	
+	// Open a file that is a entry in an open directory
+	case SYS_OPENCHILD:
+		if( !Syscall_ValidString(Regs->Arg2) ) {
+			err = -EINVAL;
+			ret = -1;
+			break;
+		}
+		ret = VFS_OpenChild( &err, Regs->Arg1, (char*)Regs->Arg2, Regs->Arg3);
 		break;
 	
 	// Change Directory

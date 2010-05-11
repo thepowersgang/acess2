@@ -24,6 +24,7 @@ SECTIONS {
 		_UsertextBase = .;
 		*(.usertext)
 	}
+	_UsertextEnd = .;
 	
 	.rodata ALIGN(0x1000): AT(ADDR(.rodata) - 0xC0000000) {
 		*(.initpd)

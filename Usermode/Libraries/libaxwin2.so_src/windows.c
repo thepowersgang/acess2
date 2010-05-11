@@ -13,11 +13,11 @@ struct sAxWin_Window
 {
 	struct sAxWin_Window	*Next;
 	uint32_t	WmHandle;
-	tAxWin_MessageCallback	Callback;
+	tAxWin_MessageCallback	*Callback;
 };
 
 // === PROTOTYPES ===
-tAxWin_Handle	AxWin_CreateWindow(
+tAxWin_Window	*AxWin_CreateWindow(
 	int16_t X, int16_t Y, int16_t W, int16_t H,
 	uint32_t Flags, tAxWin_MessageCallback *Callback
 	);
@@ -27,7 +27,7 @@ tAxWin_Handle	AxWin_CreateWindow(
 tAxWin_Window	*gProcessWindows;
 
 // === CODE ===
-tAxWin_Handle	AxWin_CreateWindow(
+tAxWin_Window	*AxWin_CreateWindow(
 	int16_t X, int16_t Y,
 	int16_t W, int16_t H,
 	uint32_t Flags, tAxWin_MessageCallback *Callback)

@@ -22,9 +22,6 @@ extern void	gLinkedBase;
 int SoMain(Uint base, int arg1)
 {
 	 int	ret;
-	
-	//SysDebug("SoMain: base = 0x%x", base);
-	//SysDebug("SoMain: arg1 = 0x%x", arg1);
 	 
 	// - Assume that the file pointer will be less than 4096
 	if(base < 0x1000) {

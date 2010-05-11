@@ -2,7 +2,7 @@
  * AcessOS 1
  * Video BIOS Extensions (Vesa) Driver
  */
-#define DEBUG	1
+#define DEBUG	0
 #define VERSION	0x100
 
 #include <acess.h>
@@ -15,6 +15,7 @@
 
 // === CONSTANTS ===
 #define	FLAG_LFB	0x1
+#define VESA_DEFAULT_FRAMEBUFFER	(KERNEL_BASE|0xA0000)
 
 // === PROTOTYPES ===
  int	Vesa_Install(char **Arguments);
@@ -24,6 +25,9 @@ Uint64	Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
  int	Vesa_Int_SetMode(int Mode);
  int	Vesa_Int_FindMode(tVideo_IOCtl_Mode *data);
  int	Vesa_Int_ModeInfo(tVideo_IOCtl_Mode *data);
+// --- 2D Acceleration Functions --
+void	Vesa_2D_Fill(void *Ent, Uint16 X, Uint16 Y, Uint16 W, Uint16 H, Uint32 Colour);
+void	Vesa_2D_Blit(void *Ent, Uint16 DstX, Uint16 DstY, Uint16 SrcX, Uint16 SrcY, Uint16 W, Uint16 H);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, Vesa, Vesa_Install, NULL, "PCI", "VM8086", NULL);
@@ -37,13 +41,18 @@ tDevFS_Driver	gVesa_DriverStruct = {
 };
 tSpinlock	glVesa_Lock;
 tVM8086	*gpVesa_BiosState;
- int	giVesaCurrentMode = -1;
+ int	giVesaCurrentMode = 0;
  int	giVesaCurrentFormat = VIDEO_BUFFMT_TEXT;
  int	giVesaDriverId = -1;
-char	*gVesaFramebuffer = (void*)0xC00A0000;
+char	*gpVesa_Framebuffer = (void*)VESA_DEFAULT_FRAMEBUFFER;
 tVesa_Mode	*gVesa_Modes;
  int	giVesaModeCount = 0;
  int	giVesaPageCount = 0;
+tDrvUtil_Video_2DHandlers	gVesa_2DFunctions = {
+	NULL,
+	Vesa_2D_Fill,
+	Vesa_2D_Blit
+};
 
 //CODE
 int Vesa_Install(char **Arguments)
@@ -67,11 +76,11 @@ int Vesa_Install(char **Arguments)
 	// Call Interrupt
 	VM8086_Int(gpVesa_BiosState, 0x10);
 	if(gpVesa_BiosState->AX != 0x004F) {
-		Log_Warning("Vesa", "Vesa_Install - VESA/VBE Unsupported (AX = 0x%x)\n", gpVesa_BiosState->AX);
+		Log_Warning("VESA", "Vesa_Install - VESA/VBE Unsupported (AX = 0x%x)", gpVesa_BiosState->AX);
 		return MODULE_ERR_NOTNEEDED;
 	}
 	
-	Log_Debug("Vesa", "info->VideoModes = %04x:%04x", info->VideoModes.seg, info->VideoModes.ofs);
+	Log_Debug("VESA", "info->VideoModes = %04x:%04x", info->VideoModes.seg, info->VideoModes.ofs);
 	modes = (Uint16 *) VM8086_GetPointer(gpVesa_BiosState, info->VideoModes.seg, info->VideoModes.ofs);
 	
 	// Read Modes
@@ -109,12 +118,13 @@ int Vesa_Install(char **Arguments)
 			gVesa_Modes[i].fbSize = 0;
 		}
 		
+		gVesa_Modes[i].pitch = modeinfo->pitch;
 		gVesa_Modes[i].width = modeinfo->Xres;
 		gVesa_Modes[i].height = modeinfo->Yres;
 		gVesa_Modes[i].bpp = modeinfo->bpp;
 		
 		#if DEBUG
-		Log_Log("Vesa", "0x%x - %ix%ix%i",
+		Log_Log("VESA", "0x%x - %ix%ix%i",
 			gVesa_Modes[i].code, gVesa_Modes[i].width, gVesa_Modes[i].height, gVesa_Modes[i].bpp);
 		#endif
 	}
@@ -132,7 +142,7 @@ int Vesa_Install(char **Arguments)
 Uint64 Vesa_Read(tVFS_Node *Node, Uint64 off, Uint64 len, void *buffer)
 {
 	#if DEBUG >= 2
-	LogF("Vesa_Read: () - NULL\n");
+	Log("Vesa_Read: () - NULL\n");
 	#endif
 	return 0;
 }
@@ -152,9 +162,12 @@ Uint64 Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	// Default Text mode
 	if( giVesaCurrentMode == 0 )
 	{
-		Uint8	*fb = (Uint8 *)(KERNEL_BASE|0xB8000);
-		Uint32	*buf = Buffer;
+		Uint16	*fb = (Uint16*)(KERNEL_BASE|0xB8000);
+		tVT_Char	*chars = Buffer;
 		 int	rem;
+		
+		Length /= sizeof(tVT_Char);
+		Offset /= sizeof(tVT_Char);
 		
 		if( giVesaCurrentFormat != VIDEO_BUFFMT_TEXT ) {
 			Log_Warning("VESA", "Vesa_Write - Mode 0 is not framebuffer");
@@ -162,33 +175,32 @@ Uint64 Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 			return -1;
 		}
 		
-		if( Offset + Length > 25*80*8 ) {
+		if( Offset + Length > 25*80 ) {
 			Log_Warning("VESA", "Vesa_Write - Framebuffer Overflow");
 			LEAVE('i', 0);
 			return 0;
 		}
 		
 		fb += 2*Offset;
-		for(rem = Length / sizeof(tVT_Char); rem --; fb += 2)
+		LOG("fb = %p", fb);
+		for(rem = Length; rem --; fb ++, chars++)
 		{
-			if( *buf < 0x80 )
-				*fb = *buf & 0x7F;
+			if( chars->Ch < 0x80 )
+				*fb = chars->Ch & 0x7F;
 			else
 				*fb = 0x00;
-			buf ++;
 			
-			fb[1] = 0;
-			fb[1] |= (*buf & 0x888) == 0x888 ? 0x8 : 0;
-			fb[1] |= (*buf & 0x700) > 0x300 ? 0x4 : 0;
-			fb[1] |= (*buf & 0x070) > 0x030 ? 0x2 : 0;
-			fb[1] |= (*buf & 0x007) > 0x003 ? 0x1 : 0;
-			fb[1] |= (*buf & 0x888000) == 0x888000 ? 0x80 : 0;
-			fb[1] |= (*buf & 0x700000) > 0x300000 ? 0x40 : 0;
-			fb[1] |= (*buf & 0x070000) > 0x030000 ? 0x20 : 0;
-			fb[1] |= (*buf & 0x007000) > 0x003000 ? 0x10 : 0;
-			buf ++;
+			*fb |= (chars->FGCol & 0x888) == 0x888 ? 0x8 : 0;
+			*fb |= (chars->FGCol & 0x700) > 0x300 ? 0x4 : 0;
+			*fb |= (chars->FGCol & 0x070) > 0x030 ? 0x2 : 0;
+			*fb |= (chars->FGCol & 0x007) > 0x003 ? 0x1 : 0;
+			*fb |= (chars->BGCol & 0x888) == 0x888 ? 0x80 : 0;
+			*fb |= (chars->BGCol & 0x700) > 0x300 ? 0x40 : 0;
+			*fb |= (chars->BGCol & 0x070) > 0x030 ? 0x20 : 0;
+			*fb |= (chars->BGCol & 0x007) > 0x003 ? 0x10 : 0;
+			//LOG("%08x (%03x,%03x) = %04x",
+			//	chars->Ch, chars->BGCol, chars->FGCol, *fb);
 		}
-		Length /= sizeof(tVT_Char);
 		Length *= sizeof(tVT_Char);
 		LEAVE('X', Length);
 		return Length;
@@ -206,51 +218,69 @@ Uint64 Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	case VIDEO_BUFFMT_TEXT:
 		{
 		tVT_Char	*chars = Buffer;
-		 int	pitch = gVesa_Modes[giVesaCurrentMode].width * giVT_CharWidth;
+		 int	pitch = gVesa_Modes[giVesaCurrentMode].width;
+		 int	widthInChars = gVesa_Modes[giVesaCurrentMode].width/giVT_CharWidth;
+		 int	heightInChars = gVesa_Modes[giVesaCurrentMode].height/giVT_CharHeight;
 		 int	x, y;
-		Uint32	*dest;
-		 int	rem;
+		Uint32	*dest = (void*)gpVesa_Framebuffer;
+		 int	i;
 		
+		Length /= sizeof(tVT_Char);
 		Offset /= sizeof(tVT_Char);
-		dest = (void*)gVesaFramebuffer;
-		x = (Offset % gVesa_Modes[giVesaCurrentMode].width) * giVT_CharWidth;
-		y = (Offset / gVesa_Modes[giVesaCurrentMode].width) * giVT_CharHeight;
+		
+		LOG("gVesa_Modes[%i].width = %i", giVesaCurrentMode, gVesa_Modes[giVesaCurrentMode].width);
+		x = Offset % widthInChars;
+		y = Offset / widthInChars;
+		LOG("(x,y) = (%i,%i) = [%i,%i]", x, y, x * giVT_CharWidth, y * giVT_CharHeight * pitch);
+		LOG("(w,h) = (%i,%i) = [%i,%i]",
+			(int)(Length % widthInChars),
+			(int)(Length / widthInChars),
+			(int)((Length % widthInChars) * giVT_CharWidth),
+			(int)((Length / widthInChars) * giVT_CharHeight * pitch)
+			);
 		
 		// Sanity Check
-		if(y > gVesa_Modes[giVesaCurrentMode].height) {
+		if(y > heightInChars) {
 			LEAVE('i', 0);
 			return 0;
 		}
 		
-		dest += y * pitch;
+		if( Offset + Length > heightInChars*widthInChars ) {
+			Log_Debug("VESA", "%i + %i > %i*%i (%i)",
+				(int)Offset, (int)Length, heightInChars, widthInChars, heightInChars*widthInChars);
+			Length = heightInChars*widthInChars - Offset;
+			Log_Notice("VESA", "Clipping write size to %i characters", (int)Length);
+		}
+		
+		dest += y * giVT_CharHeight * pitch;
 		dest += x * giVT_CharWidth;
-		for( rem = Length / sizeof(tVT_Char); rem--; )
+		
+		LOG("dest = %p", dest);
+		
+		for( i = 0; i < Length; i++ )
 		{
 			VT_Font_Render(
 				chars->Ch,
-				dest, pitch,
+				dest + x*giVT_CharWidth, pitch,
 				VT_Colour12to24(chars->BGCol),
 				VT_Colour12to24(chars->FGCol)
 				);
 			
-			dest += giVT_CharWidth;
-			
 			chars ++;
-			x += giVT_CharWidth;
-			if( x >= pitch ) {
+			x ++;
+			if( x >= widthInChars ) {
 				x = 0;
-				y += giVT_CharHeight;
-				dest += pitch*(giVT_CharHeight-1);
+				y ++;
+				dest += pitch*giVT_CharHeight;
 			}
 		}
-		Length /= sizeof(tVT_Char);
 		Length *= sizeof(tVT_Char);
 		}
 		break;
 	
 	case VIDEO_BUFFMT_FRAMEBUFFER:
 		{
-		Uint8	*destBuf = (Uint8*) ((Uint)gVesaFramebuffer + (Uint)Offset);
+		Uint8	*destBuf = (Uint8*) ((Uint)gpVesa_Framebuffer + (Uint)Offset);
 		
 		if(gVesa_Modes[giVesaCurrentMode].fbSize < Offset+Length)
 		{
@@ -269,6 +299,14 @@ Uint64 Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		LOG("BGA Framebuffer updated");
 		}
 		break;
+	
+	case VIDEO_BUFFMT_2DSTREAM:
+		Length = DrvUtil_Video_2DStream(
+			NULL,	// Single framebuffer, so Ent is unused
+			Buffer, Length, &gVesa_2DFunctions, sizeof(gVesa_2DFunctions)
+			);
+		break;
+	
 	default:
 		LEAVE('i', -1);
 		return -1;
@@ -285,6 +323,7 @@ Uint64 Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 int Vesa_Ioctl(tVFS_Node *Node, int ID, void *Data)
 {
 	 int	ret;
+	//Log_Debug("VESA", "Vesa_Ioctl: (Node=%p, ID=%i, Data=%p)", Node, ID, Data);
 	switch(ID)
 	{
 	case DRV_IOCTL_TYPE:	return DRV_TYPE_VIDEO;
@@ -302,8 +341,14 @@ int Vesa_Ioctl(tVFS_Node *Node, int ID, void *Data)
 	
 	case VIDEO_IOCTL_SETBUFFORMAT:
 		ret = giVesaCurrentFormat;
-		if(Data)	giVesaCurrentFormat = *(int*)Data;
+		if(Data) {
+			//Log_Log("VESA", "Buffer mode to %i", *(int*)Data);
+			giVesaCurrentFormat = *(int*)Data;
+		}
 		return ret;
+	
+	case VIDEO_IOCTL_SETCURSOR:	// Set cursor position
+		return 0;
 	
 	case VIDEO_IOCTL_REQLFB:	// Request Linear Framebuffer
 		return 0;
@@ -312,10 +357,8 @@ int Vesa_Ioctl(tVFS_Node *Node, int ID, void *Data)
 }
 
 int Vesa_Int_SetMode(int mode)
-{	
-	#if DEBUG
-	LogF("Vesa_Int_SetMode: (mode=%i)\n", mode);
-	#endif
+{
+	Log_Log("VESA", "Setting mode to %i", mode);
 	
 	// Sanity Check values
 	if(mode < 0 || mode > giVesaModeCount)	return -1;
@@ -336,12 +379,13 @@ int Vesa_Int_SetMode(int mode)
 	VM8086_Int(gpVesa_BiosState, 0x10);
 	
 	// Map Framebuffer
-	MM_UnmapHWPages((tVAddr)gVesaFramebuffer, giVesaPageCount);
+	if( (tVAddr)gpVesa_Framebuffer != VESA_DEFAULT_FRAMEBUFFER )
+		MM_UnmapHWPages((tVAddr)gpVesa_Framebuffer, giVesaPageCount);
 	giVesaPageCount = (gVesa_Modes[mode].fbSize + 0xFFF) >> 12;
-	gVesaFramebuffer = (void*)MM_MapHWPages(gVesa_Modes[mode].framebuffer, giVesaPageCount);
+	gpVesa_Framebuffer = (void*)MM_MapHWPages(gVesa_Modes[mode].framebuffer, giVesaPageCount);
 	
-	LogF("Vesa", "Framebuffer (Phys) = 0x%x", gVesa_Modes[mode].framebuffer);
-	LogF("Vesa", "Framebuffer (Virt) = 0x%x", gVesaFramebuffer);
+	Log_Log("VESA", "Framebuffer (Phys) = 0x%x", gVesa_Modes[mode].framebuffer);
+	Log_Log("VESA", "Framebuffer (Virt) = 0x%x", gpVesa_Framebuffer);
 	
 	// Record Mode Set
 	giVesaCurrentMode = mode;
@@ -400,4 +444,59 @@ int Vesa_Int_ModeInfo(tVideo_IOCtl_Mode *data)
 	data->height = gVesa_Modes[data->id].height;
 	data->bpp = gVesa_Modes[data->id].bpp;
 	return 1;
+}
+
+// ------------------------
+// --- 2D Accelleration ---
+// ------------------------
+void Vesa_2D_Fill(void *Ent, Uint16 X, Uint16 Y, Uint16 W, Uint16 H, Uint32 Colour)
+{
+	 int	scrnwidth = gVesa_Modes[giVesaCurrentMode].width;
+	Uint32	*buf = (Uint32*)gpVesa_Framebuffer + Y*scrnwidth + X;
+	while( H -- ) {
+		memsetd(buf, Colour, W);
+		buf += scrnwidth;
+	}
+}
+
+void Vesa_2D_Blit(void *Ent, Uint16 DstX, Uint16 DstY, Uint16 SrcX, Uint16 SrcY, Uint16 W, Uint16 H)
+{
+	 int	scrnwidth = gVesa_Modes[giVesaCurrentMode].width;
+	 int	dst = DstY*scrnwidth + DstX;
+	 int	src = SrcY*scrnwidth + SrcX;
+	 int	tmp;
+	
+	//Log("Vesa_2D_Blit: (Ent=%p, DstX=%i, DstY=%i, SrcX=%i, SrcY=%i, W=%i, H=%i)",
+	//	Ent, DstX, DstY, SrcX, SrcY, W, H);
+	
+	if(SrcX + W > scrnwidth)
+		W = scrnwidth - SrcX;
+	if(DstX + W > scrnwidth)
+		W = scrnwidth - DstX;
+	if(SrcY + H > gVesa_Modes[giVesaCurrentMode].height)
+		H = gVesa_Modes[giVesaCurrentMode].height - SrcY;
+	if(DstY + H > gVesa_Modes[giVesaCurrentMode].height)
+		H = gVesa_Modes[giVesaCurrentMode].height - DstY;
+	
+	if( dst > src ) {
+		// Reverse copy
+		dst += H*scrnwidth;
+		src += H*scrnwidth;
+		while( H -- ) {
+			dst -= scrnwidth;
+			src -= scrnwidth;
+			tmp = W;
+			for( tmp = W; tmp --; ) {
+				*((Uint32*)gpVesa_Framebuffer + dst + tmp) = *((Uint32*)gpVesa_Framebuffer + src + tmp);
+			}
+		}
+	}
+	else {
+		// Normal copy is OK
+		while( H -- ) {
+			memcpyd((Uint32*)gpVesa_Framebuffer + dst, (Uint32*)gpVesa_Framebuffer + src, W);
+			dst += scrnwidth;
+			src += scrnwidth;
+		}
+	}
 }

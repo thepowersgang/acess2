@@ -294,7 +294,7 @@ void DisplayFile(char *Filename)
 			else if(size < (uint64_t)2048*1024*1024*1024) {	// < 2 TiB
 				printf("%4i GiB ", size>>30);
 			}
-			else {	// Greater than 2 TiB
+			else {	// Greater than 2 TiB (if your files are larger than this, you are Doing It Wrong [TM])
 				printf("%4i TiB ", size>>40);
 			}
 		} else {

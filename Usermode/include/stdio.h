@@ -16,6 +16,7 @@ typedef struct sFILE	FILE;
 
 // --- Standard IO ---
 extern int	printf(const char *format, ...);
+extern int	vsnprintf(char *buf, size_t __maxlen, const char *format, va_list args);
 extern int	vsprintf(char *buf, const char *format, va_list args);
 extern int	sprintf(char *buf, const char *format, ...);
 

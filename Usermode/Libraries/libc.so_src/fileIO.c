@@ -17,7 +17,7 @@
 #define	_stdout	1
 
 // === PROTOTYPES ===
-EXPORT void	itoa(char *buf, uint64_t num, int base, int minLength, char pad, int bSigned);
+EXPORT void	itoa(char *buf, uint64_t num, uint base, int minLength, char pad, int bSigned);
 struct sFILE	*get_file_struct();
 
 // === GLOBALS ===
@@ -150,20 +150,28 @@ EXPORT int vfprintf(FILE *fp, const char *format, va_list args)
 {
 	va_list	tmpList = args;
 	 int	size;
-	char	*buf;
+	char	sbuf[1024];
+	char	*buf = sbuf;
 	 
 	if(!fp || !format)	return -1;
 	
-	size = vsprintf(NULL, (char*)format, tmpList);
+	size = vsnprintf(sbuf, 1024, (char*)format, tmpList);
 	
-	buf = (char*)malloc(size+1);
-	buf[size] = '\0';
+	if( size >= 1024 )
+	{
+		buf = (char*)malloc(size+1);
+		if(!buf) {
+			write(_stdout, 31, "vfprintf ERROR: malloc() failed");
+			return 0;
+		}
+		buf[size] = '\0';
 	
-	// Print
-	vsprintf(buf, (char*)format, args);
+		// Print
+		vsnprintf(buf, size+1, (char*)format, args);
+	}
 	
 	// Write to stream
-	write(fp->FD, size+1, buf);
+	write(fp->FD, size, buf);
 	
 	// Free buffer
 	free(buf);
@@ -271,17 +279,22 @@ EXPORT int	puts(const char *str)
 	return len;
 }
 
+EXPORT int vsprintf(char * __s, const char *__format, va_list __args)
+{
+	return vsnprintf(__s, 0x7FFFFFFF, __format, __args);
+}
+
 //sprintfv
 /**
- \fn EXPORT void vsprintf(char *buf, const char *format, va_list args)
+ \fn EXPORT void vsnprintf(char *buf, const char *format, va_list args)
  \brief Prints a formatted string to a buffer
  \param buf	Pointer - Destination Buffer
  \param format	String - Format String
  \param args	VarArgs List - Arguments
 */
-EXPORT int vsprintf(char *buf, const char *format, va_list args)
+EXPORT int vsnprintf(char *buf, size_t __maxlen, const char *format, va_list args)
 {
-	char	tmp[33];
+	char	tmp[65];
 	 int	c, minSize;
 	 int	pos = 0;
 	char	*p;
@@ -295,7 +308,7 @@ EXPORT int vsprintf(char *buf, const char *format, va_list args)
 	{
 		// Non-control character
 		if (c != '%') {
-			if(buf)	buf[pos] = c;
+			if(buf && pos < __maxlen)	buf[pos] = c;
 			pos ++;
 			continue;
 		}
@@ -303,7 +316,7 @@ EXPORT int vsprintf(char *buf, const char *format, va_list args)
 		// Control Character
 		c = *format++;
 		if(c == '%') {	// Literal %
-			if(buf)	buf[pos] = '%';
+			if(buf && pos < __maxlen)	buf[pos] = '%';
 			pos ++;
 			continue;
 		}
@@ -358,12 +371,15 @@ EXPORT int vsprintf(char *buf, const char *format, va_list args)
 		
 		// Pointer
 		case 'p':
-			if(buf) {
+			if(buf && pos+2 < __maxlen) {
 				buf[pos] = '*';
 				buf[pos+1] = '0';
 				buf[pos+2] = 'x';
 			}
 			pos += 3;
+			arg = va_arg(args, uint32_t);
+			itoa(tmp, arg, 16, minSize, pad, 0);
+			goto sprintf_puts;
 			// Fall through to hex
 		// Unsigned Hexadecimal
 		case 'x':
@@ -392,9 +408,11 @@ EXPORT int vsprintf(char *buf, const char *format, va_list args)
 			p = (void*)(intptr_t)arg;
 		sprintf_puts:
 			if(!p)	p = "(null)";
+			//_SysDebug("vsnprintf: p = '%s'", p);
 			if(buf) {
 				while(*p) {
-					buf[pos++] = *p++;
+					if(pos < __maxlen)	buf[pos] = *p;
+					pos ++;	p ++;
 				}
 			}
 			else {
@@ -407,12 +425,14 @@ EXPORT int vsprintf(char *buf, const char *format, va_list args)
 		// Unknown, just treat it as a character
 		default:
 			arg = va_arg(args, uint32_t);
-			if(buf)	buf[pos] = arg;
+			if(buf && pos < __maxlen)	buf[pos] = arg;
 			pos ++;
 			break;
 		}
     }
-	if(buf)	buf[pos] = '\0';
+	if(buf && pos < __maxlen)	buf[pos] = '\0';
+	
+	//_SysDebug("vsnprintf: buf = '%s'", buf);
 	
 	return pos;
 }
@@ -422,13 +442,13 @@ const char cUCDIGITS[] = "0123456789ABCDEF";
  * \fn static void itoa(char *buf, uint64_t num, int base, int minLength, char pad, int bSigned)
  * \brief Convert an integer into a character string
  */
-EXPORT void itoa(char *buf, uint64_t num, int base, int minLength, char pad, int bSigned)
+EXPORT void itoa(char *buf, uint64_t num, size_t base, int minLength, char pad, int bSigned)
 {
-	char	tmpBuf[32];
+	char	tmpBuf[64];
 	 int	pos=0, i;
 
 	if(!buf)	return;
-	if(base > 16) {
+	if(base > 16 || base < 2) {
 		buf[0] = 0;
 		return;
 	}
@@ -441,13 +461,13 @@ EXPORT void itoa(char *buf, uint64_t num, int base, int minLength, char pad, int
 		bSigned = 0;
 	
 	while(num > base-1) {
-		tmpBuf[pos] = cUCDIGITS[ num % base ];
-		num = (long) num / base;		// Shift {number} right 1 digit
-		pos++;
+		tmpBuf[pos++] = cUCDIGITS[ num % base ];
+		num = (uint64_t) num / (uint64_t)base;		// Shift {number} right 1 digit
 	}
 
 	tmpBuf[pos++] = cUCDIGITS[ num % base ];		// Last digit of {number}
 	if(bSigned)	tmpBuf[pos++] = '-';	// Append sign symbol if needed
+	
 	i = 0;
 	minLength -= pos;
 	while(minLength-- > 0)	buf[i++] = pad;
@@ -463,22 +483,29 @@ EXPORT int printf(const char *format, ...)
 {
 	#if 1
 	 int	size;
-	char	*buf;
+	char	sbuf[1024];
+	char	*buf = sbuf;
 	va_list	args;
 	
 	// Get final size
 	va_start(args, format);
-	size = vsprintf(NULL, (char*)format, args);
+	size = vsnprintf(sbuf, 1024, (char*)format, args);
 	va_end(args);
 	
-	// Allocate buffer
-	buf = (char*)malloc(size+1);
-	buf[size] = '\0';
+	if( size >= 1024 ) {
+		// Allocate buffer
+		buf = (char*)malloc(size+1);
+		if(buf) {
+			write(_stdout, 29, "PRINTF ERROR: malloc() failed");
+			return 0;
+		}
+		buf[size] = '\0';
 	
-	// Fill Buffer
-	va_start(args, format);
-	vsprintf(buf, (char*)format, args);
-	va_end(args);
+		// Fill Buffer
+		va_start(args, format);
+		vsnprintf(buf, size+1, (char*)format, args);
+		va_end(args);
+	}
 	
 	// Send to stdout
 	write(_stdout, size+1, buf);

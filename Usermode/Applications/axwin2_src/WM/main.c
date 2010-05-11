@@ -7,7 +7,10 @@
 
 // === IMPORTS ===
 extern void	ParseCommandline(int argc, char *argv[]);
-extern void	Video_Setup();
+extern void	Video_Setup(void);
+extern void	WM_Update(void);
+extern void	Messages_PollIPC(void);
+extern void	Interface_Init(void);
 
 // === GLOBALS ===
 char	*gsTerminalDevice = NULL;
@@ -30,10 +33,13 @@ int main(int argc, char *argv[])
 	ParseCommandline(argc, argv);
 	
 	if( gsTerminalDevice == NULL ) {
-		gsTerminalDevice = "/Devices/VTerm/7";
+		gsTerminalDevice = "/Devices/VTerm/6";
 	}
 	
 	Video_Setup();
+	Interface_Init();
+	
+	WM_Update();
 	
 	// Main Loop
 	for(;;)
