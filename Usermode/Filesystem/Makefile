@@ -15,8 +15,6 @@ FILES = Conf/BootConf.cfg Conf/Auth/Users Conf/Auth/Passwords Conf/Auth/Groups
 all:	$(DIRS) $(FILES)
 
 clean:
-	$(xRMDIR) $(DIRS)
-	$(xRM) $(FILES)
 
 $(DIRS):
 	$(xMKDIR) $(DISTROOT)/$@

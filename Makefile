@@ -10,7 +10,6 @@
 
 SUBMAKE = $(MAKE) --no-print-directory
 
-#MODULES += $(DYNMODS)
 USRLIBS := crt0.o acess.ld ld-acess.so libacess.so libgcc.so libc.so
 USRAPPS := init login CLIShell cat ls mount ifconfig
 
@@ -18,9 +17,11 @@ ALL_DYNMODS = $(addprefix all-,$(DYNMODS))
 ALL_MODULES := $(addprefix all-,$(MODULES))
 ALL_USRLIBS := $(addprefix all-,$(USRLIBS))
 ALL_USRAPPS := $(addprefix all-,$(USRAPPS))
+CLEAN_DYNMODS := $(addprefix clean-,$(DYNMODS))
 CLEAN_MODULES := $(addprefix clean-,$(MODULES))
 CLEAN_USRLIBS := $(addprefix clean-,$(USRLIBS))
 CLEAN_USRAPPS := $(addprefix clean-,$(USRAPPS))
+INSTALL_DYNMODS := $(addprefix install-,$(DYNMODS))
 INSTALL_MODULES := $(addprefix install-,$(MODULES))
 INSTALL_USRLIBS := $(addprefix install-,$(USRLIBS))
 INSTALL_USRAPPS := $(addprefix install-,$(USRAPPS))
@@ -46,7 +47,7 @@ install:	$(INSTALL_DYNMODS) $(INSTALL_MODULES) install-Kernel $(INSTALL_USRLIBS)
 $(ALL_DYNMODS): all-%:
 	@echo === Dynamic Module: $* && BUILDTYPE=dynamic $(SUBMAKE) all -C Modules/$*
 $(ALL_MODULES): all-%:
-	@echo === Module: $* && $(SUBMAKE) all -C Modules/$*
+	@echo === Module: $* && BUILDTYPE=static $(SUBMAKE) all -C Modules/$*
 all-Kernel:
 	@echo === Kernel && $(SUBMAKE) all -C Kernel
 $(ALL_USRLIBS): all-%:
@@ -58,7 +59,7 @@ $(ALL_USRAPPS): all-%:
 $(AI_DYNMODS): allinstall-%:
 	@echo === Dynamic Module: $* && BUILDTYPE=dynamic $(SUBMAKE) all install -C Modules/$*
 $(AI_MODULES): allinstall-%:
-	@echo === Module: $* && $(SUBMAKE) all install -C Modules/$*
+	@echo === Module: $* && BUILDTYPE=static $(SUBMAKE) all install -C Modules/$*
 allinstall-Kernel:
 	@echo === Kernel && $(SUBMAKE) all install -C Kernel
 $(AI_USRLIBS): allinstall-%:
@@ -67,8 +68,10 @@ $(AI_USRAPPS): allinstall-%:
 	@echo === User Application: $* && $(SUBMAKE) all install -C Usermode/Applications/$*_src
 
 # Clean up compilation
+$(CLEAN_DYNMODS): clean-%:
+	@BUILDTYPE=dynamic $(SUBMAKE) clean -C Modules/$*
 $(CLEAN_MODULES): clean-%:
-	@$(SUBMAKE) clean -C Modules/$*
+	@BUILDTYPE=static $(SUBMAKE) clean -C Modules/$*
 clean-Kernel:
 	@$(SUBMAKE) clean -C Kernel
 $(CLEAN_USRLIBS): clean-%:
@@ -77,8 +80,10 @@ $(CLEAN_USRAPPS): clean-%:
 	@$(SUBMAKE) clean -C Usermode/Applications/$*_src
 
 # Install
+$(INSTALL_DYNMODS): install-%:
+	@BUILDTYPE=dynamic $(SUBMAKE) install -C Modules/$*
 $(INSTALL_MODULES): install-%:
-	@$(SUBMAKE) install -C Modules/$*
+	@BUILDTYPE=static $(SUBMAKE) install -C Modules/$*
 install-Kernel:
 	@$(SUBMAKE) install -C Kernel
 $(INSTALL_USRLIBS): install-%:
