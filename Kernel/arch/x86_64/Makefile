@@ -9,9 +9,11 @@
 #LD = ld
 #OBJDUMP = objdump
 
-CPPFLAGS	=
-CFLAGS		= $(KERNEL_CFLAGS)
-ASFLAGS		= -f elf
+MAX_CPUS := 4
+
+CPPFLAGS	:= -DMAX_CPUS=$(MAX_CPUS)
+CFLAGS		:= $(KERNEL_CFLAGS)
+ASFLAGS		:= -f elf64 -D MAX_CPUS=$(MAX_CPUS)
 
 ifeq ($(ARCH),amd64)
 	ASFLAGS += -D AMD64=1
@@ -24,5 +26,5 @@ else
 endif
 	
 
-A_OBJ  = start32.ao start64.ao
-A_OBJ += main.o lib.o
+A_OBJ  = start32.ao start64.ao desctab.ao
+A_OBJ += main.o lib.o proc.o

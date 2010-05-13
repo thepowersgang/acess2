@@ -12,7 +12,7 @@ DEPFILES := $(OBJ:%.o=%.d)
 all: $(BIN)
 
 clean:
-	@$(RM) $(OBJ) $(BIN) $(BIN).dsm Map.txt
+	@$(RM) $(OBJ) $(DEPFILES) $(BIN) $(BIN).dsm Map.txt
 
 install: $(BIN)
 	$(xCP) $(BIN) $(DISTROOT)/$(DIR)/

@@ -12,6 +12,7 @@
 #define DEBUG	0
 #define SANITY	1
 #include <acess.h>
+#include <mm_virt.h>
 #include <mm_phys.h>
 #include <proc.h>
 
@@ -429,10 +430,10 @@ int MM_IsUser(tVAddr VAddr)
 }
 
 /**
- * \fn void MM_SetCR3(tPAddr CR3)
+ * \fn void MM_SetCR3(Uint CR3)
  * \brief Sets the current process space
  */
-void MM_SetCR3(tPAddr CR3)
+void MM_SetCR3(Uint CR3)
 {
 	__asm__ __volatile__ ("mov %0, %%cr3"::"r"(CR3));
 }

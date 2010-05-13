@@ -39,7 +39,7 @@ void Interface_Init(void)
 	// ---- Plain <hr/> style spacer ----
 	WM_CreateElement(area, ELETYPE_SPACER, 0);
 	
-	// Windows Go Here
+	// Open Windows Go Here
 	
 	// --- Bottom Segment ---
 	area = WM_CreateElement(gpInterface_Sidebar, ELETYPE_BOX, ELEFLAG_VERTICAL|ELEFLAG_ALIGN_END);

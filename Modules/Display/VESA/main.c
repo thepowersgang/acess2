@@ -494,7 +494,7 @@ void Vesa_2D_Blit(void *Ent, Uint16 DstX, Uint16 DstY, Uint16 SrcX, Uint16 SrcY,
 	else {
 		// Normal copy is OK
 		while( H -- ) {
-			memcpyd((Uint32*)gpVesa_Framebuffer + dst, (Uint32*)gpVesa_Framebuffer + src, W);
+			memcpy((Uint32*)gpVesa_Framebuffer + dst, (Uint32*)gpVesa_Framebuffer + src, W);
 			dst += scrnwidth;
 			src += scrnwidth;
 		}

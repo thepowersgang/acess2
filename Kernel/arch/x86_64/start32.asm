@@ -45,29 +45,34 @@ start:
 [section .data]
 gGDT:
 	dd	0,0
-	dd	0x00000000, 0x00209800	; 64-bit Code
-	dd	0x00000000, 0x00009000	; 64-bit Data
+	dd	0x00000000, 0x00209800	; 0x08: 64-bit Code
+	dd	0x00000000, 0x00009000	; 0x10: 64-bit Data
+	dd	0x00000000, 0x00209800	; 0x18: 64-bit User Code
+	dd	0x00000000, 0x00209000	; 0x20: 64-bit User Data
+	dd	0x00000000, 0x00209800	; 0x38: 32-bit User Code
+	dd	0x00000000, 0x00209000	; 0x30: 32-bit User Data
+	times MAX_CPUS	dd	0, 0, 0, 0	; 0x38+16*n: TSS 0
 gGDTPtr:
 	dw	$-gGDT-1
 	dd	gGDT
 	dd	0
 
 [section .padata]
-gInitialPML4:	; 256 TiB
+gInitialPML4:	; Covers 256 TiB (Full 48-bit Virtual Address Space
 	dd	gInitialPDP + 3, 0	; Identity Map Low 4Mb
 	times 256-1 dq	0
-	dd	gInitialPDP + 3, 0	; Identity Map Low 4Mb to kernel base
+	dd	gInitialPDP + 3, 0	; Map Low 4Mb to kernel base
 	times 256-1 dq 0
 
-gInitialPDP:	; 512 GiB
+gInitialPDP:	; Covers 512 GiB
 	dd	gInitialPD + 3, 0
 	times 511 dq	0
 
-gInitialPD:	; 1 GiB
+gInitialPD:	; Covers 1 GiB
 	dd	gInitialPT1 + 3, 0
 	dd	gInitialPT2 + 3, 0
 
-gInitialPT1:	; 2 MiB
+gInitialPT1:	; Covers 2 MiB
 	%assign i 1
 	%rep 512
 	dq	i*4096+3

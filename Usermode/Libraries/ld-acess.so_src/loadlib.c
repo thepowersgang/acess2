@@ -21,7 +21,7 @@ const struct {
 	Uint	Value;
 	char	*Name;
 }	caLocalExports[] = {
-	{gLoadedLibraries, "gLoadedLibraries"}
+	{(Uint)gLoadedLibraries, "gLoadedLibraries"}
 };
 
 // === GLOABLS ===

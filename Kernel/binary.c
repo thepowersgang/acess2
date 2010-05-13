@@ -11,7 +11,7 @@
 #define BIN_LOWEST	MM_USER_MIN		// 1MiB
 #define BIN_GRANUALITY	0x10000		// 64KiB
 //! \todo Move 0xBC000000 to mm_virt.h
-#define BIN_HIGHEST	(0xBC000000-BIN_GRANUALITY)		// Just below the kernel
+#define BIN_HIGHEST	(USER_LIB_MAX-BIN_GRANUALITY)		// Just below the kernel
 #define	KLIB_LOWEST	MM_MODULE_MIN
 #define KLIB_GRANUALITY	0x10000		// 32KiB
 #define	KLIB_HIGHEST	(MM_MODULE_MAX-KLIB_GRANUALITY)
