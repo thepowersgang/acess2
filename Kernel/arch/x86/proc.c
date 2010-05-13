@@ -26,7 +26,7 @@ extern void APStartup();	// 16-bit AP startup code
 extern Uint	GetEIP();	// start.asm
 extern Uint32	gaInitPageDir[1024];	// start.asm
 extern void	Kernel_Stack_Top;
-extern volatile int	giThreadListLock;
+extern tSpinlock	glThreadListLock;
 extern int	giNumCPUs;
 extern int	giNextTID;
 extern int	giTotalTickets;
@@ -717,7 +717,7 @@ void Proc_Scheduler(int CPU)
 	tThread	*thread;
 	
 	// If the spinlock is set, let it complete
-	if(giThreadListLock)	return;
+	if(IS_LOCKED(&glThreadListLock))	return;
 	
 	// Clear Delete Queue
 	while(gDeleteThreads)

@@ -413,22 +413,6 @@ tPAddr MM_GetPhysAddr(tVAddr Addr)
 	return (gaPageTable[Addr >> 12] & ~0xFFF) | (Addr & 0xFFF);
 }
 
-
-/**
- * \fn int MM_IsUser(tVAddr VAddr)
- * \brief Checks if a page is user accessable
- */
-int MM_IsUser(tVAddr VAddr)
-{
-	if( !(gaPageDir[VAddr >> 22] & 1) )
-		return 0;
-	if( !(gaPageTable[VAddr >> 12] & 1) )
-		return 0;
-	if( !(gaPageTable[VAddr >> 12] & PF_USER) )
-		return 0;
-	return 1;
-}
-
 /**
  * \fn void MM_SetCR3(Uint CR3)
  * \brief Sets the current process space
@@ -825,6 +809,30 @@ void MM_SetFlags(tVAddr VAddr, Uint Flags, Uint Mask)
 	
 	//Log("MM_SetFlags: *ent = 0x%08x, gaPageDir[%i] = 0x%08x",
 	//	*ent, VAddr >> 22, gaPageDir[VAddr >> 22]);
+}
+
+/**
+ * \brief Get the flags on a page
+ */
+Uint MM_GetFlags(tVAddr VAddr)
+{
+	tTabEnt	*ent;
+	Uint	ret = 0;
+	
+	// Validity Check
+	if( !(gaPageDir[VAddr >> 22] & 1) )	return 0;
+	if( !(gaPageTable[VAddr >> 12] & 1) )	return 0;
+	
+	ent = &gaPageTable[VAddr >> 12];
+	
+	// Read-Only
+	if( !(*ent & PF_WRITE) )	ret |= MM_PFLAG_RO;
+	// Kernel
+	if( !(*ent & PF_USER) )	ret |= MM_PFLAG_KERNEL;
+	// Copy-On-Write
+	if( *ent & PF_COW )	ret |= MM_PFLAG_COW;
+	
+	return ret;
 }
 
 /**

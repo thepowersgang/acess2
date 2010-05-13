@@ -17,6 +17,7 @@
 extern Sint64	giTimestamp;
 extern Uint64	giTicks;
 extern Uint64	giPartMiliseconds;
+extern void	Timer_CallTimers(void);
 
 // === PROTOTYPES ===
 void	Time_Interrupt();
