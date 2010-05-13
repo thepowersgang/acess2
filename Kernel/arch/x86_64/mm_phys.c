@@ -19,11 +19,13 @@ enum eMMPhys_Ranges
 // === GLOBALS ===
 tSpinlock	glPhysicalPages;
 Uint64	*gaSuperBitmap;	// 1 bit = 64 Pages
-Uint64	*gaPrimaryBitmap;	// 1 bit = 1 Page
+Uint64	*gaPrimaryBitmap;	// 1 bit = 64 Pages
+Uint32	*gaiPageReferences;	// Reference Counts
 tPAddr	giFirstFreePage;	// First possibly free page
 Uint64	giPhysRangeFree[NUM_MM_PHYS_RANGES];	// Number of free pages in each range
 Uint64	giPhysRangeFirst[NUM_MM_PHYS_RANGES];	// First free page in each range
 Uint64	giPhysRangeLast[NUM_MM_PHYS_RANGES];	// Last free page in each range
+Uint64	giMaxPhysPage = 0;	// Maximum Physical page
 
 // === CODE ===
 void MM_InitPhys()
@@ -92,14 +94,14 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 				continue;
 			}
 			// Check page block (64 pages)
-			if( gaPrimaryBitmap[addr >> 6] == -1) {
+			if( gaSuperBitmap[addr >> (6+6)] & (1 << (addr>>6)&63)) {
 				nFree = 0;
 				addr += 1 << (12+6);
 				addr &= (1 << (12+6)) - 1;
 				continue;
 			}
 			// Check individual page
-			if( gaPrimaryBitmap[addr >> 6] & (1 << (addr&63)) ) {
+			if( gaiPageReferences[addr] ) {
 				nFree = 0;
 				addr ++;
 				continue;
@@ -134,6 +136,7 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 	addr -= Num;
 	for( i = 0; i < Num; i++ )
 	{
+		gaiPageReferences[addr] = 1;
 		gaPrimaryBitmap[addr>>6] |= 1 << (addr & 63);
 		if( gaPrimaryBitmap[addr>>6] == -1 )
 			gaSuperBitmap[addr>>12] |= 1 << ((addr >> 6) & 64);
@@ -157,4 +160,25 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 tPAddr MM_AllocPhys(void)
 {
 	return MM_AllocPhysRange(1, -1);
+}
+
+void MM_RefPhys(tPAddr PAddr)
+{
+	if( PAddr > giMaxPhysPage )	return ;
+	gaiPageReferences[ PAddr >> 12 ] ++;
+	
+	gaPrimaryBitmap[PAddr >> 18] |= 1 << ((PAddr>>12) & 63);
+	if( gaPrimaryBitmap[PAddr >> 18] == -1 )
+		gaSuperBitmap[PAddr >> 24] |= 1 << ((PAddr >> 18) & 64);
+}
+
+void MM_DerefPhys(tPAddr PAddr)
+{
+	if( PAddr > giMaxPhysPage )	return ;
+	gaiPageReferences[ PAddr >> 12 ] --;
+	if( gaiPageReferences[ PAddr >> 12 ] )
+	{
+		gaPrimaryBitmap[PAddr >> 18] &= ~(1 << ((PAddr >> 12) & 63));
+		gaSuperBitmap[PAddr >> 24] &= ~(1 << ((PAddr >> 18) & 64));
+	}
 }

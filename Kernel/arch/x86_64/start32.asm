@@ -19,7 +19,7 @@ start:
 	mov cr4, eax
 
 	; Load PDP4
-	mov eax, gInitialPML4
+	mov eax, gInitialPML4 - KERNEL_BASE
 	mov cr3, eax
 
 	; Enable long/compatability mode
@@ -34,7 +34,7 @@ start:
 	mov cr0, eax
 
 	; Load GDT
-	lgdt [gGDTPtr]
+	lgdt [gGDTPtr - KERNEL_BASE]
 	mov ax, 0x10
 	mov ss, ax
 	mov ds, ax
@@ -45,6 +45,7 @@ start:
 	jmp 0x08:start64 - KERNEL_BASE
 
 [section .data]
+[global gGDT]
 gGDT:
 	dd	0,0
 	dd	0x00000000, 0x00209800	; 0x08: 64-bit Code
@@ -56,10 +57,11 @@ gGDT:
 	times MAX_CPUS	dd	0, 0, 0, 0	; 0x38+16*n: TSS 0
 gGDTPtr:
 	dw	$-gGDT-1
-	dd	gGDT
+	dd	gGDT-KERNEL_BASE
 	dd	0
 
 [section .padata]
+[global gInitialPML4]
 gInitialPML4:	; Covers 256 TiB (Full 48-bit Virtual Address Space)
 	dd	gInitialPDP - KERNEL_BASE + 3, 0	; Identity Map Low 4Mb
 	times 256-1 dq	0

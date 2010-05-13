@@ -24,8 +24,8 @@
 extern tGDT	gGDT[];
 extern void APStartup();	// 16-bit AP startup code
 extern Uint	GetRIP();	// start.asm
-extern Uint64	gaInitPML4[512];	// start.asm
-extern void	Kernel_Stack_Top;
+extern Uint64	gInitialPML4[512];	// start.asm
+extern void	gInitialKernelStack;
 extern tSpinlock	glThreadListLock;
 extern int	giNumCPUs;
 extern int	giNextTID;
@@ -288,7 +288,7 @@ void ArchThreads_Init()
 	gCurrentThread = &gThreadZero;
 	#endif
 	
-	gThreadZero.MemState.CR3 = (Uint)gaInitPML4 - KERNEL_BASE;
+	gThreadZero.MemState.CR3 = (Uint)gInitialPML4 - KERNEL_BASE;
 	
 	// Set timer frequency
 	outb(0x43, 0x34);	// Set Channel 0, Low/High, Rate Generator
@@ -376,7 +376,7 @@ void Proc_ChangeStack()
 		return;
 	}
 
-	curBase = (Uint)&Kernel_Stack_Top;
+	curBase = (Uint)&gInitialKernelStack;
 	
 	LOG("curBase = 0x%x, newBase = 0x%x", curBase, newBase);
 
