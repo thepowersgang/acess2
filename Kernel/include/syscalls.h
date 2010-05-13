@@ -29,7 +29,7 @@ enum eSyscalls {
 	SYS_LOADMOD,	// 20 - Load a module into the kernel
 
 	SYS_GETPHYS = 32,	// 32 - Get the physical address of a page
-	SYS_MAP,	// 33 - 	Map a physical address
+	SYS_MAP,	// 33 - 
 	SYS_ALLOCATE,	// 34 - Allocate a page
 	SYS_UNMAP,	// 35 - Unmap a page
 	SYS_PREALLOC,	// 36 - Preallocate a page

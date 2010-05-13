@@ -193,18 +193,24 @@ extern int	MM_Map(tVAddr VAddr, tPAddr PAddr);
  */
 extern tPAddr	MM_GetPhysAddr(tVAddr Addr);
 /**
- * \brief Checks is a memory range is user accessable
- * \param VAddr	Base address to check
- * \return 1 if the memory is all user-accessable, 0 otherwise
- */
-extern int	MM_IsUser(tVAddr VAddr);
-/**
  * \brief Set the access flags on a page
  * \param VAddr	Virtual address of the page
  * \param Flags New flags value
  * \param Mask	Flags to set
  */
 extern void	MM_SetFlags(tVAddr VAddr, Uint Flags, Uint Mask);
+/**
+ * \brief Get the flags on a flag
+ * \param VAddr	Virtual address of page
+ * \return Flags value of the page
+ */
+extern Uint	MM_GetFlags(tVAddr VAddr);
+/**
+ * \brief Checks is a memory range is user accessable
+ * \param VAddr	Base address to check
+ * \return 1 if the memory is all user-accessable, 0 otherwise
+ */
+#define MM_IsUser(VAddr)	(!(MM_GetFlags((VAddr))&MM_PFLAG_KERNEL))
 /**
  * \brief Temporarily map a page into the address space
  * \param PAddr	Physical addres to map

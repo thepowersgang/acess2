@@ -8,13 +8,10 @@ foreach($gLines as $line)
 	$line = trim($line);
 	if(empty($line))	continue;
 	
-	//echo $line,"\n";
-	//echo intVal($line),"\n";
 	if( intVal($line) != 0)
 		$i = $line;
 	else
-		$lSyscalls[$i++] = explode("\t", $line, 2);
-	//echo $i,"\n";
+		$lSyscalls[$i++] = explode("\t", $line, 3);
 }
 $lMax = $i;
 
@@ -60,7 +57,10 @@ $lHeader .= "static const char *cSYSCALL_NAMES[] = {\n\t";
 $j = 0;
 for($i=0;$i<$lMax;$i++)
 {
-	$lHeader .= "\"".$lSyscalls[$i][0]."\",";
+	if(!isset($lSyscalls[$i]))
+		$lHeader .= "\"\",";
+	else
+		$lHeader .= "\"".$lSyscalls[$i][0]."\",";
 	$j ++;
 	if($j == 6) {
 		$lHeader .= "\n\t";
@@ -68,8 +68,6 @@ for($i=0;$i<$lMax;$i++)
 	}
 }
 $lHeader .= "\"\"\n};\n#endif\n";
-
-//echo $lHeader;
 
 $fp = fopen("include/syscalls.h", "w");	fwrite($fp, $lHeader);	fclose($fp);
 $fp = fopen("include/syscalls.inc.asm", "w");	fwrite($fp, $lAsmInc);	fclose($fp);

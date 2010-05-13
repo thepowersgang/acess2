@@ -27,4 +27,4 @@ endif
 	
 
 A_OBJ  = start32.ao start64.ao desctab.ao
-A_OBJ += main.o lib.o proc.o
+A_OBJ += main.o lib.o proc.o mm_virt.o mm_phys.o

@@ -72,7 +72,7 @@ tThread	gThreadZero = {
 	};
 // -- Processes --
 // --- Locks ---
-volatile int	giThreadListLock = 0;	///\note NEVER use a heap function while locked
+tSpinlock	glThreadListLock = 0;	///\note NEVER use a heap function while locked
 // --- Current State ---
 volatile int	giNumActiveThreads = 0;
 volatile int	giTotalTickets = 0;
@@ -151,12 +151,12 @@ void Threads_SetTickets(int Num)
 	if(Num < 0)	return;
 	if(Num > MAX_TICKETS)	Num = MAX_TICKETS;
 	
-	LOCK( &giThreadListLock );
+	LOCK( &glThreadListLock );
 	giTotalTickets -= cur->NumTickets;
 	cur->NumTickets = Num;
 	giTotalTickets += Num;
 	//LOG("giTotalTickets = %i", giTotalTickets);
-	RELEASE( &giThreadListLock );
+	RELEASE( &glThreadListLock );
 }
 
 /**
@@ -402,7 +402,7 @@ void Threads_Kill(tThread *Thread, int Status)
 	LOCK( &Thread->IsLocked );
 	
 	// Lock thread list
-	LOCK( &giThreadListLock );
+	LOCK( &glThreadListLock );
 	
 	// Get previous thread on list
 	prev = Threads_int_GetPrev( &gActiveThreads, Thread );
@@ -440,7 +440,7 @@ void Threads_Kill(tThread *Thread, int Status)
 	
 	// Release spinlocks
 	RELEASE( &Thread->IsLocked );	// Released first so that it IS released
-	RELEASE( &giThreadListLock );
+	RELEASE( &glThreadListLock );
 	
 	//Log("Thread %i went *hurk*", Thread->TID);
 	
@@ -469,7 +469,7 @@ void Threads_Sleep()
 	//Log_Log("Threads", "%i going to sleep", cur->TID);
 	
 	// Acquire Spinlock
-	LOCK( &giThreadListLock );
+	LOCK( &glThreadListLock );
 	
 	// Get thread before current thread
 	thread = Threads_int_GetPrev( &gActiveThreads, cur );
@@ -481,7 +481,7 @@ void Threads_Sleep()
 	
 	// Don't sleep if there is a message waiting
 	if( cur->Messages ) {
-		RELEASE( &giThreadListLock );
+		RELEASE( &glThreadListLock );
 		return;
 	}
 	
@@ -503,7 +503,7 @@ void Threads_Sleep()
 	cur->Status = THREAD_STAT_SLEEPING;
 	
 	// Release Spinlock
-	RELEASE( &giThreadListLock );
+	RELEASE( &glThreadListLock );
 	
 	while(cur->Status != THREAD_STAT_ACTIVE)	HALT();
 }
@@ -521,7 +521,7 @@ void Threads_Wake(tThread *Thread)
 	case THREAD_STAT_ACTIVE:	break;
 	case THREAD_STAT_SLEEPING:
 		//Log_Log("Threads", "Waking %i (%p) from sleeping", Thread->TID, Thread);
-		LOCK( &giThreadListLock );
+		LOCK( &glThreadListLock );
 		prev = Threads_int_GetPrev(&gSleepingThreads, Thread);
 		prev->Next = Thread->Next;	// Remove from sleeping queue
 		Thread->Next = gActiveThreads;	// Add to active queue
@@ -529,7 +529,7 @@ void Threads_Wake(tThread *Thread)
 		giNumActiveThreads ++;
 		giTotalTickets += Thread->NumTickets;
 		Thread->Status = THREAD_STAT_ACTIVE;
-		RELEASE( &giThreadListLock );
+		RELEASE( &glThreadListLock );
 		break;
 	case THREAD_STAT_WAITING:
 		Warning("Thread_Wake - Waiting threads are not currently supported");
@@ -554,14 +554,14 @@ void Threads_WakeTID(tTID Thread)
  */
 void Threads_AddActive(tThread *Thread)
 {
-	LOCK( &giThreadListLock );
+	LOCK( &glThreadListLock );
 	Thread->Next = gActiveThreads;
 	gActiveThreads = Thread;
 	giNumActiveThreads ++;
 	giTotalTickets += Thread->NumTickets;
 	//Log("Threads_AddActive: giNumActiveThreads = %i, giTotalTickets = %i",
 	//	giNumActiveThreads, giTotalTickets);
-	RELEASE( &giThreadListLock );
+	RELEASE( &glThreadListLock );
 }
 
 /**

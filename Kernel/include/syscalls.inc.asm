@@ -25,7 +25,7 @@
 %define SYS_LOADMOD	20	; Load a module into the kernel
 
 %define SYS_GETPHYS	32	; Get the physical address of a page
-%define SYS_MAP	33	; 	Map a physical address
+%define SYS_MAP	33	; 
 %define SYS_ALLOCATE	34	; Allocate a page
 %define SYS_UNMAP	35	; Unmap a page
 %define SYS_PREALLOC	36	; Preallocate a page
