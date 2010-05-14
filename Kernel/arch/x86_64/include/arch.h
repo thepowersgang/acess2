@@ -44,25 +44,24 @@ typedef volatile int    tSpinlock;
 // TODO: Fix this structure
 typedef struct sSyscallRegs
 {
-	Uint    Arg4, Arg5;     // RDI, RSI
-	Uint    Arg6;   // RBP
-	Uint    Resvd2[1];      // Kernel RSP
 	union {
-	        Uint    Arg1;
-	        Uint    Error;
-	};      // RBX
-	union {
-	        Uint    Arg3;
-	        Uint    RetHi;  // High 64 bits of ret
-	};      // RDX
-	Uint    Arg2;   // RCX
-	union {
-	        Uint    Num;
-	        Uint    Return;
+		Uint    Num;
+		Uint    Return;
 	};      // RAX
-	Uint    Resvd3[5];      // Int, Err, rip, CS, ...
-	Uint    StackPointer;   // RSP
-	Uint    Resvd4[1];      // SS	
+	Uint    Arg4;	// RCX
+	Uint	Arg3;	// RDX
+	Uint    Error;	// RBX
+	Uint    Resvd1[2];	// Kernel RSP, RBP
+	Uint	Arg2;	// RSI
+	Uint	Arg1;	// RDI
+	Uint	Arg5;	// R8
+	Uint	Arg6;	// R9
+	Uint	Resvd2[6];	// R10 - R15
+	Uint	Resvd3[5];	// IntNum, ErrCode, RIP, CS, RFLAGS
+	
+	Uint	Resvd4[5];      // Int, Err, rip, CS, ...
+	Uint	StackPointer;   // RSP
+	Uint	Resvd5[1];      // SS	
 }	tSyscallRegs;
 
 #endif

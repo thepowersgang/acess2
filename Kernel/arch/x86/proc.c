@@ -39,7 +39,7 @@ extern tThread	*Threads_GetNextToRun(int CPU);
 extern void	Threads_Dump();
 extern tThread	*Threads_CloneTCB(Uint *Err, Uint Flags);
 extern void	Isr8();	// Double Fault
-extern void	Proc_AlterUserReturnAddr();
+extern void	Proc_ReturnToUser();
 
 // === PROTOTYPES ===
 void	ArchThreads_Init();
@@ -703,7 +703,7 @@ void Proc_CallFaultHandler(tThread *Thread)
 {
 	// Rewinds the stack and calls the user function
 	// Never returns
-	__asm__ __volatile__ ("mov %0, %%ebp;\n\tcall Proc_AlterUserReturnAddr" :: "r"(Thread->FaultHandler));
+	__asm__ __volatile__ ("mov %0, %%ebp;\n\tcall Proc_ReturnToUser" :: "r"(Thread->FaultHandler));
 	for(;;);
 }
 

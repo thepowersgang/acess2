@@ -76,6 +76,18 @@ int MM_Map(tVAddr VAddr, tPAddr PAddr)
 	return 1;
 }
 
+void MM_Unmap(tVAddr VAddr)
+{
+	// Check PML4
+	if( !(PAGEMAPLVL4(VAddr >> 39) & 1) )	return ;
+	// Check PDP
+	if( !(PAGEDIRPTR(VAddr >> 30) & 1) )	return ;
+	// Check Page Dir
+	if( !(PAGEDIR(VAddr >> 21) & 1) )	return ;
+	
+	PAGETABLE(VAddr >> 12) = 0;
+}
+
 /**
  * \brief Allocate a block of memory at the specified virtual address
  */
@@ -93,6 +105,18 @@ tPAddr MM_Allocate(tVAddr VAddr)
 	}
 	
 	return ret;
+}
+
+void MM_Deallocate(tVAddr VAddr)
+{
+	tPAddr	phys;
+	
+	phys = MM_GetPhysAddr(VAddr);
+	if(!phys)	return ;
+	
+	MM_Unmap(VAddr);
+	
+	MM_DerefPhys(phys);
 }
 
 /**
@@ -179,6 +203,9 @@ void MM_SetFlags(tVAddr VAddr, Uint Flags, Uint Mask)
 	}
 }
 
+/**
+ * \brief Get the flags applied to a page
+ */
 Uint MM_GetFlags(tVAddr VAddr)
 {
 	tPAddr	*ent;
@@ -207,4 +234,35 @@ Uint MM_GetFlags(tVAddr VAddr)
 	if( !(*ent & PF_NX) )	ret |= MM_PFLAG_EXEC;
 	
 	return ret;
+}
+
+// --- Hardware Mappings ---
+/**
+ * \brief Map a range of hardware pages
+ */
+tVAddr MM_MapHWPages(tPAddr PAddr, Uint Number)
+{
+	Log_KernelPanic("MM", "TODO: Implement MM_MapHWPages");
+	return 0;
+}
+
+/**
+ * \brief Free a range of hardware pages
+ */
+void MM_UnmapHWPages(tVAddr VAddr, Uint Number)
+{
+	Log_KernelPanic("MM", "TODO: Implement MM_UnmapHWPages");
+}
+
+// --- Tempory Mappings ---
+tVAddr MM_MapTemp(tPAddr PAddr)
+{
+	Log_KernelPanic("MM", "TODO: Implement MM_MapTemp");
+	return 0;
+}
+
+void MM_FreeTemp(tVAddr VAddr)
+{
+	Log_KernelPanic("MM", "TODO: Implement MM_FreeTemp");
+	return ;
 }

@@ -4,6 +4,7 @@
  * Physical Memory Manager
  */
 #include <acess.h>
+#include <mboot.h>
 //#include <mm_phys.h>
 
 enum eMMPhys_Ranges
@@ -28,8 +29,33 @@ Uint64	giPhysRangeLast[NUM_MM_PHYS_RANGES];	// Last free page in each range
 Uint64	giMaxPhysPage = 0;	// Maximum Physical page
 
 // === CODE ===
-void MM_InitPhys()
+void MM_InitPhys(tMBoot_Info *MBoot)
 {
+	tMBoot_MMapEnt	*mmapStart;
+	tMBoot_MMapEnt	*ent;
+	Uint64	maxAddr = 0;
+	
+	// Scan the physical memory map
+	mmapStart = (void *)( KERNEL_BASE | MBoot->MMapAddr );
+	ent = mmapStart;
+	while( (Uint)ent < (Uint)mmapStart + MBoot->MMapLength )
+	{
+		// Adjust for the size of the entry
+		ent->Size += 4;
+		
+		// If entry is RAM and is above `maxAddr`, change `maxAddr`
+		if(ent->Type == 1 && ent->Base + ent->Length > maxAddr)
+			maxAddr = ent->Base + ent->Length;
+		// Go to next entry
+		ent = (tMBoot_MMapEnt *)( (Uint)ent + ent->Size );
+	}
+	
+	if(maxAddr == 0) {
+		giMaxPhysPage = (MBoot->HighMem >> 2) + 256;	// HighMem is a kByte value
+	}
+	else {
+		giMaxPhysPage = maxAddr >> 12;
+	}
 }
 
 /**
@@ -162,9 +188,12 @@ tPAddr MM_AllocPhys(void)
 	return MM_AllocPhysRange(1, -1);
 }
 
+/**
+ * \brief Reference a physical page
+ */
 void MM_RefPhys(tPAddr PAddr)
 {
-	if( PAddr > giMaxPhysPage )	return ;
+	if( PAddr >> 12 > giMaxPhysPage )	return ;
 	gaiPageReferences[ PAddr >> 12 ] ++;
 	
 	gaPrimaryBitmap[PAddr >> 18] |= 1 << ((PAddr>>12) & 63);
@@ -172,9 +201,12 @@ void MM_RefPhys(tPAddr PAddr)
 		gaSuperBitmap[PAddr >> 24] |= 1 << ((PAddr >> 18) & 64);
 }
 
+/**
+ * \brief Dereference a physical page
+ */
 void MM_DerefPhys(tPAddr PAddr)
 {
-	if( PAddr > giMaxPhysPage )	return ;
+	if( PAddr >> 12 > giMaxPhysPage )	return ;
 	gaiPageReferences[ PAddr >> 12 ] --;
 	if( gaiPageReferences[ PAddr >> 12 ] )
 	{

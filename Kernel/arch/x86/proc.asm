@@ -74,13 +74,12 @@ SpawnTask:
 ;
 ; Calls a user fault handler
 ;
-[global Proc_AlterUserReturnAddr]
+[global Proc_ReturnToUser]
 [extern Proc_GetCurThread]
-Proc_AlterUserReturnAddr:
+Proc_ReturnToUser:
 	; EBP is the handler to use
 	
 	call Proc_GetCurThread
-	xchg bx, bx
 	
 	; EAX is the current thread
 	mov ebx, eax

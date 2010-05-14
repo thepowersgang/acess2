@@ -11,14 +11,13 @@
 // Register Structure
 // TODO: Rebuild once IDT code is done
 typedef struct {
-	Uint	ds, es, fs, gs;
-	Uint	r15, r14, r13, r12;
-	Uint	r11, r10, r9, r8;
-    Uint	rdi, rsi, rbp, krsp;
-	Uint	rbx, rdx, rcx, rax;
+	Uint	rax, rcx, rdx, rbx;
+    Uint	krsp, rbp, rsi, rdi;
+	Uint	r8, r9, r10, r11;
+	Uint	r12, r13, r14, r15;
     Uint	int_num, err_code;
-    Uint	eip, cs;
-	Uint	eflags, esp, ss;
+    Uint	rip, cs;
+	Uint	rflags, rsp, ss;
 } tRegs;
 
 /**

@@ -38,7 +38,7 @@ extern tThread	*gDeleteThreads;
 extern tThread	*Threads_GetNextToRun(int CPU);
 extern void	Threads_Dump();
 extern tThread	*Threads_CloneTCB(Uint *Err, Uint Flags);
-extern void	Proc_AlterUserReturnAddr();
+extern void	Proc_ReturnToUser();
 
 // === PROTOTYPES ===
 void	ArchThreads_Init();
@@ -640,11 +640,6 @@ int Proc_Demote(Uint *Err, int Dest, tRegs *Regs)
 	// Change the Segment Registers
 	Regs->cs = (((Dest+1)<<4) | Dest) - 8;
 	Regs->ss = ((Dest+1)<<4) | Dest;
-	// Check if the GP Segs are GDT, then change them
-	if(!(Regs->ds & 4))	Regs->ds = ((Dest+1)<<4) | Dest;
-	if(!(Regs->es & 4))	Regs->es = ((Dest+1)<<4) | Dest;
-	if(!(Regs->fs & 4))	Regs->fs = ((Dest+1)<<4) | Dest;
-	if(!(Regs->gs & 4))	Regs->gs = ((Dest+1)<<4) | Dest;
 	
 	return 0;
 }
@@ -657,7 +652,7 @@ void Proc_CallFaultHandler(tThread *Thread)
 {
 	// Rewinds the stack and calls the user function
 	// Never returns
-	__asm__ __volatile__ ("mov %0, %%rbp;\n\tcall Proc_AlterUserReturnAddr" :: "r"(Thread->FaultHandler));
+	__asm__ __volatile__ ("mov %0, %%rbp;\n\tcall Proc_ReturnToUser" :: "r"(Thread->FaultHandler));
 	for(;;);
 }
 
