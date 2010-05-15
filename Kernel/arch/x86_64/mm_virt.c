@@ -266,3 +266,19 @@ void MM_FreeTemp(tVAddr VAddr)
 	Log_KernelPanic("MM", "TODO: Implement MM_FreeTemp");
 	return ;
 }
+
+
+// --- Address Space Clone --
+tPAddr MM_Clone(void)
+{
+	tPAddr	ret;
+	
+	// #1 Create a copy of the PML4
+	ret = MM_AllocPhys();
+	if(!ret)	return 0;
+	
+	// #2 Alter the fractal pointer
+	// #3 Set Copy-On-Write to all user pages
+	// #4 Return
+	
+}
