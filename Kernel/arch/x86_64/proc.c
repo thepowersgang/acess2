@@ -36,9 +36,10 @@ extern tThread	*gActiveThreads;
 extern tThread	*gSleepingThreads;
 extern tThread	*gDeleteThreads;
 extern tThread	*Threads_GetNextToRun(int CPU);
-extern void	Threads_Dump();
+extern void	Threads_Dump(void);
 extern tThread	*Threads_CloneTCB(Uint *Err, Uint Flags);
-extern void	Proc_ReturnToUser();
+extern void	Proc_ReturnToUser(void);
+extern void	GetCPUNum(void);
 
 // === PROTOTYPES ===
 void	ArchThreads_Init();
@@ -268,6 +269,7 @@ void ArchThreads_Init()
 	#else
 	pos = 0;
 	#endif
+		gTSSs[pos].CPUNumber = pos;
 		gTSSs[pos].RSP0 = 0;	// Set properly by scheduler
 		gGDT[6+pos*2].BaseLow = ((Uint)(&gTSSs[pos])) & 0xFFFF;
 		gGDT[6+pos*2].BaseMid = ((Uint)(&gTSSs[pos])) >> 16;
@@ -347,7 +349,8 @@ void Proc_Start()
 tThread *Proc_GetCurThread()
 {
 	#if USE_MP
-	return gaCPUs[ gaAPIC_to_CPU[gpMP_LocalAPIC->ID.Val&0xFF] ].Current;
+	//return gaCPUs[ gaAPIC_to_CPU[gpMP_LocalAPIC->ID.Val&0xFF] ].Current;
+	return gaCPUs[ GetCPUNum() ].Current;
 	#else
 	return gCurrentThread;
 	#endif

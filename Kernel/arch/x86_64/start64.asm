@@ -15,7 +15,15 @@ GetRIP:
 	mov rax, [rsp]
 	ret
 
-KSTACK_USERSTATE_SIZE	equ	(4+8+1+5)*4	; SRegs, GPRegs, CPU, IRET
+[global GetCPUNum]
+GetCPUNum:
+	str ax
+	mov gs, ax
+	xor rax, rax
+	mov al, [gs:104]	; End of TSS
+	ret
+
+KSTACK_USERSTATE_SIZE	equ	(16+1+5)*8	; GPRegs, CPU, IRET
 [global Proc_ReturnToUser]
 [extern Proc_GetCurThread]
 Proc_ReturnToUser:
@@ -38,7 +46,8 @@ Proc_ReturnToUser:
 	mov rcx, [rax+KSTACK_USERSTATE_SIZE-3*8]
 	mov rdx, [rbx+60]	; Get Signal Number
 	mov [rcx-8], rdx
-	mov QWORD [rcx-16], User_Syscall_RetAndExit
+	mov rax, User_Syscall_RetAndExit
+	mov [rcx-16], rax
 	sub rcx, 16
 	
 	; Restore Segment Registers

@@ -25,7 +25,7 @@
  *       9900 00000000 -       9A00 00000000	40	1   TiB	Kernel VFS
  *       A000 00000000 -       B000 00000000	44	16  TiB	Kernel Stacks
  *       D000 00000000 -       E000 00000000	44	16  TiB	Hardware Mappings
- *       FE00 00000000 -       FE80 00000000	39	512 GiB	Fractal Mapping
+ *       FE00 00000000 -       FE80 00000000	39	512 GiB	Fractal Mapping (PML4 510)
  *       FE80 00000000 -       FF00 00000000	39	512 GiB	Temp Fractal Mapping
  */
 
