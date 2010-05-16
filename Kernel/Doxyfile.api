@@ -570,8 +570,9 @@ INPUT                  = include/apidoc_mainpage.h \
                          include/binary.h \
                          include/modules.h \
                          include/vfs.h include/vfs_ext.h \
-						 include/fs_devfs.h include/fs_sysfs.h \
+                         include/fs_devfs.h include/fs_sysfs.h \
                          include/iocache.h \
+                         arch/archdoc.h \
                          include/apidoc/arch_x86.h \
                          include/tpl_drv_common.h \
                          include/tpl_drv_video.h \

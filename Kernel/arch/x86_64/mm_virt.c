@@ -280,5 +280,5 @@ tPAddr MM_Clone(void)
 	// #2 Alter the fractal pointer
 	// #3 Set Copy-On-Write to all user pages
 	// #4 Return
-	
+	return 0;
 }
