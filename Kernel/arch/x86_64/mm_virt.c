@@ -12,18 +12,20 @@
 #define PDIR_SHIFT	21
 #define PTAB_SHIFT	12
 
+#define	PADDR_MASK	0x7FFFFFFF##FFFFF000
+
 #define	PF_PRESENT	0x1
 #define	PF_WRITE	0x2
 #define	PF_USER		0x4
-#define	PF_NX		0x80000000##00000000
 #define	PF_COW		0x200
 #define	PF_PAGED	0x400
+#define	PF_NX		0x80000000##00000000
 
 // === MACROS ===
 #define PAGETABLE(idx)	(*((tPAddr*)MM_FRACTAL_BASE+(idx)))
 #define PAGEDIR(idx)	PAGETABLE((MM_FRACTAL_BASE>>12)+((idx)&0x7FFFFFF))
-#define PAGEDIRPTR(idx)	PAGETABLE((MM_FRACTAL_BASE>>21)+((idx)&0x3FFFF))
-#define PAGEMAPLVL4(idx)	PAGETABLE((MM_FRACTAL_BASE>>30)+((idx)&0x1FF))
+#define PAGEDIRPTR(idx)	PAGEDIR((MM_FRACTAL_BASE>>21)+((idx)&0x3FFFF))
+#define PAGEMAPLVL4(idx)	PAGEDIRPTR((MM_FRACTAL_BASE>>30)+((idx)&0x1FF))
 
 // === GLOBALS ===
 
@@ -76,6 +78,9 @@ int MM_Map(tVAddr VAddr, tPAddr PAddr)
 	return 1;
 }
 
+/**
+ * \brief Removed a mapped page
+ */
 void MM_Unmap(tVAddr VAddr)
 {
 	// Check PML4
@@ -281,4 +286,57 @@ tPAddr MM_Clone(void)
 	// #3 Set Copy-On-Write to all user pages
 	// #4 Return
 	return 0;
+}
+
+void MM_ClearUser(void)
+{
+	tVAddr	addr = 0;
+	// #1 Traverse the structure < 2^47, Deref'ing all pages
+	// #2 Free tables/dirs/pdps once they have been cleared
+	
+	for( addr = 0; addr < 0x800000000000; )
+	{
+		if( PAGEMAPLVL4(addr >> PML4_SHIFT) & 1 )
+		{
+			if( PAGEDIRPTR(addr >> PDP_SHIFT) & 1 )
+			{
+				if( PAGEDIR(addr >> PDIR_SHIFT) & 1 )
+				{
+					// Page
+					if( PAGETABLE(addr >> PTAB_SHIFT) & 1 ) {
+						MM_DerefPhys( PAGETABLE(addr >> PTAB_SHIFT) & PADDR_MASK );
+						PAGETABLE(addr >> PTAB_SHIFT) = 0;
+					}
+					addr += 1 << PTAB_SHIFT;
+					// Dereference the PDIR Entry
+					if( (addr + (1 << PTAB_SHIFT)) >> PDIR_SHIFT != (addr >> PDIR_SHIFT) ) {
+						MM_DerefPhys( PAGEMAPLVL4(addr >> PDIR_SHIFT) & PADDR_MASK );
+						PAGEDIR(addr >> PDIR_SHIFT) = 0;
+					}
+				}
+				else {
+					addr += 1 << PDIR_SHIFT;
+					continue;
+				}
+				// Dereference the PDP Entry
+				if( (addr + (1 << PDIR_SHIFT)) >> PDP_SHIFT != (addr >> PDP_SHIFT) ) {
+					MM_DerefPhys( PAGEMAPLVL4(addr >> PDP_SHIFT) & PADDR_MASK );
+					PAGEDIRPTR(addr >> PDP_SHIFT) = 0;
+				}
+			}
+			else {
+				addr += 1 << PDP_SHIFT;
+				continue;
+			}
+			// Dereference the PML4 Entry
+			if( (addr + (1 << PDP_SHIFT)) >> PML4_SHIFT != (addr >> PML4_SHIFT) ) {
+				MM_DerefPhys( PAGEMAPLVL4(addr >> PML4_SHIFT) & PADDR_MASK );
+				PAGEMAPLVL4(addr >> PML4_SHIFT) = 0;
+			}
+		}
+		else {
+			addr += (tVAddr)1 << PML4_SHIFT;
+			continue;
+		}
+	}
 }
