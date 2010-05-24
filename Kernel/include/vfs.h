@@ -224,7 +224,7 @@ typedef struct sVFS_Node
 	 * \param Node	Pointer to this node
 	 * \param Name	Name of the new child
 	 * \param Flags	Flags to apply to the new child (directory or symlink)
-	 * \return Boolean success
+	 * \return Zero on Success, non-zero on error (see errno.h)
 	 */
 	 int	(*MkNod)(struct sVFS_Node *Node, char *Name, Uint Flags);
 	
@@ -236,6 +236,15 @@ typedef struct sVFS_Node
 	 * \return Zero on Success, non-zero on error (see errno.h)
 	 */
 	 int	(*Relink)(struct sVFS_Node *Node, char *OldName, char *NewName);
+	
+	/**
+	 * \brief Link a node to a name
+	 * \param Node	Pointer to this node (directory)
+	 * \param Child	Node to create a new link to
+	 * \param NewName	Name for the new link
+	 * \return Zeron on success, non-zero on error (see errno.h)
+	 */
+	 int	(*Link)(struct sVFS_Node *Node, struct sVFS_Node *Child, char *NewName);
 	 
 	 /**
 	  * }

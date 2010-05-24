@@ -13,16 +13,17 @@
 
 
 // === PROTOTYPES ===
-char		*Ext2_ReadDir(tVFS_Node *Node, int Pos);
+char	*Ext2_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*Ext2_FindDir(tVFS_Node *Node, char *FileName);
- int		Ext2_MkNod(tVFS_Node *Node, char *Name, Uint Flags);
+ int	Ext2_MkNod(tVFS_Node *Node, char *Name, Uint Flags);
 tVFS_Node	*Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeId, char *Name);
 
 // === CODE ===
 /**
- \fn char *Ext2_ReadDir(tVFS_Node *Node, int Pos)
- \brief Reads a directory entry
-*/
+ * \brief Reads a directory entry
+ * \param Node	Directory node
+ * \param Pos	Position of desired element
+ */
 char *Ext2_ReadDir(tVFS_Node *Node, int Pos)
 {
 	tExt2_Inode	inode;
@@ -47,6 +48,7 @@ char *Ext2_ReadDir(tVFS_Node *Node, int Pos)
 	// Get First Block
 	// - Do this ourselves as it is a simple operation
 	Base = inode.i_block[0] * disk->BlockSize;
+	// Scan directory
 	while(Pos -- && size > 0)
 	{
 		VFS_ReadAt( disk->FD, Base+ofs, sizeof(tExt2_DirEnt), &dirent);
@@ -93,12 +95,11 @@ char *Ext2_ReadDir(tVFS_Node *Node, int Pos)
 }
 
 /**
- \fn tVFS_Node *Ext2_FindDir(tVFS_Node *node, char *filename)
- \brief Gets information about a file
- \param node	vfs node - Parent Node
- \param filename	String - Name of file
- \return VFS Node of file
-*/
+ * \brief Gets information about a file
+ * \param Node	Parent Node
+ * \param Filename	Name of wanted file
+ * \return VFS Node of file
+ */
 tVFS_Node *Ext2_FindDir(tVFS_Node *Node, char *Filename)
 {
 	tExt2_Disk	*disk = Node->ImplPtr;
@@ -152,7 +153,22 @@ tVFS_Node *Ext2_FindDir(tVFS_Node *Node, char *Filename)
  */
 int Ext2_MkNod(tVFS_Node *Parent, char *Name, Uint Flags)
 {
-	return 0;
+	tVFS_Node	*child;
+	
+	child = Ext2_int_AllocateNode(Parent, Flags);
+	return Ext2_Link(Parent, child, Name);
+}
+
+/**
+ * \brief Links an existing node to a new name
+ * \param Parent	Parent (directory) node
+ * \param Node	Node to link
+ * \param Name	New name for the node
+ * \return Boolean Failure - See ::tVFS_Node.Link for info
+ */
+int Ext2_Link(tVFS_Node *Parent, tVFS_Node *Node, char *Name)
+{
+	return 1;
 }
 
 // ---- INTERNAL FUNCTIONS ----
