@@ -16,7 +16,9 @@
 char	*Ext2_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*Ext2_FindDir(tVFS_Node *Node, char *FileName);
  int	Ext2_MkNod(tVFS_Node *Node, char *Name, Uint Flags);
-tVFS_Node	*Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeId, char *Name);
+ int	Ext2_Link(tVFS_Node *Parent, tVFS_Node *Node, char *Name);
+// --- Helpers ---
+tVFS_Node	*Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeId);
 
 // === CODE ===
 /**
@@ -126,7 +128,7 @@ tVFS_Node *Ext2_FindDir(tVFS_Node *Node, char *Filename)
 		namebuf[ dirent.name_len ] = '\0';	// Cap off string
 		// If it matches, create a node and return it
 		if(strcmp(namebuf, Filename) == 0)
-			return Ext2_int_CreateNode( disk, dirent.inode, namebuf );
+			return Ext2_int_CreateNode( disk, dirent.inode );
 		// Increment pointers
 		ofs += dirent.rec_len;
 		size -= dirent.rec_len;
@@ -155,10 +157,31 @@ int Ext2_MkNod(tVFS_Node *Parent, char *Name, Uint Flags)
 {
 	#if 0
 	tVFS_Node	*child;
-	child = Ext2_int_AllocateNode(Parent, Flags);
+	Uint64	inodeNum;
+	tExt2_Inode	inode;
+	inodeNum = Ext2_int_AllocateInode(Parent->ImplPtr, Parent->Inode);
+	
+	memset(&inode, 0, sizeof(tExt2_Inode));
+	
+	// File type
+	inode.i_mode = 0664;
+	if( Flags & VFS_FFLAG_READONLY )
+		inode.i_mode &= ~0222;
+	if( Flags & VFS_FFLAG_SYMLINK )
+		inode.i_mode |= EXT2_S_IFLNK;
+	else if( Flags & VFS_FFLAG_DIRECTORY )
+		inode.i_mode |= EXT2_S_IFDIR | 0111;
+	
+	inode.i_uid = Threads_GetUID();
+	inode.i_gid = Threads_GetGID();
+	inode.i_ctime =
+		inode.i_mtime =
+		inode.i_atime = now() / 1000;
+	
+	child = Ext2_int_CreateNode(Parent->ImplPtr, inodeNum);
 	return Ext2_Link(Parent, child, Name);
 	#else
-	return 0;
+	return 1;
 	#endif
 }
 
@@ -176,10 +199,10 @@ int Ext2_Link(tVFS_Node *Parent, tVFS_Node *Node, char *Name)
 
 // ---- INTERNAL FUNCTIONS ----
 /**
- * \fn vfs_node *Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeID, char *Name)
+ * \fn vfs_node *Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeID)
  * \brief Create a new VFS Node
  */
-tVFS_Node *Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeID, char *Name)
+tVFS_Node *Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeID)
 {
 	tExt2_Inode	inode;
 	tVFS_Node	retNode;
@@ -227,6 +250,7 @@ tVFS_Node *Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeID, char *Name)
 		retNode.FindDir = Ext2_FindDir;
 		retNode.MkNod = Ext2_MkNod;
 		//retNode.Relink = Ext2_Relink;
+		retNode.Link = Ext2_Link;
 		retNode.Flags = VFS_FFLAG_DIRECTORY;
 		break;
 	// Unknown, Write protect and hide it to be safe 
@@ -234,9 +258,6 @@ tVFS_Node *Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeID, char *Name)
 		retNode.Flags = VFS_FFLAG_READONLY;//|VFS_FFLAG_HIDDEN;
 		break;
 	}
-	
-	// Check if the file should be hidden
-	//if(Name[0] == '.')	retNode.Flags |= VFS_FFLAG_HIDDEN;
 	
 	// Set Timestamps
 	retNode.ATime = inode.i_atime * 1000;

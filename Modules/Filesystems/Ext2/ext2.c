@@ -320,15 +320,17 @@ void Ext2_int_UpdateSuperblock(tExt2_Disk *Disk)
 	if(ngrp <= 1)	return;
 	VFS_WriteAt(Disk->FD, 1*bpg*Disk->BlockSize, 1024, &Disk->SuperBlock);
 	
+	#define INT_MAX	(((long long int)1<<(sizeof(int)*8))-1)
+	
 	// Powers of 3
-	for( i = 3; i < ngrp; i *= 3 )
+	for( i = 3; i < ngrp && i < INT_MAX; i *= 3 )
 		VFS_WriteAt(Disk->FD, i*bpg*Disk->BlockSize, 1024, &Disk->SuperBlock);
 	
 	// Powers of 5
-	for( i = 5; i < ngrp; i *= 5 )
+	for( i = 5; i < ngrp && i < INT_MAX/5; i *= 5 )
 		VFS_WriteAt(Disk->FD, i*bpg*Disk->BlockSize, 1024, &Disk->SuperBlock);
 	
 	// Powers of 7
-	for( i = 7; i < ngrp; i *= 7 )
+	for( i = 7; i < ngrp && i < INT_MAX/7; i *= 7 )
 		VFS_WriteAt(Disk->FD, i*bpg*Disk->BlockSize, 1024, &Disk->SuperBlock);
 }

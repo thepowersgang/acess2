@@ -38,6 +38,7 @@ extern int	Ext2_int_WriteInode(tExt2_Disk *Disk, Uint32 InodeId, tExt2_Inode *In
 extern char	*Ext2_ReadDir(tVFS_Node *Node, int Pos);
 extern tVFS_Node	*Ext2_FindDir(tVFS_Node *Node, char *FileName);
 extern int	Ext2_MkNod(tVFS_Node *Node, char *Name, Uint Flags);
+extern int	Ext2_Link(tVFS_Node *Parent, tVFS_Node *Node, char *Name);
 // --- Read ---
 extern Uint64	Ext2_Read(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer);
 // --- Write ---
