@@ -196,7 +196,7 @@ struct udi_ops_init_s
 	/**
 	 * \brief Flags for each entry in \a ops_vector
 	 */
-	const udi_ubit8_t	*op_flags;
+	//const udi_ubit8_t	*op_flags;
 };
 
 /**

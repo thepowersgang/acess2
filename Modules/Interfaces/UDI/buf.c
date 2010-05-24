@@ -1,6 +1,8 @@
 /**
  * \file buf.c
  * \author John Hodge (thePowersGang)
+ * 
+ * Buffer Manipulation
  */
 #include <acess.h>
 #include <udi.h>
@@ -27,6 +29,18 @@ void udi_buf_copy(
 	UNIMPLEMENTED();
 }
 
+/**
+ * \brief Write to a buffer
+ * \param callback	Function to call once the write has completed
+ * \param gcb	Control Block
+ * \param src_mem	Source Data
+ * \param src_len	Length of source data
+ * \param dst_buf	Destination buffer
+ * \param dst_off	Destination offset in the buffer
+ * \param dst_len	Length of destination area (What the?, Redundant
+ *               	Department of redundacny department)
+ * \param path_handle	???
+ */
 void udi_buf_write(
 	udi_buf_write_call_t *callback,
 	udi_cb_t	*gcb,

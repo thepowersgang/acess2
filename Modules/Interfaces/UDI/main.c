@@ -52,7 +52,7 @@ int UDI_LoadDriver(void *Base)
 	 int	i;
 	// int	j;
 	
-	Log("UDI_LoadDriver: (Base=%p)", Base);
+	Log_Debug("UDI", "UDI_LoadDriver: (Base=%p)", Base);
 	
 	if( Binary_FindSymbol(Base, "udi_init_info", (Uint*)&info) == 0) {
 		Binary_Unload(Base);
@@ -60,11 +60,12 @@ int UDI_LoadDriver(void *Base)
 	}
 	
 	if( Binary_FindSymbol(Base, "_udiprops", (Uint*)&udiprops) == 0 ) {
-		Warning("[UDI  ] _udiprops is not defined, this is usually bad");
+		Log_Warning("UDI", "_udiprops is not defined, this is usually bad");
 	}
 	else {
-		Binary_FindSymbol(Base, "_udiprops_size", (Uint*)&udiprops_size);
-		Log("udiprops = %p, udiprops_size = 0x%x", udiprops, udiprops_size);
+		if( Binary_FindSymbol(Base, "_udiprops_size", (Uint*)&udiprops_size) == 0)
+			Log_Warning("UDI", "_udiprops_size is not defined");
+		Log_Log("UDI", "udiprops = %p, udiprops_size = 0x%x", udiprops, udiprops_size);
 	}
 	
 	
@@ -106,7 +107,7 @@ int UDI_LoadDriver(void *Base)
 		Log(" .meta_ops_num = 0x%x", info->ops_init_list[i].meta_ops_num);
 		Log(" .chan_context_size = 0x%x", info->ops_init_list[i].chan_context_size);
 		Log(" .ops_vector = %p", info->ops_init_list[i].ops_vector);
-		Log(" .op_flags = %p", info->ops_init_list[i].op_flags);
+//		Log(" .op_flags = %p", info->ops_init_list[i].op_flags);
 		Log("}");
 	}
 	

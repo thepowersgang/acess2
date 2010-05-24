@@ -153,10 +153,13 @@ tVFS_Node *Ext2_FindDir(tVFS_Node *Node, char *Filename)
  */
 int Ext2_MkNod(tVFS_Node *Parent, char *Name, Uint Flags)
 {
+	#if 0
 	tVFS_Node	*child;
-	
 	child = Ext2_int_AllocateNode(Parent, Flags);
 	return Ext2_Link(Parent, child, Name);
+	#else
+	return 0;
+	#endif
 }
 
 /**
