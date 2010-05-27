@@ -1,5 +1,5 @@
 /*
- * AcessOS Microkernel Version
+ * Acess2 x86_64 port
  * proc.c
  */
 #include <acess.h>
@@ -627,7 +627,7 @@ void Proc_StartProcess(Uint16 SS, Uint Stack, Uint Flags, Uint16 CS, Uint IP)
  */
 int Proc_Demote(Uint *Err, int Dest, tRegs *Regs)
 {
-	 int	cpl = Regs->cs & 3;
+	 int	cpl = Regs->CS & 3;
 	// Sanity Check
 	if(Dest > 3 || Dest < 0) {
 		*Err = -EINVAL;
@@ -641,8 +641,8 @@ int Proc_Demote(Uint *Err, int Dest, tRegs *Regs)
 	}
 	
 	// Change the Segment Registers
-	Regs->cs = (((Dest+1)<<4) | Dest) - 8;
-	Regs->ss = ((Dest+1)<<4) | Dest;
+	Regs->CS = (((Dest+1)<<4) | Dest) - 8;
+	Regs->SS = ((Dest+1)<<4) | Dest;
 	
 	return 0;
 }

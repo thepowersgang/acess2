@@ -121,6 +121,6 @@ User_Syscall_Exit:
 
 [section .bss]
 [global gInitialKernelStack]
-	resd	1024*1	; 1 Page
+	resd	1024*4	; 4 Pages
 gInitialKernelStack:
 

@@ -17,7 +17,10 @@ void kmain(Uint MbMagic, void *MbInfoPtr)
 	*(Uint16*)(0xB8000) = 0x1F00|'A';
 	
 	Desctab_Init();
+	*(Uint16*)(0xB8000) = 0x1F00|'B';
+	
 	MM_InitVirt();
+	*(Uint16*)(0xB8000) = 0x1F00|'B';
 	
 	for(;;)
 		__asm__ __volatile__ ("hlt");

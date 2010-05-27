@@ -48,11 +48,7 @@ MM_LOCALAPIC	equ	0xFFFFFD0000000000
 
 [section .text]
 [global Desctab_Init]
-Desctab_Init:
-	; Install IDT
-	mov rax, gIDTPtr
-	lidt [rax]
-	
+Desctab_Init:	
 	; Save to make following instructions smaller
 	mov rdi, gIDT
 	
@@ -61,9 +57,9 @@ Desctab_Init:
 	mov rax, %2
 	mov	WORD [rdi + %1*16], ax
 	shr rax, 16
-	mov	WORD [rdi + %1*16+6], ax
+	mov	WORD [rdi + %1*16 + 6], ax
 	shr rax, 16
-	mov DWORD [rdi+%1*16+8], eax
+	mov DWORD [rdi + %1*16 + 8], eax
 	; Enable
 	mov	ax, WORD [rdi + %1*16 + 4]
 	or ax, 0x8000
@@ -82,17 +78,52 @@ Desctab_Init:
 	%endrep
 	
 	; Install IRQs
-	%macro SETIRQ 2
-	SETIDT %2, Irq%1
+	%macro SETIRQ 1
+	SETIDT 0xF0+%1, Irq%1
 	%endmacro
 	
 	%assign i 0
 	%rep 16
-	SETIRQ i, 0xF0+i
+	SETIRQ i
 	%assign i i+1
 	%endrep
-	
+
 	; Remap PIC
+	push rdx	; Save RDX
+	mov dx, 0x20
+	mov al, 0x11
+	out dx, al	;	Init Command
+    mov dx, 0x21
+	mov al, 0xF0
+	out dx, al	;	Offset (Start of IDT Range)
+    mov al, 0x04
+	out dx, al	;	IRQ connected to Slave (00000100b) = IRQ2
+    mov al, 0x01
+	out dx, al	;	Set Mode
+    mov al, 0x00
+	out dx, al	;	Set Mode
+	
+	mov dx, 0xA0
+	mov al, 0x11
+	out dx, al	;	Init Command
+    mov dx, 0xA1
+	mov al, 0xF8
+	out dx, al	;	Offset (Start of IDT Range)
+    mov al, 0x02
+	out dx, al	;	IRQ Line connected to master
+    mov al, 0x01
+	out dx, al	;	Set Mode
+    mov dl, 0x00
+	out dx, al	;	Set Mode
+	pop rdx
+	
+	
+	; Install IDT
+	mov rax, gIDTPtr
+	lidt [rax]
+	
+	; Start interrupts
+	sti
 	
 	ret
 
@@ -184,7 +215,23 @@ ISR_NOERRNO	29; 29: Reserved
 ISR_NOERRNO	30; 30: Reserved
 ISR_NOERRNO	31; 31: Reserved
 
+[extern Error_Handler]
+[global ErrorCommon]
 ErrorCommon:
+	PUSH_GPR
+	push gs
+	push fs
+	;PUSH_FPU
+	;PUSH_XMM
+	
+	mov rsi, rsp
+	call Error_Handler
+	
+	;POP_XMM
+	;POP_FPU
+	pop fs
+	pop gs
+	POP_GPR
 	add rsp, 2*8
 	iret
 
@@ -254,7 +301,7 @@ SchedulerIRQ:
 
 [section .data]
 gIDT:
-	times 256	dd	0x00080000, 0x00008E00, 0, 0	; 64-bit Interrupt Gate, CS = 0x8, IST0
+	times 256	dd	0x00080000, 0x00000E00, 0, 0	; 64-bit Interrupt Gate, CS = 0x8, IST0
 gIDTPtr:
 	dw	256*16-1
 	dq	gIDT
