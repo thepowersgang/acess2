@@ -11,11 +11,14 @@
 #define VERBOSE	0
 #include "ext2_common.h"
 
+// === MACROS ===
+#define BLOCK_DIR_OFS(_data, _block)	((Uint16*)(_data)[(_block)])
 
 // === PROTOTYPES ===
 char	*Ext2_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*Ext2_FindDir(tVFS_Node *Node, char *FileName);
  int	Ext2_MkNod(tVFS_Node *Node, char *Name, Uint Flags);
+ int	Ext2_Relink(tVFS_Node *Node, char *OldName, char *NewName);
  int	Ext2_Link(tVFS_Node *Parent, tVFS_Node *Node, char *Name);
 // --- Helpers ---
 tVFS_Node	*Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeId);
@@ -29,7 +32,6 @@ tVFS_Node	*Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeId);
 char *Ext2_ReadDir(tVFS_Node *Node, int Pos)
 {
 	tExt2_Inode	inode;
-	char	namebuf[EXT2_NAME_LEN+1];
 	tExt2_DirEnt	dirent;
 	Uint64	Base;	// Block's Base Address
 	 int	block = 0, ofs = 0;
@@ -40,7 +42,6 @@ char *Ext2_ReadDir(tVFS_Node *Node, int Pos)
 	ENTER("pNode iPos", Node, Pos);
 	
 	// Read directory's inode
-	//Ext2_int_GetInode(Node, &inode);
 	Ext2_int_ReadInode(disk, Node->Inode, &inode);
 	size = inode.i_size;
 	
@@ -80,20 +81,19 @@ char *Ext2_ReadDir(tVFS_Node *Node, int Pos)
 	//LOG("dirent.inode = %i", dirent.inode);
 	//LOG("dirent.rec_len = %i", dirent.rec_len);
 	//LOG("dirent.name_len = %i", dirent.name_len);
-	VFS_ReadAt( disk->FD, Base+ofs+sizeof(tExt2_DirEnt), dirent.name_len, namebuf );
-	namebuf[ dirent.name_len ] = '\0';	// Cap off string
+	dirent.name[ dirent.name_len ] = '\0';	// Cap off string
 	
 	
 	// Ignore . and .. (these are done in the VFS)
-	if( (namebuf[0] == '.' && namebuf[1] == '\0')
-	||  (namebuf[0] == '.' && namebuf[1] == '.' && namebuf[2]=='\0')) {
+	if( (dirent.name[0] == '.' && dirent.name[1] == '\0')
+	||  (dirent.name[0] == '.' && dirent.name[1] == '.' && dirent.name[2]=='\0')) {
 		LEAVE('p', VFS_SKIP);
 		return VFS_SKIP;	// Skip
 	}
 	
-	LEAVE('s', namebuf);
+	LEAVE('s', dirent.name);
 	// Create new node
-	return strdup(namebuf);
+	return strdup(dirent.name);
 }
 
 /**
@@ -106,12 +106,12 @@ tVFS_Node *Ext2_FindDir(tVFS_Node *Node, char *Filename)
 {
 	tExt2_Disk	*disk = Node->ImplPtr;
 	tExt2_Inode	inode;
-	char	namebuf[EXT2_NAME_LEN+1];
 	tExt2_DirEnt	dirent;
 	Uint64	Base;	// Block's Base Address
 	 int	block = 0, ofs = 0;
 	 int	entNum = 0;
 	Uint	size;
+	 int	filenameLen = strlen(Filename);
 	
 	// Read directory's inode
 	Ext2_int_ReadInode(disk, Node->Inode, &inode);
@@ -124,10 +124,9 @@ tVFS_Node *Ext2_FindDir(tVFS_Node *Node, char *Filename)
 	while(size > 0)
 	{
 		VFS_ReadAt( disk->FD, Base+ofs, sizeof(tExt2_DirEnt), &dirent);
-		VFS_ReadAt( disk->FD, Base+ofs+sizeof(tExt2_DirEnt), dirent.name_len, namebuf );
-		namebuf[ dirent.name_len ] = '\0';	// Cap off string
+		dirent.name[ dirent.name_len ] = '\0';	// Cap off string
 		// If it matches, create a node and return it
-		if(strcmp(namebuf, Filename) == 0)
+		if(dirent.name_len == filenameLen && strcmp(dirent.name, Filename) == 0)
 			return Ext2_int_CreateNode( disk, dirent.inode );
 		// Increment pointers
 		ofs += dirent.rec_len;
@@ -186,15 +185,129 @@ int Ext2_MkNod(tVFS_Node *Parent, char *Name, Uint Flags)
 }
 
 /**
+ * \brief Rename a file
+ * \param Node	This (directory) node
+ * \param OldName	Old name of file
+ * \param NewName	New name for file
+ * \return Boolean Failure - See ::tVFS_Node.Relink for info
+ */
+int Ext2_Relink(tVFS_Node *Node, char *OldName, char *NewName)
+{
+	return 1;
+}
+
+/**
  * \brief Links an existing node to a new name
  * \param Parent	Parent (directory) node
  * \param Node	Node to link
  * \param Name	New name for the node
  * \return Boolean Failure - See ::tVFS_Node.Link for info
  */
-int Ext2_Link(tVFS_Node *Parent, tVFS_Node *Node, char *Name)
-{
+int Ext2_Link(tVFS_Node *Node, tVFS_Node *Child, char *Name)
+{	
+	#if 0
+	tExt2_Disk	*disk = Node->ImplPtr;
+	tExt2_Inode	inode;
+	tExt2_DirEnt	dirent;
+	tExt2_DirEnt	newEntry;
+	Uint64	Base;	// Block's Base Address
+	 int	block = 0, ofs = 0;
+	Uint	size;
+	void	*blockData;
+	 int	bestMatch = -1, bestSize, bestBlock, bestOfs;
+	 int	nEntries;
+	
+	blockData = malloc(disk->BlockSize);
+	
+	// Read child inode (get's the file type)
+	Ext2_int_ReadInode(disk, Child->Inode, &inode);
+	
+	// Create a stub entry
+	newEntry.inode = Child->Inode;
+	newEntry.name_len = strlen(Name);
+	newEntry.rec_len = (newEntry.name_len+3+8)&~3;
+	newEntry.type = inode.i_mode >> 12;
+	memcpy(newEntry.name, Name, newEntry.name_len);
+	
+	// Read directory's inode
+	Ext2_int_ReadInode(disk, Node->Inode, &inode);
+	size = inode.i_size;
+	
+	// Get a lock on the inode
+	Ext2_int_LockInode(disk, Node->Inode);
+	
+	// Get First Block
+	// - Do this ourselves as it is a simple operation
+	base = inode.i_block[0] * disk->BlockSize;
+	VFS_ReadAt( disk->FD, base, disk->BlockSize, blockData );
+	block = 0;
+	// Find File
+	while(size > 0)
+	{
+		dirent = blockData + ofs;
+		// Sanity Check the entry
+		if(ofs + dirent->rec_len > disk->BlockSize) {
+			Log_Warning("EXT2",
+				"Directory entry %i of inode 0x%x extends over a block boundary",
+				nEntries, (Uint)Node->Inode);
+		}
+		else {
+		
+			// Free entry
+			if(dirent->type == 0) {
+				if( dirent->rec_len >= newEntry.rec_len
+				 && (bestMatch == -1 || bestSize > dirent->rec_len) )
+				{
+					bestMatch = nEntries;
+					bestSize = dirent->rec_len;
+					bestBlock = block;
+					bestOfs = ofs;
+				}
+			}
+			// Non free - check name to avoid duplicates
+			else {
+				if(strncmp(Name, dirent->name, dirent->name_len) == 0) {
+					Ext2_int_UnlockInode(disk, Node->Inode);
+					return 1;	// ERR_???
+				}
+			}
+		}
+		
+		// Increment the pointer
+		nEntries ++;
+		ofs += dirent->rec_len;
+		if( ofs >= disk->BlockSize ) {
+			// Read the next block if needed
+			BLOCK_DIR_OFS(Node->Data, block) = nEntries;
+			block ++;
+			ofs = 0;
+			base = Ext2_int_GetBlockAddr(disk, inode.i_blocks, block);
+			VFS_ReadAt( disk->FD, base, disk->BlockSize, blockData );
+		}
+	}
+	
+	// Check if a free slot was found
+	if( bestMatch >= 0 ) {
+		// Read-Modify-Write
+		bestBlock = Ext2_int_GetBlockAddr(disk, inode.i_blocks, bestBlock);
+		if( block > 0 )
+			bestMatch = BLOCK_DIR_OFS(Node->Data, bestBlock);
+		VFS_ReadAt( disk->FD, base, disk->BlockSize, blockData );
+		dirent = blockData + bestOfs;
+		memcpy(dirent, newEntry, newEntry.rec_len);
+		VFS_WriteAt( disk->FD, base, disk->BlockSize, blockData );
+	}
+	else {
+		// Allocate block, Write
+		block = Ext2_int_AllocateBlock(Disk, block);
+		Log_Warning("EXT2", "");
+	}
+
+	Ext2_int_UnlockInode(disk, Node->Inode);
+	return 0;
+	#else
 	return 1;
+	#endif
 }
 
 // ---- INTERNAL FUNCTIONS ----
@@ -221,6 +334,7 @@ tVFS_Node *Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeID)
 	
 	// Set file length
 	retNode.Size = inode.i_size;
+	retNode.Data = NULL;
 	
 	// Set Access Permissions
 	retNode.UID = inode.i_uid;
@@ -249,13 +363,14 @@ tVFS_Node *Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeID)
 		retNode.ReadDir = Ext2_ReadDir;
 		retNode.FindDir = Ext2_FindDir;
 		retNode.MkNod = Ext2_MkNod;
-		//retNode.Relink = Ext2_Relink;
+		retNode.Relink = Ext2_Relink;
 		retNode.Link = Ext2_Link;
 		retNode.Flags = VFS_FFLAG_DIRECTORY;
+		retNode.Data = calloc( sizeof(Uint16), DivUp(retNode.Size, Disk->BlockSize) );
 		break;
-	// Unknown, Write protect and hide it to be safe 
+	// Unknown, Write protect it to be safe 
 	default:
-		retNode.Flags = VFS_FFLAG_READONLY;//|VFS_FFLAG_HIDDEN;
+		retNode.Flags = VFS_FFLAG_READONLY;
 		break;
 	}
 	
