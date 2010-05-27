@@ -3,6 +3,8 @@
 ;
 [bits 64]
 
+[extern kmain]
+
 [section .text]
 [global start64]
 start64:
@@ -28,6 +30,8 @@ start64:
 	mov rsp, gInitialKernelStack
 	
 	; Call main
+	call kmain
+	
 	cli
 .hlt:
 	hlt

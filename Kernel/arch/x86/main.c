@@ -50,7 +50,7 @@ int kmain(Uint MbMagic, void *MbInfoPtr)
 	
 	// Set up non-boot info dependent stuff
 	Desctab_Install();	// Set up GDT and IDT
-	MM_PreinitVirtual();	// Initialise vital mappings
+	MM_PreinitVirtual();	// Initialise virtual mappings
 	
 	switch(MbMagic)
 	{
