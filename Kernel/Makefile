@@ -15,7 +15,7 @@ KERNEL_VERSION = 0.5
 MAKEDEP		= $(CC) -M
 
 CPPFLAGS	+= -I./include -I./arch/$(ARCHDIR)/include
-CPPFLAGS    += -DARCH=$(ARCH) -DARCHDIR=$(ARCHDIR) -DKERNEL_VERSION=$(KERNEL_VERSION) -DBUILD_NUM=$(BUILD_NUM)
+CPPFLAGS	+= -DARCH=$(ARCH) -DARCHDIR=$(ARCHDIR) -DKERNEL_VERSION=$(KERNEL_VERSION) -DBUILD_NUM=$(BUILD_NUM)
 CFLAGS		+= -Wall -Werror -O3 -fno-stack-protector -fno-builtin
 ASFLAGS		+= -D ARCH=\"$(ARCH)\" -D ARCHDIR=\"$(ARCHDIR)\"
 LDFLAGS		+= -T arch/$(ARCHDIR)/link.ld
@@ -61,7 +61,7 @@ $(BIN): $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile
 	@echo --- LD -o $(BIN)
 	@$(LD) $(LDFLAGS) -o $(BIN) $(OBJ) $(MODS) -Map ../Map.$(ARCH).txt
 	@objdump $(BIN) -D -S > $(BIN).dsm
-	@wc -l $(SRCFILES) > LineCounts.$(ARCH).txt
+	@wc -l $(SRCFILES) include/*.h > LineCounts.$(ARCH).txt
 	@echo BUILD_NUM = `calc $(BUILD_NUM)+1` > Makefile.BuildNum
 
 %.ao.$(ARCH): %.asm Makefile

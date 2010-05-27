@@ -125,7 +125,7 @@ void Arch_LoadBootModules(void)
 		
 		if( !Module_LoadMem( gaArch_BootModules[i].Base, gaArch_BootModules[i].Size, gaArch_BootModules[i].ArgString ) )
 		{
-			Log_Warning("Arch", "Unable to load module\n");
+			Log_Warning("Arch", "Unable to load module");
 		}
 	}
 	Log_Log("Arch", "Boot modules loaded");

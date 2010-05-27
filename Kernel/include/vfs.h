@@ -67,7 +67,7 @@
  */
 
 /**
- * \brief VFS Node
+ * \brief Represents a node (file or directory) in the VFS tree
  * 
  * This structure provides the VFS with the functions required to read/write
  * the file (or directory) that it represents.
@@ -99,8 +99,9 @@ typedef struct sVFS_Node
 	Uint32	Flags;	//!< File Flags
 	
 	/**
-	 * Pointer to cached data (FS Specific)
-	 * \note Inode_* will free when the node is uncached this if needed
+	 * \brief Pointer to cached data (FS Specific)
+	 * \note The Inode_* functions will free when the node is uncached
+	 *       this if needed
 	 */
 	void	*Data;
 	/**
@@ -160,7 +161,7 @@ typedef struct sVFS_Node
 	 int	(*IOCtl)(struct sVFS_Node *Node, int Id, void *Data);
 	
 	/**
-	 * }
+	 * \}
 	 */
 	
 	/**
@@ -190,7 +191,7 @@ typedef struct sVFS_Node
 	Uint64	(*Write)(struct sVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
 	
 	/**
-	 * }
+	 * \}
 	 */
 	
 	/**
@@ -247,7 +248,7 @@ typedef struct sVFS_Node
 	 int	(*Link)(struct sVFS_Node *Node, struct sVFS_Node *Child, char *NewName);
 	 
 	 /**
-	  * }
+	  * \}
 	  */
 } tVFS_Node;
 

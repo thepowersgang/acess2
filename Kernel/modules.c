@@ -88,7 +88,8 @@ int Module_int_Initialise(tModule *Module, char *ArgString)
 				break;
 		}
 		if( mod ) {
-			Log_Warning("Module", "Circular dependency detected");
+			Log_Warning("Module", "Circular dependency detected (%s and %s)",
+				mod->Name, Module->Name);
 			LEAVE_RET('i', -1);
 		}
 		
@@ -99,7 +100,8 @@ int Module_int_Initialise(tModule *Module, char *ArgString)
 				break;
 		}
 		if( i == giNumBuiltinModules ) {
-			Log_Warning("Module", "Dependency '%s' for module '%s' failed");
+			Log_Warning("Module", "Dependency '%s' for module '%s' failed",
+				deps[j], Module->Name);
 			return -1;
 		}
 		
@@ -132,6 +134,9 @@ int Module_int_Initialise(tModule *Module, char *ArgString)
 	
 	if(args)	free(args);
 	
+	// Remove from loading list
+	gLoadingModules = gLoadingModules->Next;
+	
 	if( ret != MODULE_ERR_OK ) {
 		switch(ret)
 		{
@@ -152,9 +157,6 @@ int Module_int_Initialise(tModule *Module, char *ArgString)
 		return ret;
 	}
 	LOG("ret = %i", ret);
-	
-	// Remove from loading list
-	gLoadingModules = gLoadingModules->Next;
 	
 	// Add to loaded list
 	LOCK( &glModuleSpinlock );

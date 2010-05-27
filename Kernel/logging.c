@@ -65,6 +65,7 @@ EXPORT(Log_Debug);
 
 // === GLOBALS ===
 tSpinlock	glLog;
+tSpinlock	glLogOutput;
 tLogList	gLog;
 tLogList	gLog_Levels[NUM_LOG_LEVELS];
 

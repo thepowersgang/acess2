@@ -47,7 +47,7 @@ MODULE_DEFINE(0, 0x100, VM8086, VM8086_Install, NULL, NULL);
 tSpinlock	glVM8086_Process;
 tPID	gVM8086_WorkerPID;
 tTID	gVM8086_CallingThread;
-tVM8086	* volatile gpVM8086_State = (void*)-1;	// Set to -1 to avoid race conditions
+tVM8086	volatile * volatile gpVM8086_State = (void*)-1;	// Set to -1 to avoid race conditions
 
 // === FUNCTIONS ===
 int VM8086_Install(char **Arguments)
@@ -66,8 +66,8 @@ int VM8086_Install(char **Arguments)
 	}
 	if(pid == 0)
 	{
-		Uint	*stacksetup;	// Initialising Stack
-		Uint16	*rmstack;	// Real Mode Stack
+		Uint	* volatile stacksetup;	// Initialising Stack
+		Uint16	* volatile rmstack;	// Real Mode Stack
 		 int	i;
 		 
 		// Set Image Name
@@ -91,32 +91,32 @@ int VM8086_Install(char **Arguments)
 		*(Uint8*)(0x100003) = 0xCB;	// RET FAR
 		
 		rmstack = (Uint16*)(VM8086_STACK_SEG*16 + VM8086_STACK_OFS);
-		*rmstack-- = 0xFFFF;	//CS
-		*rmstack-- = 0x0010;	//IP
+		rmstack--;	*rmstack = 0xFFFF;	//CS
+		rmstack--;	*rmstack = 0x0010;	//IP
 		
 		// Setup Stack
 		stacksetup = (Uint*)0x101000;
-		*--stacksetup = VM8086_STACK_SEG;	// GS
-		*--stacksetup = VM8086_STACK_SEG;	// FS
-		*--stacksetup = VM8086_STACK_SEG;	// DS
-		*--stacksetup = VM8086_STACK_SEG;	// ES
-		*--stacksetup = VM8086_STACK_SEG;	// SS
-		*--stacksetup = VM8086_STACK_OFS-2;	// SP
-		*--stacksetup = 0x20202;	// FLAGS
-		*--stacksetup = 0xFFFF;	// CS
-		*--stacksetup = 0x10;	// IP
-		*--stacksetup = 0xAAAA;	// AX
-		*--stacksetup = 0xCCCC;	// CX
-		*--stacksetup = 0xDDDD;	// DX
-		*--stacksetup = 0xBBBB;	// BX
-		*--stacksetup = 0x5454;	// SP
-		*--stacksetup = 0xB4B4;	// BP
-		*--stacksetup = 0x5151;	// SI
-		*--stacksetup = 0xD1D1;	// DI
-		*--stacksetup = 0x20|3;	// DS - Kernel
-		*--stacksetup = 0x20|3;	// ES - Kernel
-		*--stacksetup = 0x20|3;	// FS
-		*--stacksetup = 0x20|3;	// GS
+		stacksetup--;	*stacksetup = VM8086_STACK_SEG;	// GS
+		stacksetup--;	*stacksetup = VM8086_STACK_SEG;	// FS
+		stacksetup--;	*stacksetup = VM8086_STACK_SEG;	// DS
+		stacksetup--;	*stacksetup = VM8086_STACK_SEG;	// ES
+		stacksetup--;	*stacksetup = VM8086_STACK_SEG;	// SS
+		stacksetup--;	*stacksetup = VM8086_STACK_OFS-2;	// SP
+		stacksetup--;	*stacksetup = 0x20202;	// FLAGS
+		stacksetup--;	*stacksetup = 0xFFFF;	// CS
+		stacksetup--;	*stacksetup = 0x10;	// IP
+		stacksetup--;	*stacksetup = 0xAAAA;	// AX
+		stacksetup--;	*stacksetup = 0xCCCC;	// CX
+		stacksetup--;	*stacksetup = 0xDDDD;	// DX
+		stacksetup--;	*stacksetup = 0xBBBB;	// BX
+		stacksetup--;	*stacksetup = 0x5454;	// SP
+		stacksetup--;	*stacksetup = 0xB4B4;	// BP
+		stacksetup--;	*stacksetup = 0x5151;	// SI
+		stacksetup--;	*stacksetup = 0xD1D1;	// DI
+		stacksetup--;	*stacksetup = 0x20|3;	// DS - Kernel
+		stacksetup--;	*stacksetup = 0x20|3;	// ES - Kernel
+		stacksetup--;	*stacksetup = 0x20|3;	// FS
+		stacksetup--;	*stacksetup = 0x20|3;	// GS
 		__asm__ __volatile__ (
 		"mov %%eax,%%esp;\n\t"	// Set stack pointer
 		"pop %%gs;\n\t"
@@ -168,12 +168,12 @@ void VM8086_GPF(tRegs *Regs)
 		}
 		
 		//Log_Log("VM8086", "We have a task (%p)", gpVM8086_State);
-		Regs->esp -= 2;	*(Uint16*)( (Regs->ss<<4) + (Regs->esp&0xFFFF) ) = VM8086_MAGIC_CS;
-		Regs->esp -= 2;	*(Uint16*)( (Regs->ss<<4) + (Regs->esp&0xFFFF) ) = VM8086_MAGIC_IP;
-		Regs->esp -= 2;	*(Uint16*)( (Regs->ss<<4) + (Regs->esp&0xFFFF) ) = gpVM8086_State->CS;
-		Regs->esp -= 2;	*(Uint16*)( (Regs->ss<<4) + (Regs->esp&0xFFFF) ) = gpVM8086_State->IP;
-		Regs->esp -= 2;	*(Uint16*)( (Regs->ss<<4) + (Regs->esp&0xFFFF) ) = gpVM8086_State->DS;
-		Regs->esp -= 2;	*(Uint16*)( (Regs->ss<<4) + (Regs->esp&0xFFFF) ) = gpVM8086_State->ES;
+		Regs->esp -= 2;	*(Uint16*volatile)( (Regs->ss<<4) + (Regs->esp&0xFFFF) ) = VM8086_MAGIC_CS;
+		Regs->esp -= 2;	*(Uint16*volatile)( (Regs->ss<<4) + (Regs->esp&0xFFFF) ) = VM8086_MAGIC_IP;
+		Regs->esp -= 2;	*(Uint16*volatile)( (Regs->ss<<4) + (Regs->esp&0xFFFF) ) = gpVM8086_State->CS;
+		Regs->esp -= 2;	*(Uint16*volatile)( (Regs->ss<<4) + (Regs->esp&0xFFFF) ) = gpVM8086_State->IP;
+		Regs->esp -= 2;	*(Uint16*volatile)( (Regs->ss<<4) + (Regs->esp&0xFFFF) ) = gpVM8086_State->DS;
+		Regs->esp -= 2;	*(Uint16*volatile)( (Regs->ss<<4) + (Regs->esp&0xFFFF) ) = gpVM8086_State->ES;
 		
 		// Set Registers
 		Regs->eip = 0x11;	Regs->cs = 0xFFFF;
@@ -212,8 +212,8 @@ void VM8086_GPF(tRegs *Regs)
 		id = *(Uint8*)( Regs->cs*16 +(Regs->eip&0xFFFF));
 		Regs->eip ++;
 		
-		Regs->esp -= 2;	*(Uint16*)( Regs->ss*16 + (Regs->esp&0xFFFF) ) = Regs->cs;
-		Regs->esp -= 2;	*(Uint16*)( Regs->ss*16 + (Regs->esp&0xFFFF) ) = Regs->eip;
+		Regs->esp -= 2;	*(Uint16*volatile)( Regs->ss*16 + (Regs->esp&0xFFFF) ) = Regs->cs;
+		Regs->esp -= 2;	*(Uint16*volatile)( Regs->ss*16 + (Regs->esp&0xFFFF) ) = Regs->eip;
 		
 		Regs->cs = *(Uint16*)(4*id + 2);
 		Regs->eip = *(Uint16*)(4*id);
