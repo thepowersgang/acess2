@@ -6,9 +6,32 @@
 [section .text]
 [global start64]
 start64:
+	; Load Registers
+	mov ax, 0x10
+	mov ds, ax
+	mov es, ax
+	mov fs, ax
+	mov gs, ax
+	
+	; Go to high memory
+	mov rax, start64.himem
+	jmp rax
+.himem:
+	
+	; Clear the screen
+	mov rax, 0x1F201F201F201F20	; Set the screen to White on blue, space (4 characters)
+	mov edi, 0xB8000
+	mov ecx, 80*25*2/8
+	rep stosq
+	
 	; Set kernel stack
+	mov rsp, gInitialKernelStack
+	
 	; Call main
-	jmp $
+	cli
+.hlt:
+	hlt
+	jmp .hlt
 
 [global GetRIP]
 GetRIP:

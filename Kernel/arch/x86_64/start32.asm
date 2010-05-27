@@ -33,8 +33,12 @@ mboot:
 [global start]
 start:
 	; Check for Long Mode support
+	mov eax, 0x80000000
+	cpuid
+	cmp eax, 0x80000001	; Compare the A-register with 0x80000001.
 	mov eax, 0x80000001
 	cpuid
+    jb .not64bitCapable
 	test edx, 1<<29
 	jz .not64bitCapable
 
@@ -60,13 +64,6 @@ start:
 
 	; Load GDT
 	lgdt [gGDTPtr - KERNEL_BASE]
-	mov ax, 0x10
-	mov ss, ax
-	mov ds, ax
-	mov es, ax
-	mov fs, ax
-	mov gs, ax
-
 	jmp 0x08:start64 - KERNEL_BASE
 
 .not64bitCapable:
