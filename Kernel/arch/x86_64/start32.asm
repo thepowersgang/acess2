@@ -5,14 +5,39 @@ KERNEL_BASE	equ	0xFFFF800000000000
 
 [section .multiboot]
 mboot:
-	MULTIBOOT_MAGIC	equ	0x1BADB002
-	dd	MULTIBOOT_MAGIC
+	; Multiboot macros to make a few lines later more readable
+	MULTIBOOT_PAGE_ALIGN	equ 1<<0
+	MULTIBOOT_MEMORY_INFO	equ 1<<1
+	MULTIBOOT_AOUT_KLUDGE	equ 1<<16
+	MULTIBOOT_HEADER_MAGIC	equ 0x1BADB002
+	MULTIBOOT_HEADER_FLAGS	equ MULTIBOOT_PAGE_ALIGN | MULTIBOOT_MEMORY_INFO; | MULTIBOOT_AOUT_KLUDGE
+	MULTIBOOT_CHECKSUM	equ -(MULTIBOOT_HEADER_MAGIC + MULTIBOOT_HEADER_FLAGS)
+	
+	; This is the GRUB Multiboot header. A boot signature
+	dd MULTIBOOT_HEADER_MAGIC
+	dd MULTIBOOT_HEADER_FLAGS
+	dd MULTIBOOT_CHECKSUM
+	[extern __load_addr]
+	[extern __bss_start]
+	[extern gKernelEnd]
+	; a.out kludge
+	dd mboot	; Location of Multiboot Header
+	dd __load_addr	; Load address
+	dd __bss_start - KERNEL_BASE	; End of .data
+	dd gKernelEnd - KERNEL_BASE	; End of .bss (and kernel)
+	dd start - KERNEL_BASE	; Entrypoint
 
 [extern start64]
 
 [section .text]
 [global start]
 start:
+	; Check for Long Mode support
+	mov eax, 0x80000001
+	cpuid
+	test edx, 1<<29
+	jz .not64bitCapable
+
 	; Enable PAE
 	mov eax, cr4
 	or eax, 0x80|0x20
@@ -44,6 +69,21 @@ start:
 
 	jmp 0x08:start64 - KERNEL_BASE
 
+.not64bitCapable:
+	mov ah, 0x0F
+	mov edi, 0xB8000
+	mov esi, csNot64BitCapable - KERNEL_BASE
+
+.loop:
+	lodsb
+	test al, al
+	jz .hlt
+	stosw
+	jmp .loop
+	
+.hlt:
+	jmp .hlt
+
 [section .data]
 [global gGDT]
 gGDT:
@@ -72,14 +112,15 @@ gInitialPML4:	; Covers 256 TiB (Full 48-bit Virtual Address Space)
 
 gInitialPDP:	; Covers 512 GiB
 	dd	gInitialPD - KERNEL_BASE + 3, 0
-	times 511 dq	0
+	times 511	dq	0
 
 gInitialPD:	; Covers 1 GiB
 	dd	gInitialPT1 - KERNEL_BASE + 3, 0
 	dd	gInitialPT2 - KERNEL_BASE + 3, 0
+	times 510	dq	0
 
 gInitialPT1:	; Covers 2 MiB
-	%assign i 1
+	%assign i 0
 	%rep 512
 	dq	i*4096+3
 	%assign i i+1
@@ -92,3 +133,6 @@ gInitialPT2:	; 2 MiB
 	%endrep
 
 
+[section .rodata]
+csNot64BitCapable:
+	db "Not 64-bit Capable",0

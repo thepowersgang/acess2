@@ -39,12 +39,12 @@ void VM8086_Free(tVM8086 *State)
 
 void *VM8086_Allocate(tVM8086 *State, int Size, Uint16 *Segment, Uint16 *Offset)
 {
-	
+	return NULL;
 }
 
 void *VM8086_GetPointer(tVM8086 *State, Uint16 Segment, Uint16 Offset)
 {
-	
+	return NULL;
 }
 
 void VM8086_Int(tVM8086 *State, Uint8 Interrupt)

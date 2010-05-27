@@ -63,6 +63,26 @@ Proc_ReturnToUser:
 	
 	iret
 
+; int CallWithArgArray(void *Ptr, int NArgs, Uint *Args)
+; Call a function passing the array as arguments
+[global CallWithArgArray]
+CallWithArgArray:
+	push rbp
+	mov rbp, rsp
+	mov rcx, [rbp+3*8]	; Get NArgs
+	mov rdx, [rbp+4*8]
+
+.top:
+	mov rax, [rdx+rcx*8-8]
+	push rax
+	loop .top
+	
+	mov rax, [rbp+2*8]
+	call rax
+	lea rsp, [rbp]
+	pop rbp
+	ret
+
 [section .usertext]
 User_Syscall_RetAndExit:
 	mov rdi, rax

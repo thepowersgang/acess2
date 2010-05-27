@@ -150,3 +150,9 @@ void *memset(void *__dest, int __val, size_t __count)
 	return __dest;
 }
 
+void *memsetd(void *__dest, Uint32 __val, size_t __count)
+{
+	__asm__ __volatile__ ("rep stosl" : : "D"(__dest),"a"(__val),"c"(__count));
+	return __dest;
+}
+

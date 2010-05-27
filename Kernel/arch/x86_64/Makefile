@@ -14,6 +14,7 @@ MAX_CPUS := 4
 CPPFLAGS	:= -DMAX_CPUS=$(MAX_CPUS)
 CFLAGS		:= $(KERNEL_CFLAGS)
 ASFLAGS		:= -f elf64 -D MAX_CPUS=$(MAX_CPUS)
+LDFLAGS 	:= -nostdlib -nodefaultlibs
 
 ifeq ($(ARCH),amd64)
 	ASFLAGS += -D AMD64=1
@@ -27,4 +28,5 @@ endif
 	
 
 A_OBJ  = start32.ao start64.ao desctab.ao
-A_OBJ += main.o lib.o proc.o mm_virt.o mm_phys.o
+A_OBJ += main.o lib.o proc.o mm_virt.o mm_phys.o vm8086.o
+A_OBJ += kernelpanic.o

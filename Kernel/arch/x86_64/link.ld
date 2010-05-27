@@ -5,12 +5,17 @@
 
 _kernel_base = 0xFFFF800000000000;
 
-//lowStart = start - _kernel_base;
+/*
+lowStart = start - _kernel_base;
 ENTRY(start)
 OUTPUT_FORMAT(elf64-x86-64)
+*/
+OUTPUT_FORMAT(elf32-i386)
+OUTPUT_ARCH(i386:x86-64)
+ENTRY (start)
 
 SECTIONS {
-	. = 0x100000;
+	. = 0x100000 + SIZEOF_HEADERS;
 	__load_addr = .;
 	.multiboot : AT(ADDR(.multiboot)) {
 		*(.multiboot)
@@ -39,8 +44,6 @@ SECTIONS {
 		gKernelSymbols = .;
 		*(KEXPORT)
 		gKernelSymbolsEnd = .;
-
-
 	}
 	/*
 	.debug_abbrev : { *(.debug_abbrev) }

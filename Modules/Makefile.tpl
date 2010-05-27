@@ -40,7 +40,10 @@ clean:
 	$(RM) $(BIN) $(BIN).dsm $(KOBJ) $(OBJ) $(DEPFILES)
 
 install: $(BIN)
-	$(xCP) $(BIN) $(DISTROOT)/Modules/$(NAME).kmd
+ifeq ($(BUILDTYPE),dynamic)
+	$(xCP) $(BIN) $(DISTROOT)/Modules/$(NAME).kmd.$(ARCH)
+else
+endif
 
 ifeq ($(BUILDTYPE),dynamic)
 $(BIN): %.kmd.$(ARCH): $(OBJ)

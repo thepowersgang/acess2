@@ -37,6 +37,7 @@ OBJ += $(addprefix drv/, $(addsuffix .o,$(DRIVERS)))
 OBJ := $(addsuffix .$(ARCH), $(OBJ))
 MODS += $(addprefix ../Modules/, $(addsuffix .xo.$(ARCH),$(MODULES)))
 BIN = ../Acess2.$(ARCH).bin
+GZBIN = ../Acess2.$(ARCH).gz
 
 DEPFILES  = $(filter %.o.$(ARCH),$(OBJ))
 DEPFILES := $(DEPFILES:%.o.$(ARCH)=%.d.$(ARCH))
@@ -49,10 +50,11 @@ SRCFILES := $(SRCFILES:%.ao.$(ARCH)=%.asm)
 all: $(BIN)
 
 clean:
-	@$(RM) $(BIN) $(BIN).dsm ../Map.$(ARCH).txt LineCounts.$(ARCH).txt $(OBJ) $(DEPFILES)
+	@$(RM) $(BIN) ../Acess2.$(ARCH).gz $(BIN).dsm ../Map.$(ARCH).txt LineCounts.$(ARCH).txt $(OBJ) $(DEPFILES)
 
 install: $(BIN)
-	$(xCP) $(BIN) $(DISTROOT)
+	gzip -c $(BIN) > ../Acess2.$(ARCH).gz
+	$(xCP) ../Acess2.$(ARCH).gz $(DISTROOT)
 
 apidoc:
 	doxygen Doxyfile.api

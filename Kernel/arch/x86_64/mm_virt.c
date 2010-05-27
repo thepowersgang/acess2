@@ -35,6 +35,11 @@ void MM_InitVirt(void)
 	
 }
 
+void MM_FinishVirtualInit(void)
+{
+	
+}
+
 /**
  * \brief Map a physical page to a virtual one
  */
@@ -339,4 +344,14 @@ void MM_ClearUser(void)
 			continue;
 		}
 	}
+}
+
+tVAddr MM_NewWorkerStack(void)
+{
+	return 0;
+}
+
+tVAddr MM_NewKStack(void)
+{
+	return 0;
 }
