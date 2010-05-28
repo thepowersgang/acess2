@@ -78,15 +78,22 @@ Desctab_Init:
 	%endrep
 	
 	; Install IRQs
-	%macro SETIRQ 1
-	SETIDT 0xF0+%1, Irq%1
-	%endmacro
-	
-	%assign i 0
-	%rep 16
-	SETIRQ i
-	%assign i i+1
-	%endrep
+	SETIDT	0xF0, Irq0
+	SETIDT	0xF1, Irq1
+	SETIDT	0xF2, Irq2
+	SETIDT	0xF3, Irq3
+	SETIDT	0xF4, Irq4
+	SETIDT	0xF5, Irq5
+	SETIDT	0xF6, Irq6
+	SETIDT	0xF7, Irq7
+	SETIDT	0xF8, Irq8
+	SETIDT	0xF9, Irq9
+	SETIDT	0xFA, Irq10
+	SETIDT	0xFB, Irq11
+	SETIDT	0xFC, Irq12
+	SETIDT	0xFD, Irq13
+	SETIDT	0xFE, Irq14
+	SETIDT	0xFF, Irq15
 
 	; Remap PIC
 	push rdx	; Save RDX
@@ -172,13 +179,13 @@ IRQ_AddHandler:
 
 %macro ISR_NOERRNO	1
 Isr%1:
-	push	0
-	push	%1
+	push	QWORD 0
+	push	QWORD %1
 	jmp	ErrorCommon
 %endmacro
 %macro ISR_ERRNO	1
 Isr%1:
-	push	%1
+	push	QWORD %1
 	jmp	ErrorCommon
 %endmacro
 
@@ -224,7 +231,8 @@ ErrorCommon:
 	;PUSH_FPU
 	;PUSH_XMM
 	
-	mov rsi, rsp
+	mov rdi, rsp
+	xchg bx, bx
 	call Error_Handler
 	
 	;POP_XMM
@@ -233,7 +241,7 @@ ErrorCommon:
 	pop gs
 	POP_GPR
 	add rsp, 2*8
-	iret
+	iretq
 
 %macro DEFIRQ	1
 Irq%1:
@@ -248,6 +256,7 @@ DEFIRQ	i
 %assign i i+1
 %endrep
 
+[global IrqCommon]
 IrqCommon:
 	PUSH_GPR
 	
@@ -256,18 +265,22 @@ IrqCommon:
 	mov rax, gaIRQ_Handlers
 	add rbx, rax
 	
+	; Check all callbacks
 	%assign i 0
 	%rep NUM_IRQ_CALLBACKS
+	; Get callback address
 	mov rax, [rbx]
-	test rax, rax
-	mov rdi, [rsp+16*8]	; Get IRQ number
+	test rax, rax	; Check if it exists
 	jz .skip.%[i]
-	call rax	; 2 Bytes (Op and Mod/RM)
+	; Set RDI to IRQ number
+	mov rdi, [rsp+16*8]	; Get IRQ number
+	call rax	; Call
 .skip.%[i]:
-	add rbx, 8
+	add rbx, 8	; Next!
 	%assign i i+1
 	%endrep
 	
+	; ACK
 	mov rdi, [rsp+16*8]	; Get IRQ number
 	cmp rdi, 8
 	mov al, 0x20
@@ -279,10 +292,12 @@ IrqCommon:
 	out dx, al
 	
 	POP_GPR
-	add rsp, 16
-	iret
+	add rsp, 8*2
+	xchg bx, bx
+	iretq
 
 [extern Proc_Scheduler]
+[global SchedulerIRQ]
 SchedulerIRQ:
 	; TODO: Find Current CPU
 	PUSH_GPR
@@ -297,11 +312,13 @@ SchedulerIRQ:
 	;POP_XMM
 	;POP_FPU
 	POP_GPR
-	iret
+	add rsp, 8*2
+	iretq
 
 [section .data]
 gIDT:
-	times 256	dd	0x00080000, 0x00000E00, 0, 0	; 64-bit Interrupt Gate, CS = 0x8, IST0
+	; 64-bit Interrupt Gate, CS = 0x8, IST0 (Disabled)
+	times 256	dd	0x00080000, 0x00000E00, 0, 0
 gIDTPtr:
 	dw	256*16-1
 	dq	gIDT

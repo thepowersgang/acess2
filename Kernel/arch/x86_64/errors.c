@@ -27,17 +27,19 @@ void Error_Handler(tRegs *Regs)
 	
 	Debug_KernelPanic();
 	
-	Warning("CPU Error %i - %s, Code: 0x%x",
-		Regs->IntNum, csaERROR_NAMES[Regs->IntNum], Regs->ErrorCode);
-	Warning(" CS:RIP = 0x%04x:%016x", Regs->CS, Regs->RIP);
-	Warning(" SS:RSP = 0x%04x:%016x", Regs->SS, Regs->RIP);
-	Warning(" RFLAGS = 0x%016x", Regs->RFlags);
-	Warning(" EAX %016x ECX %016x EDX %016x EBX %016x",
-		Regs->RAX, Regs->RCX, Regs->RDX, Regs->RBX);
-	Warning(" ESP %016x EBP %016x ESI %016x EDI %016x",
-		Regs->RSP, Regs->RBP, Regs->RSP, Regs->RDI);
+	Log("CPU Error %x, Code: 0x%x", Regs->IntNum, Regs->ErrorCode);
+	Log(" - %s", csaERROR_NAMES[Regs->IntNum]);
+	Log(" CS:RIP = 0x%04x:%016x", Regs->CS, Regs->RIP);
+	Log(" SS:RSP = 0x%04x:%016x", Regs->SS, Regs->RSP);
+	Log(" RFLAGS = 0x%016x", Regs->RFlags);
 	
-	Warning(" FS %04x GS %04x", Regs->FS, Regs->GS);
+	Log(" EAX %016x ECX %016x EDX %016x EBX %016x",
+		Regs->RAX, Regs->RCX, Regs->RDX, Regs->RBX);
+	Log(" ESP %016x EBP %016x ESI %016x EDI %016x",
+		Regs->RSP, Regs->RBP, Regs->RSP, Regs->RDI);
+	Log(" R8  %016x R9  %016x R10 %016x R11 %016x",
+		Regs->R8, Regs->R9, Regs->R10, Regs->R11);
+	Log(" FS %04x GS %04x", Regs->FS, Regs->GS);
 	
 	
 	// Control Registers

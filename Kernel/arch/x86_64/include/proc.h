@@ -14,10 +14,12 @@ typedef struct {
 	// MMX
 	// FPU
 	Uint	FS, GS;
+	
 	Uint	RAX, RCX, RDX, RBX;
     Uint	KernelRSP, RBP, RSI, RDI;
 	Uint	R8,  R9,  R10, R11;
 	Uint	R12, R13, R14, R15;
+	
     Uint	IntNum, ErrorCode;
     Uint	RIP, CS;
 	Uint	RFlags, RSP, SS;
