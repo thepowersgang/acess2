@@ -293,7 +293,7 @@ IrqCommon:
 	
 	POP_GPR
 	add rsp, 8*2
-	xchg bx, bx
+	;xchg bx, bx
 	iretq
 
 [extern Proc_Scheduler]

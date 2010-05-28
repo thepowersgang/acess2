@@ -28,16 +28,15 @@ typedef Uint64	Uint;
 typedef Uint64	tPAddr;
 typedef Uint64	tVAddr;
 
-//typedef unsigned int	size_t;
 typedef Uint64	size_t;
 
 typedef volatile int    tSpinlock;
 #define IS_LOCKED(lockptr)      (!!(*(tSpinlock*)lockptr))
 #define LOCK(lockptr)   do {int v=1;\
 	while(v)\
-	__asm__ __volatile__("lock xchgl %%eax, (%%rdi)":"=a"(v):"a"(1),"D"(lockptr));\
+	__asm__ __volatile__("lock xchgl %0, (%2)":"=r"(v):"r"(1),"r"(lockptr));\
 	}while(0)
-#define RELEASE(lockptr)	__asm__ __volatile__("lock andl $0, (%%rdi)"::"D"(lockptr));
+#define RELEASE(lockptr)	__asm__ __volatile__("lock andl $0, (%0)"::"r"(lockptr));
 #define HALT()  __asm__ __volatile__ ("hlt")
 
 // Systemcall Registers

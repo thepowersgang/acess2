@@ -2,28 +2,72 @@
  * Acess2 x86_64 Project
  */
 #include <acess.h>
+#include <mboot.h>
 
 // === IMPORTS ===
 extern void	Desctab_Init(void);
 extern void	MM_InitVirt(void);
+extern void	Heap_Install(void);
+extern void	Threads_Init(void);
+//extern void	Time_Setup(void);
+extern void	System_Init(char *Commandline);
+
+extern void	MM_InitPhys_Multiboot(tMBoot_Info *MBoot);
 
 // === PROTOTYPES ===
 
 // === GLOBALS ==
+char	*gsBootCmdLine = NULL;
 
 // === CODE ===
 void kmain(Uint MbMagic, void *MbInfoPtr)
 {
-	*(Uint16*)(0xB8000) = 0x1F00|'A';
+	tMBoot_Info	*mbInfo;
 	
 	Desctab_Init();
-	*(Uint16*)(0xB8000) = 0x1F00|'B';
 	
 	MM_InitVirt();
-	*(Uint16*)(0xB8000) = 0x1F00|'B';
+	*(Uint16*)(0xB8000) = 0x1F00|'C';
 	
+	switch(MbMagic)
+	{
+	// Multiboot 1
+	case MULTIBOOT_MAGIC:
+		// Adjust Multiboot structure address
+		mbInfo = (void*)( (Uint)MbInfoPtr + KERNEL_BASE );
+		gsBootCmdLine = (char*)(mbInfo->CommandLine + KERNEL_BASE);
+		
+		MM_InitPhys_Multiboot( mbInfo );	// Set up physical memory manager
+		break;
+	default:
+		Panic("Multiboot magic invalid %08x, expected %08x\n",
+			MbMagic, MULTIBOOT_MAGIC);
+		return ;
+	}
+	
+	*(Uint16*)(0xB8000) = 0x1F00|'D';
+	Heap_Install();
+	
+	*(Uint16*)(0xB8000) = 0x1F00|'E';
+	Log_Log("Arch", "Starting threading...");
+	Threads_Init();
+	
+	//Time_Setup();
+	*(Uint16*)(0xB8000) = 0x1F00|'F';
+	
+	Log_Log("Arch", "Starting VFS...");
+	// Load Virtual Filesystem
+	VFS_Init();
+	
+	*(Uint16*)(0xB8000) = 0x1F00|'G';
+	
+	// Pass on to Independent Loader
+	Log_Log("Arch", "Starting system");
+	System_Init(gsBootCmdLine);
+	
+	// Sleep forever (sleeping beauty)
 	for(;;)
-		__asm__ __volatile__ ("hlt");
+		Threads_Sleep();
 }
 
 void Arch_LoadBootModules(void)

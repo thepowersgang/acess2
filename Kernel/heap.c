@@ -30,7 +30,7 @@ void	free(void *Ptr);
 void	Heap_Dump();
 
 // === GLOBALS ===
- int	glHeap;
+tSpinlock	glHeap;
 void	*gHeapStart;
 void	*gHeapEnd;
 

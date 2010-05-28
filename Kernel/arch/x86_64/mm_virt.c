@@ -105,11 +105,15 @@ tPAddr MM_Allocate(tVAddr VAddr)
 {
 	tPAddr	ret;
 	
+	Log("MM_Allocate: (VAddr=%x)", VAddr);
+	Log("MM_Allocate: MM_AllocPhys()");
 	ret = MM_AllocPhys();
+	Log("MM_Allocate: ret = %x", ret);
 	if(!ret)	return 0;
 	
 	if( !MM_Map(VAddr, ret) )
 	{
+		Warning("MM_Allocate: Unable to map", ret);
 		MM_DerefPhys(ret);
 		return 0;
 	}

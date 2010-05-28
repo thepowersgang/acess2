@@ -32,6 +32,9 @@ mboot:
 [section .text]
 [global start]
 start:
+	mov [gMultibootMagic - KERNEL_BASE], eax
+	mov [gMultibootPtr - KERNEL_BASE], ebx
+
 	; Check for Long Mode support
 	mov eax, 0x80000000
 	cpuid
@@ -85,16 +88,22 @@ start:
 [global gGDT]
 gGDT:
 	dd	0,0
-	dd	0x00000000, 0x00209800	; 0x08: 64-bit Code
-	dd	0x00000000, 0x00009000	; 0x10: 64-bit Data
-	dd	0x00000000, 0x00209800	; 0x18: 64-bit User Code
-	dd	0x00000000, 0x00209000	; 0x20: 64-bit User Data
-	dd	0x00000000, 0x00209800	; 0x38: 32-bit User Code
-	dd	0x00000000, 0x00209000	; 0x30: 32-bit User Data
+	dd	0x00000000, 0x00209A00	; 0x08: 64-bit Code
+	dd	0x00000000, 0x00009200	; 0x10: 64-bit Data
+	dd	0x00000000, 0x0020FA00	; 0x18: 64-bit User Code
+	dd	0x00000000, 0x0000F200	; 0x20: 64-bit User Data
+	dd	0x00000000, 0x0040FA00	; 0x38: 32-bit User Code
+	dd	0x00000000, 0x0040F200	; 0x30: 32-bit User Data
 	times MAX_CPUS	dd	0, 0, 0, 0	; 0x38+16*n: TSS 0
 gGDTPtr:
 	dw	$-gGDT-1
 	dd	gGDT-KERNEL_BASE
+	dd	0
+[global gMultibootPtr]
+[global gMultibootMagic]
+gMultibootMagic:
+	dd	0
+gMultibootPtr:
 	dd	0
 
 [section .padata]

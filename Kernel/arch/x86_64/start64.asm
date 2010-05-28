@@ -2,8 +2,12 @@
 ; Acess2 x86_64 Port
 ;
 [bits 64]
+KERNEL_BASE	equ	0xFFFF800000000000
 
 [extern kmain]
+
+[extern gMultibootPtr]
+[extern gMultibootMagic]
 
 [section .text]
 [global start64]
@@ -30,6 +34,8 @@ start64:
 	mov rsp, gInitialKernelStack
 	
 	; Call main
+	mov edi, [gMultibootMagic - KERNEL_BASE]
+	mov esi, [gMultibootPtr - KERNEL_BASE]
 	call kmain
 	
 	cli
