@@ -37,6 +37,7 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 	tMBoot_MMapEnt	*ent;
 	Uint64	maxAddr = 0;
 	 int	numPages;
+	 int	superPages;
 	
 	Log("MM_InitPhys_Multiboot: (MBoot=%p)", MBoot);
 	
@@ -74,6 +75,7 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 	// Find a contigous section of memory to hold it in
 	// - Starting from the end of the kernel
 	// - We also need a region for the super bitmap
+	superPages = ((giMaxPhysPage+64*8-1)/(64*8) + 0xFFF) >> 12;
 	numPages = (giMaxPhysPage + 7) * sizeof(*gaiPageReferences);
 	numPages = (numPages + 0xFFF) >> 12;
 	Log(" MM_InitPhys_Multiboot: numPages = %i", numPages);
@@ -97,7 +99,58 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 	// Scan for a nice range
 	else
 	{
-		
+		 int	todo = numPages + superPages;
+		tPAddr	paddr = 0;
+		tVAddr	vaddr = MM_PAGE_COUNTS;
+		// Scan!
+		for(
+			ent = mmapStart;
+			(Uint)ent < (Uint)mmapStart + MBoot->MMapLength;
+			ent = (tMBoot_MMapEnt *)( (Uint)ent + ent->Size )
+			)
+		{
+			 int	avail;
+			
+			// RAM only please
+			if( ent->Type != 1 )
+				continue;
+			
+			// Let's not put it below the kernel, shall we?
+			if( ent->Base + ent->Size < (tPAddr)&gKernelEnd )
+				continue;
+			
+			// Check if the kernel is in this range
+			if( ent->Base < (tPAddr)&gKernelEnd - KERNEL_BASE && ent->Base + ent->Size > (tPAddr)&gKernelEnd )
+			{
+				avail = (ent->Size-((tPAddr)&gKernelEnd-KERNEL_BASE-ent->Base)) >> 12;
+				paddr = (tPAddr)&gKernelEnd - KERNEL_BASE;
+			}
+			// No? then we can use all of the block
+			else
+			{
+				avail = ent->Size >> 12;
+				paddr = ent->Base;
+			}
+			
+			// Map
+			// - Counts
+			if( todo ) {
+				 int	i, max;
+				max = todo < avail ? todo : avail;
+				for( i = 0; i < max; i ++ )
+				{
+					MM_Map(vaddr, paddr);
+					todo --;
+					vaddr += 0x1000;
+					paddr += 0x1000;
+				}
+				// Alter the destination address when needed
+				if(todo == superPages)
+					vaddr = MM_PAGE_SUPBMP;
+			}
+			else
+				break;
+		}
 	}
 	
 	// Fill the bitmaps
@@ -120,6 +173,10 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 			(ent->Size>>12)*sizeof(*gaiPageReferences)
 			);
 	}
+	
+	// Reference the used pages
+	// - Kernel
+	// - Reference Counts and Bitmap
 }
 
 /**
