@@ -112,8 +112,10 @@ gInitialPML4:	; Covers 256 TiB (Full 48-bit Virtual Address Space)
 	dd	gInitialPDP - KERNEL_BASE + 3, 0	; Identity Map Low 4Mb
 	times 256-1 dq	0
 	dd	gInitialPDP - KERNEL_BASE + 3, 0	; Map Low 4Mb to kernel base
-	times 256-1-2 dq 0
+	times 256-1-4 dq 0
 	dd	gInitialPML4 - KERNEL_BASE + 3, 0	; Fractal Mapping
+	dq	0
+	dq	0
 	dq	0
 
 gInitialPDP:	; Covers 512 GiB

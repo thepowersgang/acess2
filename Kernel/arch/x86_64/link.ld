@@ -15,7 +15,9 @@ OUTPUT_ARCH(i386:x86-64)
 ENTRY (start)
 
 SECTIONS {
-	. = 0x100000 + SIZEOF_HEADERS;
+	. = 0x100000;
+	gKernelBase = .;
+	. += SIZEOF_HEADERS;
 	__load_addr = .;
 	.multiboot : AT(ADDR(.multiboot)) {
 		*(.multiboot)

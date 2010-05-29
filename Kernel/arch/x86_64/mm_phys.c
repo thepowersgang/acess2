@@ -18,6 +18,7 @@ enum eMMPhys_Ranges
 };
 
 // === IMPORTS ===
+extern void	gKernelBase;
 extern void	gKernelEnd;
 
 // === GLOBALS ===
@@ -86,7 +87,7 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 	superPages = ((giMaxPhysPage+64*8-1)/(64*8) + 0xFFF) >> 12;
 	numPages = (giMaxPhysPage + 7) / 8;
 	numPages = (numPages + 0xFFF) >> 12;
-	Log(" MM_InitPhys_Multiboot: numPages = %i, superPages = ",
+	Log(" MM_InitPhys_Multiboot: numPages = %i, superPages = %i",
 		numPages, superPages);
 	if(maxAddr == 0)
 	{
@@ -139,21 +140,25 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 				continue;
 			
 			// Let's not put it below the kernel, shall we?
-			if( ent->Base + ent->Size < (tPAddr)&gKernelEnd )
+			if( ent->Base + ent->Size < (tPAddr)&gKernelBase )
 				continue;
 			
 			// Check if the kernel is in this range
-			if( ent->Base < (tPAddr)&gKernelEnd - KERNEL_BASE && ent->Base + ent->Size > (tPAddr)&gKernelEnd )
+			if( ent->Base <= (tPAddr)&gKernelBase
+			&& ent->Base + ent->Size > (tPAddr)&gKernelEnd - KERNEL_BASE )
 			{
-				avail = (ent->Size-((tPAddr)&gKernelEnd-KERNEL_BASE-ent->Base)) >> 12;
+				avail = ent->Length >> 12;
+				avail -= ((tPAddr)&gKernelEnd - KERNEL_BASE - ent->Base) >> 12;
 				paddr = (tPAddr)&gKernelEnd - KERNEL_BASE;
 			}
 			// No? then we can use all of the block
 			else
 			{
-				avail = ent->Size >> 12;
+				avail = ent->Length >> 12;
 				paddr = ent->Base;
 			}
+			
+			Log(" MM_InitPhys_Multiboot: paddr=0x%x, avail=%i", paddr, avail);
 			
 			// Map
 			max = todo < avail ? todo : avail;
@@ -163,23 +168,26 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 				todo --;
 				vaddr += 0x1000;
 				paddr += 0x1000;
+				// Alter the destination address when needed
+				if(todo == superPages+numPages)
+					vaddr = MM_PAGE_DBLBMP;
+				if(todo == superPages)
+					vaddr = MM_PAGE_SUPBMP;
 			}
-			// Alter the destination address when needed
-			if(todo == superPages+numPages)
-				vaddr = MM_PAGE_DBLBMP;
-			if(todo == superPages)
-				vaddr = MM_PAGE_SUPBMP;
 			
 			// Fast quit if there's nothing left to allocate
 			if( !todo )		break;
 		}
 	}
 	
+	Log(" MM_InitPhys_Multiboot: Cearing multi bitmap");
 	// Fill the bitmaps
+	memset(gaMultiBitmap, 0, numPages<<12);
 	// - initialise to one, then clear the avaliable areas
 	memset(gaMainBitmap, -1, numPages<<12);
-	memset(gaMultiBitmap, 0, numPages<<12);
+	Log(" MM_InitPhys_Multiboot: Setting main bitmap");
 	// - Clear all Type=1 areas
+	Log(" MM_InitPhys_Multiboot: Clearing valid regions");
 	for(
 		ent = mmapStart;
 		(Uint)ent < (Uint)mmapStart + MBoot->MMapLength;
@@ -221,7 +229,8 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 	
 	// Reference the used pages
 	// - Kernel
-	base = 0x100000 >> 12;
+	Log(" MM_InitPhys_Multiboot: Setting kernel area");
+	base = (tPAddr)&gKernelBase >> 12;
 	size = ((tPAddr)&gKernelEnd - KERNEL_BASE - base) >> 12;
 	memset( &gaMainBitmap[base / 64], -1, size/8 );
 	if( size & 7 ) {
@@ -229,7 +238,8 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 		val <<= (size/8)&7;
 		gaMainBitmap[base / 64] |= val;
 	}
-	// - Reference Counts and Bitmap
+	// - Bitmaps
+	Log(" MM_InitPhys_Multiboot: Setting bitmaps' memory");
 	vaddr = MM_PAGE_BITMAP;
 	for( i = 0; i < numPages; i++, vaddr ++ )
 	{
@@ -250,6 +260,7 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 	}
 	
 	// Fill the super bitmap
+	Log(" MM_InitPhys_Multiboot: Filling super bitmap");
 	memset(gaSuperBitmap, 0, superPages<<12);
 	for( base = 0; base < giMaxPhysPage/64; base ++)
 	{
