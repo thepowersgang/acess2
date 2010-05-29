@@ -3,6 +3,7 @@
  * 
  * Physical Memory Manager
  */
+#define DEBUG	0
 #include <acess.h>
 #include <mboot.h>
 #include <mm_virt.h>
@@ -61,18 +62,18 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 	tVAddr	vaddr;
 	tPAddr	paddr, firstFreePage;
 	
-	Log("MM_InitPhys_Multiboot: (MBoot=%p)", MBoot);
+	ENTER("pMBoot=%p", MBoot);
 	
 	// Scan the physical memory map
 	// Looking for the top of physical memory
 	mmapStart = (void *)( KERNEL_BASE | MBoot->MMapAddr );
-	Log(" MM_InitPhys_Multiboot: mmapStart = %p", mmapStart);
+	LOG("mmapStart = %p", mmapStart);
 	ent = mmapStart;
 	while( (Uint)ent < (Uint)mmapStart + MBoot->MMapLength )
 	{
 		// Adjust for the size of the entry
 		ent->Size += 4;
-		Log(" MM_InitPhys_Multiboot: ent={Type:%i,Base:0x%x,Length:%x",
+		LOG("ent={Type:%i,Base:0x%x,Length:%x",
 			ent->Type, ent->Base, ent->Length);
 		
 		// If entry is RAM and is above `maxAddr`, change `maxAddr`
@@ -92,7 +93,7 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 		// Goodie, goodie gumdrops
 		giMaxPhysPage = maxAddr >> 12;
 	}
-	Log(" MM_InitPhys_Multiboot: giMaxPhysPage = 0x%x", giMaxPhysPage);
+	LOG("giMaxPhysPage = 0x%x", giMaxPhysPage);
 	
 	// Find a contigous section of memory to hold it in
 	// - Starting from the end of the kernel
@@ -100,8 +101,7 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 	superPages = ((giMaxPhysPage+64*8-1)/(64*8) + 0xFFF) >> 12;
 	numPages = (giMaxPhysPage + 7) / 8;
 	numPages = (numPages + 0xFFF) >> 12;
-	Log(" MM_InitPhys_Multiboot: numPages = %i, superPages = %i",
-		numPages, superPages);
+	LOG("numPages = %i, superPages = %i", numPages, superPages);
 	if(maxAddr == 0)
 	{
 		 int	todo = numPages*2 + superPages;
@@ -153,7 +153,7 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 			if( ent->Base + ent->Size < (tPAddr)&gKernelBase )
 				continue;
 			
-			Log(" MM_InitPhys_Multiboot: %x <= %x && %x > %x",
+			LOG("%x <= %x && %x > %x",
 				ent->Base, (tPAddr)&gKernelBase,
 				ent->Base + ent->Size, (tPAddr)&gKernelEnd - KERNEL_BASE
 				);
@@ -206,14 +206,14 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 	// Save the current value of paddr to simplify the allocation later
 	firstFreePage = paddr;
 	
-	Log(" MM_InitPhys_Multiboot: Clearing multi bitmap");
+	LOG("Clearing multi bitmap");
 	// Fill the bitmaps
 	memset(gaMultiBitmap, 0, numPages<<12);
 	// - initialise to one, then clear the avaliable areas
 	memset(gaMainBitmap, -1, numPages<<12);
-	Log(" MM_InitPhys_Multiboot: Setting main bitmap");
+	LOG("Setting main bitmap");
 	// - Clear all Type=1 areas
-	Log(" MM_InitPhys_Multiboot: Clearing valid regions");
+	LOG("Clearing valid regions");
 	for(
 		ent = mmapStart;
 		(Uint)ent < (Uint)mmapStart + MBoot->MMapLength;
@@ -272,7 +272,7 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 	}
 	
 	// Fill the super bitmap
-	Log(" MM_InitPhys_Multiboot: Filling super bitmap");
+	LOG("Filling super bitmap");
 	memset(gaSuperBitmap, 0, superPages<<12);
 	for( base = 0; base < (size+63)/64; base ++)
 	{
@@ -300,6 +300,8 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 		// updated anymore, hence will be correct)
 		giPhysRangeLast[ rangeID ] = base;
 	}
+	
+	LEAVE('-');
 }
 
 /**
@@ -316,23 +318,22 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 	 int	rangeID;
 	 int	nFree = 0, i;
 	
-	Log("MM_AllocPhysRange: (Num=%i,Bits=%i)", Num, Bits);
+	ENTER("iNum iBits", Num, Bits);
 	
 	if( Bits <= 0 || Bits >= 64 )	// Speedup for the common case
 		rangeID = MM_PHYS_MAX;
 	else
 		rangeID = MM_int_GetRangeID( (1 << Bits) -1 );
 	
-	Log(" MM_AllocPhysRange: rangeID = %i", rangeID);
+	LOG("rangeID = %i", rangeID);
 	
 	LOCK(&glPhysicalPages);
-	Log(" MM_AllocPhysRange: i has lock");
 	
 	// Check if the range actually has any free pages
 	while(giPhysRangeFree[rangeID] == 0 && rangeID)
 		rangeID --;
 	
-	Log(" MM_AllocPhysRange: rangeID = %i", rangeID);
+	LOG("rangeID = %i", rangeID);
 	
 	// What the? Oh, man. No free pages
 	if(giPhysRangeFree[rangeID] == 0) {
@@ -344,13 +345,14 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 			"Out of memory (unable to fulfil request for %i pages), zero remaining",
 			Num
 			);
+		LEAVE('i', 0);
 		return 0;
 	}
 	
 	// Check if there is enough in the range
 	if(giPhysRangeFree[rangeID] >= Num)
 	{
-		Log(" MM_AllocPhysRange: {%i,0x%x -> 0x%x}",
+		LOG("{%i,0x%x -> 0x%x}",
 			giPhysRangeFree[rangeID],
 			giPhysRangeFirst[rangeID], giPhysRangeLast[rangeID]
 			);
@@ -363,7 +365,7 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 			//Log(" MM_AllocPhysRange: addr = 0x%x", addr);
 			// Check the super bitmap
 			if( gaSuperBitmap[addr >> (6+6)] == -1 ) {
-				Log(" MM_AllocPhysRange: nFree = %i = 0 (super) (0x%x)", nFree, addr);
+				LOG("nFree = %i = 0 (super) (0x%x)", nFree, addr);
 				nFree = 0;
 				addr += 1 << (6+6);
 				addr &= (1 << (6+6)) - 1;
@@ -371,7 +373,7 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 			}
 			// Check page block (64 pages)
 			if( gaSuperBitmap[addr >> (6+6)] & (1 << (addr>>6)&63)) {
-				Log(" MM_AllocPhysRange: nFree = %i = 0 (main) (0x%x)", nFree, addr);
+				LOG("nFree = %i = 0 (main) (0x%x)", nFree, addr);
 				nFree = 0;
 				addr += 1 << (12+6);
 				addr &= (1 << (12+6)) - 1;
@@ -379,18 +381,18 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 			}
 			// Check individual page
 			if( gaMainBitmap[addr >> 6] & (1 << (addr & 63)) ) {
-				Log(" MM_AllocPhysRange: nFree = %i = 0 (page) (0x%x)", nFree, addr);
+				LOG("nFree = %i = 0 (page) (0x%x)", nFree, addr);
 				nFree = 0;
 				addr ++;
 				continue;
 			}
 			nFree ++;
 			addr ++;
-			Log(" MM_AllocPhysRange: nFree(%i) == %i (0x%x)", nFree, Num, addr);
+			LOG("nFree(%i) == %i (0x%x)", nFree, Num, addr);
 			if(nFree == Num)
 				break;
 		}
-		Log(" MM_AllocPhysRange: nFree = %i", nFree);
+		LOG("nFree = %i", nFree);
 		// If we don't find a contiguous block, nFree will not be equal
 		// to Num, so we set it to zero and do the expensive lookup.
 		if(nFree != Num)	nFree = 0;
@@ -411,9 +413,10 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 			"Out of memory (unable to fulfil request for %i pages)",
 			Num
 			);
+		LEAVE('i', 0);
 		return 0;
 	}
-	Log(" MM_AllocPhysRange: nFree = %i, addr = 0x%08x", nFree, addr);
+	LOG("nFree = %i, addr = 0x%08x", nFree, addr);
 	
 	// Mark pages as allocated
 	addr -= Num;
@@ -435,7 +438,7 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 	}
 	
 	RELEASE(&glPhysicalPages);
-	Log("MM_AllocPhysRange: RETURN %x", addr << 12);
+	LEAVE('x', addr << 12);
 	return addr << 12;
 }
 
