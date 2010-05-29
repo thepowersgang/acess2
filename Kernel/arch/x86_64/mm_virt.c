@@ -91,6 +91,8 @@ int MM_Map(tVAddr VAddr, tPAddr PAddr)
 	
 	PAGETABLE(VAddr >> PTAB_SHIFT) = PAddr | 3;
 	
+	Log("MM_Map: RETURN 1");
+	
 	return 1;
 }
 

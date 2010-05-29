@@ -21,6 +21,14 @@ enum eMMPhys_Ranges
 extern void	gKernelBase;
 extern void	gKernelEnd;
 
+// === PROTOTYPES ===
+void	MM_InitPhys_Multiboot(tMBoot_Info *MBoot);
+tPAddr	MM_AllocPhysRange(int Num, int Bits);
+tPAddr	MM_AllocPhys(void);
+void	MM_RefPhys(tPAddr PAddr);
+void	MM_DerefPhys(tPAddr PAddr);
+ int	MM_int_GetRangeID( tPAddr Addr );
+
 // === GLOBALS ===
 tSpinlock	glPhysicalPages;
 Uint64	*gaSuperBitmap;	// 1 bit = 64 Pages, 16 MiB Per Word
@@ -145,9 +153,13 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 			if( ent->Base + ent->Size < (tPAddr)&gKernelBase )
 				continue;
 			
+			Log(" MM_InitPhys_Multiboot: %x <= %x && %x > %x",
+				ent->Base, (tPAddr)&gKernelBase,
+				ent->Base + ent->Size, (tPAddr)&gKernelEnd - KERNEL_BASE
+				);
 			// Check if the kernel is in this range
 			if( ent->Base <= (tPAddr)&gKernelBase
-			&& ent->Base + ent->Size > (tPAddr)&gKernelEnd - KERNEL_BASE )
+			&& ent->Base + ent->Length > (tPAddr)&gKernelEnd - KERNEL_BASE )
 			{
 				avail = ent->Length >> 12;
 				avail -= ((tPAddr)&gKernelEnd - KERNEL_BASE - ent->Base) >> 12;
@@ -250,6 +262,7 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 		val <<= (size/8)&7;
 		gaMainBitmap[base / 64] |= val;
 	}
+	
 	// Free the unused static allocs
 	for( i = 0; i < NUM_STATIC_ALLOC; i++) {
 		if(gaiStaticAllocPages[i] != 0)
@@ -261,10 +274,31 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 	// Fill the super bitmap
 	Log(" MM_InitPhys_Multiboot: Filling super bitmap");
 	memset(gaSuperBitmap, 0, superPages<<12);
-	for( base = 0; base < giMaxPhysPage/64; base ++)
+	for( base = 0; base < (size+63)/64; base ++)
 	{
 		if( gaMainBitmap[ base ] == -1 )
 			gaSuperBitmap[ base/64 ] |= 1 << (base&63);
+	}
+	
+	// Set free page counts
+	for( base = 1; base < giMaxPhysPage; base ++ )
+	{
+		 int	rangeID;
+		// Skip allocated
+		if( gaMainBitmap[ base >> 6 ] & (1 << (base&63))  )	continue;
+		
+		// Get range ID
+		rangeID = MM_int_GetRangeID( base << 12 );
+		
+		// Increment free page count
+		giPhysRangeFree[ rangeID ] ++;
+		
+		// Check for first free page in range
+		if(giPhysRangeFirst[ rangeID ] == 0)
+			giPhysRangeFirst[ rangeID ] = base;
+		// Set last (when the last free page is reached, this won't be
+		// updated anymore, hence will be correct)
+		giPhysRangeLast[ rangeID ] = base;
 	}
 }
 
@@ -284,18 +318,10 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 	
 	Log("MM_AllocPhysRange: (Num=%i,Bits=%i)", Num, Bits);
 	
-	if( Bits <= 0 )	// Speedup for the common case
+	if( Bits <= 0 || Bits >= 64 )	// Speedup for the common case
 		rangeID = MM_PHYS_MAX;
-	else if( Bits > 32 )
-		rangeID = MM_PHYS_MAX;
-	else if( Bits > 24 )
-		rangeID = MM_PHYS_32BIT;
-	else if( Bits > 20 )
-		rangeID = MM_PHYS_24BIT;
-	else if( Bits > 16 )
-		rangeID = MM_PHYS_20BIT;
 	else
-		rangeID = MM_PHYS_16BIT;
+		rangeID = MM_int_GetRangeID( (1 << Bits) -1 );
 	
 	Log(" MM_AllocPhysRange: rangeID = %i", rangeID);
 	
@@ -370,6 +396,7 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 		RELEASE(&glPhysicalPages);
 		// TODO: Page out
 		// ATM. Just Warning
+		Warning(" MM_AllocPhysRange: Out of memory (unable to fulfil request for %i pages)", Num);
 		Log_Warning("Arch",
 			"Out of memory (unable to fulfil request for %i pages)",
 			Num
@@ -383,15 +410,11 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 	for( i = 0; i < Num; i++ )
 	{
 		gaiPageReferences[addr >> 6] |= 1 << (addr & 63);
-		
-		     if(addr >> 32)	rangeID = MM_PHYS_MAX;
-		else if(addr >> 24)	rangeID = MM_PHYS_32BIT;
-		else if(addr >> 20)	rangeID = MM_PHYS_24BIT;
-		else if(addr >> 16)	rangeID = MM_PHYS_20BIT;
-		else if(addr >> 0)	rangeID = MM_PHYS_16BIT;
+		rangeID = MM_int_GetRangeID(addr);
 		giPhysRangeFree[ rangeID ] --;
 	}
-	// Fill super bitmap
+	
+	// Update super bitmap
 	Num += addr & (64-1);
 	addr &= ~(64-1);
 	Num = (Num + (64-1)) & ~(64-1);
@@ -402,6 +425,7 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 	}
 	
 	RELEASE(&glPhysicalPages);
+	Log("MM_AllocPhysRange: RETURN %x", addr << 12);
 	return addr << 12;
 }
 
@@ -418,6 +442,7 @@ tPAddr MM_AllocPhys(void)
 		if( gaiStaticAllocPages[i] ) {
 			tPAddr	ret = gaiStaticAllocPages[i];
 			gaiStaticAllocPages[i] = 0;
+			Log("MM_AllocPhys: Return %x, static alloc %i", ret, i);
 			return ret;
 		}
 	}
@@ -468,7 +493,34 @@ void MM_DerefPhys(tPAddr PAddr)
 	else
 		gaMainBitmap[ page >> 6 ] &= ~(1 << (page&63));
 	
+	// TODO: Update free counts
+	if( !(gaMainBitmap[ page >> 6 ] & (1 << (page&63))) )
+	{
+		 int	rangeID;
+		rangeID = MM_int_GetRangeID( PAddr );
+		giPhysRangeFree[ rangeID ] ++;
+	}
+	
 	if(gaMainBitmap[ page >> 6 ] == 0) {
 		gaSuperBitmap[page >> 12] &= ~(1 << ((page >> 6) & 63));
 	}
+}
+
+/**
+ * \brief Takes a physical address and returns the ID of its range
+ * \param Addr	Physical address of page
+ * \return Range ID from eMMPhys_Ranges
+ */
+int MM_int_GetRangeID( tPAddr Addr )
+{
+	if(Addr >> 32)
+		return MM_PHYS_MAX;
+	else if(Addr >> 24)
+		return MM_PHYS_32BIT;
+	else if(Addr >> 20)
+		return MM_PHYS_24BIT;
+	else if(Addr >> 16)
+		return MM_PHYS_20BIT;
+	else
+		return MM_PHYS_16BIT;
 }
