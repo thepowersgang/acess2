@@ -23,6 +23,8 @@ extern void	gKernelEnd;
 // === GLOBALS ===
 tSpinlock	glPhysicalPages;
 Uint64	*gaSuperBitmap;	// 1 bit = 64 Pages
+Uint64	*gaMainBitmap;	// 1 bit = 1 Page
+Uint64	*gaMultiBitmap;	// Each bit means that the page is being used multiple times
 Uint32	*gaiPageReferences = (void*)MM_PAGE_COUNTS;	// Reference Counts
 tPAddr	giFirstFreePage;	// First possibly free page
 Uint64	giPhysRangeFree[NUM_MM_PHYS_RANGES];	// Number of free pages in each range
@@ -76,32 +78,45 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 	// - Starting from the end of the kernel
 	// - We also need a region for the super bitmap
 	superPages = ((giMaxPhysPage+64*8-1)/(64*8) + 0xFFF) >> 12;
-	numPages = (giMaxPhysPage + 7) * sizeof(*gaiPageReferences);
+	numPages = (giMaxPhysPage + 7) / 8;
 	numPages = (numPages + 0xFFF) >> 12;
 	Log(" MM_InitPhys_Multiboot: numPages = %i", numPages);
 	if(maxAddr == 0)
 	{
+		 int	todo = numPages;
 		// Ok, naieve allocation, just put it after the kernel
-		tVAddr	vaddr = MM_PAGE_COUNTS;
+		// - Allocated Bitmap
+		tVAddr	vaddr = MM_PAGE_BITMAP;
 		tPAddr	paddr = (tPAddr)&gKernelEnd - KERNEL_BASE;
-		while(numPages --)
+		while(todo --)
 		{
 			MM_Map(vaddr, paddr);
 			vaddr += 0x1000;
 			paddr += 0x1000;
 		}
-		// Allocate the super bitmap
-		gaSuperBitmap = (void*) MM_MapHWPages(
-			paddr,
-			((giMaxPhysPage+64*8-1)/(64*8) + 0xFFF) >> 12
-			);
+		// - Multi-Alloc Bitmap
+		vaddr = MM_PAGE_DBLBMP;
+		todo = numPages;
+		while(todo --) {
+			MM_Map(vaddr, paddr);
+			vaddr += 0x1000;
+			paddr += 0x1000;
+		}
+		// - Super Bitmap
+		vaddr = MM_PAGE_SUPBMP;
+		todo = superPages;
+		while(todo --) {
+			MM_Map(vaddr, paddr);
+			vaddr += 0x1000;
+			paddr += 0x1000;
+		}
 	}
 	// Scan for a nice range
 	else
 	{
-		 int	todo = numPages + superPages;
+		 int	todo = numPages*2 + superPages;
 		tPAddr	paddr = 0;
-		tVAddr	vaddr = MM_PAGE_COUNTS;
+		tVAddr	vaddr = MM_PAGE_BITMAP;
 		// Scan!
 		for(
 			ent = mmapStart;
@@ -110,6 +125,7 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 			)
 		{
 			 int	avail;
+			 int	i, max;
 			
 			// RAM only please
 			if( ent->Type != 1 )
@@ -133,30 +149,30 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 			}
 			
 			// Map
-			// - Counts
-			if( todo ) {
-				 int	i, max;
-				max = todo < avail ? todo : avail;
-				for( i = 0; i < max; i ++ )
-				{
-					MM_Map(vaddr, paddr);
-					todo --;
-					vaddr += 0x1000;
-					paddr += 0x1000;
-				}
-				// Alter the destination address when needed
-				if(todo == superPages)
-					vaddr = MM_PAGE_SUPBMP;
+			max = todo < avail ? todo : avail;
+			for( i = 0; i < max; i ++ )
+			{
+				MM_Map(vaddr, paddr);
+				todo --;
+				vaddr += 0x1000;
+				paddr += 0x1000;
 			}
-			else
-				break;
+			// Alter the destination address when needed
+			if(todo == superPages+numPages)
+				vaddr = MM_PAGE_DBLBMP;
+			if(todo == superPages)
+				vaddr = MM_PAGE_SUPBMP;
+			
+			// Fast quit if there's nothing left to allocate
+			if( !todo )		break;
 		}
 	}
 	
 	// Fill the bitmaps
 	// - initialise to one, then clear the avaliable areas
-	memset(gaSuperBitmap, -1, (giMaxPhysPage+64*8-1)/(64*8));
-	memset(gaiPageReferences, -1, giMaxPhysPage*sizeof(*gaiPageReferences));
+	memset(gaSuperBitmap, -1, superPages<<12);
+	memset(gaMainBitmap, -1, numPages<<12);
+	memset(gaMultiBitmap, 0, numPages<<12);
 	// - Clear all Type=1 areas
 	for(
 		ent = mmapStart;
@@ -164,14 +180,44 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 		ent = (tMBoot_MMapEnt *)( (Uint)ent + ent->Size )
 		)
 	{
+		Uint64	base, size;
 		// Check if the type is RAM
 		if(ent->Type != 1)	continue;
-		// Clear the range
-		memset(
-			&gaiPageReferences[ ent->Base >> 12 ],
-			0,
-			(ent->Size>>12)*sizeof(*gaiPageReferences)
-			);
+		
+		// Main bitmap
+		base = ent->Base >> 12;
+		size = ent->Size >> 12;
+		
+		if(base & 63) {
+			Uint64	val = -1 << (base & 63);
+			gaMainBitmap[base / 64] &= ~val;
+			size -= (base & 63);
+			base += 64 - (base & 63);
+		}
+		memset( &gaMainBitmap[base / 64], 0, size/8 );
+		if( size & 7 ) {
+			Uint64	val = -1 << (size & 7);
+			val <<= (size/8)&7;
+			gaMainBitmap[base / 64] &= ~val;
+		}
+		
+		// Super Bitmap
+		base = ent->Base >> 12;
+		size = ent->Size >> 12;
+		size = (size + (base & 63) + 63) >> 6;
+		base = base >> 6;
+		if(base & 63) {
+			Uint64	val = -1 << (base & 63);
+			gaSuperBitmap[base / 64] &= ~val;
+			size -= (base & 63);
+			base += 64 - (base & 63);
+		}
+		memset( &gaSuperBitmap[base / 64], 0, size/8 );
+		if( size & 7 ) {
+			Uint64	val = -1 << (size & 7);
+			val <<= (size/8)&7;
+			gaSuperBitmap[base / 64] &= ~val;
+		}
 	}
 	
 	// Reference the used pages
@@ -256,7 +302,7 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 				continue;
 			}
 			// Check individual page
-			if( gaiPageReferences[addr] ) {
+			if( gaMainBitmap[addr >> 6] & (1 << (addr & 63)) ) {
 				nFree = 0;
 				addr ++;
 				continue;
@@ -293,7 +339,7 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 	addr -= Num;
 	for( i = 0; i < Num; i++ )
 	{
-		gaiPageReferences[addr] = 1;
+		gaiPageReferences[addr >> 6] |= 1 << (addr & 63);
 		
 		     if(addr >> 32)	rangeID = MM_PHYS_MAX;
 		else if(addr >> 24)	rangeID = MM_PHYS_32BIT;
@@ -308,14 +354,7 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 	Num = (Num + (64-1)) & ~(64-1);
 	for( i = 0; i < Num/64; i++ )
 	{
-		 int	j, bFull = 1;
-		for( j = 0; j < 64; j ++ ) {
-			if( gaiPageReferences[addr+i*64+j] ) {
-				bFull = 0;
-				break;
-			}
-		}
-		if( bFull )
+		if( gaMainBitmap[ addr >> 6 ] == -1 )
 			gaSuperBitmap[addr>>12] |= 1 << ((addr >> 6) & 64);
 	}
 	
@@ -337,19 +376,23 @@ tPAddr MM_AllocPhys(void)
  */
 void MM_RefPhys(tPAddr PAddr)
 {
-	 int	bIsFull, j;
-	if( PAddr >> 12 > giMaxPhysPage )	return ;
-	gaiPageReferences[ PAddr >> 12 ] ++;
+	Uint64	page = PAddr >> 12;
 	
-	bIsFull = 1;
-	for( j = 0; j < 64; j++ ) {
-		if( gaiPageReferences[ PAddr >> 12 ] == 0 ) {
-			bIsFull = 0;
-			break;
-		}
+	if( PAddr >> 12 > giMaxPhysPage )	return ;
+	
+	if( gaMainBitmap[ page >> 6 ] & (1 << (page&63)) )
+	{
+		// Reference again
+		gaMultiBitmap[ page >> 6 ] |= 1 << (page&63);
+		gaiPageReferences[ page ] ++;
 	}
-	if( bIsFull )
-		gaSuperBitmap[PAddr >> 24] |= 1 << ((PAddr >> 18) & 64);
+	else
+	{
+		// Allocate
+		gaMainBitmap[page >> 6] |= 1 << (page&63);
+		if( gaMainBitmap[page >> 6 ] == -1 )
+			gaSuperBitmap[page>> 12] |= 1 << ((page >> 6) & 63);
+	}
 }
 
 /**
@@ -357,10 +400,21 @@ void MM_RefPhys(tPAddr PAddr)
  */
 void MM_DerefPhys(tPAddr PAddr)
 {
+	Uint64	page = PAddr >> 12;
+	
 	if( PAddr >> 12 > giMaxPhysPage )	return ;
-	gaiPageReferences[ PAddr >> 12 ] --;
-	if( gaiPageReferences[ PAddr >> 12 ] )
-	{
-		gaSuperBitmap[PAddr >> 24] &= ~(1 << ((PAddr >> 18) & 64));
+	
+	if( gaMultiBitmap[ page >> 6 ] & (1 << (page&63)) ) {
+		gaiPageReferences[ page ] --;
+		if( gaiPageReferences[ page ] == 1 )
+			gaMultiBitmap[ page >> 6 ] &= ~(1 << (page&63));
+		if( gaiPageReferences[ page ] == 0 )
+			gaMainBitmap[ page >> 6 ] &= ~(1 << (page&63));
+	}
+	else
+		gaMainBitmap[ page >> 6 ] &= ~(1 << (page&63));
+	
+	if(gaMainBitmap[ page >> 6 ] == 0) {
+		gaSuperBitmap[page >> 12] &= ~(1 << ((page >> 6) & 63));
 	}
 }

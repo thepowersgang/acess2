@@ -29,7 +29,9 @@
  *       D000 00000000 -       D080 00000000	39	512	GiB	Per-Process Data
  *       D080 00000000 -       D100 00000000	39	512	GiB	Kernel Supplied User Code
  *       E000 00000000 -       E400 00000000	42	4	TiB	Physical Page Reference Counts (2**40 = 2**52 bytes)
- *       E400 00000000 -       E400 80000000	31	2	GiB	Physical Page Super Bitmap (64 pages per bit)
+ *       E400 00000000 -       E480 00000000	39	512	GiB	Physical Page Bitmap (1 page per bit)
+ *       E480 00000000 -       E500 00000000	39	512	GiB	Physical Page DblAlloc Bitmap (1 page per bit)
+ *       E500 00000000 -       E500 80000000	31	2	GiB	Physical Page Super Bitmap (64 pages per bit)
  *       FD00 00000000 -       FD80 00000000	39	512 GiB	Local APIC
  *       FE00 00000000 -       FE80 00000000	39	512 GiB	Fractal Mapping (PML4 510)
  *       FE80 00000000 -       FF00 00000000	39	512 GiB	Temp Fractal Mapping
@@ -55,8 +57,11 @@
 #define MM_PPD_CFG  	MM_PPD_BASE
 #define MM_PPD_VFS  	(KERNEL_BASE|(0xD008##00000000))
 #define MM_USER_CODE	(KERNEL_BASE|(0xD080##00000000))
+
 #define MM_PAGE_COUNTS	(KERNEL_BASE|(0xE000##00000000))
-#define MM_PAGE_SUPBMP	(KERNEL_BASE|(0xE400##00000000))
+#define MM_PAGE_BITMAP	(KERNEL_BASE|(0xE400##00000000))
+#define MM_PAGE_DBLBMP	(KERNEL_BASE|(0xE480##00000000))
+#define MM_PAGE_SUPBMP	(KERNEL_BASE|(0xE500##00000000))
 
 #define MM_LOCALAPIC	(KERNEL_BASE|(0xFD00##00000000))
 #define MM_FRACTAL_BASE	(KERNEL_BASE|(0xFE00##00000000))
