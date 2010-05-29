@@ -13,6 +13,10 @@
 #define PTAB_SHIFT	12
 
 #define	PADDR_MASK	0x7FFFFFFF##FFFFF000
+#define PAGE_MASK	(((Uint)1 << 36)-1)
+#define TABLE_MASK	(((Uint)1 << 27)-1)
+#define PDP_MASK	(((Uint)1 << 18)-1)
+#define PML4_MASK	(((Uint)1 << 9)-1)
 
 #define	PF_PRESENT	0x1
 #define	PF_WRITE	0x2
@@ -22,10 +26,10 @@
 #define	PF_NX		0x80000000##00000000
 
 // === MACROS ===
-#define PAGETABLE(idx)	(*((tPAddr*)MM_FRACTAL_BASE+(idx)))
-#define PAGEDIR(idx)	PAGETABLE((MM_FRACTAL_BASE>>12)+((idx)&0x7FFFFFF))
-#define PAGEDIRPTR(idx)	PAGEDIR((MM_FRACTAL_BASE>>21)+((idx)&0x3FFFF))
-#define PAGEMAPLVL4(idx)	PAGEDIRPTR((MM_FRACTAL_BASE>>30)+((idx)&0x1FF))
+#define PAGETABLE(idx)	(*((tPAddr*)MM_FRACTAL_BASE+((idx)&PAGE_MASK)))
+#define PAGEDIR(idx)	PAGETABLE((MM_FRACTAL_BASE>>12)+((idx)&TABLE_MASK))
+#define PAGEDIRPTR(idx)	PAGEDIR((MM_FRACTAL_BASE>>21)+((idx)&PDP_MASK))
+#define PAGEMAPLVL4(idx)	PAGEDIRPTR((MM_FRACTAL_BASE>>30)+((idx)&PML4_MASK))
 
 // === GLOBALS ===
 
@@ -50,6 +54,11 @@ int MM_Map(tVAddr VAddr, tPAddr PAddr)
 	Log("MM_Map: (VAddr=0x%x, PAddr=0x%x)", VAddr, PAddr);
 	
 	// Check PML4
+	Log(" MM_Map: &PAGEMAPLVL4(%x) = %x", VAddr >> 39, &PAGEMAPLVL4(VAddr >> 39));
+	Log(" MM_Map: &PAGEDIRPTR(%x) = %x", VAddr >> 30, &PAGEDIRPTR(VAddr >> 30));
+	Log(" MM_Map: &PAGEDIR(%x) = %x", VAddr >> 21, &PAGEDIR(VAddr >> 21));
+	Log(" MM_Map: &PAGETABLE(%x) = %x", VAddr >> 12, &PAGETABLE(VAddr >> 12));
+	Log(" MM_Map: &PAGETABLE(0) = %x", &PAGETABLE(0));
 	if( !(PAGEMAPLVL4(VAddr >> 39) & 1) )
 	{
 		tmp = MM_AllocPhys();
@@ -77,10 +86,10 @@ int MM_Map(tVAddr VAddr, tPAddr PAddr)
 	}
 	
 	// Check if this virtual address is already mapped
-	if( PAGETABLE(VAddr >> 12) & 1 )
+	if( PAGETABLE(VAddr >> PTAB_SHIFT) & 1 )
 		return 0;
 	
-	PAGETABLE(VAddr >> 12) = PAddr | 3;
+	PAGETABLE(VAddr >> PTAB_SHIFT) = PAddr | 3;
 	
 	return 1;
 }
@@ -97,7 +106,7 @@ void MM_Unmap(tVAddr VAddr)
 	// Check Page Dir
 	if( !(PAGEDIR(VAddr >> 21) & 1) )	return ;
 	
-	PAGETABLE(VAddr >> 12) = 0;
+	PAGETABLE(VAddr >> PTAB_SHIFT) = 0;
 }
 
 /**
@@ -150,11 +159,11 @@ tPAddr MM_GetPhysAddr(tVAddr Addr)
 	if( !(PAGEDIR(Addr >> 21) & 1) )
 		return 0;
 	Log(" MM_GetPhysAddr: PT Valid");
-	if( !(PAGETABLE(Addr >> 12) & 1) )
+	if( !(PAGETABLE(Addr >> PTAB_SHIFT) & 1) )
 		return 0;
 	Log(" MM_GetPhysAddr: Page Valid");
 	
-	return (PAGETABLE(Addr >> 12) & ~0xFFF) | (Addr & 0xFFF);
+	return (PAGETABLE(Addr >> PTAB_SHIFT) & ~0xFFF) | (Addr & 0xFFF);
 }
 
 /**

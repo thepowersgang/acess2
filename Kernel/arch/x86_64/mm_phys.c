@@ -32,6 +32,11 @@ Uint64	giPhysRangeFree[NUM_MM_PHYS_RANGES];	// Number of free pages in each rang
 Uint64	giPhysRangeFirst[NUM_MM_PHYS_RANGES];	// First free page in each range
 Uint64	giPhysRangeLast[NUM_MM_PHYS_RANGES];	// Last free page in each range
 Uint64	giMaxPhysPage = 0;	// Maximum Physical page
+// Only used in init, allows the init code to provide pages for use by
+// the allocator before the bitmaps exist.
+// 3 entries because the are three calls to MM_AllocPhys in MM_Map
+#define NUM_STATIC_ALLOC	3
+tPAddr	gaiStaticAllocPages[NUM_STATIC_ALLOC] = {0};
 
 // === CODE ===
 /**
@@ -46,7 +51,7 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 	 int	i;
 	Uint64	base, size;
 	tVAddr	vaddr;
-	tPAddr	paddr;
+	tPAddr	paddr, firstFreePage;
 	
 	Log("MM_InitPhys_Multiboot: (MBoot=%p)", MBoot);
 	
@@ -91,40 +96,38 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 		numPages, superPages);
 	if(maxAddr == 0)
 	{
-		 int	todo = numPages;
+		 int	todo = numPages*2 + superPages;
 		// Ok, naieve allocation, just put it after the kernel
 		// - Allocated Bitmap
 		vaddr = MM_PAGE_BITMAP;
 		paddr = (tPAddr)&gKernelEnd - KERNEL_BASE;
-		while(todo --)
+		while(todo )
 		{
+			// Allocate statics
+			for( i = 0; i < NUM_STATIC_ALLOC; i++) {
+				if(gaiStaticAllocPages[i] != 0)	continue;
+				gaiStaticAllocPages[i] = paddr;
+				paddr += 0x1000;
+			}
+			
 			MM_Map(vaddr, paddr);
 			vaddr += 0x1000;
 			paddr += 0x1000;
-		}
-		// - Multi-Alloc Bitmap
-		vaddr = MM_PAGE_DBLBMP;
-		todo = numPages;
-		while(todo --) {
-			MM_Map(vaddr, paddr);
-			vaddr += 0x1000;
-			paddr += 0x1000;
-		}
-		// - Super Bitmap
-		vaddr = MM_PAGE_SUPBMP;
-		todo = superPages;
-		while(todo --) {
-			MM_Map(vaddr, paddr);
-			vaddr += 0x1000;
-			paddr += 0x1000;
+			
+			todo --;
+			
+			if( todo == numPages + superPages )
+				vaddr = MM_PAGE_DBLBMP;
+			if( todo == superPages )
+				vaddr = MM_PAGE_SUPBMP;
 		}
 	}
 	// Scan for a nice range
 	else
 	{
 		 int	todo = numPages*2 + superPages;
-		tPAddr	paddr = 0;
-		tVAddr	vaddr = MM_PAGE_BITMAP;
+		paddr = 0;
+		vaddr = MM_PAGE_BITMAP;
 		// Scan!
 		for(
 			ent = mmapStart;
@@ -133,7 +136,6 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 			)
 		{
 			 int	avail;
-			 int	i, max;
 			
 			// RAM only please
 			if( ent->Type != 1 )
@@ -161,13 +163,23 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 			Log(" MM_InitPhys_Multiboot: paddr=0x%x, avail=%i", paddr, avail);
 			
 			// Map
-			max = todo < avail ? todo : avail;
-			for( i = 0; i < max; i ++ )
+			while( todo && avail --)
 			{
+				// Static Allocations
+				for( i = 0; i < NUM_STATIC_ALLOC && avail; i++) {
+					if(gaiStaticAllocPages[i] != 0)	continue;
+					gaiStaticAllocPages[i] = paddr;
+					paddr += 0x1000;
+					avail --;
+				}
+				if(!avail)	break;
+				
+				// Map
 				MM_Map(vaddr, paddr);
 				todo --;
 				vaddr += 0x1000;
 				paddr += 0x1000;
+				
 				// Alter the destination address when needed
 				if(todo == superPages+numPages)
 					vaddr = MM_PAGE_DBLBMP;
@@ -179,8 +191,10 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 			if( !todo )		break;
 		}
 	}
+	// Save the current value of paddr to simplify the allocation later
+	firstFreePage = paddr;
 	
-	Log(" MM_InitPhys_Multiboot: Cearing multi bitmap");
+	Log(" MM_InitPhys_Multiboot: Clearing multi bitmap");
 	// Fill the bitmaps
 	memset(gaMultiBitmap, 0, numPages<<12);
 	// - initialise to one, then clear the avaliable areas
@@ -228,35 +242,20 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 	}
 	
 	// Reference the used pages
-	// - Kernel
-	Log(" MM_InitPhys_Multiboot: Setting kernel area");
 	base = (tPAddr)&gKernelBase >> 12;
-	size = ((tPAddr)&gKernelEnd - KERNEL_BASE - base) >> 12;
+	size = firstFreePage >> 12;
 	memset( &gaMainBitmap[base / 64], -1, size/8 );
 	if( size & 7 ) {
 		Uint64	val = -1 << (size & 7);
 		val <<= (size/8)&7;
 		gaMainBitmap[base / 64] |= val;
 	}
-	// - Bitmaps
-	Log(" MM_InitPhys_Multiboot: Setting bitmaps' memory");
-	vaddr = MM_PAGE_BITMAP;
-	for( i = 0; i < numPages; i++, vaddr ++ )
-	{
-		paddr = MM_GetPhysAddr(vaddr) >> 12;
-		gaMainBitmap[paddr >> 6] |= 1 << (paddr&63);
-	}
-	vaddr = MM_PAGE_DBLBMP;
-	for( i = 0; i < numPages; i++, vaddr += 0x1000 )
-	{
-		paddr = MM_GetPhysAddr(vaddr) >> 12;
-		gaMainBitmap[paddr >> 6] |= 1 << (paddr&63);
-	}
-	vaddr = MM_PAGE_SUPBMP;
-	for( i = 0; i < superPages; i++, vaddr += 0x1000 )
-	{
-		paddr = MM_GetPhysAddr(vaddr) >> 12;
-		gaMainBitmap[paddr >> 6] |= 1 << (paddr&63);
+	// Free the unused static allocs
+	for( i = 0; i < NUM_STATIC_ALLOC; i++) {
+		if(gaiStaticAllocPages[i] != 0)
+			continue;
+		gaMainBitmap[ gaiStaticAllocPages[i] >> (12+6) ]
+			&= ~(1 << ((gaiStaticAllocPages[i]>>12)&63));
 	}
 	
 	// Fill the super bitmap
@@ -412,6 +411,17 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
  */
 tPAddr MM_AllocPhys(void)
 {
+	 int	i;
+	
+	// Hack to allow allocation during setup
+	for(i = 0; i < NUM_STATIC_ALLOC; i++) {
+		if( gaiStaticAllocPages[i] ) {
+			tPAddr	ret = gaiStaticAllocPages[i];
+			gaiStaticAllocPages[i] = 0;
+			return ret;
+		}
+	}
+	
 	return MM_AllocPhysRange(1, -1);
 }
 

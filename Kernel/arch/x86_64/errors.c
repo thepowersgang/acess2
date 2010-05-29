@@ -33,12 +33,14 @@ void Error_Handler(tRegs *Regs)
 	Log(" SS:RSP = 0x%04x:%016x", Regs->SS, Regs->RSP);
 	Log(" RFLAGS = 0x%016x", Regs->RFlags);
 	
-	Log(" EAX %016x ECX %016x EDX %016x EBX %016x",
+	Log(" RAX %016x RCX %016x RDX %016x RBX %016x",
 		Regs->RAX, Regs->RCX, Regs->RDX, Regs->RBX);
-	Log(" ESP %016x EBP %016x ESI %016x EDI %016x",
+	Log(" RSP %016x RBP %016x RSI %016x RDI %016x",
 		Regs->RSP, Regs->RBP, Regs->RSP, Regs->RDI);
 	Log(" R8  %016x R9  %016x R10 %016x R11 %016x",
 		Regs->R8, Regs->R9, Regs->R10, Regs->R11);
+	Log(" R12 %016x R13 %016x R14 %016x R15 %016x",
+		Regs->R12, Regs->R13, Regs->R14, Regs->R15);
 	Log(" FS %04x GS %04x", Regs->FS, Regs->GS);
 	
 	
