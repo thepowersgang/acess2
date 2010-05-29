@@ -50,7 +50,7 @@ $(BIN): %.kmd.$(ARCH): $(OBJ)
 	@echo --- $(LD) -o $@
 #	$(LD) -T $(ACESSDIR)/Modules/link.ld --allow-shlib-undefined -shared -nostdlib -o $@ $(OBJ)
 	@$(LD) --allow-shlib-undefined -shared -nostdlib -o $@ $(OBJ)
-	@$(OBJDUMP) -d $(BIN) > $(BIN).dsm
+	@$(DISASM) $(BIN) > $(BIN).dsm
 else
 $(BIN): %.xo.$(ARCH): $(OBJ)
 	@echo --- $(LD) -o $@

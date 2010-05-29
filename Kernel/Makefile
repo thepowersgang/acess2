@@ -8,7 +8,7 @@
 
 -include arch/$(ARCHDIR)/Makefile
 
--include Makefile.BuildNum
+-include Makefile.BuildNum.$(ARCH)
 
 KERNEL_VERSION = 0.5
 
@@ -62,9 +62,9 @@ apidoc:
 $(BIN): $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile
 	@echo --- LD -o $(BIN)
 	@$(LD) $(LDFLAGS) -o $(BIN) $(OBJ) $(MODS) -Map ../Map.$(ARCH).txt
-	@objdump $(BIN) -D -S > $(BIN).dsm
+	$(DISASM) $(BIN) > $(BIN).dsm
 	@wc -l $(SRCFILES) include/*.h > LineCounts.$(ARCH).txt
-	@echo BUILD_NUM = `calc $(BUILD_NUM)+1` > Makefile.BuildNum
+	@echo BUILD_NUM = $$(( $(BUILD_NUM) + 1 )) > Makefile.BuildNum.$(ARCH)
 
 %.ao.$(ARCH): %.asm Makefile
 	@echo --- NASM -o $@
