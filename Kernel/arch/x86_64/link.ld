@@ -1,15 +1,10 @@
 /*
- * AcessMicro Kernel
+ * Acess2 x86_64 Kernel
  * Linker Script
  */
 
 _kernel_base = 0xFFFF800000000000;
 
-/*
-lowStart = start - _kernel_base;
-ENTRY(start)
-OUTPUT_FORMAT(elf64-x86-64)
-*/
 OUTPUT_FORMAT(elf32-i386)
 OUTPUT_ARCH(i386:x86-64)
 ENTRY (start)

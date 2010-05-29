@@ -63,6 +63,7 @@ void Error_Handler(tRegs *Regs)
 		break;
 	}
 	
+	__asm__ __volatile__ ("cli");
 	for(;;)
 		__asm__ __volatile__ ("hlt");
 }
