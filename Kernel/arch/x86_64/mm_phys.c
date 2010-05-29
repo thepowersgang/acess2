@@ -350,14 +350,20 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 	// Check if there is enough in the range
 	if(giPhysRangeFree[rangeID] >= Num)
 	{
+		Log(" MM_AllocPhysRange: {%i,0x%x -> 0x%x}",
+			giPhysRangeFree[rangeID],
+			giPhysRangeFirst[rangeID], giPhysRangeLast[rangeID]
+			);
 		// Do a cheap scan, scanning upwards from the first free page in
 		// the range
-		nFree = 1;
+		nFree = 0;
 		addr = giPhysRangeFirst[ rangeID ];
-		while( addr < giPhysRangeLast[ rangeID ] )
+		while( addr <= giPhysRangeLast[ rangeID ] )
 		{
+			//Log(" MM_AllocPhysRange: addr = 0x%x", addr);
 			// Check the super bitmap
 			if( gaSuperBitmap[addr >> (6+6)] == -1 ) {
+				Log(" MM_AllocPhysRange: nFree = %i = 0 (super) (0x%x)", nFree, addr);
 				nFree = 0;
 				addr += 1 << (6+6);
 				addr &= (1 << (6+6)) - 1;
@@ -365,6 +371,7 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 			}
 			// Check page block (64 pages)
 			if( gaSuperBitmap[addr >> (6+6)] & (1 << (addr>>6)&63)) {
+				Log(" MM_AllocPhysRange: nFree = %i = 0 (main) (0x%x)", nFree, addr);
 				nFree = 0;
 				addr += 1 << (12+6);
 				addr &= (1 << (12+6)) - 1;
@@ -372,15 +379,18 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 			}
 			// Check individual page
 			if( gaMainBitmap[addr >> 6] & (1 << (addr & 63)) ) {
+				Log(" MM_AllocPhysRange: nFree = %i = 0 (page) (0x%x)", nFree, addr);
 				nFree = 0;
 				addr ++;
 				continue;
 			}
 			nFree ++;
 			addr ++;
+			Log(" MM_AllocPhysRange: nFree(%i) == %i (0x%x)", nFree, Num, addr);
 			if(nFree == Num)
 				break;
 		}
+		Log(" MM_AllocPhysRange: nFree = %i", nFree);
 		// If we don't find a contiguous block, nFree will not be equal
 		// to Num, so we set it to zero and do the expensive lookup.
 		if(nFree != Num)	nFree = 0;
@@ -409,7 +419,7 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 	addr -= Num;
 	for( i = 0; i < Num; i++ )
 	{
-		gaiPageReferences[addr >> 6] |= 1 << (addr & 63);
+		gaMainBitmap[addr >> 6] |= 1 << (addr & 63);
 		rangeID = MM_int_GetRangeID(addr);
 		giPhysRangeFree[ rangeID ] --;
 	}
