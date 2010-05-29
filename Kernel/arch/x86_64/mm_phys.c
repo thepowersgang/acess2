@@ -22,8 +22,8 @@ extern void	gKernelEnd;
 
 // === GLOBALS ===
 tSpinlock	glPhysicalPages;
-Uint64	*gaSuperBitmap;	// 1 bit = 64 Pages
-Uint64	*gaMainBitmap;	// 1 bit = 1 Page
+Uint64	*gaSuperBitmap;	// 1 bit = 64 Pages, 16 MiB Per Word
+Uint64	*gaMainBitmap;	// 1 bit = 1 Page, 256 KiB per Word
 Uint64	*gaMultiBitmap;	// Each bit means that the page is being used multiple times
 Uint32	*gaiPageReferences = (void*)MM_PAGE_COUNTS;	// Reference Counts
 tPAddr	giFirstFreePage;	// First possibly free page
@@ -33,13 +33,19 @@ Uint64	giPhysRangeLast[NUM_MM_PHYS_RANGES];	// Last free page in each range
 Uint64	giMaxPhysPage = 0;	// Maximum Physical page
 
 // === CODE ===
+/**
+ * \brief Initialise the physical memory map using a Multiboot 1 map
+ */
 void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 {
 	tMBoot_MMapEnt	*mmapStart;
 	tMBoot_MMapEnt	*ent;
 	Uint64	maxAddr = 0;
-	 int	numPages;
-	 int	superPages;
+	 int	numPages, superPages;
+	 int	i;
+	Uint64	base, size;
+	tVAddr	vaddr;
+	tPAddr	paddr;
 	
 	Log("MM_InitPhys_Multiboot: (MBoot=%p)", MBoot);
 	
@@ -80,14 +86,15 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 	superPages = ((giMaxPhysPage+64*8-1)/(64*8) + 0xFFF) >> 12;
 	numPages = (giMaxPhysPage + 7) / 8;
 	numPages = (numPages + 0xFFF) >> 12;
-	Log(" MM_InitPhys_Multiboot: numPages = %i", numPages);
+	Log(" MM_InitPhys_Multiboot: numPages = %i, superPages = ",
+		numPages, superPages);
 	if(maxAddr == 0)
 	{
 		 int	todo = numPages;
 		// Ok, naieve allocation, just put it after the kernel
 		// - Allocated Bitmap
-		tVAddr	vaddr = MM_PAGE_BITMAP;
-		tPAddr	paddr = (tPAddr)&gKernelEnd - KERNEL_BASE;
+		vaddr = MM_PAGE_BITMAP;
+		paddr = (tPAddr)&gKernelEnd - KERNEL_BASE;
 		while(todo --)
 		{
 			MM_Map(vaddr, paddr);
@@ -170,7 +177,6 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 	
 	// Fill the bitmaps
 	// - initialise to one, then clear the avaliable areas
-	memset(gaSuperBitmap, -1, superPages<<12);
 	memset(gaMainBitmap, -1, numPages<<12);
 	memset(gaMultiBitmap, 0, numPages<<12);
 	// - Clear all Type=1 areas
@@ -180,7 +186,6 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 		ent = (tMBoot_MMapEnt *)( (Uint)ent + ent->Size )
 		)
 	{
-		Uint64	base, size;
 		// Check if the type is RAM
 		if(ent->Type != 1)	continue;
 		
@@ -212,17 +217,45 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 			size -= (base & 63);
 			base += 64 - (base & 63);
 		}
-		memset( &gaSuperBitmap[base / 64], 0, size/8 );
-		if( size & 7 ) {
-			Uint64	val = -1 << (size & 7);
-			val <<= (size/8)&7;
-			gaSuperBitmap[base / 64] &= ~val;
-		}
 	}
 	
 	// Reference the used pages
 	// - Kernel
+	base = 0x100000 >> 12;
+	size = ((tPAddr)&gKernelEnd - KERNEL_BASE - base) >> 12;
+	memset( &gaMainBitmap[base / 64], -1, size/8 );
+	if( size & 7 ) {
+		Uint64	val = -1 << (size & 7);
+		val <<= (size/8)&7;
+		gaMainBitmap[base / 64] |= val;
+	}
 	// - Reference Counts and Bitmap
+	vaddr = MM_PAGE_BITMAP;
+	for( i = 0; i < numPages; i++, vaddr ++ )
+	{
+		paddr = MM_GetPhysAddr(vaddr) >> 12;
+		gaMainBitmap[paddr >> 6] |= 1 << (paddr&63);
+	}
+	vaddr = MM_PAGE_DBLBMP;
+	for( i = 0; i < numPages; i++, vaddr += 0x1000 )
+	{
+		paddr = MM_GetPhysAddr(vaddr) >> 12;
+		gaMainBitmap[paddr >> 6] |= 1 << (paddr&63);
+	}
+	vaddr = MM_PAGE_SUPBMP;
+	for( i = 0; i < superPages; i++, vaddr += 0x1000 )
+	{
+		paddr = MM_GetPhysAddr(vaddr) >> 12;
+		gaMainBitmap[paddr >> 6] |= 1 << (paddr&63);
+	}
+	
+	// Fill the super bitmap
+	memset(gaSuperBitmap, 0, superPages<<12);
+	for( base = 0; base < giMaxPhysPage/64; base ++)
+	{
+		if( gaMainBitmap[ base ] == -1 )
+			gaSuperBitmap[ base/64 ] |= 1 << (base&63);
+	}
 }
 
 /**
