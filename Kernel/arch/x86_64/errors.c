@@ -5,6 +5,9 @@
 #include <acess.h>
 #include <proc.h>
 
+// === IMPORTS ===
+void	MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs);
+
 // === PROTOTYPES ===
 void	Error_Handler(tRegs *Regs);
 
@@ -24,6 +27,12 @@ const char * const csaERROR_NAMES[] = {
 void Error_Handler(tRegs *Regs)
 {
 	Uint	cr;
+	
+	if( Regs->IntNum == 14 ) {
+		__asm__ __volatile__ ("mov %%cr2, %0":"=r"(cr));
+		MM_PageFault(cr, Regs->ErrorCode, Regs);
+		return ;
+	}
 	
 	Debug_KernelPanic();
 	

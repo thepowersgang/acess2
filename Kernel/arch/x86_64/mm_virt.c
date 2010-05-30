@@ -5,6 +5,7 @@
  */
 #include <acess.h>
 #include <mm_virt.h>
+#include <proc.h>
 
 // === CONSTANTS ===
 #define PML4_SHIFT	39
@@ -31,17 +32,153 @@
 #define PAGEDIRPTR(idx)	PAGEDIR((MM_FRACTAL_BASE>>21)+((idx)&PDP_MASK))
 #define PAGEMAPLVL4(idx)	PAGEDIRPTR((MM_FRACTAL_BASE>>30)+((idx)&PML4_MASK))
 
+// === PROTOTYPES ===
+void	MM_InitVirt(void);
+void	MM_FinishVirtualInit(void);
+void	MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs);
+void	MM_DumpTables(tVAddr Start, tVAddr End);
+ int	MM_Map(tVAddr VAddr, tPAddr PAddr);
+
 // === GLOBALS ===
 
 // === CODE ===
 void MM_InitVirt(void)
 {
-	
 }
 
 void MM_FinishVirtualInit(void)
 {
+}
+
+/**
+ * \brief Called on a page fault
+ */
+void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
+{
+	// TODO: Copy on Write
+	#if 0
+	if( gaPageDir  [Addr>>22] & PF_PRESENT
+	 && gaPageTable[Addr>>12] & PF_PRESENT
+	 && gaPageTable[Addr>>12] & PF_COW )
+	{
+		tPAddr	paddr;
+		if(MM_GetRefCount( gaPageTable[Addr>>12] & ~0xFFF ) == 1)
+		{
+			gaPageTable[Addr>>12] &= ~PF_COW;
+			gaPageTable[Addr>>12] |= PF_PRESENT|PF_WRITE;
+		}
+		else
+		{
+			//Log("MM_PageFault: COW - MM_DuplicatePage(0x%x)", Addr);
+			paddr = MM_DuplicatePage( Addr );
+			MM_DerefPhys( gaPageTable[Addr>>12] & ~0xFFF );
+			gaPageTable[Addr>>12] &= PF_USER;
+			gaPageTable[Addr>>12] |= paddr|PF_PRESENT|PF_WRITE;
+		}
+		
+		INVLPG( Addr & ~0xFFF );
+		return;
+	}
+	#endif
 	
+	// If it was a user, tell the thread handler
+	if(ErrorCode & 4) {
+		Warning("%s %s %s memory%s",
+			(ErrorCode&4?"User":"Kernel"),
+			(ErrorCode&2?"write to":"read from"),
+			(ErrorCode&1?"bad/locked":"non-present"),
+			(ErrorCode&16?" (Instruction Fetch)":"")
+			);
+		Warning("User Pagefault: Instruction at %04x:%08x accessed %p",
+			Regs->CS, Regs->RIP, Addr);
+		__asm__ __volatile__ ("sti");	// Restart IRQs
+//		Threads_SegFault(Addr);
+		return ;
+	}
+	
+	// Kernel #PF
+	Debug_KernelPanic();
+	// -- Check Error Code --
+	if(ErrorCode & 8)
+		Warning("Reserved Bits Trashed!");
+	else
+	{
+		Warning("%s %s %s memory%s",
+			(ErrorCode&4?"User":"Kernel"),
+			(ErrorCode&2?"write to":"read from"),
+			(ErrorCode&1?"bad/locked":"non-present"),
+			(ErrorCode&16?" (Instruction Fetch)":"")
+			);
+	}
+	
+	Log("Code at %p accessed %p", Regs->RIP, Addr);
+	// Print Stack Backtrace
+//	Error_Backtrace(Regs->RIP, Regs->RBP);
+	
+	MM_DumpTables(0, -1);
+}
+
+/**
+ * \brief Dumps the layout of the page tables
+ */
+void MM_DumpTables(tVAddr Start, tVAddr End)
+{
+	tVAddr	rangeStart = 0;
+	tPAddr	expected = 0;
+	tVAddr	curPos;
+	Uint	page;
+	const tPAddr	MASK = ~0xF98;	// Physical address and access bits
+	
+	Start >>= 12;	End >>= 12;
+	
+	Log("Table Entries:");
+	for(page = Start, curPos = Start<<12;
+		page < (End & (((tVAddr)1 << 48)-1));
+		curPos += 0x1000, page++)
+	{
+		// End of a range
+		if(
+			!(PAGEMAPLVL4(page>>27) & PF_PRESENT)
+		||	!(PAGEDIRPTR(page>>18) & PF_PRESENT)
+		||	!(PAGEDIR(page>>9) & PF_PRESENT)
+		||  !(PAGETABLE(page) & PF_PRESENT)
+		||  (PAGETABLE(page) & MASK) != expected)
+		{
+			if(expected) {
+				Log(" 0x%08x-0x%08x => 0x%08x-0x%08x (%s%s%s%s)",
+					rangeStart, curPos - 1,
+					PAGETABLE(rangeStart>>12) & ~0xFFF,
+					(expected & ~0xFFF) - 1,
+					(expected & PF_PAGED ? "p" : "-"),
+					(expected & PF_COW ? "C" : "-"),
+					(expected & PF_USER ? "U" : "-"),
+					(expected & PF_WRITE ? "W" : "-")
+					);
+				expected = 0;
+			}
+			if( !(PAGEMAPLVL4(page>>27) & PF_PRESENT) )	continue;
+			if( !(PAGEDIRPTR(page>>18) & PF_PRESENT) )	continue;
+			if( !(PAGEDIR(page>>9) & PF_PRESENT) )	continue;
+			if( !(PAGETABLE(page) & PF_PRESENT) )	continue;
+			
+			expected = (PAGETABLE(page) & MASK);
+			rangeStart = curPos;
+		}
+		if(expected)	expected += 0x1000;
+	}
+	
+	if(expected) {
+		Log("0x%08x-0x%08x => 0x%08x-0x%08x (%s%s%s%s)",
+			rangeStart, curPos - 1,
+			PAGETABLE(rangeStart>>12) & ~0xFFF,
+			(expected & ~0xFFF) - 1,
+			(expected & PF_PAGED ? "p" : "-"),
+			(expected & PF_COW ? "C" : "-"),
+			(expected & PF_USER ? "U" : "-"),
+			(expected & PF_WRITE ? "W" : "-")
+			);
+		expected = 0;
+	}
 }
 
 /**
@@ -54,11 +191,11 @@ int MM_Map(tVAddr VAddr, tPAddr PAddr)
 	Log("MM_Map: (VAddr=0x%x, PAddr=0x%x)", VAddr, PAddr);
 	
 	// Check PML4
-	Log(" MM_Map: &PAGEMAPLVL4(%x) = %x", VAddr >> 39, &PAGEMAPLVL4(VAddr >> 39));
-	Log(" MM_Map: &PAGEDIRPTR(%x) = %x", VAddr >> 30, &PAGEDIRPTR(VAddr >> 30));
-	Log(" MM_Map: &PAGEDIR(%x) = %x", VAddr >> 21, &PAGEDIR(VAddr >> 21));
-	Log(" MM_Map: &PAGETABLE(%x) = %x", VAddr >> 12, &PAGETABLE(VAddr >> 12));
-	Log(" MM_Map: &PAGETABLE(0) = %x", &PAGETABLE(0));
+	//Log(" MM_Map: &PAGEMAPLVL4(%x) = %x", VAddr >> 39, &PAGEMAPLVL4(VAddr >> 39));
+	//Log(" MM_Map: &PAGEDIRPTR(%x) = %x", VAddr >> 30, &PAGEDIRPTR(VAddr >> 30));
+	//Log(" MM_Map: &PAGEDIR(%x) = %x", VAddr >> 21, &PAGEDIR(VAddr >> 21));
+	//Log(" MM_Map: &PAGETABLE(%x) = %x", VAddr >> 12, &PAGETABLE(VAddr >> 12));
+	//Log(" MM_Map: &PAGETABLE(0) = %x", &PAGETABLE(0));
 	if( !(PAGEMAPLVL4(VAddr >> 39) & 1) )
 	{
 		tmp = MM_AllocPhys();
