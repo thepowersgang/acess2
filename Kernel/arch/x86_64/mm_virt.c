@@ -281,19 +281,31 @@ tPAddr MM_Allocate(tVAddr VAddr)
 {
 	tPAddr	ret;
 	
-	Log("MM_Allocate: (VAddr=%x)", VAddr);
-	Log("MM_Allocate: MM_AllocPhys()");
-	ret = MM_AllocPhys();
-	Log("MM_Allocate: ret = %x", ret);
-	if(!ret)	return 0;
+	ENTER("xVAddr", VAddr);
 	
-	if( !MM_Map(VAddr, ret) )
+	if( !MM_Map(VAddr, 0) )	// Make sure things are allocated
 	{
-		Warning("MM_Allocate: Unable to map", ret);
-		MM_DerefPhys(ret);
+		Warning("MM_Allocate: Unable to map, tables did not initialise");
+		LEAVE('i', 0);
 		return 0;
 	}
 	
+	ret = MM_AllocPhys();
+	LOG("ret = %x", ret);
+	if(!ret) {
+		LEAVE('i', 0);
+		return 0;
+	}
+	
+	if( !MM_Map(VAddr, ret) )
+	{
+		Warning("MM_Allocate: Unable to map. Strange, we should have errored earlier");
+		MM_DerefPhys(ret);
+		LEAVE('i');
+		return 0;
+	}
+	
+	LEAVE('x', ret);
 	return ret;
 }
 

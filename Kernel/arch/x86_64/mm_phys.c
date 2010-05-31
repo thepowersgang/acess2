@@ -3,7 +3,7 @@
  * 
  * Physical Memory Manager
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <acess.h>
 #include <mboot.h>
 #include <mm_virt.h>
@@ -314,7 +314,7 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
  */
 tPAddr MM_AllocPhysRange(int Num, int Bits)
 {
-	tPAddr	addr;
+	tPAddr	addr, ret;
 	 int	rangeID;
 	 int	nFree = 0, i;
 	
@@ -420,12 +420,13 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 	
 	// Mark pages as allocated
 	addr -= Num;
-	for( i = 0; i < Num; i++ )
+	for( i = 0; i < Num; i++, addr++ )
 	{
 		gaMainBitmap[addr >> 6] |= 1 << (addr & 63);
 		rangeID = MM_int_GetRangeID(addr);
 		giPhysRangeFree[ rangeID ] --;
 	}
+	ret = addr;	// Save the return address
 	
 	// Update super bitmap
 	Num += addr & (64-1);
@@ -438,8 +439,8 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 	}
 	
 	RELEASE(&glPhysicalPages);
-	LEAVE('x', addr << 12);
-	return addr << 12;
+	LEAVE('x', ret << 12);
+	return ret << 12;
 }
 
 /**
