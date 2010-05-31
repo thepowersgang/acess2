@@ -372,11 +372,11 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 				continue;
 			}
 			// Check page block (64 pages)
-			if( gaSuperBitmap[addr >> (6+6)] & (1 << (addr>>6)&63)) {
+			if( gaMainBitmap[addr >> 6] == -1) {
 				LOG("nFree = %i = 0 (main) (0x%x)", nFree, addr);
 				nFree = 0;
-				addr += 1 << (12+6);
-				addr &= ~( (1 << (12+6)) - 1 );
+				addr += 1 << (6);
+				addr &= ~( (1 << (6)) - 1 );
 				continue;
 			}
 			// Check individual page
@@ -425,7 +425,7 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 		gaMainBitmap[addr >> 6] |= 1 << (addr & 63);
 		rangeID = MM_int_GetRangeID(addr << 12);
 		giPhysRangeFree[ rangeID ] --;
-		if(addr << 12 == giPhysRangeFirst[ rangeID ])
+		if(addr == giPhysRangeFirst[ rangeID ])
 			giPhysRangeFirst[ rangeID ] += 1;
 	}
 	ret = addr;	// Save the return address

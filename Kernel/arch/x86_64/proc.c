@@ -381,11 +381,11 @@ void Proc_ChangeStack()
 
 	curBase = (Uint)&gInitialKernelStack;
 	
-	LOG("curBase = 0x%x, newBase = 0x%x", curBase, newBase);
+	Log("curBase = 0x%x, newBase = 0x%x", curBase, newBase);
 
 	// Get ESP as a used size
 	rsp = curBase - rsp;
-	LOG("memcpy( %p, %p, 0x%x )", (void*)(newBase - rsp), (void*)(curBase - rsp), rsp );
+	Log("memcpy( %p, %p, 0x%x )", (void*)(newBase - rsp), (void*)(curBase - rsp), rsp );
 	// Copy used stack
 	memcpy( (void*)(newBase - rsp), (void*)(curBase - rsp), rsp );
 	// Get ESP as an offset in the new stack
@@ -393,16 +393,17 @@ void Proc_ChangeStack()
 	// Adjust EBP
 	rbp = newBase - (curBase - rbp);
 
+	Log("Update stack");
 	// Repair EBPs & Stack Addresses
 	// Catches arguments also, but may trash stack-address-like values
-	for(tmp_rbp = rsp; tmp_rbp < newBase; tmp_rbp += 4)
+	for(tmp_rbp = rsp; tmp_rbp < newBase; tmp_rbp += sizeof(Uint))
 	{
 		if(old_rsp < *(Uint*)tmp_rbp && *(Uint*)tmp_rbp < curBase)
 			*(Uint*)tmp_rbp += newBase - curBase;
 	}
 	
+	Log("Applying Changes");
 	Proc_GetCurThread()->KernelStack = newBase;
-	
 	__asm__ __volatile__ ("mov %0, %%rsp"::"r"(rsp));
 	__asm__ __volatile__ ("mov %0, %%rbp"::"r"(rbp));
 }
