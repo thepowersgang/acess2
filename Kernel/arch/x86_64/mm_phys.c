@@ -276,7 +276,7 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 	memset(gaSuperBitmap, 0, superPages<<12);
 	for( base = 0; base < (size+63)/64; base ++)
 	{
-		if( gaMainBitmap[ base ] == -1 )
+		if( gaMainBitmap[ base ] + 1 == 0 )
 			gaSuperBitmap[ base/64 ] |= 1L << (base&63);
 	}
 	
@@ -323,7 +323,7 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 	if( Bits <= 0 || Bits >= 64 )	// Speedup for the common case
 		rangeID = MM_PHYS_MAX;
 	else
-		rangeID = MM_int_GetRangeID( (1L << Bits) -1 );
+		rangeID = MM_int_GetRangeID( (1L << Bits) - 1 );
 	
 	LOG("rangeID = %i", rangeID);
 	
@@ -364,7 +364,7 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 		{
 			//Log(" MM_AllocPhysRange: addr = 0x%x", addr);
 			// Check the super bitmap
-			if( gaSuperBitmap[addr >> (6+6)] == -1 ) {
+			if( gaSuperBitmap[addr >> (6+6)] + 1 == 0 ) {
 				LOG("nFree = %i = 0 (super) (0x%x)", nFree, addr);
 				nFree = 0;
 				addr += 1L << (6+6);
@@ -372,7 +372,7 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 				continue;
 			}
 			// Check page block (64 pages)
-			if( gaMainBitmap[addr >> 6] == -1) {
+			if( gaMainBitmap[addr >> 6] + 1 == 0) {
 				LOG("nFree = %i = 0 (main) (0x%x)", nFree, addr);
 				nFree = 0;
 				addr += 1L << (6);
@@ -437,7 +437,7 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 	Num = (Num + (64-1)) & ~(64-1);
 	for( i = 0; i < Num/64; i++ )
 	{
-		if( gaMainBitmap[ addr >> 6 ] == -1 )
+		if( gaMainBitmap[ addr >> 6 ] + 1 == 0 )
 			gaSuperBitmap[addr>>12] |= 1L << ((addr >> 6) & 63);
 	}
 	
@@ -486,7 +486,7 @@ void MM_RefPhys(tPAddr PAddr)
 	{
 		// Allocate
 		gaMainBitmap[page >> 6] |= 1L << (page&63);
-		if( gaMainBitmap[page >> 6 ] == -1 )
+		if( gaMainBitmap[page >> 6 ] + 1 == 0 )
 			gaSuperBitmap[page>> 12] |= 1L << ((page >> 6) & 63);
 	}
 }
@@ -523,7 +523,7 @@ void MM_DerefPhys(tPAddr PAddr)
 	}
 	
 	// If the bitmap entry is not -1, unset the bit in the super bitmap
-	if(gaMainBitmap[ page >> 6 ] != -1 ) {
+	if(gaMainBitmap[ page >> 6 ] + 1 != 0 ) {
 		gaSuperBitmap[page >> 12] &= ~(1L << ((page >> 6) & 63));
 	}
 }
