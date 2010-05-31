@@ -32,6 +32,8 @@
 #define PAGEDIRPTR(idx)	PAGEDIR((MM_FRACTAL_BASE>>21)+((idx)&PDP_MASK))
 #define PAGEMAPLVL4(idx)	PAGEDIRPTR((MM_FRACTAL_BASE>>30)+((idx)&PML4_MASK))
 
+#define INVLPG(__addr)	__asm__ __volatile__ ("invlpg (%0)"::"r"(__addr));
+
 // === PROTOTYPES ===
 void	MM_InitVirt(void);
 void	MM_FinishVirtualInit(void);
@@ -123,19 +125,25 @@ void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
  */
 void MM_DumpTables(tVAddr Start, tVAddr End)
 {
+	const tPAddr	CHANGEABLE_BITS = 0xFF8;
+	const tPAddr	MASK = ~CHANGEABLE_BITS;	// Physical address and access bits
 	tVAddr	rangeStart = 0;
-	tPAddr	expected = 0;
+	tPAddr	expected = CHANGEABLE_BITS;	// MASK is used because it's not a vaild value
 	tVAddr	curPos;
 	Uint	page;
-	const tPAddr	MASK = ~0xF98;	// Physical address and access bits
+	
+	End &= (1L << 48) - 1;
 	
 	Start >>= 12;	End >>= 12;
 	
 	Log("Table Entries:");
 	for(page = Start, curPos = Start<<12;
-		page < (End & (((tVAddr)1 << 48)-1));
+		page < End;
 		curPos += 0x1000, page++)
 	{
+		if( curPos == 0x800000000000L )
+			curPos = 0xFFFF800000000000L;
+		
 		// End of a range
 		if(
 			!(PAGEMAPLVL4(page>>27) & PF_PRESENT)
@@ -143,32 +151,45 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 		||	!(PAGEDIR(page>>9) & PF_PRESENT)
 		||  !(PAGETABLE(page) & PF_PRESENT)
 		||  (PAGETABLE(page) & MASK) != expected)
-		{
-			if(expected) {
-				Log(" 0x%08x-0x%08x => 0x%08x-0x%08x (%s%s%s%s)",
+		{			
+			if(expected != CHANGEABLE_BITS) {
+				Log("%016x-0x%016x => %013x-%013x (%c%c%c%c)",
 					rangeStart, curPos - 1,
 					PAGETABLE(rangeStart>>12) & ~0xFFF,
 					(expected & ~0xFFF) - 1,
-					(expected & PF_PAGED ? "p" : "-"),
-					(expected & PF_COW ? "C" : "-"),
-					(expected & PF_USER ? "U" : "-"),
-					(expected & PF_WRITE ? "W" : "-")
+					(expected & PF_PAGED ? 'p' : '-'),
+					(expected & PF_COW ? 'C' : '-'),
+					(expected & PF_USER ? 'U' : '-'),
+					(expected & PF_WRITE ? 'W' : '-')
 					);
-				expected = 0;
+				expected = CHANGEABLE_BITS;
 			}
-			if( !(PAGEMAPLVL4(page>>27) & PF_PRESENT) )	continue;
-			if( !(PAGEDIRPTR(page>>18) & PF_PRESENT) )	continue;
-			if( !(PAGEDIR(page>>9) & PF_PRESENT) )	continue;
+			if( !(PAGEMAPLVL4(page>>27) & PF_PRESENT) ) {
+				page += (1 << 27) - 1;
+				curPos += (1L << 39) - 0x1000;
+				continue;
+			}
+			if( !(PAGEDIRPTR(page>>18) & PF_PRESENT) ) {
+				page += (1 << 18) - 1;
+				curPos += (1L << 30) - 0x1000;
+				continue;
+			}
+			if( !(PAGEDIR(page>>9) & PF_PRESENT) ) {
+				page += (1 << 9) - 1;
+				curPos += (1L << 21) - 0x1000;
+				continue;
+			}
 			if( !(PAGETABLE(page) & PF_PRESENT) )	continue;
 			
 			expected = (PAGETABLE(page) & MASK);
 			rangeStart = curPos;
 		}
-		if(expected)	expected += 0x1000;
+		if(expected != CHANGEABLE_BITS)
+			expected += 0x1000;
 	}
 	
-	if(expected) {
-		Log("0x%08x-0x%08x => 0x%08x-0x%08x (%s%s%s%s)",
+	if(expected != CHANGEABLE_BITS) {
+		Log("%016x-%016x => %013x-%013x (%s%s%s%s)",
 			rangeStart, curPos - 1,
 			PAGETABLE(rangeStart>>12) & ~0xFFF,
 			(expected & ~0xFFF) - 1,
@@ -201,6 +222,7 @@ int MM_Map(tVAddr VAddr, tPAddr PAddr)
 		tmp = MM_AllocPhys();
 		if(!tmp)	return 0;
 		PAGEMAPLVL4(VAddr >> 39) = tmp | 3;
+		INVLPG( &PAGEDIRPTR( (VAddr>>39)<<9 ) );
 		memset( &PAGEDIRPTR( (VAddr>>39)<<9 ), 0, 4096 );
 	}
 	
@@ -210,7 +232,8 @@ int MM_Map(tVAddr VAddr, tPAddr PAddr)
 		tmp = MM_AllocPhys();
 		if(!tmp)	return 0;
 		PAGEDIRPTR(VAddr >> 30) = tmp | 3;
-		memset( &PAGEDIR( (VAddr>>30)<<9 ), 0, 4096 );
+		INVLPG( &PAGEDIR( (VAddr>>30)<<9 ) );
+		memset( &PAGEDIR( (VAddr>>30)<<9 ), 0, 0x1000 );
 	}
 	
 	// Check Page Dir
@@ -219,6 +242,7 @@ int MM_Map(tVAddr VAddr, tPAddr PAddr)
 		tmp = MM_AllocPhys();
 		if(!tmp)	return 0;
 		PAGEDIR(VAddr >> 21) = tmp | 3;
+		INVLPG( &PAGETABLE( (VAddr>>21)<<9 ) );
 		memset( &PAGETABLE( (VAddr>>21)<<9 ), 0, 4096 );
 	}
 	
@@ -228,6 +252,7 @@ int MM_Map(tVAddr VAddr, tPAddr PAddr)
 	
 	PAGETABLE(VAddr >> PTAB_SHIFT) = PAddr | 3;
 	
+	INVLPG( VAddr );
 	Log("MM_Map: RETURN 1");
 	
 	return 1;
@@ -246,6 +271,7 @@ void MM_Unmap(tVAddr VAddr)
 	if( !(PAGEDIR(VAddr >> 21) & 1) )	return ;
 	
 	PAGETABLE(VAddr >> PTAB_SHIFT) = 0;
+	INVLPG( VAddr );
 }
 
 /**
