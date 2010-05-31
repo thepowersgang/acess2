@@ -67,8 +67,9 @@ void Error_Handler(tRegs *Regs)
 	{
 	case 6:	// #UD
 		Warning(" Offending bytes: %02x %02x %02x %02x",
-			*(Uint8*)Regs->RIP+0, *(Uint8*)Regs->RIP+1,
-			*(Uint8*)Regs->RIP+2, *(Uint8*)Regs->RIP+3);
+			*(Uint8*)(Regs->RIP+0), *(Uint8*)(Regs->RIP+1),
+			*(Uint8*)(Regs->RIP+2), *(Uint8*)(Regs->RIP+3)
+			);
 		break;
 	}
 	
