@@ -94,7 +94,7 @@ gGDT:
 	dd	0x00000000, 0x0000F200	; 0x20: 64-bit User Data
 	dd	0x00000000, 0x0040FA00	; 0x38: 32-bit User Code
 	dd	0x00000000, 0x0040F200	; 0x30: 32-bit User Data
-	times MAX_CPUS	dd	0x00008900, 0, 0, 0	; 0x38+16*n: TSS 0
+	times MAX_CPUS	dd	0, 0x00008900, 0, 0	; 0x38+16*n: TSS 0
 gGDTPtr:
 	dw	$-gGDT-1
 	dd	gGDT-KERNEL_BASE

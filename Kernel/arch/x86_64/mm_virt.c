@@ -492,6 +492,8 @@ tPAddr MM_Clone(void)
 	ret = MM_AllocPhys();
 	if(!ret)	return 0;
 	
+	Log_KernelPanic("MM", "TODO: Implement MM_Clone");
+	
 	// #2 Alter the fractal pointer
 	// #3 Set Copy-On-Write to all user pages
 	// #4 Return
@@ -553,10 +555,12 @@ void MM_ClearUser(void)
 
 tVAddr MM_NewWorkerStack(void)
 {
+	Log_KernelPanic("MM", "TODO: Implement MM_NewWorkerStack");
 	return 0;
 }
 
 tVAddr MM_NewKStack(void)
 {
+	Log_KernelPanic("MM", "TODO: Implement MM_NewKStack");
 	return 0;
 }
