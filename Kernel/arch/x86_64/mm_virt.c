@@ -118,6 +118,10 @@ void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 //	Error_Backtrace(Regs->RIP, Regs->RBP);
 	
 	MM_DumpTables(0, -1);
+	
+	__asm__ __volatile__ ("cli");
+	for( ;; )
+		HALT();
 }
 
 /**
@@ -283,12 +287,16 @@ tPAddr MM_Allocate(tVAddr VAddr)
 	
 	ENTER("xVAddr", VAddr);
 	
+	// NOTE: This is hack, but I like my dumps to be neat
+	#if 1
 	if( !MM_Map(VAddr, 0) )	// Make sure things are allocated
 	{
 		Warning("MM_Allocate: Unable to map, tables did not initialise");
 		LEAVE('i', 0);
 		return 0;
 	}
+	MM_Unmap(VAddr);
+	#endif
 	
 	ret = MM_AllocPhys();
 	LOG("ret = %x", ret);

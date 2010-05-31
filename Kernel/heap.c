@@ -10,8 +10,6 @@
 #define	DEBUG_TRACE	0
 
 // === CONSTANTS ===
-#define HEAP_BASE	0xE0800000
-#define HEAP_MAX	0xF0000000	// 120MiB, Plenty
 #define	HEAP_INIT_SIZE	0x8000	// 32 KiB
 #define	BLOCK_SIZE	(sizeof(void*))	// 8 Machine Words
 #define	COMPACT_HEAP	0	// Use 4 byte header?
@@ -53,18 +51,18 @@ void *Heap_Extend(int Bytes)
 	tHeapFoot	*foot;
 	
 	// Bounds Check
-	if( (Uint)gHeapEnd == MM_KHEAP_MAX )
+	if( (tVAddr)gHeapEnd == MM_KHEAP_MAX )
 		return NULL;
 	
 	// Bounds Check
-	if( (Uint)gHeapEnd + ((Bytes+0xFFF)&~0xFFF) > MM_KHEAP_MAX ) {
-		Bytes = MM_KHEAP_MAX - (Uint)gHeapEnd;
+	if( (tVAddr)gHeapEnd + ((Bytes+0xFFF)&~0xFFF) > MM_KHEAP_MAX ) {
+		Bytes = MM_KHEAP_MAX - (tVAddr)gHeapEnd;
 		return NULL;
 	}
 	
 	// Heap expands in pages
 	for(i=0;i<(Bytes+0xFFF)>>12;i++)
-		MM_Allocate( (Uint)gHeapEnd+(i<<12) );
+		MM_Allocate( (tVAddr)gHeapEnd+(i<<12) );
 	
 	// Increas heap end
 	gHeapEnd += i << 12;
@@ -76,7 +74,6 @@ void *Heap_Extend(int Bytes)
 	foot->Head = head;
 	foot->Magic = MAGIC_FOOT;
 	
-	//Log(" Heap_Extend: head = %p", head);
 	return Heap_Merge(head);	// Merge with previous block
 }
 
@@ -97,7 +94,7 @@ void *Heap_Merge(tHeapHead *Head)
 	
 	// Merge Left (Down)
 	foot = (void*)( (Uint)Head - sizeof(tHeapFoot) );
-	if( ((Uint)foot < (Uint)gHeapEnd && (Uint)foot > HEAP_BASE)
+	if( ((Uint)foot < (Uint)gHeapEnd && (Uint)foot > (Uint)gHeapStart)
 	&& foot->Head->Magic == MAGIC_FREE) {
 		foot->Head->Size += Head->Size;	// Increase size
 		thisFoot->Head = foot->Head;	// Change backlink
