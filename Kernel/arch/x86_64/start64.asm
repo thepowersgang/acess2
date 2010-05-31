@@ -50,10 +50,10 @@ GetRIP:
 
 [global GetCPUNum]
 GetCPUNum:
-	str ax
-	mov gs, ax
 	xor rax, rax
-	mov al, [gs:104]	; End of TSS
+	str ax
+	sub ax, 0x38	; TSS Base
+	shr ax, 4	; One 16-byte TSS per CPU
 	ret
 
 KSTACK_USERSTATE_SIZE	equ	(16+1+5)*8	; GPRegs, CPU, IRET

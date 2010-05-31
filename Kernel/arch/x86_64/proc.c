@@ -269,17 +269,17 @@ void ArchThreads_Init()
 	#else
 	pos = 0;
 	#endif
-		gTSSs[pos].CPUNumber = pos;
 		gTSSs[pos].RSP0 = 0;	// Set properly by scheduler
-		gGDT[6+pos*2].BaseLow = ((Uint)(&gTSSs[pos])) & 0xFFFF;
-		gGDT[6+pos*2].BaseMid = ((Uint)(&gTSSs[pos])) >> 16;
-		gGDT[6+pos*2].BaseHi = ((Uint)(&gTSSs[pos])) >> 24;
-		gGDT[6+pos*2+1].DWord[0] = ((Uint)(&gTSSs[pos])) >> 32;
+		gGDT[7+pos*2].LimitLow = sizeof(tTSS) & 0xFFFF;
+		gGDT[7+pos*2].BaseLow = ((Uint)(&gTSSs[pos])) & 0xFFFF;
+		gGDT[7+pos*2].BaseMid = ((Uint)(&gTSSs[pos])) >> 16;
+		gGDT[7+pos*2].BaseHi = ((Uint)(&gTSSs[pos])) >> 24;
+		gGDT[7+pos*2+1].DWord[0] = ((Uint)(&gTSSs[pos])) >> 32;
 	#if USE_MP
 	}
 	for(pos=0;pos<giNumCPUs;pos++) {
 	#endif
-		__asm__ __volatile__ ("ltr %%ax"::"a"(0x30+pos*8));
+		__asm__ __volatile__ ("ltr %%ax"::"a"(0x38+pos*16));
 	#if USE_MP
 	}
 	#endif

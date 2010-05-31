@@ -12,7 +12,7 @@
 MAX_CPUS := 4
 
 CPPFLAGS	:= -DMAX_CPUS=$(MAX_CPUS)
-CFLAGS		:= $(KERNEL_CFLAGS)
+CFLAGS		:= $(KERNEL_CFLAGS) -mno-sse -mno-mmx
 ASFLAGS		:= -f elf64 -D MAX_CPUS=$(MAX_CPUS)
 LDFLAGS 	:= -nostdlib -nodefaultlibs
 

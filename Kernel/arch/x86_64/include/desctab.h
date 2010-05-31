@@ -52,9 +52,6 @@ typedef struct {
 	Uint32	Rsvd3[2];
 	Uint16	Rsvd4;
 	Uint16	IOMapBase;
-	
-	// Acess Specific Fields
-	Uint8	CPUNumber;	// CPU Number
 } __attribute__ ((packed)) tTSS;
 
 #endif
