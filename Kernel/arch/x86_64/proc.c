@@ -424,8 +424,11 @@ int Proc_Clone(Uint *Err, Uint Flags)
 	newThread = Threads_CloneTCB(Err, Flags);
 	if(!newThread)	return -1;
 	
+	Log("Proc_Clone: newThread = %p", newThread);
+	
 	// Initialise Memory Space (New Addr space or kernel stack)
 	if(Flags & CLONE_VM) {
+		Log("Proc_Clone: Cloning VM");
 		newThread->MemState.CR3 = MM_Clone();
 		newThread->KernelStack = cur->KernelStack;
 	} else {
@@ -436,6 +439,7 @@ int Proc_Clone(Uint *Err, Uint Flags)
 
 		// Create new KStack
 		newThread->KernelStack = MM_NewKStack();
+		Log("Proc_Clone: newKStack = %p", newThread->KernelStack);
 		// Check for errors
 		if(newThread->KernelStack == 0) {
 			free(newThread);
@@ -457,7 +461,7 @@ int Proc_Clone(Uint *Err, Uint Flags)
 
 		// Repair EBPs & Stack Addresses
 		// Catches arguments also, but may trash stack-address-like values
-		for(tmp_rbp = rsp; tmp_rbp < newThread->KernelStack; tmp_rbp += 4)
+		for(tmp_rbp = rsp; tmp_rbp < newThread->KernelStack; tmp_rbp += sizeof(Uint))
 		{
 			if(old_rsp < *(Uint*)tmp_rbp && *(Uint*)tmp_rbp < cur->KernelStack)
 				*(Uint*)tmp_rbp += newThread->KernelStack - cur->KernelStack;
