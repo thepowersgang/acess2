@@ -3,6 +3,7 @@
  * 
  * Virtual Memory Manager
  */
+#define DEBUG	0
 #include <acess.h>
 #include <mm_virt.h>
 #include <proc.h>
@@ -213,7 +214,7 @@ int MM_Map(tVAddr VAddr, tPAddr PAddr)
 {
 	tPAddr	tmp;
 	
-	Log("MM_Map: (VAddr=0x%x, PAddr=0x%x)", VAddr, PAddr);
+	ENTER("xVAddr xPAddr", VAddr, PAddr);
 	
 	// Check PML4
 	//Log(" MM_Map: &PAGEMAPLVL4(%x) = %x", VAddr >> 39, &PAGEMAPLVL4(VAddr >> 39));
@@ -257,8 +258,8 @@ int MM_Map(tVAddr VAddr, tPAddr PAddr)
 	PAGETABLE(VAddr >> PTAB_SHIFT) = PAddr | 3;
 	
 	INVLPG( VAddr );
-	Log("MM_Map: RETURN 1");
-	
+
+	LEAVE('i', 1);	
 	return 1;
 }
 
@@ -559,8 +560,24 @@ tVAddr MM_NewWorkerStack(void)
 	return 0;
 }
 
+/**
+ * \brief Allocate a new kernel stack
+ */
 tVAddr MM_NewKStack(void)
 {
-	Log_KernelPanic("MM", "TODO: Implement MM_NewKStack");
+	tVAddr	base = MM_KSTACK_BASE;
+	Uint	i;
+	for( ; base < MM_KSTACK_TOP; base += KERNEL_STACK_SIZE )
+	{
+		if(MM_GetPhysAddr(base) != 0)
+			continue;
+		
+		Log("MM_NewKStack: Found one at %p", base + KERNEL_STACK_SIZE);
+		for( i = 0; i < KERNEL_STACK_SIZE; i += 0x1000)
+			MM_Allocate(base+i);
+		
+		return base + KERNEL_STACK_SIZE;
+	}
+	Log_Warning("MM", "MM_NewKStack - No address space left\n");
 	return 0;
 }

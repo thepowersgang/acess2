@@ -59,7 +59,10 @@ void kmain(Uint MbMagic, void *MbInfoPtr)
 	// Load Virtual Filesystem
 	VFS_Init();
 	
-	*(Uint16*)(0xB8000) = 0x1F00|'G';
+	*(Uint16*)(0xB8000) = 0x1F00|'Z';
+	*(Uint16*)(0xB8002) = 0x1F00|'Z';
+	*(Uint16*)(0xB8004) = 0x1F00|'Z';
+	*(Uint16*)(0xB8006) = 0x1F00|'Z';
 	
 	// Pass on to Independent Loader
 	Log_Log("Arch", "Starting system");

@@ -3,7 +3,7 @@
  * 
  * Physical Memory Manager
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <acess.h>
 #include <mboot.h>
 #include <mm_virt.h>
@@ -368,7 +368,7 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 				LOG("nFree = %i = 0 (super) (0x%x)", nFree, addr);
 				nFree = 0;
 				addr += 1 << (6+6);
-				addr &= (1 << (6+6)) - 1;
+				addr &= ~( (1 << (6+6)) - 1 );
 				continue;
 			}
 			// Check page block (64 pages)
@@ -376,7 +376,7 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 				LOG("nFree = %i = 0 (main) (0x%x)", nFree, addr);
 				nFree = 0;
 				addr += 1 << (12+6);
-				addr &= (1 << (12+6)) - 1;
+				addr &= ~( (1 << (12+6)) - 1 );
 				continue;
 			}
 			// Check individual page
@@ -423,8 +423,10 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 	for( i = 0; i < Num; i++, addr++ )
 	{
 		gaMainBitmap[addr >> 6] |= 1 << (addr & 63);
-		rangeID = MM_int_GetRangeID(addr);
+		rangeID = MM_int_GetRangeID(addr << 12);
 		giPhysRangeFree[ rangeID ] --;
+		if(addr << 12 == giPhysRangeFirst[ rangeID ])
+			giPhysRangeFirst[ rangeID ] += 1;
 	}
 	ret = addr;	// Save the return address
 	
@@ -507,15 +509,20 @@ void MM_DerefPhys(tPAddr PAddr)
 	else
 		gaMainBitmap[ page >> 6 ] &= ~(1 << (page&63));
 	
-	// TODO: Update free counts
+	// Update the free counts if the page was freed
 	if( !(gaMainBitmap[ page >> 6 ] & (1 << (page&63))) )
 	{
 		 int	rangeID;
 		rangeID = MM_int_GetRangeID( PAddr );
 		giPhysRangeFree[ rangeID ] ++;
+		if( giPhysRangeFirst[rangeID] > page )
+			giPhysRangeFirst[rangeID] = page;
+		if( giPhysRangeLast[rangeID] < page )
+			giPhysRangeLast[rangeID] = page;
 	}
 	
-	if(gaMainBitmap[ page >> 6 ] == 0) {
+	// If the bitmap entry is not -1, unset the bit in the super bitmap
+	if(gaMainBitmap[ page >> 6 ] != -1 ) {
 		gaSuperBitmap[page >> 12] &= ~(1 << ((page >> 6) & 63));
 	}
 }

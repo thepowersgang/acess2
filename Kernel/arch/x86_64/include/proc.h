@@ -41,5 +41,8 @@ typedef struct sTaskState
 	Uint	RIP, RSP, RBP;
 }	tTaskState;
 
+// === CONSTANTS ===
+#define KERNEL_STACK_SIZE	0x10000	// 64 KiB
+
 #endif
 
