@@ -18,8 +18,8 @@ typedef struct sSysFS_Ent
 	struct sSysFS_Ent	*Next;
 	struct sSysFS_Ent	*ListNext;
 	struct sSysFS_Ent	*Parent;
-	char	*Name;
 	tVFS_Node	Node;
+	char	Name[];
 } tSysFS_Ent;
 
 // === PROTOTYPES ===
@@ -42,7 +42,6 @@ MODULE_DEFINE(0, VERSION, SysFS, SysFS_Install, NULL, NULL);
 tSysFS_Ent	gSysFS_Version_Kernel = {
 	NULL, NULL,	// Nexts
 	&gSysFS_Version,	// Parent
-	"Kernel",
 	{
 		.Inode = 1,	// File #1
 		.ImplPtr = KERNEL_VERSION_STRING,
@@ -51,12 +50,12 @@ tSysFS_Ent	gSysFS_Version_Kernel = {
 		.NumACLs = 1,
 		.ACLs = &gVFS_ACL_EveryoneRO,
 		.Read = SysFS_Comm_ReadFile
-	}
+	},
+	"Kernel"
 };
 tSysFS_Ent	gSysFS_Version = {
 	NULL, NULL,
 	&gSysFS_Root,
-	"Version",
 	{
 		.Size = 1,
 		.ImplPtr = &gSysFS_Version_Kernel,
@@ -66,18 +65,19 @@ tSysFS_Ent	gSysFS_Version = {
 		.Flags = VFS_FFLAG_DIRECTORY,
 		.ReadDir = SysFS_Comm_ReadDir,
 		.FindDir = SysFS_Comm_FindDir
-	}
+	},
+	"Version"
 };
 // Root of the SysFS tree (just used to keep the code clean)
 tSysFS_Ent	gSysFS_Root = {
 	NULL, NULL,
 	NULL,
-	"/",
 	{
 		.Size = 1,
 		.ImplPtr = &gSysFS_Version,
 		.ImplInt = (Uint)&gSysFS_Root	// Self-Link
-	}
+	},
+	"/"
 };
 tDevFS_Driver	gSysFS_DriverInfo = {
 	NULL, "system",
@@ -139,9 +139,8 @@ int SysFS_RegisterFile(char *Path, char *Data, int Length)
 		// Need a new directory?
 		if( !child )
 		{
-			child = calloc( 1, sizeof(tSysFS_Ent) );
+			child = calloc( 1, sizeof(tSysFS_Ent)+tmp+1 );
 			child->Next = NULL;
-			child->Name = malloc(tmp+1);
 			memcpy(child->Name, &Path[start], tmp);
 			child->Name[tmp] = '\0';
 			child->Parent = ent;
@@ -194,9 +193,9 @@ int SysFS_RegisterFile(char *Path, char *Data, int Length)
 	}
 	
 	// Create new node
-	child = calloc( 1, sizeof(tSysFS_Ent) );
+	child = calloc( 1, sizeof(tSysFS_Ent)+strlen(&Path[start])+1 );
 	child->Next = NULL;
-	child->Name = strdup(&Path[start]);
+	strcpy(child->Name, &Path[start]);
 	child->Parent = ent;
 	
 	child->Node.Inode = giSysFS_NextFileID++;

@@ -270,7 +270,11 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		{
 		case 'd':
 		case 'i':
+			#if BITS == 32
 			if( (isLongLong && val >> 63) || (!isLongLong && val >> 31) ) {
+			#else
+			if( (Sint)val < 0 ) {
+			#endif
 				PUTCH('-');
 				val = -val;
 			}
@@ -308,7 +312,6 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		case 'C':	// Non-Null Terminated Character Array
 			p = (char*)(Uint)val;
 			if(!p)	goto printString;
-			//while(minSize--)	PUTCH(*p++);
 			while(minSize--)	PUTCH(*p++);
 			break;
 		

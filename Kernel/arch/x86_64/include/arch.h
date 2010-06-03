@@ -24,6 +24,7 @@ typedef signed long long int	Sint64;
 typedef unsigned long long int	Uint64;
 #endif
 
+typedef Sint64	Sint;
 typedef Uint64	Uint;
 typedef Uint64	tPAddr;
 typedef Uint64	tVAddr;

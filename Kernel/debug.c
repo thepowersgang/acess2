@@ -9,7 +9,7 @@
 #define DEBUG_TO_SERIAL	1
 #define	SERIAL_PORT	0x3F8
 #define	GDB_SERIAL_PORT	0x2F8
-#define DEBUG_USE_VSNPRINTF	1
+#define DEBUG_USE_VSNPRINTF	0
 #define	DEBUG_MAX_LINE_LEN	256
 
 // === IMPORTS ===
@@ -144,6 +144,7 @@ void Debug_Fmt(const char *format, va_list args)
 	#if DEBUG_USE_VSNPRINTF
 	char	buf[DEBUG_MAX_LINE_LEN];
 	 int	len;
+	buf[DEBUG_MAX_LINE_LEN-1] = 0;
 	len = vsnprintf(buf, DEBUG_MAX_LINE_LEN-1, format, args);
 	//if( len < DEBUG_MAX_LINE )
 		// do something
@@ -176,7 +177,7 @@ void Debug_Fmt(const char *format, va_list args)
 
 		// Pointer
 		if(c == 'p') {
-			Uint	ptr = va_arg(*args, Uint);
+			Uint	ptr = va_arg(args, Uint);
 			Debug_Putchar('*');	Debug_Putchar('0');	Debug_Putchar('x');
 			p = tmpBuf;
 			itoa(p, ptr, 16, BITS/4, '0');
@@ -184,7 +185,7 @@ void Debug_Fmt(const char *format, va_list args)
 		}
 
 		// Get Argument
-		arg = va_arg(*args, Uint);
+		arg = va_arg(args, Uint);
 
 		// - Padding Side Flag
 		if(c == '+') {
@@ -218,7 +219,7 @@ void Debug_Fmt(const char *format, va_list args)
 			c = *format++;
 			if(c == 'l') {
 				#if BITS == 32
-				arg |= va_arg(*args, Uint);
+				arg |= va_arg(args, Uint);
 				#endif
 				c = *format++;
 				isLongLong = 1;
@@ -389,9 +390,8 @@ void Debug_Enter(char *FuncName, char *ArgTypes, ...)
 		case 'u':	Debug_Fmt("%u", args);	break;
 		case 'x':	Debug_Fmt("0x%x", args);	break;
 		case 'b':	Debug_Fmt("0b%b", args);	break;
-		// Extended (64-Bit)
-		case 'X':	Debug_Fmt("0x%llx", args);	break;
-		case 'B':	Debug_Fmt("0b%llb", args);	break;
+		case 'X':	Debug_Fmt("0x%llx", args);	break;	// Extended (64-Bit)
+		case 'B':	Debug_Fmt("0b%llb", args);	break;	// Extended (64-Bit)
 		}
 		if(pos != -1) {
 			Debug_Putchar(',');	Debug_Putchar(' ');

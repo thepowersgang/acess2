@@ -28,7 +28,7 @@ struct sIPv4Header
 	} __attribute__((packed));
 	Uint8	FragOffHi;	// Number of 8-byte blocks from the original start
 	
-	Uint8	TTL;	// Max number of hops effectively
+	Uint8	TTL;	// Max number of hops, effectively
 	Uint8	Protocol;
 	Uint16	HeaderChecksum;	// One's Complement Sum of the entire header must equal zero
 	

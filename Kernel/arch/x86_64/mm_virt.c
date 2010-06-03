@@ -335,19 +335,14 @@ void MM_Deallocate(tVAddr VAddr)
  */
 tPAddr MM_GetPhysAddr(tVAddr Addr)
 {
-	Log("MM_GetPhysAddr: (Addr=0x%x)", Addr);
 	if( !(PAGEMAPLVL4(Addr >> 39) & 1) )
 		return 0;
-	Log(" MM_GetPhysAddr: PDP Valid");
 	if( !(PAGEDIRPTR(Addr >> 30) & 1) )
 		return 0;
-	Log(" MM_GetPhysAddr: PD Valid");
 	if( !(PAGEDIR(Addr >> 21) & 1) )
 		return 0;
-	Log(" MM_GetPhysAddr: PT Valid");
 	if( !(PAGETABLE(Addr >> PTAB_SHIFT) & 1) )
 		return 0;
-	Log(" MM_GetPhysAddr: Page Valid");
 	
 	return (PAGETABLE(Addr >> PTAB_SHIFT) & ~0xFFF) | (Addr & 0xFFF);
 }

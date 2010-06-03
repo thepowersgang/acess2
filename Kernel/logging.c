@@ -77,10 +77,12 @@ void Log_AddEvent(char *Ident, int Level, char *Format, va_list Args)
 {
 	 int	len;
 	tLogEntry	*ent;
+	va_list	args_tmp;
 	
 	if( Level >= NUM_LOG_LEVELS )	return;
 	
-	len = vsnprintf(NULL, 256, Format, Args);
+	va_copy(args_tmp, Args);
+	len = vsnprintf(NULL, 256, Format, args_tmp);
 	
 	//Log("len = %i", len);
 	

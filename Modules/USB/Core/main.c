@@ -11,11 +11,11 @@
 #include "usb.h"
 
 // === IMPORTS ===
- int	UHCI_Initialise();
+extern int	UHCI_Initialise(void);
 
 // === PROTOTYPES ===
  int	USB_Install(char **Arguments);
-void	USB_Cleanup();
+void	USB_Cleanup(void);
 char	*USB_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*USB_FindDir(tVFS_Node *Node, char *Name);
  int	USB_IOCtl(tVFS_Node *Node, int Id, void *Data);
@@ -43,7 +43,7 @@ tUSBHost	*gUSB_Hosts = NULL;
 int USB_Install(char **Arguments)
 {
 	UHCI_Initialise();
-	Warning("[USB  ] Not Complete - Devel Only");
+	Log_Warning("USB", "Not Complete - Devel Only");
 	return MODULE_ERR_OK;
 }
 

@@ -21,7 +21,7 @@ struct sIPv6Header
 		unsigned Version:	4;
 		unsigned TrafficClass:	8;
 		unsigned FlowLabel:	20;
-	};
+	}	__attribute__((packed));
 	#endif
 	Uint16	PayloadLength;
 	Uint8	NextHeader;	// Type of payload data

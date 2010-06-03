@@ -34,25 +34,16 @@ SECTIONS {
 		*(.initpd)
 		*(.rodata)
 		*(.rdata)
+		
+		. = ALIGN(0x10);
 		gKernelModules = .;
 		*(KMODULES)
 		gKernelModulesEnd = .;
-		. = ALIGN(4);
+		. = ALIGN(0x10);
 		gKernelSymbols = .;
 		*(KEXPORT)
 		gKernelSymbolsEnd = .;
 	}
-	/*
-	.debug_abbrev : { *(.debug_abbrev) }
-	.debug_info : { *(.debug_info) }
-	.debug_line : { *(.debug_line) }
-	.debug_loc : { *(.debug_loc) }
-	.debug_pubnames : { *(.debug_pubnames) }
-	.debug_aranges : { *(.debug_aranges) }
-	.debug_ranges : { *(.debug_ranges) }
-	.debug_str : { *(.debug_str) }
-	.debug_frame : { *(.debug_frame) }
-	*/
 	
 	.padata ALIGN (0x1000) : AT(ADDR(.padata) - _kernel_base) {
 		*(.padata)

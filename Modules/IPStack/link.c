@@ -52,7 +52,10 @@ void Link_RegisterType(Uint16 Type, tPacketCallback Callback)
 	{
 		tmp = realloc(gaRegisteredTypes, (giRegisteredTypes+1)*sizeof(*gaRegisteredTypes));
 		if(!tmp) {
-			Log_Warning("NET", "Out of heap space!");
+			Log_Warning("NET",
+				"Out of heap space! (Attempted to allocate %i)",
+				(giRegisteredTypes+1)*sizeof(*gaRegisteredTypes)
+				);
 			return ;
 		}
 		i = giRegisteredTypes;

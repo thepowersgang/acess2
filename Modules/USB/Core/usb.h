@@ -65,11 +65,11 @@ enum eUSB_PIDs
 /**
  * \note 00101 - X^5+X^2+1
  */
-Uint8	USB_TokenCRC(void *Data, int len);
+extern Uint8	USB_TokenCRC(void *Data, int len);
 /**
  * \note X^16 + X15 + X^2 + 1
  */
-Uint16	USB_DataCRC(void *Data, int len);
+extern Uint16	USB_DataCRC(void *Data, int len);
 
 // === STRUCTURES ===
 /**

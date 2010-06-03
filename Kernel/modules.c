@@ -2,7 +2,7 @@
  * Acess2
  * - Module Loader
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <acess.h>
 #include <modules.h>
 
@@ -27,7 +27,7 @@ EXPORT(Module_RegisterLoader);
 extern int	UDI_LoadDriver(void *Base);
 #endif
 extern void	StartupPrint(char *Str);
-extern tModule	gKernelModules[];
+extern void	gKernelModules;
 extern void	gKernelModulesEnd;
 
 // === GLOBALS ===
@@ -36,6 +36,7 @@ tSpinlock	glModuleSpinlock;
 tModule	*gLoadedModules = NULL;
 tModuleLoader	*gModule_Loaders = NULL;
 tModule	*gLoadingModules = NULL;
+tModule	**gapBuiltinModules = NULL;
 char	**gasBuiltinModuleArgs;
 
 // === CODE ===
@@ -57,6 +58,25 @@ int Module_int_Initialise(tModule *Module, char *ArgString)
 	tModule	*mod;
 	
 	ENTER("pModule", Module);
+	LOG("Module->Magic = 0x%x", Module->Magic);
+	if(Module->Magic != MODULE_MAGIC) {
+		Log_Warning(
+			"Module",
+			"Module %p is no a valid Acess2 module (0x%08x != 0x%08x)",
+			Module, Module->Magic, MODULE_MAGIC
+			);
+		LEAVE('i', MODULE_ERR_BADMODULE);
+		return MODULE_ERR_BADMODULE;
+	}
+	LOG("Module->Name = %p \"%s\"", Module->Name, Module->Name);
+	
+	if(Module->Arch != MODULE_ARCH_ID) {
+		Log_Warning(
+			"Module",
+			"Module %p (%s) is for another architecture (%i)",
+			Module, Module->Name, Module->Arch
+			);
+	}
 	
 	deps = Module->Dependencies;
 	
@@ -96,7 +116,7 @@ int Module_int_Initialise(tModule *Module, char *ArgString)
 		// So, if it's not loaded, we better load it then
 		for( i = 0; i < giNumBuiltinModules; i ++ )
 		{
-			if( strcmp(deps[j], gKernelModules[i].Name) == 0 )
+			if( strcmp(deps[j], gapBuiltinModules[i]->Name) == 0 )
 				break;
 		}
 		if( i == giNumBuiltinModules ) {
@@ -107,7 +127,7 @@ int Module_int_Initialise(tModule *Module, char *ArgString)
 		
 		// Dependency is not loaded, so load it
 		ret = Module_int_Initialise(
-			&gKernelModules[i],
+			gapBuiltinModules[i],
 			gasBuiltinModuleArgs ? gasBuiltinModuleArgs[i] : NULL
 			);
 		if( ret )
@@ -168,20 +188,61 @@ int Module_int_Initialise(tModule *Module, char *ArgString)
 }
 
 /**
+ * \brief Scans the builtin modules and creates an array of them
+ */
+void Modules_int_GetBuiltinArray(void)
+{
+	 int	i;
+	tModule	*module;
+	
+	// Count
+	module = &gKernelModules;
+	i = 0;
+	while( (tVAddr)module < (tVAddr)&gKernelModulesEnd )
+	{
+		if(module->Magic == MODULE_MAGIC) {
+			i ++;
+			module ++;
+		}
+		else
+			module = (void*)( (tVAddr)module + 4 );
+	}
+	
+	// Create
+	giNumBuiltinModules = i;
+	gasBuiltinModuleArgs = calloc( giNumBuiltinModules, sizeof(char*) );
+	gapBuiltinModules = malloc( giNumBuiltinModules * sizeof(tModule*) );
+	
+	
+	// Fill
+	module = &gKernelModules;
+	i = 0;
+	while( (tVAddr)module < (tVAddr)&gKernelModulesEnd )
+	{
+		if(module->Magic == MODULE_MAGIC) {
+			gapBuiltinModules[i] = module;
+			i ++;
+			module ++;
+		}
+		else
+			module = (void*)( (tVAddr)module + 4 );
+	}
+}
+
+/**
  * \brief Initialises builtin modules
  */
 void Modules_LoadBuiltins()
 {
 	 int	i;
 	
-	// Count modules
-	giNumBuiltinModules = (Uint)&gKernelModulesEnd - (Uint)&gKernelModules;
-	giNumBuiltinModules /= sizeof(tModule);
+	if( !gapBuiltinModules )
+		Modules_int_GetBuiltinArray();
 	
 	for( i = 0; i < giNumBuiltinModules; i++ )
 	{
 		Module_int_Initialise(
-			&gKernelModules[i],
+			gapBuiltinModules[i],
 			(gasBuiltinModuleArgs ? gasBuiltinModuleArgs[i] : NULL)
 			);
 	}
@@ -196,15 +257,16 @@ void Modules_LoadBuiltins()
 void Modules_SetBuiltinParams(char *Name, char *ArgString)
 {
 	 int	i;
-	if( gasBuiltinModuleArgs == NULL ) {
-		giNumBuiltinModules = (Uint)&gKernelModulesEnd - (Uint)&gKernelModules;
-		giNumBuiltinModules /= sizeof(tModule);
-		gasBuiltinModuleArgs = calloc( giNumBuiltinModules, sizeof(char*) );
+	
+	if( gasBuiltinModuleArgs == NULL )
+	{
+		Modules_int_GetBuiltinArray();
 	}
 	
-	for( i = 0; i < giNumBuiltinModules; i ++ )
+	// I hate expensive scans
+	for( i = 0; i < giNumBuiltinModules; i++ )
 	{
-		if(strcmp( gKernelModules[i].Name, Name ) == 0) {
+		if(strcmp( gapBuiltinModules[i]->Name, Name ) == 0) {
 			gasBuiltinModuleArgs[i] = ArgString;
 			return ;
 		}

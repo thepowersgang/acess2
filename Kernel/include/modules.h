@@ -36,7 +36,7 @@
 #if ARCHDIR == x86
 # define MODULE_ARCH_ID	1
 // IA64 - Architecture 2
-#elif ARCHDIR == x64
+#elif ARCHDIR == x86_64
 # define MODULE_ARCH_ID	2
 #else
 # error "Unknown architecture when determining MODULE_ARCH_ID ('" #ARCHDIR "')"
@@ -87,6 +87,7 @@ enum eModuleErrors
 	MODULE_ERR_NOTNEEDED,	//!< Module not needed
 	MODULE_ERR_MALLOC,	//!< Error with malloc/realloc/calloc
 	
+	MODULE_ERR_BADMODULE,	//!< Bad module (only used by loader)
 	MODULE_ERR_MAX	//!< Maximum defined error code
 };
 

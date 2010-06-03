@@ -3,7 +3,7 @@
  * 
  * Physical Memory Manager
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include <mboot.h>
 #include <mm_virt.h>

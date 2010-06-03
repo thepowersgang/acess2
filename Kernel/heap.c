@@ -11,7 +11,7 @@
 
 // === CONSTANTS ===
 #define	HEAP_INIT_SIZE	0x8000	// 32 KiB
-#define	BLOCK_SIZE	(sizeof(void*))	// 8 Machine Words
+#define	BLOCK_SIZE	(sizeof(void*))*8	// 8 Machine Words
 #define	COMPACT_HEAP	0	// Use 4 byte header?
 #define	FIRST_FIT	0
 
@@ -345,8 +345,15 @@ void *realloc(void *__ptr, size_t __size)
 	if(nextHead->Magic == MAGIC_FREE && nextHead->Size+head->Size >= newSize)
 	{
 		Uint	size = nextHead->Size + head->Size;
+		// Inexact fit, split things up
+		if(size > newSize)
+		{
+			// TODO
+			Warning("[Heap   ] TODO: Space efficient realloc when new size is smaller");
+		}
+		
 		// Exact fit
-		if(size == newSize)
+		if(size >= newSize)
 		{
 			Uint	oldDataSize;
 			// Set 1st (new/lower) header
@@ -360,11 +367,27 @@ void *realloc(void *__ptr, size_t __size)
 			// Clear old header
 			head->Size = 0;
 			head->Magic = 0;
+			// Copy data
 			memcpy(nextHead->Data, __ptr, oldDataSize);
+			// Return
+			return nextHead->Data;
 		}
+		// On to the expensive then
 	}
 	
-	return NULL;
+	// Well, darn
+	nextHead = malloc( __size );
+	nextHead -= 1;
+	
+	memcpy(
+		nextHead->Data,
+		__ptr,
+		head->Size - sizeof(tHeapFoot) - sizeof(tHeapHead)
+		);
+	
+	free(__ptr);
+	
+	return nextHead->Data;
 }
 
 /**
@@ -411,7 +434,8 @@ void Heap_Dump()
 	while( (Uint)head < (Uint)gHeapEnd )
 	{		
 		foot = (void*)( (Uint)head + head->Size - sizeof(tHeapFoot) );
-		Log_Log("Heap", "%p (0x%x): 0x%08lx 0x%lx", head, MM_GetPhysAddr((Uint)head), head->Size, head->Magic);
+		Log_Log("Heap", "%p (0x%x): 0x%08lx 0x%lx",
+			head, MM_GetPhysAddr((Uint)head), head->Size, head->Magic);
 		Log_Log("Heap", "%p 0x%lx", foot->Head, foot->Magic);
 		Log_Log("Heap", "");
 		
