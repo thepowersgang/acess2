@@ -482,7 +482,6 @@ void Vesa_2D_Blit(void *Ent, Uint16 DstX, Uint16 DstY, Uint16 SrcX, Uint16 SrcY,
 	
 	if( dst > src ) {
 		// Reverse copy
-		Debug("Reverse scroll");
 		dst += H*scrnpitch;
 		src += H*scrnpitch;
 		while( H -- ) {
@@ -496,7 +495,6 @@ void Vesa_2D_Blit(void *Ent, Uint16 DstX, Uint16 DstY, Uint16 SrcX, Uint16 SrcY,
 	}
 	else {
 		// Normal copy is OK
-		Debug("memcpy scroll");
 		while( H -- ) {
 			memcpy((void*)gpVesa_Framebuffer + dst, (void*)gpVesa_Framebuffer + src, W*sizeof(Uint32));
 			dst += scrnpitch;
