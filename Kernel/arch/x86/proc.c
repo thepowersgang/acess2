@@ -587,7 +587,6 @@ Uint Proc_MakeUserStack(void)
 	return base + USER_STACK_SZ;
 }
 
-
 /**
  * \fn void Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **EnvP, int DataSize)
  * \brief Starts a user task
@@ -599,19 +598,30 @@ void Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **
 	Uint	delta;
 	Uint16	ss, cs;
 	
-	LOG("stack = 0x%x", stack);
+	//Log("stack = %p", stack);
 	
 	// Copy Arguments
-	stack = (void*)( (Uint)stack - DataSize );
+	stack -= DataSize/sizeof(*stack);
 	memcpy( stack, ArgV, DataSize );
 	
-	// Adjust Arguments and environment
-	delta = (Uint)stack - (Uint)ArgV;
-	ArgV = (char**)stack;
-	for( i = 0; ArgV[i]; i++ )	ArgV[i] += delta;
-	i ++;
-	EnvP = &ArgV[i];
-	for( i = 0; EnvP[i]; i++ )	EnvP[i] += delta;
+	//Log("stack = %p", stack);
+	
+	if( DataSize )
+	{
+		// Adjust Arguments and environment
+		delta = (Uint)stack - (Uint)ArgV;
+		ArgV = (char**)stack;
+		for( i = 0; ArgV[i]; i++ )
+			ArgV[i] += delta;
+		i ++;
+		
+		// Do we care about EnvP?
+		if( EnvP ) {
+			EnvP = &ArgV[i];
+			for( i = 0; EnvP[i]; i++ )
+				EnvP[i] += delta;
+		}
+	}
 	
 	// User Mode Segments
 	ss = 0x23;	cs = 0x1B;

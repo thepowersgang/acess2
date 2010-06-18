@@ -142,6 +142,7 @@ int Proc_Execve(char *File, char **ArgV, char **EnvP)
 		strcpy(envpSaved[i], EnvP[i]);
 		strBuf += strlen(EnvP[i])+1;
 	}
+	envpSaved[i] = NULL;
 	
 	savedFile = malloc(strlen(File)+1);
 	strcpy(savedFile, File);
