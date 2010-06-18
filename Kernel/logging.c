@@ -123,7 +123,7 @@ void Log_AddEvent(char *Ident, int Level, char *Format, va_list Args)
  */
 void Log_Int_PrintMessage(tLogEntry *Entry)
 {
-	LogF("%s%018lli%s [%+8s] %s\x1B[0m\n",
+	LogF("%s%014lli%s [%+8s] %s\x1B[0m\n",
 		csaLevelColours[Entry->Level],
 		Entry->Time,
 		csaLevelCodes[Entry->Level],
