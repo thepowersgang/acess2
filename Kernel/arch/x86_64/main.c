@@ -35,7 +35,7 @@ void kmain(Uint MbMagic, void *MbInfoPtr)
 	case MULTIBOOT_MAGIC:
 		// Adjust Multiboot structure address
 		mbInfo = (void*)( (Uint)MbInfoPtr + KERNEL_BASE );
-		gsBootCmdLine = (char*)(mbInfo->CommandLine + KERNEL_BASE);
+		gsBootCmdLine = (char*)( (Uint)mbInfo->CommandLine + KERNEL_BASE);
 		
 		MM_InitPhys_Multiboot( mbInfo );	// Set up physical memory manager
 		break;

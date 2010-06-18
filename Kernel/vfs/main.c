@@ -13,12 +13,12 @@ extern tVFS_Driver	gRootFS_Info;
 extern tVFS_Driver	gDevFS_Info;
 
 // === PROTOTYPES ===
- int	VFS_Init();
+ int	VFS_Init(void);
 char	*VFS_GetTruePath(char *Path);
 void	VFS_GetMemPath(char *Dest, void *Base, Uint Length);
 tVFS_Driver	*VFS_GetFSByName(char *Name);
  int	VFS_AddDriver(tVFS_Driver *Info);
-void	VFS_UpdateDriverFile();
+void	VFS_UpdateDriverFile(void);
 
 // === EXPORTS ===
 EXPORT(VFS_AddDriver);
@@ -35,10 +35,10 @@ char	*gsVFS_MountFile = NULL;
 
 // === CODE ===
 /**
- * \fn int VFS_Init()
+ * \fn int VFS_Init(void)
  * \brief Initialises the VFS for use by the kernel and user
  */
-int VFS_Init()
+int VFS_Init(void)
 {
 	// Core Drivers
 	gVFS_Drivers = &gRootFS_Info;
@@ -125,10 +125,10 @@ int VFS_AddDriver(tVFS_Driver *Info)
 }
 
 /**
- * \fn void VFS_UpdateDriverFile()
+ * \fn void VFS_UpdateDriverFile(void)
  * \brief Updates the driver list file
  */
-void VFS_UpdateDriverFile()
+void VFS_UpdateDriverFile(void)
 {
 	tVFS_Driver	*drv;
 	 int	len = 0;

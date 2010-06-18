@@ -31,7 +31,7 @@ const char *csaERROR_NAMES[] = {
 	};
 
 // === CODE ===
-void __stack_chk_fail()
+void __stack_chk_fail(void)
 {
 	Panic("FATAL ERROR: Stack Check Failed\n");
 	for(;;);

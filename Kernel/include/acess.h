@@ -112,11 +112,12 @@ extern void	Log_Debug(char *Ident, char *Message, ...);
  * \name Debugging and Errors
  * \{
  */
-extern void	Debug_KernelPanic();	//!< Initiate a kernel panic
+extern void	Debug_KernelPanic(void);	//!< Initiate a kernel panic
 extern void	Panic(char *Msg, ...);	//!< Print a panic message (initiates a kernel panic)
 extern void	Warning(char *Msg, ...);	//!< Print a warning message
 extern void	LogF(char *Fmt, ...);	//!< Print a log message without a trailing newline
 extern void	Log(char *Fmt, ...);	//!< Print a log message
+extern void	Debug(char *Fmt, ...);	//!< Print a debug message (doesn't go to KTerm)
 extern void	LogV(char *Fmt, va_list Args);	//!< va_list Log message
 extern void	Debug_Enter(char *FuncName, char *ArgTypes, ...);
 extern void	Debug_Log(char *FuncName, char *Fmt, ...);
@@ -247,7 +248,7 @@ extern void	MM_UnmapHWPages(tVAddr VAddr, Uint Number);
  * \brief Allocate a single physical page
  * \return Physical address allocated
  */
-extern tPAddr	MM_AllocPhys();
+extern tPAddr	MM_AllocPhys(void);
 /**
  * \brief Allocate a contiguous range of physical pages
  * \param Pages	Number of pages to allocate
@@ -332,7 +333,7 @@ extern Uint8	ByteSum(void *Ptr, int Size);
  * \}
  */
 
-extern Uint	rand();
+extern Uint	rand(void);
 extern int	CallWithArgArray(void *Function, int NArgs, Uint *Args);
 
 // --- Heap ---
@@ -369,7 +370,7 @@ extern int	Module_LoadFile(char *Path, char *ArgStr);
  * \brief Create a timestamp from a time
  */
 extern Sint64	timestamp(int sec, int mins, int hrs, int day, int month, int year);
-extern Sint64	now();
+extern Sint64	now(void);
 extern int	Time_CreateTimer(int Delta, void *Callback, void *Argument);
 extern void	Time_RemoveTimer(int ID);
 extern void	Time_Delay(int Delay);
@@ -382,16 +383,16 @@ extern void	Time_Delay(int Delay);
  * \name Threads and Processes
  * \{
  */
-extern int	Proc_SpawnWorker();
+extern int	Proc_SpawnWorker(void);
 extern int	Proc_Spawn(char *Path);
-extern void	Threads_Exit();
-extern void	Threads_Yield();
-extern void	Threads_Sleep();
+extern void	Threads_Exit(int TID, int Status);
+extern void	Threads_Yield(void);
+extern void	Threads_Sleep(void);
 extern void	Threads_WakeTID(tTID Thread);
-extern tPID	Threads_GetPID();
-extern tTID	Threads_GetTID();
-extern tUID	Threads_GetUID();
-extern tGID	Threads_GetGID();
+extern tPID	Threads_GetPID(void);
+extern tTID	Threads_GetTID(void);
+extern tUID	Threads_GetUID(void);
+extern tGID	Threads_GetGID(void);
 extern int	SpawnTask(tThreadFunction Function, void *Arg);
 extern Uint	*Threads_GetCfgPtr(int Id);
 extern int	Threads_SetName(char *NewName);

@@ -18,14 +18,14 @@ const enum eConfigTypes	cCONFIG_TYPES[] = {
 };
 
 // === IMPORTS ===
-extern void	ArchThreads_Init();
-extern void	Proc_Start();
-extern tThread	*Proc_GetCurThread();
+extern void	ArchThreads_Init(void);
+extern void	Proc_Start(void);
+extern tThread	*Proc_GetCurThread(void);
 extern int	Proc_Clone(Uint *Err, Uint Flags);
 extern void	Proc_CallFaultHandler(tThread *Thread);
 
 // === PROTOTYPES ===
-void	Threads_Init();
+void	Threads_Init(void);
  int	Threads_SetName(char *NewName);
 char	*Threads_GetName(int ID);
 void	Threads_SetTickets(int Num);
@@ -36,17 +36,17 @@ void	Threads_AddToDelete(tThread *Thread);
 tThread	*Threads_int_GetPrev(tThread **List, tThread *Thread);
 void	Threads_Exit(int TID, int Status);
 void	Threads_Kill(tThread *Thread, int Status);
-void	Threads_Yield();
-void	Threads_Sleep();
+void	Threads_Yield(void);
+void	Threads_Sleep(void);
 void	Threads_Wake(tThread *Thread);
 void	Threads_AddActive(tThread *Thread);
- int	Threads_GetPID();
- int	Threads_GetTID();
-tUID	Threads_GetUID();
+ int	Threads_GetPID(void);
+ int	Threads_GetTID(void);
+tUID	Threads_GetUID(void);
  int	Threads_SetUID(Uint *Errno, tUID ID);
-tGID	Threads_GetGID();
+tGID	Threads_GetGID(void);
  int	Threads_SetGID(Uint *Errno, tUID ID);
-void	Threads_Dump();
+void	Threads_Dump(void);
 
 // === GLOBALS ===
 // -- Core Thread --
@@ -85,10 +85,10 @@ tThread	*gDeleteThreads = NULL;		// Threads to delete
 
 // === CODE ===
 /**
- * \fn void Threads_Init()
+ * \fn void Threads_Init(void)
  * \brief Initialse the thread list
  */
-void Threads_Init()
+void Threads_Init(void)
 {
 	ArchThreads_Init();
 	
@@ -448,20 +448,20 @@ void Threads_Kill(tThread *Thread, int Status)
 }
 
 /**
- * \fn void Threads_Yield()
+ * \fn void Threads_Yield(void)
  * \brief Yield remainder of timeslice
  */
-void Threads_Yield()
+void Threads_Yield(void)
 {
 	Proc_GetCurThread()->Remaining = 0;
 	HALT();
 }
 
 /**
- * \fn void Threads_Sleep()
+ * \fn void Threads_Sleep(void)
  * \brief Take the current process off the run queue
  */
-void Threads_Sleep()
+void Threads_Sleep(void)
 {
 	tThread *cur = Proc_GetCurThread();
 	tThread *thread;
@@ -612,19 +612,19 @@ void Threads_Fault(int Num)
 }
 
 // --- Process Structure Access Functions ---
-tPID Threads_GetPID()
+tPID Threads_GetPID(void)
 {
 	return Proc_GetCurThread()->TGID;
 }
-tTID Threads_GetTID()
+tTID Threads_GetTID(void)
 {
 	return Proc_GetCurThread()->TID;
 }
-tUID Threads_GetUID()
+tUID Threads_GetUID(void)
 {
 	return Proc_GetCurThread()->UID;
 }
-tGID Threads_GetGID()
+tGID Threads_GetGID(void)
 {
 	return Proc_GetCurThread()->GID;
 }
@@ -654,10 +654,10 @@ int Threads_SetGID(Uint *Errno, tGID ID)
 }
 
 /**
- * \fn void Threads_Dump()
+ * \fn void Threads_Dump(void)
  * \brief Dums a list of currently running threads
  */
-void Threads_Dump()
+void Threads_Dump(void)
 {
 	tThread	*thread;
 	tThread	*cur = Proc_GetCurThread();

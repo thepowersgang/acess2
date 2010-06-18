@@ -22,7 +22,6 @@ extern void	Threads_Init(void);
 extern int	Time_Setup(void);
 extern Uint	Proc_Clone(Uint *Err, Uint Flags);
 extern void	Threads_Sleep(void);
-extern void	Threads_Exit(void);
 // --- Core ---
 extern void	System_Init(char *Commandline);
 

@@ -54,7 +54,7 @@ tDrvUtil_Video_2DHandlers	gVesa_2DFunctions = {
 	Vesa_2D_Blit
 };
 
-//CODE
+// === CODE ===
 int Vesa_Install(char **Arguments)
 {
 	tVesa_CallInfo	*info;
@@ -240,7 +240,7 @@ Uint64 Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 			);
 		
 		// Sanity Check
-		if(y > heightInChars) {
+		if(y >= heightInChars) {
 			LEAVE('i', 0);
 			return 0;
 		}
@@ -461,42 +461,46 @@ void Vesa_2D_Fill(void *Ent, Uint16 X, Uint16 Y, Uint16 W, Uint16 H, Uint32 Colo
 
 void Vesa_2D_Blit(void *Ent, Uint16 DstX, Uint16 DstY, Uint16 SrcX, Uint16 SrcY, Uint16 W, Uint16 H)
 {
-	 int	scrnwidth = gVesa_Modes[giVesaCurrentMode].width;
-	 int	dst = DstY*scrnwidth + DstX;
-	 int	src = SrcY*scrnwidth + SrcX;
+	 int	scrnpitch = gVesa_Modes[giVesaCurrentMode].pitch;
+	 int	dst = DstY*scrnpitch + DstX;
+	 int	src = SrcY*scrnpitch + SrcX;
 	 int	tmp;
 	
 	//Log("Vesa_2D_Blit: (Ent=%p, DstX=%i, DstY=%i, SrcX=%i, SrcY=%i, W=%i, H=%i)",
 	//	Ent, DstX, DstY, SrcX, SrcY, W, H);
 	
-	if(SrcX + W > scrnwidth)
-		W = scrnwidth - SrcX;
-	if(DstX + W > scrnwidth)
-		W = scrnwidth - DstX;
+	if(SrcX + W > gVesa_Modes[giVesaCurrentMode].width)
+		W = gVesa_Modes[giVesaCurrentMode].width - SrcX;
+	if(DstX + W > gVesa_Modes[giVesaCurrentMode].width)
+		W = gVesa_Modes[giVesaCurrentMode].width - DstX;
 	if(SrcY + H > gVesa_Modes[giVesaCurrentMode].height)
 		H = gVesa_Modes[giVesaCurrentMode].height - SrcY;
 	if(DstY + H > gVesa_Modes[giVesaCurrentMode].height)
 		H = gVesa_Modes[giVesaCurrentMode].height - DstY;
 	
+	//Debug("W = %i, H = %i", W, H);
+	
 	if( dst > src ) {
 		// Reverse copy
-		dst += H*scrnwidth;
-		src += H*scrnwidth;
+		Debug("Reverse scroll");
+		dst += H*scrnpitch;
+		src += H*scrnpitch;
 		while( H -- ) {
-			dst -= scrnwidth;
-			src -= scrnwidth;
+			dst -= scrnpitch;
+			src -= scrnpitch;
 			tmp = W;
 			for( tmp = W; tmp --; ) {
-				*((Uint32*)gpVesa_Framebuffer + dst + tmp) = *((Uint32*)gpVesa_Framebuffer + src + tmp);
+				*(Uint32*)(gpVesa_Framebuffer + dst + tmp) = *(Uint32*)(gpVesa_Framebuffer + src + tmp);
 			}
 		}
 	}
 	else {
 		// Normal copy is OK
+		Debug("memcpy scroll");
 		while( H -- ) {
-			memcpy((Uint32*)gpVesa_Framebuffer + dst, (Uint32*)gpVesa_Framebuffer + src, W);
-			dst += scrnwidth;
-			src += scrnwidth;
+			memcpy((void*)gpVesa_Framebuffer + dst, (void*)gpVesa_Framebuffer + src, W);
+			dst += scrnpitch;
+			src += scrnpitch;
 		}
 	}
 }

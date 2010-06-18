@@ -27,7 +27,7 @@ typedef struct sKernelBin {
 extern int	Proc_Clone(Uint *Err, Uint Flags);
 extern char	*Threads_GetName(int ID);
 extern void	Threads_Exit(int, int);
-extern Uint	MM_ClearUser();
+extern Uint	MM_ClearUser(void);
 extern void	Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **EnvP, int DataSize);
 extern tKernelSymbol	gKernelSymbols[];
 extern void		gKernelSymbolsEnd;

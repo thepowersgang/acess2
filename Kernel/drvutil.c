@@ -64,6 +64,12 @@ Uint64 DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
 				return Length-rem;
 			}
 			
+			//Log("Handlers->Blit{%}}(%p, %i,%i, %i,%i, %i,%i)",
+			//	Handlers->Blit, Ent,
+			//	*(Uint16*)(&stream[0]), *(Uint16*)(&stream[2]),
+			//	*(Uint16*)(&stream[4]), *(Uint16*)(&stream[6]),
+			//	*(Uint16*)(&stream[8]), *(Uint16*)(&stream[10])
+			//	);
 			Handlers->Blit(
 				Ent,
 				*(Uint16*)(&stream[0]), *(Uint16*)(&stream[2]),

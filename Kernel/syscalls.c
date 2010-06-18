@@ -26,11 +26,7 @@ extern int	Proc_GetMessage(Uint *Err, Uint *Source, void *Buffer);
 extern int	Proc_Execve(char *File, char **ArgV, char **EnvP);
 extern Uint	Binary_Load(char *file, Uint *entryPoint);
 extern int	Threads_SetName(char *NewName);
-extern int	Threads_GetPID();
-extern int	Threads_GetTID();
-extern tUID	Threads_GetUID();
 extern int	Threads_SetUID(Uint *errno, tUID ID);
-extern tGID	Threads_GetGID();
 extern int	Threads_SetGID(Uint *errno, tGID ID);
 extern int	Threads_SetFaultHandler(Uint Handler);
 

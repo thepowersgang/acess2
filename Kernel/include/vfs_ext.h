@@ -109,7 +109,7 @@ typedef struct sFInfo
  * \brief Initialise the VFS (called by system.c)
  * \return Boolean Success
  */
-extern int	VFS_Init();
+extern int	VFS_Init(void);
 
 /**
  * \brief Open a file

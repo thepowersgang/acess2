@@ -3,7 +3,9 @@
  * Linker Script
  */
 
-_kernel_base = 0xFFFF800000000000;
+/* _kernel_base = 0xFFFF800000000000; */
+/* -2 GiB */
+_kernel_base = 0xFFFFFFFF80000000;
 
 OUTPUT_FORMAT(elf32-i386)
 OUTPUT_ARCH(i386:x86-64)

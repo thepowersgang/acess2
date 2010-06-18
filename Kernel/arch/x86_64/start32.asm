@@ -1,7 +1,8 @@
 
 [BITS 32]
 
-KERNEL_BASE	equ	0xFFFF800000000000
+;KERNEL_BASE	equ	0xFFFF800000000000
+KERNEL_BASE	equ	0xFFFFFFFF80000000
 
 [section .multiboot]
 mboot:
@@ -45,9 +46,11 @@ start:
 	test edx, 1<<29
 	jz .not64bitCapable
 
-	; Enable PAE
+	; Enable PGE (Page Global Enable)
+	; + PAE (Physical Address Extension)
+	; + PSE (Page Size Extensions)
 	mov eax, cr4
-	or eax, 0x80|0x20
+	or eax, 0x80|0x20|0x10
 	mov cr4, eax
 
 	; Load PDP4
@@ -110,17 +113,20 @@ gMultibootPtr:
 [global gInitialPML4]
 gInitialPML4:	; Covers 256 TiB (Full 48-bit Virtual Address Space)
 	dd	gInitialPDP - KERNEL_BASE + 3, 0	; Identity Map Low 4Mb
-	times 256-1 dq	0
-	dd	gInitialPDP - KERNEL_BASE + 3, 0	; Map Low 4Mb to kernel base
-	times 256-1-4 dq 0
+	times 512-1-4 dq	0
 	dd	gInitialPML4 - KERNEL_BASE + 3, 0	; Fractal Mapping
 	dq	0
 	dq	0
-	dq	0
+	dd	gHighPDP - KERNEL_BASE + 3, 0	; Map Low 4Mb to kernel base
 
 gInitialPDP:	; Covers 512 GiB
 	dd	gInitialPD - KERNEL_BASE + 3, 0
 	times 511	dq	0
+
+gHighPDP:	; Covers 512 GiB
+	times 510	dq	0
+	dq	0 + 0x143	; 1 GiB Page from zero
+	dq	0
 
 gInitialPD:	; Covers 1 GiB
 	dd	gInitialPT1 - KERNEL_BASE + 3, 0
@@ -130,13 +136,13 @@ gInitialPD:	; Covers 1 GiB
 gInitialPT1:	; Covers 2 MiB
 	%assign i 0
 	%rep 512
-	dq	i*4096+3
+	dq	i*4096+0x103
 	%assign i i+1
 	%endrep
 gInitialPT2:	; 2 MiB
 	%assign i 512
 	%rep 512
-	dq	i*4096+3
+	dq	i*4096+0x103
 	%assign i i+1
 	%endrep
 

@@ -20,14 +20,14 @@ extern Uint64	giPartMiliseconds;
 extern void	Timer_CallTimers(void);
 
 // === PROTOTYPES ===
-void	Time_Interrupt();
+void	Time_Interrupt(int);
 
 // === CODE ===
 /**
- * \fn int Time_Setup()
+ * \fn int Time_Setup(void)
  * \brief Sets the system time from the Realtime-Clock
  */
-int Time_Setup()
+int Time_Setup(void)
 {
 	Uint8	val;
 	
@@ -57,10 +57,10 @@ int Time_Setup()
 }
 
 /**
- * \fn void Time_Interrupt()
+ * \fn void Time_Interrupt(void)
  * \brief Called on the timekeeping IRQ
  */
-void Time_Interrupt()
+void Time_Interrupt(int irq)
 {
 	giTicks ++;
 	giTimestamp += MS_PER_TICK_WHOLE;
@@ -79,9 +79,9 @@ void Time_Interrupt()
 
 #if 0
 /**
- * \fn void Time_TimerThread()
+ * \fn void Time_TimerThread(void)
  */
-void Time_TimerThread()
+void Time_TimerThread(void)
 {
 	Sint64	next;
 	Threads_SetName("TIMER");

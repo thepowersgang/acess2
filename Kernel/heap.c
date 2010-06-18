@@ -20,12 +20,12 @@
 #define	MAGIC_USED	0x862B0505	// MAGIC_FOOT ^ MAGIC_FREE
 
 // === PROTOTYPES ===
-void	Heap_Install();
+void	Heap_Install(void);
 void	*Heap_Extend(int Bytes);
 void	*Heap_Merge(tHeapHead *Head);
 void	*malloc(size_t Bytes);
 void	free(void *Ptr);
-void	Heap_Dump();
+void	Heap_Dump(void);
 
 // === GLOBALS ===
 tSpinlock	glHeap;
@@ -33,7 +33,7 @@ void	*gHeapStart;
 void	*gHeapEnd;
 
 // === CODE ===
-void Heap_Install()
+void Heap_Install(void)
 {
 	gHeapStart	= (void*)MM_KHEAP_BASE;
 	gHeapEnd	= (void*)MM_KHEAP_BASE;
@@ -425,7 +425,7 @@ int IsHeap(void *Ptr)
 }
 
 #if WARNINGS
-void Heap_Dump()
+void Heap_Dump(void)
 {
 	tHeapHead	*head;
 	tHeapFoot	*foot;

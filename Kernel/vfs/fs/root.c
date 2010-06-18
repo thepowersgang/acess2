@@ -16,7 +16,7 @@ tVFS_Node	*Root_FindDir(tVFS_Node *Node, char *Name);
 char	*Root_ReadDir(tVFS_Node *Node, int Pos);
 Uint64	Root_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
 Uint64	Root_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
-tRamFS_File	*Root_int_AllocFile();
+tRamFS_File	*Root_int_AllocFile(void);
 
 // === GLOBALS ===
 tVFS_Driver	gRootFS_Info = {
@@ -210,10 +210,10 @@ Uint64 Root_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 }
 
 /**
- * \fn tRamFS_File *Root_int_AllocFile()
+ * \fn tRamFS_File *Root_int_AllocFile(void)
  * \brief Allocates a file from the pool
  */
-tRamFS_File *Root_int_AllocFile()
+tRamFS_File *Root_int_AllocFile(void)
 {
 	 int	i;
 	for( i = 0; i < MAX_FILES; i ++ )

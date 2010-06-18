@@ -99,6 +99,10 @@ int VGA_IOCtl(tVFS_Node *Node, int Id, void *Data)
 		((tVideo_IOCtl_Mode*)Data)->height = VGA_HEIGHT;
 		((tVideo_IOCtl_Mode*)Data)->bpp = 4;
 		return 1;
+	
+	case VIDEO_IOCTL_SETBUFFORMAT:
+		return 0;
+	
 	case VIDEO_IOCTL_SETCURSOR:
 		VGA_int_SetCursor( ((tVideo_IOCtl_Pos*)Data)->x, ((tVideo_IOCtl_Pos*)Data)->y );
 		return 1;

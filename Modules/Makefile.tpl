@@ -12,7 +12,7 @@ CFGFILES += $(shell test -f Makefile.cfg && echo Makefile.cfg)
 -include $(CFGFILES)
 
 CPPFLAGS := -I$(ACESSDIR)/Kernel/include -I$(ACESSDIR)/Kernel/arch/$(ARCHDIR)/include -DARCH=$(ARCH) $(_CPPFLAGS)
-CFLAGS := $(KERNEL_CFLAGS) -Wall -Werror -fno-stack-protector $(CPPFLAGS) -O3 -fno-builtin
+CFLAGS := -Wall -Werror -fno-stack-protector $(CPPFLAGS) -O3 -fno-builtin
 
 ifeq ($(BUILDTYPE),dynamic)
 	_SUFFIX := dyn_$(ARCH)
@@ -21,9 +21,10 @@ ifeq ($(BUILDTYPE),dynamic)
 	else
 		BIN := ../$(NAME).kmd.$(ARCH)
 	endif
-	CFLAGS += -fPIC
+	CFLAGS += $(DYNMOD_CFLAGS) -fPIC
 else
 	_SUFFIX := st_$(ARCH)
+	CFLAGS += $(KERNEL_CFLAGS)
 	BIN := ../$(NAME).xo.$(ARCH)
 endif
 

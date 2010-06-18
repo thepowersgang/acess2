@@ -55,7 +55,7 @@ const struct {
 /**
  * \brief Sets the screen mode for a kernel panic
  */
-void KernelPanic_SetMode()
+void KernelPanic_SetMode(void)
 {
 	 int	i;
 	

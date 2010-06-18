@@ -12,7 +12,7 @@ extern char	*gsVFS_MountFile;
 
 // === PROTOTYPES ===
  int	VFS_Mount(char *Device, char *MountPoint, char *Filesystem, char *Options);
-void	VFS_UpdateMountFile();
+void	VFS_UpdateMountFile(void);
 
 // === GLOBALS ===
  int	glVFS_MountList = 0;
@@ -108,7 +108,7 @@ int VFS_Mount(char *Device, char *MountPoint, char *Filesystem, char *Options)
  * 
  * Updates the ProcFS mounts file buffer to match the current mounts list.
  */
-void VFS_UpdateMountFile()
+void VFS_UpdateMountFile(void)
 {
 	 int	len = 0;
 	char	*buf;

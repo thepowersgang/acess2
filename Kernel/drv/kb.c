@@ -14,14 +14,14 @@
 #define	USE_KERNEL_MAGIC	1
 
 // === IMPORTS ===
-void	Threads_Dump();
+void	Threads_Dump(void);
 
 // === PROTOTYPES ===
  int	KB_Install(char **Arguments);
-void	KB_IRQHandler();
+void	KB_IRQHandler(int IRQNum);
 void	KB_AddBuffer(char ch);
 Uint64	KB_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Dest);
-void	KB_UpdateLEDs();
+void	KB_UpdateLEDs(void);
  int	KB_IOCtl(tVFS_Node *Node, int Id, void *Data);
 
 // === GLOBALS ===
@@ -76,7 +76,7 @@ int KB_Install(char **Arguments)
  * \fn void KB_IRQHandler()
  * \brief Called on a keyboard IRQ
  */
-void KB_IRQHandler()
+void KB_IRQHandler(int IRQNum)
 {
 	Uint8	scancode;
 	Uint32	ch;
@@ -229,10 +229,10 @@ void KB_IRQHandler()
 }
 
 /**
- * \fn void KB_UpdateLEDs()
+ * \fn void KB_UpdateLEDs(void)
  * \brief Updates the status of the keyboard LEDs
  */
-void KB_UpdateLEDs()
+void KB_UpdateLEDs(void)
 {
 	Uint8	leds;
 

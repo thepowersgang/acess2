@@ -19,9 +19,9 @@ extern void	KernelPanic_PutChar(char Ch);
 
 // === PROTOTYPES ===
  int	putDebugChar(char ch);
- int	getDebugChar();
+ int	getDebugChar(void);
 static void	Debug_Putchar(char ch);
-static void	Debug_Puts(char *Str);
+static void	Debug_Puts(int DbgOnly, char *Str);
 void	Debug_Fmt(const char *format, va_list args);
 
 // === GLOBALS ===
@@ -49,7 +49,7 @@ int putDebugChar(char ch)
 	outb(GDB_SERIAL_PORT, ch);
 	return 0;
 }
-int getDebugChar()
+int getDebugChar(void)
 {
 	if(!gbGDB_SerialSetup) {
 		outb(GDB_SERIAL_PORT + 1, 0x00);    // Disable all interrupts
@@ -65,7 +65,7 @@ int getDebugChar()
 	return inb(GDB_SERIAL_PORT);
 }
 
-static void Debug_Putchar(char ch)
+static void Debug_PutCharDebug(char ch)
 {
 	#if DEBUG_TO_E9
 	__asm__ __volatile__ ( "outb %%al, $0xe9" :: "a"(((Uint8)ch)) );
@@ -85,7 +85,11 @@ static void Debug_Putchar(char ch)
 	while( (inb(SERIAL_PORT + 5) & 0x20) == 0 );
 	outb(SERIAL_PORT, ch);
 	#endif
-	
+}
+
+static void Debug_Putchar(char ch)
+{	
+	Debug_PutCharDebug(ch);
 	if( !gbDebug_IsKPanic )
 	{
 		if(gbInPutChar)	return ;
@@ -98,29 +102,12 @@ static void Debug_Putchar(char ch)
 		KernelPanic_PutChar(ch);
 }
 
-static void Debug_Puts(char *Str)
+static void Debug_Puts(int UseKTerm, char *Str)
 {
 	 int	len = 0;
 	while( *Str )
 	{
-		#if DEBUG_TO_E9
-		__asm__ __volatile__ ( "outb %%al, $0xe9" :: "a" ((Uint8)*Str) );
-		#endif
-		
-		#if DEBUG_TO_SERIAL
-		if(!gbDebug_SerialSetup) {
-			outb(SERIAL_PORT + 1, 0x00);	// Disable all interrupts
-			outb(SERIAL_PORT + 3, 0x80);	// Enable DLAB (set baud rate divisor)
-			outb(SERIAL_PORT + 0, 0x03);	// Set divisor to 3 (lo byte) 38400 baud
-			outb(SERIAL_PORT + 1, 0x00);	//                  (hi byte)
-			outb(SERIAL_PORT + 3, 0x03);	// 8 bits, no parity, one stop bit
-			outb(SERIAL_PORT + 2, 0xC7);	// Enable FIFO with 14-byte threshold and clear it
-			outb(SERIAL_PORT + 4, 0x0B);	// IRQs enabled, RTS/DSR set
-			gbDebug_SerialSetup = 1;
-		}
-		while( (inb(SERIAL_PORT + 5) & 0x20) == 0 );
-		outb(SERIAL_PORT, *Str);
-		#endif
+		Debug_PutCharDebug( *Str );
 		
 		if( gbDebug_IsKPanic )
 			KernelPanic_PutChar(*Str);
@@ -130,7 +117,7 @@ static void Debug_Puts(char *Str)
 	
 	Str -= len;
 	
-	if( !gbDebug_IsKPanic && giDebug_KTerm != -1)
+	if( UseKTerm && !gbDebug_IsKPanic && giDebug_KTerm != -1)
 	{
 		if(gbInPutChar)	return ;
 		gbInPutChar = 1;
@@ -139,152 +126,27 @@ static void Debug_Puts(char *Str)
 	}
 }
 
-void Debug_Fmt(const char *format, va_list args)
+void Debug_DbgOnlyFmt(const char *format, va_list args)
 {
-	#if DEBUG_USE_VSNPRINTF
 	char	buf[DEBUG_MAX_LINE_LEN];
 	 int	len;
 	buf[DEBUG_MAX_LINE_LEN-1] = 0;
 	len = vsnprintf(buf, DEBUG_MAX_LINE_LEN-1, format, args);
 	//if( len < DEBUG_MAX_LINE )
 		// do something
-	Debug_Puts(buf);
+	Debug_Puts(0, buf);
+}
+
+void Debug_Fmt(const char *format, va_list args)
+{
+	char	buf[DEBUG_MAX_LINE_LEN];
+	 int	len;
+	buf[DEBUG_MAX_LINE_LEN-1] = 0;
+	len = vsnprintf(buf, DEBUG_MAX_LINE_LEN-1, format, args);
+	//if( len < DEBUG_MAX_LINE )
+		// do something
+	Debug_Puts(1, buf);
 	return ;
-	#else
-	char	c, pad = ' ';
-	 int	minSize = 0, len;
-	char	tmpBuf[34];	// For Integers
-	char	*p = NULL;
-	 int	isLongLong = 0;
-	Uint64	arg;
-	 int	bPadLeft = 0;
-
-	while((c = *format++) != 0)
-	{
-		// Non control character
-		if( c != '%' ) {
-			Debug_Putchar(c);
-			continue;
-		}
-
-		c = *format++;
-
-		// Literal %
-		if(c == '%') {
-			Debug_Putchar('%');
-			continue;
-		}
-
-		// Pointer
-		if(c == 'p') {
-			Uint	ptr = va_arg(args, Uint);
-			Debug_Putchar('*');	Debug_Putchar('0');	Debug_Putchar('x');
-			p = tmpBuf;
-			itoa(p, ptr, 16, BITS/4, '0');
-			goto printString;
-		}
-
-		// Get Argument
-		arg = va_arg(args, Uint);
-
-		// - Padding Side Flag
-		if(c == '+') {
-			bPadLeft = 1;
-			c = *format++;
-		}
-
-		// Padding
-		if(c == '0') {
-			pad = '0';
-			c = *format++;
-		} else
-			pad = ' ';
-
-		// Minimum length
-		minSize = 1;
-		if('1' <= c && c <= '9')
-		{
-			minSize = 0;
-			while('0' <= c && c <= '9')
-			{
-				minSize *= 10;
-				minSize += c - '0';
-				c = *format++;
-			}
-		}
-
-		// Long (default)
-		isLongLong = 0;
-		if(c == 'l') {
-			c = *format++;
-			if(c == 'l') {
-				#if BITS == 32
-				arg |= va_arg(args, Uint);
-				#endif
-				c = *format++;
-				isLongLong = 1;
-			}
-		}
-
-		p = tmpBuf;
-		switch (c) {
-		case 'd':
-		case 'i':
-			if( (isLongLong && arg >> 63) || (!isLongLong && arg >> 31) ) {
-				Debug_Putchar('-');
-				arg = -arg;
-			}
-			itoa(p, arg, 10, minSize, pad);
-			goto printString;
-		case 'u':
-			itoa(p, arg, 10, minSize, pad);
-			goto printString;
-		case 'x':
-			itoa(p, arg, 16, minSize, pad);
-			goto printString;
-		case 'o':
-			itoa(p, arg, 8, minSize, pad);
-			goto printString;
-		case 'b':
-			itoa(p, arg, 2, minSize, pad);
-			goto printString;
-
-		printString:
-			if(!p)		p = "(null)";
-			while(*p)	Debug_Putchar(*p++);
-			break;
-
-		case 'B':	//Boolean
-			if(arg)	Debug_Puts("True");
-			else	Debug_Puts("False");
-			break;
-
-		case 's':
-			p = (char*)(Uint)arg;
-			if(!p)		p = "(null)";
-			len = strlen(p);
-			if( !bPadLeft )	while(len++ < minSize)	Debug_Putchar(pad);
-			while(*p)	Debug_Putchar(*p++);
-			if( bPadLeft )	while(len++ < minSize)	Debug_Putchar(pad);
-			break;
-
-		// Single Character / Array
-		case 'c':
-			if(minSize == 1) {
-				Debug_Putchar(arg);
-				break;
-			}
-			p = (char*)(Uint)arg;
-			if(!p)	goto printString;
-			while(minSize--)	Debug_Putchar(*p++);
-			break;
-
-		default:
-			Debug_Putchar(arg);
-			break;
-		}
-    }
-    #endif
 }
 
 void Debug_KernelPanic()
@@ -307,13 +169,27 @@ void LogF(char *Fmt, ...)
 	va_end(args);
 }
 /**
+ * \fn void Debug(char *Msg, ...)
+ * \brief Print only to the debug channel
+ */
+void Debug(char *Fmt, ...)
+{
+	va_list	args;
+
+	Debug_Puts(0, "Debug: ");
+	va_start(args, Fmt);
+	Debug_DbgOnlyFmt(Fmt, args);
+	va_end(args);
+	Debug_PutCharDebug('\n');
+}
+/**
  * \fn void Log(char *Msg, ...)
  */
 void Log(char *Fmt, ...)
 {
 	va_list	args;
 
-	Debug_Puts("Log: ");
+	Debug_Puts(1, "Log: ");
 	va_start(args, Fmt);
 	Debug_Fmt(Fmt, args);
 	va_end(args);
@@ -322,7 +198,7 @@ void Log(char *Fmt, ...)
 void Warning(char *Fmt, ...)
 {
 	va_list	args;
-	Debug_Puts("Warning: ");
+	Debug_Puts(1, "Warning: ");
 	va_start(args, Fmt);
 	Debug_Fmt(Fmt, args);
 	va_end(args);
@@ -334,7 +210,7 @@ void Panic(char *Fmt, ...)
 	
 	Debug_KernelPanic();
 	
-	Debug_Puts("Panic: ");
+	Debug_Puts(1, "Panic: ");
 	va_start(args, Fmt);
 	Debug_Fmt(Fmt, args);
 	va_end(args);
@@ -371,14 +247,14 @@ void Debug_Enter(char *FuncName, char *ArgTypes, ...)
 
 	while(i--)	Debug_Putchar(' ');
 
-	Debug_Puts(FuncName);	Debug_Puts(": (");
+	Debug_Puts(1, FuncName);	Debug_Puts(1, ": (");
 
 	while(*ArgTypes)
 	{
 		pos = strpos(ArgTypes, ' ');
 		if(pos != -1)	ArgTypes[pos] = '\0';
 		if(pos == -1 || pos > 1) {
-			Debug_Puts(ArgTypes+1);
+			Debug_Puts(1, ArgTypes+1);
 			Debug_Putchar('=');
 		}
 		if(pos != -1)	ArgTypes[pos] = ' ';
@@ -414,7 +290,7 @@ void Debug_Log(char *FuncName, char *Fmt, ...)
 
 	while(i--)	Debug_Putchar(' ');
 
-	Debug_Puts(FuncName);	Debug_Puts(": ");
+	Debug_Puts(1, FuncName);	Debug_Puts(1, ": ");
 	Debug_Fmt(Fmt, args);
 
 	va_end(args);
@@ -435,7 +311,7 @@ void Debug_Leave(char *FuncName, char RetType, ...)
 	// Indenting
 	while(i--)	Debug_Putchar(' ');
 
-	Debug_Puts(FuncName);	Debug_Puts(": RETURN");
+	Debug_Puts(1, FuncName);	Debug_Puts(1, ": RETURN");
 
 	// No Return
 	if(RetType == '-') {
@@ -446,7 +322,7 @@ void Debug_Leave(char *FuncName, char RetType, ...)
 	Debug_Putchar(' ');
 	switch(RetType)
 	{
-	case 'n':	Debug_Puts("NULL");	break;
+	case 'n':	Debug_Puts(1, "NULL");	break;
 	case 'p':	Debug_Fmt("%p", args);	break;
 	case 's':	Debug_Fmt("'%s'", args);	break;
 	case 'i':	Debug_Fmt("%i", args);	break;
@@ -464,7 +340,7 @@ void Debug_HexDump(char *Header, void *Data, Uint Length)
 {
 	Uint8	*cdat = Data;
 	Uint	pos = 0;
-	Debug_Puts(Header);
+	Debug_Puts(1, Header);
 	LogF(" (Hexdump of %p)\n", Data);
 
 	while(Length >= 16)
@@ -496,6 +372,7 @@ void Debug_HexDump(char *Header, void *Data, Uint Length)
 }
 
 // --- EXPORTS ---
+EXPORT(Debug);
 EXPORT(Log);
 EXPORT(Warning);
 EXPORT(Debug_Enter);

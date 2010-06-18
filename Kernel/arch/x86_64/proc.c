@@ -22,8 +22,8 @@
 
 // === IMPORTS ===
 extern tGDT	gGDT[];
-extern void APStartup();	// 16-bit AP startup code
-extern Uint	GetRIP();	// start.asm
+extern void APStartup(void);	// 16-bit AP startup code
+extern Uint	GetRIP(void);	// start.asm
 extern Uint64	gInitialPML4[512];	// start.asm
 extern void	gInitialKernelStack;
 extern tSpinlock	glThreadListLock;
@@ -42,18 +42,18 @@ extern void	Proc_ReturnToUser(void);
 extern void	GetCPUNum(void);
 
 // === PROTOTYPES ===
-void	ArchThreads_Init();
+void	ArchThreads_Init(void);
 #if USE_MP
 void	MP_StartAP(int CPU);
 void	MP_SendIPI(Uint8 APICID, int Vector, int DeliveryMode);
 #endif
-void	Proc_Start();
-tThread	*Proc_GetCurThread();
-void	Proc_ChangeStack();
+void	Proc_Start(void);
+tThread	*Proc_GetCurThread(void);
+void	Proc_ChangeStack(void);
  int	Proc_Clone(Uint *Err, Uint Flags);
 void	Proc_StartProcess(Uint16 SS, Uint Stack, Uint Flags, Uint16 CS, Uint IP);
 void	Proc_CallFaultHandler(tThread *Thread);
-void	Proc_Scheduler();
+void	Proc_Scheduler(int CPU);
 
 // === GLOBALS ===
 // --- Multiprocessing ---
@@ -73,10 +73,10 @@ Uint32	gaDoubleFaultStack[1024];
 
 // === CODE ===
 /**
- * \fn void ArchThreads_Init()
+ * \fn void ArchThreads_Init(void)
  * \brief Starts the process scheduler
  */
-void ArchThreads_Init()
+void ArchThreads_Init(void)
 {
 	Uint	pos = 0;
 	
@@ -333,20 +333,20 @@ void MP_SendIPI(Uint8 APICID, int Vector, int DeliveryMode)
 #endif
 
 /**
- * \fn void Proc_Start()
+ * \fn void Proc_Start(void)
  * \brief Start process scheduler
  */
-void Proc_Start()
+void Proc_Start(void)
 {
 	// Start Interrupts (and hence scheduler)
 	__asm__ __volatile__("sti");
 }
 
 /**
- * \fn tThread *Proc_GetCurThread()
+ * \fn tThread *Proc_GetCurThread(void)
  * \brief Gets the current thread
  */
-tThread *Proc_GetCurThread()
+tThread *Proc_GetCurThread(void)
 {
 	#if USE_MP
 	//return gaCPUs[ gaAPIC_to_CPU[gpMP_LocalAPIC->ID.Val&0xFF] ].Current;
@@ -357,10 +357,10 @@ tThread *Proc_GetCurThread()
 }
 
 /**
- * \fn void Proc_ChangeStack()
+ * \fn void Proc_ChangeStack(void)
  * \brief Swaps the current stack for a new one (in the proper stack reigon)
  */
-void Proc_ChangeStack()
+void Proc_ChangeStack(void)
 {
 	Uint	rsp, rbp;
 	Uint	tmp_rbp, old_rsp;
@@ -487,10 +487,10 @@ int Proc_Clone(Uint *Err, Uint Flags)
 }
 
 /**
- * \fn int Proc_SpawnWorker()
+ * \fn int Proc_SpawnWorker(void)
  * \brief Spawns a new worker thread
  */
-int Proc_SpawnWorker()
+int Proc_SpawnWorker(void)
 {
 	tThread	*new, *cur;
 	Uint	rip, rsp, rbp;
@@ -535,10 +535,10 @@ int Proc_SpawnWorker()
 }
 
 /**
- * \fn Uint Proc_MakeUserStack()
+ * \fn Uint Proc_MakeUserStack(void)
  * \brief Creates a new user stack
  */
-Uint Proc_MakeUserStack()
+Uint Proc_MakeUserStack(void)
 {
 	 int	i;
 	Uint	base = USER_STACK_TOP - USER_STACK_SZ;

@@ -74,8 +74,8 @@ extern void	Threads_SegFault(tVAddr Addr);
 extern void	Error_Backtrace(Uint eip, Uint ebp);
 
 // === PROTOTYPES ===
-void	MM_PreinitVirtual();
-void	MM_InstallVirtual();
+void	MM_PreinitVirtual(void);
+void	MM_InstallVirtual(void);
 void	MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs);
 void	MM_DumpTables(tVAddr Start, tVAddr End);
 tPAddr	MM_DuplicatePage(tVAddr VAddr);
@@ -102,10 +102,10 @@ Uint32	gWorkerStacks[(NUM_WORKER_STACKS+31)/32];
 
 // === CODE ===
 /**
- * \fn void MM_PreinitVirtual()
+ * \fn void MM_PreinitVirtual(void)
  * \brief Maps the fractal mappings
  */
-void MM_PreinitVirtual()
+void MM_PreinitVirtual(void)
 {
 	#if USE_PAE
 	gaInitPageDir[ ((PAGE_TABLE_ADDR >> TAB)-3*512+3)*2 ] = ((tTabEnt)&gaInitPageDir - KERNEL_BASE) | 3;
@@ -116,10 +116,10 @@ void MM_PreinitVirtual()
 }
 
 /**
- * \fn void MM_InstallVirtual()
+ * \fn void MM_InstallVirtual(void)
  * \brief Sets up the constant page mappings
  */
-void MM_InstallVirtual()
+void MM_InstallVirtual(void)
 {
 	 int	i;
 	
@@ -166,7 +166,7 @@ void MM_InstallVirtual()
 /**
  * \brief Cleans up the SMP required mappings
  */
-void MM_FinishVirtualInit()
+void MM_FinishVirtualInit(void)
 {
 	#if USE_PAE
 	gaInitPDPT[ 0 ] = 0;
@@ -479,7 +479,7 @@ int MM_Map(tVAddr VAddr, tPAddr PAddr)
  * \fn tVAddr MM_ClearUser()
  * \brief Clear user's address space
  */
-tVAddr MM_ClearUser()
+tVAddr MM_ClearUser(void)
 {
 	Uint	i, j;
 	
@@ -510,10 +510,10 @@ tVAddr MM_ClearUser()
 }
 
 /**
- * \fn tPAddr MM_Clone()
+ * \fn tPAddr MM_Clone(void)
  * \brief Clone the current address space
  */
-tPAddr MM_Clone()
+tPAddr MM_Clone(void)
 {
 	Uint	i, j;
 	tVAddr	ret;
@@ -636,10 +636,10 @@ tPAddr MM_Clone()
 }
 
 /**
- * \fn tVAddr MM_NewKStack()
+ * \fn tVAddr MM_NewKStack(void)
  * \brief Create a new kernel stack
  */
-tVAddr MM_NewKStack()
+tVAddr MM_NewKStack(void)
 {
 	tVAddr	base = KERNEL_STACKS;
 	Uint	i;

@@ -32,8 +32,8 @@ typedef struct
 }	tConfigCommand;
 
 // === IMPORTS ===
-extern void	Arch_LoadBootModules();
-extern int	Modules_LoadBuiltins();
+extern void	Arch_LoadBootModules(void);
+extern int	Modules_LoadBuiltins(void);
 extern void	Modules_SetBuiltinParams(char *Name, char *ArgString);
 extern void	Debug_SetKTerminal(char *File);
 

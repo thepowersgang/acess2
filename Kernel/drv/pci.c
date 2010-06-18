@@ -88,6 +88,10 @@ int PCI_Install(char **Arguments)
 	
 	// Build Portmap
 	gaPCI_PortBitmap = malloc( 1 << 13 );
+	if( !gaPCI_PortBitmap ) {
+		Log_Error("PCI", "Unable to allocate %i bytes for bitmap", 1 << 13);
+		return MODULE_ERR_MALLOC;
+	}
 	memset( gaPCI_PortBitmap, 0, 1 << 13 );
 	for( i = 0; i < MAX_RESERVED_PORT / 32; i ++ )
 		gaPCI_PortBitmap[i] = -1;
@@ -110,7 +114,7 @@ int PCI_Install(char **Arguments)
 					space += SPACE_STEP;
 					tmpPtr = realloc(gPCI_Devices, space*sizeof(tPCIDevice));
 					if(tmpPtr == NULL)
-						break;
+						return MODULE_ERR_MALLOC;
 					gPCI_Devices = tmpPtr;
 				}
 				if(devInfo.oc == PCI_OC_PCIBRIDGE)
@@ -141,15 +145,13 @@ int PCI_Install(char **Arguments)
 						break;
 				}
 			}
-			if(tmpPtr != gPCI_Devices)
-				break;
 		}
-		if(tmpPtr != gPCI_Devices)
-			break;
 	}
 	
-	if(giPCI_DeviceCount == 0)
+	if(giPCI_DeviceCount == 0) {
+		Log_Notice("PCI", "No devices were found");
 		return MODULE_ERR_NOTNEEDED;
+	}
 	
 	tmpPtr = realloc(gPCI_Devices, giPCI_DeviceCount*sizeof(tPCIDevice));
 	if(tmpPtr == NULL)

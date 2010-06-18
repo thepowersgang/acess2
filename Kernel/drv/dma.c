@@ -20,7 +20,7 @@ typedef struct
 } t_dmaChannel;
 
 // === PROTOTYPES ===
- int	DMA_Install();
+ int	DMA_Install(char **Arguments);
 void	DMA_SetChannel(int Channel, int length, int read);
  int	DMA_ReadData(int channel, int count, void *buffer);
 
@@ -39,10 +39,10 @@ t_dmaChannel	dma_channels[8];
 
 // === CODE ===
 /**
- * \fn int DMA_Install()
+ * \fn int DMA_Install(void)
  * \brief Initialise DMA channels
  */
-int DMA_Install()
+int DMA_Install(char **Arguments)
 {
 	Uint	i;
 	for(i=8;i--;)

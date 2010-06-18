@@ -73,7 +73,7 @@ typedef struct sModule
 	struct sModule	*Next;	//!< Next module in list (not to be touched by the driver)
 	char	*Name;	//!< Module Name/Identifier
 	 int	(*Init)(char **Arguments);	//!< Module initialiser / entrypoint
-	void	(*Deinit)();	//!< Cleanup Function
+	void	(*Deinit)(void);	//!< Cleanup Function
 	char	**Dependencies;	//!< NULL terminated list of dependencies
 } PACKED tModule;
 

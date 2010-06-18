@@ -913,19 +913,23 @@ void VT_int_PutString(tVTerm *Term, Uint8 *Buffer, Uint Count)
 {
 	Uint32	val;
 	 int	i;
+	
+	// Iterate
 	for( i = 0; i < Count; i++ )
 	{
-		if( Buffer[i] == 0x1B )	// Escape Sequence
+		// Handle escape sequences
+		if( Buffer[i] == 0x1B )
 		{
 			i ++;
 			i += VT_int_ParseEscape(Term, (char*)&Buffer[i]) - 1;
 			continue;
 		}
 		
+		// Fast check for non UTF-8
 		if( Buffer[i] < 128 )	// Plain ASCII
 			VT_int_PutChar(Term, Buffer[i]);
 		else {	// UTF-8
-			i += ReadUTF8(&Buffer[i], &val);
+			i += ReadUTF8(&Buffer[i], &val) - 1;
 			VT_int_PutChar(Term, val);
 		}
 	}
@@ -949,9 +953,7 @@ void VT_int_PutString(tVTerm *Term, Uint8 *Buffer, Uint Count)
 void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 {
 	 int	i;
-	//ENTER("pTerm xCh", Term, Ch);
-	//LOG("Term = {WritePos:%i, ViewPos:%i}", Term->WritePos, Term->ViewPos);
-	
+		
 	switch(Ch)
 	{
 	case '\0':	return;	// Ignore NULL byte
@@ -1000,21 +1002,27 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 	}
 	
 	// Move Screen
+	// - Check if we need to scroll the entire scrollback buffer
 	if(Term->WritePos >= Term->Width*Term->Height*(giVT_Scrollback+1))
 	{
 		 int	base, i;
+		
+		//Debug("Scrolling entire buffer");
+		
+		// Move back by one
 		Term->WritePos -= Term->Width;
+		// Update the scren
 		VT_int_UpdateScreen( Term, 0 );
 		
 		// Update view position
-		base = Term->Width*Term->Height*(giVT_Scrollback-1);
-		if(Term->ViewPos < base)	Term->ViewPos += Term->Width;
-		if(Term->ViewPos > base)	Term->ViewPos = base;
+		base = Term->Width*Term->Height*(giVT_Scrollback);
+		if(Term->ViewPos < base)
+			Term->ViewPos += Term->Width;
+		if(Term->ViewPos > base)
+			Term->ViewPos = base;
 		
 		// Scroll terminal cache
 		base = Term->Width*(Term->Height*(giVT_Scrollback+1)-1);
-		
-		// Scroll Back
 		memcpy(
 			Term->Text,
 			&Term->Text[Term->Width],
@@ -1028,18 +1036,26 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 			Term->Text[ base + i ].Colour = Term->CurColour;
 		}
 		
-		//LOG("Scrolled buffer");
 		VT_int_ScrollFramebuffer( Term );
 		VT_int_UpdateScreen( Term, 0 );
 	}
+	// Ok, so we only need to scroll the screen
 	else if(Term->WritePos >= Term->ViewPos + Term->Width*Term->Height)
 	{
-		//LOG("Scrolled screen");
+		//Debug("Term->WritePos (%i) >= %i",
+		//	Term->WritePos,
+		//	Term->ViewPos + Term->Width*Term->Height
+		//	);
+		//Debug("Scrolling screen only");
+		
+		// Update the last line
 		Term->WritePos -= Term->Width;
 		VT_int_UpdateScreen( Term, 0 );
 		Term->WritePos += Term->Width;
 		
+		// Scroll
 		Term->ViewPos += Term->Width;
+		//Debug("Term->ViewPos = %i", Term->ViewPos);
 		VT_int_ScrollFramebuffer( Term );
 		VT_int_UpdateScreen( Term, 0 );
 	}
@@ -1060,23 +1076,23 @@ void VT_int_ScrollFramebuffer( tVTerm *Term )
 		Uint16	SrcX, SrcY;
 		Uint16	W, H;
 	} PACKED	buf;
+	
 	// Only update if this is the current terminal
 	if( Term != gpVT_CurTerm )	return;
 	
-	// This should only be called in text mode
-	
+	// Switch to 2D Command Stream
 	tmp = VIDEO_BUFFMT_2DSTREAM;
 	VFS_IOCtl(giVT_OutputDevHandle, VIDEO_IOCTL_SETBUFFORMAT, &tmp);
 	
+	// BLIT from 0,0 to 0,giVT_CharHeight
 	buf.Op = VIDEO_2DOP_BLIT;
 	buf.DstX = 0;	buf.DstY = 0;
 	buf.SrcX = 0;	buf.SrcY = giVT_CharHeight;
 	buf.W = Term->Width * giVT_CharWidth;
 	buf.H = (Term->Height-1) * giVT_CharHeight;
+	VFS_WriteAt(giVT_OutputDevHandle, 0, sizeof(buf), &buf);
 	
-	VFS_WriteAt(giVT_OutputDevHandle, 0, 1+12, &buf);
-	
-	// Restore old mode
+	// Restore old mode (this function is only called during text mode)
 	tmp = VIDEO_BUFFMT_TEXT;
 	VFS_IOCtl(giVT_OutputDevHandle, VIDEO_IOCTL_SETBUFFORMAT, &tmp);
 }
@@ -1093,21 +1109,18 @@ void VT_int_UpdateScreen( tVTerm *Term, int UpdateAll )
 	switch( Term->Mode )
 	{
 	case TERM_MODE_TEXT:
+		// Re copy the entire screen?
 		if(UpdateAll) {
-			//LOG("UpdateAll = 1");
-			//LOG("VFS_WriteAt(0x%x, 0, %i*sizeof(tVT_Char), &Term->Text[%i])",
-			//	giVT_OutputDevHandle, Term->Width*Term->Height, Term->ViewPos);
 			VFS_WriteAt(
 				giVT_OutputDevHandle,
 				0,
 				Term->Width*Term->Height*sizeof(tVT_Char),
 				&Term->Text[Term->ViewPos]
 				);
-		} else {
+		}
+		// Only copy the current line
+		else {
 			 int	pos = Term->WritePos - Term->WritePos % Term->Width;
-			//LOG("UpdateAll = 0");
-			//LOG("VFS_WriteAt(0x%x, %i*sizeof(tVT_Char), %i*sizeof(tVT_Char), &Term->Text[%i])",
-			//	giVT_OutputDevHandle, (pos - Term->ViewPos), Term->Width, pos);
 			VFS_WriteAt(
 				giVT_OutputDevHandle,
 				(pos - Term->ViewPos)*sizeof(tVT_Char),

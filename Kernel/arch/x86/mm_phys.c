@@ -15,7 +15,7 @@
 extern void	gKernelEnd;
 
 // === PROTOTYPES ===
-tPAddr	MM_AllocPhys();
+tPAddr	MM_AllocPhys(void);
 tPAddr	MM_AllocPhysRange(int Pages, int MaxBits);
 void	MM_RefPhys(tPAddr PAddr);
 void	MM_DerefPhys(tPAddr PAddr);
@@ -123,10 +123,10 @@ void MM_Install(tMBoot_Info *MBoot)
 }
 
 /**
- * \fn tPAddr MM_AllocPhys()
+ * \fn tPAddr MM_AllocPhys(void)
  * \brief Allocates a physical page from the general pool
  */
-tPAddr MM_AllocPhys()
+tPAddr MM_AllocPhys(void)
 {
 	// int	a, b, c;
 	 int	indx;

@@ -34,7 +34,7 @@ typedef struct sTSS {
 } __attribute__((packed)) tTSS;
 
 // === FUNCTIONS ===
-extern void	Proc_Start();
+extern void	Proc_Start(void);
 extern int	Proc_Clone(Uint *Err, Uint Flags);
 
 #endif

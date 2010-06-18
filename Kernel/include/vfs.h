@@ -326,11 +326,11 @@ extern tVFS_ACL	*VFS_UnixToAcessACL(Uint Mode, Uint Owner, Uint Group);
  * \{
  */
 /**
- * \fn int Inode_GetHandle()
+ * \fn int Inode_GetHandle(void)
  * \brief Gets a unique handle to the Node Cache
  * \return A unique handle for use for the rest of the Inode_* functions
  */
-extern int	Inode_GetHandle();
+extern int	Inode_GetHandle(void);
 /**
  * \fn tVFS_Node *Inode_GetCache(int Handle, Uint64 Inode)
  * \brief Gets an inode from the node cache

@@ -17,7 +17,8 @@ typedef struct sTimer {
 } tTimer;
 
 // === PROTOTYPES ===
-void	Timer_CallTimers();
+Sint64	now(void);
+void	Timer_CallTimers(void);
 
 // === GLOBALS ===
 Uint64	giTicks = 0;
@@ -30,7 +31,7 @@ tTimer	gTimers[NUM_TIMERS];
  * \fn Sint64 now()
  * \brief Return the current timestamp
  */
-Sint64 now()
+Sint64 now(void)
 {
 	return giTimestamp;
 }

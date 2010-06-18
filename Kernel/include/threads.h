@@ -81,7 +81,7 @@ enum eFaultNumbers
 #define GETMSG_IGNORE	((void*)-1)
 
 // === FUNCTIONS ===
-extern tThread	*Proc_GetCurThread();
+extern tThread	*Proc_GetCurThread(void);
 extern tThread	*Threads_GetThread(Uint TID);
 extern void	Threads_Wake(tThread *Thread);
 extern void	Threads_AddActive(tThread *Thread);
