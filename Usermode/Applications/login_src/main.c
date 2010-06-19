@@ -18,9 +18,10 @@ int main(int argc, char *argv[])
 	 int	status = 0;
 	tUserInfo	*uinfo;
 	
+	printf("\x1B[2J");	// Clear Screen
+
 	for(;;)
 	{
-		printf("\x1B[2J");	// Clear Screen
 		// Validate User
 		for(;;)
 		{

@@ -27,7 +27,7 @@ int VFS_CheckACL(tVFS_Node *Node, Uint Permissions)
 	
 	// Root only file?, fast return
 	if( Node->NumACLs == 0 ) {
-		Log("VFS_CheckACL - %p inaccesable, NumACLs = 0", Node);
+		Log("VFS_CheckACL - %p inaccesable, NumACLs = 0, uid=%i", Node, uid);
 		return 0;
 	}
 	

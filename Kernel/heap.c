@@ -136,6 +136,8 @@ void *malloc(size_t Bytes)
 	// Get required size
 	Bytes = (Bytes + sizeof(tHeapHead) + sizeof(tHeapFoot) + BLOCK_SIZE-1) & ~(BLOCK_SIZE-1);
 	
+	//if(glHeap)
+	//	Debug("glHeap = %i", glHeap);
 	// Lock Heap
 	LOCK(&glHeap);
 	
@@ -147,11 +149,11 @@ void *malloc(size_t Bytes)
 	{
 		// Alignment Check
 		if( head->Size & (BLOCK_SIZE-1) ) {
+			RELEASE(&glHeap);	// Release spinlock
 			#if WARNINGS
 			Log_Warning("Heap", "Size of heap address %p is invalid not aligned (0x%x)", head, head->Size);
 			Heap_Dump();
 			#endif
-			RELEASE(&glHeap);
 			return NULL;
 		}
 		
@@ -159,11 +161,11 @@ void *malloc(size_t Bytes)
 		if(head->Magic == MAGIC_USED)	continue;
 		// Error check
 		if(head->Magic != MAGIC_FREE)	{
+			RELEASE(&glHeap);	// Release spinlock
 			#if WARNINGS
 			Log_Warning("Heap", "Magic of heap address %p is invalid (0x%x)", head, head->Magic);
 			Heap_Dump();
 			#endif
-			RELEASE(&glHeap);	// Release spinlock
 			return NULL;
 		}
 		
@@ -177,7 +179,6 @@ void *malloc(size_t Bytes)
 			#if DEBUG_TRACE
 			Log("[Heap   ] Malloc'd %p (%i bytes), returning to %p", head->Data, head->Size,  __builtin_return_address(0));
 			#endif
-			RELEASE(&glHeap);
 			return head->Data;
 		}
 		
@@ -207,10 +208,10 @@ void *malloc(size_t Bytes)
 		// Check size
 		if(best->Size == Bytes) {
 			best->Magic = MAGIC_USED;	// Mark block as used
+			RELEASE(&glHeap);	// Release spinlock
 			#if DEBUG_TRACE
 			Log("[Heap   ] Malloc'd %p (%i bytes), returning to %p", best->Data, best->Size, __builtin_return_address(0));
 			#endif
-			RELEASE(&glHeap);	// Release spinlock
 			return best->Data;
 		}
 	}

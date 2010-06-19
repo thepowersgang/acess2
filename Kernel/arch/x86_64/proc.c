@@ -349,7 +349,6 @@ void Proc_Start(void)
 tThread *Proc_GetCurThread(void)
 {
 	#if USE_MP
-	//return gaCPUs[ gaAPIC_to_CPU[gpMP_LocalAPIC->ID.Val&0xFF] ].Current;
 	return gaCPUs[ GetCPUNum() ].Current;
 	#else
 	return gCurrentThread;
