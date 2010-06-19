@@ -177,6 +177,7 @@ void *malloc(size_t Bytes)
 			#if DEBUG_TRACE
 			Log("[Heap   ] Malloc'd %p (%i bytes), returning to %p", head->Data, head->Size,  __builtin_return_address(0));
 			#endif
+			RELEASE(&glHeap);
 			return head->Data;
 		}
 		
@@ -205,10 +206,11 @@ void *malloc(size_t Bytes)
 		}
 		// Check size
 		if(best->Size == Bytes) {
-			RELEASE(&glHeap);	// Release spinlock
+			best->Magic = MAGIC_USED;	// Mark block as used
 			#if DEBUG_TRACE
 			Log("[Heap   ] Malloc'd %p (%i bytes), returning to %p", best->Data, best->Size, __builtin_return_address(0));
 			#endif
+			RELEASE(&glHeap);	// Release spinlock
 			return best->Data;
 		}
 	}
