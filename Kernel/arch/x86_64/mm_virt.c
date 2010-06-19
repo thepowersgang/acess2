@@ -47,6 +47,7 @@ void	MM_DumpTables(tVAddr Start, tVAddr End);
 // === CODE ===
 void MM_InitVirt(void)
 {
+	MM_DumpTables(0, -1L);
 }
 
 void MM_FinishVirtualInit(void)
@@ -137,17 +138,23 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 	tVAddr	curPos;
 	Uint	page;
 	
+	Log("Table Entries: (%p to %p)", Start, End);
+	
 	End &= (1L << 48) - 1;
 	
 	Start >>= 12;	End >>= 12;
 	
-	Log("Table Entries:");
 	for(page = Start, curPos = Start<<12;
 		page < End;
 		curPos += 0x1000, page++)
 	{
 		if( curPos == 0x800000000000L )
 			curPos = 0xFFFF800000000000L;
+		
+		//Debug("&PAGEMAPLVL4(%i page>>27) = %p", page>>27, &PAGEMAPLVL4(page>>27));
+		//Debug("&PAGEDIRPTR(%i page>>18) = %p", page>>18, &PAGEDIRPTR(page>>18));
+		//Debug("&PAGEDIR(%i page>>9) = %p", page>>9, &PAGEDIR(page>>9));
+		//Debug("&PAGETABLE(%i page) = %p", page, &PAGETABLE(page));
 		
 		// End of a range
 		if(
@@ -172,16 +179,19 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 			if( !(PAGEMAPLVL4(page>>27) & PF_PRESENT) ) {
 				page += (1 << 27) - 1;
 				curPos += (1L << 39) - 0x1000;
+				//Debug("pml4 ent unset (page = 0x%x now)", page);
 				continue;
 			}
 			if( !(PAGEDIRPTR(page>>18) & PF_PRESENT) ) {
 				page += (1 << 18) - 1;
 				curPos += (1L << 30) - 0x1000;
+				//Debug("pdp ent unset (page = 0x%x now)", page);
 				continue;
 			}
 			if( !(PAGEDIR(page>>9) & PF_PRESENT) ) {
 				page += (1 << 9) - 1;
 				curPos += (1L << 21) - 0x1000;
+				//Debug("pd ent unset (page = 0x%x now)", page);
 				continue;
 			}
 			if( !(PAGETABLE(page) & PF_PRESENT) )	continue;

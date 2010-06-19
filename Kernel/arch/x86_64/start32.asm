@@ -113,7 +113,7 @@ gMultibootPtr:
 [global gInitialPML4]
 gInitialPML4:	; Covers 256 TiB (Full 48-bit Virtual Address Space)
 	dd	gInitialPDP - KERNEL_BASE + 3, 0	; Identity Map Low 4Mb
-	times 512-1-4 dq	0
+	times 512-4-1 dq	0
 	dd	gInitialPML4 - KERNEL_BASE + 3, 0	; Fractal Mapping
 	dq	0
 	dq	0
@@ -125,7 +125,8 @@ gInitialPDP:	; Covers 512 GiB
 
 gHighPDP:	; Covers 512 GiB
 	times 510	dq	0
-	dq	0 + 0x143	; 1 GiB Page from zero
+	;dq	0 + 0x143	; 1 GiB Page from zero
+	dd	gInitialPD - KERNEL_BASE + 3, 0
 	dq	0
 
 gInitialPD:	; Covers 1 GiB
