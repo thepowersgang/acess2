@@ -141,6 +141,7 @@ int PCI_ScanBus(int BusID)
 	{
 		for( fcn = 0; fcn < 8; fcn++ )	// Max 8 functions per device
 		{
+			Debug("%i:%i:%i", BusID, dev, fcn);
 			// Check if the device/function exists
 			if(!PCI_EnumDevice(BusID, dev, fcn, &devInfo))
 				continue;
@@ -478,7 +479,7 @@ int	PCI_EnumDevice(Uint16 bus, Uint16 slot, Uint16 fcn, tPCIDevice *info)
 	addr = 0x80000000 | ((Uint)bus<<16) | ((Uint)slot<<11) | ((Uint)fcn<<8);
 	for(i=0;i<256/4;i++)
 	{
-		#if 1
+		#if 0
 		outd(0xCF8, addr);
 		info->ConfigCache[i] = ind(0xCFC);
 		addr += 4;
@@ -526,10 +527,10 @@ Uint32 PCI_CfgReadDWord(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset)
 	offset &= 0xFF;	// 8 Bits
 	
 	address = 0x80000000 | ((Uint)bus<<16) | ((Uint)dev<<11) | ((Uint)func<<8) | (offset&0xFC);
-	Debug("PCI_CfgReadDWord: address = %x", address);
 	outd(0xCF8, address);
 	
 	data = ind(0xCFC);
+	//Debug("PCI(0x%x) = 0x%08x", address, data);
 	return data;
 }
 void PCI_CfgWriteDWord(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset, Uint32 data)
@@ -547,38 +548,17 @@ void PCI_CfgWriteDWord(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset, Uint3
 }
 Uint16 PCI_CfgReadWord(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset)
 {
-	Uint32	data;
+	Uint32	data = PCI_CfgReadDWord(bus, dev, func, offset);
 	
-	bus &= 0xFF;	// 8 Bits
-	dev &= 0x1F;	// 5 Bits
-	func &= 0x7;	// 3 Bits
-	offset &= 0xFF;	// 8 Bits
+	data >>= (offset&2)*8;	// Allow Access to Upper Word
 	
-	//LogF("PCI_CfgReadWord: (bus=0x%x,dev=0x%x,func=%x,offset=0x%x)\n", bus, dev, func, offset);
-	
-	outd(0xCF8,
-		0x80000000 | ((Uint)bus<<16) | ((Uint)dev<<11) | ((Uint)func<<8) | (offset&0xFC) );
-	
-	data = ind(0xCFC);
-	data >>= (offset&2)*8;	//Allow Access to Upper Word
-	//LogF("PCI_CfgReadWord: RETURN 0x%x\n", data&0xFFFF);
 	return (Uint16)data;
 }
 
 Uint8 PCI_CfgReadByte(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset)
 {
-	Uint32	address;
-	Uint32	data;
+	Uint32	data = PCI_CfgReadDWord(bus, dev, func, offset);
 	
-	bus &= 0xFF;	// 8 Bits
-	dev &= 0x1F;	// 4 Bits
-	func &= 0x7;	// 3 Bits
-	offset &= 0xFF;	// 8 Bits
-	
-	address = 0x80000000 | ((Uint)bus<<16) | ((Uint)dev<<11) | ((Uint)func<<8) | (offset&0xFC);
-	outd(0xCF8, address);
-	
-	data = ind(0xCFC);
 	data >>= (offset&3)*8;	//Allow Access to Upper Word
 	return (Uint8)data;
 }
