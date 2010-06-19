@@ -34,6 +34,8 @@ typedef struct sPCIDevice
 
 // === PROTOTYPES ===
  int	PCI_Install(char **Arguments);
+ int	PCI_ScanBus(int ID);
+ 
 char	*PCI_ReadDirRoot(tVFS_Node *node, int pos);
 tVFS_Node	*PCI_FindDirRoot(tVFS_Node *node, char *filename);
 Uint64	PCI_ReadDevice(tVFS_Node *node, Uint64 pos, Uint64 length, void *buffer);
@@ -72,7 +74,8 @@ tDevFS_Driver	gPCI_DriverStruct = {
 	.FindDir = PCI_FindDirRoot
 	}
 };
- Uint32	*gaPCI_PortBitmap = NULL;
+Uint32	*gaPCI_PortBitmap = NULL;
+Uint32	gaPCI_BusBitmap[256/32];
  
 // === CODE ===
 /**
@@ -81,10 +84,8 @@ tDevFS_Driver	gPCI_DriverStruct = {
  */
 int PCI_Install(char **Arguments)
 {
-	 int	bus, dev, fcn, i;
-	 int	space = 0;
-	tPCIDevice	devInfo;
-	void	*tmpPtr = NULL;
+	 int	i;
+	void	*tmpPtr;
 	
 	// Build Portmap
 	gaPCI_PortBitmap = malloc( 1 << 13 );
@@ -98,61 +99,16 @@ int PCI_Install(char **Arguments)
 	for( i = 0; i < MAX_RESERVED_PORT % 32; i ++ )
 		gaPCI_PortBitmap[MAX_RESERVED_PORT / 32] = 1 << i;
 	
-	// Scan Busses
-	for( bus = 0; bus < giPCI_BusCount; bus++ )
-	{
-		for( dev = 0; dev < 32; dev++ )	// 32 Devices per bus
-		{
-			for( fcn = 0; fcn < 8; fcn++ )	// Max 8 functions per device
-			{
-				// Check if the device/function exists
-				if(!PCI_EnumDevice(bus, dev, fcn, &devInfo))
-					continue;
-				
-				if(giPCI_DeviceCount == space)
-				{
-					space += SPACE_STEP;
-					tmpPtr = realloc(gPCI_Devices, space*sizeof(tPCIDevice));
-					if(tmpPtr == NULL)
-						return MODULE_ERR_MALLOC;
-					gPCI_Devices = tmpPtr;
-				}
-				if(devInfo.oc == PCI_OC_PCIBRIDGE)
-				{
-					#if LIST_DEVICES
-					Log_Log("PCI", "Bridge @ %i,%i:%i (0x%x:0x%x)",
-						bus, dev, fcn, devInfo.vendor, devInfo.device);
-					#endif
-					giPCI_BusCount++;
-				}
-				else
-				{
-					#if LIST_DEVICES
-					Log_Log("PCI", "Device %i,%i:%i %04x => 0x%04x:0x%04x",
-						bus, dev, fcn, devInfo.oc, devInfo.vendor, devInfo.device);
-					#endif
-				}
-				
-				devInfo.Node.Inode = giPCI_DeviceCount;
-				memcpy(&gPCI_Devices[giPCI_DeviceCount], &devInfo, sizeof(tPCIDevice));
-				giPCI_DeviceCount ++;
-				
-				// WTF is this for?
-				// Maybe bit 23 must be set for the device to be valid?
-				// - Actually, maybe 23 means that there are sub-functions
-				if(fcn == 0) {
-					if( !(devInfo.ConfigCache[3] & 0x800000) )
-						break;
-				}
-			}
-		}
-	}
-	
+	// Scan Bus
+	i = PCI_ScanBus(0);
+	if(i != MODULE_ERR_OK)	return i;
+		
 	if(giPCI_DeviceCount == 0) {
 		Log_Notice("PCI", "No devices were found");
 		return MODULE_ERR_NOTNEEDED;
 	}
 	
+	// Ensure the buffer is nice and tight
 	tmpPtr = realloc(gPCI_Devices, giPCI_DeviceCount*sizeof(tPCIDevice));
 	if(tmpPtr == NULL)
 		return MODULE_ERR_MALLOC;
@@ -163,6 +119,69 @@ int PCI_Install(char **Arguments)
 	
 	// And add to DevFS
 	DevFS_AddDevice(&gPCI_DriverStruct);
+	
+	return MODULE_ERR_OK;
+}
+
+/**
+ * \brief Scans a specific PCI Bus
+ */
+int PCI_ScanBus(int BusID)
+{
+	 int	dev, fcn;
+	tPCIDevice	devInfo;
+	void	*tmpPtr = NULL;
+	
+	if( gaPCI_BusBitmap[BusID/32] & (1 << (BusID%32)) )
+		return MODULE_ERR_OK;
+	
+	gaPCI_BusBitmap[BusID/32] |= (1 << (BusID%32));
+	
+	for( dev = 0; dev < 32; dev++ )	// 32 Devices per bus
+	{
+		for( fcn = 0; fcn < 8; fcn++ )	// Max 8 functions per device
+		{
+			// Check if the device/function exists
+			if(!PCI_EnumDevice(BusID, dev, fcn, &devInfo))
+				continue;
+			
+			// Allocate
+			tmpPtr = realloc(gPCI_Devices, (giPCI_DeviceCount+1)*sizeof(tPCIDevice));
+			if(tmpPtr == NULL)
+				return MODULE_ERR_MALLOC;
+			gPCI_Devices = tmpPtr;
+			
+			if(devInfo.oc == PCI_OC_PCIBRIDGE)
+			{
+				#if LIST_DEVICES
+				Log_Log("PCI", "Bridge @ %i,%i:%i (0x%x:0x%x)",
+					BusID, dev, fcn, devInfo.vendor, devInfo.device);
+				#endif
+				//TODO: Handle PCI-PCI Bridges
+				//PCI_ScanBus( );
+				giPCI_BusCount++;
+			}
+			else
+			{
+				#if LIST_DEVICES
+				Log_Log("PCI", "Device %i,%i:%i %04x => 0x%04x:0x%04x",
+					BusID, dev, fcn, devInfo.oc, devInfo.vendor, devInfo.device);
+				#endif
+			}
+			
+			devInfo.Node.Inode = giPCI_DeviceCount;
+			memcpy(&gPCI_Devices[giPCI_DeviceCount], &devInfo, sizeof(tPCIDevice));
+			giPCI_DeviceCount ++;
+			
+			// WTF is this for?
+			// Maybe bit 23 must be set for the device to be valid?
+			// - Actually, maybe 23 means that there are sub-functions
+			if(fcn == 0) {
+				if( !(devInfo.ConfigCache[3] & 0x800000) )
+					break;
+			}
+		}
+	}
 	
 	return MODULE_ERR_OK;
 }
@@ -507,10 +526,11 @@ Uint32 PCI_CfgReadDWord(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset)
 	offset &= 0xFF;	// 8 Bits
 	
 	address = 0x80000000 | ((Uint)bus<<16) | ((Uint)dev<<11) | ((Uint)func<<8) | (offset&0xFC);
+	Debug("PCI_CfgReadDWord: address = %x", address);
 	outd(0xCF8, address);
 	
 	data = ind(0xCFC);
-	return (Uint32)data;
+	return data;
 }
 void PCI_CfgWriteDWord(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset, Uint32 data)
 {
