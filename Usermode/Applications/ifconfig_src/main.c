@@ -39,7 +39,10 @@ int main(int argc, char *argv[])
 	
 	if( strcmp(argv[1], "autoconf") == 0 ) {
 		DoAutoConfig(argv[2]);
+		return 0;
 	}
+	
+	PrintUsage(argv[0]);
 	
 	return 0;
 }
@@ -125,6 +128,7 @@ int AddInterface( char *Device )
 	
 	dp = open(IPSTACK_ROOT, OPENFLAG_READ);
 	ret = ioctl(dp, 4, Device);
+	printf("AddInterface: ret = 0x%x = %i\n", ret, ret);
 	close(dp);
 	
 	if( ret < 0 ) {

@@ -286,12 +286,12 @@ EXPORT int vsprintf(char * __s, const char *__format, va_list __args)
 
 //sprintfv
 /**
- \fn EXPORT void vsnprintf(char *buf, const char *format, va_list args)
- \brief Prints a formatted string to a buffer
- \param buf	Pointer - Destination Buffer
- \param format	String - Format String
- \param args	VarArgs List - Arguments
-*/
+ * \fn EXPORT void vsnprintf(char *buf, const char *format, va_list args)
+ * \brief Prints a formatted string to a buffer
+ * \param buf	Pointer - Destination Buffer
+ * \param format	String - Format String
+ * \param args	VarArgs List - Arguments
+ */
 EXPORT int vsnprintf(char *buf, size_t __maxlen, const char *format, va_list args)
 {
 	char	tmp[65];
@@ -441,6 +441,12 @@ const char cUCDIGITS[] = "0123456789ABCDEF";
 /**
  * \fn static void itoa(char *buf, uint64_t num, int base, int minLength, char pad, int bSigned)
  * \brief Convert an integer into a character string
+ * \param buf	Destination Buffer
+ * \param num	Number to convert
+ * \param base	Base-n number output
+ * \param minLength	Minimum length of output
+ * \param pad	Padding used to ensure minLength
+ * \param bSigned	Signed number output?
  */
 EXPORT void itoa(char *buf, uint64_t num, size_t base, int minLength, char pad, int bSigned)
 {
@@ -460,6 +466,7 @@ EXPORT void itoa(char *buf, uint64_t num, size_t base, int minLength, char pad, 
 	} else
 		bSigned = 0;
 	
+	// Encode into reversed string
 	while(num > base-1) {
 		tmpBuf[pos++] = cUCDIGITS[ num % base ];
 		num = (uint64_t) num / (uint64_t)base;		// Shift {number} right 1 digit

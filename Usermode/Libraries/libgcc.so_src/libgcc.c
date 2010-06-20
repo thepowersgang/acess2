@@ -106,6 +106,7 @@ uint64_t __umoddi3(uint64_t Num, uint64_t Den)
 	// Speedups for common operations
 	if(Den == 1)	return 0;
 	if(Den == 2)	return Num & 0x01;
+	if(Den == 8)	return Num & 0x07;
 	if(Den == 16)	return Num & 0x0F;
 	return Num - __udivdi3(Num, Den) * Den;
 	#endif
