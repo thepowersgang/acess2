@@ -173,6 +173,7 @@ tThread *Threads_CloneTCB(Uint *Err, Uint Flags)
 		*Err = -ENOMEM;
 		return NULL;
 	}
+	memcpy(new, cur, sizeof(tThread));
 	
 	new->Next = NULL;
 	new->IsLocked = 0;
@@ -184,8 +185,7 @@ tThread *Threads_CloneTCB(Uint *Err, Uint Flags)
 	new->PTID = cur->TID;
 	
 	// Clone Name
-	new->ThreadName = malloc(strlen(cur->ThreadName)+1);
-	strcpy(new->ThreadName, cur->ThreadName);
+	new->ThreadName = strdup(cur->ThreadName);
 	
 	// Set Thread Group ID (PID)
 	if(Flags & CLONE_VM)

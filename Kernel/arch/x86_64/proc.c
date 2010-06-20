@@ -39,7 +39,7 @@ extern tThread	*Threads_GetNextToRun(int CPU);
 extern void	Threads_Dump(void);
 extern tThread	*Threads_CloneTCB(Uint *Err, Uint Flags);
 extern void	Proc_ReturnToUser(void);
-extern void	GetCPUNum(void);
+extern int	GetCPUNum(void);
 
 // === PROTOTYPES ===
 void	ArchThreads_Init(void);

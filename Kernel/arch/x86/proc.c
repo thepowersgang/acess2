@@ -24,6 +24,7 @@ extern tGDT	gGDT[];
 extern tIDT	gIDT[];
 extern void APStartup(void);	// 16-bit AP startup code
 extern Uint	GetEIP(void);	// start.asm
+extern int	GetCPUNum(void);	// start.asm
 extern Uint32	gaInitPageDir[1024];	// start.asm
 extern void	Kernel_Stack_Top;
 extern tSpinlock	glThreadListLock;
@@ -389,7 +390,8 @@ void Proc_Start(void)
 tThread *Proc_GetCurThread(void)
 {
 	#if USE_MP
-	return gaCPUs[ gaAPIC_to_CPU[gpMP_LocalAPIC->ID.Val&0xFF] ].Current;
+	//return gaCPUs[ gaAPIC_to_CPU[gpMP_LocalAPIC->ID.Val&0xFF] ].Current;
+	return gaCPUs[ GetCPUNum() ].Current;
 	#else
 	return gCurrentThread;
 	#endif

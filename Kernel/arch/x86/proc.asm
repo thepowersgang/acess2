@@ -114,6 +114,13 @@ Proc_ReturnToUser:
 	
 	iret
 
+[global GetCPUNum]
+GetCPUNum:
+	xor eax, eax
+	ltr ax
+	sub ax, 0x30
+	shr ax, 3	; ax /= 8
+	ret
 
 [section .usertext]
 User_Syscall_RetAndExit:

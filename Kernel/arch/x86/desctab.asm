@@ -21,8 +21,8 @@ gGDT:
 	dd 0x0000FFFF, 0x00CF9200	; 10 PL0 Data
 	dd 0x0000FFFF, 0x00CFFA00	; 18 PL3 Code
 	dd 0x0000FFFF, 0x00CFF200	; 20 PL3 Data
-	dd 26*4-1, 0x00408900	; Double Fault TSS
-	times MAX_CPUS	dd 26*4-1, 0x00408900
+	dd 26*4-1, 0x00408900	; 28 Double Fault TSS
+	times MAX_CPUS	dd 26*4-1, 0x00408900	; 30+ TSSes
 [global gGDTPtr]
 gGDTPtr:
 	dw	GDT_SIZE-1
