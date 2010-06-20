@@ -141,7 +141,6 @@ int PCI_ScanBus(int BusID)
 	{
 		for( fcn = 0; fcn < 8; fcn++ )	// Max 8 functions per device
 		{
-			Debug("%i:%i:%i", BusID, dev, fcn);
 			// Check if the device/function exists
 			if(!PCI_EnumDevice(BusID, dev, fcn, &devInfo))
 				continue;
