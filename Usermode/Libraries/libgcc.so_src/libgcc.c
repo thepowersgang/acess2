@@ -51,10 +51,14 @@ uint64_t __udivdi3(uint64_t Num, uint64_t Den)
 	
 	if(Den == 0)	__asm__ __volatile__ ("int $0x0");
 	// Common speedups
+	if(Num <= 0xFFFFFFFF && Den <= 0xFFFFFFFF)
+		return Num / Den;
 	if(Den == 1)	return Num;
 	if(Den == 2)	return Num >> 1;
 	if(Den == 16)	return Num >> 4;
-	
+	if(Num < Den)	return 0;
+	if(Num == Den)	return 1;
+	if(Num == Den*2)	return 2;
 	
 	// Non-restoring division, from wikipedia
 	// http://en.wikipedia.org/wiki/Division_(digital)
@@ -103,6 +107,13 @@ uint64_t __umoddi3(uint64_t Num, uint64_t Den)
 	return Num;
 	#else
 	if(Den == 0)	__asm__ __volatile__ ("int $0");	// Call Div by Zero Error
+	
+	// Speedups
+	if(Num < Den)	return Num;
+	if(Num == Den)	return 0;
+	if(Num <= 0xFFFFFFFF && Den <= 0xFFFFFFFF)
+		return Num % Den;
+	
 	// Speedups for common operations
 	if(Den == 1)	return 0;
 	if(Den == 2)	return Num & 0x01;
