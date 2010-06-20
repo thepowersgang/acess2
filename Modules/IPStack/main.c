@@ -122,6 +122,11 @@ char *IPStack_Root_ReadDir(tVFS_Node *Node, int Pos)
 	}
 	
 	name = malloc(4);
+	if(!name) {
+		Log_Warning("IPStack", "IPStack_Root_ReadDir - malloc error");
+		LEAVE('n');
+		return NULL;
+	}
 	
 	// Create the name
 	Pos = iface->Node.ImplInt;
@@ -535,6 +540,10 @@ int IPStack_AddInterface(char *Device)
 	iface->Node.ReadDir = IPStack_Iface_ReadDir;
 	iface->Node.FindDir = IPStack_Iface_FindDir;
 	iface->Node.IOCtl = IPStack_Iface_IOCtl;
+	iface->Node.MkNod = NULL;
+	iface->Node.Link = NULL;
+	iface->Node.Relink = NULL;
+	iface->Node.Close = NULL;
 	
 	// Set Defaults
 	iface->TimeoutDelay = DEFAULT_TIMEOUT;

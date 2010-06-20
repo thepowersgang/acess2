@@ -652,6 +652,14 @@ void VFS_Close(int FD)
 		return;
 	}
 	
+	#if VALIDATE_VFS_FUNCTIPONS
+	if(h->Node->Close && !MM_GetPhysAddr(h->Node->Close)) {
+		Log_Warning("VFS", "Node %p's ->Close method is invalid (%p)",
+			h->Node, h->Node->Close);
+		return ;
+	}
+	#endif
+	
 	if(h->Node->Close)
 		h->Node->Close( h->Node );
 	
