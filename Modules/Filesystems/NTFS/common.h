@@ -4,11 +4,53 @@
 #define _COMMON_H_
 
 // === STRUCTURES ===
+/**
+ * In-memory representation of an NTFS Disk
+ */
 typedef struct sNTFS_Disk
 {
-	
+	 int	FD;
+	Uint64	MFTOfs;
+	tVFS_Node	RootNode;
 }	tNTFS_Disk;
 
+typedef struct sNTFS_BootSector
+{
+	// 0
+	Uint8	Jump[3];
+	Uint8	SystemID[8];	// = "NTFS    "
+	Uint16	BytesPerSector;
+	Uint8	SectorsPerCluster;
+	
+	// 14
+	Uint8	Unused[7];
+	Uint8	MediaDescriptor;
+	Uint16	Unused2;
+	Uint16	SectorsPerTrack;
+	
+	Uint64	Unused3;
+	Uint32	Unknown;
+	
+	// 38
+	Uint64	TotalSectorCount;	// Size of volume in sectors
+	Uint64	MFTStart;	// Logical Cluster Number of Cluster 0 of MFT
+	Uint64	MFTMirrorStart;	// Logical Cluster Number of Cluster 0 of MFT Backup
+	
+	// 60
+	// If either of these are -ve, the size can be obtained via
+	// SizeInBytes = 2^(-1 * Value)
+	Uint32	ClustersPerMFTRecord;
+	Uint32	ClustersPerIndexRecord;
+	
+	Uint64	SerialNumber;
+	
+	Uint8	Padding[515-offsetof(tNTFS_BootSector, Padding)];
+	
+}	tNTFS_BootSector;
+
+/**
+ * FILE header, an entry in the MFT
+ */
 typedef struct sNTFS_FILE_Header
 {
 	Uint32	Magic;	// 'FILE'
@@ -48,6 +90,9 @@ typedef struct sNTFS_FILE_Header
 	
 }	tNTFS_FILE_Header;
 
+/**
+ * File Attribute, follows the FILE header
+ */
 typedef struct sNTFS_FILE_Attrib
 {
 	Uint32	Type;	// See eNTFS_FILE_Attribs

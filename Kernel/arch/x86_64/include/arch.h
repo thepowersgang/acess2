@@ -5,7 +5,7 @@
 #ifndef _ARCH_H_
 #define _ARCH_H_
 
-#include <stdint.h>
+//#include <stdint.h>
 //#define KERNEL_BASE	0xFFFF8000##00000000
 #define KERNEL_BASE	0xFFFFFFFF##80000000
 #define BITS	64

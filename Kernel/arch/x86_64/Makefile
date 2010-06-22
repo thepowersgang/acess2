@@ -3,12 +3,6 @@
 # i386 Architecture Makefile
 # arch/i386/Makefile
 
-# Assuming build machine is 32-bit ELF
-#CC = gcc
-#AS = nasm
-#LD = ld
-#OBJDUMP = objdump
-
 MAX_CPUS := 4
 
 CPPFLAGS	:= -DMAX_CPUS=$(MAX_CPUS)

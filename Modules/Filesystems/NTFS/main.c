@@ -37,10 +37,39 @@ int NTFS_Install(char **Arguments)
  */
 tVFS_Node *NTFS_InitDevice(char *Device, char **Options)
 {
-	char	*path, *host;
 	tNTFS_Disk	*disk;
+	tNTFS_BootSector	bs;
 	
 	disk = malloc( sizeof(tNTFS_Disk) );
+	
+	disk->FD = VFS_Open(Device, VFS_OPENFLAG_READ);
+	if(!disk->FD) {
+		free(disk);
+		return NULL;
+	}
+	
+	VFS_ReadAt(disk->FD, 0, 512, &bs);
+	
+	disk->ClusterSize = bs.BytesPerSector * bs.SectorsPerCluster;
+	Log_Debug("NTFS", "Cluster Size = %i KiB", disk->ClusterSize/1024);
+	disk->MFTBase = bs.MFTStart;
+	Log_Debug("NTFS", "MFT Base = %i", disk->MFTBase);
+	
+	disk->RootNode.Inode = 5;	// MFT Ent #5 is '.'
+	disk->RootNode.ImplPtr = disk;
+	
+	disk->RootNode.UID = 0;
+	disk->RootNode.GID = 0;
+	
+	disk->RootNode.NumACLs = 1;
+	disk->RootNode.ACLs = &gVFS_ACL_EveryoneRX;
+	
+	disk->RootNode.ReadDir = NTFS_ReadDir;
+	disk->RootNode.FindDir = NTFS_FindDir;
+	disk->RootNode.MkNod = NULL;
+	disk->RootNode.Link = NULL;
+	disk->RootNode.Relink = NULL;
+	disk->RootNode.Close = NULL;
 	
 	return &disk->RootNode;
 }
