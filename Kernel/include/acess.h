@@ -7,6 +7,8 @@
 
 #define NULL	((void*)0)
 #define PACKED	__attribute__ ((packed))
+#define offsetof(st, m) ((Uint)((char *)&((st *)(0))->m - (char *)0 ))
+
 
 //#include <stdint.h>
 #include <arch.h>
@@ -370,8 +372,24 @@ extern int	Module_LoadFile(char *Path, char *ArgStr);
  * \brief Create a timestamp from a time
  */
 extern Sint64	timestamp(int sec, int mins, int hrs, int day, int month, int year);
+/**
+ * \brief Gets the current timestamp (miliseconds since Midnight 1st January 1970)
+ */
 extern Sint64	now(void);
-extern int	Time_CreateTimer(int Delta, void *Callback, void *Argument);
+/**
+ * \brief Timer callback function
+ */
+typedef void (tTimerCallback)(void *);
+/**
+ * \brief Creates a one-shot timer
+ * \param Delta	Period of the timer
+ * \param Callback	Function to call each time
+ * \param Argument	Argument to pass to the callback
+ */
+extern int	Time_CreateTimer(int Delta, tTimerCallback *Callback, void *Argument);
+/**
+ * \brief Removed an active timer
+ */
 extern void	Time_RemoveTimer(int ID);
 extern void	Time_Delay(int Delay);
 /**

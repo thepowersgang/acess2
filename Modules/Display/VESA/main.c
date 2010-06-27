@@ -25,6 +25,7 @@ Uint64	Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
  int	Vesa_Int_SetMode(int Mode);
  int	Vesa_Int_FindMode(tVideo_IOCtl_Mode *data);
  int	Vesa_Int_ModeInfo(tVideo_IOCtl_Mode *data);
+void	Vesa_FlipCursor(void *Arg);
 // --- 2D Acceleration Functions --
 void	Vesa_2D_Fill(void *Ent, Uint16 X, Uint16 Y, Uint16 W, Uint16 H, Uint32 Colour);
 void	Vesa_2D_Blit(void *Ent, Uint16 DstX, Uint16 DstY, Uint16 SrcX, Uint16 SrcY, Uint16 W, Uint16 H);
@@ -41,13 +42,20 @@ tDevFS_Driver	gVesa_DriverStruct = {
 };
 tSpinlock	glVesa_Lock;
 tVM8086	*gpVesa_BiosState;
+ int	giVesaDriverId = -1;
+// --- Video Modes ---
  int	giVesaCurrentMode = 0;
  int	giVesaCurrentFormat = VIDEO_BUFFMT_TEXT;
- int	giVesaDriverId = -1;
-char	*gpVesa_Framebuffer = (void*)VESA_DEFAULT_FRAMEBUFFER;
 tVesa_Mode	*gVesa_Modes;
  int	giVesaModeCount = 0;
- int	giVesaPageCount = 0;
+// --- Framebuffer ---
+char	*gpVesa_Framebuffer = (void*)VESA_DEFAULT_FRAMEBUFFER;
+ int	giVesaPageCount = 0;	//!< Framebuffer size in pages
+// --- Cursor Control ---
+ int	giVesaCursorX = -1;
+ int	giVesaCursorY = -1;
+ int	giVesaCursorTimer = -1;	// Invalid timer
+// --- 2D Video Stream Handlers ---
 tDrvUtil_Video_2DHandlers	gVesa_2DFunctions = {
 	NULL,
 	Vesa_2D_Fill,
@@ -348,6 +356,25 @@ int Vesa_Ioctl(tVFS_Node *Node, int ID, void *Data)
 		return ret;
 	
 	case VIDEO_IOCTL_SETCURSOR:	// Set cursor position
+		giVesaCursorX = ((tVideo_IOCtl_Pos*)Data)->x;
+		giVesaCursorY = ((tVideo_IOCtl_Pos*)Data)->y;
+		if(
+			giVesaCursorX < 0 || giVesaCursorY < 0
+		||	giVesaCursorX >= gVesa_Modes[giVesaCurrentMode].width
+		||	giVesaCursorY >= gVesa_Modes[giVesaCurrentMode].height)
+		{
+			if(giVesaCursorTimer != -1)
+				Time_RemoveTimer(giVesaCursorTimer);
+			giVesaCursorX = -1;
+			giVesaCursorY = -1;
+		}
+		else {
+			if(giVesaCursorTimer == -1)
+				giVesaCursorTimer = Time_CreateTimer(500, Vesa_FlipCursor, Node);
+		}
+		
+		Log_Debug("VESA", "Cursor at (%i,%i), timer %i",
+			giVesaCursorX, giVesaCursorY, giVesaCursorTimer);
 		return 0;
 	
 	case VIDEO_IOCTL_REQLFB:	// Request Linear Framebuffer
@@ -356,6 +383,9 @@ int Vesa_Ioctl(tVFS_Node *Node, int ID, void *Data)
 	return 0;
 }
 
+/**
+ * \brief Updates the video mode
+ */
 int Vesa_Int_SetMode(int mode)
 {
 	Log_Log("VESA", "Setting mode to %i", mode);
@@ -444,6 +474,26 @@ int Vesa_Int_ModeInfo(tVideo_IOCtl_Mode *data)
 	data->height = gVesa_Modes[data->id].height;
 	data->bpp = gVesa_Modes[data->id].bpp;
 	return 1;
+}
+
+/**
+ * \brief Updates the state of the text cursor
+ * \note Just does a bitwise not on the cursor region
+ */
+void Vesa_FlipCursor(void *Arg)
+{
+	 int	pitch = gVesa_Modes[giVesaCurrentMode].pitch;
+	 int	x = giVesaCursorX*giVT_CharWidth;
+	 int	y = giVesaCursorY*giVT_CharHeight;
+	 int	i;
+	Uint32	*fb = (void*)gpVesa_Framebuffer;
+	
+	if(giVesaCursorX < 0 || giVesaCursorY < 0)	return;
+	
+	for( i = 0; i < giVT_CharHeight; i++ )
+		fb[(y+i)*pitch+x] = fb[(y+i)*pitch+x];
+	
+	giVesaCursorTimer = Time_CreateTimer(500, Vesa_FlipCursor, Arg);
 }
 
 // ------------------------

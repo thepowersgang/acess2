@@ -46,7 +46,8 @@ uint64_t __udivdi3(uint64_t Num, uint64_t Den)
 	}
 	return ret;
 	#else
-	uint64_t	P[64], q, n;
+	uint64_t	P[2];
+	uint64_t	q;
 	 int	i;
 	
 	if(Den == 0)	__asm__ __volatile__ ("int $0x0");
@@ -57,27 +58,30 @@ uint64_t __udivdi3(uint64_t Num, uint64_t Den)
 	if(Den == 2)	return Num >> 1;
 	if(Den == 16)	return Num >> 4;
 	if(Num < Den)	return 0;
-	if(Num == Den)	return 1;
+	if(Num < Den*2)	return 1;
 	if(Num == Den*2)	return 2;
 	
-	// Non-restoring division, from wikipedia
+	// Restoring division, from wikipedia
 	// http://en.wikipedia.org/wiki/Division_(digital)
-	P[0] = Num;
-	for( i = 0; i < 64; i ++ )
+	P[0] = Num;	P[1] = 0;
+	for( i = 64; i--; )
 	{
-		if( P[i] >= 0 ) {
+		// P <<= 1;
+		P[1] = (P[1] << 1) | (P[0] >> 63);
+		P[0] = P[0] << 1;
+		
+		// P -= Den << 64
+		P[1] -= Den;
+		
+		// P >= 0
+		if( !(P[1] & (1ULL<<63)) ) {
 			q |= (uint64_t)1 << (63-i);
-			P[i+1] = 2*P[i] - Den;
 		}
 		else {
 			//q |= 0 << (63-i);
-			P[i+1] = 2*P[i] + Den;
+			P[1] += Den;
 		}
 	}
-	
-	n = ~q;
-	n = -n;
-	q += n;
 	
 	return q;
 	#endif

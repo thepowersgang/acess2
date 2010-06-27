@@ -8,6 +8,8 @@
  */
 #define DEBUG	1
 #define VERBOSE	0
+#include <acess.h>
+#include <vfs.h>
 #include "common.h"
 #include <modules.h>
 
@@ -55,7 +57,7 @@ tVFS_Node *NTFS_InitDevice(char *Device, char **Options)
 	disk->MFTBase = bs.MFTStart;
 	Log_Debug("NTFS", "MFT Base = %i", disk->MFTBase);
 	
-	disk->RootNode.Inode = 5;	// MFT Ent #5 is '.'
+	disk->RootNode.Inode = 5;	// MFT Ent #5 is filesystem root
 	disk->RootNode.ImplPtr = disk;
 	
 	disk->RootNode.UID = 0;

@@ -57,9 +57,9 @@ void Timer_CallTimers()
 }
 
 /**
- * \fn int Time_CreateTimer(int Delta, void *Callback, void *Argument)
+ * \fn int Time_CreateTimer(int Delta, tTimerCallback *Callback, void *Argument)
  */
-int Time_CreateTimer(int Delta, void *Callback, void *Argument)
+int Time_CreateTimer(int Delta, tTimerCallback *Callback, void *Argument)
 {
 	 int	ret;
 	

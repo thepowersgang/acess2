@@ -1,7 +1,16 @@
 /*
+ * Acess2 - NTFS Driver
+ * By John Hodge (thePowersGang)
+ * This file is published under the terms of the Acess licence. See the
+ * file COPYING for details.
+ *
+ * common.h - Common Types and Definitions
  */
 #ifndef _COMMON_H_
 #define _COMMON_H_
+
+#include <acess.h>
+#include <vfs.h>
 
 // === STRUCTURES ===
 /**
@@ -10,7 +19,10 @@
 typedef struct sNTFS_Disk
 {
 	 int	FD;
-	Uint64	MFTOfs;
+	 
+	 int	ClusterSize;
+	Uint64	MFTBase;
+	
 	tVFS_Node	RootNode;
 }	tNTFS_Disk;
 
@@ -44,7 +56,7 @@ typedef struct sNTFS_BootSector
 	
 	Uint64	SerialNumber;
 	
-	Uint8	Padding[515-offsetof(tNTFS_BootSector, Padding)];
+	Uint8	Padding[512-72];
 	
 }	tNTFS_BootSector;
 

@@ -105,9 +105,9 @@ void	FDD_int_SendByte(int base, char byte);
 void	FDD_Reset(int id);
 void	FDD_Recalibrate(int disk);
  int	FDD_int_SeekTrack(int disk, int head, int track);
-void	FDD_int_TimerCallback(int arg);
-void	FDD_int_StopMotor(int disk);
-void	FDD_int_StartMotor(int disk);
+void	FDD_int_TimerCallback(void *Arg);
+void	FDD_int_StopMotor(void *Arg);
+void	FDD_int_StartMotor(int Disk);
  int	FDD_int_GetDims(int type, int lba, int *c, int *h, int *s, int *spt);
 
 // === GLOBALS ===
@@ -208,7 +208,7 @@ void FDD_UnloadModule()
 	LOCK(&glFDD);
 	for(i=0;i<4;i++) {
 		Time_RemoveTimer(gFDD_Devices[i].timer);
-		FDD_int_StopMotor(i);
+		FDD_int_StopMotor((void*)i);
 	}
 	RELEASE(&glFDD);
 	//IRQ_Clear(6);
@@ -726,7 +726,7 @@ void FDD_Recalibrate(int disk)
 	FDD_SensInt(cPORTBASE[disk>>1], NULL, NULL);
 	
 	LOG("Stopping Motor");
-	FDD_int_StopMotor(disk);
+	gFDD_Devices[disk].timer = Time_CreateTimer(MOTOR_OFF_DELAY, FDD_int_StopMotor, (void*)(Uint)disk);
 	LEAVE('-');
 }
 
@@ -766,13 +766,14 @@ void FDD_Reset(int id)
  * \fn void FDD_int_TimerCallback()
  * \brief Called by timer
  */
-void FDD_int_TimerCallback(int arg)
+void FDD_int_TimerCallback(void *Arg)
 {
-	ENTER("iarg", arg);
-	if(gFDD_Devices[arg].motorState == 1)
-		gFDD_Devices[arg].motorState = 2;
-	Time_RemoveTimer(gFDD_Devices[arg].timer);
-	gFDD_Devices[arg].timer = -1;
+	 int	disk = (int)Arg;
+	ENTER("iarg", disk);
+	if(gFDD_Devices[disk].motorState == 1)
+		gFDD_Devices[disk].motorState = 2;
+	Time_RemoveTimer(gFDD_Devices[disk].timer);
+	gFDD_Devices[disk].timer = -1;
 	LEAVE('-');
 }
 
@@ -787,16 +788,16 @@ void FDD_int_StartMotor(int disk)
 	state |= 1 << (4+disk);
 	outb( cPORTBASE[ disk>>1 ] + PORT_DIGOUTPUT, state );
 	gFDD_Devices[disk].motorState = 1;
-	gFDD_Devices[disk].timer = Time_CreateTimer(MOTOR_ON_DELAY, FDD_int_TimerCallback, (void*)(tVAddr)disk);
+	gFDD_Devices[disk].timer = Time_CreateTimer(MOTOR_ON_DELAY, FDD_int_TimerCallback, (void*)(Uint)disk);
 }
 
 /**
  * \fn void FDD_int_StopMotor(int disk)
  * \brief Stops FDD Motor
  */
-void FDD_int_StopMotor(int disk)
+void FDD_int_StopMotor(void *Arg)
 {
-	Uint8	state;
+	Uint8	state, disk = (int)Arg;
 	if( IS_LOCKED(&glFDD) )	return ;
 	ENTER("iDisk", disk);
 	
