@@ -16,6 +16,7 @@
 // === CONSTANTS ===
 #define	FLAG_LFB	0x1
 #define VESA_DEFAULT_FRAMEBUFFER	(KERNEL_BASE|0xA0000)
+#define VESA_CURSOR_PERIOD	1000
 
 // === PROTOTYPES ===
  int	Vesa_Install(char **Arguments);
@@ -370,11 +371,8 @@ int Vesa_Ioctl(tVFS_Node *Node, int ID, void *Data)
 		}
 		else {
 			if(giVesaCursorTimer == -1)
-				giVesaCursorTimer = Time_CreateTimer(500, Vesa_FlipCursor, Node);
+				giVesaCursorTimer = Time_CreateTimer(VESA_CURSOR_PERIOD, Vesa_FlipCursor, Node);
 		}
-		
-		Log_Debug("VESA", "Cursor at (%i,%i), timer %i",
-			giVesaCursorX, giVesaCursorY, giVesaCursorTimer);
 		return 0;
 	
 	case VIDEO_IOCTL_REQLFB:	// Request Linear Framebuffer
@@ -395,6 +393,8 @@ int Vesa_Int_SetMode(int mode)
 	
 	// Check for fast return
 	if(mode == giVesaCurrentMode)	return 1;
+	
+	Time_RemoveTimer(giVesaCursorTimer);
 	
 	LOCK( &glVesa_Lock );
 	
@@ -482,7 +482,7 @@ int Vesa_Int_ModeInfo(tVideo_IOCtl_Mode *data)
  */
 void Vesa_FlipCursor(void *Arg)
 {
-	 int	pitch = gVesa_Modes[giVesaCurrentMode].pitch;
+	 int	pitch = gVesa_Modes[giVesaCurrentMode].pitch/4;
 	 int	x = giVesaCursorX*giVT_CharWidth;
 	 int	y = giVesaCursorY*giVT_CharHeight;
 	 int	i;
@@ -490,10 +490,10 @@ void Vesa_FlipCursor(void *Arg)
 	
 	if(giVesaCursorX < 0 || giVesaCursorY < 0)	return;
 	
-	for( i = 0; i < giVT_CharHeight; i++ )
-		fb[(y+i)*pitch+x] = fb[(y+i)*pitch+x];
+	for( i = 1; i < giVT_CharHeight-1; i++ )
+		fb[(y+i)*pitch+x] = ~fb[(y+i)*pitch+x];
 	
-	giVesaCursorTimer = Time_CreateTimer(500, Vesa_FlipCursor, Arg);
+	giVesaCursorTimer = Time_CreateTimer(VESA_CURSOR_PERIOD, Vesa_FlipCursor, Arg);
 }
 
 // ------------------------
