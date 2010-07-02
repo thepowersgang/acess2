@@ -260,14 +260,14 @@ void Debug_Enter(char *FuncName, char *ArgTypes, ...)
 		if(pos != -1)	ArgTypes[pos] = ' ';
 		switch(*ArgTypes)
 		{
-		case 'p':	Debug_Fmt("%p", args);	break;
-		case 's':	Debug_Fmt("'%s'", args);	break;
-		case 'i':	Debug_Fmt("%i", args);	break;
-		case 'u':	Debug_Fmt("%u", args);	break;
-		case 'x':	Debug_Fmt("0x%x", args);	break;
-		case 'b':	Debug_Fmt("0b%b", args);	break;
-		case 'X':	Debug_Fmt("0x%llx", args);	break;	// Extended (64-Bit)
-		case 'B':	Debug_Fmt("0b%llb", args);	break;	// Extended (64-Bit)
+		case 'p':	LogF("%p", va_arg(args, void*));	break;
+		case 's':	LogF("'%s'", va_arg(args, char*));	break;
+		case 'i':	LogF("%i", va_arg(args, int));	break;
+		case 'u':	LogF("%u", va_arg(args, Uint));	break;
+		case 'x':	LogF("0x%x", va_arg(args, Uint));	break;
+		case 'b':	LogF("0b%b", va_arg(args, Uint));	break;
+		case 'X':	LogF("0x%llx", va_arg(args, Uint64));	break;	// Extended (64-Bit)
+		case 'B':	LogF("0b%llb", va_arg(args, Uint64));	break;	// Extended (64-Bit)
 		}
 		if(pos != -1) {
 			Debug_Putchar(',');	Debug_Putchar(' ');
