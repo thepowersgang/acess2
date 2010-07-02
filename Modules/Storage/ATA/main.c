@@ -2,7 +2,7 @@
  * Acess2 IDE Harddisk Driver
  * - main.c
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <acess.h>
 #include <modules.h>
 #include <vfs.h>
@@ -44,7 +44,7 @@ typedef struct
 } __attribute__ ((packed))	tIdentify;
 
 // === IMPORTS ===
-extern void	ATA_ParseMBR(int Disk);
+extern void	ATA_ParseMBR(int Disk, tMBR *MBR);
 
 // === PROTOTYPES ===
  int	ATA_Install();
@@ -97,7 +97,7 @@ Uint8	*gATA_BusMasterBasePtr = 0;
  int	gATA_IRQSec = 15;
  int	giaATA_ControllerLock[2] = {0};	//!< Spinlocks for each controller
 Uint8	gATA_Buffers[2][4096] __attribute__ ((section(".padata")));
- int	gaATA_IRQs[2] = {0};
+volatile int	gaATA_IRQs[2] = {0};
 tPRDT_Ent	gATA_PRDTs[2] = {
 	{0, 512, IDE_PRDT_LAST},
 	{0, 512, IDE_PRDT_LAST}
@@ -316,7 +316,6 @@ int ATA_ScanDisk(int Disk)
 	node->Write = ATA_WriteFS;
 	node->IOCtl = ATA_IOCtl;
 
-
 	// --- Scan Partitions ---
 	LOG("Reading MBR");
 	// Read Boot Sector
@@ -326,7 +325,10 @@ int ATA_ScanDisk(int Disk)
 	if(data.mbr.Parts[0].SystemID == 0xEE)
 		ATA_ParseGPT(Disk);
 	else	// No? Just parse the MBR
-		ATA_ParseMBR(Disk);
+		ATA_ParseMBR(Disk, &data.mbr);
+	
+	ATA_ReadDMA( Disk, 1, 1, &data );
+	Debug_HexDump("ATA_ScanDisk", &data, 512);
 
 	LEAVE('i', 0);
 	return 1;
@@ -357,6 +359,7 @@ void ATA_int_MakePartition(tATA_Partition *Part, int Disk, int Num, Uint64 Start
 	Part->Node.Read = ATA_ReadFS;
 	Part->Node.Write = ATA_WriteFS;
 	Part->Node.IOCtl = ATA_IOCtl;
+	Log_Notice("ATA", "Note '%s' at 0x%llx, 0x%llx long", Part->Name, Part->Start, Part->Length);
 	LOG("Made '%s' (&Node=%p)", Part->Name, &Part->Node);
 	LEAVE('-');
 }
@@ -436,26 +439,36 @@ Uint64 ATA_ReadFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	 int	disk = Node->Inode >> 8;
 	 int	part = Node->Inode & 0xFF;
 
+	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
+
 	// Raw Disk Access
 	if(part == 0xFF)
 	{
-		if( Offset >= gATA_Disks[disk].Sectors * SECTOR_SIZE )
+		if( Offset >= gATA_Disks[disk].Sectors * SECTOR_SIZE ) {
+			LEAVE('i', 0);
 			return 0;
+		}
 		if( Offset + Length > gATA_Disks[disk].Sectors*SECTOR_SIZE )
 			Length = gATA_Disks[disk].Sectors*SECTOR_SIZE - Offset;
 	}
 	// Partition
 	else
 	{
-		if( Offset >= gATA_Disks[disk].Partitions[part].Length * SECTOR_SIZE )
+		if( Offset >= gATA_Disks[disk].Partitions[part].Length * SECTOR_SIZE ) {
+			LEAVE('i', 0);
 			return 0;
+		}
 		if( Offset + Length > gATA_Disks[disk].Partitions[part].Length * SECTOR_SIZE )
 			Length = gATA_Disks[disk].Partitions[part].Length * SECTOR_SIZE - Offset;
 		Offset += gATA_Disks[disk].Partitions[part].Start * SECTOR_SIZE;
 	}
 
-	//Log("ATA_ReadFS: (Node=%p, Offset=0x%llx, Length=0x%llx, Buffer=%p)", Node, Offset, Length, Buffer);
-	return DrvUtil_ReadBlock(Offset, Length, Buffer, ATA_ReadRaw, SECTOR_SIZE, disk);
+	{
+		int ret = DrvUtil_ReadBlock(Offset, Length, Buffer, ATA_ReadRaw, SECTOR_SIZE, disk);
+		Debug_HexDump("ATA_ReadFS", Buffer, Length);
+		LEAVE('i', ret);
+		return ret;
+	}
 }
 
 /**
@@ -547,7 +560,7 @@ Uint ATA_WriteRaw(Uint64 Address, Uint Count, void *Buffer, Uint Disk)
 	Uint	offset;
 	Uint	done = 0;
 
-	// Pass straight on to ATA_WriteDMA if we can
+	// Pass straight on to ATA_WriteDMA, if we can
 	if(Count <= MAX_DMA_SECTORS)
 	{
 		ret = ATA_WriteDMA(Disk, Address, Count, Buffer);
@@ -581,6 +594,7 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	 int	cont = (Disk>>1)&1;	// Controller ID
 	 int	disk = Disk & 1;
 	Uint16	base;
+	Uint8	val;
 
 	ENTER("iDisk XAddress iCount pBuffer", Disk, Address, Count, Buffer);
 
@@ -611,12 +625,12 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 		outb(base+0x6, 0x40 | (disk << 4));
 		outb(base+0x2, 0 >> 8);	// Upper Sector Count
 		outb(base+0x3, Address >> 24);	// Low 2 Addr
-		outb(base+0x3, Address >> 28);	// Mid 2 Addr
-		outb(base+0x3, Address >> 32);	// High 2 Addr
+		outb(base+0x4, Address >> 28);	// Mid 2 Addr
+		outb(base+0x5, Address >> 32);	// High 2 Addr
 	}
 	else
 	{
-		outb(base+0x06, 0xE0 | (disk << 4) | ((Address >> 24) & 0x0F));	//Disk,Magic,High addr
+		outb(base+0x06, 0xE0 | (disk << 4) | ((Address >> 24) & 0x0F));	// Magic, Disk, High addr
 	}
 
 	outb(base+0x02, (Uint8) Count);		// Sector Count
@@ -625,32 +639,23 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	outb(base+0x05, (Uint8) (Address >> 16));	// High Addr
 
 	LOG("Starting Transfer");
-	#if START_BEFORE_CMD
-	// Start transfer
-	ATA_int_BusMasterWriteByte( cont << 3, 9 );	// Read and start
-	if( Address > 0x0FFFFFFF )
-		outb(base+0x07, HDD_DMA_R48);	// Read Command (LBA48)
-	else
-		outb(base+0x07, HDD_DMA_R28);	// Read Command (LBA28)
-	#else
 	if( Address > 0x0FFFFFFF )
 		outb(base+0x07, HDD_DMA_R48);	// Read Command (LBA48)
 	else
 		outb(base+0x07, HDD_DMA_R28);	// Read Command (LBA28)
 	// Start transfer
 	ATA_int_BusMasterWriteByte( cont << 3, 9 );	// Read and start
-	#endif
 
 	// Wait for transfer to complete
-	//ATA_int_BusMasterWriteByte( (cont << 3) + 2, 0x4 );
-	while( gaATA_IRQs[cont] == 0 ) {
-		//Uint8	val = ATA_int_BusMasterReadByte( (cont << 3) + 2, 0x4 );
+	val = 0;
+	while( gaATA_IRQs[cont] == 0 && !(val & 0x4) ) {
+		val = ATA_int_BusMasterReadByte( (cont << 3) + 2 );
 		//LOG("val = 0x%02x", val);
 		Threads_Yield();
 	}
 
 	// Complete Transfer
-	ATA_int_BusMasterWriteByte( cont << 3, 0 );	// Write and stop
+	ATA_int_BusMasterWriteByte( cont << 3, 8 );	// Read and stop
 
 	LOG("Transfer Completed & Acknowledged");
 

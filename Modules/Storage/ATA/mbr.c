@@ -8,43 +8,40 @@
 #include "common.h"
 
 // === PROTOTYPES ===
+void	ATA_ParseMBR(int Disk, tMBR *MBR);
 Uint64	ATA_MBR_int_ReadExt(int Disk, Uint64 Addr, Uint64 *Base, Uint64 *Length);
 
 // === GLOBALS ===
 
 // === CODE ===
 /**
- * \fn void ATA_ParseMBR(int Disk)
+ * \fn void ATA_ParseMBR(int Disk, tMBR *MBR)
  */
-void ATA_ParseMBR(int Disk)
+void ATA_ParseMBR(int Disk, tMBR *MBR)
 {
 	 int	i, j = 0, k = 4;
-	tMBR	mbr;
 	Uint64	extendedLBA;
 	Uint64	base, len;
 	
 	ENTER("iDisk", Disk);
-	
-	// Read Boot Sector
-	ATA_ReadDMA( Disk, 0, 1, &mbr );
 	
 	// Count Partitions
 	gATA_Disks[Disk].NumPartitions = 0;
 	extendedLBA = 0;
 	for( i = 0; i < 4; i ++ )
 	{
-		if( mbr.Parts[i].SystemID == 0 )	continue;
-		if(	mbr.Parts[i].Boot == 0x0 || mbr.Parts[i].Boot == 0x80	// LBA 28
-		||	mbr.Parts[i].Boot == 0x1 || mbr.Parts[i].Boot == 0x81	// LBA 48
+		if( MBR->Parts[i].SystemID == 0 )	continue;
+		if(	MBR->Parts[i].Boot == 0x0 || MBR->Parts[i].Boot == 0x80	// LBA 28
+		||	MBR->Parts[i].Boot == 0x1 || MBR->Parts[i].Boot == 0x81	// LBA 48
 			)
 		{
-			if( mbr.Parts[i].SystemID == 0xF || mbr.Parts[i].SystemID == 5 ) {
+			if( MBR->Parts[i].SystemID == 0xF || MBR->Parts[i].SystemID == 5 ) {
 				LOG("Extended Partition");
 				if(extendedLBA != 0) {
 					Warning("Disk %i has multiple extended partitions, ignoring rest", Disk);
 					continue;
 				}
-				extendedLBA = mbr.Parts[i].LBAStart;
+				extendedLBA = MBR->Parts[i].LBAStart;
 				continue;
 			}
 			LOG("Primary Partition");
@@ -69,24 +66,24 @@ void ATA_ParseMBR(int Disk)
 	extendedLBA = 0;
 	for( j = 0, i = 0; i < 4; i ++ )
 	{
-		Log("mbr.Parts[%i].SystemID = 0x%02x", i, mbr.Parts[i].SystemID);
-		if( mbr.Parts[i].SystemID == 0 )	continue;
-		if( mbr.Parts[i].Boot == 0x0 || mbr.Parts[i].Boot == 0x80 )	// LBA 28
+		LOG("MBR->Parts[%i].SystemID = 0x%02x", i, MBR->Parts[i].SystemID);
+		if( MBR->Parts[i].SystemID == 0 )	continue;
+		if( MBR->Parts[i].Boot == 0x0 || MBR->Parts[i].Boot == 0x80 )	// LBA 28
 		{
-			base = mbr.Parts[i].LBAStart;
-			len = mbr.Parts[i].LBALength;
+			base = MBR->Parts[i].LBAStart;
+			len = MBR->Parts[i].LBALength;
 		}
-		else if( mbr.Parts[i].Boot == 0x1 || mbr.Parts[i].Boot == 0x81 )	// LBA 58
+		else if( MBR->Parts[i].Boot == 0x1 || MBR->Parts[i].Boot == 0x81 )	// LBA 58
 		{
-			base = (mbr.Parts[i].StartHi << 16) | mbr.Parts[i].LBAStart;
-			len = (mbr.Parts[i].LengthHi << 16) | mbr.Parts[i].LBALength;
+			base = (MBR->Parts[i].StartHi << 16) | MBR->Parts[i].LBAStart;
+			len = (MBR->Parts[i].LengthHi << 16) | MBR->Parts[i].LBALength;
 		}
 		else
 			continue;
 		
-		if( mbr.Parts[i].SystemID == 0xF || mbr.Parts[i].SystemID == 5 ) {
+		if( MBR->Parts[i].SystemID == 0xF || MBR->Parts[i].SystemID == 5 ) {
 			if(extendedLBA != 0) {
-				Warning("Disk %i has multiple extended partitions, ignoring rest", Disk);
+				Log_Warning("ATA", "Disk %i has multiple extended partitions, ignoring rest", Disk);
 				continue;
 			}
 			extendedLBA = base;
