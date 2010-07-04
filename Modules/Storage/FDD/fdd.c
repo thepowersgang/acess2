@@ -2,7 +2,7 @@
  * AcessOS 0.1
  * Floppy Disk Access Code
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <acess.h>
 #include <modules.h>
 #include <fs_devfs.h>
@@ -136,6 +136,7 @@ tDevFS_Driver	gFDD_DriverInfo = {
 int FDD_Install(char **Arguments)
 {
 	Uint8 data;
+	char	**args = Arguments;
 	
 	// Determine Floppy Types (From CMOS)
 	outb(0x70, 0x10);
@@ -144,6 +145,14 @@ int FDD_Install(char **Arguments)
 	gFDD_Devices[1].type = data & 0xF;
 	gFDD_Devices[0].track[0] = -1;
 	gFDD_Devices[1].track[1] = -1;
+	
+	if(args) {
+		for(;*args;args++)
+		{
+			if(strcmp(*args, "disable")==0)
+				return MODULE_ERR_NOTNEEDED;
+		}
+	}
 	
 	Log_Log("FDD", "Detected Disk 0: %s and Disk 1: %s", cFDD_TYPES[data>>4], cFDD_TYPES[data&0xF]);
 	
