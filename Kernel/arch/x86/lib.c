@@ -54,11 +54,14 @@ Uint32 ind(Uint16 Port)
  */
 void *memset(void *Dest, int Val, size_t Num)
 {
+	Uint32	val = Val&0xFF;
+	val |= val << 8;
+	val |= val << 16;
 	__asm__ __volatile__ (
 		"rep stosl;\n\t"
 		"mov %3, %%ecx;\n\t"
 		"rep stosb"
-		:: "D" (Dest), "a" (Val), "c" (Num/4), "r" (Num&3));
+		:: "D" (Dest), "a" (val), "c" (Num/4), "r" (Num&3));
 	return Dest;
 }
 /**
@@ -91,7 +94,7 @@ int memcmp(const void *m1, const void *m2, size_t Num)
  */
 void *memcpy(void *Dest, const void *Src, size_t Num)
 {
-	if((Uint)Dest & 3 || (Uint)Src & 3)
+	if( ((Uint)Dest & 3) || ((Uint)Src & 3) )
 		__asm__ __volatile__ ("rep movsb" :: "D" (Dest), "S" (Src), "c" (Num));
 	else {
 		__asm__ __volatile__ (
