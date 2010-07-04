@@ -48,6 +48,7 @@ tVM8086	*gpVesa_BiosState;
  int	giVesaCurrentMode = 0;
  int	giVesaCurrentFormat = VIDEO_BUFFMT_TEXT;
 tVesa_Mode	*gVesa_Modes;
+tVesa_Mode	*gpVesaCurMode;
  int	giVesaModeCount = 0;
 // --- Framebuffer ---
 char	*gpVesa_Framebuffer = (void*)VESA_DEFAULT_FRAMEBUFFER;
@@ -359,20 +360,25 @@ int Vesa_Ioctl(tVFS_Node *Node, int ID, void *Data)
 	case VIDEO_IOCTL_SETCURSOR:	// Set cursor position
 		giVesaCursorX = ((tVideo_IOCtl_Pos*)Data)->x;
 		giVesaCursorY = ((tVideo_IOCtl_Pos*)Data)->y;
+		//Log_Debug("VESA", "Cursor position (%i,%i)", giVesaCursorX, giVesaCursorY);
 		if(
 			giVesaCursorX < 0 || giVesaCursorY < 0
-		||	giVesaCursorX >= gVesa_Modes[giVesaCurrentMode].width
-		||	giVesaCursorY >= gVesa_Modes[giVesaCurrentMode].height)
+		||	giVesaCursorX >= gpVesaCurMode->width/giVT_CharWidth
+		||	giVesaCursorY >= gpVesaCurMode->height/giVT_CharHeight)
 		{
-			if(giVesaCursorTimer != -1)
+			if(giVesaCursorTimer != -1) {
 				Time_RemoveTimer(giVesaCursorTimer);
+				giVesaCursorTimer = -1;
+			}
 			giVesaCursorX = -1;
 			giVesaCursorY = -1;
 		}
 		else {
+		//	Log_Debug("VESA", "Updating timer %i?", giVesaCursorTimer);
 			if(giVesaCursorTimer == -1)
 				giVesaCursorTimer = Time_CreateTimer(VESA_CURSOR_PERIOD, Vesa_FlipCursor, Node);
 		}
+		//Log_Debug("VESA", "Cursor position (%i,%i) Timer %i", giVesaCursorX, giVesaCursorY, giVesaCursorTimer);
 		return 0;
 	
 	case VIDEO_IOCTL_REQLFB:	// Request Linear Framebuffer
@@ -395,6 +401,7 @@ int Vesa_Int_SetMode(int mode)
 	if(mode == giVesaCurrentMode)	return 1;
 	
 	Time_RemoveTimer(giVesaCursorTimer);
+	giVesaCursorTimer = -1;
 	
 	LOCK( &glVesa_Lock );
 	
@@ -419,6 +426,7 @@ int Vesa_Int_SetMode(int mode)
 	
 	// Record Mode Set
 	giVesaCurrentMode = mode;
+	gpVesaCurMode = &gVesa_Modes[giVesaCurrentMode];
 	
 	RELEASE( &glVesa_Lock );
 	
@@ -482,16 +490,26 @@ int Vesa_Int_ModeInfo(tVideo_IOCtl_Mode *data)
  */
 void Vesa_FlipCursor(void *Arg)
 {
-	 int	pitch = gVesa_Modes[giVesaCurrentMode].pitch/4;
+	 int	pitch = gpVesaCurMode->pitch/4;
 	 int	x = giVesaCursorX*giVT_CharWidth;
 	 int	y = giVesaCursorY*giVT_CharHeight;
 	 int	i;
 	Uint32	*fb = (void*)gpVesa_Framebuffer;
 	
-	if(giVesaCursorX < 0 || giVesaCursorY < 0)	return;
+	//Debug("Cursor flip");
 	
-	for( i = 1; i < giVT_CharHeight-1; i++ )
-		fb[(y+i)*pitch+x] = ~fb[(y+i)*pitch+x];
+	// Sanity 1
+	if(giVesaCursorX < 0 || giVesaCursorY < 0
+	|| y*pitch + x + giVT_CharHeight*pitch > gpVesaCurMode->fbSize/4) {
+		Debug("Cursor OOB (%i,%i)", x, y);
+		giVesaCursorTimer = -1;
+		return;
+	}
+	
+	// Draw cursor
+	fb += (y+1)*pitch + x;
+	for( i = 1; i < giVT_CharHeight-1; i++, fb += pitch )
+		*fb = ~*fb;
 	
 	giVesaCursorTimer = Time_CreateTimer(VESA_CURSOR_PERIOD, Vesa_FlipCursor, Arg);
 }
@@ -501,11 +519,11 @@ void Vesa_FlipCursor(void *Arg)
 // ------------------------
 void Vesa_2D_Fill(void *Ent, Uint16 X, Uint16 Y, Uint16 W, Uint16 H, Uint32 Colour)
 {
-	 int	scrnwidth = gVesa_Modes[giVesaCurrentMode].width;
-	Uint32	*buf = (Uint32*)gpVesa_Framebuffer + Y*scrnwidth + X;
+	 int	pitch = gpVesaCurMode->pitch/4;
+	Uint32	*buf = (Uint32*)gpVesa_Framebuffer + Y*pitch + X;
 	while( H -- ) {
 		memsetd(buf, Colour, W);
-		buf += scrnwidth;
+		buf += pitch;
 	}
 }
 

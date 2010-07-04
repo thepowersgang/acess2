@@ -24,8 +24,6 @@
 #define	DEFAULT_WIDTH	640
 #define	DEFAULT_HEIGHT	480
 #define DEFAULT_SCROLLBACK	2	// 2 Screens of text + current screen
-#define	TEXTTERM_WIDTH	(BOOT_WIDTH/8)
-#define	TEXTTERM_HEIGHT	(BOOT_WIDTH/16)
 #define	DEFAULT_COLOUR	(VT_COL_BLACK|(0xAAA<<16))
 
 #define	VT_FLAG_HIDECSR	0x01
