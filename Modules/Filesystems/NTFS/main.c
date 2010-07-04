@@ -1,8 +1,6 @@
 /*
  * Acess2 - NTFS Driver
  * By John Hodge (thePowersGang)
- * This file is published under the terms of the Acess licence. See the
- * file COPYING for details.
  *
  * main.c - Driver core
  */
@@ -13,10 +11,15 @@
 #include "common.h"
 #include <modules.h>
 
+// === IMPORTS ===
+extern char	*NTFS_ReadDir(tVFS_Node *Node, int Pos);
+extern tVFS_Node	*NTFS_FindDir(tVFS_Node *Node, char *Name);
+
 // === PROTOTYPES ===
  int	NTFS_Install(char **Arguments);
 tVFS_Node	*NTFS_InitDevice(char *Devices, char **Options);
 void	NTFS_Unmount(tVFS_Node *Node);
+void	NTFS_DumpEntry(tNTFS_Disk *Disk, Uint32 Entry);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, 0x0A /*v0.1*/, FS_NTFS, NTFS_Install, NULL);
@@ -31,7 +34,7 @@ tNTFS_Disk	gNTFS_Disks;
 int NTFS_Install(char **Arguments)
 {
 	VFS_AddDriver( &gNTFS_FSInfo );
-	return 1;
+	return 0;
 }
 
 /**
@@ -50,12 +53,23 @@ tVFS_Node *NTFS_InitDevice(char *Device, char **Options)
 		return NULL;
 	}
 	
+	Log_Debug("FS_NTFS", "&bs = %p", &bs);
 	VFS_ReadAt(disk->FD, 0, 512, &bs);
+	
+	Log_Debug("FS_NTFS", "Jump = %02x%02x%02x",
+		bs.Jump[0],
+		bs.Jump[1],
+		bs.Jump[2]);
+	Log_Debug("FS_NTFS", "SystemID = %02x%02x%02x%02x%02x%02x%02x%02x",
+		bs.SystemID[0], bs.SystemID[1], bs.SystemID[2], bs.SystemID[3],
+		bs.SystemID[4], bs.SystemID[5], bs.SystemID[6], bs.SystemID[7]
+		);
 	
 	disk->ClusterSize = bs.BytesPerSector * bs.SectorsPerCluster;
 	Log_Debug("NTFS", "Cluster Size = %i KiB", disk->ClusterSize/1024);
 	disk->MFTBase = bs.MFTStart;
 	Log_Debug("NTFS", "MFT Base = %i", disk->MFTBase);
+	Log_Debug("NTFS", "TotalSectorCount = 0x%x", bs.TotalSectorCount);
 	
 	disk->RootNode.Inode = 5;	// MFT Ent #5 is filesystem root
 	disk->RootNode.ImplPtr = disk;
@@ -73,6 +87,8 @@ tVFS_Node *NTFS_InitDevice(char *Device, char **Options)
 	disk->RootNode.Relink = NULL;
 	disk->RootNode.Close = NULL;
 	
+	NTFS_DumpEntry(disk, 5);
+	
 	return &disk->RootNode;
 }
 
@@ -82,4 +98,36 @@ tVFS_Node *NTFS_InitDevice(char *Device, char **Options)
 void NTFS_Unmount(tVFS_Node *Node)
 {
 	
+}
+
+/**
+ * \brief Dumps a MFT Entry
+ */
+void NTFS_DumpEntry(tNTFS_Disk *Disk, Uint32 Entry)
+{
+	void	*buf = malloc( Disk->ClusterSize );
+	tNTFS_FILE_Header	*hdr = buf;
+	
+	if(!buf) {
+		Log_Warning("FS_NTFS", "malloc() fail!");
+		return ;
+	}
+	
+	VFS_ReadAt( Disk->FD, Disk->MFTBase*Disk->ClusterSize, Disk->ClusterSize, buf);
+	
+	Log_Debug("FS_NTFS", "MFT Entry #%i", Entry);
+	Log_Debug("FS_NTFS", "- Magic = 0x%08x", hdr->Magic);
+	Log_Debug("FS_NTFS", "- UpdateSequenceOfs = 0x%x", hdr->UpdateSequenceOfs);
+	Log_Debug("FS_NTFS", "- UpdateSequenceSize = 0x%x", hdr->UpdateSequenceSize);
+	Log_Debug("FS_NTFS", "- LSN = 0x%x", hdr->LSN);
+	Log_Debug("FS_NTFS", "- SequenceNumber = %i", hdr->SequenceNumber);
+	Log_Debug("FS_NTFS", "- HardLinkCount = %i", hdr->HardLinkCount);
+	Log_Debug("FS_NTFS", "- FirstAttribOfs = 0x%x", hdr->FirstAttribOfs);
+	Log_Debug("FS_NTFS", "- Flags = 0x%x", hdr->Flags);
+	Log_Debug("FS_NTFS", "- RecordSize = 0x%x", hdr->RecordSize);
+	Log_Debug("FS_NTFS", "- RecordSpace = 0x%x", hdr->RecordSpace);
+	Log_Debug("FS_NTFS", "- Reference = 0x%llx", hdr->Reference);
+	Log_Debug("FS_NTFS", "- NextAttribID = 0x%04x", hdr->NextAttribID);
+	
+	free(buf);
 }
