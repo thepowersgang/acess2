@@ -98,23 +98,19 @@ int kmain(Uint MbMagic, void *MbInfoPtr)
 	for( i = 0; i < mbInfo->ModuleCount; i ++ )
 	{
 		 int	ofs;
-		// TODO: Handle this better by using MM_MapHW/MM_MapTemp
-		// Adjust into higher half
-		//mods[i].Start  += KERNEL_BASE;
-		//mods[i].End    += KERNEL_BASE;
-		//mods[i].String += KERNEL_BASE;
 		
+		// Always HW map the module data
 		gaArch_BootModules[i].Size = mods[i].End - mods[i].Start;
 		
 		ofs = mods[i].Start&0xFFF;
 		gaArch_BootModules[i].Base = (void*)( MM_MapHWPages(mods[i].Start,
 			(gaArch_BootModules[i].Size+ofs+0xFFF) / 0x1000
 			) + ofs );
-		//gaArch_BootModules[i].ArgString = MM_MapHW(mods[i].String, 1)
-		// + (mods[i].String&0xFFF);
 		
+		// Only map the string if needed
 		if( (tVAddr)mods[i].String > MAX_ARGSTR_POS )
 		{
+			// Assumes the string is < 4096 bytes long)
 			gaArch_BootModules[i].ArgString = (void*)(
 				MM_MapHWPages((tVAddr)mods[i].String, 2)
 				+ ((tVAddr)mods[i].String&0xFFF)

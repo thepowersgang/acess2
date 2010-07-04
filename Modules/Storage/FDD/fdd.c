@@ -2,7 +2,7 @@
  * AcessOS 0.1
  * Floppy Disk Access Code
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include <modules.h>
 #include <fs_devfs.h>
