@@ -95,14 +95,24 @@ int kmain(Uint MbMagic, void *MbInfoPtr)
 	gaArch_BootModules = malloc( giArch_NumBootModules * sizeof(*gaArch_BootModules) );
 	for( i = 0; i < mbInfo->ModuleCount; i ++ )
 	{
+		 int	ofs;
+		// TODO: Handle this better by using MM_MapHW/MM_MapTemp
 		// Adjust into higher half
-		mods[i].Start  += KERNEL_BASE;
-		mods[i].End    += KERNEL_BASE;
+		//mods[i].Start  += KERNEL_BASE;
+		//mods[i].End    += KERNEL_BASE;
 		mods[i].String += KERNEL_BASE;
 		
-		gaArch_BootModules[i].Base = (void *)mods[i].Start;
 		gaArch_BootModules[i].Size = mods[i].End - mods[i].Start;
-		gaArch_BootModules[i].ArgString = (char *)mods[i].String;
+		
+		ofs = mods[i].Start&0xFFF;
+		gaArch_BootModules[i].Base = (void*)( MM_MapHWPages(mods[i].Start,
+			(gaArch_BootModules[i].Size+ofs+0xFFF) / 0x1000
+			) + ofs );
+		//gaArch_BootModules[i].ArgString = MM_MapHW(mods[i].String, 1)
+		// + (mods[i].String&0xFFF);
+		
+		//gaArch_BootModules[i].Base = (void *)mods[i].Start;
+		gaArch_BootModules[i].ArgString = (char *)mods[i].String + KERNEL_BASE;
 	}
 	
 	// Pass on to Independent Loader
@@ -120,12 +130,21 @@ void Arch_LoadBootModules(void)
 	 int	i;
 	for( i = 0; i < giArch_NumBootModules; i ++ )
 	{
+		Log_Debug("Arch", "Module %i: %p - %p 0x%x",
+			i, gaArch_BootModules[i].ArgString,
+			gaArch_BootModules[i].Base, gaArch_BootModules[i].Size
+			);
 		Log_Log("Arch", "Loading '%s'", gaArch_BootModules[i].ArgString);
 		
 		if( !Module_LoadMem( gaArch_BootModules[i].Base, gaArch_BootModules[i].Size, gaArch_BootModules[i].ArgString ) )
 		{
 			Log_Warning("Arch", "Unable to load module");
 		}
+		
+		MM_UnmapHWPages(
+			(tVAddr)gaArch_BootModules[i].Base,
+			(gaArch_BootModules[i].Size + ((Uint)gaArch_BootModules[i].Base&0xFFF) + 0xFFF) >> 12
+			);
 	}
 	Log_Log("Arch", "Boot modules loaded");
 	free( gaArch_BootModules );
