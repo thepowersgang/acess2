@@ -12,6 +12,8 @@
 
 #define	VGA_ERRORS	0
 
+#define MAX_ARGSTR_POS	(0x400000-0x2000)
+
 // === IMPORTS ===
 extern void	Heap_Install(void);
 extern void	Desctab_Install(void);
@@ -100,7 +102,7 @@ int kmain(Uint MbMagic, void *MbInfoPtr)
 		// Adjust into higher half
 		//mods[i].Start  += KERNEL_BASE;
 		//mods[i].End    += KERNEL_BASE;
-		mods[i].String += KERNEL_BASE;
+		//mods[i].String += KERNEL_BASE;
 		
 		gaArch_BootModules[i].Size = mods[i].End - mods[i].Start;
 		
@@ -111,8 +113,15 @@ int kmain(Uint MbMagic, void *MbInfoPtr)
 		//gaArch_BootModules[i].ArgString = MM_MapHW(mods[i].String, 1)
 		// + (mods[i].String&0xFFF);
 		
-		//gaArch_BootModules[i].Base = (void *)mods[i].Start;
-		gaArch_BootModules[i].ArgString = (char *)mods[i].String + KERNEL_BASE;
+		if( (tVAddr)mods[i].String > MAX_ARGSTR_POS )
+		{
+			gaArch_BootModules[i].ArgString = (void*)(
+				MM_MapHWPages((tVAddr)mods[i].String, 2)
+				+ ((tVAddr)mods[i].String&0xFFF)
+				);
+		}
+		else
+			gaArch_BootModules[i].ArgString = (char *)mods[i].String + KERNEL_BASE;
 	}
 	
 	// Pass on to Independent Loader
@@ -145,6 +154,9 @@ void Arch_LoadBootModules(void)
 			(tVAddr)gaArch_BootModules[i].Base,
 			(gaArch_BootModules[i].Size + ((Uint)gaArch_BootModules[i].Base&0xFFF) + 0xFFF) >> 12
 			);
+		
+		if( (tVAddr) gaArch_BootModules[i].ArgString > MAX_ARGSTR_POS )
+			MM_UnmapHWPages( (tVAddr)gaArch_BootModules[i].ArgString, 2 );
 	}
 	Log_Log("Arch", "Boot modules loaded");
 	free( gaArch_BootModules );
