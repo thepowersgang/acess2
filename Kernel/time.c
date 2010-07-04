@@ -43,6 +43,7 @@ void Timer_CallTimers()
 {
 	 int	i;
 	void	(*callback)(void *);
+	void	*arg;
 	
 	for(i = 0;
 		i < NUM_TIMERS;
@@ -50,9 +51,9 @@ void Timer_CallTimers()
 	{
 		if(gTimers[i].Callback == NULL)	continue;
 		if(giTimestamp < gTimers[i].FiresAfter)	continue;
-		callback = gTimers[i].Callback;
+		callback = gTimers[i].Callback;	arg = gTimers[i].Argument;
 		gTimers[i].Callback = NULL;
-		callback(gTimers[i].Argument);
+		callback(arg);
 	}
 }
 
