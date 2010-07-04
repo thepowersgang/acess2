@@ -65,7 +65,7 @@ void KernelPanic_SetMode(void)
 	if( giKP_Pos )	return ;
 	
 	// Restore VGA 0xB8000 text mode
-	#if 1
+	#if 0
 	for( i = 0; i < NUM_REGVALUES; i++ )
 	{
 		// Reset Flip-Flop

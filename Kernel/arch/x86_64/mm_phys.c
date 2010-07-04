@@ -228,14 +228,14 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 		size = ent->Size >> 12;
 		
 		if(base & 63) {
-			Uint64	val = -1L << (base & 63);
+			Uint64	val = -1LL << (base & 63);
 			gaMainBitmap[base / 64] &= ~val;
 			size -= (base & 63);
 			base += 64 - (base & 63);
 		}
 		memset( &gaMainBitmap[base / 64], 0, size/8 );
 		if( size & 7 ) {
-			Uint64	val = -1L << (size & 7);
+			Uint64	val = -1LL << (size & 7);
 			val <<= (size/8)&7;
 			gaMainBitmap[base / 64] &= ~val;
 		}
@@ -246,7 +246,7 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 		size = (size + (base & 63) + 63) >> 6;
 		base = base >> 6;
 		if(base & 63) {
-			Uint64	val = -1L << (base & 63);
+			Uint64	val = -1LL << (base & 63);
 			gaSuperBitmap[base / 64] &= ~val;
 			size -= (base & 63);
 			base += 64 - (base & 63);
@@ -258,7 +258,7 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 	size = firstFreePage >> 12;
 	memset( &gaMainBitmap[base / 64], -1, size/8 );
 	if( size & 7 ) {
-		Uint64	val = -1L << (size & 7);
+		Uint64	val = -1LL << (size & 7);
 		val <<= (size/8)&7;
 		gaMainBitmap[base / 64] |= val;
 	}
@@ -268,7 +268,7 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 		if(gaiStaticAllocPages[i] != 0)
 			continue;
 		gaMainBitmap[ gaiStaticAllocPages[i] >> (12+6) ]
-			&= ~(1L << ((gaiStaticAllocPages[i]>>12)&63));
+			&= ~(1LL << ((gaiStaticAllocPages[i]>>12)&63));
 	}
 	
 	// Fill the super bitmap
@@ -277,7 +277,7 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 	for( base = 0; base < (size+63)/64; base ++)
 	{
 		if( gaMainBitmap[ base ] + 1 == 0 )
-			gaSuperBitmap[ base/64 ] |= 1L << (base&63);
+			gaSuperBitmap[ base/64 ] |= 1LL << (base&63);
 	}
 	
 	// Set free page counts
@@ -285,7 +285,7 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 	{
 		 int	rangeID;
 		// Skip allocated
-		if( gaMainBitmap[ base >> 6 ] & (1L << (base&63))  )	continue;
+		if( gaMainBitmap[ base >> 6 ] & (1LL << (base&63))  )	continue;
 		
 		// Get range ID
 		rangeID = MM_int_GetRangeID( base << 12 );
@@ -323,7 +323,7 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 	if( Bits <= 0 || Bits >= 64 )	// Speedup for the common case
 		rangeID = MM_PHYS_MAX;
 	else
-		rangeID = MM_int_GetRangeID( (1L << Bits) - 1 );
+		rangeID = MM_int_GetRangeID( (1LL << Bits) - 1 );
 	
 	LOG("rangeID = %i", rangeID);
 	
@@ -367,20 +367,20 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 			if( gaSuperBitmap[addr >> (6+6)] + 1 == 0 ) {
 				LOG("nFree = %i = 0 (super) (0x%x)", nFree, addr);
 				nFree = 0;
-				addr += 1L << (6+6);
-				addr &= ~0xFFF;	// (1L << 6+6) - 1
+				addr += 1LL << (6+6);
+				addr &= ~0xFFF;	// (1LL << 6+6) - 1
 				continue;
 			}
 			// Check page block (64 pages)
 			if( gaMainBitmap[addr >> 6] + 1 == 0) {
 				LOG("nFree = %i = 0 (main) (0x%x)", nFree, addr);
 				nFree = 0;
-				addr += 1L << (6);
+				addr += 1LL << (6);
 				addr &= ~0x3F;
 				continue;
 			}
 			// Check individual page
-			if( gaMainBitmap[addr >> 6] & (1L << (addr & 63)) ) {
+			if( gaMainBitmap[addr >> 6] & (1LL << (addr & 63)) ) {
 				LOG("nFree = %i = 0 (page) (0x%x)", nFree, addr);
 				nFree = 0;
 				addr ++;
@@ -422,7 +422,7 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 	addr -= Num;
 	for( i = 0; i < Num; i++, addr++ )
 	{
-		gaMainBitmap[addr >> 6] |= 1L << (addr & 63);
+		gaMainBitmap[addr >> 6] |= 1LL << (addr & 63);
 		rangeID = MM_int_GetRangeID(addr << 12);
 		giPhysRangeFree[ rangeID ] --;
 		LOG("%x == %x", addr, giPhysRangeFirst[ rangeID ]);
@@ -438,7 +438,7 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 	for( i = 0; i < Num/64; i++ )
 	{
 		if( gaMainBitmap[ addr >> 6 ] + 1 == 0 )
-			gaSuperBitmap[addr>>12] |= 1L << ((addr >> 6) & 63);
+			gaSuperBitmap[addr>>12] |= 1LL << ((addr >> 6) & 63);
 	}
 	
 	RELEASE(&glPhysicalPages);
@@ -476,18 +476,18 @@ void MM_RefPhys(tPAddr PAddr)
 	
 	if( PAddr >> 12 > giMaxPhysPage )	return ;
 	
-	if( gaMainBitmap[ page >> 6 ] & (1L << (page&63)) )
+	if( gaMainBitmap[ page >> 6 ] & (1LL << (page&63)) )
 	{
 		// Reference again
-		gaMultiBitmap[ page >> 6 ] |= 1L << (page&63);
+		gaMultiBitmap[ page >> 6 ] |= 1LL << (page&63);
 		gaiPageReferences[ page ] ++;
 	}
 	else
 	{
 		// Allocate
-		gaMainBitmap[page >> 6] |= 1L << (page&63);
+		gaMainBitmap[page >> 6] |= 1LL << (page&63);
 		if( gaMainBitmap[page >> 6 ] + 1 == 0 )
-			gaSuperBitmap[page>> 12] |= 1L << ((page >> 6) & 63);
+			gaSuperBitmap[page>> 12] |= 1LL << ((page >> 6) & 63);
 	}
 }
 
@@ -500,18 +500,18 @@ void MM_DerefPhys(tPAddr PAddr)
 	
 	if( PAddr >> 12 > giMaxPhysPage )	return ;
 	
-	if( gaMultiBitmap[ page >> 6 ] & (1L << (page&63)) ) {
+	if( gaMultiBitmap[ page >> 6 ] & (1LL << (page&63)) ) {
 		gaiPageReferences[ page ] --;
 		if( gaiPageReferences[ page ] == 1 )
-			gaMultiBitmap[ page >> 6 ] &= ~(1L << (page&63));
+			gaMultiBitmap[ page >> 6 ] &= ~(1LL << (page&63));
 		if( gaiPageReferences[ page ] == 0 )
-			gaMainBitmap[ page >> 6 ] &= ~(1L << (page&63));
+			gaMainBitmap[ page >> 6 ] &= ~(1LL << (page&63));
 	}
 	else
-		gaMainBitmap[ page >> 6 ] &= ~(1L << (page&63));
+		gaMainBitmap[ page >> 6 ] &= ~(1LL << (page&63));
 	
 	// Update the free counts if the page was freed
-	if( !(gaMainBitmap[ page >> 6 ] & (1L << (page&63))) )
+	if( !(gaMainBitmap[ page >> 6 ] & (1LL << (page&63))) )
 	{
 		 int	rangeID;
 		rangeID = MM_int_GetRangeID( PAddr );
@@ -524,7 +524,7 @@ void MM_DerefPhys(tPAddr PAddr)
 	
 	// If the bitmap entry is not -1, unset the bit in the super bitmap
 	if(gaMainBitmap[ page >> 6 ] + 1 != 0 ) {
-		gaSuperBitmap[page >> 12] &= ~(1L << ((page >> 6) & 63));
+		gaSuperBitmap[page >> 12] &= ~(1LL << ((page >> 6) & 63));
 	}
 }
 
