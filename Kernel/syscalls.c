@@ -120,12 +120,16 @@ void SyscallHandler(tSyscallRegs *Regs)
 	// -- Check for messages
 	case SYS_GETMSG:
 		CHECK_NUM_NULLOK(Regs->Arg1, sizeof(Uint));
-		if( Regs->Arg2 && Regs->Arg2 != -1 && !MM_IsUser(Regs->Arg2) )
-		{
+		if( Regs->Arg2 && Regs->Arg2 != -1 && !MM_IsUser(Regs->Arg2) ) {
 			err = -EINVAL;	ret = -1;	break;
 		}
 		// *Source, *Data
 		ret = Proc_GetMessage(&err, (Uint*)Regs->Arg1, (void*)Regs->Arg2);
+		break;
+	
+	// -- Get the current timestamp
+	case SYS_GETTIME:
+		ret = now();
 		break;
 	
 	// -- Set the thread's name
@@ -137,9 +141,10 @@ void SyscallHandler(tSyscallRegs *Regs)
 	// ---
 	// Binary Control
 	// ---
+	// -- Replace the current process with another
 	case SYS_EXECVE:
 		CHECK_STR_NONULL(Regs->Arg1);
-		//Log(" Regs = {Arg2: %x, Arg3: %x}", Regs->Arg2, Regs->Arg3);
+		// Check the argument arrays
 		{
 			 int	i;
 			char	**tmp = (char**)Regs->Arg2;
@@ -166,6 +171,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 		// Path, **Argv, **Envp
 		ret = Proc_Execve((char*)Regs->Arg1, (char**)Regs->Arg2, (char**)Regs->Arg3);
 		break;
+	// -- Load a binary into the current process
 	case SYS_LOADBIN:
 		if( !Syscall_ValidString(Regs->Arg1)
 		||  !Syscall_Valid(sizeof(Uint), Regs->Arg2) ) {
