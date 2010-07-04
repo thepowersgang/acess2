@@ -19,6 +19,7 @@
 typedef struct sNTFS_Disk
 {
 	 int	FD;
+	 int	CacheHandle;
 	 
 	 int	ClusterSize;
 	Uint64	MFTBase;
@@ -58,7 +59,7 @@ typedef struct sNTFS_BootSector
 	
 	Uint8	Padding[512-72];
 	
-}	tNTFS_BootSector;
+} PACKED	tNTFS_BootSector;
 
 /**
  * FILE header, an entry in the MFT
@@ -100,7 +101,7 @@ typedef struct sNTFS_FILE_Header
 		}	All;
 	} OSDep;	
 	
-}	tNTFS_FILE_Header;
+} PACKED	tNTFS_FILE_Header;
 
 /**
  * File Attribute, follows the FILE header
@@ -140,6 +141,6 @@ typedef struct sNTFS_FILE_Attrib
 			// Data Runs
 		}	NonResident;
 	};
-}	tNTFS_FILE_Attrib;
+} PACKED	tNTFS_FILE_Attrib;
 
 #endif
