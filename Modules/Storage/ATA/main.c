@@ -403,14 +403,17 @@ char *ATA_ReadDir(tVFS_Node *Node, int Pos)
 tVFS_Node *ATA_FindDir(tVFS_Node *Node, char *Name)
 {
 	 int	part;
+	tATA_Disk	*disk;
+	
 	// Check first character
 	if(Name[0] < 'A' || Name[0] > 'A'+MAX_ATA_DISKS)
 		return NULL;
+	disk = &gATA_Disks[Name[0]-'A'];
 	// Raw Disk
 	if(Name[1] == '\0') {
-		if( gATA_Disks[Name[0]-'A'].Sectors == 0 )
+		if( disk->Sectors == 0 && disk->Name[0] == '\0')
 			return NULL;
-		return &gATA_Disks[Name[0]-'A'].Node;
+		return &disk->Node;
 	}
 
 	// Partitions
@@ -418,7 +421,7 @@ tVFS_Node *ATA_FindDir(tVFS_Node *Node, char *Name)
 	if(Name[2] == '\0') {	// <= 9
 		part = Name[1] - '0';
 		part --;
-		return &gATA_Disks[Name[0]-'A'].Partitions[part].Node;
+		return &disk->Partitions[part].Node;
 	}
 	// > 9
 	if('0' > Name[2] || '9' < Name[2])	return NULL;
@@ -427,7 +430,7 @@ tVFS_Node *ATA_FindDir(tVFS_Node *Node, char *Name)
 	part = (Name[1] - '0') * 10;
 	part += Name[2] - '0';
 	part --;
-	return &gATA_Disks[Name[0]-'A'].Partitions[part].Node;
+	return &disk->Partitions[part].Node;
 
 }
 
