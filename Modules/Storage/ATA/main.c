@@ -12,9 +12,6 @@
 #include <tpl_drv_disk.h>
 #include "common.h"
 
-// --- Flags ---
-#define START_BEFORE_CMD	0
-
 // === STRUCTURES ===
 typedef struct
 {
@@ -96,7 +93,7 @@ Uint8	*gATA_BusMasterBasePtr = 0;
  int	gATA_IRQPri = 14;
  int	gATA_IRQSec = 15;
  int	giaATA_ControllerLock[2] = {0};	//!< Spinlocks for each controller
-Uint8	gATA_Buffers[2][4096] __attribute__ ((section(".padata")));
+Uint8	gATA_Buffers[2][(MAX_DMA_SECTORS+0xFFF)&~0xFFF] __attribute__ ((section(".padata")));
 volatile int	gaATA_IRQs[2] = {0};
 tPRDT_Ent	gATA_PRDTs[2] = {
 	{0, 512, IDE_PRDT_LAST},
@@ -288,15 +285,24 @@ int ATA_ScanDisk(int Disk)
 
 	LOG("gATA_Disks[ Disk ].Sectors = 0x%x", gATA_Disks[ Disk ].Sectors);
 
-	if( gATA_Disks[ Disk ].Sectors / (2048*1024) )
-		Log("Disk %i: 0x%llx Sectors (%i GiB)", Disk,
-			gATA_Disks[ Disk ].Sectors, gATA_Disks[ Disk ].Sectors / (2048*1024));
-	else if( gATA_Disks[ Disk ].Sectors / 2048 )
-		Log("Disk %i: 0x%llx Sectors (%i MiB)", Disk,
-			gATA_Disks[ Disk ].Sectors, gATA_Disks[ Disk ].Sectors / 2048);
-	else
-		Log("Disk %i: 0x%llx Sectors (%i KiB)", Disk,
-			gATA_Disks[ Disk ].Sectors, gATA_Disks[ Disk ].Sectors / 2);
+	{
+		Uint64	val = gATA_Disks[ Disk ].Sectors / 2;
+		char	*units = "KiB";
+		if( val > 4*1024 ) {
+			val /= 1024;
+			units = "MiB";
+		}
+		else if( val > 4*1024 ) {
+			val /= 1024;
+			units = "GiB";
+		}
+		else if( val > 4*1024 ) {
+			val /= 1024;
+			units = "TiB";
+		}
+		Log_Log("ATA", "Disk %i: 0x%llx Sectors (%i %s)", Disk,
+			gATA_Disks[ Disk ].Sectors, val, units);
+	}
 
 	// Create Name
 	gATA_Disks[ Disk ].Name[0] = 'A'+Disk;
@@ -659,6 +665,9 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 
 	// Complete Transfer
 	ATA_int_BusMasterWriteByte( cont << 3, 8 );	// Read and stop
+
+	val = inb(base+0x7);
+	LOG("Status byte = 0x%02x", val);
 
 	LOG("Transfer Completed & Acknowledged");
 

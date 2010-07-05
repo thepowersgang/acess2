@@ -98,7 +98,10 @@ int kmain(Uint MbMagic, void *MbInfoPtr)
 	for( i = 0; i < mbInfo->ModuleCount; i ++ )
 	{
 		 int	ofs;
-		
+	
+		Log_Log("Arch", "Multiboot Module at 0x%08x, 0x%08x bytes (String at 0x%08x)",
+			mods[i].Start, mods[i].End-mods[i].Start, mods[i].String);
+	
 		// Always HW map the module data
 		gaArch_BootModules[i].Size = mods[i].End - mods[i].Start;
 		
@@ -112,8 +115,7 @@ int kmain(Uint MbMagic, void *MbInfoPtr)
 		{
 			// Assumes the string is < 4096 bytes long)
 			gaArch_BootModules[i].ArgString = (void*)(
-				MM_MapHWPages((tVAddr)mods[i].String, 2)
-				+ ((tVAddr)mods[i].String&0xFFF)
+				MM_MapHWPages(mods[i].String, 2) + (mods[i].String&0xFFF)
 				);
 		}
 		else

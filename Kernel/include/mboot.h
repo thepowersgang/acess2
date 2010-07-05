@@ -24,7 +24,7 @@ typedef struct {
 typedef struct {
 	Uint32	Start;
 	Uint32	End;
-	char	*String;
+	Uint32	String;
 	Uint32	Resvd;
 } tMBoot_Module;
 
