@@ -56,7 +56,7 @@ void DumpInterfaces(int DumpAll)
 {
 	 int	dp, fd;
 	 int	type;
-	char	path[sizeof(IPSTACK_ROOT)+1+FILENAME_MAX] = IPSTACK_ROOT"/";
+	char	path[sizeof(IPSTACK_ROOT)+1+FILENAME_MAX+1] = IPSTACK_ROOT"/";
 	char	*filename = &path[sizeof(IPSTACK_ROOT)];
 	
 	dp = open(IPSTACK_ROOT, OPENFLAG_READ);
@@ -67,16 +67,18 @@ void DumpInterfaces(int DumpAll)
 		
 		fd = open(path, OPENFLAG_READ);
 		if(fd == -1) {
-			printf("%s:\tUnable to open ('%s'\n\n", filename, path);
+			printf("%s:\tUnable to open ('%s')\n", filename, path);
+			continue ;
 		}
 		
 		type = ioctl(fd, 4, NULL);
 		
 		printf("%s:\t", filename);
 		{
-			int len = ioctl(fd, ioctl(fd, 3, "get_device"), NULL);
+			int	call = ioctl(fd, 3, "get_device");
+			int len = ioctl(fd, call, NULL);
 			char *buf = malloc(len+1);
-			ioctl(fd, ioctl(fd, 3, "get_device"), buf);
+			ioctl(fd, call, buf);
 			printf("'%s'\t", buf);
 			free(buf);
 		}

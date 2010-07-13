@@ -342,7 +342,7 @@ Uint Binary_MapIn(tBinary *binary)
 		
 	}
 	
-	//Log("Mapped '%s' to 0x%x", binary->TruePath, base);
+	Log_Debug("Binary", "PID %i - Mapped '%s' to 0x%x", Threads_GetPID(), binary->TruePath, base);
 	
 	//LOG("*0x%x = 0x%x\n", binary->Pages[0].Virtual, *(Uint*)binary->Pages[0].Virtual);
 	

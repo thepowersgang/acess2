@@ -116,7 +116,7 @@ uint64_t __umoddi3(uint64_t Num, uint64_t Den)
 	if(Num < Den)	return Num;
 	if(Num == Den)	return 0;
 	if(Num <= 0xFFFFFFFF && Den <= 0xFFFFFFFF)
-		return Num % Den;
+		return (uint32_t)Num % (uint32_t)Den;
 	
 	// Speedups for common operations
 	if(Den == 1)	return 0;
