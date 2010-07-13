@@ -9,7 +9,7 @@
 #define	MOUNTED_FILE	"/Devices/System/VFS/Mounts"
 
 // === PROTOTYPES ===
-void	ShowUsage();
+void	ShowUsage(char *ProgName);
  int	GetMountDefs(char *Ident, char **spDevice, char **spDir, char **spType, char **spOptions);
 
 // === CODE ===
@@ -27,8 +27,21 @@ int main(int argc, char *argv[])
 	char	*sDir = NULL;
 	char	*sOptions = NULL;
 
+	// List mounted filesystems
+	// - This is cheating, isn't it?
+	if(argc == 1) {
+		// Dump the contents of /Devices/system/VFS/Mounts
+		FILE	*fp = fopen("/Devices/system/VFS/Mounts", "r");
+		char	buf[1024];
+		 int	len;
+		while( (len = fread(buf, 1024, 1, fp)) )
+			fwrite(buf, len, 1, stdout);
+		printf("\n");
+		return 0;
+	}
+
 	if(argc < 3) {
-		ShowUsage();
+		ShowUsage(argv[0]);
 		return EXIT_FAILURE;
 	}
 	
@@ -133,10 +146,11 @@ int main(int argc, char *argv[])
 
 void ShowUsage(char *ProgName)
 {
-	fprintf(stderr, "Usage:\n", ProgName);
-	fprintf(stderr, "    %s [-t <type>] <device> <directory>\n");
-	fprintf(stderr, "or  %s <device>\n");
-	fprintf(stderr, "or  %s <directory>\n");
+	fprintf(stderr, "Usage:\n");
+	fprintf(stderr, "    %s [-t <type>] <device> <directory>\n", ProgName);
+	fprintf(stderr, "or  %s <device>\n", ProgName);
+	fprintf(stderr, "or  %s <directory>\n", ProgName);
+	fprintf(stderr, "or  %s\n", ProgName);
 }
 
 /**

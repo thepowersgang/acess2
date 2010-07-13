@@ -221,6 +221,7 @@ void ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffe
 		Log_Log("ARP", "Recieved a packet with HWSize != 6 (%i)", req4->HWSize);
 		return;
 	}
+	#if ARP_DETECT_SPOOFS
 	if( !MAC_EQU(req4->SourceMac, From) ) {
 		Log_Log("ARP", "ARP spoofing detected "
 			"(%02x%02x:%02x%02x:%02x%02x != %02x%02x:%02x%02x:%02x%02x)",
@@ -231,35 +232,36 @@ void ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffe
 			);
 		return;
 	}
+	#endif
 	
-	Log("[ARP  ] Request ID %i", ntohs(req4->Request));
+	Log_Debug("ARP", "Request ID %i", ntohs(req4->Request));
 	
 	switch( ntohs(req4->Request) )
 	{
 	case 1:	// You want my IP?
-		Log("[ARP  ] ARP Request Address class %i", req4->SWSize);
+		Log_Debug("ARP", "ARP Request Address class %i", req4->SWSize);
 		// Check what type of IP it is
 		switch( req4->SWSize )
 		{
 		case 4:
-			Log("[ARP  ] From MAC %02x:%02x:%02x:%02x:%02x:%02x",
+			Log_Debug("ARP", "From MAC %02x:%02x:%02x:%02x:%02x:%02x",
 				req4->SourceMac.B[0], req4->SourceMac.B[1],
 				req4->SourceMac.B[2], req4->SourceMac.B[3],
 				req4->SourceMac.B[4], req4->SourceMac.B[5]);
-			Log("[ARP  ] to MAC %02x:%02x:%02x:%02x:%02x:%02x",
+			Log_Debug("ARP", "to MAC %02x:%02x:%02x:%02x:%02x:%02x",
 				req4->DestMac.B[0], req4->DestMac.B[1],
 				req4->DestMac.B[2], req4->DestMac.B[3],
 				req4->DestMac.B[4], req4->DestMac.B[5]);
-			Log("[ARP  ] ARP Request IPv4 Address %i.%i.%i.%i",
+			Log_Debug("ARP", "ARP Request IPv4 Address %i.%i.%i.%i",
 				req4->DestIP.B[0], req4->DestIP.B[1], req4->DestIP.B[2],
 				req4->DestIP.B[3]);
-			Log("[ARP  ] from %i.%i.%i.%i",
+			Log_Debug("ARP", "from %i.%i.%i.%i",
 				req4->SourceIP.B[0], req4->SourceIP.B[1],
 				req4->SourceIP.B[2], req4->SourceIP.B[3]);
 			iface = IPv4_GetInterface(Adapter, req4->DestIP, 0);
 			if( iface )
 			{
-				Log("[ARP  ] Caching sender's IP Address");
+				Log_Debug("ARP", "Caching sender's IP Address");
 				ARP_UpdateCache4(req4->SourceIP, req4->SourceMac);
 				
 				req4->DestIP = req4->SourceIP;
@@ -267,8 +269,8 @@ void ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffe
 				req4->SourceIP = iface->IP4.Address;
 				req4->SourceMac = Adapter->MacAddr;
 				req4->Request = htons(2);
-				Log("[ARP  ] Hey, That's us!");
-				Log("[ARP  ] Sending back %02x:%02x:%02x:%02x:%02x:%02x",
+				Log_Debug("ARP", "Hey, That's us!");
+				Log_Debug("ARP", "Sending back %02x:%02x:%02x:%02x:%02x:%02x",
 					req4->SourceMac.B[0], req4->SourceMac.B[1],
 					req4->SourceMac.B[2], req4->SourceMac.B[3],
 					req4->SourceMac.B[4], req4->SourceMac.B[5]);
@@ -277,7 +279,7 @@ void ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffe
 			break;
 		case 6:
 			if( Length < sizeof(tArpRequest6) ) {
-				Log("[ARP  ] Recieved undersized packet (IPv6)");
+				Log_Debug("ARP", "Recieved undersized packet (IPv6)");
 				return ;
 			}
 			iface = IPv6_GetInterface(Adapter, req6->DestIP, 0);
@@ -292,7 +294,7 @@ void ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffe
 			}
 			break;
 		default:
-			Log("[ARP  ] Unknown Protocol Address size (%i)", req4->SWSize);
+			Log_Debug("ARP", "Unknown Protocol Address size (%i)", req4->SWSize);
 			return ;
 		}
 		
@@ -307,13 +309,13 @@ void ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffe
 			break;
 		case 6:
 			if( Length < sizeof(tArpRequest6) ) {
-				Log("[ARP  ] Recieved undersized packet (IPv6)");
+				Log_Debug("ARP", "Recieved undersized packet (IPv6)");
 				return ;
 			}
 			ARP_UpdateCache6( req6->SourceIP, From );
 			break;
 		default:
-			Log("[ARP  ] Unknown Protocol Address size (%i)", req4->SWSize);
+			Log_Debug("ARP", "Unknown Protocol Address size (%i)", req4->SWSize);
 			return ;
 		}
 		

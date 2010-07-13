@@ -162,6 +162,8 @@ void Link_WatchDevice(tAdapter *Adapter)
 	}
 	
 	Log_Log("NET", "Watcher terminated (file closed)");
+	
+	Threads_Exit(0, 0);
 }
 
 // From http://www.cl.cam.ac.uk/research/srg/bluebook/21/crc/node6.html

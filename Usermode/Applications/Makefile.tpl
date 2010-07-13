@@ -2,7 +2,7 @@
 #
 #
 
-CFLAGS  += -Wall -fno-builtin -fno-stack-protector -g
+CFLAGS  += -Wall -Werror -fno-builtin -fno-stack-protector -g
 LDFLAGS += 
 
 DEPFILES := $(OBJ:%.o=%.d)

@@ -217,8 +217,6 @@ Uint16 IPv4_Checksum(void *Buf, int Size)
 	Uint16	*arr = Buf;
 	 int	i;
 	
-	Log("IPv4_Checksum: (%p, %i)", Buf, Size);
-	
 	Size = (Size + 1) >> 1;
 	for(i = 0; i < Size; i++ )
 	{
