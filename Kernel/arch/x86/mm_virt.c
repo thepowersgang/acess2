@@ -247,6 +247,13 @@ void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 	
 	//MM_DumpTables(0, -1);	
 	
+	// Register Dump
+	Log("EAX %08x ECX %08x EDX %08x EBX %08x", Regs->eax, Regs->ecx, Regs->edx, Regs->ebx);
+	Log("ESP %08x EBP %08x ESI %08x EDI %08x", Regs->esp, Regs->ebp, Regs->esi, Regs->edi);
+	//Log("SS:ESP %04x:%08x", Regs->ss, Regs->esp);
+	Log("CS:EIP %04x:%08x", Regs->cs, Regs->eip);
+	Log("DS %04x ES %04x FS %04x GS %04x", Regs->ds, Regs->es, Regs->fs, Regs->gs);
+	
 	Panic("Page Fault at 0x%x (Accessed 0x%x)", Regs->eip, Addr);
 }
 

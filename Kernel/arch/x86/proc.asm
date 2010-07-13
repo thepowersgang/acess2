@@ -84,7 +84,7 @@ Proc_ReturnToUser:
 	; EAX is the current thread
 	mov ebx, eax
 	mov eax, [ebx+40]	; Get Kernel Stack
-	sub eax, KSTACK_USERSTATE_SIZE	
+	sub eax, KSTACK_USERSTATE_SIZE
 	
 	;
 	; NOTE: This can cause corruption if the signal happens while the user
@@ -92,12 +92,43 @@ Proc_ReturnToUser:
 	; Good thing this can only be called on a user fault.
 	;
 	
+	; Validate user ESP
+	; - Page Table
+	mov edx, [eax+KSTACK_USERSTATE_SIZE-12]	; User ESP is at top of kstack - 3*4
+	%if USE_PAE
+	%error PAE Support
+	%else
+	mov ecx, edx
+	shr ecx, 22
+	test BYTE [0xFC3F0000+ecx*4], 1
+	jnz .justKillIt
+	%endif
+	; - Page
+	mov ecx, edx
+	shr ecx, 12
+	test BYTE [0xFC000000+ecx*4], 1
+	jnz .justKillIt
+	; Adjust
+	sub edx, 8
+	; - Page Table
+	%if USE_PAE
+	%else
+	mov ecx, edx
+	shr ecx, 22
+	test BYTE [0xFC3F0000+ecx*4], 1
+	jnz .justKillIt
+	%endif
+	; - Page
+	mov ecx, edx
+	shr ecx, 12
+	test BYTE [0xFC000000+ecx*4], 1
+	jnz .justKillIt
+	
 	; Get and alter User SP
-	mov ecx, [eax+KSTACK_USERSTATE_SIZE-12]
-	mov edx, [ebx+60]	; Get Signal Number
-	mov [ecx-4], edx
-	mov [ecx-8], DWORD User_Syscall_RetAndExit
-	sub ecx, 8
+	mov ecx, edx
+	mov edx, [ebx+60]	; Get Signal Number from TCB
+	mov [ecx+4], edx	; Parameter (Signal/Error Number)
+	mov [ecx], DWORD User_Syscall_RetAndExit	; Return Address
 	
 	; Restore Segment Registers
 	mov ax, 0x23
@@ -113,6 +144,14 @@ Proc_ReturnToUser:
 	push ebp	; EIP
 	
 	iret
+	
+	; Just kill the bleeding thing
+	; (I know it calls int 0xAC in kernel mode, but meh)
+.justKillIt:
+	xor eax, eax
+	xor ebx, ebx
+	dec ebx
+	int 0xAC
 
 [global GetCPUNum]
 GetCPUNum:
@@ -122,6 +161,7 @@ GetCPUNum:
 	shr ax, 3	; ax /= 8
 	ret
 
+; Usermode code exported by the kernel
 [section .usertext]
 User_Syscall_RetAndExit:
 	push eax

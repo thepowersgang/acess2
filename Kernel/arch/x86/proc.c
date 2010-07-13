@@ -583,7 +583,7 @@ Uint Proc_MakeUserStack(void)
 	if(i != -1)	return 0;
 	
 	// Allocate Stack - Allocate incrementally to clean up MM_Dump output
-	for( i = 0; i < USER_STACK_SZ/4069; i++ )
+	for( i = 0; i < USER_STACK_SZ/0x1000; i++ )
 		MM_Allocate( base + (i<<12) );
 	
 	return base + USER_STACK_SZ;
