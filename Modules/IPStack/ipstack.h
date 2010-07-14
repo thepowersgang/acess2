@@ -23,6 +23,7 @@ union uIPv4 {
 } __attribute__((packed));
 
 union uIPv6 {
+	Uint16	W[8];
 	Uint32	L[4];
 	Uint8	B[16];
 } __attribute__((packed));
@@ -35,7 +36,7 @@ struct sInterface {
 	struct sInterface	*Next;
 	tVFS_Node	Node;
 	tAdapter	*Adapter;
-	 int	TimeoutDelay;	// Time in miliseconds before a connection times out
+	 int	TimeoutDelay;	// Time in miliseconds before a packet times out
 	 int	Type;	// 0 for disabled, 4 for IPv4 and 6 for IPv6
 	union {
 		struct	{
@@ -88,11 +89,11 @@ static const tMacAddr cMAC_BROADCAST = {{0xFF,0xFF,0xFF,0xFF,0xFF,0xFF}};
 
 // === FUNCTIONS ===
 #define htonb(v)	(v)
-#define htons(in)	BigEndian16(in)
-#define htonl(in)	BigEndian32(in)
+#define htons(v)	BigEndian16(v)
+#define htonl(v)	BigEndian32(v)
 #define ntonb(v)	(v)
-#define ntohs(in)	BigEndian16(in)
-#define ntohl(in)	BigEndian32(in)
+#define ntohs(v)	BigEndian16(v)
+#define ntohl(v)	BigEndian32(v)
 
 extern int	IPStack_AddFile(tSocketFile *File);
 

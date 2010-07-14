@@ -121,7 +121,7 @@ int Proc_Execve(char *File, char **ArgV, char **EnvP)
 	// Allocate
 	argenvBuf = malloc(argenvBytes);
 	if(argenvBuf == NULL) {
-		Warning("Proc_Execve - What the hell? The kernel is out of heap space");
+		Log_Error("BIN", "Proc_Execve - What the hell? The kernel is out of heap space");
 		return 0;
 	}
 	strBuf = argenvBuf + (argc+1)*sizeof(void*) + (envc+1)*sizeof(void*);
@@ -158,7 +158,7 @@ int Proc_Execve(char *File, char **ArgV, char **EnvP)
 	free(savedFile);
 	if(bases[0] == 0)
 	{
-		Warning("Proc_Execve - Unable to load '%s'", Threads_GetName(-1));
+		Log_Warning("BIN", "Proc_Execve - Unable to load '%s'", Threads_GetName(-1));
 		Threads_Exit(0, 0);
 		for(;;);
 	}
@@ -191,7 +191,7 @@ Uint Binary_Load(char *file, Uint *entryPoint)
 	sTruePath = VFS_GetTruePath(file);
 	
 	if(sTruePath == NULL) {
-		Warning("[BIN  ] '%s' does not exist.", file);
+		Log_Warning("BIN", "'%s' does not exist.", file);
 		LEAVE('x', 0);
 		return 0;
 	}
@@ -315,7 +315,7 @@ Uint Binary_MapIn(tBinary *binary)
 	
 	// Error Check
 	if(base < BIN_LOWEST) {
-		Warning("[BIN ] Executable '%s' cannot be loaded, no space", binary->TruePath);
+		Log_Warning("BIN", "Executable '%s' cannot be loaded, no space", binary->TruePath);
 		return 0;
 	}
 	
@@ -411,7 +411,7 @@ tBinary *Binary_DoLoad(char *truePath)
 		break;
 	}
 	if(!bt) {
-		Warning("[BIN ] '%s' is an unknown file type. (0x%x 0x%x 0x%x 0x%x)",
+		Log_Warning("BIN", "'%s' is an unknown file type. (%02x %02x %02x %02x)",
 			truePath, ident&0xFF, (ident>>8)&0xFF, (ident>>16)&0xFF, (ident>>24)&0xFF);
 		LEAVE('n');
 		return NULL;
@@ -440,7 +440,7 @@ tBinary *Binary_DoLoad(char *truePath)
 		tPAddr	paddr;
 		paddr = (Uint)MM_AllocPhys();
 		if(paddr == 0) {
-			Warning("Binary_DoLoad - Physical memory allocation failed");
+			Log_Warning("BIN", "Binary_DoLoad - Physical memory allocation failed");
 			for( ; i--; ) {
 				MM_DerefPhys( pBinary->Pages[i].Physical );
 			}
@@ -505,7 +505,7 @@ void Binary_Unload(void *Base)
 	if((Uint)Base < 0xC0000000)
 	{
 		// TODO: User Binaries
-		Warning("[BIN ] Unloading user binaries is currently unimplemented");
+		Log_Warning("BIN", "Unloading user binaries is currently unimplemented");
 		return;
 	}
 	
@@ -687,7 +687,7 @@ void *Binary_LoadKernel(char *File)
 	
 	// - Error Check
 	if(base >= KLIB_HIGHEST) {
-		Warning("[BIN ] Executable '%s' cannot be loaded into kernel, no space", pBinary->TruePath);
+		Log_Warning("BIN", "Executable '%s' cannot be loaded into kernel, no space", pBinary->TruePath);
 		Binary_Dereference( pBinary );
 		LEAVE('n');
 		return 0;
@@ -750,7 +750,7 @@ Uint Binary_Relocate(void *Base)
 			return bt->Relocate( (void*)Base);
 	}
 	
-	Warning("[BIN ] 0x%x is an unknown file type. (0x%x 0x%x 0x%x 0x%x)",
+	Log_Warning("BIN", "%p is an unknown file type. (%02x %02x %02x %02x)",
 		Base, ident&0xFF, (ident>>8)&0xFF, (ident>>16)&0xFF, (ident>>24)&0xFF);
 	return 0;
 }
@@ -801,7 +801,7 @@ Uint Binary_GetSymbolEx(char *Name, Uint *Value)
 		}
 	}
 	
-	Warning("[BIN ] Unable to find symbol '%s'", Name);
+	Log_Warning("BIN", "Unable to find symbol '%s'", Name);
 	return 0;
 }
 
@@ -823,7 +823,7 @@ Uint Binary_FindSymbol(void *Base, char *Name, Uint *Val)
 			return bt->GetSymbol(Base, Name, Val);
 	}
 	
-	Warning("[BIN ] 0x%x is an unknown file type. (0x%x 0x%x 0x%x 0x%x)",
+	Log_Warning("BIN", "Binary_FindSymbol - %p is an unknown file type. (%02x %02x %02x %02x)",
 		Base, ident&0xFF, ident>>8, ident>>16, ident>>24);
 	return 0;
 }
