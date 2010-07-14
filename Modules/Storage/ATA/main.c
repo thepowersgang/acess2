@@ -251,6 +251,12 @@ int ATA_ScanDisk(int Disk)
 
 	LOG("base = 0x%x", base);
 
+	if( 0xFF == inb(base+7) ) {
+		LOG("Floating bus");
+		LEAVE('i', 0);
+		return 0;
+	}
+
 	// Send Disk Selector
 	if(Disk == 1 || Disk == 3)
 		outb(base+6, 0xB0);
@@ -283,7 +289,7 @@ int ATA_ScanDisk(int Disk)
 		gATA_Disks[ Disk ].Sectors = data.identify.Sectors28;
 
 
-	LOG("gATA_Disks[ Disk ].Sectors = 0x%x", gATA_Disks[ Disk ].Sectors);
+	LOG("gATA_Disks[ %i ].Sectors = 0x%x", Disk, gATA_Disks[ Disk ].Sectors);
 
 	{
 		Uint64	val = gATA_Disks[ Disk ].Sectors / 2;
