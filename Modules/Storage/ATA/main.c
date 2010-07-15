@@ -354,8 +354,10 @@ int ATA_ScanDisk(int Disk)
 	else	// No? Just parse the MBR
 		ATA_ParseMBR(Disk, &data.mbr);
 	
+	#if DEBUG >= 2
 	ATA_ReadDMA( Disk, 1, 1, &data );
 	Debug_HexDump("ATA_ScanDisk", &data, 512);
+	#endif
 
 	LEAVE('i', 0);
 	return 1;
