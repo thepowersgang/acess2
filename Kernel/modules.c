@@ -349,39 +349,12 @@ int Module_LoadFile(char *Path, char *ArgString)
 		return 0;
 	}
 	
-	#if 1
+	// Initialise (and register)
 	if( Module_int_Initialise( info, ArgString ) )
 	{
 		Binary_Unload(base);
 		return 0;
 	}
-	#else
-	// Resolve Dependencies
-	if( !Module_int_ResolveDeps(info) ) {
-		Binary_Unload(base);
-		return 0;
-	}
-	
-	Log_Log("Module", "Initialising %p '%s' v%i.%i...",
-				info,
-				info->Name,
-				info->Version>>8, info->Version & 0xFF
-				);
-	
-	// Call Initialiser
-	//if( info->Init( ArgString ) != 0 )
-	if( info->Init( NULL ) == 0 )
-	{
-		Binary_Unload(base);
-		return 0;
-	}
-	
-	// Add to list
-	LOCK( &glModuleSpinlock );
-	info->Next = gLoadedModules;
-	gLoadedModules = info;
-	RELEASE( &glModuleSpinlock );
-	#endif
 	
 	return 1;
 }

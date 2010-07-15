@@ -9,7 +9,6 @@
 
 #define DEBUG_WARN	1
 
-
 // === PROTOTYPES ===
 tBinary	*Elf_Load(int fp);
  int	Elf_Relocate(void *Base);
