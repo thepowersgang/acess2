@@ -177,7 +177,7 @@ int PCI_ScanBus(int BusID)
 			// Maybe bit 23 must be set for the device to be valid?
 			// - Actually, maybe 23 means that there are sub-functions
 			if(fcn == 0) {
-				if( !(devInfo.ConfigCache[3] & 0x800000) )
+				if( !(devInfo.ConfigCache[3] & 0x00800000) )
 					break;
 			}
 		}

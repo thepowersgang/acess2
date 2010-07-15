@@ -7,6 +7,7 @@ Dir "Bin" {
 	File "ls" "../../../Usermode/Applications/ls"
 	File "cat" "../../../Usermode/Applications/cat"
 	File "mount" "../../../Usermode/Applications/mount"
+	File "pcidump" "../../../Usermode/Applications/pcidump"
 }
 Dir "Libs" {
 	File "ld-acess.so" "../../../Usermode/Libraries/ld-acess.so"
