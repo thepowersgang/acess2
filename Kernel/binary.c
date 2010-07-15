@@ -10,7 +10,6 @@
 // === CONSTANTS ===
 #define BIN_LOWEST	MM_USER_MIN		// 1MiB
 #define BIN_GRANUALITY	0x10000		// 64KiB
-//! \todo Move 0xBC000000 to mm_virt.h
 #define BIN_HIGHEST	(USER_LIB_MAX-BIN_GRANUALITY)		// Just below the kernel
 #define	KLIB_LOWEST	MM_MODULE_MIN
 #define KLIB_GRANUALITY	0x10000		// 32KiB
@@ -434,7 +433,7 @@ tBinary *Binary_DoLoad(char *truePath)
 	LOG("NumPages: %i", pBinary->NumPages);
 	
 	// Read Data
-	for(i=0;i<pBinary->NumPages;i++)
+	for(i = 0; i < pBinary->NumPages; i ++)
 	{
 		Uint	dest;
 		tPAddr	paddr;
@@ -461,12 +460,34 @@ tBinary *Binary_DoLoad(char *truePath)
 		else
 		{
 			VFS_Seek( fp, pBinary->Pages[i].Physical, 1 );
-			if(pBinary->Pages[i].Size != 0x1000) {
+			// If the address is not aligned, or the page is not full
+			// sized, copy part of it
+			if( (dest & 0xFFF) > 0 || pBinary->Pages[i].Size < 0x1000)
+			{
+				// Validate the size to prevent Kernel page faults
+				// Clips to one page and prints a warning
+				if( pBinary->Pages[i].Size + (dest & 0xFFF) > 0x1000) {
+					Log_Warning("Binary", "Loader error: Page %i (%p) of '%s' is %i bytes (> 4096)",
+						i, pBinary->Pages[i].Virtual, truePath,
+						(dest&0xFFF) + pBinary->Pages[i].Size);
+					pBinary->Pages[i].Size = 0x1000 - (dest & 0xFFF);
+				}		
 				LOG("%i - 0x%llx - 0x%x bytes",
 					i, pBinary->Pages[i].Physical, pBinary->Pages[i].Size);
-				memset( (void*)dest, 0, 0x1000 -(dest&0xFFF) );
+				// Zero from `dest` to the end of the page
+				memset( (void*)dest, 0, 0x1000 - (dest&0xFFF) );
+				// Read in the data
 				VFS_Read( fp, pBinary->Pages[i].Size, (void*)dest );
-			} else {
+			}
+			// Full page
+			else
+			{
+				// Check if the page is oversized
+				if(pBinary->Pages[i].Size > 0x1000)
+					Log_Warning("Binary", "Loader error - Page %i (%p) of '%s' is %i bytes (> 4096)",
+						i, pBinary->Pages[i].Virtual, truePath,
+						pBinary->Pages[i].Size);
+				// Read data
 				LOG("%i - 0x%x", i, pBinary->Pages[i].Physical);
 				VFS_Read( fp, 0x1000, (void*)dest );
 			}

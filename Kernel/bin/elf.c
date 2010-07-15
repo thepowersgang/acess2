@@ -2,7 +2,7 @@
  * Acess v0.1
  * ELF Executable Loader Code
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <acess.h>
 #include <binary.h>
 #include "elf.h"
@@ -35,7 +35,7 @@ tBinary *Elf_Load(int fp)
 	 int	iPageCount;
 	 int	count;
 	
-	ENTER("ifp", fp);
+	ENTER("xfp", fp);
 	
 	// Read ELF Header
 	VFS_Read(fp, sizeof(hdr), &hdr);
@@ -126,13 +126,15 @@ tBinary *Elf_Load(int fp)
 		LOG("phtab[%i] = {VAddr:0x%x,Offset:0x%x,FileSize:0x%x}",
 			i, phtab[i].VAddr, phtab[i].Offset, phtab[i].FileSize);
 		
-		if( (phtab[i].FileSize & 0xFFF) < 0x1000 - (phtab[i].VAddr & 0xFFF) )
-			lastSize = phtab[i].FileSize;
-		else
+		//if( (phtab[i].FileSize & 0xFFF) < 0x1000 - (phtab[i].VAddr & 0xFFF) )
+		//	lastSize = phtab[i].FileSize;
+		//else
 			lastSize = (phtab[i].FileSize & 0xFFF) + (phtab[i].VAddr & 0xFFF);
-		lastSize &= 0xFFF;
+		//lastSize &= 0xFFF;
 		
-		LOG("lastSize = 0x%x", lastSize);
+		//LOG("lastSize = 0x%x", lastSize);
+		
+		lastSize = phtab[i].FileSize;
 		
 		// Get Pages
 		count = ( (phtab[i].VAddr&0xFFF) + phtab[i].FileSize + 0xFFF) >> 12;
@@ -152,6 +154,7 @@ tBinary *Elf_Load(int fp)
 				ret->Pages[j+k].Size = 4096;
 			LOG("ret->Pages[%i].Size = 0x%x", j+k, ret->Pages[j+k].Size);
 			ret->Pages[j+k].Flags = 0;
+			lastSize -= ret->Pages[j+k].Size;
 		}
 		count = (phtab[i].MemSize + 0xFFF) >> 12;
 		for(;k<count;k++)

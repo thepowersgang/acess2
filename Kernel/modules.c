@@ -349,20 +349,6 @@ int Module_LoadFile(char *Path, char *ArgString)
 		return 0;
 	}
 	
-	// Check magic number
-	if(info->Magic != MODULE_MAGIC)
-	{
-		Log_Warning("Module", "Module's magic value is invalid (0x%x != 0x%x)", info->Magic, MODULE_MAGIC);
-		return 0;
-	}
-	
-	// Check Architecture
-	if(info->Arch != MODULE_ARCH_ID)
-	{
-		Log_Warning("Module", "Module is for a different architecture");
-		return 0;
-	}
-	
 	#if 1
 	if( Module_int_Initialise( info, ArgString ) )
 	{
