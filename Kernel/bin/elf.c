@@ -285,7 +285,7 @@ int Elf_Relocate(void *Base)
 	// Parse Program Header to get Dynamic Table
 	phtab = Base + hdr->phoff;
 	iSegmentCount = hdr->phentcount;
-	for(i=0;i<iSegmentCount;i++)
+	for(i = 0; i < iSegmentCount; i ++ )
 	{
 		// Determine linked base address
 		if(phtab[i].Type == PT_LOAD && iRealBase > phtab[i].VAddr)
@@ -294,7 +294,7 @@ int Elf_Relocate(void *Base)
 		// Find Dynamic Section
 		if(phtab[i].Type == PT_DYNAMIC) {
 			if(dynamicTab) {
-				Warning("ELF", "Elf_Relocate - Multiple PT_DYNAMIC segments\n");
+				Log_Warning("ELF", "Elf_Relocate - Multiple PT_DYNAMIC segments\n");
 				continue;
 			}
 			dynamicTab = (void *) (tVAddr) phtab[i].VAddr;
@@ -305,7 +305,7 @@ int Elf_Relocate(void *Base)
 	
 	// Check if a PT_DYNAMIC segement was found
 	if(!dynamicTab) {
-		Warning("ELF", "Elf_Relocate: No PT_DYNAMIC segment in image, returning\n");
+		Log_Warning("ELF", "Elf_Relocate: No PT_DYNAMIC segment in image, returning\n");
 		LEAVE('x', hdr->entrypoint);
 		return hdr->entrypoint;
 	}
@@ -347,7 +347,7 @@ int Elf_Relocate(void *Base)
 
 
 	// Alter Symbols to true base
-	for(i=0;i<iSymCount;i++)
+	for(i = 0; i < iSymCount; i ++)
 	{
 		dynsymtab[i].value += iBaseDiff;
 		dynsymtab[i].nameOfs += (Uint)dynstrtab;
@@ -369,10 +369,10 @@ int Elf_Relocate(void *Base)
 		// --- Needed Library ---
 		case DT_NEEDED:
 			libPath = dynstrtab + dynamicTab[j].d_val;
-			LOG("Required Library '%s' (IGNORED in kernel mode)\n", libPath);
+			Log_Notice("ELF", "%p - Required Library '%s' (Ignored in kernel mode)\n", Base, libPath);
 			break;
 		// --- PLT/GOT ---
-		case DT_PLTGOT:	pltgot = (void*)iBaseDiff+(dynamicTab[j].d_val);	break;
+		case DT_PLTGOT:	pltgot = (void*)(iBaseDiff+dynamicTab[j].d_val);	break;
 		case DT_JMPREL:	plt = (void*)(iBaseDiff+dynamicTab[j].d_val);	break;
 		case DT_PLTREL:	pltType = dynamicTab[j].d_val;	break;
 		case DT_PLTRELSZ:	pltSz = dynamicTab[j].d_val;	break;
@@ -381,6 +381,7 @@ int Elf_Relocate(void *Base)
 		case DT_REL:	rel = (void*)(iBaseDiff + dynamicTab[j].d_val);	break;
 		case DT_RELSZ:	relSz = dynamicTab[j].d_val;	break;
 		case DT_RELENT:	relEntSz = dynamicTab[j].d_val;	break;
+		
 		case DT_RELA:	rela = (void*)(iBaseDiff + dynamicTab[j].d_val);	break;
 		case DT_RELASZ:	relaSz = dynamicTab[j].d_val;	break;
 		case DT_RELAENT:	relaEntSz = dynamicTab[j].d_val;	break;
@@ -419,6 +420,7 @@ int Elf_Relocate(void *Base)
 		{
 			Elf32_Rel	*pltRel = plt;
 			j = pltSz / sizeof(Elf32_Rel);
+			LOG("PLT Rel - plt = %p, pltSz = %i (%i ents)", plt, pltSz, j);
 			for(i = 0; i < j; i++)
 			{
 				ptr = (void*)(iBaseDiff + pltRel[i].r_offset);
@@ -431,9 +433,10 @@ int Elf_Relocate(void *Base)
 		{
 			Elf32_Rela	*pltRela = plt;
 			j = pltSz / sizeof(Elf32_Rela);
+			LOG("PLT RelA - plt = %p, pltSz = %i (%i ents)", plt, pltSz, j);
 			for(i=0;i<j;i++)
 			{
-				ptr = (void*)((Uint)Base + pltRela[i].r_offset);
+				ptr = (void*)(iBaseDiff + pltRela[i].r_offset);
 				if( !Elf_Int_DoRelocate(pltRela[i].r_info, ptr, pltRela[i].r_addend, dynsymtab, (Uint)Base) ) {
 					bFailed = 1;
 				}
@@ -476,7 +479,7 @@ int Elf_Int_DoRelocate(Uint r_info, Uint32 *ptr, Uint32 addend, Elf32_Sym *symta
 		if( !Elf_GetSymbol((void*)base, sSymName, &val) )	// Search this binary first
 			if( !Binary_GetSymbol( sSymName, &val ) )
 				return 0;
-		LOG("R_386_32 *0x%x += 0x%x('%s')", ptr, val, sSymName);
+		LOG("%08x R_386_32 *0x%x += 0x%x('%s')", r_info, ptr, val, sSymName);
 		*ptr = val + addend;
 		break;
 		
@@ -485,7 +488,7 @@ int Elf_Int_DoRelocate(Uint r_info, Uint32 *ptr, Uint32 addend, Elf32_Sym *symta
 		if( !Elf_GetSymbol( (void*)base, sSymName, &val ) )
 			if( !Binary_GetSymbol( sSymName, &val ) )
 				return 0;
-		LOG("R_386_PC32 *0x%x = 0x%x + 0x%x('%s') - 0x%x", ptr, *ptr, val, sSymName, (Uint)ptr );
+		LOG("%08x R_386_PC32 *0x%x = 0x%x + 0x%x('%s') - 0x%x", r_info, ptr, *ptr, val, sSymName, (Uint)ptr );
 		// TODO: Check if it needs the true value of ptr or the compiled value
 		// NOTE: Testing using true value
 		*ptr = val + addend - (Uint)ptr;
@@ -496,7 +499,7 @@ int Elf_Int_DoRelocate(Uint r_info, Uint32 *ptr, Uint32 addend, Elf32_Sym *symta
 		if( !Elf_GetSymbol( (void*)base, sSymName, &val ) )
 			if( !Binary_GetSymbol( sSymName, &val ) )
 				return 0;
-		LOG("R_386_GLOB_DAT *0x%x = 0x%x (%s)", ptr, val, sSymName);
+		LOG("%08x R_386_GLOB_DAT *0x%x = 0x%x (%s)", r_info, ptr, val, sSymName);
 		*ptr = val;
 		break;
 	
@@ -505,13 +508,13 @@ int Elf_Int_DoRelocate(Uint r_info, Uint32 *ptr, Uint32 addend, Elf32_Sym *symta
 		if( !Elf_GetSymbol( (void*)base, sSymName, &val ) )
 			if( !Binary_GetSymbol( sSymName, &val ) )
 				return 0;
-		LOG("R_386_JMP_SLOT *0x%x = 0x%x (%s)", ptr, val, sSymName);
+		LOG("%08x R_386_JMP_SLOT *0x%x = 0x%x (%s)", r_info, ptr, val, sSymName);
 		*ptr = val;
 		break;
 
 	// Base Address (B+A)
 	case R_386_RELATIVE:
-		LOG("R_386_RELATIVE *0x%x = 0x%x + 0x%x", ptr, base, addend);
+		LOG("%08x R_386_RELATIVE *0x%x = 0x%x + 0x%x", r_info, ptr, base, addend);
 		*ptr = base + addend;
 		break;
 		

@@ -124,6 +124,16 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 	Log_Log("TCP", "Checksum = 0x%x", htons(hdr->Checksum));
 	Log_Log("TCP", "UrgentPointer = 0x%x", htons(hdr->UrgentPointer));
 */
+	Log_Log("TCP", "Flags = %s%s%s%s%s%s",
+		(hdr->Flags & TCP_FLAG_CWR) ? "CWR " : "",
+		(hdr->Flags & TCP_FLAG_ECE) ? "ECE " : "",
+		(hdr->Flags & TCP_FLAG_URG) ? "URG " : "",
+		(hdr->Flags & TCP_FLAG_ACK) ? "ACK " : "",
+		(hdr->Flags & TCP_FLAG_PSH) ? "PSH " : "",
+		(hdr->Flags & TCP_FLAG_RST) ? "RST " : "",
+		(hdr->Flags & TCP_FLAG_SYN) ? "SYN " : "",
+		(hdr->Flags & TCP_FLAG_FIN) ? "FIN " : ""
+		);
 
 	if( Length > (hdr->DataOffset >> 4)*4 )
 	{
@@ -823,7 +833,7 @@ Uint64 TCP_Client_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buf
  */
 void TCP_StartConnection(tTCPConnection *Conn)
 {
-	tTCPHeader	hdr;
+	tTCPHeader	hdr = {0};
 
 	Conn->State = TCP_ST_SYN_SENT;
 
@@ -835,7 +845,6 @@ void TCP_StartConnection(tTCPConnection *Conn)
 	hdr.Flags = TCP_FLAG_SYN;
 	hdr.WindowSize = htons(TCP_WINDOW_SIZE);	// Max
 	hdr.Checksum = 0;	// TODO
-	hdr.UrgentPointer = 0;
 	
 	TCP_SendPacket( Conn, sizeof(tTCPHeader), &hdr );
 	

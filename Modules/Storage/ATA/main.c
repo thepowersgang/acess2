@@ -12,6 +12,8 @@
 #include <tpl_drv_disk.h>
 #include "common.h"
 
+#define IO_DELAY()	do{inb(0x80); inb(0x80); inb(0x80); inb(0x80);}while(0)
+
 // === STRUCTURES ===
 typedef struct
 {
@@ -251,21 +253,34 @@ int ATA_ScanDisk(int Disk)
 
 	LOG("base = 0x%x", base);
 
-	if( 0xFF == inb(base+7) ) {
-		LOG("Floating bus");
-		LEAVE('i', 0);
-		return 0;
-	}
-
 	// Send Disk Selector
 	if(Disk == 1 || Disk == 3)
 		outb(base+6, 0xB0);
 	else
 		outb(base+6, 0xA0);
+	IO_DELAY();
+	
+	// Check for a floating bus
+	if( 0xFF == inb(base+7) ) {
+		LOG("Floating bus");
+		LEAVE('i', 0);
+		return 0;
+	}
+	
+	// Check for the controller
+	outb(base+0x02, 0x66);
+	outb(base+0x03, 0xFF);
+	if(inb(base+0x02) != 0x66 || inb(base+0x03) != 0xFF) {
+		LOG("No controller");
+		LEAVE('i', 0);
+		return 0;
+	}
 
 	// Send IDENTIFY
 	outb(base+7, 0xEC);
+	IO_DELAY();
 	val = inb(base+7);	// Read status
+	LOG("val = 0x%02x", val);
 	if(val == 0) {
 		LEAVE('i', 0);
 		return 0;	// Disk does not exist

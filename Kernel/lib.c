@@ -691,6 +691,9 @@ Uint rand(void)
  */
 int CheckString(char *String)
 {
+	if( !MM_GetPhysAddr( (tVAddr)String ) )
+		return 0;
+	
 	// Check 1st page
 	if( MM_IsUser( (tVAddr)String ) )
 	{

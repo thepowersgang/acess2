@@ -3,6 +3,7 @@
  */
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 #include <acess/sys.h>
 
@@ -10,12 +11,17 @@
 #define FILENAME_MAX	255
 #define IPSTACK_ROOT	"/Devices/ip"
 
+// TODO: Move this to a header
+#define ntohs(v)	(((v&0xFF)<<8)|((v>>8)&0xFF))
+
 // === PROTOTYPES ===
 void	PrintUsage(const char *ProgName);
 void	DumpInterfaces(void);
 void	DumpInterface(const char *Name);
  int	AddInterface(const char *Device);
  int	DoAutoConfig(const char *Device);
+ int	SetAddress(int IFNum, const char *Address);
+ int	ParseIPAddres(const char *Address, uint8_t *Dest, int *SubnetBits);
 
 // === CODE ===
 /**
@@ -23,6 +29,7 @@ void	DumpInterface(const char *Name);
  */
 int main(int argc, char *argv[])
 {
+	 int	ret;
 	// No args, dump interfaces
 	if(argc == 1) {
 		DumpInterfaces();
@@ -32,12 +39,25 @@ int main(int argc, char *argv[])
 	// Add a new interface
 	if( strcmp(argv[1], "add") == 0 ) {
 		if( argc < 4 ) {
-			fprintf(stderr, "ERROR: %s add require two arguments, %i passed\n", argv[0], argc-2);
+			fprintf(stderr, "ERROR: '%s add' requires two arguments, %i passed\n", argv[0], argc-2);
 			PrintUsage(argv[0]);
-			return 0;
+			return -1;
 		}
 		// TODO: Also set the IP address as the usage says it does
-		return AddInterface( argv[2] );
+		ret = AddInterface( argv[2] );
+		if(ret < 0)	return ret;
+		ret = SetAddress( ret, argv[3] );
+		return ret;
+	}
+	
+	// Delete an interface
+	if( strcmp(argv[1], "del") == 0 ) {
+		if( argc < 3 ) {
+			fprintf(stderr, "ERROR: '%s del' requires an argument\n", argv[0]);
+			PrintUsage(argv[0]);
+			return -1;
+		}
+		// TODO:
 	}
 	
 	// Autoconfigure an interface
@@ -149,8 +169,8 @@ void DumpInterface(const char *Name)
 		ioctl(fd, 5, ip);	// Get IP Address
 		subnet = ioctl(fd, 7, NULL);	// Get Subnet Bits
 		printf("\t%x:%x:%x:%x:%x:%x:%x:%x/%i\n",
-			ip[0], ip[1], ip[2], ip[3],
-			ip[4], ip[5], ip[6], ip[7],
+			ntohs(ip[0]), ntohs(ip[1]), ntohs(ip[2]), ntohs(ip[3]),
+			ntohs(ip[4]), ntohs(ip[5]), ntohs(ip[6]), ntohs(ip[7]),
 			subnet);
 		}
 		break;
@@ -173,7 +193,6 @@ int AddInterface(const char *Device)
 	
 	dp = open(IPSTACK_ROOT, OPENFLAG_READ);
 	ret = ioctl(dp, 4, (void*)Device);
-	printf("AddInterface: ret = 0x%x = %i\n", ret, ret);
 	close(dp);
 	
 	if( ret < 0 ) {
@@ -230,5 +249,202 @@ int DoAutoConfig(const char *Device)
 		subnet,
 		gw[0], gw[1], gw[2], gw[3]);
 	
+	return 0;
+}
+
+/**
+ * \brief Set the address on an interface from a textual IP address
+ */
+int	SetAddress(int IFNum, const char *Address)
+{
+	uint8_t	addr[16];
+	 int	type;
+	char	path[sizeof(IPSTACK_ROOT)+1+5+1];	// ip000
+	 int	tmp, fd, subnet;
+	
+	// Parse IP Address
+	type = ParseIPAddres(Address, addr, &subnet);
+	if(type == 0) {
+		fprintf(stderr, "'%s' cannot be parsed as an IP address\n", Address);
+		return -1;
+	}
+	
+	// Open file
+	sprintf(path, IPSTACK_ROOT"/%i", IFNum);
+	fd = open(path, OPENFLAG_READ);
+	if( fd == -1 ) {
+		fprintf(stderr, "Unable to open '%s'\n", path);
+		return -1;
+	}
+	
+	tmp = type;
+	tmp = ioctl(fd, ioctl(fd, 3, "getset_type"), &tmp);
+	if( tmp != type ) {
+		fprintf(stderr, "Error in setting address type (got %i, expected %i)\n", tmp, type);
+		close(fd);
+		return -1;
+	}
+	// Set Address
+	ioctl(fd, ioctl(fd, 3, "set_address"), addr);
+	
+	// Set Subnet
+	ioctl(fd, ioctl(fd, 3, "getset_subnet"), &subnet);
+	
+	close(fd);
+	
+	// Dump!
+	//DumpInterface( path+sizeof(IPSTACK_ROOT)+1 );
+	
+	return 0;
+}
+
+/**
+ * \brief Parse an IP Address
+ * \return 0 for unknown, 4 for IPv4 and 6 for IPv6
+ */
+int ParseIPAddres(const char *Address, uint8_t *Dest, int *SubnetBits)
+{
+	const char	*p = Address;
+	
+	// Check first block
+	while(*p && *p >= '0' && *p <= '9')	p ++;
+	
+	// IPv4?
+	if(*p == '.')
+	{
+		 int	i = 0, j;
+		 int	val;
+		
+		for( j = 0; Address[i] && j < 4; j ++ )
+		{
+			val = 0;
+			for( ; '0' <= Address[i] && Address[i] <= '9'; i++ )
+			{
+				val = val*10 + Address[i] - '0';
+			}
+			if(val > 255) {
+				//printf("val > 255 (%i)\n", val);
+				return 0;
+			}
+			Dest[j] = val;
+			
+			if(Address[i] == '.')
+				i ++;
+		}
+		if( j != 4 ) {
+			//printf("4 parts expected, %i found\n", j);
+			return 0;
+		}
+		// Parse subnet size
+		if(Address[i] == '/') {
+			val = 0;
+			i ++;
+			while('0' <= Address[i] && Address[i] <= '9') {
+				val *= 10;
+				val += Address[i] - '0';
+				i ++;
+			}
+			if(val > 32) {
+				printf("Notice: Subnet size >32 (%i)\n", val);
+			}
+			*SubnetBits = val;
+		}
+		if(Address[i] != '\0') {
+			//printf("EOS != '\\0', '%c'\n", Address[i]);
+			return 0;
+		}
+		return 4;
+	}
+	
+	// IPv6
+	if(*p == ':' || ('a' <= *p && *p <= 'f') || ('A' <= *p && *p <= 'F'))
+	{
+		 int	i = 0;
+		 int	j, k;
+		 int	val, split = -1, end;
+		uint16_t	hi[8], low[8];
+		
+		for( j = 0; Address[i] && j < 8; j ++ )
+		{
+			if(Address[i] == '/')
+				break;
+			
+			if(Address[i] == ':') {
+				if(split != -1) {
+					printf("Two '::'s\n");
+					return 0;
+				}
+				split = j;
+				i ++;
+				continue;
+			}
+			
+			val = 0;
+			for( k = 0; Address[i] && Address[i] != ':' && Address[i] != '/'; i++, k++ )
+			{
+				val *= 16;
+				if('0' <= Address[i] && Address[i] <= '9')
+					val += Address[i] - '0';
+				else if('A' <= Address[i] && Address[i] <= 'F')
+					val += Address[i] - 'A' + 10;
+				else if('a' <= Address[i] && Address[i] <= 'f')
+					val += Address[i] - 'a' + 10;
+				else {
+					printf("%c unexpected\n", Address[i]);
+					return 0;
+				}
+			}
+			
+			if(val > 0xFFFF) {
+				printf("val (0x%x) > 0xFFFF\n", val);
+				return 0;
+			}
+			
+			if(split == -1)
+				hi[j] = val;
+			else
+				low[j-split] = val;
+			
+			if( Address[i] == ':' ) {
+				i ++;
+			}
+		}
+		end = j;
+		
+		// Parse subnet size
+		if(Address[i] == '/') {
+			val = 0;
+			while('0' <= Address[i] && Address[i] <= '9') {
+				val *= 10;
+				val += Address[i] - '0';
+				i ++;
+			}
+			if(val > 128) {
+				printf("Notice: Subnet size >128 (%i)\n", val);
+			}
+			*SubnetBits = val;
+		}
+		
+		for( j = 0; j < split; j ++ )
+		{
+			//printf("%04x:", hi[j]);
+			Dest[j*2] = hi[j]>>8;
+			Dest[j*2+1] = hi[j]&0xFF;
+		}
+		for( ; j < 8 - (end - split); j++ )
+		{
+			//printf("0000:", hi[j]);
+			Dest[j*2] = 0;
+			Dest[j*2+1] = 0;
+		}
+		for( k = 0; j < 8; j ++, k++)
+		{
+			//printf("%04x:", low[k]);
+			Dest[j*2] = low[k]>>8;
+			Dest[j*2+1] = low[k]&0xFF;
+		}
+		return 6;
+	}
+	// Unknown type
 	return 0;
 }

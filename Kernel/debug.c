@@ -11,7 +11,6 @@
 #define DEBUG_TO_SERIAL	1
 #define	SERIAL_PORT	0x3F8
 #define	GDB_SERIAL_PORT	0x2F8
-#define DEBUG_USE_VSNPRINTF	0
 #define	DEBUG_MAX_LINE_LEN	256
 
 // === IMPORTS ===
@@ -56,8 +55,8 @@ int getDebugChar(void)
 	if(!gbGDB_SerialSetup) {
 		outb(GDB_SERIAL_PORT + 1, 0x00);    // Disable all interrupts
 		outb(GDB_SERIAL_PORT + 3, 0x80);    // Enable DLAB (set baud rate divisor)
-		outb(GDB_SERIAL_PORT + 0, 0x03);    // Set divisor to 3 (lo byte) 38400 baud
-		outb(GDB_SERIAL_PORT + 1, 0x00);    //                  (hi byte)
+		outb(GDB_SERIAL_PORT + 0, 0x0C);    // Set divisor to 12 (lo byte) 9600 baud
+		outb(GDB_SERIAL_PORT + 1, 0x00);    //                   (hi byte)
 		outb(GDB_SERIAL_PORT + 3, 0x03);    // 8 bits, no parity, one stop bit
 		outb(GDB_SERIAL_PORT + 2, 0xC7);    // Enable FIFO with 14-byte threshold and clear it
 		outb(GDB_SERIAL_PORT + 4, 0x0B);    // IRQs enabled, RTS/DSR set
@@ -77,8 +76,8 @@ static void Debug_PutCharDebug(char ch)
 	if(!gbDebug_SerialSetup) {
 		outb(SERIAL_PORT + 1, 0x00);	// Disable all interrupts
 		outb(SERIAL_PORT + 3, 0x80);	// Enable DLAB (set baud rate divisor)
-		outb(SERIAL_PORT + 0, 0x03);	// Set divisor to 3 (lo byte) 38400 baud
-		outb(SERIAL_PORT + 1, 0x00);	//                  (hi byte)
+		outb(SERIAL_PORT + 0, 0x0C);	// Set divisor to 12 (lo byte) 9600 baud
+		outb(SERIAL_PORT + 1, 0x00);	//                   (hi byte)
 		outb(SERIAL_PORT + 3, 0x03);	// 8 bits, no parity, one stop bit
 		outb(SERIAL_PORT + 2, 0xC7);	// Enable FIFO with 14-byte threshold and clear it
 		outb(SERIAL_PORT + 4, 0x0B);	// IRQs enabled, RTS/DSR set

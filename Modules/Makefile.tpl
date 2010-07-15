@@ -14,13 +14,15 @@ CFGFILES += $(shell test -f Makefile.cfg && echo Makefile.cfg)
 CPPFLAGS := -I$(ACESSDIR)/Kernel/include -I$(ACESSDIR)/Kernel/arch/$(ARCHDIR)/include -DARCH=$(ARCH) $(_CPPFLAGS)
 CFLAGS := -Wall -Werror -fno-stack-protector $(CPPFLAGS) -O3 -fno-builtin
 
-ifeq ($(BUILDTYPE),dynamic)
+ifneq ($(CATEGORY),)
+	FULLNAME := $(CATEGORY)_$(NAME)
+else
+	FULLNAME := $(NAME)
+endif
+
+ifneq ($(BUILDTYPE),static)
 	_SUFFIX := dyn_$(ARCH)
-	ifneq ($(CATEGORY),)
-		BIN := ../$(CATEGORY)_$(NAME).kmd.$(ARCH)
-	else
-		BIN := ../$(NAME).kmd.$(ARCH)
-	endif
+	BIN := ../$(FULLNAME).kmd.$(ARCH)
 	CFLAGS += $(DYNMOD_CFLAGS) -fPIC
 else
 	_SUFFIX := st_$(ARCH)
@@ -41,16 +43,16 @@ clean:
 	$(RM) $(BIN) $(BIN).dsm $(KOBJ) $(OBJ) $(DEPFILES)
 
 install: $(BIN)
-ifeq ($(BUILDTYPE),dynamic)
+ifneq ($(BUILDTYPE),static)
 	$(xCP) $(BIN) $(DISTROOT)/Modules/$(NAME).kmd.$(ARCH)
 else
 endif
 
-ifeq ($(BUILDTYPE),dynamic)
+ifneq ($(BUILDTYPE),static)
 $(BIN): %.kmd.$(ARCH): $(OBJ)
 	@echo --- $(LD) -o $@
-#	$(LD) -T $(ACESSDIR)/Modules/link.ld --allow-shlib-undefined -shared -nostdlib -o $@ $(OBJ)
-	@$(LD) --allow-shlib-undefined -shared -nostdlib -o $@ $(OBJ)
+#	@$(LD) -T $(ACESSDIR)/Modules/link.ld --allow-shlib-undefined -shared -nostdlib -o $@ $(OBJ)
+	@$(LD) --allow-shlib-undefined -shared -nostdlib -o $@ $(OBJ) -defsym=DriverInfo=_DriverInfo_$(FULLNAME)
 	@$(DISASM) $(BIN) > $(BIN).dsm
 else
 $(BIN): %.xo.$(ARCH): $(OBJ)
