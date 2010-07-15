@@ -2,7 +2,7 @@
  * Acess2 IDE Harddisk Driver
  * - main.c
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include <modules.h>
 #include <vfs.h>
@@ -321,7 +321,7 @@ int ATA_ScanDisk(int Disk)
 			val /= 1024;
 			units = "TiB";
 		}
-		Log_Log("ATA", "Disk %i: 0x%llx Sectors (%i %s)", Disk,
+		Log_Log("ATA", "Disk %i: 0x%llx Sectors (%lli %s)", Disk,
 			gATA_Disks[ Disk ].Sectors, val, units);
 	}
 
