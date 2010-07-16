@@ -7,17 +7,7 @@
 
 #include <threads.h>
 
-// === TYPES ===
-#if USE_MP
-typedef struct sCPU
-{
-	Uint8	APICID;
-	Uint8	State;	// 0: Unavaliable, 1: Idle, 2: Active
-	Uint16	Resvd;
-	tThread	*Current;
-}	tCPU;
-#endif
-
+// === TYPES ==
 typedef struct sTSS {
 	Uint32	Link;
 	Uint32	ESP0, SS0;

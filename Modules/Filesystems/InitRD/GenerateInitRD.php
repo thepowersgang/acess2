@@ -10,6 +10,12 @@ $gOutput = <<<EOF
 
 EOF;
 
+$gInputFile = $argv[1];
+$gOutputFile = $argv[2];
+$gDepFile = ($argc > 3 ? $argv[3] : false);
+
+$gDependencies = array();
+
 $lines = file($argv[1]);
 
 $lDepth = 0;
@@ -34,6 +40,7 @@ foreach($lines as $line)
 	if(preg_match('/^File\s+"([^"]+)"\s+"([^"]+)"$/', $line, $matches))
 	{
 		$lStack[$lDepth][1][] = array($matches[1], $matches[2]);
+		$gDependencies[] = $matches[2];
 		continue;
 	}
 	echo "ERROR: $line\n";
@@ -41,6 +48,14 @@ foreach($lines as $line)
 }
 
 function hd($fp)
+{
+	//return "0x".str_pad( dechex(ord(fgetc($fp))), 8, "0", STR_PAD_LEFT );
+	$val = unpack("I", fread($fp, 4));
+	//print_r($val);	exit -1;
+	return "0x".dechex($val[1]);
+}
+
+function hd8($fp)
 {
 	return "0x".str_pad( dechex(ord(fgetc($fp))), 2, "0", STR_PAD_LEFT );
 }
@@ -83,25 +98,50 @@ EOF;
 			}
 			$size = filesize($item[1]);
 			
-			$gOutput .= "Uint8 {$prefix}_{$i}_data[] = {\n";
 			$fp = fopen($item[1], "rb");
-			for( $j = 0; $j + 16 < $size; $j += 16 )
+			if(0)
 			{
+				$gOutput .= "Uint32 {$prefix}_{$i}_data[] = {\n";
+				for( $j = 0; $j + 16 < $size; $j += 16 )
+				{
+					$gOutput .= "\t";
+					$gOutput .= hd($fp).",".hd($fp).",";
+					$gOutput .= hd($fp).",".hd($fp).",\n";
+				}
 				$gOutput .= "\t";
-				$gOutput .= hd($fp).",".hd($fp).",";
-				$gOutput .= hd($fp).",".hd($fp).",";
-				$gOutput .= hd($fp).",".hd($fp).",";
-				$gOutput .= hd($fp).",".hd($fp).",";
-				$gOutput .= hd($fp).",".hd($fp).",";
-				$gOutput .= hd($fp).",".hd($fp).",";
-				$gOutput .= hd($fp).",".hd($fp).",";
-				$gOutput .= hd($fp).",".hd($fp).",\n";
+				for( ; $j+3 < $size; $j += 4 )
+				{
+					if( $j & 15 )	$gOutput .= ",";
+					$gOutput .= hd($fp);
+				}
+				if($j < $size) {
+					$tmp = "";
+					while($j ++ < $size)
+						$tmp .= fgetc($fp);
+					$tmp .= "\0\0\0";
+						$tmp = unpack("I", $tmp);
+					$gOutput .= "0x".dechex($tmp[1]);
+				}
 			}
-			$gOutput .= "\t";
-			for( ; $j < $size; $j ++ )
+			else
 			{
-				if( $j & 15 )	$gOutput .= ",";
-				$gOutput .= hd($fp);
+				$gOutput .= "Uint8 {$prefix}_{$i}_data[] = {\n";
+				for( $j = 0; $j + 16 < $size; $j += 16 ) {
+					$gOutput .= "\t";
+					$gOutput .= hd8($fp).",".hd8($fp).",";
+					$gOutput .= hd8($fp).",".hd8($fp).",";
+					$gOutput .= hd8($fp).",".hd8($fp).",";
+					$gOutput .= hd8($fp).",".hd8($fp).",";
+					$gOutput .= hd8($fp).",".hd8($fp).",";
+					$gOutput .= hd8($fp).",".hd8($fp).",";
+					$gOutput .= hd8($fp).",".hd8($fp).",";
+					$gOutput .= hd8($fp).",".hd8($fp).",\n";
+				}
+				$gOutput .= "\t";
+				for( ; $j < $size; $j ++ ) {
+					if( $j & 15 )	$gOutput .= ",";
+					$gOutput .= hd8($fp);
+				}
 			}
 			fclose($fp);
 			$gOutput .= "\n};\n";
@@ -145,7 +185,17 @@ tVFS_Node gInitRD_RootNode = {
 };
 EOF;
 
-$fp = fopen($argv[2], "w");
+$fp = fopen($gOutputFile, "w");
 fputs($fp, $gOutput);
 fclose($fp);
+
+
+if($gDepFile !== false)
+{
+	$fp = fopen($gDepFile, "w");
+	$line = $gOutputFile.":\t".implode(" ", $gDependencies);
+	fputs($fp, $line);
+	fclose($fp);
+}
+
 ?>

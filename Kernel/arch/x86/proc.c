@@ -19,9 +19,21 @@
 // Base is 1193182
 #define TIMER_DIVISOR	11931	//~100Hz
 
+// === TYPES ===
+#if USE_MP
+typedef struct sCPU
+{
+	Uint8	APICID;
+	Uint8	State;	// 0: Unavaliable, 1: Idle, 2: Active
+	Uint16	Resvd;
+	tThread	*Current;
+}	tCPU;
+#endif
+
 // === IMPORTS ===
 extern tGDT	gGDT[];
 extern tIDT	gIDT[];
+extern void APWait(void);	// 16-bit AP pause code
 extern void APStartup(void);	// 16-bit AP startup code
 extern Uint	GetEIP(void);	// start.asm
 extern int	GetCPUNum(void);	// start.asm
@@ -64,6 +76,7 @@ tMPInfo	*gMPFloatPtr = NULL;
 tAPIC	*gpMP_LocalAPIC = NULL;
 Uint8	gaAPIC_to_CPU[256] = {0};
 tCPU	gaCPUs[MAX_CPUS];
+ int	giProc_BootProcessorID = 0;
 #else
 tThread	*gCurrentThread = NULL;
 #endif
@@ -170,7 +183,7 @@ void ArchThreads_Init(void)
 		Log("\t.ExtendedTableChecksum = 0x%02x", mptable->ExtendedTableChecksum);
 		Log("}");
 		
-		gpMP_LocalAPIC = (void*)MM_MapHWPage(mptable->LocalAPICMemMap, 1);
+		gpMP_LocalAPIC = (void*)MM_MapHWPages(mptable->LocalAPICMemMap, 1);
 		
 		ents = mptable->Entries;
 		giNumCPUs = 0;
@@ -207,10 +220,9 @@ void ArchThreads_Init(void)
 				gaCPUs[giNumCPUs].State = 0;
 				giNumCPUs ++;
 				
-				// Send IPI
-				if( !(ents->Proc.CPUFlags & 2) )
-				{
-					MP_StartAP( giNumCPUs-1 );
+				// Set BSP Variable
+				if( ents->Proc.CPUFlags & 2 ) {
+					giProc_BootProcessorID = giNumCPUs-1;
 				}
 				
 				break;
@@ -218,7 +230,7 @@ void ArchThreads_Init(void)
 				entSize = 8;
 				Log("%i: Bus", i);
 				Log("\t.ID = %i", ents->Bus.ID);
-				Log("\t.TypeString = '%6c'", ents->Bus.TypeString);
+				Log("\t.TypeString = '%6C'", ents->Bus.TypeString);
 				break;
 			case 2:	// I/O APIC
 				entSize = 8;
@@ -259,11 +271,6 @@ void ArchThreads_Init(void)
 			Warning("Too many CPUs detected (%i), only using %i of them", giNumCPUs, MAX_CPUS);
 			giNumCPUs = MAX_CPUS;
 		}
-	
-		while( giNumInitingCPUs )
-			MM_FinishVirtualInit();
-		
-		Panic("Uh oh... MP Table Parsing is unimplemented\n");
 	}
 	else {
 		Log("No MP Table was found, assuming uniprocessor\n");
@@ -277,26 +284,15 @@ void ArchThreads_Init(void)
 	#endif
 	
 	// Initialise Double Fault TSS
-	/*
-	gGDT[5].LimitLow = sizeof(tTSS);
-	gGDT[5].LimitHi = 0;
-	gGDT[5].Access = 0x89;	// Type
-	gGDT[5].Flags = 0x4;
-	*/
 	gGDT[5].BaseLow = (Uint)&gDoubleFault_TSS & 0xFFFF;
 	gGDT[5].BaseMid = (Uint)&gDoubleFault_TSS >> 16;
 	gGDT[5].BaseHi = (Uint)&gDoubleFault_TSS >> 24;
 	
-	Log_Debug("Proc", "gIDT[8] = {OffsetLo:%04x, CS:%04x, Flags:%04x, OffsetHi:%04x}", 
-		gIDT[8].OffsetLo, gIDT[8].CS, gIDT[8].Flags, gIDT[8].OffsetHi);
+	// Set double fault IDT to use the new TSS
 	gIDT[8].OffsetLo = 0;
 	gIDT[8].CS = 5<<3;
 	gIDT[8].Flags = 0x8500;
 	gIDT[8].OffsetHi = 0;
-	Log_Debug("Proc", "gIDT[8] = {OffsetLo:%04x, CS:%04x, Flags:%04x, OffsetHi:%04x}", 
-		gIDT[8].OffsetLo, gIDT[8].CS, gIDT[8].Flags, gIDT[8].OffsetHi);
-	
-	//__asm__ __volatile__ ("xchg %bx, %bx");
 	
 	#if USE_MP
 	// Initialise Normal TSS(s)
@@ -312,12 +308,25 @@ void ArchThreads_Init(void)
 		gGDT[6+pos].BaseHi = ((Uint)(&gTSSs[pos])) >> 24;
 	#if USE_MP
 	}
-	for(pos=0;pos<giNumCPUs;pos++) {
-	#endif
-		__asm__ __volatile__ ("ltr %%ax"::"a"(0x30+pos*8));
-	#if USE_MP
+	
+	// Start APs
+	for( pos = 0; pos < giNumCPUs; pos ++ )
+	{
+		gaCPUs[pos].Current = NULL;
+		if( pos != giProc_BootProcessorID ) {
+			Log("Starting AP %i, (APIC %i)\n", pos, gaCPUs[pos].APICID);
+			MP_StartAP( pos );
+		}
 	}
+	
+	Log("Waiting for APs to come up\n");
+	while( giNumInitingCPUs )	__asm__ __volatile__ ("hlt");
+	MM_FinishVirtualInit();
+	//Panic("Uh oh... MP Table Parsing is unimplemented\n");
 	#endif
+	
+	// Load the BSP's TSS
+	__asm__ __volatile__ ("ltr %%ax"::"a"(0x30));
 	
 	#if USE_MP
 	gaCPUs[0].Current = &gThreadZero;
@@ -349,14 +358,33 @@ void ArchThreads_Init(void)
 void MP_StartAP(int CPU)
 {
 	Log("Starting AP %i (APIC %i)", CPU, gaCPUs[CPU].APICID);
+	
 	// Set location of AP startup code and mark for a warm restart
-	*(Uint16*)(KERNEL_BASE|0x467) = (Uint)&APStartup - (KERNEL_BASE|0xFFFF0);
+	*(Uint16*)(KERNEL_BASE|0x467) = (Uint)&APWait - (KERNEL_BASE|0xFFFF0);
 	*(Uint16*)(KERNEL_BASE|0x469) = 0xFFFF;
 	outb(0x70, 0x0F);	outb(0x71, 0x0A);	// Warm Reset
-	MP_SendIPI(gaCPUs[CPU].APICID, 0, 5);
+	MP_SendIPI(gaCPUs[CPU].APICID, 0, 5);	// Init IPI
+	
+	// Delay
+	inb(0x80); inb(0x80); inb(0x80); inb(0x80);
+	
+	// Create a far jump
+	*(Uint8*)(KERNEL_BASE|0x11000) = 0xEA;	// Far JMP
+	*(Uint16*)(KERNEL_BASE|0x11001) = (Uint)&APStartup - (KERNEL_BASE|0xFFFF0);	// IP
+	*(Uint16*)(KERNEL_BASE|0x11003) = 0xFFFF;	// CS
+	// Send a Startup-IPI to make the CPU execute at 0x11000 (which we
+	// just filled)
+	MP_SendIPI(gaCPUs[CPU].APICID, 0x11, 6);	// StartupIPI
+	
 	giNumInitingCPUs ++;
 }
 
+/**
+ * \brief Send an Inter-Processor Interrupt
+ * \param APICID	Processor's Local APIC ID
+ * \param Vector	Argument of some kind
+ * \param DeliveryMode	Type of signal?
+ */
 void MP_SendIPI(Uint8 APICID, int Vector, int DeliveryMode)
 {
 	Uint32	addr = (Uint)gpMP_LocalAPIC + 0x300;
@@ -366,6 +394,7 @@ void MP_SendIPI(Uint8 APICID, int Vector, int DeliveryMode)
 	val = (Uint)APICID << 24;
 	Log("*%p = 0x%08x", addr+0x10, val);
 	*(Uint32*)(addr+0x10) = val;
+	
 	// Low (and send)
 	val = ((DeliveryMode & 7) << 8) | (Vector & 0xFF);
 	Log("*%p = 0x%08x", addr, val);

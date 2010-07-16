@@ -158,7 +158,6 @@ void MM_InstallVirtual(void)
 	
 	// Unset kernel on the User Text pages
 	for( i = ((tVAddr)&_UsertextEnd-(tVAddr)&_UsertextBase+0xFFF)/4096; i--; ) {
-		Log("MM_SetFlags( 0x%08x, 0, MM_PFLAG_KERNEL)", (tVAddr)&_UsertextBase + i*4096);
 		MM_SetFlags( (tVAddr)&_UsertextBase + i*4096, 0, MM_PFLAG_KERNEL );
 	}
 }

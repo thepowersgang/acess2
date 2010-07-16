@@ -33,6 +33,7 @@ void	Arch_LoadBootModules(void);
 // === GLOBALS ===
 char	*gsBootCmdLine = NULL;
 struct {
+	Uint32	PBase;
 	void	*Base;
 	Uint	Size;
 	char	*ArgString;
@@ -66,7 +67,7 @@ int kmain(Uint MbMagic, void *MbInfoPtr)
 	
 	// Multiboot 2
 	case MULTIBOOT2_MAGIC:
-		Warning("Multiboot 2 Not yet supported");
+		Panic("Multiboot 2 not yet supported");
 		//MM_InstallMBoot2( MbInfo );	// Set up physical memory manager
 		return 0;
 		break;
@@ -102,9 +103,10 @@ int kmain(Uint MbMagic, void *MbInfoPtr)
 		Log_Log("Arch", "Multiboot Module at 0x%08x, 0x%08x bytes (String at 0x%08x)",
 			mods[i].Start, mods[i].End-mods[i].Start, mods[i].String);
 	
-		// Always HW map the module data
+		gaArch_BootModules[i].PBase = mods[i].Start;
 		gaArch_BootModules[i].Size = mods[i].End - mods[i].Start;
-		
+	
+		// Always HW map the module data	
 		ofs = mods[i].Start&0xFFF;
 		gaArch_BootModules[i].Base = (void*)( MM_MapHWPages(mods[i].Start,
 			(gaArch_BootModules[i].Size+ofs+0xFFF) / 0x1000
@@ -134,13 +136,9 @@ int kmain(Uint MbMagic, void *MbInfoPtr)
 
 void Arch_LoadBootModules(void)
 {
-	 int	i;
+	 int	i, j, numPages;
 	for( i = 0; i < giArch_NumBootModules; i ++ )
 	{
-		Log_Debug("Arch", "Module %i: %p - %p 0x%x",
-			i, gaArch_BootModules[i].ArgString,
-			gaArch_BootModules[i].Base, gaArch_BootModules[i].Size
-			);
 		Log_Log("Arch", "Loading '%s'", gaArch_BootModules[i].ArgString);
 		
 		if( !Module_LoadMem( gaArch_BootModules[i].Base, gaArch_BootModules[i].Size, gaArch_BootModules[i].ArgString ) )
@@ -148,10 +146,12 @@ void Arch_LoadBootModules(void)
 			Log_Warning("Arch", "Unable to load module");
 		}
 		
-		MM_UnmapHWPages(
-			(tVAddr)gaArch_BootModules[i].Base,
-			(gaArch_BootModules[i].Size + ((Uint)gaArch_BootModules[i].Base&0xFFF) + 0xFFF) >> 12
-			);
+		// Unmap and free
+		numPages = (gaArch_BootModules[i].Size + ((Uint)gaArch_BootModules[i].Base&0xFFF) + 0xFFF) >> 12;
+		MM_UnmapHWPages( (tVAddr)gaArch_BootModules[i].Base, numPages );
+		
+		for( j = 0; j < numPages; j++ )
+			MM_DerefPhys( gaArch_BootModules[i].PBase + (j << 12) );
 		
 		if( (tVAddr) gaArch_BootModules[i].ArgString > MAX_ARGSTR_POS )
 			MM_UnmapHWPages( (tVAddr)gaArch_BootModules[i].ArgString, 2 );

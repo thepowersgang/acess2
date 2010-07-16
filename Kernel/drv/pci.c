@@ -460,7 +460,6 @@ int	PCI_EnumDevice(Uint16 bus, Uint16 slot, Uint16 fcn, tPCIDevice *info)
 {
 	Uint16	vendor;
 	 int	i;
-	Uint32	addr;
 	
 	vendor = PCI_CfgReadWord(bus, slot, fcn, 0x0|0);
 	if(vendor == 0xFFFF)	// Invalid Device
@@ -475,16 +474,9 @@ int	PCI_EnumDevice(Uint16 bus, Uint16 slot, Uint16 fcn, tPCIDevice *info)
 	info->oc = PCI_CfgReadWord(bus, slot, fcn, 0x8|2);
 	
 	// Load Config Bytes
-	addr = 0x80000000 | ((Uint)bus<<16) | ((Uint)slot<<11) | ((Uint)fcn<<8);
 	for(i=0;i<256/4;i++)
 	{
-		#if 0
-		outd(0xCF8, addr);
-		info->ConfigCache[i] = ind(0xCFC);
-		addr += 4;
-		#else
 		info->ConfigCache[i] = PCI_CfgReadDWord(bus, slot, fcn, i*4);
-		#endif
 	}
 	
 	//#if LIST_DEVICES

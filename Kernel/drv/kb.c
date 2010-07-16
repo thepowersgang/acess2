@@ -191,8 +191,8 @@ void KB_IRQHandler(int IRQNum)
 	#endif
 
 	// Is shift pressed
-	// - Darn ugly hacks !(!x) means (bool)x
-	if( !(!gbKB_ShiftState) ^ gbKB_CapsState)
+	// - Darn ugly hacks !!x means (bool)x
+	if( !!gbKB_ShiftState ^ gbKB_CapsState)
 	{
 		switch(ch)
 		{

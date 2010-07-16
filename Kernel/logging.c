@@ -123,6 +123,7 @@ void Log_AddEvent(char *Ident, int Level, char *Format, va_list Args)
  */
 void Log_Int_PrintMessage(tLogEntry *Entry)
 {
+	//LOCK( &glLogOutput );
 	LogF("%s%014lli%s [%+8s] %s\x1B[0m\n",
 		csaLevelColours[Entry->Level],
 		Entry->Time,
@@ -130,6 +131,7 @@ void Log_Int_PrintMessage(tLogEntry *Entry)
 		Entry->Ident,
 		Entry->Data
 		);
+	//RELEASE( &glLogOutput );
 }
 
 /**

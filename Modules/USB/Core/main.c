@@ -21,7 +21,7 @@ tVFS_Node	*USB_FindDir(tVFS_Node *Node, char *Name);
  int	USB_IOCtl(tVFS_Node *Node, int Id, void *Data);
 
 // === GLOBALS ===
-MODULE_DEFINE(0, VERSION, USB, USB_Install, NULL, NULL);
+MODULE_DEFINE(0, VERSION, USB_Core, USB_Install, NULL, NULL);
 tDevFS_Driver	gUSB_DrvInfo = {
 	NULL, "usb", {
 		.NumACLs = 1,

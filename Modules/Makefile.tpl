@@ -40,7 +40,7 @@ DEPFILES := $(DEPFILES:%.o.$(_SUFFIX)=%.d.$(ARCH))
 all: $(BIN)
 
 clean:
-	$(RM) $(BIN) $(BIN).dsm $(KOBJ) $(OBJ) $(DEPFILES)
+	$(RM) $(BIN) $(BIN).dsm $(KOBJ) $(OBJ) $(DEPFILES) $(EXTRA)
 
 install: $(BIN)
 ifneq ($(BUILDTYPE),static)

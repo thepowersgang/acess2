@@ -97,13 +97,19 @@ start:
 [extern gaCPUs]
 [extern giNumInitingCPUs]
 lGDTPtr:	; Local GDT Pointer
-	dw	2*8-1
+	dw	3*8-1
 	dd	gGDT-KERNEL_BASE
 
 [bits 16]
+[global APWait]
+APWait:
+	;xchg bx, bx
+.hlt:
+	;hlt
+	jmp .hlt
 [global APStartup]
 APStartup:
-	xchg bx, bx	; MAGIC BREAK!
+	;xchg bx, bx	; MAGIC BREAK!
 	mov ax, 0xFFFF
 	mov ds, ax
 	lgdt [DWORD ds:lGDTPtr-KERNEL_BASE-0xFFFF0]
@@ -113,6 +119,13 @@ APStartup:
 	jmp 08h:DWORD .ProtectedMode-KERNEL_BASE
 [bits 32]
 .ProtectedMode:
+	; Load segment registers
+	mov ax, 0x10
+	mov ss, ax
+	mov ds, ax
+	mov es, ax
+	mov fs, ax
+	mov gs, ax
 	; Start Paging
 	mov eax, gaInitPageDir - KERNEL_BASE
 	mov cr3, eax
@@ -128,17 +141,22 @@ APStartup:
 	lidt [gIDTPtr]
 
 	mov eax, [gpMP_LocalAPIC]
-	mov DWORD [eax], 0
 	xor ecx, ecx
-	mov cl, BYTE [eax+0x10]
+	mov cl, BYTE [eax+0x20]
 	; CL is now local APIC ID
 	mov cl, BYTE [gaAPIC_to_CPU+ecx]
 	; CL is now the CPU ID
 	mov BYTE [gaCPUs+ecx*8+1], 1
 	; Decrement the remaining CPU count
 	dec DWORD [giNumInitingCPUs]
+	xchg bx, bx	; MAGIC BREAK
+	; Set TSS
+	shl cx, 3
+	add cx, 0x30
+	ltr cx
 	; CPU is now marked as initialised
 	sti
+	xchg bx, bx	; MAGIC BREAK
 .hlt:
 	hlt
 	jmp .hlt

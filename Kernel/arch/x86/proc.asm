@@ -156,7 +156,7 @@ Proc_ReturnToUser:
 [global GetCPUNum]
 GetCPUNum:
 	xor eax, eax
-	ltr ax
+	str ax
 	sub ax, 0x30
 	shr ax, 3	; ax /= 8
 	ret
