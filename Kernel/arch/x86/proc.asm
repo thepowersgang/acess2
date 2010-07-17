@@ -26,8 +26,8 @@ SchedulerBase:
 	mov fs, ax
 	mov gs, ax
 	
-	mov eax, [esp+12*4]	; CPU Number
-	push eax	; Pus as argument
+	call GetCPUNum
+	push eax	; Push as argument
 	
 	call Proc_Scheduler
 	

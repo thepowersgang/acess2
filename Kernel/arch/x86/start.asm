@@ -141,22 +141,22 @@ APStartup:
 	lidt [gIDTPtr]
 
 	mov eax, [gpMP_LocalAPIC]
-	xor ecx, ecx
-	mov cl, BYTE [eax+0x20]
+	mov ecx, [eax+0x20]	; Read ID
+	shr ecx, 24
+	;xchg bx, bx	; MAGIC BREAK
 	; CL is now local APIC ID
 	mov cl, BYTE [gaAPIC_to_CPU+ecx]
 	; CL is now the CPU ID
 	mov BYTE [gaCPUs+ecx*8+1], 1
 	; Decrement the remaining CPU count
 	dec DWORD [giNumInitingCPUs]
-	xchg bx, bx	; MAGIC BREAK
 	; Set TSS
 	shl cx, 3
 	add cx, 0x30
 	ltr cx
 	; CPU is now marked as initialised
 	sti
-	xchg bx, bx	; MAGIC BREAK
+	;xchg bx, bx	; MAGIC BREAK
 .hlt:
 	hlt
 	jmp .hlt

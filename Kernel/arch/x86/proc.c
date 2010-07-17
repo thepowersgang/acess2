@@ -76,6 +76,7 @@ tMPInfo	*gMPFloatPtr = NULL;
 tAPIC	*gpMP_LocalAPIC = NULL;
 Uint8	gaAPIC_to_CPU[256] = {0};
 tCPU	gaCPUs[MAX_CPUS];
+tTSS	gaTSSs[MAX_CPUS];	// TSS Array
  int	giProc_BootProcessorID = 0;
 #else
 tThread	*gCurrentThread = NULL;
@@ -83,7 +84,7 @@ tThread	*gCurrentThread = NULL;
 #if USE_PAE
 Uint32	*gPML4s[4] = NULL;
 #endif
-tTSS	*gTSSs = NULL;
+tTSS	*gTSSs = NULL;	// Pointer to TSS array
 tTSS	gTSS0 = {0};
 // --- Error Recovery ---
 char	gaDoubleFaultStack[1024];
@@ -271,6 +272,7 @@ void ArchThreads_Init(void)
 			Warning("Too many CPUs detected (%i), only using %i of them", giNumCPUs, MAX_CPUS);
 			giNumCPUs = MAX_CPUS;
 		}
+		gTSSs = gaTSSs;
 	}
 	else {
 		Log("No MP Table was found, assuming uniprocessor\n");
@@ -824,6 +826,8 @@ void Proc_Scheduler(int CPU)
 	#else
 	gCurrentThread = thread;
 	#endif
+	
+	//Log("CPU = %i", CPU);
 	
 	// Update Kernel Stack pointer
 	gTSSs[CPU].ESP0 = thread->KernelStack-4;
