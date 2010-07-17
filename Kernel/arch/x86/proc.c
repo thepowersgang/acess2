@@ -73,6 +73,7 @@ void	Proc_Scheduler(int CPU);
 #if USE_MP
 volatile int	giNumInitingCPUs = 0;
 tMPInfo	*gMPFloatPtr = NULL;
+Uint32	giMP_TimerCount;	// Start Count for Local APIC Timer
 tAPIC	*gpMP_LocalAPIC = NULL;
 Uint8	gaAPIC_to_CPU[256] = {0};
 tCPU	gaCPUs[MAX_CPUS];
@@ -296,6 +297,17 @@ void ArchThreads_Init(void)
 	gIDT[8].Flags = 0x8500;
 	gIDT[8].OffsetHi = 0;
 	
+	// Set timer frequency
+	outb(0x43, 0x34);	// Set Channel 0, Low/High, Rate Generator
+	outb(0x40, TIMER_DIVISOR&0xFF);	// Low Byte of Divisor
+	outb(0x40, (TIMER_DIVISOR>>8)&0xFF);	// High Byte
+	// Get the count setting for APIC timer
+	Log("Determining APIC Count");
+	__asm__ __volatile__ ("sti");
+	while( giMP_TimerCount == 0 )	__asm__ __volatile__ ("hlt");
+	__asm__ __volatile__ ("cli");
+	Log("APIC Count %i\n", giMP_TimerCount);
+	
 	#if USE_MP
 	// Initialise Normal TSS(s)
 	for(pos=0;pos<giNumCPUs;pos++)
@@ -316,7 +328,6 @@ void ArchThreads_Init(void)
 	{
 		gaCPUs[pos].Current = NULL;
 		if( pos != giProc_BootProcessorID ) {
-			Log("Starting AP %i, (APIC %i)\n", pos, gaCPUs[pos].APICID);
 			MP_StartAP( pos );
 		}
 	}
@@ -344,11 +355,6 @@ void ArchThreads_Init(void)
 	gThreadZero.MemState.CR3 = (Uint)gaInitPageDir - KERNEL_BASE;
 	#endif
 	
-	// Set timer frequency
-	outb(0x43, 0x34);	// Set Channel 0, Low/High, Rate Generator
-	outb(0x40, TIMER_DIVISOR&0xFF);	// Low Byte of Divisor
-	outb(0x40, (TIMER_DIVISOR>>8)&0xFF);	// High Byte
-	
 	// Create Per-Process Data Block
 	MM_Allocate(MM_PPD_CFG);
 	
@@ -370,6 +376,8 @@ void MP_StartAP(int CPU)
 	// Delay
 	inb(0x80); inb(0x80); inb(0x80); inb(0x80);
 	
+	// TODO: Use a better address, preferably registered with the MM
+	// - MM_AllocDMA mabye?
 	// Create a far jump
 	*(Uint8*)(KERNEL_BASE|0x11000) = 0xEA;	// Far JMP
 	*(Uint16*)(KERNEL_BASE|0x11001) = (Uint)&APStartup - (KERNEL_BASE|0xFFFF0);	// IP
@@ -389,18 +397,16 @@ void MP_StartAP(int CPU)
  */
 void MP_SendIPI(Uint8 APICID, int Vector, int DeliveryMode)
 {
-	Uint32	addr = (Uint)gpMP_LocalAPIC + 0x300;
 	Uint32	val;
 	
 	// Hi
 	val = (Uint)APICID << 24;
-	Log("*%p = 0x%08x", addr+0x10, val);
-	*(Uint32*)(addr+0x10) = val;
-	
+	Log("*%p = 0x%08x", &gpMP_LocalAPIC->ICR[1], val);
+	gpMP_LocalAPIC->ICR[1].Val = val;
 	// Low (and send)
 	val = ((DeliveryMode & 7) << 8) | (Vector & 0xFF);
-	Log("*%p = 0x%08x", addr, val);
-	*(Uint32*)addr = val;
+	Log("*%p = 0x%08x", &gpMP_LocalAPIC->ICR[0], val);
+	gpMP_LocalAPIC->ICR[0].Val = val;
 }
 #endif
 

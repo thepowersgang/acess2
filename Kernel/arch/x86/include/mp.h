@@ -96,10 +96,45 @@ typedef struct {
 }	tReg;
 
 typedef volatile struct {
-	tReg	_unused;
-	tReg	_unused2;
+	tReg	_unused1[2];
 	tReg	ID;
 	tReg	Version;
-}	tAPIC;
+	tReg	_unused2[4];
+	tReg	TPR;	// Task Priority Register
+	tReg	APR;	// Arbitration Priority Register (RO)
+	tReg	PPR;	// Processor Priority Register (RO)
+	tReg	EOI;	// EOI Register (Write Only)
+	tReg	_unused3[1];
+	tReg	LogDest;	// Logical Destination Register
+	tReg	DestFmt;	// Destination Format Register (0-27: RO, 28-31: RW)
+	tReg	SIV;	// Spurious Interrupt Vector Register (0-8: RW, 9-31: RO)
+	tReg	ISR[8];	// In-Service Register - Total 256 Bits (RO)
+	tReg	TMR[8];	// Trigger Mode Register - Total 256 Bits (RO)
+	tReg	IRR[8];	// Interrupt Request Register - Total 256 Bits (RO)
+	tReg	ErrorStatus;	// Error Status Register (RO)
+	tReg	_unused4[6];
+	tReg	LVTCMI;	// LVT CMI Registers
+	// 0x300
+	tReg	ICR[2];	// Interrupt Command Register (RW)
+	// LVT Registers (Controls Local Vector Table)
+	// Structure:
+	// 0-7:   Vector - IDT Vector for the interrupt
+	// 12:    Delivery Status (0: Idle, 1: Send Pending)
+	// 16:    Mask (0: Enabled, 1: Disabled)
+	// 0x320
+	tReg	LVTTimer;	// LVT Timer Register (RW)
+	tReg	LVTThermalSensor;	// LVT Thermal Sensor Register (RW)
+	tReg	LVTPerfMonCounters;	// LVT Performance Monitor Counters Register (RW)
+	tReg	LVTLInt0;	// LVT Local Interrupt (LINT) #0 Register (RW);
+	tReg	LVTLInt1;	// LVT Local Interrupt (LINT) #1 Register (RW);
+	tReg	LVTError;	// LVT Error Register (RW);
+	// 0x380
+	tReg	InitialCount;	// Initial Count Register (Used for the timer) (RW)
+	tReg	CurrentCount;	// Current Count Register (Used for the timer) (RW)
+	tReg	_unused5[4];
+	// 0x3E0
+	tReg	DivideConifg;	// Divide Configuration Register (RW)
+	tReg	_unused6[1];
+} volatile	tAPIC;
 
 #endif

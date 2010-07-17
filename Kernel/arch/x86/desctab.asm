@@ -76,6 +76,10 @@ Desctab_Install:
 	SETISR	0xAC
 	SETUSER	0xAC
 	
+	%if USE_MP
+	SETISR	239
+	%endif
+	
 	%assign	i	0xF0
 	%rep 16
 	SETISR	i
@@ -187,13 +191,27 @@ ISR_NOERR	31; 31: Reserved
 
 DEF_SYSCALL	0xAC	; Acess System Call
 
+; AP's Timer Interrupt
+%if USE_MP
+[global Isr239]
+[extern SchedulerBase]
+Isr239:
+	push 0
+	jmp SchedulerBase
+%endif
+
 ; IRQs
 ; - Timer
 [global Isr240]
 [extern SchedulerBase]
+[extern SetAPICTimerCount]
 Isr240:
 	push 0
+	%if USE_MP
+	jmp SetAPICTimerCount
+	%else
 	jmp SchedulerBase
+	%endif
 ; - Assignable
 %assign i	0xF1
 %rep 16
@@ -258,6 +276,7 @@ SyscallCommon:
 ; IRQ Handling
 ; ------------
 [extern IRQ_Handler]
+[global IRQCommon]
 IRQCommon:
 	pusha
 	push ds

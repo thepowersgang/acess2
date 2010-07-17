@@ -93,6 +93,7 @@ start:
 [extern gGDTPtr]
 [extern gIDTPtr]
 [extern gpMP_LocalAPIC]
+[extern giMP_TimerCount]
 [extern gaAPIC_to_CPU]
 [extern gaCPUs]
 [extern giNumInitingCPUs]
@@ -154,6 +155,11 @@ APStartup:
 	shl cx, 3
 	add cx, 0x30
 	ltr cx
+	; Enable Local APIC Timer
+	mov ecx, [giMP_TimerCount]
+	mov [eax+0x380], ecx	; Set Initial Count
+	mov DWORD [eax+0x320], 0x000200EF	; Enable the timer on IVT#0xEF
+	
 	; CPU is now marked as initialised
 	sti
 	;xchg bx, bx	; MAGIC BREAK

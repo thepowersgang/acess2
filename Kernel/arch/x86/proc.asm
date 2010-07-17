@@ -8,6 +8,53 @@ KERNEL_BASE	equ 0xC0000000
 KSTACK_USERSTATE_SIZE	equ	(4+8+1+5)*4	; SRegs, GPRegs, CPU, IRET
 
 [section .text]
+[extern giMP_TimerCount]
+[extern gpMP_LocalAPIC]
+[extern Isr240]
+[global SetAPICTimerCount]
+SetAPICTimerCount:
+	pusha
+	push ds
+	push es
+	push fs
+	push gs
+	
+	mov ax, 0x10
+	mov ds, ax
+	mov es, ax
+	mov fs, ax
+	mov gs, ax
+	
+	mov eax, [gpMP_LocalAPIC]
+	mov ecx, [eax+0x320]
+	test ecx, 0x0001000
+	jz .setTime
+	mov DWORD [eax+0x380], 0xFFFFFFFF	; Set Initial Count
+	mov DWORD [eax+0x320], 0x000000F0	; Enable the timer on IVT#0xEF (One Shot)
+	jmp .ret
+
+.setTime:	
+	; Get Timer Count
+	mov ecx, 0xFFFFFFFF
+	sub ecx, [eax+0x390]
+	mov DWORD [giMP_TimerCount], ecx
+	; Disable APIC Timer
+	mov DWORD [eax+0x320], 0x00010000
+
+	; Update Timer IRQ to the IRQ code
+	mov eax, SchedulerBase
+	sub eax, Isr240+5+5+1
+	mov DWORD [Isr240+5+5+1], eax
+
+.ret:
+	mov dx, 0x20
+	mov al, 0x20
+	out dx, al		; ACK IRQ
+	popa
+	add esp, 4	; CPU ID
+	; No Error code / int num
+	iret
+
 ; --------------
 ; Task Scheduler
 ; --------------
@@ -66,6 +113,8 @@ SpawnTask:
 	; Child
 	push edx	; Argument
 	call ebx	; Function
+	push eax	; Exit Code
+	push   0	; Kill this thread
 	call Threads_Exit	; Kill Thread
 	
 .parent:
