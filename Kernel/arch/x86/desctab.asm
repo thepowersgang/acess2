@@ -58,6 +58,7 @@ Desctab_Install:
 	mov	WORD [gIDT + %1*8], ax
 	shr eax, 16
 	mov	WORD [gIDT + %1*8+6], ax
+	; Enable
 	mov	ax, WORD [gIDT + %1*8 + 4]
 	or ax, 0x8000
 	mov	WORD [gIDT + %1*8 + 4], ax
@@ -77,7 +78,8 @@ Desctab_Install:
 	SETUSER	0xAC
 	
 	%if USE_MP
-	SETISR	239
+	SETISR	0xEE	; 0xEE Timer
+	SETISR	0xEF	; 0xEF Spurious Interrupt
 	%endif
 	
 	%assign	i	0xF0
@@ -127,7 +129,7 @@ Desctab_Install:
 %macro	ISR_ERRNO	1
 [global Isr%1]
 Isr%1:
-	;xchg bx, bx
+	xchg bx, bx
 	push	%1
 	jmp	ErrorCommon
 %endmacro
@@ -191,24 +193,33 @@ ISR_NOERR	31; 31: Reserved
 
 DEF_SYSCALL	0xAC	; Acess System Call
 
-; AP's Timer Interrupt
 %if USE_MP
-[global Isr239]
+[global Isr0xEE]
 [extern SchedulerBase]
-Isr239:
+; AP's Timer Interrupt
+Isr0xEE:
 	push 0
+	xchg bx, bx	; MAGIC BREAK
 	jmp SchedulerBase
+; Spurious Interrupt
+[global Isr0xEF]
+Isr0xEF:
+	xchg bx, bx	; MAGIC BREAK
+	iret
 %endif
 
 ; IRQs
 ; - Timer
 [global Isr240]
+[global Isr240.jmp]
 [extern SchedulerBase]
 [extern SetAPICTimerCount]
 Isr240:
 	push 0
+	;xchg bx, bx	; MAGIC BREAK
+Isr240.jmp:
 	%if USE_MP
-	jmp SetAPICTimerCount
+	jmp SetAPICTimerCount	; This is reset once the bus speed has been calculated
 	%else
 	jmp SchedulerBase
 	%endif
@@ -224,7 +235,7 @@ Isr240:
 ; ---------------------
 [extern ErrorHandler]
 ErrorCommon:
-	;xchg bx, bx
+	;xchg bx, bx	; MAGIC BREAK
 	pusha
 	push ds
 	push es

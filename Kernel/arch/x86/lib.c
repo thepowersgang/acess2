@@ -121,10 +121,15 @@ void *memcpyd(void *Dest, const void *Src, size_t Num)
  */
 Uint64 __udivdi3(Uint64 Num, Uint64 Den)
 {
-	Uint64	ret = 0;
+	Uint64	P[2];
+	Uint64	q = 0;
+	 int	i;
 	
-	if(Den == 0)	__asm__ __volatile__ ("int $0x0");	// Call Div by Zero Error
-	if(Den == 1)	return Num;	// Speed Hacks
+	if(Den == 0)	__asm__ __volatile__ ("int $0x0");
+	// Common speedups
+	if(Num <= 0xFFFFFFFF && Den <= 0xFFFFFFFF)
+		return (Uint32)Num / (Uint32)Den;
+	if(Den == 1)	return Num;
 	if(Den == 2)	return Num >> 1;	// Speed Hacks
 	if(Den == 4)	return Num >> 2;	// Speed Hacks
 	if(Den == 8)	return Num >> 3;	// Speed Hacks
@@ -133,19 +138,33 @@ Uint64 __udivdi3(Uint64 Num, Uint64 Den)
 	if(Den == 1024)	return Num >> 10;	// Speed Hacks
 	if(Den == 2048)	return Num >> 11;	// Speed Hacks
 	if(Den == 4096)	return Num >> 12;
+	if(Num < Den)	return 0;
+	if(Num < Den*2)	return 1;
+	if(Num == Den*2)	return 2;
 	
-	if(Num >> 32 == 0 && Den >> 32 == 0)
-		return (Uint32)Num / (Uint32)Den;
-	
-	//Log("__udivdi3: (Num={0x%x:%x}, Den={0x%x:%x})",
-	//	Num>>32, Num&0xFFFFFFFF,
-	//	Den>>32, Den&0xFFFFFFFF);
-	
-	while(Num > Den) {
-		ret ++;
-		Num -= Den;
+	// Restoring division, from wikipedia
+	// http://en.wikipedia.org/wiki/Division_(digital)
+	P[0] = Num;	P[1] = 0;
+	for( i = 64; i--; )
+	{
+		// P <<= 1;
+		P[1] = (P[1] << 1) | (P[0] >> 63);
+		P[0] = P[0] << 1;
+		
+		// P -= Den << 64
+		P[1] -= Den;
+		
+		// P >= 0
+		if( !(P[1] & (1ULL<<63)) ) {
+			q |= (Uint64)1 << (63-i);
+		}
+		else {
+			//q |= 0 << (63-i);
+			P[1] += Den;
+		}
 	}
-	return ret;
+	
+	return q;
 }
 
 /**
@@ -168,9 +187,7 @@ Uint64 __umoddi3(Uint64 Num, Uint64 Den)
 	if(Num >> 32 == 0 && Den >> 32 == 0)
 		return (Uint32)Num % (Uint32)Den;
 	
-	while(Num > Den)
-		Num -= Den;
-	return Num;
+	return Num - __udivdi3(Num, Den) * Den;
 }
 
 Uint16 LittleEndian16(Uint16 Val)

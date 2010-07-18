@@ -217,7 +217,7 @@ void FDD_UnloadModule()
 	LOCK(&glFDD);
 	for(i=0;i<4;i++) {
 		Time_RemoveTimer(gFDD_Devices[i].timer);
-		FDD_int_StopMotor((void*)i);
+		FDD_int_StopMotor((void *)(Uint)i);
 	}
 	RELEASE(&glFDD);
 	//IRQ_Clear(6);
@@ -777,7 +777,7 @@ void FDD_Reset(int id)
  */
 void FDD_int_TimerCallback(void *Arg)
 {
-	 int	disk = (int)Arg;
+	 int	disk = (Uint)Arg;
 	ENTER("iarg", disk);
 	if(gFDD_Devices[disk].motorState == 1)
 		gFDD_Devices[disk].motorState = 2;
@@ -806,7 +806,7 @@ void FDD_int_StartMotor(int disk)
  */
 void FDD_int_StopMotor(void *Arg)
 {
-	Uint8	state, disk = (int)Arg;
+	Uint8	state, disk = (Uint)Arg;
 	if( IS_LOCKED(&glFDD) )	return ;
 	ENTER("iDisk", disk);
 	

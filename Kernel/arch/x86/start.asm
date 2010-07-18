@@ -4,6 +4,7 @@
 [bits 32]
 
 KERNEL_BASE	equ 0xC0000000
+%define MAX_CPUS	16
 
 [extern __load_addr]
 [extern __bss_start]
@@ -97,6 +98,8 @@ start:
 [extern gaAPIC_to_CPU]
 [extern gaCPUs]
 [extern giNumInitingCPUs]
+[extern MM_NewKStack]
+
 lGDTPtr:	; Local GDT Pointer
 	dw	3*8-1
 	dd	gGDT-KERNEL_BASE
@@ -141,24 +144,40 @@ APStartup:
 	lgdt [gGDTPtr]
 	lidt [gIDTPtr]
 
-	mov eax, [gpMP_LocalAPIC]
-	mov ecx, [eax+0x20]	; Read ID
-	shr ecx, 24
+	mov ebp, [gpMP_LocalAPIC]
+	mov esi, [eax+0x20]	; Read ID
+	shr esi, 24
 	;xchg bx, bx	; MAGIC BREAK
 	; CL is now local APIC ID
-	mov cl, BYTE [gaAPIC_to_CPU+ecx]
+	mov cl, BYTE [gaAPIC_to_CPU+esi]
 	; CL is now the CPU ID
-	mov BYTE [gaCPUs+ecx*8+1], 1
+	mov BYTE [gaCPUs+esi*8+1], 1
 	; Decrement the remaining CPU count
 	dec DWORD [giNumInitingCPUs]
+	
+	; Create a stack
+	lea edx, [esi+1]
+	shl edx, 5+2	; *32 *4
+	lea esp, [gInitAPStacks+edx]
+	call MM_NewKStack
+	mov esp, eax
+	
 	; Set TSS
-	shl cx, 3
-	add cx, 0x30
+	lea ecx, [esi*8+0x30]
 	ltr cx
-	; Enable Local APIC Timer
-	mov ecx, [giMP_TimerCount]
-	mov [eax+0x380], ecx	; Set Initial Count
-	mov DWORD [eax+0x320], 0x000200EF	; Enable the timer on IVT#0xEF
+	
+	;xchg bx, bx	; MAGIC_BREAK
+	; Enable Local APIC
+	mov DWORD [ebp+0x0F0], 0x000001EF	; Spurious Interrupt Vector (0xEF)
+	mov ecx, DWORD [giMP_TimerCount]
+	mov DWORD [ebp+0x380], ecx	; Set Initial Count
+	mov DWORD [ebp+0x320], 0x000200EE	; Enable timer on IVT#0xEE
+	mov DWORD [ebp+0x330], 0x000100E0	; ##Enable thermal sensor on IVT#0xE0
+	mov DWORD [ebp+0x340], 0x000100D0	; ##Enable performance counters on IVT#0xD0
+	mov DWORD [ebp+0x350], 0x000100D1	; ##Enable LINT0 on IVT#0xD1
+	mov DWORD [ebp+0x360], 0x000100D2	; ##Enable LINT1 on IVT#0xD2
+	mov DWORD [ebp+0x370], 0x000100E1	; ##Enable Error on IVT#0xE1
+	mov DWORD [ebp+0x0B0], 0	; Send an EOI (just in case)
 	
 	; CPU is now marked as initialised
 	sti
@@ -213,4 +232,6 @@ gaInitPageTable:
 ALIGN 0x1000
 	times 1024	dd	0
 Kernel_Stack_Top:
+gInitAPStacks:
+	times 32*MAX_CPUS	dd	0
 	

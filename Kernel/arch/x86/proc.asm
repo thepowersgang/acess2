@@ -8,9 +8,10 @@ KERNEL_BASE	equ 0xC0000000
 KSTACK_USERSTATE_SIZE	equ	(4+8+1+5)*4	; SRegs, GPRegs, CPU, IRET
 
 [section .text]
+%if USE_MP
 [extern giMP_TimerCount]
 [extern gpMP_LocalAPIC]
-[extern Isr240]
+[extern Isr240.jmp]
 [global SetAPICTimerCount]
 SetAPICTimerCount:
 	pusha
@@ -27,7 +28,7 @@ SetAPICTimerCount:
 	
 	mov eax, [gpMP_LocalAPIC]
 	mov ecx, [eax+0x320]
-	test ecx, 0x0001000
+	test ecx, 0x00010000
 	jz .setTime
 	mov DWORD [eax+0x380], 0xFFFFFFFF	; Set Initial Count
 	mov DWORD [eax+0x320], 0x000000F0	; Enable the timer on IVT#0xEF (One Shot)
@@ -39,22 +40,28 @@ SetAPICTimerCount:
 	sub ecx, [eax+0x390]
 	mov DWORD [giMP_TimerCount], ecx
 	; Disable APIC Timer
-	mov DWORD [eax+0x320], 0x00010000
+	mov DWORD [eax+0x320], 0x000100EF
+	mov DWORD [eax+0x380], 0
 
 	; Update Timer IRQ to the IRQ code
 	mov eax, SchedulerBase
-	sub eax, Isr240+5+5+1
-	mov DWORD [Isr240+5+5+1], eax
+	sub eax, Isr240.jmp+5
+	mov DWORD [Isr240.jmp+1], eax
 
+	;xchg bx, bx	; MAGIC BREAK
 .ret:
 	mov dx, 0x20
 	mov al, 0x20
 	out dx, al		; ACK IRQ
+	pop gs
+	pop fs
+	pop es
+	pop ds
 	popa
 	add esp, 4	; CPU ID
 	; No Error code / int num
 	iret
-
+%endif
 ; --------------
 ; Task Scheduler
 ; --------------
@@ -73,21 +80,39 @@ SchedulerBase:
 	mov fs, ax
 	mov gs, ax
 	
+	%if USE_MP
 	call GetCPUNum
+	mov ebx, eax
 	push eax	; Push as argument
+	%else
+	push 0
+	%endif
 	
 	call Proc_Scheduler
 	
 	add esp, 4	; Remove Argument
+
+	%if USE_MP
+	test ebx, ebx
+	jnz .sendEOI
+	%endif
 	
+	mov dx, 0x20
+	mov al, 0x20
+	out dx, al		; ACK IRQ
+	%if USE_MP
+	jmp .ret
+	
+.sendEOI:
+	mov eax, DWORD [gpMP_LocalAPIC]
+	mov DWORD [eax+0x0B0], 1
+	%endif
+.ret:
 	pop gs
 	pop fs
 	pop es
 	pop ds
-
-	mov dx, 0x20
-	mov al, 0x20
-	out dx, al		; ACK IRQ
+	
 	popa
 	add esp, 4	; CPU ID
 	; No Error code / int num

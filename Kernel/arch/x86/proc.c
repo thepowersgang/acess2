@@ -17,6 +17,7 @@
 // === CONSTANTS ===
 #define	SWITCH_MAGIC	0xFFFACE55	// There is no code in this area
 // Base is 1193182
+#define TIMER_BASE	1193182
 #define TIMER_DIVISOR	11931	//~100Hz
 
 // === TYPES ===
@@ -73,7 +74,7 @@ void	Proc_Scheduler(int CPU);
 #if USE_MP
 volatile int	giNumInitingCPUs = 0;
 tMPInfo	*gMPFloatPtr = NULL;
-Uint32	giMP_TimerCount;	// Start Count for Local APIC Timer
+volatile Uint32	giMP_TimerCount;	// Start Count for Local APIC Timer
 tAPIC	*gpMP_LocalAPIC = NULL;
 Uint8	gaAPIC_to_CPU[256] = {0};
 tCPU	gaCPUs[MAX_CPUS];
@@ -88,13 +89,13 @@ Uint32	*gPML4s[4] = NULL;
 tTSS	*gTSSs = NULL;	// Pointer to TSS array
 tTSS	gTSS0 = {0};
 // --- Error Recovery ---
-char	gaDoubleFaultStack[1024];
+char	gaDoubleFaultStack[1024] __attribute__ ((section(".padata")));
 tTSS	gDoubleFault_TSS = {
-	.ESP0 = (Uint)&gaDoubleFaultStack[1023],
+	.ESP0 = (Uint)&gaDoubleFaultStack[1024],
 	.SS0 = 0x10,
 	.CR3 = (Uint)gaInitPageDir - KERNEL_BASE,
 	.EIP = (Uint)Isr8,
-	.ESP = (Uint)&gaDoubleFaultStack[1023],
+	.ESP = (Uint)&gaDoubleFaultStack[1024],
 	.CS = 0x08,	.SS = 0x10,
 	.DS = 0x10,	.ES = 0x10,
 	.FS = 0x10,	.GS = 0x10,
@@ -228,6 +229,8 @@ void ArchThreads_Init(void)
 				}
 				
 				break;
+			
+			#if DUMP_MP_TABLES
 			case 1:	// Bus
 				entSize = 8;
 				Log("%i: Bus", i);
@@ -265,6 +268,7 @@ void ArchThreads_Init(void)
 			default:
 				Log("%i: Unknown (%i)", i, ents->Type);
 				break;
+			#endif
 			}
 			ents = (void*)( (Uint)ents + entSize );
 		}
@@ -286,6 +290,7 @@ void ArchThreads_Init(void)
 	MM_FinishVirtualInit();
 	#endif
 	
+	#if 0
 	// Initialise Double Fault TSS
 	gGDT[5].BaseLow = (Uint)&gDoubleFault_TSS & 0xFFFF;
 	gGDT[5].BaseMid = (Uint)&gDoubleFault_TSS >> 16;
@@ -296,19 +301,34 @@ void ArchThreads_Init(void)
 	gIDT[8].CS = 5<<3;
 	gIDT[8].Flags = 0x8500;
 	gIDT[8].OffsetHi = 0;
+	#endif
 	
 	// Set timer frequency
 	outb(0x43, 0x34);	// Set Channel 0, Low/High, Rate Generator
 	outb(0x40, TIMER_DIVISOR&0xFF);	// Low Byte of Divisor
 	outb(0x40, (TIMER_DIVISOR>>8)&0xFF);	// High Byte
+	
+	#if USE_MP
 	// Get the count setting for APIC timer
 	Log("Determining APIC Count");
 	__asm__ __volatile__ ("sti");
 	while( giMP_TimerCount == 0 )	__asm__ __volatile__ ("hlt");
 	__asm__ __volatile__ ("cli");
-	Log("APIC Count %i\n", giMP_TimerCount);
+	Log("APIC Count %i", giMP_TimerCount);
+	{
+		Uint64	freq = giMP_TimerCount;
+		freq /= TIMER_DIVISOR;
+		freq *= TIMER_BASE;
+		if( (freq /= 1000) < 2*1000)
+			Log("Bus Frequency %i KHz", freq);
+		else if( (freq /= 1000) < 2*1000)
+			Log("Bus Frequency %i MHz", freq);
+		else if( (freq /= 1000) < 2*1000)
+			Log("Bus Frequency %i GHz", freq);
+		else
+			Log("Bus Frequency %i THz", freq);
+	}
 	
-	#if USE_MP
 	// Initialise Normal TSS(s)
 	for(pos=0;pos<giNumCPUs;pos++)
 	{
@@ -333,7 +353,10 @@ void ArchThreads_Init(void)
 	}
 	
 	Log("Waiting for APs to come up\n");
+	//__asm__ __volatile__ ("xchg %bx, %bx");
+	__asm__ __volatile__ ("sti");
 	while( giNumInitingCPUs )	__asm__ __volatile__ ("hlt");
+	__asm__ __volatile__ ("cli");
 	MM_FinishVirtualInit();
 	//Panic("Uh oh... MP Table Parsing is unimplemented\n");
 	#endif
