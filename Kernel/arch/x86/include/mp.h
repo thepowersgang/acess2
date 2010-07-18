@@ -93,7 +93,7 @@ typedef volatile struct {
 typedef struct {
 	Uint32	Val;
 	Uint32	Padding[3];
-}	tReg;
+} volatile	tReg;
 
 typedef volatile struct {
 	tReg	_unused1[2];

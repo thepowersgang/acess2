@@ -56,6 +56,9 @@ typedef struct sThread
 	 int	NumTickets;	//!< Priority - Chance of gaining CPU
 	
 	Uint	Config[NUM_CFG_ENTRIES];	//!< Per-process configuration
+	
+	// --- proc.c's
+	volatile int	bIsRunning;	//!< Set if the thread is in use (used in MP)
 } tThread;
 
 

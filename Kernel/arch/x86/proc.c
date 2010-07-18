@@ -342,23 +342,6 @@ void ArchThreads_Init(void)
 		gGDT[6+pos].BaseHi = ((Uint)(&gTSSs[pos])) >> 24;
 	#if USE_MP
 	}
-	
-	// Start APs
-	for( pos = 0; pos < giNumCPUs; pos ++ )
-	{
-		gaCPUs[pos].Current = NULL;
-		if( pos != giProc_BootProcessorID ) {
-			MP_StartAP( pos );
-		}
-	}
-	
-	Log("Waiting for APs to come up\n");
-	//__asm__ __volatile__ ("xchg %bx, %bx");
-	__asm__ __volatile__ ("sti");
-	while( giNumInitingCPUs )	__asm__ __volatile__ ("hlt");
-	__asm__ __volatile__ ("cli");
-	MM_FinishVirtualInit();
-	//Panic("Uh oh... MP Table Parsing is unimplemented\n");
 	#endif
 	
 	// Load the BSP's TSS
@@ -369,6 +352,7 @@ void ArchThreads_Init(void)
 	#else
 	gCurrentThread = &gThreadZero;
 	#endif
+	gThreadZero.bIsRunning = 1;
 	
 	#if USE_PAE
 	gThreadZero.MemState.PDP[0] = 0;
@@ -439,8 +423,28 @@ void MP_SendIPI(Uint8 APICID, int Vector, int DeliveryMode)
  */
 void Proc_Start(void)
 {
+	#if USE_MP
+	 int	i;
+	#endif
+	
 	// Start Interrupts (and hence scheduler)
 	__asm__ __volatile__("sti");
+	
+	#if USE_MP
+	// Start APs
+	for( i = 0; i < giNumCPUs; i ++ )
+	{
+		gaCPUs[i].Current = NULL;
+		if( i != giProc_BootProcessorID ) {
+			MP_StartAP( i );
+		}
+	}
+	
+	Log("Waiting for APs to come up\n");
+	//__asm__ __volatile__ ("sti");
+	while( giNumInitingCPUs )	__asm__ __volatile__ ("hlt");
+	MM_FinishVirtualInit();
+	#endif
 }
 
 /**
@@ -804,7 +808,15 @@ void Proc_Scheduler(int CPU)
 	
 	// Check if there is any tasks running
 	if(giNumActiveThreads == 0) {
+		#if 0
 		Log("No Active threads, sleeping");
+		#endif
+		#if USE_MP
+		if(CPU)
+			gpMP_LocalAPIC->EOI.Val = 0;
+		else
+		#endif
+			outb(0x20, 0x20);
 		__asm__ __volatile__ ("hlt");
 		return;
 	}
@@ -851,7 +863,9 @@ void Proc_Scheduler(int CPU)
 	
 	// Set current thread
 	#if USE_MP
+	gaCPUs[CPU].Current->bIsRunning = 0;
 	gaCPUs[CPU].Current = thread;
+	thread->bIsRunning = 1;
 	#else
 	gCurrentThread = thread;
 	#endif

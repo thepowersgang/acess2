@@ -97,15 +97,14 @@ SchedulerBase:
 	jnz .sendEOI
 	%endif
 	
-	mov dx, 0x20
 	mov al, 0x20
-	out dx, al		; ACK IRQ
+	out 0x20, al		; ACK IRQ
 	%if USE_MP
 	jmp .ret
 	
 .sendEOI:
 	mov eax, DWORD [gpMP_LocalAPIC]
-	mov DWORD [eax+0x0B0], 1
+	mov DWORD [eax+0x0B0], 0
 	%endif
 .ret:
 	pop gs
