@@ -75,9 +75,9 @@ struct fat_filetable_s {
 } __attribute__((packed));
 
 /**
- \struct fat_longfilename_s
- \brief Format of a long file name entry on disk
-*/
+ * \struct fat_longfilename_s
+ * \brief Format of a long file name entry on disk
+ */
 struct fat_longfilename_s {
 	Uint8	id;	//!< ID of entry. Bit 6 is set for last entry
 	Uint16	name1[5];	//!< 5 characters of name

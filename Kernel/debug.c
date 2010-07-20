@@ -283,7 +283,7 @@ void Debug_Enter(char *FuncName, char *ArgTypes, ...)
 	}
 
 	va_end(args);
-	Debug_Putchar(')');	Debug_Putchar('\n');	Debug_Putchar('\r');
+	Debug_Putchar(')');	Debug_Putchar('\r');	Debug_Putchar('\n');
 }
 
 void Debug_Log(char *FuncName, char *Fmt, ...)
