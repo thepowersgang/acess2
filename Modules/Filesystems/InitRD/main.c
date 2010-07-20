@@ -5,6 +5,8 @@
 #include "initrd.h"
 #include <modules.h>
 
+#define DUMP_ON_MOUNT	1
+
 // === IMPORTS ==
 extern tVFS_Node	gInitRD_RootNode;
 
@@ -15,6 +17,7 @@ void	InitRD_Unmount(tVFS_Node *Node);
 Uint64	InitRD_ReadFile(tVFS_Node *Node, Uint64 Offset, Uint64 Size, void *Buffer);
 char	*InitRD_ReadDir(tVFS_Node *Node, int ID);
 tVFS_Node	*InitRD_FindDir(tVFS_Node *Node, char *Name);
+void	InitRD_DumpDir(tVFS_Node *Node, int Indent);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, 0x0A, FS_InitRD, InitRD_Install, NULL);
@@ -28,6 +31,7 @@ tVFS_Driver	gInitRD_FSInfo = {
 int InitRD_Install(char **Arguments)
 {
 	VFS_AddDriver( &gInitRD_FSInfo );
+	
 	return MODULE_ERR_OK;
 }
 
@@ -36,6 +40,9 @@ int InitRD_Install(char **Arguments)
  */
 tVFS_Node *InitRD_InitDevice(char *Device, char **Arguments)
 {
+	#if DUMP_ON_MOUNT
+	InitRD_DumpDir( &gInitRD_RootNode, 0 );
+	#endif
 	return &gInitRD_RootNode;
 }
 
@@ -91,4 +98,21 @@ tVFS_Node *InitRD_FindDir(tVFS_Node *Node, char *Name)
 	}
 	
 	return NULL;
+}
+
+void InitRD_DumpDir(tVFS_Node *Node, int Indent)
+{
+	 int	i;
+	char	indent[Indent+1];
+	tInitRD_File	*dir = Node->ImplPtr;
+	
+	for( i = 0; i < Indent;	i++ )	indent[i] = ' ';
+	indent[i] = '\0';
+	
+	for( i = 0; i < Node->Size; i++ )
+	{
+		//Log("%s- %p %s", indent, dir[i].Node, dir[i].Name);
+		if(dir[i].Node->Flags & VFS_FFLAG_DIRECTORY)
+			InitRD_DumpDir(dir[i].Node, Indent+1);
+	}
 }

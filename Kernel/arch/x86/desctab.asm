@@ -129,14 +129,14 @@ Desctab_Install:
 %macro	ISR_ERRNO	1
 [global Isr%1]
 Isr%1:
-	xchg bx, bx
+	;xchg bx, bx
 	push	%1
 	jmp	ErrorCommon
 %endmacro
 %macro	ISR_NOERR	1
 [global Isr%1]
 Isr%1:
-	xchg bx, bx
+	;xchg bx, bx
 	push	0
 	push	%1
 	jmp	ErrorCommon

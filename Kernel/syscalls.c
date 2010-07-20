@@ -40,11 +40,18 @@ void SyscallHandler(tSyscallRegs *Regs)
 {
 	Uint64	ret = 0;
 	Uint	err = -EOK;
+	 int	callNum = Regs->Num;
 	
-	ENTER("iThread iNum", Threads_GetTID(), Regs->Num);
-	if(Regs->Num < NUM_SYSCALLS)
-		LOG("Syscall %s", cSYSCALL_NAMES[Regs->Num]);
+	#if DEBUG < 2
+	if(callNum != SYS_READ && callNum != SYS_WRITE) {
+	#endif
+	ENTER("iThread iNum", Threads_GetTID(), callNum);
+	if(callNum < NUM_SYSCALLS)
+		LOG("Syscall %s", cSYSCALL_NAMES[callNum]);
 	LOG("Arg1: 0x%x, Arg2: 0x%x, Arg3: 0x%x, Arg4: 0x%x", Regs->Arg1, Regs->Arg2, Regs->Arg3, Regs->Arg4);
+	#if DEBUG < 2
+	}
+	#endif
 	
 	switch(Regs->Num)
 	{
@@ -192,10 +199,12 @@ void SyscallHandler(tSyscallRegs *Regs)
 			ret = -1;
 			break;
 		}
+		LOG("VFS_Open(\"%s\", 0x%x)", (char*)Regs->Arg1, Regs->Arg2 | VFS_OPENFLAG_USER);
 		ret = VFS_Open((char*)Regs->Arg1, Regs->Arg2 | VFS_OPENFLAG_USER);
 		break;
 	
 	case SYS_CLOSE:
+		LOG("VFS_Close(%i)", Regs->Arg1);
 		VFS_Close( Regs->Arg1 );
 		break;
 	
@@ -328,11 +337,17 @@ void SyscallHandler(tSyscallRegs *Regs)
 	#endif
 	Regs->Error = err;
 	#if DEBUG
+	# if DEBUG < 2
+	if( callNum != SYS_READ && callNum != SYS_WRITE ) {
+	# endif
 	LOG("err = %i", err);
 	if(Regs->Num != SYS_EXECVE)
 		LEAVE('x', ret);
 	else
 		LOG("Actual %i", ret);
+	# if DEBUG < 2
+	}
+	# endif
 	#endif
 }
 

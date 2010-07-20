@@ -1,4 +1,5 @@
-/* Acess2 RTL8139 Driver
+/*
+ * Acess2 RTL8139 Driver
  * - By John Hodge (thePowersGang)
  * 
  * main.c - Driver Core
@@ -48,11 +49,29 @@ typedef struct sCard
 }	tCard;
 
 // === PROTOTYPES ===
+ int	RTL8139_Install(char **Options);
+char	*RTL8139_ReadDir(tVFS_Node *Node, int Pos);
+tVFS_Node	*RTL8139_FindDir(tVFS_Node *Node, const char *Filename);
+ int	RTL8139_RootIOCtl(tVFS_Node *Node, int ID, void *Arg);
+Uint64	RTL8139_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
+Uint64	RTL8139_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
+void	RTL8139_IRQHandler(int Num);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, RTL8139, RTL8139_Install, NULL, NULL);
+tDevFS_Driver	gRTL8139_DriverInfo = {
+	NULL, "RTL8139",
+	{
+	.NumACLs = 1,
+	.ACLs = &gVFS_ACL_EveryoneRX,
+	.Flags = VFS_FFLAG_DIRECTORY,
+	.ReadDir = RTL8139_ReadDir,
+	.FindDir = RTL8139_FindDir,
+	.IOCtl = RTL8139_RootIOCtl
+	}
+};
  int	giRTL8139_CardCount;
-tCard	gpRTL8139_Cards;
+tCard	*gpRTL8139_Cards;
 
 // === CODE ===
 /**
@@ -83,17 +102,21 @@ int RTL8139_Install(char **Options)
 		// Reset (0x10 to CMD)
 		outb( base + CMD, 0x10 );
 		
-		gpRTL8139_Cards[i].ReceiveBuffer = MM_AllocDMA( 2, 32, &gpRTL8139_Cards[i].PhysReceiveBuffer );
+		while( inb(base + CMD) & 0x10 )	;
+		
+		// Allocate 3 pages below 4GiB for the recieve buffer (Allows 8k+16+1500)
+		gpRTL8139_Cards[i].ReceiveBuffer = MM_AllocDMA( 3, 32, &gpRTL8139_Cards[i].PhysReceiveBuffer );
 		// Set up recieve buffer
 		outl(base + RBSTART, (Uint32)gpRTL8139_Cards[i].PhysReceiveBuffer);
 		// Set IMR to Transmit OK and Receive OK
 		outw(base + IMR, 0x5);
 		
-		// Set recieve buffer size, buffer wrap and recieve mask
-		outl(base + RCR, 0x8F);
+		// Set recieve buffer size and recieve mask
+		outl(base + RCR, 0x0F);
 		
 		outb(base + CMD, 0x0C);	// Recive Enable and Transmit Enable
 		
+		// Get the card's MAC address
 		gpRTL8139_Cards[ i ].MacAddr[0] = inb(base+MAC0);
 		gpRTL8139_Cards[ i ].MacAddr[1] = inb(base+MAC1);
 		gpRTL8139_Cards[ i ].MacAddr[2] = inb(base+MAC2);
@@ -121,4 +144,36 @@ int RTL8139_Install(char **Options)
 		i ++;
 	}
 	return MODULE_ERR_OK;
+}
+
+// --- Root Functions ---
+char *RTL8139_ReadDir(tVFS_Node *Node, int Pos)
+{
+	return NULL;
+}
+
+tVFS_Node *RTL8139_FindDir(tVFS_Node *Node, const char *Filename)
+{
+	return NULL;
+}
+
+int RTL8139_RootIOCtl(tVFS_Node *Node, int ID, void *Arg)
+{
+	return 0;
+}
+
+// --- File Functions ---
+Uint64 RTL8139_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+{
+	return 0;
+}
+
+Uint64 RTL8139_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+{
+	return 0;
+}
+
+int RTL8139_IOCtl(tVFS_Node *Node, int ID, void *Arg)
+{
+	return 0;
 }

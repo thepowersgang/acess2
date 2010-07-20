@@ -181,6 +181,7 @@ void Debug(char *Fmt, ...)
 	va_start(args, Fmt);
 	Debug_DbgOnlyFmt(Fmt, args);
 	va_end(args);
+	Debug_PutCharDebug('\r');
 	Debug_PutCharDebug('\n');
 }
 /**
@@ -194,6 +195,7 @@ void Log(char *Fmt, ...)
 	va_start(args, Fmt);
 	Debug_Fmt(Fmt, args);
 	va_end(args);
+	Debug_Putchar('\r');
 	Debug_Putchar('\n');
 }
 void Warning(char *Fmt, ...)
@@ -203,6 +205,7 @@ void Warning(char *Fmt, ...)
 	va_start(args, Fmt);
 	Debug_Fmt(Fmt, args);
 	va_end(args);
+	Debug_Putchar('\r');
 	Debug_Putchar('\n');
 }
 void Panic(char *Fmt, ...)
@@ -215,6 +218,7 @@ void Panic(char *Fmt, ...)
 	va_start(args, Fmt);
 	Debug_Fmt(Fmt, args);
 	va_end(args);
+	Debug_Putchar('\r');
 	Debug_Putchar('\n');
 
 	Threads_Dump();
@@ -279,7 +283,7 @@ void Debug_Enter(char *FuncName, char *ArgTypes, ...)
 	}
 
 	va_end(args);
-	Debug_Putchar(')');	Debug_Putchar('\n');
+	Debug_Putchar(')');	Debug_Putchar('\n');	Debug_Putchar('\r');
 }
 
 void Debug_Log(char *FuncName, char *Fmt, ...)
@@ -295,6 +299,7 @@ void Debug_Log(char *FuncName, char *Fmt, ...)
 	Debug_Fmt(Fmt, args);
 
 	va_end(args);
+	Debug_Putchar('\r');
 	Debug_Putchar('\n');
 }
 
@@ -316,6 +321,7 @@ void Debug_Leave(char *FuncName, char RetType, ...)
 
 	// No Return
 	if(RetType == '-') {
+		Debug_Putchar('\r');
 		Debug_Putchar('\n');
 		return;
 	}
@@ -332,6 +338,7 @@ void Debug_Leave(char *FuncName, char RetType, ...)
 	// Extended (64-Bit)
 	case 'X':	Debug_Fmt("0x%llx", args);	break;
 	}
+	Debug_Putchar('\r');
 	Debug_Putchar('\n');
 
 	va_end(args);
@@ -342,7 +349,7 @@ void Debug_HexDump(char *Header, void *Data, Uint Length)
 	Uint8	*cdat = Data;
 	Uint	pos = 0;
 	Debug_Puts(1, Header);
-	LogF(" (Hexdump of %p)\n", Data);
+	LogF(" (Hexdump of %p)\r\n", Data);
 
 	while(Length >= 16)
 	{
@@ -369,6 +376,7 @@ void Debug_HexDump(char *Header, void *Data, Uint Length)
 		Length--;
 		cdat ++;
 	}
+	Debug_Putchar('\r');
 	Debug_Putchar('\n');
 }
 
