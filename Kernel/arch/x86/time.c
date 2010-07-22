@@ -11,7 +11,7 @@
 #define TIMER_RATE	12	// (Max: 15, Min: 2) - 15 = 1Hz, 13 = 4Hz, 12 = 8Hz, 11 = 16Hz 10 = 32Hz, 2
 #define TIMER_FREQ	(0x8000>>TIMER_RATE)	//Hz
 #define MS_PER_TICK_WHOLE	(1000/(TIMER_FREQ))
-#define MS_PER_TICK_FRACT	((Uint64)(1000*TIMER_FREQ-((Uint64)MS_PER_TICK_WHOLE)*0x80000000/TIMER_FREQ))
+#define MS_PER_TICK_FRACT	((0x80000000*(1000%TIMER_FREQ))/TIMER_FREQ)
 
 // === IMPORTS ===
 extern Sint64	giTimestamp;
@@ -30,6 +30,9 @@ void	Time_Interrupt(int);
 int Time_Setup(void)
 {
 	Uint8	val;
+	
+	Log_Log("Timer", "RTC Timer firing at %iHz (%i divisor), %i.0x%08x",
+		TIMER_FREQ, TIMER_RATE, MS_PER_TICK_WHOLE, MS_PER_TICK_FRACT);
 	
 	outb(0x70, inb(0x70)&0x7F);	// Disable NMIs
 	__asm__ __volatile__ ("cli");	// Disable normal interrupts
@@ -53,6 +56,11 @@ int Time_Setup(void)
 	
 	// Install IRQ Handler
 	IRQ_AddHandler(8, Time_Interrupt);
+	
+	// Make sure the RTC actually fires
+	outb(0x70, 0x0C); // Select register C
+	inb(0x71);	// Just throw away contents.
+	
 	return 0;
 }
 
