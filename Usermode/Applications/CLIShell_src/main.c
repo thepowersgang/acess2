@@ -1,7 +1,7 @@
 /*
  * AcessOS Shell Version 3
  */
-#define USE_READLINE	0
+#define USE_READLINE	1
 #include <acess/sys.h>
 #include <stdlib.h>
 #include <stdio.h>

@@ -9,7 +9,6 @@
 #define PACKED	__attribute__ ((packed))
 #define offsetof(st, m) ((Uint)((char *)&((st *)(0))->m - (char *)0 ))
 
-
 //#include <stdint.h>
 #include <arch.h>
 #include <stdarg.h>

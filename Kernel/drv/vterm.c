@@ -800,6 +800,7 @@ int VT_int_ParseEscape(tVTerm *Term, char *Buffer)
 		if( '0' <= c && c <= '9' )
 		{
 			do {
+				if(c == ';')	c = Buffer[j++];
 				while('0' <= c && c <= '9') {
 					args[argc] *= 10;
 					args[argc] += c-'0';
@@ -862,6 +863,11 @@ int VT_int_ParseEscape(tVTerm *Term, char *Buffer)
 					}
 					break;
 				}
+				break;
+			// Set cursor position
+			case 'h':
+				Term->WritePos = args[0] + args[1]*Term->Width;
+				Log_Debug("VTerm", "args = {%i, %i}", args[0], args[1]);
 				break;
 			// Set Font flags
 			case 'm':
