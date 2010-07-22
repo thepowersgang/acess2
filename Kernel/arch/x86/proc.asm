@@ -236,6 +236,12 @@ GetCPUNum:
 
 ; Usermode code exported by the kernel
 [section .usertext]
+; Export a place for the user to jump to to call a syscall
+; - Allows the kernel to change the method easily
+User_Syscall:
+	int 0xAC
+
+; A place to return to and exit
 User_Syscall_RetAndExit:
 	push eax
 	call User_Syscall_Exit

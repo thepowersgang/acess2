@@ -42,15 +42,17 @@
 %define SYS_READ	67	; Read from an open file
 %define SYS_WRITE	68	; Write to an open file
 %define SYS_IOCTL	69	; Perform an IOCtl Call
-%define SYS_READDIR	70	; Read from an open directory
-%define SYS_OPENCHILD	71	; Open a child entry in a directory
-%define SYS_MKDIR	72	; Create a new directory
-%define SYS_SYMLINK	73	; Create a symbolic link
-%define SYS_GETACL	74	; Get an ACL Value
-%define SYS_SETACL	75	; Set an ACL Value
-%define SYS_FINFO	76	; Get file information
-%define SYS_SEEK	77	; Seek to a new position in the file
-%define SYS_TELL	78	; Return the current file position
-%define SYS_CHDIR	79	; Change current directory
-%define SYS_GETCWD	80	; Get current directory
-%define SYS_MOUNT	81	; Mount a filesystem
+%define SYS_SEEK	70	; Seek to a new position in the file
+%define SYS_READDIR	71	; Read from an open directory
+%define SYS_OPENCHILD	72	; Open a child entry in a directory
+%define SYS_GETACL	73	; Get an ACL Value
+%define SYS_SETACL	74	; Set an ACL Value
+%define SYS_FINFO	75	; Get file information
+%define SYS_MKDIR	76	; Create a new directory
+%define SYS_LINK	77	; Create a new link to a file
+%define SYS_SYMLINK	78	; Create a symbolic link
+%define SYS_UNLINK	79	; Delete a file
+%define SYS_TELL	80	; Return the current file position
+%define SYS_CHDIR	81	; Change current directory
+%define SYS_GETCWD	82	; Get current directory
+%define SYS_MOUNT	83	; Mount a filesystem

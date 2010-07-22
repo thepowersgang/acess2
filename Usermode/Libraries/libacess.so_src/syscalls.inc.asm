@@ -4,13 +4,15 @@
 
 %include "../../../Kernel/include/syscalls.inc.asm"
 
+SYSCALL_JUMP equ	0xCFFF0000
+
 ; System Call - No Arguments
 %macro SYSCALL0	2
 [global %1:func]
 %1:
 	push ebx
 	mov eax, %2
-	int 0xAC
+	jmp SYSCALL_JUMP
 	mov [_errno], ebx
 	pop ebx
 	ret
@@ -25,7 +27,7 @@
 	push ebx
 	mov eax, %2
 	mov ebx, [ebp+8]
-	int 0xAC
+	jmp SYSCALL_JUMP
 	mov [_errno], ebx
 	pop ebx
 	pop ebp
@@ -42,7 +44,7 @@
 	mov eax, %2
 	mov ebx, [ebp+8]
 	mov ecx, [ebp+12]
-	int 0xAC
+	jmp SYSCALL_JUMP
 	mov [_errno], ebx
 	pop ebx
 	pop ebp
@@ -60,7 +62,7 @@
 	mov ebx, [ebp+8]
 	mov ecx, [ebp+12]
 	mov edx, [ebp+16]
-	int 0xAC
+	jmp SYSCALL_JUMP
 	mov [_errno], ebx
 	pop ebx
 	pop ebp
@@ -80,7 +82,7 @@
 	mov ecx, [ebp+12]
 	mov edx, [ebp+16]
 	mov edi, [ebp+20]
-	int 0xAC
+	jmp SYSCALL_JUMP
 	mov [_errno], ebx
 	pop edi
 	pop ebx
@@ -103,7 +105,7 @@
 	mov edx, [ebp+16]
 	mov edi, [ebp+20]
 	mov esi, [ebp+24]
-	int 0xAC
+	jmp SYSCALL_JUMP
 	mov [_errno], ebx
 	pop esi
 	pop edi
@@ -128,7 +130,7 @@
 	mov edi, [ebp+20]
 	mov esi, [ebp+24]
 	mov ebp, [ebp+28]
-	int 0xAC
+	jmp SYSCALL_JUMP
 	mov [_errno], ebx
 	pop esi
 	pop edi
