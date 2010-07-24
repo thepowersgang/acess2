@@ -1,2 +1,2 @@
 #!/bin/sh
-ld -T link.ld -shared -o $1.drv $1
+ld -melf_i386 -T link.ld -shared -o $1.drv $1

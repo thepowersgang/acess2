@@ -1,6 +1,8 @@
 
 ENTRY(start)
 
+OUTPUT_FORMAT(elf32-i386)
+
 SECTIONS
 {
 	. = 0;
@@ -22,7 +24,7 @@ SECTIONS
 	.udiprops : {
 		*(.udiprops)
 	}
-	_udiprops_size = . - _udiprops;
+	_udiprops_end = .;
 	
 	. = (. + 0xFFF) & ~ 0xFFF;
 	

@@ -105,10 +105,7 @@ void Threads_Init(void)
 		cur->ThreadName = "Idle Thread";
 		Threads_SetTickets(0);	// Never called randomly
 		cur->Quantum = 1;	// 1 slice quantum
-		HALT();
-		for(;;) {
-			HALT();	// Just yeilds
-		}
+		for(;;)	HALT();	// Just yeilds
 	}
 	#endif
 	

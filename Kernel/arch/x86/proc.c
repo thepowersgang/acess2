@@ -570,6 +570,7 @@ int Proc_Clone(Uint *Err, Uint Flags)
 	eip = GetEIP();
 	if(eip == SWITCH_MAGIC) {
 		outb(0x20, 0x20);	// ACK Timer and return as child
+		__asm__ __volatile__ ("sti");	// Restart interrupts
 		return 0;
 	}
 	

@@ -239,6 +239,7 @@ GetCPUNum:
 ; Export a place for the user to jump to to call a syscall
 ; - Allows the kernel to change the method easily
 User_Syscall:
+	xchg bx, bx
 	int 0xAC
 
 ; A place to return to and exit

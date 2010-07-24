@@ -8,7 +8,9 @@
 // === MACROS ===
 #define	TIMER_QUANTUM	100
 // 2^(15-rate), 15: 1HZ, 5: 1024Hz, 2: 8192Hz
-#define TIMER_RATE	12	// (Max: 15, Min: 2) - 15 = 1Hz, 13 = 4Hz, 12 = 8Hz, 11 = 16Hz 10 = 32Hz, 2
+// (Max: 15, Min: 2) - 15 = 1Hz, 13 = 4Hz, 12 = 8Hz, 11 = 16Hz 10 = 32Hz, 2 = 8192Hz
+#define TIMER_RATE	12
+//#define TIMER_RATE	15
 #define TIMER_FREQ	(0x8000>>TIMER_RATE)	//Hz
 #define MS_PER_TICK_WHOLE	(1000/(TIMER_FREQ))
 #define MS_PER_TICK_FRACT	((0x80000000*(1000%TIMER_FREQ))/TIMER_FREQ)
@@ -51,8 +53,8 @@ int Time_Setup(void)
 	outb(0x70, 0x0B);	// Set the index again (a read will reset the index to register D)
 	outb(0x71, val | 0x40);	// Write the previous value or'd with 0x40. This turns on bit 6 of register D
 	
-	__asm__ __volatile__ ("sti");	// Disable normal interrupts
-	outb(0x70, inb(0x70)|0x80);	// Disable NMIs
+	__asm__ __volatile__ ("sti");	// Re-enable normal interrupts
+	outb(0x70, inb(0x70)|0x80);	// Re-enable NMIs
 	
 	// Install IRQ Handler
 	IRQ_AddHandler(8, Time_Interrupt);
@@ -70,6 +72,8 @@ int Time_Setup(void)
  */
 void Time_Interrupt(int irq)
 {
+	//Log("RTC Tick");
+	
 	giTicks ++;
 	giTimestamp += MS_PER_TICK_WHOLE;
 	giPartMiliseconds += MS_PER_TICK_FRACT;

@@ -2,7 +2,7 @@
  * Acess2 IDE Harddisk Driver
  * - main.c
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <acess.h>
 #include <modules.h>
 #include <vfs.h>
@@ -497,6 +497,7 @@ Uint64 ATA_ReadFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 
 	{
 		int ret = DrvUtil_ReadBlock(Offset, Length, Buffer, ATA_ReadRaw, SECTOR_SIZE, disk);
+		Log("ATA_ReadFS: disk=%i, Offset=%lli, Length=%lli", disk, Offset, Length);
 		Debug_HexDump("ATA_ReadFS", Buffer, Length);
 		LEAVE('i', ret);
 		return ret;
@@ -679,12 +680,7 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	ATA_int_BusMasterWriteByte( cont << 3, 9 );	// Read and start
 
 	// Wait for transfer to complete
-	val = 0;
-	while( gaATA_IRQs[cont] == 0 && !(val & 0x4) ) {
-		val = ATA_int_BusMasterReadByte( (cont << 3) + 2 );
-		//LOG("val = 0x%02x", val);
-		Threads_Yield();
-	}
+	while( gaATA_IRQs[cont] == 0 )	Threads_Yield();
 
 	// Complete Transfer
 	ATA_int_BusMasterWriteByte( cont << 3, 8 );	// Read and stop

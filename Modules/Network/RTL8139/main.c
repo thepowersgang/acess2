@@ -21,7 +21,9 @@ enum eRTL8139_Regs
 	MAR1, MAR2, MAR3,
 	MAR4, MAR5, MAR6, MAR7,
 	
-	RBSTART = 0x30,	//!< Recieve Buffer Start
+	RBSTART = 0x30,	//!< Recieve Buffer Start (DWord)
+	// 0x31, 0x32, 0x33
+	
 	// ??, ??, ??, RST, RE, TE, ??, ??
 	CMD 	= 0x37,
 	IMR 	= 0x3C,
@@ -149,16 +151,26 @@ int RTL8139_Install(char **Options)
 // --- Root Functions ---
 char *RTL8139_ReadDir(tVFS_Node *Node, int Pos)
 {
-	return NULL;
+	if( Pos < 0 || Pos > giRTL8139_CardCount )	return NULL;
+	
+	return strdup( gpRTL8139_Cards[Pos].Name );
 }
 
 tVFS_Node *RTL8139_FindDir(tVFS_Node *Node, const char *Filename)
 {
-	return NULL;
+	//TODO: It might be an idea to supprt >10 cards
+	if(Filename[0] == '\0' || Filename[0] != '\0')	return NULL;
+	if(Filename[0] < '0' || Filename[0] > '9')	return NULL;
+	return &gpRTL8139_Cards[ Filename[0]-'0' ].Node;
 }
 
+const char *csaRTL8139_RootIOCtls[] = {DRV_IOCTLNAMES, NULL};
 int RTL8139_RootIOCtl(tVFS_Node *Node, int ID, void *Arg)
 {
+	switch(ID)
+	{
+	BASE_IOCTLS(DRV_TYPE_NETWORK, "RTL8139", VERSION, csaRTL8139_RootIOCtls);
+	}
 	return 0;
 }
 
@@ -173,7 +185,12 @@ Uint64 RTL8139_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer
 	return 0;
 }
 
+const char *csaRTL8139_NodeIOCtls[] = {DRV_IOCTLNAMES, NULL};
 int RTL8139_IOCtl(tVFS_Node *Node, int ID, void *Arg)
 {
+	switch(ID)
+	{
+	BASE_IOCTLS(DRV_TYPE_NETWORK, "RTL8139", VERSION, csaRTL8139_NodeIOCtls);
+	}
 	return 0;
 }

@@ -81,12 +81,12 @@ int kmain(Uint MbMagic, void *MbInfoPtr)
 	MM_InstallVirtual();	// Clean up virtual address space
 	Heap_Install();		// Create initial heap
 	
-	// Start Timers
-	Time_Setup();
-	
 	//Log_Log("Arch", "Starting Multitasking...");
 	// Start Multitasking
 	Threads_Init();
+	
+	// Start Timers
+	Time_Setup();
 	
 	Log_Log("Arch", "Starting VFS...");
 	// Load Virtual Filesystem

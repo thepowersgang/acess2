@@ -63,9 +63,39 @@ int UDI_LoadDriver(void *Base)
 		Log_Warning("UDI", "_udiprops is not defined, this is usually bad");
 	}
 	else {
-		if( Binary_FindSymbol(Base, "_udiprops_size", (Uint*)&udiprops_size) == 0)
-			Log_Warning("UDI", "_udiprops_size is not defined");
-		Log_Log("UDI", "udiprops = %p, udiprops_size = 0x%x", udiprops, udiprops_size);
+		Uint	udiprops_end = 0;
+		 int	i, j, nLines;
+		char	**udipropsptrs;
+		
+		if( Binary_FindSymbol(Base, "_udiprops_end", (Uint*)&udiprops_end) == 0)
+			Log_Warning("UDI", "_udiprops_end is not defined");
+		Log_Debug("UDI", "udiprops_end = %p", udiprops_end);
+		udiprops_size = udiprops_end - (Uint)udiprops;
+		Log_Debug("UDI", "udiprops = %p, udiprops_size = 0x%x", udiprops, udiprops_size);
+		
+		Debug_HexDump("UDI_LoadDriver", udiprops, udiprops_size);
+		
+		nLines = 1;
+		for( i = 0; i < udiprops_size; i++ )
+		{
+			if( udiprops[i] == '\0' )
+				nLines ++;
+		}
+		
+		Log_Debug("UDI", "nLines = %i", nLines);
+		
+		udipropsptrs = malloc( sizeof(char*)*nLines );
+		udipropsptrs[0] = udiprops;
+		j = 0;
+		for( i = 0; i < udiprops_size; i++ )
+		{
+			if( udiprops[i] == '\0' ) {
+				//Log_Debug("UDI", "udipropsptrs[%i] = '%s'", j, udipropsptrs[j]);
+				udipropsptrs[j++] = &udiprops[i+1];
+			}
+		}
+		Log_Debug("UDI", "udipropsptrs[%i] = '%s'", j, udipropsptrs[j]);
+		Log_Debug("UDI", "udiprops = \"%s\"", udiprops);
 	}
 	
 	

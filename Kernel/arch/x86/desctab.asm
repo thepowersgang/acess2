@@ -31,7 +31,8 @@ gGDTPtr:
 ALIGN 8
 [global gIDT]
 gIDT:
-	times	256	dd	0x00080000,0x00000F00
+	; CS = 0x08, Type = 32-bit Interrupt (0xE = 1 110)
+	times	256	dd	0x00080000,0x00000E00
 [global gIDTPtr]
 gIDTPtr:
 	dw	256 * 16 - 1	; Limit
@@ -52,7 +53,7 @@ Desctab_Install:
 	jmp 0x08:.pl0code
 .pl0code:
 
-	; Set IDT
+	; Set up IDT
 %macro SETISR	1
 	mov eax, Isr%1
 	mov	WORD [gIDT + %1*8], ax
@@ -63,11 +64,13 @@ Desctab_Install:
 	or ax, 0x8000
 	mov	WORD [gIDT + %1*8 + 4], ax
 %endmacro
-%macro SETUSER	1
-	mov	ax, WORD [gIDT + %1*8 + 4]
-	or ax, 0x6000
-	mov	WORD [gIDT + %1*8 + 4], ax
+%macro SET_USER	1
+	or WORD [gIDT + %1*8 + 4], 0x6000
 %endmacro
+%macro SET_TRAP	1
+	or WORD [gIDT + %1*8 + 4], 0x0100
+%endmacro
+
 	%assign	i	0
 	%rep 32
 	SETISR	i
@@ -75,13 +78,15 @@ Desctab_Install:
 	%endrep
 	
 	SETISR	0xAC
-	SETUSER	0xAC
+	SET_USER	0xAC
+	SET_TRAP	0xAC	; Interruptable
 	
 	%if USE_MP
 	SETISR	0xEE	; 0xEE Timer
 	SETISR	0xEF	; 0xEF Spurious Interrupt
 	%endif
-	
+
+	; IRQs
 	%assign	i	0xF0
 	%rep 16
 	SETISR	i

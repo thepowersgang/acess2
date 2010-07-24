@@ -16,7 +16,10 @@
 // === CONSTANTS ===
 #define	FLAG_LFB	0x1
 #define VESA_DEFAULT_FRAMEBUFFER	(KERNEL_BASE|0xA0000)
-#define VESA_CURSOR_PERIOD	1000
+#define BLINKING_CURSOR	0
+#if BLINKING_CURSOR
+# define VESA_CURSOR_PERIOD	1000
+#endif
 
 // === PROTOTYPES ===
  int	Vesa_Install(char **Arguments);
@@ -358,6 +361,10 @@ int Vesa_Ioctl(tVFS_Node *Node, int ID, void *Data)
 		return ret;
 	
 	case VIDEO_IOCTL_SETCURSOR:	// Set cursor position
+		#if !BLINKING_CURSOR
+		if(giVesaCursorX > 0 && giVesaCursorY)
+			Vesa_FlipCursor(Node);
+		#endif
 		giVesaCursorX = ((tVideo_IOCtl_Pos*)Data)->x;
 		giVesaCursorY = ((tVideo_IOCtl_Pos*)Data)->y;
 		//Log_Debug("VESA", "Cursor position (%i,%i)", giVesaCursorX, giVesaCursorY);
@@ -366,17 +373,23 @@ int Vesa_Ioctl(tVFS_Node *Node, int ID, void *Data)
 		||	giVesaCursorX >= gpVesaCurMode->width/giVT_CharWidth
 		||	giVesaCursorY >= gpVesaCurMode->height/giVT_CharHeight)
 		{
+			#if BLINKING_CURSOR
 			if(giVesaCursorTimer != -1) {
 				Time_RemoveTimer(giVesaCursorTimer);
 				giVesaCursorTimer = -1;
 			}
+			#endif
 			giVesaCursorX = -1;
 			giVesaCursorY = -1;
 		}
 		else {
+			#if BLINKING_CURSOR
 		//	Log_Debug("VESA", "Updating timer %i?", giVesaCursorTimer);
 			if(giVesaCursorTimer == -1)
 				giVesaCursorTimer = Time_CreateTimer(VESA_CURSOR_PERIOD, Vesa_FlipCursor, Node);
+			#else
+			Vesa_FlipCursor(Node);
+			#endif
 		}
 		//Log_Debug("VESA", "Cursor position (%i,%i) Timer %i", giVesaCursorX, giVesaCursorY, giVesaCursorTimer);
 		return 0;
@@ -511,7 +524,9 @@ void Vesa_FlipCursor(void *Arg)
 	for( i = 1; i < giVT_CharHeight-1; i++, fb += pitch )
 		*fb = ~*fb;
 	
+	#if BLINKING_CURSOR
 	giVesaCursorTimer = Time_CreateTimer(VESA_CURSOR_PERIOD, Vesa_FlipCursor, Arg);
+	#endif
 }
 
 // ------------------------
