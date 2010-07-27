@@ -15,6 +15,7 @@
 
 // === IMPORTS ===
 void	Threads_Dump(void);
+void	Heap_Stats(void);
 
 // === PROTOTYPES ===
  int	KB_Install(char **Arguments);
@@ -183,9 +184,14 @@ void KB_IRQHandler(int IRQNum)
 	{
 		switch(ch)
 		{
-		case 'q':	*((int*)1) = 0;	break;
-		case 'd':	__asm__ __volatile__ ("xchg %bx, %bx");	break;
-		case 'p':	Threads_Dump();	break;
+		// Kernel Panic (Page Fault)
+		case 'q':	*((int*)1) = 0;	return;
+		// Bochs Magic Breakpoint
+		case 'd':	__asm__ __volatile__ ("xchg %bx, %bx");	return;
+		// Thread List Dump
+		case 'p':	Threads_Dump();	return;
+		// Heap Statistics
+		case 'h':	Heap_Stats();	return;
 		}
 	}
 	#endif

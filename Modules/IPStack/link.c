@@ -125,7 +125,7 @@ void Link_WatchDevice(tAdapter *Adapter)
 		ret = VFS_Read(Adapter->DeviceFD, MAX_PACKET_SIZE, buf);
 		if(ret == -1)	break;
 		
-		if(ret <= sizeof(tEthernetHeader)) {
+		if(ret <= (int)sizeof(tEthernetHeader)) {
 			Log_Log("NET", "Recieved an undersized packet");
 			continue;
 		}

@@ -232,7 +232,7 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 			pad = ' ';
 		
 		// - Minimum length
-		if(c == '*') {
+		if(c == '*') {	// Dynamic length
 			minSize = val;
 			val = va_arg(args, Uint);
 			c = *__format++;
@@ -300,7 +300,7 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		
 		// String - Null Terminated Array
 		case 's':
-			p = (char*)(Uint)val;
+			p = (char*)(tVAddr)val;
 		printString:
 			if(!p)		p = "(null)";
 			len = strlen(p);
@@ -310,7 +310,7 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 			break;
 		
 		case 'C':	// Non-Null Terminated Character Array
-			p = (char*)(Uint)val;
+			p = (char*)(tVAddr)val;
 			if(!p)	goto printString;
 			while(minSize--)	PUTCH(*p++);
 			break;

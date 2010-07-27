@@ -19,8 +19,8 @@ enum eMMPhys_Ranges
 };
 
 // === IMPORTS ===
-extern void	gKernelBase;
-extern void	gKernelEnd;
+extern char	gKernelBase[];
+extern char	gKernelEnd[];
 
 // === PROTOTYPES ===
 void	MM_InitPhys_Multiboot(tMBoot_Info *MBoot);

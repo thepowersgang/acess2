@@ -340,7 +340,7 @@ int FAT_int_GetAddress(tVFS_Node *Node, Uint64 Offset, Uint64 *Addr, Uint32 *Clu
 			if(Cluster)	*Cluster = cluster;
 			cluster = FAT_int_GetFatValue(disk, cluster);
 			// Check for end of cluster chain
-			if(cluster == -1) {	LEAVE('i', 1);	return 1;}
+			if(cluster == 0xFFFFFFFF) {	LEAVE('i', 1);	return 1;}
 		}
 		if(Cluster)	*Cluster = cluster;
 	}
@@ -632,14 +632,14 @@ Uint64 FAT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	cluster = Node->Inode & 0xFFFFFFFF;
 	
 	// Clamp Size
-	if(Offset + Length > Node->Size) {
+	if(Offset >= Node->Size || Offset + Length > Node->Size) {
 		LOG("Reading past EOF (%lli + %lli > %lli), clamped to %lli",
 			Offset, Length, Node->Size, Node->Size - Offset);
 		Length = Node->Size - Offset;
 	}
 	
 	// Reading from within the first cluster only?
-	if(Offset + Length < bpc)
+	if((int)Offset + (int)Length < bpc)
 	{
 		LOG("First cluster only");
 		FAT_int_ReadCluster(disk, cluster, bpc, tmpBuf);
@@ -671,7 +671,7 @@ Uint64 FAT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	pos = bpc - Offset%bpc;
 	
 	// Read 1st Cluster (performs alignment for us)
-	if( pos == bpc && Length >= bpc ) {
+	if( pos == bpc && (int)Length >= bpc ) {
 		FAT_int_ReadCluster(disk, cluster, bpc, Buffer);
 	}
 	else {
@@ -679,7 +679,7 @@ Uint64 FAT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		memcpy(
 			Buffer,
 			(void*)( tmpBuf + (bpc-pos) ),
-			(pos < Length ? pos : Length)
+			(pos < (int)Length ? (Uint)pos : Length)
 			);
 	}
 	
@@ -724,7 +724,7 @@ Uint64 FAT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	}
 	
 	// Read final cluster
-	if( Length - pos == bpc )
+	if( (int)Length - pos == bpc )
 	{
 		FAT_int_ReadCluster( disk, cluster, bpc, (void*)(Buffer+pos) );
 	}
@@ -936,11 +936,13 @@ char *FAT_int_CreateName(fat_filetable *ft, char *LongFileName)
  */
 tVFS_Node *FAT_int_CreateNode(tVFS_Node *Parent, fat_filetable *Entry, int Pos)
 {
-	tVFS_Node	node = {0};
+	tVFS_Node	node;
 	tVFS_Node	*ret;
 	tFAT_VolInfo	*disk = Parent->ImplPtr;
 	
 	ENTER("pParent pFT", Parent, Entry);
+	
+	memset(&node, 0, sizeof(tVFS_Node));
 	
 	// Set Other Data
 	// 0-31: Cluster, 32-63: Parent Cluster

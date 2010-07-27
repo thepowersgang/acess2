@@ -29,7 +29,7 @@ static const struct {
 	{0x10EC, 0x8029},	// Realtek 8029
 	{0x10EC, 0x8129}	// Realtek 8129
 };
-#define NUM_COMPAT_DEVICES	(sizeof(csaCOMPAT_DEVICES)/sizeof(csaCOMPAT_DEVICES[0]))
+#define NUM_COMPAT_DEVICES	((int)(sizeof(csaCOMPAT_DEVICES)/sizeof(csaCOMPAT_DEVICES[0])))
 
 enum eNe2k_Page0Read {
 	CMD = 0,	//!< the master command register

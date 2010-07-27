@@ -209,7 +209,7 @@ void ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffe
 	tInterface	*iface;
 	
 	// Sanity Check Packet
-	if( Length < sizeof(tArpRequest4) ) {
+	if( Length < (int)sizeof(tArpRequest4) ) {
 		Log_Log("ARP", "Recieved undersized packet");
 		return ;
 	}
@@ -276,7 +276,7 @@ void ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffe
 			}
 			break;
 		case 6:
-			if( Length < sizeof(tArpRequest6) ) {
+			if( Length < (int)sizeof(tArpRequest6) ) {
 				Log_Log("ARP", "Recieved undersized packet (IPv6)");
 				return ;
 			}
@@ -314,7 +314,7 @@ void ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffe
 			ARP_UpdateCache4( req4->SourceIP, From );
 			break;
 		case 6:
-			if( Length < sizeof(tArpRequest6) ) {
+			if( Length < (int)sizeof(tArpRequest6) ) {
 				Log_Debug("ARP", "Recieved undersized packet (IPv6)");
 				return ;
 			}

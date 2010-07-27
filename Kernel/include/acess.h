@@ -6,7 +6,8 @@
 #define _COMMON_H
 
 #define NULL	((void*)0)
-#define PACKED	__attribute__ ((packed))
+#define PACKED	__attribute__((packed))
+#define UNUSED(x)	UNUSED_##x __attribute__((unused))
 #define offsetof(st, m) ((Uint)((char *)&((st *)(0))->m - (char *)0 ))
 
 //#include <stdint.h>

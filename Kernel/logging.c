@@ -7,6 +7,8 @@
 #include <acess.h>
 
 #define PRINT_ON_APPEND	1
+#define USE_RING_BUFFER	1
+#define RING_BUFFER_SIZE	4096
 
 // === CONSTANTS ===
 enum eLogLevels
@@ -66,8 +68,13 @@ EXPORT(Log_Debug);
 // === GLOBALS ===
 tSpinlock	glLog;
 tSpinlock	glLogOutput;
+#if USE_RING_BUFFER
+Uint8	gaLog_RingBufferData[sizeof(tRingBuffer)+RING_BUFFER_SIZE];
+tRingBuffer	*gpLog_RingBuffer = (void*)gaLog_RingBufferData;
+#else
 tLogList	gLog;
 tLogList	gLog_Levels[NUM_LOG_LEVELS];
+#endif
 
 // === CODE ===
 /**
@@ -86,16 +93,31 @@ void Log_AddEvent(char *Ident, int Level, char *Format, va_list Args)
 	
 	//Log("len = %i", len);
 	
+	#if USE_RING_BUFFER
+	{
+	char	buf[sizeof(tLogEntry)+len+1];
+	ent = (void*)buf;
+	#else
 	ent = malloc(sizeof(tLogEntry)+len+1);
+	#endif
 	ent->Time = now();
 	strncpy(ent->Ident, Ident, 8);
 	ent->Level = Level;
 	ent->Length = len;
-	vsnprintf( ent->Data, 256, Format, Args );
+	vsnprintf( ent->Data, len+1, Format, Args );
 	
-	//Log("ent->Ident = '%s'", ent->Ident);
-	//Log("ent->Data = '%s'", ent->Data);
-	
+	#if USE_RING_BUFFER
+	{
+		#define LOG_HDR_LEN	(14+1+2+8+2)
+		char	newData[ LOG_HDR_LEN + len + 2 + 1 ];
+		sprintf( newData, "%014lli%s [%+8s] ",
+			ent->Time, csaLevelCodes[Level], Ident);
+		strcpy( newData + LOG_HDR_LEN, ent->Data );
+		strcpy( newData + LOG_HDR_LEN + len, "\r\n" );
+		gpLog_RingBuffer->Space = RING_BUFFER_SIZE;	// Needed to init the buffer
+		RingBuffer_Write( gpLog_RingBuffer, newData, LOG_HDR_LEN + len + 2 );
+	}
+	#else
 	LOCK( &glLog );
 	
 	ent->Next = gLog.Tail;
@@ -111,11 +133,15 @@ void Log_AddEvent(char *Ident, int Level, char *Format, va_list Args)
 		gLog_Levels[Level].Tail = gLog_Levels[Level].Head = ent;
 	
 	RELEASE( &glLog );
+	#endif
 	
 	#if PRINT_ON_APPEND
 	Log_Int_PrintMessage( ent );
 	#endif
 	
+	#if USE_RING_BUFFER
+	}
+	#endif
 }
 
 /**

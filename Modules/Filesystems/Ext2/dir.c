@@ -34,7 +34,8 @@ char *Ext2_ReadDir(tVFS_Node *Node, int Pos)
 	tExt2_Inode	inode;
 	tExt2_DirEnt	dirent;
 	Uint64	Base;	// Block's Base Address
-	 int	block = 0, ofs = 0;
+	 int	block = 0;
+	Uint	ofs = 0;
 	 int	entNum = 0;
 	tExt2_Disk	*disk = Node->ImplPtr;
 	Uint	size;
@@ -108,7 +109,8 @@ tVFS_Node *Ext2_FindDir(tVFS_Node *Node, char *Filename)
 	tExt2_Inode	inode;
 	tExt2_DirEnt	dirent;
 	Uint64	Base;	// Block's Base Address
-	 int	block = 0, ofs = 0;
+	 int	block = 0;
+	Uint	ofs = 0;
 	 int	entNum = 0;
 	Uint	size;
 	 int	filenameLen = strlen(Filename);

@@ -26,6 +26,7 @@ void	*Heap_Merge(tHeapHead *Head);
 void	*malloc(size_t Bytes);
 void	free(void *Ptr);
 void	Heap_Dump(void);
+void	Heap_Stats(void);
 
 // === GLOBALS ===
 tSpinlock	glHeap;
@@ -469,6 +470,94 @@ void Heap_Dump(void)
 		// All OK? Go to next
 		head = foot->NextHead;
 	}
+}
+#endif
+
+#if 1
+void Heap_Stats(void)
+{
+	tHeapHead	*head;
+	 int	nBlocks = 0;
+	 int	nFree = 0;
+	 int	totalBytes = 0;
+	 int	freeBytes = 0;
+	 int	maxAlloc=0, minAlloc=-1;
+	 int	avgAlloc, frag, overhead;
+	
+	for(head = gHeapStart;
+		(Uint)head < (Uint)gHeapEnd;
+		head = (void*)( (Uint)head + head->Size )
+		)
+	{
+		nBlocks ++;
+		totalBytes += head->Size;
+		if( head->Magic == MAGIC_FREE )
+		{
+			nFree ++;
+			freeBytes += head->Size;
+		}
+		else {
+			if(maxAlloc < head->Size)	maxAlloc = head->Size;
+			if(minAlloc == -1 || minAlloc > head->Size)
+				minAlloc = head->Size;
+		}
+	}
+
+	Log_Log("Heap", "%i blocks (0x%x bytes)", nBlocks, totalBytes);
+	Log_Log("Heap", "%i free blocks (0x%x bytes)", nFree, freeBytes);
+	frag = (nFree-1)*10000/nBlocks;
+	Log_Log("Heap", "%i.%02i%% Heap Fragmentation", frag/100, frag%100);
+	avgAlloc = (totalBytes-freeBytes)/(nBlocks-nFree);
+	overhead = (sizeof(tHeapFoot)+sizeof(tHeapHead))*10000/avgAlloc;
+	Log_Log("Heap", "Average allocation: %i bytes, Average Overhead: %i.%02i%%",
+		avgAlloc, overhead/100, overhead%100
+		);
+	Log_Log("Heap", "Smallest Block: %i bytes, Largest: %i bytes", 
+		minAlloc, maxAlloc);
+	
+	// Scan and get distribution
+	#if 1
+	{
+		struct {
+			Uint	Size;
+			Uint	Count;
+		}	sizeCounts[nBlocks];
+		 int	i;
+		
+		memset(sizeCounts, 0, nBlocks*sizeof(sizeCounts[0]));
+		
+		for(head = gHeapStart;
+			(Uint)head < (Uint)gHeapEnd;
+			head = (void*)( (Uint)head + head->Size )
+			)
+		{
+			for( i = 0; i < nBlocks; i ++ ) {
+				if( sizeCounts[i].Size == 0 )
+					break;
+				if( sizeCounts[i].Size == head->Size )
+					break;
+			}
+			// Should never reach this part (in a non-concurrent case)
+			if( i == nBlocks )	continue;
+			sizeCounts[i].Size = head->Size;
+			sizeCounts[i].Count ++;
+			#if 1
+			//Log("Heap_Stats: %i %p - 0x%x bytes (%s) (%i)", nBlocks, head,
+			//	head->Size, (head->Magic==MAGIC_FREE?"FREE":"used"), i
+			//	);
+			//Log("Heap_Stats: sizeCounts[%i] = {Size:0x%x, Count: %i}", i,
+			//	sizeCounts[i].Size, sizeCounts[i].Count);
+			#endif
+		}
+		
+		for( i = 0; i < nBlocks && sizeCounts[i].Count; i ++ )
+		{
+			Log("Heap_Stats: 0x%x - %i blocks",
+				sizeCounts[i].Size, sizeCounts[i].Count
+				);
+		}
+	}
+	#endif
 }
 #endif
 

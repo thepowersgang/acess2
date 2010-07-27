@@ -3,6 +3,7 @@
  * - main.c
  */
 #define DEBUG	1
+#define VERSION	0x0032
 #include <acess.h>
 #include <modules.h>
 #include <vfs.h>
@@ -75,7 +76,7 @@ void	ATA_int_BusMasterWriteByte(int Ofs, Uint8 Value);
 void	ATA_int_BusMasterWriteDWord(int Ofs, Uint32 Value);
 
 // === GLOBALS ===
-MODULE_DEFINE(0, 0x0032, i386ATA, ATA_Install, NULL, "PCI", NULL);
+MODULE_DEFINE(0, VERSION, i386ATA, ATA_Install, NULL, "PCI", NULL);
 tDevFS_Driver	gATA_DriverInfo = {
 	NULL, "ata",
 	{
@@ -90,7 +91,7 @@ tDevFS_Driver	gATA_DriverInfo = {
 tATA_Disk	gATA_Disks[MAX_ATA_DISKS];
  int	giATA_NumNodes;
 tVFS_Node	**gATA_Nodes;
-Uint16	gATA_BusMasterBase = 0;
+Uint32	gATA_BusMasterBase = 0;
 Uint8	*gATA_BusMasterBasePtr = 0;
  int	gATA_IRQPri = 14;
  int	gATA_IRQSec = 15;
@@ -400,7 +401,7 @@ void ATA_int_MakePartition(tATA_Partition *Part, int Disk, int Num, Uint64 Start
 void ATA_ParseGPT(int Disk)
 {
 	///\todo Support GPT Disks
-	Warning("GPT Disks are currently unsupported");
+	Warning("GPT Disks are currently unsupported (Disk %i)", Disk);
 }
 
 /**
@@ -420,7 +421,7 @@ Uint16 ATA_GetBasePort(int Disk)
 /**
  * \fn char *ATA_ReadDir(tVFS_Node *Node, int Pos)
  */
-char *ATA_ReadDir(tVFS_Node *Node, int Pos)
+char *ATA_ReadDir(tVFS_Node *UNUSED(Node), int Pos)
 {
 	if(Pos >= giATA_NumNodes || Pos < 0)	return NULL;
 	return strdup( gATA_Nodes[Pos]->ImplPtr );
@@ -429,7 +430,7 @@ char *ATA_ReadDir(tVFS_Node *Node, int Pos)
 /**
  * \fn tVFS_Node *ATA_FindDir(tVFS_Node *Node, char *Name)
  */
-tVFS_Node *ATA_FindDir(tVFS_Node *Node, char *Name)
+tVFS_Node *ATA_FindDir(tVFS_Node *UNUSED(Node), char *Name)
 {
 	 int	part;
 	tATA_Disk	*disk;
@@ -535,15 +536,22 @@ Uint64 ATA_WriteFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	return DrvUtil_WriteBlock(Offset, Length, Buffer, ATA_ReadRaw, ATA_WriteRaw, SECTOR_SIZE, disk);
 }
 
+const char	*csaATA_IOCtls[] = {DRV_IOCTLNAMES, DRV_DISK_IOCTLNAMES, NULL};
 /**
  * \fn int ATA_IOCtl(tVFS_Node *Node, int Id, void *Data)
  * \brief IO Control Funtion
  */
-int ATA_IOCtl(tVFS_Node *Node, int Id, void *Data)
+int ATA_IOCtl(tVFS_Node *UNUSED(Node), int Id, void *Data)
 {
 	switch(Id)
 	{
-	case DRV_IOCTL_TYPE:	return DRV_TYPE_DISK;
+	BASE_IOCTLS(DRV_TYPE_DISK, "i386ATA", VERSION, csaATA_IOCtls);
+	
+	case DISK_IOCTL_GETBLOCKSIZE:
+		return 512;	
+	
+	default:
+		return 0;
 	}
 	return 0;
 }
@@ -652,7 +660,6 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	gaATA_IRQs[cont] = 0;
 
 	// Set up transfer
-	outb(base+0x01, 0x00);
 	if( Address > 0x0FFFFFFF )	// Use LBA48
 	{
 		outb(base+0x6, 0x40 | (disk << 4));
@@ -666,16 +673,19 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 		outb(base+0x06, 0xE0 | (disk << 4) | ((Address >> 24) & 0x0F));	// Magic, Disk, High addr
 	}
 
+	outb(base+0x01, 0x01);	//?
 	outb(base+0x02, (Uint8) Count);		// Sector Count
 	outb(base+0x03, (Uint8) Address);		// Low Addr
 	outb(base+0x04, (Uint8) (Address >> 8));	// Middle Addr
 	outb(base+0x05, (Uint8) (Address >> 16));	// High Addr
 
 	LOG("Starting Transfer");
+	LOG("gATA_PRDTs[%i].Bytes = %i", cont, gATA_PRDTs[cont].Bytes);
 	if( Address > 0x0FFFFFFF )
 		outb(base+0x07, HDD_DMA_R48);	// Read Command (LBA48)
 	else
 		outb(base+0x07, HDD_DMA_R28);	// Read Command (LBA28)
+
 	// Start transfer
 	ATA_int_BusMasterWriteByte( cont << 3, 9 );	// Read and start
 
@@ -688,6 +698,7 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	val = inb(base+0x7);
 	LOG("Status byte = 0x%02x", val);
 
+	LOG("gATA_PRDTs[%i].Bytes = %i", cont, gATA_PRDTs[cont].Bytes);
 	LOG("Transfer Completed & Acknowledged");
 
 	// Copy to destination buffer
@@ -769,7 +780,7 @@ int ATA_WriteDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 /**
  * \fn void ATA_IRQHandlerPri(int unused)
  */
-void ATA_IRQHandlerPri(int unused)
+void ATA_IRQHandlerPri(int UNUSED(IRQ))
 {
 	Uint8	val;
 
@@ -787,7 +798,7 @@ void ATA_IRQHandlerPri(int unused)
 /**
  * \fn void ATA_IRQHandlerSec(int unused)
  */
-void ATA_IRQHandlerSec(int unused)
+void ATA_IRQHandlerSec(int UNUSED(IRQ))
 {
 	Uint8	val;
 	// IRQ bit set for Secondary Controller

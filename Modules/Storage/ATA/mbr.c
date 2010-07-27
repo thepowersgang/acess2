@@ -54,7 +54,7 @@ void ATA_ParseMBR(int Disk, tMBR *MBR)
 	while(extendedLBA != 0)
 	{
 		extendedLBA = ATA_MBR_int_ReadExt(Disk, extendedLBA, &base, &len);
-		if( extendedLBA == -1 )	return ;
+		if( extendedLBA == 0xFFFFFFFF )	return ;
 		gATA_Disks[Disk].NumPartitions ++;
 	}
 	LOG("gATA_Disks[Disk].NumPartitions = %i", gATA_Disks[Disk].NumPartitions);

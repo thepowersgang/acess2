@@ -175,7 +175,7 @@ tVFS_Node *IPStack_Root_FindDir(tVFS_Node *Node, char *Name)
 	
 	for( iface = gIP_Interfaces; iface; iface = iface->Next )
 	{
-		if( iface->Node.ImplInt == num )
+		if( (int)iface->Node.ImplInt == num )
 		{
 			LEAVE('p', &iface->Node);
 			return &iface->Node;

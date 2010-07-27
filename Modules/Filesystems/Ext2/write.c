@@ -166,7 +166,7 @@ Uint32 Ext2_int_AllocateBlock(tExt2_Disk *Disk, Uint32 PrevBlock)
 			}
 			
 			// Fast Check
-			if( bitmap[j/32] == -1 ) {
+			if( bitmap[j/32] == 0xFFFFFFFF ) {
 				j = (j + 31) & ~31;
 				continue;
 			}

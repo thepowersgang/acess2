@@ -16,7 +16,10 @@ extern void Threads_Dump(void);
 extern void	Threads_Fault(int Num);
 
 // === PROTOTYPES ===
+void	__stack_chk_fail(void);
+void	ErrorHandler(tRegs *Regs);
 void	Error_Backtrace(Uint eip, Uint ebp);
+void	StartupPrint(char *Str);
 
 // === GLOBALS ===
 const char *csaERROR_NAMES[] = {
@@ -31,6 +34,9 @@ const char *csaERROR_NAMES[] = {
 	};
 
 // === CODE ===
+/**
+ * \brief Keeps GCC happy
+ */
 void __stack_chk_fail(void)
 {
 	Panic("FATAL ERROR: Stack Check Failed\n");
@@ -40,6 +46,7 @@ void __stack_chk_fail(void)
 /**
  * \fn void ErrorHandler(tRegs *Regs)
  * \brief General Error Handler
+ * \param Regs	Register state at error
  */
 void ErrorHandler(tRegs *Regs)
 {
@@ -133,6 +140,8 @@ void ErrorHandler(tRegs *Regs)
 /**
  * \fn void Error_Backtrace(Uint eip, Uint ebp)
  * \brief Unrolls the stack to trace execution
+ * \param eip	Current Instruction Pointer
+ * \param ebp	Current Base Pointer (Stack Frame)
  */
 void Error_Backtrace(Uint eip, Uint ebp)
 {
@@ -185,6 +194,8 @@ void Error_Backtrace(Uint eip, Uint ebp)
 
 /**
  * \fn void StartupPrint(char *Str)
+ * \brief Str	String to print
+ * \note WHY IS THIS HERE?!?!
  */
 void StartupPrint(char *Str)
 {
@@ -197,7 +208,9 @@ void StartupPrint(char *Str)
 		Str ++;
 	}
 	
-	while(i < 80)	buf[line*80 + i++] = 0x0720;
+	// Clear the rest of the line
+	while(i < 80)
+		buf[line*80 + i++] = 0x0720;
 	
 	line ++;
 	if(line == 25)

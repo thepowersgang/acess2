@@ -323,7 +323,7 @@ void Ext2_int_UpdateSuperblock(tExt2_Disk *Disk)
 	#define INT_MAX	(((long long int)1<<(sizeof(int)*8))-1)
 	
 	// Powers of 3
-	for( i = 3; i < ngrp && i < INT_MAX; i *= 3 )
+	for( i = 3; i < ngrp && i < INT_MAX/3; i *= 3 )
 		VFS_WriteAt(Disk->FD, i*bpg*Disk->BlockSize, 1024, &Disk->SuperBlock);
 	
 	// Powers of 5

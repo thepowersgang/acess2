@@ -22,10 +22,10 @@
 
 // === IMPORTS ===
 extern tGDT	gGDT[];
-extern void APStartup(void);	// 16-bit AP startup code
+extern void	APStartup(void);	// 16-bit AP startup code
 extern Uint	GetRIP(void);	// start.asm
 extern Uint64	gInitialPML4[512];	// start.asm
-extern void	gInitialKernelStack;
+extern char	gInitialKernelStack[];
 extern tSpinlock	glThreadListLock;
 extern int	giNumCPUs;
 extern int	giNextTID;

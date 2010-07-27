@@ -253,12 +253,17 @@ Uint64 Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 			);
 		
 		// Sanity Check
+		if( Offset > (Uint64)(heightInChars*widthInChars) ) {
+			LEAVE('i', 0);
+			return 0;
+		}
 		if(y >= heightInChars) {
 			LEAVE('i', 0);
 			return 0;
 		}
 		
-		if( Offset + Length > heightInChars*widthInChars ) {
+		
+		if( (int)Offset + (int)Length > heightInChars*widthInChars ) {
 			Log_Debug("VESA", "%i + %i > %i*%i (%i)",
 				(int)Offset, (int)Length, heightInChars, widthInChars, heightInChars*widthInChars);
 			Length = heightInChars*widthInChars - Offset;
@@ -270,7 +275,7 @@ Uint64 Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		
 		LOG("dest = %p", dest);
 		
-		for( i = 0; i < Length; i++ )
+		for( i = 0; i < (int)Length; i++ )
 		{
 			VT_Font_Render(
 				chars->Ch,
@@ -513,7 +518,7 @@ void Vesa_FlipCursor(void *Arg)
 	
 	// Sanity 1
 	if(giVesaCursorX < 0 || giVesaCursorY < 0
-	|| y*pitch + x + giVT_CharHeight*pitch > gpVesaCurMode->fbSize/4) {
+	|| y*pitch + x + giVT_CharHeight*pitch > (int)gpVesaCurMode->fbSize/4) {
 		Debug("Cursor OOB (%i,%i)", x, y);
 		giVesaCursorTimer = -1;
 		return;

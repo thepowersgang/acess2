@@ -19,24 +19,26 @@
  *    START ADDRESS          END ADDRESS       BITS   SIZE      NAME
  * 0x00000000 00000000 - 0x00007FFF FFFFFFFF	47	128 TiB	User Space
  * 0x00008000 00000000 - 0xFFFF7FFF FFFFFFFF	--- SIGN EXTENSION NULL ZONE
- * 0xFFFF8000 00000000 - 0xFFFFFFFF FFFFFFFF	47	128 TiB	Kernel Range
- *       8000 00000000 -       9000 00000000	44	16  TiB	Kernel Heap
- *       9000 00000000 -       9800 00000000	43	8   TiB	Module Space
- *       9800 00000000 -       9A00 00000000	41	2   TiB	Kernel VFS
- *       A000 00000000 -       B000 00000000	44	16  TiB	Kernel Stacks
- *       C000 00000000 -       D000 00000000	44	16  TiB	Hardware Mappings
+ * 0xFFFF8000 00000000 - 0xFFFFFFFF FFFFFFFF	47	128	TiB	Kernel Range
+ *       8000 00000000 -       9000 00000000	44	16	TiB	Kernel Heap
+ *       9000 00000000 -       9800 00000000	43	8	TiB	Module Space
+ *       9800 00000000 -       9A00 00000000	41	2	TiB	Kernel VFS
+ *       ---- GAP ----
+ *       A000 00000000 -       B000 00000000	44	16	TiB	Kernel Stacks
+ *       C000 00000000 -       D000 00000000	44	16	TiB	Hardware Mappings
  *       D000 00000000 -       D080 00000000	39	512	GiB	Per-Process Data
  *       D080 00000000 -       D100 00000000	39	512	GiB	Kernel Supplied User Code
+ *       ---- GAP ----
  *       E000 00000000 -       E400 00000000	42	4	TiB	Physical Page Reference Counts (2**40 = 2**52 bytes)
  *       E400 00000000 -       E480 00000000	39	512	GiB	Physical Page Bitmap (1 page per bit)
  *       E480 00000000 -       E500 00000000	39	512	GiB	Physical Page DblAlloc Bitmap (1 page per bit)
  *       E500 00000000 -       E500 80000000	31	2	GiB	Physical Page Super Bitmap (64 pages per bit)
- *       FD00 00000000 -       FD80 00000000	39	512 GiB	Local APIC
- *       FE00 00000000 -       FE80 00000000	39	512 GiB	Fractal Mapping (PML4 508)
- *       FE80 00000000 -       FF00 00000000	39	512 GiB	Temp Fractal Mapping
- *       FF00 00000000 -       FF80 00000000	39	512 GiB	-- UNUSED --
- *       FF80 00000000 -       FFFF 80000000	~39		GiB	-- UNUSED --
- *       FFFF 80000000 -       FFFF 7FFFFFFF	31	2   GiB	Identity Map
+ *       ---- GAP ----
+ *       FE00 00000000 -       FE80 00000000	39	512	GiB	Fractal Mapping (PML4 508)
+ *       FE80 00000000 -       FF00 00000000	39	512	GiB	Temp Fractal Mapping
+ *       FF00 00000000 -       FF80 00000000	39	512	GiB	-- UNUSED --
+ *       FD00 00000000 -       FD00 80000000	39	2	GiB	Local APIC
+ *       FFFF 80000000 -       FFFF 7FFFFFFF	31	2	GiB	Identity Map
  */
 
 #define	MM_USER_MIN 	0x00000000##00010000
@@ -65,9 +67,9 @@
 #define MM_PAGE_DBLBMP	(MM_KERNEL_RANGE|(0xE480##00000000))
 #define MM_PAGE_SUPBMP	(MM_KERNEL_RANGE|(0xE500##00000000))
 
-#define MM_LOCALAPIC	(MM_KERNEL_RANGE|(0xFD00##00000000))
 #define MM_FRACTAL_BASE	(MM_KERNEL_RANGE|(0xFE00##00000000))
 #define MM_TMPFRAC_BASE	(MM_KERNEL_RANGE|(0xFE80##00000000))
+#define MM_LOCALAPIC	(MM_KERNEL_RANGE|(0xFF80##00000000))
 
 
 // === FUNCTIONS ===

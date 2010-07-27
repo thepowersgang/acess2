@@ -21,7 +21,7 @@ typedef struct {
 	tVFS_Node	RootNode;
 	
 	tExt2_SuperBlock	SuperBlock;
-	 int	BlockSize;
+	Uint	BlockSize;
 	 
 	 int	GroupCount;
 	tExt2_Group		Groups[];

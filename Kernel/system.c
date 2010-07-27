@@ -99,7 +99,8 @@ void System_ParseCommandLine(char *ArgString)
 	 int	i;
 	char	*str;
 	
-	Log_Log("Config", "Kernel Invocation \"%s\"", ArgString);
+	Log_Log("Config", "Kernel Invocation (%p) \"%s\"", ArgString, ArgString);
+	Log_Log("Config", "Kernel Invocation '0x%x 0x%x'", ArgString[0], ArgString[1]);
 	
 	// --- Get Arguments ---
 	str = ArgString;

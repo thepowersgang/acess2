@@ -17,8 +17,8 @@
 // === CONSTANTS ===
 #define	SWITCH_MAGIC	0xFFFACE55	// There is no code in this area
 // Base is 1193182
-#define TIMER_BASE	1193182
-#define TIMER_DIVISOR	11931	//~100Hz
+#define TIMER_BASE      1193182
+#define TIMER_DIVISOR   11931	//~100Hz
 
 // === TYPES ===
 #if USE_MP

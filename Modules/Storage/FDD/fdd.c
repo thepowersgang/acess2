@@ -227,7 +227,7 @@ void FDD_UnloadModule()
  * \fn char *FDD_ReadDir(tVFS_Node *Node, int pos)
  * \brief Read Directory
  */
-char *FDD_ReadDir(tVFS_Node *Node, int Pos)
+char *FDD_ReadDir(tVFS_Node *UNUSED(Node), int Pos)
 {
 	char	name[2] = "0\0";
 
@@ -244,7 +244,7 @@ char *FDD_ReadDir(tVFS_Node *Node, int Pos)
  * \fn tVFS_Node *FDD_FindDir(tVFS_Node *Node, char *filename);
  * \brief Find File Routine (for vfs_node)
  */
-tVFS_Node *FDD_FindDir(tVFS_Node *Node, char *Filename)
+tVFS_Node *FDD_FindDir(tVFS_Node *UNUSED(Node), char *Filename)
 {
 	 int	i;
 	
@@ -287,14 +287,11 @@ static const char	*casIOCTLS[] = {DRV_IOCTLNAMES,DRV_DISK_IOCTLNAMES,NULL};
  * \fn int FDD_IOCtl(tVFS_Node *Node, int id, void *data)
  * \brief Stub ioctl function
  */
-int FDD_IOCtl(tVFS_Node *Node, int ID, void *Data)
+int FDD_IOCtl(tVFS_Node *UNUSED(Node), int ID, void *Data)
 {
 	switch(ID)
 	{
-	case DRV_IOCTL_TYPE:	return DRV_TYPE_DISK;
-	case DRV_IOCTL_IDENT:	return ModUtil_SetIdent(Data, "FDD");
-	case DRV_IOCTL_VERSION:	return FDD_VERSION;
-	case DRV_IOCTL_LOOKUP:	return ModUtil_LookupString((char**)casIOCTLS, Data);
+	BASE_IOCTLS(DRV_TYPE_DISK, "FDD", FDD_VERSION, casIOCTLS);
 	
 	case DISK_IOCTL_GETBLOCKSIZE:	return 512;	
 	
