@@ -29,6 +29,7 @@ typedef struct sCPU
 	Uint8	State;	// 0: Unavaliable, 1: Idle, 2: Active
 	Uint16	Resvd;
 	tThread	*Current;
+	tThread	*IdleThread;
 }	tCPU;
 #endif
 
@@ -427,23 +428,51 @@ void Proc_Start(void)
 	 int	i;
 	#endif
 	
-	// Start Interrupts (and hence scheduler)
-	__asm__ __volatile__("sti");
-	
 	#if USE_MP
 	// Start APs
 	for( i = 0; i < giNumCPUs; i ++ )
 	{
+		// Create Idle Task
+		if(Proc_Clone(0, 0) == 0)
+		{
+			gaCPUs[i].IdleThread = Proc_GetCurThread();
+			gaCPUs[i].IdleThread->ThreadName = "Idle Thread";
+			gaCPUs[i].IdleThread->NumTickets = 0;	// Never called randomly
+			gaCPUs[i].IdleThread->Quantum = 1;	// 1 slice quantum
+			for(;;)	HALT();	// Just yeilds
+		}
 		gaCPUs[i].Current = NULL;
+		
+		// Start the AP
 		if( i != giProc_BootProcessorID ) {
 			MP_StartAP( i );
 		}
 	}
 	
+	// BSP still should run the current task
+	gaCPUs[0].Current = &gThreadZero;
+	
+	// Start interrupts and wait for APs to come up
 	Log("Waiting for APs to come up\n");
-	//__asm__ __volatile__ ("sti");
+	__asm__ __volatile__ ("sti");
 	while( giNumInitingCPUs )	__asm__ __volatile__ ("hlt");
 	MM_FinishVirtualInit();
+	#else
+	// Create Idle Task
+	if(Proc_Clone(0, 0) == 0)
+	{
+		tThread	*cur = Proc_GetCurThread();
+		cur->ThreadName = "Idle Thread";
+		Threads_SetTickets(0);	// Never called randomly
+		cur->Quantum = 1;	// 1 slice quantum
+		for(;;)	HALT();	// Just yeilds
+	}
+	
+	// Set current task
+	gCurrentThread = &gThreadZero;
+	
+	// Start Interrupts (and hence scheduler)
+	__asm__ __volatile__("sti");
 	#endif
 }
 
@@ -829,29 +858,33 @@ void Proc_Scheduler(int CPU)
 	thread = gCurrentThread;
 	#endif
 	
-	// Reduce remaining quantum and continue timeslice if non-zero
-	if(thread->Remaining--)	return;
-	// Reset quantum for next call
-	thread->Remaining = thread->Quantum;
-	
-	// Get machine state
-	__asm__ __volatile__ ("mov %%esp, %0":"=r"(esp));
-	__asm__ __volatile__ ("mov %%ebp, %0":"=r"(ebp));
-	eip = GetEIP();
-	if(eip == SWITCH_MAGIC)	return;	// Check if a switch happened
-	
-	// Save machine state
-	thread->SavedState.ESP = esp;
-	thread->SavedState.EBP = ebp;
-	thread->SavedState.EIP = eip;
+	if( thread )
+	{
+		// Reduce remaining quantum and continue timeslice if non-zero
+		if(thread->Remaining--)	return;
+		// Reset quantum for next call
+		thread->Remaining = thread->Quantum;
+		
+		// Get machine state
+		__asm__ __volatile__ ("mov %%esp, %0":"=r"(esp));
+		__asm__ __volatile__ ("mov %%ebp, %0":"=r"(ebp));
+		eip = GetEIP();
+		if(eip == SWITCH_MAGIC)	return;	// Check if a switch happened
+		
+		// Save machine state
+		thread->SavedState.ESP = esp;
+		thread->SavedState.EBP = ebp;
+		thread->SavedState.EIP = eip;
+	}
 	
 	// Get next thread to run
 	thread = Threads_GetNextToRun(CPU, thread);
 	
-	// Error Check
+	// No avaliable tasks, just go into low power mode
 	if(thread == NULL) {
-		Warning("Hmm... Threads_GetNextToRun returned NULL, I don't think this should happen.\n");
-		return;
+		//HALT();
+		//return;
+		thread = gaCPUs[CPU].IdleThread;
 	}
 	
 	#if DEBUG_TRACE_SWITCH
@@ -864,9 +897,7 @@ void Proc_Scheduler(int CPU)
 	
 	// Set current thread
 	#if USE_MP
-	gaCPUs[CPU].Current->bIsRunning = 0;
 	gaCPUs[CPU].Current = thread;
-	thread->bIsRunning = 1;
 	#else
 	gCurrentThread = thread;
 	#endif

@@ -52,24 +52,10 @@ void	Threads_Dump(void);
 // -- Core Thread --
 // Only used for the core kernel
 tThread	gThreadZero = {
-	NULL, 0,	// Next, Lock
-	THREAD_STAT_ACTIVE,	// Status
-	0, 	// Exit Status
-	0, 0,	// TID, TGID
-	0, 0,	// UID, GID
-	0,	// Parent Thread ID
-	"ThreadZero",	// Name
-	
-	0,	// Kernel Stack
-	{0},	// Saved State
-	{0},	// VM State
-	
-	0, 0,	// Current Fault, Fault Handler
-	
-	NULL, NULL,	// Messages, Last Message
-	DEFAULT_QUANTUM, DEFAULT_QUANTUM,	// Quantum, Remaining
-	DEFAULT_TICKETS,
-	{0}	// Default config to zero
+	Status: THREAD_STAT_ACTIVE,	// Status
+	ThreadName:	"ThreadZero",	// Name
+	Quantum: DEFAULT_QUANTUM, Remaining:	DEFAULT_QUANTUM,	// Quantum, Remaining
+	NumTickets:	DEFAULT_TICKETS
 	};
 // -- Processes --
 // --- Locks ---
@@ -98,19 +84,7 @@ void Threads_Init(void)
 	gActiveThreads = &gThreadZero;
 	//giFreeTickets = gThreadZero.NumTickets;
 	giNumActiveThreads = 1;
-	
-	#if 1
-	// Create Idle Task
-	if(Proc_Clone(0, 0) == 0)
-	{
-		tThread	*cur = Proc_GetCurThread();
-		cur->ThreadName = "Idle Thread";
-		Threads_SetTickets(0);	// Never called randomly
-		cur->Quantum = 1;	// 1 slice quantum
-		for(;;)	HALT();	// Just yeilds
-	}
-	#endif
-	
+		
 	Proc_Start();
 }
 
@@ -121,11 +95,13 @@ void Threads_Init(void)
 int Threads_SetName(char *NewName)
 {
 	tThread	*cur = Proc_GetCurThread();
-	if( IsHeap(cur->ThreadName) )
-		free( cur->ThreadName );
-	// TODO: Possible concurrency issue
-	cur->ThreadName = malloc(strlen(NewName)+1);
-	strcpy(cur->ThreadName, NewName);
+	char	*oldname = cur->ThreadName;
+	
+	cur->ThreadName = NULL;
+	
+	if( IsHeap(oldname) )	free( oldname );
+	
+	cur->ThreadName = strdup(NewName);
 	return 0;
 }
 
@@ -182,6 +158,7 @@ tThread *Threads_CloneTCB(Uint *Err, Uint Flags)
 	new->PTID = cur->TID;
 	
 	// Clone Name
+	Log("Threads_CloneTCB: cur (%p) ->ThreadName = %p", cur, cur->ThreadName);
 	new->ThreadName = strdup(cur->ThreadName);
 	
 	// Set Thread Group ID (PID)
@@ -736,7 +713,13 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 			giFreeTickets += Last->NumTickets;
 		Last->CurCPU = -1;
 	}
-
+	
+	// No free tickets (all tasks delegated to cores)
+	if( giFreeTickets == 0 ) {
+		RELEASE(&glThreadListLock);
+		return NULL;
+	}
+	
 	// Get the ticket number
 	ticket = number = rand() % giFreeTickets;
 	
