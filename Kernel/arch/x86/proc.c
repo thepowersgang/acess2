@@ -83,6 +83,7 @@ tTSS	gaTSSs[MAX_CPUS];	// TSS Array
  int	giProc_BootProcessorID = 0;
 #else
 tThread	*gCurrentThread = NULL;
+tThread	*gpIdleThread = NULL;
 #endif
 #if USE_PAE
 Uint32	*gPML4s[4] = NULL;
@@ -461,10 +462,10 @@ void Proc_Start(void)
 	// Create Idle Task
 	if(Proc_Clone(0, 0) == 0)
 	{
-		tThread	*cur = Proc_GetCurThread();
-		cur->ThreadName = "Idle Thread";
-		Threads_SetTickets(0);	// Never called randomly
-		cur->Quantum = 1;	// 1 slice quantum
+		gpIdleThread = Proc_GetCurThread();
+		gpIdleThread->ThreadName = "Idle Thread";
+		gpIdleThread->NumTickets = 0;	// Never called randomly
+		gpIdleThread->Quantum = 1;	// 1 slice quantum
 		for(;;)	HALT();	// Just yeilds
 	}
 	
@@ -884,7 +885,11 @@ void Proc_Scheduler(int CPU)
 	if(thread == NULL) {
 		//HALT();
 		//return;
+		#if USE_MP
 		thread = gaCPUs[CPU].IdleThread;
+		#else
+		thread = gpIdleThread;
+		#endif
 	}
 	
 	#if DEBUG_TRACE_SWITCH
