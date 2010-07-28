@@ -27,12 +27,45 @@
 # define	PHYS_BITS	32
 #endif
 
+#define __ASM__	__asm__ __volatile__
+
 // === MACROS ===
 typedef volatile int	tSpinlock;
 #define IS_LOCKED(lockptr)	(!!(*(tSpinlock*)lockptr))
-#define LOCK(lockptr)	do {int v=1;\
-	while(v)__asm__ __volatile__("lock xchgl %%eax, (%%edi)":"=a"(v):"a"(1),"D"(lockptr));}while(0)
-#define	RELEASE(lockptr)	__asm__ __volatile__("lock andl $0, (%%edi)"::"D"(lockptr));
+/**
+ * \brief Inter-Process interrupt (does a Yield)
+ */
+#define LOCK(lockptr)	do {\
+	int v=1;\
+	while(v) {\
+		__ASM__("xchgl %%eax, (%%edi)":"=a"(v):"a"(1),"D"(lockptr));\
+		if(v) Threads_Yield();\
+	}\
+}while(0)
+/**
+ * \brief Tight spinlock (does a HLT)
+ */
+#define TIGHTLOCK(lockptr)	do{\
+	int v=1;\
+	while(v) {\
+		__ASM__("xchgl %%eax,(%%edi)":"=a"(v):"a"(1),"D"(lockptr));\
+		if(v) __ASM__("hlt");\
+	}\
+}while(0)
+/**
+ * \brief Very Tight spinlock (short inter-cpu lock)
+ */
+#define VTIGHTLOCK(lockptr)	do{\
+	int v=1;\
+	while(v)__ASM__("xchgl %%eax,(%%edi)":"=a"(v):"a"(1),"D"(lockptr));\
+}while(0)
+/**
+ * \brief Release a held spinlock
+ */
+#define	RELEASE(lockptr)	__ASM__("lock andl $0, (%%edi)"::"D"(lockptr));
+/**
+ * \brief Halt the CPU
+ */
 #define	HALT()	__asm__ __volatile__ ("hlt")
 
 // === TYPES ===

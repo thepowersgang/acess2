@@ -3,6 +3,7 @@
  * proc.c
  */
 #include <acess.h>
+#include <threads.h>
 #include <proc.h>
 #include <desctab.h>
 #include <mm_virt.h>
@@ -49,7 +50,6 @@ extern tThread	gThreadZero;
 extern tThread	*gActiveThreads;
 extern tThread	*gSleepingThreads;
 extern tThread	*gDeleteThreads;
-extern tThread	*Threads_GetNextToRun(int CPU);
 extern void	Threads_Dump(void);
 extern tThread	*Threads_CloneTCB(Uint *Err, Uint Flags);
 extern void	Isr8(void);	// Double Fault
@@ -352,7 +352,7 @@ void ArchThreads_Init(void)
 	#else
 	gCurrentThread = &gThreadZero;
 	#endif
-	gThreadZero.bIsRunning = 1;
+	gThreadZero.CurCPU = 0;
 	
 	#if USE_PAE
 	gThreadZero.MemState.PDP[0] = 0;
@@ -845,8 +845,8 @@ void Proc_Scheduler(int CPU)
 	thread->SavedState.EBP = ebp;
 	thread->SavedState.EIP = eip;
 	
-	// Get next thread
-	thread = Threads_GetNextToRun(CPU);
+	// Get next thread to run
+	thread = Threads_GetNextToRun(CPU, thread);
 	
 	// Error Check
 	if(thread == NULL) {

@@ -58,7 +58,7 @@ typedef struct sThread
 	Uint	Config[NUM_CFG_ENTRIES];	//!< Per-process configuration
 	
 	// --- proc.c's
-	volatile int	bIsRunning;	//!< Set if the thread is in use (used in MP)
+	volatile int	CurCPU;
 } tThread;
 
 
@@ -88,5 +88,6 @@ extern tThread	*Proc_GetCurThread(void);
 extern tThread	*Threads_GetThread(Uint TID);
 extern void	Threads_Wake(tThread *Thread);
 extern void	Threads_AddActive(tThread *Thread);
+extern tThread	*Threads_GetNextToRun(int CPU, tThread *Last);
 
 #endif
