@@ -5,6 +5,7 @@
 #include "ipstack.h"
 #include "link.h"
 #include "ipv4.h"
+#include "firewall.h"
 
 #define DEFAULT_TTL	32
 
@@ -20,7 +21,7 @@ extern tMacAddr	ARP_Resolve4(tInterface *Interface, tIPv4 Address);
 void	IPv4_int_GetPacket(tAdapter *Interface, tMacAddr From, int Length, void *Buffer);
 tInterface	*IPv4_GetInterface(tAdapter *Adapter, tIPv4 Address, int Broadcast);
 Uint32	IPv4_Netmask(int FixedBits);
-Uint16	IPv4_Checksum(void *Buf, int Size);
+Uint16	IPv4_Checksum(const void *Buf, int Size);
  int	IPv4_Ping(tInterface *Iface, tIPv4 Addr);
 
 // === GLOBALS ===
@@ -58,12 +59,25 @@ int IPv4_RegisterCallback(int ID, tIPCallback Callback)
  * \param Length	Data Length
  * \param Data	Packet Data
  */
-int IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, int Length, void *Data)
+int IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, int Length, const void *Data)
 {
 	tMacAddr	to = ARP_Resolve4(Iface, Address);
 	 int	bufSize = sizeof(tIPv4Header) + Length;
 	char	buf[bufSize];
 	tIPv4Header	*hdr = (void*)buf;
+	 int	ret;
+	
+	// TODO: OUTPUT Firewall rule go here
+	ret = IPTablesV4_TestChain("OUTPUT",
+		&Iface->IP4.Address, &Address,
+		Protocol, 0,
+		Length, Data);
+	
+	if(ret != 0)
+	{
+		// Just drop it
+		return 0;
+	}
 	
 	memcpy(&hdr->Options[0], Data, Length);
 	hdr->Version = 4;
@@ -101,6 +115,8 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	tInterface	*iface;
 	Uint8	*data;
 	 int	dataLength;
+	 int	ret;
+	 
 	if(Length < sizeof(tIPv4Header))	return;
 	
 	#if 0
@@ -134,18 +150,51 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 		return;
 	}
 	
-	// Get Interface (allowing broadcasts)
-	iface = IPv4_GetInterface(Adapter, hdr->Destination, 1);
-	if(!iface) {
-		Log_Log("IPv4", "Ignoring Packet (Not for us)");
-		return;	// Not for us? Well, let's ignore it
-	}
 	
-	// Defragment
-	//TODO
+	// TODO: Handle packet fragmentation
 	
+	// Get Data and Data Length
 	dataLength = ntohs(hdr->TotalLength) - sizeof(tIPv4Header);
 	data = &hdr->Options[0];
+	
+	// Get Interface (allowing broadcasts)
+	iface = IPv4_GetInterface(Adapter, hdr->Destination, 1);
+	
+	// TODO: INPUT Firewall Rule
+	if( iface ) {
+		ret = IPTablesV4_TestChain("INPUT",
+			&hdr->Source, &hdr->Destination,
+			hdr->Protocol, 0,
+			dataLength, data
+			);
+	}
+	else {
+		ret = IPTablesV4_TestChain("FORWARD",
+			&hdr->Source, &hdr->Destination,
+			hdr->Protocol, 0,
+			dataLength, data
+			);
+	}
+	switch(ret)
+	{
+	// 0 - Allow
+	case 0:	break;
+	// 1 - Silent Drop
+	case 1:	return ;
+	// Unknown, silent drop
+	default:
+		return ;
+	}
+	
+	// Routing
+	if(!iface)
+	{
+		Log_Log("IPv4", "Route the packet");
+		
+		// TODO: Parse Routing tables and determine where to send it
+		
+		return ;
+	}
 	
 	// Send it on
 	if( gaIPv4_Callbacks[hdr->Protocol] )
@@ -180,13 +229,6 @@ tInterface *IPv4_GetInterface(tAdapter *Adapter, tIPv4 Address, int Broadcast)
 		// Check for broadcast
 		netmask = IPv4_Netmask(iface->IP4.SubnetBits);
 		
-		//Log("netmask = 0x%08x", netmask);
-		//Log("addr = 0x%08x", addr);
-		//Log("this = 0x%08x", this);
-		//Log("%08x == %08x && %08x == %08x",
-		//	(addr & netmask), (this & netmask),
-		//	(addr & ~netmask), (0xFFFFFFFF & ~netmask)
-		//	);
 		if( (addr & netmask) == (this & netmask)
 		 && (addr & ~netmask) == (0xFFFFFFFF & ~netmask) )
 			return iface;
@@ -204,20 +246,20 @@ Uint32 IPv4_Netmask(int FixedBits)
 	Uint32	ret = 0xFFFFFFFF;
 	ret >>= (32-FixedBits);
 	ret <<= (32-FixedBits);
-	// Returs a little endian netmask
+	// Returns a native endian netmask
 	return ret;
 }
 
 /**
  * \brief Calculate the IPv4 Checksum
  */
-Uint16 IPv4_Checksum(void *Buf, int Size)
+Uint16 IPv4_Checksum(const void *Buf, int Size)
 {
 	Uint16	sum = 0;
-	Uint16	*arr = Buf;
+	const Uint16	*arr = Buf;
 	 int	i;
 	
-	Size = (Size + 1) >> 1;
+	Size = (Size + 1) >> 1;	// 16-bit word count
 	for(i = 0; i < Size; i++ )
 	{
 		if((int)sum + arr[i] > 0xFFFF)
