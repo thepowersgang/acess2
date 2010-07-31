@@ -13,6 +13,8 @@
 #define	GDB_SERIAL_PORT	0x2F8
 #define	DEBUG_MAX_LINE_LEN	256
 
+#define	LOCK_DEBUG_OUTPUT	0
+
 // === IMPORTS ===
 extern void Threads_Dump(void);
 extern void	KernelPanic_SetMode(void);
@@ -32,6 +34,9 @@ void	Debug_Fmt(const char *format, va_list args);
  int	gbGDB_SerialSetup = 0;
  int	gbDebug_IsKPanic = 0;
 volatile int	gbInPutChar = 0;
+#if LOCK_DEBUG_OUTPUT
+tSpinlock	glDebug_Lock;
+#endif
 
 // === CODE ===
 int putDebugChar(char ch)
@@ -163,11 +168,19 @@ void LogF(char *Fmt, ...)
 {
 	va_list	args;
 
+	#if LOCK_DEBUG_OUTPUT
+	VTIGHTLOCK(&glDebug_Lock);
+	#endif
+	
 	va_start(args, Fmt);
 
 	Debug_Fmt(Fmt, args);
 
 	va_end(args);
+	
+	#if LOCK_DEBUG_OUTPUT
+	RELEASE(&glDebug_Lock);
+	#endif
 }
 /**
  * \fn void Debug(char *Msg, ...)
@@ -176,6 +189,10 @@ void LogF(char *Fmt, ...)
 void Debug(char *Fmt, ...)
 {
 	va_list	args;
+	
+	#if LOCK_DEBUG_OUTPUT
+	LOCK(&glDebug_Lock);
+	#endif
 
 	Debug_Puts(0, "Debug: ");
 	va_start(args, Fmt);
@@ -183,6 +200,9 @@ void Debug(char *Fmt, ...)
 	va_end(args);
 	Debug_PutCharDebug('\r');
 	Debug_PutCharDebug('\n');
+	#if LOCK_DEBUG_OUTPUT
+	RELEASE(&glDebug_Lock);
+	#endif
 }
 /**
  * \fn void Log(char *Msg, ...)
@@ -190,6 +210,10 @@ void Debug(char *Fmt, ...)
 void Log(char *Fmt, ...)
 {
 	va_list	args;
+	
+	#if LOCK_DEBUG_OUTPUT
+	LOCK(&glDebug_Lock);
+	#endif
 
 	Debug_Puts(1, "Log: ");
 	va_start(args, Fmt);
@@ -197,20 +221,38 @@ void Log(char *Fmt, ...)
 	va_end(args);
 	Debug_Putchar('\r');
 	Debug_Putchar('\n');
+	
+	#if LOCK_DEBUG_OUTPUT
+	RELEASE(&glDebug_Lock);
+	#endif
 }
 void Warning(char *Fmt, ...)
 {
 	va_list	args;
+	
+	#if LOCK_DEBUG_OUTPUT
+	LOCK(&glDebug_Lock);
+	#endif
+	
 	Debug_Puts(1, "Warning: ");
 	va_start(args, Fmt);
 	Debug_Fmt(Fmt, args);
 	va_end(args);
 	Debug_Putchar('\r');
 	Debug_Putchar('\n');
+	
+	#if LOCK_DEBUG_OUTPUT
+	RELEASE(&glDebug_Lock);
+	#endif
 }
 void Panic(char *Fmt, ...)
 {
 	va_list	args;
+	
+	#if LOCK_DEBUG_OUTPUT
+	LOCK(&glDebug_Lock);
+	#endif
+	// And never release
 	
 	Debug_KernelPanic();
 	
@@ -307,6 +349,10 @@ void Debug_Leave(char *FuncName, char RetType, ...)
 {
 	va_list	args;
 	 int	i = --gDebug_Level;
+
+	#if LOCK_DEBUG_OUTPUT
+	LOCK(&glDebug_Lock);
+	#endif
 
 	va_start(args, RetType);
 
