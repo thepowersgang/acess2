@@ -252,6 +252,12 @@ void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 	//Log("SS:ESP %04x:%08x", Regs->ss, Regs->esp);
 	Log("CS:EIP %04x:%08x", Regs->cs, Regs->eip);
 	Log("DS %04x ES %04x FS %04x GS %04x", Regs->ds, Regs->es, Regs->fs, Regs->gs);
+	{
+		Uint	dr0, dr1;
+		__ASM__ ("mov %%dr0, %0":"=r"(dr0):);
+		__ASM__ ("mov %%dr1, %0":"=r"(dr1):);
+		Log("DR0 %08x DR1 %08x", dr0, dr1);
+	}
 	
 	Panic("Page Fault at 0x%x (Accessed 0x%x)", Regs->eip, Addr);
 }

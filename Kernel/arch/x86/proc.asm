@@ -74,6 +74,9 @@ SchedulerBase:
 	push fs
 	push gs
 	
+	mov eax, dr0
+	push eax	; Debug Register 0, Current Thread
+	
 	mov ax, 0x10
 	mov ds, ax
 	mov es, ax
@@ -107,6 +110,9 @@ SchedulerBase:
 	mov DWORD [eax+0x0B0], 0
 	%endif
 .ret:
+	pop eax	; Debug Register 0, Current Thread
+	mov dr0, eax
+
 	pop gs
 	pop fs
 	pop es

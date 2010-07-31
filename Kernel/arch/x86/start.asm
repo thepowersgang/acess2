@@ -145,26 +145,30 @@ APStartup:
 	lidt [gIDTPtr]
 
 	mov ebp, [gpMP_LocalAPIC]
-	mov esi, [eax+0x20]	; Read ID
-	shr esi, 24
+	mov ebx, [ebp+0x20]	; Read ID
+	shr ebx, 24
 	;xchg bx, bx	; MAGIC BREAK
 	; CL is now local APIC ID
-	mov cl, BYTE [gaAPIC_to_CPU+esi]
-	; CL is now the CPU ID
-	mov BYTE [gaCPUs+esi*8+1], 1
+	mov cl, BYTE [gaAPIC_to_CPU+ebx]
+	xor ebx, ebx
+	mov bl, cl
+	; BL is now the CPU ID
+	mov BYTE [gaCPUs+ebx*8+1], 1
 	; Decrement the remaining CPU count
 	dec DWORD [giNumInitingCPUs]
 	
 	; Create a stack
-	lea edx, [esi+1]
+	lea edx, [ebx+1]
 	shl edx, 5+2	; *32 *4
 	lea esp, [gInitAPStacks+edx]
 	call MM_NewKStack
 	mov esp, eax
 	
 	; Set TSS
-	lea ecx, [esi*8+0x30]
+	lea ecx, [ebx*8+0x30]
 	ltr cx
+	; Save the CPU number to a debug register
+	mov dr1, ebx
 	
 	;xchg bx, bx	; MAGIC_BREAK
 	; Enable Local APIC

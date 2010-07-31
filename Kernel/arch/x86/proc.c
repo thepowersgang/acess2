@@ -16,10 +16,10 @@
 #define DEBUG_TRACE_SWITCH	0
 
 // === CONSTANTS ===
-#define	SWITCH_MAGIC	0xFFFACE55	// There is no code in this area
+#define	SWITCH_MAGIC	0xFF5317C8	// FF SWITCH - There is no code in this area
 // Base is 1193182
 #define TIMER_BASE      1193182
-#define TIMER_DIVISOR   11931	//~100Hz
+#define TIMER_DIVISOR   11932	//~100Hz
 
 // === TYPES ===
 #if USE_MP
@@ -41,17 +41,11 @@ extern void APStartup(void);	// 16-bit AP startup code
 extern Uint	GetEIP(void);	// start.asm
 extern int	GetCPUNum(void);	// start.asm
 extern Uint32	gaInitPageDir[1024];	// start.asm
-extern void	Kernel_Stack_Top;
+extern char	Kernel_Stack_Top[];
 extern tSpinlock	glThreadListLock;
 extern int	giNumCPUs;
 extern int	giNextTID;
-extern int	giTotalTickets;
-extern int	giNumActiveThreads;
 extern tThread	gThreadZero;
-extern tThread	*gActiveThreads;
-extern tThread	*gSleepingThreads;
-extern tThread	*gDeleteThreads;
-extern void	Threads_Dump(void);
 extern tThread	*Threads_CloneTCB(Uint *Err, Uint Flags);
 extern void	Isr8(void);	// Double Fault
 extern void	Proc_ReturnToUser(void);
@@ -310,6 +304,11 @@ void ArchThreads_Init(void)
 	outb(0x40, TIMER_DIVISOR&0xFF);	// Low Byte of Divisor
 	outb(0x40, (TIMER_DIVISOR>>8)&0xFF);	// High Byte
 	
+	Log("Timer Frequency %i.%03i Hz",
+		TIMER_BASE/TIMER_DIVISOR,
+		((Uint64)TIMER_BASE*1000/TIMER_DIVISOR)%1000
+		);
+	
 	#if USE_MP
 	// Get the count setting for APIC timer
 	Log("Determining APIC Count");
@@ -340,7 +339,7 @@ void ArchThreads_Init(void)
 		gTSSs[pos].SS0 = 0x10;
 		gTSSs[pos].ESP0 = 0;	// Set properly by scheduler
 		gGDT[6+pos].BaseLow = ((Uint)(&gTSSs[pos])) & 0xFFFF;
-		gGDT[6+pos].BaseMid = ((Uint)(&gTSSs[pos])) >> 16;
+		gGDT[6+pos].BaseMid = ((Uint)(&gTSSs[pos]) >> 16) & 0xFFFF;
 		gGDT[6+pos].BaseHi = ((Uint)(&gTSSs[pos])) >> 24;
 	#if USE_MP
 	}
@@ -348,6 +347,9 @@ void ArchThreads_Init(void)
 	
 	// Load the BSP's TSS
 	__asm__ __volatile__ ("ltr %%ax"::"a"(0x30));
+	// Set Current Thread and CPU Number in DR0 and DR1
+	__asm__ __volatile__ ("mov %0, %%db0"::"r"(&gThreadZero));
+	__asm__ __volatile__ ("mov %0, %%db1"::"r"(0));
 	
 	#if USE_MP
 	gaCPUs[0].Current = &gThreadZero;
@@ -379,7 +381,7 @@ void MP_StartAP(int CPU)
 	// Set location of AP startup code and mark for a warm restart
 	*(Uint16*)(KERNEL_BASE|0x467) = (Uint)&APWait - (KERNEL_BASE|0xFFFF0);
 	*(Uint16*)(KERNEL_BASE|0x469) = 0xFFFF;
-	outb(0x70, 0x0F);	outb(0x71, 0x0A);	// Warm Reset
+	outb(0x70, 0x0F);	outb(0x71, 0x0A);	// Set warm reset flag
 	MP_SendIPI(gaCPUs[CPU].APICID, 0, 5);	// Init IPI
 	
 	// Delay
@@ -433,16 +435,19 @@ void Proc_Start(void)
 	// Start APs
 	for( i = 0; i < giNumCPUs; i ++ )
 	{
+		 int	tid;
+		if(i)	gaCPUs[i].Current = NULL;
+		
 		// Create Idle Task
-		if(Proc_Clone(0, 0) == 0)
+		if( (tid = Proc_Clone(0, 0)) == 0)
 		{
-			gaCPUs[i].IdleThread = Proc_GetCurThread();
-			gaCPUs[i].IdleThread->ThreadName = "Idle Thread";
-			gaCPUs[i].IdleThread->NumTickets = 0;	// Never called randomly
-			gaCPUs[i].IdleThread->Quantum = 1;	// 1 slice quantum
 			for(;;)	HALT();	// Just yeilds
 		}
-		gaCPUs[i].Current = NULL;
+		gaCPUs[i].IdleThread = Threads_GetThread(tid);
+		gaCPUs[i].IdleThread->ThreadName = "Idle Thread";
+		Threads_SetTickets( gaCPUs[i].IdleThread, 0 );	// Never called randomly
+		gaCPUs[i].IdleThread->Quantum = 1;	// 1 slice quantum
+		
 		
 		// Start the AP
 		if( i != giProc_BootProcessorID ) {
@@ -457,7 +462,6 @@ void Proc_Start(void)
 	Log("Waiting for APs to come up\n");
 	__asm__ __volatile__ ("sti");
 	while( giNumInitingCPUs )	__asm__ __volatile__ ("hlt");
-	MM_FinishVirtualInit();
 	#else
 	// Create Idle Task
 	if(Proc_Clone(0, 0) == 0)
@@ -475,6 +479,7 @@ void Proc_Start(void)
 	// Start Interrupts (and hence scheduler)
 	__asm__ __volatile__("sti");
 	#endif
+	MM_FinishVirtualInit();
 }
 
 /**
@@ -484,7 +489,6 @@ void Proc_Start(void)
 tThread *Proc_GetCurThread(void)
 {
 	#if USE_MP
-	//return gaCPUs[ gaAPIC_to_CPU[gpMP_LocalAPIC->ID.Val&0xFF] ].Current;
 	return gaCPUs[ GetCPUNum() ].Current;
 	#else
 	return gCurrentThread;
@@ -599,7 +603,14 @@ int Proc_Clone(Uint *Err, Uint Flags)
 	newThread->SavedState.EBP = ebp;
 	eip = GetEIP();
 	if(eip == SWITCH_MAGIC) {
-		outb(0x20, 0x20);	// ACK Timer and return as child
+		__asm__ __volatile__ ("mov %0, %%db0" : : "r" (newThread) );
+		#if USE_MP
+		// ACK the interrupt
+		if(GetCPUNum())
+			gpMP_LocalAPIC->EOI.Val = 0;
+		else
+		#endif
+			outb(0x20, 0x20);	// ACK Timer and return as child
 		__asm__ __volatile__ ("sti");	// Restart interrupts
 		return 0;
 	}
@@ -634,7 +645,7 @@ int Proc_SpawnWorker(void)
 	// Set Thread ID
 	new->TID = giNextTID++;
 	// Create a new worker stack (in PID0's address space)
-	// The stack is relocated by this code
+	// - The stack is relocated by this function
 	new->KernelStack = MM_NewWorkerStack();
 
 	// Get ESP and EBP based in the new stack
@@ -648,7 +659,15 @@ int Proc_SpawnWorker(void)
 	new->SavedState.EBP = ebp;
 	eip = GetEIP();
 	if(eip == SWITCH_MAGIC) {
-		outb(0x20, 0x20);	// ACK Timer and return as child
+		__asm__ __volatile__ ("mov %0, %%db0" : : "r"(new));
+		#if USE_MP
+		// ACK the interrupt
+		if(GetCPUNum())
+			gpMP_LocalAPIC->EOI.Val = 0;
+		else
+		#endif
+			outb(0x20, 0x20);	// ACK Timer and return as child
+		__asm__ __volatile__ ("sti");	// Restart interrupts
 		return 0;
 	}
 	
@@ -826,32 +845,6 @@ void Proc_Scheduler(int CPU)
 	// If the spinlock is set, let it complete
 	if(IS_LOCKED(&glThreadListLock))	return;
 	
-	// Clear Delete Queue
-	while(gDeleteThreads)
-	{
-		thread = gDeleteThreads->Next;
-		if(gDeleteThreads->IsLocked) {	// Only free if structure is unused
-			gDeleteThreads->Status = THREAD_STAT_NULL;
-			free( gDeleteThreads );
-		}
-		gDeleteThreads = thread;
-	}
-	
-	// Check if there is any tasks running
-	if(giNumActiveThreads == 0) {
-		#if 0
-		Log("No Active threads, sleeping");
-		#endif
-		#if USE_MP
-		if(CPU)
-			gpMP_LocalAPIC->EOI.Val = 0;
-		else
-		#endif
-			outb(0x20, 0x20);
-		__asm__ __volatile__ ("hlt");
-		return;
-	}
-	
 	// Get current thread
 	#if USE_MP
 	thread = gaCPUs[CPU].Current;
@@ -862,13 +855,14 @@ void Proc_Scheduler(int CPU)
 	if( thread )
 	{
 		// Reduce remaining quantum and continue timeslice if non-zero
-		if(thread->Remaining--)	return;
+		if( thread->Remaining-- )
+			return;
 		// Reset quantum for next call
 		thread->Remaining = thread->Quantum;
 		
 		// Get machine state
-		__asm__ __volatile__ ("mov %%esp, %0":"=r"(esp));
-		__asm__ __volatile__ ("mov %%ebp, %0":"=r"(ebp));
+		__asm__ __volatile__ ( "mov %%esp, %0" : "=r" (esp) );
+		__asm__ __volatile__ ( "mov %%ebp, %0" : "=r" (ebp) );
 		eip = GetEIP();
 		if(eip == SWITCH_MAGIC)	return;	// Check if a switch happened
 		
@@ -881,16 +875,22 @@ void Proc_Scheduler(int CPU)
 	// Get next thread to run
 	thread = Threads_GetNextToRun(CPU, thread);
 	
-	// No avaliable tasks, just go into low power mode
+	// No avaliable tasks, just go into low power mode (idle thread)
 	if(thread == NULL) {
-		//HALT();
-		//return;
 		#if USE_MP
 		thread = gaCPUs[CPU].IdleThread;
+		Log("CPU %i Running Idle Thread", CPU);
 		#else
 		thread = gpIdleThread;
 		#endif
 	}
+	
+	// Set current thread
+	#if USE_MP
+	gaCPUs[CPU].Current = thread;
+	#else
+	gCurrentThread = thread;
+	#endif
 	
 	#if DEBUG_TRACE_SWITCH
 	Log("Switching to task %i, CR3 = 0x%x, EIP = %p",
@@ -900,14 +900,9 @@ void Proc_Scheduler(int CPU)
 		);
 	#endif
 	
-	// Set current thread
-	#if USE_MP
-	gaCPUs[CPU].Current = thread;
-	#else
-	gCurrentThread = thread;
+	#if USE_MP	// MP Debug
+	Log("CPU = %i, Thread %p", CPU, thread);
 	#endif
-	
-	//Log("CPU = %i", CPU);
 	
 	// Update Kernel Stack pointer
 	gTSSs[CPU].ESP0 = thread->KernelStack-4;
@@ -916,7 +911,7 @@ void Proc_Scheduler(int CPU)
 	#if USE_PAE
 	# error "Todo: Implement PAE Address space switching"
 	#else
-		__asm__ __volatile__ ("mov %0, %%cr3"::"a"(thread->MemState.CR3));
+	__asm__ __volatile__ ("mov %0, %%cr3" : : "a" (thread->MemState.CR3));
 	#endif
 	
 	#if 0

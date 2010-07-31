@@ -130,7 +130,8 @@ int VM8086_Install(char **Arguments)
 	
 	gVM8086_WorkerPID = pid;
 	Log_Log("VM8086", "gVM8086_WorkerPID = %i", pid);
-	Threads_Yield();	// Yield to allow the child to initialise
+	while( gpVM8086_State != NULL )
+		Threads_Yield();	// Yield to allow the child to initialise
 	
 	return MODULE_ERR_OK;
 }
@@ -149,6 +150,8 @@ void VM8086_GPF(tRegs *Regs)
 			RELEASE( &glVM8086_Process );	// Release lock obtained in VM8086_Install
 			gpVM8086_State = NULL;
 		}
+		//Log_Log("VM8086", "gpVM8086_State = %p, gVM8086_CallingThread = %i",
+		//	gpVM8086_State, gVM8086_CallingThread);
 		if( gpVM8086_State ) {
 			gpVM8086_State->AX = Regs->eax;	gpVM8086_State->CX = Regs->ecx;
 			gpVM8086_State->DX = Regs->edx;	gpVM8086_State->BX = Regs->ebx;
@@ -156,7 +159,9 @@ void VM8086_GPF(tRegs *Regs)
 			gpVM8086_State->SI = Regs->esi;	gpVM8086_State->DI = Regs->edi;
 			gpVM8086_State->DS = Regs->ds;	gpVM8086_State->ES = Regs->es;
 			gpVM8086_State = NULL;
-			Threads_WakeTID(gVM8086_CallingThread);
+			// Ensure the caller wakes
+			//while(Threads_WakeTID(gVM8086_CallingThread) == -EALREADY)
+			//	Threads_Yield();
 		}
 		
 		//Log_Log("VM8086", "Waiting for something to do");
@@ -402,7 +407,7 @@ void VM8086_Int(tVM8086 *State, Uint8 Interrupt)
 	gVM8086_CallingThread = Threads_GetTID();
 	Threads_WakeTID( gVM8086_WorkerPID );
 	while( gpVM8086_State != NULL )
-		Threads_Sleep();
+		Threads_Yield();
 	
 	RELEASE( &glVM8086_Process );
 }

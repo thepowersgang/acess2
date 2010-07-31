@@ -14,6 +14,7 @@ extern void	MM_PageFault(Uint Addr, Uint ErrorCode, tRegs *Regs);
 extern void	VM8086_GPF(tRegs *Regs);
 extern void Threads_Dump(void);
 extern void	Threads_Fault(int Num);
+extern int	GetCPUNum(void);
 
 // === PROTOTYPES ===
 void	__stack_chk_fail(void);
@@ -97,9 +98,16 @@ void ErrorHandler(tRegs *Regs)
 	}
 	
 	Debug_KernelPanic();
-	Warning("CPU Error %i - %s, Code: 0x%x",
-		Regs->int_num, csaERROR_NAMES[Regs->int_num], Regs->err_code);
-	Warning(" CS:EIP = 0x%04x:%08x", Regs->cs, Regs->eip);
+	
+	LogF("CPU %i Error %i - %s, Code: 0x%x - At %08x",
+		GetCPUNum(),
+		Regs->int_num, csaERROR_NAMES[Regs->int_num], Regs->err_code,
+		Regs->eip);
+	
+	//Warning("CPU Error %i - %s, Code: 0x%x",
+	//	Regs->int_num, csaERROR_NAMES[Regs->int_num], Regs->err_code);
+	//Warning(" CS:EIP = 0x%04x:%08x", Regs->cs, Regs->eip);
+	__ASM__ ("xchg %bx, %bx");
 	if(Regs->cs == 0x08)
 		Warning(" SS:ESP = 0x0010:%08x", (Uint)Regs+sizeof(tRegs));
 	else
