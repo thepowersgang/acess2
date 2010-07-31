@@ -30,6 +30,7 @@ enum HddControls {
 	HDD_DMA_W48 = 0x35,
 	HDD_DMA_R28 = 0xC8,
 	HDD_DMA_W28 = 0xCA,
+	HDD_IDENTIFY = 0xEC
 };
 
 // === STRUCTURES ===

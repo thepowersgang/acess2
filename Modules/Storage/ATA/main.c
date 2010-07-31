@@ -2,7 +2,7 @@
  * Acess2 IDE Harddisk Driver
  * - main.c
  */
-#define DEBUG	1
+#define DEBUG	0
 #define VERSION	0x0032
 #include <acess.h>
 #include <modules.h>

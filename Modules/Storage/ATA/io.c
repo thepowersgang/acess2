@@ -4,7 +4,7 @@
  *
  * Disk Input/Output control
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include <modules.h>	// Needed for error codes
 #include <drv_pci.h>
@@ -42,9 +42,9 @@ typedef struct
 	Uint16	ValidExtData;	// 54
 	Uint16	Unused5[5];	 // 59
 	Uint16	SizeOfRWMultiple;	// 60
-	Uint32	Sectors28;	// 62
+	Uint32	Sectors28;	// LBA 28 Sector Count
 	Uint16	Unused6[100-62];
-	Uint64	Sectors48;
+	Uint64	Sectors48;	// LBA 48 Sector Count
 	Uint16	Unused7[256-104];
 } __attribute__ ((packed))	tIdentify;
 
@@ -60,21 +60,28 @@ void	ATA_IRQHandlerPri(int UNUSED(IRQ));
 void	ATA_IRQHandlerSec(int UNUSED(IRQ));
 // Controller IO
 Uint8	ATA_int_BusMasterReadByte(int Ofs);
+Uint32	ATA_int_BusMasterReadDWord(int Ofs);
 void	ATA_int_BusMasterWriteByte(int Ofs, Uint8 Value);
 void	ATA_int_BusMasterWriteDWord(int Ofs, Uint32 Value);
 
 // === GLOBALS ===
-Uint32	gATA_BusMasterBase = 0;
-Uint8	*gATA_BusMasterBasePtr = 0;
+// - BusMaster IO Addresses
+Uint32	gATA_BusMasterBase;	//!< True Address (IO/MMIO)
+Uint8	*gATA_BusMasterBasePtr;	//!< Paging Mapped MMIO (If needed)
+// - IRQs
  int	gATA_IRQPri = 14;
  int	gATA_IRQSec = 15;
- int	giaATA_ControllerLock[2] = {0};	//!< Spinlocks for each controller
-Uint8	gATA_Buffers[2][(MAX_DMA_SECTORS+0xFFF)&~0xFFF] __attribute__ ((section(".padata")));
 volatile int	gaATA_IRQs[2] = {0};
+// - Locks to avoid tripping
+tSpinlock	giaATA_ControllerLock[2];
+// - Buffers!
+Uint8	gATA_Buffers[2][(MAX_DMA_SECTORS+0xFFF)&~0xFFF] __attribute__ ((section(".padata")));
+// - PRDTs
 tPRDT_Ent	gATA_PRDTs[2] = {
 	{0, 512, IDE_PRDT_LAST},
 	{0, 512, IDE_PRDT_LAST}
 };
+tPAddr	gaATA_PRDT_PAddrs[2];
 
 // === CODE ===
 /**
@@ -83,7 +90,6 @@ tPRDT_Ent	gATA_PRDTs[2] = {
 int ATA_SetupIO(void)
 {
 	 int	ent;
-	tPAddr	addr;
 
 	ENTER("");
 
@@ -121,12 +127,13 @@ int ATA_SetupIO(void)
 
 	LOG("gATA_PRDTs = {PBufAddr: 0x%x, PBufAddr: 0x%x}", gATA_PRDTs[0].PBufAddr, gATA_PRDTs[1].PBufAddr);
 
-	addr = MM_GetPhysAddr( (tVAddr)&gATA_PRDTs[0] );
-	LOG("addr = 0x%x", addr);
-	ATA_int_BusMasterWriteDWord(4, addr);
-	addr = MM_GetPhysAddr( (tVAddr)&gATA_PRDTs[1] );
-	LOG("addr = 0x%x", addr);
-	ATA_int_BusMasterWriteDWord(12, addr);
+	gaATA_PRDT_PAddrs[0] = MM_GetPhysAddr( (tVAddr)&gATA_PRDTs[0] );
+	LOG("gaATA_PRDT_PAddrs[0] = 0x%x", gaATA_PRDT_PAddrs[0]);
+	ATA_int_BusMasterWriteDWord(4, gaATA_PRDT_PAddrs[0]);
+	
+	gaATA_PRDT_PAddrs[1] = MM_GetPhysAddr( (tVAddr)&gATA_PRDTs[1] );
+	LOG("gaATA_PRDT_PAddrs[1] = 0x%x", gaATA_PRDT_PAddrs[1]);
+	ATA_int_BusMasterWriteDWord(12, gaATA_PRDT_PAddrs[1]);
 
 	// Enable controllers
 	outb(IDE_PRI_BASE+1, 1);
@@ -137,6 +144,13 @@ int ATA_SetupIO(void)
 	return MODULE_ERR_OK;
 }
 
+/**
+ * \brief Get the size (in sectors) of a disk
+ * \param Disk	Disk to get size of
+ * \return Number of sectors reported
+ * 
+ * Does an ATA IDENTIFY
+ */
 Uint64 ATA_GetDiskSize(int Disk)
 {
 	union {
@@ -151,9 +165,9 @@ Uint64 ATA_GetDiskSize(int Disk)
 	base = ATA_GetBasePort( Disk );
 
 	// Send Disk Selector
-	if(Disk == 1 || Disk == 3)
+	if(Disk & 1)	// Slave
 		outb(base+6, 0xB0);
-	else
+	else	// Master
 		outb(base+6, 0xA0);
 	IO_DELAY();
 	
@@ -165,6 +179,7 @@ Uint64 ATA_GetDiskSize(int Disk)
 	}
 	
 	// Check for the controller
+	// - Write to two RW ports and attempt to read back
 	outb(base+0x02, 0x66);
 	outb(base+0x03, 0xFF);
 	if(inb(base+0x02) != 0x66 || inb(base+0x03) != 0xFF) {
@@ -173,8 +188,8 @@ Uint64 ATA_GetDiskSize(int Disk)
 		return 0;
 	}
 
-	// Send IDENTIFY
-	outb(base+7, 0xEC);
+	// Send ATA IDENTIFY
+	outb(base+7, HDD_IDENTIFY);
 	IO_DELAY();
 	val = inb(base+7);	// Read status
 	LOG("val = 0x%02x", val);
@@ -261,7 +276,8 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	}
 	else
 	{
-		outb(base+0x06, 0xE0 | (disk << 4) | ((Address >> 24) & 0x0F));	// Magic, Disk, High addr
+		// Magic, Disk, High Address nibble
+		outb(base+0x06, 0xE0 | (disk << 4) | ((Address >> 24) & 0x0F));
 	}
 
 	outb(base+0x01, 0x01);	//?
@@ -271,6 +287,10 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	outb(base+0x05, (Uint8) (Address >> 16));	// High Addr
 
 	LOG("Starting Transfer");
+	
+	// HACK: Ensure the PRDT is reset
+	ATA_int_BusMasterWriteDWord(cont*8+4, gaATA_PRDT_PAddrs[cont]);
+		
 	LOG("gATA_PRDTs[%i].Bytes = %i", cont, gATA_PRDTs[cont].Bytes);
 	if( Address > 0x0FFFFFFF )
 		outb(base+0x07, HDD_DMA_R48);	// Read Command (LBA48)
@@ -340,7 +360,8 @@ int ATA_WriteDMA(Uint8 Disk, Uint64 Address, Uint Count, const void *Buffer)
 	}
 	else
 	{
-		outb(base+0x06, 0xE0 | (disk << 4) | ((Address >> 24) & 0x0F));	//Disk,Magic,High addr
+		// Magic, Disk, High Address nibble
+		outb(base+0x06, 0xE0 | (disk << 4) | ((Address >> 24) & 0x0F));
 	}
 
 	outb(base+0x02, (Uint8) Count);		// Sector Count
@@ -418,6 +439,18 @@ Uint8 ATA_int_BusMasterReadByte(int Ofs)
 		return inb( (gATA_BusMasterBase & ~1) + Ofs );
 	else
 		return *(Uint8*)(gATA_BusMasterBasePtr + Ofs);
+}
+
+/**
+ * \brief Read an 32-bit value from a Bus Master register
+ * \param Ofs	Register offset
+ */
+Uint32 ATA_int_BusMasterReadDWord(int Ofs)
+{
+	if( gATA_BusMasterBase & 1 )
+		return ind( (gATA_BusMasterBase & ~1) + Ofs );
+	else
+		return *(Uint32*)(gATA_BusMasterBasePtr + Ofs);
 }
 
 /**
