@@ -2,7 +2,7 @@
  * Acess2
  * - Module Loader
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include <modules.h>
 
