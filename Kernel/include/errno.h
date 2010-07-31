@@ -8,16 +8,20 @@
 enum eErrorNums
 {
 	EOK,
-	ENOSYS,
-	EINVAL,
-	ENOMEM,
-	EACCES,
-	ENOTFOUND,
-	EREADONLY,
-	ENOTIMPL,
-	ENOENT,
-	ENFILE,
-	ENOTDIR,
+	
+	ENOSYS,	// Invalid Instruction
+	EINVAL,	// Invalid Paramater
+	ENOMEM,	// No free memory
+	EACCES,	// Not permitted
+	ENOTFOUND,	// Item not found
+	EREADONLY,	// Read only
+	ENOTIMPL,	// Not implemented
+	ENOENT,	// No entry?
+	ENFILE,	// Too many open files
+	ENOTDIR,	// Not a directory
+	
+	EALREADY,	// Operation was a NOP
+	EINTERNAL,	// Internal Error
 	
 	NUM_ERRS
 };

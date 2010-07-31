@@ -7,6 +7,8 @@
 #include <threads.h>
 #include <errno.h>
 
+#define DEBUG_TRACE_TICKETS	0
+
 // === CONSTANTS ===
 #define	DEFAULT_QUANTUM	10
 #define	DEFAULT_TICKETS	5
@@ -28,7 +30,7 @@ extern void	Proc_CallFaultHandler(tThread *Thread);
 void	Threads_Init(void);
  int	Threads_SetName(char *NewName);
 char	*Threads_GetName(int ID);
-void	Threads_SetTickets(int Num);
+void	Threads_SetTickets(tThread *Thread, int Num);
 tThread	*Threads_CloneTCB(Uint *Err, Uint Flags);
  int	Threads_WaitTID(int TID, int *status);
 tThread	*Threads_GetThread(Uint TID);
@@ -38,7 +40,7 @@ void	Threads_Exit(int TID, int Status);
 void	Threads_Kill(tThread *Thread, int Status);
 void	Threads_Yield(void);
 void	Threads_Sleep(void);
-void	Threads_Wake(tThread *Thread);
+ int	Threads_Wake(tThread *Thread);
 void	Threads_AddActive(tThread *Thread);
  int	Threads_GetPID(void);
  int	Threads_GetTID(void);
@@ -54,8 +56,9 @@ void	Threads_Dump(void);
 tThread	gThreadZero = {
 	Status: THREAD_STAT_ACTIVE,	// Status
 	ThreadName:	"ThreadZero",	// Name
-	Quantum: DEFAULT_QUANTUM, Remaining:	DEFAULT_QUANTUM,	// Quantum, Remaining
-	NumTickets:	DEFAULT_TICKETS
+	Quantum: DEFAULT_QUANTUM,	// Default Quantum
+	Remaining:	DEFAULT_QUANTUM,	// Current Quantum
+	NumTickets:	DEFAULT_TICKETS	// Number of tickets
 	};
 // -- Processes --
 // --- Locks ---
@@ -119,16 +122,24 @@ char *Threads_GetName(int ID)
 }
 
 /**
- * \fn void Threads_SetTickets(int Num)
+ * \fn void Threads_SetTickets(tThread *Thread, int Num)
  * \brief Sets the 'priority' of a task
  */
-void Threads_SetTickets(int Num)
+void Threads_SetTickets(tThread *Thread, int Num)
 {
-	tThread	*cur = Proc_GetCurThread();
+	if(Thread == NULL)
+		Thread = Proc_GetCurThread();
 	if(Num < 0)	return;
 	if(Num > MAX_TICKETS)	Num = MAX_TICKETS;
 	
-	cur->NumTickets = Num;
+	if( Thread != Proc_GetCurThread() ) {
+		LOCK( &glThreadListLock );
+		giFreeTickets -= Thread->NumTickets - Num;
+		Thread->NumTickets = Num;
+		RELEASE( &glThreadListLock );
+	}
+	else
+		Thread->NumTickets = Num;
 }
 
 /**
@@ -158,7 +169,6 @@ tThread *Threads_CloneTCB(Uint *Err, Uint Flags)
 	new->PTID = cur->TID;
 	
 	// Clone Name
-	Log("Threads_CloneTCB: cur (%p) ->ThreadName = %p", cur, cur->ThreadName);
 	new->ThreadName = strdup(cur->ThreadName);
 	
 	// Set Thread Group ID (PID)
@@ -403,6 +413,7 @@ void Threads_Kill(tThread *Thread, int Status)
 	giNumActiveThreads --;
 	if( Thread != Proc_GetCurThread() )
 		giFreeTickets -= Thread->NumTickets;
+	//Log("Threads_Kill: giFreeTickets = %i", giFreeTickets);
 	
 	// Mark thread as a zombie
 	Thread->RetStatus = Status;
@@ -476,7 +487,6 @@ void Threads_Sleep(void)
 	
 	// Reduce the active count & ticket count
 	giNumActiveThreads --;
-	//giTotalTickets -= cur->NumTickets;
 	
 	// Mark thread as sleeping
 	cur->Status = THREAD_STAT_SLEEPING;
@@ -489,17 +499,26 @@ void Threads_Sleep(void)
 
 
 /**
- * \fn void Threads_Wake( tThread *Thread )
+ * \fn int Threads_Wake( tThread *Thread )
  * \brief Wakes a sleeping/waiting thread up
+ * \param Thread	Thread to wake
+ * \return Boolean Failure (Returns ERRNO)
  */
-void Threads_Wake(tThread *Thread)
+int Threads_Wake(tThread *Thread)
 {
 	tThread	*prev;
+	
+	if(!Thread)
+		return -EINVAL;
+	
 	switch(Thread->Status)
 	{
-	case THREAD_STAT_ACTIVE:	break;
+	case THREAD_STAT_ACTIVE:
+		Log("Thread_Wake: Waking awake thread (%i)", Thread->TID);
+		return -EALREADY;
 	case THREAD_STAT_SLEEPING:
-		//Log_Log("Threads", "Waking %i (%p) from sleeping", Thread->TID, Thread);
+		//Log_Log("Threads", "Waking %i (%p) from sleeping (CPU=%i)",
+		//	Thread->TID, Thread, Thread->CurCPU);
 		LOCK( &glThreadListLock );
 		prev = Threads_int_GetPrev(&gSleepingThreads, Thread);
 		prev->Next = Thread->Next;	// Remove from sleeping queue
@@ -507,28 +526,37 @@ void Threads_Wake(tThread *Thread)
 		gActiveThreads = Thread;
 		giNumActiveThreads ++;
 		// Thread can't be the current, so no need to check
+		Thread->CurCPU = -1;
 		giFreeTickets += Thread->NumTickets;
+		#if DEBUG_TRACE_TICKETS
+		Log("Threads_Wake: giFreeTickets = %i", giFreeTickets);
+		#endif
 		Thread->Status = THREAD_STAT_ACTIVE;
 		RELEASE( &glThreadListLock );
-		break;
+		return -EOK;
 	case THREAD_STAT_WAITING:
 		Warning("Thread_Wake - Waiting threads are not currently supported");
-		break;
+		return -ENOTIMPL;
 	case THREAD_STAT_DEAD:
 		Warning("Thread_Wake - Attempt to wake dead thread (%i)", Thread->TID);
-		break;
+		return -ENOTIMPL;
 	default:
 		Warning("Thread_Wake - Unknown process status (%i)\n", Thread->Status);
-		break;
+		return -EINTERNAL;
 	}
 }
 
 /**
  * \brief Wake a thread given the TID
+ * \param TID	Thread ID to wake
+ * \return Boolean Faulure (errno)
  */
-void Threads_WakeTID(tTID Thread)
+int Threads_WakeTID(tTID TID)
 {
-	Threads_Wake( Threads_GetThread(Thread) );
+	tThread	*thread = Threads_GetThread(TID);
+	if(!thread)
+		return -ENOENT;
+	return Threads_Wake( thread );
 }
 
 /**
@@ -543,8 +571,9 @@ void Threads_AddActive(tThread *Thread)
 	giNumActiveThreads ++;
 	// Thread can't be the current, so no need to check
 	giFreeTickets += Thread->NumTickets;
-	//Log("Threads_AddActive: giNumActiveThreads = %i, giTotalTickets = %i",
-	//	giNumActiveThreads, giTotalTickets);
+	#if DEBUG_TRACE_TICKETS
+	Log("Threads_AddActive: giFreeTickets = %i", giFreeTickets);
+	#endif
 	RELEASE( &glThreadListLock );
 }
 
@@ -644,7 +673,6 @@ int Threads_SetGID(Uint *Errno, tGID ID)
 void Threads_Dump(void)
 {
 	tThread	*thread;
-	tThread	*cur = Proc_GetCurThread();
 	
 	Log("Active Threads:");
 	for(thread=gActiveThreads;thread;thread=thread->Next)
@@ -657,8 +685,7 @@ void Threads_Dump(void)
 	Log("Sleeping Threads:");
 	for(thread=gSleepingThreads;thread;thread=thread->Next)
 	{
-		Log("%c%i (%i) - %s",
-			(thread==cur?'*':' '),
+		Log(" %i (%i) - %s",
 			thread->TID, thread->TGID, thread->ThreadName);
 		Log("  %i Tickets, Quantum %i", thread->NumTickets, thread->Quantum);
 		Log("  KStack 0x%x", thread->KernelStack);
@@ -677,16 +704,30 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 	 int	ticket;
 	 int	number;
 	
-	// Note: Enable the code to tell if the switch code has the lock, or
-	// if it's the other code.
+	// TODO: Enable the code to tell if the current CPU has the lock or
+	//       another does.
 	
 	// Check if the thread list is locked by other code
 	// - If so, don't switch (give it a chance to complete)
 	if( IS_LOCKED(&glThreadListLock) )
 		return Last;
 	
+	// Clear Delete Queue
+	while(gDeleteThreads)
+	{
+		thread = gDeleteThreads->Next;
+		if(gDeleteThreads->IsLocked) {	// Only free if structure is unused
+			gDeleteThreads->Status = THREAD_STAT_NULL;
+			free( gDeleteThreads );
+		}
+		gDeleteThreads = thread;
+	}
+	
 	// No active threads, just take a nap
 	if(giNumActiveThreads == 0) {
+		#if DEBUG_TRACE_TICKETS
+		Log("No active threads");
+		#endif
 		return NULL;
 	}
 	
@@ -709,10 +750,31 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 	
 	// Allow the old thread to be scheduled again
 	if( Last ) {
-		if( Last->Status == THREAD_STAT_ACTIVE )
+		if( Last->Status == THREAD_STAT_ACTIVE ) {
 			giFreeTickets += Last->NumTickets;
+			#if DEBUG_TRACE_TICKETS
+			LogF(" CPU %i released %p (%s) into the pool (%i tickets in pool)\n",
+				CPU, Last, Last->ThreadName, Last->NumTickets);
+			#endif
+		}
+		#if DEBUG_TRACE_TICKETS
+		else
+			LogF(" %p (%s)->Status = %i\n", Last, Last->ThreadName, Last->Status);
+		#endif
 		Last->CurCPU = -1;
 	}
+	
+	#if 1
+	number = 0;
+	for(thread=gActiveThreads;thread;thread=thread->Next) {
+		if(thread->CurCPU >= 0)	continue;
+		number += thread->NumTickets;
+	}
+	if(number != giFreeTickets) {
+		Panic("Bookkeeping fail (giFreeTickets(%i) != number(%i)) - CPU%i",
+			giFreeTickets, number, CPU);
+	}
+	#endif
 	
 	// No free tickets (all tasks delegated to cores)
 	if( giFreeTickets == 0 ) {
@@ -741,10 +803,19 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 		Panic("Bookeeping Failed - giFreeTickets(%i) > true count (%i)",
 			giFreeTickets, number);
 	}
+	#if DEBUG_TRACE_TICKETS
+	LogF(" CPU%i giFreeTickets = %i\n", CPU, giFreeTickets);
+	#endif
 	
 	// Make the new thread non-schedulable
 	giFreeTickets -= thread->NumTickets;	
 	thread->CurCPU = CPU;
+	
+	//Threads_Dump();
+	#if DEBUG_TRACE_TICKETS
+	LogF(" CPU%i giFreeTickets = %i, giving %p (%s CPU=%i)\n",
+		CPU, giFreeTickets, thread, thread->ThreadName, thread->CurCPU);
+	#endif
 	
 	RELEASE( &glThreadListLock );
 	

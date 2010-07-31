@@ -86,7 +86,8 @@ enum eFaultNumbers
 // === FUNCTIONS ===
 extern tThread	*Proc_GetCurThread(void);
 extern tThread	*Threads_GetThread(Uint TID);
-extern void	Threads_Wake(tThread *Thread);
+extern void	Threads_SetTickets(tThread *Thread, int Num);
+extern int	Threads_Wake(tThread *Thread);
 extern void	Threads_AddActive(tThread *Thread);
 extern tThread	*Threads_GetNextToRun(int CPU, tThread *Last);
 

@@ -406,7 +406,7 @@ extern int	Proc_Spawn(char *Path);
 extern void	Threads_Exit(int TID, int Status);
 extern void	Threads_Yield(void);
 extern void	Threads_Sleep(void);
-extern void	Threads_WakeTID(tTID Thread);
+extern int	Threads_WakeTID(tTID Thread);
 extern tPID	Threads_GetPID(void);
 extern tTID	Threads_GetTID(void);
 extern tUID	Threads_GetUID(void);
