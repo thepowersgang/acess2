@@ -2,7 +2,7 @@
  * Acess2 VFS
  * - Directory Management Functions
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <acess.h>
 #include <vfs.h>
 #include <vfs_int.h>
@@ -61,7 +61,12 @@ int VFS_MkNod(char *Path, Uint Flags)
 	else
 		parent = VFS_ParsePath(absPath, NULL);
 	
-	if(!parent)	return -1;	// Error Check
+	LOG("parent = %p", parent);
+	
+	if(!parent) {
+		LEAVE('i', -1);
+		return -1;	// Error Check
+	}
 	
 	// Permissions Check
 	if( !VFS_CheckACL(parent, VFS_PERM_EXECUTE|VFS_PERM_WRITE) ) {

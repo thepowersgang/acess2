@@ -49,7 +49,10 @@ int VFS_Init(void)
 	giVFS_MountFileID = SysFS_RegisterFile("VFS/Mounts", NULL, 0);
 	giVFS_DriverFileID = SysFS_RegisterFile("VFS/Drivers", NULL, 0);
 	
-	VFS_Mount("root", "/", "rootfs", "");
+	if( VFS_Mount("root", "/", "rootfs", "") != 0 ) {
+		Panic("Unable to mount root (Where the **** is rootfs?)");
+		return -1;
+	}
 	VFS_MkDir("/Devices");
 	VFS_MkDir("/Mount");
 	VFS_Mount("dev", "/Devices", "devfs", "");
