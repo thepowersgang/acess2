@@ -70,8 +70,16 @@ typedef struct
 extern tATA_Disk	gATA_Disks[];
 
 // === FUNCTIONS ===
+// --- Common ---
 extern void	ATA_int_MakePartition(tATA_Partition *Part, int Disk, int Num, Uint64 Start, Uint64 Length);
+
+// --- MBR Parsing ---
+extern void	ATA_ParseMBR(int Disk, tMBR *MBR);
+
+// --- IO Functions ---
+extern int	ATA_SetupIO(void);
+extern Uint64	ATA_GetDiskSize(int Disk);
 extern int	ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer);
-extern int	ATA_WriteDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer);
+extern int	ATA_WriteDMA(Uint8 Disk, Uint64 Address, Uint Count, const void *Buffer);
 
 #endif
