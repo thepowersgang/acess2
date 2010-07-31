@@ -28,8 +28,6 @@ int main(int argc, char *argv[])
 		{
 			termpath[sizeof(DEFAULT_TERMINAL)-2] = '0' + i;
 			
-			//__asm__ __volatile__ ("int $0xAC" :: "a" (256), "b" ("%s"), "c" (termpath));
-			
 			open(termpath, OPENFLAG_READ);	// Stdin
 			open(termpath, OPENFLAG_WRITE);	// Stdout
 			open(termpath, OPENFLAG_WRITE);	// Stderr
