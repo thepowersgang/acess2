@@ -20,6 +20,16 @@
 // Base is 1193182
 #define TIMER_DIVISOR	11931	//~100Hz
 
+// === TYPES ===
+typedef struct sCPU
+{
+	Uint8	APICID;
+	Uint8	State;	// 0: Unavaliable, 1: Idle, 2: Active
+	Uint16	Resvd;
+	tThread	*Current;
+	tThread	*IdleThread;
+}	tCPU;
+
 // === IMPORTS ===
 extern tGDT	gGDT[];
 extern void	APStartup(void);	// 16-bit AP startup code
@@ -32,10 +42,7 @@ extern int	giNextTID;
 extern int	giTotalTickets;
 extern int	giNumActiveThreads;
 extern tThread	gThreadZero;
-extern tThread	*gActiveThreads;
-extern tThread	*gSleepingThreads;
-extern tThread	*gDeleteThreads;
-extern tThread	*Threads_GetNextToRun(int CPU);
+//extern tThread	*Threads_GetNextToRun(int CPU);
 extern void	Threads_Dump(void);
 extern tThread	*Threads_CloneTCB(Uint *Err, Uint Flags);
 extern void	Proc_ReturnToUser(void);
@@ -62,10 +69,8 @@ volatile int	giNumInitingCPUs = 0;
 tMPInfo	*gMPFloatPtr = NULL;
 tAPIC	*gpMP_LocalAPIC = NULL;
 Uint8	gaAPIC_to_CPU[256] = {0};
-tCPU	gaCPUs[MAX_CPUS];
-#else
-tThread	*gCurrentThread = NULL;
 #endif
+tCPU	gaCPUs[MAX_CPUS];
 tTSS	*gTSSs = NULL;
 tTSS	gTSS0 = {0};
 // --- Error Recovery ---
@@ -284,11 +289,7 @@ void ArchThreads_Init(void)
 	}
 	#endif
 	
-	#if USE_MP
 	gaCPUs[0].Current = &gThreadZero;
-	#else
-	gCurrentThread = &gThreadZero;
-	#endif
 	
 	gThreadZero.MemState.CR3 = (Uint)gInitialPML4 - KERNEL_BASE;
 	
@@ -338,8 +339,59 @@ void MP_SendIPI(Uint8 APICID, int Vector, int DeliveryMode)
  */
 void Proc_Start(void)
 {
+	#if USE_MP
+	 int	i;
+	#endif
+	
+	#if USE_MP
+	// Start APs
+	for( i = 0; i < giNumCPUs; i ++ )
+	{
+		 int	tid;
+		if(i)	gaCPUs[i].Current = NULL;
+		
+		// Create Idle Task
+		if( (tid = Proc_Clone(0, 0)) == 0)
+		{
+			for(;;)	HALT();	// Just yeilds
+		}
+		gaCPUs[i].IdleThread = Threads_GetThread(tid);
+		gaCPUs[i].IdleThread->ThreadName = "Idle Thread";
+		Threads_SetTickets( gaCPUs[i].IdleThread, 0 );	// Never called randomly
+		gaCPUs[i].IdleThread->Quantum = 1;	// 1 slice quantum
+		
+		
+		// Start the AP
+		if( i != giProc_BootProcessorID ) {
+			MP_StartAP( i );
+		}
+	}
+	
+	// BSP still should run the current task
+	gaCPUs[0].Current = &gThreadZero;
+	
+	// Start interrupts and wait for APs to come up
+	Log("Waiting for APs to come up\n");
+	__asm__ __volatile__ ("sti");
+	while( giNumInitingCPUs )	__asm__ __volatile__ ("hlt");
+	#else
+	// Create Idle Task
+	if(Proc_Clone(0, 0) == 0)
+	{
+		gaCPUs[0].IdleThread = Proc_GetCurThread();
+		gaCPUs[0].IdleThread->ThreadName = "Idle Thread";
+		gaCPUs[0].IdleThread->NumTickets = 0;	// Never called randomly
+		gaCPUs[0].IdleThread->Quantum = 1;	// 1 slice quantum
+		for(;;)	HALT();	// Just yeilds
+	}
+	
+	// Set current task
+	gaCPUs[0].Current = &gThreadZero;
+	
 	// Start Interrupts (and hence scheduler)
 	__asm__ __volatile__("sti");
+	#endif
+	MM_FinishVirtualInit();
 }
 
 /**
@@ -351,7 +403,7 @@ tThread *Proc_GetCurThread(void)
 	#if USE_MP
 	return gaCPUs[ GetCPUNum() ].Current;
 	#else
-	return gCurrentThread;
+	return gaCPUs[ 0 ].Current;
 	#endif
 }
 
@@ -674,31 +726,9 @@ void Proc_Scheduler(int CPU)
 	
 	// If the spinlock is set, let it complete
 	if(IS_LOCKED(&glThreadListLock))	return;
-	
-	// Clear Delete Queue
-	while(gDeleteThreads)
-	{
-		thread = gDeleteThreads->Next;
-		if(gDeleteThreads->IsLocked) {	// Only free if structure is unused
-			gDeleteThreads->Status = THREAD_STAT_NULL;
-			free( gDeleteThreads );
-		}
-		gDeleteThreads = thread;
-	}
-	
-	// Check if there is any tasks running
-	if(giNumActiveThreads == 0) {
-		Log("No Active threads, sleeping");
-		__asm__ __volatile__ ("hlt");
-		return;
-	}
-	
+		
 	// Get current thread
-	#if USE_MP
 	thread = gaCPUs[CPU].Current;
-	#else
-	thread = gCurrentThread;
-	#endif
 	
 	// Reduce remaining quantum and continue timeslice if non-zero
 	if(thread->Remaining--)	return;
@@ -717,10 +747,11 @@ void Proc_Scheduler(int CPU)
 	thread->SavedState.RIP = rip;
 	
 	// Get next thread
-	thread = Threads_GetNextToRun(CPU);
+	thread = Threads_GetNextToRun(CPU, thread);
 	
 	// Error Check
 	if(thread == NULL) {
+		thread = gaCPUs[CPU].IdleThread;
 		Warning("Hmm... Threads_GetNextToRun returned NULL, I don't think this should happen.\n");
 		return;
 	}
@@ -734,28 +765,13 @@ void Proc_Scheduler(int CPU)
 	#endif
 	
 	// Set current thread
-	#if USE_MP
 	gaCPUs[CPU].Current = thread;
-	#else
-	gCurrentThread = thread;
-	#endif
 	
 	// Update Kernel Stack pointer
 	gTSSs[CPU].RSP0 = thread->KernelStack-4;
 	
 	// Set address space
-	#if USE_PAE
-	# error "Todo: Implement PAE Address space switching"
-	#else
-		__asm__ __volatile__ ("mov %0, %%cr3"::"a"(thread->MemState.CR3));
-	#endif
-	
-	#if 0
-	if(thread->SavedState.RSP > 0xC0000000
-	&& thread->SavedState.RSP < thread->KernelStack-0x2000) {
-		Log_Warning("Proc", "Possible bad ESP %p (PID %i)", thread->SavedState.ESP);
-	}
-	#endif
+	__asm__ __volatile__ ("mov %0, %%cr3"::"a"(thread->MemState.CR3));
 	
 	// Switch threads
 	__asm__ __volatile__ (

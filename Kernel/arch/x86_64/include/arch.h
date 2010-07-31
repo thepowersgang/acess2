@@ -37,10 +37,13 @@ typedef Uint64	size_t;
 
 typedef volatile int    tSpinlock;
 #define IS_LOCKED(lockptr)      (!!(*(tSpinlock*)lockptr))
-#define LOCK(lockptr)   do {int v=1;\
+#define _LOCK(lockptr,action)   do {int v=1;\
 	while(v)\
 	__asm__ __volatile__("lock xchgl %0, (%2)":"=r"(v):"r"(1),"r"(lockptr));\
+	if(v)	action;\
 	}while(0)
+#define TIGHTLOCK(lockptr)   _LOCK(lockptr, __asm__ __volatile__ ("hlt"));
+#define LOCK(lockptr)   _LOCK(lockptr, Threads_Yield());
 #define RELEASE(lockptr)	__asm__ __volatile__("lock andl $0, (%0)"::"r"(lockptr));
 #define HALT()  __asm__ __volatile__ ("hlt")
 

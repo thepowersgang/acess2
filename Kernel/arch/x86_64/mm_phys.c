@@ -32,9 +32,9 @@ void	MM_DerefPhys(tPAddr PAddr);
 
 // === GLOBALS ===
 tSpinlock	glPhysicalPages;
-Uint64	*gaSuperBitmap;	// 1 bit = 64 Pages, 16 MiB Per Word
-Uint64	*gaMainBitmap;	// 1 bit = 1 Page, 256 KiB per Word
-Uint64	*gaMultiBitmap;	// Each bit means that the page is being used multiple times
+Uint64	*gaSuperBitmap = (void*)MM_PAGE_SUPBMP;	// 1 bit = 64 Pages, 16 MiB Per Word
+Uint64	*gaMainBitmap = (void*)MM_PAGE_BITMAP;	// 1 bit = 1 Page, 256 KiB per Word
+Uint64	*gaMultiBitmap = (void*)MM_PAGE_DBLBMP;	// Each bit means that the page is being used multiple times
 Uint32	*gaiPageReferences = (void*)MM_PAGE_COUNTS;	// Reference Counts
 tPAddr	giFirstFreePage;	// First possibly free page
 Uint64	giPhysRangeFree[NUM_MM_PHYS_RANGES];	// Number of free pages in each range
@@ -208,9 +208,10 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 	
 	LOG("Clearing multi bitmap");
 	// Fill the bitmaps
-	memset(gaMultiBitmap, 0, numPages<<12);
+	memset(gaMultiBitmap, 0, (numPages<<12)/8);
 	// - initialise to one, then clear the avaliable areas
-	memset(gaMainBitmap, -1, numPages<<12);
+	memset(gaMainBitmap, -1, (numPages<<12)/8);
+	memset(gaSuperBitmap, -1, (numPages<<12)/(8*64));
 	LOG("Setting main bitmap");
 	// - Clear all Type=1 areas
 	LOG("Clearing valid regions");

@@ -36,6 +36,7 @@ void kmain(Uint MbMagic, void *MbInfoPtr)
 		// Adjust Multiboot structure address
 		mbInfo = (void*)( (Uint)MbInfoPtr + KERNEL_BASE );
 		gsBootCmdLine = (char*)( (Uint)mbInfo->CommandLine + KERNEL_BASE);
+		Log("gsBootCmdLine = '%s'", gsBootCmdLine);
 		
 		MM_InitPhys_Multiboot( mbInfo );	// Set up physical memory manager
 		break;
@@ -44,6 +45,8 @@ void kmain(Uint MbMagic, void *MbInfoPtr)
 			MbMagic, MULTIBOOT_MAGIC);
 		return ;
 	}
+	
+	Log("gsBootCmdLine = '%s'", gsBootCmdLine);
 	
 	*(Uint16*)(0xB8000) = 0x1F00|'D';
 	Heap_Install();

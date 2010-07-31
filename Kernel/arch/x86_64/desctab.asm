@@ -3,6 +3,8 @@
 ;
 [BITS 64]
 
+[extern Log]
+
 %define NUM_IRQ_CALLBACKS	4
 
 MM_LOCALAPIC	equ	0xFFFFFD0000000000
@@ -171,11 +173,31 @@ IRQ_AddHandler:
 	
 	; Assign the IRQ Callback
 .assign:
+	; A little bit of debug
+	push rdi
+	push rsi
+	push rax
+	sub rsp, 8
+	mov rcx, rdi	; IRQ Number
+	mov rdx, rsi	; Callback
+	mov rsi, rax	; Pointer
+	mov rdi, csIRQ_Assigned
+	call Log
+	add rsp, 8
+	pop rax
+	pop rsi
+	pop rdi
+
 	mov [rax], rsi
 	xor rax, rax
 
 .ret:
 	ret
+	
+[section .rodata]
+csIRQ_Assigned:
+	db	"IRQ %p := %p (IRQ %i)",0
+[section .text]
 
 %macro ISR_NOERRNO	1
 Isr%1:
