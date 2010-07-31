@@ -43,6 +43,7 @@ char	**gasBuiltinModuleArgs;
 /**
  * \brief Initialises a module
  * \param Module	Pointer to the module header
+ * \param ArgString	Comma separated list of module arguments
  * \return Zero on success, eModuleErrors or -1 on error
  * \retval -1	Returned if a dependency fails, or a circular dependency
  *              exists.
