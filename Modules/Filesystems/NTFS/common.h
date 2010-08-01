@@ -23,6 +23,7 @@ typedef struct sNTFS_Disk
 	 
 	 int	ClusterSize;
 	Uint64	MFTBase;
+	Uint32	MFTRecSize;
 	
 	tVFS_Node	RootNode;
 }	tNTFS_Disk;
@@ -35,26 +36,29 @@ typedef struct sNTFS_BootSector
 	Uint16	BytesPerSector;
 	Uint8	SectorsPerCluster;
 	
-	// 14
+	// 0xE
 	Uint8	Unused[7];
 	Uint8	MediaDescriptor;
 	Uint16	Unused2;
 	Uint16	SectorsPerTrack;
 	Uint16	Heads;
 	
+	// 0x1C
 	Uint64	Unused3;
-	Uint32	HEad;
+	Uint32	Unkown;	// Usually 0x00800080 (according to Linux docs)
 	
-	// 38
+	// 0x28
 	Uint64	TotalSectorCount;	// Size of volume in sectors
 	Uint64	MFTStart;	// Logical Cluster Number of Cluster 0 of MFT
 	Uint64	MFTMirrorStart;	// Logical Cluster Number of Cluster 0 of MFT Backup
 	
-	// 60
+	// 0x40
 	// If either of these are -ve, the size can be obtained via
 	// SizeInBytes = 2^(-1 * Value)
-	Uint32	ClustersPerMFTRecord;
-	Uint32	ClustersPerIndexRecord;
+	Sint8	ClustersPerMFTRecord;
+	Uint8	Unused4[3];
+	Sint8	ClustersPerIndexRecord;
+	Uint8	Unused5[3];
 	
 	Uint64	SerialNumber;
 	

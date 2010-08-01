@@ -397,9 +397,10 @@ void Debug_HexDump(char *Header, void *Data, Uint Length)
 	Debug_Puts(1, Header);
 	LogF(" (Hexdump of %p)\r\n", Data);
 
+	#define	CH(n)	((' '<=cdat[(n)]&&cdat[(n)]<=0x7F) ? cdat[(n)] : '.')
+
 	while(Length >= 16)
 	{
-		#define	CH(n)	((' '<=cdat[(n)]&&cdat[(n)]<=0x7F) ? cdat[(n)] : '.')
 		Log("%04x: %02x %02x %02x %02x %02x %02x %02x %02x"
 			" %02x %02x %02x %02x %02x %02x %02x %02x"
 			"  %c%c%c%c%c%c%c%c %c%c%c%c%c%c%c%c",
@@ -414,14 +415,22 @@ void Debug_HexDump(char *Header, void *Data, Uint Length)
 		pos += 16;
 	}
 
-	LogF("Log: %04x: ", pos);
-	while(Length)
 	{
-		Uint	byte = *cdat;
-		LogF("%02x ", byte);
-		Length--;
-		cdat ++;
+		 int	i ;
+		LogF("Log: %04x: ", pos);
+		for(i = 0; i < Length; i ++)
+		{
+			LogF("%02x ", cdat[i]);
+		}
+		for( ; i < 16; i ++)	LogF("   ");
+		LogF(" ");
+		for(i = 0; i < Length; i ++)
+		{
+			if( i == 8 )	LogF(" ");
+			LogF("%c", CH(i));
+		}
 	}
+	
 	Debug_Putchar('\r');
 	Debug_Putchar('\n');
 }

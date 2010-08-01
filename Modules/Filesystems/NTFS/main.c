@@ -75,7 +75,6 @@ tVFS_Node *NTFS_InitDevice(char *Device, char **Options)
 	Log_Debug("FS_NTFS", "MFTMirrorStart = 0x%llx", bs.MFTMirrorStart);
 	Log_Debug("FS_NTFS", "ClustersPerMFTRecord = %i", bs.ClustersPerMFTRecord);
 	Log_Debug("FS_NTFS", "ClustersPerIndexRecord = %i", bs.ClustersPerIndexRecord);
-	Log_Debug("FS_NTFS", "ClustersPerIndexRecord = %i", bs.ClustersPerIndexRecord);
 	Log_Debug("FS_NTFS", "SerialNumber = 0x%llx", bs.SerialNumber);
 	
 	disk->ClusterSize = bs.BytesPerSector * bs.SectorsPerCluster;
@@ -83,6 +82,13 @@ tVFS_Node *NTFS_InitDevice(char *Device, char **Options)
 	disk->MFTBase = bs.MFTStart;
 	Log_Debug("NTFS", "MFT Base = %i", disk->MFTBase);
 	Log_Debug("NTFS", "TotalSectorCount = 0x%x", bs.TotalSectorCount);
+	
+	if( bs.ClustersPerMFTRecord < 0 ) {
+		disk->MFTRecSize = 1 << (-bs.ClustersPerMFTRecord);
+	}
+	else {
+		disk->MFTRecSize = bs.ClustersPerMFTRecord * disk->ClusterSize;
+	}
 	
 	disk->RootNode.Inode = 5;	// MFT Ent #5 is filesystem root
 	disk->RootNode.ImplPtr = disk;
@@ -118,15 +124,20 @@ void NTFS_Unmount(tVFS_Node *Node)
  */
 void NTFS_DumpEntry(tNTFS_Disk *Disk, Uint32 Entry)
 {
-	void	*buf = malloc( Disk->ClusterSize );
+	void	*buf = malloc( Disk->MFTRecSize );
 	tNTFS_FILE_Header	*hdr = buf;
+	tNTFS_FILE_Attrib	*attr;
+	 int	i;
 	
 	if(!buf) {
 		Log_Warning("FS_NTFS", "malloc() fail!");
 		return ;
 	}
 	
-	VFS_ReadAt( Disk->FD, Disk->MFTBase*Disk->ClusterSize, Disk->ClusterSize, buf);
+	VFS_ReadAt( Disk->FD,
+		Disk->MFTBase * Disk->ClusterSize + Entry * Disk->MFTRecSize,
+		Disk->MFTRecSize,
+		buf);
 	
 	Log_Debug("FS_NTFS", "MFT Entry #%i", Entry);
 	Log_Debug("FS_NTFS", "- Magic = 0x%08x (%4C)", hdr->Magic, &hdr->Magic);
@@ -141,6 +152,43 @@ void NTFS_DumpEntry(tNTFS_Disk *Disk, Uint32 Entry)
 	Log_Debug("FS_NTFS", "- RecordSpace = 0x%x", hdr->RecordSpace);
 	Log_Debug("FS_NTFS", "- Reference = 0x%llx", hdr->Reference);
 	Log_Debug("FS_NTFS", "- NextAttribID = 0x%04x", hdr->NextAttribID);
+	
+	attr = (void*)( (char*)hdr + hdr->FirstAttribOfs );
+	i = 0;
+	while( (tVAddr)attr < (tVAddr)hdr + hdr->RecordSize )
+	{
+		if(attr->Type == 0xFFFFFFFF)	break;
+		Log_Debug("FS_NTFS", "- Attribute %i", i ++);
+		Log_Debug("FS_NTFS", " > Type = 0x%x", attr->Type);
+		Log_Debug("FS_NTFS", " > Size = 0x%x", attr->Size);
+		Log_Debug("FS_NTFS", " > ResidentFlag = 0x%x", attr->ResidentFlag);
+		Log_Debug("FS_NTFS", " > NameLength = %i", attr->NameLength);
+		Log_Debug("FS_NTFS", " > NameOffset = 0x%x", attr->NameOffset);
+		Log_Debug("FS_NTFS", " > Flags = 0x%x", attr->Flags);
+		Log_Debug("FS_NTFS", " > AttributeID = 0x%x", attr->AttributeID);
+		if( !attr->ResidentFlag ) {
+			Log_Debug("FS_NTFS", " > AttribLen = 0x%x", attr->Resident.AttribLen);
+			Log_Debug("FS_NTFS", " > AttribOfs = 0x%x", attr->Resident.AttribOfs);
+			Log_Debug("FS_NTFS", " > IndexedFlag = 0x%x", attr->Resident.IndexedFlag);
+			Log_Debug("FS_NTFS", " > Name = '%*C'", attr->NameLength, attr->Resident.Name);
+			Debug_HexDump("FS_NTFS",
+				(void*)( (tVAddr)attr + attr->Resident.AttribOfs ),
+				attr->Resident.AttribLen
+				);
+		}
+		else {
+			Log_Debug("FS_NTFS", " > StartingVCN = 0x%llx", attr->NonResident.StartingVCN);
+			Log_Debug("FS_NTFS", " > LastVCN = 0x%llx", attr->NonResident.LastVCN);
+			Log_Debug("FS_NTFS", " > DataRunOfs = 0x%x", attr->NonResident.DataRunOfs);
+			Log_Debug("FS_NTFS", " > CompressionUnitSize = 0x%x", attr->NonResident.CompressionUnitSize);
+			Log_Debug("FS_NTFS", " > AllocatedSize = 0x%llx", attr->NonResident.AllocatedSize);
+			Log_Debug("FS_NTFS", " > RealSize = 0x%llx", attr->NonResident.RealSize);
+			Log_Debug("FS_NTFS", " > InitiatedSize = 0x%llx", attr->NonResident.InitiatedSize);
+			Log_Debug("FS_NTFS", " > Name = '%*C'", attr->NameLength, attr->NonResident.Name);
+		}
+		
+		attr = (void*)( (tVAddr)attr + attr->Size );
+	}
 	
 	free(buf);
 }
