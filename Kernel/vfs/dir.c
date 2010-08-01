@@ -2,7 +2,7 @@
  * Acess2 VFS
  * - Directory Management Functions
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include <vfs.h>
 #include <vfs_int.h>

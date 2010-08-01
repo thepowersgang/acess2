@@ -104,7 +104,7 @@ tVFS_Driver *VFS_GetFSByName(char *Name)
 	
 	for(;drv;drv=drv->Next)
 	{
-		Log("strcmp('%s' (%p), '%s') == 0?", drv->Name, drv->Name, Name);
+//		Log("strcmp('%s' (%p), '%s') == 0?", drv->Name, drv->Name, Name);
 		if(strcmp(drv->Name, Name) == 0)
 			return drv;
 	}
