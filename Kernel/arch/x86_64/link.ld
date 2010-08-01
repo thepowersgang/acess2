@@ -34,8 +34,7 @@ SECTIONS {
 	
 	.rodata ALIGN(0x1000): AT(ADDR(.rodata) - _kernel_base) {
 		*(.initpd)
-		*(.rodata)
-		*(.rodata.*)
+		*(.rodata .rodata.*)
 		*(.rdata)
 		
 		. = ALIGN(0x10);

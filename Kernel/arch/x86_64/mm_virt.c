@@ -23,6 +23,7 @@
 #define	PF_PRESENT	0x1
 #define	PF_WRITE	0x2
 #define	PF_USER		0x4
+#define	PF_LARGE	0x0
 #define	PF_COW		0x200
 #define	PF_PAGED	0x400
 #define	PF_NX		0x80000000##00000000
@@ -41,6 +42,7 @@ void	MM_FinishVirtualInit(void);
 void	MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs);
 void	MM_DumpTables(tVAddr Start, tVAddr End);
  int	MM_Map(tVAddr VAddr, tPAddr PAddr);
+ int	MM_GetPageEntry(tVAddr Addr, tPAddr *Phys, Uint *Flags);
 
 // === GLOBALS ===
 
@@ -226,16 +228,25 @@ int MM_Map(tVAddr VAddr, tPAddr PAddr)
 	
 	ENTER("xVAddr xPAddr", VAddr, PAddr);
 	
+	// Check that the page hasn't been mapped already
+	{
+		Uint	flags;
+		 int	ret;
+		ret = MM_GetPageEntry(VAddr, &tmp, &flags);
+		if( flags & PF_PRESENT ) {
+			LEAVE('i', 0);
+			return 0;
+		}
+	}
+	
 	// Check PML4
-	//Log(" MM_Map: &PAGEMAPLVL4(%x) = %x", VAddr >> 39, &PAGEMAPLVL4(VAddr >> 39));
-	//Log(" MM_Map: &PAGEDIRPTR(%x) = %x", VAddr >> 30, &PAGEDIRPTR(VAddr >> 30));
-	//Log(" MM_Map: &PAGEDIR(%x) = %x", VAddr >> 21, &PAGEDIR(VAddr >> 21));
-	//Log(" MM_Map: &PAGETABLE(%x) = %x", VAddr >> 12, &PAGETABLE(VAddr >> 12));
-	//Log(" MM_Map: &PAGETABLE(0) = %x", &PAGETABLE(0));
 	if( !(PAGEMAPLVL4(VAddr >> 39) & 1) )
 	{
 		tmp = MM_AllocPhys();
-		if(!tmp)	return 0;
+		if(!tmp) {
+			LEAVE('i', 0);
+			return 0;
+		}
 		PAGEMAPLVL4(VAddr >> 39) = tmp | 3;
 		INVLPG( &PAGEDIRPTR( (VAddr>>39)<<9 ) );
 		memset( &PAGEDIRPTR( (VAddr>>39)<<9 ), 0, 4096 );
@@ -245,7 +256,10 @@ int MM_Map(tVAddr VAddr, tPAddr PAddr)
 	if( !(PAGEDIRPTR(VAddr >> 30) & 1) )
 	{
 		tmp = MM_AllocPhys();
-		if(!tmp)	return 0;
+		if(!tmp) {
+			LEAVE('i', 0);
+			return 0;
+		}
 		PAGEDIRPTR(VAddr >> 30) = tmp | 3;
 		INVLPG( &PAGEDIR( (VAddr>>30)<<9 ) );
 		memset( &PAGEDIR( (VAddr>>30)<<9 ), 0, 0x1000 );
@@ -255,15 +269,20 @@ int MM_Map(tVAddr VAddr, tPAddr PAddr)
 	if( !(PAGEDIR(VAddr >> 21) & 1) )
 	{
 		tmp = MM_AllocPhys();
-		if(!tmp)	return 0;
+		if(!tmp) {
+			LEAVE('i', 0);
+			return 0;
+		}
 		PAGEDIR(VAddr >> 21) = tmp | 3;
 		INVLPG( &PAGETABLE( (VAddr>>21)<<9 ) );
 		memset( &PAGETABLE( (VAddr>>21)<<9 ), 0, 4096 );
 	}
 	
 	// Check if this virtual address is already mapped
-	if( PAGETABLE(VAddr >> PTAB_SHIFT) & 1 )
+	if( PAGETABLE(VAddr >> PTAB_SHIFT) & 1 ) {
+		LEAVE('i', 0);
 		return 0;
+	}
 	
 	PAGETABLE(VAddr >> PTAB_SHIFT) = PAddr | 3;
 	
@@ -341,20 +360,78 @@ void MM_Deallocate(tVAddr VAddr)
 }
 
 /**
+ * \brief Get the page table entry of a virtual address
+ * \param Addr	Virtual Address
+ * \param Phys	Location to put the physical address
+ * \param Flags	Flags on the entry (set to zero if unmapped)
+ * \return Size of the entry (in address bits) - 12 = 4KiB page
+ */
+int MM_GetPageEntry(tVAddr Addr, tPAddr *Phys, Uint *Flags)
+{
+	if(!Phys || !Flags)	return 0;
+	
+	// Check if the PML4 entry is present
+	if( !(PAGEMAPLVL4(Addr >> 39) & 1) ) {
+		*Phys = 0;
+		*Flags = 0;
+		return 39;
+	}
+	// - Check for large page
+	if( PAGEMAPLVL4(Addr >> 39) & PF_LARGE ) {
+		*Phys = PAGEMAPLVL4(Addr >> 39) & ~0xFFF;
+		*Flags = PAGEMAPLVL4(Addr >> 39) & 0xFFF;
+		return 39;
+	}
+	
+	// Check the PDP entry
+	if( !(PAGEDIRPTR(Addr >> 30) & 1) ) {
+		*Phys = 0;
+		*Flags = 0;
+		return 30;
+	}
+	// - Check for large page
+	if( PAGEDIRPTR(Addr >> 30) & PF_LARGE ) {
+		*Phys = PAGEDIRPTR(Addr >> 30) & ~0xFFF;
+		*Flags = PAGEDIRPTR(Addr >> 30) & 0xFFF;
+		return 30;
+	}
+	
+	// Check PDIR Entry
+	if( !(PAGEDIR(Addr >> 21) & 1) ) {
+		*Phys = 0;
+		*Flags = 0;
+		return 21;
+	}
+	// - Check for large page
+	if( PAGEDIR(Addr >> 21) & PF_LARGE ) {
+		*Phys = PAGEDIR(Addr >> 21) & ~0xFFF;
+		*Flags = PAGEDIR(Addr >> 21) & 0xFFF;
+		return 21;
+	}
+	
+	// And, check the page table entry
+	if( !(PAGETABLE(Addr >> PTAB_SHIFT) & 1) ) {
+		*Phys = 0;
+		*Flags = 0;
+	}
+	else {
+		*Phys = PAGETABLE(Addr >> PTAB_SHIFT) & ~0xFFF;
+		*Flags = PAGETABLE(Addr >> PTAB_SHIFT) & 0xFFF;
+	}
+	return 12;
+}
+
+/**
  * \brief Get the physical address of a virtual location
  */
 tPAddr MM_GetPhysAddr(tVAddr Addr)
 {
-	if( !(PAGEMAPLVL4(Addr >> 39) & 1) )
-		return 0;
-	if( !(PAGEDIRPTR(Addr >> 30) & 1) )
-		return 0;
-	if( !(PAGEDIR(Addr >> 21) & 1) )
-		return 0;
-	if( !(PAGETABLE(Addr >> PTAB_SHIFT) & 1) )
-		return 0;
+	tPAddr	ret;
+	Uint	flags;
 	
-	return (PAGETABLE(Addr >> PTAB_SHIFT) & ~0xFFF) | (Addr & 0xFFF);
+	MM_GetPageEntry(Addr, &ret, &flags);
+	
+	return ret | (Addr & 0xFFF);
 }
 
 /**
@@ -577,7 +654,7 @@ tVAddr MM_NewKStack(void)
 		if(MM_GetPhysAddr(base) != 0)
 			continue;
 		
-		Log("MM_NewKStack: Found one at %p", base + KERNEL_STACK_SIZE);
+		//Log("MM_NewKStack: Found one at %p", base + KERNEL_STACK_SIZE);
 		for( i = 0; i < KERNEL_STACK_SIZE; i += 0x1000)
 			MM_Allocate(base+i);
 		
