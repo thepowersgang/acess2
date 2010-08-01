@@ -39,6 +39,10 @@ enum eVT_InModes {
 typedef struct {
 	 int	Mode;	//!< Current Mode (see ::eTplTerminal_Modes)
 	 int	Flags;	//!< Flags (see VT_FLAG_*)
+	 
+	
+	short	NewWidth;	//!< Un-applied dimensions (Width)
+	short	NewHeight;	//!< Un-applied dimensions (Height)
 	short	Width;	//!< Virtual Width
 	short	Height;	//!< Virtual Height
 	short	TextWidth;	//!< Text Virtual Width
@@ -81,8 +85,7 @@ void	VT_int_PutString(tVTerm *Term, Uint8 *Buffer, Uint Count);
 void	VT_int_PutChar(tVTerm *Term, Uint32 Ch);
 void	VT_int_ScrollFramebuffer( tVTerm *Term );
 void	VT_int_UpdateScreen( tVTerm *Term, int UpdateAll );
-void	VT_int_ChangeMode(tVTerm *Term, int NewMode);
-void	VT_int_UpdateResolution(tVTerm *Term, int NewWidth, int NewHeight);
+void	VT_int_ChangeMode(tVTerm *Term, int NewMode, int NewWidth, int NewHeight);
 
 // === CONSTANTS ===
 const Uint16	caVT100Colours[] = {
@@ -180,7 +183,9 @@ int VT_Install(char **Arguments)
 		gVT_Terminals[i].WritePos = 0;
 		gVT_Terminals[i].ViewPos = 0;
 		
-		VT_int_UpdateResolution( &gVT_Terminals[i], giVT_RealWidth, giVT_RealHeight );
+		// Initialise
+		VT_int_ChangeMode( &gVT_Terminals[i],
+			TERM_MODE_TEXT, giVT_RealWidth, giVT_RealHeight );
 		
 		gVT_Terminals[i].Name[0] = '0'+i;
 		gVT_Terminals[i].Name[1] = '\0';
@@ -466,8 +471,12 @@ int VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data)
 			Log_Log("VTerm", "VTerm %i mode set to %i", (int)Node->Inode, *iData);
 			
 			// Update mode if needed
-			if(term->Mode != *iData)
-				VT_int_ChangeMode(term, *iData);
+			if( term->Mode != *iData
+			 || term->Width != term->NewWidth
+			 || term->Height != term->NewHeight)
+			{
+				VT_int_ChangeMode(term, *iData, term->NewWidth, term->NewHeight);
+			}
 			
 			// Update the screen dimensions
 			if(Node->Inode == giVT_CurrentTerminal)
@@ -483,14 +492,11 @@ int VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data)
 				LEAVE('i', -1);
 				return -1;
 			}
-			if( term->Mode == TERM_MODE_TEXT ) {
-				VT_int_UpdateResolution(term, *iData * giVT_CharWidth, term->Height);
-			}
-			else {
-				VT_int_UpdateResolution(term, *iData, term->Height);
-			}
+			term->NewWidth = *iData;
 		}
-		if( term->Mode == TERM_MODE_TEXT )
+		if( term->NewWidth )
+			ret = term->NewWidth;
+		else if( term->Mode == TERM_MODE_TEXT )
 			ret = term->TextWidth;
 		else
 			ret = term->Width;
@@ -504,14 +510,11 @@ int VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data)
 				LEAVE('i', -1);
 				return -1;
 			}
-			if( term->Mode == TERM_MODE_TEXT ) {
-				VT_int_UpdateResolution(term, term->Width, *iData * giVT_CharWidth);
-			}
-			else {
-				VT_int_UpdateResolution(term, term->Width, *iData);
-			}
+			term->NewHeight = *iData;
 		}
-		if( term->Mode == TERM_MODE_TEXT )
+		if( term->NewHeight )
+			ret = term->NewHeight;
+		else if( term->Mode == TERM_MODE_TEXT )
 			ret = term->TextHeight = *iData;
 		else
 			ret = term->Height;
@@ -1153,29 +1156,13 @@ void VT_int_UpdateScreen( tVTerm *Term, int UpdateAll )
 }
 
 /**
- * \fn void VT_int_ChangeMode(tVTerm *Term, int NewMode)
- * \brief Change the mode of a VTerm
+ * \brief Update the screen mode
+ * \param Term	Terminal to update
+ * \param NewMode	New mode to set
+ * \param NewWidth	New framebuffer width
+ * \param NewHeight	New framebuffer height
  */
-void VT_int_ChangeMode(tVTerm *Term, int NewMode)
-{	
-	switch(NewMode)
-	{
-	case TERM_MODE_TEXT:
-		Log_Log("VTerm", "Set VT %p to text mode", Term);
-		break;
-	case TERM_MODE_FB:
-		Log_Log("VTerm", "Set VT %p to framebuffer mode (%ix%i)",
-			Term, Term->Width, Term->Height);
-		break;
-	//case TERM_MODE_2DACCEL:
-	//case TERM_MODE_3DACCEL:
-	//	return;
-	}
-	
-	Term->Mode = NewMode;
-}
-
-void VT_int_UpdateResolution(tVTerm *Term, int NewWidth, int NewHeight)
+void VT_int_ChangeMode(tVTerm *Term, int NewMode, int NewWidth, int NewHeight)
 {
 	 int	oldW = Term->Width;
 	 int	oldTW = oldW / giVT_CharWidth;
@@ -1194,6 +1181,7 @@ void VT_int_UpdateResolution(tVTerm *Term, int NewWidth, int NewHeight)
 	Term->TextHeight = NewHeight / giVT_CharHeight;
 	Term->Width = NewWidth;
 	Term->Height = NewHeight;
+	Term->Mode = NewMode;
 	
 	// Allocate new buffers
 	// - Text
@@ -1235,6 +1223,23 @@ void VT_int_UpdateResolution(tVTerm *Term, int NewWidth, int NewHeight)
 				w*sizeof(Uint32)
 				);
 		}
+	}
+	
+	
+	// Debug
+	switch(NewMode)
+	{
+	case TERM_MODE_TEXT:
+		Log_Log("VTerm", "Set VT %p to text mode (%ix%i)",
+			Term, Term->TextWidth, Term->TextHeight);
+		break;
+	case TERM_MODE_FB:
+		Log_Log("VTerm", "Set VT %p to framebuffer mode (%ix%i)",
+			Term, Term->Width, Term->Height);
+		break;
+	//case TERM_MODE_2DACCEL:
+	//case TERM_MODE_3DACCEL:
+	//	return;
 	}
 }
 
