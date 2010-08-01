@@ -316,8 +316,8 @@ Uint64 ATA_ReadFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 
 	{
 		int ret = DrvUtil_ReadBlock(Offset, Length, Buffer, ATA_ReadRaw, SECTOR_SIZE, disk);
-		Log("ATA_ReadFS: disk=%i, Offset=%lli, Length=%lli", disk, Offset, Length);
-		Debug_HexDump("ATA_ReadFS", Buffer, Length);
+		//Log("ATA_ReadFS: disk=%i, Offset=%lli, Length=%lli", disk, Offset, Length);
+		//Debug_HexDump("ATA_ReadFS", Buffer, Length);
 		LEAVE('i', ret);
 		return ret;
 	}
