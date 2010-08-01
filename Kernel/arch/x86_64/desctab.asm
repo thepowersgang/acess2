@@ -80,7 +80,7 @@ Desctab_Init:
 	%endrep
 	
 	; Install IRQs
-	SETIDT	0xF0, Irq0
+	SETIDT	0xF0, SchedulerIRQ
 	SETIDT	0xF1, Irq1
 	SETIDT	0xF2, Irq2
 	SETIDT	0xF3, Irq3
@@ -321,20 +321,43 @@ IrqCommon:
 [extern Proc_Scheduler]
 [global SchedulerIRQ]
 SchedulerIRQ:
-	; TODO: Find Current CPU
 	PUSH_GPR
 	;PUSH_FPU
 	;PUSH_XMM
 	
-	xor rsi, rsi
-	mov rdi, MM_LOCALAPIC+0x20
-	mov esi, [rdi]
+	; Save Thread Pointer
+	mov rax, dr0
+	push rax
+	
+	; Get the CPU Number
+	mov rdi, dr1
+	; Call the Scheduler
 	call Proc_Scheduler
+	
+	; Restore Thread Pointer
+	pop rax
+	mov dr0, rax
+	
+	; Send EOI (To either the APIC or the PIC)
+	%if USE_MP
+	test ebx, ebx
+	jnz .sendEOI
+	%endif
+	; PIC
+	mov al, 0x20
+	out 0x20, al		; ACK IRQ
+	%if USE_MP
+	jmp .ret
+	; APIC
+.sendEOI:
+	mov eax, DWORD [gpMP_LocalAPIC]
+	mov DWORD [eax+0x0B0], 0
+	%endif
+.ret:
 	
 	;POP_XMM
 	;POP_FPU
 	POP_GPR
-	add rsp, 8*2
 	iretq
 
 [section .data]

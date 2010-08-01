@@ -270,13 +270,13 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		{
 		case 'd':
 		case 'i':
-			#if BITS == 32
-			if( (isLongLong && val >> 63) || (!isLongLong && val >> 31) ) {
-			#else
-			if( (Sint)val < 0 ) {
-			#endif
+			if( isLongLong && val >> 63 ) {
 				PUTCH('-');
 				val = -val;
+			}
+			else if( !isLongLong && val >> 31 ) {
+				PUTCH('-');
+				val = -(Sint32)val;
 			}
 			itoa(p, val, 10, minSize, pad);
 			goto printString;

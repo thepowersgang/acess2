@@ -289,9 +289,14 @@ void ArchThreads_Init(void)
 	}
 	#endif
 	
+	// Set Debug registers
+	__asm__ __volatile__ ("mov %0, %%db0" : : "r"(&gThreadZero));
+	__asm__ __volatile__ ("mov %%rax, %%db1" : : "a"(0));
+	
 	gaCPUs[0].Current = &gThreadZero;
 	
 	gThreadZero.MemState.CR3 = (Uint)gInitialPML4 - KERNEL_BASE;
+	gThreadZero.CurCPU = 0;
 	
 	// Set timer frequency
 	outb(0x43, 0x34);	// Set Channel 0, Low/High, Rate Generator
@@ -303,6 +308,8 @@ void ArchThreads_Init(void)
 	
 	// Change Stacks
 	Proc_ChangeStack();
+	
+	Log("Multithreading initialised");
 }
 
 #if USE_MP
@@ -387,11 +394,13 @@ void Proc_Start(void)
 	
 	// Set current task
 	gaCPUs[0].Current = &gThreadZero;
+	gaCPUs[0].Current->CurCPU = 0;
 	
 	// Start Interrupts (and hence scheduler)
 	__asm__ __volatile__("sti");
 	#endif
 	MM_FinishVirtualInit();
+	Log("Multithreading started");
 }
 
 /**
@@ -726,7 +735,7 @@ void Proc_Scheduler(int CPU)
 	
 	// If the spinlock is set, let it complete
 	if(IS_LOCKED(&glThreadListLock))	return;
-		
+	
 	// Get current thread
 	thread = gaCPUs[CPU].Current;
 	

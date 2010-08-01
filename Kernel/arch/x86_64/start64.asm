@@ -25,6 +25,9 @@ start64:
 	jmp rax
 .himem:
 	
+	xor rax, rax
+	mov dr0, rax	; Set CPU0
+	
 	; Clear the screen
 	mov rax, 0x1F201F201F201F20	; Set the screen to White on blue, space (4 characters)
 	mov edi, 0xB8000

@@ -5,9 +5,9 @@
 
 MAX_CPUS := 4
 
-CPPFLAGS	:= -DMAX_CPUS=$(MAX_CPUS)
+CPPFLAGS	:= -DMAX_CPUS=$(MAX_CPUS) -D USE_MP=0
 CFLAGS		:= $(KERNEL_CFLAGS) -mno-sse -mno-mmx
-ASFLAGS		:= -f elf64 -D MAX_CPUS=$(MAX_CPUS)
+ASFLAGS		:= -f elf64 -D MAX_CPUS=$(MAX_CPUS) -D USE_MP=0
 LDFLAGS 	:= -nostdlib -nodefaultlibs
 
 ifeq ($(ARCH),amd64)

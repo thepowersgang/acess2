@@ -20,11 +20,8 @@ tRamFS_File	*Root_int_AllocFile(void);
 
 // === GLOBALS ===
 tVFS_Driver	gRootFS_Info = {
-	"rootfs", 0,
-	Root_InitDevice,
-	NULL,	// Unmount
-	NULL
-};
+	"rootfs", 0, Root_InitDevice, NULL, NULL
+	};
 tRamFS_File	RootFS_Files[MAX_FILES];
 tVFS_ACL	RootFS_DirACLs[3] = {
 	{{0,0}, {0,VFS_PERM_ALL}},	// Owner (Root)
