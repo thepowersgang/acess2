@@ -367,7 +367,7 @@ int Vesa_Ioctl(tVFS_Node *Node, int ID, void *Data)
 	
 	case VIDEO_IOCTL_SETCURSOR:	// Set cursor position
 		#if !BLINKING_CURSOR
-		if(giVesaCursorX > 0 && giVesaCursorY)
+		if(giVesaCursorX > 0)
 			Vesa_FlipCursor(Node);
 		#endif
 		giVesaCursorX = ((tVideo_IOCtl_Pos*)Data)->x;
