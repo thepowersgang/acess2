@@ -20,25 +20,27 @@
  * 0x00000000 00000000 - 0x00007FFF FFFFFFFF	47	128 TiB	User Space
  * 0x00008000 00000000 - 0xFFFF7FFF FFFFFFFF	--- SIGN EXTENSION NULL ZONE
  * 0xFFFF8000 00000000 - 0xFFFFFFFF FFFFFFFF	47	128	TiB	Kernel Range
- *       8000 00000000 -       9000 00000000	44	16	TiB	Kernel Heap
+ *       8000 00000000 -       9000 00000000	42	16	TiB	Kernel Heap
  *       9000 00000000 -       9800 00000000	43	8	TiB	Module Space
  *       9800 00000000 -       9A00 00000000	41	2	TiB	Kernel VFS
- *       ---- GAP ----
+ *       ---- GAP ----                      		6	TiB
  *       A000 00000000 -       B000 00000000	44	16	TiB	Kernel Stacks
  *       C000 00000000 -       D000 00000000	44	16	TiB	Hardware Mappings
  *       D000 00000000 -       D080 00000000	39	512	GiB	Per-Process Data
  *       D080 00000000 -       D100 00000000	39	512	GiB	Kernel Supplied User Code
- *       ---- GAP ----
+ *       ---- GAP ----                      		9	TiB
  *       E000 00000000 -       E400 00000000	42	4	TiB	Physical Page Reference Counts (2**40 = 2**52 bytes)
  *       E400 00000000 -       E480 00000000	39	512	GiB	Physical Page Bitmap (1 page per bit)
  *       E480 00000000 -       E500 00000000	39	512	GiB	Physical Page DblAlloc Bitmap (1 page per bit)
  *       E500 00000000 -       E500 80000000	31	2	GiB	Physical Page Super Bitmap (64 pages per bit)
- *       ---- GAP ----
+ *       ---- GAP ----                      		9	TiB
  *       FE00 00000000 -       FE80 00000000	39	512	GiB	Fractal Mapping (PML4 508)
  *       FE80 00000000 -       FF00 00000000	39	512	GiB	Temp Fractal Mapping
- *       FF00 00000000 -       FF80 00000000	39	512	GiB	-- UNUSED --
- *       FD00 00000000 -       FD00 80000000	39	2	GiB	Local APIC
- *       FFFF 80000000 -       FFFF 7FFFFFFF	31	2	GiB	Identity Map
+ *       ---- GAP ----                      		512	GiB	-- UNUSED --
+ *       FF80 00000000 -       FF80 80000000	39	2	GiB	Local APIC
+ *       ---- GAP ----
+ *       FFFF 00000000 -       FFFF 80000000	31	2	GiB	User Code
+ *       FFFF 80000000 -       FFFF FFFFFFFF	31	2	GiB	Identity Map
  */
 
 #define	MM_USER_MIN 	0x00000000##00010000
@@ -47,7 +49,7 @@
 #define USER_STACK_TOP	0x00007FFF##FFFFF000
 #define	MM_USER_MAX 	0x00007FFF##FFFFF000
 #define	MM_KERNEL_RANGE	0xFFFF8000##00000000
-#define MM_KHEAP_BASE	(MM_KERNEL_RANGE|(0x8000##80000000))
+#define MM_KHEAP_BASE	(MM_KERNEL_RANGE|(0x8000##00000000))
 #define MM_KHEAP_MAX	(MM_KERNEL_RANGE|(0x9000##00000000))
 #define MM_MODULE_MIN	(MM_KERNEL_RANGE|(0x9000##00000000))
 #define MM_MODULE_MAX	(MM_KERNEL_RANGE|(0x9800##00000000))
