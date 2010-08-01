@@ -40,9 +40,10 @@ typedef struct sNTFS_BootSector
 	Uint8	MediaDescriptor;
 	Uint16	Unused2;
 	Uint16	SectorsPerTrack;
+	Uint16	Heads;
 	
 	Uint64	Unused3;
-	Uint32	Unknown;
+	Uint32	HEad;
 	
 	// 38
 	Uint64	TotalSectorCount;	// Size of volume in sectors
@@ -57,7 +58,7 @@ typedef struct sNTFS_BootSector
 	
 	Uint64	SerialNumber;
 	
-	Uint8	Padding[512-72];
+	Uint8	Padding[512-0x50];
 	
 } PACKED	tNTFS_BootSector;
 

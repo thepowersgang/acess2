@@ -60,10 +60,23 @@ tVFS_Node *NTFS_InitDevice(char *Device, char **Options)
 		bs.Jump[0],
 		bs.Jump[1],
 		bs.Jump[2]);
-	Log_Debug("FS_NTFS", "SystemID = %02x%02x%02x%02x%02x%02x%02x%02x",
+	Log_Debug("FS_NTFS", "SystemID = %02x%02x%02x%02x%02x%02x%02x%02x (%8C)",
 		bs.SystemID[0], bs.SystemID[1], bs.SystemID[2], bs.SystemID[3],
-		bs.SystemID[4], bs.SystemID[5], bs.SystemID[6], bs.SystemID[7]
+		bs.SystemID[4], bs.SystemID[5], bs.SystemID[6], bs.SystemID[7],
+		bs.SystemID
 		);
+	Log_Debug("FS_NTFS", "BytesPerSector = %i", bs.BytesPerSector);
+	Log_Debug("FS_NTFS", "SectorsPerCluster = %i", bs.SectorsPerCluster);
+	Log_Debug("FS_NTFS", "MediaDescriptor = 0x%x", bs.MediaDescriptor);
+	Log_Debug("FS_NTFS", "SectorsPerTrack = %i", bs.SectorsPerTrack);
+	Log_Debug("FS_NTFS", "Heads = %i", bs.Heads);
+	Log_Debug("FS_NTFS", "TotalSectorCount = 0x%llx", bs.TotalSectorCount);
+	Log_Debug("FS_NTFS", "MFTStart = 0x%llx", bs.MFTStart);
+	Log_Debug("FS_NTFS", "MFTMirrorStart = 0x%llx", bs.MFTMirrorStart);
+	Log_Debug("FS_NTFS", "ClustersPerMFTRecord = %i", bs.ClustersPerMFTRecord);
+	Log_Debug("FS_NTFS", "ClustersPerIndexRecord = %i", bs.ClustersPerIndexRecord);
+	Log_Debug("FS_NTFS", "ClustersPerIndexRecord = %i", bs.ClustersPerIndexRecord);
+	Log_Debug("FS_NTFS", "SerialNumber = 0x%llx", bs.SerialNumber);
 	
 	disk->ClusterSize = bs.BytesPerSector * bs.SectorsPerCluster;
 	Log_Debug("NTFS", "Cluster Size = %i KiB", disk->ClusterSize/1024);
@@ -116,7 +129,7 @@ void NTFS_DumpEntry(tNTFS_Disk *Disk, Uint32 Entry)
 	VFS_ReadAt( Disk->FD, Disk->MFTBase*Disk->ClusterSize, Disk->ClusterSize, buf);
 	
 	Log_Debug("FS_NTFS", "MFT Entry #%i", Entry);
-	Log_Debug("FS_NTFS", "- Magic = 0x%08x", hdr->Magic);
+	Log_Debug("FS_NTFS", "- Magic = 0x%08x (%4C)", hdr->Magic, &hdr->Magic);
 	Log_Debug("FS_NTFS", "- UpdateSequenceOfs = 0x%x", hdr->UpdateSequenceOfs);
 	Log_Debug("FS_NTFS", "- UpdateSequenceSize = 0x%x", hdr->UpdateSequenceSize);
 	Log_Debug("FS_NTFS", "- LSN = 0x%x", hdr->LSN);
