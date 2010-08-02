@@ -222,7 +222,7 @@ void VT_InitOutput()
 		Log_Warning("VTerm", "Oh F**k, I can't open the video device '%s'", gsVT_OutputDevice);
 		return ;
 	}
-	VT_SetResolution(giVT_RealWidth, giVT_RealHeight);
+	VT_SetResolution( giVT_RealWidth, giVT_RealHeight );
 	VT_SetTerminal( 0 );
 	VT_SetMode( VIDEO_BUFFMT_TEXT );
 }
@@ -239,6 +239,66 @@ void VT_InitInput()
 }
 
 /**
+ * \brief Set the video resolution
+ * \param Width	New screen width
+ * \param Height	New screen height
+ */
+void VT_SetResolution(int Width, int Height)
+{
+	tVideo_IOCtl_Mode	mode = {0};
+	 int	tmp;
+	 int	i;
+	
+	// Create the video mode
+	mode.width = Width;
+	mode.height = Height;
+	mode.bpp = 32;
+	mode.flags = 0;
+	
+	// Set video mode
+	VFS_IOCtl( giVT_OutputDevHandle, VIDEO_IOCTL_FINDMODE, &mode );
+	tmp = mode.id;
+	if( Width != mode.width || Height != mode.height )
+	{
+		Log_Warning("VTerm",
+			"Selected resolution (%ix%i is not supported) by the device, using (%ix%i)",
+			giVT_RealWidth, giVT_RealHeight,
+			mode.width, mode.height
+			);
+	}
+	VFS_IOCtl( giVT_OutputDevHandle, VIDEO_IOCTL_GETSETMODE, &tmp );
+	
+	// Resize text terminals if needed
+	if( giVT_RealWidth != mode.width || giVT_RealHeight != mode.height )
+	{
+		 int	newBufSize = (giVT_RealWidth/giVT_CharWidth)
+					*(giVT_RealHeight/giVT_CharHeight)
+					*(giVT_Scrollback+1);
+		//tVT_Char	*tmp;
+		// Resize the text terminals
+		giVT_RealWidth = mode.width;
+		giVT_RealHeight = mode.height;
+		for( i = 0; i < NUM_VTS; i ++ )
+		{
+			if( gVT_Terminals[i].Mode != TERM_MODE_TEXT )	continue;
+			
+			gVT_Terminals[i].Text = realloc(
+				gVT_Terminals[i].Text,
+				newBufSize*sizeof(tVT_Char)
+				);
+		}
+	}
+}
+
+/**
+ * \brief Set video output buffer mode
+ */
+void VT_SetMode(int Mode)
+{
+	VFS_IOCtl( giVT_OutputDevHandle, VIDEO_IOCTL_SETBUFFORMAT, &Mode );
+}
+
+/**
  * \fn char *VT_ReadDir(tVFS_Node *Node, int Pos)
  * \brief Read from the VTerm Directory
  */
@@ -252,6 +312,8 @@ char *VT_ReadDir(tVFS_Node *Node, int Pos)
 /**
  * \fn tVFS_Node *VT_FindDir(tVFS_Node *Node, char *Name)
  * \brief Find an item in the VTerm directory
+ * \param Node	Root node
+ * \param Name	Name (number) of the terminal
  */
 tVFS_Node *VT_FindDir(tVFS_Node *Node, char *Name)
 {
@@ -329,6 +391,7 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	// Check current mode
 	switch(term->Mode)
 	{
+	// Text Mode (UTF-8)
 	case TERM_MODE_TEXT:
 		while(pos < Length)
 		{
@@ -342,6 +405,7 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		break;
 	
 	//case TERM_MODE_FB:
+	// Other - UCS-4
 	default:
 		while(pos < Length)
 		{
@@ -368,29 +432,36 @@ Uint64 VT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	// Write
 	switch( term->Mode )
 	{
+	// Print Text
 	case TERM_MODE_TEXT:
 		VT_int_PutString(term, Buffer, Length);
 		break;
+	// Framebuffer :)
 	case TERM_MODE_FB:
+	
+		// - Sanity Checking
 		size = term->Width*term->Height*4;
 		if( Offset > size ) {
 			Log_Notice("VTerm", "VT_Write: Offset (0x%llx) > FBSize (0x%x)",
 				Offset, size);
 			return 0;
 		}
-		
 		if( Offset + Length > size ) {
 			Log_Notice("VTerm", "VT_Write: Offset+Length (0x%llx) > FBSize (0x%x)",
 				Offset+Length, size);
 			Length = size - Offset;
 		}
 		
+		// Copy to the local cache
 		memcpy( (void*)((Uint)term->Buffer + (Uint)Offset), Buffer, Length );
 		
+		// Update screen if needed
 		if( Node->Inode == giVT_CurrentTerminal )
 		{
+			// Fill entire screen?
 			if( giVT_RealWidth > term->Width || giVT_RealHeight > term->Height )
 			{
+				// No? :( Well, just center it
 				 int	x, y, w, h;
 				x = Offset/4;	y = x / term->Width;	x %= term->Width;
 				w = Length/4+x;	h = w / term->Width;	w %= term->Width;
@@ -414,6 +485,8 @@ Uint64 VT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 			}
 		}
 	// Just pass on (for now)
+	// TODO: Handle locally too to ensure no information is lost on
+	//       VT Switch (and to isolate terminals from each other)
 	case TERM_MODE_2DACCEL:
 	//case TERM_MODE_3DACCEL:
 		if( Node->Inode == giVT_CurrentTerminal )
@@ -475,13 +548,17 @@ int VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data)
 			 || term->NewWidth
 			 || term->NewHeight)
 			{
+				// Adjust for text mode
 				if( *iData == TERM_MODE_TEXT ) {
 					term->NewHeight *= giVT_CharHeight;
 					term->NewWidth *= giVT_CharWidth;
 				}
+				// Fill unchanged dimensions
 				if(term->NewHeight == 0)	term->NewHeight = term->Height;
 				if(term->NewWidth == 0)	term->NewWidth = term->Width;
+				// Set new mode
 				VT_int_ChangeMode(term, *iData, term->NewWidth, term->NewHeight);
+				// Clear unapplied dimensions
 				term->NewWidth = 0;
 				term->NewHeight = 0;
 			}
@@ -540,58 +617,6 @@ int VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data)
 	return -1;
 }
 
-void VT_SetResolution(int Width, int Height)
-{
-	tVideo_IOCtl_Mode	mode = {0};
-	 int	tmp;
-	 int	i;
-	
-	// Create the video mode
-	mode.width = Width;
-	mode.height = Height;
-	mode.bpp = 32;
-	mode.flags = 0;
-	
-	// Set video mode
-	VFS_IOCtl( giVT_OutputDevHandle, VIDEO_IOCTL_FINDMODE, &mode );
-	tmp = mode.id;
-	if( Width != mode.width || Height != mode.height )
-	{
-		Log_Warning("VTerm",
-			"Selected resolution (%ix%i is not supported) by the device, using (%ix%i)",
-			giVT_RealWidth, giVT_RealHeight,
-			mode.width, mode.height
-			);
-	}
-	VFS_IOCtl( giVT_OutputDevHandle, VIDEO_IOCTL_GETSETMODE, &tmp );
-	
-	// Resize text terminals if needed
-	if( giVT_RealWidth != mode.width || giVT_RealHeight != mode.height )
-	{
-		 int	newBufSize = (giVT_RealWidth/giVT_CharWidth)
-					*(giVT_RealHeight/giVT_CharHeight)
-					*(giVT_Scrollback+1);
-		//tVT_Char	*tmp;
-		// Resize the text terminals
-		giVT_RealWidth = mode.width;
-		giVT_RealHeight = mode.height;
-		for( i = 0; i < NUM_VTS; i ++ )
-		{
-			if( gVT_Terminals[i].Mode != TERM_MODE_TEXT )	continue;
-			
-			gVT_Terminals[i].Text = realloc(
-				gVT_Terminals[i].Text,
-				newBufSize*sizeof(tVT_Char)
-				);
-		}
-	}
-}
-
-void VT_SetMode(int Mode)
-{
-	VFS_IOCtl( giVT_OutputDevHandle, VIDEO_IOCTL_SETBUFFORMAT, &Mode );
-}
-
 /**
  * \fn void VT_SetTerminal(int ID)
  * \brief Set the current terminal
@@ -607,8 +632,8 @@ void VT_SetTerminal(int ID)
 	if( gpVT_CurTerm->Mode == TERM_MODE_TEXT && !(gpVT_CurTerm->Flags & VT_FLAG_HIDECSR) )
 	{
 		tVideo_IOCtl_Pos	pos;
-		pos.x = gpVT_CurTerm->WritePos % gpVT_CurTerm->TextWidth;
-		pos.y = gpVT_CurTerm->WritePos / gpVT_CurTerm->TextWidth;
+		pos.x = (gpVT_CurTerm->WritePos - gpVT_CurTerm->ViewPos) % gpVT_CurTerm->TextWidth;
+		pos.y = (gpVT_CurTerm->WritePos - gpVT_CurTerm->ViewPos) / gpVT_CurTerm->TextWidth;
 		VFS_IOCtl(giVT_OutputDevHandle, VIDEO_IOCTL_SETCURSOR, &pos);
 	}
 	
@@ -963,8 +988,8 @@ void VT_int_PutString(tVTerm *Term, Uint8 *Buffer, Uint Count)
 	if( Term == gpVT_CurTerm && !(Term->Flags & VT_FLAG_HIDECSR) )
 	{
 		tVideo_IOCtl_Pos	pos;
-		pos.x = Term->WritePos % Term->TextWidth;
-		pos.y = Term->WritePos / Term->TextWidth;
+		pos.x = (Term->WritePos - Term->ViewPos) % Term->TextWidth;
+		pos.y = (Term->WritePos - Term->ViewPos) / Term->TextWidth;
 		VFS_IOCtl(giVT_OutputDevHandle, VIDEO_IOCTL_SETCURSOR, &pos);
 	}
 }
