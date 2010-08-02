@@ -472,10 +472,18 @@ int VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data)
 			
 			// Update mode if needed
 			if( term->Mode != *iData
-			 || term->Width != term->NewWidth
-			 || term->Height != term->NewHeight)
+			 || term->NewWidth
+			 || term->NewHeight)
 			{
+				if( *iData == TERM_MODE_TEXT ) {
+					term->NewHeight *= giVT_CharHeight;
+					term->NewWidth *= giVT_CharWidth;
+				}
+				if(term->NewHeight == 0)	term->NewHeight = term->Height;
+				if(term->NewWidth == 0)	term->NewWidth = term->Width;
 				VT_int_ChangeMode(term, *iData, term->NewWidth, term->NewHeight);
+				term->NewWidth = 0;
+				term->NewHeight = 0;
 			}
 			
 			// Update the screen dimensions
