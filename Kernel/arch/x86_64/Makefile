@@ -14,9 +14,9 @@ ifeq ($(ARCH),amd64)
 	ASFLAGS += -D AMD64=1
 	CPPFLAGS += -DAMD64=1
 else
-	ifeq ($(ARCH),ia64)
-		ASFLAGS += -D AMD64=0 -D IA64=1
-		CPPFLAGS += -DAMD64=0 -DIA64=1
+	ifeq ($(ARCH),x86_64)
+		ASFLAGS += -D AMD64=0 -D X86_64=1
+		CPPFLAGS += -DAMD64=0 -DX86_64=1
 	endif
 endif
 	

@@ -102,6 +102,24 @@ EXPORT char *strdup(const char *str)
 }
 
 /**
+ * \fn EXPORT char *strndup(const char *str, size_t maxlen)
+ * \brief Duplicate a string into the heap with a maximum length
+ * \param str	Input string buffer
+ * \param maxlen	Maximum valid size of the \a str buffer
+ * \return Heap string with the same value of \a str
+ */
+EXPORT char *strndup(const char *str, size_t maxlen)
+{
+	size_t	len;
+	char	*ret;
+	for( len = 0; len < maxlen && str[len]; len ++) ;
+	ret = malloc( len + 1);
+	memcpy( ret, str, len );
+	ret[len] = '\0';
+	return ret;
+}
+
+/**
  * \fn EXPORT char *strchr(char *str, int character)
  * \brief Locate a character in a string
  */

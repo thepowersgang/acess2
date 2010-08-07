@@ -148,12 +148,10 @@ int VT_Install(char **Arguments)
 			val = arg + strpos(arg, '=');	*val++ = '\0';
 			
 			if( strcmp(opt, "Video") == 0 ) {
-				if(gsVT_OutputDevice)	free(gsVT_OutputDevice);
-				gsVT_OutputDevice = strdup(val);
+				gsVT_OutputDevice = val;
 			}
 			else if( strcmp(opt, "Input") == 0 ) {
-				if(gsVT_InputDevice)	free(gsVT_InputDevice);
-				gsVT_InputDevice = strdup(val);
+				gsVT_InputDevice = val;
 			}
 			else if( strcmp(opt, "Width") == 0 ) {
 				giVT_RealWidth = atoi( val );
@@ -167,9 +165,25 @@ int VT_Install(char **Arguments)
 		}
 	}
 	
+	if(gsVT_OutputDevice)	Modules_InitialiseBuiltin( gsVT_OutputDevice );
+	if(gsVT_InputDevice)	Modules_InitialiseBuiltin( gsVT_InputDevice );
+	
 	// Apply Defaults
-	if(!gsVT_OutputDevice)	gsVT_OutputDevice = "/Devices/"DEFAULT_OUTPUT;
-	if(!gsVT_InputDevice)	gsVT_InputDevice = "/Devices/"DEFAULT_INPUT;
+	if(!gsVT_OutputDevice)	gsVT_OutputDevice = DEFAULT_OUTPUT;
+	if(!gsVT_InputDevice)	gsVT_InputDevice = DEFAULT_INPUT;
+	
+	// Create paths
+	{
+		char	*tmp;
+		tmp = malloc( 9 + strlen(gsVT_OutputDevice) + 1 );
+		strcpy(tmp, "/Devices/");
+		strcpy(&tmp[9], gsVT_OutputDevice);
+		gsVT_OutputDevice = tmp;
+		tmp = malloc( 9 + strlen(gsVT_InputDevice) + 1 );
+		strcpy(tmp, "/Devices/");
+		strcpy(&tmp[9], gsVT_InputDevice);
+		gsVT_InputDevice = tmp;
+	}
 	
 	Log_Log("VTerm", "Using '%s' as output", gsVT_OutputDevice);
 	Log_Log("VTerm", "Using '%s' as input", gsVT_InputDevice);

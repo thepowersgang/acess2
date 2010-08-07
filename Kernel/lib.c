@@ -180,6 +180,9 @@ void itoa(char *buf, Uint num, int base, int minLength, char pad)
 	if(pos==__maxlen){return pos;}\
 	if(__s){__s[pos++]=ch;}else{pos++;}\
 	}while(0)
+/**
+ * \brief VArg String Number Print Formatted
+ */
 int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 {
 	char	c, pad = ' ';

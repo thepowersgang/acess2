@@ -4,7 +4,7 @@
 
 CPPFLAGS += 
 CFLAGS	 += -Wall -Werror -O3
-LDFLAGS  += 
+LDFLAGS  += -lspiderscript
 
 BIN = ../init
 OBJ = main.o

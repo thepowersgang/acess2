@@ -123,7 +123,6 @@ Uint8 VGA_int_GetColourNibble(Uint16 col)
 	col = ((col>>2)&3) | ((col>>4)&0xC) | ((col>>6)&0x30);
 	bright = ( (col & 2 ? 1 : 0) + (col & 8 ? 1 : 0) + (col & 32 ? 1 : 0) ) / 2;
 	
-	
 	switch(col)
 	{
 	//	Black

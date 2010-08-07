@@ -28,7 +28,7 @@
  *       C000 00000000 -       D000 00000000	44	16	TiB	Hardware Mappings
  *       D000 00000000 -       D080 00000000	39	512	GiB	Per-Process Data
  *       D080 00000000 -       D100 00000000	39	512	GiB	Kernel Supplied User Code
- *       ---- GAP ----                      		9	TiB
+ *       ---- GAP ----                      		15	TiB
  *       E000 00000000 -       E400 00000000	42	4	TiB	Physical Page Reference Counts (2**40 = 2**52 bytes)
  *       E400 00000000 -       E480 00000000	39	512	GiB	Physical Page Bitmap (1 page per bit)
  *       E480 00000000 -       E500 00000000	39	512	GiB	Physical Page DblAlloc Bitmap (1 page per bit)

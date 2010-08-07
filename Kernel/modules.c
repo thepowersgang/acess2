@@ -17,7 +17,7 @@ void	Modules_SetBuiltinParams(char *Name, char *ArgString);
  int	Module_LoadMem(void *Buffer, Uint Length, char *ArgString);
  int	Module_LoadFile(char *Path, char *ArgString);
  int	Module_int_ResolveDeps(tModule *Info);
- int	Module_IsLoaded(char *Name);
+ int	Module_IsLoaded(const char *Name);
 
 // === EXPORTS ===
 EXPORT(Module_RegisterLoader);
@@ -253,6 +253,32 @@ void Modules_LoadBuiltins()
 }
 
 /**
+ * \brief Initialise a builtin module given it's name
+ * \example Used by VTerm to load an alternate video driver at runtime
+ */
+int Modules_InitialiseBuiltin(const char *Name)
+{
+	 int	i;
+	
+	// Check if it's loaded
+	if( Module_IsLoaded(Name) )
+		return 0;
+	
+	if( !gapBuiltinModules )
+		Modules_int_GetBuiltinArray();
+	
+	for( i = 0; i < giNumBuiltinModules; i++ )
+	{
+		if( strcmp(gapBuiltinModules[i]->Name, Name) == 0 ) {
+			return Module_int_Initialise(gapBuiltinModules[i],
+				(gasBuiltinModuleArgs ? gasBuiltinModuleArgs[i] : NULL)
+				);
+		}
+	}
+	return -1;
+}
+
+/**
  * \brief Sets the parameters for a builtin module
  */
 void Modules_SetBuiltinParams(char *Name, char *ArgString)
@@ -383,11 +409,11 @@ int Module_int_ResolveDeps(tModule *Info)
 }
 
 /**
- * \fn int Module_IsLoaded(char *Name)
+ * \fn int Module_IsLoaded(const char *Name)
  * \brief Checks if a module is loaded
  * \param Name	Name of module to find
  */
-int Module_IsLoaded(char *Name)
+int Module_IsLoaded(const char *Name)
 {
 	tModule	*mod = gLoadedModules;
 	

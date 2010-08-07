@@ -113,4 +113,11 @@ typedef struct sModuleLoader
  */
 extern int	Module_RegisterLoader(tModuleLoader *Loader);
 
+/**
+ * \brief Initialise a named builtin module
+ * \param Name	Module name to initialise
+ * \return -1 on not existing, 0 if the module initialised (or if it was already initialised)
+ */
+extern int	Modules_InitialiseBuiltin(const char *Name);
+
 #endif
