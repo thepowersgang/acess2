@@ -1,0 +1,29 @@
+#<?php
+
+Object	$fp;
+Integer	$ifname;
+
+$fp = Sys.IO.Open( "/Devices/ipstack" );
+$ifname = Sys.IO.IOCtl( $fp, 4, "/Devices/ne2k/0" );
+Sys.IO.Close($fp);
+
+
+// Set the IPv4 address of an interface
+//void SetIPv4(String $ifaceName, Integer $addr[4])
+void SetIPv4(String $ifaceName, Integer $addr0, Integer $addr1, Integer $addr2, Integer $addr3)
+{
+	Object	$fp;
+	Object	$data;
+	$fp = Sys.IO.Open( "/Devices/ipstack/"+$ifaceName );
+	$data = Lang.Struct( "l", 4 );
+	Sys.IO.IOCtl( $fp, 4, $data );
+	//$data = Lang.Struct( "BBBB", $addr[0],  $addr[1],  $addr[2], $addr[3] );
+	$data = Lang.Struct( "BBBB", $addr0,  $addr1,  $addr2, $addr3 );
+	Sys.IO.IOCtl( $fp, 6, $data );
+	Sys.IO.Close( $fp );
+}
+
+//SetIPv4( $ifname, Lang.IntArray(10, 0, 2, 55) );
+SetIPv4( $ifname, 10, 0, 2, 55 );
+
+#?>

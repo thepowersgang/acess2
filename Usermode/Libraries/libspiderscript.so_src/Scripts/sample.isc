@@ -1,3 +1,4 @@
+#<?php
 
 # Should I use brackets in this language?
 # Well, considering that all whitespace is ignored, it might be an idea
@@ -23,6 +24,7 @@ Sys.IO.Close($fp);
 #  Sys.Mem.MakeStruct( "L*B", $len, $len, $str );
 # Hmm.. that would mean I will need arrays... fuck it, do them later
 
+/*
 function SetIPv4($ifaceName, $addr)
 {
 	$fp = Sys.IO.Open( "/Devices/ipstack/$ifaceName" );
@@ -34,3 +36,9 @@ function SetIPv4($ifaceName, $addr)
 }
 
 SetIPv4( $ifname, Lang.Array(10, 0, 2, 55) );
+*/
+
+
+return 42;	// Script return value
+
+#?>
