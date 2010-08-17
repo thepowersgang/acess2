@@ -665,7 +665,7 @@ Sint64 timestamp(int sec, int mins, int hrs, int day, int month, int year)
 		) && month > 1)	// Leap year and after feb
 		stamp += 3600*24;
 	
-	stamp += ((365*4+1) * ((year-2000)&~3)) * 3600*24;	// Foour Year Segments
+	stamp += ((365*4+1) * ((year-2000)&~3)) * 3600*24;	// Four Year Segments
 	stamp += ((year-2000)&3) * 365*3600*24;	// Inside four year segment
 	stamp += UNIX_TO_2K;
 	
