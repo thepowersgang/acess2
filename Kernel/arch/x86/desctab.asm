@@ -54,6 +54,8 @@ Desctab_Install:
 .pl0code:
 
 	; Set up IDT
+	; Helper Macros
+	; - Set an IDT entry to an ISR
 %macro SETISR	1
 	mov eax, Isr%1
 	mov	WORD [gIDT + %1*8], ax
@@ -64,23 +66,28 @@ Desctab_Install:
 	or ax, 0x8000
 	mov	WORD [gIDT + %1*8 + 4], ax
 %endmacro
+	; Enable user calling of an ISR
 %macro SET_USER	1
 	or WORD [gIDT + %1*8 + 4], 0x6000
 %endmacro
+	; Set an ISR as a trap (leaves interrupts enabled when invoked)
 %macro SET_TRAP	1
 	or WORD [gIDT + %1*8 + 4], 0x0100
 %endmacro
 
+	; Error handlers
 	%assign	i	0
 	%rep 32
 	SETISR	i
 	%assign i i+1
 	%endrep
 	
+	; User Syscall
 	SETISR	0xAC
 	SET_USER	0xAC
 	SET_TRAP	0xAC	; Interruptable
 	
+	; MP ISRs
 	%if USE_MP
 	SETISR	0xEE	; 0xEE Timer
 	SETISR	0xEF	; 0xEF Spurious Interrupt

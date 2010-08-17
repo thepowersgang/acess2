@@ -14,7 +14,7 @@ typedef struct {
 typedef struct {
 	Uint	Magic;
 	tHeapHead	*Head;
-	tHeapHead	NextHead[];	// Array to make it act like a pointer, but have no size and refer to the next block
+	tHeapHead	NextHead[];	// Array to make it act like an element, but have no size and refer to the next block
 } tHeapFoot;
 
 #endif

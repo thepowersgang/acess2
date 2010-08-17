@@ -137,8 +137,6 @@ void *malloc(size_t Bytes)
 	// Get required size
 	Bytes = (Bytes + sizeof(tHeapHead) + sizeof(tHeapFoot) + BLOCK_SIZE-1) & ~(BLOCK_SIZE-1);
 	
-	//if(glHeap)
-	//	Debug("glHeap = %i", glHeap);
 	// Lock Heap
 	LOCK(&glHeap);
 	
