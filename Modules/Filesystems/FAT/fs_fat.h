@@ -18,11 +18,13 @@ struct fat_bootsect_s
 	Uint16	bps;	//!< Bytes per Sector. Assumed to be 512
 	Uint8	spc;		//!< Sectors per Cluster
 	Uint16	resvSectCount;	//!< Number of reserved sectors at beginning of volume
+	// +0x10
 	Uint8	fatCount;	//!< Number of copies of the FAT
 	Uint16	files_in_root;	//!< Count of files in the root directory
 	Uint16	totalSect16;	//!< Total sector count (FAT12/16)
 	Uint8	mediaDesc;	//!< Media Desctiptor
 	Uint16	fatSz16;	//!< FAT Size (FAT12/16)
+	// +0x18
 	Uint16	spt;	//!< Sectors per track. Ignored (Acess uses LBA)
 	Uint16	heads;	//!< Heads. Ignored (Acess uses LBA)
 	Uint32	hiddenCount;	//!< ???
