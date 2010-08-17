@@ -1,14 +1,22 @@
 /*
- * Acess2 init
+ * SpiderScript
  * - Script Lexer
  */
 #include "tokens.h"
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+#define USE_SCOPE_CHAR	0
+
+#define DEBUG	0
+
+#define ARRAY_SIZE(x)	((sizeof(x))/(sizeof((x)[0])))
 
 // === PROTOTYPES ===
  int	is_ident(char ch);
- int	isdigit(char ch);
- int	isspace(char ch);
+ int	isdigit(int ch);
+ int	isspace(int ch);
  int	GetToken(tParser *File);
 
 // === CONSTANTS ===
@@ -17,8 +25,12 @@ const struct {
 	const char	*Name;
 } csaReservedWords[] = {
 	{TOK_RWD_FUNCTION, "function"},
-	{TOK_RWD_INTEGER, "integer"},
-	{TOK_RWD_REAL, "string"}
+	{TOK_RWD_RETURN, "return"},
+	{TOK_RWD_VOID, "void"},
+	{TOK_RWD_OBJECT, "Object"},
+	{TOK_RWD_INTEGER, "Integer"},
+	{TOK_RWD_REAL, "Real"},
+	{TOK_RWD_STRING, "String"}
 };
 
 // === CODE ===
@@ -31,19 +43,43 @@ int GetToken(tParser *File)
 	 int	ret;
 	
 	if( File->NextToken != -1 ) {
+		// Save Last
+		File->LastToken = File->Token;
+		File->LastTokenStr = File->TokenStr;
+		File->LastTokenLen = File->TokenLen;
+		File->LastLine = File->CurLine;
+		// Restore Next
 		File->Token = File->NextToken;
 		File->TokenStr = File->NextTokenStr;
 		File->TokenLen = File->NextTokenLen;
+		File->CurLine = File->NextLine;
+		// Set State
+		File->CurPos = File->TokenStr + File->TokenLen;
 		File->NextToken = -1;
+		{
+			char	buf[ File->TokenLen + 1];
+			memcpy(buf, File->TokenStr, File->TokenLen);
+			buf[File->TokenLen] = 0;
+			#if DEBUG
+			printf(" GetToken: FAST Return %i (%i long) (%s)\n", File->Token, File->TokenLen, buf);
+			#endif
+		}
 		return File->Token;
 	}
+	
+	//printf("  GetToken: File=%p, File->CurPos = %p\n", File, File->CurPos);
 	
 	// Clear whitespace (including comments)
 	for( ;; )
 	{
 		// Whitespace
 		while( isspace( *File->CurPos ) )
+		{
+			//printf("whitespace 0x%x, line = %i\n", *File->CurPos, File->CurLine);
+			if( *File->CurPos == '\n' )
+				File->CurLine ++;
 			File->CurPos ++;
+		}
 		
 		// # Line Comments
 		if( *File->CurPos == '#' ) {
@@ -61,9 +97,13 @@ int GetToken(tParser *File)
 		
 		// C-Style Block Comments
 		if( *File->CurPos == '/' && File->CurPos[1] == '*' ) {
-			File->CurPos += 2;
+			File->CurPos += 2;	// Eat the '/*'
 			while( *File->CurPos && !(File->CurPos[-1] == '*' && *File->CurPos == '/') )
+			{
+				if( *File->CurPos == '\n' )	File->CurLine ++;
 				File->CurPos ++;
+			}
+			File->CurPos ++;	// Eat the '/'
 			continue ;
 		}
 		
@@ -75,11 +115,14 @@ int GetToken(tParser *File)
 	File->LastToken = File->Token;
 	File->LastTokenStr = File->TokenStr;
 	File->LastTokenLen = File->TokenLen;
+	File->LastLine = File->CurLine;
 	
 	// Read token
 	File->TokenStr = File->CurPos;
 	switch( *File->CurPos++ )
 	{
+	case '\0':	ret = TOK_EOF;	break;
+	
 	// Operations
 	case '/':	ret = TOK_DIV;	break;
 	case '*':	ret = TOK_MUL;	break;
@@ -95,9 +138,9 @@ int GetToken(tParser *File)
 	
 	// Strings
 	case '"':
-		File->TokenStr ++;
 		while( *File->CurPos && !(*File->CurPos == '"' && *File->CurPos != '\\') )
 			File->CurPos ++;
+		File->CurPos ++;
 		ret = TOK_STR;
 		break;
 	
@@ -111,7 +154,10 @@ int GetToken(tParser *File)
 	
 	// Core symbols
 	case ';':	ret = TOK_SEMICOLON;	break;
+	case ',':	ret = TOK_COMMA;	break;
+	#if USE_SCOPE_CHAR
 	case '.':	ret = TOK_SCOPE;	break;
+	#endif
 	
 	// Equals
 	case '=':
@@ -128,7 +174,6 @@ int GetToken(tParser *File)
 	// Variables
 	// \$[0-9]+ or \$[_a-zA-Z][_a-zA-Z0-9]*
 	case '$':
-		File->TokenStr ++;
 		// Numeric Variable
 		if( isdigit( *File->CurPos ) ) {
 			while( isdigit(*File->CurPos) )
@@ -136,7 +181,7 @@ int GetToken(tParser *File)
 		}
 		// Ident Variable
 		else {
-			while( is_ident(*File->CurPos) )
+			while( is_ident(*File->CurPos) || isdigit(*File->CurPos) )
 				File->CurPos ++;
 		}
 		ret = TOK_VARIABLE;
@@ -144,6 +189,7 @@ int GetToken(tParser *File)
 	
 	// Default (Numbers and Identifiers)
 	default:
+		File->CurPos --;
 		// Numbers
 		if( isdigit(*File->CurPos) )
 		{
@@ -160,16 +206,49 @@ int GetToken(tParser *File)
 			while( is_ident(*File->CurPos) || isdigit(*File->CurPos) )
 				File->CurPos ++;
 			
+			// This is set later too, but we use it below
+			File->TokenLen = File->CurPos - File->TokenStr;
 			ret = TOK_IDENT;
+			
+			// Check if it's a reserved word
+			{
+				char	buf[File->TokenLen + 1];
+				 int	i;
+				memcpy(buf, File->TokenStr, File->TokenLen);
+				buf[File->TokenLen] = 0;
+				for( i = 0; i < ARRAY_SIZE(csaReservedWords); i ++ )
+				{
+					if(strcmp(csaReservedWords[i].Name, buf) == 0) {
+						ret = csaReservedWords[i].Value;
+						break ;
+					}
+				}
+			}
+			// If there's no match, just keep ret as TOK_IDENT
+			
 			break;
 		}
 		// Syntax Error
-		ret = 0;
+		ret = TOK_INVAL;
+		
+		fprintf(stderr, "Syntax Error: Unknown symbol '%c'\n", *File->CurPos);
+		longjmp(File->JmpTarget, 1);
+		
 		break;
 	}
 	// Return
 	File->Token = ret;
 	File->TokenLen = File->CurPos - File->TokenStr;
+	
+	#if DEBUG
+	{
+		char	buf[ File->TokenLen + 1];
+		memcpy(buf, File->TokenStr, File->TokenLen);
+		buf[File->TokenLen] = 0;
+		//printf("  GetToken: File->CurPos = %p\n", File->CurPos);
+		printf(" GetToken: Return %i (%i long) (%s)\n", ret, File->TokenLen, buf);
+	}
+	#endif
 	return ret;
 }
 
@@ -177,13 +256,20 @@ void PutBack(tParser *File)
 {
 	if( File->LastToken == -1 ) {
 		// ERROR:
+		fprintf(stderr, "INTERNAL ERROR: Putback when LastToken==-1\n");
+		longjmp( File->JmpTarget, -1 );
 		return ;
 	}
+	#if DEBUG
+	printf(" PutBack: Was on %i\n", File->Token);
+	#endif
 	// Save
+	File->NextLine = File->CurLine;
 	File->NextToken = File->Token;
 	File->NextTokenStr = File->TokenStr;
 	File->NextTokenLen = File->TokenLen;
 	// Restore
+	File->CurLine = File->LastLine;
 	File->Token = File->LastToken;
 	File->TokenStr = File->LastTokenStr;
 	File->TokenLen = File->LastTokenLen;
@@ -194,6 +280,7 @@ void PutBack(tParser *File)
 
 int LookAhead(tParser *File)
 {
+	// TODO: Should I save the entire state here?
 	 int	ret = GetToken(File);
 	PutBack(File);
 	return ret;
@@ -207,19 +294,22 @@ int LookAhead(tParser *File)
 int is_ident(char ch)
 {
 	if('a' <= ch && ch <= 'z')	return 1;
-	if('Z' <= ch && ch <= 'Z')	return 1;
+	if('A' <= ch && ch <= 'Z')	return 1;
 	if(ch == '_')	return 1;
+	#if !USE_SCOPE_CHAR
+	if(ch == '.')	return 1;
+	#endif
 	if(ch < 0)	return 1;
 	return 0;
 }
 
-int isdigit(char ch)
+int isdigit(int ch)
 {
 	if('0' <= ch && ch <= '9')	return 1;
 	return 0;
 }
 
-int isspace(char ch)
+int isspace(int ch)
 {
 	if(' ' == ch)	return 1;
 	if('\t' == ch)	return 1;

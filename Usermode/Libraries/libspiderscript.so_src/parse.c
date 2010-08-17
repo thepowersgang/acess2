@@ -6,13 +6,17 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <spiderscript.h>
+#define WANT_TOKEN_STRINGS	1
 #include "tokens.h"
 #include "ast.h"
+
+#define DEBUG	0
 
 // === PROTOTYPES ===
 tAST_Script	*Parse_Buffer(tSpiderVariant *Variant, char *Buffer);
 tAST_Node	*Parse_DoCodeBlock(tParser *Parser);
-tAST_Node	*Parse_DoExpr(tParser *Parser);
+tAST_Node	*Parse_DoBlockLine(tParser *Parser);
+tAST_Node	*Parse_GetVarDef(tParser *Parser, int Type);
 
 tAST_Node	*Parse_DoExpr0(tParser *Parser);	// Assignment
 tAST_Node	*Parse_DoExpr1(tParser *Parser);	// Boolean Operators
@@ -30,7 +34,7 @@ tAST_Node	*Parse_GetNumeric(tParser *Parser);
 tAST_Node	*Parse_GetVariable(tParser *Parser);
 tAST_Node	*Parse_GetIdent(tParser *Parser);
 
-void	SyntaxAssert(int Have, int Want);
+void	SyntaxAssert(tParser *Parser, int Have, int Want);
 
 // === CODE ===
 /**
@@ -44,41 +48,107 @@ tAST_Script	*Parse_Buffer(tSpiderVariant *Variant, char *Buffer)
 	tAST_Node	*mainCode;
 	char	*name;
 	tAST_Function	*fcn;
+	 int	type;
+	
+	#if DEBUG >= 2
+	printf("Parse_Buffer: (Variant=%p, Buffer=%p)\n", Variant, Buffer);
+	#endif
 	
 	// Initialise parser
+	parser.LastToken = -1;
+	parser.NextToken = -1;
+	parser.CurLine = 1;
 	parser.BufStart = Buffer;
 	parser.CurPos = Buffer;
 	
 	ret = AST_NewScript();
 	mainCode = AST_NewCodeBlock();
 	
-	for(;;)
+	if( setjmp( parser.JmpTarget ) != 0 )
+	{
+		AST_FreeNode( mainCode );
+		return NULL;
+	}
+	
+	while(Parser->Token != TOK_EOF)
 	{
 		switch( GetToken(Parser) )
 		{
-		case TOK_RWD_FUNCTION:			
-			// Define a function
-			SyntaxAssert( GetToken(Parser), TOK_IDENT );
+		case TOK_EOF:
+			break;
+		
+		// Typed variables/functions
+		case TOKEN_GROUP_TYPES:
+			{
+			 int	tok, type;
+			TOKEN_GET_DATATYPE(type, Parser->Token);
+			
+			tok = GetToken(Parser);
+			// Define a function (pass on to the other function definition code)
+			if( tok == TOK_IDENT ) {
+				goto defFcn;
+			}
+			// Define a variable
+			else if( tok == TOK_VARIABLE ) {
+				AST_AppendNode( mainCode, Parse_GetVarDef(Parser, type) );
+				SyntaxAssert(Parser, GetToken(Parser), TOK_SEMICOLON);
+			}
+			else {
+				fprintf(stderr, "ERROR: Unexpected %s, expected TOK_IDENT or TOK_VARIABLE\n",
+					csaTOKEN_NAMES[tok]);
+			}
+			}
+			break;
+		
+		// Define a function
+		case TOK_RWD_FUNCTION:
+			if( !Variant->bDyamicTyped ) {
+				fprintf(stderr, "ERROR: Attempt to create a dynamic function\n");
+				longjmp(Parser->JmpTarget, -1);
+			}
+			type = SS_DATATYPE_DYNAMIC;
+			SyntaxAssert(Parser, GetToken(Parser), TOK_IDENT );
+		defFcn:
 			name = strndup( Parser->TokenStr, Parser->TokenLen );
 			fcn = AST_AppendFunction( ret, name );
+			#if DEBUG
+			printf("DefFCN %s\n", name);
+			#endif
 			free(name);
 			
-			SyntaxAssert( GetToken(Parser), TOK_PAREN_OPEN );
-			// TODO: Arguments
-			SyntaxAssert( GetToken(Parser), TOK_PAREN_CLOSE );
+			// Get arguments
+			SyntaxAssert(Parser, GetToken(Parser), TOK_PAREN_OPEN );
+			if( LookAhead(Parser) != TOK_PAREN_CLOSE )
+			{
+				do {
+					type = SS_DATATYPE_DYNAMIC;
+					GetToken(Parser);
+					// Non dynamic typed variants must use data types
+					if( !Variant->bDyamicTyped ) {
+						TOKEN_GET_DATATYPE(type, Parser->Token);
+						GetToken(Parser);
+					}
+					AST_AppendFunctionArg(fcn, Parse_GetVarDef(Parser, type)); 
+				}	while(GetToken(Parser) == TOK_COMMA);
+			}
+			else
+				GetToken(Parser);
+			SyntaxAssert(Parser, Parser->Token, TOK_PAREN_CLOSE );
 			
 			AST_SetFunctionCode( fcn, Parse_DoCodeBlock(Parser) );
 			break;
 		
 		default:
-			PutBack(&parser);
-			AST_AppendNode( mainCode, Parse_DoExpr(Parser) );
+			PutBack(Parser);
+			AST_AppendNode( mainCode, Parse_DoBlockLine(Parser) );
 			break;
 		}
 	}
 	
 	fcn = AST_AppendFunction( ret, "" );
 	AST_SetFunctionCode( fcn, mainCode );
+	
+	printf("---- %p parsed as SpiderScript ----\n", Buffer);
 	
 	return ret;
 }
@@ -89,24 +159,93 @@ tAST_Script	*Parse_Buffer(tSpiderVariant *Variant, char *Buffer)
 tAST_Node *Parse_DoCodeBlock(tParser *Parser)
 {
 	tAST_Node	*ret;
-	SyntaxAssert( GetToken(Parser), TOK_BRACE_OPEN );
+	SyntaxAssert(Parser, GetToken(Parser), TOK_BRACE_OPEN );
 	
 	ret = AST_NewCodeBlock();
 	
-	while( GetToken(Parser) != TOK_BRACE_CLOSE )
+	while( LookAhead(Parser) != TOK_BRACE_CLOSE )
 	{
-		AST_AppendNode( ret, Parse_DoExpr(Parser) );
-		SyntaxAssert( GetToken(Parser), TOK_SEMICOLON );
+		AST_AppendNode( ret, Parse_DoBlockLine(Parser) );
 	}
+	GetToken(Parser);	// Omnomnom
 	return ret;
 }
 
 /**
- * \brief Parse an expression
+ * \brief Parse a line in a block
  */
-tAST_Node *Parse_DoExpr(tParser *Parser)
+tAST_Node *Parse_DoBlockLine(tParser *Parser)
 {
-	return Parse_DoExpr0(Parser);
+	tAST_Node	*ret;
+	
+	//printf("Parse_DoBlockLine: Line %i\n", Parser->CurLine);
+	
+	switch(LookAhead(Parser))
+	{
+	
+	// Return from a method
+	case TOK_RWD_RETURN:
+		//printf("return\n");
+		GetToken(Parser);
+		ret = AST_NewUniOp(NODETYPE_RETURN, Parse_DoExpr0(Parser));
+		break;
+	
+	// Define Variables
+	case TOK_RWD_OBJECT:
+	case TOK_RWD_STRING:
+	case TOK_RWD_REAL:
+	case TOK_RWD_INTEGER:
+		{
+			 int	type;
+			
+			switch(GetToken(Parser))
+			{
+			case TOK_RWD_INTEGER:	type = SS_DATATYPE_INTEGER;	break;
+			case TOK_RWD_OBJECT:	type = SS_DATATYPE_OBJECT;	break;
+			case TOK_RWD_REAL:	type = SS_DATATYPE_REAL;	break;
+			case TOK_RWD_STRING:	type = SS_DATATYPE_STRING;	break;
+			}
+			
+			SyntaxAssert(Parser, GetToken(Parser), TOK_VARIABLE);
+			
+			ret = Parse_GetVarDef(Parser, type);
+		}
+		break;
+	
+	// Default
+	default:
+		//printf("exp0\n");
+		ret = Parse_DoExpr0(Parser);
+		break;
+	}
+	
+	SyntaxAssert(Parser, GetToken(Parser), TOK_SEMICOLON );
+	return ret;
+}
+
+/**
+ * \brief Get a variable definition
+ */
+tAST_Node *Parse_GetVarDef(tParser *Parser, int Type)
+{
+	char	name[Parser->TokenLen];
+	tAST_Node	*ret;
+	
+	SyntaxAssert(Parser, Parser->Token, TOK_VARIABLE);
+	
+	// copy the name (trimming the $)
+	memcpy(name, Parser->TokenStr+1, Parser->TokenLen-1);
+	name[Parser->TokenLen-1] = 0;
+	// Define the variable
+	ret = AST_NewDefineVar(Type, name);
+	// Handle arrays
+	while( LookAhead(Parser) == TOK_SQUARE_OPEN )
+	{
+		GetToken(Parser);
+		AST_AppendNode(ret, Parse_DoExpr0(Parser));
+		SyntaxAssert(Parser, GetToken(Parser), TOK_SQUARE_CLOSE);
+	}
+	return ret;
 }
 
 /**
@@ -126,14 +265,18 @@ tAST_Node *Parse_DoExpr0(tParser *Parser)
 	#if 0
 	case TOK_DIV_EQU:
 		GetToken(Parser);		// Eat Token
-		ret = AST_NewAssignOp(ret, NODETYPE_DIVIDE, DoExpr0(Parser));
+		ret = AST_NewAssign(NODETYPE_DIVIDE, ret, Parse_DoExpr0(Parser));
 		break;
 	case TOK_MULT_EQU:
 		GetToken(Parser);		// Eat Token
-		ret = AST_NewAssignOp(ret, NODETYPE_MULTIPLY, DoExpr0(Parser));
+		ret = AST_NewAssign(NODETYPE_MULTIPLY, ret, Parse_DoExpr0(Parser));
 		break;
 	#endif
-	default:	break;
+	default:
+		#if DEBUG >= 2
+		printf("Parse_DoExpr0: Parser->Token = %i\n", Parser->Token);
+		#endif
+		break;
 	}
 	return ret;
 }
@@ -290,12 +433,18 @@ tAST_Node *Parse_DoExpr6(tParser *Parser)
 // --------------------
 tAST_Node *Parse_DoParen(tParser *Parser)
 {
+	#if DEBUG >= 2
+	printf("Parse_DoParen: (Parser=%p)\n", Parser);
+	#endif
 	if(LookAhead(Parser) == TOK_PAREN_OPEN)
 	{
 		tAST_Node	*ret;
 		GetToken(Parser);
+		
+		// TODO: Handle casts here
+		
 		ret = Parse_DoExpr0(Parser);
-		SyntaxAssert(GetToken(Parser), TOK_PAREN_CLOSE);
+		SyntaxAssert(Parser, GetToken(Parser), TOK_PAREN_CLOSE);
 		return ret;
 	}
 	else
@@ -309,6 +458,10 @@ tAST_Node *Parse_DoValue(tParser *Parser)
 {
 	 int	tok = LookAhead(Parser);
 
+	#if DEBUG >= 2
+	printf("Parse_DoValue: tok = %i\n", tok);
+	#endif
+
 	switch(tok)
 	{
 	case TOK_STR:	return Parse_GetString(Parser);
@@ -317,8 +470,9 @@ tAST_Node *Parse_DoValue(tParser *Parser)
 	case TOK_VARIABLE:	return Parse_GetVariable(Parser);
 
 	default:
-		//ParseError2( tok, TOK_T_VALUE );
-		return NULL;
+		fprintf(stderr, "Syntax Error: Unexpected %s on line %i, Expected TOK_T_VALUE\n",
+			csaTOKEN_NAMES[tok], Parser->CurLine);
+		longjmp( Parser->JmpTarget, -1 );
 	}
 }
 
@@ -350,12 +504,24 @@ tAST_Node *Parse_GetNumeric(tParser *Parser)
  */
 tAST_Node *Parse_GetVariable(tParser *Parser)
 {
-	char	*name;
 	tAST_Node	*ret;
-	SyntaxAssert( GetToken(Parser), TOK_VARIABLE );
-	name = strndup( Parser->TokenStr+1, Parser->TokenLen-1 );
-	ret = AST_NewVariable( name );
-	free(name);
+	SyntaxAssert( Parser, GetToken(Parser), TOK_VARIABLE );
+	{
+		char	name[Parser->TokenLen];
+		memcpy(name, Parser->TokenStr+1, Parser->TokenLen-1);
+		name[Parser->TokenLen-1] = 0;
+		ret = AST_NewVariable( name );
+		#if DEBUG >= 2
+		printf("Parse_GetVariable: name = '%s'\n", name);
+		#endif
+	}
+	// Handle array references
+	while( LookAhead(Parser) == TOK_SQUARE_OPEN )
+	{
+		GetToken(Parser);
+		ret = AST_NewBinOp(NODETYPE_INDEX, ret, Parse_DoExpr0(Parser));
+		SyntaxAssert(Parser, GetToken(Parser), TOK_SQUARE_CLOSE);
+	}
 	return ret;
 }
 
@@ -366,11 +532,22 @@ tAST_Node *Parse_GetIdent(tParser *Parser)
 {
 	tAST_Node	*ret;
 	char	*name;
-	SyntaxAssert( GetToken(Parser), TOK_IDENT );
+	SyntaxAssert(Parser, GetToken(Parser), TOK_IDENT );
 	name = strndup( Parser->TokenStr, Parser->TokenLen );
+	
+	#if 0
+	while( GetToken(Parser) == TOK_SCOPE )
+	{
+		ret = AST_New
+	}
+	PutBack(Parser);
+	#endif
 	
 	if( GetToken(Parser) == TOK_PAREN_OPEN )
 	{
+		#if DEBUG >= 2
+		printf("Parse_GetIdent: Calling '%s'\n", name);
+		#endif
 		// Function Call
 		ret = AST_NewFunctionCall( name );
 		// Read arguments
@@ -378,13 +555,22 @@ tAST_Node *Parse_GetIdent(tParser *Parser)
 		{
 			PutBack(Parser);
 			do {
+				#if DEBUG >= 2
+				printf(" Parse_GetIdent: Argument\n");
+				#endif
 				AST_AppendFunctionCallArg( ret, Parse_DoExpr0(Parser) );
 			} while(GetToken(Parser) == TOK_COMMA);
-			SyntaxAssert( Parser->Token, TOK_PAREN_CLOSE );
+			SyntaxAssert( Parser, Parser->Token, TOK_PAREN_CLOSE );
+			#if DEBUG >= 2
+			printf(" Parse_GetIdent: All arguments parsed\n");
+			#endif
 		}
 	}
 	else {
 		// Runtime Constant
+		#if DEBUG >= 2
+		printf("Parse_GetIdent: Referencing '%s'\n", name);
+		#endif
 		PutBack(Parser);
 		ret = AST_NewConstant( name );
 	}
@@ -396,12 +582,12 @@ tAST_Node *Parse_GetIdent(tParser *Parser)
 /**
  * \brief Check for an error
  */
-void SyntaxAssert(int Have, int Want)
+void SyntaxAssert(tParser *Parser, int Have, int Want)
 {
 	if(Have != Want) {
-		fprintf(stderr, "ERROR: Expected %i, got %i\n", Want, Have);
-		//longjmp(jmpTarget, 1);
-		return;
+		fprintf(stderr, "ERROR: SyntaxAssert Failed, Expected %s(%i), got %s(%i) on line %i\n",
+			csaTOKEN_NAMES[Want], Want, csaTOKEN_NAMES[Have], Have, Parser->CurLine);
+		longjmp(Parser->JmpTarget, -1);
 	}
 }
 

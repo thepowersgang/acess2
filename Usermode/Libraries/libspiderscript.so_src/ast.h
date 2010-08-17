@@ -5,10 +5,12 @@
 
 #include <spiderscript.h>
 
+typedef enum eAST_NodeTypes	tAST_NodeType;
 typedef struct sAST_Script	tAST_Script;
 typedef struct sAST_Function	tAST_Function;
 typedef struct sAST_Node	tAST_Node;
-typedef enum eAST_NodeTypes	tAST_NodeType;
+typedef struct sAST_BlockState	tAST_BlockState;
+typedef struct sAST_Variable	tAST_Variable;
 
 /**
  * \brief Node Types
@@ -25,9 +27,14 @@ enum eAST_NodeTypes
 	NODETYPE_INTEGER,	//!< Integer Constant
 	NODETYPE_REAL,	//!< Real Constant
 	
+	NODETYPE_DEFVAR,	//!< Define a variable (Variable)
+	NODETYPE_CAST,	//!< Cast a value to another (Uniop)
+	
 	NODETYPE_RETURN,	//!< Return from a function (reserved word)
 	NODETYPE_ASSIGN,	//!< Variable assignment operator
 	NODETYPE_FUNCTIONCALL,	//!< Call a function
+	
+	NODETYPE_INDEX,	//!< Index into an array
 	
 	NODETYPE_LOGICALAND,	//!< Logical AND operator
 	NODETYPE_LOGICALOR, 	//!< Logical OR operator
@@ -56,6 +63,7 @@ struct sSpiderScript
 {
 	tSpiderVariant	*Variant;
 	tAST_Script	*Script;
+	char	*CurNamespace;	//!< Current namespace prefix (NULL = Root) - No trailing .
 };
 
 struct sAST_Script
@@ -66,10 +74,11 @@ struct sAST_Script
 
 struct sAST_Function
 {
-	tAST_Function	*Next;
-	char	*Name;
-	tAST_Node	*Code;
-	tAST_Node	*Arguments;	// HACKJOB (Only NODETYPE_VARIABLE is allowed)
+	tAST_Function	*Next;	//!< Next function in list
+	tAST_Node	*Code;	//!< Function Code
+	tAST_Node	*Arguments;	// HACKJOB (Only NODETYPE_DEFVAR is allowed)
+	tAST_Node	*Arguments_Last;
+	char	Name[];	//!< Function Name
 };
 
 struct sAST_Node
@@ -118,32 +127,66 @@ struct sAST_Node
 			char	Name[];
 		}	Variable;
 		
+		struct {
+			 int	DataType;
+			 int	Depth;
+			tAST_Node	*LevelSizes;
+			tAST_Node	*LevelSizes_Last;
+			char	Name[];
+		}	DefVar;
+		
+		struct {
+			 int	DataType;
+			 tAST_Node	*Value;
+		}	Cast;
+		
 		uint64_t	Integer;
 		double	Real;
 	};
 };
 
+/**
+ * \brief Code Block state (stores local variables)
+ */
+struct sAST_BlockState
+{
+	tAST_BlockState	*Parent;
+	tSpiderScript	*Script;	//!< Script
+	tAST_Variable	*FirstVar;	//!< First variable in the list
+};
+
+struct sAST_Variable
+{
+	tAST_Variable	*Next;
+	 int	Type;	// Only used for static typing
+	tSpiderObject	*Object;
+	char	Name[];
+};
+
 // === FUNCTIONS ===
-tAST_Script	*AST_NewScript(void);
+extern tAST_Script	*AST_NewScript(void);
 
-tAST_Function	*AST_AppendFunction(tAST_Script *Script, const char *Name);
-void	AST_AppendFunctionArg(tAST_Function *Function, int Type, tAST_Node *Arg);
-void	AST_SetFunctionCode(tAST_Function *Function, tAST_Node *Root);
+extern tAST_Function	*AST_AppendFunction(tAST_Script *Script, const char *Name);
+extern void	AST_AppendFunctionArg(tAST_Function *Function, tAST_Node *Arg);
+extern void	AST_SetFunctionCode(tAST_Function *Function, tAST_Node *Root);
 
-tAST_Node	*AST_NewString(const char *String, int Length);
-tAST_Node	*AST_NewInteger(uint64_t Value);
-tAST_Node	*AST_NewVariable(const char *Name);
-tAST_Node	*AST_NewConstant(const char *Name);
-tAST_Node	*AST_NewFunctionCall(const char *Name);
-void	AST_AppendFunctionCallArg(tAST_Node *Node, tAST_Node *Arg);
+extern tAST_Node	*AST_NewString(const char *String, int Length);
+extern tAST_Node	*AST_NewInteger(uint64_t Value);
+extern tAST_Node	*AST_NewVariable(const char *Name);
+extern tAST_Node	*AST_NewDefineVar(int Type, const char *Name);
+extern tAST_Node	*AST_NewConstant(const char *Name);
+extern tAST_Node	*AST_NewFunctionCall(const char *Name);
+extern void	AST_AppendFunctionCallArg(tAST_Node *Node, tAST_Node *Arg);
 
-tAST_Node	*AST_NewCodeBlock(void);
-void	AST_AppendNode(tAST_Node *Parent, tAST_Node *Child);
-tAST_Node	*AST_NewAssign(int Operation, tAST_Node *Dest, tAST_Node *Value);
-tAST_Node	*AST_NewBinOp(int Operation, tAST_Node *Left, tAST_Node *Right);
+extern tAST_Node	*AST_NewCodeBlock(void);
+extern void	AST_AppendNode(tAST_Node *Parent, tAST_Node *Child);
+extern tAST_Node	*AST_NewAssign(int Operation, tAST_Node *Dest, tAST_Node *Value);
+extern tAST_Node	*AST_NewBinOp(int Operation, tAST_Node *Left, tAST_Node *Right);
+extern tAST_Node	*AST_NewUniOp(int Operation, tAST_Node *Value);
 
-void	AST_FreeNode(tAST_Node *Node);
+extern void	AST_FreeNode(tAST_Node *Node);
 
-tSpiderVariable	*AST_ExecuteNode(tSpiderScript *Script, tAST_Node *Node);
+// exec_ast.h
+extern tSpiderObject	*AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node);
 
 #endif

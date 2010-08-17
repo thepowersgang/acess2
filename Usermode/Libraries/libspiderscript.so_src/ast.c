@@ -2,6 +2,7 @@
  * Acess2 Init
  * - Script AST Manipulator
  */
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "ast.h"
@@ -24,9 +25,9 @@ tAST_Function *AST_AppendFunction(tAST_Script *Script, const char *Name)
 {
 	tAST_Function	*ret;
 	
-	ret = malloc( sizeof(tAST_Function) );
+	ret = malloc( sizeof(tAST_Function) + strlen(Name) + 1 );
 	ret->Next = NULL;
-	ret->Name = strdup(Name);
+	strcpy(ret->Name, Name);
 	ret->Code = NULL;
 	ret->Arguments = NULL;
 	
@@ -41,6 +42,20 @@ tAST_Function *AST_AppendFunction(tAST_Script *Script, const char *Name)
 	return ret;
 }
 
+void AST_AppendFunctionArg(tAST_Function *Function, tAST_Node *Node)
+{
+	if( !Function->Arguments ) {
+		Function->Arguments_Last = Function->Arguments = Node;
+	}
+	else {
+		Function->Arguments_Last->NextSibling = Node;
+		Function->Arguments_Last = Node;
+	}
+}
+
+/**
+ * \brief Set the code for a function
+ */
 void AST_SetFunctionCode(tAST_Function *Function, tAST_Node *Root)
 {
 	Function->Code = Root;
@@ -49,6 +64,9 @@ void AST_SetFunctionCode(tAST_Function *Function, tAST_Node *Root)
 /**
  * \name Node Manipulation
  * \{
+ */
+/**
+ * \brief Free a node and all subnodes
  */
 void AST_FreeNode(tAST_Node *Node)
 {
@@ -81,12 +99,28 @@ void AST_FreeNode(tAST_Node *Node)
 		AST_FreeNode(Node->Assign.Value);
 		break;
 	
+	// Casting
+	case NODETYPE_CAST:
+		AST_FreeNode(Node->Cast.Value);
+		break;
+	
+	// Define a variable
+	case NODETYPE_DEFVAR:
+		for( node = Node->DefVar.LevelSizes; node; )
+		{
+			tAST_Node	*savedNext = node->NextSibling;
+			AST_FreeNode(node);
+			node = savedNext;
+		}
+		break;
+	
 	// Unary Operations
 	case NODETYPE_RETURN:
 		AST_FreeNode(Node->UniOp.Value);
 		break;
 	
 	// Binary Operations
+	case NODETYPE_INDEX:
 	case NODETYPE_ADD:
 	case NODETYPE_SUBTRACT:
 	case NODETYPE_MULTIPLY:
@@ -130,14 +164,30 @@ tAST_Node *AST_NewCodeBlock(void)
 
 void AST_AppendNode(tAST_Node *Parent, tAST_Node *Child)
 {
-	if(Parent->Type != NODETYPE_BLOCK)	return ;
-	
-	if(Parent->Block.FirstChild == NULL) {
-		Parent->Block.FirstChild = Parent->Block.LastChild = Child;
-	}
-	else {
-		Parent->Block.LastChild->NextSibling = Child;
-		Parent->Block.LastChild = Child;
+	Child->NextSibling = NULL;
+	switch( Parent->Type )
+	{
+	case NODETYPE_BLOCK:
+		if(Parent->Block.FirstChild == NULL) {
+			Parent->Block.FirstChild = Parent->Block.LastChild = Child;
+		}
+		else {
+			Parent->Block.LastChild->NextSibling = Child;
+			Parent->Block.LastChild = Child;
+		}
+		break;
+	case NODETYPE_DEFVAR:
+		if(Parent->DefVar.LevelSizes == NULL) {
+			Parent->DefVar.LevelSizes = Parent->DefVar.LevelSizes_Last = Child;
+		}
+		else {
+			Parent->DefVar.LevelSizes_Last->NextSibling = Child;
+			Parent->DefVar.LevelSizes_Last = Child;
+		}
+		break;
+	default:
+		fprintf(stderr, "BUG REPORT: AST_AppendNode on an invalid node type (%i)\n", Parent->Type);
+		break;
 	}
 }
 
@@ -162,6 +212,19 @@ tAST_Node *AST_NewBinOp(int Operation, tAST_Node *Left, tAST_Node *Right)
 	ret->Type = Operation;
 	ret->BinOp.Left = Left;
 	ret->BinOp.Right = Right;
+	
+	return ret;
+}
+
+/**
+ */
+tAST_Node *AST_NewUniOp(int Operation, tAST_Node *Value)
+{
+	tAST_Node	*ret = malloc( sizeof(tAST_Node) );
+	
+	ret->NextSibling = NULL;
+	ret->Type = Operation;
+	ret->UniOp.Value = Value;
 	
 	return ret;
 }
@@ -203,6 +266,20 @@ tAST_Node *AST_NewVariable(const char *Name)
 	ret->NextSibling = NULL;
 	ret->Type = NODETYPE_VARIABLE;
 	strcpy(ret->Variable.Name, Name);
+	return ret;
+}
+
+/**
+ * \brief Create a new variable definition node
+ */
+tAST_Node *AST_NewDefineVar(int Type, const char *Name)
+{
+	tAST_Node	*ret = malloc( sizeof(tAST_Node) + strlen(Name) + 1 );
+	ret->NextSibling = NULL;
+	ret->Type = NODETYPE_DEFVAR;
+	ret->DefVar.DataType = Type;
+	ret->DefVar.LevelSizes = NULL;
+	strcpy(ret->DefVar.Name, Name);
 	return ret;
 }
 

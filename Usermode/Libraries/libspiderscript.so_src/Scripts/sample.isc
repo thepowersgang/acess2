@@ -1,0 +1,36 @@
+
+# Should I use brackets in this language?
+# Well, considering that all whitespace is ignored, it might be an idea
+
+# Well, it would make VVV a little simpler
+# Just define a funciton with the name 'Sys.IO.Open'
+# Not a namespace Sys, with a child Sys
+
+$fp = Sys.IO.Open( "/Devices/ipstack" );
+$ifname = Sys.IO.IOCtl( $fp, 4, "/Devices/ne2k/0" );
+Sys.IO.Close($fp);
+
+# Let's see:
+#   b - Signed 8-bit integer, B - unsigned
+#   w - 16 bit
+#   l - 32 bit
+#   q - 64 bit
+#   f - 32-bit float
+#   d - 64-bit double
+#   Fields can be prefixed by a size for arrays (taking only one argument)
+#   * indicates a variable size array
+# E.g.
+#  Sys.Mem.MakeStruct( "L*B", $len, $len, $str );
+# Hmm.. that would mean I will need arrays... fuck it, do them later
+
+function SetIPv4($ifaceName, $addr)
+{
+	$fp = Sys.IO.Open( "/Devices/ipstack/$ifaceName" );
+	$data = Lang.MakeStruct( "l", 4 );
+	Sys.IO.IOCtl( $fp, 4, $data );
+	$data = Lang.Struct( "BBBB", $addr[0],  $addr[1],  $addr[2], $addr[3] );
+	Sys.IO.IOCtl( $fp, 6, $data );
+	Sys.IO.Close( $fp );
+}
+
+SetIPv4( $ifname, Lang.Array(10, 0, 2, 55) );
