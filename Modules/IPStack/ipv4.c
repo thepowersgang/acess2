@@ -29,7 +29,7 @@ tIPCallback	gaIPv4_Callbacks[256];
 
 // === CODE ===
 /**
- * \fn int IPv4_Initialise()
+ * \brief Initialise the IPv4 Code
  */
 int IPv4_Initialise()
 {
@@ -39,8 +39,9 @@ int IPv4_Initialise()
 }
 
 /**
- * \fn int IPv4_RegisterCallback( int ID, tIPCallback Callback )
  * \brief Registers a callback
+ * \param ID	8-bit packet type ID
+ * \param Callback	Callback function
  */
 int IPv4_RegisterCallback(int ID, tIPCallback Callback)
 {
@@ -58,6 +59,7 @@ int IPv4_RegisterCallback(int ID, tIPCallback Callback)
  * \param ID	Some random ID number
  * \param Length	Data Length
  * \param Data	Packet Data
+ * \return Boolean Success
  */
 int IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, int Length, const void *Data)
 {
@@ -72,10 +74,8 @@ int IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, int 
 		&Iface->IP4.Address, &Address,
 		Protocol, 0,
 		Length, Data);
-	
-	if(ret != 0)
-	{
-		// Just drop it
+	if(ret != 0) {
+		// Just drop it (with an error)
 		return 0;
 	}
 	
@@ -123,14 +123,14 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	//Log_Log("IPv4", "Version = %i", hdr->Version);
 	//Log_Log("IPv4", "HeaderLength = %i", hdr->HeaderLength);
 	//Log_Log("IPv4", "DiffServices = %i", hdr->DiffServices);
-	Log_Log("IPv4", "TotalLength = %i", ntohs(hdr->TotalLength) );
+	Log_Debug("IPv4", "TotalLength = %i", ntohs(hdr->TotalLength) );
 	//Log_Log("IPv4", "Identifcation = %i", ntohs(hdr->Identifcation) );
 	//Log_Log("IPv4", "TTL = %i", hdr->TTL );
-	Log_Log("IPv4", "Protocol = %i", hdr->Protocol );
+	Log_Debug("IPv4", "Protocol = %i", hdr->Protocol );
 	//Log_Log("IPv4", "HeaderChecksum = 0x%x", ntohs(hdr->HeaderChecksum) );
-	Log_Log("IPv4", "Source = %i.%i.%i.%i",
+	Log_Debug("IPv4", "Source = %i.%i.%i.%i",
 		hdr->Source.B[0], hdr->Source.B[1], hdr->Source.B[2], hdr->Source.B[3] );
-	Log_Log("IPv4", "Destination = %i.%i.%i.%i",
+	Log_Debug("IPv4", "Destination = %i.%i.%i.%i",
 		hdr->Destination.B[0], hdr->Destination.B[1],
 		hdr->Destination.B[2], hdr->Destination.B[3] );
 	#endif	
@@ -142,7 +142,17 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	}
 	
 	// Check Header checksum
-	//TODO
+	{
+		Uint16	hdrVal, compVal;
+		hdrVal = hdr->HeaderChecksum;
+		hdr->HeaderChecksum = 0;
+		compVal = IPv4_Checksum(hdr, hdr->HeaderLength);
+		if(hdrVal != compVal) {
+			Log_Log("IPv4", "Header checksum fails (%04x != %04x)", hdrVal, compVal);
+			return ;
+		}
+		hdr->HeaderChecksum = hdrVal;
+	}
 	
 	// Check Packet length
 	if( ntohs(hdr->TotalLength) > Length) {
@@ -150,8 +160,8 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 		return;
 	}
 	
-	
 	// TODO: Handle packet fragmentation
+	
 	
 	// Get Data and Data Length
 	dataLength = ntohs(hdr->TotalLength) - sizeof(tIPv4Header);
@@ -160,8 +170,9 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	// Get Interface (allowing broadcasts)
 	iface = IPv4_GetInterface(Adapter, hdr->Destination, 1);
 	
-	// TODO: INPUT Firewall Rule
+	// Firewall rules
 	if( iface ) {
+		// Incoming Packets
 		ret = IPTablesV4_TestChain("INPUT",
 			&hdr->Source, &hdr->Destination,
 			hdr->Protocol, 0,
@@ -169,6 +180,7 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 			);
 	}
 	else {
+		// Routed packets
 		ret = IPTablesV4_TestChain("FORWARD",
 			&hdr->Source, &hdr->Destination,
 			hdr->Protocol, 0,
@@ -180,7 +192,9 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	// 0 - Allow
 	case 0:	break;
 	// 1 - Silent Drop
-	case 1:	return ;
+	case 1:
+		Log_Debug("IPv4", "Silently dropping packet");
+		return ;
 	// Unknown, silent drop
 	default:
 		return ;
@@ -189,7 +203,7 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	// Routing
 	if(!iface)
 	{
-		Log_Log("IPv4", "Route the packet");
+		Log_Debug("IPv4", "Route the packet");
 		
 		// TODO: Parse Routing tables and determine where to send it
 		
@@ -198,7 +212,7 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	
 	// Send it on
 	if( gaIPv4_Callbacks[hdr->Protocol] )
-		gaIPv4_Callbacks[hdr->Protocol] (iface, &hdr->Source, dataLength, data);
+		gaIPv4_Callbacks[hdr->Protocol]( iface, &hdr->Source, dataLength, data );
 	else
 		Log_Log("IPv4", "Unknown Protocol %i", hdr->Protocol);
 }
@@ -206,6 +220,9 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 /**
  * \fn tInterface *IPv4_GetInterface(tAdapter *Adapter, tIPv4 Address)
  * \brief Searches an adapter for a matching address
+ * \param Adapter	Incoming Adapter
+ * \param Address	Destination Address
+ * \param Broadcast	Allow broadcast packets
  */
 tInterface *IPv4_GetInterface(tAdapter *Adapter, tIPv4 Address, int Broadcast)
 {
@@ -238,6 +255,7 @@ tInterface *IPv4_GetInterface(tAdapter *Adapter, tIPv4 Address, int Broadcast)
 
 /**
  * \brief Convert a network prefix to a netmask
+ * \param FixedBits	Netmask size (/n)
  * 
  * For example /24 will become 255.255.255.0
  */
@@ -252,6 +270,10 @@ Uint32 IPv4_Netmask(int FixedBits)
 
 /**
  * \brief Calculate the IPv4 Checksum
+ * \param Buf	Input buffer
+ * \param Size	Size of input
+ * 
+ * One's complement sum of all 16-bit words (bitwise inverted)
  */
 Uint16 IPv4_Checksum(const void *Buf, int Size)
 {
@@ -271,8 +293,10 @@ Uint16 IPv4_Checksum(const void *Buf, int Size)
 
 /**
  * \brief Sends an ICMP Echo and waits for a reply
+ * \param IFace	Interface
+ * \param Addr	Destination address
  */
-int IPv4_Ping(tInterface *Iface, tIPv4 Addr)
+int IPv4_Ping(tInterface *IFace, tIPv4 Addr)
 {
-	return ICMP_Ping(Iface, Addr);
+	return ICMP_Ping(IFace, Addr);
 }

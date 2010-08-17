@@ -17,7 +17,7 @@ tInterface	*IPv6_GetInterface(tAdapter *Adapter, tIPv6 Address, int Broadcast);
 
 // === CODE ===
 /**
- * \fn int IPv6_Initialise()
+ * \brief Initialise the IPv6 handling code
  */
 int IPv6_Initialise()
 {
@@ -28,31 +28,44 @@ int IPv6_Initialise()
 /**
  * \fn void IPv6_int_GetPacket(tInterface *Interface, tMacAddr From, int Length, void *Buffer)
  * \brief Process an IPv6 Packet
+ * \param Interface	Input interface
+ * \param From	Source MAC address
+ * \param Length	Packet length
+ * \param Buffer	Packet data
  */
 void IPv6_int_GetPacket(tAdapter *Interface, tMacAddr From, int Length, void *Buffer)
 {
 	tIPv6Header	*hdr = Buffer;
 	if(Length < sizeof(tIPv6Header))	return;
 	
-	if( ((hdr->Head >> (20+8)) & 0xF) != 6 )
+	hdr->Head = ntohl(hdr->Head);
+	
+	//if( ((hdr->Head >> (20+8)) & 0xF) != 6 )
+	if( hdr->Version != 6 )
 		return;
 	
-	Log("[IPv6 ] hdr = {");
-	Log("[IPv6 ]  .Version       = %i", (hdr->Head >> (20+8)) & 0xF );
-	Log("[IPv6 ]  .TrafficClass  = %i", (hdr->Head >> (20)) & 0xFF );
-	Log("[IPv6 ]  .FlowLabel     = %i", hdr->Head & 0xFFFFF );
-	Log("[IPv6 ]  .PayloadLength = 0x%04x", ntohs(hdr->PayloadLength) );
-	Log("[IPv6 ]  .NextHeader    = 0x%02x", hdr->NextHeader );
-	Log("[IPv6 ]  .HopLimit      = 0x%02x", hdr->HopLimit );
-	Log("[IPv6 ]  .Source        = %04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x", hdr->Source );
-	Log("[IPv6 ]  .Destination   = %04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x", hdr->Destination );
-	Log("[IPv6 ] }");
+	Log_Debug("IPv6", "hdr = {");
+	//Log_Debug("IPv6", " .Version       = %i", (hdr->Head >> (20+8)) & 0xF );
+	//Log_Debug("IPv6", " .TrafficClass  = %i", (hdr->Head >> (20)) & 0xFF );
+	//Log_Debug("IPv6", " .FlowLabel     = %i", hdr->Head & 0xFFFFF );
+	Log_Debug("IPv6", " .Version       = %i", hdr->Version );
+	Log_Debug("IPv6", " .TrafficClass  = %i", hdr->TrafficClass );
+	Log_Debug("IPv6", " .FlowLabel     = %i", hdr->FlowLabel );
+	Log_Debug("IPv6", " .PayloadLength = 0x%04x", ntohs(hdr->PayloadLength) );
+	Log_Debug("IPv6", " .NextHeader    = 0x%02x", hdr->NextHeader );
+	Log_Debug("IPv6", " .HopLimit      = 0x%02x", hdr->HopLimit );
+	Log_Debug("IPv6", " .Source        = %04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x", hdr->Source );
+	Log_Debug("IPv6", " .Destination   = %04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x", hdr->Destination );
+	Log_Debug("IPv6", "}");
 	
 }
 
 /**
  * \fn tInterface *IPv6_GetInterface(tAdapter *Adapter, tIPv6 Address)
  * \brief Searches an adapter for a matching address
+ * \param Adapter	Source adapter
+ * \param Address	Destination Address
+ * \param Broadcast	Allow broadcast?
  */
 tInterface *IPv6_GetInterface(tAdapter *Adapter, tIPv6 Address, int Broadcast)
 {
