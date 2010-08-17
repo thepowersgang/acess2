@@ -10,28 +10,10 @@
 
 // === CONSTANTS ===
 #define	MAX_ATA_DISKS	4
-#define	SECTOR_SIZE		512
+#define	SECTOR_SIZE 	512
+#define	ATA_TIMEOUT 	2000	// 2s timeout
+// Needed out of io.c because it's the max for Read/WriteDMA
 #define	MAX_DMA_SECTORS	(0x1000 / SECTOR_SIZE)
-
-#define	IDE_PRI_BASE	0x1F0
-#define	IDE_SEC_BASE	0x170
-
-#define	IDE_PRDT_LAST	0x8000
-/**
- \enum HddControls
- \brief Commands to be sent to HDD_CMD
-*/
-enum HddControls {
-	HDD_PIO_R28 = 0x20,
-	HDD_PIO_R48 = 0x24,
-	HDD_DMA_R48 = 0x25,
-	HDD_PIO_W28 = 0x30,
-	HDD_PIO_W48 = 0x34,
-	HDD_DMA_W48 = 0x35,
-	HDD_DMA_R28 = 0xC8,
-	HDD_DMA_W28 = 0xCA,
-	HDD_IDENTIFY = 0xEC
-};
 
 // === STRUCTURES ===
 typedef struct

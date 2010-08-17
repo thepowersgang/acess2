@@ -179,7 +179,11 @@ int ATA_ScanDisk(int Disk)
 	// --- Scan Partitions ---
 	LOG("Reading MBR");
 	// Read Boot Sector
-	ATA_ReadDMA( Disk, 0, 1, &mbr );
+	if( ATA_ReadDMA( Disk, 0, 1, &mbr ) != 0 ) {
+		Log_Warning("ATA", "Error in reading MBR on %i", Disk);
+		LEAVE('i', 0);
+		return 0;
+	}
 
 	// Check for a GPT table
 	if(mbr.Parts[0].SystemID == 0xEE)
@@ -192,7 +196,7 @@ int ATA_ScanDisk(int Disk)
 	Debug_HexDump("ATA_ScanDisk", &mbr, 512);
 	#endif
 
-	LEAVE('i', 0);
+	LEAVE('i', 1);
 	return 1;
 }
 

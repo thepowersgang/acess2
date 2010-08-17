@@ -13,6 +13,27 @@
 // === MACROS ===
 #define IO_DELAY()	do{inb(0x80); inb(0x80); inb(0x80); inb(0x80);}while(0)
 
+// === Constants ===
+#define	IDE_PRI_BASE	0x1F0
+#define	IDE_SEC_BASE	0x170
+
+#define	IDE_PRDT_LAST	0x8000
+/**
+ \enum HddControls
+ \brief Commands to be sent to HDD_CMD
+*/
+enum HddControls {
+	HDD_PIO_R28 = 0x20,
+	HDD_PIO_R48 = 0x24,
+	HDD_DMA_R48 = 0x25,
+	HDD_PIO_W28 = 0x30,
+	HDD_PIO_W48 = 0x34,
+	HDD_DMA_W48 = 0x35,
+	HDD_DMA_R28 = 0xC8,
+	HDD_DMA_W28 = 0xCA,
+	HDD_IDENTIFY = 0xEC
+};
+
 // === TYPES ===
 /**
  * \brief PRDT Entry
@@ -198,9 +219,15 @@ Uint64 ATA_GetDiskSize(int Disk)
 		return 0;	// Disk does not exist
 	}
 
-	// Poll until BSY clears and DRQ sets or ERR is set
-	while( ((val & 0x80) || !(val & 0x08)) && !(val & 1))
+	// Poll until BSY clears or ERR is set
+	// TODO: Timeout?
+	while( (val & 0x80) && !(val & 1) )
 		val = inb(base+7);
+	LOG("BSY unset (0x%x)", val);
+	// and, wait for DRQ to set
+	while( !(val & 0x08) && !(val & 1))
+		val = inb(base+7);
+	LOG("DRQ set (0x%x)", val);
 
 	// Check for an error
 	if(val & 1) {
@@ -235,22 +262,24 @@ Uint16 ATA_GetBasePort(int Disk)
 
 /**
  * \fn int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
+ * \return Boolean Failure
  */
 int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 {
 	 int	cont = (Disk>>1)&1;	// Controller ID
 	 int	disk = Disk & 1;
 	Uint16	base;
+	Sint64	timeoutTime;
 	Uint8	val;
 
 	ENTER("iDisk XAddress iCount pBuffer", Disk, Address, Count, Buffer);
 
 	// Check if the count is small enough
 	if(Count > MAX_DMA_SECTORS) {
-		Warning("Passed too many sectors for a bulk DMA read (%i > %i)",
+		Log_Warning("ATA", "Passed too many sectors for a bulk DMA read (%i > %i)",
 			Count, MAX_DMA_SECTORS);
 		LEAVE('i');
-		return 0;
+		return 1;
 	}
 
 	// Get exclusive access to the disk controller
@@ -301,7 +330,9 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	ATA_int_BusMasterWriteByte( cont << 3, 9 );	// Read and start
 
 	// Wait for transfer to complete
-	while( gaATA_IRQs[cont] == 0 )	Threads_Yield();
+	timeoutTime = now() + ATA_TIMEOUT;
+	while( gaATA_IRQs[cont] == 0 && now() < timeoutTime)
+		Threads_Yield();
 
 	// Complete Transfer
 	ATA_int_BusMasterWriteByte( cont << 3, 8 );	// Read and stop
@@ -312,14 +343,25 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	LOG("gATA_PRDTs[%i].Bytes = %i", cont, gATA_PRDTs[cont].Bytes);
 	LOG("Transfer Completed & Acknowledged");
 
-	// Copy to destination buffer
-	memcpy( Buffer, gATA_Buffers[cont], Count*SECTOR_SIZE );
+	if( gaATA_IRQs[cont] == 0 ) {
+		// Release controller lock
+		RELEASE( &giaATA_ControllerLock[ cont ] );
+		Log_Warning("ATA",
+			"Read timeout on disk %i (Reading sector 0x%llx)\n",
+			Disk, Address);
+		// Return error
+		LEAVE('i', 1);
+		return 1;
+	}
+	else {
+		// Copy to destination buffer
+		memcpy( Buffer, gATA_Buffers[cont], Count*SECTOR_SIZE );
+		// Release controller lock
+		RELEASE( &giaATA_ControllerLock[ cont ] );
 
-	// Release controller lock
-	RELEASE( &giaATA_ControllerLock[ cont ] );
-
-	LEAVE('i', 1);
-	return 1;
+		LEAVE('i', 0);
+		return 0;
+	}
 }
 
 /**
@@ -329,15 +371,17 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
  * \param Address	LBA of first sector
  * \param Count	Number of sectors to write (must be >= \a MAX_DMA_SECTORS)
  * \param Buffer	Source buffer for data
+ * \return Boolean Failure
  */
 int ATA_WriteDMA(Uint8 Disk, Uint64 Address, Uint Count, const void *Buffer)
 {
 	 int	cont = (Disk>>1)&1;	// Controller ID
 	 int	disk = Disk & 1;
 	Uint16	base;
+	Sint64	timeoutTime;
 
 	// Check if the count is small enough
-	if(Count > MAX_DMA_SECTORS)	return 0;
+	if(Count > MAX_DMA_SECTORS)	return 1;
 
 	// Get exclusive access to the disk controller
 	LOCK( &giaATA_ControllerLock[ cont ] );
@@ -348,6 +392,9 @@ int ATA_WriteDMA(Uint8 Disk, Uint64 Address, Uint Count, const void *Buffer)
 	// Get Port Base
 	base = ATA_GetBasePort(Disk);
 
+	// Reset IRQ Flag
+	gaATA_IRQs[cont] = 0;
+	
 	// Set up transfer
 	outb(base+0x01, 0x00);
 	if( Address > 0x0FFFFFFF )	// Use LBA48
@@ -373,9 +420,6 @@ int ATA_WriteDMA(Uint8 Disk, Uint64 Address, Uint Count, const void *Buffer)
 	else
 		outb(base+0x07, HDD_DMA_W28);	// Write Command (LBA28)
 
-	// Reset IRQ Flag
-	gaATA_IRQs[cont] = 0;
-
 	// Copy to output buffer
 	memcpy( gATA_Buffers[cont], Buffer, Count*SECTOR_SIZE );
 
@@ -383,15 +427,23 @@ int ATA_WriteDMA(Uint8 Disk, Uint64 Address, Uint Count, const void *Buffer)
 	ATA_int_BusMasterWriteByte( cont << 3, 1 );	// Write and start
 
 	// Wait for transfer to complete
-	while( gaATA_IRQs[cont] == 0 )	Threads_Yield();
+	timeoutTime = now() + ATA_TIMEOUT;
+	while( gaATA_IRQs[cont] == 0 && now() < timeoutTime)
+		Threads_Yield();
 
 	// Complete Transfer
 	ATA_int_BusMasterWriteByte( cont << 3, 0 );	// Write and stop
 
-	// Release controller lock
-	RELEASE( &giaATA_ControllerLock[ cont ] );
-
-	return 1;
+	// If the IRQ is unset, return error
+	if( gaATA_IRQs[cont] == 0 ) {
+		// Release controller lock
+		RELEASE( &giaATA_ControllerLock[ cont ] );
+		return 1;	// Error
+	}
+	else {
+		RELEASE( &giaATA_ControllerLock[ cont ] );
+		return 0;
+	}
 }
 
 /**
