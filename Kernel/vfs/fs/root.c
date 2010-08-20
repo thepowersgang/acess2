@@ -11,8 +11,8 @@
 
 // === PROTOTYPES ===
 tVFS_Node	*Root_InitDevice(char *Device, char **Options);
- int	Root_MkNod(tVFS_Node *Node, char *Name, Uint Flags);
-tVFS_Node	*Root_FindDir(tVFS_Node *Node, char *Name);
+ int	Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
+tVFS_Node	*Root_FindDir(tVFS_Node *Node, const char *Name);
 char	*Root_ReadDir(tVFS_Node *Node, int Pos);
 Uint64	Root_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
 Uint64	Root_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
@@ -67,10 +67,10 @@ tVFS_Node *Root_InitDevice(char *Device, char **Options)
 }
 
 /**
- * \fn int Root_MkNod(tVFS_Node *Node, char *Name, Uint Flags)
+ * \fn int Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
  * \brief Create an entry in the root directory
  */
-int Root_MkNod(tVFS_Node *Node, char *Name, Uint Flags)
+int Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
 {
 	tRamFS_File	*parent = Node->ImplPtr;
 	tRamFS_File	*child = parent->Data.FirstChild;
@@ -126,10 +126,10 @@ int Root_MkNod(tVFS_Node *Node, char *Name, Uint Flags)
 }
 
 /**
- * \fn tVFS_Node *Root_FindDir(tVFS_Node *Node, char *Name)
+ * \fn tVFS_Node *Root_FindDir(tVFS_Node *Node, const char *Name)
  * \brief Find an entry in the filesystem
  */
-tVFS_Node *Root_FindDir(tVFS_Node *Node, char *Name)
+tVFS_Node *Root_FindDir(tVFS_Node *Node, const char *Name)
 {
 	tRamFS_File	*parent = Node->ImplPtr;
 	tRamFS_File	*child = parent->Data.FirstChild;

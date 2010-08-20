@@ -339,18 +339,7 @@ extern Uint	rand(void);
 extern int	CallWithArgArray(void *Function, int NArgs, Uint *Args);
 
 // --- Heap ---
-/**
- * \name Heap
- * \{
- */
-extern void *malloc(size_t size);
-extern void *calloc(size_t num, size_t size);
-extern void	*realloc(void *ptr, size_t size);
-extern void free(void *Ptr);
-extern int	IsHeap(void *Ptr);
-/**
- * \}
- */
+#include <heap.h>
 
 // --- Modules ---
 /**

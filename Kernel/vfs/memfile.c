@@ -7,7 +7,7 @@
 #include <vfs.h>
 
 // === PROTOTYPES ===
-tVFS_Node	*VFS_MemFile_Create(tVFS_Node *Unused, char *Path);
+tVFS_Node	*VFS_MemFile_Create(tVFS_Node *Unused, const char *Path);
 void	VFS_MemFile_Close(tVFS_Node *Node);
 Uint64	VFS_MemFile_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
 Uint64	VFS_MemFile_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
@@ -21,13 +21,13 @@ tVFS_Node	gVFS_MemRoot = {
 
 // === CODE ===
 /**
- * \fn tVFS_Node *VFS_MemFile_Create(tVFS_Node *Unused, char *Path)
+ * \fn tVFS_Node *VFS_MemFile_Create(tVFS_Node *Unused, const char *Path)
  * \note Treated as finddir by VFS_ParsePath
  */
-tVFS_Node *VFS_MemFile_Create(tVFS_Node *Unused, char *Path)
+tVFS_Node *VFS_MemFile_Create(tVFS_Node *Unused, const char *Path)
 {
 	Uint	base, size;
-	char	*str = Path;
+	const char	*str = Path;
 	tVFS_Node	*ret;
 	
 	str++;	// Eat '$'

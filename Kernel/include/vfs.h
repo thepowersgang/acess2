@@ -206,7 +206,7 @@ typedef struct sVFS_Node
 	 * \note The node returned must be accessable until ::tVFS_Node.Close
 	 *       is called and ReferenceCount reaches zero.
 	 */
-	struct sVFS_Node	*(*FindDir)(struct sVFS_Node *Node, char *Name);
+	struct sVFS_Node	*(*FindDir)(struct sVFS_Node *Node, const char *Name);
 	
 	/**
 	 * \brief Read from a directory
@@ -227,7 +227,7 @@ typedef struct sVFS_Node
 	 * \param Flags	Flags to apply to the new child (directory or symlink)
 	 * \return Zero on Success, non-zero on error (see errno.h)
 	 */
-	 int	(*MkNod)(struct sVFS_Node *Node, char *Name, Uint Flags);
+	 int	(*MkNod)(struct sVFS_Node *Node, const char *Name, Uint Flags);
 	
 	/**
 	 * \brief Relink (Rename/Remove) a file/directory
@@ -236,7 +236,7 @@ typedef struct sVFS_Node
 	 * \param NewName	New name (or NULL if unlinking is wanted)
 	 * \return Zero on Success, non-zero on error (see errno.h)
 	 */
-	 int	(*Relink)(struct sVFS_Node *Node, char *OldName, char *NewName);
+	 int	(*Relink)(struct sVFS_Node *Node, const char *OldName, const char *NewName);
 	
 	/**
 	 * \brief Link a node to a name
@@ -245,7 +245,7 @@ typedef struct sVFS_Node
 	 * \param NewName	Name for the new link
 	 * \return Zeron on success, non-zero on error (see errno.h)
 	 */
-	 int	(*Link)(struct sVFS_Node *Node, struct sVFS_Node *Child, char *NewName);
+	 int	(*Link)(struct sVFS_Node *Node, struct sVFS_Node *Child, const char *NewName);
 	 
 	 /**
 	  * \}

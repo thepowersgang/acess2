@@ -40,8 +40,8 @@ extern tVFS_Mount	*gVFS_Mounts;
 
 // === PROTOTYPES ===
 // --- OPEN.C ---
-extern char	*VFS_GetAbsPath(char *Path);
-extern tVFS_Node	*VFS_ParsePath(char *Path, char **TruePath);
+extern char	*VFS_GetAbsPath(const char *Path);
+extern tVFS_Node	*VFS_ParsePath(const char *Path, char **TruePath);
 extern tVFS_Handle	*VFS_GetHandle(int FD);
 // --- ACLS.C ---
 extern int	VFS_CheckACL(tVFS_Node *Node, Uint Permissions);

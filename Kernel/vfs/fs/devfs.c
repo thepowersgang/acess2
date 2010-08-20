@@ -12,7 +12,7 @@
 void	DevFS_DelDevice(tDevFS_Driver *Device);
 tVFS_Node	*DevFS_InitDevice(char *Device, char **Options);
 char	*DevFS_ReadDir(tVFS_Node *Node, int Pos);
-tVFS_Node	*DevFS_FindDir(tVFS_Node *Node, char *Name);
+tVFS_Node	*DevFS_FindDir(tVFS_Node *Node, const char *Name);
 
 // === GLOBALS ===
 tVFS_Driver	gDevFS_Info = {
@@ -131,7 +131,7 @@ char *DevFS_ReadDir(tVFS_Node *Node, int Pos)
  * \fn tVFS_Node *DevFS_FindDir(tVFS_Node *Node, char *Name)
  * \brief Get an entry from the devices directory
  */
-tVFS_Node *DevFS_FindDir(tVFS_Node *Node, char *Name)
+tVFS_Node *DevFS_FindDir(tVFS_Node *Node, const char *Name)
 {
 	tDevFS_Driver	*dev;
 	

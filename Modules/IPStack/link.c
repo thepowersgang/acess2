@@ -17,6 +17,7 @@ void	Link_WatchDevice(tAdapter *Adapter);
 
 // === GLOBALS ===
  int	giRegisteredTypes = 0;
+ int	giRegisteredTypeSpace = 0;
 struct {
 	Uint16	Type;
 	tPacketCallback	Callback;
@@ -50,17 +51,18 @@ void Link_RegisterType(Uint16 Type, tPacketCallback Callback)
 	
 	if(i == -1)
 	{
-		tmp = realloc(gaRegisteredTypes, (giRegisteredTypes+1)*sizeof(*gaRegisteredTypes));
+		giRegisteredTypeSpace += 5;
+		tmp = realloc(gaRegisteredTypes, giRegisteredTypeSpace*sizeof(*gaRegisteredTypes));
 		if(!tmp) {
 			Log_Warning("NET",
 				"Out of heap space! (Attempted to allocate %i)",
-				(giRegisteredTypes+1)*sizeof(*gaRegisteredTypes)
+				giRegisteredTypeSpace*sizeof(*gaRegisteredTypes)
 				);
 			return ;
 		}
+		gaRegisteredTypes = tmp;
 		i = giRegisteredTypes;
 		giRegisteredTypes ++;
-		gaRegisteredTypes = tmp;
 	}
 	
 	gaRegisteredTypes[i].Callback = Callback;

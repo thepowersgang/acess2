@@ -159,7 +159,7 @@ struct sAST_Variable
 {
 	tAST_Variable	*Next;
 	 int	Type;	// Only used for static typing
-	tSpiderObject	*Object;
+	tSpiderValue	*Object;
 	char	Name[];
 };
 
@@ -187,6 +187,6 @@ extern tAST_Node	*AST_NewUniOp(int Operation, tAST_Node *Value);
 extern void	AST_FreeNode(tAST_Node *Node);
 
 // exec_ast.h
-extern tSpiderObject	*AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node);
+extern tSpiderValue	*AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node);
 
 #endif

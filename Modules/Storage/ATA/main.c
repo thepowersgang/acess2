@@ -25,7 +25,7 @@ void	ATA_int_MakePartition(tATA_Partition *Part, int Disk, int Num, Uint64 Start
 Uint16	ATA_GetBasePort(int Disk);
 // Filesystem Interface
 char	*ATA_ReadDir(tVFS_Node *Node, int Pos);
-tVFS_Node	*ATA_FindDir(tVFS_Node *Node, char *Name);
+tVFS_Node	*ATA_FindDir(tVFS_Node *Node, const char *Name);
 Uint64	ATA_ReadFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
 Uint64	ATA_WriteFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
  int	ATA_IOCtl(tVFS_Node *Node, int Id, void *Data);
@@ -250,9 +250,9 @@ char *ATA_ReadDir(tVFS_Node *UNUSED(Node), int Pos)
 }
 
 /**
- * \fn tVFS_Node *ATA_FindDir(tVFS_Node *Node, char *Name)
+ * \fn tVFS_Node *ATA_FindDir(tVFS_Node *Node, const char *Name)
  */
-tVFS_Node *ATA_FindDir(tVFS_Node *UNUSED(Node), char *Name)
+tVFS_Node *ATA_FindDir(tVFS_Node *UNUSED(Node), const char *Name)
 {
 	 int	part;
 	tATA_Disk	*disk;

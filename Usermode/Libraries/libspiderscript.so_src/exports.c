@@ -8,7 +8,7 @@
 #include <spiderscript.h>
 
 // === PROTOTYPES ===
-tSpiderObject	*Exports_Lang_Struct(tSpiderScript *Script, int NArgs, tSpiderObject **Args);
+tSpiderValue	*Exports_Lang_Struct(tSpiderScript *Script, int NArgs, tSpiderValue **Args);
 
 // === GLOBALS ===
  int	gaExports_Lang_Struct_Args[] = {SS_DATATYPE_STRING,-1};
@@ -19,7 +19,7 @@ tSpiderFunction	gaSpiderScript_Exports[] = {
 const int	giSpiderScript_NumExports = sizeof(gaSpiderScript_Exports)/sizeof(tSpiderFunction);
 
 // === CODE ===
-tSpiderObject *Exports_Lang_Struct(tSpiderScript *Script, int NArgs, tSpiderObject **Args)
+tSpiderValue *Exports_Lang_Struct(tSpiderScript *Script, int NArgs, tSpiderValue **Args)
 {
 	 int	i;
 	printf("Exports_Lang_Struct: (Script=%p, NArgs=%i, Args=%p)\n", Script, NArgs, Args);

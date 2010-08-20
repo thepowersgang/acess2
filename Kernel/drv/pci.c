@@ -34,10 +34,10 @@ typedef struct sPCIDevice
 
 // === PROTOTYPES ===
  int	PCI_Install(char **Arguments);
- int	PCI_ScanBus(int ID);
+ int	PCI_ScanBus(int ID, int bFill);
  
 char	*PCI_ReadDirRoot(tVFS_Node *node, int pos);
-tVFS_Node	*PCI_FindDirRoot(tVFS_Node *node, char *filename);
+tVFS_Node	*PCI_FindDirRoot(tVFS_Node *node, const char *filename);
 Uint64	PCI_ReadDevice(tVFS_Node *node, Uint64 pos, Uint64 length, void *buffer);
  
  int	PCI_CountDevices(Uint16 vendor, Uint16 device, Uint16 fcn);
@@ -99,8 +99,8 @@ int PCI_Install(char **Arguments)
 	for( i = 0; i < MAX_RESERVED_PORT % 32; i ++ )
 		gaPCI_PortBitmap[MAX_RESERVED_PORT / 32] = 1 << i;
 	
-	// Scan Bus
-	i = PCI_ScanBus(0);
+	// Scan Bus (Bus 0, Don't fill gPCI_Devices)
+	i = PCI_ScanBus(0, 0);
 	if(i != MODULE_ERR_OK)	return i;
 		
 	if(giPCI_DeviceCount == 0) {
@@ -108,11 +108,22 @@ int PCI_Install(char **Arguments)
 		return MODULE_ERR_NOTNEEDED;
 	}
 	
-	// Ensure the buffer is nice and tight
-	tmpPtr = realloc(gPCI_Devices, giPCI_DeviceCount*sizeof(tPCIDevice));
-	if(tmpPtr == NULL)
+	// Allocate device buffer
+	tmpPtr = malloc(giPCI_DeviceCount * sizeof(tPCIDevice));
+	if(tmpPtr == NULL) {
+		Log_Warning("PCI", "Malloc ERROR");
 		return MODULE_ERR_MALLOC;
+	}
 	gPCI_Devices = tmpPtr;
+	
+	Log_Log("PCI", "%i devices, filling structure");
+	
+	// Reset counts
+	giPCI_DeviceCount = 0;
+	giPCI_BusCount = 0;
+	memset(gaPCI_BusBitmap, 0, sizeof(gaPCI_BusBitmap));
+	// Rescan, filling the PCI device array
+	PCI_ScanBus(0, 1);
 	
 	// Complete Driver Structure
 	gPCI_DriverStruct.RootNode.Size = giPCI_DeviceCount;
@@ -125,12 +136,13 @@ int PCI_Install(char **Arguments)
 
 /**
  * \brief Scans a specific PCI Bus
+ * \param BusID	PCI Bus ID to scan
+ * \param bFill	Fill the \a gPCI_Devices array?
  */
-int PCI_ScanBus(int BusID)
+int PCI_ScanBus(int BusID, int bFill)
 {
 	 int	dev, fcn;
 	tPCIDevice	devInfo;
-	void	*tmpPtr = NULL;
 	
 	if( gaPCI_BusBitmap[BusID/32] & (1 << (BusID%32)) )
 		return MODULE_ERR_OK;
@@ -145,12 +157,6 @@ int PCI_ScanBus(int BusID)
 			if(!PCI_EnumDevice(BusID, dev, fcn, &devInfo))
 				continue;
 			
-			// Allocate
-			tmpPtr = realloc(gPCI_Devices, (giPCI_DeviceCount+1)*sizeof(tPCIDevice));
-			if(tmpPtr == NULL)
-				return MODULE_ERR_MALLOC;
-			gPCI_Devices = tmpPtr;
-			
 			if(devInfo.oc == PCI_OC_PCIBRIDGE)
 			{
 				#if LIST_DEVICES
@@ -158,8 +164,8 @@ int PCI_ScanBus(int BusID)
 					BusID, dev, fcn, devInfo.vendor, devInfo.device);
 				#endif
 				//TODO: Handle PCI-PCI Bridges
-				//PCI_ScanBus( );
-				giPCI_BusCount++;
+				//PCI_ScanBus(devInfo.???, bFill);
+				giPCI_BusCount ++;
 			}
 			else
 			{
@@ -169,8 +175,10 @@ int PCI_ScanBus(int BusID)
 				#endif
 			}
 			
-			devInfo.Node.Inode = giPCI_DeviceCount;
-			memcpy(&gPCI_Devices[giPCI_DeviceCount], &devInfo, sizeof(tPCIDevice));
+			if( bFill ) {
+				devInfo.Node.Inode = giPCI_DeviceCount;
+				memcpy(&gPCI_Devices[giPCI_DeviceCount], &devInfo, sizeof(tPCIDevice));
+			}
 			giPCI_DeviceCount ++;
 			
 			// WTF is this for?
@@ -202,9 +210,9 @@ char *PCI_ReadDirRoot(tVFS_Node *Node, int Pos)
 	return strdup( gPCI_Devices[Pos].Name );
 }
 /**
- * \fn tVFS_Node *PCI_FindDirRoot(tVFS_Node *node, char *filename)
+ * \fn tVFS_Node *PCI_FindDirRoot(tVFS_Node *node, const char *filename)
  */
-tVFS_Node *PCI_FindDirRoot(tVFS_Node *node, char *filename)
+tVFS_Node *PCI_FindDirRoot(tVFS_Node *node, const char *filename)
 {
 	 int	bus,slot,fcn;
 	 int	i;

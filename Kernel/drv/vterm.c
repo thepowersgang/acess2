@@ -71,7 +71,7 @@ extern void	Debug_SetKTerminal(char *File);
 void	VT_InitOutput(void);
 void	VT_InitInput(void);
 char	*VT_ReadDir(tVFS_Node *Node, int Pos);
-tVFS_Node	*VT_FindDir(tVFS_Node *Node, char *Name);
+tVFS_Node	*VT_FindDir(tVFS_Node *Node, const char *Name);
  int	VT_Root_IOCtl(tVFS_Node *Node, int Id, void *Data);
 Uint64	VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
 Uint64	VT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
@@ -324,12 +324,12 @@ char *VT_ReadDir(tVFS_Node *Node, int Pos)
 }
 
 /**
- * \fn tVFS_Node *VT_FindDir(tVFS_Node *Node, char *Name)
+ * \fn tVFS_Node *VT_FindDir(tVFS_Node *Node, const char *Name)
  * \brief Find an item in the VTerm directory
  * \param Node	Root node
  * \param Name	Name (number) of the terminal
  */
-tVFS_Node *VT_FindDir(tVFS_Node *Node, char *Name)
+tVFS_Node *VT_FindDir(tVFS_Node *Node, const char *Name)
 {
 	 int	num;
 	

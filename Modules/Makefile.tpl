@@ -12,13 +12,15 @@ CFGFILES += $(shell test -f Makefile.cfg && echo Makefile.cfg)
 -include $(CFGFILES)
 
 CPPFLAGS := -I$(ACESSDIR)/Kernel/include -I$(ACESSDIR)/Kernel/arch/$(ARCHDIR)/include -DARCH=$(ARCH) $(_CPPFLAGS)
-CFLAGS := -Wall -Werror -fno-stack-protector $(CPPFLAGS) -O3 -fno-builtin
+CFLAGS = -Wall -Werror -fno-stack-protector $(CPPFLAGS) -O3 -fno-builtin
 
 ifneq ($(CATEGORY),)
 	FULLNAME := $(CATEGORY)_$(NAME)
 else
 	FULLNAME := $(NAME)
 endif
+
+CPPFLAGS += -D_MODULE_NAME_=\"$(FULLNAME)\"
 
 ifneq ($(BUILDTYPE),static)
 	_SUFFIX := dyn_$(ARCH)

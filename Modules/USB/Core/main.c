@@ -17,7 +17,7 @@ extern int	UHCI_Initialise(void);
  int	USB_Install(char **Arguments);
 void	USB_Cleanup(void);
 char	*USB_ReadDir(tVFS_Node *Node, int Pos);
-tVFS_Node	*USB_FindDir(tVFS_Node *Node, char *Name);
+tVFS_Node	*USB_FindDir(tVFS_Node *Node, const char *Name);
  int	USB_IOCtl(tVFS_Node *Node, int Id, void *Data);
 
 // === GLOBALS ===
@@ -65,10 +65,10 @@ char *USB_ReadDir(tVFS_Node *Node, int Pos)
 }
 
 /**
- * \fn tVFS_Node *USB_FindDir(tVFS_Node *Node, char *Name)
+ * \fn tVFS_Node *USB_FindDir(tVFS_Node *Node, const char *Name)
  * \brief Locate an entry in the USB root
  */
-tVFS_Node *USB_FindDir(tVFS_Node *Node, char *Name)
+tVFS_Node *USB_FindDir(tVFS_Node *Node, const char *Name)
 {
 	return NULL;
 }

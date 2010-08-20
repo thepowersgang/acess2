@@ -85,7 +85,7 @@ typedef struct sNe2k_Card {
 // === PROTOTYPES ===
  int	Ne2k_Install(char **Arguments);
 char	*Ne2k_ReadDir(tVFS_Node *Node, int Pos);
-tVFS_Node	*Ne2k_FindDir(tVFS_Node *Node, char *Name);
+tVFS_Node	*Ne2k_FindDir(tVFS_Node *Node, const char *Name);
  int	Ne2k_IOCtl(tVFS_Node *Node, int ID, void *Data);
 Uint64	Ne2k_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
 Uint64	Ne2k_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
@@ -236,9 +236,9 @@ char *Ne2k_ReadDir(tVFS_Node *Node, int Pos)
 }
 
 /**
- * \fn tVFS_Node *Ne2k_FindDir(tVFS_Node *Node, char *Name)
+ * \fn tVFS_Node *Ne2k_FindDir(tVFS_Node *Node, const char *Name)
  */
-tVFS_Node *Ne2k_FindDir(tVFS_Node *Node, char *Name)
+tVFS_Node *Ne2k_FindDir(tVFS_Node *Node, const char *Name)
 {
 	if(Name[0] == '\0' || Name[1] != '\0')	return NULL;
 	

@@ -4,27 +4,33 @@
  */
 #include <acess.h>
 #include <mm_virt.h>
-#include <heap.h>
+#include <heap_int.h>
 
 #define WARNINGS	1
 #define	DEBUG_TRACE	0
 
 // === CONSTANTS ===
 #define	HEAP_INIT_SIZE	0x8000	// 32 KiB
-#define	BLOCK_SIZE	(sizeof(void*))*8	// 8 Machine Words
+#define	MIN_SIZE	(sizeof(void*))*8	// 8 Machine Words
+#define	POW2_SIZES	0
 #define	COMPACT_HEAP	0	// Use 4 byte header?
 #define	FIRST_FIT	0
 
-#define	MAGIC_FOOT	0x2ACE5505
-#define	MAGIC_FREE	0xACE55000
-#define	MAGIC_USED	0x862B0505	// MAGIC_FOOT ^ MAGIC_FREE
+//#define	MAGIC_FOOT	0x2ACE5505
+//#define	MAGIC_FREE	0xACE55000
+//#define	MAGIC_USED	0x862B0505	// MAGIC_FOOT ^ MAGIC_FREE
+#define	MAGIC_FOOT	0x544F4F46	// 'FOOT'
+#define	MAGIC_FREE	0x45455246	// 'FREE'
+#define	MAGIC_USED	0x44455355	// 'USED'
 
 // === PROTOTYPES ===
 void	Heap_Install(void);
 void	*Heap_Extend(int Bytes);
 void	*Heap_Merge(tHeapHead *Head);
-void	*malloc(size_t Bytes);
-void	free(void *Ptr);
+void	*Heap_Allocate(const char *File, int Line, size_t Bytes);
+void	*Heap_AllocateZero(const char *File, int Line, size_t Bytes);
+void	*Heap_Reallocate(const char *File, int Line, void *Ptr, size_t Bytes);
+void	Heap_Deallocate(void *Ptr);
 void	Heap_Dump(void);
 void	Heap_Stats(void);
 
@@ -124,10 +130,12 @@ void *Heap_Merge(tHeapHead *Head)
 }
 
 /**
- * \fn void *malloc(size_t Bytes)
  * \brief Allocate memory from the heap
+ * \param File	Allocating source file
+ * \param Line	Source line
+ * \param Bytes	Size of region to allocate
  */
-void *malloc(size_t Bytes)
+void *Heap_Allocate(const char *File, int Line, size_t Bytes)
 {
 	tHeapHead	*head, *newhead;
 	tHeapFoot	*foot, *newfoot;
@@ -135,7 +143,12 @@ void *malloc(size_t Bytes)
 	Uint	bestSize = 0;	// Speed hack
 	
 	// Get required size
-	Bytes = (Bytes + sizeof(tHeapHead) + sizeof(tHeapFoot) + BLOCK_SIZE-1) & ~(BLOCK_SIZE-1);
+	#if POW2_SIZES
+	Bytes = Bytes + sizeof(tHeapHead) + sizeof(tHeapFoot);
+	Bytes = 1UUL << LOG2(Bytes);
+	#else
+	Bytes = (Bytes + sizeof(tHeapHead) + sizeof(tHeapFoot) + MIN_SIZE-1) & ~(MIN_SIZE-1);
+	#endif
 	
 	// Lock Heap
 	LOCK(&glHeap);
@@ -147,7 +160,11 @@ void *malloc(size_t Bytes)
 		)
 	{
 		// Alignment Check
-		if( head->Size & (BLOCK_SIZE-1) ) {
+		#if POW2_SIZES
+		if( head->Size != 1UUL << LOG2(head->Size) ) {
+		#else
+		if( head->Size & (MIN_SIZE-1) ) {
+		#endif
 			RELEASE(&glHeap);	// Release spinlock
 			#if WARNINGS
 			Log_Warning("Heap", "Size of heap address %p is invalid not aligned (0x%x)", head, head->Size);
@@ -174,6 +191,8 @@ void *malloc(size_t Bytes)
 		// Perfect fit
 		if(head->Size == Bytes) {
 			head->Magic = MAGIC_USED;
+			head->File = File;
+			head->Line = Line;
 			RELEASE(&glHeap);	// Release spinlock
 			#if DEBUG_TRACE
 			Log("[Heap   ] Malloc'd %p (%i bytes), returning to %p", head->Data, head->Size,  __builtin_return_address(0));
@@ -207,6 +226,8 @@ void *malloc(size_t Bytes)
 		// Check size
 		if(best->Size == Bytes) {
 			best->Magic = MAGIC_USED;	// Mark block as used
+			best->File = File;
+			best->Line = Line;
 			RELEASE(&glHeap);	// Release spinlock
 			#if DEBUG_TRACE
 			Log("[Heap   ] Malloc'd %p (%i bytes), returning to %p", best->Data, best->Size, __builtin_return_address(0));
@@ -227,19 +248,23 @@ void *malloc(size_t Bytes)
 	foot->Head = newhead;	// Update backlink in old footer
 	best->Size = Bytes;		// Update size in old header
 	best->Magic = MAGIC_USED;	// Mark block as used
+	best->File = File;
+	best->Line = Line;
 	
 	RELEASE(&glHeap);	// Release spinlock
 	#if DEBUG_TRACE
-	Log("[Heap   ] Malloc'd %p (%i bytes), returning to %p", best->Data, best->Size, __builtin_return_address(0));
+	Log_Debug("Heap", "newhead(%p)->Size = 0x%x", newhead, newhead->Size);
+	Log_Debug("Heap", "Malloc'd %p (0x%x bytes), returning to %s:%i",
+		best->Data, best->Size, File, Line);
 	#endif
 	return best->Data;
 }
 
 /**
- * \fn void free(void *Ptr)
+ * \fn void Heap_Deallocate(void *Ptr)
  * \brief Free an allocated memory block
  */
-void free(void *Ptr)
+void Heap_Deallocate(void *Ptr)
 {
 	tHeapHead	*head;
 	tHeapFoot	*foot;
@@ -270,18 +295,21 @@ void free(void *Ptr)
 		return;
 	}
 	if(head->Magic != MAGIC_USED) {
-		Log_Warning("Heap", "free - Magic value is invalid (%p, 0x%x)\n", head, head->Magic);
+		Log_Warning("Heap", "free - Magic value is invalid (%p, 0x%x)", head, head->Magic);
+		Log_Notice("Heap", "Allocated %s:%i", head->File, head->Line);
 		return;
 	}
 	
 	// Check memory block - Footer
 	foot = (void*)( (Uint)head + head->Size - sizeof(tHeapFoot) );
 	if(foot->Head != head) {
-		Log_Warning("Heap", "free - Footer backlink is incorrect (%p, 0x%x)\n", head, foot->Head);
+		Log_Warning("Heap", "free - Footer backlink is incorrect (%p, 0x%x)", head, foot->Head);
+		Log_Notice("Heap", "Allocated %s:%i", head->File, head->Line);
 		return;
 	}
 	if(foot->Magic != MAGIC_FOOT) {
-		Log_Warning("Heap", "free - Footer magic is invalid (%p, %p = 0x%x)\n", head, &foot->Magic, foot->Magic);
+		Log_Warning("Heap", "free - Footer magic is invalid (%p, %p = 0x%x)", head, &foot->Magic, foot->Magic);
+		Log_Notice("Heap", "Allocated %s:%i", head->File, head->Line);
 		return;
 	}
 	
@@ -299,15 +327,15 @@ void free(void *Ptr)
 
 /**
  */
-void *realloc(void *__ptr, size_t __size)
+void *Heap_Reallocate(const char *File, int Line, void *__ptr, size_t __size)
 {
 	tHeapHead	*head = (void*)( (Uint)__ptr-8 );
 	tHeapHead	*nextHead;
 	tHeapFoot	*foot;
-	Uint	newSize = (__size + sizeof(tHeapFoot)+sizeof(tHeapHead)+BLOCK_SIZE-1)&~(BLOCK_SIZE-1);
+	Uint	newSize = (__size + sizeof(tHeapFoot)+sizeof(tHeapHead)+MIN_SIZE-1)&~(MIN_SIZE-1);
 	
 	// Check for reallocating NULL
-	if(__ptr == NULL)	return malloc(__size);
+	if(__ptr == NULL)	return Heap_Allocate(File, Line, __size);
 	
 	// Check if resize is needed
 	if(newSize <= head->Size)	return __ptr;
@@ -323,6 +351,8 @@ void *realloc(void *__ptr, size_t __size)
 		// Exact Fit
 		if(size == newSize) {
 			head->Size = newSize;
+			head->File = File;
+			head->Line = Line;
 			foot->Head = head;
 			nextHead->Magic = 0;
 			nextHead->Size = 0;
@@ -334,6 +364,8 @@ void *realloc(void *__ptr, size_t __size)
 		nextHead->Magic = MAGIC_FREE;
 		foot->Head = nextHead;	// Edit 2nd footer
 		head->Size = newSize;	// Edit first header
+		head->File = File;
+		head->Line = Line;
 		// Create new footer
 		foot = (void*)( (Uint)head + newSize - sizeof(tHeapFoot) );
 		foot->Head = head;
@@ -361,6 +393,8 @@ void *realloc(void *__ptr, size_t __size)
 			// Set 1st (new/lower) header
 			nextHead->Magic = MAGIC_USED;
 			nextHead->Size = newSize;
+			nextHead->File = File;
+			nextHead->Line = Line;
 			// Get 2nd (old) footer
 			foot = (void*)( (Uint)nextHead + newSize );
 			foot->Head = nextHead;
@@ -378,8 +412,10 @@ void *realloc(void *__ptr, size_t __size)
 	}
 	
 	// Well, darn
-	nextHead = malloc( __size );
+	nextHead = Heap_Allocate( File, Line, __size );
 	nextHead -= 1;
+	nextHead->File = File;
+	nextHead->Line = Line;
 	
 	memcpy(
 		nextHead->Data,
@@ -393,26 +429,27 @@ void *realloc(void *__ptr, size_t __size)
 }
 
 /**
- * \fn void *calloc(size_t num, size_t size)
+ * \fn void *Heap_AllocateZero(const char *File, int Line, size_t size)
  * \brief Allocate and Zero a buffer in memory
- * \param num	Number of elements
- * \param size	Size of each element
+ * \param File	Allocating file
+ * \param Line	Line of allocation
+ * \param size	Size of the allocation
  */
-void *calloc(size_t num, size_t size)
+void *Heap_AllocateZero(const char *File, int Line, size_t size)
 {
-	void	*ret = malloc(num*size);
+	void	*ret = Heap_Allocate(File, Line, size);
 	if(ret == NULL)	return NULL;
 	
-	memset( ret, 0, num*size );
+	memset( ret, 0, size );
 	
 	return ret;
 }
 
 /**
- * \fn int IsHeap(void *Ptr)
+ * \fn int Heap_IsHeapAddr(void *Ptr)
  * \brief Checks if an address is a heap pointer
  */
-int IsHeap(void *Ptr)
+int Heap_IsHeapAddr(void *Ptr)
 {
 	tHeapHead	*head;
 	if((Uint)Ptr < (Uint)gHeapStart)	return 0;
@@ -429,16 +466,20 @@ int IsHeap(void *Ptr)
 #if WARNINGS
 void Heap_Dump(void)
 {
-	tHeapHead	*head;
+	tHeapHead	*head, *badHead;
 	tHeapFoot	*foot;
 	
 	head = gHeapStart;
 	while( (Uint)head < (Uint)gHeapEnd )
 	{		
 		foot = (void*)( (Uint)head + head->Size - sizeof(tHeapFoot) );
-		Log_Log("Heap", "%p (0x%x): 0x%08lx 0x%lx",
-			head, MM_GetPhysAddr((Uint)head), head->Size, head->Magic);
-		Log_Log("Heap", "%p 0x%lx", foot->Head, foot->Magic);
+		Log_Log("Heap", "%p (0x%llx): 0x%08lx %4C",
+			head, MM_GetPhysAddr((Uint)head), head->Size, &head->Magic);
+		Log_Log("Heap", "%p %4C", foot->Head, &foot->Magic);
+		if(head->File) {
+			Log_Log("Heap", "%sowned by %s:%i",
+				(head->Magic==MAGIC_FREE?"was ":""), head->File, head->Line);
+		}
 		Log_Log("Heap", "");
 		
 		// Sanity Check Header
@@ -446,7 +487,7 @@ void Heap_Dump(void)
 			Log_Warning("Heap", "HALTED - Size is zero");
 			break;
 		}
-		if(head->Size & (BLOCK_SIZE-1)) {
+		if(head->Size & (MIN_SIZE-1)) {
 			Log_Warning("Heap", "HALTED - Size is malaligned");
 			break;
 		}
@@ -468,6 +509,59 @@ void Heap_Dump(void)
 		// All OK? Go to next
 		head = foot->NextHead;
 	}
+	
+	// Check for a bad return
+	if( (tVAddr)head >= (tVAddr)gHeapEnd )
+		return ;
+	
+	badHead = head;
+	
+	Log_Log("Heap", "==== Going Backwards ==== (from %p)", badHead);
+	
+	// Work backwards
+	foot = (void*)( (tVAddr)gHeapEnd - sizeof(tHeapFoot) );
+	head = foot->Head;
+	while( (tVAddr)head >= (tVAddr)badHead )
+	{
+		Log_Log("Heap", "%p (0x%llx): 0x%08lx %4C",
+			head, MM_GetPhysAddr((Uint)head), head->Size, &head->Magic);
+		Log_Log("Heap", "%p %4C", foot->Head, &foot->Magic);
+		if(head->File)
+			Log_Log("Heap", "%sowned by %s:%i",
+				(head->Magic!=MAGIC_USED?"was ":""),
+				head->File, head->Line);
+		Log_Log("Heap", "");
+		
+		// Sanity Check Header
+		if(head->Size == 0) {
+			Log_Warning("Heap", "HALTED - Size is zero");
+			break;
+		}
+		if(head->Size & (MIN_SIZE-1)) {
+			Log_Warning("Heap", " - Size is malaligned (&0x%x)", ~(MIN_SIZE-1));
+			break ;
+		}
+		if(head->Magic != MAGIC_FREE && head->Magic != MAGIC_USED) {
+			Log_Warning("Heap", "HALTED - Head Magic is Bad");
+			break;
+		}
+		
+		// Check footer
+		if(foot->Magic != MAGIC_FOOT) {
+			Log_Warning("Heap", "HALTED - Foot Magic is Bad");
+			break;
+		}
+		if(head != foot->Head) {
+			Log_Warning("Heap", "HALTED - Footer backlink is invalid");
+			break;
+		}
+		
+		if(head == badHead)	break;
+		
+		foot = (void*)( (tVAddr)head - sizeof(tHeapFoot) );
+		head = foot->Head;
+		Log_Debug("Heap", "head=%p", head);
+	}
 }
 #endif
 
@@ -486,7 +580,7 @@ void Heap_Stats(void)
 		(Uint)head < (Uint)gHeapEnd;
 		head = (void*)( (Uint)head + head->Size )
 		)
-	{
+	{	
 		nBlocks ++;
 		totalBytes += head->Size;
 		if( head->Magic == MAGIC_FREE )
@@ -494,11 +588,21 @@ void Heap_Stats(void)
 			nFree ++;
 			freeBytes += head->Size;
 		}
-		else {
+		else if( head->Magic == MAGIC_USED) {
 			if(maxAlloc < head->Size)	maxAlloc = head->Size;
 			if(minAlloc == -1 || minAlloc > head->Size)
 				minAlloc = head->Size;
 		}
+		else {
+			Log_Warning("Heap", "Magic on %p invalid, skipping remainder of heap", head);
+			break;
+		}
+		
+		// Print the block info?
+		#if 1
+		Log_Debug("Heap", "%p - 0x%x Owned by %s:%i",
+			head, head->Size, head->File, head->Line);
+		#endif
 	}
 
 	Log_Log("Heap", "%i blocks (0x%x bytes)", nBlocks, totalBytes);
@@ -560,6 +664,8 @@ void Heap_Stats(void)
 #endif
 
 // === EXPORTS ===
-EXPORT(malloc);
-EXPORT(realloc);
-EXPORT(free);
+EXPORT(Heap_Allocate);
+EXPORT(Heap_AllocateZero);
+EXPORT(Heap_Reallocate);
+EXPORT(Heap_Deallocate);
+EXPORT(Heap_IsHeapAddr);

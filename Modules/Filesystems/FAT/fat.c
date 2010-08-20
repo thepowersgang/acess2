@@ -73,10 +73,10 @@ Uint64	FAT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
 #endif
 // --- Directory IO
 char	*FAT_ReadDir(tVFS_Node *Node, int ID);
-tVFS_Node	*FAT_FindDir(tVFS_Node *Node, char *Name);
+tVFS_Node	*FAT_FindDir(tVFS_Node *Node, const char *Name);
 #if SUPPORT_WRITE
- int	FAT_Mknod(tVFS_Node *Node, char *Name, Uint Flags);
- int	FAT_Relink(tVFS_Node *node, char *OldName, char *NewName);
+ int	FAT_Mknod(tVFS_Node *Node, const char *Name, Uint Flags);
+ int	FAT_Relink(tVFS_Node *node, const char *OldName, const char *NewName);
 #endif
 void	FAT_CloseFile(tVFS_Node *node);
 
@@ -1303,7 +1303,7 @@ char *FAT_ReadDir(tVFS_Node *Node, int ID)
  * \fn tVFS_Node *FAT_FindDir(tVFS_Node *node, char *name)
  * \brief Finds an entry in the current directory
  */
-tVFS_Node *FAT_FindDir(tVFS_Node *Node, char *Name)
+tVFS_Node *FAT_FindDir(tVFS_Node *Node, const char *Name)
 {
 	fat_filetable	fileinfo[16];
 	char	tmpName[13];

@@ -13,7 +13,7 @@
 
 // === IMPORTS ===
 extern char	*NTFS_ReadDir(tVFS_Node *Node, int Pos);
-extern tVFS_Node	*NTFS_FindDir(tVFS_Node *Node, char *Name);
+extern tVFS_Node	*NTFS_FindDir(tVFS_Node *Node, const char *Name);
 
 // === PROTOTYPES ===
  int	NTFS_Install(char **Arguments);

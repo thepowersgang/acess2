@@ -28,7 +28,7 @@ Uint16	TCP_GetUnusedPort();
 // --- Server
 tVFS_Node	*TCP_Server_Init(tInterface *Interface);
 char	*TCP_Server_ReadDir(tVFS_Node *Node, int Pos);
-tVFS_Node	*TCP_Server_FindDir(tVFS_Node *Node, char *Name);
+tVFS_Node	*TCP_Server_FindDir(tVFS_Node *Node, const char *Name);
  int	TCP_Server_IOCtl(tVFS_Node *Node, int ID, void *Data);
 void	TCP_Server_Close(tVFS_Node *Node);
 // --- Client
@@ -605,7 +605,7 @@ char *TCP_Server_ReadDir(tVFS_Node *Node, int Pos)
  * \param Node	Server node
  * \param Name	Hexadecimal ID of the node
  */
-tVFS_Node *TCP_Server_FindDir(tVFS_Node *Node, char *Name)
+tVFS_Node *TCP_Server_FindDir(tVFS_Node *Node, const char *Name)
 {
 	tTCPConnection	*conn;
 	tTCPListener	*srv = Node->ImplPtr;

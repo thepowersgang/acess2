@@ -10,7 +10,7 @@
 
 // === PROTOTYPES ===
 char	*NTFS_ReadDir(tVFS_Node *Node, int Pos);
-tVFS_Node	*NTFS_FindDir(tVFS_Node *Node, char *Name);
+tVFS_Node	*NTFS_FindDir(tVFS_Node *Node, const char *Name);
 Uint64	NTFS_int_IndexLookup(Uint64 Inode, const char *IndexName, const char *Str);
 
 // === CODE ===
@@ -25,7 +25,7 @@ char *NTFS_ReadDir(tVFS_Node *Node, int Pos)
 /**
  * \brief Get an entry from a directory by name
  */
-tVFS_Node *NTFS_FindDir(tVFS_Node *Node, char *Name)
+tVFS_Node *NTFS_FindDir(tVFS_Node *Node, const char *Name)
 {
 	tNTFS_Disk	*disk = Node->ImplPtr;
 	Uint64	inode = NTFS_int_IndexLookup(Node->Inode, "$I30", Name);

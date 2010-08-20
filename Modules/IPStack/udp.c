@@ -16,7 +16,7 @@ void	UDP_SendPacket(tUDPChannel *Channel, void *Data, size_t Length);
 // --- Listening Server
 tVFS_Node	*UDP_Server_Init(tInterface *Interface);
 char	*UDP_Server_ReadDir(tVFS_Node *Node, int ID);
-tVFS_Node	*UDP_Server_FindDir(tVFS_Node *Node, char *Name);
+tVFS_Node	*UDP_Server_FindDir(tVFS_Node *Node, const char *Name);
  int	UDP_Server_IOCtl(tVFS_Node *Node, int ID, void *Data);
 void	UDP_Server_Close(tVFS_Node *Node);
 // --- Client Channels
@@ -239,7 +239,7 @@ char *UDP_Server_ReadDir(tVFS_Node *Node, int ID)
 /**
  * \brief Take a string and find the channel
  */
-tVFS_Node *UDP_Server_FindDir(tVFS_Node *Node, char *Name)
+tVFS_Node *UDP_Server_FindDir(tVFS_Node *Node, const char *Name)
 {
 	tUDPServer	*srv = Node->ImplPtr;
 	tUDPChannel	*chan;

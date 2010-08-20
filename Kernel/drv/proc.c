@@ -31,7 +31,7 @@ typedef struct sSysFS_Ent
  int	SysFS_RemoveFile(int ID);
 
 char	*SysFS_Comm_ReadDir(tVFS_Node *Node, int Id);
-tVFS_Node	*SysFS_Comm_FindDir(tVFS_Node *Node, char *Filename);
+tVFS_Node	*SysFS_Comm_FindDir(tVFS_Node *Node, const char *Filename);
 Uint64	SysFS_Comm_ReadFile(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
 void	SysFS_Comm_CloseFile(tVFS_Node *Node);
 
@@ -322,10 +322,10 @@ char *SysFS_Comm_ReadDir(tVFS_Node *Node, int Pos)
 }
 
 /**
- * \fn tVFS_Node *SysFS_Comm_FindDir(tVFS_Node *Node, char *Filename)
+ * \fn tVFS_Node *SysFS_Comm_FindDir(tVFS_Node *Node, const char *Filename)
  * \brief Find a file in a SysFS directory
  */
-tVFS_Node *SysFS_Comm_FindDir(tVFS_Node *Node, char *Filename)
+tVFS_Node *SysFS_Comm_FindDir(tVFS_Node *Node, const char *Filename)
 {
 	tSysFS_Ent	*child = (tSysFS_Ent*)Node->ImplPtr;
 	

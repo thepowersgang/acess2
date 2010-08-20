@@ -88,7 +88,7 @@ enum FloppyCommands {
 void	FDD_UnloadModule();
 // --- VFS Methods
 char	*FDD_ReadDir(tVFS_Node *Node, int pos);
-tVFS_Node	*FDD_FindDir(tVFS_Node *dirNode, char *Name);
+tVFS_Node	*FDD_FindDir(tVFS_Node *dirNode, const char *Name);
  int	FDD_IOCtl(tVFS_Node *Node, int ID, void *Data);
 Uint64	FDD_ReadFS(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer);
 // --- Functions for IOCache/DrvUtil
@@ -241,10 +241,10 @@ char *FDD_ReadDir(tVFS_Node *UNUSED(Node), int Pos)
 }
 
 /**
- * \fn tVFS_Node *FDD_FindDir(tVFS_Node *Node, char *filename);
+ * \fn tVFS_Node *FDD_FindDir(tVFS_Node *Node, const char *filename);
  * \brief Find File Routine (for vfs_node)
  */
-tVFS_Node *FDD_FindDir(tVFS_Node *UNUSED(Node), char *Filename)
+tVFS_Node *FDD_FindDir(tVFS_Node *UNUSED(Node), const char *Filename)
 {
 	 int	i;
 	

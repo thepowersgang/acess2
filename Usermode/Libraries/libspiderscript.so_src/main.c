@@ -13,7 +13,7 @@ extern tAST_Script	*Parse_Buffer(tSpiderVariant *Variant, char *Buffer);
 extern const int	giSpiderScript_NumExports;
 extern tSpiderFunction	gaSpiderScript_Exports[];
 extern tAST_Variable *Variable_Define(tAST_BlockState *Block, int Type, const char *Name);
-extern void	Variable_SetValue(tAST_BlockState *Block, const char *Name, tSpiderObject *Value);
+extern void	Variable_SetValue(tAST_BlockState *Block, const char *Name, tSpiderValue *Value);
 
 // === CODE ===
 /**
@@ -74,13 +74,13 @@ tSpiderScript *SpiderScript_ParseFile(tSpiderVariant *Variant, const char *Filen
  * \param NArguments	Number of arguments to pass
  * \param Arguments	Arguments passed
  */
-tSpiderObject *SpiderScript_ExecuteMethod(tSpiderScript *Script,
-	const char *Function, int NArguments, tSpiderObject **Arguments)
+tSpiderValue *SpiderScript_ExecuteMethod(tSpiderScript *Script,
+	const char *Function, int NArguments, tSpiderValue **Arguments)
 {
 	char	*trueName = NULL;
 	 int	i;
 	 int	bFound = 0;	// Used to keep nesting levels down
-	tSpiderObject	*ret = ERRPTR;
+	tSpiderValue	*ret = ERRPTR;
 	
 	// Handle namespaces
 	if( Function[0] == '.' ) {

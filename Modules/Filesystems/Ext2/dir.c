@@ -16,10 +16,10 @@
 
 // === PROTOTYPES ===
 char	*Ext2_ReadDir(tVFS_Node *Node, int Pos);
-tVFS_Node	*Ext2_FindDir(tVFS_Node *Node, char *FileName);
- int	Ext2_MkNod(tVFS_Node *Node, char *Name, Uint Flags);
- int	Ext2_Relink(tVFS_Node *Node, char *OldName, char *NewName);
- int	Ext2_Link(tVFS_Node *Parent, tVFS_Node *Node, char *Name);
+tVFS_Node	*Ext2_FindDir(tVFS_Node *Node, const char *FileName);
+ int	Ext2_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
+ int	Ext2_Relink(tVFS_Node *Node, const char *OldName, const char *NewName);
+ int	Ext2_Link(tVFS_Node *Parent, tVFS_Node *Node, const char *Name);
 // --- Helpers ---
 tVFS_Node	*Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeId);
 
@@ -103,7 +103,7 @@ char *Ext2_ReadDir(tVFS_Node *Node, int Pos)
  * \param Filename	Name of wanted file
  * \return VFS Node of file
  */
-tVFS_Node *Ext2_FindDir(tVFS_Node *Node, char *Filename)
+tVFS_Node *Ext2_FindDir(tVFS_Node *Node, const char *Filename)
 {
 	tExt2_Disk	*disk = Node->ImplPtr;
 	tExt2_Inode	inode;
@@ -151,10 +151,10 @@ tVFS_Node *Ext2_FindDir(tVFS_Node *Node, char *Filename)
 }
 
 /**
- * \fn int Ext2_MkNod(tVFS_Node *Parent, char *Name, Uint Flags)
+ * \fn int Ext2_MkNod(tVFS_Node *Parent, const char *Name, Uint Flags)
  * \brief Create a new node
  */
-int Ext2_MkNod(tVFS_Node *Parent, char *Name, Uint Flags)
+int Ext2_MkNod(tVFS_Node *Parent, const char *Name, Uint Flags)
 {
 	#if 0
 	tVFS_Node	*child;
@@ -193,7 +193,7 @@ int Ext2_MkNod(tVFS_Node *Parent, char *Name, Uint Flags)
  * \param NewName	New name for file
  * \return Boolean Failure - See ::tVFS_Node.Relink for info
  */
-int Ext2_Relink(tVFS_Node *Node, char *OldName, char *NewName)
+int Ext2_Relink(tVFS_Node *Node, const char *OldName, const char *NewName)
 {
 	return 1;
 }
@@ -205,7 +205,7 @@ int Ext2_Relink(tVFS_Node *Node, char *OldName, char *NewName)
  * \param Name	New name for the node
  * \return Boolean Failure - See ::tVFS_Node.Link for info
  */
-int Ext2_Link(tVFS_Node *Node, tVFS_Node *Child, char *Name)
+int Ext2_Link(tVFS_Node *Node, tVFS_Node *Child, const char *Name)
 {	
 	#if 0
 	tExt2_Disk	*disk = Node->ImplPtr;

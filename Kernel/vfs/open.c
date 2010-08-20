@@ -24,10 +24,10 @@ tVFS_Handle	*gaKernelHandles = (void*)MM_KERNEL_VFS;
 
 // === CODE ===
 /**
- * \fn char *VFS_GetAbsPath(char *Path)
+ * \fn char *VFS_GetAbsPath(const char *Path)
  * \brief Create an absolute path from a relative one
  */
-char *VFS_GetAbsPath(char *Path)
+char *VFS_GetAbsPath(const char *Path)
 {
 	char	*ret;
 	 int	pathLen = strlen(Path);
@@ -170,7 +170,7 @@ char *VFS_GetAbsPath(char *Path)
  * \fn char *VFS_ParsePath(char *Path, char **TruePath)
  * \brief Parses a path, resolving sysmlinks and applying permissions
  */
-tVFS_Node *VFS_ParsePath(char *Path, char **TruePath)
+tVFS_Node *VFS_ParsePath(const char *Path, char **TruePath)
 {
 	tVFS_Mount	*mnt;
 	tVFS_Mount	*longestMount = gVFS_RootMount;	// Root is first
@@ -260,13 +260,15 @@ tVFS_Node *VFS_ParsePath(char *Path, char **TruePath)
 	curNode->ReferenceCount ++;	
 	// Parse Path
 	ofs = mnt->MountPointLen+1;
-	for(; (nextSlash = strpos(&Path[ofs], '/')) != -1; Path[nextSlash]='/',ofs = nextSlash + 1)
+	for(; (nextSlash = strpos(&Path[ofs], '/')) != -1; ofs = nextSlash + 1)
 	{
-		nextSlash += ofs;
-		Path[nextSlash] = '\0';
-	
-		// Check for empty string
-		if( Path[ofs] == '\0' )	continue;
+		char	pathEle[nextSlash+1];
+		
+		// Empty String
+		if(nextSlash == 0)	continue;
+		
+		memcpy(pathEle, &Path[ofs], nextSlash);
+		pathEle[nextSlash] = 0;
 	
 		// Check permissions on root of filesystem
 		if( !VFS_CheckACL(curNode, VFS_PERM_EXECUTE) ) {
@@ -288,27 +290,25 @@ tVFS_Node *VFS_ParsePath(char *Path, char **TruePath)
 				free(*TruePath);
 				*TruePath = NULL;
 			}
-			Path[nextSlash] = '/';
 			//Log("FindDir fail on '%s'", Path);
 			LEAVE('n');
 			return NULL;
 		}
-		LOG("FindDir(%p, '%s')", curNode, &Path[ofs]);
+		LOG("FindDir(%p, '%s')", curNode, pathEle);
 		// Get Child Node
-		tmpNode = curNode->FindDir(curNode, &Path[ofs]);
+		tmpNode = curNode->FindDir(curNode, pathEle);
 		LOG("tmpNode = %p", tmpNode);
 		if(curNode->Close)	curNode->Close(curNode);
 		curNode = tmpNode;
 		
 		// Error Check
 		if(!curNode) {
-			LOG("Node '%s' not found in dir '%s'", &Path[ofs], Path);
+			LOG("Node '%s' not found in dir '%s'", pathEle, Path);
 			if(TruePath) {
 				free(*TruePath);
 				*TruePath = NULL;
 			}
-			//Log("Child fail on '%s' ('%s)", Path, &Path[ofs]);
-			Path[nextSlash] = '/';
+			//Log("Child fail on '%s' ('%s)", Path, pathEle);
 			LEAVE('n');
 			return NULL;
 		}
@@ -332,6 +332,8 @@ tVFS_Node *VFS_ParsePath(char *Path, char **TruePath)
 			
 			// Parse Symlink Path
 			curNode = VFS_ParsePath(tmp, TruePath);
+			if(TruePath)
+				Log_Debug("VFS", "*TruePath='%s'", *TruePath);
 			
 			// Error Check
 			if(!curNode) {
@@ -341,12 +343,12 @@ tVFS_Node *VFS_ParsePath(char *Path, char **TruePath)
 				return NULL;
 			}
 			
+			// Free temp link
+			free(tmp);
+			
 			// Set Path Variable
 			if(TruePath) {
-				*TruePath = tmp;
-				retLength = strlen(tmp);
-			} else {
-				free(tmp);	// Free temp string
+				retLength = strlen(*TruePath);
 			}
 			
 			continue;
@@ -377,9 +379,9 @@ tVFS_Node *VFS_ParsePath(char *Path, char **TruePath)
 		*TruePath = tmp;
 		// Append to path
 		(*TruePath)[retLength] = '/';
-		strcpy(*TruePath+retLength+1, &Path[ofs]);
+		strcpy(*TruePath+retLength+1, pathEle);
 		// - Extend Path
-		retLength += strlen(&Path[ofs])+1;
+		retLength += nextSlash;
 	}
 	
 	// Get last node

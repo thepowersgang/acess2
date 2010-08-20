@@ -25,10 +25,10 @@ typedef struct sPipe {
  int	FIFO_Install(char **Arguments);
  int	FIFO_IOCtl(tVFS_Node *Node, int Id, void *Data);
 char	*FIFO_ReadDir(tVFS_Node *Node, int Id);
-tVFS_Node	*FIFO_FindDir(tVFS_Node *Node, char *Filename);
- int	FIFO_MkNod(tVFS_Node *Node, char *Name, Uint Flags);
+tVFS_Node	*FIFO_FindDir(tVFS_Node *Node, const char *Filename);
+ int	FIFO_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
 void	FIFO_Close(tVFS_Node *Node);
- int	FIFO_Relink(tVFS_Node *Node, char *OldName, char *NewName);
+ int	FIFO_Relink(tVFS_Node *Node, const char *OldName, const char *NewName);
 Uint64	FIFO_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
 Uint64	FIFO_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
 tPipe	*FIFO_Int_NewPipe(int Size, char *Name);
@@ -92,11 +92,11 @@ char *FIFO_ReadDir(tVFS_Node *Node, int Id)
 }
 
 /**
- * \fn tVFS_Node *FIFO_FindDir(tVFS_Node *Node, char *Filename)
+ * \fn tVFS_Node *FIFO_FindDir(tVFS_Node *Node, const char *Filename)
  * \brief Find a file in the FIFO root
  * \note Creates an anon pipe if anon is requested
  */
-tVFS_Node *FIFO_FindDir(tVFS_Node *Node, char *Filename)
+tVFS_Node *FIFO_FindDir(tVFS_Node *Node, const char *Filename)
 {
 	tPipe	*tmp;
 	if(!Filename)	return NULL;
@@ -124,9 +124,9 @@ tVFS_Node *FIFO_FindDir(tVFS_Node *Node, char *Filename)
 }
 
 /**
- * \fn int FIFO_MkNod(tVFS_Node *Node, char *Name, Uint Flags)
+ * \fn int FIFO_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
  */
-int FIFO_MkNod(tVFS_Node *Node, char *Name, Uint Flags)
+int FIFO_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
 {
 	return 0;
 }
@@ -154,10 +154,10 @@ void FIFO_Close(tVFS_Node *Node)
 }
 
 /**
- * \fn int FIFO_Relink(tVFS_Node *Node, char *OldName, char *NewName)
+ * \fn int FIFO_Relink(tVFS_Node *Node, const char *OldName, const char *NewName)
  * \brief Relink a file (Deletes named pipes)
  */
-int FIFO_Relink(tVFS_Node *Node, char *OldName, char *NewName)
+int FIFO_Relink(tVFS_Node *Node, const char *OldName, const char *NewName)
 {
 	tPipe	*pipe, *tmp;
 	

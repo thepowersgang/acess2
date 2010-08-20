@@ -6,33 +6,33 @@
 #include "ast.h"
 
 // === PROTOTYPES ===
-void	Object_Dereference(tSpiderObject *Object);
-void	Object_Reference(tSpiderObject *Object);
-tSpiderObject	*Object_CreateInteger(uint64_t Value);
-tSpiderObject	*Object_CreateReal(double Value);
-tSpiderObject	*Object_CreateString(int Length, const char *Data);
-tSpiderObject	*Object_CastTo(int Type, tSpiderObject *Source);
- int	Object_IsTrue(tSpiderObject *Value);
+void	Object_Dereference(tSpiderValue *Object);
+void	Object_Reference(tSpiderValue *Object);
+tSpiderValue	*Object_CreateInteger(uint64_t Value);
+tSpiderValue	*Object_CreateReal(double Value);
+tSpiderValue	*Object_CreateString(int Length, const char *Data);
+tSpiderValue	*Object_CastTo(int Type, tSpiderValue *Source);
+ int	Object_IsTrue(tSpiderValue *Value);
 
-tSpiderObject	*AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node);
+tSpiderValue	*AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node);
 
 tAST_Variable *Variable_Define(tAST_BlockState *Block, int Type, const char *Name);
-void	Variable_SetValue(tAST_BlockState *Block, const char *Name, tSpiderObject *Value);
-tSpiderObject	*Variable_GetValue(tAST_BlockState *Block, const char *Name);
+void	Variable_SetValue(tAST_BlockState *Block, const char *Name, tSpiderValue *Value);
+tSpiderValue	*Variable_GetValue(tAST_BlockState *Block, const char *Name);
 void	Variable_Destroy(tAST_Variable *Variable);
 
 // === CODE ===
 /**
  * \brief Dereference a created object
  */
-void Object_Dereference(tSpiderObject *Object)
+void Object_Dereference(tSpiderValue *Object)
 {
 	if(!Object)	return ;
 	Object->ReferenceCount --;
 	if( Object->ReferenceCount == 0 )	free(Object);
 }
 
-void Object_Reference(tSpiderObject *Object)
+void Object_Reference(tSpiderValue *Object)
 {
 	if(!Object)	return ;
 	Object->ReferenceCount ++;
@@ -41,9 +41,9 @@ void Object_Reference(tSpiderObject *Object)
 /**
  * \brief Create an integer object
  */
-tSpiderObject *Object_CreateInteger(uint64_t Value)
+tSpiderValue *Object_CreateInteger(uint64_t Value)
 {
-	tSpiderObject	*ret = malloc( sizeof(tSpiderObject) );
+	tSpiderValue	*ret = malloc( sizeof(tSpiderValue) );
 	ret->Type = SS_DATATYPE_INTEGER;
 	ret->ReferenceCount = 1;
 	ret->Integer = Value;
@@ -53,9 +53,9 @@ tSpiderObject *Object_CreateInteger(uint64_t Value)
 /**
  * \brief Create an real number object
  */
-tSpiderObject *Object_CreateReal(double Value)
+tSpiderValue *Object_CreateReal(double Value)
 {
-	tSpiderObject	*ret = malloc( sizeof(tSpiderObject) );
+	tSpiderValue	*ret = malloc( sizeof(tSpiderValue) );
 	ret->Type = SS_DATATYPE_REAL;
 	ret->ReferenceCount = 1;
 	ret->Real = Value;
@@ -65,9 +65,9 @@ tSpiderObject *Object_CreateReal(double Value)
 /**
  * \brief Create an string object
  */
-tSpiderObject *Object_CreateString(int Length, const char *Data)
+tSpiderValue *Object_CreateString(int Length, const char *Data)
 {
-	tSpiderObject	*ret = malloc( sizeof(tSpiderObject) + Length + 1 );
+	tSpiderValue	*ret = malloc( sizeof(tSpiderValue) + Length + 1 );
 	ret->Type = SS_DATATYPE_STRING;
 	ret->ReferenceCount = 1;
 	ret->String.Length = Length;
@@ -79,13 +79,13 @@ tSpiderObject *Object_CreateString(int Length, const char *Data)
 /**
  * \brief Concatenate two strings
  */
-tSpiderObject *Object_StringConcat(tSpiderObject *Str1, tSpiderObject *Str2)
+tSpiderValue *Object_StringConcat(tSpiderValue *Str1, tSpiderValue *Str2)
 {
 	 int	newLen = 0;
-	tSpiderObject	*ret;
+	tSpiderValue	*ret;
 	if(Str1)	newLen += Str1->String.Length;
 	if(Str2)	newLen += Str2->String.Length;
-	ret = malloc( sizeof(tSpiderObject) + newLen + 1 );
+	ret = malloc( sizeof(tSpiderValue) + newLen + 1 );
 	ret->Type = SS_DATATYPE_STRING;
 	ret->ReferenceCount = 1;
 	ret->String.Length = newLen;
@@ -104,9 +104,9 @@ tSpiderObject *Object_StringConcat(tSpiderObject *Str1, tSpiderObject *Str2)
 /**
  * \brief Cast one object to another
  */
-tSpiderObject *Object_CastTo(int Type, tSpiderObject *Source)
+tSpiderValue *Object_CastTo(int Type, tSpiderValue *Source)
 {
-	tSpiderObject	*ret = ERRPTR;
+	tSpiderValue	*ret = ERRPTR;
 	// Check if anything needs to be done
 	if( Source->Type == Type ) {
 		Object_Reference(Source);
@@ -122,7 +122,7 @@ tSpiderObject *Object_CastTo(int Type, tSpiderObject *Source)
 		return ERRPTR;
 	
 	case SS_DATATYPE_INTEGER:
-		ret = malloc(sizeof(tSpiderObject));
+		ret = malloc(sizeof(tSpiderValue));
 		ret->Type = SS_DATATYPE_INTEGER;
 		ret->ReferenceCount = 1;
 		switch(Source->Type)
@@ -148,7 +148,7 @@ tSpiderObject *Object_CastTo(int Type, tSpiderObject *Source)
 /**
  * \brief Condenses a value down to a boolean
  */
-int Object_IsTrue(tSpiderObject *Value)
+int Object_IsTrue(tSpiderValue *Value)
 {
 	switch(Value->Type)
 	{
@@ -177,11 +177,11 @@ int Object_IsTrue(tSpiderObject *Value)
 /**
  * \brief Execute an AST node and return its value
  */
-tSpiderObject *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
+tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 {
 	tAST_Node	*node;
-	tSpiderObject	*ret, *tmpobj;
-	tSpiderObject	*op1, *op2;	// Binary operations
+	tSpiderValue	*ret, *tmpobj;
+	tSpiderValue	*op1, *op2;	// Binary operations
 	 int	cmp;	// Used in comparisons
 	
 	switch(Node->Type)
@@ -243,7 +243,7 @@ tSpiderObject *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 			}
 			// Logical block (used to allocate `params`)
 			{
-				tSpiderObject	*params[nParams];
+				tSpiderValue	*params[nParams];
 				 int	i=0;
 				for(node = Node->FunctionCall.FirstArg; node; node = node->NextSibling) {
 					params[i] = AST_ExecuteNode(Block, node);
@@ -555,7 +555,7 @@ tAST_Variable *Variable_Define(tAST_BlockState *Block, int Type, const char *Nam
 /**
  * \brief Set the value of a variable
  */
-void Variable_SetValue(tAST_BlockState *Block, const char *Name, tSpiderObject *Value)
+void Variable_SetValue(tAST_BlockState *Block, const char *Name, tSpiderValue *Value)
 {
 	tAST_Variable	*var;
 	tAST_BlockState	*bs;
@@ -594,7 +594,7 @@ void Variable_SetValue(tAST_BlockState *Block, const char *Name, tSpiderObject *
 /**
  * \brief Get the value of a variable
  */
-tSpiderObject *Variable_GetValue(tAST_BlockState *Block, const char *Name)
+tSpiderValue *Variable_GetValue(tAST_BlockState *Block, const char *Name)
 {
 	tAST_Variable	*var;
 	tAST_BlockState	*bs;

@@ -28,12 +28,12 @@ extern int	IPv6_Initialise();
  int	IPStack_Install(char **Arguments);
  int	IPStack_IOCtlRoot(tVFS_Node *Node, int ID, void *Data);
 char	*IPStack_Root_ReadDir(tVFS_Node *Node, int Pos);
-tVFS_Node	*IPStack_Root_FindDir(tVFS_Node *Node, char *Name);
+tVFS_Node	*IPStack_Root_FindDir(tVFS_Node *Node, const char *Name);
  int	IPStack_Root_IOCtl(tVFS_Node *Node, int ID, void *Data);
  int	IPStack_AddInterface(char *Device);
 tAdapter	*IPStack_GetAdapter(char *Path);
 char	*IPStack_Iface_ReadDir(tVFS_Node *Node, int Pos);
-tVFS_Node	*IPStack_Iface_FindDir(tVFS_Node *Node, char *Name);
+tVFS_Node	*IPStack_Iface_FindDir(tVFS_Node *Node, const char *Name);
  int	IPStack_Iface_IOCtl(tVFS_Node *Node, int ID, void *Data);
 
 // === GLOBALS ===
@@ -154,7 +154,7 @@ char *IPStack_Root_ReadDir(tVFS_Node *Node, int Pos)
 /**
  * \brief Get the node of an interface
  */
-tVFS_Node *IPStack_Root_FindDir(tVFS_Node *Node, char *Name)
+tVFS_Node *IPStack_Root_FindDir(tVFS_Node *Node, const char *Name)
 {
 	 int	i, num;
 	tInterface	*iface;
@@ -247,7 +247,7 @@ char *IPStack_Iface_ReadDir(tVFS_Node *Node, int Pos)
 /**
  * \brief Gets a named node from an interface directory
  */
-tVFS_Node *IPStack_Iface_FindDir(tVFS_Node *Node, char *Name)
+tVFS_Node *IPStack_Iface_FindDir(tVFS_Node *Node, const char *Name)
 {
 	tSocketFile	*file = gIP_FileTemplates;
 	
