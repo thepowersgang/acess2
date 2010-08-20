@@ -191,8 +191,8 @@ tVFS_Node *VFS_ParsePath(const char *Path, char **TruePath)
 		LEAVE('p', curNode);
 		return curNode;
 	}
-	// For root we always fast return
 	
+	// For root we always fast return
 	if(Path[0] == '/' && Path[1] == '\0') {
 		if(TruePath) {
 			*TruePath = malloc( gVFS_RootMount->MountPointLen+1 );
@@ -202,7 +202,7 @@ tVFS_Node *VFS_ParsePath(const char *Path, char **TruePath)
 		return gVFS_RootMount->RootNode;
 	}
 	
-	// Check if there is anything mounted
+	// Check if there is an`ything mounted
 	if(!gVFS_Mounts) {
 		Warning("WTF! There's nothing mounted?");
 		return NULL;
@@ -260,7 +260,7 @@ tVFS_Node *VFS_ParsePath(const char *Path, char **TruePath)
 	curNode->ReferenceCount ++;	
 	// Parse Path
 	ofs = mnt->MountPointLen+1;
-	for(; (nextSlash = strpos(&Path[ofs], '/')) != -1; ofs = nextSlash + 1)
+	for(; (nextSlash = strpos(&Path[ofs], '/')) != -1; ofs += nextSlash + 1)
 	{
 		char	pathEle[nextSlash+1];
 		
@@ -319,11 +319,19 @@ tVFS_Node *VFS_ParsePath(const char *Path, char **TruePath)
 				free(*TruePath);
 				*TruePath = NULL;
 			}
-			tmp = malloc( curNode->Size + 1 );
 			if(!curNode->Read) {
 				Warning("VFS_ParsePath - Read of node %p is NULL (%s)",
 					curNode, Path);
 				if(curNode->Close)	curNode->Close(curNode);
+				// No need to free *TruePath, see above
+				LEAVE('n');
+				return NULL;
+			}
+			
+			tmp = malloc( curNode->Size + 1 );
+			if(!tmp) {
+				Log_Warning("VFS", "VFS_ParsePath - Malloc failure");
+				// No need to free *TruePath, see above
 				LEAVE('n');
 				return NULL;
 			}
@@ -333,12 +341,13 @@ tVFS_Node *VFS_ParsePath(const char *Path, char **TruePath)
 			// Parse Symlink Path
 			curNode = VFS_ParsePath(tmp, TruePath);
 			if(TruePath)
-				Log_Debug("VFS", "*TruePath='%s'", *TruePath);
+				LOG("VFS", "*TruePath='%s'", *TruePath);
 			
 			// Error Check
 			if(!curNode) {
-				Log("Symlink fail '%s'", tmp);
+				Log_Debug("VFS", "Symlink fail '%s'", tmp);
 				free(tmp);	// Free temp string
+				if(TruePath)	free(TruePath);
 				LEAVE('n');
 				return NULL;
 			}
@@ -367,11 +376,12 @@ tVFS_Node *VFS_ParsePath(const char *Path, char **TruePath)
 		if(!TruePath)	continue;
 		
 		// Increase buffer space
-		tmp = realloc( *TruePath, retLength + strlen(&Path[ofs]) + 1 + 1 );
+		tmp = realloc( *TruePath, retLength + strlen(pathEle) + 1 + 1 );
 		// Check if allocation succeeded
 		if(!tmp) {
 			Warning("VFS_ParsePath -  Unable to reallocate true path buffer");
 			free(*TruePath);
+			*TruePath = NULL;
 			if(curNode->Close)	curNode->Close(curNode);
 			LEAVE('n');
 			return NULL;
@@ -380,8 +390,11 @@ tVFS_Node *VFS_ParsePath(const char *Path, char **TruePath)
 		// Append to path
 		(*TruePath)[retLength] = '/';
 		strcpy(*TruePath+retLength+1, pathEle);
+		
+		LOG("*TruePath = '%s'\n", *TruePath);
+		
 		// - Extend Path
-		retLength += nextSlash;
+		retLength += nextSlash + 1;
 	}
 	
 	// Get last node

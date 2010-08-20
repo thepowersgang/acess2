@@ -318,6 +318,9 @@ void Heap_Deallocate(void *Ptr)
 	
 	// Mark as free
 	head->Magic = MAGIC_FREE;
+	head->File = NULL;
+	head->Line = 0;
+	head->ValidSize = 0;
 	// Merge blocks
 	Heap_Merge( head );
 	
@@ -326,6 +329,11 @@ void Heap_Deallocate(void *Ptr)
 }
 
 /**
+ * \brief Increase/Decrease the size of an allocation
+ * \param File	Calling File
+ * \param Line	Calling Line
+ * \param __ptr	Old memory
+ * \param __size	New Size
  */
 void *Heap_Reallocate(const char *File, int Line, void *__ptr, size_t __size)
 {
@@ -351,6 +359,7 @@ void *Heap_Reallocate(const char *File, int Line, void *__ptr, size_t __size)
 		// Exact Fit
 		if(size == newSize) {
 			head->Size = newSize;
+			head->ValidSize = __size;
 			head->File = File;
 			head->Line = Line;
 			foot->Head = head;
@@ -366,6 +375,7 @@ void *Heap_Reallocate(const char *File, int Line, void *__ptr, size_t __size)
 		head->Size = newSize;	// Edit first header
 		head->File = File;
 		head->Line = Line;
+		head->ValidSize = __size;
 		// Create new footer
 		foot = (void*)( (Uint)head + newSize - sizeof(tHeapFoot) );
 		foot->Head = head;
@@ -395,6 +405,7 @@ void *Heap_Reallocate(const char *File, int Line, void *__ptr, size_t __size)
 			nextHead->Size = newSize;
 			nextHead->File = File;
 			nextHead->Line = Line;
+			nextHead->ValidSize = __size;
 			// Get 2nd (old) footer
 			foot = (void*)( (Uint)nextHead + newSize );
 			foot->Head = nextHead;
@@ -416,6 +427,7 @@ void *Heap_Reallocate(const char *File, int Line, void *__ptr, size_t __size)
 	nextHead -= 1;
 	nextHead->File = File;
 	nextHead->Line = Line;
+	nextHead->ValidSize = __size;
 	
 	memcpy(
 		nextHead->Data,
@@ -473,8 +485,8 @@ void Heap_Dump(void)
 	while( (Uint)head < (Uint)gHeapEnd )
 	{		
 		foot = (void*)( (Uint)head + head->Size - sizeof(tHeapFoot) );
-		Log_Log("Heap", "%p (0x%llx): 0x%08lx %4C",
-			head, MM_GetPhysAddr((Uint)head), head->Size, &head->Magic);
+		Log_Log("Heap", "%p (0x%llx): 0x%08lx (%i) %4C",
+			head, MM_GetPhysAddr((Uint)head), head->Size, head->ValidSize, &head->Magic);
 		Log_Log("Heap", "%p %4C", foot->Head, &foot->Magic);
 		if(head->File) {
 			Log_Log("Heap", "%sowned by %s:%i",
@@ -523,8 +535,8 @@ void Heap_Dump(void)
 	head = foot->Head;
 	while( (tVAddr)head >= (tVAddr)badHead )
 	{
-		Log_Log("Heap", "%p (0x%llx): 0x%08lx %4C",
-			head, MM_GetPhysAddr((Uint)head), head->Size, &head->Magic);
+		Log_Log("Heap", "%p (0x%llx): 0x%08lx %i %4C",
+			head, MM_GetPhysAddr((Uint)head), head->Size, head->ValidSize, &head->Magic);
 		Log_Log("Heap", "%p %4C", foot->Head, &foot->Magic);
 		if(head->File)
 			Log_Log("Heap", "%sowned by %s:%i",
