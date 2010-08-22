@@ -840,7 +840,14 @@ void Threads_SegFault(tVAddr Addr)
 }
 
 /**
- * \brief heavy mutex
+ * \brief Acquire a heavy mutex
+ * \param Mutex	Mutex to acquire
+ * 
+ * This type of mutex checks if the mutex is avaliable, and acquires it
+ * if it is. Otherwise, the current thread is added to the mutex's wait
+ * queue and the thread suspends. When the holder of the mutex completes,
+ * the oldest thread (top thread) on the queue is given the lock and
+ * restarted.
  */
 void Mutex_Acquire(tMutex *Mutex)
 {
@@ -884,7 +891,8 @@ void Mutex_Acquire(tMutex *Mutex)
 }
 
 /**
- * \brief Release a held spinlock
+ * \brief Release a held mutex
+ * \param Mutex	Mutex to release
  */
 void Mutex_Release(tMutex *Mutex)
 {
@@ -904,6 +912,10 @@ void Mutex_Release(tMutex *Mutex)
 	SHORTREL( &Mutex->Protector );
 }
 
+/**
+ * \brief Is this mutex locked?
+ * \param Mutex	Mutex pointer
+ */
 int Mutex_IsLocked(tMutex *Mutex)
 {
 	return Mutex->Owner != NULL;
