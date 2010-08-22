@@ -27,7 +27,7 @@ struct sARP_Cache4 {
 	Sint64	LastUsed;
 }	*gaARP_Cache4;
  int	giARP_Cache4Space;
-tSpinlock	glARP_Cache4;
+tMutex	glARP_Cache4;
 struct sARP_Cache6 {
 	tIPv6	IP;
 	tMacAddr	MAC;
@@ -35,7 +35,7 @@ struct sARP_Cache6 {
 	Sint64	LastUsed;
 }	*gaARP_Cache6;
  int	giARP_Cache6Space;
-tSpinlock	glARP_Cache6;
+tMutex	glARP_Cache6;
  int	giARP_LastUpdateID = 0;
 
 // === CODE ===
@@ -68,7 +68,7 @@ tMacAddr ARP_Resolve4(tInterface *Interface, tIPv4 Address)
 	
 	ENTER("pInterface xAddress", Interface, Address);
 	
-	LOCK( &glARP_Cache4 );
+	Mutex_Acquire( &glARP_Cache4 );
 	for( i = 0; i < giARP_Cache4Space; i++ )
 	{
 		if(gaARP_Cache4[i].IP.L != Address.L)	continue;
@@ -76,7 +76,7 @@ tMacAddr ARP_Resolve4(tInterface *Interface, tIPv4 Address)
 		// Check if the entry needs to be refreshed
 		if( now() - gaARP_Cache4[i].LastUpdate > ARP_MAX_AGE )	break;
 		
-		RELEASE( &glARP_Cache4 );
+		Mutex_Release( &glARP_Cache4 );
 		LOG("Return %x:%x:%x:%x:%x:%x",
 			gaARP_Cache4[i].MAC.B[0], gaARP_Cache4[i].MAC.B[1],
 			gaARP_Cache4[i].MAC.B[2], gaARP_Cache4[i].MAC.B[3],
@@ -85,7 +85,7 @@ tMacAddr ARP_Resolve4(tInterface *Interface, tIPv4 Address)
 		LEAVE('-');
 		return gaARP_Cache4[i].MAC;
 	}
-	RELEASE( &glARP_Cache4 );
+	Mutex_Release( &glARP_Cache4 );
 	
 	lastID = giARP_LastUpdateID;
 	
@@ -112,15 +112,15 @@ tMacAddr ARP_Resolve4(tInterface *Interface, tIPv4 Address)
 		while(lastID == giARP_LastUpdateID)	Threads_Yield();
 		lastID = giARP_LastUpdateID;
 		
-		LOCK( &glARP_Cache4 );
+		Mutex_Acquire( &glARP_Cache4 );
 		for( i = 0; i < giARP_Cache4Space; i++ )
 		{
 			if(gaARP_Cache4[i].IP.L != Address.L)	continue;
 			
-			RELEASE( &glARP_Cache4 );
+			Mutex_Release( &glARP_Cache4 );
 			return gaARP_Cache4[i].MAC;
 		}
-		RELEASE( &glARP_Cache4 );
+		Mutex_Release( &glARP_Cache4 );
 	}
 }
 
@@ -134,7 +134,7 @@ void ARP_UpdateCache4(tIPv4 SWAddr, tMacAddr HWAddr)
 	 int	oldest = 0;
 	
 	// Find an entry for the IP address in the cache
-	LOCK(&glARP_Cache4);
+	Mutex_Acquire(&glARP_Cache4);
 	for( i = giARP_Cache4Space; i--; )
 	{
 		if(gaARP_Cache4[oldest].LastUpdate > gaARP_Cache4[i].LastUpdate) {
@@ -161,7 +161,7 @@ void ARP_UpdateCache4(tIPv4 SWAddr, tMacAddr HWAddr)
 	gaARP_Cache4[i].MAC = HWAddr;
 	gaARP_Cache4[i].LastUpdate = now();
 	giARP_LastUpdateID ++;
-	RELEASE(&glARP_Cache4);
+	Mutex_Release(&glARP_Cache4);
 }
 
 /**
@@ -174,7 +174,7 @@ void ARP_UpdateCache6(tIPv6 SWAddr, tMacAddr HWAddr)
 	 int	oldest = 0;
 	
 	// Find an entry for the MAC address in the cache
-	LOCK(&glARP_Cache6);
+	Mutex_Acquire(&glARP_Cache6);
 	for( i = giARP_Cache6Space; i--; )
 	{
 		if(gaARP_Cache6[oldest].LastUpdate > gaARP_Cache6[i].LastUpdate) {
@@ -195,7 +195,7 @@ void ARP_UpdateCache6(tIPv6 SWAddr, tMacAddr HWAddr)
 	gaARP_Cache6[i].IP = SWAddr;
 	gaARP_Cache6[i].LastUpdate = now();
 	giARP_LastUpdateID ++;
-	RELEASE(&glARP_Cache6);
+	Mutex_Release(&glARP_Cache6);
 }
 
 /**

@@ -45,11 +45,11 @@ Uint	Binary_GetSymbolEx(char *Name, Uint *Value);
 Uint	Binary_FindSymbol(void *Base, char *Name, Uint *Val);
 
 // === GLOBALS ===
- int	glBinListLock = 0;
+tShortSpinlock	glBinListLock;
 tBinary	*glLoadedBinaries = NULL;
 char	**gsaRegInterps = NULL;
  int	giRegInterps = 0;
- int	glKBinListLock = 0;
+tShortSpinlock	glKBinListLock;
 tKernelBin	*glLoadedKernelLibs;
 tBinaryType	*gRegBinTypes = &gELF_Info;
  
@@ -501,10 +501,10 @@ tBinary *Binary_DoLoad(char *truePath)
 	VFS_Close(fp);
 	
 	// Add to the list
-	LOCK(&glBinListLock);
+	SHORTLOCK(&glBinListLock);
 	pBinary->Next = glLoadedBinaries;
 	glLoadedBinaries = pBinary;
-	RELEASE(&glBinListLock);
+	SHORTREL(&glBinListLock);
 	
 	// Return
 	LEAVE('p', pBinary);
@@ -745,10 +745,10 @@ void *Binary_LoadKernel(char *File)
 	pKBinary = malloc(sizeof(*pKBinary));
 	pKBinary->Base = (void*)base;
 	pKBinary->Info = pBinary;
-	LOCK( &glKBinListLock );
+	SHORTLOCK( &glKBinListLock );
 	pKBinary->Next = glLoadedKernelLibs;
 	glLoadedKernelLibs = pKBinary;
-	RELEASE( &glKBinListLock );
+	SHORTREL( &glKBinListLock );
 	
 	LEAVE('p', base);
 	return (void*)base;

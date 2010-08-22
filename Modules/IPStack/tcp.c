@@ -44,9 +44,9 @@ tSocketFile	gTCP_ClientFile = {NULL, "tcpc", TCP_Client_Init};
 
 // === GLOBALS ===
  int	giTCP_NumHalfopen = 0;
-tSpinlock	glTCP_Listeners;
+tShortSpinlock	glTCP_Listeners;
 tTCPListener	*gTCP_Listeners;
-tSpinlock	glTCP_OutbountCons;
+tShortSpinlock	glTCP_OutbountCons;
 tTCPConnection	*gTCP_OutbountCons;
 Uint32	gaTCP_PortBitmap[0x800];
  int	giTCP_NextOutPort = TCP_MIN_DYNPORT;
@@ -223,7 +223,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 			// it, just in case
 			// Oh, wait, there is a case where a wildcard can be used
 			// (srv->Interface == NULL) so having the lock is a good idea
-			LOCK(&srv->lConnections);
+			SHORTLOCK(&srv->lConnections);
 			if( !srv->Connections )
 				srv->Connections = conn;
 			else
@@ -231,7 +231,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 			srv->ConnectionsTail = conn;
 			if(!srv->NewConnections)
 				srv->NewConnections = conn;
-			RELEASE(&srv->lConnections);
+			SHORTLOCK(&srv->lConnections);
 
 			// Send the SYN ACK
 			hdr->Flags |= TCP_FLAG_ACK;
@@ -357,7 +357,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 			pkt->Sequence, Connection->NextSequenceRcv);
 		
 		// No? Well, let's cache it and look at it later
-		LOCK( &Connection->lFuturePackets );
+		SHORTLOCK( &Connection->lFuturePackets );
 		for(tmp = Connection->FuturePackets;
 			tmp;
 			prev = tmp, tmp = tmp->Next)
@@ -369,7 +369,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 		else
 			Connection->FuturePackets = pkt;
 		pkt->Next = tmp;
-		RELEASE( &Connection->lFuturePackets );
+		SHORTREL( &Connection->lFuturePackets );
 	}
 	else
 	{
@@ -405,7 +405,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
  */
 void TCP_INT_AppendRecieved(tTCPConnection *Connection, tTCPStoredPacket *Pkt)
 {
-	LOCK( &Connection->lRecievedPackets );
+	Mutex_Acquire( &Connection->lRecievedPackets );
 	if(Connection->RecievedBuffer->Length + Pkt->Length > Connection->RecievedBuffer->Space )
 	{
 		Log_Error("TCP", "Buffer filled, packet dropped (%s)",
@@ -417,7 +417,7 @@ void TCP_INT_AppendRecieved(tTCPConnection *Connection, tTCPStoredPacket *Pkt)
 	
 	RingBuffer_Write( Connection->RecievedBuffer, Pkt->Data, Pkt->Length );
 	
-	RELEASE( &Connection->lRecievedPackets );
+	Mutex_Release( &Connection->lRecievedPackets );
 }
 
 /**
@@ -435,14 +435,14 @@ void TCP_INT_UpdateRecievedFromFuture(tTCPConnection *Connection)
 	{
 		prev = NULL;
 		// Look for the next expected packet in the cache.
-		LOCK( &Connection->lFuturePackets );
+		SHORTLOCK( &Connection->lFuturePackets );
 		for(pkt = Connection->FuturePackets;
 			pkt && pkt->Sequence < Connection->NextSequenceRcv;
 			prev = pkt, pkt = pkt->Next);
 		
 		// If we can't find the expected next packet, stop looking
 		if(!pkt || pkt->Sequence > Connection->NextSequenceRcv) {
-			RELEASE( &Connection->lFuturePackets );
+			SHORTREL( &Connection->lFuturePackets );
 			return;
 		}
 		
@@ -453,7 +453,7 @@ void TCP_INT_UpdateRecievedFromFuture(tTCPConnection *Connection)
 			Connection->FuturePackets = pkt->Next;
 		
 		// Release list
-		RELEASE( &Connection->lFuturePackets );
+		SHORTREL( &Connection->lFuturePackets );
 		
 		// Looks like we found one
 		TCP_INT_AppendRecieved(Connection, pkt);
@@ -548,10 +548,10 @@ tVFS_Node *TCP_Server_Init(tInterface *Interface)
 	srv->Node.IOCtl = TCP_Server_IOCtl;
 	srv->Node.Close = TCP_Server_Close;
 
-	LOCK(&glTCP_Listeners);
+	SHORTLOCK(&glTCP_Listeners);
 	srv->Next = gTCP_Listeners;
 	gTCP_Listeners = srv;
-	RELEASE(&glTCP_Listeners);
+	SHORTREL(&glTCP_Listeners);
 
 	return &srv->Node;
 }
@@ -573,10 +573,10 @@ char *TCP_Server_ReadDir(tVFS_Node *Node, int Pos)
 	Log_Log("TCP", "Thread %i waiting for a connection", Threads_GetTID());
 	for(;;)
 	{
-		LOCK( &srv->lConnections );
+		SHORTLOCK( &srv->lConnections );
 		if( srv->NewConnections != NULL )	break;
-		RELEASE( &srv->lConnections );
-		Threads_Yield();
+		SHORTREL( &srv->lConnections );
+		Threads_Yield();	// TODO: Sleep until poked
 		continue;
 	}
 	
@@ -586,12 +586,12 @@ char *TCP_Server_ReadDir(tVFS_Node *Node, int Pos)
 	conn = srv->NewConnections;
 	srv->NewConnections = conn->Next;
 	
+	SHORTREL( &srv->lConnections );
+	
 	LOG("conn = %p", conn);
 	LOG("srv->Connections = %p", srv->Connections);
 	LOG("srv->NewConnections = %p", srv->NewConnections);
 	LOG("srv->ConnectionsTail = %p", srv->ConnectionsTail);
-	
-	RELEASE( &srv->lConnections );
 
 	ret = malloc(9);
 	itoa(ret, conn->Node.ImplInt, 16, 8, '0');
@@ -627,7 +627,7 @@ tVFS_Node *TCP_Server_FindDir(tVFS_Node *Node, const char *Name)
 	Log_Debug("TCP", "srv->ConnectionsTail = %p", srv->ConnectionsTail);
 	
 	// Search
-	LOCK( &srv->lConnections );
+	SHORTLOCK( &srv->lConnections );
 	for(conn = srv->Connections;
 		conn;
 		conn = conn->Next)
@@ -635,7 +635,7 @@ tVFS_Node *TCP_Server_FindDir(tVFS_Node *Node, const char *Name)
 		LOG("conn->Node.ImplInt = %i", conn->Node.ImplInt);
 		if(conn->Node.ImplInt == id)	break;
 	}
-	RELEASE( &srv->lConnections );
+	SHORTREL( &srv->lConnections );
 	
 	// If not found, ret NULL
 	if(!conn) {
@@ -719,10 +719,10 @@ tVFS_Node *TCP_Client_Init(tInterface *Interface)
 
 	conn->RecievedBuffer = RingBuffer_Create( TCP_RECIEVE_BUFFER_SIZE );
 
-	LOCK(&glTCP_OutbountCons);
+	SHORTLOCK(&glTCP_OutbountCons);
 	conn->Next = gTCP_OutbountCons;
 	gTCP_OutbountCons = conn;
-	RELEASE(&glTCP_OutbountCons);
+	SHORTREL(&glTCP_OutbountCons);
 
 	return &conn->Node;
 }
@@ -754,11 +754,11 @@ Uint64 TCP_Client_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buff
 	for(;;)
 	{
 		// Lock list and check if there is a packet
-		LOCK( &conn->lRecievedPackets );
+		Mutex_Acquire( &conn->lRecievedPackets );
 		if( conn->RecievedBuffer->Length == 0 ) {
 			// If not, release the lock, yield and try again
-			RELEASE( &conn->lRecievedPackets );
-			Threads_Yield();
+			Mutex_Release( &conn->lRecievedPackets );
+			Threads_Yield();	// TODO: Less expensive wait
 			continue;
 		}
 		
@@ -766,7 +766,7 @@ Uint64 TCP_Client_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buff
 		len = RingBuffer_Read( destbuf, conn->RecievedBuffer, Length );
 		
 		// Release the lock (we don't need it any more)
-		RELEASE( &conn->lRecievedPackets );
+		Mutex_Release( &conn->lRecievedPackets );
 	
 		LEAVE('i', len);
 		return len;

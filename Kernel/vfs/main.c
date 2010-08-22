@@ -25,7 +25,7 @@ EXPORT(VFS_AddDriver);
 
 // === GLOBALS ===
 tVFS_Node	NULLNode = {0};
-tSpinlock	siDriverListLock = 0;
+tShortSpinlock	slDriverListLock;
 tVFS_Driver	*gVFS_Drivers = NULL;
 char	*gsVFS_DriverFile = NULL;
  int	giVFS_DriverFileID = 0;
@@ -118,10 +118,10 @@ int VFS_AddDriver(tVFS_Driver *Info)
 {
 	if(!Info)	return  -1;
 	
-	LOCK( &siDriverListLock );
+	SHORTLOCK( &slDriverListLock );
 	Info->Next = gVFS_Drivers;
 	gVFS_Drivers = Info;
-	RELEASE( &siDriverListLock );
+	SHORTREL( &slDriverListLock );
 	
 	VFS_UpdateDriverFile();
 	

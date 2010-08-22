@@ -153,7 +153,7 @@ struct drv_fat_volinfo_s
 	 int	fileHandle;	//!< File Handle
 	 int	type;	//!< FAT Type. See eFatType
 	char	name[12];	//!< Volume Name (With NULL Terminator)
-	tSpinlock	lFAT;	//!< Lock to prevent double-writing to the FAT
+	tMutex	lFAT;	//!< Lock to prevent double-writing to the FAT
 	Uint32	firstDataSect;	//!< First data sector
 	Uint32	rootOffset;	//!< Root Offset (clusters)
 	Uint32	ClusterCount;	//!< Total Cluster Count

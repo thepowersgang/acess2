@@ -32,7 +32,7 @@ extern void	gKernelModulesEnd;
 
 // === GLOBALS ===
  int	giNumBuiltinModules = 0;
-tSpinlock	glModuleSpinlock;
+tShortSpinlock	glModuleSpinlock;
 tModule	*gLoadedModules = NULL;
 tModuleLoader	*gModule_Loaders = NULL;
 tModule	*gLoadingModules = NULL;
@@ -180,10 +180,10 @@ int Module_int_Initialise(tModule *Module, char *ArgString)
 	LOG("ret = %i", ret);
 	
 	// Add to loaded list
-	LOCK( &glModuleSpinlock );
+	SHORTLOCK( &glModuleSpinlock );
 	Module->Next = gLoadedModules;
 	gLoadedModules = Module;
-	RELEASE( &glModuleSpinlock );
+	SHORTREL( &glModuleSpinlock );
 	
 	LEAVE_RET('i', 0);
 }

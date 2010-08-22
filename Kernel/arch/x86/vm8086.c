@@ -44,7 +44,7 @@ tVM8086	*VM8086_Init(void);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, 0x100, VM8086, VM8086_Install, NULL, NULL);
-tSpinlock	glVM8086_Process;
+tMutex	glVM8086_Process;
 tPID	gVM8086_WorkerPID;
 tTID	gVM8086_CallingThread;
 tVM8086	volatile * volatile gpVM8086_State = (void*)-1;	// Set to -1 to avoid race conditions
@@ -55,7 +55,7 @@ int VM8086_Install(char **Arguments)
 	tPID	pid;	
 	
 	// Lock to avoid race conditions
-	LOCK( &glVM8086_Process );
+	Mutex_Acquire( &glVM8086_Process );
 	
 	// Create BIOS Call process
 	pid = Proc_Clone(NULL, CLONE_VM);
@@ -147,7 +147,7 @@ void VM8086_GPF(tRegs *Regs)
 	{
 		if( gpVM8086_State == (void*)-1 ) {
 			Log_Log("VM8086", "Worker thread ready and waiting");
-			RELEASE( &glVM8086_Process );	// Release lock obtained in VM8086_Install
+			Mutex_Release( &glVM8086_Process );	// Release lock obtained in VM8086_Install
 			gpVM8086_State = NULL;
 		}
 		//Log_Log("VM8086", "gpVM8086_State = %p, gVM8086_CallingThread = %i",
@@ -401,7 +401,7 @@ void VM8086_Int(tVM8086 *State, Uint8 Interrupt)
 	State->IP = *(Uint16*)(KERNEL_BASE+4*Interrupt);
 	State->CS = *(Uint16*)(KERNEL_BASE+4*Interrupt+2);
 	
-	LOCK( &glVM8086_Process );
+	Mutex_Acquire( &glVM8086_Process );
 	
 	gpVM8086_State = State;
 	gVM8086_CallingThread = Threads_GetTID();
@@ -409,5 +409,5 @@ void VM8086_Int(tVM8086 *State, Uint8 Interrupt)
 	while( gpVM8086_State != NULL )
 		Threads_Yield();
 	
-	RELEASE( &glVM8086_Process );
+	Mutex_Release( &glVM8086_Process );
 }

@@ -16,9 +16,9 @@ MAKEDEP		= $(CC) -M
 
 CPPFLAGS	+= -I./include -I./arch/$(ARCHDIR)/include -D_MODULE_NAME_=\"Kernel\"
 CPPFLAGS	+= -DARCH=$(ARCH) -DARCHDIR=$(ARCHDIR) -DKERNEL_VERSION=$(KERNEL_VERSION) -DBUILD_NUM=$(BUILD_NUM)
-CFLAGS		+= -Wall -Werror -O3 -fno-stack-protector -fno-builtin -Wstrict-prototypes
+CFLAGS		+= -Wall -Werror -O3 -fno-stack-protector -fno-builtin -Wstrict-prototypes -g
 ASFLAGS		+= -D ARCH=\"$(ARCH)\" -D ARCHDIR=\"$(ARCHDIR)\"
-LDFLAGS		+= -T arch/$(ARCHDIR)/link.ld
+LDFLAGS		+= -T arch/$(ARCHDIR)/link.ld -g
 
 ifeq ($(DEBUG_BUILD),yes)
 	LDFLAGS += -g
@@ -65,6 +65,7 @@ $(BIN): $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile
 	$(DISASM) $(BIN) > $(BIN).dsm
 	@wc -l $(SRCFILES) include/*.h > LineCounts.$(ARCH).txt
 	@echo BUILD_NUM = $$(( $(BUILD_NUM) + 1 )) > Makefile.BuildNum.$(ARCH)
+	@$(STRIP) $(BIN)
 
 %.ao.$(ARCH): %.asm Makefile
 	@echo --- NASM -o $@

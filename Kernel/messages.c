@@ -34,10 +34,13 @@ int Proc_SendMessage(Uint *Err, Uint Dest, int Length, void *Data)
 	if(!thread) {	return -1;	}
 	
 	// Get Spinlock
-	LOCK( &thread->IsLocked );
+	SHORTLOCK( &thread->IsLocked );
 	
 	// Check if thread is still alive
-	if(thread->Status == THREAD_STAT_DEAD)	return -1;
+	if(thread->Status == THREAD_STAT_DEAD) {
+		SHORTREL( &thread->IsLocked );
+		return -1;
+	}
 	
 	// Create message
 	msg = malloc( sizeof(tMsg)+Length );
@@ -55,7 +58,7 @@ int Proc_SendMessage(Uint *Err, Uint Dest, int Length, void *Data)
 		thread->LastMessage = msg;
 	}
 	
-	RELEASE(&thread->IsLocked);
+	SHORTREL(&thread->IsLocked);
 	
 	Threads_Wake( thread );
 	
@@ -72,7 +75,7 @@ int Proc_SendMessage(Uint *Err, Uint Dest, int Length, void *Data)
 int Proc_GetMessage(Uint *Err, Uint *Source, void *Buffer)
 {
 	 int	ret;
-	void *tmp;
+	void	*tmp;
 	tThread	*cur = Proc_GetCurThread();
 	
 	// Check if queue has any items
@@ -80,7 +83,7 @@ int Proc_GetMessage(Uint *Err, Uint *Source, void *Buffer)
 		return 0;
 	}
 
-	LOCK( &cur->IsLocked );
+	SHORTLOCK( &cur->IsLocked );
 	
 	if(Source)
 		*Source = cur->Messages->Source;
@@ -88,7 +91,7 @@ int Proc_GetMessage(Uint *Err, Uint *Source, void *Buffer)
 	// Get message length
 	if( !Buffer ) {
 		ret = cur->Messages->Length;
-		RELEASE( &cur->IsLocked );
+		SHORTREL( &cur->IsLocked );
 		return ret;
 	}
 	
@@ -98,7 +101,7 @@ int Proc_GetMessage(Uint *Err, Uint *Source, void *Buffer)
 		if( !CheckMem( Buffer, cur->Messages->Length ) )
 		{
 			*Err = -EINVAL;
-			RELEASE( &cur->IsLocked );
+			SHORTREL( &cur->IsLocked );
 			return -1;
 		}
 		memcpy(Buffer, cur->Messages->Data, cur->Messages->Length);
@@ -106,11 +109,12 @@ int Proc_GetMessage(Uint *Err, Uint *Source, void *Buffer)
 	ret = cur->Messages->Length;
 	
 	// Remove from list
-	tmp = cur->Messages->Next;
-	free( (void*)cur->Messages );
-	cur->Messages = tmp;
+	tmp = cur->Messages;
+	cur->Messages = cur->Messages->Next;
 	
-	RELEASE( &cur->IsLocked );
+	SHORTREL( &cur->IsLocked );
+	
+	free(tmp);	// Free outside of lock
 	
 	return ret;
 }

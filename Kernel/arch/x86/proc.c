@@ -42,7 +42,7 @@ extern Uint	GetEIP(void);	// start.asm
 extern int	GetCPUNum(void);	// start.asm
 extern Uint32	gaInitPageDir[1024];	// start.asm
 extern char	Kernel_Stack_Top[];
-extern tSpinlock	glThreadListLock;
+extern tShortSpinlock	glThreadListLock;
 extern int	giNumCPUs;
 extern int	giNextTID;
 extern tThread	gThreadZero;

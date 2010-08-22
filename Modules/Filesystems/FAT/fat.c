@@ -393,7 +393,7 @@ Uint32 FAT_int_GetFatValue(tFAT_VolInfo *Disk, Uint32 cluster)
 	Uint32	val = 0;
 	Uint32	ofs;
 	ENTER("pDisk xCluster", Disk, cluster);
-	LOCK( &Disk->lFAT );
+	Mutex_Acquire( &Disk->lFAT );
 	#if CACHE_FAT
 	if( Disk->ClusterCount <= giFAT_MaxCachedClusters )
 	{
@@ -420,7 +420,7 @@ Uint32 FAT_int_GetFatValue(tFAT_VolInfo *Disk, Uint32 cluster)
 	#if CACHE_FAT
 	}
 	#endif /*CACHE_FAT*/
-	RELEASE( &Disk->lFAT );
+	Mutex_Release( &Disk->lFAT );
 	LEAVE('x', val);
 	return val;
 }

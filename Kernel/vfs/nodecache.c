@@ -23,7 +23,7 @@ tInodeCache	*Inode_int_GetFSCache(int Handle);
 
 // === GLOBALS ===
  int	gVFS_NextInodeHandle = 1;
- int	gilVFS_InodeCache = 0;
+tShortSpinlock	glVFS_InodeCache;
 tInodeCache	*gVFS_InodeCache = NULL;
 
 // === CODE ===
@@ -40,10 +40,10 @@ int Inode_GetHandle()
 	ent->Next = NULL;	ent->FirstNode = NULL;
 	
 	// Add to list
-	LOCK( &gilVFS_InodeCache );
+	SHORTLOCK( &glVFS_InodeCache );
 	ent->Next = gVFS_InodeCache;
 	gVFS_InodeCache = ent;
-	RELEASE( &gilVFS_InodeCache );
+	SHORTREL( &glVFS_InodeCache );
 	
 	return gVFS_NextInodeHandle-1;
 }

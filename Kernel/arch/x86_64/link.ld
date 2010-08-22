@@ -9,7 +9,7 @@ _kernel_base = 0xFFFFFFFF80000000;
 
 OUTPUT_FORMAT(elf32-i386)
 OUTPUT_ARCH(i386:x86-64)
-ENTRY (start)
+ENTRY(start)
 
 SECTIONS {
 	. = 0x100000;

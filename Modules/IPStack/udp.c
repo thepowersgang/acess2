@@ -31,13 +31,13 @@ Uint16	UDP_int_AllocatePort();
 void	UDP_int_FreePort(Uint16 Port);
 
 // === GLOBALS ===
-tSpinlock	glUDP_Servers;
+tMutex	glUDP_Servers;
 tUDPServer	*gpUDP_Servers;
 
-tSpinlock	glUDP_Channels;
+tMutex	glUDP_Channels;
 tUDPChannel	*gpUDP_Channels;
 
-tSpinlock	glUDP_Ports;
+tMutex	glUDP_Ports;
 Uint32	gUDP_Ports[0x10000/32];
 
 tSocketFile	gUDP_ServerFile = {NULL, "udps", UDP_Server_Init};
@@ -57,7 +57,7 @@ void UDP_Initialise()
 }
 
 /**
- * \brief Scan a list of tUDPChannel's and find process the first match
+ * \brief Scan a list of tUDPChannels and find process the first match
  * \return 0 if no match was found, -1 on error and 1 if a match was found
  */
 int UDP_int_ScanList(tUDPChannel *List, tInterface *Interface, void *Address, int Length, void *Buffer)
@@ -83,7 +83,7 @@ int UDP_int_ScanList(tUDPChannel *List, tInterface *Interface, void *Address, in
 		}
 		else {
 			Warning("[UDP  ] Address type %i unknown", Interface->Type);
-			RELEASE(&glUDP_Channels);
+			Mutex_Release(&glUDP_Channels);
 			return -1;
 		}
 		
@@ -96,13 +96,13 @@ int UDP_int_ScanList(tUDPChannel *List, tInterface *Interface, void *Address, in
 		memcpy(pack->Data, hdr->Data, len);
 		
 		// Add the packet to the channel's queue
-		LOCK(&chan->lQueue);
+		SHORTLOCK(&chan->lQueue);
 		if(chan->Queue)
 			chan->QueueEnd->Next = pack;
 		else
 			chan->QueueEnd = chan->Queue = pack;
-		RELEASE(&chan->lQueue);
-		RELEASE(&glUDP_Channels);
+		SHORTREL(&chan->lQueue);
+		Mutex_Release(&glUDP_Channels);
 		return 1;
 	}
 	return 0;
@@ -124,14 +124,14 @@ void UDP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 	Log("[UDP  ] hdr->Checksum = 0x%x", ntohs(hdr->Checksum));
 	
 	// Check registered connections
-	LOCK(&glUDP_Channels);
+	Mutex_Acquire(&glUDP_Channels);
 	ret = UDP_int_ScanList(gpUDP_Channels, Interface, Address, Length, Buffer);
-	RELEASE(&glUDP_Channels);
+	Mutex_Release(&glUDP_Channels);
 	if(ret != 0)	return ;
 	
 	
 	// TODO: Server/Listener
-	LOCK(&glUDP_Servers);
+	Mutex_Acquire(&glUDP_Servers);
 	for(srv = gpUDP_Servers;
 		srv;
 		srv = srv->Next)
@@ -145,7 +145,7 @@ void UDP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 		Warning("[UDP  ] TODO - Add channel on connection");
 		//TODO
 	}
-	RELEASE(&glUDP_Servers);
+	Mutex_Release(&glUDP_Servers);
 	
 }
 
@@ -201,10 +201,10 @@ tVFS_Node *UDP_Server_Init(tInterface *Interface)
 	new->Node.IOCtl = UDP_Server_IOCtl;
 	new->Node.Close = UDP_Server_Close;
 	
-	LOCK(&glUDP_Servers);
+	Mutex_Acquire(&glUDP_Servers);
 	new->Next = gpUDP_Servers;
 	gpUDP_Servers = new;
-	RELEASE(&glUDP_Servers);
+	Mutex_Release(&glUDP_Servers);
 	
 	return &new->Node;
 }
@@ -221,13 +221,13 @@ char *UDP_Server_ReadDir(tVFS_Node *Node, int ID)
 	if( srv->ListenPort == 0 )	return NULL;
 	
 	// Lock (so another thread can't collide with us here) and wait for a connection
-	LOCK( &srv->Lock );
+	Mutex_Acquire( &srv->Lock );
 	while( srv->NewChannels == NULL )	Threads_Yield();
 	// Pop the connection off the new list
 	chan = srv->NewChannels;
 	srv->NewChannels = chan->Next;
 	// Release the lock
-	RELEASE( &srv->Lock );
+	Mutex_Release( &srv->Lock );
 	
 	// Create the ID string and return it
 	ret = malloc(11+1);
@@ -324,7 +324,7 @@ void UDP_Server_Close(tVFS_Node *Node)
 	
 	
 	// Remove from the main list first
-	LOCK(&glUDP_Servers);
+	Mutex_Acquire(&glUDP_Servers);
 	if(gpUDP_Servers == srv)
 		gpUDP_Servers = gpUDP_Servers->Next;
 	else
@@ -337,28 +337,28 @@ void UDP_Server_Close(tVFS_Node *Node)
 		else
 			prev->Next = prev->Next->Next;
 	}
-	RELEASE(&glUDP_Servers);
+	Mutex_Release(&glUDP_Servers);
 	
 	
-	LOCK(&srv->Lock);
+	Mutex_Acquire(&srv->Lock);
 	for(chan = srv->Channels;
 		chan;
 		chan = chan->Next)
 	{
 		// Clear Queue
-		LOCK(&chan->lQueue);
+		SHORTLOCK(&chan->lQueue);
 		while(chan->Queue)
 		{
 			tmp = chan->Queue;
 			chan->Queue = tmp->Next;
 			free(tmp);
 		}
-		RELEASE(&chan->lQueue);
+		SHORTREL(&chan->lQueue);
 		
 		// Free channel structure
 		free(chan);
 	}
-	RELEASE(&srv->Lock);
+	Mutex_Release(&srv->Lock);
 	
 	free(srv);
 }
@@ -377,10 +377,10 @@ tVFS_Node *UDP_Channel_Init(tInterface *Interface)
 	new->Node.IOCtl = UDP_Channel_IOCtl;
 	new->Node.Close = UDP_Channel_Close;
 	
-	LOCK(&glUDP_Channels);
+	Mutex_Acquire(&glUDP_Channels);
 	new->Next = gpUDP_Channels;
 	gpUDP_Channels = new;
-	RELEASE(&glUDP_Channels);
+	Mutex_Release(&glUDP_Channels);
 	
 	return &new->Node;
 }
@@ -400,15 +400,15 @@ Uint64 UDP_Channel_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buf
 	
 	for(;;)
 	{
-		LOCK(&chan->lQueue);
+		SHORTLOCK(&chan->lQueue);
 		if(chan->Queue == NULL) {
-			RELEASE(&chan->lQueue);
+			SHORTREL(&chan->lQueue);
 			continue;
 		}
 		pack = chan->Queue;
 		chan->Queue = pack->Next;
 		if(!chan->Queue)	chan->QueueEnd = NULL;
-		RELEASE(&chan->lQueue);
+		SHORTREL(&chan->lQueue);
 		break;
 	}
 	
@@ -521,7 +521,7 @@ void UDP_Channel_Close(tVFS_Node *Node)
 	tUDPChannel	*prev;
 	
 	// Remove from the main list first
-	LOCK(&glUDP_Channels);
+	Mutex_Acquire(&glUDP_Channels);
 	if(gpUDP_Channels == chan)
 		gpUDP_Channels = gpUDP_Channels->Next;
 	else
@@ -534,10 +534,10 @@ void UDP_Channel_Close(tVFS_Node *Node)
 		else
 			prev->Next = prev->Next->Next;
 	}
-	RELEASE(&glUDP_Channels);
+	Mutex_Release(&glUDP_Channels);
 	
 	// Clear Queue
-	LOCK(&chan->lQueue);
+	SHORTLOCK(&chan->lQueue);
 	while(chan->Queue)
 	{
 		tUDPPacket	*tmp;
@@ -545,7 +545,7 @@ void UDP_Channel_Close(tVFS_Node *Node)
 		chan->Queue = tmp->Next;
 		free(tmp);
 	}
-	RELEASE(&chan->lQueue);
+	SHORTREL(&chan->lQueue);
 	
 	// Free channel structure
 	free(chan);
@@ -557,7 +557,7 @@ void UDP_Channel_Close(tVFS_Node *Node)
 Uint16 UDP_int_AllocatePort()
 {
 	 int	i;
-	LOCK(&glUDP_Ports);
+	Mutex_Acquire(&glUDP_Ports);
 	// Fast Search
 	for( i = UDP_ALLOC_BASE; i < 0x10000; i += 32 )
 		if( gUDP_Ports[i/32] != 0xFFFFFFFF )
@@ -568,7 +568,7 @@ Uint16 UDP_int_AllocatePort()
 		if( !(gUDP_Ports[i/32] & (1 << (i%32))) )
 			return i;
 	}
-	RELEASE(&glUDP_Ports);
+	Mutex_Release(&glUDP_Ports);
 }
 
 /**
@@ -577,13 +577,13 @@ Uint16 UDP_int_AllocatePort()
  */
 int UDP_int_MarkPortAsUsed(Uint16 Port)
 {
-	LOCK(&glUDP_Ports);
+	Mutex_Acquire(&glUDP_Ports);
 	if( gUDP_Ports[Port/32] & (1 << (Port%32)) ) {
 		return 0;
-		RELEASE(&glUDP_Ports);
+		Mutex_Release(&glUDP_Ports);
 	}
 	gUDP_Ports[Port/32] |= 1 << (Port%32);
-	RELEASE(&glUDP_Ports);
+	Mutex_Release(&glUDP_Ports);
 	return 1;
 }
 
@@ -592,7 +592,7 @@ int UDP_int_MarkPortAsUsed(Uint16 Port)
  */
 void UDP_int_FreePort(Uint16 Port)
 {
-	LOCK(&glUDP_Ports);
+	Mutex_Acquire(&glUDP_Ports);
 	gUDP_Ports[Port/32] &= ~(1 << (Port%32));
-	RELEASE(&glUDP_Ports);
+	Mutex_Release(&glUDP_Ports);
 }

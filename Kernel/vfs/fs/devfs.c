@@ -28,7 +28,7 @@ tVFS_Node	gDevFS_RootNode = {
 	};
 tDevFS_Driver	*gDevFS_Drivers = NULL;
  int	giDevFS_NextID = 1;
-tSpinlock	glDevFS_ListLock;
+tShortSpinlock	glDevFS_ListLock;
 
 // === CODE ===
 /**
@@ -39,7 +39,7 @@ int DevFS_AddDevice(tDevFS_Driver *Device)
 	 int	ret = 0;
 	tDevFS_Driver	*dev;
 	
-	LOCK( &glDevFS_ListLock );
+	SHORTLOCK( &glDevFS_ListLock );
 	
 	// Check if the device is already registered or the name is taken
 	for( dev = gDevFS_Drivers; dev; dev = dev->Next )
@@ -63,7 +63,7 @@ int DevFS_AddDevice(tDevFS_Driver *Device)
 		gDevFS_RootNode.Size ++;
 		ret = giDevFS_NextID ++;
 	}
-	RELEASE( &glDevFS_ListLock );
+	SHORTREL( &glDevFS_ListLock );
 	
 	return ret;
 }
@@ -75,7 +75,7 @@ void DevFS_DelDevice(tDevFS_Driver *Device)
 {
 	tDevFS_Driver	*prev = NULL, *dev;
 	
-	LOCK( &glDevFS_ListLock );
+	SHORTLOCK( &glDevFS_ListLock );
 	// Search list for device
 	for(dev = gDevFS_Drivers;
 		dev && dev != Device;
@@ -94,7 +94,7 @@ void DevFS_DelDevice(tDevFS_Driver *Device)
 		Log_Warning("DevFS", "Attempted to unregister device %p '%s' which was not registered",
 			Device, Device->Name);
 	
-	RELEASE( &glDevFS_ListLock );
+	SHORTREL( &glDevFS_ListLock );
 }
 
 /**

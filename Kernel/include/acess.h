@@ -21,6 +21,15 @@ typedef  int	tTID;
 typedef Uint	tUID;
 typedef Uint	tGID;
 typedef Sint64	tTimestamp;
+typedef struct sShortSpinlock	tShortSpinlock;
+typedef struct sMutex	tMutex;
+
+struct sMutex {
+	tShortSpinlock	Protector;	//!< Protector for the lock strucure
+	struct sThread	*volatile Owner;	//!< Owner of the lock (set upon getting the lock)
+	struct sThread	*Waiting;	//!< Waiting threads
+	struct sThread	*LastWaiting;	//!< Waiting threads
+};
 
 // --- Helper Macros ---
 /**
@@ -403,6 +412,9 @@ extern tGID	Threads_GetGID(void);
 extern int	SpawnTask(tThreadFunction Function, void *Arg);
 extern Uint	*Threads_GetCfgPtr(int Id);
 extern int	Threads_SetName(char *NewName);
+extern void	Mutex_Acquire(tMutex *Mutex);
+extern void	Mutex_Release(tMutex *Mutex);
+extern int	Mutex_IsLocked(tMutex *Mutex);
 /**
  * \}
  */

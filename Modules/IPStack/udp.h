@@ -40,7 +40,7 @@ struct sUDPChannel
 	}	RemoteAddr;
 	Uint16	RemotePort;
 	tVFS_Node	Node;
-	tSpinlock	lQueue;
+	tShortSpinlock	lQueue;
 	tUDPPacket	* volatile Queue;
 	tUDPPacket	*QueueEnd;
 };
@@ -56,7 +56,7 @@ struct sUDPServer
 	 int	NextID;
 	 int	NumChannels;
 	tUDPChannel	*Channels;
-	tSpinlock	Lock;
+	tMutex	Lock;
 	tUDPChannel	* volatile NewChannels;
 };
 

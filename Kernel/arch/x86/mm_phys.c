@@ -21,6 +21,7 @@ void	MM_RefPhys(tPAddr PAddr);
 void	MM_DerefPhys(tPAddr PAddr);
 
 // === GLOBALS ===
+tMutex	glPhysAlloc;
 Uint64	giPhysAlloc = 0;	// Number of allocated pages
 Uint64	giPageCount = 0;	// Total number of pages
 Uint64	giLastPossibleFree = 0;	// Last possible free page (before all pages are used)
@@ -130,7 +131,7 @@ tPAddr MM_AllocPhys(void)
 	
 	ENTER("");
 	
-	LOCK( &giPhysAlloc );
+	Mutex_Acquire( &glPhysAlloc );
 	
 	// Find free page
 	// Scan downwards
@@ -162,7 +163,7 @@ tPAddr MM_AllocPhys(void)
 	LOG("a=%i,b=%i,c=%i", a, b, c);
 	for( ; gaSuperBitmap[a] == -1 && a >= 0; a-- );
 	if(a < 0) {
-		RELEASE( &giPhysAlloc );
+		Mutex_Release( &glPhysAlloc );
 		Warning("MM_AllocPhys - OUT OF MEMORY (Called by %p)", __builtin_return_address(0));
 		LEAVE('i', 0);
 		return 0;
@@ -188,7 +189,7 @@ tPAddr MM_AllocPhys(void)
 		gaSuperBitmap[indx>>10] |= 1 << ((indx>>5)&31);
 
 	// Release Spinlock
-	RELEASE( &giPhysAlloc );
+	Mutex_Release( &glPhysAlloc );
 	
 	LEAVE('X', ret);
 	//Log("MM_AllocPhys: RETURN 0x%x", ret);
@@ -217,7 +218,7 @@ tPAddr MM_AllocPhysRange(int Pages, int MaxBits)
 	if(MaxBits > PHYS_BITS)	MaxBits = PHYS_BITS;
 	
 	// Lock
-	LOCK( &giPhysAlloc );
+	Mutex_Acquire( &glPhysAlloc );
 	
 	// Set up search state
 	if( giLastPossibleFree > ((tPAddr)1 << (MaxBits-12)) ) {
@@ -237,7 +238,7 @@ tPAddr MM_AllocPhysRange(int Pages, int MaxBits)
 	// Find free page
 	for( ; gaSuperBitmap[a] == -1 && a --; )	b = 31;
 	if(a < 0) {
-		RELEASE( &giPhysAlloc );
+		Mutex_Release( &glPhysAlloc );
 		Warning("MM_AllocPhysRange - OUT OF MEMORY (Called by %p)", __builtin_return_address(0));
 		LEAVE('i', 0);
 		return 0;
@@ -295,7 +296,7 @@ tPAddr MM_AllocPhysRange(int Pages, int MaxBits)
 	
 	// Check if an address was found
 	if( idx < 0 ) {
-		RELEASE( &giPhysAlloc );
+		Mutex_Release( &glPhysAlloc );
 		Warning("MM_AllocPhysRange - OUT OF MEMORY (Called by %p)", __builtin_return_address(0));
 		LEAVE('i', 0);
 		return 0;
@@ -318,7 +319,7 @@ tPAddr MM_AllocPhysRange(int Pages, int MaxBits)
 	if(gaPageBitmap[ idx ] == -1)	gaSuperBitmap[idx/32] |= 1 << (idx%32);
 
 	// Release Spinlock
-	RELEASE( &giPhysAlloc );
+	Mutex_Release( &glPhysAlloc );
 	
 	LEAVE('X', ret);
 	return ret;
@@ -336,7 +337,7 @@ void MM_RefPhys(tPAddr PAddr)
 	if(PAddr >= giPageCount)	return;
 	
 	// Lock Structures
-	LOCK( &giPhysAlloc );
+	Mutex_Acquire( &glPhysAlloc );
 	
 	// Reference the page
 	if(gaPageReferences)
@@ -350,7 +351,7 @@ void MM_RefPhys(tPAddr PAddr)
 		gaSuperBitmap[PAddr/1024] |= 1 << ((PAddr/32)&31);
 	
 	// Release Spinlock
-	RELEASE( &giPhysAlloc );
+	Mutex_Release( &glPhysAlloc );
 }
 
 /**
@@ -372,7 +373,7 @@ void MM_DerefPhys(tPAddr PAddr)
 	}
 	
 	// Lock Structures
-	LOCK( &giPhysAlloc );
+	Mutex_Acquire( &glPhysAlloc );
 	
 	if( giLastPossibleFree < PAddr )
 		giLastPossibleFree = PAddr;
@@ -390,7 +391,7 @@ void MM_DerefPhys(tPAddr PAddr)
 	}
 	
 	// Release spinlock
-	RELEASE( &giPhysAlloc );
+	Mutex_Release( &glPhysAlloc );
 }
 
 /**

@@ -29,44 +29,48 @@
 
 #define __ASM__	__asm__ __volatile__
 
+#define LONGLOCK_NUM_THREADS	8
+
 // === MACROS ===
-typedef volatile int	tSpinlock;
-#define IS_LOCKED(lockptr)	(!!(*(tSpinlock*)lockptr))
+struct sShortSpinlock {
+	volatile int	Lock;
+	 int	IF;
+};
 /**
- * \brief Inter-Process interrupt (does a Yield)
+ * \brief Determine if a short spinlock is locked
  */
-#define LOCK(lockptr)	do {\
-	int v=1;\
-	while(v) {\
-		__ASM__("xchgl %%eax, (%%edi)":"=a"(v):"a"(1),"D"(lockptr));\
-		if(v) Threads_Yield();\
-	}\
-}while(0)
+static inline int IS_LOCKED(struct sShortSpinlock *Lock) {
+	return !!Lock->Lock;
+}
 /**
- * \brief Tight spinlock (does a HLT)
+ * \brief Acquire a Short Spinlock
+ * \note Stops interrupts, so be careful
  */
-#define TIGHTLOCK(lockptr)	do{\
-	int v=1;\
-	while(v) {\
-		__ASM__("xchgl %%eax,(%%edi)":"=a"(v):"a"(1),"D"(lockptr));\
-		if(v) __ASM__("hlt");\
-	}\
-}while(0)
+static inline void SHORTLOCK(struct sShortSpinlock *Lock) {
+	 int	v = 1;
+	__ASM__ ("pushf;\n\tpop %%eax" : "=a"(Lock->IF));
+	Lock->IF &= 0x200;
+	__ASM__ ("cli");	// Stop task switches
+	// Wait for another CPU to release
+	while(v)
+		__ASM__("xchgl %%eax, (%%edi)":"=a"(v):"a"(1),"D"(&Lock->Lock));
+}
 /**
- * \brief Very Tight spinlock (short inter-cpu lock)
+ * \brief Release a short lock
  */
-#define VTIGHTLOCK(lockptr)	do{\
-	int v=1;\
-	while(v)__ASM__("xchgl %%eax,(%%edi)":"=a"(v):"a"(1),"D"(lockptr));\
-}while(0)
-/**
- * \brief Release a held spinlock
- */
-#define	RELEASE(lockptr)	__ASM__("lock andl $0, (%%edi)"::"D"(lockptr));
+static inline void SHORTREL(struct sShortSpinlock *Lock) {
+	Lock->Lock = 0;
+	#if 0
+	__ASM__ ("pushf;\n\tor %0, (%%esp);\n\tpopf" : : "a"(Lock->IF));
+	#else
+	if(Lock->IF)	__ASM__ ("sti");
+	#endif
+}
 /**
  * \brief Halt the CPU
  */
 #define	HALT()	__asm__ __volatile__ ("hlt")
+#define	MAGIC_BREAK()	__asm__ __volatile__ ("xchg %bx, %bx")
 
 // === TYPES ===
 typedef unsigned int	Uint;	// Unsigned machine native integer

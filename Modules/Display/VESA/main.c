@@ -44,7 +44,7 @@ tDevFS_Driver	gVesa_DriverStruct = {
 	.IOCtl = Vesa_Ioctl
 	}
 };
-tSpinlock	glVesa_Lock;
+tMutex	glVesa_Lock;
 tVM8086	*gpVesa_BiosState;
  int	giVesaDriverId = -1;
 // --- Video Modes ---
@@ -421,7 +421,7 @@ int Vesa_Int_SetMode(int mode)
 	Time_RemoveTimer(giVesaCursorTimer);
 	giVesaCursorTimer = -1;
 	
-	LOCK( &glVesa_Lock );
+	Mutex_Acquire( &glVesa_Lock );
 	
 	gpVesa_BiosState->AX = 0x4F02;
 	gpVesa_BiosState->BX = gVesa_Modes[mode].code;
@@ -446,7 +446,7 @@ int Vesa_Int_SetMode(int mode)
 	giVesaCurrentMode = mode;
 	gpVesaCurMode = &gVesa_Modes[giVesaCurrentMode];
 	
-	RELEASE( &glVesa_Lock );
+	Mutex_Release( &glVesa_Lock );
 	
 	return 1;
 }

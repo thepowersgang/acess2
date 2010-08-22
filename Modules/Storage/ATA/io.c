@@ -94,7 +94,7 @@ Uint8	*gATA_BusMasterBasePtr;	//!< Paging Mapped MMIO (If needed)
  int	gATA_IRQSec = 15;
 volatile int	gaATA_IRQs[2] = {0};
 // - Locks to avoid tripping
-tSpinlock	giaATA_ControllerLock[2];
+tMutex	glaATA_ControllerLock[2];
 // - Buffers!
 Uint8	gATA_Buffers[2][(MAX_DMA_SECTORS+0xFFF)&~0xFFF] __attribute__ ((section(".padata")));
 // - PRDTs
@@ -283,7 +283,7 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	}
 
 	// Get exclusive access to the disk controller
-	LOCK( &giaATA_ControllerLock[ cont ] );
+	Mutex_Acquire( &glaATA_ControllerLock[ cont ] );
 
 	// Set Size
 	gATA_PRDTs[ cont ].Bytes = Count * SECTOR_SIZE;
@@ -345,7 +345,7 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 
 	if( gaATA_IRQs[cont] == 0 ) {
 		// Release controller lock
-		RELEASE( &giaATA_ControllerLock[ cont ] );
+		Mutex_Release( &glaATA_ControllerLock[ cont ] );
 		Log_Warning("ATA",
 			"Read timeout on disk %i (Reading sector 0x%llx)\n",
 			Disk, Address);
@@ -357,7 +357,7 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 		// Copy to destination buffer
 		memcpy( Buffer, gATA_Buffers[cont], Count*SECTOR_SIZE );
 		// Release controller lock
-		RELEASE( &giaATA_ControllerLock[ cont ] );
+		Mutex_Release( &glaATA_ControllerLock[ cont ] );
 
 		LEAVE('i', 0);
 		return 0;
@@ -384,7 +384,7 @@ int ATA_WriteDMA(Uint8 Disk, Uint64 Address, Uint Count, const void *Buffer)
 	if(Count > MAX_DMA_SECTORS)	return 1;
 
 	// Get exclusive access to the disk controller
-	LOCK( &giaATA_ControllerLock[ cont ] );
+	Mutex_Acquire( &glaATA_ControllerLock[ cont ] );
 
 	// Set Size
 	gATA_PRDTs[ cont ].Bytes = Count * SECTOR_SIZE;
@@ -437,11 +437,11 @@ int ATA_WriteDMA(Uint8 Disk, Uint64 Address, Uint Count, const void *Buffer)
 	// If the IRQ is unset, return error
 	if( gaATA_IRQs[cont] == 0 ) {
 		// Release controller lock
-		RELEASE( &giaATA_ControllerLock[ cont ] );
+		Mutex_Release( &glaATA_ControllerLock[ cont ] );
 		return 1;	// Error
 	}
 	else {
-		RELEASE( &giaATA_ControllerLock[ cont ] );
+		Mutex_Release( &glaATA_ControllerLock[ cont ] );
 		return 0;
 	}
 }

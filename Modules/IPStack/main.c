@@ -50,11 +50,11 @@ tDevFS_Driver	gIP_DriverInfo = {
 	.IOCtl = IPStack_Root_IOCtl
 	}
 };
-tSpinlock	glIP_Interfaces = 0;
+tShortSpinlock	glIP_Interfaces;
 tInterface	*gIP_Interfaces = NULL;
 tInterface	*gIP_Interfaces_Last = NULL;
  int	giIP_NextIfaceId = 1;
-tSpinlock	glIP_Adapters = 0;
+tMutex	glIP_Adapters;
 tAdapter	*gIP_Adapters = NULL;
 tSocketFile	*gIP_FileTemplates;
 
@@ -561,7 +561,7 @@ int IPStack_AddInterface(char *Device)
 	iface->Node.ImplInt = giIP_NextIfaceId++;
 	
 	// Append to list
-	LOCK( &glIP_Interfaces );
+	SHORTLOCK( &glIP_Interfaces );
 	if( gIP_Interfaces ) {
 		gIP_Interfaces_Last->Next = iface;
 		gIP_Interfaces_Last = iface;
@@ -570,7 +570,7 @@ int IPStack_AddInterface(char *Device)
 		gIP_Interfaces = iface;
 		gIP_Interfaces_Last = iface;
 	}
-	RELEASE( &glIP_Interfaces );
+	SHORTREL( &glIP_Interfaces );
 	
 	gIP_DriverInfo.RootNode.Size ++;
 	
@@ -590,14 +590,14 @@ tAdapter *IPStack_GetAdapter(char *Path)
 	
 	ENTER("sPath", Path);
 	
-	LOCK( &glIP_Adapters );
+	Mutex_Acquire( &glIP_Adapters );
 	
 	// Check if this adapter is already open
 	for( dev = gIP_Adapters; dev; dev = dev->Next )
 	{
 		if( strcmp(dev->Device, Path) == 0 ) {
 			dev->NRef ++;
-			RELEASE( &glIP_Adapters );
+			Mutex_Release( &glIP_Adapters );
 			LEAVE('p', dev);
 			return dev;
 		}
@@ -606,7 +606,7 @@ tAdapter *IPStack_GetAdapter(char *Path)
 	// Ok, so let's open it
 	dev = malloc( sizeof(tAdapter) + strlen(Path) + 1 );
 	if(!dev) {
-		RELEASE( &glIP_Adapters );
+		Mutex_Release( &glIP_Adapters );
 		LEAVE('n');
 		return NULL;
 	}
@@ -620,7 +620,7 @@ tAdapter *IPStack_GetAdapter(char *Path)
 	dev->DeviceFD = VFS_Open( dev->Device, VFS_OPENFLAG_READ|VFS_OPENFLAG_WRITE );
 	if( dev->DeviceFD == -1 ) {
 		free( dev );
-		RELEASE( &glIP_Adapters );
+		Mutex_Release( &glIP_Adapters );
 		LEAVE('n');
 		return NULL;
 	}
@@ -632,7 +632,7 @@ tAdapter *IPStack_GetAdapter(char *Path)
 		Warning("IPStack_GetAdapter: '%s' is not a network interface", dev->Device);
 		VFS_Close( dev->DeviceFD );
 		free( dev );
-		RELEASE( &glIP_Adapters );
+		Mutex_Release( &glIP_Adapters );
 		LEAVE('n');
 		return NULL;
 	}
@@ -644,7 +644,7 @@ tAdapter *IPStack_GetAdapter(char *Path)
 	dev->Next = gIP_Adapters;
 	gIP_Adapters = dev;
 	
-	RELEASE( &glIP_Adapters );
+	Mutex_Release( &glIP_Adapters );
 	
 	// Start watcher
 	Link_WatchDevice( dev );

@@ -49,6 +49,9 @@ tUID	Threads_GetUID(void);
 tGID	Threads_GetGID(void);
  int	Threads_SetGID(Uint *Errno, tUID ID);
 void	Threads_Dump(void);
+void	Mutex_Acquire(tMutex *Mutex);
+void	Mutex_Release(tMutex *Mutex);
+ int	Mutex_IsLocked(tMutex *Mutex);
 
 // === GLOBALS ===
 // -- Core Thread --
@@ -62,7 +65,7 @@ tThread	gThreadZero = {
 	};
 // -- Processes --
 // --- Locks ---
-tSpinlock	glThreadListLock = 0;	///\note NEVER use a heap function while locked
+tShortSpinlock	glThreadListLock;	///\note NEVER use a heap function while locked
 // --- Current State ---
 volatile int	giNumActiveThreads = 0;
 //volatile int	giTotalTickets = 0;
@@ -133,10 +136,10 @@ void Threads_SetTickets(tThread *Thread, int Num)
 	if(Num > MAX_TICKETS)	Num = MAX_TICKETS;
 	
 	if( Thread != Proc_GetCurThread() ) {
-		LOCK( &glThreadListLock );
+		SHORTLOCK( &glThreadListLock );
 		giFreeTickets -= Thread->NumTickets - Num;
 		Thread->NumTickets = Num;
-		RELEASE( &glThreadListLock );
+		SHORTREL( &glThreadListLock );
 	}
 	else
 		Thread->NumTickets = Num;
@@ -160,7 +163,7 @@ tThread *Threads_CloneTCB(Uint *Err, Uint Flags)
 	
 	new->CurCPU = -1;
 	new->Next = NULL;
-	new->IsLocked = 0;
+	memset( &new->IsLocked, 0, sizeof(new->IsLocked));
 	new->Status = THREAD_STAT_ACTIVE;
 	new->RetStatus = 0;
 	
@@ -386,15 +389,17 @@ void Threads_Kill(tThread *Thread, int Status)
 	///\note Double lock is needed due to overlap of lock areas
 	
 	// Lock thread (stop us recieving messages)
-	LOCK( &Thread->IsLocked );
+	SHORTLOCK( &Thread->IsLocked );
 	
 	// Lock thread list
-	LOCK( &glThreadListLock );
+	SHORTLOCK( &glThreadListLock );
 	
 	// Get previous thread on list
 	prev = Threads_int_GetPrev( &gActiveThreads, Thread );
 	if(!prev) {
 		Warning("Proc_Exit - Current thread is not on the active queue");
+		Thread->IsLocked.Lock = 0;	// We can't use SHORTREL as that starts IRQs again
+		SHORTREL( &glThreadListLock );
 		return;
 	}
 	
@@ -428,8 +433,8 @@ void Threads_Kill(tThread *Thread, int Status)
 	}
 	
 	// Release spinlocks
-	RELEASE( &Thread->IsLocked );	// Released first so that it IS released
-	RELEASE( &glThreadListLock );
+	Thread->IsLocked.Lock = 0;	// Released first so that it IS released
+	SHORTREL( &glThreadListLock );
 	
 	//Log("Thread %i went *hurk*", Thread->TID);
 	
@@ -458,20 +463,20 @@ void Threads_Sleep(void)
 	//Log_Log("Threads", "%i going to sleep", cur->TID);
 	
 	// Acquire Spinlock
-	LOCK( &glThreadListLock );
+	SHORTLOCK( &glThreadListLock );
 	
 	// Get thread before current thread
 	thread = Threads_int_GetPrev( &gActiveThreads, cur );
 	if(!thread) {
 		Warning("Threads_Sleep - Current thread is not on the active queue");
 		Threads_Dump();
-		RELEASE( &glThreadListLock );
+		SHORTREL( &glThreadListLock );
 		return;
 	}
 	
 	// Don't sleep if there is a message waiting
 	if( cur->Messages ) {
-		RELEASE( &glThreadListLock );
+		SHORTREL( &glThreadListLock );
 		return;
 	}
 	
@@ -487,12 +492,13 @@ void Threads_Sleep(void)
 	
 	// Reduce the active count & ticket count
 	giNumActiveThreads --;
+	// - No need to alter giFreeTickets (we're being executed)
 	
 	// Mark thread as sleeping
 	cur->Status = THREAD_STAT_SLEEPING;
 	
 	// Release Spinlock
-	RELEASE( &glThreadListLock );
+	SHORTREL( &glThreadListLock );
 	
 	while(cur->Status != THREAD_STAT_ACTIVE)	HALT();
 }
@@ -516,10 +522,10 @@ int Threads_Wake(tThread *Thread)
 	case THREAD_STAT_ACTIVE:
 		Log("Thread_Wake: Waking awake thread (%i)", Thread->TID);
 		return -EALREADY;
-	case THREAD_STAT_SLEEPING:
+	case THREAD_STAT_SLEEPING:	// TODO: Comment better
 		//Log_Log("Threads", "Waking %i (%p) from sleeping (CPU=%i)",
 		//	Thread->TID, Thread, Thread->CurCPU);
-		LOCK( &glThreadListLock );
+		SHORTLOCK( &glThreadListLock );
 		prev = Threads_int_GetPrev(&gSleepingThreads, Thread);
 		prev->Next = Thread->Next;	// Remove from sleeping queue
 		Thread->Next = gActiveThreads;	// Add to active queue
@@ -532,7 +538,7 @@ int Threads_Wake(tThread *Thread)
 		Log("Threads_Wake: giFreeTickets = %i", giFreeTickets);
 		#endif
 		Thread->Status = THREAD_STAT_ACTIVE;
-		RELEASE( &glThreadListLock );
+		SHORTREL( &glThreadListLock );
 		return -EOK;
 	case THREAD_STAT_WAITING:
 		Warning("Thread_Wake - Waiting threads are not currently supported");
@@ -565,7 +571,7 @@ int Threads_WakeTID(tTID TID)
  */
 void Threads_AddActive(tThread *Thread)
 {
-	LOCK( &glThreadListLock );
+	SHORTLOCK( &glThreadListLock );
 	Thread->Next = gActiveThreads;
 	gActiveThreads = Thread;
 	giNumActiveThreads ++;
@@ -574,7 +580,7 @@ void Threads_AddActive(tThread *Thread)
 	#if DEBUG_TRACE_TICKETS
 	Log("Threads_AddActive: giFreeTickets = %i", giFreeTickets);
 	#endif
-	RELEASE( &glThreadListLock );
+	SHORTREL( &glThreadListLock );
 }
 
 /**
@@ -716,7 +722,7 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 	while(gDeleteThreads)
 	{
 		thread = gDeleteThreads->Next;
-		if(gDeleteThreads->IsLocked) {	// Only free if structure is unused
+		if( IS_LOCKED(&gDeleteThreads->IsLocked) ) {	// Only free if structure is unused
 			gDeleteThreads->Status = THREAD_STAT_NULL;
 			free( gDeleteThreads );
 		}
@@ -736,13 +742,13 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 	//   but it has a potentially long lock period)
 	// - Well, this CPU can obtain the lock, but that is aliveviated by
 	//   the above.
-	TIGHTLOCK( &glThreadListLock );
+	SHORTLOCK( &glThreadListLock );
 	
 	// Special case: 1 thread
 	if(giNumActiveThreads == 1) {
 		if( gActiveThreads->CurCPU == -1 )
 			gActiveThreads->CurCPU = CPU;
-		RELEASE( &glThreadListLock );
+		SHORTREL( &glThreadListLock );
 		if( gActiveThreads->CurCPU == CPU )
 			return gActiveThreads;
 		return NULL;	// CPU has nothing to do
@@ -778,7 +784,7 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 	
 	// No free tickets (all tasks delegated to cores)
 	if( giFreeTickets == 0 ) {
-		RELEASE(&glThreadListLock);
+		SHORTREL(&glThreadListLock);
 		return NULL;
 	}
 	
@@ -817,7 +823,7 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 		CPU, giFreeTickets, thread, thread->ThreadName, thread->CurCPU);
 	#endif
 	
-	RELEASE( &glThreadListLock );
+	SHORTREL( &glThreadListLock );
 	
 	return thread;
 }
@@ -831,6 +837,76 @@ void Threads_SegFault(tVAddr Addr)
 	Warning("Thread #%i committed a segfault at address %p", Proc_GetCurThread()->TID, Addr);
 	Threads_Fault( 1 );
 	//Threads_Exit( 0, -1 );
+}
+
+/**
+ * \brief heavy mutex
+ */
+void Mutex_Acquire(tMutex *Mutex)
+{
+	tThread	*us = Proc_GetCurThread();
+	tThread	*prev;
+	
+	// Get protector
+	SHORTLOCK( &Mutex->Protector );
+	
+	//Log("Mutex_Acquire: (%p)", Mutex);
+	
+	// Check if the lock is already held
+	if( Mutex->Owner ) {
+		SHORTLOCK( &glThreadListLock );
+		// - Remove from active list
+		us->Remaining = 0;
+		prev = Threads_int_GetPrev(&gActiveThreads, us);
+		prev->Next = us->Next;
+		giNumActiveThreads --;
+		us->Status = THREAD_STAT_SLEEPING;
+		
+		// - Add to waiting
+		if(Mutex->LastWaiting) {
+			Mutex->LastWaiting->Next = us;
+			Mutex->LastWaiting = us;
+		}
+		else {
+			Mutex->Waiting = us;
+			Mutex->LastWaiting = us;
+		}
+		SHORTREL( &glThreadListLock );
+		SHORTREL( &Mutex->Protector );
+		while(us->Status == THREAD_STAT_SLEEPING)	HALT();
+		// We're only woken when we get the lock
+	}
+	// Ooh, let's take it!
+	else {
+		Mutex->Owner = us;
+		SHORTREL( &Mutex->Protector );
+	}
+}
+
+/**
+ * \brief Release a held spinlock
+ */
+void Mutex_Release(tMutex *Mutex)
+{
+	SHORTLOCK( &Mutex->Protector );
+	//Log("Mutex_Release: (%p)", Mutex);
+	if( Mutex->Waiting ) {
+		Mutex->Owner = Mutex->Waiting;	// Set owner
+		Mutex->Waiting = Mutex->Waiting->Next;	// Next!
+		// Wake new owner
+		Mutex->Owner->Status = THREAD_STAT_ACTIVE;
+		Threads_AddActive(Mutex->Owner);
+		Log("Mutex %p Woke %p", Mutex, Mutex->Owner);
+	}
+	else {
+		Mutex->Owner = NULL;
+	}
+	SHORTREL( &Mutex->Protector );
+}
+
+int Mutex_IsLocked(tMutex *Mutex)
+{
+	return Mutex->Owner != NULL;
 }
 
 // === EXPORTS ===

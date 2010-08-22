@@ -15,7 +15,7 @@ extern char	*gsVFS_MountFile;
 void	VFS_UpdateMountFile(void);
 
 // === GLOBALS ===
- int	glVFS_MountList = 0;
+tMutex	glVFS_MountList;
 tVFS_Mount	*gVFS_Mounts;
 tVFS_Mount	*gVFS_RootMount = NULL;
 
@@ -82,7 +82,7 @@ int VFS_Mount(char *Device, char *MountPoint, char *Filesystem, char *Options)
 	if(!gVFS_RootMount)	gVFS_RootMount = mnt;
 	
 	// Add to mount list
-	LOCK( &glVFS_MountList );
+	Mutex_Acquire( &glVFS_MountList );
 	{
 		tVFS_Mount	*tmp;
 		mnt->Next = NULL;
@@ -94,7 +94,7 @@ int VFS_Mount(char *Device, char *MountPoint, char *Filesystem, char *Options)
 			gVFS_Mounts = mnt;
 		}
 	}
-	RELEASE( &glVFS_MountList );
+	Mutex_Release( &glVFS_MountList );
 	
 	Log_Log("VFS", "Mounted '%s' to '%s' ('%s')", Device, MountPoint, Filesystem);
 	

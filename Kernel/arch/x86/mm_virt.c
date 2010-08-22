@@ -95,8 +95,8 @@ tPAddr	MM_DuplicatePage(tVAddr VAddr);
 #define gaPAE_TmpDir	((tTabEnt*)PAE_TMP_DIR_ADDR)
 #define gaPAE_TmpPDPT	((tTabEnt*)PAE_TMP_PDPT_ADDR)
  int	gbUsePAE = 0;
- int	gilTempMappings = 0;
- int	gilTempFractal = 0;
+tMutex	glTempMappings;
+tMutex	glTempFractal;
 Uint32	gWorkerStacks[(NUM_WORKER_STACKS+31)/32];
  int	giLastUsedWorker = 0;
 
@@ -533,7 +533,7 @@ tPAddr MM_Clone(void)
 	tVAddr	kStackBase = Proc_GetCurThread()->KernelStack - KERNEL_STACK_SIZE;
 	void	*tmp;
 	
-	LOCK( &gilTempFractal );
+	Mutex_Acquire( &glTempFractal );
 	
 	// Create Directory Table
 	*gpTmpCR3 = MM_AllocPhys() | 3;
@@ -641,7 +641,7 @@ tPAddr MM_Clone(void)
 	}
 	
 	ret = *gpTmpCR3 & ~0xFFF;
-	RELEASE( &gilTempFractal );
+	Mutex_Release( &glTempFractal );
 	
 	//LEAVE('x', ret);
 	return ret;
@@ -713,7 +713,7 @@ tVAddr MM_NewWorkerStack()
 	//Log(" MM_NewWorkerStack: base = 0x%x", base);
 	
 	// Acquire the lock for the temp fractal mappings
-	LOCK(&gilTempFractal);
+	Mutex_Acquire(&glTempFractal);
 	
 	// Set the temp fractals to TID0's address space
 	*gpTmpCR3 = ((Uint)gaInitPageDir - KERNEL_BASE) | 3;
@@ -737,7 +737,7 @@ tVAddr MM_NewWorkerStack()
 	}
 	*gpTmpCR3 = 0;
 	// Release the temp mapping lock
-	RELEASE(&gilTempFractal);
+	Mutex_Release(&glTempFractal);
 	
 	// Copy the old stack
 	oldstack = (esp + KERNEL_STACK_SIZE-1) & ~(KERNEL_STACK_SIZE-1);
@@ -900,11 +900,11 @@ tVAddr MM_MapTemp(tPAddr PAddr)
 	
 	PAddr &= ~0xFFF;
 	
-	//LOG("gilTempMappings = %i", gilTempMappings);
+	//LOG("glTempMappings = %i", glTempMappings);
 	
 	for(;;)
 	{
-		LOCK( &gilTempMappings );
+		Mutex_Acquire( &glTempMappings );
 		
 		for( i = 0; i < NUM_TEMP_PAGES; i ++ )
 		{
@@ -914,11 +914,11 @@ tVAddr MM_MapTemp(tPAddr PAddr)
 			gaPageTable[ (TEMP_MAP_ADDR >> 12) + i ] = PAddr | 3;
 			INVLPG( TEMP_MAP_ADDR + (i << 12) );
 			//LEAVE('p', TEMP_MAP_ADDR + (i << 12));
-			RELEASE( &gilTempMappings );
+			Mutex_Release( &glTempMappings );
 			return TEMP_MAP_ADDR + (i << 12);
 		}
-		RELEASE( &gilTempMappings );
-		Threads_Yield();
+		Mutex_Release( &glTempMappings );
+		Threads_Yield();	// TODO: Less expensive
 	}
 }
 
@@ -1053,8 +1053,7 @@ void MM_UnmapHWPages(tVAddr VAddr, Uint Number)
 	
 	i = VAddr >> 12;
 	
-	LOCK( &gilTempMappings );	// Temp and HW share a directory, so they share a lock
-	
+	Mutex_Acquire( &glTempMappings );	// Temp and HW share a directory, so they share a lock
 	
 	for( j = 0; j < Number; j++ )
 	{
@@ -1062,7 +1061,7 @@ void MM_UnmapHWPages(tVAddr VAddr, Uint Number)
 		gaPageTable[ i + j ] = 0;
 	}
 	
-	RELEASE( &gilTempMappings );
+	Mutex_Release( &glTempMappings );
 }
 
 // --- EXPORTS ---

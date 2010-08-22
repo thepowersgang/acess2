@@ -25,7 +25,7 @@ struct sIOCache
 {
 	tIOCache	*Next;
 	 int	SectorSize;
-	 int	Lock;
+	tMutex	Lock;
 	 int	Mode;
 	Uint32	ID;
 	tIOCache_WriteCallback	Write;
@@ -35,7 +35,7 @@ struct sIOCache
 };
 
 // === GLOBALS ===
- int	glIOCache_Caches;
+tShortSpinlock	glIOCache_Caches;
 tIOCache	*gIOCache_Caches = NULL;
  int	giIOCache_NumCaches = 0;
 
@@ -61,10 +61,10 @@ tIOCache *IOCache_Create( tIOCache_WriteCallback Write, Uint32 ID, int SectorSiz
 	ret->Entries = 0;
 	
 	// Append to list
-	LOCK( &glIOCache_Caches );
+	SHORTLOCK( &glIOCache_Caches );
 	ret->Next = gIOCache_Caches;
 	gIOCache_Caches = ret;
-	RELEASE( &glIOCache_Caches );
+	SHORTREL( &glIOCache_Caches );
 	
 	// Return
 	return ret;
@@ -87,9 +87,9 @@ int IOCache_Read( tIOCache *Cache, Uint64 Sector, void *Buffer )
 	}
 	
 	// Lock
-	LOCK( &Cache->Lock );
+	Mutex_Acquire( &Cache->Lock );
 	if(Cache->CacheSize == 0) {
-		RELEASE( &Cache->Lock );
+		Mutex_Release( &Cache->Lock );
 		LEAVE('i', -1);
 		return -1;
 	}
@@ -101,7 +101,7 @@ int IOCache_Read( tIOCache *Cache, Uint64 Sector, void *Buffer )
 		if( ent->Num == Sector ) {
 			memcpy(Buffer, ent->Data, Cache->SectorSize);
 			ent->LastAccess = now();
-			RELEASE( &Cache->Lock );
+			Mutex_Release( &Cache->Lock );
 			LEAVE('i', 1);
 			return 1;
 		}
@@ -110,7 +110,7 @@ int IOCache_Read( tIOCache *Cache, Uint64 Sector, void *Buffer )
 		if(ent->Num > Sector)	break;
 	}
 	
-	RELEASE( &Cache->Lock );
+	Mutex_Release( &Cache->Lock );
 	LEAVE('i', 0);
 	return 0;
 }
@@ -130,9 +130,9 @@ int IOCache_Add( tIOCache *Cache, Uint64 Sector, void *Buffer )
 		return -1;
 	
 	// Lock
-	LOCK( &Cache->Lock );
+	Mutex_Acquire( &Cache->Lock );
 	if(Cache->CacheSize == 0) {
-		RELEASE( &Cache->Lock );
+		Mutex_Release( &Cache->Lock );
 		return -1;
 	}
 	
@@ -142,7 +142,7 @@ int IOCache_Add( tIOCache *Cache, Uint64 Sector, void *Buffer )
 	{
 		// Is it already here?
 		if( ent->Num == Sector ) {
-			RELEASE( &Cache->Lock );
+			Mutex_Release( &Cache->Lock );
 			return 0;
 		}
 		
@@ -197,7 +197,7 @@ int IOCache_Add( tIOCache *Cache, Uint64 Sector, void *Buffer )
 	Cache->CacheUsed ++;
 	
 	// Release Spinlock
-	RELEASE( &Cache->Lock );
+	Mutex_Release( &Cache->Lock );
 	
 	// Return success
 	return 1;
@@ -215,9 +215,9 @@ int IOCache_Write( tIOCache *Cache, Uint64 Sector, void *Buffer )
 	if(!Cache || !Buffer)
 		return -1;
 	// Lock
-	LOCK( &Cache->Lock );
+	Mutex_Acquire( &Cache->Lock );
 	if(Cache->CacheSize == 0) {
-		RELEASE( &Cache->Lock );
+		Mutex_Release( &Cache->Lock );
 		return -1;
 	}
 	
@@ -234,7 +234,7 @@ int IOCache_Write( tIOCache *Cache, Uint64 Sector, void *Buffer )
 				ent->LastWrite = 0;
 			}
 			
-			RELEASE( &Cache->Lock );
+			Mutex_Release( &Cache->Lock );
 			return 1;
 		}
 		// It's a sorted list, so as soon as we go past `Sector` we know
@@ -242,7 +242,7 @@ int IOCache_Write( tIOCache *Cache, Uint64 Sector, void *Buffer )
 		if(ent->Num > Sector)	break;
 	}
 	
-	RELEASE( &Cache->Lock );
+	Mutex_Release( &Cache->Lock );
 	return 0;
 }
 
@@ -257,9 +257,9 @@ void IOCache_Flush( tIOCache *Cache )
 	if( Cache->Mode == IOCACHE_VIRTUAL )	return;
 	
 	// Lock
-	LOCK( &Cache->Lock );
+	Mutex_Acquire( &Cache->Lock );
 	if(Cache->CacheSize == 0) {
-		RELEASE( &Cache->Lock );
+		Mutex_Release( &Cache->Lock );
 		return;
 	}
 	
@@ -270,7 +270,7 @@ void IOCache_Flush( tIOCache *Cache )
 		ent->LastWrite = 0;
 	}
 	
-	RELEASE( &Cache->Lock );
+	Mutex_Release( &Cache->Lock );
 }
 
 /**
@@ -282,9 +282,9 @@ void IOCache_Destroy( tIOCache *Cache )
 	tIOCache_Ent	*ent, *prev = NULL;
 	
 	// Lock
-	LOCK( &Cache->Lock );
+	Mutex_Acquire( &Cache->Lock );
 	if(Cache->CacheSize == 0) {
-		RELEASE( &Cache->Lock );
+		Mutex_Release( &Cache->Lock );
 		return;
 	}
 	
@@ -302,10 +302,10 @@ void IOCache_Destroy( tIOCache *Cache )
 	
 	Cache->CacheSize = 0;
 	
-	RELEASE( &Cache->Lock );
+	Mutex_Release( &Cache->Lock );
 	
 	// Remove from list
-	LOCK( &glIOCache_Caches );
+	SHORTLOCK( &glIOCache_Caches );
 	{
 		tIOCache	*ent;
 		tIOCache	*prev = (tIOCache*)&gIOCache_Caches;
@@ -319,7 +319,7 @@ void IOCache_Destroy( tIOCache *Cache )
 			}
 		}
 	}
-	RELEASE( &glIOCache_Caches );
+	SHORTREL( &glIOCache_Caches );
 	
 	free(Cache);
 }

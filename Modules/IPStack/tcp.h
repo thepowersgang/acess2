@@ -67,7 +67,7 @@ struct sTCPListener
 	tInterface	*Interface;	//!< Listening Interface
 	tVFS_Node	Node;	//!< Server Directory node
 	 int	NextID;		//!< Name of the next connection
-	tSpinlock	lConnections;	//!< Spinlock for connections
+	tShortSpinlock	lConnections;	//!< Spinlock for connections
 	tTCPConnection	*Connections;	//!< Connections (linked list)
 	tTCPConnection	*volatile NewConnections;
 	tTCPConnection	*ConnectionsTail;
@@ -98,7 +98,7 @@ struct sTCPConnection
 	 * \note FIFO list
 	 * \{
 	 */
-	tSpinlock	lQueuedPackets;
+	tMutex	lQueuedPackets;
 	tTCPStoredPacket	*QueuedPackets;	//!< Non-ACKed packets
 	/**
 	 * \}
@@ -109,7 +109,7 @@ struct sTCPConnection
 	 * \note Ring buffer
 	 * \{
 	 */
-	tSpinlock	lRecievedPackets;
+	tMutex	lRecievedPackets;
 	tRingBuffer	*RecievedBuffer;
 	/**
 	 * \}
@@ -120,7 +120,7 @@ struct sTCPConnection
 	 * \note Sorted list to improve times
 	 * \{
 	 */
-	tSpinlock	lFuturePackets;	//!< Future packets spinlock
+	tShortSpinlock	lFuturePackets;	//!< Future packets spinlock
 	tTCPStoredPacket	*FuturePackets;	//!< Out of sequence packets
 	/**
 	 * \}

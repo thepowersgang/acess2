@@ -66,12 +66,12 @@ EXPORT(Log_Log);
 EXPORT(Log_Debug);
 
 // === GLOBALS ===
-tSpinlock	glLog;
-tSpinlock	glLogOutput;
+tShortSpinlock	glLogOutput;
 #if USE_RING_BUFFER
 Uint8	gaLog_RingBufferData[sizeof(tRingBuffer)+RING_BUFFER_SIZE];
 tRingBuffer	*gpLog_RingBuffer = (void*)gaLog_RingBufferData;
 #else
+tMutex	glLog;
 tLogList	gLog;
 tLogList	gLog_Levels[NUM_LOG_LEVELS];
 #endif
@@ -118,7 +118,7 @@ void Log_AddEvent(char *Ident, int Level, char *Format, va_list Args)
 		RingBuffer_Write( gpLog_RingBuffer, newData, LOG_HDR_LEN + len + 2 );
 	}
 	#else
-	LOCK( &glLog );
+	Mutex_Acquire( &glLog );
 	
 	ent->Next = gLog.Tail;
 	if(gLog.Head)
@@ -132,7 +132,7 @@ void Log_AddEvent(char *Ident, int Level, char *Format, va_list Args)
 	else
 		gLog_Levels[Level].Tail = gLog_Levels[Level].Head = ent;
 	
-	RELEASE( &glLog );
+	Mutex_Release( &glLog );
 	#endif
 	
 	#if PRINT_ON_APPEND
@@ -149,7 +149,7 @@ void Log_AddEvent(char *Ident, int Level, char *Format, va_list Args)
  */
 void Log_Int_PrintMessage(tLogEntry *Entry)
 {
-	LOCK( &glLogOutput );
+	SHORTLOCK( &glLogOutput );
 	LogF("%s%014lli%s [%+8s] %s\x1B[0m\r\n",
 		csaLevelColours[Entry->Level],
 		Entry->Time,
@@ -157,7 +157,7 @@ void Log_Int_PrintMessage(tLogEntry *Entry)
 		Entry->Ident,
 		Entry->Data
 		);
-	RELEASE( &glLogOutput );
+	SHORTREL( &glLogOutput );
 }
 
 /**

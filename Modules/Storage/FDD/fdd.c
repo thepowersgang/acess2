@@ -113,7 +113,7 @@ void	FDD_int_StartMotor(int Disk);
 // === GLOBALS ===
 MODULE_DEFINE(0, FDD_VERSION, FDD, FDD_Install, NULL, "ISADMA", NULL);
 t_floppyDevice	gFDD_Devices[2];
-tSpinlock	glFDD;
+tMutex	glFDD;
 volatile int	gbFDD_IrqFired = 0;
 tDevFS_Driver	gFDD_DriverInfo = {
 	NULL, "fdd",
@@ -214,12 +214,12 @@ void FDD_UnloadModule()
 {
 	 int	i;
 	//DevFS_DelDevice( &gFDD_DriverInfo );
-	LOCK(&glFDD);
+	Mutex_Acquire(&glFDD);
 	for(i=0;i<4;i++) {
 		Time_RemoveTimer(gFDD_Devices[i].timer);
 		FDD_int_StopMotor((void *)(Uint)i);
 	}
-	RELEASE(&glFDD);
+	Mutex_Release(&glFDD);
 	//IRQ_Clear(6);
 }
 
@@ -370,11 +370,11 @@ int FDD_int_ReadWriteSector(Uint32 Disk, Uint64 SectorAddr, int Write, void *Buf
 	}
 	LOG("Cyl=%i, Head=%i, Sector=%i", cyl, head, sec);
 	
-	LOCK(&glFDD);	// Lock to stop the motor stopping on us
+	Mutex_Acquire(&glFDD);	// Lock to stop the motor stopping on us
 	Time_RemoveTimer(gFDD_Devices[Disk].timer);	// Remove Old Timer
 	// Start motor if needed
 	if(gFDD_Devices[Disk].motorState != 2)	FDD_int_StartMotor(Disk);
-	RELEASE(&glFDD);
+	Mutex_Release(&glFDD);
 	
 	LOG("Wait for the motor to spin up");
 	
@@ -382,7 +382,7 @@ int FDD_int_ReadWriteSector(Uint32 Disk, Uint64 SectorAddr, int Write, void *Buf
 	while(gFDD_Devices[Disk].motorState == 1)	Threads_Yield();
 	
 	LOG("Acquire Spinlock");
-	LOCK(&glFDD);
+	Mutex_Acquire(&glFDD);
 	
 	// Seek to track
 	outb(base + CALIBRATE_DRIVE, 0);
@@ -390,7 +390,7 @@ int FDD_int_ReadWriteSector(Uint32 Disk, Uint64 SectorAddr, int Write, void *Buf
 	while(FDD_int_SeekTrack(Disk, head, (Uint8)cyl) == 0 && i++ < FDD_SEEK_TIMEOUT )
 		Threads_Yield();
 	if( i > FDD_SEEK_TIMEOUT ) {
-		RELEASE(&glFDD);
+		Mutex_Release(&glFDD);
 		LEAVE('i', 0);
 		return 0;
 	}
@@ -487,7 +487,7 @@ int FDD_int_ReadWriteSector(Uint32 Disk, Uint64 SectorAddr, int Write, void *Buf
 	
 	// Release Spinlock
 	LOG("Realeasing Spinlock and setting motor to stop");
-	RELEASE(&glFDD);
+	Mutex_Release(&glFDD);
 	
 	if(i == FDD_MAX_READWRITE_ATTEMPTS) {
 		Log_Warning("FDD", "Exceeded %i attempts in %s the disk",
@@ -804,7 +804,7 @@ void FDD_int_StartMotor(int disk)
 void FDD_int_StopMotor(void *Arg)
 {
 	Uint8	state, disk = (Uint)Arg;
-	if( IS_LOCKED(&glFDD) )	return ;
+	if( Mutex_IsLocked(&glFDD) )	return ;
 	ENTER("iDisk", disk);
 	
 	state = inb( cPORTBASE[ disk>>1 ] + PORT_DIGOUTPUT );

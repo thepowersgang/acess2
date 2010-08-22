@@ -19,7 +19,7 @@ typedef struct sThread
 {
 	// --- threads.c's
 	struct sThread	*Next;	//!< Next thread in list
-	tSpinlock	IsLocked;	//!< Thread's spinlock
+	tShortSpinlock	IsLocked;	//!< Thread's spinlock
 	volatile int	Status;		//!< Thread Status
 	 int	RetStatus;	//!< Return Status
 	

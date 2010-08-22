@@ -35,7 +35,7 @@ void	Heap_Dump(void);
 void	Heap_Stats(void);
 
 // === GLOBALS ===
-tSpinlock	glHeap;
+tMutex	glHeap;
 void	*gHeapStart;
 void	*gHeapEnd;
 
@@ -151,7 +151,7 @@ void *Heap_Allocate(const char *File, int Line, size_t Bytes)
 	#endif
 	
 	// Lock Heap
-	LOCK(&glHeap);
+	Mutex_Acquire(&glHeap);
 	
 	// Traverse Heap
 	for( head = gHeapStart;
@@ -165,7 +165,7 @@ void *Heap_Allocate(const char *File, int Line, size_t Bytes)
 		#else
 		if( head->Size & (MIN_SIZE-1) ) {
 		#endif
-			RELEASE(&glHeap);	// Release spinlock
+			Mutex_Release(&glHeap);	// Release spinlock
 			#if WARNINGS
 			Log_Warning("Heap", "Size of heap address %p is invalid not aligned (0x%x)", head, head->Size);
 			Heap_Dump();
@@ -177,7 +177,7 @@ void *Heap_Allocate(const char *File, int Line, size_t Bytes)
 		if(head->Magic == MAGIC_USED)	continue;
 		// Error check
 		if(head->Magic != MAGIC_FREE)	{
-			RELEASE(&glHeap);	// Release spinlock
+			Mutex_Release(&glHeap);	// Release spinlock
 			#if WARNINGS
 			Log_Warning("Heap", "Magic of heap address %p is invalid (0x%x)", head, head->Magic);
 			Heap_Dump();
@@ -193,7 +193,7 @@ void *Heap_Allocate(const char *File, int Line, size_t Bytes)
 			head->Magic = MAGIC_USED;
 			head->File = File;
 			head->Line = Line;
-			RELEASE(&glHeap);	// Release spinlock
+			Mutex_Release(&glHeap);	// Release spinlock
 			#if DEBUG_TRACE
 			Log("[Heap   ] Malloc'd %p (%i bytes), returning to %p", head->Data, head->Size,  __builtin_return_address(0));
 			#endif
@@ -220,7 +220,7 @@ void *Heap_Allocate(const char *File, int Line, size_t Bytes)
 		best = Heap_Extend( Bytes );
 		// Check for errors
 		if(!best) {
-			RELEASE(&glHeap);	// Release spinlock
+			Mutex_Release(&glHeap);	// Release spinlock
 			return NULL;
 		}
 		// Check size
@@ -228,7 +228,7 @@ void *Heap_Allocate(const char *File, int Line, size_t Bytes)
 			best->Magic = MAGIC_USED;	// Mark block as used
 			best->File = File;
 			best->Line = Line;
-			RELEASE(&glHeap);	// Release spinlock
+			Mutex_Release(&glHeap);	// Release spinlock
 			#if DEBUG_TRACE
 			Log("[Heap   ] Malloc'd %p (%i bytes), returning to %p", best->Data, best->Size, __builtin_return_address(0));
 			#endif
@@ -251,7 +251,7 @@ void *Heap_Allocate(const char *File, int Line, size_t Bytes)
 	best->File = File;
 	best->Line = Line;
 	
-	RELEASE(&glHeap);	// Release spinlock
+	Mutex_Release(&glHeap);	// Release spinlock
 	#if DEBUG_TRACE
 	Log_Debug("Heap", "newhead(%p)->Size = 0x%x", newhead, newhead->Size);
 	Log_Debug("Heap", "Malloc'd %p (0x%x bytes), returning to %s:%i",
@@ -314,7 +314,7 @@ void Heap_Deallocate(void *Ptr)
 	}
 	
 	// Lock
-	LOCK( &glHeap );
+	Mutex_Acquire( &glHeap );
 	
 	// Mark as free
 	head->Magic = MAGIC_FREE;
@@ -325,7 +325,7 @@ void Heap_Deallocate(void *Ptr)
 	Heap_Merge( head );
 	
 	// Release
-	RELEASE( &glHeap );
+	Mutex_Release( &glHeap );
 }
 
 /**
