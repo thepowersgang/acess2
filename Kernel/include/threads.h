@@ -18,14 +18,20 @@ typedef struct sMessage
 typedef struct sThread
 {
 	// --- threads.c's
-	struct sThread	*Next;	//!< Next thread in list
+	/**
+	 * \brief Next thread in current list
+	 * \note Required to be first for linked list hacks to work
+	 */
+	struct sThread	*Next;
+	struct sThread	*GlobalNext;	//!< Next thread in global list
+	struct sThread	*GlobalPrev;	//!< Previous thread in global list
 	tShortSpinlock	IsLocked;	//!< Thread's spinlock
 	volatile int	Status;		//!< Thread Status
 	 int	RetStatus;	//!< Return Status
 	
 	Uint	TID;	//!< Thread ID
 	Uint	TGID;	//!< Thread Group (Process)
-	Uint	PTID;	//!< Parent Thread ID
+	struct sThread	*Parent;	//!< Parent Thread
 	Uint	UID, GID;	//!< User and Group
 	char	*ThreadName;	//!< Name of thread
 	
@@ -56,12 +62,13 @@ typedef struct sThread
 
 
 enum {
-	THREAD_STAT_NULL,
-	THREAD_STAT_ACTIVE,
-	THREAD_STAT_SLEEPING,
-	THREAD_STAT_WAITING,
-	THREAD_STAT_ZOMBIE,
-	THREAD_STAT_DEAD
+	THREAD_STAT_NULL,	// Invalid process
+	THREAD_STAT_ACTIVE,	// Running and schedulable process
+	THREAD_STAT_SLEEPING,	// Message Sleep
+	THREAD_STAT_OFFSLEEP,	// Mutex Sleep (or waiting on a thread)
+	THREAD_STAT_WAITING,	// ???
+	THREAD_STAT_ZOMBIE,	// Died, just not removed
+	THREAD_STAT_DEAD	// Why do we care about these???
 };
 
 enum eFaultNumbers

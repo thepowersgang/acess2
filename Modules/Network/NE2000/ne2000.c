@@ -162,7 +162,7 @@ int Ne2k_Install(char **Options)
 			outb( base + CURR, RX_FIRST );	// Current RX page
 			outb( base + CMD, 0x21 );	// No DMA and Stop
 			outb( base + DCR, 0x49 );	// Set WORD mode
-			outb( base + IMR, 0x00 );
+			outb( base + IMR, 0x00 );	// Interrupt Mask Register
 			outb( base + ISR, 0xFF );
 			outb( base + RCR, 0x20 );	// Reciever to Monitor
 			outb( base + TCR, 0x02 );	// Transmitter OFF (TCR.LB = 1, Internal Loopback)

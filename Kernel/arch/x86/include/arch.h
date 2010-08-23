@@ -57,29 +57,32 @@ static inline int IS_LOCKED(struct sShortSpinlock *Lock) {
  */
 static inline void SHORTLOCK(struct sShortSpinlock *Lock) {
 	 int	v = 1;
+	 int	IF;
+	// int	val = GetCPUNum() + 1;
 	
-	// Save interrupt state
-	__ASM__ ("pushf;\n\tpop %%eax" : "=a"(Lock->IF));
-	Lock->IF &= 0x200;
-	
-	// Stop interrupts
-	__ASM__ ("cli");
+	// Save interrupt state and clear interrupts
+	__ASM__ ("pushf;\n\tcli;\n\tpop %%eax" : "=a"(IF));
+	IF &= 0x200;
 	
 	// Wait for another CPU to release
 	while(v)
-		__ASM__("xchgl %%eax, (%%edi)":"=a"(v):"a"(1),"D"(&Lock->Lock));
+		__ASM__("xchgl %%ecx, (%%edi)":"=c"(v):"a"(1),"D"(&Lock->Lock));
+	
+	Lock->IF = IF;
 }
 /**
  * \brief Release a short lock
  * \param Lock	Lock pointer
  */
 static inline void SHORTREL(struct sShortSpinlock *Lock) {
-	Lock->Lock = 0;
-	#if 0	// Which is faster?, meh the test is simpler
-	__ASM__ ("pushf;\n\tor %0, (%%esp);\n\tpopf" : : "a"(Lock->IF));
-	#else
-	if(Lock->IF)	__ASM__ ("sti");
-	#endif
+	// Lock->IF can change anytime once Lock->Lock is zeroed
+	if(Lock->IF) {
+		Lock->Lock = 0;
+		__ASM__ ("sti");
+	}
+	else {
+		Lock->Lock = 0;
+	}
 }
 
 // === MACROS ===

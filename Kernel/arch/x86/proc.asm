@@ -205,7 +205,7 @@ Proc_ReturnToUser:
 	
 	; Get and alter User SP
 	mov ecx, edx
-	mov edx, [ebx+60]	; Get Signal Number from TCB
+	mov edx, [ebx+68]	; Get Signal Number from TCB (TODO: Get this from parameters)
 	mov [ecx+4], edx	; Parameter (Signal/Error Number)
 	mov [ecx], DWORD User_Syscall_RetAndExit	; Return Address
 	

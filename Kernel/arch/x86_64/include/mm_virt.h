@@ -37,7 +37,7 @@
  *       FE00 00000000 -       FE80 00000000	39	512	GiB	Fractal Mapping (PML4 508)
  *       FE80 00000000 -       FF00 00000000	39	512	GiB	Temp Fractal Mapping
  *       ---- GAP ----                      		512	GiB	-- UNUSED --
- *       FF80 00000000 -       FF80 80000000	39	2	GiB	Local APIC
+ *       FF80 00000000 -       FF80 80000000	31	2	GiB	Local APIC
  *       ---- GAP ----
  *       FFFF 00000000 -       FFFF 80000000	31	2	GiB	User Code
  *       FFFF 80000000 -       FFFF FFFFFFFF	31	2	GiB	Identity Map

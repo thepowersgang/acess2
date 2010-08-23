@@ -116,7 +116,7 @@ int PCI_Install(char **Arguments)
 	}
 	gPCI_Devices = tmpPtr;
 	
-	Log_Log("PCI", "%i devices, filling structure");
+	Log_Log("PCI", "%i devices, filling structure", giPCI_DeviceCount);
 	
 	// Reset counts
 	giPCI_DeviceCount = 0;

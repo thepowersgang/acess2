@@ -16,7 +16,7 @@ void	VM8086_Free(tVM8086 *State);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, 0x100, VM8086, VM8086_Install, NULL, NULL);
-tSpinlock	glVM8086_Process;
+tMutex	glVM8086_Process;
 tPID	gVM8086_WorkerPID;
 tTID	gVM8086_CallingThread;
 tVM8086	volatile * volatile gpVM8086_State = (void*)-1;	// Set to -1 to avoid race conditions

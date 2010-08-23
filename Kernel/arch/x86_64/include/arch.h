@@ -35,17 +35,17 @@ typedef Uint64	tVAddr;
 
 typedef Uint64	size_t;
 
-typedef volatile int    tSpinlock;
-#define IS_LOCKED(lockptr)      (!!(*(tSpinlock*)lockptr))
-#define _LOCK(lockptr,action)   do {int v=1;\
-	while(v)\
-	__asm__ __volatile__("lock xchgl %0, (%2)":"=r"(v):"r"(1),"r"(lockptr));\
-	if(v)	action;\
-	}while(0)
-#define TIGHTLOCK(lockptr)   _LOCK(lockptr, __asm__ __volatile__ ("hlt"));
-#define LOCK(lockptr)   _LOCK(lockptr, Threads_Yield());
-#define RELEASE(lockptr)	__asm__ __volatile__("lock andl $0, (%0)"::"r"(lockptr));
-#define HALT()  __asm__ __volatile__ ("hlt")
+#define __ASM__	__asm__ __volatile__
+
+// === MACROS ===
+/**
+ * \brief Halt the CPU
+ */
+#define	HALT()	__asm__ __volatile__ ("hlt")
+/**
+ * \brief Fire a magic breakpoint (bochs)
+ */
+#define	MAGIC_BREAK()	__asm__ __volatile__ ("xchg %bx, %bx")
 
 // Systemcall Registers
 // TODO: Fix this structure
@@ -70,6 +70,58 @@ typedef struct sSyscallRegs
 	Uint	StackPointer;   // RSP
 	Uint	Resvd5[1];      // SS	
 }	tSyscallRegs;
+
+/**
+ * \brief Short Spinlock structure
+ */
+struct sShortSpinlock {
+	volatile int	Lock;	//!< Lock value
+	 int	IF;	//!< Interrupt state on call to SHORTLOCK
+};
+/**
+ * \brief Determine if a short spinlock is locked
+ * \param Lock	Lock pointer
+ */
+static inline int IS_LOCKED(struct sShortSpinlock *Lock) {
+	return !!Lock->Lock;
+}
+/**
+ * \brief Acquire a Short Spinlock
+ * \param Lock	Lock pointer
+ * 
+ * This type of mutex should only be used for very short sections of code,
+ * or in places where a Mutex_* would be overkill, such as appending
+ * an element to linked list (usually two assignement lines in C)
+ * 
+ * \note This type of lock halts interrupts, so ensure that no timing
+ * functions are called while it is held.
+ */
+static inline void SHORTLOCK(struct sShortSpinlock *Lock) {
+	 int	v = 1;
+	
+	// Save interrupt state
+	__ASM__ ("pushf;\n\tpop %%rax" : "=a"(Lock->IF));
+	Lock->IF &= 0x200;
+	
+	// Stop interrupts
+	__ASM__ ("cli");
+	
+	// Wait for another CPU to release
+	while(v)
+		__ASM__("xchgl %%eax, (%%rdi)":"=a"(v):"a"(1),"D"(&Lock->Lock));
+}
+/**
+ * \brief Release a short lock
+ * \param Lock	Lock pointer
+ */
+static inline void SHORTREL(struct sShortSpinlock *Lock) {
+	Lock->Lock = 0;
+	#if 0	// Which is faster?, meh the test is simpler
+	__ASM__ ("pushf;\n\tor %0, (%%rsp);\n\tpopf" : : "a"(Lock->IF));
+	#else
+	if(Lock->IF)	__ASM__ ("sti");
+	#endif
+}
 
 #endif
 

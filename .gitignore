@@ -14,4 +14,6 @@
 *.dsm
 *.dmp
 *.kmd.*
-Map.txt
+Map*.txt
+bochs*.txt
+serial.txt

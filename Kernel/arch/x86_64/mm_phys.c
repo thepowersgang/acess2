@@ -31,7 +31,7 @@ void	MM_DerefPhys(tPAddr PAddr);
  int	MM_int_GetRangeID( tPAddr Addr );
 
 // === GLOBALS ===
-tSpinlock	glPhysicalPages;
+tMutex	glPhysicalPages;
 Uint64	*gaSuperBitmap = (void*)MM_PAGE_SUPBMP;	// 1 bit = 64 Pages, 16 MiB Per Word
 Uint64	*gaMainBitmap = (void*)MM_PAGE_BITMAP;	// 1 bit = 1 Page, 256 KiB per Word
 Uint64	*gaMultiBitmap = (void*)MM_PAGE_DBLBMP;	// Each bit means that the page is being used multiple times
@@ -328,7 +328,7 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 	
 	LOG("rangeID = %i", rangeID);
 	
-	LOCK(&glPhysicalPages);
+	Mutex_Acquire(&glPhysicalPages);
 	
 	// Check if the range actually has any free pages
 	while(giPhysRangeFree[rangeID] == 0 && rangeID)
@@ -338,7 +338,7 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 	
 	// What the? Oh, man. No free pages
 	if(giPhysRangeFree[rangeID] == 0) {
-		RELEASE(&glPhysicalPages);
+		Mutex_Release(&glPhysicalPages);
 		// TODO: Page out
 		// ATM. Just Warning
 		Warning(" MM_AllocPhysRange: Out of free pages");
@@ -406,7 +406,7 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 		nFree = 1;
 		addr = giPhysRangeLast[ rangeID ];
 		// TODO
-		RELEASE(&glPhysicalPages);
+		Mutex_Release(&glPhysicalPages);
 		// TODO: Page out
 		// ATM. Just Warning
 		Warning(" MM_AllocPhysRange: Out of memory (unable to fulfil request for %i pages)", Num);
@@ -442,7 +442,7 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 			gaSuperBitmap[addr>>12] |= 1LL << ((addr >> 6) & 63);
 	}
 	
-	RELEASE(&glPhysicalPages);
+	Mutex_Release(&glPhysicalPages);
 	LEAVE('x', ret << 12);
 	return ret << 12;
 }

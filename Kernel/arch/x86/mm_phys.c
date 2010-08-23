@@ -7,7 +7,8 @@
 #include <mboot.h>
 #include <mm_virt.h>
 
-#define USE_STACK	1
+//#define USE_STACK	1
+#define TRACE_ALLOCS	0	// Print trace messages on AllocPhys/DerefPhys
 
 #define	REFERENCE_BASE	0xE0400000
 
@@ -143,6 +144,7 @@ tPAddr MM_AllocPhys(void)
 			indx -= 1024;
 			continue;
 		}
+		
 		if( gaPageBitmap[indx>>5] == -1 ) {
 			indx -= 32;
 			continue;
@@ -174,11 +176,23 @@ tPAddr MM_AllocPhys(void)
 	indx = (a << 10) | (b << 5) | c;
 	#endif
 	
+	if( indx < 0 ) {
+		Mutex_Release( &glPhysAlloc );
+		Warning("MM_AllocPhys - OUT OF MEMORY (Called by %p)", __builtin_return_address(0));
+		LEAVE('i', 0);
+		return 0;
+	}
+	
+	if( indx > 0xFFFFF ) {
+		Panic("The fuck? Too many pages! (indx = 0x%x)", indx);
+	}
+	
 	// Mark page used
 	if(gaPageReferences)
 		gaPageReferences[ indx ] = 1;
 	gaPageBitmap[ indx>>5 ] |= 1 << (indx&31);
 	
+	giPhysAlloc ++;
 	
 	// Get address
 	ret = indx << 12;
@@ -192,7 +206,9 @@ tPAddr MM_AllocPhys(void)
 	Mutex_Release( &glPhysAlloc );
 	
 	LEAVE('X', ret);
-	//Log("MM_AllocPhys: RETURN 0x%x", ret);
+	#if TRACE_ALLOCS
+	Log_Debug("PMem", "MM_AllocPhys: RETURN 0x%llx (%i free)", ret, giPageCount-giPhysAlloc);
+	#endif
 	return ret;
 }
 
@@ -309,6 +325,7 @@ tPAddr MM_AllocPhysRange(int Pages, int MaxBits)
 			gaPageReferences[idx*32+sidx] = 1;
 		gaPageBitmap[ idx ] |= 1 << sidx;
 		sidx ++;
+		giPhysAlloc ++;
 		if(sidx == 32) { sidx = 0;	idx ++;	}
 	}
 	
@@ -322,6 +339,10 @@ tPAddr MM_AllocPhysRange(int Pages, int MaxBits)
 	Mutex_Release( &glPhysAlloc );
 	
 	LEAVE('X', ret);
+	#if TRACE_ALLOCS
+	Log_Debug("PMem", "MM_AllocPhysRange: RETURN 0x%llx-0x%llx (%i free)",
+		ret, ret + (1<<Pages)-1, giPageCount-giPhysAlloc);
+	#endif
 	return ret;
 }
 
@@ -384,7 +405,11 @@ void MM_DerefPhys(tPAddr PAddr)
 	// Mark as free in bitmaps
 	if( gaPageReferences[ PAddr ] == 0 )
 	{
+		#if TRACE_ALLOCS
+		Log_Debug("PMem", "MM_DerefPhys: Free'd 0x%x (%i free)", PAddr, giPageCount-giPhysAlloc);
+		#endif
 		//LOG("Freed 0x%x by %p\n", PAddr<<12, __builtin_return_address(0));
+		giPhysAlloc --;
 		gaPageBitmap[ PAddr / 32 ] &= ~(1 << (PAddr&31));
 		if(gaPageReferences[ PAddr ] == 0)
 			gaSuperBitmap[ PAddr >> 10 ] &= ~(1 << ((PAddr >> 5)&31));

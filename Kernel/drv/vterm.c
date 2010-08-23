@@ -39,7 +39,6 @@ enum eVT_InModes {
 typedef struct {
 	 int	Mode;	//!< Current Mode (see ::eTplTerminal_Modes)
 	 int	Flags;	//!< Flags (see VT_FLAG_*)
-	 
 	
 	short	NewWidth;	//!< Un-applied dimensions (Width)
 	short	NewHeight;	//!< Un-applied dimensions (Height)
@@ -52,6 +51,8 @@ typedef struct {
 	 int	WritePos;	//!< Write Buffer Offset (Text Only)
 	Uint32	CurColour;	//!< Current Text Colour
 	
+	tMutex	ReadingLock;	//!< Lock the VTerm when a process is reading from it
+	tTID	ReadingThread;	//!< Owner of the lock
 	 int	InputRead;	//!< Input buffer read position
 	 int	InputWrite;	//!< Input buffer write position
 	char	InputBuffer[MAX_INPUT_CHARS8];
@@ -402,6 +403,9 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	 int	pos = 0;
 	tVTerm	*term = &gVT_Terminals[ Node->Inode ];
 	
+	Mutex_Acquire( &term->ReadingLock );
+	term->ReadingThread = Threads_GetTID();
+	
 	// Check current mode
 	switch(term->Mode)
 	{
@@ -409,7 +413,8 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	case TERM_MODE_TEXT:
 		while(pos < Length)
 		{
-			while(term->InputRead == term->InputWrite)	Threads_Yield();
+			//TODO: Sleep instead
+			while(term->InputRead == term->InputWrite)	Threads_Sleep();
 			
 			((char*)Buffer)[pos] = term->InputBuffer[term->InputRead];
 			pos ++;
@@ -423,7 +428,7 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	default:
 		while(pos < Length)
 		{
-			while(term->InputRead == term->InputWrite)	Threads_Yield();
+			while(term->InputRead == term->InputWrite)	Threads_Sleep();
 			((Uint32*)Buffer)[pos] = ((Uint32*)term->InputBuffer)[term->InputRead];
 			pos ++;
 			term->InputRead ++;
@@ -431,6 +436,10 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		}
 		break;
 	}
+	
+	term->ReadingThread = -1;
+	Mutex_Release( &term->ReadingLock );
+	
 	return 0;
 }
 
@@ -818,6 +827,11 @@ void VT_KBCallBack(Uint32 Codepoint)
 			term->InputRead %= MAX_INPUT_CHARS32;
 		}
 	}
+	
+	// Wake up the thread waiting on us
+	if( term->ReadingThread >= 0 ) {
+		Threads_WakeTID(term->ReadingThread);
+	}
 }
 
 /**
@@ -867,17 +881,6 @@ int VT_int_ParseEscape(tVTerm *Term, char *Buffer)
 				argc ++;
 			} while(c == ';');
 		}
-		
-		/*
-		// Get string (what does this do?)
-		if(c == '"') {
-			c = Buffer[j++];
-			while(c != '"')
-				c = Buffer[j++];
-		}
-		*/
-		
-		//Log_Debug("VTerm", "argc = %i", argc);
 		
 		// Get Command
 		if(	('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z'))
