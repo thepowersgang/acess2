@@ -58,7 +58,7 @@ static inline int IS_LOCKED(struct sShortSpinlock *Lock) {
 static inline void SHORTLOCK(struct sShortSpinlock *Lock) {
 	 int	v = 1;
 	 int	IF;
-	// int	val = GetCPUNum() + 1;
+	// int	cpu = GetCPUNum() + 1;
 	
 	// Save interrupt state and clear interrupts
 	__ASM__ ("pushf;\n\tcli;\n\tpop %%eax" : "=a"(IF));
@@ -66,7 +66,7 @@ static inline void SHORTLOCK(struct sShortSpinlock *Lock) {
 	
 	// Wait for another CPU to release
 	while(v)
-		__ASM__("xchgl %%ecx, (%%edi)":"=c"(v):"a"(1),"D"(&Lock->Lock));
+		__ASM__("xchgl %%eax, (%%edi)":"=a"(v):"a"(1),"D"(&Lock->Lock));
 	
 	Lock->IF = IF;
 }

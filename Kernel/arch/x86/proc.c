@@ -48,7 +48,7 @@ extern int	giNextTID;
 extern tThread	gThreadZero;
 extern tThread	*Threads_CloneTCB(Uint *Err, Uint Flags);
 extern void	Isr8(void);	// Double Fault
-extern void	Proc_ReturnToUser(void);
+extern void	Proc_ReturnToUser(tVAddr Handler, Uint Argument);
 
 // === PROTOTYPES ===
 void	ArchThreads_Init(void);
@@ -829,7 +829,7 @@ void Proc_CallFaultHandler(tThread *Thread)
 {
 	// Rewinds the stack and calls the user function
 	// Never returns
-	__asm__ __volatile__ ("mov %0, %%ebp;\n\tcall Proc_ReturnToUser" :: "r"(Thread->FaultHandler));
+	Proc_ReturnToUser( Thread->FaultHandler, Thread->CurFaultNum );
 	for(;;);
 }
 

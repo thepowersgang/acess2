@@ -150,13 +150,16 @@ SpawnTask:
 .parent:
 	ret
 
-;
+; void Proc_ReturnToUser(void *Method, Uint Parameter)
 ; Calls a user fault handler
 ;
 [global Proc_ReturnToUser]
 [extern Proc_GetCurThread]
 Proc_ReturnToUser:
-	; EBP is the handler to use
+	push ebp
+	mov ebp, esp
+	; [EBP+4]: handler to use
+	; [EBP+8]: parameter
 	
 	call Proc_GetCurThread
 	
@@ -204,10 +207,10 @@ Proc_ReturnToUser:
 	jnz .justKillIt
 	
 	; Get and alter User SP
-	mov ecx, edx
-	mov edx, [ebx+68]	; Get Signal Number from TCB (TODO: Get this from parameters)
-	mov [ecx+4], edx	; Parameter (Signal/Error Number)
-	mov [ecx], DWORD User_Syscall_RetAndExit	; Return Address
+	mov edi, edx
+	mov edx, [ebp+8]	; Get parameter
+	mov [edi+4], edx	; save to user stack
+	mov [edi], DWORD User_Syscall_RetAndExit	; Return Address
 	
 	; Restore Segment Registers
 	mov ax, 0x23
@@ -217,10 +220,11 @@ Proc_ReturnToUser:
 	mov gs, ax
 	
 	push 0x23	; SS
-	push ecx	; ESP
+	push edi	; ESP
 	push 0x202	; EFLAGS (IP and Rsvd)
 	push 0x1B	; CS
-	push ebp	; EIP
+	mov eax, [ebp+4]	; Method to call
+	push eax	; EIP
 	
 	iret
 	
@@ -233,7 +237,7 @@ Proc_ReturnToUser:
 	int 0xAC
 
 [global GetCPUNum]
-GetCPUNum:
+GetCPUNum:	; TODO: Store in debug registers
 	xor eax, eax
 	str ax
 	sub ax, 0x30
@@ -245,7 +249,7 @@ GetCPUNum:
 ; Export a place for the user to jump to to call a syscall
 ; - Allows the kernel to change the method easily
 User_Syscall:
-	xchg bx, bx
+	xchg bx, bx	; MAGIC BREAKPOINT
 	int 0xAC
 
 ; A place to return to and exit
