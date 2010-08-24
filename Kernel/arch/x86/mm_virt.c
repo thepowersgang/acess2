@@ -653,14 +653,15 @@ tPAddr MM_Clone(void)
  */
 tVAddr MM_NewKStack(void)
 {
-	tVAddr	base = KERNEL_STACKS;
+	tVAddr	base;
 	Uint	i;
-	for(;base<KERNEL_STACKS_END;base+=KERNEL_STACK_SIZE)
+	for(base = KERNEL_STACKS; base < KERNEL_STACKS_END; base += KERNEL_STACK_SIZE)
 	{
 		if(MM_GetPhysAddr(base) != 0)	continue;
-		for(i=0;i<KERNEL_STACK_SIZE;i+=0x1000) {
+		for(i = 0; i < KERNEL_STACK_SIZE; i += 0x1000) {
 			MM_Allocate(base+i);
 		}
+		Log("MM_NewKStack - Allocated %p", base + KERNEL_STACK_SIZE);
 		return base+KERNEL_STACK_SIZE;
 	}
 	Warning("MM_NewKStack - No address space left\n");

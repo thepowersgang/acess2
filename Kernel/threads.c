@@ -928,7 +928,7 @@ void Mutex_Release(tMutex *Mutex)
 		// Wake new owner
 		Mutex->Owner->Status = THREAD_STAT_ACTIVE;
 		Threads_AddActive(Mutex->Owner);
-		Log("Mutex %p Woke %p", Mutex, Mutex->Owner);
+		//Log("Mutex %p Woke %p", Mutex, Mutex->Owner);
 	}
 	else {
 		Mutex->Owner = NULL;
@@ -947,3 +947,6 @@ int Mutex_IsLocked(tMutex *Mutex)
 
 // === EXPORTS ===
 EXPORT(Threads_GetUID);
+EXPORT(Mutex_Acquire);
+EXPORT(Mutex_Release);
+EXPORT(Mutex_IsLocked);

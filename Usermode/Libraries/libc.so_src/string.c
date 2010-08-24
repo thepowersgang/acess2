@@ -89,18 +89,6 @@ EXPORT int strlen(const char *str)
 }
 
 /**
- * \fn EXPORT int strncmp(const char *s1, const char *s2, size_t len)
- * \brief Compare two strings with a limit
- */
-EXPORT int strncmp(const char *s1, const char *s2, size_t len)
-{
-	while(--len && *s1 == *s2 && *s1 != '\0' && *s2 != '\0') {
-		s1++; s2++;
-	}
-	return (int)*s1 - (int)*s2;
-}
-
-/**
  * \fn EXPORT char *strdup(const char *str)
  * \brief Duplicate a string using heap memory
  * \note Defined in POSIX Spec, not C spec

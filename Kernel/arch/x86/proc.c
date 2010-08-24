@@ -570,7 +570,11 @@ int Proc_Clone(Uint *Err, Uint Flags)
 		Uint	tmpEbp, oldEsp = esp;
 
 		// Set CR3
+		#if USE_PAE
+		# warning "PAE Unimplemented"
+		#else
 		newThread->MemState.CR3 = cur->MemState.CR3;
+		#endif
 
 		// Create new KStack
 		newThread->KernelStack = MM_NewKStack();
@@ -606,7 +610,7 @@ int Proc_Clone(Uint *Err, Uint Flags)
 		__asm__ __volatile__ ("mov %0, %%db0" : : "r" (newThread) );
 		#if USE_MP
 		// ACK the interrupt
-		if(GetCPUNum())
+		if( GetCPUNum() )
 			gpMP_LocalAPIC->EOI.Val = 0;
 		else
 		#endif

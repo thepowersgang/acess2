@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 		
-		switch( argv[i][0] )
+		switch( argv[i][1] )
 		{
 		case 'f':
 			gbForkBomb = 1;

@@ -165,7 +165,7 @@ Proc_ReturnToUser:
 	
 	; EAX is the current thread
 	mov ebx, eax
-	mov eax, [ebx+40]	; Get Kernel Stack
+	mov eax, [ebx+12*4]	; Get Kernel Stack
 	sub eax, KSTACK_USERSTATE_SIZE
 	
 	;

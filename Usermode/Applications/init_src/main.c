@@ -4,7 +4,7 @@
 #include <acess/sys.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <spiderscript.h>
+//#include <spiderscript.h>
 //#include "common.h"
 
 // === CONSTANTS ===
@@ -17,9 +17,12 @@
 #define ARRAY_SIZE(x)	((sizeof(x))/(sizeof((x)[0])))
 
 // === PROTOTYPES ===
+/*
 tSpiderVariable	*Script_System_IO_Open(tSpiderScript *, int, tSpiderVariable *);
+*/
 
 // === GLOBALS ===
+/*
 tSpiderFunction	gaScriptNS_IO_Fcns[] = {
 	{"Open", Script_System_IO_Open}
 };
@@ -45,6 +48,7 @@ tSpiderVariant	gScriptVariant = {
 	"init", 0,
 	ARRAY_SIZE(gaScriptNamespaces), gaScriptNamespaces
 };
+*/
 
 // === CODE ===
 /**
@@ -88,16 +92,20 @@ int main(int argc, char *argv[])
  */
 void ExecuteScript(const char *Filename)
 {
+	/*
 	tSpiderScript	*script;
 	script = SpiderScript_ParseFile(&gScriptVariant, Filename);
 	SpiderScript_ExecuteMethod(script, "");
 	SpiderScript_Free(script);
+	*/
 }
 
 /**
  * \brief Open a file
  */
+/*
 tSpiderVariable	*Script_System_IO_Open(tSpiderScript *Script, int NArgs, tSpiderVariable *Args)
 {
 	return NULL;
 }
+*/
