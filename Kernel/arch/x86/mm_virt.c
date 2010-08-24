@@ -919,7 +919,7 @@ tVAddr MM_MapTemp(tPAddr PAddr)
 			return TEMP_MAP_ADDR + (i << 12);
 		}
 		Mutex_Release( &glTempMappings );
-		Threads_Yield();	// TODO: Less expensive
+		Threads_Yield();	// TODO: Use a sleep queue here instead
 	}
 }
 

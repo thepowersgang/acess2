@@ -90,6 +90,7 @@ void Threads_Init(void)
 	
 	// Create Initial Task
 	gActiveThreads = &gThreadZero;
+	gAllThreads = &gThreadZero;
 	//giFreeTickets = gThreadZero.NumTickets;
 	giNumActiveThreads = 1;
 		
@@ -313,6 +314,8 @@ tThread *Threads_GetThread(Uint TID)
 		if(thread->TID == TID)
 			return thread;
 	}
+
+	Log("Unable to find TID %i on main list\n", TID);
 	
 	return NULL;
 }

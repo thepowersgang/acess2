@@ -153,6 +153,7 @@ void VM8086_GPF(tRegs *Regs)
 		//Log_Log("VM8086", "gpVM8086_State = %p, gVM8086_CallingThread = %i",
 		//	gpVM8086_State, gVM8086_CallingThread);
 		if( gpVM8086_State ) {
+			 int	ret;
 			gpVM8086_State->AX = Regs->eax;	gpVM8086_State->CX = Regs->ecx;
 			gpVM8086_State->DX = Regs->edx;	gpVM8086_State->BX = Regs->ebx;
 			gpVM8086_State->BP = Regs->ebp;
@@ -160,8 +161,9 @@ void VM8086_GPF(tRegs *Regs)
 			gpVM8086_State->DS = Regs->ds;	gpVM8086_State->ES = Regs->es;
 			gpVM8086_State = NULL;
 			// Ensure the caller wakes
-			//while(Threads_WakeTID(gVM8086_CallingThread) == -EALREADY)
-			//	Threads_Yield();
+			while( (ret = Threads_WakeTID(gVM8086_CallingThread)) == -EALREADY) {
+				Threads_Yield();
+			}
 		}
 		
 		//Log_Log("VM8086", "Waiting for something to do");
@@ -406,8 +408,8 @@ void VM8086_Int(tVM8086 *State, Uint8 Interrupt)
 	gpVM8086_State = State;
 	gVM8086_CallingThread = Threads_GetTID();
 	Threads_WakeTID( gVM8086_WorkerPID );
-	while( gpVM8086_State != NULL )
-		Threads_Yield();
+	Threads_Sleep();
+	while( gpVM8086_State != NULL )	Threads_Sleep();
 	
 	Mutex_Release( &glVM8086_Process );
 }
