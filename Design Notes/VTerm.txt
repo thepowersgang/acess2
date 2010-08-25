@@ -1,0 +1,53 @@
+
+== Read ==
+- UTF-8 / UCS-4 Character Stream
+ > Selected with mode call
+
+== Write ==
+UTF-8 Emulation Text Mode:
+- Emuates a character device
+ > VT-100/ANSI Control Codes
+ > Characters/Symbols are sent as UTF-8
+
+/*
+Native Text Mode:
+- NxM 64-bit entries
+ > UCS-32 Codepoint (if a diacritic is encountered, the previous character is modified)
+ > 12-bit (16 encoded) Foreground
+ > 12-bit (16 encoded) Background
+*/
+
+Framebuffer Graphics:
+- WxH 32-bit (3x 8-bit channels) framebuffer
+- Write to entire framebuffer
+
+Accellerated Graphics:
+- Command Stream
+ > Each Node.Write call is a single command
+ + NOP (-)
+ + Direct (Uint16 X, Y, W, H, Uint32 Data[])
+ + Blit (Uint16 W, H, SrcX, SrxY, DstX, DstY, Uint32 Data[])
+ + Fill (Uint16 X, Y, W, H)
+ + Rect (Uint16 X, Y, W, H)
+ + Line (Uint16 X, Y, W, H)
+ + Text (Uint16 X, Y, Size, Font)
+ + ShowTile (Uint16 ID, Uint16 X, Y)
+ + DelTile (Uint16 ID)
+- Extra IOCtls
+ + int LoadFont(char *Path)
+ + UnloadFont(int *ID)
+ + int MakeTile(struct {Uint16 W, H, Uint32 Data[]} *Img)
+ + DelTile(int *ID)
+- Allow fast switch between Accel/Framebuffer?
+- Min Reqd Tile Size 32x32
+ > Tiles should be driver emulated if unavaliable by hardware
+ 
+3D Graphics: (Can be emulated if not avaliable, or just denied)
+- Command Stream
+ >
+ + NOP (-)
+ + FlipBuffer (-)
+ + LoadTexture(Uint16 ID, W, H, Uint32 Data[])
+ + UnloadTexture(Uint16 ID)
+ + SetTexture(Uint16 ID)
+ + Triangle (Uint16 Texture, Uint32[3+3+2][3])

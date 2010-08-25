@@ -15,5 +15,9 @@
 *.dmp
 *.kmd.*
 Map*.txt
+Doxylog*.txt
+LineCounts.*.txt
 bochs*.txt
 serial.txt
+*.gz
+*.img

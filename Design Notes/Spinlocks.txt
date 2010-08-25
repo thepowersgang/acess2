@@ -1,0 +1,26 @@
+SHORTLOCK()
+	cli; lock cmpxchg
+SHORTREL()
+	lock and ; sti
+
+
+LONGLOCK()
+	mov eax, 1
+	lock cmpxchg lock.lock, eax
+	if(eax) {
+		SHORTLOCK(lock.listLock)
+		// add to list (linked list, 4 static entries)
+		SHORTREL(lock.listLock)
+		for(;;)
+		{
+			check owner
+			mov eax, 1
+			lock cmpxchg lock.lock, eax
+			if(!eax)	break;	// got lock
+			Threads_Sleep();
+		}
+	}
+
+LONGREL()
+	lock and lock.lock, 0
+	pop off front of list, free entry, wake thread

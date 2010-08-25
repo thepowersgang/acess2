@@ -1,0 +1,54 @@
+Acess File System
+- Database Design
+
+== Data Strutures ==
+Blocks are of a size specified in the superblock
+- Superblock
+ > Fixed offset: 1024 bytes
+- Field Table
+ > Offset set in superblock
+- Index Table
+- Inode Table
+
+=== Superblock ===
+struct sSuperblock {
+	Uint8	Magic[4];	// == '\xACFS'+Version
+	Uint8	BlockSize;	// TrueSize = 2^(7+BlockSize)
+};
+
+=== Field Table ===
+struct sFieldTableEntry {
+	Uint16	Ident;
+	Uint8	Type;
+	Uint8	Length;
+	char	Text[];
+} FieldTable[SuperBlock.NFields];
+
+=== Index Table ==
+struct sIndexTableEntry {
+	Uint16	Field;
+	Uint16	CheckSum;
+	Uint32	Block;
+} IndexTable[SuperBlock.NFields];
+
+=== Index Table entry ==
+struct {
+	Uint32	NumEntries;
+	Uint32	Links[];
+};
+
+=== Inode Table ===
+struct sInodeTable {
+	
+};
+
+=== Inode ===
+struct sInodeEntry {
+	Uint16	Name;
+	Uint8	Size;
+	Uint8	Checksum;
+	Uint8	data[];
+};
+
+Each `sInodeEntry` defines an entry in a "database"
+

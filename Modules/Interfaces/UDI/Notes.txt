@@ -1,0 +1,36 @@
+
+<Love4Boobies> logical volume metalanguage - for file system drivers to use, network protocol 
+               metalanguage and audio support
+<Love4Boobies> madeofstaples expressed his interest in reviewing the OpenUSBDI specification to update 
+               it for USB 3.0
+
+
+=== Initialisation ===
+udi_init_t
+ > udi_init_info
+ > This is the only defined symbol in a UDI driver
+
+udi_primary_init_t
+- UDI_MAX_SCRATCH
+- UDI_OP_LONG_EXEC
+
+udi_secondary_init_t
+
+udi_ops_init_t
+
+udi_cb_init_t
+
+udi_cb_select_t
+
+udi_gcb_init_t
+
+udi_init_context_t
+
+udi_limits_t
+- UDI_MIN_ALLOC_LIMIT
+- UDI_MIN_TRACE_LOG_LIMIT
+- UDI_MIN_INSTANCE_ATTR_LIMIT
+
+udi_chan_context_t
+
+udi_child_chan_context_t
