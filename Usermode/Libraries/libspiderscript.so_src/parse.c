@@ -190,11 +190,12 @@ tAST_Node *Parse_DoBlockLine(tParser *Parser)
 		ret = AST_NewUniOp(NODETYPE_RETURN, Parse_DoExpr0(Parser));
 		break;
 	
+	// Control Statements
+	//case TOK_RWD_IF:
+	//	break;
+	
 	// Define Variables
-	case TOK_RWD_OBJECT:
-	case TOK_RWD_STRING:
-	case TOK_RWD_REAL:
-	case TOK_RWD_INTEGER:
+	case TOKEN_GROUP_TYPES:
 		{
 			 int	type;
 			

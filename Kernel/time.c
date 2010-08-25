@@ -24,7 +24,7 @@ void	Timer_CallTimers(void);
 Uint64	giTicks = 0;
 Sint64	giTimestamp = 0;
 Uint64	giPartMiliseconds = 0;
-tTimer	gTimers[NUM_TIMERS];
+tTimer	gTimers[NUM_TIMERS];	// TODO: Replace by a ring-list timer
 
 // === CODE ===
 /**
@@ -45,9 +45,7 @@ void Timer_CallTimers()
 	void	(*callback)(void *);
 	void	*arg;
 	
-	for(i = 0;
-		i < NUM_TIMERS;
-		i ++)
+	for(i = 0; i < NUM_TIMERS; i ++)
 	{
 		if(gTimers[i].Callback == NULL)	continue;
 		if(giTimestamp < gTimers[i].FiresAfter)	continue;
@@ -97,7 +95,7 @@ void Time_RemoveTimer(int ID)
 void Time_Delay(int Delay)
 {
 	Sint64	dest = giTimestamp + Delay;
-	while(dest < giTimestamp)	Threads_Yield();
+	while(dest > giTimestamp)	Threads_Yield();
 }
 
 // === EXPORTS ===

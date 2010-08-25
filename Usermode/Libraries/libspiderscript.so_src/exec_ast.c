@@ -29,7 +29,20 @@ void Object_Dereference(tSpiderValue *Object)
 {
 	if(!Object)	return ;
 	Object->ReferenceCount --;
-	if( Object->ReferenceCount == 0 )	free(Object);
+	if( Object->ReferenceCount == 0 ) {
+		switch( (enum eSpiderScript_DataTypes) Object->Type )
+		{
+		case SS_DATATYPE_OBJECT:
+			Object->Object->Type->Destructor( Object->Object );
+			break;
+		case SS_DATATYPE_OPAQUE:
+			Object->Opaque.Destroy( Object->Opaque.Data );
+			break;
+		default:
+			break;
+		}
+		free(Object);
+	}
 }
 
 void Object_Reference(tSpiderValue *Object)
@@ -103,6 +116,8 @@ tSpiderValue *Object_StringConcat(tSpiderValue *Str1, tSpiderValue *Str2)
 
 /**
  * \brief Cast one object to another
+ * \brief Type	Destination type
+ * \brief Source	Input data
  */
 tSpiderValue *Object_CastTo(int Type, tSpiderValue *Source)
 {
@@ -113,11 +128,12 @@ tSpiderValue *Object_CastTo(int Type, tSpiderValue *Source)
 		return Source;
 	}
 	
-	switch(Type)
+	switch( (enum eSpiderScript_DataTypes)Type )
 	{
 	case SS_DATATYPE_UNDEF:
 	case SS_DATATYPE_NULL:
 	case SS_DATATYPE_ARRAY:
+	case SS_DATATYPE_OPAQUE:
 		fprintf(stderr, "Object_CastTo - Invalid cast to %i\n", Type);
 		return ERRPTR;
 	
@@ -150,7 +166,7 @@ tSpiderValue *Object_CastTo(int Type, tSpiderValue *Source)
  */
 int Object_IsTrue(tSpiderValue *Value)
 {
-	switch(Value->Type)
+	switch( (enum eSpiderScript_DataTypes)Value->Type )
 	{
 	case SS_DATATYPE_UNDEF:
 	case SS_DATATYPE_NULL:
@@ -168,8 +184,14 @@ int Object_IsTrue(tSpiderValue *Value)
 	case SS_DATATYPE_OBJECT:
 		return Value->Object != NULL;
 	
+	case SS_DATATYPE_OPAQUE:
+		return Value->Opaque.Data != NULL;
+	
 	case SS_DATATYPE_ARRAY:
 		return Value->Array.Length > 0;
+	default:
+		fprintf(stderr, "Spiderscript internal error: Unknown type %i in Object_IsTrue\n", Value->Type);
+		return 0;
 	}
 	return 0;
 }
@@ -180,7 +202,7 @@ int Object_IsTrue(tSpiderValue *Value)
 tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 {
 	tAST_Node	*node;
-	tSpiderValue	*ret, *tmpobj;
+	tSpiderValue	*ret = NULL, *tmpobj;
 	tSpiderValue	*op1, *op2;	// Binary operations
 	 int	cmp;	// Used in comparisons
 	
@@ -403,11 +425,19 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 					cmp = -1;
 			}
 			break;
+		default:
+			fprintf(stderr, "SpiderScript internal error: TODO: Comparison of type %i\n", op1->Type);
+			ret = ERRPTR;
+			break;
 		}
 		
 		// Free intermediate objects
 		Object_Dereference(op1);
 		Object_Dereference(op2);
+		
+		// Error check
+		if( ret == ERRPTR )
+			break;
 		
 		// Create return
 		switch(Node->Type)
@@ -481,6 +511,7 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 				break;
 			}
 			break;
+		// Integer Operations
 		case SS_DATATYPE_INTEGER:
 			switch(Node->Type)
 			{
@@ -498,10 +529,26 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 				ret = Object_CreateInteger( (op1->Integer << op2->Integer) | (op1->Integer >> (64-op2->Integer)) );
 				break;
 			default:
-				fprintf(stderr, "SpiderScript internal error: Exec,BinOP,Integer unknown op %i", Node->Type);
+				fprintf(stderr, "SpiderScript internal error: Exec,BinOP,Integer unknown op %i\n", Node->Type);
 				ret = ERRPTR;
 				break;
 			}
+			break;
+		
+		// Real Numbers
+		case SS_DATATYPE_REAL:
+			switch(Node->Type)
+			{
+			default:
+				fprintf(stderr, "SpiderScript internal error: Exec,BinOP,Real unknown op %i\n", Node->Type);
+				ret = ERRPTR;
+				break;
+			}
+			break;
+		
+		default:
+			fprintf(stderr, "SpiderScript error: Invalid operation (%i) on type (%i)\n", Node->Type, op1->Type);
+			ret = ERRPTR;
 			break;
 		}
 		

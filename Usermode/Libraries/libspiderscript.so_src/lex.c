@@ -25,9 +25,19 @@ const struct {
 	const char	*Name;
 } csaReservedWords[] = {
 	{TOK_RWD_FUNCTION, "function"},
+	
 	{TOK_RWD_RETURN, "return"},
+	{TOK_RWD_NEW, "new"},
+	
+	{TOK_RWD_IF, "if"},
+	{TOK_RWD_ELSE, "else"},
+	{TOK_RWD_DO, "do"},
+	{TOK_RWD_WHILE, "while"},
+	{TOK_RWD_FOR, "for"},
+	
 	{TOK_RWD_VOID, "void"},
 	{TOK_RWD_OBJECT, "Object"},
+	{TOK_RWD_OPAQUE, "Opaque"},
 	{TOK_RWD_INTEGER, "Integer"},
 	{TOK_RWD_REAL, "Real"},
 	{TOK_RWD_STRING, "String"}

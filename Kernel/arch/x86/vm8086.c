@@ -153,17 +153,14 @@ void VM8086_GPF(tRegs *Regs)
 		//Log_Log("VM8086", "gpVM8086_State = %p, gVM8086_CallingThread = %i",
 		//	gpVM8086_State, gVM8086_CallingThread);
 		if( gpVM8086_State ) {
-			 int	ret;
 			gpVM8086_State->AX = Regs->eax;	gpVM8086_State->CX = Regs->ecx;
 			gpVM8086_State->DX = Regs->edx;	gpVM8086_State->BX = Regs->ebx;
 			gpVM8086_State->BP = Regs->ebp;
 			gpVM8086_State->SI = Regs->esi;	gpVM8086_State->DI = Regs->edi;
 			gpVM8086_State->DS = Regs->ds;	gpVM8086_State->ES = Regs->es;
 			gpVM8086_State = NULL;
-			// Ensure the caller wakes
-			while( (ret = Threads_WakeTID(gVM8086_CallingThread)) == -EALREADY) {
-				Threads_Yield();
-			}
+			// Wake the caller
+			Threads_WakeTID(gVM8086_CallingThread);
 		}
 		
 		//Log_Log("VM8086", "Waiting for something to do");

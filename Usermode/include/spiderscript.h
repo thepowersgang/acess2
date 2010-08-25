@@ -13,9 +13,6 @@
  */
 typedef struct sSpiderScript	tSpiderScript;
 
-/**
- * \brief Variant type
- */
 typedef struct sSpiderVariant	tSpiderVariant;
 typedef struct sSpiderFunction	tSpiderFunction;
 typedef struct sSpiderValue	tSpiderValue;
@@ -31,7 +28,8 @@ enum eSpiderScript_DataTypes
 	SS_DATATYPE_UNDEF,	//!< Undefined
 	SS_DATATYPE_NULL,	//!< NULL (Probably will never be used)
 	SS_DATATYPE_DYNAMIC,	//!< Dynamically typed variable (will this be used?)
-	SS_DATATYPE_OBJECT,	//!< Opaque object reference
+	SS_DATATYPE_OPAQUE,	//!< Opaque data type
+	SS_DATATYPE_OBJECT,	//!< Object reference
 	SS_DATATYPE_ARRAY,	//!< Array
 	SS_DATATYPE_INTEGER,	//!< Integer (64-bits)
 	SS_DATATYPE_REAL,	//!< Real Number (double)
@@ -46,7 +44,7 @@ struct sSpiderVariant
 {
 	const char	*Name;	// Just for debug
 	
-	 int	bDyamicTyped;
+	 int	bDyamicTyped;	//!< Use static typing
 	
 	 int	NFunctions;	//!< Number of functions
 	tSpiderFunction	*Functions;	//!< Functions
@@ -60,7 +58,7 @@ struct sSpiderVariant
  */
 struct sSpiderValue
 {
-	 int	Type;	//!< Variable type
+	enum eSpiderScript_DataTypes	Type;	//!< Variable type
 	 int	ReferenceCount;	//!< Reference count
 	
 	union {
@@ -81,6 +79,17 @@ struct sSpiderValue
 			tSpiderValue	*Items[];	//!< Array elements (\a Length long)
 		}	Array;
 		
+		/**
+		 * \brief Opaque data
+		 */
+		struct {
+			void	*Data;	//!< Data (can be anywhere)
+			void	(*Destroy)(void *Data);	//!< Called on GC
+		}	Opaque;
+		
+		/**
+		 * \brief Object Instance
+		 */
 		tSpiderObject	*Object;
 	};
 };
@@ -92,6 +101,13 @@ struct sSpiderValue
  */
 struct sSpiderObjectDef
 {
+	/**
+	 */
+	struct sSpiderObjectDef	*Next;	//!< Internal linked list
+	/**
+	 * \brief Object type name
+	 */
+	const char*	const Name;
 	/**
 	 * \brief Construct an instance of the object
 	 * \param NArgs	Number of arguments
