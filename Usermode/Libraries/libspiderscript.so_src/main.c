@@ -107,7 +107,8 @@ tSpiderValue *SpiderScript_ExecuteMethod(tSpiderScript *Script,
 		// Execute!
 		if(fcn) {
 			tAST_BlockState	bs;
-			bs.FirstVar = NULL;	//< TODO: Parameters
+			bs.FirstVar = NULL;
+			bs.RetVal = NULL;
 			bs.Parent = NULL;
 			bs.Script = Script;
 			{
@@ -122,6 +123,8 @@ tSpiderValue *SpiderScript_ExecuteMethod(tSpiderScript *Script,
 				}
 			}
 			ret = AST_ExecuteNode(&bs, fcn->Code);
+			//Object_Dereference(ret);
+			ret = bs.RetVal;
 			bFound = 1;
 		}
 	}

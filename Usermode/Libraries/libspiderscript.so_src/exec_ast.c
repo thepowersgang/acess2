@@ -166,6 +166,9 @@ tSpiderValue *Object_CastTo(int Type, tSpiderValue *Source)
  */
 int Object_IsTrue(tSpiderValue *Value)
 {
+	if( Value == ERRPTR )	return 0;
+	if( Value == NULL )	return 0;
+	
 	switch( (enum eSpiderScript_DataTypes)Value->Type )
 	{
 	case SS_DATATYPE_UNDEF:
@@ -216,23 +219,18 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 		{
 			tAST_BlockState	blockInfo;
 			blockInfo.FirstVar = NULL;
+			blockInfo.RetVal = NULL;
 			blockInfo.Parent = Block;
 			blockInfo.Script = Block->Script;
 			ret = NULL;
-			for(node = Node->Block.FirstChild; node; node = node->NextSibling )
+			for(node = Node->Block.FirstChild; node && !blockInfo.RetVal; node = node->NextSibling )
 			{
-				if(node->Type == NODETYPE_RETURN) {
-					ret = AST_ExecuteNode(&blockInfo, node);
+				tmpobj = AST_ExecuteNode(&blockInfo, node);
+				if(tmpobj == ERRPTR) {	// Error check
+					ret = ERRPTR;
 					break ;
 				}
-				else {
-					tmpobj = AST_ExecuteNode(&blockInfo, node);
-					if(tmpobj == ERRPTR) {	// Error check
-						ret = ERRPTR;
-						break ;
-					}
-					if(tmpobj)	Object_Dereference(tmpobj);	// Free unused value
-				}
+				if(tmpobj)	Object_Dereference(tmpobj);	// Free unused value
 			}
 			// Clean up variables
 			while(blockInfo.FirstVar)
@@ -241,6 +239,9 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 				Variable_Destroy( blockInfo.FirstVar );
 				blockInfo.FirstVar = nextVar;
 			}
+			
+			if( blockInfo.RetVal )
+				Block->RetVal = blockInfo.RetVal;
 		}
 		
 		break;
@@ -289,9 +290,46 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 		}
 		break;
 	
-	// Return's special handling happens elsewhere
+	// Conditional
+	case NODETYPE_IF:
+		ret = AST_ExecuteNode(Block, Node->If.Condition);
+		if( Object_IsTrue(ret) ) {
+			AST_ExecuteNode(Block, Node->If.True);
+		}
+		else {
+			AST_ExecuteNode(Block, Node->If.False);
+		}
+		Object_Dereference(ret);
+		break;
+	
+	// Loop
+	case NODETYPE_LOOP:
+		ret = AST_ExecuteNode(Block, Node->For.Init);
+		if( Node->For.bCheckAfter ) {
+			do {
+				Object_Dereference(ret);
+				ret = AST_ExecuteNode(Block, Node->For.Code);
+				Object_Dereference(ret);
+				ret = AST_ExecuteNode(Block, Node->For.Condition);
+			} while( Object_IsTrue(ret) );
+		}
+		else {
+			Object_Dereference(ret);
+			ret = AST_ExecuteNode(Block, Node->For.Condition);
+			while( Object_IsTrue(ret) ) {
+				Object_Dereference(ret);
+				ret = AST_ExecuteNode(Block, Node->For.Code);
+				Object_Dereference(ret);
+				ret = AST_ExecuteNode(Block, Node->For.Condition);
+			}
+			Object_Dereference(ret);
+		}
+		break;
+	
+	// Return
 	case NODETYPE_RETURN:
 		ret = AST_ExecuteNode(Block, Node->UniOp.Value);
+		Block->RetVal = ret;	// Return value set
 		break;
 	
 	// Define a variable

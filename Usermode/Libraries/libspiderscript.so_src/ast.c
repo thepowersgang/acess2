@@ -71,6 +71,9 @@ void AST_SetFunctionCode(tAST_Function *Function, tAST_Node *Root)
 void AST_FreeNode(tAST_Node *Node)
 {
 	tAST_Node	*node;
+	
+	if(!Node)	return ;
+	
 	switch(Node->Type)
 	{
 	// Block of code
@@ -91,6 +94,21 @@ void AST_FreeNode(tAST_Node *Node)
 			AST_FreeNode(node);
 			node = savedNext;
 		}
+		break;
+	
+	// If node
+	case NODETYPE_IF:
+		AST_FreeNode(Node->If.Condition);
+		AST_FreeNode(Node->If.True);
+		AST_FreeNode(Node->If.False);
+		break;
+	
+	// Looping Construct (For loop node)
+	case NODETYPE_LOOP:
+		AST_FreeNode(Node->For.Init);
+		AST_FreeNode(Node->For.Condition);
+		AST_FreeNode(Node->For.Increment);
+		AST_FreeNode(Node->For.Code);
 		break;
 	
 	// Asignment
@@ -189,6 +207,30 @@ void AST_AppendNode(tAST_Node *Parent, tAST_Node *Child)
 		fprintf(stderr, "BUG REPORT: AST_AppendNode on an invalid node type (%i)\n", Parent->Type);
 		break;
 	}
+}
+
+tAST_Node *AST_NewIf(tAST_Node *Condition, tAST_Node *True, tAST_Node *False)
+{
+	tAST_Node	*ret = malloc( sizeof(tAST_Node) );
+	ret->NextSibling = NULL;
+	ret->Type = NODETYPE_IF;
+	ret->If.Condition = Condition;
+	ret->If.True = True;
+	ret->If.False = False;
+	return ret;
+}
+
+tAST_Node *AST_NewLoop(tAST_Node *Init, int bPostCheck, tAST_Node *Condition, tAST_Node *Increment, tAST_Node *Code)
+{
+	tAST_Node	*ret = malloc( sizeof(tAST_Node) );
+	ret->NextSibling = NULL;
+	ret->Type = NODETYPE_LOOP;
+	ret->For.Init = Init;
+	ret->For.bCheckAfter = !!bPostCheck;
+	ret->For.Condition = Condition;
+	ret->For.Increment = Increment;
+	ret->For.Code = Code;
+	return ret;
 }
 
 tAST_Node *AST_NewAssign(int Operation, tAST_Node *Dest, tAST_Node *Value)

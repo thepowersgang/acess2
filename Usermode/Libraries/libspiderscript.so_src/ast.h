@@ -34,6 +34,9 @@ enum eAST_NodeTypes
 	NODETYPE_ASSIGN,	//!< Variable assignment operator
 	NODETYPE_FUNCTIONCALL,	//!< Call a function
 	
+	NODETYPE_IF,	//!< Conditional
+	NODETYPE_LOOP,	//!< Looping Construct
+	
 	NODETYPE_INDEX,	//!< Index into an array
 	
 	NODETYPE_LOGICALAND,	//!< Logical AND operator
@@ -119,6 +122,20 @@ struct sAST_Node
 			char	Name[];
 		}	FunctionCall;
 		
+		struct {
+			tAST_Node	*Condition;
+			tAST_Node	*True;
+			tAST_Node	*False;
+		}	If;
+		
+		struct {
+			tAST_Node	*Init;
+			 int	bCheckAfter;
+			tAST_Node	*Condition;
+			tAST_Node	*Increment;
+			tAST_Node	*Code;
+		}	For;
+		
 		/**
 		 * \note Used for \a NODETYPE_VARIABLE and \a NODETYPE_CONSTANT
 		 */
@@ -153,6 +170,7 @@ struct sAST_BlockState
 	tAST_BlockState	*Parent;
 	tSpiderScript	*Script;	//!< Script
 	tAST_Variable	*FirstVar;	//!< First variable in the list
+	tSpiderValue	*RetVal;
 };
 
 struct sAST_Variable
@@ -180,6 +198,9 @@ extern void	AST_AppendFunctionCallArg(tAST_Node *Node, tAST_Node *Arg);
 
 extern tAST_Node	*AST_NewCodeBlock(void);
 extern void	AST_AppendNode(tAST_Node *Parent, tAST_Node *Child);
+
+extern tAST_Node	*AST_NewIf(tAST_Node *Condition, tAST_Node *True, tAST_Node *False);
+
 extern tAST_Node	*AST_NewAssign(int Operation, tAST_Node *Dest, tAST_Node *Value);
 extern tAST_Node	*AST_NewBinOp(int Operation, tAST_Node *Left, tAST_Node *Right);
 extern tAST_Node	*AST_NewUniOp(int Operation, tAST_Node *Value);

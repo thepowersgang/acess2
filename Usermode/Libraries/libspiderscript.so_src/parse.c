@@ -36,6 +36,11 @@ tAST_Node	*Parse_GetIdent(tParser *Parser);
 
 void	SyntaxAssert(tParser *Parser, int Have, int Want);
 
+#define TODO(Parser, message...) do {\
+	fprintf(stderr, "TODO: "message);\
+	longjmp(Parser->JmpTarget, -1);\
+}while(0)
+
 // === CODE ===
 /**
  * \brief Parse a buffer into a syntax tree
@@ -64,12 +69,14 @@ tAST_Script	*Parse_Buffer(tSpiderVariant *Variant, char *Buffer)
 	ret = AST_NewScript();
 	mainCode = AST_NewCodeBlock();
 	
+	// Give us an error fallback
 	if( setjmp( parser.JmpTarget ) != 0 )
 	{
 		AST_FreeNode( mainCode );
 		return NULL;
 	}
 	
+	// Parse the file!
 	while(Parser->Token != TOK_EOF)
 	{
 		switch( GetToken(Parser) )
@@ -159,7 +166,12 @@ tAST_Script	*Parse_Buffer(tSpiderVariant *Variant, char *Buffer)
 tAST_Node *Parse_DoCodeBlock(tParser *Parser)
 {
 	tAST_Node	*ret;
-	SyntaxAssert(Parser, GetToken(Parser), TOK_BRACE_OPEN );
+	
+	// Check if we are being called for a one-liner
+	if( GetToken(Parser) != TOK_BRACE_OPEN ) {
+		PutBack(Parser);
+		return Parse_DoBlockLine(Parser);
+	}
 	
 	ret = AST_NewCodeBlock();
 	
@@ -191,8 +203,26 @@ tAST_Node *Parse_DoBlockLine(tParser *Parser)
 		break;
 	
 	// Control Statements
-	//case TOK_RWD_IF:
-	//	break;
+	case TOK_RWD_IF:
+		{
+		tAST_Node	*cond, *true, *false = NULL;
+		GetToken(Parser);	// eat the if
+		SyntaxAssert(Parser, GetToken(Parser), TOK_PAREN_OPEN);
+		cond = Parse_DoExpr0(Parser);	// Get condition
+		SyntaxAssert(Parser, GetToken(Parser), TOK_PAREN_CLOSE);
+		true = Parse_DoCodeBlock(Parser);
+		if( LookAhead(Parser) == TOK_RWD_ELSE ) {
+			GetToken(Parser);
+			false = Parse_DoCodeBlock(Parser);
+		}
+		ret = AST_NewIf(cond, true, false);
+		}
+		return ret;
+	case TOK_RWD_FOR:
+	case TOK_RWD_DO:
+	case TOK_RWD_WHILE:
+		TODO(Parser, "Implement if, for, do and while\n");
+		break;
 	
 	// Define Variables
 	case TOKEN_GROUP_TYPES:
