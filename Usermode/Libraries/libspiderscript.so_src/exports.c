@@ -11,12 +11,8 @@
 tSpiderValue	*Exports_Lang_Struct(tSpiderScript *Script, int NArgs, tSpiderValue **Args);
 
 // === GLOBALS ===
- int	gaExports_Lang_Struct_Args[] = {SS_DATATYPE_STRING,-1};
-
-tSpiderFunction	gaSpiderScript_Exports[] = {
-	{"Lang.Struct", Exports_Lang_Struct, gaExports_Lang_Struct_Args}
-};
-const int	giSpiderScript_NumExports = sizeof(gaSpiderScript_Exports)/sizeof(tSpiderFunction);
+tSpiderFunction	gExports_Lang_Struct = {NULL,"Lang.Struct", Exports_Lang_Struct, {SS_DATATYPE_STRING,-1}};
+tSpiderFunction	*gpExports_First = &gExports_Lang_Struct;
 
 // === CODE ===
 tSpiderValue *Exports_Lang_Struct(tSpiderScript *Script, int NArgs, tSpiderValue **Args)

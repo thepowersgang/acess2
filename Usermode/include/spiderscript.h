@@ -22,6 +22,7 @@ typedef struct sSpiderObject	tSpiderObject;
 
 /**
  * \brief SpiderScript Variable Datatypes
+ * \todo Expand the descriptions
  */
 enum eSpiderScript_DataTypes
 {
@@ -46,8 +47,7 @@ struct sSpiderVariant
 	
 	 int	bDyamicTyped;	//!< Use static typing
 	
-	 int	NFunctions;	//!< Number of functions
-	tSpiderFunction	*Functions;	//!< Functions
+	tSpiderFunction	*Functions;	//!< Functions (Linked List)
 	
 	 int	NConstants;	//!< Number of constants
 	tSpiderValue	*Constants;	//!< Number of constants
@@ -156,6 +156,11 @@ struct sSpiderObject
 struct sSpiderFunction
 {
 	/**
+	 * \brief Next function in list
+	 */
+	struct sSpiderFunction	*Next;
+	
+	/**
 	 * \brief Function name
 	 */
 	const char	*Name;
@@ -171,7 +176,7 @@ struct sSpiderFunction
 	 * parameters, if the final entry is -1, the function has a variable
 	 * number of arguments.
 	 */
-	 int	*ArgTypes;	// Zero (or -1) terminated array of parameter types
+	 int	ArgTypes[];	// Zero (or -1) terminated array of parameter types
 };
 
 
@@ -196,7 +201,22 @@ extern tSpiderValue	*SpiderScript_ExecuteMethod(tSpiderScript *Script,
 
 /**
  * \brief Free a script
+ * \param Script	Script structure to free
  */
 extern void	SpiderScript_Free(tSpiderScript *Script);
+
+/**
+ * \name tSpiderValue Manipulation functions
+ * \{
+ */
+extern tSpiderValue	*SpiderScript_CreateInteger(uint64_t Value);
+extern tSpiderValue	*SpiderScript_CreateReal(double Value);
+extern tSpiderValue	*SpiderScript_CreateString(int Length, const char *Data);
+extern tSpiderValue	*SpiderScript_CastValueTo(int Type, tSpiderValue *Source);
+extern int	SpiderScript_IsValueTrue(tSpiderValue *Value);
+extern char	*SpiderScript_DumpValue(tSpiderValue *Value);
+/**
+ * \}
+ */
 
 #endif

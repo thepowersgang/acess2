@@ -8,11 +8,12 @@
 // === PROTOTYPES ===
 void	Object_Dereference(tSpiderValue *Object);
 void	Object_Reference(tSpiderValue *Object);
-tSpiderValue	*Object_CreateInteger(uint64_t Value);
-tSpiderValue	*Object_CreateReal(double Value);
-tSpiderValue	*Object_CreateString(int Length, const char *Data);
-tSpiderValue	*Object_CastTo(int Type, tSpiderValue *Source);
- int	Object_IsTrue(tSpiderValue *Value);
+tSpiderValue	*SpiderScript_CreateInteger(uint64_t Value);
+tSpiderValue	*SpiderScript_CreateReal(double Value);
+tSpiderValue	*SpiderScript_CreateString(int Length, const char *Data);
+tSpiderValue	*SpiderScript_CastValueTo(int Type, tSpiderValue *Source);
+ int	SpiderScript_IsValueTrue(tSpiderValue *Value);
+char	*SpiderScript_DumpValue(tSpiderValue *Value);
 
 tSpiderValue	*AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node);
 
@@ -54,7 +55,7 @@ void Object_Reference(tSpiderValue *Object)
 /**
  * \brief Create an integer object
  */
-tSpiderValue *Object_CreateInteger(uint64_t Value)
+tSpiderValue *SpiderScript_CreateInteger(uint64_t Value)
 {
 	tSpiderValue	*ret = malloc( sizeof(tSpiderValue) );
 	ret->Type = SS_DATATYPE_INTEGER;
@@ -66,7 +67,7 @@ tSpiderValue *Object_CreateInteger(uint64_t Value)
 /**
  * \brief Create an real number object
  */
-tSpiderValue *Object_CreateReal(double Value)
+tSpiderValue *SpiderScript_CreateReal(double Value)
 {
 	tSpiderValue	*ret = malloc( sizeof(tSpiderValue) );
 	ret->Type = SS_DATATYPE_REAL;
@@ -78,7 +79,7 @@ tSpiderValue *Object_CreateReal(double Value)
 /**
  * \brief Create an string object
  */
-tSpiderValue *Object_CreateString(int Length, const char *Data)
+tSpiderValue *SpiderScript_CreateString(int Length, const char *Data)
 {
 	tSpiderValue	*ret = malloc( sizeof(tSpiderValue) + Length + 1 );
 	ret->Type = SS_DATATYPE_STRING;
@@ -119,7 +120,7 @@ tSpiderValue *Object_StringConcat(tSpiderValue *Str1, tSpiderValue *Str2)
  * \brief Type	Destination type
  * \brief Source	Input data
  */
-tSpiderValue *Object_CastTo(int Type, tSpiderValue *Source)
+tSpiderValue *SpiderScript_CastValueTo(int Type, tSpiderValue *Source)
 {
 	tSpiderValue	*ret = ERRPTR;
 	// Check if anything needs to be done
@@ -134,7 +135,7 @@ tSpiderValue *Object_CastTo(int Type, tSpiderValue *Source)
 	case SS_DATATYPE_NULL:
 	case SS_DATATYPE_ARRAY:
 	case SS_DATATYPE_OPAQUE:
-		fprintf(stderr, "Object_CastTo - Invalid cast to %i\n", Type);
+		fprintf(stderr, "SpiderScript_CastValueTo - Invalid cast to %i\n", Type);
 		return ERRPTR;
 	
 	case SS_DATATYPE_INTEGER:
@@ -147,7 +148,7 @@ tSpiderValue *Object_CastTo(int Type, tSpiderValue *Source)
 		case SS_DATATYPE_STRING:	ret->Integer = atoi(Source->String.Data);	break;
 		case SS_DATATYPE_REAL:	ret->Integer = Source->Real;	break;
 		default:
-			fprintf(stderr, "Object_CastTo - Invalid cast from %i\n", Source->Type);
+			fprintf(stderr, "SpiderScript_CastValueTo - Invalid cast from %i\n", Source->Type);
 			free(ret);
 			ret = ERRPTR;
 			break;
@@ -164,7 +165,7 @@ tSpiderValue *Object_CastTo(int Type, tSpiderValue *Source)
 /**
  * \brief Condenses a value down to a boolean
  */
-int Object_IsTrue(tSpiderValue *Value)
+int SpiderScript_IsValueTrue(tSpiderValue *Value)
 {
 	if( Value == ERRPTR )	return 0;
 	if( Value == NULL )	return 0;
@@ -193,10 +194,65 @@ int Object_IsTrue(tSpiderValue *Value)
 	case SS_DATATYPE_ARRAY:
 		return Value->Array.Length > 0;
 	default:
-		fprintf(stderr, "Spiderscript internal error: Unknown type %i in Object_IsTrue\n", Value->Type);
+		fprintf(stderr, "Spiderscript internal error: Unknown type %i in SpiderScript_IsValueTrue\n", Value->Type);
 		return 0;
 	}
 	return 0;
+}
+
+/**
+ * \brief Dump a value into a string
+ * \return Heap string
+ */
+char *SpiderScript_DumpValue(tSpiderValue *Value)
+{
+	char	*ret;
+	if( Value == ERRPTR )
+		return strdup("ERRPTR");
+	if( Value == NULL )
+		return strdup("null");
+	
+	switch( (enum eSpiderScript_DataTypes)Value->Type )
+	{
+	case SS_DATATYPE_UNDEF:	return strdup("undefined");
+	case SS_DATATYPE_NULL:	return strdup("null type");
+	
+	case SS_DATATYPE_INTEGER:
+		ret = malloc( sizeof(Value->Integer)*2 + 3 );
+		sprintf(ret, "0x%lx", Value->Integer);
+		return ret;
+	
+	case SS_DATATYPE_REAL:
+		ret = malloc( sprintf(NULL, "%f", Value->Real) + 1 );
+		sprintf(ret, "%f", Value->Real);
+		return ret;
+	
+	case SS_DATATYPE_STRING:
+		ret = malloc( Value->String.Length + 3 );
+		ret[0] = '"';
+		strcpy(ret+1, Value->String.Data);
+		ret[Value->String.Length+1] = '"';
+		ret[Value->String.Length+2] = '\0';
+		return ret;
+	
+	case SS_DATATYPE_OBJECT:
+		ret = malloc( sprintf(NULL, "{%s *%p}", Value->Object->Type->Name, Value->Object) + 1 );
+		sprintf(ret, "{%s *%p}", Value->Object->Type->Name, Value->Object);
+		return ret;
+	
+	case SS_DATATYPE_OPAQUE:
+		ret = malloc( sprintf(NULL, "*%p", Value->Opaque.Data) + 1 );
+		sprintf(ret, "*%p", Value->Opaque.Data);
+		return ret;
+	
+	case SS_DATATYPE_ARRAY:
+		return strdup("Array");
+	
+	default:
+		fprintf(stderr, "Spiderscript internal error: Unknown type %i in Object_Dump\n", Value->Type);
+		return NULL;
+	}
+	
 }
 
 /**
@@ -293,7 +349,7 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 	// Conditional
 	case NODETYPE_IF:
 		ret = AST_ExecuteNode(Block, Node->If.Condition);
-		if( Object_IsTrue(ret) ) {
+		if( SpiderScript_IsValueTrue(ret) ) {
 			AST_ExecuteNode(Block, Node->If.True);
 		}
 		else {
@@ -311,12 +367,12 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 				ret = AST_ExecuteNode(Block, Node->For.Code);
 				Object_Dereference(ret);
 				ret = AST_ExecuteNode(Block, Node->For.Condition);
-			} while( Object_IsTrue(ret) );
+			} while( SpiderScript_IsValueTrue(ret) );
 		}
 		else {
 			Object_Dereference(ret);
 			ret = AST_ExecuteNode(Block, Node->For.Condition);
-			while( Object_IsTrue(ret) ) {
+			while( SpiderScript_IsValueTrue(ret) ) {
 				Object_Dereference(ret);
 				ret = AST_ExecuteNode(Block, Node->For.Code);
 				Object_Dereference(ret);
@@ -346,7 +402,7 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 
 	// Cast a value to another
 	case NODETYPE_CAST:
-		ret = Object_CastTo(
+		ret = SpiderScript_CastValueTo(
 			Node->Cast.DataType,
 			AST_ExecuteNode(Block, Node->Cast.Value)
 			);
@@ -364,9 +420,9 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 		ret = ERRPTR;
 		break;
 	// Constant Values
-	case NODETYPE_STRING:	ret = Object_CreateString( Node->String.Length, Node->String.Data );	break;
-	case NODETYPE_INTEGER:	ret = Object_CreateInteger( Node->Integer );	break;
-	case NODETYPE_REAL: 	ret = Object_CreateReal( Node->Real );	break;
+	case NODETYPE_STRING:	ret = SpiderScript_CreateString( Node->String.Length, Node->String.Data );	break;
+	case NODETYPE_INTEGER:	ret = SpiderScript_CreateInteger( Node->Integer );	break;
+	case NODETYPE_REAL: 	ret = SpiderScript_CreateReal( Node->Real );	break;
 	
 	// --- Operations ---
 	// Boolean Operations
@@ -384,13 +440,13 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 		switch( Node->Type )
 		{
 		case NODETYPE_LOGICALAND:
-			ret = Object_CreateInteger( Object_IsTrue(op1) && Object_IsTrue(op2) );
+			ret = SpiderScript_CreateInteger( SpiderScript_IsValueTrue(op1) && SpiderScript_IsValueTrue(op2) );
 			break;
 		case NODETYPE_LOGICALOR:
-			ret = Object_CreateInteger( Object_IsTrue(op1) || Object_IsTrue(op2) );
+			ret = SpiderScript_CreateInteger( SpiderScript_IsValueTrue(op1) || SpiderScript_IsValueTrue(op2) );
 			break;
 		case NODETYPE_LOGICALXOR:
-			ret = Object_CreateInteger( Object_IsTrue(op1) ^ Object_IsTrue(op2) );
+			ret = SpiderScript_CreateInteger( SpiderScript_IsValueTrue(op1) ^ SpiderScript_IsValueTrue(op2) );
 			break;
 		default:	break;
 		}
@@ -417,7 +473,7 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 		if( op1->Type == SS_DATATYPE_NULL )
 		{
 			// NULLs always typecheck
-			ret = Object_CreateInteger(op2->Type == SS_DATATYPE_NULL);
+			ret = SpiderScript_CreateInteger(op2->Type == SS_DATATYPE_NULL);
 			break;
 		}
 		
@@ -427,7 +483,7 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 			if(Block->Script->Variant->bDyamicTyped)
 			{
 				tmpobj = op2;
-				op2 = Object_CastTo(op1->Type, op2);
+				op2 = SpiderScript_CastValueTo(op1->Type, op2);
 				Object_Dereference(tmpobj);
 				if(op2 == ERRPTR) {
 					Object_Dereference(op1);
@@ -480,9 +536,9 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 		// Create return
 		switch(Node->Type)
 		{
-		case NODETYPE_EQUALS:	ret = Object_CreateInteger(cmp == 0);	break;
-		case NODETYPE_LESSTHAN:	ret = Object_CreateInteger(cmp < 0);	break;
-		case NODETYPE_GREATERTHAN:	ret = Object_CreateInteger(cmp > 0);	break;
+		case NODETYPE_EQUALS:	ret = SpiderScript_CreateInteger(cmp == 0);	break;
+		case NODETYPE_LESSTHAN:	ret = SpiderScript_CreateInteger(cmp < 0);	break;
+		case NODETYPE_GREATERTHAN:	ret = SpiderScript_CreateInteger(cmp > 0);	break;
 		default:
 			fprintf(stderr, "SpiderScript internal error: Exec,CmpOp unknown op %i", Node->Type);
 			ret = ERRPTR;
@@ -517,7 +573,7 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 			if(Block->Script->Variant->bDyamicTyped)
 			{
 				tmpobj = op2;
-				op2 = Object_CastTo(op1->Type, op2);
+				op2 = SpiderScript_CastValueTo(op1->Type, op2);
 				Object_Dereference(tmpobj);
 				if(op2 == ERRPTR) {
 					Object_Dereference(op1);
@@ -553,18 +609,18 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 		case SS_DATATYPE_INTEGER:
 			switch(Node->Type)
 			{
-			case NODETYPE_ADD:	ret = Object_CreateInteger( op1->Integer + op2->Integer );	break;
-			case NODETYPE_SUBTRACT:	ret = Object_CreateInteger( op1->Integer - op2->Integer );	break;
-			case NODETYPE_MULTIPLY:	ret = Object_CreateInteger( op1->Integer * op2->Integer );	break;
-			case NODETYPE_DIVIDE:	ret = Object_CreateInteger( op1->Integer / op2->Integer );	break;
-			case NODETYPE_MODULO:	ret = Object_CreateInteger( op1->Integer % op2->Integer );	break;
-			case NODETYPE_BWAND:	ret = Object_CreateInteger( op1->Integer & op2->Integer );	break;
-			case NODETYPE_BWOR: 	ret = Object_CreateInteger( op1->Integer | op2->Integer );	break;
-			case NODETYPE_BWXOR:	ret = Object_CreateInteger( op1->Integer ^ op2->Integer );	break;
-			case NODETYPE_BITSHIFTLEFT:	ret = Object_CreateInteger( op1->Integer << op2->Integer );	break;
-			case NODETYPE_BITSHIFTRIGHT:ret = Object_CreateInteger( op1->Integer >> op2->Integer );	break;
+			case NODETYPE_ADD:	ret = SpiderScript_CreateInteger( op1->Integer + op2->Integer );	break;
+			case NODETYPE_SUBTRACT:	ret = SpiderScript_CreateInteger( op1->Integer - op2->Integer );	break;
+			case NODETYPE_MULTIPLY:	ret = SpiderScript_CreateInteger( op1->Integer * op2->Integer );	break;
+			case NODETYPE_DIVIDE:	ret = SpiderScript_CreateInteger( op1->Integer / op2->Integer );	break;
+			case NODETYPE_MODULO:	ret = SpiderScript_CreateInteger( op1->Integer % op2->Integer );	break;
+			case NODETYPE_BWAND:	ret = SpiderScript_CreateInteger( op1->Integer & op2->Integer );	break;
+			case NODETYPE_BWOR: 	ret = SpiderScript_CreateInteger( op1->Integer | op2->Integer );	break;
+			case NODETYPE_BWXOR:	ret = SpiderScript_CreateInteger( op1->Integer ^ op2->Integer );	break;
+			case NODETYPE_BITSHIFTLEFT:	ret = SpiderScript_CreateInteger( op1->Integer << op2->Integer );	break;
+			case NODETYPE_BITSHIFTRIGHT:ret = SpiderScript_CreateInteger( op1->Integer >> op2->Integer );	break;
 			case NODETYPE_BITROTATELEFT:
-				ret = Object_CreateInteger( (op1->Integer << op2->Integer) | (op1->Integer >> (64-op2->Integer)) );
+				ret = SpiderScript_CreateInteger( (op1->Integer << op2->Integer) | (op1->Integer >> (64-op2->Integer)) );
 				break;
 			default:
 				fprintf(stderr, "SpiderScript internal error: Exec,BinOP,Integer unknown op %i\n", Node->Type);

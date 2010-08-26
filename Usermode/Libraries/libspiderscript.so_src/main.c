@@ -10,8 +10,7 @@
 
 // === IMPORTS ===
 extern tAST_Script	*Parse_Buffer(tSpiderVariant *Variant, char *Buffer);
-extern const int	giSpiderScript_NumExports;
-extern tSpiderFunction	gaSpiderScript_Exports[];
+extern tSpiderFunction	*gpExports_First;
 extern tAST_Variable *Variable_Define(tAST_BlockState *Block, int Type, const char *Name);
 extern void	Variable_SetValue(tAST_BlockState *Block, const char *Name, tSpiderValue *Value);
 
@@ -39,6 +38,7 @@ tSpiderScript *SpiderScript_ParseFile(tSpiderVariant *Variant, const char *Filen
 		return NULL;
 	}
 	
+	// Create the script
 	ret = malloc(sizeof(tSpiderScript));
 	ret->Variant = Variant;
 	
@@ -78,7 +78,6 @@ tSpiderValue *SpiderScript_ExecuteMethod(tSpiderScript *Script,
 	const char *Function, int NArguments, tSpiderValue **Arguments)
 {
 	char	*trueName = NULL;
-	 int	i;
 	 int	bFound = 0;	// Used to keep nesting levels down
 	tSpiderValue	*ret = ERRPTR;
 	
@@ -123,24 +122,26 @@ tSpiderValue *SpiderScript_ExecuteMethod(tSpiderScript *Script,
 				}
 			}
 			ret = AST_ExecuteNode(&bs, fcn->Code);
-			//Object_Dereference(ret);
+			Object_Dereference(ret);
 			ret = bs.RetVal;
 			bFound = 1;
 		}
 	}
-		
+	
 	// Didn't find it in script?
 	if(!bFound)
-	{	
+	{
+		tSpiderFunction	*fcn;
 		// Second: Search the variant's exports
-		for( i = 0; i < Script->Variant->NFunctions; i ++ )
+		for( fcn = Script->Variant->Functions; fcn; fcn = fcn->Next )
 		{
-			if( strcmp( Script->Variant->Functions[i].Name, trueName) == 0 )
+			if( strcmp( fcn->Name, trueName ) == 0 )
 				break;
 		}
 		// Execute!
-		if(i < Script->Variant->NFunctions) {
-			ret = Script->Variant->Functions[i].Handler( Script, NArguments, Arguments );
+		if(fcn) {
+			// TODO: Type Checking
+			ret = fcn->Handler( Script, NArguments, Arguments );
 			bFound = 1;
 		}
 	}
@@ -148,14 +149,16 @@ tSpiderValue *SpiderScript_ExecuteMethod(tSpiderScript *Script,
 	// Not in variant exports? Search the language internal ones
 	if(!bFound)
 	{
-		for( i = 0; i < giSpiderScript_NumExports; i ++ )
+		tSpiderFunction	*fcn;
+		// Third: Search language exports
+		for( fcn = gpExports_First; fcn; fcn = fcn->Next )
 		{
-			if( strcmp( gaSpiderScript_Exports[i].Name, trueName ) == 0 )
+			if( strcmp( fcn->Name, trueName ) == 0 )
 				break;
 		}
 		// Execute!
-		if(i < giSpiderScript_NumExports) {
-			ret = gaSpiderScript_Exports[i].Handler( Script, NArguments, Arguments );
+		if(fcn) {
+			ret = fcn->Handler( Script, NArguments, Arguments );
 			bFound = 1;
 		}
 	}

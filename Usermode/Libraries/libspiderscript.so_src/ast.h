@@ -208,6 +208,8 @@ extern tAST_Node	*AST_NewUniOp(int Operation, tAST_Node *Value);
 extern void	AST_FreeNode(tAST_Node *Node);
 
 // exec_ast.h
+extern void	Object_Dereference(tSpiderValue *Object);
+extern void	Object_Reference(tSpiderValue *Object);
 extern tSpiderValue	*AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node);
 
 #endif
