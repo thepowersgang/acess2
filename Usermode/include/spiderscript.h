@@ -84,6 +84,7 @@ struct sSpiderValue
 		 */
 		struct {
 			void	*Data;	//!< Data (can be anywhere)
+			 int	Size;	//!< Data size (zero means full opaque)
 			void	(*Destroy)(void *Data);	//!< Called on GC
 		}	Opaque;
 		

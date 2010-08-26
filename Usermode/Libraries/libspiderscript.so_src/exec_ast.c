@@ -29,6 +29,7 @@ void	Variable_Destroy(tAST_Variable *Variable);
 void Object_Dereference(tSpiderValue *Object)
 {
 	if(!Object)	return ;
+	if(Object == ERRPTR)	return ;
 	Object->ReferenceCount --;
 	if( Object->ReferenceCount == 0 ) {
 		switch( (enum eSpiderScript_DataTypes) Object->Type )
@@ -123,6 +124,8 @@ tSpiderValue *Object_StringConcat(tSpiderValue *Str1, tSpiderValue *Str2)
 tSpiderValue *SpiderScript_CastValueTo(int Type, tSpiderValue *Source)
 {
 	tSpiderValue	*ret = ERRPTR;
+	 int	len = 0;
+	
 	// Check if anything needs to be done
 	if( Source->Type == Type ) {
 		Object_Reference(Source);
@@ -154,6 +157,30 @@ tSpiderValue *SpiderScript_CastValueTo(int Type, tSpiderValue *Source)
 			break;
 		}
 		break;
+	
+	case SS_DATATYPE_STRING:
+		switch(Source->Type)
+		{
+		case SS_DATATYPE_INTEGER:	len = snprintf(NULL, 0, "%li", Source->Integer);	break;
+		case SS_DATATYPE_REAL:	snprintf(NULL, 0, "%f", Source->Real);	break;
+		default:	break;
+		}
+		ret = malloc(sizeof(tSpiderValue) + len + 1);
+		ret->Type = SS_DATATYPE_STRING;
+		ret->ReferenceCount = 1;
+		ret->String.Length = len;
+		switch(Source->Type)
+		{
+		case SS_DATATYPE_INTEGER:	sprintf(ret->String.Data, "%li", Source->Integer);	break;
+		case SS_DATATYPE_REAL:	sprintf(ret->String.Data, "%f", Source->Real);	break;
+		default:
+			fprintf(stderr, "SpiderScript_CastValueTo - Invalid cast from %i\n", Source->Type);
+			free(ret);
+			ret = ERRPTR;
+			break;
+		}
+		break;
+	
 	default:
 		fprintf(stderr, "BUG REPORT: Unimplemented cast target\n");
 		break;
@@ -492,7 +519,8 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 			}
 			// If statically typed, this should never happen, but catch it anyway
 			else {
-				fprintf(stderr, "PARSER ERROR: Statically typed implicit cast\n");
+				fprintf(stderr, "PARSER ERROR: Statically typed implicit cast (line %i)\n",
+					Node->Line);
 				ret = ERRPTR;
 				break;
 			}
@@ -582,7 +610,10 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 			}
 			// If statically typed, this should never happen, but catch it anyway
 			else {
-				fprintf(stderr, "PARSER ERROR: Statically typed implicit cast\n");
+				fprintf(stderr,
+					"PARSER ERROR: Statically typed implicit cast (from %i to %i)\n",
+					op2->Type, op1->Type
+					);
 				ret = ERRPTR;
 				break;
 			}

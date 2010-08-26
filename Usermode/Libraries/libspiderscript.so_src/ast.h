@@ -89,6 +89,8 @@ struct sAST_Node
 	tAST_Node	*NextSibling;
 	tAST_NodeType	Type;
 	
+	 int	Line;
+	
 	union
 	{
 		struct {
@@ -187,7 +189,6 @@ extern tAST_Script	*AST_NewScript(void);
 extern tAST_Function	*AST_AppendFunction(tAST_Script *Script, const char *Name);
 extern void	AST_AppendFunctionArg(tAST_Function *Function, tAST_Node *Arg);
 extern void	AST_SetFunctionCode(tAST_Function *Function, tAST_Node *Root);
-
 extern tAST_Node	*AST_NewString(const char *String, int Length);
 extern tAST_Node	*AST_NewInteger(uint64_t Value);
 extern tAST_Node	*AST_NewVariable(const char *Name);
@@ -202,6 +203,7 @@ extern void	AST_AppendNode(tAST_Node *Parent, tAST_Node *Child);
 extern tAST_Node	*AST_NewIf(tAST_Node *Condition, tAST_Node *True, tAST_Node *False);
 
 extern tAST_Node	*AST_NewAssign(int Operation, tAST_Node *Dest, tAST_Node *Value);
+extern tAST_Node	*AST_NewCast(int Target, tAST_Node *Value);
 extern tAST_Node	*AST_NewBinOp(int Operation, tAST_Node *Left, tAST_Node *Right);
 extern tAST_Node	*AST_NewUniOp(int Operation, tAST_Node *Value);
 

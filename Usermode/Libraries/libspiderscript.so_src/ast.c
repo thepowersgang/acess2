@@ -173,6 +173,7 @@ tAST_Node *AST_NewCodeBlock(void)
 	tAST_Node	*ret = malloc( sizeof(tAST_Node) );
 	
 	ret->NextSibling = NULL;
+	//ret->Line = giLineNumber;
 	ret->Type = NODETYPE_BLOCK;
 	ret->Block.FirstChild = NULL;
 	ret->Block.LastChild = NULL;
@@ -213,6 +214,7 @@ tAST_Node *AST_NewIf(tAST_Node *Condition, tAST_Node *True, tAST_Node *False)
 {
 	tAST_Node	*ret = malloc( sizeof(tAST_Node) );
 	ret->NextSibling = NULL;
+	//ret->Line = giLineNumber;
 	ret->Type = NODETYPE_IF;
 	ret->If.Condition = Condition;
 	ret->If.True = True;
@@ -224,6 +226,7 @@ tAST_Node *AST_NewLoop(tAST_Node *Init, int bPostCheck, tAST_Node *Condition, tA
 {
 	tAST_Node	*ret = malloc( sizeof(tAST_Node) );
 	ret->NextSibling = NULL;
+	//ret->Line = giLineNumber;
 	ret->Type = NODETYPE_LOOP;
 	ret->For.Init = Init;
 	ret->For.bCheckAfter = !!bPostCheck;
@@ -238,10 +241,24 @@ tAST_Node *AST_NewAssign(int Operation, tAST_Node *Dest, tAST_Node *Value)
 	tAST_Node	*ret = malloc( sizeof(tAST_Node) );
 	
 	ret->NextSibling = NULL;
+	//ret->Line = giLineNumber;
 	ret->Type = NODETYPE_ASSIGN;
 	ret->Assign.Operation = Operation;
 	ret->Assign.Dest = Dest;
 	ret->Assign.Value = Value;
+	
+	return ret;
+}
+
+tAST_Node *AST_NewCast(int Target, tAST_Node *Value)
+{
+	tAST_Node	*ret = malloc( sizeof(tAST_Node) );
+	
+	ret->NextSibling = NULL;
+	//ret->Line = giLineNumber;
+	ret->Type = NODETYPE_CAST;
+	ret->Cast.DataType = Target;
+	ret->Cast.Value = Value;
 	
 	return ret;
 }
@@ -251,6 +268,7 @@ tAST_Node *AST_NewBinOp(int Operation, tAST_Node *Left, tAST_Node *Right)
 	tAST_Node	*ret = malloc( sizeof(tAST_Node) );
 	
 	ret->NextSibling = NULL;
+	//ret->Line = giLineNumber;
 	ret->Type = Operation;
 	ret->BinOp.Left = Left;
 	ret->BinOp.Right = Right;
@@ -265,6 +283,7 @@ tAST_Node *AST_NewUniOp(int Operation, tAST_Node *Value)
 	tAST_Node	*ret = malloc( sizeof(tAST_Node) );
 	
 	ret->NextSibling = NULL;
+	//ret->Line = giLineNumber;
 	ret->Type = Operation;
 	ret->UniOp.Value = Value;
 	
@@ -279,6 +298,7 @@ tAST_Node *AST_NewString(const char *String, int Length)
 	tAST_Node	*ret = malloc( sizeof(tAST_Node) + Length + 1 );
 	
 	ret->NextSibling = NULL;
+	//ret->Line = giLineNumber;
 	ret->Type = NODETYPE_STRING;
 	ret->String.Length = Length;
 	memcpy(ret->String.Data, String, Length);
@@ -294,6 +314,7 @@ tAST_Node *AST_NewInteger(uint64_t Value)
 {
 	tAST_Node	*ret = malloc( sizeof(tAST_Node) );
 	ret->NextSibling = NULL;
+	//ret->Line = giLineNumber;
 	ret->Type = NODETYPE_INTEGER;
 	ret->Integer = Value;
 	return ret;
@@ -306,6 +327,7 @@ tAST_Node *AST_NewVariable(const char *Name)
 {
 	tAST_Node	*ret = malloc( sizeof(tAST_Node) + strlen(Name) + 1 );
 	ret->NextSibling = NULL;
+	//ret->Line = giLineNumber;
 	ret->Type = NODETYPE_VARIABLE;
 	strcpy(ret->Variable.Name, Name);
 	return ret;
@@ -318,6 +340,7 @@ tAST_Node *AST_NewDefineVar(int Type, const char *Name)
 {
 	tAST_Node	*ret = malloc( sizeof(tAST_Node) + strlen(Name) + 1 );
 	ret->NextSibling = NULL;
+	//ret->Line = giLineNumber;
 	ret->Type = NODETYPE_DEFVAR;
 	ret->DefVar.DataType = Type;
 	ret->DefVar.LevelSizes = NULL;
@@ -332,6 +355,7 @@ tAST_Node *AST_NewConstant(const char *Name)
 {
 	tAST_Node	*ret = malloc( sizeof(tAST_Node) + strlen(Name) + 1 );
 	ret->NextSibling = NULL;
+	//ret->Line = giLineNumber;
 	ret->Type = NODETYPE_CONSTANT;
 	strcpy(ret->Variable.Name, Name);
 	return ret;
@@ -346,6 +370,7 @@ tAST_Node *AST_NewFunctionCall(const char *Name)
 	tAST_Node	*ret = malloc( sizeof(tAST_Node) + strlen(Name) + 1 );
 	
 	ret->NextSibling = NULL;
+	//ret->Line = giLineNumber;
 	ret->Type = NODETYPE_FUNCTIONCALL;
 	ret->FunctionCall.FirstArg = NULL;
 	ret->FunctionCall.LastArg = NULL;

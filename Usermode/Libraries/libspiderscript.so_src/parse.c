@@ -470,12 +470,23 @@ tAST_Node *Parse_DoParen(tParser *Parser)
 	if(LookAhead(Parser) == TOK_PAREN_OPEN)
 	{
 		tAST_Node	*ret;
+		 int	type;
 		GetToken(Parser);
 		
 		// TODO: Handle casts here
-		
-		ret = Parse_DoExpr0(Parser);
-		SyntaxAssert(Parser, GetToken(Parser), TOK_PAREN_CLOSE);
+		switch(LookAhead(Parser))
+		{
+		case TOKEN_GROUP_TYPES:
+			GetToken(Parser);
+			TOKEN_GET_DATATYPE(type, Parser->Token);
+			SyntaxAssert(Parser, GetToken(Parser), TOK_PAREN_CLOSE);
+			ret = AST_NewCast(type, Parse_DoParen(Parser));
+			break;
+		default:		
+			ret = Parse_DoExpr0(Parser);
+			SyntaxAssert(Parser, GetToken(Parser), TOK_PAREN_CLOSE);
+			break;
+		}
 		return ret;
 	}
 	else
@@ -513,9 +524,35 @@ tAST_Node *Parse_DoValue(tParser *Parser)
 tAST_Node *Parse_GetString(tParser *Parser)
 {
 	tAST_Node	*ret;
+	 int	i, j;
 	GetToken( Parser );
-	// TODO: Parse Escape Codes
-	ret = AST_NewString( Parser->TokenStr+1, Parser->TokenLen-2 );
+	
+	{
+		char	data[ Parser->TokenLen - 2 ];
+		j = 0;
+		
+		for( i = 1; i < Parser->TokenLen - 1; i++ )
+		{
+			if( Parser->TokenStr[i] == '\\' ) {
+				i ++;
+				switch( Parser->TokenStr[i] )
+				{
+				case 'n':	data[j++] = '\n';	break;
+				case 'r':	data[j++] = '\r';	break;
+				default:
+					// TODO: Octal Codes
+					// TODO: Error/Warning?
+					break;
+				}
+			}
+			else {
+				data[j++] = Parser->TokenStr[i];
+			}
+		}
+		
+		// TODO: Parse Escape Codes
+		ret = AST_NewString( data, j );
+	}
 	return ret;
 }
 
