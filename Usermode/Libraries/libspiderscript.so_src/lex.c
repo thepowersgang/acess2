@@ -134,6 +134,33 @@ int GetToken(tParser *File)
 	case '\0':	ret = TOK_EOF;	break;
 	
 	// Operations
+	case '^':
+		if( *File->CurPos == '^' ) {
+			File->CurPos ++;
+			ret = TOK_LOGICXOR;
+			break;
+		}
+		ret = TOK_XOR;
+		break;
+	
+	case '|':
+		if( *File->CurPos == '|' ) {
+			File->CurPos ++;
+			ret = TOK_LOGICOR;
+			break;
+		}
+		ret = TOK_OR;
+		break;
+	
+	case '&':
+		if( *File->CurPos == '&' ) {
+			File->CurPos ++;
+			ret = TOK_LOGICAND;
+			break;
+		}
+		ret = TOK_AND;
+		break;
+	
 	case '/':	ret = TOK_DIV;	break;
 	case '*':	ret = TOK_MUL;	break;
 	case '+':	ret = TOK_PLUS;	break;
@@ -200,11 +227,23 @@ int GetToken(tParser *File)
 	// Default (Numbers and Identifiers)
 	default:
 		File->CurPos --;
+		
 		// Numbers
 		if( isdigit(*File->CurPos) )
 		{
-			while( isdigit(*File->CurPos) )
-				File->CurPos ++;
+			if( *File->CurPos == '0' && File->CurPos[1] == 'x' ) {
+				File->CurPos += 2;
+				while(('0' <= *File->CurPos && *File->CurPos <= '9')
+				   || ('A' <= *File->CurPos && *File->CurPos <= 'F')
+				   || ('a' <= *File->CurPos && *File->CurPos <= 'f') )
+				{
+					File->CurPos ++;
+				}
+			}
+			else {
+				while( isdigit(*File->CurPos) )
+					File->CurPos ++;
+			}
 			ret = TOK_INTEGER;
 			break;
 		}

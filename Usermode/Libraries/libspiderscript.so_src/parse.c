@@ -561,9 +561,49 @@ tAST_Node *Parse_GetString(tParser *Parser)
  */
 tAST_Node *Parse_GetNumeric(tParser *Parser)
 {
-	uint64_t	value;
+	uint64_t	value = 0;
+	char	*pos;
 	GetToken( Parser );
-	value = atoi( Parser->TokenStr );
+	pos = Parser->TokenStr;
+	//printf("pos = %p, *pos = %c\n", pos, *pos);
+		
+	if( *pos == '0' )
+	{
+		pos ++;
+		if(*pos == 'x') {
+			pos ++;
+			for( ;; pos++)
+			{
+				value *= 16;
+				if( '0' <= *pos && *pos <= '9' ) {
+					value += *pos - '0';
+					continue;
+				}
+				if( 'A' <= *pos && *pos <= 'F' ) {
+					value += *pos - 'A' + 10;
+					continue;
+				}
+				if( 'a' <= *pos && *pos <= 'f' ) {
+					value += *pos - 'a' + 10;
+					continue;
+				}
+				break;
+			}
+		}
+		else {
+			while( '0' <= *pos && *pos <= '7' ) {
+				value = value*8 + *pos - '0';
+				pos ++;
+			}
+		}
+	}
+	else {
+		while( '0' <= *pos && *pos <= '9' ) {
+			value = value*10 + *pos - '0';
+			pos ++;
+		}
+	}
+	
 	return AST_NewInteger( Parser, value );
 }
 
