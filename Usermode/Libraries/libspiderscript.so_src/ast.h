@@ -4,6 +4,7 @@
 #define _AST_H_
 
 #include <spiderscript.h>
+#include "tokens.h"
 
 typedef enum eAST_NodeTypes	tAST_NodeType;
 typedef struct sAST_Script	tAST_Script;
@@ -89,6 +90,7 @@ struct sAST_Node
 	tAST_Node	*NextSibling;
 	tAST_NodeType	Type;
 	
+	const char	*File;
 	 int	Line;
 	
 	union
@@ -189,23 +191,23 @@ extern tAST_Script	*AST_NewScript(void);
 extern tAST_Function	*AST_AppendFunction(tAST_Script *Script, const char *Name);
 extern void	AST_AppendFunctionArg(tAST_Function *Function, tAST_Node *Arg);
 extern void	AST_SetFunctionCode(tAST_Function *Function, tAST_Node *Root);
-extern tAST_Node	*AST_NewString(const char *String, int Length);
-extern tAST_Node	*AST_NewInteger(uint64_t Value);
-extern tAST_Node	*AST_NewVariable(const char *Name);
-extern tAST_Node	*AST_NewDefineVar(int Type, const char *Name);
-extern tAST_Node	*AST_NewConstant(const char *Name);
-extern tAST_Node	*AST_NewFunctionCall(const char *Name);
+extern tAST_Node	*AST_NewString(tParser *Parser, const char *String, int Length);
+extern tAST_Node	*AST_NewInteger(tParser *Parser, uint64_t Value);
+extern tAST_Node	*AST_NewVariable(tParser *Parser, const char *Name);
+extern tAST_Node	*AST_NewDefineVar(tParser *Parser, int Type, const char *Name);
+extern tAST_Node	*AST_NewConstant(tParser *Parser, const char *Name);
+extern tAST_Node	*AST_NewFunctionCall(tParser *Parser, const char *Name);
 extern void	AST_AppendFunctionCallArg(tAST_Node *Node, tAST_Node *Arg);
 
 extern tAST_Node	*AST_NewCodeBlock(void);
 extern void	AST_AppendNode(tAST_Node *Parent, tAST_Node *Child);
 
-extern tAST_Node	*AST_NewIf(tAST_Node *Condition, tAST_Node *True, tAST_Node *False);
+extern tAST_Node	*AST_NewIf(tParser *Parser, tAST_Node *Condition, tAST_Node *True, tAST_Node *False);
 
-extern tAST_Node	*AST_NewAssign(int Operation, tAST_Node *Dest, tAST_Node *Value);
-extern tAST_Node	*AST_NewCast(int Target, tAST_Node *Value);
-extern tAST_Node	*AST_NewBinOp(int Operation, tAST_Node *Left, tAST_Node *Right);
-extern tAST_Node	*AST_NewUniOp(int Operation, tAST_Node *Value);
+extern tAST_Node	*AST_NewAssign(tParser *Parser, int Operation, tAST_Node *Dest, tAST_Node *Value);
+extern tAST_Node	*AST_NewCast(tParser *Parser, int Target, tAST_Node *Value);
+extern tAST_Node	*AST_NewBinOp(tParser *Parser, int Operation, tAST_Node *Left, tAST_Node *Right);
+extern tAST_Node	*AST_NewUniOp(tParser *Parser, int Operation, tAST_Node *Value);
 
 extern void	AST_FreeNode(tAST_Node *Node);
 

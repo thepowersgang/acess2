@@ -18,7 +18,7 @@ char	*SpiderScript_DumpValue(tSpiderValue *Value);
 tSpiderValue	*AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node);
 
 tAST_Variable *Variable_Define(tAST_BlockState *Block, int Type, const char *Name);
-void	Variable_SetValue(tAST_BlockState *Block, const char *Name, tSpiderValue *Value);
+ int	Variable_SetValue(tAST_BlockState *Block, const char *Name, tSpiderValue *Value);
 tSpiderValue	*Variable_GetValue(tAST_BlockState *Block, const char *Name);
 void	Variable_Destroy(tAST_Variable *Variable);
 
@@ -125,6 +125,8 @@ tSpiderValue *SpiderScript_CastValueTo(int Type, tSpiderValue *Source)
 {
 	tSpiderValue	*ret = ERRPTR;
 	 int	len = 0;
+
+	if( !Source )	return NULL;
 	
 	// Check if anything needs to be done
 	if( Source->Type == Type ) {
@@ -135,7 +137,6 @@ tSpiderValue *SpiderScript_CastValueTo(int Type, tSpiderValue *Source)
 	switch( (enum eSpiderScript_DataTypes)Type )
 	{
 	case SS_DATATYPE_UNDEF:
-	case SS_DATATYPE_NULL:
 	case SS_DATATYPE_ARRAY:
 	case SS_DATATYPE_OPAQUE:
 		fprintf(stderr, "SpiderScript_CastValueTo - Invalid cast to %i\n", Type);
@@ -200,7 +201,6 @@ int SpiderScript_IsValueTrue(tSpiderValue *Value)
 	switch( (enum eSpiderScript_DataTypes)Value->Type )
 	{
 	case SS_DATATYPE_UNDEF:
-	case SS_DATATYPE_NULL:
 		return 0;
 	
 	case SS_DATATYPE_INTEGER:
@@ -242,7 +242,6 @@ char *SpiderScript_DumpValue(tSpiderValue *Value)
 	switch( (enum eSpiderScript_DataTypes)Value->Type )
 	{
 	case SS_DATATYPE_UNDEF:	return strdup("undefined");
-	case SS_DATATYPE_NULL:	return strdup("null type");
 	
 	case SS_DATATYPE_INTEGER:
 		ret = malloc( sizeof(Value->Integer)*2 + 3 );
@@ -337,7 +336,13 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 		}
 		ret = AST_ExecuteNode(Block, Node->Assign.Value);
 		if(ret != ERRPTR)
-			Variable_SetValue( Block, Node->Assign.Dest->Variable.Name, ret );
+		{
+			if( Variable_SetValue( Block, Node->Assign.Dest->Variable.Name, ret ) ) {
+				Object_Dereference( ret );
+				fprintf(stderr, "on line %i\n", Node->Line);
+				return ERRPTR;
+			}
+		}
 		break;
 	
 	// Function Call
@@ -495,15 +500,6 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 			return ERRPTR;
 		}
 		
-		// No conversion done for NULL
-		// TODO: Determine if this will ever be needed
-		if( op1->Type == SS_DATATYPE_NULL )
-		{
-			// NULLs always typecheck
-			ret = SpiderScript_CreateInteger(op2->Type == SS_DATATYPE_NULL);
-			break;
-		}
-		
 		// Convert types
 		if( op1->Type != op2->Type ) {
 			// If dynamically typed, convert op2 to op1's type
@@ -528,8 +524,6 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 		// Do operation
 		switch(op1->Type)
 		{
-		// - NULL
-		case SS_DATATYPE_NULL:	break;
 		// - String Compare (does a strcmp, well memcmp)
 		case SS_DATATYPE_STRING:
 			// Call memcmp to do most of the work
@@ -619,10 +613,15 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 			}
 		}
 		
+		// NULL Check
+		if( op1 == NULL || op2 == NULL ) {
+			ret = NULL;
+			break;
+		}
+		
 		// Do operation
 		switch(op1->Type)
 		{
-		case SS_DATATYPE_NULL:	break;
 		// String Concatenation
 		case SS_DATATYPE_STRING:
 			switch(Node->Type)
@@ -726,8 +725,9 @@ tAST_Variable *Variable_Define(tAST_BlockState *Block, int Type, const char *Nam
 
 /**
  * \brief Set the value of a variable
+ * \return Boolean Failure
  */
-void Variable_SetValue(tAST_BlockState *Block, const char *Name, tSpiderValue *Value)
+int Variable_SetValue(tAST_BlockState *Block, const char *Name, tSpiderValue *Value)
 {
 	tAST_Variable	*var;
 	tAST_BlockState	*bs;
@@ -740,12 +740,12 @@ void Variable_SetValue(tAST_BlockState *Block, const char *Name, tSpiderValue *V
 				if( !Block->Script->Variant->bDyamicTyped
 				 && (Value && var->Type != Value->Type) ) {
 					fprintf(stderr, "ERROR: Type mismatch assigning to '%s'\n", Name);
-					return ;
+					return -2;
 				}
 				Object_Reference(Value);
 				Object_Dereference(var->Object);
 				var->Object = Value;
-				return ;
+				return 0;
 			}
 		}
 	}
@@ -756,10 +756,12 @@ void Variable_SetValue(tAST_BlockState *Block, const char *Name, tSpiderValue *V
 		var = Variable_Define(Block, Value->Type, Name);
 		Object_Reference(Value);
 		var->Object = Value;
+		return 0;
 	}
 	else
 	{
 		fprintf(stderr, "ERROR: Variable '%s' set while undefined\n", Name);
+		return -1;
 	}
 }
 

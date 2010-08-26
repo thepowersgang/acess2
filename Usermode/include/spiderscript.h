@@ -26,13 +26,39 @@ typedef struct sSpiderObject	tSpiderObject;
  */
 enum eSpiderScript_DataTypes
 {
-	SS_DATATYPE_UNDEF,	//!< Undefined
-	SS_DATATYPE_NULL,	//!< NULL (Probably will never be used)
-	SS_DATATYPE_DYNAMIC,	//!< Dynamically typed variable (will this be used?)
-	SS_DATATYPE_OPAQUE,	//!< Opaque data type
-	SS_DATATYPE_OBJECT,	//!< Object reference
-	SS_DATATYPE_ARRAY,	//!< Array
-	SS_DATATYPE_INTEGER,	//!< Integer (64-bits)
+	/**
+	 * \brief Undefined data
+	 * \note Default type of an undefined dynamic variable
+	 */
+	SS_DATATYPE_UNDEF,
+	/**
+	 * \brief Dynamically typed variable
+	 * \note Used to dentote a non-fixed type for function parameters
+	 */
+	SS_DATATYPE_DYNAMIC,
+	/**
+	 * \brief Opaque Data Pointer
+	 * 
+	 * Opaque data types are used for resource handles or for system buffers.
+	 */
+	SS_DATATYPE_OPAQUE,
+	/**
+	 * \brief Object reference
+	 * 
+	 * A reference to a SpiderScript class instance. Can be accessed
+	 * using the -> operator.
+	 */
+	SS_DATATYPE_OBJECT,
+	/**
+	 * \brief Array data type
+	 */
+	SS_DATATYPE_ARRAY,
+	/**
+	 * \brief Integer datatype
+	 * 
+	 * 64-bit integer
+	 */
+	SS_DATATYPE_INTEGER,
 	SS_DATATYPE_REAL,	//!< Real Number (double)
 	SS_DATATYPE_STRING,	//!< String
 	NUM_SS_DATATYPES
@@ -84,7 +110,6 @@ struct sSpiderValue
 		 */
 		struct {
 			void	*Data;	//!< Data (can be anywhere)
-			 int	Size;	//!< Data size (zero means full opaque)
 			void	(*Destroy)(void *Data);	//!< Called on GC
 		}	Opaque;
 		
