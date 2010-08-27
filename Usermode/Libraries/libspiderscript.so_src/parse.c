@@ -110,7 +110,7 @@ tAST_Script	*Parse_Buffer(tSpiderVariant *Variant, char *Buffer)
 		// Define a function
 		case TOK_RWD_FUNCTION:
 			if( !Variant->bDyamicTyped ) {
-				fprintf(stderr, "ERROR: Attempt to create a dynamic function\n");
+				fprintf(stderr, "ERROR: Dynamic functions are invalid in static mode\n");
 				longjmp(Parser->JmpTarget, -1);
 			}
 			type = SS_DATATYPE_DYNAMIC;
