@@ -7,6 +7,7 @@
  * dir.c - Directory Handling
  */
 #include "common.h"
+#include "index.h"
 
 // === PROTOTYPES ===
 char	*NTFS_ReadDir(tVFS_Node *Node, int Pos);

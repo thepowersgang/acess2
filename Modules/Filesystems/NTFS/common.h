@@ -12,6 +12,8 @@
 #include <acess.h>
 #include <vfs.h>
 
+typedef Uint16	WCHAR;
+
 // === STRUCTURES ===
 /**
  * In-memory representation of an NTFS Disk
