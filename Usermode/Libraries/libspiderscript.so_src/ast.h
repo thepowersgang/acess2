@@ -116,11 +116,6 @@ struct sAST_Node
 		}	BinOp;
 		
 		struct {
-			 int	Length;
-			char	Data[];
-		}	String;
-		
-		struct {
 			tAST_Node	*FirstArg;
 			tAST_Node	*LastArg;
 			char	Name[];
@@ -160,6 +155,11 @@ struct sAST_Node
 			 int	DataType;
 			 tAST_Node	*Value;
 		}	Cast;
+		
+		struct {
+			 int	Length;
+			char	Data[];
+		}	String;
 		
 		uint64_t	Integer;
 		double	Real;

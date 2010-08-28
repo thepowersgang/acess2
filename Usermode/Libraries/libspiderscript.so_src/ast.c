@@ -66,6 +66,257 @@ void AST_SetFunctionCode(tAST_Function *Function, tAST_Node *Root)
  * \{
  */
 /**
+ * \brief Get the in-memory size of a node
+ */
+size_t AST_GetNodeSize(tAST_Node *Node)
+{
+	size_t	ret;
+	tAST_Node	*node;
+	
+	if(!Node)
+		return 0;
+	
+	ret = sizeof(tAST_Node*) + sizeof(tAST_NodeType)
+		+ sizeof(const char *) + sizeof(int);
+	
+	switch(Node->Type)
+	{
+	// Block of code
+	case NODETYPE_BLOCK:
+		ret += sizeof(Node->Block);
+		for( node = Node->Block.FirstChild; node; )
+		{
+			ret += AST_GetNodeSize(node);
+			node = node->NextSibling;
+		}
+		break;
+	
+	// Function Call
+	case NODETYPE_FUNCTIONCALL:
+		ret += sizeof(Node->FunctionCall) + strlen(Node->FunctionCall.Name) + 1;
+		for( node = Node->FunctionCall.FirstArg; node; )
+		{
+			ret += AST_GetNodeSize(node);
+			node = node->NextSibling;
+		}
+		break;
+	
+	// If node
+	case NODETYPE_IF:
+		ret += sizeof(Node->If);
+		ret += AST_GetNodeSize(Node->If.Condition);
+		ret += AST_GetNodeSize(Node->If.True);
+		ret += AST_GetNodeSize(Node->If.False);
+		break;
+	
+	// Looping Construct (For loop node)
+	case NODETYPE_LOOP:
+		ret += sizeof(Node->For);
+		ret += AST_GetNodeSize(Node->For.Init);
+		ret += AST_GetNodeSize(Node->For.Condition);
+		ret += AST_GetNodeSize(Node->For.Increment);
+		ret += AST_GetNodeSize(Node->For.Code);
+		break;
+	
+	// Asignment
+	case NODETYPE_ASSIGN:
+		ret += sizeof(Node->Assign);
+		ret += AST_GetNodeSize(Node->Assign.Dest);
+		ret += AST_GetNodeSize(Node->Assign.Value);
+		break;
+	
+	// Casting
+	case NODETYPE_CAST:
+		ret += sizeof(Node->Cast);
+		ret += AST_GetNodeSize(Node->Cast.Value);
+		break;
+	
+	// Define a variable
+	case NODETYPE_DEFVAR:
+		ret += sizeof(Node->DefVar) + strlen(Node->DefVar.Name) + 1;
+		for( node = Node->DefVar.LevelSizes; node; )
+		{
+			ret += AST_GetNodeSize(node);
+			node = node->NextSibling;
+		}
+		break;
+	
+	// Unary Operations
+	case NODETYPE_RETURN:
+		ret += sizeof(Node->UniOp);
+		ret += AST_GetNodeSize(Node->UniOp.Value);
+		break;
+	
+	// Binary Operations
+	case NODETYPE_INDEX:
+	case NODETYPE_ADD:
+	case NODETYPE_SUBTRACT:
+	case NODETYPE_MULTIPLY:
+	case NODETYPE_DIVIDE:
+	case NODETYPE_MODULO:
+	case NODETYPE_BITSHIFTLEFT:
+	case NODETYPE_BITSHIFTRIGHT:
+	case NODETYPE_BITROTATELEFT:
+	case NODETYPE_BWAND:	case NODETYPE_LOGICALAND:
+	case NODETYPE_BWOR: 	case NODETYPE_LOGICALOR:
+	case NODETYPE_BWXOR:	case NODETYPE_LOGICALXOR:
+	case NODETYPE_EQUALS:
+	case NODETYPE_LESSTHAN:
+	case NODETYPE_GREATERTHAN:
+		ret += sizeof(Node->BinOp);
+		ret += AST_GetNodeSize( Node->BinOp.Left );
+		ret += AST_GetNodeSize( Node->BinOp.Right );
+		break;
+	
+	// Node types with no children
+	case NODETYPE_NOP:
+		break;
+	case NODETYPE_VARIABLE:
+	case NODETYPE_CONSTANT:
+		ret += sizeof(Node->Variable) + strlen(Node->Variable.Name) + 1;
+		break;
+	case NODETYPE_STRING:
+		ret += sizeof(Node->String) + Node->String.Length;
+		break;
+	case NODETYPE_INTEGER:
+		ret += sizeof(Node->Integer);
+		break;
+	case NODETYPE_REAL:
+		ret += sizeof(Node->Real);
+		break;
+	}
+	return ret;
+}
+
+/**
+ * \brief Write a node to a file
+ */
+void AST_WriteNode(FILE *FP, tAST_Node *Node)
+{
+	tAST_Node	*node;
+	intptr_t	ptr;
+	
+	if(!Node)	return ;
+	
+	ptr = ftell(FP) + AST_GetNodeSize(Node);
+	fwrite(&ptr, sizeof(ptr), 1, FP);
+	fwrite(&Node->Type, sizeof(Node->Type), 1, FP);
+	ptr = 0;	fwrite(&ptr, sizeof(ptr), 1, FP);	// File
+	fwrite(&Node->Line, sizeof(Node->Line), 1, FP);
+	
+	ret = sizeof(tAST_Node*) + sizeof(tAST_NodeType)
+		+ sizeof(const char *) + sizeof(int);
+	
+	switch(Node->Type)
+	{
+	// Block of code
+	case NODETYPE_BLOCK:
+		ret += sizeof(Node->Block);
+		for( node = Node->Block.FirstChild; node; )
+		{
+			ret += AST_GetNodeSize(node);
+			node = node->NextSibling;
+		}
+		break;
+	
+	// Function Call
+	case NODETYPE_FUNCTIONCALL:
+		ret += sizeof(Node->FunctionCall) + strlen(Node->FunctionCall.Name) + 1;
+		for( node = Node->FunctionCall.FirstArg; node; )
+		{
+			ret += AST_GetNodeSize(node);
+			node = node->NextSibling;
+		}
+		break;
+	
+	// If node
+	case NODETYPE_IF:
+		ret += sizeof(Node->If);
+		ret += AST_GetNodeSize(Node->If.Condition);
+		ret += AST_GetNodeSize(Node->If.True);
+		ret += AST_GetNodeSize(Node->If.False);
+		break;
+	
+	// Looping Construct (For loop node)
+	case NODETYPE_LOOP:
+		ret += sizeof(Node->For);
+		ret += AST_GetNodeSize(Node->For.Init);
+		ret += AST_GetNodeSize(Node->For.Condition);
+		ret += AST_GetNodeSize(Node->For.Increment);
+		ret += AST_GetNodeSize(Node->For.Code);
+		break;
+	
+	// Asignment
+	case NODETYPE_ASSIGN:
+		ret += sizeof(Node->Assign);
+		ret += AST_GetNodeSize(Node->Assign.Dest);
+		ret += AST_GetNodeSize(Node->Assign.Value);
+		break;
+	
+	// Casting
+	case NODETYPE_CAST:
+		ret += sizeof(Node->Cast);
+		ret += AST_GetNodeSize(Node->Cast.Value);
+		break;
+	
+	// Define a variable
+	case NODETYPE_DEFVAR:
+		ret += sizeof(Node->DefVar) + strlen(Node->DefVar.Name) + 1;
+		for( node = Node->DefVar.LevelSizes; node; )
+		{
+			ret += AST_GetNodeSize(node);
+			node = node->NextSibling;
+		}
+		break;
+	
+	// Unary Operations
+	case NODETYPE_RETURN:
+		ret += sizeof(Node->UniOp);
+		ret += AST_GetNodeSize(Node->UniOp.Value);
+		break;
+	
+	// Binary Operations
+	case NODETYPE_INDEX:
+	case NODETYPE_ADD:
+	case NODETYPE_SUBTRACT:
+	case NODETYPE_MULTIPLY:
+	case NODETYPE_DIVIDE:
+	case NODETYPE_MODULO:
+	case NODETYPE_BITSHIFTLEFT:
+	case NODETYPE_BITSHIFTRIGHT:
+	case NODETYPE_BITROTATELEFT:
+	case NODETYPE_BWAND:	case NODETYPE_LOGICALAND:
+	case NODETYPE_BWOR: 	case NODETYPE_LOGICALOR:
+	case NODETYPE_BWXOR:	case NODETYPE_LOGICALXOR:
+	case NODETYPE_EQUALS:
+	case NODETYPE_LESSTHAN:
+	case NODETYPE_GREATERTHAN:
+		ret += sizeof(Node->BinOp);
+		ret += AST_GetNodeSize( Node->BinOp.Left );
+		ret += AST_GetNodeSize( Node->BinOp.Right );
+		break;
+	
+	// Node types with no children
+	case NODETYPE_NOP:
+		break;
+	case NODETYPE_VARIABLE:
+	case NODETYPE_CONSTANT:
+		ret += sizeof(Node->Variable) + strlen(Node->Variable.Name) + 1;
+		break;
+	case NODETYPE_STRING:
+		ret += sizeof(Node->String) + Node->String.Length;
+		break;
+	case NODETYPE_INTEGER:
+		ret += sizeof(Node->Integer);
+		break;
+	case NODETYPE_REAL:
+		ret += sizeof(Node->Real);
+		break;
+	}
+	return ret;
+}
+
+/**
  * \brief Free a node and all subnodes
  */
 void AST_FreeNode(tAST_Node *Node)
