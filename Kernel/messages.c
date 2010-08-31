@@ -6,6 +6,9 @@
 #include <threads.h>
 #include <errno.h>
 
+// === IMPORTS ===
+extern tShortSpinlock	glThreadListLock;
+
 // === CODE ===
 /**
  * \fn int Proc_SendMessage(Uint *Err, Uint Dest, int Length, void *Data)
@@ -60,7 +63,9 @@ int Proc_SendMessage(Uint *Err, Uint Dest, int Length, void *Data)
 	
 	SHORTREL(&thread->IsLocked);
 	
+	SHORTLOCK(&glThreadListLock);
 	Threads_Wake( thread );
+	SHORTREL(&glThreadListLock);
 	
 	return 0;
 }

@@ -398,7 +398,7 @@ int FDD_int_ReadWriteSector(Uint32 Disk, Uint64 SectorAddr, int Write, void *Buf
 		
 	// Read Data from DMA
 	LOG("Setting DMA for read");
-	DMA_SetChannel(2, 512, !Write);	// Read 512 Bytes from channel 2
+	DMA_SetChannel(2, 512, !Write);	// Read/Write 512 Bytes from channel 2
 	
 	LOG("Sending command");
 	
@@ -441,7 +441,7 @@ int FDD_int_ReadWriteSector(Uint32 Disk, Uint64 SectorAddr, int Write, void *Buf
 		st1 = FDD_int_GetByte(base);
 		st2 = FDD_int_GetByte(base);
 		
-		// Cylinder, Head and Sector (mutilated in some way
+		// Cylinder, Head and Sector (mutilated in some way)
 		rcy = FDD_int_GetByte(base);
 		rhe = FDD_int_GetByte(base);
 		rse = FDD_int_GetByte(base);
@@ -499,6 +499,7 @@ int FDD_int_ReadWriteSector(Uint32 Disk, Uint64 SectorAddr, int Write, void *Buf
 	// Don't turn the motor off now, wait for a while
 	gFDD_Devices[Disk].timer = Time_CreateTimer(MOTOR_OFF_DELAY, FDD_int_StopMotor, (void*)(tVAddr)Disk);
 
+	// Error check
 	if( i < FDD_MAX_READWRITE_ATTEMPTS ) {
 		LEAVE('i', 0);
 		return 0;

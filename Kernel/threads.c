@@ -91,7 +91,7 @@ void Threads_Init(void)
 	// Create Initial Task
 	gActiveThreads = &gThreadZero;
 	gAllThreads = &gThreadZero;
-	//giFreeTickets = gThreadZero.NumTickets;
+	//giFreeTickets = gThreadZero.NumTickets;	// Not needed, as ThreadZero is running
 	giNumActiveThreads = 1;
 		
 	Proc_Start();
@@ -385,7 +385,7 @@ void Threads_Kill(tThread *Thread, int Status)
 	tThread	*prev;
 	tMsg	*msg;
 	
-	// Kill all children
+	// TODO: Kill all children
 	#if 0
 	{
 		tThread	*child;
@@ -411,8 +411,8 @@ void Threads_Kill(tThread *Thread, int Status)
 	prev = Threads_int_GetPrev( &gActiveThreads, Thread );
 	if(!prev) {
 		Warning("Proc_Exit - Current thread is not on the active queue");
-		SHORTREL( &Thread->IsLocked );
 		SHORTREL( &glThreadListLock );
+		SHORTREL( &Thread->IsLocked );
 		return;
 	}
 	
@@ -510,7 +510,7 @@ void Threads_Sleep(void)
  * \brief Wakes a sleeping/waiting thread up
  * \param Thread	Thread to wake
  * \return Boolean Failure (Returns ERRNO)
- * \note Should be called with the scheduler lock held
+ * \warning This should ONLY be called with task switches disabled
  */
 int Threads_Wake(tThread *Thread)
 {
@@ -525,19 +525,22 @@ int Threads_Wake(tThread *Thread)
 		Log("Thread_Wake: Waking awake thread (%i)", Thread->TID);
 		return -EALREADY;
 	
-	case THREAD_STAT_SLEEPING:	// TODO: Comment better
+	case THREAD_STAT_SLEEPING:
 		// Remove from sleeping queue
 		prev = Threads_int_GetPrev(&gSleepingThreads, Thread);
 		prev->Next = Thread->Next;
+		
 		// Add to active queue
 		Thread->Next = gActiveThreads;
 		gActiveThreads = Thread;
+		
 		// Update bookkeeping
 		giNumActiveThreads ++;
 		giFreeTickets += Thread->NumTickets;
 		#if DEBUG_TRACE_TICKETS
 		Log("Threads_Wake: new giFreeTickets = %i", giFreeTickets);
 		#endif
+		
 		Thread->CurCPU = -1;
 		Thread->Status = THREAD_STAT_ACTIVE;
 		#if DEBUG_TRACE_STATE
@@ -573,6 +576,7 @@ int Threads_WakeTID(tTID TID)
 	SHORTLOCK( &glThreadListLock );
 	ret = Threads_Wake( thread );
 	SHORTREL( &glThreadListLock );
+	//Log_Debug("Threads", "TID %i woke %i (%p)", Threads_GetTID(), TID, thread);
 	return ret;
 }
 
@@ -714,7 +718,8 @@ void Threads_Dump(void)
 	{
 		Log(" %i (%i) - %s (CPU %i)",
 			thread->TID, thread->TGID, thread->ThreadName, thread->CurCPU);
-		Log("  State: %i", thread->Status);
+		if(thread->Status != THREAD_STAT_ACTIVE)
+			Log("  ERROR State (%i) != THREAD_STAT_ACTIVE (%i)", thread->Status, THREAD_STAT_ACTIVE);
 		Log("  %i Tickets, Quantum %i", thread->NumTickets, thread->Quantum);
 		Log("  KStack 0x%x", thread->KernelStack);
 	}
@@ -724,7 +729,7 @@ void Threads_Dump(void)
 	{
 		Log(" %i (%i) - %s (CPU %i)",
 			thread->TID, thread->TGID, thread->ThreadName, thread->CurCPU);
-		Log("  State: %i", thread->Status);
+		Log("  State %i", thread->Status);
 		Log("  %i Tickets, Quantum %i", thread->NumTickets, thread->Quantum);
 		Log("  KStack 0x%x", thread->KernelStack);
 	}
@@ -746,6 +751,7 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 	SHORTLOCK( &glThreadListLock );
 	
 	// Clear Delete Queue
+	// - I should probably put this in a worker thread to avoid calling free() in the scheduler
 	while(gDeleteThreads)
 	{
 		thread = gDeleteThreads->Next;
@@ -795,14 +801,14 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 		}
 		#if DEBUG_TRACE_TICKETS
 		else
-			LogF(" %p (%s)->Status = %i\n", Last, Last->ThreadName, Last->Status);
+			LogF(" %p (%s)->Status = %i (Released)\n", Last, Last->ThreadName, Last->Status);
 		#endif
 		Last->CurCPU = -1;
 	}
 	
 	#if 1
 	number = 0;
-	for(thread=gActiveThreads;thread;thread=thread->Next) {
+	for(thread = gActiveThreads; thread; thread = thread->Next) {
 		if(thread->CurCPU >= 0)	continue;
 		number += thread->NumTickets;
 	}
@@ -907,7 +913,7 @@ void Mutex_Acquire(tMutex *Mutex)
 		}
 		SHORTREL( &glThreadListLock );
 		SHORTREL( &Mutex->Protector );
-		while(us->Status == THREAD_STAT_OFFSLEEP)	HALT();
+		while(us->Status == THREAD_STAT_OFFSLEEP)	Threads_Yield();
 		// We're only woken when we get the lock
 	}
 	// Ooh, let's take it!

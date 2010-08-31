@@ -166,7 +166,8 @@ tPAddr MM_AllocPhys(void)
 	for( ; gaSuperBitmap[a] == -1 && a >= 0; a-- );
 	if(a < 0) {
 		Mutex_Release( &glPhysAlloc );
-		Warning("MM_AllocPhys - OUT OF MEMORY (Called by %p)", __builtin_return_address(0));
+		Warning("MM_AllocPhys - OUT OF MEMORY (Called by %p) - %lli/%lli used",
+			__builtin_return_address(0), giPhysAlloc, giPageCount);
 		LEAVE('i', 0);
 		return 0;
 	}
@@ -178,7 +179,9 @@ tPAddr MM_AllocPhys(void)
 	
 	if( indx < 0 ) {
 		Mutex_Release( &glPhysAlloc );
-		Warning("MM_AllocPhys - OUT OF MEMORY (Called by %p)", __builtin_return_address(0));
+		Warning("MM_AllocPhys - OUT OF MEMORY (Called by %p) - %lli/%lli used (indx = %x)",
+			__builtin_return_address(0), giPhysAlloc, giPageCount, indx);
+		Log_Debug("PMem", "giLastPossibleFree = %lli", giLastPossibleFree);
 		LEAVE('i', 0);
 		return 0;
 	}
