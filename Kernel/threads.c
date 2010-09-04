@@ -91,7 +91,7 @@ void Threads_Init(void)
 	// Create Initial Task
 	gActiveThreads = &gThreadZero;
 	gAllThreads = &gThreadZero;
-	//giFreeTickets = gThreadZero.NumTickets;	// Not needed, as ThreadZero is running
+	//giFreeTickets = gThreadZero.NumTickets;	// Not needed, as ThreadZero is scheduled
 	giNumActiveThreads = 1;
 		
 	Proc_Start();
@@ -100,6 +100,8 @@ void Threads_Init(void)
 /**
  * \fn void Threads_SetName(char *NewName)
  * \brief Sets the current thread's name
+ * \param NewName	New name for the thread
+ * \return Boolean Failure
  */
 int Threads_SetName(char *NewName)
 {
@@ -117,8 +119,11 @@ int Threads_SetName(char *NewName)
 /**
  * \fn char *Threads_GetName(int ID)
  * \brief Gets a thread's name
+ * \param ID	Thread ID (-1 indicates current thread)
+ * \return Pointer to name
+ * \retval NULL	Failure
  */
-char *Threads_GetName(int ID)
+char *Threads_GetName(tTID ID)
 {
 	if(ID == -1) {
 		return Proc_GetCurThread()->ThreadName;
@@ -130,18 +135,25 @@ char *Threads_GetName(int ID)
 /**
  * \fn void Threads_SetTickets(tThread *Thread, int Num)
  * \brief Sets the 'priority' of a task
+ * \param Thread	Thread to update ticket count (NULL means current thread)
+ * \param Num	New ticket count (must be >= 0, clipped to \a MAX_TICKETS)
  */
 void Threads_SetTickets(tThread *Thread, int Num)
 {
-	if(Thread == NULL)
-		Thread = Proc_GetCurThread();
+	// Get current thread
+	if(Thread == NULL)	Thread = Proc_GetCurThread();
+	// Bounds checking
 	if(Num < 0)	return;
 	if(Num > MAX_TICKETS)	Num = MAX_TICKETS;
 	
+	// If this isn't the current thread, we need to lock
 	if( Thread != Proc_GetCurThread() ) {
 		SHORTLOCK( &glThreadListLock );
 		giFreeTickets -= Thread->NumTickets - Num;
 		Thread->NumTickets = Num;
+		#if DEBUG_TRACE_TICKETS
+		Log("Threads_SetTickets: new giFreeTickets = %i", giFreeTickets);
+		#endif
 		SHORTREL( &glThreadListLock );
 	}
 	else
@@ -150,6 +162,9 @@ void Threads_SetTickets(tThread *Thread, int Num)
 
 /**
  * \fn tThread *Threads_CloneTCB(Uint *Err, Uint Flags)
+ * \brief Clone the TCB of the current thread
+ * \param Err	Error pointer
+ * \param Flags	Flags for something... (What is this for?)
  */
 tThread *Threads_CloneTCB(Uint *Err, Uint Flags)
 {
@@ -223,23 +238,28 @@ tThread *Threads_CloneTCB(Uint *Err, Uint Flags)
 
 /**
  * \fn Uint *Threads_GetCfgPtr(int Id)
+ * \brief Get a configuration pointer from the Per-Thread data area
+ * \param ID	Config slot ID
+ * \return Pointer at ID
  */
-Uint *Threads_GetCfgPtr(int Id)
+Uint *Threads_GetCfgPtr(int ID)
 {
-	if(Id < 0 || Id >= NUM_CFG_ENTRIES) {
-		Warning("Threads_GetCfgPtr: Index %i is out of bounds", Id);
+	if(ID < 0 || ID >= NUM_CFG_ENTRIES) {
+		Warning("Threads_GetCfgPtr: Index %i is out of bounds", ID);
 		return NULL;
 	}
 	
-	return &Proc_GetCurThread()->Config[Id];
+	return &Proc_GetCurThread()->Config[ID];
 }
 
 /**
- * \fn tTID Threads_WaitTID(int TID, int *status)
+ * \fn tTID Threads_WaitTID(int TID, int *Status)
  * \brief Wait for a task to change state
+ * \param TID	Thread ID to wait on (-1: Any child thread, 0: Any Child/Sibling, <-1: -PID)
+ * \param Status	Thread return status
  * \return TID of child that changed state
  */
-int Threads_WaitTID(int TID, int *status)
+tTID Threads_WaitTID(int TID, int *Status)
 {	
 	// Any Child
 	if(TID == -1) {
@@ -263,7 +283,7 @@ int Threads_WaitTID(int TID, int *status)
 	if(TID > 0) {
 		tThread	*t = Threads_GetThread(TID);
 		 int	initStatus = t->Status;
-		 int	ret;
+		tTID	ret;
 		
 		if(initStatus != THREAD_STAT_ZOMBIE) {
 			// TODO: Handle child also being suspended if wanted
@@ -276,19 +296,19 @@ int Threads_WaitTID(int TID, int *status)
 		
 		Log_Debug("Threads", "%i waiting for %i, t->Status = %i",
 			Threads_GetTID(), t->TID, t->Status);
-		ret = t->RetStatus;
+		ret = t->TID;
 		switch(t->Status)
 		{
 		case THREAD_STAT_ZOMBIE:
 			// Kill the thread
 			t->Status = THREAD_STAT_DEAD;
 			// TODO: Child return value?
-			if(status)	*status = 0;
+			if(Status)	*Status = t->RetStatus;
 			// add to delete queue
 			Threads_AddToDelete( t );
 			break;
 		default:
-			if(status)	*status = -1;
+			if(Status)	*Status = -1;
 			break;
 		}
 		return ret;
@@ -301,6 +321,7 @@ int Threads_WaitTID(int TID, int *status)
  * \fn tThread *Threads_GetThread(Uint TID)
  * \brief Gets a thread given its TID
  * \param TID	Thread ID
+ * \return Thread pointer
  */
 tThread *Threads_GetThread(Uint TID)
 {
@@ -323,6 +344,7 @@ tThread *Threads_GetThread(Uint TID)
 /**
  * \fn void Threads_AddToDelete(tThread *Thread)
  * \brief Adds a thread to the delete queue
+ * \param Thread	Thread to delete
  */
 void Threads_AddToDelete(tThread *Thread)
 {
@@ -339,6 +361,9 @@ void Threads_AddToDelete(tThread *Thread)
 /**
  * \fn tThread *Threads_int_GetPrev(tThread **List, tThread *Thread)
  * \brief Gets the previous entry in a thead linked list
+ * \param List	Pointer to the list head
+ * \param Thread	Thread to find
+ * \return Thread before \a Thread on \a List
  */
 tThread *Threads_int_GetPrev(tThread **List, tThread *Thread)
 {
@@ -346,7 +371,9 @@ tThread *Threads_int_GetPrev(tThread **List, tThread *Thread)
 	// First Entry
 	if(*List == Thread) {
 		return (tThread*)List;
-	} else {
+	}
+	// Or not
+	else {
 		for(ret = *List;
 			ret->Next && ret->Next != Thread;
 			ret = ret->Next
@@ -361,7 +388,9 @@ tThread *Threads_int_GetPrev(tThread **List, tThread *Thread)
 
 /**
  * \fn void Threads_Exit(int TID, int Status)
- * \brief Exit the current process
+ * \brief Exit the current process (or another?)
+ * \param TID	Thread ID to kill
+ * \param Status	Exit status
  */
 void Threads_Exit(int TID, int Status)
 {
@@ -457,7 +486,7 @@ void Threads_Kill(tThread *Thread, int Status)
 
 /**
  * \fn void Threads_Yield(void)
- * \brief Yield remainder of timeslice
+ * \brief Yield remainder of the current thread's timeslice
  */
 void Threads_Yield(void)
 {
@@ -472,8 +501,6 @@ void Threads_Yield(void)
 void Threads_Sleep(void)
 {
 	tThread *cur = Proc_GetCurThread();
-	
-	//Log_Log("Threads", "%i going to sleep", cur->TID);
 	
 	// Acquire Spinlock
 	SHORTLOCK( &glThreadListLock );
