@@ -10,6 +10,9 @@
 #define	KERNEL_BASE	0xC0000000
 #define BITS	32
 
+// Allow nested spinlocks?
+#define STACKED_LOCKS	1
+
 // - Processor/Machine Specific Features
 #if ARCH != i386 && ARCH != i486 && ARCH != i586
 # error "Unknown architecture '" #ARCH "'"
@@ -36,6 +39,9 @@
 struct sShortSpinlock {
 	volatile int	Lock;	//!< Lock value
 	 int	IF;	//!< Interrupt state on call to SHORTLOCK
+	#if STACKED_LOCKS
+	 int	Depth;
+	#endif
 };
 /**
  * \brief Determine if a short spinlock is locked
@@ -53,20 +59,42 @@ static inline int IS_LOCKED(struct sShortSpinlock *Lock) {
  * an element to linked list (usually two assignement lines in C)
  * 
  * \note This type of lock halts interrupts, so ensure that no timing
- * functions are called while it is held.
+ * functions are called while it is held. As a matter of fact, spend as
+ * little time as possible with this lock held
  */
 static inline void SHORTLOCK(struct sShortSpinlock *Lock) {
 	 int	v = 1;
 	 int	IF;
-	// int	cpu = GetCPUNum() + 1;
+	#if STACKED_LOCKS
+	extern int	GetCPUNum(void);
+	 int	cpu = GetCPUNum() + 1;
+	#endif
 	
 	// Save interrupt state and clear interrupts
 	__ASM__ ("pushf;\n\tpop %%eax\n\tcli" : "=a"(IF));
 	IF &= 0x200;	// AND out all but the interrupt flag
 	
+	#if STACKED_LOCKS
+	if( Lock->Lock == cpu ) {
+		Lock->Depth ++;
+		return ;
+	}
+	#endif
+	
 	// Wait for another CPU to release
-	while(v)
+	while(v) {
+		#if STACKED_LOCKS
+		// CMPXCHG:
+		//  If r/m32 == EAX, set ZF and set r/m32 = r32
+		//  Else, clear ZF and set EAX = r/m32
+		__ASM__("lock cmpxchgl %%ecx, (%%edi)"
+			: "=a"(v)
+			: "a"(0), "c"(cpu), "D"(&Lock->Lock)
+			);
+		#else
 		__ASM__("xchgl %%eax, (%%edi)":"=a"(v):"a"(1),"D"(&Lock->Lock));
+		#endif
+	}
 	
 	Lock->IF = IF;
 }
@@ -75,6 +103,12 @@ static inline void SHORTLOCK(struct sShortSpinlock *Lock) {
  * \param Lock	Lock pointer
  */
 static inline void SHORTREL(struct sShortSpinlock *Lock) {
+	#if STACKED_LOCKS
+	if( Lock->Depth ) {
+		Lock->Depth --;
+		return ;
+	}
+	#endif
 	// Lock->IF can change anytime once Lock->Lock is zeroed
 	if(Lock->IF) {
 		Lock->Lock = 0;

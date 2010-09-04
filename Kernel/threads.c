@@ -43,6 +43,7 @@ void	Threads_Yield(void);
 void	Threads_Sleep(void);
  int	Threads_Wake(tThread *Thread);
 void	Threads_AddActive(tThread *Thread);
+void	Threads_int_AddActive(tThread *Thread);
 tThread	*Threads_RemActive(void);
  int	Threads_GetPID(void);
  int	Threads_GetTID(void);
@@ -69,15 +70,15 @@ tThread	gThreadZero = {
 // --- Locks ---
 tShortSpinlock	glThreadListLock;	///\note NEVER use a heap function while locked
 // --- Current State ---
-volatile int	giNumActiveThreads = 0;
-volatile int	giFreeTickets = 0;
-volatile Uint	giNextTID = 1;
+volatile int	giNumActiveThreads = 0;	// Number of threads on the active queue
+volatile int	giFreeTickets = 0;	// Number of tickets held by non-scheduled threads
+volatile Uint	giNextTID = 1;	// Next TID to allocate
 // --- Thread Lists ---
 tThread	*gAllThreads = NULL;		// All allocated threads
 tThread	*gActiveThreads = NULL;		// Currently Running Threads
 tThread	*gSleepingThreads = NULL;	// Sleeping Threads
 tThread	*gDeleteThreads = NULL;		// Threads to delete
- int	giNumCPUs = 1;
+ int	giNumCPUs = 1;	// Number of CPUs
 
 // === CODE ===
 /**
@@ -108,6 +109,9 @@ int Threads_SetName(char *NewName)
 	tThread	*cur = Proc_GetCurThread();
 	char	*oldname = cur->ThreadName;
 	
+	// NOTE: There is a possibility of non-thread safety here
+	// A thread could read the current name pointer before it is zeroed
+	
 	cur->ThreadName = NULL;
 	
 	if( IsHeap(oldname) )	free( oldname );
@@ -128,8 +132,7 @@ char *Threads_GetName(tTID ID)
 	if(ID == -1) {
 		return Proc_GetCurThread()->ThreadName;
 	}
-	// TODO: Find a thread and get its name
-	return NULL;
+	return Threads_GetThread(ID)->ThreadName;
 }
 
 /**
@@ -172,6 +175,7 @@ tThread *Threads_CloneTCB(Uint *Err, Uint Flags)
 	 int	i;
 	cur = Proc_GetCurThread();
 	
+	// Allocate and duplicate
 	new = malloc(sizeof(tThread));
 	if(new == NULL) {
 		*Err = -ENOMEM;
@@ -182,7 +186,7 @@ tThread *Threads_CloneTCB(Uint *Err, Uint Flags)
 	new->CurCPU = -1;
 	new->Next = NULL;
 	memset( &new->IsLocked, 0, sizeof(new->IsLocked));
-	new->Status = THREAD_STAT_ACTIVE;
+	new->Status = THREAD_STAT_PREINIT;
 	new->RetStatus = 0;
 	
 	// Get Thread ID
@@ -237,7 +241,6 @@ tThread *Threads_CloneTCB(Uint *Err, Uint Flags)
 }
 
 /**
- * \fn Uint *Threads_GetCfgPtr(int Id)
  * \brief Get a configuration pointer from the Per-Thread data area
  * \param ID	Config slot ID
  * \return Pointer at ID
@@ -253,7 +256,6 @@ Uint *Threads_GetCfgPtr(int ID)
 }
 
 /**
- * \fn tTID Threads_WaitTID(int TID, int *Status)
  * \brief Wait for a task to change state
  * \param TID	Thread ID to wait on (-1: Any child thread, 0: Any Child/Sibling, <-1: -PID)
  * \param Status	Thread return status
@@ -285,6 +287,7 @@ tTID Threads_WaitTID(int TID, int *Status)
 		 int	initStatus = t->Status;
 		tTID	ret;
 		
+		// Wait for the thread to die!
 		if(initStatus != THREAD_STAT_ZOMBIE) {
 			// TODO: Handle child also being suspended if wanted
 			while(t->Status != THREAD_STAT_ZOMBIE) {
@@ -294,6 +297,7 @@ tTID Threads_WaitTID(int TID, int *Status)
 			}
 		}
 		
+		// Set return status
 		Log_Debug("Threads", "%i waiting for %i, t->Status = %i",
 			Threads_GetTID(), t->TID, t->Status);
 		ret = t->TID;
@@ -318,7 +322,6 @@ tTID Threads_WaitTID(int TID, int *Status)
 }
 
 /**
- * \fn tThread *Threads_GetThread(Uint TID)
  * \brief Gets a thread given its TID
  * \param TID	Thread ID
  * \return Thread pointer
@@ -342,13 +345,13 @@ tThread *Threads_GetThread(Uint TID)
 }
 
 /**
- * \fn void Threads_AddToDelete(tThread *Thread)
  * \brief Adds a thread to the delete queue
  * \param Thread	Thread to delete
  */
 void Threads_AddToDelete(tThread *Thread)
 {
 	// Add to delete queue
+	// TODO: Is locking needed?
 	if(gDeleteThreads) {
 		Thread->Next = gDeleteThreads;
 		gDeleteThreads = Thread;
@@ -359,11 +362,13 @@ void Threads_AddToDelete(tThread *Thread)
 }
 
 /**
- * \fn tThread *Threads_int_GetPrev(tThread **List, tThread *Thread)
  * \brief Gets the previous entry in a thead linked list
  * \param List	Pointer to the list head
  * \param Thread	Thread to find
  * \return Thread before \a Thread on \a List
+ * \note This uses a massive hack of assuming that the first field in the
+ *       structure is the .Next pointer. By doing this, we can return \a List
+ *       as a (tThread*) and simplify other code.
  */
 tThread *Threads_int_GetPrev(tThread **List, tThread *Thread)
 {
@@ -387,7 +392,6 @@ tThread *Threads_int_GetPrev(tThread **List, tThread *Thread)
 }
 
 /**
- * \fn void Threads_Exit(int TID, int Status)
  * \brief Exit the current process (or another?)
  * \param TID	Thread ID to kill
  * \param Status	Exit status
@@ -398,9 +402,9 @@ void Threads_Exit(int TID, int Status)
 		Threads_Kill( Proc_GetCurThread(), (Uint)Status & 0xFF );
 	else
 		Threads_Kill( Threads_GetThread(TID), (Uint)Status & 0xFF );
+	
 	// Halt forever, just in case
-	for(;;)
-		HALT();
+	for(;;)	HALT();
 }
 
 /**
@@ -418,6 +422,7 @@ void Threads_Kill(tThread *Thread, int Status)
 	#if 0
 	{
 		tThread	*child;
+		// TODO: I should keep a .Parent pointer, and a .Children list
 		for(child = gActiveThreads;
 			child;
 			child = child->Next)
@@ -449,14 +454,16 @@ void Threads_Kill(tThread *Thread, int Status)
 	while( Thread->Messages )
 	{
 		msg = Thread->Messages->Next;
-		free( Thread->Messages );
+		free( Thread->Messages );	// BIG NO-NO
 		Thread->Messages = msg;
 	}
 	
+	// Ensure that we are not rescheduled
 	Thread->Remaining = 0;	// Clear Remaining Quantum
 	Thread->Quantum = 0;	// Clear Quantum to indicate dead thread
 	prev->Next = Thread->Next;	// Remove from active
 	
+	// Update bookkeeping
 	giNumActiveThreads --;
 	if( Thread != Proc_GetCurThread() )
 		giFreeTickets -= Thread->NumTickets;
@@ -464,7 +471,7 @@ void Threads_Kill(tThread *Thread, int Status)
 	// Save exit status
 	Thread->RetStatus = Status;
 	
-	// Don't Zombie if we are being killed as part of a tree
+	// Don't Zombie if we are being killed because our parent is
 	if(Status == -1)
 	{
 		Thread->Status = THREAD_STAT_DEAD;
@@ -478,20 +485,25 @@ void Threads_Kill(tThread *Thread, int Status)
 	Log("Thread %i went *hurk* (%i)", Thread->TID, Thread->Status);
 	
 	// Release spinlocks
-	SHORTREL( &Thread->IsLocked );
 	SHORTREL( &glThreadListLock );
+	SHORTREL( &Thread->IsLocked );	// TODO: We may not actually be released...
 	
-	if(Status != -1)	HALT();
+	// And, reschedule
+	if(Status != -1) {
+		for( ;; )
+			HALT();
+	}
 }
 
 /**
- * \fn void Threads_Yield(void)
  * \brief Yield remainder of the current thread's timeslice
  */
 void Threads_Yield(void)
 {
-	Proc_GetCurThread()->Remaining = 0;
-	HALT();
+	tThread	*thread = Proc_GetCurThread();
+	thread->Remaining = 0;
+	//while(thread->Remaining == 0)
+		HALT();
 }
 
 /**
@@ -513,13 +525,13 @@ void Threads_Sleep(void)
 	
 	// Remove us from running queue
 	Threads_RemActive();
+	// Mark thread as sleeping
+	cur->Status = THREAD_STAT_SLEEPING;
 	
 	// Add to Sleeping List (at the top)
 	cur->Next = gSleepingThreads;
 	gSleepingThreads = cur;
 	
-	// Mark thread as sleeping
-	cur->Status = THREAD_STAT_SLEEPING;
 	
 	#if DEBUG_TRACE_STATE
 	Log("Threads_Sleep: %p (%i %s) sleeping", cur, cur->TID, cur->ThreadName);
@@ -557,19 +569,8 @@ int Threads_Wake(tThread *Thread)
 		prev = Threads_int_GetPrev(&gSleepingThreads, Thread);
 		prev->Next = Thread->Next;
 		
-		// Add to active queue
-		Thread->Next = gActiveThreads;
-		gActiveThreads = Thread;
+		Threads_int_AddActive( Thread );
 		
-		// Update bookkeeping
-		giNumActiveThreads ++;
-		giFreeTickets += Thread->NumTickets;
-		#if DEBUG_TRACE_TICKETS
-		Log("Threads_Wake: new giFreeTickets = %i", giFreeTickets);
-		#endif
-		
-		Thread->CurCPU = -1;
-		Thread->Status = THREAD_STAT_ACTIVE;
 		#if DEBUG_TRACE_STATE
 		Log("Threads_Sleep: %p (%i %s) woken", Thread, Thread->TID, Thread->ThreadName);
 		#endif
@@ -608,22 +609,35 @@ int Threads_WakeTID(tTID TID)
 }
 
 /**
- * \fn void Threads_AddActive(tThread *Thread)
  * \brief Adds a thread to the active queue
  */
 void Threads_AddActive(tThread *Thread)
 {
 	SHORTLOCK( &glThreadListLock );
+	Threads_int_AddActive(Thread);
+	SHORTREL( &glThreadListLock );
+}
+
+/**
+ * \brief Adds a thread to the active queue
+ * \note This version MUST have the thread list lock held
+ */
+void Threads_int_AddActive(tThread *Thread)
+{
 	// Add to active list
 	Thread->Next = gActiveThreads;
 	gActiveThreads = Thread;
+	// Set state
+	Thread->Status = THREAD_STAT_ACTIVE;
+	Thread->CurCPU = -1;
+	
 	// Update bookkeeping
 	giNumActiveThreads ++;
 	giFreeTickets += Thread->NumTickets;
+	
 	#if DEBUG_TRACE_TICKETS
-	Log("Threads_AddActive: new giFreeTickets = %i", giFreeTickets);
+	Log("Threads_int_AddActive: new giFreeTickets = %i", giFreeTickets);
 	#endif
-	SHORTREL( &glThreadListLock );
 }
 
 /**
@@ -763,7 +777,6 @@ void Threads_Dump(void)
 }
 
 /**
- * \fn tThread *Threads_GetNextToRun(int CPU, tThread *Last)
  * \brief Gets the next thread to run
  * \param CPU	Current CPU
  * \param Last	The thread the CPU was running
@@ -962,7 +975,6 @@ void Mutex_Release(tMutex *Mutex)
 		Mutex->Owner = Mutex->Waiting;	// Set owner
 		Mutex->Waiting = Mutex->Waiting->Next;	// Next!
 		// Wake new owner
-		Mutex->Owner->Status = THREAD_STAT_ACTIVE;
 		Threads_AddActive(Mutex->Owner);
 		//Log("Mutex %p Woke %p", Mutex, Mutex->Owner);
 	}

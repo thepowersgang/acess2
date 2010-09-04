@@ -67,6 +67,7 @@ enum {
 	THREAD_STAT_SLEEPING,	// Message Sleep
 	THREAD_STAT_OFFSLEEP,	// Mutex Sleep (or waiting on a thread)
 	THREAD_STAT_WAITING,	// ???
+	THREAD_STAT_PREINIT,	// Being created
 	THREAD_STAT_ZOMBIE,	// Died, just not removed
 	THREAD_STAT_DEAD	// Why do we care about these???
 };

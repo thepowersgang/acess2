@@ -678,7 +678,6 @@ int Proc_SpawnWorker(void)
 	// Set EIP as parent
 	new->SavedState.EIP = eip;
 	// Mark as active
-	new->Status = THREAD_STAT_ACTIVE;
 	Threads_AddActive( new );
 	
 	return new->TID;
