@@ -12,6 +12,7 @@
 
 // Allow nested spinlocks?
 #define STACKED_LOCKS	1
+#define LOCK_DISABLE_INTS	0
 
 // - Processor/Machine Specific Features
 #if ARCH != i386 && ARCH != i486 && ARCH != i586
@@ -38,7 +39,9 @@
  */
 struct sShortSpinlock {
 	volatile int	Lock;	//!< Lock value
+	#if LOCK_DISABLE_INTS
 	 int	IF;	//!< Interrupt state on call to SHORTLOCK
+	#endif
 	#if STACKED_LOCKS
 	 int	Depth;
 	#endif
@@ -50,6 +53,16 @@ struct sShortSpinlock {
 static inline int IS_LOCKED(struct sShortSpinlock *Lock) {
 	return !!Lock->Lock;
 }
+
+/**
+ * \brief Check if the current CPU has the lock
+ * \param Lock	Lock pointer
+ */
+static inline int CPU_HAS_LOCK(struct sShortSpinlock *Lock) {
+	extern int	GetCPUNum(void);
+	return Lock->Lock == GetCPUNum() + 1;
+}
+
 /**
  * \brief Acquire a Short Spinlock
  * \param Lock	Lock pointer
@@ -64,15 +77,19 @@ static inline int IS_LOCKED(struct sShortSpinlock *Lock) {
  */
 static inline void SHORTLOCK(struct sShortSpinlock *Lock) {
 	 int	v = 1;
+	#if LOCK_DISABLE_INTS
 	 int	IF;
+	#endif
 	#if STACKED_LOCKS
 	extern int	GetCPUNum(void);
 	 int	cpu = GetCPUNum() + 1;
 	#endif
 	
+	#if LOCK_DISABLE_INTS
 	// Save interrupt state and clear interrupts
 	__ASM__ ("pushf;\n\tpop %%eax\n\tcli" : "=a"(IF));
 	IF &= 0x200;	// AND out all but the interrupt flag
+	#endif
 	
 	#if STACKED_LOCKS
 	if( Lock->Lock == cpu ) {
@@ -87,16 +104,18 @@ static inline void SHORTLOCK(struct sShortSpinlock *Lock) {
 		// CMPXCHG:
 		//  If r/m32 == EAX, set ZF and set r/m32 = r32
 		//  Else, clear ZF and set EAX = r/m32
-		__ASM__("lock cmpxchgl %%ecx, (%%edi)"
+		__ASM__("lock cmpxchgl %2, (%3)"
 			: "=a"(v)
-			: "a"(0), "c"(cpu), "D"(&Lock->Lock)
+			: "a"(0), "r"(cpu), "r"(&Lock->Lock)
 			);
 		#else
 		__ASM__("xchgl %%eax, (%%edi)":"=a"(v):"a"(1),"D"(&Lock->Lock));
 		#endif
 	}
 	
+	#if LOCK_DISABLE_INTS
 	Lock->IF = IF;
+	#endif
 }
 /**
  * \brief Release a short lock
@@ -109,6 +128,8 @@ static inline void SHORTREL(struct sShortSpinlock *Lock) {
 		return ;
 	}
 	#endif
+	
+	#if LOCK_DISABLE_INTS
 	// Lock->IF can change anytime once Lock->Lock is zeroed
 	if(Lock->IF) {
 		Lock->Lock = 0;
@@ -117,6 +138,9 @@ static inline void SHORTREL(struct sShortSpinlock *Lock) {
 	else {
 		Lock->Lock = 0;
 	}
+	#else
+	Lock->Lock = 0;
+	#endif
 }
 
 // === MACROS ===
