@@ -165,10 +165,10 @@ extern int	VFS_ChRoot(char *New);
  * \brief Change the location of the current file pointer
  * \param FD	File handle returned by ::VFS_Open
  * \param Offset	Offset within the file to go to
- * \param Direction	A direction from ::eVFS_SeekDirs
+ * \param Whence	A direction from ::eVFS_SeekDirs
  * \return Boolean success
  */
-extern int	VFS_Seek(int FD, Sint64 Offset, int Direction);
+extern int	VFS_Seek(int FD, Sint64 Offset, int Whence);
 /**
  * \brief Returns the current file pointer
  * \param FD	File handle returned by ::VFS_Open

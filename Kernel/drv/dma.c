@@ -39,8 +39,8 @@ t_dmaChannel	dma_channels[8];
 
 // === CODE ===
 /**
- * \fn int DMA_Install(void)
  * \brief Initialise DMA channels
+ * \param Arguments	Arguments passed at boot time
  */
 int DMA_Install(char **Arguments)
 {

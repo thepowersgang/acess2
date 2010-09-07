@@ -167,7 +167,7 @@ char *VFS_GetAbsPath(const char *Path)
 }
 
 /**
- * \fn char *VFS_ParsePath(char *Path, char **TruePath)
+ * \fn char *VFS_ParsePath(const char *Path, char **TruePath)
  * \brief Parses a path, resolving sysmlinks and applying permissions
  */
 tVFS_Node *VFS_ParsePath(const char *Path, char **TruePath)

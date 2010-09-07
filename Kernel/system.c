@@ -221,7 +221,8 @@ void System_ParseVFS(char *Arg)
 }
 
 /**
- * \biref Parse a module argument string
+ * \brief Parse a module argument string
+ * \param Arg	Argument string
  */
 void System_ParseModuleArgs(char *Arg)
 {

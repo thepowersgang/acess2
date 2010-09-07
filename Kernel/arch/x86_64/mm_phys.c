@@ -307,24 +307,24 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 
 /**
  * \brief Allocate a contiguous range of physical pages with a maximum
- *        bit size of \a Bits
- * \param Num	Number of pages to allocate
- * \param Bits	Maximum size of the physical address
- * \note If \a Bits is <= 0, any sized address is used (with preference
+ *        bit size of \a MaxBits
+ * \param Pages	Number of pages to allocate
+ * \param MaxBits	Maximum size of the physical address
+ * \note If \a MaxBits is <= 0, any sized address is used (with preference
  *       to higher addresses)
  */
-tPAddr MM_AllocPhysRange(int Num, int Bits)
+tPAddr MM_AllocPhysRange(int Pages, int MaxBits)
 {
 	tPAddr	addr, ret;
 	 int	rangeID;
 	 int	nFree = 0, i;
 	
-	ENTER("iNum iBits", Num, Bits);
+	ENTER("iPages iBits", Pages, MaxBits);
 	
-	if( Bits <= 0 || Bits >= 64 )	// Speedup for the common case
+	if( MaxBits <= 0 || MaxBits >= 64 )	// Speedup for the common case
 		rangeID = MM_PHYS_MAX;
 	else
-		rangeID = MM_int_GetRangeID( (1LL << Bits) - 1 );
+		rangeID = MM_int_GetRangeID( (1LL << MaxBits) - 1 );
 	
 	LOG("rangeID = %i", rangeID);
 	
@@ -344,14 +344,14 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 		Warning(" MM_AllocPhysRange: Out of free pages");
 		Log_Warning("Arch",
 			"Out of memory (unable to fulfil request for %i pages), zero remaining",
-			Num
+			Pages
 			);
 		LEAVE('i', 0);
 		return 0;
 	}
 	
 	// Check if there is enough in the range
-	if(giPhysRangeFree[rangeID] >= Num)
+	if(giPhysRangeFree[rangeID] >= Pages)
 	{
 		LOG("{%i,0x%x -> 0x%x}",
 			giPhysRangeFree[rangeID],
@@ -389,14 +389,14 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 			}
 			nFree ++;
 			addr ++;
-			LOG("nFree(%i) == %i (0x%x)", nFree, Num, addr);
+			LOG("nFree(%i) == %i (0x%x)", nFree, Pages, addr);
 			if(nFree == Num)
 				break;
 		}
 		LOG("nFree = %i", nFree);
 		// If we don't find a contiguous block, nFree will not be equal
 		// to Num, so we set it to zero and do the expensive lookup.
-		if(nFree != Num)	nFree = 0;
+		if(nFree != Pages)	nFree = 0;
 	}
 	
 	if( !nFree )
@@ -420,8 +420,8 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 	LOG("nFree = %i, addr = 0x%08x", nFree, addr);
 	
 	// Mark pages as allocated
-	addr -= Num;
-	for( i = 0; i < Num; i++, addr++ )
+	addr -= Pages;
+	for( i = 0; i < Pages; i++, addr++ )
 	{
 		gaMainBitmap[addr >> 6] |= 1LL << (addr & 63);
 		rangeID = MM_int_GetRangeID(addr << 12);
@@ -433,10 +433,10 @@ tPAddr MM_AllocPhysRange(int Num, int Bits)
 	ret = addr;	// Save the return address
 	
 	// Update super bitmap
-	Num += addr & (64-1);
+	Pages += addr & (64-1);
 	addr &= ~(64-1);
-	Num = (Num + (64-1)) & ~(64-1);
-	for( i = 0; i < Num/64; i++ )
+	Pages = (Pages + (64-1)) & ~(64-1);
+	for( i = 0; i < Pages/64; i++ )
 	{
 		if( gaMainBitmap[ addr >> 6 ] + 1 == 0 )
 			gaSuperBitmap[addr>>12] |= 1LL << ((addr >> 6) & 63);

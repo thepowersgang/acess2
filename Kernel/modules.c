@@ -254,7 +254,8 @@ void Modules_LoadBuiltins()
 
 /**
  * \brief Initialise a builtin module given it's name
- * \example Used by VTerm to load an alternate video driver at runtime
+ * 
+ * E.g. Used by VTerm to load an alternate video driver at runtime
  */
 int Modules_InitialiseBuiltin(const char *Name)
 {

@@ -687,8 +687,10 @@ Uint rand(void)
 	return giRandomState;
 }
 
-/// \name Memory Validation
-/// \{
+/* *
+ * \name Memory Validation
+ * \{
+ */
 /**
  * \brief Checks if a string resides fully in valid memory
  */
@@ -754,7 +756,9 @@ int CheckMem(void *Mem, int NumBytes)
 	}
 	return 0;
 }
-/// \}
+/* *
+ * \}
+ */
 
 /**
  * \brief Search a string array for \a Needle

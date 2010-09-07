@@ -262,6 +262,7 @@ extern tPAddr	MM_AllocPhys(void);
 /**
  * \brief Allocate a contiguous range of physical pages
  * \param Pages	Number of pages to allocate
+ * \param MaxBits	Maximum number of address bits allowed
  * \return First physical address allocated
  */
 extern tPAddr	MM_AllocPhysRange(int Pages, int MaxBits);

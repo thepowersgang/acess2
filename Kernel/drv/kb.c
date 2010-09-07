@@ -54,7 +54,7 @@ Uint8	gbaKB_States[3][256];
 
 // === CODE ===
 /**
- * \fn int KB_Install(char **Arguments)
+ * \brief Install the keyboard driver
  */
 int KB_Install(char **Arguments)
 {
@@ -74,8 +74,8 @@ int KB_Install(char **Arguments)
 }
 
 /**
- * \fn void KB_IRQHandler()
  * \brief Called on a keyboard IRQ
+ * \param IRQNum	IRQ number (unused)
  */
 void KB_IRQHandler(int IRQNum)
 {

@@ -56,7 +56,7 @@ extern void	*VM8086_Allocate(tVM8086 *State, int Size, Uint16 *Segment, Uint16 *
  * \param Offset	Source Offset
  * \return Host pointer to the emulated memory
  */
-extern void *VM8086_GetPointer(tVM8086 *State, Uint16 Segment, Uint16 Ofs);
+extern void *VM8086_GetPointer(tVM8086 *State, Uint16 Segment, Uint16 Offset);
 /**
  * \brief Calls a real-mode interrupt described by the current state of the IVT.
  * \param State	Emulator State

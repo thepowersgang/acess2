@@ -128,7 +128,7 @@ char *DevFS_ReadDir(tVFS_Node *Node, int Pos)
 }
 
 /**
- * \fn tVFS_Node *DevFS_FindDir(tVFS_Node *Node, char *Name)
+ * \fn tVFS_Node *DevFS_FindDir(tVFS_Node *Node, const char *Name)
  * \brief Get an entry from the devices directory
  */
 tVFS_Node *DevFS_FindDir(tVFS_Node *Node, const char *Name)

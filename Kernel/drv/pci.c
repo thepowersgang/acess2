@@ -79,8 +79,8 @@ Uint32	gaPCI_BusBitmap[256/32];
  
 // === CODE ===
 /**
- * \fn int PCI_Install()
  * \brief Scan the PCI Bus for devices
+ * \param Arguments	Boot-time parameters
  */
 int PCI_Install(char **Arguments)
 {

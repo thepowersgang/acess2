@@ -67,8 +67,8 @@ int Time_Setup(void)
 }
 
 /**
- * \fn void Time_Interrupt(void)
  * \brief Called on the timekeeping IRQ
+ * \param irq	IRQ number (unused)
  */
 void Time_Interrupt(int irq)
 {

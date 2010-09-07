@@ -441,18 +441,18 @@ void *Heap_Reallocate(const char *File, int Line, void *__ptr, size_t __size)
 }
 
 /**
- * \fn void *Heap_AllocateZero(const char *File, int Line, size_t size)
+ * \fn void *Heap_AllocateZero(const char *File, int Line, size_t Bytes)
  * \brief Allocate and Zero a buffer in memory
  * \param File	Allocating file
  * \param Line	Line of allocation
- * \param size	Size of the allocation
+ * \param Bytes	Size of the allocation
  */
-void *Heap_AllocateZero(const char *File, int Line, size_t size)
+void *Heap_AllocateZero(const char *File, int Line, size_t Bytes)
 {
-	void	*ret = Heap_Allocate(File, Line, size);
+	void	*ret = Heap_Allocate(File, Line, Bytes);
 	if(ret == NULL)	return NULL;
 	
-	memset( ret, 0, size );
+	memset( ret, 0, Bytes );
 	
 	return ret;
 }
