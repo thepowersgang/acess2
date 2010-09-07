@@ -203,6 +203,7 @@ extern tAST_Node	*AST_NewCodeBlock(void);
 extern void	AST_AppendNode(tAST_Node *Parent, tAST_Node *Child);
 
 extern tAST_Node	*AST_NewIf(tParser *Parser, tAST_Node *Condition, tAST_Node *True, tAST_Node *False);
+extern tAST_Node	*AST_NewLoop(tParser *Parser, tAST_Node *Init, int bPostCheck, tAST_Node *Condition, tAST_Node *Increment, tAST_Node *Code);
 
 extern tAST_Node	*AST_NewAssign(tParser *Parser, int Operation, tAST_Node *Dest, tAST_Node *Value);
 extern tAST_Node	*AST_NewCast(tParser *Parser, int Target, tAST_Node *Value);

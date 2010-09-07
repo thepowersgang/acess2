@@ -48,7 +48,7 @@ void	SyntaxAssert(tParser *Parser, int Have, int Want);
 tAST_Script	*Parse_Buffer(tSpiderVariant *Variant, char *Buffer)
 {
 	tParser	parser = {0};
-	tParser *Parser = &parser;	//< Keeps code consitent
+	tParser *Parser = &parser;	//< Keeps code consistent
 	tAST_Script	*ret;
 	tAST_Node	*mainCode;
 	char	*name;
@@ -194,6 +194,10 @@ tAST_Node *Parse_DoBlockLine(tParser *Parser)
 	
 	switch(LookAhead(Parser))
 	{
+	// Empty statement
+	case TOK_SEMICOLON:
+		GetToken(Parser);
+		return NULL;
 	
 	// Return from a method
 	case TOK_RWD_RETURN:
@@ -219,9 +223,31 @@ tAST_Node *Parse_DoBlockLine(tParser *Parser)
 		}
 		return ret;
 	case TOK_RWD_FOR:
+		{
+		tAST_Node	*init=NULL, *cond=NULL, *inc=NULL, *code;
+		GetToken(Parser);	// Eat 'for'
+		SyntaxAssert(Parser, GetToken(Parser), TOK_PAREN_OPEN);
+		
+		if(LookAhead(Parser) != TOK_SEMICOLON)
+			init = Parse_DoExpr0(Parser);
+		
+		SyntaxAssert(Parser, GetToken(Parser), TOK_SEMICOLON);
+		if(LookAhead(Parser) != TOK_SEMICOLON)
+			cond = Parse_DoExpr0(Parser);
+		
+		SyntaxAssert(Parser, GetToken(Parser), TOK_SEMICOLON);
+		if(LookAhead(Parser) != TOK_SEMICOLON)
+			inc = Parse_DoExpr0(Parser);
+		
+		SyntaxAssert(Parser, GetToken(Parser), TOK_PAREN_CLOSE);
+		
+		code = Parse_DoCodeBlock(Parser);
+		ret = AST_NewLoop(Parser, init, 0, cond, inc, code);
+		}
+		return ret;
 	case TOK_RWD_DO:
 	case TOK_RWD_WHILE:
-		TODO(Parser, "Implement if, for, do and while\n");
+		TODO(Parser, "Implement do and while\n");
 		break;
 	
 	// Define Variables

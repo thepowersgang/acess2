@@ -188,6 +188,7 @@ size_t AST_GetNodeSize(tAST_Node *Node)
 	return ret;
 }
 
+#if 0
 /**
  * \brief Write a node to a file
  */
@@ -195,6 +196,7 @@ void AST_WriteNode(FILE *FP, tAST_Node *Node)
 {
 	tAST_Node	*node;
 	intptr_t	ptr;
+	 int	ret;
 	
 	if(!Node)	return ;
 	
@@ -315,6 +317,7 @@ void AST_WriteNode(FILE *FP, tAST_Node *Node)
 	}
 	return ret;
 }
+#endif
 
 /**
  * \brief Free a node and all subnodes
