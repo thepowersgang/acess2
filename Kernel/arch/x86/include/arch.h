@@ -74,6 +74,7 @@ static inline int CPU_HAS_LOCK(struct sShortSpinlock *Lock) {
  * \note This type of lock halts interrupts, so ensure that no timing
  * functions are called while it is held. As a matter of fact, spend as
  * little time as possible with this lock held
+ * \note If \a STACKED_LOCKS is set, this type of spinlock can be nested
  */
 static inline void SHORTLOCK(struct sShortSpinlock *Lock) {
 	 int	v = 1;

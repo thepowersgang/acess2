@@ -437,6 +437,14 @@ void Threads_Kill(tThread *Thread, int Status)
 	// Lock thread (stop us recieving messages)
 	SHORTLOCK( &Thread->IsLocked );
 	
+	// Clear Message Queue
+	while( Thread->Messages )
+	{
+		msg = Thread->Messages->Next;
+		free( Thread->Messages );
+		Thread->Messages = msg;
+	}
+	
 	// Lock thread list
 	SHORTLOCK( &glThreadListLock );
 	
@@ -447,14 +455,6 @@ void Threads_Kill(tThread *Thread, int Status)
 		SHORTREL( &glThreadListLock );
 		SHORTREL( &Thread->IsLocked );
 		return;
-	}
-	
-	// Clear Message Queue
-	while( Thread->Messages )
-	{
-		msg = Thread->Messages->Next;
-		free( Thread->Messages );	// BIG NO-NO
-		Thread->Messages = msg;
 	}
 	
 	// Ensure that we are not rescheduled
