@@ -69,7 +69,7 @@ enum FloppyPorts {
 
 enum FloppyCommands {
 	FIX_DRIVE_DATA	= 0x03,
-	HECK_DRIVE_STATUS	= 0x04,
+	CHECK_DRIVE_STATUS	= 0x04,
 	CALIBRATE_DRIVE	= 0x07,
 	CHECK_INTERRUPT_STATUS = 0x08,
 	SEEK_TRACK		= 0x0F,
@@ -213,7 +213,7 @@ int FDD_Install(char **Arguments)
 void FDD_UnloadModule()
 {
 	 int	i;
-	//DevFS_DelDevice( &gFDD_DriverInfo );
+	DevFS_DelDevice( &gFDD_DriverInfo );
 	Mutex_Acquire(&glFDD);
 	for(i=0;i<4;i++) {
 		Time_RemoveTimer(gFDD_Devices[i].timer);

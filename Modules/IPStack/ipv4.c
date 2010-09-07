@@ -69,7 +69,7 @@ int IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, int 
 	tIPv4Header	*hdr = (void*)buf;
 	 int	ret;
 	
-	// TODO: OUTPUT Firewall rule go here
+	// OUTPUT Firewall rule go here
 	ret = IPTablesV4_TestChain("OUTPUT",
 		&Iface->IP4.Address, &Address,
 		Protocol, 0,
