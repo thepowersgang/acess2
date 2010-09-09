@@ -328,3 +328,7 @@ EXPORT(__udivdi3);	EXPORT(__umoddi3);
 
 EXPORT(LittleEndian16);	EXPORT(BigEndian16);
 EXPORT(LittleEndian32);	EXPORT(BigEndian32);
+
+EXPORT(SHORTLOCK);
+EXPORT(SHORTREL);
+EXPORT(IS_LOCKED);
