@@ -85,7 +85,7 @@ void SHORTLOCK(struct sShortSpinlock *Lock)
 			: "=a"(v)
 			: "a"(0), "r"(cpu), "r"(&Lock->Lock)
 			);
-		#elseif STACKED_LOCKS == 2
+		#elif STACKED_LOCKS == 2
 		__ASM__("lock cmpxchgl %2, (%3)"
 			: "=a"(v)
 			: "a"(0), "r"(thread), "r"(&Lock->Lock)
