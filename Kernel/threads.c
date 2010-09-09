@@ -78,6 +78,7 @@ tThread	*gActiveThreads = NULL;		// Currently Running Threads
 tThread	*gSleepingThreads = NULL;	// Sleeping Threads
 tThread	*gDeleteThreads = NULL;		// Threads to delete
  int	giNumCPUs = 1;	// Number of CPUs
+BOOL     gaThreads_NoTaskSwitch[MAX_CPUS];	// Disables task switches for each core (Pseudo-IF)
 
 // === CODE ===
 /**
@@ -832,12 +833,17 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 {
 	tThread	*thread;
 	 int	ticket;
-	 int	number;	
+	 int	number;
 	
 	// If this CPU has the lock, we must let it complete
 	if( CPU_HAS_LOCK( &glThreadListLock ) )
 		return Last;
 	
+	// Same if the current CPU has any lock
+	if( gaThreads_NoTaskSwitch[CPU] )
+		return Last;
+
+
 	// Lock thread list
 	SHORTLOCK( &glThreadListLock );
 	

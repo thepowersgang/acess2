@@ -7,14 +7,21 @@
 #include <signal.h>
 #include <proc.h>
 
+/**
+ * \brief IPC Message
+ */
 typedef struct sMessage
 {
-	struct sMessage	*Next;
-	Uint	Source;
-	Uint	Length;
-	Uint8	Data[];
-} tMsg;	// sizeof = 12+
+	struct sMessage	*Next;	//!< Next message in thread's inbox
+	tTID	Source;	//!< Source thread ID
+	Uint	Length;	//!< Length of message data in bytes
+	Uint8	Data[];	//!< Message data
+} tMsg;
 
+/**
+ * \brief Core threading structure
+ * 
+ */
 typedef struct sThread
 {
 	// --- threads.c's
@@ -83,6 +90,9 @@ enum eFaultNumbers
 };
 
 #define GETMSG_IGNORE	((void*)-1)
+
+// === GLOBALS ===
+extern BOOL	gaThreads_NoTaskSwitch[MAX_CPUS];
 
 // === FUNCTIONS ===
 extern tThread	*Proc_GetCurThread(void);

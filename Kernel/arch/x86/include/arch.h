@@ -166,16 +166,17 @@ typedef signed short	Sint16;
 typedef signed long		Sint32;
 typedef signed long long	Sint64;
 typedef Uint	size_t;
+typedef char	BOOL;
 
 typedef Uint64	tPAddr;
 typedef Uint32	tVAddr;
 
 typedef struct {
-    Uint	gs, fs, es, ds;
-    Uint	edi, esi, ebp, kesp;
+	Uint	gs, fs, es, ds;
+	Uint	edi, esi, ebp, kesp;
 	Uint	ebx, edx, ecx, eax;
-    Uint	int_num, err_code;
-    Uint	eip, cs;
+	Uint	int_num, err_code;
+	Uint	eip, cs;
 	Uint	eflags, esp, ss;
 } tRegs;
 

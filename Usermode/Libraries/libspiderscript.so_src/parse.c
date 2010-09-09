@@ -222,6 +222,7 @@ tAST_Node *Parse_DoBlockLine(tParser *Parser)
 		ret = AST_NewIf(Parser, cond, true, false);
 		}
 		return ret;
+	
 	case TOK_RWD_FOR:
 		{
 		tAST_Node	*init=NULL, *cond=NULL, *inc=NULL, *code;
@@ -245,6 +246,7 @@ tAST_Node *Parse_DoBlockLine(tParser *Parser)
 		ret = AST_NewLoop(Parser, init, 0, cond, inc, code);
 		}
 		return ret;
+	
 	case TOK_RWD_DO:
 	case TOK_RWD_WHILE:
 		TODO(Parser, "Implement do and while\n");
