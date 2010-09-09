@@ -11,7 +11,7 @@
 #define BITS	32
 
 // Allow nested spinlocks?
-#define STACKED_LOCKS	1
+#define STACKED_LOCKS	2	// 0: No, 1: Per-CPU, 2: Per-Thread
 #define LOCK_DISABLE_INTS	0
 
 // - Processor/Machine Specific Features
@@ -38,7 +38,12 @@
  * \brief Short Spinlock structure
  */
 struct sShortSpinlock {
+	#if STACKED_LOCKS == 2
+	volatile void	*Lock;	//!< Lock value
+	#else
 	volatile int	Lock;	//!< Lock value
+	#endif
+	
 	#if LOCK_DISABLE_INTS
 	 int	IF;	//!< Interrupt state on call to SHORTLOCK
 	#endif
@@ -46,103 +51,6 @@ struct sShortSpinlock {
 	 int	Depth;
 	#endif
 };
-/**
- * \brief Determine if a short spinlock is locked
- * \param Lock	Lock pointer
- */
-static inline int IS_LOCKED(struct sShortSpinlock *Lock) {
-	return !!Lock->Lock;
-}
-
-/**
- * \brief Check if the current CPU has the lock
- * \param Lock	Lock pointer
- */
-static inline int CPU_HAS_LOCK(struct sShortSpinlock *Lock) {
-	extern int	GetCPUNum(void);
-	return Lock->Lock == GetCPUNum() + 1;
-}
-
-/**
- * \brief Acquire a Short Spinlock
- * \param Lock	Lock pointer
- * 
- * This type of mutex should only be used for very short sections of code,
- * or in places where a Mutex_* would be overkill, such as appending
- * an element to linked list (usually two assignement lines in C)
- * 
- * \note This type of lock halts interrupts, so ensure that no timing
- * functions are called while it is held. As a matter of fact, spend as
- * little time as possible with this lock held
- * \note If \a STACKED_LOCKS is set, this type of spinlock can be nested
- */
-static inline void SHORTLOCK(struct sShortSpinlock *Lock) {
-	 int	v = 1;
-	#if LOCK_DISABLE_INTS
-	 int	IF;
-	#endif
-	#if STACKED_LOCKS
-	extern int	GetCPUNum(void);
-	 int	cpu = GetCPUNum() + 1;
-	#endif
-	
-	#if LOCK_DISABLE_INTS
-	// Save interrupt state and clear interrupts
-	__ASM__ ("pushf;\n\tpop %%eax\n\tcli" : "=a"(IF));
-	IF &= 0x200;	// AND out all but the interrupt flag
-	#endif
-	
-	#if STACKED_LOCKS
-	if( Lock->Lock == cpu ) {
-		Lock->Depth ++;
-		return ;
-	}
-	#endif
-	
-	// Wait for another CPU to release
-	while(v) {
-		#if STACKED_LOCKS
-		// CMPXCHG:
-		//  If r/m32 == EAX, set ZF and set r/m32 = r32
-		//  Else, clear ZF and set EAX = r/m32
-		__ASM__("lock cmpxchgl %2, (%3)"
-			: "=a"(v)
-			: "a"(0), "r"(cpu), "r"(&Lock->Lock)
-			);
-		#else
-		__ASM__("xchgl %%eax, (%%edi)":"=a"(v):"a"(1),"D"(&Lock->Lock));
-		#endif
-	}
-	
-	#if LOCK_DISABLE_INTS
-	Lock->IF = IF;
-	#endif
-}
-/**
- * \brief Release a short lock
- * \param Lock	Lock pointer
- */
-static inline void SHORTREL(struct sShortSpinlock *Lock) {
-	#if STACKED_LOCKS
-	if( Lock->Depth ) {
-		Lock->Depth --;
-		return ;
-	}
-	#endif
-	
-	#if LOCK_DISABLE_INTS
-	// Lock->IF can change anytime once Lock->Lock is zeroed
-	if(Lock->IF) {
-		Lock->Lock = 0;
-		__ASM__ ("sti");
-	}
-	else {
-		Lock->Lock = 0;
-	}
-	#else
-	Lock->Lock = 0;
-	#endif
-}
 
 // === MACROS ===
 /**
@@ -214,5 +122,11 @@ typedef struct {
 typedef struct {
 	Uint	EIP, ESP, EBP;
 } tTaskState;
+
+// === FUNCTIONS ===
+extern int	IS_LOCKED(struct sShortSpinlock *Lock);
+extern int	CPU_HAS_LOCK(struct sShortSpinlock *Lock);
+extern void	SHORTLOCK(struct sShortSpinlock *Lock);
+extern void	SHORTREL(struct sShortSpinlock *Lock);
 
 #endif	// !defined(_ARCH_H_)

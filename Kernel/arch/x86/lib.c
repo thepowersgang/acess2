@@ -3,17 +3,127 @@
  * lib.c
  */
 #include <acess.h>
+#include <threads.h>
+
+extern int	GetCPUNum(void);
 
 // === CODE ===
-void Spinlock(int *lock)
+/**
+ * \brief Determine if a short spinlock is locked
+ * \param Lock	Lock pointer
+ */
+int IS_LOCKED(struct sShortSpinlock *Lock)
 {
-	 int	v = 1;
-	while(v)	__asm__ __volatile__ ("lock xchgl %%eax, (%%edi)":"=a"(v):"a"(1),"D"(lock));
+	return !!Lock->Lock;
 }
 
-void Release(int *lock)
+/**
+ * \brief Check if the current CPU has the lock
+ * \param Lock	Lock pointer
+ */
+int CPU_HAS_LOCK(struct sShortSpinlock *Lock)
 {
-	__asm__ __volatile__ ("lock andl $0, (%0)"::"r"(lock));
+	#if STACKED_LOCKS == 1
+	return Lock->Lock == GetCPUNum() + 1;
+	#elif STACKED_LOCKS == 2
+	return Lock->Lock == Proc_GetCurThread();
+	#else
+	return 0;
+	#endif
+}
+
+/**
+ * \brief Acquire a Short Spinlock
+ * \param Lock	Lock pointer
+ * 
+ * This type of mutex should only be used for very short sections of code,
+ * or in places where a Mutex_* would be overkill, such as appending
+ * an element to linked list (usually two assignement lines in C)
+ * 
+ * \note This type of lock halts interrupts, so ensure that no timing
+ * functions are called while it is held. As a matter of fact, spend as
+ * little time as possible with this lock held
+ * \note If \a STACKED_LOCKS is set, this type of spinlock can be nested
+ */
+void SHORTLOCK(struct sShortSpinlock *Lock)
+{
+	 int	v = 1;
+	#if LOCK_DISABLE_INTS
+	 int	IF;
+	#endif
+	#if STACKED_LOCKS == 1
+	 int	cpu = GetCPUNum() + 1;
+	#elif STACKED_LOCKS == 2
+	void	*thread = Proc_GetCurThread();
+	#endif
+	
+	#if LOCK_DISABLE_INTS
+	// Save interrupt state and clear interrupts
+	__ASM__ ("pushf;\n\tpop %%eax\n\tcli" : "=a"(IF));
+	IF &= 0x200;	// AND out all but the interrupt flag
+	#endif
+	
+	#if STACKED_LOCKS == 1
+	if( Lock->Lock == cpu ) {
+		Lock->Depth ++;
+		return ;
+	}
+	#elif STACKED_LOCKS == 2
+	if( Lock->Lock == thread ) {
+		Lock->Depth ++;
+		return ;
+	}
+	#endif
+	
+	// Wait for another CPU to release
+	while(v) {
+		// CMPXCHG:
+		//  If r/m32 == EAX, set ZF and set r/m32 = r32
+		//  Else, clear ZF and set EAX = r/m32
+		#if STACKED_LOCKS == 1
+		__ASM__("lock cmpxchgl %2, (%3)"
+			: "=a"(v)
+			: "a"(0), "r"(cpu), "r"(&Lock->Lock)
+			);
+		#elseif STACKED_LOCKS == 2
+		__ASM__("lock cmpxchgl %2, (%3)"
+			: "=a"(v)
+			: "a"(0), "r"(thread), "r"(&Lock->Lock)
+			);
+		#else
+		__ASM__("xchgl %%eax, (%%edi)":"=a"(v):"a"(1),"D"(&Lock->Lock));
+		#endif
+	}
+	
+	#if LOCK_DISABLE_INTS
+	Lock->IF = IF;
+	#endif
+}
+/**
+ * \brief Release a short lock
+ * \param Lock	Lock pointer
+ */
+void SHORTREL(struct sShortSpinlock *Lock)
+{
+	#if STACKED_LOCKS
+	if( Lock->Depth ) {
+		Lock->Depth --;
+		return ;
+	}
+	#endif
+	
+	#if LOCK_DISABLE_INTS
+	// Lock->IF can change anytime once Lock->Lock is zeroed
+	if(Lock->IF) {
+		Lock->Lock = 0;
+		__ASM__ ("sti");
+	}
+	else {
+		Lock->Lock = 0;
+	}
+	#else
+	Lock->Lock = 0;
+	#endif
 }
 
 // === IO Commands ===
