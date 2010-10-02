@@ -36,7 +36,7 @@ tThread	*Threads_CloneTCB(Uint *Err, Uint Flags);
  int	Threads_WaitTID(int TID, int *status);
 tThread	*Threads_GetThread(Uint TID);
 void	Threads_AddToDelete(tThread *Thread);
-tThread	*Threads_int_GetPrev(tThread **List, tThread *Thread);
+tThread	*Threads_int_DelFromQueue(tThread **List, tThread *Thread);
 void	Threads_Exit(int TID, int Status);
 void	Threads_Kill(tThread *Thread, int Status);
 void	Threads_Yield(void);
@@ -51,6 +51,7 @@ tUID	Threads_GetUID(void);
 tGID	Threads_GetGID(void);
  int	Threads_SetGID(Uint *Errno, tUID ID);
 void	Threads_Dump(void);
+void	Threads_DumpActive(void);
 void	Mutex_Acquire(tMutex *Mutex);
 void	Mutex_Release(tMutex *Mutex);
  int	Mutex_IsLocked(tMutex *Mutex);
@@ -362,33 +363,36 @@ void Threads_AddToDelete(tThread *Thread)
 }
 
 /**
- * \brief Gets the previous entry in a thead linked list
+ * \brief Deletes an entry from a list
  * \param List	Pointer to the list head
  * \param Thread	Thread to find
- * \return Thread before \a Thread on \a List
- * \note This uses a massive hack of assuming that the first field in the
- *       structure is the .Next pointer. By doing this, we can return \a List
- *       as a (tThread*) and simplify other code.
+ * \return \a Thread
  */
-tThread *Threads_int_GetPrev(tThread **List, tThread *Thread)
+tThread *Threads_int_DelFromQueue(tThread **List, tThread *Thread)
 {
-	tThread *ret;
-	// First Entry
-	if(*List == Thread) {
-		return (tThread*)List;
+	tThread *ret, *prev = NULL;
+	
+	for(ret = *List;
+		ret && ret != Thread;
+		prev = ret, ret = ret->Next
+		);
+	
+	// Is the thread on the list
+	if(!ret) {
+		//LogF("%p(%s) is not on list %p\n", Thread, Thread->ThreadName, List);
+		return NULL;
 	}
-	// Or not
+	
+	if( !prev ) {
+		*List = Thread->Next;
+		//LogF("%p(%s) removed from head of %p\n", Thread, Thread->ThreadName, List);
+	}
 	else {
-		for(ret = *List;
-			ret->Next && ret->Next != Thread;
-			ret = ret->Next
-			);
-		// Error if the thread is not on the list
-		if(!ret->Next || ret->Next != Thread) {
-			return NULL;
-		}
+		prev->Next = Thread->Next;
+		//LogF("%p(%s) removed from %p (prev=%p)\n", Thread, Thread->ThreadName, List, prev);
 	}
-	return ret;
+	
+	return Thread;
 }
 
 /**
@@ -415,7 +419,6 @@ void Threads_Exit(int TID, int Status)
  */
 void Threads_Kill(tThread *Thread, int Status)
 {
-	tThread	*prev;
 	tMsg	*msg;
 	
 	// TODO: Kill all children
@@ -449,9 +452,9 @@ void Threads_Kill(tThread *Thread, int Status)
 	// Lock thread list
 	SHORTLOCK( &glThreadListLock );
 	
-	// Get previous thread on list
-	prev = Threads_int_GetPrev( &gActiveThreads, Thread );
-	if(!prev) {
+	// Delete from active list
+	if( !Threads_int_DelFromQueue( &gActiveThreads, Thread ) )
+	{
 		Warning("Proc_Exit - Current thread is not on the active queue");
 		SHORTREL( &glThreadListLock );
 		SHORTREL( &Thread->IsLocked );
@@ -461,7 +464,6 @@ void Threads_Kill(tThread *Thread, int Status)
 	// Ensure that we are not rescheduled
 	Thread->Remaining = 0;	// Clear Remaining Quantum
 	Thread->Quantum = 0;	// Clear Quantum to indicate dead thread
-	prev->Next = Thread->Next;	// Remove from active
 	
 	// Update bookkeeping
 	giNumActiveThreads --;
@@ -553,8 +555,6 @@ void Threads_Sleep(void)
  */
 int Threads_Wake(tThread *Thread)
 {
-	tThread	*prev;
-	
 	if(!Thread)
 		return -EINVAL;
 	
@@ -567,8 +567,7 @@ int Threads_Wake(tThread *Thread)
 	case THREAD_STAT_SLEEPING:
 		SHORTLOCK( &glThreadListLock );
 		// Remove from sleeping queue
-		prev = Threads_int_GetPrev(&gSleepingThreads, Thread);
-		prev->Next = Thread->Next;
+		Threads_int_DelFromQueue(&gSleepingThreads, Thread);
 		
 		Threads_AddActive( Thread );
 		
@@ -633,12 +632,12 @@ void Threads_AddActive(tThread *Thread)
 	}
 	#endif
 	
-	// Add to active list
-	Thread->Next = gActiveThreads;
-	gActiveThreads = Thread;
 	// Set state
 	Thread->Status = THREAD_STAT_ACTIVE;
 	Thread->CurCPU = -1;
+	// Add to active list
+	Thread->Next = gActiveThreads;
+	gActiveThreads = Thread;
 	
 	// Update bookkeeping
 	giNumActiveThreads ++;
@@ -659,12 +658,11 @@ void Threads_AddActive(tThread *Thread)
 tThread *Threads_RemActive(void)
 {
 	tThread	*ret = Proc_GetCurThread();
-	tThread	*prev;
 	
 	SHORTLOCK( &glThreadListLock );
 	
-	prev = Threads_int_GetPrev(&gActiveThreads, ret);
-	if(!prev) {
+	// Delete from active queue
+	if( !Threads_int_DelFromQueue(&gActiveThreads, ret) ) {
 		SHORTREL( &glThreadListLock );
 		return NULL;
 	}
@@ -672,7 +670,6 @@ tThread *Threads_RemActive(void)
 	ret->Remaining = 0;
 	ret->CurCPU = -1;
 	
-	prev->Next = ret->Next;
 	giNumActiveThreads --;
 	// no need to decrement tickets, scheduler did it for us
 	
@@ -839,7 +836,7 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 	if( CPU_HAS_LOCK( &glThreadListLock ) )
 		return Last;
 	
-	// Same if the current CPU has any lock
+	// Don't change threads if the current CPU has switches disabled
 	if( gaThreads_NoTaskSwitch[CPU] )
 		return Last;
 
@@ -901,8 +898,8 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 		}
 		#if DEBUG_TRACE_TICKETS
 		else
-			LogF(" CPU %i released %p (%s)->Status = %i (Released)\n",
-				CPU, Last, Last->ThreadName, Last->Status);
+			LogF(" CPU %i released %p (%i %s)->Status = %i (Released)\n",
+				CPU, Last, Last->TID, Last->ThreadName, Last->Status);
 		#endif
 		Last->CurCPU = -1;
 	}
@@ -1010,7 +1007,7 @@ void Mutex_Acquire(tMutex *Mutex)
 	if( Mutex->Owner ) {
 		SHORTLOCK( &glThreadListLock );
 		// - Remove from active list
-		Threads_RemActive();
+		us = Threads_RemActive();
 		// - Mark as sleeping
 		us->Status = THREAD_STAT_OFFSLEEP;
 		
@@ -1046,6 +1043,9 @@ void Mutex_Release(tMutex *Mutex)
 	if( Mutex->Waiting ) {
 		Mutex->Owner = Mutex->Waiting;	// Set owner
 		Mutex->Waiting = Mutex->Waiting->Next;	// Next!
+		// Reset ->LastWaiting to NULL if we have just removed the last waiting thread
+		if( Mutex->LastWaiting == Mutex->Owner )
+			Mutex->LastWaiting = NULL;
 		
 		// Wake new owner
 		SHORTLOCK( &glThreadListLock );
@@ -1070,6 +1070,7 @@ int Mutex_IsLocked(tMutex *Mutex)
 
 // === EXPORTS ===
 EXPORT(Threads_GetUID);
+EXPORT(Threads_GetGID);
 EXPORT(Mutex_Acquire);
 EXPORT(Mutex_Release);
 EXPORT(Mutex_IsLocked);

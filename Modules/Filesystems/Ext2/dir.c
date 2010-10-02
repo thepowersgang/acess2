@@ -283,7 +283,7 @@ int Ext2_Link(tVFS_Node *Node, tVFS_Node *Child, const char *Name)
 			BLOCK_DIR_OFS(Node->Data, block) = nEntries;
 			block ++;
 			ofs = 0;
-			base = Ext2_int_GetBlockAddr(disk, inode.i_blocks, block);
+			base = Ext2_int_GetBlockAddr(disk, inode.i_block, block);
 			VFS_ReadAt( disk->FD, base, disk->BlockSize, blockData );
 		}
 	}
@@ -291,7 +291,7 @@ int Ext2_Link(tVFS_Node *Node, tVFS_Node *Child, const char *Name)
 	// Check if a free slot was found
 	if( bestMatch >= 0 ) {
 		// Read-Modify-Write
-		bestBlock = Ext2_int_GetBlockAddr(disk, inode.i_blocks, bestBlock);
+		bestBlock = Ext2_int_GetBlockAddr(disk, inode.i_block, bestBlock);
 		if( block > 0 )
 			bestMatch = BLOCK_DIR_OFS(Node->Data, bestBlock);
 		VFS_ReadAt( disk->FD, base, disk->BlockSize, blockData );

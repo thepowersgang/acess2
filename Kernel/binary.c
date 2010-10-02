@@ -121,6 +121,7 @@ int Proc_Execve(char *File, char **ArgV, char **EnvP)
 	argenvBuf = malloc(argenvBytes);
 	if(argenvBuf == NULL) {
 		Log_Error("BIN", "Proc_Execve - What the hell? The kernel is out of heap space");
+		LEAVE('i', 0);
 		return 0;
 	}
 	strBuf = argenvBuf + (argc+1)*sizeof(void*) + (envc+1)*sizeof(void*);
@@ -158,6 +159,7 @@ int Proc_Execve(char *File, char **ArgV, char **EnvP)
 	if(bases[0] == 0)
 	{
 		Log_Warning("BIN", "Proc_Execve - Unable to load '%s'", Threads_GetName(-1));
+		LEAVE('-');
 		Threads_Exit(0, 0);
 		for(;;);
 	}
@@ -171,6 +173,9 @@ int Proc_Execve(char *File, char **ArgV, char **EnvP)
 
 /**
  * \fn Uint Binary_Load(char *file, Uint *entryPoint)
+ * \brief Load a binary into the current address space
+ * \param file	Path to binary to load
+ * \param entryPoint	Pointer for exectuable entry point
  */
 Uint Binary_Load(char *file, Uint *entryPoint)
 {
@@ -178,7 +183,7 @@ Uint Binary_Load(char *file, Uint *entryPoint)
 	tBinary	*pBinary;
 	Uint	base = -1;
 
-	ENTER("sfile", file);
+	ENTER("sfile pentryPoint", file, entryPoint);
 	
 	// Sanity Check Argument
 	if(file == NULL) {
@@ -188,6 +193,7 @@ Uint Binary_Load(char *file, Uint *entryPoint)
 
 	// Get True File Path
 	sTruePath = VFS_GetTruePath(file);
+	LOG("sTruePath = %p", sTruePath);
 	
 	if(sTruePath == NULL) {
 		Log_Warning("BIN", "'%s' does not exist.", file);
@@ -196,6 +202,8 @@ Uint Binary_Load(char *file, Uint *entryPoint)
 	}
 	
 	LOG("sTruePath = '%s'", sTruePath);
+	
+	// TODO: Also get modifcation time
 
 	// Check if the binary has already been loaded
 	if( !(pBinary = Binary_GetInfo(sTruePath)) )

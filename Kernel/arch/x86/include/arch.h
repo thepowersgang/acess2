@@ -12,7 +12,7 @@
 
 // Allow nested spinlocks?
 #define STACKED_LOCKS	2	// 0: No, 1: Per-CPU, 2: Per-Thread
-#define LOCK_DISABLE_INTS	0
+#define LOCK_DISABLE_INTS	1
 
 // - Processor/Machine Specific Features
 #if ARCH != i386 && ARCH != i486 && ARCH != i586
