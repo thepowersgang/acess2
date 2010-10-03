@@ -60,7 +60,7 @@ typedef struct sThread
 	tMsg	*LastMessage;	//!< Last Message (speeds up insertion)
 	
 	 int	Quantum, Remaining;	//!< Quantum Size and remaining timesteps
-	 int	NumTickets;	//!< Priority - Chance of gaining CPU
+	 int	Priority;	//!< Priority - 0: Realtime, higher means less time
 	
 	Uint	Config[NUM_CFG_ENTRIES];	//!< Per-process configuration
 	
@@ -97,7 +97,7 @@ extern BOOL	gaThreads_NoTaskSwitch[MAX_CPUS];
 // === FUNCTIONS ===
 extern tThread	*Proc_GetCurThread(void);
 extern tThread	*Threads_GetThread(Uint TID);
-extern void	Threads_SetTickets(tThread *Thread, int Num);
+extern void	Threads_SetPriority(tThread *Thread, int Pri);
 extern int	Threads_Wake(tThread *Thread);
 extern void	Threads_AddActive(tThread *Thread);
 extern tThread	*Threads_GetNextToRun(int CPU, tThread *Last);

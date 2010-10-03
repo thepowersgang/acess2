@@ -468,7 +468,7 @@ void Proc_Start(void)
 	{
 		gpIdleThread = Proc_GetCurThread();
 		gpIdleThread->ThreadName = "Idle Thread";
-		gpIdleThread->NumTickets = 0;	// Never called randomly
+		Threads_SetPriority( gpIdleThread, -1 );	// Never called randomly
 		gpIdleThread->Quantum = 1;	// 1 slice quantum
 		for(;;)	HALT();	// Just yeilds
 	}
