@@ -397,6 +397,17 @@ tVFS_Node *VFS_ParsePath(const char *Path, char **TruePath)
 		retLength += nextSlash + 1;
 	}
 	
+	if( !curNode->FindDir ) {
+		if(curNode->Close)	curNode->Close(curNode);
+		if(TruePath) {
+			free(*TruePath);
+			*TruePath = NULL;
+		}
+		Log("FindDir fail on '%s'", Path);
+		LEAVE('n');
+		return NULL;
+	}
+	
 	// Get last node
 	LOG("VFS_ParsePath: FindDir(%p, '%s')", curNode, &Path[ofs]);
 	tmpNode = curNode->FindDir(curNode, &Path[ofs]);

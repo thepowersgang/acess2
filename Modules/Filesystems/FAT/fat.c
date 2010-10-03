@@ -941,6 +941,7 @@ tVFS_Node *FAT_int_CreateNode(tVFS_Node *Parent, fat_filetable *Entry, int Pos)
 	tFAT_VolInfo	*disk = Parent->ImplPtr;
 	
 	ENTER("pParent pFT", Parent, Entry);
+	LOG("disk = %p\n", disk);
 	
 	memset(&node, 0, sizeof(tVFS_Node));
 	
