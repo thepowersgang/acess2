@@ -13,7 +13,7 @@
 #define	GDB_SERIAL_PORT	0x2F8
 #define	DEBUG_MAX_LINE_LEN	256
 
-#define	LOCK_DEBUG_OUTPUT	0
+#define	LOCK_DEBUG_OUTPUT	1
 
 // === IMPORTS ===
 extern void Threads_Dump(void);
@@ -35,7 +35,7 @@ void	Debug_Fmt(const char *format, va_list args);
  int	gbDebug_IsKPanic = 0;
 volatile int	gbInPutChar = 0;
 #if LOCK_DEBUG_OUTPUT
-tSpinlock	glDebug_Lock;
+tShortSpinlock	glDebug_Lock;
 #endif
 
 // === CODE ===
@@ -155,6 +155,14 @@ void Debug_Fmt(const char *format, va_list args)
 	return ;
 }
 
+void Debug_FmtS(const char *format, ...)
+{
+	va_list	args;	
+	va_start(args, format);
+	Debug_Fmt(format, args);
+	va_end(args);
+}
+
 void Debug_KernelPanic()
 {
 	gbDebug_IsKPanic = 1;
@@ -169,7 +177,7 @@ void LogF(char *Fmt, ...)
 	va_list	args;
 
 	#if LOCK_DEBUG_OUTPUT
-	VTIGHTLOCK(&glDebug_Lock);
+	SHORTLOCK(&glDebug_Lock);
 	#endif
 	
 	va_start(args, Fmt);
@@ -179,7 +187,7 @@ void LogF(char *Fmt, ...)
 	va_end(args);
 	
 	#if LOCK_DEBUG_OUTPUT
-	RELEASE(&glDebug_Lock);
+	SHORTREL(&glDebug_Lock);
 	#endif
 }
 /**
@@ -191,7 +199,7 @@ void Debug(char *Fmt, ...)
 	va_list	args;
 	
 	#if LOCK_DEBUG_OUTPUT
-	LOCK(&glDebug_Lock);
+	SHORTLOCK(&glDebug_Lock);
 	#endif
 
 	Debug_Puts(0, "Debug: ");
@@ -201,7 +209,7 @@ void Debug(char *Fmt, ...)
 	Debug_PutCharDebug('\r');
 	Debug_PutCharDebug('\n');
 	#if LOCK_DEBUG_OUTPUT
-	RELEASE(&glDebug_Lock);
+	SHORTREL(&glDebug_Lock);
 	#endif
 }
 /**
@@ -212,7 +220,7 @@ void Log(char *Fmt, ...)
 	va_list	args;
 	
 	#if LOCK_DEBUG_OUTPUT
-	LOCK(&glDebug_Lock);
+	SHORTLOCK(&glDebug_Lock);
 	#endif
 
 	Debug_Puts(1, "Log: ");
@@ -223,7 +231,7 @@ void Log(char *Fmt, ...)
 	Debug_Putchar('\n');
 	
 	#if LOCK_DEBUG_OUTPUT
-	RELEASE(&glDebug_Lock);
+	SHORTREL(&glDebug_Lock);
 	#endif
 }
 void Warning(char *Fmt, ...)
@@ -231,7 +239,7 @@ void Warning(char *Fmt, ...)
 	va_list	args;
 	
 	#if LOCK_DEBUG_OUTPUT
-	LOCK(&glDebug_Lock);
+	SHORTLOCK(&glDebug_Lock);
 	#endif
 	
 	Debug_Puts(1, "Warning: ");
@@ -242,7 +250,7 @@ void Warning(char *Fmt, ...)
 	Debug_Putchar('\n');
 	
 	#if LOCK_DEBUG_OUTPUT
-	RELEASE(&glDebug_Lock);
+	SHORTREL(&glDebug_Lock);
 	#endif
 }
 void Panic(char *Fmt, ...)
@@ -250,9 +258,9 @@ void Panic(char *Fmt, ...)
 	va_list	args;
 	
 	#if LOCK_DEBUG_OUTPUT
-	LOCK(&glDebug_Lock);
+	SHORTLOCK(&glDebug_Lock);
 	#endif
-	// And never release
+	// And never SHORTREL
 	
 	Debug_KernelPanic();
 	
@@ -287,14 +295,23 @@ void Debug_SetKTerminal(char *File)
 void Debug_Enter(char *FuncName, char *ArgTypes, ...)
 {
 	va_list	args;
-	 int	i = gDebug_Level ++;
+	 int	i;
 	 int	pos;
+	tTID	tid = Threads_GetTID();
+	 
+	#if LOCK_DEBUG_OUTPUT
+	SHORTLOCK(&glDebug_Lock);
+	#endif
+
+	i = gDebug_Level ++;
 
 	va_start(args, ArgTypes);
 
 	while(i--)	Debug_Putchar(' ');
 
-	Debug_Puts(1, FuncName);	Debug_Puts(1, ": (");
+	Debug_Puts(1, FuncName);
+	Debug_FmtS("[%i]", tid);
+	Debug_Puts(1, ": (");
 
 	while(*ArgTypes)
 	{
@@ -326,33 +343,51 @@ void Debug_Enter(char *FuncName, char *ArgTypes, ...)
 
 	va_end(args);
 	Debug_Putchar(')');	Debug_Putchar('\r');	Debug_Putchar('\n');
+	
+	#if LOCK_DEBUG_OUTPUT
+	SHORTREL(&glDebug_Lock);
+	#endif
 }
 
 void Debug_Log(char *FuncName, char *Fmt, ...)
 {
 	va_list	args;
 	 int	i = gDebug_Level;
+	tTID	tid = Threads_GetTID();
+
+	#if LOCK_DEBUG_OUTPUT
+	SHORTLOCK(&glDebug_Lock);
+	#endif
 
 	va_start(args, Fmt);
 
 	while(i--)	Debug_Putchar(' ');
 
-	Debug_Puts(1, FuncName);	Debug_Puts(1, ": ");
+	Debug_Puts(1, FuncName);
+	Debug_FmtS("[%i]", tid);
+	Debug_Puts(1, ": ");
 	Debug_Fmt(Fmt, args);
 
 	va_end(args);
 	Debug_Putchar('\r');
 	Debug_Putchar('\n');
+	
+	#if LOCK_DEBUG_OUTPUT
+	SHORTREL(&glDebug_Lock);
+	#endif
 }
 
 void Debug_Leave(char *FuncName, char RetType, ...)
 {
 	va_list	args;
-	 int	i = --gDebug_Level;
+	 int	i;
+	tTID	tid = Threads_GetTID();
 
 	#if LOCK_DEBUG_OUTPUT
-	LOCK(&glDebug_Lock);
+	SHORTLOCK(&glDebug_Lock);
 	#endif
+	
+	i = --gDebug_Level;
 
 	va_start(args, RetType);
 
@@ -363,12 +398,17 @@ void Debug_Leave(char *FuncName, char RetType, ...)
 	// Indenting
 	while(i--)	Debug_Putchar(' ');
 
-	Debug_Puts(1, FuncName);	Debug_Puts(1, ": RETURN");
+	Debug_Puts(1, FuncName);
+	Debug_FmtS("(%i)", tid);
+	Debug_Puts(1, ": RETURN");
 
 	// No Return
 	if(RetType == '-') {
 		Debug_Putchar('\r');
 		Debug_Putchar('\n');
+		#if LOCK_DEBUG_OUTPUT
+		SHORTREL(&glDebug_Lock);
+		#endif
 		return;
 	}
 
@@ -388,6 +428,10 @@ void Debug_Leave(char *FuncName, char RetType, ...)
 	Debug_Putchar('\n');
 
 	va_end(args);
+	
+	#if LOCK_DEBUG_OUTPUT
+	SHORTREL(&glDebug_Lock);
+	#endif
 }
 
 void Debug_HexDump(char *Header, void *Data, Uint Length)

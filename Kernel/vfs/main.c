@@ -72,8 +72,10 @@ char *VFS_GetTruePath(char *Path)
 	
 	tmp = VFS_GetAbsPath(Path);
 	if(tmp == NULL)	return NULL;
+	Log(" VFS_GetTruePath: tmp = '%s'", tmp);
 	node = VFS_ParsePath(tmp, &ret);
 	free(tmp);
+	Log(" VFS_GetTruePath: node=%p, ret='%s'", node, ret);
 	
 	if(!node)	return NULL;
 	if(node->Close)	node->Close(node);

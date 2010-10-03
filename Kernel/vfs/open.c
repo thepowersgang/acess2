@@ -2,7 +2,7 @@
  * AcessMicro VFS
  * - Open, Close and ChDir
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <acess.h>
 #include <mm_virt.h>
 #include "vfs.h"
@@ -391,7 +391,7 @@ tVFS_Node *VFS_ParsePath(const char *Path, char **TruePath)
 		(*TruePath)[retLength] = '/';
 		strcpy(*TruePath+retLength+1, pathEle);
 		
-		LOG("*TruePath = '%s'\n", *TruePath);
+		LOG("*TruePath = '%s'", *TruePath);
 		
 		// - Extend Path
 		retLength += nextSlash + 1;

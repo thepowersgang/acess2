@@ -176,7 +176,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 		}
 		LEAVE('s', "Assuming 0");
 		// Path, **Argv, **Envp
-		ret = Proc_Execve((char*)Regs->Arg1, (char**)Regs->Arg2, (char**)Regs->Arg3);
+		ret = Proc_Execve( (char*)Regs->Arg1, (char**)Regs->Arg2, (char**)Regs->Arg3 );
 		break;
 	// -- Load a binary into the current process
 	case SYS_LOADBIN:

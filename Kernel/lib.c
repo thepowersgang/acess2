@@ -8,7 +8,7 @@
 #define	RANDOM_SEED	0xACE55052
 #define	RANDOM_A	0x00731ADE
 #define	RANDOM_C	12345
-#define	RANDOM_SPRUCE	0xf12b02b
+#define	RANDOM_SPRUCE	0xf12b039
 //                          Jan Feb Mar Apr May  Jun  Jul  Aug  Sept Oct  Nov  Dec
 const short DAYS_BEFORE[] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
 #define UNIX_TO_2K	((30*365*3600*24) + (7*3600*24))	//Normal years + leap years
@@ -65,9 +65,6 @@ EXPORT(CheckString);
 EXPORT(CheckMem);
 EXPORT(ModUtil_LookupString);
 EXPORT(ModUtil_SetIdent);
-
-// === GLOBALS ===
-static Uint	giRandomState = RANDOM_SEED;
 
 // === CODE ===
 /**
@@ -679,12 +676,27 @@ Sint64 timestamp(int sec, int mins, int hrs, int day, int month, int year)
  */
 Uint rand(void)
 {
-	Uint	old = giRandomState;
+	#if 0
+	static Uint	state = RANDOM_SEED;
+	Uint	old = state;
 	// Get the next state value
-	giRandomState = (RANDOM_A*giRandomState + RANDOM_C) & 0xFFFFFFFF;
+	giRandomState = (RANDOM_A*state + RANDOM_C);
 	// Check if it has changed, and if it hasn't, change it
-	if(giRandomState == old)	giRandomState += RANDOM_SPRUCE;
-	return giRandomState;
+	if(state == old)	state += RANDOM_SPRUCE;
+	return state;
+	#else
+	// http://en.wikipedia.org/wiki/Xorshift
+	// 2010-10-03
+	static Uint32	x = 123456789;
+	static Uint32	y = 362436069;
+	static Uint32	z = 521288629;
+	static Uint32	w = 88675123; 
+	Uint32	t;
+ 
+	t = x ^ (x << 11);
+	x = y; y = z; z = w;
+	return w = w ^ (w >> 19) ^ t ^ (t >> 8); 
+	#endif
 }
 
 /* *
