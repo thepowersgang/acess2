@@ -17,7 +17,7 @@
  * \todo Implement changing of the parent directory when a file is written to
  * \todo Implement file creation / deletion
  */
-#define DEBUG	1
+#define DEBUG	0
 #define VERBOSE	1
 
 #define CACHE_FAT	0	//!< Caches the FAT in memory

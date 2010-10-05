@@ -138,7 +138,7 @@ tVFS_ACL *VFS_UnixToAcessACL(Uint Mode, Uint Owner, Uint Group)
 	if(Mode & 0010)	ret[1].Perms |= VFS_PERM_EXECUTE;
 	
 	// Global
-	ret[2].Group = 1;	ret[2].ID = Group;
+	ret[2].Group = 1;	ret[2].ID = -1;
 	ret[2].Inv = 0;		ret[2].Perms = 0;
 	if(Mode & 0004)	ret[2].Perms |= VFS_PERM_READ;
 	if(Mode & 0002)	ret[2].Perms |= VFS_PERM_WRITE;

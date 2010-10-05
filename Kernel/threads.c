@@ -17,7 +17,7 @@
 #define SCHED_RR_SIM	2	// Single Queue Round Robin
 #define SCHED_RR_PRI	3	// Multi Queue Round Robin
 // Set scheduler type
-#define SCHEDULER_TYPE	SCHED_RR_PRI
+#define SCHEDULER_TYPE	SCHED_LOTTERY
 
 // === CONSTANTS ===
 #define	DEFAULT_QUANTUM	10
