@@ -390,7 +390,7 @@ tPAddr MM_AllocPhysRange(int Pages, int MaxBits)
 			nFree ++;
 			addr ++;
 			LOG("nFree(%i) == %i (0x%x)", nFree, Pages, addr);
-			if(nFree == Num)
+			if(nFree == Pages)
 				break;
 		}
 		LOG("nFree = %i", nFree);
@@ -409,10 +409,10 @@ tPAddr MM_AllocPhysRange(int Pages, int MaxBits)
 		Mutex_Release(&glPhysicalPages);
 		// TODO: Page out
 		// ATM. Just Warning
-		Warning(" MM_AllocPhysRange: Out of memory (unable to fulfil request for %i pages)", Num);
+		Warning(" MM_AllocPhysRange: Out of memory (unable to fulfil request for %i pages)", Pages);
 		Log_Warning("Arch",
 			"Out of memory (unable to fulfil request for %i pages)",
-			Num
+			Pages	
 			);
 		LEAVE('i', 0);
 		return 0;

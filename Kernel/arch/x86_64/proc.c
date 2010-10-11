@@ -387,7 +387,7 @@ void Proc_Start(void)
 	{
 		gaCPUs[0].IdleThread = Proc_GetCurThread();
 		gaCPUs[0].IdleThread->ThreadName = "Idle Thread";
-		gaCPUs[0].IdleThread->NumTickets = 0;	// Never called randomly
+		Threads_SetPriority( gaCPUs[0].IdleThread, -1 );	// Never called randomly
 		gaCPUs[0].IdleThread->Quantum = 1;	// 1 slice quantum
 		for(;;)	HALT();	// Just yeilds
 	}

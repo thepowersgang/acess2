@@ -52,7 +52,7 @@ all: $(BIN)
 clean:
 	@$(RM) $(BIN) ../Acess2.$(ARCH).gz $(BIN).dsm ../Map.$(ARCH).txt LineCounts.$(ARCH).txt $(OBJ) $(DEPFILES)
 
-install: $(BIN)
+install: $(BIN) 
 	gzip -c $(BIN) > ../Acess2.$(ARCH).gz
 	$(xCP) ../Acess2.$(ARCH).gz $(DISTROOT)
 
@@ -65,6 +65,7 @@ $(BIN): $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile
 	$(DISASM) -S $(BIN) > $(BIN).dsm
 	@wc -l $(SRCFILES) include/*.h > LineCounts.$(ARCH).txt
 	@echo BUILD_NUM = $$(( $(BUILD_NUM) + 1 )) > Makefile.BuildNum.$(ARCH)
+	$(POSTBUILD)
 	@$(STRIP) $(BIN)
 
 %.ao.$(ARCH): %.asm Makefile
