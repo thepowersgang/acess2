@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 // === CONSTANTS ===
 #define	SCAN_SPACE	8192
@@ -10,10 +11,10 @@
 
 // === TYPES ===
 typedef struct {
-	unsigned long	Magic;
-	unsigned long	Flags;
-	unsigned long	Checksum;
-} tMBootImg;
+	uint32_t	Magic;
+	uint32_t	Flags;
+	uint32_t	Checksum;
+} __attribute__((packed)) tMBootImg;
 
 // === PROTOTYPES ===
 void	CheckMultiboot(char *file);

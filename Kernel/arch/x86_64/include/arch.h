@@ -76,53 +76,25 @@ typedef struct sSyscallRegs
  * \brief Short Spinlock structure
  */
 struct sShortSpinlock {
-	volatile int	Lock;	//!< Lock value
-	 int	IF;	//!< Interrupt state on call to SHORTLOCK
-};
-/**
- * \brief Determine if a short spinlock is locked
- * \param Lock	Lock pointer
- */
-static inline int IS_LOCKED(struct sShortSpinlock *Lock) {
-	return !!Lock->Lock;
-}
-/**
- * \brief Acquire a Short Spinlock
- * \param Lock	Lock pointer
- * 
- * This type of mutex should only be used for very short sections of code,
- * or in places where a Mutex_* would be overkill, such as appending
- * an element to linked list (usually two assignement lines in C)
- * 
- * \note This type of lock halts interrupts, so ensure that no timing
- * functions are called while it is held.
- */
-static inline void SHORTLOCK(struct sShortSpinlock *Lock) {
-	 int	v = 1;
-	
-	// Save interrupt state
-	__ASM__ ("pushf;\n\tpop %%rax" : "=a"(Lock->IF));
-	Lock->IF &= 0x200;
-	
-	// Stop interrupts
-	__ASM__ ("cli");
-	
-	// Wait for another CPU to release
-	while(v)
-		__ASM__("xchgl %%eax, (%%rdi)":"=a"(v):"a"(1),"D"(&Lock->Lock));
-}
-/**
- * \brief Release a short lock
- * \param Lock	Lock pointer
- */
-static inline void SHORTREL(struct sShortSpinlock *Lock) {
-	Lock->Lock = 0;
-	#if 0	// Which is faster?, meh the test is simpler
-	__ASM__ ("pushf;\n\tor %0, (%%rsp);\n\tpopf" : : "a"(Lock->IF));
+	#if STACKED_LOCKS == 2
+	volatile void	*Lock;	//!< Lock value
 	#else
-	if(Lock->IF)	__ASM__ ("sti");
+	volatile int	Lock;	//!< Lock value
 	#endif
-}
+	
+	#if LOCK_DISABLE_INTS
+	 int	IF;	//!< Interrupt state on call to SHORTLOCK
+	#endif
+	#if STACKED_LOCKS
+	 int	Depth;
+	#endif
+};
+
+// === FUNCTIONS ===
+extern int	IS_LOCKED(struct sShortSpinlock *Lock);
+extern int	CPU_HAS_LOCK(struct sShortSpinlock *Lock);
+extern void	SHORTLOCK(struct sShortSpinlock *Lock);
+extern void	SHORTREL(struct sShortSpinlock *Lock);
 
 #endif
 
