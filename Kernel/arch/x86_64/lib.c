@@ -58,7 +58,7 @@ void SHORTLOCK(struct sShortSpinlock *Lock)
 	
 	#if LOCK_DISABLE_INTS
 	// Save interrupt state and clear interrupts
-	__ASM__ ("pushf;\n\tpop %%eax\n\tcli" : "=a"(IF));
+	__ASM__ ("pushf;\n\tpop %0\n\tcli" : "=a"(IF));
 	IF &= 0x200;	// AND out all but the interrupt flag
 	#endif
 	
@@ -90,7 +90,7 @@ void SHORTLOCK(struct sShortSpinlock *Lock)
 			: "a"(0), "r"(thread), "r"(&Lock->Lock)
 			);
 		#else
-		__ASM__("xchgl %%eax, (%%edi)":"=a"(v):"a"(1),"D"(&Lock->Lock));
+		__ASM__("xchgl %0, (%2)":"=a"(v):"a"(1),"D"(&Lock->Lock));
 		#endif
 	}
 	

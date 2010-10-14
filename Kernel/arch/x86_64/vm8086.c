@@ -3,6 +3,7 @@
 #include <acess.h>
 #include <vm8086.h>
 #include <modules.h>
+//#include "rme.h"
 
 // === CONSTANTS ===
 #define VM8086_STACK_SEG	0x9F00
@@ -17,6 +18,7 @@ void	VM8086_Free(tVM8086 *State);
 // === GLOBALS ===
 MODULE_DEFINE(0, 0x100, VM8086, VM8086_Install, NULL, NULL);
 tMutex	glVM8086_Process;
+//tRME_State	*gpVM8086_State;
 tPID	gVM8086_WorkerPID;
 tTID	gVM8086_CallingThread;
 tVM8086	volatile * volatile gpVM8086_State = (void*)-1;	// Set to -1 to avoid race conditions
@@ -24,6 +26,7 @@ tVM8086	volatile * volatile gpVM8086_State = (void*)-1;	// Set to -1 to avoid ra
 // === CODE ===
 int VM8086_Install(char **Arguments)
 {
+	//gpVM8086_State = RME_CreateState();
 	return MODULE_ERR_OK;
 }
 

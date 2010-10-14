@@ -215,7 +215,7 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		}
 		
 		// Get Argument
-		val = va_arg(args, Uint);
+		val = va_arg(args, unsigned int);
 		
 		// - Padding Side Flag
 		if(c == '+') {
@@ -234,7 +234,7 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		// - Minimum length
 		if(c == '*') {	// Dynamic length
 			minSize = val;
-			val = va_arg(args, Uint);
+			val = va_arg(args, unsigned int);
 			c = *__format++;
 		}
 		else if('1' <= c && c <= '9')
