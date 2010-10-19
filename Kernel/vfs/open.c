@@ -1,8 +1,8 @@
 /*
- * AcessMicro VFS
+ * Acess2 VFS
  * - Open, Close and ChDir
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <acess.h>
 #include <mm_virt.h>
 #include "vfs.h"
@@ -237,12 +237,6 @@ tVFS_Node *VFS_ParsePath(const char *Path, char **TruePath)
 		longestMount = mnt;
 	}
 	
-	// Sanity Check
-	/*if(!longestMount) {
-		Log("VFS_ParsePath - ERROR: No Root Node\n");
-		return NULL;
-	}*/
-	
 	// Save to shorter variable
 	mnt = longestMount;
 	
@@ -294,11 +288,14 @@ tVFS_Node *VFS_ParsePath(const char *Path, char **TruePath)
 			LEAVE('n');
 			return NULL;
 		}
-		LOG("FindDir(%p, '%s')", curNode, pathEle);
+		LOG("FindDir{=%p}(%p, '%s')", curNode->FindDir, curNode, pathEle);
 		// Get Child Node
 		tmpNode = curNode->FindDir(curNode, pathEle);
 		LOG("tmpNode = %p", tmpNode);
-		if(curNode->Close)	curNode->Close(curNode);
+		if(curNode->Close) {
+			//LOG2("curNode->Close = %p", curNode->Close);
+			curNode->Close(curNode);
+		}
 		curNode = tmpNode;
 		
 		// Error Check

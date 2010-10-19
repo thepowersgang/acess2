@@ -710,6 +710,7 @@ tThread *Threads_RemActive(void)
 		return NULL;
 	}
 	
+	ret->Next = NULL;
 	ret->Remaining = 0;
 	ret->CurCPU = -1;
 	
@@ -865,6 +866,16 @@ void Threads_Dump(void)
 		Log(" %i (%i) - %s (CPU %i)",
 			thread->TID, thread->TGID, thread->ThreadName, thread->CurCPU);
 		Log("  State %i", thread->Status);
+		switch(thread->Status)
+		{
+		case THREAD_STAT_MUTEXSLEEP:
+			Log("  Mutex Pointer: %p", thread->WaitPointer);
+			break;
+		case THREAD_STAT_ZOMBIE:
+			Log("  Return Status: %i", thread->RetStatus);
+			break;
+		default:	break;
+		}
 		Log("  Priority %i, Quantum %i", thread->Priority, thread->Quantum);
 		Log("  KStack 0x%x", thread->KernelStack);
 	}
@@ -1121,8 +1132,10 @@ void Mutex_Acquire(tMutex *Mutex)
 		SHORTLOCK( &glThreadListLock );
 		// - Remove from active list
 		us = Threads_RemActive();
+		us->Next = NULL;
 		// - Mark as sleeping
-		us->Status = THREAD_STAT_OFFSLEEP;
+		us->Status = THREAD_STAT_MUTEXSLEEP;
+		us->WaitPointer = Mutex;
 		
 		// - Add to waiting
 		if(Mutex->LastWaiting) {
@@ -1133,10 +1146,21 @@ void Mutex_Acquire(tMutex *Mutex)
 			Mutex->Waiting = us;
 			Mutex->LastWaiting = us;
 		}
+		#if 1
+		{
+			 int	i = 0;
+			tThread	*t;
+			for( t = Mutex->Waiting; t; t = t->Next, i++ )
+				Log("[%i] (tMutex)%p->Waiting[%i] = %p (%i %s)", us->TID, Mutex, i,
+					t, t->TID, t->ThreadName);
+		}
+		#endif
+		
 		SHORTREL( &glThreadListLock );
 		SHORTREL( &Mutex->Protector );
-		while(us->Status == THREAD_STAT_OFFSLEEP)	Threads_Yield();
+		while(us->Status == THREAD_STAT_MUTEXSLEEP)	Threads_Yield();
 		// We're only woken when we get the lock
+		us->WaitPointer = NULL;
 	}
 	// Ooh, let's take it!
 	else {

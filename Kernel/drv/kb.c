@@ -45,6 +45,8 @@ Uint8	gbaKB_States[3][256];
  int	giKB_KeyLayer = 0;
 #if USE_KERNEL_MAGIC
  int	gbKB_MagicState = 0;
+ int	giKB_MagicAddress = 0;
+ int	giKB_MagicAddressPos = 0;
 #endif
 //Uint64	giKB_ReadBase = 0;
 //Uint32	gaKB_Buffer[KB_BUFFER_SIZE];	//!< Keyboard Ring Buffer
@@ -184,14 +186,24 @@ void KB_IRQHandler(int IRQNum)
 	{
 		switch(ch)
 		{
-		// Kernel Panic (Page Fault)
-		case 'q':	*((int*)1) = 0;	return;
-		// Bochs Magic Breakpoint
-		case 'd':	__asm__ __volatile__ ("xchg %bx, %bx");	return;
+		case '0':	case '1':	case '2':	case '3':
+		case '4':	case '5':	case '6':	case '7':
+		case '8':	case '9':	case 'a':	case 'b':
+		case 'c':	case 'd':	case 'e':	case 'f':
+			{
+			char	str[2] = {ch,0};
+			if(giKB_MagicAddressPos == BITS/4)	break;
+			giKB_MagicAddress |= atoi(str) << giKB_MagicAddressPos;
+			giKB_MagicAddressPos ++;
+			}
+			break;
+		
 		// Thread List Dump
 		case 'p':	Threads_Dump();	return;
 		// Heap Statistics
 		case 'h':	Heap_Stats();	return;
+		// Dump Structure
+		case 's':	return;
 		}
 	}
 	#endif

@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
 			sPassword = GetPassword();
 			if( (uid = ValidateUser(sUsername, sPassword)) == -1 )
 			{
-				printf("\nInvalid username or password for '%s'\n", sUsername);
+				printf("\nInvalid username or password\n");
 				free(sUsername);
 				free(sPassword);
 			}
