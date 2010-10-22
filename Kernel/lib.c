@@ -459,6 +459,7 @@ char *strdup(const char *Str)
 {
 	char	*ret;
 	ret = malloc(strlen(Str)+1);
+	if( !ret )	return NULL;
 	strcpy(ret, Str);
 	return ret;
 }

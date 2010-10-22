@@ -458,6 +458,10 @@ int VFS_Open(char *Path, Uint Mode)
 	
 	// Get absolute path
 	absPath = VFS_GetAbsPath(Path);
+	if(absPath == NULL) {
+		Log_Warning("VFS", "VFS_Open: Path expansion failed '%s'", Path);
+		return -1;
+	}
 	LOG("absPath = \"%s\"", absPath);
 	// Parse path and get mount point
 	node = VFS_ParsePath(absPath, NULL);
