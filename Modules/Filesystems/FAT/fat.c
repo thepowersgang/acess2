@@ -17,7 +17,7 @@
  * \todo Implement changing of the parent directory when a file is written to
  * \todo Implement file creation / deletion
  */
-#define DEBUG	1
+#define DEBUG	0
 #define VERBOSE	1
 
 #define CACHE_FAT	0	//!< Caches the FAT in memory
@@ -941,7 +941,7 @@ tVFS_Node *FAT_int_CreateNode(tVFS_Node *Parent, fat_filetable *Entry, int Pos)
 	tFAT_VolInfo	*disk = Parent->ImplPtr;
 	
 	ENTER("pParent pFT", Parent, Entry);
-	LOG("disk = %p\n", disk);
+	LOG("disk = %p", disk);
 	
 	memset(&node, 0, sizeof(tVFS_Node));
 	

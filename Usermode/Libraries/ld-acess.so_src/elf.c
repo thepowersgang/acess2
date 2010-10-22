@@ -51,6 +51,9 @@ int ElfRelocate(void *Base, char **envp, char *Filename)
 	
 	DEBUGS("ElfRelocate: (Base=0x%x)\n", Base);
 	
+	// Check magic header
+	
+	
 	// Parse Program Header to get Dynamic Table
 	phtab = Base + hdr->phoff;
 	iSegmentCount = hdr->phentcount;
@@ -119,7 +122,7 @@ int ElfRelocate(void *Base, char **envp, char *Filename)
 	}
 
 	if(dynsymtab == NULL) {
-		SysDebug("WARNING: No Dynamic Symbol table, returning\n");
+		SysDebug("ld-acess.so - WARNING: No Dynamic Symbol table, returning\n");
 		return hdr->entrypoint;
 	}
 	

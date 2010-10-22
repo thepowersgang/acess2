@@ -248,6 +248,8 @@ void SyscallHandler(tSyscallRegs *Regs)
 	
 	// Read Directory
 	case SYS_READDIR:
+		// TODO: What if the filename is longer?
+		// Maybe force it to be a 256 byte buffer
 		if( !Syscall_Valid(8, Regs->Arg2) ) {
 			err = -EINVAL;
 			ret = -1;
