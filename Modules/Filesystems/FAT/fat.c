@@ -912,6 +912,7 @@ char *FAT_int_CreateName(fat_filetable *ft, char *LongFileName)
 {
 	char	*ret;
 	ENTER("pft sLongFileName", ft, LongFileName);
+	//Log_Debug("FAT", "FAT_int_CreateName(ft=%p, LongFileName=%p'%s')", ft, LongFileName);
 	#if USE_LFN
 	if(LongFileName && LongFileName[0] != '\0')
 	{	
@@ -1259,14 +1260,7 @@ char *FAT_ReadDir(tVFS_Node *Node, int ID)
 		lfn = FAT_int_GetLFN( Node, ID + (lfnInfo->id & 0x3F) );
 		
 		// Bit 6 indicates the start of an entry
-		if(lfnInfo->id & 0x40) {
-			//Log_Debug("FAT", "lfn = %p", lfn);
-			//Heap_Validate();
-			//Log_Debug("FAT", "Clearing LFN");
-			memset(lfn, 0, 256);
-			//Heap_Validate();
-			//Log_Debug("FAT", "Check Passed");
-		}
+		if(lfnInfo->id & 0x40)	memset(lfn, 0, 256);
 		
 		a = (lfnInfo->id & 0x3F) * 13;
 		
@@ -1292,11 +1286,16 @@ char *FAT_ReadDir(tVFS_Node *Node, int ID)
 		LEAVE('p', VFS_SKIP);
 		return VFS_SKIP;
 	}
-	// Ignore . and ..
-	if(fileinfo[a].name[0] == '.') {
+	// Ignore .
+	if(fileinfo[a].name[0] == '.' && fileinfo[a].name[1] == ' ') {
 		LEAVE('p', VFS_SKIP);
 		return VFS_SKIP;
-	}	
+	}
+	// and ..
+	if(fileinfo[a].name[0] == '.' && fileinfo[a].name[1] == '.' && fileinfo[a].name[2] == ' ') {
+		LEAVE('p', VFS_SKIP);
+		return VFS_SKIP;
+	}
 	
 	LOG("name='%c%c%c%c%c%c%c%c.%c%c%c'",
 		fileinfo[a].name[0], fileinfo[a].name[1], fileinfo[a].name[2], fileinfo[a].name[3],
