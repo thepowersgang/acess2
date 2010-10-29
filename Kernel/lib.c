@@ -27,7 +27,7 @@ char	*strcpy(char *__str1, const char *__str2);
 char	*strncpy(char *__str1, const char *__str2, size_t max);
  int	strcmp(const char *str1, const char *str2);
  int	strncmp(const char *str1, const char *str2, size_t num);
-char	*strdup(const char *Str);
+char	*_strdup(const char *File, int Line, const char *Str);
 char	**str_split(const char *__str, char __ch);
  int	strpos8(const char *str, Uint32 Search);
  int	ReadUTF8(Uint8 *str, Uint32 *Val);
@@ -54,7 +54,8 @@ EXPORT(strcpy);
 EXPORT(strncpy);
 EXPORT(strcmp);
 EXPORT(strncmp);
-EXPORT(strdup);
+//EXPORT(strdup);
+EXPORT(_strdup);	// Takes File/Line too
 EXPORT(str_split);
 EXPORT(strpos8);
 EXPORT(DivUp);
@@ -451,6 +452,7 @@ int strncmp(const char *Str1, const char *Str2, size_t num)
 	return *Str1-*Str2;
 }
 
+#if 0
 /**
  * \fn char *strdup(const char *Str)
  * \brief Duplicates a string
@@ -459,6 +461,20 @@ char *strdup(const char *Str)
 {
 	char	*ret;
 	ret = malloc(strlen(Str)+1);
+	if( !ret )	return NULL;
+	strcpy(ret, Str);
+	return ret;
+}
+#endif
+
+/**
+ * \fn char *_strdup(const char *File, int Line, const char *Str)
+ * \brief Duplicates a string
+ */
+char *_strdup(const char *File, int Line, const char *Str)
+{
+	char	*ret;
+	ret = Heap_Allocate(File, Line, strlen(Str)+1);
 	if( !ret )	return NULL;
 	strcpy(ret, Str);
 	return ret;

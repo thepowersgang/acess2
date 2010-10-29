@@ -104,6 +104,13 @@ typedef struct sVFS_Node
 	 *       this if needed
 	 */
 	void	*Data;
+	
+	/**
+	 * \brief Node mutex
+	 * \note Provided for the Filesystem driver's use
+	 */
+	tMutex	Lock;
+	
 	/**
 	 * \}
 	 */

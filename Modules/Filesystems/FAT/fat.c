@@ -40,6 +40,7 @@
 typedef struct sFAT_LFNCacheEnt
 {
 	 int	ID;
+	// TODO: Handle UTF16 names correctly
 	char	Data[256];
 }	tFAT_LFNCacheEnt;
 /**
@@ -920,6 +921,10 @@ char *FAT_int_CreateName(fat_filetable *ft, char *LongFileName)
 	{
 	#endif
 		ret = (char*) malloc(13);
+		if( !ret ) {
+			Log_Warning("FAT", "FAT_int_CreateName: malloc(13) failed");
+			return NULL;
+		}
 		FAT_int_ProperFilename(ret, ft->name);
 	#if USE_LFN
 	}
@@ -1099,12 +1104,7 @@ int FAT_int_WriteDirEntry(tVFS_Node *Node, int ID, fat_filetable *Entry)
 }
 #endif
 
-#if USE_LFN
-// I should probably more tightly associate the LFN cache with the node
-// somehow, maybe by adding a field to tVFS_Node before locking it
-// Maybe .Cache or something like that (something that is free'd by the
-// Inode_UncacheNode function)
-	
+#if USE_LFN	
 /**
  * \fn char *FAT_int_GetLFN(tVFS_Node *node)
  * \brief Return pointer to LFN cache entry
@@ -1241,32 +1241,29 @@ char *FAT_ReadDir(tVFS_Node *Node, int ID)
 	if(fileinfo[a].attrib == ATTR_LFN)
 	{
 		fat_longfilename	*lfnInfo;
-		 int	len;
 		
 		lfnInfo = (fat_longfilename *) &fileinfo[a];
 		
 		// Get cache for corresponding file
+		// > ID + Index gets the corresponding short node
 		lfn = FAT_int_GetLFN( Node, ID + (lfnInfo->id & 0x3F) );
 		
 		// Bit 6 indicates the start of an entry
 		if(lfnInfo->id & 0x40)	memset(lfn, 0, 256);
 		
-		// Get the current length
-		len = strlen(lfn);
+		a = (lfnInfo->id & 0x3F) * 13;
 		
 		// Sanity Check (FAT implementations should not allow >255 character names)
-		if(len + 13 > 255)	return VFS_SKIP;
-		// Rebase all bytes
-		for(a=len+1;a--;)	lfn[a+13] = lfn[a];
+		if(a > 255)	return VFS_SKIP;
 		
 		// Append new bytes
-		lfn[ 0] = lfnInfo->name1[0];	lfn[ 1] = lfnInfo->name1[1];
-		lfn[ 2] = lfnInfo->name1[2];	lfn[ 3] = lfnInfo->name1[3];
-		lfn[ 4] = lfnInfo->name1[4];	
-		lfn[ 5] = lfnInfo->name2[0];	lfn[ 6] = lfnInfo->name2[1];
-		lfn[ 7] = lfnInfo->name2[2];	lfn[ 8] = lfnInfo->name2[3];
-		lfn[ 9] = lfnInfo->name2[4];	lfn[10] = lfnInfo->name2[5];
-		lfn[11] = lfnInfo->name3[0];	lfn[12] = lfnInfo->name3[1];
+		lfn[a+ 0] = lfnInfo->name1[0];	lfn[a+ 1] = lfnInfo->name1[1];
+		lfn[a+ 2] = lfnInfo->name1[2];	lfn[a+ 3] = lfnInfo->name1[3];
+		lfn[a+ 4] = lfnInfo->name1[4];	
+		lfn[a+ 5] = lfnInfo->name2[0];	lfn[a+ 6] = lfnInfo->name2[1];
+		lfn[a+ 7] = lfnInfo->name2[2];	lfn[a+ 8] = lfnInfo->name2[3];
+		lfn[a+ 9] = lfnInfo->name2[4];	lfn[a+10] = lfnInfo->name2[5];
+		lfn[a+11] = lfnInfo->name3[0];	lfn[a+12] = lfnInfo->name3[1];
 		LOG("lfn = '%s'", lfn);
 		LEAVE('p', VFS_SKIP);
 		return VFS_SKIP;

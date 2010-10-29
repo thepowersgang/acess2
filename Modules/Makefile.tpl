@@ -12,7 +12,7 @@ CFGFILES += $(shell test -f Makefile.cfg && echo Makefile.cfg)
 -include $(CFGFILES)
 
 CPPFLAGS := -I$(ACESSDIR)/Kernel/include -I$(ACESSDIR)/Kernel/arch/$(ARCHDIR)/include -DARCH=$(ARCH) $(_CPPFLAGS)
-CFLAGS = -Wall -Werror -fno-stack-protector $(CPPFLAGS) -g -O3 -fno-builtin
+CFLAGS := -Wall -Werror -fno-stack-protector -g -O3 -fno-builtin
 
 ifneq ($(CATEGORY),)
 	FULLNAME := $(CATEGORY)_$(NAME)
@@ -64,7 +64,7 @@ endif
 
 %.o.$(_SUFFIX): %.c Makefile ../Makefile.tpl $(CFGFILES)
 	@echo --- $(CC) -o $@
-	@$(CC) $(CFLAGS) -o $@ -c $<
+	@$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $<
 	@$(CC) -M $(CPPFLAGS) -MT $@ -o $*.d.$(ARCH) $<
 
 -include $(DEPFILES)

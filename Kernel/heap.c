@@ -7,7 +7,8 @@
 #include <heap_int.h>
 
 #define WARNINGS	1
-#define	DEBUG_TRACE	0
+#define	DEBUG_TRACE	1
+#define	VERBOSE_DUMP	0
 
 // === CONSTANTS ===
 #define	HEAP_INIT_SIZE	0x8000	// 32 KiB
@@ -135,19 +136,20 @@ void *Heap_Merge(tHeapHead *Head)
  * \param Line	Source line
  * \param Bytes	Size of region to allocate
  */
-void *Heap_Allocate(const char *File, int Line, size_t Bytes)
+void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 {
 	tHeapHead	*head, *newhead;
 	tHeapFoot	*foot, *newfoot;
 	tHeapHead	*best = NULL;
 	Uint	bestSize = 0;	// Speed hack
+	size_t	Bytes;
 	
 	// Get required size
 	#if POW2_SIZES
-	Bytes = Bytes + sizeof(tHeapHead) + sizeof(tHeapFoot);
-	Bytes = 1UUL << LOG2(Bytes);
+	Bytes = __Bytes + sizeof(tHeapHead) + sizeof(tHeapFoot);
+	Bytes = 1UUL << LOG2(__Bytes);
 	#else
-	Bytes = (Bytes + sizeof(tHeapHead) + sizeof(tHeapFoot) + MIN_SIZE-1) & ~(MIN_SIZE-1);
+	Bytes = (__Bytes + sizeof(tHeapHead) + sizeof(tHeapFoot) + MIN_SIZE-1) & ~(MIN_SIZE-1);
 	#endif
 	
 	// Lock Heap
@@ -247,6 +249,7 @@ void *Heap_Allocate(const char *File, int Line, size_t Bytes)
 	newhead->Magic = MAGIC_FREE;
 	foot->Head = newhead;	// Update backlink in old footer
 	best->Size = Bytes;		// Update size in old header
+	best->ValidSize = __Bytes;
 	best->Magic = MAGIC_USED;	// Mark block as used
 	best->File = File;
 	best->Line = Line;
@@ -318,8 +321,8 @@ void Heap_Deallocate(void *Ptr)
 	
 	// Mark as free
 	head->Magic = MAGIC_FREE;
-	head->File = NULL;
-	head->Line = 0;
+	//head->File = NULL;
+	//head->Line = 0;
 	head->ValidSize = 0;
 	// Merge blocks
 	Heap_Merge( head );
@@ -485,6 +488,7 @@ void Heap_Dump(void)
 	while( (Uint)head < (Uint)gHeapEnd )
 	{		
 		foot = (void*)( (Uint)head + head->Size - sizeof(tHeapFoot) );
+		#if VERBOSE_DUMP
 		Log_Log("Heap", "%p (0x%llx): 0x%08lx (%i) %4C",
 			head, MM_GetPhysAddr((Uint)head), head->Size, head->ValidSize, &head->Magic);
 		Log_Log("Heap", "%p %4C", foot->Head, &foot->Magic);
@@ -492,7 +496,7 @@ void Heap_Dump(void)
 			Log_Log("Heap", "%sowned by %s:%i",
 				(head->Magic==MAGIC_FREE?"was ":""), head->File, head->Line);
 		}
-		Log_Log("Heap", "");
+		#endif
 		
 		// Sanity Check Header
 		if(head->Size == 0) {
@@ -518,6 +522,10 @@ void Heap_Dump(void)
 			break;
 		}
 		
+		#if VERBOSE_DUMP
+		Log_Log("Heap", "");
+		#endif
+		
 		// All OK? Go to next
 		head = foot->NextHead;
 	}
@@ -525,13 +533,24 @@ void Heap_Dump(void)
 	// Check for a bad return
 	if( (tVAddr)head >= (tVAddr)gHeapEnd )
 		return ;
+
+	#if !VERBOSE_DUMP
+	Log_Log("Heap", "%p (0x%llx): 0x%08lx (%i) %4C",
+		head, MM_GetPhysAddr((Uint)head), head->Size, head->ValidSize, &head->Magic);
+	Log_Log("Heap", "%p %4C", foot->Head, &foot->Magic);
+	if(head->File) {
+		Log_Log("Heap", "%sowned by %s:%i",
+			(head->Magic==MAGIC_FREE?"was ":""), head->File, head->Line);
+	}
+	Log_Log("Heap", "");
+	#endif
+	
 	
 	badHead = head;
 	
-	Log_Log("Heap", "==== Going Backwards ==== (from %p)", badHead);
-	
 	// Work backwards
 	foot = (void*)( (tVAddr)gHeapEnd - sizeof(tHeapFoot) );
+	Log_Log("Heap", "==== Going Backwards ==== (from %p)", foot);
 	head = foot->Head;
 	while( (tVAddr)head >= (tVAddr)badHead )
 	{
