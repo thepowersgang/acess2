@@ -7,7 +7,7 @@
 #include <heap_int.h>
 
 #define WARNINGS	1
-#define	DEBUG_TRACE	1
+#define	DEBUG_TRACE	0
 #define	VERBOSE_DUMP	0
 
 // === CONSTANTS ===
@@ -340,7 +340,7 @@ void Heap_Deallocate(void *Ptr)
  */
 void *Heap_Reallocate(const char *File, int Line, void *__ptr, size_t __size)
 {
-	tHeapHead	*head = (void*)( (Uint)__ptr-8 );
+	tHeapHead	*head = (void*)( (Uint)__ptr-sizeof(tHeapHead) );
 	tHeapHead	*nextHead;
 	tHeapFoot	*foot;
 	Uint	newSize = (__size + sizeof(tHeapFoot)+sizeof(tHeapHead)+MIN_SIZE-1)&~(MIN_SIZE-1);
@@ -478,11 +478,18 @@ int Heap_IsHeapAddr(void *Ptr)
 	return 1;
 }
 
+/**
+ */
+void Heap_Validate(void)
+{
+	Heap_Dump();
+}
+
 #if WARNINGS
 void Heap_Dump(void)
 {
 	tHeapHead	*head, *badHead;
-	tHeapFoot	*foot;
+	tHeapFoot	*foot = NULL;
 	
 	head = gHeapStart;
 	while( (Uint)head < (Uint)gHeapEnd )
@@ -529,6 +536,10 @@ void Heap_Dump(void)
 		// All OK? Go to next
 		head = foot->NextHead;
 	}
+	
+	// If the heap is valid, ok!
+	if( (tVAddr)head == (tVAddr)gHeapEnd )
+		return ;
 	
 	// Check for a bad return
 	if( (tVAddr)head >= (tVAddr)gHeapEnd )
@@ -593,6 +604,8 @@ void Heap_Dump(void)
 		head = foot->Head;
 		Log_Debug("Heap", "head=%p", head);
 	}
+	
+	Panic("Heap_Dump - Heap is corrupted, kernel panic!");
 }
 #endif
 

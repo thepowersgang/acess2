@@ -12,6 +12,7 @@ extern void	*Heap_AllocateZero(const char *File, int Line, size_t Bytes);
 extern void	*Heap_Reallocate(const char *File, int Line, void *Ptr, size_t Bytes);
 extern void	Heap_Deallocate(void *Ptr);
 extern int	Heap_IsHeapAddr(void *Ptr);
+extern void	Heap_Validate(void);
 
 #define malloc(size)	Heap_Allocate(_MODULE_NAME_"/"__FILE__, __LINE__, (size))
 #define calloc(num,size)	Heap_AllocateZero(_MODULE_NAME_"/"__FILE__, __LINE__, (num)*(size))

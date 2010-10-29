@@ -1117,6 +1117,8 @@ char *FAT_int_GetLFN(tVFS_Node *Node, int ID)
 	tFAT_LFNCache	*cache;
 	 int	i, firstFree;
 	
+	Mutex_Acquire( &Node->Lock );
+	
 	// TODO: Thread Safety (Lock things)
 	cache = Node->Data;
 	
@@ -1126,15 +1128,20 @@ char *FAT_int_GetLFN(tVFS_Node *Node, int ID)
 		cache->NumEntries = 1;
 		cache->Entries[0].ID = ID;
 		cache->Entries[0].Data[0] = '\0';
+		Mutex_Release( &Node->Lock );
+		//Log_Debug("FAT", "Return = %p (new)", cache->Entries[0].Data);
 		return cache->Entries[0].Data;
 	}
 	
-	// Scan for a current entry
+	// Scan for this entry
 	firstFree = -1;
 	for( i = 0; i < cache->NumEntries; i++ )
 	{
-		if( cache->Entries[i].ID == ID )
+		if( cache->Entries[i].ID == ID ) {
+			Mutex_Release( &Node->Lock );
+			//Log_Debug("FAT", "Return = %p (match)", cache->Entries[i].Data);
 			return cache->Entries[i].Data;
+		}
 		if( cache->Entries[i].ID == -1 && firstFree == -1 )
 			firstFree = i;
 	}
@@ -1144,9 +1151,11 @@ char *FAT_int_GetLFN(tVFS_Node *Node, int ID)
 		i = sizeof(tFAT_LFNCache) + (cache->NumEntries+1)*sizeof(tFAT_LFNCacheEnt);
 		Node->Data = realloc( Node->Data, i );
 		if( !Node->Data ) {
-			Log_Error("FAT", "malloc() fail, unable to allocate %i for LFN cache", i);
+			Log_Error("FAT", "realloc() fail, unable to allocate %i for LFN cache", i);
+			Mutex_Release( &Node->Lock );
 			return NULL;
 		}
+		//Log_Debug("FAT", "Realloc (%i)\n", i);
 		cache = Node->Data;
 		i = cache->NumEntries;
 		cache->NumEntries ++;
@@ -1159,7 +1168,8 @@ char *FAT_int_GetLFN(tVFS_Node *Node, int ID)
 	cache->Entries[ i ].ID = ID;
 	cache->Entries[ i ].Data[0] = '\0';
 	
-	//TODO: Unlock
+	Mutex_Release( &Node->Lock );
+	//Log_Debug("FAT", "Return = %p (firstFree, i = %i)", cache->Entries[i].Data, i);
 	return cache->Entries[ i ].Data;
 }
 
@@ -1249,7 +1259,14 @@ char *FAT_ReadDir(tVFS_Node *Node, int ID)
 		lfn = FAT_int_GetLFN( Node, ID + (lfnInfo->id & 0x3F) );
 		
 		// Bit 6 indicates the start of an entry
-		if(lfnInfo->id & 0x40)	memset(lfn, 0, 256);
+		if(lfnInfo->id & 0x40) {
+			//Log_Debug("FAT", "lfn = %p", lfn);
+			//Heap_Validate();
+			//Log_Debug("FAT", "Clearing LFN");
+			memset(lfn, 0, 256);
+			//Heap_Validate();
+			//Log_Debug("FAT", "Check Passed");
+		}
 		
 		a = (lfnInfo->id & 0x3F) * 13;
 		
