@@ -283,6 +283,14 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 			GETVAL();
 			itoa(p, val, 10, minSize, pad);
 			goto printString;
+		case 'X':
+			#if BITS == 64
+			isLongLong = 1;	// TODO: Handle non-x86 64-bit archs
+			#endif
+			GETVAL();
+			itoa(p, val, 16, minSize, pad);
+			goto printString;
+			
 		case 'x':
 			GETVAL();
 			itoa(p, val, 16, minSize, pad);

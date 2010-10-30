@@ -10,6 +10,9 @@
 #define KERNEL_BASE	0xFFFFFFFF##80000000
 #define BITS	64
 
+#define STACKED_LOCKS	0
+#define LOCK_DISABLE_INTS	1
+
 //#define INT_MAX	0x7FFFFFFF
 //#define UINT_MAX	0xFFFFFFFF
 

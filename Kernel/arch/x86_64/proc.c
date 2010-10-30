@@ -736,6 +736,8 @@ void Proc_Scheduler(int CPU)
 	// If the spinlock is set, let it complete
 	if(IS_LOCKED(&glThreadListLock))	return;
 	
+	//LogF("Scheduler: CPU = %i\n", CPU);
+	
 	// Get current thread
 	thread = gaCPUs[CPU].Current;
 	
@@ -761,12 +763,13 @@ void Proc_Scheduler(int CPU)
 	// Error Check
 	if(thread == NULL) {
 		thread = gaCPUs[CPU].IdleThread;
-		Warning("Hmm... Threads_GetNextToRun returned NULL, I don't think this should happen.\n");
+		//Warning("Hmm... Threads_GetNextToRun returned NULL, I don't think this should happen.\n");
+		//LogF("Zzzzz.\n");
 		return;
 	}
 	
 	#if DEBUG_TRACE_SWITCH
-	Log("Switching to task %i, CR3 = 0x%x, RIP = %p",
+	LogF("Switching to task %i, CR3 = 0x%x, RIP = %p",
 		thread->TID,
 		thread->MemState.CR3,
 		thread->SavedState.RIP
