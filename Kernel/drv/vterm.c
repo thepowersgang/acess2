@@ -657,7 +657,8 @@ void VT_SetTerminal(int ID)
 		tVideo_IOCtl_Pos	pos;
 		pos.x = (gpVT_CurTerm->WritePos - gpVT_CurTerm->ViewPos) % gpVT_CurTerm->TextWidth;
 		pos.y = (gpVT_CurTerm->WritePos - gpVT_CurTerm->ViewPos) / gpVT_CurTerm->TextWidth;
-		VFS_IOCtl(giVT_OutputDevHandle, VIDEO_IOCTL_SETCURSOR, &pos);
+		if( pos.x < gpVT_CurTerm->TextHeight )
+			VFS_IOCtl(giVT_OutputDevHandle, VIDEO_IOCTL_SETCURSOR, &pos);
 	}
 	
 	if( gpVT_CurTerm->Mode == TERM_MODE_TEXT )

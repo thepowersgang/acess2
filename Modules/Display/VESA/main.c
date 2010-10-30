@@ -519,7 +519,7 @@ void Vesa_FlipCursor(void *Arg)
 	// Sanity 1
 	if(giVesaCursorX < 0 || giVesaCursorY < 0
 	|| y*pitch + x + giVT_CharHeight*pitch > (int)gpVesaCurMode->fbSize/4) {
-		Debug("Cursor OOB (%i,%i)", x, y);
+		Log_Notice("VESA", "Cursor OOB (%i,%i)", x, y);
 		giVesaCursorTimer = -1;
 		return;
 	}

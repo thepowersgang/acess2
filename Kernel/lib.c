@@ -178,6 +178,10 @@ void itoa(char *buf, Uint num, int base, int minLength, char pad)
 	if(pos==__maxlen){return pos;}\
 	if(__s){__s[pos++]=ch;}else{pos++;}\
 	}while(0)
+#define GETVAL()	do {\
+	if(isLongLong)	val = va_arg(args, Uint64);\
+	else	val = va_arg(args, unsigned int);\
+	}while(0)
 /**
  * \brief VArg String Number Print Formatted
  */
@@ -215,9 +219,6 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 			goto printString;
 		}
 		
-		// Get Argument
-		val = va_arg(args, unsigned int);
-		
 		// - Padding Side Flag
 		if(c == '+') {
 			bPadLeft = 1;
@@ -234,8 +235,7 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		
 		// - Minimum length
 		if(c == '*') {	// Dynamic length
-			minSize = val;
-			val = va_arg(args, unsigned int);
+			minSize = va_arg(args, unsigned int);
 			c = *__format++;
 		}
 		else if('1' <= c && c <= '9')
@@ -257,9 +257,6 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		{
 			c = *__format++;
 			if(c == 'l') {
-				#if BITS == 32
-				val |= (Uint64)va_arg(args, Uint) << 32;
-				#endif
 				c = *__format++;
 				isLongLong = 1;
 			}
@@ -271,6 +268,7 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		{
 		case 'd':
 		case 'i':
+			GETVAL();
 			if( isLongLong && val >> 63 ) {
 				PUTCH('-');
 				val = -val;
@@ -282,26 +280,31 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 			itoa(p, val, 10, minSize, pad);
 			goto printString;
 		case 'u':
+			GETVAL();
 			itoa(p, val, 10, minSize, pad);
 			goto printString;
 		case 'x':
+			GETVAL();
 			itoa(p, val, 16, minSize, pad);
 			goto printString;
 		case 'o':
+			GETVAL();
 			itoa(p, val, 8, minSize, pad);
 			goto printString;
 		case 'b':
+			GETVAL();
 			itoa(p, val, 2, minSize, pad);
 			goto printString;
 
 		case 'B':	//Boolean
+			val = va_arg(args, unsigned int);
 			if(val)	p = "True";
 			else	p = "False";
 			goto printString;
 		
 		// String - Null Terminated Array
 		case 's':
-			p = (char*)(tVAddr)val;
+			p = va_arg(args, char*);	// Get Argument
 		printString:
 			if(!p)		p = "(null)";
 			len = strlen(p);
@@ -311,7 +314,7 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 			break;
 		
 		case 'C':	// Non-Null Terminated Character Array
-			p = (char*)(tVAddr)val;
+			p = va_arg(args, char*);
 			if(!p)	goto printString;
 			while(minSize--)	PUTCH(*p++);
 			break;
@@ -319,6 +322,7 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		// Single Character
 		case 'c':
 		default:
+			GETVAL();
 			PUTCH( (Uint8)val );
 			break;
 		}

@@ -1146,7 +1146,7 @@ void Mutex_Acquire(tMutex *Mutex)
 			Mutex->Waiting = us;
 			Mutex->LastWaiting = us;
 		}
-		#if 1
+		#if 0
 		{
 			 int	i = 0;
 			tThread	*t;
