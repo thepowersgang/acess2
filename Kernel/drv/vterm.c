@@ -843,7 +843,7 @@ void VT_int_ClearLine(tVTerm *Term, int Num)
 {
 	 int	i;
 	tVT_Char	*cell = &Term->Text[ Num*Term->TextWidth ];
-	if( Num < 0 || Num >= Term->TextHeight )	return ;
+	if( Num < 0 || Num >= Term->TextHeight * (giVT_Scrollback + 1) )	return ;
 	//ENTER("pTerm iNum", Term, Num);
 	for( i = Term->TextWidth; i--; )
 	{
@@ -1073,8 +1073,6 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 	{
 		 int	base, i;
 		
-		//Debug("Scrolling entire buffer");
-		
 		// Move back by one
 		Term->WritePos -= Term->TextWidth;
 		// Update the scren
@@ -1118,6 +1116,7 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 		Term->WritePos -= Term->TextWidth;
 		VT_int_UpdateScreen( Term, 0 );
 		Term->WritePos += Term->TextWidth;
+		VT_int_ClearLine(Term, Term->WritePos / Term->TextWidth);
 		
 		// Scroll
 		Term->ViewPos += Term->TextWidth;
