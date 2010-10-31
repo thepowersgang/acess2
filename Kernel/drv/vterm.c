@@ -623,7 +623,7 @@ int VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data)
 		if( term->NewHeight )
 			ret = term->NewHeight;
 		else if( term->Mode == TERM_MODE_TEXT )
-			ret = term->TextHeight = *iData;
+			ret = term->TextHeight;
 		else
 			ret = term->Height;
 		LEAVE('i', ret);
