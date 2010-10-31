@@ -1262,7 +1262,8 @@ char *FAT_ReadDir(tVFS_Node *Node, int ID)
 		// Bit 6 indicates the start of an entry
 		if(lfnInfo->id & 0x40)	memset(lfn, 0, 256);
 		
-		a = (lfnInfo->id & 0x3F) * 13;
+		a = ((lfnInfo->id & 0x3F) - 1) * 13;
+		//Log_Debug("FAT", "ID = 0x%02x, a = %i", lfnInfo->id, a);
 		
 		// Sanity Check (FAT implementations should not allow >255 character names)
 		if(a > 255)	return VFS_SKIP;
@@ -1276,6 +1277,7 @@ char *FAT_ReadDir(tVFS_Node *Node, int ID)
 		lfn[a+ 9] = lfnInfo->name2[4];	lfn[a+10] = lfnInfo->name2[5];
 		lfn[a+11] = lfnInfo->name3[0];	lfn[a+12] = lfnInfo->name3[1];
 		LOG("lfn = '%s'", lfn);
+		//Log_Debug("FAT", "lfn = '%s'", lfn);
 		LEAVE('p', VFS_SKIP);
 		return VFS_SKIP;
 	}
@@ -1304,6 +1306,7 @@ char *FAT_ReadDir(tVFS_Node *Node, int ID)
 	
 	#if USE_LFN
 	lfn = FAT_int_GetLFN(Node, ID);
+	//Log_Debug("FAT", "lfn = %p'%s'", lfn, lfn);
 	ret = FAT_int_CreateName(&fileinfo[a], lfn);
 	#else
 	ret = FAT_int_CreateName(&fileinfo[a], NULL);

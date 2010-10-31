@@ -45,7 +45,7 @@ typedef char	BOOL;
 /**
  * \brief Halt the CPU
  */
-#define	HALT()	__asm__ __volatile__ ("hlt")
+#define	HALT()	__asm__ __volatile__ ("sti;\n\thlt")
 /**
  * \brief Fire a magic breakpoint (bochs)
  */

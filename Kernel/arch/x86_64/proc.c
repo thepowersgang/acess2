@@ -736,8 +736,6 @@ void Proc_Scheduler(int CPU)
 	// If the spinlock is set, let it complete
 	if(IS_LOCKED(&glThreadListLock))	return;
 	
-	//LogF("Scheduler: CPU = %i\n", CPU);
-	
 	// Get current thread
 	thread = gaCPUs[CPU].Current;
 	
@@ -776,6 +774,9 @@ void Proc_Scheduler(int CPU)
 		);
 	#endif
 	
+	
+	if(CPU > MAX_CPUS)
+		LogF("CPU = %i", CPU);
 	// Set current thread
 	gaCPUs[CPU].Current = thread;
 	

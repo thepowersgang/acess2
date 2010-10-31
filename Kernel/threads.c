@@ -40,7 +40,7 @@ extern void	Proc_CallFaultHandler(tThread *Thread);
 void	Threads_Init(void);
  int	Threads_SetName(char *NewName);
 char	*Threads_GetName(int ID);
-void	Threads_SetTickets(tThread *Thread, int Num);
+void	Threads_SetPriority(tThread *Thread, int Pri);
 tThread	*Threads_CloneTCB(Uint *Err, Uint Flags);
  int	Threads_WaitTID(int TID, int *status);
 tThread	*Threads_GetThread(Uint TID);
