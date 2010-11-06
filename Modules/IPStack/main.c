@@ -30,6 +30,7 @@ extern int	IPv6_Initialise();
 char	*IPStack_Root_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*IPStack_Root_FindDir(tVFS_Node *Node, const char *Name);
  int	IPStack_Root_IOCtl(tVFS_Node *Node, int ID, void *Data);
+ 
  int	IPStack_AddInterface(char *Device);
 tAdapter	*IPStack_GetAdapter(char *Path);
 char	*IPStack_Iface_ReadDir(tVFS_Node *Node, int Pos);
@@ -51,6 +52,21 @@ tDevFS_Driver	gIP_DriverInfo = {
 	}
 };
 tShortSpinlock	glIP_Interfaces;
+//! Loopback (127.0.0.0/8, ::1) Pseudo-Interface
+tInterface	gIP_LoopInterface = {
+	Node: {
+		ImplPtr: &gIP_LoopInterface,
+		Flags: VFS_FFLAG_DIRECTORY,
+		Size: -1,
+		NumACLs: 1,
+		ACLs: &gVFS_ACL_EveryoneRX,
+		ReadDir: IPStack_Iface_ReadDir,
+		FindDir: IPStack_Iface_FindDir,
+		IOCtl: IPStack_Iface_IOCtl
+	},
+	Adapter: NULL,
+	Type: 0
+};
 tInterface	*gIP_Interfaces = NULL;
 tInterface	*gIP_Interfaces_Last = NULL;
  int	giIP_NextIfaceId = 1;
@@ -67,12 +83,11 @@ int IPStack_Install(char **Arguments)
 {
 	 int	i = 0;
 	
-	// Layer 2 - Data Link Layer
+	// Layer 3 - Network Layer Protocols
 	ARP_Initialise();
-	// Layer 3 - Network Layer
 	IPv4_Initialise();
 	IPv6_Initialise();
-	// Layer 4 - Transport Layer
+	// Layer 4 - Transport Layer Protocols
 	TCP_Initialise();
 	UDP_Initialise();
 	
@@ -81,11 +96,18 @@ int IPStack_Install(char **Arguments)
 		// Parse module arguments
 		for( i = 0; Arguments[i]; i++ )
 		{
-			//if(strcmp(Arguments[i], "Device") == '=') {
-			//	
-			//}
+			// TODO:
+			// Define interfaces by <Device>,<Type>,<HexStreamAddress>,<Bits>
+			// Where:
+			// - <Device> is the device path (E.g. /Devices/ne2k/0)
+			// - <Type> is a number (e.g. 4) or symbol (e.g. AF_INET4)
+			// - <HexStreamAddress> is a condensed hexadecimal stream (in big endian)
+			//      (E.g. 0A000201 for 10.0.2.1 IPv4)
+			// - <Bits> is the number of subnet bits (E.g. 24 for an IPv4 Class C)
 		}
 	}
+	
+	gIP_LoopInterface.Adapter = IPStack_GetAdapter("/Devices/fifo/anon");
 	
 	DevFS_AddDevice( &gIP_DriverInfo );
 	
@@ -111,6 +133,17 @@ char *IPStack_Root_ReadDir(tVFS_Node *Node, int Pos)
 	tInterface	*iface;
 	char	*name;
 	ENTER("pNode iPos", Node, Pos);
+	
+
+	// Routing Subdir
+	if( Pos == 0 ) {
+		return strdup("routes");
+	}
+	// Pseudo Interfaces
+	if( Pos == 1 ) {
+		return strdup("lo");
+	}
+	Pos -= 2;
 	
 	// Traverse the list
 	for( iface = gIP_Interfaces; iface && Pos--; iface = iface->Next ) ;
@@ -160,6 +193,16 @@ tVFS_Node *IPStack_Root_FindDir(tVFS_Node *Node, const char *Name)
 	tInterface	*iface;
 	
 	ENTER("pNode sName", Node, Name);
+	
+	// Routing subdir
+	if( strcmp(Name, "routes") == 0 ) {
+		return &gIP_RouteNode;
+	}
+	
+	// Loopback
+	if( strcmp(Name, "lo") == 0 ) {
+		return &gIP_LoopInterface.Node;
+	}
 	
 	i = 0;	num = 0;
 	while('0' <= Name[i] && Name[i] <= '9')
@@ -222,7 +265,10 @@ int IPStack_Root_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	case 4:
 		if( Threads_GetUID() != 0 )	LEAVE_RET('i', -1);
 		if( !CheckString( Data ) )	LEAVE_RET('i', -1);
-		tmp = IPStack_AddInterface(Data);
+		{
+			char	name[4] = "";
+			tmp = IPStack_AddInterface(Data, name);
+		}
 		LEAVE_RET('i', tmp);
 	}
 	LEAVE('i', 0);
@@ -513,7 +559,7 @@ int IPStack_Iface_IOCtl(tVFS_Node *Node, int ID, void *Data)
  * \fn int IPStack_AddInterface(char *Device)
  * \brief Adds an interface to the list
  */
-int IPStack_AddInterface(char *Device)
+int IPStack_AddInterface(const char *Device, const char *Name)
 {
 	tInterface	*iface;
 	tAdapter	*card;
@@ -522,7 +568,7 @@ int IPStack_AddInterface(char *Device)
 	
 	card = IPStack_GetAdapter(Device);
 	
-	iface = malloc(sizeof(tInterface));
+	iface = malloc(sizeof(tInterface) + strlen(Name));
 	if(!iface) {
 		LEAVE('i', -2);
 		return -2;	// Return ERR_MYBAD
@@ -651,4 +697,21 @@ tAdapter *IPStack_GetAdapter(char *Path)
 	
 	LEAVE('p', dev);
 	return dev;
+}
+
+/**
+ * \brief Gets the size (in bytes) of a specified form of address
+ */
+int IPStack_GetAddressSize(int AddressType)
+{
+	switch(AddressType)
+	{
+	default:
+	case AF_NULL:
+		return 0;
+	case AF_INET4:
+		return sizeof(tIPv4);
+	case AF_INET6:
+		return sizeof(tIPv6);
+	}
 }

@@ -76,8 +76,20 @@ enum {
 	THREAD_STAT_MUTEXSLEEP,	// Mutex Sleep
 	THREAD_STAT_WAITING,	// ??? (Waiting for a thread)
 	THREAD_STAT_PREINIT,	// Being created
-	THREAD_STAT_ZOMBIE,	// Died, just not removed
-	THREAD_STAT_DEAD	// Why do we care about these???
+	THREAD_STAT_ZOMBIE,	// Died/Killed, but parent not informed
+	THREAD_STAT_DEAD,	// Awaiting burial (free)
+	THREAD_STAT_BURIED	// If it's still on the list here, something's wrong
+};
+static const char * const casTHREAD_STAT[] = {
+	"THREAD_STAT_NULL",
+	"THREAD_STAT_ACTIVE",
+	"THREAD_STAT_SLEEPING",
+	"THREAD_STAT_MUTEXSLEEP",
+	"THREAD_STAT_WAITING",
+	"THREAD_STAT_PREINIT",
+	"THREAD_STAT_ZOMBIE",
+	"THREAD_STAT_DEAD",
+	"THREAD_STAT_BURIED"
 };
 
 enum eFaultNumbers

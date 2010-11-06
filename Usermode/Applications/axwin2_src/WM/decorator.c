@@ -72,5 +72,13 @@ void Decorator_RenderWidget(tElement *Element)
 			Element->Text
 			);
 		break;
+	
+	case ELETYPE_IMAGE:
+		Video_DrawImage(
+			Element->CachedX, Element->CachedY,
+			Element->CachedW, Element->CachedH,
+			Element->Data
+			);
+		break;
 	}
 }

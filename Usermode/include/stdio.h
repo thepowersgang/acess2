@@ -19,6 +19,7 @@ extern int	printf(const char *format, ...);
 extern int	vsnprintf(char *buf, size_t __maxlen, const char *format, va_list args);
 extern int	vsprintf(char *buf, const char *format, va_list args);
 extern int	sprintf(char *buf, const char *format, ...);
+extern int snprintf(char *buf, size_t maxlen, const char *format, ...);
 
 extern FILE	*fopen(const char *file, const char *mode);
 extern FILE	*freopen(const char *file, const char *mode, FILE *fp);

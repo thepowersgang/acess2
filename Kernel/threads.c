@@ -865,7 +865,7 @@ void Threads_Dump(void)
 	{
 		Log(" %i (%i) - %s (CPU %i)",
 			thread->TID, thread->TGID, thread->ThreadName, thread->CurCPU);
-		Log("  State %i", thread->Status);
+		Log("  State %i (%s)", thread->Status, casTHREAD_STAT[thread->Status]);
 		switch(thread->Status)
 		{
 		case THREAD_STAT_MUTEXSLEEP:
@@ -909,7 +909,7 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 		thread = gDeleteThreads->Next;
 		if( IS_LOCKED(&gDeleteThreads->IsLocked) ) {	// Only free if structure is unused
 			// Set to dead
-			gDeleteThreads->Status = THREAD_STAT_DEAD;
+			gDeleteThreads->Status = THREAD_STAT_BURIED;
 			// Free name
 			if( IsHeap(gDeleteThreads->ThreadName) )
 				free(gDeleteThreads->ThreadName);

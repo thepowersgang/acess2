@@ -546,3 +546,17 @@ EXPORT int sprintf(char *buf, const char *format, ...)
 	va_end(args);
 	return ret;
 }
+
+/**
+ * \fn EXPORT int snprintf(const char *buf, size_t maxlen, char *format, ...)
+ * \brief Print a formatted string to a buffer
+ */
+EXPORT int snprintf(char *buf, size_t maxlen, const char *format, ...)
+{
+	 int	ret;
+	va_list	args;
+	va_start(args, format);
+	ret = vsnprintf((char*)buf, maxlen, (char*)format, args);
+	va_end(args);
+	return ret;
+}

@@ -881,7 +881,7 @@ int TCP_Client_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		if(conn->State != TCP_ST_CLOSED)	return -1;
 		if(!CheckMem(Data, sizeof(Uint16)))	return -1;
 		conn->RemotePort = *(Uint16*)Data;
-		return 0;
+		return conn->RemotePort;
 
 	case 6:	// Set Remote IP
 		if( conn->State != TCP_ST_CLOSED )
@@ -906,6 +906,10 @@ int TCP_Client_IOCtl(tVFS_Node *Node, int ID, void *Data)
 
 		TCP_StartConnection(conn);
 		return 1;
+	
+	// Get recieve buffer length
+	case 8:
+		return conn->RecievedBuffer->Length;
 	}
 
 	return 0;

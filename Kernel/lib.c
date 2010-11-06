@@ -477,7 +477,7 @@ char *strdup(const char *Str)
 	strcpy(ret, Str);
 	return ret;
 }
-#endif
+#else
 
 /**
  * \fn char *_strdup(const char *File, int Line, const char *Str)
@@ -491,6 +491,7 @@ char *_strdup(const char *File, int Line, const char *Str)
 	strcpy(ret, Str);
 	return ret;
 }
+#endif
 
 /**
  * \brief Split a string using the passed character

@@ -1,6 +1,9 @@
 /*
  * Acess GUI (AxWin) Version 2
  * By John Hodge (thePowersGang)
+ * 
+ * interface.c
+ * > Main Overarching UI
  */
 #include "common.h"
 
@@ -13,13 +16,18 @@ tElement	*gpInterface_TabBar;
 tElement	*gpInterface_TabContent;
 
 // === CODE ===
+/**
+ * \brief Initialise the UI
+ */
 void Interface_Init(void)
 {
 	tElement	*area;
 	tElement	*btn, *text;
 	
+	// Calculate sizes
 	giInterface_Width = giScreenWidth/16;
 	
+	// Set root window to no-border
 	WM_SetFlags(NULL, 0);
 	
 	// -- Create Sidebar --

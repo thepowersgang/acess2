@@ -5,6 +5,7 @@
 #include "common.h"
 #include <acess/sys.h>
 #include <acess/devices/terminal.h>
+#include <image.h>
 
 // === PROTOTYPES ===
 void	Video_Setup(void);
@@ -94,7 +95,85 @@ void Video_DrawRect(short X, short Y, short W, short H, uint32_t Color)
 	Video_FillRect(X+W-1, Y, 1, H, Color);
 }
 
+/**
+ * \brief Draw text to the screen
+ */
 void Video_DrawText(short X, short Y, short W, short H, void *Font, int Point, uint32_t Color, char *Text)
 {
 	// TODO!
+}
+
+/**
+ * \brief Draw an image to the screen
+ * \todo Maybe have support for an offset in the image
+ */
+void Video_DrawImage(short X, short Y, short W, short H, tImage *Image)
+{
+	 int	x, y;
+	uint8_t	*buf = (uint8_t *)(gpScreenBuffer + Y*giScreenWidth + X);
+	uint8_t	*data = Image->Data;
+	
+	// Bounds Check
+	if( X >= giScreenWidth )	return ;
+	if( Y >= giScreenHeight )	return ;
+	
+	// Wrap to image size
+	if( W > Image->Width )	W = Image->Width;
+	if( H > Image->Height )	H = Image->Height;
+	
+	// Wrap to screen size
+	if( X + W > giScreenWidth )	W = giScreenWidth - X;
+	if( Y + H > giScreenHeight )	H = giScreenHeight - Y;
+	
+	switch( Image->Format )
+	{
+	case IMGFMT_BGRA:
+		for( y = 0; y < H; y ++ )
+		{
+			 int	r, g, b, a;	// New
+			 int	or, og, ob;	// Original
+			for( x = 0; x < W; x ++ ) {
+				b = data[x*4+0]; g = data[x*4+1]; r = data[x*4+2]; a = data[x*4+3];
+				if( a == 0 )	continue;	// 100% transparent
+				ob = buf[x*4+0]; og = buf[x*4+1]; or = buf[x*4+2];
+				// Handle Alpha
+				switch(a)
+				{
+				// Transparent: Handled above
+				// Solid
+				case 0xFF:	break;
+				// Half
+				case 0x80:
+					r = (or + r) / 2;
+					g = (og + g) / 2;
+					b = (ob + b) / 2;
+					break;
+				// General
+				default:
+					r = (or * (255-a) + r * a) / 255;
+					g = (og * (255-a) + g * a) / 255;
+					b = (ob * (255-a) + b * a) / 255;
+					break;
+				}
+				buf[x*4+0] = b; buf[x*4+1] = g; buf[x*4+2] = r;
+			}
+			data += Image->Width * 4;
+			buf += giScreenWidth * 4;
+		}
+		break;
+	
+	// RGB
+	case IMGFMT_RGB:
+		for( y = 0; y < H; y ++ )
+		{
+			for( x = 0; x < W; x ++ ) {
+				buf[x*4+0] = data[x*3+2];	// Blue
+				buf[x*4+1] = data[x*3+1];	// Green
+				buf[x*4+2] = data[x*3+0];	// Red
+			}
+			data += W * 3;
+			buf += giScreenWidth * 4;
+		}
+		break;
+	}
 }

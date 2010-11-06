@@ -17,6 +17,12 @@ typedef struct sSocketFile	tSocketFile;
 
 typedef void	(*tIPCallback)(tInterface *Interface, void *Address, int Length, void *Buffer);
 
+enum eInterfaceTypes {
+	AF_NULL,
+	AF_INET4 = 4,	// tIPv4
+	AF_INET6 = 6	// tIPv6
+};
+
 union uIPv4 {
 	Uint32	L;
 	Uint8	B[4];
@@ -38,6 +44,8 @@ struct sInterface {
 	tAdapter	*Adapter;
 	 int	TimeoutDelay;	// Time in miliseconds before a packet times out
 	 int	Type;	// 0 for disabled, 4 for IPv4 and 6 for IPv6
+	
+	//TODO: Remove explicit mentions of IPv4/IPv6 and make more general
 	union {
 		struct	{
 			tIPv6	Address;
@@ -96,5 +104,6 @@ static const tMacAddr cMAC_BROADCAST = {{0xFF,0xFF,0xFF,0xFF,0xFF,0xFF}};
 #define ntohl(v)	BigEndian32(v)
 
 extern int	IPStack_AddFile(tSocketFile *File);
+extern int	IPStack_GetAddressSize(int AddressType);
 
 #endif

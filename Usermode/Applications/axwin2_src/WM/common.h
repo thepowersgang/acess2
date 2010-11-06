@@ -31,6 +31,7 @@ extern void	Video_Update(void);
 extern void	Video_FillRect(short X, short Y, short W, short H, uint32_t Color);
 extern void	Video_DrawRect(short X, short Y, short W, short H, uint32_t Color);
 extern void	Video_DrawText(short X, short Y, short W, short H, void *Font, int Point, uint32_t Color, char *Text);
+extern void Video_DrawImage(short X, short Y, short W, short H, tImage *Image);
 // --- Debug Hack ---
 extern void	_SysDebug(const char *Format, ...);
 #endif

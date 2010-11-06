@@ -21,7 +21,7 @@ tImage *Image_SIF_Parse(void *Buffer, size_t Size)
 	uint16_t	flags;
 	uint16_t	w, h;
 	 int	ofs, i;
-	tImage_SIF	*ret;
+	tImage	*ret;
 	 int	bRevOrder;
 	 int	fileOfs = 0;
 	 int	comp, fmt;
@@ -46,27 +46,27 @@ tImage *Image_SIF_Parse(void *Buffer, size_t Size)
 	w = *(uint16_t*)Buffer+fileOfs;	fileOfs += 2;
 	h = *(uint16_t*)Buffer+fileOfs;	fileOfs += 2;
 	
-	
-	// Allocate space
-	ret = calloc(1, sizeof(tImage) + w * h * sampleSize);
-	ret->Width = w;
-	ret->Height = h;
-	
 	// Get image format
 	switch(fmt)
 	{
-	case 0:	// ARGB
-		ret->Format = IMGFMT_ARGB;
+	case 0:	// ARGB 32-bit Little Endian
+		fmt = IMGFMT_BGRA;
 		sampleSize = 4;
 		break;
-	case 1:	// RGB
-		ret->Format = IMGFMT_RGB;
+	case 1:	// RGB 24-bit big endian
+		fmt = IMGFMT_RGB;
 		sampleSize = 3;
 		break;
 	default:
 		free(ret);
 		return NULL;
 	}
+	
+	// Allocate space
+	ret = calloc(1, sizeof(tImage) + w * h * sampleSize);
+	ret->Width = w;
+	ret->Height = h;
+	ret->Format = fmt;
 	
 	switch(comp)
 	{
@@ -89,6 +89,7 @@ tImage *Image_SIF_Parse(void *Buffer, size_t Size)
 			uint8_t	len;
 			if( fileOfs + 1 > Size )	return ret;
 			len = *(uint8_t*)Buffer+fileOfs;	fileOfs += 1;
+			// Verbatim
 			if(len & 0x80) {
 				len &= 0x7F;
 				if( fileOfs + len*sampleSize > Size ) {
@@ -100,6 +101,7 @@ tImage *Image_SIF_Parse(void *Buffer, size_t Size)
 				}
 				ofs += len;
 			}
+			// RLE
 			else {
 				uint8_t	tmp[sampleSize];
 				
@@ -118,6 +120,7 @@ tImage *Image_SIF_Parse(void *Buffer, size_t Size)
 		return ret;
 	
 	// Channel 1.7.8 RLE
+	// - Each channel is separately 1.7 RLE compressed
 	case 3:
 		// Alpha, Red, Green, Blue
 		for( i = 0; i < sampleSize; i++ )

@@ -6,7 +6,7 @@
  */
 #include "common.h"
 #include <stdlib.h>
-#include <strings.h>
+#include <string.h>
 #include "wm.h"
 
 // === IMPORTS ===
@@ -90,6 +90,10 @@ void WM_SetSize(tElement *Element, int Size)
 	return ;
 }
 
+/**
+ * \brief Set the text field of an element
+ * \note Used for the image path on ELETYPE_IMAGE
+ */
 void WM_SetText(tElement *Element, char *Text)
 {
 	if(!Element)	return ;
@@ -125,6 +129,11 @@ void WM_SetText(tElement *Element, char *Text)
 }
 
 // --- Pre-Rendering ---
+/**
+ * \name Pre-Rendering
+ * \brief Updates the element positions and sizes
+ * \{
+ */
 /**
  * \brief Updates the dimensions of an element
  * 
@@ -286,7 +295,6 @@ void WM_UpdatePosition(tElement *Element)
 		);
 }
 
-
 /**
  * \brief Update the minimum dimensions of the element
  * \note Called after a child's minimum dimensions have changed
@@ -331,6 +339,9 @@ void WM_UpdateMinDims(tElement *Element)
 	// Recurse upwards
 	WM_UpdateMinDims(Element->Parent);
 }
+/**
+ * \}
+ */
 
 // --- Render ---
 void WM_RenderWidget(tElement *Element)
