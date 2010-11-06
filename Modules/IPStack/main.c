@@ -23,6 +23,7 @@ extern int	IPv4_Initialise();
 extern int	IPv4_Ping(tInterface *Iface, tIPv4 Addr);
 extern int	IPv6_Initialise();
 //extern int	IPv6_Ping(tInterface *Iface, tIPv6 Addr);
+extern tVFS_Node	gIP_RouteNode;
 
 // === PROTOTYPES ===
  int	IPStack_Install(char **Arguments);
@@ -31,11 +32,12 @@ char	*IPStack_Root_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*IPStack_Root_FindDir(tVFS_Node *Node, const char *Name);
  int	IPStack_Root_IOCtl(tVFS_Node *Node, int ID, void *Data);
  
- int	IPStack_AddInterface(char *Device);
-tAdapter	*IPStack_GetAdapter(char *Path);
 char	*IPStack_Iface_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*IPStack_Iface_FindDir(tVFS_Node *Node, const char *Name);
  int	IPStack_Iface_IOCtl(tVFS_Node *Node, int ID, void *Data);
+ 
+ int	IPStack_AddInterface(const char *Device, const char *Name);
+tAdapter	*IPStack_GetAdapter(const char *Path);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, IPStack, IPStack_Install, NULL, NULL);
@@ -626,10 +628,10 @@ int IPStack_AddInterface(const char *Device, const char *Name)
 }
 
 /**
- * \fn tAdapter *IPStack_GetAdapter(char *Path)
+ * \fn tAdapter *IPStack_GetAdapter(const char *Path)
  * \brief Gets/opens an adapter given the path
  */
-tAdapter *IPStack_GetAdapter(char *Path)
+tAdapter *IPStack_GetAdapter(const char *Path)
 {
 	tAdapter	*dev;
 	 int	tmp;
