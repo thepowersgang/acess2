@@ -32,6 +32,7 @@ char	*IPStack_RouteDir_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*IPStack_RouteDir_FindDir(tVFS_Node *Node, const char *Name);
  int	IPStack_RouteDir_IOCtl(tVFS_Node *Node, int ID, void *Data);
  int	IPStack_Route_Create(const char *InterfaceName);
+tRoute	*IPStack_FindRoute(int AddressType, void *Address);
 // - Individual Routes
  int	IPStack_Route_IOCtl(tVFS_Node *Node, int ID, void *Data);
 
@@ -97,6 +98,7 @@ tVFS_Node *IPStack_RouteDir_FindDir(tVFS_Node *Node, const char *Name)
 static const char *casIOCtls_RouteDir[] = {
 	DRV_IOCTLNAMES,
 	"add_route",	// Add a route - char *InterfaceName
+	"locate_route",	// Find the best route for an address - struct {int Type, char Address[]} *
 	NULL
 	};
 
@@ -130,6 +132,28 @@ int IPStack_RouteDir_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	case 4:	// Add Route
 		if( !CheckString(Data) )	return -1;
 		return IPStack_Route_Create(Data);
+	
+	case 5:	// Locate Route
+		{
+			struct {
+				 int	Type;
+				Uint8	Addr[];
+			}	*data = Data;
+			tRoute	*rt;
+			
+			if( !CheckMem(Data, sizeof(int)) )
+				return -1;
+			if( !CheckMem(Data, sizeof(int) + IPStack_GetAddressSize(data->Type)) )
+				return -1;
+			
+			rt = IPStack_FindRoute(data->Type, data->Addr);
+			
+			if( !rt )
+				return 0;
+			
+			return rt->Node.Inode;
+		}
+		break;
 	}
 	return 0;
 }
@@ -186,6 +210,33 @@ int IPStack_Route_Create(const char *InterfaceName)
 	}
 	
 	return rt->Node.Inode;
+}
+
+/**
+ */
+tRoute	*IPStack_FindRoute(int AddressType, void *Address)
+{
+	tRoute	*rt;
+	tRoute	*best = NULL;
+	
+	for( rt = gIP_Routes; rt; rt = rt->Next )
+	{
+		if( rt->AddressType != AddressType )	continue;
+		
+		if( !IPStack_CompareAddress(AddressType, rt->Network, Address, rt->SubnetBits) )
+			continue;
+		
+		if( best ) {
+			// More direct routes are preferred
+			if( best->SubnetBits > rt->SubnetBits )	continue;
+			// If equally direct, choose the best metric
+			if( best->SubnetBits == rt->SubnetBits && best->Metric < rt->Metric )	continue;
+		}
+		
+		best = rt;
+	}
+	
+	return best;
 }
 
 /**
