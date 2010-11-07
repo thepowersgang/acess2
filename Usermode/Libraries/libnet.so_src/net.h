@@ -20,6 +20,6 @@ extern int	Net_ParseAddress(const char *String, void *Addr);
  * \param Addr	Address in binary format
  * \return Interface number
  */
-extern int	Net_GetInterface(int AddrType, void *Addr);
+extern char	*Net_GetInterface(int AddrType, void *Addr);
 
 #endif

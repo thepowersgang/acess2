@@ -193,7 +193,8 @@ int writef(int FD, const char *Format, ...)
  */
 int OpenTCP(const char *AddressString, short PortNumber)
 {
-	 int	fd, addrType, iface;
+	 int	fd, addrType;
+	char	*iface;
 	char	addrBuffer[8];
 	
 	// Parse IP Address
@@ -205,7 +206,7 @@ int OpenTCP(const char *AddressString, short PortNumber)
 	
 	// Finds the interface for the destination address
 	iface = Net_GetInterface(addrType, addrBuffer);
-	if( iface == -1 ) {
+	if( iface == NULL ) {
 		fprintf(stderr, "Unable to find a route to '%s'\n", AddressString);
 		return -1;
 	}
@@ -213,11 +214,13 @@ int OpenTCP(const char *AddressString, short PortNumber)
 	// Open client socket
 	// TODO: Move this out to libnet?
 	{
-		 int	len = snprintf(NULL, 100, "/Devices/ip/%i/tcpc", iface);
+		 int	len = snprintf(NULL, 100, "/Devices/ip/%s/tcpc", iface);
 		char	path[len+1];
-		snprintf(path, 100, "/Devices/ip/%i/tcpc", iface);
+		snprintf(path, 100, "/Devices/ip/%s/tcpc", iface);
 		fd = open(path, OPENFLAG_READ|OPENFLAG_WRITE);
 	}
+	
+	free(iface);
 	
 	if( fd == -1 ) {
 		return -1;
