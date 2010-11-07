@@ -58,6 +58,8 @@ struct sInterface {
 			 int	SubnetBits;
 		}	IP4;
 	};
+	
+	char	Name[];
 };
 
 /**

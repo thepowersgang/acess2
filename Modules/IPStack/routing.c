@@ -244,12 +244,13 @@ tRoute	*IPStack_FindRoute(int AddressType, void *Address)
  */
 static const char *casIOCtls_Route[] = {
 	DRV_IOCTLNAMES,
-	"get_network",	// Get network - (void *Data)
-	"set_network",	// Set network - (void *Data)
-	"get_nexthop",	// Get next hop - (void *Data)
-	"set_nexthop",	// Set next hop - (void *Data)
-	"getset_subnetbits",	// Get/Set subnet bits - (int *Bits)
-	"getset_metric",	// Get/Set metric - (int *Metric)
+	"get_network",	// Get network - (void *Data), returns boolean success
+	"set_network",	// Set network - (void *Data), returns boolean success
+	"get_nexthop",	// Get next hop - (void *Data), returns boolean success
+	"set_nexthop",	// Set next hop - (void *Data), returns boolean success
+	"getset_subnetbits",	// Get/Set subnet bits - (int *Bits), returns current value
+	"getset_metric",	// Get/Set metric - (int *Metric), returns current value
+	"get_interface",	// Get interface name - (char *Name), returns name length, NULL OK
 	NULL
 	};
 
@@ -324,6 +325,15 @@ int IPStack_Route_IOCtl(tVFS_Node *Node, int ID, void *Data)
 			rt->Metric = *iData;
 		}
 		return rt->Metric;
+	
+	// Get interface name
+	case 10:
+		if( Data ) {
+			if( !CheckMem(Data, strlen(rt->Interface->Name) + 1) )
+				return -1;
+			strcpy(Data, rt->Interface->Name);
+		}
+		return strlen(rt->Interface->Name);
 	
 	default:
 		return 0;

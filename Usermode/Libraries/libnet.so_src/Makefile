@@ -6,7 +6,7 @@ CPPFLAGS +=
 CFLAGS   += -Wall
 LDFLAGS  += -lc -soname libnet.so
 
-OBJ = address.o
+OBJ = main.o address.o
 BIN = ../libnet.so
 
 include ../Makefile.tpl

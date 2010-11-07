@@ -122,7 +122,9 @@ char *IPStack_Root_ReadDir(tVFS_Node *Node, int Pos)
  */
 tVFS_Node *IPStack_Root_FindDir(tVFS_Node *Node, const char *Name)
 {
+	#if 0
 	 int	i, num;
+	#endif
 	tInterface	*iface;
 	
 	ENTER("pNode sName", Node, Name);
@@ -137,6 +139,7 @@ tVFS_Node *IPStack_Root_FindDir(tVFS_Node *Node, const char *Name)
 		return &gIP_LoopInterface.Node;
 	}
 	
+	#if 0
 	i = 0;	num = 0;
 	while('0' <= Name[i] && Name[i] <= '9')
 	{
@@ -157,6 +160,17 @@ tVFS_Node *IPStack_Root_FindDir(tVFS_Node *Node, const char *Name)
 			return &iface->Node;
 		}
 	}
+	#else
+	for( iface = gIP_Interfaces; iface; iface = iface->Next )
+	{
+		if( strcmp(iface->Name, Name) == 0 )
+		{
+			LEAVE('p', &iface->Node);
+			return &iface->Node;
+		}
+	}
+	#endif
+	
 	LEAVE('p', NULL);
 	return NULL;
 }
@@ -221,7 +235,7 @@ int IPStack_AddInterface(const char *Device, const char *Name)
 	
 	card = IPStack_GetAdapter(Device);
 	
-	iface = malloc(sizeof(tInterface) + strlen(Name));
+	iface = malloc(sizeof(tInterface) + sprintf(NULL, "%i", giIP_NextIfaceId) + 1);
 	if(!iface) {
 		LEAVE('i', -2);
 		return -2;	// Return ERR_MYBAD
@@ -258,6 +272,7 @@ int IPStack_AddInterface(const char *Device, const char *Name)
 	// Delay setting ImplInt until after the adapter is opened
 	// Keeps things simple
 	iface->Node.ImplInt = giIP_NextIfaceId++;
+	sprintf(iface->Name, "%i", iface->Node.ImplInt);
 	
 	// Append to list
 	SHORTLOCK( &glIP_Interfaces );
