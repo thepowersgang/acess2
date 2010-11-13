@@ -205,6 +205,29 @@ int AddInterface(const char *Device)
 	return ret;
 }
 
+void AddRoute(const char *Interface, void *Dest, int MaskBits, void *NextHop)
+{
+	 int	fd;
+	 int	num;
+	char	tmp[sizeof(IPSTACK_ROOT"/routes/") + 5];	// enough for 4 digits
+	
+	// Create route
+	fd = open(IPSTACK_ROOT"/routes", 0);
+	num = ioctl(fd, ioctl(fd, 3, "add_route"), Interface);
+	close(fd);
+	
+	// Open route
+	sprintf(tmp, IPSTACK_ROOT"/routes/%i", num);
+	fd = open(tmp, 0);
+	
+	ioctl(fd, ioctl(fd, 3, "set_network"), Dest);
+	ioctl(fd, ioctl(fd, 3, "set_nexthop"), NextHop);
+	ioctl(fd, ioctl(fd, 3, "getset_subnetbits"), &MaskBits);
+	
+	close(fd);
+	
+}
+
 /**
  * \note Debugging HACK!
  * \brief Autoconfigure the specified device to 10.0.2.55/8 using

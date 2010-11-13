@@ -7,12 +7,15 @@
 #include "arp.h"
 #include "link.h"
 
+#define ARPv6	1
 #define	ARP_CACHE_SIZE	64
 #define	ARP_MAX_AGE		(60*60*1000)	// 1Hr
 
 // === IMPORTS ===
 extern tInterface	*IPv4_GetInterface(tAdapter *Adapter, tIPv4 Address, int Broadcast);
+#if ARPv6
 extern tInterface	*IPv6_GetInterface(tAdapter *Adapter, tIPv6 Address, int Broadcast);
+#endif
 
 // === PROTOTYPES ===
  int	ARP_Initialise();
@@ -28,6 +31,7 @@ struct sARP_Cache4 {
 }	*gaARP_Cache4;
  int	giARP_Cache4Space;
 tMutex	glARP_Cache4;
+#if ARPv6
 struct sARP_Cache6 {
 	tIPv6	IP;
 	tMacAddr	MAC;
@@ -36,6 +40,7 @@ struct sARP_Cache6 {
 }	*gaARP_Cache6;
  int	giARP_Cache6Space;
 tMutex	glARP_Cache6;
+#endif
  int	giARP_LastUpdateID = 0;
 
 // === CODE ===
@@ -49,9 +54,11 @@ int ARP_Initialise()
 	memset( gaARP_Cache4, 0, ARP_CACHE_SIZE * sizeof(struct sARP_Cache4) );
 	giARP_Cache4Space = ARP_CACHE_SIZE;
 	
+	#if ARPv6
 	gaARP_Cache6 = malloc( ARP_CACHE_SIZE * sizeof(struct sARP_Cache6) );
 	memset( gaARP_Cache6, 0, ARP_CACHE_SIZE * sizeof(struct sARP_Cache6) );
 	giARP_Cache6Space = ARP_CACHE_SIZE;
+	#endif
 	
 	Link_RegisterType(0x0806, ARP_int_GetPacket);
 	return 1;
@@ -164,6 +171,7 @@ void ARP_UpdateCache4(tIPv4 SWAddr, tMacAddr HWAddr)
 	Mutex_Release(&glARP_Cache4);
 }
 
+#if ARPv6
 /**
  * \brief Updates the ARP Cache entry for an IPv6 Address
  */
@@ -197,6 +205,7 @@ void ARP_UpdateCache6(tIPv6 SWAddr, tMacAddr HWAddr)
 	giARP_LastUpdateID ++;
 	Mutex_Release(&glARP_Cache6);
 }
+#endif
 
 /**
  * \fn void ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffer)
@@ -205,7 +214,9 @@ void ARP_UpdateCache6(tIPv6 SWAddr, tMacAddr HWAddr)
 void ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffer)
 {
 	tArpRequest4	*req4 = Buffer;
+	#if ARPv6
 	tArpRequest6	*req6 = Buffer;
+	#endif
 	tInterface	*iface;
 	
 	// Sanity Check Packet
@@ -275,6 +286,7 @@ void ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffe
 				Link_SendPacket(Adapter, 0x0806, req4->DestMac, sizeof(tArpRequest4), req4);
 			}
 			break;
+		#if ARPv6
 		case 6:
 			if( Length < (int)sizeof(tArpRequest6) ) {
 				Log_Log("ARP", "Recieved undersized packet (IPv6)");
@@ -299,6 +311,7 @@ void ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffe
 				Link_SendPacket(Adapter, 0x0806, req6->DestMac, sizeof(tArpRequest6), req6);
 			}
 			break;
+		#endif
 		default:
 			Log_Debug("ARP", "Unknown Protocol Address size (%i)", req4->SWSize);
 			return ;
@@ -313,6 +326,7 @@ void ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffe
 		case 4:
 			ARP_UpdateCache4( req4->SourceIP, From );
 			break;
+		#if ARPv6
 		case 6:
 			if( Length < (int)sizeof(tArpRequest6) ) {
 				Log_Debug("ARP", "Recieved undersized packet (IPv6)");
@@ -320,6 +334,7 @@ void ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffe
 			}
 			ARP_UpdateCache6( req6->SourceIP, From );
 			break;
+		#endif
 		default:
 			Log_Debug("ARP", "Unknown Protocol Address size (%i)", req4->SWSize);
 			return ;
