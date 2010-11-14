@@ -12,20 +12,6 @@
 // === IMPORTS ===
 tVFS_Node	*IPStack_Root_FindDir(tVFS_Node *Node, const char *Filename);
 
-// === TYPES ===
-typedef struct sRoute {
-	struct sRoute	*Next;
-	
-	tVFS_Node	Node;
-	
-	tInterface	*Interface;	// Interface for this route
-	 int	AddressType;	// 0: Invalid, 4: IPv4, 6: IPv4
-	void	*Network;	// Network - Pointer to tIPv4/tIPv6/... at end of structure
-	 int	SubnetBits;	// Number of bits in \a Network that are valid
-	void	*NextHop;	// Next Hop address - Pointer to tIPv4/tIPv6/... at end of structure
-	 int	Metric;	// Route priority
-}	tRoute;
-
 // === PROTOTYPES ===
 // - Routes directory
 char	*IPStack_RouteDir_ReadDir(tVFS_Node *Node, int Pos);

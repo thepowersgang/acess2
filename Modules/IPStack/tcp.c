@@ -79,7 +79,7 @@ void TCP_SendPacket( tTCPConnection *Conn, size_t Length, tTCPHeader *Data )
 	case 4:	// Append IPv4 Pseudo Header
 		buflen = 4 + 4 + 4 + ((Length+1)&~1);
 		buf = malloc( buflen );
-		buf[0] = Conn->Interface->IP4.Address.L;
+		buf[0] = ((tIPv4*)Conn->Interface->Address)->L;
 		buf[1] = Conn->RemoteIP.v4.L;
 		buf[2] = (htons(Length)<<16) | (6<<8) | 0;
 		Data->Checksum = 0;

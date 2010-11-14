@@ -75,32 +75,34 @@ tInterface *IPv6_GetInterface(tAdapter *Adapter, tIPv6 Address, int Broadcast)
 	
 	for( iface = gIP_Interfaces; iface; iface = iface->Next)
 	{
+		tIPv6	*thisAddr;
 		// Check for this adapter
 		if( iface->Adapter != Adapter )	continue;
 		
 		// Skip non-IPv6 Interfaces
 		if( iface->Type != 6 )	continue;
 		
+		thisAddr = (tIPv6*)iface->Address;
 		// If the address is a perfect match, return this interface
-		if( IP6_EQU(Address, iface->IP6.Address) )	return iface;
+		if( IP6_EQU(Address, *thisAddr) )	return iface;
 		
 		// Check if we want to match broadcast addresses
 		if( !Broadcast )	continue;
 		
 		// Check for broadcast
-		if( iface->IP6.SubnetBits > 32 && Address.L[0] != iface->IP6.Address.L[0] )
+		if( iface->SubnetBits > 32 && Address.L[0] != thisAddr->L[0] )
 			continue;
-		if( iface->IP6.SubnetBits > 64 && Address.L[1] != iface->IP6.Address.L[1] )
+		if( iface->SubnetBits > 64 && Address.L[1] != thisAddr->L[1] )
 			continue;
-		if( iface->IP6.SubnetBits > 96 && Address.L[2] != iface->IP6.Address.L[2] )
+		if( iface->SubnetBits > 96 && Address.L[2] != thisAddr->L[2] )
 			continue;
 		
-		j = iface->IP6.SubnetBits / 32;
-		i = iface->IP6.SubnetBits % 32;
-		netmask = IPv4_Netmask( iface->IP6.SubnetBits % 32 );
+		j = iface->SubnetBits / 32;
+		i = iface->SubnetBits % 32;
+		netmask = IPv4_Netmask( iface->SubnetBits % 32 );
 		
 		// Check the last bit of the netmask
-		if( (Address.L[j] >> i) != (iface->IP6.Address.L[j] >> i) )	continue;
+		if( (Address.L[j] >> i) != (thisAddr->L[j] >> i) )	continue;
 		
 		// Check that the host portion is one
 		if( (Address.L[j] & ~netmask) != (0xFFFFFFFF & ~netmask) )	continue;

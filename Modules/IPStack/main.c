@@ -88,13 +88,19 @@ int IPStack_GetAddressSize(int AddressType)
 {
 	switch(AddressType)
 	{
-	default:
+	case -1:	// -1 = maximum
+		return sizeof(tIPv6);
+	
 	case AF_NULL:
 		return 0;
+	
 	case AF_INET4:
 		return sizeof(tIPv4);
 	case AF_INET6:
 		return sizeof(tIPv6);
+		
+	default:
+		return 0;
 	}
 }
 

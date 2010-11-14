@@ -230,12 +230,23 @@ int IPStack_AddInterface(const char *Device, const char *Name)
 {
 	tInterface	*iface;
 	tAdapter	*card;
+	 int	nameLen;
 	
 	ENTER("sDevice", Device);
 	
 	card = IPStack_GetAdapter(Device);
+	if( !card ) {
+		LEAVE('i', -1);
+		return -1;	// ERR_YOURBAD
+	}
 	
-	iface = malloc(sizeof(tInterface) + sprintf(NULL, "%i", giIP_NextIfaceId) + 1);
+	nameLen = sprintf(NULL, "%i", giIP_NextIfaceId);
+	
+	iface = malloc(
+		sizeof(tInterface)
+		+ nameLen + 1
+		+ IPStack_GetAddressSize(-1)
+		);
 	if(!iface) {
 		LEAVE('i', -2);
 		return -2;	// Return ERR_MYBAD
@@ -243,6 +254,7 @@ int IPStack_AddInterface(const char *Device, const char *Name)
 	
 	iface->Next = NULL;
 	iface->Type = 0;	// Unset type
+	iface->Address = iface->Name + nameLen + 1;	// Address
 	
 	// Create Node
 	iface->Node.ImplPtr = iface;
@@ -348,7 +360,6 @@ static const char *casIOCtls_Iface[] = {
 	"getset_type",
 	"get_address", "set_address",
 	"getset_subnet",
-	"get_gateway", "set_gateway",
 	"get_device",
 	"ping",
 	NULL
@@ -358,7 +369,7 @@ static const char *casIOCtls_Iface[] = {
  */
 int IPStack_Iface_IOCtl(tVFS_Node *Node, int ID, void *Data)
 {
-	 int	tmp;
+	 int	tmp, size;
 	tInterface	*iface = (tInterface*)Node->ImplPtr;
 	ENTER("pNode iID pData", Node, ID, Data);
 	
@@ -402,24 +413,19 @@ int IPStack_Iface_IOCtl(tVFS_Node *Node, int ID, void *Data)
 				LEAVE('i', -1);
 				return -1;
 			}
-			switch( *(int*)Data )
-			{
-			case 0:	// Disable
+			
+			// Set type
+			iface->Type = *(int*)Data;
+			size = IPStack_GetAddressSize(iface->Type);
+			// Check it's actually valid
+			if( iface->Type != 0 && size == 0 ) {
 				iface->Type = 0;
-				memset(&iface->IP6, 0, sizeof(tIPv6));	// Clear address
-				break;
-			case 4:	// IPv4
-				iface->Type = 4;
-				memset(&iface->IP4, 0, sizeof(tIPv4));
-				break;
-			case 6:	// IPv6
-				iface->Type = 6;
-				memset(&iface->IP6, 0, sizeof(tIPv6));
-				break;
-			default:
 				LEAVE('i', -1);
 				return -1;
 			}
+			
+			// Clear address
+			memset(iface->Address, 0, size);
 		}
 		LEAVE('i', iface->Type);
 		return iface->Type;
@@ -429,129 +435,56 @@ int IPStack_Iface_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	 * - Get the interface's address
 	 */
 	case 5:
-		switch(iface->Type)
-		{
-		case 0:	LEAVE_RET('i', 1);
-		case 4:
-			if( !CheckMem( Data, sizeof(tIPv4) ) )	LEAVE_RET('i', -1);
-			memcpy( Data, &iface->IP4.Address, sizeof(tIPv4) );
-			LEAVE_RET('i', 1);
-		case 6:
-			if( !CheckMem( Data, sizeof(tIPv6) ) )	LEAVE_RET('i', -1);
-			memcpy( Data, &iface->IP6.Address, sizeof(tIPv6) );
-			LEAVE_RET('i', 1);
-		}
-		LEAVE_RET('i', 0);
+		size = IPStack_GetAddressSize(iface->Type);
+		if( !CheckMem( Data, size ) )	LEAVE_RET('i', -1);
+		memcpy( Data, iface->Address, size );
+		LEAVE('i', 1);
+		return 1;
 	
 	/*
 	 * set_address
-	 * - Get the interface's address
+	 * - Set the interface's address
 	 */
 	case 6:
 		if( Threads_GetUID() != 0 )	LEAVE_RET('i', -1);
-		switch(iface->Type)
-		{
-		case 0:	LEAVE_RET('i', 1);
-		case 4:
-			if( !CheckMem( Data, sizeof(tIPv4) ) )	LEAVE_RET('i', -1);
-			iface->Type = 0;	// One very hacky mutex/trash protector
-			memcpy( &iface->IP4.Address, Data, sizeof(tIPv4) );
-			iface->Type = 4;
-			LEAVE_RET('i', 1);
-		case 6:
-			if( !CheckMem( Data, sizeof(tIPv6) ) )	LEAVE_RET('i', -1);
-			iface->Type = 0;
-			memcpy( &iface->IP6.Address, Data, sizeof(tIPv6) );
-			iface->Type = 6;
-			LEAVE_RET('i', 1);
-		}
-		LEAVE_RET('i', 0);
+		
+		size = IPStack_GetAddressSize(iface->Type);
+		if( !CheckMem( Data, size ) )	LEAVE_RET('i', -1);
+		// TODO: Protect against trashing
+		memcpy( iface->Address, Data, size );
+		LEAVE('i', 1);
+		return 1;
 	
 	/*
 	 * getset_subnet
 	 * - Get/Set the bits in the address subnet
 	 */
 	case 7:
-		// Get?
-		if( Data == NULL )
+		// Do we want to set the value?
+		if( Data )
 		{
-			switch( iface->Type )
-			{
-			case 4:		LEAVE_RET('i', iface->IP4.SubnetBits);
-			case 6:		LEAVE_RET('i', iface->IP6.SubnetBits);
-			default:	LEAVE_RET('i', 0);
-			}
-		}
-		
-		// Ok, set.
-		if( Threads_GetUID() != 0 )	LEAVE_RET('i', -1);
-		if( !CheckMem(Data, sizeof(int)) )	LEAVE_RET('i', -1);
-		
-		// Check and set the subnet bits
-		switch( iface->Type )
-		{
-		case 4:
-			if( *(int*)Data < 0 || *(int*)Data > 31 )	LEAVE_RET('i', -1);
-			iface->IP4.SubnetBits = *(int*)Data;
-			LEAVE_RET('i', iface->IP4.SubnetBits);
-		case 6:
-			if( *(int*)Data < 0 || *(int*)Data > 127 )	LEAVE_RET('i', -1);
-			iface->IP6.SubnetBits = *(int*)Data;
-			LEAVE_RET('i', iface->IP6.SubnetBits);
-		default:
-			break;
-		}
-		
-		LEAVE('i', 0);
-		return 0;
-		
-	/*
-	 * get_gateway
-	 * - Get the interface's IPv4 gateway
-	 */
-	case 8:
-		switch(iface->Type)
-		{
-		case 0:
-			LEAVE_RET('i', 1);
-		case 4:
-			if( !CheckMem( Data, sizeof(tIPv4) ) )	LEAVE_RET('i', -1);
-			memcpy( Data, &iface->IP4.Gateway, sizeof(tIPv4) );
-			LEAVE_RET('i', 1);
-		case 6:
-			LEAVE_RET('i', 1);
-		}
-		LEAVE('i', 0);
-		return 0;
-	
-	/*
-	 * set_gateway
-	 * - Get/Set the interface's IPv4 gateway
-	 */
-	case 9:
-		if( Threads_GetUID() != 0 )	LEAVE_RET('i', -1);
-		switch(iface->Type)
-		{
-		case 0:
-			LEAVE_RET('i', 1);
-		
-		case 4:
-			if( !CheckMem( Data, sizeof(tIPv4) ) )	LEAVE_RET('i', -1);
-			iface->Type = 0;	// One very hacky mutex/trash protector
-			memcpy( &iface->IP4.Gateway, Data, sizeof(tIPv4) );
-			iface->Type = 4;
-			LEAVE_RET('i', 1);
+			// Are we root? (TODO: Check Owner/Group)
+			if( Threads_GetUID() != 0 )	LEAVE_RET('i', -1);
+			// Is the memory valid
+			if( !CheckMem(Data, sizeof(int)) )	LEAVE_RET('i', -1);
 			
-		case 6:
-			LEAVE_RET('i', 1);
+			// Is the mask sane?
+			if( *(int*)Data < 0 || *(int*)Data > IPStack_GetAddressSize(iface->Type)*8-1 )
+				LEAVE_RET('i', -1);
+			
+			// Ok, set it
+			iface->SubnetBits = *(int*)Data;
 		}
-		break;
+		LEAVE('i', iface->SubnetBits);
+		return iface->SubnetBits;
 	
 	/*
 	 * get_device
 	 * - Gets the name of the attached device
 	 */
-	case 10:
+	case 8:
+		if( iface->Adapter == NULL )
+			LEAVE_RET('i', 0);
 		if( Data == NULL )
 			LEAVE_RET('i', iface->Adapter->DeviceLen);
 		if( !CheckMem( Data, iface->Adapter->DeviceLen+1 ) )
@@ -563,7 +496,7 @@ int IPStack_Iface_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	 * ping
 	 * - Send an ICMP Echo
 	 */
-	case 11:
+	case 9:
 		switch(iface->Type)
 		{
 		case 0:

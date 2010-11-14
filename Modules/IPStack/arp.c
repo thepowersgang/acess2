@@ -75,6 +75,9 @@ tMacAddr ARP_Resolve4(tInterface *Interface, tIPv4 Address)
 	
 	ENTER("pInterface xAddress", Interface, Address);
 	
+	// Check routing tables
+	// Replace address with gateway if needed
+	
 	Mutex_Acquire( &glARP_Cache4 );
 	for( i = 0; i < giARP_Cache4Space; i++ )
 	{
@@ -106,7 +109,7 @@ tMacAddr ARP_Resolve4(tInterface *Interface, tIPv4 Address)
 	req.SWSize = 4;
 	req.Request = htons(1);
 	req.SourceMac = Interface->Adapter->MacAddr;
-	req.SourceIP = Interface->IP4.Address;
+	req.SourceIP = *(tIPv4*)Interface->Address;
 	req.DestMac = cMAC_BROADCAST;
 	req.DestIP = Address;
 	
@@ -276,7 +279,7 @@ void ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffe
 				
 				req4->DestIP = req4->SourceIP;
 				req4->DestMac = req4->SourceMac;
-				req4->SourceIP = iface->IP4.Address;
+				req4->SourceIP = *(tIPv4*)iface->Address;;
 				req4->SourceMac = Adapter->MacAddr;
 				req4->Request = htons(2);
 				Log_Debug("ARP", "Sending back us (%02x:%02x:%02x:%02x:%02x:%02x)",
@@ -301,7 +304,7 @@ void ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffe
 			{
 				req6->DestIP = req6->SourceIP;
 				req6->DestMac = req6->SourceMac;
-				req6->SourceIP = iface->IP6.Address;
+				req6->SourceIP = *(tIPv6*)iface->Address;
 				req6->SourceMac = Adapter->MacAddr;
 				req6->Request = htons(2);
 				Log_Debug("ARP", "Sending back us (%02x:%02x:%02x:%02x:%02x:%02x)",

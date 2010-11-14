@@ -39,28 +39,35 @@ struct sMacAddr {
 } __attribute__((packed));
 
 struct sInterface {
-	struct sInterface	*Next;
-	tVFS_Node	Node;
-	tAdapter	*Adapter;
-	 int	TimeoutDelay;	// Time in miliseconds before a packet times out
-	 int	Type;	// 0 for disabled, 4 for IPv4 and 6 for IPv6
+	struct sInterface	*Next;	//!< Next interface in list
 	
-	//TODO: Remove explicit mentions of IPv4/IPv6 and make more general
-	union {
-		struct	{
-			tIPv6	Address;
-			 int	SubnetBits;	//Should this be outside the union?
-		}	IP6;
-		
-		struct {
-			tIPv4	Address;
-			tIPv4	Gateway;
-			 int	SubnetBits;
-		}	IP4;
-	};
+	tVFS_Node	Node;	//!< Node to use the interface
+	
+	tAdapter	*Adapter;	//!< Adapter the interface is associated with
+	 int	TimeoutDelay;	//!< Time in miliseconds before a packet times out
+	 int	Type;	//!< Interface type, see ::eInterfaceTypes
+	
+	void	*Address;	//!< IP address (stored after the Name)
+	 int	SubnetBits;	//!< Number of bits that denote the address network
 	
 	char	Name[];
 };
+
+/**
+ * \brief Route definition structure
+ */
+typedef struct sRoute {
+	struct sRoute	*Next;
+	
+	tVFS_Node	Node;	//!< Node for route manipulation
+	
+	tInterface	*Interface;	//!< Interface for this route
+	 int	AddressType;	//!< 0: Invalid, 4: IPv4, 6: IPv4
+	void	*Network;	//!< Network - Pointer to tIPv4/tIPv6/... at end of structure
+	 int	SubnetBits;	//!< Number of bits in \a Network that are valid
+	void	*NextHop;	//!< Next Hop address - Pointer to tIPv4/tIPv6/... at end of structure
+	 int	Metric;	//!< Route priority
+}	tRoute;
 
 /**
  * \brief Represents a network adapter
@@ -68,12 +75,12 @@ struct sInterface {
 struct sAdapter {
 	struct sAdapter	*Next;
 	
-	 int	DeviceFD;
-	 int	NRef;
+	 int	DeviceFD;	//!< File descriptor of the device
+	 int	NRef;	//!< Number of times it's been referenced
 	
-	tMacAddr	MacAddr;
-	 int	DeviceLen;
-	char	Device[];
+	tMacAddr	MacAddr;	//!< Physical address of the adapter
+	 int	DeviceLen;	//!< Device name length
+	char	Device[];	//!< Device name
 };
 
 /**

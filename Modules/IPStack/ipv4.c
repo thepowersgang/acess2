@@ -71,7 +71,7 @@ int IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, int 
 	
 	// OUTPUT Firewall rule go here
 	ret = IPTablesV4_TestChain("OUTPUT",
-		&Iface->IP4.Address, &Address,
+		(tIPv4*)Iface->Address, &Address,
 		Protocol, 0,
 		Length, Data);
 	if(ret != 0) {
@@ -95,7 +95,7 @@ int IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, int 
 	hdr->TTL = DEFAULT_TTL;
 	hdr->Protocol = Protocol;
 	hdr->HeaderChecksum = 0;	// Will be set later
-	hdr->Source = Iface->IP4.Address;
+	hdr->Source = *(tIPv4*)Iface->Address;
 	hdr->Destination = Address;
 	hdr->HeaderChecksum = IPv4_Checksum(hdr, sizeof(tIPv4Header));
 	
@@ -236,15 +236,15 @@ tInterface *IPv4_GetInterface(tAdapter *Adapter, tIPv4 Address, int Broadcast)
 	{
 		if( iface->Adapter != Adapter )	continue;
 		if( iface->Type != 4 )	continue;
-		if( IP4_EQU(Address, iface->IP4.Address) )
+		if( IP4_EQU(Address, *(tIPv4*)iface->Address) )
 			return iface;
 		
 		if( !Broadcast )	continue;
 		
-		this = ntohl( iface->IP4.Address.L );
+		this = ntohl( ((tIPv4*)iface->Address)->L );
 		
 		// Check for broadcast
-		netmask = IPv4_Netmask(iface->IP4.SubnetBits);
+		netmask = IPv4_Netmask(iface->SubnetBits);
 		
 		if( (addr & netmask) == (this & netmask)
 		 && (addr & ~netmask) == (0xFFFFFFFF & ~netmask) )
