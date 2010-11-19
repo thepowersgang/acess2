@@ -14,6 +14,7 @@
 
 // === FLAGS ===
 #define DEBUG_TRACE_SWITCH	0
+#define DEBUG_DISABLE_DOUBLEFAULT	1
 
 // === CONSTANTS ===
 #define	SWITCH_MAGIC	0xFF5317C8	// FF SWITCH - There is no code in this area
@@ -286,7 +287,7 @@ void ArchThreads_Init(void)
 	MM_FinishVirtualInit();
 	#endif
 	
-	#if 0
+	#if !DEBUG_DISABLE_DOUBLEFAULT
 	// Initialise Double Fault TSS
 	gGDT[5].BaseLow = (Uint)&gDoubleFault_TSS & 0xFFFF;
 	gGDT[5].BaseMid = (Uint)&gDoubleFault_TSS >> 16;

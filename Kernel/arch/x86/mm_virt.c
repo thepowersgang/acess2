@@ -541,37 +541,40 @@ tPAddr MM_Clone(void)
 	//LOG("Allocated Directory (%x)", *gpTmpCR3);
 	memsetd( gaTmpDir, 0, 1024 );
 	
-	// Copy Tables
-	for( i = 0; i < 768; i ++)
-	{
-		// Check if table is allocated
-		if( !(gaPageDir[i] & PF_PRESENT) ) {
-			gaTmpDir[i] = 0;
-			page += 1024;
-			continue;
-		}
-		
-		// Allocate new table
-		gaTmpDir[i] = MM_AllocPhys() | (gaPageDir[i] & 7);
-		INVLPG( &gaTmpTable[page] );
-		// Fill
-		for( j = 0; j < 1024; j ++, page++ )
+	if( Threads_GetPID() != 0 )
+	{	
+		// Copy Tables
+		for( i = 0; i < 768; i ++)
 		{
-			if( !(gaPageTable[page] & PF_PRESENT) ) {
-				gaTmpTable[page] = 0;
+			// Check if table is allocated
+			if( !(gaPageDir[i] & PF_PRESENT) ) {
+				gaTmpDir[i] = 0;
+				page += 1024;
 				continue;
 			}
 			
-			// Refrence old page
-			MM_RefPhys( gaPageTable[page] & ~0xFFF );
-			// Add to new table
-			if(gaPageTable[page] & PF_WRITE) {
-				gaTmpTable[page] = (gaPageTable[page] & ~PF_WRITE) | PF_COW;
-				gaPageTable[page] = (gaPageTable[page] & ~PF_WRITE) | PF_COW;
-				INVLPG( page << 12 );
+			// Allocate new table
+			gaTmpDir[i] = MM_AllocPhys() | (gaPageDir[i] & 7);
+			INVLPG( &gaTmpTable[page] );
+			// Fill
+			for( j = 0; j < 1024; j ++, page++ )
+			{
+				if( !(gaPageTable[page] & PF_PRESENT) ) {
+					gaTmpTable[page] = 0;
+					continue;
+				}
+				
+				// Refrence old page
+				MM_RefPhys( gaPageTable[page] & ~0xFFF );
+				// Add to new table
+				if(gaPageTable[page] & PF_WRITE) {
+					gaTmpTable[page] = (gaPageTable[page] & ~PF_WRITE) | PF_COW;
+					gaPageTable[page] = (gaPageTable[page] & ~PF_WRITE) | PF_COW;
+					INVLPG( page << 12 );
+				}
+				else
+					gaTmpTable[page] = gaPageTable[page];
 			}
-			else
-				gaTmpTable[page] = gaPageTable[page];
 		}
 	}
 	
@@ -685,6 +688,7 @@ tVAddr MM_NewWorkerStack()
 	__asm__ __volatile__ ("mov %%esp, %0": "=r"(esp));
 	__asm__ __volatile__ ("mov %%ebp, %0": "=r"(ebp));
 	
+	// TODO: Thread safety
 	// Find a free worker stack address
 	for(base = giLastUsedWorker; base < NUM_WORKER_STACKS; base++)
 	{
@@ -732,6 +736,7 @@ tVAddr MM_NewWorkerStack()
 	
 	// Mapping Time!
 	for( addr = 0; addr < WORKER_STACK_SIZE; addr += 0x1000 )
+	//for( addr = WORKER_STACK_SIZE; addr; addr -= 0x1000 )
 	{
 		pages[ addr >> 12 ] = MM_AllocPhys();
 		gaTmpTable[ (base + addr) >> 12 ] = pages[addr>>12] | 3;

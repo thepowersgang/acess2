@@ -1,13 +1,14 @@
 /*
  * Acess2 IP Stack
  * - Address Resolution Protocol
+ * - Part of the IPv4 protocol
  */
 #define DEBUG	0
 #include "ipstack.h"
 #include "arp.h"
 #include "link.h"
 
-#define ARPv6	1
+#define ARPv6	0
 #define	ARP_CACHE_SIZE	64
 #define	ARP_MAX_AGE		(60*60*1000)	// 1Hr
 
@@ -76,8 +77,19 @@ tMacAddr ARP_Resolve4(tInterface *Interface, tIPv4 Address)
 	ENTER("pInterface xAddress", Interface, Address);
 	
 	// Check routing tables
-	// Replace address with gateway if needed
+	{
+		tRoute	*route = IPStack_FindRoute(4, Interface, &Address);
+		if( route ) {
+			// If the next hop is defined, use it
+			// - 0.0.0.0 as the next hop means "no next hop / direct"
+			if( ((tIPv4*)route->NextHop)->L != 0 ) {
+				// Recursion: see /Recursion/
+				return ARP_Resolve4(Interface, *(tIPv4*)route->NextHop);
+			}
+		}
+	}
 	
+	// Check ARP Cache
 	Mutex_Acquire( &glARP_Cache4 );
 	for( i = 0; i < giARP_Cache4Space; i++ )
 	{

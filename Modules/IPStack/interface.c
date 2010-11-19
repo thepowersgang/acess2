@@ -52,6 +52,11 @@ tInterface	*gIP_Interfaces = NULL;
 tInterface	*gIP_Interfaces_Last = NULL;
 
 tSocketFile	*gIP_FileTemplates;
+
+tAdapter	gIP_LoopAdapter = {
+	DeviceLen: 8,
+	Device: "LOOPBACK"
+	};
 tMutex	glIP_Adapters;
 tAdapter	*gIP_Adapters = NULL;
  int	giIP_NextIfaceId = 1;
@@ -530,6 +535,37 @@ tAdapter *IPStack_GetAdapter(const char *Path)
 	 int	tmp;
 	
 	ENTER("sPath", Path);
+	
+	// Check for loopback
+	if( strcmp(Path, "LOOPBACK") == 0 )
+	{
+		// Initialise if required
+		if( gIP_LoopAdapter.DeviceFD == 0 )
+		{
+			dev = &gIP_LoopAdapter;
+			
+			dev->NRef = 1;
+			dev->DeviceLen = 8;
+			
+			dev->DeviceFD = VFS_Open( "/Devices/fifo/anon", VFS_OPENFLAG_READ|VFS_OPENFLAG_WRITE );
+			if( dev->DeviceFD == -1 ) {
+				Log_Warning("IPStack", "Unable to open FIFO '/Devices/fifo/anon' for loopback");
+				return NULL;
+			}
+			
+			dev->MacAddr.B[0] = 'A';
+			dev->MacAddr.B[1] = 'c';
+			dev->MacAddr.B[2] = 'e';
+			dev->MacAddr.B[3] = 's';
+			dev->MacAddr.B[4] = 's';
+			dev->MacAddr.B[5] = '2';
+			
+			// Start watcher
+			Link_WatchDevice( dev );
+		}
+		LEAVE('p', &gIP_LoopAdapter);
+		return &gIP_LoopAdapter;
+	}
 	
 	Mutex_Acquire( &glIP_Adapters );
 	

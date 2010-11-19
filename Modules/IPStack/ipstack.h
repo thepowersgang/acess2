@@ -116,4 +116,6 @@ extern int	IPStack_AddFile(tSocketFile *File);
 extern int	IPStack_GetAddressSize(int AddressType);
 extern int	IPStack_CompareAddress(int AddressType, void *Address1, void *Address2, int CheckBits);
 
+extern tRoute	*IPStack_FindRoute(int AddressType, tInterface *Interface, void *Address);
+
 #endif

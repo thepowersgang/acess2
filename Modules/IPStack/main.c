@@ -71,10 +71,15 @@ int IPStack_Install(char **Arguments)
 			// - <HexStreamAddress> is a condensed hexadecimal stream (in big endian)
 			//      (E.g. 0A000201 for 10.0.2.1 IPv4)
 			// - <Bits> is the number of subnet bits (E.g. 24 for an IPv4 Class C)
+			// Example: /Devices/ne2k/0,4,0A00020A,24
+			
+			// I could also define routes using <Interface>,<HexStreamNetwork>,<Bits>,<HexStreamGateway>
+			// Example: 1,00000000,0,0A000201
 		}
 	}
 	
-	gIP_LoopInterface.Adapter = IPStack_GetAdapter("/Devices/fifo/anon");
+	// Initialise loopback interface
+	gIP_LoopInterface.Adapter = IPStack_GetAdapter("LOOPBACK");
 	
 	DevFS_AddDevice( &gIP_DriverInfo );
 	

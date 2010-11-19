@@ -134,6 +134,11 @@ void DumpInterface(const char *Name)
 	
 	type = ioctl(fd, 4, NULL);
 	
+	// Ignore -1 values
+	if( type == -1 ) {
+		return ;
+	}
+	
 	printf("%s:\t", Name);
 	{
 		 int	call_num = ioctl(fd, 3, "get_device");
@@ -213,7 +218,7 @@ void AddRoute(const char *Interface, void *Dest, int MaskBits, void *NextHop)
 	
 	// Create route
 	fd = open(IPSTACK_ROOT"/routes", 0);
-	num = ioctl(fd, ioctl(fd, 3, "add_route"), Interface);
+	num = ioctl(fd, ioctl(fd, 3, "add_route"), (char*)Interface);
 	close(fd);
 	
 	// Open route

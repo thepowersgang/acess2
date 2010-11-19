@@ -38,6 +38,7 @@ MODULE_DEFINE(0, 0x0032, FIFO, FIFO_Install, NULL, NULL);
 tDevFS_Driver	gFIFO_DriverInfo = {
 	NULL, "fifo",
 	{
+	.Size = 1,
 	.NumACLs = 1,
 	.ACLs = &gVFS_ACL_EveryoneRW,
 	.Flags = VFS_FFLAG_DIRECTORY,
@@ -80,6 +81,7 @@ int FIFO_IOCtl(tVFS_Node *Node, int Id, void *Data)
 char *FIFO_ReadDir(tVFS_Node *Node, int Id)
 {
 	tPipe	*tmp = gFIFO_NamedPipes;
+	
 	// Entry 0 is Anon Pipes
 	if(Id == 0)	return strdup("anon");
 	
@@ -216,9 +218,12 @@ Uint64 FIFO_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	while(remaining)
 	{
 		// Wait for buffer to fill
-		if(pipe->Flags & PF_BLOCKING)
-			while(pipe->ReadPos == pipe->WritePos)
+		if(pipe->Flags & PF_BLOCKING) {
+			while(pipe->ReadPos == pipe->WritePos) {
 				Threads_Yield();
+				//MAGIC_BREAK();
+			}
+		}
 		else
 			if(pipe->ReadPos == pipe->WritePos)
 				return 0;
@@ -325,6 +330,7 @@ tPipe *FIFO_Int_NewPipe(int Size, char *Name)
 	memset(ret, 0, allocsize);
 	
 	ret->Name = Name;
+	ret->Flags = PF_BLOCKING;
 	
 	// Allocate Buffer
 	ret->BufSize = Size;

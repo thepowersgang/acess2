@@ -18,7 +18,7 @@ char	*IPStack_RouteDir_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*IPStack_RouteDir_FindDir(tVFS_Node *Node, const char *Name);
  int	IPStack_RouteDir_IOCtl(tVFS_Node *Node, int ID, void *Data);
  int	IPStack_Route_Create(const char *InterfaceName);
-tRoute	*IPStack_FindRoute(int AddressType, void *Address);
+tRoute	*IPStack_FindRoute(int AddressType, tInterface *Interface, void *Address);
 // - Individual Routes
  int	IPStack_Route_IOCtl(tVFS_Node *Node, int ID, void *Data);
 
@@ -132,7 +132,7 @@ int IPStack_RouteDir_IOCtl(tVFS_Node *Node, int ID, void *Data)
 			if( !CheckMem(Data, sizeof(int) + IPStack_GetAddressSize(data->Type)) )
 				return -1;
 			
-			rt = IPStack_FindRoute(data->Type, data->Addr);
+			rt = IPStack_FindRoute(data->Type, NULL, data->Addr);
 			
 			if( !rt )
 				return 0;
@@ -200,15 +200,21 @@ int IPStack_Route_Create(const char *InterfaceName)
 
 /**
  */
-tRoute	*IPStack_FindRoute(int AddressType, void *Address)
+tRoute	*IPStack_FindRoute(int AddressType, tInterface *Interface, void *Address)
 {
 	tRoute	*rt;
 	tRoute	*best = NULL;
 	
+	if( Interface && AddressType != Interface->Type )	return NULL;
+	
 	for( rt = gIP_Routes; rt; rt = rt->Next )
 	{
+		// Check interface
+		if( Interface && rt->Interface != Interface )	continue;
+		// Check address type
 		if( rt->AddressType != AddressType )	continue;
 		
+		// Check if the address matches
 		if( !IPStack_CompareAddress(AddressType, rt->Network, Address, rt->SubnetBits) )
 			continue;
 		

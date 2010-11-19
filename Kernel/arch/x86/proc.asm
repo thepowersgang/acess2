@@ -238,10 +238,11 @@ Proc_ReturnToUser:
 
 [global GetCPUNum]
 GetCPUNum:	; TODO: Store in debug registers
-	xor eax, eax
-	str ax
-	sub ax, 0x30
-	shr ax, 3	; ax /= 8
+;	xor eax, eax
+;	str ax
+;	sub ax, 0x30
+;	shr ax, 3	; ax /= 8
+	mov eax, dr1
 	ret
 
 ; Usermode code exported by the kernel
