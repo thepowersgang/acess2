@@ -16,6 +16,6 @@ typedef struct sInitRD_File
 // === Functions ===
 extern Uint64	InitRD_ReadFile(tVFS_Node *Node, Uint64 Offset, Uint64 Size, void *Buffer);
 extern char	*InitRD_ReadDir(tVFS_Node *Node, int ID);
-extern tVFS_Node	*InitRD_FindDir(tVFS_Node *Node, char *Name);
+extern tVFS_Node	*InitRD_FindDir(tVFS_Node *Node, const char *Name);
 
 #endif

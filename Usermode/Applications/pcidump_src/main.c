@@ -14,7 +14,7 @@
 // === CONSTANTS ===
 const struct {
 	 int	ID;
-	char *Name;
+	char	*Name;
 } csaVENDORS[] = {
 	{0x10EC, "Realtek"},
 	{0x1106, "VIA Technologies, Inc."},
@@ -39,7 +39,7 @@ int main(int argc, char *argv[], char *envp[])
 	
 	printf("PCI Bus Dump\n");
 	// --- Open PCI Directory
-	dp = open("/Devices/pci", /*OPEN_FLAG_READ|*/OPENFLAG_EXEC);
+	dp = open("/Devices/pci", OPENFLAG_READ|OPENFLAG_EXEC);
 	if(dp == -1)
 	{
 		fprintf(stderr, "Non-Standard configuration or not running on Acess.\n");

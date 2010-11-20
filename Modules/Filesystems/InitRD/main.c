@@ -16,7 +16,7 @@ tVFS_Node	*InitRD_InitDevice(char *Device, char **Arguments);
 void	InitRD_Unmount(tVFS_Node *Node);
 Uint64	InitRD_ReadFile(tVFS_Node *Node, Uint64 Offset, Uint64 Size, void *Buffer);
 char	*InitRD_ReadDir(tVFS_Node *Node, int ID);
-tVFS_Node	*InitRD_FindDir(tVFS_Node *Node, char *Name);
+tVFS_Node	*InitRD_FindDir(tVFS_Node *Node, const char *Name);
 void	InitRD_DumpDir(tVFS_Node *Node, int Indent);
 
 // === GLOBALS ===
@@ -84,7 +84,7 @@ char *InitRD_ReadDir(tVFS_Node *Node, int ID)
 /**
  * \brief Find an element in a directory
  */
-tVFS_Node *InitRD_FindDir(tVFS_Node *Node, char *Name)
+tVFS_Node *InitRD_FindDir(tVFS_Node *Node, const char *Name)
 {
 	 int	i;
 	tInitRD_File	*dir = Node->ImplPtr;
