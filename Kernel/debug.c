@@ -399,7 +399,7 @@ void Debug_Leave(char *FuncName, char RetType, ...)
 	while(i--)	Debug_Putchar(' ');
 
 	Debug_Puts(1, FuncName);
-	Debug_FmtS("(%i)", tid);
+	Debug_FmtS("[%i]", tid);
 	Debug_Puts(1, ": RETURN");
 
 	// No Return

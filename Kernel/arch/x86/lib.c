@@ -189,6 +189,8 @@ void *memsetd(void *Dest, Uint32 Val, size_t Num)
  */
 int memcmp(const void *m1, const void *m2, size_t Num)
 {
+	if( Num == 0 )	return 1;	// No bytes are always identical
+	
 	while(Num--)
 	{
 		if(*(Uint8*)m1 != *(Uint8*)m2)	break;

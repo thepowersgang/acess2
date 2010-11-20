@@ -76,7 +76,8 @@ tMacAddr ARP_Resolve4(tInterface *Interface, tIPv4 Address)
 	
 	ENTER("pInterface xAddress", Interface, Address);
 	
-	// Check routing tables
+	// Check routing tables if not on this subnet
+	if( IPStack_CompareAddress(4, &Address, Interface->Address, Interface->SubnetBits) == 0 )
 	{
 		tRoute	*route = IPStack_FindRoute(4, Interface, &Address);
 		if( route ) {

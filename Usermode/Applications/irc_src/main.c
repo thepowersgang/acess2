@@ -48,6 +48,8 @@ int main(int argc, const char *argv[], const char *envp[])
 		return -1;
 	}
 	
+	printf("Connection opened\n");
+	
 	writef(srv.FD, "USER %s %s %s : %s\n", gsUsername, gsHostname, gsRemoteAddress, gsRealName);
 	writef(srv.FD, "NICK %s", gsNickname);
 	
@@ -211,6 +213,8 @@ int OpenTCP(const char *AddressString, short PortNumber)
 		return -1;
 	}
 	
+	printf("iface = '%s'\n", iface);
+	
 	// Open client socket
 	// TODO: Move this out to libnet?
 	{
@@ -223,16 +227,20 @@ int OpenTCP(const char *AddressString, short PortNumber)
 	free(iface);
 	
 	if( fd == -1 ) {
+		fprintf(stderr, "Unable to open TCP Client for reading\n");
 		return -1;
 	}
-
+	
 	// Set remote port and address
+	printf("Setting port and remote address");
 	ioctl(fd, 5, &PortNumber);
 	ioctl(fd, 6, addrBuffer);
 	
 	// Connect
+	printf("Initiating connection");
 	if( ioctl(fd, 7, NULL) == 0 ) {
 		// Shouldn't happen :(
+		fprintf(stderr, "Unable to start connection\n");
 		return -1;
 	}
 	

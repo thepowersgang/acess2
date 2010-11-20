@@ -122,6 +122,8 @@ int IPStack_CompareAddress(int AddressType, void *Address1, void *Address2, int 
 	if( CheckBits < 0 )	CheckBits = 0;
 	if( CheckBits > size*8 )	CheckBits = size*8;
 	
+	if( CheckBits == 0 )	return 1;	// /0 matches anythin
+	
 	// Check first bits/8 bytes
 	if( memcmp(Address1, Address2, CheckBits/8) != 0 )	return 0;
 	
@@ -134,4 +136,30 @@ int IPStack_CompareAddress(int AddressType, void *Address1, void *Address2, int 
 		return 1;
 	
 	return 0;
+}
+
+const char *IPStack_PrintAddress(int AddressType, void *Address)
+{
+	switch( AddressType )
+	{
+	case 4: {
+		static char	ret[4*3+3+1];
+		Uint8	*addr = Address;
+		sprintf(ret, "%i.%i.%i.%i", addr[0], addr[1], addr[2], addr[3]);
+		return ret;
+		}
+	
+	case 6: {
+		static char	ret[8*4+7+1];
+		Uint16	*addr = Address;
+		sprintf(ret, "%x:%x:%x:%x:%x:%x:%x:%x",
+			addr[0], addr[1], addr[2], addr[3],
+			addr[4], addr[5], addr[6], addr[7]
+			);
+		return ret;
+		}
+	
+	default:
+		return "";
+	}
 }

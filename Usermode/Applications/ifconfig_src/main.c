@@ -223,7 +223,7 @@ void DumpRoute(const char *Name)
 {
 	 int	fd;
 	 int	type;
-	char	path[sizeof(IPSTACK_ROOT)+7+FILENAME_MAX+1] = IPSTACK_ROOT"/route/";
+	char	path[sizeof(IPSTACK_ROOT)+8+FILENAME_MAX+1] = IPSTACK_ROOT"/routes/";
 	
 	strcat(path, Name);
 	
@@ -346,7 +346,7 @@ void AddRoute(const char *Interface, void *Dest, int MaskBits, void *NextHop)
 int DoAutoConfig(const char *Device)
 {
 	 int	tmp, fd;
-	char	path[sizeof(IPSTACK_ROOT)+5+1];	// ip000
+	char	path[sizeof(IPSTACK_ROOT)+1+4+1];	// /0000
 	uint8_t	addr[4] = {10,0,2,55};
 	uint8_t	gw[4] = {10,0,2,1};
 	 int	subnet = 8;
@@ -373,10 +373,11 @@ int DoAutoConfig(const char *Device)
 	// Set Subnet
 	ioctl(fd, ioctl(fd, 3, "getset_subnet"), &subnet);
 	
-	// Set Gateway
+	// Set routes
 	{
 		uint8_t	net[4] = {0,0,0,0};
-		AddRoute(path + sizeof(IPSTACK_ROOT) + 1, net, 0, gw);
+		AddRoute(path + sizeof(IPSTACK_ROOT), addr, 8, net);	// This interface
+		AddRoute(path + sizeof(IPSTACK_ROOT), net, 0, gw);	// Gateway
 	}
 	
 	close(fd);
