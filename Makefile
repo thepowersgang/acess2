@@ -10,7 +10,7 @@
 
 SUBMAKE = $(MAKE) --no-print-directory
 
-USRLIBS := crt0.o acess.ld ld-acess.so libacess.so libgcc.so libc.so
+USRLIBS := crt0.o acess.ld ld-acess.so libacess.so libgcc.so libc.so libnet.so
 USRAPPS := init login CLIShell cat ls mount ifconfig
 
 ALL_DYNMODS = $(addprefix all-,$(DYNMODS))

@@ -7,7 +7,10 @@
  */
 #include <net.h>
 #include <stdint.h>
+#include <stdio.h>
 #define DEBUG	0
+
+#define __thread		// Disable TLS
 
 /**
  * \brief Read an IPv4 Address
@@ -165,4 +168,49 @@ int Net_ParseAddress(const char *String, void *Addr)
 		return 6;
 	
 	return 0;
+}
+
+static const char *Net_PrintIPv4Address(uint8_t *Address)
+{
+	static __thread char	ret[4*3+3+1];	// '255.255.255.255\0'
+	
+	sprintf(ret, "%i.%i.%i.%i", Address[0], Address[1], Address[2], Address[3]);
+	
+	return ret;
+}
+
+static const char *Net_PrintIPv6Address(uint16_t *Address)
+{
+	static __thread char	ret[8*4+7+1];	// 'FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF\0'
+	#if 0
+	// TODO: Zero compression
+	 int	zeroStart = 0, zeroEnd = 8;
+	for( i = 0; i < 8; i ++ ) {
+		if( 
+	}
+	#endif
+	
+	sprintf(ret, "%x:%x:%x:%x:%x:%x:%x:%x",
+		Address[0], Address[1], Address[2], Address[3],
+		Address[4], Address[5], Address[6], Address[7]
+		);
+	
+	return ret;
+}
+
+const char *Net_PrintAddress(int AddressType, void *Address)
+{
+	switch( AddressType )
+	{
+	case 0:	return "";
+	
+	case 4:
+		return Net_PrintIPv4Address(Address);
+	
+	case 6:
+		return Net_PrintIPv6Address(Address);
+		
+	default:
+		return "BAD";
+	}
 }

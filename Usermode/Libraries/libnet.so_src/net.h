@@ -15,6 +15,13 @@
 extern int	Net_ParseAddress(const char *String, void *Addr);
 
 /**
+ * \brief Convert a network address into a string
+ * \param AddressType	Address family as returned by Net_ParseAddress
+ * \param Address	Address data
+ */
+extern const char *Net_PrintAddress(int AddressType, void *Address);
+
+/**
  * \brief Get the interface required to reach \a Addr
  * \param AddrType	Addresss Family (4: IPv4, 6: IPv6)
  * \param Addr	Address in binary format

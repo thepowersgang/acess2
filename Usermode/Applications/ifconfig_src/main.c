@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <acess/sys.h>
+#include <net.h>
 
 // === CONSTANTS ===
 #define FILENAME_MAX	255
@@ -17,8 +18,11 @@
 // === PROTOTYPES ===
 void	PrintUsage(const char *ProgName);
 void	DumpInterfaces(void);
+void	DumpRoutes(void);
 void	DumpInterface(const char *Name);
+void	DumpRoute(const char *Name);
  int	AddInterface(const char *Device);
+void	AddRoute(const char *Interface, void *Dest, int MaskBits, void *NextHop);
  int	DoAutoConfig(const char *Device);
  int	SetAddress(int IFNum, const char *Address);
  int	ParseIPAddres(const char *Address, uint8_t *Dest, int *SubnetBits);
@@ -30,9 +34,15 @@ void	DumpInterface(const char *Name);
 int main(int argc, char *argv[])
 {
 	 int	ret;
+	
 	// No args, dump interfaces
 	if(argc == 1) {
 		DumpInterfaces();
+		return 0;
+	}
+	
+	if( strcmp(argv[1], "routes") == 0 ) {
+		DumpRoutes();
 		return 0;
 	}
 	
@@ -116,6 +126,25 @@ void DumpInterfaces(void)
 }
 
 /**
+ * \brief Dump all interfaces
+ */
+void DumpRoutes(void)
+{
+	 int	dp;
+	char	filename[FILENAME_MAX+1];
+	
+	dp = open(IPSTACK_ROOT"/routes", OPENFLAG_READ);
+	
+	while( readdir(dp, filename) )
+	{
+		if(filename[0] == '.')	continue;
+		DumpRoute(filename);
+	}
+	
+	close(dp);
+}
+
+/**
  * \brief Dump an interface
  */
 void DumpInterface(const char *Name)
@@ -162,8 +191,6 @@ void DumpInterface(const char *Name)
 		ioctl(fd, 5, ip);	// Get IP Address
 		subnet = ioctl(fd, 7, NULL);	// Get Subnet Bits
 		printf("\tAddress: %i.%i.%i.%i/%i\n", ip[0], ip[1], ip[2], ip[3], subnet);
-		ioctl(fd, 8, ip);	// Get Gateway
-		printf("\tGateway: %i.%i.%i.%i\n", ip[0], ip[1], ip[2], ip[3]);
 		}
 		break;
 	case 6:	// IPv6
@@ -177,6 +204,84 @@ void DumpInterface(const char *Name)
 			ntohs(ip[0]), ntohs(ip[1]), ntohs(ip[2]), ntohs(ip[3]),
 			ntohs(ip[4]), ntohs(ip[5]), ntohs(ip[6]), ntohs(ip[7]),
 			subnet);
+		}
+		break;
+	default:	// Unknow
+		printf("UNKNOWN (%i)\n", type);
+		break;
+	}
+	printf("\n");
+			
+	close(fd);
+}
+
+
+/**
+ * \brief Dump a route
+ */
+void DumpRoute(const char *Name)
+{
+	 int	fd;
+	 int	type;
+	char	path[sizeof(IPSTACK_ROOT)+7+FILENAME_MAX+1] = IPSTACK_ROOT"/route/";
+	
+	strcat(path, Name);
+	
+	fd = open(path, OPENFLAG_READ);
+	if(fd == -1) {
+		printf("%s:\tUnable to open ('%s')\n", Name, path);
+		return ;
+	}
+	
+	type = ioctl(fd, 4, NULL);
+	
+	// Ignore -1 values
+	if( type == -1 ) {
+		return ;
+	}
+	
+	printf("%s:\t", Name);
+	{
+		 int	call_num = ioctl(fd, 3, "get_interface");
+		 int	len = ioctl(fd, call_num, NULL);
+		char	*buf = malloc(len+1);
+		ioctl(fd, call_num, buf);
+		printf("'%s'\t", buf);
+		free(buf);
+	}
+	
+	// Get the address type
+	switch(type)
+	{
+	case 0:	// Disabled/Unset
+		printf("DISABLED\n");
+		break;
+	case 4:	// IPv4
+		{
+		uint8_t	net[4], addr[4];
+		 int	subnet, metric;
+		printf("IPv4\n");
+		ioctl(fd, ioctl(fd, 3, "get_network"), net);	// Get Network
+		ioctl(fd, ioctl(fd, 3, "get_nexthop"), addr);	// Get Gateway/NextHop
+		subnet = ioctl(fd, ioctl(fd, 3, "getset_subnetbits"), NULL);	// Get Subnet Bits
+		metric = ioctl(fd, ioctl(fd, 3, "getset_metric"), NULL);	// Get Subnet Bits
+		printf("\tNetwork: %s/%i\n", Net_PrintAddress(4, net), subnet);
+		printf("\tGateway: %s\n", Net_PrintAddress(4, addr));
+		printf("\tMetric:  %i\n", metric);
+		}
+		break;
+	case 6:	// IPv6
+		{
+		uint16_t	net[8], addr[8];
+		 int	subnet, metric;
+		printf("IPv6\n");
+		ioctl(fd, ioctl(fd, 3, "get_network"), net);	// Get Network
+		ioctl(fd, ioctl(fd, 3, "get_nexthop"), addr);	// Get Gateway/NextHop
+		subnet = ioctl(fd, ioctl(fd, 3, "getset_subnetbits"), NULL);	// Get Subnet Bits
+		metric = ioctl(fd, ioctl(fd, 3, "getset_metric"), NULL);	// Get Subnet Bits
+		printf("\tNetwork: %s/%i\n", Net_PrintAddress(6, net), subnet);
+		printf("\tGateway: %s\n", Net_PrintAddress(6, addr));
+		printf("\tMetric:  %i\n", metric);
 		}
 		break;
 	default:	// Unknow
@@ -267,8 +372,12 @@ int DoAutoConfig(const char *Device)
 	ioctl(fd, ioctl(fd, 3, "set_address"), addr);
 	// Set Subnet
 	ioctl(fd, ioctl(fd, 3, "getset_subnet"), &subnet);
+	
 	// Set Gateway
-	ioctl(fd, ioctl(fd, 3, "set_gateway"), gw);
+	{
+		uint8_t	net[4] = {0,0,0,0};
+		AddRoute(path + sizeof(IPSTACK_ROOT) + 1, net, 0, gw);
+	}
 	
 	close(fd);
 	

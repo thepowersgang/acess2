@@ -236,6 +236,7 @@ tRoute	*IPStack_FindRoute(int AddressType, tInterface *Interface, void *Address)
  */
 static const char *casIOCtls_Route[] = {
 	DRV_IOCTLNAMES,
+	"get_type",	// Get address type - (void), returns integer type
 	"get_network",	// Get network - (void *Data), returns boolean success
 	"set_network",	// Set network - (void *Data), returns boolean success
 	"get_nexthop",	// Get next hop - (void *Data), returns boolean success
@@ -277,30 +278,34 @@ int IPStack_Route_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		LEAVE('i', tmp);
 		return tmp;
 	
-	// Get Network
+	// Get address type
 	case 4:
+		return rt->AddressType;
+	
+	// Get Network
+	case 5:
 		if( !CheckMem(Data, addrSize) )	return -1;
 		memcpy(Data, rt->Network, addrSize);
 		return 1;
 	// Set Network
-	case 5:
+	case 6:
 		if( !CheckMem(Data, addrSize) )	return -1;
 		memcpy(rt->Network, Data, addrSize);
 		return 1;
 	
 	// Get Next Hop
-	case 6:
+	case 7:
 		if( !CheckMem(Data, addrSize) )	return -1;
 		memcpy(Data, rt->NextHop, addrSize);
 		return 1;
 	// Set Next Hop
-	case 7:
+	case 8:
 		if( !CheckMem(Data, addrSize) )	return -1;
 		memcpy(rt->NextHop, Data, addrSize);
 		return 1;
 	
 	// Get/Set Subnet Bits
-	case 8:
+	case 9:
 		if( Data ) {
 			if( !CheckMem(Data, sizeof(int)) )	return -1;
 			if( *iData < 0 || *iData > addrSize*8 )
@@ -310,7 +315,7 @@ int IPStack_Route_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		return rt->SubnetBits;
 	
 	// Get/Set Metric
-	case 9:
+	case 10:
 		if( Data ) {
 			if( !CheckMem(Data, sizeof(int)) )	return -1;
 			if( *iData < 0 )	return -1;
@@ -319,7 +324,7 @@ int IPStack_Route_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		return rt->Metric;
 	
 	// Get interface name
-	case 10:
+	case 11:
 		if( Data ) {
 			if( !CheckMem(Data, strlen(rt->Interface->Name) + 1) )
 				return -1;
@@ -328,6 +333,6 @@ int IPStack_Route_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		return strlen(rt->Interface->Name);
 	
 	default:
-		return 0;
+		return -1;
 	}
 }
