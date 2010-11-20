@@ -348,8 +348,8 @@ int DoAutoConfig(const char *Device)
 	 int	tmp, fd;
 	char	path[sizeof(IPSTACK_ROOT)+1+4+1];	// /0000
 	uint8_t	addr[4] = {10,0,2,55};
-	uint8_t	gw[4] = {10,0,2,1};
-	 int	subnet = 8;
+	uint8_t	gw[4] = {10,0,2,2};
+	 int	subnet = 24;
 	
 	tmp = AddInterface(Device);
 	if( tmp < 0 )	return tmp;
@@ -376,7 +376,7 @@ int DoAutoConfig(const char *Device)
 	// Set routes
 	{
 		uint8_t	net[4] = {0,0,0,0};
-		AddRoute(path + sizeof(IPSTACK_ROOT), addr, 8, net);	// This interface
+		AddRoute(path + sizeof(IPSTACK_ROOT), addr, subnet, net);	// This interface
 		AddRoute(path + sizeof(IPSTACK_ROOT), net, 0, gw);	// Gateway
 	}
 	

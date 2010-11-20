@@ -11,7 +11,8 @@
 SUBMAKE = $(MAKE) --no-print-directory
 
 USRLIBS := crt0.o acess.ld ld-acess.so libacess.so libgcc.so libc.so libnet.so
-USRAPPS := init login CLIShell cat ls mount ifconfig
+USRAPPS := init login CLIShell cat ls mount
+USRAPPS += ifconfig ping
 
 ALL_DYNMODS = $(addprefix all-,$(DYNMODS))
 ALL_MODULES := $(addprefix all-,$(MODULES))

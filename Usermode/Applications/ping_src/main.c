@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <acess/sys.h>
+#include <net.h>
 
 // === CONSTANTS ===
 #define IPSTACK_ROOT	"/Devices/ip"
@@ -14,6 +15,9 @@
 void	PrintUsage(char *ProgName);
 void	PrintHelp(char *ProgName);
  int	GetAddress( char *Address, uint8_t *Addr );
+
+// === GLOBALS ===
+ int	giNumberOfPings = 1;
 
 // === CODE ===
 /**
@@ -27,6 +31,8 @@ int main(int argc, char *argv[])
 	 int	i, j;
 	uint8_t	addr[16];
 	 int	type;
+	 
+	 int	fd, call, ping;
 	
 	for(i = 1; i < argc; i++)
 	{
@@ -69,7 +75,7 @@ int main(int argc, char *argv[])
 	}
 	
 	// Read Address
-	type = GetAddress(ipStr, addr);
+	type = Net_ParseAddress(ipStr, addr);
 	if( type == 0 ) {
 		fprintf(stderr, "Invalid IP Address\n");
 		return 1;
@@ -77,28 +83,45 @@ int main(int argc, char *argv[])
 	
 	if( !iface )
 	{
-		fprintf(stderr, "WARNING: \"All interfaces\" is currently uniplemented");
-		return 2;
+		iface = Net_GetInterface(type, addr);
+		if( !iface ) {
+			fprintf(stderr, "Unable to find a route to '%s'\n",
+				Net_PrintAddress(type, addr)
+				);
+			return -1;
+		}
+		
+		printf("iface = '%s'\n", iface);
 	}
-	else
+	
 	{
-		 int	fd = open(iface, OPENFLAG_EXEC);
-		 int	call, ping;
-		if(fd == -1) {
-			fprintf(stderr, "ERROR: Unable to open interface '%s'\n", iface);
-			return 1;
-		}
-		
-		call = ioctl(fd, 3, "ping");
-		if(call == 0) {
-			fprintf(stderr, "ERROR: '%s' does not have a 'ping' call\n", iface);
-			return 1;
-		}
-		ping = ioctl(fd, call, addr);
-		printf("ping = %i\n");
-		
-		close(fd);
+		char	*_iface = malloc( sizeof("/Devices/ip/") + strlen(iface) + 1 );
+		strcpy(_iface, "/Devices/ip/");
+		strcat(_iface, iface);
+		free(iface);	// TODO: Handle when this is not heap
+		iface = _iface;
+		printf("iface = '%s'\n", iface);
 	}
+	
+	fd = open(iface, OPENFLAG_EXEC);
+	if(fd == -1) {
+		fprintf(stderr, "ERROR: Unable to open interface '%s'\n", iface);
+		return 1;
+	}
+		
+	call = ioctl(fd, 3, "ping");
+	if(call == 0) {
+		fprintf(stderr, "ERROR: '%s' does not have a 'ping' call\n", iface);
+		return 1;
+	}
+	
+	for( i = 0; i < giNumberOfPings; i ++ )
+	{
+		ping = ioctl(fd, call, addr);
+		printf("ping = %i\n", ping);
+	}
+		
+	close(fd);
 	
 	return 0;
 }

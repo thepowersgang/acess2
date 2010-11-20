@@ -73,6 +73,7 @@ tMacAddr ARP_Resolve4(tInterface *Interface, tIPv4 Address)
 	 int	lastID;
 	 int	i;
 	struct sArpRequest4	req;
+	Sint64	timeout;
 	
 	ENTER("pInterface xAddress", Interface, Address);
 	
@@ -129,10 +130,16 @@ tMacAddr ARP_Resolve4(tInterface *Interface, tIPv4 Address)
 	// Send Request
 	Link_SendPacket(Interface->Adapter, 0x0806, req.DestMac, sizeof(struct sArpRequest4), &req);
 	
+	timeout = now() + Interface->TimeoutDelay;
+	
 	// Wait for a reply
 	for(;;)
 	{
-		while(lastID == giARP_LastUpdateID)	Threads_Yield();
+		while(lastID == giARP_LastUpdateID && now() < timeout)
+			Threads_Yield();
+		
+		if( now() >= timeout )	break;	// Timeout
+		
 		lastID = giARP_LastUpdateID;
 		
 		Mutex_Acquire( &glARP_Cache4 );
@@ -144,6 +151,10 @@ tMacAddr ARP_Resolve4(tInterface *Interface, tIPv4 Address)
 			return gaARP_Cache4[i].MAC;
 		}
 		Mutex_Release( &glARP_Cache4 );
+	}
+	{
+		tMacAddr	ret = {{0,0,0,0,0,0}};
+		return ret;
 	}
 }
 

@@ -2,7 +2,7 @@
  * Acess2 IP Stack
  * - Routing Tables
  */
-#define DEBUG	0
+#define DEBUG	1
 #define VERSION	VER2(0,10)
 #include <acess.h>
 #include <tpl_drv_common.h>
@@ -135,7 +135,7 @@ int IPStack_RouteDir_IOCtl(tVFS_Node *Node, int ID, void *Data)
 			if( !CheckMem(Data, sizeof(int) + IPStack_GetAddressSize(data->Type)) )
 				LEAVE_RET('i', -1);
 			
-			Log_Debug("IPStack", "Route_RouteDir_IOCtl - FindRoute %i, %s\n",
+			Log_Debug("IPStack", "Route_RouteDir_IOCtl - FindRoute %i, %s",
 				data->Type, IPStack_PrintAddress(data->Type, data->Addr) );
 			rt = IPStack_FindRoute(data->Type, NULL, data->Addr);
 			
@@ -205,7 +205,7 @@ int IPStack_Route_Create(const char *InterfaceName)
 		gIP_Routes = gIP_RoutesEnd = rt;
 	}
 	
-	Log_Log("IPStack", "Route entry for '%s' created\n", InterfaceName);
+	Log_Log("IPStack", "Route entry for '%s' created", InterfaceName);
 	
 	return rt->Node.Inode;
 }

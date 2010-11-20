@@ -122,7 +122,7 @@ int IPStack_CompareAddress(int AddressType, void *Address1, void *Address2, int 
 	if( CheckBits < 0 )	CheckBits = 0;
 	if( CheckBits > size*8 )	CheckBits = size*8;
 	
-	if( CheckBits == 0 )	return 1;	// /0 matches anythin
+	if( CheckBits == 0 )	return 1;	// /0 matches anythin0
 	
 	// Check first bits/8 bytes
 	if( memcmp(Address1, Address2, CheckBits/8) != 0 )	return 0;
