@@ -64,10 +64,15 @@ int IPv4_RegisterCallback(int ID, tIPCallback Callback)
 int IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, int Length, const void *Data)
 {
 	tMacAddr	to = ARP_Resolve4(Iface, Address);
+	const tMacAddr	zero = {{0,0,0,0,0,0}};
 	 int	bufSize = sizeof(tIPv4Header) + Length;
 	char	buf[bufSize];
 	tIPv4Header	*hdr = (void*)buf;
 	 int	ret;
+	
+	if( MAC_EQU(to, zero) ) {
+		return 0;
+	}
 	
 	// OUTPUT Firewall rule go here
 	ret = IPTablesV4_TestChain("OUTPUT",

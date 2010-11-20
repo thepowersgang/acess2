@@ -125,8 +125,7 @@ int ICMP_Ping(tInterface *Interface, tIPv4 Addr)
 	end = ts + Interface->TimeoutDelay;
 	while( !gICMP_PingSlots[i].bArrived && now() < end)	Threads_Yield();
 	
-	ts = now() - ts;
-	if(ts > Interface->TimeoutDelay)
+	if(now() > end)
 		return -1;
 	
 	return (int)ts;
