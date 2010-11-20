@@ -284,9 +284,10 @@ Uint16 IPv4_Checksum(const void *Buf, int Size)
 	Size = (Size + 1) >> 1;	// 16-bit word count
 	for(i = 0; i < Size; i++ )
 	{
-		if((int)sum + arr[i] > 0xFFFF)
+		Uint16	val = ntohs(arr[i]);
+		if((int)sum + val > 0xFFFF)
 			sum ++;	// Simulate 1's complement
-		sum += arr[i];
+		sum += val;
 	}
 	return ~sum ;
 }
