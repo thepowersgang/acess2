@@ -20,6 +20,7 @@ void	itoa(char *buf, Uint num, int base, int minLength, char pad);
  int	sprintf(char *__s, const char *__format, ...);
  int	tolower(int c);
  int	strucmp(const char *Str1, const char *Str2);
+char	*strchr(const char *__s, int __c);
  int	strpos(const char *Str, char Ch);
  Uint8	ByteSum(void *Ptr, int Size);
 size_t	strlen(const char *__s);
@@ -32,13 +33,18 @@ char	**str_split(const char *__str, char __ch);
  int	strpos8(const char *str, Uint32 Search);
  int	ReadUTF8(Uint8 *str, Uint32 *Val);
  int	WriteUTF8(Uint8 *str, Uint32 Val);
+
  int	DivUp(int num, int dem);
 Sint64	timestamp(int sec, int mins, int hrs, int day, int month, int year);
 Uint	rand(void);
+ 
  int	CheckString(char *String);
  int	CheckMem(void *Mem, int NumBytes);
+ 
  int	ModUtil_LookupString(char **Array, char *Needle);
  int	ModUtil_SetIdent(char *Dest, char *Value);
+ 
+ int	UnHex(Uint8 *Dest, size_t DestSize, const char *SourceString);
 
 // === EXPORTS ===
 EXPORT(atoi);
@@ -47,6 +53,7 @@ EXPORT(vsnprintf);
 EXPORT(sprintf);
 EXPORT(tolower);
 EXPORT(strucmp);
+EXPORT(strchr);
 EXPORT(strpos);
 EXPORT(ByteSum);
 EXPORT(strlen);
@@ -66,6 +73,7 @@ EXPORT(CheckString);
 EXPORT(CheckMem);
 EXPORT(ModUtil_LookupString);
 EXPORT(ModUtil_SetIdent);
+EXPORT(UnHex);
 
 // === CODE ===
 /**
@@ -377,6 +385,18 @@ int strucmp(const char *Str1, const char *Str2)
 	while(*Str1 && tolower(*Str1) == tolower(*Str2))
 		Str1++, Str2++;
 	return tolower(*Str1) - tolower(*Str2);
+}
+
+/**
+ * \brief Locate a byte in a string
+ */
+char *strchr(const char *__s, int __c)
+{
+	for( ; *__s; __s ++ )
+	{
+		if( *__s == __c )	return (char*)__s;
+	}
+	return NULL;
 }
 
 /**
@@ -822,4 +842,38 @@ int ModUtil_SetIdent(char *Dest, char *Value)
 	if( !CheckMem(Dest, 32) )	return -1;
 	strncpy(Dest, Value, 32);
 	return 1;
+}
+
+/**
+ * \brief Convert a string of hexadecimal digits into a byte stream
+ */
+int	UnHex(Uint8 *Dest, size_t DestSize, const char *SourceString)
+{
+	 int	i;
+	
+	for( i = 0; i < DestSize*2; i += 2 )
+	{
+		Uint8	val = 0;
+		
+		if(SourceString[i] == '\0')	break;
+		
+		if('0' <= SourceString[i] && SourceString[i] <= '9')
+			val |= (SourceString[i]-'0') << 4;
+		else if('A' <= SourceString[i] && SourceString[i] <= 'F')
+			val |= (SourceString[i]-'A'+10) << 4;
+		else if('a' <= SourceString[i] && SourceString[i] <= 'f')
+			val |= (SourceString[i]-'a'+10) << 4;
+			
+		if(SourceString[i+1] == '\0')	break;
+		
+		if('0' <= SourceString[i+1] && SourceString[i+1] <= '9')
+			val |= (SourceString[i+1] - '0');
+		else if('A' <= SourceString[i+1] && SourceString[i+1] <= 'F')
+			val |= (SourceString[i+1] - 'A' + 10);
+		else if('a' <= SourceString[i+1] && SourceString[i+1] <= 'f')
+			val |= (SourceString[i+1] - 'a' + 10);
+		
+		Dest[i/2] = val;
+	}
+	return i/2;
 }

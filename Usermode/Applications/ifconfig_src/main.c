@@ -174,9 +174,10 @@ void DumpInterface(const char *Name)
 		 int	len = ioctl(fd, call_num, NULL);
 		char	*buf = malloc(len+1);
 		ioctl(fd, call_num, buf);
-		printf("'%s'\t", buf);
+		printf("'%s'\n", buf);
 		free(buf);
 	}
+	printf("\t");
 	// Get the address type
 	switch(type)
 	{
@@ -187,20 +188,20 @@ void DumpInterface(const char *Name)
 		{
 		uint8_t	ip[4];
 		 int	subnet;
-		printf("IPv4\n");
+		printf("IPv4\t");
 		ioctl(fd, 5, ip);	// Get IP Address
 		subnet = ioctl(fd, 7, NULL);	// Get Subnet Bits
-		printf("\tAddress: %i.%i.%i.%i/%i\n", ip[0], ip[1], ip[2], ip[3], subnet);
+		printf("%i.%i.%i.%i/%i\n", ip[0], ip[1], ip[2], ip[3], subnet);
 		}
 		break;
 	case 6:	// IPv6
 		{
 		uint16_t	ip[8];
 		 int	subnet;
-		printf("IPv6\n");
+		printf("IPv6\t");
 		ioctl(fd, 5, ip);	// Get IP Address
 		subnet = ioctl(fd, 7, NULL);	// Get Subnet Bits
-		printf("\t%x:%x:%x:%x:%x:%x:%x:%x/%i\n",
+		printf("%x:%x:%x:%x:%x:%x:%x:%x/%i\n",
 			ntohs(ip[0]), ntohs(ip[1]), ntohs(ip[2]), ntohs(ip[3]),
 			ntohs(ip[4]), ntohs(ip[5]), ntohs(ip[6]), ntohs(ip[7]),
 			subnet);
@@ -210,7 +211,6 @@ void DumpInterface(const char *Name)
 		printf("UNKNOWN (%i)\n", type);
 		break;
 	}
-	printf("\n");
 			
 	close(fd);
 }

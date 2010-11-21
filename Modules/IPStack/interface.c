@@ -23,8 +23,8 @@ char	*IPStack_Root_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*IPStack_Root_FindDir(tVFS_Node *Node, const char *Name);
  int	IPStack_Root_IOCtl(tVFS_Node *Node, int ID, void *Data);
 
- int	IPStack_AddInterface(const char *Device, const char *Name);
  int	IPStack_AddFile(tSocketFile *File);
+tInterface	*IPStack_AddInterface(const char *Device, const char *Name);
 tAdapter	*IPStack_GetAdapter(const char *Path);
 
 char	*IPStack_Iface_ReadDir(tVFS_Node *Node, int Pos);
@@ -219,7 +219,8 @@ int IPStack_Root_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		if( !CheckString( Data ) )	LEAVE_RET('i', -1);
 		{
 			char	name[4] = "";
-			tmp = IPStack_AddInterface(Data, name);
+			tInterface	*iface = IPStack_AddInterface(Data, name);
+			tmp = iface->Node.ImplInt;
 		}
 		LEAVE_RET('i', tmp);
 	}
@@ -228,10 +229,10 @@ int IPStack_Root_IOCtl(tVFS_Node *Node, int ID, void *Data)
 }
 
 /**
- * \fn int IPStack_AddInterface(char *Device)
+ * \fn tInterface *IPStack_AddInterface(char *Device)
  * \brief Adds an interface to the list
  */
-int IPStack_AddInterface(const char *Device, const char *Name)
+tInterface *IPStack_AddInterface(const char *Device, const char *Name)
 {
 	tInterface	*iface;
 	tAdapter	*card;
@@ -241,8 +242,8 @@ int IPStack_AddInterface(const char *Device, const char *Name)
 	
 	card = IPStack_GetAdapter(Device);
 	if( !card ) {
-		LEAVE('i', -1);
-		return -1;	// ERR_YOURBAD
+		LEAVE('n');
+		return NULL;	// ERR_YOURBAD
 	}
 	
 	nameLen = sprintf(NULL, "%i", giIP_NextIfaceId);
@@ -253,8 +254,8 @@ int IPStack_AddInterface(const char *Device, const char *Name)
 		+ IPStack_GetAddressSize(-1)
 		);
 	if(!iface) {
-		LEAVE('i', -2);
-		return -2;	// Return ERR_MYBAD
+		LEAVE('n');
+		return NULL;	// Return ERR_MYBAD
 	}
 	
 	iface->Next = NULL;
@@ -282,8 +283,8 @@ int IPStack_AddInterface(const char *Device, const char *Name)
 	iface->Adapter = IPStack_GetAdapter(Device);
 	if( !iface->Adapter ) {
 		free( iface );
-		LEAVE('i', -1);
-		return -1;	// Return ERR_YOUFAIL
+		LEAVE('n');
+		return NULL;	// Return ERR_YOUFAIL
 	}
 	
 	// Delay setting ImplInt until after the adapter is opened
@@ -306,8 +307,8 @@ int IPStack_AddInterface(const char *Device, const char *Name)
 //	gIP_DriverInfo.RootNode.Size ++;
 	
 	// Success!
-	LEAVE('i', iface->Node.ImplInt);
-	return iface->Node.ImplInt;
+	LEAVE('p', iface);
+	return iface;
 }
 
 /**

@@ -73,7 +73,8 @@ tVFS_Node *Ext2_InitDevice(char *Device, char **Options)
 	
 	// Sanity Check Magic value
 	if(sb.s_magic != 0xEF53) {
-		Log_Warning("EXT2", "Volume '%s' is not an EXT2 volume", Device);
+		Log_Warning("EXT2", "Volume '%s' is not an EXT2 volume (0x%x != 0xEF53)",
+			Device, sb.s_magic);
 		VFS_Close(fd);
 		LEAVE('n');
 		return NULL;

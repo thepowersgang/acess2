@@ -21,6 +21,7 @@ extern char	*IPStack_Root_ReadDir(tVFS_Node *Node, int Pos);
 extern tVFS_Node	*IPStack_Root_FindDir(tVFS_Node *Node, const char *Name);
 extern int	IPStack_Root_IOCtl(tVFS_Node *Node, int ID, void *Data);
 extern tInterface	gIP_LoopInterface;
+extern tInterface	*IPStack_AddInterface(const char *Device, const char *Name);
 
 // === PROTOTYPES ===
  int	IPStack_Install(char **Arguments);
@@ -64,17 +65,60 @@ int IPStack_Install(char **Arguments)
 		for( i = 0; Arguments[i]; i++ )
 		{
 			// TODO:
-			// Define interfaces by <Device>,<Type>,<HexStreamAddress>,<Bits>
+			// Define interfaces by <Device>:<Type>:<HexStreamAddress>:<Bits>
 			// Where:
 			// - <Device> is the device path (E.g. /Devices/ne2k/0)
 			// - <Type> is a number (e.g. 4) or symbol (e.g. AF_INET4)
 			// - <HexStreamAddress> is a condensed hexadecimal stream (in big endian)
 			//      (E.g. 0A000201 for 10.0.2.1 IPv4)
 			// - <Bits> is the number of subnet bits (E.g. 24 for an IPv4 Class C)
-			// Example: /Devices/ne2k/0,4,0A00020A,24
+			// Example: /Devices/ne2k/0:4:0A00020A:24
+			//  would define an interface with the address 10.0.2.10/24
+			if( Arguments[i][0] == '/' ) {
+				// Define Interface
+				char	*dev, *type, *addr, *bits;
+				
+				// Read definition
+				dev = Arguments[i];
+				type = strchr(dev, ':');
+				if( !type ) {
+					Log_Warning("IPStack", "<Device>:<Type>:<HexStreamAddress>:<Bits>");
+					continue;
+				}
+				*type = '\0';	type ++;
+				
+				addr = strchr(type, ':');
+				if( !addr ) {
+					Log_Warning("IPStack", "<Device>:<Type>:<HexStreamAddress>:<Bits>");
+					continue;
+				}
+				*addr = '\0';	addr ++;
+				
+				bits = strchr(addr, ':');
+				if( !bits ) {
+					Log_Warning("IPStack", "<Device>:<Type>:<HexStreamAddress>:<Bits>");
+					continue;
+				}
+				*bits = '\0';	bits ++;
+				
+				// Define interface
+				{
+					 int	iType = atoi(type);
+					 int	size = IPStack_GetAddressSize(iType);
+					Uint8	addrData[size];
+					 int	iBits = atoi(bits);
+					
+					UnHex(addrData, size, addr);
+					
+					tInterface	*iface = IPStack_AddInterface(dev, "");
+					iface->Type = iType;
+					memcpy(iface->Address, addrData, size);
+					iface->SubnetBits = iBits;
+				}
+			}
 			
 			// I could also define routes using <Interface>,<HexStreamNetwork>,<Bits>,<HexStreamGateway>
-			// Example: 1,00000000,0,0A000201
+			// Example: 1:00000000:0:0A000201
 		}
 	}
 	

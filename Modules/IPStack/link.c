@@ -124,6 +124,7 @@ void Link_WatchDevice(tAdapter *Adapter)
 		Uint32	checksum;
 		
 		// Wait for a packet (Read on a network device is blocking)
+		Log_Debug("NET", "Waiting on adapter FD#0x%x", Adapter->DeviceFD);
 		ret = VFS_Read(Adapter->DeviceFD, MAX_PACKET_SIZE, buf);
 		if(ret == -1)	break;
 		
