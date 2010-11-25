@@ -11,6 +11,9 @@
 
 #include <stdarg.h>
 
+// HACK: Replace with underscored
+#define SysDebug	_SysDebug
+
 // === CONSTANTS ===
 #define	MAX_LOADED_LIBRARIES	64
 #define	MAX_STRINGS_BYTES	4096
@@ -50,7 +53,7 @@ extern int	strlen(const char *str);
 extern int	file_exists(char *filename);
 
 // === System Calls ===
-extern void	SysExit();
+extern void	_exit(int retval);
 extern void	SysDebug(char *fmt, ...);	//!< Now implemented in main.c
 extern void	SysDebugV(char *fmt, ...);
 extern Uint	SysLoadBin(char *path, Uint *entry);

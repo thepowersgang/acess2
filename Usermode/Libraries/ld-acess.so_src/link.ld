@@ -1,9 +1,9 @@
-ENTRY(_SoMain)
+ENTRY(SoMain)
 OUTPUT_FORMAT(elf32-i386)
 
 SECTIONS {
     . = 0xBBFF0000;
-	_gLinkedBase = .;
+    gLinkedBase = .;
 
    .text : AT(ADDR(.text)) {
         code = .;

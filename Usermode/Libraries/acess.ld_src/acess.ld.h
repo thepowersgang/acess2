@@ -2,7 +2,7 @@ OUTPUT_FORMAT("elf32-i386", "elf32-i386", "elf32-i386")
 OUTPUT_ARCH(i386)
 ENTRY(start)
 SEARCH_DIR(ACESSDIR/Usermode/Libraries)
-INPUT(-lacess crt0.o)
+INPUT(crt0.o)
 SECTIONS
 {
   /* Read-only sections, merged into text segment: */

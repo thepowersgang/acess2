@@ -26,13 +26,13 @@ int SoMain(Uint base, int arg1)
 	// - Assume that the file pointer will be less than 4096
 	if(base < 0x1000) {
 		SysDebug("ld-acess - SoMain: Passed file pointer %i\n", base);
-		_exit(-1);
+		SysExit();
 		for(;;);
 	}
 	// Check if we are being called directly
 	if(base == (Uint)&gLinkedBase) {
 		SysDebug("ld-acess should not be directly called\n");
-		_exit(1);
+		SysExit();
 		for(;;);
 	}
 	
@@ -41,7 +41,7 @@ int SoMain(Uint base, int arg1)
 	ret = DoRelocate( base, NULL, "Executable" );
 	if( ret == 0 ) {
 		SysDebug("ld-acess - SoMain: Relocate failed, base=0x%x\n", base);
-		_exit(-1);
+		SysExit();
 		for(;;);
 	}
 	
@@ -67,7 +67,7 @@ int DoRelocate( Uint base, char **envp, char *Filename )
 	SysDebug("ld-acess - DoRelocate: Unkown file format '0x%x 0x%x 0x%x 0x%x'\n",
 		*(Uint8*)(base), *(Uint8*)(base+1), *(Uint8*)(base+2), *(Uint8*)(base+3) );
 	SysDebug("ld-acess - DoRelocate: File '%s'\n", Filename);
-	_exit(-1);
+	SysExit();
 	for(;;);
 }
 

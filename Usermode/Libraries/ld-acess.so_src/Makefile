@@ -5,10 +5,10 @@
 -include ../Makefile.cfg
 
 COBJ = main.o lib.o loadlib.o elf.o pe.o
-AOBJ = helpers.ao
+AOBJ = core.ao vfs.ao mm.ao
 BIN = ../ld-acess.so
 
-CFLAGS   = -Wall -fno-builtin -fleading-underscore -fno-stack-protector
+CFLAGS   = -Wall -fno-builtin -fno-leading-underscore -fno-stack-protector
 ASFLAGS  = -felf
 LDFLAGS  = -T link.ld -Map map.txt -Bstatic
 
