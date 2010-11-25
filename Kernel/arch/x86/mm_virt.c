@@ -56,7 +56,7 @@
 #define	PF_WRITE	0x2
 #define	PF_USER		0x4
 #define	PF_COW		0x200
-#define	PF_PAGED	0x400
+#define	PF_NOPAGE	0x400
 
 #define INVLPG(addr)	__asm__ __volatile__ ("invlpg (%0)"::"r"(addr))
 
