@@ -17,7 +17,7 @@ all: $(_BIN)
 clean:
 	@$(RM) $(OBJ) $(DEPFILES) $(_BIN) $(BIN).dsm Map.txt
 
-install: $(BIN)
+install: $(_BIN)
 	$(xCP) $(_BIN) $(DISTROOT)/$(DIR)/
 
 $(_BIN): $(OBJ)

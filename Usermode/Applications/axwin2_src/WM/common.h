@@ -13,6 +13,8 @@
 #include "image.h"
 //#include "font.h"
 
+typedef struct sFont	tFont;
+
 // === GLOBALS ===
 extern char	*gsTerminalDevice;
 extern char	*gsMouseDevice;
@@ -30,7 +32,7 @@ extern void	memset32(void *ptr, uint32_t val, size_t count);
 extern void	Video_Update(void);
 extern void	Video_FillRect(short X, short Y, short W, short H, uint32_t Color);
 extern void	Video_DrawRect(short X, short Y, short W, short H, uint32_t Color);
-extern void	Video_DrawText(short X, short Y, short W, short H, void *Font, int Point, uint32_t Color, char *Text);
+extern int	Video_DrawText(short X, short Y, short W, short H, tFont *Font, uint32_t Color, char *Text);
 extern void Video_DrawImage(short X, short Y, short W, short H, tImage *Image);
 // --- Debug Hack ---
 extern void	_SysDebug(const char *Format, ...);

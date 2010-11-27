@@ -11,6 +11,7 @@
 void	Video_Setup(void);
 void	Video_Update(void);
 void	Video_FillRect(short X, short Y, short W, short H, uint32_t Color);
+void	Video_DrawRect(short X, short Y, short W, short H, uint32_t Color);
 
 // === GLOBALS ===
 
@@ -93,14 +94,6 @@ void Video_DrawRect(short X, short Y, short W, short H, uint32_t Color)
 	Video_FillRect(X, Y+H-1, W, 1, Color);
 	Video_FillRect(X, Y, 1, H, Color);
 	Video_FillRect(X+W-1, Y, 1, H, Color);
-}
-
-/**
- * \brief Draw text to the screen
- */
-void Video_DrawText(short X, short Y, short W, short H, void *Font, int Point, uint32_t Color, char *Text)
-{
-	// TODO!
 }
 
 /**

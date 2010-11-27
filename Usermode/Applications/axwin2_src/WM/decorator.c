@@ -67,7 +67,6 @@ void Decorator_RenderWidget(tElement *Element)
 			Element->CachedX+1, Element->CachedY+1,
 			Element->CachedW-2, Element->CachedH-2,
 			NULL,
-			10,
 			TEXT_COLOUR,
 			Element->Text
 			);
