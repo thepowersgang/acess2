@@ -12,6 +12,7 @@
 
 // === Imports ===
 extern void	gLinkedBase;
+extern tLoadedLib	gLoadedLibraries[];
  
 // === CODE ===
 /**
@@ -35,6 +36,9 @@ int SoMain(Uint base, int arg1)
 		_exit(1);
 		for(;;);
 	}
+
+	gLoadedLibraries[0].Base = (Uint)&gLinkedBase;
+	gLoadedLibraries[0].Name = "ld-acess.so";
 	
 	// Otherwise do relocations
 	//ret = DoRelocate( base, envp, "Executable" );

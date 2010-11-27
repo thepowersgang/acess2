@@ -19,7 +19,11 @@ install: $(BIN)
 
 $(BIN): $(OBJ)
 	@echo --- $(LD) -o $@
+ifneq ($(_DBGMAKEFILE),)
+	$(LD) -g $(LDFLAGS) -o $@ $(OBJ) -Map Map.txt
+else
 	@$(LD) -g $(LDFLAGS) -o $@ $(OBJ) -Map Map.txt
+endif
 	@objdump -d -S $(BIN) > $(BIN).dsm
 
 $(OBJ): %.o: %.c

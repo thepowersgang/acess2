@@ -1,8 +1,8 @@
 OUTPUT_FORMAT("elf32-i386", "elf32-i386", "elf32-i386")
 OUTPUT_ARCH(i386)
 ENTRY(start)
-SEARCH_DIR(ACESSDIR/Usermode/Libraries)
-INPUT(crt0.o)
+SEARCH_DIR(__LIBDIR)
+INPUT(crt0.o ld-acess.so)
 SECTIONS
 {
   /* Read-only sections, merged into text segment: */

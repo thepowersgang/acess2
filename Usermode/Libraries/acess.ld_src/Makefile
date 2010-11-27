@@ -13,4 +13,4 @@ clean:
 install: ../acess.ld
 
 ../acess.ld:	acess.ld.h
-	cpp -nostdinc -U i386 -P -C $< -o $@ -DACESSDIR=$(ACESSDIR)
+	cpp -nostdinc -U i386 -P -C $< -o $@ -D__LIBDIR=$(ACESSDIR)/Usermode/Libraries

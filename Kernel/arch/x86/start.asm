@@ -22,7 +22,7 @@ mboot:
 	dd MULTIBOOT_HEADER_MAGIC
 	dd MULTIBOOT_HEADER_FLAGS
 	dd MULTIBOOT_CHECKSUM
-	dd mboot - KERNEL_BASE	;Location of Multiboot Header
+	dd mboot; - KERNEL_BASE	;Location of Multiboot Header
 	
 ; Multiboot 2 Header
 ;mboot2:

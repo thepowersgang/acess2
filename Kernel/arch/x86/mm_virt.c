@@ -306,7 +306,7 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 					rangeStart, curPos - 1,
 					gaPageTable[rangeStart>>12] & ~0xFFF,
 					(expected & ~0xFFF) - 1,
-					(expected & PF_PAGED ? "p" : "-"),
+					(expected & PF_NOPAGE ? "P" : "-"),
 					(expected & PF_COW ? "C" : "-"),
 					(expected & PF_USER ? "U" : "-"),
 					(expected & PF_WRITE ? "W" : "-")
@@ -327,7 +327,7 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 			rangeStart, curPos - 1,
 			gaPageTable[rangeStart>>12] & ~0xFFF,
 			(expected & ~0xFFF) - 1,
-			(expected & PF_PAGED ? "p" : "-"),
+			(expected & PF_NOPAGE ? "p" : "-"),
 			(expected & PF_COW ? "C" : "-"),
 			(expected & PF_USER ? "U" : "-"),
 			(expected & PF_WRITE ? "W" : "-")
