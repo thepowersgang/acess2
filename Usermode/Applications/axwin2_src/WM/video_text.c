@@ -63,8 +63,8 @@ int Video_DrawText(short X, short Y, short W, short H, tFont *Font, uint32_t Col
 	tGlyph	*glyph;
 	uint32_t	ch = 0;
 
-	_SysDebug("Video_DrawText: (X=%i,Y=%i,W=%i,H=%i,Font=%p,Color=%08x,Text='%s')",
-		X, Y, W, H, Font, Color, Text);
+	_SysDebug("Video_DrawText: (X=%i,Y=%i,W=%i,H=%i,Font=%p,", X, Y, W, H, Font);
+	_SysDebug("  Color=%08x,Text='%s')", Color, Text);
 	
 	// Check the bounds
 	if(W < 0 || X < 0 || X >= giScreenWidth)	return 0;
