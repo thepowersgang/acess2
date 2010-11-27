@@ -3,6 +3,6 @@
 -include ../Makefile.cfg
 
 OBJ = main.o
-BIN = ../cpuid
+BIN = cpuid
 
 -include ../Makefile.tpl

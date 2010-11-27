@@ -7,7 +7,7 @@ CFLAGS	 += -Wall -Werror -O3
 LDFLAGS  +=
 # -lspiderscript
 
-BIN = ../init
+BIN = init
 OBJ = main.o
 DIR = SBin
 

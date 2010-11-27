@@ -3,6 +3,6 @@
 -include ../Makefile.cfg
 
 OBJ = MultibootCheck.o
-BIN = ../MultibootCheck
+BIN = MultibootCheck
 
 -include ../Makefile.tpl

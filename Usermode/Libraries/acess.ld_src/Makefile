@@ -1,16 +1,22 @@
+#
+# Acess2
+# - Common usermode linker script
+#
+
 
 -include ../Makefile.cfg
 
-BIN = ../acess.ld
+BIN = $(OUTPUTDIR)Libs/acess.ld
 
 .PHONY: all clean install
 
-all: ../acess.ld
+all: $(BIN)
 
 clean:
-	$(RM) ../acess.ld
+	$(RM) $(BIN)
 
-install: ../acess.ld
+install: $(BIN)
 
-../acess.ld:	acess.ld.h
-	cpp -nostdinc -U i386 -P -C $< -o $@ -D__LIBDIR=$(ACESSDIR)/Usermode/Libraries
+$(BIN):	acess.ld.h
+	@mkdir -p $(dir $(BIN))
+	cpp -nostdinc -U i386 -P -C $< -o $@ -D__LIBDIR=$(OUTPUTDIR)Libs

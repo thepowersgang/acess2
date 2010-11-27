@@ -8,6 +8,6 @@ CFLAGS   += -Wall
 LDFLAGS  += -lc -soname libaxwin2.so
 
 OBJ = main.o messages.o
-BIN = ../libaxwin2.so
+BIN = libaxwin2.so
 
 include ../Makefile.tpl

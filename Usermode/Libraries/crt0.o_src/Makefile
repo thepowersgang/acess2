@@ -5,15 +5,16 @@
 -include ../Makefile.cfg
 
 ASFLAGS = -felf
+BIN = $(OUTPUTDIR)Libs/crt0.o
 
 .PHONY: all clean install
 
-all: ../crt0.o
+all: $(BIN)
 
-install: ../crt0.o
+install: $(BIN)
 
 clean:
-	$(RM) ../crt0.o
+	$(RM) $(BIN)
 
-../crt0.o: crt0.asm
+$(BIN): crt0.$(ARCHDIR).asm
 	$(AS) $(ASFLAGS) $< -o $@

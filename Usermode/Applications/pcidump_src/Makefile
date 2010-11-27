@@ -3,6 +3,6 @@
 -include ../Makefile.cfg
 
 OBJ = main.o
-BIN = ../pcidump
+BIN = pcidump
 
 -include ../Makefile.tpl

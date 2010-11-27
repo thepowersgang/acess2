@@ -8,6 +8,6 @@ CFLAGS   += -Wall
 LDFLAGS  += -lc -soname liburi.so
 
 OBJ = main.o
-BIN = ../liburi.so
+BIN = liburi.so
 
 include ../Makefile.tpl

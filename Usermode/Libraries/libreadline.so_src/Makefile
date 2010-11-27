@@ -8,6 +8,6 @@ CFLAGS   += -Wall
 LDFLAGS  += -lc -soname libreadline.so
 
 OBJ = main.o
-BIN = ../libreadline.so
+BIN = libreadline.so
 
 include ../Makefile.tpl

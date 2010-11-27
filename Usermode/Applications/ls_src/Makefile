@@ -3,6 +3,6 @@
 -include ../Makefile.cfg
 
 OBJ = main.o
-BIN = ../ls
+BIN = ls
 
 -include ../Makefile.tpl

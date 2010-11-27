@@ -5,7 +5,7 @@
 LDFLAGS += -lnet
 
 OBJ = main.o
-BIN = ../ping
+BIN = ping
 
 -include ../Makefile.tpl
 

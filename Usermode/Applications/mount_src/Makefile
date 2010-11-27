@@ -3,7 +3,7 @@
 -include ../Makefile.cfg
 
 OBJ = main.o
-BIN = ../mount
+BIN = mount
 
 -include ../Makefile.tpl
 

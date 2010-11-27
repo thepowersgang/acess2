@@ -22,6 +22,7 @@ static void	cpuid(uint32_t Num, uint32_t *EAX, uint32_t *EBX, uint32_t *EDX, uin
 
 // === IMPORTS ===
 extern tLoadedLib	gLoadedLibraries[64];
+extern int	_SysSetFaultHandler(int (*Handler)(int));
 
 // === GLOBALS ===
 extern char **_envp;

@@ -42,6 +42,9 @@ AI_USRAPPS := $(addprefix allinstall-,$(USRAPPS))
 
 kmode:	$(AI_MODULES) $(AI_DYNMODS) allinstall-Kernel
 
+all-user: $(ALL_USRLIBS) $(ALL_USRAPPS)
+clean-user: $(CLEAN_USRLIBS) $(CLEAN_USRAPPS)
+
 all:	$(ALL_DYNMODS) $(ALL_MODULES) all-Kernel $(ALL_USRLIBS) $(ALL_USRAPPS)
 all-install:	$(AI_DYNMODS) $(AI_MODULES) allinstall-Kernel $(AI_USRLIBS) $(AI_USRAPPS)
 clean:	$(CLEAN_DYNMODS) $(CLEAN_MODULES) clean-Kernel $(CLEAN_USRLIBS) $(CLEAN_USRAPPS)

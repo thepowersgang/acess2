@@ -5,7 +5,7 @@
 DBTYPE = tpl
 
 OBJ = main.o database_$(DBTYPE).o
-BIN = ../login
+BIN = login
 DIR = SBin
 
 -include ../Makefile.tpl

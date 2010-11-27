@@ -1,26 +1,35 @@
-# Acess 2 SQLite 3 Library
+# Acess2
+# - Library Common Makefile
 #
 
-DEPFILES := $(OBJ:%.o=%.d)
+DEPFILES := $(addsuffix .d,$(OBJ))
+
+_BIN := $(OUTPUTDIR)Libs/$(BIN)
 
 .PHONY: all clean install
 
-all: $(BIN)
+all: $(_BIN)
 
 clean:
-	$(RM) $(BIN) $(OBJ) $(BIN).dsm
+	$(RM) $(_BIN) $(OBJ) $(_BIN).dsm $(DEPFILES)
 
-install: $(BIN)
-	$(xCP) $(BIN) $(DISTROOT)/Libs/
+install: $(_BIN)
+	$(xCP) $(_BIN) $(DISTROOT)/Libs/
 
-$(BIN): $(OBJ)
+$(_BIN): $(OBJ)
+	@mkdir -p $(dir $(_BIN))
 	@echo [LD] -o $(BIN) $(OBJ)
-	@$(LD) $(LDFLAGS) -o $(BIN) $(OBJ)
-	@$(OBJDUMP) -d -S $(BIN) > $(BIN).dsm
+	@$(LD) $(LDFLAGS) -o $(_BIN) $(OBJ)
+	@$(OBJDUMP) -d -S $(_BIN) > $(_BIN).dsm
 
 %.o: %.c
 	@echo [CC] -o $@
 	@$(CC) $(CFLAGS) -o $@ -c $<
-	@$(CC) -M -MT $@ $(CPPFLAGS) $< -o $*.d
+	@$(CC) -M -MT $@ $(CPPFLAGS) $< -o $@.d
+
+%.ao: %.asm
+	@echo [AS] -o $@
+	@$(AS) $(ASFLAGS) -o $@ $<
+	@$(AS) $(ASFLAGS) -o $@ $< -M > $@.d
 
 -include $(DEPFILES)

@@ -3,9 +3,9 @@
 -include ../Makefile.cfg
 
 CPPFLAGS += -I./include
-LDFLAGS += -lreadline
+LDFLAGS  += -lreadline
 
-BIN = ../CLIShell
+BIN = CLIShell
 OBJ = main.o lib.o
 
 -include ../Makefile.tpl

@@ -5,6 +5,6 @@
 LDFLAGS += -lnet
 
 OBJ = main.o
-BIN = ../irc
+BIN = irc
 
 -include ../Makefile.tpl

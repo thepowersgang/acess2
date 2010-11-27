@@ -3,7 +3,7 @@
 -include ../Makefile.cfg
 
 OBJ = main.o
-BIN = ../cat
+BIN = cat
 
 -include ../Makefile.tpl
 

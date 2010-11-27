@@ -1,5 +1,6 @@
-# Acess2 - Application Template Makefile
 #
+# Acess2
+# - Application Template Makefile
 #
 
 CFLAGS  += -Wall -Werror -fno-builtin -fno-stack-protector -g
@@ -7,24 +8,27 @@ LDFLAGS +=
 
 DEPFILES := $(OBJ:%.o=%.d)
 
+_BIN := $(OUTPUTDIR)$(DIR)/$(BIN)
+
 .PHONY : all clean install
 
-all: $(BIN)
+all: $(_BIN)
 
 clean:
-	@$(RM) $(OBJ) $(DEPFILES) $(BIN) $(BIN).dsm Map.txt
+	@$(RM) $(OBJ) $(DEPFILES) $(_BIN) $(BIN).dsm Map.txt
 
 install: $(BIN)
-	$(xCP) $(BIN) $(DISTROOT)/$(DIR)/
+	$(xCP) $(_BIN) $(DISTROOT)/$(DIR)/
 
-$(BIN): $(OBJ)
+$(_BIN): $(OBJ)
+	@mkdir -p $(dir $(_BIN))
 	@echo --- $(LD) -o $@
 ifneq ($(_DBGMAKEFILE),)
 	$(LD) -g $(LDFLAGS) -o $@ $(OBJ) -Map Map.txt
 else
 	@$(LD) -g $(LDFLAGS) -o $@ $(OBJ) -Map Map.txt
 endif
-	@objdump -d -S $(BIN) > $(BIN).dsm
+	@objdump -d -S $(_BIN) > $(BIN).dsm
 
 $(OBJ): %.o: %.c
 	@echo --- GCC -o $@

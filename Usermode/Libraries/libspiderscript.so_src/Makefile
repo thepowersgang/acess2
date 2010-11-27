@@ -8,6 +8,6 @@ CFLAGS   += -Wall
 LDFLAGS  += -lc -lgcc -soname libspiderscript.so --no-allow-shlib-undefined
 
 OBJ = main.o lex.o parse.o ast.o exec_ast.o exports.o
-BIN = ../libspiderscript.so
+BIN = libspiderscript.so
 
 include ../Makefile.tpl

@@ -3,7 +3,7 @@
 -include ../Makefile.cfg
 
 OBJ = main.o
-BIN = ../testsrv
+BIN = testsrv
 
 -include ../Makefile.tpl
 

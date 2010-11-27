@@ -3,7 +3,7 @@
 -include ../Makefile.cfg
 
 OBJ = main.o
-BIN = ../bomb
+BIN = bomb
 
 -include ../Makefile.tpl
 

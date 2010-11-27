@@ -5,7 +5,7 @@
 LDFLAGS += -lnet
 
 OBJ = main.o
-BIN = ../ifconfig
+BIN = ifconfig
 
 -include ../Makefile.tpl
 
