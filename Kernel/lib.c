@@ -321,6 +321,7 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		// String - Null Terminated Array
 		case 's':
 			p = va_arg(args, char*);	// Get Argument
+			if( !CheckString(p) )	continue;	// Avoid #PFs  
 		printString:
 			if(!p)		p = "(null)";
 			len = strlen(p);
@@ -331,6 +332,7 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		
 		case 'C':	// Non-Null Terminated Character Array
 			p = va_arg(args, char*);
+			if( !CheckMem(p, minSize) )	continue;	// No #PFs please
 			if(!p)	goto printString;
 			while(minSize--)	PUTCH(*p++);
 			break;

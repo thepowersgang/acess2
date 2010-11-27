@@ -62,6 +62,9 @@ int Video_DrawText(short X, short Y, short W, short H, tFont *Font, uint32_t Col
 	 int	xOfs = 0;
 	tGlyph	*glyph;
 	uint32_t	ch = 0;
+
+	_SysDebug("Video_DrawText: (X=%i,Y=%i,W=%i,H=%i,Font=%p,Color=%08x,Text='%s')",
+		X, Y, W, H, Font, Color, Text);
 	
 	// Check the bounds
 	if(W < 0 || X < 0 || X >= giScreenWidth)	return 0;
@@ -80,8 +83,7 @@ int Video_DrawText(short X, short Y, short W, short H, tFont *Font, uint32_t Col
 		
 		// Find (or load) the glyph
 		glyph = _GetGlyph(Font, ch);
-		if( glyph )
-			continue ;	// If not found, just don't render it
+		if( !glyph )	continue ;	// If not found, just don't render it
 		
 		// End render if it will overflow the perscribed range
 		if( xOfs + glyph->TrueWidth > W )
