@@ -23,7 +23,7 @@ typedef struct sGlyph {
 	short	TrueHeight;
 	
 	// Bitmap Data
-	uint8_t	Bitmap[];
+	uint8_t	Bitmap[];	// 8-bit alpha
 	
 }	tGlyph;
 
@@ -105,7 +105,7 @@ tGlyph	*_GetGlyph(tFont *Font, uint32_t Codepoint)
 	if( Codepoint < 128 )
 	{
 		if( Font->AsciiGlyphs[Codepoint] == NULL ) {
-			Font->CacheGlyph(Font, Codepoint);
+			Font->AsciiGlyphs[Codepoint] = Font->CacheGlyph(Font, Codepoint);
 		}
 		
 		return Font->AsciiGlyphs[Codepoint];
@@ -188,7 +188,37 @@ tGlyph	*_GetGlyph(tFont *Font, uint32_t Codepoint)
  */
 void _RenderGlyph(short X, short Y, tGlyph *Glyph, uint32_t Color)
 {
-	
+	 int	xStart = 0, yStart = 0;
+	 int	x, y;
+	uint32_t	*outBuf;
+	uint8_t	*inBuf;
+	// TODO: Implement
+
+	X += Glyph->OffsetX;
+	if( X < 0 ) {	// If -ve, skip the first -X collums
+		xStart = -X;
+		X = 0;
+	}
+
+	Y += Glyph->OffsetY;
+	if( Y < 0 ) {	// If -ve, skip the first -Y lines
+		yStart = -Y;
+		Y = 0;
+	}
+
+	outBuf = gpScreenBuffer + Y*giScreenWidth + X;
+	inBuf = Glyph->Bitmap + yStart*Glyph->TrueWidth;
+
+	for( y = yStart; y < Glyph->TrueHeight; y ++ )
+	{
+		for( x = xStart; x < Glyph->TrueWidth; x ++ )
+		{
+			outBuf[x] = Video_AlphaBlend( outBuf[x], Color, inBuf[x] );
+		}
+		outBuf += giScreenWidth;
+		inBuf += Glyph->TrueWidth;
+
+	}
 }
 
 // Load system font (8x16 monospace)
@@ -201,6 +231,9 @@ tGlyph *_SystemFont_CacheGlyph(tFont *Font, uint32_t Codepoint)
 	 int	i;
 	uint8_t	index = 0;
 	tGlyph	*ret;
+	uint8_t	*data;
+
+	_SysDebug("_SystemFont_CacheGlyph: (Font=%p, Codepoint=0x%06x)", Font, Codepoint);
 	
 	if( Codepoint < 128 ) {
 		index = Codepoint;
@@ -209,7 +242,11 @@ tGlyph *_SystemFont_CacheGlyph(tFont *Font, uint32_t Codepoint)
 		index = '?';	// Unknowns come out as a question mark
 	}
 
+	_SysDebug(" index = %i", index);
+
 	ret = malloc( sizeof(tGlyph) + FONT_WIDTH*FONT_HEIGHT );
+
+	ret->Codepoint = Codepoint;
 
 	ret->Width = FONT_WIDTH;
 	ret->Height = FONT_HEIGHT;
@@ -220,16 +257,18 @@ tGlyph *_SystemFont_CacheGlyph(tFont *Font, uint32_t Codepoint)
 	ret->OffsetX = 0;
 	ret->OffsetY = 0;
 	
+	data = &VTermFont[index * FONT_HEIGHT];
+
 	for( i = 0; i < FONT_HEIGHT; i ++ )
 	{
-		ret->Bitmap[ i * 8 + 0 ] = VTermFont[index] & (1 << 0) ? 255 : 0;
-		ret->Bitmap[ i * 8 + 1 ] = VTermFont[index] & (1 << 1) ? 255 : 0;
-		ret->Bitmap[ i * 8 + 2 ] = VTermFont[index] & (1 << 2) ? 255 : 0;
-		ret->Bitmap[ i * 8 + 3 ] = VTermFont[index] & (1 << 3) ? 255 : 0;
-		ret->Bitmap[ i * 8 + 4 ] = VTermFont[index] & (1 << 4) ? 255 : 0;
-		ret->Bitmap[ i * 8 + 5 ] = VTermFont[index] & (1 << 5) ? 255 : 0;
-		ret->Bitmap[ i * 8 + 6 ] = VTermFont[index] & (1 << 6) ? 255 : 0;
-		ret->Bitmap[ i * 8 + 7 ] = VTermFont[index] & (1 << 7) ? 255 : 0;
+		ret->Bitmap[ i * 8 + 0 ] = data[i] & (1 << 7) ? 255 : 0;
+		ret->Bitmap[ i * 8 + 1 ] = data[i] & (1 << 6) ? 255 : 0;
+		ret->Bitmap[ i * 8 + 2 ] = data[i] & (1 << 5) ? 255 : 0;
+		ret->Bitmap[ i * 8 + 3 ] = data[i] & (1 << 4) ? 255 : 0;
+		ret->Bitmap[ i * 8 + 4 ] = data[i] & (1 << 3) ? 255 : 0;
+		ret->Bitmap[ i * 8 + 5 ] = data[i] & (1 << 2) ? 255 : 0;
+		ret->Bitmap[ i * 8 + 6 ] = data[i] & (1 << 1) ? 255 : 0;
+		ret->Bitmap[ i * 8 + 7 ] = data[i] & (1 << 0) ? 255 : 0;
 	}
 
 	return ret;
