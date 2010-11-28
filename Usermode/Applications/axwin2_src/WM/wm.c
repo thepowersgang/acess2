@@ -11,9 +11,10 @@
 
 // === IMPORTS ===
 extern void	Decorator_RenderWidget(tElement *Element);
+extern void	Video_GetTextDims(tFont *Font, const char *Text, int *W, int *H);
 
 // === PROTOTYPES ===
-tElement	*WM_CreateElement(tElement *Parent, int Type, int Flags);
+tElement	*WM_CreateElement(tElement *Parent, int Type, int Flags, const char *DebugName);
 void	WM_UpdateMinDims(tElement *Element);
 void	WM_SetFlags(tElement *Element, int Flags);
 void	WM_SetSize(tElement *Element, int Size);
@@ -24,7 +25,9 @@ void	WM_RenderWidget(tElement *Element);
 void	WM_Update(void);
 
 // === GLOBALS ===
-tElement	gWM_RootElement;
+tElement	gWM_RootElement = {
+	DebugName: "ROOT"
+};
 struct {
 	void	(*Init)(tElement *This);
 	void	(*UpdateFlags)(tElement *This);
@@ -37,21 +40,24 @@ struct {
 
 // === CODE ===
 // --- Widget Creation and Control ---
-tElement *WM_CreateElement(tElement *Parent, int Type, int Flags)
+tElement *WM_CreateElement(tElement *Parent, int Type, int Flags, const char *DebugName)
 {
 	tElement	*ret;
+	const char	*dbgName = DebugName ? DebugName : "";
 	
-	ret = calloc(sizeof(tElement), 1);
+	ret = calloc(sizeof(tElement)+strlen(dbgName)+1, 1);
 	if(!ret)	return NULL;
 	
 	// Prepare
 	ret->Type = Type;
+	strcpy(ret->DebugName, dbgName);
 	if(Parent == NULL)	Parent = &gWM_RootElement;
 	ret->Parent = Parent;
 	ret->Flags = Flags;
 	
 	// Append to parent's list
-	ret->NextSibling = Parent->LastChild;
+	if(Parent->LastChild)
+		Parent->LastChild->NextSibling = ret;
 	Parent->LastChild = ret;
 	if(!Parent->FirstChild)	Parent->FirstChild = ret;
 	
@@ -123,6 +129,21 @@ void WM_SetText(tElement *Element, char *Text)
 			Element->MinCross = ((tImage*)Element->Data)->Height;
 		}
 		break;
+	
+	case ELETYPE_TEXT:
+		{
+		 int	w=0, h=0;
+		Video_GetTextDims(NULL, Element->Text, &w, &h);
+		if(Element->Parent && Element->Parent->Flags & ELEFLAG_VERTICAL) {
+			Element->MinCross = w;
+			Element->MinWith = h;
+		}
+		else {
+			Element->MinWith = w;
+			Element->MinCross = h;
+		}
+		}
+		break;
 	}
 	
 	return ;
@@ -150,12 +171,13 @@ void WM_UpdateDimensions(tElement *Element, int Pass)
 	 int	fixedSize = 0;
 	 int	fullCross, dynWith;
 	
-	_SysDebug("%p -> Flags = 0x%x", Element, Element->Flags);
-	_SysDebug("%p ->CachedH = %i, ->PaddingT = %i, ->PaddingB = %i",
-		Element, Element->CachedH, Element->PaddingT, Element->PaddingB
+	_SysDebug("WM_UpdateDimensions %p'%s'", Element, Element->DebugName);
+	_SysDebug(" -> Flags = 0x%x", Element->Flags);
+	_SysDebug(" ->CachedH = %i, ->PaddingT = %i, ->PaddingB = %i",
+		Element->CachedH, Element->PaddingT, Element->PaddingB
 		);
-	_SysDebug("%p ->CachedW = %i, ->PaddingL = %i, ->PaddingR = %i",
-		Element, Element->CachedW, Element->PaddingL, Element->PaddingR
+	_SysDebug(" ->CachedW = %i, ->PaddingL = %i, ->PaddingR = %i",
+		Element->CachedW, Element->PaddingL, Element->PaddingR
 		);
 	
 	// Pass 1
@@ -164,7 +186,7 @@ void WM_UpdateDimensions(tElement *Element, int Pass)
 		if( child->Flags & ELEFLAG_ABSOLUTEPOS )
 			continue ;
 		
-		_SysDebug("%p,%p ->FixedWith = %i", Element, child, child->FixedWith);
+		_SysDebug(" > %p'%s' ->FixedWith = %i", child, child->DebugName, child->FixedWith);
 		if( child->FixedWith )
 		{
 			nFixed ++;
@@ -178,7 +200,7 @@ void WM_UpdateDimensions(tElement *Element, int Pass)
 		nChildren ++;
 	}
 	
-	_SysDebug("%p - nChildren = %i, nFixed = %i", Element, nChildren, nFixed);
+	_SysDebug(" - nChildren = %i, nFixed = %i", Element, nChildren, nFixed);
 	if( nChildren > nFixed ) {
 		if( Element->Flags & ELEFLAG_VERTICAL )
 			dynWith = Element->CachedH - Element->PaddingT
@@ -189,7 +211,7 @@ void WM_UpdateDimensions(tElement *Element, int Pass)
 		dynWith -= fixedSize;
 		if( dynWith < 0 )	return ;
 		dynWith /= nChildren - nFixed;
-		_SysDebug("%p - dynWith = %i", Element, dynWith);
+		_SysDebug(" - dynWith = %i", dynWith);
 	}
 	
 	if( Element->Flags & ELEFLAG_VERTICAL )
@@ -197,14 +219,14 @@ void WM_UpdateDimensions(tElement *Element, int Pass)
 	else
 		fullCross = Element->CachedH - Element->PaddingT - Element->PaddingB;
 	
-	_SysDebug("%p - fullCross = %i", Element, fullCross);
+	_SysDebug(" - fullCross = %i", Element, fullCross);
 	
 	// Pass 2 - Set sizes and recurse
 	for( child = Element->FirstChild; child; child = child->NextSibling )
 	{
 		 int	cross, with;
 		
-		_SysDebug("%p,%p ->MinCross = %i", Element, child, child->MinCross);
+		_SysDebug(" > %p'%s' ->MinCross = %i", child, child->DebugName, child->MinCross);
 
 		
 		// --- Cross Size ---
@@ -216,7 +238,7 @@ void WM_UpdateDimensions(tElement *Element, int Pass)
 			cross = child->MinCross;
 		else
 			cross = fullCross;
-		_SysDebug("%p,%p - cross = %i", Element, child, cross);
+		_SysDebug(" > %p'%s' - cross = %i", child, child->DebugName, cross);
 		if( Element->Flags & ELEFLAG_VERTICAL )
 			child->CachedW = cross;
 		else
@@ -229,7 +251,7 @@ void WM_UpdateDimensions(tElement *Element, int Pass)
 			with = child->MinWith;
 		else
 			with = dynWith;
-		_SysDebug("%p,%p - with = %i", Element, child, with);
+		_SysDebug(" > %p'%s' - with = %i", child, child->DebugName, with);
 		if( Element->Flags & ELEFLAG_VERTICAL )
 			child->CachedH = with;
 		else
@@ -237,6 +259,8 @@ void WM_UpdateDimensions(tElement *Element, int Pass)
 		
 		WM_UpdateDimensions(child, 0);
 	}
+	
+	_SysDebug("%p'%s' Done", Element, Element->DebugName);
 }
 
 /**
@@ -248,36 +272,56 @@ void WM_UpdatePosition(tElement *Element)
 {
 	tElement	*child;
 	 int	x, y;
+	static int	depth = 0;
+	char	indent[depth+1];
 	
 	if( Element->Flags & ELEFLAG_NORENDER )	return ;
 	
-	_SysDebug("Element=%p{PaddingL:%i, PaddingT:%i}",
-		Element, Element->PaddingL, Element->PaddingT);
+	memset(indent, ' ', depth);
+	indent[depth] = '\0';
+	depth ++;
+	
+	_SysDebug("%sWM_UpdatePosition %p'%s'{PaddingL:%i, PaddingT:%i}",
+		indent, Element, Element->DebugName, Element->PaddingL, Element->PaddingT);
 	
 	// Initialise
 	x = Element->CachedX + Element->PaddingL;
 	y = Element->CachedY + Element->PaddingT;
 	
+	_SysDebug("%s- Alignment = %s", indent,
+		(Element->Flags & ELEFLAG_VERTICAL) ? "vertical" : "horizontal");
+
 	// Update each child
 	for(child = Element->FirstChild; child; child = child->NextSibling)
 	{
+		_SysDebug("%s- x = %i, y = %i", indent, x, y);
 		child->CachedX = x;
 		child->CachedY = y;
 		
 		// Set Alignment
 		if( Element->Flags & ELEFLAG_ALIGN_CENTER ) {
-			if(Element->Flags & ELEFLAG_VERTICAL )
+			_SysDebug("%sChild being aligned to center", indent);
+			if(Element->Flags & ELEFLAG_VERTICAL)
 				child->CachedX += Element->CachedW/2 - child->CachedW/2;
 			else
 				child->CachedY += Element->CachedH/2 - child->CachedH/2;
 		}
-		else if( Element->Flags & ELEFLAG_ALIGN_END ) {
+		else if( Element->Flags & ELEFLAG_ALIGN_END) {
+			_SysDebug("%sChild being aligned to end", indent);
 			if(Element->Flags & ELEFLAG_VERTICAL )
-				child->CachedX += Element->CachedW - child->CachedW;
+				child->CachedX += Element->CachedW
+					- Element->PaddingL - Element->PaddingR
+					- child->CachedW;
 			else
-				child->CachedY += Element->CachedH - child->CachedH;
+				child->CachedY += Element->CachedH
+					- Element->PaddingT
+					- Element->PaddingB
+					- child->CachedH;
 		}
 		
+		_SysDebug("%s> %p'%s' at (%i,%i)", indent, child, child->DebugName,
+			child->CachedX, child->CachedY);
+	
 		// Update child's children positions
 		WM_UpdatePosition(child);
 		
@@ -290,9 +334,10 @@ void WM_UpdatePosition(tElement *Element)
 		}
 	}
 	
-	_SysDebug("Element %p (%i,%i)",
-		 Element, Element->CachedX, Element->CachedY
+	_SysDebug("%sElement %p'%s' (%i,%i)",
+		indent, Element, Element->DebugName, Element->CachedX, Element->CachedY
 		);
+	depth --;
 }
 
 /**

@@ -31,6 +31,8 @@ typedef struct sElement
 	// -- Render Cache
 	short	CachedX, CachedY;
 	short	CachedW, CachedH;
+	
+	char	DebugName[];
 }	tElement;
 
 typedef struct sTab
@@ -100,6 +102,11 @@ enum eElementFlags
 	 */
 	ELEFLAG_NOEXPAND    = 0x040,
 	
+	/**
+	 * \brief With (length) size action
+	 * If this flag is set, the element will only be as large as
+	 * is required
+	 */
 	ELEFLAG_NOSTRETCH   = 0x080,
 	
 	/**
@@ -135,7 +142,7 @@ enum eElementTypes
 /**
  * \brief Create a new element as a child of \a Parent
  */
-extern tElement	*WM_CreateElement(tElement *Parent, int Type, int Flags);
+extern tElement	*WM_CreateElement(tElement *Parent, int Type, int Flags, const char *DebugName);
 extern void	WM_SetFlags(tElement *Element, int Flags);
 extern void	WM_SetSize(tElement *Element, int Size);
 extern void	WM_SetText(tElement *Element, char *Text);

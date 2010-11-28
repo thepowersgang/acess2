@@ -9,7 +9,10 @@
 
 // === GLOBALS ==
  int	giInterface_Width = 0;
+ int	giInterface_HeaderBarSize = 20;
+ int	giInterface_TabBarSize = 20;
 tElement	*gpInterface_Sidebar;
+tElement	*gpInterface_ProgramList;
 tElement	*gpInterface_MainArea;
 tElement	*gpInterface_HeaderBar;
 tElement	*gpInterface_TabBar;
@@ -21,9 +24,9 @@ tElement	*gpInterface_TabContent;
  */
 void Interface_Init(void)
 {
-	tElement	*area;
 	tElement	*btn, *text;
-	
+	tElement	*ele;
+
 	// Calculate sizes
 	giInterface_Width = giScreenWidth/16;
 	
@@ -31,39 +34,48 @@ void Interface_Init(void)
 	WM_SetFlags(NULL, 0);
 	
 	// -- Create Sidebar --
-	gpInterface_Sidebar = WM_CreateElement(NULL, ELETYPE_TOOLBAR, ELEFLAG_VERTICAL);
+	gpInterface_Sidebar = WM_CreateElement(NULL, ELETYPE_TOOLBAR, ELEFLAG_VERTICAL, "Sidebar");
 	WM_SetSize( gpInterface_Sidebar, giInterface_Width );
 	
-	// --- Top segment ---
-	area = WM_CreateElement(gpInterface_Sidebar, ELETYPE_BOX, ELEFLAG_VERTICAL);
-	// ---- Menu Button ----
-	btn = WM_CreateElement(area, ELETYPE_BUTTON, ELEFLAG_NOSTRETCH);
-	WM_SetSize(btn, giInterface_Width);
-	//text = WM_CreateElement(btn, ELETYPE_IMAGE, ELEFLAG_SCALE);
-	//WM_SetText(text, "asset://LogoSmall.sif");
-	text = WM_CreateElement(btn, ELETYPE_TEXT, 0);
+	// > System Menu Button
+	btn = WM_CreateElement(gpInterface_Sidebar, ELETYPE_BUTTON, ELEFLAG_NOSTRETCH, "SystemMenu");
+	WM_SetSize(btn, giInterface_Width-4);
+	// TODO: Once image loading is implemented, switch to a logo
+	#if 0
+	text = WM_CreateElement(btn, ELETYPE_IMAGE, ELEFLAG_SCALE);
+	WM_SetText(text, "asset://LogoSmall.sif");
+	#else
+	text = WM_CreateElement(btn, ELETYPE_TEXT, 0, NULL);
 	WM_SetText(text, "Acess");
+	#endif
+	// > Plain <hr/> style spacer
+	ele = WM_CreateElement(gpInterface_Sidebar, ELETYPE_SPACER, ELEFLAG_NOSTRETCH, "SideBar Spacer Top");
+	WM_SetSize(ele, 4);
+	// > Application List
+	gpInterface_ProgramList = WM_CreateElement(gpInterface_Sidebar, ELETYPE_BOX, ELEFLAG_VERTICAL, "ProgramList");
+	// > Plain <hr/> style spacer
+	ele = WM_CreateElement(gpInterface_Sidebar, ELETYPE_SPACER, ELEFLAG_NOSTRETCH, "SideBar Spacer Bottom");
+	WM_SetSize(ele, 4);
+	// > Version/Time
+	text = WM_CreateElement(gpInterface_Sidebar, ELETYPE_TEXT, ELEFLAG_NOSTRETCH, "Version String");
+	WM_SetSize(text, 20);
+	WM_SetText(text, "2.0");
 	
-	// ---- Plain <hr/> style spacer ----
-	WM_CreateElement(area, ELETYPE_SPACER, 0);
-	
-	// Open Windows Go Here
-	
-	// --- Bottom Segment ---
-	area = WM_CreateElement(gpInterface_Sidebar, ELETYPE_BOX, ELEFLAG_VERTICAL|ELEFLAG_ALIGN_END);
-	
-	// ---- Plain <hr/> style spacer ----
-	WM_CreateElement(area, ELETYPE_SPACER, 0);
-	
-	// ---- Version String ----
-	text = WM_CreateElement(area, ELETYPE_TEXT, ELEFLAG_WRAP);
-	WM_SetText(text, "AxWin 1.0");
-	
+	// --
 	// -- Create Main Area and regions within --
-	gpInterface_MainArea = WM_CreateElement(NULL, ELETYPE_BOX, ELEFLAG_VERTICAL);
-	gpInterface_HeaderBar = WM_CreateElement(gpInterface_MainArea, ELETYPE_BOX, 0);
-	gpInterface_TabBar = WM_CreateElement(gpInterface_MainArea, ELETYPE_TABBAR, 0);
-	gpInterface_TabContent = WM_CreateElement(gpInterface_MainArea, ELETYPE_BOX, 0);
+	// --
+	// > Righthand Area
+	gpInterface_MainArea = WM_CreateElement(NULL, ELETYPE_BOX, ELEFLAG_VERTICAL, "MainArea");
+	//  > Header Bar (Title)
+	gpInterface_HeaderBar = WM_CreateElement(gpInterface_MainArea, ELETYPE_BOX, 0, "HeaderBar");
+	WM_SetSize(gpInterface_HeaderBar, giInterface_HeaderBarSize);
+	text = WM_CreateElement(gpInterface_HeaderBar, ELETYPE_TEXT, 0, NULL);
+	WM_SetText(text, "Acess2 GUI - By thePowersGang (John Hodge)");
+	//  > Tab Bar (Current windows)
+	gpInterface_TabBar = WM_CreateElement(gpInterface_MainArea, ELETYPE_TABBAR, 0, "TabBar");
+	WM_SetSize(gpInterface_TabBar, giInterface_TabBarSize);
+	//  > Application Space
+	gpInterface_TabContent = WM_CreateElement(gpInterface_MainArea, ELETYPE_BOX, 0, "TabContent");
 }
 
 void Interface_Update(void)

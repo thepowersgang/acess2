@@ -46,7 +46,7 @@ struct sFont {
 tGlyph	*_GetGlyph(tFont *Font, uint32_t Codepoint);
 void	_RenderGlyph(short X, short Y, tGlyph *Glyph, uint32_t Color);
 tGlyph	*_SystemFont_CacheGlyph(tFont *Font, uint32_t Codepoint);
- int	ReadUTF8(char *Input, uint32_t *Output);
+ int	ReadUTF8(const char *Input, uint32_t *Output);
 
 // === GLOBALS ===
 tFont	gSystemFont = {
@@ -94,6 +94,27 @@ int Video_DrawText(short X, short Y, short W, short H, tFont *Font, uint32_t Col
 	}
 	
 	return xOfs;
+}
+
+void Video_GetTextDims(tFont *Font, const char *Text, int *W, int *H)
+{
+	 int	w=0, h=0;
+	uint32_t	ch;
+	tGlyph	*glyph;
+	if( !Font )	Font = &gSystemFont;
+	
+	while( *Text )
+	{
+		Text += ReadUTF8(Text, &ch);
+		glyph = _GetGlyph(Font, ch);
+		if( !glyph )	continue;
+		
+		w += glyph->Width;
+		if( h < glyph->Height )	h = glyph->Height;
+	}
+	
+	if(W)	*W = w;
+	if(H)	*H = h;
 }
 
 tGlyph	*_GetGlyph(tFont *Font, uint32_t Codepoint)
@@ -245,6 +266,10 @@ tGlyph *_SystemFont_CacheGlyph(tFont *Font, uint32_t Codepoint)
 	_SysDebug(" index = %i", index);
 
 	ret = malloc( sizeof(tGlyph) + FONT_WIDTH*FONT_HEIGHT );
+	if( !ret ) {
+		_SysDebug("ERROR: malloc(%i) failed", sizeof(tGlyph) + FONT_WIDTH*FONT_HEIGHT);
+		return NULL;
+	}
 
 	ret->Codepoint = Codepoint;
 
@@ -279,9 +304,9 @@ tGlyph *_SystemFont_CacheGlyph(tFont *Font, uint32_t Codepoint)
  * \fn int ReadUTF8(char *Input, uint32_t *Val)
  * \brief Read a UTF-8 character from a string
  */
-int ReadUTF8(char *Input, uint32_t *Val)
+int ReadUTF8(const char *Input, uint32_t *Val)
 {
-	uint8_t	*str = (uint8_t *)Input;
+	const uint8_t	*str = (const uint8_t *)Input;
 	*Val = 0xFFFD;	// Assume invalid character
 	
 	// ASCII
