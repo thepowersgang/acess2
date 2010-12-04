@@ -836,8 +836,8 @@ void Threads_DumpActive(void)
 		for(thread=gActiveThreads;thread;thread=thread->Next)
 	#endif
 		{
-			Log(" %i (%i) - %s (CPU %i)",
-				thread->TID, thread->TGID, thread->ThreadName, thread->CurCPU);
+			Log(" %p %i (%i) - %s (CPU %i)",
+				thread, thread->TID, thread->TGID, thread->ThreadName, thread->CurCPU);
 			if(thread->Status != THREAD_STAT_ACTIVE)
 				Log("  ERROR State (%i) != THREAD_STAT_ACTIVE (%i)", thread->Status, THREAD_STAT_ACTIVE);
 			Log("  Priority %i, Quantum %i", thread->Priority, thread->Quantum);
@@ -863,8 +863,8 @@ void Threads_Dump(void)
 	Log("All Threads:");
 	for(thread=gAllThreads;thread;thread=thread->GlobalNext)
 	{
-		Log(" %i (%i) - %s (CPU %i)",
-			thread->TID, thread->TGID, thread->ThreadName, thread->CurCPU);
+		Log(" %p %i (%i) - %s (CPU %i)",
+			thread, thread->TID, thread->TGID, thread->ThreadName, thread->CurCPU);
 		Log("  State %i (%s)", thread->Status, casTHREAD_STAT[thread->Status]);
 		switch(thread->Status)
 		{
