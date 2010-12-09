@@ -41,20 +41,23 @@ enum eTplJoystick_IOCtl {
 	/**
 	 * ioctl(..., struct{int AxisNum;int Value})
 	 * \brief Set maximum value for sJoystick_Axis.CurState
+	 * \note If \a Value is equal to -1 (all bits set), the value is not changed
 	 */
-	JOY_IOCTL_SETAXISLIMIT,
+	JOY_IOCTL_GETSETAXISLIMIT,
 	
 	/**
 	 * ioctl(..., struct{int AxisNum;int Value})
 	 * \brief Set axis flags
+	 * \note If \a Value is equal to -1 (all bits set), the value is not changed
 	 */
-	JOY_IOCTL_SETAXISFLAGS,
+	JOY_IOCTL_GETSETAXISFLAGS,
 
 	/**
 	 * ioctl(..., struct{int ButtonNum;int Value})
 	 * \brief Set Button Flags
+	 * \note If \a Value is equal to -1 (all bits set), the value is not changed
 	 */
-	JOY_IOCTL_SETBUTTONFLAGS,
+	JOY_IOCTL_GETSETBUTTONFLAGS,
 };
 
 /**
@@ -69,16 +72,24 @@ typedef void (*tJoystickCallback)(int Ident, int bIsAxis, int Num, int Delta);
  */
 struct sJoystick_FileHeader
 {
-	Uint16	NAxies;
-	Uint16	NButtons;
+	Uint16	NAxies;	//!< Number of Axies
+	Uint16	NButtons;	//!< Number of buttons
 };
 
+/**
+ * \brief Axis Definition
+ *
+ * Describes the current state of an axis on the joystick.
+ * \a MinValue and \a MaxValue describe the valid range for \a CurValue
+ * While \a CurState is between zero and the current limit set by the
+ * JOY_IOCTL_GETSETAXISLIMIT IOCtl.
+ */
 struct sJoystick_Axis
 {
-	Sint16	MinValue;
-	Sint16	MaxValue;
-	Sint16	CurValue;
-	Uint16	CurState;
+	Sint16	MinValue;	//!< Minumum value for \a CurValue
+	Sint16	MaxValue;	//!< Maximum value for \a MaxValue
+	Sint16	CurValue;	//!< Current value (joystick position)
+	Uint16	CurState;	//!< Current state (cursor position)
 };
 
 #endif
