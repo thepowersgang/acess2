@@ -7,6 +7,7 @@
 #include <acess.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/time.h>
 
 int main(int argc, char *argv[])
 {
@@ -41,6 +42,22 @@ void Warning(const char *Fmt, ...)
 	printf("\n");
 }
 
+void Panic(const char *Format, ...)
+{
+	va_list	args;
+	printf("Panic: ");
+	va_start(args, Format);
+	vprintf(Format, args);
+	va_end(args);
+	printf("\n");
+	exit(-1);
+}
+
+void Debug_SetKTerminal(const char *Path)
+{
+	// Ignored, kernel debug goes to stdout
+}
+
 void *Heap_Allocate(int Count, const char *File, int Line)
 {
 	return malloc(Count);
@@ -55,3 +72,17 @@ Uint MM_GetFlags(tVAddr VAddr)
 {
 	return 0;
 }
+
+int Modules_InitialiseBuiltin(const char *Name)
+{
+	return 0;	// Ignored
+}
+
+Sint64 now(void)
+{
+	struct timeval tv;
+	struct timezone tz;
+	gettimeofday(&tv, &tz);
+	return tv.tv_sec * 1000 + tv.tv_usec/1000;
+}
+

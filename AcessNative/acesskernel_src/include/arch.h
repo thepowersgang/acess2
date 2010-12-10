@@ -5,6 +5,7 @@
 
 #include <stdint.h>
 #include <stdlib.h>
+#include <pthread.h>
 
 #define	_MODULE_NAME_	"NativeKernel"
 
@@ -27,7 +28,8 @@ typedef intptr_t	tPAddr;
 
 struct sShortSpinlock
 {
-	 int	Lock;
+	 int	IsValid;
+	pthread_mutex_t	Mutex;
 };
 
 #define SHORTLOCK(...)
