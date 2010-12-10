@@ -56,7 +56,7 @@ typedef struct sFAT_LFNCache
 // === PROTOTYPES ===
 // --- Driver Core
  int	FAT_Install(char **Arguments);
-tVFS_Node	*FAT_InitDevice(char *device, char **options);
+tVFS_Node	*FAT_InitDevice(const char *device, const char **options);
 void	FAT_Unmount(tVFS_Node *Node);
 // --- Helpers
  int	FAT_int_GetAddress(tVFS_Node *Node, Uint64 Offset, Uint64 *Addr, Uint32 *Cluster);
@@ -102,10 +102,9 @@ int FAT_Install(char **Arguments)
 }
 
 /**
- * \fn tVFS_Node *FAT_InitDevice(char *Device, char **Options)
  * \brief Reads the boot sector of a disk and prepares the structures for it
  */
-tVFS_Node *FAT_InitDevice(char *Device, char **Options)
+tVFS_Node *FAT_InitDevice(const char *Device, const char **Options)
 {
 	fat_bootsect *bs;
 	 int	i;

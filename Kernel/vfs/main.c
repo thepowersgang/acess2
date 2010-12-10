@@ -14,9 +14,9 @@ extern tVFS_Driver	gDevFS_Info;
 
 // === PROTOTYPES ===
  int	VFS_Init(void);
-char	*VFS_GetTruePath(char *Path);
+char	*VFS_GetTruePath(const char *Path);
 void	VFS_GetMemPath(char *Dest, void *Base, Uint Length);
-tVFS_Driver	*VFS_GetFSByName(char *Name);
+tVFS_Driver	*VFS_GetFSByName(const char *Name);
  int	VFS_AddDriver(tVFS_Driver *Info);
 void	VFS_UpdateDriverFile(void);
 
@@ -62,10 +62,10 @@ int VFS_Init(void)
 }
 
 /**
- * \fn char *VFS_GetTruePath(char *Path)
+ * \fn char *VFS_GetTruePath(const char *Path)
  * \brief Gets the true path (non-symlink) of a file
  */
-char *VFS_GetTruePath(char *Path)
+char *VFS_GetTruePath(const char *Path)
 {
 	tVFS_Node	*node;
 	char	*ret, *tmp;
@@ -97,10 +97,10 @@ void VFS_GetMemPath(char *Dest, void *Base, Uint Length)
 }
 
 /**
- * \fn tVFS_Driver *VFS_GetFSByName(char *Name)
+ * \fn tVFS_Driver *VFS_GetFSByName(const char *Name)
  * \brief Gets a filesystem structure given a name
  */
-tVFS_Driver *VFS_GetFSByName(char *Name)
+tVFS_Driver *VFS_GetFSByName(const char *Name)
 {
 	tVFS_Driver	*drv = gVFS_Drivers;
 	

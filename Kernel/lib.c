@@ -36,7 +36,7 @@ char	**str_split(const char *__str, char __ch);
 
  int	DivUp(int num, int dem);
 Sint64	timestamp(int sec, int mins, int hrs, int day, int month, int year);
-Uint	rand(void);
+ int	rand(void);
  
  int	CheckString(char *String);
  int	CheckMem(void *Mem, int NumBytes);
@@ -292,9 +292,8 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 			itoa(p, val, 10, minSize, pad);
 			goto printString;
 		case 'X':
-			#if BITS == 64
-			isLongLong = 1;	// TODO: Handle non-x86 64-bit archs
-			#endif
+			if(BITS == 64)
+				isLongLong = 1;	// TODO: Handle non-x86 64-bit archs
 			GETVAL();
 			itoa(p, val, 16, minSize, pad);
 			goto printString;
@@ -427,12 +426,12 @@ Uint8 ByteSum(void *Ptr, int Size)
 }
 
 /**
- * \fn Uint strlen(const char *__str)
+ * \fn size_t strlen(const char *__str)
  * \brief Get the length of string
  */
-Uint strlen(const char *__str)
+size_t strlen(const char *__str)
 {
-	Uint	ret = 0;
+	size_t	ret = 0;
 	while(*__str++)	ret++;
 	return ret;
 }
@@ -722,11 +721,10 @@ Sint64 timestamp(int sec, int mins, int hrs, int day, int month, int year)
 }
 
 /**
- * \fn Uint rand()
+ * \fn int rand()
  * \brief Pseudo random number generator
- * \note Unknown effectiveness (made up on the spot)
  */
-Uint rand(void)
+int rand(void)
 {
 	#if 0
 	static Uint	state = RANDOM_SEED;

@@ -4,9 +4,9 @@
  *
  * Kernel Main
  */
+#include <acess.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <SDL/SDL.h>
 
 int main(int argc, char *argv[])
 {
@@ -41,12 +41,17 @@ void Warning(const char *Fmt, ...)
 	printf("\n");
 }
 
-int CheckMem(void *Mem, int Count)
+void *Heap_Allocate(int Count, const char *File, int Line)
 {
-	return 1;
+	return malloc(Count);
 }
 
-int CheckString(const char *String)
+tPAddr MM_GetPhysAddr(tVAddr VAddr)
 {
-	return 1;
+	return VAddr;	// HACK!
+}
+
+Uint MM_GetFlags(tVAddr VAddr)
+{
+	return 0;
 }

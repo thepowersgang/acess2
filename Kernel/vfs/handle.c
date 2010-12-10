@@ -67,7 +67,7 @@ int VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode)
 		for(i=0;i<CFGINT(CFG_VFS_MAXFILES);i++)
 		{
 			if(gaUserHandles[i].Node)	continue;
-			gaUserHandles[i].Node = node;
+			gaUserHandles[i].Node = Node;
 			gaUserHandles[i].Position = 0;
 			gaUserHandles[i].Mode = Mode;
 			return i;
@@ -88,7 +88,7 @@ int VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode)
 		for(i=0;i<MAX_KERNEL_FILES;i++)
 		{
 			if(gaKernelHandles[i].Node)	continue;
-			gaKernelHandles[i].Node = node;
+			gaKernelHandles[i].Node = Node;
 			gaKernelHandles[i].Position = 0;
 			gaKernelHandles[i].Mode = Mode;
 			return i|VFS_KERNEL_FLAG;

@@ -79,10 +79,10 @@ Uint64 VFS_ReadAt(int FD, Uint64 Offset, Uint64 Length, void *Buffer)
 }
 
 /**
- * \fn Uint64 VFS_Write(int FD, Uint64 Length, void *Buffer)
+ * \fn Uint64 VFS_Write(int FD, Uint64 Length, const void *Buffer)
  * \brief Read data from a node (file)
  */
-Uint64 VFS_Write(int FD, Uint64 Length, void *Buffer)
+Uint64 VFS_Write(int FD, Uint64 Length, const void *Buffer)
 {
 	tVFS_Handle	*h;
 	Uint64	ret;
@@ -95,17 +95,18 @@ Uint64 VFS_Write(int FD, Uint64 Length, void *Buffer)
 
 	if(!h->Node->Write)	return 0;
 	
-	ret = h->Node->Write(h->Node, h->Position, Length, Buffer);
+	// TODO: This is a hack, I need to change VFS_Node to have "const void*"
+	ret = h->Node->Write(h->Node, h->Position, Length, (void*)Buffer);
 	if(ret == -1)	return -1;
 	h->Position += ret;
 	return ret;
 }
 
 /**
- * \fn Uint64 VFS_WriteAt(int FD, Uint64 Offset, Uint64 Length, void *Buffer)
+ * \fn Uint64 VFS_WriteAt(int FD, Uint64 Offset, Uint64 Length, const void *Buffer)
  * \brief Write data to a file at a given offset
  */
-Uint64 VFS_WriteAt(int FD, Uint64 Offset, Uint64 Length, void *Buffer)
+Uint64 VFS_WriteAt(int FD, Uint64 Offset, Uint64 Length, const void *Buffer)
 {
 	tVFS_Handle	*h;
 	Uint64	ret;
@@ -117,7 +118,8 @@ Uint64 VFS_WriteAt(int FD, Uint64 Offset, Uint64 Length, void *Buffer)
 	if( h->Node->Flags & VFS_FFLAG_DIRECTORY )	return -1;
 
 	if(!h->Node->Write)	return 0;
-	ret = h->Node->Write(h->Node, Offset, Length, Buffer);
+	// TODO: This is a hack, I need to change VFS_Node to have "const void*"
+	ret = h->Node->Write(h->Node, Offset, Length, (void*)Buffer);
 	if(ret == -1)	return -1;
 	return ret;
 }

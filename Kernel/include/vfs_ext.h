@@ -117,7 +117,7 @@ extern int	VFS_Init(void);
  * \param Mode	Flags defining how to open the file
  * \return VFS Handle (an integer) or -1 if an error occured
  */
-extern int	VFS_Open(char *Path, Uint Mode);
+extern int	VFS_Open(const char *Path, Uint Mode);
 /**
  * \brief Close a currently open file
  * \param FD	Handle returned by ::VFS_Open
@@ -191,7 +191,7 @@ extern Uint64	VFS_Read(int FD, Uint64 Length, void *Buffer);
  * \param Buffer	Source of written data
  * \return Number of bytes written
  */
-extern Uint64	VFS_Write(int FD, Uint64 Length, void *Buffer);
+extern Uint64	VFS_Write(int FD, Uint64 Length, const void *Buffer);
 
 /**
  * \brief Reads from a specific offset in the file
@@ -210,7 +210,7 @@ extern Uint64	VFS_ReadAt(int FD, Uint64 Offset, Uint64 Length, void *Buffer);
  * \param Buffer	Source of written data
  * \return Number of bytes written
  */
-extern Uint64	VFS_WriteAt(int FD, Uint64 Offset, Uint64 Length, void *Buffer);
+extern Uint64	VFS_WriteAt(int FD, Uint64 Offset, Uint64 Length, const void *Buffer);
 
 /**
  * \brief Sends an IOCtl request to the driver
@@ -234,7 +234,7 @@ extern void	VFS_GetMemPath(char *Dest, void *Base, Uint Length);
  * \param Path	File path (may contain symlinks, relative elements etc.)
  * \return Absolute path with no symlinks
  */
-extern char	*VFS_GetTruePath(char *Path);
+extern char	*VFS_GetTruePath(const char *Path);
 
 /**
  * \brief Mounts a filesystem
@@ -244,21 +244,21 @@ extern char	*VFS_GetTruePath(char *Path);
  * \param Options	Options string to pass the driver
  * \return 1 on succes, -1 on error
  */
-extern int	VFS_Mount(char *Device, char *MountPoint, char *Filesystem, char *Options);
+extern int	VFS_Mount(const char *Device, const char *MountPoint, const char *Filesystem, const char *Options);
 /**
  * \brief Create a new directory
  * \param Path	Path to new directory (absolute or relative)
  * \return Boolean success
  * \note The parent of the directory must exist
  */
-extern int	VFS_MkDir(char *Path);
+extern int	VFS_MkDir(const char *Path);
 /**
  * \brief Create a symbolic link
  * \param Name	Name of the symbolic link
  * \param Link	File the symlink points to
  * \return Boolean success (\a Link is not tested for existence)
  */
-extern int	VFS_Symlink(char *Name, char *Link);
+extern int	VFS_Symlink(const char *Name, const char *Link);
 /**
  * \brief Read from a directory
  * \param FD	File handle returned by ::VFS_Open
@@ -275,6 +275,6 @@ extern int	VFS_ReadDir(int FD, char *Dest);
  * \param Mode	Open mode
  * \return File handle (same as returned from VFS_Open)
  */
-extern int	VFS_OpenChild(Uint *Errno, int FD, char *Name, Uint Mode);
+extern int	VFS_OpenChild(Uint *Errno, int FD, const char *Name, Uint Mode);
 
 #endif

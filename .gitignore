@@ -15,9 +15,14 @@
 *.dmp
 *.kmd.*
 Map*.txt
+map.txt
 Doxylog*.txt
 LineCounts.*.txt
 bochs*.txt
 serial.txt
 *.gz
 *.img
+SrcDoc/
+ApiDoc/
+Usermode/Output/
+gitstats/

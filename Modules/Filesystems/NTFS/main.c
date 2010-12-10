@@ -17,7 +17,7 @@ extern tVFS_Node	*NTFS_FindDir(tVFS_Node *Node, const char *Name);
 
 // === PROTOTYPES ===
  int	NTFS_Install(char **Arguments);
-tVFS_Node	*NTFS_InitDevice(char *Devices, char **Options);
+tVFS_Node	*NTFS_InitDevice(const char *Devices, const char **Options);
 void	NTFS_Unmount(tVFS_Node *Node);
 void	NTFS_DumpEntry(tNTFS_Disk *Disk, Uint32 Entry);
 
@@ -40,7 +40,7 @@ int NTFS_Install(char **Arguments)
 /**
  * \brief Mount a NTFS volume
  */
-tVFS_Node *NTFS_InitDevice(char *Device, char **Options)
+tVFS_Node *NTFS_InitDevice(const char *Device, const char **Options)
 {
 	tNTFS_Disk	*disk;
 	tNTFS_BootSector	bs;

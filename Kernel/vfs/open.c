@@ -442,10 +442,10 @@ tVFS_Node *VFS_ParsePath(const char *Path, char **TruePath)
 }
 
 /**
- * \fn int VFS_Open(char *Path, Uint Mode)
+ * \fn int VFS_Open(const char *Path, Uint Mode)
  * \brief Open a file
  */
-int VFS_Open(char *Path, Uint Mode)
+int VFS_Open(const char *Path, Uint Mode)
 {
 	tVFS_Node	*node;
 	char	*absPath;
@@ -524,7 +524,7 @@ int VFS_Open(char *Path, Uint Mode)
 /**
  * \brief Open a file from an open directory
  */
-int VFS_OpenChild(Uint *Errno, int FD, char *Name, Uint Mode)
+int VFS_OpenChild(Uint *Errno, int FD, const char *Name, Uint Mode)
 {
 	tVFS_Handle	*h;
 	tVFS_Node	*node;

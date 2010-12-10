@@ -123,16 +123,16 @@ extern void	Log_Debug(char *Ident, char *Message, ...);
  * \{
  */
 extern void	Debug_KernelPanic(void);	//!< Initiate a kernel panic
-extern void	Panic(char *Msg, ...);	//!< Print a panic message (initiates a kernel panic)
-extern void	Warning(char *Msg, ...);	//!< Print a warning message
-extern void	LogF(char *Fmt, ...);	//!< Print a log message without a trailing newline
-extern void	Log(char *Fmt, ...);	//!< Print a log message
-extern void	Debug(char *Fmt, ...);	//!< Print a debug message (doesn't go to KTerm)
-extern void	LogV(char *Fmt, va_list Args);	//!< va_list Log message
-extern void	Debug_Enter(char *FuncName, char *ArgTypes, ...);
-extern void	Debug_Log(char *FuncName, char *Fmt, ...);
-extern void	Debug_Leave(char *FuncName, char RetType, ...);
-extern void	Debug_HexDump(char *Header, void *Data, Uint Length);
+extern void	Panic(const char *Msg, ...);	//!< Print a panic message (initiates a kernel panic)
+extern void	Warning(const char *Msg, ...);	//!< Print a warning message
+extern void	LogF(const char *Fmt, ...);	//!< Print a log message without a trailing newline
+extern void	Log(const char *Fmt, ...);	//!< Print a log message
+extern void	Debug(const char *Fmt, ...);	//!< Print a debug message (doesn't go to KTerm)
+extern void	LogV(const char *Fmt, va_list Args);	//!< va_list Log message
+extern void	Debug_Enter(const char *FuncName, const char *ArgTypes, ...);
+extern void	Debug_Log(const char *FuncName, const char *Fmt, ...);
+extern void	Debug_Leave(const char *FuncName, char RetType, ...);
+extern void	Debug_HexDump(const char *Header, const void *Data, Uint Length);
 #define UNIMPLEMENTED()	Warning("'%s' unimplemented", __func__)
 #if DEBUG
 # define ENTER(_types...)	Debug_Enter((char*)__func__, _types)

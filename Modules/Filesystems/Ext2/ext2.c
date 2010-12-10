@@ -15,7 +15,7 @@
 // === PROTOTYPES ===
  int	Ext2_Install(char **Arguments);
 // Interface Functions
-tVFS_Node	*Ext2_InitDevice(char *Device, char **Options);
+tVFS_Node	*Ext2_InitDevice(const char *Device, const char **Options);
 void		Ext2_Unmount(tVFS_Node *Node);
 void		Ext2_CloseFile(tVFS_Node *Node);
 // Internal Helpers
@@ -44,13 +44,12 @@ int Ext2_Install(char **Arguments)
 }
 
 /**
- \fn tVFS_Node *Ext2_InitDevice(char *Device, char **Options)
  \brief Initializes a device to be read by by the driver
  \param Device	String - Device to read from
  \param Options	NULL Terminated array of option strings
  \return Root Node
 */
-tVFS_Node *Ext2_InitDevice(char *Device, char **Options)
+tVFS_Node *Ext2_InitDevice(const char *Device, const char **Options)
 {
 	tExt2_Disk	*disk;
 	 int	fd;

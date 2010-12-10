@@ -24,7 +24,7 @@ extern void	KernelPanic_PutChar(char Ch);
  int	putDebugChar(char ch);
  int	getDebugChar(void);
 static void	Debug_Putchar(char ch);
-static void	Debug_Puts(int DbgOnly, char *Str);
+static void	Debug_Puts(int DbgOnly, const char *Str);
 void	Debug_Fmt(const char *format, va_list args);
 
 // === GLOBALS ===
@@ -108,7 +108,7 @@ static void Debug_Putchar(char ch)
 		KernelPanic_PutChar(ch);
 }
 
-static void Debug_Puts(int UseKTerm, char *Str)
+static void Debug_Puts(int UseKTerm, const char *Str)
 {
 	 int	len = 0;
 	while( *Str )
@@ -170,9 +170,10 @@ void Debug_KernelPanic()
 }
 
 /**
- * \fn void LogF(char *Msg, ...)
+ * \fn void LogF(const char *Msg, ...)
+ * \brief Raw debug log (no new line, no prefix)
  */
-void LogF(char *Fmt, ...)
+void LogF(const char *Fmt, ...)
 {
 	va_list	args;
 
@@ -191,10 +192,10 @@ void LogF(char *Fmt, ...)
 	#endif
 }
 /**
- * \fn void Debug(char *Msg, ...)
+ * \fn void Debug(const char *Msg, ...)
  * \brief Print only to the debug channel
  */
-void Debug(char *Fmt, ...)
+void Debug(const char *Fmt, ...)
 {
 	va_list	args;
 	
@@ -213,9 +214,9 @@ void Debug(char *Fmt, ...)
 	#endif
 }
 /**
- * \fn void Log(char *Msg, ...)
+ * \fn void Log(const char *Msg, ...)
  */
-void Log(char *Fmt, ...)
+void Log(const char *Fmt, ...)
 {
 	va_list	args;
 	
@@ -234,7 +235,7 @@ void Log(char *Fmt, ...)
 	SHORTREL(&glDebug_Lock);
 	#endif
 }
-void Warning(char *Fmt, ...)
+void Warning(const char *Fmt, ...)
 {
 	va_list	args;
 	
@@ -253,7 +254,7 @@ void Warning(char *Fmt, ...)
 	SHORTREL(&glDebug_Lock);
 	#endif
 }
-void Panic(char *Fmt, ...)
+void Panic(const char *Fmt, ...)
 {
 	va_list	args;
 	
@@ -278,7 +279,7 @@ void Panic(char *Fmt, ...)
 	for(;;)	__asm__ __volatile__ ("hlt");
 }
 
-void Debug_SetKTerminal(char *File)
+void Debug_SetKTerminal(const char *File)
 {
 	 int	tmp;
 	if(giDebug_KTerm != -1) {
@@ -292,7 +293,7 @@ void Debug_SetKTerminal(char *File)
 	Log_Log("Debug", "Returning to %p", __builtin_return_address(0));
 }
 
-void Debug_Enter(char *FuncName, char *ArgTypes, ...)
+void Debug_Enter(const char *FuncName, const char *ArgTypes, ...)
 {
 	va_list	args;
 	 int	i;
@@ -316,12 +317,15 @@ void Debug_Enter(char *FuncName, char *ArgTypes, ...)
 	while(*ArgTypes)
 	{
 		pos = strpos(ArgTypes, ' ');
-		if(pos != -1)	ArgTypes[pos] = '\0';
 		if(pos == -1 || pos > 1) {
-			Debug_Puts(1, ArgTypes+1);
+			if(pos == -1)
+				Debug_Puts(1, ArgTypes+1);
+			else {
+				for( i = 1; i < pos; i ++ )
+					Debug_Putchar(ArgTypes[i]);
+			}
 			Debug_Putchar('=');
 		}
-		if(pos != -1)	ArgTypes[pos] = ' ';
 		switch(*ArgTypes)
 		{
 		case 'p':	LogF("%p", va_arg(args, void*));	break;
@@ -349,7 +353,7 @@ void Debug_Enter(char *FuncName, char *ArgTypes, ...)
 	#endif
 }
 
-void Debug_Log(char *FuncName, char *Fmt, ...)
+void Debug_Log(const char *FuncName, const char *Fmt, ...)
 {
 	va_list	args;
 	 int	i = gDebug_Level;
@@ -377,7 +381,7 @@ void Debug_Log(char *FuncName, char *Fmt, ...)
 	#endif
 }
 
-void Debug_Leave(char *FuncName, char RetType, ...)
+void Debug_Leave(const char *FuncName, char RetType, ...)
 {
 	va_list	args;
 	 int	i;
@@ -434,9 +438,9 @@ void Debug_Leave(char *FuncName, char RetType, ...)
 	#endif
 }
 
-void Debug_HexDump(char *Header, void *Data, Uint Length)
+void Debug_HexDump(const char *Header, const void *Data, Uint Length)
 {
-	Uint8	*cdat = Data;
+	const Uint8	*cdat = Data;
 	Uint	pos = 0;
 	Debug_Puts(1, Header);
 	LogF(" (Hexdump of %p)\r\n", Data);

@@ -11,8 +11,8 @@
 extern tVFS_Mount	*gRootMount;
 
 // === PROTOTYPES ===
- int	VFS_MkDir(char *Path);
- int	VFS_MkNod(char *Path, Uint Flags);
+ int	VFS_MkDir(const char *Path);
+ int	VFS_MkNod(const char *Path, Uint Flags);
 
 // === CODE ===
 /**
@@ -20,7 +20,7 @@ extern tVFS_Mount	*gRootMount;
  * \brief Create a new node
  * \param Path	Path of directory to create
  */
-int VFS_MkDir(char *Path)
+int VFS_MkDir(const char *Path)
 {
 	return VFS_MkNod(Path, VFS_FFLAG_DIRECTORY);
 }
@@ -31,7 +31,7 @@ int VFS_MkDir(char *Path)
  * \param Path	Path of new node
  * \param Flags	Flags to apply to the node
  */
-int VFS_MkNod(char *Path, Uint Flags)
+int VFS_MkNod(const char *Path, Uint Flags)
 {
 	char	*absPath, *name;
 	 int	pos = 0, oldpos = 0;
@@ -104,29 +104,31 @@ int VFS_MkNod(char *Path, Uint Flags)
 }
 
 /**
- * \fn int VFS_Symlink(char *Name, char *Link)
+ * \fn int VFS_Symlink(const char *Name, const char *Link)
  * \brief Creates a symlink called \a Name to \a Link
  * \param Name	Name of symbolic link
  * \param Link	Destination of symbolic link
  */
-int VFS_Symlink(char *Name, char *Link)
+int VFS_Symlink(const char *Name, const char *Link)
 {
 	char	*realLink;
 	 int	fp;
 	tVFS_Node	*destNode;
+	char	*_link;
 	
 	//ENTER("sName sLink", Name, Link);
 	
 	// Get absolue path name
-	Link = VFS_GetAbsPath( Link );
-	if(!Link) {
+	_link = VFS_GetAbsPath( Link );
+	if(!_link) {
 		Warning("Path '%s' is badly formed", Link);
 		return -1;
 	}
 	
 	// Get true path and node
-	destNode = VFS_ParsePath( Link, &realLink );
-	free(Link);
+	destNode = VFS_ParsePath( _link, &realLink );
+	free(_link);
+	_link = NULL;
 	
 	// Check if destination exists
 	if(!destNode) {

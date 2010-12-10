@@ -11,7 +11,7 @@ extern int	giVFS_MountFileID;
 extern char	*gsVFS_MountFile;
 
 // === PROTOTYPES ===
- int	VFS_Mount(char *Device, char *MountPoint, char *Filesystem, char *Options);
+ int	VFS_Mount(const char *Device, const char *MountPoint, const char *Filesystem, const char *Options);
 void	VFS_UpdateMountFile(void);
 
 // === GLOBALS ===
@@ -32,7 +32,7 @@ tVFS_Mount	*gVFS_RootMount = NULL;
  * \a Filesystem. The options in the string \a Options is passed to the
  * driver's mount.
  */
-int VFS_Mount(char *Device, char *MountPoint, char *Filesystem, char *Options)
+int VFS_Mount(const char *Device, const char *MountPoint, const char *Filesystem, const char *Options)
 {
 	tVFS_Mount	*mnt;
 	tVFS_Driver	*fs;

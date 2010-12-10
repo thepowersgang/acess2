@@ -270,7 +270,7 @@ typedef struct sVFS_Driver
 	Uint	Flags;
 	
 	//! \brief Callback to mount a device
-	tVFS_Node	*(*InitDevice)(char *Device, char **Options);
+	tVFS_Node	*(*InitDevice)(const char *Device, const char **Options);
 	//! \brief Callback to unmount a device
 	void	(*Unmount)(tVFS_Node *Node);
 	//! \brief Used internally (next driver in the chain)
@@ -311,7 +311,7 @@ extern int	VFS_AddDriver(tVFS_Driver *Info);
  * \brief Get the information structure of a driver given its name
  * \param Name	Name of filesystem driver to find
  */
-extern tVFS_Driver	*VFS_GetFSByName(char *Name);
+extern tVFS_Driver	*VFS_GetFSByName(const char *Name);
 /**
  * \fn tVFS_ACL *VFS_UnixToAcessACL(Uint Mode, Uint Owner, Uint Group)
  * \brief Transforms Unix Permssions into Acess ACLs
