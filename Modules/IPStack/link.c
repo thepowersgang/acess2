@@ -115,6 +115,9 @@ void Link_WatchDevice(tAdapter *Adapter)
 	if( !gbLink_CRCTableGenerated )
 		Link_InitCRC();
 	
+	Threads_SetName(Adapter->Device);
+	Log_Log("NET", "Thread %i watching '%s'", Threads_GetTID(), Adapter->Device);
+	
 	// Child Thread
 	while(Adapter->DeviceFD != -1)
 	{

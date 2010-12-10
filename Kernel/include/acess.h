@@ -95,11 +95,11 @@ typedef void (*tThreadFunction)(void*);
  */
 typedef struct sKernelSymbol {
 	char	*Name;
-	Uint	Value;
+	tVAddr	Value;
 } tKernelSymbol;
-#define	EXPORT(_name)	tKernelSymbol _kexp_##_name __attribute__((section ("KEXPORT"),unused))={#_name, (Uint)_name}
-#define	EXPORTV(_name)	tKernelSymbol _kexp_##_name __attribute__((section ("KEXPORT"),unused))={#_name, (Uint)&_name}
-#define	EXPORTAS(_sym,_name)	tKernelSymbol _kexp_##_name __attribute__((section ("KEXPORT"),unused))={#_name, (Uint)_sym}
+#define	EXPORT(_name)	tKernelSymbol _kexp_##_name __attribute__((section ("KEXPORT"),unused))={#_name, (tVAddr)_name}
+#define	EXPORTV(_name)	tKernelSymbol _kexp_##_name __attribute__((section ("KEXPORT"),unused))={#_name, (tVAddr)&_name}
+#define	EXPORTAS(_sym,_name)	tKernelSymbol _kexp_##_name __attribute__((section ("KEXPORT"),unused))={#_name, (tVAddr)_sym}
 /**
  * \}
  */
@@ -323,7 +323,7 @@ extern Uint32	BigEndian32(Uint32 Val);
  */
 extern int	vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args);
 extern int	sprintf(char *__s, const char *__format, ...);
-extern Uint	strlen(const char *Str);
+extern size_t	strlen(const char *Str);
 extern char	*strcpy(char *__dest, const char *__src);
 extern char	*strncpy(char *__dest, const char *__src, size_t max);
 extern int	strcmp(const char *__str1, const char *__str2);
@@ -349,7 +349,7 @@ extern int	UnHex(Uint8 *Dest, size_t DestSize, const char *SourceString);
  * \}
  */
 
-extern Uint	rand(void);
+extern int	rand(void);
 extern int	CallWithArgArray(void *Function, int NArgs, Uint *Args);
 
 // --- Heap ---
@@ -416,7 +416,7 @@ extern tUID	Threads_GetUID(void);
 extern tGID	Threads_GetGID(void);
 extern int	SpawnTask(tThreadFunction Function, void *Arg);
 extern Uint	*Threads_GetCfgPtr(int Id);
-extern int	Threads_SetName(char *NewName);
+extern int	Threads_SetName(const char *NewName);
 extern void	Mutex_Acquire(tMutex *Mutex);
 extern void	Mutex_Release(tMutex *Mutex);
 extern int	Mutex_IsLocked(tMutex *Mutex);

@@ -35,10 +35,11 @@ extern void	Proc_Start(void);
 extern tThread	*Proc_GetCurThread(void);
 extern int	Proc_Clone(Uint *Err, Uint Flags);
 extern void	Proc_CallFaultHandler(tThread *Thread);
+extern int	GetCPUNum(void);
 
 // === PROTOTYPES ===
 void	Threads_Init(void);
- int	Threads_SetName(char *NewName);
+ int	Threads_SetName(const char *NewName);
 char	*Threads_GetName(int ID);
 void	Threads_SetPriority(tThread *Thread, int Pri);
 tThread	*Threads_CloneTCB(Uint *Err, Uint Flags);
@@ -123,12 +124,12 @@ void Threads_Init(void)
 }
 
 /**
- * \fn void Threads_SetName(char *NewName)
+ * \fn void Threads_SetName(const char *NewName)
  * \brief Sets the current thread's name
  * \param NewName	New name for the thread
  * \return Boolean Failure
  */
-int Threads_SetName(char *NewName)
+int Threads_SetName(const char *NewName)
 {
 	tThread	*cur = Proc_GetCurThread();
 	char	*oldname = cur->ThreadName;
@@ -662,6 +663,12 @@ void Threads_AddActive(tThread *Thread)
 {
 	SHORTLOCK( &glThreadListLock );
 	
+	if( Thread->Status == THREAD_STAT_ACTIVE ) {
+		tThread	*cur = Proc_GetCurThread();
+		Warning("WTF, CPU%i %p (%i %s) is adding %p (%i %s) when it is active",
+			GetCPUNum(), cur, cur->TID, cur->ThreadName, Thread, Thread->TID, Thread->ThreadName);
+	}
+	
 	// Set state
 	Thread->Status = THREAD_STAT_ACTIVE;
 	Thread->CurCPU = -1;
@@ -680,8 +687,8 @@ void Threads_AddActive(tThread *Thread)
 	#if SCHEDULER_TYPE == SCHED_LOTTERY
 	giFreeTickets += caiTICKET_COUNTS[ Thread->Priority ];
 	# if DEBUG_TRACE_TICKETS
-	Log("Threads_AddActive: %p %i (%s) added, new giFreeTickets = %i",
-		Thread, Thread->TID, Thread->ThreadName, giFreeTickets);
+	Log("Threads_AddActive: CPU%i %p %i (%s) added, new giFreeTickets = %i",
+		GetCPUNum(), Thread, Thread->TID, Thread->ThreadName, giFreeTickets);
 	# endif
 	#endif
 	
@@ -718,8 +725,8 @@ tThread *Threads_RemActive(void)
 	// no need to decrement tickets, scheduler did it for us
 	
 	#if SCHEDULER_TYPE == SCHED_LOTTERY && DEBUG_TRACE_TICKETS
-	Log("Threads_RemActive: %p %i (%s) removed, giFreeTickets = %i",
-		ret, ret->TID, ret->ThreadName, giFreeTickets);
+	Log("Threads_RemActive: CPU%i %p %i (%s) removed, giFreeTickets = %i",
+		GetCPUNum(), ret, ret->TID, ret->ThreadName, giFreeTickets);
 	#endif
 	
 	SHORTREL( &glThreadListLock );
