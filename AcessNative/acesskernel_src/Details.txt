@@ -1,0 +1,7 @@
+Provides Acess Kernel services
+- UDP Server listening on 127.0.0.1:2766 (0XACE)
+ > See ld-acess.so_src/syscalls for the spec
+- Starts acess applications
+ > Provides kernel loader services and loads libacess
+- Provides "vterms" / control panel
+- Cross platform (GTK?/SDL)
