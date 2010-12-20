@@ -510,7 +510,7 @@ int VFS_Open(const char *Path, Uint Mode)
 	}
 	
 	i = VFS_AllocHandle( !!(Mode & VFS_OPENFLAG_USER), node, Mode );
-	if( i > 0 ) {
+	if( i >= 0 ) {
 		LEAVE('x', i);
 		return i;
 	}
@@ -570,7 +570,7 @@ int VFS_OpenChild(Uint *Errno, int FD, const char *Name, Uint Mode)
 	}
 	
 	i = VFS_AllocHandle( !!(Mode & VFS_OPENFLAG_USER), node, Mode );
-	if( i > 0 ) {
+	if( i >= 0 ) {
 		LEAVE('x', i);
 		return i;
 	}
