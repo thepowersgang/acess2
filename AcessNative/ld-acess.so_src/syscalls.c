@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdarg.h>
 
 // === IMPORTS ===
 /**
@@ -19,12 +20,12 @@
  */
 int _Syscall(const char *ArgTypes, ...)
 {
-	 int	outBufSize = 0;
+	// int	outBufSize = 0;
 	va_list	args;
 	
 	va_start(args, ArgTypes);
 	va_end(args);
-	
+	return 0;
 }
 
 int open(const char *Path, int Flags) {

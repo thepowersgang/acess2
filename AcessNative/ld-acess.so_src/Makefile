@@ -5,16 +5,18 @@ ifeq ($(PLATFORM),)
 	PLATFORM := lin
 endif
 
-OBJ := syscalls.$(PLATFORM).o request.$(PLATFORM).o
+OBJ := main.o syscalls.o request.o
+OBJ += elf.o
+OBJ := $(addsuffix .$(PLATFORM),$(OBJ))
 
 ifeq ($(PLATFORM),win)
-	BIN := ../libacess.dll
+	BIN := ../ld-acess.exe
 endif
 ifeq ($(PLATFORM),lin)
-	BIN := ../libacess.so
-	CFLAGS += -fPIC
+	BIN := ../ld-acess
 endif
 
+CFLAGS += -Wall -Werror
 
 .PHONY: all clean
 
@@ -26,6 +28,6 @@ clean:
 $(BIN): $(OBJ)
 	$(CC) -shared -o $@ $<
 
-%.$(PLATFORM).o: %.c
+%.o.$(PLATFORM): %.c
 	$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
 
