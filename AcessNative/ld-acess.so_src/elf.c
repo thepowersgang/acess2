@@ -12,19 +12,31 @@
 
 #define DEBUG_WARN	1
 
+#define MKPTR(_type,_val)	((_type*)(uintptr_t)(_val))
+#define PTRMK(_type,_val)	MKPTR(_type,_val)
+#define PTR(_val)	((void*)(uintptr_t)(_val))
+
+#if 0
+# define ENTER(...)
+# define LOG(s, ...)	printf("%s: " s, __func__, __VA_ARGS__)
+# define LOGS(s)	printf("%s: " s, __func__)
+# define LEAVE(...)
+#else
 #define ENTER(...)
 #define LOG(...)
+#define LOGS(...)
 #define LEAVE(...)
+#endif
 
 // === PROTOTYPES ===
- int	Elf_Load(int fd);
- int	Elf_Relocate(void *Base);
- int	Elf_GetSymbol(void *Base, char *Name, intptr_t *ret);
- int	Elf_Int_DoRelocate(uint32_t r_info, uint32_t *ptr, uint32_t addend, Elf32_Sym *symtab, intptr_t base);
+void	*Elf_Load(FILE *FP);
+uintptr_t	Elf_Relocate(void *Base);
+ int	Elf_GetSymbol(void *Base, char *Name, uintptr_t *ret);
+ int	Elf_Int_DoRelocate(uint32_t r_info, uint32_t *ptr, uint32_t addend, Elf32_Sym *symtab, void *Base);
 uint32_t	Elf_Int_HashString(char *str);
 
 // === CODE ===
-int Elf_Load(int FD)
+void *Elf_Load(FILE *FP)
 {
 	Elf32_Ehdr	hdr;
 	Elf32_Phdr	*phtab;
@@ -32,17 +44,18 @@ int Elf_Load(int FD)
 	 int	iPageCount;
 	uint32_t	max, base = -1;
 	uint32_t	addr;
+	uint32_t	baseDiff = 0;
 	
-	ENTER("xFD", FD);
+	ENTER("pFP", FP);
 	
 	// Read ELF Header
-	read(FD, &hdr, sizeof(hdr));
+	fread(&hdr, sizeof(hdr), 1, FP);
 	
 	// Check the file type
 	if(hdr.ident[0] != 0x7F || hdr.ident[1] != 'E' || hdr.ident[2] != 'L' || hdr.ident[3] != 'F') {
 		Warning("Non-ELF File was passed to the ELF loader\n");
 		LEAVE('n');
-		return 1;
+		return NULL;
 	}
 	
 	// Check for a program header
@@ -51,32 +64,32 @@ int Elf_Load(int FD)
 		Warning("ELF File does not contain a program header\n");
 		#endif
 		LEAVE('n');
-		return 1;
+		return NULL;
 	}
 	
 	// Read Program Header Table
 	phtab = malloc( sizeof(Elf32_Phdr) * hdr.phentcount );
 	if( !phtab ) {
 		LEAVE('n');
-		return 1;
+		return NULL;
 	}
-	LOG("hdr.phoff = 0x%08x", hdr.phoff);
-	lseek(FD, hdr.phoff, SEEK_SET);
-	read(FD, phtab, sizeof(Elf32_Phdr)*hdr.phentcount);
+	LOG("hdr.phoff = 0x%08x\n", hdr.phoff);
+	fseek(FP, hdr.phoff, SEEK_SET);
+	fread(phtab, sizeof(Elf32_Phdr), hdr.phentcount, FP);
 	
 	// Count Pages
 	iPageCount = 0;
-	LOG("hdr.phentcount = %i", hdr.phentcount);
+	LOG("hdr.phentcount = %i\n", hdr.phentcount);
 	for( i = 0; i < hdr.phentcount; i++ )
 	{
 		// Ignore Non-LOAD types
 		if(phtab[i].Type != PT_LOAD)
 			continue;
 		iPageCount += ((phtab[i].VAddr&0xFFF) + phtab[i].MemSize + 0xFFF) >> 12;
-		LOG("phtab[%i] = {VAddr:0x%x, MemSize:0x%x}", i, phtab[i].VAddr, phtab[i].MemSize);
+		LOG("phtab[%i] = {VAddr:0x%x, MemSize:0x%x}\n", i, phtab[i].VAddr, phtab[i].MemSize);
 	}
 	
-	LOG("iPageCount = %i", iPageCount);
+	LOG("iPageCount = %i\n", iPageCount);
 	
 	// Allocate Information Structure
 	//ret = malloc( sizeof(tBinary) + sizeof(tBinaryPage)*iPageCount );
@@ -97,71 +110,80 @@ int Elf_Load(int FD)
 			max = phtab[i].VAddr;
 	}
 
-	LOG("base = %08x, max = %08x", base, max);
+	LOG("base = %08x, max = %08x\n", base, max);
+
+	if( base == 0 ) {
+		// Find a nice space (31 address bits allowed)
+		base = FindFreeRange( max, 31 );
+		LOG("new base = %08x\n", base);
+		if( base == 0 )	return NULL;
+		baseDiff = base;
+	}
 	
 	// Load Pages
 	j = 0;
 	for( i = 0; i < hdr.phentcount; i++ )
 	{
 		//LOG("phtab[%i].Type = 0x%x", i, phtab[i].Type);
-		LOG("phtab[%i] = {", i);
-		LOG(" .Type = 0x%08x", phtab[i].Type);
-		LOG(" .Offset = 0x%08x", phtab[i].Offset);
-		LOG(" .VAddr = 0x%08x", phtab[i].VAddr);
-		LOG(" .PAddr = 0x%08x", phtab[i].PAddr);
-		LOG(" .FileSize = 0x%08x", phtab[i].FileSize);
-		LOG(" .MemSize = 0x%08x", phtab[i].MemSize);
-		LOG(" .Flags = 0x%08x", phtab[i].Flags);
-		LOG(" .Align = 0x%08x", phtab[i].Align);
-		LOG(" }");
+		LOG("phtab[%i] = {\n", i);
+		LOG(" .Type = 0x%08x\n", phtab[i].Type);
+		LOG(" .Offset = 0x%08x\n", phtab[i].Offset);
+		LOG(" .VAddr = 0x%08x\n", phtab[i].VAddr);
+		LOG(" .PAddr = 0x%08x\n", phtab[i].PAddr);
+		LOG(" .FileSize = 0x%08x\n", phtab[i].FileSize);
+		LOG(" .MemSize = 0x%08x\n", phtab[i].MemSize);
+		LOG(" .Flags = 0x%08x\n", phtab[i].Flags);
+		LOG(" .Align = 0x%08x\n", phtab[i].Align);
+		LOGS(" }\n");
 		// Get Interpreter Name
 		if( phtab[i].Type == PT_INTERP )
 		{
 			char *tmp;
 			//if(ret->Interpreter)	continue;
 			tmp = malloc(phtab[i].FileSize);
-			lseek(FD, phtab[i].Offset, 1);
-			read(FD, tmp, phtab[i].FileSize);
+			fseek(FP, phtab[i].Offset, SEEK_SET);
+			fread(tmp, phtab[i].FileSize, 1, FP);
 			//ret->Interpreter = Binary_RegInterp(tmp);
-			LOG("Interpreter '%s'", tmp);
+			LOG("Interpreter '%s'\n", tmp);
 			free(tmp);
 			continue;
 		}
 		// Ignore non-LOAD types
 		if(phtab[i].Type != PT_LOAD)	continue;
 		
-		LOG("phtab[%i] = {VAddr:0x%x,Offset:0x%x,FileSize:0x%x}",
-			i, phtab[i].VAddr, phtab[i].Offset, phtab[i].FileSize);
+		LOG("phtab[%i] = {VAddr:0x%x,Offset:0x%x,FileSize:0x%x}\n",
+			i, phtab[i].VAddr+baseDiff, phtab[i].Offset, phtab[i].FileSize);
 		
-		addr = phtab[i].VAddr;
+		addr = phtab[i].VAddr + baseDiff;
 
-		AllocateMemory( addr, phtab[i].MemSize );
+		if( AllocateMemory( addr, phtab[i].MemSize ) ) {
+			return NULL;
+		}
 		
-		lseek(FD, phtab[i].Offset, SEEK_SET);
-		read(FD, (void*)(intptr_t)addr, phtab[i].FileSize);
-		memset( (char*)(intptr_t)addr + phtab[i].FileSize, 0, phtab[i].MemSize - phtab[i].FileSize);
+		fseek(FP, phtab[i].Offset, SEEK_SET);
+		fread( PTRMK(void, addr), phtab[i].FileSize, 1, FP );
+		memset( PTRMK(char, addr) + phtab[i].FileSize, 0, phtab[i].MemSize - phtab[i].FileSize );
 	}
 	
 	// Clean Up
 	free(phtab);
 	// Return
-	LEAVE('i', 0);
-	return 0;
+	LEAVE('p', base);
+	return PTRMK(void, base);
 }
 
 // --- ELF RELOCATION ---
 /**
- \fn int Elf_Relocate(void *Base)
- \brief Relocates a loaded ELF Executable
-*/
-int Elf_Relocate(void *Base)
+ * \brief Relocates a loaded ELF Executable
+ */
+uintptr_t Elf_Relocate(void *Base)
 {
 	Elf32_Ehdr	*hdr = Base;
 	Elf32_Phdr	*phtab;
 	 int	i, j;	// Counters
 	char	*libPath;
 	uint32_t	iRealBase = -1;
-	intptr_t	iBaseDiff;
+	uintptr_t	iBaseDiff;
 	 int	iSegmentCount;
 	 int	iSymCount = 0;
 	Elf32_Rel	*rel = NULL;
@@ -178,6 +200,7 @@ int Elf_Relocate(void *Base)
 	 int	bFailed = 0;
 	
 	ENTER("pBase", Base);
+	LOG("Base = %p\n", Base);
 	
 	// Parse Program Header to get Dynamic Table
 	phtab = Base + hdr->phoff;
@@ -194,7 +217,7 @@ int Elf_Relocate(void *Base)
 				Warning("Elf_Relocate - Multiple PT_DYNAMIC segments\n");
 				continue;
 			}
-			dynamicTab = (void *) (intptr_t) phtab[i].VAddr;
+			dynamicTab = MKPTR(void, phtab[i].VAddr);
 			j = i;	// Save Dynamic Table ID
 			break;
 		}
@@ -210,10 +233,15 @@ int Elf_Relocate(void *Base)
 	// Page Align real base
 	iRealBase &= ~0xFFF;
 	
+	LOG("dynamicTab = %p\n", dynamicTab);
 	// Adjust "Real" Base
-	iBaseDiff = (intptr_t)Base - iRealBase;
+	iBaseDiff = (uintptr_t)Base - iRealBase;
+	LOG("iBaseDiff = %p\n", (void*)iBaseDiff);
 	// Adjust Dynamic Table
-	dynamicTab = (void *) ((intptr_t)dynamicTab + iBaseDiff);
+	dynamicTab = PTR( (uintptr_t)dynamicTab + iBaseDiff);
+	LOG("dynamicTab = %p\n", dynamicTab);
+
+	hdr->entrypoint += iBaseDiff;
 	
 	// === Get Symbol table and String Table ===
 	for( j = 0; dynamicTab[j].d_tag != DT_NULL; j++)
@@ -223,20 +251,20 @@ int Elf_Relocate(void *Base)
 		// --- Symbol Table ---
 		case DT_SYMTAB:
 			dynamicTab[j].d_val += iBaseDiff;
-			dynsymtab = (void*) (intptr_t) dynamicTab[j].d_val;
+			dynsymtab = PTRMK(void, dynamicTab[j].d_val);
 			hdr->misc.SymTable = dynamicTab[j].d_val;	// Saved in unused bytes of ident
 			break;
 		
 		// --- String Table ---
 		case DT_STRTAB:
 			dynamicTab[j].d_val += iBaseDiff;
-			dynstrtab = (void*) (intptr_t) dynamicTab[j].d_val;
+			dynstrtab = PTRMK(void, dynamicTab[j].d_val);
 			break;
 		
 		// --- Hash Table --
 		case DT_HASH:
 			dynamicTab[j].d_val += iBaseDiff;
-			iSymCount = ((uint32_t*)((intptr_t)dynamicTab[j].d_val))[1];
+			iSymCount = (PTRMK(uint32_t, dynamicTab[j].d_val))[1];
 			hdr->misc.HashTable = dynamicTab[j].d_val;	// Saved in unused bytes of ident
 			break;
 		}
@@ -247,12 +275,12 @@ int Elf_Relocate(void *Base)
 	for(i = 0; i < iSymCount; i ++)
 	{
 		dynsymtab[i].value += iBaseDiff;
-		dynsymtab[i].nameOfs += (intptr_t)dynstrtab;
-		//LOG("Sym '%s' = 0x%x (relocated)\n", dynsymtab[i].name, dynsymtab[i].value);
+		dynsymtab[i].nameOfs += (uintptr_t)dynstrtab;
+		LOG("Sym '%s' = 0x%x (relocated)\n", MKPTR(char,dynsymtab[i].name), dynsymtab[i].value);
 	}
 	
 	// === Add to loaded list (can be imported now) ===
-	//Binary_AddLoaded( (intptr_t)Base );
+	Binary_SetReadyToUse( Base );
 
 	// === Parse Relocation Data ===
 	for( j = 0; dynamicTab[j].d_tag != DT_NULL; j++)
@@ -261,12 +289,12 @@ int Elf_Relocate(void *Base)
 		{
 		// --- Shared Library Name ---
 		case DT_SONAME:
-			LOG(".so Name '%s'\n", dynstrtab+dynamicTab[j].d_val);
+			LOG(".so Name '%s'\n", dynstrtab + dynamicTab[j].d_val);
 			break;
 		// --- Needed Library ---
 		case DT_NEEDED:
 			libPath = dynstrtab + dynamicTab[j].d_val;
-			Notice("%p - Required Library '%s' - TODO load DT_NEEDED\n", Base, libPath);
+			Binary_LoadLibrary(libPath);
 			break;
 		// --- PLT/GOT ---
 		case DT_PLTGOT:	pltgot = (void*)(iBaseDiff+dynamicTab[j].d_val);	break;
@@ -292,7 +320,7 @@ int Elf_Relocate(void *Base)
 		for( i = 0; i < j; i++ )
 		{
 			ptr = (void*)(iBaseDiff + rel[i].r_offset);
-			if( !Elf_Int_DoRelocate(rel[i].r_info, ptr, *ptr, dynsymtab, (intptr_t)Base) ) {
+			if( !Elf_Int_DoRelocate(rel[i].r_info, ptr, *ptr, dynsymtab, Base) ) {
 				bFailed = 1;
 			}
 		}
@@ -304,7 +332,7 @@ int Elf_Relocate(void *Base)
 		for( i = 0; i < j; i++ )
 		{
 			ptr = (void*)(iBaseDiff + rela[i].r_offset);
-			if( !Elf_Int_DoRelocate(rel[i].r_info, ptr, rela[i].r_addend, dynsymtab, (intptr_t)Base) ) {
+			if( !Elf_Int_DoRelocate(rel[i].r_info, ptr, rela[i].r_addend, dynsymtab, Base) ) {
 				bFailed = 1;
 			}
 		}
@@ -317,11 +345,11 @@ int Elf_Relocate(void *Base)
 		{
 			Elf32_Rel	*pltRel = plt;
 			j = pltSz / sizeof(Elf32_Rel);
-			LOG("PLT Rel - plt = %p, pltSz = %i (%i ents)", plt, pltSz, j);
+			LOG("PLT Rel - plt = %p, pltSz = %i (%i ents)\n", plt, pltSz, j);
 			for(i = 0; i < j; i++)
 			{
 				ptr = (void*)(iBaseDiff + pltRel[i].r_offset);
-				if( !Elf_Int_DoRelocate(pltRel[i].r_info, ptr, *ptr, dynsymtab, (intptr_t)Base) ) {
+				if( !Elf_Int_DoRelocate(pltRel[i].r_info, ptr, *ptr, dynsymtab, Base) ) {
 					bFailed = 1;
 				}
 			}
@@ -330,11 +358,11 @@ int Elf_Relocate(void *Base)
 		{
 			Elf32_Rela	*pltRela = plt;
 			j = pltSz / sizeof(Elf32_Rela);
-			LOG("PLT RelA - plt = %p, pltSz = %i (%i ents)", plt, pltSz, j);
+			LOG("PLT RelA - plt = %p, pltSz = %i (%i ents)\n", plt, pltSz, j);
 			for(i=0;i<j;i++)
 			{
 				ptr = (void*)(iBaseDiff + pltRela[i].r_offset);
-				if( !Elf_Int_DoRelocate(pltRela[i].r_info, ptr, pltRela[i].r_addend, dynsymtab, (intptr_t)Base) ) {
+				if( !Elf_Int_DoRelocate(pltRela[i].r_info, ptr, pltRela[i].r_addend, dynsymtab, Base) ) {
 					bFailed = 1;
 				}
 			}
@@ -351,7 +379,7 @@ int Elf_Relocate(void *Base)
 }
 
 /**
- * \fn void Elf_Int_DoRelocate(uint32_t r_info, uint32_t *ptr, uint32_t addend, Elf32_Sym *symtab, uint32_t base)
+ * \fn void Elf_Int_DoRelocate(uint32_t r_info, uint32_t *ptr, uint32_t addend, Elf32_Sym *symtab, void *base)
  * \brief Performs a relocation
  * \param r_info	Field from relocation entry
  * \param ptr	Pointer to location of relocation
@@ -359,12 +387,12 @@ int Elf_Relocate(void *Base)
  * \param symtab	Symbol Table
  * \param base	Base of loaded binary
  */
-int Elf_Int_DoRelocate(uint32_t r_info, uint32_t *ptr, uint32_t addend, Elf32_Sym *symtab, intptr_t base)
+int Elf_Int_DoRelocate(uint32_t r_info, uint32_t *ptr, uint32_t addend, Elf32_Sym *symtab, void *base)
 {
-	intptr_t	val;
+	uintptr_t	val;
 	 int	type = ELF32_R_TYPE(r_info);
 	 int	sym = ELF32_R_SYM(r_info);
-	char	*sSymName = symtab[sym].name;
+	char	*sSymName = PTRMK(char, symtab[sym].name);
 	
 	//LogF("Elf_Int_DoRelocate: (r_info=0x%x, ptr=0x%x, addend=0x%x, .., base=0x%x)\n",
 	//	r_info, ptr, addend, base);
@@ -373,60 +401,64 @@ int Elf_Int_DoRelocate(uint32_t r_info, uint32_t *ptr, uint32_t addend, Elf32_Sy
 	{
 	// Standard 32 Bit Relocation (S+A)
 	case R_386_32:
-		if( !Elf_GetSymbol((void*)base, sSymName, &val) )	// Search this binary first
-			if( !Binary_GetSymbol( sSymName, &val ) )
-				return 0;
-		LOG("%08x R_386_32 *0x%x += 0x%x('%s')", r_info, ptr, val, sSymName);
+		if( !Elf_GetSymbol( base, sSymName, &val ) && !Binary_GetSymbol( sSymName, &val ) ) {
+			Warning("Unable to find symbol '%s'", sSymName);
+			return 0;
+		}
+		LOG("%08x R_386_32 *%p += %p('%s')\n", r_info, ptr, (void*)val, sSymName);
 		*ptr = val + addend;
 		break;
 		
 	// 32 Bit Relocation wrt. Offset (S+A-P)
 	case R_386_PC32:
-		if( !Elf_GetSymbol( (void*)base, sSymName, &val ) )
-			if( !Binary_GetSymbol( sSymName, &val ) )
-				return 0;
-		LOG("%08x R_386_PC32 *0x%x = 0x%x + 0x%x('%s') - %p", r_info, ptr, *ptr, val, sSymName, ptr );
+		if( !Elf_GetSymbol( base, sSymName, &val ) && !Binary_GetSymbol( sSymName, &val ) ) {
+			Warning("Unable to find symbol '%s'", sSymName);
+			return 0;
+		}
+		LOG("%08x R_386_PC32 *%p = 0x%x + %p('%s') - %p\n", r_info, ptr, *ptr, (void*)val, sSymName, ptr );
 		// TODO: Check if it needs the true value of ptr or the compiled value
 		// NOTE: Testing using true value
-		*ptr = val + addend - (intptr_t)ptr;
+		*ptr = val + addend - (uintptr_t)ptr;
 		break;
 
 	// Absolute Value of a symbol (S)
 	case R_386_GLOB_DAT:
-		if( !Elf_GetSymbol( (void*)base, sSymName, &val ) )
-			if( !Binary_GetSymbol( sSymName, &val ) )
-				return 0;
-		LOG("%08x R_386_GLOB_DAT *0x%x = 0x%x (%s)", r_info, ptr, val, sSymName);
+		if( !Elf_GetSymbol( base, sSymName, &val ) && !Binary_GetSymbol( sSymName, &val ) ) {
+			Warning("Unable to find symbol '%s'", sSymName);
+			return 0; 
+		}
+		LOG("%08x R_386_GLOB_DAT *%p = 0x%x(%s)\n", r_info, ptr, (unsigned int)val, sSymName);
 		*ptr = val;
 		break;
 	
 	// Absolute Value of a symbol (S)
 	case R_386_JMP_SLOT:
-		if( !Elf_GetSymbol( (void*)base, sSymName, &val ) )
-			if( !Binary_GetSymbol( sSymName, &val ) )
-				return 0;
-		LOG("%08x R_386_JMP_SLOT %p = 0x%x (%s)", r_info, ptr, val, sSymName);
+		if( !Elf_GetSymbol( base, sSymName, &val ) && !Binary_GetSymbol( sSymName, &val ) ) {
+			Warning("Unable to find symbol '%s'", sSymName);
+			return 0;
+		}
+		LOG("%08x R_386_JMP_SLOT *%p = 0x%x (%s)\n", r_info, ptr, (unsigned int)val, sSymName);
 		*ptr = val;
 		break;
 
 	// Base Address (B+A)
 	case R_386_RELATIVE:
-		LOG("%08x R_386_RELATIVE %p = 0x%x + 0x%x", r_info, ptr, base, addend);
-		*ptr = base + addend;
+		LOG("%08x R_386_RELATIVE *%p = %p + 0x%x\n", r_info, ptr, base, addend);
+		*ptr = (uintptr_t)base + addend;
 		break;
 		
 	default:
-		LOG("Rel 0x%x: 0x%x,%i", ptr, sym, type);
+		LOG("Rel %p: 0x%x,%i\n", ptr, sym, type);
 		break;
 	}
 	return 1;
 }
 
 /**
- * \fn int Elf_GetSymbol(void *Base, char *name, intptr_t *ret)
+ * \fn int Elf_GetSymbol(void *Base, char *name, uintptr_t *ret)
  * \brief Get a symbol from the loaded binary
  */
-int Elf_GetSymbol(void *Base, char *Name, intptr_t *ret)
+int Elf_GetSymbol(void *Base, char *Name, uintptr_t *ret)
 {
 	Elf32_Ehdr	*hdr = (void*)Base;
 	Elf32_Sym	*symtab;
@@ -439,8 +471,8 @@ int Elf_GetSymbol(void *Base, char *Name, intptr_t *ret)
 
 	if(!Base)	return 0;
 
-	pBuckets = (void *)(intptr_t) hdr->misc.HashTable;
-	symtab = (void *)(intptr_t) hdr->misc.SymTable;
+	pBuckets = PTR(hdr->misc.HashTable);
+	symtab = PTR(hdr->misc.SymTable);
 	
 	nbuckets = pBuckets[0];
 	iSymCount = pBuckets[1];
@@ -453,7 +485,7 @@ int Elf_GetSymbol(void *Base, char *Name, intptr_t *ret)
 
 	// Check Bucket
 	i = pBuckets[ iNameHash ];
-	if(symtab[i].shndx != SHN_UNDEF && strcmp(symtab[i].name, Name) == 0) {
+	if(symtab[i].shndx != SHN_UNDEF && strcmp(MKPTR(char,symtab[i].name), Name) == 0) {
 		if(ret)	*ret = symtab[ i ].value;
 		return 1;
 	}
@@ -462,7 +494,7 @@ int Elf_GetSymbol(void *Base, char *Name, intptr_t *ret)
 	while(pChains[i] != STN_UNDEF)
 	{
 		i = pChains[i];
-		if(symtab[i].shndx != SHN_UNDEF && strcmp(symtab[ i ].name, Name) == 0) {
+		if(symtab[i].shndx != SHN_UNDEF && strcmp(MKPTR(char,symtab[i].name), Name) == 0) {
 			if(ret)	*ret = symtab[ i ].value;
 			return 1;
 		}

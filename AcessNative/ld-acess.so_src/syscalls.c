@@ -1,12 +1,15 @@
 /*
  */
 //#include <acess/sys.h>
+#include "common.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdarg.h>
 
 // === IMPORTS ===
+
+// === CODE ===
 /**
  * \param ArgTypes
  *
@@ -53,4 +56,17 @@ uint64_t tell(int FD) {
 int seek(int FD, uint64_t Ofs, int Dir) {
 	return _Syscall(">i >I >i", FD, Ofs, Dir);
 }
+
+// === Symbol List ===
+const tSym	caBuiltinSymbols[] = {
+	{"open", open},
+	{"close", close},
+	{"read", read},
+	{"write", write},
+	{"tell", tell},
+	{"seek", seek},
+	{"_exit", exit}
+};
+
+const int	ciNumBuiltinSymbols = sizeof(caBuiltinSymbols)/sizeof(caBuiltinSymbols[0]);
 

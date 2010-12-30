@@ -75,8 +75,9 @@ int _InitSyscalls()
 	}
 	return 0;
 }
-
+#if 0
 int _Syscall(const char *ArgTypes, ...)
 {
 	return 0;
 }
+#endif

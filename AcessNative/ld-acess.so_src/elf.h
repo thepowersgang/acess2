@@ -108,7 +108,7 @@ struct sElf32_Shent {
 struct elf_sym_s {
 	union {
 		uint32_t	nameOfs;
-		char	*name;
+		uint32_t	name;
 	};
 	uint32_t	value;	//Address
 	uint32_t	size;
