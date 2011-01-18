@@ -45,6 +45,10 @@ char *Binary_LocateLibrary(const char *Name)
 	 int	nameLen = strlen(Name);
 	FILE	*fp;
 	
+	if( strcmp(Name, "libld-acess.so") == 0 ) {
+		return strdup("libld-acess.so");
+	}
+	
 	// Try the environment ACESS_LIBRARY_PATH
 	if( envPath && envPath[0] != '\0' )
 	{
@@ -103,6 +107,7 @@ void *Binary_LoadLibrary(const char *Name)
 	printf("Binary_LoadLibrary: ret = %p, entry = %p\n", ret, entry);
 	if( entry ) {
 		char	*argv[] = {NULL};
+		printf("Calling '%s' entry point %p\n", Name, entry);
 		entry(0, argv, NULL);
 	}
 
@@ -116,6 +121,12 @@ void *Binary_Load(const char *Filename, uintptr_t *EntryPoint)
 	void	*ret;
 	uintptr_t	entry = 0;
 	tBinFmt	*fmt;
+
+	// Ignore loading ld-acess
+	if( strcmp(Filename, "libld-acess.so") == 0 ) {
+		*EntryPoint = 0;
+		return (void*)-1;
+	}
 
 	{
 		tBinary	*bin;
@@ -145,7 +156,8 @@ void *Binary_Load(const char *Filename, uintptr_t *EntryPoint)
 		fclose(fp);
 		return NULL;
 	}
-
+	
+	printf("fmt->Load(%p)...\n", fp);
 	ret = fmt->Load(fp);
 	printf("fmt->Load(%p): %p\n", fp, ret);
 	if( !ret ) {
@@ -199,16 +211,12 @@ int Binary_GetSymbol(const char *SymbolName, uintptr_t *Value)
 	 int	i;
 	tBinary	*bin;
 	
-	// TODO: Search list of loaded binaries
-	for(bin = gLoadedBinaries; bin; bin = bin->Next)
-	{
-		if( !bin->Ready )	continue;
-		printf("Binary_GetSymbol: bin = %p{%p, %s}\n", bin, bin->Base, bin->Path);
-		if( bin->Format->GetSymbol(bin->Base, (char*)SymbolName, Value) )
-			return 1;
-	}
+	printf("Binary_GetSymbol: (SymbolName='%s', Value=%p)\n",
+		SymbolName, Value);
 
 	// Search builtins
+	// - Placed first to override smartarses that define their own versions
+	//   of system calls
 	for( i = 0; i < ciNumBuiltinSymbols; i ++ )
 	{
 		if( strcmp(caBuiltinSymbols[i].Name, SymbolName) == 0 ) {
@@ -216,6 +224,17 @@ int Binary_GetSymbol(const char *SymbolName, uintptr_t *Value)
 			return 1;
 		}
 	}
+	
+	// TODO: Search list of loaded binaries
+	for(bin = gLoadedBinaries; bin; bin = bin->Next)
+	{
+		if( !bin->Ready )	continue;
+		printf(" Binary_GetSymbol: bin = %p{%p, %s}\n", bin, bin->Base, bin->Path);
+		if( bin->Format->GetSymbol(bin->Base, (char*)SymbolName, Value) )
+			return 1;
+	}
 
+	printf("Binary_GetSymbol: RETURN 0, not found\n");
+	
 	return 0;
 }

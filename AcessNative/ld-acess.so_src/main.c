@@ -37,7 +37,14 @@ int main(int argc, char *argv[], char **envp)
 	printf("base = %p\n", base);
 	if( !base )	return 127;
 	
-	return appMain(appArgc, appArgv, envp);
+	__asm__ __volatile__ (
+		"push %0;\n\t"
+		"push %1;\n\t"
+		"push %2;\n\t"
+		"jmp *%3;\n\t"
+		: : "r" (envp), "r" (appArgv), "r" (appArgc), "r" (appMain) );
+	//return appMain(appArgc, appArgv, envp);
+	return -1;
 }
 
 void Warning(const char *Format, ...)

@@ -6,14 +6,14 @@ DEPFILES := $(addsuffix .d,$(OBJ))
 
 _BIN := $(OUTPUTDIR)Libs/$(BIN)
 
-.PHONY: all clean install
+.PHONY: all clean install postbuild
 
-all: $(_BIN)
+all: $(_BIN) postbuild
 
 clean:
 	$(RM) $(_BIN) $(OBJ) $(_BIN).dsm $(DEPFILES)
 
-install: $(_BIN)
+install: all
 	$(xCP) $(_BIN) $(DISTROOT)/Libs/
 
 $(_BIN): $(OBJ)

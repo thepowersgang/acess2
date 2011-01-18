@@ -11,17 +11,22 @@
 # include <sys/socket.h>
 # include <netinet/in.h>
 #endif
+#include "request.h"
+#include "../syscalls.h"
 
 #define	SERVER_PORT	0xACE
 
 // === GLOBALS ===
 #ifdef __WIN32__
 WSADATA	gWinsock;
-SOCKET	gSocket;
+SOCKET	gSocket = INVALID_SOCKET;
 #else
- int	gSocket;
 # define INVALID_SOCKET -1
+ int	gSocket = INVALID_SOCKET;
 #endif
+// Client ID to pass to server
+// TODO: Implement such that each thread gets a different one
+static int	siSyscall_ClientID = 0;
 
 // === CODE ===
 int _InitSyscalls()
@@ -75,9 +80,72 @@ int _InitSyscalls()
 	}
 	return 0;
 }
-#if 0
-int _Syscall(const char *ArgTypes, ...)
+
+int SendRequest(int RequestID, int NumOutput, tOutValue **Output, int NumInput, tInValue **Input)
 {
+	tRequestHeader	*request;
+	tRequestValue	*value;
+	char	*data;
+	 int	requestLen;
+	 int	i;
+	
+	// See ../syscalls.h for details of request format
+	requestLen = sizeof(tRequestHeader) + (NumOutput + NumInput) * sizeof(tRequestValue);
+	
+	// Get total param length
+	for( i = 0; i < NumOutput; i ++ )
+		requestLen += Output[i]->Length;
+	
+	// Allocate request
+	request = malloc( requestLen );
+	value = request->Params;
+	data = (char*)&request->Params[ NumOutput + NumInput ];
+	
+	// Set header
+	request->ClientID = siSyscall_ClientID;
+	request->CallID = RequestID;	// Syscall
+	request->NParams = NumOutput;
+	request->NReturn = NumInput;
+	
+	// Set parameters
+	for( i = 0; i < NumOutput; i ++ )
+	{
+		switch(Output[i]->Type)
+		{
+		case 'i':	value->Type = ARG_TYPE_INT32;	break;
+		case 'I':	value->Type = ARG_TYPE_INT64;	break;
+		case 'd':	value->Type = ARG_TYPE_DATA;	break;
+		default:
+			return -1;
+		}
+		value->Length = Output[i]->Length;
+		
+		memcpy(data, Output[i]->Data, Output[i]->Length);
+		
+		data += Output[i]->Length;
+	}
+	
+	// Set return values
+	for( i = 0; i < NumInput; i ++ )
+	{
+		switch(Input[i]->Type)
+		{
+		case 'i':	value->Type = ARG_TYPE_INT32;	break;
+		case 'I':	value->Type = ARG_TYPE_INT64;	break;
+		case 'd':	value->Type = ARG_TYPE_DATA;	break;
+		default:
+			return -1;
+		}
+		value->Length = Input[i]->Length;
+	}
+	
+	// Send it off
+	send(gSocket, request, requestLen, 0);
+	
+	// Wait for a response
+	recv(gSocket, request, requestLen, 0);
+	
+	// Parse response out
+	
 	return 0;
 }
-#endif

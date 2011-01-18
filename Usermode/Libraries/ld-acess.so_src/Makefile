@@ -10,7 +10,12 @@ BIN = ld-acess.so
 
 CFLAGS   = -Wall -fno-builtin -fno-leading-underscore -fno-stack-protector
 ASFLAGS  = -felf
-LDFLAGS  = -T link.ld -Map map.txt -Bstatic
+LDFLAGS  = -T link.ld -Map map.txt -Bstatic -shared
 
 include ../Makefile.tpl
+
+postbuild: $(OUTPUTDIR)Libs/libld-acess.so
+
+$(OUTPUTDIR)Libs/libld-acess.so:
+	ln -s $(_BIN) $(OUTPUTDIR)Libs/libld-acess.so
 

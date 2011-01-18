@@ -16,16 +16,16 @@
 #define PTRMK(_type,_val)	MKPTR(_type,_val)
 #define PTR(_val)	((void*)(uintptr_t)(_val))
 
-#if 0
+#if DEBUG
 # define ENTER(...)
 # define LOG(s, ...)	printf("%s: " s, __func__, __VA_ARGS__)
 # define LOGS(s)	printf("%s: " s, __func__)
 # define LEAVE(...)
 #else
-#define ENTER(...)
-#define LOG(...)
-#define LOGS(...)
-#define LEAVE(...)
+# define ENTER(...)
+# define LOG(...)
+# define LOGS(...)
+# define LEAVE(...)
 #endif
 
 // === PROTOTYPES ===
@@ -274,9 +274,16 @@ uintptr_t Elf_Relocate(void *Base)
 	// Alter Symbols to true base
 	for(i = 0; i < iSymCount; i ++)
 	{
-		dynsymtab[i].value += iBaseDiff;
 		dynsymtab[i].nameOfs += (uintptr_t)dynstrtab;
-		LOG("Sym '%s' = 0x%x (relocated)\n", MKPTR(char,dynsymtab[i].name), dynsymtab[i].value);
+		if( dynsymtab[i].shndx == SHN_UNDEF )
+		{
+			LOG("Sym '%s' = UNDEF\n", MKPTR(char,dynsymtab[i].name));
+		}
+		else
+		{
+			dynsymtab[i].value += iBaseDiff;
+			LOG("Sym '%s' = 0x%x (relocated)\n", MKPTR(char,dynsymtab[i].name), dynsymtab[i].value);
+		}
 	}
 	
 	// === Add to loaded list (can be imported now) ===
