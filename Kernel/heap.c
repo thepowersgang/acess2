@@ -143,6 +143,11 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 	tHeapHead	*best = NULL;
 	Uint	bestSize = 0;	// Speed hack
 	size_t	Bytes;
+
+	if( __Bytes == 0 ) {
+		//return NULL;	// TODO: Return a known un-mapped range.
+		return INVLPTR;
+	}
 	
 	// Get required size
 	#if POW2_SIZES
@@ -276,6 +281,10 @@ void Heap_Deallocate(void *Ptr)
 	Log_Log("Heap", "free: Ptr = %p", Ptr);
 	Log_Log("Heap", "free: Returns to %p", __builtin_return_address(0));
 	#endif
+	
+	// INVLPTR is returned from Heap_Allocate when the allocation
+	// size is zero.
+	if( Ptr == INVLPTR )	return;
 	
 	// Alignment Check
 	if( (Uint)Ptr & (sizeof(Uint)-1) ) {
@@ -644,8 +653,8 @@ void Heap_Stats(void)
 		
 		// Print the block info?
 		#if 1
-		Log_Debug("Heap", "%p - 0x%x Owned by %s:%i",
-			head, head->Size, head->File, head->Line);
+		Log_Debug("Heap", "%p - 0x%x (%i) Owned by %s:%i",
+			head, head->Size, head->ValidSize, head->File, head->Line);
 		#endif
 	}
 

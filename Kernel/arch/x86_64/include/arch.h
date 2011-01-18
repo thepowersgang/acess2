@@ -13,6 +13,8 @@
 #define STACKED_LOCKS	0
 #define LOCK_DISABLE_INTS	1
 
+#define INVLPTR	((void*)0x0FFFFFFFFFFFFFFFULL)
+
 //#define INT_MAX	0x7FFFFFFF
 //#define UINT_MAX	0xFFFFFFFF
 

@@ -10,6 +10,8 @@
 #define	KERNEL_BASE	0xC0000000
 #define BITS	32
 
+#define INVLPTR	((void*)-1)
+
 // Allow nested spinlocks?
 #define STACKED_LOCKS	2	// 0: No, 1: Per-CPU, 2: Per-Thread
 #define LOCK_DISABLE_INTS	1

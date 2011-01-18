@@ -6,6 +6,7 @@
 
 // === CONSTANTS ===
 #define	MAX_CALLBACKS_PER_IRQ	4
+#define TRACE_IRQS	0
 
 // === TYPES ===
 typedef void (*tIRQ_Callback)(int);
@@ -28,9 +29,13 @@ void IRQ_Handler(tRegs *Regs)
 
 	for( i = 0; i < MAX_CALLBACKS_PER_IRQ; i++ )
 	{
-		//Log(" IRQ_Handler: Call %p", gIRQ_Handlers[Regs->int_num][i]);
-		if( gIRQ_Handlers[Regs->int_num][i] )
+		if( gIRQ_Handlers[Regs->int_num][i] ) {
 			gIRQ_Handlers[Regs->int_num][i](Regs->int_num);
+			#if TRACE_IRQS
+			if( Regs->int_num != 8 )
+				Log("IRQ %i: Call %p", Regs->int_num, gIRQ_Handlers[Regs->int_num][i]);
+			#endif
+		}
 	}
 
 	//Log(" IRQ_Handler: Resetting");
