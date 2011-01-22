@@ -12,7 +12,7 @@ KERNEL_OBJ += vfs/main.o vfs/open.o vfs/acls.o vfs/io.o vfs/dir.o vfs/nodecache.
 KERNEL_OBJ += vfs/fs/root.o vfs/fs/devfs.o
 KERNEL_OBJ += drv/vterm.o drv/fifo.o drv/proc.o
 
-OBJ := main.o helpers.o threads.o syscalls.o
+OBJ := main.o helpers.o threads.o server.o syscalls.o
 OBJ += video.o keyboard.o mouse.o nativefs.o vfs_handle.o ui_sdl.o
 OBJ += $(addprefix $(KERNEL_SRC),$(KERNEL_OBJ))
 

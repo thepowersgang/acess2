@@ -13,6 +13,7 @@ extern int	VFS_Init(void);
 extern int	Video_Install(char **Arguments);
 extern int	NativeKeyboard_Install(char **Arguments);
 extern int	VT_Install(char **Arguments);
+extern int	SyscallServer(void);
 
 // === CODE ===
 int main(int argc, char *argv[])
@@ -38,10 +39,8 @@ int main(int argc, char *argv[])
 	}
 	
 	// Start syscall server
-	for( ;; )
-	{
-		UI_Redraw();
-	}
+	// - Blocks
+	SyscallServer();
 	
 	return 0;
 }

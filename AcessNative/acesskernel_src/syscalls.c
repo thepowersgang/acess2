@@ -2,7 +2,7 @@
  * Acess2 Native Kernel
  * - Acess kernel emulation on another OS using SDL and UDP
  *
- * Syscall Server
+ * Syscall Distribution
  */
 #include <acess.h>
 #include "../syscalls.h"

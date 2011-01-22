@@ -14,7 +14,11 @@
 #include "request.h"
 #include "../syscalls.h"
 
-#define	SERVER_PORT	0xACE
+#define USE_TCP	0
+
+// === PROTOTYPES ===
+void	SendData(void *Data, int Length);
+ int	ReadData(void *Dest, int MaxLen, int Timeout);
 
 // === GLOBALS ===
 #ifdef __WIN32__
@@ -26,13 +30,12 @@ SOCKET	gSocket = INVALID_SOCKET;
 #endif
 // Client ID to pass to server
 // TODO: Implement such that each thread gets a different one
-static int	siSyscall_ClientID = 0;
+ int	giSyscall_ClientID = 0;
+struct sockaddr_in	gSyscall_ServerAddr;
 
 // === CODE ===
 int _InitSyscalls()
 {
-	struct sockaddr_in	server;
-	struct sockaddr_in	client;
 	
 	#ifdef __WIN32__
 	/* Open windows connection */
@@ -43,10 +46,13 @@ int _InitSyscalls()
 	}
 	#endif
 	
+	#if USE_TCP
 	// Open TCP Connection
 	gSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	#else
 	// Open UDP Connection
-	//gSocket = socket(AF_INET, SOCK_DGRAM, 0);
+	gSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	#endif
 	if (gSocket == INVALID_SOCKET)
 	{
 		fprintf(stderr, "Could not create socket.\n");
@@ -57,18 +63,21 @@ int _InitSyscalls()
 	}
 	
 	// Set server address
-	memset((void *)&server, '\0', sizeof(struct sockaddr_in));
-	server.sin_family = AF_INET;
-	server.sin_port = htons(SERVER_PORT);
-	server.sin_addr.s_addr = htonl(0x7F00001);
+	memset((void *)&gSyscall_ServerAddr, '\0', sizeof(struct sockaddr_in));
+	gSyscall_ServerAddr.sin_family = AF_INET;
+	gSyscall_ServerAddr.sin_port = htons(SERVER_PORT);
+	gSyscall_ServerAddr.sin_addr.s_addr = htonl(0x7F000001);
 	
+	#if 0
 	// Set client address
 	memset((void *)&client, '\0', sizeof(struct sockaddr_in));
 	client.sin_family = AF_INET;
 	client.sin_port = htons(0);
-	client.sin_addr.s_addr = htonl(0x7F00001);
+	client.sin_addr.s_addr = htonl(0x7F000001);
+	#endif
 	
-	if( connect(gSocket, (struct sockaddr *)&server, sizeof(struct sockaddr_in)) < 0 )
+	#if USE_TCP
+	if( connect(gSocket, (struct sockaddr *)&gSyscall_ServerAddr, sizeof(struct sockaddr_in)) < 0 )
 	{
 		fprintf(stderr, "Cannot connect to server (localhost:%i)\n", SERVER_PORT);
 		perror("_InitSyscalls");
@@ -80,6 +89,7 @@ int _InitSyscalls()
 		#endif
 		exit(0);
 	}
+	#endif
 	
 	#if 0
 	// Bind
@@ -93,6 +103,24 @@ int _InitSyscalls()
 		close(gSocket);
 		#endif
 		exit(0);
+	}
+	#endif
+	
+	#if !USE_TCP
+	// Ask server for a client ID
+	{
+		tRequestHeader	req;
+		 int	len;
+		req.ClientID = 0;
+		req.CallID = 0;
+		req.NParams = 0;
+		req.NReturn = 0;
+		
+		SendData(&req, sizeof(req));
+		
+		len = ReadData(&req, sizeof(req), 5);
+		
+		giSyscall_ClientID = req.ClientID;
 	}
 	#endif
 	
@@ -125,7 +153,7 @@ int SendRequest(int RequestID, int NumOutput, tOutValue **Output, int NumInput, 
 	data = (char*)&request->Params[ NumOutput + NumInput ];
 	
 	// Set header
-	request->ClientID = siSyscall_ClientID;
+	request->ClientID = giSyscall_ClientID;
 	request->CallID = RequestID;	// Syscall
 	request->NParams = NumOutput;
 	request->NReturn = NumInput;
@@ -181,21 +209,10 @@ int SendRequest(int RequestID, int NumOutput, tOutValue **Output, int NumInput, 
 	#endif
 	
 	// Send it off
-	if( send(gSocket, request, requestLen, 0) != requestLen ) {
-		fprintf(stderr, "SendRequest: send() failed\n");
-		perror("SendRequest - send");
-		free( request );
-		return -1;
-	}
+	SendData(request, requestLen);
 	
-	// Wait for a response
-	requestLen = recv(gSocket, request, requestLen, 0);
-	if( requestLen < 0 ) {
-		fprintf(stderr, "SendRequest: revc() failed\n");
-		perror("SendRequest - recv");
-		free( request );
-		return -1;
-	}
+	// Wait for a response (no timeout)
+	requestLen = ReadData(request, requestLen, -1);
 	
 	// Parse response out
 	if( request->NParams != NumInput ) {
@@ -210,4 +227,58 @@ int SendRequest(int RequestID, int NumOutput, tOutValue **Output, int NumInput, 
 	free( request );
 	
 	return 0;
+}
+
+void SendData(void *Data, int Length)
+{
+	 int	len;
+	
+	#if USE_TCP
+	len = send(Data, Length, 0);
+	#else
+	len = sendto(gSocket, Data, Length, 0,
+		(struct sockaddr*)&gSyscall_ServerAddr, sizeof(gSyscall_ServerAddr));
+	#endif
+	
+	if( len != Length ) {
+		perror("SendData");
+		exit(-1);
+	}
+}
+
+int ReadData(void *Dest, int MaxLength, int Timeout)
+{
+	 int	ret;
+	fd_set	fds;
+	struct timeval	tv;
+	
+	FD_ZERO(&fds);
+	FD_SET(gSocket, &fds);
+	
+	tv.tv_sec = Timeout;
+	tv.tv_usec = 0;
+	
+	ret = select(1, &fds, NULL, NULL, &tv);
+	if( ret == -1 ) {
+		perror("ReadData - select");
+		exit(-1);
+	}
+	
+	if( !ret ) {
+		printf("Timeout reading from socket\n");
+		return 0;	// Timeout
+	}
+	
+	#if USE_TCP
+	ret = recv(gSocket, Dest, MaxLength, 0);
+	#else
+	ret = recvfrom(gSocket, Dest, MaxLength, 0, NULL, 0);
+	#endif
+	
+	if( ret < 0 ) {
+		perror("ReadData");
+		exit(-1);
+	}
+	
+	return ret;
 }

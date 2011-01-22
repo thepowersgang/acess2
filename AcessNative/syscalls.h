@@ -3,6 +3,8 @@
 #ifndef _NATIVE_SYSCALLS_H_
 #define _NATIVE_SYSCALLS_H_
 
+#define	SERVER_PORT	0xACE
+
 /*
  * Request format
  * 
