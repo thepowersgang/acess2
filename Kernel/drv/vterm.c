@@ -140,13 +140,21 @@ int VT_Install(char **Arguments)
 	// Scan Arguments
 	if(Arguments)
 	{
-		char	**args = Arguments;
-		char	*arg, *opt, *val;
-		for( ; (arg = *args); args++ )
+		char	**args;
+		const char	*arg;
+		for(args = Arguments; (arg = *args); args++ )
 		{
+			char	data[strlen(arg)+1];
+			char	*opt = data;
+			char	*val;
+			
+			val = strchr(arg, '=');
+			strcpy(data, arg);
+			if( val ) {
+				data[ val - arg ] = '\0';
+				val ++;
+			}
 			Log_Debug("VTerm", "Argument '%s'", arg);
-			opt = arg;
-			val = arg + strpos(arg, '=');	*val++ = '\0';
 			
 			if( strcmp(opt, "Video") == 0 ) {
 				gsVT_OutputDevice = val;
@@ -197,6 +205,7 @@ int VT_Install(char **Arguments)
 		gVT_Terminals[i].CurColour = DEFAULT_COLOUR;
 		gVT_Terminals[i].WritePos = 0;
 		gVT_Terminals[i].ViewPos = 0;
+		gVT_Terminals[i].ReadingThread = -1;
 		
 		// Initialise
 		VT_int_ChangeMode( &gVT_Terminals[i],
@@ -233,7 +242,7 @@ int VT_Install(char **Arguments)
 void VT_InitOutput()
 {
 	giVT_OutputDevHandle = VFS_Open(gsVT_OutputDevice, VFS_OPENFLAG_WRITE);
-	if(giVT_InputDevHandle == -1) {
+	if(giVT_OutputDevHandle == -1) {
 		Log_Warning("VTerm", "Oh F**k, I can't open the video device '%s'", gsVT_OutputDevice);
 		return ;
 	}
@@ -249,7 +258,10 @@ void VT_InitOutput()
 void VT_InitInput()
 {
 	giVT_InputDevHandle = VFS_Open(gsVT_InputDevice, VFS_OPENFLAG_READ);
-	if(giVT_InputDevHandle == -1)	return ;
+	if(giVT_InputDevHandle == -1) {
+		Log_Warning("VTerm", "Can't open the input device '%s'", gsVT_InputDevice);
+		return ;
+	}
 	VFS_IOCtl(giVT_InputDevHandle, KB_IOCTL_SETCALLBACK, VT_KBCallBack);
 }
 

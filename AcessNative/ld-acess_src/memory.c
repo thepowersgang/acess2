@@ -42,7 +42,7 @@ uintptr_t FindFreeRange(size_t ByteCount, int MaxBits)
 	#else
 	uintptr_t	base, ofs, size;
 	uintptr_t	end = -1;
-	const int	PAGE_SIZE = 0x1000;
+	static const int	PAGE_SIZE = 0x1000;
 	
 	size = (ByteCount + PAGE_SIZE - 1) / PAGE_SIZE;
 	size *= PAGE_SIZE;

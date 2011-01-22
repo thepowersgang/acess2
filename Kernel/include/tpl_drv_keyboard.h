@@ -57,6 +57,8 @@ enum eTplKeyboard_IOCtl {
 	KB_IOCTL_SETCALLBACK
 };
 
+#define DRV_KEYBAORD_IOCTLNAMES	"getset_repeat_rate", "getset_repeat_delay", "set_callback"
+
 /**
  * \brief Callback type for KB_IOCTL_SETCALLBACK
  * \param Key Unicode character code for the pressed key (with bit 31

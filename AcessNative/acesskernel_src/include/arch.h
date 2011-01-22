@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <pthread.h>
-
+#undef CLONE_VM
 #define	_MODULE_NAME_	"NativeKernel"
 
 #define BITS	(sizeof(intptr_t)*8)

@@ -42,7 +42,7 @@ void *Elf_Load(FILE *FP)
 	Elf32_Phdr	*phtab;
 	 int	i, j;
 	 int	iPageCount;
-	uint32_t	max, base = -1;
+	uint32_t	max, base;
 	uint32_t	addr;
 	uint32_t	baseDiff = 0;
 	
@@ -100,6 +100,8 @@ void *Elf_Load(FILE *FP)
 	//ret->Interpreter = NULL;
 
 	// Prescan for base and size
+	max = 0;
+	base = 0xFFFFFFFF;
 	for( i = 0; i < hdr.phentcount; i ++)
 	{
 		if( phtab[i].Type != PT_LOAD )
@@ -157,6 +159,9 @@ void *Elf_Load(FILE *FP)
 		addr = phtab[i].VAddr + baseDiff;
 
 		if( AllocateMemory( addr, phtab[i].MemSize ) ) {
+			fprintf(stderr, "Elf_Load: Unable to map memory at %x (0x%x bytes)\n",
+				addr, phtab[i].MemSize);
+			free( phtab );
 			return NULL;
 		}
 		

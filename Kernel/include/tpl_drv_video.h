@@ -102,6 +102,7 @@ enum eTplVideo_IOCtl {
 	 */
 	VIDEO_IOCTL_REQLFB
 };
+#define DRV_VIDEO_IOCTLNAMES	"getset_mode", "find+mode", "mode_info", "set_buf_format", "set_cursor", "request_framebuffer"
 
 /**
  * \brief Mode Structure used in IOCtl Calls

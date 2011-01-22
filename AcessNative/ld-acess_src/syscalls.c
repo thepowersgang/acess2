@@ -8,6 +8,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include "request.h"
+#include "../syscalls.h"
 
 // === Types ===
 
@@ -152,25 +153,29 @@ const char *ReadEntry(tOutValue **OutDest, tInValue **InDest,
  * ?d:  Bi-directional buffer (Preceded by valid size), buffer contents
  *      are returned
  */
-int _Syscall(const char *ArgTypes, ...)
+void _Syscall(int SyscallID, const char *ArgTypes, ...)
 {
 	va_list	args;
-	 int	outCount = 0;
-	 int	inCount = 0;
+	 int	outCount;
+	 int	inCount;
 	const char	*str;
-	
 	tOutValue	**output;
 	tInValue	**input;
 	
 	// Get data size
 	va_start(args, ArgTypes);
 	str = ArgTypes;
+	outCount = 0;
+	inCount = 0;
 	while(*str)
 	{
 		 int	dir;
 		
 		str = ReadEntry(NULL, NULL, &dir, str, args);
-		if( !str )	break;
+		if( !str ) {
+			fprintf(stderr, "syscalls.c: ReadEntry failed (SyscallID = %i)\n", SyscallID);
+			exit(127);
+		}
 		
 		// Out!
 		if( dir & 1 )	outCount ++;
@@ -184,13 +189,12 @@ int _Syscall(const char *ArgTypes, ...)
 	output = malloc( outCount*sizeof(tOutValue*) );
 	input = malloc( inCount*sizeof(tInValue*) );
 	
-	// - re-zero so they can be used as indicies
-	outCount = 0;
-	inCount = 0;
-	
 	// Fill `output` and `input`
 	va_start(args, ArgTypes);
 	str = ArgTypes;
+	// - re-zero so they can be used as indicies
+	outCount = 0;
+	inCount = 0;
 	while(*str)
 	{
 		tOutValue	*outParam;
@@ -208,66 +212,90 @@ int _Syscall(const char *ArgTypes, ...)
 	va_end(args);
 	
 	// Send syscall request
-	
+	if( SendRequest(SyscallID, outCount, output, inCount, input) ) {
+		fprintf(stderr, "syscalls.c: SendRequest failed (SyscallID = %i)\n", SyscallID);
+		exit(127);
+	}
 	
 	// Clean up
 	while(outCount--)	free(output[outCount]);
 	free(output);
 	while(inCount--)	free(input[inCount]);
 	free(input);
-	
-	return 0;
 }
 
 // --- VFS Calls
 int open(const char *Path, int Flags) {
-	return _Syscall(">s >i", Path, Flags);
+	 int	ret = 0;
+	_Syscall(SYS_OPEN, "<i >s >i", &ret, Path, Flags);
+	return ret;
 }
 
 void close(int FD) {
-	_Syscall(">i", FD);
+	_Syscall(SYS_CLOSE, ">i", FD);
 }
 
 size_t read(int FD, size_t Bytes, void *Dest) {
-	return _Syscall(">i >i <d", FD, Bytes, Bytes, Dest);
+	 int	ret = 0;
+	_Syscall(SYS_READ, "<i >i >i <d", &ret, FD, Bytes, Bytes, Dest);
+	return ret;
 }
 
 size_t write(int FD, size_t Bytes, void *Src) {
-	return _Syscall(">i >i >d", FD, Bytes, Bytes, Src);
+	 int	ret = 0;
+	_Syscall(SYS_WRITE, "<i >i >i >d", &ret, FD, Bytes, Bytes, Src);
+	return ret;
 }
 
 int seek(int FD, int64_t Ofs, int Dir) {
-	return _Syscall(">i >I >i", FD, Ofs, Dir);
+	 int	ret = 0;
+	_Syscall(SYS_SEEK, "<i >i >I >i", &ret, FD, Ofs, Dir);
+	return ret;
 }
 
 uint64_t tell(int FD) {
 	uint64_t	ret;
-	_Syscall("<I >i", &ret, FD);
+	_Syscall(SYS_TELL, "<I >i", &ret, FD);
 	return ret;
 }
 
 int ioctl(int fd, int id, void *data) {
+	 int	ret = 0;
 	// NOTE: 1024 byte size is a hack
-	return _Syscall(">i >i ?d", fd, id, 1024, data);
+	_Syscall(SYS_IOCTL, "<i >i >i ?d", &ret, fd, id, 1024, data);
+	return ret;
 }
 int finfo(int fd, t_sysFInfo *info, int maxacls) {
-	return _Syscall(">i <d >i", fd, maxacls*sizeof(t_sysFInfo), info, maxacls);
+	 int	ret = 0;
+	_Syscall(SYS_FINFO, "<i >i <d >i",
+		&ret, fd,
+		sizeof(t_sysFInfo)+maxacls*sizeof(t_sysACL), info,
+		maxacls);
+	return ret;
 }
 
 int readdir(int fd, char *dest) {
-	return _Syscall(">i <s", fd, dest);
+	 int	ret = 0;
+	_Syscall(SYS_READDIR, "<i >i <d", &ret, fd, 256, dest);
+	return ret;
 }
 
 int _SysOpenChild(int fd, char *name, int flags) {
-	return _Syscall(">i >s >i", fd, name, flags);
+	 int	ret = 0;
+	_Syscall(SYS_OPENCHILD, "<i >i >s >i", &ret, fd, name, flags);
+	return ret;
 }
 
 int _SysGetACL(int fd, t_sysACL *dest) {
-	return _Syscall(">i <d", fd, sizeof(t_sysACL), dest);
+	 int	ret = 0;
+	_Syscall(SYS_GETACL, "<i >i <d", &ret, fd, sizeof(t_sysACL), dest);
+	return ret;
 }
 
 int _SysMount(const char *Device, const char *Directory, const char *Type, const char *Options) {
-	return _Syscall(">s >s >s >s", Device, Directory, Type, Options);
+	 int	ret = 0;
+	_Syscall(SYS_MOUNT, "<i >s >s >s >s", &ret, Device, Directory, Type, Options);
+	return ret;
 }
 
 

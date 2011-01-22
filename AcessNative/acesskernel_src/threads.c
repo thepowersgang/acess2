@@ -44,8 +44,12 @@ typedef struct sThread
 }	tThread;
 
 // === GLOBALS ===
-tThread	*gpThreads;
-__thread tThread	*gpCurrentThread;
+tThread	gThread_Zero = {
+	State: 1,
+	ThreadName: "ThreadZero"
+};
+tThread	*gpThreads = &gThread_Zero;
+__thread tThread	*gpCurrentThread = &gThread_Zero;
 
 // === CODE ===
 tThread	*Threads_GetThread(int TID)
@@ -66,6 +70,10 @@ tPID Threads_GetPID() { return gpCurrentThread->PID; }
 
 Uint *Threads_GetCfgPtr(int Index)
 {
+	if( Index < 0 || Index >= NUM_CFG_ENTRIES )
+		return NULL;
+	if( !gpCurrentThread )
+		return NULL;
 	return &gpCurrentThread->Config[Index];
 }
 

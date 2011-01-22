@@ -147,7 +147,6 @@ void *Binary_Load(const char *Filename, uintptr_t *EntryPoint)
 
 	fread(&dword, 1, 4, fp);
 	fseek(fp, 0, SEEK_SET);
-	printf("dword = %08x\n", dword);
 	
 	if( memcmp(&dword, "\x7F""ELF", 4) == 0 ) {
 		fmt = &gElf_FormatDef;
@@ -211,8 +210,8 @@ int Binary_GetSymbol(const char *SymbolName, uintptr_t *Value)
 	 int	i;
 	tBinary	*bin;
 	
-	printf("Binary_GetSymbol: (SymbolName='%s', Value=%p)\n",
-		SymbolName, Value);
+	//printf("Binary_GetSymbol: (SymbolName='%s', Value=%p)\n",
+	//	SymbolName, Value);
 
 	// Search builtins
 	// - Placed first to override smartarses that define their own versions
@@ -229,12 +228,12 @@ int Binary_GetSymbol(const char *SymbolName, uintptr_t *Value)
 	for(bin = gLoadedBinaries; bin; bin = bin->Next)
 	{
 		if( !bin->Ready )	continue;
-		printf(" Binary_GetSymbol: bin = %p{%p, %s}\n", bin, bin->Base, bin->Path);
+		//printf(" Binary_GetSymbol: bin = %p{%p, %s}\n", bin, bin->Base, bin->Path);
 		if( bin->Format->GetSymbol(bin->Base, (char*)SymbolName, Value) )
 			return 1;
 	}
 
-	printf("Binary_GetSymbol: RETURN 0, not found\n");
+	//printf("Binary_GetSymbol: RETURN 0, not found\n");
 	
 	return 0;
 }

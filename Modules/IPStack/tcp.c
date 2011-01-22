@@ -231,7 +231,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 			srv->ConnectionsTail = conn;
 			if(!srv->NewConnections)
 				srv->NewConnections = conn;
-			SHORTLOCK(&srv->lConnections);
+			SHORTREL(&srv->lConnections);
 
 			// Send the SYN ACK
 			hdr->Flags |= TCP_FLAG_ACK;

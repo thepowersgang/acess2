@@ -43,8 +43,10 @@ int _InitSyscalls()
 	}
 	#endif
 	
+	// Open TCP Connection
+	gSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	// Open UDP Connection
-	gSocket = socket(AF_INET, SOCK_DGRAM, 0);
+	//gSocket = socket(AF_INET, SOCK_DGRAM, 0);
 	if (gSocket == INVALID_SOCKET)
 	{
 		fprintf(stderr, "Could not create socket.\n");
@@ -66,6 +68,20 @@ int _InitSyscalls()
 	client.sin_port = htons(0);
 	client.sin_addr.s_addr = htonl(0x7F00001);
 	
+	if( connect(gSocket, (struct sockaddr *)&server, sizeof(struct sockaddr_in)) < 0 )
+	{
+		fprintf(stderr, "Cannot connect to server (localhost:%i)\n", SERVER_PORT);
+		perror("_InitSyscalls");
+		#if __WIN32__
+		closesocket(gSocket);
+		WSACleanup();
+		#else
+		close(gSocket);
+		#endif
+		exit(0);
+	}
+	
+	#if 0
 	// Bind
 	if( bind(gSocket, (struct sockaddr *)&client, sizeof(struct sockaddr_in)) == -1 )
 	{
@@ -78,6 +94,8 @@ int _InitSyscalls()
 		#endif
 		exit(0);
 	}
+	#endif
+	
 	return 0;
 }
 
@@ -88,6 +106,11 @@ int SendRequest(int RequestID, int NumOutput, tOutValue **Output, int NumInput, 
 	char	*data;
 	 int	requestLen;
 	 int	i;
+	
+	if( gSocket == INVALID_SOCKET )
+	{
+		_InitSyscalls();		
+	}
 	
 	// See ../syscalls.h for details of request format
 	requestLen = sizeof(tRequestHeader) + (NumOutput + NumInput) * sizeof(tRequestValue);
@@ -115,13 +138,17 @@ int SendRequest(int RequestID, int NumOutput, tOutValue **Output, int NumInput, 
 		case 'i':	value->Type = ARG_TYPE_INT32;	break;
 		case 'I':	value->Type = ARG_TYPE_INT64;	break;
 		case 'd':	value->Type = ARG_TYPE_DATA;	break;
+		case 's':	value->Type = ARG_TYPE_DATA;	break;
 		default:
+			fprintf(stderr, __FILE__" SendRequest: Unknown output type '%c'\n",
+				Output[i]->Type);
 			return -1;
 		}
 		value->Length = Output[i]->Length;
 		
 		memcpy(data, Output[i]->Data, Output[i]->Length);
 		
+		value ++;
 		data += Output[i]->Length;
 	}
 	
@@ -134,18 +161,53 @@ int SendRequest(int RequestID, int NumOutput, tOutValue **Output, int NumInput, 
 		case 'I':	value->Type = ARG_TYPE_INT64;	break;
 		case 'd':	value->Type = ARG_TYPE_DATA;	break;
 		default:
+			fprintf(stderr, " SendRequest: Unknown input type '%c'\n",
+				Input[i]->Type);
 			return -1;
 		}
 		value->Length = Input[i]->Length;
+		value ++;
 	}
+	#if 0
+	printf("value = %p\n", value);
+	{
+		for(i=0;i<requestLen;i++)
+		{
+			printf("%02x ", ((uint8_t*)request)[i]);
+			if( i % 16 == 15 )	printf("\n");
+		}
+		printf("\n");
+	}
+	#endif
 	
 	// Send it off
-	send(gSocket, request, requestLen, 0);
+	if( send(gSocket, request, requestLen, 0) != requestLen ) {
+		fprintf(stderr, "SendRequest: send() failed\n");
+		perror("SendRequest - send");
+		free( request );
+		return -1;
+	}
 	
 	// Wait for a response
-	recv(gSocket, request, requestLen, 0);
+	requestLen = recv(gSocket, request, requestLen, 0);
+	if( requestLen < 0 ) {
+		fprintf(stderr, "SendRequest: revc() failed\n");
+		perror("SendRequest - recv");
+		free( request );
+		return -1;
+	}
 	
 	// Parse response out
+	if( request->NParams != NumInput ) {
+		fprintf(stderr, "SendRequest: Unexpected number of values retured (%i, exp %i)\n",
+			request->NParams, NumInput
+			);
+		free( request );
+		return -1;
+	}
+	
+	// Free memory
+	free( request );
 	
 	return 0;
 }

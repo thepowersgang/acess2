@@ -37,6 +37,10 @@ int main(int argc, char *argv[], char **envp)
 	printf("base = %p\n", base);
 	if( !base )	return 127;
 	
+	printf("==============================\n");
+	for(i = 0; i < appArgc; i ++)
+		printf("\"%s\" ", appArgv[i]);
+	printf("\n");
 	__asm__ __volatile__ (
 		"push %0;\n\t"
 		"push %1;\n\t"

@@ -5,6 +5,8 @@
 #include <acess.h>
 #include <threads.h>
 
+#define TRACE_LOCKS	1
+
 extern int	GetCPUNum(void);
 
 // === CODE ===
@@ -103,6 +105,10 @@ void SHORTLOCK(struct sShortSpinlock *Lock)
 	__ASM__("cli");
 	Lock->IF = IF;
 	#endif
+	
+	#if TRACE_LOCKS
+	Log_Log("LOCK", "%p locked by %p\n", Lock, __builtin_return_address(0));
+	#endif
 }
 /**
  * \brief Release a short lock
@@ -110,6 +116,10 @@ void SHORTLOCK(struct sShortSpinlock *Lock)
  */
 void SHORTREL(struct sShortSpinlock *Lock)
 {
+	#if TRACE_LOCKS
+	Log_Log("LOCK", "%p released by %p\n", Lock, __builtin_return_address(0));
+	#endif
+	
 	#if STACKED_LOCKS
 	if( Lock->Depth ) {
 		Lock->Depth --;

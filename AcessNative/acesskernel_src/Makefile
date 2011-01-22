@@ -7,19 +7,20 @@ endif
 
 KERNEL_SRC = ../../Kernel/
 
-KERNEL_OBJ := logging.o adt.o lib.o
+KERNEL_OBJ := logging.o adt.o lib.o drvutil.o
 KERNEL_OBJ += vfs/main.o vfs/open.o vfs/acls.o vfs/io.o vfs/dir.o vfs/nodecache.o vfs/mount.o vfs/memfile.o
 KERNEL_OBJ += vfs/fs/root.o vfs/fs/devfs.o
 KERNEL_OBJ += drv/vterm.o drv/fifo.o drv/proc.o
 
-OBJ := main.o helpers.o threads.o video.o keyboard.o mouse.o nativefs.o vfs_handle.o
+OBJ := main.o helpers.o threads.o syscalls.o
+OBJ += video.o keyboard.o mouse.o nativefs.o vfs_handle.o ui_sdl.o
 OBJ += $(addprefix $(KERNEL_SRC),$(KERNEL_OBJ))
 
 OBJ := $(addsuffix .$(PLATFORM),$(OBJ))
 
 CPPFLAGS += -I include/ -I $(KERNEL_SRC)include/
-CFLAGS += -Wall
-LDFLAGS += -lSDL -lSDLmain
+CFLAGS += -Wall -g
+LDFLAGS += -lSDL -lSDLmain -g
 
 ifeq ($(PLATFORM),win)
 	BIN := ../AcessKernel.exe

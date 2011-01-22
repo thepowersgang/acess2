@@ -10,10 +10,10 @@
 [global _start]
 [global start]
 [extern main]
+[extern _exit]
 _start:
 start:
 	call main
-	mov eax, ebx	; Set Argument 1 to Return Value
-	xor eax, eax	; Set EAX to SYS_EXIT (0)
-	int	0xAC
+	push eax
+	call _exit	
 	jmp $	; This should never be reached

@@ -29,13 +29,26 @@ typedef struct sRequestHeader {
 
 enum eSyscalls {
 	SYS_NULL,
-	SYS_OPEN
+	SYS_OPEN,
+	SYS_CLOSE,
+	SYS_READ,
+	SYS_WRITE,
+	SYS_SEEK,
+	SYS_TELL,
+	SYS_IOCTL,
+	SYS_FINFO,
+	SYS_READDIR,
+	SYS_OPENCHILD,
+	SYS_GETACL,
+	SYS_MOUNT,
+	N_SYSCALLS
 };
 
 enum eArgumentTypes {
 	ARG_TYPE_VOID,
 	ARG_TYPE_INT32,
 	ARG_TYPE_INT64,
+	ARG_TYPE_STRING,
 	ARG_TYPE_DATA
 };
 

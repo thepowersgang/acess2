@@ -53,9 +53,9 @@ void Debug_SetKTerminal(const char *Path)
 	// Ignored, kernel debug goes to stdout
 }
 
-void *Heap_Allocate(int Count, const char *File, int Line)
+void *Heap_Allocate(const char *File, int Line, int ByteCount)
 {
-	return malloc(Count);
+	return malloc(ByteCount);
 }
 
 tPAddr MM_GetPhysAddr(tVAddr VAddr)
