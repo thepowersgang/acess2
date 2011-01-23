@@ -272,33 +272,25 @@ void ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffe
 	}
 	#endif
 	
-	Log_Debug("ARP", "Request ID %i", ntohs(req4->Request));
-	
 	switch( ntohs(req4->Request) )
 	{
 	case 1:	// You want my IP?
-		Log_Debug("ARP", "ARP Request Address class %i", req4->SWSize);
 		// Check what type of IP it is
 		switch( req4->SWSize )
 		{
 		case 4:
-			Log_Debug("ARP", "From MAC %02x:%02x:%02x:%02x:%02x:%02x",
-				req4->SourceMac.B[0], req4->SourceMac.B[1],
-				req4->SourceMac.B[2], req4->SourceMac.B[3],
-				req4->SourceMac.B[4], req4->SourceMac.B[5]);
-			//Log_Debug("ARP", "to MAC %02x:%02x:%02x:%02x:%02x:%02x",
-			//	req4->DestMac.B[0], req4->DestMac.B[1],
-			//	req4->DestMac.B[2], req4->DestMac.B[3],
-			//	req4->DestMac.B[4], req4->DestMac.B[5]);
 			Log_Debug("ARP", "ARP Request IPv4 Address %i.%i.%i.%i from %i.%i.%i.%i",
 				req4->DestIP.B[0], req4->DestIP.B[1], req4->DestIP.B[2],
 				req4->DestIP.B[3],
 				req4->SourceIP.B[0], req4->SourceIP.B[1],
 				req4->SourceIP.B[2], req4->SourceIP.B[3]);
+			Log_Debug("ARP", " from MAC %02x:%02x:%02x:%02x:%02x:%02x",
+				req4->SourceMac.B[0], req4->SourceMac.B[1],
+				req4->SourceMac.B[2], req4->SourceMac.B[3],
+				req4->SourceMac.B[4], req4->SourceMac.B[5]);
 			iface = IPv4_GetInterface(Adapter, req4->DestIP, 0);
 			if( iface )
 			{
-				Log_Debug("ARP", "Caching sender's IP Address");
 				ARP_UpdateCache4(req4->SourceIP, req4->SourceMac);
 				
 				req4->DestIP = req4->SourceIP;

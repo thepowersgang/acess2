@@ -37,23 +37,22 @@ void ICMP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buff
 {
 	tICMPHeader	*hdr = Buffer;
 	
-	Log("[ICMP ] Length = %i", Length);
-	Log("[ICMP ] hdr->Type = %i", hdr->Type);
-	Log("[ICMP ] hdr->Code = %i", hdr->Code);
-	Log("[ICMP ] hdr->Checksum = 0x%x", ntohs(hdr->Checksum));
-	Log("[ICMP ] hdr->ID = 0x%x", ntohs(hdr->ID));
-	Log("[ICMP ] hdr->Sequence = 0x%x", ntohs(hdr->Sequence));
+	//Log_Debug("ICMPv4", "Length = %i", Length);
+	Log_Debug("ICMPv4", "hdr->Type, hdr->Code = %i, %i", hdr->Type, hdr->Code);
+	//Log_Debug("ICMPv4", "hdr->Checksum = 0x%x", ntohs(hdr->Checksum));
+	Log_Debug("ICMPv4", "hdr->ID = 0x%x", ntohs(hdr->ID));
+	Log_Debug("ICMPv4", "hdr->Sequence = 0x%x", ntohs(hdr->Sequence));
 	
 	switch(hdr->Type)
 	{
 	// -- 0: Echo Reply
 	case ICMP_ECHOREPLY:
 		if(hdr->Code != 0) {
-			Warning("[ICMP ] Code == %i for ICMP Echo Reply, should be 0", hdr->Code);
+			Log_Warning("ICMPv4", "Code == %i for ICMP Echo Reply, should be 0", hdr->Code);
 			return ;
 		}
 		if(hdr->ID != (Uint16)~hdr->Sequence) {
-			Warning("[ICMP ] ID and Sequence values do not match");
+			Log_Warning("ICMPv4", "ID and Sequence values do not match");
 			//return ;
 		}
 		gICMP_PingSlots[hdr->ID].bArrived = 1;
@@ -64,10 +63,10 @@ void ICMP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buff
 		switch(hdr->Code)
 		{
 		case 3:	// Port Unreachable
-			Log("[ICMP ] Destination Unreachable (Port Unreachable)");
+			Log_Debug("ICMPv4", "Destination Unreachable (Port Unreachable)");
 			break;
 		default:
-			Log("[ICMP ] Destination Unreachable (Code %i)", hdr->Code);
+			Log_Debug("ICMPv4", "Destination Unreachable (Code %i)", hdr->Code);
 			break;
 		}
 //		IPv4_Unreachable( Interface, hdr->Code, htons(hdr->Length)-sizeof(tICMPHeader), hdr->Data );
@@ -76,14 +75,14 @@ void ICMP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buff
 	// -- 8: Echo Request
 	case ICMP_ECHOREQ:
 		if(hdr->Code != 0) {
-			Warning("[ICMP ] Code == %i for ICMP Echo Request, should be 0", hdr->Code);
+			Log_Warning("ICMPv4", "Code == %i for ICMP Echo Request, should be 0", hdr->Code);
 			return ;
 		}
-		Log("[ICMP ] Replying");
+		//Log_Debug("ICMPv4", "Replying");
 		hdr->Type = ICMP_ECHOREPLY;
 		hdr->Checksum = 0;
 		hdr->Checksum = htons( IPv4_Checksum(hdr, Length) );
-		Log("[ICMP ] Checksum = 0x%04x", hdr->Checksum);
+		//Log_Debug("ICMPv4", "Checksum = 0x%04x", hdr->Checksum);
 		IPv4_SendPacket(Interface, *(tIPv4*)Address, 1, ntohs(hdr->Sequence), Length, hdr);
 		break;
 	default:

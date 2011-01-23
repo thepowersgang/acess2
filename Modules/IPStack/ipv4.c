@@ -102,7 +102,7 @@ int IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, int 
 	hdr->HeaderChecksum = 0;	// Will be set later
 	hdr->Source = *(tIPv4*)Iface->Address;
 	hdr->Destination = Address;
-	hdr->HeaderChecksum = IPv4_Checksum(hdr, sizeof(tIPv4Header));
+	hdr->HeaderChecksum = htons(IPv4_Checksum(hdr, sizeof(tIPv4Header)));
 	
 	Log_Log("IPv4", "Sending packet to %i.%i.%i.%i",
 		Address.B[0], Address.B[1], Address.B[2], Address.B[3]);
@@ -149,9 +149,9 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	// Check Header checksum
 	{
 		Uint16	hdrVal, compVal;
-		hdrVal = hdr->HeaderChecksum;
+		hdrVal = ntohs(hdr->HeaderChecksum);
 		hdr->HeaderChecksum = 0;
-		compVal = IPv4_Checksum(hdr, hdr->HeaderLength);
+		compVal = IPv4_Checksum(hdr, hdr->HeaderLength * 4);
 		if(hdrVal != compVal) {
 			Log_Log("IPv4", "Header checksum fails (%04x != %04x)", hdrVal, compVal);
 			return ;
@@ -208,7 +208,7 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	// Routing
 	if(!iface)
 	{
-		Log_Debug("IPv4", "Route the packet");
+		//Log_Debug("IPv4", "Route the packet");
 		
 		// TODO: Parse Routing tables and determine where to send it
 		
@@ -241,6 +241,7 @@ tInterface *IPv4_GetInterface(tAdapter *Adapter, tIPv4 Address, int Broadcast)
 	{
 		if( iface->Adapter != Adapter )	continue;
 		if( iface->Type != 4 )	continue;
+		//Log_Debug("IPv4", "%x == %x?\n", addr, ntohl(((tIPv4*)iface->Address)->L));
 		if( IP4_EQU(Address, *(tIPv4*)iface->Address) )
 			return iface;
 		
@@ -282,7 +283,7 @@ Uint32 IPv4_Netmask(int FixedBits)
  */
 Uint16 IPv4_Checksum(const void *Buf, int Size)
 {
-	Uint16	sum = 0;
+	Uint32	sum = 0;
 	const Uint16	*arr = Buf;
 	 int	i;
 	
@@ -290,11 +291,14 @@ Uint16 IPv4_Checksum(const void *Buf, int Size)
 	for(i = 0; i < Size; i++ )
 	{
 		Uint16	val = ntohs(arr[i]);
-		if((int)sum + val > 0xFFFF)
-			sum ++;	// Simulate 1's complement
 		sum += val;
 	}
-	return ~sum ;
+	
+	// Apply one's complement
+	while (sum >> 16)
+		sum = (sum & 0xFFFF) + (sum >> 16);
+	
+	return ~sum;
 }
 
 /**

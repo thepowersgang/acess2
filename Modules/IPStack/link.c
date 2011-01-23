@@ -37,12 +37,10 @@ void Link_RegisterType(Uint16 Type, tPacketCallback Callback)
 	 int	i;
 	void	*tmp;
 	
-	Type = htons(Type);	// Set to network order
-	
 	for( i = giRegisteredTypes; i -- ; )
 	{
 		if(gaRegisteredTypes[i].Type == Type) {
-			Log_Warning("NET", "Attempt to register 0x%x twice", Type);
+			Log_Warning("Net Link", "Attempt to register 0x%x twice", Type);
 			return ;
 		}
 		// Ooh! Free slot!
@@ -54,7 +52,7 @@ void Link_RegisterType(Uint16 Type, tPacketCallback Callback)
 		giRegisteredTypeSpace += 5;
 		tmp = realloc(gaRegisteredTypes, giRegisteredTypeSpace*sizeof(*gaRegisteredTypes));
 		if(!tmp) {
-			Log_Warning("NET",
+			Log_Warning("Net Link",
 				"Out of heap space! (Attempted to allocate %i)",
 				giRegisteredTypeSpace*sizeof(*gaRegisteredTypes)
 				);
@@ -79,7 +77,7 @@ void Link_SendPacket(tAdapter *Adapter, Uint16 Type, tMacAddr To, int Length, vo
 	Uint8	buf[bufSize];	// dynamic stack arrays ftw!
 	tEthernetHeader	*hdr = (void*)buf;
 	
-	Log_Log("NET", "Sending %i bytes to %02x:%02x:%02x:%02x:%02x:%02x (Type 0x%x)",
+	Log_Log("Net Link", "Sending %i bytes to %02x:%02x:%02x:%02x:%02x:%02x (Type 0x%x)",
 		Length, To.B[0], To.B[1], To.B[2], To.B[3], To.B[4], To.B[5], Type);
 	
 	hdr->Dest = To;
@@ -108,7 +106,7 @@ void Link_WatchDevice(tAdapter *Adapter)
 	}
 	
 	if(tid > 0) {
-		Log_Log("NET", "Watching '%s' using tid %i", Adapter->Device, tid);
+		Log_Log("Net Link", "Watching '%s' using tid %i", Adapter->Device, tid);
 		return ;
 	}
 	
@@ -116,7 +114,7 @@ void Link_WatchDevice(tAdapter *Adapter)
 		Link_InitCRC();
 	
 	Threads_SetName(Adapter->Device);
-	Log_Log("NET", "Thread %i watching '%s'", Threads_GetTID(), Adapter->Device);
+	Log_Log("Net Link", "Thread %i watching '%s'", Threads_GetTID(), Adapter->Device);
 	
 	// Child Thread
 	while(Adapter->DeviceFD != -1)
@@ -127,7 +125,7 @@ void Link_WatchDevice(tAdapter *Adapter)
 		Uint32	checksum;
 		
 		// Wait for a packet (Read on a network device is blocking)
-		Log_Debug("NET", "Waiting on adapter FD#0x%x", Adapter->DeviceFD);
+		//Log_Debug("NET", "Waiting on adapter FD#0x%x", Adapter->DeviceFD);
 		ret = VFS_Read(Adapter->DeviceFD, MAX_PACKET_SIZE, buf);
 		if(ret == -1)	break;
 		
@@ -136,25 +134,26 @@ void Link_WatchDevice(tAdapter *Adapter)
 			continue;
 		}
 		
-		Log_Log("NET", "Packet from %02x:%02x:%02x:%02x:%02x:%02x",
+		Log_Log("Net Link",
+			"Packet from %02x:%02x:%02x:%02x:%02x:%02x"
+			" to %02x:%02x:%02x:%02x:%02x:%02x",
 			hdr->Src.B[0], hdr->Src.B[1], hdr->Src.B[2],
-			hdr->Src.B[3], hdr->Src.B[4], hdr->Src.B[5]
-			);
-		Log_Log("NET", "to %02x:%02x:%02x:%02x:%02x:%02x",
+			hdr->Src.B[3], hdr->Src.B[4], hdr->Src.B[5],
 			hdr->Dest.B[0], hdr->Dest.B[1], hdr->Dest.B[2],
 			hdr->Dest.B[3], hdr->Dest.B[4], hdr->Dest.B[5]
 			);
 		checksum = *(Uint32*)&hdr->Data[ret-sizeof(tEthernetHeader)-4];
-		Log_Log("NET", "Checksum 0x%08x", checksum);
+		//Log_Log("NET", "Checksum 0x%08x", checksum);
+		// TODO: Check checksum
 		
 		// Check if there is a registered callback for this packet type
 		for( i = giRegisteredTypes; i--; )
 		{
-			if(gaRegisteredTypes[i].Type == hdr->Type)	break;
+			if(gaRegisteredTypes[i].Type == ntohs(hdr->Type))	break;
 		}
 		// No? Ignore it
 		if( i == -1 ) {
-			Log_Log("NET", "Unregistered type 0x%x", ntohs(hdr->Type));
+			Log_Log("Net Link", "Unregistered type 0x%x", ntohs(hdr->Type));
 			continue;
 		}
 		
