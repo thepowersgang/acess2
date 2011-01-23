@@ -102,6 +102,7 @@ void Log_AddEvent(char *Ident, int Level, char *Format, va_list Args)
 	#endif
 	ent->Time = now();
 	strncpy(ent->Ident, Ident, 8);
+	ent->Ident[8] = '\0';
 	ent->Level = Level;
 	ent->Length = len;
 	vsnprintf( ent->Data, len+1, Format, Args );

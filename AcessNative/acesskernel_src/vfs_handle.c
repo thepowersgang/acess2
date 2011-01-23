@@ -12,10 +12,14 @@
 #define MAX_KERNEL_FILES	128
 #define MAX_USER_FILES	64
 
+// === IMPORTS ===
+extern int	Server_GetClientID(void);
+
 // === PROTOTYPES ===
 tVFS_Handle	*VFS_GetHandle(int FD);
  int	VFS_AllocHandle(int FD, tVFS_Node *Node, int Mode);
 
+// === Types ===
 typedef struct sUserHandles
 {
 	struct sUserHandles	*Next;
@@ -47,13 +51,17 @@ tVFS_Handle *VFS_GetHandle(int FD)
 	}
 	else {
 		tUserHandles	*ent;
-		 int	pid = Threads_GetPID();
+		 int	pid = Server_GetClientID();
 		for( ent = gpUserHandles; ent; ent = ent->Next ) {
 			if( ent->PID == pid )	break;
 			if( ent->PID > pid ) {
 				Log_Error("VFS", "PID %i does not have a handle list", pid);
 				return NULL;
 			}
+		}
+		if( !ent ) {
+			Log_Error("VFS", "PID %i does not have a handle list", pid);
+			return NULL;
 		}
 		if(FD >= CFGINT(CFG_VFS_MAXFILES))	return NULL;
 		h = &ent->Handles[ FD ];
@@ -71,14 +79,15 @@ int VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode)
 	// Check for a user open
 	if(bIsUser)
 	{
-		tUserHandles	*ent, *prev;
-		 int	pid = Threads_GetPID();
+		tUserHandles	*ent, *prev = NULL;
+		 int	pid = Server_GetClientID();
 		for( ent = gpUserHandles; ent; prev = ent, ent = ent->Next ) {
 			if( ent->PID == pid )	break;
 			if( ent->PID > pid )	break;
 		}
-		if( ent->PID > pid ) {
+		if( !ent || ent->PID > pid ) {
 			ent = calloc( 1, sizeof(tUserHandles) );
+			ent->PID = pid;
 			if( prev ) {
 				ent->Next = prev->Next;
 				prev->Next = ent;

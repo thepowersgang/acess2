@@ -136,8 +136,8 @@ int UI_MainThread(void *Unused)
 				acess_sym = UI_GetAcessKeyFromSDL(event.key.keysym.sym,
 					event.key.keysym.unicode);
 				
-				//if( gUI_KeyboardCallback )
-				//	gUI_KeyboardCallback(0x80000000|acess_sym);
+				if( gUI_KeyboardCallback )
+					gUI_KeyboardCallback(0x80000000|acess_sym);
 				break;
 			
 			default:

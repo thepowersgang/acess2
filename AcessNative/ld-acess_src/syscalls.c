@@ -15,7 +15,7 @@
 // === IMPORTS ===
 
 // === CODE ===
-const char *ReadEntry(tRequestValue *Dest, void *DataDest, void **PtrDest, const char *ArgTypes, va_list Args)
+const char *ReadEntry(tRequestValue *Dest, void *DataDest, void **PtrDest, const char *ArgTypes, va_list *Args)
 {
 	uint64_t	val64;
 	uint32_t	val32;
@@ -52,7 +52,8 @@ const char *ReadEntry(tRequestValue *Dest, void *DataDest, void **PtrDest, const
 			return NULL;
 		}
 		
-		val32 = va_arg(Args, uint32_t);
+		val32 = va_arg(*Args, uint32_t);
+		printf("val32 = 0x%x\n", val32);
 		
 		Dest->Type = ARG_TYPE_INT32;
 		Dest->Length = sizeof(uint32_t);
@@ -69,7 +70,8 @@ const char *ReadEntry(tRequestValue *Dest, void *DataDest, void **PtrDest, const
 			return NULL;
 		}
 		
-		val64 = va_arg(Args, uint64_t);
+		val64 = va_arg(*Args, uint64_t);
+		printf("val64 = 0x%llx\n", val64);
 		
 		Dest->Type = ARG_TYPE_INT64;
 		Dest->Length = sizeof(uint64_t);
@@ -85,7 +87,8 @@ const char *ReadEntry(tRequestValue *Dest, void *DataDest, void **PtrDest, const
 			return NULL;
 		}
 		
-		str = va_arg(Args, char*);
+		str = va_arg(*Args, char*);
+		printf("str = %p '%s'\n", str, str);
 		
 		Dest->Type = ARG_TYPE_STRING;
 		Dest->Length = strlen(str) + 1;
@@ -98,15 +101,17 @@ const char *ReadEntry(tRequestValue *Dest, void *DataDest, void **PtrDest, const
 		break;
 	// Data (special handling)
 	case 'd':
-		len = va_arg(Args, int);
-		str = va_arg(Args, char*);
+		len = va_arg(*Args, int);
+		str = va_arg(*Args, char*);
+		
+		printf("len = %i, str = %p\n", len, str);
 		
 		// Save the pointer for later
 		if( PtrDest )	*PtrDest = str;
 		
 		// Create parameter block
-		Dest->Type = ARG_TYPE_INT64;
-		Dest->Length = sizeof(uint64_t);
+		Dest->Type = ARG_TYPE_DATA;
+		Dest->Length = len;
 		Dest->Flags = 0;
 		if( direction & 2 )
 			Dest->Flags |= ARG_FLAG_RETURN;
@@ -163,7 +168,7 @@ uint64_t _Syscall(int SyscallID, const char *ArgTypes, ...)
 	{
 		tRequestValue	tmpVal;
 		
-		str = ReadEntry(&tmpVal, NULL, NULL, str, args);
+		str = ReadEntry(&tmpVal, NULL, NULL, str, &args);
 		if( !str ) {
 			fprintf(stderr, "syscalls.c: ReadEntry failed (SyscallID = %i)\n", SyscallID);
 			exit(127);
@@ -201,7 +206,7 @@ uint64_t _Syscall(int SyscallID, const char *ArgTypes, ...)
 	retCount = 0;
 	while(*str)
 	{		
-		str = ReadEntry(&req->Params[paramCount], dataPtr, &retPtrs[retCount], str, args);
+		str = ReadEntry(&req->Params[paramCount], dataPtr, &retPtrs[retCount], str, &args);
 		if( !str )	break;
 		
 		if( !(req->Params[paramCount].Flags & ARG_FLAG_ZEROED) )
@@ -214,7 +219,7 @@ uint64_t _Syscall(int SyscallID, const char *ArgTypes, ...)
 	va_end(args);
 	
 	// Send syscall request
-	if( SendRequest(req, dataLength) ) {
+	if( SendRequest(req, dataLength) < 0 ) {
 		fprintf(stderr, "syscalls.c: SendRequest failed (SyscallID = %i)\n", SyscallID);
 		exit(127);
 	}
@@ -277,42 +282,30 @@ uint64_t tell(int FD) {
 }
 
 int ioctl(int fd, int id, void *data) {
-	 int	ret = 0;
 	// NOTE: 1024 byte size is a hack
-	_Syscall(SYS_IOCTL, "<i >i >i ?d", &ret, fd, id, 1024, data);
-	return ret;
+	return _Syscall(SYS_IOCTL, ">i >i ?d", fd, id, 1024, data);
 }
 int finfo(int fd, t_sysFInfo *info, int maxacls) {
-	 int	ret = 0;
-	_Syscall(SYS_FINFO, "<i >i <d >i",
-		&ret, fd,
+	return _Syscall(SYS_FINFO, ">i <d >i",
+		fd,
 		sizeof(t_sysFInfo)+maxacls*sizeof(t_sysACL), info,
 		maxacls);
-	return ret;
 }
 
 int readdir(int fd, char *dest) {
-	 int	ret = 0;
-	_Syscall(SYS_READDIR, "<i >i <d", &ret, fd, 256, dest);
-	return ret;
+	return _Syscall(SYS_READDIR, ">i <d", fd, 256, dest);
 }
 
 int _SysOpenChild(int fd, char *name, int flags) {
-	 int	ret = 0;
-	_Syscall(SYS_OPENCHILD, "<i >i >s >i", &ret, fd, name, flags);
-	return ret;
+	return _Syscall(SYS_OPENCHILD, ">i >s >i", fd, name, flags);
 }
 
 int _SysGetACL(int fd, t_sysACL *dest) {
-	 int	ret = 0;
-	_Syscall(SYS_GETACL, "<i >i <d", &ret, fd, sizeof(t_sysACL), dest);
-	return ret;
+	return _Syscall(SYS_GETACL, "<i >i <d", fd, sizeof(t_sysACL), dest);
 }
 
 int _SysMount(const char *Device, const char *Directory, const char *Type, const char *Options) {
-	 int	ret = 0;
-	_Syscall(SYS_MOUNT, "<i >s >s >s >s", &ret, Device, Directory, Type, Options);
-	return ret;
+	return _Syscall(SYS_MOUNT, ">s >s >s >s", Device, Directory, Type, Options);
 }
 
 

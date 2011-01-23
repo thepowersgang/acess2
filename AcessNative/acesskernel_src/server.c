@@ -54,6 +54,22 @@ SOCKET	gSocket = INVALID_SOCKET;
 tClient	gaServer_Clients[MAX_CLIENTS];
 
 // === CODE ===
+int Server_GetClientID(void)
+{
+	 int	i;
+	Uint32	thisId = SDL_ThreadID();
+	
+	for( i = 0; i < MAX_CLIENTS; i ++ )
+	{
+		if( SDL_GetThreadID(gaServer_Clients[i].WorkerThread) == thisId )
+			return gaServer_Clients[i].ClientID;
+	}
+	
+	fprintf(stderr, "ERROR: Server_GetClientID - Thread is not allocated\n");
+	
+	return 0;
+}
+
 tClient *Server_GetClient(int ClientID)
 {
 	tClient	*ret = NULL;
@@ -92,6 +108,7 @@ int Server_WorkerThread(void *ClientPtr)
 {
 	tClient	*Client = ClientPtr;
 	tRequestHeader	*retHeader;
+	tRequestHeader	errorHeader;
 	 int	retSize = 0;
 	 int	sentSize;
 	
@@ -100,7 +117,10 @@ int Server_WorkerThread(void *ClientPtr)
 	for( ;; )
 	{
 		// Wait for something to do
-		while( !Client->CurrentRequest )	;
+		while( Client->CurrentRequest == NULL )
+			SDL_CondWait(Client->WaitFlag, Client->Mutex);
+		
+		printf("Worker for %i, Job: %p\n", Client->ClientID, Client->CurrentRequest);
 		
 		// Get the response
 		retHeader = SyscallRecieve(Client->CurrentRequest, &retSize);
@@ -108,7 +128,22 @@ int Server_WorkerThread(void *ClientPtr)
 		if( !retHeader ) {
 			// Return an error to the client
 			printf("Error returned by SyscallRecieve\n");
+			errorHeader.CallID = Client->CurrentRequest->CallID;
+			errorHeader.NParams = 0;
+			retHeader = &errorHeader;
+			retSize = sizeof(errorHeader);
 		}
+		
+		// Set ID
+		retHeader->ClientID = Client->ClientID;
+		
+		// Mark the thread as ready for another job
+		Client->CurrentRequest = 0;
+		
+		printf("Sending %i to %x:%i\n",
+			retSize, ntohl(Client->ClientAddr.sin_addr.s_addr),
+			ntohs(Client->ClientAddr.sin_port)
+			);
 		
 		// Return the data
 		sentSize = sendto(gSocket, retHeader, retSize, 0,
@@ -119,12 +154,8 @@ int Server_WorkerThread(void *ClientPtr)
 		}
 		
 		// Free allocated header
-		free( retHeader );
-		
-		Client->CurrentRequest = 0;
-		
-		// Wait for something else
-		SDL_CondWait(Client->WaitFlag, Client->Mutex);
+		if( retHeader != &errorHeader )
+			free( retHeader );
 	}
 	#endif
 }
@@ -237,6 +268,8 @@ int SyscallServer(void)
 				ntohl(client->ClientAddr.sin_addr.s_addr), ntohs(client->ClientAddr.sin_port));
 			continue;
 		}
+		
+		printf("client = %p, ClientID = %i\n", client, client->ClientID);
 		
 		client->CurrentRequest = req;
 		SDL_CondSignal(client->WaitFlag);

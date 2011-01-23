@@ -9,6 +9,7 @@
 #undef CLONE_VM	// Such a hack
 #include <acess.h>
 #include <unistd.h>
+#include <sys/types.h>
 #include <stdint.h>
 #include "/usr/include/signal.h"
 
@@ -66,7 +67,10 @@ tThread	*Threads_GetThread(int TID)
 tUID Threads_GetUID() { return gpCurrentThread->UID; }
 tGID Threads_GetGID() { return gpCurrentThread->GID; }
 tTID Threads_GetTID() { return gpCurrentThread->TID; }
-tPID Threads_GetPID() { return gpCurrentThread->PID; }
+tPID Threads_GetPID() {
+	return SDL_ThreadID();
+	//return gpCurrentThread->PID;
+}
 
 Uint *Threads_GetCfgPtr(int Index)
 {

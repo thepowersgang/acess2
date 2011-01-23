@@ -150,12 +150,41 @@ int SendRequest(tRequestHeader *Request, int RequestSize)
 		printf("\n");
 	}
 	#endif
+	{
+		 int	i;
+		char	*data = (char*)&Request->Params[Request->NParams];
+		printf("Request #%i\n", Request->CallID);
+		for( i = 0; i < Request->NParams; i ++ )
+		{
+			printf("%i: ", i);
+			switch(Request->Params[i].Type)
+			{
+			case ARG_TYPE_INT32:
+				printf("INT32 %x", *(uint32_t*)data);
+				data += sizeof(uint32_t);
+				break;
+			case ARG_TYPE_INT64:
+				printf("INT64 %llx", *(uint64_t*)data);
+				data += sizeof(uint64_t);
+				break;
+			case ARG_TYPE_STRING:
+				printf("STRING '%s'", (char*)data);
+				data += Request->Params[i].Length;
+				break;
+			case ARG_TYPE_DATA:
+				printf("DATA %i %p", Request->Params[i].Length, (char*)data);
+				data += Request->Params[i].Length;
+				break;
+			}
+			printf("\n");
+		}
+	}
 	
 	// Send it off
 	SendData(Request, RequestSize);
 	
 	// Wait for a response (no timeout)
-	return ReadData(Request, RequestSize, -1);
+	return ReadData(Request, RequestSize, 0);
 }
 
 void SendData(void *Data, int Length)
@@ -180,14 +209,21 @@ int ReadData(void *Dest, int MaxLength, int Timeout)
 	 int	ret;
 	fd_set	fds;
 	struct timeval	tv;
+	struct timeval	*timeoutPtr;
 	
 	FD_ZERO(&fds);
 	FD_SET(gSocket, &fds);
 	
-	tv.tv_sec = Timeout;
-	tv.tv_usec = 0;
+	if( Timeout ) {
+		tv.tv_sec = Timeout;
+		tv.tv_usec = 0;
+		timeoutPtr = &tv;
+	}
+	else {
+		timeoutPtr = NULL;
+	}
 	
-	ret = select(1, &fds, NULL, NULL, &tv);
+	ret = select(gSocket+1, &fds, NULL, NULL, timeoutPtr);
 	if( ret == -1 ) {
 		perror("ReadData - select");
 		exit(-1);
@@ -208,6 +244,8 @@ int ReadData(void *Dest, int MaxLength, int Timeout)
 		perror("ReadData");
 		exit(-1);
 	}
+	
+	printf("%i bytes read from socket\n", ret);
 	
 	return ret;
 }
