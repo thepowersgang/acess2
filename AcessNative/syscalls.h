@@ -17,6 +17,7 @@
 typedef struct sRequestValue {
 	/// \see eArgumentTypes
 	uint16_t	Type;
+	 uint8_t	Flags;
 	uint16_t	Length;
 }	tRequestValue;
 
@@ -24,7 +25,6 @@ typedef struct sRequestHeader {
 	uint16_t	ClientID;
 	uint16_t	CallID;	//!< \see eSyscalls
 	uint16_t	NParams;
-	uint16_t	NReturn;
 	
 	tRequestValue	Params[];
 }	tRequestHeader;
@@ -52,6 +52,10 @@ enum eArgumentTypes {
 	ARG_TYPE_INT64,
 	ARG_TYPE_STRING,
 	ARG_TYPE_DATA
+};
+enum eArgumentFlags {
+	ARG_FLAG_RETURN = 0x40,	// Pass back in the return message
+	ARG_FLAG_ZEROED = 0x80	// Not present in the message, just fill with zero
 };
 
 #endif

@@ -15,11 +15,10 @@
 // === IMPORTS ===
 
 // === CODE ===
-const char *ReadEntry(tOutValue **OutDest, tInValue **InDest,
-	int *Direction, const char *ArgTypes, va_list Args)
+const char *ReadEntry(tRequestValue *Dest, void *DataDest, void **PtrDest, const char *ArgTypes, va_list Args)
 {
-	uint64_t	val64, *ptr64;
-	uint32_t	val32, *ptr32;
+	uint64_t	val64;
+	uint32_t	val32;
 	 int	direction = 0;	// 0: Invalid, 1: Out, 2: In, 3: Out
 	char	*str;
 	 int	len;
@@ -31,11 +30,10 @@ const char *ReadEntry(tOutValue **OutDest, tInValue **InDest,
 	// Get direction
 	switch(*ArgTypes)
 	{
+	default:	// Defaults to output
 	case '>':	direction = 1;	break;
 	case '<':	direction = 2;	break;
 	case '?':	direction = 3;	break;
-	default:
-		return NULL;
 	}
 	ArgTypes ++;
 	
@@ -43,99 +41,90 @@ const char *ReadEntry(tOutValue **OutDest, tInValue **InDest,
 	while(*ArgTypes && *ArgTypes == ' ')	ArgTypes ++;
 	if( *ArgTypes == '\0' )	return ArgTypes;
 	
-	// Internal helper macro
-	#define MAKE_OUT(_dest,_typeChar,_typeName,_value) do{if((_dest)){\
-		*(_dest) = (tOutValue*)malloc(sizeof(tOutValue)+sizeof(_typeName));\
-		(*(_dest))->Type=(_typeChar);(*(_dest))->Length=sizeof(_typeName);\
-		*(_typeName*)((*(_dest))->Data) = (_value);\
-		}}while(0)
-	#define MAKE_IN(_dest,_typeChar,_typeName,_value) do{if((_dest)){\
-		*(_dest) = (tInValue*)malloc(sizeof(tInValue));\
-		(*(_dest))->Type=(_typeChar);(*(_dest))->Length=sizeof(_typeName);\
-		(*(_dest))->Data = (_value);\
-		}}while(0)
-	
 	// Get type
 	switch(*ArgTypes)
 	{
-	case 'i':	// 32-bit integer
-		// Input?
-		if( direction & 2 )
-		{
-			ptr32 = va_arg(Args, uint32_t*);
-			MAKE_IN(InDest, 'i', uint32_t*, ptr32);
-			if( direction & 1 )
-				MAKE_OUT(OutDest, 'i', uint32_t, *ptr32);
+	// 32-bit integer
+	case 'i':
+		
+		if( direction != 1 ) {
+			fprintf(stderr, "ReadEntry: Recieving an integer is not defined\n");
+			return NULL;
 		}
-		else
-		{
-			val32 = va_arg(Args, uint32_t);
-			MAKE_OUT(OutDest, 'i', uint32_t, val32);
-		}
+		
+		val32 = va_arg(Args, uint32_t);
+		
+		Dest->Type = ARG_TYPE_INT32;
+		Dest->Length = sizeof(uint32_t);
+		Dest->Flags = 0;
+		
+		if( DataDest )
+			*(uint32_t*)DataDest = val32;
 		break;
-	case 'I':	// 64-bit integer
-		// Input?
-		if( direction & 2 )
-		{
-			ptr64 = va_arg(Args, uint64_t*);
-			MAKE_IN(InDest, 'I', uint64_t*, ptr64);
-			if( direction & 1 )
-				MAKE_OUT(OutDest, 'I', uint64_t, *ptr64);
+	// 64-bit integer
+	case 'I':
+		
+		if( direction != 1 ) {
+			fprintf(stderr, "ReadEntry: Recieving an integer is not defined\n");
+			return NULL;
 		}
-		else
-		{
-			val64 = va_arg(Args, uint64_t);
-			MAKE_OUT(OutDest, 'I', uint64_t, val64);
-		}
+		
+		val64 = va_arg(Args, uint64_t);
+		
+		Dest->Type = ARG_TYPE_INT64;
+		Dest->Length = sizeof(uint64_t);
+		Dest->Flags = 0;
+		if( DataDest )
+			*(uint64_t*)DataDest = val64;
 		break;
+	// String
 	case 's':
 		// Input string makes no sense!
-		if( direction & 2 ) {
-			fprintf(stderr, "ReadEntry: Incoming string is not defined\n");
+		if( direction != 1 ) {
+			fprintf(stderr, "ReadEntry: Recieving a string is not defined\n");
 			return NULL;
 		}
 		
 		str = va_arg(Args, char*);
-		if( OutDest )
+		
+		Dest->Type = ARG_TYPE_STRING;
+		Dest->Length = strlen(str) + 1;
+		Dest->Flags = 0;
+		
+		if( DataDest )
 		{
-			 int	len = strlen(str) + 1;
-			*OutDest = malloc( sizeof(tOutValue) + len );
-			(*OutDest)->Type = 's';
-			(*OutDest)->Length = len;
-			memcpy((*OutDest)->Data, str, len);
+			memcpy(DataDest, str, Dest->Length);
 		}
 		break;
-	
+	// Data (special handling)
 	case 'd':
 		len = va_arg(Args, int);
 		str = va_arg(Args, char*);
 		
-		// Input ?
-		if( (direction & 2) && InDest )
-		{
-			*InDest = (tInValue*)malloc( sizeof(tInValue) );
-			(*InDest)->Type = 'd';
-			(*InDest)->Length = len;
-			(*InDest)->Data = str;
-		}
+		// Save the pointer for later
+		if( PtrDest )	*PtrDest = str;
 		
-		// Output ?
-		if( (direction & 1) && InDest )
+		// Create parameter block
+		Dest->Type = ARG_TYPE_INT64;
+		Dest->Length = sizeof(uint64_t);
+		Dest->Flags = 0;
+		if( direction & 2 )
+			Dest->Flags |= ARG_FLAG_RETURN;
+		
+		// Has data?
+		if( direction & 1 )
 		{
-			*OutDest = (tOutValue*)malloc( sizeof(tOutValue) + len );
-			(*OutDest)->Type = 'd';
-			(*OutDest)->Length = len;
-			memcpy((*OutDest)->Data, str, len);
+			if( DataDest )
+				memcpy(DataDest, str, len);
 		}
+		else
+			Dest->Flags |= ARG_FLAG_ZEROED;
 		break;
 	
 	default:
 		return NULL;
 	}
 	ArgTypes ++;
-	#undef MAKE_ASSIGN
-	
-	*Direction = direction;
 	
 	return ArgTypes;
 }
@@ -153,82 +142,118 @@ const char *ReadEntry(tOutValue **OutDest, tInValue **InDest,
  * ?d:  Bi-directional buffer (Preceded by valid size), buffer contents
  *      are returned
  */
-void _Syscall(int SyscallID, const char *ArgTypes, ...)
+uint64_t _Syscall(int SyscallID, const char *ArgTypes, ...)
 {
 	va_list	args;
-	 int	outCount;
-	 int	inCount;
+	 int	paramCount, dataLength;
+	 int	retCount = 1, retLength = sizeof(uint64_t);
+	void	**retPtrs;	// Pointers to return buffers
 	const char	*str;
-	tOutValue	**output;
-	tInValue	**input;
+	tRequestHeader	*req;
+	void	*dataPtr;
+	uint64_t	retValue;
+	 int	i;
 	
 	// Get data size
 	va_start(args, ArgTypes);
 	str = ArgTypes;
-	outCount = 0;
-	inCount = 0;
+	paramCount = 0;
+	dataLength = 0;
 	while(*str)
 	{
-		 int	dir;
+		tRequestValue	tmpVal;
 		
-		str = ReadEntry(NULL, NULL, &dir, str, args);
+		str = ReadEntry(&tmpVal, NULL, NULL, str, args);
 		if( !str ) {
 			fprintf(stderr, "syscalls.c: ReadEntry failed (SyscallID = %i)\n", SyscallID);
 			exit(127);
 		}
+		paramCount ++;
+		if( !(tmpVal.Flags & ARG_FLAG_ZEROED) )
+			dataLength += tmpVal.Length;
 		
-		// Out!
-		if( dir & 1 )	outCount ++;
-		
-		// and.. In!
-		if( dir & 2 )	inCount ++;
+		if( tmpVal.Flags & ARG_FLAG_RETURN ) {
+			retLength += tmpVal.Length;
+			retCount ++;
+		}
 	}
 	va_end(args);
 	
+	dataLength += sizeof(tRequestHeader) + paramCount*sizeof(tRequestValue);
+	retLength += sizeof(tRequestHeader) + retCount*sizeof(tRequestValue);
+	
 	// Allocate buffers
-	output = malloc( outCount*sizeof(tOutValue*) );
-	input = malloc( inCount*sizeof(tInValue*) );
+	retPtrs = malloc( sizeof(void*) * (retCount+1) );
+	if( dataLength > retLength)
+		req = malloc( dataLength );
+	else
+		req = malloc( retLength );
+	req->ClientID = 0;	//< Filled later
+	req->CallID = SyscallID;
+	req->NParams = paramCount;
+	dataPtr = &req->Params[paramCount];
 	
 	// Fill `output` and `input`
 	va_start(args, ArgTypes);
 	str = ArgTypes;
 	// - re-zero so they can be used as indicies
-	outCount = 0;
-	inCount = 0;
+	paramCount = 0;
+	retCount = 0;
 	while(*str)
-	{
-		tOutValue	*outParam;
-		tInValue	*inParam;
-		 int	dir;
-		
-		str = ReadEntry(&outParam, &inParam, &dir, str, args);
+	{		
+		str = ReadEntry(&req->Params[paramCount], dataPtr, &retPtrs[retCount], str, args);
 		if( !str )	break;
 		
-		if( dir & 1 )
-			output[outCount++] = outParam;
-		if( dir & 2 )
-			input[inCount++] = inParam;
+		if( !(req->Params[paramCount].Flags & ARG_FLAG_ZEROED) )
+			dataPtr += req->Params[paramCount].Length;
+		if( req->Params[paramCount].Flags & ARG_FLAG_RETURN )
+			retCount ++;
+		
+		paramCount ++;
 	}
 	va_end(args);
 	
 	// Send syscall request
-	if( SendRequest(SyscallID, outCount, output, inCount, input) ) {
+	if( SendRequest(req, dataLength) ) {
 		fprintf(stderr, "syscalls.c: SendRequest failed (SyscallID = %i)\n", SyscallID);
 		exit(127);
 	}
 	
-	// Clean up
-	while(outCount--)	free(output[outCount]);
-	free(output);
-	while(inCount--)	free(input[inCount]);
-	free(input);
+	// Parse return value
+	dataPtr = &req->Params[req->NParams];
+	retValue = 0;
+	if( req->NParams > 1 )
+	{
+		switch(req->Params[0].Type)
+		{
+		case ARG_TYPE_INT64:
+			retValue = *(uint64_t*)dataPtr;
+			dataPtr += req->Params[0].Length;
+			break;
+		case ARG_TYPE_INT32:
+			retValue = *(uint32_t*)dataPtr;
+			dataPtr += req->Params[0].Length;
+			break;
+		}	
+	}
+	
+	// Write changes to buffers
+	va_start(args, ArgTypes);
+	for( i = 1; i < req->NParams; i ++ )
+	{
+		memcpy( retPtrs[i-1], dataPtr, req->Params[i].Length );
+		dataPtr += req->Params[i].Length;
+	}
+	va_end(args);
+	
+	free( req );
+	
+	return 0;
 }
 
 // --- VFS Calls
 int open(const char *Path, int Flags) {
-	 int	ret = 0;
-	_Syscall(SYS_OPEN, "<i >s >i", &ret, Path, Flags);
-	return ret;
+	return _Syscall(SYS_OPEN, ">s >i", Path, Flags);
 }
 
 void close(int FD) {
@@ -236,27 +261,19 @@ void close(int FD) {
 }
 
 size_t read(int FD, size_t Bytes, void *Dest) {
-	 int	ret = 0;
-	_Syscall(SYS_READ, "<i >i >i <d", &ret, FD, Bytes, Bytes, Dest);
-	return ret;
+	return _Syscall(SYS_READ, "<i >i >i <d", FD, Bytes, Bytes, Dest);
 }
 
 size_t write(int FD, size_t Bytes, void *Src) {
-	 int	ret = 0;
-	_Syscall(SYS_WRITE, "<i >i >i >d", &ret, FD, Bytes, Bytes, Src);
-	return ret;
+	return _Syscall(SYS_WRITE, ">i >i >d", FD, Bytes, Bytes, Src);
 }
 
 int seek(int FD, int64_t Ofs, int Dir) {
-	 int	ret = 0;
-	_Syscall(SYS_SEEK, "<i >i >I >i", &ret, FD, Ofs, Dir);
-	return ret;
+	return _Syscall(SYS_SEEK, ">i >I >i", FD, Ofs, Dir);
 }
 
 uint64_t tell(int FD) {
-	uint64_t	ret;
-	_Syscall(SYS_TELL, "<I >i", &ret, FD);
-	return ret;
+	return _Syscall(SYS_TELL, ">i", FD);
 }
 
 int ioctl(int fd, int id, void *data) {

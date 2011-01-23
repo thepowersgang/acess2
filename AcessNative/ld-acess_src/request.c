@@ -114,11 +114,14 @@ int _InitSyscalls()
 		req.ClientID = 0;
 		req.CallID = 0;
 		req.NParams = 0;
-		req.NReturn = 0;
 		
 		SendData(&req, sizeof(req));
 		
 		len = ReadData(&req, sizeof(req), 5);
+		if( len == 0 ) {
+			fprintf(stderr, "Unable to connect to server (localhost:%i)\n", SERVER_PORT);
+			exit(-1);
+		}
 		
 		giSyscall_ClientID = req.ClientID;
 	}
@@ -127,81 +130,21 @@ int _InitSyscalls()
 	return 0;
 }
 
-int SendRequest(int RequestID, int NumOutput, tOutValue **Output, int NumInput, tInValue **Input)
+int SendRequest(tRequestHeader *Request, int RequestSize)
 {
-	tRequestHeader	*request;
-	tRequestValue	*value;
-	char	*data;
-	 int	requestLen;
-	 int	i;
-	
 	if( gSocket == INVALID_SOCKET )
 	{
 		_InitSyscalls();		
 	}
 	
-	// See ../syscalls.h for details of request format
-	requestLen = sizeof(tRequestHeader) + (NumOutput + NumInput) * sizeof(tRequestValue);
-	
-	// Get total param length
-	for( i = 0; i < NumOutput; i ++ )
-		requestLen += Output[i]->Length;
-	
-	// Allocate request
-	request = malloc( requestLen );
-	value = request->Params;
-	data = (char*)&request->Params[ NumOutput + NumInput ];
-	
 	// Set header
-	request->ClientID = giSyscall_ClientID;
-	request->CallID = RequestID;	// Syscall
-	request->NParams = NumOutput;
-	request->NReturn = NumInput;
+	Request->ClientID = giSyscall_ClientID;
 	
-	// Set parameters
-	for( i = 0; i < NumOutput; i ++ )
-	{
-		switch(Output[i]->Type)
-		{
-		case 'i':	value->Type = ARG_TYPE_INT32;	break;
-		case 'I':	value->Type = ARG_TYPE_INT64;	break;
-		case 'd':	value->Type = ARG_TYPE_DATA;	break;
-		case 's':	value->Type = ARG_TYPE_DATA;	break;
-		default:
-			fprintf(stderr, __FILE__" SendRequest: Unknown output type '%c'\n",
-				Output[i]->Type);
-			return -1;
-		}
-		value->Length = Output[i]->Length;
-		
-		memcpy(data, Output[i]->Data, Output[i]->Length);
-		
-		value ++;
-		data += Output[i]->Length;
-	}
-	
-	// Set return values
-	for( i = 0; i < NumInput; i ++ )
-	{
-		switch(Input[i]->Type)
-		{
-		case 'i':	value->Type = ARG_TYPE_INT32;	break;
-		case 'I':	value->Type = ARG_TYPE_INT64;	break;
-		case 'd':	value->Type = ARG_TYPE_DATA;	break;
-		default:
-			fprintf(stderr, " SendRequest: Unknown input type '%c'\n",
-				Input[i]->Type);
-			return -1;
-		}
-		value->Length = Input[i]->Length;
-		value ++;
-	}
 	#if 0
-	printf("value = %p\n", value);
 	{
-		for(i=0;i<requestLen;i++)
+		for(i=0;i<RequestSize;i++)
 		{
-			printf("%02x ", ((uint8_t*)request)[i]);
+			printf("%02x ", ((uint8_t*)Request)[i]);
 			if( i % 16 == 15 )	printf("\n");
 		}
 		printf("\n");
@@ -209,24 +152,10 @@ int SendRequest(int RequestID, int NumOutput, tOutValue **Output, int NumInput, 
 	#endif
 	
 	// Send it off
-	SendData(request, requestLen);
+	SendData(Request, RequestSize);
 	
 	// Wait for a response (no timeout)
-	requestLen = ReadData(request, requestLen, -1);
-	
-	// Parse response out
-	if( request->NParams != NumInput ) {
-		fprintf(stderr, "SendRequest: Unexpected number of values retured (%i, exp %i)\n",
-			request->NParams, NumInput
-			);
-		free( request );
-		return -1;
-	}
-	
-	// Free memory
-	free( request );
-	
-	return 0;
+	return ReadData(Request, RequestSize, -1);
 }
 
 void SendData(void *Data, int Length)
