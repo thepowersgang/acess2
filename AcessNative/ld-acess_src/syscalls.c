@@ -265,6 +265,10 @@ void close(int FD) {
 	_Syscall(SYS_CLOSE, ">i", FD);
 }
 
+int reopen(int FD, const char *Path, int Flags) {
+	return _Syscall(SYS_REOPEN, ">i >s >i", FD, Path, Flags);
+}
+
 size_t read(int FD, size_t Bytes, void *Dest) {
 	return _Syscall(SYS_READ, "<i >i >i <d", FD, Bytes, Bytes, Dest);
 }
@@ -314,6 +318,14 @@ int	_SysSetFaultHandler(int (*Handler)(int)) {
 	return 0;
 }
 
+// --- Memory Management ---
+uint64_t _SysAllocate(uint vaddr)
+{
+	if( AllocateMemory(vaddr, 0x1000) == -1 )	// Allocate a page
+		return 0;
+	return vaddr;	// Just ignore the need for paddrs :)
+}
+
 
 // === Symbol List ===
 #define DEFSYM(name)	{#name, name}
@@ -322,6 +334,7 @@ const tSym	caBuiltinSymbols[] = {
 	
 	DEFSYM(open),
 	DEFSYM(close),
+	DEFSYM(reopen),
 	DEFSYM(read),
 	DEFSYM(write),
 	DEFSYM(seek),
@@ -332,6 +345,8 @@ const tSym	caBuiltinSymbols[] = {
 	DEFSYM(_SysOpenChild),
 	DEFSYM(_SysGetACL),
 	DEFSYM(_SysMount),
+	
+	DEFSYM(_SysAllocate),
 	
 	{"_SysSetFaultHandler", _SysSetFaultHandler}
 };

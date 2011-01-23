@@ -46,7 +46,7 @@ tIOCache	*gIOCache_Caches = NULL;
  */
 tIOCache *IOCache_Create( tIOCache_WriteCallback Write, Uint32 ID, int SectorSize, int CacheSize )
 {
-	tIOCache	*ret = malloc( sizeof(tIOCache) );
+	tIOCache	*ret = calloc( 1, sizeof(tIOCache) );
 	
 	// Sanity Check
 	if(!ret)	return NULL;
@@ -57,8 +57,6 @@ tIOCache *IOCache_Create( tIOCache_WriteCallback Write, Uint32 ID, int SectorSiz
 	ret->ID = ID;
 	ret->Write = Write;
 	ret->CacheSize = CacheSize;
-	ret->CacheUsed = 0;
-	ret->Entries = 0;
 	
 	// Append to list
 	SHORTLOCK( &glIOCache_Caches );

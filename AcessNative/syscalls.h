@@ -43,6 +43,7 @@ enum eSyscalls {
 	SYS_OPENCHILD,
 	SYS_GETACL,
 	SYS_MOUNT,
+	SYS_REOPEN,
 	N_SYSCALLS
 };
 

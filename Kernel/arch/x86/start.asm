@@ -221,10 +221,12 @@ CallWithArgArray:
 [global gaInitPageTable]
 align 0x1000
 gaInitPageDir:
-	dd	gaInitPageTable-KERNEL_BASE+3	; 0x00
-	times 1024-256-1	dd	0
-	dd	gaInitPageTable-KERNEL_BASE+3	; 0xC0
-	times 256-1	dd	0
+	dd	gaInitPageTable-KERNEL_BASE+3	; 0x000 - Low kernel
+	times 0x300-1	dd	0
+	dd	gaInitPageTable-KERNEL_BASE+3	; 0xC00 - High kernel
+	times 0x3F0-0x300-1	dd	0
+	dd	gaInitPageDir-KERNEL_BASE+3 	; 0xFC0 - Fractal
+	times 0x400-0x3F0-1	dd	0
 align 0x1000
 gaInitPageTable:
 	%assign i 0

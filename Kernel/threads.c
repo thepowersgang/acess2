@@ -1174,6 +1174,12 @@ void Mutex_Acquire(tMutex *Mutex)
 		Mutex->Owner = us;
 		SHORTREL( &Mutex->Protector );
 	}
+	
+	#if 0
+	extern tMutex	glPhysAlloc;
+	if( Mutex != &glPhysAlloc )
+		LogF("Mutex %p taken by %i %p\n", Mutex, us->TID, __builtin_return_address(0));
+	#endif
 }
 
 /**
@@ -1204,6 +1210,12 @@ void Mutex_Release(tMutex *Mutex)
 		Mutex->Owner = NULL;
 	}
 	SHORTREL( &Mutex->Protector );
+	
+	#if 0
+	extern tMutex	glPhysAlloc;
+	if( Mutex != &glPhysAlloc )
+		LogF("Mutex %p released by %i %p\n", Mutex, Threads_GetTID(), __builtin_return_address(0));
+	#endif
 }
 
 /**

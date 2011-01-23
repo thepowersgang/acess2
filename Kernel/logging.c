@@ -111,6 +111,8 @@ void Log_AddEvent(char *Ident, int Level, char *Format, va_list Args)
 	{
 		#define LOG_HDR_LEN	(14+1+2+8+2)
 		char	newData[ LOG_HDR_LEN + len + 2 + 1 ];
+		char	_ident[9];
+		strncpy(_ident, Ident, 9);
 		sprintf( newData, "%014lli%s [%+8s] ",
 			ent->Time, csaLevelCodes[Level], Ident);
 		strcpy( newData + LOG_HDR_LEN, ent->Data );

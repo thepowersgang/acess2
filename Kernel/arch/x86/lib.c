@@ -5,7 +5,11 @@
 #include <acess.h>
 #include <threads.h>
 
-#define TRACE_LOCKS	1
+#define TRACE_LOCKS	0
+
+#if TRACE_LOCKS
+struct sShortSpinlock	glDebug_Lock;
+#endif
 
 extern int	GetCPUNum(void);
 
@@ -107,7 +111,11 @@ void SHORTLOCK(struct sShortSpinlock *Lock)
 	#endif
 	
 	#if TRACE_LOCKS
-	Log_Log("LOCK", "%p locked by %p\n", Lock, __builtin_return_address(0));
+	if( Lock != &glDebug_Lock )
+	{
+		//Log_Log("LOCK", "%p locked by %p", Lock, __builtin_return_address(0));
+		LogF("Lock %p locked by %p\n", Lock, __builtin_return_address(0));
+	}
 	#endif
 }
 /**
@@ -115,15 +123,19 @@ void SHORTLOCK(struct sShortSpinlock *Lock)
  * \param Lock	Lock pointer
  */
 void SHORTREL(struct sShortSpinlock *Lock)
-{
-	#if TRACE_LOCKS
-	Log_Log("LOCK", "%p released by %p\n", Lock, __builtin_return_address(0));
-	#endif
-	
+{	
 	#if STACKED_LOCKS
 	if( Lock->Depth ) {
 		Lock->Depth --;
 		return ;
+	}
+	#endif
+	
+	#if TRACE_LOCKS
+	if( Lock != &glDebug_Lock )
+	{
+		//Log_Log("LOCK", "%p released by %p", Lock, __builtin_return_address(0));
+		LogF("Lock %p released by %p\n", Lock, __builtin_return_address(0));
 	}
 	#endif
 	
