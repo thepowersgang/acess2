@@ -9,15 +9,20 @@
 #include "ipstack.h"
 #include "link.h"
 
+#define	DEFAUTL_METRIC	30
+
 // === IMPORTS ===
-tVFS_Node	*IPStack_Root_FindDir(tVFS_Node *Node, const char *Filename);
+extern tInterface	*gIP_Interfaces;
+extern tVFS_Node	*IPStack_Root_FindDir(tVFS_Node *Node, const char *Filename);
 
 // === PROTOTYPES ===
 // - Routes directory
 char	*IPStack_RouteDir_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*IPStack_RouteDir_FindDir(tVFS_Node *Node, const char *Name);
  int	IPStack_RouteDir_IOCtl(tVFS_Node *Node, int ID, void *Data);
- int	IPStack_Route_Create(const char *InterfaceName);
+// - Route Management
+tRoute	*IPStack_Route_Create(const char *InterfaceName);
+tRoute	*IPStack_AddRoute(const char *Interface, void *Network, int SubnetBits, void *NextHop, int Metric);
 tRoute	*IPStack_FindRoute(int AddressType, tInterface *Interface, void *Address);
 // - Individual Routes
  int	IPStack_Route_IOCtl(tVFS_Node *Node, int ID, void *Data);
@@ -94,6 +99,7 @@ static const char *casIOCtls_RouteDir[] = {
 int IPStack_RouteDir_IOCtl(tVFS_Node *Node, int ID, void *Data)
 {
 	 int	tmp;
+	tRoute	*rt;
 	ENTER("pNode iID pData", Node, ID, Data);
 	switch(ID)
 	{
@@ -118,7 +124,11 @@ int IPStack_RouteDir_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	
 	case 4:	// Add Route
 		if( !CheckString(Data) )	LEAVE_RET('i', -1);
-		tmp = IPStack_Route_Create(Data);
+		rt = IPStack_Route_Create(Data);
+		if( !rt )
+			tmp = -1;
+		else
+			tmp = rt->Node.Inode;
 		LEAVE('i', tmp);
 		return tmp;
 	
@@ -128,7 +138,6 @@ int IPStack_RouteDir_IOCtl(tVFS_Node *Node, int ID, void *Data)
 				 int	Type;
 				Uint8	Addr[];
 			}	*data = Data;
-			tRoute	*rt;
 			
 			if( !CheckMem(Data, sizeof(int)) )
 				LEAVE_RET('i', -1);
@@ -155,7 +164,7 @@ int IPStack_RouteDir_IOCtl(tVFS_Node *Node, int ID, void *Data)
  * \brief Create a new route entry
  * \param InterfaceName	Name of the interface using this route
  */
-int IPStack_Route_Create(const char *InterfaceName)
+tRoute *IPStack_Route_Create(const char *InterfaceName)
 {
 	tRoute	*rt;
 	tInterface	*iface;
@@ -167,15 +176,16 @@ int IPStack_Route_Create(const char *InterfaceName)
 		tVFS_Node	*node = IPStack_Root_FindDir(NULL, InterfaceName);
 		if( !node ) {
 			Log_Debug("IPStack", "IPStack_Route_Create - Unknown interface '%s'\n", InterfaceName);
-			return 0;
+			return NULL;
 		}
 		iface = node->ImplPtr;
+		if(node->Close)	node->Close(node);
 	}
 	
 	// Get the size of the specified address type
 	size = IPStack_GetAddressSize(iface->Type);
 	if( size == 0 ) {
-		return 0;
+		return NULL;
 	}
 	
 	// Allocate space
@@ -195,6 +205,9 @@ int IPStack_Route_Create(const char *InterfaceName)
 	rt->SubnetBits = 0;
 	rt->NextHop = (void *)( (tVAddr)rt + sizeof(tRoute) + size );
 	rt->Interface = iface;
+	rt->Metric = DEFAUTL_METRIC;
+	memset(rt->Network, 0, size);
+	memset(rt->NextHop, 0, size);
 	
 	// Add to list
 	if( gIP_RoutesEnd ) {
@@ -207,12 +220,34 @@ int IPStack_Route_Create(const char *InterfaceName)
 	
 	Log_Log("IPStack", "Route entry for '%s' created", InterfaceName);
 	
-	return rt->Node.Inode;
+	return rt;
+}
+
+/**
+ * \brief Add and fill a route
+ */
+tRoute *IPStack_AddRoute(const char *Interface, void *Network, int SubnetBits, void *NextHop, int Metric)
+{
+	tRoute	*rt = IPStack_Route_Create(Interface);
+	 int	addrSize;
+	
+	if( !rt )	return NULL;
+	
+	addrSize = IPStack_GetAddressSize(rt->Interface->Type);
+	
+	memcpy(rt->Network, Network, addrSize);
+	if( NextHop )
+		memcpy(rt->NextHop, NextHop, addrSize);
+	rt->SubnetBits = SubnetBits;
+	if( Metric )
+		rt->Metric = Metric;
+	
+	return rt;
 }
 
 /**
  */
-tRoute	*IPStack_FindRoute(int AddressType, tInterface *Interface, void *Address)
+tRoute *IPStack_FindRoute(int AddressType, tInterface *Interface, void *Address)
 {
 	tRoute	*rt;
 	tRoute	*best = NULL;

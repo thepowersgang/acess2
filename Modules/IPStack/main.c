@@ -22,6 +22,7 @@ extern tVFS_Node	*IPStack_Root_FindDir(tVFS_Node *Node, const char *Name);
 extern int	IPStack_Root_IOCtl(tVFS_Node *Node, int ID, void *Data);
 extern tInterface	gIP_LoopInterface;
 extern tInterface	*IPStack_AddInterface(const char *Device, const char *Name);
+extern tRoute	*IPStack_AddRoute(const char *Interface, void *Network, int SubnetBits, void *NextHop, int Metric);
 
 // === PROTOTYPES ===
  int	IPStack_Install(char **Arguments);
@@ -114,6 +115,9 @@ int IPStack_Install(char **Arguments)
 					iface->Type = iType;
 					memcpy(iface->Address, addrData, size);
 					iface->SubnetBits = iBits;
+					
+					// Route for addrData/iBits, no next hop, default metric
+					IPStack_AddRoute(iface->Name, iface->Address, iBits, NULL, 0);
 				}
 			}
 			

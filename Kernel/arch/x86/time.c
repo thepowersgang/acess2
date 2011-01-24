@@ -9,7 +9,8 @@
 #define	TIMER_QUANTUM	100
 // 2^(15-rate), 15: 1HZ, 5: 1024Hz, 2: 8192Hz
 // (Max: 15, Min: 2) - 15 = 1Hz, 13 = 4Hz, 12 = 8Hz, 11 = 16Hz 10 = 32Hz, 2 = 8192Hz
-#define TIMER_RATE	12
+#define TIMER_RATE	10
+//#define TIMER_RATE	12
 //#define TIMER_RATE	15
 #define TIMER_FREQ	(0x8000>>TIMER_RATE)	//Hz
 #define MS_PER_TICK_WHOLE	(1000/(TIMER_FREQ))
