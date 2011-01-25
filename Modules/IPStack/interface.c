@@ -251,7 +251,7 @@ tInterface *IPStack_AddInterface(const char *Device, const char *Name)
 	iface = malloc(
 		sizeof(tInterface)
 		+ nameLen + 1
-		+ IPStack_GetAddressSize(-1)
+		+ IPStack_GetAddressSize(-1)*3	// Address, Route->Network, Route->NextHop
 		);
 	if(!iface) {
 		LEAVE('n');
@@ -261,6 +261,8 @@ tInterface *IPStack_AddInterface(const char *Device, const char *Name)
 	iface->Next = NULL;
 	iface->Type = 0;	// Unset type
 	iface->Address = iface->Name + nameLen + 1;	// Address
+	iface->Route.Network = iface->Address + IPStack_GetAddressSize(-1);
+	iface->Route.NextHop = iface->Route.Network + IPStack_GetAddressSize(-1);
 	
 	// Create Node
 	iface->Node.ImplPtr = iface;

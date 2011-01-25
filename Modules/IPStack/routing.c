@@ -251,6 +251,8 @@ tRoute *IPStack_FindRoute(int AddressType, tInterface *Interface, void *Address)
 {
 	tRoute	*rt;
 	tRoute	*best = NULL;
+	tInterface	*iface;
+	 int	addrSize;
 	
 	ENTER("iAddressType pInterface sAddress",
 		AddressType, Interface, IPStack_PrintAddress(AddressType, Address));
@@ -261,6 +263,10 @@ tRoute *IPStack_FindRoute(int AddressType, tInterface *Interface, void *Address)
 		return NULL;
 	}
 	
+	// Get address size
+	addrSize = IPStack_GetAddressSize(AddressType);
+	
+	// Check against explicit routes
 	for( rt = gIP_Routes; rt; rt = rt->Next )
 	{
 		// Check interface
@@ -288,6 +294,56 @@ tRoute *IPStack_FindRoute(int AddressType, tInterface *Interface, void *Address)
 		}
 		
 		best = rt;
+	}
+	
+	// Check against implicit routes
+	if( !best && !Interface )
+	{
+		for( iface = gIP_Interfaces; iface; iface = iface->Next )
+		{
+			if( Interface && iface != Interface )	continue;
+			if( iface->Type != AddressType )	continue;
+			
+			
+			// Check if the address matches
+			if( !IPStack_CompareAddress(AddressType, iface->Address, Address, iface->SubnetBits) )
+				continue;
+			
+			if( best ) {
+				// More direct routes are preferred
+				if( best->SubnetBits > rt->SubnetBits ) {
+					LOG("Skipped - less direct (%i < %i)", rt->SubnetBits, best->SubnetBits);
+					continue;
+				}
+				// If equally direct, choose the best metric
+				if( best->SubnetBits == rt->SubnetBits && best->Metric < rt->Metric ) {
+					LOG("Skipped - higher metric (%i > %i)", rt->Metric, best->Metric);
+					continue;
+				}
+			}
+			
+			rt = &iface->Route;
+			memcpy(rt->Network, iface->Address, addrSize);
+			memset(rt->NextHop, 0, addrSize);
+			rt->Metric = DEFAUTL_METRIC;
+			rt->SubnetBits = iface->SubnetBits;
+			
+			best = rt;
+		}
+	}
+	if( !best && Interface )
+	{
+		rt = &Interface->Route;
+		// Make sure route is up to date
+		memcpy(rt->Network, iface->Address, addrSize);
+		memset(rt->NextHop, 0, addrSize);
+		rt->Metric = DEFAUTL_METRIC;
+		rt->SubnetBits = iface->SubnetBits;
+		
+		if( IPStack_CompareAddress(AddressType, rt->Network, Address, rt->SubnetBits) )
+		{
+			best = rt;
+		}
 	}
 	
 	LEAVE('p', best);

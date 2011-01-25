@@ -11,6 +11,7 @@
 // === CONSTANTS ===
 #define FILENAME_MAX	255
 #define IPSTACK_ROOT	"/Devices/ip"
+#define DEFAULT_METRIC	30
 
 // TODO: Move this to a header
 #define ntohs(v)	(((v&0xFF)<<8)|((v>>8)&0xFF))
@@ -22,10 +23,10 @@ void	DumpRoutes(void);
 void	DumpInterface(const char *Name);
 void	DumpRoute(const char *Name);
  int	AddInterface(const char *Device);
-void	AddRoute(const char *Interface, void *Dest, int MaskBits, void *NextHop);
+void	AddRoute(const char *Interface, int AddressType, void *Dest, int MaskBits, int Metric, void *NextHop);
  int	DoAutoConfig(const char *Device);
  int	SetAddress(int IFNum, const char *Address);
- int	ParseIPAddres(const char *Address, uint8_t *Dest, int *SubnetBits);
+ int	ParseIPAddress(const char *Address, uint8_t *Dest, int *SubnetBits);
 
 // === CODE ===
 /**
@@ -41,13 +42,93 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 	
-	if( strcmp(argv[1], "routes") == 0 ) {
-		DumpRoutes();
+	// Routes
+	if( strcmp(argv[1], "route") == 0 )
+	{
+		// Add new route
+		if( strcmp(argv[2], "add") == 0 )
+		{
+			uint8_t	dest[16] = {0};
+			uint8_t	nextHop[16] = {0};
+			 int	addrType, subnetBits = -1;
+			 int	nextHopType, nextHopBits=-1;
+			char	*ifaceName;
+			 int	metric = DEFAULT_METRIC;
+			// Usage:
+			// ifconfig route add <host>[/<prefix>] <interface> [<metric>]
+			// ifconfig route add <host>[/<prefix>] <next hop> [<metric>]
+			if( argc - 3  < 2 ) {
+				fprintf(stderr, "ERROR: '%s route add' takes at least two arguments, %i passed\n",
+					argv[0], argc-3);
+				PrintUsage(argv[0]);
+				return -1;
+			}
+			
+			if( argc - 3 > 3 ) {
+				fprintf(stderr, "ERROR: '%s route add' takes at most three arguments, %i passed\n",
+					argv[0], argc-3);
+				PrintUsage(argv[0]);
+				return -1;
+			}
+			
+			// Destination IP
+			addrType = ParseIPAddress(argv[3], dest, &subnetBits);
+			if( subnetBits == -1 ) {
+				subnetBits = Net_GetAddressSize(addrType)*8;
+			}
+			// Interface Name / Next Hop
+			if( (nextHopType = ParseIPAddress(argv[4], nextHop, &nextHopBits)) == 0 )
+			{
+				// Interface name
+				ifaceName = argv[4];
+			}
+			else
+			{
+				// Next Hop
+				// - Check if it's the same type as the network/destination
+				if( nextHopType != addrType ) {
+					fprintf(stderr, "ERROR: Address type mismatch\n");
+					return -1;
+				}
+				// - Make sure there's no mask
+				if( nextHopBits != -1 ) {
+					fprintf(stderr, "Error: Next hop cannot be masked\n");
+					return -1;
+				}
+			}
+			
+			// Metric
+			if( argc - 3 >= 3 )
+			{
+				metric = atoi(argv[5]);
+				if( metric == 0 && argv[5][0] != '0' ) {
+					fprintf(stderr, "ERROR: Metric should be a number\n");
+					return -1;
+				}
+			}
+			
+			// Make the route!
+			AddRoute(ifaceName, addrType, dest, subnetBits, metric, nextHop);
+			
+			return 0;
+		}
+		// Delete a route
+		else if( strcmp(argv[2], "del") == 0 )
+		{
+			// Usage:
+			// ifconfig route del <routenum>
+			// ifconfig route del <host>[/<prefix>]
+		}
+		else
+		{
+			// List routes
+			DumpRoutes();
+		}
 		return 0;
 	}
-	
 	// Add a new interface
-	if( strcmp(argv[1], "add") == 0 ) {
+	else if( strcmp(argv[1], "add") == 0 )
+	{
 		if( argc < 4 ) {
 			fprintf(stderr, "ERROR: '%s add' requires two arguments, %i passed\n", argv[0], argc-2);
 			PrintUsage(argv[0]);
@@ -59,9 +140,9 @@ int main(int argc, char *argv[])
 		ret = SetAddress( ret, argv[3] );
 		return ret;
 	}
-	
 	// Delete an interface
-	if( strcmp(argv[1], "del") == 0 ) {
+	else if( strcmp(argv[1], "del") == 0 )
+	{
 		if( argc < 3 ) {
 			fprintf(stderr, "ERROR: '%s del' requires an argument\n", argv[0]);
 			PrintUsage(argv[0]);
@@ -69,16 +150,21 @@ int main(int argc, char *argv[])
 		}
 		// TODO:
 	}
-	
 	// Autoconfigure an interface
 	// NOTE: Debugging hack (see the function for more details)
-	if( strcmp(argv[1], "autoconf") == 0 ) {
+	else if( strcmp(argv[1], "autoconf") == 0 )
+	{
 		DoAutoConfig(argv[2]);
 		return 0;
 	}
+	else if( strcmp(argv[1], "help") == 0 || strcmp(argv[1], "--help") == 0 )
+	{
+		PrintUsage(argv[0]);
+		return 0;
+	}
 	
-	// Print usage instructions
-	PrintUsage(argv[0]);
+	// Dump a named interface
+	DumpInterface(argv[1]);
 	
 	return 0;
 }
@@ -93,11 +179,17 @@ void PrintUsage(const char *ProgName)
 	fprintf(stderr, "        Add a new interface listening on <device> with the specified\n");
 	fprintf(stderr, "        address.\n");
 	fprintf(stderr, "    %s del <interface>\n", ProgName);
-	fprintf(stderr, "    %s set <interface> <option> <value>\n", ProgName);
-	fprintf(stderr, "        Set an option on an interface, a list of valid options follows\n");
-	fprintf(stderr, "        gw      IPv4 default gateway\n");
+	fprintf(stderr, "        Delete an interface\n");
 	fprintf(stderr, "    %s [<interface>]\n", ProgName);
 	fprintf(stderr, "        Print the current interfaces (or only <interface> if passed)\n");
+	fprintf(stderr, "\n");
+	fprintf(stderr, "    %s routes\n", ProgName);
+	fprintf(stderr, "        Print the routing tables\n");
+	fprintf(stderr, "    %s routes add <host>[/<prefix>] [<nexthop> OR <iface>] [<metric>]\n", ProgName);
+	fprintf(stderr, "        Add a new route\n");
+	fprintf(stderr, "    %s routes del <host>[/<prefix>]\n", ProgName);
+	fprintf(stderr, "    %s routes del <routenum>\n", ProgName);
+	fprintf(stderr, "        Add a new route\n");
 	fprintf(stderr, "\n");
 	fprintf(stderr, "A note on Acess's IP Stack:\n");
 	fprintf(stderr, "    Each interface corresponds to only one IP address (either IPv4\n");
@@ -157,7 +249,7 @@ void DumpInterface(const char *Name)
 	
 	fd = open(path, OPENFLAG_READ);
 	if(fd == -1) {
-		printf("%s:\tUnable to open ('%s')\n", Name, path);
+		fprintf(stderr, "Bad interface name '%s' (%s does not exist)\t", Name, path);
 		return ;
 	}
 	
@@ -315,11 +407,51 @@ int AddInterface(const char *Device)
 	return ret;
 }
 
-void AddRoute(const char *Interface, void *Dest, int MaskBits, void *NextHop)
+void AddRoute(const char *Interface, int AddressType, void *Dest, int MaskBits, int Metric, void *NextHop)
 {
 	 int	fd;
 	 int	num;
 	char	tmp[sizeof(IPSTACK_ROOT"/routes/") + 5];	// enough for 4 digits
+	char	*ifaceToFree = NULL;
+	
+	// Get interface name
+	if( !Interface )
+	{
+		if( !NextHop ) {
+			fprintf(stderr,
+				"BUG: AddRoute(Interface=NULL,...,NextHop=NULL)\n"
+				"Only one should be NULL\n"
+				);
+			return ;
+		}
+		
+		// Query for the interface name
+		Interface = ifaceToFree = Net_GetInterface(AddressType, NextHop);
+	}
+	// Check address type (if the interface was passed)
+	// - If we got the interface name, then it should be correct
+	else
+	{
+		char	ifacePath[sizeof(IPSTACK_ROOT"/")+strlen(Interface)+1];
+		
+		// Open interface
+		strcpy(ifacePath, IPSTACK_ROOT"/");
+		strcat(ifacePath, Interface);
+		fd = open(ifacePath, 0);
+		if( fd == -1 ) {
+			fprintf(stderr, "Error: Interface '%s' does not exist\n", Interface);
+			return ;
+		}
+		// Get and check type
+		num = ioctl(fd, ioctl(fd, 3, "getset_type"), NULL);
+		if( num != AddressType ) {
+			fprintf(stderr, "Error: Passed type does not match interface type (%i != %i)\n",
+				AddressType, num);
+			return ;
+		}
+		
+		close(fd);
+	}
 	
 	// Create route
 	fd = open(IPSTACK_ROOT"/routes", 0);
@@ -331,11 +463,16 @@ void AddRoute(const char *Interface, void *Dest, int MaskBits, void *NextHop)
 	fd = open(tmp, 0);
 	
 	ioctl(fd, ioctl(fd, 3, "set_network"), Dest);
-	ioctl(fd, ioctl(fd, 3, "set_nexthop"), NextHop);
+	if( NextHop )
+		ioctl(fd, ioctl(fd, 3, "set_nexthop"), NextHop);
 	ioctl(fd, ioctl(fd, 3, "getset_subnetbits"), &MaskBits);
+	ioctl(fd, ioctl(fd, 3, "getset_metric"), &Metric);
 	
 	close(fd);
 	
+	// Check if the interface name was allocated by us
+	if( ifaceToFree )
+		free(ifaceToFree);
 }
 
 /**
@@ -376,8 +513,8 @@ int DoAutoConfig(const char *Device)
 	// Set routes
 	{
 		uint8_t	net[4] = {0,0,0,0};
-		AddRoute(path + sizeof(IPSTACK_ROOT), addr, subnet, net);	// This interface
-		AddRoute(path + sizeof(IPSTACK_ROOT), net, 0, gw);	// Gateway
+		AddRoute(path + sizeof(IPSTACK_ROOT), 4, addr, subnet, DEFAULT_METRIC, net);	// This interface
+		AddRoute(path + sizeof(IPSTACK_ROOT), 4, net, 0, DEFAULT_METRIC, gw);	// Gateway
 	}
 	
 	close(fd);
@@ -401,7 +538,7 @@ int	SetAddress(int IFNum, const char *Address)
 	 int	tmp, fd, subnet;
 	
 	// Parse IP Address
-	type = ParseIPAddres(Address, addr, &subnet);
+	type = ParseIPAddress(Address, addr, &subnet);
 	if(type == 0) {
 		fprintf(stderr, "'%s' cannot be parsed as an IP address\n", Address);
 		return -1;
@@ -440,7 +577,7 @@ int	SetAddress(int IFNum, const char *Address)
  * \brief Parse an IP Address
  * \return 0 for unknown, 4 for IPv4 and 6 for IPv6
  */
-int ParseIPAddres(const char *Address, uint8_t *Dest, int *SubnetBits)
+int ParseIPAddress(const char *Address, uint8_t *Dest, int *SubnetBits)
 {
 	const char	*p = Address;
 	
@@ -485,7 +622,7 @@ int ParseIPAddres(const char *Address, uint8_t *Dest, int *SubnetBits)
 			if(val > 32) {
 				printf("Notice: Subnet size >32 (%i)\n", val);
 			}
-			*SubnetBits = val;
+			if(SubnetBits)	*SubnetBits = val;
 		}
 		if(Address[i] != '\0') {
 			//printf("EOS != '\\0', '%c'\n", Address[i]);
@@ -560,7 +697,7 @@ int ParseIPAddres(const char *Address, uint8_t *Dest, int *SubnetBits)
 			if(val > 128) {
 				printf("Notice: Subnet size >128 (%i)\n", val);
 			}
-			*SubnetBits = val;
+			if(SubnetBits)	*SubnetBits = val;
 		}
 		
 		for( j = 0; j < split; j ++ )

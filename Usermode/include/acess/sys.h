@@ -66,6 +66,7 @@ extern void	_SysDebug(const char *format, ...);
 extern void	_exit(int status)	__attribute__((noreturn));
 extern void	sleep();
 extern void	yield();
+extern int	kill(int pid, int sig);
 extern void	wait(int miliseconds);
 extern int	waittid(int id, int *status);
 extern int	clone(int flags, void *stack);
@@ -73,6 +74,8 @@ extern int	execve(char *path, char **argv, char **envp);
 extern int	gettid();
 extern int	getpid();
 extern int	_SysSetFaultHandler(int (*Handler)(int));
+extern void	SysSetName(const char *Name);
+//extern int	SysGetName(const char *Name);
 
 // --- Permissions ---
 extern int	getuid();

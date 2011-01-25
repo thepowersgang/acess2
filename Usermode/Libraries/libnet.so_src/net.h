@@ -22,6 +22,13 @@ extern int	Net_ParseAddress(const char *String, void *Addr);
 extern const char *Net_PrintAddress(int AddressType, void *Address);
 
 /**
+ * \brief Get the size in bytes of an address type
+ * \param AddressType	Address type returned by Net_ParseAddress
+ * \return Size of an address in bytes
+ */
+extern int Net_GetAddressSize(int AddressType);
+
+/**
  * \brief Get the interface required to reach \a Addr
  * \param AddrType	Addresss Family (4: IPv4, 6: IPv6)
  * \param Addr	Address in binary format

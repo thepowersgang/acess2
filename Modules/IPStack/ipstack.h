@@ -38,21 +38,6 @@ struct sMacAddr {
 	Uint8	B[6];
 } __attribute__((packed));
 
-struct sInterface {
-	struct sInterface	*Next;	//!< Next interface in list
-	
-	tVFS_Node	Node;	//!< Node to use the interface
-	
-	tAdapter	*Adapter;	//!< Adapter the interface is associated with
-	 int	TimeoutDelay;	//!< Time in miliseconds before a packet times out
-	 int	Type;	//!< Interface type, see ::eInterfaceTypes
-	
-	void	*Address;	//!< IP address (stored after the Name)
-	 int	SubnetBits;	//!< Number of bits that denote the address network
-	
-	char	Name[];
-};
-
 /**
  * \brief Route definition structure
  */
@@ -68,6 +53,23 @@ typedef struct sRoute {
 	void	*NextHop;	//!< Next Hop address - Pointer to tIPv4/tIPv6/... at end of structure
 	 int	Metric;	//!< Route priority
 }	tRoute;
+
+struct sInterface {
+	struct sInterface	*Next;	//!< Next interface in list
+	
+	tVFS_Node	Node;	//!< Node to use the interface
+	
+	tAdapter	*Adapter;	//!< Adapter the interface is associated with
+	 int	TimeoutDelay;	//!< Time in miliseconds before a packet times out
+	 int	Type;	//!< Interface type, see ::eInterfaceTypes
+	
+	void	*Address;	//!< IP address (stored after the Name)
+	 int	SubnetBits;	//!< Number of bits that denote the address network
+	
+	tRoute	Route;	//!< Interface route
+	
+	char	Name[];
+};
 
 /**
  * \brief Represents a network adapter
