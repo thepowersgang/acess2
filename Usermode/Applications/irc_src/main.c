@@ -38,10 +38,13 @@ int main(int argc, const char *argv[], const char *envp[])
 	
 	memset(&srv, 0, sizeof(srv));
 	
+	// Parse Command line
+	// - Sets the server configuration globals
 	if( (tmp = ParseArguments(argc, argv)) ) {
 		return tmp;
 	}
 	
+	// Connect to the remove server
 	srv.FD = OpenTCP( gsRemoteAddress, giRemotePort );
 	if( srv.FD == -1 ) {
 		fprintf(stderr, "Unable to create socket\n");
@@ -232,12 +235,12 @@ int OpenTCP(const char *AddressString, short PortNumber)
 	}
 	
 	// Set remote port and address
-	printf("Setting port and remote address");
+	printf("Setting port and remote address\n");
 	ioctl(fd, 5, &PortNumber);
 	ioctl(fd, 6, addrBuffer);
 	
 	// Connect
-	printf("Initiating connection");
+	printf("Initiating connection\n");
 	if( ioctl(fd, 7, NULL) == 0 ) {
 		// Shouldn't happen :(
 		fprintf(stderr, "Unable to start connection\n");

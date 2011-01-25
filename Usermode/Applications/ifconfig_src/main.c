@@ -46,13 +46,13 @@ int main(int argc, char *argv[])
 	if( strcmp(argv[1], "route") == 0 )
 	{
 		// Add new route
-		if( strcmp(argv[2], "add") == 0 )
+		if( argc > 2 && strcmp(argv[2], "add") == 0 )
 		{
 			uint8_t	dest[16] = {0};
 			uint8_t	nextHop[16] = {0};
 			 int	addrType, subnetBits = -1;
 			 int	nextHopType, nextHopBits=-1;
-			char	*ifaceName;
+			char	*ifaceName = NULL;
 			 int	metric = DEFAULT_METRIC;
 			// Usage:
 			// ifconfig route add <host>[/<prefix>] <interface> [<metric>]
@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
 			return 0;
 		}
 		// Delete a route
-		else if( strcmp(argv[2], "del") == 0 )
+		else if( argc > 2 && strcmp(argv[2], "del") == 0 )
 		{
 			// Usage:
 			// ifconfig route del <routenum>
@@ -227,6 +227,8 @@ void DumpRoutes(void)
 	
 	dp = open(IPSTACK_ROOT"/routes", OPENFLAG_READ);
 	
+	printf("ID\tType\tNetwork \tGateway \tMetric\tIFace\n");
+	
 	while( readdir(dp, filename) )
 	{
 		if(filename[0] == '.')	continue;
@@ -332,15 +334,8 @@ void DumpRoute(const char *Name)
 		return ;
 	}
 	
-	printf("%s:\t", Name);
-	{
-		 int	call_num = ioctl(fd, 3, "get_interface");
-		 int	len = ioctl(fd, call_num, NULL);
-		char	*buf = malloc(len+1);
-		ioctl(fd, call_num, buf);
-		printf("'%s'\t", buf);
-		free(buf);
-	}
+	// Number
+	printf("%s\t", Name);
 	
 	// Get the address type
 	switch(type)
@@ -352,34 +347,45 @@ void DumpRoute(const char *Name)
 		{
 		uint8_t	net[4], addr[4];
 		 int	subnet, metric;
-		printf("IPv4\n");
+		printf("IPv4\t");
 		ioctl(fd, ioctl(fd, 3, "get_network"), net);	// Get Network
 		ioctl(fd, ioctl(fd, 3, "get_nexthop"), addr);	// Get Gateway/NextHop
 		subnet = ioctl(fd, ioctl(fd, 3, "getset_subnetbits"), NULL);	// Get Subnet Bits
 		metric = ioctl(fd, ioctl(fd, 3, "getset_metric"), NULL);	// Get Subnet Bits
-		printf("\tNetwork: %s/%i\n", Net_PrintAddress(4, net), subnet);
-		printf("\tGateway: %s\n", Net_PrintAddress(4, addr));
-		printf("\tMetric:  %i\n", metric);
+		printf("%s/%i\t", Net_PrintAddress(4, net), subnet);
+		printf("%s \t", Net_PrintAddress(4, addr));
+		printf("%i\t", metric);
 		}
 		break;
 	case 6:	// IPv6
 		{
 		uint16_t	net[8], addr[8];
 		 int	subnet, metric;
-		printf("IPv6\n");
+		printf("IPv6\t");
 		ioctl(fd, ioctl(fd, 3, "get_network"), net);	// Get Network
 		ioctl(fd, ioctl(fd, 3, "get_nexthop"), addr);	// Get Gateway/NextHop
 		subnet = ioctl(fd, ioctl(fd, 3, "getset_subnetbits"), NULL);	// Get Subnet Bits
 		metric = ioctl(fd, ioctl(fd, 3, "getset_metric"), NULL);	// Get Subnet Bits
-		printf("\tNetwork: %s/%i\n", Net_PrintAddress(6, net), subnet);
-		printf("\tGateway: %s\n", Net_PrintAddress(6, addr));
-		printf("\tMetric:  %i\n", metric);
+		printf("%s/%i\t", Net_PrintAddress(6, net), subnet);
+		printf("%s\t", Net_PrintAddress(6, addr));
+		printf("%i\t", metric);
 		}
 		break;
 	default:	// Unknow
 		printf("UNKNOWN (%i)\n", type);
 		break;
 	}
+	
+	// Interface
+	{
+		 int	call_num = ioctl(fd, 3, "get_interface");
+		 int	len = ioctl(fd, call_num, NULL);
+		char	*buf = malloc(len+1);
+		ioctl(fd, call_num, buf);
+		printf("'%s'\t", buf);
+		free(buf);
+	}
+	
 	printf("\n");
 			
 	close(fd);
