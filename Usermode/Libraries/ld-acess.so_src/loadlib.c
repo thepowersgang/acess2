@@ -16,13 +16,12 @@
 Uint	IsFileLoaded(char *file);
  int	GetSymbolFromBase(Uint base, char *name, Uint *ret);
 
-// === CONSTANTS ===
-const struct {
+// === IMPORTS ===
+extern const struct {
 	Uint	Value;
 	char	*Name;
-}	caLocalExports[] = {
-	{(Uint)gLoadedLibraries, "gLoadedLibraries"}
-};
+}	caLocalExports[];
+extern const int	ciNumLocalExports;
 
 // === GLOABLS ===
 tLoadedLib	gLoadedLibraries[MAX_LOADED_LIBRARIES];
@@ -200,7 +199,9 @@ Uint GetSymbol(char *name)
 {
 	 int	i;
 	Uint	ret;
-	for(i=0;i<sizeof(caLocalExports)/sizeof(caLocalExports[0]);i++)
+	
+	//SysDebug("ciNumLocalExports = %i", ciNumLocalExports);
+	for(i=0;i<ciNumLocalExports;i++)
 	{
 		if( strcmp(caLocalExports[i].Name, name) == 0 )
 			return caLocalExports[i].Value;
@@ -210,11 +211,11 @@ Uint GetSymbol(char *name)
 	{
 		if(gLoadedLibraries[i].Base == 0)	break;
 		
-		//SysDebug(" GetSymbol: Trying 0x%x, '%s'\n",
+		//SysDebug(" GetSymbol: Trying 0x%x, '%s'",
 		//	gLoadedLibraries[i].Base, gLoadedLibraries[i].Name);
 		if(GetSymbolFromBase(gLoadedLibraries[i].Base, name, &ret))	return ret;
 	}
-	SysDebug("GetSymbol: === Symbol '%s' not found ===\n", name);
+	SysDebug("GetSymbol: === Symbol '%s' not found ===", name);
 	return 0;
 }
 
@@ -228,6 +229,7 @@ int GetSymbolFromBase(Uint base, char *name, Uint *ret)
 		return ElfGetSymbol(base, name, ret);
 	if(*(Uint16*)base == ('M'|('Z'<<8)))
 		return PE_GetSymbol(base, name, ret);
+	SysDebug("Unknown type at %p", base);
 	return 0;
 }
 

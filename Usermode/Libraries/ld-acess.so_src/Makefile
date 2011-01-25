@@ -4,18 +4,19 @@
 
 -include ../Makefile.cfg
 
-OBJ := main.o lib.o loadlib.o elf.o pe.o
+OBJ := main.o lib.o loadlib.o export.o elf.o pe.o
 OBJ += core.ao vfs.ao mm.ao
 BIN = ld-acess.so
+EXTRABIN := libld-acess.so
 
 CFLAGS   = -Wall -fno-builtin -fno-leading-underscore -fno-stack-protector
+CFLAGS  += $(CPPFLAGS)
 ASFLAGS  = -felf
-LDFLAGS  = -T link.ld -Map map.txt -Bstatic -shared
+LDFLAGS  = -T link.ld -Map map.txt --export-dynamic
 
 include ../Makefile.tpl
 
-postbuild: $(OUTPUTDIR)Libs/libld-acess.so
-
-$(OUTPUTDIR)Libs/libld-acess.so:
-	ln -s $(_BIN) $(OUTPUTDIR)Libs/libld-acess.so
+$(_XBIN): $(_BIN)
+	@echo [LD] -o -shared libld-acess.so
+	@$(LD) $(LDFLAGS) -shared -o $@ $(OBJ)
 

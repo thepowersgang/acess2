@@ -5,16 +5,17 @@
 DEPFILES := $(addsuffix .d,$(OBJ))
 
 _BIN := $(OUTPUTDIR)Libs/$(BIN)
+_XBIN := $(addprefix $(OUTPUTDIR)Libs/,$(EXTRABIN))
 
 .PHONY: all clean install postbuild
 
-all: $(_BIN) postbuild
+all: $(_BIN) $(_XBIN)
 
 clean:
-	$(RM) $(_BIN) $(OBJ) $(_BIN).dsm $(DEPFILES)
+	$(RM) $(_BIN) $(_XBIN) $(OBJ) $(_BIN).dsm $(DEPFILES)
 
 install: all
-	$(xCP) $(_BIN) $(DISTROOT)/Libs/
+	$(xCP) $(_BIN) $(_XBIN) $(DISTROOT)/Libs/
 
 $(_BIN): $(OBJ)
 	@mkdir -p $(dir $(_BIN))

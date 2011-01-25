@@ -315,6 +315,49 @@ int ElfGetSymbol(Uint Base, char *Name, Uint *ret)
 
 	//DEBUGS("ElfGetSymbol: (Base=0x%x, Name='%s')\n", Base, Name);
 
+	// Catch the current executable
+	#if 0
+	if( !hdr->misc.HashTable )
+	{
+		Elf32_Phdr	*phtab;
+		Elf32_Dyn	*dynTab = NULL;
+		 int	j;
+		
+		// Locate the tables
+		phtab = (void*)( Base + hdr->phoff );
+		for( i = 0; i < hdr->phentcount; i ++ )
+		{
+			if( phtab[i].Type == PT_DYNAMIC ) {
+				dynTab = (void*)phtab[i].VAddr;
+				break ;
+			}
+		}
+		if( !dynTab ) {
+			SysDebug("ERROR - Unable to find DYNAMIC segment in %p", (void*)Base);
+			return 0;
+		}
+		
+		for( j = 0; dynTab[j].d_tag != DT_NULL; j++)
+		{
+			switch(dynTab[j].d_tag)
+			{
+			// --- Symbol Table ---
+			case DT_SYMTAB:
+				hdr->misc.SymTable = dynTab[j].d_val;
+				break;
+			// --- Hash Table --
+			case DT_HASH:
+				hdr->misc.HashTable = dynTab[j].d_val;
+				break;
+			}
+		}
+	}
+	#endif
+	
+	if( !hdr->misc.SymTable || !hdr->misc.HashTable ) {
+		return 0;
+	}
+
 	pBuckets = (void *) hdr->misc.HashTable;
 	symtab = (void *) hdr->misc.SymTable;
 	

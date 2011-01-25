@@ -38,7 +38,7 @@ int SoMain(Uint base, int arg1)
 	}
 
 	gLoadedLibraries[0].Base = (Uint)&gLinkedBase;
-	gLoadedLibraries[0].Name = "ld-acess.so";
+	gLoadedLibraries[0].Name = "/Acess/Libs/libld-acess.so";
 	
 	// Otherwise do relocations
 	//ret = DoRelocate( base, envp, "Executable" );

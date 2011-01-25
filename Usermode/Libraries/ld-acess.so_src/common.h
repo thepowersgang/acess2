@@ -54,12 +54,12 @@ extern int	file_exists(char *filename);
 
 // === System Calls ===
 extern void	_exit(int retval);
-extern void	SysDebug(char *fmt, ...);	//!< Now implemented in main.c
-extern void	SysDebugV(char *fmt, ...);
-extern Uint	SysLoadBin(char *path, Uint *entry);
+extern void	SysDebug(const char *fmt, ...);	//!< Now implemented in main.c
+extern void	SysDebugV(const char *fmt, ...);
+extern Uint	SysLoadBin(const char *path, Uint *entry);
 extern Uint	SysUnloadBin(Uint Base);
 extern void	SysSetFaultHandler(int (*Hanlder)(int));
-extern int	open(char *filename, int flags);
+extern int	open(const char *filename, int flags);
 extern void	close(int fd);
 
 // === ELF Loader ===
