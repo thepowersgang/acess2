@@ -158,14 +158,16 @@ SpawnTask:
 Proc_ReturnToUser:
 	push ebp
 	mov ebp, esp
-	; [EBP+4]: handler to use
-	; [EBP+8]: parameter
+	; [EBP+8]: handler to use
+	; [EBP+12]: parameter
+	; [EBP+16]: kernel stack top
 	
-	call Proc_GetCurThread
+	;call Proc_GetCurThread
 	
 	; EAX is the current thread
-	mov ebx, eax
-	mov eax, [ebx+12*4]	; Get Kernel Stack
+	;mov ebx, eax
+	;mov eax, [ebx+12*4]	; Get Kernel Stack
+	mov eax, [ebp+16]	; Get Kernel Stack
 	sub eax, KSTACK_USERSTATE_SIZE
 	
 	;
@@ -208,7 +210,7 @@ Proc_ReturnToUser:
 	
 	; Get and alter User SP
 	mov edi, edx
-	mov edx, [ebp+8]	; Get parameter
+	mov edx, [ebp+12]	; Get parameter
 	mov [edi+4], edx	; save to user stack
 	mov [edi], DWORD User_Syscall_RetAndExit	; Return Address
 	
@@ -223,7 +225,7 @@ Proc_ReturnToUser:
 	push edi	; ESP
 	push 0x202	; EFLAGS (IP and Rsvd)
 	push 0x1B	; CS
-	mov eax, [ebp+4]	; Method to call
+	mov eax, [ebp+8]	; Method to call
 	push eax	; EIP
 	
 	iret

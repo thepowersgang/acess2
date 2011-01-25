@@ -49,7 +49,7 @@ extern int	giNextTID;
 extern tThread	gThreadZero;
 extern tThread	*Threads_CloneTCB(Uint *Err, Uint Flags);
 extern void	Isr8(void);	// Double Fault
-extern void	Proc_ReturnToUser(tVAddr Handler, Uint Argument);
+extern void	Proc_ReturnToUser(tVAddr Handler, Uint Argument, tVAddr KernelStack);
 
 // === PROTOTYPES ===
 void	ArchThreads_Init(void);
@@ -833,7 +833,7 @@ void Proc_CallFaultHandler(tThread *Thread)
 {
 	// Rewinds the stack and calls the user function
 	// Never returns
-	Proc_ReturnToUser( Thread->FaultHandler, Thread->CurFaultNum );
+	Proc_ReturnToUser( Thread->FaultHandler, Thread->CurFaultNum, Thread->KernelStack );
 	for(;;);
 }
 
