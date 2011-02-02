@@ -282,14 +282,16 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 	tTCPStoredPacket	*pkt;
 	 int	dataLen;
 	
+	// Syncronise sequence values
 	if(Header->Flags & TCP_FLAG_SYN) {
 		Connection->NextSequenceRcv = ntohl(Header->SequenceNumber) + 1;
 	}
 	
+	// Handle a server replying to our initial SYN
 	if( Connection->State == TCP_ST_SYN_SENT )
 	{
-		if( (Header->Flags & (TCP_FLAG_SYN|TCP_FLAG_ACK)) == (TCP_FLAG_SYN|TCP_FLAG_ACK) ) {
-			
+		if( (Header->Flags & (TCP_FLAG_SYN|TCP_FLAG_ACK)) == (TCP_FLAG_SYN|TCP_FLAG_ACK) )
+		{	
 			Header->DestPort = Header->SourcePort;
 			Header->SourcePort = htons(Connection->LocalPort);
 			Header->AcknowlegementNumber = htonl(Connection->NextSequenceRcv);
@@ -301,6 +303,13 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 			TCP_SendPacket( Connection, sizeof(tTCPHeader), Header );
 			Connection->State = TCP_ST_OPEN;
 		}
+	}
+	
+	// Handle a client confirming the connection
+	if( Connection->State == TCP_ST_HALFOPEN && (Header->Flags & TCP_FLAG_ACK) )
+	{
+		Connection->State = TCP_ST_OPEN;
+		Log_Log("TCP", "Connection fully opened");
 	}
 	
 	// Get length of data
@@ -330,6 +339,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 		}
 	}
 	
+	// Check for an empty packet
 	if(dataLen == 0) {
 		Log_Log("TCP", "Empty Packet");
 		return ;

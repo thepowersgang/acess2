@@ -12,7 +12,7 @@ extern tVFS_Node	gInitRD_RootNode;
 
 // === PROTOTYPES ===
  int	InitRD_Install(char **Arguments);
-tVFS_Node	*InitRD_InitDevice(char *Device, char **Arguments);
+tVFS_Node	*InitRD_InitDevice(const char *Device, const char **Arguments);
 void	InitRD_Unmount(tVFS_Node *Node);
 Uint64	InitRD_ReadFile(tVFS_Node *Node, Uint64 Offset, Uint64 Size, void *Buffer);
 char	*InitRD_ReadDir(tVFS_Node *Node, int ID);
@@ -38,7 +38,7 @@ int InitRD_Install(char **Arguments)
 /**
  * \brief Mount the InitRD
  */
-tVFS_Node *InitRD_InitDevice(char *Device, char **Arguments)
+tVFS_Node *InitRD_InitDevice(const char *Device, const char **Arguments)
 {
 	#if DUMP_ON_MOUNT
 	InitRD_DumpDir( &gInitRD_RootNode, 0 );

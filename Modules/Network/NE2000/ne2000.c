@@ -256,23 +256,7 @@ int Ne2k_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	ENTER("pNode iID pData", Node, ID, Data);
 	switch( ID )
 	{
-	case DRV_IOCTL_TYPE:
-		LEAVE('i', DRV_TYPE_NETWORK);
-		return DRV_TYPE_NETWORK;
-	
-	case DRV_IOCTL_IDENT:
-		tmp = ModUtil_SetIdent(Data, "Ne2k");
-		LEAVE('i', tmp);
-		return tmp;
-	
-	case DRV_IOCTL_VERSION:
-		LEAVE('x', VERSION);
-		return VERSION;
-	
-	case DRV_IOCTL_LOOKUP:
-		tmp = ModUtil_LookupString( (char**)casIOCtls, Data );
-		LEAVE('i', tmp);
-		return tmp;
+	BASE_IOCTLS(DRV_TYPE_NETWORK, "NE2000", VERSION, casIOCtls);
 	}
 	
 	// If this is the root, return
@@ -382,6 +366,7 @@ Uint64 Ne2k_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	
 	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
 	
+	// TODO: Use MutexP/MutexV instead
 	while(Card->NumWaitingPackets == 0)	Threads_Yield();
 	
 	// Make sure that the card is in page 0
