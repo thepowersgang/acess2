@@ -252,7 +252,6 @@ static const char *casIOCtls[] = { DRV_IOCTLNAMES, DRV_NETWORK_IOCTLNAMES, NULL 
  */
 int Ne2k_IOCtl(tVFS_Node *Node, int ID, void *Data)
 {
-	 int	tmp;
 	ENTER("pNode iID pData", Node, ID, Data);
 	switch( ID )
 	{

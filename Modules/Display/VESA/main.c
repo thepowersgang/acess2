@@ -2,7 +2,7 @@
  * AcessOS 1
  * Video BIOS Extensions (Vesa) Driver
  */
-#define DEBUG	0
+#define DEBUG	1
 #define VERSION	0x100
 
 #include <acess.h>
@@ -93,12 +93,14 @@ int Vesa_Install(char **Arguments)
 		return MODULE_ERR_NOTNEEDED;
 	}
 	
-	Log_Debug("VESA", "info->VideoModes = %04x:%04x", info->VideoModes.seg, info->VideoModes.ofs);
+	//Log_Debug("VESA", "info->VideoModes = %04x:%04x", info->VideoModes.seg, info->VideoModes.ofs);
 	modes = (Uint16 *) VM8086_GetPointer(gpVesa_BiosState, info->VideoModes.seg, info->VideoModes.ofs);
 	
 	// Read Modes
 	for( giVesaModeCount = 0; modes[giVesaModeCount] != 0xFFFF; giVesaModeCount++ );
 	gVesa_Modes = (tVesa_Mode *)malloc( giVesaModeCount * sizeof(tVesa_Mode) );
+	
+	Log_Debug("VESA", "%i Modes", giVesaModeCount);
 	
 	// Insert Text Mode
 	gVesa_Modes[0].width = 80;

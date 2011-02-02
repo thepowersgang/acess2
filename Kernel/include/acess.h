@@ -22,10 +22,20 @@ typedef Uint	tGID;
 typedef Sint64	tTimestamp;
 typedef struct sShortSpinlock	tShortSpinlock;
 typedef struct sMutex	tMutex;
+typedef struct sSemaphore	tSemaphore;
 
 struct sMutex {
 	tShortSpinlock	Protector;	//!< Protector for the lock strucure
+	const char	*Name;	//!< Human-readable name
 	struct sThread	*volatile Owner;	//!< Owner of the lock (set upon getting the lock)
+	struct sThread	*Waiting;	//!< Waiting threads
+	struct sThread	*LastWaiting;	//!< Waiting threads
+};
+
+struct sSemaphore {
+	tShortSpinlock	Protector;	//!< Protector for the lock strucure
+	const char	*Name;	//!< Human-readable name
+	volatile int	Value;	//!< Current mutex value
 	struct sThread	*Waiting;	//!< Waiting threads
 	struct sThread	*LastWaiting;	//!< Waiting threads
 };

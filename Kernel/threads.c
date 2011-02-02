@@ -62,6 +62,7 @@ tGID	Threads_GetGID(void);
  int	Threads_SetGID(Uint *Errno, tUID ID);
 void	Threads_Dump(void);
 void	Threads_DumpActive(void);
+
 void	Mutex_Acquire(tMutex *Mutex);
 void	Mutex_Release(tMutex *Mutex);
  int	Mutex_IsLocked(tMutex *Mutex);
@@ -1225,6 +1226,86 @@ void Mutex_Release(tMutex *Mutex)
 int Mutex_IsLocked(tMutex *Mutex)
 {
 	return Mutex->Owner != NULL;
+}
+
+/**
+ * \brief Initialise the semaphore
+ * \param Value	Initial value of the semaphore
+ * \param Label	Symbolic name
+ */
+void Semaphore_Init(tSemaphore *Sem, int Value, const char *Label)
+{
+	Sem->Value = Value;
+	Sem->Name = Label;
+}
+
+/**
+ * \brief Acquire a "item" from the semaphore
+ */
+void Semaphore_Wait(tSemaphore *Sem)
+{
+	tThread	*us;
+	
+	SHORTLOCK( &Sem->Protector );
+	if( Sem->Value > 0 ) {
+		Sem->Value --;
+		SHORTREL( &Sem->Protector );
+		return ;
+	}
+	
+	SHORTLOCK( &glThreadListLock );
+	
+	// - Remove from active list
+	us = Threads_RemActive();
+	us->Next = NULL;
+	// - Mark as sleeping
+	us->Status = THREAD_STAT_SEMAPHORESLEEP;
+	us->WaitPointer = Sem;
+	
+	// - Add to waiting
+	if(Sem->LastWaiting) {
+		Sem->LastWaiting->Next = us;
+		Sem->LastWaiting = us;
+	}
+	else {
+		Sem->Waiting = us;
+		Sem->LastWaiting = us;
+	}
+	
+	SHORTREL( &glThreadListLock );
+	SHORTREL( &Sem->Protector );
+	while(us->Status == THREAD_STAT_MUTEXSLEEP)	Threads_Yield();
+	// We're only woken when there's something avaliable
+	us->WaitPointer = NULL;
+}
+
+/**
+ * \brief Add an "item" to the semaphore
+ */
+void Semaphore_Signal(tSemaphore *Sem)
+{
+	SHORTLOCK( &Sem->Protector );
+	Sem->Value ++;
+	
+	if( Sem->Waiting )
+	{
+		tThread	*toWake = Sem->Waiting;
+		
+		Sem->Waiting = Sem->Waiting->Next;	// Next!
+		// Reset ->LastWaiting to NULL if we have just removed the last waiting thread
+		if( Sem->Waiting == NULL )
+			Sem->LastWaiting = NULL;
+		
+		// Wake new owner
+		SHORTLOCK( &glThreadListLock );
+		if( toWake->Status != THREAD_STAT_ACTIVE )
+			Threads_AddActive(toWake);
+		SHORTREL( &glThreadListLock );
+		
+		// Decrement (the value is now "owned" by `toWake`)
+		Sem->Value --;
+	}
+	SHORTREL( &Sem->Protector );
 }
 
 // === EXPORTS ===
