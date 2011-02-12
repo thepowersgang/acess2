@@ -346,7 +346,7 @@ extern char	**str_split(const char *__str, char __ch);
 extern char	*strchr(const char *__s, int __c);
 extern int	strpos(const char *Str, char Ch);
 extern int	strpos8(const char *str, Uint32 search);
-extern void	itoa(char *buf, Uint num, int base, int minLength, char pad);
+extern void	itoa(char *buf, Uint64 num, int base, int minLength, char pad);
 extern int	atoi(const char *string);
 extern int	ReadUTF8(Uint8 *str, Uint32 *Val);
 extern int	WriteUTF8(Uint8 *str, Uint32 Val);

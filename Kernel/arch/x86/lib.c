@@ -282,6 +282,21 @@ Uint64 __udivdi3(Uint64 Num, Uint64 Den)
 	if(Num < Den*2)	return 1;
 	if(Num == Den*2)	return 2;
 	
+	#if 1
+	i = 0;	// Shut up
+	P[0] = Num;
+	P[1] = Den;
+	__asm__ __volatile__ (
+		"fildq %2\n\t"	// Num
+		"fildq %1\n\t"	// Den
+		"fdivp\n\t"
+		"fistpq %0"
+		: "=m" (q)
+		: "m" (P[0]), "m" (P[1])
+		);
+		
+	//Log("%llx / %llx = %llx\n", Num, Den, q);
+	#else
 	// Restoring division, from wikipedia
 	// http://en.wikipedia.org/wiki/Division_(digital)
 	P[0] = Num;	P[1] = 0;
@@ -303,6 +318,7 @@ Uint64 __udivdi3(Uint64 Num, Uint64 Den)
 			P[1] += Den;
 		}
 	}
+	#endif
 	
 	return q;
 }

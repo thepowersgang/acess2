@@ -9,23 +9,48 @@
 #define	TIMER_QUANTUM	100
 // 2^(15-rate), 15: 1HZ, 5: 1024Hz, 2: 8192Hz
 // (Max: 15, Min: 2) - 15 = 1Hz, 13 = 4Hz, 12 = 8Hz, 11 = 16Hz 10 = 32Hz, 2 = 8192Hz
-#define TIMER_RATE	10
-//#define TIMER_RATE	12
-//#define TIMER_RATE	15
+//#define TIMER_RATE	10	// 32 Hz
+//#define TIMER_RATE	12	// 8 Hz
+#define TIMER_RATE	14	// 2Hz
+//#define TIMER_RATE	15	// 1HZ
 #define TIMER_FREQ	(0x8000>>TIMER_RATE)	//Hz
 #define MS_PER_TICK_WHOLE	(1000/(TIMER_FREQ))
 #define MS_PER_TICK_FRACT	((0x80000000*(1000%TIMER_FREQ))/TIMER_FREQ)
 
 // === IMPORTS ===
-extern Sint64	giTimestamp;
-extern Uint64	giTicks;
-extern Uint64	giPartMiliseconds;
+extern volatile Sint64	giTimestamp;
+extern volatile Uint64	giTicks;
+extern volatile Uint64	giPartMiliseconds;
 extern void	Timer_CallTimers(void);
 
+// === GLOBALS ===
+volatile Uint64	giTime_TSCAtLastTick = 0;
+volatile Uint64	giTime_TSCPerTick = 0;
+
 // === PROTOTYPES ===
+Sint64	now(void);
+ int	Time_Setup(void);
 void	Time_Interrupt(int);
+Uint64	Time_ReadTSC(void);
 
 // === CODE ===
+/**
+ * \fn Sint64 now()
+ * \brief Return the current timestamp
+ */
+Sint64 now(void)
+{
+	Uint64	tsc = Time_ReadTSC();
+	tsc -= giTime_TSCAtLastTick;
+	tsc *= MS_PER_TICK_WHOLE;
+	if( giTime_TSCPerTick ) {
+		tsc /= giTime_TSCPerTick;
+	}
+	else
+		tsc = 0;
+	return giTimestamp + tsc;
+}
+
 /**
  * \fn int Time_Setup(void)
  * \brief Sets the system time from the Realtime-Clock
@@ -74,6 +99,14 @@ int Time_Setup(void)
 void Time_Interrupt(int irq)
 {
 	//Log("RTC Tick");
+	Uint64	curTSC = Time_ReadTSC();
+	
+	if( giTime_TSCAtLastTick )
+	{
+		giTime_TSCPerTick = curTSC - giTime_TSCAtLastTick;
+		//Log("curTSC = %lli, giTime_TSCPerTick = %lli", curTSC, giTime_TSCPerTick);
+	}
+	giTime_TSCAtLastTick = curTSC;
 	
 	giTicks ++;
 	giTimestamp += MS_PER_TICK_WHOLE;
@@ -108,3 +141,10 @@ void Time_TimerThread(void)
 	}
 }
 #endif
+
+Uint64 Time_ReadTSC(void)
+{
+	Uint32	a, d;
+	__asm__ __volatile__ ("rdtsc" : "=a" (a), "=d" (d));
+	return ((Uint64)d << 32) | a;
+}

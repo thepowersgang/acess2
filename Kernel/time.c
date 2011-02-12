@@ -28,15 +28,6 @@ tTimer	gTimers[NUM_TIMERS];	// TODO: Replace by a ring-list timer
 
 // === CODE ===
 /**
- * \fn Sint64 now()
- * \brief Return the current timestamp
- */
-Sint64 now(void)
-{
-	return giTimestamp;
-}
-
-/**
  * \fn void Timer_CallTimers()
  */
 void Timer_CallTimers()

@@ -15,7 +15,7 @@ const short DAYS_BEFORE[] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 3
 
 // === PROTOTYPES ===
  int	atoi(const char *string);
-void	itoa(char *buf, Uint num, int base, int minLength, char pad);
+void	itoa(char *buf, Uint64 num, int base, int minLength, char pad);
  int	vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args);
  int	sprintf(char *__s, const char *__format, ...);
  int	tolower(int c);
@@ -145,12 +145,12 @@ int atoi(const char *string)
 
 static const char cUCDIGITS[] = "0123456789ABCDEF";
 /**
- * \fn void itoa(char *buf, Uint num, int base, int minLength, char pad)
+ * \fn void itoa(char *buf, Uint64 num, int base, int minLength, char pad)
  * \brief Convert an integer into a character string
  */
-void itoa(char *buf, Uint num, int base, int minLength, char pad)
+void itoa(char *buf, Uint64 num, int base, int minLength, char pad)
 {
-	char	tmpBuf[BITS];
+	char	tmpBuf[64+1];
 	 int	pos=0, i;
 
 	// Sanity check
