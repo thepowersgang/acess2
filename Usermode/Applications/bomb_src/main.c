@@ -57,6 +57,7 @@ int main(int argc, char *argv[])
 				return 0;
 			}
 			tid = clone(0, stack+stackSize-stackOffset);
+			//_SysDebug("tid = %i", tid);
 			if( tid == 0 )
 			{
 				// Sleep forever (TODO: Fix up the stack so it can nuke)
@@ -66,7 +67,6 @@ int main(int argc, char *argv[])
 				printf("Clone failed\n");
 				return 0;
 			}
-			printf("stack = %p, tid = %i\n", stack, tid);
 		}
 	}
 

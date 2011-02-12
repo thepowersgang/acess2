@@ -107,7 +107,11 @@ void MM_Install(tMBoot_Info *MBoot)
 	//LOG("Reference Pages %i", (giPageCount*4+0xFFF)>>12);
 	for(num = 0; num < (giPageCount*4+0xFFF)>>12; num++)
 	{
-		MM_Allocate( REFERENCE_BASE + (num<<12) );
+		if( !MM_Allocate( REFERENCE_BASE + (num<<12) ) )
+		{
+			Panic("Oh, ****, no space for the reference pages, that's bad");
+			for(;;);
+		}
 	}
 	
 	//LOG("Filling");

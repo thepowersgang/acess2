@@ -311,8 +311,10 @@ void SyscallHandler(tSyscallRegs *Regs)
 	// -- Debug
 	//#if DEBUG_BUILD
 	case SYS_DEBUG:
-		Log((char*)Regs->Arg1,
+		LogF("Log: [%i] ", Threads_GetTID());
+		LogF((char*)Regs->Arg1,
 			Regs->Arg2, Regs->Arg3, Regs->Arg4, Regs->Arg5, Regs->Arg6);
+		LogF("\n");
 		break;
 	//#endif
 	

@@ -60,7 +60,13 @@ int VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode)
 			Uint	addr, size;
 			size = CFGINT(CFG_VFS_MAXFILES) * sizeof(tVFS_Handle);
 			for(addr = 0; addr < size; addr += 0x1000)
-				MM_Allocate( (Uint)gaUserHandles + addr );
+			{
+				if( !MM_Allocate( (Uint)gaUserHandles + addr ) )
+				{
+					Warning("OOM - VFS_AllocHandle");
+					Threads_Exit(0, 0xFF);	// Terminate user
+				}
+			}
 			memset( gaUserHandles, 0, size );
 		}
 		// Get a handle
@@ -81,7 +87,13 @@ int VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode)
 			Uint	addr, size;
 			size = MAX_KERNEL_FILES * sizeof(tVFS_Handle);
 			for(addr = 0; addr < size; addr += 0x1000)
-				MM_Allocate( (Uint)gaKernelHandles + addr );
+			{
+				if( !MM_Allocate( (Uint)gaKernelHandles + addr ) )
+				{
+					Panic("OOM - VFS_AllocHandle");
+					Threads_Exit(0, 0xFF);	// Terminate application (get some space back)
+				}
+			}
 			memset( gaKernelHandles, 0, size );
 		}
 		// Get a handle

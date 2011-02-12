@@ -465,6 +465,7 @@ void Threads_Exit(int TID, int Status)
 void Threads_Kill(tThread *Thread, int Status)
 {
 	tMsg	*msg;
+	 int	isCurThread = Thread == Proc_GetCurThread();
 	
 	// TODO: Kill all children
 	#if 1
@@ -529,6 +530,7 @@ void Threads_Kill(tThread *Thread, int Status)
 				);
 		}
 		break;
+	// Kill it while it sleeps!
 	case THREAD_STAT_SLEEPING:
 		if( !Threads_int_DelFromQueue( &gSleepingThreads, Thread ) )
 		{
@@ -538,6 +540,15 @@ void Threads_Kill(tThread *Thread, int Status)
 				);
 		}
 		break;
+	
+	// Brains!... You cannot kill
+	case THREAD_STAT_ZOMBIE:
+		Log_Warning("Threads", "Threads_Kill - Thread %p(%i,%s) is undead, you cannot kill it",
+			Thread, Thread->TID, Thread->ThreadName);
+		SHORTREL( &glThreadListLock );
+		SHORTREL( &Thread->IsLocked );
+		return ;
+	
 	default:
 		Log_Warning("Threads", "Threads_Kill - BUG Un-checked status (%i)",
 			Thread->Status);
@@ -565,7 +576,7 @@ void Threads_Kill(tThread *Thread, int Status)
 	SHORTREL( &Thread->IsLocked );	// TODO: We may not actually be released...
 	
 	// And, reschedule
-	if(Status != -1) {
+	if(isCurThread) {
 		for( ;; )
 			HALT();
 	}

@@ -69,8 +69,14 @@ void *Heap_Extend(int Bytes)
 	}
 	
 	// Heap expands in pages
-	for(i=0;i<(Bytes+0xFFF)>>12;i++)
-		MM_Allocate( (tVAddr)gHeapEnd+(i<<12) );
+	for( i = 0; i < (Bytes+0xFFF) >> 12; i ++ )
+	{
+		if( !MM_Allocate( (tVAddr)gHeapEnd+(i<<12) ) )
+		{
+			Warning("OOM - Heap_Extend");
+			return NULL;
+		}
+	}
 	
 	// Increas heap end
 	gHeapEnd += i << 12;

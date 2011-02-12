@@ -368,7 +368,10 @@ void ArchThreads_Init(void)
 	#endif
 	
 	// Create Per-Process Data Block
-	MM_Allocate(MM_PPD_CFG);
+	if( !MM_Allocate(MM_PPD_CFG) )
+	{
+		Panic("OOM - No space for initiali Per-Process Config");
+	}
 	
 	// Change Stacks
 	Proc_ChangeStack();
@@ -707,7 +710,13 @@ Uint Proc_MakeUserStack(void)
 	
 	// Allocate Stack - Allocate incrementally to clean up MM_Dump output
 	for( i = 0; i < USER_STACK_SZ/0x1000; i++ )
-		MM_Allocate( base + (i<<12) );
+	{
+		if( !MM_Allocate( base + (i<<12) ) )
+		{
+			Warning("OOM: Proc_MakeUserStack");
+			return 0;
+		}
+	}
 	
 	return base + USER_STACK_SZ;
 }

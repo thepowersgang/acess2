@@ -27,7 +27,7 @@
 // === FUNCTIONS ===
 extern void	MM_FinishVirtualInit(void);
 extern void	MM_SetCR3(Uint CR3);
-extern tPAddr	MM_Allocate(tVAddr VAddr);
+extern tPAddr	MM_Allocate(tVAddr VAddr) __attribute__ ((warn_unused_result));
 extern void	MM_Deallocate(tVAddr VAddr);
 extern int	MM_Map(tVAddr VAddr, tPAddr PAddr);
 extern tPAddr	MM_Clone(void);
