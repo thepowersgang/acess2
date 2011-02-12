@@ -279,6 +279,7 @@ tThread *Threads_CloneTCB(Uint *Err, Uint Flags)
 	SHORTLOCK( &glThreadListLock );
 	new->GlobalPrev = NULL;	// Protect against bugs
 	new->GlobalNext = gAllThreads;
+	gAllThreads->GlobalPrev = new;
 	gAllThreads = new;
 	SHORTREL( &glThreadListLock );
 	
@@ -466,15 +467,15 @@ void Threads_Kill(tThread *Thread, int Status)
 	tMsg	*msg;
 	
 	// TODO: Kill all children
-	#if 0
+	#if 1
 	{
 		tThread	*child;
 		// TODO: I should keep a .Parent pointer, and a .Children list
-		for(child = gActiveThreads;
+		for(child = gAllThreads;
 			child;
-			child = child->Next)
+			child = child->GlobalNext)
 		{
-			if(child->PTID == Thread->TID)
+			if(child->Parent == Thread)
 				Threads_Kill(child, -1);
 		}
 	}
@@ -496,29 +497,52 @@ void Threads_Kill(tThread *Thread, int Status)
 	// Lock thread list
 	SHORTLOCK( &glThreadListLock );
 	
-	// Delete from active list
-	#if SCHEDULER_TYPE == SCHED_RR_PRI
-	if( !Threads_int_DelFromQueue( &gaActiveThreads[Thread->Priority], Thread ) )
-	#else
-	if( !Threads_int_DelFromQueue( &gActiveThreads, Thread ) )
-	#endif
+	switch(Thread->Status)
 	{
-		Warning("Proc_Exit - Current thread is not on the active queue");
-		SHORTREL( &glThreadListLock );
-		SHORTREL( &Thread->IsLocked );
-		return;
+	case THREAD_STAT_PREINIT:	// Only on main list
+		break;
+	
+	// Currently active thread
+	case THREAD_STAT_ACTIVE:
+		#if SCHEDULER_TYPE == SCHED_RR_PRI
+		if( Threads_int_DelFromQueue( &gaActiveThreads[Thread->Priority], Thread ) )
+		#else
+		if( Threads_int_DelFromQueue( &gActiveThreads, Thread ) )
+		#endif
+		{
+			// Ensure that we are not rescheduled
+			Thread->Remaining = 0;	// Clear Remaining Quantum
+			Thread->Quantum = 0;	// Clear Quantum to indicate dead thread
+			
+			// Update bookkeeping
+			giNumActiveThreads --;
+			#if SCHEDULER_TYPE == SCHED_LOTTERY
+			if( Thread != Proc_GetCurThread() )
+				giFreeTickets -= caiTICKET_COUNTS[ Thread->Priority ];
+			#endif
+		}
+		else
+		{
+			Log_Warning("Threads",
+				"Threads_Kill - Thread %p(%i,%s) marked as active, but not on list",
+				Thread, Thread->TID, Thread->ThreadName
+				);
+		}
+		break;
+	case THREAD_STAT_SLEEPING:
+		if( !Threads_int_DelFromQueue( &gSleepingThreads, Thread ) )
+		{
+			Log_Warning("Threads",
+				"Threads_Kill - Thread %p(%i,%s) marked as sleeping, but not on list",
+				Thread, Thread->TID, Thread->ThreadName
+				);
+		}
+		break;
+	default:
+		Log_Warning("Threads", "Threads_Kill - BUG Un-checked status (%i)",
+			Thread->Status);
+		break;
 	}
-	
-	// Ensure that we are not rescheduled
-	Thread->Remaining = 0;	// Clear Remaining Quantum
-	Thread->Quantum = 0;	// Clear Quantum to indicate dead thread
-	
-	// Update bookkeeping
-	giNumActiveThreads --;
-	#if SCHEDULER_TYPE == SCHED_LOTTERY
-	if( Thread != Proc_GetCurThread() )
-		giFreeTickets -= caiTICKET_COUNTS[ Thread->Priority ];
-	#endif
 	
 	// Save exit status
 	Thread->RetStatus = Status;
@@ -534,7 +558,7 @@ void Threads_Kill(tThread *Thread, int Status)
 		Threads_Wake( Thread->Parent );
 	}
 	
-	Log("Thread %i went *hurk* (%i)", Thread->TID, Thread->Status);
+	Log("Thread %i went *hurk* (%i)", Thread->TID, Status);
 	
 	// Release spinlocks
 	SHORTREL( &glThreadListLock );
@@ -915,7 +939,9 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 	while(gDeleteThreads)
 	{
 		thread = gDeleteThreads->Next;
-		if( IS_LOCKED(&gDeleteThreads->IsLocked) ) {	// Only free if structure is unused
+		// Only free if structure is unused
+		if( !IS_LOCKED(&gDeleteThreads->IsLocked) )
+		{
 			// Set to dead
 			gDeleteThreads->Status = THREAD_STAT_BURIED;
 			// Free name

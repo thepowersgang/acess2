@@ -566,6 +566,11 @@ int Proc_Clone(Uint *Err, Uint Flags)
 	// Initialise Memory Space (New Addr space or kernel stack)
 	if(Flags & CLONE_VM) {
 		newThread->MemState.CR3 = MM_Clone();
+		// Check for errors
+		if(newThread->MemState.CR3 == 0) {
+			Threads_Kill(newThread, -2);
+			return -1;
+		}
 		newThread->KernelStack = cur->KernelStack;
 	} else {
 		Uint	tmpEbp, oldEsp = esp;
@@ -581,7 +586,7 @@ int Proc_Clone(Uint *Err, Uint Flags)
 		newThread->KernelStack = MM_NewKStack();
 		// Check for errors
 		if(newThread->KernelStack == 0) {
-			free(newThread);
+			Threads_Kill(newThread, -2);
 			return -1;
 		}
 

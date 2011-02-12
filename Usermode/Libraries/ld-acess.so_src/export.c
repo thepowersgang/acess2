@@ -60,7 +60,8 @@ const struct {
 	EXP(_SysOpenChild),
 	
 	EXP(_SysGetPhys),
-	EXP(_SysAllocate)
+	EXP(_SysAllocate),
+	EXP(_SysDebug)
 
 };
 

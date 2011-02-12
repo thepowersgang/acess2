@@ -15,5 +15,5 @@ _start:
 start:
 	call main
 	push eax
-	call _exit	
+	call _exit
 	jmp $	; This should never be reached

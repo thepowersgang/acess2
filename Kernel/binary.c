@@ -160,7 +160,7 @@ int Proc_Execve(char *File, char **ArgV, char **EnvP)
 	{
 		Log_Warning("BIN", "Proc_Execve - Unable to load '%s'", Threads_GetName(-1));
 		LEAVE('-');
-		Threads_Exit(0, 0);
+		Threads_Exit(0, -10);
 		for(;;);
 	}
 	

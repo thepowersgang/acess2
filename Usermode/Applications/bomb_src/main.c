@@ -46,8 +46,30 @@ int main(int argc, char *argv[])
 		for(;;)	clone(CLONE_VM, 0);
 	}
 	else {
-		for(;;)	clone(0, malloc(512-16)+512-16);
+		for(;;)
+		{
+			const int stackSize = 512-16; 
+			const int stackOffset = 65; 
+			char *stack = calloc(1, stackSize);
+			 int	tid;
+			if( !stack ) {
+				printf("Outta heap space!\n");
+				return 0;
+			}
+			tid = clone(0, stack+stackSize-stackOffset);
+			if( tid == 0 )
+			{
+				// Sleep forever (TODO: Fix up the stack so it can nuke)
+				for(;;) sleep();
+			}
+			if( tid < 0 ) {
+				printf("Clone failed\n");
+				return 0;
+			}
+			printf("stack = %p, tid = %i\n", stack, tid);
+		}
 	}
 
+	printf("RETURN!?\n");
 	return 0;
 }

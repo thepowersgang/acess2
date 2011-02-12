@@ -2,7 +2,7 @@
  * AcessOS 1
  * Video BIOS Extensions (Vesa) Driver
  */
-#define DEBUG	1
+#define DEBUG	0
 #define VERSION	0x100
 
 #include <acess.h>
@@ -474,10 +474,19 @@ int Vesa_Int_FindMode(tVideo_IOCtl_Mode *data)
 			break;
 		}
 		
-		tmp = gVesa_Modes[i].width * gVesa_Modes[i].height * gVesa_Modes[i].bpp;
-		tmp -= data->width * data->height * data->bpp;
+		tmp = gVesa_Modes[i].width * gVesa_Modes[i].height;
+		tmp -= data->width * data->height;
 		tmp = tmp < 0 ? -tmp : tmp;
-		factor = tmp * 100 / (data->width * data->height * data->bpp);
+		factor = tmp * 100 / (data->width * data->height);
+		
+		if( (data->bpp == 32 || data->bpp == 24)
+		 && (gVesa_Modes[i].bpp == 32 || gVesa_Modes[i].bpp == 24) )
+		{
+			
+		}
+		else {
+			factor *= 10;
+		}
 		
 		LOG("factor = %i", factor);
 		

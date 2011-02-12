@@ -36,6 +36,7 @@ EXPORT void	free(void *mem);
 EXPORT void	*realloc(void *mem, Uint bytes);
 EXPORT void	*sbrk(int increment);
 LOCAL void	*extendHeap(int bytes);
+static void *FindHeapBase();
 LOCAL uint	brk(Uint newpos);
 
 //Code
@@ -68,7 +69,7 @@ EXPORT void *malloc(size_t bytes)
 	
 	while((Uint)curBlock < (Uint)_heap_end)
 	{
-		//SysDebug(" malloc: curBlock = 0x%x, curBlock->magic = 0x%x\n", curBlock, curBlock->magic);
+		//_SysDebug(" malloc: curBlock = 0x%x, curBlock->magic = 0x%x\n", curBlock, curBlock->magic);
 		if(curBlock->magic == MAGIC_FREE)
 		{
 			if(curBlock->size == bestSize)
@@ -81,14 +82,14 @@ EXPORT void *malloc(size_t bytes)
 		else if(curBlock->magic != MAGIC)
 		{
 			//Corrupt Heap
-			//SysDebug("malloc: Corrupt Heap\n");
+			_SysDebug("malloc: Corrupt Heap\n");
 			return NULL;
 		}
 		curBlock = (heap_head*)((Uint)curBlock + curBlock->size);
 	}
 	
 	if((Uint)curBlock < (Uint)_heap_start) {
-		//SysDebug("malloc: Heap underrun for some reason\n");
+		_SysDebug("malloc: Heap underrun for some reason\n");
 		return NULL;
 	}
 	
@@ -102,7 +103,7 @@ EXPORT void *malloc(size_t bytes)
 	if(!closestMatch) {
 		curBlock = extendHeap(bestSize);	//Allocate more
 		if(curBlock == NULL) {
-			//SysDebug("malloc: Out of Heap Space\n");
+			_SysDebug("malloc: Out of Heap Space\n");
 			return NULL;
 		}
 		curBlock->magic = MAGIC;
@@ -243,7 +244,6 @@ LOCAL void *extendHeap(int bytes)
 	if(foot == (void*)-1)
 		return NULL;
 	
-	
 	//Create New Block
 	// Header
 	head->magic = MAGIC_FREE;	//Unallocated
@@ -275,24 +275,52 @@ LOCAL void *extendHeap(int bytes)
 */
 EXPORT void *sbrk(int increment)
 {
-	size_t newEnd;
 	static size_t oldEnd = 0;
 	static size_t curEnd = 0;
 
-	//_SysDebug("sbrk: (increment=%i)\n", increment);
+	//_SysDebug("sbrk: (increment=%i)", increment);
 
-	if (oldEnd == 0)	curEnd = oldEnd = brk(0);
+	if (curEnd == 0) {
+		oldEnd = curEnd = (size_t)FindHeapBase();
+		//_SysAllocate(curEnd);	// Allocate the first page
+	}
 
-	//SysDebug(" sbrk: oldEnd = 0x%x\n", oldEnd);
+	//_SysDebug(" sbrk: oldEnd = 0x%x", oldEnd);
 	if (increment == 0)	return (void *) curEnd;
 
-	newEnd = curEnd + increment;
-
-	if (brk(newEnd) == curEnd)	return (void *) -1;
 	oldEnd = curEnd;
-	curEnd = newEnd;
-	//SysDebug(" sbrk: newEnd = 0x%x\n", newEnd);
 
+	// Single Page
+	if( (curEnd & 0xFFF) && (curEnd & 0xFFF) + increment < 0x1000 )
+	{
+		//if( curEnd & 0xFFF == 0 )
+		//{
+		//	if( !_SysAllocate(curEnd) )
+		//	{
+		//		_SysDebug("sbrk - Error allocating memory");
+		//		return (void*)-1;
+		//	}
+		//}
+		curEnd += increment;
+		//_SysDebug("sbrk: RETURN %p (single page, no alloc)", (void *) oldEnd);
+		return (void *)oldEnd;
+	}
+
+	increment -= curEnd & 0xFFF;
+	curEnd += 0xFFF;	curEnd &= ~0xFFF;
+	while( increment > 0 )
+	{
+		if( !_SysAllocate(curEnd) )
+		{
+			// Error?
+			_SysDebug("sbrk - Error allocating memory");
+			return (void*)-1;
+		}
+		increment -= 0x1000;
+		curEnd += 0x1000;
+	}
+
+	//_SysDebug("sbrk: RETURN %p", (void *) oldEnd);
 	return (void *) oldEnd;
 }
 
@@ -364,7 +392,7 @@ LOCAL uint brk(Uint newpos)
 	uint	ret = curpos;
 	 int	delta;
 	
-	//_SysDebug("brk: (newpos=0x%x)", newpos);
+	_SysDebug("brk: (newpos=0x%x)", newpos);
 	
 	// Find initial position
 	if(curpos == 0)	curpos = (uint)FindHeapBase();
@@ -375,7 +403,7 @@ LOCAL uint brk(Uint newpos)
 	if(newpos < curpos)	return newpos;
 	
 	delta = newpos - curpos;
-	//_SysDebug(" brk: delta = 0x%x", delta);
+	_SysDebug(" brk: delta = 0x%x", delta);
 	
 	// Do we need to add pages
 	if(curpos & 0xFFF && (curpos & 0xFFF) + delta < 0x1000)

@@ -660,14 +660,28 @@ tVAddr MM_NewKStack(void)
 	Uint	i;
 	for(base = KERNEL_STACKS; base < KERNEL_STACKS_END; base += KERNEL_STACK_SIZE)
 	{
+		// Check if space is free
 		if(MM_GetPhysAddr(base) != 0)	continue;
-		for(i = 0; i < KERNEL_STACK_SIZE; i += 0x1000) {
-			MM_Allocate(base+i);
+		// Allocate
+		//for(i = KERNEL_STACK_SIZE; i -= 0x1000 ; )
+		for(i = 0; i < KERNEL_STACK_SIZE; i += 0x1000 )
+		{
+			if( MM_Allocate(base+i) == 0 )
+			{
+				// On error, print a warning and return error
+				Warning("MM_NewKStack - Out of memory");
+				// - Clean up
+				//for( i += 0x1000 ; i < KERNEL_STACK_SIZE; i += 0x1000 )
+				//	MM_Deallocate(base+i);
+				return 0;
+			}
 		}
+		// Success
 		Log("MM_NewKStack - Allocated %p", base + KERNEL_STACK_SIZE);
 		return base+KERNEL_STACK_SIZE;
 	}
-	Warning("MM_NewKStack - No address space left\n");
+	// No stacks left
+	Warning("MM_NewKStack - No address space left");
 	return 0;
 }
 

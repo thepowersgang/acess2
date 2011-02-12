@@ -10,9 +10,76 @@ _errno:
 	dd	0
 
 [section .text]
-; --- Process Controll ---
+; DEST
+; SRC
+_memcpy:
+	push ebp
+	mov ebp, esp
+	push edi
+	push esi	; DI and SI must be maintained, CX doesn't
+	
+	mov ecx, [ebp+16]
+	mov esi, [ebp+12]
+	mov edi, [ebp+8]
+	rep movsb
+	
+	pop esi
+	pop edi
+	pop ebp
+	ret
+
+; --- Process Control ---
 SYSCALL1	_exit, SYS_EXIT
+
+%if 0
 SYSCALL2	clone, SYS_CLONE
+%else
+[global clone:func]
+clone:
+	push ebp
+	mov ebp, esp
+	push ebx
+	
+	mov ebx, [ebp+12]	; Get new stack pointer
+	
+	; Check if the new stack is being used
+	test ebx, ebx
+	jz .doCall
+	; Modify it to include the calling function (and this)
+	%if 0
+	mov eax, [ebp]	; Get old stack frame
+	sub eax, ebp	; Get size
+	sub ebx, eax	; Alter new stack pointer
+	push eax	; < Size
+	push DWORD [ebp]	; < Source
+	push ebx	; < Dest
+	call _memcpy
+	add esp, 4*3	; Restore stack
+	; EBX should still be the new stack pointer
+	mov eax, [ebp]	; Save old stack frame pointer in new stack
+	mov [ebx-4], eax
+	mov eax, [ebp-4]	; Save EBX there too
+	mov [ebx-8], eax
+	sub ebx, 8	; Update stack pointer for system
+	%else
+	; Quick hack, just this stack frame
+	mov eax, [ebp+4]
+	mov [ebx-4], eax	; Return
+	mov [ebx-8], ebx	; EBP
+	mov DWORD [ebx-12], 0	; EBX
+	sub ebx, 12
+	%endif
+.doCall:
+	mov eax, SYS_CLONE
+	mov ecx, ebx	; Stack
+	mov ebx, [ebp+8]	; Flags
+	SYSCALL_OP
+	mov [_errno], ebx
+	pop ebx
+	pop ebp
+	ret
+%endif
+
 SYSCALL2	kill, SYS_KILL
 SYSCALL0	yield, SYS_YIELD
 SYSCALL0	sleep, SYS_SLEEP

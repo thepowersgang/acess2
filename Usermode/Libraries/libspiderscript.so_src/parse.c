@@ -201,7 +201,6 @@ tAST_Node *Parse_DoBlockLine(tParser *Parser)
 	
 	// Return from a method
 	case TOK_RWD_RETURN:
-		//printf("return\n");
 		GetToken(Parser);
 		ret = AST_NewUniOp(Parser, NODETYPE_RETURN, Parse_DoExpr0(Parser));
 		break;
@@ -662,11 +661,11 @@ tAST_Node *Parse_GetVariable(tParser *Parser)
 }
 
 /**
- * \brief Get an identifier (constand or function call)
+ * \brief Get an identifier (constant or function call)
  */
 tAST_Node *Parse_GetIdent(tParser *Parser)
 {
-	tAST_Node	*ret;
+	tAST_Node	*ret = NULL;
 	char	*name;
 	SyntaxAssert(Parser, GetToken(Parser), TOK_IDENT );
 	name = strndup( Parser->TokenStr, Parser->TokenLen );
@@ -674,7 +673,9 @@ tAST_Node *Parse_GetIdent(tParser *Parser)
 	#if 0
 	while( GetToken(Parser) == TOK_SCOPE )
 	{
-		ret = AST_New
+		ret = AST_NewScopeDereference( Parser, ret, name );
+		SyntaxAssert(Parser, GetToken(Parser), TOK_IDENT );
+		name = strndup( Parser->TokenStr, Parser->TokenLen );
 	}
 	PutBack(Parser);
 	#endif
@@ -703,7 +704,7 @@ tAST_Node *Parse_GetIdent(tParser *Parser)
 		}
 	}
 	else {
-		// Runtime Constant
+		// Runtime Constant / Variable (When implemented)
 		#if DEBUG >= 2
 		printf("Parse_GetIdent: Referencing '%s'\n", name);
 		#endif
