@@ -131,16 +131,64 @@ void MM_Install(tMBoot_Info *MBoot)
 tPAddr MM_AllocPhys(void)
 {
 	// int	a, b, c;
-	 int	indx;
+	 int	indx = -1;
 	tPAddr	ret;
 	
 	ENTER("");
 	
 	Mutex_Acquire( &glPhysAlloc );
 	
+	// Classful scan
+	#if 1
+	{
+	const int addrClasses[] = {0,16,20,24,32,64};
+	const int numAddrClasses = sizeof(addrClasses)/sizeof(addrClasses[0]);
+	 int	i;
+	 int	first, last;
+	for( i = numAddrClasses; i -- > 1; )
+	{
+//		Log("Scanning %i (%i bits)", i, addrClasses[i]);
+		first = 1 << (addrClasses[i-1] - 12);
+		last = (1 << (addrClasses[i] - 12)) - 1;
+		// Range is above the last free page
+		if( first > giLastPossibleFree )
+			continue;
+		// Last possible free page is in the range
+		if( last > giLastPossibleFree )
+			last = giLastPossibleFree;
+			
+//		Log(" first=%i,max=%i", first, last);
+		// Scan the range
+		for( indx = first; indx < last; )
+		{
+//			Log("indx = %i (< %i?)", indx, last);
+			if( gaSuperBitmap[indx>>10] == -1 ) {
+				indx += 1024;
+				continue;
+			}
+			
+			if( gaPageBitmap[indx>>5] == -1 ) {
+				indx += 32;
+				continue;
+			}
+			
+			if( gaPageBitmap[indx>>5] & (1 << (indx&31)) ) {
+				indx ++;
+				continue;
+			}
+			break;
+		}
+		if( indx < last )	break;
+		
+		giLastPossibleFree = first;	// Well, we couldn't find any in this range
+	}
+	// Out of memory?
+	if( i <= 1 )	indx = -1;
+//	Log("indx = %i", indx);
+	}
+	#elif 0
 	// Find free page
 	// Scan downwards
-	#if 1
 	LOG("giLastPossibleFree = %i", giLastPossibleFree);
 	for( indx = giLastPossibleFree; indx >= 0; )
 	{
@@ -160,6 +208,8 @@ tPAddr MM_AllocPhys(void)
 		}
 		break;
 	}
+	if( indx >= 0 )
+		giLastPossibleFree = indx;
 	LOG("indx = %i", indx);
 	#else
 	c = giLastPossibleFree % 32;
@@ -179,6 +229,8 @@ tPAddr MM_AllocPhys(void)
 	for( ; gaPageBitmap[a*32+b] & (1<<c); c-- );
 	LOG("a=%i,b=%i,c=%i", a, b, c);
 	indx = (a << 10) | (b << 5) | c;
+	if( indx >= 0 )
+		giLastPossibleFree = indx;
 	#endif
 	
 	if( indx < 0 ) {
@@ -203,11 +255,11 @@ tPAddr MM_AllocPhys(void)
 	
 	// Get address
 	ret = indx << 12;
-	giLastPossibleFree = indx;
 	
 	// Mark used block
-	if(gaPageBitmap[ indx>>5 ] == -1)
+	if(gaPageBitmap[ indx>>5 ] == -1) {
 		gaSuperBitmap[indx>>10] |= 1 << ((indx>>5)&31);
+	}
 
 	// Release Spinlock
 	Mutex_Release( &glPhysAlloc );
