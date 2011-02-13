@@ -10,8 +10,8 @@
 #define KERNEL_BASE	0xFFFFFFFF##80000000
 #define BITS	64
 
-#define STACKED_LOCKS	0
-#define LOCK_DISABLE_INTS	1
+#define STACKED_LOCKS	2	// 0: No, 1: Per-CPU, 2: Per-Thread
+#define LOCK_DISABLE_INTS	0
 
 #define INVLPTR	((void*)0x0FFFFFFFFFFFFFFFULL)
 

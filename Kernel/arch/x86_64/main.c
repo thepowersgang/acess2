@@ -9,7 +9,7 @@ extern void	Desctab_Init(void);
 extern void	MM_InitVirt(void);
 extern void	Heap_Install(void);
 extern void	Threads_Init(void);
-//extern void	Time_Setup(void);
+extern int	Time_Setup(void);
 extern void	System_Init(char *Commandline);
 
 extern void	MM_InitPhys_Multiboot(tMBoot_Info *MBoot);
@@ -55,7 +55,7 @@ void kmain(Uint MbMagic, void *MbInfoPtr)
 	Log_Log("Arch", "Starting threading...");
 	Threads_Init();
 	
-	//Time_Setup();
+	Time_Setup();
 	*(Uint16*)(0xB8000) = 0x1F00|'F';
 	
 	Log_Log("Arch", "Starting VFS...");

@@ -5,6 +5,7 @@
 
 // === IMPORTS ===
 extern int	GetCPUNum(void);
+extern void	*Proc_GetCurThread(void);
 
 // === CODE ===
 /**
@@ -58,7 +59,7 @@ void SHORTLOCK(struct sShortSpinlock *Lock)
 	
 	#if LOCK_DISABLE_INTS
 	// Save interrupt state and clear interrupts
-	__ASM__ ("pushf;\n\tpop %%rax\n\tcli" : "=a"(IF));
+	__ASM__ ("pushf;\n\tpop %0" : "=r"(IF));
 	IF &= 0x200;	// AND out all but the interrupt flag
 	#endif
 	
@@ -85,16 +86,21 @@ void SHORTLOCK(struct sShortSpinlock *Lock)
 			: "a"(0), "r"(cpu), "r"(&Lock->Lock)
 			);
 		#elif STACKED_LOCKS == 2
-		__ASM__("lock cmpxchgl %2, (%3)"
+		__ASM__("lock cmpxchgq %2, (%3)"
 			: "=a"(v)
 			: "a"(0), "r"(thread), "r"(&Lock->Lock)
 			);
 		#else
 		__ASM__("xchgl %0, (%2)":"=a"(v):"a"(1),"D"(&Lock->Lock));
 		#endif
+		
+		#if LOCK_DISABLE_INTS
+		if( v )	__ASM__("sti");	// Re-enable interrupts
+		#endif
 	}
 	
 	#if LOCK_DISABLE_INTS
+	__ASM__("cli");
 	Lock->IF = IF;
 	#endif
 }
