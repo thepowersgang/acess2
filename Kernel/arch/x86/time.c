@@ -104,7 +104,6 @@ void Time_Interrupt(int irq)
 	if( giTime_TSCAtLastTick )
 	{
 		giTime_TSCPerTick = curTSC - giTime_TSCAtLastTick;
-		//Log("curTSC = %lli, giTime_TSCPerTick = %lli", curTSC, giTime_TSCPerTick);
 	}
 	giTime_TSCAtLastTick = curTSC;
 	
