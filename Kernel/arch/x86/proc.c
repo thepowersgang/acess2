@@ -925,13 +925,6 @@ void Proc_Scheduler(int CPU)
 	// Update Kernel Stack pointer
 	gTSSs[CPU].ESP0 = thread->KernelStack-4;
 	
-	// Set address space
-	#if USE_PAE
-	# error "Todo: Implement PAE Address space switching"
-	#else
-	__asm__ __volatile__ ("mov %0, %%cr3" : : "a" (thread->MemState.CR3));
-	#endif
-	
 	#if 0
 	if(thread->SavedState.ESP > 0xC0000000
 	&& thread->SavedState.ESP < thread->KernelStack-0x2000) {
@@ -939,14 +932,20 @@ void Proc_Scheduler(int CPU)
 	}
 	#endif
 	
+	#if USE_PAE
+	# error "Todo: Implement PAE Address space switching"
+	#else
 	// Switch threads
 	__asm__ __volatile__ (
+		"mov %4, %%cr3\n\t"	// Set address space
 		"mov %1, %%esp\n\t"	// Restore ESP
 		"mov %2, %%ebp\n\t"	// and EBP
 		"jmp *%3" : :	// And return to where we saved state (Proc_Clone or Proc_Scheduler)
 		"a"(SWITCH_MAGIC), "b"(thread->SavedState.ESP),
-		"d"(thread->SavedState.EBP), "c"(thread->SavedState.EIP)
+		"d"(thread->SavedState.EBP), "c"(thread->SavedState.EIP),
+		"r"(thread->MemState.CR3)
 		);
+	#endif
 	for(;;);	// Shouldn't reach here
 }
 
