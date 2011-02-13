@@ -118,8 +118,8 @@ APStartup:
 	mov ds, ax
 	lgdt [DWORD ds:lGDTPtr-KERNEL_BASE-0xFFFF0]
 	mov eax, cr0
-	or	al, 1
-	mov	cr0, eax
+	or al, 1
+	mov cr0, eax
 	jmp 08h:DWORD .ProtectedMode-KERNEL_BASE
 [bits 32]
 .ProtectedMode:
@@ -134,7 +134,7 @@ APStartup:
 	mov eax, gaInitPageDir - KERNEL_BASE
 	mov cr3, eax
 	mov eax, cr0
-	or	eax, 0x80010000	; PG and WP
+	or eax, 0x80010000	; PG and WP
 	mov cr0, eax
 	; Jump to higher half
 	lea eax, [.higherHalf]

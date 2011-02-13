@@ -8,7 +8,7 @@
 #define TRACE_LOCKS	0
 
 #if TRACE_LOCKS
-struct sShortSpinlock	glDebug_Lock;
+extern struct sShortSpinlock	glDebug_Lock;
 #endif
 
 extern int	GetCPUNum(void);

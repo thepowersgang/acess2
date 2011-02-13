@@ -21,9 +21,9 @@ Sint64	now(void);
 void	Timer_CallTimers(void);
 
 // === GLOBALS ===
-Uint64	giTicks = 0;
-Sint64	giTimestamp = 0;
-Uint64	giPartMiliseconds = 0;
+volatile Uint64	giTicks = 0;
+volatile Sint64	giTimestamp = 0;
+volatile Uint64	giPartMiliseconds = 0;
 tTimer	gTimers[NUM_TIMERS];	// TODO: Replace by a ring-list timer
 
 // === CODE ===
@@ -86,7 +86,9 @@ void Time_RemoveTimer(int ID)
 void Time_Delay(int Delay)
 {
 	Sint64	dest = giTimestamp + Delay;
+	//Log("Time_Delay: dest = %lli", dest);
 	while(dest > giTimestamp)	Threads_Yield();
+	//Log("Time_Delay: giTimestamp = %lli", giTimestamp);
 }
 
 // === EXPORTS ===
