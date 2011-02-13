@@ -22,20 +22,11 @@ typedef Uint	tGID;
 typedef Sint64	tTimestamp;
 typedef struct sShortSpinlock	tShortSpinlock;
 typedef struct sMutex	tMutex;
-typedef struct sSemaphore	tSemaphore;
 
 struct sMutex {
 	tShortSpinlock	Protector;	//!< Protector for the lock strucure
 	const char	*Name;	//!< Human-readable name
 	struct sThread	*volatile Owner;	//!< Owner of the lock (set upon getting the lock)
-	struct sThread	*Waiting;	//!< Waiting threads
-	struct sThread	*LastWaiting;	//!< Waiting threads
-};
-
-struct sSemaphore {
-	tShortSpinlock	Protector;	//!< Protector for the lock strucure
-	const char	*Name;	//!< Human-readable name
-	volatile int	Value;	//!< Current mutex value
 	struct sThread	*Waiting;	//!< Waiting threads
 	struct sThread	*LastWaiting;	//!< Waiting threads
 };
@@ -404,6 +395,9 @@ extern int	Time_CreateTimer(int Delta, tTimerCallback *Callback, void *Argument)
  * \brief Removed an active timer
  */
 extern void	Time_RemoveTimer(int ID);
+/**
+ * \brief Wait for a period of milliseconds
+ */
 extern void	Time_Delay(int Delay);
 /**
  * \}
@@ -427,7 +421,7 @@ extern tGID	Threads_GetGID(void);
 extern int	SpawnTask(tThreadFunction Function, void *Arg);
 extern Uint	*Threads_GetCfgPtr(int Id);
 extern int	Threads_SetName(const char *NewName);
-extern void	Mutex_Acquire(tMutex *Mutex);
+extern int	Mutex_Acquire(tMutex *Mutex);
 extern void	Mutex_Release(tMutex *Mutex);
 extern int	Mutex_IsLocked(tMutex *Mutex);
 /**

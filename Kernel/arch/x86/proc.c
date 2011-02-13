@@ -47,7 +47,6 @@ extern tShortSpinlock	glThreadListLock;
 extern int	giNumCPUs;
 extern int	giNextTID;
 extern tThread	gThreadZero;
-extern tThread	*Threads_CloneTCB(Uint *Err, Uint Flags);
 extern void	Isr8(void);	// Double Fault
 extern void	Proc_ReturnToUser(tVAddr Handler, Uint Argument, tVAddr KernelStack);
 
@@ -649,14 +648,11 @@ int Proc_SpawnWorker(void)
 	cur = Proc_GetCurThread();
 	
 	// Create new thread
-	new = malloc( sizeof(tThread) );
+	new = Threads_CloneThreadZero();
 	if(!new) {
 		Warning("Proc_SpawnWorker - Out of heap space!\n");
 		return -1;
 	}
-	memcpy(new, &gThreadZero, sizeof(tThread));
-	// Set Thread ID
-	new->TID = giNextTID++;
 	// Create a new worker stack (in PID0's address space)
 	// - The stack is relocated by this function
 	new->KernelStack = MM_NewWorkerStack();

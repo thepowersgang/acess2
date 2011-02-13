@@ -4,6 +4,7 @@
 #include <acess.h>
 #include <modules.h>
 #include <fs_devfs.h>
+#include <semaphore.h>
 
 // === CONSTANTS ===
 #define DEFAULT_RING_SIZE	2048
@@ -19,6 +20,7 @@ typedef struct sPipe {
 	 int	WritePos;
 	 int	BufSize;
 	char	*Buffer;
+	tSemaphore	Semaphore;
 } tPipe;
 
 // === PROTOTYPES ===
@@ -219,20 +221,18 @@ Uint64 FIFO_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	{
 		// Wait for buffer to fill
 		if(pipe->Flags & PF_BLOCKING) {
-			while(pipe->ReadPos == pipe->WritePos) {
-				Threads_Yield();
-				//MAGIC_BREAK();
-			}
+			len = Semaphore_Wait( &pipe->Semaphore, remaining );
 		}
 		else
+		{
 			if(pipe->ReadPos == pipe->WritePos)
 				return 0;
-		
-		// Read buffer
-		if(pipe->WritePos - pipe->ReadPos < remaining)
-			len = pipe->WritePos - pipe->ReadPos;
-		else
-			len = remaining;
+			// Read buffer
+			if(pipe->WritePos - pipe->ReadPos < remaining)
+				len = pipe->WritePos - pipe->ReadPos;
+			else
+				len = remaining;
+		}
 		
 		// Check if read overflows buffer
 		if(len > pipe->BufSize - pipe->ReadPos)
@@ -275,18 +275,19 @@ Uint64 FIFO_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	while(remaining)
 	{
 		// Wait for buffer to empty
-		if(pipe->Flags & PF_BLOCKING)
-			while(pipe->ReadPos == (pipe->WritePos+1)%pipe->BufSize)
-				Threads_Yield();
+		if(pipe->Flags & PF_BLOCKING) {
+			len = Semaphore_Signal( &pipe->Semaphore, remaining );
+		}
 		else
+		{
 			if(pipe->ReadPos == (pipe->WritePos+1)%pipe->BufSize)
 				return 0;
-		
-		// Write buffer
-		if(pipe->ReadPos - pipe->WritePos < remaining)
-			len = pipe->ReadPos - pipe->WritePos;
-		else
-			len = remaining;
+			// Write buffer
+			if(pipe->ReadPos - pipe->WritePos < remaining)
+				len = pipe->ReadPos - pipe->WritePos;
+			else
+				len = remaining;
+		}
 		
 		// Check if write overflows buffer
 		if(len > pipe->BufSize - pipe->WritePos)
@@ -321,24 +322,25 @@ Uint64 FIFO_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 tPipe *FIFO_Int_NewPipe(int Size, char *Name)
 {
 	tPipe	*ret;
-	 int	allocsize = sizeof(tPipe) + sizeof(tVFS_ACL) + Size;
+	 int	namelen = strlen(Name) + 1;
+	 int	allocsize = sizeof(tPipe) + sizeof(tVFS_ACL) + Size + namelen;
 	
 	ret = malloc(allocsize);
 	if(!ret)	return NULL;
 	
 	// Clear Return
 	memset(ret, 0, allocsize);
-	
-	ret->Name = Name;
 	ret->Flags = PF_BLOCKING;
 	
 	// Allocate Buffer
 	ret->BufSize = Size;
 	ret->Buffer = (void*)( (Uint)ret + sizeof(tPipe) + sizeof(tVFS_ACL) );
-	if(!ret->Buffer) {
-		free(ret);
-		return NULL;
-	}
+	
+	// Set name (and FIFO name)
+	ret->Name = ret->Buffer + Size;
+	strcpy(ret->Name, Name);
+	// - Start empty, max of `Size`
+	Semaphore_Init( &ret->Semaphore, 0, Size, "FIFO", ret->Name );
 	
 	// Set Node
 	ret->Node.Size = 0;

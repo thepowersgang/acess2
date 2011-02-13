@@ -86,6 +86,7 @@ static const char * const casTHREAD_STAT[] = {
 	"THREAD_STAT_ACTIVE",
 	"THREAD_STAT_SLEEPING",
 	"THREAD_STAT_MUTEXSLEEP",
+	"THREAD_STAT_SEMAPHORESLEEP",
 	"THREAD_STAT_WAITING",
 	"THREAD_STAT_PREINIT",
 	"THREAD_STAT_ZOMBIE",
@@ -116,5 +117,8 @@ extern int	Threads_Wake(tThread *Thread);
 extern void	Threads_Kill(tThread *Thread, int Status);
 extern void	Threads_AddActive(tThread *Thread);
 extern tThread	*Threads_GetNextToRun(int CPU, tThread *Last);
+
+extern tThread	*Threads_CloneTCB(Uint *Err, Uint Flags);
+extern tThread	*Threads_CloneThreadZero(void);
 
 #endif

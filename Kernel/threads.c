@@ -6,6 +6,7 @@
 #include <acess.h>
 #include <threads.h>
 #include <errno.h>
+#include <semaphore.h>
 
 // Configuration
 #define DEBUG_TRACE_TICKETS	0	// Trace ticket counts
@@ -63,7 +64,7 @@ tGID	Threads_GetGID(void);
 void	Threads_Dump(void);
 void	Threads_DumpActive(void);
 
-void	Mutex_Acquire(tMutex *Mutex);
+ int	Mutex_Acquire(tMutex *Mutex);
 void	Mutex_Release(tMutex *Mutex);
  int	Mutex_IsLocked(tMutex *Mutex);
 
@@ -246,6 +247,75 @@ tThread *Threads_CloneTCB(Uint *Err, Uint Flags)
 		new->TGID = new->TID;
 	else
 		new->TGID = cur->TGID;
+	
+	// Messages are not inherited
+	new->Messages = NULL;
+	new->LastMessage = NULL;
+	
+	// Set State
+	new->Remaining = new->Quantum = cur->Quantum;
+	new->Priority = cur->Priority;
+	
+	// Set Signal Handlers
+	new->CurFaultNum = 0;
+	new->FaultHandler = cur->FaultHandler;
+	
+	for( i = 0; i < NUM_CFG_ENTRIES; i ++ )
+	{
+		switch(cCONFIG_TYPES[i])
+		{
+		default:
+			new->Config[i] = cur->Config[i];
+			break;
+		case CFGT_HEAPSTR:
+			if(cur->Config[i])
+				new->Config[i] = (Uint) strdup( (void*)cur->Config[i] );
+			else
+				new->Config[i] = 0;
+			break;
+		}
+	}
+	
+	// Maintain a global list of threads
+	SHORTLOCK( &glThreadListLock );
+	new->GlobalPrev = NULL;	// Protect against bugs
+	new->GlobalNext = gAllThreads;
+	gAllThreads->GlobalPrev = new;
+	gAllThreads = new;
+	SHORTREL( &glThreadListLock );
+	
+	return new;
+}
+
+/**
+ * \fn tThread *Threads_CloneTCB(Uint *Err, Uint Flags)
+ * \brief Clone the TCB of the current thread
+ */
+tThread *Threads_CloneThreadZero(void)
+{
+	tThread	*cur, *new;
+	 int	i;
+	cur = Proc_GetCurThread();
+	
+	// Allocate and duplicate
+	new = malloc(sizeof(tThread));
+	if(new == NULL) {
+		return NULL;
+	}
+	memcpy(new, &gThreadZero, sizeof(tThread));
+	
+	new->CurCPU = -1;
+	new->Next = NULL;
+	memset( &new->IsLocked, 0, sizeof(new->IsLocked));
+	new->Status = THREAD_STAT_PREINIT;
+	new->RetStatus = 0;
+	
+	// Get Thread ID
+	new->TID = giNextTID++;
+	new->Parent = 0;
+	
+	// Clone Name
+	new->ThreadName = NULL;
 	
 	// Messages are not inherited
 	new->Messages = NULL;
@@ -914,6 +984,13 @@ void Threads_Dump(void)
 		case THREAD_STAT_MUTEXSLEEP:
 			Log("  Mutex Pointer: %p", thread->WaitPointer);
 			break;
+		case THREAD_STAT_SEMAPHORESLEEP:
+			Log("  Semaphore Pointer: %p", thread->WaitPointer);
+			Log("  Semaphore Name: %s:%s", 
+				((tSemaphore*)thread->WaitPointer)->ModName,
+				((tSemaphore*)thread->WaitPointer)->Name
+				);
+			break;
 		case THREAD_STAT_ZOMBIE:
 			Log("  Return Status: %i", thread->RetStatus);
 			break;
@@ -947,6 +1024,7 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 	
 	// Clear Delete Queue
 	// - I should probably put this in a worker thread to avoid calling free() in the scheduler
+	//   DEFINITELY - free() can deadlock in this case
 	while(gDeleteThreads)
 	{
 		thread = gDeleteThreads->Next;
@@ -1163,7 +1241,7 @@ void Threads_SegFault(tVAddr Addr)
  * the oldest thread (top thread) on the queue is given the lock and
  * restarted.
  */
-void Mutex_Acquire(tMutex *Mutex)
+int Mutex_Acquire(tMutex *Mutex)
 {
 	tThread	*us = Proc_GetCurThread();
 	
@@ -1218,6 +1296,8 @@ void Mutex_Acquire(tMutex *Mutex)
 	if( Mutex != &glPhysAlloc )
 		LogF("Mutex %p taken by %i %p\n", Mutex, us->TID, __builtin_return_address(0));
 	#endif
+	
+	return 0;
 }
 
 /**
@@ -1265,84 +1345,204 @@ int Mutex_IsLocked(tMutex *Mutex)
 	return Mutex->Owner != NULL;
 }
 
-/**
- * \brief Initialise the semaphore
- * \param Value	Initial value of the semaphore
- * \param Label	Symbolic name
- */
-void Semaphore_Init(tSemaphore *Sem, int Value, const char *Label)
+//
+// Initialise a semaphore
+//
+void Semaphore_Init(tSemaphore *Sem, int Value, int MaxValue, const char *Module, const char *Name)
 {
 	Sem->Value = Value;
-	Sem->Name = Label;
+	Sem->ModName = Module;
+	Sem->Name = Name;
 }
-
-/**
- * \brief Acquire a "item" from the semaphore
- */
-void Semaphore_Wait(tSemaphore *Sem)
+//
+// Wait for items to be avaliable
+//
+int Semaphore_Wait(tSemaphore *Sem, int MaxToTake)
 {
 	tThread	*us;
+	 int	taken;
+	if( MaxToTake < 0 ) {
+		Log_Warning("Threads", "Semaphore_Wait: User bug - MaxToTake(%i) < 0, Sem=%p(%s)",
+			MaxToTake, Sem, Sem->Name);
+	}
 	
 	SHORTLOCK( &Sem->Protector );
+	
+	// Check if there's already items avaliable
 	if( Sem->Value > 0 ) {
-		Sem->Value --;
+		// Take what we need
+		if( MaxToTake && Sem->Value > MaxToTake )
+			taken = MaxToTake;
+		else
+			taken = Sem->Value;
+		Sem->Value -= taken;
 		SHORTREL( &Sem->Protector );
-		return ;
 	}
-	
-	SHORTLOCK( &glThreadListLock );
-	
-	// - Remove from active list
-	us = Threads_RemActive();
-	us->Next = NULL;
-	// - Mark as sleeping
-	us->Status = THREAD_STAT_SEMAPHORESLEEP;
-	us->WaitPointer = Sem;
-	
-	// - Add to waiting
-	if(Sem->LastWaiting) {
-		Sem->LastWaiting->Next = us;
-		Sem->LastWaiting = us;
-	}
-	else {
-		Sem->Waiting = us;
-		Sem->LastWaiting = us;
-	}
-	
-	SHORTREL( &glThreadListLock );
-	SHORTREL( &Sem->Protector );
-	while(us->Status == THREAD_STAT_MUTEXSLEEP)	Threads_Yield();
-	// We're only woken when there's something avaliable
-	us->WaitPointer = NULL;
-}
-
-/**
- * \brief Add an "item" to the semaphore
- */
-void Semaphore_Signal(tSemaphore *Sem)
-{
-	SHORTLOCK( &Sem->Protector );
-	Sem->Value ++;
-	
-	if( Sem->Waiting )
+	else
 	{
-		tThread	*toWake = Sem->Waiting;
+		SHORTLOCK( &glThreadListLock );
 		
-		Sem->Waiting = Sem->Waiting->Next;	// Next!
+		// - Remove from active list
+		us = Threads_RemActive();
+		us->Next = NULL;
+		// - Mark as sleeping
+		us->Status = THREAD_STAT_SEMAPHORESLEEP;
+		us->WaitPointer = Sem;
+		us->RetStatus = MaxToTake;	// Use RetStatus as a temp variable
+		
+		// - Add to waiting
+		if(Sem->LastWaiting) {
+			Sem->LastWaiting->Next = us;
+			Sem->LastWaiting = us;
+		}
+		else {
+			Sem->Waiting = us;
+			Sem->LastWaiting = us;
+		}
+		
+		SHORTREL( &glThreadListLock );	
+		SHORTREL( &Sem->Protector );
+		while(us->Status == THREAD_STAT_SEMAPHORESLEEP)	Threads_Yield();
+		// We're only woken when there's something avaliable
+		us->WaitPointer = NULL;
+		
+		taken = us->RetStatus;
+		
+		// Get the lock again
+		SHORTLOCK( &Sem->Protector );
+	}
+	
+	// While there is space, and there are thread waiting
+	// wake the first thread and give it what it wants (or what's left)
+	while( (Sem->MaxValue == 0 || Sem->Value < Sem->MaxValue) && Sem->Signaling )
+	{
+		 int	given;
+		tThread	*toWake = Sem->Signaling;
+		
+		Sem->Signaling = Sem->Signaling->Next;
 		// Reset ->LastWaiting to NULL if we have just removed the last waiting thread
-		if( Sem->Waiting == NULL )
-			Sem->LastWaiting = NULL;
+		if( Sem->Signaling == NULL )
+			Sem->LastSignaling = NULL;
 		
-		// Wake new owner
+		// Figure out how much to give
+		if( toWake->RetStatus && Sem->Value + toWake->RetStatus < Sem->MaxValue )
+			given = toWake->RetStatus;
+		else
+			given = Sem->MaxValue - Sem->Value;
+		Sem->Value -= given;
+		
+		// Save the number we gave to the thread's status
+		toWake->RetStatus = given;
+		
+		// Wake the sleeper
 		SHORTLOCK( &glThreadListLock );
 		if( toWake->Status != THREAD_STAT_ACTIVE )
 			Threads_AddActive(toWake);
 		SHORTREL( &glThreadListLock );
-		
-		// Decrement (the value is now "owned" by `toWake`)
-		Sem->Value --;
 	}
 	SHORTREL( &Sem->Protector );
+	
+	return taken;
+}
+
+//
+// Add items to a semaphore
+//
+int Semaphore_Signal(tSemaphore *Sem, int AmmountToAdd)
+{
+	 int	given;
+	 int	added;
+	
+	if( AmmountToAdd < 0 ) {
+		Log_Warning("Threads", "Semaphore_Signal: User bug - AmmountToAdd(%i) < 0, Sem=%p(%s)",
+			AmmountToAdd, Sem, Sem->Name);
+	}
+	SHORTLOCK( &Sem->Protector );
+	
+	// Check if we have to block
+	if( Sem->MaxValue && Sem->Value == Sem->MaxValue )
+	{
+		tThread	*us;
+		SHORTLOCK( &glThreadListLock );
+		
+		// - Remove from active list
+		us = Threads_RemActive();
+		us->Next = NULL;
+		// - Mark as sleeping
+		us->Status = THREAD_STAT_SEMAPHORESLEEP;
+		us->WaitPointer = Sem;
+		us->RetStatus = AmmountToAdd;	// Use RetStatus as a temp variable
+		
+		// - Add to waiting
+		if(Sem->LastSignaling) {
+			Sem->LastSignaling->Next = us;
+			Sem->LastSignaling = us;
+		}
+		else {
+			Sem->Signaling = us;
+			Sem->LastSignaling = us;
+		}
+		
+		SHORTREL( &glThreadListLock );	
+		SHORTREL( &Sem->Protector );
+		while(us->Status == THREAD_STAT_SEMAPHORESLEEP)	Threads_Yield();
+		// We're only woken when there's something avaliable
+		us->WaitPointer = NULL;
+		
+		added = us->RetStatus;
+		
+		// Get the lock again
+		SHORTLOCK( &Sem->Protector );
+	}
+	// Non blocking
+	else
+	{
+		// Figure out how much we need to take off
+		if( Sem->MaxValue && Sem->Value + AmmountToAdd > Sem->MaxValue)
+			added = Sem->MaxValue - Sem->Value;
+		else
+			added = AmmountToAdd;
+		Sem->Value += added;
+	}
+	
+	// While there are items avaliable, and there are thread waiting
+	// wake the first thread and give it what it wants (or what's left)
+	while( Sem->Value && Sem->Waiting )
+	{
+		tThread	*toWake = Sem->Waiting;
+		
+		Sem->Waiting = Sem->Waiting->Next;
+		// Reset ->LastWaiting to NULL if we have just removed the last waiting thread
+		if( Sem->Waiting == NULL )
+			Sem->LastWaiting = NULL;
+		
+		// Figure out how much to give
+		if( toWake->RetStatus && Sem->Value > toWake->RetStatus )
+			given = toWake->RetStatus;
+		else
+			given = Sem->Value;
+		Sem->Value -= given;
+		
+		// Save the number we gave to the thread's status
+		toWake->RetStatus = given;
+		
+		// Wake the sleeper
+		SHORTLOCK( &glThreadListLock );
+		if( toWake->Status != THREAD_STAT_ACTIVE )
+			Threads_AddActive(toWake);
+		SHORTREL( &glThreadListLock );
+	}
+	SHORTREL( &Sem->Protector );
+	
+	return added;
+}
+
+//
+// Get the current value of a semaphore
+//
+int Semaphore_GetValue(tSemaphore *Sem)
+{
+	return Sem->Value;
 }
 
 // === EXPORTS ===
@@ -1351,3 +1551,6 @@ EXPORT(Threads_GetGID);
 EXPORT(Mutex_Acquire);
 EXPORT(Mutex_Release);
 EXPORT(Mutex_IsLocked);
+EXPORT(Semaphore_Init);
+EXPORT(Semaphore_Wait);
+EXPORT(Semaphore_Signal);

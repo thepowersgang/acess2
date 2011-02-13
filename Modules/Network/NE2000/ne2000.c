@@ -10,6 +10,7 @@
 #include <fs_devfs.h>
 #include <drv_pci.h>
 #include <tpl_drv_network.h>
+#include <semaphore.h>
 
 // === CONSTANTS ===
 #define	MEM_START	0x40
@@ -70,7 +71,8 @@ typedef struct sNe2k_Card {
 	Uint16	IOBase;	//!< IO Port Address from PCI
 	Uint8	IRQ;	//!< IRQ Assigned from PCI
 	
-	 int	NumWaitingPackets;
+	tSemaphore	Semaphore;
+//	 int	NumWaitingPackets;
 	 int	NextRXPage;
 	
 	 int	NextMemPage;	//!< Next Card Memory page to use
@@ -215,6 +217,10 @@ int Ne2k_Install(char **Options)
 			gpNe2k_Cards[ k ].Node.Write = Ne2k_Write;
 			gpNe2k_Cards[ k ].Node.Read = Ne2k_Read;
 			gpNe2k_Cards[ k ].Node.IOCtl = Ne2k_IOCtl;
+			
+			// Initialise packet semaphore
+			// - Start at zero, no max
+			Semaphore_Init( &gpNe2k_Cards[k].Semaphore, 0, 0, "NE2000", gpNe2k_Cards[ k ].Name );
 		}
 	}
 	
@@ -365,8 +371,8 @@ Uint64 Ne2k_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	
 	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
 	
-	// TODO: Use MutexP/MutexV instead
-	while(Card->NumWaitingPackets == 0)	Threads_Yield();
+	// Wait for packets
+	Semaphore_Wait( &Card->Semaphore, 1 );
 	
 	// Make sure that the card is in page 0
 	outb(Card->IOBase + CMD, 0|0x22);	// Page 0, Start, NoDMA
@@ -442,7 +448,6 @@ Uint64 Ne2k_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		outb( Card->IOBase + BNRY, page-1 );
 	// Set next RX Page and decrement the waiting list
 	Card->NextRXPage = page;
-	Card->NumWaitingPackets --;
 	
 	LEAVE('i', Length);
 	return Length;
@@ -479,9 +484,9 @@ void Ne2k_IRQHandler(int IntNum)
 			// 0: Packet recieved (no error)
 			if( byte & 1 )
 			{
-				gpNe2k_Cards[i].NumWaitingPackets ++;
-				if( gpNe2k_Cards[i].NumWaitingPackets > MAX_PACKET_QUEUE )
-					gpNe2k_Cards[i].NumWaitingPackets = MAX_PACKET_QUEUE;
+				//if( gpNe2k_Cards[i].NumWaitingPackets > MAX_PACKET_QUEUE )
+				//	gpNe2k_Cards[i].NumWaitingPackets = MAX_PACKET_QUEUE;
+				Semaphore_Signal( &gpNe2k_Cards[i].Semaphore, 1 );
 			}
 			// 1: Packet sent (no error)
 			// 2: Recieved with error
