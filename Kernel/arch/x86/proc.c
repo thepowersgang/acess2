@@ -56,11 +56,14 @@ void	ArchThreads_Init(void);
 void	MP_StartAP(int CPU);
 void	MP_SendIPI(Uint8 APICID, int Vector, int DeliveryMode);
 #endif
-void	Proc_Start(void);
-tThread	*Proc_GetCurThread(void);
+//void	Proc_Start(void);
+//tThread	*Proc_GetCurThread(void);
 void	Proc_ChangeStack(void);
- int	Proc_Clone(Uint *Err, Uint Flags);
+// int	Proc_Clone(Uint *Err, Uint Flags);
+Uint	Proc_MakeUserStack(void);
+void	Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **EnvP, int DataSize);
 void	Proc_StartProcess(Uint16 SS, Uint Stack, Uint Flags, Uint16 CS, Uint IP);
+ int	Proc_Demote(Uint *Err, int Dest, tRegs *Regs);
 void	Proc_CallFaultHandler(tThread *Thread);
 void	Proc_Scheduler(int CPU);
 
@@ -470,7 +473,7 @@ void Proc_Start(void)
 	if(Proc_Clone(0, 0) == 0)
 	{
 		gpIdleThread = Proc_GetCurThread();
-		gpIdleThread->ThreadName = "Idle Thread";
+		gpIdleThread->ThreadName = strdup("Idle Thread");
 		Threads_SetPriority( gpIdleThread, -1 );	// Never called randomly
 		gpIdleThread->Quantum = 1;	// 1 slice quantum
 		for(;;)	HALT();	// Just yeilds

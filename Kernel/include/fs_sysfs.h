@@ -21,7 +21,7 @@
  * \note \a Data must be maintained until ::SysFS_UpdateFile is called
  *       with a different buffer, or ::SysFS_RemoveFile is called.
  */
-extern int	SysFS_RegisterFile(char *Path, char *Data, int Length);
+extern int	SysFS_RegisterFile(const char *Path, const char *Data, int Length);
 
 /**
  * \brief Updates the size/pointer associated with a SysFD file
@@ -30,7 +30,7 @@ extern int	SysFS_RegisterFile(char *Path, char *Data, int Length);
  * \param Length	New length of the file
  * \return Boolean Success
  */
-extern int	SysFS_UpdateFile(int ID, char *Data, int Length);
+extern int	SysFS_UpdateFile(int ID, const char *Data, int Length);
 
 /**
  * \brief Removes a file from the SysFS tree

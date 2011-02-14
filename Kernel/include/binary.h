@@ -65,12 +65,12 @@ typedef struct sBinary
 	 * \note Used to uniquely identify the loaded binary to reduce in-memory
 	 *       duplication.
 	 */
-	char	*TruePath;
+	const char	*TruePath;
 	/**
 	 * \brief Interpreter used to load the file
 	 * \note This can be either requested by the individual file, or a per-driver option
 	 */
-	char	*Interpreter;
+	const char	*Interpreter;
 	/**
 	 * \brief Entrypoint of the binary (at requested base);
 	 */
@@ -118,7 +118,7 @@ typedef struct sBinaryType
 	 */
 	Uint32	Ident;
 	Uint32	Mask;	//!< Mask value for tBinaryType.Ident
-	char	*Name;	//!< Name of this executable type (for debug purpouses)
+	const char	*Name;	//!< Name of this executable type (for debug purpouses)
 	/**
 	 * \brief Read a binary from a file
 	 * \param FD	VFS File handle to file to load
@@ -151,7 +151,7 @@ typedef struct sBinaryType
 	  *       tBinaryType.Relocate at this time, so the driver should
 	  *       accomodate this.
 	  */
-	 int	(*GetSymbol)(void *Base, char *Name, Uint *Dest);
+	 int	(*GetSymbol)(void *Base, const char *Name, Uint *Dest);
 } tBinaryType;
 
 /**

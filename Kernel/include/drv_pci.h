@@ -45,6 +45,7 @@ extern int	PCI_GetDeviceByClass(Uint16 class, Uint16 mask, int prev);
 extern Uint8	PCI_GetIRQ(int id);
 extern Uint32	PCI_GetBAR0(int id);
 extern Uint32	PCI_GetBAR1(int id);
+extern Uint32	PCI_GetBAR2(int id);
 extern Uint32	PCI_GetBAR3(int id);
 extern Uint32	PCI_GetBAR4(int id);
 extern Uint32	PCI_GetBAR5(int id);

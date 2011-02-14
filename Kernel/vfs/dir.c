@@ -11,7 +11,9 @@
 extern tVFS_Mount	*gRootMount;
 
 // === PROTOTYPES ===
+#if 0
  int	VFS_MkDir(const char *Path);
+#endif
  int	VFS_MkNod(const char *Path, Uint Flags);
 
 // === CODE ===

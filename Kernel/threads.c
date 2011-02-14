@@ -32,22 +32,24 @@ const enum eConfigTypes	cCONFIG_TYPES[] = {
 
 // === IMPORTS ===
 extern void	ArchThreads_Init(void);
-extern void	Proc_Start(void);
-extern tThread	*Proc_GetCurThread(void);
-extern int	Proc_Clone(Uint *Err, Uint Flags);
 extern void	Proc_CallFaultHandler(tThread *Thread);
 extern int	GetCPUNum(void);
 
 // === PROTOTYPES ===
 void	Threads_Init(void);
+#if 0
  int	Threads_SetName(const char *NewName);
+#endif
 char	*Threads_GetName(int ID);
+#if 0
 void	Threads_SetPriority(tThread *Thread, int Pri);
 tThread	*Threads_CloneTCB(Uint *Err, Uint Flags);
  int	Threads_WaitTID(int TID, int *status);
 tThread	*Threads_GetThread(Uint TID);
+#endif
 void	Threads_AddToDelete(tThread *Thread);
 tThread	*Threads_int_DelFromQueue(tThread **List, tThread *Thread);
+#if 0
 void	Threads_Exit(int TID, int Status);
 void	Threads_Kill(tThread *Thread, int Status);
 void	Threads_Yield(void);
@@ -55,25 +57,32 @@ void	Threads_Sleep(void);
  int	Threads_Wake(tThread *Thread);
 void	Threads_AddActive(tThread *Thread);
 tThread	*Threads_RemActive(void);
+#endif
+void	Threads_Fault(int Num);
+void	Threads_SegFault(tVAddr Addr);
+#if 0
  int	Threads_GetPID(void);
  int	Threads_GetTID(void);
 tUID	Threads_GetUID(void);
- int	Threads_SetUID(Uint *Errno, tUID ID);
 tGID	Threads_GetGID(void);
+ int	Threads_SetUID(Uint *Errno, tUID ID);
  int	Threads_SetGID(Uint *Errno, tUID ID);
+#endif
 void	Threads_Dump(void);
 void	Threads_DumpActive(void);
 
+#if 0
  int	Mutex_Acquire(tMutex *Mutex);
 void	Mutex_Release(tMutex *Mutex);
  int	Mutex_IsLocked(tMutex *Mutex);
+#endif
 
 // === GLOBALS ===
 // -- Core Thread --
 // Only used for the core kernel
 tThread	gThreadZero = {
 	Status: THREAD_STAT_ACTIVE,	// Status
-	ThreadName:	"ThreadZero",	// Name
+	ThreadName:	(char*)"ThreadZero",	// Name
 	Quantum: DEFAULT_QUANTUM,	// Default Quantum
 	Remaining:	DEFAULT_QUANTUM,	// Current Quantum
 	Priority:	DEFAULT_PRIORITY	// Number of tickets
@@ -887,6 +896,17 @@ void Threads_Fault(int Num)
 	Proc_CallFaultHandler(thread);
 }
 
+/**
+ * \fn void Threads_SegFault(tVAddr Addr)
+ * \brief Called when a Segment Fault occurs
+ */
+void Threads_SegFault(tVAddr Addr)
+{
+	Warning("Thread #%i committed a segfault at address %p", Proc_GetCurThread()->TID, Addr);
+	Threads_Fault( 1 );
+	//Threads_Exit( 0, -1 );
+}
+
 // --- Process Structure Access Functions ---
 tPID Threads_GetPID(void)
 {
@@ -1218,17 +1238,6 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 	SHORTREL( &glThreadListLock );
 	
 	return thread;
-}
-
-/**
- * \fn void Threads_SegFault(tVAddr Addr)
- * \brief Called when a Segment Fault occurs
- */
-void Threads_SegFault(tVAddr Addr)
-{
-	Warning("Thread #%i committed a segfault at address %p", Proc_GetCurThread()->TID, Addr);
-	Threads_Fault( 1 );
-	//Threads_Exit( 0, -1 );
 }
 
 /**

@@ -13,11 +13,13 @@ extern tVFS_Driver	gRootFS_Info;
 extern tVFS_Driver	gDevFS_Info;
 
 // === PROTOTYPES ===
+#if 0
  int	VFS_Init(void);
 char	*VFS_GetTruePath(const char *Path);
 void	VFS_GetMemPath(char *Dest, void *Base, Uint Length);
 tVFS_Driver	*VFS_GetFSByName(const char *Name);
  int	VFS_AddDriver(tVFS_Driver *Info);
+#endif
 void	VFS_UpdateDriverFile(void);
 
 // === EXPORTS ===

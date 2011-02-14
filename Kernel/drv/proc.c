@@ -26,9 +26,11 @@ typedef struct sSysFS_Ent
  int	SysFS_Install(char **Arguments);
  int	SysFS_IOCtl(tVFS_Node *Node, int Id, void *Data);
 
- int	SysFS_RegisterFile(char *Path, char *Data, int Length);
- int	SysFS_UpdateFile(int ID, char *Data, int Length);
+#if 0
+ int	SysFS_RegisterFile(const char *Path, const char *Data, int Length);
+ int	SysFS_UpdateFile(int ID, const char *Data, int Length);
  int	SysFS_RemoveFile(int ID);
+#endif
 
 char	*SysFS_Comm_ReadDir(tVFS_Node *Node, int Id);
 tVFS_Node	*SysFS_Comm_FindDir(tVFS_Node *Node, const char *Filename);
@@ -44,7 +46,7 @@ tSysFS_Ent	gSysFS_Version_Kernel = {
 	&gSysFS_Version,	// Parent
 	{
 		.Inode = 1,	// File #1
-		.ImplPtr = KERNEL_VERSION_STRING,
+		.ImplPtr = (void*)KERNEL_VERSION_STRING,
 		.ImplInt = (Uint)&gSysFS_Version_Kernel,	// Self-Link
 		.Size = sizeof(KERNEL_VERSION_STRING)-1,
 		.NumACLs = 1,
@@ -114,7 +116,7 @@ int SysFS_Install(char **Options)
  * \param Length	Length of the data buffer
  * \return The file's identifier
  */
-int SysFS_RegisterFile(char *Path, char *Data, int Length)
+int SysFS_RegisterFile(const char *Path, const char *Data, int Length)
 {
 	 int	start = 0;
 	 int	tmp;
@@ -199,7 +201,7 @@ int SysFS_RegisterFile(char *Path, char *Data, int Length)
 	child->Parent = ent;
 	
 	child->Node.Inode = giSysFS_NextFileID++;
-	child->Node.ImplPtr = Data;
+	child->Node.ImplPtr = (void*)Data;
 	child->Node.ImplInt = (Uint)child;	// Uplink
 	child->Node.Size = Length;
 	child->Node.NumACLs = 1;
@@ -235,7 +237,7 @@ int SysFS_RegisterFile(char *Path, char *Data, int Length)
  * \param Length	Length of the data buffer
  * \return Boolean Success
  */
-int SysFS_UpdateFile(int ID, char *Data, int Length)
+int SysFS_UpdateFile(int ID, const char *Data, int Length)
 {
 	tSysFS_Ent	*ent;
 	
@@ -245,7 +247,7 @@ int SysFS_UpdateFile(int ID, char *Data, int Length)
 		if(ent->Node.Inode < ID)	return 0;
 		if(ent->Node.Inode == ID)
 		{
-			ent->Node.ImplPtr = Data;
+			ent->Node.ImplPtr = (void*)Data;
 			ent->Node.Size = Length;
 			return 1;
 		}

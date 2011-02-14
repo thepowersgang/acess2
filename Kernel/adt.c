@@ -22,7 +22,7 @@ size_t RingBuffer_Read(void *Dest, tRingBuffer *Buffer, size_t Length)
 	{
 		 int	endData = Buffer->Space - Buffer->Start;
 		memcpy(Dest, &Buffer->Data[Buffer->Start], endData);
-		memcpy(Dest + endData, &Buffer->Data, Length - endData);
+		memcpy((Uint8*)Dest + endData, &Buffer->Data, Length - endData);
 	}
 	else
 	{
@@ -44,7 +44,7 @@ size_t RingBuffer_Write(tRingBuffer *Buffer, void *Source, size_t Length)
 	if(endSpace < Length)
 	{
 		memcpy( &Buffer->Data[bufEnd], Source, endSpace );
-		memcpy( Buffer->Data, Source + endSpace, Length - endSpace );
+		memcpy( Buffer->Data, (Uint8*)Source + endSpace, Length - endSpace );
 		Buffer->Length = Length - endSpace;
 	}
 	else

@@ -305,14 +305,14 @@ void IOCache_Destroy( tIOCache *Cache )
 	// Remove from list
 	SHORTLOCK( &glIOCache_Caches );
 	{
-		tIOCache	*ent;
-		tIOCache	*prev = (tIOCache*)&gIOCache_Caches;
-		for(ent = gIOCache_Caches;
-			ent;
-			prev = ent, ent = ent->Next )
+		tIOCache	*cache;
+		tIOCache	*prev_cache = (tIOCache*)&gIOCache_Caches;
+		for(cache = gIOCache_Caches;
+			cache;
+			prev_cache = cache, cache = cache->Next )
 		{
-			if(ent == Cache) {
-				prev->Next = ent->Next;
+			if(cache == Cache) {
+				prev_cache->Next = cache->Next;
 				break;
 			}
 		}

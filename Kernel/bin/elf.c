@@ -12,9 +12,9 @@
 // === PROTOTYPES ===
 tBinary	*Elf_Load(int fp);
  int	Elf_Relocate(void *Base);
- int	Elf_GetSymbol(void *Base, char *Name, Uint *ret);
+ int	Elf_GetSymbol(void *Base, const char *Name, Uint *ret);
  int	Elf_Int_DoRelocate(Uint r_info, Uint32 *ptr, Uint32 addend, Elf32_Sym *symtab, Uint base);
-Uint	Elf_Int_HashString(char *str);
+Uint	Elf_Int_HashString(const char *str);
 
 // === GLOBALS ===
 tBinaryType	gELF_Info = {
@@ -285,7 +285,7 @@ int Elf_Relocate(void *Base)
 	ENTER("pBase", Base);
 	
 	// Parse Program Header to get Dynamic Table
-	phtab = Base + hdr->phoff;
+	phtab = (void *)( (tVAddr)Base + hdr->phoff );
 	iSegmentCount = hdr->phentcount;
 	for(i = 0; i < iSegmentCount; i ++ )
 	{
@@ -528,10 +528,10 @@ int Elf_Int_DoRelocate(Uint r_info, Uint32 *ptr, Uint32 addend, Elf32_Sym *symta
 }
 
 /**
- * \fn int Elf_GetSymbol(void *Base, char *name, Uint *ret)
+ * \fn int Elf_GetSymbol(void *Base, const char *name, Uint *ret)
  * \brief Get a symbol from the loaded binary
  */
-int Elf_GetSymbol(void *Base, char *Name, Uint *ret)
+int Elf_GetSymbol(void *Base, const char *Name, Uint *ret)
 {
 	Elf32_Ehdr	*hdr = (void*)Base;
 	Elf32_Sym	*symtab;
@@ -581,7 +581,7 @@ int Elf_GetSymbol(void *Base, char *Name, Uint *ret)
  * \param str	String to hash
  * \return Hash value
  */
-Uint Elf_Int_HashString(char *str)
+Uint Elf_Int_HashString(const char *str)
 {
 	Uint	h = 0, g;
 	while(*str)

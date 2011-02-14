@@ -40,7 +40,7 @@ struct sVM8086_InternalData
 // === PROTOTYPES ===
  int	VM8086_Install(char **Arguments);
 void	VM8086_GPF(tRegs *Regs);
-tVM8086	*VM8086_Init(void);
+//tVM8086	*VM8086_Init(void);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, 0x100, VM8086, VM8086_Install, NULL, NULL);
@@ -83,7 +83,12 @@ int VM8086_Install(char **Arguments)
 			MM_Map( i * 0x1000, i * 0x1000 );	MM_DerefPhys( i * 0x1000 );
 		}
 		MM_Map( 0x9F000, 0x9F000 );	// Stack / EBDA
-		MM_Allocate( 0x100000 );	// System Stack / Stub
+		// System Stack / Stub
+		if( MM_Allocate( 0x100000 ) == 0 ) {
+			Log_Error("VM8086", "Unable to allocate memory for stack/stub");
+			gVM8086_WorkerPID = 0;
+			Threads_Exit(0, 1);
+		}
 		
 		*(Uint8*)(0x100000) = VM8086_OP_IRET;
 		*(Uint8*)(0x100001) = 0x07;	// POP ES
@@ -132,6 +137,11 @@ int VM8086_Install(char **Arguments)
 	Log_Log("VM8086", "gVM8086_WorkerPID = %i", pid);
 	while( gpVM8086_State != NULL )
 		Threads_Yield();	// Yield to allow the child to initialise
+	
+	// Worker killed itself
+	if( gVM8086_WorkerPID != pid ) {
+		return MODULE_ERR_MISC;
+	}
 	
 	return MODULE_ERR_OK;
 }

@@ -14,11 +14,14 @@ const short DAYS_BEFORE[] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 3
 #define UNIX_TO_2K	((30*365*3600*24) + (7*3600*24))	//Normal years + leap years
 
 // === PROTOTYPES ===
+#if 0
  int	atoi(const char *string);
 void	itoa(char *buf, Uint64 num, int base, int minLength, char pad);
  int	vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args);
  int	sprintf(char *__s, const char *__format, ...);
+#endif
  int	tolower(int c);
+#if 0
  int	strucmp(const char *Str1, const char *Str2);
 char	*strchr(const char *__s, int __c);
  int	strpos(const char *Str, char Ch);
@@ -33,7 +36,6 @@ char	**str_split(const char *__str, char __ch);
  int	strpos8(const char *str, Uint32 Search);
  int	ReadUTF8(Uint8 *str, Uint32 *Val);
  int	WriteUTF8(Uint8 *str, Uint32 Val);
-
  int	DivUp(int num, int dem);
 Sint64	timestamp(int sec, int mins, int hrs, int day, int month, int year);
  int	rand(void);
@@ -45,6 +47,7 @@ Sint64	timestamp(int sec, int mins, int hrs, int day, int month, int year);
  int	ModUtil_SetIdent(char *Dest, char *Value);
  
  int	UnHex(Uint8 *Dest, size_t DestSize, const char *SourceString);
+#endif
 
 // === EXPORTS ===
 EXPORT(atoi);
@@ -198,7 +201,7 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 	char	c, pad = ' ';
 	 int	minSize = 0, len;
 	char	tmpBuf[34];	// For Integers
-	char	*p = NULL;
+	const char	*p = NULL;
 	 int	isLongLong = 0;
 	Uint64	val;
 	size_t	pos = 0;
@@ -222,8 +225,8 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		if(c == 'p') {
 			Uint	ptr = va_arg(args, Uint);
 			PUTCH('*');	PUTCH('0');	PUTCH('x');
+			itoa(tmpBuf, ptr, 16, BITS/4, '0');
 			p = tmpBuf;
-			itoa(p, ptr, 16, BITS/4, '0');
 			goto printString;
 		}
 		
@@ -285,30 +288,30 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 				PUTCH('-');
 				val = -(Sint32)val;
 			}
-			itoa(p, val, 10, minSize, pad);
+			itoa(tmpBuf, val, 10, minSize, pad);
 			goto printString;
 		case 'u':
 			GETVAL();
-			itoa(p, val, 10, minSize, pad);
+			itoa(tmpBuf, val, 10, minSize, pad);
 			goto printString;
 		case 'X':
 			if(BITS == 64)
 				isLongLong = 1;	// TODO: Handle non-x86 64-bit archs
 			GETVAL();
-			itoa(p, val, 16, minSize, pad);
+			itoa(tmpBuf, val, 16, minSize, pad);
 			goto printString;
 			
 		case 'x':
 			GETVAL();
-			itoa(p, val, 16, minSize, pad);
+			itoa(tmpBuf, val, 16, minSize, pad);
 			goto printString;
 		case 'o':
 			GETVAL();
-			itoa(p, val, 8, minSize, pad);
+			itoa(tmpBuf, val, 8, minSize, pad);
 			goto printString;
 		case 'b':
 			GETVAL();
-			itoa(p, val, 2, minSize, pad);
+			itoa(tmpBuf, val, 2, minSize, pad);
 			goto printString;
 
 		case 'B':	//Boolean
@@ -418,10 +421,11 @@ int strpos(const char *Str, char Ch)
  * \fn Uint8 ByteSum(void *Ptr, int Size)
  * \brief Adds the bytes in a memory region and returns the sum
  */
-Uint8 ByteSum(void *Ptr, int Size)
+Uint8 ByteSum(const void *Ptr, int Size)
 {
 	Uint8	sum = 0;
-	while(Size--)	sum += *(Uint8*)Ptr++;
+	const Uint8	*data = Ptr;
+	while(Size--)	sum += *(data++);
 	return sum;
 }
 
@@ -593,7 +597,7 @@ int strpos8(const char *str, Uint32 Search)
  * \fn int ReadUTF8(Uint8 *str, Uint32 *Val)
  * \brief Read a UTF-8 character from a string
  */
-int ReadUTF8(Uint8 *str, Uint32 *Val)
+int ReadUTF8(const Uint8 *str, Uint32 *Val)
 {
 	*Val = 0xFFFD;	// Assume invalid character
 	
@@ -756,7 +760,7 @@ int rand(void)
 /**
  * \brief Checks if a string resides fully in valid memory
  */
-int CheckString(char *String)
+int CheckString(const char *String)
 {
 	if( !MM_GetPhysAddr( (tVAddr)String ) )
 		return 0;
@@ -792,7 +796,7 @@ int CheckString(char *String)
 /**
  * \brief Check if a sized memory region is valid memory
  */
-int CheckMem(void *Mem, int NumBytes)
+int CheckMem(const void *Mem, int NumBytes)
 {
 	tVAddr	addr = (tVAddr)Mem;
 	
@@ -826,7 +830,7 @@ int CheckMem(void *Mem, int NumBytes)
  * \brief Search a string array for \a Needle
  * \note Helper function for eTplDrv_IOCtl::DRV_IOCTL_LOOKUP
  */
-int ModUtil_LookupString(char **Array, char *Needle)
+int ModUtil_LookupString(const char **Array, const char *Needle)
 {
 	 int	i;
 	if( !CheckString(Needle) )	return -1;
@@ -837,7 +841,7 @@ int ModUtil_LookupString(char **Array, char *Needle)
 	return -1;
 }
 
-int ModUtil_SetIdent(char *Dest, char *Value)
+int ModUtil_SetIdent(char *Dest, const char *Value)
 {
 	if( !CheckMem(Dest, 32) )	return -1;
 	strncpy(Dest, Value, 32);

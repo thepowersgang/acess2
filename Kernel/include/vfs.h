@@ -265,7 +265,7 @@ typedef struct sVFS_Node
 typedef struct sVFS_Driver
 {
 	//! \brief Unique Identifier for this filesystem type
-	char	*Name;
+	const char	*Name;
 	//! \brief Flags applying to this driver
 	Uint	Flags;
 	

@@ -104,23 +104,7 @@ int IPStack_RouteDir_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	switch(ID)
 	{
 	// --- Standard IOCtls (0-3) ---
-	case DRV_IOCTL_TYPE:
-		LEAVE('i', DRV_TYPE_MISC);
-		return DRV_TYPE_MISC;
-	
-	case DRV_IOCTL_IDENT:
-		tmp = ModUtil_SetIdent(Data, STR(IDENT));
-		LEAVE('i', 1);
-		return 1;
-	
-	case DRV_IOCTL_VERSION:
-		LEAVE('x', VERSION);
-		return VERSION;
-	
-	case DRV_IOCTL_LOOKUP:
-		tmp = ModUtil_LookupString( (char**)casIOCtls_RouteDir, (char*)Data );
-		LEAVE('i', tmp);
-		return tmp;
+	BASE_IOCTLS(DRV_TYPE_MISC, STR(IDENT), VERSION, casIOCtls_RouteDir)
 	
 	case 4:	// Add Route
 		if( !CheckString(Data) )	LEAVE_RET('i', -1);
@@ -371,7 +355,6 @@ static const char *casIOCtls_Route[] = {
  */
 int IPStack_Route_IOCtl(tVFS_Node *Node, int ID, void *Data)
 {
-	 int	tmp;
 	 int	*iData = Data;
 	tRoute	*rt = Node->ImplPtr;
 	 int	addrSize = IPStack_GetAddressSize(rt->AddressType);
@@ -379,23 +362,7 @@ int IPStack_Route_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	switch(ID)
 	{
 	// --- Standard IOCtls (0-3) ---
-	case DRV_IOCTL_TYPE:
-		LEAVE('i', DRV_TYPE_MISC);
-		return DRV_TYPE_MISC;
-	
-	case DRV_IOCTL_IDENT:
-		tmp = ModUtil_SetIdent(Data, STR(IDENT));
-		LEAVE('i', 1);
-		return 1;
-	
-	case DRV_IOCTL_VERSION:
-		LEAVE('x', VERSION);
-		return VERSION;
-	
-	case DRV_IOCTL_LOOKUP:
-		tmp = ModUtil_LookupString( (char**)casIOCtls_Route, (char*)Data );
-		LEAVE('i', tmp);
-		return tmp;
+	BASE_IOCTLS(DRV_TYPE_MISC, STR(IDENT), VERSION, casIOCtls_Route)
 	
 	// Get address type
 	case 4:

@@ -118,7 +118,7 @@ Uint64 DrvUtil_ReadBlock(Uint64 Start, Uint64 Length, void *Buffer,
 			return leading;
 		}
 		
-		Buffer += leading;
+		Buffer = (Uint8*)Buffer + leading;
 		block ++;
 		num = ( Length - leading ) / BlockSize;
 		tailings = Length - num * BlockSize - leading;
@@ -144,7 +144,7 @@ Uint64 DrvUtil_ReadBlock(Uint64 Start, Uint64 Length, void *Buffer,
 	{
 		LOG("Reading %i bytes from last block", tailings);
 		block += num;
-		Buffer += num * BlockSize;
+		Buffer = (Uint8*)Buffer + num * BlockSize;
 		ret = ReadBlocks(block, 1, tmp, Argument);
 		if(ret != 1) {
 			LEAVE('X', leading + num * BlockSize);
@@ -197,7 +197,7 @@ Uint64 DrvUtil_WriteBlock(Uint64 Start, Uint64 Length, void *Buffer,
 			return leading;
 		}
 		
-		Buffer += leading;
+		Buffer = (Uint8*)Buffer + leading;
 		block ++;
 		num = ( Length - leading ) / BlockSize;
 		tailings = Length - num * BlockSize - leading;
@@ -223,7 +223,7 @@ Uint64 DrvUtil_WriteBlock(Uint64 Start, Uint64 Length, void *Buffer,
 	{
 		LOG("Writing %i bytes to last block", tailings);
 		block += num;
-		Buffer += num * BlockSize;
+		Buffer = (Uint8*)Buffer + num * BlockSize;
 		// Read
 		ret = ReadBlocks(block, 1, tmp, Argument);
 		if(ret != 1) {

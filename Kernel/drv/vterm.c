@@ -30,7 +30,7 @@
 #define	VT_FLAG_HASFB	0x10	//!< Set if the VTerm has requested the Framebuffer
 
 enum eVT_InModes {
-	VT_INMODE_TEXT8,	// UTF-8 Text Mode (VT100 Emulation)
+	VT_INMODE_TEXT8,	// UTF-8 Text Mode (VT100/xterm Emulation)
 	VT_INMODE_TEXT32,	// UTF-32 Text Mode (Acess Native)
 	NUM_VT_INMODES
 };
@@ -65,7 +65,7 @@ typedef struct {
 } tVTerm;
 
 // === IMPORTS ===
-extern void	Debug_SetKTerminal(char *File);
+extern void	Debug_SetKTerminal(const char *File);
 
 // === PROTOTYPES ===
  int	VT_Install(char **Arguments);
@@ -82,6 +82,7 @@ void	VT_SetMode(int Mode);
 void	VT_SetTerminal(int ID);
 void	VT_KBCallBack(Uint32 Codepoint);
 void	VT_int_PutString(tVTerm *Term, Uint8 *Buffer, Uint Count);
+void	VT_int_ClearLine(tVTerm *Term, int Num);
  int	VT_int_ParseEscape(tVTerm *Term, char *Buffer);
 void	VT_int_PutChar(tVTerm *Term, Uint32 Ch);
 void	VT_int_ScrollFramebuffer( tVTerm *Term );
@@ -157,10 +158,10 @@ int VT_Install(char **Arguments)
 			Log_Debug("VTerm", "Argument '%s'", arg);
 			
 			if( strcmp(opt, "Video") == 0 ) {
-				gsVT_OutputDevice = val;
+				gsVT_OutputDevice = strdup(val);
 			}
 			else if( strcmp(opt, "Input") == 0 ) {
-				gsVT_InputDevice = val;
+				gsVT_InputDevice = strdup(val);
 			}
 			else if( strcmp(opt, "Width") == 0 ) {
 				giVT_RealWidth = atoi( val );
@@ -178,8 +179,8 @@ int VT_Install(char **Arguments)
 	if(gsVT_InputDevice)	Modules_InitialiseBuiltin( gsVT_InputDevice );
 	
 	// Apply Defaults
-	if(!gsVT_OutputDevice)	gsVT_OutputDevice = DEFAULT_OUTPUT;
-	if(!gsVT_InputDevice)	gsVT_InputDevice = DEFAULT_INPUT;
+	if(!gsVT_OutputDevice)	gsVT_OutputDevice = strdup(DEFAULT_OUTPUT);
+	if(!gsVT_InputDevice)	gsVT_InputDevice = strdup(DEFAULT_INPUT);
 	
 	// Create paths
 	{
@@ -391,6 +392,8 @@ int VT_Root_IOCtl(tVFS_Node *Node, int Id, void *Data)
 		if(Threads_GetUID() != 0)	return -EACCES;
 		
 		len = strlen(Data);
+		
+		// TODO: Check if the string used is a heap string
 		
 		free(gsVT_OutputDevice);
 		
@@ -1031,7 +1034,7 @@ void VT_int_PutString(tVTerm *Term, Uint8 *Buffer, Uint Count)
 void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 {
 	 int	i;
-		
+	
 	switch(Ch)
 	{
 	case '\0':	return;	// Ignore NULL byte
@@ -1083,7 +1086,7 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 	// - Check if we need to scroll the entire scrollback buffer
 	if(Term->WritePos >= Term->TextWidth*Term->TextHeight*(giVT_Scrollback+1))
 	{
-		 int	base, i;
+		 int	base;
 		
 		// Move back by one
 		Term->WritePos -= Term->TextWidth;

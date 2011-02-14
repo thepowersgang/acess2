@@ -192,28 +192,12 @@ int IPStack_Root_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	switch(ID)
 	{
 	// --- Standard IOCtls (0-3) ---
-	case DRV_IOCTL_TYPE:
-		LEAVE('i', DRV_TYPE_MISC);
-		return DRV_TYPE_MISC;
-	
-	case DRV_IOCTL_IDENT:
-		tmp = ModUtil_SetIdent(Data, "IPStack");
-		LEAVE('i', 1);
-		return 1;
-	
-	case DRV_IOCTL_VERSION:
-		LEAVE('x', VERSION);
-		return VERSION;
-	
-	case DRV_IOCTL_LOOKUP:
-		tmp = ModUtil_LookupString( (char**)casIOCtls_Root, (char*)Data );
-		LEAVE('i', tmp);
-		return tmp;
+	BASE_IOCTLS(DRV_TYPE_MISC, "IPStack", VERSION, casIOCtls_Root)
 		
-		/*
-		 * add_interface
-		 * - Adds a new IP interface and binds it to a device
-		 */
+	/*
+	 * add_interface
+	 * - Adds a new IP interface and binds it to a device
+	 */
 	case 4:
 		if( Threads_GetUID() != 0 )	LEAVE_RET('i', -1);
 		if( !CheckString( Data ) )	LEAVE_RET('i', -1);
@@ -384,23 +368,7 @@ int IPStack_Iface_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	switch(ID)
 	{
 	// --- Standard IOCtls (0-3) ---
-	case DRV_IOCTL_TYPE:
-		LEAVE('i', DRV_TYPE_MISC);
-		return DRV_TYPE_MISC;
-	
-	case DRV_IOCTL_IDENT:
-		tmp = ModUtil_SetIdent(Data, STR(IDENT));
-		LEAVE('i', 1);
-		return 1;
-	
-	case DRV_IOCTL_VERSION:
-		LEAVE('x', VERSION);
-		return VERSION;
-	
-	case DRV_IOCTL_LOOKUP:
-		tmp = ModUtil_LookupString( (char**)casIOCtls_Iface, (char*)Data );
-		LEAVE('i', tmp);
-		return tmp;
+	BASE_IOCTLS(DRV_TYPE_MISC, "IPStack", VERSION, casIOCtls_Iface)
 	
 	/*
 	 * getset_type

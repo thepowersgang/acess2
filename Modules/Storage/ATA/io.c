@@ -332,7 +332,10 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	// Wait for transfer to complete
 	timeoutTime = now() + ATA_TIMEOUT;
 	while( gaATA_IRQs[cont] == 0 && now() < timeoutTime)
-		Threads_Yield();
+	{
+		HALT();
+//		Threads_Yield();
+	}
 
 	// Complete Transfer
 	ATA_int_BusMasterWriteByte( cont << 3, 8 );	// Read and stop
@@ -429,7 +432,10 @@ int ATA_WriteDMA(Uint8 Disk, Uint64 Address, Uint Count, const void *Buffer)
 	// Wait for transfer to complete
 	timeoutTime = now() + ATA_TIMEOUT;
 	while( gaATA_IRQs[cont] == 0 && now() < timeoutTime)
-		Threads_Yield();
+	{
+//		Threads_Yield();
+		HALT();
+	}
 
 	// Complete Transfer
 	ATA_int_BusMasterWriteByte( cont << 3, 0 );	// Write and stop

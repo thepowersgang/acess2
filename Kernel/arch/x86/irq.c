@@ -11,6 +11,9 @@
 // === TYPES ===
 typedef void (*tIRQ_Callback)(int);
 
+// === PROTOTYPES ===
+void	IRQ_Handler(tRegs *Regs);
+
 // === GLOBALS ===
 tIRQ_Callback	gIRQ_Handlers[16][MAX_CALLBACKS_PER_IRQ];
 

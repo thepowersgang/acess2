@@ -33,7 +33,7 @@ void	FIFO_Close(tVFS_Node *Node);
  int	FIFO_Relink(tVFS_Node *Node, const char *OldName, const char *NewName);
 Uint64	FIFO_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
 Uint64	FIFO_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
-tPipe	*FIFO_Int_NewPipe(int Size, char *Name);
+tPipe	*FIFO_Int_NewPipe(int Size, const char *Name);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, 0x0032, FIFO, FIFO_Install, NULL, NULL);
@@ -220,7 +220,8 @@ Uint64 FIFO_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	while(remaining)
 	{
 		// Wait for buffer to fill
-		if(pipe->Flags & PF_BLOCKING) {
+		if(pipe->Flags & PF_BLOCKING)
+		{
 			len = Semaphore_Wait( &pipe->Semaphore, remaining );
 		}
 		else
@@ -239,7 +240,7 @@ Uint64 FIFO_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		{
 			int ofs = pipe->BufSize - pipe->ReadPos;
 			memcpy(Buffer, &pipe->Buffer[pipe->ReadPos], ofs);
-			memcpy(Buffer + ofs, &pipe->Buffer, len-ofs);
+			memcpy((Uint8*)Buffer + ofs, &pipe->Buffer, len-ofs);
 		}
 		else
 		{
@@ -253,7 +254,7 @@ Uint64 FIFO_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		// Decrement Remaining Bytes
 		remaining -= len;
 		// Increment Buffer address
-		Buffer += len;
+		Buffer = (Uint8*)Buffer + len;
 	}
 
 	return Length;
@@ -294,7 +295,7 @@ Uint64 FIFO_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		{
 			int ofs = pipe->BufSize - pipe->WritePos;
 			memcpy(&pipe->Buffer[pipe->WritePos], Buffer, ofs);
-			memcpy(&pipe->Buffer, Buffer + ofs, len-ofs);
+			memcpy(&pipe->Buffer, (Uint8*)Buffer + ofs, len-ofs);
 		}
 		else
 		{
@@ -308,7 +309,7 @@ Uint64 FIFO_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		// Decrement Remaining Bytes
 		remaining -= len;
 		// Increment Buffer address
-		Buffer += len;
+		Buffer = (Uint8*)Buffer + len;
 	}
 
 	return Length;
@@ -316,10 +317,10 @@ Uint64 FIFO_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 
 // --- HELPERS ---
 /**
- * \fn tPipe *FIFO_Int_NewPipe(int Size, char *Name)
+ * \fn tPipe *FIFO_Int_NewPipe(int Size, const char *Name)
  * \brief Create a new pipe
  */
-tPipe *FIFO_Int_NewPipe(int Size, char *Name)
+tPipe *FIFO_Int_NewPipe(int Size, const char *Name)
 {
 	tPipe	*ret;
 	 int	namelen = strlen(Name) + 1;

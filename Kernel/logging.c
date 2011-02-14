@@ -47,15 +47,15 @@ typedef struct sLogList
 }	tLogList;
 
 // === PROTOTYPES ===
-void	Log_AddEvent(char *Ident, int Level, char *Format, va_list Args);
+void	Log_AddEvent(const char *Ident, int Level, const char *Format, va_list Args);
 static void	Log_Int_PrintMessage(tLogEntry *Entry);
-void	Log_KernelPanic(char *Ident, char *Message, ...);
-void	Log_Panic(char *Ident, char *Message, ...);
-void	Log_Error(char *Ident, char *Message, ...);
-void	Log_Warning(char *Ident, char *Message, ...);
-void	Log_Notice(char *Ident, char *Message, ...);
-void	Log_Log(char *Ident, char *Message, ...);
-void	Log_Debug(char *Ident, char *Message, ...);
+//void	Log_KernelPanic(const char *Ident, const char *Message, ...);
+//void	Log_Panic(const char *Ident, const char *Message, ...);
+//void	Log_Error(const char *Ident, const char *Message, ...);
+//void	Log_Warning(const char *Ident, const char *Message, ...);
+//void	Log_Notice(const char *Ident, const char *Message, ...);
+//void	Log_Log(const char *Ident, const char *Message, ...);
+//void	Log_Debug(const char *Ident, const char *Message, ...);
 
 // === EXPORTS ===
 EXPORT(Log_Panic);
@@ -80,7 +80,7 @@ tLogList	gLog_Levels[NUM_LOG_LEVELS];
 /**
  * \brief Adds an event to the log
  */
-void Log_AddEvent(char *Ident, int Level, char *Format, va_list Args)
+void Log_AddEvent(const char *Ident, int Level, const char *Format, va_list Args)
 {
 	 int	len;
 	tLogEntry	*ent;
@@ -166,7 +166,7 @@ void Log_Int_PrintMessage(tLogEntry *Entry)
 /**
  * \brief KERNEL PANIC!!!!
  */
-void Log_KernelPanic(char *Ident, char *Message, ...)
+void Log_KernelPanic(const char *Ident, const char *Message, ...)
 {
 	va_list	args;	
 	va_start(args, Message);
@@ -177,7 +177,7 @@ void Log_KernelPanic(char *Ident, char *Message, ...)
 /**
  * \brief Panic Message - Driver Unrecoverable error
  */
-void Log_Panic(char *Ident, char *Message, ...)
+void Log_Panic(const char *Ident, const char *Message, ...)
 {
 	va_list	args;	
 	va_start(args, Message);
@@ -188,7 +188,7 @@ void Log_Panic(char *Ident, char *Message, ...)
 /**
  * \brief Error Message - Recoverable Error
  */
-void Log_Error(char *Ident, char *Message, ...)
+void Log_Error(const char *Ident, const char *Message, ...)
 {
 	va_list	args;	
 	va_start(args, Message);
@@ -199,7 +199,7 @@ void Log_Error(char *Ident, char *Message, ...)
 /**
  * \brief Warning Message - Something the user should know
  */
-void Log_Warning(char *Ident, char *Message, ...)
+void Log_Warning(const char *Ident, const char *Message, ...)
 {
 	va_list	args;
 	
@@ -211,7 +211,7 @@ void Log_Warning(char *Ident, char *Message, ...)
 /**
  * \brief Notice Message - Something the user might like to know
  */
-void Log_Notice(char *Ident, char *Message, ...)
+void Log_Notice(const char *Ident, const char *Message, ...)
 {
 	va_list	args;	
 	va_start(args, Message);
@@ -222,7 +222,7 @@ void Log_Notice(char *Ident, char *Message, ...)
 /**
  * \brief Log Message - Possibly useful information
  */
-void Log_Log(char *Ident, char *Message, ...)
+void Log_Log(const char *Ident, const char *Message, ...)
 {
 	va_list	args;	
 	va_start(args, Message);
@@ -233,7 +233,7 @@ void Log_Log(char *Ident, char *Message, ...)
 /**
  * \brief Debug Message - Only a developer would want this info
  */
-void Log_Debug(char *Ident, char *Message, ...)
+void Log_Debug(const char *Ident, const char *Message, ...)
 {
 	va_list	args;	
 	va_start(args, Message);

@@ -17,7 +17,6 @@ typedef struct sTimer {
 } tTimer;
 
 // === PROTOTYPES ===
-Sint64	now(void);
 void	Timer_CallTimers(void);
 
 // === GLOBALS ===

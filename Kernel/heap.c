@@ -28,10 +28,10 @@
 void	Heap_Install(void);
 void	*Heap_Extend(int Bytes);
 void	*Heap_Merge(tHeapHead *Head);
-void	*Heap_Allocate(const char *File, int Line, size_t Bytes);
-void	*Heap_AllocateZero(const char *File, int Line, size_t Bytes);
-void	*Heap_Reallocate(const char *File, int Line, void *Ptr, size_t Bytes);
-void	Heap_Deallocate(void *Ptr);
+//void	*Heap_Allocate(const char *File, int Line, size_t Bytes);
+//void	*Heap_AllocateZero(const char *File, int Line, size_t Bytes);
+//void	*Heap_Reallocate(const char *File, int Line, void *Ptr, size_t Bytes);
+//void	Heap_Deallocate(void *Ptr);
 void	Heap_Dump(void);
 void	Heap_Stats(void);
 
@@ -79,7 +79,7 @@ void *Heap_Extend(int Bytes)
 	}
 	
 	// Increas heap end
-	gHeapEnd += i << 12;
+	gHeapEnd = (Uint8*)gHeapEnd + (i << 12);
 	
 	// Create Block
 	head->Size = (Bytes+0xFFF)&~0xFFF;

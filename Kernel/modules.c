@@ -10,12 +10,13 @@
 #define	USE_UDI	0
 
 // === PROTOTYPES ===
- int	Module_int_Initialise(tModule *Module, char *ArgString);
+ int	Module_int_Initialise(tModule *Module, const char *ArgString);
+void	Modules_int_GetBuiltinArray(void);
 void	Modules_LoadBuiltins(void);
 void	Modules_SetBuiltinParams(char *Name, char *ArgString);
- int	Module_RegisterLoader(tModuleLoader *Loader);
- int	Module_LoadMem(void *Buffer, Uint Length, char *ArgString);
- int	Module_LoadFile(char *Path, char *ArgString);
+// int	Module_RegisterLoader(tModuleLoader *Loader);
+// int	Module_LoadMem(void *Buffer, Uint Length, char *ArgString);
+// int	Module_LoadFile(char *Path, char *ArgString);
  int	Module_int_ResolveDeps(tModule *Info);
  int	Module_IsLoaded(const char *Name);
 
@@ -26,7 +27,7 @@ EXPORT(Module_RegisterLoader);
 #if USE_UDI
 extern int	UDI_LoadDriver(void *Base);
 #endif
-extern void	StartupPrint(char *Str);
+extern void	StartupPrint(const char *Str);
 extern void	gKernelModules;
 extern void	gKernelModulesEnd;
 
@@ -50,11 +51,11 @@ char	**gasBuiltinModuleArgs;
  * \retval 0	Returned on success
  * \retval >0	Error code form the module's initialisation function
  */
-int Module_int_Initialise(tModule *Module, char *ArgString)
+int Module_int_Initialise(tModule *Module, const char *ArgString)
 {
 	 int	i, j;
 	 int	ret;
-	char	**deps;
+	const char	**deps;
 	char	**args;
 	tModule	*mod;
 	
@@ -321,7 +322,7 @@ int Module_RegisterLoader(tModuleLoader *Loader)
  * \fn int Module_LoadMem(void *Buffer, Uint Length, char *ArgString)
  * \brief Load a module from a memory location
  */
-int Module_LoadMem(void *Buffer, Uint Length, char *ArgString)
+int Module_LoadMem(void *Buffer, Uint Length, const char *ArgString)
 {
 	char	path[VFS_MEMPATH_SIZE];
 	
@@ -331,10 +332,10 @@ int Module_LoadMem(void *Buffer, Uint Length, char *ArgString)
 }
 
 /**
- * \fn int Module_LoadFile(char *Path, char *ArgString)
+ * \fn int Module_LoadFile(const char *Path, const char *ArgString)
  * \brief Load a module from a file
  */
-int Module_LoadFile(char *Path, char *ArgString)
+int Module_LoadFile(const char *Path, const char *ArgString)
 {
 	void	*base;
 	tModule	*info;
@@ -395,7 +396,7 @@ int Module_LoadFile(char *Path, char *ArgString)
  */
 int Module_int_ResolveDeps(tModule *Info)
 {
-	char	**names = Info->Dependencies;
+	const char	**names = Info->Dependencies;
 	
 	// Walk dependencies array
 	for( ; *names; names++ )

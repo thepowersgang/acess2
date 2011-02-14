@@ -111,7 +111,7 @@ enum eTplDrv_IOCtl {
 		}\
 	case DRV_IOCTL_VERSION:	LEAVE('x', (_version));	return (_version);\
 	case DRV_IOCTL_LOOKUP:{\
-		int tmp = ModUtil_LookupString( (char**)(_ioctls), (char*)Data );\
+		int tmp = ModUtil_LookupString( _ioctls, (const char*)Data );\
 		LEAVE('i', tmp);\
 		return tmp;\
 		}

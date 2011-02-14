@@ -56,7 +56,7 @@ struct sShortSpinlock {
 
 // === MACROS ===
 /**
- * \brief Halt the CPU
+ * \brief Halt the CPU (shorter version of yield)
  */
 #define	HALT()	__asm__ __volatile__ ("hlt")
 /**

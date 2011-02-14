@@ -25,7 +25,10 @@ extern void	KernelPanic_PutChar(char Ch);
  int	getDebugChar(void);
 static void	Debug_Putchar(char ch);
 static void	Debug_Puts(int DbgOnly, const char *Str);
+void	Debug_DbgOnlyFmt(const char *format, va_list args);
+void	Debug_FmtS(const char *format, ...);
 void	Debug_Fmt(const char *format, va_list args);
+void	Debug_SetKTerminal(const char *File);
 
 // === GLOBALS ===
  int	gDebug_Level = 0;
@@ -308,6 +311,7 @@ void Debug_Enter(const char *FuncName, const char *ArgTypes, ...)
 
 	va_start(args, ArgTypes);
 
+	LogF("%012lli ", now());
 	while(i--)	Debug_Putchar(' ');
 
 	Debug_Puts(1, FuncName);
@@ -365,6 +369,7 @@ void Debug_Log(const char *FuncName, const char *Fmt, ...)
 
 	va_start(args, Fmt);
 
+	LogF("%012lli ", now());
 	while(i--)	Debug_Putchar(' ');
 
 	Debug_Puts(1, FuncName);
@@ -399,6 +404,7 @@ void Debug_Leave(const char *FuncName, char RetType, ...)
 		gDebug_Level = 0;
 		i = 0;
 	}
+	LogF("%012lli ", now());
 	// Indenting
 	while(i--)	Debug_Putchar(' ');
 

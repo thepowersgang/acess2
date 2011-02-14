@@ -676,22 +676,19 @@ void FDD_SensInt(int base, Uint8 *sr0, Uint8 *cyl)
  */
 void FDD_int_SendByte(int base, char byte)
 {
-	volatile int state;
-	int timeout = 128;
-	for( ; timeout--; )
-	{
-	    state = inb(base + PORT_MAINSTATUS);
-	    if ((state & 0xC0) == 0x80)
-	    {
-	        outb(base + PORT_DATA, byte);
-	        return;
-	    }
-	    inb(0x80);	//Delay
-	}
+	 int	timeout = 128;
 	
-	#if WARN
-	Warning("FDD_int_SendByte - Timeout sending byte 0x%x to base 0x%x\n", byte, base);
-	#endif
+	while( (inb(base + PORT_MAINSTATUS) & 0xC0) != 0x80 && timeout-- )
+		inb(0x80);	//Delay
+	
+	if( timeout >= 0 )
+	{
+		outb(base + PORT_DATA, byte);
+	}
+	else
+	{
+		Log_Warning("FDD", "FDD_int_SendByte: Timeout sending byte 0x%x to base 0x%x\n", byte, base);
+	}
 }
 
 /**
@@ -700,16 +697,20 @@ void FDD_int_SendByte(int base, char byte)
  */
 int FDD_int_GetByte(int base)
 {
-	volatile int state;
-	int timeout;
-	for( timeout = 128; timeout--; )
+	 int	timeout = 128;
+	
+	while( (inb(base + PORT_MAINSTATUS) & 0xd0) != 0xd0 && timeout-- )
+		inb(0x80);	//Delay
+	
+	if( timeout >= 0 )
 	{
-	    state = inb((base + PORT_MAINSTATUS));
-	    if ((state & 0xd0) == 0xd0)
-		    return inb(base + PORT_DATA);
-	    inb(0x80);
+	    return inb(base + PORT_DATA);
 	}
-	return -1;
+	else
+	{
+		Log_Warning("FDD", "FDD_int_GetByte: Timeout reading byte from base 0x%x\n", base);
+		return -1;
+	}
 }
 
 /**

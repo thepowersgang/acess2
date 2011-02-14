@@ -78,6 +78,7 @@ void	MM_PreinitVirtual(void);
 void	MM_InstallVirtual(void);
 void	MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs);
 void	MM_DumpTables(tVAddr Start, tVAddr End);
+tVAddr	MM_ClearUser(void);
 tPAddr	MM_DuplicatePage(tVAddr VAddr);
 
 // === GLOBALS ===

@@ -19,17 +19,11 @@
 	if(!(v)||!Syscall_ValidString((Uint)(v))){ret=-1;err=-EINVAL;break;}
 
 // === IMPORTS ===
-extern int	Proc_Clone(Uint *Err, Uint Flags);
-extern int	Threads_WaitTID(int TID, int *status);
-extern Uint	Proc_SendMessage(Uint *Err, Uint Dest, Uint Length, void *Data);
-extern int	Proc_GetMessage(Uint *Err, Uint *Source, void *Buffer);
 extern int	Proc_Execve(char *File, char **ArgV, char **EnvP);
 extern Uint	Binary_Load(char *file, Uint *entryPoint);
-extern int	Threads_SetUID(Uint *errno, tUID ID);
-extern int	Threads_SetGID(Uint *errno, tGID ID);
-extern int	Threads_SetFaultHandler(Uint Handler);
 
 // === PROTOTYPES ===
+void	SyscallHandler(tSyscallRegs *Regs);
  int	Syscall_ValidString(Uint Addr);
  int	Syscall_Valid(int Size, Uint Addr);
 

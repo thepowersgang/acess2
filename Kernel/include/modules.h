@@ -53,7 +53,7 @@
  *             	Contains the identifiers of the required modules.
  */
 #define MODULE_DEFINE(_flags,_ver,_ident,_entry,_deinit,_deps...) \
-	char *EXPAND_CONCAT(_DriverDeps_,_ident)[]={_deps};\
+	const char *EXPAND_CONCAT(_DriverDeps_,_ident)[]={_deps};\
 	tModule __attribute__ ((section ("KMODULES"),unused))\
 	EXPAND_CONCAT(_DriverInfo_,_ident)=\
 	{MODULE_MAGIC,MODULE_ARCH_ID,_flags,_ver,NULL,EXPAND_STR(_ident),\
@@ -71,10 +71,10 @@ typedef struct sModule
 	Uint8	Flags;	//!< Module Flags
 	Uint16	Version;	//!< Module Version in Major.Minor 8.8 form
 	struct sModule	*Next;	//!< Next module in list (not to be touched by the driver)
-	char	*Name;	//!< Module Name/Identifier
+	const char	*Name;	//!< Module Name/Identifier
 	 int	(*Init)(char **Arguments);	//!< Module initialiser / entrypoint
 	void	(*Deinit)(void);	//!< Cleanup Function
-	char	**Dependencies;	//!< NULL terminated list of dependencies
+	const char	**Dependencies;	//!< NULL terminated list of dependencies
 } PACKED tModule;
 
 /**

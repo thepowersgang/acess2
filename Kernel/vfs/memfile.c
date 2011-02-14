@@ -110,7 +110,7 @@ Uint64 VFS_MemFile_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buf
 		Length = Node->Size - Offset;
 	
 	// Copy Data
-	memcpy(Buffer, Node->ImplPtr+Offset, Length);
+	memcpy(Buffer, (Uint8*)Node->ImplPtr + Offset, Length);
 	
 	return Length;
 }
@@ -132,7 +132,7 @@ Uint64 VFS_MemFile_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Bu
 		Length = Node->Size - Offset;
 	
 	// Copy Data
-	memcpy(Node->ImplPtr+Offset, Buffer, Length);
+	memcpy((Uint8*)Node->ImplPtr + Offset, Buffer, Length);
 	
 	return Length;
 }

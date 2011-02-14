@@ -116,9 +116,19 @@ extern void	Threads_SetPriority(tThread *Thread, int Pri);
 extern int	Threads_Wake(tThread *Thread);
 extern void	Threads_Kill(tThread *Thread, int Status);
 extern void	Threads_AddActive(tThread *Thread);
+extern tThread	*Threads_RemActive(void);
 extern tThread	*Threads_GetNextToRun(int CPU, tThread *Last);
+
+extern void	Threads_SetFaultHandler(Uint Handler);
+
+extern int	Threads_SetUID(Uint *Errno, tUID ID);
+extern int	Threads_SetGID(Uint *Errno, tUID ID);
+extern int	Threads_WaitTID(int TID, int *Status);
 
 extern tThread	*Threads_CloneTCB(Uint *Err, Uint Flags);
 extern tThread	*Threads_CloneThreadZero(void);
+
+extern int	Proc_SendMessage(Uint *Err, Uint Dest, int Length, void *Data);
+extern int	Proc_GetMessage(Uint *Err, Uint *Source, void *Buffer);
 
 #endif

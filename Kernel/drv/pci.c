@@ -39,17 +39,20 @@ typedef struct sPCIDevice
 char	*PCI_ReadDirRoot(tVFS_Node *node, int pos);
 tVFS_Node	*PCI_FindDirRoot(tVFS_Node *node, const char *filename);
 Uint64	PCI_ReadDevice(tVFS_Node *node, Uint64 pos, Uint64 length, void *buffer);
- 
+
+#if 0
  int	PCI_CountDevices(Uint16 vendor, Uint16 device, Uint16 fcn);
  int	PCI_GetDevice(Uint16 vendor, Uint16 device, Uint16 fcn, int idx);
  int	PCI_GetDeviceByClass(Uint16 class, Uint16 mask, int prev);
 Uint8	PCI_GetIRQ(int id);
 Uint32	PCI_GetBAR0(int id);
 Uint32	PCI_GetBAR1(int id);
+Uint32	PCI_GetBAR2(int id);
 Uint32	PCI_GetBAR3(int id);
 Uint32	PCI_GetBAR4(int id);
 Uint32	PCI_GetBAR5(int id);
 Uint16	PCI_AssignPort(int id, int bar, int count);
+#endif
 
  int	PCI_EnumDevice(Uint16 bus, Uint16 dev, Uint16 fcn, tPCIDevice *info);
 Uint32	PCI_CfgReadDWord(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset);

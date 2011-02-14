@@ -11,7 +11,12 @@
 extern struct sShortSpinlock	glDebug_Lock;
 #endif
 
+// === IMPRORTS ===
 extern int	GetCPUNum(void);
+
+// === PROTOTYPES ==
+Uint64	__udivdi3(Uint64 Num, Uint64 Den);
+Uint64	__umoddi3(Uint64 Num, Uint64 Den);
 
 // === CODE ===
 /**
@@ -216,14 +221,16 @@ void *memsetd(void *Dest, Uint32 Val, size_t Num)
  */
 int memcmp(const void *m1, const void *m2, size_t Num)
 {
+	const Uint8	*d1 = m1;
+	const Uint8	*d2 = m2;
 	if( Num == 0 )	return 0;	// No bytes are always identical
 	
 	while(Num--)
 	{
-		if(*(Uint8*)m1 != *(Uint8*)m2)
-			return *(Uint8*)m1 - *(Uint8*)m2;
-		m1 ++;
-		m2 ++;
+		if(*d1 != *d2)
+			return *d1 - *d2;
+		d1 ++;
+		d2 ++;
 	}
 	return 0;
 }

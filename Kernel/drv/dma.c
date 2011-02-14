@@ -23,6 +23,7 @@ typedef struct
  int	DMA_Install(char **Arguments);
 void	DMA_SetChannel(int Channel, int length, int read);
  int	DMA_ReadData(int channel, int count, void *buffer);
+ int	DMA_WriteData(int channel, int count, const void *buffer);
 
 // === CONSTANTS ===
 const Uint8 cMASKPORT [8] = { 0x0A, 0x0A, 0x0A, 0x0A, 0xD4, 0xD4, 0xD4, 0xD4 };
@@ -110,7 +111,7 @@ int DMA_ReadData(int channel, int count, void *buffer)
  * \fn void DMA_WriteData(int channel, int count, void *buffer)
  * \brief Write data to a DMA buffer
  */
-int DMA_WriteData(int channel, int count, void *buffer)
+int DMA_WriteData(int channel, int count, const void *buffer)
 {
 	if(channel < 0 || channel > 7)
 		return -1;

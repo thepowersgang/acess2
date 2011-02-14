@@ -52,6 +52,11 @@ const struct {
 };
 #define	NUM_REGVALUES	(sizeof(caRegValues)/sizeof(caRegValues[0]))
 
+// === PROTOTYPES ===
+void	KernelPanic_SetMode(void);
+void	KernelPanic_PutChar(char Ch);
+
+// === CODE ===
 /**
  * \brief Sets the screen mode for a kernel panic
  */

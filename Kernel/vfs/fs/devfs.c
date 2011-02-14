@@ -8,8 +8,10 @@
 #include <fs_devfs.h>
 
 // === PROTOTYPES ===
+#if 0
  int	DevFS_AddDevice(tDevFS_Driver *Device);
 void	DevFS_DelDevice(tDevFS_Driver *Device);
+#endif
 tVFS_Node	*DevFS_InitDevice(const char *Device, const char **Options);
 char	*DevFS_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*DevFS_FindDir(tVFS_Node *Node, const char *Name);

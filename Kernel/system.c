@@ -23,7 +23,7 @@ typedef struct
 }	tConfigFile;
 typedef struct
 {
-	char	*Name;		// Name
+	const char	*Name;		// Name
 	 int	MinArgs;	// Minimum number of arguments
 	 int	MaxArgs;	// Maximum number of arguments
 	Uint	IntArgs;	// Bitmap of arguments that should be treated as integers
@@ -35,7 +35,7 @@ typedef struct
 extern void	Arch_LoadBootModules(void);
 extern int	Modules_LoadBuiltins(void);
 extern void	Modules_SetBuiltinParams(char *Name, char *ArgString);
-extern void	Debug_SetKTerminal(char *File);
+extern void	Debug_SetKTerminal(const char *File);
 
 // === PROTOTYPES ===
 void	System_Init(char *Commandline);
@@ -64,7 +64,7 @@ const tConfigCommand	caConfigCommands[] = {
 #define NUM_CONFIG_COMMANDS	(sizeof(caConfigCommands)/sizeof(caConfigCommands[0]))
 
 // === GLOBALS ===
-char	*gsConfigScript = "/Acess/Conf/BootConf.cfg";
+const char	*gsConfigScript = "/Acess/Conf/BootConf.cfg";
 char	*argv[32];
  int	argc;
 

@@ -15,6 +15,7 @@
  int	VGA_Install(char **Arguments);
 Uint64	VGA_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
  int	VGA_IOCtl(tVFS_Node *Node, int Id, void *Data);
+Uint8	VGA_int_GetColourNibble(Uint16 col);
 Uint16	VGA_int_GetWord(tVT_Char *Char);
 void	VGA_int_SetCursor(Sint16 x, Sint16 y);
 

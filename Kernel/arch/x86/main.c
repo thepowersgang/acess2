@@ -23,11 +23,11 @@ extern void MM_InstallVirtual(void);
 extern void	Threads_Init(void);
 extern int	Time_Setup(void);
 extern Uint	Proc_Clone(Uint *Err, Uint Flags);
-extern void	Threads_Sleep(void);
 // --- Core ---
 extern void	System_Init(char *Commandline);
 
 // === PROTOTYPES ===
+ int	kmain(Uint MbMagic, void *MbInfoPtr);
 void	Arch_LoadBootModules(void);
 
 // === GLOBALS ===

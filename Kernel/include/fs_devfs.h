@@ -14,7 +14,7 @@
 typedef struct sDevFS_Driver
 {
 	struct sDevFS_Driver	*Next;	//!< Set to NULL by drivers (used internally)
-	char	*Name;	//!< Name of the driver file/folder (must be unique)
+	const char	*Name;	//!< Name of the driver file/folder (must be unique)
 	tVFS_Node	RootNode;	//!< Root node of driver
 } tDevFS_Driver;
 

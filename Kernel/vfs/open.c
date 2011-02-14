@@ -15,8 +15,6 @@
 // === IMPORTS ===
 extern tVFS_Node	gVFS_MemRoot;
 extern tVFS_Mount	*gVFS_RootMount;
-
-extern tVFS_Handle	*VFS_GetHandle(int FD);
 extern int	VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode);
 
 // === CODE ===
@@ -32,9 +30,9 @@ char *VFS_GetAbsPath(const char *Path)
 	char	*tmpStr;
 	int		iPos = 0;
 	int		iPos2 = 0;
-	char	*chroot = CFGPTR(CFG_VFS_CHROOT);
+	const char	*chroot = CFGPTR(CFG_VFS_CHROOT);
 	 int	chrootLen;
-	char	*cwd = CFGPTR(CFG_VFS_CWD);
+	const char	*cwd = CFGPTR(CFG_VFS_CWD);
 	 int	cwdLen;
 	
 	ENTER("sPath", Path);

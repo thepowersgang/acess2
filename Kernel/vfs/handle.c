@@ -13,7 +13,9 @@
 #define MAX_KERNEL_FILES	128
 
 // === PROTOTYPES ===
+#if 0
 tVFS_Handle	*VFS_GetHandle(int FD);
+#endif
  int	VFS_AllocHandle(int FD, tVFS_Node *Node, int Mode);
 
 // === GLOBALS ===

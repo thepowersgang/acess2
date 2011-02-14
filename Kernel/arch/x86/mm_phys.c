@@ -16,10 +16,12 @@
 extern void	gKernelEnd;
 
 // === PROTOTYPES ===
-tPAddr	MM_AllocPhys(void);
-tPAddr	MM_AllocPhysRange(int Pages, int MaxBits);
-void	MM_RefPhys(tPAddr PAddr);
-void	MM_DerefPhys(tPAddr PAddr);
+void	MM_Install(tMBoot_Info *MBoot);
+//tPAddr	MM_AllocPhys(void);
+//tPAddr	MM_AllocPhysRange(int Pages, int MaxBits);
+//void	MM_RefPhys(tPAddr PAddr);
+//void	MM_DerefPhys(tPAddr PAddr);
+// int	MM_GetRefCount(tPAddr PAddr);
 
 // === GLOBALS ===
 tMutex	glPhysAlloc;
@@ -481,14 +483,14 @@ void MM_DerefPhys(tPAddr PAddr)
 /**
  * \fn int MM_GetRefCount(tPAddr Addr)
  */
-int MM_GetRefCount(tPAddr Addr)
+int MM_GetRefCount(tPAddr PAddr)
 {
 	// Get page number
-	Addr >>= 12;
+	PAddr >>= 12;
 	
 	// We don't care about non-ram pages
-	if(Addr >= giPageCount)	return -1;
+	if(PAddr >= giPageCount)	return -1;
 	
 	// Check if it is freed
-	return gaPageReferences[ Addr ];
+	return gaPageReferences[ PAddr ];
 }

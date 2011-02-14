@@ -6,10 +6,10 @@
 #define _MM_PHYS_H
 
 // === FUNCTIONS ===
-extern tPAddr	MM_AllocPhys(void);
-extern tPAddr	MM_AllocPhysRange(int Pages, int MaxBits);
-extern void	MM_RefPhys(tPAddr PAddr);
-extern void	MM_DerefPhys(tPAddr PAddr);
-extern int	MM_GetRefCount(tPAddr Addr);
+//extern tPAddr	MM_AllocPhys(void);
+//extern tPAddr	MM_AllocPhysRange(int Pages, int MaxBits);
+//extern void	MM_RefPhys(tPAddr PAddr);
+//extern void	MM_DerefPhys(tPAddr PAddr);
+//extern int	MM_GetRefCount(tPAddr Addr);
 
 #endif

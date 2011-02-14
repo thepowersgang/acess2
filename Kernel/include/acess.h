@@ -95,7 +95,7 @@ typedef void (*tThreadFunction)(void*);
  * \{
  */
 typedef struct sKernelSymbol {
-	char	*Name;
+	const char	*Name;
 	tVAddr	Value;
 } tKernelSymbol;
 #define	EXPORT(_name)	tKernelSymbol _kexp_##_name __attribute__((section ("KEXPORT"),unused))={#_name, (tVAddr)_name}
@@ -110,13 +110,13 @@ typedef struct sKernelSymbol {
 extern int	IRQ_AddHandler(int Num, void (*Callback)(int));
 
 // --- Logging ---
-extern void	Log_KernelPanic(char *Ident, char *Message, ...);
-extern void	Log_Panic(char *Ident, char *Message, ...);
-extern void	Log_Error(char *Ident, char *Message, ...);
-extern void	Log_Warning(char *Ident, char *Message, ...);
-extern void	Log_Notice(char *Ident, char *Message, ...);
-extern void	Log_Log(char *Ident, char *Message, ...);
-extern void	Log_Debug(char *Ident, char *Message, ...);
+extern void	Log_KernelPanic(const char *Ident, const char *Message, ...);
+extern void	Log_Panic(const char *Ident, const char *Message, ...);
+extern void	Log_Error(const char *Ident, const char *Message, ...);
+extern void	Log_Warning(const char *Ident, const char *Message, ...);
+extern void	Log_Notice(const char *Ident, const char *Message, ...);
+extern void	Log_Log(const char *Ident, const char *Message, ...);
+extern void	Log_Debug(const char *Ident, const char *Message, ...);
 
 // --- Debug ---
 /**
@@ -185,7 +185,7 @@ extern Uint64	inq(Uint16 Port);
  * \param VAddr	Virtual Address to allocate at
  * \return Physical address allocated
  */
-extern tPAddr	MM_Allocate(tVAddr VAddr);
+extern tPAddr	MM_Allocate(tVAddr VAddr) __attribute__ ((warn_unused_result));
 /**
  * \brief Deallocate a page
  * \param VAddr	Virtual address to unmap
@@ -278,6 +278,12 @@ extern void	MM_RefPhys(tPAddr PAddr);
  */
 extern void	MM_DerefPhys(tPAddr PAddr);
 /**
+ * \brief Get the number of times a page has been referenced
+ * \param PAddr	Address to check
+ * \return Reference count for the page
+ */
+extern int	MM_GetRefCount(tPAddr PAddr);
+/**
  * \}
  */
 
@@ -298,8 +304,8 @@ extern void *memsetd(void *dest, Uint32 val, size_t count);
  * \name Memory Validation
  * \{
  */
-extern int	CheckString(char *String);
-extern int	CheckMem(void *Mem, int Num);
+extern int	CheckString(const char *String);
+extern int	CheckMem(const void *Mem, int Num);
 /**
  * \}
  */
@@ -339,12 +345,12 @@ extern int	strpos(const char *Str, char Ch);
 extern int	strpos8(const char *str, Uint32 search);
 extern void	itoa(char *buf, Uint64 num, int base, int minLength, char pad);
 extern int	atoi(const char *string);
-extern int	ReadUTF8(Uint8 *str, Uint32 *Val);
+extern int	ReadUTF8(const Uint8 *str, Uint32 *Val);
 extern int	WriteUTF8(Uint8 *str, Uint32 Val);
-extern int	ModUtil_SetIdent(char *Dest, char *Value);
-extern int	ModUtil_LookupString(char **Array, char *Needle);
+extern int	ModUtil_SetIdent(char *Dest, const char *Value);
+extern int	ModUtil_LookupString(const char **Array, const char *Needle);
 
-extern Uint8	ByteSum(void *Ptr, int Size);
+extern Uint8	ByteSum(const void *Ptr, int Size);
 extern int	UnHex(Uint8 *Dest, size_t DestSize, const char *SourceString);
 /**
  * \}
@@ -361,8 +367,8 @@ extern int	CallWithArgArray(void *Function, int NArgs, Uint *Args);
  * \name Modules
  * \{
  */
-extern int	Module_LoadMem(void *Buffer, Uint Length, char *ArgStr);
-extern int	Module_LoadFile(char *Path, char *ArgStr);
+extern int	Module_LoadMem(void *Buffer, Uint Length, const char *ArgStr);
+extern int	Module_LoadFile(const char *Path, const char *ArgStr);
 /**
  * \}
  */

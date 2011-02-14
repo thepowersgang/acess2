@@ -11,7 +11,9 @@ extern int	giVFS_MountFileID;
 extern char	*gsVFS_MountFile;
 
 // === PROTOTYPES ===
+#if 0
  int	VFS_Mount(const char *Device, const char *MountPoint, const char *Filesystem, const char *Options);
+#endif
 void	VFS_UpdateMountFile(void);
 
 // === GLOBALS ===

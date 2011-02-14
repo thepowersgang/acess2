@@ -13,11 +13,11 @@
 tBinary	*PE_Load(int fp);
 tBinary	*MZ_Open(int fp);
  int	PE_Relocate(void *Base);
- int	PE_GetSymbol(void *Base, char *Name, Uint *Ret);
+ int	PE_GetSymbol(void *Base, const char *Name, Uint *Ret);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, 0x0032, BinPE, PE_Install, NULL, NULL);
-char	*gsPE_DefaultInterpreter = "/Acess/Libs/ld-acess.so";
+const char	*gsPE_DefaultInterpreter = "/Acess/Libs/ld-acess.so";
 tBinaryType	gPE_Loader = {
 	NULL,
 	('M'|('Z'<<8)), 0xFFFF,	// 'MZ'
@@ -231,7 +231,7 @@ int PE_Relocate(void *Base)
 	return 0;
 }
 
-int PE_GetSymbol(void *Base, char *Name, Uint *Ret)
+int PE_GetSymbol(void *Base, const char *Name, Uint *Ret)
 {
 	return 0;
 }

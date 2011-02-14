@@ -25,7 +25,6 @@ typedef struct sKernelBin {
 // === IMPORTS ===
 extern int	Proc_Clone(Uint *Err, Uint Flags);
 extern char	*Threads_GetName(int ID);
-extern void	Threads_Exit(int, int);
 extern Uint	MM_ClearUser(void);
 extern void	Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **EnvP, int DataSize);
 extern tKernelSymbol	gKernelSymbols[];
@@ -33,16 +32,20 @@ extern void		gKernelSymbolsEnd;
 extern tBinaryType	gELF_Info;
 
 // === PROTOTYPES ===
- int	Proc_Execve(char *File, char **ArgV, char **EnvP);
-Uint	Binary_Load(char *file, Uint *entryPoint);
-tBinary *Binary_GetInfo(char *truePath);
+ int	Proc_Execve(const char *File, const char **ArgV, const char **EnvP);
+Uint	Binary_Load(const char *file, Uint *entryPoint);
+tBinary *Binary_GetInfo(const char *truePath);
 Uint	Binary_MapIn(tBinary *binary);
 Uint	Binary_IsMapped(tBinary *binary);
-tBinary *Binary_DoLoad(char *truePath);
+tBinary *Binary_DoLoad(const char *truePath);
 void	Binary_Dereference(tBinary *Info);
+#if 0
 Uint	Binary_Relocate(void *Base);
-Uint	Binary_GetSymbolEx(char *Name, Uint *Value);
-Uint	Binary_FindSymbol(void *Base, char *Name, Uint *Val);
+#endif
+Uint	Binary_GetSymbolEx(const char *Name, Uint *Value);
+#if 0
+Uint	Binary_FindSymbol(void *Base, const char *Name, Uint *Val);
+#endif
 
 // === GLOBALS ===
 tShortSpinlock	glBinListLock;
@@ -78,7 +81,7 @@ int Proc_Spawn(char *Path)
 	if(Proc_Clone(NULL, CLONE_VM) == 0)
 	{
 		// CHILD
-		char	*args[2] = {stackPath, NULL};
+		const char	*args[2] = {stackPath, NULL};
 		LOG("stackPath = '%s'\n", stackPath);
 		Proc_Execve(stackPath, args, &args[1]);
 		for(;;);
@@ -94,7 +97,7 @@ int Proc_Spawn(char *Path)
  * \param EnvP	User's environment
  * \note Called Proc_ for historical reasons
  */
-int Proc_Execve(char *File, char **ArgV, char **EnvP)
+int Proc_Execve(const char *File, const char **ArgV, const char **EnvP)
 {
 	 int	argc, envc, i;
 	 int	argenvBytes;
@@ -177,7 +180,7 @@ int Proc_Execve(char *File, char **ArgV, char **EnvP)
  * \param file	Path to binary to load
  * \param entryPoint	Pointer for exectuable entry point
  */
-Uint Binary_Load(char *file, Uint *entryPoint)
+Uint Binary_Load(const char *file, Uint *entryPoint)
 {
 	char	*sTruePath;
 	tBinary	*pBinary;
@@ -256,7 +259,7 @@ Uint Binary_Load(char *file, Uint *entryPoint)
  * \brief Finds a matching binary entry
  * \param TruePath	File Identifier (True path name)
  */
-tBinary *Binary_GetInfo(char *TruePath)
+tBinary *Binary_GetInfo(const char *TruePath)
 {
 	tBinary	*pBinary;
 	pBinary = glLoadedBinaries;
@@ -389,7 +392,7 @@ Uint Binary_IsMapped(tBinary *binary)
  * \brief Loads a binary file into memory
  * \param truePath	Absolute filename of binary
  */
-tBinary *Binary_DoLoad(char *truePath)
+tBinary *Binary_DoLoad(const char *truePath)
 {
 	tBinary	*pBinary;
 	 int	fp, i;
@@ -432,8 +435,7 @@ tBinary *Binary_DoLoad(char *truePath)
 	
 	// Initialise Structure
 	pBinary->ReferenceCount = 0;
-	pBinary->TruePath = malloc( strlen(truePath) + 1 );
-	strcpy(pBinary->TruePath, truePath);
+	pBinary->TruePath = strdup(truePath);
 	
 	// Debug Information
 	LOG("Interpreter: '%s'", pBinary->Interpreter);
@@ -615,12 +617,12 @@ char *Binary_RegInterp(char *Path)
 // Kernel Binary Handling
 // ============
 /**
- * \fn void *Binary_LoadKernel(char *File)
+ * \fn void *Binary_LoadKernel(const char *File)
  * \brief Load a binary into kernel space
  * \note This function shares much with #Binary_Load, but does it's own mapping
  * \param File	File to load into the kernel
  */
-void *Binary_LoadKernel(char *File)
+void *Binary_LoadKernel(const char *File)
 {
 	char	*sTruePath;
 	tBinary	*pBinary;
@@ -629,7 +631,7 @@ void *Binary_LoadKernel(char *File)
 	Uint	addr;
 	 int	i;
 
-	ENTER("sfile", File);
+	ENTER("sFile", File);
 	
 	// Sanity Check Argument
 	if(File == NULL) {
@@ -792,7 +794,7 @@ Uint Binary_Relocate(void *Base)
  * Gets the value of a symbol from either the currently loaded
  * libraries or the kernel's exports.
  */
-int Binary_GetSymbol(char *Name, Uint *Val)
+int Binary_GetSymbol(const char *Name, Uint *Val)
 {
 	if( Binary_GetSymbolEx(Name, Val) )	return 1;
 	return 0;
@@ -805,7 +807,7 @@ int Binary_GetSymbol(char *Name, Uint *Val)
  * Gets the value of a symbol from either the currently loaded
  * libraries or the kernel's exports.
  */
-Uint Binary_GetSymbolEx(char *Name, Uint *Value)
+Uint Binary_GetSymbolEx(const char *Name, Uint *Value)
 {
 	 int	i;
 	tKernelBin	*pKBin;
@@ -841,7 +843,7 @@ Uint Binary_GetSymbolEx(char *Name, Uint *Value)
  * \param Name	Name of symbol to find
  * \param Val	Pointer to place final value
  */
-Uint Binary_FindSymbol(void *Base, char *Name, Uint *Val)
+Uint Binary_FindSymbol(void *Base, const char *Name, Uint *Val)
 {
 	Uint32	ident = *(Uint32*) Base;
 	tBinaryType	*bt = gRegBinTypes;
