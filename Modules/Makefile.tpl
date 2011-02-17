@@ -4,12 +4,7 @@
 
 _CPPFLAGS := $(CPPFLAGS)
 
-CFGFILES := 
-CFGFILES += $(shell test -f ../../../Makefile.cfg && echo ../../../Makefile.cfg)
-CFGFILES += $(shell test -f ../../Makefile.cfg && echo ../../Makefile.cfg)
-CFGFILES += $(shell test -f ../Makefile.cfg && echo ../Makefile.cfg)
-CFGFILES += $(shell test -f Makefile.cfg && echo Makefile.cfg)
--include $(CFGFILES)
+-include $(dir $(lastword $(MAKEFILE_LIST)))../Makefile.cfg
 
 CPPFLAGS := -I$(ACESSDIR)/Kernel/include -I$(ACESSDIR)/Kernel/arch/$(ARCHDIR)/include -DARCH=$(ARCH) $(_CPPFLAGS)
 CFLAGS := -Wall -Werror -fno-stack-protector -g -O3 -fno-builtin
@@ -46,7 +41,8 @@ clean:
 
 install: $(BIN)
 ifneq ($(BUILDTYPE),static)
-	$(xCP) $(BIN) $(DISTROOT)/Modules/$(NAME).kmd.$(ARCH)
+	$(xMKDIR) $(DISTROOT)/Modules/$(ARCH)
+	$(xCP) $(BIN) $(DISTROOT)/Modules/$(ARCH)/$(NAME).kmd
 else
 endif
 

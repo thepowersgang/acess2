@@ -15,6 +15,7 @@ clean:
 	$(RM) $(_BIN) $(_XBIN) $(OBJ) $(_BIN).dsm $(DEPFILES)
 
 install: all
+	@$(xMKDIR) $(DISTROOT)/Libs
 	$(xCP) $(_BIN) $(_XBIN) $(DISTROOT)/Libs/
 
 $(_BIN): $(OBJ)

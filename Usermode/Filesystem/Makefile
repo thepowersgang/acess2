@@ -3,16 +3,18 @@
 
 -include ../../Makefile.cfg
 
-DIRS  = Bin SBin Libs Modules Applications
+DIRS  = Bin SBin Libs Modules Apps
 DIRS += Conf Conf/Auth
-FILES = Conf/BootConf.cfg Conf/Auth/Users Conf/Auth/Passwords Conf/Auth/Groups
+FILES = Conf/BootConf.cfg
+# Conf/Auth/Users Conf/Auth/Passwords Conf/Auth/Groups
 
 #DIRS  := $(addprefix $(DISTROOT)/,$(DIRS))
 #FILES := $(addprefix $(DISTROOT)/,$(FILES))
 
 .PHONY: all clean
+.PHONY: $(DIRS) $(FILES)
 
-all:	$(DIRS) $(FILES)
+install:	$(DIRS) $(FILES)
 
 clean:
 
@@ -20,6 +22,6 @@ $(DIRS):
 	$(xMKDIR) $(DISTROOT)/$@
 
 $(FILES):
-	$(xCP) $< $(DISTROOT)/$@
+	$(xCP) $@ $(DISTROOT)/$@
 
 force: ;

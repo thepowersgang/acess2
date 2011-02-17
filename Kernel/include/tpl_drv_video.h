@@ -244,11 +244,11 @@ extern int	giVT_CharWidth;
 //! \brief Defines the height of a rendered character
 extern int	giVT_CharHeight;
 /**
- * \fn void VT_Font_Render(Uint32 Codepoint, void *Buffer, int Pitch, Uint32 BGC, Uint32 FGC)
  * \brief Driver helper that renders a character to a buffer
  * \param Codepoint	Unicode character to render
- * \param Buffer	Buffer to render to (32-bpp)
- * \param Pitch	Number of DWords per line
+ * \param Buffer	Buffer to render to
+ * \param Depth	Bit depth of the destination buffer
+ * \param Pitch	Number of bytes per line
  * \param BGC	32-bit Background Colour
  * \param FGC	32-bit Foreground Colour
  * 
@@ -256,14 +256,33 @@ extern int	giVT_CharHeight;
  * text mode by keeping the character rendering abstracted from the driver,
  * easing the driver development and reducing code duplication.
  */
-extern void	VT_Font_Render(Uint32 Codepoint, void *Buffer, int Pitch, Uint32 BGC, Uint32 FGC);
+extern void	VT_Font_Render(Uint32 Codepoint, void *Buffer, int Depth, int Pitch, Uint32 BGC, Uint32 FGC);
 /**
  * \fn Uint32 VT_Colour12to24(Uint16 Col12)
- * \brief Converts a colour from 12bpp to 32bpp
+ * \brief Converts a colour from 12bpp to 24bpp
  * \param Col12	12-bpp input colour
  * \return Expanded 32-bpp (24-bit colour) version of \a Col12
  */
 extern Uint32	VT_Colour12to24(Uint16 Col12);
+/**
+ * \brief Converts a colour from 12bpp to 14bpp
+ * \param Col12	12-bpp input colour
+ * \return 15 bits per pixel value
+ */
+extern Uint16	VT_Colour12to15(Uint16 Col12);
+/**
+ * \brief Converts a colour from 12bpp to 32bpp
+ * \param Col12	12-bpp input colour
+ * \param Depth	Desired bit depth
+ * \return \a Depth bit number, denoting Col12
+ * 
+ * Expands the source colour into a \a Depth bits per pixel representation.
+ * The colours are expanded with preference to Green, Blue and Red in that order
+ * (so, green gets the first spare pixel, blue gets the next, and red never gets
+ * the spare). \n
+ * The final bit of each component is used to fill the lower bits of the output.
+ */
+extern Uint32	VT_Colour12toN(Uint16 Col12, int Depth);
 
 /**
  * \brief Handlers for eTplVideo_2DCommands

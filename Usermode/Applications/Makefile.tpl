@@ -18,6 +18,7 @@ clean:
 	@$(RM) $(OBJ) $(DEPFILES) $(_BIN) $(BIN).dsm Map.txt
 
 install: $(_BIN)
+	@$(xMKDIR) $(DISTROOT)/$(DIR)
 	$(xCP) $(_BIN) $(DISTROOT)/$(DIR)/
 
 $(_BIN): $(OBJ)

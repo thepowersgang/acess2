@@ -127,7 +127,7 @@ int Vesa_Install(char **Arguments)
 		{
 			gVesa_Modes[i].flags |= FLAG_LFB;
 			gVesa_Modes[i].framebuffer = modeinfo->physbase;
-			gVesa_Modes[i].fbSize = modeinfo->Xres*modeinfo->Yres*modeinfo->bpp/8;
+			gVesa_Modes[i].fbSize = modeinfo->Yres*modeinfo->pitch;
 		} else {
 			gVesa_Modes[i].framebuffer = 0;
 			gVesa_Modes[i].fbSize = 0;
@@ -233,24 +233,35 @@ Uint64 Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	case VIDEO_BUFFMT_TEXT:
 		{
 		tVT_Char	*chars = Buffer;
-		 int	pitch = gVesa_Modes[giVesaCurrentMode].width;
+		 int	pitch = gVesa_Modes[giVesaCurrentMode].pitch;
+		 int	depth = gVesa_Modes[giVesaCurrentMode].bpp;
 		 int	widthInChars = gVesa_Modes[giVesaCurrentMode].width/giVT_CharWidth;
 		 int	heightInChars = gVesa_Modes[giVesaCurrentMode].height/giVT_CharHeight;
 		 int	x, y;
-		Uint32	*dest = (void*)gpVesa_Framebuffer;
+		Uint8	*dest = (void*)gpVesa_Framebuffer;
 		 int	i;
 		
 		Length /= sizeof(tVT_Char);
 		Offset /= sizeof(tVT_Char);
 		
-		LOG("gVesa_Modes[%i].width = %i", giVesaCurrentMode, gVesa_Modes[giVesaCurrentMode].width);
+		LOG("gVesa_Modes[%i] = {height:%i, width:%i, pitch:%i}",
+			giVesaCurrentMode,
+			gVesa_Modes[giVesaCurrentMode].height,
+			gVesa_Modes[giVesaCurrentMode].width,
+			gVesa_Modes[giVesaCurrentMode].pitch
+			);
 		x = Offset % widthInChars;
 		y = Offset / widthInChars;
-		LOG("(x,y) = (%i,%i) = [%i,%i]", x, y, x * giVT_CharWidth, y * giVT_CharHeight * pitch);
+		LOG("(x,y) = (%i,%i) = [%i,%i]",
+			x,
+			y,
+			x * giVT_CharWidth * depth / 8,
+			y * giVT_CharHeight * pitch
+			);
 		LOG("(w,h) = (%i,%i) = [%i,%i]",
 			(int)(Length % widthInChars),
 			(int)(Length / widthInChars),
-			(int)((Length % widthInChars) * giVT_CharWidth),
+			(int)((Length % widthInChars) * giVT_CharWidth * depth / 8),
 			(int)((Length / widthInChars) * giVT_CharHeight * pitch)
 			);
 		
@@ -273,28 +284,42 @@ Uint64 Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		}
 		
 		dest += y * giVT_CharHeight * pitch;
-		dest += x * giVT_CharWidth;
 		
 		LOG("dest = %p", dest);
 		
 		for( i = 0; i < (int)Length; i++ )
 		{
+			if(
+			    !MM_GetPhysAddr( (tVAddr)dest + x*giVT_CharWidth*depth/8 )
+			// || !MM_GetPhysAddr( (tVAddr)dest + x*giVT_CharWidth*depth/8 + pitch*giVT_CharHeight-1)
+				)
+			{
+				Log_Notice("VESA", "Stopped at %i, not mapped", i);
+				break;
+			}
+			if( y >= heightInChars )
+			{
+				Log_Notice("VESA", "Stopped at %i", i);
+				break;
+			}
+			
 			VT_Font_Render(
 				chars->Ch,
-				dest + x*giVT_CharWidth, pitch,
-				VT_Colour12to24(chars->BGCol),
-				VT_Colour12to24(chars->FGCol)
+				dest + x*giVT_CharWidth*depth/8, depth, pitch,
+				VT_Colour12toN(chars->BGCol, depth),
+				VT_Colour12toN(chars->FGCol, depth)
 				);
 			
 			chars ++;
 			x ++;
-			if( x >= widthInChars ) {
+			if( x >= widthInChars )
+			{
 				x = 0;
 				y ++;
 				dest += pitch*giVT_CharHeight;
 			}
 		}
-		Length *= sizeof(tVT_Char);
+		Length = i * sizeof(tVT_Char);
 		}
 		break;
 	
@@ -312,6 +337,7 @@ Uint64 Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		LOG("buffer = %p", Buffer);
 		LOG("Updating Framebuffer (%p to %p)", destBuf, destBuf + (Uint)Length);
 		
+		//TODO: Handle non 32-bpp framebuffer modes
 		
 		// Copy to Frambuffer
 		memcpy(destBuf, Buffer, Length);
@@ -411,11 +437,15 @@ int Vesa_Ioctl(tVFS_Node *Node, int ID, void *Data)
  * \brief Updates the video mode
  */
 int Vesa_Int_SetMode(int mode)
-{
-	Log_Log("VESA", "Setting mode to %i", mode);
-	
+{	
 	// Sanity Check values
 	if(mode < 0 || mode > giVesaModeCount)	return -1;
+
+	Log_Log("VESA", "Setting mode to %i (%ix%i %ibpp)",
+		mode,
+		gVesa_Modes[mode].width, gVesa_Modes[mode].height,
+		gVesa_Modes[mode].bpp
+		);
 	
 	// Check for fast return
 	if(mode == giVesaCurrentMode)	return 1;
@@ -441,8 +471,8 @@ int Vesa_Int_SetMode(int mode)
 	giVesaPageCount = (gVesa_Modes[mode].fbSize + 0xFFF) >> 12;
 	gpVesa_Framebuffer = (void*)MM_MapHWPages(gVesa_Modes[mode].framebuffer, giVesaPageCount);
 	
-	Log_Log("VESA", "Framebuffer (Phys) = 0x%x", gVesa_Modes[mode].framebuffer);
-	Log_Log("VESA", "Framebuffer (Virt) = 0x%x", gpVesa_Framebuffer);
+	Log_Log("VESA", "Framebuffer (Phys) = 0x%x, (Virt) = 0x%x, Size = 0x%x",
+		gVesa_Modes[mode].framebuffer, gpVesa_Framebuffer, giVesaPageCount << 12);
 	
 	// Record Mode Set
 	giVesaCurrentMode = mode;
@@ -465,13 +495,15 @@ int Vesa_Int_FindMode(tVideo_IOCtl_Mode *data)
 	{
 		LOG("Mode %i (%ix%ix%i)", i, gVesa_Modes[i].width, gVesa_Modes[i].height, gVesa_Modes[i].bpp);
 	
-		if(gVesa_Modes[i].width == data->width
-		&& gVesa_Modes[i].height == data->height
-		&& gVesa_Modes[i].bpp == data->bpp)
+		if(gVesa_Modes[i].width == data->width && gVesa_Modes[i].height == data->height)
 		{
-			LOG("Perfect!");
-			best = i;
-			break;
+			if( (data->bpp == 32 || data->bpp == 24)
+			 && (gVesa_Modes[i].bpp == 32 || gVesa_Modes[i].bpp == 24) )
+			{
+				LOG("Perfect!");
+				best = i;
+				break;
+			}
 		}
 		
 		tmp = gVesa_Modes[i].width * gVesa_Modes[i].height;
@@ -519,26 +551,58 @@ int Vesa_Int_ModeInfo(tVideo_IOCtl_Mode *data)
  */
 void Vesa_FlipCursor(void *Arg)
 {
-	 int	pitch = gpVesaCurMode->pitch/4;
+	 int	pitch = gpVesaCurMode->pitch;
+	 int	bytes_per_px = (gpVesaCurMode->bpp + 7) / 8;
 	 int	x = giVesaCursorX*giVT_CharWidth;
 	 int	y = giVesaCursorY*giVT_CharHeight;
 	 int	i;
-	Uint32	*fb = (void*)gpVesa_Framebuffer;
+	Uint8	*fb = (void*)gpVesa_Framebuffer;
 	
 	//Debug("Cursor flip");
 	
 	// Sanity check
 	if(giVesaCursorX < 0 || giVesaCursorY < 0
-	|| y*pitch + x + (giVT_CharHeight-1)*pitch > (int)gpVesaCurMode->fbSize/4) {
+	|| y*pitch + x + (giVT_CharHeight-1)*pitch > (int)gpVesaCurMode->fbSize) {
 		Log_Notice("VESA", "Cursor OOB (%i,%i)", x, y);
 		giVesaCursorTimer = -1;
 		return;
 	}
 	
 	// Draw cursor
-	fb += (y+1)*pitch + x;
-	for( i = 1; i < giVT_CharHeight-1; i++, fb += pitch )
-		*fb = ~*fb;
+	fb += (y+1)*pitch + x*bytes_per_px;
+	
+	switch(bytes_per_px)
+	{
+	case 1:
+		for( i = 1; i < giVT_CharHeight-1; i++, fb += pitch )
+			*fb = ~*fb;
+		break;
+	case 2:
+		for( i = 1; i < giVT_CharHeight-1; i++, fb += pitch ) {
+			fb[0] = ~fb[0];
+			fb[1] = ~fb[1];
+		}
+		break;
+	case 3:
+		for( i = 1; i < giVT_CharHeight-1; i++, fb += pitch ) {
+			fb[0] = ~fb[0];
+			fb[1] = ~fb[1];
+			fb[2] = ~fb[2];
+		}
+		break;
+	case 4:
+		for( i = 1; i < giVT_CharHeight-1; i++, fb += pitch ) {
+			fb[0] = ~fb[0];
+			fb[1] = ~fb[1];
+			fb[2] = ~fb[2];
+			fb[3] = ~fb[3];
+		}
+		break;
+	default:
+		Log_Error("VESA", "Vesa_FlipCursor - Bug Report, unknown bytes_per_px (%i)", bytes_per_px);
+		giVesaCursorTimer = -1;
+		return ;
+	}
 	
 	#if BLINKING_CURSOR
 	giVesaCursorTimer = Time_CreateTimer(VESA_CURSOR_PERIOD, Vesa_FlipCursor, Arg);
@@ -550,6 +614,7 @@ void Vesa_FlipCursor(void *Arg)
 // ------------------------
 void Vesa_2D_Fill(void *Ent, Uint16 X, Uint16 Y, Uint16 W, Uint16 H, Uint32 Colour)
 {
+	// TODO: Handle non-32bit modes
 	 int	pitch = gpVesaCurMode->pitch/4;
 	Uint32	*buf = (Uint32*)gpVesa_Framebuffer + Y*pitch + X;
 	while( H -- ) {
@@ -560,7 +625,8 @@ void Vesa_2D_Fill(void *Ent, Uint16 X, Uint16 Y, Uint16 W, Uint16 H, Uint32 Colo
 
 void Vesa_2D_Blit(void *Ent, Uint16 DstX, Uint16 DstY, Uint16 SrcX, Uint16 SrcY, Uint16 W, Uint16 H)
 {
-	 int	scrnpitch = gVesa_Modes[giVesaCurrentMode].pitch;
+	 int	scrnpitch = gpVesaCurMode->pitch;
+	 int	bytes_per_px = (gpVesaCurMode->bpp + 7) / 8;
 	 int	dst = DstY*scrnpitch + DstX;
 	 int	src = SrcY*scrnpitch + SrcX;
 	 int	tmp;
@@ -568,14 +634,14 @@ void Vesa_2D_Blit(void *Ent, Uint16 DstX, Uint16 DstY, Uint16 SrcX, Uint16 SrcY,
 	//Log("Vesa_2D_Blit: (Ent=%p, DstX=%i, DstY=%i, SrcX=%i, SrcY=%i, W=%i, H=%i)",
 	//	Ent, DstX, DstY, SrcX, SrcY, W, H);
 	
-	if(SrcX + W > gVesa_Modes[giVesaCurrentMode].width)
-		W = gVesa_Modes[giVesaCurrentMode].width - SrcX;
-	if(DstX + W > gVesa_Modes[giVesaCurrentMode].width)
-		W = gVesa_Modes[giVesaCurrentMode].width - DstX;
-	if(SrcY + H > gVesa_Modes[giVesaCurrentMode].height)
-		H = gVesa_Modes[giVesaCurrentMode].height - SrcY;
-	if(DstY + H > gVesa_Modes[giVesaCurrentMode].height)
-		H = gVesa_Modes[giVesaCurrentMode].height - DstY;
+	if(SrcX + W > gpVesaCurMode->width)
+		W = gpVesaCurMode->width - SrcX;
+	if(DstX + W > gpVesaCurMode->width)
+		W = gpVesaCurMode->width - DstX;
+	if(SrcY + H > gpVesaCurMode->height)
+		H = gpVesaCurMode->height - SrcY;
+	if(DstY + H > gpVesaCurMode->height)
+		H = gpVesaCurMode->height - DstY;
 	
 	//Debug("W = %i, H = %i", W, H);
 	
@@ -586,18 +652,19 @@ void Vesa_2D_Blit(void *Ent, Uint16 DstX, Uint16 DstY, Uint16 SrcX, Uint16 SrcY,
 		while( H -- ) {
 			dst -= scrnpitch;
 			src -= scrnpitch;
-			tmp = W;
+			tmp = W*bytes_per_px;
 			for( tmp = W; tmp --; ) {
-				*(Uint32*)(gpVesa_Framebuffer + dst + tmp) = *(Uint32*)(gpVesa_Framebuffer + src + tmp);
+				*(Uint8*)(gpVesa_Framebuffer + dst + tmp) = *(Uint8*)(gpVesa_Framebuffer + src + tmp);
 			}
 		}
 	}
 	else {
 		// Normal copy is OK
 		while( H -- ) {
-			memcpy((void*)gpVesa_Framebuffer + dst, (void*)gpVesa_Framebuffer + src, W*sizeof(Uint32));
+			memcpy((void*)gpVesa_Framebuffer + dst, (void*)gpVesa_Framebuffer + src, W*bytes_per_px);
 			dst += scrnpitch;
 			src += scrnpitch;
 		}
 	}
+	//Log("Vesa_2D_Blit: RETURN");
 }

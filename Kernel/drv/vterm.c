@@ -1328,34 +1328,113 @@ int	giVT_CharHeight = FONT_HEIGHT;
 
 // === CODE ===
 /**
- * \fn void VT_Font_Render(Uint32 Codepoint, void *Buffer, int Pitch, Uint32 BGC, Uint32 FGC)
  * \brief Render a font character
  */
-void VT_Font_Render(Uint32 Codepoint, void *Buffer, int Pitch, Uint32 BGC, Uint32 FGC)
+void VT_Font_Render(Uint32 Codepoint, void *Buffer, int Depth, int Pitch, Uint32 BGC, Uint32 FGC)
 {
 	Uint8	*font;
-	Uint32	*buf = Buffer;
 	 int	x, y;
 	
-	font = VT_Font_GetChar(Codepoint);
-	
-	for(y = 0; y < FONT_HEIGHT; y ++)
+	// 8-bpp and below
+	if( Depth <= 8 )
 	{
-		for(x = 0; x < FONT_WIDTH; x ++)
+		Uint8	*buf = Buffer;
+		
+		font = VT_Font_GetChar(Codepoint);
+		
+		for(y = 0; y < FONT_HEIGHT; y ++)
 		{
-			if(*font & (1 << (FONT_WIDTH-x-1)))
-				buf[x] = FGC;
-			else
-				buf[x] = BGC;
+			for(x = 0; x < FONT_WIDTH; x ++)
+			{
+				if(*font & (1 << (FONT_WIDTH-x-1)))
+					buf[x] = FGC;
+				else
+					buf[x] = BGC;
+			}
+			buf = (void*)( (tVAddr)buf + Pitch );
+			font ++;
 		}
-		buf += Pitch;
-		font ++;
+	}
+	// 16-bpp and below
+	else if( Depth <= 16 )
+	{
+		Uint16	*buf = Buffer;
+		
+		font = VT_Font_GetChar(Codepoint);
+		
+		for(y = 0; y < FONT_HEIGHT; y ++)
+		{
+			for(x = 0; x < FONT_WIDTH; x ++)
+			{
+				if(*font & (1 << (FONT_WIDTH-x-1)))
+					buf[x] = FGC;
+				else
+					buf[x] = BGC;
+			}
+			buf = (void*)( (tVAddr)buf + Pitch );
+			font ++;
+		}
+	}
+	// 24-bpp colour
+	// - Special handling to not overwrite the next pixel
+	//TODO: Endian issues here
+	else if( Depth == 24 )
+	{
+		Uint8	*buf = Buffer;
+		Uint8	bg_r = (BGC >> 16) & 0xFF;
+		Uint8	bg_g = (BGC >>  8) & 0xFF;
+		Uint8	bg_b = (BGC >>  0) & 0xFF;
+		Uint8	fg_r = (FGC >> 16) & 0xFF;
+		Uint8	fg_g = (FGC >>  8) & 0xFF;
+		Uint8	fg_b = (FGC >>  0) & 0xFF;
+		
+		font = VT_Font_GetChar(Codepoint);
+		
+		for(y = 0; y < FONT_HEIGHT; y ++)
+		{
+			for(x = 0; x < FONT_WIDTH; x ++)
+			{
+				Uint8	r, g, b;
+				
+				if(*font & (1 << (FONT_WIDTH-x-1))) {
+					r = fg_r;	g = fg_g;	b = fg_b;
+				}
+				else {
+					r = bg_r;	g = bg_g;	b = bg_b;
+				}
+				buf[x*3+0] = b;
+				buf[x*3+1] = g;
+				buf[x*3+2] = r;
+			}
+			buf = (void*)( (tVAddr)buf + Pitch );
+			font ++;
+		}
+	}
+	// 32-bpp colour (nice and easy)
+	else if( Depth == 32 )
+	{
+		Uint32	*buf = Buffer;
+		
+		font = VT_Font_GetChar(Codepoint);
+		
+		for(y = 0; y < FONT_HEIGHT; y ++)
+		{
+			for(x = 0; x < FONT_WIDTH; x ++)
+			{
+				if(*font & (1 << (FONT_WIDTH-x-1)))
+					buf[x] = FGC;
+				else
+					buf[x] = BGC;
+			}
+			buf = (Uint32*)( (tVAddr)buf + Pitch );
+			font ++;
+		}
 	}
 }
 
 /**
  * \fn Uint32 VT_Colour12to24(Uint16 Col12)
- * \brief Converts a 
+ * \brief Converts a 12-bit colour into 24 bits
  */
 Uint32 VT_Colour12to24(Uint16 Col12)
 {
@@ -1367,6 +1446,66 @@ Uint32 VT_Colour12to24(Uint16 Col12)
 	ret |= (tmp << 8) | (tmp << 12);
 	tmp = (Col12 & 0xF00) >> 8;
 	ret |= (tmp << 16) | (tmp << 20);
+	return ret;
+}
+/**
+ * \brief Converts a 12-bit colour into 15 bits
+ */
+Uint16 VT_Colour12to15(Uint16 Col12)
+{
+	Uint32	ret;
+	 int	tmp;
+	tmp = Col12 & 0xF;
+	ret  = (tmp << 1) | (tmp & 1);
+	tmp = (Col12 & 0xF0) >> 4;
+	ret |= ( (tmp << 1) | (tmp & 1) ) << 5;
+	tmp = (Col12 & 0xF00) >> 8;
+	ret |= ( (tmp << 1) | (tmp & 1) ) << 10;
+	return ret;
+}
+
+/**
+ * \brief Converts a 12-bit colour into any other depth
+ * \param Col12	12-bit source colour
+ * \param Depth	Desired bit deptj
+ * \note Green then blue get the extra avaliable bits (16:5-6-5, 14:4-5-5)
+ */
+Uint32 VT_Colour12toN(Uint16 Col12, int Depth)
+{
+	Uint32	ret;
+	Uint32	r, g, b;
+	 int	rSize, gSize, bSize;
+	
+	// Fast returns
+	if( Depth == 24 )	return VT_Colour12to24(Col12);
+	if( Depth == 15 )	return VT_Colour12to15(Col12);
+	
+	// Bounds checks
+	if( Depth < 8 )	return 0;
+	if( Depth > 32 )	return 0;
+	
+	r = Col12 & 0xF;
+	g = (Col12 & 0xF0) >> 4;
+	b = (Col12 & 0xF00) >> 8;
+	
+	rSize = gSize = bSize = Depth / 3;
+	if( rSize + gSize + bSize < Depth )	// Depth % 3 == 1
+		gSize ++;
+	if( rSize + gSize + bSize < Depth )	// Depth % 3 == 2
+		bSize ++;
+	
+	// Expand
+	r <<= rSize - 4;	g <<= gSize - 4;	b <<= bSize - 4;
+	// Fill with the lowest bit
+	if( Col12 & 0x001 )	r |= (1 << (rSize - 4)) - 1;
+	if( Col12 & 0x010 )	r |= (1 << (gSize - 4)) - 1;
+	if( Col12 & 0x100 )	r |= (1 << (bSize - 4)) - 1;
+	
+	// Create output
+	ret  = r;
+	ret |= g << rSize;
+	ret |= b << (rSize + gSize);
+	
 	return ret;
 }
 

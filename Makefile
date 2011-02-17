@@ -48,7 +48,7 @@ clean-user: $(CLEAN_USRLIBS) $(CLEAN_USRAPPS)
 all:	$(ALL_DYNMODS) $(ALL_MODULES) all-Kernel $(ALL_USRLIBS) $(ALL_USRAPPS)
 all-install:	$(AI_DYNMODS) $(AI_MODULES) allinstall-Kernel $(AI_USRLIBS) $(AI_USRAPPS)
 clean:	$(CLEAN_DYNMODS) $(CLEAN_MODULES) clean-Kernel $(CLEAN_USRLIBS) $(CLEAN_USRAPPS)
-install:	$(INSTALL_DYNMODS) $(INSTALL_MODULES) install-Kernel $(INSTALL_USRLIBS) $(INSTALL_USRAPPS)
+install:	install-Filesystem $(INSTALL_DYNMODS) $(INSTALL_MODULES) install-Kernel $(INSTALL_USRLIBS) $(INSTALL_USRAPPS)
 
 # Compile Only
 $(ALL_DYNMODS): all-%:
@@ -91,6 +91,8 @@ $(INSTALL_DYNMODS): install-%:
 	@BUILDTYPE=dynamic $(SUBMAKE) install -C Modules/$*
 $(INSTALL_MODULES): install-%:
 	@BUILDTYPE=static $(SUBMAKE) install -C Modules/$*
+install-Filesystem:
+	@$(SUBMAKE) install -C Usermode/Filesystem
 install-Kernel:
 	@$(SUBMAKE) install -C Kernel
 $(INSTALL_USRLIBS): install-%:

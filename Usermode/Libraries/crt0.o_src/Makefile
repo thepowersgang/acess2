@@ -17,5 +17,5 @@ clean:
 	$(RM) $(BIN)
 
 $(BIN): crt0.$(ARCHDIR).asm
-	@$(MKDIR) $(dir $(BIN))
+	@mkdir -p $(dir $(BIN))
 	$(AS) $(ASFLAGS) $< -o $@
