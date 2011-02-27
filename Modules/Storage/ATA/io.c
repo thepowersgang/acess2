@@ -4,7 +4,7 @@
  *
  * Disk Input/Output control
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <acess.h>
 #include <modules.h>	// Needed for error codes
 #include <drv_pci.h>
@@ -15,7 +15,9 @@
 
 // === Constants ===
 #define	IDE_PRI_BASE	0x1F0
+#define IDE_PRI_CTRL	0x3F6
 #define	IDE_SEC_BASE	0x170
+#define IDE_SEC_CTRL	0x376
 
 #define	IDE_PRDT_LAST	0x8000
 /**
@@ -125,6 +127,9 @@ int ATA_SetupIO(void)
 		return MODULE_ERR_NOTNEEDED;
 	}
 	
+	LOG("BAR5 = 0x%x", PCI_GetBAR5( ent ));
+	LOG("IRQ = %i", PCI_GetIRQ( ent ));
+	
 	// Map memory
 	if( !(gATA_BusMasterBase & 1) )
 	{
@@ -159,6 +164,10 @@ int ATA_SetupIO(void)
 	// Enable controllers
 	outb(IDE_PRI_BASE+1, 1);
 	outb(IDE_SEC_BASE+1, 1);
+	
+	// Make sure interrupts are ACKed
+	ATA_int_BusMasterWriteByte(2, 0x4);
+	ATA_int_BusMasterWriteByte(10, 0x4);
 
 	// return
 	LEAVE('i', MODULE_ERR_OK);
@@ -240,10 +249,14 @@ Uint64 ATA_GetDiskSize(int Disk)
 		data.buf[i] = inw(base);
 
 	// Return the disk size
-	if(data.identify.Sectors48 != 0)
+	if(data.identify.Sectors48 != 0) {
+		LEAVE('X', data.identify.Sectors48);
 		return data.identify.Sectors48;
-	else
+	}
+	else {
+		LEAVE('x', data.identify.Sectors28);
 		return data.identify.Sectors28;
+	}
 }
 
 /**
@@ -281,6 +294,11 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 		LEAVE('i');
 		return 1;
 	}
+	
+	// Hack to make debug hexdump noticable
+	#if 1
+	memset(Buffer, 0xFF, Count*SECTOR_SIZE);
+	#endif
 
 	// Get exclusive access to the disk controller
 	Mutex_Acquire( &glaATA_ControllerLock[ cont ] );
@@ -294,10 +312,24 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	// Reset IRQ Flag
 	gaATA_IRQs[cont] = 0;
 
+	#if 1
+	if( cont == 0 ) {
+		outb(base+IDE_PRI_CTRL, 4);
+		IO_DELAY();
+		outb(base+IDE_PRI_CTRL, 0);
+	}
+	else {
+		outb(base+IDE_SEC_CTRL, 4);
+		IO_DELAY();
+		outb(base+IDE_SEC_CTRL, 0);
+	}
+	#endif
+
 	// Set up transfer
 	if( Address > 0x0FFFFFFF )	// Use LBA48
 	{
 		outb(base+0x6, 0x40 | (disk << 4));
+		IO_DELAY();
 		outb(base+0x2, 0 >> 8);	// Upper Sector Count
 		outb(base+0x3, Address >> 24);	// Low 2 Addr
 		outb(base+0x4, Address >> 28);	// Mid 2 Addr
@@ -307,13 +339,15 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	{
 		// Magic, Disk, High Address nibble
 		outb(base+0x06, 0xE0 | (disk << 4) | ((Address >> 24) & 0x0F));
+		//outb(base+0x06, 0xA0 | (disk << 4) | ((Address >> 24) & 0x0F));
+		IO_DELAY();
 	}
 
-	outb(base+0x01, 0x01);	//?
-	outb(base+0x02, (Uint8) Count);		// Sector Count
-	outb(base+0x03, (Uint8) Address);		// Low Addr
-	outb(base+0x04, (Uint8) (Address >> 8));	// Middle Addr
-	outb(base+0x05, (Uint8) (Address >> 16));	// High Addr
+	//outb(base+0x01, 0x01);	//?
+	outb(base+0x02, Count & 0xFF);		// Sector Count
+	outb(base+0x03, Address & 0xFF);		// Low Addr
+	outb(base+0x04, (Address >> 8) & 0xFF);	// Middle Addr
+	outb(base+0x05, (Address >> 16) & 0xFF);	// High Addr
 
 	LOG("Starting Transfer");
 	
@@ -327,7 +361,7 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 		outb(base+0x07, HDD_DMA_R28);	// Read Command (LBA28)
 
 	// Start transfer
-	ATA_int_BusMasterWriteByte( cont << 3, 9 );	// Read and start
+	ATA_int_BusMasterWriteByte( cont * 8, 9 );	// Read and start
 
 	// Wait for transfer to complete
 	timeoutTime = now() + ATA_TIMEOUT;
@@ -338,25 +372,29 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	}
 
 	// Complete Transfer
-	ATA_int_BusMasterWriteByte( cont << 3, 8 );	// Read and stop
+	ATA_int_BusMasterWriteByte( cont * 8, 8 );	// Read and stop
 
 	val = inb(base+0x7);
-	LOG("Status byte = 0x%02x", val);
-
-	LOG("gATA_PRDTs[%i].Bytes = %i", cont, gATA_PRDTs[cont].Bytes);
-	LOG("Transfer Completed & Acknowledged");
+	LOG("Status byte = 0x%02x, Controller Status = 0x%02x",
+		val, ATA_int_BusMasterReadByte(cont * 8 + 2));
 
 	if( gaATA_IRQs[cont] == 0 ) {
+		
+		#if 1
+		Debug_HexDump("ATA", Buffer, 512);
+		#endif
+		
 		// Release controller lock
 		Mutex_Release( &glaATA_ControllerLock[ cont ] );
 		Log_Warning("ATA",
-			"Read timeout on disk %i (Reading sector 0x%llx)\n",
+			"Read timeout on disk %i (Reading sector 0x%llx)",
 			Disk, Address);
 		// Return error
 		LEAVE('i', 1);
 		return 1;
 	}
 	else {
+		LOG("Transfer Completed & Acknowledged");
 		// Copy to destination buffer
 		memcpy( Buffer, gATA_Buffers[cont], Count*SECTOR_SIZE );
 		// Release controller lock
