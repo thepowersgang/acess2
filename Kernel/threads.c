@@ -725,7 +725,7 @@ int Threads_Wake(tThread *Thread)
 	switch(Thread->Status)
 	{
 	case THREAD_STAT_ACTIVE:
-		Log("Thread_Wake: Waking awake thread (%i)", Thread->TID);
+		Log("Threads_Wake - Waking awake thread (%i)", Thread->TID);
 		return -EALREADY;
 	
 	case THREAD_STAT_SLEEPING:
@@ -742,15 +742,15 @@ int Threads_Wake(tThread *Thread)
 		return -EOK;
 	
 	case THREAD_STAT_WAITING:
-		Warning("Thread_Wake - Waiting threads are not currently supported");
+		Warning("Threads_Wake - Waiting threads are not currently supported");
 		return -ENOTIMPL;
 	
 	case THREAD_STAT_DEAD:
-		Warning("Thread_Wake - Attempt to wake dead thread (%i)", Thread->TID);
+		Warning("Threads_Wake - Attempt to wake dead thread (%i)", Thread->TID);
 		return -ENOTIMPL;
 	
 	default:
-		Warning("Thread_Wake - Unknown process status (%i)\n", Thread->Status);
+		Warning("Threads_Wake - Unknown process status (%i)\n", Thread->Status);
 		return -EINTERNAL;
 	}
 }

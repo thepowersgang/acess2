@@ -41,7 +41,7 @@ char *VFS_GetAbsPath(const char *Path)
 	if(Path[0] == '$') {
 		ret = malloc(strlen(Path)+1);
 		if(!ret) {
-			Warning("VFS_GetAbsPath - malloc() returned NULL");
+			Log_Warning("VFS", "VFS_GetAbsPath: malloc() returned NULL");
 			return NULL;
 		}
 		strcpy(ret, Path);
@@ -61,7 +61,7 @@ char *VFS_GetAbsPath(const char *Path)
 	if(Path[0] == '/') {
 		ret = malloc(pathLen + 1);
 		if(!ret) {
-			Warning("VFS_GetAbsPath - malloc() returned NULL");
+			Log_Warning("VFS", "VFS_GetAbsPath: malloc() returned NULL");
 			return NULL;
 		}
 		strcpy(ret, Path);

@@ -59,6 +59,8 @@ mboot:
 [extern kmain]
 [global start]
 start:
+	; Just show we're here
+	mov WORD [0xB8000], 0x0741	; 'A'
 	
 	; Set up stack
 	mov esp, Kernel_Stack_Top
@@ -71,13 +73,20 @@ start:
 	or	ecx, 0x80010000	; PG and WP
 	mov cr0, ecx
 	
+	mov WORD [0xB8002], 0x0763	; 'c'
+	mov WORD [0xB8004], 0x0765	; 'e'
+	
 	lea ecx, [.higherHalf]
 	jmp ecx
 .higherHalf:
+	
+	mov WORD [0xB8006], 0x0773	; 's'
+	mov WORD [0xB8008], 0x0773	; 's'
 
 	; Call the kernel
 	push ebx	; Multiboot Info
 	push eax	; Multiboot Magic Value
+	mov WORD [0xB800A], 0x0732	; '2'
 	call kmain
 
 	; Halt the Machine
@@ -222,7 +231,7 @@ CallWithArgArray:
 align 0x1000
 gaInitPageDir:
 	dd	gaInitPageTable-KERNEL_BASE+3	; 0x000 - Low kernel
-	times 0x300-1	dd	0
+	times 0x300-0x000-1	dd	0
 	dd	gaInitPageTable-KERNEL_BASE+3	; 0xC00 - High kernel
 	times 0x3F0-0x300-1	dd	0
 	dd	gaInitPageDir-KERNEL_BASE+3 	; 0xFC0 - Fractal
