@@ -41,7 +41,7 @@ clean:
 
 install: $(BIN)
 ifneq ($(BUILDTYPE),static)
-	$(xMKDIR) $(DISTROOT)/Modules/$(ARCH)
+	@$(xMKDIR) $(DISTROOT)/Modules/$(ARCH); true
 	$(xCP) $(BIN) $(DISTROOT)/Modules/$(ARCH)/$(NAME).kmd
 else
 endif
@@ -58,7 +58,7 @@ $(BIN): %.xo.$(ARCH): $(OBJ)
 	@$(LD) -r -o $@ $(OBJ)
 endif
 
-%.o.$(_SUFFIX): %.c Makefile ../Makefile.tpl $(CFGFILES)
+%.o.$(_SUFFIX): %.c Makefile $(CFGFILES)
 	@echo --- $(CC) -o $@
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $<
 	@$(CC) -M $(CPPFLAGS) -MT $@ -o $*.d.$(ARCH) $<

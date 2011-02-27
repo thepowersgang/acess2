@@ -12,10 +12,12 @@ SUBMAKE = $(MAKE) --no-print-directory
 
 USRLIBS := crt0.o acess.ld ld-acess.so libgcc.so libc.so
 USRLIBS += libreadline.so libnet.so liburi.so
+USRLIBS += libaxwin2.so libimage_sif.so
 
 USRAPPS := init login CLIShell cat ls mount
 USRAPPS += bomb pcidump
 USRAPPS += ifconfig ping irc
+USRAPPS += axwin2
 
 ALL_DYNMODS = $(addprefix all-,$(DYNMODS))
 ALL_MODULES := $(addprefix all-,$(MODULES))
