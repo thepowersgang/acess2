@@ -20,6 +20,7 @@ typedef  int	tTID;
 typedef Uint	tUID;
 typedef Uint	tGID;
 typedef Sint64	tTimestamp;
+typedef Sint64	tTime;
 typedef struct sShortSpinlock	tShortSpinlock;
 typedef struct sMutex	tMutex;
 

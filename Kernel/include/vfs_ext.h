@@ -29,6 +29,9 @@
 //! Marks a VFS handle as belonging to the kernel
 #define VFS_KERNEL_FLAG	0x40000000
 
+//! Architectual maximum number of file descriptors
+#define MAX_FILE_DESCS	128
+
 /**
  * \brief VFS_Seek directions
  */
@@ -103,6 +106,18 @@ typedef struct sFInfo
 	 int	numacls;	//!< Total number of ACL entries
 	tVFS_ACL	acls[];	//!< ACL buffer (size is passed in the \a MaxACLs argument to VFS_FInfo)
 }	tFInfo;
+
+/**
+ * \brief fd_set for select()
+ */
+typedef struct
+{
+	Uint16	flags[MAX_FILE_DESCS/16];
+}	fd_set;
+
+#define FD_CLR(fd, fdsetp) ((fdsetp)->flags[(fd)/16]&=~(1<<((fd)%16)))
+#define FD_SET(fd, fdsetp) ((fdsetp)->flags[(fd)/16]|=~(1<<((fd)%16)))
+#define FD_ISSET(fd, fdsetp) ((fdsetp)->flags[(fd)/16]&(1<<((fd)%16)))
 
 // === FUNCTIONS ===
 /**

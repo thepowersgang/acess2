@@ -10,3 +10,16 @@ The VFS function select()
 - Maintains a list of processes on each node (if select has been called on that node)
 - Each process maybe has a semaphore on it (to use the semaphore code to maintain the process list)
  > Could maybe use a mutex instead
+
+
+VFS_Select(int, fd_set* read, fd_set* write, fd_set* except)
+
+read is the set of sockets that we are waiting to read from
+write         "           "           "           be able to write to
+except        "           "           "        for possible errors on
+
+
+Hence, each VFS_Node has three listener lists (or just pointers)
+- One for when data is avaliable
+- One for when space is avaliable for writing
+- One for when an error occurs (closed pipe, etc ...)

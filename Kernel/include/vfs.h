@@ -22,6 +22,11 @@
 #include <acess.h>
 
 /**
+ * \brief Thread list datatype for VFS_Select
+ */
+typedef struct sVFS_SelectList	tVFS_SelectList;
+
+/**
  * \name tVFS_Node Flags
  * \brief Flag values for tVFS_Node.Flags
  * \{
@@ -127,7 +132,7 @@ typedef struct sVFS_Node
 	 */
 	
 	/**
-	 * \name Access controll
+	 * \name Access control
 	 * \{
 	 */
 	tUID	UID;	//!< ID of Owning User
@@ -135,6 +140,20 @@ typedef struct sVFS_Node
 	
 	 int	NumACLs;	//!< Number of ACL entries
 	tVFS_ACL	*ACLs;	//!< Access Controll List pointer
+	/**
+	 * \}
+	 */
+	
+	/**
+	 * \name VFS_Select() fields
+	 * \{
+	 */
+	 int	DataAvaliable;
+	tVFS_SelectList	*ReadThreads;	//!< Threads waiting to read
+	 int	BufferFull;
+	tVFS_SelectList	*WriteThreads;	//!< Threads waiting to write
+	 int	ErrorOccurred;
+	tVFS_SelectList	*ErrorThreads;	//!< Threads waiting for an error
 	/**
 	 * \}
 	 */

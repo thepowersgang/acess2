@@ -1312,6 +1312,7 @@ int Mutex_Acquire(tMutex *Mutex)
 /**
  * \brief Release a held mutex
  * \param Mutex	Mutex to release
+ * \note Releasing a non-held mutex has no effect
  */
 void Mutex_Release(tMutex *Mutex)
 {
