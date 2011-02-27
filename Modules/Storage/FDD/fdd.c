@@ -580,7 +580,6 @@ int FDD_int_SeekTrack(int disk, int head, int track)
 	gFDD_Devices[disk].track[head] = track;
 	
 	// Wait for Head to settle
-//	Threads_Wait(100);
 	Time_Delay(100);
 	
 	return 1;
