@@ -1,0 +1,12 @@
+select()
+- Implemented using a wait queue for every file descriptor
+- That requires waiting on sockets to be centeralised
+
+All wait tasks (reads on VTerm, Pipes, PTYs, network sockets) use the kernel
+version of select with an inifinite timeout.
+They then signal the VFS using their VFS node pointer as a reference
+
+The VFS function select()
+- Maintains a list of processes on each node (if select has been called on that node)
+- Each process maybe has a semaphore on it (to use the semaphore code to maintain the process list)
+ > Could maybe use a mutex instead
