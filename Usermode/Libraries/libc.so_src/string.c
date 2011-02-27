@@ -124,11 +124,12 @@ EXPORT char *strndup(const char *str, size_t maxlen)
  * \fn EXPORT char *strchr(char *str, int character)
  * \brief Locate a character in a string
  */
-EXPORT char *strchr(char *str, int character)
+EXPORT char *strchr(const char *str, int character)
 {
-	while(*str)
+	for(;*str;str++)
 	{
-		if(*str == character)	return str;
+		if(*str == character)
+			return (char*)str;
 	}
 	return NULL;
 }
@@ -137,7 +138,7 @@ EXPORT char *strchr(char *str, int character)
  * \fn EXPORT char *strrchr(char *str, int character)
  * \brief Locate the last occurance of a character in a string
  */
-EXPORT char *strrchr(char *str, int character)
+EXPORT char *strrchr(const char *str, int character)
 {
 	 int	i;
 	i = strlen(str)-1;
@@ -156,12 +157,11 @@ EXPORT char *strstr(char *str1, const char *str2)
 {
 	const char	*test = str2;
 	
-	while(*str1)
+	for(;*str1;str1++)
 	{
 		if(*test == '\0')	return str1;
 		if(*str1 == *test)	test++;
 		else	test = str2;
-		str1 ++;
 	}
 	return NULL;
 }
@@ -199,7 +199,7 @@ EXPORT void *memmove(void *dest, const void *src, size_t count)
     char *sp = (char *)src;
     char *dp = (char *)dest;
 	// Check if corruption will happen
-	if( (unsigned int)dest > (unsigned int)src && (unsigned int)dest < (unsigned int)src+count )
+	if( (intptr_t)dest > (intptr_t)src && (intptr_t)dest < (intptr_t)src+count )
 		for(;count--;) dp[count] = sp[count];
 	else
     	for(;count--;) *dp++ = *sp++;
@@ -232,11 +232,11 @@ EXPORT int memcmp(const void *mem1, const void *mem2, size_t count)
  * \param value	Value to find
  * \param num	Size of memory area to check
  */
-EXPORT void *memchr(void *ptr, int value, size_t num)
+EXPORT void *memchr(const void *ptr, int value, size_t num)
 {
 	while(num--)
 	{
-		if( *(unsigned char*)ptr == (unsigned char)value )
+		if( *(const unsigned char*)ptr == (unsigned char)value )
 			return ptr;
 		ptr ++;
 	}
