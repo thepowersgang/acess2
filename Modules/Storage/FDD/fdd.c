@@ -402,9 +402,6 @@ int FDD_int_ReadWriteSector(Uint32 Disk, Uint64 SectorAddr, int Write, void *Buf
 	
 	LOG("Sending command");
 	
-	//Threads_Wait(100);	// Wait for Head to settle
-	Time_Delay(100);
-	
 	for( i = 0; i < FDD_MAX_READWRITE_ATTEMPTS; i ++ )
 	{
 		if( Write )
@@ -581,6 +578,11 @@ int FDD_int_SeekTrack(int disk, int head, int track)
 	
 	// Set Track in structure
 	gFDD_Devices[disk].track[head] = track;
+	
+	// Wait for Head to settle
+//	Threads_Wait(100);
+	Time_Delay(100);
+	
 	return 1;
 }
 
@@ -663,11 +665,12 @@ inline void FDD_WaitIRQ()
 
 void FDD_SensInt(int base, Uint8 *sr0, Uint8 *cyl)
 {
+	Uint8	byte;
 	FDD_int_SendByte(base, CHECK_INTERRUPT_STATUS);
-	if(sr0)	*sr0 = FDD_int_GetByte(base);
-	else	FDD_int_GetByte(base);
-	if(cyl)	*cyl = FDD_int_GetByte(base);
-	else	FDD_int_GetByte(base);
+	byte = FDD_int_GetByte(base);
+	if(sr0)	*sr0 = byte;
+	byte = FDD_int_GetByte(base);
+	if(cyl)	*cyl = byte;
 }
 
 /**
@@ -683,6 +686,13 @@ void FDD_int_SendByte(int base, char byte)
 	
 	if( timeout >= 0 )
 	{
+		#if 0 && DEBUG
+		static int totalTimeout = 0;
+		static int totalCount = 0;
+		totalTimeout += timeout;
+		totalCount ++;
+		LOG("timeout = %i, average %i", timeout, totalTimeout/totalCount);
+		#endif
 		outb(base + PORT_DATA, byte);
 	}
 	else
@@ -704,6 +714,13 @@ int FDD_int_GetByte(int base)
 	
 	if( timeout >= 0 )
 	{
+		#if 0 && DEBUG
+		static int totalTimeout = 0;
+		static int totalCount = 0;
+		totalTimeout += timeout;
+		totalCount ++;
+		LOG("timeout = %i, average %i", timeout, totalTimeout/totalCount);
+		#endif
 	    return inb(base + PORT_DATA);
 	}
 	else
