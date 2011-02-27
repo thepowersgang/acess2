@@ -52,11 +52,17 @@ int main(int argc, const char *argv[], const char *envp[])
 	}
 	
 	printf("Connection opened\n");
+	ProcessIncoming(&srv);
 	
 	writef(srv.FD, "USER %s %s %s : %s\n", gsUsername, gsHostname, gsRemoteAddress, gsRealName);
-	writef(srv.FD, "NICK %s", gsNickname);
+	writef(srv.FD, "NICK %s\n", gsNickname);
 	
-	ProcessIncoming(&srv);
+	printf("Processing\n");
+	
+	for( ;; )
+	{
+		ProcessIncoming(&srv);
+	}
 	
 	close(srv.FD);
 	return 0;
@@ -86,6 +92,8 @@ char *GetValue(char *Src, int *Ofs)
 	char	*ret = Src + pos;
 	char	*end;
 	
+	if( !Src )	return NULL;
+	
 	while( *ret == ' ' )	ret ++;
 	
 	end = strchr(ret, ' ');
@@ -104,7 +112,7 @@ char *GetValue(char *Src, int *Ofs)
  */
 void ParseServerLine(tServer *Server, char *Line)
 {
-	 int	pos;
+	 int	pos = 0;
 	char	*ident, *cmd;
 	if( *Line == ':' ) {
 		// Message
@@ -143,10 +151,12 @@ void ProcessIncoming(tServer *Server)
 	// process it line by line
 	// ioctl#8 on a TCP client gets the number of bytes in the recieve buffer
 	// - Used to avoid blocking
-	while( ioctl(Server->FD, 8, NULL) )
+	#if NON_BLOCK_READ
+	while( (len = ioctl(Server->FD, 8, NULL)) > 0 )
 	{
+	#endif
 		// Read data
-		len = read(Server->FD, BUFSIZ - Server->ReadPos, Server->InBuf + Server->ReadPos);
+		len = read(Server->FD, BUFSIZ - Server->ReadPos, &Server->InBuf[Server->ReadPos]);
 		Server->InBuf[Server->ReadPos + len] = '\0';
 		
 		// Break into lines
@@ -161,13 +171,19 @@ void ProcessIncoming(tServer *Server)
 		
 		// Handle incomplete lines
 		if( ptr - Server->InBuf < len + Server->ReadPos ) {
-			Server->ReadPos = ptr - Server->InBuf;
+			// Update the read position
+			// InBuf ReadPos    ptr          ReadPos+len
+			// | old | new used | new unused |
+			Server->ReadPos = len + Server->ReadPos - (ptr - Server->InBuf);
+			// Copy stuff back (moving "new unused" to the start of the buffer)
 			memcpy(Server->InBuf, ptr, Server->ReadPos);
 		}
 		else {
 			Server->ReadPos = 0;
 		}
+	#if NON_BLOCK_READ
 	}
+	#endif
 }
 
 /**

@@ -119,10 +119,64 @@ int IPStack_Install(char **Arguments)
 					// Route for addrData/iBits, no next hop, default metric
 					IPStack_AddRoute(iface->Name, iface->Address, iBits, NULL, 0);
 				}
+				
+				continue;
 			}
 			
-			// I could also define routes using <Interface>,<HexStreamNetwork>,<Bits>,<HexStreamGateway>
+			// I could also define routes using <Interface>:<HexStreamNetwork>:<Bits>[:<HexStreamGateway>]
 			// Example: 1:00000000:0:0A000201
+			if( '0' <= Arguments[i][0] && Arguments[i][0] <= '9' )
+			{
+				// Define Interface
+				char	*ifaceName, *network, *bits, *gateway;
+				
+				// Read definition
+				ifaceName = Arguments[i];
+				
+				network = strchr(ifaceName, ':');
+				if( !network ) {
+					Log_Warning("IPStack", "<iface>:<HexStreamNetwork>:<Bits>:<HexStreamGateway>");
+					continue;
+				}
+				*network = '\0';	network ++;
+				
+				bits = strchr(network, ':');
+				if( !bits ) {
+					Log_Warning("IPStack", "<Device>:<Type>:<HexStreamAddress>:<Bits>");
+					continue;
+				}
+				*bits = '\0';	bits ++;
+				
+				gateway = strchr(bits, ':');
+				if( gateway ) {
+					*gateway = '\0';	gateway ++;
+				}
+				
+				// Define route
+				{
+					tVFS_Node	*node = IPStack_Root_FindDir(NULL, ifaceName);
+					if( !node ) {
+						Log_Warning("IPStack", "Unknown interface '%s' in arg %i", ifaceName, i);
+						continue ;
+					}
+					tInterface	*iface = node->ImplPtr;
+					
+					 int	size = IPStack_GetAddressSize(iface->Type);
+					Uint8	netData[size];
+					Uint8	gwData[size];
+					 int	iBits = atoi(bits);
+					
+					UnHex(netData, size, network);
+					if( gateway )
+						UnHex(gwData, size, gateway);
+					else
+						memset(gwData, 0, size);
+					
+					IPStack_AddRoute(ifaceName, netData, iBits, gwData, 30);
+				}
+				
+				continue;
+			}
 		}
 	}
 	

@@ -104,27 +104,27 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 	tTCPListener	*srv;
 	tTCPConnection	*conn;
 
-	Log_Log("TCP", "SourcePort = %i, DestPort = %i",
+	Log_Log("TCP", "TCP_GetPacket: SourcePort = %i, DestPort = %i",
 		ntohs(hdr->SourcePort), ntohs(hdr->DestPort));
 /*
-	Log_Log("TCP", "SequenceNumber = 0x%x", ntohl(hdr->SequenceNumber));
-	Log_Log("TCP", "AcknowlegementNumber = 0x%x", ntohl(hdr->AcknowlegementNumber));
-	Log_Log("TCP", "DataOffset = %i", hdr->DataOffset >> 4);
-	Log_Log("TCP", "Flags = {");
-	Log_Log("TCP", "  CWR = %B, ECE = %B",
+	Log_Log("TCP", "TCP_GetPacket: SequenceNumber = 0x%x", ntohl(hdr->SequenceNumber));
+	Log_Log("TCP", "TCP_GetPacket: AcknowlegementNumber = 0x%x", ntohl(hdr->AcknowlegementNumber));
+	Log_Log("TCP", "TCP_GetPacket: DataOffset = %i", hdr->DataOffset >> 4);
+	Log_Log("TCP", "TCP_GetPacket: Flags = {");
+	Log_Log("TCP", "TCP_GetPacket:   CWR = %B, ECE = %B",
 		!!(hdr->Flags & TCP_FLAG_CWR), !!(hdr->Flags & TCP_FLAG_ECE));
-	Log_Log("TCP", "  URG = %B, ACK = %B",
+	Log_Log("TCP", "TCP_GetPacket:   URG = %B, ACK = %B",
 		!!(hdr->Flags & TCP_FLAG_URG), !!(hdr->Flags & TCP_FLAG_ACK));
-	Log_Log("TCP", "  PSH = %B, RST = %B",
+	Log_Log("TCP", "TCP_GetPacket:   PSH = %B, RST = %B",
 		!!(hdr->Flags & TCP_FLAG_PSH), !!(hdr->Flags & TCP_FLAG_RST));
-	Log_Log("TCP", "  SYN = %B, FIN = %B",
+	Log_Log("TCP", "TCP_GetPacket:   SYN = %B, FIN = %B",
 		!!(hdr->Flags & TCP_FLAG_SYN), !!(hdr->Flags & TCP_FLAG_FIN));
-	Log_Log("TCP", "}");
-	Log_Log("TCP", "WindowSize = %i", htons(hdr->WindowSize));
-	Log_Log("TCP", "Checksum = 0x%x", htons(hdr->Checksum));
-	Log_Log("TCP", "UrgentPointer = 0x%x", htons(hdr->UrgentPointer));
+	Log_Log("TCP", "TCP_GetPacket: }");
+	Log_Log("TCP", "TCP_GetPacket: WindowSize = %i", htons(hdr->WindowSize));
+	Log_Log("TCP", "TCP_GetPacket: Checksum = 0x%x", htons(hdr->Checksum));
+	Log_Log("TCP", "TCP_GetPacket: UrgentPointer = 0x%x", htons(hdr->UrgentPointer));
 */
-	Log_Log("TCP", "Flags = %s%s%s%s%s%s",
+	Log_Log("TCP", "TCP_GetPacket: Flags = %s%s%s%s%s%s",
 		(hdr->Flags & TCP_FLAG_CWR) ? "CWR " : "",
 		(hdr->Flags & TCP_FLAG_ECE) ? "ECE " : "",
 		(hdr->Flags & TCP_FLAG_URG) ? "URG " : "",
@@ -155,17 +155,17 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 			// Check the destination port
 			if(srv->Port != htons(hdr->DestPort))	continue;
 			
-			Log_Log("TCP", "Matches server %p", srv);
+			Log_Log("TCP", "TCP_GetPacket: Matches server %p", srv);
 			// Is this in an established connection?
 			for( conn = srv->Connections; conn; conn = conn->Next )
 			{
-				Log_Log("TCP", "conn->Interface(%p) == Interface(%p)",
+				Log_Log("TCP", "TCP_GetPacket: conn->Interface(%p) == Interface(%p)",
 					conn->Interface, Interface);
 				// Check that it is coming in on the same interface
 				if(conn->Interface != Interface)	continue;
 
 				// Check Source Port
-				Log_Log("TCP", "conn->RemotePort(%i) == hdr->SourcePort(%i)",
+				Log_Log("TCP", "TCP_GetPacket: conn->RemotePort(%i) == hdr->SourcePort(%i)",
 					conn->RemotePort, ntohs(hdr->SourcePort));
 				if(conn->RemotePort != ntohs(hdr->SourcePort))	continue;
 
@@ -175,17 +175,17 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 				if(conn->Interface->Type == 4 && !IP4_EQU(conn->RemoteIP.v4, *(tIPv4*)Address))
 					continue;
 
-				Log_Log("TCP", "Matches connection %p", conn);
+				Log_Log("TCP", "TCP_GetPacket: Matches connection %p", conn);
 				// We have a response!
 				TCP_INT_HandleConnectionPacket(conn, hdr, Length);
 
 				return;
 			}
 
-			Log_Log("TCP", "Opening Connection");
+			Log_Log("TCP", "TCP_GetPacket: Opening Connection");
 			// Open a new connection (well, check that it's a SYN)
 			if(hdr->Flags != TCP_FLAG_SYN) {
-				Log_Log("TCP", "Packet is not a SYN");
+				Log_Log("TCP", "TCP_GetPacket: Packet is not a SYN");
 				return ;
 			}
 			
@@ -268,7 +268,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 		}
 	}
 	
-	Log_Log("TCP", "No Match");
+	Log_Log("TCP", "TCP_GetPacket: No Match");
 }
 
 /**
@@ -869,57 +869,59 @@ void TCP_StartConnection(tTCPConnection *Conn)
 int TCP_Client_IOCtl(tVFS_Node *Node, int ID, void *Data)
 {
 	tTCPConnection	*conn = Node->ImplPtr;
+	
+	ENTER("pNode iID pData", Node, ID, Data);
 
 	switch(ID)
 	{
 	case 4:	// Get/Set local port
 		if(!Data)
-			return conn->LocalPort;
+			LEAVE_RET('i', conn->LocalPort);
 		if(conn->State != TCP_ST_CLOSED)
-			return -1;
+			LEAVE_RET('i', -1);
 		if(!CheckMem(Data, sizeof(Uint16)))
-			return -1;
+			LEAVE_RET('i', -1);
 
 		if(Threads_GetUID() != 0 && *(Uint16*)Data < 1024)
-			return -1;
+			LEAVE_RET('i', -1);
 
 		conn->LocalPort = *(Uint16*)Data;
-		return 0;
+		LEAVE_RET('i', conn->LocalPort);
 
 	case 5:	// Get/Set remote port
-		if(!Data)	return conn->RemotePort;
-		if(conn->State != TCP_ST_CLOSED)	return -1;
-		if(!CheckMem(Data, sizeof(Uint16)))	return -1;
+		if(!Data)	LEAVE_RET('i', conn->RemotePort);
+		if(conn->State != TCP_ST_CLOSED)	LEAVE_RET('i', -1);
+		if(!CheckMem(Data, sizeof(Uint16)))	LEAVE_RET('i', -1);
 		conn->RemotePort = *(Uint16*)Data;
-		return conn->RemotePort;
+		LEAVE_RET('i', conn->RemotePort);
 
 	case 6:	// Set Remote IP
 		if( conn->State != TCP_ST_CLOSED )
-			return -1;
+			LEAVE_RET('i', -1);
 		if( conn->Interface->Type == 4 )
 		{
-			if(!CheckMem(Data, sizeof(tIPv4)))	return -1;
+			if(!CheckMem(Data, sizeof(tIPv4)))	LEAVE_RET('i', -1);
 			conn->RemoteIP.v4 = *(tIPv4*)Data;
 		}
 		else if( conn->Interface->Type == 6 )
 		{
-			if(!CheckMem(Data, sizeof(tIPv6)))	return -1;
+			if(!CheckMem(Data, sizeof(tIPv6)))	LEAVE_RET('i', -1);
 			conn->RemoteIP.v6 = *(tIPv6*)Data;
 		}
-		return 0;
+		LEAVE_RET('i', 0);
 
 	case 7:	// Connect
 		if(conn->LocalPort == 0xFFFF)
 			conn->LocalPort = TCP_GetUnusedPort();
 		if(conn->RemotePort == -1)
-			return 0;
+			LEAVE_RET('i', 0);
 
 		TCP_StartConnection(conn);
-		return 1;
+		LEAVE_RET('i', 1);
 	
 	// Get recieve buffer length
 	case 8:
-		return conn->RecievedBuffer->Length;
+		LEAVE_RET('i', conn->RecievedBuffer->Length);
 	}
 
 	return 0;
@@ -929,6 +931,8 @@ void TCP_Client_Close(tVFS_Node *Node)
 {
 	tTCPConnection	*conn = Node->ImplPtr;
 	tTCPHeader	packet;
+	
+	ENTER("pNode", Node);
 	
 	packet.SourcePort = htons(conn->LocalPort);
 	packet.DestPort = htons(conn->RemotePort);
@@ -946,4 +950,6 @@ void TCP_Client_Close(tVFS_Node *Node)
 	while( conn->State == TCP_ST_FIN_SENT )	Threads_Yield();
 	
 	free(conn);
+	
+	LEAVE('-');
 }

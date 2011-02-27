@@ -2,7 +2,7 @@
  * Acess2 IP Stack
  * - Routing Tables
  */
-#define DEBUG	1
+#define DEBUG	0
 #define VERSION	VER2(0,10)
 #include <acess.h>
 #include <tpl_drv_common.h>
