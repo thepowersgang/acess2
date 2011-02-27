@@ -58,6 +58,15 @@ int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set 
 	tVFS_SelectThread	thread_info;
 	 int	ret;
 	
+	Semaphore_Init(&thread_info.SleepHandle, 0, 0, "VFS_Select()", "");
+	
+	// Notes: The idea is to make sure we onlt enter wait (on the semaphore)
+	// if we are going to be woken up (either by an event at a later time,
+	// or by an event that happened while or before we were registering).
+	// Hence, register must happen _before_ we check the state flag
+	// (See VFS_int_Select_Register), that way either we pick up the flag,
+	// or the semaphore is incremeneted (or both, but never none)
+	
 	// Register with nodes
 	ret  = VFS_int_Select_Register(&thread_info, MaxHandle, ReadHandles, 0, IsKernel);
 	ret += VFS_int_Select_Register(&thread_info, MaxHandle, WriteHandles, 1, IsKernel);
