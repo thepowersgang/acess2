@@ -9,6 +9,7 @@
 #include <tpl_drv_keyboard.h>
 #include <tpl_drv_terminal.h>
 #include <errno.h>
+#include <semaphore.h>
 
 #define	USE_CTRL_ALT	0
 
@@ -56,6 +57,7 @@ typedef struct {
 	 int	InputRead;	//!< Input buffer read position
 	 int	InputWrite;	//!< Input buffer write position
 	char	InputBuffer[MAX_INPUT_CHARS8];
+	tSemaphore	InputSemaphore;
 	
 	tVT_Char	*Text;
 	Uint32		*Buffer;
@@ -221,6 +223,7 @@ int VT_Install(char **Arguments)
 		gVT_Terminals[i].Node.Read = VT_Read;
 		gVT_Terminals[i].Node.Write = VT_Write;
 		gVT_Terminals[i].Node.IOCtl = VT_Terminal_IOCtl;
+		Semaphore_Init(&gVT_Terminals[i].InputSemaphore, 0, MAX_INPUT_CHARS8, "VTerm", gVT_Terminals[i].Name);
 	}
 	
 	// Add to DevFS
@@ -419,7 +422,6 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	tVTerm	*term = &gVT_Terminals[ Node->Inode ];
 	
 	Mutex_Acquire( &term->ReadingLock );
-	term->ReadingThread = Threads_GetTID();
 	
 	// Check current mode
 	switch(term->Mode)
@@ -428,13 +430,19 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	case TERM_MODE_TEXT:
 		while(pos < Length)
 		{
-			//TODO: Sleep instead
-			while(term->InputRead == term->InputWrite)	Threads_Sleep();
+			int avail_bytes;
+			avail_bytes = Semaphore_Wait( &term->InputSemaphore, Length );
+			if( avail_bytes == -1 ) {
+				break ;
+			}
 			
-			((char*)Buffer)[pos] = term->InputBuffer[term->InputRead];
-			pos ++;
-			term->InputRead ++;
-			term->InputRead %= MAX_INPUT_CHARS8;
+			while( avail_bytes -- )
+			{
+				((char*)Buffer)[pos] = term->InputBuffer[term->InputRead];
+				pos ++;
+				term->InputRead ++;
+				term->InputRead %= MAX_INPUT_CHARS8;
+			}
 		}
 		break;
 	
@@ -443,19 +451,29 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	default:
 		while(pos < Length)
 		{
-			while(term->InputRead == term->InputWrite)	Threads_Sleep();
-			((Uint32*)Buffer)[pos] = ((Uint32*)term->InputBuffer)[term->InputRead];
-			pos ++;
-			term->InputRead ++;
-			term->InputRead %= MAX_INPUT_CHARS32;
+			 int	avail;
+			avail = Semaphore_Wait( &term->InputSemaphore, Length/4 * 4 );
+			if( avail == -1 ) {
+				break ;
+			}
+			
+			while( avail > 3 )
+			{
+				((Uint32*)Buffer)[pos] = ((Uint32*)term->InputBuffer)[term->InputRead];
+				pos ++;
+				term->InputRead ++;
+				term->InputRead %= MAX_INPUT_CHARS32;
+				avail -= 4;
+			}
 		}
+		pos *= 4;
 		break;
 	}
 	
 	term->ReadingThread = -1;
 	Mutex_Release( &term->ReadingLock );
 	
-	return 0;
+	return pos;
 }
 
 /**
@@ -830,7 +848,8 @@ void VT_KBCallBack(Uint32 Codepoint)
 			term->InputRead = term->InputWrite + 1;
 			term->InputRead %= MAX_INPUT_CHARS8;
 		}
-		
+	
+		Semaphore_Signal(&term->InputSemaphore, 1);
 	}
 	else
 	{
@@ -842,12 +861,13 @@ void VT_KBCallBack(Uint32 Codepoint)
 			term->InputRead ++;
 			term->InputRead %= MAX_INPUT_CHARS32;
 		}
+		Semaphore_Signal(&term->InputSemaphore, 4);
 	}
 	
 	// Wake up the thread waiting on us
-	if( term->ReadingThread >= 0 ) {
-		Threads_WakeTID(term->ReadingThread);
-	}
+	//if( term->ReadingThread >= 0 ) {
+	//	Threads_WakeTID(term->ReadingThread);
+	//}
 }
 
 /**
@@ -1479,6 +1499,8 @@ Uint32 VT_Colour12toN(Uint16 Col12, int Depth)
 	// Fast returns
 	if( Depth == 24 )	return VT_Colour12to24(Col12);
 	if( Depth == 15 )	return VT_Colour12to15(Col12);
+	// - 32 is a special case, it's usually 24-bit colour with an unused byte
+	if( Depth == 32 )	return VT_Colour12to24(Col12);
 	
 	// Bounds checks
 	if( Depth < 8 )	return 0;
