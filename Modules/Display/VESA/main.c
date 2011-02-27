@@ -235,6 +235,7 @@ Uint64 Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		tVT_Char	*chars = Buffer;
 		 int	pitch = gVesa_Modes[giVesaCurrentMode].pitch;
 		 int	depth = gVesa_Modes[giVesaCurrentMode].bpp;
+		 int	bytes_per_px = gVesa_Modes[giVesaCurrentMode].bpp / 8;
 		 int	widthInChars = gVesa_Modes[giVesaCurrentMode].width/giVT_CharWidth;
 		 int	heightInChars = gVesa_Modes[giVesaCurrentMode].height/giVT_CharHeight;
 		 int	x, y;
@@ -243,6 +244,8 @@ Uint64 Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		
 		Length /= sizeof(tVT_Char);
 		Offset /= sizeof(tVT_Char);
+		
+		if( depth == 32 )	depth = 24;	// Actually 24-colour bits
 		
 		LOG("gVesa_Modes[%i] = {height:%i, width:%i, pitch:%i}",
 			giVesaCurrentMode,
@@ -255,13 +258,13 @@ Uint64 Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		LOG("(x,y) = (%i,%i) = [%i,%i]",
 			x,
 			y,
-			x * giVT_CharWidth * depth / 8,
+			x * giVT_CharWidth * bytes_per_px,
 			y * giVT_CharHeight * pitch
 			);
 		LOG("(w,h) = (%i,%i) = [%i,%i]",
 			(int)(Length % widthInChars),
 			(int)(Length / widthInChars),
-			(int)((Length % widthInChars) * giVT_CharWidth * depth / 8),
+			(int)((Length % widthInChars) * giVT_CharWidth * bytes_per_px),
 			(int)((Length / widthInChars) * giVT_CharHeight * pitch)
 			);
 		
@@ -290,7 +293,7 @@ Uint64 Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		for( i = 0; i < (int)Length; i++ )
 		{
 			if(
-			    !MM_GetPhysAddr( (tVAddr)dest + x*giVT_CharWidth*depth/8 )
+			    !MM_GetPhysAddr( (tVAddr)dest + x*giVT_CharWidth*bytes_per_px )
 			// || !MM_GetPhysAddr( (tVAddr)dest + x*giVT_CharWidth*depth/8 + pitch*giVT_CharHeight-1)
 				)
 			{
@@ -305,7 +308,7 @@ Uint64 Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 			
 			VT_Font_Render(
 				chars->Ch,
-				dest + x*giVT_CharWidth*depth/8, depth, pitch,
+				dest + x*giVT_CharWidth*bytes_per_px, bytes_per_px*8, pitch,
 				VT_Colour12toN(chars->BGCol, depth),
 				VT_Colour12toN(chars->FGCol, depth)
 				);
@@ -497,8 +500,9 @@ int Vesa_Int_FindMode(tVideo_IOCtl_Mode *data)
 	
 		if(gVesa_Modes[i].width == data->width && gVesa_Modes[i].height == data->height)
 		{
-			if( (data->bpp == 32 || data->bpp == 24)
-			 && (gVesa_Modes[i].bpp == 32 || gVesa_Modes[i].bpp == 24) )
+			//if( (data->bpp == 32 || data->bpp == 24)
+			// && (gVesa_Modes[i].bpp == 32 || gVesa_Modes[i].bpp == 24) )
+			if( data->bpp == gVesa_Modes[i].bpp )
 			{
 				LOG("Perfect!");
 				best = i;
@@ -509,15 +513,20 @@ int Vesa_Int_FindMode(tVideo_IOCtl_Mode *data)
 		tmp = gVesa_Modes[i].width * gVesa_Modes[i].height;
 		tmp -= data->width * data->height;
 		tmp = tmp < 0 ? -tmp : tmp;
-		factor = tmp * 100 / (data->width * data->height);
+		factor = tmp * 1000 / (data->width * data->height);
+		
+		if( data->bpp == 8 && gVesa_Modes[i].bpp != 8 )	continue;
+		if( data->bpp == 16 && gVesa_Modes[i].bpp != 16 )	continue;
 		
 		if( (data->bpp == 32 || data->bpp == 24)
 		 && (gVesa_Modes[i].bpp == 32 || gVesa_Modes[i].bpp == 24) )
 		{
-			
+			if( data->bpp == gVesa_Modes[i].bpp )
+				factor /= 2;
 		}
 		else {
-			factor *= 10;
+			if( data->bpp != gVesa_Modes[i].bpp )
+				continue ;
 		}
 		
 		LOG("factor = %i", factor);
