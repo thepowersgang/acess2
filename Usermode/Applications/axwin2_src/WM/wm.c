@@ -18,7 +18,7 @@ tElement	*WM_CreateElement(tElement *Parent, int Type, int Flags, const char *De
 void	WM_UpdateMinDims(tElement *Element);
 void	WM_SetFlags(tElement *Element, int Flags);
 void	WM_SetSize(tElement *Element, int Size);
-void	WM_SetText(tElement *Element, char *Text);
+void	WM_SetText(tElement *Element, const char *Text);
 void	WM_UpdateDimensions(tElement *Element, int Pass);
 void	WM_UpdatePosition(tElement *Element);
 void	WM_RenderWidget(tElement *Element);
@@ -100,7 +100,7 @@ void WM_SetSize(tElement *Element, int Size)
  * \brief Set the text field of an element
  * \note Used for the image path on ELETYPE_IMAGE
  */
-void WM_SetText(tElement *Element, char *Text)
+void WM_SetText(tElement *Element, const char *Text)
 {
 	if(!Element)	return ;
 	if(Element->Text)	free(Element->Text);

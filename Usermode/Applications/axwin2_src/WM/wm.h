@@ -145,6 +145,6 @@ enum eElementTypes
 extern tElement	*WM_CreateElement(tElement *Parent, int Type, int Flags, const char *DebugName);
 extern void	WM_SetFlags(tElement *Element, int Flags);
 extern void	WM_SetSize(tElement *Element, int Size);
-extern void	WM_SetText(tElement *Element, char *Text);
+extern void	WM_SetText(tElement *Element, const char *Text);
 
 #endif

@@ -7,6 +7,17 @@
 #include <image.h>
 //#include <image_sif.h>
 
+// === STRUCTURES ===
+struct sHeader
+{
+	uint16_t	Magic;
+	uint16_t	Flags;
+	uint16_t	Width;
+	uint16_t	Height;
+};
+
+// === CONSTANTS ===
+
 // === CODE ===
 int SoMain(void)
 {
@@ -17,8 +28,6 @@ int SoMain(void)
  */
 tImage *Image_SIF_Parse(void *Buffer, size_t Size)
 {
-	uint16_t	magic;
-	uint16_t	flags;
 	uint16_t	w, h;
 	 int	ofs, i;
 	tImage	*ret;
@@ -26,25 +35,30 @@ tImage *Image_SIF_Parse(void *Buffer, size_t Size)
 	 int	fileOfs = 0;
 	 int	comp, fmt;
 	 int	sampleSize = 4;
+	struct sHeader	*hdr = Buffer;
+	 
+	_SysDebug("Image_SIF_Parse: (Buffer=%p, Size=0x%x)", Buffer, Size);
 	
 	// Get magic word and determine byte ordering
-	magic = *(uint16_t*)Buffer+fileOfs;	fileOfs += 2;
-	if(magic == 0x51F0)
+	if(hdr->Magic == 0x51F0)	// Little Endian
 		bRevOrder = 0;
-	else if(magic == 0xF051)
+	else if(hdr->Magic == 0xF051)	// Big Endian
 		bRevOrder = 1;
 	else {
 		return NULL;
 	}
 	
+	_SysDebug(" Image_SIF_Parse: bRevOrder = %i", bRevOrder);
+	
 	// Read flags
-	flags = *(uint16_t*)Buffer+fileOfs;	fileOfs += 2;
-	comp = flags & 7;
-	fmt = (flags >> 3) & 7;
+	comp = hdr->Flags & 7;
+	fmt = (hdr->Flags >> 3) & 7;
 	
 	// Read dimensions
-	w = *(uint16_t*)Buffer+fileOfs;	fileOfs += 2;
-	h = *(uint16_t*)Buffer+fileOfs;	fileOfs += 2;
+	w = hdr->Width;
+	h = hdr->Height;
+	
+	_SysDebug(" Image_SIF_Parse: Dimensions %ix%i", w, h);
 	
 	// Get image format
 	switch(fmt)
@@ -58,9 +72,12 @@ tImage *Image_SIF_Parse(void *Buffer, size_t Size)
 		sampleSize = 3;
 		break;
 	default:
-		free(ret);
 		return NULL;
 	}
+	
+	_SysDebug(" Image_SIF_Parse: sampleSize = %i, fmt = %i", sampleSize, fmt);
+	
+	fileOfs = sizeof(struct sHeader);
 	
 	// Allocate space
 	ret = calloc(1, sizeof(tImage) + w * h * sampleSize);

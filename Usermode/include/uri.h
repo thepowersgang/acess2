@@ -33,11 +33,13 @@ struct sURIHandler
 	void	(*Close)(int Handle);
 	size_t	(*Read)(int Handle, size_t Bytes, void *Buffer);
 	size_t	(*Write)(int Handle, size_t Bytes, void *Buffer);
+	size_t	(*GetSize)(int Handle);
 };
 
 // === FUNCTIONS ===
 extern tURI	*URI_Parse(const char *String);
 extern tURIFile	*URI_Open(int Mode, tURI *URI);
+extern int	URI_GetSize(tURIFile *File, size_t *Size);
 extern size_t	URI_Read(tURIFile *File, size_t Bytes, void *Buffer);
 extern size_t	URI_Write(tURIFile *File, size_t Bytes, void *Buffer);
 extern void	URI_Close(tURIFile *File);

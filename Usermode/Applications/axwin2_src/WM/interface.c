@@ -6,6 +6,7 @@
  * > Main Overarching UI
  */
 #include "common.h"
+#include "resources/LogoSmall.sif.res.h"
 
 // === GLOBALS ==
  int	giInterface_Width = 0;
@@ -17,6 +18,7 @@ tElement	*gpInterface_MainArea;
 tElement	*gpInterface_HeaderBar;
 tElement	*gpInterface_TabBar;
 tElement	*gpInterface_TabContent;
+const char	csLogoSmall[] = "base64:///"RESOURCE_LogoSmall_sif;
 
 // === CODE ===
 /**
@@ -41,9 +43,11 @@ void Interface_Init(void)
 	btn = WM_CreateElement(gpInterface_Sidebar, ELETYPE_BUTTON, ELEFLAG_NOSTRETCH, "SystemMenu");
 	WM_SetSize(btn, giInterface_Width-4);
 	// TODO: Once image loading is implemented, switch to a logo
-	#if 0
-	text = WM_CreateElement(btn, ELETYPE_IMAGE, ELEFLAG_SCALE);
-	WM_SetText(text, "asset://LogoSmall.sif");
+	#if 1
+	//text = WM_CreateElement(btn, ELETYPE_IMAGE, ELEFLAG_SCALE);
+	text = WM_CreateElement(btn, ELETYPE_IMAGE, 0, "MenuLogo");
+	//WM_SetText(text, "file:///LogoSmall.sif");
+	WM_SetText(text, csLogoSmall);
 	#else
 	text = WM_CreateElement(btn, ELETYPE_TEXT, 0, NULL);
 	WM_SetText(text, "Acess");

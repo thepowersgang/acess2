@@ -104,7 +104,11 @@ void Video_DrawImage(short X, short Y, short W, short H, tImage *Image)
 {
 	 int	x, y;
 	uint8_t	*buf = (uint8_t *)(gpScreenBuffer + Y*giScreenWidth + X);
-	uint8_t	*data = Image->Data;
+	uint8_t	*data;
+	
+	// Sanity please
+	if( !Image )
+		return ;
 	
 	// Bounds Check
 	if( X >= giScreenWidth )	return ;
@@ -118,6 +122,8 @@ void Video_DrawImage(short X, short Y, short W, short H, tImage *Image)
 	if( X + W > giScreenWidth )	W = giScreenWidth - X;
 	if( Y + H > giScreenHeight )	H = giScreenHeight - Y;
 	
+	// Do the render
+	data = Image->Data;
 	switch( Image->Format )
 	{
 	case IMGFMT_BGRA:

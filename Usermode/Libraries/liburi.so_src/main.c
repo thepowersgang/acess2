@@ -32,11 +32,12 @@ void	URI_Close(tURIFile *File);
 size_t	URI_file_Read(int Handle, size_t Bytes, void *Buffer);
 size_t	URI_file_Write(int Handle, size_t Bytes, void *Buffer);
 void	URI_file_Close(int Handle);
+size_t	URI_file_GetSize(int Handle);
 
 // === CONSTANTS ===
 // Builtin URI protocol handlers
 tURIHandler	caBuiltinHandlers[] = {
-	{"file", 0, URI_file_Open, URI_file_Close, URI_file_Read, URI_file_Write}
+	{"file", 0, URI_file_Open, URI_file_Close, URI_file_Read, URI_file_Write, URI_file_GetSize}
 };
 #define NUM_BUILTIN_HANDLERS	(sizeof(caBuiltinHandlers)/sizeof(caBuiltinHandlers[0]))
 
@@ -55,7 +56,7 @@ tURI *URI_Parse(const char *String)
 	if(!String)	return NULL;
 	
 	protolen = 0;
-	while( isalpha(*tmp) )	tmp++, protolen++;
+	while( isalpha(*tmp) || isdigit(*tmp) )	tmp++, protolen++;
 	
 	// true URI
 	if(tmp[0] == ':' && tmp[1] == '/' && tmp[2] == '/')
@@ -75,7 +76,7 @@ tURI *URI_Parse(const char *String)
 		if( *tmp == '[' )
 		{
 			tmp ++;
-			while( *tmp != ']' ) {
+			while( *tmp && *tmp != ']' ) {
 				ret->Host[hostlen] = *tmp;
 				tmp ++;
 				hostlen ++;
@@ -86,7 +87,7 @@ tURI *URI_Parse(const char *String)
 		// IPv4/DNS
 		else
 		{
-			while( *tmp != '/' && *tmp != ':' )
+			while( *tmp && *tmp != '/' && *tmp != ':' )
 			{
 				ret->Host[hostlen] = *tmp;
 				tmp ++;
@@ -225,6 +226,19 @@ tURIFile *URI_Open(int Mode, tURI *URI)
 	return ret;
 }
 
+int URI_GetSize(tURIFile *File, size_t *Size)
+{
+	if( !File || !Size )	return -1;
+	
+	if( File->Handler->GetSize )
+	{
+		*Size = File->Handler->GetSize(File->Handle);
+		return 0;	// Success
+	}
+	
+	return 1;	// Size not avaliable
+}
+
 /**
  * \brief Read from a URI file
  */
@@ -321,4 +335,13 @@ size_t URI_file_Write(int Handle, size_t Bytes, void *Buffer)
 void URI_file_Close(int Handle)
 {
 	close(Handle);
+}
+size_t URI_file_GetSize(int Handle)
+{
+	uint64_t curpos = tell(Handle);
+	size_t ret;
+	seek(Handle, 0, SEEK_END);
+	ret = tell(Handle);
+	seek(Handle, curpos, SEEK_SET);
+	return ret;
 }

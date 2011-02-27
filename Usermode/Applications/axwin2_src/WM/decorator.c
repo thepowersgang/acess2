@@ -7,6 +7,8 @@
 #include "common.h"
 #include "wm.h"
 
+#define BORDER_EVERYTHING	1
+
 #define BOX_BGCOLOUR    0xC0C0C0
 #define BOX_BORDER      0xA0A0A0
 #define BUTTON_BGCOLOUR 0xD0D0D0
@@ -21,6 +23,13 @@ void Decorator_RenderWidget(tElement *Element)
 		Element->CachedX, Element->CachedY,
 		Element->CachedW, Element->CachedH
 		);
+	
+	#if BORDER_EVERYTHING
+	Video_DrawRect(Element->CachedX, Element->CachedY,
+			Element->CachedW, Element->CachedH,
+			0
+			);
+	#endif
 	
 	switch(Element->Type)
 	{
