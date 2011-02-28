@@ -426,6 +426,10 @@ void TCP_INT_AppendRecieved(tTCPConnection *Connection, tTCPStoredPacket *Pkt)
 	}
 	
 	RingBuffer_Write( Connection->RecievedBuffer, Pkt->Data, Pkt->Length );
+
+	#if USE_SELECT
+	VFS_MarkAvaliable(&Connection->Node, 1);
+	#endif
 	
 	Mutex_Release( &Connection->lRecievedPackets );
 }
@@ -763,6 +767,12 @@ Uint64 TCP_Client_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buff
 	// Poll packets
 	for(;;)
 	{
+		#if USE_SELECT
+		// Wait
+		VFS_SelectNode(Node, VFS_SELECT_READ, NULL);
+		// Lock list and read
+		Mutex_Acquire( &conn->lRecievedPackets );
+		#else
 		// Lock list and check if there is a packet
 		Mutex_Acquire( &conn->lRecievedPackets );
 		if( conn->RecievedBuffer->Length == 0 ) {
@@ -771,9 +781,15 @@ Uint64 TCP_Client_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buff
 			Threads_Yield();	// TODO: Less expensive wait
 			continue;
 		}
+		#endif
 		
 		// Attempt to read all `Length` bytes
 		len = RingBuffer_Read( destbuf, conn->RecievedBuffer, Length );
+		
+		#if USE_SELECT
+		if( conn->RecievedBuffer->Length == 0 )
+			VFS_MarkAvaliable(Node, 0);
+		#endif
 		
 		// Release the lock (we don't need it any more)
 		Mutex_Release( &conn->lRecievedPackets );

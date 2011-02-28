@@ -341,6 +341,28 @@ extern tVFS_Driver	*VFS_GetFSByName(const char *Name);
  */
 extern tVFS_ACL	*VFS_UnixToAcessACL(Uint Mode, Uint Owner, Uint Group);
 
+/**
+ */
+enum eVFS_SelectTypes
+{
+	VFS_SELECT_READ,
+	VFS_SELECT_WRITE,
+	VFS_SELECT_ERROR
+};
+
+/**
+ * \brief Wait for an event on a node
+ * \param Node	Node to wait on
+ * \param Type	Type of wait
+ * \param Timeout	Time to wait (NULL for infinite wait)
+ * \return Number of nodes that actioned (0 or 1)
+ */
+extern int	VFS_SelectNode(tVFS_Node *Node, enum eVFS_SelectTypes Type, tTime *Timeout);
+
+extern int	VFS_MarkFull(tVFS_Node *Node, BOOL IsBufferFull);
+extern int	VFS_MarkAvaliable(tVFS_Node *Node, BOOL IsDataAvaliable);
+extern int	VFS_MarkError(tVFS_Node *Node, BOOL IsErrorState);
+
 // --- Node Cache --
 /**
  * \name Node Cache

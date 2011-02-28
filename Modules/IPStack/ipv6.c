@@ -45,9 +45,6 @@ void IPv6_int_GetPacket(tAdapter *Interface, tMacAddr From, int Length, void *Bu
 		return;
 	
 	Log_Debug("IPv6", "hdr = {");
-	//Log_Debug("IPv6", " .Version       = %i", (hdr->Head >> (20+8)) & 0xF );
-	//Log_Debug("IPv6", " .TrafficClass  = %i", (hdr->Head >> (20)) & 0xFF );
-	//Log_Debug("IPv6", " .FlowLabel     = %i", hdr->Head & 0xFFFFF );
 	Log_Debug("IPv6", " .Version       = %i", hdr->Version );
 	Log_Debug("IPv6", " .TrafficClass  = %i", hdr->TrafficClass );
 	Log_Debug("IPv6", " .FlowLabel     = %i", hdr->FlowLabel );

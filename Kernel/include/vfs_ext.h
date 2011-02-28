@@ -292,4 +292,16 @@ extern int	VFS_ReadDir(int FD, char *Dest);
  */
 extern int	VFS_OpenChild(Uint *Errno, int FD, const char *Name, Uint Mode);
 
+/**
+ * \brief Wait for an aciton on a file descriptor
+ * \param MaxHandle	Maximum set handle in \a *Handles
+ * \param ReadHandles	Handles to wait for data on
+ * \param WriteHandles	Handles to wait to write to
+ * \param ErrHandles	Handle to wait for errors on
+ * \param Timeout	Timeout for select() (if null, there is no timeout), if zero select() is non blocking
+ * \param IsKernel	Use kernel handles as opposed to user handles
+ * \return Number of handles that actioned
+ */
+extern int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set *ErrHandles, tTime *Timeout, BOOL IsKernel);
+
 #endif
