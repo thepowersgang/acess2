@@ -5,7 +5,7 @@
  * select.c
  * - Implements the select() system call (and supporting code)
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include "vfs.h"
 #include "vfs_int.h"
@@ -56,34 +56,49 @@ void	VFS_int_Select_SignalAll(tVFS_SelectList *List);
 // === FUNCTIONS ===
 int VFS_SelectNode(tVFS_Node *Node, enum eVFS_SelectTypes Type, tTime *Timeout)
 {
-	tVFS_SelectThread	thread_info;
+	tVFS_SelectThread	*thread_info;
 	tVFS_SelectList	**list;
 	 int	*flag, wanted, maxAllowed;
 	
 	ENTER("pNode iType pTimeout", Node, Type, Timeout);
-	
-	Semaphore_Init(&thread_info.SleepHandle, 0, 0, "VFS_SelectNode()", "");
 	
 	if( VFS_int_Select_GetType(Type, Node, &list, &flag, &wanted, &maxAllowed) ) {
 		LEAVE('i', -1);
 		return -1;
 	}
 	
-	VFS_int_Select_AddThread(*list, &thread_info, maxAllowed);
+	thread_info = malloc(sizeof(tVFS_SelectThread));
+	if(!thread_info)	return -1;
+	
+	Semaphore_Init(&thread_info->SleepHandle, 0, 0, "VFS_SelectNode()", "");
+	
+	LOG("list=%p, flag=%p, wanted=%i, maxAllowed=%i", list, flag, wanted, maxAllowed);
+	
+	// Alloc if needed
+	if( !*list ) {
+		*list = calloc(1, sizeof(tVFS_SelectList));
+	}
+	
+	VFS_int_Select_AddThread(*list, thread_info, maxAllowed);
 	if( *flag == wanted )
 	{
-		VFS_int_Select_RemThread(*list, &thread_info);
+		VFS_int_Select_RemThread(*list, thread_info);
+		free(thread_info);
 		LEAVE('i', 1);
 		return 1;
 	}
 	
 	if( !Timeout || *Timeout > 0 )
 	{
+		LOG("Semaphore_Wait()");
 		// TODO: Actual timeout
-		Semaphore_Wait(&thread_info.SleepHandle, 0);
+		Semaphore_Wait(&thread_info->SleepHandle, 1);
 	}
 	
-	VFS_int_Select_RemThread(*list, &thread_info);
+	LOG("VFS_int_Select_RemThread()");
+	VFS_int_Select_RemThread(*list, thread_info);
+	
+	free(thread_info);
 	
 	LEAVE('i', *flag == wanted);
 	return *flag == wanted;
@@ -91,10 +106,13 @@ int VFS_SelectNode(tVFS_Node *Node, enum eVFS_SelectTypes Type, tTime *Timeout)
 
 int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set *ErrHandles, tTime *Timeout, BOOL IsKernel)
 {
-	tVFS_SelectThread	thread_info;
+	tVFS_SelectThread	*thread_info;
 	 int	ret;
 	
-	Semaphore_Init(&thread_info.SleepHandle, 0, 0, "VFS_Select()", "");
+	thread_info = malloc(sizeof(tVFS_SelectThread));
+	if(!thread_info)	return -1;
+	
+	Semaphore_Init(&thread_info->SleepHandle, 0, -1, "VFS_Select()", "");
 	
 	// Notes: The idea is to make sure we onlt enter wait (on the semaphore)
 	// if we are going to be woken up (either by an event at a later time,
@@ -104,16 +122,17 @@ int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set 
 	// or the semaphore is incremeneted (or both, but never none)
 	
 	// Register with nodes
-	ret  = VFS_int_Select_Register(&thread_info, MaxHandle, ReadHandles, 0, IsKernel);
-	ret += VFS_int_Select_Register(&thread_info, MaxHandle, WriteHandles, 1, IsKernel);
-	ret += VFS_int_Select_Register(&thread_info, MaxHandle, ErrHandles, 2, IsKernel);
+	ret  = VFS_int_Select_Register(thread_info, MaxHandle, ReadHandles, 0, IsKernel);
+	ret += VFS_int_Select_Register(thread_info, MaxHandle, WriteHandles, 1, IsKernel);
+	ret += VFS_int_Select_Register(thread_info, MaxHandle, ErrHandles, 2, IsKernel);
 	
 	// If there were events waiting, de-register and return
 	if( ret )
 	{
-		ret  = VFS_int_Select_Deregister(&thread_info, MaxHandle, ReadHandles, 0, IsKernel);
-		ret += VFS_int_Select_Deregister(&thread_info, MaxHandle, WriteHandles, 1, IsKernel);
-		ret += VFS_int_Select_Deregister(&thread_info, MaxHandle, ErrHandles, 2, IsKernel);
+		ret  = VFS_int_Select_Deregister(thread_info, MaxHandle, ReadHandles, 0, IsKernel);
+		ret += VFS_int_Select_Deregister(thread_info, MaxHandle, WriteHandles, 1, IsKernel);
+		ret += VFS_int_Select_Deregister(thread_info, MaxHandle, ErrHandles, 2, IsKernel);
+		free(thread_info);
 		return ret;
 	}
 	
@@ -122,41 +141,48 @@ int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set 
 	// Wait (only if there is no timeout, or it is greater than zero
 	if( !Timeout || *Timeout > 0 )
 	{
-		ret = Semaphore_Wait(&thread_info.SleepHandle, 0);
+		ret = Semaphore_Wait(&thread_info->SleepHandle, 1);
 	}
 	
 	// Fill output (modify *Handles)
 	// - Also, de-register
-	ret  = VFS_int_Select_Deregister(&thread_info, MaxHandle, ReadHandles, 0, IsKernel);
-	ret += VFS_int_Select_Deregister(&thread_info, MaxHandle, WriteHandles, 1, IsKernel);
-	ret += VFS_int_Select_Deregister(&thread_info, MaxHandle, ErrHandles, 2, IsKernel);
+	ret  = VFS_int_Select_Deregister(thread_info, MaxHandle, ReadHandles, 0, IsKernel);
+	ret += VFS_int_Select_Deregister(thread_info, MaxHandle, WriteHandles, 1, IsKernel);
+	ret += VFS_int_Select_Deregister(thread_info, MaxHandle, ErrHandles, 2, IsKernel);
+	free(thread_info);
 	return ret;
 }
 
 // Mark a node as having data ready for reading
 int VFS_MarkAvaliable(tVFS_Node *Node, BOOL IsDataAvaliable)
 {
+	ENTER("pNode bIsDataAvaliable", Node, IsDataAvaliable);
 	Node->DataAvaliable = !!IsDataAvaliable;
 	if( Node->DataAvaliable )
 		VFS_int_Select_SignalAll(Node->ReadThreads);
+	LEAVE('i', 0);
 	return 0;
 }
 
 // Mark a node as having a full buffer
 int VFS_MarkFull(tVFS_Node *Node, BOOL IsBufferFull)
 {
+	ENTER("pNode bIsDataAvaliable", Node, IsBufferFull);
 	Node->BufferFull = !!IsBufferFull;
 	if( !Node->BufferFull )
 		VFS_int_Select_SignalAll(Node->WriteThreads);
+	LEAVE('i', 0);
 	return 0;
 }
 
 // Mark a node as errored
 int VFS_MarkError(tVFS_Node *Node, BOOL IsErrorState)
 {
+	ENTER("pNode bIsDataAvaliable", Node, IsErrorState);
 	Node->ErrorOccurred = !!IsErrorState;
 	if( Node->ErrorOccurred )
 		VFS_int_Select_SignalAll(Node->ErrorThreads);
+	LEAVE('i', 0);
 	return 0;
 }
 
@@ -203,6 +229,8 @@ int VFS_int_Select_Register(tVFS_SelectThread *Thread, int MaxHandle, fd_set *Ha
 	
 	if( !Handles )	return 0;
 	
+	ENTER("pThread iMaxHandle pHandles iType BIsKernel", Thread, MaxHandle, Handles, Type, IsKernel);
+	
 	for( i = 0; i < MaxHandle; i ++ )
 	{
 		tVFS_Handle	*handle;
@@ -224,8 +252,10 @@ int VFS_int_Select_Register(tVFS_SelectThread *Thread, int MaxHandle, fd_set *Ha
 		}
 	
 		// Get the type of the listen
-		if( VFS_int_Select_GetType(Type, handle->Node, &list, &flag, &wantedFlagValue, &maxAllowed) )
+		if( VFS_int_Select_GetType(Type, handle->Node, &list, &flag, &wantedFlagValue, &maxAllowed) ) {
+			LEAVE('i', 0);
 			return 0;
+		}
 		
 		// Alloc if needed
 		if( !*list ) {
@@ -244,6 +274,8 @@ int VFS_int_Select_Register(tVFS_SelectThread *Thread, int MaxHandle, fd_set *Ha
 			numFlagged ++;
 	}
 	
+	LEAVE('i', numFlagged);
+	
 	return numFlagged;
 }
 /**
@@ -256,6 +288,8 @@ int VFS_int_Select_Deregister(tVFS_SelectThread *Thread, int MaxHandle, fd_set *
 	 int	*flag, wantedFlagValue;
 	
 	if( !Handles )	return 0;
+	
+	ENTER("pThread iMaxHandle pHandles iType BIsKernel", Thread, MaxHandle, Handles, Type, IsKernel);
 	
 	for( i = 0; i < MaxHandle; i ++ )
 	{
@@ -280,8 +314,10 @@ int VFS_int_Select_Deregister(tVFS_SelectThread *Thread, int MaxHandle, fd_set *
 		// Get the type of the listen
 	
 		// Get the type of the listen
-		if( VFS_int_Select_GetType(Type, handle->Node, &list, &flag, &wantedFlagValue, NULL) )
+		if( VFS_int_Select_GetType(Type, handle->Node, &list, &flag, &wantedFlagValue, NULL) ) {
+			LEAVE('i', 0);
 			return 0;
+		}
 		
 		// Remove
 		VFS_int_Select_RemThread(*list, Thread );
@@ -295,6 +331,8 @@ int VFS_int_Select_Deregister(tVFS_SelectThread *Thread, int MaxHandle, fd_set *
 		}
 	}
 	
+	LEAVE('i', numFlagged);
+	
 	return numFlagged;
 }
 
@@ -305,6 +343,8 @@ int VFS_int_Select_AddThread(tVFS_SelectList *List, tVFS_SelectThread *Thread, i
 {
 	 int	i, count = 0;
 	tVFS_SelectListEnt	*block, *prev;
+	
+	ENTER("pList pThread iMaxAllowed", List, Thread, MaxAllowed);
 	
 	// Lock to avoid concurrency issues
 	Mutex_Acquire(&List->Lock);
@@ -320,10 +360,12 @@ int VFS_int_Select_AddThread(tVFS_SelectList *List, tVFS_SelectThread *Thread, i
 			{
 				block->Threads[i] = Thread;
 				Mutex_Release(&List->Lock);
+				LEAVE('i', 0);
 				return 0;
 			}
 			count ++;
 			if( MaxAllowed && count >= MaxAllowed ) {
+				LEAVE('i', 1);
 				return 1;
 			}
 		}
@@ -331,6 +373,8 @@ int VFS_int_Select_AddThread(tVFS_SelectList *List, tVFS_SelectThread *Thread, i
 		prev = block;
 		block = block->Next;
 	} while(block);
+	
+	LOG("New block");
 	
 	// Create new block
 	block = malloc( sizeof(tVFS_SelectListEnt) );
@@ -352,6 +396,7 @@ int VFS_int_Select_AddThread(tVFS_SelectList *List, tVFS_SelectThread *Thread, i
 	// Release
 	Mutex_Release(&List->Lock);
 	
+	LEAVE('i', 0);
 	return 0;
 }
 
@@ -359,6 +404,8 @@ void VFS_int_Select_RemThread(tVFS_SelectList *List, tVFS_SelectThread *Thread)
 {
 	 int	i;
 	tVFS_SelectListEnt	*block, *prev;
+	
+	ENTER("pList pThread", List, Thread);
 	
 	// Lock to avoid concurrency issues
 	Mutex_Acquire(&List->Lock);
@@ -382,6 +429,7 @@ void VFS_int_Select_RemThread(tVFS_SelectList *List, tVFS_SelectThread *Thread)
 							break;
 					// If empty, free it
 					if( i == NUM_THREADS_PER_ALLOC ) {
+						LOG("Deleting block");
 						prev->Next = block->Next;
 						free(block);
 					}
@@ -389,6 +437,7 @@ void VFS_int_Select_RemThread(tVFS_SelectList *List, tVFS_SelectThread *Thread)
 				}
 				
 				Mutex_Release(&List->Lock);
+				LEAVE('-');
 				return ;
 			}
 		}
@@ -400,6 +449,9 @@ void VFS_int_Select_RemThread(tVFS_SelectList *List, tVFS_SelectThread *Thread)
 	// Not on list, is this an error?
 	
 	Mutex_Release(&List->Lock);
+	
+	LOG("Not on list");
+	LEAVE('-');
 }
 
 /**
@@ -408,7 +460,9 @@ void VFS_int_Select_RemThread(tVFS_SelectList *List, tVFS_SelectThread *Thread)
 void VFS_int_Select_SignalAll(tVFS_SelectList *List)
 {
 	 int	i;
-	tVFS_SelectListEnt	*block, *prev;
+	tVFS_SelectListEnt	*block;
+	
+	ENTER("pList", List);
 	
 	// Lock to avoid concurrency issues
 	Mutex_Acquire(&List->Lock);
@@ -420,15 +474,17 @@ void VFS_int_Select_SignalAll(tVFS_SelectList *List)
 	{
 		for( i = 0; i < NUM_THREADS_PER_ALLOC; i ++ )
 		{
+			LOG("block->Threads[i] = %p", block->Threads[i]);
 			if( block->Threads[i]  )
 			{
 				Semaphore_Signal( &block->Threads[i]->SleepHandle, 1 );
 			}
 		}
 		
-		prev = block;
 		block = block->Next;
 	} while(block);
 	
 	Mutex_Release(&List->Lock);
+	
+	LEAVE('-');
 }

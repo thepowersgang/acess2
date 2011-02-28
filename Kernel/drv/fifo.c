@@ -20,7 +20,6 @@ typedef struct sPipe {
 	 int	WritePos;
 	 int	BufSize;
 	char	*Buffer;
-	tSemaphore	Semaphore;
 } tPipe;
 
 // === PROTOTYPES ===
@@ -222,7 +221,17 @@ Uint64 FIFO_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		// Wait for buffer to fill
 		if(pipe->Flags & PF_BLOCKING)
 		{
+			#if 0
 			len = Semaphore_Wait( &pipe->Semaphore, remaining );
+			#else
+			VFS_SelectNode(Node, VFS_SELECT_READ, NULL);
+			// Read buffer
+			// TODO: Rethink this, it might not work on buffer overflow
+			if(pipe->WritePos - pipe->ReadPos < remaining)
+				len = pipe->WritePos - pipe->ReadPos;
+			else
+				len = remaining;
+			#endif
 		}
 		else
 		{
@@ -251,6 +260,12 @@ Uint64 FIFO_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		pipe->ReadPos += len;
 		pipe->ReadPos %= pipe->BufSize;
 		
+		// Mark some flags
+		if( pipe->ReadPos == pipe->WritePos ) {
+			VFS_MarkAvaliable(Node, 0);
+		}
+		VFS_MarkFull(Node, 0);	// Buffer can't still be full
+		
 		// Decrement Remaining Bytes
 		remaining -= len;
 		// Increment Buffer address
@@ -277,7 +292,15 @@ Uint64 FIFO_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	{
 		// Wait for buffer to empty
 		if(pipe->Flags & PF_BLOCKING) {
+			#if 0
 			len = Semaphore_Signal( &pipe->Semaphore, remaining );
+			#else
+			VFS_SelectNode(Node, VFS_SELECT_WRITE, NULL);
+			if(pipe->ReadPos - pipe->WritePos < remaining)
+				len = pipe->ReadPos - pipe->WritePos;
+			else
+				len = remaining;
+			#endif
 		}
 		else
 		{
@@ -305,6 +328,12 @@ Uint64 FIFO_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		// Increment read position
 		pipe->WritePos += len;
 		pipe->WritePos %= pipe->BufSize;
+		
+		// Mark some flags
+		if( pipe->ReadPos == pipe->WritePos ) {
+			VFS_MarkFull(Node, 1);	// Buffer full
+		}
+		VFS_MarkAvaliable(Node, 1);
 		
 		// Decrement Remaining Bytes
 		remaining -= len;
@@ -341,7 +370,7 @@ tPipe *FIFO_Int_NewPipe(int Size, const char *Name)
 	ret->Name = ret->Buffer + Size;
 	strcpy(ret->Name, Name);
 	// - Start empty, max of `Size`
-	Semaphore_Init( &ret->Semaphore, 0, Size, "FIFO", ret->Name );
+	//Semaphore_Init( &ret->Semaphore, 0, Size, "FIFO", ret->Name );
 	
 	// Set Node
 	ret->Node.Size = 0;

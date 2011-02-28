@@ -400,6 +400,7 @@ Uint64 UDP_Channel_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buf
 	
 	for(;;)
 	{
+		VFS_SelectNode(Node, VFS_SELECT_READ, NULL);
 		SHORTLOCK(&chan->lQueue);
 		if(chan->Queue == NULL) {
 			SHORTREL(&chan->lQueue);
@@ -407,7 +408,10 @@ Uint64 UDP_Channel_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buf
 		}
 		pack = chan->Queue;
 		chan->Queue = pack->Next;
-		if(!chan->Queue)	chan->QueueEnd = NULL;
+		if(!chan->Queue) {
+			chan->QueueEnd = NULL;
+			VFS_MarkAvaliable(Node, 0);	// Nothing left
+		}
 		SHORTREL(&chan->lQueue);
 		break;
 	}

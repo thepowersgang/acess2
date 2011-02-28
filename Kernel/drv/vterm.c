@@ -431,10 +431,13 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		while(pos < Length)
 		{
 			int avail_bytes;
-			avail_bytes = Semaphore_Wait( &term->InputSemaphore, Length );
-			if( avail_bytes == -1 ) {
-				break ;
-			}
+			VFS_SelectNode(Node, VFS_SELECT_READ, NULL);
+			avail_bytes = term->InputRead - term->InputWrite;
+		
+			if(avail_bytes < 0)
+				avail_bytes += MAX_INPUT_CHARS8;
+			if(avail_bytes > Length - pos)
+				avail_bytes = Length - pos;
 			
 			while( avail_bytes -- )
 			{
@@ -451,26 +454,34 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	default:
 		while(pos < Length)
 		{
-			 int	avail;
-			avail = Semaphore_Wait( &term->InputSemaphore, Length/4 * 4 );
-			if( avail == -1 ) {
-				break ;
-			}
+			 int avail;
+			VFS_SelectNode(Node, VFS_SELECT_READ, NULL);
 			
-			while( avail > 3 )
+			avail = term->InputRead - term->InputWrite;
+			if(avail < 0)
+				avail += MAX_INPUT_CHARS32;
+			if(avail > Length - pos)
+				avail = Length/4 - pos;
+			
+			
+			while( avail -- )
 			{
 				((Uint32*)Buffer)[pos] = ((Uint32*)term->InputBuffer)[term->InputRead];
 				pos ++;
 				term->InputRead ++;
 				term->InputRead %= MAX_INPUT_CHARS32;
-				avail -= 4;
 			}
 		}
 		pos *= 4;
 		break;
 	}
 	
+	// Mark none avaliable if buffer empty
+	if( term->InputRead == term->InputWrite )
+		VFS_MarkAvaliable(&term->Node, 0);
+	
 	term->ReadingThread = -1;
+	
 	Mutex_Release( &term->ReadingLock );
 	
 	return pos;
@@ -848,8 +859,6 @@ void VT_KBCallBack(Uint32 Codepoint)
 			term->InputRead = term->InputWrite + 1;
 			term->InputRead %= MAX_INPUT_CHARS8;
 		}
-	
-		Semaphore_Signal(&term->InputSemaphore, 1);
 	}
 	else
 	{
@@ -861,8 +870,9 @@ void VT_KBCallBack(Uint32 Codepoint)
 			term->InputRead ++;
 			term->InputRead %= MAX_INPUT_CHARS32;
 		}
-		Semaphore_Signal(&term->InputSemaphore, 4);
 	}
+	
+	VFS_MarkAvaliable(&term->Node, 1);
 	
 	// Wake up the thread waiting on us
 	//if( term->ReadingThread >= 0 ) {

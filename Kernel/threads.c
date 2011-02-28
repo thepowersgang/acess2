@@ -1360,9 +1360,11 @@ int Mutex_IsLocked(tMutex *Mutex)
 //
 void Semaphore_Init(tSemaphore *Sem, int Value, int MaxValue, const char *Module, const char *Name)
 {
+	memset(Sem, 0, sizeof(tSemaphore));
 	Sem->Value = Value;
 	Sem->ModName = Module;
 	Sem->Name = Name;
+	Sem->MaxValue = MaxValue;
 }
 //
 // Wait for items to be avaliable
