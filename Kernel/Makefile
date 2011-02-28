@@ -85,8 +85,8 @@ $(BIN): $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile
 %.xo.$(ARCH):
 	@make -C $* all
 
-include/syscalls.h:	syscalls.lst Makefile
-	php GenSyscalls.php
+include/syscalls.h include/syscalls.inc.asm:	syscalls.lst Makefile GenSyscalls.pl
+	perl GenSyscalls.pl
 
 Makefile:	../Makefile.cfg arch/$(ARCHDIR)/Makefile
 
