@@ -59,11 +59,7 @@ int main(int argc, char *argv[], char *envp[])
 	#if !USE_READLINE
 	 int	bCached = 1;
 	#else
-	tReadline	readline_state = {0};
-	#endif
-	
-	#if USE_READLINE
-	readline_state.UseHistory = 1;
+	tReadline	*readline_state = Readline_Init(1);
 	#endif
 	
 	gasEnvironment = envp;
@@ -97,7 +93,7 @@ int main(int argc, char *argv[], char *envp[])
 		
 		// Read Command line
 		#if USE_READLINE
-		sCommandStr = Readline( &readline_state );
+		sCommandStr = Readline( readline_state );
 		length = strlen(sCommandStr);
 		#else
 		sCommandStr = ReadCommandLine( &length );
