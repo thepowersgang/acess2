@@ -61,3 +61,4 @@ SYS_TELL	Return the current file position
 SYS_CHDIR	Change current directory
 SYS_GETCWD	Get current directory
 SYS_MOUNT	Mount a filesystem
+SYS_SELECT	Wait for file handles

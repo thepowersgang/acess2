@@ -63,6 +63,7 @@ enum eSyscalls {
 	SYS_CHDIR,	// Change current directory
 	SYS_GETCWD,	// Get current directory
 	SYS_MOUNT,	// Mount a filesystem
+	SYS_SELECT,	// Wait for file handles
 
 	NUM_SYSCALLS,
 	SYS_DEBUG = 0x100
@@ -153,6 +154,7 @@ static const char *cSYSCALL_NAMES[] = {
 	"SYS_CHDIR",
 	"SYS_GETCWD",
 	"SYS_MOUNT",
+	"SYS_SELECT",
 
 	""
 };

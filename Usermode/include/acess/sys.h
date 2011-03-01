@@ -98,6 +98,7 @@ extern int	readdir(int fd, char *dest);
 extern int	_SysOpenChild(int fd, char *name, int flags);
 extern int	_SysGetACL(int fd, t_sysACL *dest);
 extern int	_SysMount(const char *Device, const char *Directory, const char *Type, const char *Options);
+extern int	select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *errfds, time_t *timeout);
 
 // --- IPC ---
 extern int	SysSendMessage(pid_t dest, uint length, void *Data);

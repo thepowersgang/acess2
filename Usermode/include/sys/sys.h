@@ -31,6 +31,9 @@ extern void seek(int fp, int64_t dist, int flag);
 extern int	fstat(int fp, t_fstat *st);
 extern int	ioctl(int fp, int call, void *arg);
 extern int	readdir(int fp, char *file);
+
+extern int	select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *errfds, time_t *timeout);
+
 extern int	kdebug(char *fmt, ...);
 extern int	waitpid(int pid, int action);
 extern int	gettid();	// Get Thread ID

@@ -20,5 +20,6 @@ SYSCALL2	_SysGetACL, SYS_GETACL	; int, void*
 SYSCALL1	chdir, SYS_CHDIR	; char*
 SYSCALL3	ioctl, SYS_IOCTL	; int, int, void*
 SYSCALL4	_SysMount, SYS_MOUNT	; char*, char*, char*, char*
+SYSCALL5	select, SYS_SELECT	; int, fd_set*, fd_set*, fd_set*, tTime*
 
 SYSCALL3	_SysOpenChild, SYS_OPENCHILD

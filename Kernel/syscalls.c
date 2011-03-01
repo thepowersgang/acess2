@@ -301,6 +301,29 @@ void SyscallHandler(tSyscallRegs *Regs)
 			(char*)Regs->Arg4	// Options
 			);
 		break;
+		
+	// Wait on a set of handles
+	case SYS_SELECT:
+		// Sanity checks
+		if( (Regs->Arg2 && !Syscall_Valid(sizeof(fd_set), Regs->Arg2))
+		 || (Regs->Arg3 && !Syscall_Valid(sizeof(fd_set), Regs->Arg3))
+		 || (Regs->Arg4 && !Syscall_Valid(sizeof(fd_set), Regs->Arg4))
+		 || (Regs->Arg5 && !Syscall_Valid(sizeof(tTime), Regs->Arg5)) )
+		{
+			err = -EINVAL;
+			ret = -1;
+			break;
+		}
+		// Perform the call
+		ret = VFS_Select(
+			Regs->Arg1,	// Max handle
+			(fd_set *)Regs->Arg2,	// Read
+			(fd_set *)Regs->Arg3,	// Write
+			(fd_set *)Regs->Arg4,	// Errors
+			(tTime *)Regs->Arg5,	// Timeout
+			0	// User handles
+			);
+		break;
 	
 	// -- Debug
 	//#if DEBUG_BUILD

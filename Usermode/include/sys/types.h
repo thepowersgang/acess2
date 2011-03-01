@@ -27,6 +27,20 @@ typedef struct {
 #define		S_IFSOCK	0140000	/* socket */
 #define		S_IFIFO	0010000	/* fifo */
 
+#define FD_SETSIZE	128
+
+/**
+ * \brief fd_set for select()
+ */
+typedef struct
+{
+	uint16_t	flags[FD_SETSIZE/16];
+}	fd_set;
+
+static inline void FD_ZERO(fd_set *fdsetp) {int i=FD_SETSIZE/16;while(i--)fdsetp->flags[i]=0; }
+static inline void FD_CLR(int fd, fd_set *fdsetp) { fdsetp->flags[fd/16]&=~(1<<(fd%16)); }
+static inline void FD_SET(int fd, fd_set *fdsetp) { fdsetp->flags[fd/16]|=1<<(fd%16); }
+static inline int FD_ISSET(int fd, fd_set *fdsetp) { return fdsetp->flags[fd/16]&(1<<(fd%16)); }
 
 typedef uint32_t	pid_t;
 typedef uint32_t	tid_t;

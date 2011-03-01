@@ -54,3 +54,4 @@
 %define SYS_CHDIR	81	 ;Change current directory
 %define SYS_GETCWD	82	 ;Get current directory
 %define SYS_MOUNT	83	 ;Mount a filesystem
+%define SYS_SELECT	84	 ;Wait for file handles
