@@ -56,6 +56,7 @@ const struct {
 	EXP(chdir),
 	EXP(ioctl),
 	EXP(_SysMount),
+	EXP(select),
 
 	EXP(_SysOpenChild),
 	
