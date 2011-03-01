@@ -7,6 +7,8 @@
 #include "ipv4.h"
 #include "tcp.h"
 
+#define USE_SELECT	1
+
 #define TCP_MIN_DYNPORT	0xC000
 #define TCP_MAX_HALFOPEN	1024	// Should be enough
 
@@ -319,6 +321,13 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 	if(Header->Flags & TCP_FLAG_ACK) {
 		// TODO: Process an ACKed Packet
 		Log_Log("TCP", "Conn %p, Packet 0x%x ACKed", Connection, Header->AcknowlegementNumber);
+		
+		// HACK
+		// TODO: Make sure that the packet is actually ACKing the FIN
+		if( Connection->State == TCP_ST_FIN_SENT ) {
+			Connection->State = TCP_ST_FINISHED;
+			return ;
+		}
 	}
 	
 	// TODO: Check what to do here
@@ -767,30 +776,19 @@ Uint64 TCP_Client_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buff
 	// Poll packets
 	for(;;)
 	{
-		#if USE_SELECT
 		// Wait
 		VFS_SelectNode(Node, VFS_SELECT_READ, NULL);
 		// Lock list and read
 		Mutex_Acquire( &conn->lRecievedPackets );
-		#else
-		// Lock list and check if there is a packet
-		Mutex_Acquire( &conn->lRecievedPackets );
-		if( conn->RecievedBuffer->Length == 0 ) {
-			// If not, release the lock, yield and try again
-			Mutex_Release( &conn->lRecievedPackets );
-			Threads_Yield();	// TODO: Less expensive wait
-			continue;
-		}
-		#endif
 		
 		// Attempt to read all `Length` bytes
 		len = RingBuffer_Read( destbuf, conn->RecievedBuffer, Length );
 		
-		#if USE_SELECT
-		if( conn->RecievedBuffer->Length == 0 )
+		if( len == 0 || conn->RecievedBuffer->Length == 0 ) {
+			LOG("Marking as none avaliable (len = %i)\n", len);
 			VFS_MarkAvaliable(Node, 0);
-		#endif
-		
+		}
+			
 		// Release the lock (we don't need it any more)
 		Mutex_Release( &conn->lRecievedPackets );
 	

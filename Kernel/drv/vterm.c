@@ -419,6 +419,7 @@ int VT_Root_IOCtl(tVFS_Node *Node, int Id, void *Data)
 Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 {
 	 int	pos = 0;
+	 int	avail;
 	tVTerm	*term = &gVT_Terminals[ Node->Inode ];
 	
 	Mutex_Acquire( &term->ReadingLock );
@@ -428,49 +429,41 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	{
 	// Text Mode (UTF-8)
 	case TERM_MODE_TEXT:
-		while(pos < Length)
-		{
-			int avail_bytes;
-			VFS_SelectNode(Node, VFS_SELECT_READ, NULL);
-			avail_bytes = term->InputRead - term->InputWrite;
+		VFS_SelectNode(Node, VFS_SELECT_READ, NULL);
 		
-			if(avail_bytes < 0)
-				avail_bytes += MAX_INPUT_CHARS8;
-			if(avail_bytes > Length - pos)
-				avail_bytes = Length - pos;
-			
-			while( avail_bytes -- )
-			{
-				((char*)Buffer)[pos] = term->InputBuffer[term->InputRead];
-				pos ++;
-				term->InputRead ++;
-				term->InputRead %= MAX_INPUT_CHARS8;
-			}
+		avail = term->InputWrite - term->InputRead;
+		if(avail < 0)
+			avail += MAX_INPUT_CHARS8;
+		if(avail > Length - pos)
+			avail = Length - pos;
+		
+		while( avail -- )
+		{
+			((char*)Buffer)[pos] = term->InputBuffer[term->InputRead];
+			pos ++;
+			term->InputRead ++;
+			term->InputRead %= MAX_INPUT_CHARS8;
 		}
 		break;
 	
 	//case TERM_MODE_FB:
 	// Other - UCS-4
 	default:
-		while(pos < Length)
+		VFS_SelectNode(Node, VFS_SELECT_READ, NULL);
+			
+		avail = term->InputWrite - term->InputRead;
+		if(avail < 0)
+			avail += MAX_INPUT_CHARS32;
+		if(avail > Length - pos)
+			avail = Length/4 - pos;
+		
+		
+		while( avail -- )
 		{
-			 int avail;
-			VFS_SelectNode(Node, VFS_SELECT_READ, NULL);
-			
-			avail = term->InputRead - term->InputWrite;
-			if(avail < 0)
-				avail += MAX_INPUT_CHARS32;
-			if(avail > Length - pos)
-				avail = Length/4 - pos;
-			
-			
-			while( avail -- )
-			{
-				((Uint32*)Buffer)[pos] = ((Uint32*)term->InputBuffer)[term->InputRead];
-				pos ++;
-				term->InputRead ++;
-				term->InputRead %= MAX_INPUT_CHARS32;
-			}
+			((Uint32*)Buffer)[pos] = ((Uint32*)term->InputBuffer)[term->InputRead];
+			pos ++;
+			term->InputRead ++;
+			term->InputRead %= MAX_INPUT_CHARS32;
 		}
 		pos *= 4;
 		break;

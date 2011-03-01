@@ -229,7 +229,7 @@ int VFS_int_Select_Register(tVFS_SelectThread *Thread, int MaxHandle, fd_set *Ha
 	
 	if( !Handles )	return 0;
 	
-	ENTER("pThread iMaxHandle pHandles iType BIsKernel", Thread, MaxHandle, Handles, Type, IsKernel);
+	ENTER("pThread iMaxHandle pHandles iType iIsKernel", Thread, MaxHandle, Handles, Type, IsKernel);
 	
 	for( i = 0; i < MaxHandle; i ++ )
 	{
@@ -289,7 +289,7 @@ int VFS_int_Select_Deregister(tVFS_SelectThread *Thread, int MaxHandle, fd_set *
 	
 	if( !Handles )	return 0;
 	
-	ENTER("pThread iMaxHandle pHandles iType BIsKernel", Thread, MaxHandle, Handles, Type, IsKernel);
+	ENTER("pThread iMaxHandle pHandles iType iIsKernel", Thread, MaxHandle, Handles, Type, IsKernel);
 	
 	for( i = 0; i < MaxHandle; i ++ )
 	{
@@ -461,6 +461,8 @@ void VFS_int_Select_SignalAll(tVFS_SelectList *List)
 {
 	 int	i;
 	tVFS_SelectListEnt	*block;
+	
+	if( !List )	return ;
 	
 	ENTER("pList", List);
 	
