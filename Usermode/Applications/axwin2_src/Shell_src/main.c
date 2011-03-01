@@ -16,9 +16,6 @@ int main(int argc, char *argv[])
 {
 	AxWin_Register("Terminal");
 	
-	// Create Window
-	//ghMenubarWindow = AxWin_CreateWindow(0, 0, -1, -1, WINFLAG_NOBORDER, Menubar_HandleMessage);
-	
 	AxWin_MessageLoop();
 	
 	return 0;
