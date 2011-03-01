@@ -1,0 +1,28 @@
+=== Simple Image Format ===
+
+U16	Magic	0x51F0	- This determines the endianness of the file
+U16	Flags
+	> 0-2: Compression (0: Uncompressed, 1: RLE, 2: zlib, 3: RLE-Channel)
+	> 3-5: Format (0: ARGB, 1: RGB
+U16	Width
+U16	Height
+<DATA>
+
+
+=== Compression Formats ===
+0 - Uncompressed
+	The file data is a linear sequence of Width * Height 32-bit ARGB
+	words (in file endianness, determined by the magic)
+
+1 - RLE-4
+	7-bit length followed by a 32-bit value that is repeated `n` times
+	(if bit 7 of the length byte is set, the next `n` 32-bit words are
+	verbatim)
+
+2 - zlib
+	The image data is a zlib stream of 32-bit xRGB words
+
+3 - RLE-Channel
+	The data is the alpha values, followed by red, then green, then blue
+	encoded as RLE with a 7-bit length and a verbatim flag (same as mode
+	1, except with 8-bit values instead of 32-bit) 
