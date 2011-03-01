@@ -113,7 +113,7 @@ void Log_AddEvent(const char *Ident, int Level, const char *Format, va_list Args
 		char	newData[ LOG_HDR_LEN + len + 2 + 1 ];
 		char	_ident[9];
 		strncpy(_ident, Ident, 9);
-		sprintf( newData, "%014lli%s [%+8s] ",
+		sprintf( newData, "%014lli%s [%-8s] ",
 			ent->Time, csaLevelCodes[Level], Ident);
 		strcpy( newData + LOG_HDR_LEN, ent->Data );
 		strcpy( newData + LOG_HDR_LEN + len, "\r\n" );
@@ -153,7 +153,7 @@ void Log_AddEvent(const char *Ident, int Level, const char *Format, va_list Args
 void Log_Int_PrintMessage(tLogEntry *Entry)
 {
 	SHORTLOCK( &glLogOutput );
-	LogF("%s%014lli%s [%+8s] %s",
+	LogF("%s%014lli%s [%-8s] %s",
 		csaLevelColours[Entry->Level],
 		Entry->Time,
 		csaLevelCodes[Entry->Level],

@@ -199,7 +199,7 @@ void itoa(char *buf, Uint64 num, int base, int minLength, char pad)
 int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 {
 	char	c, pad = ' ';
-	 int	minSize = 0, len;
+	 int	minSize = 0, precision = -1, len;
 	char	tmpBuf[34];	// For Integers
 	const char	*p = NULL;
 	 int	isLongLong = 0;
@@ -231,7 +231,7 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		}
 		
 		// - Padding Side Flag
-		if(c == '+') {
+		if(c == '-') {
 			bPadLeft = 1;
 			c = *__format++;
 		}
@@ -261,6 +261,27 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		}
 		else
 			minSize = 1;
+		
+		// - Precision
+		precision = -1;
+		if( c == '.' ) {
+			c = *__format++;
+			
+			if(c == '*') {	// Dynamic length
+				precision = va_arg(args, unsigned int);
+				c = *__format++;
+			}
+			else if('1' <= c && c <= '9')
+			{
+				precision = 0;
+				while('0' <= c && c <= '9')
+				{
+					precision *= 10;
+					precision += c - '0';
+					c = *__format++;
+				}
+			}
+		}
 		
 		// - Default, Long or LongLong?
 		isLongLong = 0;
@@ -323,12 +344,12 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		// String - Null Terminated Array
 		case 's':
 			p = va_arg(args, char*);	// Get Argument
-			if( !CheckString(p) )	continue;	// Avoid #PFs  
+			if( !CheckString(p) )	p = "(inval)";	// Avoid #PFs  
 		printString:
 			if(!p)		p = "(null)";
 			len = strlen(p);
 			if( !bPadLeft )	while(len++ < minSize)	PUTCH(pad);
-			while(*p)	PUTCH(*p++);
+			while(*p && precision--)	PUTCH(*p++);
 			if( bPadLeft )	while(len++ < minSize)	PUTCH(pad);
 			break;
 		
