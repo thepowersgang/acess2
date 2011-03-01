@@ -61,7 +61,26 @@ int main(int argc, const char *argv[], const char *envp[])
 	
 	for( ;; )
 	{
-		ProcessIncoming(&srv);
+		fd_set	readfds;
+		 int	rv;
+		
+		FD_ZERO(&readfds);
+		FD_SET(0, &readfds);	// stdin
+		FD_SET(srv.FD, &readfds);
+		
+		rv = select(srv.FD, &readfds, 0, 0, NULL);
+		if( rv == -1 )	break;
+		
+		if(FD_ISSET(0, &readfds))
+		{
+			// User input
+		}
+		
+		// Server response
+		if(FD_ISSET(srv.FD, &readfds))
+		{
+			ProcessIncoming(&srv);
+		}
 	}
 	
 	close(srv.FD);

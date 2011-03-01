@@ -19,7 +19,7 @@ install:	$(DIRS) $(FILES)
 clean:
 
 $(DIRS):
-	$(xMKDIR) $(DISTROOT)/$@
+	$(xMKDIR) $(DISTROOT)/$@; true
 
 $(FILES):
 	$(xCP) $@ $(DISTROOT)/$@
