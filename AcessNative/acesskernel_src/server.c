@@ -94,10 +94,10 @@ tClient *Server_GetClient(int ClientID)
 		ret->CurrentRequest = NULL;
 		
 		if( !ret->WorkerThread ) {
-			ret->WorkerThread = SDL_CreateThread( Server_WorkerThread, ret );
 			ret->WaitFlag = SDL_CreateCond();
 			ret->Mutex = SDL_CreateMutex();
 			SDL_mutexP( ret->Mutex );
+			ret->WorkerThread = SDL_CreateThread( Server_WorkerThread, ret );
 		}
 	}
 	

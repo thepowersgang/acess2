@@ -4,9 +4,10 @@
  *
  * Kernel Main
  */
-#include <acess.h>
+#include <arch.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <sys/time.h>
 
 void LogF(const char *Fmt, ...)

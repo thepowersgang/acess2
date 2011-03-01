@@ -7,7 +7,7 @@
  */
 #define _SIGNAL_H_
 #undef CLONE_VM	// Such a hack
-#include <acess.h>
+#include <arch.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <stdint.h>
