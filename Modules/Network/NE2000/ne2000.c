@@ -374,29 +374,37 @@ Uint64 Ne2k_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	// Wait for packets
 	Semaphore_Wait( &Card->Semaphore, 1 );
 	
-	// Make sure that the card is in page 0
-	outb(Card->IOBase + CMD, 0|0x22);	// Page 0, Start, NoDMA
+	// Make sure that the card is in bank 0
+	outb(Card->IOBase + CMD, 0|0x22);	// Bank 0, Start, NoDMA
 	
-	// Get BOUNDARY
+	// Get current read page
 	page = Card->NextRXPage;
+	LOG("page = %i", page);
 	
 	// Set up transfer
 	outb(Card->IOBase + RBCR0, 0);
 	outb(Card->IOBase + RBCR1, 1);	// 256-bytes
 	outb(Card->IOBase + RSAR0, 0x00);	// Page Offset
 	outb(Card->IOBase + RSAR1, page);	// Page Number
+	outb(Card->IOBase + ISR, 0x40);	// Bit 6 - Clear Remote DMA Flag
 	
-	outb(Card->IOBase + CMD, 0|0x08|0x2);	// Page 0, Remote Read, Start
+	outb(Card->IOBase + CMD, 0|0x08|0x2);	// Bank 0, Remote Read, Start
 	
-	// Clear Remote DMA Flag
-	outb(Card->IOBase + ISR, 0x40);	// Bit 6
+	// TODO: Less expensive
+	while( inb(Card->IOBase + ISR) & 0x40 )
+		HALT();
 	
 	// Read data
 	for(i = 0; i < 128; i ++)
 		((Uint16*)data)[i] = inw(Card->IOBase + 0x10);
+		
+	
+	// Clear Remote DMA Flag
+	outb(Card->IOBase + ISR, 0x40);	// Bit 6
 	
 	pktHdr = (void*)data;
-	//Log("Ne2k_Read: Recieved packet (%i bytes)", pktHdr->Length);
+	
+	LOG("pktHdr->NextPacketPage = %i", pktHdr->NextPacketPage);
 	
 	// Have we read all the required bytes yet?
 	if(pktHdr->Length < 256 - 4)
@@ -408,46 +416,64 @@ Uint64 Ne2k_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		if(page == RX_LAST+1)	page = RX_FIRST;
 	}
 	// No? oh damn, now we need to allocate a buffer
-	else {
-		 int	j = 256/2;
-		char	*buf = malloc( (pktHdr->Length + 4 + 255) & ~255 );
+	else
+	{
+		 int	ofs = 256/2;	// buffer write offset
+		 int	pages = pktHdr->NextPacketPage - page;
+		// int	bufLen = (pktHdr->Length + 4 + 255) & ~255;
+		char	*buf = malloc( pages*256 );
+		
+		LOG("pktHdr->Length (%i) > 256 - 4, allocated buffer %p", pktHdr->Length, buf);
 		
 		if(!buf) {
 			LEAVE('i', -1);
 			return -1;
 		}
 		
+		// Copy the already read data
 		memcpy(buf, data, 256);
 		
-		page ++;
-		while(page != pktHdr->NextPacketPage)
-		{
+		// Read all the needed pages
+//		do
+//		{
+			page ++;
 			if(page == RX_LAST+1)	page = RX_FIRST;
 			
-			outb(Card->IOBase + RBCR0, 0);
-			outb(Card->IOBase + RBCR1, 1);	// 256-bytes
+			outb(Card->IOBase + RBCR0, 0);	// 256-bytes (low)
+			outb(Card->IOBase + RBCR1, pages-1);	// 256-bytes (high)
 			outb(Card->IOBase + RSAR0, 0x00);	// Page Offset
 			outb(Card->IOBase + RSAR1, page);	// Page Number
-			outb(Card->IOBase + CMD, 0|0x08|0x2);	// Page 0, Remote Read, Start
+			outb(Card->IOBase + ISR, 0x40);	// Bit 6 - Clear Remote DMA Flag
+			outb(Card->IOBase + CMD, 0|0x08|0x2);	// Bank 0, Remote Read, Start
+			// TODO: Less expensive
+			while( inb(Card->IOBase + ISR) & 0x40 )	HALT();
 			
-			for(i = 0; i < 128; i ++)
-				((Uint16*)buf)[j+i] = inw(Card->IOBase + 0x10);
-			j += 128;
-			page ++;
-		}
+			for(i = 0; i < 128*(pages-1); i ++)
+				((Uint16*)buf)[ofs+i] = inw(Card->IOBase + 0x10);
+			
+			outb(Card->IOBase + ISR, 0x40);	// Bit 6 - Clear Remote DMA Flag
+//			ofs += 128;
+//		}	while(page != pktHdr->NextPacketPage-1);
 		
+		// Wrap length to the packet length
 		if(Length > pktHdr->Length)
 			Length = pktHdr->Length;
+		else if( Length < pktHdr->Length ) {
+			Log_Warning("NE2000", "Packet truncated! (%i bytes truncated to %i)",
+				pktHdr->Length, Length);
+		}
 		memcpy(Buffer, &buf[4], Length);
+		
+		free(buf);
 	}
 	
-	// Write BNRY
+	// Write BNRY (maximum page for incoming packets)
 	if(page == RX_FIRST)
-		outb( Card->IOBase + BNRY, RX_LAST );
+		outb( Card->IOBase + BNRY, RX_LAST-1 );
 	else
 		outb( Card->IOBase + BNRY, page-1 );
 	// Set next RX Page and decrement the waiting list
-	Card->NextRXPage = page;
+	Card->NextRXPage = pktHdr->NextPacketPage;
 	
 	LEAVE('i', Length);
 	return Length;
@@ -495,7 +521,7 @@ void Ne2k_IRQHandler(int IntNum)
 			// 5: 
 			// 6: Remote DMA Complete
 			// 7: Reset
-			//LOG("Clearing interrupts on card %i (was 0x%x)\n", i, byte);
+			//LOG("Clearing interrupts on card %i (was 0x%x)", i, byte);
 			outb( gpNe2k_Cards[i].IOBase + ISR, 0xFF );	// Reset All
 			return ;
 		}
