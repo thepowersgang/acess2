@@ -782,6 +782,8 @@ void Threads_AddActive(tThread *Thread)
 		tThread	*cur = Proc_GetCurThread();
 		Warning("WTF, CPU%i %p (%i %s) is adding %p (%i %s) when it is active",
 			GetCPUNum(), cur, cur->TID, cur->ThreadName, Thread, Thread->TID, Thread->ThreadName);
+		SHORTREL( &glThreadListLock );
+		return ;
 	}
 	
 	// Set state

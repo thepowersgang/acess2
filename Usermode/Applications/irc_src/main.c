@@ -12,67 +12,114 @@
 
 // === TYPES ===
 typedef struct sServer {
+	struct sServer	*Next;
 	 int	FD;
 	char	InBuf[BUFSIZ+1];
 	 int	ReadPos;
+	char	Name[];
 } tServer;
+
+typedef struct sMessage
+{
+	struct sMessage	*Next;
+	time_t	Timestamp;
+	tServer	*Server;
+	 int	Type;
+	char	*Source;	// Pointer into `Data`
+	char	Data[];
+}	tMessage;
+
+typedef struct sWindow
+{
+	struct sWindow	*Next;
+	tMessage	*Messages;
+	tServer	*Server;	//!< Canoical server (can be NULL)
+	 int	ActivityLevel;
+	char	Name[];	// Channel name / remote user
+}	tWindow;
+
+enum eMessageTypes
+{
+	MSG_TYPE_NULL,
+	MSG_TYPE_SERVER,	// Server message
+	
+	MSG_TYPE_NOTICE,	// NOTICE command
+	MSG_TYPE_JOIN,	// JOIN command
+	MSG_TYPE_PART,	// PART command
+	MSG_TYPE_QUIT,	// QUIT command
+	
+	MSG_TYPE_STANDARD,	// Standard line
+	MSG_TYPE_ACTION,	// /me
+	
+	MSG_TYPE_UNK
+};
 
 // === PROTOTYPES ===
  int	ParseArguments(int argc, const char *argv[]);
+ int	ParseUserCommand(char *String);
+// --- 
+tServer	*Server_Connect(const char *Name, const char *AddressString, short PortNumber);
+tMessage	*Message_Append(tServer *Server, int Type, const char *Source, const char *Dest, const char *Message);
+tWindow	*Window_Create(tServer *Server, const char *Name);
+
  int	ProcessIncoming(tServer *Server);
+// --- Helpers
  int	writef(int FD, const char *Format, ...);
  int	OpenTCP(const char *AddressString, short PortNumber);
+char	*GetValue(char *Str, int *Ofs);
+static inline int	isdigit(int ch);
 
 // === GLOBALS ===
 char	*gsUsername = "root";
 char	*gsHostname = "acess";
-char	*gsRemoteAddress = NULL;
 char	*gsRealName = "Acess2 IRC Client";
 char	*gsNickname = "acess";
-short	giRemotePort = 6667;
+tServer	*gpServers;
+tWindow	gWindow_Status = {
+	NULL, NULL, NULL,	// No next, empty list, no server
+	0, ""	// No activity, empty name (rendered as status)
+};
+tWindow	*gpWindows = &gWindow_Status;
+tWindow	*gpCurrentWindow = &gWindow_Status;
 
 // ==== CODE ====
 int main(int argc, const char *argv[], const char *envp[])
 {
 	 int	tmp;
-	tServer	srv;
 	tReadline	*readline_info;
 	
-	memset(&srv, 0, sizeof(srv));
-	
 	// Parse Command line
-	// - Sets the server configuration globals
-	if( (tmp = ParseArguments(argc, argv)) ) {
-		return tmp;
-	}
+	if( (tmp = ParseArguments(argc, argv)) )	return tmp;
 	
-	// Connect to the remove server
-	srv.FD = OpenTCP( gsRemoteAddress, giRemotePort );
-	if( srv.FD == -1 ) {
-		fprintf(stderr, "Unable to create socket\n");
+	// HACK: Static server entry
+	// UCC (University [of Western Australia] Computer Club) IRC Server
+	gWindow_Status.Server = Server_Connect( "UCC", "130.95.13.18", 6667 );
+	
+	if( !gWindow_Status.Server )
 		return -1;
-	}
-	
-	printf("Connection opened\n");
-	ProcessIncoming(&srv);
-	
-	writef(srv.FD, "USER %s %s %s : %s\n", gsUsername, gsHostname, gsRemoteAddress, gsRealName);
-	writef(srv.FD, "NICK %s\n", gsNickname);
-	
-	printf("Processing\n");
 	
 	readline_info = Readline_Init(1);
 	
 	for( ;; )
 	{
-		fd_set	readfds;
-		 int	rv;
+		fd_set	readfds, errorfds;
+		 int	rv, maxFD = 0;
+		tServer	*srv;
 		
 		FD_ZERO(&readfds);
+		FD_ZERO(&errorfds);
 		FD_SET(0, &readfds);	// stdin
-		FD_SET(srv.FD, &readfds);
 		
-		rv = select(srv.FD+1, &readfds, 0, 0, NULL);
+		// Fill server FDs in fd_set
+		for( srv = gpServers; srv; srv = srv->Next )
+		{
+			FD_SET(srv->FD, &readfds);
+			FD_SET(srv->FD, &errorfds);
+			if( srv->FD > maxFD )
+				maxFD = srv->FD;
+		}
+		
+		rv = select(maxFD+1, &readfds, 0, &errorfds, NULL);
 		if( rv == -1 )	break;
 		
 		if(FD_ISSET(0, &readfds))
@@ -81,24 +128,40 @@ int main(int argc, const char *argv[], const char *envp[])
 			char	*cmd = Readline_NonBlock(readline_info);
 			if( cmd )
 			{
-				// TODO: Implement windows / proper commands, but meh
 				if( cmd[0] )
-					writef(srv.FD, "%s\n", cmd);
+				{
+					ParseUserCommand(cmd);
+				}
 				free(cmd);
 			}
 		}
 		
 		// Server response
-		if(FD_ISSET(srv.FD, &readfds))
+		for( srv = gpServers; srv; srv = srv->Next )
 		{
-			if( ProcessIncoming(&srv) != 0 ) {
-				// Oops, error
+			if(FD_ISSET(srv->FD, &readfds))
+			{
+				if( ProcessIncoming(srv) != 0 ) {
+					// Oops, error
+					break;
+				}
+			}
+			
+			if(FD_ISSET(srv->FD, &errorfds))
+			{
 				break;
 			}
 		}
+		
+		// Oops, an error
+		if( srv )	break;
 	}
 	
-	close(srv.FD);
+	{
+		tServer *srv;
+		for( srv = gpServers; srv; srv = srv->Next )
+			close(srv->FD);
+	}
 	return 0;
 }
 
@@ -107,39 +170,231 @@ int main(int argc, const char *argv[], const char *envp[])
  */
 int ParseArguments(int argc, const char *argv[])
 {
-	gsRemoteAddress = "130.95.13.18";	// irc.ucc.asn.au
+	return 0;
+}
+
+int ParseUserCommand(char *String)
+{
+	if( String[0] == '/' )
+	{
+		char	*command;
+		 int	pos = 0;
+		
+		command = GetValue(String, &pos);
+		
+		if( strcmp(command, "/join") == 0 )
+		{
+			char	*channel_name = GetValue(String, &pos);
+			
+			if( gpCurrentWindow->Server )
+			{
+				writef(gpCurrentWindow->Server->FD, "JOIN %s\n",  channel_name);
+			}
+		}
+		else if( strcmp(command, "/quit") == 0 )
+		{
+			char	*quit_message = GetValue(String, &pos);
+			tServer	*srv;
+			
+			if( !quit_message )
+				quit_message = "/quit - Acess2 IRC Client";
+			
+			for( srv = gpServers; srv; srv = srv->Next )
+			{
+				writef(srv->FD, "QUIT %s\n", quit_message);
+			}
+		}
+		else if( strcmp(command, "/window") == 0 || strcmp(command, "/win") == 0 || strcmp(command, "/w") == 0 )
+		{
+			char	*window_id = GetValue(String, &pos);
+			 int	window_num = atoi(window_id);
+			
+			if( window_num > 0 )
+			{
+				tWindow	*win;
+				window_num --;	// Move to base 0
+				// Get `window_num`th window
+				for( win = gpWindows; win && window_num--; win = win->Next );
+				if( win ) {
+					gpCurrentWindow = win;
+					if( win->Name[0] )
+						printf("[%s:%s] ", win->Server->Name, win->Name);
+					else
+						printf("[(status)] ", win->Server->Name, win->Name);
+				}
+				// Otherwise, silently ignore
+			}
+		}
+		else
+		{
+			 int	len = snprintf(NULL, 0, "Unknown command %s", command);
+			char	buf[len+1];
+			snprintf(buf, len+1, "Unknown command %s", command);
+			Message_Append(NULL, MSG_TYPE_SERVER, "client", "", buf);
+		}
+	}
+	else
+	{
+		// Message
+		// - Only send if server is valid and window name is non-empty
+		if( gpCurrentWindow->Server && gpCurrentWindow->Name[0] )
+		{
+			writef(gpCurrentWindow->Server->FD,
+				"PRIVMSG %s :%s\n", gpCurrentWindow->Name,
+				String
+				);
+		}
+	}
 	
 	return 0;
 }
 
-void Cmd_PRIVMSG(tServer *Server, const char *Dest, const char *Src, const char *Message)
-{
-	printf("%p: %s => %s\t%s\n", Server, Src, Dest, Message);
-}
-
 /**
- * \brief Read a space-separated value from a string
+ * \brief Connect to a server
  */
-char *GetValue(char *Src, int *Ofs)
+tServer *Server_Connect(const char *Name, const char *AddressString, short PortNumber)
 {
-	 int	pos = *Ofs;
-	char	*ret = Src + pos;
-	char	*end;
+	tServer	*ret;
 	
-	if( !Src )	return NULL;
+	ret = calloc(1, sizeof(tServer) + strlen(Name) + 1);
 	
-	while( *ret == ' ' )	ret ++;
+	strcpy(ret->Name, Name);
 	
-	end = strchr(ret, ' ');
-	if( end ) {
-		*end = '\0';
+	// Connect to the remove server
+	ret->FD = OpenTCP( AddressString, PortNumber );
+	if( ret->FD == -1 ) {
+		fprintf(stderr, "%s: Unable to create socket\n", Name);
+		return NULL;
 	}
-	else {
-		end = ret + strlen(ret) - 1;
-	}
-	*Ofs = end - Src + 1;
+	
+	// Append to open list
+	ret->Next = gpServers;
+	gpServers = ret;
+	
+	// Read some initial data
+	printf("%s: Connection opened\n", Name);
+	ProcessIncoming(ret);
+	
+	// Identify
+	writef(ret->FD, "USER %s %s %s : %s\n", gsUsername, gsHostname, AddressString, gsRealName);
+	writef(ret->FD, "NICK %s\n", gsNickname);
+	printf("%s: Identified\n", Name);
 	
 	return ret;
+}
+
+tMessage *Message_Append(tServer *Server, int Type, const char *Source, const char *Dest, const char *Message)
+{
+	tMessage	*ret;
+	tWindow	*win = NULL;
+	 int	msgLen = strlen(Message);
+	
+	// NULL servers are internal messages
+	if( Server == NULL )
+	{
+		win = &gWindow_Status;
+	}
+	// Determine if it's a channel or PM message
+	else if( Dest[0] == '#' || Dest[0] == '&' )	// TODO: Better determining here
+	{
+		tWindow	*prev = NULL;
+		for(win = gpWindows; win; prev = win, win = win->Next)
+		{
+			if( win->Server == Server && strcmp(win->Name, Dest) == 0 )
+			{
+				break;
+			}
+		}
+		if( !win ) {
+			win = Window_Create(Server, Dest);
+		}
+	}
+	#if 0
+	else if( strcmp(Dest, Server->Nick) != 0 )
+	{
+		// Umm... message for someone who isn't us?
+		win = &gWindow_Status;	// Stick it in the status window, just in case
+	}
+	#endif
+	// Server message?
+	else if( strchr(Source, '.') )	// TODO: And again, less hack please
+	{
+		#if 1
+		for(win = gpWindows; win; win = win->Next)
+		{
+			if( win->Server == Server && strcmp(win->Name, Source) == 0 )
+			{
+				break;
+			}
+		}
+		#endif
+		if( !win ) {
+			win = &gWindow_Status;
+		}
+		
+	}
+	// Private message
+	else
+	{
+		for(win = gpWindows; win; win = win->Next)
+		{
+			if( win->Server == Server && strcmp(win->Name, Source) == 0 )
+			{
+				break;
+			}
+		}
+		if( !win ) {
+			win = Window_Create(Server, Dest);
+		}
+	}
+	
+	ret = malloc( sizeof(tMessage) + msgLen + 1 + strlen(Source) + 1 );
+	ret->Source = ret->Data + msgLen + 1;
+	strcpy(ret->Source, Source);
+	strcpy(ret->Data, Message);
+	ret->Type = Type;
+	ret->Server = Server;
+	
+	// TODO: Append to window message list
+	ret->Next = win->Messages;
+	win->Messages = ret;
+	
+	return ret;
+}
+
+tWindow *Window_Create(tServer *Server, const char *Name)
+{
+	tWindow	*ret, *prev = NULL;
+	 int	num = 1;
+	
+	// Get the end of the list
+	// TODO: Cache this instead
+	for( ret = gpCurrentWindow; ret; prev = ret, ret = ret->Next )
+		num ++;
+	
+	ret = malloc(sizeof(tWindow) + strlen(Name) + 1);
+	ret->Messages = NULL;
+	ret->Server = Server;
+	ret->ActivityLevel = 1;
+	strcpy(ret->Name, Name);
+	
+	if( prev ) {
+		ret->Next = prev->Next;
+		prev->Next = ret;
+	}
+	else {	// Shouldn't happen really
+		ret->Next = gpWindows;
+		gpWindows = ret;
+	}
+	
+	printf("Win %i %s:%s created\n", num, Server->Name, Name);
+	
+	return ret;
+}
+
+void Cmd_PRIVMSG(tServer *Server, const char *Dest, const char *Src, const char *Message)
+{
+	printf("<%s:%s:%s> %s\n", Server->Name, Dest, Src, Message);
 }
 
 /**
@@ -148,17 +403,60 @@ void ParseServerLine(tServer *Server, char *Line)
 {
 	 int	pos = 0;
 	char	*ident, *cmd;
-	if( *Line == ':' ) {
-		// Message
-		ident = GetValue(Line, &pos);
-		pos ++;	// Space
+	
+	// Message?
+	if( *Line == ':' )
+	{
+		ident = GetValue(Line, &pos);	// Ident (user or server)
 		cmd = GetValue(Line, &pos);
 		
-		if( strcmp(cmd, "PRIVMSG") == 0 ) {
+		// Numeric command
+		if( isdigit(cmd[0]) && isdigit(cmd[1]) && isdigit(cmd[2]) )
+		{
+			char	*user, *message;
+			 int	num;
+			num  = (cmd[0] - '0') * 100;
+			num += (cmd[1] - '0') * 10;
+			num += (cmd[2] - '0') * 1;
+			
+			user = GetValue(Line, &pos);
+			
+			if( Line[pos] == ':' ) {
+				message = Line + pos + 1;
+			}
+			else {
+				message = GetValue(Line, &pos);
+			}
+			
+			switch(num)
+			{
+			default:
+				printf("[%s] %i %s\n", Server->Name, num, message);
+				Message_Append(Server, MSG_TYPE_SERVER, ident, user, message);
+				break;
+			}
+		}
+		else if( strcmp(cmd, "NOTICE") == 0 )
+		{
+			char	*class, *message;
+			
+			class = GetValue(Line, &pos);
+			
+			if( Line[pos] == ':' ) {
+				message = Line + pos + 1;
+			}
+			else {
+				message = GetValue(Line, &pos);
+			}
+			
+			printf("[%s] NOTICE %s: %s\n", Server->Name, ident, message);
+			Message_Append(Server, MSG_TYPE_NOTICE, ident, "", message);
+		}
+		else if( strcmp(cmd, "PRIVMSG") == 0 )
+		{
 			char	*dest, *message;
-			pos ++;
 			dest = GetValue(Line, &pos);
-			pos ++;
+			
 			if( Line[pos] == ':' ) {
 				message = Line + pos + 1;
 			}
@@ -166,10 +464,17 @@ void ParseServerLine(tServer *Server, char *Line)
 				message = GetValue(Line, &pos);
 			}
 			Cmd_PRIVMSG(Server, dest, ident, message);
+			Message_Append(Server, MSG_TYPE_STANDARD, ident, dest, message);
+		}
+		else
+		{
+			printf("Unknown message %s (%s)\n", cmd, Line+pos);
 		}
 	}
 	else {
+		
 		// Command to client
+		printf("Client Command: %s", Line);
 	}
 }
 
@@ -201,7 +506,7 @@ int ProcessIncoming(tServer *Server)
 		while( (newline = strchr(ptr, '\n')) )
 		{
 			*newline = '\0';
-			printf("%s\n", ptr);
+			if( newline[-1] == '\r' )	newline[-1] = '\0';
 			ParseServerLine(Server, ptr);
 			ptr = newline + 1;
 		}
@@ -304,4 +609,37 @@ int OpenTCP(const char *AddressString, short PortNumber)
 	
 	// Return descriptor
 	return fd;
+}
+
+/**
+ * \brief Read a space-separated value from a string
+ */
+char *GetValue(char *Src, int *Ofs)
+{
+	 int	pos = *Ofs;
+	char	*ret = Src + pos;
+	char	*end;
+	
+	if( !Src )	return NULL;
+	
+	while( *ret == ' ' )	ret ++;
+	
+	end = strchr(ret, ' ');
+	if( end ) {
+		*end = '\0';
+	}
+	else {
+		end = ret + strlen(ret) - 1;
+	}
+	
+	end ++ ;
+	while( *ret == ' ' )	end ++;
+	*Ofs = end - Src;
+	
+	return ret;
+}
+
+static inline int isdigit(int ch)
+{
+	return '0' <= ch && ch < '9';
 }

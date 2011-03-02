@@ -386,7 +386,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 		// /NOTES
 		
 		// Allocate and fill cached packet
-		pkt = malloc( dataLen + sizeof(tTCPStoredPacket) );
+		pkt = malloc( sizeof(tTCPStoredPacket) + dataLen );
 		pkt->Next = NULL;
 		pkt->Sequence = ntohl(Header->SequenceNumber);
 		pkt->Length = dataLen;
