@@ -28,6 +28,7 @@ size_t RingBuffer_Read(void *Dest, tRingBuffer *Buffer, size_t Length)
 	{
 		memcpy(Dest, &Buffer->Data[Buffer->Start], Length);
 	}
+	Buffer->Start += Length;
 	Buffer->Length -= Length;
 	return Length;
 }
