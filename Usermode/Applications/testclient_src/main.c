@@ -14,7 +14,7 @@ int main(int argc, char *argv[])
 	 int	con = -1;
 	 int	len;
 	uint16_t	port;
-	uint8_t	buf[4] = {10,2,0,37};
+	uint8_t	buf[4] = {10,2,0,2};
 	uint8_t	data[4096];	// Packet Data
 	 
 	con = open("/Devices/ip/1/tcpc", OPENFLAG_READ|OPENFLAG_WRITE);
