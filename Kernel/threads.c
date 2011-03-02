@@ -1475,8 +1475,12 @@ int Semaphore_Signal(tSemaphore *Sem, int AmmountToAdd)
 	if( Sem->MaxValue && Sem->Value == Sem->MaxValue )
 	{
 		tThread	*us;
-		SHORTLOCK( &glThreadListLock );
+		#if 0
+		Log_Debug("Threads", "Semaphore_Signal: IDLE Sem = %s:%s", Sem->ModName, Sem->Name);
+		Log_Debug("Threads", "Semaphore_Signal: Sem->Value(%i) == Sem->MaxValue(%i)", Sem->Value, Sem->MaxValue);
+		#endif
 		
+		SHORTLOCK( &glThreadListLock );
 		// - Remove from active list
 		us = Threads_RemActive();
 		us->Next = NULL;
