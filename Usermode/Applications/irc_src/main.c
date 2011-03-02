@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <net.h>
+#include <readline.h>
 
 #define BUFSIZ	1023
 
@@ -18,7 +19,7 @@ typedef struct sServer {
 
 // === PROTOTYPES ===
  int	ParseArguments(int argc, const char *argv[]);
-void	ProcessIncoming(tServer *Server);
+ int	ProcessIncoming(tServer *Server);
  int	writef(int FD, const char *Format, ...);
  int	OpenTCP(const char *AddressString, short PortNumber);
 
@@ -35,6 +36,7 @@ int main(int argc, const char *argv[], const char *envp[])
 {
 	 int	tmp;
 	tServer	srv;
+	tReadline	*readline_info;
 	
 	memset(&srv, 0, sizeof(srv));
 	
@@ -59,6 +61,8 @@ int main(int argc, const char *argv[], const char *envp[])
 	
 	printf("Processing\n");
 	
+	readline_info = Readline_Init(1);
+	
 	for( ;; )
 	{
 		fd_set	readfds;
@@ -68,18 +72,29 @@ int main(int argc, const char *argv[], const char *envp[])
 		FD_SET(0, &readfds);	// stdin
 		FD_SET(srv.FD, &readfds);
 		
-		rv = select(srv.FD, &readfds, 0, 0, NULL);
+		rv = select(srv.FD+1, &readfds, 0, 0, NULL);
 		if( rv == -1 )	break;
 		
 		if(FD_ISSET(0, &readfds))
 		{
 			// User input
+			char	*cmd = Readline_NonBlock(readline_info);
+			if( cmd )
+			{
+				// TODO: Implement windows / proper commands, but meh
+				if( cmd[0] )
+					writef(srv.FD, "%s\n", cmd);
+				free(cmd);
+			}
 		}
 		
 		// Server response
 		if(FD_ISSET(srv.FD, &readfds))
 		{
-			ProcessIncoming(&srv);
+			if( ProcessIncoming(&srv) != 0 ) {
+				// Oops, error
+				break;
+			}
 		}
 	}
 	
@@ -161,7 +176,7 @@ void ParseServerLine(tServer *Server, char *Line)
 /**
  * \brief Process incoming lines from the server
  */
-void ProcessIncoming(tServer *Server)
+int ProcessIncoming(tServer *Server)
 {	
 	char	*ptr, *newline;
 	 int	len;
@@ -176,6 +191,9 @@ void ProcessIncoming(tServer *Server)
 	#endif
 		// Read data
 		len = read(Server->FD, BUFSIZ - Server->ReadPos, &Server->InBuf[Server->ReadPos]);
+		if( len == -1 ) {
+			return -1;
+		}
 		Server->InBuf[Server->ReadPos + len] = '\0';
 		
 		// Break into lines
@@ -203,6 +221,8 @@ void ProcessIncoming(tServer *Server)
 	#if NON_BLOCK_READ
 	}
 	#endif
+	
+	return 0;
 }
 
 /**

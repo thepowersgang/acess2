@@ -2,7 +2,7 @@
 
 -include ../Makefile.cfg
 
-LDFLAGS += -lnet
+LDFLAGS += -lnet -lreadline
 
 OBJ = main.o
 BIN = irc
