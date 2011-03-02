@@ -81,10 +81,30 @@ struct sTCPStoredPacket
 	Uint8	Data[];
 };
 
+enum eTCPConnectionState
+{
+	TCP_ST_CLOSED,  	// 0 - Connection invalid
+	
+	TCP_ST_SYN_SENT,	// 1 - SYN sent by local, waiting for SYN-ACK
+	TCP_ST_SYN_RCVD,	// 2 - SYN recieved, SYN-ACK sent
+	
+	TCP_ST_OPEN,    	// 3 - Connection open
+	
+	// Local Close
+	TCP_ST_FIN_WAIT1,	// 4 - FIN sent, waiting for reply (ACK or FIN)
+	TCP_ST_FIN_WAIT2,	// 5 - sent FIN acked, waiting for FIN from peer
+	TCP_ST_CLOSING, 	// 6 - Waiting for ACK of FIN (FIN sent and recieved)
+	TCP_ST_TIME_WAIT,	// 7 - Waiting for timeout after local close
+	// Remote close
+	TCP_ST_CLOSE_WAIT,	// 8 - FIN recieved, waiting for user to close (error set, wait for node close)
+	TCP_ST_LAST_ACK,	// 9 - FIN sent and recieved, waiting for ACK
+	TCP_ST_FINISHED 	// 10 - Essentially closed, all packets are invalid
+};
+
 struct sTCPConnection
 {
 	struct sTCPConnection	*Next;
-	 int	State;	//!< Connection state (see ::eTCPConnectionState)
+	enum eTCPConnectionState	State;	//!< Connection state (see ::eTCPConnectionState)
 	Uint16	LocalPort;	//!< Local port
 	Uint16	RemotePort;	//!< Remote port
 	tInterface	*Interface;	//!< Listening Interface
@@ -131,16 +151,6 @@ struct sTCPConnection
 		tIPv6	v6;
 	} RemoteIP;	//!< Remote IP Address
 	// Type is determined by LocalInterface->Type
-};
-
-enum eTCPConnectionState
-{
-	TCP_ST_CLOSED,
-	TCP_ST_SYN_SENT,
-	TCP_ST_HALFOPEN,
-	TCP_ST_OPEN,
-	TCP_ST_FIN_SENT,
-	TCP_ST_FINISHED
 };
 
 #endif

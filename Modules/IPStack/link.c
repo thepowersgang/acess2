@@ -136,11 +136,12 @@ void Link_WatchDevice(tAdapter *Adapter)
 		
 		Log_Log("Net Link",
 			"Packet from %02x:%02x:%02x:%02x:%02x:%02x"
-			" to %02x:%02x:%02x:%02x:%02x:%02x",
+			" to %02x:%02x:%02x:%02x:%02x:%02x (Type=%04x)",
 			hdr->Src.B[0], hdr->Src.B[1], hdr->Src.B[2],
 			hdr->Src.B[3], hdr->Src.B[4], hdr->Src.B[5],
 			hdr->Dest.B[0], hdr->Dest.B[1], hdr->Dest.B[2],
-			hdr->Dest.B[3], hdr->Dest.B[4], hdr->Dest.B[5]
+			hdr->Dest.B[3], hdr->Dest.B[4], hdr->Dest.B[5],
+			ntohs(hdr->Type)
 			);
 		checksum = *(Uint32*)&hdr->Data[ret-sizeof(tEthernetHeader)-4];
 		//Log_Log("NET", "Checksum 0x%08x", checksum);
