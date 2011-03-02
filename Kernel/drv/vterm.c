@@ -429,7 +429,7 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	{
 	// Text Mode (UTF-8)
 	case TERM_MODE_TEXT:
-		VFS_SelectNode(Node, VFS_SELECT_READ, NULL);
+		VFS_SelectNode(Node, VFS_SELECT_READ, NULL, "VT_Read (UTF-8)");
 		
 		avail = term->InputWrite - term->InputRead;
 		if(avail < 0)
@@ -449,7 +449,7 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	//case TERM_MODE_FB:
 	// Other - UCS-4
 	default:
-		VFS_SelectNode(Node, VFS_SELECT_READ, NULL);
+		VFS_SelectNode(Node, VFS_SELECT_READ, NULL, "VT_Read (UCS-4)");
 			
 		avail = term->InputWrite - term->InputRead;
 		if(avail < 0)

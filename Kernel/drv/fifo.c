@@ -224,7 +224,7 @@ Uint64 FIFO_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 			#if 0
 			len = Semaphore_Wait( &pipe->Semaphore, remaining );
 			#else
-			VFS_SelectNode(Node, VFS_SELECT_READ, NULL);
+			VFS_SelectNode(Node, VFS_SELECT_READ, NULL, "FIFO_Read");
 			// Read buffer
 			// TODO: Rethink this, it might not work on buffer overflow
 			if(pipe->WritePos - pipe->ReadPos < remaining)
@@ -295,7 +295,7 @@ Uint64 FIFO_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 			#if 0
 			len = Semaphore_Signal( &pipe->Semaphore, remaining );
 			#else
-			VFS_SelectNode(Node, VFS_SELECT_WRITE, NULL);
+			VFS_SelectNode(Node, VFS_SELECT_WRITE, NULL, "FIFO_Write");
 			if(pipe->ReadPos - pipe->WritePos < remaining)
 				len = pipe->ReadPos - pipe->WritePos;
 			else

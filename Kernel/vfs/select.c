@@ -54,7 +54,7 @@ void	VFS_int_Select_SignalAll(tVFS_SelectList *List);
 // === GLOBALS ===
 
 // === FUNCTIONS ===
-int VFS_SelectNode(tVFS_Node *Node, enum eVFS_SelectTypes Type, tTime *Timeout)
+int VFS_SelectNode(tVFS_Node *Node, enum eVFS_SelectTypes Type, tTime *Timeout, const char *Name)
 {
 	tVFS_SelectThread	*thread_info;
 	tVFS_SelectList	**list;
@@ -70,7 +70,7 @@ int VFS_SelectNode(tVFS_Node *Node, enum eVFS_SelectTypes Type, tTime *Timeout)
 	thread_info = malloc(sizeof(tVFS_SelectThread));
 	if(!thread_info)	return -1;
 	
-	Semaphore_Init(&thread_info->SleepHandle, 0, 0, "VFS_SelectNode()", "");
+	Semaphore_Init(&thread_info->SleepHandle, 0, 0, "VFS_SelectNode()", Name);
 	
 	LOG("list=%p, flag=%p, wanted=%i, maxAllowed=%i", list, flag, wanted, maxAllowed);
 	
@@ -112,9 +112,12 @@ int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set 
 	thread_info = malloc(sizeof(tVFS_SelectThread));
 	if(!thread_info)	return -1;
 	
-	Semaphore_Init(&thread_info->SleepHandle, 0, -1, "VFS_Select()", "");
+	ENTER("iMaxHandle pReadHandles pWriteHandles pErrHandles pTimeout bIsKernel",
+		MaxHandle, ReadHandles, WriteHandles, ErrHandles, Timeout, IsKernel);
 	
-	// Notes: The idea is to make sure we onlt enter wait (on the semaphore)
+	Semaphore_Init(&thread_info->SleepHandle, 0, 0, "VFS_Select()", "");
+	
+	// Notes: The idea is to make sure we only enter wait (on the semaphore)
 	// if we are going to be woken up (either by an event at a later time,
 	// or by an event that happened while or before we were registering).
 	// Hence, register must happen _before_ we check the state flag
@@ -126,6 +129,8 @@ int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set 
 	ret += VFS_int_Select_Register(thread_info, MaxHandle, WriteHandles, 1, IsKernel);
 	ret += VFS_int_Select_Register(thread_info, MaxHandle, ErrHandles, 2, IsKernel);
 	
+	LOG("Register ret = %i", ret);
+	
 	// If there were events waiting, de-register and return
 	if( ret )
 	{
@@ -133,6 +138,7 @@ int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set 
 		ret += VFS_int_Select_Deregister(thread_info, MaxHandle, WriteHandles, 1, IsKernel);
 		ret += VFS_int_Select_Deregister(thread_info, MaxHandle, ErrHandles, 2, IsKernel);
 		free(thread_info);
+		LEAVE('i', ret);
 		return ret;
 	}
 	
@@ -150,6 +156,7 @@ int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set 
 	ret += VFS_int_Select_Deregister(thread_info, MaxHandle, WriteHandles, 1, IsKernel);
 	ret += VFS_int_Select_Deregister(thread_info, MaxHandle, ErrHandles, 2, IsKernel);
 	free(thread_info);
+	LEAVE('i', ret);
 	return ret;
 }
 
@@ -237,6 +244,7 @@ int VFS_int_Select_Register(tVFS_SelectThread *Thread, int MaxHandle, fd_set *Ha
 		
 		// Is the descriptor set
 		if( !FD_ISSET(i, Handles) )	continue;
+		LOG("FD #%i", i);
 		
 		handle = VFS_GetHandle( i | (IsKernel?VFS_KERNEL_FLAG:0) );
 		// Is the handle valid?
@@ -297,6 +305,7 @@ int VFS_int_Select_Deregister(tVFS_SelectThread *Thread, int MaxHandle, fd_set *
 		
 		// Is the descriptor set
 		if( !FD_ISSET(i, Handles) )	continue;
+		LOG("FD #%i", i);
 		
 		handle = VFS_GetHandle( i | (IsKernel?VFS_KERNEL_FLAG:0) );
 		// Is the handle valid?

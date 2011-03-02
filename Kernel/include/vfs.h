@@ -331,6 +331,20 @@ extern int	VFS_AddDriver(tVFS_Driver *Info);
  * \param Name	Name of filesystem driver to find
  */
 extern tVFS_Driver	*VFS_GetFSByName(const char *Name);
+
+
+/**
+ * \brief Prepare a node for use
+ */
+extern void	VFS_InitNode(tVFS_Node *Node);
+
+/**
+ * \brief Clean up a node, ready for deletion
+ * \note This should ALWAYS be called before a node is freed, as it
+ *       cleans up VFS internal structures.
+ */
+extern void	VFS_CleanupNode(tVFS_Node *Node);
+
 /**
  * \fn tVFS_ACL *VFS_UnixToAcessACL(Uint Mode, Uint Owner, Uint Group)
  * \brief Transforms Unix Permssions into Acess ACLs
@@ -355,10 +369,14 @@ enum eVFS_SelectTypes
  * \param Node	Node to wait on
  * \param Type	Type of wait
  * \param Timeout	Time to wait (NULL for infinite wait)
+ * \param Name	Name to show in debug output
  * \return Number of nodes that actioned (0 or 1)
  */
-extern int	VFS_SelectNode(tVFS_Node *Node, enum eVFS_SelectTypes Type, tTime *Timeout);
+extern int	VFS_SelectNode(tVFS_Node *Node, enum eVFS_SelectTypes Type, tTime *Timeout, const char *Name);
 
+/**
+ * \brief Change the full flag on a node
+ */
 extern int	VFS_MarkFull(tVFS_Node *Node, BOOL IsBufferFull);
 extern int	VFS_MarkAvaliable(tVFS_Node *Node, BOOL IsDataAvaliable);
 extern int	VFS_MarkError(tVFS_Node *Node, BOOL IsErrorState);
