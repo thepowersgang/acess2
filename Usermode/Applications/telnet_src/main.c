@@ -27,14 +27,15 @@ int main(int argc, char *argv[], char *envp[])
 	while( client_running )
 	{
 		fd_set	fds;
+		fd_set	err_fds;
 		char	buffer[BUFSIZ];
 		 int	len;
 		
-		FD_ZERO(&fds);
-		FD_SET(0, &fds);
-		FD_SET(server_fd, &fds);
+		FD_ZERO(&fds);	FD_ZERO(&err_fds);
+		FD_SET(0, &fds);	FD_SET(0, &err_fds);
+		FD_SET(server_fd, &fds);	FD_SET(server_fd, &err_fds);
 		
-		rv = select(server_fd+1, &fds, NULL, NULL, NULL);
+		rv = select(server_fd+1, &fds, NULL, &err_fds, NULL);
 		if( rv < 0 )	break;
 		
 		if( FD_ISSET(server_fd, &fds) )
@@ -56,6 +57,11 @@ int main(int argc, char *argv[], char *envp[])
 				write(server_fd, len, buffer);
 				write(1, len, buffer);
 			} while( len == BUFSIZ );
+		}
+		
+		if( FD_ISSET(server_fd, &err_fds) )
+		{
+			break ;
 		}
 	}
 	
