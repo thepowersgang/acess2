@@ -260,7 +260,7 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 			}
 		}
 		else
-			minSize = 1;
+			minSize = 0;
 		
 		// - Precision
 		precision = -1;
