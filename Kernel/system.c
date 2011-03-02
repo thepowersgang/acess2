@@ -548,6 +548,7 @@ tConfigFile	*System_Int_ParseFile(char *FileData)
 		start = ptr;
 		
 		ret->Lines[i].nParts = 0;
+		ret->Lines[i].Parts = NULL;
 		
 		// Count parts
 		for(;;)
@@ -638,6 +639,12 @@ tConfigFile	*System_Int_ParseFile(char *FileData)
 			LOG("ret->Lines[%i].Parts[%i] = '%s'", i, j, ret->Lines[i].Parts[j]);
 			ptr ++;	// And increment for the next round
 		}
+	}
+	
+	if( i < ret->nLines ) {
+		ret->Lines[i].nParts = 0;
+		ret->Lines[i].Parts = NULL;
+		Log_Log("System", "Cleaning up final empty line");
 	}
 	
 	LEAVE('p', ret);
