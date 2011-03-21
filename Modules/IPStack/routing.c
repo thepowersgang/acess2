@@ -74,10 +74,39 @@ tVFS_Node *IPStack_RouteDir_FindDir(tVFS_Node *Node, const char *Name)
 	// Zero is invalid, sorry :)
 	if( !num )	return NULL;
 	
+	// Interpret the name as <type>:<addr>, returning the interface for
+	// needed to access that address.
+	//   E.g. '4:0A02000A'	- 10.2.0.10
+	// Hm... It could do with a way to have a better address type representation
+	if( Name[1] == ':' )	// TODO: Allow variable length type codes
+	{
+		 int	addrSize = IPStack_GetAddressSize(num);
+		Uint8	addrData[addrSize];
+		
+		// Errof if the size is invalid
+		if( strlen(Name) != 2 + addrSize*2 )
+			return NULL;
+		
+		// Parse the address
+		// - Error if the address data is not fully hex
+		if( UnHex(addrData, addrSize, Name + 2) != addrSize )
+			return NULL;
+		
+		// Find the route
+		rt = IPStack_FindRoute(num, NULL, addrData);
+		if(!rt)	return NULL;
+		
+		// Return the interface node
+		// - Sure it's hijacking it from inteface.c's area, but it's
+		//   simpler this way
+		return &rt->Interface->Node;
+	}
+	
 	// The list is inherently sorted, so we can do a quick search
 	for(rt = gIP_Routes; rt && rt->Node.Inode < num; rt = rt->Next);
-	// Fast fail on larger number
-	if( rt->Node.Inode > num )
+	
+	// Fast fail end of list / larger number
+	if( !rt || rt->Node.Inode > num )
 		return NULL;
 	
 	return &rt->Node;
