@@ -81,13 +81,12 @@ tMacAddr ARP_Resolve4(tInterface *Interface, tIPv4 Address)
 	if( IPStack_CompareAddress(4, &Address, Interface->Address, Interface->SubnetBits) == 0 )
 	{
 		tRoute	*route = IPStack_FindRoute(4, Interface, &Address);
-		if( route ) {
-			// If the next hop is defined, use it
-			// - 0.0.0.0 as the next hop means "no next hop / direct"
-			if( ((tIPv4*)route->NextHop)->L != 0 ) {
-				// Recursion: see /Recursion/
-				return ARP_Resolve4(Interface, *(tIPv4*)route->NextHop);
-			}
+		// If the next hop is defined, use it
+		// - 0.0.0.0 as the next hop means "no next hop / direct"
+		if( route && ((tIPv4*)route->NextHop)->L != 0 )
+		{
+			// Recursion: see /Recursion/
+			return ARP_Resolve4(Interface, *(tIPv4*)route->NextHop);
 		}
 	}
 	
