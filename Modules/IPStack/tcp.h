@@ -113,16 +113,18 @@ struct sTCPConnection
 	Uint32	NextSequenceSend;	//!< Next sequence value for outbound packets
 	Uint32	NextSequenceRcv;	//!< Next expected sequence value for inbound
 	
+	#if 0
 	/**
 	 * \brief Non-ACKed packets
-	 * \note FIFO list
+	 * \note Ring buffer
 	 * \{
 	 */
-	tMutex	lQueuedPackets;
-	tTCPStoredPacket	*QueuedPackets;	//!< Non-ACKed packets
+	tMutex	lNonACKedPackets;
+	tTCPStoredPacket	*SentPackets;	//!< Non-acknowleged packets
 	/**
 	 * \}
 	 */
+	#endif
 	
 	/**
 	 * \brief Unread Packets
@@ -138,10 +140,12 @@ struct sTCPConnection
 	/**
 	 * \brief Out of sequence packets
 	 * \note Sorted list to improve times
+	 * \todo Convert this to a ring buffer and a bitmap of valid bytes
 	 * \{
 	 */
 	tShortSpinlock	lFuturePackets;	//!< Future packets spinlock
 	tTCPStoredPacket	*FuturePackets;	//!< Out of sequence packets
+	Uint8	*FuturePacketValidBytes;	//!< Valid byte bitmap (WINDOW_SIZE/8 bytes)
 	/**
 	 * \}
 	 */
