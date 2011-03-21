@@ -3,19 +3,19 @@
 #ifndef _FIREWALL_H_
 #define _FIREWALL_H_
 
+enum eFirewallActions
+{
+	FIREWALL_ACCEPT,
+	FIREWALL_DROP
+};
+
 /**
  * \brief Tests a packet on a chain
  */
-extern int	IPTablesV4_TestChain(
+extern int	IPTables_TestChain(
 	const char *RuleName,
-	const tIPv4 *Src, const tIPv4 *Dest,
-	Uint8 Type, Uint32 Flags,
-	size_t Length, const void *Data
-	);
-
-extern int	IPTablesV6_TestChain(
-	const char *RuleName,
-	const tIPv6 *Src, const tIPv6 *Dest,
+	const int AddressType,
+	const void *Src, const void *Dest,
 	Uint8 Type, Uint32 Flags,
 	size_t Length, const void *Data
 	);
