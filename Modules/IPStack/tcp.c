@@ -364,13 +364,13 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 	
 		// Check for an empty packet
 		if(dataLen == 0) {
-			if( Header->Flags != TCP_FLAG_ACK )
+			if( Header->Flags == TCP_FLAG_ACK )
 			{
-				Connection->NextSequenceRcv ++;	// TODO: Is this right? (empty packet counts as one byte)
-				Log_Log("TCP", "Empty Packet, inc and ACK the current sequence number");
+				Log_Log("TCP", "ACK only packet");
+				return ;
 			}
-			else
-				Log_Log("TCP", "Empty Packet, just ACKing the current sequence number");
+			Connection->NextSequenceRcv ++;	// TODO: Is this right? (empty packet counts as one byte)
+			Log_Log("TCP", "Empty Packet, inc and ACK the current sequence number");
 			Header->DestPort = Header->SourcePort;
 			Header->SourcePort = htons(Connection->LocalPort);
 			Header->AcknowlegementNumber = htonl(Connection->NextSequenceRcv);
@@ -893,6 +893,10 @@ tVFS_Node *TCP_Client_Init(tInterface *Interface)
 	conn->Node.Close = TCP_Client_Close;
 
 	conn->RecievedBuffer = RingBuffer_Create( TCP_RECIEVE_BUFFER_SIZE );
+	#if 0
+	conn->SentBuffer = RingBuffer_Create( TCP_SEND_BUFFER_SIZE );
+	Semaphore_Init(conn->SentBufferSpace, 0, TCP_SEND_BUFFER_SIZE, "TCP SentBuffer", conn->Name);
+	#endif
 
 	SHORTLOCK(&glTCP_OutbountCons);
 	conn->Next = gTCP_OutbountCons;
@@ -1004,13 +1008,24 @@ Uint64 TCP_Client_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buf
 		return -1;
 	}
 	
-	while( rem > TCP_MAX_PACKET_SIZE )
+	do
 	{
-		TCP_INT_SendDataPacket(conn, TCP_MAX_PACKET_SIZE, Buffer);
-		Buffer += TCP_MAX_PACKET_SIZE;
-	}
-	
-	TCP_INT_SendDataPacket(conn, rem, Buffer);
+		 int	len = (rem < TCP_MAX_PACKET_SIZE) ? rem : TCP_MAX_PACKET_SIZE;
+		
+		#if 0
+		// Wait for space in the buffer
+		Semaphore_Signal( &Connection->SentBufferSpace, len );
+		
+		// Save data to buffer (and update the length read by the ammount written)
+		len = RingBuffer_Write( &Connection->SentBuffer, Buffer, len);
+		#endif
+		
+		// Send packet
+		TCP_INT_SendDataPacket(conn, len, Buffer);
+		
+		Buffer += len;
+		rem += len;
+	} while( rem > 0 );
 	
 	LEAVE('i', Length);
 	return Length;
