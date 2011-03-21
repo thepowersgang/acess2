@@ -75,8 +75,8 @@ int IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, int 
 	}
 	
 	// OUTPUT Firewall rule go here
-	ret = IPTablesV4_TestChain("OUTPUT",
-		(tIPv4*)Iface->Address, &Address,
+	ret = IPTables_TestChain("OUTPUT",
+		4, (tIPv4*)Iface->Address, &Address,
 		Protocol, 0,
 		Length, Data);
 	if(ret != 0) {
@@ -178,16 +178,16 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	// Firewall rules
 	if( iface ) {
 		// Incoming Packets
-		ret = IPTablesV4_TestChain("INPUT",
-			&hdr->Source, &hdr->Destination,
+		ret = IPTables_TestChain("INPUT",
+			4, &hdr->Source, &hdr->Destination,
 			hdr->Protocol, 0,
 			dataLength, data
 			);
 	}
 	else {
 		// Routed packets
-		ret = IPTablesV4_TestChain("FORWARD",
-			&hdr->Source, &hdr->Destination,
+		ret = IPTables_TestChain("FORWARD",
+			4, &hdr->Source, &hdr->Destination,
 			hdr->Protocol, 0,
 			dataLength, data
 			);
@@ -208,18 +208,40 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	// Routing
 	if(!iface)
 	{
-		//Log_Debug("IPv4", "Route the packet");
+		tMacAddr	to;
+		tRoute	*rt;
 		
-		// TODO: Parse Routing tables and determine where to send it
+		Log_Debug("IPv4", "Route the packet");
+		// Drop the packet if the TTL is zero
+		if( hdr->TTL == 0 ) {
+			Log_Warning("IPv4", "TODO: Sent ICMP-Timeout when TTL exceeded");
+			return ;
+		}
+		
+		hdr->TTL --;
+		
+		rt = IPStack_FindRoute(4, NULL, &hdr->Destination);	// Get the route (gets the interface)
+		to = ARP_Resolve4(rt->Interface, hdr->Destination);	// Resolve address
+		
+		// Send packet
+		Log_Log("IPv4", "Forwarding packet to %i.%i.%i.%i (via %i.%i.%i.%i)",
+			hdr->Destination.B[0], hdr->Destination.B[1],
+			hdr->Destination.B[2], hdr->Destination.B[3],
+			((tIPv4*)rt->NextHop)->B[0], ((tIPv4*)rt->NextHop)->B[1],
+			((tIPv4*)rt->NextHop)->B[2], ((tIPv4*)rt->NextHop)->B[3]);
+		Link_SendPacket(rt->Interface->Adapter, IPV4_ETHERNET_ID, to, Length, Buffer);
+		
 		
 		return ;
 	}
 	
 	// Send it on
-	if( gaIPv4_Callbacks[hdr->Protocol] )
-		gaIPv4_Callbacks[hdr->Protocol]( iface, &hdr->Source, dataLength, data );
-	else
+	if( !gaIPv4_Callbacks[hdr->Protocol] ) {
 		Log_Log("IPv4", "Unknown Protocol %i", hdr->Protocol);
+		return ;
+	}
+	
+	gaIPv4_Callbacks[hdr->Protocol]( iface, &hdr->Source, dataLength, data );
 }
 
 /**
@@ -241,7 +263,6 @@ tInterface *IPv4_GetInterface(tAdapter *Adapter, tIPv4 Address, int Broadcast)
 	{
 		if( iface->Adapter != Adapter )	continue;
 		if( iface->Type != 4 )	continue;
-		//Log_Debug("IPv4", "%x == %x?\n", addr, ntohl(((tIPv4*)iface->Address)->L));
 		if( IP4_EQU(Address, *(tIPv4*)iface->Address) )
 			return iface;
 		
@@ -263,7 +284,7 @@ tInterface *IPv4_GetInterface(tAdapter *Adapter, tIPv4 Address, int Broadcast)
  * \brief Convert a network prefix to a netmask
  * \param FixedBits	Netmask size (/n)
  * 
- * For example /24 will become 255.255.255.0
+ * For example /24 will become 255.255.255.0 (0xFFFFFF00)
  */
 Uint32 IPv4_Netmask(int FixedBits)
 {

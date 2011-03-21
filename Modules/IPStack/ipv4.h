@@ -39,8 +39,8 @@ struct sIPv4Header
 } __attribute__((packed));
 
 #define IP4PROT_ICMP	1
-#define IP4PROT_TCP	6
-#define IP4PROT_UDP	17
+#define IP4PROT_TCP 	6
+#define IP4PROT_UDP 	17
 
 #define IPV4_ETHERNET_ID	0x0800
 
