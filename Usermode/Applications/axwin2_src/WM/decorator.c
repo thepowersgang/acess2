@@ -34,10 +34,10 @@ void Decorator_RenderWidget(tElement *Element)
 	switch(Element->Type)
 	{
 	case ELETYPE_NONE:
-	case ELETYPE_BOX:	break;
+	case ELETYPE_BOX:	break;	// Box is a meta-element
 	
-	case ELETYPE_TABBAR:	// TODO: Moar
-	case ELETYPE_TOOLBAR:
+	case ELETYPE_TABBAR:	// Tab Bar
+	case ELETYPE_TOOLBAR:	// Tool Bar
 		Video_DrawRect(
 			Element->CachedX, Element->CachedY,
 			Element->CachedW, Element->CachedH,
@@ -50,7 +50,7 @@ void Decorator_RenderWidget(tElement *Element)
 			);
 		break;
 	
-	case ELETYPE_SPACER:
+	case ELETYPE_SPACER:	// Spacer (subtle line)
 		Video_FillRect(
 			Element->CachedX+3, Element->CachedY+3,
 			Element->CachedW-6, Element->CachedH-6,
@@ -58,11 +58,11 @@ void Decorator_RenderWidget(tElement *Element)
 			);
 		break;
 	
-	case ELETYPE_BUTTON:
+	case ELETYPE_BUTTON:	// Button
 		Video_FillRect(
 			Element->CachedX+1, Element->CachedY+1,
 			Element->CachedW-2, Element->CachedH-2,
-			BUTTON_BORDER
+			BUTTON_BGCOLOUR
 			);
 		Video_DrawRect(
 			Element->CachedX, Element->CachedY,
@@ -87,6 +87,10 @@ void Decorator_RenderWidget(tElement *Element)
 			Element->CachedW, Element->CachedH,
 			Element->Data
 			);
+		break;
+		
+	default:
+		_SysDebug(" ERROR: Unknown type %i", Element->Type);
 		break;
 	}
 }
