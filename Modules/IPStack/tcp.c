@@ -8,6 +8,7 @@
 #include "tcp.h"
 
 #define USE_SELECT	1
+#define	CACHE_FUTURE_PACKETS_IN_BYTES	1	// Use a ring buffer to cache out of order packets
 
 #define TCP_MIN_DYNPORT	0xC000
 #define TCP_MAX_HALFOPEN	1024	// Should be enough
@@ -425,8 +426,23 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 			//Connection->NextSequenceSend ++;
 		}
 		// Check if the packet is in window
-		else if( WrapBetween(Connection->NextSequenceRcv, pkt->Sequence, Connection->NextSequenceRcv+TCP_WINDOW_SIZE, 0xFFFFFFFF) )
+		else if( WrapBetween(Connection->NextSequenceRcv, pkt->Sequence,
+				Connection->NextSequenceRcv+TCP_WINDOW_SIZE, 0xFFFFFFFF) )
 		{
+			#if CACHE_FUTURE_PACKETS_IN_BYTES
+			Uint32	index;
+			 int	i;
+			
+			index = pkt->Sequence % TCP_WINDOW_SIZE;
+			for( i = 0; i < pkt->Length; i ++ )
+			{
+				Connection->FuturePacketValidBytes[index/8] |= 1 << (index%8);
+				Connection->FuturePacketValidBytes[index] = pkt->Data[i];
+				// Do a wrap increment
+				index ++;
+				if(index == TCP_WINDOW_SIZE)	index = 0;
+			}
+			#else
 			tTCPStoredPacket	*tmp, *prev = NULL;
 			
 			Log_Log("TCP", "We missed a packet, caching",
@@ -463,6 +479,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 				free(pkt);
 			}
 			SHORTREL( &Connection->lFuturePackets );
+			#endif
 		}
 		// Badly out of sequence packet
 		else
@@ -600,6 +617,75 @@ void TCP_INT_AppendRecieved(tTCPConnection *Connection, tTCPStoredPacket *Pkt)
  */
 void TCP_INT_UpdateRecievedFromFuture(tTCPConnection *Connection)
 {
+	#if CACHE_FUTURE_PACKETS_IN_BYTES
+	 int	i, length = 0;
+	Uint32	index;
+	
+	// Calculate length of contiguous bytes
+	length = Connection->HighestSequenceRcvd - Connection->NextSequenceRcv;
+	index = Connection->NextSequenceRcv % TCP_WINDOW_SIZE;
+	for( i = 0; i < length; i ++ )
+	{
+		if( Connection->FuturePacketValidBytes[i / 8] == 0xFF ) {
+			i += 7;	index += 7;
+			continue;
+		}
+		else if( !(Connection->FuturePacketValidBytes[i / 8] & (1 << (i%8))) )
+			break;
+		
+		index ++;
+		if(index > TCP_WINDOW_SIZE)
+			index -= TCP_WINDOW_SIZE;
+	}
+	length = i;
+	
+	index = Connection->NextSequenceRcv % TCP_WINDOW_SIZE;
+	
+	// Write data to to the ring buffer
+	if( TCP_WINDOW_SIZE - index > length )
+	{
+		// Simple case
+		RingBuffer_Write( Connection->RecievedBuffer, Connection->FuturePacketData + index, length );
+	}
+	else
+	{
+		 int	endLen = TCP_WINDOW_SIZE - index;
+		// 2-part case
+		RingBuffer_Write( Connection->RecievedBuffer, Connection->FuturePacketData + index, endLen );
+		RingBuffer_Write( Connection->RecievedBuffer, Connection->FuturePacketData, endLen - length );
+	}
+	
+	// Mark (now saved) bytes as invalid
+	// - Align index
+	while(index % 8 && length)
+	{
+		Connection->FuturePacketData[index] = 0;
+		Connection->FuturePacketData[index/8] &= ~(1 << (index%8));
+		index ++;
+		if(index > TCP_WINDOW_SIZE)
+			index -= TCP_WINDOW_SIZE;
+		length --;
+	}
+	while( length > 7 )
+	{
+		Connection->FuturePacketData[index] = 0;
+		Connection->FuturePacketValidBytes[index/8] = 0;
+		length -= 8;
+		index += 8;
+		if(index > TCP_WINDOW_SIZE)
+			index -= TCP_WINDOW_SIZE;
+	}
+	while(length)
+	{
+		Connection->FuturePacketData[index] = 0;
+		Connection->FuturePacketData[index/8] &= ~(1 << (index%8));
+		index ++;
+		if(index > TCP_WINDOW_SIZE)
+			index -= TCP_WINDOW_SIZE;
+		length --;
+	}
+	
+	#else
 	tTCPStoredPacket	*pkt;
 	for(;;)
 	{
@@ -635,6 +721,7 @@ void TCP_INT_UpdateRecievedFromFuture(tTCPConnection *Connection)
 		Connection->NextSequenceRcv += pkt->Length;
 		free(pkt);
 	}
+	#endif
 }
 
 /**
@@ -876,13 +963,12 @@ void TCP_Server_Close(tVFS_Node *Node)
  */
 tVFS_Node *TCP_Client_Init(tInterface *Interface)
 {
-	tTCPConnection	*conn = malloc( sizeof(tTCPConnection) );
+	tTCPConnection	*conn = calloc( sizeof(tTCPConnection) + TCP_WINDOW_SIZE + TCP_WINDOW_SIZE/8, 1 );
 
 	conn->State = TCP_ST_CLOSED;
 	conn->Interface = Interface;
 	conn->LocalPort = -1;
 	conn->RemotePort = -1;
-	memset( &conn->RemoteIP, 0, sizeof(conn->RemoteIP) );
 
 	conn->Node.ImplPtr = conn;
 	conn->Node.NumACLs = 1;
@@ -896,6 +982,12 @@ tVFS_Node *TCP_Client_Init(tInterface *Interface)
 	#if 0
 	conn->SentBuffer = RingBuffer_Create( TCP_SEND_BUFFER_SIZE );
 	Semaphore_Init(conn->SentBufferSpace, 0, TCP_SEND_BUFFER_SIZE, "TCP SentBuffer", conn->Name);
+	#endif
+	
+	#if CACHE_FUTURE_PACKETS_IN_BYTES
+	// Future recieved data (ahead of the expected sequence number)
+	conn->FuturePacketData = (Uint8*)conn + sizeof(tTCPConnection);
+	conn->FuturePacketValidBytes = conn->FuturePacketData + TCP_WINDOW_SIZE;
 	#endif
 
 	SHORTLOCK(&glTCP_OutbountCons);
@@ -919,10 +1011,13 @@ Uint64 TCP_Client_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buff
 	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
 	LOG("conn = %p {State:%i}", conn, conn->State);
 	
-	// Check if connection is open
+	// Check if connection is estabilishing
+	// - TODO: Sleep instead (maybe using VFS_SelectNode to wait for the
+	//   data to be availiable
 	while( conn->State == TCP_ST_SYN_RCVD || conn->State == TCP_ST_SYN_SENT )
 		Threads_Yield();
 	
+	// If the conneciton is not nope, then clean out the recieved buffer
 	if( conn->State != TCP_ST_OPEN )
 	{
 		Mutex_Acquire( &conn->lRecievedPackets );
@@ -942,10 +1037,8 @@ Uint64 TCP_Client_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buff
 	// Wait
 	VFS_SelectNode(Node, VFS_SELECT_READ, NULL, "TCP_Client_Read");
 	
-	// Lock list and read
+	// Lock list and read as much as possible (up to `Length`)
 	Mutex_Acquire( &conn->lRecievedPackets );
-	
-	// Attempt to read all `Length` bytes
 	len = RingBuffer_Read( Buffer, conn->RecievedBuffer, Length );
 	
 	if( len == 0 || conn->RecievedBuffer->Length == 0 ) {
