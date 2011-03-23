@@ -28,6 +28,32 @@ int Net_GetAddressSize(int AddressType)
 	}
 }
 
+int Net_OpenSocket(int AddrType, void *Addr, const char *Filename)
+{
+	 int	addrLen = Net_GetAddressSize(AddrType);
+	 int	i;
+	uint8_t	*addrBuffer = Addr;
+	char	hexAddr[addrLen*2+1];
+	
+	for( i = 0; i < addrLen; i ++ )
+		sprintf(hexAddr+i*2, "%02x", addrBuffer[i]);
+	
+	if(Filename)
+	{
+		 int	len = snprintf(NULL, 100, "/Devices/ip/routes/%i:%s/%s", AddrType, hexAddr, Filename);
+		char	path[len+1];
+		snprintf(path, 100, "/Devices/ip/routes/%i:%s/%s", AddrType, hexAddr, Filename);
+		return open(path, OPENFLAG_READ|OPENFLAG_WRITE);
+	}
+	else
+	{
+		 int	len = snprintf(NULL, 100, "/Devices/ip/routes/%i:%s", AddrType, hexAddr);
+		char	path[len+1];
+		snprintf(path, 100, "/Devices/ip/routes/%i:%s", AddrType, hexAddr);
+		return open(path, OPENFLAG_READ);
+	}
+}
+
 //TODO: Move out to another file
 char *Net_GetInterface(int AddressType, void *Address)
 {

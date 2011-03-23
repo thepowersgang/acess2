@@ -6,6 +6,12 @@
 #ifndef __LIBNET_H_
 #define __LIBNET_H_
 
+enum {
+	NET_ADDRTYPE_NULL = 0,
+	NET_ADDRTYPE_IPV4 = 4,
+	NET_ADDRTYPE_IPV6 = 6
+};
+
 /**
  * \brief Parse a string as an IP Address
  * \param String	Input string
@@ -35,5 +41,18 @@ extern int Net_GetAddressSize(int AddressType);
  * \return Interface number
  */
 extern char	*Net_GetInterface(int AddrType, void *Addr);
+
+/**
+ * \brief Open a network socket file
+ * \param AddrType	Address family
+ * \param Addr	Binary address
+ * \param SocketName	Socket type to open (e.g. tcpc for TCP client)
+ *                      If NULL, the node directory is opened
+ * \return Socket file descriptor (as returned by \a open), or -1 on error
+ * 
+ * Opens a file using /Devices/ip/routes/<AddrType>:<Addr>/<SocketName>
+ * 
+ */
+extern int	Net_OpenSocket(int AddrType, void *Addr, const char *SocketName);
 
 #endif
