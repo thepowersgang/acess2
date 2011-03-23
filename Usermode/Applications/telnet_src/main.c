@@ -4,6 +4,8 @@
 #include <acess/sys.h>
 #include <stdio.h>
 #include <net.h>
+#include <readline.h>
+#include <string.h>
 
 #define BUFSIZ	128
 
@@ -16,6 +18,8 @@ int main(int argc, char *argv[], char *envp[])
 {
 	 int	server_fd, rv;
 	 int	client_running = 1;
+	 int	bUseReadline = !!argv[3];	// HACK: If third argument is present, use ReadLine
+	tReadline	*readline_info;
 	
 	// Connect to the remove server
 	server_fd = OpenTCP( argv[1], atoi(argv[2]) );
@@ -24,6 +28,9 @@ int main(int argc, char *argv[], char *envp[])
 		return -1;
 	}
 	
+	// Create a ReadLine instance with no history
+	readline_info = Readline_Init(0);
+	
 	while( client_running )
 	{
 		fd_set	fds;
@@ -31,13 +38,16 @@ int main(int argc, char *argv[], char *envp[])
 		char	buffer[BUFSIZ];
 		 int	len;
 		
+		// Prepare FD sets
 		FD_ZERO(&fds);	FD_ZERO(&err_fds);
 		FD_SET(0, &fds);	FD_SET(0, &err_fds);
 		FD_SET(server_fd, &fds);	FD_SET(server_fd, &err_fds);
 		
+		// Wait for data (no timeout)
 		rv = select(server_fd+1, &fds, NULL, &err_fds, NULL);
 		if( rv < 0 )	break;
 		
+		// Check for remote data avaliable
 		if( FD_ISSET(server_fd, &fds) )
 		{
 			// Read from server, and write to stdout
@@ -48,19 +58,34 @@ int main(int argc, char *argv[], char *envp[])
 			} while( len == BUFSIZ );
 		}
 		
+		// Check for local data input
 		if( FD_ISSET(0, &fds) )
 		{
 			// Read from stdin, and write to server
-			do
+			if( bUseReadline )
 			{
-				len = read(0, BUFSIZ, buffer);
-				write(server_fd, len, buffer);
-				write(1, len, buffer);
-			} while( len == BUFSIZ );
+				char	*line = Readline_NonBlock(readline_info);
+				if( line )
+				{
+					write(server_fd, strlen(line), line);
+					write(server_fd, 1, "\n");
+				}
+			}
+			else
+			{
+				do
+				{
+					len = read(0, BUFSIZ, buffer);
+					write(server_fd, len, buffer);
+					write(1, len, buffer);
+				} while( len == BUFSIZ );
+			}
 		}
 		
+		// If there was an error, quit
 		if( FD_ISSET(server_fd, &err_fds) )
 		{
+			printf("\nRemote connection lost\n");
 			break ;
 		}
 	}
@@ -76,7 +101,7 @@ int OpenTCP(const char *AddressString, short PortNumber)
 {
 	 int	fd, addrType;
 	char	*iface;
-	char	addrBuffer[8];
+	uint8_t	addrBuffer[16];
 	
 	// Parse IP Address
 	addrType = Net_ParseAddress(AddressString, addrBuffer);
@@ -84,44 +109,26 @@ int OpenTCP(const char *AddressString, short PortNumber)
 		fprintf(stderr, "Unable to parse '%s' as an IP address\n", AddressString);
 		return -1;
 	}
-	
-	// Finds the interface for the destination address
-	iface = Net_GetInterface(addrType, addrBuffer);
-	if( iface == NULL ) {
-		fprintf(stderr, "Unable to find a route to '%s'\n", AddressString);
-		return -1;
-	}
-	
-	printf("iface = '%s'\n", iface);
-	
-	// Open client socket
-	// TODO: Move this out to libnet?
+
+	// Opens a R/W handle
+	fd = Net_OpenSocket(addrType, addrBuffer, "tcpc");
+	if( fd == -1 )
 	{
-		 int	len = snprintf(NULL, 100, "/Devices/ip/%s/tcpc", iface);
-		char	path[len+1];
-		snprintf(path, 100, "/Devices/ip/%s/tcpc", iface);
-		fd = open(path, OPENFLAG_READ|OPENFLAG_WRITE);
-	}
-	
-	free(iface);
-	
-	if( fd == -1 ) {
-		fprintf(stderr, "Unable to open TCP Client for reading\n");
+		fprintf(stderr, "Unable to open TCP Client\n");
 		return -1;
 	}
 	
 	// Set remote port and address
-	printf("Setting port and remote address\n");
 	ioctl(fd, 5, &PortNumber);
 	ioctl(fd, 6, addrBuffer);
 	
 	// Connect
-	printf("Initiating connection\n");
 	if( ioctl(fd, 7, NULL) == 0 ) {
-		// Shouldn't happen :(
 		fprintf(stderr, "Unable to start connection\n");
 		return -1;
 	}
+	
+	printf("Connection opened\n");
 	
 	// Return descriptor
 	return fd;
