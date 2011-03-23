@@ -12,8 +12,8 @@
 
 // === PROTOTYPES ===
  int	VM8086_Install(char **Arguments);
-tVM8086	*VM8086_Init(void);
-void	VM8086_Free(tVM8086 *State);
+//tVM8086	*VM8086_Init(void);
+//void	VM8086_Free(tVM8086 *State);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, 0x100, VM8086, VM8086_Install, NULL, NULL);

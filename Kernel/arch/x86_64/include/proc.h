@@ -44,5 +44,9 @@ typedef struct sTaskState
 // === CONSTANTS ===
 #define KERNEL_STACK_SIZE	0x10000	// 64 KiB
 
+// === FUNCTIONS ===
+extern void	Proc_Start(void);
+extern int	Proc_Clone(Uint *Err, Uint Flags);
+
 #endif
 

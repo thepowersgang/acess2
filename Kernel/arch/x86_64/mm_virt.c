@@ -38,10 +38,12 @@
 
 // === PROTOTYPES ===
 void	MM_InitVirt(void);
-void	MM_FinishVirtualInit(void);
+//void	MM_FinishVirtualInit(void);
 void	MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs);
 void	MM_DumpTables(tVAddr Start, tVAddr End);
- int	MM_Map(tVAddr VAddr, tPAddr PAddr);
+// int	MM_Map(tVAddr VAddr, tPAddr PAddr);
+void	MM_Unmap(tVAddr VAddr);
+void	MM_ClearUser(void);
  int	MM_GetPageEntry(tVAddr Addr, tPAddr *Phys, Uint *Flags);
 
 // === GLOBALS ===
@@ -656,7 +658,15 @@ tVAddr MM_NewKStack(void)
 		
 		//Log("MM_NewKStack: Found one at %p", base + KERNEL_STACK_SIZE);
 		for( i = 0; i < KERNEL_STACK_SIZE; i += 0x1000)
-			MM_Allocate(base+i);
+		{
+			if( !MM_Allocate(base+i) )
+			{
+				Log_Warning("MM", "MM_NewKStack - Allocation failed");
+				for( i -= 0x1000; i; i -= 0x1000)
+					MM_Deallocate(base+i);
+				return 0;
+			}
+		}
 		
 		return base + KERNEL_STACK_SIZE;
 	}

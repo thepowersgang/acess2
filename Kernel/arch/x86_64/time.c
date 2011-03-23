@@ -28,7 +28,7 @@ volatile Uint64	giTime_TSCAtLastTick = 0;
 volatile Uint64	giTime_TSCPerTick = 0;
 
 // === PROTOTYPES ===
-Sint64	now(void);
+//Sint64	now(void);
  int	Time_Setup(void);
 void	Time_Interrupt(int);
 Uint64	Time_ReadTSC(void);

@@ -24,10 +24,10 @@ extern char	gKernelEnd[];
 
 // === PROTOTYPES ===
 void	MM_InitPhys_Multiboot(tMBoot_Info *MBoot);
-tPAddr	MM_AllocPhysRange(int Num, int Bits);
-tPAddr	MM_AllocPhys(void);
-void	MM_RefPhys(tPAddr PAddr);
-void	MM_DerefPhys(tPAddr PAddr);
+//tPAddr	MM_AllocPhysRange(int Num, int Bits);
+//tPAddr	MM_AllocPhys(void);
+//void	MM_RefPhys(tPAddr PAddr);
+//void	MM_DerefPhys(tPAddr PAddr);
  int	MM_int_GetRangeID( tPAddr Addr );
 
 // === GLOBALS ===

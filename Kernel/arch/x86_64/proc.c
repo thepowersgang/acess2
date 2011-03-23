@@ -42,9 +42,7 @@ extern int	giNextTID;
 extern int	giTotalTickets;
 extern int	giNumActiveThreads;
 extern tThread	gThreadZero;
-//extern tThread	*Threads_GetNextToRun(int CPU);
 extern void	Threads_Dump(void);
-extern tThread	*Threads_CloneTCB(Uint *Err, Uint Flags);
 extern void	Proc_ReturnToUser(void);
 extern int	GetCPUNum(void);
 
@@ -54,11 +52,15 @@ void	ArchThreads_Init(void);
 void	MP_StartAP(int CPU);
 void	MP_SendIPI(Uint8 APICID, int Vector, int DeliveryMode);
 #endif
-void	Proc_Start(void);
-tThread	*Proc_GetCurThread(void);
+//void	Proc_Start(void);
+//tThread	*Proc_GetCurThread(void);
 void	Proc_ChangeStack(void);
- int	Proc_Clone(Uint *Err, Uint Flags);
+// int	Proc_Clone(Uint *Err, Uint Flags);
+// int	Proc_SpawnWorker(void);
+Uint	Proc_MakeUserStack(void);
+void	Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **EnvP, int DataSize);
 void	Proc_StartProcess(Uint16 SS, Uint Stack, Uint Flags, Uint16 CS, Uint IP);
+ int	Proc_Demote(Uint *Err, int Dest, tRegs *Regs);
 void	Proc_CallFaultHandler(tThread *Thread);
 void	Proc_Scheduler(int CPU);
 
@@ -304,7 +306,10 @@ void ArchThreads_Init(void)
 	outb(0x40, (TIMER_DIVISOR>>8)&0xFF);	// High Byte
 	
 	// Create Per-Process Data Block
-	MM_Allocate(MM_PPD_CFG);
+	if( !MM_Allocate(MM_PPD_CFG) )
+	{
+		Warning("Oh, hell, Unable to allocate PPD for Thread#0");
+	}
 	
 	// Change Stacks
 	Proc_ChangeStack();
@@ -386,7 +391,7 @@ void Proc_Start(void)
 	if(Proc_Clone(0, 0) == 0)
 	{
 		gaCPUs[0].IdleThread = Proc_GetCurThread();
-		gaCPUs[0].IdleThread->ThreadName = "Idle Thread";
+		gaCPUs[0].IdleThread->ThreadName = (char*)"Idle Thread";
 		Threads_SetPriority( gaCPUs[0].IdleThread, -1 );	// Never called randomly
 		gaCPUs[0].IdleThread->Quantum = 1;	// 1 slice quantum
 		for(;;)	HALT();	// Just yeilds
@@ -611,8 +616,17 @@ Uint Proc_MakeUserStack(void)
 	if(i != -1)	return 0;
 	
 	// Allocate Stack - Allocate incrementally to clean up MM_Dump output
-	for( i = 0; i < USER_STACK_SZ/4069; i++ )
-		MM_Allocate( base + (i<<12) );
+	for( i = 0; i < USER_STACK_SZ/0x1000; i++ )
+	{
+		if( !MM_Allocate( base + (i<<12) ) )
+		{
+			// Error
+			Log_Error("Proc", "Unable to allocate user stack (%i pages requested)", USER_STACK_SZ/0x1000);
+			while( i -- )
+				MM_Deallocate( base + (i<<12) );
+			return 0;
+		}
+	}
 	
 	return base + USER_STACK_SZ;
 }

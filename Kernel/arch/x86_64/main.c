@@ -3,6 +3,7 @@
  */
 #include <acess.h>
 #include <mboot.h>
+#include <init.h>
 
 // === IMPORTS ===
 extern void	Desctab_Init(void);
@@ -15,6 +16,7 @@ extern void	System_Init(char *Commandline);
 extern void	MM_InitPhys_Multiboot(tMBoot_Info *MBoot);
 
 // === PROTOTYPES ===
+void	kmain(Uint MbMagic, void *MbInfoPtr);
 
 // === GLOBALS ==
 char	*gsBootCmdLine = NULL;
@@ -81,7 +83,7 @@ void Arch_LoadBootModules(void)
 	
 }
 
-void StartupPrint(char *String)
+void StartupPrint(const char *String)
 {
 	
 }
