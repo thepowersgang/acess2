@@ -13,21 +13,21 @@ CPPFLAGS	=
 CFLAGS		=
 ASFLAGS		= -f elf
 
+USE_MP=0
+USE_PAE=0
+
 ifeq ($(ARCH),i386)
-	ASFLAGS += -D USE_MP=0 -D USE_PAE=0
-	CPPFLAGS += -DUSE_MP=0 -DUSE_PAE=0
-else
-	ifeq ($(ARCH),i486)
-		ASFLAGS += -D USE_MP=1 -D USE_PAE=0
-		CPPFLAGS += -DUSE_MP=1 -DUSE_PAE=0
-	else
-		ifeq ($(ARCH),i586)
-			ASFLAGS += -D USE_MP=1 -D USE_PAE=1
-			CPPFLAGS += -DUSE_MP=1 -DUSE_PAE=1
-		endif
-	endif
+	USE_MP=0
+	USE_PAE=0
+else ifeq ($(ARCH),i486)
+	USE_MP=1
+else ifeq ($(ARCH),i586)
+	USE_MP=1
+	USE_PAE=1
 endif
-	
+
+ASFLAGS += -D USE_MP=$(USE_MP) -D USE_PAE=$(USE_PAE)
+CPPFLAGS += -DUSE_MP=$(USE_MP) -DUSE_PAE=$(USE_PAE)
 
 A_OBJ  = start.ao main.o lib.o desctab.ao errors.o irq.o
 A_OBJ += mm_phys.o mm_virt.o

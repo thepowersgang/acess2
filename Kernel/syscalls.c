@@ -8,6 +8,7 @@
 #include <syscalls.h>
 #include <proc.h>
 #include <errno.h>
+#include <threads.h>
 
 #define CHECK_NUM_NULLOK(v,size)	\
 	if((v)&&!Syscall_Valid((size),(Uint)(v))){ret=-1;err=-EINVAL;break;}

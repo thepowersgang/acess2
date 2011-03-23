@@ -62,6 +62,11 @@ void *Heap_Extend(int Bytes)
 	if( (tVAddr)gHeapEnd == MM_KHEAP_MAX )
 		return NULL;
 	
+	if( Bytes == 0 ) {
+		Log_Warning("Heap", "Heap_Extend called with Bytes=%i", Bytes);
+		return NULL;
+	}
+	
 	// Bounds Check
 	if( (tVAddr)gHeapEnd + ((Bytes+0xFFF)&~0xFFF) > MM_KHEAP_MAX ) {
 		Bytes = MM_KHEAP_MAX - (tVAddr)gHeapEnd;
@@ -314,7 +319,7 @@ void Heap_Deallocate(void *Ptr)
 	}
 	if(head->Magic != MAGIC_USED) {
 		Log_Warning("Heap", "free - Magic value is invalid (%p, 0x%x)", head, head->Magic);
-		Log_Notice("Heap", "Allocated %s:%i", head->File, head->Line);
+		Log_Notice("Heap", "Allocated by %s:%i", head->File, head->Line);
 		return;
 	}
 	
@@ -322,12 +327,12 @@ void Heap_Deallocate(void *Ptr)
 	foot = (void*)( (Uint)head + head->Size - sizeof(tHeapFoot) );
 	if(foot->Head != head) {
 		Log_Warning("Heap", "free - Footer backlink is incorrect (%p, 0x%x)", head, foot->Head);
-		Log_Notice("Heap", "Allocated %s:%i", head->File, head->Line);
+		Log_Notice("Heap", "Allocated by %s:%i", head->File, head->Line);
 		return;
 	}
 	if(foot->Magic != MAGIC_FOOT) {
 		Log_Warning("Heap", "free - Footer magic is invalid (%p, %p = 0x%x)", head, &foot->Magic, foot->Magic);
-		Log_Notice("Heap", "Allocated %s:%i", head->File, head->Line);
+		Log_Notice("Heap", "Allocated by %s:%i", head->File, head->Line);
 		return;
 	}
 	
@@ -561,7 +566,7 @@ void Heap_Dump(void)
 		return ;
 
 	#if !VERBOSE_DUMP
-	Log_Log("Heap", "%p (0x%llx): 0x%08lx (%i) %4C",
+	Log_Log("Heap", "%p (0x%llx): 0x%08lx %i %4C",
 		head, MM_GetPhysAddr((Uint)head), head->Size, head->ValidSize, &head->Magic);
 	Log_Log("Heap", "%p %4C", foot->Head, &foot->Magic);
 	if(head->File) {

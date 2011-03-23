@@ -28,7 +28,7 @@
  */
 enum eTplJoystick_IOCtl {
 	/**
-	 * ioctl(..., struct{int Ident;tKeybardCallback *Callback})
+	 * ioctl(..., struct{int Ident;tJoystickCallback *Callback})
 	 * \brief Sets the callback
 	 * \note Can be called from kernel mode only
 	 *

@@ -70,14 +70,14 @@ $(BIN): $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile
 	@$(STRIP) $(BIN)
 
 %.ao.$(ARCH): %.asm Makefile
-	@echo --- NASM -o $@
+	@echo --- AS -o $@
 	@$(AS) $(ASFLAGS) $< -o $@
 
 %.o.$(ARCH): %.c Makefile
 #	if exists %*/Makefile
 #	@make -C %*/ all
 #	else
-	@echo --- GCC -o $@
+	@echo --- CC -o $@
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $<
 	@$(MAKEDEP) $(CPPFLAGS) -MT $@ -o $*.d.$(ARCH) $<
 #	endif

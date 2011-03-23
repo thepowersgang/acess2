@@ -28,7 +28,6 @@ extern void	System_Init(char *Commandline);
 
 // === PROTOTYPES ===
  int	kmain(Uint MbMagic, void *MbInfoPtr);
-void	Arch_LoadBootModules(void);
 
 // === GLOBALS ===
 char	*gsBootCmdLine = NULL;
