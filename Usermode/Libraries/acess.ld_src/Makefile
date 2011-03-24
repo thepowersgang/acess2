@@ -17,6 +17,6 @@ clean:
 
 install: $(BIN)
 
-$(BIN):	acess.ld.h
+$(BIN):	acess_$(ARCHDIR).ld.h
 	@mkdir -p $(dir $(BIN))
 	cpp -nostdinc -U i386 -P -C $< -o $@ -D__LIBDIR=$(OUTPUTDIR)Libs

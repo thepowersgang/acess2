@@ -144,7 +144,8 @@ EXPORT char *strrchr(const char *str, int character)
 	i = strlen(str)-1;
 	while(i--)
 	{
-		if(str[i] == character)	return &str[i];
+		if(str[i] == character)
+			return (void*)&str[i];
 	}
 	return NULL;
 }
@@ -237,7 +238,7 @@ EXPORT void *memchr(const void *ptr, int value, size_t num)
 	while(num--)
 	{
 		if( *(const unsigned char*)ptr == (unsigned char)value )
-			return ptr;
+			return (void*)ptr;
 		ptr ++;
 	}
 	return NULL;

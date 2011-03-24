@@ -148,12 +148,16 @@ EXPORT int fseek(FILE *fp, long int amt, int whence)
  */
 EXPORT int vfprintf(FILE *fp, const char *format, va_list args)
 {
-	va_list	tmpList = args;
+	va_list	tmpList;
 	 int	size;
 	char	sbuf[1024];
 	char	*buf = sbuf;
-	 
+ 
+
+
 	if(!fp || !format)	return -1;
+
+	va_copy(tmpList, args);
 	
 	size = vsnprintf(sbuf, 1024, (char*)format, tmpList);
 	
