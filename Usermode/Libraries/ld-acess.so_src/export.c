@@ -6,11 +6,11 @@
 
 #define _STR(x)	#x
 #define STR(x)	_STR(x)
-#define EXP(sym)	{(Uint)&sym, STR(sym)}
+#define EXP(sym)	{&sym, STR(sym)}
 
 // === CONSTANTS ===
 const struct {
-	Uint	Value;
+	void	*Value;
 	char	*Name;
 }	caLocalExports[] = {
 	EXP(gLoadedLibraries),

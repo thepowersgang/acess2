@@ -13,12 +13,12 @@
 #endif
 
 // === PROTOTYPES ===
-Uint	IsFileLoaded(char *file);
- int	GetSymbolFromBase(Uint base, char *name, Uint *ret);
+void	*IsFileLoaded(char *file);
+ int	GetSymbolFromBase(void *base, char *name, void **ret);
 
 // === IMPORTS ===
 extern const struct {
-	Uint	Value;
+	void	*Value;
 	char	*Name;
 }	caLocalExports[];
 extern const int	ciNumLocalExports;
@@ -54,12 +54,12 @@ char *FindLibrary(char *DestBuf, char *SoName, char *ExtraSearchDir)
 
 /**
  */
-Uint LoadLibrary(char *SoName, char *SearchDir, char **envp)
+void *LoadLibrary(char *SoName, char *SearchDir, char **envp)
 {
 	char	sTmpName[1024];
 	char	*filename;
-	Uint	iArg;
-	void	(*fEntry)(int, int, char *[], char**);
+	void	*base;
+	void	(*fEntry)(void *, int, char *[], char**);
 	
 	DEBUGS("LoadLibrary: (filename='%s', envp=0x%x)\n", filename, envp);
 	
@@ -71,34 +71,34 @@ Uint LoadLibrary(char *SoName, char *SearchDir, char **envp)
 	}
 	DEBUGS(" LoadLibrary: filename='%s'\n", filename);
 	
-	if( (iArg = IsFileLoaded(filename)) )
-		return iArg;
+	if( (base = IsFileLoaded(filename)) )
+		return base;
 	
 	// Load Library
-	iArg = SysLoadBin(filename, (Uint*)&fEntry);
-	if(iArg == 0) {
+	base = SysLoadBin(filename, (void**)&fEntry);
+	if(!base) {
 		DEBUGS("LoadLibrary: RETURN 0\n");
 		return 0;
 	}
 	
-	DEBUGS(" LoadLibrary: iArg=0x%x, iEntry=0x%x\n", iArg, fEntry);
+	DEBUGS(" LoadLibrary: iArg=%p, iEntry=0x%x\n", base, fEntry);
 	
 	// Load Symbols
-	fEntry = (void*)DoRelocate( iArg, envp, filename );
+	fEntry = DoRelocate( base, envp, filename );
 	
 	// Call Entrypoint
 	DEBUGS(" LoadLibrary: '%s' Entry 0x%x\n", SoName, fEntry);
-	fEntry(iArg, 0, NULL, envp);
+	fEntry(base, 0, NULL, envp);
 	
 	DEBUGS("LoadLibrary: RETURN 1\n");
-	return iArg;
+	return base;
 }
 
 /**
  * \fn Uint IsFileLoaded(char *file)
  * \brief Determine if a file is already loaded
  */
-Uint IsFileLoaded(char *file)
+void *IsFileLoaded(char *file)
 {
 	 int	i;
 	DEBUGS("IsFileLoaded: (file='%s')", file);
@@ -119,7 +119,7 @@ Uint IsFileLoaded(char *file)
  * \fn void AddLoaded(char *File, Uint base)
  * \brief Add a file to the loaded list
  */
-void AddLoaded(char *File, Uint base)
+void AddLoaded(char *File, void *base)
 {
 	 int	i, length;
 	char	*name = gsNextAvailString;
@@ -155,7 +155,7 @@ void AddLoaded(char *File, Uint base)
 /**
  * \fn void Unload(Uint Base)
  */
-void Unload(Uint Base)
+void Unload(void *Base)
 {	
 	 int	i, j;
 	 int	id;
@@ -195,10 +195,10 @@ void Unload(Uint Base)
  \fn Uint GetSymbol(char *name)
  \brief Gets a symbol value from a loaded library
 */
-Uint GetSymbol(char *name)
+void *GetSymbol(char *name)
 {
 	 int	i;
-	Uint	ret;
+	void	*ret;
 	
 	//SysDebug("ciNumLocalExports = %i", ciNumLocalExports);
 	for(i=0;i<ciNumLocalExports;i++)
@@ -223,7 +223,7 @@ Uint GetSymbol(char *name)
  \fn int GetSymbolFromBase(Uint base, char *name, Uint *ret)
  \breif Gets a symbol from a specified library
 */
-int GetSymbolFromBase(Uint base, char *name, Uint *ret)
+int GetSymbolFromBase(void *base, char *name, void **ret)
 {
 	if(*(Uint32*)base == (0x7F|('E'<<8)|('L'<<16)|('F'<<24)))
 		return ElfGetSymbol(base, name, ret);

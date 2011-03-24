@@ -3,6 +3,7 @@
  * Portable Executable Loader
  */
 #include "common.h"
+#include <stdint.h>
 #include "pe.h"
 
 #define PE_DEBUG	0
@@ -20,7 +21,7 @@
 // === PROTOTYPES ===
  int	PE_Relocate(void *Base, char **envp, char *Filename);
 char	*PE_int_GetTrueFile(char *file);
- int	PE_int_GetForwardSymbol(char *Fwd, Uint *Value);
+ int	PE_int_GetForwardSymbol(char *Fwd, void **Value);
 
 // === CODE ===
 int PE_Relocate(void *Base, char *envp[], char *Filename)
@@ -32,8 +33,8 @@ int PE_Relocate(void *Base, char *envp[], char *Filename)
 	tPE_HINT_NAME	*name;
 	Uint32	*importTab, *aIAT;
 	 int	i, j;
-	Uint	iBase = (Uint)Base;
-	Uint	iLibBase;
+	intptr_t	iBase = (intptr_t)Base;
+	void	*pLibBase;
 	
 	DEBUGS("PE_Relocate: (Base=0x%x)\n", Base);
 	
@@ -49,12 +50,12 @@ int PE_Relocate(void *Base, char *envp[], char *Filename)
 		impDir[i].ImportLookupTable += iBase/4;
 		impDir[i].ImportAddressTable += iBase/4;
 		DEBUGS(" PE_Relocate: DLL Required '%s'(0x%x)\n", impDir[i].DLLName, impDir[i].DLLName);
-		iLibBase = LoadLibrary(PE_int_GetTrueFile(impDir[i].DLLName), DLL_BASE_PATH, envp);
-		if(iLibBase == 0) {
+		pLibBase = LoadLibrary(PE_int_GetTrueFile(impDir[i].DLLName), DLL_BASE_PATH, envp);
+		if(pLibBase == 0) {
 			SysDebug("Unable to load required library '%s'\n", impDir[i].DLLName);
 			return 0;
 		}
-		DEBUGS(" PE_Relocate: Loaded as 0x%x\n", iLibBase);
+		DEBUGS(" PE_Relocate: Loaded as 0x%x\n", pLibBase);
 		importTab = impDir[i].ImportLookupTable;
 		aIAT = impDir[i].ImportAddressTable;
 		for( j = 0; importTab[j] != 0; j++ )
@@ -63,12 +64,14 @@ int PE_Relocate(void *Base, char *envp[], char *Filename)
 				DEBUGS(" PE_Relocate: Import Ordinal %i\n", importTab[j] & 0x7FFFFFFF);
 			else
 			{
+				void	*symPtr = 0;
 				name = (void*)( iBase + importTab[j] );
 				DEBUGS(" PE_Relocate: Import Name '%s', Hint 0x%x\n", name->Name, name->Hint);
-				if( GetSymbolFromBase(iLibBase, name->Name, (Uint*)&aIAT[j]) == 0 ) {
+				if( GetSymbolFromBase(pLibBase, name->Name, symPtr) == 0 ) {
 					SysDebug("Unable to find symbol '%s' in library '%s'\n", name->Name, impDir[i].DLLName);
 					return 0;
 				}
+				aIAT[j] = (intptr_t)symPtr;
 			}
 		}
 	}
@@ -88,9 +91,9 @@ int PE_Relocate(void *Base, char *envp[], char *Filename)
 /**
  * \fn int PE_GetSymbol(Uint Base, char *Name, Uint *Ret)
  */
-int PE_GetSymbol(Uint Base, char *Name, Uint *Ret)
+int PE_GetSymbol(void *Base, char *Name, void **Ret)
 {
-	tPE_DOS_HEADER		*dosHdr = (void*)Base;
+	tPE_DOS_HEADER		*dosHdr = Base;
 	tPE_IMAGE_HEADERS	*peHeaders;
 	tPE_DATA_DIR	*directory;
 	tPE_EXPORT_DIR	*expDir;
@@ -99,7 +102,7 @@ int PE_GetSymbol(Uint Base, char *Name, Uint *Ret)
 	 int	i;
 	 int	symbolCount;
 	char	*name;
-	Uint	retVal;
+	intptr_t	retVal;
 	Uint	expLen;
 	
 	peHeaders = (void*)( Base + dosHdr->PeHdrOffs );
@@ -118,14 +121,14 @@ int PE_GetSymbol(Uint Base, char *Name, Uint *Ret)
 		//DEBUGS(" PE_GetSymbol: '%s' = 0x%x\n", name, Base + addrTable[ ordTable[i] ]);
 		if(strcmp(name, Name) == 0)
 		{
-			retVal = Base + addrTable[ ordTable[i] ];
+			retVal = (intptr_t) Base + addrTable[ ordTable[i] ];
 			// Check for forwarding
-			if((Uint)expDir < retVal && retVal < (Uint)expDir + expLen) {
+			if( (intptr_t)expDir < retVal && retVal < (intptr_t)expDir + expLen) {
 				char *fwd = (char*)retVal;
 				DEBUGS(" PE_GetSymbol: '%s' forwards to '%s'\n", name, fwd);
 				return PE_int_GetForwardSymbol(fwd, Ret);
 			}
-			*Ret = retVal;
+			*Ret = (void*)retVal;
 			return 1;
 		}
 	}
@@ -149,12 +152,12 @@ char *PE_int_GetTrueFile(char *file)
 	return &file[1];
 }
 
-int PE_int_GetForwardSymbol(char *Fwd, Uint *Value)
+int PE_int_GetForwardSymbol(char *Fwd, void **Value)
 {
 	char	*libname;
 	char	*sym;
 	 int	i;
-	Uint	libbase;
+	void	*libbase;
 	 int	ret;
 	
 	// -- Find seperator

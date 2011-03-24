@@ -29,7 +29,7 @@ typedef signed short	Sint16;
 typedef signed long		Sint32;
 
 typedef struct {
-	Uint	Base;
+	void	*Base;
 	char	*Name;
 }	tLoadedLib;
 
@@ -37,13 +37,13 @@ typedef struct {
 extern tLoadedLib	gLoadedLibraries[MAX_LOADED_LIBRARIES];
 
 // === Main ===
-extern int	DoRelocate( Uint base, char **envp, char *Filename );
+extern void	*DoRelocate(void *Base, char **envp, char *Filename);
 
 // === Library/Symbol Manipulation ==
-extern Uint	LoadLibrary(char *filename, char *SearchDir, char **envp);
-extern void	AddLoaded(char *File, Uint base);
-extern Uint	GetSymbol(char *name);
-extern int	GetSymbolFromBase(Uint base, char *name, Uint *ret);
+extern void	*LoadLibrary(char *filename, char *SearchDir, char **envp);
+extern void	AddLoaded(char *File, void *base);
+extern void	*GetSymbol(char *name);
+extern int	GetSymbolFromBase(void *base, char *name, void **ret);
 
 // === Library Functions ===
 extern char	*strcpy(char *dest, const char *src);
@@ -56,16 +56,16 @@ extern int	file_exists(char *filename);
 extern void	_exit(int retval);
 extern void	SysDebug(const char *fmt, ...);	//!< Now implemented in main.c
 extern void	SysDebugV(const char *fmt, ...);
-extern Uint	SysLoadBin(const char *path, Uint *entry);
-extern Uint	SysUnloadBin(Uint Base);
+extern void	*SysLoadBin(const char *path, void **entry);
+extern int	SysUnloadBin(void *Base);
 extern void	SysSetFaultHandler(int (*Hanlder)(int));
 extern int	open(const char *filename, int flags);
 extern void	close(int fd);
 
 // === ELF Loader ===
-extern int	ElfGetSymbol(Uint Base, char *name, Uint *ret);
+extern int	ElfGetSymbol(void *Base, char *name, void **ret);
 
 // === PE Loader ===
-extern int	PE_GetSymbol(Uint Base, char *Name, Uint *ret);
+extern int	PE_GetSymbol(void *Base, char *Name, void **ret);
 
 #endif

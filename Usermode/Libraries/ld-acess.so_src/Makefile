@@ -5,7 +5,7 @@
 -include ../Makefile.cfg
 
 OBJ := main.o lib.o loadlib.o export.o elf.o pe.o
-OBJ += core.ao vfs.ao mm.ao
+OBJ += arch/$(ARCHDIR).ao
 BIN = ld-acess.so
 EXTRABIN := libld-acess.so
 
@@ -16,7 +16,20 @@ LDFLAGS  = -T link.ld -Map map.txt --export-dynamic
 
 include ../Makefile.tpl
 
+# create libld-acess.so
 $(_XBIN): $(_BIN)
 	@echo [LD] -o -shared libld-acess.so
 	@$(LD) $(LDFLAGS) -shared -o $@ $(OBJ)
+
+# Override .ao to look in the object prefix for the source
+%.ao: %.asm
+	@echo [AS] -o $@
+	@mkdir -p $(dir $@)
+	@$(AS) $(ASFLAGS) -o $@ $<
+
+# Preprocessing objects if needed
+$(_OBJPREFIX)%: %.h
+	@echo [CPP] -o $@
+	@mkdir -p $(dir $@)
+	@$(CPP) $(CPPFLAGS) -P -D_ASM_ $< -o $@
 
