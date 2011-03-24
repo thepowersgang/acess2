@@ -50,7 +50,7 @@ tGlyph	*_SystemFont_CacheGlyph(tFont *Font, uint32_t Codepoint);
 
 // === GLOBALS ===
 tFont	gSystemFont = {
-	CacheGlyph: _SystemFont_CacheGlyph
+	.CacheGlyph = _SystemFont_CacheGlyph
 };
 
 // === CODE ===

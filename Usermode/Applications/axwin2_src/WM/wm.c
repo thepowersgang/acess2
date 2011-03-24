@@ -26,7 +26,7 @@ void	WM_Update(void);
 
 // === GLOBALS ===
 tElement	gWM_RootElement = {
-	DebugName: "ROOT"
+	.DebugName = "ROOT"
 };
 struct {
 	void	(*Init)(tElement *This);
