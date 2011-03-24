@@ -100,7 +100,6 @@ int main(int argc, char *argv[], char *envp[])
 int OpenTCP(const char *AddressString, short PortNumber)
 {
 	 int	fd, addrType;
-	char	*iface;
 	uint8_t	addrBuffer[16];
 	
 	// Parse IP Address

@@ -2,10 +2,14 @@
 # - Library Common Makefile
 #
 
-DEPFILES := $(addsuffix .d,$(OBJ))
 
 _BIN := $(OUTPUTDIR)Libs/$(BIN)
 _XBIN := $(addprefix $(OUTPUTDIR)Libs/,$(EXTRABIN))
+_OBJPREFIX := obj-$(ARCH)/
+
+OBJ := $(addprefix $(_OBJPREFIX),$(OBJ))
+
+DEPFILES := $(addsuffix .dep,$(OBJ))
 
 .PHONY: all clean install postbuild
 
@@ -24,14 +28,16 @@ $(_BIN): $(OBJ)
 	@$(LD) $(LDFLAGS) -o $(_BIN) $(OBJ)
 	@$(OBJDUMP) -d -S $(_BIN) > $(_BIN).dsm
 
-%.o: %.c
+$(_OBJPREFIX)%.o: %.c
 	@echo [CC] -o $@
+	@mkdir -p $(dir $@)
 	@$(CC) $(CFLAGS) -o $@ -c $<
-	@$(CC) -M -MT $@ $(CPPFLAGS) $< -o $@.d
+	@$(CC) -M -MT $@ $(CPPFLAGS) $< -o $@.dep
 
-%.ao: %.asm
+$(_OBJPREFIX)%.ao: %.asm
 	@echo [AS] -o $@
+	@mkdir -p $(dir $@)
 	@$(AS) $(ASFLAGS) -o $@ $<
-	@$(AS) $(ASFLAGS) -o $@ $< -M > $@.d
+	@$(AS) $(ASFLAGS) -o $@ $< -M > $@.dep
 
 -include $(DEPFILES)

@@ -6,9 +6,12 @@
 CFLAGS  += -Wall -Werror -fno-builtin -fno-stack-protector -g
 LDFLAGS += 
 
-DEPFILES := $(OBJ:%.o=%.d)
-
 _BIN := $(OUTPUTDIR)$(DIR)/$(BIN)
+_OBJPREFIX := obj-$(ARCH)/
+
+OBJ := $(addprefix $(_OBJPREFIX),$(OBJ))
+
+DEPFILES := $(OBJ:%.o=%.dep)
 
 .PHONY : all clean install
 
@@ -31,9 +34,12 @@ else
 endif
 	@objdump -d -S $(_BIN) > $(BIN).dsm
 
-$(OBJ): %.o: %.c
+$(OBJ): $(_OBJPREFIX)%.o: %.c
 	@echo --- GCC -o $@
+ifneq ($(_OBJPREFIX),)
+	@mkdir -p $(_OBJPREFIX)
+endif
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
-	@$(CC) -M -MT $@ $(CPPFLAGS) $< -o $*.d
+	@$(CC) -M -MT $@ $(CPPFLAGS) $< -o $(_OBJPREFIX)$*.dep
 
 -include $(DEPFILES)
