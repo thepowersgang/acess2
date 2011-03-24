@@ -12,13 +12,14 @@
 Uint64 DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
 	tDrvUtil_Video_2DHandlers *Handlers, int SizeofHandlers)
 {
-	Uint8	*stream = Buffer;
+	void	*stream = Buffer;
 	 int	rem = Length;
 	 int	op;
 	while( rem )
 	{
 		rem --;
-		op = *stream++;
+		op = *(Uint8*)stream;
+		stream = (void*)((tVAddr)stream + 1);
 		
 		if(op > NUM_VIDEO_2DOPS) {
 			Log_Warning("DrvUtil", "DrvUtil_Video_2DStream: Unknown"
@@ -46,17 +47,17 @@ Uint64 DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
 			
 			Handlers->Fill(
 				Ent,
-				*(Uint16*)(&stream[0]), *(Uint16*)(&stream[2]),
-				*(Uint16*)(&stream[4]), *(Uint16*)(&stream[6]),
-				*(Uint32*)(&stream[8])
+				((Uint16*)stream)[0], ((Uint16*)stream)[1],
+				((Uint16*)stream)[2], ((Uint16*)stream)[3],
+				((Uint32*)stream)[4]
 				);
 			
 			rem -= 12;
-			stream += 12;
+			stream = (void*)((tVAddr)stream + 12);
 			break;
 		
 		case VIDEO_2DOP_BLIT:
-			if(rem < 12)	return Length-rem;
+			if(rem < 16)	return Length-rem;
 			
 			if(!Handlers->Blit) {
 				Log_Warning("DrvUtil", "DrvUtil_Video_2DStream: Driver"
@@ -64,21 +65,15 @@ Uint64 DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
 				return Length-rem;
 			}
 			
-			//Log("Handlers->Blit{%}}(%p, %i,%i, %i,%i, %i,%i)",
-			//	Handlers->Blit, Ent,
-			//	*(Uint16*)(&stream[0]), *(Uint16*)(&stream[2]),
-			//	*(Uint16*)(&stream[4]), *(Uint16*)(&stream[6]),
-			//	*(Uint16*)(&stream[8]), *(Uint16*)(&stream[10])
-			//	);
 			Handlers->Blit(
 				Ent,
-				*(Uint16*)(&stream[0]), *(Uint16*)(&stream[2]),
-				*(Uint16*)(&stream[4]), *(Uint16*)(&stream[6]),
-				*(Uint16*)(&stream[8]), *(Uint16*)(&stream[10])
+				((Uint16*)stream)[0], ((Uint16*)stream)[1],
+				((Uint16*)stream)[2], ((Uint16*)stream)[3],
+				((Uint16*)stream)[4], ((Uint16*)stream)[5]
 				);
 			
-			rem -= 12;
-			stream += 12;
+			rem -= 16;
+			stream = (void*)((tVAddr)stream + 16);
 			break;
 		
 		}

@@ -34,18 +34,18 @@ tVFS_Node	*IPStack_Iface_FindDir(tVFS_Node *Node, const char *Name);
 // === GLOBALS ===
 //! Loopback (127.0.0.0/8, ::1) Pseudo-Interface
 tInterface	gIP_LoopInterface = {
-	Node: {
-		ImplPtr: &gIP_LoopInterface,
-		Flags: VFS_FFLAG_DIRECTORY,
-		Size: -1,
-		NumACLs: 1,
-		ACLs: &gVFS_ACL_EveryoneRX,
-		ReadDir: IPStack_Iface_ReadDir,
-		FindDir: IPStack_Iface_FindDir,
-		IOCtl: IPStack_Iface_IOCtl
+	.Node = {
+		.ImplPtr = &gIP_LoopInterface,
+		.Flags = VFS_FFLAG_DIRECTORY,
+		.Size = -1,
+		.NumACLs = 1,
+		.ACLs = &gVFS_ACL_EveryoneRX,
+		.ReadDir = IPStack_Iface_ReadDir,
+		.FindDir = IPStack_Iface_FindDir,
+		.IOCtl = IPStack_Iface_IOCtl
 	},
-	Adapter: NULL,
-	Type: 0
+	.Adapter = NULL,
+	.Type = 0
 };
 tShortSpinlock	glIP_Interfaces;
 tInterface	*gIP_Interfaces = NULL;
@@ -54,8 +54,8 @@ tInterface	*gIP_Interfaces_Last = NULL;
 tSocketFile	*gIP_FileTemplates;
 
 tAdapter	gIP_LoopAdapter = {
-	DeviceLen: 8,
-	Device: "LOOPBACK"
+	.DeviceLen = 8,
+	.Device = "LOOPBACK"
 	};
 tMutex	glIP_Adapters;
 tAdapter	*gIP_Adapters = NULL;

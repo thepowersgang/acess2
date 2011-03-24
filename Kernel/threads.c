@@ -81,11 +81,11 @@ void	Mutex_Release(tMutex *Mutex);
 // -- Core Thread --
 // Only used for the core kernel
 tThread	gThreadZero = {
-	Status: THREAD_STAT_ACTIVE,	// Status
-	ThreadName:	(char*)"ThreadZero",	// Name
-	Quantum: DEFAULT_QUANTUM,	// Default Quantum
-	Remaining:	DEFAULT_QUANTUM,	// Current Quantum
-	Priority:	DEFAULT_PRIORITY	// Number of tickets
+	.Status 	= THREAD_STAT_ACTIVE,	// Status
+	.ThreadName	= (char*)"ThreadZero",	// Name
+	.Quantum	= DEFAULT_QUANTUM,	// Default Quantum
+	.Remaining	= DEFAULT_QUANTUM,	// Current Quantum
+	.Priority	= DEFAULT_PRIORITY	// Number of tickets
 	};
 // -- Processes --
 // --- Locks ---

@@ -32,13 +32,13 @@ tRoute	*IPStack_FindRoute(int AddressType, tInterface *Interface, void *Address)
 tRoute	*gIP_Routes;
 tRoute	*gIP_RoutesEnd;
 tVFS_Node	gIP_RouteNode = {
-	Flags: VFS_FFLAG_DIRECTORY,
-	Size: -1,
-	NumACLs: 1,
-	ACLs: &gVFS_ACL_EveryoneRX,
-	ReadDir: IPStack_RouteDir_ReadDir,
-	FindDir: IPStack_RouteDir_FindDir,
-	IOCtl: IPStack_RouteDir_IOCtl
+	.Flags = VFS_FFLAG_DIRECTORY,
+	.Size = -1,
+	.NumACLs = 1,
+	.ACLs = &gVFS_ACL_EveryoneRX,
+	.ReadDir = IPStack_RouteDir_ReadDir,
+	.FindDir = IPStack_RouteDir_FindDir,
+	.IOCtl = IPStack_RouteDir_IOCtl
 };
 
 // === CODE ===
