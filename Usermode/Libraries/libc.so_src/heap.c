@@ -17,12 +17,12 @@ typedef unsigned int Uint;
 
 // === TYPES ===
 typedef struct {
-	Uint	magic;
-	Uint	size;
+	uint32_t	magic;
+	size_t	size;
 }	heap_head;
 typedef struct {
 	heap_head	*header;
-	Uint	magic;
+	uint32_t	magic;
 }	heap_foot;
 
 // === LOCAL VARIABLES ===
@@ -33,11 +33,11 @@ static void	*_heap_end = NULL;
 EXPORT void	*malloc(size_t bytes);
 EXPORT void	*calloc(size_t bytes, size_t count);
 EXPORT void	free(void *mem);
-EXPORT void	*realloc(void *mem, Uint bytes);
+EXPORT void	*realloc(void *mem, size_t bytes);
 EXPORT void	*sbrk(int increment);
 LOCAL void	*extendHeap(int bytes);
-static void *FindHeapBase();
-LOCAL uint	brk(Uint newpos);
+static void	*FindHeapBase();
+LOCAL uint	brk(uintptr_t newpos);
 
 //Code
 
@@ -49,9 +49,9 @@ LOCAL uint	brk(Uint newpos);
 */
 EXPORT void *malloc(size_t bytes)
 {
-	Uint	bestSize;
-	Uint	closestMatch = 0;
-	Uint	bestMatchAddr = 0;
+	size_t	bestSize;
+	size_t	closestMatch = 0;
+	void	*bestMatchAddr = 0;
 	heap_head	*curBlock;
 	
 	// Initialise Heap
@@ -67,7 +67,7 @@ EXPORT void *malloc(size_t bytes)
 	bestSize = bytes + sizeof(heap_head) + sizeof(heap_foot) + BLOCK_SIZE - 1;
 	bestSize = (bestSize/BLOCK_SIZE)*BLOCK_SIZE;	//Round up to block size
 	
-	while((Uint)curBlock < (Uint)_heap_end)
+	while( (uintptr_t)curBlock < (uintptr_t)_heap_end)
 	{
 		//_SysDebug(" malloc: curBlock = 0x%x, curBlock->magic = 0x%x\n", curBlock, curBlock->magic);
 		if(curBlock->magic == MAGIC_FREE)
@@ -76,7 +76,7 @@ EXPORT void *malloc(size_t bytes)
 				break;
 			if(bestSize < curBlock->size && (curBlock->size < closestMatch || closestMatch == 0)) {
 				closestMatch = curBlock->size;
-				bestMatchAddr = (Uint)curBlock;
+				bestMatchAddr = curBlock;
 			}
 		}
 		else if(curBlock->magic != MAGIC)
@@ -85,18 +85,18 @@ EXPORT void *malloc(size_t bytes)
 			_SysDebug("malloc: Corrupt Heap\n");
 			return NULL;
 		}
-		curBlock = (heap_head*)((Uint)curBlock + curBlock->size);
+		curBlock = (heap_head*)((uintptr_t)curBlock + curBlock->size);
 	}
 	
-	if((Uint)curBlock < (Uint)_heap_start) {
+	if((uintptr_t)curBlock < (uintptr_t)_heap_start) {
 		_SysDebug("malloc: Heap underrun for some reason\n");
 		return NULL;
 	}
 	
 	//Found a perfect match
-	if((Uint)curBlock < (Uint)_heap_end) {
+	if((uintptr_t)curBlock < (uintptr_t)_heap_end) {
 		curBlock->magic = MAGIC;
-		return (void*)((Uint)curBlock + sizeof(heap_head));
+		return (void*)((uintptr_t)curBlock + sizeof(heap_head));
 	}
 	
 	//Out of Heap Space
@@ -107,7 +107,7 @@ EXPORT void *malloc(size_t bytes)
 			return NULL;
 		}
 		curBlock->magic = MAGIC;
-		return (void*)((Uint)curBlock + sizeof(heap_head));
+		return (void*)((uintptr_t)curBlock + sizeof(heap_head));
 	}
 	
 	//Split Block?
@@ -208,7 +208,7 @@ EXPORT void *realloc(void *oldPos, size_t bytes)
 	}
 	
 	//Check for free space after block
-	head = (heap_head*)((Uint)oldPos-sizeof(heap_head));
+	head = (heap_head*)((uintptr_t)oldPos-sizeof(heap_head));
 	
 	//Hack to used free's amagamating algorithym and malloc's splitting
 	free(oldPos);
@@ -219,7 +219,7 @@ EXPORT void *realloc(void *oldPos, size_t bytes)
 		return NULL;
 	
 	//Copy Old Data
-	if((Uint)ret != (Uint)oldPos) {
+	if(ret != oldPos) {
 		memcpy(ret, oldPos, head->size-sizeof(heap_head)-sizeof(heap_foot));
 	}
 	
@@ -254,8 +254,8 @@ LOCAL void *extendHeap(int bytes)
 	foot->magic = MAGIC;
 	
 	//Combine with previous block if nessasary
-	if(_heap_end != _heap_start && ((heap_foot*)((Uint)_heap_end-sizeof(heap_foot)))->magic == MAGIC) {
-		heap_head	*tmpHead = ((heap_foot*)((Uint)_heap_end-sizeof(heap_foot)))->header;
+	if(_heap_end != _heap_start && ((heap_foot*)((uintptr_t)_heap_end-sizeof(heap_foot)))->magic == MAGIC) {
+		heap_head	*tmpHead = ((heap_foot*)((uintptr_t)_heap_end-sizeof(heap_foot)))->header;
 		if(tmpHead->magic == MAGIC_FREE) {
 			tmpHead->size += bytes;
 			foot->header = tmpHead;
@@ -263,7 +263,7 @@ LOCAL void *extendHeap(int bytes)
 		}
 	}
 	
-	_heap_end = (void*) ((Uint)foot+sizeof(heap_foot));
+	_heap_end = (void*) ((uintptr_t)foot+sizeof(heap_foot));
 	return head;
 }
 
@@ -275,13 +275,13 @@ LOCAL void *extendHeap(int bytes)
 */
 EXPORT void *sbrk(int increment)
 {
-	static size_t oldEnd = 0;
-	static size_t curEnd = 0;
+	static uintptr_t oldEnd = 0;
+	static uintptr_t curEnd = 0;
 
 	//_SysDebug("sbrk: (increment=%i)", increment);
 
 	if (curEnd == 0) {
-		oldEnd = curEnd = (size_t)FindHeapBase();
+		oldEnd = curEnd = (uintptr_t)FindHeapBase();
 		//_SysAllocate(curEnd);	// Allocate the first page
 	}
 
@@ -333,8 +333,8 @@ EXPORT int IsHeap(void *ptr)
 	heap_head	*head;
 	heap_foot	*foot;
 	#endif
-	if( (Uint)ptr < (Uint)_heap_start )	return 0;
-	if( (Uint)ptr > (Uint)_heap_end )	return 0;
+	if( (uintptr_t)ptr < (uintptr_t)_heap_start )	return 0;
+	if( (uintptr_t)ptr > (uintptr_t)_heap_end )	return 0;
 	
 	#if 0
 	head = (void*)((Uint)ptr - 4);
@@ -385,9 +385,9 @@ static void *FindHeapBase()
 	#endif
 }
 
-LOCAL uint brk(Uint newpos)
+LOCAL uint brk(uintptr_t newpos)
 {
-	static uint	curpos;
+	static uintptr_t	curpos;
 	uint	pages;
 	uint	ret = curpos;
 	 int	delta;
@@ -395,7 +395,7 @@ LOCAL uint brk(Uint newpos)
 	_SysDebug("brk: (newpos=0x%x)", newpos);
 	
 	// Find initial position
-	if(curpos == 0)	curpos = (uint)FindHeapBase();
+	if(curpos == 0)	curpos = (uintptr_t)FindHeapBase();
 	
 	// Get Current Position
 	if(newpos == 0)	return curpos;

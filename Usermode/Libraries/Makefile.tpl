@@ -26,7 +26,7 @@ $(_BIN): $(OBJ)
 	@mkdir -p $(dir $(_BIN))
 	@echo [LD] -o $(BIN) $(OBJ)
 	@$(LD) $(LDFLAGS) -o $(_BIN) $(OBJ)
-	@$(OBJDUMP) -d -S $(_BIN) > $(_BIN).dsm
+	@$(DISASM) $(_BIN) > $(_BIN).dsm
 
 $(_OBJPREFIX)%.o: %.c
 	@echo [CC] -o $@

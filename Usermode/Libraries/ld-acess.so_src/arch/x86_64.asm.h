@@ -25,7 +25,7 @@ _memcpy:
 	pop rbp
 	ret
 
-[global _errno]
+[global _errno:data 4]
 _errno:	dw	0	; Placed in .text, to allow use of relative addressing
 
 #define SYSCALL0(_name,_num)	SYSCALL0 _name, _num

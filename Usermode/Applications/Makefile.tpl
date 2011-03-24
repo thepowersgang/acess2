@@ -32,7 +32,7 @@ ifneq ($(_DBGMAKEFILE),)
 else
 	@$(LD) -g $(LDFLAGS) -o $@ $(OBJ) -Map Map.txt
 endif
-	@objdump -d -S $(_BIN) > $(BIN).dsm
+	@$(DISASM) $(_BIN) > $(BIN).dsm
 
 $(OBJ): $(_OBJPREFIX)%.o: %.c
 	@echo --- GCC -o $@

@@ -6,6 +6,7 @@
 
 [bits 32]
 [section .data]
+[global _errno:data 4]
 _errno:	dw	0
 
 [section .text]

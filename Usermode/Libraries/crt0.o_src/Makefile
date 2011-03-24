@@ -4,7 +4,6 @@
 
 -include ../Makefile.cfg
 
-ASFLAGS = -felf
 BIN = $(OUTPUTDIR)Libs/crt0.o
 
 .PHONY: all clean install
