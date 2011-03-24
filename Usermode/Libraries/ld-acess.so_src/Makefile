@@ -9,10 +9,9 @@ OBJ += arch/$(ARCHDIR).ao
 BIN = ld-acess.so
 EXTRABIN := libld-acess.so
 
-CFLAGS   = -Wall -fno-builtin -fno-leading-underscore -fno-stack-protector
+CFLAGS   = -Wall -fno-builtin -fno-leading-underscore -fno-stack-protector -fPIC
 CFLAGS  += $(CPPFLAGS)
-ASFLAGS  = -felf
-LDFLAGS  = -T link.ld -Map map.txt --export-dynamic
+LDFLAGS  = -T arch/$(ARCHDIR).ld -Map map.txt --export-dynamic
 
 include ../Makefile.tpl
 
@@ -26,6 +25,8 @@ $(_XBIN): $(_BIN)
 	@echo [AS] -o $@
 	@mkdir -p $(dir $@)
 	@$(AS) $(ASFLAGS) -o $@ $<
+
+.PRECIOUS: $(OBJ:%.ao=%.asm)
 
 # Preprocessing objects if needed
 $(_OBJPREFIX)%: %.h
