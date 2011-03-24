@@ -30,3 +30,5 @@ ApiDoc/
 Usermode/Output/
 gitstats/
 .*.swp
+
+obj-*/
