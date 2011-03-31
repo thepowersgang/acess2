@@ -13,6 +13,7 @@ extern tAST_Script	*Parse_Buffer(tSpiderVariant *Variant, char *Buffer);
 extern tSpiderFunction	*gpExports_First;
 extern tAST_Variable *Variable_Define(tAST_BlockState *Block, int Type, const char *Name);
 extern void	Variable_SetValue(tAST_BlockState *Block, const char *Name, tSpiderValue *Value);
+extern void	Variable_Destroy(tAST_Variable *Variable);
 
 // === CODE ===
 /**
@@ -28,10 +29,14 @@ int SoMain()
  */
 tSpiderScript *SpiderScript_ParseFile(tSpiderVariant *Variant, const char *Filename)
 {
+	char	cacheFilename[strlen(Filename)+6+1];
 	char	*data;
 	 int	fLen;
 	FILE	*fp;
 	tSpiderScript	*ret;
+	
+	strcpy(cacheFilename, Filename);
+	strcat(cacheFilename, ".cache");
 	
 	fp = fopen(Filename, "r");
 	if( !fp ) {
@@ -63,6 +68,25 @@ tSpiderScript *SpiderScript_ParseFile(tSpiderVariant *Variant, const char *Filen
 	}
 	
 	free(data);
+	
+	
+	// HACK!!
+	{
+		size_t	size;
+		
+		printf("Total Size: ");	fflush(stdout);
+		size = AST_WriteScript(NULL, ret->Script);
+		printf("0x%x bytes\n", (unsigned)size);
+		
+		fp = fopen(cacheFilename, "wb");
+		if(!fp)	return ret;
+		
+		data = malloc(size);
+		AST_WriteScript(data, ret->Script);
+		fwrite(data, size, 1, fp);
+		free(data);
+		fclose(fp);
+	}
 	
 	return ret;
 }
@@ -125,6 +149,13 @@ tSpiderValue *SpiderScript_ExecuteMethod(tSpiderScript *Script,
 			Object_Dereference(ret);
 			ret = bs.RetVal;
 			bFound = 1;
+			
+			while(bs.FirstVar)
+			{
+				tAST_Variable	*nextVar = bs.FirstVar->Next;
+				Variable_Destroy( bs.FirstVar );
+				bs.FirstVar = nextVar;
+			}
 		}
 	}
 	
@@ -186,7 +217,9 @@ void SpiderScript_Free(tSpiderScript *Script)
 	tAST_Node	*var, *nextVar;
 	
 	// Free functions
-	while(fcn) {
+	while(fcn)
+	{
+		
 		AST_FreeNode( fcn->Code );
 		
 		var = fcn->Arguments;

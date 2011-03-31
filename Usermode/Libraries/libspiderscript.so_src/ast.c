@@ -188,7 +188,231 @@ size_t AST_GetNodeSize(tAST_Node *Node)
 	return ret;
 }
 
-#if 0
+#if 1
+
+#define WRITE_N(_buffer, _offset, _len, _dataptr) do { \
+	if(_buffer)	memcpy((char*)_buffer + _offset, _dataptr, _len);\
+	_offset += _len; \
+} while(0)
+
+#define WRITE_8(_buffer, _offset, _val) do {\
+	uint8_t	v = (_val);\
+	WRITE_N(_buffer, _offset, 1, &v);\
+} while(0)
+#define WRITE_16(_buffer, _offset, _val) do {\
+	uint16_t	v = (_val);\
+	WRITE_N(_buffer, _offset, 2, &v);\
+} while(0)
+#define WRITE_32(_buffer, _offset, _val) do {\
+	uint32_t	v = (_val);\
+	WRITE_N(_buffer, _offset, 4, &v);\
+} while(0)
+#define WRITE_64(_buffer, _offset, _val) do {\
+	uint64_t	v = (_val);\
+	WRITE_N(_buffer, _offset, 8, &v);\
+} while(0)
+#define WRITE_REAL(_buffer, _offset, _val) do {\
+	double	v = (_val);\
+	WRITE_N(_buffer, _offset, sizeof(double), &v);\
+} while(0)
+
+#define WRITE_STR(_buffer, _offset, _string) do {\
+	int len = strlen(_string);\
+	WRITE_16(_buffer, _offset, len);\
+	WRITE_N(_buffer, _offset, len, _string);\
+} while(0)
+#define WRITE_NODELIST(_buffer, _offset, _listHead)	do {\
+	tAST_Node *node; \
+	size_t ptr = -1;\
+	for(node=(_listHead); node; node = node->NextSibling) {\
+		ptr = _offset;\
+		_offset += AST_WriteNode(_buffer, _offset, node); \
+		WRITE_32(_buffer, ptr, ptr); \
+	} \
+	if(ptr != -1){ptr -= 4; WRITE_32(_buffer, ptr, 0);} \
+} while(0)
+
+/**
+ * \brief Writes a script dump to a buffer
+ * \return Size of encoded data
+ * \note If \a Buffer is NULL, no write is done, but the size is still returned
+ */
+size_t AST_WriteScript(void *Buffer, tAST_Script *Script)
+{
+	tAST_Function	*fcn;
+	size_t	ret = 0, ptr;
+	
+	for( fcn = Script->Functions; fcn; fcn = fcn->Next )
+	{
+		ptr = ret;
+		WRITE_32(Buffer, ret, 0);	// Next
+		WRITE_STR(Buffer, ret, fcn->Name);
+		WRITE_NODELIST(Buffer, ret, fcn->Arguments);	// TODO: Cheaper way
+		ret += AST_WriteNode(Buffer, ret, fcn->Code);
+		WRITE_32(Buffer, ptr, ret);	// Actually set next
+	}
+	ptr -= 4;
+	WRITE_32(Buffer, ptr, 0);	// Clear next for final
+	
+	return ret;
+}
+
+/**
+ * \brief Write a node to a file
+ */
+size_t AST_WriteNode(void *Buffer, size_t Offset, tAST_Node *Node)
+{
+	off_t	ptr;
+	typeof(Offset)	baseOfs = Offset;
+	
+	if(!Node) {
+		fprintf(stderr, "Possible Bug - NULL passed to AST_WriteNode\n");
+		return 0;
+	}
+	
+	WRITE_32(Buffer, Offset, 0);	// Next
+	WRITE_8(Buffer, Offset, Node->Type);
+	//WRITE_32(Buffer, Offset, 0);	// File
+	WRITE_16(Buffer, Offset, Node->Line);	// Line
+	
+	switch(Node->Type)
+	{
+	// Block of code
+	case NODETYPE_BLOCK:
+		WRITE_NODELIST(Buffer, Offset, Node->Block.FirstChild);
+		break;
+	
+	// Function Call
+	case NODETYPE_FUNCTIONCALL:
+		WRITE_STR(Buffer, Offset, Node->FunctionCall.Name);
+		WRITE_NODELIST(Buffer, Offset, Node->FunctionCall.FirstArg);
+		break;
+	
+	// If node
+	case NODETYPE_IF:
+		ptr = Offset;
+		WRITE_32(Buffer, Offset, 0);	// Condition
+		WRITE_32(Buffer, Offset, 0);	// True
+		WRITE_32(Buffer, Offset, 0);	// False
+		
+		Offset += AST_WriteNode(Buffer, Offset, Node->If.Condition);
+		WRITE_32(Buffer, ptr, Offset);
+		Offset += AST_WriteNode(Buffer, Offset, Node->If.True);
+		WRITE_32(Buffer, ptr, Offset);
+		Offset += AST_WriteNode(Buffer, Offset, Node->If.False);
+		WRITE_32(Buffer, ptr, Offset);
+		break;
+	
+	// Looping Construct (For loop node)
+	case NODETYPE_LOOP:
+		WRITE_8(Buffer, Offset, Node->For.bCheckAfter);
+		ptr = Offset;
+		WRITE_32(Buffer, Offset, 0);	// Init
+		WRITE_32(Buffer, Offset, 0);	// Condition
+		WRITE_32(Buffer, Offset, 0);	// Increment
+		WRITE_32(Buffer, Offset, 0);	// Code
+		
+		Offset += AST_WriteNode(Buffer, Offset, Node->For.Init);
+		WRITE_32(Buffer, ptr, Offset);
+		Offset += AST_WriteNode(Buffer, Offset, Node->For.Condition);
+		WRITE_32(Buffer, ptr, Offset);
+		Offset += AST_WriteNode(Buffer, Offset, Node->For.Increment);
+		WRITE_32(Buffer, ptr, Offset);
+		Offset += AST_WriteNode(Buffer, Offset, Node->For.Code);
+		WRITE_32(Buffer, ptr, Offset);
+		break;
+	
+	// Asignment
+	case NODETYPE_ASSIGN:
+		WRITE_8(Buffer, Offset, Node->Assign.Operation);
+		ptr = Offset;
+		WRITE_32(Buffer, Offset, 0);	// Dest
+		WRITE_32(Buffer, Offset, 0);	// Value
+		
+		Offset += AST_WriteNode(Buffer, Offset, Node->Assign.Dest);
+		WRITE_32(Buffer, ptr, Offset);
+		Offset += AST_WriteNode(Buffer, Offset, Node->Assign.Value);
+		WRITE_32(Buffer, ptr, Offset);
+		break;
+	
+	// Casting
+	case NODETYPE_CAST:
+		WRITE_8(Buffer, Offset, Node->Cast.DataType);
+		ptr = Offset;
+		WRITE_32(Buffer, Offset, 0);
+		
+		Offset += AST_WriteNode(Buffer, Offset, Node->Cast.Value);
+		WRITE_32(Buffer, ptr, Offset);
+		break;
+	
+	// Define a variable
+	case NODETYPE_DEFVAR:
+		WRITE_8(Buffer, Offset, Node->DefVar.DataType);
+		WRITE_8(Buffer, Offset, Node->DefVar.Depth);
+		WRITE_STR(Buffer, Offset, Node->DefVar.Name);
+		
+		WRITE_NODELIST(Buffer, Offset, Node->DefVar.LevelSizes);
+		break;
+	
+	// Unary Operations
+	case NODETYPE_RETURN:
+		ptr = Offset;
+		WRITE_32(Buffer, Offset, 0);
+		Offset += AST_WriteNode(Buffer, Offset, Node->UniOp.Value);
+		WRITE_32(Buffer, ptr, Offset);
+		break;
+	
+	// Binary Operations
+	case NODETYPE_INDEX:
+	case NODETYPE_ADD:
+	case NODETYPE_SUBTRACT:
+	case NODETYPE_MULTIPLY:
+	case NODETYPE_DIVIDE:
+	case NODETYPE_MODULO:
+	case NODETYPE_BITSHIFTLEFT:
+	case NODETYPE_BITSHIFTRIGHT:
+	case NODETYPE_BITROTATELEFT:
+	case NODETYPE_BWAND:	case NODETYPE_LOGICALAND:
+	case NODETYPE_BWOR: 	case NODETYPE_LOGICALOR:
+	case NODETYPE_BWXOR:	case NODETYPE_LOGICALXOR:
+	case NODETYPE_EQUALS:
+	case NODETYPE_LESSTHAN:
+	case NODETYPE_GREATERTHAN:
+		ptr = Offset;
+		WRITE_32(Buffer, Offset, 0);	// Left
+		WRITE_32(Buffer, Offset, 0);	// Right
+		Offset += AST_WriteNode(Buffer, Offset, Node->BinOp.Left);
+		WRITE_32(Buffer, ptr, Offset);
+		Offset += AST_WriteNode(Buffer, Offset, Node->BinOp.Right);
+		WRITE_32(Buffer, ptr, Offset);
+		break;
+	
+	// Node types with no children
+	case NODETYPE_NOP:
+		break;
+	case NODETYPE_VARIABLE:
+	case NODETYPE_CONSTANT:
+		WRITE_STR(Buffer, Offset, Node->Variable.Name);
+		break;
+	case NODETYPE_STRING:
+		WRITE_32(Buffer, Offset, Node->String.Length);
+		WRITE_N(Buffer, Offset, Node->String.Length, Node->String.Data);
+		break;
+	case NODETYPE_INTEGER:
+		WRITE_64(Buffer, Offset, Node->Integer);
+		break;
+	case NODETYPE_REAL:
+		WRITE_REAL(Buffer, Offset, Node->Real);
+		break;
+	
+	default:
+		fprintf(stderr, "AST_WriteNode: Unknown node type %i\n", Node->Type);
+		break;
+	}
+	
+	return Offset - baseOfs;
+}
+#elif 0
 /**
  * \brief Write a node to a file
  */

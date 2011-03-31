@@ -232,11 +232,13 @@ tAST_Node *Parse_DoBlockLine(tParser *Parser)
 			init = Parse_DoExpr0(Parser);
 		
 		SyntaxAssert(Parser, GetToken(Parser), TOK_SEMICOLON);
+		
 		if(LookAhead(Parser) != TOK_SEMICOLON)
 			cond = Parse_DoExpr0(Parser);
 		
 		SyntaxAssert(Parser, GetToken(Parser), TOK_SEMICOLON);
-		if(LookAhead(Parser) != TOK_SEMICOLON)
+		
+		if(LookAhead(Parser) != TOK_PAREN_CLOSE)
 			inc = Parse_DoExpr0(Parser);
 		
 		SyntaxAssert(Parser, GetToken(Parser), TOK_PAREN_CLOSE);
@@ -320,16 +322,22 @@ tAST_Node *Parse_DoExpr0(tParser *Parser)
 		GetToken(Parser);		// Eat Token
 		ret = AST_NewAssign(Parser, NODETYPE_NOP, ret, Parse_DoExpr0(Parser));
 		break;
-	#if 0
-	case TOK_DIV_EQU:
+	case TOK_ASSIGN_DIV:
 		GetToken(Parser);		// Eat Token
 		ret = AST_NewAssign(Parser, NODETYPE_DIVIDE, ret, Parse_DoExpr0(Parser));
 		break;
-	case TOK_MULT_EQU:
+	case TOK_ASSIGN_MUL:
 		GetToken(Parser);		// Eat Token
 		ret = AST_NewAssign(Parser, NODETYPE_MULTIPLY, ret, Parse_DoExpr0(Parser));
 		break;
-	#endif
+	case TOK_ASSIGN_PLUS:
+		GetToken(Parser);		// Eat Token
+		ret = AST_NewAssign(Parser, NODETYPE_ADD, ret, Parse_DoExpr0(Parser));
+		break;
+	case TOK_ASSIGN_MINUS:
+		GetToken(Parser);		// Eat Token
+		ret = AST_NewAssign(Parser, NODETYPE_SUBTRACT, ret, Parse_DoExpr0(Parser));
+		break;
 	default:
 		#if DEBUG >= 2
 		printf("Parse_DoExpr0: Parser->Token = %i\n", Parser->Token);

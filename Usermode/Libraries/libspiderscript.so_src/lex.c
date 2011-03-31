@@ -165,14 +165,36 @@ int GetToken(tParser *File)
 	
 	case '/':	ret = TOK_DIV;	break;
 	case '*':	ret = TOK_MUL;	break;
-	case '+':	ret = TOK_PLUS;	break;
+	case '+':
+		if( *File->CurPos == '+' ) {
+			File->CurPos ++;
+			ret = TOK_INCREMENT;
+			break;
+		}
+		if( *File->CurPos == '=' ) {
+			File->CurPos ++;
+			ret = TOK_ASSIGN_PLUS;
+			break;
+		}
+		ret = TOK_PLUS;
+		break;
 	case '-':
+		if( *File->CurPos == '-' ) {
+			File->CurPos ++;
+			ret = TOK_DECREMENT;
+			break;
+		}
+		if( *File->CurPos == '=' ) {
+			File->CurPos ++;
+			ret = TOK_ASSIGN_MINUS;
+			break;
+		}
 		if( *File->CurPos == '>' ) {
 			File->CurPos ++;
 			ret = TOK_ELEMENT;
+			break;
 		}
-		else
-			ret = TOK_MINUS;
+		ret = TOK_MINUS;
 		break;
 	
 	// Strings
@@ -208,6 +230,28 @@ int GetToken(tParser *File)
 		}
 		// Assignment Equals
 		ret = TOK_ASSIGN;
+		break;
+	
+	// Less-Than
+	case '<':
+		// Less-Than or Equal
+		if( *File->CurPos == '=' ) {
+			File->CurPos ++;
+			ret = TOK_LTE;
+			break;
+		}
+		ret = TOK_LT;
+		break;
+	
+	// Greater-Than
+	case '>':
+		// Greater-Than or Equal
+		if( *File->CurPos == '=' ) {
+			File->CurPos ++;
+			ret = TOK_GTE;
+			break;
+		}
+		ret = TOK_GT;
 		break;
 	
 	// Variables

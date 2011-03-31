@@ -187,6 +187,8 @@ struct sAST_Variable
 
 // === FUNCTIONS ===
 extern tAST_Script	*AST_NewScript(void);
+extern size_t	AST_WriteScript(void *Buffer, tAST_Script *Script);
+extern size_t	AST_WriteNode(void *Buffer, size_t Offset, tAST_Node *Node);
 
 extern tAST_Function	*AST_AppendFunction(tAST_Script *Script, const char *Name);
 extern void	AST_AppendFunctionArg(tAST_Function *Function, tAST_Node *Arg);
