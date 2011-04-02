@@ -306,7 +306,8 @@ int GetToken(tParser *File)
 		if( isdigit(*File->CurPos) )
 		{
 			ret = TOK_INTEGER;
-			if( *File->CurPos == '0' && File->CurPos[1] == 'x' ) {
+			if( *File->CurPos == '0' && File->CurPos[1] == 'x' )
+			{
 				File->CurPos += 2;
 				while(('0' <= *File->CurPos && *File->CurPos <= '9')
 				   || ('A' <= *File->CurPos && *File->CurPos <= 'F')
@@ -315,9 +316,12 @@ int GetToken(tParser *File)
 					File->CurPos ++;
 				}
 			}
-			else {
+			else
+			{
 				while( isdigit(*File->CurPos) )
 					File->CurPos ++;
+				
+//				printf("*File->CurPos = '%c'\n", *File->CurPos);
 				
 				// Decimal
 				if( *File->CurPos == '.' )
@@ -337,6 +341,8 @@ int GetToken(tParser *File)
 					while( isdigit(*File->CurPos) )
 						File->CurPos ++;
 				}
+				
+//				printf(" ret = %i\n", ret);
 			}
 			break;
 		}

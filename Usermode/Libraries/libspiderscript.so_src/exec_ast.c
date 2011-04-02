@@ -6,6 +6,9 @@
 #include <string.h>
 #include "ast.h"
 
+#define TRACE_VAR_LOOKUPS	0
+#define TRACE_NODE_RETURNS	0
+
 // === IMPORTS ===
 extern tSpiderFunction	*gpExports_First;
 
@@ -24,12 +27,16 @@ tSpiderValue	*AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node);
 tSpiderValue	*AST_ExecuteNode_BinOp(tAST_BlockState *Block, int Operation, tSpiderValue *Left, tSpiderValue *Right);
 tSpiderValue	*AST_ExecuteNode_UniOp(tAST_BlockState *Block, int Operation, tSpiderValue *Value);
 
-tAST_Variable *Variable_Define(tAST_BlockState *Block, int Type, const char *Name);
- int	Variable_SetValue(tAST_BlockState *Block, const char *Name, tSpiderValue *Value);
-tSpiderValue	*Variable_GetValue(tAST_BlockState *Block, const char *Name);
+tAST_Variable *Variable_Define(tAST_BlockState *Block, int Type, const char *Name, tSpiderValue *Value);
+ int	Variable_SetValue(tAST_BlockState *Block, tAST_Node *VarNode, tSpiderValue *Value);
+tSpiderValue	*Variable_GetValue(tAST_BlockState *Block, tAST_Node *VarNode);
 void	Variable_Destroy(tAST_Variable *Variable);
 
+void	AST_RuntimeMessage(tAST_Node *Node, const char *Type, const char *Format, ...);
 void	AST_RuntimeError(tAST_Node *Node, const char *Format, ...);
+
+// === GLOBALS ===
+ int	giNextBlockIdent = 1;
 
 // === CODE ===
 /**
@@ -124,7 +131,7 @@ tSpiderValue *SpiderScript_CreateString(int Length, const char *Data)
 /**
  * \brief Concatenate two strings
  */
-tSpiderValue *Object_StringConcat(tSpiderValue *Str1, tSpiderValue *Str2)
+tSpiderValue *Object_StringConcat(const tSpiderValue *Str1, const tSpiderValue *Str2)
 {
 	 int	newLen = 0;
 	tSpiderValue	*ret;
@@ -424,20 +431,25 @@ tSpiderValue *SpiderScript_ExecuteFunction(tSpiderScript *Script,
 			bs.BaseNamespace = &Script->Variant->RootNamespace;
 			bs.CurNamespace = NULL;
 			bs.Script = Script;
+			bs.Ident = giNextBlockIdent ++;
 			
 			// Parse arguments
 			for( arg = astFcn->Arguments; arg; arg = arg->NextSibling, i++ )
 			{
-				// TODO: Type checks
-				Variable_Define(&bs, arg->DefVar.DataType, arg->DefVar.Name);
 				if( i >= NArguments )	break;	// TODO: Return gracefully
-				Variable_SetValue(&bs, arg->DefVar.Name, Arguments[i]);
+				// TODO: Type checks
+				Variable_Define(&bs,
+					arg->DefVar.DataType, arg->DefVar.Name,
+					Arguments[i]);
 			}
 			
 			// Execute function
 			ret = AST_ExecuteNode(&bs, astFcn->Code);
-			Object_Dereference(ret);	// Dereference output of last block statement
-			ret = bs.RetVal;	// Set to return value of block
+			if(ret != ERRPTR)
+			{
+				Object_Dereference(ret);	// Dereference output of last block statement
+				ret = bs.RetVal;	// Set to return value of block
+			}
 			bFound = 1;
 			
 			while(bs.FirstVar)
@@ -597,20 +609,24 @@ tSpiderValue *SpiderScript_CreateObject(tSpiderScript *Script,
 			bs.BaseNamespace = &Script->Variant->RootNamespace;
 			bs.CurNamespace = NULL;
 			bs.Script = Script;
-			
+			bs.Ident = giNextBlockIdent ++;
 			
 			for( arg = astFcn->Arguments; arg; arg = arg->NextSibling, i++ )
 			{
-				// TODO: Type checks
-				Variable_Define(&bs, arg->DefVar.DataType, arg->DefVar.Name);
 				if( i >= NArguments )	break;	// TODO: Return gracefully
-				Variable_SetValue(&bs, arg->DefVar.Name, Arguments[i]);
+				// TODO: Type checks
+				Variable_Define(&bs,
+					arg->DefVar.DataType, arg->DefVar.Name,
+					Arguments[i]);
 			}
 			
 			// Execute function
 			ret = AST_ExecuteNode(&bs, astFcn->Code);
-			Object_Dereference(ret);	// Dereference output of last block statement
-			ret = bs.RetVal;	// Set to return value of block
+			if( ret != ERRPTR )
+			{
+				Object_Dereference(ret);	// Dereference output of last block statement
+				ret = bs.RetVal;	// Set to return value of block
+			}
 			bFound = 1;
 			
 			while(bs.FirstVar)
@@ -716,14 +732,13 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 			blockInfo.RetVal = NULL;
 			blockInfo.BaseNamespace = Block->BaseNamespace;
 			blockInfo.CurNamespace = NULL;
+			blockInfo.Ident = giNextBlockIdent ++;
 			ret = NULL;
 			for(node = Node->Block.FirstChild; node && !blockInfo.RetVal; node = node->NextSibling )
 			{
 				ret = AST_ExecuteNode(&blockInfo, node);
-				if(ret == ERRPTR) {	// Error check
-					break ;
-				}
-				if(ret)	Object_Dereference(ret);	// Free unused value
+				if(ret == ERRPTR)	break;	// Error check
+				if(ret != NULL)	Object_Dereference(ret);	// Free unused value
 			}
 			// Clean up variables
 			while(blockInfo.FirstVar)
@@ -747,22 +762,20 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 			return ERRPTR;
 		}
 		ret = AST_ExecuteNode(Block, Node->Assign.Value);
-		if(ret == ERRPTR)
-			return ERRPTR;
+		if(ret == ERRPTR)	return ERRPTR;
 		
 		if( Node->Assign.Operation != NODETYPE_NOP )
 		{
-			tSpiderValue	*varVal = Variable_GetValue(Block, Node->Assign.Dest->Variable.Name);
+			tSpiderValue	*varVal = Variable_GetValue(Block, Node->Assign.Dest);
 			tSpiderValue	*value;
 			value = AST_ExecuteNode_BinOp(Block, Node->Assign.Operation, varVal, ret);
-			if( value == ERRPTR )
-				return ERRPTR;
+			if(value == ERRPTR)	return ERRPTR;
 			if(ret)	Object_Dereference(ret);
 			if(varVal)	Object_Dereference(varVal);
 			ret = value;
 		}
 		
-		if( Variable_SetValue( Block, Node->Assign.Dest->Variable.Name, ret ) ) {
+		if( Variable_SetValue( Block, Node->Assign.Dest, ret ) ) {
 			Object_Dereference( ret );
 			return ERRPTR;
 		}
@@ -777,7 +790,7 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 				return ERRPTR;
 			}
 		
-			varVal = Variable_GetValue(Block, Node->Assign.Dest->Variable.Name);
+			varVal = Variable_GetValue(Block, Node->Assign.Dest);
 			one = SpiderScript_CreateInteger(1);
 			
 			if( Node->Type == NODETYPE_POSTDEC )
@@ -790,7 +803,7 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 			
 			ret = varVal;
 		
-			if( Variable_SetValue( Block, Node->Assign.Dest->Variable.Name, value ) ) {
+			if( Variable_SetValue( Block, Node->Assign.Dest, value ) ) {
 				Object_Dereference( ret );
 				return ERRPTR;
 			}
@@ -832,7 +845,7 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 			else if( Node->Type == NODETYPE_METHODCALL )
 			{
 				tSpiderValue *obj = AST_ExecuteNode(Block, Node->FunctionCall.Object);
-				if( !obj || obj->Type != SS_DATATYPE_OBJECT ) {
+				if( !obj || obj == ERRPTR || obj->Type != SS_DATATYPE_OBJECT ) {
 					AST_RuntimeError(Node->FunctionCall.Object,
 						"Type Mismatch - Required SS_DATATYPE_OBJECT for method call");
 					while(i--)	Object_Dereference(params[i]);
@@ -864,41 +877,52 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 	// Conditional
 	case NODETYPE_IF:
 		ret = AST_ExecuteNode(Block, Node->If.Condition);
+		if( ret == ERRPTR )	break;
 		if( SpiderScript_IsValueTrue(ret) ) {
-			Object_Dereference(AST_ExecuteNode(Block, Node->If.True));
+			tmpobj = AST_ExecuteNode(Block, Node->If.True);
 		}
 		else {
-			Object_Dereference(AST_ExecuteNode(Block, Node->If.False));
+			tmpobj = AST_ExecuteNode(Block, Node->If.False);
 		}
 		Object_Dereference(ret);
+		if( tmpobj == ERRPTR )	return ERRPTR;
+		Object_Dereference(tmpobj);
 		ret = NULL;
 		break;
 	
 	// Loop
 	case NODETYPE_LOOP:
 		ret = AST_ExecuteNode(Block, Node->For.Init);
+		if(ret == ERRPTR)	break;
 		if( Node->For.bCheckAfter )
 		{
 			do {
 				Object_Dereference(ret);
 				ret = AST_ExecuteNode(Block, Node->For.Code);
+				if(ret == ERRPTR)	return ERRPTR;
 				Object_Dereference(ret);
 				ret = AST_ExecuteNode(Block, Node->For.Increment);
+				if(ret == ERRPTR)	return ERRPTR;
 				Object_Dereference(ret);
 				ret = AST_ExecuteNode(Block, Node->For.Condition);
+				if(ret == ERRPTR)	return ERRPTR;
 			} while( SpiderScript_IsValueTrue(ret) );
 		}
 		else
 		{
 			Object_Dereference(ret);
 			ret = AST_ExecuteNode(Block, Node->For.Condition);
+			if(ret == ERRPTR)	return ERRPTR;
 			while( SpiderScript_IsValueTrue(ret) ) {
 				Object_Dereference(ret);
 				ret = AST_ExecuteNode(Block, Node->For.Code);
+				if(ret == ERRPTR)	return ERRPTR;
 				Object_Dereference(ret);
 				ret = AST_ExecuteNode(Block, Node->For.Increment);
+				if(ret == ERRPTR)	return ERRPTR;
 				Object_Dereference(ret);
 				ret = AST_ExecuteNode(Block, Node->For.Condition);
+				if(ret == ERRPTR)	return ERRPTR;
 			}
 		}
 		Object_Dereference(ret);
@@ -908,6 +932,7 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 	// Return
 	case NODETYPE_RETURN:
 		ret = AST_ExecuteNode(Block, Node->UniOp.Value);
+		if(ret == ERRPTR)	break;
 		Block->RetVal = ret;	// Return value set
 		ret = NULL;	// the `return` statement does not return a value
 		break;
@@ -915,7 +940,7 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 	// Define a variable
 	case NODETYPE_DEFVAR:
 		ret = NULL;
-		if( Variable_Define(Block, Node->DefVar.DataType, Node->DefVar.Name) == ERRPTR )
+		if( Variable_Define(Block, Node->DefVar.DataType, Node->DefVar.Name, NULL) == ERRPTR )
 			ret = ERRPTR;
 		break;
 	
@@ -955,13 +980,14 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 	
 	// Variable
 	case NODETYPE_VARIABLE:
-		ret = Variable_GetValue( Block, Node->Variable.Name );
+		ret = Variable_GetValue( Block, Node );
 		break;
 	
 	// Element of an Object
 	case NODETYPE_ELEMENT:
 		tmpobj = AST_ExecuteNode( Block, Node->Scope.Element );
-		if( tmpobj->Type != SS_DATATYPE_OBJECT )
+		if(tmpobj == ERRPTR)	return ERRPTR;
+		if( !tmpobj || tmpobj->Type != SS_DATATYPE_OBJECT )
 		{
 			AST_RuntimeError(Node->Scope.Element, "Unable to dereference a non-object");
 			ret = ERRPTR;
@@ -989,6 +1015,7 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 	case NODETYPE_CAST:
 		{
 		tmpobj = AST_ExecuteNode(Block, Node->Cast.Value);
+		if(tmpobj == ERRPTR) return ERRPTR;
 		ret = SpiderScript_CastValueTo( Node->Cast.DataType, tmpobj );
 		Object_Dereference(tmpobj);
 		}
@@ -997,9 +1024,14 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 	// Index into an array
 	case NODETYPE_INDEX:
 		op1 = AST_ExecuteNode(Block, Node->BinOp.Left);	// Array
+		if(op1 == ERRPTR)	return ERRPTR;
 		op2 = AST_ExecuteNode(Block, Node->BinOp.Right);	// Offset
+		if(op2 == ERRPTR) {
+			Object_Dereference(op1);
+			return ERRPTR;
+		}
 		
-		if( op1->Type != SS_DATATYPE_ARRAY )
+		if( !op1 || op1->Type != SS_DATATYPE_ARRAY )
 		{
 			// TODO: Implement "operator []" on objects
 			AST_RuntimeError(Node, "Indexing non-array");
@@ -1007,13 +1039,13 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 			break;
 		}
 		
-		if( op2->Type != SS_DATATYPE_INTEGER && !Block->Script->Variant->bImplicitCasts ) {
+		if( (!op2 || op2->Type != SS_DATATYPE_INTEGER) && !Block->Script->Variant->bImplicitCasts ) {
 			AST_RuntimeError(Node, "Array index is not an integer");
 			ret = ERRPTR;
 			break;
 		}
 		
-		if( op2->Type != SS_DATATYPE_INTEGER )
+		if( !op2 || op2->Type != SS_DATATYPE_INTEGER )
 		{
 			tmpobj = SpiderScript_CastValueTo(SS_DATATYPE_INTEGER, op2);
 			Object_Dereference(op2);
@@ -1042,9 +1074,12 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 		break;
 	
 	// Constant Values
-	case NODETYPE_STRING:	ret = SpiderScript_CreateString( Node->String.Length, Node->String.Data );	break;
-	case NODETYPE_INTEGER:	ret = SpiderScript_CreateInteger( Node->Integer );	break;
-	case NODETYPE_REAL: 	ret = SpiderScript_CreateReal( Node->Real );	break;
+	case NODETYPE_STRING:
+	case NODETYPE_INTEGER:
+	case NODETYPE_REAL:
+		ret = &Node->Constant;
+		Object_Reference(ret);
+		break;
 	
 	// --- Operations ---
 	// Boolean Operations
@@ -1100,7 +1135,7 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 		}
 		
 		if( !op1 || !op2 ) {
-			AST_RuntimeError(Node, "NULL Comparison (%p and %p)\n", op1, op2);
+			AST_RuntimeError(Node, "NULL Comparison (%p and %p)", op1, op2);
 			if(op1)	Object_Dereference(op1);
 			if(op2)	Object_Dereference(op2);
 			ret = SpiderScript_CreateInteger( !op1 && !op2 );
@@ -1110,7 +1145,7 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 		// Convert types
 		if( op1->Type != op2->Type ) {
 			// If dynamically typed, convert op2 to op1's type
-			if(Block->Script->Variant->bDyamicTyped)
+			if(Block->Script->Variant->bImplicitCasts)
 			{
 				tmpobj = op2;
 				op2 = SpiderScript_CastValueTo(op1->Type, op2);
@@ -1122,7 +1157,8 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 			}
 			// If statically typed, this should never happen, but catch it anyway
 			else {
-				AST_RuntimeError(Node, "Statically typed implicit cast");
+				AST_RuntimeError(Node, "Statically typed implicit cast %i <op> %i",
+					op1->Type, op2->Type);
 				ret = ERRPTR;
 				break;
 			}
@@ -1229,10 +1265,19 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 	
 	//default:
 	//	ret = NULL;
-	//	AST_RuntimeError(Node, "BUG - SpiderScript AST_ExecuteNode Unimplemented %i\n", Node->Type);
+	//	AST_RuntimeError(Node, "BUG - SpiderScript AST_ExecuteNode Unimplemented %i", Node->Type);
 	//	break;
 	}
 _return:
+	#if TRACE_NODE_RETURNS
+	if(ret && ret != ERRPTR) {
+		AST_RuntimeError(Node, "Ret type of %p %i is %i", Node, Node->Type, ret->Type);
+	}
+	else {
+		AST_RuntimeError(Node, "Ret type of %p %i is %p", Node, Node->Type, ret);
+	}
+	#endif
+
 	return ret;
 }
 
@@ -1343,7 +1388,7 @@ tSpiderValue *AST_ExecuteNode_BinOp(tAST_BlockState *Block, int Operation, tSpid
 		}
 		// If statically typed, this should never happen, but catch it anyway
 		else {
-			AST_RuntimeError(NULL, "Implicit cast not allowed (from %i to %i)\n", Right->Type, Left->Type);
+			AST_RuntimeError(NULL, "Implicit cast not allowed (from %i to %i)", Right->Type, Left->Type);
 			return ERRPTR;
 		}
 	}
@@ -1388,7 +1433,7 @@ tSpiderValue *AST_ExecuteNode_BinOp(tAST_BlockState *Block, int Operation, tSpid
 			ret = SpiderScript_CreateInteger( (Left->Integer << Right->Integer) | (Left->Integer >> (64-Right->Integer)) );
 			break;
 		default:
-			AST_RuntimeError(NULL, "SpiderScript internal error: Exec,BinOP,Integer unknown op %i\n", Operation);
+			AST_RuntimeError(NULL, "SpiderScript internal error: Exec,BinOP,Integer unknown op %i", Operation);
 			ret = ERRPTR;
 			break;
 		}
@@ -1427,7 +1472,7 @@ tSpiderValue *AST_ExecuteNode_BinOp(tAST_BlockState *Block, int Operation, tSpid
  * \param Name	Name of the variable
  * \return Boolean Failure
  */
-tAST_Variable *Variable_Define(tAST_BlockState *Block, int Type, const char *Name)
+tAST_Variable *Variable_Define(tAST_BlockState *Block, int Type, const char *Name, tSpiderValue *Value)
 {
 	tAST_Variable	*var, *prev = NULL;
 	
@@ -1442,7 +1487,8 @@ tAST_Variable *Variable_Define(tAST_BlockState *Block, int Type, const char *Nam
 	var = malloc( sizeof(tAST_Variable) + strlen(Name) + 1 );
 	var->Next = NULL;
 	var->Type = Type;
-	var->Object = NULL;
+	var->Object = Value;
+	if(Value)	Object_Reference(Value);
 	strcpy(var->Name, Name);
 	
 	if(prev)	prev->Next = var;
@@ -1453,74 +1499,95 @@ tAST_Variable *Variable_Define(tAST_BlockState *Block, int Type, const char *Nam
 	return var;
 }
 
+tAST_Variable *Variable_Lookup(tAST_BlockState *Block, tAST_Node *VarNode, int CreateType)
+{	
+	tAST_Variable	*var = NULL;
+	
+	// Speed hack
+	if( VarNode->BlockState == Block && VarNode->BlockIdent == Block->Ident ) {
+		var = VarNode->ValueCache;
+		#if TRACE_VAR_LOOKUPS
+		AST_RuntimeMessage(VarNode, "debug", "Fast var fetch on '%s' %p (%p:%i)",
+			VarNode->Variable.Name, var,
+			VarNode->BlockState, VarNode->BlockIdent
+			);
+		#endif
+	}
+	else
+	{
+		tAST_BlockState	*bs;
+		for( bs = Block; bs; bs = bs->Parent )
+		{
+			for( var = bs->FirstVar; var; var = var->Next )
+			{
+				if( strcmp(var->Name, VarNode->Variable.Name) == 0 )
+					break;
+			}
+			if(var)	break;
+		}
+		
+		if( !var )
+		{
+			if( Block->Script->Variant->bDyamicTyped && CreateType != SS_DATATYPE_UNDEF ) {
+				// Define variable
+				var = Variable_Define(Block, CreateType, VarNode->Variable.Name, NULL);
+			}
+			else
+			{
+				AST_RuntimeError(VarNode, "Variable '%s' is undefined", VarNode->Variable.Name);
+				return NULL;
+			}
+		}
+		
+		#if TRACE_VAR_LOOKUPS
+		AST_RuntimeMessage(VarNode, "debug", "Saved variable lookup of '%s' %p (%p:%i)",
+			VarNode->Variable.Name, var,
+			Block, Block->Ident);
+		#endif
+		
+		VarNode->ValueCache = var;
+		VarNode->BlockState = Block;
+		VarNode->BlockIdent = Block->Ident;
+	}
+	
+	return var;
+}
+
 /**
  * \brief Set the value of a variable
  * \return Boolean Failure
  */
-int Variable_SetValue(tAST_BlockState *Block, const char *Name, tSpiderValue *Value)
+int Variable_SetValue(tAST_BlockState *Block, tAST_Node *VarNode, tSpiderValue *Value)
 {
-	tAST_Variable	*var;
-	tAST_BlockState	*bs;
+	tAST_Variable	*var = Variable_Lookup(Block, VarNode, Value->Type);
 	
-	for( bs = Block; bs; bs = bs->Parent )
-	{
-		for( var = bs->FirstVar; var; var = var->Next )
-		{
-			if( strcmp(var->Name, Name) == 0 )
-			{
-				if( !Block->Script->Variant->bDyamicTyped
-				 && (Value && var->Type != Value->Type) )
-				{
-					AST_RuntimeError(NULL, "Type mismatch assigning to '%s'", Name);
-					return -2;
-				}
-//				printf("Assign %p to '%s'\n", Value, var->Name);
-				Object_Reference(Value);
-				Object_Dereference(var->Object);
-				var->Object = Value;
-				return 0;
-			}
-		}
-	}
+	if( !var )	return -1;
 	
-	if( Block->Script->Variant->bDyamicTyped )
+	if( !Block->Script->Variant->bDyamicTyped && (Value && var->Type != Value->Type) )
 	{
-		// Define variable
-		var = Variable_Define(Block, Value->Type, Name);
-		Object_Reference(Value);
-		var->Object = Value;
-		return 0;
+		AST_RuntimeError(VarNode, "Type mismatch assigning to '%s'",
+			VarNode->Variable.Name);
+		return -2;
 	}
-	else
-	{
-		AST_RuntimeError(NULL, "Variable '%s' set while undefined", Name);
-		return -1;
-	}
+
+//	printf("Assign %p to '%s'\n", Value, var->Name);
+	Object_Reference(Value);
+	Object_Dereference(var->Object);
+	var->Object = Value;
+	return 0;
 }
 
 /**
  * \brief Get the value of a variable
  */
-tSpiderValue *Variable_GetValue(tAST_BlockState *Block, const char *Name)
+tSpiderValue *Variable_GetValue(tAST_BlockState *Block, tAST_Node *VarNode)
 {
-	tAST_Variable	*var;
-	tAST_BlockState	*bs;
+	tAST_Variable	*var = Variable_Lookup(Block, VarNode, 0);
 	
-	for( bs = Block; bs; bs = bs->Parent )
-	{
-		for( var = bs->FirstVar; var; var = var->Next )
-		{
-			if( strcmp(var->Name, Name) == 0 ) {
-				Object_Reference(var->Object);
-				return var->Object;
-			}
-		}
-	}
+	if( !var )	return ERRPTR;
 	
-	
-	AST_RuntimeError(NULL, "Variable '%s' used undefined", Name);
-	
-	return ERRPTR;
+	Object_Reference(var->Object);
+	return var->Object;
 }
 
 /**
@@ -1533,18 +1600,29 @@ void Variable_Destroy(tAST_Variable *Variable)
 	free(Variable);
 }
 
-void AST_RuntimeError(tAST_Node *Node, const char *Format, ...)
+void AST_RuntimeMessage(tAST_Node *Node, const char *Type, const char *Format, ...)
 {
 	va_list	args;
 	
-	fprintf(stderr, "ERROR: ");
+	if(Node) {
+		fprintf(stderr, "%s:%i: ", Node->File, Node->Line);
+	}
+	fprintf(stderr, "%s: ", Type);
 	va_start(args, Format);
 	vfprintf(stderr, Format, args);
 	va_end(args);
 	fprintf(stderr, "\n");
+}
+void AST_RuntimeError(tAST_Node *Node, const char *Format, ...)
+{
+	va_list	args;
 	
-	if(Node)
-	{
-		fprintf(stderr, "   at %s:%i\n", Node->File, Node->Line);
+	if(Node) {
+		fprintf(stderr, "%s:%i: ", Node->File, Node->Line);
 	}
+	fprintf(stderr, "error: ");
+	va_start(args, Format);
+	vfprintf(stderr, Format, args);
+	va_end(args);
+	fprintf(stderr, "\n");
 }

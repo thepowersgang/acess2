@@ -105,6 +105,10 @@ struct sAST_Node
 	const char	*File;
 	 int	Line;
 	
+	void	*BlockState;	//!< BlockState pointer (for cache integrity)
+	 int	BlockIdent;	//!< Ident (same as above)
+	void	*ValueCache;	//!< Cached value / pointer
+	
 	union
 	{
 		struct {
@@ -175,13 +179,8 @@ struct sAST_Node
 			 tAST_Node	*Value;
 		}	Cast;
 		
-		struct {
-			 int	Length;
-			char	Data[];
-		}	String;
-		
-		uint64_t	Integer;
-		double	Real;
+		// Used for NODETYPE_REAL, NODETYPE_INTEGER and NODETYPE_STRING
+		tSpiderValue	Constant;
 	};
 };
 
@@ -196,6 +195,7 @@ struct sAST_BlockState
 	tSpiderValue	*RetVal;
 	tSpiderNamespace	*BaseNamespace;	//!< Base namespace (for entire block)
 	tSpiderNamespace	*CurNamespace;	//!< Currently selected namespace
+	 int	Ident;
 };
 
 struct sAST_Variable

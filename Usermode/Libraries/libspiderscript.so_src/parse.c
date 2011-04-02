@@ -604,8 +604,11 @@ tAST_Node *Parse_DoValue(tParser *Parser)
 
 	switch(tok)
 	{
-	case TOK_STR:	return Parse_GetString(Parser);
-	case TOK_INTEGER:	return Parse_GetNumeric(Parser);
+	case TOK_STR:
+		return Parse_GetString(Parser);
+	case TOK_INTEGER:
+		return Parse_GetNumeric(Parser);
+	
 	case TOK_REAL:
 		GetToken(Parser);
 		return AST_NewReal( Parser, atof(Parser->TokenStr) );
