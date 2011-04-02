@@ -29,11 +29,15 @@ enum eAST_NodeTypes
 	NODETYPE_REAL,	//!< Real Constant
 	
 	NODETYPE_DEFVAR,	//!< Define a variable (Variable)
+	NODETYPE_SCOPE,	//!< Dereference a Namespace/Class static
+	NODETYPE_ELEMENT,	//!< Reference a class attribute
 	NODETYPE_CAST,	//!< Cast a value to another (Uniop)
 	
 	NODETYPE_RETURN,	//!< Return from a function (reserved word)
 	NODETYPE_ASSIGN,	//!< Variable assignment operator
 	NODETYPE_FUNCTIONCALL,	//!< Call a function
+	NODETYPE_METHODCALL,	//!< Call a class method
+	NODETYPE_CREATEOBJECT,	//!< Create an object
 	
 	NODETYPE_IF,	//!< Conditional
 	NODETYPE_LOOP,	//!< Looping Construct
@@ -72,6 +76,7 @@ struct sSpiderScript
 
 struct sAST_Script
 {
+	// TODO: Namespaces and Classes
 	tAST_Function	*Functions;
 	tAST_Function	*LastFunction;
 };
@@ -116,6 +121,7 @@ struct sAST_Node
 		}	BinOp;
 		
 		struct {
+			tAST_Node	*Object;
 			tAST_Node	*FirstArg;
 			tAST_Node	*LastArg;
 			char	Name[];
@@ -136,7 +142,8 @@ struct sAST_Node
 		}	For;
 		
 		/**
-		 * \note Used for \a NODETYPE_VARIABLE and \a NODETYPE_CONSTANT
+		 * \note Used for \a NODETYPE_VARIABLE, \a NODETYPE_CONSTANT and
+		 *       \a NODETYPE_SCOPE
 		 */
 		struct {
 			char	_unused;	// Shut GCC up
@@ -144,8 +151,12 @@ struct sAST_Node
 		}	Variable;
 		
 		struct {
+			tAST_Node	*Element;
+			char	Name[];
+		}	Scope;	// Used by NODETYPE_SCOPE and NODETYPE_ELEMENT
+		
+		struct {
 			 int	DataType;
-			 int	Depth;
 			tAST_Node	*LevelSizes;
 			tAST_Node	*LevelSizes_Last;
 			char	Name[];
@@ -175,6 +186,8 @@ struct sAST_BlockState
 	tSpiderScript	*Script;	//!< Script
 	tAST_Variable	*FirstVar;	//!< First variable in the list
 	tSpiderValue	*RetVal;
+	tSpiderNamespace	*BaseNamespace;	//!< Base namespace (for entire block)
+	tSpiderNamespace	*CurNamespace;	//!< Currently selected namespace
 };
 
 struct sAST_Variable
@@ -193,15 +206,20 @@ extern size_t	AST_WriteNode(void *Buffer, size_t Offset, tAST_Node *Node);
 extern tAST_Function	*AST_AppendFunction(tAST_Script *Script, const char *Name);
 extern void	AST_AppendFunctionArg(tAST_Function *Function, tAST_Node *Arg);
 extern void	AST_SetFunctionCode(tAST_Function *Function, tAST_Node *Root);
+
 extern tAST_Node	*AST_NewString(tParser *Parser, const char *String, int Length);
 extern tAST_Node	*AST_NewInteger(tParser *Parser, uint64_t Value);
 extern tAST_Node	*AST_NewVariable(tParser *Parser, const char *Name);
 extern tAST_Node	*AST_NewDefineVar(tParser *Parser, int Type, const char *Name);
 extern tAST_Node	*AST_NewConstant(tParser *Parser, const char *Name);
+extern tAST_Node	*AST_NewClassElement(tParser *Parser, tAST_Node *Object, const char *Name);
+
 extern tAST_Node	*AST_NewFunctionCall(tParser *Parser, const char *Name);
+extern tAST_Node	*AST_NewCreateObject(tParser *Parser, const char *Name);
+extern tAST_Node	*AST_NewMethodCall(tParser *Parser, tAST_Node *Object, const char *Name);
 extern void	AST_AppendFunctionCallArg(tAST_Node *Node, tAST_Node *Arg);
 
-extern tAST_Node	*AST_NewCodeBlock(void);
+extern tAST_Node	*AST_NewCodeBlock(tParser *Parser);
 extern void	AST_AppendNode(tAST_Node *Parent, tAST_Node *Child);
 
 extern tAST_Node	*AST_NewIf(tParser *Parser, tAST_Node *Condition, tAST_Node *True, tAST_Node *False);
@@ -211,6 +229,7 @@ extern tAST_Node	*AST_NewAssign(tParser *Parser, int Operation, tAST_Node *Dest,
 extern tAST_Node	*AST_NewCast(tParser *Parser, int Target, tAST_Node *Value);
 extern tAST_Node	*AST_NewBinOp(tParser *Parser, int Operation, tAST_Node *Left, tAST_Node *Right);
 extern tAST_Node	*AST_NewUniOp(tParser *Parser, int Operation, tAST_Node *Value);
+extern tAST_Node	*AST_NewScopeDereference(tParser *Parser, const char *Name, tAST_Node *Child);
 
 extern void	AST_FreeNode(tAST_Node *Node);
 

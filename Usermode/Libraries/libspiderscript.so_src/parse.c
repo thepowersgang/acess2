@@ -32,7 +32,7 @@ tAST_Node	*Parse_DoValue(tParser *Parser);	// Values
 tAST_Node	*Parse_GetString(tParser *Parser);
 tAST_Node	*Parse_GetNumeric(tParser *Parser);
 tAST_Node	*Parse_GetVariable(tParser *Parser);
-tAST_Node	*Parse_GetIdent(tParser *Parser);
+tAST_Node	*Parse_GetIdent(tParser *Parser, int bObjectCreate);
 
 void	SyntaxAssert(tParser *Parser, int Have, int Want);
 
@@ -67,7 +67,7 @@ tAST_Script	*Parse_Buffer(tSpiderVariant *Variant, char *Buffer)
 	parser.CurPos = Buffer;
 	
 	ret = AST_NewScript();
-	mainCode = AST_NewCodeBlock();
+	mainCode = AST_NewCodeBlock(&parser);
 	
 	// Give us an error fallback
 	if( setjmp( parser.JmpTarget ) != 0 )
@@ -173,7 +173,7 @@ tAST_Node *Parse_DoCodeBlock(tParser *Parser)
 		return Parse_DoBlockLine(Parser);
 	}
 	
-	ret = AST_NewCodeBlock();
+	ret = AST_NewCodeBlock(Parser);
 	
 	while( LookAhead(Parser) != TOK_BRACE_CLOSE )
 	{
@@ -543,8 +543,11 @@ tAST_Node *Parse_DoValue(tParser *Parser)
 	{
 	case TOK_STR:	return Parse_GetString(Parser);
 	case TOK_INTEGER:	return Parse_GetNumeric(Parser);
-	case TOK_IDENT:	return Parse_GetIdent(Parser);
+	case TOK_IDENT:	return Parse_GetIdent(Parser, 0);
 	case TOK_VARIABLE:	return Parse_GetVariable(Parser);
+	case TOK_RWD_NEW:
+		GetToken(Parser);	// Omnomnom
+		return Parse_GetIdent(Parser, 1);
 
 	default:
 		fprintf(stderr, "Syntax Error: Unexpected %s on line %i, Expected TOK_T_VALUE\n",
@@ -658,32 +661,70 @@ tAST_Node *Parse_GetVariable(tParser *Parser)
 		printf("Parse_GetVariable: name = '%s'\n", name);
 		#endif
 	}
-	// Handle array references
-	while( LookAhead(Parser) == TOK_SQUARE_OPEN )
+	for(;;)
 	{
 		GetToken(Parser);
-		ret = AST_NewBinOp(Parser, NODETYPE_INDEX, ret, Parse_DoExpr0(Parser));
-		SyntaxAssert(Parser, GetToken(Parser), TOK_SQUARE_CLOSE);
+		if( Parser->Token == TOK_SQUARE_OPEN )
+		{
+			ret = AST_NewBinOp(Parser, NODETYPE_INDEX, ret, Parse_DoExpr0(Parser));
+			SyntaxAssert(Parser, GetToken(Parser), TOK_SQUARE_CLOSE);
+			continue ;
+		}
+		if( Parser->Token == TOK_ELEMENT )
+		{
+			SyntaxAssert(Parser, GetToken(Parser), TOK_IDENT);
+			// Method Call
+			if( LookAhead(Parser) == TOK_PAREN_OPEN )
+			{
+				char	name[Parser->TokenLen+1];
+				memcpy(name, Parser->TokenStr, Parser->TokenLen);
+				name[Parser->TokenLen] = 0;
+				ret = AST_NewMethodCall(Parser, ret, name);
+				GetToken(Parser);	// Eat the '('
+				// Read arguments
+				if( GetToken(Parser) != TOK_PAREN_CLOSE )
+				{
+					PutBack(Parser);
+					do {
+						AST_AppendFunctionCallArg( ret, Parse_DoExpr0(Parser) );
+					} while(GetToken(Parser) == TOK_COMMA);
+					SyntaxAssert( Parser, Parser->Token, TOK_PAREN_CLOSE );
+				}
+				
+			}
+			// Attribute
+			else
+			{
+				char	name[Parser->TokenLen];
+				memcpy(name, Parser->TokenStr+1, Parser->TokenLen-1);
+				name[Parser->TokenLen-1] = 0;
+				ret = AST_NewClassElement(Parser, ret, name);
+			}
+			continue ;
+		}
+		
+		break ;
 	}
+	PutBack(Parser);
 	return ret;
 }
 
 /**
  * \brief Get an identifier (constant or function call)
  */
-tAST_Node *Parse_GetIdent(tParser *Parser)
+tAST_Node *Parse_GetIdent(tParser *Parser, int bObjectCreate)
 {
 	tAST_Node	*ret = NULL;
 	char	*name;
 	SyntaxAssert(Parser, GetToken(Parser), TOK_IDENT );
 	name = strndup( Parser->TokenStr, Parser->TokenLen );
 	
-	#if 0
-	while( GetToken(Parser) == TOK_SCOPE )
+	#if USE_SCOPE_CHAR
+	if( GetToken(Parser) == TOK_SCOPE )
 	{
-		ret = AST_NewScopeDereference( Parser, ret, name );
-		SyntaxAssert(Parser, GetToken(Parser), TOK_IDENT );
-		name = strndup( Parser->TokenStr, Parser->TokenLen );
+		ret = AST_NewScopeDereference( Parser, Parse_GetIdent(Parser, bObjectCreate), name );
+		free(name);
+		return ret;
 	}
 	PutBack(Parser);
 	#endif
@@ -694,7 +735,10 @@ tAST_Node *Parse_GetIdent(tParser *Parser)
 		printf("Parse_GetIdent: Calling '%s'\n", name);
 		#endif
 		// Function Call
-		ret = AST_NewFunctionCall( Parser, name );
+		if( bObjectCreate )
+			ret = AST_NewCreateObject( Parser, name );
+		else
+			ret = AST_NewFunctionCall( Parser, name );
 		// Read arguments
 		if( GetToken(Parser) != TOK_PAREN_CLOSE )
 		{
@@ -711,13 +755,17 @@ tAST_Node *Parse_GetIdent(tParser *Parser)
 			#endif
 		}
 	}
-	else {
+	else
+	{
 		// Runtime Constant / Variable (When implemented)
 		#if DEBUG >= 2
 		printf("Parse_GetIdent: Referencing '%s'\n", name);
 		#endif
 		PutBack(Parser);
-		ret = AST_NewConstant( Parser, name );
+		if( bObjectCreate )	// Void constructor (TODO: Should this be an error?)
+			ret = AST_NewCreateObject( Parser, name );
+		else
+			ret = AST_NewConstant( Parser, name );
 	}
 	
 	free(name);

@@ -65,131 +65,6 @@ void AST_SetFunctionCode(tAST_Function *Function, tAST_Node *Root)
  * \name Node Manipulation
  * \{
  */
-/**
- * \brief Get the in-memory size of a node
- */
-size_t AST_GetNodeSize(tAST_Node *Node)
-{
-	size_t	ret;
-	tAST_Node	*node;
-	
-	if(!Node)
-		return 0;
-	
-	ret = sizeof(tAST_Node*) + sizeof(tAST_NodeType)
-		+ sizeof(const char *) + sizeof(int);
-	
-	switch(Node->Type)
-	{
-	// Block of code
-	case NODETYPE_BLOCK:
-		ret += sizeof(Node->Block);
-		for( node = Node->Block.FirstChild; node; )
-		{
-			ret += AST_GetNodeSize(node);
-			node = node->NextSibling;
-		}
-		break;
-	
-	// Function Call
-	case NODETYPE_FUNCTIONCALL:
-		ret += sizeof(Node->FunctionCall) + strlen(Node->FunctionCall.Name) + 1;
-		for( node = Node->FunctionCall.FirstArg; node; )
-		{
-			ret += AST_GetNodeSize(node);
-			node = node->NextSibling;
-		}
-		break;
-	
-	// If node
-	case NODETYPE_IF:
-		ret += sizeof(Node->If);
-		ret += AST_GetNodeSize(Node->If.Condition);
-		ret += AST_GetNodeSize(Node->If.True);
-		ret += AST_GetNodeSize(Node->If.False);
-		break;
-	
-	// Looping Construct (For loop node)
-	case NODETYPE_LOOP:
-		ret += sizeof(Node->For);
-		ret += AST_GetNodeSize(Node->For.Init);
-		ret += AST_GetNodeSize(Node->For.Condition);
-		ret += AST_GetNodeSize(Node->For.Increment);
-		ret += AST_GetNodeSize(Node->For.Code);
-		break;
-	
-	// Asignment
-	case NODETYPE_ASSIGN:
-		ret += sizeof(Node->Assign);
-		ret += AST_GetNodeSize(Node->Assign.Dest);
-		ret += AST_GetNodeSize(Node->Assign.Value);
-		break;
-	
-	// Casting
-	case NODETYPE_CAST:
-		ret += sizeof(Node->Cast);
-		ret += AST_GetNodeSize(Node->Cast.Value);
-		break;
-	
-	// Define a variable
-	case NODETYPE_DEFVAR:
-		ret += sizeof(Node->DefVar) + strlen(Node->DefVar.Name) + 1;
-		for( node = Node->DefVar.LevelSizes; node; )
-		{
-			ret += AST_GetNodeSize(node);
-			node = node->NextSibling;
-		}
-		break;
-	
-	// Unary Operations
-	case NODETYPE_RETURN:
-		ret += sizeof(Node->UniOp);
-		ret += AST_GetNodeSize(Node->UniOp.Value);
-		break;
-	
-	// Binary Operations
-	case NODETYPE_INDEX:
-	case NODETYPE_ADD:
-	case NODETYPE_SUBTRACT:
-	case NODETYPE_MULTIPLY:
-	case NODETYPE_DIVIDE:
-	case NODETYPE_MODULO:
-	case NODETYPE_BITSHIFTLEFT:
-	case NODETYPE_BITSHIFTRIGHT:
-	case NODETYPE_BITROTATELEFT:
-	case NODETYPE_BWAND:	case NODETYPE_LOGICALAND:
-	case NODETYPE_BWOR: 	case NODETYPE_LOGICALOR:
-	case NODETYPE_BWXOR:	case NODETYPE_LOGICALXOR:
-	case NODETYPE_EQUALS:
-	case NODETYPE_LESSTHAN:
-	case NODETYPE_GREATERTHAN:
-		ret += sizeof(Node->BinOp);
-		ret += AST_GetNodeSize( Node->BinOp.Left );
-		ret += AST_GetNodeSize( Node->BinOp.Right );
-		break;
-	
-	// Node types with no children
-	case NODETYPE_NOP:
-		break;
-	case NODETYPE_VARIABLE:
-	case NODETYPE_CONSTANT:
-		ret += sizeof(Node->Variable) + strlen(Node->Variable.Name) + 1;
-		break;
-	case NODETYPE_STRING:
-		ret += sizeof(Node->String) + Node->String.Length;
-		break;
-	case NODETYPE_INTEGER:
-		ret += sizeof(Node->Integer);
-		break;
-	case NODETYPE_REAL:
-		ret += sizeof(Node->Real);
-		break;
-	}
-	return ret;
-}
-
-#if 1
-
 #define WRITE_N(_buffer, _offset, _len, _dataptr) do { \
 	if(_buffer)	memcpy((char*)_buffer + _offset, _dataptr, _len);\
 	_offset += _len; \
@@ -220,6 +95,8 @@ size_t AST_GetNodeSize(tAST_Node *Node)
 	int len = strlen(_string);\
 	WRITE_16(_buffer, _offset, len);\
 	WRITE_N(_buffer, _offset, len, _string);\
+	if((_offset & 1) == 1)WRITE_8(_buffer, _offset, 0); \
+	if((_offset & 3) == 2)WRITE_16(_buffer, _offset, 0); \
 } while(0)
 #define WRITE_NODELIST(_buffer, _offset, _listHead)	do {\
 	tAST_Node *node; \
@@ -262,8 +139,8 @@ size_t AST_WriteScript(void *Buffer, tAST_Script *Script)
  */
 size_t AST_WriteNode(void *Buffer, size_t Offset, tAST_Node *Node)
 {
-	off_t	ptr;
-	typeof(Offset)	baseOfs = Offset;
+	size_t	ptr;
+	size_t	baseOfs = Offset;
 	
 	if(!Node) {
 		fprintf(stderr, "Possible Bug - NULL passed to AST_WriteNode\n");
@@ -271,9 +148,11 @@ size_t AST_WriteNode(void *Buffer, size_t Offset, tAST_Node *Node)
 	}
 	
 	WRITE_32(Buffer, Offset, 0);	// Next
-	WRITE_8(Buffer, Offset, Node->Type);
-	//WRITE_32(Buffer, Offset, 0);	// File
+	WRITE_16(Buffer, Offset, Node->Type);
+	// TODO: Scan the buffer for the location of the filename (with NULL byte)
+	//       else, write the string at the end of the node
 	WRITE_16(Buffer, Offset, Node->Line);	// Line
+	//WRITE_32(Buffer, Offset, 0);	// File
 	
 	switch(Node->Type)
 	{
@@ -283,83 +162,65 @@ size_t AST_WriteNode(void *Buffer, size_t Offset, tAST_Node *Node)
 		break;
 	
 	// Function Call
+	case NODETYPE_METHODCALL:
+		Offset += AST_WriteNode(Buffer, Offset, Node->FunctionCall.Object);
 	case NODETYPE_FUNCTIONCALL:
+	case NODETYPE_CREATEOBJECT:
+		// TODO: Search for the same function name and add a pointer
 		WRITE_STR(Buffer, Offset, Node->FunctionCall.Name);
 		WRITE_NODELIST(Buffer, Offset, Node->FunctionCall.FirstArg);
 		break;
 	
 	// If node
 	case NODETYPE_IF:
-		ptr = Offset;
-		WRITE_32(Buffer, Offset, 0);	// Condition
-		WRITE_32(Buffer, Offset, 0);	// True
-		WRITE_32(Buffer, Offset, 0);	// False
-		
 		Offset += AST_WriteNode(Buffer, Offset, Node->If.Condition);
-		WRITE_32(Buffer, ptr, Offset);
 		Offset += AST_WriteNode(Buffer, Offset, Node->If.True);
-		WRITE_32(Buffer, ptr, Offset);
 		Offset += AST_WriteNode(Buffer, Offset, Node->If.False);
-		WRITE_32(Buffer, ptr, Offset);
 		break;
 	
 	// Looping Construct (For loop node)
 	case NODETYPE_LOOP:
 		WRITE_8(Buffer, Offset, Node->For.bCheckAfter);
-		ptr = Offset;
-		WRITE_32(Buffer, Offset, 0);	// Init
-		WRITE_32(Buffer, Offset, 0);	// Condition
-		WRITE_32(Buffer, Offset, 0);	// Increment
-		WRITE_32(Buffer, Offset, 0);	// Code
 		
 		Offset += AST_WriteNode(Buffer, Offset, Node->For.Init);
-		WRITE_32(Buffer, ptr, Offset);
 		Offset += AST_WriteNode(Buffer, Offset, Node->For.Condition);
-		WRITE_32(Buffer, ptr, Offset);
 		Offset += AST_WriteNode(Buffer, Offset, Node->For.Increment);
-		WRITE_32(Buffer, ptr, Offset);
 		Offset += AST_WriteNode(Buffer, Offset, Node->For.Code);
-		WRITE_32(Buffer, ptr, Offset);
 		break;
 	
 	// Asignment
 	case NODETYPE_ASSIGN:
 		WRITE_8(Buffer, Offset, Node->Assign.Operation);
-		ptr = Offset;
-		WRITE_32(Buffer, Offset, 0);	// Dest
-		WRITE_32(Buffer, Offset, 0);	// Value
-		
 		Offset += AST_WriteNode(Buffer, Offset, Node->Assign.Dest);
-		WRITE_32(Buffer, ptr, Offset);
 		Offset += AST_WriteNode(Buffer, Offset, Node->Assign.Value);
-		WRITE_32(Buffer, ptr, Offset);
 		break;
 	
 	// Casting
 	case NODETYPE_CAST:
 		WRITE_8(Buffer, Offset, Node->Cast.DataType);
-		ptr = Offset;
-		WRITE_32(Buffer, Offset, 0);
-		
 		Offset += AST_WriteNode(Buffer, Offset, Node->Cast.Value);
-		WRITE_32(Buffer, ptr, Offset);
 		break;
 	
 	// Define a variable
 	case NODETYPE_DEFVAR:
 		WRITE_8(Buffer, Offset, Node->DefVar.DataType);
-		WRITE_8(Buffer, Offset, Node->DefVar.Depth);
+		// TODO: Duplicate compress the strings
 		WRITE_STR(Buffer, Offset, Node->DefVar.Name);
 		
 		WRITE_NODELIST(Buffer, Offset, Node->DefVar.LevelSizes);
 		break;
 	
+	// Scope Reference
+	case NODETYPE_SCOPE:
+	case NODETYPE_ELEMENT:
+		WRITE_STR(Buffer, Offset, Node->Scope.Name);
+		Offset += AST_WriteNode(Buffer, Offset, Node->UniOp.Value);
+		break;
+	
 	// Unary Operations
 	case NODETYPE_RETURN:
 		ptr = Offset;
-		WRITE_32(Buffer, Offset, 0);
 		Offset += AST_WriteNode(Buffer, Offset, Node->UniOp.Value);
-		WRITE_32(Buffer, ptr, Offset);
 		break;
 	
 	// Binary Operations
@@ -378,13 +239,8 @@ size_t AST_WriteNode(void *Buffer, size_t Offset, tAST_Node *Node)
 	case NODETYPE_EQUALS:
 	case NODETYPE_LESSTHAN:
 	case NODETYPE_GREATERTHAN:
-		ptr = Offset;
-		WRITE_32(Buffer, Offset, 0);	// Left
-		WRITE_32(Buffer, Offset, 0);	// Right
 		Offset += AST_WriteNode(Buffer, Offset, Node->BinOp.Left);
-		WRITE_32(Buffer, ptr, Offset);
 		Offset += AST_WriteNode(Buffer, Offset, Node->BinOp.Right);
-		WRITE_32(Buffer, ptr, Offset);
 		break;
 	
 	// Node types with no children
@@ -392,6 +248,7 @@ size_t AST_WriteNode(void *Buffer, size_t Offset, tAST_Node *Node)
 		break;
 	case NODETYPE_VARIABLE:
 	case NODETYPE_CONSTANT:
+		// TODO: De-Duplicate the strings
 		WRITE_STR(Buffer, Offset, Node->Variable.Name);
 		break;
 	case NODETYPE_STRING:
@@ -405,143 +262,13 @@ size_t AST_WriteNode(void *Buffer, size_t Offset, tAST_Node *Node)
 		WRITE_REAL(Buffer, Offset, Node->Real);
 		break;
 	
-	default:
-		fprintf(stderr, "AST_WriteNode: Unknown node type %i\n", Node->Type);
-		break;
+	//default:
+	//	fprintf(stderr, "AST_WriteNode: Unknown node type %i\n", Node->Type);
+	//	break;
 	}
 	
 	return Offset - baseOfs;
 }
-#elif 0
-/**
- * \brief Write a node to a file
- */
-void AST_WriteNode(FILE *FP, tAST_Node *Node)
-{
-	tAST_Node	*node;
-	intptr_t	ptr;
-	 int	ret;
-	
-	if(!Node)	return ;
-	
-	ptr = ftell(FP) + AST_GetNodeSize(Node);
-	fwrite(&ptr, sizeof(ptr), 1, FP);
-	fwrite(&Node->Type, sizeof(Node->Type), 1, FP);
-	ptr = 0;	fwrite(&ptr, sizeof(ptr), 1, FP);	// File
-	fwrite(&Node->Line, sizeof(Node->Line), 1, FP);
-	
-	ret = sizeof(tAST_Node*) + sizeof(tAST_NodeType)
-		+ sizeof(const char *) + sizeof(int);
-	
-	switch(Node->Type)
-	{
-	// Block of code
-	case NODETYPE_BLOCK:
-		ret += sizeof(Node->Block);
-		for( node = Node->Block.FirstChild; node; )
-		{
-			ret += AST_GetNodeSize(node);
-			node = node->NextSibling;
-		}
-		break;
-	
-	// Function Call
-	case NODETYPE_FUNCTIONCALL:
-		ret += sizeof(Node->FunctionCall) + strlen(Node->FunctionCall.Name) + 1;
-		for( node = Node->FunctionCall.FirstArg; node; )
-		{
-			ret += AST_GetNodeSize(node);
-			node = node->NextSibling;
-		}
-		break;
-	
-	// If node
-	case NODETYPE_IF:
-		ret += sizeof(Node->If);
-		ret += AST_GetNodeSize(Node->If.Condition);
-		ret += AST_GetNodeSize(Node->If.True);
-		ret += AST_GetNodeSize(Node->If.False);
-		break;
-	
-	// Looping Construct (For loop node)
-	case NODETYPE_LOOP:
-		ret += sizeof(Node->For);
-		ret += AST_GetNodeSize(Node->For.Init);
-		ret += AST_GetNodeSize(Node->For.Condition);
-		ret += AST_GetNodeSize(Node->For.Increment);
-		ret += AST_GetNodeSize(Node->For.Code);
-		break;
-	
-	// Asignment
-	case NODETYPE_ASSIGN:
-		ret += sizeof(Node->Assign);
-		ret += AST_GetNodeSize(Node->Assign.Dest);
-		ret += AST_GetNodeSize(Node->Assign.Value);
-		break;
-	
-	// Casting
-	case NODETYPE_CAST:
-		ret += sizeof(Node->Cast);
-		ret += AST_GetNodeSize(Node->Cast.Value);
-		break;
-	
-	// Define a variable
-	case NODETYPE_DEFVAR:
-		ret += sizeof(Node->DefVar) + strlen(Node->DefVar.Name) + 1;
-		for( node = Node->DefVar.LevelSizes; node; )
-		{
-			ret += AST_GetNodeSize(node);
-			node = node->NextSibling;
-		}
-		break;
-	
-	// Unary Operations
-	case NODETYPE_RETURN:
-		ret += sizeof(Node->UniOp);
-		ret += AST_GetNodeSize(Node->UniOp.Value);
-		break;
-	
-	// Binary Operations
-	case NODETYPE_INDEX:
-	case NODETYPE_ADD:
-	case NODETYPE_SUBTRACT:
-	case NODETYPE_MULTIPLY:
-	case NODETYPE_DIVIDE:
-	case NODETYPE_MODULO:
-	case NODETYPE_BITSHIFTLEFT:
-	case NODETYPE_BITSHIFTRIGHT:
-	case NODETYPE_BITROTATELEFT:
-	case NODETYPE_BWAND:	case NODETYPE_LOGICALAND:
-	case NODETYPE_BWOR: 	case NODETYPE_LOGICALOR:
-	case NODETYPE_BWXOR:	case NODETYPE_LOGICALXOR:
-	case NODETYPE_EQUALS:
-	case NODETYPE_LESSTHAN:
-	case NODETYPE_GREATERTHAN:
-		ret += sizeof(Node->BinOp);
-		ret += AST_GetNodeSize( Node->BinOp.Left );
-		ret += AST_GetNodeSize( Node->BinOp.Right );
-		break;
-	
-	// Node types with no children
-	case NODETYPE_NOP:
-		break;
-	case NODETYPE_VARIABLE:
-	case NODETYPE_CONSTANT:
-		ret += sizeof(Node->Variable) + strlen(Node->Variable.Name) + 1;
-		break;
-	case NODETYPE_STRING:
-		ret += sizeof(Node->String) + Node->String.Length;
-		break;
-	case NODETYPE_INTEGER:
-		ret += sizeof(Node->Integer);
-		break;
-	case NODETYPE_REAL:
-		ret += sizeof(Node->Real);
-		break;
-	}
-	return ret;
-}
-#endif
 
 /**
  * \brief Free a node and all subnodes
@@ -565,7 +292,10 @@ void AST_FreeNode(tAST_Node *Node)
 		break;
 	
 	// Function Call
+	case NODETYPE_METHODCALL:
+		AST_FreeNode(Node->FunctionCall.Object);
 	case NODETYPE_FUNCTIONCALL:
+	case NODETYPE_CREATEOBJECT:
 		for( node = Node->FunctionCall.FirstArg; node; )
 		{
 			tAST_Node	*savedNext = node->NextSibling;
@@ -598,6 +328,11 @@ void AST_FreeNode(tAST_Node *Node)
 	// Casting
 	case NODETYPE_CAST:
 		AST_FreeNode(Node->Cast.Value);
+		break;
+	
+	case NODETYPE_SCOPE:
+	case NODETYPE_ELEMENT:
+		AST_FreeNode(Node->Scope.Element);
 		break;
 	
 	// Define a variable
@@ -646,12 +381,12 @@ void AST_FreeNode(tAST_Node *Node)
 	free( Node );
 }
 
-tAST_Node *AST_NewCodeBlock(void)
+tAST_Node *AST_NewCodeBlock(tParser *Parser)
 {
 	tAST_Node	*ret = malloc( sizeof(tAST_Node) );
 	
 	ret->NextSibling = NULL;
-	//ret->Line = Parser->CurLine;
+	ret->Line = Parser->CurLine;
 	ret->Type = NODETYPE_BLOCK;
 	ret->Block.FirstChild = NULL;
 	ret->Block.LastChild = NULL;
@@ -850,6 +585,34 @@ tAST_Node *AST_NewFunctionCall(tParser *Parser, const char *Name)
 	ret->NextSibling = NULL;
 	ret->Line = Parser->CurLine;
 	ret->Type = NODETYPE_FUNCTIONCALL;
+	ret->FunctionCall.Object = NULL;
+	ret->FunctionCall.FirstArg = NULL;
+	ret->FunctionCall.LastArg = NULL;
+	strcpy(ret->FunctionCall.Name, Name);
+	return ret;
+}
+tAST_Node *AST_NewMethodCall(tParser *Parser, tAST_Node *Object, const char *Name)
+{
+	tAST_Node	*ret = malloc( sizeof(tAST_Node) + strlen(Name) + 1 );
+	
+	ret->NextSibling = NULL;
+	ret->Line = Parser->CurLine;
+	ret->Type = NODETYPE_METHODCALL;
+	ret->FunctionCall.Object = Object;
+	ret->FunctionCall.FirstArg = NULL;
+	ret->FunctionCall.LastArg = NULL;
+	strcpy(ret->FunctionCall.Name, Name);
+	return ret;
+}
+
+tAST_Node *AST_NewCreateObject(tParser *Parser, const char *Name)
+{
+	tAST_Node	*ret = malloc( sizeof(tAST_Node) + strlen(Name) + 1 );
+	
+	ret->NextSibling = NULL;
+	ret->Line = Parser->CurLine;
+	ret->Type = NODETYPE_CREATEOBJECT;
+	ret->FunctionCall.Object = NULL;
 	ret->FunctionCall.FirstArg = NULL;
 	ret->FunctionCall.LastArg = NULL;
 	strcpy(ret->FunctionCall.Name, Name);
@@ -861,7 +624,13 @@ tAST_Node *AST_NewFunctionCall(tParser *Parser, const char *Name)
  */
 void AST_AppendFunctionCallArg(tAST_Node *Node, tAST_Node *Arg)
 {
-	if( Node->Type != NODETYPE_FUNCTIONCALL )	return ;
+	if( Node->Type != NODETYPE_FUNCTIONCALL
+	 && Node->Type != NODETYPE_CREATEOBJECT
+	 && Node->Type != NODETYPE_METHODCALL)
+	{
+		fprintf(stderr, "BUG REPORT: AST_AppendFunctionCallArg on an invalid node type (%i)\n", Node->Type);
+		return ;
+	}
 	
 	if(Node->FunctionCall.LastArg) {
 		Node->FunctionCall.LastArg->NextSibling = Arg;
@@ -871,6 +640,36 @@ void AST_AppendFunctionCallArg(tAST_Node *Node, tAST_Node *Arg)
 		Node->FunctionCall.FirstArg = Arg;
 		Node->FunctionCall.LastArg = Arg;
 	}
+}
+
+/**
+ * \brief Add a scope node
+ */
+tAST_Node *AST_NewScopeDereference(tParser *Parser, const char *Name, tAST_Node *Child)
+{
+	tAST_Node	*ret = malloc( sizeof(tAST_Node) + strlen(Name) + 1 );
+	
+	ret->NextSibling = NULL;
+	ret->Line = Parser->CurLine;
+	ret->Type = NODETYPE_SCOPE;
+	ret->Scope.Element = Child;
+	strcpy(ret->Scope.Name, Name);
+	return ret;
+}
+
+/**
+ * \brief Add a scope node
+ */
+tAST_Node *AST_NewClassElement(tParser *Parser, tAST_Node *Object, const char *Name)
+{
+	tAST_Node	*ret = malloc( sizeof(tAST_Node) + strlen(Name) + 1 );
+	
+	ret->NextSibling = NULL;
+	ret->Line = Parser->CurLine;
+	ret->Type = NODETYPE_ELEMENT;
+	ret->Scope.Element = Object;
+	strcpy(ret->Scope.Name, Name);
+	return ret;
 }
 
 /**

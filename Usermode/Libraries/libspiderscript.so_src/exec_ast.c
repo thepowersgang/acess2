@@ -6,6 +6,9 @@
 #include <string.h>
 #include "ast.h"
 
+// === IMPORTS ===
+extern tSpiderFunction	*gpExports_First;
+
 // === PROTOTYPES ===
 void	Object_Dereference(tSpiderValue *Object);
 void	Object_Reference(tSpiderValue *Object);
@@ -61,6 +64,22 @@ void Object_Reference(tSpiderValue *Object)
 }
 
 /**
+ * \brief Allocate and initialise a SpiderScript object
+ */
+tSpiderObject *SpiderScript_AllocateObject(tSpiderObjectDef *Class, int ExtraBytes)
+{
+	 int	size = sizeof(tSpiderObject) + Class->NAttributes * sizeof(tSpiderValue*) + ExtraBytes;
+	tSpiderObject	*ret = malloc(size);
+	
+	ret->Type = Class;
+	ret->ReferenceCount = 1;
+	ret->OpaqueData = &ret->Attributes[ Class->NAttributes ];
+	memset( ret->Attributes, 0, Class->NAttributes * sizeof(tSpiderValue*) );
+	
+	return ret;
+}
+
+/**
  * \brief Create an integer object
  */
 tSpiderValue *SpiderScript_CreateInteger(uint64_t Value)
@@ -93,7 +112,10 @@ tSpiderValue *SpiderScript_CreateString(int Length, const char *Data)
 	ret->Type = SS_DATATYPE_STRING;
 	ret->ReferenceCount = 1;
 	ret->String.Length = Length;
-	memcpy(ret->String.Data, Data, Length);
+	if( Data )
+		memcpy(ret->String.Data, Data, Length);
+	else
+		memset(ret->String.Data, 0, Length);
 	ret->String.Data[Length] = '\0';
 	return ret;
 }
@@ -141,11 +163,36 @@ tSpiderValue *SpiderScript_CastValueTo(int Type, tSpiderValue *Source)
 		return Source;
 	}
 	
+	#if 0
+	if( Source->Type == SS_DATATYPE_OBJECT )
+	{
+		const char	*name = NULL;
+		switch(Type)
+		{
+		case SS_DATATYPE_INTEGER:	name = "cast Integer";	break;
+		case SS_DATATYPE_REAL:  	name = "cast Real";	break;
+		case SS_DATATYPE_STRING:	name = "cast String";	break;
+		case SS_DATATYPE_ARRAY: 	name = "cast Array";	break;
+		default:
+			AST_RuntimeError(NULL, "Invalid cast to %i from Object", Type);
+			return ERRPTR;
+		}
+		if( fcnname )
+		{
+			ret = Object_ExecuteMethod(Left->Object, fcnname, Right);
+			if( ret != ERRPTR )
+				return ret;
+			// Fall through and try casting (which will usually fail)
+		}
+	}
+	#endif
+	
 	switch( (enum eSpiderScript_DataTypes)Type )
 	{
 	case SS_DATATYPE_UNDEF:
 	case SS_DATATYPE_ARRAY:
 	case SS_DATATYPE_OPAQUE:
+	case SS_DATATYPE_OBJECT:
 		AST_RuntimeError(NULL, "Invalid cast to %i", Type);
 		return ERRPTR;
 	
@@ -298,6 +345,310 @@ char *SpiderScript_DumpValue(tSpiderValue *Value)
 }
 
 /**
+ * \brief Execute a script function
+ * \param Script	Script context to execute in
+ * \param Function	Function name to execute
+ * \param NArguments	Number of arguments to pass
+ * \param Arguments	Arguments passed
+ */
+tSpiderValue *SpiderScript_ExecuteFunction(tSpiderScript *Script,
+	tSpiderNamespace *Namespace, const char *Function,
+	int NArguments, tSpiderValue **Arguments)
+{
+	char	*trueName = NULL;
+	 int	bFound = 0;	// Used to keep nesting levels down
+	tSpiderValue	*ret = ERRPTR;
+	tSpiderFunction	*fcn;
+	
+	// First: Find the function in the script
+	{
+		tAST_Function	*astFcn;
+		for( astFcn = Script->Script->Functions; astFcn; astFcn = astFcn->Next )
+		{
+			if( strcmp(astFcn->Name, Function) == 0 )
+				break;
+		}
+		// Execute!
+		if(astFcn)
+		{
+			tAST_BlockState	bs;
+			tAST_Node	*arg;
+			 int	i = 0;
+			
+			// Build a block State
+			bs.FirstVar = NULL;
+			bs.RetVal = NULL;
+			bs.Parent = NULL;
+			bs.BaseNamespace = &Script->Variant->RootNamespace;
+			bs.CurNamespace = NULL;
+			bs.Script = Script;
+			
+			
+			for( arg = astFcn->Arguments; arg; arg = arg->NextSibling, i++ )
+			{
+				// TODO: Type checks
+				Variable_Define(&bs, arg->DefVar.DataType, arg->DefVar.Name);
+				if( i >= NArguments )	break;	// TODO: Return gracefully
+				Variable_SetValue(&bs, arg->DefVar.Name, Arguments[i]);
+			}
+			
+			// Execute function
+			ret = AST_ExecuteNode(&bs, astFcn->Code);
+			Object_Dereference(ret);	// Dereference output of last block statement
+			ret = bs.RetVal;	// Set to return value of block
+			bFound = 1;
+			
+			while(bs.FirstVar)
+			{
+				tAST_Variable	*nextVar = bs.FirstVar->Next;
+				Variable_Destroy( bs.FirstVar );
+				bs.FirstVar = nextVar;
+			}
+		}
+	}
+	
+	// Didn't find it in script?
+	if(!bFound)
+	{
+		fcn = NULL;	// Just to allow the below code to be neat
+		
+		// Second: Scan current namespace
+		if( !fcn && Namespace )
+		{
+			for( fcn = Namespace->Functions; fcn; fcn = fcn->Next )
+			{
+				if( strcmp( fcn->Name, Function ) == 0 )
+					break;
+			}
+		}
+		
+		// Third: Search the variant's global exports
+		if( !fcn )
+		{
+			for( fcn = Script->Variant->Functions; fcn; fcn = fcn->Next )
+			{
+				if( strcmp( fcn->Name, Function ) == 0 )
+					break;
+			}
+		}
+		
+		// Fourth: Search language exports
+		if( !fcn )
+		{
+			for( fcn = gpExports_First; fcn; fcn = fcn->Next )
+			{
+				if( strcmp( fcn->Name, Function ) == 0 )
+					break;
+			}
+		}
+		
+		// Execute!
+		if(fcn)
+		{
+			// TODO: Type Checking
+			ret = fcn->Handler( Script, NArguments, Arguments );
+			bFound = 1;
+		}
+	}
+	
+	// Not found?
+	if(!bFound)
+	{
+		fprintf(stderr, "Undefined reference to '%s'\n", trueName);
+		return ERRPTR;
+	}
+	
+	return ret;
+}
+
+/**
+ * \brief Execute an object method function
+ * \param Script	Script context to execute in
+ * \param Function	Function name to execute
+ * \param NArguments	Number of arguments to pass
+ * \param Arguments	Arguments passed
+ */
+tSpiderValue *SpiderScript_ExecuteMethod(tSpiderScript *Script, tSpiderObject *Object,
+	const char *MethodName,
+	int NArguments, tSpiderValue **Arguments)
+{
+	tSpiderFunction	*fcn;
+	tSpiderValue	this;
+	tSpiderValue	*newargs[NArguments+1];
+	 int	i;
+	
+	for( fcn = Object->Type->Methods; fcn; fcn = fcn->Next )
+	{
+		if( strcmp(fcn->Name, MethodName) == 0 )
+			break;
+	}
+	
+	if( !fcn )
+	{
+		AST_RuntimeError(NULL, "Class '%s' does not have a method '%s'",
+			Object->Type->Name, MethodName);
+		return ERRPTR;
+	}
+	
+	this.Type = SS_DATATYPE_OBJECT;
+	this.ReferenceCount = 1;
+	this.Object = Object;
+	
+	newargs[0] = &this;
+	memcpy(&newargs[1], Arguments, NArguments*sizeof(tSpiderValue*));
+	
+	// TODO: Type Checking
+	for( i = 0; fcn->ArgTypes[i]; i ++ )
+	{
+		if( i >= NArguments ) {
+			AST_RuntimeError(NULL, "Argument count mismatch (%i passed)",
+				NArguments);
+			return ERRPTR;
+		}
+		if( Arguments[i] && Arguments[i]->Type != fcn->ArgTypes[i] )
+		{
+			AST_RuntimeError(NULL, "Argument type mismatch (%i, expected %i)",
+				Arguments[i]->Type, fcn->ArgTypes[i]);
+			return ERRPTR;
+		}
+	}
+	
+	return fcn->Handler(Script, NArguments+1, newargs);
+}
+
+/**
+ * \brief Execute a script function
+ * \param Script	Script context to execute in
+ * \param Function	Function name to execute
+ * \param NArguments	Number of arguments to pass
+ * \param Arguments	Arguments passed
+ */
+tSpiderValue *SpiderScript_CreateObject(tSpiderScript *Script,
+	tSpiderNamespace *Namespace, const char *ClassName,
+	int NArguments, tSpiderValue **Arguments)
+{
+	 int	bFound = 0;	// Used to keep nesting levels down
+	tSpiderValue	*ret = ERRPTR;
+	tSpiderObjectDef	*class;
+	
+	// First: Find the function in the script
+	// TODO: Implement scripted classes
+	#if 0
+	{
+		tAST_Function	*astClass;
+		for( astClass = Script->Script->Classes; astClass; astClass = astClass->Next )
+		{
+			if( strcmp(astClass->Name, ClassName) == 0 )
+				break;
+		}
+		// Execute!
+		if(astClass)
+		{
+			tAST_BlockState	bs;
+			tAST_Node	*arg;
+			 int	i = 0;
+			
+			// Build a block State
+			bs.FirstVar = NULL;
+			bs.RetVal = NULL;
+			bs.Parent = NULL;
+			bs.BaseNamespace = &Script->Variant->RootNamespace;
+			bs.CurNamespace = NULL;
+			bs.Script = Script;
+			
+			
+			for( arg = astFcn->Arguments; arg; arg = arg->NextSibling, i++ )
+			{
+				// TODO: Type checks
+				Variable_Define(&bs, arg->DefVar.DataType, arg->DefVar.Name);
+				if( i >= NArguments )	break;	// TODO: Return gracefully
+				Variable_SetValue(&bs, arg->DefVar.Name, Arguments[i]);
+			}
+			
+			// Execute function
+			ret = AST_ExecuteNode(&bs, astFcn->Code);
+			Object_Dereference(ret);	// Dereference output of last block statement
+			ret = bs.RetVal;	// Set to return value of block
+			bFound = 1;
+			
+			while(bs.FirstVar)
+			{
+				tAST_Variable	*nextVar = bs.FirstVar->Next;
+				Variable_Destroy( bs.FirstVar );
+				bs.FirstVar = nextVar;
+			}
+		}
+	}
+	#endif
+	
+	// Didn't find it in script?
+	if(!bFound)
+	{
+		class = NULL;	// Just to allow the below code to be neat
+		
+		// Second: Scan current namespace
+		if( !class && Namespace )
+		{
+			for( class = Namespace->Classes; class; class = class->Next )
+			{
+				if( strcmp( class->Name, ClassName ) == 0 )
+					break;
+			}
+		}
+		
+		#if 0
+		// Third: Search the variant's global exports
+		if( !class )
+		{
+			for( class = Script->Variant->Classes; class; class = fcn->Next )
+			{
+				if( strcmp( class->Name, Function ) == 0 )
+					break;
+			}
+		}
+		#endif
+		
+		#if 0
+		// Fourth: Search language exports
+		if( !class )
+		{
+			for( class = gpExports_First; class; class = fcn->Next )
+			{
+				if( strcmp( class->Name, ClassName ) == 0 )
+					break;
+			}
+		}
+		#endif
+		
+		// Execute!
+		if(class)
+		{
+			tSpiderObject	*obj;
+			// TODO: Type Checking
+			obj = class->Constructor( NArguments, Arguments );
+			if( obj == NULL || obj == ERRPTR )
+				return (void *)obj;
+			
+			ret = malloc( sizeof(tSpiderValue) );
+			ret->Type = SS_DATATYPE_OBJECT;
+			ret->ReferenceCount = 1;
+			ret->Object = obj;
+			bFound = 1;
+		}
+	}
+	
+	// Not found?
+	if(!bFound)
+	{
+		fprintf(stderr, "Undefined reference to '%s'\n", ClassName);
+		return ERRPTR;
+	}
+	
+	return ret;
+}
+
+
+/**
  * \brief Execute an AST node and return its value
  */
 tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
@@ -306,6 +657,7 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 	tSpiderValue	*ret = NULL, *tmpobj;
 	tSpiderValue	*op1, *op2;	// Binary operations
 	 int	cmp;	// Used in comparisons
+	 int	i=0;
 	
 	switch(Node->Type)
 	{
@@ -316,10 +668,10 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 	case NODETYPE_BLOCK:
 		{
 			tAST_BlockState	blockInfo;
+			memcpy(&blockInfo, Block, sizeof(tAST_BlockState));
 			blockInfo.FirstVar = NULL;
 			blockInfo.RetVal = NULL;
 			blockInfo.Parent = Block;
-			blockInfo.Script = Block->Script;
 			ret = NULL;
 			for(node = Node->Block.FirstChild; node && !blockInfo.RetVal; node = node->NextSibling )
 			{
@@ -374,7 +726,9 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 		break;
 	
 	// Function Call
+	case NODETYPE_METHODCALL:
 	case NODETYPE_FUNCTIONCALL:
+	case NODETYPE_CREATEOBJECT:
 		{
 			 int	nParams = 0;
 			for(node = Node->FunctionCall.FirstArg; node; node = node->NextSibling) {
@@ -383,8 +737,9 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 			// Logical block (used to allocate `params`)
 			{
 				tSpiderValue	*params[nParams];
-				 int	i=0;
-				for(node = Node->FunctionCall.FirstArg; node; node = node->NextSibling) {
+				i = 0;
+				for(node = Node->FunctionCall.FirstArg; node; node = node->NextSibling)
+				{
 					params[i] = AST_ExecuteNode(Block, node);
 					if( params[i] == ERRPTR ) {
 						while(i--)	Object_Dereference(params[i]);
@@ -394,9 +749,42 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 					i ++;
 				}
 				
-				// Call the function (SpiderScript_ExecuteMethod does the
-				// required namespace handling)
-				ret = SpiderScript_ExecuteMethod(Block->Script, Node->FunctionCall.Name, nParams, params);
+				if( !Block->CurNamespace )
+					Block->CurNamespace = Block->BaseNamespace;
+				
+				// Call the function
+				if( Node->Type == NODETYPE_CREATEOBJECT )
+				{
+					ret = SpiderScript_CreateObject(Block->Script,
+						Block->CurNamespace,
+						Node->FunctionCall.Name,
+						nParams, params
+						);
+				}
+				else if( Node->Type == NODETYPE_METHODCALL )
+				{
+					tSpiderValue *obj = AST_ExecuteNode(Block, Node->FunctionCall.Object);
+					if( !obj || obj->Type != SS_DATATYPE_OBJECT ) {
+						AST_RuntimeError(Node->FunctionCall.Object,
+							"Type Mismatch - Required SS_DATATYPE_OBJECT for method call");
+						while(i--)	Object_Dereference(params[i]);
+						ret = ERRPTR;
+						break;
+					}
+					ret = SpiderScript_ExecuteMethod(Block->Script,
+						obj->Object, Node->FunctionCall.Name,
+						nParams, params
+						);
+					Object_Dereference(obj);
+				}
+				else
+				{
+					ret = SpiderScript_ExecuteFunction(Block->Script,
+						Block->CurNamespace, Node->FunctionCall.Name,
+						nParams, params
+						);
+				}
+
 				
 				// Dereference parameters
 				while(i--)	Object_Dereference(params[i]);
@@ -454,7 +842,6 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 	case NODETYPE_RETURN:
 		ret = AST_ExecuteNode(Block, Node->UniOp.Value);
 		Block->RetVal = ret;	// Return value set
-		//Object_Reference(ret);	// Make sure it exists after return
 		ret = NULL;	// the `return` statement does not return a value
 		break;
 	
@@ -465,31 +852,128 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 			ret = ERRPTR;
 		break;
 	
+	// Scope
+	case NODETYPE_SCOPE:
+		{
+		tSpiderNamespace	*ns;
+		
+		// Set current namespace if unset
+		if( !Block->CurNamespace )
+			Block->CurNamespace = Block->BaseNamespace;
+		
+		// Empty string means use the root namespace
+		if( Node->Scope.Name[0] == '\0' )
+		{
+			ns = &Block->Script->Variant->RootNamespace;
+		}
+		else
+		{
+			// Otherwise scan the current namespace for the element
+			for( ns = Block->CurNamespace->FirstChild; ns; ns = ns->Next )
+			{
+				if( strcmp(ns->Name, Node->Scope.Name) == 0 )
+					break;
+			}
+		}
+		if(!ns) {
+			AST_RuntimeError(Node, "Unknown namespace '%s'", Node->Scope.Name);
+			ret = ERRPTR;
+			break;
+		}
+		Block->CurNamespace = ns;
+		
+		ret = AST_ExecuteNode(Block, Node->Scope.Element);
+		}
+		break;
+	
 	// Variable
 	case NODETYPE_VARIABLE:
 		ret = Variable_GetValue( Block, Node->Variable.Name );
+		break;
+	
+	// Element of an Object
+	case NODETYPE_ELEMENT:
+		tmpobj = AST_ExecuteNode( Block, Node->Scope.Element );
+		if( tmpobj->Type != SS_DATATYPE_OBJECT )
+		{
+			AST_RuntimeError(Node->Scope.Element, "Unable to dereference a non-object");
+			ret = ERRPTR;
+			break ;
+		}
+		
+		for( i = 0; i < tmpobj->Object->Type->NAttributes; i ++ )
+		{
+			if( strcmp(Node->Scope.Name, tmpobj->Object->Type->AttributeDefs[i].Name) == 0 )
+			{
+				ret = tmpobj->Object->Attributes[i];
+				Object_Reference(ret);
+				break;
+			}
+		}
+		if( i == tmpobj->Object->Type->NAttributes )
+		{
+			AST_RuntimeError(Node->Scope.Element, "Unknown attribute '%s' of class '%s'",
+				Node->Scope.Name, tmpobj->Object->Type->Name);
+			ret = ERRPTR;
+		}
 		break;
 
 	// Cast a value to another
 	case NODETYPE_CAST:
 		{
-		tSpiderValue	*tmp = AST_ExecuteNode(Block, Node->Cast.Value);
-		ret = SpiderScript_CastValueTo( Node->Cast.DataType, tmp );
-		Object_Dereference(tmp);
+		tmpobj = AST_ExecuteNode(Block, Node->Cast.Value);
+		ret = SpiderScript_CastValueTo( Node->Cast.DataType, tmpobj );
+		Object_Dereference(tmpobj);
 		}
 		break;
 
 	// Index into an array
 	case NODETYPE_INDEX:
-		AST_RuntimeError(Node, "TODO - Array Indexing");
-		ret = ERRPTR;
+		op1 = AST_ExecuteNode(Block, Node->BinOp.Left);	// Array
+		op2 = AST_ExecuteNode(Block, Node->BinOp.Right);	// Offset
+		
+		if( op1->Type != SS_DATATYPE_ARRAY )
+		{
+			// TODO: Implement "operator []" on objects
+			AST_RuntimeError(Node, "Indexing non-array");
+			ret = ERRPTR;
+			break;
+		}
+		
+		if( op2->Type != SS_DATATYPE_INTEGER && !Block->Script->Variant->bImplicitCasts ) {
+			AST_RuntimeError(Node, "Array index is not an integer");
+			ret = ERRPTR;
+			break;
+		}
+		
+		if( op2->Type != SS_DATATYPE_INTEGER )
+		{
+			tmpobj = SpiderScript_CastValueTo(SS_DATATYPE_INTEGER, op2);
+			Object_Dereference(op2);
+			op2 = tmpobj;
+		}
+		
+		if( op2->Integer >= op1->Array.Length ) {
+			AST_RuntimeError(Node, "Array index out of bounds %i >= %i",
+				op2->Integer, op1->Array.Length);
+			ret = ERRPTR;
+			break;
+		}
+		
+		ret = op1->Array.Items[ op2->Integer ];
+		Object_Reference(ret);
+		
+		Object_Dereference(op1);
+		Object_Dereference(op2);
 		break;
 
 	// TODO: Implement runtime constants
 	case NODETYPE_CONSTANT:
+		// TODO: Scan namespace for function
 		AST_RuntimeError(Node, "TODO - Runtime Constants");
 		ret = ERRPTR;
 		break;
+	
 	// Constant Values
 	case NODETYPE_STRING:	ret = SpiderScript_CreateString( Node->String.Length, Node->String.Data );	break;
 	case NODETYPE_INTEGER:	ret = SpiderScript_CreateInteger( Node->Integer );	break;

@@ -14,6 +14,7 @@
 typedef struct sSpiderScript	tSpiderScript;
 
 typedef struct sSpiderVariant	tSpiderVariant;
+typedef struct sSpiderNamespace	tSpiderNamespace;
 typedef struct sSpiderFunction	tSpiderFunction;
 typedef struct sSpiderValue	tSpiderValue;
 typedef struct sSpiderObjectDef	tSpiderObjectDef;
@@ -65,18 +66,40 @@ enum eSpiderScript_DataTypes
 };
 
 /**
+ * \brief Namespace definition
+ */
+struct sSpiderNamespace
+{
+	tSpiderNamespace	*Next;
+	
+	tSpiderNamespace	*FirstChild;
+	
+	tSpiderFunction	*Functions;
+	
+	tSpiderObjectDef	*Classes;
+	
+	 int	NConstants;	//!< Number of constants
+	tSpiderValue	*Constants;	//!< Number of constants
+	
+	const char	Name[];
+};
+
+/**
  * \brief Variant of SpiderScript
  */
 struct sSpiderVariant
 {
 	const char	*Name;	// Just for debug
 	
-	 int	bDyamicTyped;	//!< Use static typing
+	 int	bDyamicTyped;	//!< Use dynamic typing
+	 int	bImplicitCasts;	//!< Allow implicit casts (casts to lefthand side)
 	
 	tSpiderFunction	*Functions;	//!< Functions (Linked List)
 	
 	 int	NConstants;	//!< Number of constants
 	tSpiderValue	*Constants;	//!< Number of constants
+	
+	tSpiderNamespace	RootNamespace;
 };
 
 /**
@@ -133,16 +156,16 @@ struct sSpiderObjectDef
 	/**
 	 * \brief Object type name
 	 */
-	const char*	const Name;
+	const char * const	Name;
 	/**
 	 * \brief Construct an instance of the object
 	 * \param NArgs	Number of arguments
-	 * \param Args	Argument count
+	 * \param Args	Argument array
 	 * \return Pointer to an object instance (which must be fully valid)
 	 * \retval NULL	Invalid parameter (usually, actually just a NULL value)
 	 * \retval ERRPTR	Invalid parameter count
 	 */
-	tSpiderObject	*(*Constructor)(int NArgs, tSpiderValue *Args);
+	tSpiderObject	*(*Constructor)(int NArgs, tSpiderValue **Args);
 	
 	/**
 	 * \brief Clean up and destroy the object
@@ -152,17 +175,15 @@ struct sSpiderObjectDef
 	 */
 	void	(*Destructor)(tSpiderObject *This);
 	
+	tSpiderFunction	*Methods;	//!< Method Definitions (linked list)
+	
 	 int	NAttributes;	//!< Number of attributes
 	
 	//! Attribute definitions
 	struct {
 		const char	*Name;	//!< Attribute Name
 		 int	bReadOnly;	//!< Allow writes to the attribute?
-	}	*AttributeDefs;
-	
-	
-	 int	NMethods;	//!< Number of methods
-	tSpiderFunction	*Methods;	//!< Method Definitions
+	}	AttributeDefs[];
 };
 
 /**
@@ -171,7 +192,7 @@ struct sSpiderObjectDef
 struct sSpiderObject
 {
 	tSpiderObjectDef	*Type;	//!< Object Type
-	 int	NReferences;	//!< Number of references
+	 int	ReferenceCount;	//!< Number of references
 	void	*OpaqueData;	//!< Pointer to the end of the \a Attributes array
 	tSpiderValue	*Attributes[];	//!< Attribute Array
 };
@@ -215,13 +236,13 @@ struct sSpiderFunction
  */
 extern tSpiderScript	*SpiderScript_ParseFile(tSpiderVariant *Variant, const char *Filename);
 /**
- * \brief Execute a method from a script
+ * \brief Execute a function from a script
  * \param Script	Script to run
  * \param Function	Name of function to run ("" for the 'main')
  * \return Return value
  */
-extern tSpiderValue	*SpiderScript_ExecuteMethod(tSpiderScript *Script,
-	const char *Function,
+extern tSpiderValue	*SpiderScript_ExecuteFunction(tSpiderScript *Script,
+	tSpiderNamespace *Namespace, const char *Function,
 	int NArguments, tSpiderValue **Arguments
 	);
 
@@ -230,6 +251,8 @@ extern tSpiderValue	*SpiderScript_ExecuteMethod(tSpiderScript *Script,
  * \param Script	Script structure to free
  */
 extern void	SpiderScript_Free(tSpiderScript *Script);
+
+extern tSpiderObject	*SpiderScript_AllocateObject(tSpiderObjectDef *Class, int ExtraBytes);
 
 /**
  * \name tSpiderValue Manipulation functions
@@ -240,6 +263,7 @@ extern tSpiderValue	*SpiderScript_CreateReal(double Value);
 extern tSpiderValue	*SpiderScript_CreateString(int Length, const char *Data);
 extern tSpiderValue	*SpiderScript_CastValueTo(int Type, tSpiderValue *Source);
 extern int	SpiderScript_IsValueTrue(tSpiderValue *Value);
+extern void	SpiderScript_FreeValue(tSpiderValue *Value);
 extern char	*SpiderScript_DumpValue(tSpiderValue *Value);
 /**
  * \}
