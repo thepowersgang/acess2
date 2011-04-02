@@ -25,6 +25,8 @@ tAST_Node	*Parse_DoExpr3(tParser *Parser);	// Bitwise Operators
 tAST_Node	*Parse_DoExpr4(tParser *Parser);	// Bit Shifts
 tAST_Node	*Parse_DoExpr5(tParser *Parser);	// Arithmatic
 tAST_Node	*Parse_DoExpr6(tParser *Parser);	// Mult & Div
+tAST_Node	*Parse_DoExpr7(tParser *Parser);	// Right Unary Operations
+tAST_Node	*Parse_DoExpr8(tParser *Parser);	// Left Unary Operations
 
 tAST_Node	*Parse_DoParen(tParser *Parser);	// Parenthesis (Always Last)
 tAST_Node	*Parse_DoValue(tParser *Parser);	// Values
@@ -218,6 +220,8 @@ tAST_Node *Parse_DoBlockLine(tParser *Parser)
 			GetToken(Parser);
 			false = Parse_DoCodeBlock(Parser);
 		}
+		else
+			false = AST_NewNop(Parser);
 		ret = AST_NewIf(Parser, cond, true, false);
 		}
 		return ret;
@@ -249,22 +253,35 @@ tAST_Node *Parse_DoBlockLine(tParser *Parser)
 		return ret;
 	
 	case TOK_RWD_DO:
-	case TOK_RWD_WHILE:
-		TODO(Parser, "Implement do and while\n");
+		{
+		tAST_Node	*code, *cond;
+		GetToken(Parser);	// Eat 'do'
+		code = Parse_DoCodeBlock(Parser);
+		SyntaxAssert( Parser, GetToken(Parser), TOK_RWD_WHILE );
+		SyntaxAssert( Parser, GetToken(Parser), TOK_PAREN_OPEN );
+		cond = Parse_DoExpr0(Parser);
+		SyntaxAssert( Parser, GetToken(Parser), TOK_PAREN_CLOSE );
+		ret = AST_NewLoop(Parser, AST_NewNop(Parser), 1, cond, AST_NewNop(Parser), code);
+		}
 		break;
+	case TOK_RWD_WHILE:
+		{
+		tAST_Node	*code, *cond;
+		GetToken(Parser);	// Eat 'while'
+		SyntaxAssert( Parser, GetToken(Parser), TOK_PAREN_OPEN );
+		cond = Parse_DoExpr0(Parser);
+		SyntaxAssert( Parser, GetToken(Parser), TOK_PAREN_CLOSE );
+		code = Parse_DoCodeBlock(Parser);
+		ret = AST_NewLoop(Parser, AST_NewNop(Parser), 0, cond, AST_NewNop(Parser), code);
+		}
+		return ret;
 	
 	// Define Variables
 	case TOKEN_GROUP_TYPES:
 		{
 			 int	type;
-			
-			switch(GetToken(Parser))
-			{
-			case TOK_RWD_INTEGER:	type = SS_DATATYPE_INTEGER;	break;
-			case TOK_RWD_OBJECT:	type = SS_DATATYPE_OBJECT;	break;
-			case TOK_RWD_REAL:	type = SS_DATATYPE_REAL;	break;
-			case TOK_RWD_STRING:	type = SS_DATATYPE_STRING;	break;
-			}
+			GetToken(Parser);
+			TOKEN_GET_DATATYPE(type, Parser->Token);
 			
 			SyntaxAssert(Parser, GetToken(Parser), TOK_VARIABLE);
 			
@@ -391,6 +408,12 @@ tAST_Node *Parse_DoExpr2(tParser *Parser)
 	case TOK_GT:
 		ret = AST_NewBinOp(Parser, NODETYPE_GREATERTHAN, ret, Parse_DoExpr2(Parser));
 		break;
+	case TOK_LTE:
+		ret = AST_NewBinOp(Parser, NODETYPE_LESSTHANEQUAL, ret, Parse_DoExpr2(Parser));
+		break;
+	case TOK_GTE:
+		ret = AST_NewBinOp(Parser, NODETYPE_GREATERTHANEQUAL, ret, Parse_DoExpr2(Parser));
+		break;
 	default:
 		PutBack(Parser);
 		break;
@@ -475,7 +498,7 @@ tAST_Node *Parse_DoExpr5(tParser *Parser)
 // --------------------
 tAST_Node *Parse_DoExpr6(tParser *Parser)
 {
-	tAST_Node *ret = Parse_DoParen(Parser);
+	tAST_Node *ret = Parse_DoExpr7(Parser);
 
 	switch(GetToken(Parser))
 	{
@@ -493,6 +516,46 @@ tAST_Node *Parse_DoExpr6(tParser *Parser)
 	return ret;
 }
 
+// Right Unary Operations
+tAST_Node *Parse_DoExpr7(tParser *Parser)
+{
+	tAST_Node *ret = Parse_DoExpr8(Parser);
+	
+	switch(GetToken(Parser))
+	{
+	case TOK_INCREMENT:
+		ret = AST_NewUniOp(Parser, NODETYPE_POSTINC, ret);
+		break;
+	case TOK_DECREMENT:
+		ret = AST_NewUniOp(Parser, NODETYPE_POSTDEC, ret);
+		break;
+	default:
+		PutBack(Parser);
+		break;
+	}
+	return ret;
+}
+
+// Left Unary Operations
+tAST_Node *Parse_DoExpr8(tParser *Parser)
+{
+	switch(GetToken(Parser))
+	{
+	case TOK_INCREMENT:
+		return AST_NewAssign(Parser, NODETYPE_ADD, Parse_DoExpr8(Parser), AST_NewInteger(Parser, 1));
+	case TOK_DECREMENT:
+		return AST_NewAssign(Parser, NODETYPE_SUBTRACT, Parse_DoExpr8(Parser), AST_NewInteger(Parser, 1));
+	case TOK_MINUS:
+		return AST_NewUniOp(Parser, NODETYPE_NEGATE, Parse_DoExpr8(Parser));
+	case TOK_LOGICNOT:
+		return AST_NewUniOp(Parser, NODETYPE_LOGICALNOT, Parse_DoExpr8(Parser));
+	case TOK_BWNOT:
+		return AST_NewUniOp(Parser, NODETYPE_BWNOT, Parse_DoExpr8(Parser));
+	default:
+		PutBack(Parser);
+		return Parse_DoParen(Parser);
+	}
+}
 
 // --------------------
 // 2nd Last Expression - Parens
@@ -543,6 +606,10 @@ tAST_Node *Parse_DoValue(tParser *Parser)
 	{
 	case TOK_STR:	return Parse_GetString(Parser);
 	case TOK_INTEGER:	return Parse_GetNumeric(Parser);
+	case TOK_REAL:
+		GetToken(Parser);
+		return AST_NewReal( Parser, atof(Parser->TokenStr) );
+	
 	case TOK_IDENT:	return Parse_GetIdent(Parser, 0);
 	case TOK_VARIABLE:	return Parse_GetVariable(Parser);
 	case TOK_RWD_NEW:
@@ -601,7 +668,7 @@ tAST_Node *Parse_GetNumeric(tParser *Parser)
 {
 	uint64_t	value = 0;
 	char	*pos;
-	GetToken( Parser );
+	SyntaxAssert( Parser, GetToken( Parser ), TOK_INTEGER );
 	pos = Parser->TokenStr;
 	//printf("pos = %p, *pos = %c\n", pos, *pos);
 		

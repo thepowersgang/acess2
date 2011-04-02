@@ -35,6 +35,8 @@ enum eAST_NodeTypes
 	
 	NODETYPE_RETURN,	//!< Return from a function (reserved word)
 	NODETYPE_ASSIGN,	//!< Variable assignment operator
+	NODETYPE_POSTINC,	//!< Post-increment (i++) - Uniop
+	NODETYPE_POSTDEC,	//!< Post-decrement (i--) - Uniop
 	NODETYPE_FUNCTIONCALL,	//!< Call a function
 	NODETYPE_METHODCALL,	//!< Call a class method
 	NODETYPE_CREATEOBJECT,	//!< Create an object
@@ -44,14 +46,18 @@ enum eAST_NodeTypes
 	
 	NODETYPE_INDEX,	//!< Index into an array
 	
+	NODETYPE_LOGICALNOT,	//!< Logical NOT operator
 	NODETYPE_LOGICALAND,	//!< Logical AND operator
 	NODETYPE_LOGICALOR, 	//!< Logical OR operator
 	NODETYPE_LOGICALXOR,	//!< Logical XOR operator
 	
 	NODETYPE_EQUALS,	//!< Comparison Equals
 	NODETYPE_LESSTHAN,	//!< Comparison Less Than
+	NODETYPE_LESSTHANEQUAL,	//!< Comparison Less Than or Equal
 	NODETYPE_GREATERTHAN,	//!< Comparison Greater Than
+	NODETYPE_GREATERTHANEQUAL,	//!< Comparison Greater Than or Equal
 	
+	NODETYPE_BWNOT,	//!< Bitwise NOT
 	NODETYPE_BWAND,	//!< Bitwise AND
 	NODETYPE_BWOR,	//!< Bitwise OR
 	NODETYPE_BWXOR,	//!< Bitwise XOR
@@ -60,6 +66,7 @@ enum eAST_NodeTypes
 	NODETYPE_BITSHIFTRIGHT,	//!< Bitwise Shift Right (Shrink)
 	NODETYPE_BITROTATELEFT,	//!< Bitwise Rotate Left (Grow)
 	
+	NODETYPE_NEGATE,	//!< Negagte
 	NODETYPE_ADD,	//!< Add
 	NODETYPE_SUBTRACT,	//!< Subtract
 	NODETYPE_MULTIPLY,	//!< Multiply
@@ -124,6 +131,7 @@ struct sAST_Node
 			tAST_Node	*Object;
 			tAST_Node	*FirstArg;
 			tAST_Node	*LastArg;
+			 int	NumArgs;
 			char	Name[];
 		}	FunctionCall;
 		
@@ -207,8 +215,11 @@ extern tAST_Function	*AST_AppendFunction(tAST_Script *Script, const char *Name);
 extern void	AST_AppendFunctionArg(tAST_Function *Function, tAST_Node *Arg);
 extern void	AST_SetFunctionCode(tAST_Function *Function, tAST_Node *Root);
 
+extern tAST_Node	*AST_NewNop(tParser *Parser);
+
 extern tAST_Node	*AST_NewString(tParser *Parser, const char *String, int Length);
-extern tAST_Node	*AST_NewInteger(tParser *Parser, uint64_t Value);
+extern tAST_Node	*AST_NewInteger(tParser *Parser, int64_t Value);
+extern tAST_Node	*AST_NewReal(tParser *Parser, double Value);
 extern tAST_Node	*AST_NewVariable(tParser *Parser, const char *Name);
 extern tAST_Node	*AST_NewDefineVar(tParser *Parser, int Type, const char *Name);
 extern tAST_Node	*AST_NewConstant(tParser *Parser, const char *Name);

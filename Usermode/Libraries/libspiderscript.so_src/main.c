@@ -42,10 +42,6 @@ tSpiderScript *SpiderScript_ParseFile(tSpiderVariant *Variant, const char *Filen
 		return NULL;
 	}
 	
-	// Create the script
-	ret = malloc(sizeof(tSpiderScript));
-	ret->Variant = Variant;
-	
 	fseek(fp, 0, SEEK_END);
 	fLen = ftell(fp);
 	fseek(fp, 0, SEEK_SET);
@@ -53,10 +49,18 @@ tSpiderScript *SpiderScript_ParseFile(tSpiderVariant *Variant, const char *Filen
 	// Allocate and read data
 	data = malloc(fLen + 1);
 	if(!data)	return NULL;
-	fread(data, fLen, 1, fp);
+	fLen = fread(data, 1, fLen, fp);
+	if( fLen < 0 ) {
+		free(data);
+		return NULL;
+	}
 	data[fLen] = '\0';
 	
 	fclose(fp);
+	
+	// Create the script
+	ret = malloc(sizeof(tSpiderScript));
+	ret->Variant = Variant;
 	
 	ret->CurNamespace = NULL;
 	ret->Script = Parse_Buffer(Variant, data);

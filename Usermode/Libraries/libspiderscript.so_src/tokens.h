@@ -41,6 +41,7 @@ enum eTokens
 	// Primitives
 	TOK_STR,
 	TOK_INTEGER,
+	TOK_REAL,
 	TOK_VARIABLE,
 	TOK_IDENT,
 	
@@ -80,6 +81,7 @@ enum eTokens
 	TOK_GT,	TOK_GTE,
 	
 	// Operations
+	TOK_BWNOT,	TOK_LOGICNOT,
 	TOK_DIV,	TOK_MUL,
 	TOK_PLUS,	TOK_MINUS,
 	TOK_SHL,	TOK_SHR,
@@ -116,7 +118,7 @@ enum eTokens
 	case TOK_RWD_OBJECT: _type = SS_DATATYPE_OBJECT;	break;\
 	case TOK_RWD_REAL:   _type = SS_DATATYPE_REAL;	break;\
 	case TOK_RWD_STRING: _type = SS_DATATYPE_STRING;	break;\
-	default:fprintf(stderr,\
+	default:_type=SS_DATATYPE_UNDEF;fprintf(stderr,\
 	"ERROR: Unexpected %s, expected "TOKEN_GROUP_TYPES_STR"\n",csaTOKEN_NAMES[Parser->Token]);\
 	break;\
 	} } while(0)
@@ -128,6 +130,7 @@ const char * const csaTOKEN_NAMES[] = {
 	
 	"TOK_STR",
 	"TOK_INTEGER",
+	"TOK_REAL",
 	"TOK_VARIABLE",
 	"TOK_IDENT",
 	
@@ -162,6 +165,7 @@ const char * const csaTOKEN_NAMES[] = {
 	"TOK_LT",	"TOK_LTE",
 	"TOK_GT",	"TOK_GTE",
 	
+	"TOK_BWNOT",	"TOK_LOGICNOT",
 	"TOK_DIV",	"TOK_MUL",
 	"TOK_PLUS",	"TOK_MINUS",
 	"TOK_SHL",	"TOK_SHR",

@@ -163,8 +163,22 @@ int GetToken(tParser *File)
 		ret = TOK_AND;
 		break;
 	
-	case '/':	ret = TOK_DIV;	break;
-	case '*':	ret = TOK_MUL;	break;
+	case '/':
+		if( *File->CurPos == '=' ) {
+			File->CurPos ++;
+			ret = TOK_ASSIGN_DIV;
+			break;
+		}
+		ret = TOK_DIV;
+		break;
+	case '*':
+		if( *File->CurPos == '=' ) {
+			File->CurPos ++;
+			ret = TOK_ASSIGN_MUL;
+			break;
+		}
+		ret = TOK_MUL;
+		break;
 	case '+':
 		if( *File->CurPos == '+' ) {
 			File->CurPos ++;
@@ -201,8 +215,13 @@ int GetToken(tParser *File)
 	case '"':
 		while( *File->CurPos && !(*File->CurPos == '"' && *File->CurPos != '\\') )
 			File->CurPos ++;
-		File->CurPos ++;
-		ret = TOK_STR;
+		if( *File->CurPos )
+		{
+			File->CurPos ++;
+			ret = TOK_STR;
+		}
+		else
+			ret = TOK_EOF;
 		break;
 	
 	// Brackets
@@ -254,6 +273,15 @@ int GetToken(tParser *File)
 		ret = TOK_GT;
 		break;
 	
+	// Logical NOT
+	case '!':
+		ret = TOK_LOGICNOT;
+		break;
+	// Bitwise NOT
+	case '~':
+		ret = TOK_BWNOT;
+		break;
+	
 	// Variables
 	// \$[0-9]+ or \$[_a-zA-Z][_a-zA-Z0-9]*
 	case '$':
@@ -277,6 +305,7 @@ int GetToken(tParser *File)
 		// Numbers
 		if( isdigit(*File->CurPos) )
 		{
+			ret = TOK_INTEGER;
 			if( *File->CurPos == '0' && File->CurPos[1] == 'x' ) {
 				File->CurPos += 2;
 				while(('0' <= *File->CurPos && *File->CurPos <= '9')
@@ -289,21 +318,40 @@ int GetToken(tParser *File)
 			else {
 				while( isdigit(*File->CurPos) )
 					File->CurPos ++;
+				
+				// Decimal
+				if( *File->CurPos == '.' )
+				{
+					ret = TOK_REAL;
+					File->CurPos ++;
+					while( isdigit(*File->CurPos) )
+						File->CurPos ++;
+				}
+				// Exponent
+				if( *File->CurPos == 'e' || *File->CurPos == 'E' )
+				{
+					ret = TOK_REAL;
+					File->CurPos ++;
+					if(*File->CurPos == '-' || *File->CurPos == '+')
+						File->CurPos ++;
+					while( isdigit(*File->CurPos) )
+						File->CurPos ++;
+				}
 			}
-			ret = TOK_INTEGER;
 			break;
 		}
 	
 		// Identifier
 		if( is_ident(*File->CurPos) )
 		{
+			ret = TOK_IDENT;
+			
 			// Identifier
 			while( is_ident(*File->CurPos) || isdigit(*File->CurPos) )
 				File->CurPos ++;
 			
 			// This is set later too, but we use it below
 			File->TokenLen = File->CurPos - File->TokenStr;
-			ret = TOK_IDENT;
 			
 			// Check if it's a reserved word
 			{

@@ -22,6 +22,7 @@ char	*SpiderScript_DumpValue(tSpiderValue *Value);
 
 tSpiderValue	*AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node);
 tSpiderValue	*AST_ExecuteNode_BinOp(tAST_BlockState *Block, int Operation, tSpiderValue *Left, tSpiderValue *Right);
+tSpiderValue	*AST_ExecuteNode_UniOp(tAST_BlockState *Block, int Operation, tSpiderValue *Value);
 
 tAST_Variable *Variable_Define(tAST_BlockState *Block, int Type, const char *Name);
  int	Variable_SetValue(tAST_BlockState *Block, const char *Name, tSpiderValue *Value);
@@ -155,13 +156,36 @@ tSpiderValue *SpiderScript_CastValueTo(int Type, tSpiderValue *Source)
 	tSpiderValue	*ret = ERRPTR;
 	 int	len = 0;
 
-	if( !Source )	return NULL;
+	if( !Source )
+	{
+		switch(Type)
+		{
+		case SS_DATATYPE_INTEGER:	return SpiderScript_CreateInteger(0);
+		case SS_DATATYPE_REAL:	return SpiderScript_CreateReal(0);
+		case SS_DATATYPE_STRING:	return SpiderScript_CreateString(4, "null");
+		}
+		return NULL;
+	}
 	
 	// Check if anything needs to be done
 	if( Source->Type == Type ) {
 		Object_Reference(Source);
 		return Source;
 	}
+	
+	#if 0
+	{
+		printf("Casting %i ", Source->Type);
+		switch(Source->Type)
+		{
+		case SS_DATATYPE_INTEGER:	printf("0x%lx", Source->Integer);	break;
+		case SS_DATATYPE_STRING:	printf("\"%s\"", Source->String.Data);	break;
+		case SS_DATATYPE_REAL:	printf("%f", Source->Real);	break;
+		default:	break;
+		}
+		printf(" to %i\n", Type);
+	}
+	#endif
 	
 	#if 0
 	if( Source->Type == SS_DATATYPE_OBJECT )
@@ -213,11 +237,27 @@ tSpiderValue *SpiderScript_CastValueTo(int Type, tSpiderValue *Source)
 		}
 		break;
 	
+	case SS_DATATYPE_REAL:
+		ret = malloc(sizeof(tSpiderValue));
+		ret->Type = SS_DATATYPE_REAL;
+		ret->ReferenceCount = 1;
+		switch(Source->Type)
+		{
+		case SS_DATATYPE_STRING:	ret->Real = atof(Source->String.Data);	break;
+		case SS_DATATYPE_INTEGER:	ret->Real = Source->Integer;	break;
+		default:
+			AST_RuntimeError(NULL, "Invalid cast from %i to Real", Source->Type);
+			free(ret);
+			ret = ERRPTR;
+			break;
+		}
+		break;
+	
 	case SS_DATATYPE_STRING:
 		switch(Source->Type)
 		{
 		case SS_DATATYPE_INTEGER:	len = snprintf(NULL, 0, "%li", Source->Integer);	break;
-		case SS_DATATYPE_REAL:	snprintf(NULL, 0, "%f", Source->Real);	break;
+		case SS_DATATYPE_REAL:	len = snprintf(NULL, 0, "%g", Source->Real);	break;
 		default:	break;
 		}
 		ret = malloc(sizeof(tSpiderValue) + len + 1);
@@ -227,7 +267,8 @@ tSpiderValue *SpiderScript_CastValueTo(int Type, tSpiderValue *Source)
 		switch(Source->Type)
 		{
 		case SS_DATATYPE_INTEGER:	sprintf(ret->String.Data, "%li", Source->Integer);	break;
-		case SS_DATATYPE_REAL:	sprintf(ret->String.Data, "%f", Source->Real);	break;
+		case SS_DATATYPE_REAL:
+			sprintf(ret->String.Data, "%g", Source->Real);	break;
 		default:
 			AST_RuntimeError(NULL, "Invalid cast from %i to String", Source->Type);
 			free(ret);
@@ -237,7 +278,8 @@ tSpiderValue *SpiderScript_CastValueTo(int Type, tSpiderValue *Source)
 		break;
 	
 	default:
-		AST_RuntimeError(NULL, "BUG - BUG REPORT: Unimplemented cast target");
+		AST_RuntimeError(NULL, "BUG - BUG REPORT: Unimplemented cast target %i", Type);
+		ret = ERRPTR;
 		break;
 	}
 	
@@ -383,7 +425,7 @@ tSpiderValue *SpiderScript_ExecuteFunction(tSpiderScript *Script,
 			bs.CurNamespace = NULL;
 			bs.Script = Script;
 			
-			
+			// Parse arguments
 			for( arg = astFcn->Arguments; arg; arg = arg->NextSibling, i++ )
 			{
 				// TODO: Type checks
@@ -657,7 +699,7 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 	tSpiderValue	*ret = NULL, *tmpobj;
 	tSpiderValue	*op1, *op2;	// Binary operations
 	 int	cmp;	// Used in comparisons
-	 int	i=0;
+	 int	i;
 	
 	switch(Node->Type)
 	{
@@ -668,20 +710,20 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 	case NODETYPE_BLOCK:
 		{
 			tAST_BlockState	blockInfo;
-			memcpy(&blockInfo, Block, sizeof(tAST_BlockState));
+			blockInfo.Parent = Block;
+			blockInfo.Script = Block->Script;
 			blockInfo.FirstVar = NULL;
 			blockInfo.RetVal = NULL;
-			blockInfo.Parent = Block;
+			blockInfo.BaseNamespace = Block->BaseNamespace;
+			blockInfo.CurNamespace = NULL;
 			ret = NULL;
 			for(node = Node->Block.FirstChild; node && !blockInfo.RetVal; node = node->NextSibling )
 			{
-				tmpobj = AST_ExecuteNode(&blockInfo, node);
-				if(tmpobj == ERRPTR) {	// Error check
-					ret = ERRPTR;
+				ret = AST_ExecuteNode(&blockInfo, node);
+				if(ret == ERRPTR) {	// Error check
 					break ;
 				}
-				if(tmpobj)	Object_Dereference(tmpobj);	// Free unused value
-				tmpobj = NULL;
+				if(ret)	Object_Dereference(ret);	// Free unused value
 			}
 			// Clean up variables
 			while(blockInfo.FirstVar)
@@ -690,7 +732,8 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 				Variable_Destroy( blockInfo.FirstVar );
 				blockInfo.FirstVar = nextVar;
 			}
-			
+			if(ret != ERRPTR)
+				ret = NULL;
 			if( blockInfo.RetVal )
 				Block->RetVal = blockInfo.RetVal;
 		}
@@ -715,7 +758,7 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 			if( value == ERRPTR )
 				return ERRPTR;
 			if(ret)	Object_Dereference(ret);
-			Object_Dereference(varVal);
+			if(varVal)	Object_Dereference(varVal);
 			ret = value;
 		}
 		
@@ -725,72 +768,96 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 		}
 		break;
 	
+	case NODETYPE_POSTINC:
+	case NODETYPE_POSTDEC:
+		{
+			tSpiderValue	*varVal, *value, *one;
+			if( Node->UniOp.Value->Type != NODETYPE_VARIABLE ) {
+				AST_RuntimeError(Node, "LVALUE of assignment is not a variable");
+				return ERRPTR;
+			}
+		
+			varVal = Variable_GetValue(Block, Node->Assign.Dest->Variable.Name);
+			one = SpiderScript_CreateInteger(1);
+			
+			if( Node->Type == NODETYPE_POSTDEC )
+				value = AST_ExecuteNode_BinOp(Block, NODETYPE_SUBTRACT, varVal, one);
+			else
+				value = AST_ExecuteNode_BinOp(Block, NODETYPE_ADD, varVal, one);
+			if( value == ERRPTR )
+				return ERRPTR;
+			Object_Dereference(one);	// Free constant one
+			
+			ret = varVal;
+		
+			if( Variable_SetValue( Block, Node->Assign.Dest->Variable.Name, value ) ) {
+				Object_Dereference( ret );
+				return ERRPTR;
+			}
+			Object_Dereference( value );
+		}
+		break;
+	
 	// Function Call
 	case NODETYPE_METHODCALL:
 	case NODETYPE_FUNCTIONCALL:
 	case NODETYPE_CREATEOBJECT:
+		// Logical block (used to allocate `params`)
 		{
-			 int	nParams = 0;
-			for(node = Node->FunctionCall.FirstArg; node; node = node->NextSibling) {
-				nParams ++;
-			}
-			// Logical block (used to allocate `params`)
+			tSpiderValue	*params[Node->FunctionCall.NumArgs];
+			i = 0;
+			for(node = Node->FunctionCall.FirstArg; node; node = node->NextSibling)
 			{
-				tSpiderValue	*params[nParams];
-				i = 0;
-				for(node = Node->FunctionCall.FirstArg; node; node = node->NextSibling)
-				{
-					params[i] = AST_ExecuteNode(Block, node);
-					if( params[i] == ERRPTR ) {
-						while(i--)	Object_Dereference(params[i]);
-						ret = ERRPTR;
-						goto _return;
-					}
-					i ++;
+				params[i] = AST_ExecuteNode(Block, node);
+				if( params[i] == ERRPTR ) {
+					while(i--)	Object_Dereference(params[i]);
+					ret = ERRPTR;
+					goto _return;
 				}
-				
-				if( !Block->CurNamespace )
-					Block->CurNamespace = Block->BaseNamespace;
-				
-				// Call the function
-				if( Node->Type == NODETYPE_CREATEOBJECT )
-				{
-					ret = SpiderScript_CreateObject(Block->Script,
-						Block->CurNamespace,
-						Node->FunctionCall.Name,
-						nParams, params
-						);
-				}
-				else if( Node->Type == NODETYPE_METHODCALL )
-				{
-					tSpiderValue *obj = AST_ExecuteNode(Block, Node->FunctionCall.Object);
-					if( !obj || obj->Type != SS_DATATYPE_OBJECT ) {
-						AST_RuntimeError(Node->FunctionCall.Object,
-							"Type Mismatch - Required SS_DATATYPE_OBJECT for method call");
-						while(i--)	Object_Dereference(params[i]);
-						ret = ERRPTR;
-						break;
-					}
-					ret = SpiderScript_ExecuteMethod(Block->Script,
-						obj->Object, Node->FunctionCall.Name,
-						nParams, params
-						);
-					Object_Dereference(obj);
-				}
-				else
-				{
-					ret = SpiderScript_ExecuteFunction(Block->Script,
-						Block->CurNamespace, Node->FunctionCall.Name,
-						nParams, params
-						);
-				}
-
-				
-				// Dereference parameters
-				while(i--)	Object_Dereference(params[i]);
-				
-				// falls out
+				i ++;
 			}
+			
+			if( !Block->CurNamespace )
+				Block->CurNamespace = Block->BaseNamespace;
+			
+			// Call the function
+			if( Node->Type == NODETYPE_CREATEOBJECT )
+			{
+				ret = SpiderScript_CreateObject(Block->Script,
+					Block->CurNamespace,
+					Node->FunctionCall.Name,
+					Node->FunctionCall.NumArgs, params
+					);
+			}
+			else if( Node->Type == NODETYPE_METHODCALL )
+			{
+				tSpiderValue *obj = AST_ExecuteNode(Block, Node->FunctionCall.Object);
+				if( !obj || obj->Type != SS_DATATYPE_OBJECT ) {
+					AST_RuntimeError(Node->FunctionCall.Object,
+						"Type Mismatch - Required SS_DATATYPE_OBJECT for method call");
+					while(i--)	Object_Dereference(params[i]);
+					ret = ERRPTR;
+					break;
+				}
+				ret = SpiderScript_ExecuteMethod(Block->Script,
+					obj->Object, Node->FunctionCall.Name,
+					Node->FunctionCall.NumArgs, params
+					);
+				Object_Dereference(obj);
+			}
+			else
+			{
+				ret = SpiderScript_ExecuteFunction(Block->Script,
+					Block->CurNamespace, Node->FunctionCall.Name,
+					Node->FunctionCall.NumArgs, params
+					);
+			}
+
+			
+			// Dereference parameters
+			while(i--)	Object_Dereference(params[i]);
+			
+			// falls out
 		}
 		break;
 	
@@ -981,6 +1048,12 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 	
 	// --- Operations ---
 	// Boolean Operations
+	case NODETYPE_LOGICALNOT:	// Logical NOT (!)
+		op1 = AST_ExecuteNode(Block, Node->UniOp.Value);
+		if(op1 == ERRPTR)	return ERRPTR;
+		ret = SpiderScript_CreateInteger( !SpiderScript_IsValueTrue(op1) );
+		Object_Dereference(op1);
+		break;
 	case NODETYPE_LOGICALAND:	// Logical AND (&&)
 	case NODETYPE_LOGICALOR:	// Logical OR (||)
 	case NODETYPE_LOGICALXOR:	// Logical XOR (^^)
@@ -1015,12 +1088,23 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 	case NODETYPE_EQUALS:
 	case NODETYPE_LESSTHAN:
 	case NODETYPE_GREATERTHAN:
+	case NODETYPE_LESSTHANEQUAL:
+	case NODETYPE_GREATERTHANEQUAL:
 		op1 = AST_ExecuteNode(Block, Node->BinOp.Left);
 		if(op1 == ERRPTR)	return ERRPTR;
 		op2 = AST_ExecuteNode(Block, Node->BinOp.Right);
 		if(op2 == ERRPTR) {
 			Object_Dereference(op1);
-			return ERRPTR;
+			ret = ERRPTR;
+			break;
+		}
+		
+		if( !op1 || !op2 ) {
+			AST_RuntimeError(Node, "NULL Comparison (%p and %p)\n", op1, op2);
+			if(op1)	Object_Dereference(op1);
+			if(op2)	Object_Dereference(op2);
+			ret = SpiderScript_CreateInteger( !op1 && !op2 );
+			break;
 		}
 		
 		// Convert types
@@ -1073,6 +1157,10 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 			else
 				cmp = 1;
 			break;
+		// - Real Number Comparisons
+		case SS_DATATYPE_REAL:
+			cmp = (op1->Real - op2->Real) / op2->Real * 10000;	// < 0.1% difference is equality
+			break;
 		default:
 			AST_RuntimeError(Node, "TODO - Comparison of type %i", op1->Type);
 			ret = ERRPTR;
@@ -1093,11 +1181,22 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 		case NODETYPE_EQUALS:	ret = SpiderScript_CreateInteger(cmp == 0);	break;
 		case NODETYPE_LESSTHAN:	ret = SpiderScript_CreateInteger(cmp < 0);	break;
 		case NODETYPE_GREATERTHAN:	ret = SpiderScript_CreateInteger(cmp > 0);	break;
+		case NODETYPE_LESSTHANEQUAL:	ret = SpiderScript_CreateInteger(cmp <= 0);	break;
+		case NODETYPE_GREATERTHANEQUAL:	ret = SpiderScript_CreateInteger(cmp >= 0);	break;
 		default:
 			AST_RuntimeError(Node, "Exec,CmpOp unknown op %i", Node->Type);
 			ret = ERRPTR;
 			break;
 		}
+		break;
+	
+	// General Unary Operations
+	case NODETYPE_BWNOT:	// Bitwise NOT (~)
+	case NODETYPE_NEGATE:	// Negation (-)
+		op1 = AST_ExecuteNode(Block, Node->UniOp.Value);
+		if(op1 == ERRPTR)	return ERRPTR;
+		ret = AST_ExecuteNode_UniOp(Block, Node->Type, op1);
+		Object_Dereference(op1);
 		break;
 	
 	// General Binary Operations
@@ -1134,6 +1233,64 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 	//	break;
 	}
 _return:
+	return ret;
+}
+
+tSpiderValue *AST_ExecuteNode_UniOp(tAST_BlockState *Block, int Operation, tSpiderValue *Value)
+{
+	tSpiderValue	*ret;
+	#if 0
+	if( Value->Type == SS_DATATYPE_OBJECT )
+	{
+		const char	*fcnname;
+		switch(Operation)
+		{
+		case NODETYPE_NEGATE:	fcnname = "-ve";	break;
+		case NODETYPE_BWNOT:	fcnname = "~";	break;
+		default:	fcnname = NULL;	break;
+		}
+		
+		if( fcnname )
+		{
+			ret = Object_ExecuteMethod(Value->Object, fcnname, );
+			if( ret != ERRPTR )
+				return ret;
+			// Fall through and try casting (which will usually fail)
+		}
+	}
+	#endif
+	switch(Value->Type)
+	{
+	// Integer Operations
+	case SS_DATATYPE_INTEGER:
+		switch(Operation)
+		{
+		case NODETYPE_NEGATE:	ret = SpiderScript_CreateInteger( -Value->Integer );	break;
+		case NODETYPE_BWNOT:	ret = SpiderScript_CreateInteger( ~Value->Integer );	break;
+		default:
+			AST_RuntimeError(NULL, "SpiderScript internal error: Exec,UniOP,Integer unknown op %i", Operation);
+			ret = ERRPTR;
+			break;
+		}
+		break;
+	// Real number Operations
+	case SS_DATATYPE_REAL:
+		switch(Operation)
+		{
+		case NODETYPE_NEGATE:	ret = SpiderScript_CreateInteger( -Value->Real );	break;
+		default:
+			AST_RuntimeError(NULL, "SpiderScript internal error: Exec,UniOP,Real unknown op %i", Operation);
+			ret = ERRPTR;
+			break;
+		}
+		break;
+	
+	default:
+		AST_RuntimeError(NULL, "Invalid operation (%i) on type (%i)", Operation, Value->Type);
+		ret = ERRPTR;
+		break;
+	}
+	
 	return ret;
 }
 
@@ -1241,6 +1398,10 @@ tSpiderValue *AST_ExecuteNode_BinOp(tAST_BlockState *Block, int Operation, tSpid
 	case SS_DATATYPE_REAL:
 		switch(Operation)
 		{
+		case NODETYPE_ADD:	ret = SpiderScript_CreateReal( Left->Real + Right->Real );	break;
+		case NODETYPE_SUBTRACT:	ret = SpiderScript_CreateReal( Left->Real - Right->Real );	break;
+		case NODETYPE_MULTIPLY:	ret = SpiderScript_CreateReal( Left->Real * Right->Real );	break;
+		case NODETYPE_DIVIDE:	ret = SpiderScript_CreateReal( Left->Real / Right->Real );	break;
 		default:
 			AST_RuntimeError(NULL, "SpiderScript internal error: Exec,BinOP,Real unknown op %i", Operation);
 			ret = ERRPTR;

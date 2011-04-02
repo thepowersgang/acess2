@@ -117,7 +117,7 @@ void AST_SetFunctionCode(tAST_Function *Function, tAST_Node *Root)
 size_t AST_WriteScript(void *Buffer, tAST_Script *Script)
 {
 	tAST_Function	*fcn;
-	size_t	ret = 0, ptr;
+	size_t	ret = 0, ptr = 0;
 	
 	for( fcn = Script->Functions; fcn; fcn = fcn->Next )
 	{
@@ -128,8 +128,11 @@ size_t AST_WriteScript(void *Buffer, tAST_Script *Script)
 		ret += AST_WriteNode(Buffer, ret, fcn->Code);
 		WRITE_32(Buffer, ptr, ret);	// Actually set next
 	}
-	ptr -= 4;
-	WRITE_32(Buffer, ptr, 0);	// Clear next for final
+	if( ptr )
+	{
+		ptr -= 4;
+		WRITE_32(Buffer, ptr, 0);	// Clear next for final
+	}
 	
 	return ret;
 }
@@ -139,7 +142,6 @@ size_t AST_WriteScript(void *Buffer, tAST_Script *Script)
  */
 size_t AST_WriteNode(void *Buffer, size_t Offset, tAST_Node *Node)
 {
-	size_t	ptr;
 	size_t	baseOfs = Offset;
 	
 	if(!Node) {
@@ -219,7 +221,11 @@ size_t AST_WriteNode(void *Buffer, size_t Offset, tAST_Node *Node)
 	
 	// Unary Operations
 	case NODETYPE_RETURN:
-		ptr = Offset;
+	case NODETYPE_BWNOT:
+	case NODETYPE_LOGICALNOT:
+	case NODETYPE_NEGATE:
+	case NODETYPE_POSTINC:
+	case NODETYPE_POSTDEC:
 		Offset += AST_WriteNode(Buffer, Offset, Node->UniOp.Value);
 		break;
 	
@@ -237,8 +243,8 @@ size_t AST_WriteNode(void *Buffer, size_t Offset, tAST_Node *Node)
 	case NODETYPE_BWOR: 	case NODETYPE_LOGICALOR:
 	case NODETYPE_BWXOR:	case NODETYPE_LOGICALXOR:
 	case NODETYPE_EQUALS:
-	case NODETYPE_LESSTHAN:
-	case NODETYPE_GREATERTHAN:
+	case NODETYPE_LESSTHAN:	case NODETYPE_LESSTHANEQUAL:
+	case NODETYPE_GREATERTHAN:	case NODETYPE_GREATERTHANEQUAL:
 		Offset += AST_WriteNode(Buffer, Offset, Node->BinOp.Left);
 		Offset += AST_WriteNode(Buffer, Offset, Node->BinOp.Right);
 		break;
@@ -347,6 +353,11 @@ void AST_FreeNode(tAST_Node *Node)
 	
 	// Unary Operations
 	case NODETYPE_RETURN:
+	case NODETYPE_BWNOT:
+	case NODETYPE_LOGICALNOT:
+	case NODETYPE_NEGATE:
+	case NODETYPE_POSTINC:
+	case NODETYPE_POSTDEC:
 		AST_FreeNode(Node->UniOp.Value);
 		break;
 	
@@ -364,8 +375,8 @@ void AST_FreeNode(tAST_Node *Node)
 	case NODETYPE_BWOR: 	case NODETYPE_LOGICALOR:
 	case NODETYPE_BWXOR:	case NODETYPE_LOGICALXOR:
 	case NODETYPE_EQUALS:
-	case NODETYPE_LESSTHAN:
-	case NODETYPE_GREATERTHAN:
+	case NODETYPE_LESSTHAN:	case NODETYPE_LESSTHANEQUAL:
+	case NODETYPE_GREATERTHAN:	case NODETYPE_GREATERTHANEQUAL:
 		AST_FreeNode( Node->BinOp.Left );
 		AST_FreeNode( Node->BinOp.Right );
 		break;
@@ -386,6 +397,7 @@ tAST_Node *AST_NewCodeBlock(tParser *Parser)
 	tAST_Node	*ret = malloc( sizeof(tAST_Node) );
 	
 	ret->NextSibling = NULL;
+	ret->File = NULL;
 	ret->Line = Parser->CurLine;
 	ret->Type = NODETYPE_BLOCK;
 	ret->Block.FirstChild = NULL;
@@ -427,6 +439,7 @@ tAST_Node *AST_NewIf(tParser *Parser, tAST_Node *Condition, tAST_Node *True, tAS
 {
 	tAST_Node	*ret = malloc( sizeof(tAST_Node) );
 	ret->NextSibling = NULL;
+	ret->File = NULL;
 	ret->Line = Parser->CurLine;
 	ret->Type = NODETYPE_IF;
 	ret->If.Condition = Condition;
@@ -439,6 +452,7 @@ tAST_Node *AST_NewLoop(tParser *Parser, tAST_Node *Init, int bPostCheck, tAST_No
 {
 	tAST_Node	*ret = malloc( sizeof(tAST_Node) );
 	ret->NextSibling = NULL;
+	ret->File = NULL;
 	ret->Line = Parser->CurLine;
 	ret->Type = NODETYPE_LOOP;
 	ret->For.Init = Init;
@@ -454,6 +468,7 @@ tAST_Node *AST_NewAssign(tParser *Parser, int Operation, tAST_Node *Dest, tAST_N
 	tAST_Node	*ret = malloc( sizeof(tAST_Node) );
 	
 	ret->NextSibling = NULL;
+	ret->File = NULL;
 	ret->Line = Parser->CurLine;
 	ret->Type = NODETYPE_ASSIGN;
 	ret->Assign.Operation = Operation;
@@ -468,6 +483,7 @@ tAST_Node *AST_NewCast(tParser *Parser, int Target, tAST_Node *Value)
 	tAST_Node	*ret = malloc( sizeof(tAST_Node) );
 	
 	ret->NextSibling = NULL;
+	ret->File = NULL;
 	ret->Line = Parser->CurLine;
 	ret->Type = NODETYPE_CAST;
 	ret->Cast.DataType = Target;
@@ -481,6 +497,7 @@ tAST_Node *AST_NewBinOp(tParser *Parser, int Operation, tAST_Node *Left, tAST_No
 	tAST_Node	*ret = malloc( sizeof(tAST_Node) );
 	
 	ret->NextSibling = NULL;
+	ret->File = NULL;
 	ret->Line = Parser->CurLine;
 	ret->Type = Operation;
 	ret->BinOp.Left = Left;
@@ -496,9 +513,22 @@ tAST_Node *AST_NewUniOp(tParser *Parser, int Operation, tAST_Node *Value)
 	tAST_Node	*ret = malloc( sizeof(tAST_Node) );
 	
 	ret->NextSibling = NULL;
+	ret->File = NULL;
 	ret->Line = Parser->CurLine;
 	ret->Type = Operation;
 	ret->UniOp.Value = Value;
+	
+	return ret;
+}
+
+tAST_Node *AST_NewNop(tParser *Parser)
+{
+	tAST_Node	*ret = malloc( sizeof(tAST_Node) );
+	
+	ret->NextSibling = NULL;
+	ret->File = NULL;
+	ret->Line = Parser->CurLine;
+	ret->Type = NODETYPE_NOP;
 	
 	return ret;
 }
@@ -511,6 +541,7 @@ tAST_Node *AST_NewString(tParser *Parser, const char *String, int Length)
 	tAST_Node	*ret = malloc( sizeof(tAST_Node) + Length + 1 );
 	
 	ret->NextSibling = NULL;
+	ret->File = NULL;
 	ret->Line = Parser->CurLine;
 	ret->Type = NODETYPE_STRING;
 	ret->String.Length = Length;
@@ -523,13 +554,28 @@ tAST_Node *AST_NewString(tParser *Parser, const char *String, int Length)
 /**
  * \brief Create a new integer node
  */
-tAST_Node *AST_NewInteger(tParser *Parser, uint64_t Value)
+tAST_Node *AST_NewInteger(tParser *Parser, int64_t Value)
 {
 	tAST_Node	*ret = malloc( sizeof(tAST_Node) );
 	ret->NextSibling = NULL;
+	ret->File = NULL;
 	ret->Line = Parser->CurLine;
 	ret->Type = NODETYPE_INTEGER;
 	ret->Integer = Value;
+	return ret;
+}
+
+/**
+ * \brief Create a new real number node
+ */
+tAST_Node *AST_NewReal(tParser *Parser, double Value)
+{
+	tAST_Node	*ret = malloc( sizeof(tAST_Node) );
+	ret->NextSibling = NULL;
+	ret->File = NULL;
+	ret->Line = Parser->CurLine;
+	ret->Type = NODETYPE_REAL;
+	ret->Real = Value;
 	return ret;
 }
 
@@ -540,6 +586,7 @@ tAST_Node *AST_NewVariable(tParser *Parser, const char *Name)
 {
 	tAST_Node	*ret = malloc( sizeof(tAST_Node) + strlen(Name) + 1 );
 	ret->NextSibling = NULL;
+	ret->File = NULL;
 	ret->Line = Parser->CurLine;
 	ret->Type = NODETYPE_VARIABLE;
 	strcpy(ret->Variable.Name, Name);
@@ -553,6 +600,7 @@ tAST_Node *AST_NewDefineVar(tParser *Parser, int Type, const char *Name)
 {
 	tAST_Node	*ret = malloc( sizeof(tAST_Node) + strlen(Name) + 1 );
 	ret->NextSibling = NULL;
+	ret->File = NULL;
 	ret->Line = Parser->CurLine;
 	ret->Type = NODETYPE_DEFVAR;
 	ret->DefVar.DataType = Type;
@@ -568,6 +616,7 @@ tAST_Node *AST_NewConstant(tParser *Parser, const char *Name)
 {
 	tAST_Node	*ret = malloc( sizeof(tAST_Node) + strlen(Name) + 1 );
 	ret->NextSibling = NULL;
+	ret->File = NULL;
 	ret->Line = Parser->CurLine;
 	ret->Type = NODETYPE_CONSTANT;
 	strcpy(ret->Variable.Name, Name);
@@ -583,11 +632,13 @@ tAST_Node *AST_NewFunctionCall(tParser *Parser, const char *Name)
 	tAST_Node	*ret = malloc( sizeof(tAST_Node) + strlen(Name) + 1 );
 	
 	ret->NextSibling = NULL;
+	ret->File = NULL;
 	ret->Line = Parser->CurLine;
 	ret->Type = NODETYPE_FUNCTIONCALL;
 	ret->FunctionCall.Object = NULL;
 	ret->FunctionCall.FirstArg = NULL;
 	ret->FunctionCall.LastArg = NULL;
+	ret->FunctionCall.NumArgs = 0;
 	strcpy(ret->FunctionCall.Name, Name);
 	return ret;
 }
@@ -596,11 +647,13 @@ tAST_Node *AST_NewMethodCall(tParser *Parser, tAST_Node *Object, const char *Nam
 	tAST_Node	*ret = malloc( sizeof(tAST_Node) + strlen(Name) + 1 );
 	
 	ret->NextSibling = NULL;
+	ret->File = NULL;
 	ret->Line = Parser->CurLine;
 	ret->Type = NODETYPE_METHODCALL;
 	ret->FunctionCall.Object = Object;
 	ret->FunctionCall.FirstArg = NULL;
 	ret->FunctionCall.LastArg = NULL;
+	ret->FunctionCall.NumArgs = 0;
 	strcpy(ret->FunctionCall.Name, Name);
 	return ret;
 }
@@ -610,11 +663,13 @@ tAST_Node *AST_NewCreateObject(tParser *Parser, const char *Name)
 	tAST_Node	*ret = malloc( sizeof(tAST_Node) + strlen(Name) + 1 );
 	
 	ret->NextSibling = NULL;
+	ret->File = NULL;
 	ret->Line = Parser->CurLine;
 	ret->Type = NODETYPE_CREATEOBJECT;
 	ret->FunctionCall.Object = NULL;
 	ret->FunctionCall.FirstArg = NULL;
 	ret->FunctionCall.LastArg = NULL;
+	ret->FunctionCall.NumArgs = 0;
 	strcpy(ret->FunctionCall.Name, Name);
 	return ret;
 }
@@ -640,6 +695,7 @@ void AST_AppendFunctionCallArg(tAST_Node *Node, tAST_Node *Arg)
 		Node->FunctionCall.FirstArg = Arg;
 		Node->FunctionCall.LastArg = Arg;
 	}
+	Node->FunctionCall.NumArgs ++;
 }
 
 /**
@@ -650,6 +706,7 @@ tAST_Node *AST_NewScopeDereference(tParser *Parser, const char *Name, tAST_Node 
 	tAST_Node	*ret = malloc( sizeof(tAST_Node) + strlen(Name) + 1 );
 	
 	ret->NextSibling = NULL;
+	ret->File = NULL;
 	ret->Line = Parser->CurLine;
 	ret->Type = NODETYPE_SCOPE;
 	ret->Scope.Element = Child;
@@ -665,6 +722,7 @@ tAST_Node *AST_NewClassElement(tParser *Parser, tAST_Node *Object, const char *N
 	tAST_Node	*ret = malloc( sizeof(tAST_Node) + strlen(Name) + 1 );
 	
 	ret->NextSibling = NULL;
+	ret->File = NULL;
 	ret->Line = Parser->CurLine;
 	ret->Type = NODETYPE_ELEMENT;
 	ret->Scope.Element = Object;
