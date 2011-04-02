@@ -111,7 +111,7 @@ struct sSpiderValue
 	 int	ReferenceCount;	//!< Reference count
 	
 	union {
-		uint64_t	Integer;	//!< Integer data
+		int64_t	Integer;	//!< Integer data
 		double	Real;	//!< Real Number data
 		/**
 		 * \brief String data

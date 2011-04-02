@@ -171,6 +171,7 @@ struct sAST_Node
 			 int	DataType;
 			tAST_Node	*LevelSizes;
 			tAST_Node	*LevelSizes_Last;
+			tAST_Node	*InitialValue;
 			char	Name[];
 		}	DefVar;
 		

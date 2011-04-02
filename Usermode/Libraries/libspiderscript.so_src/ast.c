@@ -121,6 +121,7 @@ size_t AST_WriteScript(void *Buffer, tAST_Script *Script)
 	
 	for( fcn = Script->Functions; fcn; fcn = fcn->Next )
 	{
+//		printf("fcn = %p, fcn->Name = %p\n", fcn, fcn->Name);
 		ptr = ret;
 		WRITE_32(Buffer, ret, 0);	// Next
 		WRITE_STR(Buffer, ret, fcn->Name);
@@ -145,7 +146,10 @@ size_t AST_WriteNode(void *Buffer, size_t Offset, tAST_Node *Node)
 	size_t	baseOfs = Offset;
 	
 	if(!Node) {
-		fprintf(stderr, "Possible Bug - NULL passed to AST_WriteNode\n");
+		//fprintf(stderr, "Possible Bug - NULL passed to AST_WriteNode\n");
+		WRITE_32(Buffer, Offset, 0);
+		WRITE_16(Buffer, Offset, NODETYPE_NOP);
+		WRITE_16(Buffer, Offset, 0);	// Line (0)
 		return 0;
 	}
 	
@@ -210,6 +214,7 @@ size_t AST_WriteNode(void *Buffer, size_t Offset, tAST_Node *Node)
 		WRITE_STR(Buffer, Offset, Node->DefVar.Name);
 		
 		WRITE_NODELIST(Buffer, Offset, Node->DefVar.LevelSizes);
+		Offset += AST_WriteNode(Buffer, Offset, Node->DefVar.InitialValue);
 		break;
 	
 	// Scope Reference
@@ -349,6 +354,7 @@ void AST_FreeNode(tAST_Node *Node)
 			AST_FreeNode(node);
 			node = savedNext;
 		}
+		AST_FreeNode(Node->DefVar.InitialValue);
 		break;
 	
 	// Unary Operations
@@ -580,6 +586,8 @@ tAST_Node *AST_NewDefineVar(tParser *Parser, int Type, const char *Name)
 	
 	ret->DefVar.DataType = Type;
 	ret->DefVar.LevelSizes = NULL;
+	ret->DefVar.LevelSizes_Last = NULL;
+	ret->DefVar.InitialValue = NULL;
 	strcpy(ret->DefVar.Name, Name);
 	
 	return ret;

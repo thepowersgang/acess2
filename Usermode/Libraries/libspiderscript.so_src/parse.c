@@ -196,6 +196,10 @@ tAST_Node *Parse_DoBlockLine(tParser *Parser)
 	
 	switch(LookAhead(Parser))
 	{
+	// New block
+	case TOK_BRACE_OPEN:
+		return Parse_DoCodeBlock(Parser);
+	
 	// Empty statement
 	case TOK_SEMICOLON:
 		GetToken(Parser);
@@ -322,6 +326,13 @@ tAST_Node *Parse_GetVarDef(tParser *Parser, int Type)
 		AST_AppendNode(ret, Parse_DoExpr0(Parser));
 		SyntaxAssert(Parser, GetToken(Parser), TOK_SQUARE_CLOSE);
 	}
+	
+	if( LookAhead(Parser) == TOK_ASSIGN )
+	{
+		GetToken(Parser);
+		ret->DefVar.InitialValue = Parse_DoExpr0(Parser);
+	}
+	
 	return ret;
 }
 
