@@ -4,7 +4,7 @@
  *
  * Disk Input/Output control
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include <modules.h>	// Needed for error codes
 #include <drv_pci.h>

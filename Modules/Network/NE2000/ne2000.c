@@ -75,9 +75,7 @@ typedef struct sNe2k_Card {
 	 int	NextRXPage; 	//!< Next expected RX page
 	
 	 int	NextMemPage;	//!< Next Card Memory page to use
-	
-	//Uint8	Buffer[RX_BUF_SIZE*256];
-	
+		
 	char	Name[2];	// "0"
 	tVFS_Node	Node;	//!< VFS Node
 	Uint8	MacAddr[6];	//!< Cached MAC address
@@ -169,13 +167,13 @@ int Ne2k_Install(char **Options)
 			outb( base + ISR, 0xFF );
 			outb( base + RCR, 0x20 );	// Reciever to Monitor
 			outb( base + TCR, 0x02 );	// Transmitter OFF (TCR.LB = 1, Internal Loopback)
+			
+			// Read MAC Address
 			outb( base + RBCR0, 6*4 );	// Remote Byte Count
 			outb( base + RBCR1, 0 );
 			outb( base + RSAR0, 0 );	// Clear Source Address
 			outb( base + RSAR1, 0 );
 			outb( base + CMD, 0x0A );	// Remote Read, Start
-			
-			// Read MAC Address
 			gpNe2k_Cards[ k ].MacAddr[0] = inb(base+0x10);//	inb(base+0x10);
 			gpNe2k_Cards[ k ].MacAddr[1] = inb(base+0x10);//	inb(base+0x10);
 			gpNe2k_Cards[ k ].MacAddr[2] = inb(base+0x10);//	inb(base+0x10);
@@ -192,15 +190,6 @@ int Ne2k_Install(char **Options)
 			outb( base+RCR, 0x0F );	// Set WRAP and allow all packet matches
 			outb( base+TCR, 0x00 );	// Set Normal Transmitter mode
 			outb( base+TPSR, 0x40);	// Set Transmit Start
-			// Set MAC Address
-			/*
-			Ne2k_WriteReg(base, MAC0, gpNe2k_Cards[ k ].MacAddr[0]);
-			Ne2k_WriteReg(base, MAC1, gpNe2k_Cards[ k ].MacAddr[1]);
-			Ne2k_WriteReg(base, MAC2, gpNe2k_Cards[ k ].MacAddr[2]);
-			Ne2k_WriteReg(base, MAC3, gpNe2k_Cards[ k ].MacAddr[3]);
-			Ne2k_WriteReg(base, MAC4, gpNe2k_Cards[ k ].MacAddr[4]);
-			Ne2k_WriteReg(base, MAC5, gpNe2k_Cards[ k ].MacAddr[5]);
-			*/
 			
 			Log_Log("Ne2k", "Card %i 0x%04x IRQ%i %02x:%02x:%02x:%02x:%02x:%02x",
 				k, base, gpNe2k_Cards[ k ].IRQ,

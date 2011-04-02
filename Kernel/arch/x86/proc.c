@@ -49,6 +49,8 @@ extern int	giNextTID;
 extern tThread	gThreadZero;
 extern void	Isr8(void);	// Double Fault
 extern void	Proc_ReturnToUser(tVAddr Handler, Uint Argument, tVAddr KernelStack);
+extern void	scheduler_return;	// Return address in SchedulerBase
+extern void	IRQCommon;	// Common IRQ handler code
 
 // === PROTOTYPES ===
 void	ArchThreads_Init(void);
@@ -65,6 +67,7 @@ void	Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **
 void	Proc_StartProcess(Uint16 SS, Uint Stack, Uint Flags, Uint16 CS, Uint IP);
  int	Proc_Demote(Uint *Err, int Dest, tRegs *Regs);
 void	Proc_CallFaultHandler(tThread *Thread);
+void	Proc_DumpThreadCPUState(tThread *Thread);
 void	Proc_Scheduler(int CPU);
 
 // === GLOBALS ===
@@ -850,6 +853,69 @@ void Proc_CallFaultHandler(tThread *Thread)
 	for(;;);
 }
 
+void Proc_DumpThreadCPUState(tThread *Thread)
+{
+	Uint32	*stack = (void *)Thread->SavedState.EBP;	// EBP = ESP after call and PUSH
+	
+	if( Thread->CurCPU > -1 )
+	{
+		Log("  Currently running");
+		return ;
+	}
+	
+	#if 1
+	tVAddr	diffFromScheduler = Thread->SavedState.EIP - (tVAddr)Proc_Scheduler;
+	tVAddr	diffFromClone = Thread->SavedState.EIP - (tVAddr)Proc_Clone;
+	tVAddr	diffFromSpawn = Thread->SavedState.EIP - (tVAddr)Proc_SpawnWorker;
+	
+	if( diffFromClone > 0 && diffFromClone < 512 )	// When I last checked, GetEIP was at .+0x183
+	{
+		// Just spawned full thread
+		Log("  Creating full thread");
+		return ;
+	}
+	
+	if( diffFromSpawn > 0 && diffFromSpawn < 512 )	// When I last checked, GetEIP was at .+0x99
+	{
+		// Just spawned worker thread
+		Log("  Creating worker thread");
+		return ;
+	}
+	
+	if( diffFromScheduler > 0 && diffFromScheduler < 256 )	// When I last checked, GetEIP was at .+0x60
+	#else
+	if( stack[1] == (Uint32)&IRQCommon + 25 )
+	{
+		tRegs	*regs = (void *) stack[2];
+		Log("  oldebp = 0x%08x, ret = 0x%08x, regs = 0x%x",
+			stack[0], stack[1], stack[2]
+			);
+		// [EBP] = old EBP
+		// [EBP+0x04] = Return Addr
+		// [EBP+0x08] = Arg 1 (CPU Number)
+		// [EBP+0x0C] = Arg 2 (Thread)
+		// [EBP+0x10] = GS (start of tRegs)
+		Log("  IRQ%i from %02x:%08x", regs->int_num regs->cs, regs->eip);
+	}
+	if( stack[1] == (Uint32)&scheduler_return )
+	#endif
+	{
+		// Scheduled out
+		tRegs	*regs = (void *) &stack[4];
+		Log("  oldebp = 0x%08x, ret = 0x%08x, cpu = %i, thread = 0x%x",
+			stack[0], stack[1], stack[2], stack[3]);
+		// [EBP] = old EBP
+		// [EBP+0x04] = Return Addr
+		// [EBP+0x08] = Arg 1 (CPU Number)
+		// [EBP+0x0C] = Arg 2 (Thread)
+		// [EBP+0x10] = GS (start of tRegs)
+		Log("  At %02x:%08x", regs->cs, regs->eip);
+		return ;
+	}
+	
+	Log("  Just created");
+}
+
 /**
  * \fn void Proc_Scheduler(int CPU)
  * \brief Swap current thread and clears dead threads
@@ -918,7 +984,7 @@ void Proc_Scheduler(int CPU)
 	#endif
 	
 	#if USE_MP	// MP Debug
-	Log("CPU = %i, Thread %p", CPU, thread);
+//	Log("CPU = %i, Thread %p", CPU, thread);
 	#endif
 	
 	// Update Kernel Stack pointer

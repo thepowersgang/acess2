@@ -112,6 +112,10 @@ int IPStack_Install(char **Arguments)
 					UnHex(addrData, size, addr);
 					
 					tInterface	*iface = IPStack_AddInterface(dev, "");
+					if( !iface ) {
+						Log_Warning("IPStack", "Unable to add interface on '%s'", dev);
+						continue ;
+					}
 					iface->Type = iType;
 					memcpy(iface->Address, addrData, size);
 					iface->SubnetBits = iBits;

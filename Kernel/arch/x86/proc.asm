@@ -92,8 +92,10 @@ SchedulerBase:
 	%endif
 	
 	call Proc_Scheduler
+[global scheduler_return]
+scheduler_return:	; Used by some hackery in Proc_DumpThreadCPUState
 	
-	add esp, 4	; Remove Argument
+	add esp, 4	; Remove CPU Number (thread is poped later)
 
 	%if USE_MP
 	test ebx, ebx

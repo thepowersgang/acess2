@@ -82,12 +82,12 @@ typedef Uint64	tPAddr;
 typedef Uint32	tVAddr;
 
 typedef struct {
-	Uint	gs, fs, es, ds;
-	Uint	edi, esi, ebp, kesp;
-	Uint	ebx, edx, ecx, eax;
-	Uint	int_num, err_code;
-	Uint	eip, cs;
-	Uint	eflags, esp, ss;
+	Uint32	gs, fs, es, ds;
+	Uint32	edi, esi, ebp, kesp;
+	Uint32	ebx, edx, ecx, eax;
+	Uint32	int_num, err_code;
+	Uint32	eip, cs;
+	Uint32	eflags, esp, ss;
 } tRegs;
 
 typedef struct {

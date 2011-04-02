@@ -33,6 +33,7 @@ const enum eConfigTypes	cCONFIG_TYPES[] = {
 // === IMPORTS ===
 extern void	ArchThreads_Init(void);
 extern void	Proc_CallFaultHandler(tThread *Thread);
+extern void	Proc_DumpThreadCPUState(tThread *Thread);
 extern int	GetCPUNum(void);
 
 // === PROTOTYPES ===
@@ -788,7 +789,6 @@ void Threads_AddActive(tThread *Thread)
 	
 	// Set state
 	Thread->Status = THREAD_STAT_ACTIVE;
-	Thread->CurCPU = -1;
 	// Add to active list
 	#if SCHEDULER_TYPE == SCHED_RR_PRI
 	Thread->Next = gaActiveThreads[Thread->Priority];
@@ -802,11 +802,22 @@ void Threads_AddActive(tThread *Thread)
 	giNumActiveThreads ++;
 	
 	#if SCHEDULER_TYPE == SCHED_LOTTERY
-	giFreeTickets += caiTICKET_COUNTS[ Thread->Priority ];
-	# if DEBUG_TRACE_TICKETS
-	Log("Threads_AddActive: CPU%i %p %i (%s) added, new giFreeTickets = %i",
-		GetCPUNum(), Thread, Thread->TID, Thread->ThreadName, giFreeTickets);
-	# endif
+	{
+		 int	delta;
+		// Only change the ticket count if the thread is un-scheduled
+		if(Thread->CurCPU != -1)
+			delta = 0;
+		else
+			delta = caiTICKET_COUNTS[ Thread->Priority ];
+		
+		giFreeTickets += delta;
+		# if DEBUG_TRACE_TICKETS
+		Log("CPU%i %p (%i %s) added, new giFreeTickets = %i [+%i]",
+			GetCPUNum(), Thread, Thread->TID, Thread->ThreadName,
+			giFreeTickets, delta
+			);
+		# endif
+	}
 	#endif
 	
 	SHORTREL( &glThreadListLock );
@@ -836,13 +847,12 @@ tThread *Threads_RemActive(void)
 	
 	ret->Next = NULL;
 	ret->Remaining = 0;
-	ret->CurCPU = -1;
 	
 	giNumActiveThreads --;
 	// no need to decrement tickets, scheduler did it for us
 	
 	#if SCHEDULER_TYPE == SCHED_LOTTERY && DEBUG_TRACE_TICKETS
-	Log("Threads_RemActive: CPU%i %p %i (%s) removed, giFreeTickets = %i",
+	Log("CPU%i %p (%i %s) removed, giFreeTickets = %i [nc]",
 		GetCPUNum(), ret, ret->TID, ret->ThreadName, giFreeTickets);
 	#endif
 	
@@ -977,6 +987,7 @@ void Threads_DumpActive(void)
 				Log("  ERROR State (%i) != THREAD_STAT_ACTIVE (%i)", thread->Status, THREAD_STAT_ACTIVE);
 			Log("  Priority %i, Quantum %i", thread->Priority, thread->Quantum);
 			Log("  KStack 0x%x", thread->KernelStack);
+			Proc_DumpThreadCPUState(thread);
 		}
 	
 	#if SCHEDULER_TYPE == SCHED_RR_PRI
@@ -1098,14 +1109,15 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 			#if SCHEDULER_TYPE == SCHED_LOTTERY
 			giFreeTickets += caiTICKET_COUNTS[ Last->Priority ];
 			# if DEBUG_TRACE_TICKETS
-			LogF(" CPU %i released %p (%i %s) into the pool (%i tickets in pool)\n",
-				CPU, Last, Last->TID, Last->ThreadName, giFreeTickets);
+			LogF("Log: CPU%i released %p (%i %s) into the pool (%i [+%i] tickets in pool)\n",
+				CPU, Last, Last->TID, Last->ThreadName, giFreeTickets,
+				caiTICKET_COUNTS[ Last->Priority ]);
 			# endif
 			#endif
 		}
 		#if SCHEDULER_TYPE == SCHED_LOTTERY && DEBUG_TRACE_TICKETS
 		else
-			LogF(" CPU %i released %p (%i %s)->Status = %i (Released)\n",
+			LogF("Log: CPU%i released %p (%i %s)->Status = %i (Released)\n",
 				CPU, Last, Last->TID, Last->ThreadName, Last->Status);
 		#endif
 		Last->CurCPU = -1;
@@ -1164,12 +1176,13 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 			Panic("Bookeeping Failed - giFreeTickets(%i) > true count (%i)",
 				giFreeTickets, number);
 		}
-		# if DEBUG_TRACE_TICKETS
-		LogF(" CPU%i giFreeTickets = %i, running %p (%i %s CPU=%i)\n",
-			CPU, giFreeTickets, thread, thread->TID, thread->ThreadName, thread->CurCPU);
-		# endif
 		
 		giFreeTickets -= caiTICKET_COUNTS[ thread->Priority ];
+		# if DEBUG_TRACE_TICKETS
+		LogF("Log: CPU%i allocated %p (%i %s), (%i [-%i] tickets in pool), \n",
+			CPU, thread, thread->TID, thread->ThreadName,
+			giFreeTickets, caiTICKET_COUNTS[ thread->Priority ]);
+		# endif
 	}
 	
 	// ---

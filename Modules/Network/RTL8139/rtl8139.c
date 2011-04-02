@@ -1,8 +1,6 @@
 /*
  * Acess2 RTL8139 Driver
  * - By John Hodge (thePowersGang)
- * 
- * main.c - Driver Core
  */
 #define	DEBUG	0
 #define VERSION	((0<<8)|50)
@@ -101,22 +99,26 @@ int RTL8139_Install(char **Options)
 		
 		// Power on
 		outb( base + CONFIG1, 0x00 );
+
 		// Reset (0x10 to CMD)
-		outb( base + CMD, 0x10 );
-		
+		outb( base + CMD, 0x10 );	
 		while( inb(base + CMD) & 0x10 )	;
 		
-		// Allocate 3 pages below 4GiB for the recieve buffer (Allows 8k+16+1500)
-		gpRTL8139_Cards[i].ReceiveBuffer = MM_AllocDMA( 3, 32, &gpRTL8139_Cards[i].PhysReceiveBuffer );
 		// Set up recieve buffer
+		// - Allocate 3 pages below 4GiB for the recieve buffer (Allows 8k+16+1500)
+		gpRTL8139_Cards[i].ReceiveBuffer = MM_AllocDMA( 3, 32, &gpRTL8139_Cards[i].PhysReceiveBuffer );
 		outl(base + RBSTART, (Uint32)gpRTL8139_Cards[i].PhysReceiveBuffer);
 		// Set IMR to Transmit OK and Receive OK
 		outw(base + IMR, 0x5);
 		
 		// Set recieve buffer size and recieve mask
+		// - Bit 7 being unset tells the card to overflow the recieve buffer if needed
+		//   (i.e. when the packet starts at the end of the bufffer, it overflows up
+		//    to 1500 bytes)
 		outl(base + RCR, 0x0F);
-		
-		outb(base + CMD, 0x0C);	// Recive Enable and Transmit Enable
+	
+		// Recive Enable and Transmit Enable	
+		outb(base + CMD, 0x0C);
 		
 		// Get the card's MAC address
 		gpRTL8139_Cards[ i ].MacAddr[0] = inb(base+MAC0);

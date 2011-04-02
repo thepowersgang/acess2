@@ -26,7 +26,7 @@ install: $(_BIN)
 
 $(_BIN): $(OBJ)
 	@mkdir -p $(dir $(_BIN))
-	@echo --- $(LD) -o $@
+	@echo [LD] -o $@
 ifneq ($(_DBGMAKEFILE),)
 	$(LD) -g $(LDFLAGS) -o $@ $(OBJ) -Map Map.txt
 else
@@ -35,7 +35,7 @@ endif
 	@$(DISASM) $(_BIN) > $(BIN).dsm
 
 $(OBJ): $(_OBJPREFIX)%.o: %.c
-	@echo --- GCC -o $@
+	@echo [CC] -o $@
 ifneq ($(_OBJPREFIX),)
 	@mkdir -p $(_OBJPREFIX)
 endif
