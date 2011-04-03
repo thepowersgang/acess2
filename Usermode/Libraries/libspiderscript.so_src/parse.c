@@ -77,7 +77,11 @@ tAST_Script	*Parse_Buffer(tSpiderVariant *Variant, const char *Buffer, const cha
 	parser.CurLine = 1;
 	parser.BufStart = Buffer;
 	parser.CurPos = Buffer;
-	parser.Filename = Filename;
+	// hackery to do reference counting
+	parser.Filename = malloc(sizeof(int)+strlen(Filename)+1);
+	strcpy(parser.Filename + sizeof(int), Filename);
+	*(int*)(parser.Filename) = 0;	// Set reference count
+	parser.Filename += sizeof(int);	// Move filename
 	parser.ErrorHit = 0;
 	
 	ret = AST_NewScript();
@@ -931,7 +935,7 @@ tAST_Node *Parse_GetIdent(tParser *Parser, int bObjectCreate)
 	#if USE_SCOPE_CHAR
 	if( GetToken(Parser) == TOK_SCOPE )
 	{
-		ret = AST_NewScopeDereference( Parser, Parse_GetIdent(Parser, bObjectCreate), name );
+		ret = AST_NewScopeDereference( Parser, name, Parse_GetIdent(Parser, bObjectCreate) );
 		free(name);
 		return ret;
 	}

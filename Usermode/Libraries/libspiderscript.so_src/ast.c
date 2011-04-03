@@ -294,6 +294,11 @@ void AST_FreeNode(tAST_Node *Node)
 	
 	if(!Node)	return ;
 	
+	// Referenced counted file name
+	(*(int*)(Node->File - sizeof(int))) -= 1;
+	if( *(int*)(Node->File - sizeof(int)) == 0 )
+		free( (void*)(Node->File - sizeof(int)) );
+	
 	switch(Node->Type)
 	{
 	// Block of code
@@ -411,7 +416,7 @@ tAST_Node *AST_int_AllocateNode(tParser *Parser, int Type, int ExtraSize)
 {
 	tAST_Node	*ret = malloc( sizeof(tAST_Node) + ExtraSize );
 	ret->NextSibling = NULL;
-	ret->File = "<unk>";
+	ret->File = Parser->Filename;	*(int*)(Parser->Filename - sizeof(int)) += 1;
 	ret->Line = Parser->CurLine;
 	ret->Type = Type;
 	

@@ -5,6 +5,10 @@
 
 #include <setjmp.h>
 
+// Make the scope character ('.') be a symbol, otherwise it's just
+// a ident character
+#define USE_SCOPE_CHAR	1
+
 // === TYPES ===
 typedef struct
 {	
@@ -12,7 +16,7 @@ typedef struct
 	const char	*BufStart;
 	const char	*CurPos;
 	
-	const char	*Filename;
+	char	*Filename;
 	
 	 int	LastLine;
 	 int	LastToken, LastTokenLen;

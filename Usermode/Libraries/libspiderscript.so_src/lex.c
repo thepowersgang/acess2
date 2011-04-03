@@ -7,10 +7,6 @@
 #include <stdio.h>
 #include <string.h>
 
-// Make the scope character ('.') be a symbol, otherwise it's just
-// a ident character
-#define USE_SCOPE_CHAR	0
-
 #define DEBUG	0
 
 #define ARRAY_SIZE(x)	((sizeof(x))/(sizeof((x)[0])))

@@ -508,7 +508,8 @@ tSpiderValue *SpiderScript_ExecuteFunction(tSpiderScript *Script,
 	// Not found?
 	if(!bFound)
 	{
-		fprintf(stderr, "Undefined reference to function '%s'\n", Function);
+		fprintf(stderr, "Undefined reference to function '%s' (ns='%s')\n",
+			Function, Namespace->Name);
 		return ERRPTR;
 	}
 	
@@ -649,6 +650,9 @@ tSpiderValue *SpiderScript_CreateObject(tSpiderScript *Script,
 	if(!bFound)
 	{
 		class = NULL;	// Just to allow the below code to be neat
+		
+		//if( !Namespace )
+		//	Namespace = &Script->Variant->RootNamespace;
 		
 		// Second: Scan current namespace
 		if( !class && Namespace )
@@ -843,6 +847,7 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 	case NODETYPE_CREATEOBJECT:
 		// Logical block (used to allocate `params`)
 		{
+			tSpiderNamespace	*ns = Block->CurNamespace;
 			tSpiderValue	*params[Node->FunctionCall.NumArgs];
 			i = 0;
 			for(node = Node->FunctionCall.FirstArg; node; node = node->NextSibling)
@@ -856,14 +861,13 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 				i ++;
 			}
 			
-			if( !Block->CurNamespace )
-				Block->CurNamespace = Block->BaseNamespace;
+			if( !ns )	ns = Block->BaseNamespace;
 			
 			// Call the function
 			if( Node->Type == NODETYPE_CREATEOBJECT )
 			{
 				ret = SpiderScript_CreateObject(Block->Script,
-					Block->CurNamespace,
+					ns,
 					Node->FunctionCall.Name,
 					Node->FunctionCall.NumArgs, params
 					);
@@ -887,7 +891,7 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 			else
 			{
 				ret = SpiderScript_ExecuteFunction(Block->Script,
-					Block->CurNamespace, Node->FunctionCall.Name,
+					ns, Node->FunctionCall.Name,
 					Node->FunctionCall.NumArgs, params
 					);
 			}
@@ -1303,6 +1307,10 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 	//	break;
 	}
 _return:
+	// Reset namespace when no longer needed
+	if( Node->Type != NODETYPE_SCOPE )
+		Block->CurNamespace = NULL;
+
 	#if TRACE_NODE_RETURNS
 	if(ret && ret != ERRPTR) {
 		AST_RuntimeError(Node, "Ret type of %p %i is %i", Node, Node->Type, ret->Type);
