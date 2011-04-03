@@ -91,6 +91,7 @@ struct sAST_Script
 struct sAST_Function
 {
 	tAST_Function	*Next;	//!< Next function in list
+	 int	ReturnType;
 	tAST_Node	*Code;	//!< Function Code
 	tAST_Node	*Arguments;	// HACKJOB (Only NODETYPE_DEFVAR is allowed)
 	tAST_Node	*Arguments_Last;
@@ -212,7 +213,7 @@ extern tAST_Script	*AST_NewScript(void);
 extern size_t	AST_WriteScript(void *Buffer, tAST_Script *Script);
 extern size_t	AST_WriteNode(void *Buffer, size_t Offset, tAST_Node *Node);
 
-extern tAST_Function	*AST_AppendFunction(tAST_Script *Script, const char *Name);
+extern tAST_Function	*AST_AppendFunction(tAST_Script *Script, const char *Name, int ReturnType);
 extern void	AST_AppendFunctionArg(tAST_Function *Function, tAST_Node *Arg);
 extern void	AST_SetFunctionCode(tAST_Function *Function, tAST_Node *Root);
 

@@ -9,7 +9,7 @@
 #include "ast.h"
 
 // === IMPORTS ===
-extern tAST_Script	*Parse_Buffer(tSpiderVariant *Variant, char *Buffer);
+extern tAST_Script	*Parse_Buffer(tSpiderVariant *Variant, const char *Buffer, const char *Filename);
 extern tAST_Variable *Variable_Define(tAST_BlockState *Block, int Type, const char *Name);
 extern void	Variable_SetValue(tAST_BlockState *Block, const char *Name, tSpiderValue *Value);
 extern void	Variable_Destroy(tAST_Variable *Variable);
@@ -50,20 +50,20 @@ tSpiderScript *SpiderScript_ParseFile(tSpiderVariant *Variant, const char *Filen
 	data = malloc(fLen + 1);
 	if(!data)	return NULL;
 	fLen = fread(data, 1, fLen, fp);
+	fclose(fp);
 	if( fLen < 0 ) {
 		free(data);
 		return NULL;
 	}
 	data[fLen] = '\0';
 	
-	fclose(fp);
 	
 	// Create the script
 	ret = malloc(sizeof(tSpiderScript));
 	ret->Variant = Variant;
 	
 	ret->CurNamespace = NULL;
-	ret->Script = Parse_Buffer(Variant, data);
+	ret->Script = Parse_Buffer(Variant, data, Filename);
 	if( ret->Script == NULL ) {
 		free(data);
 		free(ret);

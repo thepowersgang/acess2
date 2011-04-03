@@ -7,6 +7,9 @@
 #include <string.h>
 #include "ast.h"
 
+// === IMPORTS ===
+extern void	SyntaxError(tParser *Parser, int bFatal, const char *Message, ...);
+
 // === CODE ===
 tAST_Script *AST_NewScript(void)
 {
@@ -21,7 +24,7 @@ tAST_Script *AST_NewScript(void)
 /**
  * \brief Append a function to a script
  */
-tAST_Function *AST_AppendFunction(tAST_Script *Script, const char *Name)
+tAST_Function *AST_AppendFunction(tAST_Script *Script, const char *Name, int ReturnType)
 {
 	tAST_Function	*ret;
 	
@@ -30,6 +33,7 @@ tAST_Function *AST_AppendFunction(tAST_Script *Script, const char *Name)
 	strcpy(ret->Name, Name);
 	ret->Code = NULL;
 	ret->Arguments = NULL;
+	ret->ReturnType = ReturnType;
 	
 	if(Script->LastFunction == NULL) {
 		Script->Functions = Script->LastFunction = ret;
@@ -431,6 +435,9 @@ tAST_Node *AST_NewCodeBlock(tParser *Parser)
 
 void AST_AppendNode(tAST_Node *Parent, tAST_Node *Child)
 {
+	// Ignore NULL children
+	if( !Child )	return ;
+	
 	Child->NextSibling = NULL;
 	switch( Parent->Type )
 	{
@@ -481,6 +488,15 @@ tAST_Node *AST_NewLoop(tParser *Parser, tAST_Node *Init, int bPostCheck, tAST_No
 tAST_Node *AST_NewAssign(tParser *Parser, int Operation, tAST_Node *Dest, tAST_Node *Value)
 {
 	tAST_Node	*ret = AST_int_AllocateNode(Parser, NODETYPE_ASSIGN, 0);
+	
+	if( Dest->Type != NODETYPE_VARIABLE && Dest->Type != NODETYPE_ELEMENT ) {
+		free(ret);
+		SyntaxError(Parser, 1, "Assign target is not a variable or attribute (instead %i)",
+			Dest->Type);
+		AST_FreeNode(Dest);
+		AST_FreeNode(Value);
+		return NULL;
+	}
 	
 	ret->Assign.Operation = Operation;
 	ret->Assign.Dest = Dest;

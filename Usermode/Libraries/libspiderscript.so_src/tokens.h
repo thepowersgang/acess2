@@ -9,22 +9,25 @@
 typedef struct
 {	
 	// Lexer State
-	char	*BufStart;
-	char	*CurPos;
+	const char	*BufStart;
+	const char	*CurPos;
+	
+	const char	*Filename;
 	
 	 int	LastLine;
 	 int	LastToken, LastTokenLen;
-	char	*LastTokenStr;
+	const char	*LastTokenStr;
 	
 	 int	NextLine;
 	 int	NextToken, NextTokenLen;
-	char	*NextTokenStr;
+	const char	*NextTokenStr;
 	
 	 int	CurLine;
 	 int	Token, TokenLen;
-	char	*TokenStr;
+	const char	*TokenStr;
 	
 	jmp_buf	JmpTarget;
+	 int	ErrorHit;
 }	tParser;
 
 // === FUNCTIONS ===
