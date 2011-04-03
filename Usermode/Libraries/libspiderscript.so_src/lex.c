@@ -25,6 +25,8 @@ const struct {
 	{TOK_RWD_FUNCTION, "function"},
 	
 	{TOK_RWD_RETURN, "return"},
+	{TOK_RWD_BREAK, "break"},
+	{TOK_RWD_CONTINUE, "continue"},
 	{TOK_RWD_NEW, "new"},
 	
 	{TOK_RWD_IF, "if"},
@@ -33,6 +35,7 @@ const struct {
 	{TOK_RWD_WHILE, "while"},
 	{TOK_RWD_FOR, "for"},
 	
+	{TOK_RWD_NULL, "null"},
 	{TOK_RWD_VOID, "void"},
 	{TOK_RWD_OBJECT, "Object"},
 	{TOK_RWD_OPAQUE, "Opaque"},

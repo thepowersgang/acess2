@@ -749,10 +749,13 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 			blockInfo.RetVal = NULL;
 			blockInfo.BaseNamespace = Block->BaseNamespace;
 			blockInfo.CurNamespace = NULL;
+			blockInfo.BreakTarget = NULL;
 			blockInfo.Ident = giNextBlockIdent ++;
 			ret = NULL;
 			// Loop over all nodes, or until the return value is set
-			for(node = Node->Block.FirstChild; node && !blockInfo.RetVal; node = node->NextSibling )
+			for(node = Node->Block.FirstChild;
+				node && !blockInfo.RetVal && !blockInfo.BreakTarget;
+				node = node->NextSibling )
 			{
 				ret = AST_ExecuteNode(&blockInfo, node);
 				if(ret == ERRPTR)	break;	// Error check
@@ -771,6 +774,12 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 			// Set parent's return value if needed
 			if( blockInfo.RetVal )
 				Block->RetVal = blockInfo.RetVal;
+			if( blockInfo.BreakTarget ) {
+				Block->BreakTarget = blockInfo.BreakTarget;
+				Block->BreakType = blockInfo.BreakType;
+			}
+			
+			// TODO: Unset break if break type deontes a block break
 		}
 		
 		break;
@@ -922,38 +931,59 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 	
 	// Loop
 	case NODETYPE_LOOP:
+		// Initialise
 		ret = AST_ExecuteNode(Block, Node->For.Init);
 		if(ret == ERRPTR)	break;
-		if( Node->For.bCheckAfter )
-		{
-			do {
-				Object_Dereference(ret);
-				ret = AST_ExecuteNode(Block, Node->For.Code);
-				if(ret == ERRPTR)	return ERRPTR;
-				Object_Dereference(ret);
-				ret = AST_ExecuteNode(Block, Node->For.Increment);
-				if(ret == ERRPTR)	return ERRPTR;
-				Object_Dereference(ret);
-				ret = AST_ExecuteNode(Block, Node->For.Condition);
-				if(ret == ERRPTR)	return ERRPTR;
-			} while( SpiderScript_IsValueTrue(ret) );
-		}
-		else
+		
+		// Check initial condition
+		if( !Node->For.bCheckAfter )
 		{
 			Object_Dereference(ret);
+		
 			ret = AST_ExecuteNode(Block, Node->For.Condition);
 			if(ret == ERRPTR)	return ERRPTR;
-			while( SpiderScript_IsValueTrue(ret) ) {
+			if(!SpiderScript_IsValueTrue(ret)) {
 				Object_Dereference(ret);
-				ret = AST_ExecuteNode(Block, Node->For.Code);
-				if(ret == ERRPTR)	return ERRPTR;
-				Object_Dereference(ret);
-				ret = AST_ExecuteNode(Block, Node->For.Increment);
-				if(ret == ERRPTR)	return ERRPTR;
-				Object_Dereference(ret);
-				ret = AST_ExecuteNode(Block, Node->For.Condition);
-				if(ret == ERRPTR)	return ERRPTR;
+				ret = NULL;
+				break;
 			}
+		}
+	
+		// Perform loop
+		for( ;; )
+		{
+			Object_Dereference(ret);
+			
+			// Code
+			ret = AST_ExecuteNode(Block, Node->For.Code);
+			if(ret == ERRPTR)	return ERRPTR;
+			Object_Dereference(ret);
+			
+			if(Block->BreakTarget)
+			{
+				if( Block->BreakTarget[0] == '\0' || strcmp(Block->BreakTarget, Node->For.Tag) == 0 )
+				{
+					// Ours
+					free((void*)Block->BreakTarget);	Block->BreakTarget = NULL;
+					if( Block->BreakType == NODETYPE_CONTINUE ) {
+						// Continue, just keep going
+					}
+					else
+						break;
+				}
+				else
+					break;	// Break out of this loop
+			}
+			
+			// Increment
+			ret = AST_ExecuteNode(Block, Node->For.Increment);
+			if(ret == ERRPTR)	return ERRPTR;
+			Object_Dereference(ret);
+			
+			// Check condition
+			ret = AST_ExecuteNode(Block, Node->For.Condition);
+			if(ret == ERRPTR)	return ERRPTR;
+			if(!SpiderScript_IsValueTrue(ret))	break;
 		}
 		Object_Dereference(ret);
 		ret = NULL;
@@ -965,6 +995,12 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 		if(ret == ERRPTR)	break;
 		Block->RetVal = ret;	// Return value set
 		ret = NULL;	// the `return` statement does not return a value
+		break;
+	
+	case NODETYPE_BREAK:
+	case NODETYPE_CONTINUE:
+		Block->BreakTarget = strdup(Node->Variable.Name);
+		Block->BreakType = Node->Type;
 		break;
 	
 	// Define a variable
@@ -1601,7 +1637,9 @@ tAST_Variable *Variable_Lookup(tAST_BlockState *Block, tAST_Node *VarNode, int C
  */
 int Variable_SetValue(tAST_BlockState *Block, tAST_Node *VarNode, tSpiderValue *Value)
 {
-	tAST_Variable	*var = Variable_Lookup(Block, VarNode, Value->Type);
+	tAST_Variable	*var;
+	
+	var = Variable_Lookup(Block, VarNode, (Value ? Value->Type : SS_DATATYPE_UNDEF));
 	
 	if( !var )	return -1;
 	

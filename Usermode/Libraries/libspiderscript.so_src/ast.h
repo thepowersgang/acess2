@@ -34,6 +34,8 @@ enum eAST_NodeTypes
 	NODETYPE_CAST,	//!< Cast a value to another (Uniop)
 	
 	NODETYPE_RETURN,	//!< Return from a function (reserved word)
+	NODETYPE_BREAK, 	//!< Break out of a loop
+	NODETYPE_CONTINUE,	//!< Next loop iteration
 	NODETYPE_ASSIGN,	//!< Variable assignment operator
 	NODETYPE_POSTINC,	//!< Post-increment (i++) - Uniop
 	NODETYPE_POSTDEC,	//!< Post-decrement (i--) - Uniop
@@ -152,11 +154,11 @@ struct sAST_Node
 			tAST_Node	*Condition;
 			tAST_Node	*Increment;
 			tAST_Node	*Code;
+			char	Tag[];
 		}	For;
 		
 		/**
-		 * \note Used for \a NODETYPE_VARIABLE, \a NODETYPE_CONSTANT and
-		 *       \a NODETYPE_SCOPE
+		 * \note Used for \a NODETYPE_VARIABLE and \a NODETYPE_CONSTANT
 		 */
 		struct {
 			char	_unused;	// Shut GCC up
@@ -197,7 +199,9 @@ struct sAST_BlockState
 	tSpiderValue	*RetVal;
 	tSpiderNamespace	*BaseNamespace;	//!< Base namespace (for entire block)
 	tSpiderNamespace	*CurNamespace;	//!< Currently selected namespace
-	 int	Ident;
+	 int	Ident;	//!< ID number used for variable lookup caching
+	const char	*BreakTarget;
+	 int	BreakType;
 };
 
 struct sAST_Variable
@@ -236,12 +240,13 @@ extern tAST_Node	*AST_NewCodeBlock(tParser *Parser);
 extern void	AST_AppendNode(tAST_Node *Parent, tAST_Node *Child);
 
 extern tAST_Node	*AST_NewIf(tParser *Parser, tAST_Node *Condition, tAST_Node *True, tAST_Node *False);
-extern tAST_Node	*AST_NewLoop(tParser *Parser, tAST_Node *Init, int bPostCheck, tAST_Node *Condition, tAST_Node *Increment, tAST_Node *Code);
+extern tAST_Node	*AST_NewLoop(tParser *Parser, const char *Tag, tAST_Node *Init, int bPostCheck, tAST_Node *Condition, tAST_Node *Increment, tAST_Node *Code);
 
 extern tAST_Node	*AST_NewAssign(tParser *Parser, int Operation, tAST_Node *Dest, tAST_Node *Value);
 extern tAST_Node	*AST_NewCast(tParser *Parser, int Target, tAST_Node *Value);
 extern tAST_Node	*AST_NewBinOp(tParser *Parser, int Operation, tAST_Node *Left, tAST_Node *Right);
 extern tAST_Node	*AST_NewUniOp(tParser *Parser, int Operation, tAST_Node *Value);
+extern tAST_Node	*AST_NewBreakout(tParser *Parser, int Type, const char *DestTag);
 extern tAST_Node	*AST_NewScopeDereference(tParser *Parser, const char *Name, tAST_Node *Child);
 
 extern void	AST_FreeNode(tAST_Node *Node);

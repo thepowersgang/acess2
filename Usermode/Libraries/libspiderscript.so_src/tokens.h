@@ -67,6 +67,8 @@ enum eTokens
 	TOK_RWD_DO,
 	TOK_RWD_WHILE,
 	TOK_RWD_FOR,
+	// - Value
+	TOK_RWD_NULL,
 	// - Types
 	TOK_RWD_VOID,
 	TOK_RWD_OBJECT,
@@ -155,6 +157,7 @@ const char * const csaTOKEN_NAMES[] = {
 	"TOK_RWD_WHILE",
 	"TOK_RWD_FOR",
 	
+	"TOK_RWD_NULL",
 	"TOK_RWD_VOID",
 	"TOK_RWD_OBJECT",
 	"TOK_RWD_OPAUQE",

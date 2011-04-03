@@ -29,6 +29,8 @@ tAST_Function *AST_AppendFunction(tAST_Script *Script, const char *Name, int Ret
 	tAST_Function	*ret;
 	
 	ret = malloc( sizeof(tAST_Function) + strlen(Name) + 1 );
+	if(!ret)	return NULL;
+	
 	ret->Next = NULL;
 	strcpy(ret->Name, Name);
 	ret->Code = NULL;
@@ -191,7 +193,7 @@ size_t AST_WriteNode(void *Buffer, size_t Offset, tAST_Node *Node)
 	// Looping Construct (For loop node)
 	case NODETYPE_LOOP:
 		WRITE_8(Buffer, Offset, Node->For.bCheckAfter);
-		
+		WRITE_STR(Buffer, Offset, Node->For.Tag);
 		Offset += AST_WriteNode(Buffer, Offset, Node->For.Init);
 		Offset += AST_WriteNode(Buffer, Offset, Node->For.Condition);
 		Offset += AST_WriteNode(Buffer, Offset, Node->For.Increment);
@@ -263,6 +265,8 @@ size_t AST_WriteNode(void *Buffer, size_t Offset, tAST_Node *Node)
 		break;
 	case NODETYPE_VARIABLE:
 	case NODETYPE_CONSTANT:
+	case NODETYPE_BREAK:
+	case NODETYPE_CONTINUE:
 		// TODO: De-Duplicate the strings
 		WRITE_STR(Buffer, Offset, Node->Variable.Name);
 		break;
@@ -400,6 +404,8 @@ void AST_FreeNode(tAST_Node *Node)
 	case NODETYPE_NOP:	break;
 	case NODETYPE_VARIABLE:	break;
 	case NODETYPE_CONSTANT:	break;
+	case NODETYPE_BREAK:	break;
+	case NODETYPE_CONTINUE:	break;
 	
 	case NODETYPE_STRING:
 	case NODETYPE_INTEGER:
@@ -479,14 +485,15 @@ tAST_Node *AST_NewIf(tParser *Parser, tAST_Node *Condition, tAST_Node *True, tAS
 	return ret;
 }
 
-tAST_Node *AST_NewLoop(tParser *Parser, tAST_Node *Init, int bPostCheck, tAST_Node *Condition, tAST_Node *Increment, tAST_Node *Code)
+tAST_Node *AST_NewLoop(tParser *Parser, const char *Tag, tAST_Node *Init, int bPostCheck, tAST_Node *Condition, tAST_Node *Increment, tAST_Node *Code)
 {
-	tAST_Node	*ret = AST_int_AllocateNode(Parser, NODETYPE_LOOP, 0);
+	tAST_Node	*ret = AST_int_AllocateNode(Parser, NODETYPE_LOOP, strlen(Tag) + 1);
 	ret->For.Init = Init;
 	ret->For.bCheckAfter = !!bPostCheck;
 	ret->For.Condition = Condition;
 	ret->For.Increment = Increment;
 	ret->For.Code = Code;
+	strcpy(ret->For.Tag, Tag);
 	return ret;
 }
 
@@ -537,6 +544,19 @@ tAST_Node *AST_NewUniOp(tParser *Parser, int Operation, tAST_Node *Value)
 	tAST_Node	*ret = AST_int_AllocateNode(Parser, Operation, 0);
 	
 	ret->UniOp.Value = Value;
+	
+	return ret;
+}
+
+tAST_Node *AST_NewBreakout(tParser *Parser, int Type, const char *DestTag)
+{
+	 int	len = (DestTag ? strlen(DestTag) : 0);
+	tAST_Node	*ret = AST_int_AllocateNode(Parser, Type, len + 1);
+	
+	if( DestTag )
+		strcpy(ret->Variable.Name, DestTag);
+	else
+		ret->Variable.Name[0] = '\0';
 	
 	return ret;
 }

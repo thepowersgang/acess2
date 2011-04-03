@@ -12,6 +12,7 @@
 #include "ast.h"
 
 #define DEBUG	0
+#define	SUPPORT_BREAK_TAGS	1
 
 // === PROTOTYPES ===
 tAST_Script	*Parse_Buffer(tSpiderVariant *Variant, const char *Buffer, const char *Filename);
@@ -42,9 +43,10 @@ void	SyntaxAssert(tParser *Parser, int Have, int Want);
 void	SyntaxError(tParser *Parser, int bFatal, const char *Message, ...);
 
 #define SyntaxAssert(_parser, _have, _want) do { \
-	if( (_have) != (_want) ) { \
+	int have = (_have), want = (_want); \
+	if( (have) != (want) ) { \
 		SyntaxError(Parser, 1, "Unexpected %s(%i), expecting %s(%i)\n", \
-			csaTOKEN_NAMES[_have], _have, csaTOKEN_NAMES[_want], _want); \
+			csaTOKEN_NAMES[have], have, csaTOKEN_NAMES[want], want); \
 		return NULL; \
 	} \
 }while(0)
@@ -281,11 +283,38 @@ tAST_Node *Parse_DoBlockLine(tParser *Parser)
 		ret = AST_NewUniOp(Parser, NODETYPE_RETURN, Parse_DoExpr0(Parser));
 		break;
 	
+	// Break / Continue (end a loop / go to next iteration)
+	case TOK_RWD_CONTINUE:
+	case TOK_RWD_BREAK:
+		{
+		 int	tok;
+		char	*ident = NULL;
+		tok = GetToken(Parser);
+		// Get the number of nesting levels to break
+		if(LookAhead(Parser) == TOK_IDENT)
+		{
+			GetToken(Parser);
+			ident = strndup(Parser->TokenStr, Parser->TokenLen);
+		}
+		// Get the action
+		switch(tok)
+		{
+		case TOK_RWD_BREAK:	ret = AST_NewBreakout(Parser, NODETYPE_BREAK, ident);	break;
+		case TOK_RWD_CONTINUE:	ret = AST_NewBreakout(Parser, NODETYPE_CONTINUE, ident);	break;
+		default:
+			SyntaxError(Parser, 1, "BUG Unhandled break/continue (%s)",
+				csaTOKEN_NAMES[tok]);
+			return NULL;
+		}
+		}
+		break;
+	
 	// Control Statements
 	case TOK_RWD_IF:
 		{
 		tAST_Node	*cond, *true, *false = NULL;
 		GetToken(Parser);	// eat the if
+		
 		SyntaxAssert(Parser, GetToken(Parser), TOK_PAREN_OPEN);
 		cond = Parse_DoExpr0(Parser);	// Get condition
 		SyntaxAssert(Parser, GetToken(Parser), TOK_PAREN_CLOSE);
@@ -302,8 +331,20 @@ tAST_Node *Parse_DoBlockLine(tParser *Parser)
 	
 	case TOK_RWD_FOR:
 		{
+		const char	*tag = "";
 		tAST_Node	*init=NULL, *cond=NULL, *inc=NULL, *code;
 		GetToken(Parser);	// Eat 'for'
+		
+		#if SUPPORT_BREAK_TAGS
+		if(LookAhead(Parser) == TOK_LT)
+		{
+			GetToken(Parser);
+			SyntaxAssert(Parser, GetToken(Parser), TOK_IDENT);
+			tag = strndup(Parser->TokenStr, Parser->TokenLen);
+			SyntaxAssert(Parser, GetToken(Parser), TOK_GT);
+		}
+		#endif
+		
 		SyntaxAssert(Parser, GetToken(Parser), TOK_PAREN_OPEN);
 		
 		if(LookAhead(Parser) != TOK_SEMICOLON)
@@ -322,31 +363,55 @@ tAST_Node *Parse_DoBlockLine(tParser *Parser)
 		SyntaxAssert(Parser, GetToken(Parser), TOK_PAREN_CLOSE);
 		
 		code = Parse_DoCodeBlock(Parser);
-		ret = AST_NewLoop(Parser, init, 0, cond, inc, code);
+		ret = AST_NewLoop(Parser, tag, init, 0, cond, inc, code);
 		}
 		return ret;
 	
 	case TOK_RWD_DO:
 		{
+		const char	*tag = "";
 		tAST_Node	*code, *cond;
 		GetToken(Parser);	// Eat 'do'
+		
+		#if SUPPORT_BREAK_TAGS
+		if(LookAhead(Parser) == TOK_LT)
+		{
+			GetToken(Parser);
+			SyntaxAssert(Parser, GetToken(Parser), TOK_IDENT);
+			tag = strndup(Parser->TokenStr, Parser->TokenLen);
+			SyntaxAssert(Parser, GetToken(Parser), TOK_GT);
+		}
+		#endif
+		
 		code = Parse_DoCodeBlock(Parser);
 		SyntaxAssert( Parser, GetToken(Parser), TOK_RWD_WHILE );
 		SyntaxAssert( Parser, GetToken(Parser), TOK_PAREN_OPEN );
 		cond = Parse_DoExpr0(Parser);
 		SyntaxAssert( Parser, GetToken(Parser), TOK_PAREN_CLOSE );
-		ret = AST_NewLoop(Parser, AST_NewNop(Parser), 1, cond, AST_NewNop(Parser), code);
+		ret = AST_NewLoop(Parser, tag, AST_NewNop(Parser), 1, cond, AST_NewNop(Parser), code);
 		}
 		break;
 	case TOK_RWD_WHILE:
 		{
+		const char	*tag = "";
 		tAST_Node	*code, *cond;
 		GetToken(Parser);	// Eat 'while'
+		
+		#if SUPPORT_BREAK_TAGS
+		if(LookAhead(Parser) == TOK_LT)
+		{
+			GetToken(Parser);
+			SyntaxAssert(Parser, GetToken(Parser), TOK_IDENT);
+			tag = strndup(Parser->TokenStr, Parser->TokenLen);
+			SyntaxAssert(Parser, GetToken(Parser), TOK_GT);
+		}
+		#endif
+		
 		SyntaxAssert( Parser, GetToken(Parser), TOK_PAREN_OPEN );
 		cond = Parse_DoExpr0(Parser);
 		SyntaxAssert( Parser, GetToken(Parser), TOK_PAREN_CLOSE );
 		code = Parse_DoCodeBlock(Parser);
-		ret = AST_NewLoop(Parser, AST_NewNop(Parser), 0, cond, AST_NewNop(Parser), code);
+		ret = AST_NewLoop(Parser, tag, AST_NewNop(Parser), 0, cond, AST_NewNop(Parser), code);
 		}
 		return ret;
 	
@@ -756,10 +821,15 @@ tAST_Node *Parse_DoValue(tParser *Parser)
 		GetToken(Parser);
 		return AST_NewReal( Parser, atof(Parser->TokenStr) );
 	
-	case TOK_IDENT:	return Parse_GetIdent(Parser, 0);
-	case TOK_VARIABLE:	return Parse_GetVariable(Parser);
+	case TOK_IDENT:
+		return Parse_GetIdent(Parser, 0);
+	case TOK_VARIABLE:
+		return Parse_GetVariable(Parser);
+	case TOK_RWD_NULL:
+		GetToken(Parser);
+		return AST_NewNop(Parser);	// NODETYPE_NOP returns NULL
 	case TOK_RWD_NEW:
-		GetToken(Parser);	// Omnomnom
+		GetToken(Parser);
 		return Parse_GetIdent(Parser, 1);
 
 	default:
