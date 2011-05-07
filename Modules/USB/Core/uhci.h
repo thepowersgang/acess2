@@ -25,6 +25,11 @@ struct sUHCI_Controller
 	Uint16	IOBase;
 	
 	/**
+	 * \brief IRQ Number assigned to the device
+	 */
+	 int	IRQNum;
+	
+	/**
 	 * \brief Frame list
 	 * 
 	 * 31:4 - Frame Pointer

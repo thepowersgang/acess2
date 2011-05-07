@@ -33,19 +33,22 @@ int UHCI_Initialise()
 {
 	 int	i=0, id=-1;
 	 int	ret;
-	Uint16	base;
 	
 	ENTER("");
 	
 	// Enumerate PCI Bus, getting a maximum of `MAX_CONTROLLERS` devices
 	while( (id = PCI_GetDeviceByClass(0x0C03, 0xFFFF, id)) >= 0 && i < MAX_CONTROLLERS )
 	{
+		// NOTE: Check "protocol" from PCI?
+		
 		gUHCI_Controllers[i].PciId = id;
 		// Assign a port range (BAR4, Reserve 32 ports)
-		base = PCI_AssignPort( id, 4, 0x20 );
-		gUHCI_Controllers[i].IOBase = base;
+		//base = PCI_AssignPort( id, 4, 0x20 );
+		gUHCI_Controllers[i].IOBase = PCI_GetBAR4(id);
+		gUHCI_Controllers[i].IRQNum = PCI_GetIRQ(id);
 		
-		Log("[USB  ] Controller PCI #%i: IO Base = 0x%x", id, base);
+		Log("[USB  ] Controller PCI #%i: IO Base = 0x%x, IRQ %i",
+			id, gUHCI_Controllers[i].IOBase, gUHCI_Controllers[i].IRQNum);
 		
 		// Initialise Host
 		ret = UHCI_Int_InitHost(&gUHCI_Controllers[i]);
@@ -91,10 +94,14 @@ int UHCI_Int_InitHost(tUHCI_Controller *Host)
 {
 	ENTER("pHost", Host);
 	
+	outw( Host->IOBase + USBCMD, 4 );	// GRESET
+	// TODO: Wait for at least 10ms
+	outw( Host->IOBase + USBCMD, 0 );	// GRESET
+	
 	// Allocate Frame List
 	Host->FrameList = (void *) MM_AllocDMA(1, 32, &Host->PhysFrameList);	// 1 Page, 32-bit
 	if( !Host->FrameList ) {
-		Warning("[UHCI ] Unable to allocate frame list, aborting");
+		Log_Warning("UHCI", "Unable to allocate frame list, aborting");
 		LEAVE('i', -1);
 		return -1;
 	}
