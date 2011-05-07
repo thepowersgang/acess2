@@ -16,8 +16,8 @@ MAKEDEP		= $(CC) -M
 
 CPPFLAGS	+= -I./include -I./arch/$(ARCHDIR)/include -D_MODULE_NAME_=\"Kernel\"
 CPPFLAGS	+= -DARCH=$(ARCH) -DARCHDIR=$(ARCHDIR) -DKERNEL_VERSION=$(KERNEL_VERSION) -DBUILD_NUM=$(BUILD_NUM)
-CFLAGS		+= -Wall -Werror -fno-stack-protector -fno-builtin -Wstrict-prototypes -g
-CFLAGS      += -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings -Wmissing-prototypes -Wmissing-declarations -Wredundant-decls -Wnested-externs -Winline -Wuninitialized
+CFLAGS  	+= -Wall -Werror -fno-stack-protector -fno-builtin -Wstrict-prototypes -g
+CFLAGS  	+= -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings -Wmissing-prototypes -Wmissing-declarations -Wredundant-decls -Wnested-externs -Winline -Wuninitialized
 ASFLAGS		+= -D ARCH=\"$(ARCH)\" -D ARCHDIR=\"$(ARCHDIR)\"
 LDFLAGS		+= -T arch/$(ARCHDIR)/link.ld -g
 
@@ -54,7 +54,10 @@ clean:
 	@$(RM) $(BIN) ../Acess2.$(ARCH).gz $(BIN).dsm ../Map.$(ARCH).txt LineCounts.$(ARCH).txt $(OBJ) $(DEPFILES)
 
 install: $(BIN) 
-	gzip -c $(BIN) > ../Acess2.$(ARCH).gz
+	cp $(BIN) $(BIN)_
+	$(STRIP) $(BIN)_
+	gzip -c $(BIN)_ > ../Acess2.$(ARCH).gz
+	$(RM) $(BIN)_
 	$(xCP) ../Acess2.$(ARCH).gz $(DISTROOT)
 
 apidoc:
@@ -67,7 +70,7 @@ $(BIN): $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile
 	@wc -l $(SRCFILES) include/*.h > LineCounts.$(ARCH).txt
 	@echo BUILD_NUM = $$(( $(BUILD_NUM) + 1 )) > Makefile.BuildNum.$(ARCH)
 	$(POSTBUILD)
-	@$(STRIP) $(BIN)
+#	$(STRIP) $(BIN)
 
 %.ao.$(ARCH): %.asm Makefile
 	@echo --- AS -o $@
