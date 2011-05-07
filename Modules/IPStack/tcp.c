@@ -18,7 +18,7 @@
 #define TCP_RECIEVE_BUFFER_SIZE	0x4000
 
 // === PROTOTYPES ===
-void	TCP_Initialise();
+void	TCP_Initialise(void);
 void	TCP_StartConnection(tTCPConnection *Conn);
 void	TCP_SendPacket(tTCPConnection *Conn, size_t Length, tTCPHeader *Data);
 void	TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffer);
@@ -62,7 +62,7 @@ Uint32	gaTCP_PortBitmap[0x800];
  * 
  * Registers the client and server files and the GetPacket callback
  */
-void TCP_Initialise()
+void TCP_Initialise(void)
 {
 	IPStack_AddFile(&gTCP_ServerFile);
 	IPStack_AddFile(&gTCP_ClientFile);

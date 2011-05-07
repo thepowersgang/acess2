@@ -26,7 +26,7 @@ extern tRoute	*IPStack_AddRoute(const char *Interface, void *Network, int Subnet
 
 // === PROTOTYPES ===
  int	IPStack_Install(char **Arguments);
- int	IPStack_CompareAddress(int AddressType, void *Address1, void *Address2, int CheckBits);
+ int	IPStack_CompareAddress(int AddressType, const void *Address1, const void *Address2, int CheckBits);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, IPStack, IPStack_Install, NULL, NULL);
@@ -218,17 +218,17 @@ int IPStack_GetAddressSize(int AddressType)
 /**
  * \brief Compare two IP Addresses masked by CheckBits
  */
-int IPStack_CompareAddress(int AddressType, void *Address1, void *Address2, int CheckBits)
+int IPStack_CompareAddress(int AddressType, const void *Address1, const void *Address2, int CheckBits)
 {
 	 int	size = IPStack_GetAddressSize(AddressType);
 	Uint8	mask;
-	Uint8	*addr1 = Address1, *addr2 = Address2;
+	const Uint8	*addr1 = Address1, *addr2 = Address2;
 	
 	// Sanity check size
 	if( CheckBits < 0 )	CheckBits = 0;
 	if( CheckBits > size*8 )	CheckBits = size*8;
 	
-	if( CheckBits == 0 )	return 1;	// /0 matches anythin0
+	if( CheckBits == 0 )	return 1;	// /0 matches anything
 	
 	// Check first bits/8 bytes
 	if( memcmp(Address1, Address2, CheckBits/8) != 0 )	return 0;
@@ -244,20 +244,20 @@ int IPStack_CompareAddress(int AddressType, void *Address1, void *Address2, int 
 	return 0;
 }
 
-const char *IPStack_PrintAddress(int AddressType, void *Address)
+const char *IPStack_PrintAddress(int AddressType, const void *Address)
 {
 	switch( AddressType )
 	{
 	case 4: {
 		static char	ret[4*3+3+1];
-		Uint8	*addr = Address;
+		const Uint8	*addr = Address;
 		sprintf(ret, "%i.%i.%i.%i", addr[0], addr[1], addr[2], addr[3]);
 		return ret;
 		}
 	
-	case 6: {
+	case 6: {	// TODO: address compression
 		static char	ret[8*4+7+1];
-		Uint16	*addr = Address;
+		const Uint16	*addr = Address;
 		sprintf(ret, "%x:%x:%x:%x:%x:%x:%x:%x",
 			addr[0], addr[1], addr[2], addr[3],
 			addr[4], addr[5], addr[6], addr[7]

@@ -116,8 +116,8 @@ static const tMacAddr cMAC_BROADCAST = {{0xFF,0xFF,0xFF,0xFF,0xFF,0xFF}};
 
 extern int	IPStack_AddFile(tSocketFile *File);
 extern int	IPStack_GetAddressSize(int AddressType);
-extern int	IPStack_CompareAddress(int AddressType, void *Address1, void *Address2, int CheckBits);
-extern const char	*IPStack_PrintAddress(int AddressType, void *Address);
+extern int	IPStack_CompareAddress(int AddressType, const void *Address1, const void *Address2, int CheckBits);
+extern const char	*IPStack_PrintAddress(int AddressType, const void *Address);
 
 extern tRoute	*IPStack_FindRoute(int AddressType, tInterface *Interface, void *Address);
 

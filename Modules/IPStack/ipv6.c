@@ -169,7 +169,7 @@ void IPv6_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 		hdr->HopLimit --;
 		
 		rt = IPStack_FindRoute(6, NULL, &hdr->Destination);	// Get the route (gets the interface)
-		//to = ARP_Resolve6(rt->Interface, hdr->Destination);	// Resolve address
+		to = ICMP6_ResolveHWAddr(rt->Interface, hdr->Destination);	// Resolve address
 		
 		// Send packet
 		Log_Log("IPv6", "Forwarding packet");
