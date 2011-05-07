@@ -5,7 +5,7 @@
 #define _ACESS_SYS_H_
 
 #include <stdint.h>
-#include <sys/types.h>
+#include "../sys/types.h"
 
 // === CONSTANTS ===
 #ifndef NULL
@@ -22,40 +22,11 @@
 # define SEEK_CUR	0
 # define SEEK_END	-1
 #endif
-#define CLONE_VM	0x10
 #define GETMSG_IGNORE	((void*)-1)
 #define FILEFLAG_DIRECTORY	0x10
 #define FILEFLAG_SYMLINK	0x20
 
 // === TYPES ===
-struct s_sysACL {
-	union {
-		struct {
-			unsigned	group: 1;
-			unsigned	id:	31;
-		};
-		uint32_t	object;
-	};
-	union {
-		struct {
-			unsigned	invert: 1;
-			unsigned	perms:	31;
-		};
-		uint32_t	rawperms;
-	};
-};
-struct s_sysFInfo {
-	uint	uid, gid;
-	uint	flags;
-	uint64_t	size;
-	uint64_t	atime;
-	uint64_t	mtime;
-	uint64_t	ctime;
-	 int	numacls;
-	struct s_sysACL	acls[];
-};
-typedef struct s_sysFInfo	t_sysFInfo;
-typedef struct s_sysACL	t_sysACL;
 
 // === VARIABLES ===
 extern int	_errno;
