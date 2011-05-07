@@ -13,7 +13,7 @@
 #endif
 
 // === FLAGS ===
-#define DEBUG_TRACE_SWITCH	0
+#define DEBUG_TRACE_SWITCH	1
 #define DEBUG_DISABLE_DOUBLEFAULT	1
 
 // === CONSTANTS ===
@@ -40,6 +40,7 @@ extern tIDT	gIDT[];
 extern void APWait(void);	// 16-bit AP pause code
 extern void APStartup(void);	// 16-bit AP startup code
 extern Uint	GetEIP(void);	// start.asm
+extern Uint	GetEIP_Sched(void);	// proc.asm
 extern int	GetCPUNum(void);	// start.asm
 extern Uint32	gaInitPageDir[1024];	// start.asm
 extern char	Kernel_Stack_Top[];
@@ -51,6 +52,8 @@ extern void	Isr8(void);	// Double Fault
 extern void	Proc_ReturnToUser(tVAddr Handler, Uint Argument, tVAddr KernelStack);
 extern void	scheduler_return;	// Return address in SchedulerBase
 extern void	IRQCommon;	// Common IRQ handler code
+extern void	IRQCommon_handled;	// IRQCommon call return location
+extern void	GetEIP_Sched_ret;	// GetEIP call return location
 
 // === PROTOTYPES ===
 void	ArchThreads_Init(void);
@@ -289,7 +292,6 @@ void ArchThreads_Init(void)
 	#else
 	giNumCPUs = 1;
 	gTSSs = &gTSS0;
-	MM_FinishVirtualInit();
 	#endif
 	
 	#if !DEBUG_DISABLE_DOUBLEFAULT
@@ -621,7 +623,7 @@ int Proc_Clone(Uint *Err, Uint Flags)
 	newThread->SavedState.EBP = ebp;
 	eip = GetEIP();
 	if(eip == SWITCH_MAGIC) {
-		__asm__ __volatile__ ("mov %0, %%db0" : : "r" (newThread) );
+		//__asm__ __volatile__ ("mov %0, %%db0" : : "r" (newThread) );
 		#if USE_MP
 		// ACK the interrupt
 		if( GetCPUNum() )
@@ -674,7 +676,7 @@ int Proc_SpawnWorker(void)
 	new->SavedState.EBP = ebp;
 	eip = GetEIP();
 	if(eip == SWITCH_MAGIC) {
-		__asm__ __volatile__ ("mov %0, %%db0" : : "r"(new));
+		//__asm__ __volatile__ ("mov %0, %%db0" : : "r"(new));
 		#if USE_MP
 		// ACK the interrupt
 		if(GetCPUNum())
@@ -855,11 +857,40 @@ void Proc_CallFaultHandler(tThread *Thread)
 
 void Proc_DumpThreadCPUState(tThread *Thread)
 {
-	Uint32	*stack = (void *)Thread->SavedState.EBP;	// EBP = ESP after call and PUSH
-	
 	if( Thread->CurCPU > -1 )
 	{
-		Log("  Currently running");
+		 int	maxBacktraceDistance = 6;
+		tRegs	*regs = NULL;
+		Uint32	*stack;
+		
+		if( Thread->CurCPU != GetCPUNum() ) {
+			Log("  Currently running");
+			return ;
+		}
+		
+		// Backtrace to find the IRQ entrypoint
+		// - This will usually only be called by an IRQ, so this should
+		//   work
+		__asm__ __volatile__ ("mov %%ebp, %0" : "=r" (stack));
+		while( maxBacktraceDistance -- )
+		{
+			// [ebp] = oldEbp
+			// [ebp+4] = retaddr
+			
+			if( stack[1] == (tVAddr)&IRQCommon_handled ) {
+				regs = (void*)stack[2];
+				break;
+			}
+			
+			stack = (void*)stack[0];
+		}
+		
+		if( !regs ) {
+			Log("  Unable to find IRQ Entry");
+			return ;
+		}
+		
+		Log("  at %04x:%08x", regs->cs, regs->eip);
 		return ;
 	}
 	
@@ -870,25 +901,25 @@ void Proc_DumpThreadCPUState(tThread *Thread)
 	
 	if( diffFromClone > 0 && diffFromClone < 512 )	// When I last checked, GetEIP was at .+0x183
 	{
-		// Just spawned full thread
 		Log("  Creating full thread");
 		return ;
 	}
 	
 	if( diffFromSpawn > 0 && diffFromSpawn < 512 )	// When I last checked, GetEIP was at .+0x99
 	{
-		// Just spawned worker thread
 		Log("  Creating worker thread");
 		return ;
 	}
 	
 	if( diffFromScheduler > 0 && diffFromScheduler < 256 )	// When I last checked, GetEIP was at .+0x60
 	#else
-	if( stack[1] == (Uint32)&IRQCommon + 25 )
+	Uint32	data[3];
+	MM_ReadFromAddrSpace(Thread->MemState.CR3, Thread->SavedState.EBP, data, 12);
+	if( data[1] == (Uint32)&IRQCommon + 25 )
 	{
-		tRegs	*regs = (void *) stack[2];
+		tRegs	*regs = (void *) data[2];
 		Log("  oldebp = 0x%08x, ret = 0x%08x, regs = 0x%x",
-			stack[0], stack[1], stack[2]
+			data[0], data[1], data[2]
 			);
 		// [EBP] = old EBP
 		// [EBP+0x04] = Return Addr
@@ -901,19 +932,11 @@ void Proc_DumpThreadCPUState(tThread *Thread)
 	#endif
 	{
 		// Scheduled out
-		tRegs	*regs = (void *) &stack[4];
-		Log("  oldebp = 0x%08x, ret = 0x%08x, cpu = %i, thread = 0x%x",
-			stack[0], stack[1], stack[2], stack[3]);
-		// [EBP] = old EBP
-		// [EBP+0x04] = Return Addr
-		// [EBP+0x08] = Arg 1 (CPU Number)
-		// [EBP+0x0C] = Arg 2 (Thread)
-		// [EBP+0x10] = GS (start of tRegs)
-		Log("  At %02x:%08x", regs->cs, regs->eip);
+		Log("  At %04x:%08x", Thread->SavedState.UserCS, Thread->SavedState.UserEIP);
 		return ;
 	}
 	
-	Log("  Just created");
+	Log("  Just created (unknow %p)", Thread->SavedState.EIP);
 }
 
 /**
@@ -935,8 +958,13 @@ void Proc_Scheduler(int CPU)
 	thread = gCurrentThread;
 	#endif
 	
+	// NOTE:
+	// 2011-04-05
+	// Bug may be caused by DR0 not being maintained somewhere, hence 
+	// login is getting loaded with the idle state.
 	if( thread )
 	{
+		tRegs	*regs;
 		// Reduce remaining quantum and continue timeslice if non-zero
 		if( thread->Remaining-- )
 			return;
@@ -953,6 +981,18 @@ void Proc_Scheduler(int CPU)
 		thread->SavedState.ESP = esp;
 		thread->SavedState.EBP = ebp;
 		thread->SavedState.EIP = eip;
+		
+		// TODO: Make this more stable somehow
+		regs = (tRegs*)(ebp+(2+2)*4);	// EBP,Ret + CPU,CurThread
+		thread->SavedState.UserCS = regs->cs;
+		thread->SavedState.UserEIP = regs->eip;
+		
+		if(thread->bInstrTrace) {
+			regs->eflags |= 0x100;	// Set TF
+			Log("%p De-scheduled", thread);
+		}
+		else
+			regs->eflags &= ~0x100;	// Clear TF
 	}
 	
 	// Get next thread to run
@@ -997,18 +1037,26 @@ void Proc_Scheduler(int CPU)
 	}
 	#endif
 	
+	if( thread->bInstrTrace ) {
+		Log("%p Scheduled", thread);
+	}
+	
 	#if USE_PAE
 	# error "Todo: Implement PAE Address space switching"
 	#else
+	// Set thread pointer
+	__asm__ __volatile__("mov %0, %%db0\n\t" : : "r"(thread) );
 	// Switch threads
 	__asm__ __volatile__ (
 		"mov %4, %%cr3\n\t"	// Set address space
 		"mov %1, %%esp\n\t"	// Restore ESP
 		"mov %2, %%ebp\n\t"	// and EBP
+		"or %5, 72(%%ebp)\n\t"	// or trace flag to eflags (2+2+4+8+2)*4
 		"jmp *%3" : :	// And return to where we saved state (Proc_Clone or Proc_Scheduler)
 		"a"(SWITCH_MAGIC), "b"(thread->SavedState.ESP),
 		"d"(thread->SavedState.EBP), "c"(thread->SavedState.EIP),
-		"r"(thread->MemState.CR3)
+		"r"(thread->MemState.CR3),
+		"r"(thread->bInstrTrace&&thread->SavedState.EIP==(Uint)&GetEIP_Sched_ret?0x100:0)
 		);
 	#endif
 	for(;;);	// Shouldn't reach here

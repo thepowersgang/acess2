@@ -20,4 +20,6 @@ extern void	Heap_Validate(void);
 #define	free(ptr)	Heap_Deallocate((ptr))
 #define IsHeap(ptr)	Heap_IsHeapAddr((ptr))
 
+#define strdup(Str)	_strdup(_MODULE_NAME_"/"__FILE__, __LINE__, (Str))
+
 #endif

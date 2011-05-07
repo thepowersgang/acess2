@@ -664,8 +664,8 @@ void Heap_Stats(void)
 		
 		// Print the block info?
 		#if 1
-		Log_Debug("Heap", "%p - 0x%x (%i) Owned by %s:%i",
-			head, head->Size, head->ValidSize, head->File, head->Line);
+		Log_Debug("Heap", "%p (0x%x) - 0x%x (%i) Owned by %s:%i",
+			head->Data, MM_GetPhysAddr((tVAddr)&head->Data), head->Size, head->ValidSize, head->File, head->Line);
 		#endif
 	}
 

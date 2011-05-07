@@ -22,15 +22,6 @@ typedef Uint	tGID;
 typedef Sint64	tTimestamp;
 typedef Sint64	tTime;
 typedef struct sShortSpinlock	tShortSpinlock;
-typedef struct sMutex	tMutex;
-
-struct sMutex {
-	tShortSpinlock	Protector;	//!< Protector for the lock strucure
-	const char	*Name;	//!< Human-readable name
-	struct sThread	*volatile Owner;	//!< Owner of the lock (set upon getting the lock)
-	struct sThread	*Waiting;	//!< Waiting threads
-	struct sThread	*LastWaiting;	//!< Waiting threads
-};
 
 // --- Helper Macros ---
 /**
@@ -337,8 +328,7 @@ extern char	*strncpy(char *__dest, const char *__src, size_t max);
 extern int	strcmp(const char *__str1, const char *__str2);
 extern int	strncmp(const char *Str1, const char *Str2, size_t num);
 extern int	strucmp(const char *Str1, const char *Str2);
-//extern char	*strdup(const char *Str);
-#define strdup(Str)	_strdup(_MODULE_NAME_"/"__FILE__, __LINE__, (Str))
+// strdup macro is defined in heap.h
 extern char	*_strdup(const char *File, int Line, const char *Str);
 extern char	**str_split(const char *__str, char __ch);
 extern char	*strchr(const char *__s, int __c);
@@ -428,9 +418,6 @@ extern tGID	Threads_GetGID(void);
 extern int	SpawnTask(tThreadFunction Function, void *Arg);
 extern Uint	*Threads_GetCfgPtr(int Id);
 extern int	Threads_SetName(const char *NewName);
-extern int	Mutex_Acquire(tMutex *Mutex);
-extern void	Mutex_Release(tMutex *Mutex);
-extern int	Mutex_IsLocked(tMutex *Mutex);
 /**
  * \}
  */
@@ -441,5 +428,6 @@ extern int	DivUp(int num, int dem);
 #include <binary_ext.h>
 #include <vfs_ext.h>
 #include <adt.h>
+#include <mutex.h>
 
 #endif

@@ -5,7 +5,7 @@
 #ifndef _PROC_H
 #define _PROC_H
 
-#include <threads.h>
+#include <threads_int.h>
 
 // === TYPES ==
 typedef struct sTSS {

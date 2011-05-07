@@ -11,7 +11,7 @@
 #include <errno.h>
 #include <semaphore.h>
 
-#define	USE_CTRL_ALT	0
+#define	USE_CTRL_ALT	1
 
 // === CONSTANTS ===
 #define VERSION	((0<<8)|(50))
@@ -57,7 +57,7 @@ typedef struct {
 	 int	InputRead;	//!< Input buffer read position
 	 int	InputWrite;	//!< Input buffer write position
 	char	InputBuffer[MAX_INPUT_CHARS8];
-	tSemaphore	InputSemaphore;
+//	tSemaphore	InputSemaphore;
 	
 	tVT_Char	*Text;
 	Uint32		*Buffer;
@@ -160,10 +160,12 @@ int VT_Install(char **Arguments)
 			Log_Debug("VTerm", "Argument '%s'", arg);
 			
 			if( strcmp(opt, "Video") == 0 ) {
-				gsVT_OutputDevice = strdup(val);
+				if( !gsVT_OutputDevice && Modules_InitialiseBuiltin( val ) == 0 )
+					gsVT_OutputDevice = strdup(val);
 			}
 			else if( strcmp(opt, "Input") == 0 ) {
-				gsVT_InputDevice = strdup(val);
+				if( !gsVT_InputDevice && Modules_InitialiseBuiltin( val ) == 0 )
+					gsVT_InputDevice = strdup(val);
 			}
 			else if( strcmp(opt, "Width") == 0 ) {
 				giVT_RealWidth = atoi( val );
@@ -176,9 +178,6 @@ int VT_Install(char **Arguments)
 			}
 		}
 	}
-	
-	if(gsVT_OutputDevice)	Modules_InitialiseBuiltin( gsVT_OutputDevice );
-	if(gsVT_InputDevice)	Modules_InitialiseBuiltin( gsVT_InputDevice );
 	
 	// Apply Defaults
 	if(!gsVT_OutputDevice)	gsVT_OutputDevice = strdup(DEFAULT_OUTPUT);
@@ -223,7 +222,7 @@ int VT_Install(char **Arguments)
 		gVT_Terminals[i].Node.Read = VT_Read;
 		gVT_Terminals[i].Node.Write = VT_Write;
 		gVT_Terminals[i].Node.IOCtl = VT_Terminal_IOCtl;
-		Semaphore_Init(&gVT_Terminals[i].InputSemaphore, 0, MAX_INPUT_CHARS8, "VTerm", gVT_Terminals[i].Name);
+//		Semaphore_Init(&gVT_Terminals[i].InputSemaphore, 0, MAX_INPUT_CHARS8, "VTerm", gVT_Terminals[i].Name);
 	}
 	
 	// Add to DevFS
@@ -312,6 +311,9 @@ void VT_SetResolution(int Width, int Height)
 		for( i = 0; i < NUM_VTS; i ++ )
 		{
 			if( gVT_Terminals[i].Mode != TERM_MODE_TEXT )	continue;
+			
+			gVT_Terminals[i].TextWidth = giVT_RealWidth/giVT_CharWidth;
+			gVT_Terminals[i].TextHeight = giVT_RealHeight/giVT_CharHeight;
 			
 			gVT_Terminals[i].Text = realloc(
 				gVT_Terminals[i].Text,
@@ -735,7 +737,7 @@ void VT_KBCallBack(Uint32 Codepoint)
 		#else
 		case KEY_LALT:	gbVT_AltDown &= ~1;	break;
 		case KEY_RALT:	gbVT_AltDown &= ~2;	break;
-		case KEY_LCTRL:	gbVT_CtrlDown &= ~1	break;
+		case KEY_LCTRL:	gbVT_CtrlDown &= ~1;	break;
 		case KEY_RCTRL:	gbVT_CtrlDown &= ~2;	break;
 		#endif
 		}
@@ -1101,6 +1103,9 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 	default:
 		Term->Text[ Term->WritePos ].Ch = Ch;
 		Term->Text[ Term->WritePos ].Colour = Term->CurColour;
+		// Update the line before wrapping
+		if( (Term->WritePos + 1) % Term->TextWidth == 0 )
+			VT_int_UpdateScreen( Term, 0 );
 		Term->WritePos ++;
 		break;
 	}
@@ -1146,7 +1151,7 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 	{
 		//Debug("Term->WritePos (%i) >= %i",
 		//	Term->WritePos,
-		//	Term->ViewPos + Term->Width*Term->Height
+		//	Term->ViewPos + Term->TextWidth*Term->TextHeight
 		//	);
 		//Debug("Scrolling screen only");
 		
@@ -1161,6 +1166,8 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 		//Debug("Term->ViewPos = %i", Term->ViewPos);
 		VT_int_ScrollFramebuffer( Term );
 		VT_int_UpdateScreen( Term, 0 );
+		
+		//VT_int_UpdateScreen( Term, 1 );	// HACK!
 	}
 	
 	//LEAVE('-');

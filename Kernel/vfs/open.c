@@ -78,7 +78,7 @@ char *VFS_GetAbsPath(const char *Path)
 		strcpy(ret, cwd);
 		ret[cwdLen] = '/';
 		strcpy(&ret[cwdLen+1], Path);
-		//Log("ret = '%s'\n", ret);
+		//Log("ret = '%s'", ret);
 	}
 	
 	// Parse Path
@@ -590,7 +590,7 @@ void VFS_Close(int FD)
 	// Get handle
 	h = VFS_GetHandle(FD);
 	if(h == NULL) {
-		Log_Warning("VFS", "Invalid file handle passed to VFS_Close, 0x%x\n", FD);
+		Log_Warning("VFS", "Invalid file handle passed to VFS_Close, 0x%x", FD);
 		return;
 	}
 	

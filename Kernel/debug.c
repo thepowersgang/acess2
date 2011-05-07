@@ -7,10 +7,6 @@
 #include <acess.h>
 #include <stdarg.h>
 
-#define DEBUG_TO_E9	1
-#define DEBUG_TO_SERIAL	1
-#define	SERIAL_PORT	0x3F8
-#define	GDB_SERIAL_PORT	0x2F8
 #define	DEBUG_MAX_LINE_LEN	256
 
 #define	LOCK_DEBUG_OUTPUT	1
@@ -21,8 +17,6 @@ extern void	KernelPanic_SetMode(void);
 extern void	KernelPanic_PutChar(char Ch);
 
 // === PROTOTYPES ===
- int	putDebugChar(char ch);
- int	getDebugChar(void);
 static void	Debug_Putchar(char ch);
 static void	Debug_Puts(int DbgOnly, const char *Str);
 void	Debug_DbgOnlyFmt(const char *format, va_list args);
@@ -33,8 +27,6 @@ void	Debug_SetKTerminal(const char *File);
 // === GLOBALS ===
  int	gDebug_Level = 0;
  int	giDebug_KTerm = -1;
- int	gbDebug_SerialSetup = 0;
- int	gbGDB_SerialSetup = 0;
  int	gbDebug_IsKPanic = 0;
 volatile int	gbInPutChar = 0;
 #if LOCK_DEBUG_OUTPUT
@@ -42,60 +34,6 @@ tShortSpinlock	glDebug_Lock;
 #endif
 
 // === CODE ===
-int putDebugChar(char ch)
-{
-	if(!gbGDB_SerialSetup) {
-		outb(GDB_SERIAL_PORT + 1, 0x00);    // Disable all interrupts
-		outb(GDB_SERIAL_PORT + 3, 0x80);    // Enable DLAB (set baud rate divisor)
-		outb(GDB_SERIAL_PORT + 0, 0x0C);    // Set divisor to 12 (lo byte) 9600 baud
-		outb(GDB_SERIAL_PORT + 1, 0x00);    //  (base is         (hi byte)
-		outb(GDB_SERIAL_PORT + 3, 0x03);    // 8 bits, no parity, one stop bit (8N1)
-		outb(GDB_SERIAL_PORT + 2, 0xC7);    // Enable FIFO with 14-byte threshold and clear it
-		outb(GDB_SERIAL_PORT + 4, 0x0B);    // IRQs enabled, RTS/DSR set
-		gbDebug_SerialSetup = 1;
-	}
-	while( (inb(GDB_SERIAL_PORT + 5) & 0x20) == 0 );
-	outb(GDB_SERIAL_PORT, ch);
-	return 0;
-}
-int getDebugChar(void)
-{
-	if(!gbGDB_SerialSetup) {
-		outb(GDB_SERIAL_PORT + 1, 0x00);    // Disable all interrupts
-		outb(GDB_SERIAL_PORT + 3, 0x80);    // Enable DLAB (set baud rate divisor)
-		outb(GDB_SERIAL_PORT + 0, 0x0C);    // Set divisor to 12 (lo byte) 9600 baud
-		outb(GDB_SERIAL_PORT + 1, 0x00);    //                   (hi byte)
-		outb(GDB_SERIAL_PORT + 3, 0x03);    // 8 bits, no parity, one stop bit
-		outb(GDB_SERIAL_PORT + 2, 0xC7);    // Enable FIFO with 14-byte threshold and clear it
-		outb(GDB_SERIAL_PORT + 4, 0x0B);    // IRQs enabled, RTS/DSR set
-		gbDebug_SerialSetup = 1;
-	}
-	while( (inb(GDB_SERIAL_PORT + 5) & 1) == 0)	;
-	return inb(GDB_SERIAL_PORT);
-}
-
-static void Debug_PutCharDebug(char ch)
-{
-	#if DEBUG_TO_E9
-	__asm__ __volatile__ ( "outb %%al, $0xe9" :: "a"(((Uint8)ch)) );
-	#endif
-	
-	#if DEBUG_TO_SERIAL
-	if(!gbDebug_SerialSetup) {
-		outb(SERIAL_PORT + 1, 0x00);	// Disable all interrupts
-		outb(SERIAL_PORT + 3, 0x80);	// Enable DLAB (set baud rate divisor)
-		outb(SERIAL_PORT + 0, 0x0C);	// Set divisor to 12 (lo byte) 9600 baud
-		outb(SERIAL_PORT + 1, 0x00);	//                   (hi byte)
-		outb(SERIAL_PORT + 3, 0x03);	// 8 bits, no parity, one stop bit
-		outb(SERIAL_PORT + 2, 0xC7);	// Enable FIFO with 14-byte threshold and clear it
-		outb(SERIAL_PORT + 4, 0x0B);	// IRQs enabled, RTS/DSR set
-		gbDebug_SerialSetup = 1;
-	}
-	while( (inb(SERIAL_PORT + 5) & 0x20) == 0 );
-	outb(SERIAL_PORT, ch);
-	#endif
-}
-
 static void Debug_Putchar(char ch)
 {	
 	Debug_PutCharDebug(ch);
@@ -114,18 +52,18 @@ static void Debug_Putchar(char ch)
 static void Debug_Puts(int UseKTerm, const char *Str)
 {
 	 int	len = 0;
-	while( *Str )
-	{
-		Debug_PutCharDebug( *Str );
-		
-		if( gbDebug_IsKPanic )
-			KernelPanic_PutChar(*Str);
-		len ++;
-		Str ++;
+	
+	Debug_PutStringDebug(Str);
+	
+	if( gbDebug_IsKPanic )
+	{		
+		for( len = 0; Str[len]; len ++ )
+			KernelPanic_PutChar( Str[len] );
 	}
+	else
+		for( len = 0; Str[len]; len ++ );
 	
-	Str -= len;
-	
+	// Output to the kernel terminal
 	if( UseKTerm && !gbDebug_IsKPanic && giDebug_KTerm != -1)
 	{
 		if(gbInPutChar)	return ;
@@ -196,7 +134,7 @@ void LogF(const char *Fmt, ...)
 }
 /**
  * \fn void Debug(const char *Msg, ...)
- * \brief Print only to the debug channel
+ * \brief Print only to the debug channel (not KTerm)
  */
 void Debug(const char *Fmt, ...)
 {
