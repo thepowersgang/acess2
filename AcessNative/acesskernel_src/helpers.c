@@ -10,6 +10,7 @@
 #include <stdarg.h>
 #include <sys/time.h>
 
+#if 0
 void LogF(const char *Fmt, ...)
 {
 	va_list	args;
@@ -51,12 +52,45 @@ void Panic(const char *Format, ...)
 
 void Debug_SetKTerminal(const char *Path)
 {
-	// Ignored, kernel debug goes to stdout
+	// Ignored, kernel debug goes to stdout instead of a virtual terminal
+}
+#endif
+
+void KernelPanic_SetMode(void)
+{
+	// NOP - No need
+}
+void KernelPanic_PutChar(char ch)
+{
+	fprintf(stderr, "%c", ch);
+}
+void Debug_PutCharDebug(char ch)
+{
+	printf("%c", ch);
+}
+void Debug_PutStringDebug(const char *String)
+{
+	printf("%s", String);
 }
 
 void *Heap_Allocate(const char *File, int Line, int ByteCount)
 {
 	return malloc(ByteCount);
+}
+
+void *Heap_AllocateZero(const char *File, int Line, int ByteCount)
+{
+	return calloc(ByteCount, 1);
+}
+
+void *Heap_Reallocate(const char *File, int Line, void *Ptr, int Bytes)
+{
+	return realloc(Ptr, Bytes);
+}
+
+void Heap_Deallocate(void *Ptr)
+{
+	free(Ptr);
 }
 
 tPAddr MM_GetPhysAddr(tVAddr VAddr)

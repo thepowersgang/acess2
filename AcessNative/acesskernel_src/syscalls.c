@@ -5,13 +5,27 @@
  * Syscall Distribution
  */
 #include <acess.h>
+#include <threads.h>
 #include "../syscalls.h"
 
+// === IMPORTS ===
+extern int	Threads_Fork(void);	// AcessNative only function
+
 // === TYPES ===
-typedef int	(*tSyscallHandler)(const char *Format, void *Args, int *Sizes);
+typedef int	(*tSyscallHandler)(Uint *Errno, const char *Format, void *Args, int *Sizes);
 
 // === MACROS ===
-#define SYSCALL3(_name, _fmtstr, _t0, _t1, _t2, _call) int _name(const char*Fmt,void*Args,int*Sizes){\
+#define SYSCALL4(_name, _fmtstr, _t0, _t1, _t2, _t3, _call) int _name(Uint*Errno,const char*Fmt,void*Args,int*Sizes){\
+	_t0 a0;_t1 a1;_t2 a2;_t3 a3;\
+	if(strcmp(Fmt,_fmtstr)!=0)return 0;\
+	a0 = *(_t0*)Args;Args+=sizeof(_t0);\
+	a1 = *(_t1*)Args;Args+=sizeof(_t1);\
+	a2 = *(_t2*)Args;Args+=sizeof(_t2);\
+	a3 = *(_t3*)Args;Args+=sizeof(_t3);\
+	_call\
+}
+
+#define SYSCALL3(_name, _fmtstr, _t0, _t1, _t2, _call) int _name(Uint*Errno,const char*Fmt,void*Args,int*Sizes){\
 	_t0 a0;_t1 a1;_t2 a2;\
 	if(strcmp(Fmt,_fmtstr)!=0)return 0;\
 	a0 = *(_t0*)Args;Args+=sizeof(_t0);\
@@ -20,7 +34,7 @@ typedef int	(*tSyscallHandler)(const char *Format, void *Args, int *Sizes);
 	_call\
 }
 
-#define SYSCALL2(_name, _fmtstr, _t0, _t1, _call) int _name(const char*Fmt,void*Args,int*Sizes){\
+#define SYSCALL2(_name, _fmtstr, _t0, _t1, _call) int _name(Uint*Errno,const char*Fmt,void*Args,int*Sizes){\
 	_t0 a0;_t1 a1;\
 	if(strcmp(Fmt,_fmtstr)!=0)return 0;\
 	a0 = *(_t0*)Args;Args+=sizeof(_t0);\
@@ -28,18 +42,28 @@ typedef int	(*tSyscallHandler)(const char *Format, void *Args, int *Sizes);
 	_call;\
 }
 
-#define SYSCALL1(_name, _fmtstr, _t0, _call) int _name(const char*Fmt, void*Args,int*Sizes){\
+#define SYSCALL1(_name, _fmtstr, _t0, _call) int _name(Uint*Errno,const char*Fmt, void*Args,int*Sizes){\
 	_t0 a0;\
 	if(strcmp(Fmt,_fmtstr)!=0)return 0;\
 	a0 = *(_t0*)Args;Args+=sizeof(_t0);\
 	_call;\
 }
 
+#define SYSCALL0(_name, _call) int _name(Uint*Errno,const char*Fmt, void*Args,int*Sizes){\
+	if(strcmp(Fmt,"")!=0)return 0;\
+	_call;\
+}
+
 // === CODE ===
-int Syscall_Null(const char *Format, void *Args, int *Sizes)
+int Syscall_Null(Uint*Errno, const char *Format, void *Args, int *Sizes)
 {
 	return 0;
 }
+
+SYSCALL1(Syscall_Exit, "i", int,
+	Threads_Exit(0, a0);
+	return 0;
+);
 
 SYSCALL2(Syscall_Open, "si", const char *, int,
 	return VFS_Open(a0, a1|VFS_OPENFLAG_USER);
@@ -49,12 +73,12 @@ SYSCALL1(Syscall_Close, "i", int,
 	return 0;
 );
 SYSCALL3(Syscall_Read, "iid", int, int, void *,
-	if( Sizes[2] <= a1 )
+	if( Sizes[2] < a1 )
 		return -1;
 	return VFS_Read(a0, a1, a2);
 );
 SYSCALL3(Syscall_Write, "iid", int, int, const void *,
-	if( Sizes[2] <= a1 )
+	if( Sizes[2] < a1 )
 		return -1;
 	return VFS_Write(a0, a1, a2);
 );
@@ -72,10 +96,53 @@ SYSCALL3(Syscall_FInfo, "idi", int, void *, int,
 		return -1;
 	return VFS_FInfo(a0, a1, a2);
 );
+SYSCALL2(Syscall_ReadDir, "id", int, char *,
+	if(Sizes[1] < 255)
+		return -1;
+	return VFS_ReadDir(a0, a1);
+);
+SYSCALL3(Syscall_OpenChild, "isi", int, const char *, int,
+	return VFS_OpenChild(NULL, a0, a1, a2|VFS_OPENFLAG_USER);
+);
+SYSCALL2(Syscall_GetACL, "id", int, void *,
+	if(Sizes[1] < sizeof(tVFS_ACL))
+		return -1;
+	return VFS_GetACL(a0, (void*)a1);
+);
+SYSCALL4(Syscall_Mount, "ssss", const char *, const char *, const char *, const char *,
+	return VFS_Mount(a0, a1, a2, a3);
+);
+SYSCALL0(Syscall_Sleep,
+	Threads_Sleep();
+	return 0;
+);
+SYSCALL2(Syscall_WaitTID, "id", int, int *,
+	if(Sizes[1] < sizeof(int))
+		return -1;
+	return Threads_WaitTID(a0, a1);
+);
+SYSCALL1(Syscall_SetUID, "i", int,
+	if(Sizes[0] < sizeof(int)) {
+		*Errno = -EINVAL;	// TODO: Better message
+		return -1;
+	}
+	return Threads_SetUID(Errno, a0);
+);
+SYSCALL1(Syscall_SetGID, "i", int,
+	if(Sizes[0] < sizeof(int)) {
+		*Errno = -EINVAL;	// TODO: Better message
+		return -1;
+	}
+	return Threads_SetGID(Errno, a0);
+);
 
+SYSCALL0(Syscall_Fork,
+	return Threads_Fork();
+);
 
 const tSyscallHandler	caSyscalls[] = {
 	Syscall_Null,
+	Syscall_Exit,
 	Syscall_Open,
 	Syscall_Close,
 	Syscall_Read,
@@ -83,7 +150,19 @@ const tSyscallHandler	caSyscalls[] = {
 	Syscall_Seek,
 	Syscall_Tell,
 	Syscall_IOCtl,
-	Syscall_FInfo
+	Syscall_FInfo,
+	Syscall_ReadDir,
+	Syscall_OpenChild,
+	Syscall_GetACL,
+	Syscall_Mount,
+	NULL,	// SYS_REOPEN
+	
+	Syscall_WaitTID,
+	Syscall_SetUID,
+	Syscall_SetGID,
+	
+	Syscall_Sleep,
+	Syscall_Fork
 };
 const int	ciNumSyscalls = sizeof(caSyscalls)/sizeof(caSyscalls[0]);
 /**
@@ -100,10 +179,16 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 	 int	retDataLen = sizeof(Uint64);
 	void	*returnData[Request->NParams];
 	 int	argSizes[Request->NParams];
+	Uint	ret_errno = 0;
 	
 	// Sanity check
 	if( Request->CallID >= ciNumSyscalls ) {
 		Log_Notice("Syscalls", "Unknown syscall number %i", Request->CallID);
+		return NULL;
+	}
+	
+	if( !caSyscalls[Request->CallID] ) {
+		Log_Notice("Syscalls", "Unimplemented syscall %i", Request->CallID);
 		return NULL;
 	}
 	
@@ -138,7 +223,7 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 	}
 	formatString[i] = '\0';
 	
-	Log_Debug("Syscalls", "Request %i '%s'", Request->CallID, formatString);
+	LOG("Request %i(%s) '%s'", Request->CallID, casSYSCALL_NAMES[Request->CallID], formatString);
 	
 	{
 		char	argListData[argListLen];
@@ -152,19 +237,19 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 			case ARG_TYPE_VOID:
 				break;
 			case ARG_TYPE_INT32:
-				Log_Debug("Syscalls", "Arg %i: 0x%x", i, *(Uint32*)inData);
+				LOG("Syscalls", "%i INT32: 0x%x", i, *(Uint32*)inData);
 				*(Uint32*)&argListData[argListLen] = *(Uint32*)inData;
 				argListLen += sizeof(Uint32);
 				inData += sizeof(Uint32);
 				break;
 			case ARG_TYPE_INT64:
-				Log_Debug("Syscalls", "Arg %i: 0x%llx", i, *(Uint64*)inData);
+				LOG("Syscalls", "%i INT64: 0x%llx", i, *(Uint64*)inData);
 				*(Uint64*)&argListData[argListLen] = *(Uint64*)inData;
 				argListLen += sizeof(Uint64);
 				inData += sizeof(Uint64);
 				break;
 			case ARG_TYPE_STRING:
-				Log_Debug("Syscalls", "Arg %i: '%s'", i, (char*)inData);
+				LOG("Syscalls", "%i STR: '%s'", i, (char*)inData);
 				*(char**)&argListData[argListLen] = (char*)inData;
 				argListLen += sizeof(void*);
 				inData += Request->Params[i].Length;
@@ -185,7 +270,7 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 				{
 					// Allocate and zero the buffer
 					returnData[i] = calloc(1, Request->Params[i].Length);
-					Log_Debug("Syscalls", "Arg %i: %i %p", i,
+					LOG("Syscalls", "%i ZDAT: %i %p", i,
 						Request->Params[i].Length, returnData[i]);
 					*(void**)&argListData[argListLen] = returnData[i];
 					argListLen += sizeof(void*);
@@ -193,7 +278,7 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 				else
 				{
 					returnData[i] = (void*)inData;
-					Log_Debug("Syscalls", "Arg %i: %i %p", i,
+					LOG("Syscalls", "%i DATA: %i %p", i,
 						Request->Params[i].Length, returnData[i]);
 					*(void**)&argListData[argListLen] = (void*)inData;
 					argListLen += sizeof(void*);
@@ -203,7 +288,7 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 			}
 		}
 		
-		retVal = caSyscalls[Request->CallID](formatString, argListData, argSizes);
+		retVal = caSyscalls[Request->CallID](&ret_errno, formatString, argListData, argSizes);
 	}
 	
 	// Allocate the return
@@ -221,22 +306,27 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 	*(Uint64*)inData = retVal;
 	inData += sizeof(Uint64);
 	
-	Log_Debug("Syscalls", "Return 0x%llx", retVal);
+	LOG("Syscalls", "Return 0x%llx", retVal);
 	
+	retValueCount = 1;
 	for( i = 0; i < Request->NParams; i ++ )
 	{
 		if( Request->Params[i].Type != ARG_TYPE_DATA )	continue;
 		if( !(Request->Params[i].Flags & ARG_FLAG_RETURN) )	continue;
 		
-		ret->Params[1 + i].Type = Request->Params[i].Type;
-		ret->Params[1 + i].Flags = 0;
-		ret->Params[1 + i].Length = Request->Params[i].Length;
+		ret->Params[retValueCount].Type = Request->Params[i].Type;
+		ret->Params[retValueCount].Flags = 0;
+		ret->Params[retValueCount].Length = Request->Params[i].Length;
+		
+		LOG("Syscalls", "Ret %i: Type %i, Len %i",
+			i, Request->Params[i].Type, Request->Params[i].Length);
 		
 		memcpy(inData, returnData[i], Request->Params[i].Length);
 		inData += Request->Params[i].Length;
 		
 		if( Request->Params[i].Flags & ARG_FLAG_ZEROED )
 			free( returnData[i] );	// Free temp buffer from above
+		retValueCount ++;
 	}
 	
 	*ReturnLength = sizeof(tRequestHeader)

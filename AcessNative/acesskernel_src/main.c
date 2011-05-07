@@ -13,7 +13,11 @@ extern int	VFS_Init(void);
 extern int	Video_Install(char **Arguments);
 extern int	NativeKeyboard_Install(char **Arguments);
 extern int	VT_Install(char **Arguments);
+extern int	VFS_Mount(const char *Device, const char *MountPoint, const char *Filesystem, const char *Options);
 extern int	SyscallServer(void);
+
+// === GLOBALS ===
+const char	*gsAcessDir = "../Usermode/Output/i386";
 
 // === CODE ===
 int main(int argc, char *argv[])
@@ -21,13 +25,14 @@ int main(int argc, char *argv[])
 	// Parse command line settings
 	
 	// Start UI subsystem
-	UI_Initialise(640, 480);
+	UI_Initialise(800, 480);
 	
 	// Initialise VFS
 	VFS_Init();
 	// - Start IO Drivers
 	Video_Install(NULL);
 	NativeKeyboard_Install(NULL);
+	NativeFS_Install(NULL);
 	// - Start VTerm
 	{
 		char	*args[] = {
@@ -37,6 +42,10 @@ int main(int argc, char *argv[])
 			};
 		VT_Install(args);
 	}
+	
+	VFS_Mount(gsAcessDir, "/Acess", "nativefs", "");
+
+	Debug_SetKTerminal("/Devices/VTerm/8");
 	
 	// Start syscall server
 	// - Blocks

@@ -89,6 +89,7 @@ int _InitSyscalls()
 		#endif
 		exit(0);
 	}
+	giSyscall_ClientID = gSocket;	// A bit of a hack really :(
 	#endif
 	
 	#if 0
@@ -130,7 +131,7 @@ int _InitSyscalls()
 	return 0;
 }
 
-int SendRequest(tRequestHeader *Request, int RequestSize)
+int SendRequest(tRequestHeader *Request, int RequestSize, int ResponseSize)
 {
 	if( gSocket == INVALID_SOCKET )
 	{
@@ -153,38 +154,38 @@ int SendRequest(tRequestHeader *Request, int RequestSize)
 	{
 		 int	i;
 		char	*data = (char*)&Request->Params[Request->NParams];
-		printf("Request #%i\n", Request->CallID);
+		printf("Request #%i (%s) -", Request->CallID, casSYSCALL_NAMES[Request->CallID]);
 		for( i = 0; i < Request->NParams; i ++ )
 		{
-			printf("%i: ", i);
 			switch(Request->Params[i].Type)
 			{
 			case ARG_TYPE_INT32:
-				printf("INT32 %x", *(uint32_t*)data);
+				printf(" 0x%08x", *(uint32_t*)data);
 				data += sizeof(uint32_t);
 				break;
 			case ARG_TYPE_INT64:
-				printf("INT64 %llx", *(uint64_t*)data);
+				printf(" 0x%016llx", *(uint64_t*)data);
 				data += sizeof(uint64_t);
 				break;
 			case ARG_TYPE_STRING:
-				printf("STRING '%s'", (char*)data);
+				printf(" '%s'", (char*)data);
 				data += Request->Params[i].Length;
 				break;
 			case ARG_TYPE_DATA:
-				printf("DATA %i %p", Request->Params[i].Length, (char*)data);
-				data += Request->Params[i].Length;
+				printf(" %p:0x%x", (char*)data, Request->Params[i].Length);
+				if( !(Request->Params[i].Flags & ARG_FLAG_ZEROED) )
+					data += Request->Params[i].Length;
 				break;
 			}
-			printf("\n");
 		}
+		printf("\n");
 	}
 	
 	// Send it off
 	SendData(Request, RequestSize);
 	
 	// Wait for a response (no timeout)
-	return ReadData(Request, RequestSize, 0);
+	return ReadData(Request, ResponseSize, 0);
 }
 
 void SendData(void *Data, int Length)

@@ -10,6 +10,6 @@
 
 #include "../syscalls.h"
 
-extern int	SendRequest(tRequestHeader *Request, int RequestSize);
+extern int	SendRequest(tRequestHeader *Request, int RequestSize, int ResponseSize);
 
 #endif

@@ -28,10 +28,10 @@ typedef intptr_t	tPAddr;
 
 typedef	int	BOOL;
 
-typedef uint32_t	tTID;
-typedef uint32_t	tPID;
-typedef uint32_t	tUID;
-typedef uint32_t	tGID;
+//typedef uint32_t	tTID;
+//typedef uint32_t	tPID;
+//typedef uint32_t	tUID;
+//typedef uint32_t	tGID;
 
 struct sShortSpinlock
 {
@@ -42,7 +42,7 @@ struct sShortSpinlock
 #define SHORTLOCK(...)
 #define SHORTREL(...)
 
-#define	NUM_CFG_ENTRIES	10
+//#define	NUM_CFG_ENTRIES	10
 
 #endif
 

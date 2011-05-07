@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define LIBRARY_PATH	"../Usermode/Output/i386/Libs"
+#define LIBRARY_PATH	"$$$$../Usermode/Output/i386/Libs"
 
 // === TYPES ===
 typedef struct sBinary {
@@ -18,7 +18,7 @@ typedef struct sBinary {
 }	tBinary;
 
 // === IMPORTS ===
-extern void	*Elf_Load(FILE *FP);
+extern void	*Elf_Load(int fd);
 extern uintptr_t	Elf_Relocate(void *Base);
 extern int	Elf_GetSymbol(void *Base, char *Name, uintptr_t *ret);
 extern int	ciNumBuiltinSymbols;
@@ -43,7 +43,7 @@ char *Binary_LocateLibrary(const char *Name)
 {
 	char	*envPath = getenv("ACESS_LIBRARY_PATH");
 	 int	nameLen = strlen(Name);
-	FILE	*fp;
+	 int	fd;
 	
 	if( strcmp(Name, "libld-acess.so") == 0 ) {
 		return strdup("libld-acess.so");
@@ -59,9 +59,9 @@ char *Binary_LocateLibrary(const char *Name)
 		strcat(tmp, "/");
 		strcat(tmp, Name);
 		
-		fp = fopen(tmp, "r");
-		if(fp) {
-			fclose(fp);
+		fd = acess_open(tmp, 4);	// OPENFLAG_EXEC
+		if(fd != -1) {
+			acess_close(fd);
 			return strdup(tmp);
 		}
 	}		
@@ -74,16 +74,20 @@ char *Binary_LocateLibrary(const char *Name)
 		strcat(tmp, "/");
 		strcat(tmp, Name);
 		
+		#if DEBUG
 		printf("Binary_LocateLibrary: tmp = '%s'\n", tmp);
+		#endif
 
-		fp = fopen(tmp, "r");
-		if(fp) {
-			fclose(fp);
+		fd = acess_open(tmp, 4);	// OPENFLAG_EXEC
+		if(fd != -1) {
+			acess_close(fd);
 			return strdup(tmp);
 		}
 	}		
 
+	#if DEBUG
 	fprintf(stderr, "Unable to locate library '%s'\n", Name);
+	#endif
 
 	return NULL;
 }
@@ -96,7 +100,9 @@ void *Binary_LoadLibrary(const char *Name)
 
 	// Find File
 	path = Binary_LocateLibrary(Name);
+	#if DEBUG
 	printf("Binary_LoadLibrary: path = '%s'\n", path);
+	#endif
 	if( !path ) {
 		return NULL;
 	}
@@ -104,10 +110,14 @@ void *Binary_LoadLibrary(const char *Name)
 	ret = Binary_Load(path, (uintptr_t*)&entry);
 	free(path);
 	
+	#if DEBUG
 	printf("Binary_LoadLibrary: ret = %p, entry = %p\n", ret, entry);
+	#endif
 	if( entry ) {
 		char	*argv[] = {NULL};
+		#if DEBUG
 		printf("Calling '%s' entry point %p\n", Name, entry);
+		#endif
 		entry(0, argv, NULL);
 	}
 
@@ -116,8 +126,8 @@ void *Binary_LoadLibrary(const char *Name)
 
 void *Binary_Load(const char *Filename, uintptr_t *EntryPoint)
 {
-	FILE	*fp;
-	uint32_t	dword;
+	 int	fd;
+	uint32_t	dword = 0xFA17FA17;
 	void	*ret;
 	uintptr_t	entry = 0;
 	tBinFmt	*fmt;
@@ -138,36 +148,43 @@ void *Binary_Load(const char *Filename, uintptr_t *EntryPoint)
 		}
 	}
 
-	fp = fopen(Filename, "r");
-	if( !fp ) {
+	fd = acess_open(Filename, 2|1);	// Execute and Read
+	if( fd == -1 ) {
 		// TODO: Handle libary directories
 		perror("Opening binary");
 		return NULL;
 	}
 
-	fread(&dword, 1, 4, fp);
-	fseek(fp, 0, SEEK_SET);
+	acess_read(fd, 4, &dword);
+	acess_seek(fd, 0, ACESS_SEEK_SET);
 	
 	if( memcmp(&dword, "\x7F""ELF", 4) == 0 ) {
 		fmt = &gElf_FormatDef;
 	}
 	else {
-		fclose(fp);
+		fprintf(stderr, "Unknown executable format (0x%08x)\n", dword);
+		acess_close(fd);
 		return NULL;
 	}
 	
-	printf("fmt->Load(%p)...\n", fp);
-	ret = fmt->Load(fp);
-	printf("fmt->Load(%p): %p\n", fp, ret);
+	#if DEBUG
+	printf("fmt->Load(%i)...\n", fd);
+	#endif
+	ret = fmt->Load(fd);
+	acess_close(fd);
+	#if DEBUG
+	printf("fmt->Load(%p): %p\n", fd, ret);
+	#endif
 	if( !ret ) {
-		fclose(fp);
 		return NULL;
 	}
 	
 	Binary_AddToList(Filename, ret, fmt);
 
 	entry = fmt->Relocate(ret);
+	#if DEBUG
 	printf("fmt->Relocate(%p): %p\n", ret, (void*)entry);
+	#endif
 	if( !entry ) {
 		// TODO: Clean up
 		return NULL;
@@ -175,8 +192,6 @@ void *Binary_Load(const char *Filename, uintptr_t *EntryPoint)
 	
 	if( EntryPoint )
 		*EntryPoint = entry;
-
-	fclose(fp);
 
 	Binary_SetReadyToUse(ret);
 

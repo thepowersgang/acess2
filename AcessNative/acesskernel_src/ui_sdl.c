@@ -39,6 +39,9 @@ int UI_Initialise(int MaxWidth, int MaxHeight)
 	// Start main thread
 	gInputThread = SDL_CreateThread(UI_MainThread, NULL);
 	
+	while(gScreen == NULL)
+		SDL_Delay(10);
+	
 	return 0;
 }
 
@@ -152,15 +155,21 @@ void UI_BlitBitmap(int DstX, int DstY, int SrcW, int SrcH, Uint32 *Bitmap)
 	SDL_Surface	*tmp;
 	SDL_Rect	dstRect;
 	
+//	printf("UI_BlitBitmap: Blit to (%i,%i) from %p (%ix%i 32bpp bitmap)\n",
+//		DstX, DstY, Bitmap, SrcW, SrcH);
+	
 	tmp = SDL_CreateRGBSurfaceFrom(Bitmap, SrcW, SrcH, 32, SrcW*4,
 		0xFF0000, 0x00FF00, 0x0000FF, 0xFF000000);
 	SDL_SetAlpha(tmp, 0, SDL_ALPHA_OPAQUE);
 	
 	dstRect.x = DstX;	dstRect.y = DstY;
+	dstRect.w = -1;	dstRect.h = -1;
 	
 	SDL_BlitSurface(tmp, NULL, gScreen, &dstRect);
+	//SDL_BlitSurface(tmp, NULL, gScreen, NULL);
 	
 	SDL_FreeSurface(tmp);
+//	SDL_Flip(gScreen);
 }
 
 void UI_BlitFramebuffer(int DstX, int DstY, int SrcX, int SrcY, int W, int H)
@@ -182,10 +191,12 @@ void UI_FillBitmap(int X, int Y, int W, int H, Uint32 Value)
 	dstRect.x = X;	dstRect.y = Y;
 	dstRect.w = W;	dstRect.h = H;
 	
+//	printf("UI_FillBitmap: gScreen = %p\n", gScreen);
 	SDL_FillRect(gScreen, &dstRect, Value);
 }
 
 void UI_Redraw(void)
 {
-	// No-Op, we're not using double buffering
+	// TODO: Keep track of changed rectangle
+	SDL_UpdateRect(gScreen, 0, 0, giUI_Width, giUI_Height);
 }

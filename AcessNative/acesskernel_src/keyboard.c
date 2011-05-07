@@ -35,7 +35,7 @@ int NativeKeyboard_Install(char **Arguments)
 	return MODULE_ERR_OK;
 }
 
-static const char * const csaIOCTL_NAMES[] = {
+static const char * csaIOCTL_NAMES[] = {
 	DRV_IOCTLNAMES,
 	DRV_KEYBAORD_IOCTLNAMES,
 	NULL

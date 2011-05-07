@@ -17,6 +17,7 @@
 # include <netinet/in.h>
 #endif
 #include "../syscalls.h"
+//#include <debug.h>
 
 #define	USE_TCP	0
 #define MAX_CLIENTS	16
@@ -36,6 +37,10 @@ typedef struct {
 
 // === IMPORTS ===
 extern tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength);
+extern int	Threads_CreateRootProcess(void);
+// HACK: Should have these in a header
+extern void	Log_Debug(const char *Subsys, const char *Message, ...);
+extern void	Log_Notice(const char *Subsys, const char *Message, ...);
 
 // === PROTOTYPES ===
 tClient	*Server_GetClient(int ClientID);
@@ -50,7 +55,6 @@ SOCKET	gSocket = INVALID_SOCKET;
 # define INVALID_SOCKET -1
  int	gSocket = INVALID_SOCKET;
 #endif
- int	giServer_NextClientID = 1;
 tClient	gaServer_Clients[MAX_CLIENTS];
 
 // === CODE ===
@@ -75,12 +79,17 @@ tClient *Server_GetClient(int ClientID)
 	tClient	*ret = NULL;
 	 int	i;
 	
+	// Allocate an ID if needed
+	if(ClientID == 0)
+		ClientID = Threads_CreateRootProcess();
+	
 	for( i = 0; i < MAX_CLIENTS; i ++ )
 	{
 		if( gaServer_Clients[i].ClientID == ClientID ) {
-			ret = &gaServer_Clients[i];
-			break;
+			return &gaServer_Clients[i];
 		}
+		if(!ret && gaServer_Clients[i].ClientID == 0)
+			ret = &gaServer_Clients[i];
 	}
 	
 	// Uh oh, no free slots
@@ -88,20 +97,18 @@ tClient *Server_GetClient(int ClientID)
 	if( !ret )
 		return NULL;
 	
-	if( ClientID == 0 )
-	{
-		ret->ClientID = giServer_NextClientID ++;
-		ret->CurrentRequest = NULL;
+	// Allocate a thread for the process
+	ret->ClientID = ClientID;
+	ret->CurrentRequest = NULL;
 		
-		if( !ret->WorkerThread ) {
-			ret->WaitFlag = SDL_CreateCond();
-			ret->Mutex = SDL_CreateMutex();
-			SDL_mutexP( ret->Mutex );
-			ret->WorkerThread = SDL_CreateThread( Server_WorkerThread, ret );
-		}
+	if( !ret->WorkerThread ) {
+		ret->WaitFlag = SDL_CreateCond();
+		ret->Mutex = SDL_CreateMutex();
+		SDL_mutexP( ret->Mutex );
+		ret->WorkerThread = SDL_CreateThread( Server_WorkerThread, ret );
 	}
 	
-	return &gaServer_Clients[i];
+	return ret;
 }
 
 int Server_WorkerThread(void *ClientPtr)
@@ -120,14 +127,15 @@ int Server_WorkerThread(void *ClientPtr)
 		while( Client->CurrentRequest == NULL )
 			SDL_CondWait(Client->WaitFlag, Client->Mutex);
 		
-		printf("Worker for %i, Job: %p\n", Client->ClientID, Client->CurrentRequest);
+		Log_Debug("AcessSrv", "Worker %i takes %p",
+			Client->ClientID, Client->CurrentRequest);
 		
 		// Get the response
 		retHeader = SyscallRecieve(Client->CurrentRequest, &retSize);
 		
 		if( !retHeader ) {
 			// Return an error to the client
-			printf("Error returned by SyscallRecieve\n");
+			printf("ERROR: SyscallRecieve failed\n");
 			errorHeader.CallID = Client->CurrentRequest->CallID;
 			errorHeader.NParams = 0;
 			retHeader = &errorHeader;
@@ -140,9 +148,10 @@ int Server_WorkerThread(void *ClientPtr)
 		// Mark the thread as ready for another job
 		Client->CurrentRequest = 0;
 		
-		printf("Sending %i to %x:%i\n",
+		Log_Debug("AcessSrv", "Sending %i to %x:%i (Client %i)",
 			retSize, ntohl(Client->ClientAddr.sin_addr.s_addr),
-			ntohs(Client->ClientAddr.sin_port)
+			ntohs(Client->ClientAddr.sin_port),
+			Client->ClientID
 			);
 		
 		// Return the data
@@ -213,7 +222,7 @@ int SyscallServer(void)
 	listen(gSocket, 5);
 	#endif
 	
-	Log_Notice("Syscall", "Listening on 0.0.0.0:%i\n", SERVER_PORT);
+	Log_Notice("AcessSrv", "Listening on 0.0.0.0:%i", SERVER_PORT);
 	
 	// Wait for something to do :)
 	for( ;; )
@@ -227,7 +236,7 @@ int SyscallServer(void)
 			break ;
 		}
 		
-		printf("Client connection %x:%i",
+		Log("Client connection %x:%i\n",
 			ntohl(client.sin_addr), ntohs(client.sin_port)
 			);
 		
@@ -269,7 +278,8 @@ int SyscallServer(void)
 			continue;
 		}
 		
-		printf("client = %p, ClientID = %i\n", client, client->ClientID);
+		Log_Debug("AcessSrv", "Message from Client %i (%p)",
+			client->ClientID, client);
 		
 		client->CurrentRequest = req;
 		SDL_CondSignal(client->WaitFlag);

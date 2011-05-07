@@ -1,5 +1,6 @@
 /*
  */
+#define DONT_INCLUDE_SYSCALL_NAMES 1
 #include "../../Usermode/include/acess/sys.h"
 #include "common.h"
 #include <stdio.h>
@@ -7,12 +8,22 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <string.h>
+#include <stddef.h>
 #include "request.h"
 #include "../syscalls.h"
+
+#define DEBUG(x...)	printf(x)
+
+#define NATIVE_FILE_MASK	0x40000000
+#define	MAX_FPS	16
 
 // === Types ===
 
 // === IMPORTS ===
+extern int	giSyscall_ClientID;	// Needed for execve
+
+// === GLOBALS ===
+FILE	*gaSyscall_LocalFPs[MAX_FPS];
 
 // === CODE ===
 const char *ReadEntry(tRequestValue *Dest, void *DataDest, void **PtrDest, const char *ArgTypes, va_list *Args)
@@ -53,7 +64,6 @@ const char *ReadEntry(tRequestValue *Dest, void *DataDest, void **PtrDest, const
 		}
 		
 		val32 = va_arg(*Args, uint32_t);
-		printf("val32 = 0x%x\n", val32);
 		
 		Dest->Type = ARG_TYPE_INT32;
 		Dest->Length = sizeof(uint32_t);
@@ -71,7 +81,6 @@ const char *ReadEntry(tRequestValue *Dest, void *DataDest, void **PtrDest, const
 		}
 		
 		val64 = va_arg(*Args, uint64_t);
-		printf("val64 = 0x%llx\n", val64);
 		
 		Dest->Type = ARG_TYPE_INT64;
 		Dest->Length = sizeof(uint64_t);
@@ -88,7 +97,6 @@ const char *ReadEntry(tRequestValue *Dest, void *DataDest, void **PtrDest, const
 		}
 		
 		str = va_arg(*Args, char*);
-		printf("str = %p '%s'\n", str, str);
 		
 		Dest->Type = ARG_TYPE_STRING;
 		Dest->Length = strlen(str) + 1;
@@ -103,8 +111,6 @@ const char *ReadEntry(tRequestValue *Dest, void *DataDest, void **PtrDest, const
 	case 'd':
 		len = va_arg(*Args, int);
 		str = va_arg(*Args, char*);
-		
-		printf("len = %i, str = %p\n", len, str);
 		
 		// Save the pointer for later
 		if( PtrDest )	*PtrDest = str;
@@ -158,6 +164,11 @@ uint64_t _Syscall(int SyscallID, const char *ArgTypes, ...)
 	void	*dataPtr;
 	uint64_t	retValue;
 	 int	i;
+	
+	// DEBUG!
+//	printf("&tRequestHeader->Params = %i\n", offsetof(tRequestHeader, Params));
+//	printf("&tRequestValue->Flags = %i\n", offsetof(tRequestValue, Flags));
+//	printf("&tRequestValue->Length = %i\n", offsetof(tRequestValue, Length));
 	
 	// Get data size
 	va_start(args, ArgTypes);
@@ -219,7 +230,7 @@ uint64_t _Syscall(int SyscallID, const char *ArgTypes, ...)
 	va_end(args);
 	
 	// Send syscall request
-	if( SendRequest(req, dataLength) < 0 ) {
+	if( SendRequest(req, dataLength, retLength) < 0 ) {
 		fprintf(stderr, "syscalls.c: SendRequest failed (SyscallID = %i)\n", SyscallID);
 		exit(127);
 	}
@@ -227,7 +238,7 @@ uint64_t _Syscall(int SyscallID, const char *ArgTypes, ...)
 	// Parse return value
 	dataPtr = &req->Params[req->NParams];
 	retValue = 0;
-	if( req->NParams > 1 )
+	if( req->NParams >= 1 )
 	{
 		switch(req->Params[0].Type)
 		{
@@ -243,94 +254,241 @@ uint64_t _Syscall(int SyscallID, const char *ArgTypes, ...)
 	}
 	
 	// Write changes to buffers
-	va_start(args, ArgTypes);
+	retCount = 0;
 	for( i = 1; i < req->NParams; i ++ )
 	{
-		memcpy( retPtrs[i-1], dataPtr, req->Params[i].Length );
+		#if 0
+		 int	 j;
+		printf("Return Data %i: (%i)", i, req->Params[i].Length);
+		for( j = 0; j < req->Params[i].Length; j ++ )
+			printf(" %02x", ((uint8_t*)dataPtr)[j]);
+		printf("\n");
+		#endif
+		memcpy( retPtrs[retCount++], dataPtr, req->Params[i].Length );
 		dataPtr += req->Params[i].Length;
 	}
-	va_end(args);
 	
 	free( req );
+	free( retPtrs );
 	
-	return 0;
+	printf("Return %llx\n", retValue);
+	
+	return retValue;
 }
 
 // --- VFS Calls
-int open(const char *Path, int Flags) {
+int acess_open(const char *Path, int Flags)
+{
+	if( strncmp(Path, "$$$$", 4) == 0 )
+	{
+		 int	ret;
+		for(ret = 0; ret < MAX_FPS && gaSyscall_LocalFPs[ret]; ret ++ )	;
+		if(ret == MAX_FPS)	return -1;
+		// TODO: Handle directories
+		gaSyscall_LocalFPs[ret] = fopen(&Path[4], "r+");
+		if(!gaSyscall_LocalFPs[ret])	return -1;
+		return ret|NATIVE_FILE_MASK;
+	}
+	DEBUG("open(\"%s\", 0x%x)\n", Path, Flags);
 	return _Syscall(SYS_OPEN, ">s >i", Path, Flags);
 }
 
-void close(int FD) {
+void acess_close(int FD) {
+	if(FD & NATIVE_FILE_MASK) {
+		fclose( gaSyscall_LocalFPs[FD & (NATIVE_FILE_MASK-1)] );
+		gaSyscall_LocalFPs[FD & (NATIVE_FILE_MASK-1)] = NULL;
+		return ;
+	}
+	DEBUG("close(%i)\n", FD);
 	_Syscall(SYS_CLOSE, ">i", FD);
 }
 
-int reopen(int FD, const char *Path, int Flags) {
+int acess_reopen(int FD, const char *Path, int Flags) {
+	DEBUG("reopen(0x%x, \"%s\", 0x%x)\n", FD, Path, Flags);
 	return _Syscall(SYS_REOPEN, ">i >s >i", FD, Path, Flags);
 }
 
-size_t read(int FD, size_t Bytes, void *Dest) {
-	return _Syscall(SYS_READ, "<i >i >i <d", FD, Bytes, Bytes, Dest);
+size_t acess_read(int FD, size_t Bytes, void *Dest) {
+	if(FD & NATIVE_FILE_MASK)
+		return fread( Dest, Bytes, 1, gaSyscall_LocalFPs[FD & (NATIVE_FILE_MASK-1)] );
+	DEBUG("read(0x%x, 0x%x, *%p)\n", FD, Bytes, Dest);
+	return _Syscall(SYS_READ, ">i >i <d", FD, Bytes, Bytes, Dest);
 }
 
-size_t write(int FD, size_t Bytes, void *Src) {
+size_t acess_write(int FD, size_t Bytes, void *Src) {
+	if(FD & NATIVE_FILE_MASK)
+		return fwrite( Src, Bytes, 1, gaSyscall_LocalFPs[FD & (NATIVE_FILE_MASK-1)] );
+	DEBUG("write(0x%x, 0x%x, %p(\"%.*s\"))\n", FD, Bytes, Src, Bytes, (char*)Src);
 	return _Syscall(SYS_WRITE, ">i >i >d", FD, Bytes, Bytes, Src);
 }
 
-int seek(int FD, int64_t Ofs, int Dir) {
+int acess_seek(int FD, int64_t Ofs, int Dir) {
+	if(FD & NATIVE_FILE_MASK) {
+		switch(Dir) {
+		case ACESS_SEEK_SET:	Dir = SEEK_SET;	break;
+		default:
+		case ACESS_SEEK_CUR:	Dir = SEEK_CUR;	break;
+		case ACESS_SEEK_END:	Dir = SEEK_END;	break;
+		}
+		return fseek( gaSyscall_LocalFPs[FD & (NATIVE_FILE_MASK-1)], Ofs, Dir );
+	}
+	DEBUG("seek(0x%x, 0x%llx, %i)\n", FD, Ofs, Dir);
 	return _Syscall(SYS_SEEK, ">i >I >i", FD, Ofs, Dir);
 }
 
-uint64_t tell(int FD) {
+uint64_t acess_tell(int FD) {
+	if(FD & NATIVE_FILE_MASK)
+		return ftell( gaSyscall_LocalFPs[FD & (NATIVE_FILE_MASK-1)] );
 	return _Syscall(SYS_TELL, ">i", FD);
 }
 
-int ioctl(int fd, int id, void *data) {
+int acess_ioctl(int fd, int id, void *data) {
 	// NOTE: 1024 byte size is a hack
 	return _Syscall(SYS_IOCTL, ">i >i ?d", fd, id, 1024, data);
 }
-int finfo(int fd, t_sysFInfo *info, int maxacls) {
+int acess_finfo(int fd, t_sysFInfo *info, int maxacls) {
 	return _Syscall(SYS_FINFO, ">i <d >i",
 		fd,
 		sizeof(t_sysFInfo)+maxacls*sizeof(t_sysACL), info,
 		maxacls);
 }
 
-int readdir(int fd, char *dest) {
+int acess_readdir(int fd, char *dest) {
 	return _Syscall(SYS_READDIR, ">i <d", fd, 256, dest);
 }
 
-int _SysOpenChild(int fd, char *name, int flags) {
+int acess__SysOpenChild(int fd, char *name, int flags) {
 	return _Syscall(SYS_OPENCHILD, ">i >s >i", fd, name, flags);
 }
 
-int _SysGetACL(int fd, t_sysACL *dest) {
+int acess__SysGetACL(int fd, t_sysACL *dest) {
 	return _Syscall(SYS_GETACL, "<i >i <d", fd, sizeof(t_sysACL), dest);
 }
 
-int _SysMount(const char *Device, const char *Directory, const char *Type, const char *Options) {
+int acess__SysMount(const char *Device, const char *Directory, const char *Type, const char *Options) {
 	return _Syscall(SYS_MOUNT, ">s >s >s >s", Device, Directory, Type, Options);
 }
 
 
 // --- Error Handler
-int	_SysSetFaultHandler(int (*Handler)(int)) {
+int	acess__SysSetFaultHandler(int (*Handler)(int)) {
 	return 0;
 }
 
 // --- Memory Management ---
-uint64_t _SysAllocate(uint vaddr)
+uint64_t acess__SysAllocate(uint vaddr)
 {
 	if( AllocateMemory(vaddr, 0x1000) == -1 )	// Allocate a page
 		return 0;
+		
 	return vaddr;	// Just ignore the need for paddrs :)
+}
+
+// --- Process Management ---
+int acess_clone(int flags, void *stack)
+{
+	extern int fork(void);
+	if(flags & CLONE_VM) {
+		 int	ret, newID, kernel_tid=0;
+		printf("fork()\n");
+		
+		newID = _Syscall(SYS_FORK, "<i", &kernel_tid);
+		ret = fork();
+		if(ret < 0)	return ret;
+		
+		if(ret == 0)
+		{
+			giSyscall_ClientID = newID;
+			return 0;
+		}
+		
+		// TODO: Return the acess TID instead
+		return kernel_tid;
+	}
+	else
+	{
+		fprintf(stderr, "ERROR: Threads currently unsupported\n");
+		exit(-1);
+	}
+}
+
+int acess_execve(char *path, char **argv, char **envp)
+{
+	 int	i, argc;
+	
+	printf("acess_execve: (path='%s', argv=%p, envp=%p)\n", path, argv, envp);
+	
+	// Get argument count
+	for( argc = 0; argv[argc]; argc ++ ) ;
+	printf(" acess_execve: argc = %i\n", argc);
+	
+	char	*new_argv[5+argc+1];
+	char	key[11];
+	sprintf(key, "%i", giSyscall_ClientID);
+	new_argv[0] = "ld-acess";	// TODO: Get path to ld-acess executable
+	new_argv[1] = "--key";	// Set socket/client ID for Request.c
+	new_argv[2] = key;
+	new_argv[3] = "--binary";	// Set the binary path (instead of using argv[0])
+	new_argv[4] = path;
+	for( i = 0; i < argc; i ++ )	new_argv[5+i] = argv[i];
+	new_argv[5+i] = NULL;
+	
+	#if 1
+	argc += 5;
+	for( i = 0; i < argc; i ++ )
+		printf("\"%s\" ", new_argv[i]);
+	printf("\n");
+	#endif
+	
+	// Call actual execve
+	return execve("./ld-acess", new_argv, envp);
+}
+
+void acess_sleep(void)
+{
+	_Syscall(SYS_SLEEP, "");
+}
+
+int acess_waittid(int TID, int *ExitStatus)
+{
+	return _Syscall(SYS_WAITTID, ">i <i", TID, ExitStatus);
+}
+
+int acess_setuid(int ID)
+{
+	return _Syscall(SYS_SETUID, ">i", ID);
+}
+
+int acess_setgid(int ID)
+{
+	return _Syscall(SYS_SETGID, ">i", ID);
+}
+
+// --- Logging
+void acess__SysDebug(const char *Format, ...)
+{
+	va_list	args;
+	
+	va_start(args, Format);
+	
+	printf("[_SysDebug] ");
+	vprintf(Format, args);
+	printf("\n");
+	
+	va_end(args);
+}
+
+void acess__exit(int Status)
+{
+	_Syscall(SYS_EXIT, ">i", Status);
+	exit(Status);
 }
 
 
 // === Symbol List ===
-#define DEFSYM(name)	{#name, name}
+#define DEFSYM(name)	{#name, acess_##name}
 const tSym	caBuiltinSymbols[] = {
-	{"_exit", exit},
+	DEFSYM(_exit),
 	
 	DEFSYM(open),
 	DEFSYM(close),
@@ -346,9 +504,17 @@ const tSym	caBuiltinSymbols[] = {
 	DEFSYM(_SysGetACL),
 	DEFSYM(_SysMount),
 	
-	DEFSYM(_SysAllocate),
+	DEFSYM(clone),
+	DEFSYM(execve),
+	DEFSYM(sleep),
 	
-	{"_SysSetFaultHandler", _SysSetFaultHandler}
+	DEFSYM(waittid),
+	DEFSYM(setuid),
+	DEFSYM(setgid),
+	
+	DEFSYM(_SysAllocate),
+	DEFSYM(_SysDebug),
+	DEFSYM(_SysSetFaultHandler)
 };
 
 const int	ciNumBuiltinSymbols = sizeof(caBuiltinSymbols)/sizeof(caBuiltinSymbols[0]);

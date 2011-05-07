@@ -4,6 +4,7 @@
  * Video Driver
  */
 #define VERSION	((0<<8)|10)
+#define DEBUG	0
 #include <acess.h>
 #include <vfs.h>
 #include <fs_devfs.h>
@@ -90,6 +91,8 @@ Uint64 Video_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		
 		// Sanity Check
 		if( Offset > (Uint64)(heightInChars*widthInChars) ) {
+			Log_Notice("Video", "Offset (%i) > %i*%i (%i)", Offset,
+				heightInChars, widthInChars, heightInChars*widthInChars);
 			LEAVE('i', 0);
 			return 0;
 		}
@@ -106,21 +109,36 @@ Uint64 Video_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 			Log_Notice("Video", "Clipping write size to %i characters", (int)Length);
 		}
 		
+//		Log_Debug("Video", "(%i,%i) %i chars", x, y, (int)Length);
+		
 		// Print characters
 		for( i = 0; i < (int)Length; i++ )
 		{
-			VT_Font_Render(
-				chars->Ch,
-				//dest + x*giVT_CharWidth, pitch,
-				tmpBuf, giVT_CharWidth,
-				VT_Colour12to24(chars->BGCol),
-				VT_Colour12to24(chars->FGCol)
-				);
-			UI_BlitBitmap(
-				x*giVT_CharWidth, y*giVT_CharHeight,
-				giVT_CharWidth, giVT_CharHeight,
-				tmpBuf
-				);
+			if( chars->Ch )
+			{
+//				Log_Debug("Video", "Render Char 0x%x in 0x%03x:%03x",
+//					chars->Ch, chars->FGCol, chars->BGCol);
+				memset(tmpBuf, 0xFF, giVT_CharWidth*giVT_CharHeight*4);
+				VT_Font_Render(
+					chars->Ch,
+					tmpBuf, 32, giVT_CharWidth*4,
+					VT_Colour12to24(chars->BGCol),
+					VT_Colour12to24(chars->FGCol)
+					);
+				UI_BlitBitmap(
+					x*giVT_CharWidth, y*giVT_CharHeight,
+					giVT_CharWidth, giVT_CharHeight,
+					tmpBuf
+					);
+			}
+			else
+			{
+				UI_FillBitmap(
+					x*giVT_CharWidth, y*giVT_CharHeight,
+					giVT_CharWidth, giVT_CharHeight,
+					VT_Colour12to24(chars->BGCol)
+					);
+			}
 			
 			chars ++;
 			x ++;
@@ -146,7 +164,6 @@ Uint64 Video_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		}
 		
 		LOG("buffer = %p", Buffer);
-		LOG("Updating Framebuffer (%p to %p)", destBuf, destBuf + (Uint)Length);
 		
 		startX = Offset % giUI_Width;
 		startY = Offset / giUI_Width;
@@ -211,7 +228,7 @@ Uint64 Video_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	return Length;
 }
 
-const char * const csaVIDEO_IOCTLS[] = {DRV_IOCTLNAMES, DRV_VIDEO_IOCTLNAMES, NULL};
+const char * csaVIDEO_IOCTLS[] = {DRV_IOCTLNAMES, DRV_VIDEO_IOCTLNAMES, NULL};
 /**
  * \brief Handle messages to the device
  */
