@@ -271,7 +271,7 @@ uint64_t _Syscall(int SyscallID, const char *ArgTypes, ...)
 	free( req );
 	free( retPtrs );
 	
-	printf("Return %llx\n", retValue);
+	DEBUG(": %llx\n", retValue);
 	
 	return retValue;
 }
@@ -289,7 +289,7 @@ int acess_open(const char *Path, int Flags)
 		if(!gaSyscall_LocalFPs[ret])	return -1;
 		return ret|NATIVE_FILE_MASK;
 	}
-	DEBUG("open(\"%s\", 0x%x)\n", Path, Flags);
+	DEBUG("open(\"%s\", 0x%x)", Path, Flags);
 	return _Syscall(SYS_OPEN, ">s >i", Path, Flags);
 }
 
@@ -299,26 +299,26 @@ void acess_close(int FD) {
 		gaSyscall_LocalFPs[FD & (NATIVE_FILE_MASK-1)] = NULL;
 		return ;
 	}
-	DEBUG("close(%i)\n", FD);
+	DEBUG("close(%i)", FD);
 	_Syscall(SYS_CLOSE, ">i", FD);
 }
 
 int acess_reopen(int FD, const char *Path, int Flags) {
-	DEBUG("reopen(0x%x, \"%s\", 0x%x)\n", FD, Path, Flags);
+	DEBUG("reopen(0x%x, \"%s\", 0x%x)", FD, Path, Flags);
 	return _Syscall(SYS_REOPEN, ">i >s >i", FD, Path, Flags);
 }
 
 size_t acess_read(int FD, size_t Bytes, void *Dest) {
 	if(FD & NATIVE_FILE_MASK)
 		return fread( Dest, Bytes, 1, gaSyscall_LocalFPs[FD & (NATIVE_FILE_MASK-1)] );
-	DEBUG("read(0x%x, 0x%x, *%p)\n", FD, Bytes, Dest);
+	DEBUG("read(0x%x, 0x%x, *%p)", FD, Bytes, Dest);
 	return _Syscall(SYS_READ, ">i >i <d", FD, Bytes, Bytes, Dest);
 }
 
 size_t acess_write(int FD, size_t Bytes, void *Src) {
 	if(FD & NATIVE_FILE_MASK)
 		return fwrite( Src, Bytes, 1, gaSyscall_LocalFPs[FD & (NATIVE_FILE_MASK-1)] );
-	DEBUG("write(0x%x, 0x%x, %p(\"%.*s\"))\n", FD, Bytes, Src, Bytes, (char*)Src);
+	DEBUG("write(0x%x, 0x%x, %p(\"%.*s\"))", FD, Bytes, Src, Bytes, (char*)Src);
 	return _Syscall(SYS_WRITE, ">i >i >d", FD, Bytes, Bytes, Src);
 }
 
@@ -332,7 +332,7 @@ int acess_seek(int FD, int64_t Ofs, int Dir) {
 		}
 		return fseek( gaSyscall_LocalFPs[FD & (NATIVE_FILE_MASK-1)], Ofs, Dir );
 	}
-	DEBUG("seek(0x%x, 0x%llx, %i)\n", FD, Ofs, Dir);
+	DEBUG("seek(0x%x, 0x%llx, %i)", FD, Ofs, Dir);
 	return _Syscall(SYS_SEEK, ">i >I >i", FD, Ofs, Dir);
 }
 
@@ -390,9 +390,9 @@ int acess_clone(int flags, void *stack)
 	extern int fork(void);
 	if(flags & CLONE_VM) {
 		 int	ret, newID, kernel_tid=0;
-		printf("fork()\n");
+		printf("fork()");
 		
-		newID = _Syscall(SYS_FORK, "<i", &kernel_tid);
+		newID = _Syscall(SYS_FORK, "<d", sizeof(int), &kernel_tid);
 		ret = fork();
 		if(ret < 0)	return ret;
 		
@@ -451,7 +451,7 @@ void acess_sleep(void)
 
 int acess_waittid(int TID, int *ExitStatus)
 {
-	return _Syscall(SYS_WAITTID, ">i <i", TID, ExitStatus);
+	return _Syscall(SYS_WAITTID, ">i <d", TID, sizeof(int), &ExitStatus);
 }
 
 int acess_setuid(int ID)

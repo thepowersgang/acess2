@@ -2,7 +2,7 @@
  * Acess v0.1
  * ELF Executable Loader Code
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -248,6 +248,9 @@ uintptr_t Elf_Relocate(void *Base)
 
 	hdr->entrypoint += iBaseDiff;
 	
+	hdr->misc.SymTable = 0;
+	hdr->misc.HashTable = 0;
+	
 	// === Get Symbol table and String Table ===
 	for( j = 0; dynamicTab[j].d_tag != DT_NULL; j++)
 	{
@@ -274,6 +277,9 @@ uintptr_t Elf_Relocate(void *Base)
 			break;
 		}
 	}
+	
+	LOG("hdr->misc.SymTable = %x, hdr->misc.HashTable = %x",
+		hdr->misc.SymTable, hdr->misc.HashTable);
 
 
 	// Alter Symbols to true base
@@ -485,6 +491,9 @@ int Elf_GetSymbol(void *Base, char *Name, uintptr_t *ret)
 
 	pBuckets = PTR(hdr->misc.HashTable);
 	symtab = PTR(hdr->misc.SymTable);
+	
+	if(!pBuckets || !symtab)
+		return 0;
 	
 	nbuckets = pBuckets[0];
 	iSymCount = pBuckets[1];
