@@ -52,14 +52,17 @@ struct ext2_super_block_s {
 	Uint32	s_blocks_count;		//!< Blocks count
 	Uint32	s_r_blocks_count;	//!< Reserved blocks count
 	Uint32	s_free_blocks_count;	//!< Free blocks count
+	
 	Uint32	s_free_inodes_count;	//!< Free inodes count
 	Uint32	s_first_data_block;	//!< First Data Block
 	Uint32	s_log_block_size;	//!< Block size
 	Sint32	s_log_frag_size;	//!< Fragment size
+	
 	Uint32	s_blocks_per_group;	//!< Number Blocks per group
 	Uint32	s_frags_per_group;	//!< Number Fragments per group
 	Uint32	s_inodes_per_group;	//!< Number Inodes per group
 	Uint32	s_mtime;			//!< Mount time
+	
 	Uint32	s_wtime;			//!< Write time
 	Uint16	s_mnt_count;		//!< Mount count
 	Sint16	s_max_mnt_count;	//!< Maximal mount count
@@ -67,10 +70,12 @@ struct ext2_super_block_s {
 	Uint16	s_state;			//!< File system state
 	Uint16	s_errors;			//!< Behaviour when detecting errors
 	Uint16	s_pad;				//!< Padding
+	
 	Uint32	s_lastcheck;		//!< time of last check
 	Uint32	s_checkinterval;	//!< max. time between checks
 	Uint32	s_creator_os;		//!< Formatting OS
 	Uint32	s_rev_level;		//!< Revision level
+	
 	Uint16	s_def_resuid;		//!< Default uid for reserved blocks
 	Uint16	s_def_resgid;		//!< Default gid for reserved blocks
 	Uint32	s_reserved[235];	//!< Padding to the end of the block

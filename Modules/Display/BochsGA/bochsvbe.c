@@ -184,7 +184,7 @@ Uint64 BGA_Write(tVFS_Node *node, Uint64 off, Uint64 len, void *Buffer)
 		{
 			VT_Font_Render(
 				chars->Ch,
-				dest + x*giVT_CharWidth, gpBGA_CurrentMode->width,
+				dest + x*giVT_CharWidth, 32, gpBGA_CurrentMode->width*4,
 				VT_Colour12to24(chars->BGCol),
 				VT_Colour12to24(chars->FGCol)
 				);
