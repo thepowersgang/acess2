@@ -71,12 +71,12 @@ enum eElementFlags
 	/**
 	 * \brief Element visibility
 	 * 
-	 * If set, the element is not drawn.
+	 * If set, the element is not drawn (but still is used for size calculations)
 	 */
 	ELEFLAG_INVISIBLE   = 0x002,
 	
 	/**
-	 * \brief Position an element absulutely
+	 * \brief Position an element absulutely (ignored in size calcs)
 	 */
 	ELEFLAG_ABSOLUTEPOS = 0x004,
 	
@@ -87,6 +87,9 @@ enum eElementFlags
 	
 	/**
 	 * \brief Element "orientation"
+	 * 
+	 * Vertical means that the children of this element are stacked,
+	 * otherwise they list horizontally
 	 */
 	ELEFLAG_VERTICAL    = 0x010,//	ELEFLAG_HORIZONTAL  = 0x000,
 	/**
@@ -105,7 +108,7 @@ enum eElementFlags
 	/**
 	 * \brief With (length) size action
 	 * If this flag is set, the element will only be as large as
-	 * is required
+	 * is required along it's parent
 	 */
 	ELEFLAG_NOSTRETCH   = 0x080,
 	
@@ -115,8 +118,11 @@ enum eElementFlags
 	ELEFLAG_ALIGN_CENTER= 0x100,
 	/**
 	 * \brief Right/Bottom alignment
+	 * 
+	 * If set, the element aligns to the end of avaliable space (instead
+	 * of the beginning)
 	 */
-	ELEFLAG_ALIGN_END = 0x200
+	ELEFLAG_ALIGN_END	= 0x200
 };
 
 /**
@@ -125,15 +131,16 @@ enum eElementTypes
 {
 	ELETYPE_NONE,
 	
-	ELETYPE_BOX,	//!< Content box
+	ELETYPE_BOX,	//!< Content box (invisible in itself)
 	ELETYPE_TABBAR,	//!< Tab Bar
 	ELETYPE_TOOLBAR,	//!< Tool Bar
 	
 	ELETYPE_BUTTON,	//!< Push Button
+	
 	ELETYPE_TEXT,	//!< Text
 	ELETYPE_IMAGE,	//!< Image
 	
-	ELETYPE_SPACER,	//!< Visual Spacer
+	ELETYPE_SPACER,	//!< Visual Spacer (horizontal / vertical rule)
 	
 	MAX_ELETYPES	= 0x100
 };

@@ -35,31 +35,29 @@ void Interface_Init(void)
 	// Set root window to no-border
 	WM_SetFlags(NULL, 0);
 	
-	// -- Create Sidebar --
+	// -- Create Sidebar (Menu and Window List) --
 	gpInterface_Sidebar = WM_CreateElement(NULL, ELETYPE_TOOLBAR, ELEFLAG_VERTICAL, "Sidebar");
 	WM_SetSize( gpInterface_Sidebar, giInterface_Width );
 	
 	// > System Menu Button
 	btn = WM_CreateElement(gpInterface_Sidebar, ELETYPE_BUTTON, ELEFLAG_NOSTRETCH, "SystemMenu");
 	WM_SetSize(btn, giInterface_Width-4);
-	// TODO: Once image loading is implemented, switch to a logo
-	#if 1
-	//text = WM_CreateElement(btn, ELETYPE_IMAGE, ELEFLAG_SCALE);
+	//text = WM_CreateElement(btn, ELETYPE_IMAGE, ELEFLAG_SCALE, "MenuLogo");
 	text = WM_CreateElement(btn, ELETYPE_IMAGE, 0, "MenuLogo");
 	//WM_SetText(text, "file:///LogoSmall.sif");
 	WM_SetText(text, csLogoSmall);
-	#else
-	text = WM_CreateElement(btn, ELETYPE_TEXT, 0, NULL);
-	WM_SetText(text, "Acess");
-	#endif
+	
 	// > Plain <hr/> style spacer
 	ele = WM_CreateElement(gpInterface_Sidebar, ELETYPE_SPACER, ELEFLAG_NOSTRETCH, "SideBar Spacer Top");
 	WM_SetSize(ele, 4);
-	// > Application List
+	
+	// > Application List (Window list on most OSs)
 	gpInterface_ProgramList = WM_CreateElement(gpInterface_Sidebar, ELETYPE_BOX, ELEFLAG_VERTICAL, "ProgramList");
+	
 	// > Plain <hr/> style spacer
 	ele = WM_CreateElement(gpInterface_Sidebar, ELETYPE_SPACER, ELEFLAG_NOSTRETCH, "SideBar Spacer Bottom");
 	WM_SetSize(ele, 4);
+	
 	// > Version/Time
 	text = WM_CreateElement(gpInterface_Sidebar, ELETYPE_TEXT, ELEFLAG_NOSTRETCH, "Version String");
 	WM_SetSize(text, 20);
