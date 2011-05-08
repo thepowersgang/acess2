@@ -3,11 +3,7 @@
 # i386 Architecture Makefile
 # arch/i386/Makefile
 
-# Assuming build machine is 32-bit ELF
-#CC = gcc
-#AS = nasm
-#LD = ld
-#OBJDUMP = objdump
+AS_SUFFIX = asm
 
 CPPFLAGS	=
 CFLAGS		=

@@ -18,12 +18,16 @@ CPPFLAGS	+= -I./include -I./arch/$(ARCHDIR)/include -D_MODULE_NAME_=\"Kernel\"
 CPPFLAGS	+= -DARCH=$(ARCH) -DARCHDIR=$(ARCHDIR) -DKERNEL_VERSION=$(KERNEL_VERSION) -DBUILD_NUM=$(BUILD_NUM)
 CFLAGS  	+= -Wall -Werror -fno-stack-protector -fno-builtin -Wstrict-prototypes -g
 CFLAGS  	+= -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings -Wmissing-prototypes -Wmissing-declarations -Wredundant-decls -Wnested-externs -Winline -Wuninitialized
-ASFLAGS		+= -D ARCH=\"$(ARCH)\" -D ARCHDIR=\"$(ARCHDIR)\"
+#ASFLAGS		+= -D ARCH=\"$(ARCH)\" -D ARCHDIR=\"$(ARCHDIR)\"
 LDFLAGS		+= -T arch/$(ARCHDIR)/link.ld -g
 
 ifeq ($(DEBUG_BUILD),yes)
 	LDFLAGS += -g
 	CFLAGS += -g
+endif
+
+ifeq ($(AS_SUFFIX),)
+	AS_SUFFIX = s
 endif
 
 OBJ := $(addprefix arch/$(ARCHDIR)/,$(A_OBJ))
@@ -72,7 +76,7 @@ $(BIN): $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile
 	$(POSTBUILD)
 #	$(STRIP) $(BIN)
 
-%.ao.$(ARCH): %.asm Makefile
+%.ao.$(ARCH): %.$(AS_SUFFIX) Makefile
 	@echo --- AS -o $@
 	@$(AS) $(ASFLAGS) $< -o $@
 
