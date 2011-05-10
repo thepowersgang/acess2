@@ -1,4 +1,7 @@
 /*
+ * SpiderScript Library
+ *
+ * AST Execution
  */
 #include <stdlib.h>
 #include <stdio.h>
@@ -797,12 +800,33 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 		// Perform assignment operation
 		if( Node->Assign.Operation != NODETYPE_NOP )
 		{
-			tSpiderValue	*varVal = Variable_GetValue(Block, Node->Assign.Dest);
-			tSpiderValue	*value;
+			tSpiderValue	*varVal, *value;
+
+			varVal = Variable_GetValue(Block, Node->Assign.Dest);
+			if(varVal == ERRPTR)	return ERRPTR;
+			#if 0
+			#else
+			if(varVal && varVal->ReferenceCount == 2) {
+				Object_Dereference(varVal);
+//				printf("pre: (%s) varVal->ReferenceCount = %i\n",
+//					Node->Assign.Dest->Variable.Name,
+//					varVal->ReferenceCount);
+			}
+			#endif
 			value = AST_ExecuteNode_BinOp(Block, Node, Node->Assign.Operation, varVal, ret);
 			if(value == ERRPTR)	return ERRPTR;
+
 			if(ret)	Object_Dereference(ret);
+			#if 0
 			if(varVal)	Object_Dereference(varVal);
+			#else
+			if(varVal && varVal->ReferenceCount == 1) {
+				Object_Reference(varVal);
+//				printf("post: varVal->ReferenceCount = %i\n", varVal->ReferenceCount);
+				break;	// If varVal was non-null, it has been updated by _BinOp
+			}
+			#endif
+			// Else, it was NULL, so has to be assigned
 			ret = value;
 		}
 		
@@ -1386,12 +1410,17 @@ tSpiderValue *AST_ExecuteNode_UniOp(tAST_BlockState *Block, tAST_Node *Node, int
 	{
 	// Integer Operations
 	case SS_DATATYPE_INTEGER:
+		if( Value->ReferenceCount == 1 )
+			Object_Reference(ret = Value);
+		else
+			ret = SpiderScript_CreateInteger(0);
 		switch(Operation)
 		{
-		case NODETYPE_NEGATE:	ret = SpiderScript_CreateInteger( -Value->Integer );	break;
-		case NODETYPE_BWNOT:	ret = SpiderScript_CreateInteger( ~Value->Integer );	break;
+		case NODETYPE_NEGATE:	ret->Integer = -Value->Integer;	break;
+		case NODETYPE_BWNOT:	ret->Integer = ~Value->Integer;	break;
 		default:
 			AST_RuntimeError(Node, "SpiderScript internal error: Exec,UniOP,Integer unknown op %i", Operation);
+			Object_Dereference(ret);
 			ret = ERRPTR;
 			break;
 		}
@@ -1487,6 +1516,11 @@ tSpiderValue *AST_ExecuteNode_BinOp(tAST_BlockState *Block, tAST_Node *Node, int
 		case NODETYPE_ADD:	// Concatenate
 			ret = Object_StringConcat(Left, Right);
 			break;
+		// TODO: Support python style 'i = %i' % i ?
+		// Might do it via a function call
+//		case NODETYPE_MODULUS:
+//			break;
+
 		default:
 			AST_RuntimeError(Node, "SpiderScript internal error: Exec,BinOP,String unknown op %i", Operation);
 			ret = ERRPTR;
@@ -1495,23 +1529,28 @@ tSpiderValue *AST_ExecuteNode_BinOp(tAST_BlockState *Block, tAST_Node *Node, int
 		break;
 	// Integer Operations
 	case SS_DATATYPE_INTEGER:
+		if( Left->ReferenceCount == 1 )
+			Object_Reference(ret = Left);
+		else
+			ret = SpiderScript_CreateInteger(0);
 		switch(Operation)
 		{
-		case NODETYPE_ADD:	ret = SpiderScript_CreateInteger( Left->Integer + Right->Integer );	break;
-		case NODETYPE_SUBTRACT:	ret = SpiderScript_CreateInteger( Left->Integer - Right->Integer );	break;
-		case NODETYPE_MULTIPLY:	ret = SpiderScript_CreateInteger( Left->Integer * Right->Integer );	break;
-		case NODETYPE_DIVIDE:	ret = SpiderScript_CreateInteger( Left->Integer / Right->Integer );	break;
-		case NODETYPE_MODULO:	ret = SpiderScript_CreateInteger( Left->Integer % Right->Integer );	break;
-		case NODETYPE_BWAND:	ret = SpiderScript_CreateInteger( Left->Integer & Right->Integer );	break;
-		case NODETYPE_BWOR: 	ret = SpiderScript_CreateInteger( Left->Integer | Right->Integer );	break;
-		case NODETYPE_BWXOR:	ret = SpiderScript_CreateInteger( Left->Integer ^ Right->Integer );	break;
-		case NODETYPE_BITSHIFTLEFT:	ret = SpiderScript_CreateInteger( Left->Integer << Right->Integer );	break;
-		case NODETYPE_BITSHIFTRIGHT:ret = SpiderScript_CreateInteger( Left->Integer >> Right->Integer );	break;
+		case NODETYPE_ADD:	ret->Integer = Left->Integer + Right->Integer;	break;
+		case NODETYPE_SUBTRACT:	ret->Integer = Left->Integer - Right->Integer;	break;
+		case NODETYPE_MULTIPLY:	ret->Integer = Left->Integer * Right->Integer;	break;
+		case NODETYPE_DIVIDE:	ret->Integer = Left->Integer / Right->Integer;	break;
+		case NODETYPE_MODULO:	ret->Integer = Left->Integer % Right->Integer;	break;
+		case NODETYPE_BWAND:	ret->Integer = Left->Integer & Right->Integer;	break;
+		case NODETYPE_BWOR: 	ret->Integer = Left->Integer | Right->Integer;	break;
+		case NODETYPE_BWXOR:	ret->Integer = Left->Integer ^ Right->Integer;	break;
+		case NODETYPE_BITSHIFTLEFT: ret->Integer = Left->Integer << Right->Integer;	break;
+		case NODETYPE_BITSHIFTRIGHT:ret->Integer = Left->Integer >> Right->Integer;	break;
 		case NODETYPE_BITROTATELEFT:
-			ret = SpiderScript_CreateInteger( (Left->Integer << Right->Integer) | (Left->Integer >> (64-Right->Integer)) );
+			ret->Integer = (Left->Integer << Right->Integer) | (Left->Integer >> (64-Right->Integer));
 			break;
 		default:
 			AST_RuntimeError(Node, "SpiderScript internal error: Exec,BinOP,Integer unknown op %i", Operation);
+			Object_Dereference(ret);
 			ret = ERRPTR;
 			break;
 		}
@@ -1519,14 +1558,19 @@ tSpiderValue *AST_ExecuteNode_BinOp(tAST_BlockState *Block, tAST_Node *Node, int
 	
 	// Real Numbers
 	case SS_DATATYPE_REAL:
+		if( Left->ReferenceCount == 1 )
+			Object_Reference(ret = Left);
+		else
+			ret = SpiderScript_CreateReal(0);
 		switch(Operation)
 		{
-		case NODETYPE_ADD:	ret = SpiderScript_CreateReal( Left->Real + Right->Real );	break;
-		case NODETYPE_SUBTRACT:	ret = SpiderScript_CreateReal( Left->Real - Right->Real );	break;
-		case NODETYPE_MULTIPLY:	ret = SpiderScript_CreateReal( Left->Real * Right->Real );	break;
-		case NODETYPE_DIVIDE:	ret = SpiderScript_CreateReal( Left->Real / Right->Real );	break;
+		case NODETYPE_ADD:	ret->Real = Left->Real + Right->Real;	break;
+		case NODETYPE_SUBTRACT:	ret->Real = Left->Real - Right->Real;	break;
+		case NODETYPE_MULTIPLY:	ret->Real = Left->Real * Right->Real;	break;
+		case NODETYPE_DIVIDE:	ret->Real = Left->Real / Right->Real;	break;
 		default:
 			AST_RuntimeError(Node, "SpiderScript internal error: Exec,BinOP,Real unknown op %i", Operation);
+			Object_Dereference(ret);
 			ret = ERRPTR;
 			break;
 		}
