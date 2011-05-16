@@ -245,7 +245,7 @@ EXPORT int fputc(int c, FILE *fp)
  */
 EXPORT int fgetc(FILE *fp)
 {
-	 int	ret = 0;
+	char	ret = 0;
 	if(!fp)	return -1;
 	if(read(fp->FD, 1, &ret) == -1)	return -1;
 	return ret;

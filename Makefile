@@ -54,39 +54,39 @@ install:	install-Filesystem $(INSTALL_DYNMODS) $(INSTALL_MODULES) install-Kernel
 
 # Compile Only
 $(ALL_DYNMODS): all-%:
-	@echo === Dynamic Module: $* && BUILDTYPE=dynamic $(SUBMAKE) all -C Modules/$*
+	+@echo === Dynamic Module: $* && BUILDTYPE=dynamic $(SUBMAKE) all -C Modules/$*
 $(ALL_MODULES): all-%:
-	@echo === Module: $* && BUILDTYPE=static $(SUBMAKE) all -C Modules/$*
+	+@echo === Module: $* && BUILDTYPE=static $(SUBMAKE) all -C Modules/$*
 all-Kernel:
-	@echo === Kernel && $(SUBMAKE) all -C Kernel
+	+@echo === Kernel && $(SUBMAKE) all -C Kernel
 $(ALL_USRLIBS): all-%:
-	@echo === User Library: $* && $(SUBMAKE) all -C Usermode/Libraries/$*_src
+	+@echo === User Library: $* && $(SUBMAKE) all -C Usermode/Libraries/$*_src
 $(ALL_USRAPPS): all-%:
-	@echo === User Application: $* && $(SUBMAKE) all -C Usermode/Applications/$*_src
+	+@echo === User Application: $* && $(SUBMAKE) all -C Usermode/Applications/$*_src
 
 # Compile & Install
 $(AI_DYNMODS): allinstall-%:
-	@echo === Dynamic Module: $* && BUILDTYPE=dynamic $(SUBMAKE) all install -C Modules/$*
+	+@echo === Dynamic Module: $* && BUILDTYPE=dynamic $(SUBMAKE) all install -C Modules/$*
 $(AI_MODULES): allinstall-%:
-	@echo === Module: $* && BUILDTYPE=static $(SUBMAKE) all install -C Modules/$*
+	+@echo === Module: $* && BUILDTYPE=static $(SUBMAKE) all install -C Modules/$*
 allinstall-Kernel:
-	@echo === Kernel && $(SUBMAKE) all install -C Kernel
+	+@echo === Kernel && $(SUBMAKE) all install -C Kernel
 $(AI_USRLIBS): allinstall-%:
-	@echo === User Library: $* && $(SUBMAKE) all install -C Usermode/Libraries/$*_src
+	+@echo === User Library: $* && $(SUBMAKE) all install -C Usermode/Libraries/$*_src
 $(AI_USRAPPS): allinstall-%:
-	@echo === User Application: $* && $(SUBMAKE) all install -C Usermode/Applications/$*_src
+	+@echo === User Application: $* && $(SUBMAKE) all install -C Usermode/Applications/$*_src
 
 # Clean up compilation
 $(CLEAN_DYNMODS): clean-%:
-	@BUILDTYPE=dynamic $(SUBMAKE) clean -C Modules/$*
+	+@BUILDTYPE=dynamic $(SUBMAKE) clean -C Modules/$*
 $(CLEAN_MODULES): clean-%:
-	@BUILDTYPE=static $(SUBMAKE) clean -C Modules/$*
+	+@BUILDTYPE=static $(SUBMAKE) clean -C Modules/$*
 clean-Kernel:
-	@$(SUBMAKE) clean -C Kernel
+	+@$(SUBMAKE) clean -C Kernel
 $(CLEAN_USRLIBS): clean-%:
-	@$(SUBMAKE) clean -C Usermode/Libraries/$*_src
+	+@$(SUBMAKE) clean -C Usermode/Libraries/$*_src
 $(CLEAN_USRAPPS): clean-%:
-	@$(SUBMAKE) clean -C Usermode/Applications/$*_src
+	+@$(SUBMAKE) clean -C Usermode/Applications/$*_src
 
 # Install
 $(INSTALL_DYNMODS): install-%:
