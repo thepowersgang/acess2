@@ -998,6 +998,17 @@ void Proc_Scheduler(int CPU)
 	// Get next thread to run
 	thread = Threads_GetNextToRun(CPU, thread);
 	
+	
+	#if DEBUG_TRACE_SWITCH
+	if(thread) {
+		Log("Switching to task %i, CR3 = 0x%x, EIP = %p",
+			thread->TID,
+			thread->MemState.CR3,
+			thread->SavedState.EIP
+			);
+	}
+	#endif
+	
 	// No avaliable tasks, just go into low power mode (idle thread)
 	if(thread == NULL) {
 		#if USE_MP
@@ -1013,14 +1024,6 @@ void Proc_Scheduler(int CPU)
 	gaCPUs[CPU].Current = thread;
 	#else
 	gCurrentThread = thread;
-	#endif
-	
-	#if DEBUG_TRACE_SWITCH
-	Log("Switching to task %i, CR3 = 0x%x, EIP = %p",
-		thread->TID,
-		thread->MemState.CR3,
-		thread->SavedState.EIP
-		);
 	#endif
 	
 	#if USE_MP	// MP Debug

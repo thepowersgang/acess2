@@ -18,7 +18,6 @@ CPPFLAGS	+= -I./include -I./arch/$(ARCHDIR)/include -D_MODULE_NAME_=\"Kernel\"
 CPPFLAGS	+= -DARCH=$(ARCH) -DARCHDIR=$(ARCHDIR) -DKERNEL_VERSION=$(KERNEL_VERSION) -DBUILD_NUM=$(BUILD_NUM)
 CFLAGS  	+= -Wall -Werror -fno-stack-protector -fno-builtin -Wstrict-prototypes -g
 CFLAGS  	+= -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings -Wmissing-prototypes -Wmissing-declarations -Wredundant-decls -Wnested-externs -Winline -Wuninitialized
-#ASFLAGS		+= -D ARCH=\"$(ARCH)\" -D ARCHDIR=\"$(ARCHDIR)\"
 LDFLAGS		+= -T arch/$(ARCHDIR)/link.ld -g
 
 ifeq ($(DEBUG_BUILD),yes)
@@ -34,9 +33,11 @@ OBJ := $(addprefix arch/$(ARCHDIR)/,$(A_OBJ))
 OBJ += heap.o drvutil.o logging.o debug.o lib.o adt.o time.o
 OBJ += messages.o modules.o syscalls.o system.o threads.o
 OBJ += $(addprefix vfs/fs/, $(addsuffix .o,$(FILESYSTEMS)))
-OBJ += drv/kb.o drv/vterm.o drv/proc.o drv/fifo.o drv/iocache.o drv/dma.o drv/pci.o drv/vga.o
+OBJ += drv/vterm.o drv/proc.o drv/fifo.o drv/iocache.o drv/pci.o drv/vga.o
+#OBJ += drv/kb.o drv/dma.o
 OBJ += binary.o bin/elf.o bin/pe.o
-OBJ += vfs/main.o vfs/open.o vfs/acls.o vfs/dir.o vfs/io.o vfs/mount.o vfs/memfile.o vfs/nodecache.o vfs/handle.o vfs/select.o
+OBJ += vfs/main.o vfs/open.o vfs/acls.o vfs/dir.o vfs/io.o vfs/mount.o
+OBJ += vfs/memfile.o vfs/nodecache.o vfs/handle.o vfs/select.o
 OBJ += vfs/fs/root.o vfs/fs/devfs.o
 OBJ += $(addprefix drv/, $(addsuffix .o,$(DRIVERS)))
 OBJ := $(addsuffix .$(ARCH), $(OBJ))
@@ -48,7 +49,7 @@ DEPFILES  = $(filter %.o.$(ARCH),$(OBJ))
 DEPFILES := $(DEPFILES:%.o.$(ARCH)=%.d.$(ARCH))
 
 SRCFILES  = $(OBJ:%.o.$(ARCH)=%.c)
-SRCFILES := $(SRCFILES:%.ao.$(ARCH)=%.asm)
+SRCFILES := $(SRCFILES:%.ao.$(ARCH)=%.$(AS_SUFFIX))
 
 .PHONY: all clean install apidoc
 
@@ -90,7 +91,7 @@ $(BIN): $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile
 #	endif
 
 %.xo.$(ARCH):
-	@make -C $* all
+	@BUILDTYPE=static make -C $* all
 
 include/syscalls.h include/syscalls.inc.asm:	syscalls.lst Makefile GenSyscalls.pl
 	perl GenSyscalls.pl

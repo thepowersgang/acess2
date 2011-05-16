@@ -22,6 +22,7 @@ else ifeq ($(ARCH),i586)
 	USE_PAE=1
 endif
 
+#ASFLAGS		+= -D ARCH=\"$(ARCH)\" -D ARCHDIR=\"$(ARCHDIR)\"
 ASFLAGS += -D USE_MP=$(USE_MP) -D USE_PAE=$(USE_PAE)
 CPPFLAGS += -DUSE_MP=$(USE_MP) -DUSE_PAE=$(USE_PAE)
 

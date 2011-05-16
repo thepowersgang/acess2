@@ -5,6 +5,7 @@
  */
 #include <acess.h>
 #include <threads.h>
+#include <threads_int.h>
 #include <errno.h>
 #include <semaphore.h>
 

@@ -423,6 +423,8 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	 int	pos = 0;
 	 int	avail;
 	tVTerm	*term = &gVT_Terminals[ Node->Inode ];
+	Uint32	*codepoint_buf = Buffer;
+	Uint32	*codepoint_in;
 	
 	Mutex_Acquire( &term->ReadingLock );
 	
@@ -459,10 +461,12 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		if(avail > Length - pos)
 			avail = Length/4 - pos;
 		
+		codepoint_in = (void*)term->InputBuffer;
+		codepoint_buf = Buffer;
 		
 		while( avail -- )
 		{
-			((Uint32*)Buffer)[pos] = ((Uint32*)term->InputBuffer)[term->InputRead];
+			codepoint_buf[pos] = codepoint_in[term->InputRead];
 			pos ++;
 			term->InputRead ++;
 			term->InputRead %= MAX_INPUT_CHARS32;
@@ -858,7 +862,8 @@ void VT_KBCallBack(Uint32 Codepoint)
 	else
 	{
 		// Encode the raw UTF-32 Key
-		((Uint32*)term->InputBuffer)[ term->InputWrite ] = Codepoint;
+		Uint32	*raw_in = (void*)term->InputBuffer;
+		raw_in[ term->InputWrite ] = Codepoint;
 		term->InputWrite ++;
 		term->InputWrite %= MAX_INPUT_CHARS32;
 		if(term->InputRead == term->InputWrite) {

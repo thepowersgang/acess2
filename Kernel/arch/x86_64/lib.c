@@ -8,6 +8,7 @@
 #define	SERIAL_PORT	0x3F8
 #define	GDB_SERIAL_PORT	0x2F8
 
+
 // === IMPORTS ===
 extern int	GetCPUNum(void);
 extern void	*Proc_GetCurThread(void);
@@ -15,6 +16,9 @@ extern void	*Proc_GetCurThread(void);
 // === GLOBALS ===
  int	gbDebug_SerialSetup = 0;
  int	gbGDB_SerialSetup = 0;
+
+// === PROTOTYPEs ===
+ int	putDebugChar(char ch);
 
 // === CODE ===
 /**
@@ -141,6 +145,7 @@ void SHORTREL(struct sShortSpinlock *Lock)
 }
 
 // === DEBUG IO ===
+#if USE_GDB_STUB
 int putDebugChar(char ch)
 {
 	if(!gbGDB_SerialSetup) {
@@ -172,6 +177,7 @@ int getDebugChar(void)
 	while( (inb(GDB_SERIAL_PORT + 5) & 1) == 0)	;
 	return inb(GDB_SERIAL_PORT);
 }
+#endif
 
 void Debug_PutCharDebug(char ch)
 {
@@ -193,6 +199,12 @@ void Debug_PutCharDebug(char ch)
 	while( (inb(SERIAL_PORT + 5) & 0x20) == 0 );
 	outb(SERIAL_PORT, ch);
 	#endif
+}
+
+void Debug_PutStringDebug(const char *String)
+{
+	while(*String)
+		Debug_PutCharDebug(*String++);
 }
 
 // === PORT IO ===

@@ -5,6 +5,7 @@
 #include <acess.h>
 #include <proc.h>
 #include <threads.h>
+#include <threads_int.h>
 #include <desctab.h>
 #include <mm_virt.h>
 #include <errno.h>
@@ -62,6 +63,7 @@ void	Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **
 void	Proc_StartProcess(Uint16 SS, Uint Stack, Uint Flags, Uint16 CS, Uint IP);
  int	Proc_Demote(Uint *Err, int Dest, tRegs *Regs);
 void	Proc_CallFaultHandler(tThread *Thread);
+void	Proc_DumpThreadCPUState(tThread *Thread);
 void	Proc_Scheduler(int CPU);
 
 // === GLOBALS ===
@@ -736,6 +738,10 @@ void Proc_CallFaultHandler(tThread *Thread)
 	// Never returns
 	__asm__ __volatile__ ("mov %0, %%rbp;\n\tcall Proc_ReturnToUser" :: "r"(Thread->FaultHandler));
 	for(;;);
+}
+
+void Proc_DumpThreadCPUState(tThread *Thread)
+{
 }
 
 /**

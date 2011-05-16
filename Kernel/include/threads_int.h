@@ -6,6 +6,7 @@
 #define _THREADS_INT_H_
 
 #include <threads.h>
+#include <proc.h>
 
 /**
  * \brief IPC Message

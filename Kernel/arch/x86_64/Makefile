@@ -5,6 +5,8 @@
 
 MAX_CPUS := 4
 
+AS_SUFFIX = asm
+
 CPPFLAGS	:= -DMAX_CPUS=$(MAX_CPUS) -D USE_MP=0
 CFLAGS		:= $(KERNEL_CFLAGS) -mno-sse -mno-mmx
 ASFLAGS		:= -f elf64 -D MAX_CPUS=$(MAX_CPUS) -D USE_MP=0
