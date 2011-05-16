@@ -118,6 +118,7 @@ int Server_WorkerThread(void *ClientPtr)
 	tRequestHeader	errorHeader;
 	 int	retSize = 0;
 	 int	sentSize;
+	 int	cur_client_id = 0;
 	
 	#if USE_TCP
 	#else
@@ -126,6 +127,11 @@ int Server_WorkerThread(void *ClientPtr)
 		// Wait for something to do
 		while( Client->CurrentRequest == NULL )
 			SDL_CondWait(Client->WaitFlag, Client->Mutex);
+		
+		if(Client->ClientID != cur_client_id) {
+			Threads_SetThread( Client->ClientID );
+			cur_client_id = Client->ClientID;
+		}
 		
 		Log_Debug("AcessSrv", "Worker %i takes %p",
 			Client->ClientID, Client->CurrentRequest);
@@ -245,8 +251,10 @@ int SyscallServer(void)
 		tRequestHeader	*req = (void*)data;
 		struct sockaddr_in	addr;
 		uint	clientSize = sizeof(addr);
-		 int	length = recvfrom(gSocket, data, BUFSIZ, 0, (struct sockaddr*)&addr, &clientSize);
+		 int	length;
 		tClient	*client;
+		
+		length = recvfrom(gSocket, data, BUFSIZ, 0, (struct sockaddr*)&addr, &clientSize);
 		
 		if( length == -1 ) {
 			perror("SyscallServer - recv");

@@ -318,7 +318,7 @@ size_t acess_read(int FD, size_t Bytes, void *Dest) {
 size_t acess_write(int FD, size_t Bytes, void *Src) {
 	if(FD & NATIVE_FILE_MASK)
 		return fwrite( Src, Bytes, 1, gaSyscall_LocalFPs[FD & (NATIVE_FILE_MASK-1)] );
-	DEBUG("write(0x%x, 0x%x, %p(\"%.*s\"))", FD, Bytes, Src, Bytes, (char*)Src);
+	DEBUG("write(0x%x, 0x%x, %p\"%.*s\")", FD, Bytes, Src, Bytes, (char*)Src);
 	return _Syscall(SYS_WRITE, ">i >i >d", FD, Bytes, Bytes, Src);
 }
 
@@ -372,6 +372,7 @@ int acess__SysMount(const char *Device, const char *Directory, const char *Type,
 
 // --- Error Handler
 int	acess__SysSetFaultHandler(int (*Handler)(int)) {
+	printf("TODO: Set fault handler (asked to set to %p)\n", Handler);
 	return 0;
 }
 

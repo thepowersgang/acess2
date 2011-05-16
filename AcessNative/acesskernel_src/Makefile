@@ -38,7 +38,7 @@ endif
 all: $(BIN)
 
 clean:
-	$(RM) $(BIN) $(OBJ)
+	$(RM) $(BIN) $(OBJ) $(DEPFILES)
 
 $(BIN): $(OBJ)
 	@echo [LINK] -o $@
@@ -48,3 +48,5 @@ $(BIN): $(OBJ)
 	@echo [CC] -o $@
 	@$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
 	@$(CC) -M $(CPPFLAGS) -MT $@ -o $*.d.$(PLATFORM) $<
+
+-include $(DEPFILES)

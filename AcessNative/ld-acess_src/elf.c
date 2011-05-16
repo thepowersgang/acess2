@@ -2,7 +2,7 @@
  * Acess v0.1
  * ELF Executable Loader Code
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -108,8 +108,8 @@ void *Elf_Load(int FD)
 			continue;
 		if( phtab[i].VAddr < base )
 			base = phtab[i].VAddr;
-		if( phtab[i].VAddr > max )
-			max = phtab[i].VAddr;
+		if( phtab[i].VAddr + phtab[i].MemSize > max )
+			max = phtab[i].VAddr + phtab[i].MemSize;
 	}
 
 	LOG("base = %08x, max = %08x\n", base, max);
@@ -491,6 +491,8 @@ int Elf_GetSymbol(void *Base, char *Name, uintptr_t *ret)
 
 	pBuckets = PTR(hdr->misc.HashTable);
 	symtab = PTR(hdr->misc.SymTable);
+	
+//	LOG("Base = %p : pBuckets = %p, symtab = %p\n", Base, pBuckets, symtab);
 	
 	if(!pBuckets || !symtab)
 		return 0;

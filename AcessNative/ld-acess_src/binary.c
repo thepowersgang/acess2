@@ -239,7 +239,7 @@ int Binary_GetSymbol(const char *SymbolName, uintptr_t *Value)
 		}
 	}
 	
-	// TODO: Search list of loaded binaries
+	// Search list of loaded binaries
 	for(bin = gLoadedBinaries; bin; bin = bin->Next)
 	{
 		if( !bin->Ready )	continue;
