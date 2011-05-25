@@ -47,6 +47,7 @@ void	CursorRight(tFile *File);
 void	CursorLeft(tFile *File);
 
 void	Term_SetPos(int Row, int Col);
+void	Term_ScrollUp(int Count);
 
 // === GLOBALS ===
  int	giProgramState = 0;
@@ -55,6 +56,7 @@ tFile	*gpCurrentFile;
 #if USE_LOCAL
 struct termios	gOldTermios;
 #endif
+ int	giTabSize = 8;	// Someday this will be per-file (maybe)
  int	giTerminal_Width = 80;
  int	giTerminal_Height = 25;
 
@@ -223,6 +225,8 @@ void ShowLine(tFile *File, int LineNum, int X, int Y, int W)
 	char	*line;
 	
 	line = File->LineBuffer[LineNum];
+	Term_SetPos(Y, X);
+	printf("\x1B[2K");	// Clear line
 	printf("%6i  ", LineNum+1);
 	j = 8;
 	for( k = 0; j < W-1 && line[k]; j++, k++ )
@@ -303,51 +307,86 @@ void UpdateDisplayStatus(void)
 	
 	if( lastLine > gpCurrentFile->LineCount )
 		lastLine = gpCurrentFile->LineCount;
-	
+
+	Term_SetPos( giTerminal_Height - 1, 0 );	
 	printf("--- Line %i/%i (showing %i to %i)",
 		gpCurrentFile->CurrentLine + 1, gpCurrentFile->LineCount,
-		gpCurrentFile->FirstLine, lastLine);
+		gpCurrentFile->FirstLine + 1, lastLine);
+}
+
+void UpdateCursorPosition(void)
+{
+	tFile	*File = gpCurrentFile;
+	 int	screen_x, i;
+	const char	*tmp;
+
+	// Determine the position (handling tab characters)
+	screen_x = 0;
+	tmp = File->LineBuffer[File->CurrentLine];
+	for( i = 0; tmp[i] && i < File->CurrentPos; i ++ )
+	{
+		switch(*tmp)
+		{
+		case '\t':	screen_x += giTabSize;	break;
+		default:	screen_x ++;	break;
+		}
+	}
+
+	Term_SetPos( File->CurrentLine - File->FirstLine, 8 + screen_x);
 }
 
 void CursorUp(tFile *File)
 {
-	if( File->CurrentLine > 0 )
+	if( File->CurrentLine <= 0 )
+		return ;
+	
+	File->CurrentLine --;
+	if( File->FirstLine > File->CurrentLine )
 	{
-		File->CurrentLine --;
-		if( File->FirstLine > File->CurrentLine )
-		{
-			File->FirstLine = File->CurrentLine;
-			UpdateDisplayFull();
-		}
-		else
-		{
-			UpdateDisplayLine(File->CurrentLine + 1);
-			UpdateDisplayLine(File->CurrentLine);
-			UpdateDisplayStatus();
-		}
+		Term_ScrollUp(File->FirstLine - File->CurrentLine);
+		File->FirstLine = File->CurrentLine;
+//		UpdateDisplayLine(File->FirstLine + giTerminal_Height-2);
+		UpdateDisplayLine(File->FirstLine);
+//		UpdateDisplayFull();
 	}
+	else
+	{
+		UpdateDisplayLine(File->CurrentLine + 1);
+		UpdateDisplayLine(File->CurrentLine);
+	}
+	UpdateDisplayStatus();
+	
+	UpdateCursorPosition();
 }
 
 void CursorDown(tFile *File)
 {
-	if( File->CurrentLine+1 < File->LineCount )
+	 int	threshold;
+	// Bounds check
+	if( File->CurrentLine + 1 >= File->LineCount )
+		return ;
+	
+	File->CurrentLine ++;
+	// Check if scroll is needed
+	threshold = File->CurrentLine - (giTerminal_Height-2); 
+	if( File->FirstLine < threshold )
 	{
-		File->CurrentLine ++;
-		if( File->FirstLine < File->CurrentLine - (giTerminal_Height-2) )
-		{
-			File->FirstLine = File->CurrentLine - (giTerminal_Height-2);
-			UpdateDisplayFull();
-		}
-		else
-		{
-			UpdateDisplayLine(File->CurrentLine - 1);
-			UpdateDisplayLine(File->CurrentLine);
-			UpdateDisplayStatus();
-		}
+		Term_ScrollUp( File->FirstLine - threshold );
+		File->FirstLine = threshold;
+		UpdateDisplayLine(File->FirstLine + giTerminal_Height-2);
 	}
+	else
+	{
+		// Else, just update the previous and new lines (and status)
+		UpdateDisplayLine(File->CurrentLine - 1);
+		UpdateDisplayLine(File->CurrentLine);
+	}
+	UpdateDisplayStatus();
+	
+	UpdateCursorPosition();
 }
 
-void CursorRight(tFile *File)
+void CursorLeft(tFile *File)
 {
 	if( File->CurrentPos > 0 )
 	{
@@ -355,20 +394,33 @@ void CursorRight(tFile *File)
 		UpdateDisplayLine(File->CurrentLine);
 		UpdateDisplayStatus();
 	}
+	UpdateCursorPosition();
 }
 
-void CursorLeft(tFile *File)
+void CursorRight(tFile *File)
 {
 	if( File->LineBuffer[File->CurrentLine][File->CurrentPos+1] )
 	{
-		File->CurrentPos --;
+		File->CurrentPos ++;
 		UpdateDisplayLine(File->CurrentLine);
 		UpdateDisplayStatus();
 	}
+	UpdateCursorPosition();
 }
 
 void Term_SetPos(int Row, int Col)
 {
 	printf("\x1B[%i;%iH", Row+1, Col+1);	// Set cursor
+	fflush(stdout);
+}
+
+void Term_ScrollUp(int Count)
+{
+	printf("\x1B[r");
+//	printf("\x1B[1;%ir", giTerminal_Height-1);
+	if(Count < 0)
+		printf("\x1B[%iM", -Count);
+	else
+		printf("\x1B[%iL", Count);
 	fflush(stdout);
 }

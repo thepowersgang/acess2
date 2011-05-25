@@ -7,6 +7,6 @@ BIN = edit
 
 -include ../Makefile.tpl
 
-edit.lin:
+edit.lin: main.c
 	gcc main.c -o edit.lin -DUSE_LOCAL=1 -Wall
 
