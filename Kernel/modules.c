@@ -28,8 +28,8 @@ EXPORT(Module_RegisterLoader);
 extern int	UDI_LoadDriver(void *Base);
 #endif
 extern void	StartupPrint(const char *Str);
-extern void	gKernelModules;
-extern void	gKernelModulesEnd;
+extern tModule	gKernelModules;
+extern tModule	gKernelModulesEnd;
 
 // === GLOBALS ===
  int	giNumBuiltinModules = 0;

@@ -3,11 +3,7 @@
 # i386 Architecture Makefile
 # arch/i386/Makefile
 
-# Assuming build machine is 32-bit ELF
-#CC = gcc
-#AS = nasm
-#LD = ld
-#OBJDUMP = objdump
+AS_SUFFIX = asm
 
 CPPFLAGS	=
 CFLAGS		=
@@ -26,6 +22,7 @@ else ifeq ($(ARCH),i586)
 	USE_PAE=1
 endif
 
+#ASFLAGS		+= -D ARCH=\"$(ARCH)\" -D ARCHDIR=\"$(ARCHDIR)\"
 ASFLAGS += -D USE_MP=$(USE_MP) -D USE_PAE=$(USE_PAE)
 CPPFLAGS += -DUSE_MP=$(USE_MP) -DUSE_PAE=$(USE_PAE)
 

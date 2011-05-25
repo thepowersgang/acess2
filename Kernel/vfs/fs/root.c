@@ -155,7 +155,7 @@ char *Root_ReadDir(tVFS_Node *Node, int Pos)
 	
 	for( ; child && Pos--; child = child->Next ) ;
 	
-	if(Pos)	return strdup(child->Name);
+	if(child)	return strdup(child->Name);
 	
 	return NULL;
 }

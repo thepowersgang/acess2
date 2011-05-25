@@ -14,8 +14,9 @@
 #define	USE_KERNEL_MAGIC	1
 
 // === IMPORTS ===
-void	Threads_Dump(void);
-void	Heap_Stats(void);
+extern void	Threads_ToggleTrace(int TID);
+extern void	Threads_Dump(void);
+extern void	Heap_Stats(void);
 
 // === PROTOTYPES ===
  int	KB_Install(char **Arguments);
@@ -26,7 +27,6 @@ void	KB_UpdateLEDs(void);
  int	KB_IOCtl(tVFS_Node *Node, int Id, void *Data);
 
 // === GLOBALS ===
-MODULE_DEFINE(0, 0x0100, PS2Keyboard, KB_Install, NULL, NULL);
 tDevFS_Driver	gKB_DevInfo = {
 	NULL, "PS2Keyboard",
 	{
@@ -48,11 +48,6 @@ Uint8	gbaKB_States[3][256];
  int	giKB_MagicAddress = 0;
  int	giKB_MagicAddressPos = 0;
 #endif
-//Uint64	giKB_ReadBase = 0;
-//Uint32	gaKB_Buffer[KB_BUFFER_SIZE];	//!< Keyboard Ring Buffer
-//volatile int	giKB_InsertPoint = 0;	//!< Writing location marker
-//volatile int	giKB_ReadPoint = 0;	//!< Reading location marker
-//volatile int	giKB_InUse = 0;		//!< Lock marker
 
 // === CODE ===
 /**
@@ -126,7 +121,6 @@ void KB_IRQHandler(int IRQNum)
 
 	// Translate
 	ch = gpKB_Map[giKB_KeyLayer][scancode];
-	//keyNum = giKB_KeyLayer * 256 + scancode;
 	// Check for unknown key
 	if(!ch && !gbKB_KeyUp)
 		Log_Warning("Keyboard", "UNK %i %x", giKB_KeyLayer, scancode);
@@ -191,12 +185,19 @@ void KB_IRQHandler(int IRQNum)
 		case '8':	case '9':	case 'a':	case 'b':
 		case 'c':	case 'd':	case 'e':	case 'f':
 			{
-			char	str[2] = {ch,0};
-			if(giKB_MagicAddressPos == BITS/4)	break;
+			char	str[4] = {'0', 'x', ch, 0};
+			if(giKB_MagicAddressPos == BITS/4)	return;
 			giKB_MagicAddress |= atoi(str) << giKB_MagicAddressPos;
 			giKB_MagicAddressPos ++;
 			}
-			break;
+			return;
+		
+		// Instruction Tracing
+		case 't':
+			Log("Toggle instruction tracing on %i\n", giKB_MagicAddress);
+			Threads_ToggleTrace( giKB_MagicAddress );
+			giKB_MagicAddress = 0;	giKB_MagicAddressPos = 0;
+			return;
 		
 		// Thread List Dump
 		case 'p':	Threads_Dump();	return;
@@ -208,10 +209,10 @@ void KB_IRQHandler(int IRQNum)
 	}
 	#endif
 
-	// Is shift pressed
-	// - Darn ugly hacks !!x means (bool)x
-	if( !!gbKB_ShiftState ^ gbKB_CapsState)
+	// Capitals required?
+	if( (gbKB_ShiftState != 0) != (gbKB_CapsState != 0))
 	{
+		// TODO: Move this to the keyboard map header
 		switch(ch)
 		{
 		case 0:	break;

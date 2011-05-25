@@ -57,7 +57,7 @@ Uint64 DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
 			break;
 		
 		case VIDEO_2DOP_BLIT:
-			if(rem < 16)	return Length-rem;
+			if(rem < 12)	return Length-rem;
 			
 			if(!Handlers->Blit) {
 				Log_Warning("DrvUtil", "DrvUtil_Video_2DStream: Driver"
@@ -73,7 +73,7 @@ Uint64 DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
 				);
 			
 			rem -= 16;
-			stream = (void*)((tVAddr)stream + 16);
+			stream = (void*)((tVAddr)stream + 12);
 			break;
 		
 		}

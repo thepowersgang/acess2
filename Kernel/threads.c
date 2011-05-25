@@ -5,6 +5,7 @@
  */
 #include <acess.h>
 #include <threads.h>
+#include <threads_int.h>
 #include <errno.h>
 #include <semaphore.h>
 
@@ -59,6 +60,7 @@ void	Threads_Sleep(void);
 void	Threads_AddActive(tThread *Thread);
 tThread	*Threads_RemActive(void);
 #endif
+void	Threads_ToggleTrace(int TID);
 void	Threads_Fault(int Num);
 void	Threads_SegFault(tVAddr Addr);
 #if 0
@@ -71,7 +73,6 @@ tGID	Threads_GetGID(void);
 #endif
 void	Threads_Dump(void);
 void	Threads_DumpActive(void);
-
 #if 0
  int	Mutex_Acquire(tMutex *Mutex);
 void	Mutex_Release(tMutex *Mutex);
@@ -121,6 +122,9 @@ tThread	*gaActiveThreads[MIN_PRIORITY+1];	// Active threads for each priority le
 void Threads_Init(void)
 {
 	ArchThreads_Init();
+	
+	Log_Debug("Threads", "Offsets of tThread");
+	Log_Debug("Threads", ".Priority = %i", offsetof(tThread, Priority));
 	
 	// Create Initial Task
 	#if SCHEDULER_TYPE == SCHED_RR_PRI
@@ -184,6 +188,7 @@ void Threads_SetPriority(tThread *Thread, int Pri)
 	if(Thread == NULL)	Thread = Proc_GetCurThread();
 	// Bounds checking
 	// - If < 0, set to lowest priority
+	// - Minumum priority is actualy a high number, 0 is highest
 	if(Pri < 0)	Pri = MIN_PRIORITY;
 	if(Pri > MIN_PRIORITY)	Pri = MIN_PRIORITY;
 	
@@ -208,7 +213,9 @@ void Threads_SetPriority(tThread *Thread, int Pri)
 		#if SCHEDULER_TYPE == SCHED_LOTTERY
 		giFreeTickets -= caiTICKET_COUNTS[Thread->Priority] - caiTICKET_COUNTS[Pri];
 		# if DEBUG_TRACE_TICKETS
-		Log("Threads_SetTickets: new giFreeTickets = %i", giFreeTickets);
+		Log("Threads_SetTickets: new giFreeTickets = %i [-%i+%i]",
+			giFreeTickets,
+			caiTICKET_COUNTS[Thread->Priority], caiTICKET_COUNTS[Pri]);
 		# endif
 		#endif
 		Thread->Priority = Pri;
@@ -216,6 +223,12 @@ void Threads_SetPriority(tThread *Thread, int Pri)
 	}
 	else
 		Thread->Priority = Pri;
+	#endif
+	
+	#if DEBUG_TRACE_STATE
+	Log("Threads_SetPriority: %p(%i %s) pri set %i",
+		Thread, Thread->TID, Thread->ThreadName,
+		Pri);
 	#endif
 }
 
@@ -233,10 +246,7 @@ tThread *Threads_CloneTCB(Uint *Err, Uint Flags)
 	
 	// Allocate and duplicate
 	new = malloc(sizeof(tThread));
-	if(new == NULL) {
-		*Err = -ENOMEM;
-		return NULL;
-	}
+	if(new == NULL) { *Err = -ENOMEM; return NULL; }
 	memcpy(new, cur, sizeof(tThread));
 	
 	new->CurCPU = -1;
@@ -248,6 +258,7 @@ tThread *Threads_CloneTCB(Uint *Err, Uint Flags)
 	// Get Thread ID
 	new->TID = giNextTID++;
 	new->Parent = cur;
+	new->bInstrTrace = 0;
 	
 	// Clone Name
 	new->ThreadName = strdup(cur->ThreadName);
@@ -334,6 +345,7 @@ tThread *Threads_CloneThreadZero(void)
 	// Set State
 	new->Remaining = new->Quantum = cur->Quantum;
 	new->Priority = cur->Priority;
+	new->bInstrTrace = 0;
 	
 	// Set Signal Handlers
 	new->CurFaultNum = 0;
@@ -772,6 +784,13 @@ int Threads_WakeTID(tTID TID)
 	return ret;
 }
 
+void Threads_ToggleTrace(int TID)
+{
+	tThread	*thread = Threads_GetThread(TID);
+	if(!thread)	return ;
+	thread->bInstrTrace = !thread->bInstrTrace;
+}
+
 /**
  * \brief Adds a thread to the active queue
  */
@@ -987,6 +1006,8 @@ void Threads_DumpActive(void)
 				Log("  ERROR State (%i) != THREAD_STAT_ACTIVE (%i)", thread->Status, THREAD_STAT_ACTIVE);
 			Log("  Priority %i, Quantum %i", thread->Priority, thread->Quantum);
 			Log("  KStack 0x%x", thread->KernelStack);
+			if( thread->bInstrTrace )
+				Log("  Tracing Enabled");
 			Proc_DumpThreadCPUState(thread);
 		}
 	
@@ -1031,6 +1052,9 @@ void Threads_Dump(void)
 		}
 		Log("  Priority %i, Quantum %i", thread->Priority, thread->Quantum);
 		Log("  KStack 0x%x", thread->KernelStack);
+		if( thread->bInstrTrace )
+			Log("  Tracing Enabled");
+		Proc_DumpThreadCPUState(thread);
 	}
 }
 
@@ -1117,7 +1141,7 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 		}
 		#if SCHEDULER_TYPE == SCHED_LOTTERY && DEBUG_TRACE_TICKETS
 		else
-			LogF("Log: CPU%i released %p (%i %s)->Status = %i (Released)\n",
+			LogF("Log: CPU%i released %p (%i %s)->Status = %i (Released,not in pool)\n",
 				CPU, Last, Last->TID, Last->ThreadName, Last->Status);
 		#endif
 		Last->CurCPU = -1;
@@ -1255,16 +1279,7 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 	return thread;
 }
 
-/**
- * \brief Acquire a heavy mutex
- * \param Mutex	Mutex to acquire
- * 
- * This type of mutex checks if the mutex is avaliable, and acquires it
- * if it is. Otherwise, the current thread is added to the mutex's wait
- * queue and the thread suspends. When the holder of the mutex completes,
- * the oldest thread (top thread) on the queue is given the lock and
- * restarted.
- */
+// Acquire mutex (see mutex.h for documentation)
 int Mutex_Acquire(tMutex *Mutex)
 {
 	tThread	*us = Proc_GetCurThread();
@@ -1293,6 +1308,12 @@ int Mutex_Acquire(tMutex *Mutex)
 			Mutex->Waiting = us;
 			Mutex->LastWaiting = us;
 		}
+		
+		#if DEBUG_TRACE_STATE
+		Log("%p (%i %s) waiting on mutex %p",
+			us, us->TID, us->ThreadName, Mutex);
+		#endif
+		
 		#if 0
 		{
 			 int	i = 0;
@@ -1324,11 +1345,7 @@ int Mutex_Acquire(tMutex *Mutex)
 	return 0;
 }
 
-/**
- * \brief Release a held mutex
- * \param Mutex	Mutex to release
- * \note Releasing a non-held mutex has no effect
- */
+// Release a mutex
 void Mutex_Release(tMutex *Mutex)
 {
 	SHORTLOCK( &Mutex->Protector );
@@ -1361,10 +1378,7 @@ void Mutex_Release(tMutex *Mutex)
 	#endif
 }
 
-/**
- * \brief Is this mutex locked?
- * \param Mutex	Mutex pointer
- */
+// Check if a mutex is locked
 int Mutex_IsLocked(tMutex *Mutex)
 {
 	return Mutex->Owner != NULL;
@@ -1427,6 +1441,12 @@ int Semaphore_Wait(tSemaphore *Sem, int MaxToTake)
 			Sem->LastWaiting = us;
 		}
 		
+		#if DEBUG_TRACE_STATE
+		Log("%p (%i %s) waiting on semaphore %p %s:%s",
+			us, us->TID, us->ThreadName,
+			Sem, Sem->ModName, Sem->Name);
+		#endif
+		
 		SHORTREL( &glThreadListLock );	
 		SHORTREL( &Sem->Protector );
 		while(us->Status == THREAD_STAT_SEMAPHORESLEEP)	Threads_Yield();
@@ -1457,6 +1477,13 @@ int Semaphore_Wait(tSemaphore *Sem, int MaxToTake)
 		else
 			given = Sem->MaxValue - Sem->Value;
 		Sem->Value -= given;
+		
+		
+		#if DEBUG_TRACE_STATE
+		Log("%p (%i %s) woken by wait on %p %s:%s",
+			toWake, toWake->TID, toWake->ThreadName,
+			Sem, Sem->ModName, Sem->Name);
+		#endif
 		
 		// Save the number we gave to the thread's status
 		toWake->RetStatus = given;
@@ -1514,6 +1541,12 @@ int Semaphore_Signal(tSemaphore *Sem, int AmmountToAdd)
 			Sem->LastSignaling = us;
 		}
 		
+		#if DEBUG_TRACE_STATE
+		Log("%p (%i %s) signaling semaphore %p %s:%s",
+			us, us->TID, us->ThreadName,
+			Sem, Sem->ModName, Sem->Name);
+		#endif
+		
 		SHORTREL( &glThreadListLock );	
 		SHORTREL( &Sem->Protector );
 		while(us->Status == THREAD_STAT_SEMAPHORESLEEP)	Threads_Yield();
@@ -1542,12 +1575,13 @@ int Semaphore_Signal(tSemaphore *Sem, int AmmountToAdd)
 	{
 		tThread	*toWake = Sem->Waiting;
 		
+		// Remove thread from list (double ended, so clear LastWaiting if needed)
 		Sem->Waiting = Sem->Waiting->Next;
-		// Reset ->LastWaiting to NULL if we have just removed the last waiting thread
 		if( Sem->Waiting == NULL )
 			Sem->LastWaiting = NULL;
 		
-		// Figure out how much to give
+		// Figure out how much to give to woken thread
+		// - Requested count is stored in ->RetStatus
 		if( toWake->RetStatus && Sem->Value > toWake->RetStatus )
 			given = toWake->RetStatus;
 		else
@@ -1556,6 +1590,14 @@ int Semaphore_Signal(tSemaphore *Sem, int AmmountToAdd)
 		
 		// Save the number we gave to the thread's status
 		toWake->RetStatus = given;
+		
+		if(toWake->bInstrTrace)
+			Log("%s(%i) given %i from %p", toWake->ThreadName, toWake->TID, given, Sem);
+		#if DEBUG_TRACE_STATE
+		Log("%p (%i %s) woken by signal on %p %s:%s",
+			toWake, toWake->TID, toWake->ThreadName,
+			Sem, Sem->ModName, Sem->Name);
+		#endif
 		
 		// Wake the sleeper
 		SHORTLOCK( &glThreadListLock );

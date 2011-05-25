@@ -148,6 +148,7 @@ int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set 
 	if( !Timeout || *Timeout > 0 )
 	{
 		ret = Semaphore_Wait(&thread_info->SleepHandle, 1);
+		// TODO: Do something with ret
 	}
 	
 	// Fill output (modify *Handles)

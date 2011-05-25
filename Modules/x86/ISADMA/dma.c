@@ -34,7 +34,7 @@ const Uint8 cADDRPORT [8] = { 0x00, 0x02, 0x04, 0x06, 0xC0, 0xC4, 0xC8, 0xCC };
 const Uint8 cCOUNTPORT[8] = { 0x01, 0x03, 0x05, 0x07, 0xC2, 0xC6, 0xCA, 0xCE };
 
 // === GLOBALS ===
-MODULE_DEFINE(0, 0x0100, ISADMA, DMA_Install, NULL, NULL);
+MODULE_DEFINE(0, 0x0100, x86_ISADMA, DMA_Install, NULL, NULL);
 char	*dma_addresses[8];
 t_dmaChannel	dma_channels[8];
 

@@ -210,7 +210,7 @@ DEF_SYSCALL	0xAC	; Acess System Call
 [extern SchedulerBase]
 ; AP's Timer Interrupt
 Isr0xEE:
-	push 0
+	push 0	; Line up with interrupt number
 	xchg bx, bx	; MAGIC BREAK
 	jmp SchedulerBase
 ; Spurious Interrupt
@@ -227,7 +227,8 @@ Isr0xEF:
 [extern SchedulerBase]
 [extern SetAPICTimerCount]
 Isr240:
-	push 0
+	push 0	; Line up with Argument in errors
+	push 0	; CPU Number
 	;xchg bx, bx	; MAGIC BREAK
 Isr240.jmp:
 	%if USE_MP
@@ -287,6 +288,18 @@ SyscallCommon:
 	call SyscallHandler
 	add esp, 4
 	
+	; Pass changes to TF on to the user
+	; EFLAGS is stored at ESP[4+8+2+2]
+	; 4 Segment Registers
+	; 8 GPRs
+	; 2 Error Code / Interrupt ID
+	; 2 CS/EIP
+	pushf
+	pop eax
+	and eax, 0x100	; 0x100 = Trace Flag
+	and WORD [esp+(4+8+2+2)*4], ~0x100	; Clear
+	or DWORD [esp+(4+8+2+2)*4], eax	; Set for user
+	
 	pop gs
 	pop fs
 	pop es
@@ -300,6 +313,8 @@ SyscallCommon:
 ; ------------
 [extern IRQ_Handler]
 [global IRQCommon]
+[global IRQCommon_handled]
+IRQCommon_handled equ IRQCommon.handled
 IRQCommon:
 	pusha
 	push ds
@@ -315,6 +330,7 @@ IRQCommon:
 	
 	push esp
 	call IRQ_Handler
+.handled:
 	add esp, 4
 	
 	pop gs

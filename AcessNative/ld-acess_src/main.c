@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <string.h>
 
 // === CODE ===
 int main(int argc, char *argv[], char **envp)
@@ -11,12 +12,32 @@ int main(int argc, char *argv[], char **envp)
 	 int	i;
 	 int	appArgc;
 	char	**appArgv;
-	char	*appPath;
+	char	*appPath = NULL;
 	 int	(*appMain)(int, char *[], char **);
 	void	*base;
 	
+	 int	syscall_handle = -1;
+	
 	for( i = 1; i < argc; i ++ )
 	{
+		if(strcmp(argv[i], "--key") == 0) {
+			syscall_handle = atoi(argv[++i]);
+			continue ;
+		}
+		
+		if(strcmp(argv[i], "--binary") == 0) {
+			appPath = argv[++i];
+			continue ;
+		}
+		
+		if(strcmp(argv[i], "--open") == 0) {
+			if( acess_open(argv[++i], 6) == -1 ) {	// Read/Write
+				fprintf(stderr, "Unable to open '%s'\n", argv[i]);
+				exit(1);
+			}
+			continue ;
+		}
+		
 		if( argv[i][0] != '-' )	break;
 	}
 
@@ -25,7 +46,8 @@ int main(int argc, char *argv[], char **envp)
 		return 1;
 	}
 	
-	appPath = argv[i];
+	if( !appPath )
+		appPath = argv[i];
 
 	appArgc = argc - i;
 	appArgv = &argv[i];
@@ -47,7 +69,6 @@ int main(int argc, char *argv[], char **envp)
 		"push %2;\n\t"
 		"jmp *%3;\n\t"
 		: : "r" (envp), "r" (appArgv), "r" (appArgc), "r" (appMain) );
-	//return appMain(appArgc, appArgv, envp);
 	return -1;
 }
 

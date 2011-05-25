@@ -32,7 +32,7 @@ void	MM_InitPhys_Multiboot(tMBoot_Info *MBoot);
 
 // === GLOBALS ===
 tMutex	glPhysicalPages;
-Uint64	*gaSuperBitmap = (void*)MM_PAGE_SUPBMP;	// 1 bit = 64 Pages, 16 MiB Per Word
+Uint64	*gaSuperBitmap = (void*)MM_PAGE_SUPBMP;	// 1 bit = 64 Pages, 16 MiB per Word
 Uint64	*gaMainBitmap = (void*)MM_PAGE_BITMAP;	// 1 bit = 1 Page, 256 KiB per Word
 Uint64	*gaMultiBitmap = (void*)MM_PAGE_DBLBMP;	// Each bit means that the page is being used multiple times
 Uint32	*gaiPageReferences = (void*)MM_PAGE_COUNTS;	// Reference Counts

@@ -29,14 +29,14 @@
 #endif
 
 // === PROTOTYPES ===
-void	*Elf_Load(FILE *FP);
+void	*Elf_Load(int FD);
 uintptr_t	Elf_Relocate(void *Base);
  int	Elf_GetSymbol(void *Base, char *Name, uintptr_t *ret);
  int	Elf_Int_DoRelocate(uint32_t r_info, uint32_t *ptr, uint32_t addend, Elf32_Sym *symtab, void *Base);
 uint32_t	Elf_Int_HashString(char *str);
 
 // === CODE ===
-void *Elf_Load(FILE *FP)
+void *Elf_Load(int FD)
 {
 	Elf32_Ehdr	hdr;
 	Elf32_Phdr	*phtab;
@@ -46,10 +46,10 @@ void *Elf_Load(FILE *FP)
 	uint32_t	addr;
 	uint32_t	baseDiff = 0;
 	
-	ENTER("pFP", FP);
+	ENTER("iFD", FD);
 	
 	// Read ELF Header
-	fread(&hdr, sizeof(hdr), 1, FP);
+	acess_read(FD, sizeof(hdr), &hdr);
 	
 	// Check the file type
 	if(hdr.ident[0] != 0x7F || hdr.ident[1] != 'E' || hdr.ident[2] != 'L' || hdr.ident[3] != 'F') {
@@ -74,8 +74,8 @@ void *Elf_Load(FILE *FP)
 		return NULL;
 	}
 	LOG("hdr.phoff = 0x%08x\n", hdr.phoff);
-	fseek(FP, hdr.phoff, SEEK_SET);
-	fread(phtab, sizeof(Elf32_Phdr), hdr.phentcount, FP);
+	acess_seek(FD, hdr.phoff, ACESS_SEEK_SET);
+	acess_read(FD, sizeof(Elf32_Phdr) * hdr.phentcount, phtab);
 	
 	// Count Pages
 	iPageCount = 0;
@@ -108,8 +108,8 @@ void *Elf_Load(FILE *FP)
 			continue;
 		if( phtab[i].VAddr < base )
 			base = phtab[i].VAddr;
-		if( phtab[i].VAddr > max )
-			max = phtab[i].VAddr;
+		if( phtab[i].VAddr + phtab[i].MemSize > max )
+			max = phtab[i].VAddr + phtab[i].MemSize;
 	}
 
 	LOG("base = %08x, max = %08x\n", base, max);
@@ -143,8 +143,8 @@ void *Elf_Load(FILE *FP)
 			char *tmp;
 			//if(ret->Interpreter)	continue;
 			tmp = malloc(phtab[i].FileSize);
-			fseek(FP, phtab[i].Offset, SEEK_SET);
-			fread(tmp, phtab[i].FileSize, 1, FP);
+			acess_seek(FD, phtab[i].Offset, ACESS_SEEK_SET);
+			acess_read(FD, phtab[i].FileSize, tmp);
 			//ret->Interpreter = Binary_RegInterp(tmp);
 			LOG("Interpreter '%s'\n", tmp);
 			free(tmp);
@@ -165,8 +165,8 @@ void *Elf_Load(FILE *FP)
 			return NULL;
 		}
 		
-		fseek(FP, phtab[i].Offset, SEEK_SET);
-		fread( PTRMK(void, addr), phtab[i].FileSize, 1, FP );
+		acess_seek(FD, phtab[i].Offset, ACESS_SEEK_SET);
+		acess_read(FD, phtab[i].FileSize, PTRMK(void, addr) );
 		memset( PTRMK(char, addr) + phtab[i].FileSize, 0, phtab[i].MemSize - phtab[i].FileSize );
 	}
 	
@@ -248,6 +248,9 @@ uintptr_t Elf_Relocate(void *Base)
 
 	hdr->entrypoint += iBaseDiff;
 	
+	hdr->misc.SymTable = 0;
+	hdr->misc.HashTable = 0;
+	
 	// === Get Symbol table and String Table ===
 	for( j = 0; dynamicTab[j].d_tag != DT_NULL; j++)
 	{
@@ -274,6 +277,9 @@ uintptr_t Elf_Relocate(void *Base)
 			break;
 		}
 	}
+	
+	LOG("hdr->misc.SymTable = %x, hdr->misc.HashTable = %x",
+		hdr->misc.SymTable, hdr->misc.HashTable);
 
 
 	// Alter Symbols to true base
@@ -485,6 +491,11 @@ int Elf_GetSymbol(void *Base, char *Name, uintptr_t *ret)
 
 	pBuckets = PTR(hdr->misc.HashTable);
 	symtab = PTR(hdr->misc.SymTable);
+	
+//	LOG("Base = %p : pBuckets = %p, symtab = %p\n", Base, pBuckets, symtab);
+	
+	if(!pBuckets || !symtab)
+		return 0;
 	
 	nbuckets = pBuckets[0];
 	iSymCount = pBuckets[1];

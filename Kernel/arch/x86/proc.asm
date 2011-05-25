@@ -74,6 +74,10 @@ SchedulerBase:
 	push fs
 	push gs
 	
+	pushf
+	and BYTE [esp+1], 0xFE	; Clear Trap Flag
+	popf
+	
 	mov eax, dr0
 	push eax	; Debug Register 0, Current Thread
 	
@@ -121,7 +125,7 @@ scheduler_return:	; Used by some hackery in Proc_DumpThreadCPUState
 	pop ds
 	
 	popa
-	add esp, 4	; CPU ID
+	add esp, 4*2	; CPU ID + Dummy error code
 	; No Error code / int num
 	iret
 
@@ -142,9 +146,10 @@ SpawnTask:
 	; In child, so now set up stack frame
 	mov ebx, [esp+4]	; Child Function
 	mov edx, [esp+8]	; Argument
-	; Child
+	; Child Function
 	push edx	; Argument
 	call ebx	; Function
+	; Kill thread once done
 	push eax	; Exit Code
 	push   0	; Kill this thread
 	call Threads_Exit	; Kill Thread
@@ -237,7 +242,7 @@ Proc_ReturnToUser:
 .justKillIt:
 	xor eax, eax
 	xor ebx, ebx
-	dec ebx
+	dec ebx	; EBX = -1
 	int 0xAC
 
 [global GetCPUNum]
@@ -247,6 +252,15 @@ GetCPUNum:	; TODO: Store in debug registers
 ;	sub ax, 0x30
 ;	shr ax, 3	; ax /= 8
 	mov eax, dr1
+	ret
+
+[extern GetEIP]
+[global GetEIP_Sched]
+[global GetEIP_Sched_ret]
+GetEIP_Sched_ret equ GetEIP_Sched.ret
+GetEIP_Sched:
+	call GetEIP
+GetEIP_Sched.ret:
 	ret
 
 ; Usermode code exported by the kernel

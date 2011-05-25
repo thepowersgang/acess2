@@ -155,10 +155,10 @@ int SysFS_RegisterFile(const char *Path, const char *Data, int Length)
 			child->Node.ReadDir = SysFS_Comm_ReadDir;
 			child->Node.FindDir = SysFS_Comm_FindDir;
 			if( !prev ) {
-				//if(ent)
+				if(ent)
 					ent->Node.ImplPtr = child;
-				//else
-				//	gSysFS_DriverInfo.RootNode.ImplPtr = child;
+				else
+					gSysFS_DriverInfo.RootNode.ImplPtr = child;
 				// ^^^ Impossible (There is already /Version)
 			}
 			else
@@ -184,7 +184,7 @@ int SysFS_RegisterFile(const char *Path, const char *Data, int Length)
 		child = ent->Node.ImplPtr;
 	else
 		child = gSysFS_DriverInfo.RootNode.ImplPtr;
-	for( child = ent->Node.ImplPtr; child; prev = child, child = child->Next )
+	for( ; child; child = child->Next )
 	{
 		if( strcmp( &Path[start], child->Name ) == 0 )
 			break;
@@ -283,7 +283,10 @@ int SysFS_RemoveFile(int ID)
 	parent = file->Parent;
 	
 	// Remove from file list
-	prev->ListNext = file->ListNext;
+	if(prev)
+		prev->ListNext = file->ListNext;
+	else
+		gSysFS_FileList = file->ListNext;
 	file->Node.Size = 0;
 	file->Node.ImplPtr = NULL;
 	

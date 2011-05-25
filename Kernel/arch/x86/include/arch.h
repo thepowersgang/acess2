@@ -123,9 +123,13 @@ typedef struct {
 
 typedef struct {
 	Uint	EIP, ESP, EBP;
+	Uint32	UserCS, UserEIP;
 } tTaskState;
 
 // === FUNCTIONS ===
+extern void	Debug_PutCharDebug(char ch);
+extern void	Debug_PutStringDebug(const char *String);
+
 extern int	IS_LOCKED(struct sShortSpinlock *Lock);
 extern int	CPU_HAS_LOCK(struct sShortSpinlock *Lock);
 extern void	SHORTLOCK(struct sShortSpinlock *Lock);

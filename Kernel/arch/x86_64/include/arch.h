@@ -101,5 +101,8 @@ extern int	CPU_HAS_LOCK(struct sShortSpinlock *Lock);
 extern void	SHORTLOCK(struct sShortSpinlock *Lock);
 extern void	SHORTREL(struct sShortSpinlock *Lock);
 
+extern void	Debug_PutCharDebug(char ch);
+extern void	Debug_PutStringDebug(const char *Str);
+
 #endif
 

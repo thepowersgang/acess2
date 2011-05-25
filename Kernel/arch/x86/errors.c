@@ -60,6 +60,18 @@ void ErrorHandler(tRegs *Regs)
 	
 	__asm__ __volatile__ ("cli");
 	
+	// Debug exception (used for single-stepping)
+	if(Regs->int_num == 1)
+	{
+		static Uint32	lastEIP = 0;
+		tThread	*thread = Proc_GetCurThread();
+		if( Regs->eip == lastEIP )
+			return;
+		Log("%p(%i %s) IP=%08x", thread, thread->TID, thread->ThreadName, Regs->eip);
+		lastEIP = Regs->eip;
+		return ;
+	}
+	
 	// Page Fault
 	if(Regs->int_num == 14)
 	{

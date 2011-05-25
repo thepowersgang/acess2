@@ -9,12 +9,14 @@
  int	Menubar_HandleMessage(tAxWin_Message *Message);
 
 // === GLOBALS ===
-tAxWin_Handle	ghMenubarWindow;
+tAxWin_Element	geConsole;
 
 // === CODE ===
 int main(int argc, char *argv[])
 {
 	AxWin_Register("Terminal");
+	
+	//geConsole = AxWin_CreateElement();
 	
 	AxWin_MessageLoop();
 	

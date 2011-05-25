@@ -3,9 +3,22 @@
 #include <acess.h>
 #include <arch.h>
 
+#define DEBUG_TO_E9	1
+#define DEBUG_TO_SERIAL	1
+#define	SERIAL_PORT	0x3F8
+#define	GDB_SERIAL_PORT	0x2F8
+
+
 // === IMPORTS ===
 extern int	GetCPUNum(void);
 extern void	*Proc_GetCurThread(void);
+
+// === GLOBALS ===
+ int	gbDebug_SerialSetup = 0;
+ int	gbGDB_SerialSetup = 0;
+
+// === PROTOTYPEs ===
+ int	putDebugChar(char ch);
 
 // === CODE ===
 /**
@@ -131,6 +144,70 @@ void SHORTREL(struct sShortSpinlock *Lock)
 	#endif
 }
 
+// === DEBUG IO ===
+#if USE_GDB_STUB
+int putDebugChar(char ch)
+{
+	if(!gbGDB_SerialSetup) {
+		outb(GDB_SERIAL_PORT + 1, 0x00);    // Disable all interrupts
+		outb(GDB_SERIAL_PORT + 3, 0x80);    // Enable DLAB (set baud rate divisor)
+		outb(GDB_SERIAL_PORT + 0, 0x0C);    // Set divisor to 12 (lo byte) 9600 baud
+		outb(GDB_SERIAL_PORT + 1, 0x00);    //  (base is         (hi byte)
+		outb(GDB_SERIAL_PORT + 3, 0x03);    // 8 bits, no parity, one stop bit (8N1)
+		outb(GDB_SERIAL_PORT + 2, 0xC7);    // Enable FIFO with 14-byte threshold and clear it
+		outb(GDB_SERIAL_PORT + 4, 0x0B);    // IRQs enabled, RTS/DSR set
+		gbDebug_SerialSetup = 1;
+	}
+	while( (inb(GDB_SERIAL_PORT + 5) & 0x20) == 0 );
+	outb(GDB_SERIAL_PORT, ch);
+	return 0;
+}
+int getDebugChar(void)
+{
+	if(!gbGDB_SerialSetup) {
+		outb(GDB_SERIAL_PORT + 1, 0x00);    // Disable all interrupts
+		outb(GDB_SERIAL_PORT + 3, 0x80);    // Enable DLAB (set baud rate divisor)
+		outb(GDB_SERIAL_PORT + 0, 0x0C);    // Set divisor to 12 (lo byte) 9600 baud
+		outb(GDB_SERIAL_PORT + 1, 0x00);    //                   (hi byte)
+		outb(GDB_SERIAL_PORT + 3, 0x03);    // 8 bits, no parity, one stop bit
+		outb(GDB_SERIAL_PORT + 2, 0xC7);    // Enable FIFO with 14-byte threshold and clear it
+		outb(GDB_SERIAL_PORT + 4, 0x0B);    // IRQs enabled, RTS/DSR set
+		gbDebug_SerialSetup = 1;
+	}
+	while( (inb(GDB_SERIAL_PORT + 5) & 1) == 0)	;
+	return inb(GDB_SERIAL_PORT);
+}
+#endif
+
+void Debug_PutCharDebug(char ch)
+{
+	#if DEBUG_TO_E9
+	__asm__ __volatile__ ( "outb %%al, $0xe9" :: "a"(((Uint8)ch)) );
+	#endif
+	
+	#if DEBUG_TO_SERIAL
+	if(!gbDebug_SerialSetup) {
+		outb(SERIAL_PORT + 1, 0x00);	// Disable all interrupts
+		outb(SERIAL_PORT + 3, 0x80);	// Enable DLAB (set baud rate divisor)
+		outb(SERIAL_PORT + 0, 0x0C);	// Set divisor to 12 (lo byte) 9600 baud
+		outb(SERIAL_PORT + 1, 0x00);	//                   (hi byte)
+		outb(SERIAL_PORT + 3, 0x03);	// 8 bits, no parity, one stop bit
+		outb(SERIAL_PORT + 2, 0xC7);	// Enable FIFO with 14-byte threshold and clear it
+		outb(SERIAL_PORT + 4, 0x0B);	// IRQs enabled, RTS/DSR set
+		gbDebug_SerialSetup = 1;
+	}
+	while( (inb(SERIAL_PORT + 5) & 0x20) == 0 );
+	outb(SERIAL_PORT, ch);
+	#endif
+}
+
+void Debug_PutStringDebug(const char *String)
+{
+	while(*String)
+		Debug_PutCharDebug(*String++);
+}
+
+// === PORT IO ===
 void outb(Uint16 Port, Uint8 Data)
 {
 	__asm__ __volatile__ ("outb %%al, %%dx"::"d"(Port),"a"(Data));

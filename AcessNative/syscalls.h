@@ -17,7 +17,7 @@
 typedef struct sRequestValue {
 	/// \see eArgumentTypes
 	uint16_t	Type;
-	 uint8_t	Flags;
+	uint16_t	Flags;
 	uint16_t	Length;
 }	tRequestValue;
 
@@ -31,6 +31,9 @@ typedef struct sRequestHeader {
 
 enum eSyscalls {
 	SYS_NULL,
+	
+	SYS_EXIT,
+	
 	SYS_OPEN,
 	SYS_CLOSE,
 	SYS_READ,
@@ -44,8 +47,42 @@ enum eSyscalls {
 	SYS_GETACL,
 	SYS_MOUNT,
 	SYS_REOPEN,
+	
+	SYS_WAITTID,
+	SYS_SETUID,
+	SYS_SETGID,
+	
+	// IPC
+	SYS_SLEEP,
+	SYS_FORK,
+	
 	N_SYSCALLS
 };
+
+#ifndef DONT_INCLUDE_SYSCALL_NAMES
+static const char * casSYSCALL_NAMES[] = {
+	"SYS_NULL",
+	
+	"SYS_EXIT",
+	
+	"SYS_OPEN",
+	"SYS_CLOSE",
+	"SYS_READ",
+	"SYS_WRITE",
+	"SYS_SEEK",
+	"SYS_TELL",
+	"SYS_IOCTL",
+	"SYS_FINFO",
+	"SYS_READDIR",
+	"SYS_OPENCHILD",
+	"SYS_GETACL",
+	"SYS_MOUNT",
+	"SYS_REOPEN",
+	
+	// IPC
+	"SYS_SLEEP"
+};
+#endif
 
 enum eArgumentTypes {
 	ARG_TYPE_VOID,
