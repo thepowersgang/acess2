@@ -16,6 +16,7 @@
 extern tSpiderFunction	*gpExports_First;
 
 // === PROTOTYPES ===
+// - Values
 void	Object_Dereference(tSpiderValue *Object);
 void	Object_Reference(tSpiderValue *Object);
 tSpiderValue	*SpiderScript_CreateInteger(uint64_t Value);
@@ -25,16 +26,16 @@ tSpiderValue	*SpiderScript_CastValueTo(int Type, tSpiderValue *Source);
  int	SpiderScript_IsValueTrue(tSpiderValue *Value);
 void	SpiderScript_FreeValue(tSpiderValue *Value);
 char	*SpiderScript_DumpValue(tSpiderValue *Value);
-
+// - Node Execution
 tSpiderValue	*AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node);
 tSpiderValue	*AST_ExecuteNode_BinOp(tAST_BlockState *Block, tAST_Node *Node, int Operation, tSpiderValue *Left, tSpiderValue *Right);
 tSpiderValue	*AST_ExecuteNode_UniOp(tAST_BlockState *Block, tAST_Node *Node, int Operation, tSpiderValue *Value);
-
+// - Variables
 tAST_Variable *Variable_Define(tAST_BlockState *Block, int Type, const char *Name, tSpiderValue *Value);
  int	Variable_SetValue(tAST_BlockState *Block, tAST_Node *VarNode, tSpiderValue *Value);
 tSpiderValue	*Variable_GetValue(tAST_BlockState *Block, tAST_Node *VarNode);
 void	Variable_Destroy(tAST_Variable *Variable);
-
+// - Errors
 void	AST_RuntimeMessage(tAST_Node *Node, const char *Type, const char *Format, ...);
 void	AST_RuntimeError(tAST_Node *Node, const char *Format, ...);
 
@@ -183,6 +184,7 @@ tSpiderValue *SpiderScript_CastValueTo(int Type, tSpiderValue *Source)
 		return Source;
 	}
 	
+	// Debug
 	#if 0
 	{
 		printf("Casting %i ", Source->Type);
@@ -197,6 +199,7 @@ tSpiderValue *SpiderScript_CastValueTo(int Type, tSpiderValue *Source)
 	}
 	#endif
 	
+	// Object casts
 	#if 0
 	if( Source->Type == SS_DATATYPE_OBJECT )
 	{
@@ -226,7 +229,10 @@ tSpiderValue *SpiderScript_CastValueTo(int Type, tSpiderValue *Source)
 	case SS_DATATYPE_UNDEF:
 	case SS_DATATYPE_ARRAY:
 	case SS_DATATYPE_OPAQUE:
+		AST_RuntimeError(NULL, "Invalid cast to %i", Type);
+		return ERRPTR;
 	case SS_DATATYPE_OBJECT:
+		// TODO: 
 		AST_RuntimeError(NULL, "Invalid cast to %i", Type);
 		return ERRPTR;
 	
@@ -1036,6 +1042,7 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 		else {
 			tmpobj = NULL;
 		}
+		// TODO: Handle arrays
 		ret = NULL;
 		if( Variable_Define(Block, Node->DefVar.DataType, Node->DefVar.Name, tmpobj) == ERRPTR )
 			ret = ERRPTR;
@@ -1166,7 +1173,7 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 
 	// TODO: Implement runtime constants
 	case NODETYPE_CONSTANT:
-		// TODO: Scan namespace for function
+		// TODO: Scan namespace for constant name
 		AST_RuntimeError(Node, "TODO - Runtime Constants");
 		ret = ERRPTR;
 		break;
@@ -1402,7 +1409,6 @@ tSpiderValue *AST_ExecuteNode_UniOp(tAST_BlockState *Block, tAST_Node *Node, int
 			ret = Object_ExecuteMethod(Value->Object, fcnname, );
 			if( ret != ERRPTR )
 				return ret;
-			// Fall through and try casting (which will usually fail)
 		}
 	}
 	#endif
@@ -1518,7 +1524,11 @@ tSpiderValue *AST_ExecuteNode_BinOp(tAST_BlockState *Block, tAST_Node *Node, int
 			break;
 		// TODO: Support python style 'i = %i' % i ?
 		// Might do it via a function call
+		// Implement it via % with an array, but getting past the cast will be fun
 //		case NODETYPE_MODULUS:
+//			break;
+		// TODO: Support string repititions
+//		case NODETYPE_MULTIPLY:
 //			break;
 
 		default:
