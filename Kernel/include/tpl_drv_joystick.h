@@ -28,7 +28,7 @@
  */
 enum eTplJoystick_IOCtl {
 	/**
-	 * ioctl(..., struct{int Ident;tJoystickCallback *Callback})
+	 * ioctl(..., tJoystickCallback *Callback)
 	 * \brief Sets the callback
 	 * \note Can be called from kernel mode only
 	 *
@@ -39,25 +39,56 @@ enum eTplJoystick_IOCtl {
 	JOY_IOCTL_SETCALLBACK = 4,
 
 	/**
-	 * ioctl(..., struct{int AxisNum;int Value})
+	 * ioctl(..., int *Argument)
+	 * \brief Set the argument passed as the first parameter to the callback
+	 * \note Kernel mode only
+	 */
+	JOY_IOCTL_SETCALLBACKARG,
+
+	/**
+	 * ioctl(..., tJoystickNumValue *)
 	 * \brief Set maximum value for sJoystick_Axis.CurState
 	 * \note If \a Value is equal to -1 (all bits set), the value is not changed
 	 */
 	JOY_IOCTL_GETSETAXISLIMIT,
+
+	/**
+	 * ioctl(..., tJoystickNumValue *)
+	 * \brief Set the value of sJoystick_Axis.CurState
+	 * \note If \a Value is equal to -1 (all bits set), the value is not changed
+	 */
+	JOY_IOCTL_GETSETAXISPOSITION,
 	
 	/**
-	 * ioctl(..., struct{int AxisNum;int Value})
+	 * ioctl(..., tJoystickNumValue *)
 	 * \brief Set axis flags
 	 * \note If \a Value is equal to -1 (all bits set), the value is not changed
 	 */
 	JOY_IOCTL_GETSETAXISFLAGS,
 
 	/**
-	 * ioctl(..., struct{int ButtonNum;int Value})
+	 * ioctl(..., tJoystickNumValue *)
 	 * \brief Set Button Flags
 	 * \note If \a Value is equal to -1 (all bits set), the value is not changed
 	 */
 	JOY_IOCTL_GETSETBUTTONFLAGS,
+};
+
+#define	DRV_JOY_IOCTLNAMES	"set_callback", "set_callback_arg", "getset_axis_limit", "getset_axis_position", \
+	"getset_axis_flags", "getset_button_flags"
+
+// === TYPES ===
+typedef struct sJoystick_NumValue	tJoystick_NumValue;
+typedef struct sJoystick_FileHeader	tJoystick_FileHeader;
+typedef struct sJoystick_Axis	tJoystick_Axis;
+
+/**
+ * \brief Number/Value pair for joystick IOCtls
+ */
+struct sJoystick_NumValue
+{
+	 int	Num;	//!< Axis/Button number
+	 int	Value;	//!< Value (see IOCtl defs for meaning)
 };
 
 /**
@@ -65,7 +96,7 @@ enum eTplJoystick_IOCtl {
  * \param Ident	Ident value passed to JOY_IOCTL_SETCALLBACK
  * 
  */
-typedef void (*tJoystickCallback)(int Ident, int bIsAxis, int Num, int Delta);
+typedef void (*tJoystick_Callback)(int Ident, int bIsAxis, int Num, int Delta);
 
 /**
  * \struct sJoystick_FileHeader
@@ -77,7 +108,7 @@ struct sJoystick_FileHeader
 };
 
 /**
- * \brief Axis Definition
+ * \brief Axis Definition in file data
  *
  * Describes the current state of an axis on the joystick.
  * \a MinValue and \a MaxValue describe the valid range for \a CurValue
@@ -87,7 +118,7 @@ struct sJoystick_FileHeader
 struct sJoystick_Axis
 {
 	Sint16	MinValue;	//!< Minumum value for \a CurValue
-	Sint16	MaxValue;	//!< Maximum value for \a MaxValue
+	Sint16	MaxValue;	//!< Maximum value for \a CurValue
 	Sint16	CurValue;	//!< Current value (joystick position)
 	Uint16	CurState;	//!< Current state (cursor position)
 };

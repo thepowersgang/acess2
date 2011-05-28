@@ -4,6 +4,7 @@
  */
 #include "common.h"
 #include <acess/sys.h>
+#include <net.h>
 #include <axwin/messages.h>
 
 #define STATICBUF_SIZE	64
@@ -17,8 +18,16 @@ void	Messages_RespondIPC(int ID, size_t Length, void *Data);
 void	Messages_Handle(tAxWin_Message *Msg, tMessages_Handle_Callback *Respond, int ID);
 
 // === GLOBALS ===
+ int	giIPCFileHandle;
 
 // === CODE ===
+void IPC_Init(void)
+{
+	// TODO: Check this
+	giIPCFileHandle = open("/Devices/ip/loop/udpc", OPENFLAG_READ|OPENFLAG_EXEC);
+//	ioctl(giIPCFileHandle, );
+}
+
 void Messages_PollIPC()
 {
 	 int	len;

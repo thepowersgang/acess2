@@ -9,33 +9,39 @@
 #include <tpl_drv_common.h>
 #include <tpl_drv_joystick.h>
 
+static inline int MIN(int a, int b) { return (a < b) ? a : b; }
+static inline int MAX(int a, int b) { return (a > b) ? a : b; }
+
 // == CONSTANTS ==
+#define NUM_AXIES	2	// X+Y
+#define NUM_BUTTONS	5	// Left, Right, Scroll Click, Scroll Up, Scroll Down
 #define PS2_IO_PORT	0x60
-#define MOUSE_BUFFER_SIZE	(sizeof(t_mouse_fsdata))
-#define MOUSE_SENS_BASE	5
 
 // == PROTOTYPES ==
 // - Internal -
  int	PS2Mouse_Install(char **Arguments);
 void	PS2Mouse_IRQ(int Num);
 static void	mouseSendCommand(Uint8 cmd);
-static void	enableMouse();
+void	PS2Mouse_Enable();
 // - Filesystem -
-static Uint64	PS2Mouse_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
-static int	PS2Mouse_IOCtl(tVFS_Node *Node, int ID, void *Data);
-
-typedef struct {
-	int x, y, buttons, unk;
-}	t_mouse_fsdata;
+Uint64	PS2Mouse_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
+int	PS2Mouse_IOCtl(tVFS_Node *Node, int ID, void *Data);
 
 // == GLOBALS ==
+// - Settings
  int	giMouse_Sensitivity = 1;
-t_mouse_fsdata	gMouse_Data = {0, 0, 0, 0};
- int giMouse_MaxX = 640, giMouse_MaxY = 480;
+ int	giMouse_MaxX = 640, giMouse_MaxY = 480;
+// - File Data
+Uint8	gMouse_FileData[sizeof(tJoystick_FileHeader) + NUM_AXIES*sizeof(tJoystick_Axis) + NUM_BUTTONS];
+tJoystick_FileHeader	*gMouse_FileHeader = (void *)gMouse_FileData;
+tJoystick_Axis	*gMouse_Axies;
+Uint8	*gMouse_Buttons;
+// - Internal State
  int	giMouse_Cycle = 0;	// IRQ Position
 Uint8	gaMouse_Bytes[4] = {0,0,0,0};
+// - Driver definition
 tDevFS_Driver	gMouse_DriverStruct = {
-	NULL, "ps2mouse",
+	NULL, "PS2Mouse",
 	{
 	.NumACLs = 1, .ACLs = &gVFS_ACL_EveryoneRX,
 	.Read = PS2Mouse_Read, .IOCtl = PS2Mouse_IOCtl
@@ -43,12 +49,16 @@ tDevFS_Driver	gMouse_DriverStruct = {
 };
 
 // == CODE ==
-int Mouse_Install(char **Arguments)
+int PS2Mouse_Install(char **Arguments)
 {
+	// Set up variables
+	gMouse_Axies = (void*)&gMouse_FileData[1];
+	gMouse_Buttons = (void*)&gMouse_Axies[NUM_AXIES];
+	
 	// Initialise Mouse Controller
 	IRQ_AddHandler(12, PS2Mouse_IRQ);	// Set IRQ
 	giMouse_Cycle = 0;	// Set Current Cycle position
-	enableMouse();		// Enable the mouse
+	PS2Mouse_Enable();		// Enable the mouse
 	
 	DevFS_AddDevice(&gMouse_DriverStruct);
 	
@@ -60,99 +70,102 @@ int Mouse_Install(char **Arguments)
 void PS2Mouse_IRQ(int Num)
 {
 	Uint8	flags;
-	int	dx, dy;
-	//int	log2x, log2y;
+	 int	dx, dy;
+	 int	dx_accel, dy_accel;
+
 	
+	// Gather mouse data
 	gaMouse_Bytes[giMouse_Cycle] = inb(0x60);
-	if(giMouse_Cycle == 0 && !(gaMouse_Bytes[giMouse_Cycle] & 0x8))
-		return;
+	LOG("gaMouse_Bytes[%i] = 0x%02x", gMouse_Axies[0].MaxValue);
+	// - If bit 3 of the first byte is not set, it's not a valid packet?
+	if(giMouse_Cycle == 0 && !(gaMouse_Bytes[0] & 0x08) )
+		return ;
 	giMouse_Cycle++;
-	if(giMouse_Cycle == 3)
-		giMouse_Cycle = 0;
-	else
-		return;
-	
-	if(giMouse_Cycle > 0)
-		return;
-	
-	// Read Flags
+	if(giMouse_Cycle < 3)
+		return ;
+
+	giMouse_Cycle = 0;
+
+	// Actual Processing (once we have all bytes)	
 	flags = gaMouse_Bytes[0];
-	if(flags & 0xC0)	// X/Y Overflow
-		return;
-		
-	#if DEBUG
-	//LogF(" PS2Mouse_Irq: flags = 0x%x\n", flags);
-	#endif
+
+	LOG("flags = 0x%x", flags);
 	
+	// Check for X/Y Overflow
+	if(flags & 0xC0)	return;
+		
 	// Calculate dX and dY
-	dx = (int) ( gaMouse_Bytes[1] | (flags & 0x10 ? ~0x00FF : 0) );
-	dy = (int) ( gaMouse_Bytes[2] | (flags & 0x20 ? ~0x00FF : 0) );
+	dx = gaMouse_Bytes[1];	if(flags & 0x10) dx = -(256-dx);
+	dy = gaMouse_Bytes[2];	if(flags & 0x20) dy = -(256-dy);
 	dy = -dy;	// Y is negated
 	LOG("RAW dx=%i, dy=%i\n", dx, dy);
-	dx = dx*MOUSE_SENS_BASE/giMouse_Sensitivity;
-	dy = dy*MOUSE_SENS_BASE/giMouse_Sensitivity;
+	// Apply scaling
+	// TODO: Apply a form of curve to the mouse movement (dx*log(dx), dx^k?)
+	// TODO: Independent sensitivities?
+	// TODO: Disable acceleration via a flag?
+	dx_accel = dx*giMouse_Sensitivity;
+	dy_accel = dy*giMouse_Sensitivity;
 	
-	//__asm__ __volatile__ ("bsr %%eax, %%ecx" : "=c" (log2x) : "a" ((Uint)gaMouse_Bytes[1]));
-	//__asm__ __volatile__ ("bsr %%eax, %%ecx" : "=c" (log2y) : "a" ((Uint)gaMouse_Bytes[2]));
-	//LogF(" PS2Mouse_Irq: dx=%i, log2x = %i\n", dx, log2x);
-	//LogF(" PS2Mouse_Irq: dy=%i, log2y = %i\n", dy, log2y);
-	//dx *= log2x;
-	//dy *= log2y;
-	
-	// Set Buttons
-	gMouse_Data.buttons = flags & 0x7;	//Buttons (3 only)
+	// Set Buttons (Primary)
+	gMouse_Buttons[0] = (flags & 1) ? 0xFF : 0;
+	gMouse_Buttons[1] = (flags & 2) ? 0xFF : 0;
+	gMouse_Buttons[2] = (flags & 4) ? 0xFF : 0;
 	
 	// Update X and Y Positions
-	gMouse_Data.x += (int)dx;
-	gMouse_Data.y += (int)dy;
-	
-	// Constrain Positions
-	if(gMouse_Data.x < 0)	gMouse_Data.x = 0;
-	if(gMouse_Data.y < 0)	gMouse_Data.y = 0;
-	if(gMouse_Data.x >= giMouse_MaxX)	gMouse_Data.x = giMouse_MaxX-1;
-	if(gMouse_Data.y >= giMouse_MaxY)	gMouse_Data.y = giMouse_MaxY-1;	
+	gMouse_Axies[0].CurValue = MIN( MAX(gMouse_Axies[0].MinValue, gMouse_Axies[0].CurValue + dx_accel), gMouse_Axies[0].MaxValue );
+	gMouse_Axies[1].CurValue = MIN( MAX(gMouse_Axies[1].MinValue, gMouse_Axies[1].CurValue + dy_accel), gMouse_Axies[1].MaxValue );
 }
 
 /* Read mouse state (coordinates)
  */
-static Uint64 PS2Mouse_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+Uint64 PS2Mouse_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 {
-	if(Length < MOUSE_BUFFER_SIZE)
-		return -1;
+	if(Offset > sizeof(gMouse_FileData))	return 0;
+	if(Length > sizeof(gMouse_FileData))	Length = sizeof(gMouse_FileData);
+	if(Offset + Length > sizeof(gMouse_FileData))	Length = sizeof(gMouse_FileData) - Offset;
 
-	memcpy(Buffer, &gMouse_Data, MOUSE_BUFFER_SIZE);
+	memcpy(Buffer, &gMouse_FileData[Offset], Length);
 		
-	return MOUSE_BUFFER_SIZE;
+	return Length;
 }
 
-static const char *csaIOCtls[] = {DRV_IOCTLNAMES, NULL};
+static const char *csaIOCtls[] = {DRV_IOCTLNAMES, DRV_JOY_IOCTLNAMES, NULL};
 /* Handle messages to the device
  */
-static int PS2Mouse_IOCtl(tVFS_Node *Node, int ID, void *Data)
+int PS2Mouse_IOCtl(tVFS_Node *Node, int ID, void *Data)
 {
-	struct {
-		 int	Num;
-		 int	Value;
-	}	*info = Data;
+	tJoystick_NumValue	*info = Data;
+
 	switch(ID)
 	{
 	BASE_IOCTLS(DRV_TYPE_JOYSTICK, "PS2Mouse", 0x100, csaIOCtls);
+
+	case JOY_IOCTL_SETCALLBACK:	// TODO: Implement
+		return -1;
+	
+	case JOY_IOCTL_SETCALLBACKARG:	// TODO: Implement
+		return -1;
 	
 	case JOY_IOCTL_GETSETAXISLIMIT:
 		if(!info)	return 0;
-		switch(info->Num)
-		{
-		case 0:	// X
-			if(info->Value != -1)
-				giMouse_MaxX = info->Value;
-			return giMouse_MaxX;
-		case 1:	// Y
-			if(info->Value != -1)
-				giMouse_MaxY = info->Value;
-			return giMouse_MaxY;
-		}
-		return 0;
-		
+		if(info->Num < 0 || info->Num >= 2)	return 0;
+		if(info->Value != -1)
+			gMouse_Axies[info->Num].MaxValue = info->Value;
+		return gMouse_Axies[info->Num].MaxValue;
+	
+	case JOY_IOCTL_GETSETAXISPOSITION:
+		if(!info)	return 0;
+		if(info->Num < 0 || info->Num >= 2)	return 0;
+		if(info->Value != -1)
+			gMouse_Axies[info->Num].CurValue = info->Value;
+		return gMouse_Axies[info->Num].CurValue;
+
+	case JOY_IOCTL_GETSETAXISFLAGS:
+		return -1;
+	
+	case JOY_IOCTL_GETSETBUTTONFLAGS:
+		return -1;
+
 	default:
 		return 0;
 	}
@@ -171,22 +184,22 @@ static inline void mouseOut60(Uint8 data)
 	while( timeout-- && inb(0x64) & 2 );	// Wait for Flag to clear
 	outb(0x60, data);	// Send Command
 }
-static inline Uint8 mouseIn60()
+static inline Uint8 mouseIn60(void)
 {
 	int timeout=100000;
 	while( timeout-- && (inb(0x64) & 1) == 0);	// Wait for Flag to set
 	return inb(0x60);
 }
-static void mouseSendCommand(Uint8 cmd)
+static inline void mouseSendCommand(Uint8 cmd)
 {
 	mouseOut64(0xD4);
 	mouseOut60(cmd);
 }
 
-static void enableMouse()
+void PS2Mouse_Enable(void)
 {
 	Uint8	status;
-	Log_Log("PS2 Mouse", "Enabling Mouse...");
+	Log_Log("PS2Mouse", "Enabling Mouse...");
 	
 	// Enable AUX PS/2
 	mouseOut64(0xA8);
@@ -194,7 +207,8 @@ static void enableMouse()
 	// Enable AUX PS/2 (Compaq Status Byte)
 	mouseOut64(0x20);	// Send Command
 	status = mouseIn60();	// Get Status
-	status &= 0xDF;	status |= 0x02;	// Alter Flags (Set IRQ12 (2) and Clear Disable Mouse Clock (20))
+	status &= ~0x20;	// Clear "Disable Mouse Clock"
+	status |= 0x02; 	// Set IRQ12 Enable
 	mouseOut64(0x60);	// Send Command
 	mouseOut60(status);	// Set Status
 	
