@@ -28,7 +28,6 @@ typedef Uint32	tVAddr;
 typedef Uint32	tPAddr;
 
 #include "lock.h"
-#include "div.h"
 
 // --- Debug
 extern void	Debug_PutCharDebug(char Ch);
