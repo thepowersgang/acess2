@@ -91,7 +91,6 @@ void Time_Delay(int Delay)
 }
 
 // === EXPORTS ===
-EXPORT(now);
 EXPORT(Time_CreateTimer);
 EXPORT(Time_RemoveTimer);
 EXPORT(Time_Delay);

@@ -20,7 +20,7 @@ Uint16	VGA_int_GetWord(tVT_Char *Char);
 void	VGA_int_SetCursor(Sint16 x, Sint16 y);
 
 // === GLOBALS ===
-MODULE_DEFINE(0, 0x000A, VGA, VGA_Install, NULL, NULL);
+MODULE_DEFINE(0, 0x000A, x86_VGAText, VGA_Install, NULL, NULL);
 tDevFS_Driver	gVGA_DevInfo = {
 	NULL, "VGA",
 	{

@@ -77,6 +77,8 @@ EXPORT(CheckMem);
 EXPORT(ModUtil_LookupString);
 EXPORT(ModUtil_SetIdent);
 EXPORT(UnHex);
+EXPORT(SwapEndian16);
+EXPORT(SwapEndian32);
 
 // === CODE ===
 /**
@@ -901,4 +903,13 @@ int	UnHex(Uint8 *Dest, size_t DestSize, const char *SourceString)
 		Dest[i/2] = val;
 	}
 	return i/2;
+}
+
+Uint16 SwapEndian16(Uint16 Val)
+{
+	return ((Val&0xFF)<<8) | ((Val>>8)&0xFF);
+}
+Uint32 SwapEndian32(Uint32 Val)
+{
+	return ((Val&0xFF)<<24) | ((Val&0xFF00)<<8) | ((Val>>8)&0xFF00) | ((Val>>24)&0xFF);
 }

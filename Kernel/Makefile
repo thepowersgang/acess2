@@ -15,7 +15,8 @@ KERNEL_VERSION = 0.5
 MAKEDEP		= $(CC) -M
 
 CPPFLAGS	+= -I./include -I./arch/$(ARCHDIR)/include -D_MODULE_NAME_=\"Kernel\"
-CPPFLAGS	+= -DARCH=$(ARCH) -DARCHDIR=$(ARCHDIR) -DKERNEL_VERSION=$(KERNEL_VERSION) -DBUILD_NUM=$(BUILD_NUM)
+CPPFLAGS	+= -DARCH=$(ARCH) -DARCHDIR=$(ARCHDIR) -DARCHDIR_IS_$(ARCHDIR)=1
+CPPFLAGS	+= -DKERNEL_VERSION=$(KERNEL_VERSION) -DBUILD_NUM=$(BUILD_NUM)
 CFLAGS  	+= -Wall -Werror -fno-stack-protector -fno-builtin -Wstrict-prototypes -g
 CFLAGS  	+= -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings -Wmissing-prototypes -Wmissing-declarations -Wredundant-decls -Wnested-externs -Winline -Wuninitialized
 LDFLAGS		+= -T arch/$(ARCHDIR)/link.ld -g
@@ -33,8 +34,8 @@ OBJ := $(addprefix arch/$(ARCHDIR)/,$(A_OBJ))
 OBJ += heap.o drvutil.o logging.o debug.o lib.o adt.o time.o
 OBJ += messages.o modules.o syscalls.o system.o threads.o
 OBJ += $(addprefix vfs/fs/, $(addsuffix .o,$(FILESYSTEMS)))
-OBJ += drv/vterm.o drv/proc.o drv/fifo.o drv/iocache.o drv/pci.o drv/vga.o
-#OBJ += drv/kb.o drv/dma.o
+OBJ += drv/vterm.o drv/proc.o drv/fifo.o drv/iocache.o drv/pci.o
+#OBJ += drv/kb.o drv/dma.o drv/vga.o
 OBJ += binary.o bin/elf.o bin/pe.o
 OBJ += vfs/main.o vfs/open.o vfs/acls.o vfs/dir.o vfs/io.o vfs/mount.o
 OBJ += vfs/memfile.o vfs/nodecache.o vfs/handle.o vfs/select.o

@@ -25,7 +25,7 @@ endif
 
 A_OBJ := start32.ao start64.ao desctab.ao
 A_OBJ += main.o lib.o proc.o mm_virt.o mm_phys.o
-A_OBJ += kernelpanic.o errors.o time.o
+A_OBJ += kernelpanic.o errors.o time.o pci.o
 A_OBJ += vm8086.o
 # rme.o
 

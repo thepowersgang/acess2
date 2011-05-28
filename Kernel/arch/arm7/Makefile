@@ -7,6 +7,7 @@ CPPFLAGS	=
 CFLAGS		=
 ASFLAGS		=
 
+PCI_ADDRESS=0
 ifeq ($(ARCH),integrator-cp)
 	MMU_PRESENT=1
 else
@@ -16,6 +17,7 @@ endif
 
 
 #ASFLAGS += -D USE_MP=$(USE_MP) -D USE_PAE=$(USE_PAE)
-CPPFLAGS += -DMMU_PRESENT=$(MMU_PRESENT)
+CPPFLAGS += -DMMU_PRESENT=$(MMU_PRESENT) -DPCI_ADDRESS=$(PCI_ADDRESS)
+LDFLAGS += `$(CC) --print-libgcc-file-name`
 
-A_OBJ  = start.ao main.o
+A_OBJ  = start.ao main.o lib.o time.o pci.o

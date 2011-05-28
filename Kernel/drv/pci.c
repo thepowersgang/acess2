@@ -11,6 +11,12 @@
 
 #define	LIST_DEVICES	1
 
+// === IMPORTS ===
+extern Uint32	PCI_CfgReadDWord(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset);
+extern void	PCI_CfgWriteDWord(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset, Uint32 data);
+extern Uint16	PCI_CfgReadWord(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset);
+extern Uint8	PCI_CfgReadByte(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset);
+
 // === STRUCTURES ===
 typedef struct sPCIDevice
 {
@@ -55,10 +61,6 @@ Uint16	PCI_AssignPort(int id, int bar, int count);
 #endif
 
  int	PCI_EnumDevice(Uint16 bus, Uint16 dev, Uint16 fcn, tPCIDevice *info);
-Uint32	PCI_CfgReadDWord(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset);
-void	PCI_CfgWriteDWord(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset, Uint32 data);
-Uint16	PCI_CfgReadWord(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset);
-Uint8	PCI_CfgReadByte(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, 0x0100, PCI, PCI_Install, NULL, NULL);
@@ -184,13 +186,9 @@ int PCI_ScanBus(int BusID, int bFill)
 			}
 			giPCI_DeviceCount ++;
 			
-			// WTF is this for?
-			// Maybe bit 23 must be set for the device to be valid?
-			// - Actually, maybe 23 means that there are sub-functions
-			if(fcn == 0) {
-				if( !(devInfo.ConfigCache[3] & 0x00800000) )
-					break;
-			}
+			// If bit 23 of (soemthing) is set, there are sub-functions
+			if(fcn == 0 && !(devInfo.ConfigCache[3] & 0x00800000) )
+				break;
 		}
 	}
 	
@@ -429,8 +427,14 @@ Uint16 PCI_AssignPort(int id, int bar, int count)
 	portVals &= ~1;
 	
 	// Get Granuality
+	#if ARCHDIR_IS_x86 || ARCHDIR_IS_x86_64
 	__asm__ __volatile__ ("bsf %%eax, %%ecx" : "=c" (gran) : "a" (portVals) );
 	gran = 1 << gran;
+	#else
+	{
+		for(gran = 1; gran && !(portVals & gran); gran <<= 1);
+	}
+	#endif
 	//LogF(" PCI_AssignPort: gran = 0x%x\n", gran);
 	
 	// Find free space
@@ -465,9 +469,10 @@ Uint16 PCI_AssignPort(int id, int bar, int count)
 }
 
 /**
- * \fn int	PCI_EnumDevice(Uint16 bus, Uint16 slot, Uint16 fcn, tPCIDevice *info)
+ * \fn int PCI_EnumDevice(Uint16 bus, Uint16 slot, Uint16 fcn, tPCIDevice *info)
+ * \brief Get device information for a slot/function
  */
-int	PCI_EnumDevice(Uint16 bus, Uint16 slot, Uint16 fcn, tPCIDevice *info)
+int PCI_EnumDevice(Uint16 bus, Uint16 slot, Uint16 fcn, tPCIDevice *info)
 {
 	Uint16	vendor;
 	 int	i;
@@ -517,54 +522,6 @@ int	PCI_EnumDevice(Uint16 bus, Uint16 slot, Uint16 fcn, tPCIDevice *info)
 	
 	return 1;
 }
-
-Uint32 PCI_CfgReadDWord(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset)
-{
-	Uint32	address;
-	Uint32	data;
-	
-	bus &= 0xFF;	// 8 Bits
-	dev &= 0x1F;	// 5 Bits
-	func &= 0x7;	// 3 Bits
-	offset &= 0xFF;	// 8 Bits
-	
-	address = 0x80000000 | ((Uint)bus<<16) | ((Uint)dev<<11) | ((Uint)func<<8) | (offset&0xFC);
-	outd(0xCF8, address);
-	
-	data = ind(0xCFC);
-	//Debug("PCI(0x%x) = 0x%08x", address, data);
-	return data;
-}
-void PCI_CfgWriteDWord(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset, Uint32 data)
-{
-	Uint32	address;
-	
-	bus &= 0xFF;	// 8 Bits
-	dev &= 0x1F;	// 5 Bits
-	func &= 0x7;	// 3 Bits
-	offset &= 0xFF;	// 8 Bits
-	
-	address = 0x80000000 | ((Uint)bus<<16) | ((Uint)dev<<11) | ((Uint)func<<8) | (offset&0xFC);
-	outd(0xCF8, address);
-	outd(0xCFC, data);
-}
-Uint16 PCI_CfgReadWord(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset)
-{
-	Uint32	data = PCI_CfgReadDWord(bus, dev, func, offset);
-	
-	data >>= (offset&2)*8;	// Allow Access to Upper Word
-	
-	return (Uint16)data;
-}
-
-Uint8 PCI_CfgReadByte(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset)
-{
-	Uint32	data = PCI_CfgReadDWord(bus, dev, func, offset);
-	
-	data >>= (offset&3)*8;	//Allow Access to Upper Word
-	return (Uint8)data;
-}
-
 
 // === EXPORTS ===
 //*

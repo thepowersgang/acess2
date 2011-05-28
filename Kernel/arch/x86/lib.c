@@ -424,22 +424,6 @@ Uint64 __umoddi3(Uint64 Num, Uint64 Den)
 	return Num - __udivdi3(Num, Den) * Den;
 }
 
-Uint16 LittleEndian16(Uint16 Val)
-{
-	return Val;
-}
-Uint16 BigEndian16(Uint16 Val)
-{
-	return ((Val&0xFF)<<8) | ((Val>>8)&0xFF);
-}
-Uint32 LittleEndian32(Uint32 Val)
-{
-	return Val;
-}
-Uint32 BigEndian32(Uint32 Val)
-{
-	return ((Val&0xFF)<<24) | ((Val&0xFF00)<<8) | ((Val>>8)&0xFF00) | ((Val>>24)&0xFF);
-}
 
 // --- EXPORTS ---
 EXPORT(memcpy);	EXPORT(memset);
@@ -449,9 +433,6 @@ EXPORT(memcpyd);	EXPORT(memsetd);
 EXPORT(inb);	EXPORT(inw);	EXPORT(ind);
 EXPORT(outb);	EXPORT(outw);	EXPORT(outd);
 EXPORT(__udivdi3);	EXPORT(__umoddi3);
-
-EXPORT(LittleEndian16);	EXPORT(BigEndian16);
-EXPORT(LittleEndian32);	EXPORT(BigEndian32);
 
 EXPORT(SHORTLOCK);
 EXPORT(SHORTREL);

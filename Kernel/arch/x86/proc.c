@@ -1001,8 +1001,9 @@ void Proc_Scheduler(int CPU)
 	
 	#if DEBUG_TRACE_SWITCH
 	if(thread) {
-		Log("Switching to task %i, CR3 = 0x%x, EIP = %p",
+		Log("Switching to task %i(%s), CR3 = 0x%x, EIP = %p",
 			thread->TID,
+			thread->ThreadName,
 			thread->MemState.CR3,
 			thread->SavedState.EIP
 			);

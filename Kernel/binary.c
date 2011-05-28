@@ -28,7 +28,7 @@ extern char	*Threads_GetName(int ID);
 extern Uint	MM_ClearUser(void);
 extern void	Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **EnvP, int DataSize);
 extern tKernelSymbol	gKernelSymbols[];
-extern void		gKernelSymbolsEnd;
+extern tKernelSymbol	gKernelSymbolsEnd[];
 extern tBinaryType	gELF_Info;
 
 // === PROTOTYPES ===
@@ -101,7 +101,7 @@ int Proc_Execve(const char *File, const char **ArgV, const char **EnvP)
 {
 	 int	argc, envc, i;
 	 int	argenvBytes;
-	char	*argenvBuf, *strBuf;
+	char	**argenvBuf, *strBuf;
 	char	**argvSaved, **envpSaved;
 	char	*savedFile;
 	Uint	entry;
@@ -127,10 +127,10 @@ int Proc_Execve(const char *File, const char **ArgV, const char **EnvP)
 		LEAVE('i', 0);
 		return 0;
 	}
-	strBuf = argenvBuf + (argc+1)*sizeof(void*) + (envc+1)*sizeof(void*);
+	strBuf = (char*)argenvBuf + (argc+1)*sizeof(void*) + (envc+1)*sizeof(void*);
 	
 	// Populate
-	argvSaved = (char **) argenvBuf;
+	argvSaved = argenvBuf;
 	for( i = 0; i < argc; i++ )
 	{
 		argvSaved[i] = strBuf;

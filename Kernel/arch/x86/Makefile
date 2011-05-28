@@ -29,4 +29,4 @@ CPPFLAGS += -DUSE_MP=$(USE_MP) -DUSE_PAE=$(USE_PAE)
 A_OBJ  = start.ao main.o lib.o desctab.ao errors.o irq.o
 A_OBJ += mm_phys.o mm_virt.o
 A_OBJ += proc.o proc.ao time.o vm8086.o
-A_OBJ += kpanic.o
+A_OBJ += kpanic.o pci.o
