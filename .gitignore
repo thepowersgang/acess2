@@ -26,9 +26,10 @@ serial.txt
 *.gz
 *.img
 SrcDoc/
-ApiDoc/
+APIDoc/
 Usermode/Output/
 gitstats/
 .*.swp
+.*
 
 obj-*/

@@ -12,6 +12,7 @@
 // Configuration
 #define DEBUG_TRACE_TICKETS	0	// Trace ticket counts
 #define DEBUG_TRACE_STATE	0	// Trace state changes (sleep/wake)
+#define SEMAPHORE_DEBUG 	0
 
 // --- Schedulers ---
 #define SCHED_UNDEF	0
@@ -808,6 +809,7 @@ void Threads_AddActive(tThread *Thread)
 	
 	// Set state
 	Thread->Status = THREAD_STAT_ACTIVE;
+//	Thread->CurCPU = -1;
 	// Add to active list
 	#if SCHEDULER_TYPE == SCHED_RR_PRI
 	Thread->Next = gaActiveThreads[Thread->Priority];
@@ -1082,6 +1084,7 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 	// Clear Delete Queue
 	// - I should probably put this in a worker thread to avoid calling free() in the scheduler
 	//   DEFINITELY - free() can deadlock in this case
+	//   I'll do it when it becomes an issue
 	while(gDeleteThreads)
 	{
 		thread = gDeleteThreads->Next;
@@ -1102,7 +1105,10 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 		}
 		gDeleteThreads = thread;
 	}
-	
+
+	// Make sure the current (well, old) thread is marked as de-scheduled	
+	if(Last)	Last->CurCPU = -1;
+
 	// No active threads, just take a nap
 	if(giNumActiveThreads == 0) {
 		SHORTREL( &glThreadListLock );
@@ -1441,14 +1447,14 @@ int Semaphore_Wait(tSemaphore *Sem, int MaxToTake)
 			Sem->LastWaiting = us;
 		}
 		
-		#if DEBUG_TRACE_STATE
+		#if DEBUG_TRACE_STATE || SEMAPHORE_DEBUG
 		Log("%p (%i %s) waiting on semaphore %p %s:%s",
 			us, us->TID, us->ThreadName,
 			Sem, Sem->ModName, Sem->Name);
 		#endif
 		
+		SHORTREL( &Sem->Protector );	// Release first to make sure it is released
 		SHORTREL( &glThreadListLock );	
-		SHORTREL( &Sem->Protector );
 		while(us->Status == THREAD_STAT_SEMAPHORESLEEP)	Threads_Yield();
 		// We're only woken when there's something avaliable
 		us->WaitPointer = NULL;
@@ -1479,7 +1485,7 @@ int Semaphore_Wait(tSemaphore *Sem, int MaxToTake)
 		Sem->Value -= given;
 		
 		
-		#if DEBUG_TRACE_STATE
+		#if DEBUG_TRACE_STATE || SEMAPHORE_DEBUG
 		Log("%p (%i %s) woken by wait on %p %s:%s",
 			toWake, toWake->TID, toWake->ThreadName,
 			Sem, Sem->ModName, Sem->Name);
@@ -1541,7 +1547,7 @@ int Semaphore_Signal(tSemaphore *Sem, int AmmountToAdd)
 			Sem->LastSignaling = us;
 		}
 		
-		#if DEBUG_TRACE_STATE
+		#if DEBUG_TRACE_STATE || SEMAPHORE_DEBUG
 		Log("%p (%i %s) signaling semaphore %p %s:%s",
 			us, us->TID, us->ThreadName,
 			Sem, Sem->ModName, Sem->Name);
@@ -1593,7 +1599,7 @@ int Semaphore_Signal(tSemaphore *Sem, int AmmountToAdd)
 		
 		if(toWake->bInstrTrace)
 			Log("%s(%i) given %i from %p", toWake->ThreadName, toWake->TID, given, Sem);
-		#if DEBUG_TRACE_STATE
+		#if DEBUG_TRACE_STATE || SEMAPHORE_DEBUG
 		Log("%p (%i %s) woken by signal on %p %s:%s",
 			toWake, toWake->TID, toWake->ThreadName,
 			Sem, Sem->ModName, Sem->Name);
@@ -1603,6 +1609,8 @@ int Semaphore_Signal(tSemaphore *Sem, int AmmountToAdd)
 		SHORTLOCK( &glThreadListLock );
 		if( toWake->Status != THREAD_STAT_ACTIVE )
 			Threads_AddActive(toWake);
+		else
+			Warning("Thread %p (%i %s) is already awake", toWake, toWake->TID, toWake->ThreadName);
 		SHORTREL( &glThreadListLock );
 	}
 	SHORTREL( &Sem->Protector );

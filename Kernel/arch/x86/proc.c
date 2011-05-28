@@ -13,14 +13,19 @@
 #endif
 
 // === FLAGS ===
-#define DEBUG_TRACE_SWITCH	1
+#define DEBUG_TRACE_SWITCH	0
 #define DEBUG_DISABLE_DOUBLEFAULT	1
+#define DEBUG_VERY_SLOW_SWITCH	0
 
 // === CONSTANTS ===
 #define	SWITCH_MAGIC	0xFF5317C8	// FF SWITCH - There is no code in this area
 // Base is 1193182
 #define TIMER_BASE      1193182
-#define TIMER_DIVISOR   11932	//~100Hz
+#if DEBUG_VERY_SLOW_PERIOD
+# define TIMER_DIVISOR	1193	//~10Hz switch, with 10 quantum = 1s per thread
+#else
+# define TIMER_DIVISOR	11932	//~100Hz
+#endif
 
 // === TYPES ===
 #if USE_MP
@@ -999,17 +1004,6 @@ void Proc_Scheduler(int CPU)
 	thread = Threads_GetNextToRun(CPU, thread);
 	
 	
-	#if DEBUG_TRACE_SWITCH
-	if(thread) {
-		Log("Switching to task %i(%s), CR3 = 0x%x, EIP = %p",
-			thread->TID,
-			thread->ThreadName,
-			thread->MemState.CR3,
-			thread->SavedState.EIP
-			);
-	}
-	#endif
-	
 	// No avaliable tasks, just go into low power mode (idle thread)
 	if(thread == NULL) {
 		#if USE_MP
@@ -1019,6 +1013,17 @@ void Proc_Scheduler(int CPU)
 		thread = gpIdleThread;
 		#endif
 	}
+	
+	#if DEBUG_TRACE_SWITCH
+	if(thread && thread != Proc_GetCurThread() ) {
+		Log("Switching to task %i(%s), CR3 = 0x%x, EIP = %p",
+			thread->TID,
+			thread->ThreadName,
+			thread->MemState.CR3,
+			thread->SavedState.EIP
+			);
+	}
+	#endif
 	
 	// Set current thread
 	#if USE_MP

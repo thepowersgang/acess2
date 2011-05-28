@@ -123,7 +123,7 @@ int VFS_Symlink(const char *Name, const char *Link)
 	// Get absolue path name
 	_link = VFS_GetAbsPath( Link );
 	if(!_link) {
-		Warning("Path '%s' is badly formed", Link);
+		Log_Warning("VFS", "Path '%s' is badly formed", Link);
 		return -1;
 	}
 	
@@ -134,7 +134,7 @@ int VFS_Symlink(const char *Name, const char *Link)
 	
 	// Check if destination exists
 	if(!destNode) {
-		Warning("File '%s' does not exist, symlink not created", Link);
+		Log_Warning("VFS", "File '%s' does not exist, symlink not created", Link);
 		return -1;
 	}
 	
@@ -143,7 +143,7 @@ int VFS_Symlink(const char *Name, const char *Link)
 	
 	// Make node
 	if( VFS_MkNod(Name, VFS_FFLAG_SYMLINK) != 0 ) {
-		Warning("Unable to create link node '%s'", Name);
+		Log_Warning("VFS", "Unable to create link node '%s'", Name);
 		return -2;	// Make link node
 	}
 	

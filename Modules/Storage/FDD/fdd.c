@@ -111,7 +111,7 @@ void	FDD_int_StartMotor(int Disk);
  int	FDD_int_GetDims(int type, int lba, int *c, int *h, int *s, int *spt);
 
 // === GLOBALS ===
-MODULE_DEFINE(0, FDD_VERSION, FDD, FDD_Install, NULL, "ISADMA", NULL);
+MODULE_DEFINE(0, FDD_VERSION, FDD, FDD_Install, NULL, "x86_ISADMA", NULL);
 t_floppyDevice	gFDD_Devices[2];
 tMutex	glFDD;
 volatile int	gbFDD_IrqFired = 0;

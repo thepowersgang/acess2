@@ -2,7 +2,7 @@
  * Acess2 GUI Test App
  * - By John Hodge (thePowersGang)
  */
-#include <axwin/axwin.h>
+#include <axwin2/axwin.h>
 
 // === PROTOTYPES ===
  int	main(int argc, char *argv[]);
