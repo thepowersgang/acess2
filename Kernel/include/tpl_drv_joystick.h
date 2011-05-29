@@ -63,6 +63,7 @@ enum eTplJoystick_IOCtl {
 	 * ioctl(..., tJoystickNumValue *)
 	 * \brief Set axis flags
 	 * \note If \a Value is equal to -1 (all bits set), the value is not changed
+	 * \todo Define flag values
 	 */
 	JOY_IOCTL_GETSETAXISFLAGS,
 
@@ -70,6 +71,7 @@ enum eTplJoystick_IOCtl {
 	 * ioctl(..., tJoystickNumValue *)
 	 * \brief Set Button Flags
 	 * \note If \a Value is equal to -1 (all bits set), the value is not changed
+	 * \todo Define flag values
 	 */
 	JOY_IOCTL_GETSETBUTTONFLAGS,
 };

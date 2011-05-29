@@ -264,6 +264,8 @@ void KB_UpdateLEDs(void)
 	outb(0x60, leds);
 }
 
+static const char	*csaIOCTL_NAMES[] = {DRV_IOCTLNAMES, DRV_KEYBAORD_IOCTLNAMES, NULL};
+
 /**
  * \fn int KB_IOCtl(tVFS_Node *Node, int Id, void *Data)
  * \brief Calls an IOCtl Command
@@ -272,11 +274,8 @@ int KB_IOCtl(tVFS_Node *Node, int Id, void *Data)
 {
 	switch(Id)
 	{
-	case DRV_IOCTL_TYPE:	return DRV_TYPE_KEYBOARD;
-	case DRV_IOCTL_IDENT:	memcpy(Data, "KB\0\0", 4);	return 1;
-	case DRV_IOCTL_VERSION:	return 0x100;
-	case DRV_IOCTL_LOOKUP:	return 0;
-
+	BASE_IOCTLS(DRV_TYPE_KEYBOARD, "KB", 0x100, csaIOCTL_NAMES);
+	
 	// Sets the Keyboard Callback
 	case KB_IOCTL_SETCALLBACK:
 		// Sanity Check
