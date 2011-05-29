@@ -9,7 +9,7 @@
 #include "ipv4.h"
 
 typedef struct sUDPHeader	tUDPHeader;
-typedef struct sUDPServer	tUDPServer;
+typedef struct sUDPEndpoint	tUDPEndpoint;
 typedef struct sUDPPacket	tUDPPacket;
 typedef struct sUDPChannel	tUDPChannel;
 
@@ -22,9 +22,20 @@ struct sUDPHeader
 	Uint8	Data[];
 };
 
+struct sUDPEndpoint
+{
+	Uint16	Port;
+	Uint16	AddrType;
+	union {
+		tIPv4	v4;
+		tIPv6	v6;
+	}	Addr;
+};
+
 struct sUDPPacket
 {
 	struct sUDPPacket	*Next;
+	tUDPEndpoint	Remote;
 	size_t	Length;
 	Uint8	Data[];
 };
@@ -34,30 +45,15 @@ struct sUDPChannel
 	struct sUDPChannel	*Next;
 	tInterface	*Interface;
 	Uint16	LocalPort;
-	union {
-		tIPv4	v4;
-		tIPv6	v6;
-	}	RemoteAddr;
-	Uint16	RemotePort;
+
+	tUDPEndpoint	Remote;	// Only accept packets form this address/port pair
+	 int	RemoteMask;	// Mask on the address
+	
 	tVFS_Node	Node;
 	tShortSpinlock	lQueue;
 	tUDPPacket	* volatile Queue;
 	tUDPPacket	*QueueEnd;
 };
 
-struct sUDPServer
-{
-	struct sUDPServer	*Next;
-	
-	tVFS_Node	Node;
-	
-	tInterface	*Interface;
-	Uint16	ListenPort;
-	 int	NextID;
-	 int	NumChannels;
-	tUDPChannel	*Channels;
-	tMutex	Lock;
-	tUDPChannel	* volatile NewChannels;
-};
-
 #endif
+

@@ -12,13 +12,7 @@
 void	UDP_Initialise();
 void	UDP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffer);
 void	UDP_Unreachable(tInterface *Interface, int Code, void *Address, int Length, void *Buffer);
-void	UDP_SendPacket(tUDPChannel *Channel, void *Data, size_t Length);
-// --- Listening Server
-tVFS_Node	*UDP_Server_Init(tInterface *Interface);
-char	*UDP_Server_ReadDir(tVFS_Node *Node, int ID);
-tVFS_Node	*UDP_Server_FindDir(tVFS_Node *Node, const char *Name);
- int	UDP_Server_IOCtl(tVFS_Node *Node, int ID, void *Data);
-void	UDP_Server_Close(tVFS_Node *Node);
+void	UDP_SendPacketTo(tUDPChannel *Channel, int AddrType, void *Address, Uint16 Port, void *Data, size_t Length);
 // --- Client Channels
 tVFS_Node	*UDP_Channel_Init(tInterface *Interface);
 Uint64	UDP_Channel_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
@@ -31,17 +25,13 @@ Uint16	UDP_int_AllocatePort();
 void	UDP_int_FreePort(Uint16 Port);
 
 // === GLOBALS ===
-tMutex	glUDP_Servers;
-tUDPServer	*gpUDP_Servers;
-
 tMutex	glUDP_Channels;
 tUDPChannel	*gpUDP_Channels;
 
 tMutex	glUDP_Ports;
 Uint32	gUDP_Ports[0x10000/32];
 
-tSocketFile	gUDP_ServerFile = {NULL, "udps", UDP_Server_Init};
-tSocketFile	gUDP_ClientFile = {NULL, "udpc", UDP_Channel_Init};
+tSocketFile	gUDP_SocketFile = {NULL, "udp", UDP_Channel_Init};
 
 // === CODE ===
 /**
@@ -50,8 +40,7 @@ tSocketFile	gUDP_ClientFile = {NULL, "udpc", UDP_Channel_Init};
  */
 void UDP_Initialise()
 {
-	IPStack_AddFile(&gUDP_ServerFile);
-	IPStack_AddFile(&gUDP_ClientFile);
+	IPStack_AddFile(&gUDP_SocketFile);
 	//IPv4_RegisterCallback(IP4PROT_UDP, UDP_GetPacket, UDP_Unreachable);
 	IPv4_RegisterCallback(IP4PROT_UDP, UDP_GetPacket);
 }
@@ -71,27 +60,30 @@ int UDP_int_ScanList(tUDPChannel *List, tInterface *Interface, void *Address, in
 		chan;
 		chan = chan->Next)
 	{
-		if(chan->Interface != Interface)	continue;
+		// Match local endpoint
+		if(chan->Interface && chan->Interface != Interface)	continue;
 		if(chan->LocalPort != ntohs(hdr->DestPort))	continue;
-		if(chan->RemotePort != ntohs(hdr->SourcePort))	continue;
 		
-		if(Interface->Type == 4) {
-			if(!IP4_EQU(chan->RemoteAddr.v4, *(tIPv4*)Address))	continue;
-		}
-		else if(Interface->Type == 6) {
-			if(!IP6_EQU(chan->RemoteAddr.v6, *(tIPv6*)Address))	continue;
-		}
-		else {
-			Warning("[UDP  ] Address type %i unknown", Interface->Type);
-			Mutex_Release(&glUDP_Channels);
-			return -1;
+		// Check for remote port restriction
+		if(chan->Remote.Port && chan->Remote.Port != ntohs(hdr->SourcePort))
+			continue;
+		// Check for remote address restriction
+		if(chan->RemoteMask)
+		{
+			if(chan->Remote.AddrType != Interface->Type)	continue;
+			if(!IPStack_CompareAddress(Interface->Type, Address,
+				&chan->Remote.Addr, chan->RemoteMask)
+				)
+				continue;
 		}
 		
-		Log("[UDP  ] Recieved packet for %p", chan);
+		Log_Log("UDP", "Recieved packet for %p", chan);
 		// Create the cached packet
 		len = ntohs(hdr->Length);
 		pack = malloc(sizeof(tUDPPacket) + len);
 		pack->Next = NULL;
+		memcpy(&pack->Remote.Addr, Address, IPStack_GetAddressSize(Interface->Type));
+		pack->Remote.Port = ntohs(hdr->SourcePort);
 		pack->Length = len;
 		memcpy(pack->Data, hdr->Data, len);
 		
@@ -115,38 +107,16 @@ int UDP_int_ScanList(tUDPChannel *List, tInterface *Interface, void *Address, in
 void UDP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffer)
 {
 	tUDPHeader	*hdr = Buffer;
-	tUDPServer	*srv;
-	 int	ret;
 	
-	Log("[UDP  ] hdr->SourcePort = %i", ntohs(hdr->SourcePort));
-	Log("[UDP  ] hdr->DestPort = %i", ntohs(hdr->DestPort));
-	Log("[UDP  ] hdr->Length = %i", ntohs(hdr->Length));
-	Log("[UDP  ] hdr->Checksum = 0x%x", ntohs(hdr->Checksum));
+	Log_Debug("UDP", "hdr->SourcePort = %i", ntohs(hdr->SourcePort));
+	Log_Debug("UDP", "hdr->DestPort = %i", ntohs(hdr->DestPort));
+	Log_Debug("UDP", "hdr->Length = %i", ntohs(hdr->Length));
+	Log_Debug("UDP", "hdr->Checksum = 0x%x", ntohs(hdr->Checksum));
 	
 	// Check registered connections
 	Mutex_Acquire(&glUDP_Channels);
-	ret = UDP_int_ScanList(gpUDP_Channels, Interface, Address, Length, Buffer);
+	UDP_int_ScanList(gpUDP_Channels, Interface, Address, Length, Buffer);
 	Mutex_Release(&glUDP_Channels);
-	if(ret != 0)	return ;
-	
-	
-	// TODO: Server/Listener
-	Mutex_Acquire(&glUDP_Servers);
-	for(srv = gpUDP_Servers;
-		srv;
-		srv = srv->Next)
-	{
-		if(srv->Interface != Interface)	continue;
-		if(srv->ListenPort != ntohs(hdr->DestPort))	continue;
-		ret = UDP_int_ScanList(srv->Channels, Interface, Address, Length, Buffer);
-		if(ret != 0)	break;
-		
-		// Add connection
-		Warning("[UDP  ] TODO - Add channel on connection");
-		//TODO
-	}
-	Mutex_Release(&glUDP_Servers);
-	
 }
 
 /**
@@ -163,204 +133,29 @@ void UDP_Unreachable(tInterface *Interface, int Code, void *Address, int Length,
  * \param Data	Packet data
  * \param Length	Length in bytes of packet data
  */
-void UDP_SendPacket(tUDPChannel *Channel, void *Data, size_t Length)
+void UDP_SendPacketTo(tUDPChannel *Channel, int AddrType, void *Address, Uint16 Port, void *Data, size_t Length)
 {
 	tUDPHeader	*hdr;
+
+	if(Channel->Interface && Channel->Interface->Type != AddrType)	return ;
 	
-	switch(Channel->Interface->Type)
+	switch(AddrType)
 	{
 	case 4:
 		// Create the packet
 		hdr = malloc(sizeof(tUDPHeader)+Length);
 		hdr->SourcePort = htons( Channel->LocalPort );
-		hdr->DestPort = htons( Channel->RemotePort );
+		hdr->DestPort = htons( Port );
 		hdr->Length = htons( sizeof(tUDPHeader) + Length );
 		hdr->Checksum = 0;	// Checksum can be zero on IPv4
 		memcpy(hdr->Data, Data, Length);
 		// Pass on the the IPv4 Layer
-		IPv4_SendPacket(Channel->Interface, Channel->RemoteAddr.v4, IP4PROT_UDP, 0, sizeof(tUDPHeader)+Length, hdr);
+		// TODO: What if Channel->Interface is NULL here?
+		IPv4_SendPacket(Channel->Interface, *(tIPv4*)Address, IP4PROT_UDP, 0, sizeof(tUDPHeader)+Length, hdr);
 		// Free allocated packet
 		free(hdr);
 		break;
 	}
-}
-
-// --- Listening Server
-tVFS_Node *UDP_Server_Init(tInterface *Interface)
-{
-	tUDPServer	*new;
-	new = calloc( sizeof(tUDPServer), 1 );
-	if(!new)	return NULL;
-	
-	new->Node.ImplPtr = new;
-	new->Node.Flags = VFS_FFLAG_DIRECTORY;
-	new->Node.NumACLs = 1;
-	new->Node.ACLs = &gVFS_ACL_EveryoneRX;
-	new->Node.ReadDir = UDP_Server_ReadDir;
-	new->Node.FindDir = UDP_Server_FindDir;
-	new->Node.IOCtl = UDP_Server_IOCtl;
-	new->Node.Close = UDP_Server_Close;
-	
-	Mutex_Acquire(&glUDP_Servers);
-	new->Next = gpUDP_Servers;
-	gpUDP_Servers = new;
-	Mutex_Release(&glUDP_Servers);
-	
-	return &new->Node;
-}
-
-/**
- * \brief Wait for a connection and return its ID in a string
- */
-char *UDP_Server_ReadDir(tVFS_Node *Node, int ID)
-{
-	tUDPServer	*srv = Node->ImplPtr;
-	tUDPChannel	*chan;
-	char	*ret;
-	
-	if( srv->ListenPort == 0 )	return NULL;
-	
-	// Lock (so another thread can't collide with us here) and wait for a connection
-	Mutex_Acquire( &srv->Lock );
-	while( srv->NewChannels == NULL )	Threads_Yield();
-	// Pop the connection off the new list
-	chan = srv->NewChannels;
-	srv->NewChannels = chan->Next;
-	// Release the lock
-	Mutex_Release( &srv->Lock );
-	
-	// Create the ID string and return it
-	ret = malloc(11+1);
-	sprintf(ret, "%i", chan->Node.ImplInt);
-	
-	return ret;
-}
-
-/**
- * \brief Take a string and find the channel
- */
-tVFS_Node *UDP_Server_FindDir(tVFS_Node *Node, const char *Name)
-{
-	tUDPServer	*srv = Node->ImplPtr;
-	tUDPChannel	*chan;
-	 int	id = atoi(Name);
-	
-	for(chan = srv->Channels;
-		chan;
-		chan = chan->Next)
-	{
-		if( chan->Node.ImplInt < id )	continue;
-		if( chan->Node.ImplInt > id )	break;	// Go sorted lists!
-		
-		return &chan->Node;
-	}
-	
-	return NULL;
-}
-
-/**
- * \brief Names for server IOCtl Calls
- */
-static const char *casIOCtls_Server[] = {
-	DRV_IOCTLNAMES,
-	"getset_listenport",
-	NULL
-	};
-/**
- * \brief Channel IOCtls
- */
-int UDP_Server_IOCtl(tVFS_Node *Node, int ID, void *Data)
-{
-	tUDPServer	*srv = Node->ImplPtr;
-	
-	ENTER("pNode iID pData", Node, ID, Data);
-	switch(ID)
-	{
-	BASE_IOCTLS(DRV_TYPE_MISC, "UDP Server", 0x100, casIOCtls_Server);
-	
-	case 4:	// getset_localport (returns bool success)
-		if(!Data)	LEAVE_RET('i', srv->ListenPort);
-		if(!CheckMem( Data, sizeof(Uint16) ) ) {
-			LOG("Invalid pointer %p", Data);
-			LEAVE_RET('i', -1);
-		}
-		// Set port
-		srv->ListenPort = *(Uint16*)Data;
-		// Permissions check (Ports lower than 1024 are root-only)
-		if(srv->ListenPort != 0 && srv->ListenPort < 1024) {
-			if( Threads_GetUID() != 0 ) {
-				LOG("Attempt by non-superuser to listen on port %i", srv->ListenPort);
-				srv->ListenPort = 0;
-				LEAVE_RET('i', -1);
-			}
-		}
-		// Allocate a random port if requested
-		if( srv->ListenPort == 0 )
-			srv->ListenPort = UDP_int_AllocatePort();
-		else
-		{
-			// Else, mark the requested port as used
-			if( UDP_int_MarkPortAsUsed(srv->ListenPort) == 0 ) {
-				LOG("Port %i us currently in use", srv->ListenPort);
-				srv->ListenPort = 0;
-				LEAVE_RET('i', -1);
-			}
-			LEAVE_RET('i', 1);
-		}
-		LEAVE_RET('i', 1);
-	
-	default:
-		LEAVE_RET('i', -1);
-	}
-	LEAVE_RET('i', 0);
-}
-
-void UDP_Server_Close(tVFS_Node *Node)
-{
-	tUDPServer	*srv = Node->ImplPtr;
-	tUDPServer	*prev;
-	tUDPChannel	*chan;
-	tUDPPacket	*tmp;
-	
-	
-	// Remove from the main list first
-	Mutex_Acquire(&glUDP_Servers);
-	if(gpUDP_Servers == srv)
-		gpUDP_Servers = gpUDP_Servers->Next;
-	else
-	{
-		for(prev = gpUDP_Servers;
-			prev->Next && prev->Next != srv;
-			prev = prev->Next);
-		if(!prev->Next)
-			Warning("[UDP  ] Bookeeping Fail, server %p is not in main list", srv);
-		else
-			prev->Next = prev->Next->Next;
-	}
-	Mutex_Release(&glUDP_Servers);
-	
-	
-	Mutex_Acquire(&srv->Lock);
-	for(chan = srv->Channels;
-		chan;
-		chan = chan->Next)
-	{
-		// Clear Queue
-		SHORTLOCK(&chan->lQueue);
-		while(chan->Queue)
-		{
-			tmp = chan->Queue;
-			chan->Queue = tmp->Next;
-			free(tmp);
-		}
-		SHORTREL(&chan->lQueue);
-		
-		// Free channel structure
-		free(chan);
-	}
-	Mutex_Release(&srv->Lock);
-	
-	free(srv);
 }
 
 // --- Client Channels
@@ -392,9 +187,10 @@ Uint64 UDP_Channel_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buf
 {
 	tUDPChannel	*chan = Node->ImplPtr;
 	tUDPPacket	*pack;
+	tUDPEndpoint	*ep;
+	 int	ofs;
 	
 	if(chan->LocalPort == 0)	return 0;
-	if(chan->RemotePort == 0)	return 0;
 	
 	while(chan->Queue == NULL)	Threads_Yield();
 	
@@ -415,13 +211,26 @@ Uint64 UDP_Channel_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buf
 		SHORTREL(&chan->lQueue);
 		break;
 	}
+
+	// Check that the header fits
+	ep = Buffer;
+	ofs = 4 + IPStack_GetAddressSize(pack->Remote.AddrType);
+	if(Length < ofs) {
+		free(pack);
+		return 0;
+	}
 	
-	// Clip length to packet length
-	if(Length > pack->Length)	Length = pack->Length;
-	// Copy packet data from cache
-	memcpy(Buffer, pack->Data, Length);
+	// Fill header
+	ep->Port = pack->Remote.Port;
+	ep->AddrType = pack->Remote.AddrType;
+	memcpy(&ep->Addr, &pack->Remote.Addr, IPStack_GetAddressSize(pack->Remote.AddrType));
+	
+	// Copy packet data
+	if(Length > ofs + pack->Length)	Length = ofs + pack->Length;
+	memcpy((char*)Buffer + ofs, pack->Data, Length - ofs);
+
 	// Free cached packet
-	free(pack);	
+	free(pack);
 	
 	return Length;
 }
@@ -432,9 +241,17 @@ Uint64 UDP_Channel_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buf
 Uint64 UDP_Channel_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 {
 	tUDPChannel	*chan = Node->ImplPtr;
-	if(chan->RemotePort == 0)	return 0;
+	tUDPEndpoint	*ep;
+	void	*data;
+	 int	ofs;
+	if(chan->LocalPort == 0)	return 0;
 	
-	UDP_SendPacket(chan, Buffer, (size_t)Length);
+	ep = Buffer;	
+	ofs = 2 + 2 + IPStack_GetAddressSize( ep->AddrType );
+
+	data = (char*)Buffer + ofs;
+
+	UDP_SendPacketTo(chan, ep->AddrType, &ep->Addr, ep->Port, Buffer, (size_t)Length - ofs);
 	
 	return 0;
 }
@@ -446,6 +263,7 @@ static const char *casIOCtls_Channel[] = {
 	DRV_IOCTLNAMES,
 	"getset_localport",
 	"getset_remoteport",
+	"set_remotemask",
 	"set_remoteaddr",
 	NULL
 	};
@@ -492,26 +310,37 @@ int UDP_Channel_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		LEAVE_RET('i', 1);
 	
 	case 5:	// getset_remoteport (returns bool success)
-		if(!Data)	LEAVE_RET('i', chan->RemotePort);
+		if(!Data)	LEAVE_RET('i', chan->Remote.Port);
 		if(!CheckMem( Data, sizeof(Uint16) ) ) {
 			LOG("Invalid pointer %p", Data);
 			LEAVE_RET('i', -1);
 		}
-		chan->RemotePort = *(Uint16*)Data;
+		chan->Remote.Port = *(Uint16*)Data;
 		return 1;
 	
-	case 6:	// set_remoteaddr (returns bool success)
-		switch(chan->Interface->Type)
-		{
-		case 4:
-			if(!CheckMem(Data, sizeof(tIPv4))) {
-				LOG("Invalid pointer %p", Data);
-				LEAVE_RET('i', -1);
-			}
-			chan->RemoteAddr.v4 = *(tIPv4*)Data;
-			break;
+	case 6:	// getset_remotemask (returns bool success)
+		if(!Data)	LEAVE_RET('i', chan->RemoteMask);
+		if(!CheckMem(Data, sizeof(int)))	LEAVE_RET('i', -1);
+		if( !chan->Interface ) {
+			LOG("Can't set remote mask on NULL interface");
+			LEAVE_RET('i', -1);
 		}
-		break;
+		if( *(int*)Data > IPStack_GetAddressSize(chan->Interface->Type) )
+			LEAVE_RET('i', -1);
+		chan->RemoteMask = *(int*)Data;
+		return 1;	
+
+	case 7:	// set_remoteaddr (returns bool success)
+		if( !chan->Interface ) {
+			LOG("Can't set remote address on NULL interface");
+			LEAVE_RET('i', -1);
+		}
+		if(!CheckMem(Data, IPStack_GetAddressSize(chan->Interface->Type))) {
+			LOG("Invalid pointer");
+			LEAVE_RET('i', -1);
+		}
+		memcpy(&chan->Remote.Addr, Data, IPStack_GetAddressSize(chan->Interface->Type));
+		return 0;
 	}
 	LEAVE_RET('i', 0);
 }
@@ -534,7 +363,7 @@ void UDP_Channel_Close(tVFS_Node *Node)
 			prev->Next && prev->Next != chan;
 			prev = prev->Next);
 		if(!prev->Next)
-			Warning("[UDP  ] Bookeeping Fail, channel %p is not in main list", chan);
+			Log_Warning("UDP", "Bookeeping Fail, channel %p is not in main list", chan);
 		else
 			prev->Next = prev->Next->Next;
 	}
