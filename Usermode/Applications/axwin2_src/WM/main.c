@@ -58,7 +58,8 @@ int main(int argc, char *argv[])
 	
 		Input_FillSelect(&nfds, &fds);
 		IPC_FillSelect(&nfds, &fds);
-
+		
+		nfds ++;
 		select(nfds, &fds, NULL, NULL, NULL);
 
 		Input_HandleSelect(&fds);

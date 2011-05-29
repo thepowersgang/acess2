@@ -6,11 +6,11 @@ CPPFLAGS += -I../include
 
 DIR := Apps/AxWin/1.0
 BIN := AxWinWM
-OBJ := main.o helpers.o commandline.o video.o video_text.o
+OBJ := main.o helpers.o commandline.o video.o input.o video_text.o
 OBJ += messages.o interface.o wm.o decorator.o
 OBJ += image.o
 
-LDFLAGS += -limage_sif -luri
+LDFLAGS += -limage_sif -luri -lnet
 
 -include ../../Makefile.tpl
 
