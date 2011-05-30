@@ -238,6 +238,7 @@ tInterface *IPStack_AddInterface(const char *Device, const char *Name)
 		+ IPStack_GetAddressSize(-1)*3	// Address, Route->Network, Route->NextHop
 		);
 	if(!iface) {
+		Log_Warning("IPStack", "AddInterface - malloc() failed");
 		LEAVE('n');
 		return NULL;	// Return ERR_MYBAD
 	}
@@ -266,12 +267,7 @@ tInterface *IPStack_AddInterface(const char *Device, const char *Name)
 	iface->TimeoutDelay = DEFAULT_TIMEOUT;
 	
 	// Get adapter handle
-	iface->Adapter = IPStack_GetAdapter(Device);
-	if( !iface->Adapter ) {
-		free( iface );
-		LEAVE('n');
-		return NULL;	// Return ERR_YOUFAIL
-	}
+	iface->Adapter = card;
 	
 	// Delay setting ImplInt until after the adapter is opened
 	// Keeps things simple
@@ -554,6 +550,7 @@ tAdapter *IPStack_GetAdapter(const char *Path)
 	// Ok, so let's open it
 	dev = malloc( sizeof(tAdapter) + strlen(Path) + 1 );
 	if(!dev) {
+		Log_Warning("IPStack", "GetAdapter - malloc() failed");
 		Mutex_Release( &glIP_Adapters );
 		LEAVE('n');
 		return NULL;
@@ -577,7 +574,7 @@ tAdapter *IPStack_GetAdapter(const char *Path)
 	tmp = VFS_IOCtl(dev->DeviceFD, 0, NULL);
 	LOG("Device type = %i", tmp);
 	if( tmp != DRV_TYPE_NETWORK ) {
-		Warning("IPStack_GetAdapter: '%s' is not a network interface", dev->Device);
+		Log_Warning("IPStack", "IPStack_GetAdapter: '%s' is not a network interface", dev->Device);
 		VFS_Close( dev->DeviceFD );
 		free( dev );
 		Mutex_Release( &glIP_Adapters );

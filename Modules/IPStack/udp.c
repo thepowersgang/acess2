@@ -263,7 +263,7 @@ static const char *casIOCtls_Channel[] = {
 	DRV_IOCTLNAMES,
 	"getset_localport",
 	"getset_remoteport",
-	"set_remotemask",
+	"getset_remotemask",
 	"set_remoteaddr",
 	NULL
 	};
