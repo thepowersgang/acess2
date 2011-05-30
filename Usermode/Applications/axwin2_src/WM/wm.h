@@ -1,4 +1,6 @@
-
+/*
+ * Acess2 Window Manager (AxWin2)
+ */
 #ifndef _WM_H_
 #define _WM_H_
 

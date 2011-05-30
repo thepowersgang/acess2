@@ -5,8 +5,8 @@
 #include "common.h"
 #include <acess/sys.h>
 #include <net.h>
-#include <axwin/messages.h>
-//#include <select.h>
+#include <axwin2/messages.h>
+//#include <sys/select.h>
 
 #define AXWIN_PORT	4101
 
@@ -21,21 +21,25 @@ void	Messages_RespondIPC(void *Ident, size_t Length, void *Data);
 void	Messages_Handle(void *Ident, int MsgLen, tAxWin_Message *Msg, tMessages_Handle_Callback *Respond);
 
 // === GLOBALS ===
- int	giIPCFileHandle;
+ int	giNetworkFileHandle = -1;
+ int	giMessagesFileHandle = -1;
 
 // === CODE ===
 void IPC_Init(void)
 {
 	 int	tmp;
 	// TODO: Check this
-	giIPCFileHandle = open("/Devices/ip/loop/udp", OPENFLAG_READ);
+	giNetworkFileHandle = open("/Devices/ip/loop/udp", OPENFLAG_READ);
 	tmp = AXWIN_PORT;	ioctl(giIPCFileHandle, 4, &tmp);	// TODO: Don't hard-code IOCtl number
+
+	// TODO: Open a handle to something like /Devices/proc/cur/messages to watch for messages
+//	giMessagesFileHandle = open("/Devices/"
 }
 
 void IPC_FillSelect(int *nfds, fd_set *set)
 {
-	if( giIPCFileHandle > *nfds )	*nfds = giIPCFileHandle;
-	FD_SET(giIPCFileHandle, set);
+	if( giNetworkFileHandle > *nfds )	*nfds = giNetworkFileHandle;
+	FD_SET(giNetworkFileHandle, set);
 }
 
 void IPC_HandleSelect(fd_set *set)
@@ -45,6 +49,7 @@ void IPC_HandleSelect(fd_set *set)
 		char	staticBuf[STATICBUF_SIZE];
 		 int	readlen, identlen;
 		char	*msg;
+
 		readlen = read(giIPCFileHandle, sizeof(staticBuf), staticBuf);
 		
 		// Assume that all connections are from localhost
@@ -105,7 +110,7 @@ void Messages_Handle(void *Ident, int MsgLen, tAxWin_Message *Msg, tMessages_Han
 		Msg->Data[0] = 0;
 		Msg->Data[1] = 1;
 		*(uint16_t*)&Msg->Data[2] = -1;
-		Messages_RespondIPC(ID, sizeof(Msg->ID), Msg);
+		Respond(Ident, sizeof(Msg->ID), Msg);
 		break;
 	#endif
 	default:
