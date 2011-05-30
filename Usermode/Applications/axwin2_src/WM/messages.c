@@ -6,7 +6,7 @@
 #include <acess/sys.h>
 #include <net.h>
 #include <axwin2/messages.h>
-//#include <sys/select.h>
+#include <string.h>
 
 #define AXWIN_PORT	4101
 
@@ -16,7 +16,10 @@
 typedef void tMessages_Handle_Callback(void*, size_t, void*);
 
 // === PROTOTYPES ===
-void	Messages_PollIPC();
+void	IPC_Init(void);
+void	IPC_FillSelect(int *nfds, fd_set *set);
+void	IPC_HandleSelect(fd_set *set);
+void	Messages_RespondDatagram(void *Ident, size_t Length, void *Data);
 void	Messages_RespondIPC(void *Ident, size_t Length, void *Data);
 void	Messages_Handle(void *Ident, int MsgLen, tAxWin_Message *Msg, tMessages_Handle_Callback *Respond);
 
@@ -30,7 +33,7 @@ void IPC_Init(void)
 	 int	tmp;
 	// TODO: Check this
 	giNetworkFileHandle = open("/Devices/ip/loop/udp", OPENFLAG_READ);
-	tmp = AXWIN_PORT;	ioctl(giIPCFileHandle, 4, &tmp);	// TODO: Don't hard-code IOCtl number
+	tmp = AXWIN_PORT;	ioctl(giNetworkFileHandle, 4, &tmp);	// TODO: Don't hard-code IOCtl number
 
 	// TODO: Open a handle to something like /Devices/proc/cur/messages to watch for messages
 //	giMessagesFileHandle = open("/Devices/"
@@ -44,55 +47,41 @@ void IPC_FillSelect(int *nfds, fd_set *set)
 
 void IPC_HandleSelect(fd_set *set)
 {
-	if( FD_ISSET(giIPCFileHandle, set) )
+	if( FD_ISSET(giNetworkFileHandle, set) )
 	{
 		char	staticBuf[STATICBUF_SIZE];
 		 int	readlen, identlen;
 		char	*msg;
 
-		readlen = read(giIPCFileHandle, sizeof(staticBuf), staticBuf);
+		readlen = read(giNetworkFileHandle, sizeof(staticBuf), staticBuf);
 		
 		// Assume that all connections are from localhost
 		identlen = 4 + Net_GetAddressSize( ((uint16_t*)staticBuf)[1] );
 		msg = staticBuf + identlen;
 
-		Messages_Handle(staticBuf, readlen - identlen, (void*)msg, Messages_RespondIPC);
+		Messages_Handle(staticBuf, readlen - identlen, (void*)msg, Messages_RespondDatagram);
+	}
+
+	while(SysGetMessage(NULL, NULL))
+	{
+		pid_t	tid;
+		 int	len = SysGetMessage(&tid, NULL);
+		char	data[len];
+		SysGetMessage(NULL, data);
+
+		Messages_Handle(&tid, len, (void*)data, Messages_RespondIPC);
 	}
 }
 
-#if 0
-void Messages_PollIPC()
+void Messages_RespondDatagram(void *Ident, size_t Length, void *Data)
 {
-	 int	len;
-	pid_t	tid = 0;
-	char	staticBuf[STATICBUF_SIZE];
-	tAxWin_Message	*msg;
-	
-	// Wait for a message
-	while( (len = SysGetMessage(&tid, NULL)) == 0 )
-		sleep();
-	
-	// Allocate the space for it
-	if( len <= STATICBUF_SIZE )
-		msg = (void*)staticBuf;
-	else {
-		msg = malloc( len );
-		if(!msg) {
-			fprintf(
-				stderr,
-				"ERROR - Unable to allocate message buffer, ignoring message from %i\n",
-				tid);
-			SysGetMessage(NULL, GETMSG_IGNORE);
-			return ;
-		}
-	}
-	
-	// Get message data
-	SysGetMessage(NULL, msg);
-	
-	Messages_Handle(msg, Messages_RespondIPC, tid);
+	 int	addrSize = Net_GetAddressSize( ((uint16_t*)Ident)[1] );
+	char	tmpbuf[ 4 + addrSize + Length ];
+	memcpy(tmpbuf, Ident, 4 + addrSize);
+	memcpy(tmpbuf + 4 + addrSize, Data, Length);
+	// TODO: Handle fragmented packets
+	write(giNetworkFileHandle, sizeof(tmpbuf), tmpbuf);
 }
-#endif
 
 void Messages_RespondIPC(void *Ident, size_t Length, void *Data)
 {
