@@ -33,57 +33,57 @@ void Interface_Init(void)
 	giInterface_Width = giScreenWidth/16;
 	
 	// Set root window to no-border
-	WM_SetFlags(NULL, 0);
+	AxWin_SetFlags(NULL, 0);
 	
 	// -- Create Sidebar (Menu and Window List) --
-	gpInterface_Sidebar = WM_CreateElement(NULL, ELETYPE_TOOLBAR, ELEFLAG_VERTICAL, "Sidebar");
-	WM_SetSize( gpInterface_Sidebar, giInterface_Width );
+	gpInterface_Sidebar = AxWin_CreateElement(NULL, ELETYPE_TOOLBAR, ELEFLAG_VERTICAL, "Sidebar");
+	AxWin_SetSize( gpInterface_Sidebar, giInterface_Width );
 	
 	// > System Menu Button
-	btn = WM_CreateElement(gpInterface_Sidebar, ELETYPE_BUTTON, ELEFLAG_NOSTRETCH, "SystemMenu");
-	WM_SetSize(btn, giInterface_Width-4);
-	//text = WM_CreateElement(btn, ELETYPE_IMAGE, ELEFLAG_SCALE, "MenuLogo");
-	text = WM_CreateElement(btn, ELETYPE_IMAGE, 0, "MenuLogo");
-	//WM_SetText(text, "file:///LogoSmall.sif");
-	WM_SetText(text, csLogoSmall);
+	btn = AxWin_CreateElement(gpInterface_Sidebar, ELETYPE_BUTTON, ELEFLAG_NOSTRETCH, "SystemMenu");
+	AxWin_SetSize(btn, giInterface_Width-4);
+	//text = AxWin_CreateElement(btn, ELETYPE_IMAGE, ELEFLAG_SCALE, "MenuLogo");
+	text = AxWin_CreateElement(btn, ELETYPE_IMAGE, 0, "MenuLogo");
+	//AxWin_SetText(text, "file:///LogoSmall.sif");
+	AxWin_SetText(text, csLogoSmall);
 	
 	// > Plain <hr/> style spacer
-	ele = WM_CreateElement(gpInterface_Sidebar, ELETYPE_SPACER, ELEFLAG_NOSTRETCH, "SideBar Spacer Top");
-	WM_SetSize(ele, 4);
+	ele = AxWin_CreateElement(gpInterface_Sidebar, ELETYPE_SPACER, ELEFLAG_NOSTRETCH, "SideBar Spacer Top");
+	AxWin_SetSize(ele, 4);
 	
 	// > Application List (Window list on most OSs)
-	gpInterface_ProgramList = WM_CreateElement(gpInterface_Sidebar, ELETYPE_BOX, ELEFLAG_VERTICAL, "ProgramList");
+	gpInterface_ProgramList = AxWin_CreateElement(gpInterface_Sidebar, ELETYPE_BOX, ELEFLAG_VERTICAL, "ProgramList");
 	
 	// > Plain <hr/> style spacer
-	ele = WM_CreateElement(gpInterface_Sidebar, ELETYPE_SPACER, ELEFLAG_NOSTRETCH, "SideBar Spacer Bottom");
-	WM_SetSize(ele, 4);
+	ele = AxWin_CreateElement(gpInterface_Sidebar, ELETYPE_SPACER, ELEFLAG_NOSTRETCH, "SideBar Spacer Bottom");
+	AxWin_SetSize(ele, 4);
 	
 	// > Version/Time
-	text = WM_CreateElement(gpInterface_Sidebar, ELETYPE_TEXT, ELEFLAG_NOSTRETCH, "Version String");
-	WM_SetSize(text, 20);
-	WM_SetText(text, "2.0");
+	text = AxWin_CreateElement(gpInterface_Sidebar, ELETYPE_TEXT, ELEFLAG_NOSTRETCH, "Version String");
+	AxWin_SetSize(text, 20);
+	AxWin_SetText(text, "2.0");
 	
 	// --
 	// -- Create Main Area and regions within --
 	// --
 	// > Righthand Area
-	gpInterface_MainArea = WM_CreateElement(NULL, ELETYPE_BOX, ELEFLAG_VERTICAL, "MainArea");
+	gpInterface_MainArea = AxWin_CreateElement(NULL, ELETYPE_BOX, ELEFLAG_VERTICAL, "MainArea");
 	//  > Header Bar (Title)
-	gpInterface_HeaderBar = WM_CreateElement(gpInterface_MainArea, ELETYPE_BOX, 0, "HeaderBar");
-	WM_SetSize(gpInterface_HeaderBar, giInterface_HeaderBarSize);
-	text = WM_CreateElement(gpInterface_HeaderBar, ELETYPE_TEXT, 0, NULL);
-	WM_SetText(text, "Acess2 GUI - By thePowersGang (John Hodge)");
+	gpInterface_HeaderBar = AxWin_CreateElement(gpInterface_MainArea, ELETYPE_BOX, 0, "HeaderBar");
+	AxWin_SetSize(gpInterface_HeaderBar, giInterface_HeaderBarSize);
+	text = AxWin_CreateElement(gpInterface_HeaderBar, ELETYPE_TEXT, 0, NULL);
+	AxWin_SetText(text, "Acess2 GUI - By thePowersGang (John Hodge)");
 	//  > Tab Bar (Current windows)
-	gpInterface_TabBar = WM_CreateElement(gpInterface_MainArea, ELETYPE_TABBAR, 0, "TabBar");
-	WM_SetSize(gpInterface_TabBar, giInterface_TabBarSize);
+	gpInterface_TabBar = AxWin_CreateElement(gpInterface_MainArea, ELETYPE_TABBAR, 0, "TabBar");
+	AxWin_SetSize(gpInterface_TabBar, giInterface_TabBarSize);
 	//  > Application Space
-	gpInterface_TabContent = WM_CreateElement(gpInterface_MainArea, ELETYPE_BOX, 0, "TabContent");
+	gpInterface_TabContent = AxWin_CreateElement(gpInterface_MainArea, ELETYPE_BOX, 0, "TabContent");
 }
 
 void Interface_Update(void)
 {
 	giInterface_Width = giScreenWidth/16;
-	WM_SetSize( gpInterface_Sidebar, giInterface_Width );
+	AxWin_SetSize( gpInterface_Sidebar, giInterface_Width );
 }
 
 void Interface_Render(void)

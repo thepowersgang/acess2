@@ -2,14 +2,18 @@
 #ifndef _WM_H_
 #define _WM_H_
 
-typedef struct sElement
+#include <axwin2/axwin.h>
+
+typedef struct sAxWin_Element	tElement;
+
+struct sAxWin_Element
 {
 	 int	Type;
 	
-	struct sElement	*Parent;
-	struct sElement	*FirstChild;
-	struct sElement	*LastChild;
-	struct sElement	*NextSibling;
+	tElement	*Parent;
+	tElement	*FirstChild;
+	tElement	*LastChild;
+	tElement	*NextSibling;
 	
 	short	PaddingL, PaddingR;
 	short	PaddingT, PaddingB;
@@ -33,15 +37,16 @@ typedef struct sElement
 	short	CachedW, CachedH;
 	
 	char	DebugName[];
-}	tElement;
+};
 
 typedef struct sTab
 {
 	 int	Type;	// Should be zero, allows a tab to be the parent of an element
 	
-	struct sElement	*Parent;
-	struct sElement	*FirstChild;
-	struct sElement	*LastChild;
+	tElement	*Parent;
+	tElement	*FirstChild;
+	tElement	*LastChild;
+	struct sTab	*NextTab;
 	
 	char	*Name;
 	
@@ -57,101 +62,5 @@ typedef struct sApplication
 	
 	char	Name[];
 }	tApplication;
-
-// === CONSTANTS ===
-enum eElementFlags
-{
-	/**
-	 * \brief Rendered
-	 * 
-	 * If set, the element will be ignored in calculating sizes and
-	 * rendering.
-	 */
-	ELEFLAG_NORENDER    = 0x001,
-	/**
-	 * \brief Element visibility
-	 * 
-	 * If set, the element is not drawn (but still is used for size calculations)
-	 */
-	ELEFLAG_INVISIBLE   = 0x002,
-	
-	/**
-	 * \brief Position an element absulutely (ignored in size calcs)
-	 */
-	ELEFLAG_ABSOLUTEPOS = 0x004,
-	
-	/**
-	 * \brief Fixed size element
-	 */
-	ELEFLAG_FIXEDSIZE   = 0x008,
-	
-	/**
-	 * \brief Element "orientation"
-	 * 
-	 * Vertical means that the children of this element are stacked,
-	 * otherwise they list horizontally
-	 */
-	ELEFLAG_VERTICAL    = 0x010,//	ELEFLAG_HORIZONTAL  = 0x000,
-	/**
-	 * \brief Action for text that overflows
-	 */
-	ELEFLAG_WRAP        = 0x020,//	ELEFLAG_NOWRAP      = 0x000,
-	/**
-	 * \brief Cross size action
-	 * 
-	 * If this flag is set, the element will only be as large (across
-	 * its parent) as is needed to encase the contents of the element.
-	 * Otherwise, the element will expand to fill all avaliable space.
-	 */
-	ELEFLAG_NOEXPAND    = 0x040,
-	
-	/**
-	 * \brief With (length) size action
-	 * If this flag is set, the element will only be as large as
-	 * is required along it's parent
-	 */
-	ELEFLAG_NOSTRETCH   = 0x080,
-	
-	/**
-	 * \brief Center alignment
-	 */
-	ELEFLAG_ALIGN_CENTER= 0x100,
-	/**
-	 * \brief Right/Bottom alignment
-	 * 
-	 * If set, the element aligns to the end of avaliable space (instead
-	 * of the beginning)
-	 */
-	ELEFLAG_ALIGN_END	= 0x200
-};
-
-/**
- */
-enum eElementTypes
-{
-	ELETYPE_NONE,
-	
-	ELETYPE_BOX,	//!< Content box (invisible in itself)
-	ELETYPE_TABBAR,	//!< Tab Bar
-	ELETYPE_TOOLBAR,	//!< Tool Bar
-	
-	ELETYPE_BUTTON,	//!< Push Button
-	
-	ELETYPE_TEXT,	//!< Text
-	ELETYPE_IMAGE,	//!< Image
-	
-	ELETYPE_SPACER,	//!< Visual Spacer (horizontal / vertical rule)
-	
-	MAX_ELETYPES	= 0x100
-};
-
-// === FUNCTIONS ===
-/**
- * \brief Create a new element as a child of \a Parent
- */
-extern tElement	*WM_CreateElement(tElement *Parent, int Type, int Flags, const char *DebugName);
-extern void	WM_SetFlags(tElement *Element, int Flags);
-extern void	WM_SetSize(tElement *Element, int Size);
-extern void	WM_SetText(tElement *Element, const char *Text);
 
 #endif

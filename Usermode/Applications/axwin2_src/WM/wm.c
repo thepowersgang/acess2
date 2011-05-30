@@ -14,11 +14,12 @@ extern void	Decorator_RenderWidget(tElement *Element);
 extern void	Video_GetTextDims(tFont *Font, const char *Text, int *W, int *H);
 
 // === PROTOTYPES ===
-tElement	*WM_CreateElement(tElement *Parent, int Type, int Flags, const char *DebugName);
+tElement	*AxWin_CreateElement(tElement *Parent, int Type, int Flags, const char *DebugName);
+void	AxWin_DeleteElement(tElement *Element);
+void	AxWin_SetFlags(tElement *Element, int Flags);
+void	AxWin_SetSize(tElement *Element, int Size);
+void	AxWin_SetText(tElement *Element, const char *Text);
 void	WM_UpdateMinDims(tElement *Element);
-void	WM_SetFlags(tElement *Element, int Flags);
-void	WM_SetSize(tElement *Element, int Size);
-void	WM_SetText(tElement *Element, const char *Text);
 void	WM_UpdateDimensions(tElement *Element, int Pass);
 void	WM_UpdatePosition(tElement *Element);
 void	WM_RenderWidget(tElement *Element);
@@ -40,7 +41,7 @@ struct {
 
 // === CODE ===
 // --- Widget Creation and Control ---
-tElement *WM_CreateElement(tElement *Parent, int Type, int Flags, const char *DebugName)
+tAxWin_Element *AxWin_CreateElement(tElement *Parent, int Type, int Flags, const char *DebugName)
 {
 	tElement	*ret;
 	const char	*dbgName = DebugName ? DebugName : "";
@@ -75,9 +76,17 @@ tElement *WM_CreateElement(tElement *Parent, int Type, int Flags, const char *De
 }
 
 /**
+ * \brief
+ */
+void AxWin_DeleteElement(tElement *Element)
+{
+	// TODO: Implement AxWin_DeleteElement
+}
+
+/**
  * \brief Alter an element's flags 
  */
-void WM_SetFlags(tElement *Element, int Flags)
+void AxWin_SetFlags(tElement *Element, int Flags)
 {
 	// Permissions are handled in the message handler
 	if(!Element) {
@@ -89,7 +98,7 @@ void WM_SetFlags(tElement *Element, int Flags)
 	return ;
 }
 
-void WM_SetSize(tElement *Element, int Size)
+void AxWin_SetSize(tElement *Element, int Size)
 {
 	if(!Element)	return ;
 	Element->FixedWith = Size;
@@ -100,7 +109,7 @@ void WM_SetSize(tElement *Element, int Size)
  * \brief Set the text field of an element
  * \note Used for the image path on ELETYPE_IMAGE
  */
-void WM_SetText(tElement *Element, const char *Text)
+void AxWin_SetText(tElement *Element, const char *Text)
 {
 	if(!Element)	return ;
 	if(Element->Text)	free(Element->Text);
