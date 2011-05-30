@@ -113,16 +113,23 @@ struct sJoystick_FileHeader
  * \brief Axis Definition in file data
  *
  * Describes the current state of an axis on the joystick.
- * \a MinValue and \a MaxValue describe the valid range for \a CurValue
- * While \a CurState is between zero and the current limit set by the
- * JOY_IOCTL_GETSETAXISLIMIT IOCtl.
+ * \a CursorPos is between zero and the current limit set by the
+ * JOY_IOCTL_GETSETAXISLIMIT IOCtl, while \a CurValue indicates the
+ * current position of the joystick axis. This is defined to be between
+ * \a MinValue and \a MaxValue.
  */
 struct sJoystick_Axis
 {
 	Sint16	MinValue;	//!< Minumum value for \a CurValue
 	Sint16	MaxValue;	//!< Maximum value for \a CurValue
 	Sint16	CurValue;	//!< Current value (joystick position)
-	Uint16	CurState;	//!< Current state (cursor position)
+	Uint16	CursorPos;	//!< Current state (cursor position)
 };
+
+#define JOY_INFOSTRUCT(_naxies, _nbuttons) struct { \
+	Uint16	NAxies, NButtons;\
+	tJoystick_Axis	Axies[_naxies];\
+	Uint16	Buttons[_nbuttons];\
+	}
 
 #endif

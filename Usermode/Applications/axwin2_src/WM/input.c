@@ -3,6 +3,7 @@
  * By John Hodge (thePowersGang)
  */
 #include "common.h"
+#include <acess/sys.h>
 
 // === CODE ===
 void Input_FillSelect(int *nfds, fd_set *set)
@@ -17,6 +18,28 @@ void Input_HandleSelect(fd_set *set)
 {
 	if(FD_ISSET(giTerminalFD, set))
 	{
+		// TODO:
+	}
+
+	if(FD_ISSET(giMouseFD, set))
+	{
+		struct sMouseInfo {
+			uint16_t	NAxies, NButtons;
+			struct sMouseAxis {
+				 int16_t	MinValue, MaxValue;
+				 int16_t	CurValue;
+				uint16_t	CursorPos;
+			}	Axies[2];
+			uint8_t	Buttons[3];
+		}	mouseinfo;
 		
+		if( read(giMouseFD, sizeof(mouseinfo), &mouseinfo) != sizeof(mouseinfo) )
+		{
+			// Not a 3 button mouse, oops
+			return ;
+		}
+		
+		// Handle movement
+//		Video_SetCursorPos( mouseinfo.Axies[0], mouseinfo.Axies[1] );
 	}
 }
