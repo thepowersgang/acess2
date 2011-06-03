@@ -17,6 +17,7 @@
 *.lin
 *.exe
 *.kmd.*
+*.log
 Map*.txt
 map.txt
 Doxylog*.txt
@@ -31,5 +32,7 @@ Usermode/Output/
 gitstats/
 .*.swp
 .*
+
+*.res.h
 
 obj-*/
