@@ -6,19 +6,11 @@
 #include <acess/sys.h>
 
 // === IMPORTS ===
-extern void	ParseCommandline(int argc, char *argv[]);
-extern void	Video_Setup(void);
 extern void	WM_Update(void);
-extern void	Interface_Init(void);
-extern void	IPC_Init(void);
-extern void	IPC_FillSelect(int *nfds, fd_set *set);
-extern void	IPC_HandleSelect(fd_set *set);
-extern void	Input_FillSelect(int *nfds, fd_set *set);
-extern void	Input_HandleSelect(fd_set *set);
 
 // === GLOBALS ===
-char	*gsTerminalDevice = NULL;
-char	*gsMouseDevice = NULL;
+const char	*gsTerminalDevice = NULL;
+const char	*gsMouseDevice = NULL;
 
  int	giScreenWidth = 640;
  int	giScreenHeight = 480;

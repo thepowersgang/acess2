@@ -22,7 +22,7 @@ typedef struct sAxWin_RetMsg	tAxWin_RetMsg;
  */
 enum eAxWin_Messages
 {
-	// Server Requests
+	// Client->Server Requests
 	MSG_SREQ_PING,
 	// - Windows
 	MSG_SREQ_REGISTER,	// bool (char[] Name) - Registers this PID with the Window Manager
@@ -30,6 +30,8 @@ enum eAxWin_Messages
 	MSG_SREQ_ADDTAB,	// TAB (char[] Name) - Adds a tab to the window
 	MSG_SREQ_DELTAB,	// void (TAB Tab)	- Closes a tab
 	
+	MSG_SREQ_SETICON	// void (TAB Tab, char[] IconURI)	- Set the icon of a tab (or application)
+
 	MSG_SREQ_NEWDIALOG,	// DIALOG (TAB Parent, char[] Name)	- Creates a dialog
 	MSG_SREQ_DELDIALOG,	// void (DIALOG Dialog)	- Closes a dialog
 	
@@ -49,7 +51,7 @@ enum eAxWin_Messages
 	MSG_SREQ_RIMG,	MSG_SREQ_SIMG,	// Register/Set Image
 	MSG_SREQ_SETFONT,	MSG_SREQ_PUTTEXT,
 	
-	// Server Responses
+	// Server->Client Responses
 	MSG_SRSP_VERSION,
 	MSG_SRSP_RETURN,	// {int RequestID, void[] Return Value} - Returns a value from a server request
 	
@@ -104,8 +106,9 @@ struct sAxWin_SRsp_NewWindow
  */
 struct sAxWin_Message
 {
+	uint32_t	Source;
 	uint16_t	ID;
-	uint16_t	Size;	//!< Size in DWORDS
+	uint16_t	Size;	// Size of data
 	char	Data[];
 };
 

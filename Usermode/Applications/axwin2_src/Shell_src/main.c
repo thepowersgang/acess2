@@ -3,6 +3,8 @@
  * - By John Hodge (thePowersGang)
  */
 #include <axwin2/axwin.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 // === CONSTANTS ===
 enum eTerminal_Events
@@ -25,6 +27,14 @@ tAxWin_Element	*geConsole;
 int main(int argc, char *argv[])
 {
 	tAxWin_Element	*menu, *tab;
+	
+	if(argc != 1)
+	{
+		fprintf(stderr, "Usage: %s\n", argv[0]);
+		fprintf(stderr, "\tThis application takes no arguments\n");
+		return 0;
+	}
+
 	AxWin_Register("Terminal", Global_HandleMessage);
 
 	menu = AxWin_AddMenuItem(NULL, "File", 0);
@@ -45,10 +55,18 @@ int main(int argc, char *argv[])
  */
 int Global_HandleMessage(tAxWin_Message *Message)
 {
-	return 0;
+	switch(Message->ID)
+	{
+	default:
+		return 0;
+	}
 }
 
 int Shell_HandleMessage(tAxWin_Message *Message)
 {
-	return 0;
+	switch(Message->ID)
+	{
+	default:
+		return 0;
+	}
 }

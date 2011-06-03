@@ -13,7 +13,6 @@
 #define STATICBUF_SIZE	64
 
 // === TYPES ===
-typedef void tMessages_Handle_Callback(void*, size_t, void*);
 
 // === PROTOTYPES ===
 void	IPC_Init(void);
@@ -21,7 +20,7 @@ void	IPC_FillSelect(int *nfds, fd_set *set);
 void	IPC_HandleSelect(fd_set *set);
 void	Messages_RespondDatagram(void *Ident, size_t Length, void *Data);
 void	Messages_RespondIPC(void *Ident, size_t Length, void *Data);
-void	Messages_Handle(void *Ident, int MsgLen, tAxWin_Message *Msg, tMessages_Handle_Callback *Respond);
+void	Messages_Handle(void *Ident, size_t MsgLen, tAxWin_Message *Msg, tMessages_Handle_Callback *Respond);
 
 // === GLOBALS ===
  int	giNetworkFileHandle = -1;
@@ -88,20 +87,33 @@ void Messages_RespondIPC(void *Ident, size_t Length, void *Data)
 	SysSendMessage( *(tid_t*)Ident, Length, Data );
 }
 
-void Messages_Handle(void *Ident, int MsgLen, tAxWin_Message *Msg, tMessages_Handle_Callback *Respond)
+void Messages_Handle(void *Ident, size_t MsgLen, tAxWin_Message *Msg, tMessages_Handle_Callback *Respond)
 {
+	if( MsgLen < sizeof(tAxWin_Message) )
+		return ;
+	if( MsgLen < sizeof(tAxWin_Message) + Msg->Size )
+		return ;
+
 	switch(Msg->ID)
 	{
-	#if 0
 	case MSG_SREQ_PING:
+		if( MsgLen < sizeof(tAxWin_Message) + 4 )	return;
 		Msg->ID = MSG_SRSP_VERSION;
-		Msg->Size = 2;
+		Msg->Size = 4;
 		Msg->Data[0] = 0;
 		Msg->Data[1] = 1;
 		*(uint16_t*)&Msg->Data[2] = -1;
 		Respond(Ident, sizeof(Msg->ID), Msg);
 		break;
-	#endif
+
+	case MSG_SREQ_REGISTER:
+		if( Msg->Len == strnlen(Msg->Len, Msg->Data) ) {
+			// Special handling?
+			return ;
+		}
+		
+		break;
+
 	default:
 		fprintf(stderr, "WARNING: Unknown message %i (%p)\n", Msg->ID, Respond);
 		_SysDebug("WARNING: Unknown message %i (%p)\n", Msg->ID, Respond);

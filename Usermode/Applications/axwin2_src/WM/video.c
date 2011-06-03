@@ -131,7 +131,8 @@ void Video_DrawImage(short X, short Y, short W, short H, tImage *Image)
 		{
 			 int	r, g, b, a;	// New
 			 int	or, og, ob;	// Original
-			for( x = 0; x < W; x ++ ) {
+			for( x = 0; x < W; x ++ )
+			{
 				b = data[x*4+0]; g = data[x*4+1]; r = data[x*4+2]; a = data[x*4+3];
 				if( a == 0 )	continue;	// 100% transparent
 				ob = buf[x*4+0]; og = buf[x*4+1]; or = buf[x*4+2];
@@ -165,7 +166,8 @@ void Video_DrawImage(short X, short Y, short W, short H, tImage *Image)
 	case IMGFMT_RGB:
 		for( y = 0; y < H; y ++ )
 		{
-			for( x = 0; x < W; x ++ ) {
+			for( x = 0; x < W; x ++ )
+			{
 				buf[x*4+0] = data[x*3+2];	// Blue
 				buf[x*4+1] = data[x*3+1];	// Green
 				buf[x*4+2] = data[x*3+0];	// Red
@@ -173,6 +175,9 @@ void Video_DrawImage(short X, short Y, short W, short H, tImage *Image)
 			data += W * 3;
 			buf += giScreenWidth * 4;
 		}
+		break;
+	default:
+		_SysDebug("ERROR: Unknown image format %i\n", Image->Format);
 		break;
 	}
 }

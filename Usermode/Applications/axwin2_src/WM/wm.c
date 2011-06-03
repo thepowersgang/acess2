@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "wm.h"
+#include <acess/sys.h>	// _SysDebug
 
 // === IMPORTS ===
 extern void	Decorator_RenderWidget(tElement *Element);
@@ -26,9 +27,14 @@ void	WM_RenderWidget(tElement *Element);
 void	WM_Update(void);
 
 // === GLOBALS ===
+// - TODO: Handle windows by having multiple root elements
 tElement	gWM_RootElement = {
 	.DebugName = "ROOT"
 };
+
+tApplication	*gWM_Applications;
+
+// --- Element type flags
 struct {
 	void	(*Init)(tElement *This);
 	void	(*UpdateFlags)(tElement *This);
@@ -81,6 +87,7 @@ tAxWin_Element *AxWin_CreateElement(tElement *Parent, int Type, int Flags, const
 void AxWin_DeleteElement(tElement *Element)
 {
 	// TODO: Implement AxWin_DeleteElement
+	free(Element);
 }
 
 /**
@@ -153,6 +160,8 @@ void AxWin_SetText(tElement *Element, const char *Text)
 		}
 		}
 		break;
+	default:	// Any other, no special case
+		break ;	
 	}
 	
 	return ;
@@ -166,6 +175,7 @@ void AxWin_SetText(tElement *Element, const char *Text)
  */
 /**
  * \brief Updates the dimensions of an element
+ * \todo What is the \a Pass parameter for
  * 
  * The dimensions of an element are calculated from the parent's
  * cross dimension (the side at right angles to the alignment) sans some
@@ -266,7 +276,7 @@ void WM_UpdateDimensions(tElement *Element, int Pass)
 		else
 			child->CachedW = with;
 		
-		WM_UpdateDimensions(child, 0);
+		WM_UpdateDimensions(child, Pass);
 	}
 	
 	_SysDebug("%p'%s' Done", Element, Element->DebugName);

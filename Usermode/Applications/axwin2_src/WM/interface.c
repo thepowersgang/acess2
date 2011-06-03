@@ -19,6 +19,15 @@ tElement	*gpInterface_HeaderBar;
 tElement	*gpInterface_TabBar;
 tElement	*gpInterface_TabContent;
 const char	csLogoSmall[] = "base64:///"RESOURCE_LogoSmall_sif;
+tApplication	*gpInterface_CurrentApp;
+
+typedef struct sApplicationLink	tApplicationLink;
+
+struct sApplicationLink {
+	tApplication	*App;
+	tElement	*Button;
+	char	Name[];
+};
 
 // === CODE ===
 /**
@@ -82,13 +91,23 @@ void Interface_Init(void)
 
 void Interface_Update(void)
 {
+//	tApplication	*app;
+//	tApplicationLink	*lnk;
 	giInterface_Width = giScreenWidth/16;
 	AxWin_SetSize( gpInterface_Sidebar, giInterface_Width );
+
+	// Scan application list for changes
+	// - HACK for now, just directly access it
+//	for( app = gWM_Applications; app; app = app->Next )
+//	{
+//		AxWin_CreateElement();
+//	}
+
+	// Update current tab list
 }
 
 void Interface_Render(void)
 {
-	
 	Video_FillRect(
 		0, 0,
 		giInterface_Width, giScreenHeight,

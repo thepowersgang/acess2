@@ -2,7 +2,7 @@
 
 -include ../../Makefile.cfg
 
-CPPFLAGS += -I../include
+CPPFLAGS +=
 LDFLAGS += -laxwin2
 
 DIR = Apps/AxWin/1.0

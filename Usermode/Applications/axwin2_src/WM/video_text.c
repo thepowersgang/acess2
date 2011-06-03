@@ -2,6 +2,7 @@
  * Acess GUI (AxWin) Version 2
  * By John Hodge (thePowersGang)
  */
+#include <acess/sys.h>
 #include "common.h"
 
 typedef struct sGlyph {
@@ -43,6 +44,7 @@ struct sFont {
 
 // === PROTOTYPES ===
  int	Video_DrawText(short X, short Y, short W, short H, tFont *Font, uint32_t Color, char *Text);
+void	Video_GetTextDims(tFont *Font, const char *Text, int *W, int *H);
 tGlyph	*_GetGlyph(tFont *Font, uint32_t Codepoint);
 void	_RenderGlyph(short X, short Y, tGlyph *Glyph, uint32_t Color);
 tGlyph	*_SystemFont_CacheGlyph(tFont *Font, uint32_t Codepoint);

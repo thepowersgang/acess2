@@ -8,18 +8,20 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <acess/sys.h>	// _SysDebug
+
+typedef void tMessages_Handle_Callback(void*, size_t, void*);
+typedef struct sFont	tFont;
 
 #include "wm.h"
 #include "image.h"
 //#include "font.h"
 
-typedef struct sFont	tFont;
-
 // === MACROS ===
 static inline uint32_t Video_AlphaBlend(uint32_t _orig, uint32_t _new, uint8_t _alpha)
 {
-	 int	ao,ro,go,bo;
-	 int	an,rn,gn,bn;
+	uint16_t	ao,ro,go,bo;
+	uint16_t	an,rn,gn,bn;
 	if( _alpha == 0 )	return _orig;
 	if( _alpha == 255 )	return _new;
 	
@@ -54,8 +56,8 @@ static inline uint32_t Video_AlphaBlend(uint32_t _orig, uint32_t _new, uint8_t _
 }
 
 // === GLOBALS ===
-extern char	*gsTerminalDevice;
-extern char	*gsMouseDevice;
+extern const char	*gsTerminalDevice;
+extern const char	*gsMouseDevice;
 
 extern int	giScreenWidth;
 extern int	giScreenHeight;
@@ -66,12 +68,25 @@ extern int	giMouseFD;
 
 // === Functions ===
 extern void	memset32(void *ptr, uint32_t val, size_t count);
+// --- Initialisation ---
+extern void	ParseCommandline(int argc, char *argv[]);
+extern void	IPC_Init(void);
+extern void	IPC_FillSelect(int *nfds, fd_set *set);
+extern void	IPC_HandleSelect(fd_set *set);
+extern void	Input_FillSelect(int *nfds, fd_set *set);
+extern void	Input_HandleSelect(fd_set *set);
 // --- Video ---
+extern void	Video_Setup(void);
 extern void	Video_Update(void);
 extern void	Video_FillRect(short X, short Y, short W, short H, uint32_t Color);
 extern void	Video_DrawRect(short X, short Y, short W, short H, uint32_t Color);
 extern int	Video_DrawText(short X, short Y, short W, short H, tFont *Font, uint32_t Color, char *Text);
-extern void Video_DrawImage(short X, short Y, short W, short H, tImage *Image);
-// --- Debug Hack ---
-extern void	_SysDebug(const char *Format, ...);
+extern void	Video_DrawImage(short X, short Y, short W, short H, tImage *Image);
+// --- Interface ---
+extern void	Interface_Init(void);
+extern void	Interface_Update(void);
+extern void	Interface_Render(void);
+// --- Decorator ---
+extern void	Decorator_RenderWidget(tElement *Element);
+
 #endif

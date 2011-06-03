@@ -42,6 +42,8 @@ void ParseCommandline(int argc, char *argv[])
 						ShowHelp(argv[0]);
 						exit(EXIT_SUCCESS);
 						break;
+					default:
+						break;
 					}
 				}
 			}

@@ -5,8 +5,11 @@
 #define _WM_H_
 
 #include <axwin2/axwin.h>
+#include "common.h"
 
 typedef struct sAxWin_Element	tElement;
+typedef struct sTab	tTab;
+typedef struct sApplication	tApplication;
 
 struct sAxWin_Element
 {
@@ -41,28 +44,32 @@ struct sAxWin_Element
 	char	DebugName[];
 };
 
-typedef struct sTab
+struct sTab
 {
 	 int	Type;	// Should be zero, allows a tab to be the parent of an element
 	
 	tElement	*Parent;
 	tElement	*FirstChild;
 	tElement	*LastChild;
-	struct sTab	*NextTab;
+	tTab	*NextTab;
 	
 	char	*Name;
 	
 	tElement	*RootElement;
-}	tTab;
+};
 
-typedef struct sApplication
+struct sApplication
 {
-	pid_t	PID;
+	tApplication	*Next;	
+
+	void	*Ident;
+	tMessages_Handle_Callback	*SendMessage;
 	
 	 int	nTabs;
 	tTab	*Tabs;
+	tTab	*CurrentTab;
 	
 	char	Name[];
-}	tApplication;
+};
 
 #endif
