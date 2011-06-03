@@ -1,0 +1,4 @@
+Window Based GUI
+Every window has a position, size, class and text and three colours (background, text and detail)
+
+Window Classes provide render information in form of a bytecode
