@@ -144,28 +144,6 @@ tVFS_Node *IPStack_Root_FindDir(tVFS_Node *Node, const char *Name)
 		return &gIP_LoopInterface.Node;
 	}
 	
-	#if 0
-	i = 0;	num = 0;
-	while('0' <= Name[i] && Name[i] <= '9')
-	{
-		num *= 10;
-		num += Name[i] - '0';
-		i ++;
-	}
-	if(Name[i] != '\0') {
-		LEAVE('n');
-		return NULL;
-	}
-	
-	for( iface = gIP_Interfaces; iface; iface = iface->Next )
-	{
-		if( (int)iface->Node.ImplInt == num )
-		{
-			LEAVE('p', &iface->Node);
-			return &iface->Node;
-		}
-	}
-	#else
 	for( iface = gIP_Interfaces; iface; iface = iface->Next )
 	{
 		if( strcmp(iface->Name, Name) == 0 )
@@ -174,7 +152,6 @@ tVFS_Node *IPStack_Root_FindDir(tVFS_Node *Node, const char *Name)
 			return &iface->Node;
 		}
 	}
-	#endif
 	
 	LEAVE('p', NULL);
 	return NULL;

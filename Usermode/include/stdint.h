@@ -14,7 +14,7 @@ typedef signed short	int16_t;
 typedef signed long		int32_t;
 typedef signed long long	int64_t;
 
-#if __LP64__
+#ifdef __LP64__
 typedef uint64_t	intptr_t;
 typedef uint64_t	uintptr_t;
 #else

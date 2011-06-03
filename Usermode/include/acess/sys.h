@@ -35,22 +35,22 @@ extern int	_errno;
 extern void	_SysDebug(const char *format, ...);
 // --- Proc ---
 extern void	_exit(int status)	__attribute__((noreturn));
-extern void	sleep();
-extern void	yield();
+extern void	sleep(void);
+extern void	yield(void);
 extern int	kill(int pid, int sig);
 extern void	wait(int miliseconds);
 extern int	waittid(int id, int *status);
 extern int	clone(int flags, void *stack);
 extern int	execve(char *path, char **argv, char **envp);
-extern int	gettid();
-extern int	getpid();
+extern int	gettid(void);
+extern int	getpid(void);
 extern int	_SysSetFaultHandler(int (*Handler)(int));
 extern void	SysSetName(const char *Name);
 //extern int	SysGetName(const char *Name);
 
 // --- Permissions ---
-extern int	getuid();
-extern int	getgid();
+extern int	getuid(void);
+extern int	getgid(void);
 extern void	setuid(int id);
 extern void	setgid(int id);
 

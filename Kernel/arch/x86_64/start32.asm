@@ -42,7 +42,7 @@ start:
 	cmp eax, 0x80000001	; Compare the A-register with 0x80000001.
 	mov eax, 0x80000001
 	cpuid
-    jb .not64bitCapable
+	jb .not64bitCapable
 	test edx, 1<<29
 	jz .not64bitCapable
 

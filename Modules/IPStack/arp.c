@@ -134,8 +134,10 @@ tMacAddr ARP_Resolve4(tInterface *Interface, tIPv4 Address)
 	// Wait for a reply
 	for(;;)
 	{
-		while(lastID == giARP_LastUpdateID && now() < timeout)
+		while(lastID == giARP_LastUpdateID && now() < timeout) {
+//			Log_Debug("ARP", "timeout = %lli", timeout);
 			Threads_Yield();
+		}
 		
 		if( now() >= timeout )	break;	// Timeout
 		
