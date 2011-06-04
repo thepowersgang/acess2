@@ -19,10 +19,13 @@ struct sAxWin_Element
 	tElement	*FirstChild;
 	tElement	*LastChild;
 	tElement	*NextSibling;
-	
+
+	// User modifiable attributes	
 	short	PaddingL, PaddingR;
 	short	PaddingT, PaddingB;
 	short	GapSize;
+	
+	uint32_t	Flags;
 	
 	short	FixedWith;	// Fixed Long Size attribute (height)
 	short	FixedCross;	// Fixed Cross Size attribute (width)
@@ -35,8 +38,6 @@ struct sAxWin_Element
 	short	MinCross;	// Minimum cross size
 	void	*Data;
 	
-	uint32_t	Flags;
-	
 	// -- Render Cache
 	short	CachedX, CachedY;
 	short	CachedW, CachedH;
@@ -44,32 +45,16 @@ struct sAxWin_Element
 	char	DebugName[];
 };
 
-struct sTab
-{
-	 int	Type;	// Should be zero, allows a tab to be the parent of an element
-	
-	tElement	*Parent;
-	tElement	*FirstChild;
-	tElement	*LastChild;
-	tTab	*NextTab;
-	
-	char	*Name;
-	
-	tElement	*RootElement;
-};
-
 struct sApplication
 {
-	tApplication	*Next;	
+	tApplication	*Next;
 
 	void	*Ident;
 	tMessages_Handle_Callback	*SendMessage;
 	
-	 int	nTabs;
-	tTab	*Tabs;
-	tTab	*CurrentTab;
-	
-	char	Name[];
+	char	*Name;
+	tElement	MetaElement;
+
 };
 
 #endif

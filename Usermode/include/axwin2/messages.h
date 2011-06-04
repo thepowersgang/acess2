@@ -27,10 +27,10 @@ enum eAxWin_Messages
 	// - Windows
 	MSG_SREQ_REGISTER,	// bool (char[] Name) - Registers this PID with the Window Manager
 	
-	MSG_SREQ_ADDTAB,	// TAB (char[] Name) - Adds a tab to the window
-	MSG_SREQ_DELTAB,	// void (TAB Tab)	- Closes a tab
+	MSG_SREQ_ADDWIN,	// ELEMENT (char[] Name) - Adds a tab to the window
+	MSG_SREQ_DELWIN,	// void (ELEMENT Tab)	- Closes a tab
 	
-	MSG_SREQ_SETICON	// void (TAB Tab, char[] IconURI)	- Set the icon of a tab (or application)
+	MSG_SREQ_SETICON,	// void (TAB Tab, char[] IconURI)	- Set the icon of a tab (or application)
 
 	MSG_SREQ_NEWDIALOG,	// DIALOG (TAB Parent, char[] Name)	- Creates a dialog
 	MSG_SREQ_DELDIALOG,	// void (DIALOG Dialog)	- Closes a dialog
@@ -50,6 +50,11 @@ enum eAxWin_Messages
 	MSG_SREQ_RECT,	MSG_SREQ_FILLRECT,
 	MSG_SREQ_RIMG,	MSG_SREQ_SIMG,	// Register/Set Image
 	MSG_SREQ_SETFONT,	MSG_SREQ_PUTTEXT,
+
+	// - Callback Registration
+
+	// - WM Control
+	MSG_SREQ_SET_MAXIMIZE_AREA,	// void (uint16_t X, Y, W, H)
 	
 	// Server->Client Responses
 	MSG_SRSP_VERSION,

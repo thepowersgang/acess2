@@ -20,7 +20,7 @@ void	IPC_FillSelect(int *nfds, fd_set *set);
 void	IPC_HandleSelect(fd_set *set);
 void	Messages_RespondDatagram(void *Ident, size_t Length, void *Data);
 void	Messages_RespondIPC(void *Ident, size_t Length, void *Data);
-void	Messages_Handle(void *Ident, size_t MsgLen, tAxWin_Message *Msg, tMessages_Handle_Callback *Respond);
+void	Messages_Handle(size_t IdentLen, void *Ident, size_t MsgLen, tAxWin_Message *Msg, tMessages_Handle_Callback *Respond);
 
 // === GLOBALS ===
  int	giNetworkFileHandle = -1;
@@ -33,9 +33,6 @@ void IPC_Init(void)
 	// TODO: Check this
 	giNetworkFileHandle = open("/Devices/ip/loop/udp", OPENFLAG_READ);
 	tmp = AXWIN_PORT;	ioctl(giNetworkFileHandle, 4, &tmp);	// TODO: Don't hard-code IOCtl number
-
-	// TODO: Open a handle to something like /Devices/proc/cur/messages to watch for messages
-//	giMessagesFileHandle = open("/Devices/"
 }
 
 void IPC_FillSelect(int *nfds, fd_set *set)
@@ -58,7 +55,7 @@ void IPC_HandleSelect(fd_set *set)
 		identlen = 4 + Net_GetAddressSize( ((uint16_t*)staticBuf)[1] );
 		msg = staticBuf + identlen;
 
-		Messages_Handle(staticBuf, readlen - identlen, (void*)msg, Messages_RespondDatagram);
+		Messages_Handle(identlen, staticBuf, readlen - identlen, (void*)msg, Messages_RespondDatagram);
 	}
 
 	while(SysGetMessage(NULL, NULL))
@@ -68,7 +65,7 @@ void IPC_HandleSelect(fd_set *set)
 		char	data[len];
 		SysGetMessage(NULL, data);
 
-		Messages_Handle(&tid, len, (void*)data, Messages_RespondIPC);
+		Messages_Handle(sizeof(tid), &tid, len, (void*)data, Messages_RespondIPC);
 	}
 }
 
@@ -87,7 +84,7 @@ void Messages_RespondIPC(void *Ident, size_t Length, void *Data)
 	SysSendMessage( *(tid_t*)Ident, Length, Data );
 }
 
-void Messages_Handle(void *Ident, size_t MsgLen, tAxWin_Message *Msg, tMessages_Handle_Callback *Respond)
+void Messages_Handle(size_t IdentLen, void *Ident, size_t MsgLen, tAxWin_Message *Msg, tMessages_Handle_Callback *Respond)
 {
 	if( MsgLen < sizeof(tAxWin_Message) )
 		return ;
@@ -107,11 +104,13 @@ void Messages_Handle(void *Ident, size_t MsgLen, tAxWin_Message *Msg, tMessages_
 		break;
 
 	case MSG_SREQ_REGISTER:
-		if( Msg->Len == strnlen(Msg->Len, Msg->Data) ) {
-			// Special handling?
+		if( Msg->Data[Msg->Size-1] != '\0' ) {
+			// Invalid message
 			return ;
 		}
 		
+		AxWin_RegisterClient(IdentLen, Ident, Respond, Msg->Data);
+
 		break;
 
 	default:

@@ -75,6 +75,9 @@ extern void	IPC_FillSelect(int *nfds, fd_set *set);
 extern void	IPC_HandleSelect(fd_set *set);
 extern void	Input_FillSelect(int *nfds, fd_set *set);
 extern void	Input_HandleSelect(fd_set *set);
+// --- Local WM ---
+extern tApplication	*AxWin_RegisterClient(int IdentLen, void *Ident, tMessages_Handle_Callback *Cb, const char *Name);
+extern void	AxWin_DeregisterClient(tApplication *App);
 // --- Video ---
 extern void	Video_Setup(void);
 extern void	Video_Update(void);

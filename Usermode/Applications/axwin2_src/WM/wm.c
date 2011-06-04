@@ -37,6 +37,7 @@ tApplication	*gWM_Applications;
 // --- Element type flags
 struct {
 	void	(*Init)(tElement *This);
+	void	(*Delete)(tElement *This);
 	void	(*UpdateFlags)(tElement *This);
 	void	(*UpdateSize)(tElement *This);
 	void	(*UpdateText)(tElement *This);
@@ -44,8 +45,54 @@ struct {
 	{NULL, NULL, NULL, NULL},	// NULL
 	{NULL, NULL, NULL, NULL}	// Box
 };
+const int	ciWM_NumWidgetTypes = sizeof(gaWM_WidgetTypes)/sizeof(gaWM_WidgetTypes[0]);
 
 // === CODE ===
+tApplication *AxWin_RegisterClient(int IdentLen, void *Ident, tMessages_Handle_Callback *Cb, const char *Name)
+{
+	tApplication	*ret = calloc( 1, sizeof(tApplication) + 1 + strlen(Name) + 1 + IdentLen );
+	
+	ret->Name = &ret->MetaElement.DebugName[1];
+	strcpy(ret->Name, Name);
+	ret->Ident = ret->Name + strlen(Name) + 1;
+	memcpy(ret->Ident, Ident, IdentLen);
+	ret->SendMessage = Cb;
+
+	ret->Next = gWM_Applications;
+	gWM_Applications = ret;
+
+	// TODO: Inform listeners of the new application
+
+	return ret;
+}
+
+void AxWin_DeregisterClient(tApplication *App)
+{
+	tElement	*win, *next;
+	// TODO: Implement DeregisterClient
+
+	for( win = App->MetaElement.FirstChild; win; win = next )
+	{
+		next = win->NextSibling;
+		AxWin_DeleteElement(win);
+	}
+
+	// TODO: Inform listeners of deleted application
+	// TODO: Remove from list
+	free(App);
+}
+
+tElement *AxWin_CreateWindow(tApplication *App, const char *Name)
+{
+	tElement	*ret;
+
+	// TODO: Implement _CreateTab
+	
+	ret = AxWin_CreateElement(&App->MetaElement, ELETYPE_WINDOW, 0, NULL);
+	ret->Text = strdup(Name);
+	return ret;
+}
+
 // --- Widget Creation and Control ---
 tAxWin_Element *AxWin_CreateElement(tElement *Parent, int Type, int Flags, const char *DebugName)
 {
@@ -73,7 +120,7 @@ tAxWin_Element *AxWin_CreateElement(tElement *Parent, int Type, int Flags, const
 	ret->PaddingT = 2;
 	ret->PaddingB = 2;
 	
-	if( gaWM_WidgetTypes[Type].Init )
+	if( Type < ciWM_NumWidgetTypes && gaWM_WidgetTypes[Type].Init )
 		gaWM_WidgetTypes[Type].Init(ret);
 	
 	WM_UpdateMinDims(ret->Parent);
@@ -86,7 +133,19 @@ tAxWin_Element *AxWin_CreateElement(tElement *Parent, int Type, int Flags, const
  */
 void AxWin_DeleteElement(tElement *Element)
 {
+	tElement	*child, *next;
+	
+	for(child = Element->FirstChild; child; child = next)
+	{
+		next = child->NextSibling;
+		AxWin_DeleteElement(child);
+	}
+
 	// TODO: Implement AxWin_DeleteElement
+	// TODO: Clean up related data.
+	if( Element->Type < ciWM_NumWidgetTypes && gaWM_WidgetTypes[Element->Type].Delete )
+		gaWM_WidgetTypes[Element->Type].Delete(Element);
+
 	free(Element);
 }
 

@@ -107,6 +107,8 @@ enum eElementFlags
 enum eElementTypes
 {
 	ELETYPE_NONE,
+
+	ELETYPE_WINDOW,
 	
 	ELETYPE_BOX,	//!< Content box (invisible in itself)
 	ELETYPE_TABBAR,	//!< Tab Bar
