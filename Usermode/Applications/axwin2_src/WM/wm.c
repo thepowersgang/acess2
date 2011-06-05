@@ -14,6 +14,9 @@
 extern void	Video_GetTextDims(tFont *Font, const char *Text, int *W, int *H);
 
 // === PROTOTYPES ===
+tApplication	*AxWin_RegisterClient(tIPC_Type *IPCType, void *Ident, const char *Name);
+void	AxWin_DeregisterClient(tApplication *App);
+tApplication	*AxWin_GetClient(tIPC_Type *Method, void *Ident);
 tElement	*AxWin_CreateElement(tElement *Parent, int Type, int Flags, const char *DebugName);
 void	AxWin_DeleteElement(tElement *Element);
 void	AxWin_SetFlags(tElement *Element, int Flags);
@@ -25,7 +28,6 @@ void	AxWin_SetText(tElement *Element, const char *Text);
 tElement	gWM_RootElement = {
 	.DebugName = "ROOT"
 };
-
 tApplication	*gWM_Applications;
 
 // --- Element type flags
@@ -43,19 +45,28 @@ struct {
 const int	ciWM_NumWidgetTypes = sizeof(gaWM_WidgetTypes)/sizeof(gaWM_WidgetTypes[0]);
 
 // === CODE ===
-tApplication *AxWin_RegisterClient(int IdentLen, void *Ident, tMessages_Handle_Callback *Cb, const char *Name)
+tApplication *AxWin_RegisterClient(tIPC_Type *Method, void *Ident, const char *Name)
 {
-	tApplication	*ret = calloc( 1, sizeof(tApplication) + 1 + strlen(Name) + 1 + IdentLen );
+	 int	identlen = Method->GetIdentSize(Ident);
+	// Structure, empty string, Name, Ident
+	tApplication	*ret = calloc( 1, sizeof(tApplication) + 1 + strlen(Name) + 1 + identlen );
 	
+	// DebugName is empty
+	
+	// Name/Title
 	ret->Name = &ret->MetaElement.DebugName[1];
 	strcpy(ret->Name, Name);
+	// Ident
 	ret->Ident = ret->Name + strlen(Name) + 1;
-	memcpy(ret->Ident, Ident, IdentLen);
-	ret->SendMessage = Cb;
+	memcpy(ret->Ident, Ident, identlen);
+	// IPC Type
+	ret->IPCType = Method;
 
+	// Element index
 	ret->MaxElementIndex = DEFAULT_ELEMENTS_PER_APP;
 	ret->EleIndex = calloc( 1, ret->MaxElementIndex * sizeof(*ret->EleIndex) );
 
+	// Add to global list
 	ret->Next = gWM_Applications;
 	gWM_Applications = ret;
 
@@ -66,8 +77,8 @@ tApplication *AxWin_RegisterClient(int IdentLen, void *Ident, tMessages_Handle_C
 
 void AxWin_DeregisterClient(tApplication *App)
 {
+	// TODO: Complete implementing DeregisterClient
 	tElement	*win, *next;
-	// TODO: Implement DeregisterClient
 
 	for( win = App->MetaElement.FirstChild; win; win = next )
 	{
@@ -76,8 +87,42 @@ void AxWin_DeregisterClient(tApplication *App)
 	}
 
 	// TODO: Inform listeners of deleted application
-	// TODO: Remove from list
+	
+	// Remove from list
+	{
+		tApplication	*app, *prev = NULL;
+		for( app = gWM_Applications; app; app = app->Next )
+		{
+			if( app == App )	break;
+			prev = app;
+		}
+		
+		if( app )
+		{
+			if(prev)
+				prev->Next = App->Next;
+			else
+				gWM_Applications = App->Next;
+		}
+	}
+	
 	free(App);
+}
+
+/**
+ * \brief Get an application handle from a client identifier
+ */
+tApplication *AxWin_GetClient(tIPC_Type *Method, void *Ident)
+{
+	// TODO: Faster and smarter technique
+	tApplication	*app;
+	for( app = gWM_Applications; app; app = app->Next )
+	{
+		if( app->IPCType != Method )	continue;
+		if( Method->CompareIdent( app->Ident, Ident ) != 0 ) continue;
+		return app;
+	}
+	return NULL;
 }
 
 tElement *AxWin_CreateWindow(tApplication *App, const char *Name)

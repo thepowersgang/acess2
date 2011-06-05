@@ -8,7 +8,7 @@
 #include "common.h"
 
 /**
- * \brief Number of elements that can be owned by each application)
+ * \brief Number of elements that can be owned by each application
  */
 // TODO: Fine tune these values
 #define MAX_ELEMENTS_PER_APP	1024
@@ -60,8 +60,8 @@ struct sApplication
 {
 	tApplication	*Next;
 
+	tIPC_Type	*IPCType;
 	void	*Ident;	//!< Client Identifier
-	tMessages_Handle_Callback	*SendMessage;
 	
 	char	*Name;	//!< Application name
 	

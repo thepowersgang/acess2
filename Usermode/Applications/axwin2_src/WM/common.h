@@ -10,8 +10,16 @@
 #include <stdint.h>
 #include <acess/sys.h>	// _SysDebug
 
-typedef void tMessages_Handle_Callback(void*, size_t, void*);
+// === TYPES ===
+typedef struct sIPC_Type	tIPC_Type;
 typedef struct sFont	tFont;
+
+struct sIPC_Type
+{
+	 int	(*GetIdentSize)(void *Ident);
+	 int	(*CompareIdent)(void *Ident1, void *Ident2);
+	void	(*SendMessage)(void *Ident, size_t, void *Data);
+};
 
 #include "wm.h"
 #include "image.h"
@@ -70,14 +78,17 @@ extern int	giMouseFD;
 extern void	memset32(void *ptr, uint32_t val, size_t count);
 // --- Initialisation ---
 extern void	ParseCommandline(int argc, char *argv[]);
+// --- Messages / IPC ---
 extern void	IPC_Init(void);
 extern void	IPC_FillSelect(int *nfds, fd_set *set);
 extern void	IPC_HandleSelect(fd_set *set);
+// --- Input ---
 extern void	Input_FillSelect(int *nfds, fd_set *set);
 extern void	Input_HandleSelect(fd_set *set);
 // --- Local WM ---
-extern tApplication	*AxWin_RegisterClient(int IdentLen, void *Ident, tMessages_Handle_Callback *Cb, const char *Name);
+extern tApplication	*AxWin_RegisterClient(tIPC_Type *Method, void *Ident, const char *Name);
 extern void	AxWin_DeregisterClient(tApplication *App);
+extern tApplication	*AxWin_GetClient(tIPC_Type *Method, void *Ident);
 // --- Video ---
 extern void	Video_Setup(void);
 extern void	Video_Update(void);
