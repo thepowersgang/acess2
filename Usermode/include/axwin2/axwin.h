@@ -108,7 +108,7 @@ enum eElementTypes
 {
 	ELETYPE_NONE,
 
-	ELETYPE_WINDOW,
+	ELETYPE_WINDOW,	//!< Window root element
 	
 	ELETYPE_BOX,	//!< Content box (invisible in itself)
 	ELETYPE_TABBAR,	//!< Tab Bar

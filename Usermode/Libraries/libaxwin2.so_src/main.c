@@ -53,7 +53,7 @@ int AxWin_Register(const char *Name, tAxWin_MessageCallback *DefaultCallback)
 	req.Size = 1 + (len+1)/4;
 	strcpy(req.Data, Name);
 	
-	msg = AxWin_int_SendAndWait(MSG_SREQ_ADDTAB, &req);
+	msg = AxWin_int_SendAndWait(MSG_SRSP_RETURN, &req);
 	ret = ((tAxWin_RetMsg*)msg->Data)->Bool;
 	free(msg);
 
@@ -69,7 +69,7 @@ tAxWin_Element *AxWin_CreateTab(const char *Title)
 	tAxWin_Element	*ret;
 	 int	len = strlen(Title);
 	
-	req.ID = MSG_SREQ_ADDTAB;
+	req.ID = MSG_SREQ_ADDWIN;
 	req.Size = 1 + (len+1)/4;
 	strcpy(req.Data, Title);
 	

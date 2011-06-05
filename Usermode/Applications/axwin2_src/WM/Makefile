@@ -7,7 +7,7 @@ CPPFLAGS +=
 DIR := Apps/AxWin/1.0
 BIN := AxWinWM
 OBJ := main.o helpers.o commandline.o video.o input.o video_text.o
-OBJ += messages.o interface.o wm.o decorator.o
+OBJ += messages.o interface.o wm.o decorator.o render.o
 OBJ += image.o
 
 LDFLAGS += -limage_sif -luri -lnet
