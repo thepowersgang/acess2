@@ -23,11 +23,6 @@ void	WM_Update(void);
 
 // === CODE ===
 /**
- * \name Pre-Rendering
- * \brief Updates the element positions and sizes
- * \{
- */
-/**
  * \brief Updates the dimensions of an element
  * \todo What is the \a Pass parameter for
  * 
@@ -257,9 +252,6 @@ void WM_UpdateMinDims(tElement *Element)
 	// Recurse upwards
 	WM_UpdateMinDims(Element->Parent);
 }
-/**
- * \}
- */
 
 // --- Render ---
 void WM_RenderWidget(tElement *Element)
