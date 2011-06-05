@@ -211,6 +211,7 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 			head->Magic = MAGIC_USED;
 			head->File = File;
 			head->Line = Line;
+			head->ValidSize = __Bytes;
 			Mutex_Release(&glHeap);	// Release spinlock
 			#if DEBUG_TRACE
 			Log("[Heap   ] Malloc'd %p (%i bytes), returning to %p", head->Data, head->Size,  __builtin_return_address(0));
@@ -246,6 +247,7 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 			best->Magic = MAGIC_USED;	// Mark block as used
 			best->File = File;
 			best->Line = Line;
+			head->ValidSize = __Bytes;
 			Mutex_Release(&glHeap);	// Release spinlock
 			#if DEBUG_TRACE
 			Log("[Heap   ] Malloc'd %p (%i bytes), returning to %p", best->Data, best->Size, __builtin_return_address(0));
