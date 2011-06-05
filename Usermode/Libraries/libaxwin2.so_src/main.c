@@ -54,7 +54,7 @@ int AxWin_Register(const char *Name, tAxWin_MessageCallback *DefaultCallback)
 	strcpy(req.Data, Name);
 	
 	msg = AxWin_int_SendAndWait(MSG_SRSP_RETURN, &req);
-	ret = ((tAxWin_RetMsg*)msg->Data)->Bool;
+	ret = ((tAxWin_RetMsg*)msg->Data)->Value;
 	free(msg);
 
 	gAxWin_DefaultCallback = DefaultCallback;
@@ -62,7 +62,7 @@ int AxWin_Register(const char *Name, tAxWin_MessageCallback *DefaultCallback)
 	return !!ret;
 }
 
-tAxWin_Element *AxWin_CreateTab(const char *Title)
+tAxWin_Element *AxWin_CreateWindow(const char *Title)
 {
 	tAxWin_Message	req;
 	tAxWin_Message	*msg;
@@ -74,7 +74,7 @@ tAxWin_Element *AxWin_CreateTab(const char *Title)
 	strcpy(req.Data, Title);
 	
 	msg = AxWin_int_SendAndWait(MSG_SRSP_RETURN, &req);
-	ret = (tAxWin_Element*) ((tAxWin_RetMsg*)msg->Data)->Handle;
+	ret = (tAxWin_Element*) ((tAxWin_RetMsg*)msg->Data)->Value;
 	free(msg);
 	
 	return ret;

@@ -13,13 +13,11 @@
 
 // === Core Types ===
 typedef struct sAxWin_Element	tAxWin_Element;
-//typedef struct sAxWin_Message	tAxWin_Message;
 typedef int	tAxWin_MessageCallback(tAxWin_Message *);
-//typedef int	tAxWin_MessageCallback(void *Source, int Message, int Length, void *Data);
 
 // === Functions ===
 extern int	AxWin_Register(const char *ApplicationName, tAxWin_MessageCallback *DefaultHandler);
-extern tAxWin_Element	*AxWin_CreateTab(const char *TabTitle);
+extern tAxWin_Element	*AxWin_CreateWindow(const char *TabTitle);
 extern tAxWin_Element	*AxWin_AddMenuItem(tAxWin_Element *Parent, const char *Label, int Message);
 
 extern int	AxWin_MessageLoop(void);

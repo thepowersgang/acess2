@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
 	AxWin_AddMenuItem(menu, "&Close Tab\tCtrl-Shift-W", EVENT_CLOSE_TAB);
 	AxWin_AddMenuItem(menu, "E&xit\tAlt-F4", EVENT_EXIT);
 
-	tab = AxWin_CreateTab("root@acess: ~");
+	tab = AxWin_CreateWindow("root@acess: ~");
 	//geConsole = AxWin_CreateElement();
 	
 	AxWin_MessageLoop();

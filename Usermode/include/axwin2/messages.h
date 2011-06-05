@@ -28,7 +28,6 @@ enum eAxWin_Messages
 	MSG_SREQ_REGISTER,	// bool (char[] Name) - Registers this PID with the Window Manager
 	
 	MSG_SREQ_ADDWIN,	// ELEMENT (char[] Name) - Adds a tab to the window
-	MSG_SREQ_DELWIN,	// void (ELEMENT Tab)	- Closes a tab
 	
 	MSG_SREQ_SETICON,	// void (TAB Tab, char[] IconURI)	- Set the icon of a tab (or application)
 
@@ -39,11 +38,12 @@ enum eAxWin_Messages
 	MSG_SREQ_GETNAME,	// char[] (ELEMENT Element)
 	
 	// - Builtin Elements
-	MSG_SREQ_INSERT,	// void (ELEMENT Parent, eAxWin_Controls Type, u32 Flags)
+	MSG_SREQ_INSERT,	// ELEMENT (ELEMENT Parent, eAxWin_Controls Type, u32 Flags)
+	MSG_SREQ_DELETE,	// void (ELEMENT Element)
 	
 	// - Drawing
 	//  All drawing functions take an ELEMENT as their first parameter.
-	//  This must be either a Tab, Dialog or Canvas control
+	//  This must be either a Window or Canvas control
 	MSG_SREQ_SETCOL,
 	MSG_SREQ_PSET,
 	MSG_SREQ_LINE,	MSG_SREQ_CURVE,
@@ -81,6 +81,13 @@ struct sAxWin_SReq_NewWindow
 	uint32_t	Flags;
 };
 
+struct sAxWin_SReq_NewElement
+{
+	uint16_t	Parent;
+	uint16_t	Type;
+	uint32_t	Flags;
+};
+
 
 // --- Server Responses
 /**
@@ -92,15 +99,6 @@ struct sAxWin_SRsp_Version
 	uint8_t	Major;
 	uint8_t	Minor;
 	uint16_t	Build;
-};
-
-/**
- * \brief Server Response - New Window
- * \see eAxWin_Messages.MSG_SRSP_NEWWINDOW
- */
-struct sAxWin_SRsp_NewWindow
-{
-	uint32_t	Handle;
 };
 
 
@@ -121,12 +119,7 @@ struct sAxWin_RetMsg
 {
 	uint16_t	ReqID;
 	uint16_t	Rsvd;
-	union
-	{
-		 uint8_t	Bool;
-		uint32_t	Handle;
-		 int	Integer;
-	};
+	uint32_t	Value;
 };
 
 #endif

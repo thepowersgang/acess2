@@ -125,11 +125,9 @@ tApplication *AxWin_GetClient(tIPC_Type *Method, void *Ident)
 	return NULL;
 }
 
-tElement *AxWin_CreateWindow(tApplication *App, const char *Name)
+tElement *AxWin_CreateAppWindow(tApplication *App, const char *Name)
 {
 	tElement	*ret;
-
-	// TODO: Implement _CreateTab
 	
 	ret = AxWin_CreateElement(&App->MetaElement, ELETYPE_WINDOW, 0, NULL);
 	ret->Text = strdup(Name);

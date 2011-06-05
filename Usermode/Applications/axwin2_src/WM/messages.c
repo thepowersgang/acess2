@@ -19,6 +19,7 @@ void	IPC_Init(void);
 void	IPC_FillSelect(int *nfds, fd_set *set);
 void	IPC_HandleSelect(fd_set *set);
 void	IPC_Handle(tIPC_Type *IPCType, void *Ident, size_t MsgLen, tAxWin_Message *Msg);
+void	IPC_ReturnValue(tIPC_Type *IPCType, void *Ident, int MessageID, uint32_t Value);
  int	IPC_Type_Datagram_GetSize(void *Ident);
  int	IPC_Type_Datagram_Compare(void *Ident1, void *Ident2);
 void	IPC_Type_Datagram_Send(void *Ident, size_t Length, void *Data);
@@ -86,6 +87,7 @@ void IPC_HandleSelect(fd_set *set)
 void IPC_Handle(tIPC_Type *IPCType, void *Ident, size_t MsgLen, tAxWin_Message *Msg)
 {
 	tApplication	*app;
+	tElement	*ele;
 	
 	if( MsgLen < sizeof(tAxWin_Message) )
 		return ;
@@ -131,7 +133,26 @@ void IPC_Handle(tIPC_Type *IPCType, void *Ident, size_t MsgLen, tAxWin_Message *
 			return ;
 		}
 		
+		ele = AxWin_CreateAppWindow(app, Msg->Data);
+		IPC_ReturnValue(IPCType, Ident, MSG_SREQ_ADDWIN, ele->ApplicationID);
 		break;
+	
+	// --- Set a window's icon
+	case MSG_SREQ_SETICON:
+		// TODO: Find a good way of implementing this
+		break;
+	
+	// --- Create an element
+	case MSG_SREQ_INSERT: {
+		struct sAxWin_SReq_NewElement	*info = (void *)Msg->Data;
+		
+		if( Msg->Size != sizeof(*info) )	return;
+		
+		if( !app || info->Parent > app->MaxElementIndex )	return ;
+		
+		ele = AxWin_CreateElement( app->EleIndex[info->Parent], info->Type, info->Flags, NULL );
+		IPC_ReturnValue(IPCType, Ident, MSG_SREQ_ADDWIN, ele->ApplicationID);
+		break; }
 	
 	// --- Unknown message
 	default:
@@ -139,6 +160,22 @@ void IPC_Handle(tIPC_Type *IPCType, void *Ident, size_t MsgLen, tAxWin_Message *
 		_SysDebug("WARNING: Unknown message %i (%p)\n", Msg->ID, IPCType);
 		break;
 	}
+}
+
+void IPC_ReturnValue(tIPC_Type *IPCType, void *Ident, int MessageID, uint32_t Value)
+{
+	char	data[sizeof(tAxWin_Message) + sizeof(tAxWin_RetMsg)];
+	tAxWin_Message	*msg = (void *)data;
+	tAxWin_RetMsg	*ret_msg = (void *)msg->Data;
+	
+	msg->Source = 0;	// 0 = Server
+	msg->ID = MSG_SRSP_RETURN;
+	msg->Size = sizeof(tAxWin_RetMsg);
+	ret_msg->ReqID = MessageID;
+	ret_msg->Rsvd = 0;
+	ret_msg->Value = Value;
+	
+	IPCType->SendMessage(Ident, sizeof(data), data);
 }
 
 int IPC_Type_Datagram_GetSize(void *Ident)

@@ -89,6 +89,7 @@ extern void	Input_HandleSelect(fd_set *set);
 extern tApplication	*AxWin_RegisterClient(tIPC_Type *Method, void *Ident, const char *Name);
 extern void	AxWin_DeregisterClient(tApplication *App);
 extern tApplication	*AxWin_GetClient(tIPC_Type *Method, void *Ident);
+extern tElement	*AxWin_CreateAppWindow(tApplication *App, const char *Name);
 // --- Video ---
 extern void	Video_Setup(void);
 extern void	Video_Update(void);
