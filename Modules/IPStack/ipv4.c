@@ -64,13 +64,13 @@ int IPv4_RegisterCallback(int ID, tIPCallback Callback)
 int IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, int Length, const void *Data)
 {
 	tMacAddr	to = ARP_Resolve4(Iface, Address);
-	const tMacAddr	zero = {{0,0,0,0,0,0}};
 	 int	bufSize = sizeof(tIPv4Header) + Length;
 	char	buf[bufSize];
 	tIPv4Header	*hdr = (void*)buf;
 	 int	ret;
 	
-	if( MAC_EQU(to, zero) ) {
+	if( MAC_EQU(to, cMAC_ZERO) ) {
+		// No route to host
 		return 0;
 	}
 	
@@ -222,6 +222,8 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 		
 		rt = IPStack_FindRoute(4, NULL, &hdr->Destination);	// Get the route (gets the interface)
 		to = ARP_Resolve4(rt->Interface, hdr->Destination);	// Resolve address
+		if( MAC_EQU(to, cMAC_ZERO) )
+			return ;
 		
 		// Send packet
 		Log_Log("IPv4", "Forwarding packet to %i.%i.%i.%i (via %i.%i.%i.%i)",

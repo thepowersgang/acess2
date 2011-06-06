@@ -3,7 +3,7 @@
  * 
  * See: ~/Sources/bochs/bochs.../iodev/ne2k.cc
  */
-#define	DEBUG	0
+#define	DEBUG	1
 #define VERSION	((0<<8)|50)
 #include <acess.h>
 #include <modules.h>

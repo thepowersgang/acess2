@@ -97,6 +97,7 @@ struct sSocketFile
 };
 
 static const tMacAddr cMAC_BROADCAST = {{0xFF,0xFF,0xFF,0xFF,0xFF,0xFF}};
+static const tMacAddr cMAC_ZERO = {{0x00,0x00,0x00,0x00,0x00,0x00}};
 
 #define MAC_SET(t,v)	memcpy(&(t),&(v),sizeof(tMacAddr))
 #define IP4_SET(t,v)	(t).L = (v).L;
