@@ -15,6 +15,7 @@
 #define DEFAULT_ELEMENTS_PER_APP	128
 
 typedef struct sAxWin_Element	tElement;
+typedef struct sWindow	tWindow;
 typedef struct sApplication	tApplication;
 
 struct sAxWin_Element
@@ -38,7 +39,7 @@ struct sAxWin_Element
 	
 	uint32_t	Flags;
 	
-	short	FixedWith;	//!< Fixed Long Size attribute (height)
+	short	FixedWith;	//!< Fixed lengthways Size attribute (height)
 	short	FixedCross;	//!< Fixed Cross Size attribute (width)
 	
 	char	*Text;
@@ -54,6 +55,16 @@ struct sAxWin_Element
 	short	CachedW, CachedH;
 	
 	char	DebugName[];
+};
+
+struct sWindow
+{
+	 int	X, Y, W, H;
+	tImage	*Icon;
+	
+	tWindow	*OrderNext;	// Render order
+	
+	tElement	Element;
 };
 
 struct sApplication

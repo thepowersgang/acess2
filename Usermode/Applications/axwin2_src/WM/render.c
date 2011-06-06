@@ -269,16 +269,39 @@ void WM_RenderWidget(tElement *Element)
 	}
 }
 
+void WM_UpdateWindow(tElement *Ele)
+{	
+	WM_UpdateDimensions( Ele, 0 );
+	WM_UpdatePosition( Ele );
+	WM_RenderWidget( Ele );
+}
+
 void WM_Update(void)
 {
-	gWM_RootElement.CachedX = 0;	gWM_RootElement.CachedY = 0;
+	tApplication	*app;
+	tElement	*ele;
+	
+	for( app = gWM_Applications; app; app = app->Next )
+	{
+		for( ele = app->MetaElement.FirstChild; ele; ele = ele->NextSibling ) {
+			if( ele->Flags & ELEFLAG_WINDOW_MAXIMISED ) {
+				ele->CachedX = giWM_MaxAreaX;
+				ele->CachedY = giWM_MaxAreaY;
+				ele->CachedW = giWM_MaxAreaW;
+				ele->CachedH = giWM_MaxAreaH;
+			}
+			ele->Flags |= ELEFLAG_NOEXPAND|ELEFLAG_ABSOLUTEPOS|ELEFLAG_FIXEDSIZE;
+			WM_UpdateWindow(ele);
+		}
+	}
+	
+	gWM_RootElement.CachedX = 0;
+	gWM_RootElement.CachedY = 0;
 	gWM_RootElement.CachedW = giScreenWidth;
 	gWM_RootElement.CachedH = giScreenHeight;
 	gWM_RootElement.Flags |= ELEFLAG_NOEXPAND|ELEFLAG_ABSOLUTEPOS|ELEFLAG_FIXEDSIZE;
 	
-	WM_UpdateDimensions( &gWM_RootElement, 0 );
-	WM_UpdatePosition( &gWM_RootElement );
-	WM_RenderWidget( &gWM_RootElement );
+	WM_UpdateWindow( &gWM_RootElement );
 	
 	Video_Update();
 }

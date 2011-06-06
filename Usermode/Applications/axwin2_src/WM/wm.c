@@ -28,7 +28,13 @@ void	AxWin_SetText(tElement *Element, const char *Text);
 tElement	gWM_RootElement = {
 	.DebugName = "ROOT"
 };
+tWindow	*gWM_WindowFirst;
+tWindow	*gWM_WindowLast;
 tApplication	*gWM_Applications;
+ int	giWM_MaxAreaX = 0;
+ int	giWM_MaxAreaY = 0;
+ int	giWM_MaxAreaW = -1;
+ int	giWM_MaxAreaH = -1;
 
 // --- Element type flags
 struct {
@@ -128,9 +134,25 @@ tApplication *AxWin_GetClient(tIPC_Type *Method, void *Ident)
 tElement *AxWin_CreateAppWindow(tApplication *App, const char *Name)
 {
 	tElement	*ret;
+	tWindow	*win;
 	
-	ret = AxWin_CreateElement(&App->MetaElement, ELETYPE_WINDOW, 0, NULL);
+	win = calloc(sizeof(tWindow) + 1);
+	if(!win)	return NULL;
+	
+	ret = &win->Element;
+	ret->Type = ELETYPE_WINDOW;
+	ret->Data = win;
+	ret->Parent = &App->MetaElement;
+	
+	// Add to parent list
+	if(ret->Parent->LastChild)
+		ret->Parent->LastChild->NextSibling = ret;
+	ret->Parent->LastChild = ret;
+	if(!ret->Parent->FirstChild)
+		ret->Parent->FirstChild = ret;
+	
 	ret->Text = strdup(Name);
+	
 	return ret;
 }
 
