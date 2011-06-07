@@ -17,7 +17,15 @@
 EXPORT int	atoi(const char *str);
 EXPORT void	exit(int status);
 
+// === GLOBALS ===
+void	(*g_stdlib_exithandler)(void);
+
 // === CODE ===
+void atexit(void (*__func)(void))
+{
+	g_stdlib_exithandler = __func;
+}
+
 /**
  * \fn EXPORT void exit(int status)
  * \brief Exit

@@ -354,9 +354,10 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 		// - Handle State changes
 		//
 		if( Header->Flags & TCP_FLAG_FIN ) {
-			Log_Log("TCP", "Conn %p closed, recieved FIN, acknowledging", Connection);
+			Log_Log("TCP", "Conn %p closed, recieved FIN", Connection);
 			VFS_MarkError(&Connection->Node, 1);
 			Connection->State = TCP_ST_CLOSE_WAIT;
+//			Header->Flags &= ~TCP_FLAG_FIN;
 			// CLOSE WAIT requires the client to close (or does it?)
 			#if 0
 			
@@ -1091,6 +1092,11 @@ Uint64 TCP_Client_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buf
 	
 	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
 	
+//	#if DEBUG
+//	Debug_HexDump("TCP_Client_Write: Buffer = ",
+//		Buffer, Length);
+//	#endif
+	
 	// Check if connection is open
 	while( conn->State == TCP_ST_SYN_RCVD || conn->State == TCP_ST_SYN_SENT )
 		Threads_Yield();
@@ -1117,7 +1123,7 @@ Uint64 TCP_Client_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buf
 		TCP_INT_SendDataPacket(conn, len, Buffer);
 		
 		Buffer += len;
-		rem += len;
+		rem -= len;
 	} while( rem > 0 );
 	
 	LEAVE('i', Length);

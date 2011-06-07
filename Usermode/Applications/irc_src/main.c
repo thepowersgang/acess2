@@ -64,13 +64,14 @@ tWindow	*Window_Create(tServer *Server, const char *Name);
 
  int	ProcessIncoming(tServer *Server);
 // --- Helpers
+ int	SetCursorPos(int Row, int Col);
  int	writef(int FD, const char *Format, ...);
  int	OpenTCP(const char *AddressString, short PortNumber);
 char	*GetValue(char *Str, int *Ofs);
 static inline int	isdigit(int ch);
 
 // === GLOBALS ===
-char	*gsUsername = "root";
+char	*gsUsername = "user";
 char	*gsHostname = "acess";
 char	*gsRealName = "Acess2 IRC Client";
 char	*gsNickname = "acess";
@@ -81,8 +82,15 @@ tWindow	gWindow_Status = {
 };
 tWindow	*gpWindows = &gWindow_Status;
 tWindow	*gpCurrentWindow = &gWindow_Status;
+ int	giTerminal_Width = 80;
+ int	giTerminal_Height = 25;
 
 // ==== CODE ====
+void ExitHandler(void)
+{
+	printf("\x1B[?1047l");
+}
+
 int main(int argc, const char *argv[], const char *envp[])
 {
 	 int	tmp;
@@ -90,6 +98,14 @@ int main(int argc, const char *argv[], const char *envp[])
 	
 	// Parse Command line
 	if( (tmp = ParseArguments(argc, argv)) )	return tmp;
+	
+	atexit(ExitHandler);
+	
+	giTerminal_Width = ioctl(1, 5, NULL);	// getset_width
+	giTerminal_Height = ioctl(1, 6, NULL);	// getset_height
+	
+	printf("\x1B[?1047h");
+	printf("\x1B[%i;%ir", 0, giTerminal_Height-1);
 	
 	// HACK: Static server entry
 	// UCC (University [of Western Australia] Computer Club) IRC Server
@@ -99,6 +115,9 @@ int main(int argc, const char *argv[], const char *envp[])
 		return -1;
 	
 	readline_info = Readline_Init(1);
+	
+	SetCursorPos(giTerminal_Height-1, 0);
+	printf("[(status)] ");
 	
 	for( ;; )
 	{
@@ -133,6 +152,12 @@ int main(int argc, const char *argv[], const char *envp[])
 					ParseUserCommand(cmd);
 				}
 				free(cmd);
+				// Prompt
+				SetCursorPos(giTerminal_Height-1, 0);
+				if( gpCurrentWindow->Name[0] )
+					printf("[%s:%s] ", gpCurrentWindow->Server->Name, gpCurrentWindow->Name);
+				else
+					printf("[(status)] ");
 			}
 		}
 		
@@ -188,7 +213,7 @@ int ParseUserCommand(char *String)
 			
 			if( gpCurrentWindow->Server )
 			{
-				writef(gpCurrentWindow->Server->FD, "JOIN %s\n",  channel_name);
+				writef(gpCurrentWindow->Server->FD, "JOIN :%s\n",  channel_name);
 			}
 		}
 		else if( strcmp(command, "/quit") == 0 )
@@ -196,13 +221,15 @@ int ParseUserCommand(char *String)
 			char	*quit_message = GetValue(String, &pos);
 			tServer	*srv;
 			
-			if( !quit_message )
+			if( quit_message == NULL || quit_message[0] == '\0' )
 				quit_message = "/quit - Acess2 IRC Client";
 			
 			for( srv = gpServers; srv; srv = srv->Next )
 			{
-				writef(srv->FD, "QUIT %s\n", quit_message);
+				writef(srv->FD, "QUIT :%s\n", quit_message);
 			}
+			
+			exit(0);
 		}
 		else if( strcmp(command, "/window") == 0 || strcmp(command, "/win") == 0 || strcmp(command, "/w") == 0 )
 		{
@@ -217,12 +244,19 @@ int ParseUserCommand(char *String)
 				for( win = gpWindows; win && window_num--; win = win->Next );
 				if( win ) {
 					gpCurrentWindow = win;
-					if( win->Name[0] )
-						printf("[%s:%s] ", win->Server->Name, win->Name);
-					else
-						printf("[(status)] ", win->Server->Name, win->Name);
 				}
 				// Otherwise, silently ignore
+			}
+			else
+			{
+				tWindow	*win;
+				window_num = 1;
+				for( win = gpWindows; win; win = win->Next, window_num ++ )
+				{
+					char tmp[snprintf(NULL, 1000, "%i: %s/%s", window_num, win->Server->Name, win->Name)+1];
+					snprintf(tmp, 1000, "%i: %s/%s", window_num, win->Server->Name, win->Name);
+					Message_Append(NULL, MSG_TYPE_SERVER, "client", "", tmp);
+				}
 			}
 		}
 		else
@@ -359,6 +393,22 @@ tMessage *Message_Append(tServer *Server, int Type, const char *Source, const ch
 	ret->Next = win->Messages;
 	win->Messages = ret;
 	
+	//TODO: Set location
+	
+	#if 1
+	if( win == gpCurrentWindow ) {
+		int pos = SetCursorPos(giTerminal_Height-2, 0);
+		printf("\x1B[S");	// Scroll up 1
+		printf("[%s] %s\n", Source, Message);
+		SetCursorPos(-1, pos);
+	}
+	#else
+	if(win->Name[0])
+		printf("%s/%s [%s] %s\n", win->Server->Name, win->Name, Source, Message);
+	else
+		printf("(status) [%s] %s\n", Source, Message);
+	#endif
+	
 	return ret;
 }
 
@@ -387,14 +437,15 @@ tWindow *Window_Create(tServer *Server, const char *Name)
 		gpWindows = ret;
 	}
 	
-	printf("Win %i %s:%s created\n", num, Server->Name, Name);
+//	printf("Win %i %s:%s created\n", num, Server->Name, Name);
 	
 	return ret;
 }
 
 void Cmd_PRIVMSG(tServer *Server, const char *Dest, const char *Src, const char *Message)
 {
-	printf("<%s:%s:%s> %s\n", Server->Name, Dest, Src, Message);
+	Message_Append(Server, MSG_TYPE_STANDARD, Dest, Src, Message);
+	//printf("<%s:%s:%s> %s\n", Server->Name, Dest, Src, Message);
 }
 
 /**
@@ -431,7 +482,7 @@ void ParseServerLine(tServer *Server, char *Line)
 			switch(num)
 			{
 			default:
-				printf("[%s] %i %s\n", Server->Name, num, message);
+				//printf("[%s] %i %s\n", Server->Name, num, message);
 				Message_Append(Server, MSG_TYPE_SERVER, ident, user, message);
 				break;
 			}
@@ -449,7 +500,7 @@ void ParseServerLine(tServer *Server, char *Line)
 				message = GetValue(Line, &pos);
 			}
 			
-			printf("[%s] NOTICE %s: %s\n", Server->Name, ident, message);
+			//printf("[%s] NOTICE %s: %s\n", Server->Name, ident, message);
 			Message_Append(Server, MSG_TYPE_NOTICE, ident, "", message);
 		}
 		else if( strcmp(cmd, "PRIVMSG") == 0 )
@@ -465,6 +516,12 @@ void ParseServerLine(tServer *Server, char *Line)
 			}
 			Cmd_PRIVMSG(Server, dest, ident, message);
 			Message_Append(Server, MSG_TYPE_STANDARD, ident, dest, message);
+		}
+		else if( strcmp(cmd, "JOIN" ) == 0 )
+		{
+			char	*channel;
+			channel = GetValue(Line, &pos) + 1;
+			Window_Create(Server, channel);
 		}
 		else
 		{
@@ -637,6 +694,16 @@ char *GetValue(char *Src, int *Ofs)
 	*Ofs = end - Src;
 	
 	return ret;
+}
+
+int SetCursorPos(int Row, int Col)
+{
+	if( Row == -1 ) {
+		Row = Col / giTerminal_Width;
+		Col = Col % giTerminal_Width;
+	}
+	printf("\x1B[%i;%iH", Col, Row);
+	return ioctl(1, 9, NULL);	// Ugh, constants
 }
 
 static inline int isdigit(int ch)

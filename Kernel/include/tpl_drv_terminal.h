@@ -65,7 +65,14 @@ enum eTplTerminal_IOCtl {
 	 * ioctl(...)
 	 * \brief Forces the current terminal to be shown
 	 */
-	TERM_IOCTL_FORCESHOW
+	TERM_IOCTL_FORCESHOW,
+	
+	/**
+	 * ioctl(...)
+	 * \brief Returns the current text cursor position
+	 * \return Cursor position (as X+Y*Width)
+	 */
+	TERM_IOCTL_GETCURSOR
 };
 
 /**

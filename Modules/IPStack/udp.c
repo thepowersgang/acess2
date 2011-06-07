@@ -70,7 +70,8 @@ int UDP_int_ScanList(tUDPChannel *List, tInterface *Interface, void *Address, in
 		// Check for remote address restriction
 		if(chan->RemoteMask)
 		{
-			if(chan->Remote.AddrType != Interface->Type)	continue;
+			if(chan->Remote.AddrType != Interface->Type)
+				continue;
 			if(!IPStack_CompareAddress(Interface->Type, Address,
 				&chan->Remote.Addr, chan->RemoteMask)
 				)
@@ -94,6 +95,7 @@ int UDP_int_ScanList(tUDPChannel *List, tInterface *Interface, void *Address, in
 		else
 			chan->QueueEnd = chan->Queue = pack;
 		SHORTREL(&chan->lQueue);
+		VFS_MarkAvaliable(&chan->Node, 1);
 		Mutex_Release(&glUDP_Channels);
 		return 1;
 	}
@@ -190,7 +192,10 @@ Uint64 UDP_Channel_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buf
 	tUDPEndpoint	*ep;
 	 int	ofs;
 	
-	if(chan->LocalPort == 0)	return 0;
+	if(chan->LocalPort == 0) {
+		Log_Notice("UDP", "Channel %p sent with no local port", chan);
+		return 0;
+	}
 	
 	while(chan->Queue == NULL)	Threads_Yield();
 	
@@ -217,6 +222,7 @@ Uint64 UDP_Channel_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buf
 	ofs = 4 + IPStack_GetAddressSize(pack->Remote.AddrType);
 	if(Length < ofs) {
 		free(pack);
+		Log_Notice("UDP", "Insuficient space for header in buffer (%i < %i)", (int)Length, ofs);
 		return 0;
 	}
 	

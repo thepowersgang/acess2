@@ -390,7 +390,7 @@ void Debug_HexDump(const char *Header, const void *Data, Uint Length)
 	Debug_Puts(1, Header);
 	LogF(" (Hexdump of %p)\r\n", Data);
 
-	#define	CH(n)	((' '<=cdat[(n)]&&cdat[(n)]<=0x7F) ? cdat[(n)] : '.')
+	#define	CH(n)	((' '<=cdat[(n)]&&cdat[(n)]<0x7F) ? cdat[(n)] : '.')
 
 	while(Length >= 16)
 	{

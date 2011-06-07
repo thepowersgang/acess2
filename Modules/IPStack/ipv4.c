@@ -208,7 +208,7 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 		break ;
 	// Unknown, silent drop
 	default:
-		Log_Warning("IPv4", "Unknown firewall response %i", ret);
+		Log_Warning("IPv4", "Unknown firewall rule");
 		return ;
 	}
 	

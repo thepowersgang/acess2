@@ -22,6 +22,7 @@
 extern void	_exit(int code) __attribute__((noreturn));	//NOTE: Also defined in acess/sys.h
 extern int	atoi(const char *ptr);
 extern void	exit(int status) __attribute__((noreturn));
+extern void	atexit(void (*__func)(void));
 extern void qsort(void *base, size_t nmemb, size_t size, int(*compar)(const void *, const void *));
 
 // --- Environment ---

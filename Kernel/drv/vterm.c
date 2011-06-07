@@ -28,6 +28,7 @@
 #define	DEFAULT_COLOUR	(VT_COL_BLACK|(0xAAA<<16))
 
 #define	VT_FLAG_HIDECSR	0x01
+#define	VT_FLAG_ALTBUF	0x02	//!< Alternate screen buffer
 #define	VT_FLAG_HASFB	0x10	//!< Set if the VTerm has requested the Framebuffer
 
 enum eVT_InModes {
@@ -48,9 +49,16 @@ typedef struct {
 	short	TextWidth;	//!< Text Virtual Width
 	short	TextHeight;	//!< Text Virtual Height
 	
+	Uint32	CurColour;	//!< Current Text Colour
+	
 	 int	ViewPos;	//!< View Buffer Offset (Text Only)
 	 int	WritePos;	//!< Write Buffer Offset (Text Only)
-	Uint32	CurColour;	//!< Current Text Colour
+	tVT_Char	*Text;
+	
+	tVT_Char	*AltBuf;	//!< Alternate Screen Buffer
+	 int	AltWritePos;	//!< Alternate write position
+	short	ScrollTop;	//!< Top of scrolling region (smallest)
+	short	ScrollHeight;	//!< Length of scrolling region
 	
 	tMutex	ReadingLock;	//!< Lock the VTerm when a process is reading from it
 	tTID	ReadingThread;	//!< Owner of the lock
@@ -59,7 +67,6 @@ typedef struct {
 	char	InputBuffer[MAX_INPUT_CHARS8];
 //	tSemaphore	InputSemaphore;
 	
-	tVT_Char	*Text;
 	Uint32		*Buffer;
 	
 	char	Name[2];	//!< Name of the terminal
@@ -87,9 +94,11 @@ void	VT_int_PutString(tVTerm *Term, Uint8 *Buffer, Uint Count);
 void	VT_int_ClearLine(tVTerm *Term, int Num);
  int	VT_int_ParseEscape(tVTerm *Term, char *Buffer);
 void	VT_int_PutChar(tVTerm *Term, Uint32 Ch);
-void	VT_int_ScrollFramebuffer( tVTerm *Term );
+void	VT_int_ScrollText(tVTerm *Term, int Count);
+void	VT_int_ScrollFramebuffer( tVTerm *Term, int Count );
 void	VT_int_UpdateScreen( tVTerm *Term, int UpdateAll );
 void	VT_int_ChangeMode(tVTerm *Term, int NewMode, int NewWidth, int NewHeight);
+void	VT_int_ToggleAltBuffer(tVTerm *Term, int Enabled);
 
 // === CONSTANTS ===
 const Uint16	caVT100Colours[] = {
@@ -206,8 +215,10 @@ int VT_Install(char **Arguments)
 		gVT_Terminals[i].Flags = 0;
 		gVT_Terminals[i].CurColour = DEFAULT_COLOUR;
 		gVT_Terminals[i].WritePos = 0;
+		gVT_Terminals[i].AltWritePos = 0;
 		gVT_Terminals[i].ViewPos = 0;
 		gVT_Terminals[i].ReadingThread = -1;
+		gVT_Terminals[i].ScrollHeight = 0;
 		
 		// Initialise
 		VT_int_ChangeMode( &gVT_Terminals[i],
@@ -678,6 +689,11 @@ int VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data)
 		VT_SetTerminal( Node->Inode );
 		LEAVE('i', 1);
 		return 1;
+	
+	case TERM_IOCTL_GETCURSOR:
+		ret = (term->Flags & VT_FLAG_ALTBUF) ? term->AltWritePos : term->WritePos-term->ViewPos;
+		LEAVE('i', ret);
+		return ret;
 	}
 	LEAVE('i', -1);
 	return -1;
@@ -698,9 +714,10 @@ void VT_SetTerminal(int ID)
 	if( gpVT_CurTerm->Mode == TERM_MODE_TEXT && !(gpVT_CurTerm->Flags & VT_FLAG_HIDECSR) )
 	{
 		tVideo_IOCtl_Pos	pos;
-		pos.x = (gpVT_CurTerm->WritePos - gpVT_CurTerm->ViewPos) % gpVT_CurTerm->TextWidth;
-		pos.y = (gpVT_CurTerm->WritePos - gpVT_CurTerm->ViewPos) / gpVT_CurTerm->TextWidth;
-		if( pos.x < gpVT_CurTerm->TextHeight )
+		 int	offset = (gpVT_CurTerm->Flags & VT_FLAG_ALTBUF) ? gpVT_CurTerm->AltWritePos : gpVT_CurTerm->WritePos - gpVT_CurTerm->ViewPos;
+		pos.x = offset % gpVT_CurTerm->TextWidth;
+		pos.y = offset / gpVT_CurTerm->TextWidth;
+		if( 0 <= pos.y && pos.y < gpVT_CurTerm->TextHeight )
 			VFS_IOCtl(giVT_OutputDevHandle, VIDEO_IOCTL_SETCURSOR, &pos);
 	}
 	
@@ -779,12 +796,16 @@ void VT_KBCallBack(Uint32 Codepoint)
 		case KEY_F12:	VT_SetTerminal(11);	return;
 		// Scrolling
 		case KEY_PGUP:
+			if( gpVT_CurTerm->Flags & VT_FLAG_ALTBUF )
+				return ;
 			if( gpVT_CurTerm->ViewPos > gpVT_CurTerm->Width )
 				gpVT_CurTerm->ViewPos -= gpVT_CurTerm->Width;
 			else
 				gpVT_CurTerm->ViewPos = 0;
 			return;
 		case KEY_PGDOWN:
+			if( gpVT_CurTerm->Flags & VT_FLAG_ALTBUF )
+				return ;
 			if( gpVT_CurTerm->ViewPos < gpVT_CurTerm->Width*gpVT_CurTerm->Height*(giVT_Scrollback-1) )
 				gpVT_CurTerm->ViewPos += gpVT_CurTerm->Width;
 			else
@@ -823,8 +844,9 @@ void VT_KBCallBack(Uint32 Codepoint)
 			break;
 		
 		case KEY_PGUP:
-			buf[0] = '\x1B';	buf[1] = '[';	buf[2] = '5';	// Some overline also
+			//buf[0] = '\x1B';	buf[1] = '[';	buf[2] = '5';	// Some overline also
 			//len = 4;	// Commented out until I'm sure
+			len = 0;
 			break;
 		case KEY_PGDOWN:
 			len = 0;
@@ -887,15 +909,18 @@ void VT_KBCallBack(Uint32 Codepoint)
 void VT_int_ClearLine(tVTerm *Term, int Num)
 {
 	 int	i;
-	tVT_Char	*cell = &Term->Text[ Num*Term->TextWidth ];
+	tVT_Char	*cell;
+	
 	if( Num < 0 || Num >= Term->TextHeight * (giVT_Scrollback + 1) )	return ;
-	//ENTER("pTerm iNum", Term, Num);
+	
+	cell = (Term->Flags & VT_FLAG_ALTBUF) ? Term->AltBuf : Term->Text;
+	cell = &cell[ Num*Term->TextWidth ];
+	
 	for( i = Term->TextWidth; i--; )
 	{
 		cell[ i ].Ch = 0;
 		cell[ i ].Colour = Term->CurColour;
 	}
-	//LEAVE('-');
 }
 
 /**
@@ -908,6 +933,7 @@ int VT_int_ParseEscape(tVTerm *Term, char *Buffer)
 	 int	argc = 0, j = 1;
 	 int	tmp;
 	 int	args[6] = {0,0,0,0};
+	 int	bQuestionMark = 0;
 	
 	switch(Buffer[0])
 	{
@@ -915,6 +941,10 @@ int VT_int_ParseEscape(tVTerm *Term, char *Buffer)
 	case '[':
 		// Get Arguments
 		c = Buffer[j++];
+		if(c == '?') {
+			bQuestionMark = 1;
+			c = Buffer[j++];
+		}
 		if( '0' <= c && c <= '9' )
 		{
 			do {
@@ -931,80 +961,145 @@ int VT_int_ParseEscape(tVTerm *Term, char *Buffer)
 		// Get Command
 		if(	('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z'))
 		{
-			switch(c)
+			if( bQuestionMark )
 			{
-			// Left
-			case 'D':
-				if(argc == 1)	tmp = args[0];
-				else	tmp = 1;
-				
-				if( Term->WritePos-(tmp-1) % Term->TextWidth == 0 )
-					Term->WritePos -= Term->WritePos % Term->TextWidth;
-				else
-					Term->WritePos -= tmp;
-				break;
-			
-			// Right
-			case 'C':
-				if(argc == 1)	tmp = args[0];
-				else	tmp = 1;
-				if( (Term->WritePos + tmp) % Term->TextWidth == 0 ) {
-					Term->WritePos -= Term->WritePos % Term->TextWidth;
-					Term->WritePos += Term->TextWidth - 1;
-				} else
-					Term->WritePos += tmp;
-				break;
-			
-			// Clear By Line
-			case 'J':
-				// Clear Screen
-				switch(args[0])
+				switch(c)
 				{
-				case 2:
+				// DEC Private Mode Set
+				case 'h':
+					if(argc != 1)	break;
+					switch(args[0])
 					{
-					 int	i = Term->TextHeight * (giVT_Scrollback + 1);
-					while( i-- )	VT_int_ClearLine(Term, i);
-					Term->WritePos = 0;
-					Term->ViewPos = 0;
-					VT_int_UpdateScreen(Term, 1);
+					case 1047:
+						VT_int_ToggleAltBuffer(Term, 1);
+						break;
+					}
+					break;
+				case 'l':
+					if(argc != 1)	break;
+					switch(args[0])
+					{
+					case 1047:
+						VT_int_ToggleAltBuffer(Term, 0);
+						break;
 					}
 					break;
 				}
-				break;
-			// Set cursor position
-			case 'h':
-				Term->WritePos = args[0] + args[1]*Term->TextWidth;
-				Log_Debug("VTerm", "args = {%i, %i}", args[0], args[1]);
-				break;
-			// Set Font flags
-			case 'm':
-				for( ; argc--; )
+			}
+			else
+			{
+				tmp = 1;
+				switch(c)
 				{
-					// Flags
-					if( 0 <= args[argc] && args[argc] <= 8)
+				// Left
+				case 'D':
+					tmp = -1;
+				// Right
+				case 'C':
+					if(argc == 1)	tmp *= args[0];
+					if( Term->Flags & VT_FLAG_ALTBUF )
 					{
-						switch(args[argc])
+						if( (Term->AltWritePos + tmp) % Term->TextWidth == 0 ) {
+							Term->AltWritePos -= Term->AltWritePos % Term->TextWidth;
+							Term->AltWritePos += Term->TextWidth - 1;
+						}
+						else
+							Term->AltWritePos += tmp;
+					}
+					else
+					{
+						if( (Term->WritePos + tmp) % Term->TextWidth == 0 ) {
+							Term->WritePos -= Term->WritePos % Term->TextWidth;
+							Term->WritePos += Term->TextWidth - 1;
+						}
+						else
+							Term->WritePos += tmp;
+					}
+					break;
+				
+				// Erase
+				case 'J':
+					switch(args[0])
+					{
+					case 0:	// Erase below
+						break;
+					case 1:	// Erase above
+						break;
+					case 2:	// Erase all
+						if( Term->Flags & VT_FLAG_ALTBUF )
 						{
-						case 0:	Term->CurColour = DEFAULT_COLOUR;	break;	// Reset
-						case 1:	Term->CurColour |= 0x80000000;	break;	// Bright
-						case 2:	Term->CurColour &= ~0x80000000;	break;	// Dim
+							 int	i = Term->TextHeight;
+							while( i-- )	VT_int_ClearLine(Term, i);
+							Term->AltWritePos = 0;
+							VT_int_UpdateScreen(Term, 1);
+						}
+						else
+						{
+							 int	i = Term->TextHeight * (giVT_Scrollback + 1);
+							while( i-- )	VT_int_ClearLine(Term, i);
+							Term->WritePos = 0;
+							Term->ViewPos = 0;
+							VT_int_UpdateScreen(Term, 1);
+						}
+						break;
+					}
+					break;
+				// Set cursor position
+				case 'H':
+					if( Term->Flags & VT_FLAG_ALTBUF )
+						Term->AltWritePos = args[0] + args[1]*Term->TextWidth;
+					else
+						Term->WritePos = args[0] + args[1]*Term->TextWidth;
+					Log_Debug("VTerm", "args = {%i, %i}", args[0], args[1]);
+					break;
+				
+				// Scroll up `n` lines
+				case 'S':
+					tmp = -1;
+				// Scroll down `n` lines
+				case 'P':
+					if(argc == 1)	tmp *= args[0];
+					
+					break;
+				
+				// Set Font flags
+				case 'm':
+					for( ; argc--; )
+					{
+						// Flags
+						if( 0 <= args[argc] && args[argc] <= 8)
+						{
+							switch(args[argc])
+							{
+							case 0:	Term->CurColour = DEFAULT_COLOUR;	break;	// Reset
+							case 1:	Term->CurColour |= 0x80000000;	break;	// Bright
+							case 2:	Term->CurColour &= ~0x80000000;	break;	// Dim
+							}
+						}
+						// Foreground Colour
+						else if(30 <= args[argc] && args[argc] <= 37) {
+							Term->CurColour &= 0xF000FFFF;
+							Term->CurColour |= (Uint32)caVT100Colours[ args[argc]-30+(Term->CurColour>>28) ] << 16;
+						}
+						// Background Colour
+						else if(40 <= args[argc] && args[argc] <= 47) {
+							Term->CurColour &= 0xFFFF8000;
+							Term->CurColour |= caVT100Colours[ args[argc]-40+((Term->CurColour>>12)&15) ];
 						}
 					}
-					// Foreground Colour
-					else if(30 <= args[argc] && args[argc] <= 37) {
-						Term->CurColour &= 0xF000FFFF;
-						Term->CurColour |= (Uint32)caVT100Colours[ args[argc]-30+(Term->CurColour>>28) ] << 16;
-					}
-					// Background Colour
-					else if(40 <= args[argc] && args[argc] <= 47) {
-						Term->CurColour &= 0xFFFF8000;
-						Term->CurColour |= caVT100Colours[ args[argc]-40+((Term->CurColour>>12)&15) ];
-					}
+					break;
+				
+				// Set scrolling region
+				case 'r':
+					if( argc != 2 )	break;
+					Term->ScrollTop = args[0];
+					Term->ScrollHeight = args[1] - args[0];
+					break;
+				
+				default:
+					Log_Warning("VTerm", "Unknown control sequence");
+					break;
 				}
-				break;
-			default:
-				Log_Warning("VTerm", "Unknown control sequence");
-				break;
 			}
 		}
 		break;
@@ -1051,9 +1146,11 @@ void VT_int_PutString(tVTerm *Term, Uint8 *Buffer, Uint Count)
 	if( Term == gpVT_CurTerm && !(Term->Flags & VT_FLAG_HIDECSR) )
 	{
 		tVideo_IOCtl_Pos	pos;
-		pos.x = (Term->WritePos - Term->ViewPos) % Term->TextWidth;
-		pos.y = (Term->WritePos - Term->ViewPos) / Term->TextWidth;
-		VFS_IOCtl(giVT_OutputDevHandle, VIDEO_IOCTL_SETCURSOR, &pos);
+		 int	offset = (gpVT_CurTerm->Flags & VT_FLAG_ALTBUF) ? gpVT_CurTerm->AltWritePos : gpVT_CurTerm->WritePos - gpVT_CurTerm->ViewPos;
+		pos.x = offset % gpVT_CurTerm->TextWidth;
+		pos.y = offset / gpVT_CurTerm->TextWidth;
+		if( 0 <= pos.y && pos.y < gpVT_CurTerm->TextHeight )
+			VFS_IOCtl(giVT_OutputDevHandle, VIDEO_IOCTL_SETCURSOR, &pos);
 	}
 }
 
@@ -1064,125 +1161,210 @@ void VT_int_PutString(tVTerm *Term, Uint8 *Buffer, Uint Count)
 void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 {
 	 int	i;
+	tVT_Char	*buffer;
+	 int	write_pos;
+	
+	if(Term->Flags & VT_FLAG_ALTBUF) {
+		buffer = Term->AltBuf;
+		write_pos = Term->AltWritePos;
+	}
+	else {
+		buffer = Term->Text;
+		write_pos = Term->WritePos;
+	}
 	
 	switch(Ch)
 	{
 	case '\0':	return;	// Ignore NULL byte
 	case '\n':
 		VT_int_UpdateScreen( Term, 0 );	// Update the line before newlining
-		Term->WritePos += Term->TextWidth;
+		write_pos += Term->TextWidth;
 	case '\r':
-		Term->WritePos -= Term->WritePos % Term->TextWidth;
+		write_pos -= write_pos % Term->TextWidth;
 		break;
 	
 	case '\t':
 		do {
-			Term->Text[ Term->WritePos ].Ch = '\0';
-			Term->Text[ Term->WritePos ].Colour = Term->CurColour;
-			Term->WritePos ++;
-		} while(Term->WritePos & 7);
+			buffer[ write_pos ].Ch = '\0';
+			buffer[ write_pos ].Colour = Term->CurColour;
+			write_pos ++;
+		} while(write_pos & 7);
 		break;
 	
 	case '\b':
 		// Backspace is invalid at Offset 0
-		if(Term->WritePos == 0)	break;
+		if(write_pos == 0)	break;
 		
-		Term->WritePos --;
+		write_pos --;
 		// Singe Character
-		if(Term->Text[ Term->WritePos ].Ch != '\0') {
-			Term->Text[ Term->WritePos ].Ch = 0;
-			Term->Text[ Term->WritePos ].Colour = Term->CurColour;
+		if(buffer[ write_pos ].Ch != '\0') {
+			buffer[ write_pos ].Ch = 0;
+			buffer[ write_pos ].Colour = Term->CurColour;
 			break;
 		}
 		// Tab
 		i = 7;	// Limit it to 8
 		do {
-			Term->Text[ Term->WritePos ].Ch = 0;
-			Term->Text[ Term->WritePos ].Colour = Term->CurColour;
-			Term->WritePos --;
-		} while(Term->WritePos && i-- && Term->Text[ Term->WritePos ].Ch == '\0');
-		if(Term->Text[ Term->WritePos ].Ch != '\0')
-			Term->WritePos ++;
+			buffer[ write_pos ].Ch = 0;
+			buffer[ write_pos ].Colour = Term->CurColour;
+			write_pos --;
+		} while(write_pos && i-- && buffer[ write_pos ].Ch == '\0');
+		if(buffer[ write_pos ].Ch != '\0')
+			write_pos ++;
 		break;
 	
 	default:
-		Term->Text[ Term->WritePos ].Ch = Ch;
-		Term->Text[ Term->WritePos ].Colour = Term->CurColour;
+		buffer[ write_pos ].Ch = Ch;
+		buffer[ write_pos ].Colour = Term->CurColour;
 		// Update the line before wrapping
-		if( (Term->WritePos + 1) % Term->TextWidth == 0 )
+		if( (write_pos + 1) % Term->TextWidth == 0 )
 			VT_int_UpdateScreen( Term, 0 );
-		Term->WritePos ++;
+		write_pos ++;
 		break;
 	}
 	
-	// Move Screen
-	// - Check if we need to scroll the entire scrollback buffer
-	if(Term->WritePos >= Term->TextWidth*Term->TextHeight*(giVT_Scrollback+1))
+	if(Term->Flags & VT_FLAG_ALTBUF)
 	{
-		 int	base;
+		Term->AltBuf = buffer;
+		Term->AltWritePos = write_pos;
 		
-		// Move back by one
-		Term->WritePos -= Term->TextWidth;
-		// Update the scren
-		VT_int_UpdateScreen( Term, 0 );
-		
-		// Update view position
-		base = Term->TextWidth*Term->TextHeight*(giVT_Scrollback);
-		if(Term->ViewPos < base)
-			Term->ViewPos += Term->Width;
-		if(Term->ViewPos > base)
-			Term->ViewPos = base;
-		
-		// Scroll terminal cache
-		base = Term->TextWidth*(Term->TextHeight*(giVT_Scrollback+1)-1);
-		memcpy(
-			Term->Text,
-			&Term->Text[Term->TextWidth],
-			base*sizeof(tVT_Char)
-			);
-		
-		// Clear last row
-		for( i = 0; i < Term->TextWidth; i ++ )
+		if(Term->AltWritePos >= Term->TextWidth*Term->TextHeight)
 		{
-			Term->Text[ base + i ].Ch = 0;
-			Term->Text[ base + i ].Colour = Term->CurColour;
+			Term->AltWritePos -= Term->TextWidth;
+			VT_int_ScrollText(Term, 1);
 		}
 		
-		VT_int_ScrollFramebuffer( Term );
-		VT_int_UpdateScreen( Term, 0 );
 	}
-	// Ok, so we only need to scroll the screen
-	else if(Term->WritePos >= Term->ViewPos + Term->TextWidth*Term->TextHeight)
+	else
 	{
-		//Debug("Term->WritePos (%i) >= %i",
-		//	Term->WritePos,
-		//	Term->ViewPos + Term->TextWidth*Term->TextHeight
-		//	);
-		//Debug("Scrolling screen only");
-		
-		// Update the last line
-		Term->WritePos -= Term->TextWidth;
-		VT_int_UpdateScreen( Term, 0 );
-		Term->WritePos += Term->TextWidth;
-		VT_int_ClearLine(Term, Term->WritePos / Term->TextWidth);
-		
-		// Scroll
-		Term->ViewPos += Term->TextWidth;
-		//Debug("Term->ViewPos = %i", Term->ViewPos);
-		VT_int_ScrollFramebuffer( Term );
-		VT_int_UpdateScreen( Term, 0 );
-		
-		//VT_int_UpdateScreen( Term, 1 );	// HACK!
+		Term->Text = buffer;
+		Term->WritePos = write_pos;
+		// Move Screen
+		// - Check if we need to scroll the entire scrollback buffer
+		if(Term->WritePos >= Term->TextWidth*Term->TextHeight*(giVT_Scrollback+1))
+		{
+			 int	base;
+			
+			// Update previous line
+			Term->WritePos -= Term->TextWidth;
+			VT_int_UpdateScreen( Term, 0 );
+			
+			// Update view position
+			base = Term->TextWidth*Term->TextHeight*(giVT_Scrollback);
+			if(Term->ViewPos < base)
+				Term->ViewPos += Term->Width;
+			if(Term->ViewPos > base)
+				Term->ViewPos = base;
+			
+			VT_int_ScrollText(Term, 1);
+		}
+		// Ok, so we only need to scroll the screen
+		else if(Term->WritePos >= Term->ViewPos + Term->TextWidth*Term->TextHeight)
+		{
+			// Update the last line
+			Term->WritePos -= Term->TextWidth;
+			VT_int_UpdateScreen( Term, 0 );
+			
+			VT_int_ScrollText(Term, 1);
+		}
 	}
 	
 	//LEAVE('-');
 }
 
+void VT_int_ScrollText(tVTerm *Term, int Count)
+{
+	tVT_Char	*buf;
+	 int	height, init_write_pos;
+	 int	base, len, i;
+	
+	if( Term->Flags & VT_FLAG_ALTBUF )
+	{
+		buf = Term->AltBuf;
+		height = Term->TextHeight;
+		init_write_pos = Term->AltWritePos;
+	}
+	else
+	{
+		buf = Term->Text;
+		height = Term->TextHeight*giVT_Scrollback;
+		init_write_pos = Term->WritePos;
+	}
+	
+	if( Count > 0 )
+	{
+		if(Count > Term->ScrollHeight)	Count = Term->ScrollHeight;
+		base = Term->TextWidth*(Term->ScrollTop + Term->ScrollHeight - Count);
+		len = Term->TextWidth*(height - Term->ScrollHeight - Count - Term->ScrollTop);
+		
+		// Scroll terminal cache
+		memcpy(
+			&buf[Term->TextWidth*Term->ScrollTop],
+			&buf[Term->TextWidth*(Term->ScrollTop+Count)],
+			len*sizeof(tVT_Char)
+			);
+		// Clear last rows
+		for( i = 0; i < Term->TextWidth*Count; i ++ )
+		{
+			Term->AltBuf[ base + i ].Ch = 0;
+			Term->AltBuf[ base + i ].Colour = Term->CurColour;
+		}
+		
+		// Update Screen
+		VT_int_ScrollFramebuffer( Term, Count );
+		Term->WritePos = Term->ViewPos + Term->ScrollTop + (Term->ScrollHeight - Count);
+		for( i = 0; i < Count; i ++ )
+		{
+			VT_int_UpdateScreen( Term, 0 );
+			if( Term->Flags & VT_FLAG_ALTBUF )
+				Term->AltWritePos += Term->TextWidth;
+			else
+				Term->WritePos += Term->TextWidth;
+		}
+	}
+	else
+	{
+		Count = -Count;
+		if(Count > Term->ScrollHeight)	Count = Term->ScrollHeight;
+		
+		len = Term->TextWidth*(height - Term->ScrollHeight - Count - Term->ScrollTop);
+		
+		// Scroll terminal cache
+		memcpy(
+			&buf[Term->TextWidth*(Term->ScrollTop+Count)],
+			&buf[Term->TextWidth*Term->ScrollTop],
+			len*sizeof(tVT_Char)
+			);
+		// Clear preceding rows
+		for( i = 0; i < Term->TextWidth*Count; i ++ )
+		{
+			Term->AltBuf[ i ].Ch = 0;
+			Term->AltBuf[ i ].Colour = Term->CurColour;
+		}
+		
+		VT_int_ScrollFramebuffer( Term, -Count );
+		Term->WritePos = Term->ViewPos + Term->ScrollTop;
+		for( i = 0; i < Count; i ++ )
+		{
+			VT_int_UpdateScreen( Term, 0 );
+			if( Term->Flags & VT_FLAG_ALTBUF )
+				Term->AltWritePos += Term->TextWidth;
+			else
+				Term->WritePos += Term->TextWidth;
+		}
+	}
+	
+	if( Term->Flags & VT_FLAG_ALTBUF )
+		Term->AltWritePos = init_write_pos;
+	else
+		Term->WritePos = init_write_pos;
+}
+
 /**
- * \fn void VT_int_ScrollFramebuffer( tVTerm *Term )
- * \note Scrolls the framebuffer by 1 text line
+ * \fn void VT_int_ScrollFramebuffer( tVTerm *Term, int Count )
+ * \note Scrolls the framebuffer down by \a Count text lines
  */
-void VT_int_ScrollFramebuffer( tVTerm *Term )
+void VT_int_ScrollFramebuffer( tVTerm *Term, int Count )
 {
 	 int	tmp;
 	struct {
@@ -1195,16 +1377,29 @@ void VT_int_ScrollFramebuffer( tVTerm *Term )
 	// Only update if this is the current terminal
 	if( Term != gpVT_CurTerm )	return;
 	
+	if( Count > Term->ScrollHeight )	Count = Term->ScrollHeight;
+	if( Count < -Term->ScrollHeight )	Count = -Term->ScrollHeight;
+	
 	// Switch to 2D Command Stream
 	tmp = VIDEO_BUFFMT_2DSTREAM;
 	VFS_IOCtl(giVT_OutputDevHandle, VIDEO_IOCTL_SETBUFFORMAT, &tmp);
 	
-	// BLIT from 0,0 to 0,giVT_CharHeight
+	// BLIT to 0,0 from 0,giVT_CharHeight
 	buf.Op = VIDEO_2DOP_BLIT;
-	buf.DstX = 0;	buf.DstY = 0;
-	buf.SrcX = 0;	buf.SrcY = giVT_CharHeight;
+	buf.SrcX = 0;	buf.DstX = 0;
 	buf.W = Term->TextWidth * giVT_CharWidth;
-	buf.H = (Term->TextHeight-1) * giVT_CharHeight;
+	if( Count > 0 )
+	{
+		buf.SrcY = (Term->ScrollTop+Count) * giVT_CharHeight;
+		buf.DstY = Term->ScrollTop * giVT_CharHeight;
+		buf.H = (Term->ScrollHeight-Count) * giVT_CharHeight;
+	}
+	else	// Scroll up, move text down
+	{
+		buf.SrcY = Term->ScrollTop * giVT_CharHeight;
+		buf.DstY = (Term->ScrollTop+Count) * giVT_CharHeight;
+		buf.H = (Term->ScrollHeight+Count) * giVT_CharHeight;
+	}
 	VFS_WriteAt(giVT_OutputDevHandle, 0, sizeof(buf), &buf);
 	
 	// Restore old mode (this function is only called during text mode)
@@ -1218,29 +1413,34 @@ void VT_int_ScrollFramebuffer( tVTerm *Term )
  */
 void VT_int_UpdateScreen( tVTerm *Term, int UpdateAll )
 {
+	tVT_Char	*buffer;
+	 int	view_pos, write_pos;
 	// Only update if this is the current terminal
 	if( Term != gpVT_CurTerm )	return;
 	
 	switch( Term->Mode )
 	{
 	case TERM_MODE_TEXT:
+		view_pos = (Term->Flags & VT_FLAG_ALTBUF) ? 0 : Term->ViewPos;
+		write_pos = (Term->Flags & VT_FLAG_ALTBUF) ? Term->AltWritePos : Term->WritePos;
+		buffer = (Term->Flags & VT_FLAG_ALTBUF) ? Term->AltBuf : Term->Text;
 		// Re copy the entire screen?
 		if(UpdateAll) {
 			VFS_WriteAt(
 				giVT_OutputDevHandle,
 				0,
 				Term->TextWidth*Term->TextHeight*sizeof(tVT_Char),
-				&Term->Text[Term->ViewPos]
+				&buffer[view_pos]
 				);
 		}
 		// Only copy the current line
 		else {
-			 int	pos = Term->WritePos - Term->WritePos % Term->TextWidth;
+			 int	ofs = write_pos - write_pos % Term->TextWidth;
 			VFS_WriteAt(
 				giVT_OutputDevHandle,
-				(pos - Term->ViewPos)*sizeof(tVT_Char),
+				(ofs - view_pos)*sizeof(tVT_Char),
 				Term->TextWidth*sizeof(tVT_Char),
-				&Term->Text[pos]
+				&buffer[ofs]
 				);
 		}
 		break;
@@ -1264,64 +1464,72 @@ void VT_int_UpdateScreen( tVTerm *Term, int UpdateAll )
  */
 void VT_int_ChangeMode(tVTerm *Term, int NewMode, int NewWidth, int NewHeight)
 {
-	 int	oldW = Term->Width;
-	 int	oldTW = oldW / giVT_CharWidth;
-	 int	oldH = Term->Height;
-	 int	oldTH = oldH / giVT_CharWidth;
-	tVT_Char	*oldTBuf = Term->Text;
-	Uint32	*oldFB = Term->Buffer;
-	 int	w, h, i;
 	
 	// TODO: Increase RealWidth/RealHeight when this happens
 	if(NewWidth > giVT_RealWidth)	NewWidth = giVT_RealWidth;
 	if(NewHeight > giVT_RealHeight)	NewHeight = giVT_RealHeight;
 	
-	// Calculate new dimensions
-	Term->TextWidth = NewWidth / giVT_CharWidth;
-	Term->TextHeight = NewHeight / giVT_CharHeight;
-	Term->Width = NewWidth;
-	Term->Height = NewHeight;
 	Term->Mode = NewMode;
 	
-	// Allocate new buffers
-	// - Text
-	Term->Text = calloc(
-		Term->TextWidth * Term->TextHeight * (giVT_Scrollback+1),
-		sizeof(tVT_Char)
-		);
-	if(oldTBuf) {
-		// Copy old buffer
-		w = oldTW;
-		if( w > Term->TextWidth )	w = Term->TextWidth;
-		h = oldTH;
-		if( h > Term->TextHeight )	h = Term->TextHeight;
-		h *= giVT_Scrollback + 1;
-		for( i = 0; i < h; i ++ )
-		{
-			memcpy(
-				&Term->Text[i*Term->TextWidth],
-				&oldTBuf[i*oldTW],
-				w*sizeof(tVT_Char)
-				);
-				
-		}
-	}
+	if(NewWidth != Term->Width || NewHeight != Term->Height)
+	{
+		 int	oldW = Term->Width;
+		 int	oldTW = Term->TextWidth;
+		 int	oldH = Term->Height;
+		 int	oldTH = Term->TextHeight;
+		tVT_Char	*oldTBuf = Term->Text;
+		Uint32	*oldFB = Term->Buffer;
+		 int	w, h, i;
+		// Calculate new dimensions
+		Term->Width = NewWidth;
+		Term->Height = NewHeight;
+		Term->TextWidth = NewWidth / giVT_CharWidth;
+		Term->TextHeight = NewHeight / giVT_CharHeight;
+		Term->ScrollHeight = Term->TextHeight - (oldTH - Term->ScrollHeight) - Term->ScrollTop;
 	
-	// - Framebuffer
-	Term->Buffer = calloc( Term->Width * Term->Height, sizeof(Uint32) );
-	if(oldFB) {
-		// Copy old buffer
-		w = oldW;
-		if( w > Term->Width )	w = Term->Width;
-		h = oldH;
-		if( h > Term->Height )	h = Term->Height;
-		for( i = 0; i < h; i ++ )
-		{
-			memcpy(
-				&Term->Buffer[i*Term->Width],
-				&oldFB[i*oldW],
-				w*sizeof(Uint32)
-				);
+		// Allocate new buffers
+		// - Text
+		Term->Text = calloc(
+			Term->TextWidth * Term->TextHeight * (giVT_Scrollback+1),
+			sizeof(tVT_Char)
+			);
+		if(oldTBuf) {
+			// Copy old buffer
+			w = (oldTW > Term->TextWidth) ? Term->TextWidth : oldTW;
+			h = (oldTH > Term->TextHeight) ? Term->TextHeight : oldTH;
+			h *= giVT_Scrollback + 1;
+			for( i = 0; i < h; i ++ )
+			{
+				memcpy(
+					&Term->Text[i*Term->TextWidth],
+					&oldTBuf[i*oldTW],
+					w*sizeof(tVT_Char)
+					);	
+			}
+			free(oldTBuf);
+		}
+		
+		// - Alternate Text
+		Term->AltBuf = realloc(
+			Term->AltBuf,
+			Term->TextWidth * Term->TextHeight * sizeof(tVT_Char)
+			);
+		
+		// - Framebuffer
+		Term->Buffer = calloc( Term->Width * Term->Height, sizeof(Uint32) );
+		if(oldFB) {
+			// Copy old buffer
+			w = (oldW > Term->Width) ? Term->Width : oldW;
+			h = (oldH > Term->Height) ? Term->Height : oldH;
+			for( i = 0; i < h; i ++ )
+			{
+				memcpy(
+					&Term->Buffer[i*Term->Width],
+					&oldFB[i*oldW],
+					w*sizeof(Uint32)
+					);
+			}
+			free(oldFB);
 		}
 	}
 	
@@ -1341,6 +1549,15 @@ void VT_int_ChangeMode(tVTerm *Term, int NewMode, int NewWidth, int NewHeight)
 	//case TERM_MODE_3DACCEL:
 	//	return;
 	}
+}
+
+
+void VT_int_ToggleAltBuffer(tVTerm *Term, int Enabled)
+{	
+	if(Enabled)
+		Term->Flags |= VT_FLAG_ALTBUF;
+	else
+		Term->Flags &= ~VT_FLAG_ALTBUF;
 }
 
 // ---
