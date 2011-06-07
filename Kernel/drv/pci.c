@@ -296,7 +296,7 @@ int PCI_CountDevices(Uint16 vendor, Uint16 device, Uint16 fcn)
 */
 int PCI_GetDevice(Uint16 vendor, Uint16 device, Uint16 fcn, int idx)
 {
-	int i, j=0;
+	 int	i, j=0;
 	for(i=0;i<giPCI_DeviceCount;i++)
 	{
 		if(gPCI_Devices[i].vendor != vendor)	continue;
@@ -403,6 +403,18 @@ Uint32 PCI_GetBAR5(int id)
 
 Uint16 PCI_AssignPort(int id, int bar, int count)
 {
+	#if 1
+	Uint16	rv;
+	tPCIDevice	*dev;
+	
+	if(id < 0 || id >= giPCI_DeviceCount)	return 0;
+	if(bar < 0 || bar > 5)	return 0;
+	dev = &gPCI_Devices[id];
+	
+	rv = PCI_CfgReadDWord( dev->bus, dev->slot, dev->fcn, 0x10+bar*4 );
+	if(rv & 1)	return rv & ~1;
+	return 0;
+	#else
 	Uint16	portVals;
 	 int	gran=0;
 	 int	i, j;
@@ -466,6 +478,7 @@ Uint16 PCI_AssignPort(int id, int bar, int count)
 	// Return
 	//LogF("PCI_AssignPort: RETURN 0x%x\n", portVals);
 	return portVals;
+	#endif
 }
 
 /**

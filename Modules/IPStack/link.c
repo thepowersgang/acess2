@@ -101,7 +101,7 @@ void Link_WatchDevice(tAdapter *Adapter)
 	 int	tid = Proc_SpawnWorker();	// Create a new worker thread
 	
 	if(tid < 0) {
-		Log_Warning("NET", "Unable to create watcher thread for '%s'", Adapter->Device);
+		Log_Warning("Net Link", "Unable to create watcher thread for '%s'", Adapter->Device);
 		return ;
 	}
 	
@@ -130,7 +130,7 @@ void Link_WatchDevice(tAdapter *Adapter)
 		if(ret == -1)	break;
 		
 		if(ret <= (int)sizeof(tEthernetHeader)) {
-			Log_Log("NET", "Recieved an undersized packet");
+			Log_Log("Net Link", "Recieved an undersized packet");
 			continue;
 		}
 		
@@ -167,7 +167,7 @@ void Link_WatchDevice(tAdapter *Adapter)
 			);
 	}
 	
-	Log_Log("NET", "Watcher terminated (file closed)");
+	Log_Log("Net Link", "Watcher terminated (file closed)");
 	
 	Threads_Exit(0, 0);
 }

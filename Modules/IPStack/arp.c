@@ -42,7 +42,7 @@ struct sARP_Cache6 {
  int	giARP_Cache6Space;
 tMutex	glARP_Cache6;
 #endif
- int	giARP_LastUpdateID = 0;
+volatile int	giARP_LastUpdateID = 0;
 
 // === CODE ===
 /**
@@ -135,11 +135,13 @@ tMacAddr ARP_Resolve4(tInterface *Interface, tIPv4 Address)
 	for(;;)
 	{
 		while(lastID == giARP_LastUpdateID && now() < timeout) {
-//			Log_Debug("ARP", "timeout = %lli", timeout);
 			Threads_Yield();
 		}
 		
-		if( now() >= timeout )	break;	// Timeout
+		if( now() >= timeout ) {
+			Log_Log("ARP4", "Timeout");
+			break;	// Timeout
+		}
 		
 		lastID = giARP_LastUpdateID;
 		
@@ -149,6 +151,10 @@ tMacAddr ARP_Resolve4(tInterface *Interface, tIPv4 Address)
 			if(gaARP_Cache4[i].IP.L != Address.L)	continue;
 			
 			Mutex_Release( &glARP_Cache4 );
+			Log_Debug("ARP4", "Return %02x:%02x:%02x:%02x:%02x:%02x",
+				gaARP_Cache4[i].MAC.B[0], gaARP_Cache4[i].MAC.B[1], 
+				gaARP_Cache4[i].MAC.B[2], gaARP_Cache4[i].MAC.B[3], 
+				gaARP_Cache4[i].MAC.B[4], gaARP_Cache4[i].MAC.B[5]);
 			return gaARP_Cache4[i].MAC;
 		}
 		Mutex_Release( &glARP_Cache4 );
@@ -184,7 +190,6 @@ void ARP_UpdateCache4(tIPv4 SWAddr, tMacAddr HWAddr)
 			i = free;
 		else
 			i = oldest;
-		gaARP_Cache4[i].IP = SWAddr;
 	}
 	
 	Log_Log("ARP4", "Caching %i.%i.%i.%i (%02x:%02x:%02x:%02x:%02x:%02x) in %i",
@@ -193,6 +198,7 @@ void ARP_UpdateCache4(tIPv4 SWAddr, tMacAddr HWAddr)
 		i
 		);
 		
+	gaARP_Cache4[i].IP = SWAddr;
 	gaARP_Cache4[i].MAC = HWAddr;
 	gaARP_Cache4[i].LastUpdate = now();
 	giARP_LastUpdateID ++;

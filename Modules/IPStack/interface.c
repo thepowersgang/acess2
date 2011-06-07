@@ -181,6 +181,7 @@ int IPStack_Root_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		{
 			char	name[4] = "";
 			tInterface	*iface = IPStack_AddInterface(Data, name);
+			if(iface == NULL)	LEAVE_RET('i', -1);
 			tmp = iface->Node.ImplInt;
 		}
 		LEAVE_RET('i', tmp);
@@ -203,6 +204,7 @@ tInterface *IPStack_AddInterface(const char *Device, const char *Name)
 	
 	card = IPStack_GetAdapter(Device);
 	if( !card ) {
+		Log_Debug("IPStack", "Unable to open card '%s'", Device);
 		LEAVE('n');
 		return NULL;	// ERR_YOURBAD
 	}

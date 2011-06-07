@@ -3,7 +3,7 @@
  * - By John Hodge (thePowersGang)
  */
 #define	DEBUG	0
-#define VERSION	((0<<8)|50)
+#define VERSION	((0<<8)|20)
 #include <acess.h>
 #include <modules.h>
 #include <fs_devfs.h>
@@ -12,6 +12,9 @@
 #include <semaphore.h>
 
 // === CONSTANTS ===
+#define VENDOR_ID	0x10EC
+#define DEVICE_ID	0x8139
+
 enum eRTL8139_Regs
 {
 	// MAC Address
@@ -78,6 +81,7 @@ typedef struct sCard
 	char	*TransmitBuffers[4];
 	tPAddr	PhysTransmitBuffers[4];
 	BOOL	TransmitInUse;	// Flags for each transmit descriptor
+	 int	CurTXDecscriptor;
 	
 	char	Name[2];
 	tVFS_Node	Node;
@@ -121,15 +125,18 @@ int RTL8139_Install(char **Options)
 	Uint16	base;
 	tCard	*card;
 	
-	giRTL8139_CardCount = PCI_CountDevices( 0x10EC, 0x8139, 0 );
+	giRTL8139_CardCount = PCI_CountDevices(VENDOR_ID, DEVICE_ID, 0);
+	Log_Debug("RTL8139", "%i cards", giRTL8139_CardCount);
+	
+	if( giRTL8139_CardCount == 0 )	return MODULE_ERR_NOTNEEDED;
 	
 	gaRTL8139_Cards = calloc( giRTL8139_CardCount, sizeof(tCard) );
 	
-	
-	while( (id = PCI_GetDevice(0x10EC, 0x8139, 0, id)) != -1 )
+	//while( (id = PCI_GetDevice(0x10EC, 0x8139, 0, id)) != -1 )
+	while( (id = PCI_GetDevice(VENDOR_ID, DEVICE_ID, 0, i)) != -1 )
 	{
-		base = PCI_AssignPort( id, 0, 0x100 );
 		card = &gaRTL8139_Cards[i];
+		base = PCI_AssignPort( id, 0, 0x100 );
 		card->IOBase = base;
 		card->IRQ = PCI_GetIRQ( id );
 		
@@ -146,7 +153,10 @@ int RTL8139_Install(char **Options)
 		// Set up recieve buffer
 		// - Allocate 3 pages below 4GiB for the recieve buffer (Allows 8k+16+1500)
 		card->ReceiveBuffer = (void*)MM_AllocDMA( 3, 32, &card->PhysReceiveBuffer );
+		card->ReceiveBufferLength = 8*1024+16;
 		outd(base + RBSTART, (Uint32)card->PhysReceiveBuffer);
+		outd(base + CBA, 0);
+		outd(base + CAPR, 0);
 		// Set IMR to Transmit OK and Receive OK
 		outw(base + IMR, 0x5);
 		
@@ -156,7 +166,7 @@ int RTL8139_Install(char **Options)
 		card->TransmitBuffers[1] = card->TransmitBuffers[0] + 0x800;
 		card->PhysTransmitBuffers[1] = card->PhysTransmitBuffers[0] + 0x800;
 		
-		card->TransmitBuffers[2] = (void*)MM_AllocDMA( 1, 32, &card->PhysTransmitBuffers[1] );
+		card->TransmitBuffers[2] = (void*)MM_AllocDMA( 1, 32, &card->PhysTransmitBuffers[2] );
 		card->TransmitBuffers[3] = card->TransmitBuffers[2] + 0x800;
 		card->PhysTransmitBuffers[3] = card->PhysTransmitBuffers[2] + 0x800;
 		
@@ -192,14 +202,18 @@ int RTL8139_Install(char **Options)
 		card->Node.Read = RTL8139_Read;
 		card->Node.IOCtl = RTL8139_IOCtl;
 		
-		Log_Log("RTL8139", "Card %i 0x%04x %02x:%02x:%02x:%02x:%02x:%02x",
-			i, base,
+		Log_Log("RTL8139", "Card %i 0x%04x, IRQ %i %02x:%02x:%02x:%02x:%02x:%02x",
+			i, card->IOBase, card->IRQ,
 			card->MacAddr[0], card->MacAddr[1], card->MacAddr[2],
 			card->MacAddr[3], card->MacAddr[4], card->MacAddr[5]
 			);
 		
 		i ++;
 	}
+	
+	gRTL8139_DriverInfo.RootNode.Size = giRTL8139_CardCount;
+	DevFS_AddDevice( &gRTL8139_DriverInfo );
+	
 	return MODULE_ERR_OK;
 }
 
@@ -214,7 +228,7 @@ char *RTL8139_ReadDir(tVFS_Node *Node, int Pos)
 tVFS_Node *RTL8139_FindDir(tVFS_Node *Node, const char *Filename)
 {
 	//TODO: It might be an idea to supprt >10 cards
-	if(Filename[0] == '\0' || Filename[0] != '\0')	return NULL;
+	if(Filename[0] == '\0' || Filename[1] != '\0')	return NULL;
 	if(Filename[0] < '0' || Filename[0] > '9')	return NULL;
 	return &gaRTL8139_Cards[ Filename[0]-'0' ].Node;
 }
@@ -222,10 +236,12 @@ tVFS_Node *RTL8139_FindDir(tVFS_Node *Node, const char *Filename)
 const char *csaRTL8139_RootIOCtls[] = {DRV_IOCTLNAMES, NULL};
 int RTL8139_RootIOCtl(tVFS_Node *Node, int ID, void *Data)
 {
+	ENTER("pNode iID pData", Node, ID, Data);
 	switch(ID)
 	{
 	BASE_IOCTLS(DRV_TYPE_NETWORK, "RTL8139", VERSION, csaRTL8139_RootIOCtls);
 	}
+	LEAVE('i', 0);
 	return 0;
 }
 
@@ -233,34 +249,45 @@ int RTL8139_RootIOCtl(tVFS_Node *Node, int ID, void *Data)
 Uint64 RTL8139_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 {
 	tCard	*card = Node->ImplPtr;
-	 int	read_ofs, pkt_length;
+	Uint16	read_ofs, pkt_length;
+	 int	new_read_ofs;
+
+	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
 
 retry:
 	Semaphore_Wait( &card->ReadSemaphore, 1 );
 	
 	Mutex_Acquire( &card->ReadMutex );
 	
-	read_ofs = ind( card->IOBase + CAPR ) - card->PhysReceiveBuffer;
+	read_ofs = (inw( card->IOBase + CAPR ) + 0x10) & 0xFFFF;
+	LOG("read_ofs = %i", read_ofs);
+	
+	pkt_length = *(Uint16*)&card->ReceiveBuffer[read_ofs+2];
+	
+	// Calculate new read offset
+	new_read_ofs = read_ofs + pkt_length + 4;
+	new_read_ofs = (new_read_ofs + 3) & ~3;	// Align
+	if(new_read_ofs > card->ReceiveBufferLength)	new_read_ofs = 0;
+	new_read_ofs -= 0x10;	// I dunno
 	
 	// Check for errors
 	if( *(Uint16*)&card->ReceiveBuffer[read_ofs] & 0x1E ) {
+		// Update CAPR
+		outd(card->IOBase + CAPR, new_read_ofs);
 		Mutex_Release( &card->ReadMutex );
 		goto retry;	// I feel evil
 	}
-	
-	pkt_length = *(Uint16*)&card->ReceiveBuffer[read_ofs+2];
 	
 	// Get packet
 	if( Length > pkt_length )	Length = pkt_length;
 	memcpy(Buffer, &card->ReceiveBuffer[read_ofs+4], Length);
 	
-	// Update read offset
-	read_ofs += pkt_length + 4;
-	read_ofs = (read_ofs + 3) & ~3;	// Align
-	if(read_ofs > card->ReceiveBufferLength)	read_ofs = 0;
-	outd(card->IOBase + CAPR, read_ofs + card->PhysReceiveBuffer);
+	// Update CAPR
+	outw(card->IOBase + CAPR, new_read_ofs);
 	
 	Mutex_Release( &card->ReadMutex );
+	
+	LEAVE('i', Length);
 	
 	return Length;
 }
@@ -273,18 +300,22 @@ Uint64 RTL8139_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer
 	
 	if( Length > 1500 )	return 0;	// MTU exceeded
 	
-	// TODO: Implement a semaphore for avaliable tranmit buffers
+	ENTER("pNode XLength pBuffer", Node, Length, Buffer);
+	
+	// TODO: Implement a semaphore for avaliable transmit buffers
+	
+	td = card->CurTXDecscriptor;
 	
 	// Find an avaliable descriptor
-	do {
-		for( td = 0; td < 4; td ++ ) {
-			if( !(card->TransmitInUse & (1 << td)) )
-				break;
-		}
-	} while(td == 4 && (Threads_Yield(),1));
+	while( card->TransmitInUse & (1 << td) )
+		Threads_Yield();
+	
+	LOG("td = %i", td);
 	
 	// Transmit using descriptor `td`
 	card->TransmitInUse |= (1 << td);
+	outd(card->IOBase + TSAD0 + td*4, card->PhysTransmitBuffers[td]);
+	LOG("card->PhysTransmitBuffers[td] = 0x%llx", card->PhysTransmitBuffers[td]);
 	// Copy to buffer
 	memcpy(card->TransmitBuffers[td], Buffer, Length);
 	// Start
@@ -292,18 +323,35 @@ Uint64 RTL8139_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer
 	status |= Length & 0x1FFF;	// 0-12: Length
 	status |= 0 << 13;	// 13: OWN bit
 	status |= (0 & 0x3F) << 16;	// 16-21: Early TX threshold (zero atm, TODO: check)
-	outd(card->IOBase + TSD0 + td, status);
+	LOG("status = 0x%08x", status);
+	outd(card->IOBase + TSD0 + td*4, status);
 	
-	return 0;
+	card->CurTXDecscriptor ++;
+	card->CurTXDecscriptor %= 4;
+	
+	LEAVE('i', (int)Length);
+	
+	return Length;
 }
 
 const char *csaRTL8139_NodeIOCtls[] = {DRV_IOCTLNAMES, NULL};
 int RTL8139_IOCtl(tVFS_Node *Node, int ID, void *Data)
 {
+	tCard	*card = Node->ImplPtr;
+	ENTER("pNode iID pData", Node, ID, Data);
 	switch(ID)
 	{
 	BASE_IOCTLS(DRV_TYPE_NETWORK, "RTL8139", VERSION, csaRTL8139_NodeIOCtls);
+	case NET_IOCTL_GETMAC:
+		if( !CheckMem(Data, 6) ) {
+			LEAVE('i', -1);
+			return -1;
+		}
+		memcpy( Data, card->MacAddr, 6 );
+		LEAVE('i', 1);
+		return 1;
 	}
+	LEAVE('i', 0);
 	return 0;
 }
 
@@ -311,25 +359,27 @@ void RTL8139_IRQHandler(int Num)
 {
 	 int	i, j;
 	tCard	*card;
-	Uint8	status;
+	Uint16	status;
+	
 	for( i = 0; i < giRTL8139_CardCount; i ++ )
 	{
 		card = &gaRTL8139_Cards[i];
 		if( Num != card->IRQ )	break;
 		
-		status = inb(card->IOBase + ISR);
+		status = inw(card->IOBase + ISR);
+		LOG("status = 0x%02x", status);
 		
 		// Transmit OK, a transmit descriptor is now free
 		if( status & FLAG_ISR_TOK )
 		{
-			outb(card->IOBase + ISR, FLAG_ISR_TOK);
 			for( j = 0; j < 4; j ++ )
 			{
-				if( ind(card->IOBase + TSD0 + j) & 0x8000 ) {	// TSD TOK
+				if( ind(card->IOBase + TSD0 + j*4) & 0x8000 ) {	// TSD TOK
 					card->TransmitInUse &= ~(1 << j);
 					// TODO: Update semaphore once implemented
 				}
 			}
+			outw(card->IOBase + ISR, FLAG_ISR_TOK);
 		}
 		
 		// Recieve OK, inform read
@@ -339,29 +389,45 @@ void RTL8139_IRQHandler(int Num)
 			 int	packet_count = 0;
 			
 			// Scan recieve buffer for packets
-			end_ofs = ind(card->IOBase + CBA) - card->PhysReceiveBuffer;
+			end_ofs = inw(card->IOBase + CBA);
 			read_ofs = card->SeenOfs;
+			LOG("read_ofs = %i, end_ofs = %i", read_ofs, end_ofs);
 			if( read_ofs > end_ofs )
 			{
 				while( read_ofs < card->ReceiveBufferLength )
 				{
 					packet_count ++;
-					read_ofs += *(Uint16*)&card->ReceiveBuffer[read_ofs+1] + 2;
+					LOG("%i 0x%x Pkt Hdr: 0x%04x, len: 0x%04x",
+						packet_count, read_ofs,
+						*(Uint16*)&card->ReceiveBuffer[read_ofs],
+						*(Uint16*)&card->ReceiveBuffer[read_ofs+2]
+						);
+					read_ofs += *(Uint16*)&card->ReceiveBuffer[read_ofs+2] + 4;
+					read_ofs = (read_ofs + 3) & ~3;	// Align
+					
 				}
 				read_ofs = 0;
 			}
 			while( read_ofs < end_ofs )
 			{
+				LOG("%i 0x%x Pkt Hdr: 0x%04x, len: 0x%04x",
+					packet_count, read_ofs,
+					*(Uint16*)&card->ReceiveBuffer[read_ofs],
+					*(Uint16*)&card->ReceiveBuffer[read_ofs+2]
+					);
 				packet_count ++;
-				read_ofs += *(Uint16*)&card->ReceiveBuffer[read_ofs+1] + 2;
+				read_ofs += *(Uint16*)&card->ReceiveBuffer[read_ofs+2] + 4;
+				read_ofs = (read_ofs + 3) & ~3;	// Align
 			}
 			card->SeenOfs = read_ofs;
+			
+			LOG("packet_count = %i, read_ofs = 0x%x", packet_count, read_ofs);
 			
 			Semaphore_Signal( &card->ReadSemaphore, packet_count );
 			if( packet_count )
 				VFS_MarkAvaliable( &card->Node, 1 );
 			
-			outb(card->IOBase + ISR, FLAG_ISR_ROK);
+			outw(card->IOBase + ISR, FLAG_ISR_ROK);
 		}
 	}
 }

@@ -71,6 +71,8 @@ int IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, int 
 	
 	if( MAC_EQU(to, cMAC_ZERO) ) {
 		// No route to host
+		Log_Notice("IPv4", "No route to host %i.%i.%i.%i",
+			Address.B[0], Address.B[1], Address.B[2], Address.B[3]);
 		return 0;
 	}
 	
@@ -79,8 +81,9 @@ int IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, int 
 		4, (tIPv4*)Iface->Address, &Address,
 		Protocol, 0,
 		Length, Data);
-	if(ret != 0) {
+	if(ret > 0) {
 		// Just drop it (with an error)
+		Log_Notice("IPv4", "Firewall dropped packet");
 		return 0;
 	}
 	
@@ -121,7 +124,7 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	Uint8	*data;
 	 int	dataLength;
 	 int	ret;
-	 
+	
 	if(Length < sizeof(tIPv4Header))	return;
 	
 	#if 0
@@ -200,8 +203,12 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	case 1:
 		Log_Debug("IPv4", "Silently dropping packet");
 		return ;
+	case -1:
+		// Bad rule
+		break ;
 	// Unknown, silent drop
 	default:
+		Log_Warning("IPv4", "Unknown firewall response %i", ret);
 		return ;
 	}
 	

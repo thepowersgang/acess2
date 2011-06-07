@@ -307,7 +307,7 @@ extern int	CheckMem(const void *Mem, int Num);
  * \name Endianness Swapping
  * \{
  */
-#if __ENDIAN == BIG_ENDIAN
+#ifdef __BIG_ENDIAN__
 #define	LittleEndian16(_val)	SwapEndian16(_val)
 #define	LittleEndian32(_val)	SwapEndian32(_val)
 #define	BigEndian16(_val)	(_val)
