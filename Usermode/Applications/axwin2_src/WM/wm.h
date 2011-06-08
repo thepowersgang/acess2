@@ -60,7 +60,7 @@ struct sAxWin_Element
 struct sWindow
 {
 	 int	X, Y, W, H;
-	tImage	*Icon;
+	void	*Icon;
 	
 	tWindow	*OrderNext;	// Render order
 	

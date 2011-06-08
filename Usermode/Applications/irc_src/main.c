@@ -395,19 +395,21 @@ tMessage *Message_Append(tServer *Server, int Type, const char *Source, const ch
 	
 	//TODO: Set location
 	
-	#if 1
-	if( win == gpCurrentWindow ) {
+	{
 		int pos = SetCursorPos(giTerminal_Height-2, 0);
-		printf("\x1B[S");	// Scroll up 1
-		printf("[%s] %s\n", Source, Message);
+		printf("\x1B[T");	// Scroll down 1 (free space below)
+		#if 1
+		if( win == gpCurrentWindow ) {
+			printf("[%s] %s\n", Source, Message);
+		}
+		#else
+		if(win->Name[0])
+			printf("%s/%s [%s] %s\n", win->Server->Name, win->Name, Source, Message);
+		else
+			printf("(status) [%s] %s\n", Source, Message);
+		#endif
 		SetCursorPos(-1, pos);
 	}
-	#else
-	if(win->Name[0])
-		printf("%s/%s [%s] %s\n", win->Server->Name, win->Name, Source, Message);
-	else
-		printf("(status) [%s] %s\n", Source, Message);
-	#endif
 	
 	return ret;
 }

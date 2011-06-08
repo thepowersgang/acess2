@@ -13,6 +13,11 @@
 // === IMPORTS ===
 extern void	Decorator_RenderWidget(tElement *Element);
 extern tElement	gWM_RootElement;
+extern tApplication	*gWM_Applications;
+extern int	giWM_MaxAreaX;
+extern int	giWM_MaxAreaY;
+extern int	giWM_MaxAreaW;
+extern int	giWM_MaxAreaH;
 
 // === PROTOTYPES ===
 void	WM_UpdateMinDims(tElement *Element);

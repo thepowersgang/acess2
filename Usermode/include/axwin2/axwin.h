@@ -100,6 +100,8 @@ enum eElementFlags
 	ELEFLAG_ALIGN_END	= 0x200
 };
 
+#define ELEFLAG_WINDOW_MAXIMISED	0x10000
+
 /**
  */
 enum eElementTypes

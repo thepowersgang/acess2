@@ -136,7 +136,7 @@ tElement *AxWin_CreateAppWindow(tApplication *App, const char *Name)
 	tElement	*ret;
 	tWindow	*win;
 	
-	win = calloc(sizeof(tWindow) + 1);
+	win = calloc(1, sizeof(tWindow) + 1);
 	if(!win)	return NULL;
 	
 	ret = &win->Element;

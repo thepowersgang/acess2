@@ -984,6 +984,9 @@ int VT_int_ParseEscape(tVTerm *Term, char *Buffer)
 						break;
 					}
 					break;
+				default:
+					Log_Warning("VTerm", "Unknown control sequence '\\x1B[?%c'", c);
+					break;
 				}
 			}
 			else
@@ -1050,16 +1053,26 @@ int VT_int_ParseEscape(tVTerm *Term, char *Buffer)
 						Term->AltWritePos = args[0] + args[1]*Term->TextWidth;
 					else
 						Term->WritePos = args[0] + args[1]*Term->TextWidth;
-					Log_Debug("VTerm", "args = {%i, %i}", args[0], args[1]);
+					//Log_Debug("VTerm", "args = {%i, %i}", args[0], args[1]);
 					break;
 				
 				// Scroll up `n` lines
 				case 'S':
 					tmp = -1;
 				// Scroll down `n` lines
-				case 'P':
+				case 'T':
 					if(argc == 1)	tmp *= args[0];
-					
+					if( Term->Flags & VT_FLAG_ALTBUF )
+						VT_int_ScrollText(Term, tmp);
+					else
+					{
+						if(Term->ViewPos/Term->TextWidth + tmp < 0)
+							break;
+						if(Term->ViewPos/Term->TextWidth + tmp  > Term->TextHeight * (giVT_Scrollback + 1))
+							break;
+						
+						Term->ViewPos += Term->TextWidth*tmp;
+					}
 					break;
 				
 				// Set Font flags
@@ -1097,7 +1110,7 @@ int VT_int_ParseEscape(tVTerm *Term, char *Buffer)
 					break;
 				
 				default:
-					Log_Warning("VTerm", "Unknown control sequence");
+					Log_Warning("VTerm", "Unknown control sequence '\\x1B[%c'", c);
 					break;
 				}
 			}
@@ -1264,8 +1277,11 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 			// Update the last line
 			Term->WritePos -= Term->TextWidth;
 			VT_int_UpdateScreen( Term, 0 );
+			Term->WritePos += Term->TextWidth;
 			
 			VT_int_ScrollText(Term, 1);
+			
+			Term->ViewPos += Term->TextWidth;
 		}
 	}
 	
@@ -1276,7 +1292,7 @@ void VT_int_ScrollText(tVTerm *Term, int Count)
 {
 	tVT_Char	*buf;
 	 int	height, init_write_pos;
-	 int	base, len, i;
+	 int	len, i;
 	
 	if( Term->Flags & VT_FLAG_ALTBUF )
 	{
@@ -1293,9 +1309,10 @@ void VT_int_ScrollText(tVTerm *Term, int Count)
 	
 	if( Count > 0 )
 	{
+		 int	base;
 		if(Count > Term->ScrollHeight)	Count = Term->ScrollHeight;
 		base = Term->TextWidth*(Term->ScrollTop + Term->ScrollHeight - Count);
-		len = Term->TextWidth*(height - Term->ScrollHeight - Count - Term->ScrollTop);
+		len = Term->TextWidth*(Term->ScrollHeight - Count);
 		
 		// Scroll terminal cache
 		memcpy(
@@ -1312,7 +1329,11 @@ void VT_int_ScrollText(tVTerm *Term, int Count)
 		
 		// Update Screen
 		VT_int_ScrollFramebuffer( Term, Count );
-		Term->WritePos = Term->ViewPos + Term->ScrollTop + (Term->ScrollHeight - Count);
+		if( Term->Flags & VT_FLAG_ALTBUF )
+			Term->AltWritePos = Term->TextWidth*(Term->ScrollTop + Term->ScrollHeight - Count);
+		else
+			Term->WritePos = Term->ViewPos + Term->TextWidth*(Term->ScrollTop + Term->ScrollHeight - Count);
+//		Log_Debug("VTerm", "Term->WritePos = %i/%i = %i", Term->WritePos, Term->TextWidth, Term->WritePos/Term->TextWidth);
 		for( i = 0; i < Count; i ++ )
 		{
 			VT_int_UpdateScreen( Term, 0 );
@@ -1327,7 +1348,7 @@ void VT_int_ScrollText(tVTerm *Term, int Count)
 		Count = -Count;
 		if(Count > Term->ScrollHeight)	Count = Term->ScrollHeight;
 		
-		len = Term->TextWidth*(height - Term->ScrollHeight - Count - Term->ScrollTop);
+		len = Term->TextWidth*(Term->ScrollHeight - Count);
 		
 		// Scroll terminal cache
 		memcpy(
@@ -1343,7 +1364,10 @@ void VT_int_ScrollText(tVTerm *Term, int Count)
 		}
 		
 		VT_int_ScrollFramebuffer( Term, -Count );
-		Term->WritePos = Term->ViewPos + Term->ScrollTop;
+		if( Term->Flags & VT_FLAG_ALTBUF )
+			Term->AltWritePos = Term->TextWidth*Term->ScrollTop;
+		else
+			Term->WritePos = Term->ViewPos + Term->TextWidth*Term->ScrollTop;
 		for( i = 0; i < Count; i ++ )
 		{
 			VT_int_UpdateScreen( Term, 0 );
@@ -1392,14 +1416,14 @@ void VT_int_ScrollFramebuffer( tVTerm *Term, int Count )
 	{
 		buf.SrcY = (Term->ScrollTop+Count) * giVT_CharHeight;
 		buf.DstY = Term->ScrollTop * giVT_CharHeight;
-		buf.H = (Term->ScrollHeight-Count) * giVT_CharHeight;
 	}
 	else	// Scroll up, move text down
 	{
+		Count = -Count;
 		buf.SrcY = Term->ScrollTop * giVT_CharHeight;
 		buf.DstY = (Term->ScrollTop+Count) * giVT_CharHeight;
-		buf.H = (Term->ScrollHeight+Count) * giVT_CharHeight;
 	}
+	buf.H = (Term->ScrollHeight-Count) * giVT_CharHeight;
 	VFS_WriteAt(giVT_OutputDevHandle, 0, sizeof(buf), &buf);
 	
 	// Restore old mode (this function is only called during text mode)
