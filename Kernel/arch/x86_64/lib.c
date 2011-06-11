@@ -240,6 +240,7 @@ Uint32 ind(Uint16 Port)
 }
 
 // === Endianness ===
+/*
 Uint32 BigEndian32(Uint32 Value)
 {
 	Uint32	ret;
@@ -254,6 +255,7 @@ Uint16 BigEndian16(Uint16 Value)
 {
 	return	(Value>>8)|(Value<<8);
 }
+*/
 
 // === Memory Manipulation ===
 int memcmp(const void *__dest, const void *__src, size_t __count)

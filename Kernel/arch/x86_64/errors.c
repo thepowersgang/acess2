@@ -37,7 +37,7 @@ void Error_Handler(tRegs *Regs)
 	Debug_KernelPanic();
 	
 	Log("CPU Error %x, Code: 0x%x", Regs->IntNum, Regs->ErrorCode);
-	Log(" - %s", csaERROR_NAMES[Regs->IntNum]);
+//	Log(" - %s", csaERROR_NAMES[Regs->IntNum]);
 	Log(" CS:RIP = 0x%04x:%016llx", Regs->CS, Regs->RIP);
 	Log(" SS:RSP = 0x%04x:%016llx", Regs->SS, Regs->RSP);
 	Log(" RFLAGS = 0x%016llx", Regs->RFlags);

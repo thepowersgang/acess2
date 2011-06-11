@@ -40,7 +40,7 @@
  *       FF80 00000000 -       FF80 80000000	31	2	GiB	Local APIC
  *       ---- GAP ----
  *       FFFF 00000000 -       FFFF 80000000	31	2	GiB	User Code
- *       FFFF 80000000 -       FFFF FFFFFFFF	31	2	GiB	Identity Map
+ *       FFFF 80000000 -       FFFF FFFFFFFF	31	2	GiB	Kernel code / data
  */
 
 #define	MM_USER_MIN 	0x00000000##00010000

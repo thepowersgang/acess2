@@ -9,6 +9,8 @@
 #include <proc.h>
 
 // === CONSTANTS ===
+#define PHYS_BITS	52	// TODO: Move out
+
 #define PML4_SHIFT	39
 #define PDP_SHIFT	30
 #define PDIR_SHIFT	21
@@ -20,10 +22,10 @@
 #define PDP_MASK	(((Uint)1 << 18)-1)
 #define PML4_MASK	(((Uint)1 << 9)-1)
 
-#define	PF_PRESENT	0x1
-#define	PF_WRITE	0x2
-#define	PF_USER		0x4
-#define	PF_LARGE	0x0
+#define	PF_PRESENT	0x001
+#define	PF_WRITE	0x002
+#define	PF_USER		0x004
+#define	PF_LARGE	0x000
 #define	PF_COW		0x200
 #define	PF_PAGED	0x400
 #define	PF_NX		0x80000000##00000000
@@ -34,19 +36,33 @@
 #define PAGEDIRPTR(idx)	PAGEDIR((MM_FRACTAL_BASE>>21)+((idx)&PDP_MASK))
 #define PAGEMAPLVL4(idx)	PAGEDIRPTR((MM_FRACTAL_BASE>>30)+((idx)&PML4_MASK))
 
+#define TMPTABLE(idx)	(*((tPAddr*)MM_TMPFRAC_BASE+((idx)&PAGE_MASK)))
+#define TMPDIR(idx)	TMPTABLE((MM_FRACTAL_BASE>>12)+((idx)&TABLE_MASK))
+#define TMPDIRPTR(idx)	TMPDIR((MM_FRACTAL_BASE>>21)+((idx)&PDP_MASK))
+#define TMPMAPLVL4(idx)	TMPDIRPTR((MM_FRACTAL_BASE>>30)+((idx)&PML4_MASK))
+#define TMPCR3()	PAGETABLE(MM_TMPFRAC_BASE>>12)
+
 #define INVLPG(__addr)	__asm__ __volatile__ ("invlpg (%0)"::"r"(__addr));
+
+// === CONSTS ===
+//tPAddr	* const gaPageTable = MM_FRACTAL_BASE;
+
+// === EXTERNS ===
+extern tPAddr	gInitialPML4[512];
 
 // === PROTOTYPES ===
 void	MM_InitVirt(void);
 //void	MM_FinishVirtualInit(void);
 void	MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs);
 void	MM_DumpTables(tVAddr Start, tVAddr End);
+ int	MM_GetPageEntryPtr(tVAddr Addr, BOOL bTemp, BOOL bAllocate, BOOL bLargePage, tPAddr **Pointer);
 // int	MM_Map(tVAddr VAddr, tPAddr PAddr);
 void	MM_Unmap(tVAddr VAddr);
 void	MM_ClearUser(void);
  int	MM_GetPageEntry(tVAddr Addr, tPAddr *Phys, Uint *Flags);
 
 // === GLOBALS ===
+tMutex	glMM_TempFractalLock;
 
 // === CODE ===
 void MM_InitVirt(void)
@@ -63,7 +79,7 @@ void MM_FinishVirtualInit(void)
  */
 void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 {
-	// TODO: Copy on Write
+	// TODO: Implement Copy-on-Write
 	#if 0
 	if( gaPageDir  [Addr>>22] & PF_PRESENT
 	 && gaPageTable[Addr>>12] & PF_PRESENT
@@ -222,71 +238,90 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 }
 
 /**
+ * \brief Get a pointer to a page entry
+ * \param Addr	Virtual Address
+ * \param bTemp	Use the Temporary fractal mapping
+ * \param bAllocate	Allocate entries
+ * \param bLargePage	Request a large page
+ * \param Pointer	Location to place the calculated pointer
+ * \return Page size, or -ve on error
+ */
+int MM_GetPageEntryPtr(tVAddr Addr, BOOL bTemp, BOOL bAllocate, BOOL bLargePage, tPAddr **Pointer)
+{
+	tPAddr	*pmlevels[4];
+	tPAddr	tmp;
+	const int	ADDR_SIZES[] = {39, 30, 21, 12};
+	const int	nADDR_SIZES = sizeof(ADDR_SIZES)/sizeof(ADDR_SIZES[0]);
+	 int	i;
+	
+	if( bTemp )
+		pmlevels[3] = (void*)MM_TMPFRAC_BASE;	// Temporary Page Table
+	else
+		pmlevels[3] = (void*)MM_FRACTAL_BASE;	// Page Table
+	pmlevels[2] = &pmlevels[3][(MM_FRACTAL_BASE>>12)&PAGE_MASK];	// PDIR
+	pmlevels[1] = &pmlevels[2][(MM_FRACTAL_BASE>>21)&TABLE_MASK];	// PDPT
+	pmlevels[0] = &pmlevels[1][(MM_FRACTAL_BASE>>30)&PDP_MASK];	// PML4
+//	Log("pmlevels = {%p, %p, %p, %p}",
+//		MM_FRACTAL_BASE>>30, MM_FRACTAL_BASE>>21, MM_FRACTAL_BASE>>12, MM_FRACTAL_BASE);
+//	Log("pmlevels = {%p, %p, %p, %p}",
+//		pmlevels[0], pmlevels[1], pmlevels[2], pmlevels[3]);
+	
+	// Mask address
+	Addr &= (1ULL << 48)-1;
+	
+	for( i = 0; i < nADDR_SIZES-1; i ++ )
+	{
+		
+		// Check for a large page
+		if( (Addr & ((1ULL << ADDR_SIZES[i])-1)) == 0 && bLargePage )
+		{
+			if(Pointer)	*Pointer = &pmlevels[i][Addr >> ADDR_SIZES[i]];
+			return ADDR_SIZES[i];
+		}
+//		Log("&pmlevels[%i][0x%llx (>> %i)] = %p", i, Addr >> ADDR_SIZES[i], ADDR_SIZES[i],
+//			&pmlevels[i][Addr >> ADDR_SIZES[i]]);
+		// Allocate an entry if required
+		if( !(pmlevels[i][Addr >> ADDR_SIZES[i]] & 1) )
+		{
+			if( !bAllocate )	return -4;	// If allocation is not requested, error
+			tmp = MM_AllocPhys();
+			if(!tmp)	return -2;
+			pmlevels[i][Addr >> ADDR_SIZES[i]] = tmp | 3;
+			INVLPG( &pmlevels[i+1][ (Addr>>ADDR_SIZES[i])<<9 ] );
+			memset( &pmlevels[i+1][ (Addr>>ADDR_SIZES[i])<<9 ], 0, 0x1000 );
+		}
+		else if( pmlevels[i][Addr >> ADDR_SIZES[i]] & PF_LARGE )
+		{
+			if( (Addr & ((1ULL << ADDR_SIZES[i])-1)) != 0 )
+				return -3;	// Alignment
+			if(Pointer)	*Pointer = &pmlevels[i][Addr >> ADDR_SIZES[i]];
+			return ADDR_SIZES[i];	// Large page warning
+		}
+	}
+	
+	// And, set the page table entry
+	if(Pointer)	*Pointer = &pmlevels[i][Addr >> ADDR_SIZES[i]];
+	return ADDR_SIZES[i];
+}
+
+/**
  * \brief Map a physical page to a virtual one
  */
 int MM_Map(tVAddr VAddr, tPAddr PAddr)
 {
-	tPAddr	tmp;
+	tPAddr	*ent;
+	 int	rv;
 	
 	ENTER("xVAddr xPAddr", VAddr, PAddr);
 	
-	// Check that the page hasn't been mapped already
-	{
-		Uint	flags;
-		 int	ret;
-		ret = MM_GetPageEntry(VAddr, &tmp, &flags);
-		if( flags & PF_PRESENT ) {
-			LEAVE('i', 0);
-			return 0;
-		}
-	}
+	// Get page pointer (Allow allocating)
+	rv = MM_GetPageEntryPtr(VAddr, 0, 1, 0, &ent);
+	if(rv < 0)	LEAVE_RET('i', 0);
 	
-	// Check PML4
-	if( !(PAGEMAPLVL4(VAddr >> 39) & 1) )
-	{
-		tmp = MM_AllocPhys();
-		if(!tmp) {
-			LEAVE('i', 0);
-			return 0;
-		}
-		PAGEMAPLVL4(VAddr >> 39) = tmp | 3;
-		INVLPG( &PAGEDIRPTR( (VAddr>>39)<<9 ) );
-		memset( &PAGEDIRPTR( (VAddr>>39)<<9 ), 0, 4096 );
-	}
+	if( *ent & 1 )
+		LEAVE_RET('i', 0);
 	
-	// Check PDP
-	if( !(PAGEDIRPTR(VAddr >> 30) & 1) )
-	{
-		tmp = MM_AllocPhys();
-		if(!tmp) {
-			LEAVE('i', 0);
-			return 0;
-		}
-		PAGEDIRPTR(VAddr >> 30) = tmp | 3;
-		INVLPG( &PAGEDIR( (VAddr>>30)<<9 ) );
-		memset( &PAGEDIR( (VAddr>>30)<<9 ), 0, 0x1000 );
-	}
-	
-	// Check Page Dir
-	if( !(PAGEDIR(VAddr >> 21) & 1) )
-	{
-		tmp = MM_AllocPhys();
-		if(!tmp) {
-			LEAVE('i', 0);
-			return 0;
-		}
-		PAGEDIR(VAddr >> 21) = tmp | 3;
-		INVLPG( &PAGETABLE( (VAddr>>21)<<9 ) );
-		memset( &PAGETABLE( (VAddr>>21)<<9 ), 0, 4096 );
-	}
-	
-	// Check if this virtual address is already mapped
-	if( PAGETABLE(VAddr >> PTAB_SHIFT) & 1 ) {
-		LEAVE('i', 0);
-		return 0;
-	}
-	
-	PAGETABLE(VAddr >> PTAB_SHIFT) = PAddr | 3;
+	*ent = PAddr | 3;
 	
 	INVLPG( VAddr );
 
@@ -321,6 +356,8 @@ tPAddr MM_Allocate(tVAddr VAddr)
 	
 	// NOTE: This is hack, but I like my dumps to be neat
 	#if 1
+	MM_GetPageEntryPtr(VAddr, 0, 1, 0, NULL);
+	#elif 1
 	if( !MM_Map(VAddr, 0) )	// Make sure things are allocated
 	{
 		Warning("MM_Allocate: Unable to map, tables did not initialise");
@@ -349,6 +386,9 @@ tPAddr MM_Allocate(tVAddr VAddr)
 	return ret;
 }
 
+/**
+ * \brief Deallocate a page at a virtual address
+ */
 void MM_Deallocate(tVAddr VAddr)
 {
 	tPAddr	phys;
@@ -370,57 +410,17 @@ void MM_Deallocate(tVAddr VAddr)
  */
 int MM_GetPageEntry(tVAddr Addr, tPAddr *Phys, Uint *Flags)
 {
+	tPAddr	*ptr;
+	 int	ret;
+	
 	if(!Phys || !Flags)	return 0;
 	
-	// Check if the PML4 entry is present
-	if( !(PAGEMAPLVL4(Addr >> 39) & 1) ) {
-		*Phys = 0;
-		*Flags = 0;
-		return 39;
-	}
-	// - Check for large page
-	if( PAGEMAPLVL4(Addr >> 39) & PF_LARGE ) {
-		*Phys = PAGEMAPLVL4(Addr >> 39) & ~0xFFF;
-		*Flags = PAGEMAPLVL4(Addr >> 39) & 0xFFF;
-		return 39;
-	}
+	ret = MM_GetPageEntryPtr(Addr, 0, 0, 0, &ptr);
+	if( ret < 0 )	return 0;
 	
-	// Check the PDP entry
-	if( !(PAGEDIRPTR(Addr >> 30) & 1) ) {
-		*Phys = 0;
-		*Flags = 0;
-		return 30;
-	}
-	// - Check for large page
-	if( PAGEDIRPTR(Addr >> 30) & PF_LARGE ) {
-		*Phys = PAGEDIRPTR(Addr >> 30) & ~0xFFF;
-		*Flags = PAGEDIRPTR(Addr >> 30) & 0xFFF;
-		return 30;
-	}
-	
-	// Check PDIR Entry
-	if( !(PAGEDIR(Addr >> 21) & 1) ) {
-		*Phys = 0;
-		*Flags = 0;
-		return 21;
-	}
-	// - Check for large page
-	if( PAGEDIR(Addr >> 21) & PF_LARGE ) {
-		*Phys = PAGEDIR(Addr >> 21) & ~0xFFF;
-		*Flags = PAGEDIR(Addr >> 21) & 0xFFF;
-		return 21;
-	}
-	
-	// And, check the page table entry
-	if( !(PAGETABLE(Addr >> PTAB_SHIFT) & 1) ) {
-		*Phys = 0;
-		*Flags = 0;
-	}
-	else {
-		*Phys = PAGETABLE(Addr >> PTAB_SHIFT) & ~0xFFF;
-		*Flags = PAGETABLE(Addr >> PTAB_SHIFT) & 0xFFF;
-	}
-	return 12;
+	*Phys = *ptr & ~0xFFF;
+	*Flags = *ptr & 0xFFF;
+	return ret;
 }
 
 /**
@@ -428,12 +428,13 @@ int MM_GetPageEntry(tVAddr Addr, tPAddr *Phys, Uint *Flags)
  */
 tPAddr MM_GetPhysAddr(tVAddr Addr)
 {
-	tPAddr	ret;
-	Uint	flags;
+	tPAddr	*ptr;
+	 int	ret;
 	
-	MM_GetPageEntry(Addr, &ret, &flags);
+	ret = MM_GetPageEntryPtr(Addr, 0, 0, 0, &ptr);
+	if( ret < 0 )	return 0;
 	
-	return ret | (Addr & 0xFFF);
+	return (*ptr & ~0xFFF) | (Addr & 0xFFF);
 }
 
 /**
@@ -442,19 +443,14 @@ tPAddr MM_GetPhysAddr(tVAddr Addr)
 void MM_SetFlags(tVAddr VAddr, Uint Flags, Uint Mask)
 {
 	tPAddr	*ent;
+	 int	rv;
 	
-	// Validity Check
-	if( !(PAGEMAPLVL4(VAddr >> 39) & 1) )
-		return ;
-	if( !(PAGEDIRPTR(VAddr >> 30) & 1) )
-		return ;
-	if( !(PAGEDIR(VAddr >> 21) & 1) )
-		return ;
-	if( !(PAGETABLE(VAddr >> 12) & 1) )
-		return ;
+	// Get pointer
+	rv = MM_GetPageEntryPtr(VAddr, 0, 0, 0, &ent);
+	if(rv < 0)	return ;
 	
-	// Set Flags
-	ent = &PAGETABLE(VAddr >> 12);
+	// Ensure the entry is valid
+	if( !(*ent & 1) )	return ;
 	
 	// Read-Only
 	if( Mask & MM_PFLAG_RO )
@@ -509,20 +505,12 @@ void MM_SetFlags(tVAddr VAddr, Uint Flags, Uint Mask)
 Uint MM_GetFlags(tVAddr VAddr)
 {
 	tPAddr	*ent;
-	Uint	ret = 0;
+	 int	rv, ret = 0;
 	
-	// Validity Check
-	if( !(PAGEMAPLVL4(VAddr >> 39) & 1) )
-		return 0;
-	if( !(PAGEDIRPTR(VAddr >> 30) & 1) )
-		return 0;
-	if( !(PAGEDIR(VAddr >> 21) & 1) )
-		return 0;
-	if( !(PAGETABLE(VAddr >> 12) & 1) )
-		return 0;
+	rv = MM_GetPageEntryPtr(VAddr, 0, 0, 0, &ent);
+	if(rv < 0)	return 0;
 	
-	// Set Flags
-	ent = &PAGETABLE(VAddr >> 12);
+	if( !(*ent & 1) )	return 0;
 	
 	// Read-Only
 	if( !(*ent & PF_WRITE) )	ret |= MM_PFLAG_RO;
@@ -542,6 +530,28 @@ Uint MM_GetFlags(tVAddr VAddr)
  */
 tVAddr MM_MapHWPages(tPAddr PAddr, Uint Number)
 {
+	tVAddr	ret;
+	 int	num;
+	
+	//TODO: Add speedups (memory of first possible free)
+	for( ret = MM_HWMAP_BASE; ret < MM_HWMAP_TOP; ret += 0x1000 )
+	{
+		for( num = Number; num -- && ret < MM_HWMAP_TOP; ret += 0x1000 )
+		{
+			if( MM_GetPhysAddr(ret) != 0 )	break;
+		}
+		if( num >= 0 )	continue;
+		
+		while( Number -- )
+		{
+			ret -= 0x1000;
+			MM_Map(ret, PAddr);
+			PAddr += 0x1000;
+		}
+		
+		return ret;
+	}
+	
 	Log_KernelPanic("MM", "TODO: Implement MM_MapHWPages");
 	return 0;
 }
@@ -551,7 +561,60 @@ tVAddr MM_MapHWPages(tPAddr PAddr, Uint Number)
  */
 void MM_UnmapHWPages(tVAddr VAddr, Uint Number)
 {
-	Log_KernelPanic("MM", "TODO: Implement MM_UnmapHWPages");
+//	Log_KernelPanic("MM", "TODO: Implement MM_UnmapHWPages");
+	while( Number -- )
+	{
+		MM_Unmap(VAddr);
+		VAddr += 0x1000;
+	}
+}
+
+
+/**
+ * \fn tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
+ * \brief Allocates DMA physical memory
+ * \param Pages	Number of pages required
+ * \param MaxBits	Maximum number of bits the physical address can have
+ * \param PhysAddr	Pointer to the location to place the physical address allocated
+ * \return Virtual address allocate
+ */
+tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
+{
+	tPAddr	phys;
+	tVAddr	ret;
+	
+	// Sanity Check
+	if(MaxBits < 12 || !PhysAddr)	return 0;
+	
+	// Fast Allocate
+	if(Pages == 1 && MaxBits >= PHYS_BITS)
+	{
+		phys = MM_AllocPhys();
+		*PhysAddr = phys;
+		ret = MM_MapHWPages(phys, 1);
+		if(ret == 0) {
+			MM_DerefPhys(phys);
+			return 0;
+		}
+		return ret;
+	}
+	
+	// Slow Allocate
+	phys = MM_AllocPhysRange(Pages, MaxBits);
+	// - Was it allocated?
+	if(phys == 0)	return 0;
+	
+	// Allocated successfully, now map
+	ret = MM_MapHWPages(phys, Pages);
+	if( ret == 0 ) {
+		// If it didn't map, free then return 0
+		for(;Pages--;phys+=0x1000)
+			MM_DerefPhys(phys);
+		return 0;
+	}
+	
+	*PhysAddr = phys;
+	return ret;
 }
 
 // --- Tempory Mappings ---
@@ -577,11 +640,20 @@ tPAddr MM_Clone(void)
 	ret = MM_AllocPhys();
 	if(!ret)	return 0;
 	
+	// #2 Alter the fractal pointer
+	Mutex_Acquire(&glMM_TempFractalLock);
+	TMPCR3() = ret | 3;
+	
+	INVLPG(TMPMAPLVL4(0));
+	memcpy(&TMPMAPLVL4(0), &PAGEMAPLVL4(0), 0x1000);
+	
 	Log_KernelPanic("MM", "TODO: Implement MM_Clone");
 	
-	// #2 Alter the fractal pointer
 	// #3 Set Copy-On-Write to all user pages
 	// #4 Return
+	TMPCR3() = 0;
+	INVLPG(TMPMAPLVL4(0));
+	Mutex_Release(&glMM_TempFractalLock);
 	return 0;
 }
 
@@ -640,7 +712,34 @@ void MM_ClearUser(void)
 
 tVAddr MM_NewWorkerStack(void)
 {
+	tVAddr	ret;
+	 int	i;
+	
 	Log_KernelPanic("MM", "TODO: Implement MM_NewWorkerStack");
+	
+	// #1 Set temp fractal to PID0
+	Mutex_Acquire(&glMM_TempFractalLock);
+	TMPCR3() = ((tPAddr)gInitialPML4 - KERNEL_BASE) | 3;
+	
+	// #2 Scan for a free stack addresss < 2^47
+	for(ret = 0x100000; ret < (1ULL << 47); ret += KERNEL_STACK_SIZE)
+	{
+		if( MM_GetPhysAddr(ret) == 0 )	break;
+	}
+	if( ret >= (1ULL << 47) ) {
+		Mutex_Release(&glMM_TempFractalLock);
+		return 0;
+	}
+	
+	// #3 Map all save the last page in the range
+	//    - This acts as as guard page, and doesn't cost us anything.
+	for( i = 0; i < KERNEL_STACK_SIZE/0x1000 - 1; i ++ )
+	{
+//		MM_MapTemp
+	}
+	
+	Mutex_Release(&glMM_TempFractalLock);
+	
 	return 0;
 }
 
