@@ -40,7 +40,7 @@
 #define TMPDIR(idx)	TMPTABLE((MM_FRACTAL_BASE>>12)+((idx)&TABLE_MASK))
 #define TMPDIRPTR(idx)	TMPDIR((MM_FRACTAL_BASE>>21)+((idx)&PDP_MASK))
 #define TMPMAPLVL4(idx)	TMPDIRPTR((MM_FRACTAL_BASE>>30)+((idx)&PML4_MASK))
-#define TMPCR3()	PAGETABLE(MM_TMPFRAC_BASE>>12)
+#define TMPCR3()	PAGEMAPLVL4(MM_TMPFRAC_BASE>>39)
 
 #define INVLPG(__addr)	__asm__ __volatile__ ("invlpg (%0)"::"r"(__addr));
 
@@ -56,6 +56,7 @@ void	MM_InitVirt(void);
 void	MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs);
 void	MM_DumpTables(tVAddr Start, tVAddr End);
  int	MM_GetPageEntryPtr(tVAddr Addr, BOOL bTemp, BOOL bAllocate, BOOL bLargePage, tPAddr **Pointer);
+ int	MM_MapEx(tVAddr VAddr, tPAddr PAddr, BOOL bTemp, BOOL bLarge);
 // int	MM_Map(tVAddr VAddr, tPAddr PAddr);
 void	MM_Unmap(tVAddr VAddr);
 void	MM_ClearUser(void);
@@ -154,7 +155,7 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 	const tPAddr	CHANGEABLE_BITS = 0xFF8;
 	const tPAddr	MASK = ~CHANGEABLE_BITS;	// Physical address and access bits
 	tVAddr	rangeStart = 0;
-	tPAddr	expected = CHANGEABLE_BITS;	// MASK is used because it's not a vaild value
+	tPAddr	expected = CHANGEABLE_BITS;	// CHANGEABLE_BITS is used because it's not a vaild value
 	tVAddr	curPos;
 	Uint	page;
 	
@@ -185,8 +186,9 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 		||  (PAGETABLE(page) & MASK) != expected)
 		{			
 			if(expected != CHANGEABLE_BITS) {
+				#define CANOICAL(addr)	((addr)&0x800000000000?(addr)|0xFFFF000000000000:(addr))
 				Log("%016x-0x%016x => %013x-%013x (%c%c%c%c)",
-					rangeStart, curPos - 1,
+					CANOICAL(rangeStart), CANOICAL(curPos - 1),
 					PAGETABLE(rangeStart>>12) & ~0xFFF,
 					(expected & ~0xFFF) - 1,
 					(expected & PF_PAGED ? 'p' : '-'),
@@ -194,6 +196,7 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 					(expected & PF_USER ? 'U' : '-'),
 					(expected & PF_WRITE ? 'W' : '-')
 					);
+				#undef CANOICAL
 				expected = CHANGEABLE_BITS;
 			}
 			if( !(PAGEMAPLVL4(page>>27) & PF_PRESENT) ) {
@@ -261,16 +264,13 @@ int MM_GetPageEntryPtr(tVAddr Addr, BOOL bTemp, BOOL bAllocate, BOOL bLargePage,
 	pmlevels[2] = &pmlevels[3][(MM_FRACTAL_BASE>>12)&PAGE_MASK];	// PDIR
 	pmlevels[1] = &pmlevels[2][(MM_FRACTAL_BASE>>21)&TABLE_MASK];	// PDPT
 	pmlevels[0] = &pmlevels[1][(MM_FRACTAL_BASE>>30)&PDP_MASK];	// PML4
-//	Log("pmlevels = {%p, %p, %p, %p}",
-//		MM_FRACTAL_BASE>>30, MM_FRACTAL_BASE>>21, MM_FRACTAL_BASE>>12, MM_FRACTAL_BASE);
-//	Log("pmlevels = {%p, %p, %p, %p}",
-//		pmlevels[0], pmlevels[1], pmlevels[2], pmlevels[3]);
 	
 	// Mask address
 	Addr &= (1ULL << 48)-1;
 	
 	for( i = 0; i < nADDR_SIZES-1; i ++ )
 	{
+//		INVLPG( &pmlevels[i][ (Addr >> ADDR_SIZES[i]) & 
 		
 		// Check for a large page
 		if( (Addr & ((1ULL << ADDR_SIZES[i])-1)) == 0 && bLargePage )
@@ -278,8 +278,6 @@ int MM_GetPageEntryPtr(tVAddr Addr, BOOL bTemp, BOOL bAllocate, BOOL bLargePage,
 			if(Pointer)	*Pointer = &pmlevels[i][Addr >> ADDR_SIZES[i]];
 			return ADDR_SIZES[i];
 		}
-//		Log("&pmlevels[%i][0x%llx (>> %i)] = %p", i, Addr >> ADDR_SIZES[i], ADDR_SIZES[i],
-//			&pmlevels[i][Addr >> ADDR_SIZES[i]]);
 		// Allocate an entry if required
 		if( !(pmlevels[i][Addr >> ADDR_SIZES[i]] & 1) )
 		{
@@ -290,10 +288,11 @@ int MM_GetPageEntryPtr(tVAddr Addr, BOOL bTemp, BOOL bAllocate, BOOL bLargePage,
 			INVLPG( &pmlevels[i+1][ (Addr>>ADDR_SIZES[i])<<9 ] );
 			memset( &pmlevels[i+1][ (Addr>>ADDR_SIZES[i])<<9 ], 0, 0x1000 );
 		}
+		// Catch large pages
 		else if( pmlevels[i][Addr >> ADDR_SIZES[i]] & PF_LARGE )
 		{
-			if( (Addr & ((1ULL << ADDR_SIZES[i])-1)) != 0 )
-				return -3;	// Alignment
+			// Alignment
+			if( (Addr & ((1ULL << ADDR_SIZES[i])-1)) != 0 )	return -3;
 			if(Pointer)	*Pointer = &pmlevels[i][Addr >> ADDR_SIZES[i]];
 			return ADDR_SIZES[i];	// Large page warning
 		}
@@ -306,8 +305,12 @@ int MM_GetPageEntryPtr(tVAddr Addr, BOOL bTemp, BOOL bAllocate, BOOL bLargePage,
 
 /**
  * \brief Map a physical page to a virtual one
+ * \param VAddr	Target virtual address
+ * \param PAddr	Physical address of page
+ * \param bTemp	Use tempoary mappings
+ * \param bLarge	Treat as a large page
  */
-int MM_Map(tVAddr VAddr, tPAddr PAddr)
+int MM_MapEx(tVAddr VAddr, tPAddr PAddr, BOOL bTemp, BOOL bLarge)
 {
 	tPAddr	*ent;
 	 int	rv;
@@ -315,11 +318,10 @@ int MM_Map(tVAddr VAddr, tPAddr PAddr)
 	ENTER("xVAddr xPAddr", VAddr, PAddr);
 	
 	// Get page pointer (Allow allocating)
-	rv = MM_GetPageEntryPtr(VAddr, 0, 1, 0, &ent);
+	rv = MM_GetPageEntryPtr(VAddr, bTemp, 1, bLarge, &ent);
 	if(rv < 0)	LEAVE_RET('i', 0);
 	
-	if( *ent & 1 )
-		LEAVE_RET('i', 0);
+	if( *ent & 1 )	LEAVE_RET('i', 0);
 	
 	*ent = PAddr | 3;
 	
@@ -327,6 +329,16 @@ int MM_Map(tVAddr VAddr, tPAddr PAddr)
 
 	LEAVE('i', 1);	
 	return 1;
+}
+
+/**
+ * \brief Map a physical page to a virtual one
+ * \param VAddr	Target virtual address
+ * \param PAddr	Physical address of page
+ */
+int MM_Map(tVAddr VAddr, tPAddr PAddr)
+{
+	return MM_MapEx(VAddr, PAddr, 0, 0);
 }
 
 /**
@@ -354,25 +366,13 @@ tPAddr MM_Allocate(tVAddr VAddr)
 	
 	ENTER("xVAddr", VAddr);
 	
-	// NOTE: This is hack, but I like my dumps to be neat
-	#if 1
+	// Ensure the tables are allocated before the page (keeps things neat)
 	MM_GetPageEntryPtr(VAddr, 0, 1, 0, NULL);
-	#elif 1
-	if( !MM_Map(VAddr, 0) )	// Make sure things are allocated
-	{
-		Warning("MM_Allocate: Unable to map, tables did not initialise");
-		LEAVE('i', 0);
-		return 0;
-	}
-	MM_Unmap(VAddr);
-	#endif
 	
+	// Allocate the page
 	ret = MM_AllocPhys();
 	LOG("ret = %x", ret);
-	if(!ret) {
-		LEAVE('i', 0);
-		return 0;
-	}
+	if(!ret)	LEAVE_RET('i', 0);
 	
 	if( !MM_Map(VAddr, ret) )
 	{
@@ -382,7 +382,7 @@ tPAddr MM_Allocate(tVAddr VAddr)
 		return 0;
 	}
 	
-	LEAVE('x', ret);
+	LEAVE('X', ret);
 	return ret;
 }
 
@@ -542,11 +542,13 @@ tVAddr MM_MapHWPages(tPAddr PAddr, Uint Number)
 		}
 		if( num >= 0 )	continue;
 		
+		PAddr += 0x1000 * Number;
+		
 		while( Number -- )
 		{
 			ret -= 0x1000;
+			PAddr -= 0x1000;
 			MM_Map(ret, PAddr);
-			PAddr += 0x1000;
 		}
 		
 		return ret;
@@ -715,7 +717,7 @@ tVAddr MM_NewWorkerStack(void)
 	tVAddr	ret;
 	 int	i;
 	
-	Log_KernelPanic("MM", "TODO: Implement MM_NewWorkerStack");
+//	Log_KernelPanic("MM", "TODO: Implement MM_NewWorkerStack");
 	
 	// #1 Set temp fractal to PID0
 	Mutex_Acquire(&glMM_TempFractalLock);
@@ -735,12 +737,18 @@ tVAddr MM_NewWorkerStack(void)
 	//    - This acts as as guard page, and doesn't cost us anything.
 	for( i = 0; i < KERNEL_STACK_SIZE/0x1000 - 1; i ++ )
 	{
-//		MM_MapTemp
+		tPAddr	phys = MM_AllocPhys();
+		if(!phys) {
+			// TODO: Clean up
+			Log_Error("MM", "MM_NewWorkerStack - Unable to allocate page");
+			return 0;
+		}
+		MM_MapEx(ret + i*0x1000, phys, 1, 0);
 	}
 	
 	Mutex_Release(&glMM_TempFractalLock);
 	
-	return 0;
+	return ret + i*0x1000;
 }
 
 /**
