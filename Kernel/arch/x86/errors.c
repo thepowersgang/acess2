@@ -75,6 +75,7 @@ void ErrorHandler(tRegs *Regs)
 	// Page Fault
 	if(Regs->int_num == 14)
 	{
+		__asm__ __volatile__ ("sti");	// Should be OK, TODO: Test
 		__asm__ __volatile__ ("mov %%cr2, %0":"=r"(cr));
 		MM_PageFault( cr, Regs->err_code, Regs );
 		return ;

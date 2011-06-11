@@ -178,7 +178,7 @@ int putDebugChar(char ch)
 		outb(GDB_SERIAL_PORT + 3, 0x03);    // 8 bits, no parity, one stop bit (8N1)
 		outb(GDB_SERIAL_PORT + 2, 0xC7);    // Enable FIFO with 14-byte threshold and clear it
 		outb(GDB_SERIAL_PORT + 4, 0x0B);    // IRQs enabled, RTS/DSR set
-		gbDebug_SerialSetup = 1;
+		gbGDB_SerialSetup = 1;
 	}
 	while( (inb(GDB_SERIAL_PORT + 5) & 0x20) == 0 );
 	outb(GDB_SERIAL_PORT, ch);
@@ -194,7 +194,7 @@ int getDebugChar(void)
 		outb(GDB_SERIAL_PORT + 3, 0x03);    // 8 bits, no parity, one stop bit
 		outb(GDB_SERIAL_PORT + 2, 0xC7);    // Enable FIFO with 14-byte threshold and clear it
 		outb(GDB_SERIAL_PORT + 4, 0x0B);    // IRQs enabled, RTS/DSR set
-		gbDebug_SerialSetup = 1;
+		gbGDB_SerialSetup = 1;
 	}
 	while( (inb(GDB_SERIAL_PORT + 5) & 1) == 0)	;
 	return inb(GDB_SERIAL_PORT);

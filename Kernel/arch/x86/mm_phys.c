@@ -1,4 +1,4 @@
-/*
+"/*
  * Acess2
  * - Physical memory manager
  */
@@ -246,6 +246,13 @@ tPAddr MM_AllocPhys(void)
 	
 	if( indx > 0xFFFFF ) {
 		Panic("The fuck? Too many pages! (indx = 0x%x)", indx);
+	}
+	
+	if( indx >= giPageCount ) {
+		Mutex_Release( &glPhysAlloc );
+		Log_Error("PMem", "MM_AllocPhys - indx(%i) > giPageCount(%i)", indx, giPageCount);
+		LEAVE('i', 0);
+		return 0;
 	}
 	
 	// Mark page used

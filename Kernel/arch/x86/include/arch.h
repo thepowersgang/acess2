@@ -58,7 +58,16 @@ struct sShortSpinlock {
 /**
  * \brief Halt the CPU (shorter version of yield)
  */
+#if 1
+#define	HALT()	do { \
+	Uint32	flags; \
+	__asm__ __volatile__ ("pushf;pop %0" : "=a"(flags)); \
+	if( !(flags & 0x200) )	Panic("HALT called with interrupts disabled"); \
+	__asm__ __volatile__ ("hlt"); \
+} while(0)
+#else
 #define	HALT()	__asm__ __volatile__ ("hlt")
+#endif
 /**
  * \brief Fire a magic breakpoint (bochs)
  */

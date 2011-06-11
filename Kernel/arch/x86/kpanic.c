@@ -6,10 +6,15 @@
 
 #include <acess.h>
 
+
+
 #define	FB	((Uint16 *)(KERNEL_BASE|0xB8000))
 #define BGC	0x4F00	// White on Red
 //#define BGC	0xC000	// Black on Bright Red
 //#define BGC	0x1F00	// White on Blue (BSOD!)
+
+extern Uint32	GetEIP(void);
+extern void	Error_Backtrace(Uint32 eip, Uint32 ebp);
 
  int	giKP_Pos = 0;
 
@@ -70,7 +75,7 @@ void KernelPanic_SetMode(void)
 	if( giKP_Pos )	return ;
 	
 	// Restore VGA 0xB8000 text mode
-	#if 0
+	#if 1
 	for( i = 0; i < NUM_REGVALUES; i++ )
 	{
 		// Reset Flip-Flop
@@ -89,6 +94,13 @@ void KernelPanic_SetMode(void)
 	for( i = 0; i < 80*25; i++ )
 	{
 		FB[i] = BGC;
+	}
+	
+	{
+		Uint32	eip = GetEIP();
+		Uint32	ebp;
+		__asm__ __volatile__ ("mov %%ebp, %0" : "=r" (ebp));
+		Error_Backtrace(eip, ebp);
 	}
 }
 
