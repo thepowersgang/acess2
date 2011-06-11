@@ -98,7 +98,7 @@ int BGA_Install(char **Arguments)
 	version = BGA_int_ReadRegister(VBE_DISPI_INDEX_ID);
 	
 	// NOTE: This driver was written for 0xB0C4, but they seem to be backwards compatable
-	if(version < 0xB0C4 || version > 0xB0C5) {
+	if(version != 0xB0C0 && (version < 0xB0C4 || version > 0xB0C5)) {
 		Log_Warning("BGA", "Bochs Adapter Version is not 0xB0C4 or 0xB0C5, instead 0x%x", version);
 		return MODULE_ERR_NOTNEEDED;
 	}

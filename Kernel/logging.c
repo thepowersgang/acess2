@@ -173,6 +173,7 @@ void Log_KernelPanic(const char *Ident, const char *Message, ...)
 	va_start(args, Message);
 	Log_AddEvent(Ident, LOG_LEVEL_KPANIC, Message, args);
 	va_end(args);
+	Panic("Log_KernelPanic");
 }
 
 /**
