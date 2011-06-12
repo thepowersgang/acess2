@@ -106,16 +106,53 @@ Proc_ReturnToUser:
 CallWithArgArray:
 	push rbp
 	mov rbp, rsp
-	mov rcx, [rbp+3*8]	; Get NArgs
-	mov rdx, [rbp+4*8]
-
-.top:
-	mov rax, [rdx+rcx*8-8]
-	push rax
-	loop .top
+	push r10
+	push r11
 	
-	mov rax, [rbp+2*8]
+	mov [rbp+2*8], rdi	; Save Ptr to stack
+	
+	mov r11, rsi	; NArgs
+	mov r10, rdx	; Args
+
+	; Arg 1: RDI
+	mov rdi, [r10]
+	add r10, 8
+	dec r11
+	jz .call
+	; Arg 2: RSI
+	mov rsi, [r10]
+	add r10, 8
+	dec r11
+	jz .call
+	; Arg 3: RDX
+	mov rdx, [r10]
+	add r10, 8
+	dec r11
+	jz .call
+	; Arg 4: RCX
+	mov rcx, [r10]
+	add r10, 8
+	dec r11
+	jz .call
+	; Arg 5: R8
+	mov r8, [r10]
+	add r10, 8
+	dec r11
+	jz .call
+	; Arg 6: R9
+	mov r9, [r10]
+	add r10, 8
+	dec r11
+	jz .call
+	; No support for more
+
+.call:
+	mov rax, [rbp+2*8]	; Ptr
 	call rax
+	
+	pop r11
+	pop r10
+	
 	lea rsp, [rbp]
 	pop rbp
 	ret

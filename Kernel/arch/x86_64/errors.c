@@ -4,9 +4,13 @@
  */
 #include <acess.h>
 #include <proc.h>
+#include <mm_virt.h>
+
+#define MAX_BACKTRACE	6
 
 // === IMPORTS ===
 void	MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs);
+void	Error_Backtrace(Uint IP, Uint BP);
 
 // === PROTOTYPES ===
 void	Error_Handler(tRegs *Regs);
@@ -76,4 +80,54 @@ void Error_Handler(tRegs *Regs)
 	__asm__ __volatile__ ("cli");
 	for(;;)
 		__asm__ __volatile__ ("hlt");
+}
+
+/**
+ * \fn void Error_Backtrace(Uint eip, Uint ebp)
+ * \brief Unrolls the stack to trace execution
+ * \param eip	Current Instruction Pointer
+ * \param ebp	Current Base Pointer (Stack Frame)
+ */
+void Error_Backtrace(Uint IP, Uint BP)
+{
+	 int	i = 0;
+	
+	//if(eip < 0xC0000000 && eip > 0x1000)
+	//{
+	//	LogF("Backtrace: User - 0x%x\n", eip);
+	//	return;
+	//}
+	
+	if( IP > MM_USER_MAX
+	 && IP < MM_KERNEL_CODE
+	 && (MM_MODULE_MIN > IP || IP > MM_MODULE_MAX)
+		)
+	{
+		LogF("Backtrace: Data Area - %p\n", IP);
+		return;
+	}
+	
+	//str = Debug_GetSymbol(eip, &delta);
+	//if(str == NULL)
+		LogF("Backtrace: %p", IP);
+	//else
+	//	LogF("Backtrace: %s+0x%x", str, delta);
+	if( !MM_GetPhysAddr(BP) )
+	{
+		LogF("\nBacktrace: Invalid BP, stopping\n");
+		return;
+	}
+	
+	
+	while( MM_GetPhysAddr(BP) && i < MAX_BACKTRACE )
+	{
+		//str = Debug_GetSymbol(*(Uint*)(ebp+4), &delta);
+		//if(str == NULL)
+			LogF(" >> 0x%llx", ((Uint*)BP)[1]);
+		//else
+		//	LogF(" >> %s+0x%x", str, delta);
+		BP = ((Uint*)BP)[0];
+		i++;
+	}
+	LogF("\n");
 }

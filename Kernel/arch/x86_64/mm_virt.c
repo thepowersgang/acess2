@@ -36,18 +36,19 @@
 #define PAGEDIRPTR(idx)	PAGEDIR((MM_FRACTAL_BASE>>21)+((idx)&PDP_MASK))
 #define PAGEMAPLVL4(idx)	PAGEDIRPTR((MM_FRACTAL_BASE>>30)+((idx)&PML4_MASK))
 
-#define TMPTABLE(idx)	(*((tPAddr*)MM_TMPFRAC_BASE+((idx)&PAGE_MASK)))
-#define TMPDIR(idx)	TMPTABLE((MM_FRACTAL_BASE>>12)+((idx)&TABLE_MASK))
-#define TMPDIRPTR(idx)	TMPDIR((MM_FRACTAL_BASE>>21)+((idx)&PDP_MASK))
-#define TMPMAPLVL4(idx)	TMPDIRPTR((MM_FRACTAL_BASE>>30)+((idx)&PML4_MASK))
 #define TMPCR3()	PAGEMAPLVL4(MM_TMPFRAC_BASE>>39)
+#define TMPTABLE(idx)	(*((tPAddr*)MM_TMPFRAC_BASE+((idx)&PAGE_MASK)))
+#define TMPDIR(idx)	PAGETABLE((MM_TMPFRAC_BASE>>12)+((idx)&TABLE_MASK))
+#define TMPDIRPTR(idx)	PAGEDIR((MM_TMPFRAC_BASE>>21)+((idx)&PDP_MASK))
+#define TMPMAPLVL4(idx)	PAGEDIRPTR((MM_TMPFRAC_BASE>>30)+((idx)&PML4_MASK))
 
 #define INVLPG(__addr)	__asm__ __volatile__ ("invlpg (%0)"::"r"(__addr));
 
 // === CONSTS ===
 //tPAddr	* const gaPageTable = MM_FRACTAL_BASE;
 
-// === EXTERNS ===
+// === IMPORTS ===
+extern void	Error_Backtrace(Uint IP, Uint BP);
 extern tPAddr	gInitialPML4[512];
 
 // === PROTOTYPES ===
@@ -138,7 +139,7 @@ void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 	
 	Log("Code at %p accessed %p", Regs->RIP, Addr);
 	// Print Stack Backtrace
-//	Error_Backtrace(Regs->RIP, Regs->RBP);
+	Error_Backtrace(Regs->RIP, Regs->RBP);
 	
 	MM_DumpTables(0, -1);
 	
@@ -152,6 +153,7 @@ void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
  */
 void MM_DumpTables(tVAddr Start, tVAddr End)
 {
+	#define CANOICAL(addr)	((addr)&0x800000000000?(addr)|0xFFFF000000000000:(addr))
 	const tPAddr	CHANGEABLE_BITS = 0xFF8;
 	const tPAddr	MASK = ~CHANGEABLE_BITS;	// Physical address and access bits
 	tVAddr	rangeStart = 0;
@@ -186,17 +188,15 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 		||  (PAGETABLE(page) & MASK) != expected)
 		{			
 			if(expected != CHANGEABLE_BITS) {
-				#define CANOICAL(addr)	((addr)&0x800000000000?(addr)|0xFFFF000000000000:(addr))
-				Log("%016x-0x%016x => %013x-%013x (%c%c%c%c)",
-					CANOICAL(rangeStart), CANOICAL(curPos - 1),
+				Log("%016llx => %013llx : 0x%6llx (%c%c%c%c)",
+					CANOICAL(rangeStart),
 					PAGETABLE(rangeStart>>12) & ~0xFFF,
-					(expected & ~0xFFF) - 1,
+					curPos - rangeStart,
 					(expected & PF_PAGED ? 'p' : '-'),
 					(expected & PF_COW ? 'C' : '-'),
 					(expected & PF_USER ? 'U' : '-'),
 					(expected & PF_WRITE ? 'W' : '-')
 					);
-				#undef CANOICAL
 				expected = CHANGEABLE_BITS;
 			}
 			if( !(PAGEMAPLVL4(page>>27) & PF_PRESENT) ) {
@@ -227,17 +227,18 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 	}
 	
 	if(expected != CHANGEABLE_BITS) {
-		Log("%016x-%016x => %013x-%013x (%s%s%s%s)",
-			rangeStart, curPos - 1,
+		Log("%016llx => %013llx : 0x%6llx (%c%c%c%c)",
+			CANOICAL(rangeStart),
 			PAGETABLE(rangeStart>>12) & ~0xFFF,
-			(expected & ~0xFFF) - 1,
-			(expected & PF_PAGED ? "p" : "-"),
-			(expected & PF_COW ? "C" : "-"),
-			(expected & PF_USER ? "U" : "-"),
-			(expected & PF_WRITE ? "W" : "-")
+			curPos - rangeStart,
+			(expected & PF_PAGED ? 'p' : '-'),
+			(expected & PF_COW ? 'C' : '-'),
+			(expected & PF_USER ? 'U' : '-'),
+			(expected & PF_WRITE ? 'W' : '-')
 			);
 		expected = 0;
 	}
+	#undef CANOICAL
 }
 
 /**
@@ -646,15 +647,17 @@ tPAddr MM_Clone(void)
 	Mutex_Acquire(&glMM_TempFractalLock);
 	TMPCR3() = ret | 3;
 	
-	INVLPG(TMPMAPLVL4(0));
+	INVLPG(&TMPMAPLVL4(0));
 	memcpy(&TMPMAPLVL4(0), &PAGEMAPLVL4(0), 0x1000);
 	
 	Log_KernelPanic("MM", "TODO: Implement MM_Clone");
 	
 	// #3 Set Copy-On-Write to all user pages
+	
+	
 	// #4 Return
 	TMPCR3() = 0;
-	INVLPG(TMPMAPLVL4(0));
+	INVLPG(&TMPMAPLVL4(0));
 	Mutex_Release(&glMM_TempFractalLock);
 	return 0;
 }

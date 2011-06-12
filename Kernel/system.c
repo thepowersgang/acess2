@@ -338,7 +338,8 @@ void System_ExecuteScript(void)
 		if(line->Parts[0][0] == ':')	continue;	// Ignore labels
 		
 		// Prescan and eliminate variables
-		for( j = 1; j < line->nParts; j++ ) {
+		for( j = 1; j < line->nParts; j++ )
+		{
 			Log_Debug("Config", "Arg #%i is '%s'", j, line->Parts[j]);
 			bReplaced[j] = 0;
 			if( line->Parts[j][0] != '$' )	continue;
@@ -356,13 +357,16 @@ void System_ExecuteScript(void)
 			bReplaced[j] = 1;
 		}
 		
+		// Find the command name
 		for( j = 0; j < NUM_CONFIG_COMMANDS; j++ )
 		{
 			Uint	args[N_MAX_ARGS];
+			
 			if(strcmp(line->Parts[0], caConfigCommands[j].Name) != 0)	continue;
 			
 			Log_Debug("Config", "Command '%s', %i args passed", line->Parts[0], line->nParts-1);
 			
+			// Check against minimum argument count
 			if( line->nParts - 1 < caConfigCommands[j].MinArgs ) {
 				Log_Warning("Config",
 					"Configuration command '%s' requires at least %i arguments, %i given",
@@ -371,6 +375,7 @@ void System_ExecuteScript(void)
 				break;
 			}
 			
+			// Check for extra arguments
 			if( line->nParts - 1 > caConfigCommands[j].MaxArgs ) {
 				Log_Warning("Config",
 					"Configuration command '%s' takes at most %i arguments, %i given",
@@ -379,10 +384,12 @@ void System_ExecuteScript(void)
 				break;
 			}
 			
+			// Fill in defaults
 			for( k = caConfigCommands[j].MaxArgs-1; k > line->nParts - 1; k-- ) {
 				args[k] = caConfigCommands[j].OptDefaults[k];
 			}
 			
+			// Convert arguments to integers
 			for( k = line->nParts-1; k--; )
 			{
 				if( caConfigCommands[j].IntArgs & (1 << k) ) {
