@@ -1047,6 +1047,57 @@ int VT_int_ParseEscape(tVTerm *Term, char *Buffer)
 						break;
 					}
 					break;
+				
+				// Erase in line
+				case 'K':
+					switch(args[0])
+					{
+					case 0:	// Erase to right
+						if( Term->Flags & VT_FLAG_ALTBUF )
+						{
+							 int	i, max;
+							max = Term->Width - Term->AltWritePos % Term->Width;
+							for( i = 0; i < max; i ++ )
+								Term->AltBuf[Term->AltWritePos+i].Ch = 0;
+						}
+						else
+						{
+							 int	i, max;
+							max = Term->Width - Term->WritePos % Term->Width;
+							for( i = 0; i < max; i ++ )
+								Term->Text[Term->WritePos+i].Ch = 0;
+						}
+						VT_int_UpdateScreen(Term, 0);
+						break;
+					case 1:	// Erase to left
+						if( Term->Flags & VT_FLAG_ALTBUF )
+						{
+							 int	i = Term->AltWritePos % Term->Width;
+							while( i -- )
+								Term->AltBuf[Term->AltWritePos++].Ch = 0;
+						}
+						else
+						{
+							 int	i = Term->WritePos % Term->Width;
+							while( i -- )
+								Term->Text[Term->WritePos++].Ch = 0;
+						}
+						VT_int_UpdateScreen(Term, 0);
+						break;
+					case 2:	// Erase all
+						if( Term->Flags & VT_FLAG_ALTBUF )
+						{
+							VT_int_ClearLine(Term, Term->AltWritePos / Term->Width);
+						}
+						else
+						{
+							VT_int_ClearLine(Term, Term->WritePos / Term->Width);
+						}
+						VT_int_UpdateScreen(Term, 0);
+						break;
+					}
+					break;
+				
 				// Set cursor position
 				case 'H':
 					if( Term->Flags & VT_FLAG_ALTBUF )
@@ -1582,6 +1633,7 @@ void VT_int_ToggleAltBuffer(tVTerm *Term, int Enabled)
 		Term->Flags |= VT_FLAG_ALTBUF;
 	else
 		Term->Flags &= ~VT_FLAG_ALTBUF;
+	VT_int_UpdateScreen(Term, 1);
 }
 
 // ---

@@ -68,7 +68,7 @@ int VFS_SelectNode(tVFS_Node *Node, enum eVFS_SelectTypes Type, tTime *Timeout, 
 	}
 	
 	thread_info = malloc(sizeof(tVFS_SelectThread));
-	if(!thread_info)	return -1;
+	if(!thread_info)	LEAVE_RET('i', -1);
 	
 	Semaphore_Init(&thread_info->SleepHandle, 0, 0, "VFS_SelectNode()", Name);
 	
@@ -148,7 +148,7 @@ int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set 
 	if( !Timeout || *Timeout > 0 )
 	{
 		ret = Semaphore_Wait(&thread_info->SleepHandle, 1);
-		// TODO: Do something with ret
+		// TODO: Do something with ret?
 	}
 	
 	// Fill output (modify *Handles)
@@ -486,9 +486,9 @@ void VFS_int_Select_SignalAll(tVFS_SelectList *List)
 	{
 		for( i = 0; i < NUM_THREADS_PER_ALLOC; i ++ )
 		{
-			LOG("block->Threads[i] = %p", block->Threads[i]);
 			if( block->Threads[i]  )
 			{
+				LOG("block(%p)->Threads[%i] = %p", block, i, block->Threads[i]);
 				Semaphore_Signal( &block->Threads[i]->SleepHandle, 1 );
 			}
 		}

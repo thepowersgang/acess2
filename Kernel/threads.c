@@ -755,6 +755,56 @@ int Threads_Wake(tThread *Thread)
 		SHORTREL( &glThreadListLock );
 		return -EOK;
 	
+	case THREAD_STAT_SEMAPHORESLEEP: {
+		tSemaphore	*sem;
+		tThread	*th, *prev=NULL;
+		
+		sem = Thread->WaitPointer;
+		
+		SHORTLOCK( &sem->Protector );
+		
+		// Remove from sleeping queue
+		for( th = sem->Waiting; th; prev = th, th = th->Next )
+			if( th == Thread )	break;
+		if( th )
+		{
+			if(prev)
+				prev->Next = Thread->Next;
+			else
+				sem->Waiting = Thread->Next;
+			if(sem->LastWaiting == Thread)
+				sem->LastWaiting = prev;
+		}
+		else
+		{
+			prev = NULL;
+			for( th = sem->Signaling; th; prev = th, th = th->Next )
+				if( th == Thread )	break;
+			if( !th ) {
+				Log_Warning("Threads", "Thread %p(%i %s) is not on semaphore %p(%s:%s)",
+					Thread, Thread->TID, Thread->ThreadName,
+					sem, sem->ModName, sem->Name);
+				return -EINTERNAL;
+			}
+			
+			if(prev)
+				prev->Next = Thread->Next;
+			else
+				sem->Signaling = Thread->Next;
+			if(sem->LastSignaling == Thread)
+				sem->LastSignaling = prev;
+		}
+		
+		SHORTLOCK( &glThreadListLock );
+		Threads_AddActive( Thread );
+		SHORTREL( &glThreadListLock );
+		
+		#if DEBUG_TRACE_STATE
+		Log("Threads_Sleep: %p(%i %s) woken from semaphore", Thread, Thread->TID, Thread->ThreadName);
+		#endif
+		SHORTREL( &sem->Protector );
+		} return -EOK;
+	
 	case THREAD_STAT_WAITING:
 		Warning("Threads_Wake - Waiting threads are not currently supported");
 		return -ENOTIMPL;
@@ -863,6 +913,9 @@ tThread *Threads_RemActive(void)
 	#endif
 	{
 		SHORTREL( &glThreadListLock );
+		Log_Warning("Threads", "Current thread %p(%i %s) is not on active queue",
+			ret, ret->TID, ret->ThreadName
+			);
 		return NULL;
 	}
 	
@@ -1456,7 +1509,7 @@ int Semaphore_Wait(tSemaphore *Sem, int MaxToTake)
 		SHORTREL( &Sem->Protector );	// Release first to make sure it is released
 		SHORTREL( &glThreadListLock );	
 		while(us->Status == THREAD_STAT_SEMAPHORESLEEP)	Threads_Yield();
-		// We're only woken when there's something avaliable
+		// We're only woken when there's something avaliable (or a signal arrives)
 		us->WaitPointer = NULL;
 		
 		taken = us->RetStatus;

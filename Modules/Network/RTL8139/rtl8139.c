@@ -255,7 +255,10 @@ Uint64 RTL8139_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
 
 retry:
-	Semaphore_Wait( &card->ReadSemaphore, 1 );
+	if( Semaphore_Wait( &card->ReadSemaphore, 1 ) != 1 )
+	{
+		LEAVE_RET('i', 0);
+	}
 	
 	Mutex_Acquire( &card->ReadMutex );
 	
@@ -423,9 +426,13 @@ void RTL8139_IRQHandler(int Num)
 			
 			LOG("packet_count = %i, read_ofs = 0x%x", packet_count, read_ofs);
 			
-			Semaphore_Signal( &card->ReadSemaphore, packet_count );
 			if( packet_count )
+			{
+				if( Semaphore_Signal( &card->ReadSemaphore, packet_count ) != packet_count ) {
+					// Oops?
+				}
 				VFS_MarkAvaliable( &card->Node, 1 );
+			}
 			
 			outw(card->IOBase + ISR, FLAG_ISR_ROK);
 		}

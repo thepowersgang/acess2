@@ -2,6 +2,7 @@
  * AcessOS Microkernel Version
  * messages.c
  */
+#define DEBUG	1
 #include <acess.h>
 #include <threads.h>
 #include <threads_int.h>
@@ -24,18 +25,18 @@ int Proc_SendMessage(Uint *Err, Uint Dest, int Length, void *Data)
 	tThread	*thread;
 	tMsg	*msg;
 	
-	Log("Proc_SendMessage: (Err=%p, Dest=%i, Length=%i, Data=%p)", Err, Dest, Length, Data);
+	ENTER("pErr iDest iLength pData", Err, Dest, Length, Data);
 	
 	if(Length <= 0 || !Data) {
 		*Err = -EINVAL;
-		return -1;
+		LEAVE_RET('i', -1);
 	}
 	
 	// Get thread
 	thread = Threads_GetThread( Dest );
 	
 	// Error check
-	if(!thread) {	return -1;	}
+	if(!thread)	LEAVE_RET('i', -1);
 	
 	// Get Spinlock
 	SHORTLOCK( &thread->IsLocked );
@@ -43,7 +44,7 @@ int Proc_SendMessage(Uint *Err, Uint Dest, int Length, void *Data)
 	// Check if thread is still alive
 	if(thread->Status == THREAD_STAT_DEAD) {
 		SHORTREL( &thread->IsLocked );
-		return -1;
+		LEAVE_RET('i', -1);
 	}
 	
 	// Create message
@@ -68,7 +69,7 @@ int Proc_SendMessage(Uint *Err, Uint Dest, int Length, void *Data)
 	Threads_Wake( thread );
 	SHORTREL(&glThreadListLock);
 	
-	return 0;
+	LEAVE_RET('i', 0);
 }
 
 /**

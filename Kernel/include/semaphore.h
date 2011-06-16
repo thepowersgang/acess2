@@ -46,7 +46,7 @@ extern void	Semaphore_Init(tSemaphore *Sem, int InitValue, int MaxValue, const c
  * \param Semaphore	Semaphore structure to use
  * \param MaxToTake	Maximum number of items to take off the list (if zero, as much as possible is taken)
  * \return Number of items fetched
- * \retval 0	Semaphore interrupted
+ * \retval 0	Semaphore interrupted (signal/message)
  * \retval -1	Unspecified error
  */
 extern int	Semaphore_Wait(tSemaphore *Sem, int MaxToTake);

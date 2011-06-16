@@ -250,7 +250,7 @@ void Debug_Enter(const char *FuncName, const char *ArgTypes, ...)
 
 	va_start(args, ArgTypes);
 
-	LogF("%012lli ", now());
+	LogF("%014lli ", now());
 	while(i--)	Debug_Putchar(' ');
 
 	Debug_Puts(1, FuncName);
@@ -308,7 +308,7 @@ void Debug_Log(const char *FuncName, const char *Fmt, ...)
 
 	va_start(args, Fmt);
 
-	LogF("%012lli ", now());
+	LogF("%014lli ", now());
 	while(i--)	Debug_Putchar(' ');
 
 	Debug_Puts(1, FuncName);
@@ -343,7 +343,7 @@ void Debug_Leave(const char *FuncName, char RetType, ...)
 		gDebug_Level = 0;
 		i = 0;
 	}
-	LogF("%012lli ", now());
+	LogF("%014lli ", now());
 	// Indenting
 	while(i--)	Debug_Putchar(' ');
 
@@ -387,6 +387,7 @@ void Debug_HexDump(const char *Header, const void *Data, Uint Length)
 {
 	const Uint8	*cdat = Data;
 	Uint	pos = 0;
+	LogF("%014lli ", now());
 	Debug_Puts(1, Header);
 	LogF(" (Hexdump of %p)\r\n", Data);
 
@@ -410,7 +411,7 @@ void Debug_HexDump(const char *Header, const void *Data, Uint Length)
 
 	{
 		 int	i ;
-		LogF("Log: %04x: ", pos);
+		LogF("%014lli Log: %04x: ", now(), pos);
 		for(i = 0; i < Length; i ++)
 		{
 			LogF("%02x ", cdat[i]);

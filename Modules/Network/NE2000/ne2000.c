@@ -289,6 +289,8 @@ Uint64 Ne2k_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	
 	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
 	
+	// TODO: Lock
+	
 	// Sanity Check Length
 	if(Length > TX_BUF_SIZE*256) {
 		Log_Warning(
@@ -360,7 +362,11 @@ Uint64 Ne2k_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
 	
 	// Wait for packets
-	Semaphore_Wait( &Card->Semaphore, 1 );
+	if( Semaphore_Wait( &Card->Semaphore, 1 ) != 1 )
+	{
+		// Error or interrupted
+		LEAVE_RET('i', 0);
+	}
 	
 	outb(Card->IOBase, 0x22 | (1 << 6));	// Page 6
 	LOG("CURR : 0x%02x", inb(Card->IOBase + CURR));
@@ -392,10 +398,7 @@ Uint64 Ne2k_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		
 		LOG("pktHdr->Length (%i) > 256 - 4, allocated buffer %p", pktHdr->Length, buf);
 		
-		if(!buf) {
-			LEAVE('i', -1);
-			return -1;
-		}
+		if(!buf)	LEAVE_RET('i', -1);
 		
 		// Copy the already read data
 		memcpy(buf, data, 256);
@@ -523,7 +526,9 @@ void Ne2k_IRQHandler(int IntNum)
 			{
 				//if( gpNe2k_Cards[i].NumWaitingPackets > MAX_PACKET_QUEUE )
 				//	gpNe2k_Cards[i].NumWaitingPackets = MAX_PACKET_QUEUE;
-				Semaphore_Signal( &gpNe2k_Cards[i].Semaphore, 1 );
+				if( Semaphore_Signal( &gpNe2k_Cards[i].Semaphore, 1 ) != 1 ) {
+					// Oops?
+				}
 			}
 			// 1: Packet sent (no error)
 			// 2: Recieved with error

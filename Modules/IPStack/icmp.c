@@ -118,9 +118,11 @@ int ICMP_Ping(tInterface *Interface, tIPv4 Addr)
 	hdr->ID = i;
 	hdr->Sequence = ~i;
 	hdr->Checksum = htons( IPv4_Checksum(hdr, sizeof(buf)) );
-	IPv4_SendPacket(Interface, Addr, 1, i, sizeof(buf), buf);
 	
 	ts = now();
+	
+	IPv4_SendPacket(Interface, Addr, 1, i, sizeof(buf), buf);
+	
 	end = ts + Interface->TimeoutDelay;
 	while( !gICMP_PingSlots[i].bArrived && now() < end)	Threads_Yield();
 	
