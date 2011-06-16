@@ -15,6 +15,7 @@
 #define DEFAULT_ELEMENTS_PER_APP	128
 
 typedef struct sAxWin_Element	tElement;
+typedef struct sMenuItem	tMenuItem;
 typedef struct sWindow	tWindow;
 typedef struct sApplication	tApplication;
 
@@ -57,14 +58,28 @@ struct sAxWin_Element
 	char	DebugName[];
 };
 
+struct sMenuItem
+{
+	tMenuItem	*Next;
+	 int	Flags;
+	 int	ID;	//!< ID number sent to application
+	const char	*Label;
+	const char	*Right;
+	tMenuItem	*FirstChild;
+};
+
 struct sWindow
 {
 	 int	X, Y, W, H;
 	void	*Icon;
 	
+	tApplication	*App;
+	
 	tWindow	*OrderNext;	// Render order
 	
-	tElement	Element;
+	tMenuItem	*Menus;
+	
+	tElement	RootElement;
 };
 
 struct sApplication
@@ -79,7 +94,7 @@ struct sApplication
 	 int	MaxElementIndex;	//!< Number of entries in \a EleIndex
 	tElement	**EleIndex;	//!< Array of pointers to elements owned by this application
 	
-	tElement	MetaElement;	//!< Windows child off this
+	tElement	MetaElement;	//!< Tabs child off this
 };
 
 // === FUNCTIONS ===

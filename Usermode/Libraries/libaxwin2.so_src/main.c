@@ -11,7 +11,7 @@
 
 // === GLOBALS ===
  int	giAxWin_Mode = 0;
- int	giAxWin_PID = 0;
+ int	giAxWin_PID = 9;	// HACK!
 tAxWin_MessageCallback	*gAxWin_DefaultCallback;
 
 // === CODE ===

@@ -18,7 +18,12 @@ void Input_HandleSelect(fd_set *set)
 {
 	if(FD_ISSET(giTerminalFD, set))
 	{
-		// TODO:
+		uint32_t	codepoint;
+		if( read(giTerminalFD, sizeof(codepoint), &codepoint) != sizeof(codepoint) )
+		{
+			// oops, error
+		}
+		// TODO: pass on to message handler
 	}
 
 	if(FD_ISSET(giMouseFD, set))

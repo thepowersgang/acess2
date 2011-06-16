@@ -139,7 +139,7 @@ tElement *AxWin_CreateAppWindow(tApplication *App, const char *Name)
 	win = calloc(1, sizeof(tWindow) + 1);
 	if(!win)	return NULL;
 	
-	ret = &win->Element;
+	ret = &win->RootElement;
 	ret->Type = ELETYPE_WINDOW;
 	ret->Data = win;
 	ret->Parent = &App->MetaElement;

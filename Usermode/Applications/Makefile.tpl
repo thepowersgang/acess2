@@ -21,8 +21,11 @@ clean:
 	@$(RM) $(OBJ) $(DEPFILES) $(_BIN) $(BIN).dsm Map.txt
 
 install: $(_BIN)
+	@echo [xCP] $(DISTROOT)/$(DIR)/$(BIN)
 	@$(xMKDIR) $(DISTROOT)/$(DIR); true
-	$(xCP) $(_BIN) $(DISTROOT)/$(DIR)/
+	@$(STRIP) $(_BIN) -o $(_BIN)_
+	@$(xCP) $(_BIN)_ $(DISTROOT)/$(DIR)/$(BIN)
+	@$(RM) $(_BIN)_
 
 $(_BIN): $(OBJ)
 	@mkdir -p $(dir $(_BIN))

@@ -53,7 +53,7 @@ tAxWin_Message *AxWin_WaitForMessage()
 {
 	 int	length;
 	pid_t	src;
-	tAxWin_Message	*ret;
+	tAxWin_Message	*ret = NULL;
 	
 	switch( giAxWin_Mode )
 	{
@@ -65,7 +65,7 @@ tAxWin_Message *AxWin_WaitForMessage()
 	default:
 		break;
 	}
-	return 0;
+	return ret;
 }
 
 /**

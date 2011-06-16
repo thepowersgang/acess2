@@ -19,8 +19,14 @@ clean:
 	$(RM) $(_BIN) $(_XBIN) $(OBJ) $(_BIN).dsm $(DEPFILES)
 
 install: all
+	@echo [xCP] $(DISTROOT)/Libs/$(BIN)
 	@$(xMKDIR) $(DISTROOT)/Libs; true
-	$(xCP) $(_BIN) $(_XBIN) $(DISTROOT)/Libs/
+	@$(STRIP) $(_BIN) -o $(_BIN)_
+	@$(xCP) $(_BIN)_ $(DISTROOT)/Libs/$(BIN)
+	@$(RM) $(_BIN)_
+ifneq ($(_XBIN),)
+	$(xCP) $(_XBIN) $(DISTROOT)/Libs/
+endif
 
 $(_BIN): $(OBJ)
 	@mkdir -p $(dir $(_BIN))

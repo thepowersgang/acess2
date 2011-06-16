@@ -66,11 +66,11 @@ void IPC_HandleSelect(fd_set *set)
 
 		readlen = read(giNetworkFileHandle, sizeof(staticBuf), staticBuf);
 		
-		// Assume that all connections are from localhost
 		identlen = 4 + Net_GetAddressSize( ((uint16_t*)staticBuf)[1] );
 		msg = staticBuf + identlen;
 
 		IPC_Handle(&gIPC_Type_Datagram, staticBuf, readlen - identlen, (void*)msg);
+		_SysDebug("IPC_HandleSelect: UDP handled");
 	}
 
 	while(SysGetMessage(NULL, NULL))
@@ -81,6 +81,7 @@ void IPC_HandleSelect(fd_set *set)
 		SysGetMessage(NULL, data);
 
 		IPC_Handle(&gIPC_Type_SysMessage, &tid, len, (void*)data);
+		_SysDebug("IPC_HandleSelect: Message handled");
 	}
 }
 
@@ -88,6 +89,9 @@ void IPC_Handle(tIPC_Type *IPCType, void *Ident, size_t MsgLen, tAxWin_Message *
 {
 	tApplication	*app;
 	tElement	*ele;
+	
+	_SysDebug("IPC_Handle: (IPCType=%p, Ident=%p, MsgLen=%i, Msg=%p)",
+		IPCType, Ident, MsgLen, Msg);
 	
 	if( MsgLen < sizeof(tAxWin_Message) )
 		return ;
@@ -100,6 +104,7 @@ void IPC_Handle(tIPC_Type *IPCType, void *Ident, size_t MsgLen, tAxWin_Message *
 	{
 	// --- Ping message (reset timeout and get server version)
 	case MSG_SREQ_PING:
+		_SysDebug(" IPC_Handle: MSG_SREQ_PING");
 		if( MsgLen < sizeof(tAxWin_Message) + 4 )	return;
 		Msg->ID = MSG_SRSP_VERSION;
 		Msg->Size = 4;
@@ -112,8 +117,10 @@ void IPC_Handle(tIPC_Type *IPCType, void *Ident, size_t MsgLen, tAxWin_Message *
 
 	// --- Register an application
 	case MSG_SREQ_REGISTER:
+		_SysDebug(" IPC_Handle: MSG_SREQ_REGISTER");
 		if( Msg->Data[Msg->Size-1] != '\0' ) {
 			// Invalid message
+			_SysDebug("IPC_Handle: RETURN - Not NULL terminated");
 			return ;
 		}
 		
@@ -128,6 +135,7 @@ void IPC_Handle(tIPC_Type *IPCType, void *Ident, size_t MsgLen, tAxWin_Message *
 	
 	// --- Create a window
 	case MSG_SREQ_ADDWIN:
+		_SysDebug(" IPC_Handle: MSG_SREQ_ADDWIN");
 		if( Msg->Data[Msg->Size-1] != '\0' ) {
 			// Invalid message
 			return ;
@@ -139,11 +147,13 @@ void IPC_Handle(tIPC_Type *IPCType, void *Ident, size_t MsgLen, tAxWin_Message *
 	
 	// --- Set a window's icon
 	case MSG_SREQ_SETICON:
+		_SysDebug(" IPC_Handle: MSG_SREQ_SETICON");
 		// TODO: Find a good way of implementing this
 		break;
 	
 	// --- Create an element
 	case MSG_SREQ_INSERT: {
+		_SysDebug(" IPC_Handle: MSG_SREQ_INSERT");
 		struct sAxWin_SReq_NewElement	*info = (void *)Msg->Data;
 		
 		if( Msg->Size != sizeof(*info) )	return;
