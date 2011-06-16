@@ -32,6 +32,8 @@ void atexit(void (*__func)(void))
  */
 EXPORT void exit(int status)
 {
+	if( g_stdlib_exithandler )
+		g_stdlib_exithandler();
 	_exit(status);
 }
 

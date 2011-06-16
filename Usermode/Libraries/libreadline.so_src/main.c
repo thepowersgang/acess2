@@ -159,7 +159,7 @@ int Readline_int_ParseCharacter(tReadline *Info, char *Input)
 	
 	if(ch == '\n')
 	{
-		printf("\n");
+//		printf("\n");
 		if(Info->CurBuffer)
 		{	
 			// Cap String

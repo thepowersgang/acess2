@@ -59,6 +59,7 @@ enum eMessageTypes
  int	ParseUserCommand(char *String);
 // --- 
 tServer	*Server_Connect(const char *Name, const char *AddressString, short PortNumber);
+tMessage	*Message_AppendF(tServer *Server, int Type, const char *Source, const char *Dest, const char *Message, ...);
 tMessage	*Message_Append(tServer *Server, int Type, const char *Source, const char *Dest, const char *Message);
 tWindow	*Window_Create(tServer *Server, const char *Name);
 
@@ -89,6 +90,7 @@ tWindow	*gpCurrentWindow = &gWindow_Status;
 void ExitHandler(void)
 {
 	printf("\x1B[?1047l");
+	printf("Quit\n");
 }
 
 int main(int argc, const char *argv[], const char *envp[])
@@ -107,6 +109,9 @@ int main(int argc, const char *argv[], const char *envp[])
 	printf("\x1B[?1047h");
 	printf("\x1B[%i;%ir", 0, giTerminal_Height-1);
 	
+	SetCursorPos(giTerminal_Height-1, 0);
+	printf("[(status)] ");
+	
 	// HACK: Static server entry
 	// UCC (University [of Western Australia] Computer Club) IRC Server
 	gWindow_Status.Server = Server_Connect( "UCC", "130.95.13.18", 6667 );
@@ -114,10 +119,9 @@ int main(int argc, const char *argv[], const char *envp[])
 	if( !gWindow_Status.Server )
 		return -1;
 	
-	readline_info = Readline_Init(1);
-	
 	SetCursorPos(giTerminal_Height-1, 0);
 	printf("[(status)] ");
+	readline_info = Readline_Init(1);
 	
 	for( ;; )
 	{
@@ -154,6 +158,7 @@ int main(int argc, const char *argv[], const char *envp[])
 				free(cmd);
 				// Prompt
 				SetCursorPos(giTerminal_Height-1, 0);
+				printf("\x1B[K");	// Clear line
 				if( gpCurrentWindow->Name[0] )
 					printf("[%s:%s] ", gpCurrentWindow->Server->Name, gpCurrentWindow->Name);
 				else
@@ -218,7 +223,7 @@ int ParseUserCommand(char *String)
 		}
 		else if( strcmp(command, "/quit") == 0 )
 		{
-			char	*quit_message = GetValue(String, &pos);
+			char	*quit_message = String + pos;
 			tServer	*srv;
 			
 			if( quit_message == NULL || quit_message[0] == '\0' )
@@ -253,18 +258,20 @@ int ParseUserCommand(char *String)
 				window_num = 1;
 				for( win = gpWindows; win; win = win->Next, window_num ++ )
 				{
-					char tmp[snprintf(NULL, 1000, "%i: %s/%s", window_num, win->Server->Name, win->Name)+1];
-					snprintf(tmp, 1000, "%i: %s/%s", window_num, win->Server->Name, win->Name);
-					Message_Append(NULL, MSG_TYPE_SERVER, "client", "", tmp);
+					if( win->Name[0] ) {
+						Message_AppendF(NULL, MSG_TYPE_SERVER, "client", "",
+							"%i: %s/%s", window_num, win->Server->Name, win->Name);
+					}
+					else {
+						Message_AppendF(NULL, MSG_TYPE_SERVER, "client", "",
+							"%i: (status)", window_num);
+					}
 				}
 			}
 		}
 		else
 		{
-			 int	len = snprintf(NULL, 0, "Unknown command %s", command);
-			char	buf[len+1];
-			snprintf(buf, len+1, "Unknown command %s", command);
-			Message_Append(NULL, MSG_TYPE_SERVER, "client", "", buf);
+			Message_AppendF(NULL, MSG_TYPE_SERVER, "client", "", "Unknown command %s", command);
 		}
 	}
 	else
@@ -273,6 +280,8 @@ int ParseUserCommand(char *String)
 		// - Only send if server is valid and window name is non-empty
 		if( gpCurrentWindow->Server && gpCurrentWindow->Name[0] )
 		{
+			Message_Append(gpCurrentWindow->Server, MSG_TYPE_STANDARD,
+				gsNickname, gpCurrentWindow->Name, String);
 			writef(gpCurrentWindow->Server->FD,
 				"PRIVMSG %s :%s\n", gpCurrentWindow->Name,
 				String
@@ -306,15 +315,29 @@ tServer *Server_Connect(const char *Name, const char *AddressString, short PortN
 	gpServers = ret;
 	
 	// Read some initial data
-	printf("%s: Connection opened\n", Name);
+	Message_Append(NULL, MSG_TYPE_SERVER, Name, "", "Connection opened");
 	ProcessIncoming(ret);
 	
 	// Identify
 	writef(ret->FD, "USER %s %s %s : %s\n", gsUsername, gsHostname, AddressString, gsRealName);
 	writef(ret->FD, "NICK %s\n", gsNickname);
-	printf("%s: Identified\n", Name);
+	Message_Append(NULL, MSG_TYPE_SERVER, Name, "", "Identified");
+	//printf("%s: Identified\n", Name);
 	
 	return ret;
+}
+
+tMessage *Message_AppendF(tServer *Server, int Type, const char *Source, const char *Dest, const char *Message, ...)
+{
+	va_list	args;
+	 int	len;
+	va_start(args, Message);
+	len = vsnprintf(NULL, 1000, Message, args);
+	{
+		char	buf[len+1];
+		vsnprintf(buf, len+1, Message, args);
+		return Message_Append(Server, Type, Source, Dest, buf);
+	}
 }
 
 tMessage *Message_Append(tServer *Server, int Type, const char *Source, const char *Dest, const char *Message)
@@ -324,7 +347,7 @@ tMessage *Message_Append(tServer *Server, int Type, const char *Source, const ch
 	 int	msgLen = strlen(Message);
 	
 	// NULL servers are internal messages
-	if( Server == NULL )
+	if( Server == NULL || Source[0] == '\0' )
 	{
 		win = &gWindow_Status;
 	}
@@ -397,9 +420,9 @@ tMessage *Message_Append(tServer *Server, int Type, const char *Source, const ch
 	
 	{
 		int pos = SetCursorPos(giTerminal_Height-2, 0);
-		printf("\x1B[T");	// Scroll down 1 (free space below)
 		#if 1
 		if( win == gpCurrentWindow ) {
+			printf("\x1B[T");	// Scroll down 1 (free space below)
 			printf("[%s] %s\n", Source, Message);
 		}
 		#else
@@ -527,7 +550,7 @@ void ParseServerLine(tServer *Server, char *Line)
 		}
 		else
 		{
-			printf("Unknown message %s (%s)\n", cmd, Line+pos);
+			Message_AppendF(Server, MSG_TYPE_SERVER, "", "", "Unknown message %s (%s)\n", cmd, Line+pos);
 		}
 	}
 	else {

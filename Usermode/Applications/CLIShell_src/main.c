@@ -94,6 +94,7 @@ int main(int argc, char *argv[], char *envp[])
 		// Read Command line
 		#if USE_READLINE
 		sCommandStr = Readline( readline_state );
+		printf("\n");
 		length = strlen(sCommandStr);
 		#else
 		sCommandStr = ReadCommandLine( &length );
