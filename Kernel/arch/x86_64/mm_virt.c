@@ -3,9 +3,10 @@
  * 
  * Virtual Memory Manager
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <acess.h>
 #include <mm_virt.h>
+#include <threads_int.h>
 #include <proc.h>
 
 // === CONSTANTS ===
@@ -42,7 +43,9 @@
 #define TMPDIRPTR(idx)	PAGEDIR((MM_TMPFRAC_BASE>>21)+((idx)&PDP_MASK))
 #define TMPMAPLVL4(idx)	PAGEDIRPTR((MM_TMPFRAC_BASE>>30)+((idx)&PML4_MASK))
 
-#define INVLPG(__addr)	__asm__ __volatile__ ("invlpg (%0)"::"r"(__addr));
+#define INVLPG(__addr)	__asm__ __volatile__ ("invlpg (%0)"::"r"(__addr))
+#define INVLPG_ALL()	__asm__ __volatile__ ("mov %cr3,%rax;\n\tmov %rax,%cr3;")
+#define INVLPG_GLOBAL()	__asm__ __volatile__ ("mov %cr4,%rax;\n\txorl $0x80, %eax;\n\tmov %rax,%cr4;\n\txorl $0x80, %eax;\n\tmov %rax,%cr4")
 
 // === CONSTS ===
 //tPAddr	* const gaPageTable = MM_FRACTAL_BASE;
@@ -74,6 +77,7 @@ void MM_InitVirt(void)
 
 void MM_FinishVirtualInit(void)
 {
+	PAGEMAPLVL4(0) = 0;
 }
 
 /**
@@ -88,7 +92,7 @@ void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 	 && gaPageTable[Addr>>12] & PF_COW )
 	{
 		tPAddr	paddr;
-		if(MM_GetRefCount( gaPageTable[Addr>>12] & ~0xFFF ) == 1)
+		if(MM_GetRefCount( gaPageTable[Addr>>12] & PADDR_MASK ) == 1)
 		{
 			gaPageTable[Addr>>12] &= ~PF_COW;
 			gaPageTable[Addr>>12] |= PF_PRESENT|PF_WRITE;
@@ -97,7 +101,7 @@ void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 		{
 			//Log("MM_PageFault: COW - MM_DuplicatePage(0x%x)", Addr);
 			paddr = MM_DuplicatePage( Addr );
-			MM_DerefPhys( gaPageTable[Addr>>12] & ~0xFFF );
+			MM_DerefPhys( gaPageTable[Addr>>12] & PADDR_MASK );
 			gaPageTable[Addr>>12] &= PF_USER;
 			gaPageTable[Addr>>12] |= paddr|PF_PRESENT|PF_WRITE;
 		}
@@ -190,7 +194,7 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 			if(expected != CHANGEABLE_BITS) {
 				Log("%016llx => %013llx : 0x%6llx (%c%c%c%c)",
 					CANOICAL(rangeStart),
-					PAGETABLE(rangeStart>>12) & ~0xFFF,
+					PAGETABLE(rangeStart>>12) & PADDR_MASK,
 					curPos - rangeStart,
 					(expected & PF_PAGED ? 'p' : '-'),
 					(expected & PF_COW ? 'C' : '-'),
@@ -229,7 +233,7 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 	if(expected != CHANGEABLE_BITS) {
 		Log("%016llx => %013llx : 0x%6llx (%c%c%c%c)",
 			CANOICAL(rangeStart),
-			PAGETABLE(rangeStart>>12) & ~0xFFF,
+			PAGETABLE(rangeStart>>12) & PADDR_MASK,
 			curPos - rangeStart,
 			(expected & PF_PAGED ? 'p' : '-'),
 			(expected & PF_COW ? 'C' : '-'),
@@ -259,12 +263,19 @@ int MM_GetPageEntryPtr(tVAddr Addr, BOOL bTemp, BOOL bAllocate, BOOL bLargePage,
 	 int	i;
 	
 	if( bTemp )
-		pmlevels[3] = (void*)MM_TMPFRAC_BASE;	// Temporary Page Table
+	{
+		pmlevels[3] = &TMPTABLE(0);	// Page Table
+		pmlevels[2] = &TMPDIR(0);	// PDIR
+		pmlevels[1] = &TMPDIRPTR(0);	// PDPT
+		pmlevels[0] = &TMPMAPLVL4(0);	// PML4
+	}
 	else
+	{
 		pmlevels[3] = (void*)MM_FRACTAL_BASE;	// Page Table
-	pmlevels[2] = &pmlevels[3][(MM_FRACTAL_BASE>>12)&PAGE_MASK];	// PDIR
-	pmlevels[1] = &pmlevels[2][(MM_FRACTAL_BASE>>21)&TABLE_MASK];	// PDPT
-	pmlevels[0] = &pmlevels[1][(MM_FRACTAL_BASE>>30)&PDP_MASK];	// PML4
+		pmlevels[2] = &pmlevels[3][(MM_FRACTAL_BASE>>12)&PAGE_MASK];	// PDIR
+		pmlevels[1] = &pmlevels[2][(MM_FRACTAL_BASE>>21)&TABLE_MASK];	// PDPT
+		pmlevels[0] = &pmlevels[1][(MM_FRACTAL_BASE>>30)&PDP_MASK];	// PML4
+	}
 	
 	// Mask address
 	Addr &= (1ULL << 48)-1;
@@ -286,8 +297,8 @@ int MM_GetPageEntryPtr(tVAddr Addr, BOOL bTemp, BOOL bAllocate, BOOL bLargePage,
 			tmp = MM_AllocPhys();
 			if(!tmp)	return -2;
 			pmlevels[i][Addr >> ADDR_SIZES[i]] = tmp | 3;
-			INVLPG( &pmlevels[i+1][ (Addr>>ADDR_SIZES[i])<<9 ] );
-			memset( &pmlevels[i+1][ (Addr>>ADDR_SIZES[i])<<9 ], 0, 0x1000 );
+			INVLPG( &pmlevels[i+1][ (Addr>>ADDR_SIZES[i])*512 ] );
+			memset( &pmlevels[i+1][ (Addr>>ADDR_SIZES[i])*512 ], 0, 0x1000 );
 		}
 		// Catch large pages
 		else if( pmlevels[i][Addr >> ADDR_SIZES[i]] & PF_LARGE )
@@ -419,7 +430,7 @@ int MM_GetPageEntry(tVAddr Addr, tPAddr *Phys, Uint *Flags)
 	ret = MM_GetPageEntryPtr(Addr, 0, 0, 0, &ptr);
 	if( ret < 0 )	return 0;
 	
-	*Phys = *ptr & ~0xFFF;
+	*Phys = *ptr & PADDR_MASK;
 	*Flags = *ptr & 0xFFF;
 	return ret;
 }
@@ -435,7 +446,7 @@ tPAddr MM_GetPhysAddr(tVAddr Addr)
 	ret = MM_GetPageEntryPtr(Addr, 0, 0, 0, &ptr);
 	if( ret < 0 )	return 0;
 	
-	return (*ptr & ~0xFFF) | (Addr & 0xFFF);
+	return (*ptr & PADDR_MASK) | (Addr & 0xFFF);
 }
 
 /**
@@ -638,6 +649,8 @@ void MM_FreeTemp(tVAddr VAddr)
 tPAddr MM_Clone(void)
 {
 	tPAddr	ret;
+	 int	i;
+	tVAddr	kstackbase = Proc_GetCurThread()->KernelStack - KERNEL_STACK_SIZE + 0x1000;
 	
 	// #1 Create a copy of the PML4
 	ret = MM_AllocPhys();
@@ -646,72 +659,135 @@ tPAddr MM_Clone(void)
 	// #2 Alter the fractal pointer
 	Mutex_Acquire(&glMM_TempFractalLock);
 	TMPCR3() = ret | 3;
+	INVLPG_ALL();
 	
-	INVLPG(&TMPMAPLVL4(0));
-	memcpy(&TMPMAPLVL4(0), &PAGEMAPLVL4(0), 0x1000);
-	
-	Log_KernelPanic("MM", "TODO: Implement MM_Clone");
+//	Log_KernelPanic("MM", "TODO: Implement MM_Clone");
 	
 	// #3 Set Copy-On-Write to all user pages
+	for( i = 0; i < 256; i ++)
+	{
+		TMPMAPLVL4(i) = PAGEMAPLVL4(i);
+//		Log_Debug("MM", "TMPMAPLVL4(%i) = 0x%016llx", i, TMPMAPLVL4(i));
+		if( TMPMAPLVL4(i) & 1 )
+		{
+			MM_RefPhys( TMPMAPLVL4(i) & PADDR_MASK );
+			TMPMAPLVL4(i) |= PF_COW;
+			TMPMAPLVL4(i) &= ~PF_WRITE;
+		}
+	}
 	
+	// #4 Map in kernel pages
+	for( i = 256; i < 512; i ++ )
+	{
+		// Skip addresses:
+		// 320 0xFFFFA....	- Kernel Stacks
+		if( i == 320 )	continue;
+		// 509 0xFFFFFE0..	- Fractal mapping
+		if( i == 509 )	continue;
+		// 510 0xFFFFFE8..	- Temp fractal mapping
+		if( i == 510 )	continue;
+	}
 	
-	// #4 Return
+	// #5 Set fractal mapping
+	TMPMAPLVL4(509) = ret | 3;
+	TMPMAPLVL4(510) = 0;	// Temp
+	
+	// #6 Create kernel stack
+	TMPMAPLVL4(320) = 0;
+	for( i = 0; i < KERNEL_STACK_SIZE/0x1000-1; i ++ )
+	{
+		tPAddr	phys = MM_AllocPhys();
+		tVAddr	tmpmapping;
+		MM_MapEx(kstackbase+i*0x1000, phys, 1, 0);
+		
+		tmpmapping = MM_MapTemp(phys);
+		memcpy((void*)tmpmapping, (void*)(kstackbase+i*0x1000), 0x1000);
+		MM_FreeTemp(tmpmapping);
+	}
+	
+	// #7 Return
 	TMPCR3() = 0;
-	INVLPG(&TMPMAPLVL4(0));
+	INVLPG_ALL();
 	Mutex_Release(&glMM_TempFractalLock);
-	return 0;
+	return ret;
 }
 
 void MM_ClearUser(void)
 {
 	tVAddr	addr = 0;
-	// #1 Traverse the structure < 2^47, Deref'ing all pages
-	// #2 Free tables/dirs/pdps once they have been cleared
+	 int	pml4, pdpt, pd, pt;
 	
-	for( addr = 0; addr < 0x800000000000; )
+	for( pml4 = 0; pml4 < 256; pml4 ++ )
 	{
-		if( PAGEMAPLVL4(addr >> PML4_SHIFT) & 1 )
+		// Catch an un-allocated PML4 entry
+		if( !(PAGEMAPLVL4(pml4) & 1) ) {
+			addr += 1ULL << PML4_SHIFT;
+			continue ;
+		}
+		
+		// Catch a large COW
+		if( (PAGEMAPLVL4(pml4) & PF_COW) ) {
+			addr += 1ULL << PML4_SHIFT;
+		}
+		else
 		{
-			if( PAGEDIRPTR(addr >> PDP_SHIFT) & 1 )
+			// TODO: Large pages
+			
+			// Child entries
+			for( pdpt = 0; pdpt < 512; pdpt ++ )
 			{
-				if( PAGEDIR(addr >> PDIR_SHIFT) & 1 )
-				{
-					// Page
-					if( PAGETABLE(addr >> PTAB_SHIFT) & 1 ) {
-						MM_DerefPhys( PAGETABLE(addr >> PTAB_SHIFT) & PADDR_MASK );
-						PAGETABLE(addr >> PTAB_SHIFT) = 0;
-					}
-					addr += 1 << PTAB_SHIFT;
-					// Dereference the PDIR Entry
-					if( (addr + (1 << PTAB_SHIFT)) >> PDIR_SHIFT != (addr >> PDIR_SHIFT) ) {
-						MM_DerefPhys( PAGEMAPLVL4(addr >> PDIR_SHIFT) & PADDR_MASK );
+				// Unallocated
+				if( !(PAGEDIRPTR(addr >> PDP_SHIFT) & 1) ) {
+					addr += 1ULL << PDP_SHIFT;
+					continue;
+				}
+			
+				// Catch a large COW
+				if( (PAGEDIRPTR(addr >> PDP_SHIFT) & PF_COW) ) {
+					addr += 1ULL << PDP_SHIFT;
+				}
+				else {
+					// Child entries
+					for( pd = 0; pd < 512; pd ++ )
+					{
+						// Unallocated PDir entry
+						if( !(PAGEDIR(addr >> PDIR_SHIFT) & 1) ) {
+							addr += 1ULL << PDIR_SHIFT;
+							continue;
+						}
+						
+						// COW Page Table
+						if( PAGEDIR(addr >> PDIR_SHIFT) & PF_COW ) {
+							addr += 1ULL << PDIR_SHIFT;
+						}
+						else
+						{
+							// TODO: Catch large pages
+							
+							// Child entries
+							for( pt = 0; pt < 512; pt ++ )
+							{
+								// Free page
+								if( PAGETABLE(addr >> PTAB_SHIFT) & 1 ) {
+									MM_DerefPhys( PAGETABLE(addr >> PTAB_SHIFT) & PADDR_MASK );
+									PAGETABLE(addr >> PTAB_SHIFT) = 0;
+								}
+								addr += 1ULL << 12;
+							}
+						}
+						// Free page table
+						MM_DerefPhys( PAGEDIR(addr >> PDIR_SHIFT) & PADDR_MASK );
 						PAGEDIR(addr >> PDIR_SHIFT) = 0;
 					}
 				}
-				else {
-					addr += 1 << PDIR_SHIFT;
-					continue;
-				}
-				// Dereference the PDP Entry
-				if( (addr + (1 << PDIR_SHIFT)) >> PDP_SHIFT != (addr >> PDP_SHIFT) ) {
-					MM_DerefPhys( PAGEMAPLVL4(addr >> PDP_SHIFT) & PADDR_MASK );
-					PAGEDIRPTR(addr >> PDP_SHIFT) = 0;
-				}
-			}
-			else {
-				addr += 1 << PDP_SHIFT;
-				continue;
-			}
-			// Dereference the PML4 Entry
-			if( (addr + (1 << PDP_SHIFT)) >> PML4_SHIFT != (addr >> PML4_SHIFT) ) {
-				MM_DerefPhys( PAGEMAPLVL4(addr >> PML4_SHIFT) & PADDR_MASK );
-				PAGEMAPLVL4(addr >> PML4_SHIFT) = 0;
+				// Free page directory
+				MM_DerefPhys( PAGEDIRPTR(addr >> PDP_SHIFT) & PADDR_MASK );
+				PAGEDIRPTR(addr >> PDP_SHIFT) = 0;
 			}
 		}
-		else {
-			addr += (tVAddr)1 << PML4_SHIFT;
-			continue;
-		}
+		// Free page directory pointer table (PML4 entry)
+		MM_DerefPhys( PAGEMAPLVL4(pml4) & PADDR_MASK );
+		PAGEMAPLVL4(pml4) = 0;
 	}
 }
 
@@ -719,8 +795,6 @@ tVAddr MM_NewWorkerStack(void)
 {
 	tVAddr	ret;
 	 int	i;
-	
-//	Log_KernelPanic("MM", "TODO: Implement MM_NewWorkerStack");
 	
 	// #1 Set temp fractal to PID0
 	Mutex_Acquire(&glMM_TempFractalLock);

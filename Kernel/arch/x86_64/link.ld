@@ -50,11 +50,8 @@ SECTIONS {
 		gKernelSymbolsEnd = .;
 	}
 	
-	.padata ALIGN (0x1000) : AT(ADDR(.padata) - _kernel_base) {
-		*(.padata)
-	}
-	
 	.data ALIGN (0x1000) : AT(ADDR(.data) - _kernel_base) {
+		*(.padata)
 		*(.data)
 	}
 

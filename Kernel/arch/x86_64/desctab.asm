@@ -4,6 +4,8 @@
 [BITS 64]
 
 [extern Log]
+[extern gGDTPtr]
+[extern gGDT]
 
 %define NUM_IRQ_CALLBACKS	4
 
@@ -129,6 +131,12 @@ Desctab_Init:
 	
 	; Install IDT
 	mov rax, gIDTPtr
+	lidt [rax]
+	
+	; Re-install GDT (in higher address space)
+	mov rax, gGDTPtr
+	mov rcx, gGDT
+	mov QWORD [rax+2], rcx
 	lidt [rax]
 	
 	; Start interrupts

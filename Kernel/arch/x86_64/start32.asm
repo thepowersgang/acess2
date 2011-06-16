@@ -89,6 +89,7 @@ start:
 
 [section .data]
 [global gGDT]
+[global gGDTPtr]
 gGDT:
 	dd	0,0
 	dd	0x00000000, 0x00209A00	; 0x08: 64-bit Code

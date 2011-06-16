@@ -481,6 +481,12 @@ void MM_RefPhys(tPAddr PAddr)
 	{
 		// Reference again
 		gaMultiBitmap[ page >> 6 ] |= 1LL << (page&63);
+		if( !MM_GetPhysAddr( ((tVAddr)&gaiPageReferences[ page ]) & ~0xFFF ) ) {
+			if( !MM_Allocate( ((tVAddr)&gaiPageReferences[ page ]) & ~0xFFF ) ) {
+				Log_Error("Arch", "Out of memory when allocating reference count page");
+				return ;
+			}
+		}
 		gaiPageReferences[ page ] ++;
 	}
 	else
