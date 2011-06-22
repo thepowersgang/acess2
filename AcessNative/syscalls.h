@@ -47,6 +47,7 @@ enum eSyscalls {
 	SYS_GETACL,
 	SYS_MOUNT,
 	SYS_REOPEN,
+	SYS_CHDIR,
 	
 	SYS_WAITTID,
 	SYS_SETUID,

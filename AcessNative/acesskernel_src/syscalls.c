@@ -73,8 +73,10 @@ SYSCALL1(Syscall_Close, "i", int,
 	return 0;
 );
 SYSCALL3(Syscall_Read, "iid", int, int, void *,
-	if( Sizes[2] < a1 )
+	if( Sizes[2] < a1 ) {
+		Log_Warning("Syscalls", "Read - %i < %i", Sizes[2], a1);
 		return -1;
+	}
 	return VFS_Read(a0, a1, a2);
 );
 SYSCALL3(Syscall_Write, "iid", int, int, const void *,
@@ -111,6 +113,9 @@ SYSCALL2(Syscall_GetACL, "id", int, void *,
 );
 SYSCALL4(Syscall_Mount, "ssss", const char *, const char *, const char *, const char *,
 	return VFS_Mount(a0, a1, a2, a3);
+);
+SYSCALL1(Syscall_Chdir, "s", const char *,
+	return VFS_ChDir(a0);
 );
 SYSCALL0(Syscall_Sleep,
 	Threads_Sleep();
@@ -156,6 +161,7 @@ const tSyscallHandler	caSyscalls[] = {
 	Syscall_GetACL,
 	Syscall_Mount,
 	NULL,	// SYS_REOPEN
+	Syscall_Chdir,
 	
 	Syscall_WaitTID,
 	Syscall_SetUID,
@@ -306,7 +312,7 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 	*(Uint64*)inData = retVal;
 	inData += sizeof(Uint64);
 	
-	LOG("Syscalls", "Return 0x%llx", retVal);
+	Log_Debug("Syscalls", "Return 0x%llx", retVal);
 	
 	retValueCount = 1;
 	for( i = 0; i < Request->NParams; i ++ )

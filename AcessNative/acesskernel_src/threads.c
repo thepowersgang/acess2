@@ -92,6 +92,19 @@ void Threads_Dump(void)
 	}
 }
 
+void Threads_SetThread(int TID)
+{
+	tThread	*thread;
+	for( thread = gpThreads; thread; thread = thread->GlobalNext )
+	{
+		if( thread->TID == TID ) {
+			gpCurrentThread = thread;
+			return ;
+		}
+	}
+	Log_Error("Threads", "_SetThread - Thread %i is not on global list", TID);
+}
+
 tThread	*Threads_GetThread(int TID)
 {
 	tThread	*thread;
@@ -156,6 +169,8 @@ int Threads_SetGID(int *Errno, tGID NewGID)
 
 Uint *Threads_GetCfgPtr(int Index)
 {
+//	Log_Debug("Threads", "Index=%i, gpCurrentThread=%p",
+//		Index, gpCurrentThread);
 	if( Index < 0 || Index >= NUM_CFG_ENTRIES )
 		return NULL;
 	if( !gpCurrentThread )

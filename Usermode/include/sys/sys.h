@@ -27,7 +27,7 @@ extern int	close(int fp);
 extern int	read(int fp, int len, void *buf);
 extern int	write(int fp, int len, void *buf);
 extern int	tell(int fp);
-extern void seek(int fp, int64_t dist, int flag);
+extern void	seek(int fp, int64_t dist, int flag);
 extern int	fstat(int fp, t_fstat *st);
 extern int	ioctl(int fp, int call, void *arg);
 extern int	readdir(int fp, char *file);

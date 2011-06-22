@@ -277,6 +277,11 @@ uint64_t _Syscall(int SyscallID, const char *ArgTypes, ...)
 }
 
 // --- VFS Calls
+int acess_chdir(const char *Path)
+{
+	return _Syscall(SYS_CHDIR, ">s", Path);
+}
+
 int acess_open(const char *Path, int Flags)
 {
 	if( strncmp(Path, "$$$$", 4) == 0 )
@@ -491,6 +496,7 @@ void acess__exit(int Status)
 const tSym	caBuiltinSymbols[] = {
 	DEFSYM(_exit),
 	
+	DEFSYM(chdir),
 	DEFSYM(open),
 	DEFSYM(close),
 	DEFSYM(reopen),

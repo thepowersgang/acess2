@@ -2,7 +2,7 @@
  * Acess2 VFS
  * - AllocHandle, GetHandle
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include <vfs.h>
 #include <vfs_int.h>
@@ -37,7 +37,8 @@ tUserHandles *VFS_int_GetUserHandles(int PID, int bCreate)
 	tUserHandles	*ent, *prev = NULL;
 	for( ent = gpUserHandles; ent; prev = ent, ent = ent->Next ) {
 		if( ent->PID == PID ) {
-			Log_Warning("VFS", "Process %i already has a handle list", PID);
+			if( bCreate )
+				Log_Warning("VFS", "Process %i already has a handle list", PID);
 			return ent;
 		}
 		if( ent->PID > PID )	break;

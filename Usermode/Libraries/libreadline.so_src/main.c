@@ -81,6 +81,7 @@ char *Readline_NonBlock(tReadline *Info)
 	
 	// Read as much as possible (appending to remaining data)
 	len = read(STDIN_FD, READ_BUFFER_SIZE - 1 - Info->ReadBufferLen, Info->ReadBuffer);
+	if( len <= 0 )	return NULL;
 	Info->ReadBuffer[Info->ReadBufferLen + len] = '\0';
 	
 	// Parse the data we have

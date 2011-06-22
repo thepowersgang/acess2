@@ -2,21 +2,10 @@
  * AcessMicro VFS
  * - File IO Passthru's
  */
+#define DEBUG	0
 #include <acess.h>
 #include "vfs.h"
 #include "vfs_int.h"
-
-#define DEBUG	0
-
-#if DEBUG
-#else
-# undef ENTER
-# undef LOG
-# undef LEAVE
-# define ENTER(...)
-# define LOG(...)
-# define LEAVE(...)
-#endif
 
 // === CODE ===
 /**
@@ -31,23 +20,15 @@ Uint64 VFS_Read(int FD, Uint64 Length, void *Buffer)
 	ENTER("iFD XLength pBuffer", FD, Length, Buffer);
 	
 	h = VFS_GetHandle(FD);
-	if(!h)	return -1;
+	if(!h)	LEAVE_RET('i', -1);
 	
-	if( !(h->Mode & VFS_OPENFLAG_READ) || h->Node->Flags & VFS_FFLAG_DIRECTORY ) {
-		LEAVE('i', -1);
-		return -1;
-	}
+	if( !(h->Mode & VFS_OPENFLAG_READ) || h->Node->Flags & VFS_FFLAG_DIRECTORY )
+		LEAVE_RET('i', -1);
 
-	if(!h->Node->Read) {
-		LEAVE('i', 0);
-		return 0;
-	}
+	if(!h->Node->Read)	LEAVE_RET('i', 0);
 	
 	ret = h->Node->Read(h->Node, h->Position, Length, Buffer);
-	if(ret == -1) {
-		LEAVE('i', -1);
-		return -1;
-	}
+	if(ret == -1)	LEAVE_RET('i', -1);
 	
 	h->Position += ret;
 	LEAVE('X', ret);

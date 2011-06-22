@@ -55,16 +55,19 @@ Uint8	gbaKB_States[3][256];
  */
 int KB_Install(char **Arguments)
 {
-	Uint8	temp;
-	
-	// Attempt to get around a strange bug in Bochs/Qemu by toggling
-	// the controller on and off
-	temp = inb(0x61);
-	outb(0x61, temp | 0x80);
-	outb(0x61, temp & 0x7F);
-	inb(0x60);	// Clear keyboard buffer
 	
 	IRQ_AddHandler(1, KB_IRQHandler);
+	
+	{
+		Uint8	temp;
+		// Attempt to get around a strange bug in Bochs/Qemu by toggling
+		// the controller on and off
+		temp = inb(0x61);
+		outb(0x61, temp | 0x80);
+		outb(0x61, temp & 0x7F);
+		inb(0x60);	// Clear keyboard buffer
+	}
+	
 	DevFS_AddDevice( &gKB_DevInfo );
 	//Log("KB_Install: Installed");
 	return MODULE_ERR_OK;

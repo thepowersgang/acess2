@@ -96,7 +96,7 @@ void *Binary_LoadLibrary(const char *Name)
 {
 	char	*path;
 	void	*ret;
-	 int	(*entry)(int,char*[],char**) = NULL;
+	 int	(*entry)(void *,int,char*[],char**) = NULL;
 
 	// Find File
 	path = Binary_LocateLibrary(Name);
@@ -108,6 +108,7 @@ void *Binary_LoadLibrary(const char *Name)
 	}
 
 	ret = Binary_Load(path, (uintptr_t*)&entry);
+	printf("LOADED '%s' to %p (Entry=%p)\n", path, ret, entry);
 	free(path);
 	
 	#if DEBUG
@@ -118,7 +119,7 @@ void *Binary_LoadLibrary(const char *Name)
 		#if DEBUG
 		printf("Calling '%s' entry point %p\n", Name, entry);
 		#endif
-		entry(0, argv, NULL);
+		entry(ret, 0, argv, NULL);
 	}
 
 	return ret;

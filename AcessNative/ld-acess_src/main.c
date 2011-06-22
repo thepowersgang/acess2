@@ -6,6 +6,9 @@
 #include <stdarg.h>
 #include <string.h>
 
+// === PROTOTYPES ===
+void	CallUser(void *Entry, int argc, char *argv[], char **envp) __attribute__((noreturn));
+
 // === CODE ===
 int main(int argc, char *argv[], char **envp)
 {
@@ -42,7 +45,13 @@ int main(int argc, char *argv[], char **envp)
 	}
 
 	if( i >= argc ) {
-		fprintf(stderr, "Usage: ld-acess <executable> [arguments ...]\n");
+		fprintf(stderr,
+			"Usage: ld-acess <executable> [arguments ...]\n"
+			"\n"
+			"--key\t(internal) used to pass the system call handle when run with execve\n"
+			"--binary\tLoad a local binary directly\n"
+			"--open\tOpen a file before executing\n"
+			);
 		return 1;
 	}
 	
@@ -60,9 +69,12 @@ int main(int argc, char *argv[], char **envp)
 	if( !base )	return 127;
 	
 	printf("==============================\n");
+	printf("%i %p ", appArgc, appArgv);
 	for(i = 0; i < appArgc; i ++)
 		printf("\"%s\" ", appArgv[i]);
 	printf("\n");
+	printf("appMain = %p\n", appMain);
+	#if 0
 	__asm__ __volatile__ (
 		"push %0;\n\t"
 		"push %1;\n\t"
@@ -70,6 +82,21 @@ int main(int argc, char *argv[], char **envp)
 		"jmp *%3;\n\t"
 		: : "r" (envp), "r" (appArgv), "r" (appArgc), "r" (appMain) );
 	return -1;
+	#elif 1
+	CallUser(appMain, appArgc, appArgv, envp);
+	#else
+	return appMain(appArgc, appArgv, NULL);
+	#endif
+}
+
+void CallUser(void *Entry, int argc, char *argv[], char **envp)
+{
+	__asm__ __volatile__ (
+		"mov %1, %%esp;\n\t"
+		"jmp *%0"
+		: : "r" (Entry), "r" (&argc)
+		);
+	for(;;);
 }
 
 void Warning(const char *Format, ...)
