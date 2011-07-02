@@ -32,8 +32,8 @@ SECTIONS {
 	.usertext ALIGN(0x1000): AT(ADDR(.usertext) - _kernel_base) {
 		_UsertextBase = .;
 		*(.usertext)
+		_UsertextEnd = .;
 	}
-	_UsertextEnd = .;
 	
 	.rodata ALIGN(0x1000): AT(ADDR(.rodata) - _kernel_base) {
 		*(.initpd)
@@ -57,10 +57,8 @@ SECTIONS {
 
 	__bss_start = .;
 	.bss : AT(ADDR(.bss) - _kernel_base) {
-		_sbss = .;
 		*(COMMON)
 		*(.bss)
-		_ebss = .;
 	}
 	gKernelEnd = (. + 0xFFF)&0xFFFFFFFFFFFFF000;
 }
