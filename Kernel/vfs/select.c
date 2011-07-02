@@ -44,9 +44,9 @@ struct sVFS_SelectThread
 // int	VFS_MarkFull(tVFS_Node *Node, BOOL IsBufferFull);
 // int	VFS_MarkAvaliable(tVFS_Node *Node, BOOL IsDataAvaliable);
 // int	VFS_MarkError(tVFS_Node *Node, BOOL IsErrorState);
- int	VFS_int_Select_GetType(enum eVFS_SelectTypes Type, tVFS_Node *Node, tVFS_SelectList ***List, int **Flag, int *WantedFlag, int *MaxAllowed);
- int	VFS_int_Select_Register(tVFS_SelectThread *Thread, int MaxHandle, fd_set *Handles, enum eVFS_SelectTypes Type, BOOL IsKernel);
- int	VFS_int_Select_Deregister(tVFS_SelectThread *Thread, int MaxHandle, fd_set *Handles, enum eVFS_SelectTypes Type, BOOL IsKernel);
+ int	VFS_int_Select_GetType(int Type, tVFS_Node *Node, tVFS_SelectList ***List, int **Flag, int *WantedFlag, int *MaxAllowed);
+ int	VFS_int_Select_Register(tVFS_SelectThread *Thread, int MaxHandle, fd_set *Handles, int Type, BOOL IsKernel);
+ int	VFS_int_Select_Deregister(tVFS_SelectThread *Thread, int MaxHandle, fd_set *Handles, int Type, BOOL IsKernel);
  int	VFS_int_Select_AddThread(tVFS_SelectList *List, tVFS_SelectThread *Thread, int MaxAllowed);
 void	VFS_int_Select_RemThread(tVFS_SelectList *List, tVFS_SelectThread *Thread);
 void	VFS_int_Select_SignalAll(tVFS_SelectList *List);
@@ -54,40 +54,47 @@ void	VFS_int_Select_SignalAll(tVFS_SelectList *List);
 // === GLOBALS ===
 
 // === FUNCTIONS ===
-int VFS_SelectNode(tVFS_Node *Node, enum eVFS_SelectTypes Type, tTime *Timeout, const char *Name)
+int VFS_SelectNode(tVFS_Node *Node, int TypeFlags, tTime *Timeout, const char *Name)
 {
 	tVFS_SelectThread	*thread_info;
-	tVFS_SelectList	**list;
-	 int	*flag, wanted, maxAllowed;
+	 int	ret, type;
 	
-	ENTER("pNode iType pTimeout", Node, Type, Timeout);
-	
-	if( VFS_int_Select_GetType(Type, Node, &list, &flag, &wanted, &maxAllowed) ) {
-		LEAVE('i', -1);
-		return -1;
-	}
+	ENTER("pNode iTypeFlags pTimeout", Node, TypeFlags, Timeout);
 	
 	thread_info = malloc(sizeof(tVFS_SelectThread));
 	if(!thread_info)	LEAVE_RET('i', -1);
-	
+
 	Semaphore_Init(&thread_info->SleepHandle, 0, 0, "VFS_SelectNode()", Name);
 	
-	LOG("list=%p, flag=%p, wanted=%i, maxAllowed=%i", list, flag, wanted, maxAllowed);
-	
-	// Alloc if needed
-	if( !*list ) {
-		*list = calloc(1, sizeof(tVFS_SelectList));
-	}
-	
-	VFS_int_Select_AddThread(*list, thread_info, maxAllowed);
-	if( *flag == wanted )
+	// Initialise
+	for( type = 0; type < 3; type ++ )
 	{
-		VFS_int_Select_RemThread(*list, thread_info);
-		free(thread_info);
-		LEAVE('i', 1);
-		return 1;
-	}
+		tVFS_SelectList	**list;
+		 int	*flag, wanted, maxAllowed;
+		if( !(TypeFlags & (1 << type)) )	continue;
+		if( VFS_int_Select_GetType(type, Node, &list, &flag, &wanted, &maxAllowed) ) {
+			free(thread_info);
+			LEAVE('i', -1);
+			return -1;
+		}
 	
+		// Alloc if needed
+		if( !*list )	*list = calloc(1, sizeof(tVFS_SelectList));
+	
+		VFS_int_Select_AddThread(*list, thread_info, maxAllowed);
+		if( *flag == wanted )
+		{
+			VFS_int_Select_RemThread(*list, thread_info);
+			free(thread_info);
+			LEAVE('i', 1);
+			return 1;
+		}
+	}
+
+	// - Fast return for polling
+	if( Timeout && *Timeout == 0 )	return 0;
+
+	// Wait for things	
 	if( !Timeout || *Timeout > 0 )
 	{
 		LOG("Semaphore_Wait()");
@@ -95,13 +102,23 @@ int VFS_SelectNode(tVFS_Node *Node, enum eVFS_SelectTypes Type, tTime *Timeout, 
 		Semaphore_Wait(&thread_info->SleepHandle, 1);
 	}
 	
-	LOG("VFS_int_Select_RemThread()");
-	VFS_int_Select_RemThread(*list, thread_info);
+	// Get return value
+	ret = 0;
+	for( type = 0; type < 3; type ++ )
+	{
+		tVFS_SelectList	**list;
+		 int	*flag, wanted, maxAllowed;
+		if( !(TypeFlags & (1 << type)) )	continue;
+		VFS_int_Select_GetType(type, Node, &list, &flag, &wanted, &maxAllowed);
+		LOG("VFS_int_Select_RemThread()");
+		VFS_int_Select_RemThread(*list, thread_info);
+		ret = ret || *flag == wanted;
+	}
 	
 	free(thread_info);
 	
-	LEAVE('i', *flag == wanted);
-	return *flag == wanted;
+	LEAVE('i', ret);
+	return ret;
 }
 
 int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set *ErrHandles, tTime *Timeout, BOOL IsKernel)
@@ -195,7 +212,7 @@ int VFS_MarkError(tVFS_Node *Node, BOOL IsErrorState)
 }
 
 // --- Internal ---
-int VFS_int_Select_GetType(enum eVFS_SelectTypes Type, tVFS_Node *Node, tVFS_SelectList ***List, int **Flag, int *WantedFlag, int *MaxAllowed)
+int VFS_int_Select_GetType(int Type, tVFS_Node *Node, tVFS_SelectList ***List, int **Flag, int *WantedFlag, int *MaxAllowed)
 {
 	// Get the type of the listen
 	switch(Type)
@@ -228,7 +245,7 @@ int VFS_int_Select_GetType(enum eVFS_SelectTypes Type, tVFS_Node *Node, tVFS_Sel
 /**
  * \return Number of files with an action
  */
-int VFS_int_Select_Register(tVFS_SelectThread *Thread, int MaxHandle, fd_set *Handles, enum eVFS_SelectTypes Type, BOOL IsKernel)
+int VFS_int_Select_Register(tVFS_SelectThread *Thread, int MaxHandle, fd_set *Handles, int Type, BOOL IsKernel)
 {
 	 int	i, numFlagged = 0;
 	tVFS_SelectList	**list;
@@ -290,7 +307,7 @@ int VFS_int_Select_Register(tVFS_SelectThread *Thread, int MaxHandle, fd_set *Ha
 /**
  * \return Number of files with an action
  */
-int VFS_int_Select_Deregister(tVFS_SelectThread *Thread, int MaxHandle, fd_set *Handles, enum eVFS_SelectTypes Type, BOOL IsKernel)
+int VFS_int_Select_Deregister(tVFS_SelectThread *Thread, int MaxHandle, fd_set *Handles, int Type, BOOL IsKernel)
 {
 	 int	i, numFlagged = 0;
 	tVFS_SelectList	**list;

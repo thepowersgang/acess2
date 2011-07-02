@@ -356,13 +356,15 @@ extern void	VFS_CleanupNode(tVFS_Node *Node);
 extern tVFS_ACL	*VFS_UnixToAcessACL(Uint Mode, Uint Owner, Uint Group);
 
 /**
+ * \brief Flags fro \a TypeFlag of VFS_SelectNode
+ * \{
  */
-enum eVFS_SelectTypes
-{
-	VFS_SELECT_READ,
-	VFS_SELECT_WRITE,
-	VFS_SELECT_ERROR
-};
+#define VFS_SELECT_READ	0x01
+#define VFS_SELECT_WRITE	0x02
+#define VFS_SELECT_ERROR	0x04
+/**
+ * \}
+ */
 
 /**
  * \brief Wait for an event on a node
@@ -372,7 +374,7 @@ enum eVFS_SelectTypes
  * \param Name	Name to show in debug output
  * \return Number of nodes that actioned (0 or 1)
  */
-extern int	VFS_SelectNode(tVFS_Node *Node, enum eVFS_SelectTypes Type, tTime *Timeout, const char *Name);
+extern int	VFS_SelectNode(tVFS_Node *Node, int Type, tTime *Timeout, const char *Name);
 
 /**
  * \brief Change the full flag on a node
