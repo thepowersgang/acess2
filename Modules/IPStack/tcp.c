@@ -412,6 +412,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 			// TODO: This should be moved out of the watcher thread,
 			// so that a single lost packet on one connection doesn't cause
 			// all connections on the interface to lag.
+			// - Meh, no real issue, as the cache shouldn't be that large
 			TCP_INT_UpdateRecievedFromFuture(Connection);
 		
 			// ACK Packet
@@ -601,9 +602,7 @@ void TCP_INT_AppendRecieved(tTCPConnection *Connection, tTCPStoredPacket *Pkt)
 	
 	RingBuffer_Write( Connection->RecievedBuffer, Pkt->Data, Pkt->Length );
 
-	#if USE_SELECT
 	VFS_MarkAvaliable(&Connection->Node, 1);
-	#endif
 	
 	Mutex_Release( &Connection->lRecievedPackets );
 }

@@ -2,6 +2,7 @@
  * Acess2 VM8086 Driver
  * - By John Hodge (thePowersGang)
  */
+#define DEBUG	0
 #include <acess.h>
 #include <vm8086.h>
 #include <modules.h>
@@ -23,6 +24,9 @@ enum eVM8086_Opcodes
 	VM8086_OP_OUT_ADX = 0xEF
 };
 #define VM8086_PAGES_PER_INST	4
+
+#define VM8086_BLOCKSIZE	128
+#define VM8086_BLOCKCOUNT	((0x9F000-0x10000)/VM8086_BLOCKSIZE)
 
 // === IMPORTS ===
  int	Proc_Clone(Uint *Err, Uint Flags);
@@ -48,6 +52,7 @@ tMutex	glVM8086_Process;
 tPID	gVM8086_WorkerPID;
 tTID	gVM8086_CallingThread;
 tVM8086	volatile * volatile gpVM8086_State = (void*)-1;	// Set to -1 to avoid race conditions
+Uint32	gaVM8086_MemBitmap[VM8086_BLOCKCOUNT/32];
 
 // === FUNCTIONS ===
 int VM8086_Install(char **Arguments)
@@ -79,8 +84,12 @@ int VM8086_Install(char **Arguments)
 			//MM_SetFlags( i * 0x1000, MM_PFLAG_RO, MM_PFLAG_RO );	// Set Read Only
 		}
 		MM_Map( 0, 0 );	// IVT / BDA
-		for(i=0x10;i<0x9F;i++) {
-			MM_Map( i * 0x1000, i * 0x1000 );	MM_DerefPhys( i * 0x1000 );
+		// Map (but allow allocation) of 0x1000 - 0x9F000
+		// - So much hack, it isn't funny
+		for(i=1;i<0x9F;i++) {
+			MM_Map( i * 0x1000, i * 0x1000 );
+			MM_DerefPhys( i * 0x1000 );	// Above
+			MM_DerefPhys( i * 0x1000 );	// Phys setup
 		}
 		MM_Map( 0x9F000, 0x9F000 );	// Stack / EBDA
 		// System Stack / Stub
@@ -157,8 +166,8 @@ void VM8086_GPF(tRegs *Regs)
 	{
 		if( gpVM8086_State == (void*)-1 ) {
 			Log_Log("VM8086", "Worker thread ready and waiting");
-			Mutex_Release( &glVM8086_Process );	// Release lock obtained in VM8086_Install
 			gpVM8086_State = NULL;
+			Mutex_Release( &glVM8086_Process );	// Release lock obtained in VM8086_Install
 		}
 		//Log_Log("VM8086", "gpVM8086_State = %p, gVM8086_CallingThread = %i",
 		//	gpVM8086_State, gVM8086_CallingThread);
@@ -359,20 +368,20 @@ void *VM8086_Allocate(tVM8086 *State, int Size, Uint16 *Segment, Uint16 *Offset)
 		// Scan the bitmap for a free block
 		for( j = 0; j < 32; j++ ) {
 			if( State->Internal->AllocatedPages[i].Bitmap & (1 << j) ) {
-				base = j;
+				base = j+1;
 				rem = nBlocks;
 			}
-			else {
-				rem --;
-				if(rem == 0)	// Goodie, there's a gap
-				{
-					for( j = 0; j < nBlocks; j++ )
-						State->Internal->AllocatedPages[i].Bitmap |= 1 << (base + j);
-					*Segment = State->Internal->AllocatedPages[i].PhysAddr / 16 + base * 8;
-					*Offset = 0;
-					//Log_Debug("VM8086", "Allocated at #%i,%04x", i, base*128);
-					return (void*)( State->Internal->AllocatedPages[i].VirtBase + base * 128 );
-				}
+			
+			rem --;
+			if(rem == 0)	// Goodie, there's a gap
+			{
+				for( j = 0; j < nBlocks; j++ )
+					State->Internal->AllocatedPages[i].Bitmap |= 1 << (base + j);
+				*Segment = State->Internal->AllocatedPages[i].PhysAddr / 16 + base * 8;
+				*Offset = 0;
+				LOG("Allocated at #%i,%04x", i, base*128);
+				LOG(" - %x:%x", *Segment, *Offset);
+				return (void*)( State->Internal->AllocatedPages[i].VirtBase + base * 128 );
 			}
 		}
 	}
@@ -394,9 +403,10 @@ void *VM8086_Allocate(tVM8086 *State, int Size, Uint16 *Segment, Uint16 *Offset)
 		
 	for( j = 0; j < nBlocks; j++ )
 		State->Internal->AllocatedPages[i].Bitmap |= 1 << j;
-	//Log_Debug("VM8086", "AllocatedPages[%i].Bitmap = 0b%b", i, State->Internal->AllocatedPages[i].Bitmap);
+	LOG("AllocatedPages[%i].Bitmap = 0b%b", i, State->Internal->AllocatedPages[i].Bitmap);
 	*Segment = State->Internal->AllocatedPages[i].PhysAddr / 16;
 	*Offset = 0;
+	LOG(" - %x:%x", *Segment, *Offset);
 	return (void*) State->Internal->AllocatedPages[i].VirtBase;
 }
 

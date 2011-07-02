@@ -55,6 +55,7 @@
 #define	PF_PRESENT	0x1
 #define	PF_WRITE	0x2
 #define	PF_USER		0x4
+#define PF_GLOBAL	0x80
 #define	PF_COW		0x200
 #define	PF_NOPAGE	0x400
 
@@ -276,7 +277,7 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 	tPAddr	expected = 0;
 	tVAddr	curPos;
 	Uint	page;
-	const tPAddr	MASK = ~0xF98;
+	const tPAddr	MASK = ~0xF78;
 	
 	Start >>= 12;	End >>= 12;
 	
@@ -306,14 +307,16 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 		||  (gaPageTable[page] & MASK) != expected)
 		{
 			if(expected) {
-				Log(" 0x%08x-0x%08x => 0x%08x-0x%08x (%s%s%s%s)",
-					rangeStart, curPos - 1,
+				Log(" 0x%08x => 0x%08x - 0x%08x (%s%s%s%s%s)",
+					rangeStart,
 					gaPageTable[rangeStart>>12] & ~0xFFF,
-					(expected & ~0xFFF) - 1,
+					curPos - rangeStart,
 					(expected & PF_NOPAGE ? "P" : "-"),
 					(expected & PF_COW ? "C" : "-"),
+					(expected & PF_GLOBAL ? "G" : "-"),
 					(expected & PF_USER ? "U" : "-"),
-					(expected & PF_WRITE ? "W" : "-")
+					(expected & PF_WRITE ? "W" : "-"),
+					gaPageTable[page] & MASK, expected
 					);
 				expected = 0;
 			}
@@ -327,10 +330,10 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 	}
 	
 	if(expected) {
-		Log("0x%08x-0x%08x => 0x%08x-0x%08x (%s%s%s%s)",
-			rangeStart, curPos - 1,
+		Log("0x%08x => 0x%08x - 0x%08x (%s%s%s%s)",
+			rangeStart,
 			gaPageTable[rangeStart>>12] & ~0xFFF,
-			(expected & ~0xFFF) - 1,
+			curPos - rangeStart,
 			(expected & PF_NOPAGE ? "p" : "-"),
 			(expected & PF_COW ? "C" : "-"),
 			(expected & PF_USER ? "U" : "-"),

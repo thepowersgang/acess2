@@ -451,7 +451,7 @@ void MM_DerefPhys(tPAddr PAddr)
 {
 	// Get page number
 	PAddr >>= 12;
-	
+
 	// We don't care about non-ram pages
 	if(PAddr >= giPageCount)	return;
 	
