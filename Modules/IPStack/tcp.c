@@ -521,7 +521,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 			// ACK Packet
 			Header->DestPort = Header->SourcePort;
 			Header->SourcePort = htons(Connection->LocalPort);
-			Header->AcknowlegementNumber = htonl(Connection->NextSequenceRcv);
+			Header->AcknowlegementNumber = Header->SequenceNumber;
 			Header->SequenceNumber = htonl(Connection->NextSequenceSend);
 			Header->WindowSize = htons(TCP_WINDOW_SIZE);
 			Header->Flags = TCP_FLAG_ACK;
@@ -547,7 +547,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 			// Send ACK
 			Header->DestPort = Header->SourcePort;
 			Header->SourcePort = htons(Connection->LocalPort);
-			Header->AcknowlegementNumber = htonl(Connection->NextSequenceRcv);
+			Header->AcknowlegementNumber = Header->SequenceNumber;
 			Header->SequenceNumber = htonl(Connection->NextSequenceSend);
 			Header->WindowSize = htons(TCP_WINDOW_SIZE);
 			Header->Flags = TCP_FLAG_ACK;
@@ -1018,7 +1018,7 @@ Uint64 TCP_Client_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buff
 	while( conn->State == TCP_ST_SYN_RCVD || conn->State == TCP_ST_SYN_SENT )
 		Threads_Yield();
 	
-	// If the conneciton is not nope, then clean out the recieved buffer
+	// If the conneciton is not open, then clean out the recieved buffer
 	if( conn->State != TCP_ST_OPEN )
 	{
 		Mutex_Acquire( &conn->lRecievedPackets );
@@ -1036,7 +1036,7 @@ Uint64 TCP_Client_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buff
 	}
 	
 	// Wait
-	VFS_SelectNode(Node, VFS_SELECT_READ, NULL, "TCP_Client_Read");
+	VFS_SelectNode(Node, VFS_SELECT_READ|VFS_SELECT_ERROR, NULL, "TCP_Client_Read");
 	
 	// Lock list and read as much as possible (up to `Length`)
 	Mutex_Acquire( &conn->lRecievedPackets );
@@ -1153,6 +1153,7 @@ void TCP_StartConnection(tTCPConnection *Conn)
 	
 	Conn->NextSequenceSend ++;
 	Conn->State = TCP_ST_SYN_SENT;
+
 	return ;
 }
 
@@ -1209,7 +1210,18 @@ int TCP_Client_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		if(conn->RemotePort == -1)
 			LEAVE_RET('i', 0);
 
-		TCP_StartConnection(conn);
+		{
+			tTime	timeout_end = now() + conn->Interface->TimeoutDelay;
+	
+			TCP_StartConnection(conn);
+			// TODO: Wait for connection to open
+			while( conn->State == TCP_ST_SYN_SENT && timeout_end > now() ) {
+				Threads_Yield();
+			}
+			if( conn->State == TCP_ST_SYN_SENT )
+				LEAVE_RET('i', 0);
+		}
+
 		LEAVE_RET('i', 1);
 	
 	// Get recieve buffer length
@@ -1236,7 +1248,7 @@ void TCP_Client_Close(tVFS_Node *Node)
 		
 		packet.AcknowlegementNumber = 0;
 		packet.SequenceNumber = htonl(conn->NextSequenceSend);
-		packet.Flags = TCP_FLAG_FIN|TCP_FLAG_ACK;
+		packet.Flags = TCP_FLAG_FIN;
 		
 		TCP_SendPacket( conn, sizeof(tTCPHeader), &packet );
 	}
@@ -1244,7 +1256,7 @@ void TCP_Client_Close(tVFS_Node *Node)
 	switch( conn->State )
 	{
 	case TCP_ST_CLOSE_WAIT:
-		conn->State = TCP_ST_CLOSED;
+		conn->State = TCP_ST_LAST_ACK;
 		break;
 	case TCP_ST_OPEN:
 		conn->State = TCP_ST_FIN_WAIT1;

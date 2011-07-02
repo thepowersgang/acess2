@@ -122,6 +122,10 @@ int IPStack_Install(char **Arguments)
 					
 					// Route for addrData/iBits, no next hop, default metric
 					IPStack_AddRoute(iface->Name, iface->Address, iBits, NULL, 0);
+
+					Log_Notice("IPStack", "Boot interface %s/%i on %s",
+						IPStack_PrintAddress(iType, addrData), iBits,
+						dev);
 				}
 				
 				continue;
