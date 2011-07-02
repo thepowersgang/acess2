@@ -611,7 +611,7 @@ void VFS_Close(int FD)
 /**
  * \brief Change current working directory
  */
-int VFS_ChDir(char *Dest)
+int VFS_ChDir(const char *Dest)
 {
 	char	*buf;
 	 int	fd;
@@ -657,7 +657,7 @@ int VFS_ChDir(char *Dest)
  * \fn int VFS_ChRoot(char *New)
  * \brief Change current root directory
  */
-int VFS_ChRoot(char *New)
+int VFS_ChRoot(const char *New)
 {
 	char	*buf;
 	 int	fd;

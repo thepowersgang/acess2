@@ -167,14 +167,14 @@ extern int	VFS_GetACL(int FD, tVFS_ACL *Dest);
  * \param Dest	New working directory (either absolute or relative to the current)
  * \return Boolean Success
  */
-extern int	VFS_ChDir(char *Dest);
+extern int	VFS_ChDir(const char *Dest);
 /**
  * \brief Change the current virtual root for the user
  * \param New New virtual root (same as ::VFS_ChDir but cannot go
  *            above the current virtual root)
  * \return Boolean success
  */
-extern int	VFS_ChRoot(char *New);
+extern int	VFS_ChRoot(const char *New);
 
 /**
  * \brief Change the location of the current file pointer
