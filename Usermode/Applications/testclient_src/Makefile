@@ -4,6 +4,7 @@
 
 OBJ = main.o
 BIN = testclient
+LDFLAGS += -lnet
 
 -include ../Makefile.tpl
 
