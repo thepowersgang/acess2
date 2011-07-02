@@ -57,6 +57,10 @@ Uint32 UI_GetAcessKeyFromSDL(SDLKey Sym, Uint16 Unicode)
 	// Fast return
 	if( gUI_Keymap[shiftState][Sym] )
 		return gUI_Keymap[shiftState][Sym];
+
+	// Enter key on acess returns \n, but SDL returns \r
+	if( Sym == SDLK_RETURN )
+		Unicode = '\n';
 	
 	// How nice of you, a unicode value
 	if( Unicode )
@@ -85,6 +89,7 @@ Uint32 UI_GetAcessKeyFromSDL(SDLKey Sym, Uint16 Unicode)
 		case SDLK_F10:	ret = KEY_F10;	break;
 		case SDLK_F11:	ret = KEY_F11;	break;
 		case SDLK_F12:	ret = KEY_F12;	break;
+		case SDLK_RETURN:	ret = '\n';	break;
 		default:
 			printf("Unhandled key code %i\n", Sym);
 			break;

@@ -89,7 +89,8 @@ int _InitSyscalls()
 	#if USE_TCP
 	if( connect(gSocket, (struct sockaddr *)&gSyscall_ServerAddr, sizeof(struct sockaddr_in)) < 0 )
 	{
-		fprintf(stderr, "Cannot connect to server (localhost:%i)\n", SERVER_PORT);
+		fprintf(stderr, "[ERROR -] Cannot connect to server (localhost:%i)\n", SERVER_PORT);
+		fprintf(stderr, "[ERROR -] ", giSyscall_ClientID);
 		perror("_InitSyscalls");
 		#if __WIN32__
 		closesocket(gSocket);
@@ -119,6 +120,7 @@ int _InitSyscalls()
 	
 	#if !USE_TCP
 	// Ask server for a client ID
+	if( !giSyscall_ClientID )
 	{
 		tRequestHeader	req;
 		 int	len;
@@ -210,6 +212,7 @@ void SendData(void *Data, int Length)
 	#endif
 	
 	if( len != Length ) {
+		fprintf(stderr, "[ERROR %i] ", giSyscall_ClientID);
 		perror("SendData");
 		exit(-1);
 	}
@@ -236,12 +239,13 @@ int ReadData(void *Dest, int MaxLength, int Timeout)
 	
 	ret = select(gSocket+1, &fds, NULL, NULL, timeoutPtr);
 	if( ret == -1 ) {
+		fprintf(stderr, "[ERROR %i] ", giSyscall_ClientID);
 		perror("ReadData - select");
 		exit(-1);
 	}
 	
 	if( !ret ) {
-		printf("Timeout reading from socket\n");
+		printf("[ERROR %i] Timeout reading from socket\n", giSyscall_ClientID);
 		return 0;	// Timeout
 	}
 	
@@ -252,6 +256,7 @@ int ReadData(void *Dest, int MaxLength, int Timeout)
 	#endif
 	
 	if( ret < 0 ) {
+		fprintf(stderr, "[ERROR %i] ", giSyscall_ClientID);
 		perror("ReadData");
 		exit(-1);
 	}

@@ -267,7 +267,8 @@ int SyscallServer(void)
 			ntohl(addr.sin_addr.s_addr), ntohs(addr.sin_port));
 		
 		client = Server_GetClient(req->ClientID);
-		if( req->ClientID == 0 )
+		// NOTE: Hack - Should check if all zero
+		if( req->ClientID == 0 || client->ClientAddr.sin_port == 0 )
 		{
 			memcpy(&client->ClientAddr, &addr, sizeof(addr));
 		}

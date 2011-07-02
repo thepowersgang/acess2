@@ -6,6 +6,7 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <signal.h>
 
 // === IMPORTS ===
 extern int	UI_Initialise(int Width, int Height);
@@ -23,7 +24,10 @@ const char	*gsAcessDir = "../Usermode/Output/i386";
 int main(int argc, char *argv[])
 {
 	// Parse command line settings
-	
+
+	// - Ignore SIGUSR1 (used to wake threads)
+	signal(SIGUSR1, SIG_IGN);
+		
 	// Start UI subsystem
 	UI_Initialise(800, 480);
 	

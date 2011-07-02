@@ -6,6 +6,9 @@
 #include <stdarg.h>
 #include <string.h>
 
+// === IMPORTS ===
+extern int	giSyscall_ClientID;
+
 // === PROTOTYPES ===
 void	CallUser(void *Entry, int argc, char *argv[], char **envp) __attribute__((noreturn));
 
@@ -19,12 +22,12 @@ int main(int argc, char *argv[], char **envp)
 	 int	(*appMain)(int, char *[], char **);
 	void	*base;
 	
-	 int	syscall_handle = -1;
+//	 int	syscall_handle = -1;
 	
 	for( i = 1; i < argc; i ++ )
 	{
 		if(strcmp(argv[i], "--key") == 0) {
-			syscall_handle = atoi(argv[++i]);
+			giSyscall_ClientID = atoi(argv[++i]);
 			continue ;
 		}
 		
@@ -61,19 +64,19 @@ int main(int argc, char *argv[], char **envp)
 	appArgc = argc - i;
 	appArgv = &argv[i];
 
-	printf("Exectutable Path: '%s'\n", appPath);
-	printf("Executable argc = %i\n", appArgc);
+//	printf("Exectutable Path: '%s'\n", appPath);
+//	printf("Executable argc = %i\n", appArgc);
 
 	base = Binary_Load(appPath, (uintptr_t*)&appMain);
-	printf("base = %p\n", base);
+	printf("[DEBUG %i] base = %p\n", giSyscall_ClientID, base);
 	if( !base )	return 127;
 	
 	printf("==============================\n");
-	printf("%i %p ", appArgc, appArgv);
+	printf("[DEBUG %i] %i %p ", giSyscall_ClientID, appArgc, appArgv);
 	for(i = 0; i < appArgc; i ++)
 		printf("\"%s\" ", appArgv[i]);
 	printf("\n");
-	printf("appMain = %p\n", appMain);
+	printf("[DEBUG %i] appMain = %p\n", giSyscall_ClientID, appMain);
 	#if 0
 	__asm__ __volatile__ (
 		"push %0;\n\t"
@@ -102,7 +105,7 @@ void CallUser(void *Entry, int argc, char *argv[], char **envp)
 void Warning(const char *Format, ...)
 {
 	va_list	args;
-	printf("Warning: ");
+	printf("[WARN   %i] ", giSyscall_ClientID);
 	va_start(args, Format);
 	vprintf(Format, args);
 	va_end(args);
@@ -112,7 +115,17 @@ void Warning(const char *Format, ...)
 void Notice(const char *Format, ...)
 {
 	va_list	args;
-	printf("Notice: ");
+	printf("[NOTICE %i] ", giSyscall_ClientID);
+	va_start(args, Format);
+	vprintf(Format, args);
+	va_end(args);
+	printf("\n");
+}
+
+void Debug(const char *Format, ...)
+{
+	va_list	args;
+	printf("[DEBUG  %i] ", giSyscall_ClientID);
 	va_start(args, Format);
 	vprintf(Format, args);
 	va_end(args);

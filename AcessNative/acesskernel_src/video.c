@@ -264,16 +264,14 @@ int Video_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	#if 0
 	case VIDEO_IOCTL_SETCURSOR:	// Set cursor position
 		#if !BLINKING_CURSOR
-		if(giVesaCursorX > 0)
-			Vesa_FlipCursor(Node);
+		if(giVideo_CursorX > 0)
+			Video_FlipCursor(Node);
 		#endif
-		giVesaCursorX = ((tVideo_IOCtl_Pos*)Data)->x;
-		giVesaCursorY = ((tVideo_IOCtl_Pos*)Data)->y;
-		//Log_Debug("VESA", "Cursor position (%i,%i)", giVesaCursorX, giVesaCursorY);
-		if(
-			giVesaCursorX < 0 || giVesaCursorY < 0
-		||	giVesaCursorX >= gpVesaCurMode->width/giVT_CharWidth
-		||	giVesaCursorY >= gpVesaCurMode->height/giVT_CharHeight)
+		giVideo_CursorX = ((tVideo_IOCtl_Pos*)Data)->x;
+		giVideo_CursorY = ((tVideo_IOCtl_Pos*)Data)->y;
+		if(	giVideo_CursorX < 0 || giVesaCursorY < 0
+		||	giVideo_CursorX >= gpVesaCurMode->width/giVT_CharWidth
+		||	giVideo_CursorY >= gpVesaCurMode->height/giVT_CharHeight)
 		{
 			#if BLINKING_CURSOR
 			if(giVesaCursorTimer != -1) {

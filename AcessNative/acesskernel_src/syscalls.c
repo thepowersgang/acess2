@@ -15,6 +15,16 @@ extern int	Threads_Fork(void);	// AcessNative only function
 typedef int	(*tSyscallHandler)(Uint *Errno, const char *Format, void *Args, int *Sizes);
 
 // === MACROS ===
+#define SYSCALL5(_name, _fmtstr, _t0, _t1, _t2, _t3, _t4, _call) int _name(Uint*Errno,const char*Fmt,void*Args,int*Sizes){\
+	_t0 a0;_t1 a1;_t2 a2;_t3 a3;_t4 a4;\
+	if(strcmp(Fmt,_fmtstr)!=0)return 0;\
+	a0 = *(_t0*)Args;Args+=sizeof(_t0);\
+	a1 = *(_t1*)Args;Args+=sizeof(_t1);\
+	a2 = *(_t2*)Args;Args+=sizeof(_t2);\
+	a3 = *(_t3*)Args;Args+=sizeof(_t3);\
+	a4 = *(_t4*)Args;Args+=sizeof(_t4);\
+	_call\
+}
 #define SYSCALL4(_name, _fmtstr, _t0, _t1, _t2, _t3, _call) int _name(Uint*Errno,const char*Fmt,void*Args,int*Sizes){\
 	_t0 a0;_t1 a1;_t2 a2;_t3 a3;\
 	if(strcmp(Fmt,_fmtstr)!=0)return 0;\
@@ -103,6 +113,9 @@ SYSCALL2(Syscall_ReadDir, "id", int, char *,
 		return -1;
 	return VFS_ReadDir(a0, a1);
 );
+SYSCALL5(Syscall_select, "idddd", int, fd_set *, fd_set *, fd_set *, time_t *,
+	return VFS_Select(a0, a1, a2, a3, a4, 0);
+);
 SYSCALL3(Syscall_OpenChild, "isi", int, const char *, int,
 	return VFS_OpenChild(NULL, a0, a1, a2|VFS_OPENFLAG_USER);
 );
@@ -141,8 +154,11 @@ SYSCALL1(Syscall_SetGID, "i", int,
 	return Threads_SetGID(Errno, a0);
 );
 
-SYSCALL0(Syscall_Fork,
-	return Threads_Fork();
+SYSCALL1(Syscall_Fork, "d", int *,
+	if(Sizes[0] < sizeof(int))
+		return -1;
+	*a0 = Threads_Fork();
+	return *a0;
 );
 
 const tSyscallHandler	caSyscalls[] = {
@@ -168,7 +184,11 @@ const tSyscallHandler	caSyscalls[] = {
 	Syscall_SetGID,
 	
 	Syscall_Sleep,
-	Syscall_Fork
+	Syscall_Fork,
+
+	NULL,
+	NULL,
+	Syscall_select
 };
 const int	ciNumSyscalls = sizeof(caSyscalls)/sizeof(caSyscalls[0]);
 /**

@@ -17,6 +17,7 @@ extern uintptr_t	FindFreeRange(size_t ByteCount, int MaxBits);
 
 extern void	Warning(const char *Format, ...);
 extern void	Notice(const char *Format, ...);
+extern void	Debug(const char *Format, ...);
 
 #define ACESS_SEEK_CUR	0
 #define ACESS_SEEK_SET	1
