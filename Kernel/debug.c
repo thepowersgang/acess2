@@ -389,18 +389,20 @@ void Debug_HexDump(const char *Header, const void *Data, Uint Length)
 	Uint	pos = 0;
 	LogF("%014lli ", now());
 	Debug_Puts(1, Header);
-	LogF(" (Hexdump of %p)\r\n", Data);
+	LogF(" (Hexdump of %p)\n", Data);
 
 	#define	CH(n)	((' '<=cdat[(n)]&&cdat[(n)]<0x7F) ? cdat[(n)] : '.')
 
 	while(Length >= 16)
 	{
-		Log("%04x: %02x %02x %02x %02x %02x %02x %02x %02x"
+		LogF("%014lli Log: %04x:"
 			" %02x %02x %02x %02x %02x %02x %02x %02x"
-			"  %c%c%c%c%c%c%c%c %c%c%c%c%c%c%c%c",
+			" %02x %02x %02x %02x %02x %02x %02x %02x"
+			"  %c%c%c%c%c%c%c%c %c%c%c%c%c%c%c%c\n",
+			now(),
 			pos,
-			cdat[0], cdat[1], cdat[2], cdat[3], cdat[4], cdat[5], cdat[6], cdat[7],
-			cdat[8], cdat[9], cdat[10], cdat[11], cdat[12], cdat[13], cdat[14], cdat[15],
+			cdat[ 0], cdat[ 1], cdat[ 2], cdat[ 3], cdat[ 4], cdat[ 5], cdat[ 6], cdat[ 7],
+			cdat[ 8], cdat[ 9], cdat[10], cdat[11], cdat[12], cdat[13], cdat[14], cdat[15],
 			CH(0),	CH(1),	CH(2),	CH(3),	CH(4),	CH(5),	CH(6),	CH(7),
 			CH(8),	CH(9),	CH(10),	CH(11),	CH(12),	CH(13),	CH(14),	CH(15)
 			);
@@ -423,10 +425,9 @@ void Debug_HexDump(const char *Header, const void *Data, Uint Length)
 			if( i == 8 )	LogF(" ");
 			LogF("%c", CH(i));
 		}
-	}
 	
-	Debug_Putchar('\r');
-	Debug_Putchar('\n');
+		Debug_Putchar('\n');
+	}
 }
 
 // --- EXPORTS ---

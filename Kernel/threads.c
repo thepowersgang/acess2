@@ -953,8 +953,6 @@ void Threads_Fault(int Num)
 {
 	tThread	*thread = Proc_GetCurThread();
 	
-	Log_Log("Threads", "Threads_Fault: thread = %p", thread);
-	
 	if(!thread)	return ;
 	
 	Log_Log("Threads", "Threads_Fault: thread->FaultHandler = %p", thread->FaultHandler);

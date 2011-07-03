@@ -185,8 +185,7 @@ void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 	//ENTER("xAddr bErrorCode", Addr, ErrorCode);
 	
 	// -- Check for COW --
-	if( gaPageDir  [Addr>>22] & PF_PRESENT
-	 && gaPageTable[Addr>>12] & PF_PRESENT
+	if( gaPageDir  [Addr>>22] & PF_PRESENT  && gaPageTable[Addr>>12] & PF_PRESENT
 	 && gaPageTable[Addr>>12] & PF_COW )
 	{
 		tPAddr	paddr;
@@ -205,7 +204,6 @@ void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 		}
 		
 		INVLPG( Addr & ~0xFFF );
-		//LEAVE('-')
 		return;
 	}
 	
@@ -356,19 +354,16 @@ tPAddr MM_Allocate(tVAddr VAddr)
 	{
 		// Allocate directory
 		paddr = MM_AllocPhys();
-		//LOG("paddr = 0x%llx (new table)", paddr);
 		if( paddr == 0 ) {
 			Warning("MM_Allocate - Out of Memory (Called by %p)", __builtin_return_address(0));
 			//LEAVE('i',0);
 			return 0;
 		}
-		// Map
+		// Map and mark as user (if needed)
 		gaPageDir[ VAddr >> 22 ] = paddr | 3;
-		// Mark as user
 		if(VAddr < MM_USER_MAX)	gaPageDir[ VAddr >> 22 ] |= PF_USER;
 		
 		INVLPG( &gaPageDir[ VAddr >> 22 ] );
-		//LOG("Clearing new table");
 		memsetd( &gaPageTable[ (VAddr >> 12) & ~0x3FF ], 0, 1024 );
 	}
 	// Check if the page is already allocated
@@ -502,7 +497,6 @@ tVAddr MM_ClearUser(void)
 {
 	Uint	i, j;
 	
-	// Copy Directories
 	for( i = 0; i < (MM_USER_MAX>>22); i ++ )
 	{
 		// Check if directory is not allocated
@@ -511,7 +505,7 @@ tVAddr MM_ClearUser(void)
 			continue;
 		}
 		
-		
+		// Deallocate tables
 		for( j = 0; j < 1024; j ++ )
 		{
 			if( gaPageTable[i*1024+j] & 1 )
@@ -519,6 +513,7 @@ tVAddr MM_ClearUser(void)
 			gaPageTable[i*1024+j] = 0;
 		}
 		
+		// Deallocate directory
 		MM_DerefPhys( gaPageDir[i] & ~0xFFF );
 		gaPageDir[i] = 0;
 		INVLPG( &gaPageTable[i*1024] );
