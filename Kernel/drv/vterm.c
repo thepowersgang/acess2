@@ -1247,13 +1247,15 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 		write_pos -= write_pos % Term->TextWidth;
 		break;
 	
-	case '\t':
+	case '\t': { int tmp = write_pos / Term->TextWidth;
+		write_pos %= Term->TextWidth;
 		do {
 			buffer[ write_pos ].Ch = '\0';
 			buffer[ write_pos ].Colour = Term->CurColour;
 			write_pos ++;
 		} while(write_pos & 7);
-		break;
+		write_pos += tmp * Term->TextWidth;
+		break; }
 	
 	case '\b':
 		// Backspace is invalid at Offset 0
