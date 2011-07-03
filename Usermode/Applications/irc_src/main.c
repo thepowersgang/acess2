@@ -114,7 +114,8 @@ int main(int argc, const char *argv[], const char *envp[])
 	
 	// HACK: Static server entry
 	// UCC (University [of Western Australia] Computer Club) IRC Server
-	gWindow_Status.Server = Server_Connect( "UCC", "130.95.13.18", 6667 );
+	//gWindow_Status.Server = Server_Connect( "UCC", "130.95.13.18", 6667 );
+	gWindow_Status.Server = Server_Connect( "UCC", "10.0.2.2", 6667 );
 	
 	if( !gWindow_Status.Server )
 		return -1;
