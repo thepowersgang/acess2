@@ -64,6 +64,7 @@ Uint32	gaTCP_PortBitmap[0x800];
  */
 void TCP_Initialise(void)
 {
+	giTCP_NextOutPort += rand()%32;
 	IPStack_AddFile(&gTCP_ServerFile);
 	IPStack_AddFile(&gTCP_ClientFile);
 	IPv4_RegisterCallback(IP4PROT_TCP, TCP_GetPacket);
@@ -1064,7 +1065,7 @@ void TCP_INT_SendDataPacket(tTCPConnection *Connection, size_t Length, void *Dat
 	packet->SourcePort = htons(Connection->LocalPort);
 	packet->DestPort = htons(Connection->RemotePort);
 	packet->DataOffset = (sizeof(tTCPHeader)/4)*16;
-	packet->WindowSize = TCP_WINDOW_SIZE;
+	packet->WindowSize = htons(TCP_WINDOW_SIZE);
 	
 	packet->AcknowlegementNumber = htonl(Connection->NextSequenceRcv);
 	packet->SequenceNumber = htonl(Connection->NextSequenceSend);
