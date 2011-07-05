@@ -59,15 +59,15 @@ Desctab_Init:
 	; Set an IDT entry to a callback
 	%macro SETIDT 2
 	mov rax, %2
-	mov	WORD [rdi + %1*16], ax
+	mov WORD [rdi + %1*16], ax
 	shr rax, 16
-	mov	WORD [rdi + %1*16 + 6], ax
+	mov WORD [rdi + %1*16 + 6], ax
 	shr rax, 16
 	mov DWORD [rdi + %1*16 + 8], eax
 	; Enable
-	mov	ax, WORD [rdi + %1*16 + 4]
-	or ax, 0x8000
-	mov	WORD [rdi + %1*16 + 4], ax
+	mov ax, WORD [rdi + %1*16 + 4]
+	or  ax, 0x8000
+	mov WORD [rdi + %1*16 + 4], ax
 	%endmacro
 	
 	; Install error handlers
@@ -104,27 +104,27 @@ Desctab_Init:
 	mov dx, 0x20
 	mov al, 0x11
 	out dx, al	;	Init Command
-    mov dx, 0x21
+	mov dx, 0x21
 	mov al, 0xF0
 	out dx, al	;	Offset (Start of IDT Range)
-    mov al, 0x04
+	mov al, 0x04
 	out dx, al	;	IRQ connected to Slave (00000100b) = IRQ2
-    mov al, 0x01
+	mov al, 0x01
 	out dx, al	;	Set Mode
-    mov al, 0x00
+	mov al, 0x00
 	out dx, al	;	Set Mode
 	
 	mov dx, 0xA0
 	mov al, 0x11
 	out dx, al	;	Init Command
-    mov dx, 0xA1
+	mov dx, 0xA1
 	mov al, 0xF8
 	out dx, al	;	Offset (Start of IDT Range)
-    mov al, 0x02
+	mov al, 0x02
 	out dx, al	;	IRQ Line connected to master
-    mov al, 0x01
+	mov al, 0x01
 	out dx, al	;	Set Mode
-    mov dl, 0x00
+	mov dl, 0x00
 	out dx, al	;	Set Mode
 	pop rdx
 	
@@ -137,7 +137,7 @@ Desctab_Init:
 	mov rax, gGDTPtr
 	mov rcx, gGDT
 	mov QWORD [rax+2], rcx
-	lidt [rax]
+	lgdt [rax]
 	
 	; Start interrupts
 	sti

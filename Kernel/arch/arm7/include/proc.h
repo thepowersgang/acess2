@@ -43,7 +43,7 @@ typedef struct {
 } tSyscallRegs;
 
 // === MACROS ===
-#define HALT()	__asm__ __volatile__ ("nop")
+#define HALT()	do{}while(0)
 
 // === PROTOTYPES ===
 extern void	Proc_Start(void);

@@ -11,8 +11,6 @@
 #include <errno.h>
 #include <semaphore.h>
 
-#define	USE_CTRL_ALT	1
-
 // === CONSTANTS ===
 #define VERSION	((0<<8)|(50))
 
@@ -29,6 +27,7 @@
 
 #define	VT_FLAG_HIDECSR	0x01
 #define	VT_FLAG_ALTBUF	0x02	//!< Alternate screen buffer
+#define VT_FLAG_RAWIN	0x04	//!< Don't handle ^Z/^C/^V
 #define	VT_FLAG_HASFB	0x10	//!< Set if the VTerm has requested the Framebuffer
 
 enum eVT_InModes {
@@ -426,7 +425,6 @@ int VT_Root_IOCtl(tVFS_Node *Node, int Id, void *Data)
 }
 
 /**
- * \fn Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
  * \brief Read from a virtual terminal
  */
 Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
@@ -465,7 +463,7 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	// Other - UCS-4
 	default:
 		VFS_SelectNode(Node, VFS_SELECT_READ, NULL, "VT_Read (UCS-4)");
-			
+		
 		avail = term->InputWrite - term->InputRead;
 		if(avail < 0)
 			avail += MAX_INPUT_CHARS32;
@@ -752,30 +750,20 @@ void VT_KBCallBack(Uint32 Codepoint)
 		Codepoint &= 0x7FFFFFFF;
 		switch(Codepoint)
 		{
-		#if !USE_CTRL_ALT
-		case KEY_RSHIFT:	gbVT_CtrlDown = 0;	break;
-		case KEY_LSHIFT:	gbVT_AltDown = 0;	break;
-		#else
 		case KEY_LALT:	gbVT_AltDown &= ~1;	break;
 		case KEY_RALT:	gbVT_AltDown &= ~2;	break;
 		case KEY_LCTRL:	gbVT_CtrlDown &= ~1;	break;
 		case KEY_RCTRL:	gbVT_CtrlDown &= ~2;	break;
-		#endif
 		}
 		return;
 	}
 	
 	switch(Codepoint)
 	{
-	#if !USE_CTRL_ALT	// HACK: Use both shifts instead of Ctrl-Alt
-	case KEY_RSHIFT:	gbVT_CtrlDown = 1;	break;
-	case KEY_LSHIFT:	gbVT_AltDown = 1;	break;
-	#else
 	case KEY_LALT:	gbVT_AltDown |= 1;	break;
 	case KEY_RALT:	gbVT_AltDown |= 2;	break;
 	case KEY_LCTRL:	gbVT_CtrlDown |= 1;	break;
 	case KEY_RCTRL:	gbVT_CtrlDown |= 2;	break;
-	#endif
 	
 	default:
 		if(!gbVT_AltDown || !gbVT_CtrlDown)
@@ -865,6 +853,19 @@ void VT_KBCallBack(Uint32 Codepoint)
 			// Unprintable / Don't Pass
 			return;
 		}
+
+#if 0
+		// Handle meta characters
+		if( !(term->Flags & VT_FLAG_RAWIN) )
+		{
+			switch(buf[0])
+			{
+			case '\3':	// ^C
+				
+				break;
+			}
+		}
+#endif
 		
 		// Write
 		if( MAX_INPUT_CHARS8 - term->InputWrite >= len )

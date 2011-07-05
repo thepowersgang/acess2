@@ -3,7 +3,7 @@
  * 
  * Virtual Memory Manager
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include <mm_virt.h>
 #include <threads_int.h>

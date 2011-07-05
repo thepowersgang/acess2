@@ -41,7 +41,7 @@ tBinary *Elf_Load(int fp)
 	
 	// Check the file type
 	if(hdr.ident[0] != 0x7F || hdr.ident[1] != 'E' || hdr.ident[2] != 'L' || hdr.ident[3] != 'F') {
-		Warning("Non-ELF File was passed to the ELF loader\n");
+		Log_Warning("ELF", "Non-ELF File was passed to the ELF loader");
 		LEAVE('n');
 		return NULL;
 	}
@@ -49,7 +49,7 @@ tBinary *Elf_Load(int fp)
 	// Check for a program header
 	if(hdr.phoff == 0) {
 		#if DEBUG_WARN
-		Warning("ELF File does not contain a program header\n");
+		Log_Warning("ELF", "File does not contain a program header (phoff == 0)");
 		#endif
 		LEAVE('n');
 		return NULL;
@@ -222,7 +222,7 @@ tBinary *Elf_Load(int fp)
 		// Reallocate
 		ret = realloc( ret, sizeof(tBinary) + 3*sizeof(Uint)*j );
 		if(!ret) {
-			Warning("BIN", "ElfLoad: Unable to reallocate return structure");
+			Log_Warning("BIN", "ElfLoad: Unable to reallocate return structure");
 			return NULL;
 		}
 		ret->NumPages = j;
