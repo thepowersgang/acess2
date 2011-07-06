@@ -118,14 +118,15 @@ tCard	*gpNe2k_Cards = NULL;
 int Ne2k_Install(char **Options)
 {
 	 int	i, j, k;
-	 int	count, id, base;
+	 int	count, base;
+	tPCIDev	id;
 	
 	// --- Scan PCI Bus ---
 	// Count Cards
 	giNe2k_CardCount = 0;
 	for( i = 0; i < NUM_COMPAT_DEVICES; i ++ )
 	{
-		giNe2k_CardCount += PCI_CountDevices( csaCOMPAT_DEVICES[i].Vendor, csaCOMPAT_DEVICES[i].Device, 0 );
+		giNe2k_CardCount += PCI_CountDevices( csaCOMPAT_DEVICES[i].Vendor, csaCOMPAT_DEVICES[i].Device );
 	}
 	
 	if( giNe2k_CardCount == 0 ) {
@@ -139,12 +140,12 @@ int Ne2k_Install(char **Options)
 	
 	for( i = 0; i < NUM_COMPAT_DEVICES; i ++ )
 	{
-		count = PCI_CountDevices( csaCOMPAT_DEVICES[i].Vendor, csaCOMPAT_DEVICES[i].Device, 0 );
+		count = PCI_CountDevices( csaCOMPAT_DEVICES[i].Vendor, csaCOMPAT_DEVICES[i].Device );
 		for( j = 0; j < count; j ++,k ++ )
 		{
-			id = PCI_GetDevice( csaCOMPAT_DEVICES[i].Vendor, csaCOMPAT_DEVICES[i].Device, 0, j );
+			id = PCI_GetDevice( csaCOMPAT_DEVICES[i].Vendor, csaCOMPAT_DEVICES[i].Device, j );
 			// Create Structure
-			base = PCI_AssignPort( id, 0, 0x20 );
+			base = PCI_GetBAR( id, 0 );
 			gpNe2k_Cards[ k ].IOBase = base;
 			gpNe2k_Cards[ k ].IRQ = PCI_GetIRQ( id );
 			gpNe2k_Cards[ k ].NextMemPage = 64;

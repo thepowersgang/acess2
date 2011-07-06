@@ -119,7 +119,7 @@ int ATA_SetupIO(void)
 	// Get IDE Controller's PCI Entry
 	ent = PCI_GetDeviceByClass(0x0101, 0xFFFF, -1);
 	LOG("ent = %i", ent);
-	gATA_BusMasterBase = PCI_GetBAR4( ent );
+	gATA_BusMasterBase = PCI_GetBAR(ent, 4);
 	if( gATA_BusMasterBase == 0 ) {
 		Log_Warning("ATA", "It seems that there is no Bus Master Controller on this machine. Get one");
 		// TODO: Use PIO mode instead
@@ -127,8 +127,8 @@ int ATA_SetupIO(void)
 		return MODULE_ERR_NOTNEEDED;
 	}
 	
-	LOG("BAR5 = 0x%x", PCI_GetBAR5( ent ));
-	LOG("IRQ = %i", PCI_GetIRQ( ent ));
+	LOG("BAR5 = 0x%x", PCI_GetBAR(ent, 5));
+	LOG("IRQ = %i", PCI_GetIRQ(ent));
 	
 	// Map memory
 	if( !(gATA_BusMasterBase & 1) )

@@ -100,6 +100,7 @@ typedef struct sKernelSymbol {
 // === FUNCTIONS ===
 // --- IRQs ---
 extern int	IRQ_AddHandler(int Num, void (*Callback)(int));
+extern void	IRQ_RemHandler(int Handle);
 
 // --- Logging ---
 extern void	Log_KernelPanic(const char *Ident, const char *Message, ...);

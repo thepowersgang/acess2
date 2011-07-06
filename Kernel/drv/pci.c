@@ -28,7 +28,7 @@ typedef struct sPCIDevice
 		};
 		Uint16	oc;
 	};
-	Uint16	revision;
+	Uint8	revision, progif;
 	Uint32	ConfigCache[256/4];
 	char	Name[8];
 	tVFS_Node	Node;
@@ -42,25 +42,10 @@ typedef struct sPCIDevice
  int	PCI_Install(char **Arguments);
  int	PCI_ScanBus(int ID, int bFill);
  
-char	*PCI_ReadDirRoot(tVFS_Node *node, int pos);
-tVFS_Node	*PCI_FindDirRoot(tVFS_Node *node, const char *filename);
-Uint64	PCI_ReadDevice(tVFS_Node *node, Uint64 pos, Uint64 length, void *buffer);
-
-#if 0
- int	PCI_CountDevices(Uint16 vendor, Uint16 device, Uint16 fcn);
- int	PCI_GetDevice(Uint16 vendor, Uint16 device, Uint16 fcn, int idx);
- int	PCI_GetDeviceByClass(Uint16 class, Uint16 mask, int prev);
-Uint8	PCI_GetIRQ(int id);
-Uint32	PCI_GetBAR0(int id);
-Uint32	PCI_GetBAR1(int id);
-Uint32	PCI_GetBAR2(int id);
-Uint32	PCI_GetBAR3(int id);
-Uint32	PCI_GetBAR4(int id);
-Uint32	PCI_GetBAR5(int id);
-Uint16	PCI_AssignPort(int id, int bar, int count);
-#endif
-
- int	PCI_EnumDevice(Uint16 bus, Uint16 dev, Uint16 fcn, tPCIDevice *info);
+char	*PCI_int_ReadDirRoot(tVFS_Node *node, int pos);
+tVFS_Node	*PCI_int_FindDirRoot(tVFS_Node *node, const char *filename);
+Uint64	PCI_int_ReadDevice(tVFS_Node *node, Uint64 pos, Uint64 length, void *buffer);
+ int	PCI_int_EnumDevice(Uint16 bus, Uint16 dev, Uint16 fcn, tPCIDevice *info);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, 0x0100, PCI, PCI_Install, NULL, NULL);
@@ -75,8 +60,8 @@ tDevFS_Driver	gPCI_DriverStruct = {
 	.Size = -1,
 	.NumACLs = 1,
 	.ACLs = &gVFS_ACL_EveryoneRX,
-	.ReadDir = PCI_ReadDirRoot,
-	.FindDir = PCI_FindDirRoot
+	.ReadDir = PCI_int_ReadDirRoot,
+	.FindDir = PCI_int_FindDirRoot
 	}
 };
 Uint32	*gaPCI_PortBitmap = NULL;
@@ -159,7 +144,7 @@ int PCI_ScanBus(int BusID, int bFill)
 		for( fcn = 0; fcn < 8; fcn++ )	// Max 8 functions per device
 		{
 			// Check if the device/function exists
-			if(!PCI_EnumDevice(BusID, dev, fcn, &devInfo))
+			if(!PCI_int_EnumDevice(BusID, dev, fcn, &devInfo))
 				continue;
 			
 			if(devInfo.oc == PCI_OC_PCIBRIDGE)
@@ -196,10 +181,9 @@ int PCI_ScanBus(int BusID, int bFill)
 }
 
 /**
- * \fn char *PCI_ReadDirRoot(tVFS_Node *Node, int Pos)
  * \brief Read from Root of PCI Driver
 */
-char *PCI_ReadDirRoot(tVFS_Node *Node, int Pos)
+char *PCI_int_ReadDirRoot(tVFS_Node *Node, int Pos)
 {
 	ENTER("pNode iPos", Node, Pos);
 	if(Pos < 0 || Pos >= giPCI_DeviceCount) {
@@ -211,9 +195,8 @@ char *PCI_ReadDirRoot(tVFS_Node *Node, int Pos)
 	return strdup( gPCI_Devices[Pos].Name );
 }
 /**
- * \fn tVFS_Node *PCI_FindDirRoot(tVFS_Node *node, const char *filename)
  */
-tVFS_Node *PCI_FindDirRoot(tVFS_Node *node, const char *filename)
+tVFS_Node *PCI_int_FindDirRoot(tVFS_Node *node, const char *filename)
 {
 	 int	bus,slot,fcn;
 	 int	i;
@@ -251,9 +234,8 @@ tVFS_Node *PCI_FindDirRoot(tVFS_Node *node, const char *filename)
 }
 
 /**
- * \fn Uint64 PCI_ReadDevice(tVFS_Node *node, Uint64 pos, Uint64 length, void *buffer)
  */
-Uint64 PCI_ReadDevice(tVFS_Node *node, Uint64 pos, Uint64 length, void *buffer)
+Uint64 PCI_int_ReadDevice(tVFS_Node *node, Uint64 pos, Uint64 length, void *buffer)
 {	
 	if( pos + length > 256 )	return 0;
 	
@@ -267,41 +249,35 @@ Uint64 PCI_ReadDevice(tVFS_Node *node, Uint64 pos, Uint64 length, void *buffer)
 
 // --- Kernel Code Interface ---
 /**
- \fn int PCI_CountDevices(Uint16 vendor, Uint16 device, Uint16 fcn)
- \brief Counts the devices with the specified codes
- \param vendor	Vendor ID
- \param device	Device ID
- \param fcn	Function ID
-*/
-int PCI_CountDevices(Uint16 vendor, Uint16 device, Uint16 fcn)
+ * \brief Counts the devices with the specified codes
+ * \param vendor	Vendor ID
+ * \param device	Device ID
+ */
+int PCI_CountDevices(Uint16 vendor, Uint16 device)
 {
 	int i, ret=0;
 	for(i=0;i<giPCI_DeviceCount;i++)
 	{
 		if(gPCI_Devices[i].vendor != vendor)	continue;
 		if(gPCI_Devices[i].device != device)	continue;
-		if(gPCI_Devices[i].fcn != fcn)	continue;
 		ret ++;
 	}
 	return ret;
 }
 
 /**
- \fn int PCI_GetDevice(Uint16 vendor, Uint16 device, Uint16 fcn, int idx)
- \brief Gets the ID of the specified PCI device
- \param vendor	Vendor ID
- \param device	Device ID
- \param fcn	Function IDs
- \param idx	Number of matching entry wanted
-*/
-int PCI_GetDevice(Uint16 vendor, Uint16 device, Uint16 fcn, int idx)
+ * \brief Gets the ID of the specified PCI device
+ * \param vendor	Vendor ID
+ * \param device	Device ID
+ * \param idx	Number of matching entry wanted
+ */
+tPCIDev PCI_GetDevice(Uint16 vendor, Uint16 device, int idx)
 {
 	 int	i, j=0;
 	for(i=0;i<giPCI_DeviceCount;i++)
 	{
 		if(gPCI_Devices[i].vendor != vendor)	continue;
 		if(gPCI_Devices[i].device != device)	continue;
-		if(gPCI_Devices[i].fcn != fcn)	continue;
 		if(j == idx)	return i;
 		j ++;
 	}
@@ -309,13 +285,12 @@ int PCI_GetDevice(Uint16 vendor, Uint16 device, Uint16 fcn, int idx)
 }
 
 /**
- * \fn int PCI_GetDeviceByClass(Uint16 class, Uint16 mask, int prev)
  * \brief Gets the ID of a device by it's class code
  * \param class	Class Code
  * \param mask	Mask for class comparison
  * \param prev	ID of previous device (-1 for no previous)
  */
-int PCI_GetDeviceByClass(Uint16 class, Uint16 mask, int prev)
+tPCIDev PCI_GetDeviceByClass(Uint16 class, Uint16 mask, tPCIDev prev)
 {
 	 int	i;
 	// Check if prev is negative (meaning get first)
@@ -330,85 +305,129 @@ int PCI_GetDeviceByClass(Uint16 class, Uint16 mask, int prev)
 	return -1;
 }
 
+int PCI_GetDeviceInfo(tPCIDev ID, Uint16 *Vendor, Uint16 *Device, Uint16 *Class)
+{
+	tPCIDevice	*dev = &gPCI_Devices[ID];
+	if(ID < 0 || ID >= giPCI_DeviceCount)	return 1;
+	
+	if(Vendor)	*Vendor = dev->vendor;
+	if(Device)	*Device = dev->device;
+	if(Class)	*Class = dev->oc;
+	return 0;
+}
+
+int PCI_GetDeviceVersion(tPCIDev ID, Uint8 *Revision, Uint8 *ProgIF)
+{
+	tPCIDevice	*dev = &gPCI_Devices[ID];
+	if(ID < 0 || ID >= giPCI_DeviceCount)	return 1;
+	
+	if(Revision)	*Revision = dev->revision;
+	if(ProgIF)	*ProgIF = dev->progif;
+	return 0;
+}
+
+int PCI_GetDeviceSubsys(tPCIDev ID, Uint16 *SubsystemVendor, Uint16 *SubsystemID)
+{
+	tPCIDevice	*dev = &gPCI_Devices[ID];
+	if(ID < 0 || ID >= giPCI_DeviceCount)	return 1;
+	
+	if(SubsystemVendor)	*SubsystemVendor = dev->ConfigCache[0x2c/4] & 0xFFFF;
+	if(SubsystemID)	*SubsystemID = dev->ConfigCache[0x2c/4] >> 16;
+
+	return 0;
+}
+
+Uint32 PCI_ConfigRead(tPCIDev ID, int Offset, int Size)
+{
+	tPCIDevice	*dev;
+	Uint32	dword;
+	if( ID < 0 || ID >= giPCI_DeviceCount )	return 0;
+	if( Offset < 0 || Offset > 256 )	return 0;
+
+	// TODO: Should I support non-aligned reads?
+	if( Offset & (Size - 1) )	return 0;
+
+	dev = &gPCI_Devices[ID];
+
+	dword = PCI_CfgReadDWord(dev->bus, dev->slot, dev->fcn, Offset / 4);
+	gPCI_Devices[ID].ConfigCache[Offset/4] = dword;
+	switch( Size )
+	{
+	case 1:	return (dword >> (8 * (Offset&3))) & 0xFF;
+	case 2:	return (dword >> (8 * (Offset&2))) & 0xFFFF;
+	case 4:	return dword;
+	default:
+		return 0;
+	}
+}
+
+void PCI_ConfigWrite(tPCIDev ID, int Offset, int Size, Uint32 Value)
+{
+	tPCIDevice	*dev;
+	Uint32	dword;
+	 int	shift;
+	if( ID < 0 || ID >= giPCI_DeviceCount )	return ;
+	if( Offset < 0 || Offset > 256 )	return ;
+	
+	dev = &gPCI_Devices[ID];
+
+	dword = PCI_CfgReadDWord(dev->bus, dev->slot, dev->fcn, Offset/4);
+	switch(Size)
+	{
+	case 1:
+		shift = (Offset&3)*8;
+		dword &= ~(0xFF << shift);
+		dword |= Value << shift;
+	 	break;
+	case 2:
+		shift = (Offset&2)*8;
+		dword &= ~(0xFFFF << shift);
+		dword |= Value << shift;
+		break;
+	case 4:
+		dword = Value;
+		break;
+	default:
+		return;
+	}
+	PCI_CfgWriteDWord(dev->bus, dev->slot, dev->fcn, Offset/4, dword);
+}
+
 /**
- \fn Uint8 PCI_GetIRQ(int id)
-*/
-Uint8 PCI_GetIRQ(int id)
+ * \brief Get the IRQ assigned to a device
+ */
+Uint8 PCI_GetIRQ(tPCIDev id)
 {
 	if(id < 0 || id >= giPCI_DeviceCount)
 		return 0;
-	return gPCI_Devices[id].ConfigCache[15];
+	return gPCI_Devices[id].ConfigCache[15] & 0xFF;
 	//return PCI_CfgReadByte( gPCI_Devices[id].bus, gPCI_Devices[id].slot, gPCI_Devices[id].fcn, 0x3C);
 }
 
 /**
- \fn Uint32 PCI_GetBAR0(int id)
-*/
-Uint32 PCI_GetBAR0(int id)
+ * \brief Read the a BAR (base address register) from the PCI config space
+ */
+Uint32 PCI_GetBAR(tPCIDev id, int BARNum)
 {
 	if(id < 0 || id >= giPCI_DeviceCount)
 		return 0;
-	return gPCI_Devices[id].ConfigCache[4];
+	if(BARNum < 0 || BARNum >= 6)
+		return 0;
+	return gPCI_Devices[id].ConfigCache[4+BARNum];
 }
 
+#if 0
 /**
- \fn Uint32 PCI_GetBAR1(int id)
-*/
-Uint32 PCI_GetBAR1(int id)
-{
-	if(id < 0 || id >= giPCI_DeviceCount)
-		return 0;
-	return gPCI_Devices[id].ConfigCache[5];
-}
-
-/**
- \fn Uint32 PCI_GetBAR2(int id)
-*/
-Uint32 PCI_GetBAR2(int id)
-{
-	if(id < 0 || id >= giPCI_DeviceCount)
-		return 0;
-	return gPCI_Devices[id].ConfigCache[6];
-}
-
-/**
- \fn Uint32 PCI_GetBAR3(int id)
-*/
-Uint32 PCI_GetBAR3(int id)
-{
-	if(id < 0 || id >= giPCI_DeviceCount)
-		return 0;
-	return gPCI_Devices[id].ConfigCache[7];
-}
-
-/**
- \fn Uint32 PCI_GetBAR4(int id)
-*/
-Uint32 PCI_GetBAR4(int id)
-{
-	if(id < 0 || id >= giPCI_DeviceCount)
-		return 0;
-	return gPCI_Devices[id].ConfigCache[8];
-}
-
-/**
- \fn Uint32 PCI_GetBAR5(int id)
-*/
-Uint32 PCI_GetBAR5(int id)
-{
-	if(id < 0 || id >= giPCI_DeviceCount)
-		return 0;
-	return gPCI_Devices[id].ConfigCache[9];
-}
-
-Uint16 PCI_AssignPort(int id, int bar, int count)
+ * \brief Assign a port to a BAR
+ */
+Uint16 PCI_AssignPort(tPCIDev ID, int bar, int Count)
 {
 	#if 1
 	Uint16	rv;
 	tPCIDevice	*dev;
 	
 	if(id < 0 || id >= giPCI_DeviceCount)	return 0;
-	if(bar < 0 || bar > 5)	return 0;
+	if(bar < 0 || bar >= 6)	return 0;
 	dev = &gPCI_Devices[id];
 	
 	rv = PCI_CfgReadDWord( dev->bus, dev->slot, dev->fcn, 0x10+bar*4 );
@@ -480,12 +499,12 @@ Uint16 PCI_AssignPort(int id, int bar, int count)
 	return portVals;
 	#endif
 }
+#endif
 
 /**
- * \fn int PCI_EnumDevice(Uint16 bus, Uint16 slot, Uint16 fcn, tPCIDevice *info)
  * \brief Get device information for a slot/function
  */
-int PCI_EnumDevice(Uint16 bus, Uint16 slot, Uint16 fcn, tPCIDevice *info)
+int PCI_int_EnumDevice(Uint16 bus, Uint16 slot, Uint16 fcn, tPCIDevice *info)
 {
 	Uint16	vendor;
 	 int	i;
@@ -531,7 +550,7 @@ int PCI_EnumDevice(Uint16 bus, Uint16 slot, Uint16 fcn, tPCIDevice *info)
 	info->Node.NumACLs = 1;
 	info->Node.ACLs = &gVFS_ACL_EveryoneRO;
 	
-	info->Node.Read = PCI_ReadDevice;
+	info->Node.Read = PCI_int_ReadDevice;
 	
 	return 1;
 }
@@ -541,6 +560,10 @@ int PCI_EnumDevice(Uint16 bus, Uint16 slot, Uint16 fcn, tPCIDevice *info)
 EXPORT(PCI_CountDevices);
 EXPORT(PCI_GetDevice);
 EXPORT(PCI_GetDeviceByClass);
-EXPORT(PCI_AssignPort);
+EXPORT(PCI_GetDeviceInfo);
+EXPORT(PCI_GetDeviceVersion);
+EXPORT(PCI_GetDeviceSubsys);
+//EXPORT(PCI_AssignPort);
+EXPORT(PCI_GetBAR);
 EXPORT(PCI_GetIRQ);
 //*/

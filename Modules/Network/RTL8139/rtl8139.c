@@ -125,7 +125,7 @@ int RTL8139_Install(char **Options)
 	Uint16	base;
 	tCard	*card;
 	
-	giRTL8139_CardCount = PCI_CountDevices(VENDOR_ID, DEVICE_ID, 0);
+	giRTL8139_CardCount = PCI_CountDevices(VENDOR_ID, DEVICE_ID);
 	Log_Debug("RTL8139", "%i cards", giRTL8139_CardCount);
 	
 	if( giRTL8139_CardCount == 0 )	return MODULE_ERR_NOTNEEDED;
@@ -133,10 +133,10 @@ int RTL8139_Install(char **Options)
 	gaRTL8139_Cards = calloc( giRTL8139_CardCount, sizeof(tCard) );
 	
 	//while( (id = PCI_GetDevice(0x10EC, 0x8139, 0, id)) != -1 )
-	while( (id = PCI_GetDevice(VENDOR_ID, DEVICE_ID, 0, i)) != -1 )
+	while( (id = PCI_GetDevice(VENDOR_ID, DEVICE_ID, i)) != -1 )
 	{
 		card = &gaRTL8139_Cards[i];
-		base = PCI_AssignPort( id, 0, 0x100 );
+		base = PCI_GetBAR( id, 0 );
 		card->IOBase = base;
 		card->IRQ = PCI_GetIRQ( id );
 		

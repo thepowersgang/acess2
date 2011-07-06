@@ -43,8 +43,7 @@ int UHCI_Initialise()
 		
 		gUHCI_Controllers[i].PciId = id;
 		// Assign a port range (BAR4, Reserve 32 ports)
-		//base = PCI_AssignPort( id, 4, 0x20 );
-		gUHCI_Controllers[i].IOBase = PCI_GetBAR4(id);
+		gUHCI_Controllers[i].IOBase = PCI_GetBAR(id, 4);
 		gUHCI_Controllers[i].IRQNum = PCI_GetIRQ(id);
 		
 		Log("[USB  ] Controller PCI #%i: IO Base = 0x%x, IRQ %i",
@@ -61,7 +60,7 @@ int UHCI_Initialise()
 		i ++;
 	}
 	if(i == MAX_CONTROLLERS) {
-		Warning("[UHCI ] Over "EXPAND_STR(MAX_CONTROLLERS)" UHCI controllers detected, ignoring rest");
+		Log_Warning("UHCI", "Over "EXPAND_STR(MAX_CONTROLLERS)" UHCI controllers detected, ignoring rest");
 	}
 	LEAVE('i', i);
 	return i;
