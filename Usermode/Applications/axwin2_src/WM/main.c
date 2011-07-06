@@ -7,6 +7,7 @@
 
 // === IMPORTS ===
 extern void	WM_Update(void);
+extern int	Input_Init(void);
 
 // === GLOBALS ===
 const char	*gsTerminalDevice = NULL;
@@ -38,6 +39,7 @@ int main(int argc, char *argv[])
 	Video_Setup();
 	Interface_Init();
 	IPC_Init();
+	Input_Init();
 	
 	WM_Update();
 	
