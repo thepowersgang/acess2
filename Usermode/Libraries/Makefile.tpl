@@ -7,6 +7,9 @@ _BIN := $(OUTPUTDIR)Libs/$(BIN)
 _XBIN := $(addprefix $(OUTPUTDIR)Libs/,$(EXTRABIN))
 _OBJPREFIX := obj-$(ARCH)/
 
+_LIBS := $(filter -l%,$(LDFLAGS))
+_LIBS := $(patsubst -l%,$(OUTPUTDIR)Libs/lib%.so,$(_LIBS))
+
 OBJ := $(addprefix $(_OBJPREFIX),$(OBJ))
 
 DEPFILES := $(addsuffix .dep,$(OBJ))
@@ -45,5 +48,10 @@ $(_OBJPREFIX)%.ao: %.asm
 	@mkdir -p $(dir $@)
 	@$(AS) $(ASFLAGS) -o $@ $<
 	@$(AS) $(ASFLAGS) -o $@ $< -M > $@.dep
+
+#$(OUTPUTDIR)Libs/libld-acess.so:
+#	@make -C $(ACESSDIR)/Usermode/Libraries/ld-acess.so_src/
+$(OUTPUTDIR)Libs/%:
+	@make -C $(ACESSDIR)/Usermode/Libraries/$*_src/
 
 -include $(DEPFILES)
