@@ -28,13 +28,17 @@
  */
 enum eTplJoystick_IOCtl {
 	/**
-	 * ioctl(..., tJoystickCallback *Callback)
+	 * ioctl(..., tJoystick_Callback *Callback)
 	 * \brief Sets the callback
 	 * \note Can be called from kernel mode only
 	 *
 	 * Sets the callback that is called when a event occurs (button or axis
 	 * change). This function pointer must be in kernel mode (although,
 	 * kernel->user or kernel->ring3driver abstraction functions can be used)
+	 * 
+	 * Axis events depend on the axis limit, if non-zero, the callback fires
+	 * if the cursor position changes. Otherwise it fires when the axis value
+	 * (cursor accelleration) changes.
 	 */
 	JOY_IOCTL_SETCALLBACK = 4,
 

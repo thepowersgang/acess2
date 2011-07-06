@@ -36,6 +36,9 @@ Uint8	gMouse_FileData[sizeof(tJoystick_FileHeader) + NUM_AXIES*sizeof(tJoystick_
 tJoystick_FileHeader	*gMouse_FileHeader = (void *)gMouse_FileData;
 tJoystick_Axis	*gMouse_Axies;
 Uint8	*gMouse_Buttons;
+tJoystick_Callback	gMouse_Callback;
+ int	gMouse_CallbackArg;
+ int	giMouse_AxisLimits[2];
 // - Internal State
  int	giMouse_Cycle = 0;	// IRQ Position
 Uint8	gaMouse_Bytes[4] = {0,0,0,0};
@@ -70,9 +73,8 @@ int PS2Mouse_Install(char **Arguments)
 void PS2Mouse_IRQ(int Num)
 {
 	Uint8	flags;
-	 int	dx, dy;
-	 int	dx_accel, dy_accel;
-
+	 int	d[2], d_accel[2];
+	 int	i;
 	
 	// Gather mouse data
 	gaMouse_Bytes[giMouse_Cycle] = inb(0x60);
@@ -95,25 +97,52 @@ void PS2Mouse_IRQ(int Num)
 	if(flags & 0xC0)	return;
 		
 	// Calculate dX and dY
-	dx = gaMouse_Bytes[1];	if(flags & 0x10) dx = -(256-dx);
-	dy = gaMouse_Bytes[2];	if(flags & 0x20) dy = -(256-dy);
-	dy = -dy;	// Y is negated
-	LOG("RAW dx=%i, dy=%i\n", dx, dy);
+	d[0] = gaMouse_Bytes[1];	if(flags & 0x10) d[0] = -(256-d[0]);	// x
+	d[1] = gaMouse_Bytes[2];	if(flags & 0x20) d[1] = -(256-d[1]);	// y
+	d[1] = -d[1];	// Y is negated
+	LOG("RAW dx=%i, dy=%i\n", d[0], d[1]);
 	// Apply scaling
 	// TODO: Apply a form of curve to the mouse movement (dx*log(dx), dx^k?)
 	// TODO: Independent sensitivities?
 	// TODO: Disable acceleration via a flag?
-	dx_accel = dx*giMouse_Sensitivity;
-	dy_accel = dy*giMouse_Sensitivity;
+	d_accel[0] = d[0]*giMouse_Sensitivity;
+	d_accel[1] = d[1]*giMouse_Sensitivity;
 	
 	// Set Buttons (Primary)
-	gMouse_Buttons[0] = (flags & 1) ? 0xFF : 0;
-	gMouse_Buttons[1] = (flags & 2) ? 0xFF : 0;
-	gMouse_Buttons[2] = (flags & 4) ? 0xFF : 0;
+	for( i = 0; i < 3; i ++ )
+	{
+		Uint8	newVal = (flags & (1 << i)) ? 0xFF : 0;
+		if(newVal != gMouse_Buttons[i]) {
+			if( gMouse_Callback )
+				gMouse_Callback(gMouse_CallbackArg, 0, i, newVal - gMouse_Buttons[i]);
+			gMouse_Buttons[i] = newVal;
+		}
+	}
 	
 	// Update X and Y Positions
-	gMouse_Axies[0].CurValue = MIN( MAX(gMouse_Axies[0].MinValue, gMouse_Axies[0].CurValue + dx_accel), gMouse_Axies[0].MaxValue );
-	gMouse_Axies[1].CurValue = MIN( MAX(gMouse_Axies[1].MinValue, gMouse_Axies[1].CurValue + dy_accel), gMouse_Axies[1].MaxValue );
+	for( i = 0; i < 2; i ++ )
+	{
+		Sint16	newCursor = 0;
+		if( giMouse_AxisLimits[i] )
+			newCursor = MIN( MAX(0, gMouse_Axies[i].CursorPos + d_accel[i]), giMouse_AxisLimits[i] );;
+		
+		if( gMouse_Callback )
+		{
+			if(giMouse_AxisLimits[i] && gMouse_Axies[i].CursorPos != newCursor)
+				gMouse_Callback(gMouse_CallbackArg, 1, i, newCursor - gMouse_Axies[i].CursorPos);
+			if(!giMouse_AxisLimits[i] && gMouse_Axies[i].CurValue != d_accel[i])
+				gMouse_Callback(gMouse_CallbackArg, 1, i, d_accel[i] - gMouse_Axies[i].CurValue);
+		}
+		
+		gMouse_Axies[i].CurValue = d_accel[i];
+		gMouse_Axies[i].CursorPos = newCursor;
+	}
+	
+//	Log_Debug("PS2Mouse", "gMouse_Buttons = {0x%x,0x%x,0x%x}, gMouse_Axies={%i,%i}", 
+//		gMouse_Buttons[0], gMouse_Buttons[1], gMouse_Buttons[2],
+//		gMouse_Axies[0].CursorPos, gMouse_Axies[1].CursorPos);
+	
+	VFS_MarkAvaliable(&gMouse_DriverStruct.RootNode, 1);
 }
 
 /* Read mouse state (coordinates)
@@ -125,7 +154,8 @@ Uint64 PS2Mouse_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer
 	if(Offset + Length > sizeof(gMouse_FileData))	Length = sizeof(gMouse_FileData) - Offset;
 
 	memcpy(Buffer, &gMouse_FileData[Offset], Length);
-		
+	
+	VFS_MarkAvaliable(Node, 0);
 	return Length;
 }
 
@@ -150,15 +180,15 @@ int PS2Mouse_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		if(!info)	return 0;
 		if(info->Num < 0 || info->Num >= 2)	return 0;
 		if(info->Value != -1)
-			gMouse_Axies[info->Num].MaxValue = info->Value;
-		return gMouse_Axies[info->Num].MaxValue;
+			giMouse_AxisLimits[info->Num] = info->Value;
+		return giMouse_AxisLimits[info->Num];
 	
 	case JOY_IOCTL_GETSETAXISPOSITION:
 		if(!info)	return 0;
 		if(info->Num < 0 || info->Num >= 2)	return 0;
 		if(info->Value != -1)
-			gMouse_Axies[info->Num].CurValue = info->Value;
-		return gMouse_Axies[info->Num].CurValue;
+			gMouse_Axies[info->Num].CursorPos = info->Value;
+		return gMouse_Axies[info->Num].CursorPos;
 
 	case JOY_IOCTL_GETSETAXISFLAGS:
 		return -1;
