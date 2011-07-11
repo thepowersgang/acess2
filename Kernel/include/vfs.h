@@ -67,6 +67,15 @@ typedef struct sVFS_SelectList	tVFS_SelectList;
  * inherit the GID of the parent.
  */
 #define VFS_FFLAG_SETGID	0x10
+
+/**
+ * \brief "Don't do Write-Back" Flag
+ *
+ * Stops the VFS from calling tVFS_Node.Write on dirty pages when a region
+ * is unmapped. Nice for read-only files and memory-only files (or 
+ * pseudo-readonly filesystems)
+ */
+#define VFS_FFLAG_NOWRITEBACK
 /**
  * \}
  */
@@ -215,6 +224,17 @@ typedef struct sVFS_Node
 	 * \return Number of bytes read
 	 */
 	Uint64	(*Write)(struct sVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
+
+	/**
+	 * \brief Map a region of a file into memory
+	 * \param Node	Pointer to this node
+	 * \param Offset	Start of the region (page aligned)
+	 * \param Length	Length of the region (page aligned)
+	 * \param Dest	Location to which to map
+	 * \return Boolean Failure
+	 * \note If NULL, the VFS implements it using .Read
+	 */
+	 int	(*MMap)(struct sVFS_Node *Node, Uint64 Offset, int Length, void *Dest);
 	
 	/**
 	 * \}
