@@ -9,20 +9,22 @@
 #include <vfs_int.h>
 
 #define MMAP_PAGES_PER_BLOCK	16
+#define PAGE_SIZE	0x1000	// Should be in mm_virt.h
 
 // === STRUCTURES ===
-typedef struct sVFS_MMapPageBlock
+typedef struct sVFS_MMapPageBlock	tVFS_MMapPageBlock;
+struct sVFS_MMapPageBlock
 {
 	tVFS_MMapPageBlock	*Next;
 	Uint64	BaseOffset;	// Must be a multiple of MMAP_PAGES_PER_BLOCK*PAGE_SIZE
 	tPAddr	PhysAddrs[MMAP_PAGES_PER_BLOCK];
-} tVFS_MMapPageBlock;
+};
 
 // === CODE ===
 void *VFS_MMap(int *ErrNo, void *DestHint, size_t Length, int Protection, int Flags, int FD, Uint64 Offset)
 {
 	tVFS_Handle	*h;
-	void	*mapping_dest;
+	tVAddr	mapping_dest;
 	 int	npages, pagenum;
 	tVFS_MMapPageBlock	*pb, *prev;
 	
@@ -35,7 +37,7 @@ void *VFS_MMap(int *ErrNo, void *DestHint, size_t Length, int Protection, int Fl
 	if( Flags & MAP_ANONYMOUS )
 	{
 		MM_Allocate(mapping_dest);
-		return mapping_dest;
+		return (void*)mapping_dest;
 	}
 
 	h = VFS_GetHandle(FD);
@@ -69,14 +71,14 @@ void *VFS_MMap(int *ErrNo, void *DestHint, size_t Length, int Protection, int Fl
 		if( pb->PhysAddrs[pagenum - pb->BaseOffset] == 0 )
 		{
 			if( h->Node->MMap )
-				h->Node->MMap(h->Node, pagenum*PAGE_SIZE, PAGE_SIZE, mapping_dest);
+				h->Node->MMap(h->Node, pagenum*PAGE_SIZE, PAGE_SIZE, (void*)mapping_dest);
 			else
 			{
 				// Allocate pages and read data
 				MM_Allocate(mapping_dest);
-				h->Node->Read(h->Node, pagenum*PAGE_SIZE, PAGE_SIZE, mapping_dest);
+				h->Node->Read(h->Node, pagenum*PAGE_SIZE, PAGE_SIZE, (void*)mapping_dest);
 			}
-			pb->PhysAddrs[pagenum -> pb->BaseOffset] = MM_GetPhysAddr( mapping_dest );
+			pb->PhysAddrs[pagenum - pb->BaseOffset] = MM_GetPhysAddr( mapping_dest );
 		}
 		else
 		{
