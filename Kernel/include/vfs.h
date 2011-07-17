@@ -155,6 +155,7 @@ typedef struct sVFS_Node
 	
 	/**
 	 * \name VFS_Select() fields
+	 * \note Used by the VFS internals, drivers should use VFS_Mark*
 	 * \{
 	 */
 	 int	DataAvaliable;
@@ -163,6 +164,15 @@ typedef struct sVFS_Node
 	tVFS_SelectList	*WriteThreads;	//!< Threads waiting to write
 	 int	ErrorOccurred;
 	tVFS_SelectList	*ErrorThreads;	//!< Threads waiting for an error
+	/**
+	 * \}
+	 */
+
+	/**
+	 * \name VFS_MMap() fields
+	 * \{
+	 */
+	void	*MMapInfo;
 	/**
 	 * \}
 	 */

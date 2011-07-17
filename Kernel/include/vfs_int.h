@@ -35,6 +35,11 @@ typedef struct sVFS_Proc {
 	tVFS_Handle	Handles[];
 } tVFS_Proc;
 
+typedef struct sVFS_MMapPage {
+	Uint64	FileOffset;
+	tPAddr	PAddr;
+} tVFS_MMapPage;
+
 // === GLOBALS ===
 extern tVFS_Mount	*gVFS_Mounts;
 

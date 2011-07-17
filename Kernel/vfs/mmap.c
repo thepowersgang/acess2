@@ -1,0 +1,112 @@
+/*
+ * Acess2 VFS
+ * - Open, Close and ChDir
+ */
+#define DEBUG	0
+#include <acess.h>
+#include <vfs.h>
+#include <vfs_ext.h>
+#include <vfs_int.h>
+
+#define MMAP_PAGES_PER_BLOCK	16
+
+// === STRUCTURES ===
+typedef struct sVFS_MMapPageBlock
+{
+	tVFS_MMapPageBlock	*Next;
+	Uint64	BaseOffset;	// Must be a multiple of MMAP_PAGES_PER_BLOCK*PAGE_SIZE
+	tPAddr	PhysAddrs[MMAP_PAGES_PER_BLOCK];
+} tVFS_MMapPageBlock;
+
+// === CODE ===
+void *VFS_MMap(int *ErrNo, void *DestHint, size_t Length, int Protection, int Flags, int FD, Uint64 Offset)
+{
+	tVFS_Handle	*h;
+	void	*mapping_dest;
+	 int	npages, pagenum;
+	tVFS_MMapPageBlock	*pb, *prev;
+	
+	npages = ((Offset & (PAGE_SIZE-1)) + Length) / PAGE_SIZE;
+	pagenum = Offset / PAGE_SIZE;
+
+	mapping_dest = DestHint;	
+
+	// TODO: Locate space for the allocation
+	if( Flags & MAP_ANONYMOUS )
+	{
+		MM_Allocate(mapping_dest);
+		return mapping_dest;
+	}
+
+	h = VFS_GetHandle(FD);
+	if( !h || !h->Node )	return NULL;
+
+	// Search for existing mapping for each page
+	// - Sorted list of 16 page blocks
+	for(
+		pb = h->Node->MMapInfo, prev = NULL;
+		pb && pb->BaseOffset + MMAP_PAGES_PER_BLOCK < pagenum;
+		prev = pb, pb = pb->Next
+		);
+
+	if( !pb || pb->BaseOffset > pagenum )
+	{
+		void	*old_pb = pb;
+		// Allocate if needed
+		pb = malloc( sizeof(tVFS_MMapPageBlock) );
+		if(!pb)	return NULL;
+		pb->Next = old_pb;
+		pb->BaseOffset = pagenum - pagenum % MMAP_PAGES_PER_BLOCK;
+		memset(pb->PhysAddrs, 0, sizeof(pb->PhysAddrs));
+		if(prev)
+			prev->Next = pb;
+		else
+			h->Node->MMapInfo = pb;
+	}
+
+	while( npages -- )
+	{
+		if( pb->PhysAddrs[pagenum - pb->BaseOffset] == 0 )
+		{
+			if( h->Node->MMap )
+				h->Node->MMap(h->Node, pagenum*PAGE_SIZE, PAGE_SIZE, mapping_dest);
+			else
+			{
+				// Allocate pages and read data
+				MM_Allocate(mapping_dest);
+				h->Node->Read(h->Node, pagenum*PAGE_SIZE, PAGE_SIZE, mapping_dest);
+			}
+			pb->PhysAddrs[pagenum -> pb->BaseOffset] = MM_GetPhysAddr( mapping_dest );
+		}
+		else
+		{
+			MM_Map( mapping_dest, pb->PhysAddrs[pagenum - pb->BaseOffset] );
+		}
+		pagenum ++;
+		mapping_dest += PAGE_SIZE;
+		
+		// Roll on to next block if needed
+		if(pagenum - pb->BaseOffset == MMAP_PAGES_PER_BLOCK)
+		{
+			if( pb->Next && pb->Next->BaseOffset == pagenum )
+				pb = pb->Next;
+			else
+			{
+				tVFS_MMapPageBlock	*oldpb = pb;
+				pb = malloc( sizeof(tVFS_MMapPageBlock) );
+				pb->Next = oldpb->Next;
+				pb->BaseOffset = pagenum;
+				memset(pb->PhysAddrs, 0, sizeof(pb->PhysAddrs));
+				oldpb->Next = pb;
+			}
+			pagenum = 0;
+		}
+	}
+	
+	return NULL;
+}
+
+int VFS_MUnmap(int *ErrNo, void *Addr, size_t Length)
+{
+	return 0;
+}
