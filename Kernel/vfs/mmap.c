@@ -31,14 +31,16 @@ void *VFS_MMap(int *ErrNo, void *DestHint, size_t Length, int Protection, int Fl
 	npages = ((Offset & (PAGE_SIZE-1)) + Length) / PAGE_SIZE;
 	pagenum = Offset / PAGE_SIZE;
 
-	mapping_dest = DestHint;	
+	mapping_dest = (tVAddr)DestHint;	
 
+#if 0
 	// TODO: Locate space for the allocation
 	if( Flags & MAP_ANONYMOUS )
 	{
 		MM_Allocate(mapping_dest);
 		return (void*)mapping_dest;
 	}
+#endif
 
 	h = VFS_GetHandle(FD);
 	if( !h || !h->Node )	return NULL;
@@ -51,10 +53,10 @@ void *VFS_MMap(int *ErrNo, void *DestHint, size_t Length, int Protection, int Fl
 		prev = pb, pb = pb->Next
 		);
 
+	// - Allocate a block if needed
 	if( !pb || pb->BaseOffset > pagenum )
 	{
 		void	*old_pb = pb;
-		// Allocate if needed
 		pb = malloc( sizeof(tVFS_MMapPageBlock) );
 		if(!pb)	return NULL;
 		pb->Next = old_pb;
@@ -66,6 +68,7 @@ void *VFS_MMap(int *ErrNo, void *DestHint, size_t Length, int Protection, int Fl
 			h->Node->MMapInfo = pb;
 	}
 
+	// - Map (and allocate) pages
 	while( npages -- )
 	{
 		if( pb->PhysAddrs[pagenum - pb->BaseOffset] == 0 )
@@ -75,10 +78,14 @@ void *VFS_MMap(int *ErrNo, void *DestHint, size_t Length, int Protection, int Fl
 			else
 			{
 				// Allocate pages and read data
-				MM_Allocate(mapping_dest);
+				if( MM_Allocate(mapping_dest) == 0 ) {
+					// TODO: Unwrap
+					return NULL;
+				}
 				h->Node->Read(h->Node, pagenum*PAGE_SIZE, PAGE_SIZE, (void*)mapping_dest);
 			}
 			pb->PhysAddrs[pagenum - pb->BaseOffset] = MM_GetPhysAddr( mapping_dest );
+//			MM_SetPageInfo( pb->PhysAddrs[pagenum - pb->BaseOffset], h->Node, pagenum*PAGE_SIZE );
 		}
 		else
 		{

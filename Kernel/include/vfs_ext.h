@@ -304,4 +304,23 @@ extern int	VFS_OpenChild(Uint *Errno, int FD, const char *Name, Uint Mode);
  */
 extern int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set *ErrHandles, tTime *Timeout, BOOL IsKernel);
 
+/**
+ * \brief Map a file into memory
+ * \param ErrNo	Error status pointer
+ * \param DestHint	Suggested place for read data
+ * \param Length	Size of area to map
+ * \param Protection	Protection type (see `man mmap`)
+ * \param Flags	Mapping flags
+ * \param FD	File descriptor to load from
+ * \param Offset	Start of region
+ */
+extern void	*VFS_MMap(int *ErrNo, void *DestHint, size_t Length, int Protection, int Flags, int FD, Uint64 Offset);
+
+/**
+ * \brief Unmap memory allocated by VFS_MMap
+ * \param ErrNo	Error status pointer
+ * \param Addr	Address of data to unmap
+ * \param Length	Length of data
+ */
+extern int	VFS_MUnmap(int *ErrNo, void *Addr, size_t Length);
 #endif
