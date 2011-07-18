@@ -11,6 +11,8 @@
 // === CONSTANTS ===
 #define	OPEN_MOUNT_ROOT	1
 #define MAX_PATH_SLASHES	256
+#define MAX_NESTED_LINKS	4
+#define MAX_PATH_LEN	255
 
 // === IMPORTS ===
 extern tVFS_Node	gVFS_MemRoot;
@@ -167,12 +169,13 @@ char *VFS_GetAbsPath(const char *Path)
  */
 tVFS_Node *VFS_ParsePath(const char *Path, char **TruePath)
 {
-	tVFS_Mount	*mnt;
-	tVFS_Mount	*longestMount = gVFS_RootMount;	// Root is first
+	tVFS_Mount	*mnt, *longestMount;
 	 int	cmp, retLength = 0;
 	 int	ofs, nextSlash;
+	 int	iNestedLinks = 0;
 	tVFS_Node	*curNode, *tmpNode;
 	char	*tmp;
+	char	path_buffer[MAX_PATH_LEN+1];
 	
 	ENTER("sPath pTruePath", Path, TruePath);
 	
@@ -186,7 +189,8 @@ tVFS_Node *VFS_ParsePath(const char *Path, char **TruePath)
 		LEAVE('p', curNode);
 		return curNode;
 	}
-	
+
+restart_parse:	
 	// For root we always fast return
 	if(Path[0] == '/' && Path[1] == '\0') {
 		if(TruePath) {
@@ -197,13 +201,14 @@ tVFS_Node *VFS_ParsePath(const char *Path, char **TruePath)
 		return gVFS_RootMount->RootNode;
 	}
 	
-	// Check if there is an`ything mounted
+	// Check if there is anything mounted
 	if(!gVFS_Mounts) {
 		Warning("WTF! There's nothing mounted?");
 		return NULL;
 	}
 	
 	// Find Mountpoint
+	longestMount = gVFS_RootMount;
 	for(mnt = gVFS_Mounts;
 		mnt;
 		mnt = mnt->Next)
@@ -240,7 +245,8 @@ tVFS_Node *VFS_ParsePath(const char *Path, char **TruePath)
 	// Initialise String
 	if(TruePath)
 	{
-		*TruePath = malloc( mnt->MountPointLen+1 );
+		// Assumes that the resultant path (here) will not be > strlen(Path) + 1
+		*TruePath = malloc( strlen(Path) + 1 );
 		strcpy(*TruePath, mnt->MountPoint);
 		retLength = mnt->MountPointLen;
 	}
@@ -315,44 +321,39 @@ tVFS_Node *VFS_ParsePath(const char *Path, char **TruePath)
 				Warning("VFS_ParsePath - Read of node %p is NULL (%s)",
 					curNode, Path);
 				if(curNode->Close)	curNode->Close(curNode);
-				// No need to free *TruePath, see above
+				// No need to free *TruePath, it should already be NULL
 				LEAVE('n');
 				return NULL;
 			}
 			
-			tmp = malloc( curNode->Size + 1 );
-			if(!tmp) {
-				Log_Warning("VFS", "VFS_ParsePath - Malloc failure");
-				// No need to free *TruePath, see above
+			if(iNestedLinks > MAX_NESTED_LINKS) {
+				if(curNode->Close)	curNode->Close(curNode);
 				LEAVE('n');
 				return NULL;
 			}
-			curNode->Read( curNode, 0, curNode->Size, tmp );
-			tmp[ curNode->Size ] = '\0';
 			
 			// Parse Symlink Path
-			curNode = VFS_ParsePath(tmp, TruePath);
-			if(TruePath)
-				LOG("VFS", "*TruePath='%s'", *TruePath);
-			
-			// Error Check
-			if(!curNode) {
-				Log_Debug("VFS", "Symlink fail '%s'", tmp);
-				free(tmp);	// Free temp string
-				if(TruePath)	free(TruePath);
-				LEAVE('n');
-				return NULL;
+			// - Just update the path variable and restart the function
+			// > Count nested symlinks and limit to some value (counteracts loops)
+			{
+				 int	remlen = strlen(Path) - (ofs + nextSlash);
+				if( curNode->Size + remlen > MAX_PATH_LEN ) {
+					if(curNode->Close)	curNode->Close(curNode);
+					Log_Warning("VFS", "VFS_ParsePath - Symlinked path too long");
+					LEAVE('n');
+					return NULL;
+				}
+				curNode->Read( curNode, 0, curNode->Size, path_buffer );
+				path_buffer[ curNode->Size ] = '\0';
+				strcat(path_buffer, &Path[ofs+nextSlash]);
+				
+				Path = path_buffer;
+				iNestedLinks ++;
 			}
 			
-			// Free temp link
-			free(tmp);
-			
-			// Set Path Variable
-			if(TruePath) {
-				retLength = strlen(*TruePath);
-			}
-			
-			continue;
+
+			// EVIL: Goto :)
+			goto restart_parse;
 		}
 		
 		// Handle Non-Directories
@@ -421,7 +422,7 @@ tVFS_Node *VFS_ParsePath(const char *Path, char **TruePath)
 		tmp = realloc(*TruePath, retLength + strlen(&Path[ofs]) + 1 + 1);
 		// Check if allocation succeeded
 		if(!tmp) {
-			Warning("VFS_ParsePath -  Unable to reallocate true path buffer");
+			Log_Warning("VFS", "VFS_ParsePath -  Unable to reallocate true path buffer");
 			free(*TruePath);
 			if(tmpNode->Close)	tmpNode->Close(curNode);
 			LEAVE('n');
