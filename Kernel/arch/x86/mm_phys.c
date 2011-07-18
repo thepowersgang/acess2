@@ -10,7 +10,6 @@
 //#define USE_STACK	1
 #define TRACE_ALLOCS	0	// Print trace messages on AllocPhys/DerefPhys
 
-#define	REFERENCE_BASE	0xE0400000
 
 // === IMPORTS ===
 extern void	gKernelEnd;
@@ -31,7 +30,12 @@ Uint64	giLastPossibleFree = 0;	// Last possible free page (before all pages are 
 
 Uint32	gaSuperBitmap[1024];	// Blocks of 1024 Pages
 Uint32	gaPageBitmap[1024*1024/32];	// Individual pages
-Uint32	*gaPageReferences;
+struct sPageInfo {
+	 int	ReferenceCount;
+	void	*Node;
+	Uint64	Offset;
+}	*gaPageInfo;
+#define INFO_PER_PAGE	(0x1000/sizeof(gaPageInfo[0]))
 
 // === CODE ===
 void MM_Install(tMBoot_Info *MBoot)
@@ -104,26 +108,10 @@ void MM_Install(tMBoot_Info *MBoot)
 		while(num--)
 			MM_RefPhys( (mods[i].Start & ~0xFFF) + (num<<12) );
 	}
-	
-	// Allocate References
-	//LOG("Reference Pages %i", (giPageCount*4+0xFFF)>>12);
-	for(num = 0; num < (giPageCount*4+0xFFF)>>12; num++)
-	{
-		if( !MM_Allocate( REFERENCE_BASE + (num<<12) ) )
-		{
-			Panic("Oh, ****, no space for the reference pages, that's bad");
-			for(;;);
-		}
-	}
-	
-	//LOG("Filling");
-	// Fill references
-	gaPageReferences = (void*)REFERENCE_BASE;
-	memsetd(gaPageReferences, 1, kernelPages);
-	for( num = kernelPages; num < giPageCount; num++ )
-	{
-		gaPageReferences[num] = (gaPageBitmap[ num / 32 ] >> (num&31)) & 1;
-	}
+
+	gaPageInfo = (void*)MM_PAGEINFO_BASE;
+
+	Log_Log("PMem", "Physical memory set up");
 }
 
 /**
@@ -149,7 +137,6 @@ tPAddr MM_AllocPhys(void)
 	 int	first, last;
 	for( i = numAddrClasses; i -- > 1; )
 	{
-//		Log("Scanning %i (%i bits)", i, addrClasses[i]);
 		first = 1 << (addrClasses[i-1] - 12);
 		last = (1 << (addrClasses[i] - 12)) - 1;
 		// Range is above the last free page
@@ -159,11 +146,9 @@ tPAddr MM_AllocPhys(void)
 		if( last > giLastPossibleFree )
 			last = giLastPossibleFree;
 			
-//		Log(" first=%i,max=%i", first, last);
 		// Scan the range
 		for( indx = first; indx < last; )
 		{
-//			Log("indx = %i (< %i?)", indx, last);
 			if( gaSuperBitmap[indx>>10] == -1 ) {
 				indx += 1024;
 				continue;
@@ -186,7 +171,6 @@ tPAddr MM_AllocPhys(void)
 	}
 	// Out of memory?
 	if( i <= 1 )	indx = -1;
-//	Log("indx = %i", indx);
 	}
 	#elif 0
 	// Find free page
@@ -256,8 +240,8 @@ tPAddr MM_AllocPhys(void)
 	}
 	
 	// Mark page used
-	if(gaPageReferences)
-		gaPageReferences[ indx ] = 1;
+	if( MM_GetPhysAddr( (tVAddr)&gaPageInfo[indx] ) )
+		gaPageInfo[ indx ].ReferenceCount = 1;
 	gaPageBitmap[ indx>>5 ] |= 1 << (indx&31);
 	
 	giPhysAlloc ++;
@@ -389,8 +373,8 @@ tPAddr MM_AllocPhysRange(int Pages, int MaxBits)
 	// Mark pages used
 	for( i = 0; i < Pages; i++ )
 	{
-		if(gaPageReferences)
-			gaPageReferences[idx*32+sidx] = 1;
+		if( MM_GetPhysAddr( (tVAddr)&gaPageInfo[idx*32+sidx] ) )
+			gaPageInfo[idx*32+sidx].ReferenceCount = 1;
 		gaPageBitmap[ idx ] |= 1 << sidx;
 		sidx ++;
 		giPhysAlloc ++;
@@ -421,7 +405,7 @@ void MM_RefPhys(tPAddr PAddr)
 {
 	// Get page number
 	PAddr >>= 12;
-	
+
 	// We don't care about non-ram pages
 	if(PAddr >= giPageCount)	return;
 	
@@ -429,8 +413,20 @@ void MM_RefPhys(tPAddr PAddr)
 	Mutex_Acquire( &glPhysAlloc );
 	
 	// Reference the page
-	if(gaPageReferences)
-		gaPageReferences[ PAddr ] ++;
+	if( gaPageInfo )
+	{
+		if( MM_GetPhysAddr( (tVAddr)&gaPageInfo[PAddr] ) == 0 ) {
+			tVAddr	addr = ((tVAddr)&gaPageInfo[PAddr]) & ~0xFFF;
+			Log_Debug("PMem", "MM_RefPhys: Info not allocated %llx", PAddr);
+			Mutex_Release( &glPhysAlloc );
+			if( MM_Allocate( addr ) == 0 ) {
+				Log_KernelPanic("PMem", "MM_RefPhys: Out of physical memory");
+			}
+			Mutex_Acquire( &glPhysAlloc );
+			memset( (void*)addr, 0, 0x1000 );
+		}
+		gaPageInfo[ PAddr ].ReferenceCount ++;
+	}
 	
 	// Mark as used
 	gaPageBitmap[ PAddr / 32 ] |= 1 << (PAddr&31);
@@ -456,8 +452,8 @@ void MM_DerefPhys(tPAddr PAddr)
 	if(PAddr >= giPageCount)	return;
 	
 	// Check if it is freed
-	if(gaPageReferences[ PAddr ] == 0) {
-		Warning("MM_DerefPhys - Non-referenced memory dereferenced");
+	if( !(gaPageBitmap[PAddr / 32] & (1 << PAddr%32)) ) {
+		Log_Warning("MMVirt", "MM_DerefPhys - Non-referenced memory dereferenced");
 		return;
 	}
 	
@@ -468,10 +464,7 @@ void MM_DerefPhys(tPAddr PAddr)
 		giLastPossibleFree = PAddr;
 
 	// Dereference
-	gaPageReferences[ PAddr ] --;
-	
-	// Mark as free in bitmaps
-	if( gaPageReferences[ PAddr ] == 0 )
+	if( !MM_GetPhysAddr( (tVAddr)&gaPageInfo[PAddr] ) || (-- gaPageInfo[PAddr].ReferenceCount) == 0 )
 	{
 		#if TRACE_ALLOCS
 		Log_Debug("PMem", "MM_DerefPhys: Free'd 0x%x (%i free)", PAddr, giPageCount-giPhysAlloc);
@@ -479,7 +472,7 @@ void MM_DerefPhys(tPAddr PAddr)
 		//LOG("Freed 0x%x by %p\n", PAddr<<12, __builtin_return_address(0));
 		giPhysAlloc --;
 		gaPageBitmap[ PAddr / 32 ] &= ~(1 << (PAddr&31));
-		if(gaPageReferences[ PAddr ] == 0)
+		if(gaPageBitmap[ PAddr / 32 ] == 0)
 			gaSuperBitmap[ PAddr >> 10 ] &= ~(1 << ((PAddr >> 5)&31));
 	}
 	
@@ -497,7 +490,62 @@ int MM_GetRefCount(tPAddr PAddr)
 	
 	// We don't care about non-ram pages
 	if(PAddr >= giPageCount)	return -1;
+
+	if( MM_GetPhysAddr( (tVAddr)&gaPageInfo[PAddr] ) == 0 )
+		return (gaPageBitmap[PAddr / 32] & (1 << PAddr%32)) ? 1 : 0;
 	
 	// Check if it is freed
-	return gaPageReferences[ PAddr ];
+	return gaPageInfo[ PAddr ].ReferenceCount;
+}
+
+/**
+ * \brief Sets the node and offset associated with a page
+ */
+int MM_SetPageInfo(tPAddr PAddr, void *Node, Uint64 Offset)
+{
+	PAddr >>= 12;
+
+	// Page doesn't exist
+	if( !(gaPageBitmap[PAddr / 32] & (1 << PAddr%32)) )
+		return 1;
+	// Allocate info block
+	if( MM_GetPhysAddr( (tVAddr)&gaPageInfo[PAddr] ) == 0 )
+	{
+		tVAddr	addr = ((tVAddr)&gaPageInfo[PAddr]) & ~0xFFF;
+		Log_Debug("PMem", "MM_SetPageInfo: Info not allocated %llx", PAddr);
+		if( MM_Allocate( addr ) == 0 ) {
+			Log_KernelPanic("PMem", "MM_SetPageInfo: Out of physical memory");
+		}
+		memset( (void*)addr, 0, 0x1000);
+	}
+
+	gaPageInfo[ PAddr ].Node = Node;
+	gaPageInfo[ PAddr ].Offset = Offset;
+
+	return 0;
+}
+
+/**
+ * \brief Gets the Node/Offset of a page
+ */
+int MM_GetPageInfo(tPAddr PAddr, void **Node, Uint64 *Offset)
+{
+	PAddr >>= 12;
+
+	// Page doesn't exist
+	if( !(gaPageBitmap[PAddr / 32] & (1 << PAddr%32)) )
+		return 1;
+	// Info is zero if block is not allocated
+	if( MM_GetPhysAddr( (tVAddr)&gaPageInfo[PAddr] ) == 0 )
+	{
+		if(Node)	*Node = NULL;
+		if(Offset)	*Offset = 0;
+	}
+	else
+	{
+		if(Node)	*Node = gaPageInfo[ PAddr ].Node;
+		if(Offset)	*Offset = gaPageInfo[ PAddr ].Offset;
+	}
+
+	return 0;
 }

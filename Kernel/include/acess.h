@@ -277,6 +277,26 @@ extern void	MM_DerefPhys(tPAddr PAddr);
  */
 extern int	MM_GetRefCount(tPAddr PAddr);
 /**
+ * \brief Set the node/offset associated with a page
+ * \param PAddr	Physical address of page
+ * \param Node	Node pointer (tVFS_Node)
+ * \param Offset	File offset
+ * \return Boolean failure
+ * \retval 0	Success
+ * \retval 1	Page not allocated
+ */
+extern int	MM_SetPageInfo(tPAddr PAddr, void *Node, Uint64 Offset);
+/**
+ * \brief Get the node/offset associated with a page
+ * \param PAddr	Physical address of page
+ * \param Node	Node pointer (tVFS_Node) destination
+ * \param Offset	File offset destination (pointer)
+ * \return Boolean failure
+ * \retval 0	Success
+ * \retval 1	Page not allocated
+ */
+extern int	MM_GetPageInfo(tPAddr PAddr, void **Node, Uint64 *Offset);
+/**
  * \}
  */
 

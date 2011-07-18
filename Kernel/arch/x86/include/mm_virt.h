@@ -22,7 +22,12 @@
 #define MM_KERNEL_VFS	0xCF000000	// 
 #define MM_KUSER_CODE	0xCFFF0000	// 16 Pages
 #define	MM_MODULE_MIN	0xD0000000	// Lowest Module Address
-#define MM_MODULE_MAX	0xF0000000	// 512 MiB
+#define MM_MODULE_MAX	0xE0000000	// 128 MiB
+// Needs (2^36/2^12*8 bytes)
+// - 2^27 bytes max = 128 MiB = 0x10000000
+// 2^12/2^3 items per page
+// - 2^9 = 512
+#define	MM_PAGEINFO_BASE	0xE0000000
 
 // === FUNCTIONS ===
 extern void	MM_FinishVirtualInit(void);
