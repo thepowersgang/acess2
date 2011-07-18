@@ -21,7 +21,7 @@ struct sVFS_MMapPageBlock
 };
 
 // === CODE ===
-void *VFS_MMap(int *ErrNo, void *DestHint, size_t Length, int Protection, int Flags, int FD, Uint64 Offset)
+void *VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD, Uint64 Offset)
 {
 	tVFS_Handle	*h;
 	tVAddr	mapping_dest;
@@ -115,7 +115,7 @@ void *VFS_MMap(int *ErrNo, void *DestHint, size_t Length, int Protection, int Fl
 	return NULL;
 }
 
-int VFS_MUnmap(int *ErrNo, void *Addr, size_t Length)
+int VFS_MUnmap(void *Addr, size_t Length)
 {
 	return 0;
 }

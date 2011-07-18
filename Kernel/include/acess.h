@@ -39,7 +39,7 @@ typedef struct sShortSpinlock	tShortSpinlock;
  */
 
 /**
- * \name Per-Process Configuration Settings
+ * \name Per-Thread Configuration Settings
  * \{
  */
 enum eConfigTypes {
@@ -52,10 +52,13 @@ enum eConfigs {
 	CFG_VFS_CWD,
 	CFG_VFS_MAXFILES,
 	CFG_VFS_CHROOT,
+	CFG_ERRNO,
 	NUM_CFG_ENTRIES
 };
 #define CFGINT(id)	(*Threads_GetCfgPtr(id))
 #define CFGPTR(id)	(*(void**)Threads_GetCfgPtr(id))
+
+#define errno	(CFGINT(CFG_ERRNO))
 /**
  * \}
  */
