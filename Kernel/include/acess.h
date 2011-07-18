@@ -335,6 +335,8 @@ extern int	sprintf(char *__s, const char *__format, ...);
 extern size_t	strlen(const char *Str);
 extern char	*strcpy(char *__dest, const char *__src);
 extern char	*strncpy(char *__dest, const char *__src, size_t max);
+extern char	*strcat(char *__dest, const char *__src);
+extern char	*strncat(char *__dest, const char *__src, size_t n);
 extern int	strcmp(const char *__str1, const char *__str2);
 extern int	strncmp(const char *Str1, const char *Str2, size_t num);
 extern int	strucmp(const char *Str1, const char *Str2);

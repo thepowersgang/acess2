@@ -62,6 +62,8 @@ EXPORT(ByteSum);
 EXPORT(strlen);
 EXPORT(strcpy);
 EXPORT(strncpy);
+EXPORT(strcat);
+EXPORT(strncat);
 EXPORT(strcmp);
 EXPORT(strncmp);
 //EXPORT(strdup);
@@ -464,7 +466,6 @@ size_t strlen(const char *__str)
 }
 
 /**
- * \fn char *strcpy(char *__str1, const char *__str2)
  * \brief Copy a string to a new location
  */
 char *strcpy(char *__str1, const char *__str2)
@@ -476,8 +477,8 @@ char *strcpy(char *__str1, const char *__str2)
 }
 
 /**
- * \fn char *strncpy(char *__str1, const char *__str2, size_t max)
  * \brief Copy a string to a new location
+ * \note Copies at most `max` chars
  */
 char *strncpy(char *__str1, const char *__str2, size_t max)
 {
@@ -486,6 +487,31 @@ char *strncpy(char *__str1, const char *__str2, size_t max)
 	if(max)
 		*__str1 = '\0';	// Terminate String
 	return __str1;
+}
+
+/**
+ * \brief Append a string to another
+ */
+char *strcat(char *__dest, const char *__src)
+{
+	while(*__dest++);
+	while(*__src)
+		*__dest++ = *__src++;
+	*__dest = '\0';
+	return __dest;
+}
+
+/**
+ * \brief Append at most \a n chars to a string from another
+ * \note At most n+1 chars are written (the dest is always zero terminated)
+ */
+char *strncat(char *__dest, const char *__src, size_t n)
+{
+	while(*__dest++);
+	while(*__src && n-- >= 1)
+		*__dest++ = *__src++;
+	*__dest = '\0';
+	return __dest;
 }
 
 /**
