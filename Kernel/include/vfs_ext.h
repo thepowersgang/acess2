@@ -314,7 +314,7 @@ extern int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, 
  * \param FD	File descriptor to load from
  * \param Offset	Start of region
  */
-extern void	*VFS_MMap(int *ErrNo, void *DestHint, size_t Length, int Protection, int Flags, int FD, Uint64 Offset);
+extern void	*VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD, Uint64 Offset);
 
 /**
  * \brief Unmap memory allocated by VFS_MMap
@@ -322,5 +322,5 @@ extern void	*VFS_MMap(int *ErrNo, void *DestHint, size_t Length, int Protection,
  * \param Addr	Address of data to unmap
  * \param Length	Length of data
  */
-extern int	VFS_MUnmap(int *ErrNo, void *Addr, size_t Length);
+extern int	VFS_MUnmap(void *Addr, size_t Length);
 #endif

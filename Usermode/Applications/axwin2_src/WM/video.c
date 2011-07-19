@@ -14,6 +14,8 @@ void	Video_FillRect(short X, short Y, short W, short H, uint32_t Color);
 void	Video_DrawRect(short X, short Y, short W, short H, uint32_t Color);
 
 // === GLOBALS ===
+ int	giVideo_CursorX;
+ int	giVideo_CursorY;
 
 // === CODE ===
 void Video_Setup(void)
