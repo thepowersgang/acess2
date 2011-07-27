@@ -209,9 +209,7 @@ restart_parse:
 	
 	// Find Mountpoint
 	longestMount = gVFS_RootMount;
-	for(mnt = gVFS_Mounts;
-		mnt;
-		mnt = mnt->Next)
+	for(mnt = gVFS_Mounts; mnt; mnt = mnt->Next)
 	{
 		// Quick Check
 		if( Path[mnt->MountPointLen] != '/' && Path[mnt->MountPointLen] != '\0')
@@ -456,7 +454,7 @@ int VFS_Open(const char *Path, Uint Mode)
 	absPath = VFS_GetAbsPath(Path);
 	if(absPath == NULL) {
 		Log_Warning("VFS", "VFS_Open: Path expansion failed '%s'", Path);
-		return -1;
+		LEAVE_RET('i', -1);
 	}
 	LOG("absPath = \"%s\"", absPath);
 	// Parse path and get mount point
@@ -466,31 +464,31 @@ int VFS_Open(const char *Path, Uint Mode)
 	
 	if(!node) {
 		LOG("Cannot find node");
-		LEAVE('i', -1);
-		return -1;
+		LEAVE_RET('i', -1);
 	}
 	
 	// Check for symlinks
 	if( !(Mode & VFS_OPENFLAG_NOLINK) && (node->Flags & VFS_FFLAG_SYMLINK) )
 	{
-		if( !node->Read ) {
-			Warning("No read method on symlink");
-			LEAVE('i', -1);
-			return -1;
+		char	tmppath[node->Size+1];
+		if( node->Size > MAX_PATH_LEN ) {
+			Log_Warning("VFS", "VFS_Open - Symlink is too long (%i)", node->Size);
+			LEAVE_RET('i', -1);
 		}
-		absPath = malloc(node->Size+1);	// Allocate Buffer
-		node->Read( node, 0, node->Size, absPath );	// Read Path
-		
-		absPath[ node->Size ] = '\0';	// End String
-		if(node->Close)	node->Close( node );	// Close old node
-		node = VFS_ParsePath(absPath, NULL);	// Get new node
-		free( absPath );	// Free allocated path
-	}
-	
-	if(!node) {
-		LOG("Cannot find node");
-		LEAVE('i', -1);
-		return -1;
+		if( !node->Read ) {
+			Log_Warning("VFS", "VFS_Open - No read method on symlink");
+			LEAVE_RET('i', -1);
+		}
+		// Read symlink's path
+		node->Read( node, 0, node->Size, tmppath );
+		tmppath[ node->Size ] = '\0';
+		if(node->Close)	node->Close( node );
+		// Open the target
+		node = VFS_ParsePath(tmppath, NULL);
+		if(!node) {
+			LOG("Cannot find symlink target node (%s)", tmppath);
+			LEAVE_RET('i', -1);
+		}
 	}
 	
 	i = 0;
@@ -503,20 +501,17 @@ int VFS_Open(const char *Path, Uint Mode)
 	// Permissions Check
 	if( !VFS_CheckACL(node, i) ) {
 		if(node->Close)	node->Close( node );
-		Log("VFS_Open: Permissions Failed");
-		LEAVE('i', -1);
-		return -1;
+		Log_Log("VFS", "VFS_Open: Permissions Failed");
+		LEAVE_RET('i', -1);
 	}
 	
 	i = VFS_AllocHandle( !!(Mode & VFS_OPENFLAG_USER), node, Mode );
-	if( i >= 0 ) {
-		LEAVE('x', i);
-		return i;
+	if( i < 0 ) {
+		Log_Notice("VFS", "VFS_Open: Out of handles");
+		LEAVE_RET('i', -1);
 	}
 	
-	Log("VFS_Open: Out of handles");
-	LEAVE('i', -1);
-	return -1;
+	LEAVE_RET('x', i);	
 }
 
 
@@ -534,24 +529,21 @@ int VFS_OpenChild(Uint *Errno, int FD, const char *Name, Uint Mode)
 	if(h == NULL) {
 		Log_Warning("VFS", "VFS_OpenChild - Invalid file handle 0x%x", FD);
 		if(Errno)	*Errno = EINVAL;
-		LEAVE('i', -1);
-		return -1;
+		LEAVE_RET('i', -1);
 	}
 	
 	// Check for directory
 	if( !(h->Node->Flags & VFS_FFLAG_DIRECTORY) ) {
 		Log_Warning("VFS", "VFS_OpenChild - Passed handle is not a directory", FD);
 		if(Errno)	*Errno = ENOTDIR;
-		LEAVE('i', -1);
-		return -1;
+		LEAVE_RET('i', -1);
 	}
 	
 	// Find Child
 	node = h->Node->FindDir(h->Node, Name);
 	if(!node) {
 		if(Errno)	*Errno = ENOENT;
-		LEAVE('i', -1);
-		return -1;
+		LEAVE_RET('i', -1);
 	}
 	
 	i = 0;
@@ -564,20 +556,17 @@ int VFS_OpenChild(Uint *Errno, int FD, const char *Name, Uint Mode)
 		if(node->Close)	node->Close( node );
 		Log_Notice("VFS", "VFS_OpenChild - Permissions Failed");
 		if(Errno)	*Errno = EACCES;
-		LEAVE('i', -1);
-		return -1;
+		LEAVE_RET('i', -1);
 	}
 	
 	i = VFS_AllocHandle( !!(Mode & VFS_OPENFLAG_USER), node, Mode );
 	if( i >= 0 ) {
-		LEAVE('x', i);
-		return i;
+		LEAVE_RET('x', i);
 	}
 	
 	Log_Error("VFS", "VFS_OpenChild - Out of handles");
 	if(Errno)	*Errno = ENFILE;
-	LEAVE('i', -1);
-	return -1;
+	LEAVE_RET('i', -1);
 }
 
 /**
