@@ -144,6 +144,8 @@ int VFS_Seek(int FD, Sint64 Offset, int Whence)
 	
 	// Set relative to end of file
 	if(Whence < 0) {
+		if( h->Node->Size == -1 )	return -1;
+
 		h->Position = h->Node->Size - Offset;
 		return 0;
 	}

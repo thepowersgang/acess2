@@ -203,7 +203,7 @@ restart_parse:
 	
 	// Check if there is anything mounted
 	if(!gVFS_Mounts) {
-		Warning("WTF! There's nothing mounted?");
+		Log_Error("VFS", "VFS_ParsePath - No filesystems mounted");
 		return NULL;
 	}
 	
@@ -318,7 +318,7 @@ restart_parse:
 				*TruePath = NULL;
 			}
 			if(!curNode->Read) {
-				Warning("VFS_ParsePath - Read of node %p is NULL (%s)",
+				Log_Warning("VFS", "VFS_ParsePath - Read of symlink node %p'%s' is NULL",
 					curNode, Path);
 				if(curNode->Close)	curNode->Close(curNode);
 				// No need to free *TruePath, it should already be NULL
@@ -345,12 +345,12 @@ restart_parse:
 				}
 				curNode->Read( curNode, 0, curNode->Size, path_buffer );
 				path_buffer[ curNode->Size ] = '\0';
-				strcat(path_buffer, &Path[ofs+nextSlash]);
+				strcat(path_buffer, Path + ofs+nextSlash);
 				
 				Path = path_buffer;
+//				Log_Debug("VFS", "VFS_ParsePath: Symlink translated to '%s'", Path);
 				iNestedLinks ++;
 			}
-			
 
 			// EVIL: Goto :)
 			goto restart_parse;
@@ -359,7 +359,7 @@ restart_parse:
 		// Handle Non-Directories
 		if( !(curNode->Flags & VFS_FFLAG_DIRECTORY) )
 		{
-			Warning("VFS_ParsePath - File in directory context");
+			Log_Warning("VFS", "VFS_ParsePath - Path segment is not a directory");
 			if(TruePath)	free(*TruePath);
 			LEAVE('n');
 			return NULL;
@@ -372,7 +372,7 @@ restart_parse:
 		tmp = realloc( *TruePath, retLength + strlen(pathEle) + 1 + 1 );
 		// Check if allocation succeeded
 		if(!tmp) {
-			Warning("VFS_ParsePath -  Unable to reallocate true path buffer");
+			Log_Warning("VFS", "VFS_ParsePath - Unable to reallocate true path buffer");
 			free(*TruePath);
 			*TruePath = NULL;
 			if(curNode->Close)	curNode->Close(curNode);
@@ -396,7 +396,7 @@ restart_parse:
 			free(*TruePath);
 			*TruePath = NULL;
 		}
-		Log("FindDir fail on '%s'", Path);
+		Log_Warning("VFS", "VFS_ParsePath - FindDir doesn't exist for element of '%s'", Path);
 		LEAVE('n');
 		return NULL;
 	}

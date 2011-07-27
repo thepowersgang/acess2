@@ -19,7 +19,7 @@ tVFS_Handle	*VFS_GetHandle(int FD);
  int	VFS_AllocHandle(int FD, tVFS_Node *Node, int Mode);
 
 // === GLOBALS ===
-tVFS_Handle	*gaUserHandles = (void*)MM_PPD_VFS;
+tVFS_Handle	*gaUserHandles = (void*)MM_PPD_HANDLES;
 tVFS_Handle	*gaKernelHandles = (void*)MM_KERNEL_VFS;
 
 // === CODE ===

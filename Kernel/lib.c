@@ -495,6 +495,7 @@ char *strncpy(char *__str1, const char *__str2, size_t max)
 char *strcat(char *__dest, const char *__src)
 {
 	while(*__dest++);
+	__dest--;
 	while(*__src)
 		*__dest++ = *__src++;
 	*__dest = '\0';
