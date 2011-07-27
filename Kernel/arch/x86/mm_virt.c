@@ -101,6 +101,13 @@ tMutex	glTempMappings;
 tMutex	glTempFractal;
 Uint32	gWorkerStacks[(NUM_WORKER_STACKS+31)/32];
  int	giLastUsedWorker = 0;
+struct sPageInfo {
+	void	*Node;
+	tVAddr	Base;
+	Uint64	Offset;
+	 int	Length;
+	 int	Flags;
+}	*gaMappedRegions;	// sizeof = 24 bytes
 
 // === CODE ===
 /**
@@ -1086,10 +1093,3 @@ void MM_UnmapHWPages(tVAddr VAddr, Uint Number)
 	Mutex_Release( &glTempMappings );
 }
 
-// --- EXPORTS ---
-EXPORT(MM_GetPhysAddr);
-EXPORT(MM_Map);
-//EXPORT(MM_Unmap);
-EXPORT(MM_MapHWPages);
-EXPORT(MM_AllocDMA);
-EXPORT(MM_UnmapHWPages);

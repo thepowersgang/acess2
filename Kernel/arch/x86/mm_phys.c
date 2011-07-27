@@ -30,12 +30,8 @@ Uint64	giLastPossibleFree = 0;	// Last possible free page (before all pages are 
 
 Uint32	gaSuperBitmap[1024];	// Blocks of 1024 Pages
 Uint32	gaPageBitmap[1024*1024/32];	// Individual pages
-struct sPageInfo {
-	 int	ReferenceCount;
-	void	*Node;
-	Uint64	Offset;
-}	*gaPageInfo;
-#define INFO_PER_PAGE	(0x1000/sizeof(gaPageInfo[0]))
+ int	*gaPageReferences;
+#define REFENT_PER_PAGE	(0x1000/sizeof(gaPageReferences[0]))
 
 // === CODE ===
 void MM_Install(tMBoot_Info *MBoot)
@@ -109,7 +105,7 @@ void MM_Install(tMBoot_Info *MBoot)
 			MM_RefPhys( (mods[i].Start & ~0xFFF) + (num<<12) );
 	}
 
-	gaPageInfo = (void*)MM_PAGEINFO_BASE;
+	gaPageReferences = (void*)MM_REFCOUNT_BASE;
 
 	Log_Log("PMem", "Physical memory set up");
 }
@@ -240,8 +236,8 @@ tPAddr MM_AllocPhys(void)
 	}
 	
 	// Mark page used
-	if( MM_GetPhysAddr( (tVAddr)&gaPageInfo[indx] ) )
-		gaPageInfo[ indx ].ReferenceCount = 1;
+	if( MM_GetPhysAddr( (tVAddr)&gaPageReferences[indx] ) )
+		gaPageReferences[indx] = 1;
 	gaPageBitmap[ indx>>5 ] |= 1 << (indx&31);
 	
 	giPhysAlloc ++;
@@ -373,8 +369,8 @@ tPAddr MM_AllocPhysRange(int Pages, int MaxBits)
 	// Mark pages used
 	for( i = 0; i < Pages; i++ )
 	{
-		if( MM_GetPhysAddr( (tVAddr)&gaPageInfo[idx*32+sidx] ) )
-			gaPageInfo[idx*32+sidx].ReferenceCount = 1;
+		if( MM_GetPhysAddr( (tVAddr)&gaPageReferences[idx*32+sidx] ) )
+			gaPageReferences[idx*32+sidx] = 1;
 		gaPageBitmap[ idx ] |= 1 << sidx;
 		sidx ++;
 		giPhysAlloc ++;
@@ -413,10 +409,10 @@ void MM_RefPhys(tPAddr PAddr)
 	Mutex_Acquire( &glPhysAlloc );
 	
 	// Reference the page
-	if( gaPageInfo )
+	if( gaPageReferences )
 	{
-		if( MM_GetPhysAddr( (tVAddr)&gaPageInfo[PAddr] ) == 0 ) {
-			tVAddr	addr = ((tVAddr)&gaPageInfo[PAddr]) & ~0xFFF;
+		if( MM_GetPhysAddr( (tVAddr)&gaPageReferences[PAddr] ) == 0 ) {
+			tVAddr	addr = ((tVAddr)&gaPageReferences[PAddr]) & ~0xFFF;
 			Log_Debug("PMem", "MM_RefPhys: Info not allocated %llx", PAddr);
 			Mutex_Release( &glPhysAlloc );
 			if( MM_Allocate( addr ) == 0 ) {
@@ -425,7 +421,7 @@ void MM_RefPhys(tPAddr PAddr)
 			Mutex_Acquire( &glPhysAlloc );
 			memset( (void*)addr, 0, 0x1000 );
 		}
-		gaPageInfo[ PAddr ].ReferenceCount ++;
+		gaPageReferences[ PAddr ] ++;
 	}
 	
 	// Mark as used
@@ -464,7 +460,7 @@ void MM_DerefPhys(tPAddr PAddr)
 		giLastPossibleFree = PAddr;
 
 	// Dereference
-	if( !MM_GetPhysAddr( (tVAddr)&gaPageInfo[PAddr] ) || (-- gaPageInfo[PAddr].ReferenceCount) == 0 )
+	if( !MM_GetPhysAddr( (tVAddr)&gaPageReferences[PAddr] ) || (-- gaPageReferences[PAddr]) == 0 )
 	{
 		#if TRACE_ALLOCS
 		Log_Debug("PMem", "MM_DerefPhys: Free'd 0x%x (%i free)", PAddr, giPageCount-giPhysAlloc);
@@ -491,61 +487,10 @@ int MM_GetRefCount(tPAddr PAddr)
 	// We don't care about non-ram pages
 	if(PAddr >= giPageCount)	return -1;
 
-	if( MM_GetPhysAddr( (tVAddr)&gaPageInfo[PAddr] ) == 0 )
+	if( MM_GetPhysAddr( (tVAddr)&gaPageReferences[PAddr] ) == 0 )
 		return (gaPageBitmap[PAddr / 32] & (1 << PAddr%32)) ? 1 : 0;
 	
 	// Check if it is freed
-	return gaPageInfo[ PAddr ].ReferenceCount;
+	return gaPageReferences[ PAddr ];
 }
 
-/**
- * \brief Sets the node and offset associated with a page
- */
-int MM_SetPageInfo(tPAddr PAddr, void *Node, Uint64 Offset)
-{
-	PAddr >>= 12;
-
-	// Page doesn't exist
-	if( !(gaPageBitmap[PAddr / 32] & (1 << PAddr%32)) )
-		return 1;
-	// Allocate info block
-	if( MM_GetPhysAddr( (tVAddr)&gaPageInfo[PAddr] ) == 0 )
-	{
-		tVAddr	addr = ((tVAddr)&gaPageInfo[PAddr]) & ~0xFFF;
-		Log_Debug("PMem", "MM_SetPageInfo: Info not allocated %llx", PAddr);
-		if( MM_Allocate( addr ) == 0 ) {
-			Log_KernelPanic("PMem", "MM_SetPageInfo: Out of physical memory");
-		}
-		memset( (void*)addr, 0, 0x1000);
-	}
-
-	gaPageInfo[ PAddr ].Node = Node;
-	gaPageInfo[ PAddr ].Offset = Offset;
-
-	return 0;
-}
-
-/**
- * \brief Gets the Node/Offset of a page
- */
-int MM_GetPageInfo(tPAddr PAddr, void **Node, Uint64 *Offset)
-{
-	PAddr >>= 12;
-
-	// Page doesn't exist
-	if( !(gaPageBitmap[PAddr / 32] & (1 << PAddr%32)) )
-		return 1;
-	// Info is zero if block is not allocated
-	if( MM_GetPhysAddr( (tVAddr)&gaPageInfo[PAddr] ) == 0 )
-	{
-		if(Node)	*Node = NULL;
-		if(Offset)	*Offset = 0;
-	}
-	else
-	{
-		if(Node)	*Node = gaPageInfo[ PAddr ].Node;
-		if(Offset)	*Offset = gaPageInfo[ PAddr ].Offset;
-	}
-
-	return 0;
-}

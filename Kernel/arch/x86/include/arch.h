@@ -87,7 +87,7 @@ typedef signed long long	Sint64;
 typedef Uint	size_t;
 typedef char	BOOL;
 
-typedef Uint64	tPAddr;
+typedef Uint32	tPAddr;
 typedef Uint32	tVAddr;
 
 typedef struct {

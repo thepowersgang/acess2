@@ -82,7 +82,7 @@ void System_Init(char *CommandLine)
 	System_ExecuteCommandLine();
 	
 	// - Execute the Config Script
-	Log_Log("Config", "Executing config script...");
+	Log_Log("Config", "Executing config script '%s'", gsConfigScript);
 	System_ExecuteScript();
 	
 	// Set the debug to be echoed to the terminal
@@ -318,6 +318,7 @@ void System_ExecuteScript(void)
 	// Get length
 	VFS_Seek(fp, 0, SEEK_END);
 	fLen = VFS_Tell(fp);
+	Log_Debug("System", "VFS_Tell(%i) = %i", fp, fLen);
 	VFS_Seek(fp, 0, SEEK_SET);
 	// Read into memory buffer
 	fData = malloc(fLen+1);
