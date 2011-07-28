@@ -289,8 +289,10 @@ DEFIRQ	i
 [global IrqCommon]
 IrqCommon:
 	PUSH_GPR
+	push gs
+	push fs
 	
-	mov rbx, [rsp+16*8]	; Calculate address
+	mov rbx, [rsp+(16+2)*8]	; Calculate address
 	shr rbx, 3+2	; *8*4
 	mov rax, gaIRQ_Handlers
 	add rbx, rax
@@ -321,6 +323,8 @@ IrqCommon:
 	mov dx, 0x0020
 	out dx, al
 	
+	pop fs
+	pop gs
 	POP_GPR
 	add rsp, 8*2
 	;xchg bx, bx
@@ -328,8 +332,15 @@ IrqCommon:
 
 [extern Proc_Scheduler]
 [global SchedulerIRQ]
+;
+; NOTE: Proc_Scheduler makes assumptions about the stack state when called 
+;
 SchedulerIRQ:
+	push 0	; Error code
+	push 0	; IRQNum
 	PUSH_GPR
+	push gs
+	push fs
 	;PUSH_FPU
 	;PUSH_XMM
 	
@@ -365,7 +376,10 @@ SchedulerIRQ:
 	
 	;POP_XMM
 	;POP_FPU
+	pop fs
+	pop gs
 	POP_GPR
+	add rsp, 2*8	; Dummy error code and IRQ num
 	iretq
 
 [section .data]

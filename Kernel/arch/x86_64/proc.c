@@ -742,6 +742,7 @@ void Proc_CallFaultHandler(tThread *Thread)
 
 void Proc_DumpThreadCPUState(tThread *Thread)
 {
+	Log("  At %04x:%016llx", Thread->SavedState.UserCS, Thread->SavedState.UserRIP);
 }
 
 /**
@@ -758,22 +759,31 @@ void Proc_Scheduler(int CPU)
 	
 	// Get current thread
 	thread = gaCPUs[CPU].Current;
+
+	if( thread )
+	{
+		tRegs	*regs;
+		// Reduce remaining quantum and continue timeslice if non-zero
+		if(thread->Remaining--)	return;
+		// Reset quantum for next call
+		thread->Remaining = thread->Quantum;
 	
-	// Reduce remaining quantum and continue timeslice if non-zero
-	if(thread->Remaining--)	return;
-	// Reset quantum for next call
-	thread->Remaining = thread->Quantum;
-	
-	// Get machine state
-	__asm__ __volatile__ ("mov %%rsp, %0":"=r"(rsp));
-	__asm__ __volatile__ ("mov %%rbp, %0":"=r"(rbp));
-	rip = GetRIP();
-	if(rip == SWITCH_MAGIC)	return;	// Check if a switch happened
-	
-	// Save machine state
-	thread->SavedState.RSP = rsp;
-	thread->SavedState.RBP = rbp;
-	thread->SavedState.RIP = rip;
+		// Get machine state
+		__asm__ __volatile__ ("mov %%rsp, %0":"=r"(rsp));
+		__asm__ __volatile__ ("mov %%rbp, %0":"=r"(rbp));
+		rip = GetRIP();
+		if(rip == SWITCH_MAGIC)	return;	// Check if a switch happened
+		
+		// Save machine state
+		thread->SavedState.RSP = rsp;
+		thread->SavedState.RBP = rbp;
+		thread->SavedState.RIP = rip;
+		
+		// TODO: Make this more stable somehow
+		regs = (tRegs*)(rbp+(2+1)*8);	// RBP,Ret + CurThread
+		thread->SavedState.UserCS = regs->CS;
+		thread->SavedState.UserRIP = regs->RIP;
+	}
 	
 	// Get next thread
 	thread = Threads_GetNextToRun(CPU, thread);
