@@ -19,6 +19,7 @@
 #define MAX_INPUT_CHARS8	(MAX_INPUT_CHARS32*4)
 //#define DEFAULT_OUTPUT	"BochsGA"
 #define DEFAULT_OUTPUT	"Vesa"
+#define FALLBACK_OUTPUT	"x86_VGAText"
 #define DEFAULT_INPUT	"PS2Keyboard"
 #define	DEFAULT_WIDTH	640
 #define	DEFAULT_HEIGHT	480
@@ -108,7 +109,7 @@ const Uint16	caVT100Colours[] = {
 	};
 
 // === GLOBALS ===
-MODULE_DEFINE(0, VERSION, VTerm, VT_Install, NULL, DEFAULT_OUTPUT, DEFAULT_INPUT, NULL);
+MODULE_DEFINE(0, VERSION, VTerm, VT_Install, NULL, FALLBACK_OUTPUT, DEFAULT_INPUT, NULL);
 tDevFS_Driver	gVT_DrvInfo = {
 	NULL, "VTerm",
 	{
@@ -168,11 +169,11 @@ int VT_Install(char **Arguments)
 			Log_Debug("VTerm", "Argument '%s'", arg);
 			
 			if( strcmp(opt, "Video") == 0 ) {
-				if( !gsVT_OutputDevice && Modules_InitialiseBuiltin( val ) == 0 )
+				if( !gsVT_OutputDevice )
 					gsVT_OutputDevice = strdup(val);
 			}
 			else if( strcmp(opt, "Input") == 0 ) {
-				if( !gsVT_InputDevice && Modules_InitialiseBuiltin( val ) == 0 )
+				if( !gsVT_InputDevice )
 					gsVT_InputDevice = strdup(val);
 			}
 			else if( strcmp(opt, "Width") == 0 ) {
@@ -188,16 +189,21 @@ int VT_Install(char **Arguments)
 	}
 	
 	// Apply Defaults
-	if(!gsVT_OutputDevice)	gsVT_OutputDevice = strdup(DEFAULT_OUTPUT);
-	if(!gsVT_InputDevice)	gsVT_InputDevice = strdup(DEFAULT_INPUT);
+	if(!gsVT_OutputDevice)	gsVT_OutputDevice = (char*)DEFAULT_OUTPUT;
+	else if( Module_EnsureLoaded( gsVT_OutputDevice ) )	gsVT_OutputDevice = (char*)DEFAULT_OUTPUT;
+	if( Module_EnsureLoaded( gsVT_OutputDevice ) )	gsVT_OutputDevice = (char*)FALLBACK_OUTPUT;
 	
-	// Create paths
+	if(!gsVT_InputDevice)	gsVT_InputDevice = (char*)DEFAULT_INPUT;
+	else if( Module_EnsureLoaded( gsVT_InputDevice ) )	gsVT_InputDevice = (char*)DEFAULT_INPUT;
+	
+	// Create device paths
 	{
 		char	*tmp;
 		tmp = malloc( 9 + strlen(gsVT_OutputDevice) + 1 );
 		strcpy(tmp, "/Devices/");
 		strcpy(&tmp[9], gsVT_OutputDevice);
 		gsVT_OutputDevice = tmp;
+
 		tmp = malloc( 9 + strlen(gsVT_InputDevice) + 1 );
 		strcpy(tmp, "/Devices/");
 		strcpy(&tmp[9], gsVT_InputDevice);
@@ -244,7 +250,6 @@ int VT_Install(char **Arguments)
 	// Set kernel output to VT0
 	Debug_SetKTerminal("/Devices/VTerm/0");
 	
-	Log_Log("VTerm", "Returning %i", MODULE_ERR_OK);
 	return MODULE_ERR_OK;
 }
 
@@ -318,12 +323,15 @@ void VT_SetResolution(int Width, int Height)
 		// Resize the text terminals
 		giVT_RealWidth = mode.width;
 		giVT_RealHeight = mode.height;
+		Log_Debug("VTerm", "Resizing terminals to %ix%i",
+			giVT_RealWidth/giVT_CharWidth, giVT_RealHeight/giVT_CharHeight);
 		for( i = 0; i < NUM_VTS; i ++ )
 		{
 			if( gVT_Terminals[i].Mode != TERM_MODE_TEXT )	continue;
 			
 			gVT_Terminals[i].TextWidth = giVT_RealWidth/giVT_CharWidth;
 			gVT_Terminals[i].TextHeight = giVT_RealHeight/giVT_CharHeight;
+			gVT_Terminals[i].ScrollHeight = gVT_Terminals[i].TextHeight;
 			
 			gVT_Terminals[i].Text = realloc(
 				gVT_Terminals[i].Text,
@@ -1465,6 +1473,7 @@ void VT_int_ScrollFramebuffer( tVTerm *Term, int Count )
 	// BLIT to 0,0 from 0,giVT_CharHeight
 	buf.Op = VIDEO_2DOP_BLIT;
 	buf.SrcX = 0;	buf.DstX = 0;
+	// TODO: Don't assume character dimensions
 	buf.W = Term->TextWidth * giVT_CharWidth;
 	if( Count > 0 )
 	{

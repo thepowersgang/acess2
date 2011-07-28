@@ -26,7 +26,7 @@ Uint64 DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
 				" operation %i", op);
 		}
 		
-		if(op*4 > SizeofHandlers) {
+		if(op*sizeof(void*) > SizeofHandlers) {
 			Log_Warning("DrvUtil", "DrvUtil_Video_2DStream: Driver does"
 				" not support op %i", op);
 			return Length-rem;
@@ -49,7 +49,7 @@ Uint64 DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
 				Ent,
 				((Uint16*)stream)[0], ((Uint16*)stream)[1],
 				((Uint16*)stream)[2], ((Uint16*)stream)[3],
-				((Uint32*)stream)[4]
+				((Uint32*)stream)[2]
 				);
 			
 			rem -= 12;
@@ -72,7 +72,7 @@ Uint64 DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
 				((Uint16*)stream)[4], ((Uint16*)stream)[5]
 				);
 			
-			rem -= 16;
+			rem -= 12;
 			stream = (void*)((tVAddr)stream + 12);
 			break;
 		

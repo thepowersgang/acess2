@@ -13,12 +13,14 @@
  int	Module_int_Initialise(tModule *Module, const char *ArgString);
 void	Modules_int_GetBuiltinArray(void);
 void	Modules_LoadBuiltins(void);
-void	Modules_SetBuiltinParams(char *Name, char *ArgString);
+void	Modules_SetBuiltinParams(const char *Name, char *ArgString);
+ int	Modules_InitialiseBuiltin(const char *Name);
 // int	Module_RegisterLoader(tModuleLoader *Loader);
 // int	Module_LoadMem(void *Buffer, Uint Length, char *ArgString);
 // int	Module_LoadFile(char *Path, char *ArgString);
  int	Module_int_ResolveDeps(tModule *Info);
  int	Module_IsLoaded(const char *Name);
+// int	Module_EnsureLoaded(const char *Name);
 
 // === EXPORTS ===
 EXPORT(Module_RegisterLoader);
@@ -283,7 +285,7 @@ int Modules_InitialiseBuiltin(const char *Name)
 /**
  * \brief Sets the parameters for a builtin module
  */
-void Modules_SetBuiltinParams(char *Name, char *ArgString)
+void Modules_SetBuiltinParams(const char *Name, char *ArgString)
 {
 	 int	i;
 	
@@ -428,4 +430,20 @@ int Module_IsLoaded(const char *Name)
 	}
 	// not found - return false
 	return 0;
+}
+
+/**
+ * \brief Load a module if needed
+ */
+int Module_EnsureLoaded(const char *Name)
+{
+	if( Module_IsLoaded(Name) )
+		return 0;
+
+	if( Modules_InitialiseBuiltin(Name) == 0 )
+		return 0;
+
+	// TODO: Load from a file?
+
+	return -1;
 }
