@@ -150,8 +150,9 @@ int PCI_ScanBus(int BusID, int bFill)
 			if(devInfo.oc == PCI_OC_PCIBRIDGE)
 			{
 				#if LIST_DEVICES
-				Log_Log("PCI", "Bridge @ %i,%i:%i (0x%x:0x%x)",
-					BusID, dev, fcn, devInfo.vendor, devInfo.device);
+				if( !bFill )
+					Log_Log("PCI", "Bridge @ %i,%i:%i (0x%x:0x%x)",
+						BusID, dev, fcn, devInfo.vendor, devInfo.device);
 				#endif
 				//TODO: Handle PCI-PCI Bridges
 				//PCI_ScanBus(devInfo.???, bFill);
@@ -160,8 +161,9 @@ int PCI_ScanBus(int BusID, int bFill)
 			else
 			{
 				#if LIST_DEVICES
-				Log_Log("PCI", "Device %i,%i:%i %04x => 0x%04x:0x%04x",
-					BusID, dev, fcn, devInfo.oc, devInfo.vendor, devInfo.device);
+				if( !bFill )
+					Log_Log("PCI", "Device %i,%i:%i %04x => 0x%04x:0x%04x",
+						BusID, dev, fcn, devInfo.oc, devInfo.vendor, devInfo.device);
 				#endif
 			}
 			
