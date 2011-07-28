@@ -18,11 +18,14 @@ Uint64	VGA_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
 Uint8	VGA_int_GetColourNibble(Uint16 col);
 Uint16	VGA_int_GetWord(tVT_Char *Char);
 void	VGA_int_SetCursor(Sint16 x, Sint16 y);
+// --- 2D Acceleration Functions --
+void	VGA_2D_Fill(void *Ent, Uint16 X, Uint16 Y, Uint16 W, Uint16 H, Uint32 Colour);
+void	VGA_2D_Blit(void *Ent, Uint16 DstX, Uint16 DstY, Uint16 SrcX, Uint16 SrcY, Uint16 W, Uint16 H);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, 0x000A, x86_VGAText, VGA_Install, NULL, NULL);
 tDevFS_Driver	gVGA_DevInfo = {
-	NULL, "VGA",
+	NULL, "x86_VGAText",
 	{
 	.NumACLs = 0,
 	.Size = VGA_WIDTH*VGA_HEIGHT*sizeof(tVT_Char),
@@ -32,6 +35,12 @@ tDevFS_Driver	gVGA_DevInfo = {
 	}
 };
 Uint16	*gVGA_Framebuffer = (void*)( KERNEL_BASE|0xB8000 );
+ int	giVGA_BufferFormat = VIDEO_BUFFMT_TEXT;
+tDrvUtil_Video_2DHandlers	gVGA_2DFunctions = {
+	NULL,
+	VGA_2D_Fill,
+	VGA_2D_Blit
+};
 
 // === CODE ===
 /**
@@ -61,31 +70,43 @@ int VGA_Install(char **Arguments)
  */
 Uint64 VGA_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 {
-	 int	num = Length / sizeof(tVT_Char);
-	 int	ofs = Offset / sizeof(tVT_Char);
-	 int	i = 0;
-	tVT_Char	*chars = Buffer;
-	Uint16	word;
-	
-	//ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
-	
-	for( ; num--; i ++, ofs ++)
+	if( giVGA_BufferFormat == VIDEO_BUFFMT_TEXT )
 	{
-		word = VGA_int_GetWord( &chars[i] );
-		gVGA_Framebuffer[ ofs ] = word;
+		 int	num = Length / sizeof(tVT_Char);
+		 int	ofs = Offset / sizeof(tVT_Char);
+		 int	i = 0;
+		tVT_Char	*chars = Buffer;
+		Uint16	word;
+		
+		//ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
+		
+		for( ; num--; i ++, ofs ++)
+		{
+			word = VGA_int_GetWord( &chars[i] );
+			gVGA_Framebuffer[ ofs ] = word;
+		}
+		
+		//LEAVE('X', Length);
+		return Length;
 	}
-	
-	//LEAVE('X', Length);
-	return Length;
+	else if( giVGA_BufferFormat == VIDEO_BUFFMT_2DSTREAM )
+	{
+		return DrvUtil_Video_2DStream(NULL, Buffer, Length, &gVGA_2DFunctions, sizeof(gVGA_2DFunctions));
+	}
+	else
+	{
+		return 0;
+	}
 }
 
 /**
  * \fn int VGA_IOCtl(tVFS_Node *Node, int Id, void *Data)
  * \brief IO Control Call
  */
-int VGA_IOCtl(tVFS_Node *Node, int Id, void *Data)
+int VGA_IOCtl(tVFS_Node *Node, int ID, void *Data)
 {
-	switch(Id)
+	 int	rv;
+	switch(ID)
 	{
 	case DRV_IOCTL_TYPE:	return DRV_TYPE_VIDEO;
 	case DRV_IOCTL_IDENT:	memcpy(Data, "VGA\0", 4);	return 1;
@@ -93,16 +114,31 @@ int VGA_IOCtl(tVFS_Node *Node, int Id, void *Data)
 	case DRV_IOCTL_LOOKUP:	return 0;
 	
 	case VIDEO_IOCTL_GETSETMODE:	return 0;	// Mode 0 only
-	case VIDEO_IOCTL_FINDMODE:	return 0;	// Text Only!
+	case VIDEO_IOCTL_FINDMODE:
+		if( !CheckMem(Data, sizeof(tVideo_IOCtl_Mode)) )	return -1;
+		((tVideo_IOCtl_Mode*)Data)->id = 0;	// Text Only!
 	case VIDEO_IOCTL_MODEINFO:
+		if( !CheckMem(Data, sizeof(tVideo_IOCtl_Mode)) )	return -1;
 		if( ((tVideo_IOCtl_Mode*)Data)->id != 0)	return 0;
-		((tVideo_IOCtl_Mode*)Data)->width = VGA_WIDTH;
-		((tVideo_IOCtl_Mode*)Data)->height = VGA_HEIGHT;
+		((tVideo_IOCtl_Mode*)Data)->width = VGA_WIDTH*giVT_CharWidth;
+		((tVideo_IOCtl_Mode*)Data)->height = VGA_HEIGHT*giVT_CharHeight;
 		((tVideo_IOCtl_Mode*)Data)->bpp = 4;
 		return 1;
 	
 	case VIDEO_IOCTL_SETBUFFORMAT:
-		return 0;
+		if( !CheckMem(Data, sizeof(int)) )	return -1;
+		switch( *(int*)Data )
+		{
+		case VIDEO_BUFFMT_TEXT:
+		case VIDEO_BUFFMT_2DSTREAM:
+			rv = giVGA_BufferFormat;
+			giVGA_BufferFormat = *(int*)Data;
+//			Log_Debug("VGA", "Buffer format set to %i", giVGA_BufferFormat);
+			return rv;
+		default:
+			break;
+		}
+		return -1;
 	
 	case VIDEO_IOCTL_SETCURSOR:
 		VGA_int_SetCursor( ((tVideo_IOCtl_Pos*)Data)->x, ((tVideo_IOCtl_Pos*)Data)->y );
@@ -198,4 +234,74 @@ void VGA_int_SetCursor(Sint16 x, Sint16 y)
     outb(0x3D5, pos >> 8);
     outb(0x3D4, 15);
     outb(0x3D5, pos);
+}
+
+void VGA_2D_Fill(void *Ent, Uint16 X, Uint16 Y, Uint16 W, Uint16 H, Uint32 Colour)
+{
+	tVT_Char	ch;
+	Uint16	word, *buf;
+
+	X /= giVT_CharWidth;
+	W /= giVT_CharWidth;
+	Y /= giVT_CharHeight;
+	H /= giVT_CharHeight;
+
+	if( X > VGA_WIDTH || Y > VGA_HEIGHT )	return ;
+	if( X + W > VGA_WIDTH )	W = VGA_WIDTH - X;
+	if( Y + H > VGA_HEIGHT )	H = VGA_HEIGHT - Y;
+
+	ch.Ch = 0x20;
+	ch.BGCol  = (Colour & 0x0F0000) >> (16-8);
+	ch.BGCol |= (Colour & 0x000F00) >> (8-4);
+	ch.BGCol |= (Colour & 0x00000F);
+
+	buf = gVGA_Framebuffer + Y*VGA_WIDTH + X;
+
+	word = VGA_int_GetWord(&ch);
+	
+	while( H -- ) {
+		 int	i;
+		for( i = 0; i < W; i ++ )
+			*buf++ = word;
+		buf += VGA_WIDTH - W;
+	}
+}
+
+void VGA_2D_Blit(void *Ent, Uint16 DstX, Uint16 DstY, Uint16 SrcX, Uint16 SrcY, Uint16 W, Uint16 H)
+{
+	Uint16	*src, *dst;
+
+	DstX /= giVT_CharWidth;
+	SrcX /= giVT_CharWidth;
+	W /= giVT_CharWidth;
+
+	DstY /= giVT_CharHeight;
+	SrcY /= giVT_CharHeight;
+	H /= giVT_CharHeight;
+
+//	Log("(%i,%i) from (%i,%i) %ix%i", DstX, DstY, SrcX, SrcY, W, H);
+
+	src = gVGA_Framebuffer + SrcY*VGA_WIDTH + SrcX;
+	dst = gVGA_Framebuffer + DstY*VGA_WIDTH + DstX;
+
+	if( src > dst )
+	{
+		// Simple copy
+		while( H-- ) {
+			memcpy(dst, src, W*2);
+			dst += VGA_WIDTH;
+			src += VGA_WIDTH;
+		}
+	}
+	else
+	{
+		dst += H*VGA_WIDTH;
+		src += H*VGA_WIDTH;
+		while( H -- ) {
+			 int	i;
+			dst -= VGA_WIDTH-W;
+			src -= VGA_WIDTH-W;
+			for( i = W; i --; )	*--dst = *--src;
+		}
+	}
 }
