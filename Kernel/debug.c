@@ -12,7 +12,7 @@
 #define	LOCK_DEBUG_OUTPUT	1
 
 // === IMPORTS ===
-extern void Threads_Dump(void);
+extern void	Threads_Dump(void);
 extern void	KernelPanic_SetMode(void);
 extern void	KernelPanic_PutChar(char Ch);
 

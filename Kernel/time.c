@@ -84,9 +84,9 @@ void Time_RemoveTimer(int ID)
  */
 void Time_Delay(int Delay)
 {
-	Sint64	dest = giTimestamp + Delay;
+	Sint64	dest = now() + Delay;
 	//Log("Time_Delay: dest = %lli", dest);
-	while(dest > giTimestamp)	Threads_Yield();
+	while(dest > now())	Threads_Yield();
 	//Log("Time_Delay: giTimestamp = %lli", giTimestamp);
 }
 

@@ -154,6 +154,7 @@ IRQ_AddHandler:
 	; RDI - IRQ Number
 	; RSI - Callback
 	
+	; Check for RDI >= 16
 	cmp rdi, 16
 	jb .numOK
 	xor rax, rax
@@ -161,10 +162,10 @@ IRQ_AddHandler:
 	jmp .ret
 .numOK:
 
-	mov rax, rdi
-	shr rax, 3+2
+	; Get handler base into RAX
+	lea rax, [rdi*4]
 	mov rcx, gaIRQ_Handlers
-	add rax, rcx
+	lea rax, [rcx+rax*8]
 	
 	; Find a free callback slot
 	%rep NUM_IRQ_CALLBACKS
@@ -196,6 +197,7 @@ IRQ_AddHandler:
 	pop rsi
 	pop rdi
 
+	; Assign and return
 	mov [rax], rsi
 	xor rax, rax
 
@@ -292,12 +294,14 @@ IrqCommon:
 	push gs
 	push fs
 	
-	mov rbx, [rsp+(16+2)*8]	; Calculate address
-	shr rbx, 3+2	; *8*4
+	mov rbx, [rsp+(16+2)*8]	; Get interrupt number (16 GPRS + 2 SRs)
+;	xchg bx, bx	; Bochs Magic break (NOTE: will clear the high-bits of RBX)
+	shl rbx, 2	; *8*4
 	mov rax, gaIRQ_Handlers
-	add rbx, rax
+	lea rbx, [rax+rbx*8]
 	
 	; Check all callbacks
+	sub rsp, 8	; Shadow of argument
 	%assign i 0
 	%rep NUM_IRQ_CALLBACKS
 	; Get callback address
@@ -305,17 +309,18 @@ IrqCommon:
 	test rax, rax	; Check if it exists
 	jz .skip.%[i]
 	; Set RDI to IRQ number
-	mov rdi, [rsp+16*8]	; Get IRQ number
+	mov rdi, [rsp+(16+2+1)*8]	; Get IRQ number
 	call rax	; Call
 .skip.%[i]:
 	add rbx, 8	; Next!
 	%assign i i+1
 	%endrep
+	add rsp, 8
 	
 	; ACK
+	mov al, 0x20
 	mov rdi, [rsp+16*8]	; Get IRQ number
 	cmp rdi, 8
-	mov al, 0x20
 	jb .skipAckSecondary
 	mov dx, 0x00A0
 	out dx, al

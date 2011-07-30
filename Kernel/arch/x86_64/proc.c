@@ -12,14 +12,13 @@
 #if USE_MP
 # include <mp.h>
 #endif
+#include <arch_config.h>
 
 // === FLAGS ===
 #define DEBUG_TRACE_SWITCH	0
 
 // === CONSTANTS ===
 #define	SWITCH_MAGIC	0x55ECAFFF##FFFACE55	// There is no code in this area
-// Base is 1193182
-#define TIMER_DIVISOR	11931	//~100Hz
 
 // === TYPES ===
 typedef struct sCPU
@@ -46,6 +45,7 @@ extern tThread	gThreadZero;
 extern void	Threads_Dump(void);
 extern void	Proc_ReturnToUser(void);
 extern int	GetCPUNum(void);
+extern void	Time_UpdateTimestamp(void);
 
 // === PROTOTYPES ===
 void	ArchThreads_Init(void);
@@ -304,8 +304,8 @@ void ArchThreads_Init(void)
 	
 	// Set timer frequency
 	outb(0x43, 0x34);	// Set Channel 0, Low/High, Rate Generator
-	outb(0x40, TIMER_DIVISOR&0xFF);	// Low Byte of Divisor
-	outb(0x40, (TIMER_DIVISOR>>8)&0xFF);	// High Byte
+	outb(0x40, PIT_TIMER_DIVISOR&0xFF);	// Low Byte of Divisor
+	outb(0x40, (PIT_TIMER_DIVISOR>>8)&0xFF);	// High Byte
 	
 	// Create Per-Process Data Block
 	if( !MM_Allocate(MM_PPD_CFG) )
@@ -541,6 +541,7 @@ int Proc_Clone(Uint *Err, Uint Flags)
 	rip = GetRIP();
 	if(rip == SWITCH_MAGIC) {
 		outb(0x20, 0x20);	// ACK Timer and return as child
+		__asm__ __volatile__ ("sti");
 		return 0;
 	}
 	
@@ -589,6 +590,7 @@ int Proc_SpawnWorker(void)
 	rip = GetRIP();
 	if(rip == SWITCH_MAGIC) {
 		outb(0x20, 0x20);	// ACK Timer and return as child
+		__asm__ __volatile__ ("sti");
 		return 0;
 	}
 	
@@ -753,6 +755,9 @@ void Proc_Scheduler(int CPU)
 {
 	Uint	rsp, rbp, rip;
 	tThread	*thread;
+
+	if( CPU == 0 )
+		Time_UpdateTimestamp();
 	
 	// If the spinlock is set, let it complete
 	if(IS_LOCKED(&glThreadListLock))	return;

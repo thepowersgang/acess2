@@ -246,18 +246,20 @@ void VGA_2D_Fill(void *Ent, Uint16 X, Uint16 Y, Uint16 W, Uint16 H, Uint32 Colou
 	Y /= giVT_CharHeight;
 	H /= giVT_CharHeight;
 
-	if( X > VGA_WIDTH || Y > VGA_HEIGHT )	return ;
-	if( X + W > VGA_WIDTH )	W = VGA_WIDTH - X;
-	if( Y + H > VGA_HEIGHT )	H = VGA_HEIGHT - Y;
-
 	ch.Ch = 0x20;
 	ch.BGCol  = (Colour & 0x0F0000) >> (16-8);
 	ch.BGCol |= (Colour & 0x000F00) >> (8-4);
 	ch.BGCol |= (Colour & 0x00000F);
+	word = VGA_int_GetWord(&ch);
+
+	Log("Fill (%i,%i) %ix%i with 0x%x", X, Y, W, H, word);
+
+	if( X > VGA_WIDTH || Y > VGA_HEIGHT )	return ;
+	if( X + W > VGA_WIDTH )	W = VGA_WIDTH - X;
+	if( Y + H > VGA_HEIGHT )	H = VGA_HEIGHT - Y;
 
 	buf = gVGA_Framebuffer + Y*VGA_WIDTH + X;
 
-	word = VGA_int_GetWord(&ch);
 	
 	while( H -- ) {
 		 int	i;
@@ -280,6 +282,14 @@ void VGA_2D_Blit(void *Ent, Uint16 DstX, Uint16 DstY, Uint16 SrcX, Uint16 SrcY, 
 	H /= giVT_CharHeight;
 
 //	Log("(%i,%i) from (%i,%i) %ix%i", DstX, DstY, SrcX, SrcY, W, H);
+
+	if( SrcX > VGA_WIDTH || SrcY > VGA_HEIGHT )	return ;
+	if( SrcX + W > VGA_WIDTH )	W = VGA_WIDTH - SrcX;
+	if( SrcY + H > VGA_HEIGHT )	H = VGA_HEIGHT - SrcY;
+	if( DstX > VGA_WIDTH || DstY > VGA_HEIGHT )	return ;
+	if( DstX + W > VGA_WIDTH )	W = VGA_WIDTH - DstX;
+	if( DstY + H > VGA_HEIGHT )	H = VGA_HEIGHT - DstY;
+
 
 	src = gVGA_Framebuffer + SrcY*VGA_WIDTH + SrcX;
 	dst = gVGA_Framebuffer + DstY*VGA_WIDTH + DstX;

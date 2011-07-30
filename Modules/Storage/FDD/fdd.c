@@ -114,6 +114,7 @@ void	FDD_SensInt(int base, Uint8 *sr0, Uint8 *cyl);
  int	FDD_int_GetByte(int base, Uint8 *Byte);
  int	FDD_Reset(int id);
 void	FDD_Recalibrate(int disk);
+ int	FDD_Reconfigure(int ID);
  int	FDD_int_SeekTrack(int disk, int head, int track);
 void	FDD_int_TimerCallback(void *Arg);
 void	FDD_int_StopMotor(void *Arg);
@@ -172,6 +173,21 @@ int FDD_Install(char **Arguments)
 	
 	// Install IRQ6 Handler
 	IRQ_AddHandler(6, FDD_IRQHandler);
+
+	// Ensure the FDD version is 0x90
+	{
+		Uint8	tmp;
+		FDD_int_SendByte(cPORTBASE[0], CMD_VERSION);
+		FDD_int_GetByte(cPORTBASE[0], &tmp);
+		if( tmp != 0x90 ) {
+			Log_Error("FDD", "Version(0x%2x) != 0x90", tmp);
+			return MODULE_ERR_NOTNEEDED;
+		}
+	}
+
+	// Configure
+	FDD_Reconfigure(0);
+
 	// Reset Primary FDD Controller
 	if( FDD_Reset(0) != 0 ) {
 		return MODULE_ERR_MISC;
@@ -591,7 +607,8 @@ int FDD_int_SeekTrack(int disk, int head, int track)
 	
 	// Set Track in structure
 	gFDD_Devices[disk].track[head] = track;
-	
+
+	LOG("Time_Delay(100)");	
 	// Wait for Head to settle
 	Time_Delay(100);
 	
@@ -793,38 +810,42 @@ int FDD_Reset(int id)
 	outb(base + PORT_DIGOUTPUT, 0);	// Disable FDC
 	// Wait 4 microseconds - or use 1 thread delay
 	Threads_Yield();
-	outb(base + PORT_DIGOUTPUT, 0x0C);	// Re-enable FDC (DMA and Enable)
-	
-	LOG("Awaiting IRQ");
-	
-	FDD_WaitIRQ();
-	FDD_SensInt(base, NULL, NULL);
-	FDD_SensInt(base, NULL, NULL);
-	FDD_SensInt(base, NULL, NULL);
-	FDD_SensInt(base, NULL, NULL);
+	Threads_Yield();
+	outb(base + PORT_DIGOUTPUT, 8|4);	// Re-enable FDC (DMA and Enable)
 	
 	// Set the data rate
 	outb(base + PORT_DATARATE, 0);	// Set data rate to 500K/s
 
-	// Configure
+	// Wait for IRQ
+	LOG("Awaiting IRQ");
+	
+	FDD_WaitIRQ();
+	LOG("4x SenseInterrupt");
+	FDD_SensInt(base, NULL, NULL);
+	FDD_SensInt(base, NULL, NULL);
+	FDD_SensInt(base, NULL, NULL);
+	FDD_SensInt(base, NULL, NULL);
+	
+	// Specify
 	FDD_int_SendByte(base, CMD_SPECIFY);	// Step and Head Load Times
 	FDD_int_SendByte(base, 0xDF);	// Step Rate Time, Head Unload Time (Nibble each)
 	FDD_int_SendByte(base, 0x02);	// Head Load Time >> 1
 
+	// Recalibrate disks
+	LOG("Recalibrate disks (16x seek)");
 	retries = 16;
 	while(FDD_int_SeekTrack(0, 0, 1) == 0 && retries --);	// set track
-	if(retries < 0)	return -1;
+	if(retries < 0)	LEAVE_RET('i', -1);
 
 	retries = 16;
-	while(FDD_int_SeekTrack(0, 1, 1) == 0);	// set track
-	if(retries < 0)	return -1;
+	while(FDD_int_SeekTrack(0, 1, 1) == 0 && retries --);	// set track
+	if(retries < 0)	LEAVE_RET('i', -1);
 	
 	LOG("Recalibrating Disk");
 	FDD_Recalibrate((id<<1)|0);
 	FDD_Recalibrate((id<<1)|1);
 
-	LEAVE('i',0);
-	return 0;
+	LEAVE_RET('i', 0);
 }
 
 /**

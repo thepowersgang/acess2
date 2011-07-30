@@ -353,7 +353,8 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	
 	// HACK: Ensure the PRDT is reset
 	ATA_int_BusMasterWriteDWord(cont*8+4, gaATA_PRDT_PAddrs[cont]);
-		
+	ATA_int_BusMasterWriteByte(cont*8, 4);	// Reset IRQ
+	
 	LOG("gATA_PRDTs[%i].Bytes = %i", cont, gATA_PRDTs[cont].Bytes);
 	if( Address > 0x0FFFFFFF )
 		outb(base+0x07, HDD_DMA_R48);	// Read Command (LBA48)
