@@ -137,6 +137,13 @@ int RTL8139_Install(char **Options)
 	{
 		card = &gaRTL8139_Cards[i];
 		base = PCI_GetBAR( id, 0 );
+		if( !(base & 1) ) {
+			Log_Warning("RTL8139", "Driver does not support MMIO, skipping card");
+			card->IOBase = 0;
+			card->IRQ = 0;
+			continue ;
+		}
+		base &= ~1;
 		card->IOBase = base;
 		card->IRQ = PCI_GetIRQ( id );
 		
@@ -316,9 +323,10 @@ Uint64 RTL8139_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer
 	LOG("td = %i", td);
 	
 	// Transmit using descriptor `td`
+	LOG("card->PhysTransmitBuffers[td] = %P", card->PhysTransmitBuffers[td]);
 	card->TransmitInUse |= (1 << td);
 	outd(card->IOBase + TSAD0 + td*4, card->PhysTransmitBuffers[td]);
-	LOG("card->PhysTransmitBuffers[td] = 0x%llx", card->PhysTransmitBuffers[td]);
+	LOG("card->TransmitBuffers[td] = %p", card->TransmitBuffers[td]);
 	// Copy to buffer
 	memcpy(card->TransmitBuffers[td], Buffer, Length);
 	// Start
@@ -363,6 +371,8 @@ void RTL8139_IRQHandler(int Num)
 	 int	i, j;
 	tCard	*card;
 	Uint16	status;
+
+	LOG("Num = %i", Num);
 	
 	for( i = 0; i < giRTL8139_CardCount; i ++ )
 	{
