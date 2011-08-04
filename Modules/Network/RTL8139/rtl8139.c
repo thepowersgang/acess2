@@ -80,8 +80,9 @@ typedef struct sCard
 	
 	char	*TransmitBuffers[4];
 	tPAddr	PhysTransmitBuffers[4];
-	BOOL	TransmitInUse;	// Flags for each transmit descriptor
-	 int	CurTXDecscriptor;
+	tMutex	TransmitInUse[4];
+	tMutex	CurTXProtector;	//!< Protects \a .CurTXDescriptor
+	 int	CurTXDescriptor;
 	
 	char	Name[2];
 	tVFS_Node	Node;
@@ -313,18 +314,20 @@ Uint64 RTL8139_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer
 	ENTER("pNode XLength pBuffer", Node, Length, Buffer);
 	
 	// TODO: Implement a semaphore for avaliable transmit buffers
-	
-	td = card->CurTXDecscriptor;
-	
+
 	// Find an avaliable descriptor
-	while( card->TransmitInUse & (1 << td) )
-		Threads_Yield();
+	Mutex_Acquire(&card->CurTXProtector);
+	td = card->CurTXDescriptor;
+	card->CurTXDescriptor ++;
+	card->CurTXDescriptor %= 4;
+	Mutex_Release(&card->CurTXProtector);
+	// - Lock it
+	Mutex_Acquire( &card->TransmitInUse[td] );
 	
 	LOG("td = %i", td);
 	
 	// Transmit using descriptor `td`
 	LOG("card->PhysTransmitBuffers[td] = %P", card->PhysTransmitBuffers[td]);
-	card->TransmitInUse |= (1 << td);
 	outd(card->IOBase + TSAD0 + td*4, card->PhysTransmitBuffers[td]);
 	LOG("card->TransmitBuffers[td] = %p", card->TransmitBuffers[td]);
 	// Copy to buffer
@@ -336,9 +339,6 @@ Uint64 RTL8139_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer
 	status |= (0 & 0x3F) << 16;	// 16-21: Early TX threshold (zero atm, TODO: check)
 	LOG("status = 0x%08x", status);
 	outd(card->IOBase + TSD0 + td*4, status);
-	
-	card->CurTXDecscriptor ++;
-	card->CurTXDecscriptor %= 4;
 	
 	LEAVE('i', (int)Length);
 	
@@ -388,7 +388,7 @@ void RTL8139_IRQHandler(int Num)
 			for( j = 0; j < 4; j ++ )
 			{
 				if( ind(card->IOBase + TSD0 + j*4) & 0x8000 ) {	// TSD TOK
-					card->TransmitInUse &= ~(1 << j);
+					Mutex_Release( &card->TransmitInUse[j] );
 					// TODO: Update semaphore once implemented
 				}
 			}
