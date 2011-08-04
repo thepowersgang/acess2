@@ -46,7 +46,7 @@ struct sIPv4Header
 
 // === FUNCTIONS ===
 extern int	IPv4_RegisterCallback(int ID, tIPCallback Callback);
-extern Uint16	IPv4_Checksum(const void *Buf, int Size);
+extern Uint16	IPv4_Checksum(const Uint16 *Buf, int WordCount);
 extern int	IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, int Length, const void *Data);
 
 #endif

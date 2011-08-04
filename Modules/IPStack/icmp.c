@@ -81,7 +81,7 @@ void ICMP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buff
 		//Log_Debug("ICMPv4", "Replying");
 		hdr->Type = ICMP_ECHOREPLY;
 		hdr->Checksum = 0;
-		hdr->Checksum = htons( IPv4_Checksum(hdr, Length) );
+		hdr->Checksum = htons( IPv4_Checksum( (Uint16*)hdr, Length/2 ) );
 		//Log_Debug("ICMPv4", "Checksum = 0x%04x", hdr->Checksum);
 		IPv4_SendPacket(Interface, *(tIPv4*)Address, 1, ntohs(hdr->Sequence), Length, hdr);
 		break;
@@ -117,7 +117,7 @@ int ICMP_Ping(tInterface *Interface, tIPv4 Addr)
 	gICMP_PingSlots[i].bArrived = 0;
 	hdr->ID = i;
 	hdr->Sequence = ~i;
-	hdr->Checksum = htons( IPv4_Checksum(hdr, sizeof(buf)) );
+	hdr->Checksum = htons( IPv4_Checksum((Uint16*)hdr, sizeof(buf)/2) );
 	
 	ts = now();
 	

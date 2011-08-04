@@ -92,7 +92,7 @@ void TCP_SendPacket( tTCPConnection *Conn, size_t Length, tTCPHeader *Data )
 		memcpy( &buf[3], Data, Length );
 		if(Length & 1)
 			((Uint8*)buf)[12+Length] = 0;
-		Data->Checksum = htons( IPv4_Checksum( buf, buflen ) );
+		Data->Checksum = htons( IPv4_Checksum( (Uint16*)buf, buflen/2 ) );
 		free(buf);
 		IPv4_SendPacket(Conn->Interface, Conn->RemoteIP.v4, IP4PROT_TCP, 0, Length, Data);
 		break;
@@ -137,7 +137,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 	{
 		Log_Log("TCP", "TCP_GetPacket: SequenceNumber = 0x%x", ntohl(hdr->SequenceNumber));
 		Debug_HexDump(
-			"[TCP  ] Packet Data = ",
+			"TCP_GetPacket: Packet Data = ",
 			(Uint8*)hdr + (hdr->DataOffset >> 4)*4,
 			Length - (hdr->DataOffset >> 4)*4
 			);
@@ -1076,8 +1076,7 @@ void TCP_INT_SendDataPacket(tTCPConnection *Connection, size_t Length, void *Dat
 	memcpy(packet->Options, Data, Length);
 	
 	Log_Debug("TCP", "Send sequence 0x%08x", Connection->NextSequenceSend);
-	Debug_HexDump("[TCP     ] TCP_INT_SendDataPacket: Data = ",
-		Data, Length);
+	Debug_HexDump("TCP_INT_SendDataPacket: Data = ", Data, Length);
 	
 	TCP_SendPacket( Connection, sizeof(tTCPHeader)+Length, packet );
 	
