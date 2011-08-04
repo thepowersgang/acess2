@@ -90,6 +90,8 @@ void TCP_SendPacket( tTCPConnection *Conn, size_t Length, tTCPHeader *Data )
 		buf[2] = (htons(Length)<<16) | (6<<8) | 0;
 		Data->Checksum = 0;
 		memcpy( &buf[3], Data, Length );
+		if(Length & 1)
+			((Uint8*)buf)[12+Length] = 0;
 		Data->Checksum = htons( IPv4_Checksum( buf, buflen ) );
 		free(buf);
 		IPv4_SendPacket(Conn->Interface, Conn->RemoteIP.v4, IP4PROT_TCP, 0, Length, Data);

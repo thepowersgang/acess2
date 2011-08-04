@@ -129,5 +129,5 @@ int ICMP_Ping(tInterface *Interface, tIPv4 Addr)
 	if(now() > end)
 		return -1;
 	
-	return (int)ts;
+	return (int)( now() - ts );
 }

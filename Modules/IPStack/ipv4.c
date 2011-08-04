@@ -317,12 +317,15 @@ Uint16 IPv4_Checksum(const void *Buf, int Size)
 	const Uint16	*arr = Buf;
 	 int	i;
 	
-	Size = (Size + 1) >> 1;	// 16-bit word count
-	for(i = 0; i < Size; i++ )
+	// Sum all whole words
+	for(i = 0; i < Size/2; i++ )
 	{
 		Uint16	val = ntohs(arr[i]);
 		sum += val;
 	}
+	// Add the tail word
+//	if( i*2 != Size )
+//		sum += arr[i]&0xFF;
 	
 	// Apply one's complement
 	while (sum >> 16)
