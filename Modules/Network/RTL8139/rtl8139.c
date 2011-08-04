@@ -161,7 +161,7 @@ int RTL8139_Install(char **Options)
 		// Set up recieve buffer
 		// - Allocate 3 pages below 4GiB for the recieve buffer (Allows 8k+16+1500)
 		card->ReceiveBuffer = (void*)MM_AllocDMA( 3, 32, &card->PhysReceiveBuffer );
-		card->ReceiveBufferLength = 8*1024+16;
+		card->ReceiveBufferLength = 8*1024;
 		outd(base + RBSTART, (Uint32)card->PhysReceiveBuffer);
 		outd(base + CBA, 0);
 		outd(base + CAPR, 0);
@@ -184,10 +184,10 @@ int RTL8139_Install(char **Options)
 		outd(base + TSAD3, card->PhysTransmitBuffers[3]);
 		
 		// Set recieve buffer size and recieve mask
-		// - Bit 7 being unset tells the card to overflow the recieve buffer if needed
+		// - Bit 7 being set tells the card to overflow the recieve buffer if needed
 		//   (i.e. when the packet starts at the end of the bufffer, it overflows up
 		//    to 1500 bytes)
-		outd(base + RCR, 0x0F);
+		outd(base + RCR, 0x8F);
 	
 		// Recive Enable and Transmit Enable	
 		outb(base + CMD, 0x0C);
@@ -270,7 +270,9 @@ retry:
 	
 	Mutex_Acquire( &card->ReadMutex );
 	
-	read_ofs = (inw( card->IOBase + CAPR ) + 0x10) & 0xFFFF;
+	read_ofs = inw( card->IOBase + CAPR );
+	LOG("raw read_ofs = %i", read_ofs);
+	read_ofs = (read_ofs + 0x10) & 0xFFFF;
 	LOG("read_ofs = %i", read_ofs);
 	
 	pkt_length = *(Uint16*)&card->ReceiveBuffer[read_ofs+2];
@@ -278,13 +280,17 @@ retry:
 	// Calculate new read offset
 	new_read_ofs = read_ofs + pkt_length + 4;
 	new_read_ofs = (new_read_ofs + 3) & ~3;	// Align
-	if(new_read_ofs > card->ReceiveBufferLength)	new_read_ofs = 0;
+	if(new_read_ofs > card->ReceiveBufferLength) {
+		LOG("wrapping read_ofs");
+		new_read_ofs -= card->ReceiveBufferLength;
+	}
 	new_read_ofs -= 0x10;	// I dunno
+	LOG("new_read_ofs = %i", new_read_ofs);
 	
 	// Check for errors
 	if( *(Uint16*)&card->ReceiveBuffer[read_ofs] & 0x1E ) {
 		// Update CAPR
-		outd(card->IOBase + CAPR, new_read_ofs);
+		outw(card->IOBase + CAPR, new_read_ofs);
 		Mutex_Release( &card->ReadMutex );
 		goto retry;	// I feel evil
 	}
@@ -400,6 +406,7 @@ void RTL8139_IRQHandler(int Num)
 		{
 			 int	read_ofs, end_ofs;
 			 int	packet_count = 0;
+			 int	len;
 			
 			// Scan recieve buffer for packets
 			end_ofs = inw(card->IOBase + CBA);
@@ -410,27 +417,35 @@ void RTL8139_IRQHandler(int Num)
 				while( read_ofs < card->ReceiveBufferLength )
 				{
 					packet_count ++;
+					len = *(Uint16*)&card->ReceiveBuffer[read_ofs+2];
 					LOG("%i 0x%x Pkt Hdr: 0x%04x, len: 0x%04x",
 						packet_count, read_ofs,
 						*(Uint16*)&card->ReceiveBuffer[read_ofs],
-						*(Uint16*)&card->ReceiveBuffer[read_ofs+2]
+						len
 						);
-					read_ofs += *(Uint16*)&card->ReceiveBuffer[read_ofs+2] + 4;
+					if(len > 2000) {
+						Log_Warning("RTL8139", "IRQ: Packet in buffer exceeds sanity (%i>2000)", len);
+					}
+					read_ofs += len + 4;
 					read_ofs = (read_ofs + 3) & ~3;	// Align
-					
 				}
-				read_ofs = 0;
+				read_ofs -= card->ReceiveBufferLength;
+				LOG("wrapped read_ofs");
 			}
 			while( read_ofs < end_ofs )
 			{
+				packet_count ++;
 				LOG("%i 0x%x Pkt Hdr: 0x%04x, len: 0x%04x",
 					packet_count, read_ofs,
 					*(Uint16*)&card->ReceiveBuffer[read_ofs],
 					*(Uint16*)&card->ReceiveBuffer[read_ofs+2]
 					);
-				packet_count ++;
 				read_ofs += *(Uint16*)&card->ReceiveBuffer[read_ofs+2] + 4;
 				read_ofs = (read_ofs + 3) & ~3;	// Align
+			}
+			if( read_ofs != end_ofs ) {
+				Log_Warning("RTL8139", "IRQ: read_ofs (%i) != end_ofs(%i)", read_ofs, end_ofs);
+				read_ofs = end_ofs;
 			}
 			card->SeenOfs = read_ofs;
 			
