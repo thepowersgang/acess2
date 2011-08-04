@@ -116,6 +116,7 @@ int main(int argc, const char *argv[], const char *envp[])
 	// HACK: Static server entry
 	// UCC (University [of Western Australia] Computer Club) IRC Server
 	gWindow_Status.Server = Server_Connect( "UCC", "130.95.13.18", 6667 );
+//	gWindow_Status.Server = Server_Connect( "Freenode", "89.16.176.16", 6667 );
 //	gWindow_Status.Server = Server_Connect( "Host", "10.0.2.2", 6667 );
 //	gWindow_Status.Server = Server_Connect( "BitlBee", "192.168.1.34", 6667 );
 	
@@ -426,8 +427,17 @@ tMessage *Message_Append(tServer *Server, int Type, const char *Source, const ch
 		int pos = SetCursorPos(giTerminal_Height-2, 0);
 		#if 1
 		if( win == gpCurrentWindow ) {
+			 int	prefixlen = strlen(Source) + 3;
+			 int	avail = giTerminal_Width - prefixlen;
+			 int	msglen = strlen(Message);
 			printf("\x1B[T");	// Scroll down 1 (free space below)
-			printf("[%s] %s\n", Source, Message);
+			printf("[%s] %.*s\n", Source, avail, Message);
+			while( msglen > avail ) {
+				msglen -= avail;
+				printf("\x1B[T");
+				SetCursorPos(giTerminal_Height-2, prefixlen);
+				printf("%.*s\n", avail, Message);
+			}
 		}
 		#else
 		if(win->Name[0])
@@ -497,8 +507,8 @@ void Redraw_Screen(void)
 		
 		while(done < msglen) {
 			done += printf("%.*s", line_avail, msg->Data+done);
-			SetCursorPos(y+i, prefix_len);
 			i ++;
+			SetCursorPos(y+i, prefix_len);
 		}
 	}
 
@@ -517,7 +527,8 @@ void ParseServerLine(tServer *Server, char *Line)
 {
 	 int	pos = 0;
 	char	*ident, *cmd;
-	
+
+	_SysDebug("Server %s: Line = %s", Server->Name, Line);	
 	
 	// Message?
 	if( *Line == ':' )
@@ -547,13 +558,16 @@ void ParseServerLine(tServer *Server, char *Line)
 			{
 			case 353:	// /NAMES list
 				// <user> = <channel> :list
-				GetValue(Line, &pos);	// '='
+//				GetValue(Line, &pos);	// '='
 				user = GetValue(Line, &pos);	// Actually channel
 				message = Line + pos + 1;	// List
-				Message_Append(Server, MSG_TYPE_SERVER, user, "", message);
+				Message_AppendF(Server, MSG_TYPE_SERVER, user, "", "Names: %s", message);
 				break;
 			case 366:	// end of /NAMES list
-//				Message_Append()
+				// <user> <channel> :msg
+				user = message;
+				message = Line + pos + 1;
+				Message_Append(Server, MSG_TYPE_SERVER, user, "", message);
 				break;
 			case 372:	// MOTD Data
 			case 376:	// MOTD End
@@ -591,7 +605,7 @@ void ParseServerLine(tServer *Server, char *Line)
 			else {
 				message = GetValue(Line, &pos);
 			}
-			Cmd_PRIVMSG(Server, dest, ident, message);
+//			Cmd_PRIVMSG(Server, dest, ident, message);
 			Message_Append(Server, MSG_TYPE_STANDARD, ident, dest, message);
 		}
 		else if( strcmp(cmd, "JOIN" ) == 0 )
