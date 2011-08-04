@@ -8,7 +8,8 @@
 #include <stddef.h>
 
 // Strings
-extern int	strlen(const char *string);
+extern size_t	strlen(const char *string);
+extern size_t	strnlen(const char *string, size_t maxlen);
 extern int	strcmp(const char *str1, const char *str2);
 extern int	strncmp(const char *str1, const char *str2, size_t len);
 extern char	*strcpy(char *dst, const char *src);

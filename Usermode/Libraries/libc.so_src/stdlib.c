@@ -13,6 +13,8 @@
 #define _stdout	1
 #define _stdin	0
 
+extern void	*_crt0_exit_handler;
+
 // === PROTOTYPES ===
 EXPORT int	atoi(const char *str);
 EXPORT void	exit(int status);
@@ -24,6 +26,8 @@ void	(*g_stdlib_exithandler)(void);
 void atexit(void (*__func)(void))
 {
 	g_stdlib_exithandler = __func;
+	// TODO: Replace with meta-function to allow multiple atexit() handlers
+	_crt0_exit_handler = __func;	
 }
 
 /**

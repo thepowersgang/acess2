@@ -77,15 +77,25 @@ EXPORT char *strcat(char *dst, const char *src)
 }
 
 /**
- * \fn EXPORT int strlen(const char *str)
  * \brief Get the length of a string
  */
-EXPORT int strlen(const char *str)
+EXPORT size_t strlen(const char *str)
 {
-	int retval;
-	for(retval = 0; *str != '\0'; str++)
-		retval++;
+	size_t	retval;
+	for(retval = 0; *str != '\0'; str++, retval++);
 	return retval;
+}
+
+/**
+ * \brief Get the length of a string, with a maximum of \a maxlen
+ * 
+ * Gets the length of a string (excluding the terminating \0 byte)
+ */
+EXPORT size_t strnlen(const char *str, size_t maxlen)
+{
+	size_t	len;
+	for( len = 0; maxlen -- && *str; str ++, len ++ );
+	return len;
 }
 
 /**

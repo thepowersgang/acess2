@@ -299,12 +299,18 @@ EXPORT int vsprintf(char * __s, const char *__format, va_list __args)
 EXPORT int vsnprintf(char *buf, size_t __maxlen, const char *format, va_list args)
 {
 	char	tmp[65];
-	 int	c, minSize;
+	 int	c, minSize, precision, len;
 	 int	pos = 0;
 	char	*p;
 	char	pad;
 	uint64_t	arg;
-	 int	bLongLong;
+	 int	bLongLong, bPadLeft;
+
+	void _addchar(char ch)
+	{
+		if(buf && pos < __maxlen)	buf[pos] = ch;
+		pos ++;
+	}
 
 	tmp[32] = '\0';
 	
@@ -312,33 +318,63 @@ EXPORT int vsnprintf(char *buf, size_t __maxlen, const char *format, va_list arg
 	{
 		// Non-control character
 		if (c != '%') {
-			if(buf && pos < __maxlen)	buf[pos] = c;
-			pos ++;
+			_addchar(c);
 			continue;
 		}
 		
 		// Control Character
 		c = *format++;
 		if(c == '%') {	// Literal %
-			if(buf && pos < __maxlen)	buf[pos] = '%';
-			pos ++;
+			_addchar('%');
 			continue;
 		}
 		
-		// Padding
+		bPadLeft = 0;
+		bLongLong = 0;
+		minSize = 0;
+		precision = -1;
+		pad = ' ';
+		
+		// Padding Character
 		if(c == '0') {
 			pad = '0';
 			c = *format++;
-		} else
-			pad = ' ';
-		minSize = 0;
-		if('1' <= c && c <= '9')
-		{
-			while('0' <= c && c <= '9')
+		}
+		// Padding length
+		if( c == '*' ) {
+			// Variable length
+			minSize = va_arg(args, size_t);
+			c = *format++;
+		}
+		else {
+			if('1' <= c && c <= '9')
 			{
-				minSize *= 10;
-				minSize += c - '0';
+				minSize = 0;
+				while('0' <= c && c <= '9')
+				{
+					minSize *= 10;
+					minSize += c - '0';
+					c = *format++;
+				}
+			}
+		}
+
+		// Precision
+		if(c == '.') {
+			c = *format++;
+			if(c == '*') {
+				precision = va_arg(args, size_t);
 				c = *format++;
+			}
+			else if('1' <= c && c <= '9')
+			{
+				precision = 0;
+				while('0' <= c && c <= '9')
+				{
+					precision *= 10;
+					precision += c - '0';
+					c = *format++;
+				}
 			}
 		}
 	
@@ -351,7 +387,8 @@ EXPORT int vsnprintf(char *buf, size_t __maxlen, const char *format, va_list arg
 				bLongLong = 1;
 			}
 		}
-			
+		
+		// Just help things along later
 		p = tmp;
 		
 		// Get Type
@@ -363,6 +400,7 @@ EXPORT int vsnprintf(char *buf, size_t __maxlen, const char *format, va_list arg
 			if(bLongLong)	arg = va_arg(args, int64_t);
 			else			arg = va_arg(args, int32_t);
 			itoa(tmp, arg, 10, minSize, pad, 1);
+			precision = -1;
 			goto sprintf_puts;
 		
 		// Unsigned Integer
@@ -371,25 +409,24 @@ EXPORT int vsnprintf(char *buf, size_t __maxlen, const char *format, va_list arg
 			if(bLongLong)	arg = va_arg(args, uint64_t);
 			else			arg = va_arg(args, uint32_t);
 			itoa(tmp, arg, 10, minSize, pad, 0);
+			precision = -1;
 			goto sprintf_puts;
 		
 		// Pointer
 		case 'p':
-			if(buf && pos+2 < __maxlen) {
-				buf[pos] = '*';
-				buf[pos+1] = '0';
-				buf[pos+2] = 'x';
-			}
-			pos += 3;
+			_addchar('*');
+			_addchar('0');
+			_addchar('x');
 			arg = va_arg(args, uint32_t);
 			itoa(tmp, arg, 16, minSize, pad, 0);
+			precision = -1;
 			goto sprintf_puts;
-			// Fall through to hex
 		// Unsigned Hexadecimal
 		case 'x':
 			if(bLongLong)	arg = va_arg(args, uint64_t);
 			else			arg = va_arg(args, uint32_t);
 			itoa(tmp, arg, 16, minSize, pad, 0);
+			precision = -1;
 			goto sprintf_puts;
 		
 		// Unsigned Octal
@@ -397,6 +434,7 @@ EXPORT int vsnprintf(char *buf, size_t __maxlen, const char *format, va_list arg
 			if(bLongLong)	arg = va_arg(args, uint64_t);
 			else			arg = va_arg(args, uint32_t);
 			itoa(tmp, arg, 8, minSize, pad, 0);
+			precision = -1;
 			goto sprintf_puts;
 		
 		// Unsigned binary
@@ -404,6 +442,7 @@ EXPORT int vsnprintf(char *buf, size_t __maxlen, const char *format, va_list arg
 			if(bLongLong)	arg = va_arg(args, uint64_t);
 			else			arg = va_arg(args, uint32_t);
 			itoa(tmp, arg, 2, minSize, pad, 0);
+			precision = -1;
 			goto sprintf_puts;
 
 		// String
@@ -413,28 +452,28 @@ EXPORT int vsnprintf(char *buf, size_t __maxlen, const char *format, va_list arg
 		sprintf_puts:
 			if(!p)	p = "(null)";
 			//_SysDebug("vsnprintf: p = '%s'", p);
-			if(buf) {
-				while(*p) {
-					if(pos < __maxlen)	buf[pos] = *p;
-					pos ++;	p ++;
-				}
+			if(precision >= 0)
+				len = strnlen(p, precision);
+			else
+				len = strlen(p);
+			if(bPadLeft)	while(minSize > len++)	_addchar(pad);
+			while( *p ) {
+				if(precision >= 0 && precision -- == 0)
+					break;
+				_addchar(*p++);
 			}
-			else {
-				while(*p) {
-					pos++; p++;
-				}
-			}
+			if(!bPadLeft)	while(minSize > len++)	_addchar(pad);
 			break;
 
 		// Unknown, just treat it as a character
 		default:
 			arg = va_arg(args, uint32_t);
-			if(buf && pos < __maxlen)	buf[pos] = arg;
-			pos ++;
+			_addchar(arg);
 			break;
 		}
-    }
-	if(buf && pos < __maxlen)	buf[pos] = '\0';
+	}
+	_addchar('\0');
+	pos --;
 	
 	//_SysDebug("vsnprintf: buf = '%s'", buf);
 	
