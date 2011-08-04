@@ -280,9 +280,9 @@ int BGA_Ioctl(tVFS_Node *Node, int ID, void *Data)
 		break;
 	
 	// Request Access to LFB
-	case VIDEO_IOCTL_REQLFB:
-		ret = BGA_int_MapFB( *(void**)Data );
-		break;
+//	case VIDEO_IOCTL_REQLFB:
+//		ret = BGA_int_MapFB( *(void**)Data );
+//		break;
 	
 	default:
 		LEAVE('i', -2);

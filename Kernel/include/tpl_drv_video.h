@@ -90,19 +90,15 @@ enum eTplVideo_IOCtl {
 	VIDEO_IOCTL_SETCURSOR,
 	
 	/**
-	 * ioctl(..., tVAddr MapTo)
-	 * \brief Request access to Framebuffer
-	 * \return Boolean Success
-	 * 
-	 * Requests the driver to allow the user direct access to the
-	 * framebuffer by mapping it to the supplied address.
-	 * If the driver does not allow this boolean FALSE (0) is returned,
-	 * else if the call succeeds (and the framebuffer ends up mapped) boolean
-	 * TRUE (1) is returned.
+	 * ioctl(..., tVideo_IOCtl_Bitmap *Image)
+	 * \brief Sets the cursor image
+	 * \return Boolean success
+	 *
+	 * Sets the graphics mode cursor image
 	 */
-	VIDEO_IOCTL_REQLFB
+	VIDEO_IOCTL_SETCURSORBITMAP
 };
-#define DRV_VIDEO_IOCTLNAMES	"getset_mode", "find+mode", "mode_info", "set_buf_format", "set_cursor", "request_framebuffer"
+#define DRV_VIDEO_IOCTLNAMES	"getset_mode", "find+mode", "mode_info", "set_buf_format", "set_cursor", "set_cursor_bitmap"
 
 /**
  * \brief Mode Structure used in IOCtl Calls
@@ -211,6 +207,18 @@ typedef struct sVideo_IOCtl_Pos
 	Sint16	x;	//!< X Coordinate
 	Sint16	y;	//!< Y Coordinate
 }	tVideo_IOCtl_Pos;
+
+/**
+ * \brief Bitmap object (out of band image)
+ */
+typedef struct sVideo_IOCtl_Bitmap
+{
+	Sint16	W;	//!< Width of image
+	Sint16	H;	//!< Height of image
+	Sint16	XOfs;	//!< X Offset of center
+	Sint16	YOfs;	//!< Y Offset of center
+	Uint32	Data[];	//!< Image data (ARGB array)
+}	tVideo_IOCtl_Bitmap;
 
 /**
  * \brief Virtual Terminal Representation of a character

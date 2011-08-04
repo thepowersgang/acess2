@@ -430,8 +430,8 @@ int Vesa_Ioctl(tVFS_Node *Node, int ID, void *Data)
 		//Log_Debug("VESA", "Cursor position (%i,%i) Timer %i", giVesaCursorX, giVesaCursorY, giVesaCursorTimer);
 		return 0;
 	
-	case VIDEO_IOCTL_REQLFB:	// Request Linear Framebuffer
-		return 0;
+//	case VIDEO_IOCTL_REQLFB:	// Request Linear Framebuffer
+//		return 0;
 	}
 	return 0;
 }
