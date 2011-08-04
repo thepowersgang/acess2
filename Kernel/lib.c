@@ -315,22 +315,29 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 			}
 			itoa(tmpBuf, val, 10, minSize, pad);
 			goto printString;
-		case 'u':
+		case 'u':	// Unsigned
 			GETVAL();
 			itoa(tmpBuf, val, 10, minSize, pad);
 			goto printString;
-		case 'X':
+		case 'P':	// Physical Address
+			PUTCH('0');
+			PUTCH('x');
+			if(sizeof(tPAddr) > 4)	isLongLong = 1;
+			GETVAL();
+			itoa(tmpBuf, val, 16, minSize, pad);
+			goto printString;
+		case 'X':	// Hex
 			if(BITS == 64)
 				isLongLong = 1;	// TODO: Handle non-x86 64-bit archs
 			GETVAL();
 			itoa(tmpBuf, val, 16, minSize, pad);
 			goto printString;
 			
-		case 'x':
+		case 'x':	// Lower case hex
 			GETVAL();
 			itoa(tmpBuf, val, 16, minSize, pad);
 			goto printString;
-		case 'o':
+		case 'o':	// Octal
 			GETVAL();
 			itoa(tmpBuf, val, 8, minSize, pad);
 			goto printString;
