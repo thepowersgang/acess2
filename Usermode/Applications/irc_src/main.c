@@ -62,6 +62,7 @@ tServer	*Server_Connect(const char *Name, const char *AddressString, short PortN
 tMessage	*Message_AppendF(tServer *Server, int Type, const char *Source, const char *Dest, const char *Message, ...);
 tMessage	*Message_Append(tServer *Server, int Type, const char *Source, const char *Dest, const char *Message);
 tWindow	*Window_Create(tServer *Server, const char *Name);
+void	Redraw_Screen(void);
 
  int	ProcessIncoming(tServer *Server);
 // --- Helpers
@@ -114,8 +115,9 @@ int main(int argc, const char *argv[], const char *envp[])
 	
 	// HACK: Static server entry
 	// UCC (University [of Western Australia] Computer Club) IRC Server
-	//gWindow_Status.Server = Server_Connect( "UCC", "130.95.13.18", 6667 );
-	gWindow_Status.Server = Server_Connect( "UCC", "10.0.2.2", 6667 );
+	gWindow_Status.Server = Server_Connect( "UCC", "130.95.13.18", 6667 );
+//	gWindow_Status.Server = Server_Connect( "Host", "10.0.2.2", 6667 );
+//	gWindow_Status.Server = Server_Connect( "BitlBee", "192.168.1.34", 6667 );
 	
 	if( !gWindow_Status.Server )
 		return -1;
@@ -250,6 +252,7 @@ int ParseUserCommand(char *String)
 				for( win = gpWindows; win && window_num--; win = win->Next );
 				if( win ) {
 					gpCurrentWindow = win;
+					Redraw_Screen();
 				}
 				// Otherwise, silently ignore
 			}
@@ -468,6 +471,40 @@ tWindow *Window_Create(tServer *Server, const char *Name)
 	return ret;
 }
 
+void Redraw_Screen(void)
+{
+	 int	y = 0;
+	tMessage	*msg;
+
+	printf("\x1B[2J");	// Clear screen
+	printf("\x1B[0;0H");	// Reset cursor
+
+	msg = gpCurrentWindow->Messages;
+	
+	// TODO: Title bar?
+
+	// Note: This renders from the bottom up
+	for( y = giTerminal_Height - 1; y -- && msg; msg = msg->Next)
+	{
+		 int	msglen = strlen(msg->Data);
+		 int	prefix_len = 3 + strlen(msg->Source);
+		 int	line_avail = giTerminal_Width - prefix_len;
+		 int	i = 0, done = 0;
+		
+		y -= msglen / line_avail;	// Extra lines (y-- above handles the 1 line case)
+		SetCursorPos(y, 0);
+		printf("[%s] ", msg->Source);
+		
+		while(done < msglen) {
+			done += printf("%.*s", line_avail, msg->Data+done);
+			SetCursorPos(y+i, prefix_len);
+			i ++;
+		}
+	}
+
+	// Bottom line is rendered by the prompt
+}
+
 void Cmd_PRIVMSG(tServer *Server, const char *Dest, const char *Src, const char *Message)
 {
 	Message_Append(Server, MSG_TYPE_STANDARD, Dest, Src, Message);
@@ -480,6 +517,7 @@ void ParseServerLine(tServer *Server, char *Line)
 {
 	 int	pos = 0;
 	char	*ident, *cmd;
+	
 	
 	// Message?
 	if( *Line == ':' )
@@ -507,6 +545,19 @@ void ParseServerLine(tServer *Server, char *Line)
 			
 			switch(num)
 			{
+			case 353:	// /NAMES list
+				// <user> = <channel> :list
+				GetValue(Line, &pos);	// '='
+				user = GetValue(Line, &pos);	// Actually channel
+				message = Line + pos + 1;	// List
+				Message_Append(Server, MSG_TYPE_SERVER, user, "", message);
+				break;
+			case 366:	// end of /NAMES list
+//				Message_Append()
+				break;
+			case 372:	// MOTD Data
+			case 376:	// MOTD End
+				
 			default:
 				//printf("[%s] %i %s\n", Server->Name, num, message);
 				Message_Append(Server, MSG_TYPE_SERVER, ident, user, message);
@@ -557,7 +608,7 @@ void ParseServerLine(tServer *Server, char *Line)
 	else {
 		
 		// Command to client
-		printf("Client Command: %s", Line);
+		Message_AppendF(NULL, MSG_TYPE_UNK, "", "", "Client Command: %s", Line);
 	}
 }
 
@@ -659,7 +710,7 @@ int OpenTCP(const char *AddressString, short PortNumber)
 		return -1;
 	}
 	
-	printf("iface = '%s'\n", iface);
+//	printf("iface = '%s'\n", iface);
 	
 	// Open client socket
 	// TODO: Move this out to libnet?
@@ -678,12 +729,12 @@ int OpenTCP(const char *AddressString, short PortNumber)
 	}
 	
 	// Set remote port and address
-	printf("Setting port and remote address\n");
+//	printf("Setting port and remote address\n");
 	ioctl(fd, 5, &PortNumber);
 	ioctl(fd, 6, addrBuffer);
 	
 	// Connect
-	printf("Initiating connection\n");
+//	printf("Initiating connection\n");
 	if( ioctl(fd, 7, NULL) == 0 ) {
 		// Shouldn't happen :(
 		fprintf(stderr, "Unable to start connection\n");
@@ -724,12 +775,14 @@ char *GetValue(char *Src, int *Ofs)
 
 int SetCursorPos(int Row, int Col)
 {
+	 int	rv;
 	if( Row == -1 ) {
 		Row = Col / giTerminal_Width;
 		Col = Col % giTerminal_Width;
 	}
+	rv = ioctl(1, 9, NULL);	// Ugh, constants
 	printf("\x1B[%i;%iH", Col, Row);
-	return ioctl(1, 9, NULL);	// Ugh, constants
+	return rv;
 }
 
 static inline int isdigit(int ch)
