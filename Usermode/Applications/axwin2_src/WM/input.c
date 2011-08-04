@@ -11,8 +11,11 @@ int Input_Init(void)
 	struct {
 		 int	Num, Value;
 	}	num_value;
+
+	// Open mouse for RW
 	giMouseFD = open(gsMouseDevice, 3);
 
+	// Set mouse limits
 	num_value.Num = 0;
 	num_value.Value = giScreenWidth;
 	ioctl(giMouseFD, 6, &num_value);
