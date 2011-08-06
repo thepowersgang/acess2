@@ -7,7 +7,7 @@
 #include <readline.h>
 #include <string.h>
 
-#define BUFSIZ	128
+#define BUFSIZ	2048
 
 // === PROTOTYPES ===
  int	main(int argc, char *argv[], char *envp[]);
@@ -20,9 +20,20 @@ int main(int argc, char *argv[], char *envp[])
 	 int	client_running = 1;
 	 int	bUseReadline = !!argv[3];	// HACK: If third argument is present, use ReadLine
 	tReadline	*readline_info;
+	 int	port;
+	
+	if( argc < 2 || argc > 3 ) {
+		fprintf(stderr, "Usage: telnet <host> [<port>]\n Port defaults to 23\n");
+		return 0;
+	}
+	
+	if(argc == 3)
+		port = atoi(argv[2]);
+	else
+		port = 23;
 	
 	// Connect to the remove server
-	server_fd = OpenTCP( argv[1], atoi(argv[2]) );
+	server_fd = OpenTCP( argv[1], port );
 	if( server_fd == -1 ) {
 		fprintf(stderr, "Unable to create socket\n");
 		return -1;
