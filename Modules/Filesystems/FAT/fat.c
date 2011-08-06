@@ -610,9 +610,9 @@ Uint64 FAT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 {
 	 int	preSkip, count;
 	 int	i, cluster, pos;
-	 int	bpc;
-	void	*tmpBuf;
 	tFAT_VolInfo	*disk = Node->ImplPtr;
+	char	tmpBuf[disk->BytesPerCluster];
+	 int	bpc = disk->BytesPerCluster;
 	
 	ENTER("pNode Xoffset Xlength pbuffer", Node, Offset, Length, Buffer);
 	
@@ -622,11 +622,6 @@ Uint64 FAT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		LEAVE('i', 0);
 		return 0;
 	}
-	
-	// Calculate and Allocate Bytes Per Cluster
-	bpc = disk->BytesPerCluster;
-	tmpBuf = (void*) malloc(bpc);
-	if( !tmpBuf ) 	return 0;
 	
 	// Cluster is stored in the low 32-bits of the Inode field
 	cluster = Node->Inode & 0xFFFFFFFF;
@@ -644,7 +639,6 @@ Uint64 FAT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		LOG("First cluster only");
 		FAT_int_ReadCluster(disk, cluster, bpc, tmpBuf);
 		memcpy( Buffer, (void*)( tmpBuf + Offset%bpc ), Length );
-		free(tmpBuf);
 		#if DEBUG
 		//Debug_HexDump("FAT_Read", Buffer, Length);
 		#endif
@@ -658,7 +652,6 @@ Uint64 FAT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		cluster = FAT_int_GetFatValue(disk, cluster);
 		if(cluster == -1) {
 			Log_Warning("FAT", "Offset is past end of cluster chain mark");
-			free(tmpBuf);
 			LEAVE('i', 0);
 			return 0;
 		}
@@ -688,7 +681,6 @@ Uint64 FAT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		#if DEBUG
 		//Debug_HexDump("FAT_Read", Buffer, Length);
 		#endif
-		free(tmpBuf);
 		LEAVE('i', 1);
 		return Length;
 	}
@@ -704,8 +696,7 @@ Uint64 FAT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		// Get next cluster in the chain
 		cluster = FAT_int_GetFatValue(disk, cluster);
 		if(cluster == -1) {
-			Warning("FAT_Read - Read past End of Cluster Chain");
-			free(tmpBuf);
+			Log_Warning("FAT", "FAT_Read: Read past End of Cluster Chain");
 			LEAVE('i', 0);
 			return 0;
 		}
@@ -717,8 +708,7 @@ Uint64 FAT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	// Get next cluster in the chain
 	cluster = FAT_int_GetFatValue(disk, cluster);
 	if(cluster == -1) {
-		Warning("FAT_Read - Read past End of Cluster Chain");
-		free(tmpBuf);
+		Log_Warning("FAT", "FAT_Read: Read past End of Cluster Chain");
 		LEAVE('i', 0);
 		return 0;
 	}
@@ -738,7 +728,6 @@ Uint64 FAT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	//Debug_HexDump("FAT_Read", Buffer, Length);
 	#endif
 	
-	free(tmpBuf);
 	LEAVE('X', Length);
 	return Length;
 }
@@ -770,7 +759,7 @@ void FAT_int_WriteCluster(tFAT_VolInfo *Disk, Uint32 Cluster, void *Buffer)
 Uint64 FAT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 {
 	tFAT_VolInfo	*disk = Node->ImplPtr;
-	void	*tmpBuf;
+	char	tmpBuf[disk->BytesPerCluster];
 	 int	remLength = Length;
 	Uint32	cluster, tmpCluster;
 	 int	bNewCluster = 0;
@@ -798,28 +787,23 @@ Uint64 FAT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	
 	if( Offset + Length < disk->BytesPerCluster )
 	{
-		tmpBuf = malloc( disk->BytesPerCluster );
+		char	tmpBuf[disk->BytesPerCluster];
 		
 		// Read-Modify-Write
 		FAT_int_ReadCluster( disk, cluster, disk->BytesPerCluster, tmpBuf );
 		memcpy(	tmpBuf + Offset, Buffer, Length );
 		FAT_int_WriteCluster( disk, cluster, tmpBuf );
 		
-		free(tmpBuf);
 		return Length;
 	}
 	
 	// Clean up changes within a cluster
 	if( Offset )
-	{
-		tmpBuf = malloc( disk->BytesPerCluster );
-		
+	{	
 		// Read-Modify-Write
 		FAT_int_ReadCluster( disk, cluster, disk->BytesPerCluster, tmpBuf );
 		memcpy(	tmpBuf + Offset, Buffer, disk->BytesPerCluster - Offset );
 		FAT_int_WriteCluster( disk, cluster, tmpBuf );
-		
-		free(tmpBuf);
 		
 		remLength -= disk->BytesPerCluster - Offset;
 		Buffer += disk->BytesPerCluster - Offset;
