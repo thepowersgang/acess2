@@ -229,7 +229,7 @@ int IPStack_CompareAddress(int AddressType, const void *Address1, const void *Ad
 	const Uint8	*addr1 = Address1, *addr2 = Address2;
 	
 	// Sanity check size
-	if( CheckBits < 0 )	CheckBits = 0;
+	if( CheckBits < 0 )	CheckBits = size*8;
 	if( CheckBits > size*8 )	CheckBits = size*8;
 	
 	if( CheckBits == 0 )	return 1;	// /0 matches anything

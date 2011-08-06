@@ -44,6 +44,20 @@ int IPv6_RegisterCallback(int ID, tIPCallback Callback)
 }
 
 /**
+ * \brief Creates and sends an IPv6 Packet
+ * \param Iface	Interface
+ * \param Destination	Destination IP
+ * \param Protocol	Protocol ID
+ * \param Length	Data Length
+ * \param Data	Packet Data
+ * \return Boolean Success
+ */
+int IPv6_SendPacket(tInterface *Iface, tIPv6 Destination, int Protocol, size_t Length, const void *Data)
+{
+	return 0;
+}
+
+/**
  * \fn void IPv6_int_GetPacket(tInterface *Interface, tMacAddr From, int Length, void *Buffer)
  * \brief Process an IPv6 Packet
  * \param Interface	Input interface

@@ -36,4 +36,7 @@ struct sIPv6Header
 
 #define IPV6_ETHERNET_ID	0x86DD
 
+extern int	IPv6_RegisterCallback(int ID, tIPCallback Callback);
+extern int	IPv6_SendPacket(tInterface *Iface, tIPv6 Destination, int Protocol, size_t Length, const void *Data);
+
 #endif

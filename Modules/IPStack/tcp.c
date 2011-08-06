@@ -5,9 +5,12 @@
 #define DEBUG	1
 #include "ipstack.h"
 #include "ipv4.h"
+#include "ipv6.h"
 #include "tcp.h"
 
 #define USE_SELECT	1
+#define HEXDUMP_INCOMING	0
+#define HEXDUMP_OUTGOING	0
 #define	CACHE_FUTURE_PACKETS_IN_BYTES	1	// Use a ring buffer to cache out of order packets
 
 #define TCP_MIN_DYNPORT	0xC000
@@ -23,7 +26,7 @@ void	TCP_StartConnection(tTCPConnection *Conn);
 void	TCP_SendPacket(tTCPConnection *Conn, size_t Length, tTCPHeader *Data);
 void	TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffer);
 void	TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Header, int Length);
-void	TCP_INT_AppendRecieved(tTCPConnection *Connection, tTCPStoredPacket *Ptk);
+void	TCP_INT_AppendRecieved(tTCPConnection *Connection, const void *Data, size_t Length);
 void	TCP_INT_UpdateRecievedFromFuture(tTCPConnection *Connection);
 Uint16	TCP_GetUnusedPort();
  int	TCP_AllocatePort(Uint16 Port);
@@ -68,6 +71,7 @@ void TCP_Initialise(void)
 	IPStack_AddFile(&gTCP_ServerFile);
 	IPStack_AddFile(&gTCP_ClientFile);
 	IPv4_RegisterCallback(IP4PROT_TCP, TCP_GetPacket);
+	IPv6_RegisterCallback(IP4PROT_TCP, TCP_GetPacket);
 }
 
 /**
@@ -78,23 +82,42 @@ void TCP_Initialise(void)
  */
 void TCP_SendPacket( tTCPConnection *Conn, size_t Length, tTCPHeader *Data )
 {
-	size_t	buflen;
-	Uint32	*buf;
+	Uint16	checksum[2];
+	
+	Data->Checksum = 0;
+	checksum[1] = htons( ~IPv4_Checksum( (void*)Data, Length ) );	// Partial checksum
+	if(Length & 1)
+		((Uint8*)Data)[Length] = 0;
+	
+	// TODO: Fragment packet
+	
 	switch( Conn->Interface->Type )
 	{
-	case 4:	// Append IPv4 Pseudo Header
-		buflen = 4 + 4 + 4 + ((Length+1)&~1);
-		buf = malloc( buflen );
-		buf[0] = ((tIPv4*)Conn->Interface->Address)->L;
-		buf[1] = Conn->RemoteIP.v4.L;
-		buf[2] = (htons(Length)<<16) | (6<<8) | 0;
-		Data->Checksum = 0;
-		memcpy( &buf[3], Data, Length );
-		if(Length & 1)
-			((Uint8*)buf)[12+Length] = 0;
-		Data->Checksum = htons( IPv4_Checksum( (Uint16*)buf, buflen/2 ) );
-		free(buf);
+	case 4:
+		// Append IPv4 Pseudo Header
+		{
+			Uint32	buf[3];
+			buf[0] = ((tIPv4*)Conn->Interface->Address)->L;
+			buf[1] = Conn->RemoteIP.v4.L;
+			buf[2] = (htons(Length)<<16) | (6<<8) | 0;
+			checksum[0] = htons( ~IPv4_Checksum(buf, sizeof(buf)) );	// Partial checksum
+		}
+		Data->Checksum = htons( IPv4_Checksum(checksum, 2*2) );	// Combine the two
 		IPv4_SendPacket(Conn->Interface, Conn->RemoteIP.v4, IP4PROT_TCP, 0, Length, Data);
+		break;
+		
+	case 6:
+		// Append IPv6 Pseudo Header
+		{
+			Uint32	buf[4+4+1+1];
+			memcpy(buf, Conn->Interface->Address, 16);
+			memcpy(&buf[4], &Conn->RemoteIP, 16);
+			buf[8] = htonl(Length);
+			buf[9] = htonl(6);
+			checksum[0] = htons( ~IPv4_Checksum(buf, sizeof(buf)) );	// Partial checksum
+		}
+		Data->Checksum = htons( IPv4_Checksum(checksum, 2*2) );	// Combine the two
+		IPv6_SendPacket(Conn->Interface, Conn->RemoteIP.v6, IP4PROT_TCP, Length, Data);
 		break;
 	}
 }
@@ -136,11 +159,13 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 	if( Length > (hdr->DataOffset >> 4)*4 )
 	{
 		Log_Log("TCP", "TCP_GetPacket: SequenceNumber = 0x%x", ntohl(hdr->SequenceNumber));
+#if HEXDUMP_INCOMING
 		Debug_HexDump(
 			"TCP_GetPacket: Packet Data = ",
 			(Uint8*)hdr + (hdr->DataOffset >> 4)*4,
 			Length - (hdr->DataOffset >> 4)*4
 			);
+#endif
 	}
 
 	// Check Servers
@@ -169,10 +194,8 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 				if(conn->RemotePort != ntohs(hdr->SourcePort))	continue;
 
 				// Check Source IP
-				if(conn->Interface->Type == 6 && !IP6_EQU(conn->RemoteIP.v6, *(tIPv6*)Address))
-					continue;
-				if(conn->Interface->Type == 4 && !IP4_EQU(conn->RemoteIP.v4, *(tIPv4*)Address))
-					continue;
+				if( IPStack_CompareAddress(conn->Interface->Type, &conn->RemoteIP, Address, -1) != 0 )
+					continue ;
 
 				Log_Log("TCP", "TCP_GetPacket: Matches connection %p", conn);
 				// We have a response!
@@ -277,9 +300,9 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
  * \param Length	Length of the packet
  */
 void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Header, int Length)
-{	
-	tTCPStoredPacket	*pkt;
+{
 	 int	dataLen;
+	Uint32	sequence_num;
 	
 	// Silently drop once finished
 	// TODO: Check if this needs to be here
@@ -309,7 +332,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 	//
 	switch( Connection->State )
 	{
-	// Pre-init conneciton?
+	// Pre-init connection?
 	case TCP_ST_CLOSED:
 		Log_Log("TCP", "Packets to a closed connection?!");
 		break;
@@ -390,25 +413,22 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 		//    PSH - Has Data?
 		// /NOTES
 		
-		// Allocate and fill cached packet
-		pkt = malloc( sizeof(tTCPStoredPacket) + dataLen );
-		pkt->Next = NULL;
-		pkt->Sequence = ntohl(Header->SequenceNumber);
-		pkt->Length = dataLen;
-		memcpy(pkt->Data, (Uint8*)Header + (Header->DataOffset>>4)*4, dataLen);
+		sequence_num = ntohl(Header->SequenceNumber);
 		
 		Log_Log("TCP", "0x%08x <= 0x%08x < 0x%08x",
 			Connection->NextSequenceRcv,
-			pkt->Sequence,
+			ntohl(Header->SequenceNumber),
 			Connection->NextSequenceRcv + TCP_WINDOW_SIZE
 			);
 		
 		// Is this packet the next expected packet?
-		if( pkt->Sequence == Connection->NextSequenceRcv )
+		if( sequence_num == Connection->NextSequenceRcv )
 		{
 			// Ooh, Goodie! Add it to the recieved list
-			TCP_INT_AppendRecieved(Connection, pkt);
-			free(pkt);
+			TCP_INT_AppendRecieved(Connection,
+				(Uint8*)Header + (Header->DataOffset>>4)*4,
+				dataLen
+				);
 			Log_Log("TCP", "0x%08x += %i", Connection->NextSequenceRcv, dataLen);
 			Connection->NextSequenceRcv += dataLen;
 			
@@ -431,24 +451,32 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 			//Connection->NextSequenceSend ++;
 		}
 		// Check if the packet is in window
-		else if( WrapBetween(Connection->NextSequenceRcv, pkt->Sequence,
+		else if( WrapBetween(Connection->NextSequenceRcv, sequence_num,
 				Connection->NextSequenceRcv+TCP_WINDOW_SIZE, 0xFFFFFFFF) )
 		{
+			Uint8	*dataptr = (Uint8*)Header + (Header->DataOffset>>4)*4;
 			#if CACHE_FUTURE_PACKETS_IN_BYTES
 			Uint32	index;
 			 int	i;
 			
-			index = pkt->Sequence % TCP_WINDOW_SIZE;
-			for( i = 0; i < pkt->Length; i ++ )
+			index = sequence_num % TCP_WINDOW_SIZE;
+			for( i = 0; i < dataLen; i ++ )
 			{
 				Connection->FuturePacketValidBytes[index/8] |= 1 << (index%8);
-				Connection->FuturePacketValidBytes[index] = pkt->Data[i];
+				Connection->FuturePacketData[index] = dataptr[i];
 				// Do a wrap increment
 				index ++;
 				if(index == TCP_WINDOW_SIZE)	index = 0;
 			}
 			#else
-			tTCPStoredPacket	*tmp, *prev = NULL;
+			tTCPStoredPacket	*pkt, *tmp, *prev = NULL;
+			
+			// Allocate and fill cached packet
+			pkt = malloc( sizeof(tTCPStoredPacket) + dataLen );
+			pkt->Next = NULL;
+			pkt->Sequence = ntohl(Header->SequenceNumber);
+			pkt->Length = dataLen;
+			memcpy(pkt->Data, dataptr, dataLen);
 			
 			Log_Log("TCP", "We missed a packet, caching",
 				pkt->Sequence, Connection->NextSequenceRcv);
@@ -481,7 +509,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 			}
 			else
 			{
-				free(pkt);
+				free(pkt);	// TODO: Find some way to remove this
 			}
 			SHORTREL( &Connection->lFuturePackets );
 			#endif
@@ -490,8 +518,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 		else
 		{
 			Log_Log("TCP", "Fully out of sequence packet (0x%08x not between 0x%08x and 0x%08x), dropped",
-				pkt->Sequence, Connection->NextSequenceRcv, Connection->NextSequenceRcv+TCP_WINDOW_SIZE);
-			free(pkt);
+				sequence_num, Connection->NextSequenceRcv, Connection->NextSequenceRcv+TCP_WINDOW_SIZE);
 			// TODO: Spec says we should send an empty ACK with the current state
 		}
 		break;
@@ -589,12 +616,13 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 /**
  * \brief Appends a packet to the recieved list
  * \param Connection	Connection structure
- * \param Pkt	Packet structure on heap
+ * \param Data	Packet contents
+ * \param Length	Length of \a Data
  */
-void TCP_INT_AppendRecieved(tTCPConnection *Connection, tTCPStoredPacket *Pkt)
+void TCP_INT_AppendRecieved(tTCPConnection *Connection, const void *Data, size_t Length)
 {
 	Mutex_Acquire( &Connection->lRecievedPackets );
-	if(Connection->RecievedBuffer->Length + Pkt->Length > Connection->RecievedBuffer->Space )
+	if(Connection->RecievedBuffer->Length + Length > Connection->RecievedBuffer->Space )
 	{
 		Log_Error("TCP", "Buffer filled, packet dropped (%s)",
 		//	TCP_INT_DumpConnection(Connection)
@@ -603,7 +631,7 @@ void TCP_INT_AppendRecieved(tTCPConnection *Connection, tTCPStoredPacket *Pkt)
 		return ;
 	}
 	
-	RingBuffer_Write( Connection->RecievedBuffer, Pkt->Data, Pkt->Length );
+	RingBuffer_Write( Connection->RecievedBuffer, Data, Length );
 
 	VFS_MarkAvaliable(&Connection->Node, 1);
 	
@@ -1076,7 +1104,9 @@ void TCP_INT_SendDataPacket(tTCPConnection *Connection, size_t Length, void *Dat
 	memcpy(packet->Options, Data, Length);
 	
 	Log_Debug("TCP", "Send sequence 0x%08x", Connection->NextSequenceSend);
+#if HEXDUMP_OUTGOING
 	Debug_HexDump("TCP_INT_SendDataPacket: Data = ", Data, Length);
+#endif
 	
 	TCP_SendPacket( Connection, sizeof(tTCPHeader)+Length, packet );
 	

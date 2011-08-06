@@ -21,7 +21,7 @@ extern tMacAddr	ARP_Resolve4(tInterface *Interface, tIPv4 Address);
 void	IPv4_int_GetPacket(tAdapter *Interface, tMacAddr From, int Length, void *Buffer);
 tInterface	*IPv4_GetInterface(tAdapter *Adapter, tIPv4 Address, int Broadcast);
 Uint32	IPv4_Netmask(int FixedBits);
-Uint16	IPv4_Checksum(const Uint16 *Buf, int WordCount);
+Uint16	IPv4_Checksum(const void *Buf, size_t Length);
  int	IPv4_Ping(tInterface *Iface, tIPv4 Addr);
 
 // === GLOBALS ===
@@ -105,7 +105,7 @@ int IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, int 
 	hdr->HeaderChecksum = 0;	// Will be set later
 	hdr->Source = *(tIPv4*)Iface->Address;
 	hdr->Destination = Address;
-	hdr->HeaderChecksum = htons(IPv4_Checksum((Uint16*)hdr, sizeof(tIPv4Header)/2));
+	hdr->HeaderChecksum = htons( IPv4_Checksum(hdr, sizeof(tIPv4Header)) );
 	
 	Log_Log("IPv4", "Sending packet to %i.%i.%i.%i",
 		Address.B[0], Address.B[1], Address.B[2], Address.B[3]);
@@ -154,7 +154,7 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 		Uint16	hdrVal, compVal;
 		hdrVal = ntohs(hdr->HeaderChecksum);
 		hdr->HeaderChecksum = 0;
-		compVal = IPv4_Checksum((Uint16*)hdr, (hdr->HeaderLength * 4) / 2);
+		compVal = IPv4_Checksum(hdr, hdr->HeaderLength * 4);
 		if(hdrVal != compVal) {
 			Log_Log("IPv4", "Header checksum fails (%04x != %04x)", hdrVal, compVal);
 			return ;
@@ -311,17 +311,19 @@ Uint32 IPv4_Netmask(int FixedBits)
  * 
  * One's complement sum of all 16-bit words (bitwise inverted)
  */
-Uint16 IPv4_Checksum(const Uint16 *Buf, int WordCount)
+Uint16 IPv4_Checksum(const void *Buf, size_t Length)
 {
+	const Uint16	*words = Buf;
 	Uint32	sum = 0;
 	 int	i;
 	
 	// Sum all whole words
-	for(i = 0; i < WordCount; i++ )
+	for(i = 0; i < Length/2; i++ )
 	{
-		Uint16	val = ntohs(Buf[i]);
-		sum += val;
+		sum += ntohs(words[i]);
 	}
+	if( Length & 1 )
+		sum += ntohs( words[i] & 0xFF );
 	
 	// Apply one's complement
 	while (sum >> 16)
