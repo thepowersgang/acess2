@@ -382,7 +382,7 @@ void ArchThreads_Init(void)
 	// Create Per-Process Data Block
 	if( !MM_Allocate(MM_PPD_CFG) )
 	{
-		Panic("OOM - No space for initiali Per-Process Config");
+		Panic("OOM - No space for initial Per-Process Config");
 	}
 	
 	// Change Stacks

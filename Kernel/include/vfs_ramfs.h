@@ -9,7 +9,7 @@
 typedef struct sRamFS_File {
 	struct sRamFS_File	*Next;
 	struct sRamFS_File	*Parent;
-	char	*Name;
+	char	Name[32];
 	tVFS_Node	Node;
 	union {
 		struct sRamFS_File	*FirstChild;

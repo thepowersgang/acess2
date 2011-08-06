@@ -15,6 +15,7 @@
 // === IMPRORTS ===
 #if TRACE_LOCKS
 extern struct sShortSpinlock	glDebug_Lock;
+extern struct sShortSpinlock	glThreadListLock;
 #endif
 extern int	GetCPUNum(void);
 
@@ -94,6 +95,14 @@ void SHORTLOCK(struct sShortSpinlock *Lock)
 	}
 	#endif
 	
+	#if TRACE_LOCKS
+	if( Lock != &glDebug_Lock && Lock != &glThreadListLock )
+	{
+		//Log_Log("LOCK", "%p locked by %p", Lock, __builtin_return_address(0));
+		Debug("%p obtaining %p (Called by %p)", __builtin_return_address(0), Lock, __builtin_return_address(1));
+	}
+	#endif
+	
 	// Wait for another CPU to release
 	while(v) {
 		// CMPXCHG:
@@ -124,10 +133,11 @@ void SHORTLOCK(struct sShortSpinlock *Lock)
 	#endif
 	
 	#if TRACE_LOCKS
-	if( Lock != &glDebug_Lock )
+	if( Lock != &glDebug_Lock && Lock != &glThreadListLock )
 	{
 		//Log_Log("LOCK", "%p locked by %p", Lock, __builtin_return_address(0));
-		LogF("Lock %p locked by %p\n", Lock, __builtin_return_address(0));
+		//Debug("Lock %p locked by %p\t%p", Lock, __builtin_return_address(0), __builtin_return_address(1));
+		Debug("got it");
 	}
 	#endif
 }
@@ -145,10 +155,10 @@ void SHORTREL(struct sShortSpinlock *Lock)
 	#endif
 	
 	#if TRACE_LOCKS
-	if( Lock != &glDebug_Lock )
+	if( Lock != &glDebug_Lock && Lock != &glThreadListLock )
 	{
 		//Log_Log("LOCK", "%p released by %p", Lock, __builtin_return_address(0));
-		LogF("Lock %p released by %p\n", Lock, __builtin_return_address(0));
+		Debug("Lock %p released by %p\t%p", Lock, __builtin_return_address(0), __builtin_return_address(1));
 	}
 	#endif
 	

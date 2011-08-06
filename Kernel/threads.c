@@ -20,7 +20,7 @@
 #define SCHED_RR_SIM	2	// Single Queue Round Robin
 #define SCHED_RR_PRI	3	// Multi Queue Round Robin
 // Set scheduler type
-#define SCHEDULER_TYPE	SCHED_LOTTERY
+#define SCHEDULER_TYPE	SCHED_RR_PRI
 
 // === CONSTANTS ===
 #define	DEFAULT_QUANTUM	10
@@ -1474,7 +1474,6 @@ int Semaphore_Wait(tSemaphore *Sem, int MaxToTake)
 		else
 			taken = Sem->Value;
 		Sem->Value -= taken;
-		SHORTREL( &Sem->Protector );
 	}
 	else
 	{

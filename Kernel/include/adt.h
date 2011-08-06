@@ -38,7 +38,7 @@ extern size_t	RingBuffer_Read(void *Dest, tRingBuffer *Buffer, size_t Length);
  * \param Length	Provided number of bytes
  * \return Number of bytes written
  */
-extern size_t	RingBuffer_Write(tRingBuffer *Buffer, void *Source, size_t Length);
+extern size_t	RingBuffer_Write(tRingBuffer *Buffer, const void *Source, size_t Length);
 /**
  * \}
  */

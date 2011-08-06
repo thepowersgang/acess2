@@ -1,7 +1,12 @@
 /*
+ * Acess2 Kernel
+ * 
+ * adt.c
+ * - Complex data type code
  */
 #include <acess.h>
 #include <adt.h>
+
 
 // === CODE ===
 // --- Ring Buffers ---
@@ -29,11 +34,13 @@ size_t RingBuffer_Read(void *Dest, tRingBuffer *Buffer, size_t Length)
 		memcpy(Dest, &Buffer->Data[Buffer->Start], Length);
 	}
 	Buffer->Start += Length;
+	if( Buffer->Start > Buffer->Space )
+		Buffer->Start -= Buffer->Space;
 	Buffer->Length -= Length;
 	return Length;
 }
 
-size_t RingBuffer_Write(tRingBuffer *Buffer, void *Source, size_t Length)
+size_t RingBuffer_Write(tRingBuffer *Buffer, const void *Source, size_t Length)
 {
 	size_t	bufEnd = Buffer->Start + Buffer->Length;
 	size_t	endSpace = Buffer->Space - bufEnd;

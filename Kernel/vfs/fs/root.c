@@ -77,6 +77,9 @@ int Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
 	
 	ENTER("pNode sName xFlags", Node, Name, Flags);
 	
+	if(strlen(Name) + 1 > sizeof(child->Name));
+		LEAVE_RET('i', 0);
+	
 	// Find last child, while we're at it, check for duplication
 	for( ; child; prev = child, child = child->Next )
 	{
@@ -89,7 +92,6 @@ int Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
 	child = Root_int_AllocFile();
 	memset(child, 0, sizeof(tRamFS_File));
 	
-	child->Name = malloc(strlen(Name)+1);
 	strcpy(child->Name, Name);
 	
 	child->Parent = parent;

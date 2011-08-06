@@ -12,6 +12,7 @@ typedef struct {
 	const char	*File;
 	 int	Line;
 	Uint	Magic;
+	tTime	AllocateTime;
 	char	Data[];
 } tHeapHead;
 

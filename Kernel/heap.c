@@ -212,9 +212,10 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 			head->File = File;
 			head->Line = Line;
 			head->ValidSize = __Bytes;
+			head->AllocateTime = now();
 			Mutex_Release(&glHeap);	// Release spinlock
 			#if DEBUG_TRACE
-			Log("[Heap   ] Malloc'd %p (%i bytes), returning to %p", head->Data, head->Size,  __builtin_return_address(0));
+			Debug("[Heap   ] Malloc'd %p (%i bytes), returning to %p", head->Data, head->Size,  __builtin_return_address(0));
 			#endif
 			return head->Data;
 		}
@@ -247,10 +248,11 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 			best->Magic = MAGIC_USED;	// Mark block as used
 			best->File = File;
 			best->Line = Line;
-			head->ValidSize = __Bytes;
+			best->ValidSize = __Bytes;
+			best->AllocateTime = now();
 			Mutex_Release(&glHeap);	// Release spinlock
 			#if DEBUG_TRACE
-			Log("[Heap   ] Malloc'd %p (%i bytes), returning to %p", best->Data, best->Size, __builtin_return_address(0));
+			Debug("[Heap   ] Malloc'd %p (%i bytes), returning to %s:%i", best->Data, best->Size, File, Line);
 			#endif
 			return best->Data;
 		}
@@ -271,11 +273,11 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 	best->Magic = MAGIC_USED;	// Mark block as used
 	best->File = File;
 	best->Line = Line;
+	best->AllocateTime = now();
 	
 	Mutex_Release(&glHeap);	// Release spinlock
 	#if DEBUG_TRACE
-	Log_Debug("Heap", "newhead(%p)->Size = 0x%x", newhead, newhead->Size);
-	Log_Debug("Heap", "Malloc'd %p (0x%x bytes), returning to %s:%i",
+	Debug("[Heap   ] Malloc'd %p (0x%x bytes), returning to %s:%i",
 		best->Data, best->Size, File, Line);
 	#endif
 	return best->Data;
@@ -287,17 +289,16 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
  */
 void Heap_Deallocate(void *Ptr)
 {
-	tHeapHead	*head;
+	tHeapHead	*head = (void*)( (Uint)Ptr - sizeof(tHeapHead) );
 	tHeapFoot	*foot;
-	
-	#if DEBUG_TRACE
-	Log_Log("Heap", "free: Ptr = %p", Ptr);
-	Log_Log("Heap", "free: Returns to %p", __builtin_return_address(0));
-	#endif
 	
 	// INVLPTR is returned from Heap_Allocate when the allocation
 	// size is zero.
 	if( Ptr == INVLPTR )	return;
+	
+	#if DEBUG_TRACE
+	Debug("[Heap   ] free: %p freed by %p (%i old)", Ptr, __builtin_return_address(0), now()-head->AllocateTime);
+	#endif
 	
 	// Alignment Check
 	if( (Uint)Ptr & (sizeof(Uint)-1) ) {
@@ -568,7 +569,7 @@ void Heap_Dump(void)
 		return ;
 
 	#if !VERBOSE_DUMP
-	Log_Log("Heap", "%p (0x%llx): 0x%08lx %i %4C",
+	Log_Log("Heap", "%p (%P): 0x%08lx %i %4C",
 		head, MM_GetPhysAddr((Uint)head), head->Size, head->ValidSize, &head->Magic);
 	Log_Log("Heap", "%p %4C", foot->Head, &foot->Magic);
 	if(head->File) {
@@ -587,7 +588,7 @@ void Heap_Dump(void)
 	head = foot->Head;
 	while( (tVAddr)head >= (tVAddr)badHead )
 	{
-		Log_Log("Heap", "%p (0x%llx): 0x%08lx %i %4C",
+		Log_Log("Heap", "%p (%P): 0x%08lx %i %4C",
 			head, MM_GetPhysAddr((Uint)head), head->Size, head->ValidSize, &head->Magic);
 		Log_Log("Heap", "%p %4C", foot->Head, &foot->Magic);
 		if(head->File)
@@ -667,11 +668,13 @@ void Heap_Stats(void)
 		// Print the block info?
 		#if 1
 		if( head->Magic == MAGIC_FREE )
-			Log_Debug("Heap", "%p (0x%llx) - 0x%x free",
+			Log_Debug("Heap", "%p (%P) - 0x%x free",
 				head->Data, MM_GetPhysAddr((tVAddr)&head->Data), head->Size);
 		else
-			Log_Debug("Heap", "%p (0x%llx) - 0x%x (%i) Owned by %s:%i",
-				head->Data, MM_GetPhysAddr((tVAddr)&head->Data), head->Size, head->ValidSize, head->File, head->Line);
+			Log_Debug("Heap", "%p (%P) - 0x%x (%i) Owned by %s:%i (%lli ms old)",
+				head->Data, MM_GetPhysAddr((tVAddr)&head->Data), head->Size, head->ValidSize, head->File, head->Line,
+				now() - head->AllocateTime
+				);
 		#endif
 	}
 

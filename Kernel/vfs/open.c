@@ -61,13 +61,14 @@ char *VFS_GetAbsPath(const char *Path)
 	
 	// Check if the path is already absolute
 	if(Path[0] == '/') {
-		ret = malloc(pathLen + 1);
+		ret = malloc(chrootLen + pathLen + 1);
 		if(!ret) {
 			Log_Warning("VFS", "VFS_GetAbsPath: malloc() returned NULL");
 			return NULL;
 		}
-		strcpy(ret, Path);
-	} else {
+		strcpy(ret + chrootLen, Path);
+	}
+	else {
 		if(cwd == NULL) {
 			cwd = "/";
 			cwdLen = 1;
@@ -76,15 +77,15 @@ char *VFS_GetAbsPath(const char *Path)
 			cwdLen = strlen(cwd);
 		}
 		// Prepend the current directory
-		ret = malloc( cwdLen + 1 + pathLen + 1 );
-		strcpy(ret, cwd);
+		ret = malloc(chrootLen + cwdLen + 1 + pathLen + 1 );
+		strcpy(ret+chrootLen, cwd);
 		ret[cwdLen] = '/';
-		strcpy(&ret[cwdLen+1], Path);
+		strcpy(ret+chrootLen+cwdLen+1, Path);
 		//Log("ret = '%s'", ret);
 	}
 	
 	// Parse Path
-	pathComps[iPos++] = tmpStr = ret+1;
+	pathComps[iPos++] = tmpStr = ret+chrootLen+1;
 	while(*tmpStr)
 	{
 		if(*tmpStr++ == '/')
@@ -132,7 +133,7 @@ char *VFS_GetAbsPath(const char *Path)
 	pathComps[iPos2] = NULL;
 	
 	// Build New Path
-	iPos2 = 1;	iPos = 0;
+	iPos2 = chrootLen + 1;	iPos = 0;
 	ret[0] = '/';
 	while(pathComps[iPos])
 	{
@@ -149,17 +150,12 @@ char *VFS_GetAbsPath(const char *Path)
 		ret[iPos2-1] = 0;
 	else
 		ret[iPos2] = 0;
-	
-	
+
 	// Prepend the chroot
-	tmpStr = malloc(chrootLen + strlen(ret) + 1);
-	strcpy( tmpStr, chroot );
-	strcpy( tmpStr+chrootLen, ret );
-	free(ret);
-	ret = tmpStr;
+	memcpy( ret, chroot, chrootLen );
 	
 	LEAVE('s', ret);
-	//Log("VFS_GetAbsPath: RETURN '%s'", ret);
+//	Log_Debug("VFS", "VFS_GetAbsPath: RETURN '%s'", ret);
 	return ret;
 }
 
