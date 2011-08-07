@@ -2,6 +2,7 @@
  * AcessMicro VFS
  * - Root Filesystem Driver
  */
+#define DEBUG	0
 #include <acess.h>
 #include <vfs.h>
 #include <vfs_ramfs.h>
@@ -72,16 +73,17 @@ tVFS_Node *Root_InitDevice(const char *Device, const char **Options)
 int Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
 {
 	tRamFS_File	*parent = Node->ImplPtr;
-	tRamFS_File	*child = parent->Data.FirstChild;
+	tRamFS_File	*child;
 	tRamFS_File	*prev = (tRamFS_File *) &parent->Data.FirstChild;
 	
 	ENTER("pNode sName xFlags", Node, Name, Flags);
 	
-	if(strlen(Name) + 1 > sizeof(child->Name));
+	LOG("%i > %i", strlen(Name)+1, sizeof(child->Name));
+	if(strlen(Name) + 1 > sizeof(child->Name))
 		LEAVE_RET('i', 0);
 	
 	// Find last child, while we're at it, check for duplication
-	for( ; child; prev = child, child = child->Next )
+	for( child = parent->Data.FirstChild; child; prev = child, child = child->Next )
 	{
 		if(strcmp(child->Name, Name) == 0) {
 			LEAVE('i', 0);
@@ -216,7 +218,7 @@ tRamFS_File *Root_int_AllocFile(void)
 	 int	i;
 	for( i = 0; i < MAX_FILES; i ++ )
 	{
-		if( RootFS_Files[i].Name == NULL )
+		if( RootFS_Files[i].Name[0] == '\0' )
 		{
 			return &RootFS_Files[i];
 		}
