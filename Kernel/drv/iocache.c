@@ -3,6 +3,8 @@
  * - IO Cache
  * 
  * By thePowersGang (John Hodge)
+ * 
+ * TODO: Convert to use spare physical pages instead
  */
 #define DEBUG	0
 #include <acess.h>
@@ -10,6 +12,7 @@
 
 // === TYPES ===
 typedef struct sIOCache_Ent	tIOCache_Ent;
+typedef struct sIOCache_PageInfo	tIOCache_PageInfo;
 
 // === STRUCTURES ===
 struct sIOCache_Ent
@@ -19,6 +22,15 @@ struct sIOCache_Ent
 	Sint64	LastAccess;
 	Sint64	LastWrite;
 	Uint8	Data[];
+};
+
+struct sIOCache_PageInfo
+{
+	tIOCache_PageInfo	*GlobalNext;
+	tIOCache_PageInfo	*CacheNext;
+	tIOCache	*Owner;
+	tPAddr	BasePhys;
+	Uint64	BaseOffset;
 };
 
 struct sIOCache
@@ -38,6 +50,7 @@ struct sIOCache
 tShortSpinlock	glIOCache_Caches;
 tIOCache	*gIOCache_Caches = NULL;
  int	giIOCache_NumCaches = 0;
+tIOCache_PageInfo	*gIOCache_GlobalPages;
 
 // === CODE ===
 /**
