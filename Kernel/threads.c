@@ -7,6 +7,7 @@
 #include <threads.h>
 #include <threads_int.h>
 #include <errno.h>
+#include <mutex.h>
 #include <semaphore.h>
 
 // Configuration
@@ -23,7 +24,7 @@
 #define SCHEDULER_TYPE	SCHED_RR_PRI
 
 // === CONSTANTS ===
-#define	DEFAULT_QUANTUM	10
+#define	DEFAULT_QUANTUM	5
 #define	DEFAULT_PRIORITY	5
 #define MIN_PRIORITY		10
 const enum eConfigTypes	cCONFIG_TYPES[] = {
@@ -861,13 +862,23 @@ void Threads_AddActive(tThread *Thread)
 	Thread->Status = THREAD_STAT_ACTIVE;
 //	Thread->CurCPU = -1;
 	// Add to active list
-	#if SCHEDULER_TYPE == SCHED_RR_PRI
-	Thread->Next = gaActiveThreads[Thread->Priority];
-	gaActiveThreads[Thread->Priority] = Thread;
-	#else
-	Thread->Next = gActiveThreads;
-	gActiveThreads = Thread;
-	#endif
+	{
+		tThread	*tmp, *prev = NULL;
+		#if SCHEDULER_TYPE == SCHED_RR_PRI
+		for( tmp = gaActiveThreads[Thread->Priority]; tmp; prev = tmp, tmp = tmp->Next );
+		if(prev)
+			prev->Next = Thread;
+		else
+			gaActiveThreads[Thread->Priority] = Thread;
+		#else
+		for( tmp = gActiveThreads; tmp; prev = tmp, tmp = tmp->Next );
+		if(prev)
+			prev->Next = Thread;
+		else
+			gActiveThreads = Thread;
+		#endif
+		Thread->Next = NULL;
+	}
 	
 	// Update bookkeeping
 	giNumActiveThreads ++;
