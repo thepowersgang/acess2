@@ -14,6 +14,7 @@ typedef struct sRingBuffer
 	size_t	Start;	//!< Start of data in ring buffer
 	size_t	Length;	//!< Number of data bytes in buffer
 	size_t	Space;	//!< Allocated space in buffer
+	tShortSpinlock	Lock;	//!< Lock to prevent collisions
 	char	Data[];	//!< Buffer
 }	tRingBuffer;
 
