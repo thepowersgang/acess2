@@ -26,7 +26,7 @@ void	TCP_StartConnection(tTCPConnection *Conn);
 void	TCP_SendPacket(tTCPConnection *Conn, size_t Length, tTCPHeader *Data);
 void	TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffer);
 void	TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Header, int Length);
-void	TCP_INT_AppendRecieved(tTCPConnection *Connection, const void *Data, size_t Length);
+int	TCP_INT_AppendRecieved(tTCPConnection *Connection, const void *Data, size_t Length);
 void	TCP_INT_UpdateRecievedFromFuture(tTCPConnection *Connection);
 Uint16	TCP_GetUnusedPort();
  int	TCP_AllocatePort(Uint16 Port);
@@ -424,11 +424,15 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 		// Is this packet the next expected packet?
 		if( sequence_num == Connection->NextSequenceRcv )
 		{
+			 int	rv;
 			// Ooh, Goodie! Add it to the recieved list
-			TCP_INT_AppendRecieved(Connection,
+			rv = TCP_INT_AppendRecieved(Connection,
 				(Uint8*)Header + (Header->DataOffset>>4)*4,
 				dataLen
 				);
+			if(rv != 0) {
+				break;
+			}
 			Log_Log("TCP", "0x%08x += %i", Connection->NextSequenceRcv, dataLen);
 			Connection->NextSequenceRcv += dataLen;
 			
@@ -619,16 +623,19 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
  * \param Data	Packet contents
  * \param Length	Length of \a Data
  */
-void TCP_INT_AppendRecieved(tTCPConnection *Connection, const void *Data, size_t Length)
+int TCP_INT_AppendRecieved(tTCPConnection *Connection, const void *Data, size_t Length)
 {
 	Mutex_Acquire( &Connection->lRecievedPackets );
+
 	if(Connection->RecievedBuffer->Length + Length > Connection->RecievedBuffer->Space )
 	{
-		Log_Error("TCP", "Buffer filled, packet dropped (%s)",
-		//	TCP_INT_DumpConnection(Connection)
-			""
+		VFS_MarkAvaliable(&Connection->Node, 1);
+		Log_Error("TCP", "Buffer filled, packet dropped (:%i) - %i + %i > %i",
+			Connection->LocalPort, Connection->RecievedBuffer->Length, Length,
+			Connection->RecievedBuffer->Space
 			);
-		return ;
+		Mutex_Release( &Connection->lRecievedPackets );
+		return 1;
 	}
 	
 	RingBuffer_Write( Connection->RecievedBuffer, Data, Length );
@@ -636,6 +643,7 @@ void TCP_INT_AppendRecieved(tTCPConnection *Connection, const void *Data, size_t
 	VFS_MarkAvaliable(&Connection->Node, 1);
 	
 	Mutex_Release( &Connection->lRecievedPackets );
+	return 0;
 }
 
 /**
