@@ -135,17 +135,10 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 	tTCPListener	*srv;
 	tTCPConnection	*conn;
 
-	Log_Log("TCP", "TCP_GetPacket: SourcePort = %i, DestPort = %i",
-		ntohs(hdr->SourcePort), ntohs(hdr->DestPort));
-/*
-	Log_Log("TCP", "TCP_GetPacket: SequenceNumber = 0x%x", ntohl(hdr->SequenceNumber));
-	Log_Log("TCP", "TCP_GetPacket: AcknowlegementNumber = 0x%x", ntohl(hdr->AcknowlegementNumber));
-	Log_Log("TCP", "TCP_GetPacket: DataOffset = %i", hdr->DataOffset >> 4);
-	Log_Log("TCP", "TCP_GetPacket: WindowSize = %i", htons(hdr->WindowSize));
-	Log_Log("TCP", "TCP_GetPacket: Checksum = 0x%x", htons(hdr->Checksum));
-	Log_Log("TCP", "TCP_GetPacket: UrgentPointer = 0x%x", htons(hdr->UrgentPointer));
-*/
-	Log_Log("TCP", "TCP_GetPacket: Flags = %s%s%s%s%s%s%s%s",
+	Log_Log("TCP", "TCP_GetPacket: <Local>:%i from [%s]:%i, Flags= %s%s%s%s%s%s%s%s",
+		ntohs(hdr->SourcePort),
+		IPStack_PrintAddress(Interface->Type, Address),
+		ntohs(hdr->DestPort),
 		(hdr->Flags & TCP_FLAG_CWR) ? "CWR " : "",
 		(hdr->Flags & TCP_FLAG_ECE) ? "ECE " : "",
 		(hdr->Flags & TCP_FLAG_URG) ? "URG " : "",
@@ -183,8 +176,6 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 			// Is this in an established connection?
 			for( conn = srv->Connections; conn; conn = conn->Next )
 			{
-				Log_Log("TCP", "TCP_GetPacket: conn->Interface(%p) == Interface(%p)",
-					conn->Interface, Interface);
 				// Check that it is coming in on the same interface
 				if(conn->Interface != Interface)	continue;
 

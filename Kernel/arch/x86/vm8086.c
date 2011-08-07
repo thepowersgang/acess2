@@ -89,7 +89,8 @@ int VM8086_Install(char **Arguments)
 		for(i=1;i<0x9F;i++) {
 			MM_Map( i * 0x1000, i * 0x1000 );
 			MM_DerefPhys( i * 0x1000 );	// Above
-			MM_DerefPhys( i * 0x1000 );	// Phys setup
+			if(MM_GetRefCount(i*0x1000))
+				MM_DerefPhys( i * 0x1000 );	// Phys setup
 		}
 		MM_Map( 0x9F000, 0x9F000 );	// Stack / EBDA
 		// System Stack / Stub
