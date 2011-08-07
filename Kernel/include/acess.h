@@ -462,7 +462,6 @@ extern int	DivUp(int num, int dem);
 
 #include <binary_ext.h>
 #include <vfs_ext.h>
-#include <adt.h>
 #include <mutex.h>
 
 #endif

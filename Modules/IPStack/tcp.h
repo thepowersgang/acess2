@@ -6,6 +6,7 @@
 #define _TCP_H_
 
 #include "ipstack.h"
+#include <adt.h>	// tRingBuffer
 
 typedef struct sTCPHeader	tTCPHeader;
 typedef struct sTCPListener	tTCPListener;
