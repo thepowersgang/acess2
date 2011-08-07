@@ -5,7 +5,9 @@
  * logging.c - Kernel Logging Service
  */
 #include <acess.h>
+#include <adt.h>
 
+#define CACHE_MESSAGES	0
 #define PRINT_ON_APPEND	1
 #define USE_RING_BUFFER	1
 #define RING_BUFFER_SIZE	4096
@@ -93,7 +95,7 @@ void Log_AddEvent(const char *Ident, int Level, const char *Format, va_list Args
 	
 	//Log("len = %i", len);
 	
-	#if USE_RING_BUFFER
+	#if USE_RING_BUFFER || !CACHE_MESSAGES
 	{
 	char	buf[sizeof(tLogEntry)+len+1];
 	ent = (void*)buf;
@@ -106,8 +108,9 @@ void Log_AddEvent(const char *Ident, int Level, const char *Format, va_list Args
 	ent->Level = Level;
 	ent->Length = len;
 	vsnprintf( ent->Data, len+1, Format, Args );
-	
-	#if USE_RING_BUFFER
+
+	#if CACHE_MESSAGES
+	# if USE_RING_BUFFER
 	{
 		#define LOG_HDR_LEN	(14+1+2+8+2)
 		char	newData[ LOG_HDR_LEN + len + 2 + 1 ];
@@ -120,7 +123,7 @@ void Log_AddEvent(const char *Ident, int Level, const char *Format, va_list Args
 		gpLog_RingBuffer->Space = RING_BUFFER_SIZE;	// Needed to init the buffer
 		RingBuffer_Write( gpLog_RingBuffer, newData, LOG_HDR_LEN + len + 2 );
 	}
-	#else
+	# else
 	Mutex_Acquire( &glLog );
 	
 	ent->Next = gLog.Tail;
@@ -136,13 +139,14 @@ void Log_AddEvent(const char *Ident, int Level, const char *Format, va_list Args
 		gLog_Levels[Level].Tail = gLog_Levels[Level].Head = ent;
 	
 	Mutex_Release( &glLog );
+	# endif
 	#endif
 	
-	#if PRINT_ON_APPEND
+	#if PRINT_ON_APPEND || !CACHE_MESSAGES
 	Log_Int_PrintMessage( ent );
 	#endif
 	
-	#if USE_RING_BUFFER
+	#if USE_RING_BUFFER || !CACHE_MESSAGES
 	}
 	#endif
 }
