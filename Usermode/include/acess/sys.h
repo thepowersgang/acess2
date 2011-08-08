@@ -58,9 +58,9 @@ extern void	setgid(int id);
 extern int	chdir(const char *dir);
 extern int	open(const char *path, int flags);
 extern int	reopen(int fd, const char *path, int flags);
-extern void	close(int fd);
-extern uint	read(int fd, uint length, void *buffer);
-extern uint	write(int fd, uint length, void *buffer);
+extern int	close(int fd);
+extern uint	read(int fd, void *buffer, uint length);
+extern uint	write(int fd, const void *buffer, uint length);
 extern int	seek(int fd, int64_t offset, int whence);
 extern uint64_t	tell(int fd);
 extern int	ioctl(int fd, int id, void *data);
@@ -72,7 +72,7 @@ extern int	_SysMount(const char *Device, const char *Directory, const char *Type
 extern int	select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *errfds, time_t *timeout);
 
 // --- IPC ---
-extern int	SysSendMessage(pid_t dest, uint length, void *Data);
+extern int	SysSendMessage(pid_t dest, uint length, const void *Data);
 extern int	SysGetMessage(pid_t *src, void *Data);
 
 // --- MEMORY ---

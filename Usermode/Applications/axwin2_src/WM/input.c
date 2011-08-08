@@ -40,7 +40,7 @@ void Input_HandleSelect(fd_set *set)
 	if(FD_ISSET(giTerminalFD, set))
 	{
 		uint32_t	codepoint;
-		if( read(giTerminalFD, sizeof(codepoint), &codepoint) != sizeof(codepoint) )
+		if( read(giTerminalFD, &codepoint, sizeof(codepoint)) != sizeof(codepoint) )
 		{
 			// oops, error
 		}
@@ -63,7 +63,7 @@ void Input_HandleSelect(fd_set *set)
 		_SysDebug("Cursor event");
 
 		seek(giMouseFD, 0, SEEK_SET);	
-		if( read(giMouseFD, sizeof(mouseinfo), &mouseinfo) != sizeof(mouseinfo) )
+		if( read(giMouseFD, &mouseinfo, sizeof(mouseinfo)) != sizeof(mouseinfo) )
 		{
 			// Not a 3 button mouse, oops
 			return ;

@@ -60,7 +60,7 @@ extern void	*SysLoadBin(const char *path, void **entry);
 extern int	SysUnloadBin(void *Base);
 extern void	SysSetFaultHandler(int (*Hanlder)(int));
 extern int	open(const char *filename, int flags);
-extern void	close(int fd);
+extern int	close(int fd);
 
 // === ELF Loader ===
 extern int	ElfGetSymbol(void *Base, char *name, void **ret);

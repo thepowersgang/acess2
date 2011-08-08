@@ -17,12 +17,15 @@ typedef signed long long	int64_t;
 #ifdef __LP64__
 typedef uint64_t	intptr_t;
 typedef uint64_t	uintptr_t;
+typedef int64_t	ptrdiff_t;
 #else
 typedef uint32_t	intptr_t;
 typedef uint32_t	uintptr_t;
+typedef int32_t	ptrdiff_t;
 #endif
 #if 0
 # error "Unknown pointer size"
 #endif
+
 
 #endif

@@ -63,25 +63,25 @@ int main(int argc, char *argv[], char *envp[])
 		fp = open(tmpPath, OPENFLAG_READ);
 		if(fp == -1)	continue;
 		
-		read(fp, 2, &vendor);	read(fp, 2, &device);
+		read(fp, &vendor, 2);	read(fp, &device, 2);
 		printf(" Vendor 0x%04x, Device 0x%04x\n", vendor, device);
 		printf(" %s - %s\n", GetVendorName(vendor), GetDeviceName(vendor, device));
 		
 		// Reuse vendor and device
 		seek(fp, 0x8, SEEK_SET);
-		read(fp, 2, &vendor);	read(fp, 2, &device);
+		read(fp, &vendor, 2);	read(fp, &device, 2);
 		printf(" Revision 0x%04x, Class 0x%04x ()\n", vendor, device);
 		
 		// Read File
 		#if DUMP_BARS
 		seek(fp, 0x10, SEEK_SET);
 		printf("Base Address Registers (BARs):\n");
-		read(fp, 4, &tmp32);	printf(" 0x%08x", tmp32);
-		read(fp, 4, &tmp32);	printf(" 0x%08x", tmp32);
-		read(fp, 4, &tmp32);	printf(" 0x%08x", tmp32);
-		read(fp, 4, &tmp32);	printf(" 0x%08x", tmp32);
-		read(fp, 4, &tmp32);	printf(" 0x%08x", tmp32);
-		read(fp, 4, &tmp32);	printf(" 0x%08x", tmp32);
+		read(fp, &tmp32, 4);	printf(" 0x%08x", tmp32);
+		read(fp, &tmp32, 4);	printf(" 0x%08x", tmp32);
+		read(fp, &tmp32, 4);	printf(" 0x%08x", tmp32);
+		read(fp, &tmp32, 4);	printf(" 0x%08x", tmp32);
+		read(fp, &tmp32, 4);	printf(" 0x%08x", tmp32);
+		read(fp, &tmp32, 4);	printf(" 0x%08x", tmp32);
 		printf("\n");
 		#endif
 		printf("\n");

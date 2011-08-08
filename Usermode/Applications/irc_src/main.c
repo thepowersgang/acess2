@@ -578,6 +578,10 @@ void ParseServerLine(tServer *Server, char *Line)
 				break;
 			}
 		}
+		else if( strcmp(cmd, "PING") == 0 )
+		{
+			writef(Server->FD, "PONG %s\n", gsHostname);
+		}
 		else if( strcmp(cmd, "NOTICE") == 0 )
 		{
 			char	*class, *message;
@@ -643,7 +647,7 @@ int ProcessIncoming(tServer *Server)
 	{
 	#endif
 		// Read data
-		len = read(Server->FD, BUFSIZ - Server->ReadPos, &Server->InBuf[Server->ReadPos]);
+		len = read(Server->FD, &Server->InBuf[Server->ReadPos], BUFSIZ - Server->ReadPos);
 		if( len == -1 ) {
 			return -1;
 		}
@@ -697,7 +701,7 @@ int writef(int FD, const char *Format, ...)
 		vsnprintf(buf, len+1, Format, args);
 		va_end(args);
 		
-		return write(FD, len, buf);
+		return write(FD, buf, len);
 	}
 }
 

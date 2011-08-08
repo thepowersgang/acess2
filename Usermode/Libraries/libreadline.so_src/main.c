@@ -80,7 +80,7 @@ char *Readline_NonBlock(tReadline *Info)
 	 int	len, i;
 	
 	// Read as much as possible (appending to remaining data)
-	len = read(STDIN_FD, READ_BUFFER_SIZE - 1 - Info->ReadBufferLen, Info->ReadBuffer);
+	len = read(STDIN_FD, Info->ReadBuffer, READ_BUFFER_SIZE - 1 - Info->ReadBufferLen);
 	if( len <= 0 )	return NULL;
 	Info->ReadBuffer[Info->ReadBufferLen + len] = '\0';
 	
@@ -204,21 +204,21 @@ int Readline_int_ParseCharacter(tReadline *Info, char *Input)
 					
 					// Move to the beginning of the line
 					pos = oldLen;
-					while(pos--)	write(STDOUT_FD, 3, "\x1B[D");
+					while(pos--)	write(STDOUT_FD, "\x1B[D", 3);
 					
 					// Update state
 					Info->CurBuffer = Info->History[--Info->HistoryPos];
 					Info->BufferSize = Info->BufferUsed = strlen(Info->CurBuffer);
 					
-					write(STDOUT_FD, Info->BufferUsed, Info->CurBuffer);
+					write(STDOUT_FD, Info->CurBuffer, Info->BufferUsed);
 					Info->BufferWritePos = Info->BufferUsed;
 					
 					// Clear old characters (if needed)
 					if( oldLen > Info->BufferWritePos ) {
 						pos = oldLen - Info->BufferWritePos;
-						while(pos--)	write(STDOUT_FD, 1, " ");
+						while(pos--)	write(STDOUT_FD, " ", 1);
 						pos = oldLen - Info->BufferWritePos;
-						while(pos--)	write(STDOUT_FD, 3, "\x1B[D");
+						while(pos--)	write(STDOUT_FD, "\x1B[D", 3);
 					}
 				}
 				break;
@@ -230,34 +230,34 @@ int Readline_int_ParseCharacter(tReadline *Info, char *Input)
 					
 					// Move to the beginning of the line
 					pos = oldLen;
-					while(pos--)	write(STDOUT_FD, 3, "\x1B[D");
+					while(pos--)	write(STDOUT_FD, "\x1B[D", 3);
 					
 					// Update state
 					Info->CurBuffer = Info->History[Info->HistoryPos++];
 					Info->BufferSize = Info->BufferUsed = strlen(Info->CurBuffer);
 					
 					// Write new line
-					write(STDOUT_FD, Info->BufferUsed, Info->CurBuffer);
+					write(STDOUT_FD, Info->CurBuffer, Info->BufferUsed);
 					Info->BufferWritePos = Info->BufferUsed;
 					
 					// Clear old characters (if needed)
 					if( oldLen > Info->BufferWritePos ) {
 						pos = oldLen - Info->BufferWritePos;
-						while(pos--)	write(STDOUT_FD, 1, " ");
+						while(pos--)	write(STDOUT_FD, " ", 1);
 						pos = oldLen - Info->BufferWritePos;
-						while(pos--)	write(STDOUT_FD, 3, "\x1B[D");
+						while(pos--)	write(STDOUT_FD, "\x1B[D", 3);
 					}
 				}
 				break;
 			case 'D':	// Left
 				if(Info->BufferWritePos == 0)	break;
 				Info->BufferWritePos --;
-				write(STDOUT_FD, 3, "\x1B[D");
+				write(STDOUT_FD, "\x1B[D", 3);
 				break;
 			case 'C':	// Right
 				if(Info->BufferWritePos == Info->BufferUsed)	break;
 				Info->BufferWritePos ++;
-				write(STDOUT_FD, 3, "\x1B[C");
+				write(STDOUT_FD, "\x1B[C", 3);
 				break;
 			}
 		}
@@ -267,7 +267,7 @@ int Readline_int_ParseCharacter(tReadline *Info, char *Input)
 	case '\b':
 		if(Info->BufferWritePos <= 0)	break;	// Protect against underflows
 		// Write the backsapce
-		write(STDOUT_FD, 1, &ch);
+		write(STDOUT_FD, &ch, 1);
 		if(Info->BufferWritePos == Info->BufferUsed)	// Simple case: End of string
 		{
 			Info->BufferUsed --;
@@ -283,11 +283,11 @@ int Readline_int_ParseCharacter(tReadline *Info, char *Input)
 			buf[4] += (delta) % 10;
 			// Write everything save for the deleted character
 			write(STDOUT_FD,
-				Info->BufferUsed - Info->BufferWritePos,
-				&Info->CurBuffer[Info->BufferWritePos]
+				&Info->CurBuffer[Info->BufferWritePos],
+				Info->BufferUsed - Info->BufferWritePos
 				);
-			ch = ' ';	write(STDOUT_FD, 1, &ch);	ch = '\b';	// Clear old last character
-			write(STDOUT_FD, 7, buf);	// Update Cursor
+			ch = ' ';	write(STDOUT_FD, &ch, 1);	ch = '\b';	// Clear old last character
+			write(STDOUT_FD, buf, 7);	// Update Cursor
 			// Alter Buffer
 			memmove(&Info->CurBuffer[Info->BufferWritePos-1],
 				&Info->CurBuffer[Info->BufferWritePos],
@@ -321,12 +321,12 @@ int Readline_int_ParseCharacter(tReadline *Info, char *Input)
 			buf[2] += (delta/100) % 10;
 			buf[3] += (delta/10) % 10;
 			buf[4] += (delta) % 10;
-			write(STDOUT_FD, 1, &ch);	// Print new character
+			write(STDOUT_FD, &ch, 1);	// Print new character
 			write(STDOUT_FD,
-				Info->BufferUsed - Info->BufferWritePos,
-				&Info->CurBuffer[Info->BufferWritePos]
+				&Info->CurBuffer[Info->BufferWritePos],
+				Info->BufferUsed - Info->BufferWritePos
 				);
-			write(STDOUT_FD, 7, buf);	// Update Cursor
+			write(STDOUT_FD, buf, 7);	// Update Cursor
 			// Move buffer right
 			memmove(
 				&Info->CurBuffer[Info->BufferWritePos+1],
@@ -336,7 +336,7 @@ int Readline_int_ParseCharacter(tReadline *Info, char *Input)
 		}
 		// Simple append
 		else {
-			write(STDOUT_FD, 1, &ch);
+			write(STDOUT_FD, &ch, 1);
 		}
 		Info->CurBuffer[ Info->BufferWritePos ++ ] = ch;
 		Info->BufferUsed ++;

@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
 	}
 
 	do {
-		num = read(fd, BUF_SIZE, buf);
+		num = read(fd, buf, BUF_SIZE);
 		buf[num] = '\0';
 		printf("%s", buf);
 	} while(num == BUF_SIZE);

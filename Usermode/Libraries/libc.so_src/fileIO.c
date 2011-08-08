@@ -10,6 +10,8 @@
 #include "lib.h"
 #include "stdio_int.h"
 
+#define WRITE_STR(_fd, _str)	write(_fd, _str, sizeof(_str))
+
 #define DEBUG_BUILD	0
 
 // === CONSTANTS ===
@@ -116,10 +118,12 @@ EXPORT FILE *fopen(const char *file, const char *mode)
 	return freopen(file, mode, retFile);
 }
 
-EXPORT void fclose(FILE *fp)
+EXPORT int fclose(FILE *fp)
 {
 	close(fp->FD);
-	free(fp);
+	fp->Flags = 0;
+	fp->FD = -1;
+	return 0;
 }
 
 EXPORT void fflush(FILE *fp)
@@ -152,20 +156,18 @@ EXPORT int vfprintf(FILE *fp, const char *format, va_list args)
 	 int	size;
 	char	sbuf[1024];
 	char	*buf = sbuf;
- 
-
 
 	if(!fp || !format)	return -1;
 
 	va_copy(tmpList, args);
 	
-	size = vsnprintf(sbuf, 1024, (char*)format, tmpList);
+	size = vsnprintf(sbuf, sizeof(sbuf), (char*)format, tmpList);
 	
-	if( size >= 1024 )
+	if( size >= sizeof(sbuf) )
 	{
 		buf = (char*)malloc(size+1);
 		if(!buf) {
-			write(_stdout, 31, "vfprintf ERROR: malloc() failed");
+			WRITE_STR(_stdout, "vfprintf ERROR: malloc() failed");
 			return 0;
 		}
 		buf[size] = '\0';
@@ -175,7 +177,7 @@ EXPORT int vfprintf(FILE *fp, const char *format, va_list args)
 	}
 	
 	// Write to stream
-	write(fp->FD, size, buf);
+	write(fp->FD, buf, size);
 	
 	// Free buffer
 	free(buf);
@@ -210,7 +212,7 @@ EXPORT size_t fwrite(void *ptr, size_t size, size_t num, FILE *fp)
 	 int	ret;
 	if(!fp || !fp->FD)	return -1;
 	
-	ret = write(fp->FD, size*num, ptr);
+	ret = write(fp->FD, ptr, size*num);
 	
 	return ret;
 }
@@ -224,7 +226,7 @@ EXPORT size_t fread(void *ptr, size_t size, size_t num, FILE *fp)
 	 int	ret;
 	if(!fp || !fp->FD)	return -1;
 	
-	ret = read(fp->FD, size*num, ptr);
+	ret = read(fp->FD, ptr, size*num);
 	
 	return ret;
 }
@@ -236,7 +238,13 @@ EXPORT size_t fread(void *ptr, size_t size, size_t num, FILE *fp)
 EXPORT int fputc(int c, FILE *fp)
 {
 	if(!fp || !fp->FD)	return -1;
-	return write(fp->FD, 1, &c);
+	return write(fp->FD, &c, 1);
+}
+
+EXPORT int putchar(int c)
+{
+	c &= 0xFF;
+	return write(_stdout, &c, 1);
 }
 
 /**
@@ -247,7 +255,14 @@ EXPORT int fgetc(FILE *fp)
 {
 	char	ret = 0;
 	if(!fp)	return -1;
-	if(read(fp->FD, 1, &ret) == -1)	return -1;
+	if(read(fp->FD, &ret, 1) == -1)	return -1;
+	return ret;
+}
+
+EXPORT int getchar(void)
+{
+	char	ret = 0;
+	if(read(_stdin, &ret, 1) != 1)	return -1;
 	return ret;
 }
 
@@ -266,20 +281,15 @@ FILE *get_file_struct()
 	return NULL;
 }
 
-EXPORT int putchar(int ch)
-{
-	return write(_stdout, 1, (char*)&ch);
-}
-
-EXPORT int	puts(const char *str)
+EXPORT int puts(const char *str)
 {
 	 int	len;
 	
 	if(!str)	return 0;
 	len = strlen(str);
 	
-	len = write(_stdout, len, (char*)str);
-	write(_stdout, 1, "\n");
+	len = write(_stdout, str, len);
+	write(_stdout, "\n", 1);
 	return len;
 }
 
@@ -546,7 +556,7 @@ EXPORT int printf(const char *format, ...)
 		// Allocate buffer
 		buf = (char*)malloc(size+1);
 		if(buf) {
-			write(_stdout, 29, "PRINTF ERROR: malloc() failed");
+			WRITE_STR(_stdout, "PRINTF ERROR: malloc() failed\n");
 			return 0;
 		}
 		buf[size] = '\0';
@@ -558,7 +568,7 @@ EXPORT int printf(const char *format, ...)
 	}
 	
 	// Send to stdout
-	write(_stdout, size+1, buf);
+	write(_stdout, buf, size+1);
 	
 	// Free buffer
 	free(buf);

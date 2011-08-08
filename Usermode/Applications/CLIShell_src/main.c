@@ -77,8 +77,7 @@ int main(int argc, char *argv[], char *envp[])
 		}
 	}	
 	
-	write(_stdout, 22, "Acess Shell Version 3\n");
-	write(_stdout,  2, "\n");
+	printf("Acess Shell Version 3\n\n");
 	for(;;)
 	{
 		// Free last command & arguments
@@ -88,8 +87,7 @@ int main(int argc, char *argv[], char *envp[])
 		bCached = 0;
 		#endif
 		
-		write(_stdout, strlen(gsCurrentDirectory), gsCurrentDirectory);
-		write(_stdout, 2, "$ ");
+		printf("%s$ ", gsCurrentDirectory);
 		
 		// Read Command line
 		#if USE_READLINE
@@ -100,7 +98,7 @@ int main(int argc, char *argv[], char *envp[])
 		sCommandStr = ReadCommandLine( &length );
 		
 		if(!sCommandStr) {
-			write(_stdout, 25, "PANIC: Out of heap space\n");
+			printf("PANIC: Out of heap space\n");
 			return -1;
 		}
 		
@@ -147,6 +145,7 @@ int main(int argc, char *argv[], char *envp[])
 	}
 }
 
+#if USE_READLINE
 /**
  * \fn char *ReadCommandLine(int *Length)
  * \brief Read from the command line
@@ -167,21 +166,20 @@ char *ReadCommandLine(int *Length)
 		
 	// Read In Command Line
 	do {
-		read(_stdin, 1, &ch);	// Read Character from stdin (read is a blocking call)
-		
+		ch = getchar();	// Read Character from stdin (read is a blocking call)
 		if(ch == '\n')	break;
 		
 		switch(ch)
 		{
 		// Control characters
 		case '\x1B':
-			read(_stdin, 1, &ch);	// Read control character
+			ch = getchar();	// Read control character
 			switch(ch)
 			{
 			//case 'D':	if(pos)	pos--;	break;
 			//case 'C':	if(pos<len)	pos++;	break;
 			case '[':
-				read(_stdin, 1, &ch);	// Read control character
+				ch = getchar();	// Read control character
 				switch(ch)
 				{
 				#if 0
@@ -194,7 +192,7 @@ char *ReadCommandLine(int *Length)
 						ret = strdup( gasCommandHistory[--scrollbackPos] );
 						
 						len = strlen(ret);
-						while(pos--)	write(_stdout, 3, "\x1B[D");
+						while(pos--)	printf("\x1B[D");
 						write(_stdout, len, ret);	pos = len;
 						while(pos++ < oldLen)	write(_stdout, 1, " ");
 					}
@@ -217,12 +215,12 @@ char *ReadCommandLine(int *Length)
 				case 'D':	// Left
 					if(pos == 0)	break;
 					pos --;
-					write(_stdout, 3, "\x1B[D");
+					printf("\x1B[D");
 					break;
 				case 'C':	// Right
 					if(pos == len)	break;
 					pos++;
-					write(_stdout, 3, "\x1B[C");
+					printf("\x1B[C");
 					break;
 				}
 			}
@@ -231,19 +229,14 @@ char *ReadCommandLine(int *Length)
 		// Backspace
 		case '\b':
 			if(len <= 0)		break;	// Protect against underflows
-			write(_stdout, 1, &ch);
+			putchar(ch);
 			if(pos == len) {	// Simple case of end of string
 				len --;
 				pos--;
 			}
 			else {
-				char	buf[7] = "\x1B[000D";
-				buf[2] += ((len-pos+1)/100) % 10;
-				buf[3] += ((len-pos+1)/10) % 10;
-				buf[4] += (len-pos+1) % 10;
-				write(_stdout, len-pos, &ret[pos]);	// Move Text
-				ch = ' ';	write(_stdout, 1, &ch);	ch = '\b';	// Clear deleted character
-				write(_stdout, 7, buf);	// Update Cursor
+				printf("%.*s ", len-pos, &ret[pos]);	// Move Text
+				printf("\x1B[%iD", len-pos+1);
 				// Alter Buffer
 				memmove(&ret[pos-1], &ret[pos], len-pos);
 				pos --;
@@ -267,17 +260,13 @@ char *ReadCommandLine(int *Length)
 			
 			// Editing inside the buffer
 			if(pos != len) {
-				char	buf[7] = "\x1B[000D";
-				buf[2] += ((len-pos)/100) % 10;
-				buf[3] += ((len-pos)/10) % 10;
-				buf[4] += (len-pos) % 10;
-				write(_stdout, 1, &ch);	// Print new character
-				write(_stdout, len-pos, &ret[pos]);	// Move Text
-				write(_stdout, 7, buf);	// Update Cursor
+				putchar(ch);	// Print new character
+				printf("%.*s", len-pos, &ret[pos]);	// Move Text
+				printf("\x1B[%iD", len-pos);
 				memmove( &ret[pos+1], &ret[pos], len-pos );
 			}
 			else {
-				write(_stdout, 1, &ch);
+				putchar(ch);
 			}
 			ret[pos++] = ch;
 			len ++;
@@ -294,6 +283,7 @@ char *ReadCommandLine(int *Length)
 	
 	return ret;
 }
+#endif
 
 /**
  * \fn void Parse_Args(char *str, char **dest)
@@ -306,7 +296,7 @@ void Parse_Args(char *str, char **dest)
 	
 	if(buf == NULL) {
 		dest[0] = NULL;
-		Print("Parse_Args: Out of heap space!\n");
+		printf("Parse_Args: Out of heap space!\n");
 		return ;
 	}
 	
@@ -360,7 +350,7 @@ void CallCommand(char **Args)
 		// Check file existence
 		fd = open(sTmpBuffer, OPENFLAG_EXEC);
 		if(fd == -1) {
-			Print("Unknown Command: `");Print(Args[0]);Print("'\n");	// Error Message
+			printf("Unknown Command: `%s'\n", Args[0]);	// Error Message
 			return ;
 		}
 		
@@ -370,8 +360,7 @@ void CallCommand(char **Args)
 		
 		// Check if the file is a directory
 		if(info.flags & FILEFLAG_DIRECTORY) {
-			Print("`");Print(sTmpBuffer);	// Error Message
-			Print("' is a directory.\n");
+			printf("`%s' is a directory.\n", sTmpBuffer);
 			return ;
 		}
 	}
@@ -394,7 +383,7 @@ void CallCommand(char **Args)
 		
 		// Exhausted path directories
 		if( i == giNumPathDirs ) {
-			Print("Unknown Command: `");Print(exefile);Print("'\n");
+			printf("Unknown Command: `%s'\n", exefile);
 			return ;
 		}
 	}
@@ -405,7 +394,7 @@ void CallCommand(char **Args)
 	if(pid == 0)
 		execve(sTmpBuffer, Args, gasEnvironment);
 	if(pid <= 0) {
-		Print("Unablt to create process: `");Print(sTmpBuffer);Print("'\n");	// Error Message
+		printf("Unable to create process: `%s'\n", sTmpBuffer);	// Error Message
 	}
 	else {
 		 int	status;
@@ -428,17 +417,16 @@ void Command_Logout(int argc, char **argv)
  */
 void Command_Help(int argc, char **argv)
 {
-	Print("Acess 2 Command Line Interface\n");
-	Print(" By John Hodge (thePowersGang / [TPG])\n");
-	Print("\n");
-	Print("Builtin Commands:\n");
-	Print(" logout: Return to the login prompt\n");
-	Print(" exit:   Same\n");
-	Print(" help:   Display this message\n");
-	Print(" clear:  Clear the screen\n");
-	Print(" cd:     Change the current directory\n");
-	Print(" dir:    Print the contents of the current directory\n");
-	//Print("\n");
+	printf( "Acess 2 Command Line Interface\n"
+		" By John Hodge (thePowersGang / [TPG])\n"
+		"\n"
+		"Builtin Commands:\n"
+		" logout: Return to the login prompt\n"
+		" exit:   Same\n"
+		" help:   Display this message\n"
+		" clear:  Clear the screen\n"
+		" cd:     Change the current directory\n"
+		" dir:    Print the contents of the current directory\n");
 	return;
 }
 
@@ -448,7 +436,7 @@ void Command_Help(int argc, char **argv)
  */
 void Command_Clear(int argc, char **argv)
 {
-	write(_stdout, 4, "\x1B[2J");	//Clear Screen
+	write(_stdout, "\x1B[2J", 4);	//Clear Screen
 }
 
 /**
@@ -463,7 +451,7 @@ void Command_Cd(int argc, char **argv)
 	
 	if(argc < 2)
 	{
-		Print(gsCurrentDirectory);Print("\n");
+		printf("%s\n", gsCurrentDirectory);
 		return;
 	}
 	
@@ -471,14 +459,14 @@ void Command_Cd(int argc, char **argv)
 	
 	fp = open(tmpPath, 0);
 	if(fp == -1) {
-		write(_stdout, 26, "Directory does not exist\n");
+		printf("Directory does not exist\n");
 		return;
 	}
 	finfo(fp, &stats, 0);
 	close(fp);
 	
 	if( !(stats.flags & FILEFLAG_DIRECTORY) ) {
-		write(_stdout, 17, "Not a Directory\n");
+		printf("Not a Directory\n");
 		return;
 	}
 	
@@ -524,16 +512,14 @@ void Command_Dir(int argc, char **argv)
 	if( finfo(dp, &info, 0) == -1 )
 	{
 		close(dp);
-		write(_stdout, 34, "stat Failed, Bad File Descriptor\n");
+		printf("stat Failed, Bad File Descriptor\n");
 		return;
 	}
 	// Check if it's a directory
 	if(!(info.flags & FILEFLAG_DIRECTORY))
 	{
 		close(dp);
-		write(_stdout, 27, "Unable to open directory `");
-		write(_stdout, strlen(tmpPath)+1, tmpPath);
-		write(_stdout, 20, "', Not a directory\n");
+		printf("Unable to open directory `%s', Not a directory\n", tmpPath);
 		return;
 	}
 	
@@ -551,7 +537,7 @@ void Command_Dir(int argc, char **argv)
 		if(fp < 0)
 		{
 			if(fp == -3)
-				write(_stdout, 42, "Invalid Permissions to traverse directory\n");
+				printf("Invalid Permissions to traverse directory\n");
 			break;
 		}
 		// Open File
@@ -561,9 +547,9 @@ void Command_Dir(int argc, char **argv)
 		finfo(fp, &info, 0);
 		
 		if(info.flags & FILEFLAG_DIRECTORY)
-			write(_stdout, 1, "d");
+			printf("d");
 		else
-			write(_stdout, 1, "-");
+			printf("-");
 		
 		// Print Mode
 		// - Owner
@@ -584,26 +570,26 @@ void Command_Dir(int argc, char **argv)
 		if(acl.perms & 1)	modeStr[6] = 'r';	else	modeStr[6] = '-';
 		if(acl.perms & 2)	modeStr[7] = 'w';	else	modeStr[7] = '-';
 		if(acl.perms & 8)	modeStr[8] = 'x';	else	modeStr[8] = '-';
-		write(_stdout, 10, modeStr);
+		printf(modeStr);
 		close(fp);
 		
 		// Colour Code
 		if(info.flags & FILEFLAG_DIRECTORY)	// Directory: Green
-			write(_stdout, 6, "\x1B[32m");
+			printf("\x1B[32m");
 		// Default: White
 		
 		// Print Name
-		write(_stdout, strlen(fileName), fileName);
+		printf("%s", fileName);
 		
 		// Print slash if applicable
 		if(info.flags & FILEFLAG_DIRECTORY)
-			write(_stdout, 1, "/");
+			printf("/");
 		
 		// Revert Colour
-		write(_stdout, 6, "\x1B[37m");
+		printf("\x1B[37m");
 		
 		// Newline!
-		write(_stdout, 1, "\n");
+		printf("\n");
 	}
 	// Close Directory
 	close(dp);

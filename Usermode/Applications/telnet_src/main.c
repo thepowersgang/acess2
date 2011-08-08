@@ -64,8 +64,8 @@ int main(int argc, char *argv[], char *envp[])
 			// Read from server, and write to stdout
 			do
 			{
-				len = read(server_fd, BUFSIZ, buffer);
-				write(1, len, buffer);
+				len = read(server_fd, buffer, BUFSIZ);
+				write(1, buffer, len);
 			} while( len == BUFSIZ );
 		}
 		
@@ -78,17 +78,17 @@ int main(int argc, char *argv[], char *envp[])
 				char	*line = Readline_NonBlock(readline_info);
 				if( line )
 				{
-					write(server_fd, strlen(line), line);
-					write(server_fd, 1, "\n");
+					write(server_fd, line, strlen(line));
+					write(server_fd, "\n", 1);
 				}
 			}
 			else
 			{
 				do
 				{
-					len = read(0, BUFSIZ, buffer);
-					write(server_fd, len, buffer);
-					write(1, len, buffer);
+					len = read(0, buffer, BUFSIZ);
+					write(server_fd, buffer, len);
+					write(1, buffer, len);
 				} while( len == BUFSIZ );
 			}
 		}

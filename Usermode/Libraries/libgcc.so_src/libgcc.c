@@ -13,7 +13,7 @@ int SoMain()
 // --- Errors ---
 void __stack_chk_fail()
 {
-	write(2, 32, "FATAL ERROR: Stack Check Failed\n");
+	write(2, "FATAL ERROR: Stack Check Failed\n", 32);
 	_exit(-1);
 	for(;;);
 }

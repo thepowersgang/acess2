@@ -67,7 +67,7 @@ void Video_Update(void)
 {
 	//seek(giTerminalFD, 0, SEEK_SET);
 	seek(giTerminalFD, 0, 1);
-	write(giTerminalFD, giScreenWidth*giScreenHeight*4, gpScreenBuffer);
+	write(giTerminalFD, gpScreenBuffer, giScreenWidth*giScreenHeight*4);
 }
 
 void Video_FillRect(short X, short Y, short W, short H, uint32_t Color)

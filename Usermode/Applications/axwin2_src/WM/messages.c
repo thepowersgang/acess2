@@ -64,7 +64,7 @@ void IPC_HandleSelect(fd_set *set)
 		 int	readlen, identlen;
 		char	*msg;
 
-		readlen = read(giNetworkFileHandle, sizeof(staticBuf), staticBuf);
+		readlen = read(giNetworkFileHandle, staticBuf, sizeof(staticBuf));
 		
 		identlen = 4 + Net_GetAddressSize( ((uint16_t*)staticBuf)[1] );
 		msg = staticBuf + identlen;
@@ -208,7 +208,7 @@ void IPC_Type_Datagram_Send(void *Ident, size_t Length, void *Data)
 	memcpy(tmpbuf, Ident, identlen);	// Header
 	memcpy(tmpbuf + identlen, Data, Length);	// Data
 	// TODO: Handle fragmented packets
-	write(giNetworkFileHandle, sizeof(tmpbuf), tmpbuf);
+	write(giNetworkFileHandle, tmpbuf, sizeof(tmpbuf));
 }
 
 int IPC_Type_Sys_GetSize(void *Ident)

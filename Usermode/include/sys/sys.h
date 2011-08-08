@@ -4,8 +4,18 @@
 #ifndef _SYS_SYS_H_
 #define _SYS_SYS_H_
 
+#include <acess/sys.h>
+
 #include <sys/types.h>
 
+#define O_RDONLY	OPENFLAG_READ
+#define O_WRONLY	OPENFLAG_WRITE
+#define O_CREAT 	(OPENFLAG_CREATE|OPENFLAG_WRITE)
+#define O_TRUNC 	OPENFLAG_WRITE
+#define O_APPEND 	OPENFLAG_WRITE
+
+
+#if 0
 #define	OPEN_FLAG_READ	1
 #define	OPEN_FLAG_WRITE	2
 #define	OPEN_FLAG_EXEC	4
@@ -41,5 +51,6 @@ extern int	getpid();	// Get Process ID
 extern int	sendmsg(int dest, unsigned int *Data);
 extern int	pollmsg(int *src, unsigned int *Data);
 extern int	getmsg(int *src, unsigned int *Data);
+#endif
 
 #endif
