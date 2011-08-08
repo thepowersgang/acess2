@@ -908,7 +908,7 @@ int ModUtil_SetIdent(char *Dest, const char *Value)
 /**
  * \brief Convert a string of hexadecimal digits into a byte stream
  */
-int	UnHex(Uint8 *Dest, size_t DestSize, const char *SourceString)
+int UnHex(Uint8 *Dest, size_t DestSize, const char *SourceString)
 {
 	 int	i;
 	

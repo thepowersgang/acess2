@@ -16,12 +16,7 @@
 #include <mm_phys.h>
 #include <proc.h>
 
-#if USE_PAE
-# define TAB	21
-# define DIR	30
-#else
-# define TAB	22
-#endif
+#define TAB	22
 
 #define KERNEL_STACKS		0xF0000000
 #define	KERNEL_STACK_SIZE	0x00008000
@@ -61,11 +56,7 @@
 
 #define INVLPG(addr)	__asm__ __volatile__ ("invlpg (%0)"::"r"(addr))
 
-#if USE_PAE
-typedef Uint64	tTabEnt;
-#else
 typedef Uint32	tTabEnt;
-#endif
 
 // === IMPORTS ===
 extern void	_UsertextEnd, _UsertextBase;
@@ -116,11 +107,7 @@ struct sPageInfo {
  */
 void MM_PreinitVirtual(void)
 {
-	#if USE_PAE
-	gaInitPageDir[ ((PAGE_TABLE_ADDR >> TAB)-3*512+3)*2 ] = ((tTabEnt)&gaInitPageDir - KERNEL_BASE) | 3;
-	#else
 	gaInitPageDir[ PAGE_TABLE_ADDR >> 22 ] = ((tTabEnt)&gaInitPageDir - KERNEL_BASE) | 3;
-	#endif
 	INVLPG( PAGE_TABLE_ADDR );
 }
 
@@ -132,23 +119,6 @@ void MM_InstallVirtual(void)
 {
 	 int	i;
 	
-	#if USE_PAE
-	// --- Pre-Allocate kernel tables
-	for( i = KERNEL_BASE >> TAB; i < 1024*4; i ++ )
-	{
-		if( gaPAE_PageDir[ i ] )	continue;
-		
-		// Skip stack tables, they are process unique
-		if( i > KERNEL_STACKS >> TAB && i < KERNEL_STACKS_END >> TAB) {
-			gaPAE_PageDir[ i ] = 0;
-			continue;
-		}
-		// Preallocate table
-		gaPAE_PageDir[ i ] = MM_AllocPhys() | 3;
-		INVLPG( &gaPAE_PageTable[i*512] );
-		memset( &gaPAE_PageTable[i*512], 0, 0x1000 );
-	}
-	#else
 	// --- Pre-Allocate kernel tables
 	for( i = KERNEL_BASE>>22; i < 1024; i ++ )
 	{
@@ -163,7 +133,6 @@ void MM_InstallVirtual(void)
 		INVLPG( &gaPageTable[i*1024] );
 		memset( &gaPageTable[i*1024], 0, 0x1000 );
 	}
-	#endif
 	
 	// Unset kernel on the User Text pages
 	for( i = ((tVAddr)&_UsertextEnd-(tVAddr)&_UsertextBase+0xFFF)/4096; i--; ) {
@@ -176,11 +145,7 @@ void MM_InstallVirtual(void)
  */
 void MM_FinishVirtualInit(void)
 {
-	#if USE_PAE
-	gaInitPDPT[ 0 ] = 0;
-	#else
 	gaInitPageDir[ 0 ] = 0;
-	#endif
 }
 
 /**

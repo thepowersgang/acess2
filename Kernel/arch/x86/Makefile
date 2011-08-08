@@ -10,21 +10,16 @@ CFLAGS		=
 ASFLAGS		= -f elf
 
 USE_MP=0
-USE_PAE=0
 
 ifeq ($(ARCH),i386)
 	USE_MP=0
-	USE_PAE=0
-else ifeq ($(ARCH),i486)
+else ifeq ($(ARCH),i386-smp)
 	USE_MP=1
-else ifeq ($(ARCH),i586)
-	USE_MP=1
-	USE_PAE=1
 endif
 
 #ASFLAGS		+= -D ARCH=\"$(ARCH)\" -D ARCHDIR=\"$(ARCHDIR)\"
-ASFLAGS += -D USE_MP=$(USE_MP) -D USE_PAE=$(USE_PAE)
-CPPFLAGS += -DUSE_MP=$(USE_MP) -DUSE_PAE=$(USE_PAE)
+ASFLAGS += -D USE_MP=$(USE_MP)
+CPPFLAGS += -DUSE_MP=$(USE_MP)
 
 A_OBJ  = start.ao main.o lib.o desctab.ao errors.o irq.o
 A_OBJ += mm_phys.o mm_virt.o

@@ -186,14 +186,10 @@ Proc_ReturnToUser:
 	; Validate user ESP
 	; - Page Table
 	mov edx, [eax+KSTACK_USERSTATE_SIZE-12]	; User ESP is at top of kstack - 3*4
-	%if USE_PAE
-	%error PAE Support
-	%else
 	mov ecx, edx
 	shr ecx, 22
 	test BYTE [0xFC3F0000+ecx*4], 1
 	jnz .justKillIt
-	%endif
 	; - Page
 	mov ecx, edx
 	shr ecx, 12
@@ -202,13 +198,10 @@ Proc_ReturnToUser:
 	; Adjust
 	sub edx, 8
 	; - Page Table
-	%if USE_PAE
-	%else
 	mov ecx, edx
 	shr ecx, 22
 	test BYTE [0xFC3F0000+ecx*4], 1
 	jnz .justKillIt
-	%endif
 	; - Page
 	mov ecx, edx
 	shr ecx, 12

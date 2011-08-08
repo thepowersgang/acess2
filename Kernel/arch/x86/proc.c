@@ -93,9 +93,6 @@ tTSS	gaTSSs[MAX_CPUS];	// TSS Array
 tThread	*gCurrentThread = NULL;
 tThread	*gpIdleThread = NULL;
 #endif
-#if USE_PAE
-Uint32	*gPML4s[4] = NULL;
-#endif
 tTSS	*gTSSs = NULL;	// Pointer to TSS array
 tTSS	gTSS0 = {0};
 // --- Error Recovery ---
@@ -371,13 +368,7 @@ void ArchThreads_Init(void)
 	#endif
 	gThreadZero.CurCPU = 0;
 	
-	#if USE_PAE
-	gThreadZero.MemState.PDP[0] = 0;
-	gThreadZero.MemState.PDP[1] = 0;
-	gThreadZero.MemState.PDP[2] = 0;
-	#else
 	gThreadZero.MemState.CR3 = (Uint)gaInitPageDir - KERNEL_BASE;
-	#endif
 	
 	// Create Per-Process Data Block
 	if( !MM_Allocate(MM_PPD_CFG) )
@@ -591,11 +582,7 @@ int Proc_Clone(Uint *Err, Uint Flags)
 		Uint	tmpEbp, oldEsp = esp;
 
 		// Set CR3
-		#if USE_PAE
-		# warning "PAE Unimplemented"
-		#else
 		newThread->MemState.CR3 = cur->MemState.CR3;
-		#endif
 
 		// Create new KStack
 		newThread->KernelStack = MM_NewKStack();
@@ -1050,9 +1037,6 @@ void Proc_Scheduler(int CPU)
 		Log("%p Scheduled", thread);
 	}
 	
-	#if USE_PAE
-	# error "Todo: Implement PAE Address space switching"
-	#else
 	// Set thread pointer
 	__asm__ __volatile__("mov %0, %%db0\n\t" : : "r"(thread) );
 	// Switch threads
@@ -1067,7 +1051,6 @@ void Proc_Scheduler(int CPU)
 		"r"(thread->MemState.CR3),
 		"r"(thread->bInstrTrace&&thread->SavedState.EIP==(Uint)&GetEIP_Sched_ret?0x100:0)
 		);
-	#endif
 	for(;;);	// Shouldn't reach here
 }
 
