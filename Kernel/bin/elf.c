@@ -347,6 +347,10 @@ int Elf_Relocate(void *Base)
 		}
 	}
 
+	if( !dynsymtab && iSymCount > 0 ) {
+		Log_Warning("ELF", "Elf_Relocate: No Dynamic symbol table, but count >0");
+		return 0;
+	}
 
 	// Alter Symbols to true base
 	for(i = 0; i < iSymCount; i ++)
@@ -409,7 +413,7 @@ int Elf_Relocate(void *Base)
 		for( i = 0; i < j; i++ )
 		{
 			ptr = (void*)(iBaseDiff + rela[i].r_offset);
-			if( !Elf_Int_DoRelocate(rel[i].r_info, ptr, rela[i].r_addend, dynsymtab, (Uint)Base) ) {
+			if( !Elf_Int_DoRelocate(rela[i].r_info, ptr, rela[i].r_addend, dynsymtab, (Uint)Base) ) {
 				bFailed = 1;
 			}
 		}
@@ -451,8 +455,8 @@ int Elf_Relocate(void *Base)
 		return 0;
 	}
 	
-	LEAVE('x', hdr->entrypoint);
-	return hdr->entrypoint;
+	LEAVE('x', 1);
+	return 1;
 }
 
 /**

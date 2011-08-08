@@ -60,7 +60,7 @@ size_t RingBuffer_Write(tRingBuffer *Buffer, const void *Source, size_t Length)
 	tmpLen = Buffer->Length;
 	SHORTREL( &Buffer->Lock );
 
-	bufEnd = (Buffer->Start + Buffer->Length) % Buffer->Space;
+	bufEnd = (tmpStart + Buffer->Length) % Buffer->Space;
 	endSpace = Buffer->Space - bufEnd;
 	
 	// Force to bounds

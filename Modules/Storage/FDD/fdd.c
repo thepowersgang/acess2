@@ -176,7 +176,7 @@ int FDD_Install(char **Arguments)
 
 	// Ensure the FDD version is 0x90
 	{
-		Uint8	tmp;
+		Uint8	tmp = 0;
 		FDD_int_SendByte(cPORTBASE[0], CMD_VERSION);
 		FDD_int_GetByte(cPORTBASE[0], &tmp);
 		if( tmp != 0x90 ) {
@@ -584,7 +584,7 @@ int FDD_WriteSector(Uint32 Disk, Uint64 LBA, void *Buffer)
  */
 int FDD_int_SeekTrack(int disk, int head, int track)
 {
-	Uint8	sr0, cyl;
+	Uint8	sr0=0, cyl=0;
 	 int	base;
 	
 	base = cPORTBASE[disk>>1];

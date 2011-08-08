@@ -571,7 +571,8 @@ void Heap_Dump(void)
 	#if !VERBOSE_DUMP
 	Log_Log("Heap", "%p (%P): 0x%08lx %i %4C",
 		head, MM_GetPhysAddr((Uint)head), head->Size, head->ValidSize, &head->Magic);
-	Log_Log("Heap", "%p %4C", foot->Head, &foot->Magic);
+	if(foot)
+		Log_Log("Heap", "Backlink = %p %4C", foot->Head, &foot->Magic);
 	if(head->File) {
 		Log_Log("Heap", "%sowned by %s:%i",
 			(head->Magic==MAGIC_FREE?"was ":""), head->File, head->Line);
@@ -680,10 +681,16 @@ void Heap_Stats(void)
 
 	Log_Log("Heap", "%i blocks (0x%x bytes)", nBlocks, totalBytes);
 	Log_Log("Heap", "%i free blocks (0x%x bytes)", nFree, freeBytes);
-	frag = (nFree-1)*10000/nBlocks;
+	if(nBlocks != 0)
+		frag = (nFree-1)*10000/nBlocks;
+	else
+		frag = 0;
 	Log_Log("Heap", "%i.%02i%% Heap Fragmentation", frag/100, frag%100);
 	avgAlloc = (totalBytes-freeBytes)/(nBlocks-nFree);
-	overhead = (sizeof(tHeapFoot)+sizeof(tHeapHead))*10000/avgAlloc;
+	if(avgAlloc != 0)
+		overhead = (sizeof(tHeapFoot)+sizeof(tHeapHead))*10000/avgAlloc;
+	else
+		overhead = 0;
 	Log_Log("Heap", "Average allocation: %i bytes, Average Overhead: %i.%02i%%",
 		avgAlloc, overhead/100, overhead%100
 		);

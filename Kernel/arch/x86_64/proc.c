@@ -287,10 +287,10 @@ void ArchThreads_Init(void)
 	#if USE_MP
 	}
 	for(pos=0;pos<giNumCPUs;pos++) {
-	#endif
 		__asm__ __volatile__ ("ltr %%ax"::"a"(0x38+pos*16));
-	#if USE_MP
 	}
+	#else
+	__asm__ __volatile__ ("ltr %%ax"::"a"(0x38));
 	#endif
 	
 	// Set Debug registers
@@ -798,7 +798,7 @@ void Proc_Scheduler(int CPU)
 		thread = gaCPUs[CPU].IdleThread;
 		//Warning("Hmm... Threads_GetNextToRun returned NULL, I don't think this should happen.\n");
 		//LogF("Zzzzz.\n");
-		return;
+		//return;
 	}
 	
 	#if DEBUG_TRACE_SWITCH

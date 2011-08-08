@@ -249,8 +249,8 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 		if(base & 63) {
 			Uint64	val = -1LL << (base & 63);
 			gaSuperBitmap[base / 64] &= ~val;
-			size -= (base & 63);
-			base += 64 - (base & 63);
+//			size -= (base & 63);
+//			base += 64 - (base & 63);
 		}
 	}
 	
@@ -403,9 +403,9 @@ tPAddr MM_AllocPhysRange(int Pages, int MaxBits)
 	{
 		// Oops. ok, let's do an expensive check (scan down the list
 		// until a free range is found)
-		nFree = 1;
-		addr = giPhysRangeLast[ rangeID ];
-		// TODO
+//		nFree = 1;
+//		addr = giPhysRangeLast[ rangeID ];
+		// TODO: Expensive Check
 		Mutex_Release(&glPhysicalPages);
 		// TODO: Page out
 		// ATM. Just Warning

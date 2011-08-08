@@ -348,10 +348,10 @@ tRoute *IPStack_FindRoute(int AddressType, tInterface *Interface, void *Address)
 	{
 		rt = &Interface->Route;
 		// Make sure route is up to date
-		memcpy(rt->Network, iface->Address, addrSize);
+		memcpy(rt->Network, Interface->Address, addrSize);
 		memset(rt->NextHop, 0, addrSize);
 		rt->Metric = DEFAUTL_METRIC;
-		rt->SubnetBits = iface->SubnetBits;
+		rt->SubnetBits = Interface->SubnetBits;
 		
 		if( IPStack_CompareAddress(AddressType, rt->Network, Address, rt->SubnetBits) )
 		{

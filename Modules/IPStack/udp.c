@@ -257,7 +257,7 @@ Uint64 UDP_Channel_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Bu
 
 	data = (char*)Buffer + ofs;
 
-	UDP_SendPacketTo(chan, ep->AddrType, &ep->Addr, ep->Port, Buffer, (size_t)Length - ofs);
+	UDP_SendPacketTo(chan, ep->AddrType, &ep->Addr, ep->Port, data, (size_t)Length - ofs);
 	
 	return 0;
 }

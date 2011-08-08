@@ -1291,7 +1291,7 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 			}
 			// If we fall onto the same queue again, special handling is
 			// needed
-			if( i == Last->Priority ) {
+			if( Last && i == Last->Priority ) {
 				tThread	*savedThread = thread;
 				
 				// Find the next unscheduled thread in the list

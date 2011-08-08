@@ -190,6 +190,10 @@ int IOCache_Add( tIOCache *Cache, Uint64 Sector, void *Buffer )
 				oldestPrev = prev;
 			}
 		}
+		if( !oldest ) {
+			Log_Error("IOCache", "Cache full, but also empty");
+			return -1;
+		}
 		// Remove from list, write back and free
 		oldestPrev->Next = oldest->Next;
 		if(oldest->LastWrite && Cache->Mode != IOCACHE_VIRTUAL)

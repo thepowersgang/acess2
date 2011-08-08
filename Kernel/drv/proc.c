@@ -301,7 +301,10 @@ int SysFS_RemoveFile(int ID)
 	}
 	
 	// Remove from parent directory
-	prev->Next = ent->Next;
+	if(prev)
+		prev->Next = ent->Next;
+	else
+		parent->Node.ImplPtr = ent->Next;
 	
 	// Free if not in use
 	if(file->Node.ReferenceCount == 0)

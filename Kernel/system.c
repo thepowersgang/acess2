@@ -393,7 +393,7 @@ void System_ExecuteScript(void)
 			// Convert arguments to integers
 			for( k = line->nParts-1; k--; )
 			{
-				if( caConfigCommands[j].IntArgs & (1 << k) ) {
+				if( k < 32 && (caConfigCommands[j].IntArgs & (1 << k)) ) {
 					args[k] = atoi(line->Parts[k+1]);
 				}
 				else {

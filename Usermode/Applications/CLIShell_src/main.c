@@ -145,7 +145,7 @@ int main(int argc, char *argv[], char *envp[])
 	}
 }
 
-#if USE_READLINE
+#if !USE_READLINE
 /**
  * \fn char *ReadCommandLine(int *Length)
  * \brief Read from the command line

@@ -744,7 +744,7 @@ void *Binary_LoadKernel(const char *File)
 	// Relocate Library
 	if( !Binary_Relocate( (void*)base ) )
 	{
-		Warning("[BIN ] Relocation of '%s' failed, unloading", sTruePath);
+		Log_Warning("BIN", "Relocation of '%s' failed, unloading", sTruePath);
 		Binary_Unload( (void*)base );
 		Binary_Dereference( pBinary );
 		LEAVE('n');
