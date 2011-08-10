@@ -2,7 +2,7 @@
  */
 #ifndef _SYS_TYPES_H
 #define _SYS_TYPES_H
-#include <stdint.h>
+//#include <stdint.h>
 
 typedef struct {
 	int		st_dev;		//dev_t
@@ -18,51 +18,39 @@ typedef struct {
 	long	st_ctime;
 } t_fstat;
 
-#define	S_IFMT		0170000	/* type of file */
-#define		S_IFDIR	0040000	/* directory */
-#define		S_IFCHR	0020000	/* character special */
-#define		S_IFBLK	0060000	/* block special */
-#define		S_IFREG	0100000	/* regular */
-#define		S_IFLNK	0120000	/* symbolic link */
-#define		S_IFSOCK	0140000	/* socket */
-#define		S_IFIFO	0010000	/* fifo */
-
 #define FD_SETSIZE	128
 
 
 #define CLONE_VM	0x10
+
+typedef unsigned long	pid_t;
+typedef unsigned long	tid_t;
+typedef signed long long	time_t;
+
+typedef unsigned int	uint;
+
+typedef unsigned short	fd_set_ent_t;
 
 /**
  * \brief fd_set for select()
  */
 typedef struct
 {
-	uint16_t	flags[FD_SETSIZE/16];
+	fd_set_ent_t	flags[FD_SETSIZE/16];
 }	fd_set;
 
 struct s_sysACL {
-	union {
-		struct {
-			unsigned	group: 1;
-			unsigned	id:	31;
-		};
-		uint32_t	object;
-	};
-	union {
-		struct {
-			unsigned	invert: 1;
-			unsigned	perms:	31;
-		};
-		uint32_t	rawperms;
-	};
+	unsigned long	object;	//!< Group or user (bit 31 determines)
+	unsigned long	rawperms;	//!< Inverted by bit 31
 };
 struct s_sysFInfo {
-	unsigned int	uid, gid;
+	unsigned int	uid;
+	unsigned int	gid;
 	unsigned int	flags;
-	uint64_t	size;
-	uint64_t	atime;
-	uint64_t	mtime;
-	uint64_t	ctime;
+	unsigned long long	size;
+	time_t	atime;
+	time_t	mtime;
+	time_t	ctime;
 	 int	numacls;
 	struct s_sysACL	acls[];
 };
@@ -72,21 +60,15 @@ typedef struct s_sysACL	t_sysACL;
 static inline void FD_ZERO(fd_set *fdsetp) {int i=FD_SETSIZE/16;while(i--)fdsetp->flags[i]=0; }
 static inline void FD_CLR(int fd, fd_set *fdsetp) {
 	if(fd < 0 || fd > FD_SETSIZE)	return;
-	fdsetp->flags[fd/16] &= (uint16_t) ((~1 << (fd%16))) & 0xFFFF;
+	fdsetp->flags[fd/16] &= (fd_set_ent_t) ((~1 << (fd%16))) & 0xFFFF;
 }
 static inline void FD_SET(int fd, fd_set *fdsetp) {
 	if(fd < 0 || fd > FD_SETSIZE)	return;
-	fdsetp->flags[fd/16] |= (uint16_t) (1 << (fd%16));
+	fdsetp->flags[fd/16] |= (fd_set_ent_t) (1 << (fd%16));
 }
 static inline int FD_ISSET(int fd, fd_set *fdsetp) {
 	if(fd < 0 || fd > FD_SETSIZE)	return 0;
 	return !!( fdsetp->flags[fd/16] & (1<<(fd%16)) );
 }
-
-typedef uint32_t	pid_t;
-typedef uint32_t	tid_t;
-typedef  int64_t	time_t;
-
-typedef unsigned int	uint;
 
 #endif

@@ -27,5 +27,6 @@ typedef int32_t	ptrdiff_t;
 # error "Unknown pointer size"
 #endif
 
+typedef uint64_t	off_t;
 
 #endif

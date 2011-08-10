@@ -5,6 +5,7 @@
 #include <acess/sys.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <ctype.h>
 #include "lib.h"
 
 /**
@@ -30,6 +31,25 @@ EXPORT int strncmp(const char *s1, const char *s2, size_t n)
 		s1++; s2++;
 	}
 	return (int)*s1 - (int)*s2;
+}
+
+EXPORT int strcasecmp(const char *s1, const char *s2)
+{
+	 int	rv;
+	while( (rv = toupper(*s1) - toupper(*s2)) == 0 && *s1 != '\0' && *s2 != '\0' ) {
+		s1++; s2++;
+	}
+	return rv;
+}
+
+EXPORT int strncasecmp(const char *s1, const char *s2, size_t n)
+{
+	 int	rv = 0;
+	if( n == 0 )	return 0;
+	while(n -- && (rv = toupper(*s1) - toupper(*s2)) == 0 && *s1 != '\0' && *s2 != '\0') {
+		s1++; s2++;
+	}
+	return rv;
 }
 
 /**
@@ -252,4 +272,32 @@ EXPORT void *memchr(const void *ptr, int value, size_t num)
 		ptr ++;
 	}
 	return NULL;
+}
+
+EXPORT size_t strcspn(const char *haystack, const char *reject)
+{
+	size_t	ret = 0;
+	 int	i;
+	while( *haystack )
+	{
+		for( i = 0; reject[i] && reject[i] == *haystack; i ++ );
+
+		if( reject[i] ) return ret;
+		ret ++;
+	}
+	return ret;
+}
+
+EXPORT size_t strspn(const char *haystack, const char *accept)
+{
+	size_t	ret = 0;
+	 int	i;
+	while( *haystack )
+	{
+		for( i = 0; accept[i] && accept[i] == *haystack; i ++ );
+
+		if( !accept[i] )	return ret;
+		ret ++;
+	}
+	return ret;
 }

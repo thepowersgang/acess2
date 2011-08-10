@@ -15,4 +15,7 @@
 typedef unsigned int	size_t;
 #endif
 
+// === MACROS ===
+#define offsetof(st, m) ((size_t)((uintptr_t)((char *)&((st *)(0))->m - (char *)0 )))
+
 #endif
