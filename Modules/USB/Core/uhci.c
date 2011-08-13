@@ -20,7 +20,6 @@ void	UHCI_Cleanup();
  int	UHCI_Int_InitHost(tUHCI_Controller *Host);
 
 // === GLOBALS ===
-//Uint	gaFrameList[1024];
 tUHCI_TD	gaUHCI_TDPool[NUM_TDs];
 tUHCI_Controller	gUHCI_Controllers[MAX_CONTROLLERS];
 
@@ -29,7 +28,7 @@ tUHCI_Controller	gUHCI_Controllers[MAX_CONTROLLERS];
  * \fn int UHCI_Initialise()
  * \brief Called to initialise the UHCI Driver
  */
-int UHCI_Initialise()
+int UHCI_Initialise(const char **Arguments)
 {
 	 int	i=0, id=-1;
 	 int	ret;
@@ -39,15 +38,20 @@ int UHCI_Initialise()
 	// Enumerate PCI Bus, getting a maximum of `MAX_CONTROLLERS` devices
 	while( (id = PCI_GetDeviceByClass(0x0C03, 0xFFFF, id)) >= 0 && i < MAX_CONTROLLERS )
 	{
+		tUHCI_Controller	*cinfo = &gUHCI_Controllers[i];
 		// NOTE: Check "protocol" from PCI?
 		
-		gUHCI_Controllers[i].PciId = id;
+		cinfo->PciId = id;
 		// Assign a port range (BAR4, Reserve 32 ports)
-		gUHCI_Controllers[i].IOBase = PCI_GetBAR(id, 4);
-		gUHCI_Controllers[i].IRQNum = PCI_GetIRQ(id);
+		cinfo->IOBase = PCI_GetBAR(id, 4);
+		if( !(cinfo->IOBase & 1) ) {
+			Log_Warning("UHCI", "MMIO is not supported");
+			continue ;
+		}
+		cinfo->IRQNum = PCI_GetIRQ(id);
 		
-		Log("[USB  ] Controller PCI #%i: IO Base = 0x%x, IRQ %i",
-			id, gUHCI_Controllers[i].IOBase, gUHCI_Controllers[i].IRQNum);
+		Log_Debug("UHCI", "Controller PCI #%i: IO Base = 0x%x, IRQ %i",
+			id, cinfo->IOBase, cinfo->IRQNum);
 		
 		// Initialise Host
 		ret = UHCI_Int_InitHost(&gUHCI_Controllers[i]);
@@ -75,9 +79,9 @@ void UHCI_Cleanup()
 }
 
 /**
- * \brief Sends a packet to a device endpoint
+ * \brief Sends a packet to the bus
  */
-int UHCI_SendPacket(int ControllerId, int Length)
+int UHCI_SendPacket(int ControllerID, enum eUSB_TransferType Type, void *Data, size_t Length)
 {
 	//tUHCI_TD	*td = UHCI_AllocateTD();
 	return 0;
@@ -98,7 +102,9 @@ int UHCI_Int_InitHost(tUHCI_Controller *Host)
 	outw( Host->IOBase + USBCMD, 0 );	// GRESET
 	
 	// Allocate Frame List
-	Host->FrameList = (void *) MM_AllocDMA(1, 32, &Host->PhysFrameList);	// 1 Page, 32-bit
+	// - 1 Page, 32-bit address
+	// - 1 page = 1024  4 byte entries
+	Host->FrameList = (void *) MM_AllocDMA(1, 32, &Host->PhysFrameList);
 	if( !Host->FrameList ) {
 		Log_Warning("UHCI", "Unable to allocate frame list, aborting");
 		LEAVE('i', -1);

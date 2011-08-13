@@ -10,6 +10,14 @@ typedef struct sUSBHost	tUSBHost;
 typedef struct sUSBDevice	tUSBDevice;
 
 // === CONSTANTS ===
+enum eUSB_TransferType
+{
+	TRANSTYPE_ISYNCH,	// Constant, Low latency, low bandwidth, no transmission retries
+	TRANSTYPE_INTERRUPT,	// -- NEVER SENT -- Spontanious, Low latency, low bandwith
+	TRANSTYPE_CONTROL,	// Device control
+	TRANSTYPE_BULK  	// High latency, high bandwidth
+};
+
 enum eUSB_PIDs
 {
 	/**
