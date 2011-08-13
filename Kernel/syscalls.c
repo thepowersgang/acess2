@@ -11,22 +11,22 @@
 #include <threads.h>
 
 #define CHECK_NUM_NULLOK(v,size)	\
-	if((v)&&!Syscall_Valid((size),(Uint)(v))){ret=-1;err=-EINVAL;break;}
+	if((v)&&!Syscall_Valid((size),(v))){ret=-1;err=-EINVAL;break;}
 #define CHECK_STR_NULLOK(v)	\
-	if((v)&&!Syscall_ValidString((Uint)(v))){ret=-1;err=-EINVAL;break;}
+	if((v)&&!Syscall_ValidString((v))){ret=-1;err=-EINVAL;break;}
 #define CHECK_NUM_NONULL(v,size)	\
-	if(!(v)||!Syscall_Valid((size),(Uint)(v))){ret=-1;err=-EINVAL;break;}
+	if(!(v)||!Syscall_Valid((size),(v))){ret=-1;err=-EINVAL;break;}
 #define CHECK_STR_NONULL(v)	\
-	if(!(v)||!Syscall_ValidString((Uint)(v))){ret=-1;err=-EINVAL;break;}
+	if(!(v)||!Syscall_ValidString((v))){ret=-1;err=-EINVAL;break;}
 
 // === IMPORTS ===
 extern int	Proc_Execve(char *File, char **ArgV, char **EnvP);
-extern Uint	Binary_Load(char *file, Uint *entryPoint);
+extern Uint	Binary_Load(const char *file, Uint *entryPoint);
 
 // === PROTOTYPES ===
 void	SyscallHandler(tSyscallRegs *Regs);
- int	Syscall_ValidString(Uint Addr);
- int	Syscall_Valid(int Size, Uint Addr);
+ int	Syscall_ValidString(const char *Addr);
+ int	Syscall_Valid(int Size, const void *Addr);
 
 // === CODE ===
 // TODO: Do sanity checking on arguments, ATM the user can really fuck with the kernel
@@ -81,9 +81,9 @@ void SyscallHandler(tSyscallRegs *Regs)
 	// -- Wait for a thread
 	case SYS_WAITTID:
 		// Sanity Check (Status can be NULL)
-		CHECK_NUM_NULLOK( Regs->Arg2, sizeof(int) );
+		CHECK_NUM_NULLOK( (int*)Regs->Arg2, sizeof(int) );
 		// TID, *Status
-		ret = Threads_WaitTID(Regs->Arg1, (void*)Regs->Arg2);
+		ret = Threads_WaitTID(Regs->Arg1, (int*)Regs->Arg2);
 		break;
 	
 	// -- Get the physical address of a page
@@ -114,13 +114,15 @@ void SyscallHandler(tSyscallRegs *Regs)
 	
 	// -- Send Message
 	case SYS_SENDMSG:
-		CHECK_NUM_NONULL(Regs->Arg3, Regs->Arg2);
+		CHECK_NUM_NONULL( (void*)Regs->Arg3, Regs->Arg2 );
 		// Destination, Size, *Data
 		ret = Proc_SendMessage(&err, Regs->Arg1, Regs->Arg2, (void*)Regs->Arg3);
 		break;
 	// -- Check for messages
 	case SYS_GETMSG:
-		CHECK_NUM_NULLOK(Regs->Arg1, sizeof(Uint));
+		CHECK_NUM_NULLOK( (Uint*)Regs->Arg1, sizeof(Uint) );
+		// NOTE: Can't do range checking as we don't know the size
+		// - Should be done by Proc_GetMessage
 		if( Regs->Arg2 && Regs->Arg2 != -1 && !MM_IsUser(Regs->Arg2) ) {
 			err = -EINVAL;	ret = -1;	break;
 		}
@@ -135,7 +137,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 	
 	// -- Set the thread's name
 	case SYS_SETNAME:
-		CHECK_STR_NONULL(Regs->Arg1);
+		CHECK_STR_NONULL( (char*) Regs->Arg1);
 		Threads_SetName( (char*)Regs->Arg1 );
 		break;
 	
@@ -144,7 +146,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 	// ---
 	// -- Replace the current process with another
 	case SYS_EXECVE:
-		CHECK_STR_NONULL(Regs->Arg1);
+		CHECK_STR_NONULL((char*)Regs->Arg1);
 		// Check the argument arrays
 		{
 			 int	i;
@@ -174,8 +176,8 @@ void SyscallHandler(tSyscallRegs *Regs)
 		break;
 	// -- Load a binary into the current process
 	case SYS_LOADBIN:
-		if( !Syscall_ValidString(Regs->Arg1)
-		||  !Syscall_Valid(sizeof(Uint), Regs->Arg2) ) {
+		if( !Syscall_ValidString( (char*) Regs->Arg1)
+		||  !Syscall_Valid(sizeof(Uint), (Uint*)Regs->Arg2) ) {
 			err = -EINVAL;
 			ret = 0;
 			break;
@@ -188,11 +190,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 	// Virtual Filesystem
 	// ---
 	case SYS_OPEN:
-		if( !Syscall_ValidString(Regs->Arg1) ) {
-			err = -EINVAL;
-			ret = -1;
-			break;
-		}
+		CHECK_STR_NONULL( (char*)Regs->Arg1 );
 		LOG("VFS_Open(\"%s\", 0x%x)", (char*)Regs->Arg1, Regs->Arg2 | VFS_OPENFLAG_USER);
 		ret = VFS_Open((char*)Regs->Arg1, Regs->Arg2 | VFS_OPENFLAG_USER);
 		break;
@@ -215,28 +213,24 @@ void SyscallHandler(tSyscallRegs *Regs)
 		break;
 	
 	case SYS_WRITE:
-		CHECK_NUM_NONULL( Regs->Arg3, Regs->Arg2 );
-		ret = VFS_Write( Regs->Arg1, Regs->Arg2, (void*)Regs->Arg3 );
+		CHECK_NUM_NONULL( (void*)Regs->Arg2, Regs->Arg3 );
+		ret = VFS_Write( Regs->Arg1, Regs->Arg3, (void*)Regs->Arg2 );
 		break;
 	
 	case SYS_READ:
-		CHECK_NUM_NONULL( Regs->Arg3, Regs->Arg2 );
-		ret = VFS_Read( Regs->Arg1, Regs->Arg2, (void*)Regs->Arg3 );
+		CHECK_NUM_NONULL( (void*)Regs->Arg2, Regs->Arg3 );
+		ret = VFS_Read( Regs->Arg1, Regs->Arg3, (void*)Regs->Arg2 );
 		break;
 	
 	case SYS_FINFO:
-		CHECK_NUM_NONULL( Regs->Arg2, sizeof(tFInfo) + Regs->Arg3*sizeof(tVFS_ACL) );
+		CHECK_NUM_NONULL( (void*)Regs->Arg2, sizeof(tFInfo) + Regs->Arg3*sizeof(tVFS_ACL) );
 		// FP, Dest, MaxACLs
 		ret = VFS_FInfo( Regs->Arg1, (void*)Regs->Arg2, Regs->Arg3 );
 		break;
 	
 	// Get ACL Value
 	case SYS_GETACL:
-		if( !Syscall_Valid(sizeof(tVFS_ACL), Regs->Arg1) ) {
-			err = -EINVAL;
-			ret = -1;
-			break;
-		}
+		CHECK_NUM_NONULL( (void*)Regs->Arg2, sizeof(tVFS_ACL) );
 		ret = VFS_GetACL( Regs->Arg1, (void*)Regs->Arg2 );
 		break;
 	
@@ -244,37 +238,28 @@ void SyscallHandler(tSyscallRegs *Regs)
 	case SYS_READDIR:
 		// TODO: What if the filename is longer?
 		// Maybe force it to be a 256 byte buffer
-		if( !Syscall_Valid(8, Regs->Arg2) ) {
-			err = -EINVAL;
-			ret = -1;
-			break;
-		}
+		CHECK_NUM_NONULL( (void*)Regs->Arg2, 256 );
 		ret = VFS_ReadDir( Regs->Arg1, (void*)Regs->Arg2 );
 		break;
 	
 	// Open a file that is a entry in an open directory
 	case SYS_OPENCHILD:
-		if( !Syscall_ValidString(Regs->Arg2) ) {
-			err = -EINVAL;
-			ret = -1;
-			break;
-		}
+		CHECK_STR_NONULL( (char*)Regs->Arg2 );
 		ret = VFS_OpenChild( &err, Regs->Arg1, (char*)Regs->Arg2, Regs->Arg3);
 		break;
 	
 	// Change Directory
 	case SYS_CHDIR:
-		if( !Syscall_ValidString(Regs->Arg1) ) {
-			err = -EINVAL;
-			ret = -1;
-			break;
-		}
-		ret = VFS_ChDir( (void*)Regs->Arg1 );
+		CHECK_STR_NONULL( (const char*)Regs->Arg1 );
+		ret = VFS_ChDir( (const char*)Regs->Arg1 );
 		break;
 	
 	// IO Control
 	case SYS_IOCTL:
 		// All sanity checking should be done by the driver
+		if( Regs->Arg3 && !MM_IsUser(Regs->Arg3) ) {
+			err = -EINVAL;	ret = -1;	break;
+		}
 		ret = VFS_IOCtl( Regs->Arg1, Regs->Arg2, (void*)Regs->Arg3 );
 		break;
 	
@@ -287,10 +272,10 @@ void SyscallHandler(tSyscallRegs *Regs)
 			break;
 		}
 		// Sanity check the paths
-		if(!Syscall_ValidString(Regs->Arg1)
-		|| !Syscall_ValidString(Regs->Arg2)
-		|| !Syscall_ValidString(Regs->Arg3)
-		|| !Syscall_ValidString(Regs->Arg4) ) {
+		if(!Syscall_ValidString((char*)Regs->Arg1)
+		|| !Syscall_ValidString((char*)Regs->Arg2)
+		|| !Syscall_ValidString((char*)Regs->Arg3)
+		|| !Syscall_ValidString((char*)Regs->Arg4) ) {
 			err = -EINVAL;
 			ret = -1;
 			break;
@@ -306,10 +291,10 @@ void SyscallHandler(tSyscallRegs *Regs)
 	// Wait on a set of handles
 	case SYS_SELECT:
 		// Sanity checks
-		if( (Regs->Arg2 && !Syscall_Valid(sizeof(fd_set), Regs->Arg2))
-		 || (Regs->Arg3 && !Syscall_Valid(sizeof(fd_set), Regs->Arg3))
-		 || (Regs->Arg4 && !Syscall_Valid(sizeof(fd_set), Regs->Arg4))
-		 || (Regs->Arg5 && !Syscall_Valid(sizeof(tTime), Regs->Arg5)) )
+		if( (Regs->Arg2 && !Syscall_Valid(sizeof(fd_set), (void*)Regs->Arg2))
+		 || (Regs->Arg3 && !Syscall_Valid(sizeof(fd_set), (void*)Regs->Arg3))
+		 || (Regs->Arg4 && !Syscall_Valid(sizeof(fd_set), (void*)Regs->Arg4))
+		 || (Regs->Arg5 && !Syscall_Valid(sizeof(tTime), (void*)Regs->Arg5)) )
 		{
 			err = -EINVAL;
 			ret = -1;
@@ -373,24 +358,24 @@ void SyscallHandler(tSyscallRegs *Regs)
 }
 
 /**
- * \fn int Syscall_ValidString(Uint Addr)
+ * \fn int Syscall_ValidString(const char *Addr)
  * \brief Checks if a memory address contains a valid string
  */
-int Syscall_ValidString(Uint Addr)
+int Syscall_ValidString(const char *Addr)
 {
 	// Check if the memory is user memory
-	if(!MM_IsUser(Addr))	return 0;
+	if(!MM_IsUser( (tVAddr) Addr))	return 0;
 	
-	return CheckString( (char*)Addr );
+	return CheckString( Addr );
 }
 
 /**
- * \fn int Syscall_Valid(int Size, Uint Addr)
+ * \fn int Syscall_Valid(int Size, const void *Addr)
  * \brief Checks if a memory address is valid
  */
-int Syscall_Valid(int Size, Uint Addr)
+int Syscall_Valid(int Size, const void *Addr)
 {
-	if(!MM_IsUser(Addr))	return 0;
+	if(!MM_IsUser( (tVAddr)Addr ))	return 0;
 	
-	return CheckMem( (void*)Addr, Size );
+	return CheckMem( Addr, Size );
 }
