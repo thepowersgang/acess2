@@ -324,13 +324,13 @@ int URI_file_Open(char *Host, int Port, char *Path, int Mode)
 }
 size_t URI_file_Read(int Handle, size_t Bytes, void *Buffer)
 {
-	printf("URI_file_Read: (Handle=%i, Bytes=%i, Buffer=%p)\n",
-		Handle, Bytes, Buffer);
-	return read(Handle, Bytes, Buffer);
+	printf("URI_file_Read: (Handle=%i, Buffer=%p, Bytes=%i)\n",
+		Handle, Buffer, Bytes);
+	return read(Handle, Buffer, Bytes);
 }
 size_t URI_file_Write(int Handle, size_t Bytes, void *Buffer)
 {
-	return write(Handle, Bytes, Buffer);
+	return write(Handle, Buffer, Bytes);
 }
 void URI_file_Close(int Handle)
 {

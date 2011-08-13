@@ -553,19 +553,19 @@ void Command_Dir(int argc, char **argv)
 		
 		// Print Mode
 		// - Owner
-		acl.group = 0;	acl.id = info.uid;
+		acl.object = info.uid;
 		_SysGetACL(fp, &acl);
 		if(acl.perms & 1)	modeStr[0] = 'r';	else	modeStr[0] = '-';
 		if(acl.perms & 2)	modeStr[1] = 'w';	else	modeStr[1] = '-';
 		if(acl.perms & 8)	modeStr[2] = 'x';	else	modeStr[2] = '-';
 		// - Group
-		acl.group = 1;	acl.id = info.gid;
+		acl.object = info.gid | 0x80000000;
 		_SysGetACL(fp, &acl);
 		if(acl.perms & 1)	modeStr[3] = 'r';	else	modeStr[3] = '-';
 		if(acl.perms & 2)	modeStr[4] = 'w';	else	modeStr[4] = '-';
 		if(acl.perms & 8)	modeStr[5] = 'x';	else	modeStr[5] = '-';
 		// - World
-		acl.group = 1;	acl.id = -1;
+		acl.object = 0xFFFFFFFF;
 		_SysGetACL(fp, &acl);
 		if(acl.perms & 1)	modeStr[6] = 'r';	else	modeStr[6] = '-';
 		if(acl.perms & 2)	modeStr[7] = 'w';	else	modeStr[7] = '-';

@@ -41,7 +41,7 @@ typedef struct
 
 struct s_sysACL {
 	unsigned long	object;	//!< Group or user (bit 31 determines)
-	unsigned long	rawperms;	//!< Inverted by bit 31
+	unsigned long	perms;	//!< Inverted by bit 31
 };
 struct s_sysFInfo {
 	unsigned int	uid;

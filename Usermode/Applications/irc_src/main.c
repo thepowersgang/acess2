@@ -115,8 +115,8 @@ int main(int argc, const char *argv[], const char *envp[])
 	
 	// HACK: Static server entry
 	// UCC (University [of Western Australia] Computer Club) IRC Server
-	gWindow_Status.Server = Server_Connect( "UCC", "130.95.13.18", 6667 );
-//	gWindow_Status.Server = Server_Connect( "Freenode", "89.16.176.16", 6667 );
+//	gWindow_Status.Server = Server_Connect( "UCC", "130.95.13.18", 6667 );
+	gWindow_Status.Server = Server_Connect( "Freenode", "89.16.176.16", 6667 );
 //	gWindow_Status.Server = Server_Connect( "Host", "10.0.2.2", 6667 );
 //	gWindow_Status.Server = Server_Connect( "BitlBee", "192.168.1.34", 6667 );
 	
@@ -425,7 +425,6 @@ tMessage *Message_Append(tServer *Server, int Type, const char *Source, const ch
 	
 	{
 		int pos = SetCursorPos(giTerminal_Height-2, 0);
-		#if 1
 		if( win == gpCurrentWindow ) {
 			 int	prefixlen = strlen(Source) + 3;
 			 int	avail = giTerminal_Width - prefixlen;
@@ -434,17 +433,12 @@ tMessage *Message_Append(tServer *Server, int Type, const char *Source, const ch
 			printf("[%s] %.*s\n", Source, avail, Message);
 			while( msglen > avail ) {
 				msglen -= avail;
+				Message += avail;
 				printf("\x1B[T");
 				SetCursorPos(giTerminal_Height-2, prefixlen);
 				printf("%.*s\n", avail, Message);
 			}
 		}
-		#else
-		if(win->Name[0])
-			printf("%s/%s [%s] %s\n", win->Server->Name, win->Name, Source, Message);
-		else
-			printf("(status) [%s] %s\n", Source, Message);
-		#endif
 		SetCursorPos(-1, pos);
 	}
 	
@@ -578,10 +572,6 @@ void ParseServerLine(tServer *Server, char *Line)
 				break;
 			}
 		}
-		else if( strcmp(cmd, "PING") == 0 )
-		{
-			writef(Server->FD, "PONG %s\n", gsHostname);
-		}
 		else if( strcmp(cmd, "NOTICE") == 0 )
 		{
 			char	*class, *message;
@@ -623,10 +613,17 @@ void ParseServerLine(tServer *Server, char *Line)
 			Message_AppendF(Server, MSG_TYPE_SERVER, "", "", "Unknown message %s (%s)\n", cmd, Line+pos);
 		}
 	}
-	else {
+	else {		
+		cmd = GetValue(Line, &pos);
 		
-		// Command to client
-		Message_AppendF(NULL, MSG_TYPE_UNK, "", "", "Client Command: %s", Line);
+		if( strcmp(cmd, "PING") == 0 ) {
+			writef(Server->FD, "PONG %s\n", gsHostname);
+			
+		}
+		else {
+			// Command to client
+			Message_AppendF(NULL, MSG_TYPE_UNK, "", "", "Client Command: %s", Line);
+		}
 	}
 }
 

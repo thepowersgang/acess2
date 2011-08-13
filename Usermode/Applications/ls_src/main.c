@@ -243,19 +243,19 @@ void DisplayFile(char *Filename)
 		
 		// Get Permissions
 		// - Owner
-		acl.group = 0;	acl.id = info.uid;
+		acl.object = info.uid;
 		_SysGetACL(fd, &acl);
 		if(acl.perms & 1)	perms |= 0400;	// R
 		if(acl.perms & 2)	perms |= 0200;	// W
 		if(acl.perms & 8)	perms |= 0100;	// X
 		// - Group
-		acl.group = 1;	acl.id = info.gid;
+		acl.object = info.gid | 0x80000000;
 		_SysGetACL(fd, &acl);
 		if(acl.perms & 1)	perms |= 0040;	// R
 		if(acl.perms & 2)	perms |= 0020;	// W
 		if(acl.perms & 8)	perms |= 0010;	// X
 		// - World
-		acl.group = 1;	acl.id = -1;
+		acl.object = 0xFFFFFFFF;
 		_SysGetACL(fd, &acl);
 		if(acl.perms & 1)	perms |= 0004;	// R
 		if(acl.perms & 2)	perms |= 0002;	// W
