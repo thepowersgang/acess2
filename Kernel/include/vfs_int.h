@@ -10,7 +10,8 @@
 typedef struct sVFS_Mount {
 	struct sVFS_Mount	*Next;
 	char	*MountPoint;
-	 int	MountPointLen;
+	size_t	MountPointLen;
+	Uint32	Identifier;
 	char	*Device;
 	char	*Options;
 	tVFS_Driver	*Filesystem;
@@ -44,11 +45,13 @@ typedef struct sVFS_MMapPage {
 extern tVFS_Mount	*gVFS_Mounts;
 
 // === PROTOTYPES ===
-// --- OPEN.C ---
+// --- open.c ---
 extern char	*VFS_GetAbsPath(const char *Path);
 extern tVFS_Node	*VFS_ParsePath(const char *Path, char **TruePath);
 extern tVFS_Handle	*VFS_GetHandle(int FD);
-// --- ACLS.C ---
+// --- acls.c ---
 extern int	VFS_CheckACL(tVFS_Node *Node, Uint Permissions);
+// --- mount.c ---
+extern tVFS_Mount	*VFS_GetMountByIdent(Uint32 MountID);
 
 #endif

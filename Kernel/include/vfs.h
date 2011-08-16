@@ -94,7 +94,7 @@ typedef struct sVFS_Node
 	 *        corresponds to.
 	 * \{
 	 */
-	Uint64	Inode;	//!< Inode ID (Essentially another ImplInt)
+	Uint64	Inode;	//!< Inode ID - Must identify the node uniquely if tVFS_Driver.GetNodeFromINode is non-NULL
 	Uint	ImplInt;	//!< Implementation Usable Integer
 	void	*ImplPtr;	//!< Implementation Usable Pointer
 	/**
@@ -313,16 +313,30 @@ typedef struct sVFS_Node
  */
 typedef struct sVFS_Driver
 {
-	//! \brief Unique Identifier for this filesystem type
+	/**
+	 * \brief Unique Identifier for this filesystem type
+	 */
 	const char	*Name;
-	//! \brief Flags applying to this driver
+	/**
+	 * \brief Flags applying to this driver
+	 */
 	Uint	Flags;
 	
-	//! \brief Callback to mount a device
+	/**
+	 * \brief Callback to mount a device
+	 */
 	tVFS_Node	*(*InitDevice)(const char *Device, const char **Options);
-	//! \brief Callback to unmount a device
+	/**
+	 * \brief Callback to unmount a device
+	 */
 	void	(*Unmount)(tVFS_Node *Node);
-	//! \brief Used internally (next driver in the chain)
+	/**
+	 * \brief Retrieve a VFS node from an inode
+	 */
+	tVFS_Node	*(*GetNodeFromINode)(tVFS_Node *RootNode, Uint64 InodeValue);
+	/**
+	 * \brief Used internally (next driver in the chain)
+	 */
 	struct sVFS_Driver	*Next;
 } tVFS_Driver;
 

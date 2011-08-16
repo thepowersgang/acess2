@@ -284,14 +284,21 @@ extern int	VFS_ReadDir(int FD, char *Dest);
 /**
  * \brief Opens a file via an open directory
  * \note The file to open must be a direct child of the parent
- * \param Errno	Error number
  * \param FD	Parent Directory
  * \param Name	Child name
  * \param Mode	Open mode
  * \return File handle (same as returned from VFS_Open)
  */
-extern int	VFS_OpenChild(Uint *Errno, int FD, const char *Name, Uint Mode);
+extern int	VFS_OpenChild(int FD, const char *Name, Uint Mode);
 
+/**
+ * \brief Opens a file given a mount ID and an inode number
+ * \param Mount	Mount ID returned by FInfo
+ * \param Inode	Inode number from FInfo
+ * \param Mode	Open mode (see VFS_Open)
+ * \return File handle (same as VFS_Open)
+ */
+extern int	VFS_OpenInode(Uint32 Mount, Uint64 Inode, int Mode);
 /**
  * \brief Wait for an aciton on a file descriptor
  * \param MaxHandle	Maximum set handle in \a *Handles
@@ -306,7 +313,6 @@ extern int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, 
 
 /**
  * \brief Map a file into memory
- * \param ErrNo	Error status pointer
  * \param DestHint	Suggested place for read data
  * \param Length	Size of area to map
  * \param Protection	Protection type (see `man mmap`)

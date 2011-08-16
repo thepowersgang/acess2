@@ -245,7 +245,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 	// Open a file that is a entry in an open directory
 	case SYS_OPENCHILD:
 		CHECK_STR_NONULL( (char*)Regs->Arg2 );
-		ret = VFS_OpenChild( &err, Regs->Arg1, (char*)Regs->Arg2, Regs->Arg3);
+		ret = VFS_OpenChild( Regs->Arg1, (char*)Regs->Arg2, Regs->Arg3);
 		break;
 	
 	// Change Directory

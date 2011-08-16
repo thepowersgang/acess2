@@ -19,6 +19,9 @@ extern tVFS_Node	gVFS_MemRoot;
 extern tVFS_Mount	*gVFS_RootMount;
 extern int	VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode);
 
+// === PROTOTYPES ===
+ int	VFS_int_CreateHandle( tVFS_Node *Node, int Mode );
+
 // === CODE ===
 /**
  * \fn char *VFS_GetAbsPath(const char *Path)
@@ -435,6 +438,37 @@ restart_parse:
 }
 
 /**
+ * \brief Create and return a handle number for the given node and mode
+ */
+int VFS_int_CreateHandle( tVFS_Node *Node, int Mode )
+{
+	 int	i;
+	i = 0;
+	i |= (Mode & VFS_OPENFLAG_EXEC) ? VFS_PERM_EXECUTE : 0;
+	i |= (Mode & VFS_OPENFLAG_READ) ? VFS_PERM_READ : 0;
+	i |= (Mode & VFS_OPENFLAG_WRITE) ? VFS_PERM_WRITE : 0;
+	
+	LOG("i = 0b%b", i);
+	
+	// Permissions Check
+	if( !VFS_CheckACL(Node, i) ) {
+		if(Node->Close)	Node->Close( Node );
+		Log_Log("VFS", "VFS_int_CreateHandle: Permissions Failed");
+		errno = EACCES;
+		LEAVE_RET('i', -1);
+	}
+	
+	i = VFS_AllocHandle( !!(Mode & VFS_OPENFLAG_USER), Node, Mode );
+	if( i < 0 ) {
+		Log_Notice("VFS", "VFS_int_CreateHandle: Out of handles");
+		errno = ENFILE;
+		LEAVE_RET('i', -1);
+	}
+
+	LEAVE_RET('x', i);
+}
+
+/**
  * \fn int VFS_Open(const char *Path, Uint Mode)
  * \brief Open a file
  */
@@ -442,7 +476,6 @@ int VFS_Open(const char *Path, Uint Mode)
 {
 	tVFS_Node	*node;
 	char	*absPath;
-	 int	i;
 	
 	ENTER("sPath xMode", Path, Mode);
 	
@@ -460,6 +493,7 @@ int VFS_Open(const char *Path, Uint Mode)
 	
 	if(!node) {
 		LOG("Cannot find node");
+		errno = ENOENT;
 		LEAVE_RET('i', -1);
 	}
 	
@@ -483,86 +517,79 @@ int VFS_Open(const char *Path, Uint Mode)
 		node = VFS_ParsePath(tmppath, NULL);
 		if(!node) {
 			LOG("Cannot find symlink target node (%s)", tmppath);
+			errno = ENOENT;
 			LEAVE_RET('i', -1);
 		}
 	}
 	
-	i = 0;
-	i |= (Mode & VFS_OPENFLAG_EXEC) ? VFS_PERM_EXECUTE : 0;
-	i |= (Mode & VFS_OPENFLAG_READ) ? VFS_PERM_READ : 0;
-	i |= (Mode & VFS_OPENFLAG_WRITE) ? VFS_PERM_WRITE : 0;
-	
-	LOG("i = 0b%b", i);
-	
-	// Permissions Check
-	if( !VFS_CheckACL(node, i) ) {
-		if(node->Close)	node->Close( node );
-		Log_Log("VFS", "VFS_Open: Permissions Failed");
-		LEAVE_RET('i', -1);
-	}
-	
-	i = VFS_AllocHandle( !!(Mode & VFS_OPENFLAG_USER), node, Mode );
-	if( i < 0 ) {
-		Log_Notice("VFS", "VFS_Open: Out of handles");
-		LEAVE_RET('i', -1);
-	}
-	
-	LEAVE_RET('x', i);	
+	LEAVE_RET('x', VFS_int_CreateHandle(node, Mode));	
 }
 
 
 /**
  * \brief Open a file from an open directory
  */
-int VFS_OpenChild(Uint *Errno, int FD, const char *Name, Uint Mode)
+int VFS_OpenChild(int FD, const char *Name, Uint Mode)
 {
 	tVFS_Handle	*h;
 	tVFS_Node	*node;
-	 int	i;
 	
+	ENTER("xFD sName xMode", FD, Name, Mode);
+
 	// Get handle
 	h = VFS_GetHandle(FD);
 	if(h == NULL) {
 		Log_Warning("VFS", "VFS_OpenChild - Invalid file handle 0x%x", FD);
-		if(Errno)	*Errno = EINVAL;
+		errno = EINVAL;
 		LEAVE_RET('i', -1);
 	}
 	
 	// Check for directory
 	if( !(h->Node->Flags & VFS_FFLAG_DIRECTORY) ) {
 		Log_Warning("VFS", "VFS_OpenChild - Passed handle is not a directory", FD);
-		if(Errno)	*Errno = ENOTDIR;
+		errno = ENOTDIR;
 		LEAVE_RET('i', -1);
 	}
 	
 	// Find Child
 	node = h->Node->FindDir(h->Node, Name);
 	if(!node) {
-		if(Errno)	*Errno = ENOENT;
+		errno = ENOENT;
+		LEAVE_RET('i', -1);
+	}
+
+	LEAVE_RET('x', VFS_int_CreateHandle(node, Mode));	
+}
+
+int VFS_OpenInode(Uint32 Mount, Uint64 Inode, int Mode)
+{
+	tVFS_Mount	*mnt;
+	tVFS_Node	*node;
+
+	ENTER("iMount iInode xMode", Mount, Inode, Mode);
+	
+	// Get mount point
+	mnt = VFS_GetMountByIdent(Mount);
+	if( !mnt ) {
+		LOG("Mount point ident invalid");
+		errno = ENOENT;
 		LEAVE_RET('i', -1);
 	}
 	
-	i = 0;
-	i |= (Mode & VFS_OPENFLAG_EXEC) ? VFS_PERM_EXECUTE : 0;
-	i |= (Mode & VFS_OPENFLAG_READ) ? VFS_PERM_READ : 0;
-	i |= (Mode & VFS_OPENFLAG_WRITE) ? VFS_PERM_WRITE : 0;
-	
-	// Permissions Check
-	if( !VFS_CheckACL(node, i) ) {
-		if(node->Close)	node->Close( node );
-		Log_Notice("VFS", "VFS_OpenChild - Permissions Failed");
-		if(Errno)	*Errno = EACCES;
+	// Does the filesystem support this?
+	if( !mnt->Filesystem->GetNodeFromINode ) {
+		errno = ENOENT;
+		LEAVE_RET('i', -1);
+	}
+
+	// Get node
+	node = mnt->Filesystem->GetNodeFromINode(mnt->RootNode, Inode);
+	if( !node ) {
+		errno = ENOENT;
 		LEAVE_RET('i', -1);
 	}
 	
-	i = VFS_AllocHandle( !!(Mode & VFS_OPENFLAG_USER), node, Mode );
-	if( i >= 0 ) {
-		LEAVE_RET('x', i);
-	}
-	
-	Log_Error("VFS", "VFS_OpenChild - Out of handles");
-	if(Errno)	*Errno = ENFILE;
-	LEAVE_RET('i', -1);
+	LEAVE_RET('x', VFS_int_CreateHandle(node, Mode));
 }
 
 /**

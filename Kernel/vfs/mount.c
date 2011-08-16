@@ -20,6 +20,7 @@ void	VFS_UpdateMountFile(void);
 tMutex	glVFS_MountList;
 tVFS_Mount	*gVFS_Mounts;
 tVFS_Mount	*gVFS_RootMount = NULL;
+Uint32	giVFS_NextMountIdent = 0;
 
 // === CODE ===
 /**
@@ -79,6 +80,8 @@ int VFS_Mount(const char *Device, const char *MountPoint, const char *Filesystem
 		free(mnt);
 		return -2;
 	}
+
+	mnt->Identifier = giVFS_NextMountIdent++;
 	
 	// Set root
 	if(!gVFS_RootMount)	gVFS_RootMount = mnt;
@@ -103,6 +106,20 @@ int VFS_Mount(const char *Device, const char *MountPoint, const char *Filesystem
 	VFS_UpdateMountFile();
 	
 	return 0;
+}
+
+/**
+ * \brief Gets a mount point given the identifier
+ */
+tVFS_Mount *VFS_GetMountByIdent(Uint32 MountID)
+{
+	tVFS_Mount	*mnt;
+	for(mnt = gVFS_Mounts; mnt; mnt = mnt->Next)
+	{
+		if(mnt->Identifier == MountID)
+			return mnt;
+	}
+	return NULL;
 }
 
 /**
