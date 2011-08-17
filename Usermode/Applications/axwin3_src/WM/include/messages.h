@@ -7,6 +7,7 @@
 enum eMessages
 {
 	MSG_NULL,
+	MSG_CREATEWIN
 };
 
 #endif

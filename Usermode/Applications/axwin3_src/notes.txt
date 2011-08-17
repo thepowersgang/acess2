@@ -1,4 +1,8 @@
 Window Based GUI
 Every window has a position, size, class and text and three colours (background, text and detail)
 
-Window Classes provide render information in form of a bytecode
+Window Classes provide render information in form of a bytecode?
+- Save for later, maybe as a render handler
+
+Each window can register itself with a render handler
+- Handlers expose IPC methods via message queue
