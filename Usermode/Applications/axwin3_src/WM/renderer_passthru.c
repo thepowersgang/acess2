@@ -10,6 +10,7 @@
 
 // === GLOBALS ===
 tWMRenderer	gRenderer_Passthru = {
+	.Name = "Passthru",
 	.CreateWindow = Renderer_Passthru_Create,
 	.Redraw = Renderer_Passthru_Redraw,
 	.SendMessage = Renderer_Passthru_SendMessage
