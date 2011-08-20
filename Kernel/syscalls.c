@@ -317,19 +317,21 @@ void SyscallHandler(tSyscallRegs *Regs)
 		LogF("Log: [%i] ", Threads_GetTID());
 		LogF((char*)Regs->Arg1,
 			Regs->Arg2, Regs->Arg3, Regs->Arg4, Regs->Arg5, Regs->Arg6);
-		LogF("\n");
+		LogF("\r\n");
 		break;
 	//#endif
 	
 	// -- Default (Return Error)
 	default:
-		Warning("SyscallHandler: Unknown System Call %i", Regs->Num);
+		Log_Warning("Syscalls", "Unknown System Call %i", Regs->Num);
 		if(Regs->Num < NUM_SYSCALLS)
-			Warning(" Syscall '%s'", cSYSCALL_NAMES[Regs->Num]);
+			Log_Warning("Syscall", " named '%s'", cSYSCALL_NAMES[Regs->Num]);
 		err = -ENOSYS;
 		ret = -1;
 		break;
 	}
+
+	if(err == 0)	err = errno;
 	
 	if(err != 0) {
 		LOG("ID: %i, Return errno = %i", Regs->Num, err);

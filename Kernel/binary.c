@@ -68,11 +68,12 @@ int Binary_RegisterType(tBinaryType *Type)
 }
 
 /**
- * \fn int Proc_Spawn(char *Path)
+ * \fn int Proc_Spawn(const char *Path)
  */
-int Proc_Spawn(char *Path)
+int Proc_Spawn(const char *Path)
 {
 	char	stackPath[strlen(Path)+1];
+	ENTER("sPath", Path);
 	
 	strcpy(stackPath, Path);
 	
@@ -86,6 +87,7 @@ int Proc_Spawn(char *Path)
 		Proc_Execve(stackPath, args, &args[1]);
 		for(;;);
 	}
+	LEAVE('i', 0);
 	return 0;
 }
 
@@ -123,7 +125,7 @@ int Proc_Execve(const char *File, const char **ArgV, const char **EnvP)
 	// Allocate
 	argenvBuf = malloc(argenvBytes);
 	if(argenvBuf == NULL) {
-		Log_Error("BIN", "Proc_Execve - What the hell? The kernel is out of heap space");
+		Log_Error("Binary", "Proc_Execve - What the hell? The kernel is out of heap space");
 		LEAVE('i', 0);
 		return 0;
 	}
@@ -161,7 +163,7 @@ int Proc_Execve(const char *File, const char **ArgV, const char **EnvP)
 	free(savedFile);
 	if(bases[0] == 0)
 	{
-		Log_Warning("BIN", "Proc_Execve - Unable to load '%s'", Threads_GetName(-1));
+		Log_Warning("Binary", "Proc_Execve - Unable to load '%s'", Threads_GetName(-1));
 		LEAVE('-');
 		Threads_Exit(0, -10);
 		for(;;);
@@ -199,7 +201,7 @@ Uint Binary_Load(const char *file, Uint *entryPoint)
 	LOG("sTruePath = %p", sTruePath);
 	
 	if(sTruePath == NULL) {
-		Log_Warning("BIN", "'%s' does not exist.", file);
+		Log_Warning("Binary", "%p '%s' does not exist.", file, file);
 		LEAVE('x', 0);
 		return 0;
 	}

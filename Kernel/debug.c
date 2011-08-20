@@ -148,6 +148,7 @@ void Debug(const char *Fmt, ...)
 	va_start(args, Fmt);
 	Debug_DbgOnlyFmt(Fmt, args);
 	va_end(args);
+	Debug_PutCharDebug('\r');
 	Debug_PutCharDebug('\n');
 	#if LOCK_DEBUG_OUTPUT
 	SHORTREL(&glDebug_Lock);
@@ -168,6 +169,7 @@ void Log(const char *Fmt, ...)
 	va_start(args, Fmt);
 	Debug_Fmt(Fmt, args);
 	va_end(args);
+	Debug_Putchar('\r');
 	Debug_Putchar('\n');
 	
 	#if LOCK_DEBUG_OUTPUT
@@ -186,6 +188,7 @@ void Warning(const char *Fmt, ...)
 	va_start(args, Fmt);
 	Debug_Fmt(Fmt, args);
 	va_end(args);
+	Debug_Putchar('\r');
 	Debug_Putchar('\n');
 	
 	#if LOCK_DEBUG_OUTPUT
@@ -207,6 +210,7 @@ void Panic(const char *Fmt, ...)
 	va_start(args, Fmt);
 	Debug_Fmt(Fmt, args);
 	va_end(args);
+	Debug_Putchar('\r');
 	Debug_Putchar('\n');
 
 	Threads_Dump();
@@ -285,7 +289,7 @@ void Debug_Enter(const char *FuncName, const char *ArgTypes, ...)
 	}
 
 	va_end(args);
-	Debug_Putchar(')');	Debug_Putchar('\n');
+	Debug_Putchar(')');	Debug_Putchar('\r');	Debug_Putchar('\n');
 	
 	#if LOCK_DEBUG_OUTPUT
 	SHORTREL(&glDebug_Lock);
@@ -313,6 +317,7 @@ void Debug_Log(const char *FuncName, const char *Fmt, ...)
 	Debug_Fmt(Fmt, args);
 
 	va_end(args);
+	Debug_Putchar('\r');
 	Debug_Putchar('\n');
 	
 	#if LOCK_DEBUG_OUTPUT
@@ -348,6 +353,7 @@ void Debug_Leave(const char *FuncName, char RetType, ...)
 
 	// No Return
 	if(RetType == '-') {
+		Debug_Putchar('\r');
 		Debug_Putchar('\n');
 		#if LOCK_DEBUG_OUTPUT
 		SHORTREL(&glDebug_Lock);
@@ -367,6 +373,7 @@ void Debug_Leave(const char *FuncName, char RetType, ...)
 	// Extended (64-Bit)
 	case 'X':	Debug_Fmt("0x%llx", args);	break;
 	}
+	Debug_Putchar('\r');
 	Debug_Putchar('\n');
 
 	va_end(args);
@@ -382,7 +389,7 @@ void Debug_HexDump(const char *Header, const void *Data, Uint Length)
 	Uint	pos = 0;
 	LogF("%014lli ", now());
 	Debug_Puts(1, Header);
-	LogF(" (Hexdump of %p)\n", Data);
+	LogF(" (Hexdump of %p)\r\n", Data);
 
 	#define	CH(n)	((' '<=cdat[(n)]&&cdat[(n)]<0x7F) ? cdat[(n)] : '.')
 
@@ -391,7 +398,7 @@ void Debug_HexDump(const char *Header, const void *Data, Uint Length)
 		LogF("%014lli Log: %04x:"
 			" %02x %02x %02x %02x %02x %02x %02x %02x"
 			" %02x %02x %02x %02x %02x %02x %02x %02x"
-			"  %c%c%c%c%c%c%c%c %c%c%c%c%c%c%c%c\n",
+			"  %c%c%c%c%c%c%c%c %c%c%c%c%c%c%c%c\r\n",
 			now(),
 			pos,
 			cdat[ 0], cdat[ 1], cdat[ 2], cdat[ 3], cdat[ 4], cdat[ 5], cdat[ 6], cdat[ 7],
@@ -419,6 +426,7 @@ void Debug_HexDump(const char *Header, const void *Data, Uint Length)
 			LogF("%c", CH(i));
 		}
 	
+		Debug_Putchar('\r');
 		Debug_Putchar('\n');
 	}
 }

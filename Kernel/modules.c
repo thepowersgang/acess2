@@ -144,7 +144,7 @@ int Module_int_Initialise(tModule *Module, const char *ArgString)
 	
 	// All Dependencies OK? Initialise
 	StartupPrint(Module->Name);
-	Log_Log("Module", "Initialising %p '%s' v%i.%i...",
+	Log_Log("Module", "Starting %p '%s' v%i.%i",
 		Module, Module->Name,
 		Module->Version >> 8, Module->Version & 0xFF
 		);
