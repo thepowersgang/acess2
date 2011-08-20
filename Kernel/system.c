@@ -27,8 +27,8 @@ typedef struct
 	 int	MinArgs;	// Minimum number of arguments
 	 int	MaxArgs;	// Maximum number of arguments
 	Uint	IntArgs;	// Bitmap of arguments that should be treated as integers
-	void	*Func;		// Function pointer
-	Uint	OptDefaults[N_MAX_ARGS];	// Default values for optional arguments
+	 int	Index;		// 
+	const char	*OptDefaults[N_MAX_ARGS];	// Default values for optional arguments
 }	tConfigCommand;
 
 // === IMPORTS ===
@@ -48,18 +48,28 @@ void	System_ExecuteScript(void);
 tConfigFile	*System_Int_ParseFile(char *File);
 
 // === CONSTANTS ===
+enum eConfigCommands {
+	CC_LOADMODULE,
+	CC_SPAWN,
+	CC_MOUNT,
+	CC_SYMLINK,
+	CC_MKDIR,
+	CC_OPEN,
+	CC_CLOSE,
+	CC_IOCTL
+};
 const tConfigCommand	caConfigCommands[] = {
-	{"module",  1,2, 00, Module_LoadFile, {(Uint)"",0}},	// Load a module from a file
-	{"spawn",   1,1, 00, Proc_Spawn, {0}},		// Spawn a process
+	{"module",  1,2, 00, CC_LOADMODULE, {"",NULL}},	// Load a module from a file
+	{"spawn",   1,1, 00, CC_SPAWN, {NULL}},		// Spawn a process
 	// --- VFS ---
-	{"mount",   3,4, 00, VFS_Mount, {(Uint)"",0}},		// Mount a device
-	{"symlink", 2,2, 00, VFS_Symlink, {0}},	// Create a Symbolic Link
-	{"mkdir",   1,1, 00, VFS_MkDir, {0}},		// Create a Directory
-	{"open",    1,2, 00, VFS_Open,  {VFS_OPENFLAG_READ,0}},	// Open a file
-	{"close",   1,1, 01, VFS_Close, {0}},	// Close an open file
-	{"ioctl",   3,3, 03, VFS_IOCtl, {0}},	// Call an IOCtl
+	{"mount",   3,4, 00, CC_MOUNT, {"",0}},		// Mount a device
+	{"symlink", 2,2, 00, CC_SYMLINK, {0}},	// Create a Symbolic Link
+	{"mkdir",   1,1, 00, CC_MKDIR, {0}},		// Create a Directory
+	{"open",    1,2, 00, CC_OPEN,  {(void*)VFS_OPENFLAG_READ,0}},	// Open a file
+	{"close",   1,1, 01, CC_CLOSE, {0}},	// Close an open file
+	{"ioctl",   3,3, 03, CC_IOCTL, {0}},	// Call an IOCtl
 	
-	{"", 0,0, 0, NULL, {0}}
+	{"", 0,0, 0, 0, {0}}
 };
 #define NUM_CONFIG_COMMANDS	(sizeof(caConfigCommands)/sizeof(caConfigCommands[0]))
 
@@ -361,7 +371,7 @@ void System_ExecuteScript(void)
 		// Find the command name
 		for( j = 0; j < NUM_CONFIG_COMMANDS; j++ )
 		{
-			Uint	args[N_MAX_ARGS];
+			const char	*args[N_MAX_ARGS];
 			
 			if(strcmp(line->Parts[0], caConfigCommands[j].Name) != 0)	continue;
 			
@@ -394,14 +404,41 @@ void System_ExecuteScript(void)
 			for( k = line->nParts-1; k--; )
 			{
 				if( k < 32 && (caConfigCommands[j].IntArgs & (1 << k)) ) {
-					args[k] = atoi(line->Parts[k+1]);
+					args[k] = (const char *)(Uint)atoi(line->Parts[k+1]);
 				}
 				else {
-					args[k] = (Uint)line->Parts[k+1];
+					args[k] = (char *)line->Parts[k+1];
 				}
-				Log_Debug("Config", "args[%i] = 0x%x", k, args[k]);
+				Log_Debug("Config", "args[%i] = %p", k, args[k]);
 			}
-			result = CallWithArgArray(caConfigCommands[j].Func, caConfigCommands[j].MaxArgs, args);
+			switch( (enum eConfigCommands) caConfigCommands[j].Index )
+			{
+			case CC_LOADMODULE:
+				result = Module_LoadFile( args[0], args[1] );
+				break;
+			case CC_SPAWN:
+				result = Proc_Spawn( args[0] );
+				break;
+			case CC_MOUNT:
+				result = VFS_Mount( args[0], args[1], args[2], args[3] );
+				break;
+			case CC_SYMLINK:
+				result = VFS_Symlink( args[0], args[1] );
+				break;
+			case CC_OPEN:
+				result = VFS_Open( args[0], (Uint)args[1] );
+				break;
+			case CC_CLOSE:
+				VFS_Close( (Uint)args[0] );
+				result = 0;
+				break;
+			case CC_MKDIR:
+				result = VFS_MkDir( args[0] );
+				break;
+			case CC_IOCTL:
+				result = VFS_IOCtl( (Uint)args[0], (Uint)args[1], (void *)args[2] );
+				break;
+			}
 			Log_Debug("Config", "result = %i", result);
 			break;
 		}

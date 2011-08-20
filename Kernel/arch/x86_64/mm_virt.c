@@ -634,13 +634,29 @@ tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 // --- Tempory Mappings ---
 tVAddr MM_MapTemp(tPAddr PAddr)
 {
-	Log_KernelPanic("MM", "TODO: Implement MM_MapTemp");
+	const int max_slots = (MM_TMPMAP_END - MM_TMPMAP_BASE) / PAGE_SIZE;
+	tVAddr	ret = MM_TMPMAP_BASE;
+	 int	i;
+	
+	for( i = 0; i < max_slots; i ++, ret += PAGE_SIZE )
+	{
+		tPAddr	*ent;
+		if( MM_GetPageEntryPtr( ret, 0, 1, 0, &ent) < 0 ) {
+			continue ;
+		}
+
+		if( *ent & 1 )
+			continue ;
+
+		*ent = PAddr | 3;
+		return ret;
+	}
 	return 0;
 }
 
 void MM_FreeTemp(tVAddr VAddr)
 {
-	Log_KernelPanic("MM", "TODO: Implement MM_FreeTemp");
+	MM_Deallocate(VAddr);
 	return ;
 }
 
@@ -650,7 +666,13 @@ tPAddr MM_Clone(void)
 {
 	tPAddr	ret;
 	 int	i;
-	tVAddr	kstackbase = Proc_GetCurThread()->KernelStack - KERNEL_STACK_SIZE + 0x1000;
+	tVAddr	kstackbase;
+
+	// tThread->KernelStack is the top
+	// There is 1 guard page below the stack
+	kstackbase = Proc_GetCurThread()->KernelStack - KERNEL_STACK_SIZE + 0x1000;
+
+	Log("MM_Clone: kstackbase = %p", kstackbase);
 	
 	// #1 Create a copy of the PML4
 	ret = MM_AllocPhys();
@@ -660,8 +682,6 @@ tPAddr MM_Clone(void)
 	Mutex_Acquire(&glMM_TempFractalLock);
 	TMPCR3() = ret | 3;
 	INVLPG_ALL();
-	
-//	Log_KernelPanic("MM", "TODO: Implement MM_Clone");
 	
 	// #3 Set Copy-On-Write to all user pages
 	for( i = 0; i < 256; i ++)
@@ -686,13 +706,17 @@ tPAddr MM_Clone(void)
 		if( i == 509 )	continue;
 		// 510 0xFFFFFE8..	- Temp fractal mapping
 		if( i == 510 )	continue;
+		
+		TMPMAPLVL4(i) = PAGEMAPLVL4(i);
+		if( TMPMAPLVL4(i) & 1 )
+			MM_RefPhys( TMPMAPLVL4(i) & PADDR_MASK );
 	}
 	
 	// #5 Set fractal mapping
 	TMPMAPLVL4(509) = ret | 3;
 	TMPMAPLVL4(510) = 0;	// Temp
 	
-	// #6 Create kernel stack
+	// #6 Create kernel stack (-1 to account for the guard)
 	TMPMAPLVL4(320) = 0;
 	for( i = 0; i < KERNEL_STACK_SIZE/0x1000-1; i ++ )
 	{
@@ -709,6 +733,7 @@ tPAddr MM_Clone(void)
 	TMPCR3() = 0;
 	INVLPG_ALL();
 	Mutex_Release(&glMM_TempFractalLock);
+	Log("MM_Clone: RETURN %P\n", ret);
 	return ret;
 }
 

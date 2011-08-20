@@ -441,7 +441,7 @@ extern void	Time_Delay(int Delay);
  * \{
  */
 extern int	Proc_SpawnWorker(void);
-extern int	Proc_Spawn(char *Path);
+extern int	Proc_Spawn(const char *Path);
 extern void	Threads_Exit(int TID, int Status);
 extern void	Threads_Yield(void);
 extern void	Threads_Sleep(void);

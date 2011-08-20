@@ -16,6 +16,7 @@
 
 // === FLAGS ===
 #define DEBUG_TRACE_SWITCH	0
+//#define BREAK_ON_SWITCH	1	// Break into bochs debugger on a task switch
 
 // === CONSTANTS ===
 #define	SWITCH_MAGIC	0x55ECAFFF##FFFACE55	// There is no code in this area
@@ -498,6 +499,7 @@ int Proc_Clone(Uint *Err, Uint Flags)
 		Log("Proc_Clone: Cloning VM");
 		newThread->MemState.CR3 = MM_Clone();
 		newThread->KernelStack = cur->KernelStack;
+//		MAGIC_BREAK();
 	} else {
 		Uint	tmp_rbp, old_rsp = rsp;
 
@@ -542,6 +544,7 @@ int Proc_Clone(Uint *Err, Uint Flags)
 	if(rip == SWITCH_MAGIC) {
 		outb(0x20, 0x20);	// ACK Timer and return as child
 		__asm__ __volatile__ ("sti");
+//		MAGIC_BREAK();
 		return 0;
 	}
 	
@@ -597,7 +600,7 @@ int Proc_SpawnWorker(void)
 	// Set EIP as parent
 	new->SavedState.RIP = rip;
 	// Mark as active
-	new->Status = THREAD_STAT_ACTIVE;
+	new->Status = THREAD_STAT_PREINIT;
 	Threads_AddActive( new );
 	
 	return new->TID;
@@ -789,7 +792,12 @@ void Proc_Scheduler(int CPU)
 		thread->SavedState.UserCS = regs->CS;
 		thread->SavedState.UserRIP = regs->RIP;
 	}
-	
+
+	#if BREAK_ON_SWITCH
+	{
+	tThread	*oldthread = thread;
+	#endif
+
 	// Get next thread
 	thread = Threads_GetNextToRun(CPU, thread);
 	
@@ -797,9 +805,18 @@ void Proc_Scheduler(int CPU)
 	if(thread == NULL) {
 		thread = gaCPUs[CPU].IdleThread;
 		//Warning("Hmm... Threads_GetNextToRun returned NULL, I don't think this should happen.\n");
-		//LogF("Zzzzz.\n");
+//		LogF("Zzzzz.\n");
 		//return;
 	}
+	if(thread == NULL ) {
+		return ;
+	}
+	#if BREAK_ON_SWITCH
+	if( thread != oldthread ) {
+		MAGIC_BREAK();
+	}
+	}
+	#endif
 	
 	#if DEBUG_TRACE_SWITCH
 	LogF("Switching to task %i, CR3 = 0x%x, RIP = %p",
@@ -818,16 +835,15 @@ void Proc_Scheduler(int CPU)
 	// Update Kernel Stack pointer
 	gTSSs[CPU].RSP0 = thread->KernelStack-4;
 	
-	// Set address space
-	__asm__ __volatile__ ("mov %0, %%cr3"::"a"(thread->MemState.CR3));
-	
 	// Switch threads
 	__asm__ __volatile__ (
+		"mov %4, %%cr3\n\t"
 		"mov %1, %%rsp\n\t"	// Restore RSP
 		"mov %2, %%rbp\n\t"	// and RBP
 		"jmp *%3" : :	// And return to where we saved state (Proc_Clone or Proc_Scheduler)
-		"a"(SWITCH_MAGIC), "b"(thread->SavedState.RSP),
-		"d"(thread->SavedState.RBP), "c"(thread->SavedState.RIP)
+		"a"(SWITCH_MAGIC), "r"(thread->SavedState.RSP),
+		"r"(thread->SavedState.RBP), "r"(thread->SavedState.RIP),
+		"r"(thread->MemState.CR3)
 		);
 	for(;;);	// Shouldn't reach here
 }

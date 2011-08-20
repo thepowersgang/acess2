@@ -11,6 +11,8 @@
 
 #include <arch.h>
 
+#define PAGE_SIZE	0x1000
+
 // === Memory Location Definitions ===
 /*
  * Userland - Lower Half
@@ -36,9 +38,9 @@
  *       ---- GAP ----                      		9	TiB
  *       FE00 00000000 -       FE80 00000000	39	512	GiB	Fractal Mapping (PML4 508)
  *       FE80 00000000 -       FF00 00000000	39	512	GiB	Temp Fractal Mapping
- *       ---- GAP ----                      		512	GiB	-- UNUSED --
+ *       FF00 00000000 -       FF80 00000000	39	512	GiB	Temporary page mappings
  *       FF80 00000000 -       FF80 80000000	31	2	GiB	Local APIC
- *       ---- GAP ----
+ *       ---- GAP ----                      	  	506	GiB
  *       FFFF 00000000 -       FFFF 80000000	31	2	GiB	User Code
  *       FFFF 80000000 -       FFFF FFFFFFFF	31	2	GiB	Kernel code / data
  */
@@ -71,6 +73,8 @@
 
 #define MM_FRACTAL_BASE	(MM_KERNEL_RANGE|(0xFE00##00000000))
 #define MM_TMPFRAC_BASE	(MM_KERNEL_RANGE|(0xFE80##00000000))
+#define MM_TMPMAP_BASE	(MM_KERNEL_RANGE|(0xFF00##00000000))
+#define MM_TMPMAP_END	(MM_KERNEL_RANGE|(0xFF80##00000000))
 #define MM_LOCALAPIC	(MM_KERNEL_RANGE|(0xFF80##00000000))
 #define MM_KERNEL_CODE	(MM_KERNEL_RANGE|(0xFFFF##80000000))
 
