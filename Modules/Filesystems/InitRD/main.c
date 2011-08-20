@@ -30,6 +30,7 @@ tVFS_Driver	gInitRD_FSInfo = {
  */
 int InitRD_Install(char **Arguments)
 {
+	Log_Notice("InitRD", "Installed");
 	VFS_AddDriver( &gInitRD_FSInfo );
 	
 	return MODULE_ERR_OK;
@@ -43,6 +44,7 @@ tVFS_Node *InitRD_InitDevice(const char *Device, const char **Arguments)
 	#if DUMP_ON_MOUNT
 	InitRD_DumpDir( &gInitRD_RootNode, 0 );
 	#endif
+	Log_Notice("InitRD", "Mounted");
 	return &gInitRD_RootNode;
 }
 
@@ -89,7 +91,7 @@ tVFS_Node *InitRD_FindDir(tVFS_Node *Node, const char *Name)
 	 int	i;
 	tInitRD_File	*dir = Node->ImplPtr;
 	
-	//Log("InirRD_FindDir: Name = '%s'", Name);
+	LOG("Name = '%s'", Name);
 	
 	for( i = 0; i < Node->Size; i++ )
 	{
@@ -111,7 +113,7 @@ void InitRD_DumpDir(tVFS_Node *Node, int Indent)
 	
 	for( i = 0; i < Node->Size; i++ )
 	{
-		//Log("%s- %p %s", indent, dir[i].Node, dir[i].Name);
+		Log_Debug("InitRD", "%s- %p %s", indent, dir[i].Node, dir[i].Name);
 		if(dir[i].Node->Flags & VFS_FFLAG_DIRECTORY)
 			InitRD_DumpDir(dir[i].Node, Indent+1);
 	}

@@ -9,13 +9,16 @@ Dir "Bin" {
 	File "mount" "../../../Usermode/Output/i386/Bin/mount"
 	File "pcidump" "../../../Usermode/Output/i386/Bin/pcidump"
 	File "ifconfig" "../../../Usermode/Output/i386/Bin/ifconfig"
+	File "telnet" "../../../Usermode/Output/i386/Bin/telnet"
+	File "irc" "../../../Usermode/Output/i386/Bin/irc"
 }
 Dir "Libs" {
 	File "ld-acess.so" "../../../Usermode/Output/i386/Libs/ld-acess.so"
+	File "libld-acess.so" "../../../Usermode/Output/i386/Libs/libld-acess.so"
 	File "libc.so" "../../../Usermode/Output/i386/Libs/libc.so"
 	File "libgcc.so" "../../../Usermode/Output/i386/Libs/libgcc.so"
 	File "libreadline.so" "../../../Usermode/Output/i386/Libs/libreadline.so"
-	File "libreadline.so" "../../../Usermode/Output/i386/Libs/libnet.so"
+	File "libnet.so" "../../../Usermode/Output/i386/Libs/libnet.so"
 }
 Dir "Conf" {
 	File "BootConf.cfg" "../../../Usermode/Filesystem/Conf/BootConf.cfg"
