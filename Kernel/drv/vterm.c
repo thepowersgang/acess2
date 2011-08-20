@@ -1373,6 +1373,7 @@ void VT_int_ScrollText(tVTerm *Term, int Count)
 	{
 		 int	base;
 		if(Count > Term->ScrollHeight)	Count = Term->ScrollHeight;
+//		Debug("Scroll: Count = %i", Count);
 		base = Term->TextWidth*(Term->ScrollTop + Term->ScrollHeight - Count);
 		len = Term->TextWidth*(Term->ScrollHeight - Count);
 		
@@ -1385,8 +1386,8 @@ void VT_int_ScrollText(tVTerm *Term, int Count)
 		// Clear last rows
 		for( i = 0; i < Term->TextWidth*Count; i ++ )
 		{
-			Term->AltBuf[ base + i ].Ch = 0;
-			Term->AltBuf[ base + i ].Colour = Term->CurColour;
+			buf[ base + i ].Ch = 0;
+			buf[ base + i ].Colour = Term->CurColour;
 		}
 		
 		// Update Screen
@@ -1395,7 +1396,6 @@ void VT_int_ScrollText(tVTerm *Term, int Count)
 			Term->AltWritePos = Term->TextWidth*(Term->ScrollTop + Term->ScrollHeight - Count);
 		else
 			Term->WritePos = Term->ViewPos + Term->TextWidth*(Term->ScrollTop + Term->ScrollHeight - Count);
-//		Log_Debug("VTerm", "Term->WritePos = %i/%i = %i", Term->WritePos, Term->TextWidth, Term->WritePos/Term->TextWidth);
 		for( i = 0; i < Count; i ++ )
 		{
 			VT_int_UpdateScreen( Term, 0 );
@@ -1421,8 +1421,8 @@ void VT_int_ScrollText(tVTerm *Term, int Count)
 		// Clear preceding rows
 		for( i = 0; i < Term->TextWidth*Count; i ++ )
 		{
-			Term->AltBuf[ i ].Ch = 0;
-			Term->AltBuf[ i ].Colour = Term->CurColour;
+			buf[ i ].Ch = 0;
+			buf[ i ].Colour = Term->CurColour;
 		}
 		
 		VT_int_ScrollFramebuffer( Term, -Count );

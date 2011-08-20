@@ -230,10 +230,10 @@ void VGA_int_SetCursor(Sint16 x, Sint16 y)
 	 int	pos = x+y*VGA_WIDTH;
 	if(x == -1 || y == -1)
 		pos = -1;
-    outb(0x3D4, 14);
-    outb(0x3D5, pos >> 8);
-    outb(0x3D4, 15);
-    outb(0x3D5, pos);
+	outb(0x3D4, 14);
+	outb(0x3D5, pos >> 8);
+	outb(0x3D4, 15);
+	outb(0x3D5, pos);
 }
 
 void VGA_2D_Fill(void *Ent, Uint16 X, Uint16 Y, Uint16 W, Uint16 H, Uint32 Colour)
