@@ -16,7 +16,9 @@ _start:
 	bl main
 1:	b 1b	@ Infinite loop
 
-
 SyscallHandler:
 	
+.section .padata
+.globl kernel_table0
+
 

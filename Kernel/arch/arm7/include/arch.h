@@ -8,6 +8,7 @@
 // === CONSTANTS ===
 #define INVLPTR	((void*)-1)
 #define BITS	32
+#define PAGE_SIZE	0x1000
 
 // === TYPES ===
 typedef unsigned int	Uint;
@@ -33,5 +34,8 @@ typedef Uint32	tPAddr;
 extern void	Debug_PutCharDebug(char Ch);
 extern void	Debug_PutStringDebug(const char *String);
 
+// This should be elsewhere, but CBF
+extern void	MM_SetupPhys(void);
+extern int	MM_InitialiseVirtual(void);
 
 #endif
