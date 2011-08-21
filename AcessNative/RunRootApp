@@ -1,0 +1,2 @@
+#!/bin/sh
+./ld-acess --open /Devices/VTerm/0 --open /Devices/VTerm/0 --open /Devices/VTerm/0 $*
