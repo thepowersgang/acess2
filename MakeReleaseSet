@@ -1,0 +1,14 @@
+#!/bin/sh
+rm -rf Dist
+if [ $# -gt 1 ]; then
+	for arch in $*; do
+		echo $arch
+		BUILD_DIST=y ARCH=$arch make install
+	done
+else
+	BUILD_DIST=y make install
+fi
+tar -zcf Acess2_latest_bin.tar.gz Dist/*
+mdeltree b:/Acess2
+mcopy -s Dist/ b:/Acess2
+gzip -c AcessRelease.img > Acess2_latest.img.gz

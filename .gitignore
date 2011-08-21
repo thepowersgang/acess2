@@ -34,5 +34,5 @@ gitstats/
 .*
 
 *.res.h
-
+Dist/
 obj-*/
