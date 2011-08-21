@@ -1,0 +1,3 @@
+Applications can have 0-* windows
+Windows can have 1-* tabs
+Each window has a menu based on a template from the application
