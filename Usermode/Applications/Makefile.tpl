@@ -39,7 +39,7 @@ ifneq ($(_DBGMAKEFILE),)
 else
 	@$(LD) -g $(LDFLAGS) -o $@ $(OBJ) -Map $(_OBJPREFIX)Map.txt
 endif
-	@$(DISASM) $(_BIN) > $(BIN).dsm
+	@$(DISASM) $(_BIN) > $(_OBJPREFIX)$(BIN).dsm
 
 $(OBJ): $(_OBJPREFIX)%.o: %.c
 	@echo [CC] -o $@

@@ -31,11 +31,11 @@ ifneq ($(_XBIN),)
 	$(xCP) $(_XBIN) $(DISTROOT)/Libs/
 endif
 
-$(_BIN): $(OBJ)
+$(_BIN): $(OBJ) $(_LIBS)
 	@mkdir -p $(dir $(_BIN))
 	@echo [LD] -o $(BIN) $(OBJ)
 	@$(LD) $(LDFLAGS) -o $(_BIN) $(OBJ)
-	@$(DISASM) $(_BIN) > $(_BIN).dsm
+	@$(DISASM) $(_BIN) > $(_OBJPREFIX)$(BIN).dsm
 
 $(_OBJPREFIX)%.o: %.c
 	@echo [CC] -o $@

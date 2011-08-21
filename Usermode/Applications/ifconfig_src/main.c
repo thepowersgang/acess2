@@ -183,12 +183,12 @@ void PrintUsage(const char *ProgName)
 	fprintf(stderr, "    %s [<interface>]\n", ProgName);
 	fprintf(stderr, "        Print the current interfaces (or only <interface> if passed)\n");
 	fprintf(stderr, "\n");
-	fprintf(stderr, "    %s routes\n", ProgName);
+	fprintf(stderr, "    %s route\n", ProgName);
 	fprintf(stderr, "        Print the routing tables\n");
-	fprintf(stderr, "    %s routes add <host>[/<prefix>] [<nexthop> OR <iface>] [<metric>]\n", ProgName);
+	fprintf(stderr, "    %s route add <host>[/<prefix>] [<nexthop> OR <iface>] [<metric>]\n", ProgName);
 	fprintf(stderr, "        Add a new route\n");
-	fprintf(stderr, "    %s routes del <host>[/<prefix>]\n", ProgName);
-	fprintf(stderr, "    %s routes del <routenum>\n", ProgName);
+	fprintf(stderr, "    %s route del <host>[/<prefix>]\n", ProgName);
+	fprintf(stderr, "    %s route del <routenum>\n", ProgName);
 	fprintf(stderr, "        Add a new route\n");
 	fprintf(stderr, "\n");
 	fprintf(stderr, "A note on Acess's IP Stack:\n");
