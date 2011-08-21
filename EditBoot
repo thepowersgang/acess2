@@ -1,0 +1,9 @@
+#!/bin/sh
+#./MountDisk
+#vim mnt/boot/menu.lst
+#sudo umount mnt/
+DISK=a
+mcopy $DISK:/boot/menu.lst .menu.lst.tmp
+vim .menu.lst.tmp
+mcopy -D o .menu.lst.tmp $DISK:/boot/menu.lst
+rm .menu.lst.tmp

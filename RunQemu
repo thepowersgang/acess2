@@ -1,0 +1,38 @@
+#!/bin/sh
+#qemu-system-x86_64 -fda DiskImage.img -boot a -serial stdio -net user,hostname=prelude,dns=10.0.2.1 -net nic,model=ne2k_pci -vga std
+
+QEMU=qemu-system-x86_64
+USE_GDB=
+
+QEMU_PARAMS="-fda DiskImage.img -boot a"
+QEMU_PARAMS=$QEMU_PARAMS" -hdb AcessHDD.img"
+QEMU_PARAMS=$QEMU_PARAMS" -vga std"
+QEMU_PARAMS=$QEMU_PARAMS" -smp 2"
+QEMU_PARAMS=$QEMU_PARAMS" -net nic"
+_NETTYPE="user"
+
+while [ $# -ne 0 ]; do
+	case $1 in
+	-gdb)
+		QEMU_PARAMS=$QEMU_PARAMS" -s -S"
+		;;
+	-dbgbin)
+		QEMU=/home/tpg/apps/bin/qemu-system-x86_64
+		;;
+	-extramem)
+		QEMU_PARAMS=$QEMU_PARAMS" -m 768"
+		;;
+	-e)
+		shift
+		QEMU_PARAMS=$QEMU_PARAMS" "$1
+		;;
+	-tuntap)
+		_NETTYPE="tap"
+	esac
+	shift
+done
+QEMU_PARAMS=$QEMU_PARAMS" -net "$_NETTYPE
+
+#	/home/tpg/apps/bin/qemu-system-x86_64 $QEMU_PARAMS -serial stdio -serial file:QemuLog.txt
+#	qemu-system-x86_64 $QEMU_PARAMS -serial stdio | tee QemuLog.txt
+$QEMU $QEMU_PARAMS -serial stdio | tee QemuLog.txt

@@ -1,0 +1,2 @@
+#!/bin/sh
+for a in i386 i486 i586 x86_64 arm host; do echo $a; ARCH=$a make clean; done
