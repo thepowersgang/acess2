@@ -109,7 +109,7 @@ include/syscalls.h include/syscalls.inc.asm:	syscalls.lst Makefile GenSyscalls.p
 Makefile:	../Makefile.cfg arch/$(ARCHDIR)/Makefile
 
 # HACK - Rebuild proc when the buildnum changes
-$(OBJDIR)drv/proc.o$(OBJSUFFIX): Makefile.BuildNum
+#$(OBJDIR)drv/proc.o$(OBJSUFFIX): Makefile.BuildNum.$(ARCH)
 
 # Dependency Files
 -include $(DEPFILES)
