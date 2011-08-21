@@ -21,6 +21,9 @@ CFLAGS  	+= -Wall -Werror -fno-stack-protector -fno-builtin -Wstrict-prototypes 
 CFLAGS  	+= -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings -Wmissing-prototypes -Wmissing-declarations -Wredundant-decls -Wnested-externs -Winline -Wuninitialized
 LDFLAGS		+= -T arch/$(ARCHDIR)/link.ld -g
 
+OBJDIR := obj-$(ARCH)/
+#OBJSUFFIX := .$(ARCH)
+
 ifeq ($(DEBUG_BUILD),yes)
 	LDFLAGS += -g
 	CFLAGS += -g
@@ -41,23 +44,27 @@ OBJ += vfs/main.o vfs/open.o vfs/acls.o vfs/dir.o vfs/io.o vfs/mount.o
 OBJ += vfs/memfile.o vfs/nodecache.o vfs/handle.o vfs/select.o vfs/mmap.o
 OBJ += vfs/fs/root.o vfs/fs/devfs.o
 OBJ += $(addprefix drv/, $(addsuffix .o,$(DRIVERS)))
-OBJ := $(addsuffix .$(ARCH), $(OBJ))
+
+OBJ := $(addsuffix $(OBJSUFFIX), $(OBJ))
+OBJ := $(addprefix $(OBJDIR), $(OBJ))
+
 MODS += $(addprefix ../Modules/, $(addsuffix .xo.$(ARCH),$(MODULES)))
 BIN = ../Acess2.$(ARCH).bin
 GZBIN = ../Acess2.$(ARCH).gz
 
-DEPFILES  = $(filter %.o.$(ARCH),$(OBJ))
-DEPFILES := $(DEPFILES:%.o.$(ARCH)=%.d.$(ARCH))
+DEPFILES  = $(filter %.o$(OBJSUFFIX),$(OBJ))
+DEPFILES := $(DEPFILES:%.o$(OBJSUFFIX)=%.dep$(OBJSUFFIX))
 
-SRCFILES  = $(OBJ:%.o.$(ARCH)=%.c)
-SRCFILES := $(SRCFILES:%.ao.$(ARCH)=%.$(AS_SUFFIX))
+SRCFILES  = $(OBJ:$(OBJDIR)%.o$(OBJSUFFIX)=%.c)
+SRCFILES := $(SRCFILES:$(OBJDIR)%.ao$(OBJSUFFIX)=%.$(AS_SUFFIX))
 
 .PHONY: all clean install apidoc
 
 all: $(BIN)
 
 clean:
-	@$(RM) $(BIN) ../Acess2.$(ARCH).gz $(BIN).dsm ../Map.$(ARCH).txt LineCounts.$(ARCH).txt $(OBJ) $(DEPFILES)
+#	$(RM) $(BIN) ../Acess2.$(ARCH).gz $(BIN).dsm ../Map.$(ARCH).txt LineCounts.$(ARCH).txt $(OBJ) $(DEPFILES)
+	@$(RM) $(BIN) ../Acess2.$(ARCH).gz $(BIN).dsm ../Map.$(ARCH).txt LineCounts.$(ARCH).txt -r $(OBJDIR) $(OBJ) $(DEPFILES)
 
 install: $(BIN) 
 	cp $(BIN) $(BIN)_
@@ -78,17 +85,19 @@ $(BIN): $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile
 	$(POSTBUILD)
 #	$(STRIP) $(BIN)
 
-%.ao.$(ARCH): %.$(AS_SUFFIX) Makefile
+$(OBJDIR)%.ao$(OBJSUFFIX): %.$(AS_SUFFIX) Makefile
 	@echo --- AS -o $@
+	@mkdir -p $(dir $@)
 	@$(AS) $(ASFLAGS) $< -o $@
 
-%.o.$(ARCH): %.c Makefile
+$(OBJDIR)%.o$(OBJSUFFIX): %.c Makefile
 #	if exists %*/Makefile
 #	@make -C %*/ all
 #	else
 	@echo --- CC -o $@
+	@mkdir -p $(dir $@)
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $<
-	@$(MAKEDEP) $(CPPFLAGS) -MT $@ -o $*.d.$(ARCH) $<
+	@$(MAKEDEP) $(CPPFLAGS) -MT $@ -o $(OBJDIR)$*.dep$(OBJSUFFIX) $<
 #	endif
 
 %.xo.$(ARCH):
@@ -99,7 +108,8 @@ include/syscalls.h include/syscalls.inc.asm:	syscalls.lst Makefile GenSyscalls.p
 
 Makefile:	../Makefile.cfg arch/$(ARCHDIR)/Makefile
 
-drv/proc.o.%: Makefile.BuildNum
+# HACK - Rebuild proc when the buildnum changes
+$(OBJDIR)drv/proc.o$(OBJSUFFIX): Makefile.BuildNum
 
 # Dependency Files
 -include $(DEPFILES)
