@@ -11,6 +11,7 @@
 #if USE_MP
 # include <mp.h>
 #endif
+#include <hal_proc.h>
 
 // === FLAGS ===
 #define DEBUG_TRACE_SWITCH	0
@@ -46,7 +47,6 @@ extern void APWait(void);	// 16-bit AP pause code
 extern void APStartup(void);	// 16-bit AP startup code
 extern Uint	GetEIP(void);	// start.asm
 extern Uint	GetEIP_Sched(void);	// proc.asm
-extern int	GetCPUNum(void);	// start.asm
 extern Uint32	gaInitPageDir[1024];	// start.asm
 extern char	Kernel_Stack_Top[];
 extern tShortSpinlock	glThreadListLock;
@@ -61,7 +61,7 @@ extern void	IRQCommon_handled;	// IRQCommon call return location
 extern void	GetEIP_Sched_ret;	// GetEIP call return location
 
 // === PROTOTYPES ===
-void	ArchThreads_Init(void);
+//void	ArchThreads_Init(void);
 #if USE_MP
 void	MP_StartAP(int CPU);
 void	MP_SendIPI(Uint8 APICID, int Vector, int DeliveryMode);
@@ -71,11 +71,11 @@ void	MP_SendIPI(Uint8 APICID, int Vector, int DeliveryMode);
 void	Proc_ChangeStack(void);
 // int	Proc_Clone(Uint *Err, Uint Flags);
 Uint	Proc_MakeUserStack(void);
-void	Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **EnvP, int DataSize);
+//void	Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **EnvP, int DataSize);
 void	Proc_StartProcess(Uint16 SS, Uint Stack, Uint Flags, Uint16 CS, Uint IP);
  int	Proc_Demote(Uint *Err, int Dest, tRegs *Regs);
-void	Proc_CallFaultHandler(tThread *Thread);
-void	Proc_DumpThreadCPUState(tThread *Thread);
+//void	Proc_CallFaultHandler(tThread *Thread);
+//void	Proc_DumpThreadCPUState(tThread *Thread);
 void	Proc_Scheduler(int CPU);
 
 // === GLOBALS ===
@@ -471,7 +471,7 @@ void Proc_Start(void)
 	while( giNumInitingCPUs )	__asm__ __volatile__ ("hlt");
 	#else
 	// Create Idle Task
-	if(Proc_Clone(0, 0) == 0)
+	if(Proc_Clone(0) == 0)
 	{
 		gpIdleThread = Proc_GetCurThread();
 		gpIdleThread->ThreadName = strdup("Idle Thread");
@@ -557,7 +557,7 @@ void Proc_ChangeStack(void)
  * \fn int Proc_Clone(Uint *Err, Uint Flags)
  * \brief Clone the current process
  */
-int Proc_Clone(Uint *Err, Uint Flags)
+int Proc_Clone(Uint Flags)
 {
 	tThread	*newThread;
 	tThread	*cur = Proc_GetCurThread();
@@ -566,7 +566,7 @@ int Proc_Clone(Uint *Err, Uint Flags)
 	__asm__ __volatile__ ("mov %%esp, %0": "=r"(esp));
 	__asm__ __volatile__ ("mov %%ebp, %0": "=r"(ebp));
 	
-	newThread = Threads_CloneTCB(Err, Flags);
+	newThread = Threads_CloneTCB(NULL, Flags);
 	if(!newThread)	return -1;
 	
 	// Initialise Memory Space (New Addr space or kernel stack)

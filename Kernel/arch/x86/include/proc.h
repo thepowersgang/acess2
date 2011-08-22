@@ -23,8 +23,4 @@ typedef struct sTSS {
 	Uint16	Resvd, IOPB;	// IO Permissions Bitmap
 } __attribute__((packed)) tTSS;
 
-// === FUNCTIONS ===
-extern void	Proc_Start(void);
-extern int	Proc_Clone(Uint *Err, Uint Flags);
-
 #endif

@@ -26,6 +26,14 @@ static inline int CPU_HAS_LOCK(struct sShortSpinlock *Lock)
 
 static inline int SHORTLOCK(struct sShortSpinlock *Lock)
 {
+	#if 0
+	while( __sync_lock_test_and_set( &Lock->Lock, 1 ) == 1 );
+	#endif
+	#if 1
+	while( Lock->Lock )	;
+	Lock->Lock = 1;
+	#endif
+	#if 0
 	// Shamelessly copied from linux (/arch/arm/include/asm/spinlock.h) until I can fix stuff
 	Uint	tmp;
 	__asm__ __volatile__ (
@@ -38,6 +46,7 @@ static inline int SHORTLOCK(struct sShortSpinlock *Lock)
 		: "r" (&Lock->Lock), "r" (1)
 		: "cc"	// Condition codes clobbered
 		);
+	#endif
 	return 1;
 }
 

@@ -15,7 +15,8 @@ USRLIBS += libreadline.so libnet.so liburi.so
 USRLIBS += libaxwin2.so libimage_sif.so
 
 USRAPPS := init login CLIShell cat ls mount
-USRAPPS += bomb pcidump
+USRAPPS += bomb
+#USRAPPS += pcidump
 USRAPPS += ifconfig ping telnet irc
 USRAPPS += axwin2
 

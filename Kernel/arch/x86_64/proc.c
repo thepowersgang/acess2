@@ -13,6 +13,7 @@
 # include <mp.h>
 #endif
 #include <arch_config.h>
+#include <hal_proc.h>
 
 // === FLAGS ===
 #define DEBUG_TRACE_SWITCH	0
@@ -45,11 +46,10 @@ extern int	giNumActiveThreads;
 extern tThread	gThreadZero;
 extern void	Threads_Dump(void);
 extern void	Proc_ReturnToUser(void);
-extern int	GetCPUNum(void);
 extern void	Time_UpdateTimestamp(void);
 
 // === PROTOTYPES ===
-void	ArchThreads_Init(void);
+//void	ArchThreads_Init(void);
 #if USE_MP
 void	MP_StartAP(int CPU);
 void	MP_SendIPI(Uint8 APICID, int Vector, int DeliveryMode);
@@ -60,11 +60,11 @@ void	Proc_ChangeStack(void);
 // int	Proc_Clone(Uint *Err, Uint Flags);
 // int	Proc_SpawnWorker(void);
 Uint	Proc_MakeUserStack(void);
-void	Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **EnvP, int DataSize);
+//void	Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **EnvP, int DataSize);
 void	Proc_StartProcess(Uint16 SS, Uint Stack, Uint Flags, Uint16 CS, Uint IP);
  int	Proc_Demote(Uint *Err, int Dest, tRegs *Regs);
-void	Proc_CallFaultHandler(tThread *Thread);
-void	Proc_DumpThreadCPUState(tThread *Thread);
+//void	Proc_CallFaultHandler(tThread *Thread);
+//void	Proc_DumpThreadCPUState(tThread *Thread);
 void	Proc_Scheduler(int CPU);
 
 // === GLOBALS ===
@@ -391,7 +391,7 @@ void Proc_Start(void)
 	while( giNumInitingCPUs )	__asm__ __volatile__ ("hlt");
 	#else
 	// Create Idle Task
-	if(Proc_Clone(0, 0) == 0)
+	if(Proc_Clone(0) == 0)
 	{
 		gaCPUs[0].IdleThread = Proc_GetCurThread();
 		gaCPUs[0].IdleThread->ThreadName = (char*)"Idle Thread";
@@ -477,10 +477,10 @@ void Proc_ChangeStack(void)
 }
 
 /**
- * \fn int Proc_Clone(Uint *Err, Uint Flags)
+ * \fn int Proc_Clone(Uint Flags)
  * \brief Clone the current process
  */
-int Proc_Clone(Uint *Err, Uint Flags)
+int Proc_Clone(Uint Flags)
 {
 	tThread	*newThread;
 	tThread	*cur = Proc_GetCurThread();
@@ -489,7 +489,7 @@ int Proc_Clone(Uint *Err, Uint Flags)
 	__asm__ __volatile__ ("mov %%rsp, %0": "=r"(rsp));
 	__asm__ __volatile__ ("mov %%rbp, %0": "=r"(rbp));
 	
-	newThread = Threads_CloneTCB(Err, Flags);
+	newThread = Threads_CloneTCB(NULL, Flags);
 	if(!newThread)	return -1;
 	
 	Log("Proc_Clone: newThread = %p", newThread);

@@ -14,9 +14,20 @@ interrupt_vector_table:
 
 .globl _start
 _start:
+	ldr r0, _ptr_kerneltable0
+	mcr p15, 0, r0, c2, c0, 1	@ Set TTBR1 to r0
+	mov r0, #1
+	mcr p15, 0, r0, c2, c0, 2	@ Set TTCR to 1 (50/50 split)
+
+	mrc p15, 0, r0, c1, c0, 0
+	orr r0, r0, #1
+	mcr p15, 0, r0, c1, c0, 0
+
 	ldr sp, =stack+0x10000	@ Set up stack
 	bl kmain
 1:	b 1b	@ Infinite loop
+_ptr_kerneltable0:
+	.long kernel_table0-0x80000000
 
 SyscallHandler:
 	

@@ -19,7 +19,7 @@ start:
 	mov eax, [_crt0_exit_handler]
 	test eax, eax
 	jz .exit
-	call [eax]
+	call eax
 	
 .exit:
 	call _exit
