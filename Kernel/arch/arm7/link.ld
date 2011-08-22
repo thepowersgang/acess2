@@ -11,14 +11,23 @@ SECTIONS
 		*(.text*)
 		*(.rodata*)
 	}
-	.data : AT( ADDR(.text) - _kernel_base )
+	.data ALIGN(0x1000) : AT( ADDR(.data) - _kernel_base )
 	{
 		*(.padata)
 		*(.data*)
+		
+		gKernelSymbols = .;
+		*(KEXPORT)
+		gKernelSymbolsEnd = .;
+		
+		gKernelModules = .;
+		*(KMODULES)
+		gKernelModulesEnd = .;
 	}
-	.bss : AT( ADDR(.text) - _kernel_base )
+	.bss : AT( ADDR(.bss) - _kernel_base )
 	{
 		*(.bss*)
 		*(COMMON*)
 	}
+	gKernelEnd = .;
 }

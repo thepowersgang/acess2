@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <mutex.h>
 #include <semaphore.h>
+#include <hal_proc.h>
 
 // Configuration
 #define DEBUG_TRACE_TICKETS	0	// Trace ticket counts
@@ -34,10 +35,6 @@ const enum eConfigTypes	cCONFIG_TYPES[] = {
 };
 
 // === IMPORTS ===
-extern void	ArchThreads_Init(void);
-extern void	Proc_CallFaultHandler(tThread *Thread);
-extern void	Proc_DumpThreadCPUState(tThread *Thread);
-extern int	GetCPUNum(void);
 
 // === PROTOTYPES ===
 void	Threads_Init(void);

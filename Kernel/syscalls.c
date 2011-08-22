@@ -7,6 +7,7 @@
 #include <acess.h>
 #include <syscalls.h>
 #include <proc.h>
+#include <hal_proc.h>
 #include <errno.h>
 #include <threads.h>
 
@@ -66,7 +67,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 	// -- Clone the current thread
 	case SYS_CLONE:
 		// Call clone system call
-		ret = Proc_Clone(&err, Regs->Arg1);
+		ret = Proc_Clone(Regs->Arg1);
 		// Change user stack if a new stack address is passed
 		if(ret == 0 && Regs->Arg2)
 			Regs->StackPointer = Regs->Arg2;

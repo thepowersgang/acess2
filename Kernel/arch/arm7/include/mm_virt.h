@@ -26,13 +26,18 @@
 #define MM_MODULE_MIN	0xC0000000	// - 0xD0000000
 #define MM_MODULE_MAX	0xD0000000
 
-// PMM Data, giving it 128MiB is overkill, but it's unused atm
+// PMM Data, giving it 256MiB is overkill, but it's unused atm
 #define MM_MAXPHYSPAGE	(1024*1024)
 // 2^(32-12) max pages
 // 8.125 bytes per page (for bitmap allocation)
 // = 8.125 MiB
 #define MM_PMM_BASE	0xE0000000
 #define MM_PMM_END	0xF0000000
+
+#define MM_HWMAP_BASE	0xF0000000	// Ent 0xF00
+#define MM_HWMAP_END	0xFE000000
+#define MM_TMPMAP_BASE	0xFE000000
+#define MM_TMPMAP_END	0xFF000000
 
 #define MM_KERNEL_VFS	0xFF000000	// 
 #define MM_TABLE1KERN	0xFF800000	// - 0x???????? 4MiB

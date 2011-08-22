@@ -6,6 +6,7 @@
 #include <acess.h>
 #include <binary.h>
 #include <mm_virt.h>
+#include <hal_proc.h>
 
 // === CONSTANTS ===
 #define BIN_LOWEST	MM_USER_MIN		// 1MiB
@@ -23,10 +24,7 @@ typedef struct sKernelBin {
 } tKernelBin;
 
 // === IMPORTS ===
-extern int	Proc_Clone(Uint *Err, Uint Flags);
 extern char	*Threads_GetName(int ID);
-extern Uint	MM_ClearUser(void);
-extern void	Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **EnvP, int DataSize);
 extern tKernelSymbol	gKernelSymbols[];
 extern tKernelSymbol	gKernelSymbolsEnd[];
 extern tBinaryType	gELF_Info;
@@ -79,7 +77,7 @@ int Proc_Spawn(const char *Path)
 	
 	LOG("stackPath = '%s'\n", stackPath);
 	
-	if(Proc_Clone(NULL, CLONE_VM) == 0)
+	if(Proc_Clone(CLONE_VM) == 0)
 	{
 		// CHILD
 		const char	*args[2] = {stackPath, NULL};

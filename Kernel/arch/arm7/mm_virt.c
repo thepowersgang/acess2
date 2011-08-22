@@ -6,6 +6,7 @@
  */
 #include <acess.h>
 #include <mm_virt.h>
+#include <hal_proc.h>
 
 #define AP_KRW_ONLY	0x1
 #define AP_KRO_ONLY	0x5
@@ -25,6 +26,8 @@ typedef struct
 } tMM_PageInfo;
 
 // === PROTOTYPES ===
+void	MM_int_GetTables(tVAddr VAddr, Uint32 **Table0, Uint32 **Table1);
+ int	MM_int_AllocateCoarse(tVAddr VAddr, int Domain);
  int	MM_int_SetPageInfo(tVAddr VAddr, tMM_PageInfo *pi);
  int	MM_int_GetPageInfo(tVAddr VAddr, tMM_PageInfo *pi);
 
@@ -36,20 +39,60 @@ int MM_InitialiseVirtual(void)
 	return 0;
 }
 
+void MM_int_GetTables(tVAddr VAddr, Uint32 **Table0, Uint32 **Table1)
+{
+	if(VAddr & 0x80000000) {
+		*Table0 = (void*)MM_TABLE0KERN;	// Level 0
+		*Table1 = (void*)MM_TABLE1KERN;	// Level 1
+	}
+	else {
+		*Table0 = (void*)MM_TABLE0USER;
+		*Table1 = (void*)MM_TABLE1USER;
+	}
+}
+
+int MM_int_AllocateCoarse(tVAddr VAddr, int Domain)
+{
+	Uint32	*table0, *table1;
+	Uint32	*desc;
+	tPAddr	paddr;
+
+	MM_int_GetTables(VAddr, &table0, &table1);
+
+	VAddr &= ~(0x400000-1);	// 4MiB per "block", 1 Page
+
+	desc = &table0[VAddr>>20];	
+
+	if( (desc[0] & 3) != 0 || (desc[1] & 3) != 0
+	 || (desc[2] & 3) != 0 || (desc[3] & 3) != 0 )
+	{
+		// Error?
+		return 1;
+	}
+
+	paddr = MM_AllocPhys();
+	if( !paddr )
+	{
+		// Error
+		return 2;
+	}
+	
+	*desc = paddr | (Domain << 5) | 1;
+	desc[1] = desc[0] + 0x400;
+	desc[2] = desc[0] + 0x800;
+	desc[3] = desc[0] + 0xC00;
+
+	table1[(VAddr>>20)*256] = paddr | 3;
+
+	return 0;
+}	
+
 int MM_int_SetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 {
 	Uint32	*table0, *table1;
 	Uint32	*desc;
 
-	if(VAddr & 0x80000000 ) {
-		table0 = (void*)MM_TABLE0KERN;	// Level 0
-		table1 = (void*)MM_TABLE1KERN;	// Level 1
-	}
-	else {
-		table0 = (void*)MM_TABLE0USER;
-		table1 = (void*)MM_TABLE1USER;
-	}
-	VAddr &= 0x7FFFFFFF;
+	MM_int_GetTables(VAddr, &table0, &table1);
 
 	desc = &table0[ VAddr >> 20 ];
 
@@ -58,11 +101,7 @@ int MM_int_SetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 	case 12:	// Small Page
 	case 16:	// Large Page
 		if( (*desc & 3) == 0 ) {
-			if( pi->PhysAddr == 0 )	return 0;
-			// Allocate
-			*desc = MM_AllocPhys();
-			*desc |= pi->Domain << 5;
-			*desc |= 1;
+			MM_int_AllocateCoarse( VAddr, pi->Domain );
 		}
 		desc = &table1[ VAddr >> 12 ];
 		if( pi->Size == 12 )
@@ -121,16 +160,8 @@ int MM_int_GetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 {
 	Uint32	*table0, *table1;
 	Uint32	desc;
-
-	if(VAddr & 0x80000000 ) {
-		table0 = (void*)MM_TABLE0KERN;	// Level 0
-		table1 = (void*)MM_TABLE1KERN;	// Level 1
-	}
-	else {
-		table0 = (void*)MM_TABLE0USER;
-		table1 = (void*)MM_TABLE1USER;
-	}
-	VAddr &= 0x7FFFFFFF;
+	
+	MM_int_GetTables(VAddr, &table0, &table1);
 
 	desc = table0[ VAddr >> 20 ];
 	
@@ -296,3 +327,21 @@ void MM_Deallocate(tVAddr VAddr)
 	pi.bExecutable = 0;
 	MM_int_SetPageInfo(VAddr, &pi);
 }
+
+tPAddr MM_ClearUser(void)
+{
+	// TODO: Implement ClearUser
+	return 0;
+}
+
+tVAddr MM_MapTemp(tPAddr PAddr)
+{
+	// TODO: Implement MapTemp
+	return 0;
+}
+
+void MM_FreeTemp(tVAddr VAddr)
+{
+	// TODO: Implement FreeTemp
+}
+

@@ -20,5 +20,5 @@ endif
 CPPFLAGS += -DMMU_PRESENT=$(MMU_PRESENT) -DPCI_ADDRESS=$(PCI_ADDRESS)
 LDFLAGS += `$(CC) --print-libgcc-file-name`
 
-A_OBJ  = start.ao main.o lib.o time.o pci.o
+A_OBJ  = start.ao main.o lib.o time.o pci.o debug.o
 A_OBJ += mm_phys.o mm_virt.o proc.o

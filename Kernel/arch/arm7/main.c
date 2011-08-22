@@ -8,6 +8,7 @@
 
 // === IMPORTS ===
 extern void	Interrupts_Setup(void);
+extern void	Arch_LoadBootModules(void);
 
 // === PROTOTYPES ===
  int	kmain(void);
@@ -15,10 +16,16 @@ extern void	Interrupts_Setup(void);
 // === CODE ===
 int kmain(void)
 {
-	Interrupts_Setup();
+	LogF("Booting...\n");
+//	Interrupts_Setup();
 	
 	MM_SetupPhys();
 	
 	//TODO: 
 	for(;;);
 }
+
+void Arch_LoadBootModules(void)
+{
+}
+

@@ -46,8 +46,6 @@ typedef struct {
 #define HALT()	do{}while(0)
 
 // === PROTOTYPES ===
-extern void	Proc_Start(void);
-extern tTID	Proc_Clone(Uint *Errno, int Flags);
 
 #endif
 
