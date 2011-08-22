@@ -11,6 +11,8 @@
 
 // === PROTOTYPES ===
 tBinary	*Elf_Load(int fp);
+tBinary *Elf_Load32(Elf32_Ehdr *hdr, int fp);
+//tBinary *Elf_Load64(int fp);
  int	Elf_Relocate(void *Base);
  int	Elf_GetSymbol(void *Base, const char *Name, Uint *ret);
  int	Elf_Int_DoRelocate(Uint r_info, Uint32 *ptr, Uint32 addend, Elf32_Sym *symtab, Uint base);
@@ -27,13 +29,8 @@ tBinaryType	gELF_Info = {
 // === CODE ===
 tBinary *Elf_Load(int fp)
 {
-	tBinary	*ret;
 	Elf32_Ehdr	hdr;
-	Elf32_Phdr	*phtab;
-	 int	i, j, k;
-	 int	iPageCount;
-	 int	count;
-	
+
 	ENTER("xfp", fp);
 	
 	// Read ELF Header
@@ -45,9 +42,27 @@ tBinary *Elf_Load(int fp)
 		LEAVE('n');
 		return NULL;
 	}
-	
+
+	switch( hdr.ident[4] )
+	{
+	case 1:	// ELF32
+		return Elf_Load32(&hdr, fp);
+//	case 2:	// ELF64
+//		return ELf_Load64(fp);
+	}
+	return NULL;
+}
+
+tBinary *Elf_Load32(Elf32_Ehdr *hdr, int fp)
+{	
+	tBinary	*ret;
+	Elf32_Phdr	*phtab;
+	 int	i, j, k;
+	 int	iPageCount;
+	 int	count;
+
 	// Check for a program header
-	if(hdr.phoff == 0) {
+	if(hdr->phoff == 0) {
 		#if DEBUG_WARN
 		Log_Warning("ELF", "File does not contain a program header (phoff == 0)");
 		#endif
@@ -56,19 +71,19 @@ tBinary *Elf_Load(int fp)
 	}
 	
 	// Read Program Header Table
-	phtab = malloc( sizeof(Elf32_Phdr) * hdr.phentcount );
+	phtab = malloc( sizeof(Elf32_Phdr) * hdr->phentcount );
 	if( !phtab ) {
 		LEAVE('n');
 		return NULL;
 	}
-	LOG("hdr.phoff = 0x%08x", hdr.phoff);
-	VFS_Seek(fp, hdr.phoff, SEEK_SET);
-	VFS_Read(fp, sizeof(Elf32_Phdr)*hdr.phentcount, phtab);
+	LOG("hdr->phoff = 0x%08x", hdr->phoff);
+	VFS_Seek(fp, hdr->phoff, SEEK_SET);
+	VFS_Read(fp, sizeof(Elf32_Phdr)*hdr->phentcount, phtab);
 	
 	// Count Pages
 	iPageCount = 0;
-	LOG("hdr.phentcount = %i", hdr.phentcount);
-	for( i = 0; i < hdr.phentcount; i++ )
+	LOG("hdr->phentcount = %i", hdr->phentcount);
+	for( i = 0; i < hdr->phentcount; i++ )
 	{
 		// Ignore Non-LOAD types
 		if(phtab[i].Type != PT_LOAD)
@@ -82,14 +97,14 @@ tBinary *Elf_Load(int fp)
 	// Allocate Information Structure
 	ret = malloc( sizeof(tBinary) + sizeof(tBinaryPage)*iPageCount );
 	// Fill Info Struct
-	ret->Entry = hdr.entrypoint;
+	ret->Entry = hdr->entrypoint;
 	ret->Base = -1;		// Set Base to maximum value
 	ret->NumPages = iPageCount;
 	ret->Interpreter = NULL;
 	
 	// Load Pages
 	j = 0;
-	for( i = 0; i < hdr.phentcount; i++ )
+	for( i = 0; i < hdr->phentcount; i++ )
 	{
 		 int	lastSize;
 		//LOG("phtab[%i].Type = 0x%x", i, phtab[i].Type);
