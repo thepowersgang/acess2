@@ -30,9 +30,8 @@ tBinary *Elf_Load(int fp)
 	tBinary	*ret;
 	Elf32_Ehdr	hdr;
 	Elf32_Phdr	*phtab;
-	 int	i, j, k;
-	 int	iPageCount;
-	 int	count;
+	 int	i, j;
+	 int	iLoadCount;
 	
 	ENTER("xfp", fp);
 	
@@ -66,32 +65,31 @@ tBinary *Elf_Load(int fp)
 	VFS_Read(fp, sizeof(Elf32_Phdr)*hdr.phentcount, phtab);
 	
 	// Count Pages
-	iPageCount = 0;
+	iLoadCount = 0;
 	LOG("hdr.phentcount = %i", hdr.phentcount);
 	for( i = 0; i < hdr.phentcount; i++ )
 	{
 		// Ignore Non-LOAD types
 		if(phtab[i].Type != PT_LOAD)
 			continue;
-		iPageCount += ((phtab[i].VAddr&0xFFF) + phtab[i].MemSize + 0xFFF) >> 12;
+		iLoadCount ++;
 		LOG("phtab[%i] = {VAddr:0x%x, MemSize:0x%x}", i, phtab[i].VAddr, phtab[i].MemSize);
 	}
 	
-	LOG("iPageCount = %i", iPageCount);
+	LOG("iLoadCount = %i", iLoadCount);
 	
 	// Allocate Information Structure
-	ret = malloc( sizeof(tBinary) + sizeof(tBinaryPage)*iPageCount );
+	ret = malloc( sizeof(tBinary) + sizeof(tBinarySection)*iLoadCount );
 	// Fill Info Struct
 	ret->Entry = hdr.entrypoint;
 	ret->Base = -1;		// Set Base to maximum value
-	ret->NumPages = iPageCount;
+	ret->NumSections = iLoadCount;
 	ret->Interpreter = NULL;
 	
 	// Load Pages
 	j = 0;
 	for( i = 0; i < hdr.phentcount; i++ )
 	{
-		 int	lastSize;
 		//LOG("phtab[%i].Type = 0x%x", i, phtab[i].Type);
 		LOG("phtab[%i] = {", i);
 		LOG(" .Type = 0x%08x", phtab[i].Type);
@@ -125,126 +123,17 @@ tBinary *Elf_Load(int fp)
 		LOG("phtab[%i] = {VAddr:0x%x,Offset:0x%x,FileSize:0x%x}",
 			i, phtab[i].VAddr, phtab[i].Offset, phtab[i].FileSize);
 		
-		//if( (phtab[i].FileSize & 0xFFF) < 0x1000 - (phtab[i].VAddr & 0xFFF) )
-		//	lastSize = phtab[i].FileSize;
-		//else
-			lastSize = (phtab[i].FileSize & 0xFFF) + (phtab[i].VAddr & 0xFFF);
-		//lastSize &= 0xFFF;
-		
-		//LOG("lastSize = 0x%x", lastSize);
-		
-		lastSize = phtab[i].FileSize;
-		
-		// Get Pages
-		count = ( (phtab[i].VAddr&0xFFF) + phtab[i].FileSize + 0xFFF) >> 12;
-		for( k = 0; k < count; k ++ )
-		{
-			ret->Pages[j+k].Virtual = phtab[i].VAddr + (k<<12);
-			ret->Pages[j+k].Physical = phtab[i].Offset + (k<<12);	// Store the offset in the physical address
-			if(k != 0) {
-				ret->Pages[j+k].Physical -= ret->Pages[j+k].Virtual&0xFFF;
-				ret->Pages[j+k].Virtual &= ~0xFFF;
-			}
-			if(k == count-1)
-				ret->Pages[j+k].Size = lastSize;	// Byte count in page
-			else if(k == 0)
-				ret->Pages[j+k].Size = 4096 - (phtab[i].VAddr&0xFFF);
-			else
-				ret->Pages[j+k].Size = 4096;
-			LOG("ret->Pages[%i].Size = 0x%x", j+k, ret->Pages[j+k].Size);
-			ret->Pages[j+k].Flags = 0;
-			lastSize -= ret->Pages[j+k].Size;
-		}
-		count = (phtab[i].MemSize + 0xFFF) >> 12;
-		for(;k<count;k++)
-		{
-			ret->Pages[j+k].Virtual = phtab[i].VAddr + (k<<12);
-			ret->Pages[j+k].Physical = -1;	// -1 = Fill with zeros
-			if(k != 0)	ret->Pages[j+k].Virtual &= ~0xFFF;
-			if(k == count-1 && (phtab[i].MemSize & 0xFFF))
-				ret->Pages[j+k].Size = phtab[i].MemSize & 0xFFF;	// Byte count in page
-			else
-				ret->Pages[j+k].Size = 4096;
-			ret->Pages[j+k].Flags = 0;
-			LOG("%i - 0x%x => 0x%x - 0x%x", j+k,
-				ret->Pages[j+k].Physical, ret->Pages[j+k].Virtual, ret->Pages[j+k].Size);
-		}
-		j += count;
-	}
-	
-	#if 0
-	LOG("Cleaning up overlaps");
-	// Clear up Overlaps
-	{
-		struct {
-			Uint	V;
-			Uint	P;
-			Uint	S;
-			Uint	F;
-		} *tmpRgns;
-		count = j;
-		tmpRgns = malloc(sizeof(*tmpRgns)*count);
-		// Copy
-		for(i=0;i<count;i++) {
-			tmpRgns[i].V = ret->Pages[i].Virtual;
-			tmpRgns[i].P = ret->Pages[i].Physical;
-			tmpRgns[i].S = ret->Pages[i].Size;
-			tmpRgns[i].F = ret->Pages[i].Flags;
-		}
-		// Compact
-		for(i=1,j=0; i < count; i++)
-		{			
-			if(	tmpRgns[j].F == tmpRgns[i].F
-			&&	tmpRgns[j].V + tmpRgns[j].S == tmpRgns[i].V
-			&&	((tmpRgns[j].P == -1 && tmpRgns[i].P == -1)
-			|| (tmpRgns[j].P + tmpRgns[j].S == tmpRgns[i].P)) )
-			{
-				tmpRgns[j].S += tmpRgns[i].S;
-			} else {
-				j ++;
-				tmpRgns[j].V = tmpRgns[i].V;
-				tmpRgns[j].P = tmpRgns[i].P;
-				tmpRgns[j].F = tmpRgns[i].F;
-				tmpRgns[j].S = tmpRgns[i].S;
-			}
-		}
+		ret->LoadSections[j].Offset = phtab[i].Offset;
+		ret->LoadSections[j].FileSize = phtab[i].FileSize;
+		ret->LoadSections[j].Virtual = phtab[i].VAddr;
+		ret->LoadSections[j].MemSize = phtab[i].MemSize;
+		ret->LoadSections[j].Flags = 0;
+		if( !(phtab[i].Flags & SHF_WRITE) )
+			ret->LoadSections[j].Flags |= BIN_SECTFLAG_RO;
+		if( phtab[i].Flags & SHF_EXECINSTR )
+			ret->LoadSections[j].Flags |= BIN_SECTFLAG_EXEC;
 		j ++;
-		// Count
-		count = j;	j = 0;
-		for(i=0;i<count;i++) {
-			//LogF(" Elf_Load: %i - 0x%x => 0x%x - 0x%x\n", i, tmpRgns[i].P, tmpRgns[i].V, tmpRgns[i].S);
-			tmpRgns[i].S += tmpRgns[i].V & 0xFFF;
-			if(tmpRgns[i].P != -1)	tmpRgns[i].P -= tmpRgns[i].V & 0xFFF;
-			tmpRgns[i].V &= ~0xFFF;
-			j += (tmpRgns[i].S + 0xFFF) >> 12;
-			//LogF(" Elf_Load: %i - 0x%x => 0x%x - 0x%x\n", i, tmpRgns[i].P, tmpRgns[i].V, tmpRgns[i].S);
-		}
-		// Reallocate
-		ret = realloc( ret, sizeof(tBinary) + 3*sizeof(Uint)*j );
-		if(!ret) {
-			Log_Warning("BIN", "ElfLoad: Unable to reallocate return structure");
-			return NULL;
-		}
-		ret->NumPages = j;
-		// Split
-		k = 0;
-		for(i=0;i<count;i++) {
-			for( j = 0; j < (tmpRgns[i].S + 0xFFF) >> 12; j++,k++ ) {
-				ret->Pages[k].Flags = tmpRgns[i].F;
-				ret->Pages[k].Virtual = tmpRgns[i].V + (j<<12);
-				if(tmpRgns[i].P != -1) {
-					ret->Pages[k].Physical = tmpRgns[i].P + (j<<12);
-				} else
-					ret->Pages[k].Physical = -1;
-				ret->Pages[k].Size = tmpRgns[i].S - (j << 12);
-				// Clamp to page size
-				if(ret->Pages[k].Size > 0x1000)	ret->Pages[k].Size = 0x1000;
-			}
-		}
-		// Free Temp
-		free(tmpRgns);
 	}
-	#endif
 	
 	// Clean Up
 	free(phtab);

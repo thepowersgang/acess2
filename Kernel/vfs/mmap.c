@@ -2,7 +2,7 @@
  * Acess2 VFS
  * - Open, Close and ChDir
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <acess.h>
 #include <vfs.h>
 #include <vfs_ext.h>

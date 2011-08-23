@@ -8,35 +8,30 @@
 
 // === TYPES ===
 /**
- * \brief Representation of a page in a binary file
+ * \brief Representation of a section in a binary file
  * 
  * Tells the binary loader where the page data resides on disk and where
  * to load it to (relative to the binary base). Once the data is read,
  * the \a Physical field contains the physical address of the page.
  */
-typedef struct sBinaryPage
+typedef struct sBinarySection
 {
-	/**
-	 * \brief Physical address, or file offset
-	 * 
-	 * Physical address of this page or, when the file is not yet
-	 * loaded, this is a file offset (or -1 for uninitialised data)
-	 */
-	tPAddr	Physical;
+	Uint64	Offset;
 	tVAddr	Virtual;	//!< Virtual load address
-	Uint16	Size;	//!< Number of bytes to load from the file
-	Uint16	Flags;	//!< Load Flags
-} __attribute__ ((packed))	tBinaryPage;
+	size_t	FileSize;	//!< Number of bytes to load from the file
+	size_t	MemSize;	//!< Number of bytes in memory
+	Uint	Flags;	//!< Load Flags
+}	tBinarySection;
 
 /**
- * \brief Flags for ::tBinaryPage.Flags
- * \name Binary Page Flags
+ * \brief Flags for ::tBinarySection.Flags
+ * \name Binary Section Flags
  * \{
  */
 //! \brief Read-only
-#define BIN_PAGEFLAG_RO		0x0001
+#define BIN_SECTFLAG_RO		0x0001
 //! \brief Executable
-#define BIN_PAGEFLAG_EXEC	0x0002
+#define BIN_SECTFLAG_EXEC	0x0002
 /**
  * \}
  */
@@ -60,12 +55,10 @@ typedef struct sBinaryPage
 typedef struct sBinary
 {
 	struct sBinary	*Next;	//!< Pointer used by the kernel
-	/**
-	 * \brief True path of the file
-	 * \note Used to uniquely identify the loaded binary to reduce in-memory
-	 *       duplication.
-	 */
-	const char	*TruePath;
+
+	tMount	MountID;
+	tInode	Inode;
+
 	/**
 	 * \brief Interpreter used to load the file
 	 * \note This can be either requested by the individual file, or a per-driver option
@@ -74,24 +67,24 @@ typedef struct sBinary
 	/**
 	 * \brief Entrypoint of the binary (at requested base);
 	 */
-	Uint	Entry;
+	tVAddr	Entry;
 	/**
 	 * \brief File's requested load base
 	 */
-	Uint	Base;
+	tVAddr	Base;
 	/**
 	 * \brief Number of times this binary has been mapped
 	 */
 	 int	ReferenceCount;
 	/**
-	 * \brief Number of pages defined in the file
+	 * \brief Number of sections defined in the file
 	 */
-	 int	NumPages;
+	 int	NumSections;
 	/**
-	 * \brief Array of pages defined by this binary
-	 * \note Contains \a NumPages entries
+	 * \brief Array of sections defined by this binary
+	 * \note Contains \a NumSections entries
 	 */
-	tBinaryPage	Pages[];
+	tBinarySection	LoadSections[];
 }	tBinary;
 
 /**

@@ -37,8 +37,8 @@ int PE_Install(char **Arguments)
  */
 tBinary *PE_Load(int FP)
 {
-	 int	count, i, j, k;
-	 int	iPageCount;
+	 int	count, i, j;
+	 int	iSectCount;
 	tBinary	*ret;
 	tPE_DOS_HEADER		dosHdr;
 	tPE_IMAGE_HEADERS	peHeaders;
@@ -83,7 +83,7 @@ tBinary *PE_Load(int FP)
 	VFS_Read(FP, count, peSections);
 	
 	// Count Pages
-	iPageCount = 1;	// 1st page is headers
+	iSectCount = 1;	// 1st page is headers
 	for( i = 0; i < peHeaders.FileHeader.SectionCount; i++ )
 	{
 		// Check if the section is loadable
@@ -91,30 +91,32 @@ tBinary *PE_Load(int FP)
 		if(peSections[i].RVA + peHeaders.OptHeader.ImageBase == 0)		continue;
 		
 		// Moar pages
-		iPageCount += (peSections[i].VirtualSize + 0xFFF) >> 12;
+		iSectCount ++;
 	}
 	
-	LOG("%i Pages", iPageCount);
+	LOG("%i Sections", iSectCount);
 	
 	// Initialise Executable Information
-	ret = malloc(sizeof(tBinary) + sizeof(tBinaryPage)*iPageCount);
+	ret = malloc(sizeof(tBinary) + sizeof(tBinarySection)*iSectCount);
 	
 	ret->Entry = peHeaders.OptHeader.EntryPoint + peHeaders.OptHeader.ImageBase;
 	ret->Base = peHeaders.OptHeader.ImageBase;
 	ret->Interpreter = gsPE_DefaultInterpreter;
-	ret->NumPages = iPageCount;
+	ret->NumSections = iSectCount;
 	
 	LOG("Entry=%p, BaseAddress=0x%x\n", ret->Entry, ret->Base);
 	
-	ret->Pages[0].Virtual = peHeaders.OptHeader.ImageBase;
-	ret->Pages[0].Physical = 0;
-	ret->Pages[0].Size = 4096;
-	ret->Pages[0].Flags = 0;
+	ret->LoadSections[0].Virtual = peHeaders.OptHeader.ImageBase;
+	ret->LoadSections[0].Offset = 0;
+	ret->LoadSections[0].FileSize = 4096;
+	ret->LoadSections[0].MemSize = 4096;
+	ret->LoadSections[0].Flags = 0;
 	
 	// Parse Sections
 	j = 1;	// Page Index
 	for( i = 0; i < peHeaders.FileHeader.SectionCount; i++ )
 	{
+		tBinarySection	*sect = &ret->LoadSections[j];
 		iVA = peSections[i].RVA + peHeaders.OptHeader.ImageBase;
 		
 		// Skip non-loadable sections
@@ -127,34 +129,16 @@ tBinary *PE_Load(int FP)
 		// Create Flags
 		iFlags = 0;
 		if(peSections[i].Flags & PE_SECTION_FLAG_MEM_EXECUTE)
-			iFlags |= BIN_PAGEFLAG_EXEC;
+			iFlags |= BIN_SECTFLAG_EXEC;
 		if( !(peSections[i].Flags & PE_SECTION_FLAG_MEM_WRITE) )
-			iFlags |= BIN_PAGEFLAG_RO;
+			iFlags |= BIN_SECTFLAG_RO;
 		
-		// Create Page Listing
-		count = (peSections[i].RawSize + 0xFFF) >> 12;
-		for(k=0;k<count;k++)
-		{
-			ret->Pages[j+k].Virtual = iVA + (k<<12);
-			ret->Pages[j+k].Physical = peSections[i].RawOffs + (k<<12);	// Store the offset in the physical address
-			if(k == count-1 && (peSections[i].RawSize & 0xFFF))
-				ret->Pages[j+k].Size = peSections[i].RawSize & 0xFFF;	// Byte count in page
-			else
-				ret->Pages[j+k].Size = 4096;
-			ret->Pages[j+k].Flags = iFlags;
-		}
-		count = (peSections[i].VirtualSize + 0xFFF) >> 12;
-		for(;k<count;k++)
-		{
-			ret->Pages[j+k].Virtual = iVA + (k<<12);
-			ret->Pages[j+k].Physical = -1;	// -1 = Fill with zeros
-			if(k == count-1 && (peSections[i].VirtualSize & 0xFFF))
-				ret->Pages[j+k].Size = peSections[i].VirtualSize & 0xFFF;	// Byte count in page
-			else
-				ret->Pages[j+k].Size = 4096;
-			ret->Pages[j+k].Flags = iFlags;
-		}
-		j += count;
+		sect->Virtual = iVA;
+		sect->Offset = peSections[i].RawOffs;
+		sect->FileSize = peSections[i].RawSize;
+		sect->MemSize = peSections[i].VirtualSize;
+		sect->Flags = iFlags;
+		j ++;
 		
 		LOG("%i Name:'%s', RVA: 0x%x, Size: 0x%x (0x%x), Ofs: 0x%x, Flags: 0x%x",
 			i, namebuf, 

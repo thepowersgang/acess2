@@ -2,7 +2,7 @@
  * Acess2
  * Common Binary Loader
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <acess.h>
 #include <binary.h>
 #include <mm_virt.h>
@@ -31,11 +31,11 @@ extern tBinaryType	gELF_Info;
 
 // === PROTOTYPES ===
  int	Proc_Execve(const char *File, const char **ArgV, const char **EnvP);
-Uint	Binary_Load(const char *file, Uint *entryPoint);
-tBinary *Binary_GetInfo(const char *truePath);
-Uint	Binary_MapIn(tBinary *binary);
-Uint	Binary_IsMapped(tBinary *binary);
-tBinary *Binary_DoLoad(const char *truePath);
+tVAddr	Binary_Load(const char *Path, tVAddr *EntryPoint);
+tBinary	*Binary_GetInfo(tMount MountID, tInode InodeID);
+tVAddr	Binary_MapIn(tBinary *Binary, const char *Path, tVAddr LoadMin, tVAddr LoadMax);
+tVAddr	Binary_IsMapped(tBinary *Binary);
+tBinary *Binary_DoLoad(tMount MountID, tInode Inode, const char *Path);
 void	Binary_Dereference(tBinary *Info);
 #if 0
 Uint	Binary_Relocate(void *Base);
@@ -44,6 +44,7 @@ Uint	Binary_GetSymbolEx(const char *Name, Uint *Value);
 #if 0
 Uint	Binary_FindSymbol(void *Base, const char *Name, Uint *Val);
 #endif
+ int	Binary_int_CheckMemFree( tVAddr _start, size_t _len );
 
 // === GLOBALS ===
 tShortSpinlock	glBinListLock;
@@ -104,8 +105,8 @@ int Proc_Execve(const char *File, const char **ArgV, const char **EnvP)
 	char	**argenvBuf, *strBuf;
 	char	**argvSaved, **envpSaved;
 	char	*savedFile;
-	Uint	entry;
-	Uint	bases[2] = {0};
+	tVAddr	entry;
+	Uint	bases[2] = {0};	// Uint because Proc_StartUser wants it
 	
 	ENTER("sFile pArgV pEnvP", File, ArgV, EnvP);
 	
@@ -175,45 +176,51 @@ int Proc_Execve(const char *File, const char **ArgV, const char **EnvP)
 }
 
 /**
- * \fn Uint Binary_Load(char *file, Uint *entryPoint)
+ * \fn tVAddr Binary_Load(char *Path, tVAddr *EntryPoint)
  * \brief Load a binary into the current address space
- * \param file	Path to binary to load
- * \param entryPoint	Pointer for exectuable entry point
+ * \param Path	Path to binary to load
+ * \param EntryPoint	Pointer for exectuable entry point
  */
-Uint Binary_Load(const char *file, Uint *entryPoint)
+tVAddr Binary_Load(const char *Path, tVAddr *EntryPoint)
 {
-	char	*sTruePath;
+	tMount	mount_id;
+	tInode	inode;
 	tBinary	*pBinary;
-	Uint	base = -1;
+	tVAddr	base = -1;
 
-	ENTER("sfile pentryPoint", file, entryPoint);
+	ENTER("sPath pEntryPoint", Path, EntryPoint);
 	
 	// Sanity Check Argument
-	if(file == NULL) {
+	if(Path == NULL) {
 		LEAVE('x', 0);
 		return 0;
 	}
 
-	// Get True File Path
-	sTruePath = VFS_GetTruePath(file);
-	LOG("sTruePath = %p", sTruePath);
-	
-	if(sTruePath == NULL) {
-		Log_Warning("Binary", "%p '%s' does not exist.", file, file);
-		LEAVE('x', 0);
-		return 0;
+	// Check if this path has been loaded before.
+	#if 0
+	// TODO: Implement a list of string/tBinary pairs for loaded bins
+	#endif
+
+	// Get Inode
+	{
+		int fd;
+		tFInfo	info;
+		fd = VFS_Open(Path, VFS_OPENFLAG_READ|VFS_OPENFLAG_EXEC);
+		if( fd == -1 ) {
+			LOG("%s does not exist", Path);
+			LEAVE_RET('x', 0);
+		}
+		VFS_FInfo(fd, &info, 0);
+		VFS_Close(fd);
+		mount_id = info.mount;
+		inode = info.inode;
 	}
-	
-	LOG("sTruePath = '%s'", sTruePath);
-	
-	// TODO: Also get modifcation time
+
+	// TODO: Also get modifcation time?
 
 	// Check if the binary has already been loaded
-	if( !(pBinary = Binary_GetInfo(sTruePath)) )
-		pBinary = Binary_DoLoad(sTruePath);	// Else load it
-	
-	// Clean Up
-	free(sTruePath);
+	if( !(pBinary = Binary_GetInfo(mount_id, inode)) )
+		pBinary = Binary_DoLoad(mount_id, inode, Path);	// Else load it
 	
 	// Error Check
 	if(pBinary == NULL) {
@@ -221,15 +228,8 @@ Uint Binary_Load(const char *file, Uint *entryPoint)
 		return 0;
 	}
 	
-	#if 0
-	if( (base = Binary_IsMapped(pBinary)) ) {
-		LEAVE('x', base);
-		return base;
-	}
-	#endif
-	
 	// Map into process space
-	base = Binary_MapIn(pBinary);	// If so then map it in
+	base = Binary_MapIn(pBinary, Path, BIN_LOWEST, BIN_HIGHEST);
 	
 	// Check for errors
 	if(base == 0) {
@@ -239,18 +239,18 @@ Uint Binary_Load(const char *file, Uint *entryPoint)
 	
 	// Interpret
 	if(pBinary->Interpreter) {
-		Uint start;
+		tVAddr	start;
 		if( Binary_Load(pBinary->Interpreter, &start) == 0 ) {
 			LEAVE('x', 0);
 			return 0;
 		}
-		*entryPoint = start;
+		*EntryPoint = start;
 	}
 	else
-		*entryPoint = pBinary->Entry - pBinary->Base + base;
+		*EntryPoint = pBinary->Entry - pBinary->Base + base;
 	
 	// Return
-	LOG("*entryPoint = 0x%x", *entryPoint);
+	LOG("*EntryPoint = 0x%x", *EntryPoint);
 	LEAVE('x', base);
 	return base;	// Pass the base as an argument to the user if there is an interpreter
 }
@@ -259,13 +259,13 @@ Uint Binary_Load(const char *file, Uint *entryPoint)
  * \brief Finds a matching binary entry
  * \param TruePath	File Identifier (True path name)
  */
-tBinary *Binary_GetInfo(const char *TruePath)
+tBinary *Binary_GetInfo(tMount MountID, tInode InodeID)
 {
 	tBinary	*pBinary;
 	pBinary = glLoadedBinaries;
 	while(pBinary)
 	{
-		if(strcmp(pBinary->TruePath, TruePath) == 0)
+		if(pBinary->MountID == MountID && pBinary->Inode == InodeID)
 			return pBinary;
 		pBinary = pBinary->Next;
 	}
@@ -277,26 +277,25 @@ tBinary *Binary_GetInfo(const char *TruePath)
  \brief Maps an already-loaded binary into an address space.
  \param binary	Pointer to globally stored data.
 */
-Uint Binary_MapIn(tBinary *binary)
+tVAddr Binary_MapIn(tBinary *Binary, const char *Path, tVAddr LoadMin, tVAddr LoadMax)
 {
-	Uint	base;
-	Uint	addr;
-	 int	i;
-	
+	tVAddr	base;
+	 int	i, fd;
 	// Reference Executable (Makes sure that it isn't unloaded)
-	binary->ReferenceCount ++;
+	Binary->ReferenceCount ++;
 	
 	// Get Binary Base
-	base = binary->Base;
+	base = Binary->Base;
 	
 	// Check if base is free
 	if(base != 0)
 	{
-		for(i=0;i<binary->NumPages;i++)
+		for(i=0;i<Binary->NumSections;i++)
 		{
-			if( MM_GetPhysAddr( binary->Pages[i].Virtual & ~0xFFF ) ) {
+			if( Binary_int_CheckMemFree( Binary->LoadSections[i].Virtual, Binary->LoadSections[i].MemSize ) )
+			{
 				base = 0;
-				LOG("Address 0x%x is taken\n", binary->Pages[i].Virtual & ~0xFFF);
+				LOG("Address 0x%x is taken\n", Binary->LoadSections[i].Virtual);
 				break;
 			}
 		}
@@ -306,53 +305,60 @@ Uint Binary_MapIn(tBinary *binary)
 	if(base == 0)
 	{
 		// If so, give it a base
-		base = BIN_HIGHEST;
-		while(base >= BIN_LOWEST)
+		base = LoadMax;
+		while(base >= LoadMin)
 		{
-			for(i=0;i<binary->NumPages;i++)
+			for( i = 0; i < Binary->NumSections; i ++ )
 			{
-				addr = binary->Pages[i].Virtual & ~0xFFF;
-				addr -= binary->Base;
-				addr += base;
-				if( MM_GetPhysAddr( addr ) )	break;
+				tVAddr	addr = Binary->LoadSections[i].Virtual - Binary->Base + base;
+				if( Binary_int_CheckMemFree( addr, Binary->LoadSections[i].MemSize ) )
+					break;
 			}
 			// If space was found, break
-			if(i == binary->NumPages)		break;
+			if(i == Binary->NumSections)		break;
 			// Else decrement pointer and try again
 			base -= BIN_GRANUALITY;
 		}
 	}
 	
 	// Error Check
-	if(base < BIN_LOWEST) {
-		Log_Warning("BIN", "Executable '%s' cannot be loaded, no space", binary->TruePath);
+	if(base < LoadMin) {
+		Log_Warning("Binary", "Executable '%s' cannot be loaded, no space", Path);
 		return 0;
 	}
 	
 	// Map Executable In
-	for(i=0;i<binary->NumPages;i++)
+	fd = VFS_OpenInode(Binary->MountID, Binary->Inode, VFS_OPENFLAG_READ);
+	for( i = 0; i < Binary->NumSections; i ++ )
 	{
-		addr = binary->Pages[i].Virtual & ~0xFFF;
-		addr -= binary->Base;
-		addr += base;
-		LOG("%i - 0x%x to 0x%x", i, addr, binary->Pages[i].Physical);
-		MM_Map( addr, (Uint) (binary->Pages[i].Physical) );
-		
-		// Read-Only?
-		if( binary->Pages[i].Flags & BIN_PAGEFLAG_RO)
-			MM_SetFlags( addr, MM_PFLAG_RO, -1 );
-		else
-			MM_SetFlags( addr, MM_PFLAG_COW, -1 );
-		
-		// Execute?
-		if( binary->Pages[i].Flags & BIN_PAGEFLAG_EXEC )
-			MM_SetFlags( addr, MM_PFLAG_EXEC, -1 );
-		else
-			MM_SetFlags( addr, MM_PFLAG_EXEC, 0 );
-		
+		tBinarySection	*sect = &Binary->LoadSections[i];
+		Uint	protflags, mapflags;
+		tVAddr	addr = sect->Virtual - Binary->Base + base;
+		LOG("%i - 0x%x to 0x%x", i, addr, sect->Offset);
+
+		protflags = MMAP_PROT_READ;
+		mapflags = MMAP_MAP_FIXED;
+
+		if( sect->Flags & BIN_SECTFLAG_EXEC )
+			protflags |= MMAP_PROT_EXEC;
+		if( sect->Flags & BIN_SECTFLAG_RO  ) {
+			VFS_MMap( (void*)addr, sect->FileSize, protflags, MMAP_MAP_SHARED|mapflags, fd, sect->Offset );
+		}
+		else {
+			protflags |= MMAP_PROT_WRITE;
+			VFS_MMap( (void*)addr, sect->FileSize, protflags, MMAP_MAP_PRIVATE|mapflags, fd, sect->Offset );
+		}
+		if( sect->FileSize < sect->MemSize ) {
+			mapflags |= MMAP_MAP_ANONYMOUS;
+			VFS_MMap(
+				(void*)(addr + sect->FileSize), sect->MemSize - sect->FileSize,
+				protflags, MMAP_MAP_PRIVATE|mapflags,
+				0, 0
+				);
+		}
 	}
 	
-	Log_Debug("Binary", "PID %i - Mapped '%s' to 0x%x", Threads_GetPID(), binary->TruePath, base);
+	Log_Debug("Binary", "PID %i - Mapped '%s' to 0x%x", Threads_GetPID(), Path, base);
 	
 	//LOG("*0x%x = 0x%x\n", binary->Pages[0].Virtual, *(Uint*)binary->Pages[0].Virtual);
 	
@@ -392,17 +398,17 @@ Uint Binary_IsMapped(tBinary *binary)
  * \brief Loads a binary file into memory
  * \param truePath	Absolute filename of binary
  */
-tBinary *Binary_DoLoad(const char *truePath)
+tBinary *Binary_DoLoad(tMount MountID, tInode Inode, const char *Path)
 {
 	tBinary	*pBinary;
-	 int	fp, i;
+	 int	fp;
 	Uint	ident;
 	tBinaryType	*bt = gRegBinTypes;
 	
-	ENTER("struePath", truePath);
+	ENTER("iMountID XInode sPath", Path);
 	
 	// Open File
-	fp = VFS_Open(truePath, VFS_OPENFLAG_READ);
+	fp = VFS_OpenInode(MountID, Inode, VFS_OPENFLAG_READ);
 	if(fp == -1) {
 		LOG("Unable to load file, access denied");
 		LEAVE('n');
@@ -412,7 +418,8 @@ tBinary *Binary_DoLoad(const char *truePath)
 	// Read File Type
 	VFS_Read(fp, 4, &ident);
 	VFS_Seek(fp, 0, SEEK_SET);
-	
+
+	// Determine the type	
 	for(; bt; bt = bt->Next)
 	{
 		if( (ident & bt->Mask) != (Uint)bt->Ident )
@@ -420,9 +427,14 @@ tBinary *Binary_DoLoad(const char *truePath)
 		pBinary = bt->Load(fp);
 		break;
 	}
+	
+	// Close File
+	VFS_Close(fp);
+	
+	// Catch errors
 	if(!bt) {
-		Log_Warning("BIN", "'%s' is an unknown file type. (%02x %02x %02x %02x)",
-			truePath, ident&0xFF, (ident>>8)&0xFF, (ident>>16)&0xFF, (ident>>24)&0xFF);
+		Log_Warning("Binary", "'%s' is an unknown file type. (%02x %02x %02x %02x)",
+			Path, ident&0xFF, (ident>>8)&0xFF, (ident>>16)&0xFF, (ident>>24)&0xFF);
 		LEAVE('n');
 		return NULL;
 	}
@@ -435,87 +447,22 @@ tBinary *Binary_DoLoad(const char *truePath)
 	
 	// Initialise Structure
 	pBinary->ReferenceCount = 0;
-	pBinary->TruePath = strdup(truePath);
+	pBinary->MountID = MountID;
+	pBinary->Inode = Inode;
 	
 	// Debug Information
 	LOG("Interpreter: '%s'", pBinary->Interpreter);
 	LOG("Base: 0x%x, Entry: 0x%x", pBinary->Base, pBinary->Entry);
-	LOG("NumPages: %i", pBinary->NumPages);
-	
-	// Read Data
-	for(i = 0; i < pBinary->NumPages; i ++)
-	{
-		Uint	dest;
-		tPAddr	paddr;
-		paddr = (Uint)MM_AllocPhys();
-		if(paddr == 0) {
-			Log_Warning("BIN", "Binary_DoLoad - Physical memory allocation failed");
-			for( ; i--; ) {
-				MM_DerefPhys( pBinary->Pages[i].Physical );
-			}
-			return NULL;
-		}
-		MM_RefPhys( paddr );	// Make sure it is _NOT_ freed until we want it to be
-		dest = MM_MapTemp( paddr );
-		dest += pBinary->Pages[i].Virtual & 0xFFF;
-		LOG("dest = 0x%x, paddr = 0x%x", dest, paddr);
-		LOG("Pages[%i]={Physical:0x%llx,Virtual:%p,Size:0x%x}",
-			i, pBinary->Pages[i].Physical, pBinary->Pages[i].Virtual, pBinary->Pages[i].Size);
-		
-		// Pure Empty Page
-		if(pBinary->Pages[i].Physical == -1) {
-			LOG("%i - ZERO", i);
-			memset( (void*)dest, 0, 1024 - (pBinary->Pages[i].Virtual & 0xFFF) );
-		}
-		else
-		{
-			VFS_Seek( fp, pBinary->Pages[i].Physical, 1 );
-			// If the address is not aligned, or the page is not full
-			// sized, copy part of it
-			if( (dest & 0xFFF) > 0 || pBinary->Pages[i].Size < 0x1000)
-			{
-				// Validate the size to prevent Kernel page faults
-				// Clips to one page and prints a warning
-				if( pBinary->Pages[i].Size + (dest & 0xFFF) > 0x1000) {
-					Log_Warning("Binary", "Loader error: Page %i (%p) of '%s' is %i bytes (> 4096)",
-						i, pBinary->Pages[i].Virtual, truePath,
-						(dest&0xFFF) + pBinary->Pages[i].Size);
-					pBinary->Pages[i].Size = 0x1000 - (dest & 0xFFF);
-				}		
-				LOG("%i - 0x%llx - 0x%x bytes",
-					i, pBinary->Pages[i].Physical, pBinary->Pages[i].Size);
-				// Zero from `dest` to the end of the page
-				memset( (void*)dest, 0, 0x1000 - (dest&0xFFF) );
-				// Read in the data
-				VFS_Read( fp, pBinary->Pages[i].Size, (void*)dest );
-			}
-			// Full page
-			else
-			{
-				// Check if the page is oversized
-				if(pBinary->Pages[i].Size > 0x1000)
-					Log_Warning("Binary", "Loader error - Page %i (%p) of '%s' is %i bytes (> 4096)",
-						i, pBinary->Pages[i].Virtual, truePath,
-						pBinary->Pages[i].Size);
-				// Read data
-				LOG("%i - 0x%x", i, pBinary->Pages[i].Physical);
-				VFS_Read( fp, 0x1000, (void*)dest );
-			}
-		}
-		pBinary->Pages[i].Physical = paddr;
-		MM_FreeTemp( dest );
-	}
-	LOG("Page Count: %i", pBinary->NumPages);
-	
-	// Close File
-	VFS_Close(fp);
+	LOG("NumSections: %i", pBinary->NumSections);
 	
 	// Add to the list
 	SHORTLOCK(&glBinListLock);
 	pBinary->Next = glLoadedBinaries;
 	glLoadedBinaries = pBinary;
 	SHORTREL(&glBinListLock);
-	
+
+	// TODO: Register the path with the binary	
+
 	// Return
 	LEAVE('p', pBinary);
 	return pBinary;
@@ -548,8 +495,9 @@ void Binary_Unload(void *Base)
 		// Check the base
 		if(pKBin->Base != Base)	continue;
 		// Deallocate Memory
-		for(i = 0; i < pKBin->Info->NumPages; i++) {
-			MM_Deallocate( (Uint)Base + (i << 12) );
+		for(i = 0; i < pKBin->Info->NumSections; i++)
+		{
+			// TODO: VFS_MUnmap();
 		}
 		// Dereference Binary
 		Binary_Dereference( pKBin->Info );
@@ -624,12 +572,11 @@ char *Binary_RegInterp(char *Path)
  */
 void *Binary_LoadKernel(const char *File)
 {
-	char	*sTruePath;
 	tBinary	*pBinary;
 	tKernelBin	*pKBinary;
-	Uint	base = -1;
-	Uint	addr;
-	 int	i;
+	tVAddr	base = -1;
+	tMount	mount_id;
+	tInode	inode;
 
 	ENTER("sFile", File);
 	
@@ -639,15 +586,21 @@ void *Binary_LoadKernel(const char *File)
 		return 0;
 	}
 
-	// Get True File Path
-	sTruePath = VFS_GetTruePath(File);
-	if(sTruePath == NULL) {
-		LEAVE('n');
-		return 0;
+	{
+		int fd = VFS_Open(File, VFS_OPENFLAG_READ);
+		tFInfo	info;
+		if(fd == -1) {
+			LEAVE('n');
+			return NULL;
+		}
+		VFS_FInfo(fd, &info, 0);
+		mount_id = info.mount;
+		inode = info.inode;
+		VFS_Close(fd);
 	}
 	
 	// Check if the binary has already been loaded
-	if( (pBinary = Binary_GetInfo(sTruePath)) )
+	if( (pBinary = Binary_GetInfo(mount_id, inode)) )
 	{
 		for(pKBinary = glLoadedKernelLibs;
 			pKBinary;
@@ -660,7 +613,7 @@ void *Binary_LoadKernel(const char *File)
 		}
 	}
 	else
-		pBinary = Binary_DoLoad(sTruePath);	// Else load it
+		pBinary = Binary_DoLoad(mount_id, inode, File);	// Else load it
 	
 	// Error Check
 	if(pBinary == NULL) {
@@ -675,76 +628,13 @@ void *Binary_LoadKernel(const char *File)
 	
 	// Reference Executable (Makes sure that it isn't unloaded)
 	pBinary->ReferenceCount ++;
-	
-	// Check compiled base
-	base = pBinary->Base;
-	// - Sanity Check
-	if(base < KLIB_LOWEST || base > KLIB_HIGHEST || base + (pBinary->NumPages<<12) > KLIB_HIGHEST) {
-		base = 0;
-	}
-	// - Check if it is a valid base address
-	if(base != 0)
-	{
-		for(i=0;i<pBinary->NumPages;i++)
-		{
-			if( MM_GetPhysAddr( pBinary->Pages[i].Virtual & ~0xFFF ) ) {
-				base = 0;
-				LOG("Address 0x%x is taken\n", pBinary->Pages[i].Virtual & ~0xFFF);
-				break;
-			}
-		}
-	}
-	
-	// Check if the executable has no base or it is not free
-	if(base == 0)
-	{
-		// If so, give it a base
-		base = KLIB_LOWEST;
-		while(base < KLIB_HIGHEST)
-		{
-			for(i = 0; i < pBinary->NumPages; i++)
-			{
-				addr = pBinary->Pages[i].Virtual & ~0xFFF;
-				addr -= pBinary->Base;
-				addr += base;
-				if( MM_GetPhysAddr( addr ) )	break;
-			}
-			// If space was found, break
-			if(i == pBinary->NumPages)		break;
-			// Else decrement pointer and try again
-			base += KLIB_GRANUALITY;
-		}
-	}
-	
-	// - Error Check
-	if(base >= KLIB_HIGHEST) {
-		Log_Warning("BIN", "Executable '%s' cannot be loaded into kernel, no space", pBinary->TruePath);
-		Binary_Dereference( pBinary );
-		LEAVE('n');
-		return 0;
-	}
-	
-	LOG("base = 0x%x", base);
-	
-	// - Map binary in
-	LOG("pBinary = {NumPages:%i, Pages=%p}", pBinary->NumPages, pBinary->Pages);
-	for(i = 0; i < pBinary->NumPages; i++)
-	{
-		addr = pBinary->Pages[i].Virtual & ~0xFFF;
-		addr -= pBinary->Base;
-		addr += base;
-		LOG("%i - 0x%x to 0x%x", i, addr, pBinary->Pages[i].Physical);
-		MM_Map( addr, (Uint) (pBinary->Pages[i].Physical) );
-		MM_SetFlags( addr, MM_PFLAG_KERNEL, MM_PFLAG_KERNEL );
-		
-		if( pBinary->Pages[i].Flags & BIN_PAGEFLAG_RO)	// Read-Only?
-			MM_SetFlags( addr, MM_PFLAG_RO, MM_PFLAG_KERNEL );
-	}
+
+	Binary_MapIn(pBinary, File, KLIB_LOWEST, KLIB_HIGHEST);
 
 	// Relocate Library
 	if( !Binary_Relocate( (void*)base ) )
 	{
-		Log_Warning("BIN", "Relocation of '%s' failed, unloading", sTruePath);
+		Log_Warning("Binary", "Relocation of '%s' failed, unloading", File);
 		Binary_Unload( (void*)base );
 		Binary_Dereference( pBinary );
 		LEAVE('n');
@@ -858,6 +748,24 @@ Uint Binary_FindSymbol(void *Base, const char *Name, Uint *Val)
 		Base, ident&0xFF, ident>>8, ident>>16, ident>>24);
 	return 0;
 }
+
+/**
+ * \brief Check if a range of memory is fully free
+ * \return Inverse boolean free (0 if all pages are unmapped)
+ */
+int Binary_int_CheckMemFree( tVAddr _start, size_t _len )
+{
+	_len += _start & (PAGE_SIZE-1);
+	_start &= ~(PAGE_SIZE-1);
+	for( ; _len > PAGE_SIZE; _len -= PAGE_SIZE, _start += PAGE_SIZE ) {
+		if( MM_GetPhysAddr(_start) != 0 )
+			return 1;
+	}
+	if( _len == PAGE_SIZE && MM_GetPhysAddr(_start) != 0 )
+		return 1;
+	return 0;
+}
+
 
 // === EXPORTS ===
 EXPORT(Binary_FindSymbol);
