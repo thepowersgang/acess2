@@ -6,6 +6,7 @@
 #include <acess.h>
 #include <vm8086.h>
 #include <modules.h>
+#include <hal_proc.h>
 
 // === CONSTANTS ===
 #define VM8086_MAGIC_CS	0xFFFF
@@ -27,9 +28,6 @@ enum eVM8086_Opcodes
 
 #define VM8086_BLOCKSIZE	128
 #define VM8086_BLOCKCOUNT	((0x9F000-0x10000)/VM8086_BLOCKSIZE)
-
-// === IMPORTS ===
- int	Proc_Clone(Uint *Err, Uint Flags);
 
 // === TYPES ===
 struct sVM8086_InternalData
@@ -63,7 +61,7 @@ int VM8086_Install(char **Arguments)
 	Mutex_Acquire( &glVM8086_Process );
 	
 	// Create BIOS Call process
-	pid = Proc_Clone(NULL, CLONE_VM);
+	pid = Proc_Clone(CLONE_VM);
 	if(pid == -1)
 	{
 		Log_Error("VM8086", "Unable to clone kernel into VM8086 worker");
@@ -74,15 +72,18 @@ int VM8086_Install(char **Arguments)
 		Uint	* volatile stacksetup;	// Initialising Stack
 		Uint16	* volatile rmstack;	// Real Mode Stack
 		 int	i;
-		 
+		
 		// Set Image Name
 		Threads_SetName("VM8086");
-		
+
+		Log_Debug("VM8086", "Mapping memory");	
+	
 		// Map ROM Area
 		for(i=0xA0;i<0x100;i++) {
 			MM_Map( i * 0x1000, i * 0x1000 );
-			//MM_SetFlags( i * 0x1000, MM_PFLAG_RO, MM_PFLAG_RO );	// Set Read Only
+		//	MM_SetFlags( i * 0x1000, MM_PFLAG_RO, MM_PFLAG_RO );	// Set Read Only
 		}
+		Log_Debug("VM8086", "ROM area mapped");
 		MM_Map( 0, 0 );	// IVT / BDA
 		// Map (but allow allocation) of 0x1000 - 0x9F000
 		// - So much hack, it isn't funny
@@ -99,6 +100,7 @@ int VM8086_Install(char **Arguments)
 			gVM8086_WorkerPID = 0;
 			Threads_Exit(0, 1);
 		}
+		Log_Debug("VM8086", "Mapped low memory");
 		
 		*(Uint8*)(0x100000) = VM8086_OP_IRET;
 		*(Uint8*)(0x100001) = 0x07;	// POP ES

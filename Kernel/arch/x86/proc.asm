@@ -135,7 +135,7 @@ scheduler_return:	; Used by some hackery in Proc_DumpThreadCPUState
 SpawnTask:
 	; Call Proc_Clone with Flags=0
 	xor eax, eax
-	push eax
+;	push eax
 	push eax
 	call Proc_Clone
 	add esp, 8	; Remove arguments from stack

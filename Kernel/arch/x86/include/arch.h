@@ -9,6 +9,7 @@
 // - Base Defintions
 #define	KERNEL_BASE	0xC0000000
 #define BITS	32
+#define PAGE_SIZE	0x1000
 
 #define INVLPTR	((void*)-1)
 
