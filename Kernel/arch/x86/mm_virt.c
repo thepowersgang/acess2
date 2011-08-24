@@ -285,8 +285,7 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 					(expected & PF_COW ? "C" : "-"),
 					(expected & PF_GLOBAL ? "G" : "-"),
 					(expected & PF_USER ? "U" : "-"),
-					(expected & PF_WRITE ? "W" : "-"),
-					gaPageTable[page] & MASK, expected
+					(expected & PF_WRITE ? "W" : "-")
 					);
 				expected = 0;
 			}
