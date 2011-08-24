@@ -9,7 +9,6 @@
 #include <vfs_int.h>
 
 #define MMAP_PAGES_PER_BLOCK	16
-#define PAGE_SIZE	0x1000	// Should be in mm_virt.h
 
 // === STRUCTURES ===
 typedef struct sVFS_MMapPageBlock	tVFS_MMapPageBlock;
@@ -27,23 +26,33 @@ void *VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD,
 	tVAddr	mapping_dest;
 	 int	npages, pagenum;
 	tVFS_MMapPageBlock	*pb, *prev;
+
+	ENTER("pDestHint iLength xProtection xFlags xFD XOffset", DestHint, Length, Protection, Flags, FD, Offset);
 	
-	npages = ((Offset & (PAGE_SIZE-1)) + Length) / PAGE_SIZE;
+	npages = ((Offset & (PAGE_SIZE-1)) + Length + (PAGE_SIZE - 1)) / PAGE_SIZE;
 	pagenum = Offset / PAGE_SIZE;
 
 	mapping_dest = (tVAddr)DestHint;	
 
-#if 0
 	// TODO: Locate space for the allocation
-	if( Flags & MAP_ANONYMOUS )
+
+	// Handle anonymous mappings
+	if( Flags & MMAP_MAP_ANONYMOUS )
 	{
-		MM_Allocate(mapping_dest);
-		return (void*)mapping_dest;
+		int i;
+		for( i = 0; i < npages; i ++ ) {
+			tPAddr rv = MM_Allocate(mapping_dest + i * PAGE_SIZE);
+			if( !rv ) {
+				// TODO: Error
+			}
+		}
+		LEAVE_RET('p', (void*)mapping_dest);
 	}
-#endif
 
 	h = VFS_GetHandle(FD);
-	if( !h || !h->Node )	return NULL;
+	if( !h || !h->Node )	LEAVE_RET('n', NULL);
+
+	LOG("h = %p", h);
 
 	// Search for existing mapping for each page
 	// - Sorted list of 16 page blocks
@@ -58,7 +67,7 @@ void *VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD,
 	{
 		void	*old_pb = pb;
 		pb = malloc( sizeof(tVFS_MMapPageBlock) );
-		if(!pb)	return NULL;
+		if(!pb)	LEAVE_RET('n', NULL);
 		pb->Next = old_pb;
 		pb->BaseOffset = pagenum - pagenum % MMAP_PAGES_PER_BLOCK;
 		memset(pb->PhysAddrs, 0, sizeof(pb->PhysAddrs));
@@ -111,7 +120,8 @@ void *VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD,
 			pagenum = 0;
 		}
 	}
-	
+
+	LEAVE('n');	
 	return NULL;
 }
 

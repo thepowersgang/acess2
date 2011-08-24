@@ -988,13 +988,16 @@ void Threads_Fault(int Num)
 	Proc_CallFaultHandler(thread);
 }
 
+extern void	MM_DumpTables(tVAddr Start, tVAddr End);
+
 /**
  * \fn void Threads_SegFault(tVAddr Addr)
  * \brief Called when a Segment Fault occurs
  */
 void Threads_SegFault(tVAddr Addr)
 {
-	Warning("Thread #%i committed a segfault at address %p", Proc_GetCurThread()->TID, Addr);
+	Log_Warning("Threads", "Thread #%i committed a segfault at address %p", Proc_GetCurThread()->TID, Addr);
+	MM_DumpTables(0, 0xC0000000);
 	Threads_Fault( 1 );
 	//Threads_Exit( 0, -1 );
 }

@@ -452,6 +452,9 @@ restart_parse:
 int VFS_int_CreateHandle( tVFS_Node *Node, tVFS_Mount *Mount, int Mode )
 {
 	 int	i;
+	
+	ENTER("pNode pMount iMode", Node, Mount, Mode);
+
 	i = 0;
 	i |= (Mode & VFS_OPENFLAG_EXEC) ? VFS_PERM_EXECUTE : 0;
 	i |= (Mode & VFS_OPENFLAG_READ) ? VFS_PERM_READ : 0;
@@ -578,7 +581,7 @@ int VFS_OpenInode(Uint32 Mount, Uint64 Inode, int Mode)
 	tVFS_Mount	*mnt;
 	tVFS_Node	*node;
 
-	ENTER("iMount iInode xMode", Mount, Inode, Mode);
+	ENTER("iMount XInode xMode", Mount, Inode, Mode);
 	
 	// Get mount point
 	mnt = VFS_GetMountByIdent(Mount);
@@ -590,6 +593,7 @@ int VFS_OpenInode(Uint32 Mount, Uint64 Inode, int Mode)
 	
 	// Does the filesystem support this?
 	if( !mnt->Filesystem->GetNodeFromINode ) {
+		LOG("Filesystem does not support inode accesses");
 		errno = ENOENT;
 		LEAVE_RET('i', -1);
 	}
@@ -597,6 +601,7 @@ int VFS_OpenInode(Uint32 Mount, Uint64 Inode, int Mode)
 	// Get node
 	node = mnt->Filesystem->GetNodeFromINode(mnt->RootNode, Inode);
 	if( !node ) {
+		LOG("Unable to find inode");
 		errno = ENOENT;
 		LEAVE_RET('i', -1);
 	}

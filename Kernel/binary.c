@@ -76,13 +76,13 @@ int Proc_Spawn(const char *Path)
 	
 	strcpy(stackPath, Path);
 	
-	LOG("stackPath = '%s'\n", stackPath);
+	LOG("stackPath = '%s'", stackPath);
 	
 	if(Proc_Clone(CLONE_VM) == 0)
 	{
 		// CHILD
 		const char	*args[2] = {stackPath, NULL};
-		LOG("stackPath = '%s'\n", stackPath);
+		LOG("stackPath = '%s'", stackPath);
 		Proc_Execve(stackPath, args, &args[1]);
 		for(;;);
 	}
@@ -281,6 +281,9 @@ tVAddr Binary_MapIn(tBinary *Binary, const char *Path, tVAddr LoadMin, tVAddr Lo
 {
 	tVAddr	base;
 	 int	i, fd;
+
+	ENTER("pBinary sPath pLoadMin pLoadMax", Binary, Path, LoadMin, LoadMax);
+
 	// Reference Executable (Makes sure that it isn't unloaded)
 	Binary->ReferenceCount ++;
 	
@@ -324,6 +327,7 @@ tVAddr Binary_MapIn(tBinary *Binary, const char *Path, tVAddr LoadMin, tVAddr Lo
 	// Error Check
 	if(base < LoadMin) {
 		Log_Warning("Binary", "Executable '%s' cannot be loaded, no space", Path);
+		LEAVE('i', 0);
 		return 0;
 	}
 	
@@ -362,6 +366,7 @@ tVAddr Binary_MapIn(tBinary *Binary, const char *Path, tVAddr LoadMin, tVAddr Lo
 	
 	//LOG("*0x%x = 0x%x\n", binary->Pages[0].Virtual, *(Uint*)binary->Pages[0].Virtual);
 	
+	LEAVE('p', base);
 	return base;
 }
 
@@ -405,7 +410,7 @@ tBinary *Binary_DoLoad(tMount MountID, tInode Inode, const char *Path)
 	Uint	ident;
 	tBinaryType	*bt = gRegBinTypes;
 	
-	ENTER("iMountID XInode sPath", Path);
+	ENTER("iMountID XInode sPath", MountID, Inode, Path);
 	
 	// Open File
 	fp = VFS_OpenInode(MountID, Inode, VFS_OPENFLAG_READ);
