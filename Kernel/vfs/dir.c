@@ -59,9 +59,9 @@ int VFS_MkNod(const char *Path, Uint Flags)
 	
 	// Check for root
 	if(absPath[0] == '\0')
-		parent = VFS_ParsePath("/", NULL);
+		parent = VFS_ParsePath("/", NULL, NULL);
 	else
-		parent = VFS_ParsePath(absPath, NULL);
+		parent = VFS_ParsePath(absPath, NULL, NULL);
 	
 	LOG("parent = %p", parent);
 	
@@ -127,10 +127,14 @@ int VFS_Symlink(const char *Name, const char *Link)
 		return -1;
 	}
 	
+	destNode = VFS_ParsePath( _link, &realLink, NULL );
+	#if 0
 	// Get true path and node
-	destNode = VFS_ParsePath( _link, &realLink );
 	free(_link);
 	_link = NULL;
+	#else
+	realLink = _link;
+	#endif
 	
 	// Check if destination exists
 	if(!destNode) {

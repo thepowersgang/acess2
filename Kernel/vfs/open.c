@@ -20,7 +20,7 @@ extern tVFS_Mount	*gVFS_RootMount;
 extern int	VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode);
 
 // === PROTOTYPES ===
- int	VFS_int_CreateHandle( tVFS_Node *Node, int Mode );
+ int	VFS_int_CreateHandle( tVFS_Node *Node, tVFS_Mount *Mount, int Mode );
 
 // === CODE ===
 /**
@@ -166,7 +166,7 @@ char *VFS_GetAbsPath(const char *Path)
  * \fn char *VFS_ParsePath(const char *Path, char **TruePath)
  * \brief Parses a path, resolving sysmlinks and applying permissions
  */
-tVFS_Node *VFS_ParsePath(const char *Path, char **TruePath)
+tVFS_Node *VFS_ParsePath(const char *Path, char **TruePath, tVFS_Mount **MountPoint)
 {
 	tVFS_Mount	*mnt, *longestMount;
 	 int	cmp, retLength = 0;
@@ -185,6 +185,9 @@ tVFS_Node *VFS_ParsePath(const char *Path, char **TruePath)
 			strcpy(*TruePath, Path);
 		}
 		curNode = gVFS_MemRoot.FindDir(&gVFS_MemRoot, Path);
+		if(MountPoint) {
+			*MountPoint = NULL;
+		}
 		LEAVE('p', curNode);
 		return curNode;
 	}
@@ -225,6 +228,8 @@ restart_parse:
 				*TruePath = malloc( mnt->MountPointLen+1 );
 				strcpy(*TruePath, mnt->MountPoint);
 			}
+			if(MountPoint)
+				*MountPoint = mnt;
 			LEAVE('p', mnt->RootNode);
 			return mnt->RootNode;
 		}
@@ -399,7 +404,7 @@ restart_parse:
 	}
 	
 	// Get last node
-	LOG("VFS_ParsePath: FindDir(%p, '%s')", curNode, &Path[ofs]);
+	LOG("FindDir(%p, '%s')", curNode, &Path[ofs]);
 	tmpNode = curNode->FindDir(curNode, &Path[ofs]);
 	LOG("tmpNode = %p", tmpNode);
 	if(curNode->Close)	curNode->Close(curNode);
@@ -432,6 +437,10 @@ restart_parse:
 		// - Extend Path
 		//retLength += strlen(tmpNode->Name) + 1;
 	}
+
+	if( MountPoint ) {
+		*MountPoint = mnt;
+	}
 	
 	LEAVE('p', tmpNode);
 	return tmpNode;
@@ -440,7 +449,7 @@ restart_parse:
 /**
  * \brief Create and return a handle number for the given node and mode
  */
-int VFS_int_CreateHandle( tVFS_Node *Node, int Mode )
+int VFS_int_CreateHandle( tVFS_Node *Node, tVFS_Mount *Mount, int Mode )
 {
 	 int	i;
 	i = 0;
@@ -465,6 +474,8 @@ int VFS_int_CreateHandle( tVFS_Node *Node, int Mode )
 		LEAVE_RET('i', -1);
 	}
 
+	VFS_GetHandle(i)->Mount = Mount;
+
 	LEAVE_RET('x', i);
 }
 
@@ -475,6 +486,7 @@ int VFS_int_CreateHandle( tVFS_Node *Node, int Mode )
 int VFS_Open(const char *Path, Uint Mode)
 {
 	tVFS_Node	*node;
+	tVFS_Mount	*mnt;
 	char	*absPath;
 	
 	ENTER("sPath xMode", Path, Mode);
@@ -487,7 +499,7 @@ int VFS_Open(const char *Path, Uint Mode)
 	}
 	LOG("absPath = \"%s\"", absPath);
 	// Parse path and get mount point
-	node = VFS_ParsePath(absPath, NULL);
+	node = VFS_ParsePath(absPath, NULL, &mnt);
 	// Free generated path
 	free(absPath);
 	
@@ -514,7 +526,7 @@ int VFS_Open(const char *Path, Uint Mode)
 		tmppath[ node->Size ] = '\0';
 		if(node->Close)	node->Close( node );
 		// Open the target
-		node = VFS_ParsePath(tmppath, NULL);
+		node = VFS_ParsePath(tmppath, NULL, &mnt);
 		if(!node) {
 			LOG("Cannot find symlink target node (%s)", tmppath);
 			errno = ENOENT;
@@ -522,7 +534,7 @@ int VFS_Open(const char *Path, Uint Mode)
 		}
 	}
 	
-	LEAVE_RET('x', VFS_int_CreateHandle(node, Mode));	
+	LEAVE_RET('x', VFS_int_CreateHandle(node, mnt, Mode));
 }
 
 
@@ -558,7 +570,7 @@ int VFS_OpenChild(int FD, const char *Name, Uint Mode)
 		LEAVE_RET('i', -1);
 	}
 
-	LEAVE_RET('x', VFS_int_CreateHandle(node, Mode));	
+	LEAVE_RET('x', VFS_int_CreateHandle(node, h->Mount, Mode));
 }
 
 int VFS_OpenInode(Uint32 Mount, Uint64 Inode, int Mode)
@@ -589,7 +601,7 @@ int VFS_OpenInode(Uint32 Mount, Uint64 Inode, int Mode)
 		LEAVE_RET('i', -1);
 	}
 	
-	LEAVE_RET('x', VFS_int_CreateHandle(node, Mode));
+	LEAVE_RET('x', VFS_int_CreateHandle(node, mnt, Mode));
 }
 
 /**

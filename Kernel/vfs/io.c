@@ -182,7 +182,12 @@ int VFS_FInfo(int FD, tFInfo *Dest, int MaxACLs)
 	
 	h = VFS_GetHandle(FD);
 	if(!h)	return -1;
-	
+
+	if( h->Mount )
+		Dest->mount = h->Mount->Identifier;
+	else
+		Dest->mount = 0;
+	Dest->inode = h->Node->Inode;	
 	Dest->uid = h->Node->UID;
 	Dest->gid = h->Node->GID;
 	Dest->size = h->Node->Size;

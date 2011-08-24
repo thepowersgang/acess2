@@ -20,7 +20,7 @@ void	VFS_UpdateMountFile(void);
 tMutex	glVFS_MountList;
 tVFS_Mount	*gVFS_Mounts;
 tVFS_Mount	*gVFS_RootMount = NULL;
-Uint32	giVFS_NextMountIdent = 0;
+Uint32	giVFS_NextMountIdent = 1;
 
 // === CODE ===
 /**
@@ -82,6 +82,12 @@ int VFS_Mount(const char *Device, const char *MountPoint, const char *Filesystem
 	}
 
 	mnt->Identifier = giVFS_NextMountIdent++;
+	#if 0
+	// Ensure identifiers don't repeat
+	// - Only a problem if there have been 4 billion mounts
+	while( giVFS_NextMountIdent == 0 || VFS_GetMountByIdent(giVFS_NextMountIdent) )
+		giVFS_NextMountIdent ++;
+	#endif
 	
 	// Set root
 	if(!gVFS_RootMount)	gVFS_RootMount = mnt;
