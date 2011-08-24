@@ -19,10 +19,9 @@ extern void	Heap_Install(void);
 extern void	Desctab_Install(void);
 extern void	MM_PreinitVirtual(void);
 extern void	MM_Install(tMBoot_Info *MBoot);
-extern void MM_InstallVirtual(void);
+extern void	MM_InstallVirtual(void);
 extern void	Threads_Init(void);
 extern int	Time_Setup(void);
-extern Uint	Proc_Clone(Uint *Err, Uint Flags);
 // --- Core ---
 extern void	System_Init(char *Commandline);
 

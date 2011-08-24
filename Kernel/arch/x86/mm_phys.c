@@ -413,7 +413,7 @@ void MM_RefPhys(tPAddr PAddr)
 	{
 		if( MM_GetPhysAddr( (tVAddr)&gaPageReferences[PAddr] ) == 0 ) {
 			tVAddr	addr = ((tVAddr)&gaPageReferences[PAddr]) & ~0xFFF;
-			Log_Debug("PMem", "MM_RefPhys: Info not allocated %llx", PAddr);
+			Log_Debug("PMem", "MM_RefPhys: Allocating info for %X", PAddr);
 			Mutex_Release( &glPhysAlloc );
 			if( MM_Allocate( addr ) == 0 ) {
 				Log_KernelPanic("PMem", "MM_RefPhys: Out of physical memory");
