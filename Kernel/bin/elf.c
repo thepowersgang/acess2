@@ -128,9 +128,9 @@ tBinary *Elf_Load(int fp)
 		ret->LoadSections[j].Virtual = phtab[i].VAddr;
 		ret->LoadSections[j].MemSize = phtab[i].MemSize;
 		ret->LoadSections[j].Flags = 0;
-		if( !(phtab[i].Flags & SHF_WRITE) )
+		if( !(phtab[i].Flags & PF_W) )
 			ret->LoadSections[j].Flags |= BIN_SECTFLAG_RO;
-		if( phtab[i].Flags & SHF_EXECINSTR )
+		if( phtab[i].Flags & PF_X )
 			ret->LoadSections[j].Flags |= BIN_SECTFLAG_EXEC;
 		j ++;
 	}

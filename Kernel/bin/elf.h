@@ -139,6 +139,10 @@ struct sElf32_Phdr {
 	Uint32	Align;
 } __attribute__ ((packed));
 
+#define PF_X	1
+#define PF_W	2
+#define PF_R	4
+
 struct elf32_rel_s {
 	Uint32	r_offset;
 	Uint32	r_info;
