@@ -175,13 +175,15 @@ void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 			gaPageTable[Addr>>12] |= paddr|PF_PRESENT|PF_WRITE;
 		}
 		
+		Log_Debug("MMVirt", "COW for %p", Addr);
+		
 		INVLPG( Addr & ~0xFFF );
 		return;
 	}
 	
 	// If it was a user, tell the thread handler
 	if(ErrorCode & 4) {
-		Warning("%s %s %s memory%s",
+		Log_Warning("MMVirt", "%s %s %s memory%s",
 			(ErrorCode&4?"User":"Kernel"),
 			(ErrorCode&2?"write to":"read from"),
 			(ErrorCode&1?"bad/locked":"non-present"),
@@ -277,15 +279,16 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 		||  (gaPageTable[page] & MASK) != expected)
 		{
 			if(expected) {
+				tPAddr	orig = gaPageTable[rangeStart>>12];
 				Log(" 0x%08x => 0x%08x - 0x%08x (%s%s%s%s%s)",
 					rangeStart,
-					gaPageTable[rangeStart>>12] & ~0xFFF,
+					orig & ~0xFFF,
 					curPos - rangeStart,
-					(expected & PF_NOPAGE ? "P" : "-"),
-					(expected & PF_COW ? "C" : "-"),
-					(expected & PF_GLOBAL ? "G" : "-"),
-					(expected & PF_USER ? "U" : "-"),
-					(expected & PF_WRITE ? "W" : "-")
+					(orig & PF_NOPAGE ? "P" : "-"),
+					(orig & PF_COW ? "C" : "-"),
+					(orig & PF_GLOBAL ? "G" : "-"),
+					(orig & PF_USER ? "U" : "-"),
+					(orig & PF_WRITE ? "W" : "-")
 					);
 				expected = 0;
 			}
@@ -427,7 +430,10 @@ int MM_Map(tVAddr VAddr, tPAddr PAddr)
 	// Check if the directory is mapped
 	if( gaPageDir[ VAddr >> 22 ] == 0 )
 	{
-		gaPageDir[ VAddr >> 22 ] = MM_AllocPhys() | 3;
+		tPAddr	tmp = MM_AllocPhys();
+		if( tmp == 0 )
+			return 0;
+		gaPageDir[ VAddr >> 22 ] = tmp | 3;
 		
 		// Mark as user
 		if(VAddr < MM_USER_MAX)	gaPageDir[ VAddr >> 22 ] |= PF_USER;
@@ -510,6 +516,10 @@ tPAddr MM_Clone(void)
 	
 	// Create Directory Table
 	*gpTmpCR3 = MM_AllocPhys() | 3;
+	if( *gpTmpCR3 == 3 ) {
+		*gpTmpCR3 = 0;
+		return 0;
+	}
 	INVLPG( gaTmpDir );
 	//LOG("Allocated Directory (%x)", *gpTmpCR3);
 	memsetd( gaTmpDir, 0, 1024 );
@@ -861,6 +871,9 @@ tPAddr MM_DuplicatePage(tVAddr VAddr)
 	
 	// Allocate new page
 	ret = MM_AllocPhys();
+	if( !ret ) {
+		return 0;
+	}
 	
 	// Write-lock the page (to keep data constistent), saving its R/W state
 	wasRO = (gaPageTable[VAddr >> 12] & PF_WRITE ? 0 : 1);
@@ -997,6 +1010,10 @@ tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 	if(Pages == 1 && MaxBits >= PHYS_BITS)
 	{
 		phys = MM_AllocPhys();
+		if( !phys ) {
+			*PhysAddr = 0;
+			LEAVE_RET('i', 0);
+		}
 		*PhysAddr = phys;
 		ret = MM_MapHWPages(phys, 1);
 		if(ret == 0) {

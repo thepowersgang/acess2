@@ -81,7 +81,6 @@ int VM8086_Install(char **Arguments)
 		// Map ROM Area
 		for(i=0xA0;i<0x100;i++) {
 			MM_Map( i * 0x1000, i * 0x1000 );
-		//	MM_SetFlags( i * 0x1000, MM_PFLAG_RO, MM_PFLAG_RO );	// Set Read Only
 		}
 		Log_Debug("VM8086", "ROM area mapped");
 		MM_Map( 0, 0 );	// IVT / BDA
@@ -90,7 +89,7 @@ int VM8086_Install(char **Arguments)
 		for(i=1;i<0x9F;i++) {
 			MM_Map( i * 0x1000, i * 0x1000 );
 			MM_DerefPhys( i * 0x1000 );	// Above
-			if(MM_GetRefCount(i*0x1000))
+			while(MM_GetRefCount(i*0x1000))
 				MM_DerefPhys( i * 0x1000 );	// Phys setup
 		}
 		MM_Map( 0x9F000, 0x9F000 );	// Stack / EBDA
@@ -422,6 +421,8 @@ void VM8086_Int(tVM8086 *State, Uint8 Interrupt)
 {
 	State->IP = *(Uint16*)(KERNEL_BASE+4*Interrupt);
 	State->CS = *(Uint16*)(KERNEL_BASE+4*Interrupt+2);
+
+//	Log_Debug("VM8086", "Software interrupt %i to %04x:%04x", Interrupt, State->CS, State->IP);
 	
 	Mutex_Acquire( &glVM8086_Process );
 	

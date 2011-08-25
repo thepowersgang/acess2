@@ -31,6 +31,7 @@ Uint64	giLastPossibleFree = 0;	// Last possible free page (before all pages are 
 Uint32	gaSuperBitmap[1024];	// Blocks of 1024 Pages
 Uint32	gaPageBitmap[1024*1024/32];	// Individual pages
  int	*gaPageReferences;
+void	**gaPageNodes = (void*)MM_PAGENODE_BASE;
 #define REFENT_PER_PAGE	(0x1000/sizeof(gaPageReferences[0]))
 
 // === CODE ===
@@ -471,6 +472,12 @@ void MM_DerefPhys(tPAddr PAddr)
 		if(gaPageBitmap[ PAddr / 32 ] == 0)
 			gaSuperBitmap[ PAddr >> 10 ] &= ~(1 << ((PAddr >> 5)&31));
 	}
+
+	if( MM_GetPhysAddr( (tVAddr) &gaPageNodes[PAddr] ) )
+	{
+		gaPageNodes[PAddr] = NULL;
+		// TODO: Free Node Page when fully unused
+	}
 	
 	// Release spinlock
 	Mutex_Release( &glPhysAlloc );
@@ -492,5 +499,42 @@ int MM_GetRefCount(tPAddr PAddr)
 	
 	// Check if it is freed
 	return gaPageReferences[ PAddr ];
+}
+
+int MM_SetPageNode(tPAddr PAddr, void *Node)
+{
+	tVAddr	block_addr;
+	
+	if( MM_GetRefCount(PAddr) == 0 )	return 1;
+	 
+	PAddr /= PAGE_SIZE;
+
+	block_addr = (tVAddr) &gaPageNodes[PAddr];
+	block_addr &= ~(PAGE_SIZE-1);
+	
+	if( !MM_GetPhysAddr( block_addr ) )
+	{
+		if( !MM_Allocate( block_addr ) ) {
+			Log_Warning("PMem", "Unable to allocate Node page");
+			return -1;
+		}
+		memset( (void*)block_addr, 0, PAGE_SIZE );
+	}
+
+	gaPageNodes[PAddr] = Node;
+	return 0;
+}
+
+int MM_GetPageNode(tPAddr PAddr, void **Node)
+{
+	if( MM_GetRefCount(PAddr) == 0 ) {
+		return 1;
+	}
+	if( !MM_GetPhysAddr( (tVAddr) &gaPageNodes[PAddr] ) ) {
+		*Node = NULL;
+		return 0;
+	}
+	*Node = gaPageNodes[PAddr];
+	return 0;
 }
 

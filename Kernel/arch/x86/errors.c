@@ -12,9 +12,10 @@
 // === IMPORTS ===
 extern void	MM_PageFault(Uint Addr, Uint ErrorCode, tRegs *Regs);
 extern void	VM8086_GPF(tRegs *Regs);
-extern void Threads_Dump(void);
+extern void	Threads_Dump(void);
 extern void	Threads_Fault(int Num);
 extern int	GetCPUNum(void);
+extern void	MM_DumpTables(tVAddr, tVAddr);
 
 // === PROTOTYPES ===
 void	__stack_chk_fail(void);
@@ -25,7 +26,7 @@ void	StartupPrint(char *Str);
 // === GLOBALS ===
 const char *csaERROR_NAMES[] = {
 	"Divide By Zero", "Debug", "NMI Exception", "INT3",
-	"INTO", "Out of Bounds", "Invalid Opcode", "Coprocessor not avaliable",
+	"INTO Instr - Overflow", "BOUND Instr - Out of Bounds", "Invalid Opcode", "Coprocessor not avaliable",
 	"Double Fault", "Coprocessor Segment Overrun", "Bad TSS", "Segment Not Present",
 	"Stack Fault Exception", "GPF", "#PF", "Reserved",
 	"Floating Point Exception", "Alignment Check Exception", "Machine Check Exception",	"Reserved",
@@ -94,6 +95,7 @@ void ErrorHandler(tRegs *Regs)
 			csaERROR_NAMES[Regs->int_num], Regs->err_code);
 		Log_Warning("Arch", "at CS:EIP %04x:%08x",
 			Regs->cs, Regs->eip);
+		MM_DumpTables(0, KERNEL_BASE);
 		switch( Regs->int_num )
 		{
 		// Division by Zero
