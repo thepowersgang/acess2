@@ -9,9 +9,9 @@ OBJ += arch/$(ARCHDIR).ao
 BIN = ld-acess.so
 EXTRABIN := libld-acess.so
 
-CFLAGS   = -Wall -fno-builtin -fno-leading-underscore -fno-stack-protector -fPIC
+CFLAGS   = -g -Wall -fno-builtin -fno-leading-underscore -fno-stack-protector -fPIC
 CFLAGS  += $(CPPFLAGS)
-LDFLAGS  = -T arch/$(ARCHDIR).ld -Map map.txt --export-dynamic
+LDFLAGS  = -g -T arch/$(ARCHDIR).ld -Map map.txt --export-dynamic
 
 include ../Makefile.tpl
 

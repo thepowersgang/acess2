@@ -14,10 +14,10 @@ struct sElf32_Ehdr {
 	union {
 		char	ident[16];	//!< Identifier Bytes
 		struct {
-			Uint	Ident1;
-			Uint	Ident2;
-			Uint	HashTable;
-			Uint	SymTable;
+			Uint32	Ident1;
+			Uint32	StrTab;
+			Uint32	HashTable;
+			Uint32	SymTable;
 		} misc;
 	};
 	Uint16	filetype;	//!< File Type
@@ -104,10 +104,7 @@ struct sElf32_Shent {
 };	//sizeof = 40
 
 struct elf_sym_s {
-	union {
-		Uint32	nameOfs;
-		char	*name;
-	};
+	Uint32	nameOfs;
 	Uint32	value;	//Address
 	Uint32	size;
 	Uint8	info;

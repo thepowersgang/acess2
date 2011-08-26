@@ -14,7 +14,7 @@
 
 // === PROTOTYPES ===
 void	*IsFileLoaded(char *file);
- int	GetSymbolFromBase(void *base, char *name, void **ret);
+ int	GetSymbolFromBase(void *base, const char *name, void **ret);
 
 // === IMPORTS ===
 extern const struct {
@@ -192,10 +192,10 @@ void Unload(void *Base)
 }
 
 /**
- \fn Uint GetSymbol(char *name)
+ \fn Uint GetSymbol(const char *name)
  \brief Gets a symbol value from a loaded library
 */
-void *GetSymbol(char *name)
+void *GetSymbol(const char *name)
 {
 	 int	i;
 	void	*ret;
@@ -207,7 +207,8 @@ void *GetSymbol(char *name)
 			return caLocalExports[i].Value;
 	}
 	
-	for(i=0;i<sizeof(gLoadedLibraries)/sizeof(gLoadedLibraries[0]);i++)
+	// Entry 0 is ld-acess, ignore it
+	for(i = 1; i < MAX_LOADED_LIBRARIES; i ++)
 	{
 		if(gLoadedLibraries[i].Base == 0)	break;
 		
@@ -223,7 +224,7 @@ void *GetSymbol(char *name)
  \fn int GetSymbolFromBase(Uint base, char *name, Uint *ret)
  \breif Gets a symbol from a specified library
 */
-int GetSymbolFromBase(void *base, char *name, void **ret)
+int GetSymbolFromBase(void *base, const char *name, void **ret)
 {
 	if(*(Uint32*)base == (0x7F|('E'<<8)|('L'<<16)|('F'<<24)))
 		return ElfGetSymbol(base, name, ret);

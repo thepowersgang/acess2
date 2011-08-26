@@ -42,8 +42,8 @@ extern void	*DoRelocate(void *Base, char **envp, char *Filename);
 // === Library/Symbol Manipulation ==
 extern void	*LoadLibrary(char *filename, char *SearchDir, char **envp);
 extern void	AddLoaded(char *File, void *base);
-extern void	*GetSymbol(char *name);
-extern int	GetSymbolFromBase(void *base, char *name, void **ret);
+extern void	*GetSymbol(const char *name);
+extern int	GetSymbolFromBase(void *base, const char *name, void **ret);
 
 // === Library Functions ===
 extern char	*strcpy(char *dest, const char *src);
@@ -63,7 +63,7 @@ extern int	open(const char *filename, int flags);
 extern int	close(int fd);
 
 // === ELF Loader ===
-extern int	ElfGetSymbol(void *Base, char *name, void **ret);
+extern int	ElfGetSymbol(void *Base, const char *name, void **ret);
 
 // === PE Loader ===
 extern int	PE_GetSymbol(void *Base, char *Name, void **ret);

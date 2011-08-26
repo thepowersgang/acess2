@@ -35,7 +35,7 @@ $(_BIN): $(OBJ) $(_LIBS)
 	@mkdir -p $(dir $(_BIN))
 	@echo [LD] -o $(BIN) $(OBJ)
 	@$(LD) $(LDFLAGS) -o $(_BIN) $(OBJ)
-	@$(DISASM) $(_BIN) > $(_OBJPREFIX)$(BIN).dsm
+	@$(DISASM) -S $(_BIN) > $(_OBJPREFIX)$(BIN).dsm
 
 $(_OBJPREFIX)%.o: %.c
 	@echo [CC] -o $@
