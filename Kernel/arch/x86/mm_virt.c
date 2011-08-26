@@ -247,6 +247,7 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 {
 	tVAddr	rangeStart = 0;
 	tPAddr	expected = 0;
+	void	*expected_node = NULL, *tmpnode = NULL;
 	tVAddr	curPos;
 	Uint	page;
 	const tPAddr	MASK = ~0xF78;
@@ -276,11 +277,12 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 	{
 		if( !(gaPageDir[curPos>>22] & PF_PRESENT)
 		||  !(gaPageTable[page] & PF_PRESENT)
-		||  (gaPageTable[page] & MASK) != expected)
+		||  (gaPageTable[page] & MASK) != expected
+		||  (tmpnode=NULL,MM_GetPageNode(curPos, &tmpnode), tmpnode != expected_node))
 		{
 			if(expected) {
 				tPAddr	orig = gaPageTable[rangeStart>>12];
-				Log(" 0x%08x => 0x%08x - 0x%08x (%s%s%s%s%s)",
+				Log(" 0x%08x => 0x%08x - 0x%08x (%s%s%s%s%s) %p",
 					rangeStart,
 					orig & ~0xFFF,
 					curPos - rangeStart,
@@ -288,7 +290,8 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 					(orig & PF_COW ? "C" : "-"),
 					(orig & PF_GLOBAL ? "G" : "-"),
 					(orig & PF_USER ? "U" : "-"),
-					(orig & PF_WRITE ? "W" : "-")
+					(orig & PF_WRITE ? "W" : "-"),
+					expected_node
 					);
 				expected = 0;
 			}
@@ -296,20 +299,24 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 			if( !(gaPageTable[curPos>>12] & PF_PRESENT) )	continue;
 			
 			expected = (gaPageTable[page] & MASK);
+			MM_GetPageNode(curPos, &expected_node);
 			rangeStart = curPos;
 		}
 		if(expected)	expected += 0x1000;
 	}
 	
 	if(expected) {
-		Log("0x%08x => 0x%08x - 0x%08x (%s%s%s%s)",
+		tPAddr	orig = gaPageTable[rangeStart>>12];
+		Log("0x%08x => 0x%08x - 0x%08x (%s%s%s%s%s) %p",
 			rangeStart,
-			gaPageTable[rangeStart>>12] & ~0xFFF,
+			orig & ~0xFFF,
 			curPos - rangeStart,
-			(expected & PF_NOPAGE ? "p" : "-"),
-			(expected & PF_COW ? "C" : "-"),
-			(expected & PF_USER ? "U" : "-"),
-			(expected & PF_WRITE ? "W" : "-")
+			(orig & PF_NOPAGE ? "p" : "-"),
+			(orig & PF_COW ? "C" : "-"),
+			(orig & PF_GLOBAL ? "G" : "-"),
+			(orig & PF_USER ? "U" : "-"),
+			(orig & PF_WRITE ? "W" : "-"),
+			expected_node
 			);
 		expected = 0;
 	}

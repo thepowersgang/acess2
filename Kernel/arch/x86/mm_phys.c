@@ -530,6 +530,7 @@ int MM_GetPageNode(tPAddr PAddr, void **Node)
 	if( MM_GetRefCount(PAddr) == 0 ) {
 		return 1;
 	}
+	PAddr /= PAGE_SIZE;
 	if( !MM_GetPhysAddr( (tVAddr) &gaPageNodes[PAddr] ) ) {
 		*Node = NULL;
 		return 0;
