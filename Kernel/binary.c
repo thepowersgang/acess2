@@ -2,7 +2,7 @@
  * Acess2
  * Common Binary Loader
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include <binary.h>
 #include <mm_virt.h>
@@ -28,6 +28,7 @@ extern char	*Threads_GetName(int ID);
 extern tKernelSymbol	gKernelSymbols[];
 extern tKernelSymbol	gKernelSymbolsEnd[];
 extern tBinaryType	gELF_Info;
+extern void	MM_DumpTables(tVAddr, tVAddr);
 
 // === PROTOTYPES ===
  int	Proc_Execve(const char *File, const char **ArgV, const char **EnvP);
@@ -169,6 +170,9 @@ int Proc_Execve(const char *File, const char **ArgV, const char **EnvP)
 	}
 	
 	LOG("entry = 0x%x, bases[0] = 0x%x", entry, bases[0]);
+
+	MM_DumpTables(0, KERNEL_BASE);
+
 	LEAVE('-');
 	// --- And... Jump to it
 	Proc_StartUser(entry, bases, argc, argvSaved, envpSaved, argenvBytes);
@@ -293,6 +297,7 @@ tVAddr Binary_MapIn(tBinary *Binary, const char *Path, tVAddr LoadMin, tVAddr Lo
 	// Check if base is free
 	if(base != 0)
 	{
+		LOG("Checking base %p", base);
 		for(i=0;i<Binary->NumSections;i++)
 		{
 			if( Binary_int_CheckMemFree( Binary->LoadSections[i].Virtual, Binary->LoadSections[i].MemSize ) )
@@ -322,6 +327,7 @@ tVAddr Binary_MapIn(tBinary *Binary, const char *Path, tVAddr LoadMin, tVAddr Lo
 			// Else decrement pointer and try again
 			base -= BIN_GRANUALITY;
 		}
+		LOG("Allocated base %p", base);
 	}
 	
 	// Error Check
@@ -338,7 +344,7 @@ tVAddr Binary_MapIn(tBinary *Binary, const char *Path, tVAddr LoadMin, tVAddr Lo
 		tBinarySection	*sect = &Binary->LoadSections[i];
 		Uint	protflags, mapflags;
 		tVAddr	addr = sect->Virtual - Binary->Base + base;
-		LOG("%i - 0x%x to 0x%x", i, addr, sect->Offset);
+		LOG("%i - %p to 0x%llx (%x)", i, addr, sect->Offset, sect->Flags);
 
 		protflags = MMAP_PROT_READ;
 		mapflags = MMAP_MAP_FIXED;
@@ -761,6 +767,7 @@ Uint Binary_FindSymbol(void *Base, const char *Name, Uint *Val)
 int Binary_int_CheckMemFree( tVAddr _start, size_t _len )
 {
 	_len += _start & (PAGE_SIZE-1);
+	_len = (_len + PAGE_SIZE - 1) & ~(PAGE_SIZE-1);
 	_start &= ~(PAGE_SIZE-1);
 	for( ; _len > PAGE_SIZE; _len -= PAGE_SIZE, _start += PAGE_SIZE ) {
 		if( MM_GetPhysAddr(_start) != 0 )

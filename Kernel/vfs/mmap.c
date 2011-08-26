@@ -23,36 +23,45 @@ struct sVFS_MMapPageBlock
 void *VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD, Uint64 Offset)
 {
 	tVFS_Handle	*h;
-	tVAddr	mapping_dest;
+	tVAddr	mapping_dest, mapping_base;
 	 int	npages, pagenum;
 	tVFS_MMapPageBlock	*pb, *prev;
 
 	ENTER("pDestHint iLength xProtection xFlags xFD XOffset", DestHint, Length, Protection, Flags, FD, Offset);
-	
+
 	npages = ((Offset & (PAGE_SIZE-1)) + Length + (PAGE_SIZE - 1)) / PAGE_SIZE;
 	pagenum = Offset / PAGE_SIZE;
 
-	mapping_dest = (tVAddr)DestHint;	
+	mapping_base = (tVAddr)DestHint;
+	mapping_dest = mapping_base & ~(PAGE_SIZE-1);
 
 	// TODO: Locate space for the allocation
 
 	// Handle anonymous mappings
 	if( Flags & MMAP_MAP_ANONYMOUS )
 	{
-		int i;
-		for( i = 0; i < npages; i ++ ) {
-			tPAddr rv = MM_Allocate(mapping_dest + i * PAGE_SIZE);
-			if( !rv ) {
-				// TODO: Error
+		for( ; npages --; mapping_dest += PAGE_SIZE )
+		{
+			if( MM_GetPhysAddr(mapping_dest) ) {
+				// TODO: Set flags to COW if needed (well, if shared)
+			}
+			else {
+				if( !MM_Allocate(mapping_dest) ) {
+					// TODO: Error
+					Log_Warning("VFS", "VFS_MMap: Anon alloc to %p failed", mapping_dest);
+				}
+				LOG("Anon map to %p", mapping_dest);
 			}
 		}
-		LEAVE_RET('p', (void*)mapping_dest);
+		LEAVE_RET('p', (void*)mapping_base);
 	}
 
 	h = VFS_GetHandle(FD);
 	if( !h || !h->Node )	LEAVE_RET('n', NULL);
 
 	LOG("h = %p", h);
+	
+	Mutex_Acquire( &h->Node->Lock );
 
 	// Search for existing mapping for each page
 	// - Sorted list of 16 page blocks
@@ -62,12 +71,17 @@ void *VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD,
 		prev = pb, pb = pb->Next
 		);
 
+	LOG("pb = %p, pb->BaseOffset = %X", pb, pb ? pb->BaseOffset : 0);
+
 	// - Allocate a block if needed
 	if( !pb || pb->BaseOffset > pagenum )
 	{
 		void	*old_pb = pb;
 		pb = malloc( sizeof(tVFS_MMapPageBlock) );
-		if(!pb)	LEAVE_RET('n', NULL);
+		if(!pb) {
+			Mutex_Release( &h->Node->Lock );
+			LEAVE_RET('n', NULL);
+		}
 		pb->Next = old_pb;
 		pb->BaseOffset = pagenum - pagenum % MMAP_PAGES_PER_BLOCK;
 		memset(pb->PhysAddrs, 0, sizeof(pb->PhysAddrs));
@@ -80,29 +94,57 @@ void *VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD,
 	// - Map (and allocate) pages
 	while( npages -- )
 	{
-		if( pb->PhysAddrs[pagenum - pb->BaseOffset] == 0 )
+		if( MM_GetPhysAddr(mapping_dest) == 0 )
 		{
-			if( h->Node->MMap )
-				h->Node->MMap(h->Node, pagenum*PAGE_SIZE, PAGE_SIZE, (void*)mapping_dest);
+			if( pb->PhysAddrs[pagenum - pb->BaseOffset] == 0 )
+			{
+				if( h->Node->MMap )
+					h->Node->MMap(h->Node, pagenum*PAGE_SIZE, PAGE_SIZE, (void*)mapping_dest);
+				else
+				{
+					// Allocate pages and read data
+					if( MM_Allocate(mapping_dest) == 0 ) {
+						// TODO: Unwrap
+						Mutex_Release( &h->Node->Lock );
+						LEAVE('n');
+						return NULL;
+					}
+					h->Node->Read(h->Node, pagenum*PAGE_SIZE, PAGE_SIZE, (void*)mapping_dest);
+				}
+				pb->PhysAddrs[pagenum - pb->BaseOffset] = MM_GetPhysAddr( mapping_dest );
+				MM_SetPageNode( pb->PhysAddrs[pagenum - pb->BaseOffset], h->Node );
+				LOG("Read and map %X to %p (%P)", pagenum*PAGE_SIZE, mapping_dest,
+					pb->PhysAddrs[pagenum - pb->BaseOffset]);
+			}
 			else
 			{
-				// Allocate pages and read data
-				if( MM_Allocate(mapping_dest) == 0 ) {
-					// TODO: Unwrap
-					return NULL;
-				}
-				h->Node->Read(h->Node, pagenum*PAGE_SIZE, PAGE_SIZE, (void*)mapping_dest);
+				MM_Map( mapping_dest, pb->PhysAddrs[pagenum - pb->BaseOffset] );
+				LOG("Cached map %X to %p (%P)", pagenum*PAGE_SIZE, mapping_dest,
+					pb->PhysAddrs[pagenum - pb->BaseOffset]);
 			}
-			pb->PhysAddrs[pagenum - pb->BaseOffset] = MM_GetPhysAddr( mapping_dest );
-//			MM_SetPageInfo( pb->PhysAddrs[pagenum - pb->BaseOffset], h->Node, pagenum*PAGE_SIZE );
+			h->Node->ReferenceCount ++;
+		
+			// Set flags
+			if( !(Protection & MMAP_PROT_WRITE) ) {
+				MM_SetFlags(mapping_dest, MM_PFLAG_RO, MM_PFLAG_RO);
+			}
+			else {
+				MM_SetFlags(mapping_dest, 0, MM_PFLAG_RO);
+			}
 		}
 		else
 		{
-			MM_Map( mapping_dest, pb->PhysAddrs[pagenum - pb->BaseOffset] );
+			LOG("Flag update on %p", mapping_dest);
+			if( (MM_GetFlags(mapping_dest) & MM_PFLAG_RO) && (Protection & MMAP_PROT_WRITE) )
+			{
+				MM_SetFlags(mapping_dest, 0, MM_PFLAG_RO);
+			}
 		}
+		if( Flags & MMAP_MAP_PRIVATE )
+			MM_SetFlags(mapping_dest, MM_PFLAG_COW, MM_PFLAG_COW);
 		pagenum ++;
 		mapping_dest += PAGE_SIZE;
-		
+
 		// Roll on to next block if needed
 		if(pagenum - pb->BaseOffset == MMAP_PAGES_PER_BLOCK)
 		{
@@ -120,9 +162,11 @@ void *VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD,
 			pagenum = 0;
 		}
 	}
+	
+	Mutex_Release( &h->Node->Lock );
 
-	LEAVE('n');	
-	return NULL;
+	LEAVE('p', mapping_base);
+	return (void*)mapping_base;
 }
 
 int VFS_MUnmap(void *Addr, size_t Length)
