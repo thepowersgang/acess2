@@ -40,16 +40,21 @@ void *VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD,
 	// Handle anonymous mappings
 	if( Flags & MMAP_MAP_ANONYMOUS )
 	{
-		for( ; npages --; mapping_dest += PAGE_SIZE )
+		size_t	ofs = 0;
+		for( ; npages --; mapping_dest += PAGE_SIZE, ofs += PAGE_SIZE )
 		{
 			if( MM_GetPhysAddr(mapping_dest) ) {
 				// TODO: Set flags to COW if needed (well, if shared)
+				MM_SetFlags(mapping_dest, MM_PFLAG_COW, MM_PFLAG_COW);
+				memset( (void*)(mapping_base + ofs), 0, PAGE_SIZE - (mapping_base & (PAGE_SIZE-1)));
 			}
 			else {
+				// TODO: Map a COW zero page instead
 				if( !MM_Allocate(mapping_dest) ) {
 					// TODO: Error
 					Log_Warning("VFS", "VFS_MMap: Anon alloc to %p failed", mapping_dest);
 				}
+				memset((void*)mapping_dest, 0, PAGE_SIZE);
 				LOG("Anon map to %p", mapping_dest);
 			}
 		}
@@ -102,6 +107,7 @@ void *VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD,
 					h->Node->MMap(h->Node, pagenum*PAGE_SIZE, PAGE_SIZE, (void*)mapping_dest);
 				else
 				{
+					 int	read_len;
 					// Allocate pages and read data
 					if( MM_Allocate(mapping_dest) == 0 ) {
 						// TODO: Unwrap
@@ -109,10 +115,15 @@ void *VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD,
 						LEAVE('n');
 						return NULL;
 					}
-					h->Node->Read(h->Node, pagenum*PAGE_SIZE, PAGE_SIZE, (void*)mapping_dest);
+					// TODO: Clip read length
+					read_len = h->Node->Read(h->Node, pagenum*PAGE_SIZE, PAGE_SIZE, (void*)mapping_dest);
+//					if( read_len != PAGE_SIZE ) {
+//						memset( (void*)(mapping_dest+read_len), 0, PAGE_SIZE-read_len );
+//					}
 				}
 				pb->PhysAddrs[pagenum - pb->BaseOffset] = MM_GetPhysAddr( mapping_dest );
 				MM_SetPageNode( pb->PhysAddrs[pagenum - pb->BaseOffset], h->Node );
+				MM_RefPhys( pb->PhysAddrs[pagenum - pb->BaseOffset] );
 				LOG("Read and map %X to %p (%P)", pagenum*PAGE_SIZE, mapping_dest,
 					pb->PhysAddrs[pagenum - pb->BaseOffset]);
 			}
