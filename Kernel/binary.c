@@ -28,7 +28,6 @@ extern char	*Threads_GetName(int ID);
 extern tKernelSymbol	gKernelSymbols[];
 extern tKernelSymbol	gKernelSymbolsEnd[];
 extern tBinaryType	gELF_Info;
-extern void	MM_DumpTables(tVAddr, tVAddr);
 
 // === PROTOTYPES ===
  int	Proc_Execve(const char *File, const char **ArgV, const char **EnvP);
@@ -171,7 +170,7 @@ int Proc_Execve(const char *File, const char **ArgV, const char **EnvP)
 	
 	LOG("entry = 0x%x, bases[0] = 0x%x", entry, bases[0]);
 
-	MM_DumpTables(0, KERNEL_BASE);
+//	MM_DumpTables(0, KERNEL_BASE);
 
 	LEAVE('-');
 	// --- And... Jump to it
@@ -365,10 +364,12 @@ tVAddr Binary_MapIn(tBinary *Binary, const char *Path, tVAddr LoadMin, tVAddr Lo
 				protflags, MMAP_MAP_PRIVATE|mapflags,
 				0, 0
 				);
+//			memset((void*)(addr + sect->FileSize), 0, sect->MemSize - sect->FileSize);
 		}
 	}
 	
 	Log_Debug("Binary", "PID %i - Mapped '%s' to 0x%x", Threads_GetPID(), Path, base);
+	VFS_Close(fd);
 	
 	//LOG("*0x%x = 0x%x\n", binary->Pages[0].Virtual, *(Uint*)binary->Pages[0].Virtual);
 	
