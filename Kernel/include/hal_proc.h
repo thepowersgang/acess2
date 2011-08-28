@@ -21,5 +21,7 @@ extern void	Proc_DumpThreadCPUState(tThread *Thread);
 
 
 extern tPAddr	MM_ClearUser(void);
+extern void	MM_DumpTables(tVAddr Start, tVAddr End);
+
 
 #endif

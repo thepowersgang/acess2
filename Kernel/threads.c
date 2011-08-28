@@ -849,7 +849,7 @@ void Threads_AddActive(tThread *Thread)
 	
 	if( Thread->Status == THREAD_STAT_ACTIVE ) {
 		tThread	*cur = Proc_GetCurThread();
-		Warning("WTF, CPU%i %p (%i %s) is adding %p (%i %s) when it is active",
+		Log_Warning("Threads", "WTF, CPU%i %p (%i %s) is adding %p (%i %s) when it is active",
 			GetCPUNum(), cur, cur->TID, cur->ThreadName, Thread, Thread->TID, Thread->ThreadName);
 		SHORTREL( &glThreadListLock );
 		return ;
@@ -979,6 +979,7 @@ void Threads_Fault(int Num)
 	
 	// Double Fault? Oh, F**k
 	if(thread->CurFaultNum != 0) {
+		Log_Warning("Threads", "Threads_Fault: Double fault on %i", thread->TID);
 		Threads_Kill(thread, -1);	// For now, just kill
 		HALT();
 	}
@@ -988,16 +989,16 @@ void Threads_Fault(int Num)
 	Proc_CallFaultHandler(thread);
 }
 
-extern void	MM_DumpTables(tVAddr Start, tVAddr End);
-
 /**
  * \fn void Threads_SegFault(tVAddr Addr)
  * \brief Called when a Segment Fault occurs
  */
 void Threads_SegFault(tVAddr Addr)
 {
-	Log_Warning("Threads", "Thread #%i committed a segfault at address %p", Proc_GetCurThread()->TID, Addr);
-	MM_DumpTables(0, 0xC0000000);
+	tThread	*cur = Proc_GetCurThread();
+	cur->bInstrTrace = 0;
+	Log_Warning("Threads", "Thread #%i committed a segfault at address %p", cur->TID, Addr);
+	MM_DumpTables(0, KERNEL_BASE);
 	Threads_Fault( 1 );
 	//Threads_Exit( 0, -1 );
 }
