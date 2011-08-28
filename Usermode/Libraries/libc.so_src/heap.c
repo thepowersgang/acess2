@@ -54,6 +54,7 @@ EXPORT void *malloc(size_t bytes)
 	void	*bestMatchAddr = 0;
 	heap_head	*curBlock;
 	
+//	_SysDebug("&_heap_start = %p, _heap_start = %p", &_heap_start, _heap_start);
 	// Initialise Heap
 	if(_heap_start == NULL)
 	{
@@ -63,6 +64,7 @@ EXPORT void *malloc(size_t bytes)
 	}
 	
 	curBlock = _heap_start;
+//	_SysDebug("_heap_start = %p", _heap_start);
 	
 	bestSize = bytes + sizeof(heap_head) + sizeof(heap_foot) + BLOCK_SIZE - 1;
 	bestSize = (bestSize/BLOCK_SIZE)*BLOCK_SIZE;	//Round up to block size
