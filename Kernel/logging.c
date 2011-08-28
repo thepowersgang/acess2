@@ -157,11 +157,12 @@ void Log_AddEvent(const char *Ident, int Level, const char *Format, va_list Args
 void Log_Int_PrintMessage(tLogEntry *Entry)
 {
 	SHORTLOCK( &glLogOutput );
-	LogF("%s%014lli%s [%-8s] %s",
+	LogF("%s%014lli%s [%-8s] %i - %s",
 		csaLevelColours[Entry->Level],
 		Entry->Time,
 		csaLevelCodes[Entry->Level],
 		Entry->Ident,
+		Threads_GetTID(),
 		Entry->Data
 		);
 	LogF("\x1B[0m\r\n");	// Separate in case Entry->Data is too long
