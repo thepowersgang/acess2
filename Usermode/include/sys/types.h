@@ -44,6 +44,8 @@ struct s_sysACL {
 	unsigned long	perms;	//!< Inverted by bit 31
 };
 struct s_sysFInfo {
+	unsigned int	mount;
+	unsigned long long	inode;
 	unsigned int	uid;
 	unsigned int	gid;
 	unsigned int	flags;
