@@ -20,6 +20,7 @@ extern void	MM_DumpTables(tVAddr, tVAddr);
 // === PROTOTYPES ===
 void	__stack_chk_fail(void);
 void	ErrorHandler(tRegs *Regs);
+void	Proc_PrintBacktrace(void);
 void	Error_Backtrace(Uint eip, Uint ebp);
 void	StartupPrint(char *Str);
 
@@ -160,6 +161,14 @@ void ErrorHandler(tRegs *Regs)
 	
 	for(;;)	__asm__ __volatile__ ("hlt");
 }
+
+void Proc_PrintBacktrace(void)
+{
+	Uint32	ebp;
+	__asm__ __volatile__ ("mov %%ebp, %0" : "=r" (ebp));
+	Error_Backtrace( *(Uint32*)(ebp+4), *(Uint32*)ebp );
+}
+
 /**
  * \fn void Error_Backtrace(Uint eip, Uint ebp)
  * \brief Unrolls the stack to trace execution

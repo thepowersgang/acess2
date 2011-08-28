@@ -13,6 +13,7 @@
 
 // === IMPORTS ===
 extern void	gKernelEnd;
+extern void	Proc_PrintBacktrace(void);
 
 // === PROTOTYPES ===
 void	MM_Install(tMBoot_Info *MBoot);
@@ -256,7 +257,10 @@ tPAddr MM_AllocPhys(void)
 	
 	LEAVE('X', ret);
 	#if TRACE_ALLOCS
-	Log_Debug("PMem", "MM_AllocPhys: RETURN 0x%llx (%i free)", ret, giPageCount-giPhysAlloc);
+	if( now() > 4000 ) {
+	Log_Debug("PMem", "MM_AllocPhys: RETURN %P (%i free)", ret, giPageCount-giPhysAlloc);
+	Proc_PrintBacktrace();
+	}
 	#endif
 	return ret;
 }
@@ -412,7 +416,9 @@ void MM_RefPhys(tPAddr PAddr)
 	// Reference the page
 	if( gaPageReferences )
 	{
-		if( MM_GetPhysAddr( (tVAddr)&gaPageReferences[PAddr] ) == 0 ) {
+		if( MM_GetPhysAddr( (tVAddr)&gaPageReferences[PAddr] ) == 0 )
+		{
+			 int	i, base;
 			tVAddr	addr = ((tVAddr)&gaPageReferences[PAddr]) & ~0xFFF;
 			Log_Debug("PMem", "MM_RefPhys: Allocating info for %X", PAddr);
 			Mutex_Release( &glPhysAlloc );
@@ -420,7 +426,11 @@ void MM_RefPhys(tPAddr PAddr)
 				Log_KernelPanic("PMem", "MM_RefPhys: Out of physical memory");
 			}
 			Mutex_Acquire( &glPhysAlloc );
-			memset( (void*)addr, 0, 0x1000 );
+			
+			base = PAddr & ~(1024-1);
+			for( i = 0; i < 1024; i ++ ) {
+				gaPageReferences[base + i] = (gaPageBitmap[(base+i)/32] & (1 << (base+i)%32)) ? 1 : 0;
+			}
 		}
 		gaPageReferences[ PAddr ] ++;
 	}
@@ -464,21 +474,22 @@ void MM_DerefPhys(tPAddr PAddr)
 	if( !MM_GetPhysAddr( (tVAddr)&gaPageReferences[PAddr] ) || (-- gaPageReferences[PAddr]) == 0 )
 	{
 		#if TRACE_ALLOCS
-		Log_Debug("PMem", "MM_DerefPhys: Free'd 0x%x (%i free)", PAddr, giPageCount-giPhysAlloc);
+		Log_Debug("PMem", "MM_DerefPhys: Free'd %P (%i free)", PAddr<<12, giPageCount-giPhysAlloc);
+		Proc_PrintBacktrace();
 		#endif
 		//LOG("Freed 0x%x by %p\n", PAddr<<12, __builtin_return_address(0));
 		giPhysAlloc --;
 		gaPageBitmap[ PAddr / 32 ] &= ~(1 << (PAddr&31));
 		if(gaPageBitmap[ PAddr / 32 ] == 0)
 			gaSuperBitmap[ PAddr >> 10 ] &= ~(1 << ((PAddr >> 5)&31));
+
+		if( MM_GetPhysAddr( (tVAddr) &gaPageNodes[PAddr] ) )
+		{
+			gaPageNodes[PAddr] = NULL;
+			// TODO: Free Node Page when fully unused
+		}
 	}
 
-	if( MM_GetPhysAddr( (tVAddr) &gaPageNodes[PAddr] ) )
-	{
-		gaPageNodes[PAddr] = NULL;
-		// TODO: Free Node Page when fully unused
-	}
-	
 	// Release spinlock
 	Mutex_Release( &glPhysAlloc );
 }
@@ -522,14 +533,14 @@ int MM_SetPageNode(tPAddr PAddr, void *Node)
 	}
 
 	gaPageNodes[PAddr] = Node;
+//	Log("gaPageNodes[0x%x] = %p", PAddr, Node);
 	return 0;
 }
 
 int MM_GetPageNode(tPAddr PAddr, void **Node)
 {
-	if( MM_GetRefCount(PAddr) == 0 ) {
-		return 1;
-	}
+	if( MM_GetRefCount(PAddr) == 0 )	return 1;
+	
 	PAddr /= PAGE_SIZE;
 	if( !MM_GetPhysAddr( (tVAddr) &gaPageNodes[PAddr] ) ) {
 		*Node = NULL;

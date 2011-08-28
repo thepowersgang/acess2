@@ -7,6 +7,7 @@
 #include <vm8086.h>
 #include <modules.h>
 #include <hal_proc.h>
+#include <semaphore.h>
 
 // === CONSTANTS ===
 #define VM8086_MAGIC_CS	0xFFFF
@@ -47,6 +48,8 @@ void	VM8086_GPF(tRegs *Regs);
 // === GLOBALS ===
 MODULE_DEFINE(0, 0x100, VM8086, VM8086_Install, NULL, NULL);
 tMutex	glVM8086_Process;
+tSemaphore	gVM8086_TaskComplete;
+tSemaphore	gVM8086_TasksToDo;
 tPID	gVM8086_WorkerPID;
 tTID	gVM8086_CallingThread;
 tVM8086	volatile * volatile gpVM8086_State = (void*)-1;	// Set to -1 to avoid race conditions
@@ -181,16 +184,12 @@ void VM8086_GPF(tRegs *Regs)
 			gpVM8086_State->DS = Regs->ds;	gpVM8086_State->ES = Regs->es;
 			gpVM8086_State = NULL;
 			// Wake the caller
-			Threads_WakeTID(gVM8086_CallingThread);
+			Semaphore_Signal(&gVM8086_TaskComplete, 1);
 		}
 		
 		//Log_Log("VM8086", "Waiting for something to do");
 		__asm__ __volatile__ ("sti");
-		// Wait for a new task
-		while(!gpVM8086_State) {
-			Threads_Sleep();
-			//Log_Log("VM8086", "gpVM8086_State = %p", gpVM8086_State);
-		}
+		Semaphore_Wait(&gVM8086_TasksToDo, 1);
 		
 		//Log_Log("VM8086", "We have a task (%p)", gpVM8086_State);
 		Regs->esp -= 2;	*(Uint16*volatile)( (Regs->ss<<4) + (Regs->esp&0xFFFF) ) = VM8086_MAGIC_CS;
@@ -428,9 +427,9 @@ void VM8086_Int(tVM8086 *State, Uint8 Interrupt)
 	
 	gpVM8086_State = State;
 	gVM8086_CallingThread = Threads_GetTID();
-	Threads_WakeTID( gVM8086_WorkerPID );
-	Threads_Sleep();
-	while( gpVM8086_State != NULL )	Threads_Sleep();
+	Semaphore_Signal(&gVM8086_TasksToDo, 1);
+
+	Semaphore_Wait(&gVM8086_TaskComplete, 1);
 	
 	Mutex_Release( &glVM8086_Process );
 }

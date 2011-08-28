@@ -249,12 +249,18 @@ Isr240.jmp:
 [extern ErrorHandler]
 ErrorCommon:
 	;xchg bx, bx	; MAGIC BREAK
+	
 	pusha
 	push ds
 	push es
 	push fs
 	push gs
-	
+
+	; Clear TF	
+;	pushf
+;	and WORD [esp], 0xFEFF
+;	popf
+
 	mov ax, 0x10
 	mov ds, ax
 	mov es, ax

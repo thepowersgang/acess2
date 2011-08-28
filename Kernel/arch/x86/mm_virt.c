@@ -175,21 +175,23 @@ void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 			gaPageTable[Addr>>12] |= paddr|PF_PRESENT|PF_WRITE;
 		}
 		
-		Log_Debug("MMVirt", "COW for %p", Addr);
+		Log_Debug("MMVirt", "COW for %p (%P)", Addr, gaPageTable[Addr>>12]);
 		
 		INVLPG( Addr & ~0xFFF );
 		return;
 	}
 	
+	__asm__ __volatile__ ("pushf; andw $0xFEFF, 0(%esp); popf");
+	Proc_GetCurThread()->bInstrTrace = 0;
+
 	// If it was a user, tell the thread handler
 	if(ErrorCode & 4) {
-		Log_Warning("MMVirt", "%s %s %s memory%s",
-			(ErrorCode&4?"User":"Kernel"),
+		Log_Warning("MMVirt", "User %s %s memory%s",
 			(ErrorCode&2?"write to":"read from"),
 			(ErrorCode&1?"bad/locked":"non-present"),
 			(ErrorCode&16?" (Instruction Fetch)":"")
 			);
-		Warning("User Pagefault: Instruction at %04x:%08x accessed %p", Regs->cs, Regs->eip, Addr);
+		Log_Warning("MMVirt", "Instruction %04x:%08x accessed %p", Regs->cs, Regs->eip, Addr);
 		__asm__ __volatile__ ("sti");	// Restart IRQs
 		#if 1
 		Error_Backtrace(Regs->eip, Regs->ebp);
@@ -205,8 +207,7 @@ void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 		Warning("Reserved Bits Trashed!");
 	else
 	{
-		Warning("%s %s %s memory%s",
-			(ErrorCode&4?"User":"Kernel"),
+		Warning("Kernel %s %s memory%s",
 			(ErrorCode&2?"write to":"read from"),
 			(ErrorCode&1?"bad/locked":"non-present"),
 			(ErrorCode&16?" (Instruction Fetch)":"")
@@ -278,7 +279,7 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 		if( !(gaPageDir[curPos>>22] & PF_PRESENT)
 		||  !(gaPageTable[page] & PF_PRESENT)
 		||  (gaPageTable[page] & MASK) != expected
-		||  (tmpnode=NULL,MM_GetPageNode(curPos, &tmpnode), tmpnode != expected_node))
+		||  (tmpnode=NULL,MM_GetPageNode(expected, &tmpnode), tmpnode != expected_node))
 		{
 			if(expected) {
 				tPAddr	orig = gaPageTable[rangeStart>>12];
@@ -299,7 +300,7 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 			if( !(gaPageTable[curPos>>12] & PF_PRESENT) )	continue;
 			
 			expected = (gaPageTable[page] & MASK);
-			MM_GetPageNode(curPos, &expected_node);
+			MM_GetPageNode(expected, &expected_node);
 			rangeStart = curPos;
 		}
 		if(expected)	expected += 0x1000;

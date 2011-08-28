@@ -950,10 +950,6 @@ void Proc_Scheduler(int CPU)
 	thread = gCurrentThread;
 	#endif
 	
-	// NOTE:
-	// 2011-04-05
-	// Bug may be caused by DR0 not being maintained somewhere, hence 
-	// login is getting loaded with the idle state.
 	if( thread )
 	{
 		tRegs	*regs;
@@ -967,7 +963,24 @@ void Proc_Scheduler(int CPU)
 		__asm__ __volatile__ ( "mov %%esp, %0" : "=r" (esp) );
 		__asm__ __volatile__ ( "mov %%ebp, %0" : "=r" (ebp) );
 		eip = GetEIP();
-		if(eip == SWITCH_MAGIC)	return;	// Check if a switch happened
+		if(eip == SWITCH_MAGIC) {
+			__asm__ __volatile__ ( "nop" : : : "eax","ebx","ecx","edx","edi","esi");
+			regs = (tRegs*)(ebp+(2+2)*4);	// EBP,Ret + CPU,CurThread
+			#if USE_MP
+			thread = gaCPUs[CPU].Current;
+			#else
+			thread = gCurrentThread;
+			#endif
+			if(thread->bInstrTrace) {
+				regs->eflags |= 0x100;	// Set TF
+//				LogF("Tracing enabled\n");
+				Log("%p Scheduled (EIP = %p)", thread, thread->SavedState.EIP);
+			}
+			else
+				regs->eflags &= ~0x100;
+			
+			return;	// Check if a switch happened
+		}
 		
 		// Save machine state
 		thread->SavedState.ESP = esp;
@@ -1034,7 +1047,7 @@ void Proc_Scheduler(int CPU)
 	#endif
 	
 	if( thread->bInstrTrace ) {
-		Log("%p Scheduled", thread);
+		Log("%p Scheduled (EIP = %p)", thread, thread->SavedState.EIP);
 	}
 	
 	// Set thread pointer
