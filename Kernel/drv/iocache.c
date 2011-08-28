@@ -87,7 +87,6 @@ tIOCache *IOCache_Create( tIOCache_WriteCallback Write, Uint32 ID, int SectorSiz
  */
 int IOCache_Read( tIOCache *Cache, Uint64 Sector, void *Buffer )
 {
-	tIOCache_Ent	*ent;
 	
 	ENTER("pCache XSector pBuffer", Cache, Sector, Buffer);
 	
@@ -104,7 +103,22 @@ int IOCache_Read( tIOCache *Cache, Uint64 Sector, void *Buffer )
 		LEAVE('i', -1);
 		return -1;
 	}
-	
+
+	#if IOCACHE_USE_PAGES
+	tIOCache_PageInfo	*page;
+	size_t	offset = (Sector*Cache->SectorSize) % PAGE_SIZE;
+	Uint64	wanted_base = (Sector*Cache->SectorSize) & ~(PAGE_SIZE-1);
+	for( page = Cache->Pages; page; page = page->CacheNext )
+	{
+		void	*tmp;
+		if(page->BaseOffset < WantedBase)	continue;
+		if(page->BaseOffset > WantedBase)	break;
+		tmp = MM_MapTemp( page->BasePhys );
+		memcpy( Buffer, tmp + offset, Cache->SectorSize ); 
+		MM_FreeTemp( tmp );
+	}
+	#else	
+	tIOCache_Ent	*ent;
 	// Search the list
 	for( ent = Cache->Entries; ent; ent = ent->Next )
 	{
@@ -120,6 +134,7 @@ int IOCache_Read( tIOCache *Cache, Uint64 Sector, void *Buffer )
 		// it's not there
 		if(ent->Num > Sector)	break;
 	}
+	#endif
 	
 	Mutex_Release( &Cache->Lock );
 	LEAVE('i', 0);
