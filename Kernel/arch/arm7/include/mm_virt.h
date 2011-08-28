@@ -18,7 +18,7 @@
 // First level table is aligned to 16KiB (restriction of TTBR reg)
 // - VMSAv6 uses two TTBR regs, determined by bit 31
 
-#define KERNEL_BASE	0x80000000	// 2GiB
+//#define KERNEL_BASE	0x80000000	// 2GiB
 
 #define MM_KHEAP_BASE	0x80800000	// 8MiB of kernel code
 #define MM_KHEAP_MAX	0xC0000000	// ~1GiB of kernel heap

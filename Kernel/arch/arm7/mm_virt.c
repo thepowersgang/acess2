@@ -345,3 +345,8 @@ void MM_FreeTemp(tVAddr VAddr)
 	// TODO: Implement FreeTemp
 }
 
+void MM_DumpTables(tVAddr Start, tVAddr End)
+{
+	
+}
+

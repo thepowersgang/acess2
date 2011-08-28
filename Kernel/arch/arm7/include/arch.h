@@ -9,6 +9,7 @@
 #define INVLPTR	((void*)-1)
 #define BITS	32
 #define PAGE_SIZE	0x1000
+#define KERNEL_BASE	0x80000000	// 2GiB
 
 // === TYPES ===
 typedef unsigned int	Uint;

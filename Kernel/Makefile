@@ -83,7 +83,6 @@ $(BIN): $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile
 	@wc -l $(SRCFILES) include/*.h > LineCounts.$(ARCH).txt
 	@echo BUILD_NUM = $$(( $(BUILD_NUM) + 1 )) > Makefile.BuildNum.$(ARCH)
 	$(POSTBUILD)
-#	$(STRIP) $(BIN)
 
 $(OBJDIR)%.ao$(OBJSUFFIX): %.$(AS_SUFFIX) Makefile
 	@echo --- AS -o $@

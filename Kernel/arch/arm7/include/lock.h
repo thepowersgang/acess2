@@ -26,31 +26,18 @@ static inline int CPU_HAS_LOCK(struct sShortSpinlock *Lock)
 
 static inline int SHORTLOCK(struct sShortSpinlock *Lock)
 {
-	#if 0
-	while( __sync_lock_test_and_set( &Lock->Lock, 1 ) == 1 );
-	#elif 0
-	while( Lock->Lock )	;
-	Lock->Lock = 1;
-	#elif 1
-	 int	v = 1;
-	while( v )
-	{
-		__asm__ __volatile__ ("swp [%0], %1" : "=r" (v) : "r" (&lock));
-	}
-	#elif 0
-	// Shamelessly copied from linux (/arch/arm/include/asm/spinlock.h) until I can fix stuff
+	// Coped from linux, yes, but I know what it does now :)
 	Uint	tmp;
 	__asm__ __volatile__ (
-	"1:	ldrex	%0, [%1]\n"
-	"	teq	%0, #0\n"
-	"	strexeq %0, %2, [%1]\n"	// Magic? TODO: Look up
-	"	teqeq	%0, #0\n"
-	"	bne	1b"
+	"1:	ldrex	%0, [%1]\n"	// Exclusive LOAD
+	"	teq	%0, #0\n"	// Check if zero
+	"	strexeq %0, %2, [%1]\n"	// Set to one if it is zero (releasing lock on the memory)
+	"	teqeq	%0, #0\n"	// If the lock was avaliable, check if the write succeeded
+	"	bne	1b"	// If the lock was unavaliable, or the write failed, loop
 		: "=&r" (tmp)	// Temp
 		: "r" (&Lock->Lock), "r" (1)
 		: "cc"	// Condition codes clobbered
 		);
-	#endif
 	return 1;
 }
 

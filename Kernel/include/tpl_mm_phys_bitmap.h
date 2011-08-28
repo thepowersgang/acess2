@@ -307,6 +307,20 @@ void MM_RefPhys(tPAddr PAddr)
 	}
 }
 
+int MM_GetRefCount(tPAddr PAddr)
+{
+	PAddr >>= 12;
+	if( MM_GetPhysAddr( (tVAddr)&gaiPageReferences[PAddr] ) ) {
+		return gaiPageReferences[PAddr];
+	}
+	
+	if( gaPageBitmaps[ PAddr / 32 ] & (1LL << (PAddr&31)) ) {
+		return 1;
+	}
+	
+	return 0;
+}
+
 /**
  * \brief Dereference a physical page
  */
@@ -351,5 +365,36 @@ void MM_DerefPhys(tPAddr PAddr)
 		gaSuperBitmap[page / (32*32)] |= 1LL << ((page / 32) & 31);
 	}
 	#endif
+}
+
+int MM_SetPageNode(tPAddr PAddr, void *Node)
+{
+	tPAddr	page = PAddr >> 12;
+	tVAddr	node_page = ((tVAddr)&gapPageNodes[page]) & ~(PAGE_SIZE-1);
+
+	if( !MM_GetRefCount(PAddr) )	return 1;
+	
+	if( !MM_GetPhysAddr(node_page) ) {
+		if( !MM_Allocate(node_page) )
+			return -1;
+		memset( (void*)node_page, 0, PAGE_SIZE );
+	}
+
+	gapPageNodes[page] = Node;
+	return 0;
+}
+
+int MM_GetPageNode(tPAddr PAddr, void **Node)
+{
+	PAddr >>= 12;
+	if( !MM_GetRefCount(PAddr) )	return 1;
+	
+	if( !MM_GetPhysAddr( (tVAddr)&gapPageNodes[PAddr] ) ) {
+		*Node = NULL;
+		return 0;
+	}
+
+	*Node = gapPageNodes[PAddr];
+	return 0;
 }
 
