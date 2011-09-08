@@ -12,16 +12,12 @@
 _memcpy:
 	push rbp
 	mov rbp, rsp
-	push rdi
-	push rsi	; // DI and SI must be maintained, CX doesn't
 	
-	mov rcx, [rbp+4*8]
-	mov rsi, [rbp+3*8]
-	mov rdi, [rbp+2*8]
+	; RDI - First Param
+	; RSI - Second Param
+	mov rcx, rdx	; RDX - Third
 	rep movsb
 	
-	pop rsi
-	pop rdi
 	pop rbp
 	ret
 
@@ -37,7 +33,8 @@ _errno:	dw	0	; Placed in .text, to allow use of relative addressing
 #define SYSCALL6(_name,_num)	SYSCALL6 _name, _num
 
 ;%define SYSCALL_OP	jmp 0xCFFF0000
-%define SYSCALL_OP	int 0xAC
+;%define SYSCALL_OP	int 0xAC
+%define SYSCALL_OP	syscall
 
 ; System Call - No Arguments
 %macro SYSCALL0	2
@@ -69,7 +66,7 @@ _errno:	dw	0	; Placed in .text, to allow use of relative addressing
 ; System Call - 1 Argument
 %macro SYSCALL1	2
 _SYSCALL_HEAD %1, %2
-	mov rbx, [rbp+2*8]
+	mov rdi, [rbp+2*8]
 	SYSCALL_OP
 _SYSCALL_TAIL
 %endmacro
@@ -77,8 +74,8 @@ _SYSCALL_TAIL
 ; System Call - 2 Arguments
 %macro SYSCALL2	2
 _SYSCALL_HEAD %1, %2
-	mov rbx, [rbp+2*8]
-	mov rcx, [rbp+3*8]
+	mov rdi, [rbp+2*8]
+	mov rsi, [rbp+3*8]
 	SYSCALL_OP
 _SYSCALL_TAIL
 %endmacro
@@ -86,9 +83,9 @@ _SYSCALL_TAIL
 ; System Call - 3 Arguments
 %macro SYSCALL3	2
 _SYSCALL_HEAD %1, %2
-	mov rbx, [rbp+2*8]
-	mov rcx, [rbp+3*8]
-	mov rdx, [rbp+4*8]
+;	mov rdi, [rbp+2*8]
+;	mov rsi, [rbp+3*8]
+;	mov rdx, [rbp+4*8]
 	SYSCALL_OP
 _SYSCALL_TAIL
 %endmacro
@@ -96,46 +93,36 @@ _SYSCALL_TAIL
 ; System Call - 4 Arguments
 %macro SYSCALL4	2
 _SYSCALL_HEAD %1, %2
-	push rdi
-	mov rbx, [rbp+2*8]
-	mov rcx, [rbp+3*8]
-	mov rdx, [rbp+4*8]
-	mov rdi, [rbp+5*8]
+;	mov rdi, [rbp+2*8]
+;	mov rsi, [rbp+3*8]
+;	mov rdx, [rbp+4*8]
+	mov r10, rcx	; r10 is used in place of RCX
 	SYSCALL_OP
-	pop rdi
 _SYSCALL_TAIL
 %endmacro
 
 ; System Call - 5 Arguments
 %macro SYSCALL5	2
 _SYSCALL_HEAD %1, %2
-	push rdi
-	push rsi
-	mov rbx, [rbp+2*8]
-	mov rcx, [rbp+3*8]
-	mov rdx, [rbp+4*8]
-	mov rdi, [rbp+5*8]
-	mov rsi, [rbp+6*8]
+;	mov rdi, [rbp+2*8]
+;	mov rsi, [rbp+3*8]
+;	mov rdx, [rbp+4*8]
+	mov r10, rcx
+;	mov r8, [rbp+6*8]
 	SYSCALL_OP
-	pop rsi
-	pop rdi
 _SYSCALL_TAIL
 %endmacro
 
 ; System Call - 6 Arguments
 %macro SYSCALL6	2
 _SYSCALL_HEAD %1, %2
-	push rdi
-	push rsi
-	mov rbx, [rbp+2*8]
-	mov rcx, [rbp+3*8]
-	mov rdx, [rbp+4*8]
-	mov rdi, [rbp+5*8]
-	mov rsi, [rbp+6*8]
-	mov rbp, [rbp+7*8]
+;	mov rdi, [rbp+2*8]
+;	mov rsi, [rbp+3*8]
+;	mov rdx, [rbp+4*8]
+	mov r10, rcx
+;	mov r8, [rbp+6*8]
+;	mov r9, [rbp+7*8]
 	SYSCALL_OP
-	pop rsi
-	pop rdi
 _SYSCALL_TAIL
 %endmacro
 
@@ -150,21 +137,19 @@ clone:
 	mov rbp, rsp
 	push rbx
 	
-	mov rbx, [rbp+3*8]	; Get new stack pointer
-	
 	; Check if the new stack is being used
-	test rbx, rbx
+	test rsi, rsi
 	jz .doCall
 	; Quick hack, just this stack frame
 	mov rax, [rbp+1*8]
-	mov [rbx-1*8], rax	; Return
-	mov [rbx-2*8], rbx	; EBP
-	and QWORD [rbx-3*8], BYTE 0	; EBX
-	sub rbx, 3*8
+	mov [rsi-1*8], rax	; Return
+	mov [rsi-2*8], rsi	; EBP
+	and QWORD [rsi-3*8], BYTE 0	; EBX
+	sub rsi, 3*8
 .doCall:
 	mov eax, SYS_CLONE
-	mov rcx, rbx	; Stack
-	mov rbx, [rbp+2*8]	; Flags
+	mov rdi, rsi	; Stack
+	mov rsi, [rbp+2*8]	; Flags
 	SYSCALL_OP
 	mov [rel _errno], ebx
 	pop rbx
