@@ -386,8 +386,8 @@ int MM_SetPageNode(tPAddr PAddr, void *Node)
 
 int MM_GetPageNode(tPAddr PAddr, void **Node)
 {
-	PAddr >>= 12;
 	if( !MM_GetRefCount(PAddr) )	return 1;
+	PAddr >>= 12;
 	
 	if( !MM_GetPhysAddr( (tVAddr)&gapPageNodes[PAddr] ) ) {
 		*Node = NULL;
