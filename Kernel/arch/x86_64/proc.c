@@ -687,20 +687,22 @@ void Proc_StartProcess(Uint16 SS, Uint Stack, Uint Flags, Uint16 CS, Uint IP)
 	*--stack = CS;		//Code Segment
 	*--stack = IP;	//EIP
 	//PUSHAD
-	*--stack = 0xAAAAAAAA;	// eax
-	*--stack = 0xCCCCCCCC;	// ecx
-	*--stack = 0xDDDDDDDD;	// edx
-	*--stack = 0xBBBBBBBB;	// ebx
-	*--stack = 0xD1D1D1D1;	// edi
-	*--stack = 0x54545454;	// rsp - NOT POPED
-	*--stack = 0x51515151;	// esi
-	*--stack = 0xB4B4B4B4;	// rbp
+//	*--stack = 0xAAAAAAAA;	// rax
+//	*--stack = 0xCCCCCCCC;	// rcx
+//	*--stack = 0xDDDDDDDD;	// rdx
+//	*--stack = 0xBBBBBBBB;	// rbx
+//	*--stack = 0xD1D1D1D1;	// rdi
+//	*--stack = 0x54545454;	// rsp - NOT POPED
+//	*--stack = 0x51515151;	// rsi
+//	*--stack = 0xB4B4B4B4;	// rbp
 	//Individual PUSHs
-	*--stack = SS;	// ds
-	
+//	*--stack = SS;	// ds
+
+	MAGIC_BREAK();	
 	__asm__ __volatile__ (
-	"mov %%rax,%%rsp;\n\t"	// Set stack pointer
-	"iret;\n\t" : : "a" (stack));
+		"mov %%rax,%%rsp;\n\t"	// Set stack pointer
+		"iretq;\n\t" : : "a" (stack)
+		);
 	for(;;);
 }
 

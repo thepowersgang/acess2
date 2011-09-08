@@ -11,6 +11,7 @@
 
 // === CONSTANTS ===
 #define PHYS_BITS	52	// TODO: Move out
+#define VIRT_BITS	48
 
 #define PML4_SHIFT	39
 #define PDP_SHIFT	30
@@ -18,10 +19,10 @@
 #define PTAB_SHIFT	12
 
 #define	PADDR_MASK	0x7FFFFFFF##FFFFF000
-#define PAGE_MASK	(((Uint)1 << 36)-1)
-#define TABLE_MASK	(((Uint)1 << 27)-1)
-#define PDP_MASK	(((Uint)1 << 18)-1)
-#define PML4_MASK	(((Uint)1 << 9)-1)
+#define PAGE_MASK	((1LL << 36)-1)
+#define TABLE_MASK	((1LL << 27)-1)
+#define PDP_MASK	((1LL << 18)-1)
+#define PML4_MASK	((1LL << 9)-1)
 
 #define	PF_PRESENT	0x001
 #define	PF_WRITE	0x002
@@ -53,6 +54,7 @@
 // === IMPORTS ===
 extern void	Error_Backtrace(Uint IP, Uint BP);
 extern tPAddr	gInitialPML4[512];
+extern void	Threads_SegFault(tVAddr Addr);
 
 // === PROTOTYPES ===
 void	MM_InitVirt(void);
@@ -113,16 +115,15 @@ void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 	
 	// If it was a user, tell the thread handler
 	if(ErrorCode & 4) {
-		Warning("%s %s %s memory%s",
-			(ErrorCode&4?"User":"Kernel"),
+		Warning("User %s %s memory%s",
 			(ErrorCode&2?"write to":"read from"),
 			(ErrorCode&1?"bad/locked":"non-present"),
 			(ErrorCode&16?" (Instruction Fetch)":"")
 			);
-		Warning("User Pagefault: Instruction at %04x:%08x accessed %p",
+		Warning("User Pagefault: Instruction at %04x:%p accessed %p",
 			Regs->CS, Regs->RIP, Addr);
 		__asm__ __volatile__ ("sti");	// Restart IRQs
-//		Threads_SegFault(Addr);
+		Threads_SegFault(Addr);
 		return ;
 	}
 	
@@ -133,8 +134,7 @@ void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 		Warning("Reserved Bits Trashed!");
 	else
 	{
-		Warning("%s %s %s memory%s",
-			(ErrorCode&4?"User":"Kernel"),
+		Warning("Kernel %s %s memory%s",
 			(ErrorCode&2?"write to":"read from"),
 			(ErrorCode&1?"bad/locked":"non-present"),
 			(ErrorCode&16?" (Instruction Fetch)":"")
@@ -190,7 +190,8 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 		|| !(PAGETABLE(page) & PF_PRESENT)
 		|| (PAGETABLE(page) & MASK) != expected)
 		{			
-			if(expected != CHANGEABLE_BITS) {
+			if(expected != CHANGEABLE_BITS)
+			{
 				Log("%016llx => %013llx : 0x%6llx (%c%c%c%c)",
 					CANOICAL(rangeStart),
 					PAGETABLE(rangeStart>>12) & PADDR_MASK,
@@ -261,6 +262,8 @@ int MM_GetPageEntryPtr(tVAddr Addr, BOOL bTemp, BOOL bAllocate, BOOL bLargePage,
 	const int	nADDR_SIZES = sizeof(ADDR_SIZES)/sizeof(ADDR_SIZES[0]);
 	 int	i;
 	
+	#define BITMASK(bits)	( (1LL << (bits))-1 )
+
 	if( bTemp )
 	{
 		pmlevels[3] = &TMPTABLE(0);	// Page Table
@@ -271,9 +274,9 @@ int MM_GetPageEntryPtr(tVAddr Addr, BOOL bTemp, BOOL bAllocate, BOOL bLargePage,
 	else
 	{
 		pmlevels[3] = (void*)MM_FRACTAL_BASE;	// Page Table
-		pmlevels[2] = &pmlevels[3][(MM_FRACTAL_BASE>>12)&PAGE_MASK];	// PDIR
-		pmlevels[1] = &pmlevels[2][(MM_FRACTAL_BASE>>21)&TABLE_MASK];	// PDPT
-		pmlevels[0] = &pmlevels[1][(MM_FRACTAL_BASE>>30)&PDP_MASK];	// PML4
+		pmlevels[2] = &pmlevels[3][(MM_FRACTAL_BASE>>12)&BITMASK(VIRT_BITS-12)];	// PDIR
+		pmlevels[1] = &pmlevels[2][(MM_FRACTAL_BASE>>21)&BITMASK(VIRT_BITS-21)];	// PDPT
+		pmlevels[0] = &pmlevels[1][(MM_FRACTAL_BASE>>30)&BITMASK(VIRT_BITS-30)];	// PML4
 	}
 	
 	// Mask address
@@ -293,11 +296,15 @@ int MM_GetPageEntryPtr(tVAddr Addr, BOOL bTemp, BOOL bAllocate, BOOL bLargePage,
 		if( !(pmlevels[i][Addr >> ADDR_SIZES[i]] & 1) )
 		{
 			if( !bAllocate )	return -4;	// If allocation is not requested, error
-			tmp = MM_AllocPhys();
-			if(!tmp)	return -2;
+			if( !(tmp = MM_AllocPhys()) )	return -2;
 			pmlevels[i][Addr >> ADDR_SIZES[i]] = tmp | 3;
+			if( Addr < 0x800000000000 )
+				pmlevels[i][Addr >> ADDR_SIZES[i]] |= PF_USER;
 			INVLPG( &pmlevels[i+1][ (Addr>>ADDR_SIZES[i])*512 ] );
 			memset( &pmlevels[i+1][ (Addr>>ADDR_SIZES[i])*512 ], 0, 0x1000 );
+			LOG("Init PML%i ent 0x%x %p with %P", 4 - i,
+				Addr>>ADDR_SIZES[i],
+				(Addr>>ADDR_SIZES[i])<<ADDR_SIZES[i], tmp);
 		}
 		// Catch large pages
 		else if( pmlevels[i][Addr >> ADDR_SIZES[i]] & PF_LARGE )
@@ -335,7 +342,10 @@ int MM_MapEx(tVAddr VAddr, tPAddr PAddr, BOOL bTemp, BOOL bLarge)
 	if( *ent & 1 )	LEAVE_RET('i', 0);
 	
 	*ent = PAddr | 3;
-	
+
+	if( VAddr < 0x800000000000 )
+		*ent |= PF_USER;
+
 	INVLPG( VAddr );
 
 	LEAVE('i', 1);	
@@ -704,9 +714,9 @@ tPAddr MM_Clone(void)
 		// 320 0xFFFFA....	- Kernel Stacks
 		if( i == 320 )	continue;
 		// 509 0xFFFFFE0..	- Fractal mapping
-		if( i == 509 )	continue;
+		if( i == 508 )	continue;
 		// 510 0xFFFFFE8..	- Temp fractal mapping
-		if( i == 510 )	continue;
+		if( i == 509 )	continue;
 		
 		TMPMAPLVL4(i) = PAGEMAPLVL4(i);
 		if( TMPMAPLVL4(i) & 1 )
@@ -714,8 +724,8 @@ tPAddr MM_Clone(void)
 	}
 	
 	// #5 Set fractal mapping
-	TMPMAPLVL4(509) = ret | 3;
-	TMPMAPLVL4(510) = 0;	// Temp
+	TMPMAPLVL4(508) = ret | 3;
+	TMPMAPLVL4(509) = 0;	// Temp
 	
 	// #6 Create kernel stack (-1 to account for the guard)
 	TMPMAPLVL4(320) = 0;
@@ -730,6 +740,8 @@ tPAddr MM_Clone(void)
 		MM_FreeTemp(tmpmapping);
 	}
 	
+//	MAGIC_BREAK();
+
 	// #7 Return
 	TMPCR3() = 0;
 	INVLPG_ALL();
