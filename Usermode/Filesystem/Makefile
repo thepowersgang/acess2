@@ -1,7 +1,7 @@
 # Acess 2
 # - Usermode Filesystem Structure Generator
 
--include ../../Makefile.cfg
+-include ../Makefile.cfg
 
 DIRS  = Bin SBin Libs Modules Apps
 DIRS += Conf Conf/Auth
