@@ -4,7 +4,7 @@
  *
  * Disk Input/Output control
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <acess.h>
 #include <modules.h>	// Needed for error codes
 #include <drv_pci.h>
@@ -378,8 +378,16 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	LOG("Status byte = 0x%02x, Controller Status = 0x%02x",
 		val, ATA_int_BusMasterReadByte(cont * 8 + 2));
 
-	if( gaATA_IRQs[cont] == 0 ) {
-		
+	if( gaATA_IRQs[cont] == 0 )
+	{
+		if( ATA_int_BusMasterReadByte(cont * 8 + 2) & 0x4 ) {
+			Log_Error("ATA", "BM Status reports an interrupt, but none recieved");
+			ATA_int_BusMasterWriteByte(cont*8 + 2, 4);	// Clear interrupt
+			memcpy( Buffer, gATA_Buffers[cont], Count*SECTOR_SIZE );
+			Mutex_Release( &glaATA_ControllerLock[ cont ] );
+			LEAVE_RET('i', 0);
+		}
+
 		#if 1
 		Debug_HexDump("ATA", Buffer, 512);
 		#endif
