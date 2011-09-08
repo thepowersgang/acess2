@@ -1355,32 +1355,37 @@ void VT_int_ScrollText(tVTerm *Term, int Count)
 	tVT_Char	*buf;
 	 int	height, init_write_pos;
 	 int	len, i;
+	 int	scroll_top, scroll_height;
 	
 	if( Term->Flags & VT_FLAG_ALTBUF )
 	{
 		buf = Term->AltBuf;
 		height = Term->TextHeight;
 		init_write_pos = Term->AltWritePos;
+		scroll_top = Term->ScrollTop;
+		scroll_height = Term->ScrollHeight;
 	}
 	else
 	{
 		buf = Term->Text;
 		height = Term->TextHeight*giVT_Scrollback;
 		init_write_pos = Term->WritePos;
+		scroll_top = 0;
+		scroll_height = height;
 	}
 	
 	if( Count > 0 )
 	{
 		 int	base;
-		if(Count > Term->ScrollHeight)	Count = Term->ScrollHeight;
+		if(Count > scroll_height)	Count = scroll_height;
 //		Debug("Scroll: Count = %i", Count);
-		base = Term->TextWidth*(Term->ScrollTop + Term->ScrollHeight - Count);
-		len = Term->TextWidth*(Term->ScrollHeight - Count);
+		base = Term->TextWidth*(scroll_top + scroll_height - Count);
+		len = Term->TextWidth*(scroll_height - Count);
 		
 		// Scroll terminal cache
 		memcpy(
-			&buf[Term->TextWidth*Term->ScrollTop],
-			&buf[Term->TextWidth*(Term->ScrollTop+Count)],
+			&buf[Term->TextWidth*scroll_top],
+			&buf[Term->TextWidth*(scroll_top+Count)],
 			len*sizeof(tVT_Char)
 			);
 		// Clear last rows
@@ -1393,9 +1398,9 @@ void VT_int_ScrollText(tVTerm *Term, int Count)
 		// Update Screen
 		VT_int_ScrollFramebuffer( Term, Count );
 		if( Term->Flags & VT_FLAG_ALTBUF )
-			Term->AltWritePos = Term->TextWidth*(Term->ScrollTop + Term->ScrollHeight - Count);
+			Term->AltWritePos = base;
 		else
-			Term->WritePos = Term->ViewPos + Term->TextWidth*(Term->ScrollTop + Term->ScrollHeight - Count);
+			Term->WritePos = Term->ViewPos + Term->TextWidth*(Term->TextHeight - Count);
 		for( i = 0; i < Count; i ++ )
 		{
 			VT_int_UpdateScreen( Term, 0 );
@@ -1408,14 +1413,14 @@ void VT_int_ScrollText(tVTerm *Term, int Count)
 	else
 	{
 		Count = -Count;
-		if(Count > Term->ScrollHeight)	Count = Term->ScrollHeight;
+		if(Count > scroll_height)	Count = scroll_height;
 		
-		len = Term->TextWidth*(Term->ScrollHeight - Count);
+		len = Term->TextWidth*(scroll_height - Count);
 		
 		// Scroll terminal cache
 		memcpy(
-			&buf[Term->TextWidth*(Term->ScrollTop+Count)],
-			&buf[Term->TextWidth*Term->ScrollTop],
+			&buf[Term->TextWidth*(scroll_top+Count)],
+			&buf[Term->TextWidth*scroll_top],
 			len*sizeof(tVT_Char)
 			);
 		// Clear preceding rows
@@ -1427,9 +1432,9 @@ void VT_int_ScrollText(tVTerm *Term, int Count)
 		
 		VT_int_ScrollFramebuffer( Term, -Count );
 		if( Term->Flags & VT_FLAG_ALTBUF )
-			Term->AltWritePos = Term->TextWidth*Term->ScrollTop;
+			Term->AltWritePos = Term->TextWidth*scroll_top;
 		else
-			Term->WritePos = Term->ViewPos + Term->TextWidth*Term->ScrollTop;
+			Term->WritePos = Term->ViewPos;
 		for( i = 0; i < Count; i ++ )
 		{
 			VT_int_UpdateScreen( Term, 0 );
