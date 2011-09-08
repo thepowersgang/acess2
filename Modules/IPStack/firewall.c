@@ -28,9 +28,9 @@ struct sFirewallMod
 	const char	*Name;
 	
 	 int	(*Match)(tModuleRule *Rule, int AddrType,
-				const void *Src, const void *Dest,
-				Uint8 Type, Uint32 Flags,
-				size_t Length, const void *Data);
+			const void *Src, const void *Dest,
+			Uint8 Type, Uint32 Flags,
+			size_t Length, const void *Data);
 	
 	tModuleRule	*(*Create)(tKeyValue *Params);
 };
@@ -49,14 +49,14 @@ struct sRule
 	tRule	*Next;
 	
 	 int	PacketCount;	// Number of packets seen
-	 int	ByteCount;		// Number of bytes seen (IP Payload bytes)
+	 int	ByteCount;  	// Number of bytes seen (IP Payload bytes)
 	
 	 int	bInvertSource;	// Boolean NOT flag on source
 	void	*Source;	// Source address bytes
 	 int	SourceMask;	// Source address mask bits
 	 
 	 int	bInvertDest;	// Boolean NOT flag on destination
-	void	*Dest;	// Destination address bytes
+	void	*Dest;  	// Destination address bytes
 	 int	DestMask;	// Destination address mask bits
 	
 	tModuleRule	*Modules;	// Modules loaded for this rule
@@ -114,8 +114,7 @@ int IPTables_DoRule(
 	{
 		if( !modrule->Mod->Match )	continue;
 		rv = modrule->Mod->Match(modrule, AddrType, Src, Dest, Type, Flags, Length, Data);
-		if(rv == -1)	return -1;	// no match
-		// TODO: If != 0 maybe, allowing it to ask for a drop?
+		if(rv != 0)	return rv;	// No match / action
 	}
 	
 	// Update statistics
@@ -127,7 +126,7 @@ int IPTables_DoRule(
 
 /**
  * \brief Tests an IPv4 chain on a packet
- * \return Boolean Disallow (0: Packet Allowed, 1: Drop, 2: Reject, 3: Continue)
+ * \return Boolean Disallow (0: Packet Allowed, 1: Drop, 2: Reject, 3: Continue, -1 no match)
  */
 int IPTables_TestChain(
 	const char *RuleName,

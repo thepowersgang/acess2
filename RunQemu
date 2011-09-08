@@ -5,7 +5,7 @@ QEMU=qemu-system-x86_64
 USE_GDB=
 
 QEMU_PARAMS="-fda DiskImage.img -boot a"
-QEMU_PARAMS=$QEMU_PARAMS" -hdb AcessHDD.img"
+QEMU_PARAMS=$QEMU_PARAMS" -hda AcessHDD.img"
 QEMU_PARAMS=$QEMU_PARAMS" -vga std"
 QEMU_PARAMS=$QEMU_PARAMS" -smp 2"
 QEMU_PARAMS=$QEMU_PARAMS" -net nic"
