@@ -5,6 +5,30 @@
 #ifndef _BIN_ELF_H
 #define _BIN_ELF_H
 
+typedef Uint16	Elf64_Half;
+typedef Uint32	Elf64_Word;
+typedef Uint64	Elf64_Addr;
+typedef Uint64	Elf64_Off;
+typedef Uint64	Elf64_Xword;
+
+enum e_ident_values
+{
+	EI_MAG0,
+	EI_MAG1,
+	EI_MAG2,
+	EI_MAG3,
+	EI_CLASS,
+	EI_DATA,
+	EI_VERSION,
+	EI_OSABI,
+	EI_ABIVERSION,
+	EI_PAD,
+	EI_NIDENT = 16,
+};
+
+#define ELFCLASS32	1
+#define ELFCLASS64	2
+
 /**
  * \brief ELF File Header
  */
@@ -34,6 +58,24 @@ struct sElf32_Ehdr
 	Uint16	shstrindex;	//!< Section Header String Table Index
 } __attribute__ ((packed));
 
+typedef struct
+{
+	unsigned char	e_ident[16];
+	Elf64_Half	e_type;
+	Elf64_Half	e_machine;
+	Elf64_Word	e_version;
+	Elf64_Addr	e_entry;
+	Elf64_Off	e_phoff;
+	Elf64_Off	e_shoff;
+	Elf64_Word	e_flags;
+	Elf64_Half	e_ehsize;
+	Elf64_Half	e_phentsize;
+	Elf64_Half	e_phnum;
+	Elf64_Half	e_shentsize;
+	Elf64_Half	e_shnum;
+	Elf64_Half	e_shstrndx;
+} Elf64_Ehdr;
+
 /**
  * \brief Executable Types
  */
@@ -54,10 +96,10 @@ enum eElf32_ExecTypes
 */
 #define SHN_UNDEF		0	//!< Undefined Section
 #define SHN_LORESERVE	0xFF00	//!< Low Reserved
-#define SHN_LOPROC		0xFF00	//!< Low Impl Defined
-#define SHN_HIPROC		0xFF1F	//!< High Impl Defined
-#define SHN_ABS			0xFFF1	//!< Absolute Address (Base: 0, Size: -1)
-#define SHN_COMMON		0xFFF2	//!< Common
+#define SHN_LOPROC   	0xFF00	//!< Low Impl Defined
+#define SHN_HIPROC   	0xFF1F	//!< High Impl Defined
+#define SHN_ABS      	0xFFF1	//!< Absolute Address (Base: 0, Size: -1)
+#define SHN_COMMON   	0xFFF2	//!< Common
 #define SHN_HIRESERVE	0xFFFF	//!< High Reserved
 //! \}
 
@@ -103,6 +145,20 @@ struct sElf32_Shent {
 	Uint32	entsize;
 } __attribute__ ((packed));	//sizeof = 40
 
+typedef struct
+{
+	Elf64_Word	sh_name;
+	Elf64_Word	sh_type;
+	Elf64_Xword	sh_flags;
+	Elf64_Addr	sh_addr;
+	Elf64_Off	sh_offset;
+	Elf64_Xword	sh_size;
+	Elf64_Word	sh_link;
+	Elf64_Word	sh_info;
+	Elf64_Xword	sh_addralign;
+	Elf64_Xword	sh_entsize;
+} Elf64_Shdr;
+
 struct elf_sym_s {
 	union {
 		Uint32	nameOfs;
@@ -138,6 +194,18 @@ struct sElf32_Phdr {
 	Uint32	Flags;
 	Uint32	Align;
 } __attribute__ ((packed));
+
+typedef struct
+{
+	Elf64_Word	p_type;
+	Elf64_Word	p_flags;
+	Elf64_Off	p_offset;
+	Elf64_Addr	p_vaddr;
+	Elf64_Addr	p_paddr;
+	Elf64_Xword	p_filesz;
+	Elf64_Xword	p_memsz;
+	Elf64_Xword	p_align;
+} Elf64_Phdr;
 
 #define PF_X	1
 #define PF_W	2
