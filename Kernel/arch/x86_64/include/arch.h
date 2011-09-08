@@ -6,9 +6,9 @@
 #define _ARCH_H_
 
 //#include <stdint.h>
-//#define KERNEL_BASE	0xFFFF8000##00000000
 #define KERNEL_BASE	0xFFFFFFFF##80000000
 #define BITS	64
+#define PAGE_SIZE	0x1000
 
 #define STACKED_LOCKS	2	// 0: No, 1: Per-CPU, 2: Per-Thread
 #define LOCK_DISABLE_INTS	0

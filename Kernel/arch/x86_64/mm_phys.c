@@ -36,6 +36,7 @@ Uint64	*gaSuperBitmap = (void*)MM_PAGE_SUPBMP;	// 1 bit = 64 Pages, 16 MiB per W
 Uint64	*gaMainBitmap = (void*)MM_PAGE_BITMAP;	// 1 bit = 1 Page, 256 KiB per Word
 Uint64	*gaMultiBitmap = (void*)MM_PAGE_DBLBMP;	// Each bit means that the page is being used multiple times
 Uint32	*gaiPageReferences = (void*)MM_PAGE_COUNTS;	// Reference Counts
+void	**gapPageNodes = (void*)MM_PAGE_NODES;	// Reference Counts
 tPAddr	giFirstFreePage;	// First possibly free page
 Uint64	giPhysRangeFree[NUM_MM_PHYS_RANGES];	// Number of free pages in each range
 Uint64	giPhysRangeFirst[NUM_MM_PHYS_RANGES];	// First free page in each range
@@ -553,3 +554,35 @@ int MM_int_GetRangeID( tPAddr Addr )
 	else
 		return MM_PHYS_16BIT;
 }
+
+int MM_SetPageNode(tPAddr PAddr, void *Node)
+{
+	tPAddr	page = PAddr >> 12;
+	tVAddr	node_page = ((tVAddr)&gapPageNodes[page]) & ~(PAGE_SIZE-1);
+
+//	if( !MM_GetRefCount(PAddr) )	return 1;
+	
+	if( !MM_GetPhysAddr(node_page) ) {
+		if( !MM_Allocate(node_page) )
+			return -1;
+		memset( (void*)node_page, 0, PAGE_SIZE );
+	}
+
+	gapPageNodes[page] = Node;
+	return 0;
+}
+
+int MM_GetPageNode(tPAddr PAddr, void **Node)
+{
+//	if( !MM_GetRefCount(PAddr) )	return 1;
+	PAddr >>= 12;
+	
+	if( !MM_GetPhysAddr( (tVAddr)&gapPageNodes[PAddr] ) ) {
+		*Node = NULL;
+		return 0;
+	}
+
+	*Node = gapPageNodes[PAddr];
+	return 0;
+}
+

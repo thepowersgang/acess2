@@ -31,10 +31,11 @@
  *       D000 00000000 -       D080 00000000	39	512	GiB	Per-Process Data
  *       D080 00000000 -       D100 00000000	39	512	GiB	Kernel Supplied User Code
  *       ---- GAP ----                      		15	TiB
- *       E000 00000000 -       E400 00000000	42	4	TiB	Physical Page Reference Counts (2**40 = 2**52 bytes)
- *       E400 00000000 -       E480 00000000	39	512	GiB	Physical Page Bitmap (1 page per bit)
- *       E480 00000000 -       E500 00000000	39	512	GiB	Physical Page DblAlloc Bitmap (1 page per bit)
- *       E500 00000000 -       E500 80000000	31	2	GiB	Physical Page Super Bitmap (64 pages per bit)
+ *       E000 00000000 -       E800 00000000	43	8	TiB	Physical Page Nodes (2**40 pages * 8 bytes)
+ *       E800 00000000 -       EC00 00000000	42	4	TiB	Physical Page Reference Counts (2**40 pg * 4 bytes)
+ *       EC00 00000000 -       EC80 00000000	39	512	GiB	Physical Page Bitmap (1 page per bit)
+ *       EC80 00000000 -       ED00 00000000	39	512	GiB	Physical Page DblAlloc Bitmap (1 page per bit)
+ *       ED00 00000000 -       ED00 80000000	31	2	GiB	Physical Page Super Bitmap (64 pages per bit)
  *       ---- GAP ----                      		9	TiB
  *       FE00 00000000 -       FE80 00000000	39	512	GiB	Fractal Mapping (PML4 508)
  *       FE80 00000000 -       FF00 00000000	39	512	GiB	Temp Fractal Mapping
@@ -66,10 +67,11 @@
 #define MM_PPD_HANDLES 	(MM_KERNEL_RANGE|(0xD008##00000000))
 #define MM_USER_CODE	(MM_KERNEL_RANGE|(0xD080##00000000))
 
-#define MM_PAGE_COUNTS	(MM_KERNEL_RANGE|(0xE000##00000000))
-#define MM_PAGE_BITMAP	(MM_KERNEL_RANGE|(0xE400##00000000))
-#define MM_PAGE_DBLBMP	(MM_KERNEL_RANGE|(0xE480##00000000))
-#define MM_PAGE_SUPBMP	(MM_KERNEL_RANGE|(0xE500##00000000))
+#define MM_PAGE_NODES	(MM_KERNEL_RANGE|(0xE000##00000000))
+#define MM_PAGE_COUNTS	(MM_KERNEL_RANGE|(0xE800##00000000))
+#define MM_PAGE_BITMAP	(MM_KERNEL_RANGE|(0xEC00##00000000))
+#define MM_PAGE_DBLBMP	(MM_KERNEL_RANGE|(0xEC00##00000000))
+#define MM_PAGE_SUPBMP	(MM_KERNEL_RANGE|(0xED00##00000000))
 
 #define MM_FRACTAL_BASE	(MM_KERNEL_RANGE|(0xFE00##00000000))
 #define MM_TMPFRAC_BASE	(MM_KERNEL_RANGE|(0xFE80##00000000))

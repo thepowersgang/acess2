@@ -29,7 +29,7 @@ void kmain(Uint MbMagic, void *MbInfoPtr)
 	Desctab_Init();
 	
 	MM_InitVirt();
-	*(Uint16*)(0xB8000) = 0x1F00|'C';
+	*(Uint16*)(KERNEL_BASE|0xB8000) = 0x1F00|'C';
 	
 	switch(MbMagic)
 	{
@@ -50,24 +50,21 @@ void kmain(Uint MbMagic, void *MbInfoPtr)
 	
 	Log("gsBootCmdLine = '%s'", gsBootCmdLine);
 	
-	*(Uint16*)(0xB8000) = 0x1F00|'D';
+	*(Uint16*)(KERNEL_BASE|0xB8000) = 0x1F00|'D';
 	Heap_Install();
 	
-	*(Uint16*)(0xB8000) = 0x1F00|'E';
+	*(Uint16*)(KERNEL_BASE|0xB8000) = 0x1F00|'E';
 	Log_Log("Arch", "Starting threading...");
 	Threads_Init();
 	
 	Time_Setup();
-	*(Uint16*)(0xB8000) = 0x1F00|'F';
+	*(Uint16*)(KERNEL_BASE|0xB8000) = 0x1F00|'F';
 	
 	Log_Log("Arch", "Starting VFS...");
 	// Load Virtual Filesystem
 	VFS_Init();
 	
-	*(Uint16*)(0xB8000) = 0x1F00|'Z';
-	*(Uint16*)(0xB8002) = 0x1F00|'Z';
-	*(Uint16*)(0xB8004) = 0x1F00|'Z';
-	*(Uint16*)(0xB8006) = 0x1F00|'Z';
+	*(Uint16*)(KERNEL_BASE|0xB8000) = 0x1F00|'Z';
 	
 	// Pass on to Independent Loader
 	Log_Log("Arch", "Starting system");

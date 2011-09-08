@@ -32,13 +32,13 @@
 #define	PF_NX		0x80000000##00000000
 
 // === MACROS ===
-#define PAGETABLE(idx)	(*((tPAddr*)MM_FRACTAL_BASE+((idx)&PAGE_MASK)))
+#define PAGETABLE(idx)	(*((Uint64*)MM_FRACTAL_BASE+((idx)&PAGE_MASK)))
 #define PAGEDIR(idx)	PAGETABLE((MM_FRACTAL_BASE>>12)+((idx)&TABLE_MASK))
 #define PAGEDIRPTR(idx)	PAGEDIR((MM_FRACTAL_BASE>>21)+((idx)&PDP_MASK))
 #define PAGEMAPLVL4(idx)	PAGEDIRPTR((MM_FRACTAL_BASE>>30)+((idx)&PML4_MASK))
 
 #define TMPCR3()	PAGEMAPLVL4(MM_TMPFRAC_BASE>>39)
-#define TMPTABLE(idx)	(*((tPAddr*)MM_TMPFRAC_BASE+((idx)&PAGE_MASK)))
+#define TMPTABLE(idx)	(*((Uint64*)MM_TMPFRAC_BASE+((idx)&PAGE_MASK)))
 #define TMPDIR(idx)	PAGETABLE((MM_TMPFRAC_BASE>>12)+((idx)&TABLE_MASK))
 #define TMPDIRPTR(idx)	PAGEDIR((MM_TMPFRAC_BASE>>21)+((idx)&PDP_MASK))
 #define TMPMAPLVL4(idx)	PAGEDIRPTR((MM_TMPFRAC_BASE>>30)+((idx)&PML4_MASK))
@@ -158,7 +158,7 @@ void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 void MM_DumpTables(tVAddr Start, tVAddr End)
 {
 	#define CANOICAL(addr)	((addr)&0x800000000000?(addr)|0xFFFF000000000000:(addr))
-	const tPAddr	CHANGEABLE_BITS = 0xFF8;
+	const tPAddr	CHANGEABLE_BITS = ~(PF_PRESENT|PF_WRITE|PF_USER|PF_COW|PF_PAGED) & 0xFFF;
 	const tPAddr	MASK = ~CHANGEABLE_BITS;	// Physical address and access bits
 	tVAddr	rangeStart = 0;
 	tPAddr	expected = CHANGEABLE_BITS;	// CHANGEABLE_BITS is used because it's not a vaild value
@@ -184,12 +184,11 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 		//Debug("&PAGETABLE(%i page) = %p", page, &PAGETABLE(page));
 		
 		// End of a range
-		if(
-			!(PAGEMAPLVL4(page>>27) & PF_PRESENT)
-		||	!(PAGEDIRPTR(page>>18) & PF_PRESENT)
-		||	!(PAGEDIR(page>>9) & PF_PRESENT)
-		||  !(PAGETABLE(page) & PF_PRESENT)
-		||  (PAGETABLE(page) & MASK) != expected)
+		if(!(PAGEMAPLVL4(page>>27) & PF_PRESENT)
+		|| !(PAGEDIRPTR(page>>18) & PF_PRESENT)
+		|| !(PAGEDIR(page>>9) & PF_PRESENT)
+		|| !(PAGETABLE(page) & PF_PRESENT)
+		|| (PAGETABLE(page) & MASK) != expected)
 		{			
 			if(expected != CHANGEABLE_BITS) {
 				Log("%016llx => %013llx : 0x%6llx (%c%c%c%c)",
@@ -445,6 +444,8 @@ tPAddr MM_GetPhysAddr(tVAddr Addr)
 	
 	ret = MM_GetPageEntryPtr(Addr, 0, 0, 0, &ptr);
 	if( ret < 0 )	return 0;
+	
+	if( !(*ptr & 1) )	return 0;
 	
 	return (*ptr & PADDR_MASK) | (Addr & 0xFFF);
 }
