@@ -2,7 +2,7 @@
  * Acess v0.1
  * ELF Executable Loader Code
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include <binary.h>
 #include "elf.h"
