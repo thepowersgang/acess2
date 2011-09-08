@@ -11,6 +11,8 @@
 
 #define	LOCK_DEBUG_OUTPUT	1
 
+#define TRACE_TO_KTERM	0
+
 // === IMPORTS ===
 extern void	Threads_Dump(void);
 extern void	KernelPanic_SetMode(void);
@@ -18,10 +20,10 @@ extern void	KernelPanic_PutChar(char Ch);
 
 // === PROTOTYPES ===
 static void	Debug_Putchar(char ch);
-static void	Debug_Puts(int DbgOnly, const char *Str);
+static void	Debug_Puts(int bUseKTerm, const char *Str);
 void	Debug_DbgOnlyFmt(const char *format, va_list args);
-void	Debug_FmtS(const char *format, ...);
-void	Debug_Fmt(const char *format, va_list args);
+void	Debug_FmtS(int bUseKTerm, const char *format, ...);
+void	Debug_Fmt(int bUseKTerm, const char *format, va_list args);
 void	Debug_SetKTerminal(const char *File);
 
 // === GLOBALS ===
@@ -75,16 +77,10 @@ static void Debug_Puts(int UseKTerm, const char *Str)
 
 void Debug_DbgOnlyFmt(const char *format, va_list args)
 {
-	char	buf[DEBUG_MAX_LINE_LEN];
-	 int	len;
-	buf[DEBUG_MAX_LINE_LEN-1] = 0;
-	len = vsnprintf(buf, DEBUG_MAX_LINE_LEN-1, format, args);
-	//if( len < DEBUG_MAX_LINE )
-		// do something
-	Debug_Puts(0, buf);
+	Debug_Fmt(0, format, args);
 }
 
-void Debug_Fmt(const char *format, va_list args)
+void Debug_Fmt(int bUseKTerm, const char *format, va_list args)
 {
 	char	buf[DEBUG_MAX_LINE_LEN];
 	 int	len;
@@ -92,19 +88,19 @@ void Debug_Fmt(const char *format, va_list args)
 	len = vsnprintf(buf, DEBUG_MAX_LINE_LEN-1, format, args);
 	//if( len < DEBUG_MAX_LINE )
 		// do something
-	Debug_Puts(1, buf);
+	Debug_Puts(bUseKTerm, buf);
 	return ;
 }
 
-void Debug_FmtS(const char *format, ...)
+void Debug_FmtS(int bUseKTerm, const char *format, ...)
 {
 	va_list	args;	
 	va_start(args, format);
-	Debug_Fmt(format, args);
+	Debug_Fmt(bUseKTerm, format, args);
 	va_end(args);
 }
 
-void Debug_KernelPanic()
+void Debug_KernelPanic(void)
 {
 	gbDebug_IsKPanic = 1;
 	KernelPanic_SetMode();
@@ -124,7 +120,7 @@ void LogF(const char *Fmt, ...)
 	
 	va_start(args, Fmt);
 
-	Debug_Fmt(Fmt, args);
+	Debug_Fmt(1, Fmt, args);
 
 	va_end(args);
 	
@@ -167,10 +163,9 @@ void Log(const char *Fmt, ...)
 
 	Debug_Puts(1, "Log: ");
 	va_start(args, Fmt);
-	Debug_Fmt(Fmt, args);
+	Debug_Fmt(1, Fmt, args);
 	va_end(args);
-	Debug_Putchar('\r');
-	Debug_Putchar('\n');
+	Debug_Puts(1, "\r\n");
 	
 	#if LOCK_DEBUG_OUTPUT
 	SHORTREL(&glDebug_Lock);
@@ -186,7 +181,7 @@ void Warning(const char *Fmt, ...)
 	
 	Debug_Puts(1, "Warning: ");
 	va_start(args, Fmt);
-	Debug_Fmt(Fmt, args);
+	Debug_Fmt(1, Fmt, args);
 	va_end(args);
 	Debug_Putchar('\r');
 	Debug_Putchar('\n');
@@ -208,7 +203,7 @@ void Panic(const char *Fmt, ...)
 	
 	Debug_Puts(1, "Panic: ");
 	va_start(args, Fmt);
-	Debug_Fmt(Fmt, args);
+	Debug_Fmt(1, Fmt, args);
 	va_end(args);
 	Debug_Putchar('\r');
 	Debug_Putchar('\n');
@@ -250,38 +245,38 @@ void Debug_Enter(const char *FuncName, const char *ArgTypes, ...)
 
 	va_start(args, ArgTypes);
 
-	LogF("%014lli ", now());
-	while(i--)	Debug_Putchar(' ');
+	Debug_FmtS(TRACE_TO_KTERM, "%014lli ", now());
+	while(i--)	Debug_Puts(TRACE_TO_KTERM, " ");
 
-	Debug_Puts(1, FuncName);
-	Debug_FmtS("[%i]", tid);
-	Debug_Puts(1, ": (");
+	Debug_Puts(TRACE_TO_KTERM, FuncName);
+	Debug_FmtS(TRACE_TO_KTERM, "[%i]", tid);
+	Debug_Puts(TRACE_TO_KTERM, ": (");
 
 	while(*ArgTypes)
 	{
 		pos = strpos(ArgTypes, ' ');
 		if(pos == -1 || pos > 1) {
 			if(pos == -1)
-				Debug_Puts(1, ArgTypes+1);
+				Debug_Puts(TRACE_TO_KTERM, ArgTypes+1);
 			else {
-				for( i = 1; i < pos; i ++ )
-					Debug_Putchar(ArgTypes[i]);
+				Debug_FmtS(TRACE_TO_KTERM, "%.*s", pos-1, ArgTypes+1);
 			}
-			Debug_Putchar('=');
+			Debug_Puts(TRACE_TO_KTERM, "=");
 		}
 		switch(*ArgTypes)
 		{
-		case 'p':	LogF("%p", va_arg(args, void*));	break;
-		case 's':	LogF("'%s'", va_arg(args, char*));	break;
-		case 'i':	LogF("%i", va_arg(args, int));	break;
-		case 'u':	LogF("%u", va_arg(args, Uint));	break;
-		case 'x':	LogF("0x%x", va_arg(args, Uint));	break;
-		case 'b':	LogF("0b%b", va_arg(args, Uint));	break;
-		case 'X':	LogF("0x%llx", va_arg(args, Uint64));	break;	// Extended (64-Bit)
-		case 'B':	LogF("0b%llb", va_arg(args, Uint64));	break;	// Extended (64-Bit)
+		case 'p':	Debug_FmtS(TRACE_TO_KTERM, "%p", va_arg(args, void*));	break;
+		case 'P':	Debug_FmtS(TRACE_TO_KTERM, "%P", va_arg(args, tPAddr));	break;
+		case 's':	Debug_FmtS(TRACE_TO_KTERM, "'%s'", va_arg(args, char*));	break;
+		case 'i':	Debug_FmtS(TRACE_TO_KTERM, "%i", va_arg(args, int));	break;
+		case 'u':	Debug_FmtS(TRACE_TO_KTERM, "%u", va_arg(args, Uint));	break;
+		case 'x':	Debug_FmtS(TRACE_TO_KTERM, "0x%x", va_arg(args, Uint));	break;
+		case 'b':	Debug_FmtS(TRACE_TO_KTERM, "0b%b", va_arg(args, Uint));	break;
+		case 'X':	Debug_FmtS(TRACE_TO_KTERM, "0x%llx", va_arg(args, Uint64));	break;	// Extended (64-Bit)
+		case 'B':	Debug_FmtS(TRACE_TO_KTERM, "0b%llb", va_arg(args, Uint64));	break;	// Extended (64-Bit)
 		}
 		if(pos != -1) {
-			Debug_Putchar(',');	Debug_Putchar(' ');
+			Debug_Puts(TRACE_TO_KTERM, ", ");
 		}
 
 		if(pos == -1)	break;
@@ -289,7 +284,7 @@ void Debug_Enter(const char *FuncName, const char *ArgTypes, ...)
 	}
 
 	va_end(args);
-	Debug_Putchar(')');	Debug_Putchar('\r');	Debug_Putchar('\n');
+	Debug_Puts(TRACE_TO_KTERM, ")\r\n");
 	
 	#if LOCK_DEBUG_OUTPUT
 	SHORTREL(&glDebug_Lock);
@@ -306,19 +301,18 @@ void Debug_Log(const char *FuncName, const char *Fmt, ...)
 	SHORTLOCK(&glDebug_Lock);
 	#endif
 
+	Debug_FmtS(TRACE_TO_KTERM, "%014lli ", now());
+	while(i--)	Debug_Puts(TRACE_TO_KTERM, " ");
+
+	Debug_Puts(TRACE_TO_KTERM, FuncName);
+	Debug_FmtS(TRACE_TO_KTERM, "[%i]", tid);
+	Debug_Puts(TRACE_TO_KTERM, ": ");
+
 	va_start(args, Fmt);
-
-	LogF("%014lli ", now());
-	while(i--)	Debug_Putchar(' ');
-
-	Debug_Puts(1, FuncName);
-	Debug_FmtS("[%i]", tid);
-	Debug_Puts(1, ": ");
-	Debug_Fmt(Fmt, args);
-
+	Debug_Fmt(TRACE_TO_KTERM, Fmt, args);
 	va_end(args);
-	Debug_Putchar('\r');
-	Debug_Putchar('\n');
+
+	Debug_Puts(TRACE_TO_KTERM, "\r\n");
 	
 	#if LOCK_DEBUG_OUTPUT
 	SHORTREL(&glDebug_Lock);
@@ -343,38 +337,36 @@ void Debug_Leave(const char *FuncName, char RetType, ...)
 		gDebug_Level = 0;
 		i = 0;
 	}
-	LogF("%014lli ", now());
+	Debug_FmtS(TRACE_TO_KTERM, "%014lli ", now());
 	// Indenting
-	while(i--)	Debug_Putchar(' ');
+	while(i--)	Debug_Puts(TRACE_TO_KTERM, " ");
 
-	Debug_Puts(1, FuncName);
-	Debug_FmtS("[%i]", tid);
-	Debug_Puts(1, ": RETURN");
+	Debug_Puts(TRACE_TO_KTERM, FuncName);
+	Debug_FmtS(TRACE_TO_KTERM, "[%i]", tid);
+	Debug_Puts(TRACE_TO_KTERM, ": RETURN");
 
 	// No Return
 	if(RetType == '-') {
-		Debug_Putchar('\r');
-		Debug_Putchar('\n');
+		Debug_Puts(TRACE_TO_KTERM, "\r\n");
 		#if LOCK_DEBUG_OUTPUT
 		SHORTREL(&glDebug_Lock);
 		#endif
 		return;
 	}
 
-	Debug_Putchar(' ');
 	switch(RetType)
 	{
-	case 'n':	Debug_Puts(1, "NULL");	break;
-	case 'p':	Debug_Fmt("%p", args);	break;
-	case 's':	Debug_Fmt("'%s'", args);	break;
-	case 'i':	Debug_Fmt("%i", args);	break;
-	case 'u':	Debug_Fmt("%u", args);	break;
-	case 'x':	Debug_Fmt("0x%x", args);	break;
+	case 'n':	Debug_Puts(TRACE_TO_KTERM, " NULL");	break;
+	case 'p':	Debug_Fmt(TRACE_TO_KTERM, " %p", args);	break;
+	case 'P':	Debug_Fmt(TRACE_TO_KTERM, " %P", args);	break;	// PAddr
+	case 's':	Debug_Fmt(TRACE_TO_KTERM, " '%s'", args);	break;
+	case 'i':	Debug_Fmt(TRACE_TO_KTERM, " %i", args);	break;
+	case 'u':	Debug_Fmt(TRACE_TO_KTERM, " %u", args);	break;
+	case 'x':	Debug_Fmt(TRACE_TO_KTERM, " 0x%x", args);	break;
 	// Extended (64-Bit)
-	case 'X':	Debug_Fmt("0x%llx", args);	break;
+	case 'X':	Debug_Fmt(TRACE_TO_KTERM, " 0x%llx", args);	break;
 	}
-	Debug_Putchar('\r');
-	Debug_Putchar('\n');
+	Debug_Puts(TRACE_TO_KTERM, "\r\n");
 
 	va_end(args);
 	
