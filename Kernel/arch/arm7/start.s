@@ -1,7 +1,8 @@
 KERNEL_BASE =	0x80000000
 
+.section .init
 interrupt_vector_table:
-	b . @ Reset
+	b _start @ Reset
 	b .
 	b SyscallHandler @ SWI instruction
 	b . 
@@ -10,31 +11,37 @@ interrupt_vector_table:
 	b .
 	b .
 
-.comm stack, 0x10000	@ ; 64KiB Stack
-
 .globl _start
 _start:
-	ldr r0, _ptr_kerneltable0
+	ldr r0, =kernel_table0-KERNEL_BASE
 	mcr p15, 0, r0, c2, c0, 1	@ Set TTBR1 to r0
-	mov r0, #1
-	mcr p15, 0, r0, c2, c0, 2	@ Set TTCR to 1 (50/50 split)
+	mcr p15, 0, r0, c2, c0, 0	@ Set TTBR0 to r0 too (for identity)
 
-	mrc p15, 0, r0, c1, c0, 0
+@	mov r0, #1
+@	mcr p15, 0, r0, c2, c0, 2	@ Set TTCR to 1 (50/50 split)
+
+@	mrc p15, 0, r0, c1, c0, 0
 	orr r0, r0, #1
-	mcr p15, 0, r0, c1, c0, 0
+@	orr r0, r0, #1 << 23
+@	mcr p15, 0, r0, c1, c0, 0
 
 	ldr sp, =stack+0x10000	@ Set up stack
-	bl kmain
+	ldr r0, =kmain
+	mov pc, r0
 1:	b 1b	@ Infinite loop
-_ptr_kerneltable0:
-	.long kernel_table0-0x80000000
+_ptr_kmain:
+	.long kmain
+
+.comm stack, 0x10000	@ ; 64KiB Stack
 
 SyscallHandler:
-	
+	b .
 .section .padata
 .globl kernel_table0
+
 kernel_table0:
-	.rept 0x800
+	.long 0x00000002	@ Identity map the first 4 MiB
+	.rept 0x801
 		.long 0
 	.endr
 	.long 0x00000002	@ Identity map the first 4 MiB
