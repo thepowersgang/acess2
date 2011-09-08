@@ -61,20 +61,17 @@ typedef struct sSyscallRegs
 		Uint    Num;
 		Uint    Return;
 	};      // RAX
-	Uint    Arg4;	// RCX
-	Uint	Arg3;	// RDX
 	Uint    Error;	// RBX
-	Uint    Resvd1[2];	// Kernel RSP, RBP
-	Uint	Arg2;	// RSI
 	Uint	Arg1;	// RDI
+	Uint	Arg2;	// RSI
+	Uint	Arg3;	// RDX
+	Uint    Arg4;	// RCX
 	Uint	Arg5;	// R8
 	Uint	Arg6;	// R9
-	Uint	Resvd2[6];	// R10 - R15
-	Uint	Resvd3[5];	// IntNum, ErrCode, RIP, CS, RFLAGS
-	
-	Uint	Resvd4[5];      // Int, Err, rip, CS, ...
+	Uint	_Flags;
+	Uint	_IP;
 	Uint	StackPointer;   // RSP
-	Uint	Resvd5[1];      // SS	
+	
 }	tSyscallRegs;
 
 /**

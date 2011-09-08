@@ -68,6 +68,8 @@ void	Proc_StartProcess(Uint16 SS, Uint Stack, Uint Flags, Uint16 CS, Uint IP);
 void	Proc_Scheduler(int CPU);
 
 // === GLOBALS ===
+//!\brief Used by desctab.asm in SyscallStub
+const int ci_offsetof_tThread_KernelStack = offsetof(tThread, KernelStack);
 // --- Multiprocessing ---
 #if USE_MP
 volatile int	giNumInitingCPUs = 0;

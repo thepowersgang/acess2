@@ -141,6 +141,28 @@ Desctab_Init:
 	
 	; Start interrupts
 	sti
+
+	; Initialise System Calls (SYSCALL/SYSRET)
+	; Set IA32_EFER.SCE
+	mov ecx, 0xC0000080
+	rdmsr
+	or eax, 1
+	wrmsr
+	; Set IA32_LSTAR (RIP of handler)
+	mov ecx, 0xC0000082	; IA32_LSTAR
+	mov eax, SyscallStub - 0xFFFFFFFF00000000
+	mov edx, 0xFFFFFFFF
+	wrmsr
+	; Set IA32_FMASK (flags mask)
+	mov ecx, 0xC0000084
+	rdmsr
+	mov eax, 0x202
+	wrmsr
+	; Set IA32_STAR (Kernel/User CS)
+	mov ecx, 0xC0000081
+	rdmsr
+	mov edx, 0x8 | (0x18 << 16)	; Kernel CS (and Kernel DS/SS - 8), User CS
+	wrmsr
 	
 	ret
 
@@ -386,6 +408,48 @@ SchedulerIRQ:
 	POP_GPR
 	add rsp, 2*8	; Dummy error code and IRQ num
 	iretq
+
+[extern ci_offsetof_tThread_KernelStack]
+[extern SyscallHandler]
+[global SyscallStub]
+SyscallStub:
+	mov rbp, dr0
+	mov ebx, [rel ci_offsetof_tThread_KernelStack]
+	mov rbp, [rbp+rbx]	; Get kernel stack
+	xchg rbp, rsp	; Swap stacks
+
+	push rbp	; Save User RSP
+	push rcx	; RIP
+	push r11	; RFLAGS
+
+	; RDI
+	; RSI
+	; RDX
+	; R10 (RCX for non syscall)
+	; R8
+	; R9
+	sub rsp, (6+2)*8
+	mov [rsp+0x00], rax	; Number
+;	mov [rsp+0x08], rax	; Errno (don't care really)
+	mov [rsp+0x10], rdi	; Arg1
+	mov [rsp+0x18], rsi	; Arg2
+	mov [rsp+0x20], rdx	; Arg3
+	mov [rsp+0x28], r10	; Arg4
+	mov [rsp+0x30], r8	; Arg5
+	mov [rsp+0x38], r9	; Arg6
+	
+	mov rdi, rsp
+	sub rsp, 8
+	call SyscallHandler
+	add rsp, 8
+	mov ebx, [rsp+8]	; Get errno
+	mov rax, [rsp+0]	; Get return
+	add rsp, (6+2)*8
+
+	pop r11
+	pop rcx
+	pop rsp 	; Change back to user stack
+	sysret
 
 [section .data]
 gIDT:

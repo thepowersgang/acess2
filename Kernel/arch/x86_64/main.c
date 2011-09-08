@@ -27,7 +27,7 @@ void kmain(Uint MbMagic, void *MbInfoPtr)
 	tMBoot_Info	*mbInfo;
 	
 	Desctab_Init();
-	
+
 	MM_InitVirt();
 	*(Uint16*)(KERNEL_BASE|0xB8000) = 0x1F00|'C';
 	
