@@ -494,11 +494,11 @@ int Proc_Clone(Uint Flags)
 	newThread = Threads_CloneTCB(NULL, Flags);
 	if(!newThread)	return -1;
 	
-	Log("Proc_Clone: newThread = %p", newThread);
+//	Log("Proc_Clone: newThread = %p", newThread);
 	
 	// Initialise Memory Space (New Addr space or kernel stack)
 	if(Flags & CLONE_VM) {
-		Log("Proc_Clone: Cloning VM");
+//		Log("Proc_Clone: Cloning VM");
 		newThread->MemState.CR3 = MM_Clone();
 		newThread->KernelStack = cur->KernelStack;
 //		MAGIC_BREAK();
@@ -510,7 +510,7 @@ int Proc_Clone(Uint Flags)
 
 		// Create new KStack
 		newThread->KernelStack = MM_NewKStack();
-		Log("Proc_Clone: newKStack = %p", newThread->KernelStack);
+//		Log("Proc_Clone: newKStack = %p", newThread->KernelStack);
 		// Check for errors
 		if(newThread->KernelStack == 0) {
 			free(newThread);
@@ -682,28 +682,18 @@ void Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **
 
 void Proc_StartProcess(Uint16 SS, Uint Stack, Uint Flags, Uint16 CS, Uint IP)
 {
-	Uint	*stack = (void*)Stack;
-	*--stack = SS;		//Stack Segment
-	*--stack = Stack;	//Stack Pointer
-	*--stack = Flags;	//EFLAGS (Resvd (0x2) and IF (0x20))
-	*--stack = CS;		//Code Segment
-	*--stack = IP;	//EIP
-	//PUSHAD
-//	*--stack = 0xAAAAAAAA;	// rax
-//	*--stack = 0xCCCCCCCC;	// rcx
-//	*--stack = 0xDDDDDDDD;	// rdx
-//	*--stack = 0xBBBBBBBB;	// rbx
-//	*--stack = 0xD1D1D1D1;	// rdi
-//	*--stack = 0x54545454;	// rsp - NOT POPED
-//	*--stack = 0x51515151;	// rsi
-//	*--stack = 0xB4B4B4B4;	// rbp
-	//Individual PUSHs
-//	*--stack = SS;	// ds
-
-	MAGIC_BREAK();	
+	if( CS != 0x1B || SS != 0x23 ) {
+		Log_Error("Proc", "Proc_StartProcess: CS / SS are not valid (%x, %x)",
+			CS, SS);
+		return ;
+	}
+//	MAGIC_BREAK();	
 	__asm__ __volatile__ (
-		"mov %%rax,%%rsp;\n\t"	// Set stack pointer
-		"iretq;\n\t" : : "a" (stack)
+		"mov %0, %%rsp;\n\t"	// Set stack pointer
+		"mov %1, %%r11;\n\t"	// Set stack pointer
+		"sysret;\n\t"
+		: : "r" (Stack), "c" (IP), "r" (Flags)
+		: "r11"
 		);
 	for(;;);
 }
