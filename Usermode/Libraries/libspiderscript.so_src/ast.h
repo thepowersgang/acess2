@@ -256,5 +256,7 @@ extern void	AST_FreeNode(tAST_Node *Node);
 extern void	Object_Dereference(tSpiderValue *Object);
 extern void	Object_Reference(tSpiderValue *Object);
 extern tSpiderValue	*AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node);
+extern tSpiderValue	*AST_ExecuteNode_BinOp(tSpiderScript *Script, tAST_Node *Node, int Operation, tSpiderValue *Left, tSpiderValue *Right);
+extern tSpiderValue	*AST_ExecuteNode_UniOp(tSpiderScript *Script, tAST_Node *Node, int Operation, tSpiderValue *Value);
 
 #endif

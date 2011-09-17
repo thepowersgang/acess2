@@ -5,25 +5,51 @@
 #ifndef _BYTECODE_H_
 #define _BYTECODE_H_
 
-struct sBytecodeHeader
+#include "bytecode_ops.h"
+
+typedef struct sBC_Op	tBC_Op;
+typedef struct sBC_Function	tBC_Function;
+
+struct sBC_Op
 {
-	uint32_t	Magic;	//!< Magic Value (identifier) "\x8FSS\r"
-	uint32_t	NFunctions;	//!< Number of functions
-	struct {
-		uint32_t	NameOffset;	//!< Offset to the name 
-		uint32_t	CodeOffset;	//!< Offset to the code
-	}	Functions[];
+	tBC_Op	*Next;
+	 int	Operation;
+	 int	bUseInteger;	// Used for serialisation
+	union {
+		struct {
+			const char *String;
+			 int	Integer;
+		} StringInt;
+		
+		uint64_t	Integer;
+		double	Real;
+	} Content;
 };
 
-enum eBytecodeOperations
+struct sBC_Function
 {
-	BCOP_UNDEF,
-	BCOP_NOP,
+	const char	*Name;
 	
-	BCOP_DEFVAR,
-	BCOP_RETURN,
+	 int	LabelCount;
+	 int	LabelSpace;
+	tBC_Op	**Labels;
 	
-	NUM_BCOP
-}
+	 int	MaxVariableCount;
+	// NOTE: These fields are invalid after compilation
+	 int	VariableCount;
+	 int	VariableSpace;
+	const char	**VariableNames;	// Only type needs to be stored
+	 int	CurContextDepth;	// Used to get the real var count
+
+	 int	OperationCount;
+	tBC_Op	*Operations;
+	tBC_Op	*OperationsEnd;
+
+	 int	ArgumentCount;
+	struct {
+		char	*Name;
+		 int	Type;
+	}	Arguments[];
+};
 
 #endif

@@ -18,8 +18,8 @@ extern tSpiderFunction	*gpExports_First;
 // === PROTOTYPES ===
 // - Node Execution
 tSpiderValue	*AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node);
-tSpiderValue	*AST_ExecuteNode_BinOp(tAST_BlockState *Block, tAST_Node *Node, int Operation, tSpiderValue *Left, tSpiderValue *Right);
-tSpiderValue	*AST_ExecuteNode_UniOp(tAST_BlockState *Block, tAST_Node *Node, int Operation, tSpiderValue *Value);
+tSpiderValue	*AST_ExecuteNode_BinOp(tSpiderScript *Script, tAST_Node *Node, int Operation, tSpiderValue *Left, tSpiderValue *Right);
+tSpiderValue	*AST_ExecuteNode_UniOp(tSpiderScript *Script, tAST_Node *Node, int Operation, tSpiderValue *Value);
 // - Variables
 tAST_Variable *Variable_Define(tAST_BlockState *Block, int Type, const char *Name, tSpiderValue *Value);
  int	Variable_SetValue(tAST_BlockState *Block, tAST_Node *VarNode, tSpiderValue *Value);
@@ -450,7 +450,7 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 //					varVal->ReferenceCount);
 			}
 			#endif
-			value = AST_ExecuteNode_BinOp(Block, Node, Node->Assign.Operation, varVal, ret);
+			value = AST_ExecuteNode_BinOp(Block->Script, Node, Node->Assign.Operation, varVal, ret);
 			if(value == ERRPTR)	return ERRPTR;
 
 			if(ret)	SpiderScript_DereferenceValue(ret);
@@ -495,9 +495,9 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 			varVal = Variable_GetValue(Block, Node->UniOp.Value);
 			
 			if( Node->Type == NODETYPE_POSTDEC )
-				value = AST_ExecuteNode_BinOp(Block, Node, NODETYPE_SUBTRACT, varVal, &one);
+				value = AST_ExecuteNode_BinOp(Block->Script, Node, NODETYPE_SUBTRACT, varVal, &one);
 			else
-				value = AST_ExecuteNode_BinOp(Block, Node, NODETYPE_ADD, varVal, &one);
+				value = AST_ExecuteNode_BinOp(Block->Script, Node, NODETYPE_ADD, varVal, &one);
 			if( value == ERRPTR )
 				return ERRPTR;
 			
@@ -967,7 +967,7 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 	case NODETYPE_NEGATE:	// Negation (-)
 		op1 = AST_ExecuteNode(Block, Node->UniOp.Value);
 		if(op1 == ERRPTR)	return ERRPTR;
-		ret = AST_ExecuteNode_UniOp(Block, Node, Node->Type, op1);
+		ret = AST_ExecuteNode_UniOp(Block->Script, Node, Node->Type, op1);
 		SpiderScript_DereferenceValue(op1);
 		break;
 	
@@ -992,7 +992,7 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 			return ERRPTR;
 		}
 		
-		ret = AST_ExecuteNode_BinOp(Block, Node, Node->Type, op1, op2);
+		ret = AST_ExecuteNode_BinOp(Block->Script, Node, Node->Type, op1, op2);
 		
 		// Free intermediate objects
 		SpiderScript_DereferenceValue(op1);
@@ -1021,7 +1021,7 @@ _return:
 	return ret;
 }
 
-tSpiderValue *AST_ExecuteNode_UniOp(tAST_BlockState *Block, tAST_Node *Node, int Operation, tSpiderValue *Value)
+tSpiderValue *AST_ExecuteNode_UniOp(tSpiderScript *Script, tAST_Node *Node, int Operation, tSpiderValue *Value)
 {
 	tSpiderValue	*ret;
 	#if 0
@@ -1083,7 +1083,7 @@ tSpiderValue *AST_ExecuteNode_UniOp(tAST_BlockState *Block, tAST_Node *Node, int
 	return ret;
 }
 
-tSpiderValue *AST_ExecuteNode_BinOp(tAST_BlockState *Block, tAST_Node *Node, int Operation, tSpiderValue *Left, tSpiderValue *Right)
+tSpiderValue *AST_ExecuteNode_BinOp(tSpiderScript *Script, tAST_Node *Node, int Operation, tSpiderValue *Left, tSpiderValue *Right)
 {
 	tSpiderValue	*preCastValue = Right;
 	tSpiderValue	*ret;
@@ -1124,7 +1124,7 @@ tSpiderValue *AST_ExecuteNode_BinOp(tAST_BlockState *Block, tAST_Node *Node, int
 		#endif
 		
 		// If implicit casts are allowed, convert Right to Left's type
-		if(Block->Script->Variant->bImplicitCasts)
+		if(Script->Variant->bImplicitCasts)
 		{
 			Right = SpiderScript_CastValueTo(Left->Type, Right);
 			if(Right == ERRPTR)

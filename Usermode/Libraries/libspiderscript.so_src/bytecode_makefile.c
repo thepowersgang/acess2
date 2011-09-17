@@ -94,6 +94,7 @@ int Bytecode_ConvertScript(tSpiderScript *Script, const char *DestFile)
 		code = Bytecode_SerialiseFunction(bc_fcn, &len, &strings);
 		Bytecode_DeleteFunction(bc_fcn);
 		fwrite(code, len, 1, fp);
+		free(code);
 	}
 
 	// String table
@@ -109,11 +110,16 @@ int Bytecode_ConvertScript(tSpiderScript *Script, const char *DestFile)
 			string_offset += str->Length + 1;
 		}
 		// Data
-		for(str = strings.Head; str; str = str->Next)
+		for(str = strings.Head; str;)
 		{
+			tString	*nextstr = str->Next;
 			fwrite(str->Data, str->Length, 1, fp);
 			_put8(0);
+			free(str);
+			str = nextstr;
 		}
+		strings.Head = NULL;
+		strings.Tail = NULL;
 	}
 
 	// Fix header
@@ -121,6 +127,8 @@ int Bytecode_ConvertScript(tSpiderScript *Script, const char *DestFile)
 	_put32(fcn_count);
 	_put32(strings.Count);
 	_put32(strtab_ofs);
+
+	fclose(fp);
 
 	return 0;
 }

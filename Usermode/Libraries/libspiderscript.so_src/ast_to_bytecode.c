@@ -57,7 +57,7 @@ tBC_Function *Bytecode_ConvertFunction(tAST_Function *ASTFcn)
 		char	*arg_names[ASTFcn->ArgumentCount];
 		 int	arg_types[ASTFcn->ArgumentCount];
 		
-		for(arg = ASTFcn->Arguments; arg; arg = arg->NextSibling)
+		for(arg = ASTFcn->Arguments, i = 0; arg; arg = arg->NextSibling, i ++)
 		{
 			arg_names[i] = arg->DefVar.Name;
 			arg_types[i] = arg->DefVar.DataType;

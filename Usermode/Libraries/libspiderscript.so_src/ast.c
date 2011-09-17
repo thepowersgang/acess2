@@ -407,7 +407,7 @@ void AST_FreeNode(tAST_Node *Node)
 	case NODETYPE_NOP:	break;
 	case NODETYPE_VARIABLE:	break;
 	case NODETYPE_CONSTANT:	break;
-	case NODETYPE_BREAK:	break;
+	case NODETYPE_BREAK:
 	case NODETYPE_CONTINUE:	break;
 	
 	case NODETYPE_STRING:
@@ -490,7 +490,9 @@ tAST_Node *AST_NewIf(tParser *Parser, tAST_Node *Condition, tAST_Node *True, tAS
 
 tAST_Node *AST_NewLoop(tParser *Parser, const char *Tag, tAST_Node *Init, int bPostCheck, tAST_Node *Condition, tAST_Node *Increment, tAST_Node *Code)
 {
-	tAST_Node	*ret = AST_int_AllocateNode(Parser, NODETYPE_LOOP, strlen(Tag) + 1);
+	tAST_Node	*ret;
+	if(!Tag)	Tag = "";
+	ret = AST_int_AllocateNode(Parser, NODETYPE_LOOP, strlen(Tag) + 1);
 	ret->For.Init = Init;
 	ret->For.bCheckAfter = !!bPostCheck;
 	ret->For.Condition = Condition;

@@ -306,6 +306,7 @@ tAST_Node *Parse_DoBlockLine(tParser *Parser)
 				csaTOKEN_NAMES[tok]);
 			return NULL;
 		}
+		if(ident)	free(ident);
 		}
 		break;
 	
@@ -331,7 +332,7 @@ tAST_Node *Parse_DoBlockLine(tParser *Parser)
 	
 	case TOK_RWD_FOR:
 		{
-		const char	*tag = "";
+		char	*tag = NULL;
 		tAST_Node	*init=NULL, *cond=NULL, *inc=NULL, *code;
 		GetToken(Parser);	// Eat 'for'
 		
@@ -364,6 +365,7 @@ tAST_Node *Parse_DoBlockLine(tParser *Parser)
 		
 		code = Parse_DoCodeBlock(Parser);
 		ret = AST_NewLoop(Parser, tag, init, 0, cond, inc, code);
+		if(tag)	free(tag);
 		}
 		return ret;
 	

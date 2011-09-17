@@ -9,8 +9,8 @@
 #define _BYTECODE_GEN_H_
 
 #include "ast.h"
+#include "bytecode.h"
 
-typedef struct sBC_Function	tBC_Function;
 typedef struct sStringList	tStringList;
 typedef struct sString	tString;
 //typedef struct sAST_Function	tAST_Function;

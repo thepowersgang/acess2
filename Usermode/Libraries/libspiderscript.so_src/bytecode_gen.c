@@ -11,56 +11,15 @@
 #include <stdio.h>
 #include "bytecode_gen.h"
 #include <string.h>
+#include "bytecode.h"
 
 // === IMPORTS ===
 
 // === STRUCTURES ===
-typedef struct sBC_Op	tBC_Op;
-
-struct sBC_Op
-{
-	tBC_Op	*Next;
-	 int	Operation;
-	 int	bUseInteger;
-	union {
-		struct {
-			const char *String;
-			 int	Integer;
-		} StringInt;
-		
-		uint64_t	Integer;
-		double	Real;
-	} Content;
-};
-
-struct sBC_Function
-{
-	const char	*Name;
-	
-	 int	LabelCount;
-	 int	LabelSpace;
-	tBC_Op	**Labels;
-	
-	 int	MaxVariableCount;
-	// NOTE: These fields are invalid after compilation
-	 int	VariableCount;
-	 int	VariableSpace;
-	const char	**VariableNames;	// Only type needs to be stored
-	 int	CurContextDepth;	// Used to get the real var count
-
-	 int	OperationCount;
-	tBC_Op	*Operations;
-	tBC_Op	*OperationsEnd;
-
-	 int	ArgumentCount;
-	struct {
-		char	*Name;
-		 int	Type;
-	}	Arguments[];
-};
 
 // === PROTOTYPES ===
 tBC_Op	*Bytecode_int_AllocateOp(int Operation);
+ int	Bytecode_int_AddVariable(tBC_Function *Handle, const char *Name);
 
 // === GLOBALS ===
 
@@ -90,7 +49,9 @@ tBC_Function *Bytecode_CreateFunction(const char *Name, int ArgCount, char **Arg
 	ret->Name = Name;
 	ret->LabelSpace = ret->LabelCount = 0;
 	ret->Labels = NULL;
-	
+
+	ret->MaxVariableCount = 0;
+	ret->CurContextDepth = 0;	
 	ret->VariableCount = ret->VariableSpace = 0;
 	ret->VariableNames = NULL;
 
@@ -103,6 +64,7 @@ tBC_Function *Bytecode_CreateFunction(const char *Name, int ArgCount, char **Arg
 	{
 		ret->Arguments[i].Name = strdup(ArgNames[i]);
 		ret->Arguments[i].Type = ArgTypes[i];
+		Bytecode_int_AddVariable(ret, ret->Arguments[i].Name);
 	}
 
 	return ret;
@@ -316,13 +278,13 @@ void Bytecode_int_AppendOp(tBC_Function *Fcn, tBC_Op *Op)
 	Fcn->OperationsEnd = Op;
 }
 
-void Bytecode_int_AddVariable(tBC_Function *Handle, const char *Name)
+int Bytecode_int_AddVariable(tBC_Function *Handle, const char *Name)
 {
 	if(Handle->VariableCount == Handle->VariableSpace) {
 		void	*tmp;
 		Handle->VariableSpace += 10;
 		tmp = realloc(Handle->VariableNames, Handle->VariableSpace * sizeof(Handle->VariableNames[0]));
-		if(!tmp)	return ;	// TODO: Error
+		if(!tmp)	return -1;	// TODO: Error
 		Handle->VariableNames = tmp;
 	}
 	Handle->VariableNames[Handle->VariableCount] = Name;
@@ -330,6 +292,7 @@ void Bytecode_int_AddVariable(tBC_Function *Handle, const char *Name)
 	// Get max count (used when executing to get the frame size)
 	if(Handle->VariableCount - Handle->CurContextDepth >= Handle->MaxVariableCount)
 		Handle->MaxVariableCount = Handle->VariableCount - Handle->CurContextDepth;
+	return Handle->VariableCount - 1;
 }
 
 int Bytecode_int_GetVarIndex(tBC_Function *Handle, const char *Name)
@@ -338,12 +301,7 @@ int Bytecode_int_GetVarIndex(tBC_Function *Handle, const char *Name)
 	// Get the start of this context
 	for( i = Handle->VariableCount; i --; )
 	{
-		if( Handle->VariableNames[i] == NULL )	break;
-	}
-	// Check for duplicate allocation
-	for( ; i < Handle->VariableCount; i ++ )
-	{
-		if( strcmp(Name, Handle->VariableNames[i]) == 0 )
+		if( Handle->VariableNames[i] && strcmp(Name, Handle->VariableNames[i]) == 0 )
 			return i;
 	}
 	return -1;
@@ -440,6 +398,7 @@ void Bytecode_AppendLeaveContext(tBC_Function *Handle)
 		if( Handle->VariableNames[i] == NULL )	break;
 	}
 	Handle->CurContextDepth --;
+	Handle->VariableCount = i;
 
 	DEF_BC_NONE(BC_OP_LEAVECONTEXT)
 }
@@ -447,13 +406,22 @@ void Bytecode_AppendLeaveContext(tBC_Function *Handle)
 //	DEF_BC_STRINT(BC_OP_IMPORTNS, Name, 0)
 void Bytecode_AppendDefineVar(tBC_Function *Handle, const char *Name, int Type)
 {
+	 int	i;
 	#if 1
-	// Check for duplicates
-	if( Bytecode_int_GetVarIndex(Handle, Name) )
-		return ;	// TODO: Error
+	// Get the start of this context
+	for( i = Handle->VariableCount; i --; )
+	{
+		if( Handle->VariableNames[i] == NULL )	break;
+	}
+	// Check for duplicate allocation
+	for( i ++; i < Handle->VariableCount; i ++ )
+	{
+		if( strcmp(Name, Handle->VariableNames[i]) == 0 )
+			return ;
+	}
 	#endif
 
-	Bytecode_int_AddVariable(Handle, Name);
+	i = Bytecode_int_AddVariable(Handle, Name);
 	
-	DEF_BC_STRINT(BC_OP_DEFINEVAR, Name, Type)
+	DEF_BC_STRINT(BC_OP_DEFINEVAR, Name, (Type&0xFFFF) | (i << 16))
 }
