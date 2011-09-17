@@ -7,6 +7,7 @@
 #include <string.h>
 #include <spiderscript.h>
 #include "ast.h"
+#include "bytecode_gen.h"
 
 // === IMPORTS ===
 extern tAST_Script	*Parse_Buffer(tSpiderVariant *Variant, const char *Buffer, const char *Filename);
@@ -92,6 +93,11 @@ tSpiderScript *SpiderScript_ParseFile(tSpiderVariant *Variant, const char *Filen
 	}
 	
 	return ret;
+}
+
+int SpiderScript_SaveBytecode(tSpiderScript *Script, const char *DestFile)
+{
+	return Bytecode_ConvertScript(Script, DestFile);
 }
 
 /**

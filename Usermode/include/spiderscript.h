@@ -247,6 +247,11 @@ extern tSpiderValue	*SpiderScript_ExecuteFunction(tSpiderScript *Script,
 	);
 
 /**
+ * \brief Convert a script to bytecode and save to a file
+ */
+extern int	SpiderScript_SaveBytecode(tSpiderScript *Script, const char *DestFile);
+
+/**
  * \brief Free a script
  * \param Script	Script structure to free
  */
@@ -258,9 +263,12 @@ extern tSpiderObject	*SpiderScript_AllocateObject(tSpiderObjectDef *Class, int E
  * \name tSpiderValue Manipulation functions
  * \{
  */
+extern void	SpiderScript_DereferenceValue(tSpiderValue *Object);
+extern void	SpiderScript_ReferenceValue(tSpiderValue *Object);
 extern tSpiderValue	*SpiderScript_CreateInteger(uint64_t Value);
 extern tSpiderValue	*SpiderScript_CreateReal(double Value);
 extern tSpiderValue	*SpiderScript_CreateString(int Length, const char *Data);
+extern tSpiderValue	*SpiderScript_StringConcat(const tSpiderValue *Str1, const tSpiderValue *Str2);
 extern tSpiderValue	*SpiderScript_CastValueTo(int Type, tSpiderValue *Source);
 extern int	SpiderScript_IsValueTrue(tSpiderValue *Value);
 extern void	SpiderScript_FreeValue(tSpiderValue *Value);

@@ -97,6 +97,7 @@ struct sAST_Function
 	tAST_Node	*Code;	//!< Function Code
 	tAST_Node	*Arguments;	// HACKJOB (Only NODETYPE_DEFVAR is allowed)
 	tAST_Node	*Arguments_Last;
+	 int	ArgumentCount;
 	char	Name[];	//!< Function Name
 };
 

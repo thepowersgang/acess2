@@ -35,6 +35,7 @@ tAST_Function *AST_AppendFunction(tAST_Script *Script, const char *Name, int Ret
 	strcpy(ret->Name, Name);
 	ret->Code = NULL;
 	ret->Arguments = NULL;
+	ret->ArgumentCount = 0;
 	ret->ReturnType = ReturnType;
 	
 	if(Script->LastFunction == NULL) {
@@ -57,6 +58,7 @@ void AST_AppendFunctionArg(tAST_Function *Function, tAST_Node *Node)
 		Function->Arguments_Last->NextSibling = Node;
 		Function->Arguments_Last = Node;
 	}
+	Function->ArgumentCount ++;
 }
 
 /**
@@ -193,6 +195,7 @@ size_t AST_WriteNode(void *Buffer, size_t Offset, tAST_Node *Node)
 	// Looping Construct (For loop node)
 	case NODETYPE_LOOP:
 		WRITE_8(Buffer, Offset, Node->For.bCheckAfter);
+//		printf("Node %p, Loop Tag %p\n", Node, Node->For.Tag);
 		WRITE_STR(Buffer, Offset, Node->For.Tag);
 		Offset += AST_WriteNode(Buffer, Offset, Node->For.Init);
 		Offset += AST_WriteNode(Buffer, Offset, Node->For.Condition);
@@ -411,7 +414,7 @@ void AST_FreeNode(tAST_Node *Node)
 	case NODETYPE_INTEGER:
 	case NODETYPE_REAL:
 		if( Node->ValueCache )
-			Object_Dereference(Node->ValueCache);
+			SpiderScript_DereferenceValue(Node->ValueCache);
 		Node->ValueCache = NULL;
 		break;
 	}
