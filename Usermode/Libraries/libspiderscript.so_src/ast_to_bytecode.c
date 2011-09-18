@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
+#include "common.h"
 #include "ast.h"
 #include "bytecode_gen.h"
 #include "bytecode_ops.h"
@@ -46,33 +47,26 @@ void	AST_RuntimeError(tAST_Node *Node, const char *Format, ...);
 /**
  * \brief Convert a function into bytecode
  */
-tBC_Function *Bytecode_ConvertFunction(tAST_Function *ASTFcn)
+tBC_Function *Bytecode_ConvertFunction(tScript_Function *Fcn)
 {
 	tBC_Function	*ret;
 	tAST_BlockInfo bi = {0};
-	
-	{
-		tAST_Node *arg;
-		 int	i;
-		char	*arg_names[ASTFcn->ArgumentCount];
-		 int	arg_types[ASTFcn->ArgumentCount];
-		
-		for(arg = ASTFcn->Arguments, i = 0; arg; arg = arg->NextSibling, i ++)
-		{
-			arg_names[i] = arg->DefVar.Name;
-			arg_types[i] = arg->DefVar.DataType;
-		}
 
-		ret = Bytecode_CreateFunction(ASTFcn->Name, ASTFcn->ArgumentCount, arg_names, arg_types);
-		if(!ret)	return NULL;
-	}
+	// TODO: Return BCFcn instead?
+	if(Fcn->BCFcn)	return NULL;
+	
+	ret = Bytecode_CreateFunction(Fcn);
+	if(!ret)	return NULL;
 	
 	bi.Handle = ret;
-	if( AST_ConvertNode(&bi, ASTFcn->Code) )
+	if( AST_ConvertNode(&bi, Fcn->ASTFcn) )
 	{
 		Bytecode_DeleteFunction(ret);
 		return NULL;
 	}
+
+	Fcn->BCFcn = ret;
+
 	return ret;
 }
 

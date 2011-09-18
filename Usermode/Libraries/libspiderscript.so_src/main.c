@@ -6,11 +6,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <spiderscript.h>
+#include "common.h"
 #include "ast.h"
 #include "bytecode_gen.h"
 
 // === IMPORTS ===
-extern tAST_Script	*Parse_Buffer(tSpiderVariant *Variant, const char *Buffer, const char *Filename);
+extern  int	Parse_Buffer(tSpiderScript *Script, const char *Buffer, const char *Filename);
 extern tAST_Variable *Variable_Define(tAST_BlockState *Block, int Type, const char *Name);
 extern void	Variable_SetValue(tAST_BlockState *Block, const char *Name, tSpiderValue *Value);
 extern void	Variable_Destroy(tAST_Variable *Variable);
@@ -62,10 +63,11 @@ tSpiderScript *SpiderScript_ParseFile(tSpiderVariant *Variant, const char *Filen
 	// Create the script
 	ret = malloc(sizeof(tSpiderScript));
 	ret->Variant = Variant;
+	ret->Functions = NULL;
+	ret->LastFunction = NULL;
 	
 	ret->CurNamespace = NULL;
-	ret->Script = Parse_Buffer(Variant, data, Filename);
-	if( ret->Script == NULL ) {
+	if( Parse_Buffer(ret, data, Filename) ) {
 		free(data);
 		free(ret);
 		return NULL;
@@ -79,14 +81,14 @@ tSpiderScript *SpiderScript_ParseFile(tSpiderVariant *Variant, const char *Filen
 		size_t	size;
 		
 		printf("Total Size: ");	fflush(stdout);
-		size = AST_WriteScript(NULL, ret->Script);
+		size = AST_WriteScript(NULL, ret);
 		printf("0x%x bytes\n", (unsigned)size);
 		
 		fp = fopen(cacheFilename, "wb");
 		if(!fp)	return ret;
 		
 		data = malloc(size);
-		size = AST_WriteScript(data, ret->Script);
+		size = AST_WriteScript(data, ret);
 		fwrite(data, size, 1, fp);
 		free(data);
 		fclose(fp);
@@ -105,31 +107,19 @@ int SpiderScript_SaveBytecode(tSpiderScript *Script, const char *DestFile)
  */
 void SpiderScript_Free(tSpiderScript *Script)
 {
-	tAST_Function	*fcn = Script->Script->Functions;
-	tAST_Function	*nextFcn;
-	tAST_Node	*var, *nextVar;
+	tScript_Function	*fcn = Script->Functions;
+	tScript_Function	*nextFcn;
 	
 	// Free functions
 	while(fcn)
 	{
-		
-		AST_FreeNode( fcn->Code );
-		
-		var = fcn->Arguments;
-		while(var)
-		{
-			nextVar = var->NextSibling;
-			AST_FreeNode( var );
-			var = nextVar;
-		}
-		
+		if(fcn->ASTFcn)	AST_FreeNode( fcn->ASTFcn );
+		if(fcn->BCFcn)	Bytecode_DeleteFunction( fcn->BCFcn );
+
 		nextFcn = fcn->Next;
 		free( fcn );
 		fcn = nextFcn;
 	}
-	
-	// TODO: Pass this off to AST for a proper cleanup
-	free(Script->Script);
 	
 	free(Script);
 }

@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
+#include "common.h"
 #include "ast.h"
 
 #define TRACE_VAR_LOOKUPS	0
@@ -33,6 +34,48 @@ void	AST_RuntimeError(tAST_Node *Node, const char *Format, ...);
  int	giNextBlockIdent = 1;
 
 // === CODE ===
+tSpiderValue *AST_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, int NArguments, tSpiderValue **Arguments)
+{
+	tAST_BlockState	bs;
+	tSpiderValue	*ret;
+	 int	i = 0;
+	
+	// Build a block State
+	bs.FirstVar = NULL;
+	bs.RetVal = NULL;
+	bs.Parent = NULL;
+	bs.BaseNamespace = &Script->Variant->RootNamespace;
+	bs.CurNamespace = NULL;
+	bs.Script = Script;
+	bs.Ident = giNextBlockIdent ++;
+	
+	// Parse arguments
+	for( i = 0; i < Fcn->ArgumentCount; i ++ )
+	{
+		if( i >= NArguments )	break;	// TODO: Return gracefully
+		// TODO: Type checks
+		Variable_Define(&bs,
+			Fcn->Arguments[i].Type, Fcn->Arguments[i].Name,
+			Arguments[i]);
+	}
+			
+	// Execute function
+	ret = AST_ExecuteNode(&bs, Fcn->ASTFcn);
+	if(ret != ERRPTR)
+	{
+		SpiderScript_DereferenceValue(ret);	// Dereference output of last block statement
+		ret = bs.RetVal;	// Set to return value of block
+	}
+			
+	while(bs.FirstVar)
+	{
+		tAST_Variable	*nextVar = bs.FirstVar->Next;
+		Variable_Destroy( bs.FirstVar );
+		bs.FirstVar = nextVar;
+	}
+	return ret;
+}
+
 /**
  * \brief Execute a script function
  * \param Script	Script context to execute in
@@ -47,63 +90,27 @@ tSpiderValue *SpiderScript_ExecuteFunction(tSpiderScript *Script,
 {
 	 int	bFound = 0;	// Used to keep nesting levels down
 	tSpiderValue	*ret = ERRPTR;
-	tSpiderFunction	*fcn;
 	
 	// First: Find the function in the script
 	{
-		tAST_Function	*astFcn;
-		for( astFcn = Script->Script->Functions; astFcn; astFcn = astFcn->Next )
+		tScript_Function	*fcn;
+		for( fcn = Script->Functions; fcn; fcn = fcn->Next )
 		{
-			if( strcmp(astFcn->Name, Function) == 0 )
+			if( strcmp(fcn->Name, Function) == 0 )
 				break;
 		}
 		// Execute!
-		if(astFcn)
+		if(fcn)
 		{
-			tAST_BlockState	bs;
-			tAST_Node	*arg;
-			 int	i = 0;
-			
-			// Build a block State
-			bs.FirstVar = NULL;
-			bs.RetVal = NULL;
-			bs.Parent = NULL;
-			bs.BaseNamespace = &Script->Variant->RootNamespace;
-			bs.CurNamespace = NULL;
-			bs.Script = Script;
-			bs.Ident = giNextBlockIdent ++;
-			
-			// Parse arguments
-			for( arg = astFcn->Arguments; arg; arg = arg->NextSibling, i++ )
-			{
-				if( i >= NArguments )	break;	// TODO: Return gracefully
-				// TODO: Type checks
-				Variable_Define(&bs,
-					arg->DefVar.DataType, arg->DefVar.Name,
-					Arguments[i]);
-			}
-			
-			// Execute function
-			ret = AST_ExecuteNode(&bs, astFcn->Code);
-			if(ret != ERRPTR)
-			{
-				SpiderScript_DereferenceValue(ret);	// Dereference output of last block statement
-				ret = bs.RetVal;	// Set to return value of block
-			}
+			ret = AST_ExecuteFunction(Script, fcn, NArguments, Arguments);
 			bFound = 1;
-			
-			while(bs.FirstVar)
-			{
-				tAST_Variable	*nextVar = bs.FirstVar->Next;
-				Variable_Destroy( bs.FirstVar );
-				bs.FirstVar = nextVar;
-			}
 		}
 	}
 	
 	// Didn't find it in script?
 	if(!bFound)
 	{
+		tSpiderFunction	*fcn;
 		fcn = NULL;	// Just to allow the below code to be neat
 		
 		// Second: Scan current namespace

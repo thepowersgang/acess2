@@ -10,13 +10,14 @@
 #define WANT_TOKEN_STRINGS	1
 #include "tokens.h"
 #include "ast.h"
+#include "common.h"
 
 #define DEBUG	0
 #define	SUPPORT_BREAK_TAGS	1
 
 // === PROTOTYPES ===
-tAST_Script	*Parse_Buffer(tSpiderVariant *Variant, const char *Buffer, const char *Filename);
-void	*Parse_FunctionDefinition(tAST_Script *Script, tSpiderVariant *Variant, tParser *Parser, int Type);
+ int	Parse_Buffer(tSpiderScript *Script, const char *Buffer, const char *Filename);
+void	*Parse_FunctionDefinition(tSpiderScript *Script, tParser *Parser, int Type);
 tAST_Node	*Parse_DoCodeBlock(tParser *Parser);
 tAST_Node	*Parse_DoBlockLine(tParser *Parser);
 tAST_Node	*Parse_GetVarDef(tParser *Parser, int Type);
@@ -60,14 +61,13 @@ void	SyntaxError(tParser *Parser, int bFatal, const char *Message, ...);
 /**
  * \brief Parse a buffer into a syntax tree
  */
-tAST_Script	*Parse_Buffer(tSpiderVariant *Variant, const char *Buffer, const char *Filename)
+int Parse_Buffer(tSpiderScript *Script, const char *Buffer, const char *Filename)
 {
 	tParser	parser = {0};
 	tParser *Parser = &parser;	//< Keeps code consistent
-	tAST_Script	*ret;
 	tAST_Node	*mainCode, *node;
 	 int	type;
-	tAST_Function	*fcn;
+	tScript_Function	*fcn;
 	
 	#if DEBUG >= 2
 	printf("Parse_Buffer: (Variant=%p, Buffer=%p)\n", Variant, Buffer);
@@ -86,7 +86,6 @@ tAST_Script	*Parse_Buffer(tSpiderVariant *Variant, const char *Buffer, const cha
 	parser.Filename += sizeof(int);	// Move filename
 	parser.ErrorHit = 0;
 	
-	ret = AST_NewScript();
 	mainCode = AST_NewCodeBlock(&parser);
 	
 	// Give us an error fallback
@@ -94,24 +93,17 @@ tAST_Script	*Parse_Buffer(tSpiderVariant *Variant, const char *Buffer, const cha
 	{
 		AST_FreeNode( mainCode );
 		
-		for(fcn = ret->Functions; fcn; )
+		for(fcn = Script->Functions; fcn; )
 		{
-			tAST_Node	*var;
-			tAST_Function	*nextFcn;
-			AST_FreeNode( fcn->Code );
-			for(var = fcn->Arguments; var;)
-			{
-				tAST_Node	*nextVar = var->NextSibling;
-				AST_FreeNode( var );
-				var = nextVar;
-			}
+			tScript_Function	*nextFcn;
+			
+			AST_FreeNode( fcn->ASTFcn );
 			
 			nextFcn = fcn->Next;
 			free( fcn );
 			fcn = nextFcn;
 		}
-		free(ret);
-		return NULL;
+		return -1;
 	}
 	
 	// Parse the file!
@@ -131,7 +123,7 @@ tAST_Script	*Parse_Buffer(tSpiderVariant *Variant, const char *Buffer, const cha
 			// Define a function (pass on to the other function definition code)
 			case TOK_IDENT:
 				PutBack(Parser);
-				if( Parse_FunctionDefinition(ret, Variant, Parser, type) == NULL )
+				if( Parse_FunctionDefinition(Script, Parser, type) == NULL )
 					longjmp(Parser->JmpTarget, -1);
 				break ;
 			// Define a variable
@@ -156,14 +148,14 @@ tAST_Script	*Parse_Buffer(tSpiderVariant *Variant, const char *Buffer, const cha
 		
 		// Define a function
 		case TOK_RWD_FUNCTION:
-			if( !Variant->bDyamicTyped ) {
+			if( !Script->Variant->bDyamicTyped ) {
 				SyntaxError(Parser, 1, "Dynamic functions are invalid in static mode");
 				longjmp(Parser->JmpTarget, -1);
 			}
 			
 			type = SS_DATATYPE_DYNAMIC;
 		
-			if( Parse_FunctionDefinition(ret, Variant, Parser, SS_DATATYPE_DYNAMIC) == NULL )
+			if( Parse_FunctionDefinition(Script, Parser, SS_DATATYPE_DYNAMIC) == NULL )
 				longjmp(Parser->JmpTarget, -1);
 		
 			break;
@@ -182,51 +174,66 @@ tAST_Script	*Parse_Buffer(tSpiderVariant *Variant, const char *Buffer, const cha
 			longjmp(Parser->JmpTarget, -1);
 	}
 	
-	fcn = AST_AppendFunction( ret, "", SS_DATATYPE_INTEGER );
-	AST_SetFunctionCode( fcn, mainCode );
+	AST_AppendFunction( Script, "", SS_DATATYPE_INTEGER, NULL, mainCode );
 	
 	//printf("---- %p parsed as SpiderScript ----\n", Buffer);
 	
-	return ret;
+	return 0;
 }
 
-void *Parse_FunctionDefinition(tAST_Script *Script, tSpiderVariant *Variant, tParser *Parser, int Type)
+void *Parse_FunctionDefinition(tSpiderScript *Script, tParser *Parser, int Type)
 {
-	tAST_Function	*fcn;
 	char	*name;
-	 int	type;
+	 int	rv;
+	tAST_Node	*first_arg, *last_arg, *code;
+	
+	last_arg = (void*)&first_arg;	// HACK
 	
 	SyntaxAssert(Parser, GetToken(Parser), TOK_IDENT );
 	
 	name = strndup( Parser->TokenStr, Parser->TokenLen );
-	fcn = AST_AppendFunction( Script, name, Type );
 	#if DEBUG
 	printf("DefFCN %s\n", name);
 	#endif
-	free(name);
 	
 	// Get arguments
 	SyntaxAssert(Parser, GetToken(Parser), TOK_PAREN_OPEN );
 	if( LookAhead(Parser) != TOK_PAREN_CLOSE )
 	{
 		do {
-			type = SS_DATATYPE_DYNAMIC;
+			 int	type = SS_DATATYPE_DYNAMIC;
 			GetToken(Parser);
 			// Non dynamic typed variants must use data types
-			if( !Variant->bDyamicTyped ) {
+			if( !Script->Variant->bDyamicTyped ) {
 				TOKEN_GET_DATATYPE(type, Parser->Token);
 				GetToken(Parser);
 			}
-			AST_AppendFunctionArg(fcn, Parse_GetVarDef(Parser, type)); 
+			last_arg->NextSibling = Parse_GetVarDef(Parser, type);
+			last_arg = last_arg->NextSibling;
+			last_arg->NextSibling = NULL;
 		}	while(GetToken(Parser) == TOK_COMMA);
 	}
 	else
 		GetToken(Parser);
 	SyntaxAssert(Parser, Parser->Token, TOK_PAREN_CLOSE );
+
+	code = Parse_DoCodeBlock(Parser);
+
+	rv = AST_AppendFunction( Script, name, Type, first_arg, code );
+
+	// Clean up argument definition nodes
+	{
+		tAST_Node	*nextarg;
+		for( ; first_arg; first_arg = nextarg )
+		{
+			nextarg = first_arg->NextSibling;
+			AST_FreeNode(first_arg);
+		}
+	}
+
+	free(name);
 	
-	AST_SetFunctionCode( fcn, Parse_DoCodeBlock(Parser) );
-	
-	return fcn;
+	return rv == 0 ? (void*)1 : NULL;
 }
 
 /**

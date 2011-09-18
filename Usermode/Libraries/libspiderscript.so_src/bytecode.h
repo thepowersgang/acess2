@@ -28,8 +28,6 @@ struct sBC_Op
 
 struct sBC_Function
 {
-	const char	*Name;
-	
 	 int	LabelCount;
 	 int	LabelSpace;
 	tBC_Op	**Labels;
@@ -38,18 +36,12 @@ struct sBC_Function
 	// NOTE: These fields are invalid after compilation
 	 int	VariableCount;
 	 int	VariableSpace;
-	const char	**VariableNames;	// Only type needs to be stored
+	const char	**VariableNames;
 	 int	CurContextDepth;	// Used to get the real var count
 
 	 int	OperationCount;
 	tBC_Op	*Operations;
 	tBC_Op	*OperationsEnd;
-
-	 int	ArgumentCount;
-	struct {
-		char	*Name;
-		 int	Type;
-	}	Arguments[];
 };
 
 #endif

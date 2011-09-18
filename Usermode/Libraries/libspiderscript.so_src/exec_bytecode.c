@@ -2,12 +2,12 @@
  * SpiderScript Library
  * by John Hodge (thePowersGang)
  * 
- * bytecode_makefile.c
- * - Generate a bytecode file
+ * exec_bytecode.c
+ * - Execute bytecode
  */
 #include <stdlib.h>
 #include <stdint.h>
-#include <spiderscript.h>
+#include "common.h"
 #include "bytecode.h"
 #include <string.h>
 #include "ast.h"
@@ -40,6 +40,10 @@ struct sBC_Stack
 	 int	EntryCount;
 	tBC_StackEnt	Entries[];
 };
+
+// === PROTOTYPES ===
+tSpiderValue	*Bytecode_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, int NArguments, tSpiderValue **Args);
+ int	Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, tBC_Stack *Stack, int ArgCount);
 
 // === CODE ===
 int Bytecode_int_StackPop(tBC_Stack *Stack, tBC_StackEnt *Dest)
@@ -128,12 +132,48 @@ void Bytecode_int_SetSpiderValue(tBC_StackEnt *Ent, tSpiderValue *Value)
 #define OP_INDX(op_ptr)	((op_ptr)->Content.StringInt.Integer)
 #define OP_STRING(op_ptr)	((op_ptr)->Content.StringInt.String)
 
-int Bytecode_ExecuteFunction(tSpiderScript *Script, tBC_Function *Fcn, tBC_Stack *Stack, int ArgCount)
+tSpiderValue *Bytecode_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, int NArguments, tSpiderValue **Args)
+{
+	const int	stack_size = 100;
+	tSpiderValue	*ret, tmpsval;
+	tBC_Stack	*stack;
+	tBC_StackEnt	val;
+	 int	i;
+	
+	stack = malloc(sizeof(tBC_Stack) + stack_size*sizeof(tBC_StackEnt));
+	stack->EntrySpace = stack_size;
+	stack->EntryCount = 0;
+
+	// Push arguments in order (so top is last arg)
+	for( i = 0; i < NArguments; i ++ )
+	{
+		Bytecode_int_SetSpiderValue(&val, Args[i]);
+		Bytecode_int_StackPush(stack, &val);
+	}
+
+	// Call
+	Bytecode_int_ExecuteFunction(Script, Fcn, stack, NArguments);
+
+	// Get return value
+	Bytecode_int_StackPop(stack, &val);
+	ret = Bytecode_int_GetSpiderValue(&val, &tmpsval);
+	// Ensure it's a heap value
+	if(ret == &tmpsval) {
+		ret = malloc(sizeof(tSpiderValue));
+		memcpy(ret, &tmpsval, sizeof(tSpiderValue));
+	}
+	return ret;
+}
+
+/**
+ * \brief Execute a bytecode function with a stack
+ */
+int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, tBC_Stack *Stack, int ArgCount)
 {
 	 int	ret, ast_op, i;
 	tBC_Op	*op;
 	tBC_StackEnt	val1, val2;
-	tBC_StackEnt	local_vars[Fcn->MaxVariableCount];	// Includes arguments
+	tBC_StackEnt	local_vars[Fcn->BCFcn->MaxVariableCount];	// Includes arguments
 	tSpiderValue	tmpVal1, tmpVal2;	// temp storage
 	tSpiderValue	*pval1, *pval2, *ret_val;
 	
@@ -156,7 +196,7 @@ int Bytecode_ExecuteFunction(tSpiderScript *Script, tBC_Function *Fcn, tBC_Stack
 	Bytecode_int_StackPush(Stack, &val1);
 
 	// Execute!
-	op = Fcn->Operations;
+	op = Fcn->BCFcn->Operations;
 	while(op)
 	{
 		tBC_Op	*nextop = op->Next;
@@ -165,17 +205,17 @@ int Bytecode_ExecuteFunction(tSpiderScript *Script, tBC_Function *Fcn, tBC_Stack
 		{
 		// Jumps
 		case BC_OP_JUMP:
-			nextop = Fcn->Labels[ OP_INDX(op) ];
+			nextop = Fcn->BCFcn->Labels[ OP_INDX(op) ];
 			break;
 		case BC_OP_JUMPIF:
 			GET_STACKVAL(val1);
 			if( Bytecode_int_IsStackEntTrue(&val1) )
-				nextop = Fcn->Labels[op->Content.StringInt.Integer];
+				nextop = Fcn->BCFcn->Labels[ OP_INDX(op) ];
 			break;
 		case BC_OP_JUMPIFNOT:
 			GET_STACKVAL(val1);
 			if( !Bytecode_int_IsStackEntTrue(&val1) )
-				nextop = Fcn->Labels[op->Content.StringInt.Integer];
+				nextop = Fcn->BCFcn->Labels[ OP_INDX(op) ];
 			break;
 		
 		// Define variables

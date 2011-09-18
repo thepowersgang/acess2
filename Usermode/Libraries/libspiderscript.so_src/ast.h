@@ -76,31 +76,6 @@ enum eAST_NodeTypes
 	NODETYPE_MODULO,	//!< Modulus
 };
 
-struct sSpiderScript
-{
-	tSpiderVariant	*Variant;
-	tAST_Script	*Script;
-	char	*CurNamespace;	//!< Current namespace prefix (NULL = Root) - No trailing .
-};
-
-struct sAST_Script
-{
-	// TODO: Namespaces and Classes
-	tAST_Function	*Functions;
-	tAST_Function	*LastFunction;
-};
-
-struct sAST_Function
-{
-	tAST_Function	*Next;	//!< Next function in list
-	 int	ReturnType;
-	tAST_Node	*Code;	//!< Function Code
-	tAST_Node	*Arguments;	// HACKJOB (Only NODETYPE_DEFVAR is allowed)
-	tAST_Node	*Arguments_Last;
-	 int	ArgumentCount;
-	char	Name[];	//!< Function Name
-};
-
 struct sAST_Node
 {
 	tAST_Node	*NextSibling;
@@ -215,12 +190,10 @@ struct sAST_Variable
 
 // === FUNCTIONS ===
 extern tAST_Script	*AST_NewScript(void);
-extern size_t	AST_WriteScript(void *Buffer, tAST_Script *Script);
+extern size_t	AST_WriteScript(void *Buffer, tSpiderScript *Script);
 extern size_t	AST_WriteNode(void *Buffer, size_t Offset, tAST_Node *Node);
 
-extern tAST_Function	*AST_AppendFunction(tAST_Script *Script, const char *Name, int ReturnType);
-extern void	AST_AppendFunctionArg(tAST_Function *Function, tAST_Node *Arg);
-extern void	AST_SetFunctionCode(tAST_Function *Function, tAST_Node *Root);
+extern int	AST_AppendFunction(tSpiderScript *Script, const char *Name, int ReturnType, tAST_Node *FirstArg, tAST_Node *Code);
 
 extern tAST_Node	*AST_NewNop(tParser *Parser);
 

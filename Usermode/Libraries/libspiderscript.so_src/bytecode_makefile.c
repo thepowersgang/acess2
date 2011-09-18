@@ -21,11 +21,12 @@
 int Bytecode_ConvertScript(tSpiderScript *Script, const char *DestFile)
 {
 	tStringList	strings = {0};
-	tAST_Function	*fcn;
+	tScript_Function	*fcn;
 	FILE	*fp;
 	 int	fcn_hdr_offset = 0;
 	 int	fcn_count = 0;
 	 int	strtab_ofs;
+	 int	i;
 
 	void _put8(uint8_t val)
 	{
@@ -52,12 +53,11 @@ int Bytecode_ConvertScript(tSpiderScript *Script, const char *DestFile)
 	fcn_hdr_offset = ftell(fp);
 
 	// Create function descriptors
-	for(fcn = Script->Script->Functions; fcn; fcn = fcn->Next, fcn_count ++)
+	for(fcn = Script->Functions; fcn; fcn = fcn->Next, fcn_count ++)
 	{
-		tAST_Node *arg;
-
 		_put32( StringList_GetString(&strings, fcn->Name, strlen(fcn->Name)) );
 		_put32( 0 );	// Code offset
+		// TODO: 
 		_put8( fcn->ReturnType );
 		
 		if(fcn->ArgumentCount > 255) {
@@ -67,19 +67,18 @@ int Bytecode_ConvertScript(tSpiderScript *Script, const char *DestFile)
 		_put8( fcn->ArgumentCount );
 
 		// Argument types?
-		for(arg = fcn->Arguments; arg; arg = arg->NextSibling)
+		for( i = 0; i < fcn->ArgumentCount; i ++ )
 		{
-			_put32( StringList_GetString(&strings, arg->DefVar.Name, strlen(arg->DefVar.Name)) );
-			_put8( arg->DefVar.DataType );
+			_put32( StringList_GetString(&strings, fcn->Arguments[i].Name, strlen(fcn->Arguments[i].Name)) );
+			_put8( fcn->Arguments[i].Type );
 		}
 	}
 
 	// Put function code in
-	for(fcn = Script->Script->Functions; fcn; fcn = fcn->Next)
+	for(fcn = Script->Functions; fcn; fcn = fcn->Next)
 	{
 		char	*code;
 		 int	len, code_pos;
-		tBC_Function	*bc_fcn;
 	
 		// Fix header	
 		code_pos = ftell(fp);
@@ -90,9 +89,8 @@ int Bytecode_ConvertScript(tSpiderScript *Script, const char *DestFile)
 		fcn_hdr_offset += 4+4+1+1+(4+1)*fcn->ArgumentCount;
 		
 		// Write code
-		bc_fcn = Bytecode_ConvertFunction(fcn);
-		code = Bytecode_SerialiseFunction(bc_fcn, &len, &strings);
-		Bytecode_DeleteFunction(bc_fcn);
+		if( !fcn->BCFcn )	Bytecode_ConvertFunction(fcn);
+		code = Bytecode_SerialiseFunction(fcn->BCFcn, &len, &strings);
 		fwrite(code, len, 1, fp);
 		free(code);
 	}

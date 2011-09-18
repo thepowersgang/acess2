@@ -8,12 +8,12 @@
 #ifndef _BYTECODE_GEN_H_
 #define _BYTECODE_GEN_H_
 
+#include "common.h"
 #include "ast.h"
 #include "bytecode.h"
 
 typedef struct sStringList	tStringList;
 typedef struct sString	tString;
-//typedef struct sAST_Function	tAST_Function;
 
 struct sString
 {
@@ -32,13 +32,13 @@ struct sStringList
 
 
 extern int	Bytecode_ConvertScript(tSpiderScript *Script, const char *DestFile);
-extern tBC_Function	*Bytecode_ConvertFunction(tAST_Function *ASTFcn);
+extern tBC_Function	*Bytecode_ConvertFunction(tScript_Function *Fcn);
 extern tBC_Function	*Bytecode_NewBlankFunction(void);
 extern void	Bytecode_DeleteFunction(tBC_Function *Fcn);
 
 extern char *Bytecode_SerialiseFunction(const tBC_Function *Function, int *Length, tStringList *Strings);
 extern int	StringList_GetString(tStringList *List, const char *String, int Length);
-extern tBC_Function	*Bytecode_CreateFunction(const char *Name, int ArgCount, char **ArgNames, int *ArgTypes);
+extern tBC_Function	*Bytecode_CreateFunction(tScript_Function *Fcn);
 
 extern int	Bytecode_AllocateLabel(tBC_Function *Handle);
 extern void	Bytecode_SetLabel(tBC_Function *Handle, int Label);

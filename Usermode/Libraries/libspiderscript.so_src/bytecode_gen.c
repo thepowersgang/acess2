@@ -38,15 +38,14 @@ tBC_Op *Bytecode_int_AllocateOp(int Operation)
 	return ret;
 }
 
-tBC_Function *Bytecode_CreateFunction(const char *Name, int ArgCount, char **ArgNames, int *ArgTypes)
+tBC_Function *Bytecode_CreateFunction(tScript_Function *Fcn)
 {
 	tBC_Function *ret;
 	 int	i;
 
-	ret = malloc(sizeof(tBC_Function) + ArgCount*sizeof(ret->Arguments[0]));
+	ret = malloc(sizeof(tBC_Function));
 	if(!ret)	return NULL;
 	
-	ret->Name = Name;
 	ret->LabelSpace = ret->LabelCount = 0;
 	ret->Labels = NULL;
 
@@ -59,12 +58,9 @@ tBC_Function *Bytecode_CreateFunction(const char *Name, int ArgCount, char **Arg
 	ret->Operations = NULL;
 	ret->OperationsEnd = (void*)&ret->Operations;
 
-	ret->ArgumentCount = ArgCount;
-	for( i = 0; i < ArgCount; i ++ )
+	for( i = 0; i < Fcn->ArgumentCount; i ++ )
 	{
-		ret->Arguments[i].Name = strdup(ArgNames[i]);
-		ret->Arguments[i].Type = ArgTypes[i];
-		Bytecode_int_AddVariable(ret, ret->Arguments[i].Name);
+		Bytecode_int_AddVariable(ret, Fcn->Arguments[i].Name);
 	}
 
 	return ret;
@@ -73,11 +69,6 @@ tBC_Function *Bytecode_CreateFunction(const char *Name, int ArgCount, char **Arg
 void Bytecode_DeleteFunction(tBC_Function *Fcn)
 {
 	tBC_Op	*op;
-	 int	i;
-	for( i = 0; i < Fcn->ArgumentCount; i ++ )
-	{
-		free(Fcn->Arguments[i].Name);
-	}
 	for( op = Fcn->Operations; op; )
 	{
 		tBC_Op	*nextop = op->Next;

@@ -5,68 +5,61 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "common.h"
 #include "ast.h"
 
 // === IMPORTS ===
 extern void	SyntaxError(tParser *Parser, int bFatal, const char *Message, ...);
 
 // === CODE ===
-tAST_Script *AST_NewScript(void)
-{
-	tAST_Script	*ret = malloc( sizeof(tAST_Script) );
-	
-	ret->Functions = NULL;
-	ret->LastFunction = NULL;
-	
-	return ret;
-}
-
 /**
  * \brief Append a function to a script
  */
-tAST_Function *AST_AppendFunction(tAST_Script *Script, const char *Name, int ReturnType)
+int AST_AppendFunction(tSpiderScript *Script, const char *Name, int ReturnType, tAST_Node *Args, tAST_Node *Code)
 {
-	tAST_Function	*ret;
+	tScript_Function	*fcn;
+	 int	arg_count = 0, arg_bytes = 0;
+	tAST_Node	*arg;
+
+	// Count and size arguments
+	for(arg = Args; arg; arg = arg->NextSibling)
+	{
+		arg_count ++;
+		arg_bytes += sizeof(fcn->Arguments[0]) + strlen(Args->DefVar.Name) + 1;
+	}
+
+	// Allocate information
+	fcn = malloc( sizeof(tScript_Function) + arg_bytes + strlen(Name) + 1 );
+	if(!fcn)	return -1;
+	fcn->Next = NULL;
+	fcn->Name = (char*)&fcn->Arguments[arg_count];
+	strcpy(fcn->Name, Name);
+	fcn->ReturnType = ReturnType;
+	fcn->ArgumentCount = arg_count;
+	fcn->ASTFcn = Code;
+	fcn->BCFcn = NULL;
 	
-	ret = malloc( sizeof(tAST_Function) + strlen(Name) + 1 );
-	if(!ret)	return NULL;
-	
-	ret->Next = NULL;
-	strcpy(ret->Name, Name);
-	ret->Code = NULL;
-	ret->Arguments = NULL;
-	ret->ArgumentCount = 0;
-	ret->ReturnType = ReturnType;
+	// Set arguments
+	arg_bytes = strlen(Name) + 1;	// Used as an offset into fcn->Name
+	arg_count = 0;
+	for(arg = Args; arg; arg = arg->NextSibling)
+	{
+		fcn->Arguments[arg_count].Name = fcn->Name + arg_bytes;
+		strcpy(fcn->Arguments[arg_count].Name, arg->DefVar.Name);
+		fcn->Arguments[arg_count].Type = arg->DefVar.DataType;
+		arg_bytes += strlen(arg->DefVar.Name) + 1;
+		arg_count ++;
+	}
 	
 	if(Script->LastFunction == NULL) {
-		Script->Functions = Script->LastFunction = ret;
+		Script->Functions = Script->LastFunction = fcn;
 	}
 	else {
-		Script->LastFunction->Next = ret;
-		Script->LastFunction = ret;
+		Script->LastFunction->Next = fcn;
+		Script->LastFunction = fcn;
 	}
 	
-	return ret;
-}
-
-void AST_AppendFunctionArg(tAST_Function *Function, tAST_Node *Node)
-{
-	if( !Function->Arguments ) {
-		Function->Arguments_Last = Function->Arguments = Node;
-	}
-	else {
-		Function->Arguments_Last->NextSibling = Node;
-		Function->Arguments_Last = Node;
-	}
-	Function->ArgumentCount ++;
-}
-
-/**
- * \brief Set the code for a function
- */
-void AST_SetFunctionCode(tAST_Function *Function, tAST_Node *Root)
-{
-	Function->Code = Root;
+	return 0;
 }
 
 /**
@@ -122,10 +115,11 @@ void AST_SetFunctionCode(tAST_Function *Function, tAST_Node *Root)
  * \return Size of encoded data
  * \note If \a Buffer is NULL, no write is done, but the size is still returned
  */
-size_t AST_WriteScript(void *Buffer, tAST_Script *Script)
+size_t AST_WriteScript(void *Buffer, tSpiderScript *Script)
 {
-	tAST_Function	*fcn;
+	tScript_Function	*fcn;
 	size_t	ret = 0, ptr = 0;
+	 int	i;
 	
 	for( fcn = Script->Functions; fcn; fcn = fcn->Next )
 	{
@@ -133,9 +127,14 @@ size_t AST_WriteScript(void *Buffer, tAST_Script *Script)
 		ptr = ret;
 		WRITE_32(Buffer, ret, 0);	// Next
 		WRITE_STR(Buffer, ret, fcn->Name);
-		WRITE_NODELIST(Buffer, ret, fcn->Arguments);	// TODO: Cheaper way
-		ret += AST_WriteNode(Buffer, ret, fcn->Code);
-		WRITE_32(Buffer, ptr, ret);	// Actually set next
+		WRITE_32(Buffer, ret, fcn->ArgumentCount);
+		for( i = 0; i < fcn->ArgumentCount; i ++ )
+		{
+			WRITE_16(Buffer, ret, fcn->Arguments[i].Type);
+			WRITE_STR(Buffer, ret, fcn->Arguments[i].Name);
+		}
+		ret += AST_WriteNode(Buffer, ret, fcn->ASTFcn);
+		WRITE_32(Buffer, ptr, ret);	// Actually set `Next`
 	}
 	if( ptr )
 	{
@@ -492,7 +491,9 @@ tAST_Node *AST_NewLoop(tParser *Parser, const char *Tag, tAST_Node *Init, int bP
 {
 	tAST_Node	*ret;
 	if(!Tag)	Tag = "";
-	ret = AST_int_AllocateNode(Parser, NODETYPE_LOOP, strlen(Tag) + 1);
+	// NOTE: The +3) & ~3 is to align the size to 4 bytes, and shut valgrind up
+	// - GCC sometimes inlines strlen as a loop of dword reads, triggering valgrind
+	ret = AST_int_AllocateNode(Parser, NODETYPE_LOOP, (strlen(Tag) + 1 + 3) & ~3);
 	ret->For.Init = Init;
 	ret->For.bCheckAfter = !!bPostCheck;
 	ret->For.Condition = Condition;
