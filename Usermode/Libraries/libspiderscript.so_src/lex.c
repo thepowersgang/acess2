@@ -377,7 +377,7 @@ int GetToken(tParser *File)
 			break;
 		}
 		// Syntax Error
-		ret = TOK_INVAL;
+		File->Token = TOK_INVAL;
 		
 		fprintf(stderr, "Syntax Error: Unknown symbol '%c'\n", *File->CurPos);
 		longjmp(File->JmpTarget, 1);

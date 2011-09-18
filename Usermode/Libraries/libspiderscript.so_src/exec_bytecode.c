@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include "common.h"
 #include "bytecode.h"
+#include <stdio.h>
 #include <string.h>
 #include "ast.h"
 
@@ -156,12 +157,15 @@ tSpiderValue *Bytecode_ExecuteFunction(tSpiderScript *Script, tScript_Function *
 
 	// Get return value
 	Bytecode_int_StackPop(stack, &val);
+	free(stack);
 	ret = Bytecode_int_GetSpiderValue(&val, &tmpsval);
 	// Ensure it's a heap value
 	if(ret == &tmpsval) {
 		ret = malloc(sizeof(tSpiderValue));
 		memcpy(ret, &tmpsval, sizeof(tSpiderValue));
 	}
+
+
 	return ret;
 }
 
@@ -179,8 +183,10 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 	
 	// Pop off arguments
 	if( ArgCount > Fcn->ArgumentCount )	return -1;
-	for( i = Fcn->ArgumentCount; --i != ArgCount; )
+	printf("Fcn->ArgumentCount = %i\n", Fcn->ArgumentCount);
+	for( i = Fcn->ArgumentCount; i > ArgCount; )
 	{
+		i --;
 		local_vars[i].Integer = 0;
 		local_vars[i].Type = Fcn->Arguments[i].Type;
 	}
@@ -247,6 +253,7 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 
 		default:
 			// TODO:
+			printf("Unknown operation %i\n", op->Operation);
 			break;
 		}
 		op = nextop;

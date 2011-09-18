@@ -44,6 +44,17 @@ void	AST_RuntimeError(tAST_Node *Node, const char *Format, ...);
 // int	giNextBlockIdent = 1;
 
 // === CODE ===
+int SpiderScript_BytecodeScript(tSpiderScript *Script)
+{
+	tScript_Function	*fcn;
+	for(fcn = Script->Functions; fcn; fcn = fcn->Next)
+	{
+		if( Bytecode_ConvertFunction(fcn) == 0 )
+			return -1;
+	}
+	return 0;
+}
+
 /**
  * \brief Convert a function into bytecode
  */
@@ -53,7 +64,7 @@ tBC_Function *Bytecode_ConvertFunction(tScript_Function *Fcn)
 	tAST_BlockInfo bi = {0};
 
 	// TODO: Return BCFcn instead?
-	if(Fcn->BCFcn)	return NULL;
+	if(Fcn->BCFcn)	return Fcn->BCFcn;
 	
 	ret = Bytecode_CreateFunction(Fcn);
 	if(!ret)	return NULL;

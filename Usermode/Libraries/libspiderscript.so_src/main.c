@@ -30,14 +30,10 @@ int SoMain()
  */
 tSpiderScript *SpiderScript_ParseFile(tSpiderVariant *Variant, const char *Filename)
 {
-	char	cacheFilename[strlen(Filename)+6+1];
 	char	*data;
 	 int	fLen;
 	FILE	*fp;
 	tSpiderScript	*ret;
-	
-	strcpy(cacheFilename, Filename);
-	strcat(cacheFilename, ".cache");
 	
 	fp = fopen(Filename, "r");
 	if( !fp ) {
@@ -77,29 +73,51 @@ tSpiderScript *SpiderScript_ParseFile(tSpiderVariant *Variant, const char *Filen
 	
 	
 	// HACK!!
+	// - Save AST to a file
 	{
-		size_t	size;
-		
-		printf("Total Size: ");	fflush(stdout);
-		size = AST_WriteScript(NULL, ret);
-		printf("0x%x bytes\n", (unsigned)size);
-		
-		fp = fopen(cacheFilename, "wb");
-		if(!fp)	return ret;
-		
-		data = malloc(size);
-		size = AST_WriteScript(data, ret);
-		fwrite(data, size, 1, fp);
-		free(data);
-		fclose(fp);
+		char	cacheFilename[strlen(Filename)+6+1];
+		strcpy(cacheFilename, Filename);
+		strcat(cacheFilename, ".ast");
+	
+		SpiderScript_SaveAST(ret, cacheFilename);	
+	}
+	// - Save Bytecode too
+	{
+		char	cacheFilename[strlen(Filename)+6+1];
+		strcpy(cacheFilename, Filename);
+		strcat(cacheFilename, ".bc");
+	
+		SpiderScript_SaveBytecode(ret, cacheFilename);	
 	}
 	
 	return ret;
 }
 
-int SpiderScript_SaveBytecode(tSpiderScript *Script, const char *DestFile)
+int SpiderScript_SaveAST(tSpiderScript *Script, const char *Filename)
 {
-	return Bytecode_ConvertScript(Script, DestFile);
+	size_t	size;
+	FILE	*fp;
+	void	*data;
+	printf("Total Size: ");
+	fflush(stdout);
+	size = AST_WriteScript(NULL, Script);
+	printf("0x%x bytes\n", (unsigned)size);
+	
+	fp = fopen(Filename, "wb");
+	if(!fp)	return 1;
+
+	data = malloc(size);
+	if(!data) {
+		fclose(fp);
+		return -1;
+	}
+	
+	size = AST_WriteScript(data, Script);
+	fwrite(data, size, 1, fp);
+	free(data);
+
+	fclose(fp);
+	return 0;
 }
 
 /**

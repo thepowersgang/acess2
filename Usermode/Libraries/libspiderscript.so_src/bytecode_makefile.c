@@ -18,7 +18,7 @@
 // === GLOBALS ===
 
 // === CODE ===
-int Bytecode_ConvertScript(tSpiderScript *Script, const char *DestFile)
+int SpiderScript_SaveBytecode(tSpiderScript *Script, const char *DestFile)
 {
 	tStringList	strings = {0};
 	tScript_Function	*fcn;
@@ -57,7 +57,7 @@ int Bytecode_ConvertScript(tSpiderScript *Script, const char *DestFile)
 	{
 		_put32( StringList_GetString(&strings, fcn->Name, strlen(fcn->Name)) );
 		_put32( 0 );	// Code offset
-		// TODO: 
+		// TODO: Namespace
 		_put8( fcn->ReturnType );
 		
 		if(fcn->ArgumentCount > 255) {
