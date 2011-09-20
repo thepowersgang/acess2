@@ -18,22 +18,23 @@
 // === STRUCTURES ===
 
 // === PROTOTYPES ===
-tBC_Op	*Bytecode_int_AllocateOp(int Operation);
+tBC_Op	*Bytecode_int_AllocateOp(int Operation, int ExtraBytes);
  int	Bytecode_int_AddVariable(tBC_Function *Handle, const char *Name);
 
 // === GLOBALS ===
 
 // === CODE ===
-tBC_Op *Bytecode_int_AllocateOp(int Operation)
+tBC_Op *Bytecode_int_AllocateOp(int Operation, int ExtraBytes)
 {
 	tBC_Op	*ret;
 
-	ret = malloc(sizeof(tBC_Op));
+	ret = malloc(sizeof(tBC_Op) + ExtraBytes);
 	if(!ret)	return NULL;
 
 	ret->Next = NULL;
 	ret->Operation = Operation;
 	ret->bUseInteger = 0;
+	ret->bUseString = (ExtraBytes > 0);
 
 	return ret;
 }
@@ -197,7 +198,7 @@ int Bytecode_int_Serialize(const tBC_Function *Function, void *Output, int *Labe
 			break;
 		// Everthing else just gets handled nicely
 		default:
-			if( op->Content.StringInt.String )
+			if( op->bUseString )
 				_put_string(op->Content.StringInt.String, strlen(op->Content.StringInt.String));
 			if( op->bUseInteger )
 				_put_dword(op->Content.StringInt.Integer);
@@ -283,77 +284,97 @@ int Bytecode_int_AddVariable(tBC_Function *Handle, const char *Name)
 	// Get max count (used when executing to get the frame size)
 	if(Handle->VariableCount - Handle->CurContextDepth >= Handle->MaxVariableCount)
 		Handle->MaxVariableCount = Handle->VariableCount - Handle->CurContextDepth;
-	return Handle->VariableCount - 1;
+//	printf("_AddVariable: %s given %i\n", Name, Handle->VariableCount - Handle->CurContextDepth - 1);
+	return Handle->VariableCount - Handle->CurContextDepth - 1;
 }
 
 int Bytecode_int_GetVarIndex(tBC_Function *Handle, const char *Name)
 {
-	 int	i;
+	 int	i, context_depth = Handle->CurContextDepth;
 	// Get the start of this context
 	for( i = Handle->VariableCount; i --; )
 	{
-		if( Handle->VariableNames[i] && strcmp(Name, Handle->VariableNames[i]) == 0 )
-			return i;
+		if( !Handle->VariableNames[i] ) {
+			context_depth --;
+			continue ;
+		}
+		if( strcmp(Name, Handle->VariableNames[i]) == 0 )
+			return i - context_depth;
 	}
 	return -1;
 }
 
 #define DEF_BC_NONE(_op) { \
-	tBC_Op *op = Bytecode_int_AllocateOp(_op); \
+	tBC_Op *op = Bytecode_int_AllocateOp(_op, 0); \
 	op->Content.Integer = 0; \
 	op->bUseInteger = 0; \
 	Bytecode_int_AppendOp(Handle, op);\
 }
 
-#define DEF_BC_STRINT(_op, _str, _int) { \
-	tBC_Op *op = Bytecode_int_AllocateOp(_op);\
+#define DEF_BC_INT(_op, _int) {\
+	tBC_Op *op = Bytecode_int_AllocateOp(_op, 0);\
 	op->Content.StringInt.Integer = _int;\
-	op->Content.StringInt.String = _str;\
 	op->bUseInteger = 1;\
+	op->bUseString = 0;\
+	Bytecode_int_AppendOp(Handle, op);\
+}
+
+#define DEF_BC_STRINT(_op, _str, _int) { \
+	tBC_Op *op = Bytecode_int_AllocateOp(_op, strlen(_str));\
+	op->Content.StringInt.Integer = _int;\
+	strcpy(op->Content.StringInt.String, _str);\
+	op->bUseInteger = 1;\
+	op->bUseString = 1;\
 	Bytecode_int_AppendOp(Handle, op);\
 }
 #define DEF_BC_STR(_op, _str) {\
-	tBC_Op *op = Bytecode_int_AllocateOp(_op);\
-	op->Content.StringInt.String = _str;\
+	tBC_Op *op = Bytecode_int_AllocateOp(_op, strlen(_str));\
+	strcpy(op->Content.StringInt.String, _str);\
 	op->bUseInteger = 0;\
 	Bytecode_int_AppendOp(Handle, op);\
 }
 
 // --- Flow Control
 void Bytecode_AppendJump(tBC_Function *Handle, int Label)
-	DEF_BC_STRINT(BC_OP_JUMP, NULL, Label)
+	DEF_BC_INT(BC_OP_JUMP, Label)
 void Bytecode_AppendCondJump(tBC_Function *Handle, int Label)
-	DEF_BC_STRINT(BC_OP_JUMPIF, NULL, Label)
+	DEF_BC_INT(BC_OP_JUMPIF, Label)
+void Bytecode_AppendCondJumpNot(tBC_Function *Handle, int Label)
+	DEF_BC_INT(BC_OP_JUMPIFNOT, Label)
 void Bytecode_AppendReturn(tBC_Function *Handle)
 	DEF_BC_NONE(BC_OP_RETURN);
 
 // --- Variables
 void Bytecode_AppendLoadVar(tBC_Function *Handle, const char *Name)
-	DEF_BC_STRINT(BC_OP_LOADVAR, NULL, Bytecode_int_GetVarIndex(Handle, Name))
+	DEF_BC_INT(BC_OP_LOADVAR, Bytecode_int_GetVarIndex(Handle, Name))
 //	DEF_BC_STR(BC_OP_LOADVAR, Name)
 void Bytecode_AppendSaveVar(tBC_Function *Handle, const char *Name)	// (Obj->)?var = 
-	DEF_BC_STRINT(BC_OP_SAVEVAR, NULL, Bytecode_int_GetVarIndex(Handle, Name))
+	DEF_BC_INT(BC_OP_SAVEVAR, Bytecode_int_GetVarIndex(Handle, Name))
 //	DEF_BC_STR(BC_OP_SAVEVAR, Name)
 
 // --- Constants
 void Bytecode_AppendConstInt(tBC_Function *Handle, uint64_t Value)
 {
-	tBC_Op *op = Bytecode_int_AllocateOp(BC_OP_LOADINT);
+	tBC_Op *op = Bytecode_int_AllocateOp(BC_OP_LOADINT, 0);
 	op->Content.Integer = Value;
 	Bytecode_int_AppendOp(Handle, op);
 }
 void Bytecode_AppendConstReal(tBC_Function *Handle, double Value)
 {
-	tBC_Op *op = Bytecode_int_AllocateOp(BC_OP_LOADREAL);
+	tBC_Op *op = Bytecode_int_AllocateOp(BC_OP_LOADREAL, 0);
 	op->Content.Real = Value;
 	Bytecode_int_AppendOp(Handle, op);
 }
 void Bytecode_AppendConstString(tBC_Function *Handle, const void *Data, size_t Length)
-	DEF_BC_STRINT(BC_OP_LOADSTR, Data, Length)
+{
+	tBC_Op *op = Bytecode_int_AllocateOp(BC_OP_LOADSTR, Length+1);
+	op->Content.StringInt.Integer = Length;
+	memcpy(op->Content.StringInt.String, Data, Length);
+	op->Content.StringInt.String[Length] = 0;
+	Bytecode_int_AppendOp(Handle, op);
+}
 
 // --- Indexing / Scoping
-void Bytecode_AppendSubNamespace(tBC_Function *Handle, const char *Name)
-	DEF_BC_STR(BC_OP_SCOPE, Name)
 void Bytecode_AppendElement(tBC_Function *Handle, const char *Name)
 	DEF_BC_STR(BC_OP_ELEMENT, Name)
 void Bytecode_AppendIndex(tBC_Function *Handle)
@@ -371,7 +392,9 @@ void Bytecode_AppendBinOp(tBC_Function *Handle, int Operation)
 void Bytecode_AppendUniOp(tBC_Function *Handle, int Operation)
 	DEF_BC_NONE(Operation)
 void Bytecode_AppendCast(tBC_Function *Handle, int Type)
-	DEF_BC_STRINT(BC_OP_CAST, NULL, Type)
+	DEF_BC_INT(BC_OP_CAST, Type)
+void Bytecode_AppendDuplicate(tBC_Function *Handle)
+	DEF_BC_NONE(BC_OP_DUPSTACK);
 
 // Does some bookeeping to allocate variable slots at compile time
 void Bytecode_AppendEnterContext(tBC_Function *Handle)
@@ -413,6 +436,7 @@ void Bytecode_AppendDefineVar(tBC_Function *Handle, const char *Name, int Type)
 	#endif
 
 	i = Bytecode_int_AddVariable(Handle, Name);
-	
+//	printf("Variable %s given slot %i\n", Name, i);	
+
 	DEF_BC_STRINT(BC_OP_DEFINEVAR, Name, (Type&0xFFFF) | (i << 16))
 }

@@ -7,6 +7,8 @@
 
 #include "bytecode_ops.h"
 
+#define BC_NS_SEPARATOR	'@'
+
 typedef struct sBC_Op	tBC_Op;
 typedef struct sBC_Function	tBC_Function;
 
@@ -14,11 +16,12 @@ struct sBC_Op
 {
 	tBC_Op	*Next;
 	 int	Operation;
-	 int	bUseInteger;	// Used for serialisation
+	char	bUseInteger;	// Used for serialisation
+	char	bUseString;	// Used for serialisation
 	union {
 		struct {
-			const char *String;
 			 int	Integer;
+			char	String[];
 		} StringInt;
 		
 		uint64_t	Integer;

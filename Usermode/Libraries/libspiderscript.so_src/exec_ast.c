@@ -85,7 +85,6 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 	tAST_Node	*node;
 	tSpiderValue	*ret = NULL, *tmpobj;
 	tSpiderValue	*op1, *op2;	// Binary operations
-	 int	cmp;	// Used in comparisons
 	 int	i;
 	
 	switch(Node->Type)
@@ -571,113 +570,6 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 		SpiderScript_DereferenceValue(op2);
 		break;
 	
-	// Comparisons
-	case NODETYPE_EQUALS:
-	case NODETYPE_LESSTHAN:
-	case NODETYPE_GREATERTHAN:
-	case NODETYPE_LESSTHANEQUAL:
-	case NODETYPE_GREATERTHANEQUAL:
-		op1 = AST_ExecuteNode(Block, Node->BinOp.Left);
-		if(op1 == ERRPTR)	return ERRPTR;
-		op2 = AST_ExecuteNode(Block, Node->BinOp.Right);
-		if(op2 == ERRPTR) {
-			SpiderScript_DereferenceValue(op1);
-			ret = ERRPTR;
-			break;
-		}
-		
-		if( !op1 || !op2 ) {
-			AST_RuntimeError(Node, "NULL Comparison (%p and %p)", op1, op2);
-			if(op1)	SpiderScript_DereferenceValue(op1);
-			if(op2)	SpiderScript_DereferenceValue(op2);
-			ret = SpiderScript_CreateInteger( !op1 && !op2 );
-			break;
-		}
-		
-		// Convert types
-		if( op1->Type != op2->Type ) {
-			// If dynamically typed, convert op2 to op1's type
-			if(Block->Script->Variant->bImplicitCasts)
-			{
-				tmpobj = op2;
-				op2 = SpiderScript_CastValueTo(op1->Type, op2);
-				SpiderScript_DereferenceValue(tmpobj);
-				if(op2 == ERRPTR) {
-					SpiderScript_DereferenceValue(op1);
-					return ERRPTR;
-				}
-			}
-			// If statically typed, this should never happen, but catch it anyway
-			else {
-				AST_RuntimeError(Node, "Statically typed implicit cast %i <op> %i",
-					op1->Type, op2->Type);
-				ret = ERRPTR;
-				break;
-			}
-		}
-		// Do operation
-		switch(op1->Type)
-		{
-		// - String Compare (does a strcmp, well memcmp)
-		case SS_DATATYPE_STRING:
-			// Call memcmp to do most of the work
-			cmp = memcmp(
-				op1->String.Data, op2->String.Data,
-				(op1->String.Length < op2->String.Length) ? op1->String.Length : op2->String.Length
-				);
-			// Handle reaching the end of the string
-			if( cmp == 0 ) {
-				if( op1->String.Length == op2->String.Length )
-					cmp = 0;
-				else if( op1->String.Length < op2->String.Length )
-					cmp = 1;
-				else
-					cmp = -1;
-			}
-			break;
-		
-		// - Integer Comparisons
-		case SS_DATATYPE_INTEGER:
-			if( op1->Integer == op2->Integer )
-				cmp = 0;
-			else if( op1->Integer < op2->Integer )
-				cmp = -1;
-			else
-				cmp = 1;
-			break;
-		// - Real Number Comparisons
-		case SS_DATATYPE_REAL:
-			cmp = (op1->Real - op2->Real) / op2->Real * 10000;	// < 0.1% difference is equality
-			break;
-		default:
-			AST_RuntimeError(Node, "TODO - Comparison of type %i", op1->Type);
-			ret = ERRPTR;
-			break;
-		}
-		
-		// Free intermediate objects
-		SpiderScript_DereferenceValue(op1);
-		SpiderScript_DereferenceValue(op2);
-		
-		// Error check
-		if( ret == ERRPTR )
-			break;
-		
-		// Create return
-		switch(Node->Type)
-		{
-		case NODETYPE_EQUALS:	ret = SpiderScript_CreateInteger(cmp == 0);	break;
-		case NODETYPE_LESSTHAN:	ret = SpiderScript_CreateInteger(cmp < 0);	break;
-		case NODETYPE_GREATERTHAN:	ret = SpiderScript_CreateInteger(cmp > 0);	break;
-		case NODETYPE_LESSTHANEQUAL:	ret = SpiderScript_CreateInteger(cmp <= 0);	break;
-		case NODETYPE_GREATERTHANEQUAL:	ret = SpiderScript_CreateInteger(cmp >= 0);	break;
-		default:
-			AST_RuntimeError(Node, "Exec,CmpOp unknown op %i", Node->Type);
-			ret = ERRPTR;
-			break;
-		}
-		break;
-	
 	// General Unary Operations
 	case NODETYPE_BWNOT:	// Bitwise NOT (~)
 	case NODETYPE_NEGATE:	// Negation (-)
@@ -699,6 +591,11 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 	case NODETYPE_BITSHIFTLEFT:
 	case NODETYPE_BITSHIFTRIGHT:
 	case NODETYPE_BITROTATELEFT:
+	case NODETYPE_EQUALS:
+	case NODETYPE_LESSTHAN:
+	case NODETYPE_GREATERTHAN:
+	case NODETYPE_LESSTHANEQUAL:
+	case NODETYPE_GREATERTHANEQUAL:
 		// Get operands
 		op1 = AST_ExecuteNode(Block, Node->BinOp.Left);
 		if(op1 == ERRPTR)	return ERRPTR;
@@ -857,6 +754,88 @@ tSpiderValue *AST_ExecuteNode_BinOp(tSpiderScript *Script, tAST_Node *Node, int 
 	if( Left == NULL || Right == NULL ) {
 		if(Right && Right != preCastValue)	free(Right);
 		return NULL;
+	}
+
+	// Catch comparisons
+	switch(Operation)
+	{
+	case NODETYPE_EQUALS:
+	case NODETYPE_LESSTHAN:
+	case NODETYPE_GREATERTHAN:
+	case NODETYPE_LESSTHANEQUAL:
+	case NODETYPE_GREATERTHANEQUAL: {
+		 int	cmp;
+		ret = NULL;
+		// Do operation
+		switch(Left->Type)
+		{
+		// - String Compare (does a strcmp, well memcmp)
+		case SS_DATATYPE_STRING:
+			// Call memcmp to do most of the work
+			cmp = memcmp(
+				Left->String.Data, Right->String.Data,
+				(Left->String.Length < Right->String.Length) ? Left->String.Length : Right->String.Length
+				);
+			// Handle reaching the end of the string
+			if( cmp == 0 ) {
+				if( Left->String.Length == Right->String.Length )
+					cmp = 0;
+				else if( Left->String.Length < Right->String.Length )
+					cmp = 1;
+				else
+					cmp = -1;
+			}
+			break;
+		
+		// - Integer Comparisons
+		case SS_DATATYPE_INTEGER:
+			if( Left->Integer == Right->Integer )
+				cmp = 0;
+			else if( Left->Integer < Right->Integer )
+				cmp = -1;
+			else
+				cmp = 1;
+			break;
+		// - Real Number Comparisons
+		case SS_DATATYPE_REAL:
+			cmp = (Left->Real - Right->Real) / Right->Real * 10000;	// < 0.1% difference is equality
+			break;
+		default:
+			AST_RuntimeError(Node, "TODO - Comparison of type %i", Left->Type);
+			ret = ERRPTR;
+			break;
+		}
+		
+		// Error check
+		if( ret != ERRPTR )
+		{
+			if(Left->ReferenceCount == 1 && Left->Type != SS_DATATYPE_STRING)
+				SpiderScript_ReferenceValue(ret = Left);
+			else
+				ret = SpiderScript_CreateInteger(0);
+			
+			// Create return
+			switch(Operation)
+			{
+			case NODETYPE_EQUALS:	ret->Integer = (cmp == 0);	break;
+			case NODETYPE_LESSTHAN:	ret->Integer = (cmp < 0);	break;
+			case NODETYPE_GREATERTHAN:	ret->Integer = (cmp > 0);	break;
+			case NODETYPE_LESSTHANEQUAL:	ret->Integer = (cmp <= 0);	break;
+			case NODETYPE_GREATERTHANEQUAL:	ret->Integer = (cmp >= 0);	break;
+			default:
+				AST_RuntimeError(Node, "Exec,CmpOp unknown op %i", Operation);
+				SpiderScript_DereferenceValue(ret);
+				ret = ERRPTR;
+				break;
+			}
+		}
+		if(Right && Right != preCastValue)	free(Right);
+		return ret;
+		}
+
+	// Fall through and sort by type instead
+	default:
+		break;
 	}
 	
 	// Do operation

@@ -194,7 +194,6 @@ size_t AST_WriteNode(void *Buffer, size_t Offset, tAST_Node *Node)
 	// Looping Construct (For loop node)
 	case NODETYPE_LOOP:
 		WRITE_8(Buffer, Offset, Node->For.bCheckAfter);
-//		printf("Node %p, Loop Tag %p\n", Node, Node->For.Tag);
 		WRITE_STR(Buffer, Offset, Node->For.Tag);
 		Offset += AST_WriteNode(Buffer, Offset, Node->For.Init);
 		Offset += AST_WriteNode(Buffer, Offset, Node->For.Condition);

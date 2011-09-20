@@ -245,11 +245,29 @@ extern tSpiderValue	*SpiderScript_ExecuteFunction(tSpiderScript *Script,
 	tSpiderNamespace *Namespace, const char *Function,
 	int NArguments, tSpiderValue **Arguments
 	);
+/**
+ * \brief Execute an object method
+ */
+extern tSpiderValue	*SpiderScript_ExecuteMethod(tSpiderScript *Script,
+	tSpiderObject *Object, const char *MethodName,
+	int NArguments, tSpiderValue **Arguments
+	);
+/**
+ * \brief Creates an object instance
+ */
+extern tSpiderValue	*SpiderScript_CreateObject(tSpiderScript *Script,
+	tSpiderNamespace *Namespace, const char *ClassName,
+	int NArguments, tSpiderValue **Arguments
+	);
 
 /**
  * \brief Convert a script to bytecode and save to a file
  */
 extern int	SpiderScript_SaveBytecode(tSpiderScript *Script, const char *DestFile);
+/**
+ * \brief Save the AST of a script to a file
+ */
+extern int	SpiderScript_SaveAST(tSpiderScript *Script, const char *Filename);
 
 /**
  * \brief Free a script

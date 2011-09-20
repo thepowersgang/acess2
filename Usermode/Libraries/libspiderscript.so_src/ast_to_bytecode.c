@@ -14,6 +14,7 @@
 
 #define TRACE_VAR_LOOKUPS	0
 #define TRACE_NODE_RETURNS	0
+#define MAX_NAMESPACE_DEPTH	10
 
 // === IMPORTS ===
 extern tSpiderFunction	*gpExports_First;
@@ -27,11 +28,13 @@ typedef struct sAST_BlockInfo
 
 	 int	BreakTarget;
 	 int	ContinueTarget;
+	
+	const char	*CurNamespaceStack[MAX_NAMESPACE_DEPTH];
 } tAST_BlockInfo;
 
 // === PROTOTYPES ===
 // Node Traversal
- int	AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node);
+ int	AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue);
 // Variables
  int 	BC_Variable_Define(tAST_BlockInfo *Block, int Type, const char *Name);
  int	BC_Variable_SetValue(tAST_BlockInfo *Block, tAST_Node *VarNode);
@@ -70,7 +73,7 @@ tBC_Function *Bytecode_ConvertFunction(tScript_Function *Fcn)
 	if(!ret)	return NULL;
 	
 	bi.Handle = ret;
-	if( AST_ConvertNode(&bi, Fcn->ASTFcn) )
+	if( AST_ConvertNode(&bi, Fcn->ASTFcn, 0) )
 	{
 		Bytecode_DeleteFunction(ret);
 		return NULL;
@@ -86,7 +89,7 @@ tBC_Function *Bytecode_ConvertFunction(tScript_Function *Fcn)
  * \param Block	Execution context
  * \param Node	Node to execute
  */
-int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node)
+int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 {
 	tAST_Node	*node;
 	 int	ret = 0;
@@ -102,17 +105,15 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node)
 	case NODETYPE_BLOCK:
 		Bytecode_AppendEnterContext(Block->Handle);	// Create a new block
 		{
-			tAST_BlockInfo	blockInfo;
+			tAST_BlockInfo	blockInfo = {0};
 			blockInfo.Parent = Block;
 			blockInfo.Handle = Block->Handle;
-			blockInfo.ContinueTarget = 0;
-			blockInfo.BreakTarget = 0;
 			// Loop over all nodes, or until the return value is set
 			for(node = Node->Block.FirstChild;
 				node;
 				node = node->NextSibling )
 			{
-				AST_ConvertNode(Block, node);
+				AST_ConvertNode(Block, node, 0);
 			}
 		}
 		Bytecode_AppendLeaveContext(Block->Handle);	// Leave this context
@@ -125,7 +126,7 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node)
 			AST_RuntimeError(Node, "LVALUE of assignment is not a variable");
 			return -1;
 		}
-		ret = AST_ConvertNode(Block, Node->Assign.Value);
+		ret = AST_ConvertNode(Block, Node->Assign.Value, 1);
 		if(ret)	return ret;
 		
 		// Perform assignment operation
@@ -134,9 +135,31 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node)
 			
 			ret = BC_Variable_GetValue(Block, Node->Assign.Dest);
 			if(ret)	return ret;
-			Bytecode_AppendBinOp(Block->Handle, Node->Assign.Operation);
+			switch(Node->Assign.Operation)
+			{
+			// General Binary Operations
+			case NODETYPE_ADD:	op = BC_OP_ADD;	break;
+			case NODETYPE_SUBTRACT:	op = BC_OP_SUBTRACT;	break;
+			case NODETYPE_MULTIPLY:	op = BC_OP_MULTIPLY;	break;
+			case NODETYPE_DIVIDE:	op = BC_OP_DIVIDE;	break;
+			case NODETYPE_MODULO:	op = BC_OP_MODULO;	break;
+			case NODETYPE_BWAND:	op = BC_OP_BITAND;	break;
+			case NODETYPE_BWOR:	op = BC_OP_BITOR;	break;
+			case NODETYPE_BWXOR:	op = BC_OP_BITXOR;	break;
+			case NODETYPE_BITSHIFTLEFT:	op = BC_OP_BITSHIFTLEFT;	break;
+			case NODETYPE_BITSHIFTRIGHT:	op = BC_OP_BITSHIFTRIGHT;	break;
+			case NODETYPE_BITROTATELEFT:	op = BC_OP_BITROTATELEFT;	break;
+
+			default:
+				AST_RuntimeError(Node, "Unknown operation in ASSIGN %i", Node->Assign.Operation);
+				break;
+			}
+			printf("assign, op = %i\n", op);
+			Bytecode_AppendBinOp(Block->Handle, op);
 		}
 		
+		if( bKeepValue )
+			Bytecode_AppendDuplicate(Block->Handle);
 		// Set the variable value
 		ret = BC_Variable_SetValue( Block, Node->Assign.Dest );
 		break;
@@ -156,9 +179,9 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node)
 		if(ret)	return ret;
 
 		if( Node->Type == NODETYPE_POSTDEC )
-			Bytecode_AppendBinOp(Block->Handle, NODETYPE_SUBTRACT);
+			Bytecode_AppendBinOp(Block->Handle, BC_OP_SUBTRACT);
 		else
-			Bytecode_AppendBinOp(Block->Handle, NODETYPE_ADD);
+			Bytecode_AppendBinOp(Block->Handle, BC_OP_ADD);
 		if(ret)	return ret;
 
 		ret = BC_Variable_SetValue(Block, Node->UniOp.Value);
@@ -168,53 +191,80 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node)
 	// Function Call
 	case NODETYPE_METHODCALL:
 	case NODETYPE_FUNCTIONCALL:
-	case NODETYPE_CREATEOBJECT:
-		i = 0;
+	case NODETYPE_CREATEOBJECT: {
+		 int	nargs = 0;
 		for(node = Node->FunctionCall.FirstArg; node; node = node->NextSibling)
 		{
-			ret = AST_ConvertNode(Block, node);
+			ret = AST_ConvertNode(Block, node, 1);
 			if(ret)	return ret;
-			i ++;
+			nargs ++;
 		}
 		
 		// Call the function
-		if( Node->Type == NODETYPE_CREATEOBJECT )
+		if( Node->Type == NODETYPE_METHODCALL )
 		{
 			// TODO: Sanity check stack top
-			Bytecode_AppendCreateObj(Block->Handle, Node->FunctionCall.Name, i);
-		}
-		else if( Node->Type == NODETYPE_METHODCALL )
-		{
-			// TODO: Sanity check stack top
-			ret = AST_ConvertNode(Block, Node->FunctionCall.Object);
+			ret = AST_ConvertNode(Block, Node->FunctionCall.Object, 1);
 			if(ret)	return ret;
-			Bytecode_AppendMethodCall(Block->Handle, Node->FunctionCall.Name, i);
+			Bytecode_AppendMethodCall(Block->Handle, Node->FunctionCall.Name, nargs);
 		}
 		else
 		{
-			Bytecode_AppendFunctionCall(Block->Handle, Node->FunctionCall.Name, i);
+			 int	newnamelen = 0;
+			char	*manglename;
+			for( i = 0; i < MAX_NAMESPACE_DEPTH && Block->CurNamespaceStack[i]; i ++ )
+				newnamelen = strlen(Block->CurNamespaceStack[i]) + 1;
+			newnamelen += strlen(Node->FunctionCall.Name) + 1;
+			manglename = alloca(newnamelen);
+			manglename[0] = 0;
+			for( i = 0; i < MAX_NAMESPACE_DEPTH && Block->CurNamespaceStack[i]; i ++ ) {
+				 int	pos;
+				strcat(manglename, Block->CurNamespaceStack[i]);
+				pos = strlen(manglename);
+				manglename[pos] = BC_NS_SEPARATOR;
+				manglename[pos+1] = '\0';
+			}
+			strcat(manglename, Node->FunctionCall.Name);
+				
+			if( Node->Type == NODETYPE_CREATEOBJECT )
+			{
+				// TODO: Sanity check stack top
+				Bytecode_AppendCreateObj(Block->Handle, manglename, nargs);
+			}
+			else
+			{
+				Bytecode_AppendFunctionCall(Block->Handle, manglename, nargs);
+			}
 		}
-		break;
+		} break;
 	
 	// Conditional
 	case NODETYPE_IF: {
-		 int	if_true, if_end;
-		ret = AST_ConvertNode(Block, Node->If.Condition);
+		 int	if_end;
+		ret = AST_ConvertNode(Block, Node->If.Condition, 1);
 		if(ret)	return ret;
 		
-		if_true = Bytecode_AllocateLabel(Block->Handle);
 		if_end = Bytecode_AllocateLabel(Block->Handle);
-	
-		Bytecode_AppendCondJump(Block->Handle, if_true);
 
-		// False
-		ret = AST_ConvertNode(Block, Node->If.False);
-		if(ret)	return ret;
-		Bytecode_AppendJump(Block->Handle, if_end);
+		if( Node->If.False->Type != NODETYPE_NOP )
+		{
+			 int	if_true = Bytecode_AllocateLabel(Block->Handle);
+			
+			Bytecode_AppendCondJump(Block->Handle, if_true);
+	
+			// False
+			ret = AST_ConvertNode(Block, Node->If.False, 0);
+			if(ret)	return ret;
+			Bytecode_AppendJump(Block->Handle, if_end);
+			Bytecode_SetLabel(Block->Handle, if_true);
+		}
+		else
+		{
+			Bytecode_AppendCondJumpNot(Block->Handle, if_end);
+		}
 		
 		// True
-		Bytecode_SetLabel(Block->Handle, if_true);
-		ret = AST_ConvertNode(Block, Node->If.True);
+		ret = AST_ConvertNode(Block, Node->If.True, 0);
 		if(ret)	return ret;
 
 		// End
@@ -228,7 +278,7 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node)
 		const char	*saved_tag;
 
 		// Initialise
-		ret = AST_ConvertNode(Block, Node->For.Init);
+		ret = AST_ConvertNode(Block, Node->For.Init, 0);
 		if(ret)	return ret;
 		
 		loop_start = Bytecode_AllocateLabel(Block->Handle);
@@ -246,26 +296,30 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node)
 		// Check initial condition
 		if( !Node->For.bCheckAfter )
 		{
-			ret = AST_ConvertNode(Block, Node->For.Condition);
+			ret = AST_ConvertNode(Block, Node->For.Condition, 1);
 			if(ret)	return ret;
-			Bytecode_AppendUniOp(Block->Handle, NODETYPE_LOGICALNOT);
+			Bytecode_AppendUniOp(Block->Handle, BC_OP_LOGICNOT);
 			Bytecode_AppendCondJump(Block->Handle, loop_end);
 		}
 	
 		// Code
-		ret = AST_ConvertNode(Block, Node->For.Code);
+		ret = AST_ConvertNode(Block, Node->For.Code, 0);
 		if(ret)	return ret;
 		
 		// Increment
-		ret = AST_ConvertNode(Block, Node->For.Increment);
+		ret = AST_ConvertNode(Block, Node->For.Increment, 0);
 		if(ret)	return ret;
 
 		// Tail check
 		if( Node->For.bCheckAfter )
 		{
-			ret = AST_ConvertNode(Block, Node->For.Condition);
+			ret = AST_ConvertNode(Block, Node->For.Condition, 1);
 			if(ret)	return ret;
 			Bytecode_AppendCondJump(Block->Handle, loop_start);
+		}
+		else
+		{
+			Bytecode_AppendJump(Block->Handle, loop_start);
 		}
 
 		Bytecode_SetLabel(Block->Handle, loop_end);
@@ -277,7 +331,7 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node)
 	
 	// Return
 	case NODETYPE_RETURN:
-		ret = AST_ConvertNode(Block, Node->UniOp.Value);
+		ret = AST_ConvertNode(Block, Node->UniOp.Value, 1);
 		if(ret)	return ret;
 		Bytecode_AppendReturn(Block->Handle);
 		break;
@@ -303,7 +357,7 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node)
 		
 		if( Node->DefVar.InitialValue )
 		{
-			ret = AST_ConvertNode(Block, Node->DefVar.InitialValue);
+			ret = AST_ConvertNode(Block, Node->DefVar.InitialValue, 1);
 			if(ret)	return ret;
 			Bytecode_AppendSaveVar(Block->Handle, Node->DefVar.Name);
 		}
@@ -311,8 +365,14 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node)
 	
 	// Scope
 	case NODETYPE_SCOPE:
-		Bytecode_AppendSubNamespace(Block->Handle, Node->Scope.Name);
-		ret = AST_ConvertNode(Block, Node->Scope.Element);
+		for( i = 0; i < MAX_NAMESPACE_DEPTH && Block->CurNamespaceStack[i]; i ++ );
+		if( i == MAX_NAMESPACE_DEPTH ) {
+			AST_RuntimeError(Node, "Exceeded max explicit namespace depth (%i)", i);
+			return 2;
+		}
+		Block->CurNamespaceStack[i] = Node->Scope.Name;
+		ret = AST_ConvertNode(Block, Node->Scope.Element, 2);
+		Block->CurNamespaceStack[i] = NULL;
 		break;
 	
 	// Variable
@@ -322,7 +382,7 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node)
 	
 	// Element of an Object
 	case NODETYPE_ELEMENT:
-		ret = AST_ConvertNode( Block, Node->Scope.Element );
+		ret = AST_ConvertNode( Block, Node->Scope.Element, 1 );
 		if(ret)	return ret;
 
 		Bytecode_AppendElement(Block->Handle, Node->Scope.Name);
@@ -330,16 +390,16 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node)
 
 	// Cast a value to another
 	case NODETYPE_CAST:
-		ret = AST_ConvertNode(Block, Node->Cast.Value);
+		ret = AST_ConvertNode(Block, Node->Cast.Value, 1);
 		if(ret)	return ret;
 		Bytecode_AppendCast(Block->Handle, Node->Cast.DataType);
 		break;
 
 	// Index into an array
 	case NODETYPE_INDEX:
-		ret = AST_ConvertNode(Block, Node->BinOp.Left);	// Array
+		ret = AST_ConvertNode(Block, Node->BinOp.Left, 1);	// Array
 		if(ret)	return ret;
-		ret = AST_ConvertNode(Block, Node->BinOp.Right);	// Offset
+		ret = AST_ConvertNode(Block, Node->BinOp.Right, 1);	// Offset
 		if(ret)	return ret;
 		
 		Bytecode_AppendIndex(Block->Handle);
@@ -360,7 +420,7 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node)
 		Bytecode_AppendConstInt(Block->Handle, Node->Constant.Integer);
 		break;
 	case NODETYPE_REAL:
-		Bytecode_AppendConstInt(Block->Handle, Node->Constant.Real);
+		Bytecode_AppendConstReal(Block->Handle, Node->Constant.Real);
 		break;
 	
 	// --- Operations ---
@@ -371,17 +431,15 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node)
 		if(!op)	op = BC_OP_BITNOT;
 	case NODETYPE_NEGATE:	// Negation (-)
 		if(!op)	op = BC_OP_NEG;
-		ret = AST_ConvertNode(Block, Node->UniOp.Value);
+		ret = AST_ConvertNode(Block, Node->UniOp.Value, 1);
 		if(ret)	return ret;
 		Bytecode_AppendUniOp(Block->Handle, op);
 		break;
 
-	case NODETYPE_LOGICALAND:	// Logical AND (&&)
-		if(!op)	op = BC_OP_LOGICAND;
-	case NODETYPE_LOGICALOR:	// Logical OR (||)
-		if(!op)	op = BC_OP_LOGICOR;
-	case NODETYPE_LOGICALXOR:	// Logical XOR (^^)
-		if(!op)	op = BC_OP_LOGICXOR;
+	// Logic
+	case NODETYPE_LOGICALAND:	if(!op)	op = BC_OP_LOGICAND;
+	case NODETYPE_LOGICALOR:	if(!op)	op = BC_OP_LOGICOR;
+	case NODETYPE_LOGICALXOR:	if(!op)	op = BC_OP_LOGICXOR;
 	// Comparisons
 	case NODETYPE_EQUALS:	if(!op)	op = BC_OP_EQUALS;
 	case NODETYPE_LESSTHAN:	if(!op)	op = BC_OP_LESSTHAN;
@@ -400,11 +458,11 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node)
 	case NODETYPE_BITSHIFTLEFT:	if(!op)	op = BC_OP_BITSHIFTLEFT;
 	case NODETYPE_BITSHIFTRIGHT:	if(!op)	op = BC_OP_BITSHIFTRIGHT;
 	case NODETYPE_BITROTATELEFT:	if(!op)	op = BC_OP_BITROTATELEFT;
-		ret = AST_ConvertNode(Block, Node->BinOp.Left);
+		ret = AST_ConvertNode(Block, Node->BinOp.Left, 1);
 		if(ret)	return ret;
-		ret = AST_ConvertNode(Block, Node->BinOp.Right);
+		ret = AST_ConvertNode(Block, Node->BinOp.Right, 1);
 		if(ret)	return ret;
-		
+	
 		Bytecode_AppendBinOp(Block->Handle, op);
 		break;
 	

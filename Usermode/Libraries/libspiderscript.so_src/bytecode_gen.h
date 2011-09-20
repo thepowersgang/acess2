@@ -46,6 +46,7 @@ extern void	Bytecode_SetLabel(tBC_Function *Handle, int Label);
 // - Flow Control
 extern void	Bytecode_AppendJump(tBC_Function *Handle, int Label);
 extern void	Bytecode_AppendCondJump(tBC_Function *Handle, int Label);
+extern void	 Bytecode_AppendCondJumpNot(tBC_Function *Handle, int Label);
 extern void	Bytecode_AppendReturn(tBC_Function *Handle);
 // - Operation Stack
 //  > Load/Store
@@ -55,7 +56,6 @@ extern void	Bytecode_AppendConstInt(tBC_Function *Handle, uint64_t Value);
 extern void	Bytecode_AppendConstReal(tBC_Function *Handle, double Value);
 extern void	Bytecode_AppendConstString(tBC_Function *Handle, const void *Data, size_t Length);
 //  > Scoping
-extern void	Bytecode_AppendSubNamespace(tBC_Function *Handle, const char *Name);	// Pop NS from stack, go to child, push ("" = root)
 extern void	Bytecode_AppendElement(tBC_Function *Handle, const char *Name);	// Obj->SubObj
 extern void	Bytecode_AppendIndex(tBC_Function *Handle);	// Index into an array
 //  > Function Calls
@@ -66,6 +66,7 @@ extern void	Bytecode_AppendFunctionCall(tBC_Function *Handle, const char *Name, 
 extern void	Bytecode_AppendBinOp(tBC_Function *Handle, int Operation);
 extern void	Bytecode_AppendUniOp(tBC_Function *Handle, int Operation);
 extern void	Bytecode_AppendCast(tBC_Function *Handlde, int Type);
+extern void	Bytecode_AppendDuplicate(tBC_Function *Handlde);
 // - Context
 //   TODO: Are contexts needed? Should variables be allocated like labels?
 extern void	Bytecode_AppendEnterContext(tBC_Function *Handle);
