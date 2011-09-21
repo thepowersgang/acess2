@@ -395,6 +395,8 @@ void Bytecode_AppendCast(tBC_Function *Handle, int Type)
 	DEF_BC_INT(BC_OP_CAST, Type)
 void Bytecode_AppendDuplicate(tBC_Function *Handle)
 	DEF_BC_NONE(BC_OP_DUPSTACK);
+void Bytecode_AppendDelete(tBC_Function *Handle)
+	DEF_BC_NONE(BC_OP_DELSTACK);
 
 // Does some bookeeping to allocate variable slots at compile time
 void Bytecode_AppendEnterContext(tBC_Function *Handle)
@@ -414,7 +416,7 @@ void Bytecode_AppendLeaveContext(tBC_Function *Handle)
 	Handle->CurContextDepth --;
 	Handle->VariableCount = i;
 
-	DEF_BC_NONE(BC_OP_LEAVECONTEXT)
+	DEF_BC_NONE(BC_OP_LEAVECONTEXT);
 }
 //void Bytecode_AppendImportNamespace(tBC_Function *Handle, const char *Name);
 //	DEF_BC_STRINT(BC_OP_IMPORTNS, Name, 0)

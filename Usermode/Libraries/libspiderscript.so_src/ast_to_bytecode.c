@@ -94,11 +94,13 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 	tAST_Node	*node;
 	 int	ret = 0;
 	 int	i, op = 0;
+	 int	bAddedValue = 1;
 	
 	switch(Node->Type)
 	{
 	// No Operation
 	case NODETYPE_NOP:
+		bAddedValue = 0;
 		break;
 	
 	// Code block
@@ -117,6 +119,7 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 			}
 		}
 		Bytecode_AppendLeaveContext(Block->Handle);	// Leave this context
+		bAddedValue = 0;
 		break;
 	
 	// Assignment
@@ -126,14 +129,14 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 			AST_RuntimeError(Node, "LVALUE of assignment is not a variable");
 			return -1;
 		}
-		ret = AST_ConvertNode(Block, Node->Assign.Value, 1);
-		if(ret)	return ret;
 		
 		// Perform assignment operation
 		if( Node->Assign.Operation != NODETYPE_NOP )
 		{
 			
 			ret = BC_Variable_GetValue(Block, Node->Assign.Dest);
+			if(ret)	return ret;
+			ret = AST_ConvertNode(Block, Node->Assign.Value, 1);
 			if(ret)	return ret;
 			switch(Node->Assign.Operation)
 			{
@@ -157,11 +160,17 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 			printf("assign, op = %i\n", op);
 			Bytecode_AppendBinOp(Block->Handle, op);
 		}
+		else
+		{
+			ret = AST_ConvertNode(Block, Node->Assign.Value, 1);
+			if(ret)	return ret;
+		}
 		
 		if( bKeepValue )
 			Bytecode_AppendDuplicate(Block->Handle);
 		// Set the variable value
 		ret = BC_Variable_SetValue( Block, Node->Assign.Dest );
+		bAddedValue = 0;
 		break;
 	
 	// Post increment/decrement
@@ -269,6 +278,7 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 
 		// End
 		Bytecode_SetLabel(Block->Handle, if_end);
+		bAddedValue = 0;
 		} break;
 	
 	// Loop
@@ -327,6 +337,7 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 		Block->BreakTarget = saved_break;
 		Block->ContinueTarget = saved_continue;
 		Block->Tag = saved_tag;
+		bAddedValue = 0;
 		} break;
 	
 	// Return
@@ -334,6 +345,7 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 		ret = AST_ConvertNode(Block, Node->UniOp.Value, 1);
 		if(ret)	return ret;
 		Bytecode_AppendReturn(Block->Handle);
+		bAddedValue = 0;
 		break;
 	
 	case NODETYPE_BREAK:
@@ -348,6 +360,7 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 			Bytecode_AppendJump(Block->Handle, bi->BreakTarget);
 		else
 			Bytecode_AppendJump(Block->Handle, bi->ContinueTarget);
+		bAddedValue = 0;
 		} break;
 	
 	// Define a variable
@@ -361,6 +374,7 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 			if(ret)	return ret;
 			Bytecode_AppendSaveVar(Block->Handle, Node->DefVar.Name);
 		}
+		bAddedValue = 0;
 		break;
 	
 	// Scope
@@ -466,10 +480,10 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 		Bytecode_AppendBinOp(Block->Handle, op);
 		break;
 	
-	//default:
-	//	ret = NULL;
-	//	AST_RuntimeError(Node, "BUG - SpiderScript AST_ConvertNode Unimplemented %i", Node->Type);
-	//	break;
+	default:
+		ret = -1;
+		AST_RuntimeError(Node, "BUG - SpiderScript AST_ConvertNode Unimplemented %i", Node->Type);
+		break;
 	}
 
 	#if TRACE_NODE_RETURNS
@@ -480,6 +494,9 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 		AST_RuntimeError(Node, "Ret type of %p %i is %p", Node, Node->Type, ret);
 	}
 	#endif
+
+	if( !bKeepValue && bAddedValue )
+		Bytecode_AppendDelete(Block->Handle);
 
 	return ret;
 }

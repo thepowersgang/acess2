@@ -67,6 +67,7 @@ extern void	Bytecode_AppendBinOp(tBC_Function *Handle, int Operation);
 extern void	Bytecode_AppendUniOp(tBC_Function *Handle, int Operation);
 extern void	Bytecode_AppendCast(tBC_Function *Handlde, int Type);
 extern void	Bytecode_AppendDuplicate(tBC_Function *Handlde);
+extern void	Bytecode_AppendDelete(tBC_Function *Handle);
 // - Context
 //   TODO: Are contexts needed? Should variables be allocated like labels?
 extern void	Bytecode_AppendEnterContext(tBC_Function *Handle);

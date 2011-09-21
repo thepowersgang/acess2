@@ -12,9 +12,15 @@
 #include <stdio.h>
 #include <string.h>
 #include "ast.h"
+#include <inttypes.h>
 
-//#define DEBUG_F(v...)	printf(v)
-#define DEBUG_F(v...)
+#define TRACE	0
+
+#if TRACE
+# define DEBUG_F(v...)	printf(v)
+#else
+# define DEBUG_F(v...)
+#endif
 
 // === IMPORTS ===
 extern void	AST_RuntimeError(tAST_Node *Node, const char *Format, ...);
@@ -123,6 +129,7 @@ tSpiderValue *Bytecode_int_GetSpiderValue(tBC_StackEnt *Ent, tSpiderValue *tmp)
 		AST_RuntimeError(NULL, "_GetSpiderValue on ET_FUNCTION_START");
 		return NULL;
 	default:
+		SpiderScript_ReferenceValue(Ent->Reference);
 		return Ent->Reference;
 	}
 }
@@ -169,13 +176,51 @@ void Bytecode_int_DerefStackValue(tBC_StackEnt *Ent)
 		break;
 	}
 }
+void Bytecode_int_RefStackValue(tBC_StackEnt *Ent)
+{
+	switch(Ent->Type)
+	{
+	case SS_DATATYPE_INTEGER:
+	case SS_DATATYPE_REAL:
+	case SS_DATATYPE_OBJECT:
+		break;
+	default:
+		SpiderScript_ReferenceValue(Ent->Reference);
+		break;
+	}
+}
+
+void Bytecode_int_PrintStackValue(tBC_StackEnt *Ent)
+{
+	switch(Ent->Type)
+	{
+	case SS_DATATYPE_INTEGER:
+		printf("0x%"PRIx64, Ent->Integer);
+		break;
+	case SS_DATATYPE_REAL:
+		printf("%lf", Ent->Real);
+		break;
+	case SS_DATATYPE_OBJECT:
+		printf("Obj %p", Ent->Object);
+		break;
+	default:
+		printf("*%p", Ent->Reference);
+		break;
+	}
+}
+
+#if TRACE
+# define PRINT_STACKVAL(val)	Bytecode_int_PrintStackValue(&val)
+#else
+# define PRINT_STACKVAL(val)
+#endif
 
 #define GET_STACKVAL(dst)	if((ret = Bytecode_int_StackPop(Stack, &dst))) { \
 	AST_RuntimeError(NULL, "Stack pop failed, empty stack");\
 	return ret; \
 }
 #define PUT_STACKVAL(src)	if((ret = Bytecode_int_StackPush(Stack, &src))) { \
-	AST_RuntimeError(NULL, "Stack pop failed, empty stack");\
+	AST_RuntimeError(NULL, "Stack push failed, full stack");\
 	return ret; \
 }
 #define OP_INDX(op_ptr)	((op_ptr)->Content.StringInt.Integer)
@@ -255,6 +300,10 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 	tSpiderValue	tmpVal1, tmpVal2;	// temp storage
 	tSpiderValue	*pval1, *pval2, *ret_val;
 	tSpiderNamespace	*default_namespace = &Script->Variant->RootNamespace;
+
+	// Initialise local vars
+	for( i = 0; i < local_var_count; i ++ )
+		local_vars[i].Type = ET_NULL;
 	
 	// Pop off arguments
 	if( ArgCount > Fcn->ArgumentCount )	return -1;
@@ -323,6 +372,10 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 			}
 			STATE_HDR();
 			DEBUG_F("DEFVAR %i of type %i\n", slot, type);
+			if( local_vars[slot].Type != ET_NULL ) {
+				Bytecode_int_DerefStackValue( &local_vars[slot] );
+				local_vars[slot].Type = ET_NULL;
+			}
 			memset(&local_vars[slot], 0, sizeof(local_vars[0]));
 			local_vars[slot].Type = type;
 			} break;
@@ -341,21 +394,24 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 		// Variables
 		case BC_OP_LOADVAR:
 			STATE_HDR();
-			DEBUG_F("LOADVAR %i\n", OP_INDX(op));
+			DEBUG_F("LOADVAR %i ", OP_INDX(op));
 			if( OP_INDX(op) < 0 || OP_INDX(op) >= local_var_count ) {
 				AST_RuntimeError(NULL, "Loading from invalid slot %i", OP_INDX(op));
 				return -1;
 			}
+			DEBUG_F("("); PRINT_STACKVAL(local_vars[OP_INDX(op)]); DEBUG_F(")\n");
 			PUT_STACKVAL(local_vars[OP_INDX(op)]);
-//			DUMP_STACKVAL(local_vars[OP_INDX(op)]);
+			Bytecode_int_RefStackValue( &local_vars[OP_INDX(op)] );
 			break;
 		case BC_OP_SAVEVAR:
 			STATE_HDR();
-			DEBUG_F("SAVEVAR %i\n", OP_INDX(op));
+			DEBUG_F("SAVEVAR %i = ", OP_INDX(op));
 			if( OP_INDX(op) < 0 || OP_INDX(op) >= local_var_count ) {
 				AST_RuntimeError(NULL, "Loading from invalid slot %i", OP_INDX(op));
 				return -1;
 			}
+			PRINT_STACKVAL(local_vars[OP_INDX(op)]);
+			DEBUG_F("\n");
 			GET_STACKVAL(local_vars[OP_INDX(op)]);
 			break;
 
@@ -398,7 +454,7 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 				PUT_STACKVAL(val2);
 				break;
 			case SS_DATATYPE_REAL*100 + SS_DATATYPE_INTEGER:
-				val2.Integer = val1.Real;
+				val2.Real = val1.Integer;
 				PUT_STACKVAL(val2);
 				break;
 			default: {
@@ -414,10 +470,20 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 
 		case BC_OP_DUPSTACK:
 			STATE_HDR();
-			DEBUG_F("DUPSTACK\n");
+			DEBUG_F("DUPSTACK ");
 			GET_STACKVAL(val1);
+			PRINT_STACKVAL(val1);
+			DEBUG_F("\n");
 			PUT_STACKVAL(val1);
 			PUT_STACKVAL(val1);
+			Bytecode_int_RefStackValue(&val1);
+			break;
+
+		// Discard the top item from the stack
+		case BC_OP_DELSTACK:
+			STATE_HDR();
+			DEBUG_F("DELSTACK\n");
+			GET_STACKVAL(val1);
 			break;
 
 		// Unary Operations
@@ -439,6 +505,8 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 
 			GET_STACKVAL(val1);
 			pval1 = Bytecode_int_GetSpiderValue(&val1, &tmpVal1);
+			Bytecode_int_DerefStackValue(&val1);			
+
 			ret_val = AST_ExecuteNode_UniOp(Script, NULL, ast_op, pval1);
 			if(pval1 != &tmpVal1)	SpiderScript_DereferenceValue(pval1);
 			Bytecode_int_SetSpiderValue(&val1, ret_val);
@@ -494,16 +562,19 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 			STATE_HDR();
 			DEBUG_F("BINOP %i %s (bc %i)\n", ast_op, opstr, op->Operation);
 
-			GET_STACKVAL(val2);
-			GET_STACKVAL(val1);
+			GET_STACKVAL(val2);	// Right
+			GET_STACKVAL(val1);	// Left
 			pval1 = Bytecode_int_GetSpiderValue(&val1, &tmpVal1);
 			pval2 = Bytecode_int_GetSpiderValue(&val2, &tmpVal2);
+			Bytecode_int_DerefStackValue(&val1);
+			Bytecode_int_DerefStackValue(&val2);
+
 			ret_val = AST_ExecuteNode_BinOp(Script, NULL, ast_op, pval1, pval2);
 			if(pval1 != &tmpVal1)	SpiderScript_DereferenceValue(pval1);
 			if(pval2 != &tmpVal2)	SpiderScript_DereferenceValue(pval2);
 			Bytecode_int_SetSpiderValue(&val1, ret_val);
 			if(ret_val != &tmpVal1)	SpiderScript_DereferenceValue(ret_val);
-			Bytecode_int_StackPush(Stack, &val1);
+			PUT_STACKVAL(val1);
 			break;
 
 		// Functions etc
@@ -539,6 +610,7 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 				{
 					GET_STACKVAL(val1);
 					args[i] = Bytecode_int_GetSpiderValue(&val1, NULL);
+					Bytecode_int_DerefStackValue(&val1);
 				}
 				
 				if( name[0] == BC_NS_SEPARATOR ) {
@@ -585,14 +657,27 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 	
 	// Clean up
 	// - Delete local vars
-	printf("TODO: Clean up local vars\n");
+	for( i = 0; i < local_var_count; i ++ )
+	{
+		if( local_vars[i].Type != ET_NULL )
+		{
+			Bytecode_int_DerefStackValue(&local_vars[i]);
+		}
+	}
 	
 	// - Restore stack
 //	printf("TODO: Roll back stack\n");
-//	while( Stack->EntryCount && Stack->Entries[ --Stack->EntryCount ].Type != ET_FUNCTION_START )
-//	{
-//		Bytecode_int_DerefStackValue( &Stack->Entries[Stack->EntryCount] );
-//	}
+	if( Stack->Entries[Stack->EntryCount - 1].Type == ET_FUNCTION_START )
+		Stack->EntryCount --;
+	else
+	{
+		GET_STACKVAL(val1);
+		while( Stack->EntryCount && Stack->Entries[ --Stack->EntryCount ].Type != ET_FUNCTION_START )
+		{
+			Bytecode_int_DerefStackValue( &Stack->Entries[Stack->EntryCount] );
+		}
+		PUT_STACKVAL(val1);
+	}
 	
 
 	return 0;
