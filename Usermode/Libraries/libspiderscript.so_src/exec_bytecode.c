@@ -612,6 +612,32 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 
 			GET_STACKVAL(val2);	// Right
 			GET_STACKVAL(val1);	// Left
+
+			#define PERFORM_NUM_OP(_type, _field) if(val1.Type == _type && val1.Type == val2.Type) { \
+				switch(op->Operation) { \
+				case BC_OP_ADD:	val1._field = val1._field + val2._field;	break; \
+				case BC_OP_SUBTRACT:	val1._field = val1._field - val2._field;	break; \
+				case BC_OP_MULTIPLY:	val1._field = val1._field * val2._field;	break; \
+				case BC_OP_DIVIDE:	val1._field = val1._field / val2._field;	break; \
+				case BC_OP_EQUALS:	val1._field = val1._field == val2._field;	break; \
+				case BC_OP_LESSTHAN:	val1._field = val1._field < val2._field;	break; \
+				case BC_OP_LESSTHANOREQUAL:	val1._field = val1._field <= val2._field;	break; \
+				case BC_OP_GREATERTHAN:	val1._field = val1._field > val2._field;	break; \
+				case BC_OP_GREATERTHANOREQUAL:	val1._field = val1._field >= val2._field;	break; \
+				\
+				case BC_OP_BITAND:	val1._field = (int64_t)val1._field & (int64_t)val2._field;	break; \
+				case BC_OP_BITOR:	val1._field = (int64_t)val1._field | (int64_t)val2._field;	break; \
+				case BC_OP_BITXOR:	val1._field = (int64_t)val1._field ^ (int64_t)val2._field;	break; \
+				case BC_OP_MODULO:	val1._field = (int64_t)val1._field % (int64_t)val2._field;	break; \
+				default:	AST_RuntimeError(NULL, "Invalid operation on datatype %i", _type); nextop = NULL; break;\
+				}\
+				PUT_STACKVAL(val1);\
+				break;\
+			}
+
+			PERFORM_NUM_OP(SS_DATATYPE_INTEGER, Integer);
+			PERFORM_NUM_OP(SS_DATATYPE_REAL, Real);
+		
 			pval1 = Bytecode_int_GetSpiderValue(&val1, &tmpVal1);
 			pval2 = Bytecode_int_GetSpiderValue(&val2, &tmpVal2);
 			Bytecode_int_DerefStackValue(&val1);

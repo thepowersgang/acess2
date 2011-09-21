@@ -73,6 +73,7 @@ tSpiderScript *SpiderScript_ParseFile(tSpiderVariant *Variant, const char *Filen
 	
 	
 	// HACK!!
+	#if 1
 	// - Save AST to a file
 	{
 		char	cacheFilename[strlen(Filename)+6+1];
@@ -81,6 +82,7 @@ tSpiderScript *SpiderScript_ParseFile(tSpiderVariant *Variant, const char *Filen
 	
 		SpiderScript_SaveAST(ret, cacheFilename);	
 	}
+	#endif
 	// - Save Bytecode too
 	{
 		char	cacheFilename[strlen(Filename)+6+1];
