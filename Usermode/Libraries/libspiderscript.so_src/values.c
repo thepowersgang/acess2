@@ -32,13 +32,20 @@ void SpiderScript_DereferenceValue(tSpiderValue *Object)
 {
 	if(!Object || Object == ERRPTR)	return ;
 	Object->ReferenceCount --;
+	if(Object->Type == SS_DATATYPE_OBJECT) {
+	}
 	if( Object->ReferenceCount == 0 )
 	{
 		switch( (enum eSpiderScript_DataTypes) Object->Type )
 		{
 		case SS_DATATYPE_OBJECT:
-			Object->Object->Type->Destructor( Object->Object );
+			Object->Object->ReferenceCount --;
+			if(Object->Object->ReferenceCount == 0) {
+				Object->Object->Type->Destructor( Object->Object );
+			}
+			Object->Object = NULL;
 			break;
+
 		case SS_DATATYPE_OPAQUE:
 			Object->Opaque.Destroy( Object->Opaque.Data );
 			break;
@@ -169,7 +176,7 @@ tSpiderValue *SpiderScript_CastValueTo(int Type, tSpiderValue *Source)
 	
 	// Check if anything needs to be done
 	if( Source->Type == Type ) {
-		SpiderScript_DereferenceValue(Source);
+		SpiderScript_ReferenceValue(Source);
 		return Source;
 	}
 	

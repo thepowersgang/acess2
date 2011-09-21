@@ -80,7 +80,7 @@ struct sAST_Node
 {
 	tAST_Node	*NextSibling;
 	tAST_NodeType	Type;
-	
+
 	const char	*File;
 	 int	Line;
 	

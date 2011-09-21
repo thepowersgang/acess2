@@ -154,6 +154,7 @@ void Bytecode_int_SetSpiderValue(tBC_StackEnt *Ent, tSpiderValue *Value)
 	case SS_DATATYPE_OBJECT:
 		Ent->Type = SS_DATATYPE_OBJECT;
 		Ent->Object = Value->Object;
+		Ent->Object->ReferenceCount ++;
 		break;
 	default:
 		SpiderScript_ReferenceValue(Value);
@@ -169,10 +170,21 @@ void Bytecode_int_DerefStackValue(tBC_StackEnt *Ent)
 	{
 	case SS_DATATYPE_INTEGER:
 	case SS_DATATYPE_REAL:
+		break;
 	case SS_DATATYPE_OBJECT:
+		if(Ent->Object) {
+			Ent->Object->ReferenceCount --;
+			if(Ent->Object->ReferenceCount == 0) {
+				Ent->Object->Type->Destructor( Ent->Object );
+			}
+//			printf("Object %p derefed (obj refcount = %i)\n", Ent->Object, Ent->Object->ReferenceCount);
+		}
+		Ent->Object = NULL;
 		break;
 	default:
-		SpiderScript_DereferenceValue(Ent->Reference);
+		if(Ent->Reference)
+			SpiderScript_DereferenceValue(Ent->Reference);
+		Ent->Reference = NULL;
 		break;
 	}
 }
@@ -182,10 +194,16 @@ void Bytecode_int_RefStackValue(tBC_StackEnt *Ent)
 	{
 	case SS_DATATYPE_INTEGER:
 	case SS_DATATYPE_REAL:
+		break;
 	case SS_DATATYPE_OBJECT:
+		if(Ent->Object) {
+			Ent->Object->ReferenceCount ++;
+//			printf("Object %p referenced (count = %i)\n", Ent->Object, Ent->Object->ReferenceCount);
+		}
 		break;
 	default:
-		SpiderScript_ReferenceValue(Ent->Reference);
+		if(Ent->Reference)
+			SpiderScript_ReferenceValue(Ent->Reference);
 		break;
 	}
 }
@@ -335,6 +353,8 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 		switch(op->Operation)
 		{
 		case BC_OP_NOP:
+			STATE_HDR();
+			DEBUG_F("NOP\n");
 			break;
 		// Jumps
 		case BC_OP_JUMP:
@@ -410,9 +430,11 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 				AST_RuntimeError(NULL, "Loading from invalid slot %i", OP_INDX(op));
 				return -1;
 			}
+			DEBUG_F("[Deref "); PRINT_STACKVAL(local_vars[OP_INDX(op)]); DEBUG_F("] ");
+			Bytecode_int_DerefStackValue( &local_vars[OP_INDX(op)] );
+			GET_STACKVAL(local_vars[OP_INDX(op)]);
 			PRINT_STACKVAL(local_vars[OP_INDX(op)]);
 			DEBUG_F("\n");
-			GET_STACKVAL(local_vars[OP_INDX(op)]);
 			break;
 
 		// Constants:
@@ -522,6 +544,32 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 			if(!ast_op)	ast_op = NODETYPE_LOGICALOR,	opstr = "LOGICOR";
 		case BC_OP_LOGICXOR:
 			if(!ast_op)	ast_op = NODETYPE_LOGICALXOR,	opstr = "LOGICXOR";
+	
+			STATE_HDR();
+			DEBUG_F("%s\n", opstr);
+
+			GET_STACKVAL(val1);
+			GET_STACKVAL(val2);
+			
+			switch(op->Operation)
+			{
+			case BC_OP_LOGICAND:
+				i = Bytecode_int_IsStackEntTrue(&val1) && Bytecode_int_IsStackEntTrue(&val2);
+				break;
+			case BC_OP_LOGICOR:
+				i = Bytecode_int_IsStackEntTrue(&val1) || Bytecode_int_IsStackEntTrue(&val2);
+				break;
+			case BC_OP_LOGICXOR:
+				i = Bytecode_int_IsStackEntTrue(&val1) ^ Bytecode_int_IsStackEntTrue(&val2);
+				break;
+			}
+			Bytecode_int_DerefStackValue(&val1);
+			Bytecode_int_DerefStackValue(&val2);
+
+			val1.Type = SS_DATATYPE_INTEGER;
+			val1.Integer = i;
+			Bytecode_int_StackPush(Stack, &val1);
+			break;
 
 		case BC_OP_BITAND:
 			if(!ast_op)	ast_op = NODETYPE_BWAND,	opstr = "BITAND";
@@ -572,32 +620,43 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 			ret_val = AST_ExecuteNode_BinOp(Script, NULL, ast_op, pval1, pval2);
 			if(pval1 != &tmpVal1)	SpiderScript_DereferenceValue(pval1);
 			if(pval2 != &tmpVal2)	SpiderScript_DereferenceValue(pval2);
+
+			if(ret_val == ERRPTR) {
+				AST_RuntimeError(NULL, "_BinOp returned ERRPTR");
+				nextop = NULL;
+				break;
+			}
 			Bytecode_int_SetSpiderValue(&val1, ret_val);
 			if(ret_val != &tmpVal1)	SpiderScript_DereferenceValue(ret_val);
 			PUT_STACKVAL(val1);
 			break;
 
 		// Functions etc
-		case BC_OP_CALLFUNCTION: {
-			tScript_Function	*fcn;
+		case BC_OP_CREATEOBJ:
+		case BC_OP_CALLFUNCTION:
+		case BC_OP_CALLMETHOD: {
+			tScript_Function	*fcn = NULL;
 			const char	*name = OP_STRING(op);
 			 int	arg_count = OP_INDX(op);
 			
 			STATE_HDR();
 			DEBUG_F("CALL FUNCTION %s %i args\n", name, arg_count);
 
-			// Check current script functions (for fast call)
-			for(fcn = Script->Functions; fcn; fcn = fcn->Next)
+			if( op->Operation == BC_OP_CALLFUNCTION )
 			{
-				if(strcmp(name, fcn->Name) == 0) {
+				// Check current script functions (for fast call)
+				for(fcn = Script->Functions; fcn; fcn = fcn->Next)
+				{
+					if(strcmp(name, fcn->Name) == 0) {
+						break;
+					}
+				}
+				if(fcn && fcn->BCFcn)
+				{
+					DEBUG_F(" - Fast call\n");
+					Bytecode_int_ExecuteFunction(Script, fcn, Stack, arg_count);
 					break;
 				}
-			}
-			if(fcn && fcn->BCFcn)
-			{
-				DEBUG_F(" - Fast call\n");
-				Bytecode_int_ExecuteFunction(Script, fcn, Stack, arg_count);
-				break;
 			}
 			
 			// Slower call
@@ -605,7 +664,7 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 				tSpiderNamespace	*ns = NULL;
 				tSpiderValue	*args[arg_count];
 				tSpiderValue	*rv;
-//				for( i = 0; i < arg_count; i ++ )
+				// Read arguments
 				for( i = arg_count; i --; )
 				{
 					GET_STACKVAL(val1);
@@ -613,16 +672,50 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 					Bytecode_int_DerefStackValue(&val1);
 				}
 				
-				if( name[0] == BC_NS_SEPARATOR ) {
-					name ++;
-					ns = Bytecode_int_ResolveNamespace(&Script->Variant->RootNamespace, name, &name);
-				}
-				else {
-					// TODO: Support multiple default namespaces
-					ns = Bytecode_int_ResolveNamespace(default_namespace, name, &name);
+				// Resolve namespace into pointer
+				if( op->Operation != BC_OP_CALLMETHOD ) {
+					if( name[0] == BC_NS_SEPARATOR ) {
+						name ++;
+						ns = Bytecode_int_ResolveNamespace(&Script->Variant->RootNamespace, name, &name);
+					}
+					else {
+						// TODO: Support multiple default namespaces
+						ns = Bytecode_int_ResolveNamespace(default_namespace, name, &name);
+					}
 				}
 				
-				rv = SpiderScript_ExecuteFunction(Script, ns, name, arg_count, args);
+				// Call the function etc.
+				if( op->Operation == BC_OP_CALLFUNCTION )
+				{
+					rv = SpiderScript_ExecuteFunction(Script, ns, name, arg_count, args);
+				}
+				else if( op->Operation == BC_OP_CREATEOBJ )
+				{
+					rv = SpiderScript_CreateObject(Script, ns, name, arg_count, args);
+				}
+				else if( op->Operation == BC_OP_CALLMETHOD )
+				{
+					tSpiderObject	*obj;
+					GET_STACKVAL(val1);
+					
+					if(val1.Type == SS_DATATYPE_OBJECT)
+						obj = val1.Object;
+					else if(val1.Type == ET_REFERENCE && val1.Reference->Type == SS_DATATYPE_OBJECT)
+						obj = val1.Reference->Object;
+					else {
+						// Error
+						AST_RuntimeError(NULL, "OP_CALLMETHOD on non object");
+						nextop = NULL;
+						break;
+					}
+					rv = SpiderScript_ExecuteMethod(Script, obj, name, arg_count, args);
+					Bytecode_int_DerefStackValue(&val1);
+				}
+				else
+				{
+					AST_RuntimeError(NULL, "BUG - Unknown operation for CALL/CREATEOBJ (%i)", op->Operation);
+					rv = ERRPTR;
+				}
 				if(rv == ERRPTR) {
 					AST_RuntimeError(NULL, "SpiderScript_ExecuteFunction returned ERRPTR");
 					nextop = NULL;
@@ -648,7 +741,7 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 		default:
 			// TODO:
 			STATE_HDR();
-			printf("Unknown operation %i\n", op->Operation);
+			AST_RuntimeError(NULL, "Unknown operation %i\n", op->Operation);
 			nextop = NULL;
 			break;
 		}

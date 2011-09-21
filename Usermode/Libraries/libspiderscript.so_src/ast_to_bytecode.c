@@ -79,10 +79,18 @@ tBC_Function *Bytecode_ConvertFunction(tScript_Function *Fcn)
 		return NULL;
 	}
 
+	Bytecode_AppendConstInt(ret, 0);	// TODO: NULL
+	Bytecode_AppendReturn(ret);
 	Fcn->BCFcn = ret;
 
 	return ret;
 }
+
+// Indepotent operation
+#define CHECK_IF_NEEDED(b_warn) do { if(!bKeepValue) {\
+	if(b_warn)AST_RuntimeMessage(Node, "Bytecode", "Operation without saving");\
+	Bytecode_AppendDelete(Block->Handle);\
+} } while(0)
 
 /**
  * \brief Convert a node into bytecode
@@ -94,7 +102,7 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 	tAST_Node	*node;
 	 int	ret = 0;
 	 int	i, op = 0;
-	 int	bAddedValue = 1;
+	 int	bAddedValue = 1;	// Used to tell if the value needs to be deleted
 	
 	switch(Node->Type)
 	{
@@ -119,7 +127,6 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 			}
 		}
 		Bytecode_AppendLeaveContext(Block->Handle);	// Leave this context
-		bAddedValue = 0;
 		break;
 	
 	// Assignment
@@ -170,20 +177,25 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 			Bytecode_AppendDuplicate(Block->Handle);
 		// Set the variable value
 		ret = BC_Variable_SetValue( Block, Node->Assign.Dest );
-		bAddedValue = 0;
 		break;
 	
 	// Post increment/decrement
 	case NODETYPE_POSTINC:
 	case NODETYPE_POSTDEC:
-		Bytecode_AppendConstInt(Block->Handle, 1);
-		
 		// TODO: Support assigning to object attributes
 		if( Node->UniOp.Value->Type != NODETYPE_VARIABLE ) {
 			AST_RuntimeError(Node, "LVALUE of assignment is not a variable");
 			return -1;
 		}
 
+		// Save original value if requested
+		if(bKeepValue) {
+			ret = BC_Variable_GetValue(Block, Node->UniOp.Value);
+			if(ret)	return ret;
+		}
+		
+		Bytecode_AppendConstInt(Block->Handle, 1);
+		
 		ret = BC_Variable_GetValue(Block, Node->UniOp.Value);
 		if(ret)	return ret;
 
@@ -193,8 +205,10 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 			Bytecode_AppendBinOp(Block->Handle, BC_OP_ADD);
 		if(ret)	return ret;
 
+
 		ret = BC_Variable_SetValue(Block, Node->UniOp.Value);
 		if(ret)	return ret;
+		// Doesn't push unless needed
 		break;
 	
 	// Function Call
@@ -202,6 +216,13 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 	case NODETYPE_FUNCTIONCALL:
 	case NODETYPE_CREATEOBJECT: {
 		 int	nargs = 0;
+
+		// Put the object earlier on the stack to the arguments (for exec)
+		if( Node->Type == NODETYPE_METHODCALL ) {
+			ret = AST_ConvertNode(Block, Node->FunctionCall.Object, 1);
+			if(ret)	return ret;
+		}		
+
 		for(node = Node->FunctionCall.FirstArg; node; node = node->NextSibling)
 		{
 			ret = AST_ConvertNode(Block, node, 1);
@@ -213,8 +234,6 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 		if( Node->Type == NODETYPE_METHODCALL )
 		{
 			// TODO: Sanity check stack top
-			ret = AST_ConvertNode(Block, Node->FunctionCall.Object, 1);
-			if(ret)	return ret;
 			Bytecode_AppendMethodCall(Block->Handle, Node->FunctionCall.Name, nargs);
 		}
 		else
@@ -245,6 +264,8 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 				Bytecode_AppendFunctionCall(Block->Handle, manglename, nargs);
 			}
 		}
+		CHECK_IF_NEEDED(0);	// Don't warn
+		// TODO: Implement warn_unused_ret
 		} break;
 	
 	// Conditional
@@ -278,7 +299,6 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 
 		// End
 		Bytecode_SetLabel(Block->Handle, if_end);
-		bAddedValue = 0;
 		} break;
 	
 	// Loop
@@ -337,7 +357,6 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 		Block->BreakTarget = saved_break;
 		Block->ContinueTarget = saved_continue;
 		Block->Tag = saved_tag;
-		bAddedValue = 0;
 		} break;
 	
 	// Return
@@ -345,7 +364,6 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 		ret = AST_ConvertNode(Block, Node->UniOp.Value, 1);
 		if(ret)	return ret;
 		Bytecode_AppendReturn(Block->Handle);
-		bAddedValue = 0;
 		break;
 	
 	case NODETYPE_BREAK:
@@ -360,7 +378,6 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 			Bytecode_AppendJump(Block->Handle, bi->BreakTarget);
 		else
 			Bytecode_AppendJump(Block->Handle, bi->ContinueTarget);
-		bAddedValue = 0;
 		} break;
 	
 	// Define a variable
@@ -374,7 +391,6 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 			if(ret)	return ret;
 			Bytecode_AppendSaveVar(Block->Handle, Node->DefVar.Name);
 		}
-		bAddedValue = 0;
 		break;
 	
 	// Scope
@@ -387,11 +403,14 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 		Block->CurNamespaceStack[i] = Node->Scope.Name;
 		ret = AST_ConvertNode(Block, Node->Scope.Element, 2);
 		Block->CurNamespaceStack[i] = NULL;
+		CHECK_IF_NEEDED(0);	// No warning?
+		// TODO: Will this collide with _CALLFUNCTION etc?
 		break;
 	
 	// Variable
 	case NODETYPE_VARIABLE:
 		ret = BC_Variable_GetValue( Block, Node );
+		CHECK_IF_NEEDED(1);
 		break;
 	
 	// Element of an Object
@@ -400,6 +419,7 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 		if(ret)	return ret;
 
 		Bytecode_AppendElement(Block->Handle, Node->Scope.Name);
+		CHECK_IF_NEEDED(1);
 		break;
 
 	// Cast a value to another
@@ -407,6 +427,7 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 		ret = AST_ConvertNode(Block, Node->Cast.Value, 1);
 		if(ret)	return ret;
 		Bytecode_AppendCast(Block->Handle, Node->Cast.DataType);
+		CHECK_IF_NEEDED(1);
 		break;
 
 	// Index into an array
@@ -417,6 +438,7 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 		if(ret)	return ret;
 		
 		Bytecode_AppendIndex(Block->Handle);
+		CHECK_IF_NEEDED(1);
 		break;
 
 	// TODO: Implement runtime constants
@@ -429,12 +451,15 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 	// Constant Values
 	case NODETYPE_STRING:
 		Bytecode_AppendConstString(Block->Handle, Node->Constant.String.Data, Node->Constant.String.Length);
+		CHECK_IF_NEEDED(1);
 		break;
 	case NODETYPE_INTEGER:
 		Bytecode_AppendConstInt(Block->Handle, Node->Constant.Integer);
+		CHECK_IF_NEEDED(1);
 		break;
 	case NODETYPE_REAL:
 		Bytecode_AppendConstReal(Block->Handle, Node->Constant.Real);
+		CHECK_IF_NEEDED(1);
 		break;
 	
 	// --- Operations ---
@@ -448,6 +473,7 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 		ret = AST_ConvertNode(Block, Node->UniOp.Value, 1);
 		if(ret)	return ret;
 		Bytecode_AppendUniOp(Block->Handle, op);
+		CHECK_IF_NEEDED(1);
 		break;
 
 	// Logic
@@ -478,6 +504,7 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 		if(ret)	return ret;
 	
 		Bytecode_AppendBinOp(Block->Handle, op);
+		CHECK_IF_NEEDED(1);
 		break;
 	
 	default:
@@ -494,9 +521,6 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 		AST_RuntimeError(Node, "Ret type of %p %i is %p", Node, Node->Type, ret);
 	}
 	#endif
-
-	if( !bKeepValue && bAddedValue )
-		Bytecode_AppendDelete(Block->Handle);
 
 	return ret;
 }
