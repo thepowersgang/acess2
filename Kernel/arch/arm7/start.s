@@ -3,7 +3,7 @@ KERNEL_BASE =	0x80000000
 .section .init
 interrupt_vector_table:
 	b _start @ Reset
-	b .
+	b .	@ ?
 	b SyscallHandler @ SWI instruction
 	b . 
 	b .
@@ -17,13 +17,16 @@ _start:
 	mcr p15, 0, r0, c2, c0, 1	@ Set TTBR1 to r0
 	mcr p15, 0, r0, c2, c0, 0	@ Set TTBR0 to r0 too (for identity)
 
-@	mov r0, #1
-@	mcr p15, 0, r0, c2, c0, 2	@ Set TTCR to 1 (50/50 split)
+	mov r0, #1
+	mcr p15, 0, r0, c2, c0, 2	@ Set TTCR to 1 (50/50 split)
+	
+	mov r0, #3
+	mcr p15, 0, r0, c3, c0, 0	@ Set Domain 0 to Manager
 
-@	mrc p15, 0, r0, c1, c0, 0
+	mrc p15, 0, r0, c1, c0, 0
 	orr r0, r0, #1
-@	orr r0, r0, #1 << 23
-@	mcr p15, 0, r0, c1, c0, 0
+	orr r0, r0, #1 << 23
+	mcr p15, 0, r0, c1, c0, 0
 
 	ldr sp, =stack+0x10000	@ Set up stack
 	ldr r0, =kmain
@@ -41,10 +44,10 @@ SyscallHandler:
 
 kernel_table0:
 	.long 0x00000002	@ Identity map the first 4 MiB
-	.rept 0x801
+	.rept 0x800 - 1
 		.long 0
 	.endr
-	.long 0x00000002	@ Identity map the first 4 MiB
+	.long 0x00000002	@ Map first 4 MiB to 2GiB
 	.long 0x00100002	@ 
 	.long 0x00200002	@ 
 	.long 0x00300002	@ 
@@ -79,9 +82,10 @@ kernel_table1_map:
 	.long kernel_table1_map - KERNEL_BASE + (1 << 4) + 3
 	.long 0
 
+@ Hardware mappings 
 .globl hwmap_table_0
 hwmap_table_0:
-	.long 0x16000000 + (1 << 4) + 3	@ Serial Port
+	.long 0x10009000 + (1 << 4) + 3	@ UART0
 	.rept 1024 - 1
 		.long 0
 	.endr

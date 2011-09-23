@@ -42,7 +42,7 @@ void Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **
 {
 }
 
-tTID Proc_SpawnWorker(void)
+tTID Proc_SpawnWorker( void (*Fnc)(void*), void *Ptr )
 {
 	return 0;
 }

@@ -26,6 +26,7 @@ static inline int CPU_HAS_LOCK(struct sShortSpinlock *Lock)
 
 static inline int SHORTLOCK(struct sShortSpinlock *Lock)
 {
+	#if 1
 	// Coped from linux, yes, but I know what it does now :)
 	Uint	tmp;
 	__asm__ __volatile__ (
@@ -38,6 +39,15 @@ static inline int SHORTLOCK(struct sShortSpinlock *Lock)
 		: "r" (&Lock->Lock), "r" (1)
 		: "cc"	// Condition codes clobbered
 		);
+	#else
+	 int	v = 1;
+	while( v )
+		__asm__ __volatile__ (
+			"swp %0, [%1]"
+			: "=r" (v) : "r" (&Lock->Lock)
+			: "cc"
+			);
+	#endif
 	return 1;
 }
 

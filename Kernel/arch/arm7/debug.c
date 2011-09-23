@@ -3,10 +3,8 @@
 #include <acess.h>
 
 // === CONSTANTS ===
-#define SERIAL_BASE	0x16000000
-#define SERIAL_REG_DATA	0x0
-#define SERIAL_REG_FLAG	0x18
-#define SERIAL_FLAG_FULL	0x20
+//#define UART0_BASE	0x10009000
+#define UART0_BASE	0xF0000000
 
 // === PROTOTYPES ===
 void	KernelPanic_SetMode(void);
@@ -19,10 +17,11 @@ void	StartupPrint(const char *str);
 // === CODE ===
 void Debug_PutCharDebug(char ch)
 {
-	while( *(volatile Uint32*)(SERIAL_BASE + SERIAL_REG_FLAG) & SERIAL_FLAG_FULL )
+//	while( *(volatile Uint32*)(SERIAL_BASE + SERIAL_REG_FLAG) & SERIAL_FLAG_FULL )
 		;
 	
-	*(volatile Uint32*)(SERIAL_BASE + SERIAL_REG_DATA) = ch;
+//	*(volatile Uint32*)(SERIAL_BASE + SERIAL_REG_DATA) = ch;
+	*(volatile Uint32*)(UART0_BASE) = ch;
 }
 
 void Debug_PutStringDebug(const char *str)
