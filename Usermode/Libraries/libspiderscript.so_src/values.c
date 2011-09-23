@@ -23,6 +23,12 @@ tSpiderValue	*SpiderScript_CastValueTo(int Type, tSpiderValue *Source);
  int	SpiderScript_IsValueTrue(tSpiderValue *Value);
 void	SpiderScript_FreeValue(tSpiderValue *Value);
 char	*SpiderScript_DumpValue(tSpiderValue *Value);
+// --- Operations
+tSpiderValue	*SpiderScript_DoOp(tSpiderValue *Left, int Operation, int bCanCast, tSpiderValue *Right);
+tSpiderValue	*SpiderScript_int_DoOpInt(tSpiderValue *Left, int Operation, int bCanCast, tSpiderValue *Right);
+tSpiderValue	*SpiderScript_int_DoOpReal(tSpiderValue *Left, int Operation, int bCanCast, tSpiderValue *Right);
+tSpiderValue	*SpiderScript_int_DoOpString(tSpiderValue *Left, int Operation, int bCanCast, tSpiderValue *Right);
+
 
 // === CODE ===
 /**
@@ -398,4 +404,58 @@ char *SpiderScript_DumpValue(tSpiderValue *Value)
 	
 }
 
+// ---
+tSpiderValue *SpiderScript_DoOp(tSpiderValue *Left, int Operation, int bCanCast, tSpiderValue *Right)
+{
+	switch(Left->Type)
+	{
+	case SS_DATATYPE_INTEGER:
+		return SpiderScript_int_DoOpInt(Left, Operation, bCanCast, Right);
+	}
+	return NULL;
+}
+
+tSpiderValue *SpiderScript_int_DoOpInt(tSpiderValue *Left, int Operation, int bCanCast, tSpiderValue *Right)
+{
+	tSpiderValue	*oldright = Right;
+	tSpiderValue	*ret = NULL;
+	 int64_t	rv;
+
+	// Casting
+	if(Right && Right->Type != SS_DATATYPE_INTEGER) {
+		if(!bCanCast)	return ERRPTR;
+		Right = SpiderScript_CastValueTo(Right, SS_DATATYPE_INTEGER);
+	}
+
+	// Do the operation
+	switch(Operation)
+	{
+	case SS_VALUEOP_NEGATE:
+		if(Right)	ret = ERRPTR;
+		else	rv = -Left->Integer;
+		break;
+	case SS_VALUEOP_ADD:
+		if(!Right)	ret = ERRPTR;
+		else	rv = Left->Integer + Right->Integer;
+		break;
+	}
+
+	// Delete temporary value
+	if( Right != oldright )
+		SpiderScript_DereferenceValue(Right);
+
+	// Return error if signaled
+	if(ret == ERRPTR)
+		return ERRPTR;
+
+	// Reuse `Left` if possible, to reduce mallocs	
+	if(Left->ReferenceCount == 1) {
+		SpiderScript_ReferenceValue(Left);
+		Left->Integer = rv;
+		return Left;
+	}
+	else {
+		return SpiderScript_CreateInteger(rv);
+	}
+}
 

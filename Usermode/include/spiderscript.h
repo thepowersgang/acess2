@@ -65,6 +65,27 @@ enum eSpiderScript_DataTypes
 	NUM_SS_DATATYPES
 };
 
+enum eSpiderValueOps
+{
+	SS_VALUEOP_NOP,
+
+	SS_VALUEOP_ADD,
+	SS_VALUEOP_SUBTRACT,
+	SS_VALUEOP_NEGATE,
+	SS_VALUEOP_MULIPLY,
+	SS_VALUEOP_DIVIDE,
+	SS_VALUEOP_MODULO,
+
+	SS_VALUEOP_BITNOT,
+	SS_VALUEOP_BITAND,
+	SS_VALUEOP_BITOR,
+	SS_VALUEOP_BITXOR,
+
+	SS_VALUEOP_SHIFTLEFT,
+	SS_VALUEOP_SHIFTRIGHT,
+	SS_VALUEOP_ROTATELEFT
+};
+
 /**
  * \brief Namespace definition
  */
@@ -291,6 +312,8 @@ extern tSpiderValue	*SpiderScript_CastValueTo(int Type, tSpiderValue *Source);
 extern int	SpiderScript_IsValueTrue(tSpiderValue *Value);
 extern void	SpiderScript_FreeValue(tSpiderValue *Value);
 extern char	*SpiderScript_DumpValue(tSpiderValue *Value);
+
+extern tSpiderValue	*SpiderScript_DoOp(tSpiderValue *Left, enum eSpiderValueOps Op, int bCanCast, tSpiderValue *Right);
 /**
  * \}
  */

@@ -41,8 +41,8 @@ struct sBC_StackEnt
 {
 	uint8_t	Type;
 	union {
-		uint64_t	Integer;
-		double  	Real;
+		int64_t	Integer;
+		double 	Real;
 		tSpiderValue	*Reference;	// Used for everything else
 		tSpiderObject	*Object;
 		tSpiderNamespace	*Namespace;
@@ -412,30 +412,32 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 			break;
 
 		// Variables
-		case BC_OP_LOADVAR:
+		case BC_OP_LOADVAR: {
+			 int	slot = OP_INDX(op);
 			STATE_HDR();
-			DEBUG_F("LOADVAR %i ", OP_INDX(op));
-			if( OP_INDX(op) < 0 || OP_INDX(op) >= local_var_count ) {
-				AST_RuntimeError(NULL, "Loading from invalid slot %i", OP_INDX(op));
+			DEBUG_F("LOADVAR %i ", slot);
+			if( slot < 0 || slot >= local_var_count ) {
+				AST_RuntimeError(NULL, "Loading from invalid slot %i", slot);
 				return -1;
 			}
-			DEBUG_F("("); PRINT_STACKVAL(local_vars[OP_INDX(op)]); DEBUG_F(")\n");
-			PUT_STACKVAL(local_vars[OP_INDX(op)]);
-			Bytecode_int_RefStackValue( &local_vars[OP_INDX(op)] );
-			break;
-		case BC_OP_SAVEVAR:
+			DEBUG_F("("); PRINT_STACKVAL(local_vars[slot]); DEBUG_F(")\n");
+			PUT_STACKVAL(local_vars[slot]);
+			Bytecode_int_RefStackValue( &local_vars[slot] );
+			} break;
+		case BC_OP_SAVEVAR: {
+			 int	slot = OP_INDX(op);
 			STATE_HDR();
-			DEBUG_F("SAVEVAR %i = ", OP_INDX(op));
-			if( OP_INDX(op) < 0 || OP_INDX(op) >= local_var_count ) {
-				AST_RuntimeError(NULL, "Loading from invalid slot %i", OP_INDX(op));
+			DEBUG_F("SAVEVAR %i = ", slot);
+			if( slot < 0 || slot >= local_var_count ) {
+				AST_RuntimeError(NULL, "Loading from invalid slot %i", slot);
 				return -1;
 			}
-			DEBUG_F("[Deref "); PRINT_STACKVAL(local_vars[OP_INDX(op)]); DEBUG_F("] ");
-			Bytecode_int_DerefStackValue( &local_vars[OP_INDX(op)] );
-			GET_STACKVAL(local_vars[OP_INDX(op)]);
-			PRINT_STACKVAL(local_vars[OP_INDX(op)]);
+			DEBUG_F("[Deref "); PRINT_STACKVAL(local_vars[slot]); DEBUG_F("] ");
+			Bytecode_int_DerefStackValue( &local_vars[slot] );
+			GET_STACKVAL(local_vars[slot]);
+			PRINT_STACKVAL(local_vars[slot]);
 			DEBUG_F("\n");
-			break;
+			} break;
 
 		// Constants:
 		case BC_OP_LOADINT:
