@@ -16,7 +16,7 @@ MAKEDEP		= $(CC) -M
 
 CPPFLAGS	+= -I./include -I./arch/$(ARCHDIR)/include -D_MODULE_NAME_=\"Kernel\"
 CPPFLAGS	+= -DARCH=$(ARCH) -DARCHDIR=$(ARCHDIR) -DARCHDIR_IS_$(ARCHDIR)=1
-CPPFLAGS	+= -DKERNEL_VERSION=$(KERNEL_VERSION) -DBUILD_NUM=$(BUILD_NUM)
+CPPFLAGS	+= -DKERNEL_VERSION=$(KERNEL_VERSION)
 CFLAGS  	+= -Wall -Werror -fno-stack-protector -fno-builtin -Wstrict-prototypes -g
 CFLAGS  	+= -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings -Wmissing-prototypes -Wmissing-declarations -Wredundant-decls -Wnested-externs -Winline -Wuninitialized
 LDFLAGS		+= -T arch/$(ARCHDIR)/link.ld -g
@@ -78,7 +78,7 @@ apidoc:
 
 $(BIN): $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile
 	@echo --- LD -o $(BIN)
-	@$(LD) $(LDFLAGS) -o $(BIN) $(OBJ) $(MODS) -Map ../Map.$(ARCH).txt
+	@$(LD) $(LDFLAGS) -o $(BIN) $(OBJ) $(MODS) --defsym __buildnum=$$(( $(BUILD_NUM) + 1 )) -Map ../Map.$(ARCH).txt
 	$(DISASM) -S $(BIN) > $(BIN).dsm
 	@wc -l $(SRCFILES) include/*.h > LineCounts.$(ARCH).txt
 	@echo BUILD_NUM = $$(( $(BUILD_NUM) + 1 )) > Makefile.BuildNum.$(ARCH)
