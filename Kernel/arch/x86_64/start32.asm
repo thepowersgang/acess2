@@ -96,7 +96,7 @@ gGDT:
 	dd	0x00000000, 0x00009200	; 0x10: 64-bit Data
 	dd	0x00000000, 0x0020FA00	; 0x18: 64-bit User Code
 	dd	0x00000000, 0x0000F200	; 0x20: 64-bit User Data
-	dd	0x00000000, 0x0040FA00	; 0x38: 32-bit User Code
+	dd	0x00000000, 0x0040FA00	; 0x28: 32-bit User Code
 	dd	0x00000000, 0x0040F200	; 0x30: 32-bit User Data
 	times MAX_CPUS	dd	0, 0x00008900, 0, 0	; 0x38+16*n: TSS 0
 gGDTPtr:
@@ -114,7 +114,9 @@ gMultibootPtr:
 [global gInitialPML4]
 gInitialPML4:	; Covers 256 TiB (Full 48-bit Virtual Address Space)
 	dd	gInitialPDP - KERNEL_BASE + 3, 0	; Identity Map Low 4Mb
-	times 512-4-1 dq	0
+	times 0xA0*2-1	dq	0
+	dd	gStackPDP - KERNEL_BASE + 3, 0
+	times 512-4-($-gInitialPML4)/8	dq	0
 	dd	gInitialPML4 - KERNEL_BASE + 3, 0	; Fractal Mapping
 	dq	0
 	dq	0
@@ -124,6 +126,10 @@ gInitialPDP:	; Covers 512 GiB
 	dd	gInitialPD - KERNEL_BASE + 3, 0
 	times 511	dq	0
 
+gStackPDP:
+	dd	gStackPD - KERNEL_BASE + 3, 0
+	times 511	dq	0
+
 gHighPDP:	; Covers 512 GiB
 	times 510	dq	0
 	;dq	0 + 0x143	; 1 GiB Page from zero
@@ -131,11 +137,25 @@ gHighPDP:	; Covers 512 GiB
 	dq	0
 
 gInitialPD:	; Covers 1 GiB
+;	dq	0 + 0x143	; 1 GiB Page from zero
 	dd	gInitialPT1 - KERNEL_BASE + 3, 0
 	dd	gInitialPT2 - KERNEL_BASE + 3, 0
 	times 510	dq	0
 
-gInitialPT1:	; Covers 2 MiB
+gStackPD:
+	dd	gKStackPT - KERNEL_BASE + 3, 0
+	times 511	dq	0
+
+gKStackPT:	; Covers 2 MiB
+	; Initial stack - 64KiB
+	dq	0
+	%assign i 0
+	%rep 16-1
+	dd	gInitialKernelStack - KERNEL_BASE + i*0x1000 + 0x103, 0
+	%assign i i+1
+	%endrep
+	times 512-16	dq 0
+gInitialPT1:	; 2 MiB
 	%assign i 0
 	%rep 512
 	dq	i*4096+0x103
@@ -148,6 +168,10 @@ gInitialPT2:	; 2 MiB
 	%assign i i+1
 	%endrep
 
+[section .padata]
+[global gInitialKernelStack]
+gInitialKernelStack:
+	times 0x1000*(16-1)	db 0	; 16 Pages
 
 [section .rodata]
 csNot64BitCapable:

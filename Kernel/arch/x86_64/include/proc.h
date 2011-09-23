@@ -38,7 +38,7 @@ typedef struct sMemoryState
  */
 typedef struct sTaskState
 {
-	Uint	RIP, RSP, RBP;
+	Uint	RIP, RSP;
 	Uint64	UserRIP, UserCS;
 }	tTaskState;
 

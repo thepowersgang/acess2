@@ -39,6 +39,8 @@ void Error_Handler(tRegs *Regs)
 	}
 	
 	Debug_KernelPanic();
+
+	Error_Backtrace(Regs->RIP, Regs->RBP);
 	
 	Log("CPU Error %x, Code: 0x%x", Regs->IntNum, Regs->ErrorCode);
 //	Log(" - %s", csaERROR_NAMES[Regs->IntNum]);

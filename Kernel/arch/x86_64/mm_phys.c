@@ -461,7 +461,7 @@ tPAddr MM_AllocPhys(void)
 		if( gaiStaticAllocPages[i] ) {
 			tPAddr	ret = gaiStaticAllocPages[i];
 			gaiStaticAllocPages[i] = 0;
-			Log("MM_AllocPhys: Return %x, static alloc %i", ret, i);
+			Log("MM_AllocPhys: Return %P, static alloc %i", ret, i);
 			return ret;
 		}
 	}
@@ -534,6 +534,23 @@ void MM_DerefPhys(tPAddr PAddr)
 	if(gaMainBitmap[ page >> 6 ] + 1 != 0 ) {
 		gaSuperBitmap[page >> 12] &= ~(1LL << ((page >> 6) & 63));
 	}
+}
+
+int MM_GetRefCount( tPAddr PAddr )
+{
+	PAddr >>= 12;
+	
+	if( PAddr >> 12 > giMaxPhysPage )	return 0;
+
+	if( gaMultiBitmap[ PAddr >> 6 ] & (1LL << (PAddr&63)) ) {
+		return gaiPageReferences[PAddr];
+	}
+
+	if( gaMainBitmap[ PAddr >> 6 ] & (1LL << (PAddr&63)) )
+	{
+		return 1;
+	}
+	return 0;
 }
 
 /**

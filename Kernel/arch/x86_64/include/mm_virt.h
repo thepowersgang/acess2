@@ -85,6 +85,6 @@
 void	MM_FinishVirtualInit(void);
 tVAddr	MM_NewKStack(void);
 tVAddr	MM_Clone(void);
-tVAddr	MM_NewWorkerStack(void);
+tVAddr	MM_NewWorkerStack(void *StackData, size_t StackSize);
 
 #endif

@@ -27,7 +27,8 @@
 #define	PF_PRESENT	0x001
 #define	PF_WRITE	0x002
 #define	PF_USER		0x004
-#define	PF_LARGE	0x000
+#define	PF_LARGE	0x080
+#define	PF_GLOBAL	0x100
 #define	PF_COW		0x200
 #define	PF_PAGED	0x400
 #define	PF_NX		0x80000000##00000000
@@ -88,24 +89,35 @@ void MM_FinishVirtualInit(void)
 void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 {
 	// TODO: Implement Copy-on-Write
-	#if 0
-	if( gaPageDir  [Addr>>22] & PF_PRESENT
-	 && gaPageTable[Addr>>12] & PF_PRESENT
-	 && gaPageTable[Addr>>12] & PF_COW )
+	#if 1
+	if( PAGEMAPLVL4(Addr>39) & PF_PRESENT
+	 && PAGEDIRPTR(Addr>>30) & PF_PRESENT
+	 && PAGEDIR(Addr>>21) & PF_PRESENT
+	 && PAGETABLE(Addr>>12) & PF_PRESENT
+	 && PAGETABLE(Addr>>12) & PF_COW )
 	{
 		tPAddr	paddr;
-		if(MM_GetRefCount( gaPageTable[Addr>>12] & PADDR_MASK ) == 1)
+		if(MM_GetRefCount( PAGETABLE(Addr>>12) & PADDR_MASK ) == 1)
 		{
-			gaPageTable[Addr>>12] &= ~PF_COW;
-			gaPageTable[Addr>>12] |= PF_PRESENT|PF_WRITE;
+			PAGETABLE(Addr>>12) &= ~PF_COW;
+			PAGETABLE(Addr>>12) |= PF_PRESENT|PF_WRITE;
 		}
 		else
 		{
 			//Log("MM_PageFault: COW - MM_DuplicatePage(0x%x)", Addr);
-			paddr = MM_DuplicatePage( Addr );
-			MM_DerefPhys( gaPageTable[Addr>>12] & PADDR_MASK );
-			gaPageTable[Addr>>12] &= PF_USER;
-			gaPageTable[Addr>>12] |= paddr|PF_PRESENT|PF_WRITE;
+			paddr = MM_AllocPhys();
+			if( !paddr ) {
+				Threads_SegFault(Addr);
+				return ;
+			}
+			{
+				void	*tmp = (void*)MM_MapTemp(paddr);
+				memcpy( tmp, (void*)(Addr & ~0xFFF), 0x1000 );
+				MM_FreeTemp( (tVAddr)tmp );
+			}
+			MM_DerefPhys( PAGETABLE(Addr>>12) & PADDR_MASK );
+			PAGETABLE(Addr>>12) &= PF_USER;
+			PAGETABLE(Addr>>12) |= paddr|PF_PRESENT|PF_WRITE;
 		}
 		
 		INVLPG( Addr & ~0xFFF );
@@ -192,7 +204,7 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 		{			
 			if(expected != CHANGEABLE_BITS)
 			{
-				Log("%016llx => %013llx : 0x%6llx (%c%c%c%c)",
+				Log("%016llx => %13llx : 0x%6llx (%c%c%c%c)",
 					CANOICAL(rangeStart),
 					PAGETABLE(rangeStart>>12) & PADDR_MASK,
 					curPos - rangeStart,
@@ -231,7 +243,7 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 	}
 	
 	if(expected != CHANGEABLE_BITS) {
-		Log("%016llx => %013llx : 0x%6llx (%c%c%c%c)",
+		Log("%016llx => %13llx : 0x%6llx (%c%c%c%c)",
 			CANOICAL(rangeStart),
 			PAGETABLE(rangeStart>>12) & PADDR_MASK,
 			curPos - rangeStart,
@@ -679,12 +691,6 @@ tPAddr MM_Clone(void)
 	 int	i;
 	tVAddr	kstackbase;
 
-	// tThread->KernelStack is the top
-	// There is 1 guard page below the stack
-	kstackbase = Proc_GetCurThread()->KernelStack - KERNEL_STACK_SIZE + 0x1000;
-
-	Log("MM_Clone: kstackbase = %p", kstackbase);
-	
 	// #1 Create a copy of the PML4
 	ret = MM_AllocPhys();
 	if(!ret)	return 0;
@@ -727,16 +733,30 @@ tPAddr MM_Clone(void)
 	TMPMAPLVL4(508) = ret | 3;
 	TMPMAPLVL4(509) = 0;	// Temp
 	
-	// #6 Create kernel stack (-1 to account for the guard)
-	TMPMAPLVL4(320) = 0;
-	for( i = 0; i < KERNEL_STACK_SIZE/0x1000-1; i ++ )
+	// #6 Create kernel stack
+	//  tThread->KernelStack is the top
+	//  There is 1 guard page below the stack
+	kstackbase = Proc_GetCurThread()->KernelStack - KERNEL_STACK_SIZE;
+
+//	Log("MM_Clone: kstackbase = %p", kstackbase);
+	
+	TMPMAPLVL4(MM_KSTACK_BASE >> PML4_SHIFT) = 0;
+	for( i = 1; i < KERNEL_STACK_SIZE/0x1000; i ++ )
 	{
 		tPAddr	phys = MM_AllocPhys();
 		tVAddr	tmpmapping;
 		MM_MapEx(kstackbase+i*0x1000, phys, 1, 0);
 		
+		Log_Debug("MM", "MM_Clone: Cloning stack page %p from %P to %P",
+			kstackbase+i*0x1000, MM_GetPhysAddr( kstackbase+i*0x1000 ), phys
+			);
 		tmpmapping = MM_MapTemp(phys);
-		memcpy((void*)tmpmapping, (void*)(kstackbase+i*0x1000), 0x1000);
+		if( MM_GetPhysAddr( kstackbase+i*0x1000 ) )
+			memcpy((void*)tmpmapping, (void*)(kstackbase+i*0x1000), 0x1000);
+		else
+			memset((void*)tmpmapping, 0, 0x1000);
+//		if( i == 0xF )
+//			Debug_HexDump("MM_Clone: *tmpmapping = ", (void*)tmpmapping, 0x1000);
 		MM_FreeTemp(tmpmapping);
 	}
 	
@@ -746,7 +766,7 @@ tPAddr MM_Clone(void)
 	TMPCR3() = 0;
 	INVLPG_ALL();
 	Mutex_Release(&glMM_TempFractalLock);
-	Log("MM_Clone: RETURN %P\n", ret);
+//	Log("MM_Clone: RETURN %P", ret);
 	return ret;
 }
 
@@ -829,7 +849,7 @@ void MM_ClearUser(void)
 	}
 }
 
-tVAddr MM_NewWorkerStack(void)
+tVAddr MM_NewWorkerStack(void *StackData, size_t StackSize)
 {
 	tVAddr	ret;
 	 int	i;
@@ -841,7 +861,9 @@ tVAddr MM_NewWorkerStack(void)
 	// #2 Scan for a free stack addresss < 2^47
 	for(ret = 0x100000; ret < (1ULL << 47); ret += KERNEL_STACK_SIZE)
 	{
-		if( MM_GetPhysAddr(ret) == 0 )	break;
+		tPAddr	*ptr;
+		if( MM_GetPageEntryPtr(ret, 1, 0, 0, &ptr) == 0 )	break;
+		if( !(*ptr & 1) )	break;
 	}
 	if( ret >= (1ULL << 47) ) {
 		Mutex_Release(&glMM_TempFractalLock);
@@ -860,6 +882,19 @@ tVAddr MM_NewWorkerStack(void)
 		}
 		MM_MapEx(ret + i*0x1000, phys, 1, 0);
 	}
+
+	if( StackSize > 0x1000 ) {
+		Log_Error("MM", "MM_NewWorkerStack: StackSize(0x%x) > 0x1000, cbf handling", StackSize);
+	}
+	else {
+		tPAddr	*ptr, paddr;
+		tVAddr	tmp_addr;
+		MM_GetPageEntryPtr(ret + i*0x1000, 1, 0, 0, &ptr);
+		paddr = *ptr & ~0xFFF;
+		tmp_addr = MM_MapTemp(paddr);
+		memcpy( (void*)(tmp_addr + (0x1000 - StackSize)), StackData, StackSize );
+		MM_FreeTemp(tmp_addr);
+	}
 	
 	Mutex_Release(&glMM_TempFractalLock);
 	
@@ -875,11 +910,11 @@ tVAddr MM_NewKStack(void)
 	Uint	i;
 	for( ; base < MM_KSTACK_TOP; base += KERNEL_STACK_SIZE )
 	{
-		if(MM_GetPhysAddr(base) != 0)
+		if(MM_GetPhysAddr(base+KERNEL_STACK_SIZE-0x1000) != 0)
 			continue;
 		
 		//Log("MM_NewKStack: Found one at %p", base + KERNEL_STACK_SIZE);
-		for( i = 0; i < KERNEL_STACK_SIZE; i += 0x1000)
+		for( i = 0x1000; i < KERNEL_STACK_SIZE; i += 0x1000)
 		{
 			if( !MM_Allocate(base+i) )
 			{

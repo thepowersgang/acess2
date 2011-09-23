@@ -35,7 +35,7 @@ start64:
 	rep stosq
 	
 	; Set kernel stack
-	mov rsp, gInitialKernelStack
+	mov rsp, 0xFFFFA00000000000 + 0x10000
 	
 	; Call main
 	mov edi, [gMultibootMagic - KERNEL_BASE]
@@ -46,11 +46,6 @@ start64:
 .hlt:
 	hlt
 	jmp .hlt
-
-[global GetRIP]
-GetRIP:
-	mov rax, [rsp]
-	ret
 
 [global GetCPUNum]
 GetCPUNum:
@@ -165,9 +160,4 @@ User_Syscall_Exit:
 	xor rax, rax
 	; RDI: Return Value
 	int 0xAC
-
-[section .bss]
-[global gInitialKernelStack]
-	resd	1024*4	; 4 Pages
-gInitialKernelStack:
 
