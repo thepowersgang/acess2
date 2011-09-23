@@ -25,6 +25,10 @@ typedef struct
 	 int	AP;
 } tMM_PageInfo;
 
+//#define FRACTAL(table1, addr)	((table1)[ (0xFF8/4*1024) + ((addr)>>20)])
+#define FRACTAL(table1, addr)	((table1)[ (0xFF8/4*1024) + ((addr)>>22)])
+#define TLBIALL()	__asm__ __volatile__ ("mcr p15, 0, %0, c8, c7, 0" : : "r" (0))
+
 // === PROTOTYPES ===
 void	MM_int_GetTables(tVAddr VAddr, Uint32 **Table0, Uint32 **Table1);
  int	MM_int_AllocateCoarse(tVAddr VAddr, int Domain);
@@ -82,7 +86,11 @@ int MM_int_AllocateCoarse(tVAddr VAddr, int Domain)
 	desc[2] = desc[0] + 0x800;
 	desc[3] = desc[0] + 0xC00;
 
-	table1[(VAddr>>20)*256] = paddr | 3;
+	Log("FRACTAL(%p, %p) = %p", table1, VAddr, &FRACTAL(table1, VAddr));
+	FRACTAL(table1, VAddr) = paddr | 3;
+
+	// TLBIALL 
+	TLBIALL();	
 
 	return 0;
 }	

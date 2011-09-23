@@ -1,10 +1,16 @@
 /**
+ * Acess2
+ * - By John Hodge (thePowersGang)
+ *
+ * arch/arm7/debug.c
+ * - ARM7 Debug output
+ * NOTE: Currently designed for the realview-pb-a8 emulated by Qemu
  */
 #include <acess.h>
 
 // === CONSTANTS ===
 //#define UART0_BASE	0x10009000
-#define UART0_BASE	0xF0000000
+#define UART0_BASE	0xF0000000	// Boot time mapped
 
 // === PROTOTYPES ===
 void	KernelPanic_SetMode(void);

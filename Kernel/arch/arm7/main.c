@@ -16,12 +16,14 @@ extern void	Arch_LoadBootModules(void);
 // === CODE ===
 int kmain(void)
 {
-	LogF("Booting...\n");
+	LogF("Acess2 ARMv7 v"EXPAND_STR(KERNEL_VERSION)"\n", BUILD_NUM);
+	LogF(" Build %i\n", BUILD_NUM);
 //	Interrupts_Setup();
 	
 	MM_SetupPhys();
 	
 	//TODO: 
+	LogF("End of kmain(), for(;;);\n");
 	for(;;);
 }
 

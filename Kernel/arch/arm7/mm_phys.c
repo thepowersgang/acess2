@@ -14,10 +14,10 @@
 
 char	gStaticAllocPages[NUM_STATIC_ALLOC][PAGE_SIZE] __attribute__ ((section(".padata")));
 tPAddr	gaiStaticAllocPages[NUM_STATIC_ALLOC] = {
-	(tPAddr)(&gStaticAllocPages[0] - KERNEL_BASE),
-	(tPAddr)(&gStaticAllocPages[1] - KERNEL_BASE),
-	(tPAddr)(&gStaticAllocPages[2] - KERNEL_BASE),
-	(tPAddr)(&gStaticAllocPages[3] - KERNEL_BASE)
+	(tPAddr)(&gStaticAllocPages[0]) - KERNEL_BASE,
+	(tPAddr)(&gStaticAllocPages[1]) - KERNEL_BASE,
+	(tPAddr)(&gStaticAllocPages[2]) - KERNEL_BASE,
+	(tPAddr)(&gStaticAllocPages[3]) - KERNEL_BASE
 };
 extern char	gKernelEnd[];
 

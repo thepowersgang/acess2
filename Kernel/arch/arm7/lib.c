@@ -112,13 +112,62 @@ void *memset(void *_dest, int _value, size_t _length)
 	return _dest;
 }
 
+Uint64 DivMod64U(Uint64 Num, Uint64 Den, Uint64 *Rem)
+{
+	Uint64	ret;
+	if(Den == 0)	return 0;	// TODO: #div0
+	if(Num == 0) {
+		if(Rem)	*Rem = 0;
+		return 0;
+	}
+	if(Den == 1) {
+		if(Rem)	*Rem = 0;
+		return Num;
+	}
+	if(Den == 2) {
+		if(Rem)	*Rem = Num & 1;
+		return Num >> 1;
+	}
+	if(Den == 16) {
+		if(Rem)	*Rem = Num & 0xF;
+		return Num >> 4;
+	}
+	if(Den == 0x1000) {
+		if(Rem)	*Rem = Num & 0xFFF;
+		return Num >> 12;
+	}
+
+	#if 0
+	{
+		// http://www.tofla.iconbar.com/tofla/arm/arm02/index.htm
+		Uint64	tmp = 1;
+		__asm__ __volatile__(
+			"1:"
+			"cmpl %2,%1"
+			"movls %2,%2,lsl#1"
+			"movls %3,%3,lsl#1"
+			"bls 1b"
+			"2:"
+			"cmpl %"
+		while(Num > Den) {
+			Den <<= 1;
+			tmp <<= 1;
+		}
+		Den >>= 1; tmp >>= 1;
+		while(
+	}
+	#else
+	for( ret = 0; Num > Den; ret ++, Num -= Den) ;
+	#endif
+	if(Rem)	*Rem = Num;
+	return ret;
+}
+
 // Unsigned Divide 64-bit Integer
 Uint64 __udivdi3(Uint64 Num, Uint64 Den)
 {
-	if( Num == 0 )	return 0;
-	if( Den == 0 )	return 5 / (Uint32)Den;	// Force a #DIV0
-	if( Den == 1 )	return Num;
-	if( Den == 2 )	return Num >> 1;
+	return DivMod64U(Num, Den, NULL);
+//	if( Den == 0 )	return 5 / (Uint32)Den;	// Force a #DIV0
 	if( Den == 16 )	return Num >> 4;
 	if( Den == 256 )	return Num >> 8;
 	if( Den == 512 )	return Num >> 9;
@@ -142,8 +191,8 @@ Uint64 __udivdi3(Uint64 Num, Uint64 Den)
 // Unsigned Modulus 64-bit Integer
 Uint64 __umoddi3(Uint64 Num, Uint64 Den)
 {
-	if( Num == 0 )	return 0;
 	if( Den == 0 )	return 5 / (Uint32)Den;	// Force a #DIV0
+	if( Num < Den )	return Num;
 	if( Den == 1 )	return 0;
 	if( Den == 2 )	return Num & 1;
 	if( Den == 16 )	return Num & 3;
@@ -152,9 +201,8 @@ Uint64 __umoddi3(Uint64 Num, Uint64 Den)
 	if( Den == 1024 )	return Num & 0x3FF;
 	if( Den == 2048 )	return Num & 0x7FF;
 	if( Den == 4096 )	return Num & 0xFFF;
-	if( Num < Den )	return 0;
-	if( Num <= 0xFFFFFFFF && Den <= 0xFFFFFFFF )
-		return (Uint32)Num % (Uint32)Den;
+//	if( Num <= 0xFFFFFFFF && Den <= 0xFFFFFFFF )
+//		return (Uint32)Num % (Uint32)Den;
 
 	#if 0
 	if( Den <= 0xFFFFFFFF ) {

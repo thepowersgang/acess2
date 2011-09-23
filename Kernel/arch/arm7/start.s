@@ -1,15 +1,17 @@
 KERNEL_BASE =	0x80000000
-
+@
+@ Exception defs taken from ARM DDI 0406B
+@ 
 .section .init
 interrupt_vector_table:
 	b _start @ Reset
-	b .	@ ?
-	b SyscallHandler @ SWI instruction
-	b . 
-	b .
-	b .
-	b .
-	b .
+	b .	@ #UD
+	b SyscallHandler @ SVC (SWI assume)
+	b .	@ Prefetch abort
+	b .	@ Data abort
+	b .	@ Not Used
+	b .	@ IRQ
+	b .	@ FIQ (Fast interrupt)
 
 .globl _start
 _start:
@@ -43,7 +45,7 @@ SyscallHandler:
 .globl kernel_table0
 
 kernel_table0:
-	.long 0x00000002	@ Identity map the first 4 MiB
+	.long 0x00000002	@ Identity map the first 1 MiB
 	.rept 0x800 - 1
 		.long 0
 	.endr
@@ -71,7 +73,7 @@ kernel_table0:
 	.endr
 
 .globl kernel_table1_map
-kernel_table1_map:
+kernel_table1_map:	@ Size = 4KiB
 	.rept 0xF00/4
 		.long 0
 	.endr

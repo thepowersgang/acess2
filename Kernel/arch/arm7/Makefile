@@ -22,3 +22,6 @@ LDFLAGS += `$(CC) --print-libgcc-file-name`
 
 A_OBJ  = start.ao main.o lib.o time.o pci.o debug.o
 A_OBJ += mm_phys.o mm_virt.o proc.o
+
+main.c: Makefile.BuildNum.$(ARCH)
+
