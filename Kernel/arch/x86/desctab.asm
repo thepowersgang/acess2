@@ -108,27 +108,27 @@ Desctab_Install:
 	mov dx, 0x20
 	mov al, 0x11
 	out dx, al	;	Init Command
-    mov dx, 0x21
+	mov dx, 0x21
 	mov al, 0xF0
 	out dx, al	;	Offset (Start of IDT Range)
-    mov al, 0x04
+	mov al, 0x04
 	out dx, al	;	IRQ connected to Slave (00000100b) = IRQ2
-    mov al, 0x01
+	mov al, 0x01
 	out dx, al	;	Set Mode
-    mov al, 0x00
+	mov al, 0x00
 	out dx, al	;	Set Mode
 	
 	mov dx, 0xA0
 	mov al, 0x11
 	out dx, al	;	Init Command
-    mov dx, 0xA1
+	mov dx, 0xA1
 	mov al, 0xF8
 	out dx, al	;	Offset (Start of IDT Range)
-    mov al, 0x02
+	mov al, 0x02
 	out dx, al	;	IRQ Line connected to master
-    mov al, 0x01
+	mov al, 0x01
 	out dx, al	;	Set Mode
-    mov dl, 0x00
+	mov dl, 0x00
 	out dx, al	;	Set Mode
 	pop edx
 	
