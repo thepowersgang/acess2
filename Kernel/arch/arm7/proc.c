@@ -9,10 +9,13 @@
 #include <threads_int.h>
 #include <hal_proc.h>
 
+// === IMPORTS ===
+extern tThread	gThreadZero;
+
 // === PROTOTYPES ===
 
 // === GLOBALS ===
-tThread	*gpCurrentThread;
+tThread	*gpCurrentThread = &gThreadZero;
 
 // === CODE ===
 void ArchThreads_Init(void)

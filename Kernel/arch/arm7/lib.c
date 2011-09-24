@@ -167,6 +167,7 @@ Uint64 DivMod64U(Uint64 Num, Uint64 Den, Uint64 *Rem)
 Uint64 __udivdi3(Uint64 Num, Uint64 Den)
 {
 	return DivMod64U(Num, Den, NULL);
+	#if 0
 //	if( Den == 0 )	return 5 / (Uint32)Den;	// Force a #DIV0
 	if( Den == 16 )	return Num >> 4;
 	if( Den == 256 )	return Num >> 8;
@@ -186,11 +187,16 @@ Uint64 __udivdi3(Uint64 Num, Uint64 Den)
 	Uint64	ret = 0;
 	for( ret = 0; Num > Den; ret ++, Num -= Den );
 	return ret;
+	#endif
 }
 
 // Unsigned Modulus 64-bit Integer
 Uint64 __umoddi3(Uint64 Num, Uint64 Den)
 {
+	Uint64	ret = 0;
+	DivMod64U(Num, Den, &ret);
+	return ret;
+	#if 0
 	if( Den == 0 )	return 5 / (Uint32)Den;	// Force a #DIV0
 	if( Num < Den )	return Num;
 	if( Den == 1 )	return 0;
@@ -211,6 +217,7 @@ Uint64 __umoddi3(Uint64 Num, Uint64 Den)
 	#endif
 	for( ; Num > Den; Num -= Den );
 	return Num;
+	#endif
 }
 
 #define _divide_s_32(Num, Den, rem)	__asm__ __volatile__ ( \

@@ -4,6 +4,7 @@
  * ARM7 Virtual Memory Manager
  * - arch/arm7/mm_virt.c
  */
+#define DEBUG	0
 #include <acess.h>
 #include <mm_virt.h>
 #include <hal_proc.h>
@@ -12,6 +13,9 @@
 #define AP_KRO_ONLY	0x5
 #define AP_RW_BOTH	0x3
 #define AP_RO_BOTH	0x6
+
+// === IMPORTS ===
+extern Uint32	kernel_table0[];
 
 // === TYPES ===
 typedef struct
@@ -46,7 +50,7 @@ int MM_InitialiseVirtual(void)
 void MM_int_GetTables(tVAddr VAddr, Uint32 **Table0, Uint32 **Table1)
 {
 	if(VAddr & 0x80000000) {
-		*Table0 = (void*)MM_TABLE0KERN;	// Level 0
+		*Table0 = (void*)&kernel_table0;	// Level 0
 		*Table1 = (void*)MM_TABLE1KERN;	// Level 1
 	}
 	else {
@@ -60,17 +64,28 @@ int MM_int_AllocateCoarse(tVAddr VAddr, int Domain)
 	Uint32	*table0, *table1;
 	Uint32	*desc;
 	tPAddr	paddr;
+	
+	ENTER("xVAddr iDomain", VAddr, Domain);
 
 	MM_int_GetTables(VAddr, &table0, &table1);
 
 	VAddr &= ~(0x400000-1);	// 4MiB per "block", 1 Page
 
-	desc = &table0[VAddr>>20];	
+	desc = &table0[ VAddr>>20];
+	LOG("desc = %p", desc);
+	
+	// table0: 4 bytes = 1 MiB
+
+	LOG("desc[0] = %x", desc[0]);
+	LOG("desc[1] = %x", desc[1]);
+	LOG("desc[2] = %x", desc[2]);
+	LOG("desc[3] = %x", desc[3]);
 
 	if( (desc[0] & 3) != 0 || (desc[1] & 3) != 0
 	 || (desc[2] & 3) != 0 || (desc[3] & 3) != 0 )
 	{
 		// Error?
+		LEAVE('i', 1);
 		return 1;
 	}
 
@@ -78,6 +93,7 @@ int MM_int_AllocateCoarse(tVAddr VAddr, int Domain)
 	if( !paddr )
 	{
 		// Error
+		LEAVE('i', 2);
 		return 2;
 	}
 	
@@ -92,6 +108,7 @@ int MM_int_AllocateCoarse(tVAddr VAddr, int Domain)
 	// TLBIALL 
 	TLBIALL();	
 
+	LEAVE('i', 0);
 	return 0;
 }	
 
@@ -100,25 +117,31 @@ int MM_int_SetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 	Uint32	*table0, *table1;
 	Uint32	*desc;
 
+	ENTER("pVADdr ppi", VAddr, pi);
+
 	MM_int_GetTables(VAddr, &table0, &table1);
 
 	desc = &table0[ VAddr >> 20 ];
+	LOG("desc = %p", desc);
 
 	switch(pi->Size)
 	{
 	case 12:	// Small Page
 	case 16:	// Large Page
+		LOG("Page");
 		if( (*desc & 3) == 0 ) {
 			MM_int_AllocateCoarse( VAddr, pi->Domain );
 		}
 		desc = &table1[ VAddr >> 12 ];
+		LOG("desc (2) = %p", desc);
 		if( pi->Size == 12 )
 		{
 			// Small page
 			// - Error if overwriting a large page
-			if( (*desc & 3) == 1 )	return 1;
+			if( (*desc & 3) == 1 )	LEAVE_RET('i', 1);
 			if( pi->PhysAddr == 0 ) {
 				*desc = 0;
+				LEAVE('i', 0);
 				return 0;
 			}
 
@@ -141,6 +164,7 @@ int MM_int_SetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 	case 24:	// Supersection
 		// Error if not aligned
 		if( VAddr & 0xFFFFFF ) {
+			LEAVE('i', 1);
 			return 1;
 		}
 		if( (*desc & 3) == 0 || ((*desc & 3) == 2 && (*desc & (1 << 18)))  )
@@ -148,6 +172,7 @@ int MM_int_SetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 			if( pi->PhysAddr == 0 ) {
 				*desc = 0;
 				// TODO: Apply to all entries
+				LEAVE('i', 0);
 				return 0;
 			}
 			// Apply
@@ -156,11 +181,14 @@ int MM_int_SetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 //			*desc |= ((pi->PhysAddr >> 36) & 0x7) << 5;
 			*desc |= 2 | (1 << 18);
 			// TODO: Apply to all entries
+			LEAVE('i', 0);
 			return 0;
 		}
+		LEAVE('i', 1);
 		return 1;
 	}
 
+	LEAVE('i', 1);
 	return 1;
 }
 
@@ -308,16 +336,20 @@ int MM_Map(tVAddr VAddr, tPAddr PAddr)
 tPAddr MM_Allocate(tVAddr VAddr)
 {
 	tMM_PageInfo	pi = {0};
+	
+	ENTER("pVAddr", VAddr);
 
 	pi.PhysAddr = MM_AllocPhys();
-	if( pi.PhysAddr == 0 )	return 0;
+	if( pi.PhysAddr == 0 )	LEAVE_RET('i', 0);
 	pi.Size = 12;
 	pi.AP = AP_KRW_ONLY;	// Kernel Read/Write
 	pi.bExecutable = 1;
 	if( MM_int_SetPageInfo(VAddr, &pi) ) {
 		MM_DerefPhys(pi.PhysAddr);
+		LEAVE('i', 0);
 		return 0;
 	}
+	LEAVE('x', pi.PhysAddr);
 	return pi.PhysAddr;
 }
 

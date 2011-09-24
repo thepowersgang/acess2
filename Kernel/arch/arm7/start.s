@@ -63,11 +63,14 @@ kernel_table0:
 	.rept 0xFF8 - 0xF00 - 4
 		.long 0
 	.endr
+	@ Page fractals
 	.long kernel_table1_map + 0x000 - KERNEL_BASE + 1
 	.long kernel_table1_map + 0x400 - KERNEL_BASE + 1
 	.long kernel_table1_map + 0x800 - KERNEL_BASE + 1
 	.long kernel_table1_map + 0xC00 - KERNEL_BASE + 1
-	.long kernel_table0 - KERNEL_BASE + 2	@ Sure it maps too much, but fuck that
+	@ Top level fractals
+	@.long kernel_table0 - KERNEL_BASE + 2	@ Only need 16KiB, but this maps 1MiB
+	.long 0 	@ removed for alignment constraints, using the KERNEL_BASE ident mapping instead
 	.rept 0x1000 - 0xFF8 - 5
 		.long 0
 	.endr
