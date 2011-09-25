@@ -1,0 +1,6 @@
+Notes:
+
+- Implement mmap() in Acess
+ > tVFS_Node.MMap(tVFS_Node *Node, int Size, void *Dest): int
+ > tVFS_Node.MappedAreas[]: struct{void *Base, int Size}
+ > \a Size is always a multiple of page size
