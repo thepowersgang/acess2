@@ -4,19 +4,7 @@
 #define _SYS_TYPES_H
 //#include <stdint.h>
 
-typedef struct {
-	int		st_dev;		//dev_t
-	int		st_ino;		//ino_t
-	int		st_mode;	//mode_t
-	unsigned int	st_nlink;
-	unsigned int	st_uid;
-	unsigned int	st_gid;
-	int		st_rdev;	//dev_t
-	unsigned int	st_size;
-	long	st_atime;	//time_t
-	long	st_mtime;
-	long	st_ctime;
-} t_fstat;
+typedef struct stat	t_fstat;
 
 #define FD_SETSIZE	128
 
@@ -72,5 +60,7 @@ static inline int FD_ISSET(int fd, fd_set *fdsetp) {
 	if(fd < 0 || fd > FD_SETSIZE)	return 0;
 	return !!( fdsetp->flags[fd/16] & (1<<(fd%16)) );
 }
+
+#include <sys/stat.h>
 
 #endif
