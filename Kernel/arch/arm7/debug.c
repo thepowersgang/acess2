@@ -42,7 +42,7 @@ void KernelPanic_SetMode(void)
 
 void KernelPanic_PutChar(char ch)
 {
-	Debug_PutCharDebug(ch);
+//	Debug_PutCharDebug(ch);
 }
 
 void StartupPrint(const char *str)

@@ -159,6 +159,7 @@ void itoa(char *buf, Uint64 num, int base, int minLength, char pad)
 {
 	char	tmpBuf[64+1];
 	 int	pos=0, i;
+	Uint64	rem;
 
 	// Sanity check
 	if(!buf)	return;
@@ -171,11 +172,11 @@ void itoa(char *buf, Uint64 num, int base, int minLength, char pad)
 	
 	// Convert 
 	while(num > base-1) {
-		tmpBuf[pos] = cUCDIGITS[ num % base ];
-		num /= (Uint)base;		// Shift `num` right 1 digit
+		num = DivMod64U(num, base, &rem);	// Shift `num` and get remainder
+		tmpBuf[pos] = cUCDIGITS[ rem ];
 		pos++;
 	}
-	tmpBuf[pos++] = cUCDIGITS[ num % base ];		// Last digit of `num`
+	tmpBuf[pos++] = cUCDIGITS[ num ];		// Last digit of `num`
 	
 	// Put in reverse
 	i = 0;

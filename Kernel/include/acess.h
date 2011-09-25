@@ -7,6 +7,7 @@
 
 #define NULL	((void*)0)
 #define PACKED	__attribute__((packed))
+#define NORETURN	__attribute__((noreturn))
 #define UNUSED(x)	UNUSED_##x __attribute__((unused))
 #define offsetof(st, m) ((Uint)((char *)&((st *)(0))->m - (char *)0 ))
 
@@ -32,6 +33,9 @@ typedef struct sShortSpinlock	tShortSpinlock;
 #define EXPAND_CONCAT(x,y) CONCAT(x,y)
 #define STR(x) #x
 #define EXPAND_STR(x) STR(x)
+
+extern char	__buildnum[];
+#define BUILD_NUM	((int)&__buildnum)
 
 #define VER2(major,minor)	((((major)&0xFF)<<8)|((minor)&0xFF))
 /**
@@ -307,10 +311,10 @@ extern int	MM_GetPageNode(tPAddr PAddr, void **Node);
  * \{
  */
 extern int	memcmp(const void *m1, const void *m2, size_t count);
-extern void *memcpy(void *dest, const void *src, size_t count);
-extern void *memcpyd(void *dest, const void *src, size_t count);
-extern void *memset(void *dest, int val, size_t count);
-extern void *memsetd(void *dest, Uint32 val, size_t count);
+extern void	*memcpy(void *dest, const void *src, size_t count);
+extern void	*memcpyd(void *dest, const void *src, size_t count);
+extern void	*memset(void *dest, int val, size_t count);
+extern void	*memsetd(void *dest, Uint32 val, size_t count);
 /**
  * \}
  */
@@ -438,7 +442,7 @@ extern void	Time_Delay(int Delay);
  * \name Threads and Processes
  * \{
  */
-extern int	Proc_SpawnWorker(void);
+extern int	Proc_SpawnWorker(void (*Fcn)(void*), void *Data);
 extern int	Proc_Spawn(const char *Path);
 extern void	Threads_Exit(int TID, int Status);
 extern void	Threads_Yield(void);
@@ -457,6 +461,7 @@ extern int	Threads_SetName(const char *NewName);
 
 // --- Simple Math ---
 extern int	DivUp(int num, int dem);
+extern Uint64	DivMod64U(Uint64 Num, Uint64 Den, Uint64 *Rem);
 
 #include <binary_ext.h>
 #include <vfs_ext.h>

@@ -640,7 +640,7 @@ int Proc_Clone(Uint Flags)
  * \fn int Proc_SpawnWorker(void)
  * \brief Spawns a new worker thread
  */
-int Proc_SpawnWorker(void)
+int Proc_SpawnWorker(void (*Fcn)(void*), void *Data);
 {
 	tThread	*new, *cur;
 	Uint	eip, esp, ebp;

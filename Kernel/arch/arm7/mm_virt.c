@@ -151,6 +151,8 @@ int MM_int_SetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 			if( pi->bShared)	*desc |= 1 << 10;	// S
 			*desc |= (pi->AP & 3) << 4;	// AP
 			*desc |= ((pi->AP >> 2) & 1) << 9;	// APX
+			LEAVE('i', 0);
+			return 0;
 		}
 		else
 		{
@@ -159,7 +161,7 @@ int MM_int_SetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 		}
 		break;
 	case 20:	// Section or unmapped
-		Log_Warning("MM", "TODO: Implement sections");
+		Warning("TODO: Implement sections");
 		break;
 	case 24:	// Supersection
 		// Error if not aligned
@@ -184,6 +186,7 @@ int MM_int_SetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 			LEAVE('i', 0);
 			return 0;
 		}
+		// TODO: What here?
 		LEAVE('i', 1);
 		return 1;
 	}
@@ -191,6 +194,8 @@ int MM_int_SetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 	LEAVE('i', 1);
 	return 1;
 }
+
+extern tShortSpinlock	glDebug_Lock;
 
 int MM_int_GetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 {
@@ -200,10 +205,14 @@ int MM_int_GetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 	MM_int_GetTables(VAddr, &table0, &table1);
 
 	desc = table0[ VAddr >> 20 ];
+
+//	if( VAddr > 0x90000000)
+//		LOG("table0 desc(%p) = %x", &table0[ VAddr >> 20 ], desc);
 	
 	pi->bExecutable = 1;
 	pi->bGlobal = 0;
 	pi->bShared = 0;
+
 
 	switch( (desc & 3) )
 	{
@@ -220,6 +229,7 @@ int MM_int_GetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 		pi->Domain = (desc >> 5) & 7;
 		// Get next level
 		desc = table1[ VAddr >> 12 ];
+//		LOG("table1 desc(%p) = %x", &table1[ VAddr >> 12 ], desc);
 		switch( desc & 3 )
 		{
 		// 0: Unmapped
@@ -239,7 +249,7 @@ int MM_int_GetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 			pi->bExecutable = desc & 1;
 			pi->bGlobal = !(desc >> 11);
 			pi->bShared = (desc >> 10) & 1;
-			return 1;
+			return 0;
 		}
 		return 1;
 	
@@ -277,7 +287,7 @@ tPAddr MM_GetPhysAddr(tVAddr VAddr)
 	tMM_PageInfo	pi;
 	if( MM_int_GetPageInfo(VAddr, &pi) )
 		return 0;
-	return pi.PhysAddr;
+	return pi.PhysAddr | (VAddr & ((1 << pi.Size)-1));
 }
 
 Uint MM_GetFlags(tVAddr VAddr)

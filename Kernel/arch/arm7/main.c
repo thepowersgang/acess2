@@ -9,6 +9,8 @@
 // === IMPORTS ===
 extern void	Interrupts_Setup(void);
 extern void	Arch_LoadBootModules(void);
+extern void	Heap_Install(void);
+extern void	Threads_Init(void);
 
 // === PROTOTYPES ===
  int	kmain(void);
@@ -21,6 +23,10 @@ int kmain(void)
 //	Interrupts_Setup();
 	
 	MM_SetupPhys();
+
+	Heap_Install();
+
+	Threads_Init();
 	
 	//TODO: 
 	LogF("End of kmain(), for(;;);\n");

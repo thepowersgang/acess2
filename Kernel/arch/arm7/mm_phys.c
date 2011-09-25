@@ -4,6 +4,8 @@
  * ARM7 Physical Memory Manager
  * arch/arm7/mm_phys.c
  */
+#define DEBUG	0
+
 #include <acess.h>
 #include <mm_virt.h>
 
@@ -34,7 +36,7 @@ int MM_int_GetMapEntry( void *Data, int Index, tPAddr *Start, tPAddr *Length )
 	{
 	case 0:
 		*Start = ((tVAddr)&gKernelEnd - KERNEL_BASE + 0xFFF) & ~0xFFF;
-		*Length = 16*1024*1024;
+		*Length = 16*1024*1024 - *Start;
 		return 1;
 	default:
 		return 0;
