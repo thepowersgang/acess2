@@ -32,7 +32,7 @@
  * from their entries in ::eTplDrv_Type.
  */
 #ifndef _API_DRV_COMMON_H
-#define _API_DR_COMMON_H
+#define _API_DRV_COMMON_H
 
 /**
  * \enum eTplDrv_IOCtl
