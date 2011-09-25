@@ -92,30 +92,13 @@ void Link_SendPacket(tAdapter *Adapter, Uint16 Type, tMacAddr To, int Length, vo
 	VFS_Write(Adapter->DeviceFD, bufSize, buf);
 }
 
-/**
- * \fn void Link_WatchDevice(tAdapter *Adapter)
- * \brief Spawns a worker thread to watch the specified adapter
- */
-void Link_WatchDevice(tAdapter *Adapter)
+void Link_WorkerThread(void *Ptr)
 {
-	 int	tid = Proc_SpawnWorker();	// Create a new worker thread
-	
-	if(tid < 0) {
-		Log_Warning("Net Link", "Unable to create watcher thread for '%s'", Adapter->Device);
-		return ;
-	}
-	
-	if(tid > 0) {
-		Log_Log("Net Link", "Watching '%s' using tid %i", Adapter->Device, tid);
-		return ;
-	}
-	
-	if( !gbLink_CRCTableGenerated )
-		Link_InitCRC();
+	tAdapter	*Adapter = Ptr;
 	
 	Threads_SetName(Adapter->Device);
 	Log_Log("Net Link", "Thread %i watching '%s'", Threads_GetTID(), Adapter->Device);
-	
+
 	// Child Thread
 	while(Adapter->DeviceFD != -1)
 	{
@@ -171,6 +154,27 @@ void Link_WatchDevice(tAdapter *Adapter)
 	Log_Log("Net Link", "Watcher terminated (file closed)");
 	
 	Threads_Exit(0, 0);
+}
+
+/**
+ * \fn void Link_WatchDevice(tAdapter *Adapter)
+ * \brief Spawns a worker thread to watch the specified adapter
+ */
+void Link_WatchDevice(tAdapter *Adapter)
+{
+	 int	tid;
+
+	if( !gbLink_CRCTableGenerated )
+		Link_InitCRC();
+	
+	tid = Proc_SpawnWorker(Link_WorkerThread, Adapter);	// Create a new worker thread
+	
+	if(tid < 0) {
+		Log_Warning("Net Link", "Unable to create watcher thread for '%s'", Adapter->Device);
+		return ;
+	}
+	
+	Log_Log("Net Link", "Watching '%s' using tid %i", Adapter->Device, tid);
 }
 
 // From http://www.cl.cam.ac.uk/research/srg/bluebook/21/crc/node6.html
