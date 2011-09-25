@@ -20,9 +20,7 @@ extern void	Heap_Stats(void);
 
 // === PROTOTYPES ===
  int	KB_Install(char **Arguments);
-void	KB_IRQHandler(int IRQNum);
-void	KB_AddBuffer(char ch);
-Uint64	KB_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Dest);
+void	KB_HandleScancode(Uint8 scancode);
 void	KB_UpdateLEDs(void);
  int	KB_IOCtl(tVFS_Node *Node, int Id, void *Data);
 
@@ -32,7 +30,6 @@ tDevFS_Driver	gKB_DevInfo = {
 	{
 	.NumACLs = 0,
 	.Size = 0,
-	//.Read = KB_Read,
 	.IOCtl = KB_IOCtl
 	}
 };
@@ -55,19 +52,6 @@ Uint8	gbaKB_States[3][256];
  */
 int KB_Install(char **Arguments)
 {
-	
-	IRQ_AddHandler(1, KB_IRQHandler);
-	
-	{
-		Uint8	temp;
-		// Attempt to get around a strange bug in Bochs/Qemu by toggling
-		// the controller on and off
-		temp = inb(0x61);
-		outb(0x61, temp | 0x80);
-		outb(0x61, temp & 0x7F);
-		inb(0x60);	// Clear keyboard buffer
-	}
-	
 	DevFS_AddDevice( &gKB_DevInfo );
 	//Log("KB_Install: Installed");
 	return MODULE_ERR_OK;
@@ -77,16 +61,10 @@ int KB_Install(char **Arguments)
  * \brief Called on a keyboard IRQ
  * \param IRQNum	IRQ number (unused)
  */
-void KB_IRQHandler(int IRQNum)
+void KB_HandleScancode(Uint8 scancode)
 {
-	Uint8	scancode;
 	Uint32	ch;
-	// int	keyNum;
 
-	// Check port 0x64 to tell if this is from the aux port
-	//if( inb(0x64) & 0x20 )	return;
-
-	scancode = inb(0x60); // Read from the keyboard's data buffer
 	//Log_Debug("Keyboard", "scancode = %02x", scancode);
 
 	// Ignore ACKs
@@ -260,11 +238,8 @@ void KB_UpdateLEDs(void)
 
 	leds = (gbKB_CapsState ? 4 : 0);
 
-	while( inb(0x64) & 2 );	// Wait for bit 2 to unset
-	outb(0x60, 0xED);	// Send update command
-
-	while( inb(0x64) & 2 );	// Wait for bit 2 to unset
-	outb(0x60, leds);
+	// TODO: Update LEDS
+	Log_Warning("Keyboard", "TODO: Update LEDs");
 }
 
 static const char	*csaIOCTL_NAMES[] = {DRV_IOCTLNAMES, DRV_KEYBAORD_IOCTLNAMES, NULL};

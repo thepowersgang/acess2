@@ -8,6 +8,7 @@
 #include <fs_devfs.h>
 #include <api_drv_common.h>
 #include <api_drv_joystick.h>
+#include "common.h"
 
 static inline int MIN(int a, int b) { return (a < b) ? a : b; }
 static inline int MAX(int a, int b) { return (a > b) ? a : b; }
@@ -15,14 +16,11 @@ static inline int MAX(int a, int b) { return (a > b) ? a : b; }
 // == CONSTANTS ==
 #define NUM_AXIES	2	// X+Y
 #define NUM_BUTTONS	5	// Left, Right, Scroll Click, Scroll Up, Scroll Down
-#define PS2_IO_PORT	0x60
 
 // == PROTOTYPES ==
 // - Internal -
  int	PS2Mouse_Install(char **Arguments);
-void	PS2Mouse_IRQ(int Num);
-static void	mouseSendCommand(Uint8 cmd);
-void	PS2Mouse_Enable();
+void	PS2Mouse_HandleInterrupt(Uint8 InputByte);
 // - Filesystem -
 Uint64	PS2Mouse_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
 int	PS2Mouse_IOCtl(tVFS_Node *Node, int ID, void *Data);
@@ -59,9 +57,8 @@ int PS2Mouse_Install(char **Arguments)
 	gMouse_Buttons = (void*)&gMouse_Axies[NUM_AXIES];
 	
 	// Initialise Mouse Controller
-	IRQ_AddHandler(12, PS2Mouse_IRQ);	// Set IRQ
 	giMouse_Cycle = 0;	// Set Current Cycle position
-	PS2Mouse_Enable();		// Enable the mouse
+	KBC8042_EnableMouse();
 	
 	DevFS_AddDevice(&gMouse_DriverStruct);
 	
@@ -70,14 +67,14 @@ int PS2Mouse_Install(char **Arguments)
 
 /* Handle Mouse Interrupt
  */
-void PS2Mouse_IRQ(int Num)
+void PS2Mouse_HandleInterrupt(Uint8 InputByte)
 {
 	Uint8	flags;
 	 int	d[2], d_accel[2];
 	 int	i;
 	
 	// Gather mouse data
-	gaMouse_Bytes[giMouse_Cycle] = inb(0x60);
+	gaMouse_Bytes[giMouse_Cycle] = InputByte;
 	LOG("gaMouse_Bytes[%i] = 0x%02x", gMouse_Axies[0].MaxValue);
 	// - If bit 3 of the first byte is not set, it's not a valid packet?
 	if(giMouse_Cycle == 0 && !(gaMouse_Bytes[0] & 0x08) )
@@ -137,11 +134,8 @@ void PS2Mouse_IRQ(int Num)
 		gMouse_Axies[i].CurValue = d_accel[i];
 		gMouse_Axies[i].CursorPos = newCursor;
 	}
-	
-//	Log_Debug("PS2Mouse", "gMouse_Buttons = {0x%x,0x%x,0x%x}, gMouse_Axies={%i,%i}", 
-//		gMouse_Buttons[0], gMouse_Buttons[1], gMouse_Buttons[2],
-//		gMouse_Axies[0].CursorPos, gMouse_Axies[1].CursorPos);
-	
+
+		
 	VFS_MarkAvaliable(&gMouse_DriverStruct.RootNode, 1);
 }
 
@@ -201,47 +195,3 @@ int PS2Mouse_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	}
 }
 
-//== Internal Functions ==
-static inline void mouseOut64(Uint8 data)
-{
-	int timeout=100000;
-	while( timeout-- && inb(0x64) & 2 );	// Wait for Flag to clear
-	outb(0x64, data);	// Send Command
-}
-static inline void mouseOut60(Uint8 data)
-{
-	int timeout=100000;
-	while( timeout-- && inb(0x64) & 2 );	// Wait for Flag to clear
-	outb(0x60, data);	// Send Command
-}
-static inline Uint8 mouseIn60(void)
-{
-	int timeout=100000;
-	while( timeout-- && (inb(0x64) & 1) == 0);	// Wait for Flag to set
-	return inb(0x60);
-}
-static inline void mouseSendCommand(Uint8 cmd)
-{
-	mouseOut64(0xD4);
-	mouseOut60(cmd);
-}
-
-void PS2Mouse_Enable(void)
-{
-	Uint8	status;
-	Log_Log("PS2Mouse", "Enabling Mouse...");
-	
-	// Enable AUX PS/2
-	mouseOut64(0xA8);
-	
-	// Enable AUX PS/2 (Compaq Status Byte)
-	mouseOut64(0x20);	// Send Command
-	status = mouseIn60();	// Get Status
-	status &= ~0x20;	// Clear "Disable Mouse Clock"
-	status |= 0x02; 	// Set IRQ12 Enable
-	mouseOut64(0x60);	// Send Command
-	mouseOut60(status);	// Set Status
-	
-	//mouseSendCommand(0xF6);	// Set Default Settings
-	mouseSendCommand(0xF4);	// Enable Packets
-}

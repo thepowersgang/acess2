@@ -5,10 +5,9 @@
  */
 #include <acess.h>
 #include <modules.h>
+#include "common.h"
 
 // === IMPORTS ===
-extern int	KB_Install(char **Arguments);
-extern int	PS2Mouse_Install(char **Arguments);
 
 // === PROTOTYPES ===
  int	PS2_Install(char **Arguments);
@@ -21,7 +20,6 @@ MODULE_DEFINE(0, 0x0100, PS2Mouse, PS2Mouse_Install, NULL, NULL);
 // === CODE ===
 int PS2_Install(char **Arguments)
 {
-//	KB_Install(Arguments);
-//	Mouse_Install(Arguments);
+	KBC8042_Init();
 	return MODULE_ERR_OK;
 }
