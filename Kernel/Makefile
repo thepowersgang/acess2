@@ -30,8 +30,11 @@ ifeq ($(DEBUG_BUILD),yes)
 endif
 
 ifeq ($(AS_SUFFIX),)
-	AS_SUFFIX = s
+	AS_SUFFIX = S
 endif
+
+BUILDINFO_OBJ := $(OBJDIR)buildinfo.o$(OBJSUFFIX)
+BUILDINFO_SRC := $(OBJDIR)buildinfo.c$(OBJSUFFIX)
 
 OBJ := $(addprefix arch/$(ARCHDIR)/,$(A_OBJ))
 OBJ += heap.o drvutil.o logging.o debug.o lib.o adt.o time.o
@@ -58,13 +61,15 @@ DEPFILES := $(DEPFILES:%.o$(OBJSUFFIX)=%.dep$(OBJSUFFIX))
 SRCFILES  = $(OBJ:$(OBJDIR)%.o$(OBJSUFFIX)=%.c)
 SRCFILES := $(SRCFILES:$(OBJDIR)%.ao$(OBJSUFFIX)=%.$(AS_SUFFIX))
 
+OBJ += $(BUILDINFO_OBJ)
+
 .PHONY: all clean install apidoc
 
 all: $(BIN)
 
 clean:
 #	$(RM) $(BIN) ../Acess2.$(ARCH).gz $(BIN).dsm ../Map.$(ARCH).txt LineCounts.$(ARCH).txt $(OBJ) $(DEPFILES)
-	@$(RM) $(BIN) ../Acess2.$(ARCH).gz $(BIN).dsm ../Map.$(ARCH).txt LineCounts.$(ARCH).txt -r $(OBJDIR) $(OBJ) $(DEPFILES)
+	@$(RM) $(BIN) ../Acess2.$(ARCH).gz $(BIN).dsm ../Map.$(ARCH).txt LineCounts.$(ARCH).txt -r $(OBJDIR) $(OBJ) $(DEPFILES) $(BUILDINFO_SRC)
 
 install: $(BIN) 
 	cp $(BIN) $(BIN)_
@@ -107,8 +112,12 @@ include/syscalls.h include/syscalls.inc.asm:	syscalls.lst Makefile GenSyscalls.p
 
 Makefile:	../Makefile.cfg arch/$(ARCHDIR)/Makefile
 
-# HACK - Rebuild proc when the buildnum changes
-#$(OBJDIR)drv/proc.o$(OBJSUFFIX): Makefile.BuildNum.$(ARCH)
+.PHONY: $(BUILDINFO_SRC) 
+$(BUILDINFO_SRC): 
+	@echo "const char * const gsGitHash = \""`git log -n 1 | head -n 1 | awk '{print $$1}'`"\";" > $@
+	@echo "const int giBuildNumber = $(BUILD_NUM);" >> $@
+$(BUILDINFO_OBJ): $(BUILDINFO_SRC)
+	@$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $<
 
 # Dependency Files
 -include $(DEPFILES)

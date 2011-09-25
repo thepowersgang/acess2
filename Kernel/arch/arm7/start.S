@@ -1,4 +1,6 @@
 KERNEL_BASE =	0x80000000
+PCI_PADDR   =	0x60000000	@ Realview
+UART0_PADDR =	0x10009000	@ Realview
 @
 @ Exception defs taken from ARM DDI 0406B
 @ 
@@ -10,7 +12,7 @@ interrupt_vector_table:
 	b .	@ Prefetch abort
 	b .	@ Data abort
 	b .	@ Not Used
-	b .	@ IRQ
+	b IRQHandler	@ IRQ
 	b .	@ FIQ (Fast interrupt)
 
 .globl _start
@@ -56,11 +58,33 @@ kernel_table0:
 	.rept 0xF00 - 0x800 - 4
 		.long 0
 	.endr
+#if PCI_PADDR
+	.long PCI_PADDR +  0*(1 << 20) + 2	@ Map PCI config space
+	.long PCI_PADDR +  1*(1 << 20) + 2
+	.long PCI_PADDR +  2*(1 << 20) + 2
+	.long PCI_PADDR +  3*(1 << 20) + 2
+	.long PCI_PADDR +  4*(1 << 20) + 2
+	.long PCI_PADDR +  5*(1 << 20) + 2
+	.long PCI_PADDR +  6*(1 << 20) + 2
+	.long PCI_PADDR +  7*(1 << 20) + 2
+	.long PCI_PADDR +  8*(1 << 20) + 2
+	.long PCI_PADDR +  9*(1 << 20) + 2
+	.long PCI_PADDR + 10*(1 << 20) + 2
+	.long PCI_PADDR + 11*(1 << 20) + 2
+	.long PCI_PADDR + 12*(1 << 20) + 2
+	.long PCI_PADDR + 13*(1 << 20) + 2
+	.long PCI_PADDR + 14*(1 << 20) + 2
+	.long PCI_PADDR + 15*(1 << 20) + 2
+#else
+	.rept 16
+		.long 0
+	.endr
+#endif
 	.long hwmap_table_0 + 0x000 - KERNEL_BASE + 1
 	.long hwmap_table_0 + 0x400 - KERNEL_BASE + 1
 	.long hwmap_table_0 + 0x800 - KERNEL_BASE + 1
 	.long hwmap_table_0 + 0xC00 - KERNEL_BASE + 1
-	.rept 0xFF8 - 0xF00 - 4
+	.rept 0xFF8 - 0xF00 - 16 - 4
 		.long 0
 	.endr
 	@ Page fractals
@@ -69,8 +93,7 @@ kernel_table0:
 	.long kernel_table1_map + 0x800 - KERNEL_BASE + 1
 	.long kernel_table1_map + 0xC00 - KERNEL_BASE + 1
 	@ Top level fractals
-	@.long kernel_table0 - KERNEL_BASE + 2	@ Only need 16KiB, but this maps 1MiB
-	.long 0 	@ removed for alignment constraints, using the KERNEL_BASE ident mapping instead
+	.long 0 	@ removed for alignment constraints, using the KERNEL_BASE identity mapping instead
 	.rept 0x1000 - 0xFF8 - 5
 		.long 0
 	.endr
@@ -90,7 +113,7 @@ kernel_table1_map:	@ Size = 4KiB
 @ Hardware mappings 
 .globl hwmap_table_0
 hwmap_table_0:
-	.long 0x10009000 + (1 << 4) + 3	@ UART0
+	.long UART0_PADDR + (1 << 4) + 3	@ UART0
 	.rept 1024 - 1
 		.long 0
 	.endr

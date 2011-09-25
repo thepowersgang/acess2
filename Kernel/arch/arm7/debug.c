@@ -10,7 +10,7 @@
 
 // === CONSTANTS ===
 //#define UART0_BASE	0x10009000
-#define UART0_BASE	0xF0000000	// Boot time mapped
+#define UART0_BASE	0xF1000000	// Boot time mapped
 
 // === PROTOTYPES ===
 void	KernelPanic_SetMode(void);
