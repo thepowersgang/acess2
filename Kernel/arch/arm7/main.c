@@ -11,6 +11,7 @@ extern void	Interrupts_Setup(void);
 extern void	Arch_LoadBootModules(void);
 extern void	Heap_Install(void);
 extern void	Threads_Init(void);
+extern void	System_Init(const char *Commandline);
 
 // === PROTOTYPES ===
  int	kmain(void);
@@ -24,10 +25,20 @@ int kmain(void)
 	
 	MM_SetupPhys();
 
+	LogF("Heap Setup...\n");
 	Heap_Install();
 
+	LogF("Threads Init...\n");
 	Threads_Init();
 	
+	LogF("VFS Init...\n");
+	VFS_Init();
+
+	// Boot modules?
+
+	//
+	LogF("Moving to arch-independent init\n");
+	System_Init("");
 	//TODO: 
 	LogF("End of kmain(), for(;;);\n");
 	for(;;);

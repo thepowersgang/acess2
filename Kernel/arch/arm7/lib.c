@@ -6,6 +6,7 @@
 #include <acess.h>
 
 // === PROTOTYPES ===
+Uint64	__divmod64(Uint64 Num, Uint64 Den, Uint64 *Rem);
 Uint64	__udivdi3(Uint64 Num, Uint64 Den);
 Uint64	__umoddi3(Uint64 Num, Uint64 Den);
 Uint32	__udivsi3(Uint32 Num, Uint32 Den);
@@ -112,6 +113,36 @@ void *memset(void *_dest, int _value, size_t _length)
 	return _dest;
 }
 
+Uint64 __divmod64(Uint64 Num, Uint64 Den, Uint64 *Rem)
+{
+	Uint64	ret, add;
+
+	ret = 0;
+	add = 1;
+
+	// Find what power of two times Den is > Num
+	while( Num >= Den )
+	{
+		Den <<= 1;
+		add <<= 1;
+	}
+
+	// Search backwards
+	while( add > 1 )
+	{
+		add >>= 1;
+		Den >>= 1;
+		// If the numerator is > Den, subtract and add to return value
+		if( Num > Den )
+		{
+			ret += add;
+			Num -= Den;
+		}
+	}
+	if(Rem)	*Rem = Num;
+	return ret;
+}
+
 Uint64 DivMod64U(Uint64 Num, Uint64 Den, Uint64 *Rem)
 {
 	Uint64	ret;
@@ -131,6 +162,10 @@ Uint64 DivMod64U(Uint64 Num, Uint64 Den, Uint64 *Rem)
 	if(Den == 16) {
 		if(Rem)	*Rem = Num & 0xF;
 		return Num >> 4;
+	}
+	if(Den == 32) {
+		if(Rem)	*Rem = Num & 0x1F;
+		return Num >> 5;
 	}
 	if(Den == 0x1000) {
 		if(Rem)	*Rem = Num & 0xFFF;
@@ -156,11 +191,16 @@ Uint64 DivMod64U(Uint64 Num, Uint64 Den, Uint64 *Rem)
 		Den >>= 1; tmp >>= 1;
 		while(
 	}
-	#else
-	for( ret = 0; Num > Den; ret ++, Num -= Den) ;
-	#endif
 	if(Rem)	*Rem = Num;
 	return ret;
+	#elif 0
+	for( ret = 0; Num > Den; ret ++, Num -= Den) ;
+	if(Rem)	*Rem = Num;
+	return ret;
+	#else
+	ret = __divmod64(Num, Den, Rem);
+	return ret;
+	#endif
 }
 
 // Unsigned Divide 64-bit Integer

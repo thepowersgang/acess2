@@ -20,7 +20,7 @@ void PCI_CfgWriteDWord(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset, Uint3
 Uint32 PCI_CfgReadDWord(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset)
 {
 	// TODO: Locate PCI base and read/write data
-	return 0;
+	return 0xFFFFFFFF;
 }
 
 Uint16 PCI_CfgReadWord(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset)
