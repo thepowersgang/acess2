@@ -5,9 +5,9 @@
 #include <acess.h>
 #include <fs_devfs.h>
 #include <modules.h>
-#include <tpl_drv_video.h>
-#include <tpl_drv_keyboard.h>
-#include <tpl_drv_terminal.h>
+#include <api_drv_video.h>
+#include <api_drv_keyboard.h>
+#include <api_drv_terminal.h>
 #include <errno.h>
 #include <semaphore.h>
 

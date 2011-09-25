@@ -46,7 +46,7 @@
  * capabilities for the the user.
  * 
  * The device driver interfaces are all based on the core specifcation
- * in tpl_drv_common.h (Common Device Driver definitions).
+ * in api_drv_common.h (Common Device Driver definitions).
  * The following subsections define the various specific types of driver
  * interfaces. These definitions only define the bare minimum of what the
  * driver must implement, if the driver author so wants to, they can add
@@ -58,7 +58,7 @@
  * identify itself as a miscelanious device by returning DRV_TYPE_MISC
  * from \ref DRV_IOCTL_TYPE.
  * A misc device must at least implement the IOCtl calls defined in the
- * \ref tpl_drv_common.h "Common Device Driver definitions", allowing it
+ * \ref api_drv_common.h "Common Device Driver definitions", allowing it
  * to be identified easily by the user and for interfacing programs to
  * utilise the DRV_IOCTL_LOOKUP call.
  * 
@@ -67,7 +67,7 @@
  * which is not yet fully standardised, so should be ignored).
  * The driver will contain only one VFS node, that exposes the video
  * framebuffer (this may not be the true framebuffer, to allow for double-buffering)
- * to the user. See the full documentation in tpl_drv_video.h for the
+ * to the user. See the full documentation in api_drv_video.h for the
  * complete specifcation.
  * 
  * \subsection drv_disk Disk/Storage Devices
@@ -78,10 +78,10 @@
  * The functions DrvUtil_ReadBlock and DrvUtil_WriteBlock are provided
  * to storage drivers to assist in handling non-alinged reads and writes.
  * 
- * \see tpl_drv_common.h Common Spec.
- * \see tpl_drv_video.h Video Device Spec.
- * \see tpl_drv_keyboard.h Keyboard Device Spec.
- * \see tpl_drv_disk.h Disk/Storage Device Spec.
- * \see tpl_drv_network.h Network Device Spec.
- * \see tpl_drv_terminal.h Virtual Terminal Spec.
+ * \see api_drv_common.h Common Spec.
+ * \see api_drv_video.h Video Device Spec.
+ * \see api_drv_keyboard.h Keyboard Device Spec.
+ * \see api_drv_disk.h Disk/Storage Device Spec.
+ * \see api_drv_network.h Network Device Spec.
+ * \see api_drv_terminal.h Virtual Terminal Spec.
  */

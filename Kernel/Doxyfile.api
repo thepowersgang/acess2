@@ -574,12 +574,13 @@ INPUT                  = include/apidoc_mainpage.h \
                          include/iocache.h \
                          arch/archdoc.h \
                          include/apidoc/arch_x86.h \
-                         include/tpl_drv_common.h \
-                         include/tpl_drv_video.h \
-                         include/tpl_drv_terminal.h \
-                         include/tpl_drv_disk.h \
-                         include/tpl_drv_keyboard.h \
-                         include/tpl_drv_network.h
+                         include/api_drv_common.h \
+                         include/api_drv_video.h \
+                         include/api_drv_terminal.h \
+                         include/api_drv_disk.h \
+                         include/api_drv_keyboard.h \
+                         include/api_drv_joystick.h \
+                         include/api_drv_network.h
 
 # This tag can be used to specify the character encoding of the source files 
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding, which is 
@@ -596,7 +597,7 @@ INPUT_ENCODING         = UTF-8
 # *.c *.cc *.cxx *.cpp *.c++ *.java *.ii *.ixx *.ipp *.i++ *.inl *.h *.hh *.hxx 
 # *.hpp *.h++ *.idl *.odl *.cs *.php *.php3 *.inc *.m *.mm *.py *.f90
 
-FILE_PATTERNS          = tpl_drv_*.h
+FILE_PATTERNS          = api_drv_*.h
 #*.c *.h
 
 # The RECURSIVE tag can be used to turn specify whether or not subdirectories 

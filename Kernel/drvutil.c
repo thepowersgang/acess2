@@ -4,8 +4,8 @@
  */
 #define DEBUG	0
 #include <acess.h>
-#include <tpl_drv_disk.h>
-#include <tpl_drv_video.h>
+#include <api_drv_disk.h>
+#include <api_drv_video.h>
 
 // === CODE ===
 // --- Video Driver Helpers ---

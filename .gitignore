@@ -40,3 +40,5 @@ obj-*/
 *.bin
 
 Makefile.user.cfg
+QemuLog.txt
+Screenshots/

@@ -1,5 +1,5 @@
 /**
- * \file tpl_drv_network.h
+ * \file api_drv_network.h
  * \brief Network Interface Driver Interface Definitions
  * 
  * \section dirs VFS Layout
@@ -26,10 +26,10 @@
  * is too small, or if it is too large) -1 should be returned and the packet
  * will not be sent.
  */
-#ifndef _TPL_NETWORK_H
-#define _TPL_NETWORK_H
+#ifndef _API_DRV_NETWORK_H
+#define _API_DRV_NETWORK_H
 
-#include <tpl_drv_common.h>
+#include <api_drv_common.h>
 
 /**
  * \enum eTplNetwork_IOCtl

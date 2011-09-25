@@ -1,5 +1,5 @@
 /**
- * \file tpl_drv_common.h
+ * \file api_drv_common.h
  * \brief Common Driver Interface Definitions
  * \author John Hodge (thePowersGang)
  * 
@@ -31,8 +31,8 @@
  * These device types are described in their own files, which are liked
  * from their entries in ::eTplDrv_Type.
  */
-#ifndef _TPL_COMMON_H
-#define _TPL_COMMON_H
+#ifndef _API_DRV_COMMON_H
+#define _API_DR_COMMON_H
 
 /**
  * \enum eTplDrv_IOCtl
@@ -123,14 +123,14 @@ enum eTplDrv_IOCtl {
 enum eTplDrv_Type {
 	DRV_TYPE_NULL,		//!< NULL Type - Custom Interface
 	DRV_TYPE_MISC,		//!< Miscelanious Compilant - Supports the core calls
-	DRV_TYPE_TERMINAL,	//!< Terminal - see tpl_drv_terminal.h
-	DRV_TYPE_VIDEO,		//!< Video - see tpl_drv_video.h
+	DRV_TYPE_TERMINAL,	//!< Terminal - see api_drv_terminal.h
+	DRV_TYPE_VIDEO,		//!< Video - see api_drv_video.h
 	DRV_TYPE_SOUND,		//!< Audio
-	DRV_TYPE_DISK,		//!< Disk - see tpl_drv_disk.h
-	DRV_TYPE_KEYBOARD,	//!< Keyboard - see tpl_drv_keyboard.h
+	DRV_TYPE_DISK,		//!< Disk - see api_drv_disk.h
+	DRV_TYPE_KEYBOARD,	//!< Keyboard - see api_drv_keyboard.h
 	DRV_TYPE_MOUSE,		//!< Mouse
 	DRV_TYPE_JOYSTICK,	//!< Joystick / Gamepad
-	DRV_TYPE_NETWORK	//!< Network Device - see tpl_drv_network.h
+	DRV_TYPE_NETWORK	//!< Network Device - see api_drv_network.h
 };
 
 #endif

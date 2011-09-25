@@ -5,7 +5,7 @@
 #define DEBUG	0
 #define VERSION	VER2(0,10)
 #include <acess.h>
-#include <tpl_drv_common.h>
+#include <api_drv_common.h>
 #include "ipstack.h"
 #include "link.h"
 

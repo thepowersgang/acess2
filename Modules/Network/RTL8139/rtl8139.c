@@ -8,7 +8,7 @@
 #include <modules.h>
 #include <fs_devfs.h>
 #include <drv_pci.h>
-#include <tpl_drv_network.h>
+#include <api_drv_network.h>
 #include <semaphore.h>
 
 // === CONSTANTS ===

@@ -1,5 +1,5 @@
 /**
- * \file tpl_drv_joystick
+ * \file api_drv_joystick
  * \brief Joystick Driver Interface Definitions
  * \author John Hodge (thePowersGang)
  * 
@@ -16,10 +16,10 @@
  * 0xFF is fully depressed - intermediate values are valid in the case of
  * variable-pressure buttons)
  */
-#ifndef _TPL_JOYSTICK_H
-#define _TPL_JOYSTICK_H
+#ifndef _API_DRV_JOYSTICK_H
+#define _API_DRV_JOYSTICK_H
 
-#include <tpl_drv_common.h>
+#include <api_drv_common.h>
 
 /**
  * \enum eTplJoystick_IOCtl

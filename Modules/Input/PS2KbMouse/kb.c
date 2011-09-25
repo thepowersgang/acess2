@@ -5,8 +5,8 @@
 #include <acess.h>
 #include <modules.h>
 #include <fs_devfs.h>
-#include <tpl_drv_common.h>
-#include <tpl_drv_keyboard.h>
+#include <api_drv_common.h>
+#include <api_drv_keyboard.h>
 #include "kb_kbdus.h"
 
 // === CONSTANTS ===

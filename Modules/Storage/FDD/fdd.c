@@ -6,7 +6,7 @@
 #include <acess.h>
 #include <modules.h>
 #include <fs_devfs.h>
-#include <tpl_drv_disk.h>
+#include <api_drv_disk.h>
 #include <dma.h>
 #include <iocache.h>
 

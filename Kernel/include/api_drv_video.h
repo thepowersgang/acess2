@@ -1,9 +1,9 @@
 /**
- * \file tpl_drv_video.h
+ * \file api_drv_video.h
  * \brief Video Driver Interface Definitions
  * \note For AcessOS Version 1
  * 
- * Video drivers extend the common driver interface tpl_drv_common.h
+ * Video drivers extend the common driver interface api_drv_common.h
  * and must support _at least_ the IOCtl numbers defined in this file
  * to be compatable with Acess.
  * 
@@ -24,10 +24,10 @@
  * text mode with the same resolution, this mode will be used when the
  * user switches to a text Virtual Terminal while in graphics mode.
  */
-#ifndef _TPL_VIDEO_H
-#define _TPL_VIDEO_H
+#ifndef _API_DRV_VIDEO_H
+#define _API_DRV_VIDEO_H
 
-#include <tpl_drv_common.h>
+#include <api_drv_common.h>
 
 /**
  * \enum eTplVideo_IOCtl

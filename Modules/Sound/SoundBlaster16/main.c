@@ -8,7 +8,7 @@
 #include <vfs.h>
 #include <fs_devfs.h>
 #include <drv_pci.h>
-#include <tpl_drv_sound.h>
+#include <api_drv_sound.h>
 
 #define INT
 

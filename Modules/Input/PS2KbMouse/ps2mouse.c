@@ -6,8 +6,8 @@
 #include <modules.h>
 #include <vfs.h>
 #include <fs_devfs.h>
-#include <tpl_drv_common.h>
-#include <tpl_drv_joystick.h>
+#include <api_drv_common.h>
+#include <api_drv_joystick.h>
 
 static inline int MIN(int a, int b) { return (a < b) ? a : b; }
 static inline int MAX(int a, int b) { return (a > b) ? a : b; }

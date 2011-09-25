@@ -1,5 +1,5 @@
 /**
- * \file tpl_drv_keyboard.h
+ * \file api_drv_keyboard.h
  * \brief Keyboard Driver Interface Definitions
  * \author John Hodge (thePowersGang)
  * 
@@ -8,10 +8,10 @@
  * node with a size of zero. All reads and writes to this node are ignored
  * (tVFS_Node.Read and tVFS_Node.Write are NULL)
  */
-#ifndef _TPL_KEYBOARD_H
-#define _TPL_KEYBOARD_H
+#ifndef _API_DRV_KEYBOARD_H
+#define _API_KEYBOARD_H
 
-#include <tpl_drv_common.h>
+#include <api_drv_common.h>
 
 /**
  * \enum eTplKeyboard_IOCtl

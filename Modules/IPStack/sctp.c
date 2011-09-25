@@ -3,7 +3,7 @@
  * - SCTP (Stream Control Transmission Protocol) Handling
  */
 #include "ipstack.h"
-#include <tpl_drv_common.h>
+#include <api_drv_common.h>
 #include "sctp.h"
 
 #define SCTP_ALLOC_BASE	0xC000

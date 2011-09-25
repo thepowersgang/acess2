@@ -7,7 +7,7 @@
 
 #include <acess.h>
 #include <vfs.h>
-#include <tpl_drv_video.h>
+#include <api_drv_video.h>
 #include <fs_devfs.h>
 #include <modules.h>
 #include <vm8086.h>

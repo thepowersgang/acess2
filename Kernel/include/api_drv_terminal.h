@@ -1,11 +1,11 @@
 /**
- * \file tpl_drv_terminal.h
+ * \file api_drv_terminal.h
  * \brief Terminal Driver Interface Definitions
 */
-#ifndef _TPL_TERMINAL_H
-#define _TPL_TERMINAL_H
+#ifndef _API_DRV_TERMINAL_H
+#define _API_DRV_TERMINAL_H
 
-#include <tpl_drv_common.h>
+#include <api_drv_common.h>
 
 /**
  * \brief Common Terminal IOCtl Calls
