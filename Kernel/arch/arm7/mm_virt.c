@@ -102,7 +102,6 @@ int MM_int_AllocateCoarse(tVAddr VAddr, int Domain)
 	desc[2] = desc[0] + 0x800;
 	desc[3] = desc[0] + 0xC00;
 
-	Log("FRACTAL(%p, %p) = %p", table1, VAddr, &FRACTAL(table1, VAddr));
 	FRACTAL(table1, VAddr) = paddr | 3;
 
 	// TLBIALL 
