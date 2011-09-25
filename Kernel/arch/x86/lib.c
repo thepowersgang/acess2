@@ -343,6 +343,25 @@ void *memcpyd(void *Dest, const void *Src, size_t Num)
 	return Dest;
 }
 
+Uint64 DivMod64U(Uint64 Num, Uint64 Div, Uint64 *Rem)
+{
+	Uint64	ret;
+	if( Div < 0x100000000ULL && Num < 0xFFFFFFFF * Div ) {
+		Uint32	rem, ret_32;
+		__asm__ __volatile__(
+			"div %4"
+			: "=a" (ret_32), "=d" (rem)
+			: "a" ( (Uint32)(Num & 0xFFFFFFFF) ), "d" ((Uint32)(Num >> 32)), "r" (Div)
+			);
+		if(Rem)	*Rem = rem;
+		return ret_32;
+	}
+
+	ret = __udivdi3(Num, Div);
+	if(Rem)	*Rem = __umoddi3(Num, Div);
+	return ret;
+}
+
 /**
  * \fn Uint64 __udivdi3(Uint64 Num, Uint64 Den)
  * \brief Divide two 64-bit integers

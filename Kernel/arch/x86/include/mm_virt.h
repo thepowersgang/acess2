@@ -44,6 +44,6 @@ extern void	MM_FinishVirtualInit(void);
 extern void	MM_SetCR3(Uint CR3);
 extern tPAddr	MM_Clone(void);
 extern tVAddr	MM_NewKStack(void);
-extern tVAddr	MM_NewWorkerStack(void);
+extern tVAddr	MM_NewWorkerStack(Uint *InitialStack, size_t StackSize);
 
 #endif

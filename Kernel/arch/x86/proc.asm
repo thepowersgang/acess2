@@ -8,6 +8,26 @@ KERNEL_BASE	equ 0xC0000000
 KSTACK_USERSTATE_SIZE	equ	(4+8+1+5)*4	; SRegs, GPRegs, CPU, IRET
 
 [section .text]
+
+[global NewTaskHeader]
+NewTaskHeader:
+	mov eax, [esp]
+	mov dr0, eax
+	xchg bx, bx	
+
+	sti
+	; TODO: SMP
+	mov al, 0x20
+	out 0x20, al
+	
+	mov eax, [esp+4]
+	add esp, 12	; Thread, Function, Args
+	call eax
+	
+	push eax	; Ret val
+	push 0  	; 0 = This Thread
+	call Threads_Exit
+
 %if USE_MP
 [extern giMP_TimerCount]
 [extern gpMP_LocalAPIC]

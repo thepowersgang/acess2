@@ -19,7 +19,6 @@
 #define DEBUG_VERY_SLOW_SWITCH	0
 
 // === CONSTANTS ===
-#define	SWITCH_MAGIC	0xFF5317C8	// FF SWITCH - There is no code in this area
 // Base is 1193182
 #define TIMER_BASE      1193182
 #if DEBUG_VERY_SLOW_PERIOD
@@ -47,6 +46,7 @@ extern void APWait(void);	// 16-bit AP pause code
 extern void APStartup(void);	// 16-bit AP startup code
 extern Uint	GetEIP(void);	// start.asm
 extern Uint	GetEIP_Sched(void);	// proc.asm
+extern void	NewTaskHeader(tThread *Thread, void *Fcn, int nArgs, ...);	// Actually takes cdecl args
 extern Uint32	gaInitPageDir[1024];	// start.asm
 extern char	Kernel_Stack_Top[];
 extern tShortSpinlock	glThreadListLock;
@@ -614,7 +614,7 @@ int Proc_Clone(Uint Flags)
 	newThread->SavedState.ESP = esp;
 	newThread->SavedState.EBP = ebp;
 	eip = GetEIP();
-	if(eip == SWITCH_MAGIC) {
+	if(eip == 0) {
 		//__asm__ __volatile__ ("mov %0, %%db0" : : "r" (newThread) );
 		#if USE_MP
 		// ACK the interrupt
@@ -640,12 +640,10 @@ int Proc_Clone(Uint Flags)
  * \fn int Proc_SpawnWorker(void)
  * \brief Spawns a new worker thread
  */
-int Proc_SpawnWorker(void (*Fcn)(void*), void *Data);
+int Proc_SpawnWorker(void (*Fcn)(void*), void *Data)
 {
-	tThread	*new, *cur;
-	Uint	eip, esp, ebp;
-	
-	cur = Proc_GetCurThread();
+	tThread	*new;
+	Uint	stack_contents[4];
 	
 	// Create new thread
 	new = Threads_CloneThreadZero();
@@ -653,36 +651,23 @@ int Proc_SpawnWorker(void (*Fcn)(void*), void *Data);
 		Warning("Proc_SpawnWorker - Out of heap space!\n");
 		return -1;
 	}
-	// Create a new worker stack (in PID0's address space)
-	// - The stack is relocated by this function
-	new->KernelStack = MM_NewWorkerStack();
 
-	// Get ESP and EBP based in the new stack
-	__asm__ __volatile__ ("mov %%esp, %0": "=r"(esp));
-	__asm__ __volatile__ ("mov %%ebp, %0": "=r"(ebp));
-	esp = new->KernelStack - (cur->KernelStack - esp);
-	ebp = new->KernelStack - (cur->KernelStack - ebp);	
+	// Create the stack contents
+	stack_contents[3] = (Uint)Data;
+	stack_contents[2] = 1;
+	stack_contents[1] = (Uint)Fcn;
+	stack_contents[0] = (Uint)new;
 	
+	// Create a new worker stack (in PID0's address space)
+	new->KernelStack = MM_NewWorkerStack(stack_contents, sizeof(stack_contents));
+
 	// Save core machine state
-	new->SavedState.ESP = esp;
-	new->SavedState.EBP = ebp;
-	eip = GetEIP();
-	if(eip == SWITCH_MAGIC) {
-		//__asm__ __volatile__ ("mov %0, %%db0" : : "r"(new));
-		#if USE_MP
-		// ACK the interrupt
-		if(GetCPUNum())
-			gpMP_LocalAPIC->EOI.Val = 0;
-		else
-		#endif
-			outb(0x20, 0x20);	// ACK Timer and return as child
-		__asm__ __volatile__ ("sti");	// Restart interrupts
-		return 0;
-	}
+	new->SavedState.ESP = new->KernelStack - sizeof(stack_contents);
+	new->SavedState.EBP = 0;
+	new->SavedState.EIP = (Uint)NewTaskHeader;
 	
-	// Set EIP as parent
-	new->SavedState.EIP = eip;
 	// Mark as active
+	new->Status = THREAD_STAT_PREINIT;
 	Threads_AddActive( new );
 	
 	return new->TID;
@@ -963,7 +948,7 @@ void Proc_Scheduler(int CPU)
 		__asm__ __volatile__ ( "mov %%esp, %0" : "=r" (esp) );
 		__asm__ __volatile__ ( "mov %%ebp, %0" : "=r" (ebp) );
 		eip = GetEIP();
-		if(eip == SWITCH_MAGIC) {
+		if(eip == 0) {
 			__asm__ __volatile__ ( "nop" : : : "eax","ebx","ecx","edx","edi","esi");
 			regs = (tRegs*)(ebp+(2+2)*4);	// EBP,Ret + CPU,CurThread
 			#if USE_MP
@@ -1054,13 +1039,18 @@ void Proc_Scheduler(int CPU)
 	__asm__ __volatile__("mov %0, %%db0\n\t" : : "r"(thread) );
 	// Switch threads
 	__asm__ __volatile__ (
-		"mov %4, %%cr3\n\t"	// Set address space
-		"mov %1, %%esp\n\t"	// Restore ESP
-		"mov %2, %%ebp\n\t"	// and EBP
-		"or %5, 72(%%ebp)\n\t"	// or trace flag to eflags (2+2+4+8+2)*4
-		"jmp *%3" : :	// And return to where we saved state (Proc_Clone or Proc_Scheduler)
-		"a"(SWITCH_MAGIC), "b"(thread->SavedState.ESP),
-		"d"(thread->SavedState.EBP), "c"(thread->SavedState.EIP),
+		"mov %3, %%cr3\n\t"	// Set address space
+		"mov %0, %%esp\n\t"	// Restore ESP
+		"mov %1, %%ebp\n\t"	// and EBP
+		"test %4, %4\n\t"
+		"jz 1f\n\t"
+		"or %4, 72(%%ebp)\n\t"	// or trace flag to eflags (2+2+4+8+2)*4
+		"1:"
+		"xor %%eax, %%eax\n\t"
+		"jmp *%2" : :	// And return to where we saved state (Proc_Clone or Proc_Scheduler)
+		"r"(thread->SavedState.ESP),
+		"r"(thread->SavedState.EBP),
+		"r"(thread->SavedState.EIP),
 		"r"(thread->MemState.CR3),
 		"r"(thread->bInstrTrace&&thread->SavedState.EIP==(Uint)&GetEIP_Sched_ret?0x100:0)
 		);

@@ -109,7 +109,7 @@ const Uint16	caVT100Colours[] = {
 	};
 
 // === GLOBALS ===
-MODULE_DEFINE(0, VERSION, VTerm, VT_Install, NULL, FALLBACK_OUTPUT, DEFAULT_INPUT, NULL);
+MODULE_DEFINE(0, VERSION, VTerm, VT_Install, NULL, DEFAULT_INPUT, FALLBACK_OUTPUT, NULL);
 tDevFS_Driver	gVT_DrvInfo = {
 	NULL, "VTerm",
 	{

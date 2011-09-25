@@ -680,18 +680,11 @@ tVAddr MM_NewKStack(void)
  * \fn tVAddr MM_NewWorkerStack()
  * \brief Creates a new worker stack
  */
-tVAddr MM_NewWorkerStack()
+tVAddr MM_NewWorkerStack(Uint *StackContents, size_t ContentsSize)
 {
-	Uint	esp, ebp;
-	Uint	oldstack;
 	Uint	base, addr;
-	 int	i, j;
-	Uint	*tmpPage;
-	tPAddr	pages[WORKER_STACK_SIZE>>12];
-	
-	// Get the old ESP and EBP
-	__asm__ __volatile__ ("mov %%esp, %0": "=r"(esp));
-	__asm__ __volatile__ ("mov %%ebp, %0": "=r"(ebp));
+	tVAddr	tmpPage;
+	tPAddr	page;
 	
 	// TODO: Thread safety
 	// Find a free worker stack address
@@ -741,44 +734,22 @@ tVAddr MM_NewWorkerStack()
 	
 	// Mapping Time!
 	for( addr = 0; addr < WORKER_STACK_SIZE; addr += 0x1000 )
-	//for( addr = WORKER_STACK_SIZE; addr; addr -= 0x1000 )
 	{
-		pages[ addr >> 12 ] = MM_AllocPhys();
-		gaTmpTable[ (base + addr) >> 12 ] = pages[addr>>12] | 3;
+		page = MM_AllocPhys();
+		gaTmpTable[ (base + addr) >> 12 ] = page | 3;
 	}
 	*gpTmpCR3 = 0;
 	// Release the temp mapping lock
 	Mutex_Release(&glTempFractal);
-	
-	// Copy the old stack
-	oldstack = (esp + KERNEL_STACK_SIZE-1) & ~(KERNEL_STACK_SIZE-1);
-	esp = oldstack - esp;	// ESP as an offset in the stack
-	
-	// Make `base` be the top of the stack
-	base += WORKER_STACK_SIZE;
-	
-	i = (WORKER_STACK_SIZE>>12) - 1;
-	// Copy the contents of the old stack to the new one, altering the addresses
-	// `addr` is refering to bytes from the stack base (mem downwards)
-	for(addr = 0; addr < esp; addr += 0x1000)
-	{
-		Uint	*stack = (Uint*)( oldstack-(addr+0x1000) );
-		tmpPage = (void*)MM_MapTemp( pages[i] );
-		// Copy old stack
-		for(j = 0; j < 1024; j++)
-		{
-			// Possible Stack address?
-			if(oldstack-esp < stack[j] && stack[j] < oldstack)
-				tmpPage[j] = base - (oldstack - stack[j]);
-			else	// Seems not, best leave it alone
-				tmpPage[j] = stack[j];
-		}
-		MM_FreeTemp((tVAddr)tmpPage);
-		i --;
-	}
+
+	// NOTE: Max of 1 page
+	// `page` is the last allocated page from the previious for loop
+	tmpPage = MM_MapTemp( page );
+	memcpy( (void*)( tmpPage + (0x1000 - ContentsSize) ), StackContents, ContentsSize);
+	MM_FreeTemp(tmpPage);	
 	
 	//Log("MM_NewWorkerStack: RETURN 0x%x", base);
-	return base;
+	return base + WORKER_STACK_SIZE;
 }
 
 /**
