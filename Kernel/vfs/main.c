@@ -52,13 +52,14 @@ int VFS_Init(void)
 	giVFS_DriverFileID = SysFS_RegisterFile("VFS/Drivers", NULL, 0);
 	
 	if( VFS_Mount("root", "/", "rootfs", "") != 0 ) {
-		Panic("Unable to mount root (Where the **** is rootfs?)");
+		Log_KernelPanic("VFS", "Unable to mount root (Where the **** is rootfs?)");
 		return -1;
 	}
 	VFS_MkDir("/Devices");
 	VFS_MkDir("/Mount");
 	VFS_Mount("dev", "/Devices", "devfs", "");
-	
+		
+	Log_Debug("VFS", "Setting max files");
 	CFGINT(CFG_VFS_MAXFILES) = 32;
 	return 0;
 }
