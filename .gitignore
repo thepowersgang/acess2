@@ -38,3 +38,5 @@ obj-*/
 *.i386
 *.x86_64
 *.bin
+
+Makefile.user.cfg

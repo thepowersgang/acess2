@@ -1,0 +1,34 @@
+#!/bin/sh
+#qemu-system-arm -M realview-pb-a8 -kernel Acess2.arm7.bin -serial stdio
+
+QEMU=qemu-system-arm
+USE_GDB=
+
+_SYSTEM=realview-pb-a8
+_KERNEL=Acess2.arm7.bin
+
+QEMU_PARAMS=""
+_NETTYPE="user"
+
+while [ $# -ne 0 ]; do
+	case $1 in
+	-gdb)
+		QEMU_PARAMS=$QEMU_PARAMS" -s -S"
+		;;
+	-extramem)
+		QEMU_PARAMS=$QEMU_PARAMS" -m 768"
+		;;
+	-e)
+		shift
+		QEMU_PARAMS=$QEMU_PARAMS" "$1
+		;;
+	-tuntap)
+		_NETTYPE="tap"
+	esac
+	shift
+done
+QEMU_PARAMS="-M $_SYSTEM -kernel $_KERNEL -net nic -net $_NETTYPE"$QEMU_PARAMS
+
+#	/home/tpg/apps/bin/qemu-system-x86_64 $QEMU_PARAMS -serial stdio -serial file:QemuLog.txt
+#	qemu-system-x86_64 $QEMU_PARAMS -serial stdio | tee QemuLog.txt
+$QEMU $QEMU_PARAMS -serial stdio | tee QemuLog.txt

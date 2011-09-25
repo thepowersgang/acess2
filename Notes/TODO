@@ -1,0 +1,15 @@
+Implement Ctrl-C in vterm
+Fix TCP code
+Get IPv6 working
+Implement a DHCP client
+Get UDI working (udiref)
+Finalise AxWin API structure
+Implement input in AxWin
+Write TFTP filesystem driver
+- Use .index or index.txt (or a true extension) to get directory contents
+Write NFS driver
+Get x86_64 port working
+Complete arm7 port
+Fix VTerm driver determination
+- Implement a clean way to load/initialise named modules from a module init function
+
