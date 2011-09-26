@@ -13,7 +13,7 @@
 #endif
 
 // === PROTOTYPES ===
-void	*IsFileLoaded(char *file);
+void	*IsFileLoaded(const char *file);
  int	GetSymbolFromBase(void *base, const char *name, void **ret);
 
 // === IMPORTS ===
@@ -30,7 +30,7 @@ char	*gsNextAvailString = gsLoadedStrings;
 //tLoadLib	*gpLoadedLibraries = NULL;
 
 // === CODE ===
-char *FindLibrary(char *DestBuf, char *SoName, char *ExtraSearchDir)
+const char *FindLibrary(char *DestBuf, const char *SoName, const char *ExtraSearchDir)
 {	
 	// -- #1: Executable Specified
 	if(ExtraSearchDir)
@@ -54,10 +54,10 @@ char *FindLibrary(char *DestBuf, char *SoName, char *ExtraSearchDir)
 
 /**
  */
-void *LoadLibrary(char *SoName, char *SearchDir, char **envp)
+void *LoadLibrary(const char *SoName, const char *SearchDir, char **envp)
 {
 	char	sTmpName[1024];
-	char	*filename;
+	const char	*filename;
 	void	*base;
 	void	(*fEntry)(void *, int, char *[], char**);
 	
@@ -98,7 +98,7 @@ void *LoadLibrary(char *SoName, char *SearchDir, char **envp)
  * \fn Uint IsFileLoaded(char *file)
  * \brief Determine if a file is already loaded
  */
-void *IsFileLoaded(char *file)
+void *IsFileLoaded(const char *file)
 {
 	 int	i;
 	DEBUGS("IsFileLoaded: (file='%s')", file);
@@ -119,7 +119,7 @@ void *IsFileLoaded(char *file)
  * \fn void AddLoaded(char *File, Uint base)
  * \brief Add a file to the loaded list
  */
-void AddLoaded(char *File, void *base)
+void AddLoaded(const char *File, void *base)
 {
 	 int	i, length;
 	char	*name = gsNextAvailString;

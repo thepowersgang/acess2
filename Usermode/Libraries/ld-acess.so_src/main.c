@@ -6,10 +6,10 @@
 #include "common.h"
 
 // === PROTOTYPES ===
-void	*DoRelocate(void *base, char **envp, char *Filename);
+void	*DoRelocate(void *base, char **envp, const char *Filename);
  int	CallUser(void *Entry, void *SP);
-void	*ElfRelocate(void *Base, char *envp[], char *Filename);
-void	*PE_Relocate(void *Base, char *envp[], char *Filename);
+void	*ElfRelocate(void *Base, char **envp, const char *Filename);
+void	*PE_Relocate(void *Base, char **envp, const char *Filename);
 
 // === Imports ===
 extern void	gLinkedBase;
@@ -21,7 +21,7 @@ extern tLoadedLib	gLoadedLibraries[];
  \brief Library entry point
  \note This is the entrypoint for the library
 */
-int SoMain(void *base, void *arg1)
+void *SoMain(void *base)
 {
 	void	*ret;
 	 
@@ -50,28 +50,29 @@ int SoMain(void *base, void *arg1)
 		_exit(-1);
 		for(;;);
 	}
-	
-	// And call user
-	//SysDebug("Calling User at 0x%x\n", ret);
-	CallUser( ret, &arg1 );
-	
-	return 0;
+
+	SysDebug("ld-acess - SoMain: ret = %p", ret);	
+	return ret;
 }
 
 /**
  \fn int DoRelocate(void *base, char **envp)
  \brief Relocates an in-memory image
 */
-void *DoRelocate(void *base, char **envp, char *Filename)
+void *DoRelocate(void *base, char **envp, const char *Filename)
 {
+	Uint8	*hdr = base;
 	// Load Executable
-	if(*(Uint32*)base == (0x7F|('E'<<8)|('L'<<16)|('F'<<24)))
+	if(memcmp(base, "\x7F""ELF", 4) == 0)
 		return ElfRelocate(base, envp, Filename);
-	if(*(Uint16*)base == ('M'|('Z'<<8)))
+	if(hdr[0] == 0x7F && hdr[1] == 'E' && hdr[2] == 'L' && hdr[3] == 'F')
+		return ElfRelocate(base, envp, Filename);
+
+	if(hdr[0] == 'M' && hdr[1] == 'Z')
 		return PE_Relocate(base, envp, Filename);
 	
 	SysDebug("ld-acess - DoRelocate: Unkown file format '0x%x 0x%x 0x%x 0x%x'\n",
-		*(Uint8*)(base), *(Uint8*)(base+1), *(Uint8*)(base+2), *(Uint8*)(base+3) );
+		hdr[0], hdr[1], hdr[2], hdr[3] );
 	SysDebug("ld-acess - DoRelocate: File '%s'\n", Filename);
 	_exit(-1);
 	for(;;);

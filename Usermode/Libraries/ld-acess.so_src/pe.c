@@ -89,9 +89,9 @@ int PE_Relocate(void *Base, char *envp[], char *Filename)
 }
 
 /**
- * \fn int PE_GetSymbol(Uint Base, char *Name, Uint *Ret)
+ * \fn int PE_GetSymbol(Uint Base, const char *Name, Uint *Ret)
  */
-int PE_GetSymbol(void *Base, char *Name, void **Ret)
+int PE_GetSymbol(void *Base, const char *Name, void **Ret)
 {
 	tPE_DOS_HEADER		*dosHdr = Base;
 	tPE_IMAGE_HEADERS	*peHeaders;

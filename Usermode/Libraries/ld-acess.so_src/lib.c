@@ -47,11 +47,21 @@ int strlen(const char *str)
 	return len;
 }
 
+int memcmp(const void *p1, const void *p2, int len)
+{
+	const char	*b1 = p1, *b2 = p2;
+	while(len --)
+	{
+		if(b1 != b2)	return b1 - b2;
+	}
+	return 0;
+}
+
 /**
  * \fn int file_exists(char *filename)
  * \brief Checks if a file exists
  */
-int file_exists(char *filename)
+int file_exists(const char *filename)
 {
 	 int	fd;
 	 //fd = open(filename, OPENFLAG_READ);

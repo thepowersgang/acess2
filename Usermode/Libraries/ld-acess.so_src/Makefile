@@ -16,9 +16,11 @@ LDFLAGS  = -g -T arch/$(ARCHDIR).ld -Map map.txt --export-dynamic
 include ../Makefile.tpl
 
 # create libld-acess.so
-$(_XBIN): $(_BIN)
+$(_XBIN): $(_OBJPREFIX)_stublib.o
 	@echo [LD] -o -shared libld-acess.so
-	@$(LD) $(LDFLAGS) -shared -o $@ $(OBJ)
+	$(LD) -shared -o $@ $<
+#	@$(LD) $(LDFLAGS) -o $@ $(OBJ)
+
 
 # Override .ao to look in the object prefix for the source
 %.ao: %.asm

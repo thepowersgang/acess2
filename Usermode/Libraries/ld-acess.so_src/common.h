@@ -37,11 +37,11 @@ typedef struct {
 extern tLoadedLib	gLoadedLibraries[MAX_LOADED_LIBRARIES];
 
 // === Main ===
-extern void	*DoRelocate(void *Base, char **envp, char *Filename);
+extern void	*DoRelocate(void *Base, char **envp, const char *Filename);
 
 // === Library/Symbol Manipulation ==
-extern void	*LoadLibrary(char *filename, char *SearchDir, char **envp);
-extern void	AddLoaded(char *File, void *base);
+extern void	*LoadLibrary(const char *Filename, const char *SearchDir, char **envp);
+extern void	AddLoaded(const char *File, void *base);
 extern void	*GetSymbol(const char *name);
 extern int	GetSymbolFromBase(void *base, const char *name, void **ret);
 
@@ -50,7 +50,7 @@ extern char	*strcpy(char *dest, const char *src);
 extern char	*strcat(char *dest, const char *src);
 extern int	strcmp(const char *s1, const char *s2);
 extern int	strlen(const char *str);
-extern int	file_exists(char *filename);
+extern int	file_exists(const char *filename);
 
 // === System Calls ===
 extern void	_exit(int retval);
@@ -66,6 +66,6 @@ extern int	close(int fd);
 extern int	ElfGetSymbol(void *Base, const char *name, void **ret);
 
 // === PE Loader ===
-extern int	PE_GetSymbol(void *Base, char *Name, void **ret);
+extern int	PE_GetSymbol(void *Base, const char *Name, void **ret);
 
 #endif

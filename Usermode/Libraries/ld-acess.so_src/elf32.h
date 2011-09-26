@@ -6,20 +6,14 @@
 #ifndef _ELF32_H
 #define _ELF32_H
 
+#define ELFCLASS32	1
+
 /**
  \struct elf_header_s
  \brief ELF File Header
 */
 struct sElf32_Ehdr {
-	union {
-		char	ident[16];	//!< Identifier Bytes
-		struct {
-			Uint32	Ident1;
-			Uint32	StrTab;
-			Uint32	HashTable;
-			Uint32	SymTable;
-		} misc;
-	};
+	Uint8	e_ident[16];	//!< Identifier Bytes
 	Uint16	filetype;	//!< File Type
 	Uint16	machine;	//!< Machine / Arch
 	Uint32	version;	//!< Version (File?)

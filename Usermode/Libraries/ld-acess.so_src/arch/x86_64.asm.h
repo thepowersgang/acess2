@@ -7,6 +7,20 @@
 [bits 64]
 
 [section .text]
+[global _start]
+[extern SoMain]
+_start:
+	pop rdi
+	call SoMain
+	
+	mov rdi, [rsp]
+	mov rsi, [rsp+8]
+	mov rdx, [rsp+16]
+	call rax
+	
+	mov rdi, rax
+	call _exit
+
 ; DEST
 ; SRC
 _memcpy:

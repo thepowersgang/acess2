@@ -10,6 +10,17 @@
 _errno:	dw	0
 
 [section .text]
+[global _start]
+[extern SoMain]
+_start:
+	call SoMain
+
+	add esp, 4
+	call eax
+
+	push eax
+	call _exit
+
 ; DEST
 ; SRC
 _memcpy:
