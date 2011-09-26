@@ -55,6 +55,11 @@ void Proc_CallFaultHandler(tThread *Thread)
 
 }
 
+void Proc_Reschedule(void)
+{
+	// TODO: Task switching!
+}
+
 void Proc_DumpThreadCPUState(tThread *Thread)
 {
 	

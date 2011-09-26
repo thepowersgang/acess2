@@ -19,7 +19,7 @@ extern void	System_Init(const char *Commandline);
 // === CODE ===
 int kmain(void)
 {
-	LogF("Acess2 ARMv7 v"EXPAND_STR(KERNEL_VERSION)"\n", BUILD_NUM);
+	LogF("Acess2 ARMv7 v"EXPAND_STR(KERNEL_VERSION)"\n");
 	LogF(" Build %i\n", BUILD_NUM);
 //	Interrupts_Setup();
 	

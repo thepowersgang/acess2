@@ -43,6 +43,10 @@ _ptr_kmain:
 
 SyscallHandler:
 	b .
+
+IRQHandler:
+	b .
+
 .section .padata
 .globl kernel_table0
 
