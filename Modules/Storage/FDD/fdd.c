@@ -707,8 +707,12 @@ int FDD_int_SendByte(int base, Uint8 byte)
 {
 	tTime	end = now() + 1000;	// 1s
 	
-	while( (inb(base + PORT_MAINSTATUS) & 0xC0) != 0x80 && now() < end )
+	while( (inb(base + PORT_MAINSTATUS) & 0x80) != 0x80 && now() < end )
 		Threads_Yield();	//Delay
+
+	if( inb(base + PORT_MAINSTATUS) & 0x40 ) {
+		Log_Warning("FDD", "FDD_int_SendByte: DIO set, is this ok?");
+	}
 	
 	if( now() < end )
 	{
@@ -731,9 +735,13 @@ int FDD_int_GetByte(int base, Uint8 *value)
 {
 	tTime	end = now() + 1000;	// 1s
 	
-	while( (inb(base + PORT_MAINSTATUS) & 0xd0) != 0xd0 && now() < end )
+	while( (inb(base + PORT_MAINSTATUS) & 0x80) != 0x80 && now() < end )
 		Threads_Yield();
 	
+	if( !(inb(base + PORT_MAINSTATUS) & 0x40) ) {
+		Log_Warning("FDD", "FDD_int_GetByte: DIO unset, is this ok?");
+	}
+
 	if( now() < end )
 	{
 		Uint8	tmp = inb(base + PORT_DATA);
