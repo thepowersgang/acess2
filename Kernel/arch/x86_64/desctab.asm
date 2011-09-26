@@ -374,6 +374,7 @@ SchedulerIRQ:
 	pop gs
 	POP_GPR
 	add rsp, 2*8	; Dummy error code and IRQ num
+;	xchg bx, bx
 	iretq
 
 [extern ci_offsetof_tThread_KernelStack]
@@ -416,6 +417,10 @@ SyscallStub:
 	pop r11
 	pop rcx
 	pop rsp 	; Change back to user stack
+	; TODO: Determine if user is 64 or 32 bit
+
+;	xchg bx, bx	
+	db 0x48	; REX, nasm doesn't have a sysretq opcode
 	sysret
 
 [section .data]

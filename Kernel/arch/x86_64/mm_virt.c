@@ -90,11 +90,11 @@ void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 {
 	// TODO: Implement Copy-on-Write
 	#if 1
-	if( PAGEMAPLVL4(Addr>39) & PF_PRESENT
-	 && PAGEDIRPTR(Addr>>30) & PF_PRESENT
-	 && PAGEDIR(Addr>>21) & PF_PRESENT
-	 && PAGETABLE(Addr>>12) & PF_PRESENT
-	 && PAGETABLE(Addr>>12) & PF_COW )
+	if( PAGEMAPLVL4(Addr>>39) & PF_PRESENT
+	 && PAGEDIRPTR (Addr>>30) & PF_PRESENT
+	 && PAGEDIR    (Addr>>21) & PF_PRESENT
+	 && PAGETABLE  (Addr>>12) & PF_PRESENT
+	 && PAGETABLE  (Addr>>12) & PF_COW )
 	{
 		tPAddr	paddr;
 		if(MM_GetRefCount( PAGETABLE(Addr>>12) & PADDR_MASK ) == 1)
