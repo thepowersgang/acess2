@@ -199,6 +199,7 @@ restart_parse:
 			*TruePath = malloc( gVFS_RootMount->MountPointLen+1 );
 			strcpy(*TruePath, gVFS_RootMount->MountPoint);
 		}
+		if(MountPoint)	*MountPoint = gVFS_RootMount;
 		LEAVE('p', gVFS_RootMount->RootNode);
 		return gVFS_RootMount->RootNode;
 	}
@@ -536,7 +537,7 @@ int VFS_Open(const char *Path, Uint Mode)
 			LEAVE_RET('i', -1);
 		}
 	}
-	
+
 	LEAVE_RET('x', VFS_int_CreateHandle(node, mnt, Mode));
 }
 
@@ -650,14 +651,14 @@ int VFS_ChDir(const char *Dest)
 	// Create Absolute
 	buf = VFS_GetAbsPath(Dest);
 	if(buf == NULL) {
-		Log("VFS_ChDir: Path expansion failed");
+		Log_Notice("VFS", "VFS_ChDir: Path expansion failed");
 		return -1;
 	}
 	
 	// Check if path exists
 	fd = VFS_Open(buf, VFS_OPENFLAG_EXEC);
 	if(fd == -1) {
-		Log("VFS_ChDir: Path is invalid");
+		Log_Notice("VFS", "VFS_ChDir: Path is invalid");
 		return -1;
 	}
 	
