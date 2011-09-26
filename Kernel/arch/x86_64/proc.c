@@ -37,6 +37,7 @@ extern void	APStartup(void);	// 16-bit AP startup code
 
 extern Uint	GetRIP(void);	// start.asm
 extern Uint	SaveState(Uint *RSP, Uint *Regs);
+extern Uint	Proc_CloneInt(Uint *RSP, Uint *CR3);
 extern void	NewTaskHeader(void);	// Actually takes cdecl args
 
 extern Uint64	gInitialPML4[512];	// start.asm
@@ -49,6 +50,7 @@ extern tThread	gThreadZero;
 extern void	Threads_Dump(void);
 extern void	Proc_ReturnToUser(void);
 extern void	Time_UpdateTimestamp(void);
+extern void	SwitchTasks(Uint NewSP, Uint *OldSP, Uint NewIP, Uint *OldIO, Uint CR3);
 
 // === PROTOTYPES ===
 //void	ArchThreads_Init(void);
@@ -68,6 +70,7 @@ void	Proc_StartProcess(Uint16 SS, Uint Stack, Uint Flags, Uint16 CS, Uint IP) NO
  int	Proc_Demote(Uint *Err, int Dest, tRegs *Regs);
 //void	Proc_CallFaultHandler(tThread *Thread);
 //void	Proc_DumpThreadCPUState(tThread *Thread);
+//void	Proc_Reschedule(void);
 void	Proc_Scheduler(int CPU, Uint RSP, Uint RIP);
 
 // === GLOBALS ===
@@ -467,38 +470,35 @@ int Proc_Clone(Uint Flags)
 {
 	tThread	*newThread, *cur = Proc_GetCurThread();
 	Uint	rip;
-	Uint	_savedregs[16+1];
-	
+
+	// Sanity check	
+	if( !(Flags & CLONE_VM) ) {
+		Log_Error("Proc", "Proc_Clone: Don't leave CLONE_VM unset, use Proc_NewKThread instead");
+		return -1;
+	}
+
+	// Create new TCB
 	newThread = Threads_CloneTCB(NULL, Flags);
 	if(!newThread)	return -1;
 	
 	// Save core machine state
-	rip = SaveState(&newThread->SavedState.RSP, &_savedregs[0]);
+	rip = Proc_CloneInt(&newThread->SavedState.RSP, &newThread->MemState.CR3);
 	if(rip == 0) {
 		outb(0x20, 0x20);	// ACK Timer and return as child
 		__asm__ __volatile__ ("sti");
 		return 0;
 	}
-	
-	// Initialise Memory Space (New Addr space or kernel stack)
-	if(Flags & CLONE_VM) {
-		newThread->MemState.CR3 = MM_Clone();
-		newThread->KernelStack = cur->KernelStack;
-	}
-	else {
-		Log_Error("Proc", "Proc_Clone: Don't leave CLONE_VM unset, use Proc_NewKThread instead");
-		return -1;
-	}
-	
-	Log("New (Clone) %p, rsp = %p", rip, newThread->SavedState.RSP);
+	newThread->KernelStack = cur->KernelStack;
+	newThread->SavedState.RIP = rip;
+
+	// DEBUG	
+	Log("New (Clone) %p, rsp = %p, cr3 = %p", rip, newThread->SavedState.RSP, newThread->MemState.CR3);
 	{
 		Uint cr3;
 		__asm__ __volatile__ ("mov %%cr3, %0" : "=r" (cr3));
-		Log(" CR3 = %x, PADDR(RSP) = %x", cr3, MM_GetPhysAddr(newThread->SavedState.RSP));
+		Log("Current CR3 = 0x%x, PADDR(RSP) = 0x%x", cr3, MM_GetPhysAddr(newThread->SavedState.RSP));
 	}
-	
-	// Set EIP as parent
-	newThread->SavedState.RIP = rip;
+	// /DEBUG
 	
 	// Lock list and add to active
 	Threads_AddActive(newThread);
@@ -699,6 +699,45 @@ void Proc_DumpThreadCPUState(tThread *Thread)
 	Log("  At %04x:%016llx", Thread->SavedState.UserCS, Thread->SavedState.UserRIP);
 }
 
+void Proc_Reschedule(void)
+{
+	tThread	*nextthread, *curthread;
+	 int	cpu = GetCPUNum();
+
+	// TODO: Wait for it?
+	if(IS_LOCKED(&glThreadListLock))        return;
+	
+	curthread = gaCPUs[cpu].Current;
+
+	nextthread = Threads_GetNextToRun(cpu, curthread);
+
+	if(nextthread == curthread)	return ;
+	if(!nextthread)
+		nextthread = gaCPUs[cpu].IdleThread;
+	if(!nextthread)
+		return ;
+
+	#if DEBUG_TRACE_SWITCH
+	LogF("\nSwitching to task %i, CR3 = 0x%x, RIP = %p, RSP = %p\n",
+		nextthread->TID,
+		nextthread->MemState.CR3,
+		nextthread->SavedState.RIP,
+		nextthread->SavedState.RSP
+		);
+	#endif
+
+	// Update CPU state
+	gaCPUs[cpu].Current = nextthread;
+	gTSSs[cpu].RSP0 = nextthread->KernelStack-4;
+
+	SwitchTasks(
+		nextthread->SavedState.RSP, &curthread->SavedState.RSP,
+		nextthread->SavedState.RIP, &curthread->SavedState.RIP,
+		nextthread->MemState.CR3
+		);
+	return ;
+}
+
 /**
  * \fn void Proc_Scheduler(int CPU)
  * \brief Swap current thread and clears dead threads
@@ -723,12 +762,6 @@ void Proc_Scheduler(int CPU, Uint RSP, Uint RIP)
 		if(thread->Remaining--)	return;
 		// Reset quantum for next call
 		thread->Remaining = thread->Quantum;
-	
-		// Save machine state
-		thread->SavedState.RSP = RSP;
-		thread->SavedState.RIP = RIP;
-		
-//		LogF("\nSaved %i, RIP = %p, rsp = %p\n", thread->TID, thread->SavedState.RIP, thread->SavedState.RSP);
 		
 		// TODO: Make this more stable somehow
 		{
@@ -738,62 +771,9 @@ void Proc_Scheduler(int CPU, Uint RSP, Uint RIP)
 		}
 	}
 
-	#if BREAK_ON_SWITCH
-	{
-	tThread	*oldthread = thread;
-	#endif
+	// ACK Timer here?
 
-	// Get next thread
-	thread = Threads_GetNextToRun(CPU, thread);
-	
-	// Error Check
-	if(thread == NULL) {
-		thread = gaCPUs[CPU].IdleThread;
-		//Warning("Hmm... Threads_GetNextToRun returned NULL, I don't think this should happen.\n");
-//		LogF("Zzzzz.\n");
-		//return;
-	}
-	if(thread == NULL ) {
-		return ;
-	}
-	#if BREAK_ON_SWITCH
-	if( thread != oldthread ) {
-		MAGIC_BREAK();
-	}
-	}
-	#endif
-	
-	#if DEBUG_TRACE_SWITCH
-	LogF("\nSwitching to task %i, CR3 = 0x%x, RIP = %p, RSP = %p\n",
-		thread->TID,
-		thread->MemState.CR3,
-		thread->SavedState.RIP,
-		thread->SavedState.RSP
-		);
-	#endif
-	
-	
-	if(CPU > MAX_CPUS)
-		LogF("CPU = %i", CPU);
-	// Set current thread
-	gaCPUs[CPU].Current = thread;
-	
-	// Update Kernel Stack pointer
-	gTSSs[CPU].RSP0 = thread->KernelStack-4;
-	
-	// Switch threads
-	__asm__ __volatile__ (
-		"mov %2, %%cr3\n\t"
-		"mov %0, %%rsp\n\t"	// Restore RSP
-		"invlpg (%%rsp)\n\t"
-		"invlpg 0x1000(%%rsp)\n\t"
-		"invlpg -0x1000(%%rsp)\n\t"
-		"xor %%eax, %%eax\n\t"
-		"jmp *%1" : :	// And return to where we saved state (Proc_Clone or Proc_Scheduler)
-		"r"(thread->SavedState.RSP), "r"(thread->SavedState.RIP),
-		"r"(thread->MemState.CR3)
-		);
-	for(;;);	// Shouldn't reach here
+	Proc_Reschedule();
 }
 
 // === EXPORTS ===

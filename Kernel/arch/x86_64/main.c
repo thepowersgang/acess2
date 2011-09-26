@@ -25,6 +25,9 @@ char	*gsBootCmdLine = NULL;
 void kmain(Uint MbMagic, void *MbInfoPtr)
 {
 	tMBoot_Info	*mbInfo;
+
+	LogF("Acess2 x86_65 v"EXPAND_STR(KERNEL_VERSION)"\n");
+	LogF(" Build %i, Git Hash %s\n", BUILD_NUM, gsGitHash);
 	
 	Desctab_Init();
 

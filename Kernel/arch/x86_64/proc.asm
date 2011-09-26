@@ -47,6 +47,25 @@ NewTaskHeader:
 .hlt:
 	jmp .hlt
 
+[extern MM_Clone]
+[global Proc_CloneInt]
+Proc_CloneInt:
+	PUSH_GPR
+	; Save RSP
+	mov [rdi], rsp
+	call MM_Clone
+	; Save CR3
+	mov rsi, [rsp+0x30]
+	mov [rsi], rax
+	; Undo the PUSH_GPR
+	add rsp, 0x80
+	mov rax, .newTask
+	ret
+.newTask:
+	POP_GPR
+	xor eax, eax
+	ret
+
 [global SaveState]
 SaveState:
 	; Save regs to RSI
@@ -69,4 +88,31 @@ SaveState:
 	mov [rsp], rax	; Restore return address
 	xor eax, eax
 	ret
+
+[global SwitchTasks]
+; rdi = New RSP
+; rsi = Old RSP save loc
+; rdx = New RIP
+; rcx = Old RIP save loc
+; r8 = CR3
+SwitchTasks:
+	PUSH_GPR
 	
+	lea rax, [rel .restore]
+	mov QWORD [rcx], rax
+	mov [rsi], rsp
+
+	test r8, r8
+	jz .setState
+	mov cr3, r8
+	invlpg [rdi]
+	invlpg [rdi+0x1000]
+.setState:
+	mov rsp, rdi
+	jmp rdx
+
+.restore:
+	POP_GPR
+	xor eax, eax
+	ret
+

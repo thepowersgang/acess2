@@ -75,7 +75,7 @@ tMutex	glMM_TempFractalLock;
 // === CODE ===
 void MM_InitVirt(void)
 {
-	MM_DumpTables(0, -1L);
+//	MM_DumpTables(0, -1L);
 }
 
 void MM_FinishVirtualInit(void)
