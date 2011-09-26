@@ -4,7 +4,7 @@
  *
  * Disk Input/Output control
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include <modules.h>	// Needed for error codes
 #include <drv_pci.h>
@@ -141,7 +141,7 @@ int ATA_SetupIO(void)
 	}
 	else {
 		// Bit 0 is left set as a flag to other functions
-		LOG("gATA_BusMasterBase = 0x%x", gATA_BusMasterBase & ~1);
+		LOG("gATA_BusMasterBase = IO 0x%x", gATA_BusMasterBase & ~1);
 	}
 
 	// Register IRQs and get Buffers
@@ -164,6 +164,8 @@ int ATA_SetupIO(void)
 	// Enable controllers
 	outb(IDE_PRI_BASE+1, 1);
 	outb(IDE_SEC_BASE+1, 1);
+	outb(IDE_PRI_CTRL, 0);
+	outb(IDE_SEC_CTRL, 0);
 	
 	// Make sure interrupts are ACKed
 	ATA_int_BusMasterWriteByte(2, 0x4);
@@ -314,14 +316,14 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 
 	#if 1
 	if( cont == 0 ) {
-		outb(base+IDE_PRI_CTRL, 4);
+		outb(IDE_PRI_CTRL, 4);
 		IO_DELAY();
-		outb(base+IDE_PRI_CTRL, 0);
+		outb(IDE_PRI_CTRL, 0);
 	}
 	else {
-		outb(base+IDE_SEC_CTRL, 4);
+		outb(IDE_SEC_CTRL, 4);
 		IO_DELAY();
-		outb(base+IDE_SEC_CTRL, 0);
+		outb(IDE_SEC_CTRL, 0);
 	}
 	#endif
 
@@ -385,7 +387,8 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 			ATA_int_BusMasterWriteByte(cont*8 + 2, 4);	// Clear interrupt
 			memcpy( Buffer, gATA_Buffers[cont], Count*SECTOR_SIZE );
 			Mutex_Release( &glaATA_ControllerLock[ cont ] );
-			LEAVE_RET('i', 0);
+			LEAVE('i', 0);
+			return 0;
 		}
 
 		#if 1
