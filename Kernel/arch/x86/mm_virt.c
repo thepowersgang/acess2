@@ -175,7 +175,7 @@ void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 			gaPageTable[Addr>>12] |= paddr|PF_PRESENT|PF_WRITE;
 		}
 		
-		Log_Debug("MMVirt", "COW for %p (%P)", Addr, gaPageTable[Addr>>12]);
+//		Log_Debug("MMVirt", "COW for %p (%P)", Addr, gaPageTable[Addr>>12]);
 		
 		INVLPG( Addr & ~0xFFF );
 		return;

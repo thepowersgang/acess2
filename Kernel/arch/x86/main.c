@@ -44,9 +44,11 @@ int kmain(Uint MbMagic, void *MbInfoPtr)
 	 int	i;
 	tMBoot_Module	*mods;
 	tMBoot_Info	*mbInfo;
+
+	LogF("Acess2 x86_65 v"EXPAND_STR(KERNEL_VERSION)"\n");
+	LogF(" Build %i, Git Hash %s\n", BUILD_NUM, gsGitHash);
 	
-	Log("MbMagic = %08x", MbMagic);
-	Log("MbInfoPtr = %p", MbInfoPtr);
+	Log("MbMagic = %08x, MbInfoPtr = %p", MbMagic, MbInfoPtr);
 	
 	// Set up non-boot info dependent stuff
 	Desctab_Install();	// Set up GDT and IDT

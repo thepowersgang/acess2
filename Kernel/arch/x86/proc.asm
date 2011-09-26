@@ -13,20 +13,68 @@ KSTACK_USERSTATE_SIZE	equ	(4+8+1+5)*4	; SRegs, GPRegs, CPU, IRET
 NewTaskHeader:
 	mov eax, [esp]
 	mov dr0, eax
-	xchg bx, bx	
 
-	sti
-	; TODO: SMP
-	mov al, 0x20
-	out 0x20, al
-	
 	mov eax, [esp+4]
-	add esp, 12	; Thread, Function, Args
+	add esp, 12	; Thread, Function, Arg Count
 	call eax
 	
 	push eax	; Ret val
 	push 0  	; 0 = This Thread
 	call Threads_Exit
+
+[extern MM_Clone]
+[global Proc_CloneInt]
+Proc_CloneInt:
+	pusha
+	; Save RSP
+	mov eax, [esp+0x20+4]
+	mov [eax], esp
+	call MM_Clone
+	; Save CR3
+	mov esi, [esp+0x20+8]
+	mov [esi], eax
+	; Undo the pusha
+	add esp, 0x20
+	mov eax, .newTask
+	ret
+.newTask:
+	popa
+	xor eax, eax
+	ret
+
+[global SwitchTasks]
+; + 4 = New RSP
+; + 8 = Old RSP save loc
+; +12 = New RIP
+; +16 = Old RIP save loc
+; +20 = CR3
+SwitchTasks:
+	pusha
+	
+	; Old IP
+	mov eax, [esp+0x20+16]
+	mov DWORD [eax], .restore
+	; Old SP
+	mov eax, [esp+0x20+8]
+	mov [eax], esp
+
+	mov ecx, [esp+0x20+12]	; New IP
+	mov eax, [esp+0x20+20]	; New CR3
+	mov esp, [esp+0x20+ 4]	; New SP
+	test eax, eax
+	jz .setState
+	mov cr3, eax
+	invlpg [esp]
+	invlpg [esp+0x1000]
+.setState:
+;	xchg bx, bx
+	jmp ecx
+
+.restore:
+	popa
+	xor eax, eax
+	ret
+
 
 %if USE_MP
 [extern giMP_TimerCount]

@@ -14,7 +14,7 @@
 #include <hal_proc.h>
 
 // === FLAGS ===
-#define DEBUG_TRACE_SWITCH	0
+#define DEBUG_TRACE_SWITCH	1
 #define DEBUG_DISABLE_DOUBLEFAULT	1
 #define DEBUG_VERY_SLOW_SWITCH	0
 
@@ -28,7 +28,6 @@
 #endif
 
 // === TYPES ===
-#if USE_MP
 typedef struct sCPU
 {
 	Uint8	APICID;
@@ -37,16 +36,16 @@ typedef struct sCPU
 	tThread	*Current;
 	tThread	*IdleThread;
 }	tCPU;
-#endif
 
 // === IMPORTS ===
 extern tGDT	gGDT[];
 extern tIDT	gIDT[];
-extern void APWait(void);	// 16-bit AP pause code
-extern void APStartup(void);	// 16-bit AP startup code
+extern void	APWait(void);	// 16-bit AP pause code
+extern void	APStartup(void);	// 16-bit AP startup code
 extern Uint	GetEIP(void);	// start.asm
 extern Uint	GetEIP_Sched(void);	// proc.asm
 extern void	NewTaskHeader(tThread *Thread, void *Fcn, int nArgs, ...);	// Actually takes cdecl args
+extern Uint	Proc_CloneInt(Uint *ESP, Uint *CR3);
 extern Uint32	gaInitPageDir[1024];	// start.asm
 extern char	Kernel_Stack_Top[];
 extern tShortSpinlock	glThreadListLock;
@@ -59,6 +58,8 @@ extern void	scheduler_return;	// Return address in SchedulerBase
 extern void	IRQCommon;	// Common IRQ handler code
 extern void	IRQCommon_handled;	// IRQCommon call return location
 extern void	GetEIP_Sched_ret;	// GetEIP call return location
+extern void	Threads_AddToDelete(tThread *Thread);
+extern void	SwitchTasks(Uint NewSP, Uint *OldSP, Uint NewIP, Uint *OldIO, Uint CR3);
 
 // === PROTOTYPES ===
 //void	ArchThreads_Init(void);
@@ -66,9 +67,11 @@ extern void	GetEIP_Sched_ret;	// GetEIP call return location
 void	MP_StartAP(int CPU);
 void	MP_SendIPI(Uint8 APICID, int Vector, int DeliveryMode);
 #endif
+void	Proc_IdleThread(void *Ptr);
 //void	Proc_Start(void);
 //tThread	*Proc_GetCurThread(void);
 void	Proc_ChangeStack(void);
+ int	Proc_NewKThread(void (*Fcn)(void*), void *Data);
 // int	Proc_Clone(Uint *Err, Uint Flags);
 Uint	Proc_MakeUserStack(void);
 //void	Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **EnvP, int DataSize);
@@ -86,13 +89,10 @@ tMPInfo	*gMPFloatPtr = NULL;
 volatile Uint32	giMP_TimerCount;	// Start Count for Local APIC Timer
 tAPIC	*gpMP_LocalAPIC = NULL;
 Uint8	gaAPIC_to_CPU[256] = {0};
-tCPU	gaCPUs[MAX_CPUS];
-tTSS	gaTSSs[MAX_CPUS];	// TSS Array
  int	giProc_BootProcessorID = 0;
-#else
-tThread	*gCurrentThread = NULL;
-tThread	*gpIdleThread = NULL;
+tTSS	gaTSSs[MAX_CPUS];	// TSS Array
 #endif
+tCPU	gaCPUs[MAX_CPUS];
 tTSS	*gTSSs = NULL;	// Pointer to TSS array
 tTSS	gTSS0 = {0};
 // --- Error Recovery ---
@@ -361,11 +361,7 @@ void ArchThreads_Init(void)
 	__asm__ __volatile__ ("mov %0, %%db0"::"r"(&gThreadZero));
 	__asm__ __volatile__ ("mov %0, %%db1"::"r"(0));
 	
-	#if USE_MP
 	gaCPUs[0].Current = &gThreadZero;
-	#else
-	gCurrentThread = &gThreadZero;
-	#endif
 	gThreadZero.CurCPU = 0;
 	
 	gThreadZero.MemState.CR3 = (Uint)gaInitPageDir - KERNEL_BASE;
@@ -428,12 +424,25 @@ void MP_SendIPI(Uint8 APICID, int Vector, int DeliveryMode)
 }
 #endif
 
+void Proc_IdleThread(void *Ptr)
+{
+	tCPU	*cpu = Ptr;
+	cpu->IdleThread->ThreadName = strdup("Idle Thread");
+	Threads_SetPriority( cpu->IdleThread, -1 );	// Never called randomly
+	cpu->IdleThread->Quantum = 1;	// 1 slice quantum
+	for(;;) {
+		HALT();
+		Proc_Reschedule();
+	}
+}
+
 /**
  * \fn void Proc_Start(void)
  * \brief Start process scheduler
  */
 void Proc_Start(void)
 {
+	 int	tid;
 	#if USE_MP
 	 int	i;
 	#endif
@@ -442,19 +451,11 @@ void Proc_Start(void)
 	// Start APs
 	for( i = 0; i < giNumCPUs; i ++ )
 	{
-		 int	tid;
 		if(i)	gaCPUs[i].Current = NULL;
 		
 		// Create Idle Task
-		if( (tid = Proc_Clone(0, 0)) == 0)
-		{
-			for(;;)	HALT();	// Just yeilds
-		}
+		tid = Proc_NewKThread(Proc_IdleThread, &gaCPUs[i]);
 		gaCPUs[i].IdleThread = Threads_GetThread(tid);
-		gaCPUs[i].IdleThread->ThreadName = (char*)"Idle Thread";
-		Threads_SetPriority( gaCPUs[i].IdleThread, -1 );	// Never called randomly
-		gaCPUs[i].IdleThread->Quantum = 1;	// 1 slice quantum
-		
 		
 		// Start the AP
 		if( i != giProc_BootProcessorID ) {
@@ -471,17 +472,14 @@ void Proc_Start(void)
 	while( giNumInitingCPUs )	__asm__ __volatile__ ("hlt");
 	#else
 	// Create Idle Task
-	if(Proc_Clone(0) == 0)
-	{
-		gpIdleThread = Proc_GetCurThread();
-		gpIdleThread->ThreadName = strdup("Idle Thread");
-		Threads_SetPriority( gpIdleThread, -1 );	// Never called randomly
-		gpIdleThread->Quantum = 1;	// 1 slice quantum
-		for(;;)	HALT();	// Just yeilds
-	}
+	tid = Proc_NewKThread(Proc_IdleThread, &gaCPUs[0]);
+	gaCPUs[0].IdleThread = Threads_GetThread(tid);
 	
 	// Set current task
-	gCurrentThread = &gThreadZero;
+	gaCPUs[0].Current = &gThreadZero;
+
+//	while( gaCPUs[0].IdleThread == NULL )
+//		Threads_Yield();
 	
 	// Start Interrupts (and hence scheduler)
 	__asm__ __volatile__("sti");
@@ -498,7 +496,7 @@ tThread *Proc_GetCurThread(void)
 	#if USE_MP
 	return gaCPUs[ GetCPUNum() ].Current;
 	#else
-	return gCurrentThread;
+	return gaCPUs[ 0 ].Current;
 	#endif
 }
 
@@ -553,6 +551,42 @@ void Proc_ChangeStack(void)
 	__asm__ __volatile__ ("mov %0, %%ebp"::"r"(ebp));
 }
 
+int Proc_NewKThread(void (*Fcn)(void*), void *Data)
+{
+	Uint	esp;
+	tThread	*newThread, *cur;
+	
+	cur = Proc_GetCurThread();
+	newThread = Threads_CloneTCB(NULL, 0);
+	if(!newThread)	return -1;
+	
+	// Set CR3
+	newThread->MemState.CR3 = cur->MemState.CR3;
+
+	// Create new KStack
+	newThread->KernelStack = MM_NewKStack();
+	// Check for errors
+	if(newThread->KernelStack == 0) {
+		free(newThread);
+		return -1;
+	}
+
+	esp = newThread->KernelStack;
+	*(Uint*)(esp-=4) = (Uint)Data;	// Data (shadowed)
+	*(Uint*)(esp-=4) = 1;	// Number of params
+	*(Uint*)(esp-=4) = (Uint)Fcn;	// Function to call
+	*(Uint*)(esp-=4) = (Uint)newThread;	// Thread ID
+	
+	newThread->SavedState.ESP = esp;
+	newThread->SavedState.EIP = (Uint)&NewTaskHeader;
+	Log("New (KThread) %p, esp = %p\n", newThread->SavedState.EIP, newThread->SavedState.ESP);
+	
+//	MAGIC_BREAK();	
+	Threads_AddActive(newThread);
+
+	return newThread->TID;
+}
+
 /**
  * \fn int Proc_Clone(Uint *Err, Uint Flags)
  * \brief Clone the current process
@@ -561,78 +595,37 @@ int Proc_Clone(Uint Flags)
 {
 	tThread	*newThread;
 	tThread	*cur = Proc_GetCurThread();
-	Uint	eip, esp, ebp;
+	Uint	eip;
+
+	// Sanity, please
+	if( !(Flags & CLONE_VM) ) {
+		Log_Error("Proc", "Proc_Clone: Don't leave CLONE_VM unset, use Proc_NewKThread instead");
+		return -1;
+	}
 	
-	__asm__ __volatile__ ("mov %%esp, %0": "=r"(esp));
-	__asm__ __volatile__ ("mov %%ebp, %0": "=r"(ebp));
-	
+	// New thread
 	newThread = Threads_CloneTCB(NULL, Flags);
 	if(!newThread)	return -1;
-	
-	// Initialise Memory Space (New Addr space or kernel stack)
-	if(Flags & CLONE_VM) {
-		newThread->MemState.CR3 = MM_Clone();
-		// Check for errors
-		if(newThread->MemState.CR3 == 0) {
-			Threads_Kill(newThread, -2);
-			return -1;
-		}
-		newThread->KernelStack = cur->KernelStack;
-	} else {
-		Uint	tmpEbp, oldEsp = esp;
 
-		// Set CR3
-		newThread->MemState.CR3 = cur->MemState.CR3;
+	newThread->KernelStack = cur->KernelStack;
 
-		// Create new KStack
-		newThread->KernelStack = MM_NewKStack();
-		// Check for errors
-		if(newThread->KernelStack == 0) {
-			Threads_Kill(newThread, -2);
-			return -1;
-		}
-
-		// Get ESP as a used size
-		esp = cur->KernelStack - esp;
-		// Copy used stack
-		memcpy( (void*)(newThread->KernelStack - esp), (void*)(cur->KernelStack - esp), esp );
-		// Get ESP as an offset in the new stack
-		esp = newThread->KernelStack - esp;
-		// Adjust EBP
-		ebp = newThread->KernelStack - (cur->KernelStack - ebp);
-
-		// Repair EBPs & Stack Addresses
-		// Catches arguments also, but may trash stack-address-like values
-		for(tmpEbp = esp; tmpEbp < newThread->KernelStack; tmpEbp += 4)
-		{
-			if(oldEsp < *(Uint*)tmpEbp && *(Uint*)tmpEbp < cur->KernelStack)
-				*(Uint*)tmpEbp += newThread->KernelStack - cur->KernelStack;
-		}
-	}
-	
-	// Save core machine state
-	newThread->SavedState.ESP = esp;
-	newThread->SavedState.EBP = ebp;
-	eip = GetEIP();
-	if(eip == 0) {
-		//__asm__ __volatile__ ("mov %0, %%db0" : : "r" (newThread) );
-		#if USE_MP
+	// Clone state
+	eip = Proc_CloneInt(&newThread->SavedState.ESP, &newThread->MemState.CR3);
+	if( eip == 0 ) {
 		// ACK the interrupt
-		if( GetCPUNum() )
-			gpMP_LocalAPIC->EOI.Val = 0;
-		else
-		#endif
-			outb(0x20, 0x20);	// ACK Timer and return as child
-		__asm__ __volatile__ ("sti");	// Restart interrupts
 		return 0;
 	}
-	
-	// Set EIP as parent
 	newThread->SavedState.EIP = eip;
 	
-	// Lock list and add to active
+	// Check for errors
+	if( newThread->MemState.CR3 == 0 ) {
+		Log_Error("Proc", "Proc_Clone: MM_Clone failed");
+		Threads_AddToDelete(newThread);
+		return -1;
+	}
+
+	// Add the new thread to the run queue
 	Threads_AddActive(newThread);
-	
 	return newThread->TID;
 }
 
@@ -872,23 +865,23 @@ void Proc_DumpThreadCPUState(tThread *Thread)
 	}
 	
 	#if 1
-	tVAddr	diffFromScheduler = Thread->SavedState.EIP - (tVAddr)Proc_Scheduler;
-	tVAddr	diffFromClone = Thread->SavedState.EIP - (tVAddr)Proc_Clone;
-	tVAddr	diffFromSpawn = Thread->SavedState.EIP - (tVAddr)Proc_SpawnWorker;
+	tVAddr	diffFromScheduler = Thread->SavedState.EIP - (tVAddr)SwitchTasks;
+	tVAddr	diffFromClone = Thread->SavedState.EIP - (tVAddr)Proc_CloneInt;
+	tVAddr	diffFromSpawn = Thread->SavedState.EIP - (tVAddr)NewTaskHeader;
 	
-	if( diffFromClone > 0 && diffFromClone < 512 )	// When I last checked, GetEIP was at .+0x183
+	if( diffFromClone > 0 && diffFromClone < 40 )	// When I last checked, .newTask was at .+27
 	{
-		Log("  Creating full thread");
+		Log("  Creating process");
 		return ;
 	}
 	
-	if( diffFromSpawn > 0 && diffFromSpawn < 512 )	// When I last checked, GetEIP was at .+0x99
+	if( diffFromSpawn == 0 )
 	{
-		Log("  Creating worker thread");
+		Log("  Creating thread");
 		return ;
 	}
 	
-	if( diffFromScheduler > 0 && diffFromScheduler < 256 )	// When I last checked, GetEIP was at .+0x60
+	if( diffFromScheduler > 0 && diffFromScheduler < 128 )	// When I last checked, GetEIP was at .+0x30
 	#else
 	Uint32	data[3];
 	MM_ReadFromAddrSpace(Thread->MemState.CR3, Thread->SavedState.EBP, data, 12);
@@ -913,7 +906,46 @@ void Proc_DumpThreadCPUState(tThread *Thread)
 		return ;
 	}
 	
-	Log("  Just created (unknow %p)", Thread->SavedState.EIP);
+	Log("  Just created (unknown %p)", Thread->SavedState.EIP);
+}
+
+void Proc_Reschedule(void)
+{
+	tThread	*nextthread, *curthread;
+	 int	cpu = GetCPUNum();
+
+	// TODO: Wait for it?
+	if(IS_LOCKED(&glThreadListLock))        return;
+	
+	curthread = Proc_GetCurThread();
+
+	nextthread = Threads_GetNextToRun(cpu, curthread);
+
+	if(!nextthread)
+		nextthread = gaCPUs[cpu].IdleThread;
+	if(!nextthread || nextthread == curthread)
+		return ;
+
+	#if DEBUG_TRACE_SWITCH
+	LogF("\nSwitching to task %i, CR3 = 0x%x, EIP = %p, ESP = %p\n",
+		nextthread->TID,
+		nextthread->MemState.CR3,
+		nextthread->SavedState.EIP,
+		nextthread->SavedState.ESP
+		);
+	#endif
+
+	// Update CPU state
+	gaCPUs[cpu].Current = nextthread;
+	gTSSs[cpu].ESP0 = nextthread->KernelStack-4;
+	__asm__ __volatile__("mov %0, %%db0\n\t" : : "r"(nextthread) );
+
+	SwitchTasks(
+		nextthread->SavedState.ESP, &curthread->SavedState.ESP,
+		nextthread->SavedState.EIP, &curthread->SavedState.EIP,
+		nextthread->MemState.CR3
+		);
+	return ;
 }
 
 /**
@@ -922,57 +954,26 @@ void Proc_DumpThreadCPUState(tThread *Thread)
  */
 void Proc_Scheduler(int CPU)
 {
-	Uint	esp, ebp, eip;
 	tThread	*thread;
 	
 	// If the spinlock is set, let it complete
 	if(IS_LOCKED(&glThreadListLock))	return;
 	
 	// Get current thread
-	#if USE_MP
 	thread = gaCPUs[CPU].Current;
-	#else
-	thread = gCurrentThread;
-	#endif
 	
 	if( thread )
 	{
 		tRegs	*regs;
+		Uint	ebp;
 		// Reduce remaining quantum and continue timeslice if non-zero
 		if( thread->Remaining-- )
 			return;
 		// Reset quantum for next call
 		thread->Remaining = thread->Quantum;
 		
-		// Get machine state
-		__asm__ __volatile__ ( "mov %%esp, %0" : "=r" (esp) );
-		__asm__ __volatile__ ( "mov %%ebp, %0" : "=r" (ebp) );
-		eip = GetEIP();
-		if(eip == 0) {
-			__asm__ __volatile__ ( "nop" : : : "eax","ebx","ecx","edx","edi","esi");
-			regs = (tRegs*)(ebp+(2+2)*4);	// EBP,Ret + CPU,CurThread
-			#if USE_MP
-			thread = gaCPUs[CPU].Current;
-			#else
-			thread = gCurrentThread;
-			#endif
-			if(thread->bInstrTrace) {
-				regs->eflags |= 0x100;	// Set TF
-//				LogF("Tracing enabled\n");
-				Log("%p Scheduled (EIP = %p)", thread, thread->SavedState.EIP);
-			}
-			else
-				regs->eflags &= ~0x100;
-			
-			return;	// Check if a switch happened
-		}
-		
-		// Save machine state
-		thread->SavedState.ESP = esp;
-		thread->SavedState.EBP = ebp;
-		thread->SavedState.EIP = eip;
-		
 		// TODO: Make this more stable somehow
+		__asm__ __volatile__("mov %%ebp, %0" : "=r" (ebp));
 		regs = (tRegs*)(ebp+(2+2)*4);	// EBP,Ret + CPU,CurThread
 		thread->SavedState.UserCS = regs->cs;
 		thread->SavedState.UserEIP = regs->eip;
@@ -984,77 +985,18 @@ void Proc_Scheduler(int CPU)
 		else
 			regs->eflags &= ~0x100;	// Clear TF
 	}
-	
-	// Get next thread to run
-	thread = Threads_GetNextToRun(CPU, thread);
-	
-	
-	// No avaliable tasks, just go into low power mode (idle thread)
-	if(thread == NULL) {
-		#if USE_MP
-		thread = gaCPUs[CPU].IdleThread;
-		Log("CPU %i Running Idle Thread", CPU);
-		#else
-		thread = gpIdleThread;
-		#endif
-	}
-	
-	#if DEBUG_TRACE_SWITCH
-	if(thread && thread != Proc_GetCurThread() ) {
-		Log("Switching to task %i(%s), CR3 = 0x%x, EIP = %p",
-			thread->TID,
-			thread->ThreadName,
-			thread->MemState.CR3,
-			thread->SavedState.EIP
-			);
-	}
-	#endif
-	
-	// Set current thread
+
+#if 0
+	// TODO: Ack timer?
 	#if USE_MP
-	gaCPUs[CPU].Current = thread;
-	#else
-	gCurrentThread = thread;
+	if( GetCPUNum() )
+		gpMP_LocalAPIC->EOI.Val = 0;
+	else
 	#endif
-	
-	#if USE_MP	// MP Debug
-//	Log("CPU = %i, Thread %p", CPU, thread);
-	#endif
-	
-	// Update Kernel Stack pointer
-	gTSSs[CPU].ESP0 = thread->KernelStack-4;
-	
-	#if 0
-	if(thread->SavedState.ESP > 0xC0000000
-	&& thread->SavedState.ESP < thread->KernelStack-0x2000) {
-		Log_Warning("Proc", "Possible bad ESP %p (PID %i)", thread->SavedState.ESP);
-	}
-	#endif
-	
-	if( thread->bInstrTrace ) {
-		Log("%p Scheduled (EIP = %p)", thread, thread->SavedState.EIP);
-	}
-	
-	// Set thread pointer
-	__asm__ __volatile__("mov %0, %%db0\n\t" : : "r"(thread) );
-	// Switch threads
-	__asm__ __volatile__ (
-		"mov %3, %%cr3\n\t"	// Set address space
-		"mov %0, %%esp\n\t"	// Restore ESP
-		"mov %1, %%ebp\n\t"	// and EBP
-		"test %4, %4\n\t"
-		"jz 1f\n\t"
-		"or %4, 72(%%ebp)\n\t"	// or trace flag to eflags (2+2+4+8+2)*4
-		"1:"
-		"xor %%eax, %%eax\n\t"
-		"jmp *%2" : :	// And return to where we saved state (Proc_Clone or Proc_Scheduler)
-		"r"(thread->SavedState.ESP),
-		"r"(thread->SavedState.EBP),
-		"r"(thread->SavedState.EIP),
-		"r"(thread->MemState.CR3),
-		"r"(thread->bInstrTrace&&thread->SavedState.EIP==(Uint)&GetEIP_Sched_ret?0x100:0)
-		);
-	for(;;);	// Shouldn't reach here
+		outb(0x20, 0x20);
+	__asm__ __volatile__ ("sti");
+	Proc_Reschedule();
+#endif
 }
 
 // === EXPORTS ===
