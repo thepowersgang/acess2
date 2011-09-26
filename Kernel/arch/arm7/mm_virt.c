@@ -38,6 +38,7 @@ void	MM_int_GetTables(tVAddr VAddr, Uint32 **Table0, Uint32 **Table1);
  int	MM_int_AllocateCoarse(tVAddr VAddr, int Domain);
  int	MM_int_SetPageInfo(tVAddr VAddr, tMM_PageInfo *pi);
  int	MM_int_GetPageInfo(tVAddr VAddr, tMM_PageInfo *pi);
+tVAddr	MM_NewKStack(int bGlobal);
 
 // === GLOBALS ===
 
@@ -392,6 +393,13 @@ tVAddr MM_MapTemp(tPAddr PAddr)
 void MM_FreeTemp(tVAddr VAddr)
 {
 	// TODO: Implement FreeTemp
+}
+
+tVAddr MM_NewKStack(int bGlobal)
+{
+	// TODO: Implement NewKStack
+	// TODO: Should I support global stacks? if only for the idle thread
+	return 0;
 }
 
 void MM_DumpTables(tVAddr Start, tVAddr End)

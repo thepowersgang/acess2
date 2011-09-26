@@ -11,7 +11,7 @@
 
 // === STRUCTURES ===
 typedef struct {
-	Uint32	IP, LR, SP;
+	Uint32	IP, SP;
 	Uint32	UserIP, UserSP;
 } tTaskState;
 
