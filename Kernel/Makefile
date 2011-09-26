@@ -112,11 +112,12 @@ include/syscalls.h include/syscalls.inc.asm:	syscalls.lst Makefile GenSyscalls.p
 
 Makefile:	../Makefile.cfg arch/$(ARCHDIR)/Makefile
 
-.PHONY: $(BUILDINFO_SRC) 
-$(BUILDINFO_SRC): 
-	@echo "const char * const gsGitHash = \""`git log -n 1 | head -n 1 | awk '{print $$1}'`"\";" > $@
+$(BUILDINFO_SRC): $(filter-out $(BUILDINFO_OBJ), $(OBJ)) $(MODS) arch/$(ARCHDIR)/link.ld Makefile
+	@echo "#include <acess.h>" > $@
+	@echo "const char gsGitHash[] = \""`git log -n 1 | head -n 1 | awk '{print $$2}'`"\";" >> $@
 	@echo "const int giBuildNumber = $(BUILD_NUM);" >> $@
 $(BUILDINFO_OBJ): $(BUILDINFO_SRC)
+	@echo --- CC -o $@
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $<
 
 # Dependency Files

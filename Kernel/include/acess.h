@@ -35,7 +35,8 @@ typedef struct sShortSpinlock	tShortSpinlock;
 #define EXPAND_STR(x) STR(x)
 
 extern char	__buildnum[];
-#define BUILD_NUM	((int)&__buildnum)
+#define BUILD_NUM	((int)(Uint)&__buildnum)
+extern const char gsGitHash[];
 
 #define VER2(major,minor)	((((major)&0xFF)<<8)|((minor)&0xFF))
 /**
