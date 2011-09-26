@@ -50,23 +50,23 @@ NewTaskHeader:
 [global SaveState]
 SaveState:
 	; Save regs to RSI
-	xchg bx, bx
 	add rsi, 0x80
 	SAVE_GPR rsi
-	sub rsi, 0x80
+	; Save return addr
+	mov rax, [rsp]
+	mov [rsi], rax
 	; Return RSI as the RSP value
+	sub rsi, 0x80
 	mov [rdi], rsi
-	call GetRIP
-	cmp eax, 0x80000000
-	ja .fastret
-.restore:
-	; RSP = RSI from call
-	xchg bx, bx
-	POP_GPR
-	mov rsp, [rsp-0x60]	; Restore RSP from the saved value
-	xor eax, eax
+	; Check for 
+	mov rax, .restore
 	ret
-.fastret:
-	; RAX is still the return addr
+.restore:
+	; RSP = RSI now
+	POP_GPR
+	mov rax, [rsp]
+	mov rsp, [rsp-0x60]	; Restore RSP from the saved value
+	mov [rsp], rax	; Restore return address
+	xor eax, eax
 	ret
 	

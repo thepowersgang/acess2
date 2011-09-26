@@ -361,3 +361,15 @@ void *memsetd(void *__dest, Uint32 __val, size_t __count)
 	return __dest;
 }
 
+Uint64 DivMod64U(Uint64 Num, Uint64 Den, Uint64 *Rem)
+{
+	Uint64	ret, rem;
+	__asm__ __volatile__(
+		"div %4"
+		: "=a" (ret), "=d" (rem)
+		: "a" ( Num ), "d" (0), "r" (Den)
+		);
+	if(Rem)	*Rem = rem;
+	return ret;
+}
+

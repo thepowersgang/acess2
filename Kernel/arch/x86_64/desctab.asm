@@ -191,6 +191,8 @@ IRQ_AddHandler:
 [section .rodata]
 csIRQ_Assigned:
 	db	"IRQ %p := %p (IRQ %i)",0
+csIRQ_Fired:
+	db	"IRQ %i fired",0
 [section .text]
 
 %macro ISR_NOERRNO	1
@@ -277,10 +279,14 @@ IrqCommon:
 	PUSH_GPR
 	push gs
 	push fs
+
+;	mov rdi, csIRQ_Fired
+;	mov rsi, [rsp+(16+2)*8]
+;	call Log
 	
-	mov rbx, [rsp+(16+2)*8]	; Get interrupt number (16 GPRS + 2 SRs)
+	mov ebx, [rsp+(16+2)*8]	; Get interrupt number (16 GPRS + 2 SRs)
 ;	xchg bx, bx	; Bochs Magic break (NOTE: will clear the high-bits of RBX)
-	shl rbx, 2	; *8*4
+	shl ebx, 2	; *4
 	mov rax, gaIRQ_Handlers
 	lea rbx, [rax+rbx*8]
 	
@@ -303,20 +309,17 @@ IrqCommon:
 	
 	; ACK
 	mov al, 0x20
-	mov rdi, [rsp+16*8]	; Get IRQ number
+	mov rdi, [rsp+(16+2)*8]	; Get IRQ number
 	cmp rdi, 8
 	jb .skipAckSecondary
-	mov dx, 0x00A0
-	out dx, al
+	out 0xA0, al
 .skipAckSecondary:
-	mov dx, 0x0020
-	out dx, al
+	out 0x20, al
 	
 	pop fs
 	pop gs
 	POP_GPR
 	add rsp, 8*2
-	;xchg bx, bx
 	iretq
 
 [extern Proc_Scheduler]

@@ -467,7 +467,7 @@ int Proc_Clone(Uint Flags)
 {
 	tThread	*newThread, *cur = Proc_GetCurThread();
 	Uint	rip;
-	Uint	_savedregs[16];
+	Uint	_savedregs[16+1];
 	
 	newThread = Threads_CloneTCB(NULL, Flags);
 	if(!newThread)	return -1;
@@ -490,7 +490,12 @@ int Proc_Clone(Uint Flags)
 		return -1;
 	}
 	
-	Log("New (Clone) %p, rsp = %p\n", rip, newThread->SavedState.RSP);
+	Log("New (Clone) %p, rsp = %p", rip, newThread->SavedState.RSP);
+	{
+		Uint cr3;
+		__asm__ __volatile__ ("mov %%cr3, %0" : "=r" (cr3));
+		Log(" CR3 = %x, PADDR(RSP) = %x", cr3, MM_GetPhysAddr(newThread->SavedState.RSP));
+	}
 	
 	// Set EIP as parent
 	newThread->SavedState.RIP = rip;
@@ -603,7 +608,8 @@ void Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **
 	for( i = 0; EnvP[i]; i++ )	EnvP[i] += delta;
 	
 	// User Mode Segments
-	ss = 0x23;	cs = 0x1B;
+	// 0x2B = 64-bit
+	ss = 0x23;	cs = 0x2B;
 	
 	// Arguments
 	*--stack = (Uint)EnvP;
@@ -611,26 +617,39 @@ void Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **
 	*--stack = (Uint)ArgC;
 	while(*Bases)
 		*--stack = *Bases++;
-	*--stack = 0;	// Return Address
 	
 	Proc_StartProcess(ss, (Uint)stack, 0x202, cs, Entrypoint);
 }
 
 void Proc_StartProcess(Uint16 SS, Uint Stack, Uint Flags, Uint16 CS, Uint IP)
 {
-	if( CS != 0x1B || SS != 0x23 ) {
+	if( !(CS == 0x1B || CS == 0x2B) || SS != 0x23 ) {
 		Log_Error("Proc", "Proc_StartProcess: CS / SS are not valid (%x, %x)",
 			CS, SS);
 		Threads_Exit(0, -1);
 	}
-//	MAGIC_BREAK();	
-	__asm__ __volatile__ (
-		"mov %0, %%rsp;\n\t"	// Set stack pointer
-		"mov %1, %%r11;\n\t"	// Set stack pointer
-		"sysret;\n\t"
-		: : "r" (Stack), "c" (IP), "r" (Flags)
-		: "r11"
-		);
+	Log("Proc_StartProcess: (SS=%x, Stack=%p, Flags=%x, CS=%x, IP=%p)",
+		SS, Stack, Flags, CS, IP);
+	if(CS == 0x1B)
+	{
+		// 32-bit return
+		__asm__ __volatile__ (
+			"mov %0, %%rsp;\n\t"	// Set stack pointer
+			"mov %2, %%r11;\n\t"	// Set RFLAGS
+			"sysret;\n\t"
+			: : "r" (Stack), "c" (IP), "r" (Flags)
+			);
+	}
+	else
+	{
+		// 64-bit return
+		__asm__ __volatile__ (
+			"mov %0, %%rsp;\n\t"	// Set stack pointer
+			"mov %2, %%r11;\n\t"	// Set RFLAGS
+			"sysretq;\n\t"
+			: : "r" (Stack), "c" (IP), "r" (Flags)
+			);
+	}
 	for(;;);
 }
 
@@ -769,9 +788,10 @@ void Proc_Scheduler(int CPU, Uint RSP, Uint RIP)
 		"invlpg (%%rsp)\n\t"
 		"invlpg 0x1000(%%rsp)\n\t"
 		"invlpg -0x1000(%%rsp)\n\t"
+		"xor %%eax, %%eax\n\t"
 		"jmp *%1" : :	// And return to where we saved state (Proc_Clone or Proc_Scheduler)
 		"r"(thread->SavedState.RSP), "r"(thread->SavedState.RIP),
-		"r"(thread->MemState.CR3), "a" (0)
+		"r"(thread->MemState.CR3)
 		);
 	for(;;);	// Shouldn't reach here
 }

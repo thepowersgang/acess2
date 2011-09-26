@@ -1,6 +1,8 @@
 /*
- * AcessOS Microkernel Version
- * lib.c
+ * Acess2
+ *
+ * arch/x86/lib.c
+ * - General arch-specific stuff
  */
 #include <acess.h>
 #include <threads_int.h>
