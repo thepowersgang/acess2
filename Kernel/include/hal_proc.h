@@ -18,6 +18,7 @@ extern tTID	Proc_Clone(Uint Flags);
 extern void	Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **EnvP, int DataSize);
 extern void	Proc_CallFaultHandler(tThread *Thread);
 extern void	Proc_DumpThreadCPUState(tThread *Thread);
+extern void	Proc_Reschedule(void);
 
 
 extern tPAddr	MM_ClearUser(void);

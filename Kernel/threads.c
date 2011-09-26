@@ -667,9 +667,10 @@ void Threads_Kill(tThread *Thread, int Status)
 	SHORTREL( &Thread->IsLocked );	// TODO: We may not actually be released...
 	
 	// And, reschedule
-	if(isCurThread) {
+	if(isCurThread)
+	{
 		for( ;; )
-			HALT();
+			Proc_Reschedule();
 	}
 }
 
@@ -678,10 +679,7 @@ void Threads_Kill(tThread *Thread, int Status)
  */
 void Threads_Yield(void)
 {
-	tThread	*thread = Proc_GetCurThread();
-	thread->Remaining = 0;
-	//while(thread->Remaining == 0)
-		HALT();
+	Proc_Reschedule();
 }
 
 /**
@@ -717,8 +715,9 @@ void Threads_Sleep(void)
 	
 	// Release Spinlock
 	SHORTREL( &glThreadListLock );
-	
-	while(cur->Status != THREAD_STAT_ACTIVE)	HALT();
+
+	while(cur->Status != THREAD_STAT_ACTIVE)
+		Proc_Reschedule();
 }
 
 
@@ -1141,7 +1140,6 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 	if( gaThreads_NoTaskSwitch[CPU] )
 		return Last;
 
-
 	// Lock thread list
 	SHORTLOCK( &glThreadListLock );
 	
@@ -1343,6 +1341,7 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 	
 	// Make the new thread non-schedulable
 	thread->CurCPU = CPU;
+	thread->Remaining = thread->Quantum;
 	
 	SHORTREL( &glThreadListLock );
 	
