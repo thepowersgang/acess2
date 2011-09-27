@@ -10,6 +10,10 @@
 
 -include Makefile.BuildNum.$(ARCH)
 
+ifeq ($(BUILDNUM),)
+BUILDNUM = 0
+endif
+
 KERNEL_VERSION = 0.5
 
 MAKEDEP		= $(CC) -M

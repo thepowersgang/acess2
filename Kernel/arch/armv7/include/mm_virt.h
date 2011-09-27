@@ -5,11 +5,15 @@
 #ifndef _MM_VIRT_H_
 #define _MM_VIRT_H_
 
+#define MM_KSTACK_SIZE	0x10000
+
 #define MM_USER_MIN	0x00001000
-#define USER_LIB_MAX	0x7F800000
+#define USER_LIB_MAX	0x70000000
+#define MM_KSTACK_BASE	0x70000000
+#define MM_KSTACK_END	0x7F000000
 #define MM_PPD_HANDLES	0x7F800000
-#define MM_TABLE0USER	0x7F900000	// 2 GiB - 16 KiB
 #define MM_TABLE1USER	0x7FC00000	// 2 GiB - 4 MiB
+#define MM_TABLE0USER	0x7FEFE000	// 2 GiB - 2 MiB - 2 pages
 
 // Page Blocks are 12-bits wide (12 address bits used)
 // Hence, the table is 16KiB large (and must be so aligned)
@@ -24,7 +28,10 @@
 #define MM_KHEAP_MAX	0xC0000000	// ~1GiB of kernel heap
 
 #define MM_MODULE_MIN	0xC0000000	// - 0xD0000000
-#define MM_MODULE_MAX	0xD0000000
+#define MM_MODULE_MAX	0xCF000000
+
+#define MM_GLOBALSTACKS	0xCF000000	// Global stacks
+#define MM_GLOBALSTACKS_END	0xD0000000
 
 // PMM Data, giving it 256MiB is overkill, but it's unused atm
 #define MM_MAXPHYSPAGE	(1024*1024)
@@ -41,6 +48,6 @@
 
 #define MM_KERNEL_VFS	0xFF000000	// 
 #define MM_TABLE1KERN	0xFF800000	// - 0x???????? 4MiB
-#define MM_TABLE0KERN	0xFFC00000	// - 0xFFE04000 16KiB
+//#define MM_TABLE0KERN	0xFFC00000	// - 0xFFE04000 16KiB
 
 #endif

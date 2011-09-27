@@ -52,9 +52,14 @@ IRQHandler:
 
 kernel_table0:
 	.long 0x00000002	@ Identity map the first 1 MiB
-	.rept 0x800 - 1
+	.rept 0x7FC - 1
 		.long 0
 	.endr
+	.long user_table1_map + 0x000 - KERNEL_BASE + 1
+	.long user_table1_map + 0x400 - KERNEL_BASE + 1
+	.long 0	@ user_table1_map + 0x800 - KERNEL_BASE + 1
+	.long 0	@ user_table1_map + 0xC00 - KERNEL_BASE + 1
+	@ 0x80000000 - User/Kernel split
 	.long 0x00000002	@ Map first 4 MiB to 2GiB
 	.long 0x00100002	@ 
 	.long 0x00200002	@ 
@@ -99,6 +104,18 @@ kernel_table0:
 	@ Top level fractals
 	.long 0 	@ removed for alignment constraints, using the KERNEL_BASE identity mapping instead
 	.rept 0x1000 - 0xFF8 - 5
+		.long 0
+	.endr
+
+@ PID0 user table
+.globl user_table1_map
+user_table1_map:	@ Size = 4KiB
+	.rept 0x7F8/4
+		.long 0
+	.endr
+	.long kernel_table0 - KERNEL_BASE + (1 << 4) + 3
+	.long user_table1_map - KERNEL_BASE + (1 << 4) + 3
+	.rept 0x800/4
 		.long 0
 	.endr
 

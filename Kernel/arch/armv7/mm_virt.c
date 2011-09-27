@@ -324,9 +324,6 @@ void MM_SetFlags(tVAddr VAddr, Uint Flags, Uint Mask)
 	tMM_PageInfo	pi;
 	if( MM_int_GetPageInfo(VAddr, &pi) )
 		return;
-	
-		
-
 }
 
 int MM_Map(tVAddr VAddr, tPAddr PAddr)
@@ -395,11 +392,46 @@ void MM_FreeTemp(tVAddr VAddr)
 	// TODO: Implement FreeTemp
 }
 
-tVAddr MM_NewKStack(int bGlobal)
+tVAddr MM_NewKStack(int bShared)
 {
-	// TODO: Implement NewKStack
-	// TODO: Should I support global stacks? if only for the idle thread
-	return 0;
+	tVAddr	min_addr, max_addr;
+	tVAddr	addr, ofs;
+
+	if( bShared ) {
+		min_addr = MM_GLOBALSTACKS;
+		max_addr = MM_GLOBALSTACKS_END;
+	}
+	else {
+		min_addr = MM_KSTACK_BASE;
+		max_addr = MM_KSTACK_END;
+	}
+
+	// Locate a free slot
+	for( addr = min_addr; addr < max_addr; addr += MM_KSTACK_SIZE )
+	{
+		tMM_PageInfo	pi;
+		if( MM_int_GetPageInfo(addr+MM_KSTACK_SIZE-PAGE_SIZE, &pi) )	break;
+	}
+
+	// Check for an error	
+	if(addr >= max_addr) {
+		return 0;
+	}
+
+	// 1 guard page
+	for( ofs = PAGE_SIZE; ofs < MM_KSTACK_SIZE; ofs += PAGE_SIZE )
+	{
+		if( MM_Allocate(addr + ofs) == 0 ) {
+			while(ofs)
+			{
+				ofs -= PAGE_SIZE;
+				MM_Deallocate(addr + ofs);
+			}
+			Log_Warning("MMVirt", "MM_NewKStack: Unable to allocate");
+			return 0;
+		}
+	}
+	return addr + ofs;
 }
 
 void MM_DumpTables(tVAddr Start, tVAddr End)

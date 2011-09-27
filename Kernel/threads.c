@@ -904,14 +904,17 @@ void Threads_AddActive(tThread *Thread)
 
 /**
  * \brief Removes the current thread from the active queue
- * \warning This should ONLY be called with task switches disabled
+ * \warning This should ONLY be called with the lock held
  * \return Current thread pointer
  */
 tThread *Threads_RemActive(void)
 {
 	tThread	*ret = Proc_GetCurThread();
-	
-	SHORTLOCK( &glThreadListLock );
+
+	if( !IS_LOCKED(&glThreadListLock) ) {
+		Log_KernelPanic("Threads", "Threads_RemActive called without lock held");
+		return NULL;
+	}
 	
 	// Delete from active queue
 	#if SCHEDULER_TYPE == SCHED_RR_PRI
@@ -937,8 +940,6 @@ tThread *Threads_RemActive(void)
 	Log("CPU%i %p (%i %s) removed, giFreeTickets = %i [nc]",
 		GetCPUNum(), ret, ret->TID, ret->ThreadName, giFreeTickets);
 	#endif
-	
-	SHORTREL( &glThreadListLock );
 	
 	return ret;
 }

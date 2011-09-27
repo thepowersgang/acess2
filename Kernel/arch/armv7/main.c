@@ -40,8 +40,9 @@ int kmain(void)
 	LogF("Moving to arch-independent init\n");
 	System_Init("");
 	//TODO: 
-	LogF("End of kmain(), for(;;);\n");
-	for(;;);
+	LogF("End of kmain(), for(;;) Threads_Sleep();\n");
+	for(;;)
+		Threads_Sleep();
 }
 
 void Arch_LoadBootModules(void)

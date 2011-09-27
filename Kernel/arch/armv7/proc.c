@@ -2,7 +2,7 @@
  * Acess2
  * - By John Hodge (thePowersGang)
  *
- * arch/arm7/proc.
+ * arch/arm7/proc.c
  * - ARM7 Process Switching
  */
 #include <acess.h>
@@ -12,12 +12,12 @@
 // === IMPORTS ===
 extern tThread	gThreadZero;
 extern void	SwitchTask(Uint32 NewSP, Uint32 *OldSP, Uint32 NewIP, Uint32 *OldIP, Uint32 MemPtr);
-extern void	KernelThreadHeader(void);	// Actually takes args
+extern void	KernelThreadHeader(void);	// Actually takes args on stack
 extern tVAddr	MM_NewKStack(int bGlobal);	// TODO: Move out into a header
 
 // === PROTOTYPES ===
 void	Proc_IdleThread(void *unused);
-tTID	Proc_NewKThread( void (*Fnc)(void*), void *Ptr );
+tTID	Proc_NewKThread(void (*Fnc)(void*), void *Ptr);
 
 // === GLOBALS ===
 tThread	*gpCurrentThread = &gThreadZero;
@@ -30,8 +30,10 @@ void ArchThreads_Init(void)
 
 void Proc_IdleThread(void *unused)
 {
-	for(;;)
+	for(;;) {
+		__asm__ __volatile__ ("wfi");
 		Proc_Reschedule();
+	}
 }
 
 void Proc_Start(void)
@@ -74,9 +76,10 @@ tTID Proc_NewKThread( void (*Fnc)(void*), void *Ptr )
 	new = Threads_CloneTCB(NULL, 0);
 	if(!new)	return -1;
 
-	new->KernelStack = MM_NewKStack(0);
+	new->KernelStack = MM_NewKStack(1);
 	if(!new->KernelStack) {
 		// TODO: Delete thread
+		Log_Error("Proc", "Unable to allocate kernel stack");
 		return -1;
 	}	
 
@@ -109,7 +112,12 @@ void Proc_Reschedule(void)
 	next = Threads_GetNextToRun(0, cur);
 	if(!next)	next = gpIdleThread;
 	if(!next || next == cur)	return;
+
+	Log("Switching to %p (%i) IP=%p SP=%p", next, next->TID, next->SavedState.IP, next->SavedState.SP);
 	
+	gpCurrentThread = next;
+	// TODO: Change kernel stack?
+
 	SwitchTask(
 		next->SavedState.SP, &cur->SavedState.SP,
 		next->SavedState.IP, &cur->SavedState.IP,
