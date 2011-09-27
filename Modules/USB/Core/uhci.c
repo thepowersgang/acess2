@@ -79,12 +79,56 @@ void UHCI_Cleanup()
 }
 
 /**
- * \brief Sends a packet to the bus
+ * \brief Send a transaction to the USB bus
+ * \param ControllerID Controller
+ * \param Fcn	Function Address
+ * \param Endpt	Endpoint
  */
-int UHCI_SendPacket(int ControllerID, enum eUSB_TransferType Type, void *Data, size_t Length)
+int UHCI_int_SendTransaction(int ControllerID, int Fcn, int Endpt, int DataTgl, Uint8 Type, void *Data, size_t Length)
 {
-	//tUHCI_TD	*td = UHCI_AllocateTD();
+	tUHCI_Controller *cont = &gUHCI_Controllers[ControllerID];
+	tUHCI_TD	*td;
+
+	if( Length > 0x400 )	return -1;	// Controller allows up to 0x500, but USB doesn't
+
+	td = UHCI_Int_AllocateTD(cont);
+
+	td->Link = 0;
+	td->Control = (Length - 1) & 0x7FF;
+	td->Token  = ((Length - 1) & 0x7FF) << 21;
+	td->Token |= (DataTgl & 1) << 19;
+	td->Token |= (Endpt & 0xF) << 15;
+	td->Token |= (Fcn & 0xFF) << 8;
+	td->Token |= Type;
+
+	if( ((tVAddr)Data & PAGE_SIZE) + Length > PAGE_SIZE ) {
+		Log_Warning("UHCI", "TODO: Support non single page transfers");
+//		td->BufferPointer = 
+		return 1;
+	}
+	else {
+		td->BufferPointer = MM_GetPhysAddr(Data);
+	}
+
+	UHCI_int_AppendTD(td);
+
+	// Wait until done, then return
 	return 0;
+}
+
+int UHCI_DataIN(int ControllerID, int Fcn, int Endpt, int DataTgl, void *Data, size_t Length)
+{
+	return UHCI_int_SendPacket(ControllerID, Fcn, Endpt, DataTgl, 0x69, Data, Length);
+}
+
+int UHCI_DataOUT(int ControllerID, int Fcn, int Endpt, int DataTgl, void *Data, size_t Length)
+{
+	return UHCI_int_SendPacket(ControllerID, Fcn, Endpt, DataTgl, 0xE1, Data, Length);
+}
+
+int UHCI_SendSetup(int ControllerID, int Fcn, int Endpt, int DataTgl, void *Data, size_t Length)
+{
+	return UHCI_int_SendPacket(ControllerID, Fcn, Endpt, DataTgl, 0x2D, Data, Length);
 }
 
 // === INTERNAL FUNCTIONS ===

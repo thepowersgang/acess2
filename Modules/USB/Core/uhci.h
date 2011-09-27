@@ -90,6 +90,10 @@ struct sUHCI_TD
 	 * 18:15 - Endpoint
 	 * 14:8 - Device Address
 	 * 7:0 - PID (Packet Identifcation) - Only 96, E1, 2D allowed
+	 *
+	 * 0x96 = Data IN
+	 * 0xE1 = Data Out
+	 * 0x2D = Setup
 	 */
 	Uint32	Token;
 	
@@ -97,6 +101,11 @@ struct sUHCI_TD
 	 * \brief Pointer to the data to send
 	 */
 	Uint32	BufferPointer;
+
+	/**
+	 * \brief Avaliable for use by software
+	 */
+	Uint32	Avaliable[4];
 };
 
 struct sUHCI_QH
