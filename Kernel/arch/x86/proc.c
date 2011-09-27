@@ -14,7 +14,7 @@
 #include <hal_proc.h>
 
 // === FLAGS ===
-#define DEBUG_TRACE_SWITCH	1
+#define DEBUG_TRACE_SWITCH	0
 #define DEBUG_DISABLE_DOUBLEFAULT	1
 #define DEBUG_VERY_SLOW_SWITCH	0
 
