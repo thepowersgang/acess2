@@ -75,7 +75,7 @@ tTID Proc_NewKThread( void (*Fnc)(void*), void *Ptr )
 	if(!new)	return -1;
 
 	new->KernelStack = MM_NewKStack(0);
-	if(!new) {
+	if(!new->KernelStack) {
 		// TODO: Delete thread
 		return -1;
 	}	
