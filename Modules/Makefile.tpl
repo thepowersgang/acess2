@@ -27,10 +27,11 @@ else
 	BIN := ../$(NAME).xo.$(ARCH)
 endif
 
-OBJ := $(addsuffix .$(_SUFFIX),$(OBJ))
+OBJ := $(addprefix obj-$(_SUFFIX)/,$(OBJ))
+#OBJ := $(addsuffix .$(_SUFFIX),$(OBJ))
 
-DEPFILES := $(filter %.o.$(_SUFFIX),$(OBJ))
-DEPFILES := $(DEPFILES:%.o.$(_SUFFIX)=%.d.$(ARCH))
+DEPFILES := $(filter %.o,$(OBJ))
+DEPFILES := $(DEPFILES:%.o=%.d)
 
 .PHONY: all clean
 
@@ -38,6 +39,7 @@ all: $(BIN)
 
 clean:
 	$(RM) $(BIN) $(BIN).dsm $(KOBJ) $(OBJ) $(DEPFILES) $(EXTRA)
+	$(RM) -r obj-$(_SUFFIX)
 
 install: $(BIN)
 ifneq ($(BUILDTYPE),static)
@@ -46,10 +48,10 @@ ifneq ($(BUILDTYPE),static)
 else
 endif
 
+
 ifneq ($(BUILDTYPE),static)
 $(BIN): %.kmd.$(ARCH): $(OBJ)
 	@echo --- $(LD) -o $@
-#	@$(LD) -T $(ACESSDIR)/Modules/link.ld --allow-shlib-undefined -shared -nostdlib -o $@ $(OBJ)
 	@$(LD) --allow-shlib-undefined -shared -nostdlib -o $@ $(OBJ) -defsym=DriverInfo=_DriverInfo_$(FULLNAME)
 	@$(DISASM) $(BIN) > $(BIN).dsm
 else
@@ -58,9 +60,10 @@ $(BIN): %.xo.$(ARCH): $(OBJ)
 	@$(LD) -r -o $@ $(OBJ)
 endif
 
-%.o.$(_SUFFIX): %.c Makefile $(CFGFILES)
+obj-$(_SUFFIX)/%.o: %.c Makefile $(CFGFILES)
 	@echo --- $(CC) -o $@
+	@mkdir -p $(dir $@)
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $<
-	@$(CC) -M $(CPPFLAGS) -MT $@ -o $*.d.$(ARCH) $<
+	@$(CC) -M $(CPPFLAGS) -MT $@ -o obj-$(_SUFFIX)/$*.d $<
 
 -include $(DEPFILES)
