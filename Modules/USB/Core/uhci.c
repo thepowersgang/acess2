@@ -16,12 +16,23 @@
 // === PROTOTYPES ===
  int	UHCI_Initialise();
 void	UHCI_Cleanup();
- int	UHCI_IOCtl(tVFS_Node *node, int id, void *data);
+tUHCI_TD	*UHCI_int_AllocateTD(tUHCI_Controller *Cont);
+void	UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_TD *TD);
+ int	UHCI_int_SendTransaction(tUHCI_Controller *Cont, int Fcn, int Endpt, int DataTgl, Uint8 Type, void *Data, size_t Length);
+ int	UHCI_DataIN(void *Ptr, int Fcn, int Endpt, int DataTgl, void *Data, size_t Length);
+ int	UHCI_DataOUT(void *Ptr, int Fcn, int Endpt, int DataTgl, void *Data, size_t Length);
+ int	UHCI_SendSetup(void *Ptr, int Fcn, int Endpt, int DataTgl, void *Data, size_t Length);
  int	UHCI_Int_InitHost(tUHCI_Controller *Host);
+void	UHCI_InterruptHandler(int IRQ);
 
 // === GLOBALS ===
 tUHCI_TD	gaUHCI_TDPool[NUM_TDs];
 tUHCI_Controller	gUHCI_Controllers[MAX_CONTROLLERS];
+tUSBHost	gUHCI_HostDef = {
+	.SendIN = UHCI_DataIN,
+	.SendOUT = UHCI_DataOUT,
+	.SendSETUP = UHCI_SendSetup,
+	};
 
 // === CODE ===
 /**
@@ -53,6 +64,8 @@ int UHCI_Initialise(const char **Arguments)
 		Log_Debug("UHCI", "Controller PCI #%i: IO Base = 0x%x, IRQ %i",
 			id, cinfo->IOBase, cinfo->IRQNum);
 		
+		IRQ_AddHandler(cinfo->IRQNum, UHCI_InterruptHandler);
+	
 		// Initialise Host
 		ret = UHCI_Int_InitHost(&gUHCI_Controllers[i]);
 		// Detect an error
@@ -61,6 +74,8 @@ int UHCI_Initialise(const char **Arguments)
 			return ret;
 		}
 		
+		USB_RegisterHost(&gUHCI_HostDef, cinfo);
+
 		i ++;
 	}
 	if(i == MAX_CONTROLLERS) {
@@ -78,22 +93,39 @@ void UHCI_Cleanup()
 {
 }
 
+tUHCI_TD *UHCI_int_AllocateTD(tUHCI_Controller *Cont)
+{
+	 int	i;
+	for(i = 0; i < NUM_TDs; i ++)
+	{
+		if(gaUHCI_TDPool[i].Link == 0) {
+			gaUHCI_TDPool[i].Link = 1;
+			return &gaUHCI_TDPool[i];
+		}
+	}
+	return NULL;
+}
+
+void UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_TD *TD)
+{
+	
+}
+
 /**
  * \brief Send a transaction to the USB bus
  * \param ControllerID Controller
  * \param Fcn	Function Address
  * \param Endpt	Endpoint
  */
-int UHCI_int_SendTransaction(int ControllerID, int Fcn, int Endpt, int DataTgl, Uint8 Type, void *Data, size_t Length)
+int UHCI_int_SendTransaction(tUHCI_Controller *Cont, int Fcn, int Endpt, int DataTgl, Uint8 Type, void *Data, size_t Length)
 {
-	tUHCI_Controller *cont = &gUHCI_Controllers[ControllerID];
 	tUHCI_TD	*td;
 
 	if( Length > 0x400 )	return -1;	// Controller allows up to 0x500, but USB doesn't
 
-	td = UHCI_Int_AllocateTD(cont);
+	td = UHCI_int_AllocateTD(Cont);
 
-	td->Link = 0;
+	td->Link = 1;
 	td->Control = (Length - 1) & 0x7FF;
 	td->Token  = ((Length - 1) & 0x7FF) << 21;
 	td->Token |= (DataTgl & 1) << 19;
@@ -101,34 +133,37 @@ int UHCI_int_SendTransaction(int ControllerID, int Fcn, int Endpt, int DataTgl, 
 	td->Token |= (Fcn & 0xFF) << 8;
 	td->Token |= Type;
 
+	// TODO: Ensure 32-bit paddr
 	if( ((tVAddr)Data & PAGE_SIZE) + Length > PAGE_SIZE ) {
 		Log_Warning("UHCI", "TODO: Support non single page transfers");
 //		td->BufferPointer = 
 		return 1;
 	}
 	else {
-		td->BufferPointer = MM_GetPhysAddr(Data);
+		td->BufferPointer = MM_GetPhysAddr( (tVAddr)Data );
 	}
 
-	UHCI_int_AppendTD(td);
+	UHCI_int_AppendTD(Cont, td);
 
 	// Wait until done, then return
+	while(td->Link != 0)
+		Threads_Yield();
 	return 0;
 }
 
-int UHCI_DataIN(int ControllerID, int Fcn, int Endpt, int DataTgl, void *Data, size_t Length)
+int UHCI_DataIN(void *Ptr, int Fcn, int Endpt, int DataTgl, void *Data, size_t Length)
 {
-	return UHCI_int_SendPacket(ControllerID, Fcn, Endpt, DataTgl, 0x69, Data, Length);
+	return UHCI_int_SendTransaction(Ptr, Fcn, Endpt, DataTgl, 0x69, Data, Length);
 }
 
-int UHCI_DataOUT(int ControllerID, int Fcn, int Endpt, int DataTgl, void *Data, size_t Length)
+int UHCI_DataOUT(void *Ptr, int Fcn, int Endpt, int DataTgl, void *Data, size_t Length)
 {
-	return UHCI_int_SendPacket(ControllerID, Fcn, Endpt, DataTgl, 0xE1, Data, Length);
+	return UHCI_int_SendTransaction(Ptr, Fcn, Endpt, DataTgl, 0xE1, Data, Length);
 }
 
-int UHCI_SendSetup(int ControllerID, int Fcn, int Endpt, int DataTgl, void *Data, size_t Length)
+int UHCI_SendSetup(void *Ptr, int Fcn, int Endpt, int DataTgl, void *Data, size_t Length)
 {
-	return UHCI_int_SendPacket(ControllerID, Fcn, Endpt, DataTgl, 0x2D, Data, Length);
+	return UHCI_int_SendTransaction(Ptr, Fcn, Endpt, DataTgl, 0x2D, Data, Length);
 }
 
 // === INTERNAL FUNCTIONS ===
@@ -140,7 +175,7 @@ int UHCI_SendSetup(int ControllerID, int Fcn, int Endpt, int DataTgl, void *Data
 int UHCI_Int_InitHost(tUHCI_Controller *Host)
 {
 	ENTER("pHost", Host);
-	
+
 	outw( Host->IOBase + USBCMD, 4 );	// GRESET
 	// TODO: Wait for at least 10ms
 	outw( Host->IOBase + USBCMD, 0 );	// GRESET

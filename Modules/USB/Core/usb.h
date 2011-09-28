@@ -25,7 +25,8 @@ struct sUSBHost
  */
 struct sUSBDevice
 {
-	tUSBHost	*Host;
+	tUSBHost	*HostDef;
+	void	*Controller;
 
 	 int	Address;
 
@@ -33,5 +34,7 @@ struct sUSBDevice
 	 int	MaxBulk;
 	 int	MaxISync;
 };
+
+extern void USB_RegisterHost(tUSBHost *HostDef, void *ControllerPtr);
 
 #endif
