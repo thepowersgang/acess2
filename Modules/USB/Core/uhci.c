@@ -23,7 +23,7 @@ void	UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_TD *TD);
  int	UHCI_DataOUT(void *Ptr, int Fcn, int Endpt, int DataTgl, void *Data, size_t Length);
  int	UHCI_SendSetup(void *Ptr, int Fcn, int Endpt, int DataTgl, void *Data, size_t Length);
  int	UHCI_Int_InitHost(tUHCI_Controller *Host);
-void	UHCI_InterruptHandler(int IRQ);
+void	UHCI_InterruptHandler(int IRQ, void *Ptr);
 
 // === GLOBALS ===
 tUHCI_TD	gaUHCI_TDPool[NUM_TDs];
@@ -64,7 +64,7 @@ int UHCI_Initialise(const char **Arguments)
 		Log_Debug("UHCI", "Controller PCI #%i: IO Base = 0x%x, IRQ %i",
 			id, cinfo->IOBase, cinfo->IRQNum);
 		
-		IRQ_AddHandler(cinfo->IRQNum, UHCI_InterruptHandler);
+		IRQ_AddHandler(cinfo->IRQNum, UHCI_InterruptHandler, cinfo);
 	
 		// Initialise Host
 		ret = UHCI_Int_InitHost(&gUHCI_Controllers[i]);
@@ -204,8 +204,13 @@ int UHCI_Int_InitHost(tUHCI_Controller *Host)
 	outw( Host->IOBase + FRNUM, 0 );
 	
 	// Enable Interrupts
-	//PCI_WriteWord( Host->PciId, 0xC0, 0x2000 );
+//	PCI_WriteWord( Host->PciId, 0xC0, 0x2000 );
 	
 	LEAVE('i', 0);
 	return 0;
+}
+
+void UHCI_InterruptHandler(int IRQ, void *Ptr)
+{
+	
 }

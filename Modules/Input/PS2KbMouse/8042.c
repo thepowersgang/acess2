@@ -9,8 +9,8 @@
 
 // === PROTOTYPES ===
 void	KBC8042_Init(void);
-void	KBC8042_KeyboardHandler(int IRQ);
-void	KBC8042_MouseHandler(int IRQ);
+void	KBC8042_KeyboardHandler(int IRQ, void *Ptr);
+void	KBC8042_MouseHandler(int IRQ, void *Ptr);
 void	KBC8042_EnableMouse(void);
 static inline void	KBC8042_SendDataAlt(Uint8 data);
 static inline void	KBC8042_SendData(Uint8 data);
@@ -20,8 +20,8 @@ static void	KBC8042_SendMouseCommand(Uint8 cmd);
 // === CODE ===
 void KBC8042_Init(void)
 {
-	IRQ_AddHandler(1, KBC8042_KeyboardHandler);
-	IRQ_AddHandler(12, KBC8042_MouseHandler);	// Set IRQ
+	IRQ_AddHandler(1, KBC8042_KeyboardHandler, NULL);
+	IRQ_AddHandler(12, KBC8042_MouseHandler, NULL);	// Set IRQ
 	
 	{
 		Uint8	temp;
@@ -34,7 +34,7 @@ void KBC8042_Init(void)
 	}
 }
 
-void KBC8042_KeyboardHandler(int IRQ)
+void KBC8042_KeyboardHandler(int IRQ, void *Ptr)
 {
 	Uint8	scancode;
 
@@ -42,7 +42,7 @@ void KBC8042_KeyboardHandler(int IRQ)
 	KB_HandleScancode( scancode );
 }
 
-void KBC8042_MouseHandler(int IRQ)
+void KBC8042_MouseHandler(int IRQ, void *Ptr)
 {
 	PS2Mouse_HandleInterrupt( inb(0x60) );
 }

@@ -79,8 +79,8 @@ Uint16	ATA_GetBasePort(int Disk);
  int	ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer);
  int	ATA_WriteDMA(Uint8 Disk, Uint64 Address, Uint Count, const void *Buffer);
 // IRQs
-void	ATA_IRQHandlerPri(int UNUSED(IRQ));
-void	ATA_IRQHandlerSec(int UNUSED(IRQ));
+void	ATA_IRQHandlerPri(int UNUSED(IRQ), void *UNUSED(Ptr));
+void	ATA_IRQHandlerSec(int UNUSED(IRQ), void *UNUSED(Ptr));
 // Controller IO
 Uint8	ATA_int_BusMasterReadByte(int Ofs);
 Uint32	ATA_int_BusMasterReadDWord(int Ofs);
@@ -145,8 +145,8 @@ int ATA_SetupIO(void)
 	}
 
 	// Register IRQs and get Buffers
-	IRQ_AddHandler( gATA_IRQPri, ATA_IRQHandlerPri );
-	IRQ_AddHandler( gATA_IRQSec, ATA_IRQHandlerSec );
+	IRQ_AddHandler( gATA_IRQPri, ATA_IRQHandlerPri, NULL );
+	IRQ_AddHandler( gATA_IRQSec, ATA_IRQHandlerSec, NULL );
 
 	gATA_PRDTs[0].PBufAddr = MM_GetPhysAddr( (tVAddr)&gATA_Buffers[0] );
 	gATA_PRDTs[1].PBufAddr = MM_GetPhysAddr( (tVAddr)&gATA_Buffers[1] );
@@ -503,7 +503,7 @@ int ATA_WriteDMA(Uint8 Disk, Uint64 Address, Uint Count, const void *Buffer)
 /**
  * \brief Primary ATA Channel IRQ handler
  */
-void ATA_IRQHandlerPri(int UNUSED(IRQ))
+void ATA_IRQHandlerPri(int UNUSED(IRQ), void *UNUSED(Ptr))
 {
 	Uint8	val;
 
@@ -521,7 +521,7 @@ void ATA_IRQHandlerPri(int UNUSED(IRQ))
 /**
  * \brief Second ATA Channel IRQ handler
  */
-void ATA_IRQHandlerSec(int UNUSED(IRQ))
+void ATA_IRQHandlerSec(int UNUSED(IRQ), void *UNUSED(Ptr))
 {
 	Uint8	val;
 	// IRQ bit set for Secondary Controller

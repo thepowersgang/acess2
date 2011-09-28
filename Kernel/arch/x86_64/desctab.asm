@@ -128,7 +128,7 @@ Desctab_Init:
 	
 	ret
 
-; int IRQ_AddHandler(int IRQ, void (*Handler)(int IRQ))
+; int IRQ_AddHandler(int IRQ, void (*Handler)(int IRQ), void *Ptr)
 ; Return Values:
 ;  0 on Success
 ; -1 on an invalid IRQ Number
@@ -137,6 +137,7 @@ Desctab_Init:
 IRQ_AddHandler:
 	; RDI - IRQ Number
 	; RSI - Callback
+	; RDX - Ptr
 	
 	; Check for RDI >= 16
 	cmp rdi, 16
@@ -153,8 +154,8 @@ IRQ_AddHandler:
 	
 	; Find a free callback slot
 	%rep NUM_IRQ_CALLBACKS
-	mov rdx, [rax]
-	test rdx, rdx
+	mov rcx, [rax]
+	test rcx, rcx
 	jz .assign
 	add rax, 8
 	%endrep
@@ -170,6 +171,7 @@ IRQ_AddHandler:
 	push rdi
 	push rsi
 	push rax
+	push rdx
 	sub rsp, 8
 	mov rcx, rdi	; IRQ Number
 	mov rdx, rsi	; Callback
@@ -177,12 +179,15 @@ IRQ_AddHandler:
 	mov rdi, csIRQ_Assigned
 	call Log
 	add rsp, 8
+	pop rdx
 	pop rax
 	pop rsi
 	pop rdi
 
 	; Assign and return
 	mov [rax], rsi
+	add rax, gaIRQ_DataPtrs - gaIRQ_Handlers
+	mov [rax], rdx
 	xor rax, rax
 
 .ret:
@@ -300,6 +305,7 @@ IrqCommon:
 	jz .skip.%[i]
 	; Set RDI to IRQ number
 	mov rdi, [rsp+(16+2+1)*8]	; Get IRQ number
+	mov rsi, [rbx-gaIRQ_Handlers+gaIRQ_DataPtrs]
 	call rax	; Call
 .skip.%[i]:
 	add rbx, 8	; Next!
@@ -432,4 +438,6 @@ gIDTPtr:
 	dq	gIDT
 
 gaIRQ_Handlers:
+	times	16*NUM_IRQ_CALLBACKS	dq	0
+gaIRQ_DataPtrs:
 	times	16*NUM_IRQ_CALLBACKS	dq	0

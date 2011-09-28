@@ -97,7 +97,7 @@ tVFS_Node	*RTL8139_FindDir(tVFS_Node *Node, const char *Filename);
 Uint64	RTL8139_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
 Uint64	RTL8139_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
  int	RTL8139_IOCtl(tVFS_Node *Node, int ID, void *Arg);
-void	RTL8139_IRQHandler(int Num);
+void	RTL8139_IRQHandler(int Num, void *Ptr);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, RTL8139, RTL8139_Install, NULL, NULL);
@@ -149,7 +149,7 @@ int RTL8139_Install(char **Options)
 		card->IRQ = PCI_GetIRQ( id );
 		
 		// Install IRQ Handler
-		IRQ_AddHandler(card->IRQ, RTL8139_IRQHandler);
+		IRQ_AddHandler(card->IRQ, RTL8139_IRQHandler, card);
 		
 		// Power on
 		outb( base + CONFIG1, 0x00 );
@@ -372,94 +372,90 @@ int RTL8139_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	return 0;
 }
 
-void RTL8139_IRQHandler(int Num)
+void RTL8139_IRQHandler(int Num, void *Ptr)
 {
-	 int	i, j;
-	tCard	*card;
+	 int	j;
+	tCard	*card = Ptr;
 	Uint16	status;
 
 	LOG("Num = %i", Num);
 	
-	for( i = 0; i < giRTL8139_CardCount; i ++ )
+	if( Num != card->IRQ )	return;
+		
+	status = inw(card->IOBase + ISR);
+	LOG("status = 0x%02x", status);
+		
+	// Transmit OK, a transmit descriptor is now free
+	if( status & FLAG_ISR_TOK )
 	{
-		card = &gaRTL8139_Cards[i];
-		if( Num != card->IRQ )	break;
-		
-		status = inw(card->IOBase + ISR);
-		LOG("status = 0x%02x", status);
-		
-		// Transmit OK, a transmit descriptor is now free
-		if( status & FLAG_ISR_TOK )
+		for( j = 0; j < 4; j ++ )
 		{
-			for( j = 0; j < 4; j ++ )
-			{
-				if( ind(card->IOBase + TSD0 + j*4) & 0x8000 ) {	// TSD TOK
-					Mutex_Release( &card->TransmitInUse[j] );
-					// TODO: Update semaphore once implemented
-				}
+			if( ind(card->IOBase + TSD0 + j*4) & 0x8000 ) {	// TSD TOK
+				Mutex_Release( &card->TransmitInUse[j] );
+				// TODO: Update semaphore once implemented
 			}
-			outw(card->IOBase + ISR, FLAG_ISR_TOK);
 		}
+		outw(card->IOBase + ISR, FLAG_ISR_TOK);
+	}
+	
+	// Recieve OK, inform read
+	if( status & FLAG_ISR_ROK )
+	{
+		 int	read_ofs, end_ofs;
+		 int	packet_count = 0;
+		 int	len;
 		
-		// Recieve OK, inform read
-		if( status & FLAG_ISR_ROK )
+		// Scan recieve buffer for packets
+		end_ofs = inw(card->IOBase + CBA);
+		read_ofs = card->SeenOfs;
+		LOG("read_ofs = %i, end_ofs = %i", read_ofs, end_ofs);
+		if( read_ofs > end_ofs )
 		{
-			 int	read_ofs, end_ofs;
-			 int	packet_count = 0;
-			 int	len;
-			
-			// Scan recieve buffer for packets
-			end_ofs = inw(card->IOBase + CBA);
-			read_ofs = card->SeenOfs;
-			LOG("read_ofs = %i, end_ofs = %i", read_ofs, end_ofs);
-			if( read_ofs > end_ofs )
-			{
-				while( read_ofs < card->ReceiveBufferLength )
-				{
-					packet_count ++;
-					len = *(Uint16*)&card->ReceiveBuffer[read_ofs+2];
-					LOG("%i 0x%x Pkt Hdr: 0x%04x, len: 0x%04x",
-						packet_count, read_ofs,
-						*(Uint16*)&card->ReceiveBuffer[read_ofs],
-						len
-						);
-					if(len > 2000) {
-						Log_Warning("RTL8139", "IRQ: Packet in buffer exceeds sanity (%i>2000)", len);
-					}
-					read_ofs += len + 4;
-					read_ofs = (read_ofs + 3) & ~3;	// Align
-				}
-				read_ofs -= card->ReceiveBufferLength;
-				LOG("wrapped read_ofs");
-			}
-			while( read_ofs < end_ofs )
+			while( read_ofs < card->ReceiveBufferLength )
 			{
 				packet_count ++;
+				len = *(Uint16*)&card->ReceiveBuffer[read_ofs+2];
 				LOG("%i 0x%x Pkt Hdr: 0x%04x, len: 0x%04x",
 					packet_count, read_ofs,
 					*(Uint16*)&card->ReceiveBuffer[read_ofs],
-					*(Uint16*)&card->ReceiveBuffer[read_ofs+2]
+					len
 					);
-				read_ofs += *(Uint16*)&card->ReceiveBuffer[read_ofs+2] + 4;
+				if(len > 2000) {
+					Log_Warning("RTL8139", "IRQ: Packet in buffer exceeds sanity (%i>2000)", len);
+				}
+				read_ofs += len + 4;
 				read_ofs = (read_ofs + 3) & ~3;	// Align
 			}
-			if( read_ofs != end_ofs ) {
-				Log_Warning("RTL8139", "IRQ: read_ofs (%i) != end_ofs(%i)", read_ofs, end_ofs);
-				read_ofs = end_ofs;
-			}
-			card->SeenOfs = read_ofs;
-			
-			LOG("packet_count = %i, read_ofs = 0x%x", packet_count, read_ofs);
-			
-			if( packet_count )
-			{
-				if( Semaphore_Signal( &card->ReadSemaphore, packet_count ) != packet_count ) {
-					// Oops?
-				}
-				VFS_MarkAvaliable( &card->Node, 1 );
-			}
-			
-			outw(card->IOBase + ISR, FLAG_ISR_ROK);
+			read_ofs -= card->ReceiveBufferLength;
+			LOG("wrapped read_ofs");
 		}
-	}
+		while( read_ofs < end_ofs )
+		{
+			packet_count ++;
+			LOG("%i 0x%x Pkt Hdr: 0x%04x, len: 0x%04x",
+				packet_count, read_ofs,
+				*(Uint16*)&card->ReceiveBuffer[read_ofs],
+				*(Uint16*)&card->ReceiveBuffer[read_ofs+2]
+				);
+			read_ofs += *(Uint16*)&card->ReceiveBuffer[read_ofs+2] + 4;
+			read_ofs = (read_ofs + 3) & ~3;	// Align
+		}
+		if( read_ofs != end_ofs ) {
+			Log_Warning("RTL8139", "IRQ: read_ofs (%i) != end_ofs(%i)", read_ofs, end_ofs);
+			read_ofs = end_ofs;
+		}
+		card->SeenOfs = read_ofs;
+		
+		LOG("packet_count = %i, read_ofs = 0x%x", packet_count, read_ofs);
+		
+		if( packet_count )
+		{
+			if( Semaphore_Signal( &card->ReadSemaphore, packet_count ) != packet_count ) {
+				// Oops?
+			}
+			VFS_MarkAvaliable( &card->Node, 1 );
+		}
+		
+		outw(card->IOBase + ISR, FLAG_ISR_ROK);
+	}	
 }

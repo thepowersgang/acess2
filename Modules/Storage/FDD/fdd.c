@@ -107,7 +107,7 @@ Uint	FDD_ReadSectors(Uint64 SectorAddr, Uint Count, void *Buffer, Uint Disk);
  int	FDD_ReadSector(Uint32 disk, Uint64 lba, void *Buffer);
  int	FDD_WriteSector(Uint32 Disk, Uint64 LBA, void *Buffer);
 // --- Helpers
-void	FDD_IRQHandler(int Num);
+void	FDD_IRQHandler(int Num, void *Ptr);
 inline void	FDD_WaitIRQ();
 void	FDD_SensInt(int base, Uint8 *sr0, Uint8 *cyl);
  int	FDD_int_SendByte(int base, Uint8 Byte);
@@ -172,7 +172,7 @@ int FDD_Install(char **Arguments)
 	}
 	
 	// Install IRQ6 Handler
-	IRQ_AddHandler(6, FDD_IRQHandler);
+	IRQ_AddHandler(6, FDD_IRQHandler, NULL);
 
 	// Ensure the FDD version is 0x90
 	{
@@ -676,7 +676,7 @@ int FDD_int_GetDims(int type, int lba, int *c, int *h, int *s, int *spt)
  * \fn void FDD_IRQHandler(int Num)
  * \brief Handles IRQ6
  */
-void FDD_IRQHandler(int Num)
+void FDD_IRQHandler(int Num, void *Ptr)
 {
 	gbFDD_IrqFired = 1;
 }

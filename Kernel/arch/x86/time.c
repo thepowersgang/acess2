@@ -30,7 +30,7 @@ volatile Uint64	giTime_TSCPerTick = 0;
 // === PROTOTYPES ===
 //Sint64	now(void);
  int	Time_Setup(void);
-void	Time_Interrupt(int);
+void	Time_Interrupt(int IRQ, void *Ptr);
 Uint64	Time_ReadTSC(void);
 
 // === CODE ===
@@ -83,7 +83,7 @@ int Time_Setup(void)
 	outb(0x70, inb(0x70)|0x80);	// Re-enable NMIs
 	
 	// Install IRQ Handler
-	IRQ_AddHandler(8, Time_Interrupt);
+	IRQ_AddHandler(8, Time_Interrupt, NULL);
 	
 	// Make sure the RTC actually fires
 	outb(0x70, 0x0C); // Select register C
@@ -96,7 +96,7 @@ int Time_Setup(void)
  * \brief Called on the timekeeping IRQ
  * \param irq	IRQ number (unused)
  */
-void Time_Interrupt(int irq)
+void Time_Interrupt(int IRQ, void *Ptr)
 {
 	//Log("RTC Tick");
 	Uint64	curTSC = Time_ReadTSC();

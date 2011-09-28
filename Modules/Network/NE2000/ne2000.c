@@ -91,7 +91,7 @@ Uint64	Ne2k_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
 
  int	Ne2k_int_ReadDMA(tCard *Card, int FirstPage, int NumPages, void *Buffer);
 Uint8	Ne2k_int_GetWritePage(tCard *Card, Uint16 Length);
-void	Ne2k_IRQHandler(int IntNum);
+void	Ne2k_IRQHandler(int IntNum, void *Ptr);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, Ne2k, Ne2k_Install, NULL, NULL);
@@ -152,7 +152,7 @@ int Ne2k_Install(char **Options)
 			gpNe2k_Cards[ k ].NextRXPage = RX_FIRST;
 			
 			// Install IRQ Handler
-			IRQ_AddHandler(gpNe2k_Cards[ k ].IRQ, Ne2k_IRQHandler);
+			IRQ_AddHandler(gpNe2k_Cards[ k ].IRQ, Ne2k_IRQHandler, &gpNe2k_Cards[k]);
 			
 			// Reset Card
 			outb( base + 0x1F, inb(base + 0x1F) );
@@ -506,41 +506,35 @@ Uint8 Ne2k_int_GetWritePage(tCard *Card, Uint16 Length)
 /**
  * \fn void Ne2k_IRQHandler(int IntNum)
  */
-void Ne2k_IRQHandler(int IntNum)
+void Ne2k_IRQHandler(int IntNum, void *Ptr)
 {
-	 int	i;
 	Uint8	byte;
-	for( i = 0; i < giNe2k_CardCount; i++ )
+	tCard	*card = Ptr;
+
+	if(card->IRQ != IntNum)	return;
+	
+	byte = inb( card->IOBase + ISR );
+	
+	LOG("byte = 0x%02x", byte);
+			
+			
+	// Reset All (save for RDMA), that's polled
+	outb( card->IOBase + ISR, 0xFF&(~0x40) );
+			
+	// 0: Packet recieved (no error)
+	if( byte & 1 )
 	{
-		if(gpNe2k_Cards[i].IRQ == IntNum)
-		{
-			byte = inb( gpNe2k_Cards[i].IOBase + ISR );
-			
-			LOG("byte = 0x%02x", byte);
-			
-			
-			// Reset All (save for RDMA), that's polled
-			outb( gpNe2k_Cards[i].IOBase + ISR, 0xFF&(~0x40) );
-			
-			// 0: Packet recieved (no error)
-			if( byte & 1 )
-			{
-				//if( gpNe2k_Cards[i].NumWaitingPackets > MAX_PACKET_QUEUE )
-				//	gpNe2k_Cards[i].NumWaitingPackets = MAX_PACKET_QUEUE;
-				if( Semaphore_Signal( &gpNe2k_Cards[i].Semaphore, 1 ) != 1 ) {
-					// Oops?
-				}
-			}
-			// 1: Packet sent (no error)
-			// 2: Recieved with error
-			// 3: Transmission Halted (Excessive Collisions)
-			// 4: Recieve Buffer Exhausted
-			// 5: 
-			// 6: Remote DMA Complete
-			// 7: Reset
-			
-			return ;
+		//if( card->NumWaitingPackets > MAX_PACKET_QUEUE )
+		//	card->NumWaitingPackets = MAX_PACKET_QUEUE;
+		if( Semaphore_Signal( &card->Semaphore, 1 ) != 1 ) {
+			// Oops?
 		}
 	}
-	Log_Warning("Ne2k", "Recieved Unknown IRQ %i", IntNum);
+	// 1: Packet sent (no error)
+	// 2: Recieved with error
+	// 3: Transmission Halted (Excessive Collisions)
+	// 4: Recieve Buffer Exhausted
+	// 5: 
+	// 6: Remote DMA Complete
+	// 7: Reset
 }
