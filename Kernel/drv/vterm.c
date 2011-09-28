@@ -904,11 +904,6 @@ void VT_KBCallBack(Uint32 Codepoint)
 	}
 	
 	VFS_MarkAvaliable(&term->Node, 1);
-	
-	// Wake up the thread waiting on us
-	//if( term->ReadingThread >= 0 ) {
-	//	Threads_WakeTID(term->ReadingThread);
-	//}
 }
 
 /**
@@ -968,7 +963,7 @@ int VT_int_ParseEscape(tVTerm *Term, char *Buffer)
 		}
 		
 		// Get Command
-		if(	('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z'))
+		if( ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z'))
 		{
 			if( bQuestionMark )
 			{
