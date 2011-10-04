@@ -7,7 +7,7 @@ _CPPFLAGS := $(CPPFLAGS)
 -include $(dir $(lastword $(MAKEFILE_LIST)))../Makefile.cfg
 
 CPPFLAGS := -I$(ACESSDIR)/Kernel/include -I$(ACESSDIR)/Kernel/arch/$(ARCHDIR)/include -DARCH=$(ARCH) $(_CPPFLAGS)
-CFLAGS := -Wall -Werror -fno-stack-protector -g -O3 -fno-builtin
+CFLAGS := -std=gnu99 -Wall -Werror -fno-stack-protector -g -O3 -fno-builtin
 
 ifneq ($(CATEGORY),)
 	FULLNAME := $(CATEGORY)_$(NAME)
