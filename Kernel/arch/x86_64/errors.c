@@ -9,7 +9,7 @@
 #define MAX_BACKTRACE	6
 
 // === IMPORTS ===
-void	MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs);
+ int	MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs);
 void	Error_Backtrace(Uint IP, Uint BP);
 
 // === PROTOTYPES ===
@@ -34,13 +34,14 @@ void Error_Handler(tRegs *Regs)
 	
 	if( Regs->IntNum == 14 ) {
 		__asm__ __volatile__ ("mov %%cr2, %0":"=r"(cr));
-		MM_PageFault(cr, Regs->ErrorCode, Regs);
-		return ;
+		if( MM_PageFault(cr, Regs->ErrorCode, Regs) == 0 )
+			return ;
 	}
-	
-	Debug_KernelPanic();
+	else {
+		Debug_KernelPanic();
 
-	Error_Backtrace(Regs->RIP, Regs->RBP);
+		Error_Backtrace(Regs->RIP, Regs->RBP);
+	}
 	
 	Log("CPU Error %x, Code: 0x%x", Regs->IntNum, Regs->ErrorCode);
 //	Log(" - %s", csaERROR_NAMES[Regs->IntNum]);

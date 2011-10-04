@@ -60,7 +60,7 @@ extern void	Threads_SegFault(tVAddr Addr);
 // === PROTOTYPES ===
 void	MM_InitVirt(void);
 //void	MM_FinishVirtualInit(void);
-void	MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs);
+ int	MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs);
 void	MM_DumpTables(tVAddr Start, tVAddr End);
  int	MM_GetPageEntryPtr(tVAddr Addr, BOOL bTemp, BOOL bAllocate, BOOL bLargePage, tPAddr **Pointer);
  int	MM_MapEx(tVAddr VAddr, tPAddr PAddr, BOOL bTemp, BOOL bLarge);
@@ -86,7 +86,7 @@ void MM_FinishVirtualInit(void)
 /**
  * \brief Called on a page fault
  */
-void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
+int MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 {
 	// TODO: Implement Copy-on-Write
 	#if 1
@@ -104,24 +104,23 @@ void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 		}
 		else
 		{
+			void	*tmp;
 			//Log("MM_PageFault: COW - MM_DuplicatePage(0x%x)", Addr);
 			paddr = MM_AllocPhys();
 			if( !paddr ) {
 				Threads_SegFault(Addr);
-				return ;
+				return 0;
 			}
-			{
-				void	*tmp = (void*)MM_MapTemp(paddr);
-				memcpy( tmp, (void*)(Addr & ~0xFFF), 0x1000 );
-				MM_FreeTemp( (tVAddr)tmp );
-			}
+			tmp = (void*)MM_MapTemp(paddr);
+			memcpy( tmp, (void*)(Addr & ~0xFFF), 0x1000 );
+			MM_FreeTemp( (tVAddr)tmp );
 			MM_DerefPhys( PAGETABLE(Addr>>12) & PADDR_MASK );
 			PAGETABLE(Addr>>12) &= PF_USER;
 			PAGETABLE(Addr>>12) |= paddr|PF_PRESENT|PF_WRITE;
 		}
 		
 		INVLPG( Addr & ~0xFFF );
-		return;
+		return 0;
 	}
 	#endif
 	
@@ -136,7 +135,7 @@ void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 			Regs->CS, Regs->RIP, Addr);
 		__asm__ __volatile__ ("sti");	// Restart IRQs
 		Threads_SegFault(Addr);
-		return ;
+		return 0;
 	}
 	
 	// Kernel #PF
@@ -158,10 +157,8 @@ void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 	Error_Backtrace(Regs->RIP, Regs->RBP);
 	
 	MM_DumpTables(0, -1);
-	
-	__asm__ __volatile__ ("cli");
-	for( ;; )
-		HALT();
+
+	return 1;	
 }
 
 /**
@@ -862,7 +859,7 @@ tVAddr MM_NewWorkerStack(void *StackData, size_t StackSize)
 	for(ret = 0x100000; ret < (1ULL << 47); ret += KERNEL_STACK_SIZE)
 	{
 		tPAddr	*ptr;
-		if( MM_GetPageEntryPtr(ret, 1, 0, 0, &ptr) == 0 )	break;
+		if( MM_GetPageEntryPtr(ret, 1, 0, 0, &ptr) <= 0 )	break;
 		if( !(*ptr & 1) )	break;
 	}
 	if( ret >= (1ULL << 47) ) {

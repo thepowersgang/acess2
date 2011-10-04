@@ -16,7 +16,7 @@
 #include <hal_proc.h>
 
 // === FLAGS ===
-#define DEBUG_TRACE_SWITCH	0
+#define DEBUG_TRACE_SWITCH	1
 #define BREAK_ON_SWITCH 	0	// Break into bochs debugger on a task switch
 
 // === CONSTANTS ===
@@ -364,7 +364,10 @@ void Proc_IdleTask(void *ptr)
 	cpu->IdleThread->ThreadName = (char*)"Idle Thread";
 	Threads_SetPriority( cpu->IdleThread, -1 );	// Never called randomly
 	cpu->IdleThread->Quantum = 1;	// 1 slice quantum
-	for(;;)	HALT();	// Just yeilds
+	for(;;) {
+		HALT();	// Just yeilds
+		Threads_Yield();
+	}
 }
 
 /**
@@ -643,12 +646,24 @@ void Proc_StartProcess(Uint16 SS, Uint Stack, Uint Flags, Uint16 CS, Uint IP)
 	else
 	{
 		// 64-bit return
+		#if 1
 		__asm__ __volatile__ (
 			"mov %0, %%rsp;\n\t"	// Set stack pointer
 			"mov %2, %%r11;\n\t"	// Set RFLAGS
 			"sysretq;\n\t"
 			: : "r" (Stack), "c" (IP), "r" (Flags)
 			);
+		#else
+		__asm__ __volatile__ (
+			"push $0x23;\n\t"	// SS
+			"push %0;\n\t"	// RSP
+			"push %2;\n\t"	// Flags
+			"push $0x2B;\n\t"	// CS
+			"push %1;\n\t"	// IP
+			"iretq"
+			: : "r" (Stack), "r" (IP), "r" (Flags)
+			);
+		#endif
 	}
 	for(;;);
 }
@@ -718,17 +733,19 @@ void Proc_Reschedule(void)
 		return ;
 
 	#if DEBUG_TRACE_SWITCH
-	LogF("\nSwitching to task %i, CR3 = 0x%x, RIP = %p, RSP = %p\n",
+	LogF("\nSwitching to task %i, CR3 = 0x%x, RIP = %p, RSP = %p, KStack = %p\n",
 		nextthread->TID,
 		nextthread->MemState.CR3,
 		nextthread->SavedState.RIP,
-		nextthread->SavedState.RSP
+		nextthread->SavedState.RSP,
+		nextthread->KernelStack
 		);
 	#endif
 
 	// Update CPU state
 	gaCPUs[cpu].Current = nextthread;
 	gTSSs[cpu].RSP0 = nextthread->KernelStack-4;
+	__asm__ __volatile__ ("mov %0, %%db0" : : "r" (nextthread));
 
 	SwitchTasks(
 		nextthread->SavedState.RSP, &curthread->SavedState.RSP,
@@ -744,11 +761,10 @@ void Proc_Reschedule(void)
  */
 void Proc_Scheduler(int CPU, Uint RSP, Uint RIP)
 {
+#if 0
+	{
 	tThread	*thread;
 
-	if( CPU == 0 )
-		Time_UpdateTimestamp();
-	
 	// If the spinlock is set, let it complete
 	if(IS_LOCKED(&glThreadListLock))	return;
 	
@@ -774,6 +790,8 @@ void Proc_Scheduler(int CPU, Uint RSP, Uint RIP)
 	// ACK Timer here?
 
 	Proc_Reschedule();
+	}
+#endif
 }
 
 // === EXPORTS ===

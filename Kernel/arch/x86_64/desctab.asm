@@ -44,7 +44,7 @@ Desctab_Init:
 	%endrep
 	
 	; Install IRQs
-	SETIDT	0xF0, SchedulerIRQ
+	SETIDT	0xF0, PIT_IRQ
 	SETIDT	0xF1, Irq1
 	SETIDT	0xF2, Irq2
 	SETIDT	0xF3, Irq3
@@ -123,7 +123,7 @@ Desctab_Init:
 	; Set IA32_STAR (Kernel/User CS)
 	mov ecx, 0xC0000081
 	rdmsr
-	mov edx, 0x8 | (0x18 << 16)	; Kernel CS (and Kernel DS/SS - 8), User CS
+	mov edx, 0x8 | (0x1B << 16)	; Kernel CS (and Kernel DS/SS - 8), User CS
 	wrmsr
 	
 	ret
@@ -290,7 +290,6 @@ IrqCommon:
 ;	call Log
 	
 	mov ebx, [rsp+(16+2)*8]	; Get interrupt number (16 GPRS + 2 SRs)
-;	xchg bx, bx	; Bochs Magic break (NOTE: will clear the high-bits of RBX)
 	shl ebx, 2	; *4
 	mov rax, gaIRQ_Handlers
 	lea rbx, [rax+rbx*8]
@@ -328,59 +327,50 @@ IrqCommon:
 	add rsp, 8*2
 	iretq
 
-[extern Proc_Scheduler]
-[global SchedulerIRQ]
-;
-; NOTE: Proc_Scheduler makes assumptions about the stack state when called 
-;
-SchedulerIRQ:
-	push 0	; Error code
-	push 0	; IRQNum
+[extern Time_UpdateTimestamp]
+
+%if USE_MP
+[global APIC_Timer_IRQ]
+APIC_Timer_IRQ:
 	PUSH_GPR
 	push gs
 	push fs
-	;PUSH_FPU
-	;PUSH_XMM
-	
-	; Save Thread Pointer
-	mov rax, dr0
-	push rax
-	
-	mov rdi, dr1	; Get the CPU Number
-	mov rsi, rsp	; Save stack pointer
-	mov rdx, SchedulerIRQ.restoreState
-	; Call the Scheduler
-	call Proc_Scheduler
-.restoreState:
-	
-	; Restore Thread Pointer
-	pop rax
-	mov dr0, rax
-	
-	; Send EOI (To either the APIC or the PIC)
-	%if USE_MP
-	test ebx, ebx
-	jnz .sendEOI
-	%endif
-	; PIC
-	mov al, 0x20
-	out 0x20, al		; ACK IRQ
-	%if USE_MP
-	jmp .ret
-	; APIC
-.sendEOI:
+
+	; TODO: What to do?
+
 	mov eax, DWORD [gpMP_LocalAPIC]
 	mov DWORD [eax+0x0B0], 0
-	%endif
-.ret:
-	
-	;POP_XMM
-	;POP_FPU
+
 	pop fs
 	pop gs
 	POP_GPR
-	add rsp, 2*8	; Dummy error code and IRQ num
-;	xchg bx, bx
+	iretq
+%endif
+
+[global PIT_IRQ]
+PIT_IRQ:
+	PUSH_GPR
+	;PUSH_FPU
+	;PUSH_XMM
+	
+	call Time_UpdateTimestamp
+
+	%if 0
+[section .rodata]
+csUserSS:	db	"User SS: 0x%x",0
+[section .text]
+	mov rdi, csUserSS
+	mov rsi, [rsp+0x80+0x20]
+	call Log
+	%endif
+
+	; Send EOI
+	mov al, 0x20
+	out 0x20, al		; ACK IRQ
+	
+	;POP_XMM
+	;POP_FPU
+	POP_GPR
 	iretq
 
 [extern ci_offsetof_tThread_KernelStack]
@@ -415,6 +405,16 @@ SyscallStub:
 	mov rdi, rsp
 	sub rsp, 8
 	call SyscallHandler
+
+	%if 0
+[section .rodata]
+csSyscallReturn:	db	"Syscall Return: 0x%x",0
+[section .text]
+	mov rdi, csSyscallReturn
+	mov rsi, [rsp+0+8]
+	call Log
+	%endif
+
 	add rsp, 8
 	mov ebx, [rsp+8]	; Get errno
 	mov rax, [rsp+0]	; Get return
@@ -425,7 +425,6 @@ SyscallStub:
 	pop rsp 	; Change back to user stack
 	; TODO: Determine if user is 64 or 32 bit
 
-;	xchg bx, bx	
 	db 0x48	; REX, nasm doesn't have a sysretq opcode
 	sysret
 
