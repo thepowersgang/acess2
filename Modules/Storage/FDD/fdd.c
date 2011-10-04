@@ -712,6 +712,7 @@ int FDD_int_SendByte(int base, Uint8 byte)
 
 	if( inb(base + PORT_MAINSTATUS) & 0x40 ) {
 		Log_Warning("FDD", "FDD_int_SendByte: DIO set, is this ok?");
+		return -2;
 	}
 	
 	if( now() < end )
@@ -740,6 +741,7 @@ int FDD_int_GetByte(int base, Uint8 *value)
 	
 	if( !(inb(base + PORT_MAINSTATUS) & 0x40) ) {
 		Log_Warning("FDD", "FDD_int_GetByte: DIO unset, is this ok?");
+		return -2;
 	}
 
 	if( now() < end )
@@ -842,11 +844,13 @@ int FDD_Reset(int id)
 	// Recalibrate disks
 	LOG("Recalibrate disks (16x seek)");
 	retries = 16;
-	while(FDD_int_SeekTrack(0, 0, 1) == 0 && retries --);	// set track
+	while(FDD_int_SeekTrack(0, 0, 1) == 0 && retries --)
+		Threads_Yield();	// set track
 	if(retries < 0)	LEAVE_RET('i', -1);
 
 	retries = 16;
-	while(FDD_int_SeekTrack(0, 1, 1) == 0 && retries --);	// set track
+	while(FDD_int_SeekTrack(0, 1, 1) == 0 && retries --)
+		Threads_Yield();	// set track
 	if(retries < 0)	LEAVE_RET('i', -1);
 	
 	LOG("Recalibrating Disk");
