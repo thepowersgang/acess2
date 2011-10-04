@@ -7,27 +7,11 @@
 #include <acess.h>
 #include "common.h"
 
-// TODO: Allow runtime/compile-time switching
-//       Maybe PCI will have it?
-// Integrator-CP
-#if 0
-#define KEYBOARD_IRQ	3
-#define KEYBOARD_BASE	0x18000000
-#define MOUSE_IRQ	4
-#define MOUSE_BASE	0x19000000
-#endif
-// Realview
-#if 1
-#define KEYBOARD_IRQ	20
-#define KEYBOARD_BASE	0x10006000
-#define MOUSE_IRQ	21
-#define MOUSE_BASE	0x10007000
-#endif
 
 #define PL050_TXBUSY	0x20
 
 // === PROTOTYPES ===
-void	PL050_Init(void);
+void	PL050_Init(Uint32 KeyboardBase, Uint8 KeyboardIRQ, Uint32 MouseBase, Uint8 MouseIRQ);
 void	PL050_KeyboardHandler(int IRQ);
 void	PL050_MouseHandler(int IRQ);
 void	PL050_EnableMouse(void);
@@ -36,11 +20,21 @@ static inline void	PL050_WriteKeyboardData(Uint8 data);
 static inline Uint8	PL050_ReadMouseData(void);
 static inline Uint8	PL050_ReadKeyboardData(void);
 
+// === GLOBALS ===
+Uint32	*gpPL050_KeyboardBase;
+Uint32	*gpPL050_MouseBase;
+
 // === CODE ===
-void PL050_Init(void)
+void PL050_Init(Uint32 KeyboardBase, Uint8 KeyboardIRQ, Uint32 MouseBase, Uint8 MouseIRQ)
 {
-	IRQ_AddHandler(KEYBOARD_IRQ, PL050_KeyboardHandler);
-	IRQ_AddHandler(MOUSE_IRQ, PL050_MouseHandler);	// Set IRQ
+	if( KeyboardBase ) {
+		gpPL050_KeyboardBase = MM_MapHW(KeyboardBase, 0x1000);
+		IRQ_AddHandler(KeyboardIRQ, PL050_KeyboardHandler);
+	}
+	if( MouseBase ) {
+		gpPL050_MouseBase = MM_MapHW(MouseBase, 0x1000);
+		IRQ_AddHandler(MouseIRQ, PL050_MouseHandler);
+	}
 }
 
 void PL050_KeyboardHandler(int IRQ)

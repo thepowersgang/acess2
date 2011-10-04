@@ -26,6 +26,7 @@ Uint64	PS2Mouse_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer
 int	PS2Mouse_IOCtl(tVFS_Node *Node, int ID, void *Data);
 
 // == GLOBALS ==
+void	(*gpMouse_EnableFcn)(void);
 // - Settings
  int	giMouse_Sensitivity = 1;
  int	giMouse_MaxX = 640, giMouse_MaxY = 480;
