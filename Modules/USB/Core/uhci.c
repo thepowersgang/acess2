@@ -6,6 +6,7 @@
 #include <acess.h>
 #include <vfs.h>
 #include <drv_pci.h>
+#include <modules.h>
 #include "usb.h"
 #include "uhci.h"
 
@@ -18,10 +19,10 @@
 void	UHCI_Cleanup();
 tUHCI_TD	*UHCI_int_AllocateTD(tUHCI_Controller *Cont);
 void	UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_TD *TD);
- int	UHCI_int_SendTransaction(tUHCI_Controller *Cont, int Fcn, int Endpt, int DataTgl, Uint8 Type, void *Data, size_t Length);
- int	UHCI_DataIN(void *Ptr, int Fcn, int Endpt, int DataTgl, void *Data, size_t Length);
- int	UHCI_DataOUT(void *Ptr, int Fcn, int Endpt, int DataTgl, void *Data, size_t Length);
- int	UHCI_SendSetup(void *Ptr, int Fcn, int Endpt, int DataTgl, void *Data, size_t Length);
+void	*UHCI_int_SendTransaction(tUHCI_Controller *Cont, int Addr, Uint8 Type, int bTgl, int bIOC, void *Data, size_t Length);
+void	*UHCI_DataIN(void *Ptr, int Fcn, int Endpt, int DataTgl, int bIOC, void *Data, size_t Length);
+void	*UHCI_DataOUT(void *Ptr, int Fcn, int Endpt, int DataTgl, int bIOC, void *Data, size_t Length);
+void	*UHCI_SendSetup(void *Ptr, int Fcn, int Endpt, int DataTgl, int bIOC, void *Data, size_t Length);
  int	UHCI_Int_InitHost(tUHCI_Controller *Host);
 void	UHCI_InterruptHandler(int IRQ, void *Ptr);
 
@@ -81,8 +82,8 @@ int UHCI_Initialise(const char **Arguments)
 	if(i == MAX_CONTROLLERS) {
 		Log_Warning("UHCI", "Over "EXPAND_STR(MAX_CONTROLLERS)" UHCI controllers detected, ignoring rest");
 	}
-	LEAVE('i', i);
-	return i;
+	LEAVE('i', MODULE_ERR_OK);
+	return MODULE_ERR_OK;
 }
 
 /**
@@ -108,62 +109,63 @@ tUHCI_TD *UHCI_int_AllocateTD(tUHCI_Controller *Cont)
 
 void UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_TD *TD)
 {
-	
+	Log_Warning("UHCI", "TODO: Implement AppendTD");
 }
 
 /**
  * \brief Send a transaction to the USB bus
- * \param ControllerID Controller
- * \param Fcn	Function Address
- * \param Endpt	Endpoint
+ * \param Cont	Controller pointer
+ * \param Addr	Function Address * 16 + Endpoint
+ * \param bTgl	Data toggle value
  */
-int UHCI_int_SendTransaction(tUHCI_Controller *Cont, int Fcn, int Endpt, int DataTgl, Uint8 Type, void *Data, size_t Length)
+void *UHCI_int_SendTransaction(tUHCI_Controller *Cont, int Addr, Uint8 Type, int bTgl, int bIOC, void *Data, size_t Length)
 {
 	tUHCI_TD	*td;
 
-	if( Length > 0x400 )	return -1;	// Controller allows up to 0x500, but USB doesn't
+	if( Length > 0x400 )	return NULL;	// Controller allows up to 0x500, but USB doesn't
 
 	td = UHCI_int_AllocateTD(Cont);
 
 	td->Link = 1;
 	td->Control = (Length - 1) & 0x7FF;
 	td->Token  = ((Length - 1) & 0x7FF) << 21;
-	td->Token |= (DataTgl & 1) << 19;
-	td->Token |= (Endpt & 0xF) << 15;
-	td->Token |= (Fcn & 0xFF) << 8;
+	td->Token |= (bTgl & 1) << 19;
+	td->Token |= (Addr & 0xF) << 15;
+	td->Token |= ((Addr/16) & 0xFF) << 8;
 	td->Token |= Type;
 
 	// TODO: Ensure 32-bit paddr
 	if( ((tVAddr)Data & PAGE_SIZE) + Length > PAGE_SIZE ) {
 		Log_Warning("UHCI", "TODO: Support non single page transfers");
 //		td->BufferPointer = 
-		return 1;
+		return NULL;
 	}
 	else {
 		td->BufferPointer = MM_GetPhysAddr( (tVAddr)Data );
 	}
 
+	if( bIOC ) {
+//		td->Control
+	}
+
 	UHCI_int_AppendTD(Cont, td);
 
-	// Wait until done, then return
-	while(td->Link != 0)
-		Threads_Yield();
-	return 0;
+	return td;
 }
 
-int UHCI_DataIN(void *Ptr, int Fcn, int Endpt, int DataTgl, void *Data, size_t Length)
+void *UHCI_DataIN(void *Ptr, int Fcn, int Endpt, int DataTgl, int bIOC, void *Data, size_t Length)
 {
-	return UHCI_int_SendTransaction(Ptr, Fcn, Endpt, DataTgl, 0x69, Data, Length);
+	return UHCI_int_SendTransaction(Ptr, Fcn*16+Endpt, 0x69, DataTgl, bIOC, Data, Length);
 }
 
-int UHCI_DataOUT(void *Ptr, int Fcn, int Endpt, int DataTgl, void *Data, size_t Length)
+void *UHCI_DataOUT(void *Ptr, int Fcn, int Endpt, int DataTgl, int bIOC, void *Data, size_t Length)
 {
-	return UHCI_int_SendTransaction(Ptr, Fcn, Endpt, DataTgl, 0xE1, Data, Length);
+	return UHCI_int_SendTransaction(Ptr, Fcn*16+Endpt, 0xE1, DataTgl, bIOC, Data, Length);
 }
 
-int UHCI_SendSetup(void *Ptr, int Fcn, int Endpt, int DataTgl, void *Data, size_t Length)
+void *UHCI_SendSetup(void *Ptr, int Fcn, int Endpt, int DataTgl, int bIOC, void *Data, size_t Length)
 {
-	return UHCI_int_SendTransaction(Ptr, Fcn, Endpt, DataTgl, 0x2D, Data, Length);
+	return UHCI_int_SendTransaction(Ptr, Fcn*16+Endpt, 0x2D, DataTgl, bIOC, Data, Length);
 }
 
 // === INTERNAL FUNCTIONS ===
@@ -177,6 +179,7 @@ int UHCI_Int_InitHost(tUHCI_Controller *Host)
 	ENTER("pHost", Host);
 
 	outw( Host->IOBase + USBCMD, 4 );	// GRESET
+	Time_Delay(10);
 	// TODO: Wait for at least 10ms
 	outw( Host->IOBase + USBCMD, 0 );	// GRESET
 	
@@ -197,20 +200,51 @@ int UHCI_Int_InitHost(tUHCI_Controller *Host)
 	// Set frame length to 1 ms
 	outb( Host->IOBase + SOFMOD, 64 );
 	
-	// Set Frame List Address
+	// Set Frame List
 	outd( Host->IOBase + FLBASEADD, Host->PhysFrameList );
-	
-	// Set Frame Number
 	outw( Host->IOBase + FRNUM, 0 );
 	
 	// Enable Interrupts
-//	PCI_WriteWord( Host->PciId, 0xC0, 0x2000 );
-	
+	outw( Host->IOBase + USBINTR, 0x000F );
+	PCI_ConfigWrite( Host->PciId, 0xC0, 2, 0x2000 );
+
+	outw( Host->IOBase + USBCMD, 0x0001 );
+
 	LEAVE('i', 0);
 	return 0;
 }
 
+void UHCI_CheckPortUpdate(tUHCI_Controller *Host)
+{
+	// Enable ports
+	for( int i = 0; i < 2; i ++ )
+	{
+		 int	port = Host->IOBase + PORTSC1 + i*2;
+		// Check for port change
+		if( !(inw(port) & 0x0002) )	continue;
+		outw(port, 0x0002);
+		
+		// Check if the port is connected
+		if( !(inw(port) & 1) )
+		{
+			// TODO: Tell the USB code it's gone?
+			continue;
+		}
+		else
+		{
+			LOG("Port %i has something", i);
+			// Reset port (set bit 9)
+			outw( port, 0x0100 );
+			Time_Delay(50);	// 50ms delay
+			outw( port, inw(port) & ~0x0100 );
+			// Enable port
+			Time_Delay(50);	// 50ms delay
+			outw( port, inw(port) & 0x0004 );
+		}
+	}
+}
+
 void UHCI_InterruptHandler(int IRQ, void *Ptr)
 {
-	
+	Log_Debug("UHCI", "UHIC Interrupt");
 }

@@ -32,12 +32,11 @@ tDevFS_Driver	gUSB_DrvInfo = {
 		.IOCtl = USB_IOCtl
 	}
 };
-tUSBDevice	*gUSB_Devices = NULL;
+tUSBDevice	*gUSB_RootHubs = NULL;
 tUSBHost	*gUSB_Hosts = NULL;
 
 // === CODE ===
 /**
- * \fn int ModuleLoad()
  * \brief Called once module is loaded
  */
 int USB_Install(char **Arguments)
@@ -48,7 +47,25 @@ int USB_Install(char **Arguments)
 }
 
 /**
- * \fn void USB_Cleanup()
+ * \brief USB polling thread
+ */
+int USB_PollThread(void *unused)
+{
+	for(;;)
+	{
+		for( tUSBHost *host = gUSB_Hosts; host; host = host->Next )
+		{
+			// host->CheckPorts(host);
+		}
+
+		for( tUSBDevice *dev = gUSB_RootHubs; dev; dev = dev->Next )
+		{
+			
+		}
+	}
+}
+
+/**
  * \brief Called just before module is unloaded
  */
 void USB_Cleanup()

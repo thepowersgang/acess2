@@ -10,7 +10,12 @@
 
 
 // === CODE ===
-int USB_int_SendSetupSetAddress(tUSBHost *Host, int Address)
+void USB_RegisterHost(tUSBHost *HostDef, void *ControllerPtr)
+{
+	// TODO:
+}
+
+int USB_int_SendSetupSetAddress(tUSBHost *Host, void *Ptr, int Address)
 {
 	Uint8	data[8];
 	data[0] = 0;	// bmRequestType
@@ -20,5 +25,6 @@ int USB_int_SendSetupSetAddress(tUSBHost *Host, int Address)
 	data[4] = 0;	// wLength
 	data[6] = 0;	// wLength
 	
-	Host->SendSETUP(Host, 0, 0, 0, data, 8);
+	// Addr 0:0, Data Toggle = 0, no interrupt
+	return Host->SendSETUP(Ptr, 0, 0, 0, FALSE, data, 8) == NULL;
 }

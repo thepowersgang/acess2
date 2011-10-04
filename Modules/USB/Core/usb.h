@@ -7,17 +7,37 @@
 
 // === TYPES ===
 typedef struct sUSBHost	tUSBHost;
+typedef struct sUSBHub	tUSBHub;
 typedef struct sUSBDevice	tUSBDevice;
 
 // === STRUCTURES ===
 /**
- * \brief Defines a USB Host Controller
+ * \brief Defines a USB Host Controller type
  */
 struct sUSBHost
 {
-	 int	(*SendIN)(void *Ptr, int Fcn, int Endpt, int DataTgl, void *Data, size_t Length);
-	 int	(*SendOUT)(void *Ptr, int Fcn, int Endpt, int DataTgl, void *Data, size_t Length);
-	 int	(*SendSETUP)(void *Ptr, int Fcn, int Endpt, int DataTgl, void *Data, size_t Length);
+	tUSBHost	*Next;
+
+	void	(*CheckPorts)(void *Ptr);
+
+	void	*(*SendIN)(void *Ptr, int Fcn, int Endpt, int DataTgl, int bIOC, void *Data, size_t Length);
+	void	*(*SendOUT)(void *Ptr, int Fcn, int Endpt, int DataTgl, int bIOC, void *Data, size_t Length);
+	void	*(*SendSETUP)(void *Ptr, int Fcn, int Endpt, int DataTgl, int bIOC, void *Data, size_t Length);
+};
+
+/**
+ * \brief USB Hub data
+ */
+struct sUSBHub
+{
+	/**
+	 * \brief Host controller used
+	 */
+	tUSBHost	*HostDef;
+	void	*Controller;
+
+	 int	nPorts;
+	tUSBDevice	*Devices[];
 };
 
 /**
@@ -25,16 +45,20 @@ struct sUSBHost
  */
 struct sUSBDevice
 {
-	tUSBHost	*HostDef;
-	void	*Controller;
+	tUSBDevice	*Next;
+	tUSBDevice	*Hub;
 
 	 int	Address;
-
-	 int	MaxControl;
-	 int	MaxBulk;
-	 int	MaxISync;
+	
+	 int	Type;
+	
+	union {
+		tUSBHub	Hub;
+		char	Impl[0];
+	}	Data;
 };
 
-extern void USB_RegisterHost(tUSBHost *HostDef, void *ControllerPtr);
+extern void	USB_RegisterHost(tUSBHost *HostDef, void *ControllerPtr);
+extern void	USB_NewDevice(tUSBHub *Hub);
 
 #endif
