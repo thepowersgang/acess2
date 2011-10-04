@@ -39,4 +39,6 @@ extern void	Debug_PutStringDebug(const char *String);
 extern void	MM_SetupPhys(void);
 extern int	MM_InitialiseVirtual(void);
 
+#define NO_IO_BUS	1
+
 #endif

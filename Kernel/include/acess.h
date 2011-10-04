@@ -11,6 +11,9 @@
 #define UNUSED(x)	UNUSED_##x __attribute__((unused))
 #define offsetof(st, m) ((Uint)((char *)&((st *)(0))->m - (char *)0 ))
 
+#define TRUE	1
+#define FALSE	0
+
 #include <arch.h>
 #include <stdarg.h>
 #include "errno.h"
@@ -23,6 +26,7 @@ typedef Uint	tGID;
 typedef Sint64	tTimestamp;
 typedef Sint64	tTime;
 typedef struct sShortSpinlock	tShortSpinlock;
+typedef int	bool;
 
 // --- Helper Macros ---
 /**
@@ -159,6 +163,16 @@ extern void	Debug_HexDump(const char *Header, const void *Data, Uint Length);
  */
 
 // --- IO ---
+#if NO_IO_BUS
+#define inb(a)	(Log_Panic("Arch", "ARMv7 does not support in*/out* (%s:%i)", __FILE__, __LINE__),0)
+#define inw(a)	inb(a)
+#define ind(a)	inb(a)
+#define inq(a)	inb(a)
+#define outb(a,b)	inb(a)
+#define outw(a,b)	inb(a)
+#define outd(a,b)	inb(a)
+#define outq(a,b)	inb(a)
+#else
 /**
  * \name I/O Memory Access
  * \{
@@ -174,7 +188,7 @@ extern Uint64	inq(Uint16 Port);
 /**
  * \}
  */
-
+#endif
 // --- Memory Management ---
 /**
  * \name Memory Management
