@@ -164,7 +164,7 @@ void System_ExecuteCommandLine(void)
 	 int	i;
 	for( i = 0; i < argc; i++ )
 	{
-		Log("argv[%i] = '%s'", i, argv[i]);
+		LOG("argv[%i] = '%s'", i, argv[i]);
 		switch(argv[i][0])
 		{
 		// --- VFS ---
@@ -317,17 +317,20 @@ void System_ExecuteScript(void)
 	tConfigFile	*file;
 	tConfigLine	*line;
 	
+	ENTER("");
+
 	// Open Script
 	fp = VFS_Open(gsConfigScript, VFS_OPENFLAG_READ);
 	if(fp == -1) {
 		Log_Warning("Config", "Passed script '%s' does not exist", gsConfigScript);
+		LEAVE('-');
 		return;
 	}
 	
 	// Get length
 	VFS_Seek(fp, 0, SEEK_END);
 	fLen = VFS_Tell(fp);
-	Log_Debug("System", "VFS_Tell(%i) = %i", fp, fLen);
+	LOG("VFS_Tell(0x%x) = %i", fp, fLen);
 	VFS_Seek(fp, 0, SEEK_SET);
 	// Read into memory buffer
 	fData = malloc(fLen+1);
@@ -350,7 +353,7 @@ void System_ExecuteScript(void)
 		// Prescan and eliminate variables
 		for( j = 1; j < line->nParts; j++ )
 		{
-			Log_Debug("Config", "Arg #%i is '%s'", j, line->Parts[j]);
+			LOG("Arg #%i is '%s'", j, line->Parts[j]);
 			bReplaced[j] = 0;
 			if( line->Parts[j][0] != '$' )	continue;
 			if( line->Parts[j][1] == '?' ) {
@@ -361,7 +364,7 @@ void System_ExecuteScript(void)
 				if( val < 0 || val > N_VARIABLES )	continue;
 				val = variables[ val ];
 			}
-			Log_Debug("Config", "Replaced arg %i ('%s') with 0x%x", j, line->Parts[j], val);
+			LOG("Replaced arg %i ('%s') with 0x%x", j, line->Parts[j], val);
 			line->Parts[j] = malloc( BITS/8+2+1 );
 			sprintf(line->Parts[j], "0x%x", val);
 			bReplaced[j] = 1;
@@ -408,7 +411,7 @@ void System_ExecuteScript(void)
 				else {
 					args[k] = (char *)line->Parts[k+1];
 				}
-				Log_Debug("Config", "args[%i] = %p", k, args[k]);
+				LOG("args[%i] = %p", k, args[k]);
 			}
 			switch( (enum eConfigCommands) caConfigCommands[j].Index )
 			{
@@ -438,7 +441,7 @@ void System_ExecuteScript(void)
 				result = VFS_IOCtl( (Uint)args[0], (Uint)args[1], (void *)args[2] );
 				break;
 			}
-			Log_Debug("Config", "result = %i", result);
+			LOG("Config", "result = %i", result);
 			break;
 		}
 		if( j < NUM_CONFIG_COMMANDS )	continue;
@@ -541,6 +544,8 @@ void System_ExecuteScript(void)
 	// Free data
 	free( file );
 	free( fData );
+	
+	LEAVE('-');
 }
 
 /**
@@ -550,7 +555,7 @@ void System_ExecuteScript(void)
  * \return ::tConfigFile structure that represents the original contents
  *         of \a FileData
  */
-tConfigFile	*System_Int_ParseFile(char *FileData)
+tConfigFile *System_Int_ParseFile(char *FileData)
 {
 	char	*ptr;
 	char	*start;
@@ -688,7 +693,7 @@ tConfigFile	*System_Int_ParseFile(char *FileData)
 	if( i < ret->nLines ) {
 		ret->Lines[i].nParts = 0;
 		ret->Lines[i].Parts = NULL;
-		Log_Log("System", "Cleaning up final empty line");
+		LOG("Cleaning up final empty line");
 	}
 	
 	LEAVE('p', ret);

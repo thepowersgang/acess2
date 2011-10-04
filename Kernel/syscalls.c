@@ -350,10 +350,10 @@ void SyscallHandler(tSyscallRegs *Regs)
 	if( callNum != SYS_READ && callNum != SYS_WRITE ) {
 	# endif
 	LOG("err = %i", err);
-	if(Regs->Num != SYS_EXECVE)
-		LEAVE('x', ret);
-	else
+	if( callNum == SYS_EXECVE )
 		LOG("Actual %i", ret);
+	else
+		LEAVE('x', ret);
 	# if DEBUG < 2
 	}
 	# endif

@@ -228,9 +228,9 @@ void Debug_SetKTerminal(const char *File)
 		VFS_Close(tmp);
 	}
 	tmp = VFS_Open(File, VFS_OPENFLAG_WRITE);
-	Log_Log("Debug", "Opened '%s' as 0x%x", File, tmp);
+//	Log_Log("Debug", "Opened '%s' as 0x%x", File, tmp);
 	giDebug_KTerm = tmp;
-	Log_Log("Debug", "Returning to %p", __builtin_return_address(0));
+//	Log_Log("Debug", "Returning to %p", __builtin_return_address(0));
 }
 
 void Debug_Enter(const char *FuncName, const char *ArgTypes, ...)

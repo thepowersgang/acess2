@@ -414,7 +414,7 @@ tBinary *Binary_DoLoad(tMount MountID, tInode Inode, const char *Path)
 {
 	tBinary	*pBinary;
 	 int	fp;
-	Uint	ident;
+	Uint32	ident;
 	tBinaryType	*bt = gRegBinTypes;
 	
 	ENTER("iMountID XInode sPath", MountID, Inode, Path);
@@ -426,19 +426,26 @@ tBinary *Binary_DoLoad(tMount MountID, tInode Inode, const char *Path)
 		LEAVE('n');
 		return NULL;
 	}
+
+	LOG("fp = 0x%x", fp);
 	
 	// Read File Type
 	VFS_Read(fp, 4, &ident);
 	VFS_Seek(fp, 0, SEEK_SET);
 
+	LOG("ident = 0x%x", ident);
+
 	// Determine the type	
 	for(; bt; bt = bt->Next)
 	{
-		if( (ident & bt->Mask) != (Uint)bt->Ident )
+		if( (ident & bt->Mask) != (Uint32)bt->Ident )
 			continue;
+		LOG("bt = %p (%s)", bt, bt->Name);
 		pBinary = bt->Load(fp);
 		break;
 	}
+
+	LOG("pBinary = %p", pBinary);
 	
 	// Close File
 	VFS_Close(fp);

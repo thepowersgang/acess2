@@ -373,7 +373,8 @@ void PCI_ConfigWrite(tPCIDev ID, int Offset, int Size, Uint32 Value)
 	
 	dev = &gPCI_Devices[ID];
 
-	dword = PCI_CfgReadDWord(dev->bus, dev->slot, dev->fcn, Offset/4);
+	if(Size != 4)
+		dword = PCI_CfgReadDWord(dev->bus, dev->slot, dev->fcn, Offset/4);
 	switch(Size)
 	{
 	case 1:
@@ -417,91 +418,6 @@ Uint32 PCI_GetBAR(tPCIDev id, int BARNum)
 		return 0;
 	return gPCI_Devices[id].ConfigCache[4+BARNum];
 }
-
-#if 0
-/**
- * \brief Assign a port to a BAR
- */
-Uint16 PCI_AssignPort(tPCIDev ID, int bar, int Count)
-{
-	#if 1
-	Uint16	rv;
-	tPCIDevice	*dev;
-	
-	if(id < 0 || id >= giPCI_DeviceCount)	return 0;
-	if(bar < 0 || bar >= 6)	return 0;
-	dev = &gPCI_Devices[id];
-	
-	rv = PCI_CfgReadDWord( dev->bus, dev->slot, dev->fcn, 0x10+bar*4 );
-	if(rv & 1)	return rv & ~1;
-	return 0;
-	#else
-	Uint16	portVals;
-	 int	gran=0;
-	 int	i, j;
-	tPCIDevice	*dev;
-	
-	//LogF("PCI_AssignPort: (id=%i,bar=%i,count=%i)\n", id, bar, count);
-	
-	if(id < 0 || id >= giPCI_DeviceCount)	return 0;
-	if(bar < 0 || bar > 5)	return 0;
-	
-	dev = &gPCI_Devices[id];
-	
-	PCI_CfgWriteDWord( dev->bus, dev->slot,	dev->fcn, 0x10+bar*4, -1 );
-	portVals = PCI_CfgReadDWord( dev->bus, dev->slot, dev->fcn, 0x10+bar*4 );
-	dev->ConfigCache[4+bar] = portVals;
-	//LogF(" PCI_AssignPort: portVals = 0x%x\n", portVals);
-	
-	// Check for IO port
-	if( !(portVals & 1) )	return 0;
-	
-	// Mask out final bit
-	portVals &= ~1;
-	
-	// Get Granuality
-	#if ARCHDIR_IS_x86 || ARCHDIR_IS_x86_64
-	__asm__ __volatile__ ("bsf %%eax, %%ecx" : "=c" (gran) : "a" (portVals) );
-	gran = 1 << gran;
-	#else
-	{
-		for(gran = 1; gran && !(portVals & gran); gran <<= 1);
-	}
-	#endif
-	//LogF(" PCI_AssignPort: gran = 0x%x\n", gran);
-	
-	// Find free space
-	portVals = 0;
-	for( i = 0; i < 1<<16; i += gran )
-	{
-		for( j = 0; j < count; j ++ )
-		{
-			if( gaPCI_PortBitmap[ (i+j)>>5 ] & 1 << ((i+j)&0x1F) )
-				break;
-		}
-		if(j == count) {
-			portVals = i;
-			break;
-		}
-	}
-	
-	if(portVals)
-	{
-		for( j = 0; j < count; j ++ )
-		{
-			if( gaPCI_PortBitmap[ (portVals+j)>>5 ] |= 1 << ((portVals+j)&0x1F) )
-				break;
-		}
-		PCI_CfgWriteDWord( dev->bus, dev->slot, dev->fcn, 0x10+bar*4, portVals|1 );
-		dev->ConfigCache[4+bar] = portVals|1;
-	}
-	
-	// Return
-	//LogF("PCI_AssignPort: RETURN 0x%x\n", portVals);
-	return portVals;
-	#endif
-}
-#endif
 
 /**
  * \brief Get device information for a slot/function
