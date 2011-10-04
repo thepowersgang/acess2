@@ -4,7 +4,7 @@
 */
 #include "common.h"
 
-#define DEBUG	0
+#define DEBUG	1
 
 #if DEBUG
 # define DEBUGS(v...)	SysDebug(v)
@@ -61,36 +61,37 @@ void *LoadLibrary(const char *SoName, const char *SearchDir, char **envp)
 	void	*base;
 	void	(*fEntry)(void *, int, char *[], char**);
 	
-	DEBUGS("LoadLibrary: (filename='%s', envp=0x%x)\n", filename, envp);
+	DEBUGS("LoadLibrary: (SoName='%s', SearchDir='%s', envp=0x%x)", SoName, SearchDir, envp);
 	
 	// Create Temp Name
 	filename = FindLibrary(sTmpName, SoName, SearchDir);
 	if(filename == NULL) {
-		DEBUGS("LoadLibrary: RETURN 0\n");
+		DEBUGS("LoadLibrary: RETURN 0");
 		return 0;
 	}
-	DEBUGS(" LoadLibrary: filename='%s'\n", filename);
+	DEBUGS(" LoadLibrary: filename='%s'", filename);
 	
 	if( (base = IsFileLoaded(filename)) )
 		return base;
-	
+
+	DEBUGS(" LoadLibrary: SysLoadBin()");	
 	// Load Library
 	base = SysLoadBin(filename, (void**)&fEntry);
 	if(!base) {
-		DEBUGS("LoadLibrary: RETURN 0\n");
+		DEBUGS("LoadLibrary: RETURN 0");
 		return 0;
 	}
 	
-	DEBUGS(" LoadLibrary: iArg=%p, iEntry=0x%x\n", base, fEntry);
+	DEBUGS(" LoadLibrary: iArg=%p, iEntry=0x%x", base, fEntry);
 	
 	// Load Symbols
 	fEntry = DoRelocate( base, envp, filename );
 	
 	// Call Entrypoint
-	DEBUGS(" LoadLibrary: '%s' Entry 0x%x\n", SoName, fEntry);
+	DEBUGS(" LoadLibrary: '%s' Entry 0x%x", SoName, fEntry);
 	fEntry(base, 0, NULL, envp);
 	
-	DEBUGS("LoadLibrary: RETURN 1\n");
+	DEBUGS("LoadLibrary: RETURN 1");
 	return base;
 }
 
@@ -148,7 +149,7 @@ void AddLoaded(const char *File, void *base)
 	strcpy(name, File);
 	gLoadedLibraries[i].Name = name;
 	gsNextAvailString = &name[length+1];
-	DEBUGS("'%s' (0x%x) loaded as %i\n", name, base, i);
+	DEBUGS("'%s' (0x%x) loaded as %i", name, base, i);
 	return;
 }
 

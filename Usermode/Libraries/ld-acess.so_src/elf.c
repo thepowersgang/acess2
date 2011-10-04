@@ -65,9 +65,18 @@ void *Elf64Relocate(void *Base, char **envp, const char *Filename)
 	void	*pltrel = NULL;
 	 int	plt_size = 0, plt_type = 0;
 
-	DEBUGS("Elf64Relocate: e_ident = '%.16s'", hdr->e_ident);
-	DEBUGS("Elf64Relocate: e_phoff = %i, e_phnum = %i",
-		hdr->e_phoff, hdr->e_phnum);
+	DEBUGS("Elf64Relocate: hdr = {");
+	DEBUGS("Elf64Relocate:  e_ident = '%.16s'", hdr->e_ident);
+	DEBUGS("Elf64Relocate:  e_type = 0x%x", hdr->e_type);
+	DEBUGS("Elf64Relocate:  e_machine = 0x%x", hdr->e_machine);
+	DEBUGS("Elf64Relocate:  e_version = 0x%x", hdr->e_version);
+	DEBUGS("Elf64Relocate:  e_entry = %p", hdr->e_entry);
+	DEBUGS("Elf64Relocate:  e_phoff = 0x%llx", hdr->e_phoff);
+	DEBUGS("Elf64Relocate:  e_shoff = 0x%llx", hdr->e_shoff);
+	DEBUGS("Elf64Relocate:  e_flags = 0x%x", hdr->e_flags);
+	DEBUGS("Elf64Relocate:  e_ehsize = 0x%x", hdr->e_ehsize);
+	DEBUGS("Elf64Relocate:  e_phentsize = 0x%x", hdr->e_phentsize);
+	DEBUGS("Elf64Relocate:  e_phnum = %i", hdr->e_phnum);
 
 	// Scan for the dynamic table (and find the compiled base)
 	phtab = Base + hdr->e_phoff;
@@ -122,12 +131,14 @@ void *Elf64Relocate(void *Base, char **envp, const char *Filename)
 	// Second pass on dynamic table
 	for(i = 0; dyntab[i].d_tag != DT_NULL; i ++)
 	{
+		DEBUGS("dyntab[%i].d_tag = %i", i, dyntab[i].d_tag);
 		switch(dyntab[i].d_tag)
 		{
 		case DT_SONAME:	break;
 
 		case DT_NEEDED: {
 			char *libPath = strtab + dyntab[i].d_un.d_val;
+			DEBUGS("Elf64Relocate: libPath = '%s'", libPath);
 			if(LoadLibrary(libPath, NULL, envp) == 0) {
 				SysDebug("ld-acess - Elf64Relocate: Unable to load '%s'", libPath);
 				return NULL;
@@ -191,11 +202,13 @@ void *Elf64Relocate(void *Base, char **envp, const char *Filename)
 			break;
 		default:
 			SysDebug("ld-acess - _Elf64DoReloc: Unknown relocation type %i", type);
+			break;
 		}
 	}
 
 	if( rel )
 	{
+		DEBUGS("rel_count = %i", rel_count);
 		for( i = 0; i < rel_count; i ++ )
 		{
 			uint64_t *ptr = (void *)( rel[i].r_offset + baseDiff );
@@ -205,6 +218,7 @@ void *Elf64Relocate(void *Base, char **envp, const char *Filename)
 
 	if( rela )
 	{
+		DEBUGS("rela_count = %i", rela_count);
 		for( i = 0; i < rela_count; i ++ )
 		{
 			_Elf64DoReloc( rela[i].r_info, (void *)( rela[i].r_offset + baseDiff ), rela[i].r_addend );
@@ -216,6 +230,7 @@ void *Elf64Relocate(void *Base, char **envp, const char *Filename)
 		if( plt_type == DT_REL ) {
 			Elf64_Rel	*plt = pltrel;
 			 int	count = plt_size / sizeof(Elf64_Rel);
+			DEBUGS("plt rel count = %i", count);
 			for( i = 0; i < count; i ++ )
 			{
 				uint64_t *ptr = (void *)( plt[i].r_offset + baseDiff );
@@ -225,6 +240,7 @@ void *Elf64Relocate(void *Base, char **envp, const char *Filename)
 		else {
 			Elf64_Rela	*plt = pltrel;
 			 int	count = plt_size / sizeof(Elf64_Rela);
+			DEBUGS("plt rela count = %i", count);
 			for( i = 0; i < count; i ++ )
 			{
 				_Elf64DoReloc( plt[i].r_info, (void *)(plt[i].r_offset + baseDiff), plt[i].r_addend);
@@ -232,6 +248,7 @@ void *Elf64Relocate(void *Base, char **envp, const char *Filename)
 		}
 	}
 
+	DEBUGS("Elf64Relocate: Relocations done, return %p", (void *)(hdr->e_entry + baseDiff));
 	return (void *)(hdr->e_entry + baseDiff);
 }
 

@@ -64,9 +64,9 @@ int memcmp(const void *p1, const void *p2, int len)
 int file_exists(const char *filename)
 {
 	 int	fd;
-	 //fd = open(filename, OPENFLAG_READ);
-	 fd = open(filename, 0);
-	 if(fd == -1)	return 0;
-	 close(fd);
-	 return 1;
+	//fd = open(filename, OPENFLAG_READ);
+	fd = open(filename, 0);
+	if(fd == -1)	return 0;
+	close(fd);
+	return 1;
 }

@@ -80,7 +80,7 @@ _errno:	dw	0	; Placed in .text, to allow use of relative addressing
 ; System Call - 1 Argument
 %macro SYSCALL1	2
 _SYSCALL_HEAD %1, %2
-	mov rdi, [rbp+2*8]
+;	mov rdi, [rbp+3*8]
 	SYSCALL_OP
 _SYSCALL_TAIL
 %endmacro
@@ -88,8 +88,8 @@ _SYSCALL_TAIL
 ; System Call - 2 Arguments
 %macro SYSCALL2	2
 _SYSCALL_HEAD %1, %2
-	mov rdi, [rbp+2*8]
-	mov rsi, [rbp+3*8]
+;	mov rdi, [rbp+3*8]
+;	mov rsi, [rbp+4*8]
 	SYSCALL_OP
 _SYSCALL_TAIL
 %endmacro
@@ -97,9 +97,9 @@ _SYSCALL_TAIL
 ; System Call - 3 Arguments
 %macro SYSCALL3	2
 _SYSCALL_HEAD %1, %2
-;	mov rdi, [rbp+2*8]
-;	mov rsi, [rbp+3*8]
-;	mov rdx, [rbp+4*8]
+;	mov rdi, [rbp+3*8]
+;	mov rsi, [rbp+4*8]
+;	mov rdx, [rbp+5*8]
 	SYSCALL_OP
 _SYSCALL_TAIL
 %endmacro

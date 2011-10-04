@@ -11,6 +11,7 @@
 
 typedef uint16_t	Elf64_Half;
 typedef uint32_t	Elf64_Word;
+
 typedef uint64_t	Elf64_Addr;
 typedef uint64_t	Elf64_Off;
 typedef uint64_t	Elf64_Xword;
@@ -32,7 +33,7 @@ typedef struct
 	Elf64_Half	e_shentsize;
 	Elf64_Half	e_shnum;
 	Elf64_Half	e_shstrndx;
-} Elf64_Ehdr;
+} __attribute__((packed)) Elf64_Ehdr;
 
 typedef struct
 {
