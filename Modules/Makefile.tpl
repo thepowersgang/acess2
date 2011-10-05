@@ -6,7 +6,13 @@ _CPPFLAGS := $(CPPFLAGS)
 
 -include $(dir $(lastword $(MAKEFILE_LIST)))../Makefile.cfg
 
-CPPFLAGS := -I$(ACESSDIR)/Kernel/include -I$(ACESSDIR)/Kernel/arch/$(ARCHDIR)/include -DARCH=$(ARCH) $(_CPPFLAGS)
+LIBINCLUDES := $(addprefix -I$(ACESSDIR)/Modules/Libraries/,$(LIBS))
+LIBINCLUDES := $(addsuffix /include,$(LIBINCLUDES))
+
+CPPFLAGS := -I$(ACESSDIR)/Kernel/include -I$(ACESSDIR)/Kernel/arch/$(ARCHDIR)/include
+CPPFLAGS += -DARCH=$(ARCH) -DARCH_is_$(ARCH) -DARCHDIR_is_$(ARCHDIR)
+CPPFLAGS += $(_CPPFLAGS)
+CPPFLAGS += $(LIBINCLUDES)
 CFLAGS := -std=gnu99 -Wall -Werror -fno-stack-protector -g -O3 -fno-builtin
 
 ifneq ($(CATEGORY),)

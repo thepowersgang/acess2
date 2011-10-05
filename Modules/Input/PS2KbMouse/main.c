@@ -36,10 +36,10 @@ MODULE_DEFINE(0, 0x0100, PS2Mouse, PS2Mouse_Install, NULL, NULL);
 // === CODE ===
 int PS2_Install(char **Arguments)
 {
-	#if ARCH_is_x86 || ARCH_is_x86_64
+	#if ARCHDIR_is_x86 || ARCHDIR_is_x86_64
 	KBC8042_Init();
 	gpMouse_EnableFcn = KBC8042_EnableMouse;
-	#elif ARCH_is_armv7
+	#elif ARCHDIR_is_armv7
 	PL050_Init(KEYBOARD_IRQ, KEYBOARD_IRQ, MOUSE_BASE, MOUSE_IRQ);
 	gpMouse_EnableFcn = PL050_EnableMouse;
 	#endif
