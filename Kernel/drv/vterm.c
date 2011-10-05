@@ -24,6 +24,7 @@
 #define	DEFAULT_WIDTH	640
 #define	DEFAULT_HEIGHT	480
 #define DEFAULT_SCROLLBACK	2	// 2 Screens of text + current screen
+//#define DEFAULT_SCROLLBACK	0
 #define	DEFAULT_COLOUR	(VT_COL_BLACK|(0xAAA<<16))
 
 #define	VT_FLAG_HIDECSR	0x01
@@ -802,10 +803,10 @@ void VT_KBCallBack(Uint32 Codepoint)
 		case KEY_PGDOWN:
 			if( gpVT_CurTerm->Flags & VT_FLAG_ALTBUF )
 				return ;
-			if( gpVT_CurTerm->ViewPos < gpVT_CurTerm->Width*gpVT_CurTerm->Height*(giVT_Scrollback-1) )
+			if( gpVT_CurTerm->ViewPos < gpVT_CurTerm->Width*gpVT_CurTerm->Height*(giVT_Scrollback) )
 				gpVT_CurTerm->ViewPos += gpVT_CurTerm->Width;
 			else
-				gpVT_CurTerm->ViewPos = gpVT_CurTerm->Width*gpVT_CurTerm->Height*(giVT_Scrollback-1);
+				gpVT_CurTerm->ViewPos = gpVT_CurTerm->Width*gpVT_CurTerm->Height*(giVT_Scrollback);
 			return;
 		}
 	}
@@ -1351,7 +1352,8 @@ void VT_int_ScrollText(tVTerm *Term, int Count)
 	 int	height, init_write_pos;
 	 int	len, i;
 	 int	scroll_top, scroll_height;
-	
+
+	// Get buffer pointer and attributes	
 	if( Term->Flags & VT_FLAG_ALTBUF )
 	{
 		buf = Term->AltBuf;
@@ -1363,22 +1365,24 @@ void VT_int_ScrollText(tVTerm *Term, int Count)
 	else
 	{
 		buf = Term->Text;
-		height = Term->TextHeight*giVT_Scrollback;
+		height = Term->TextHeight*(giVT_Scrollback+1);
 		init_write_pos = Term->WritePos;
 		scroll_top = 0;
 		scroll_height = height;
 	}
-	
+
+	// Scroll text downwards	
 	if( Count > 0 )
 	{
 		 int	base;
+	
+		// Set up
 		if(Count > scroll_height)	Count = scroll_height;
-//		Debug("Scroll: Count = %i", Count);
 		base = Term->TextWidth*(scroll_top + scroll_height - Count);
 		len = Term->TextWidth*(scroll_height - Count);
 		
 		// Scroll terminal cache
-		memcpy(
+		memmove(
 			&buf[Term->TextWidth*scroll_top],
 			&buf[Term->TextWidth*(scroll_top+Count)],
 			len*sizeof(tVT_Char)
@@ -1413,7 +1417,7 @@ void VT_int_ScrollText(tVTerm *Term, int Count)
 		len = Term->TextWidth*(scroll_height - Count);
 		
 		// Scroll terminal cache
-		memcpy(
+		memmove(
 			&buf[Term->TextWidth*(scroll_top+Count)],
 			&buf[Term->TextWidth*scroll_top],
 			len*sizeof(tVT_Char)

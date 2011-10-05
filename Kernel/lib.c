@@ -81,6 +81,7 @@ EXPORT(ModUtil_SetIdent);
 EXPORT(UnHex);
 EXPORT(SwapEndian16);
 EXPORT(SwapEndian32);
+EXPORT(memmove);
 
 // === CODE ===
 /**
@@ -948,3 +949,35 @@ Uint32 SwapEndian32(Uint32 Val)
 {
 	return ((Val&0xFF)<<24) | ((Val&0xFF00)<<8) | ((Val>>8)&0xFF00) | ((Val>>24)&0xFF);
 }
+
+void *memmove(void *__dest, const void *__src, size_t len)
+{
+	size_t	block_size;
+	char	*dest = __dest;
+	const char	*src = __src;
+	void	*ret = __dest;
+	
+	if( (tVAddr)dest > (tVAddr)src + len )
+		return memcpy(dest, src, len);
+	if( (tVAddr)dest + len < (tVAddr)src )
+		return memcpy(dest, src, len);
+	
+	if( (tVAddr)dest < (tVAddr)src )
+		block_size = (tVAddr)src - (tVAddr)dest;
+	else
+		block_size = (tVAddr)dest - (tVAddr)src;
+	
+	block_size &= ~0xF;
+	
+	while(len >= block_size)
+	{
+		memcpy(dest, src, block_size);
+		len -= block_size;
+		dest += block_size;
+		src += block_size;
+	}
+	memcpy(dest, src, len);
+	return ret;
+	
+}
+

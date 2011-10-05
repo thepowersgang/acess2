@@ -328,6 +328,7 @@ extern int	MM_GetPageNode(tPAddr PAddr, void **Node);
 extern int	memcmp(const void *m1, const void *m2, size_t count);
 extern void	*memcpy(void *dest, const void *src, size_t count);
 extern void	*memcpyd(void *dest, const void *src, size_t count);
+extern void	*memmove(void *dest, const void *src, size_t len);
 extern void	*memset(void *dest, int val, size_t count);
 extern void	*memsetd(void *dest, Uint32 val, size_t count);
 /**
