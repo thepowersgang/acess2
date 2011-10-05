@@ -117,7 +117,7 @@ SYSCALL5(Syscall_select, "idddd", int, fd_set *, fd_set *, fd_set *, time_t *,
 	return VFS_Select(a0, a1, a2, a3, a4, 0);
 );
 SYSCALL3(Syscall_OpenChild, "isi", int, const char *, int,
-	return VFS_OpenChild(NULL, a0, a1, a2|VFS_OPENFLAG_USER);
+	return VFS_OpenChild(a0, a1, a2|VFS_OPENFLAG_USER);
 );
 SYSCALL2(Syscall_GetACL, "id", int, void *,
 	if(Sizes[1] < sizeof(tVFS_ACL))

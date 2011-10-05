@@ -17,12 +17,12 @@ N_OBJ := main.o
 
 OBJ := helpers.o threads.o server.o syscalls.o
 OBJ += video.o keyboard.o mouse.o nativefs.o vfs_handle.o ui_sdl.o
-OBJ += $(addprefix $(KERNEL_SRC),$(KERNEL_OBJ))
+OBJ := $(addprefix obj-$(PLATFORM)/,$(OBJ))
+N_OBJ := $(addprefix obj-$(PLATFORM)/,$(N_OBJ))
+K_OBJ := $(addprefix $(KERNEL_SRC)obj-$(PLATFORM)/,$(KERNEL_OBJ))
 
-OBJ := $(addsuffix .$(PLATFORM),$(OBJ))
-N_OBJ := $(addsuffix .$(PLATFORM),$(N_OBJ))
-DEPFILES  = $(filter %.o.$(PLATFORM),$(OBJ) $(N_OBJ))
-DEPFILES := $(DEPFILES:%.o.$(PLATFORM)=%.d.$(PLATFORM))
+DEPFILES  = $(filter %.o,$(OBJ) $(N_OBJ) $(K_OBJ))
+DEPFILES := $(DEPFILES:%=%.dep)
 
 CPPFLAGS += -I include/ -I $(KERNEL_SRC)include/
 CFLAGS += -Wall -g
@@ -41,20 +41,29 @@ endif
 all: $(BIN)
 
 clean:
-	$(RM) $(BIN) $(OBJ) $(N_OBJ) $(DEPFILES)
+	$(RM) $(BIN) $(OBJ) $(N_OBJ) $(K_OBJ) $(DEPFILES)
 
-$(BIN): $(OBJ) $(N_OBJ)
+$(BIN): $(OBJ) $(N_OBJ) $(K_OBJ)
 	@echo [LINK] -o $@
-	@$(CC) $(LDFLAGS) -o $@ $(N_OBJ) $(OBJ)
+	@$(CC) $(LDFLAGS) -o $@ $(N_OBJ) $(K_OBJ) $(OBJ)
 
-$(OBJ): %.o.$(PLATFORM): %.c
+$(OBJ): obj-$(PLATFORM)/%.o: %.c
+	@mkdir -p $(dir $@)
 	@echo [CC] -o $@
 	@$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
-	@$(CC) -M $(CPPFLAGS) -MT $@ -o $*.d.$(PLATFORM) $<
+	@$(CC) -M $(CPPFLAGS) -MT $@ -o $@.dep $<
 
-$(N_OBJ): %.o.$(PLATFORM): %.c
+$(K_OBJ): $(KERNEL_SRC)obj-$(PLATFORM)/%.o: $(KERNEL_SRC)%.c
+	@mkdir -p $(dir $@)
+	@echo [CC] -o $@
+	@$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
+	@$(CC) -M $(CPPFLAGS) -MT $@ -o $@.dep $<
+
+
+$(N_OBJ): obj-$(PLATFORM)/%.o: %.c
+	@mkdir -p $(dir $@)
 	@echo [CC] -o $@
 	@$(CC) -c $< -o $@ $(CFLAGS)
-	@$(CC) -M -MT $@ -o $*.d.$(PLATFORM) $<
+	@$(CC) -M -MT $@ -o $@.dep $<
 
 -include $(DEPFILES)

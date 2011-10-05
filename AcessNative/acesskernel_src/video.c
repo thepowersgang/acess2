@@ -9,7 +9,7 @@
 #include <vfs.h>
 #include <fs_devfs.h>
 #include <modules.h>
-#include <tpl_drv_video.h>
+#include <api_drv_video.h>
 #include "ui.h"
 
 // === PROTOTYPES ===
@@ -294,9 +294,6 @@ int Video_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		//Log_Debug("VESA", "Cursor position (%i,%i) Timer %i", giVesaCursorX, giVesaCursorY, giVesaCursorTimer);
 		return 0;
 	#endif
-	
-	case VIDEO_IOCTL_REQLFB:	// Request Linear Framebuffer
-		return 0;
 	}
 	return 0;
 }
