@@ -10,7 +10,6 @@
 
 // === CONSTANTS ===
 #define	VERSION	((0 << 8) | (1))	// 0.01
-#define KERNEL_VERSION_STRING	("Acess2 " EXPAND_STR(KERNEL_VERSION) " build " EXPAND_STR(BUILD_NUM))
 
 // === TYPES ===
 typedef struct sSysFS_Ent
@@ -46,9 +45,9 @@ tSysFS_Ent	gSysFS_Version_Kernel = {
 	&gSysFS_Version,	// Parent
 	{
 		.Inode = 1,	// File #1
-		.ImplPtr = (void*)KERNEL_VERSION_STRING,
+		.ImplPtr = NULL,
 		.ImplInt = (Uint)&gSysFS_Version_Kernel,	// Self-Link
-		.Size = sizeof(KERNEL_VERSION_STRING)-1,
+		.Size = 0,
 		.NumACLs = 1,
 		.ACLs = &gVFS_ACL_EveryoneRO,
 		.Read = SysFS_Comm_ReadFile
@@ -104,6 +103,13 @@ tSysFS_Ent	*gSysFS_FileList;
  */
 int SysFS_Install(char **Options)
 {
+	{
+		const char	*fmt = "Acess2 "EXPAND_STR(KERNEL_VERSION)" build %i, hash %s";
+		gSysFS_Version_Kernel.Node.Size = sprintf(NULL, fmt, BUILD_NUM, gsGitHash);
+		gSysFS_Version_Kernel.Node.ImplPtr = malloc( gSysFS_Version_Kernel.Node.Size + 1 );
+		sprintf(gSysFS_Version_Kernel.Node.ImplPtr, fmt, BUILD_NUM, gsGitHash);
+	}
+
 	DevFS_AddDevice( &gSysFS_DriverInfo );
 	return MODULE_ERR_OK;
 }
