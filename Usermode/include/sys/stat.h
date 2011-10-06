@@ -5,9 +5,10 @@
 #ifndef _SYS_STAT_H_
 #define _SYS_STAT_H_
 
-#include <stdint.h>	//EVIL!
+#include <stdint.h>	/* Evil */
+#include <stddef.h>
 
-typedef uintptr_t	dev_t;	// TODO: How to identify a device with Acess
+typedef void	*dev_t;	/* TODO: How to identify a device with Acess */
 typedef uint64_t	ino_t;
 typedef unsigned int	blksize_t;
 typedef uint64_t	blkcnt_t;

@@ -7,8 +7,7 @@
 #ifndef _COMMON_H
 #define _COMMON_H
 
-#define	NULL	((void*)0)
-
+#include <stddef.h>
 #include <stdarg.h>
 
 // HACK: Replace with underscored

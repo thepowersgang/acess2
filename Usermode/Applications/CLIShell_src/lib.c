@@ -4,6 +4,7 @@
  * See file COPYING for 
  */
 #include "header.h"
+#include <stddef.h>
 
 // === CODE ===
 /**

@@ -8,7 +8,7 @@ CFLAGS   +=
 ASFLAGS  +=
 LDFLAGS  += -soname libc.so -Map map.txt -lgcc
 
-OBJ = stub.o heap.o stdlib.o env.o fileIO.o string.o
+OBJ = stub.o heap.o stdlib.o env.o fileIO.o string.o select.o
 DEPFILES := $(OBJ:%.o=%.d)
 # signals.o
 BIN = libc.so

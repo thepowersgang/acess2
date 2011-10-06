@@ -7,7 +7,7 @@
 
 #include <stddef.h>
 
-// Strings
+/* Strings */
 extern size_t	strlen(const char *string);
 extern size_t	strnlen(const char *string, size_t maxlen);
 extern int	strcmp(const char *str1, const char *str2);
@@ -25,7 +25,7 @@ extern char	*strstr(const char *str1, const char *str2);
 extern size_t	strcspn(const char *haystack, const char *reject);
 extern size_t	strspn(const char *haystack, const char *accept);
 
-// Memory
+/* Memory */
 extern void *memset(void *dest, int val, size_t count);
 extern void *memcpy(void *dest, const void *src, size_t count);
 extern void *memmove(void *dest, const void *src, size_t count);

@@ -4,6 +4,7 @@
  By thePowersGang
 */
 #include "common.h"
+#include <stdint.h>
 
 // === CODE ===
 char *strcpy(char *dest, const char *src)
@@ -70,3 +71,31 @@ int file_exists(const char *filename)
 	close(fd);
 	return 1;
 }
+
+uint64_t __udivdi3(uint64_t Num, uint64_t Den)
+{
+	uint64_t	ret = 0, add = 1;
+
+	// Find what power of two times Den is > Num
+	while( Num >= Den )
+	{
+		Den <<= 1;
+		add <<= 1;
+	}
+
+	// Search backwards
+	while( add > 1 )
+	{
+		add >>= 1;
+		Den >>= 1;
+		// If the numerator is > Den, subtract and add to return value
+		if( Num > Den )
+		{
+			ret += add;
+			Num -= Den;
+		}
+	}
+//	if(Rem)	*Rem = Num;
+	return ret;
+}
+

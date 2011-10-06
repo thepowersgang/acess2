@@ -3,6 +3,7 @@
  By thePowersGang
 */
 #include <stdint.h>
+#include <stddef.h>
 #include "common.h"
 
 // === PROTOTYPES ===

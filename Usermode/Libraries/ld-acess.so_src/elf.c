@@ -83,7 +83,7 @@ void *Elf64Relocate(void *Base, char **envp, const char *Filename)
 	for( i = 0; i < hdr->e_phnum; i ++ )
 	{
 		if(phtab[i].p_type == PT_DYNAMIC)
-			dyntab = (void *)phtab[i].p_vaddr;
+			dyntab = (void *)(intptr_t)phtab[i].p_vaddr;
 		if(phtab[i].p_type == PT_LOAD && compiledBase > phtab[i].p_vaddr)
 			compiledBase = phtab[i].p_vaddr;
 	}

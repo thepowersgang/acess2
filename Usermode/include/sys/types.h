@@ -2,7 +2,6 @@
  */
 #ifndef _SYS_TYPES_H
 #define _SYS_TYPES_H
-//#include <stdint.h>
 
 typedef struct stat	t_fstat;
 
@@ -28,8 +27,8 @@ typedef struct
 }	fd_set;
 
 struct s_sysACL {
-	unsigned long	object;	//!< Group or user (bit 31 determines)
-	unsigned long	perms;	//!< Inverted by bit 31
+	unsigned long	object;	/*!< Group or user (bit 31 determines) */
+	unsigned long	perms;	/*!< Inverted by bit 31 */
 };
 struct s_sysFInfo {
 	unsigned int	mount;
@@ -47,19 +46,10 @@ struct s_sysFInfo {
 typedef struct s_sysFInfo	t_sysFInfo;
 typedef struct s_sysACL	t_sysACL;
 
-static inline void FD_ZERO(fd_set *fdsetp) {int i=FD_SETSIZE/16;while(i--)fdsetp->flags[i]=0; }
-static inline void FD_CLR(int fd, fd_set *fdsetp) {
-	if(fd < 0 || fd > FD_SETSIZE)	return;
-	fdsetp->flags[fd/16] &= (fd_set_ent_t) ((~1 << (fd%16))) & 0xFFFF;
-}
-static inline void FD_SET(int fd, fd_set *fdsetp) {
-	if(fd < 0 || fd > FD_SETSIZE)	return;
-	fdsetp->flags[fd/16] |= (fd_set_ent_t) (1 << (fd%16));
-}
-static inline int FD_ISSET(int fd, fd_set *fdsetp) {
-	if(fd < 0 || fd > FD_SETSIZE)	return 0;
-	return !!( fdsetp->flags[fd/16] & (1<<(fd%16)) );
-}
+extern void	FD_ZERO(fd_set *fdsetp);
+extern void	FD_CLR(int fd, fd_set *fdsetp);
+extern void	FD_SET(int fd, fd_set *fdsetp);
+extern int	FD_ISSET(int fd, fd_set *fdsetp);
 
 #include <sys/stat.h>
 

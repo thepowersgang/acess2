@@ -19,7 +19,7 @@
 #define	_stdout	1
 
 // === PROTOTYPES ===
-EXPORT void	itoa(char *buf, uint64_t num, uint base, int minLength, char pad, int bSigned);
+EXPORT void	itoa(char *buf, uint64_t num, size_t base, int minLength, char pad, int bSigned);
 struct sFILE	*get_file_struct();
 
 // === GLOBALS ===
@@ -131,7 +131,7 @@ EXPORT void fflush(FILE *fp)
 	///\todo Implement
 }
 
-EXPORT long int ftell(FILE *fp)
+EXPORT off_t ftell(FILE *fp)
 {
 	if(!fp || !fp->FD)	return -1;
 	
