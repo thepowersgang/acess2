@@ -98,21 +98,28 @@ SaveState:
 SwitchTasks:
 	PUSH_GPR
 	
+	; Save state RIP and RSP
 	lea rax, [rel .restore]
-	mov QWORD [rcx], rax
+	mov [rcx], rax
 	mov [rsi], rsp
 
+	; Change CR3 if requested
 	test r8, r8
 	jz .setState
 	mov cr3, r8
+	
+	; Make sure the stack is valid before jumping
 	invlpg [rdi]
 	invlpg [rdi+0x1000]
+	
+	; Go to new state
 .setState:
 	mov rsp, rdi
 	jmp rdx
 
+	; Restore point for saved state
 .restore:
 	POP_GPR
-	xor eax, eax
+	xor eax, eax	; Return zero
 	ret
 

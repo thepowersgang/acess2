@@ -16,7 +16,7 @@
 #include <hal_proc.h>
 
 // === FLAGS ===
-#define DEBUG_TRACE_SWITCH	1
+#define DEBUG_TRACE_SWITCH	0
 #define BREAK_ON_SWITCH 	0	// Break into bochs debugger on a task switch
 
 // === CONSTANTS ===
@@ -457,7 +457,7 @@ int Proc_NewKThread(void (*Fcn)(void*), void *Data)
 	
 	newThread->SavedState.RSP = rsp;
 	newThread->SavedState.RIP = (Uint)&NewTaskHeader;
-	Log("New (KThread) %p, rsp = %p\n", newThread->SavedState.RIP, newThread->SavedState.RSP);
+//	Log("New (KThread) %p, rsp = %p\n", newThread->SavedState.RIP, newThread->SavedState.RSP);
 	
 //	MAGIC_BREAK();	
 	Threads_AddActive(newThread);
@@ -495,7 +495,7 @@ int Proc_Clone(Uint Flags)
 	newThread->SavedState.RIP = rip;
 
 	// DEBUG	
-	Log("New (Clone) %p, rsp = %p, cr3 = %p", rip, newThread->SavedState.RSP, newThread->MemState.CR3);
+//	Log("New (Clone) %p, rsp = %p, cr3 = %p", rip, newThread->SavedState.RSP, newThread->MemState.CR3);
 	{
 		Uint cr3;
 		__asm__ __volatile__ ("mov %%cr3, %0" : "=r" (cr3));
@@ -543,7 +543,7 @@ int Proc_SpawnWorker(void (*Fcn)(void*), void *Data)
 	new->SavedState.RSP = new->KernelStack - sizeof(stack_contents);
 	new->SavedState.RIP = (Uint)&NewTaskHeader;
 	
-	Log("New (Worker) %p, rsp = %p\n", new->SavedState.RIP, new->SavedState.RSP);
+//	Log("New (Worker) %p, rsp = %p\n", new->SavedState.RIP, new->SavedState.RSP);
 	
 	// Mark as active
 	new->Status = THREAD_STAT_PREINIT;
