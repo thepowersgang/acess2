@@ -12,7 +12,7 @@ typedef struct stat	t_fstat;
 
 typedef unsigned long	pid_t;
 typedef unsigned long	tid_t;
-typedef signed long long	time_t;
+typedef signed long long int	time_t;
 
 typedef unsigned int	uint;
 
