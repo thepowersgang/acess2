@@ -1,3 +1,3 @@
 
 Cross Compiling
-CC=i586-elf-gcc CPPFLAGS="-I /home/tpg/Projects/Acess2/Usermode/include/" CFLAGS="-Wl,-T,/home/tpg/Projects/Acess2/Usermode/Output/i386/Libs/acess.ld -nostartfiles -nodefaultlibs -lld-acess -lc" ./configure  --host=i586-elf
+CC=i586-elf-gcc CPPFLAGS="-I /home/tpg/Projects/Acess2/Usermode/include/ -DARCHDIR_is_x86" CFLAGS="-Wl,-T,/home/tpg/Projects/Acess2/Usermode/Output/i386/Libs/acess.ld -nostartfiles -nodefaultlibs -lld-acess -lc" ./configure  --host=i586-elf
