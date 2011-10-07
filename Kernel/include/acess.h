@@ -266,7 +266,7 @@ extern tVAddr	MM_MapHWPages(tPAddr PAddr, Uint Number);
 extern tVAddr	MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr);
 /**
  * \brief Unmaps an allocated hardware range
- * \param VAddr	Virtual address allocate by ::MM_MapHWPage or ::MM_AllocDMA
+ * \param VAddr	Virtual address allocate by ::MM_MapHWPages or ::MM_AllocDMA
  * \param Number	Number of pages to free
  */
 extern void	MM_UnmapHWPages(tVAddr VAddr, Uint Number);

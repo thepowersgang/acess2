@@ -195,8 +195,6 @@ int MM_int_SetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 	return 1;
 }
 
-extern tShortSpinlock	glDebug_Lock;
-
 int MM_int_GetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 {
 	Uint32	*table0, *table1;
@@ -383,13 +381,73 @@ tPAddr MM_ClearUser(void)
 
 tVAddr MM_MapTemp(tPAddr PAddr)
 {
-	// TODO: Implement MapTemp
+	tVAddr	ret;
+	tMM_PageInfo	pi;
+	
+	for( ret = MM_TMPMAP_BASE; ret < MM_TMPMAP_END - PAGE_SIZE; ret += PAGE_SIZE )
+	{
+		if( MM_int_GetPageInfo(ret, &pi) == 0 )
+			continue;
+	
+		MM_Map(ret, PAddr);
+		
+		return ret;
+	}
+	Log_Warning("MMVirt", "MM_MapTemp: All slots taken");
 	return 0;
 }
 
 void MM_FreeTemp(tVAddr VAddr)
 {
 	// TODO: Implement FreeTemp
+	if( VAddr < MM_TMPMAP_BASE || VAddr >= MM_TMPMAP_END ) {
+		Log_Warning("MMVirt", "MM_FreeTemp: Passed an addr not from MM_MapTemp (%p)", VAddr);
+		return ;
+	}
+	
+	MM_Deallocate(VAddr);
+}
+
+tVAddr MM_MapHWPages(tPAddr PAddr, Uint NPages)
+{
+	tVAddr	ret;
+	 int	i;
+	tMM_PageInfo	pi;
+
+	// Scan for a location
+	for( ret = MM_HWMAP_BASE; ret < MM_HWMAP_END - NPages * PAGE_SIZE; ret += PAGE_SIZE )
+	{
+		// Check if there is `NPages` free pages
+		for( i = 0; i < NPages; i ++ )
+		{
+			if( MM_int_GetPageInfo(ret + i*PAGE_SIZE, &pi) == 0 )
+				break;
+		}
+		// Nope, jump to after the used page found and try again
+		if( i != NPages ) {
+			ret += i * PAGE_SIZE;
+			continue ;
+		}
+	
+		// Map the pages	
+		for( i = 0; i < NPages; i ++ )
+			MM_Map(ret+i*PAGE_SIZE, PAddr+i*PAddr);
+		// and return
+		return ret;
+	}
+	Log_Warning("MMVirt", "MM_MapHWPages: No space for a %i page block", NPages);
+	return 0;
+}
+
+tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PAddr)
+{
+	Log_Error("MMVirt", "TODO: Implement MM_AllocDMA");
+	return 0;
+}
+
+void MM_UnmapHWPages(tVAddr Vaddr, Uint Number)
+{
+	Log_Error("MMVirt", "TODO: Implement MM_UnmapHWPages");
 }
 
 tVAddr MM_NewKStack(int bShared)
