@@ -59,7 +59,7 @@ int PS2Mouse_Install(char **Arguments)
 	
 	// Initialise Mouse Controller
 	giMouse_Cycle = 0;	// Set Current Cycle position
-	KBC8042_EnableMouse();
+	gpMouse_EnableFcn();
 	
 	DevFS_AddDevice(&gMouse_DriverStruct);
 	
