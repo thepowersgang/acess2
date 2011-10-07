@@ -2,6 +2,6 @@
 #
 
 OBJ := gic.o
-NAME := armv7_GIC
+NAME := GIC
 
 -include ../Makefile.tpl
