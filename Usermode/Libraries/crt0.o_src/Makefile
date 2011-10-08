@@ -15,6 +15,6 @@ install: $(BIN)
 clean:
 	$(RM) $(BIN)
 
-$(BIN): crt0.$(ARCHDIR).asm
+$(BIN): crt0.$(ARCHDIR).$(ASSUFFIX)
 	@mkdir -p $(dir $(BIN))
 	$(AS) $(ASFLAGS) $< -o $@

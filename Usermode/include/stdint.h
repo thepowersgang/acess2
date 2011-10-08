@@ -14,11 +14,14 @@ typedef signed int		int32_t;
 typedef signed long long	int64_t;
 
 #if ARCHDIR_is_x86
-typedef uint32_t	intptr_t;
+typedef int32_t 	intptr_t;
 typedef uint32_t	uintptr_t;
 #elif ARCHDIR_is_x86_64
-typedef uint64_t	intptr_t;
+typedef int64_t 	intptr_t;
 typedef uint64_t	uintptr_t;
+#elif ARCHDIR_is_armv7
+typedef int32_t 	intptr_t;
+typedef uint32_t 	uintptr_t;
 #else
 # error "Unknown pointer size"
 #endif

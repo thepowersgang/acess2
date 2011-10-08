@@ -20,3 +20,6 @@ install: $(BIN)
 $(BIN):	acess_$(ARCHDIR).ld.h
 	@mkdir -p $(dir $(BIN))
 	cpp -nostdinc -U i386 -P -C $< -o $@ -D__LIBDIR=$(OUTPUTDIR)Libs
+
+acess_$(ARCHDIR).ld.h:
+	$(LD) --verbose | awk '{ if( substr($$0,0,5) == "====="){ bPrint = !bPrint; } else { if(bPrint){ print $$0;} } }' | sed 's/SEARCH_DIR\(.*\)/SEARCH_DIR(__LIBDIR)/' > $@

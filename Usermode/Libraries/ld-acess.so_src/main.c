@@ -13,7 +13,7 @@ void	*ElfRelocate(void *Base, char **envp, const char *Filename);
 void	*PE_Relocate(void *Base, char **envp, const char *Filename);
 
 // === Imports ===
-extern void	gLinkedBase;
+extern char	gLinkedBase[];
 extern tLoadedLib	gLoadedLibraries[];
  
 // === CODE ===
