@@ -479,7 +479,8 @@ tVAddr MM_NewKStack(int bShared)
 	// 1 guard page
 	for( ofs = PAGE_SIZE; ofs < MM_KSTACK_SIZE; ofs += PAGE_SIZE )
 	{
-		if( MM_Allocate(addr + ofs) == 0 ) {
+		if( MM_Allocate(addr + ofs) == 0 )
+		{
 			while(ofs)
 			{
 				ofs -= PAGE_SIZE;

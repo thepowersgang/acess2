@@ -5,6 +5,7 @@
  * arch/arm7/main.c
  */
 #include <acess.h>
+#include <modules.h>
 
 // === IMPORTS ===
 extern void	Interrupts_Setup(void);
@@ -35,6 +36,7 @@ int kmain(void)
 	VFS_Init();
 
 	// Boot modules?
+	Module_EnsureLoaded("armv7_GIC");
 
 	//
 	LogF("Moving to arch-independent init\n");

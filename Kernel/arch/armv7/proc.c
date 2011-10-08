@@ -30,6 +30,8 @@ void ArchThreads_Init(void)
 
 void Proc_IdleThread(void *unused)
 {
+	Threads_SetPriority(gpIdleThread, -1);
+	Threads_SetName("Idle Thread");
 	for(;;) {
 		__asm__ __volatile__ ("wfi");
 		Proc_Reschedule();
@@ -65,11 +67,6 @@ void Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **
 
 tTID Proc_SpawnWorker( void (*Fnc)(void*), void *Ptr )
 {
-	return -1;
-}
-
-tTID Proc_NewKThread( void (*Fnc)(void*), void *Ptr )
-{
 	tThread	*new;
 	Uint32	sp;
 
@@ -85,10 +82,41 @@ tTID Proc_NewKThread( void (*Fnc)(void*), void *Ptr )
 
 	sp = new->KernelStack;
 	
-	*(Uint32*)(sp -= 4) = (Uint)new;
-	*(Uint32*)(sp -= 4) = (Uint)Fnc;
-	*(Uint32*)(sp -= 4) = 1;
 	*(Uint32*)(sp -= 4) = (Uint)Ptr;
+	*(Uint32*)(sp -= 4) = 1;
+	*(Uint32*)(sp -= 4) = (Uint)Fnc;
+	*(Uint32*)(sp -= 4) = (Uint)new;
+
+	new->SavedState.SP = sp;
+	new->SavedState.IP = (Uint)KernelThreadHeader;
+
+	Threads_AddActive(new);
+
+	return new->TID;
+}
+
+tTID Proc_NewKThread( void (*Fnc)(void*), void *Ptr )
+{
+	tThread	*new;
+	Uint32	sp;
+
+	new = Threads_CloneTCB(NULL, 0);
+	if(!new)	return -1;
+
+	// TODO: Non-shared stack
+	new->KernelStack = MM_NewKStack(1);
+	if(!new->KernelStack) {
+		// TODO: Delete thread
+		Log_Error("Proc", "Unable to allocate kernel stack");
+		return -1;
+	}	
+
+	sp = new->KernelStack;
+	
+	*(Uint32*)(sp -= 4) = (Uint)Ptr;
+	*(Uint32*)(sp -= 4) = 1;
+	*(Uint32*)(sp -= 4) = (Uint)Fnc;
+	*(Uint32*)(sp -= 4) = (Uint)new;
 
 	new->SavedState.SP = sp;
 	new->SavedState.IP = (Uint)KernelThreadHeader;
@@ -113,7 +141,8 @@ void Proc_Reschedule(void)
 	if(!next)	next = gpIdleThread;
 	if(!next || next == cur)	return;
 
-	Log("Switching to %p (%i) IP=%p SP=%p", next, next->TID, next->SavedState.IP, next->SavedState.SP);
+	Log("Switching to %p (%i %s) IP=%p SP=%p", next, next->TID, next->ThreadName, next->SavedState.IP, next->SavedState.SP);
+	Log("Requested by %p", __builtin_return_address(0));
 	
 	gpCurrentThread = next;
 	// TODO: Change kernel stack?

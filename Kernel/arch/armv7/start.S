@@ -1,3 +1,6 @@
+
+#include "include/assembly.h"
+
 KERNEL_BASE =	0x80000000
 PCI_PADDR   =	0x60000000	@ Realview
 UART0_PADDR =	0x10009000	@ Realview
@@ -6,14 +9,14 @@ UART0_PADDR =	0x10009000	@ Realview
 @ 
 .section .init
 interrupt_vector_table:
-	b _start @ Reset
-	b .	@ #UD
-	b SyscallHandler @ SVC (SWI assume)
-	b .	@ Prefetch abort
-	b .	@ Data abort
-	b .	@ Not Used
-	b IRQHandler	@ IRQ
-	b .	@ FIQ (Fast interrupt)
+ivt_reset:	b _start @ Reset
+ivt_undef:	b .	@ #UD
+ivt_svc:	b SyscallHandler @ SVC (SWI assume)
+ivt_prefetch:	b DataAbort	@ Prefetch abort
+ivt_data:	b DataAbort	@ Data abort
+ivt_unused:	b .	@ Not Used
+ivt_irq:	b IRQHandler	@ IRQ
+ivt_fiq:	b .	@ FIQ (Fast interrupt)
 
 .globl _start
 _start:
@@ -32,6 +35,9 @@ _start:
 	orr r0, r0, #1 << 23
 	mcr p15, 0, r0, c1, c0, 0
 
+	@ Prepare for interrupts
+	cps #19
+
 	ldr sp, =stack+0x10000	@ Set up stack
 	ldr r0, =kmain
 	mov pc, r0
@@ -44,8 +50,59 @@ _ptr_kmain:
 SyscallHandler:
 	b .
 
+.globl gpIRQHandler
+gpIRQHandler:	.long	0
+IRQ_saved_sp:	.long	0
+IRQ_saved_lr: 	.long	0
+.globl IRQHandler
 IRQHandler:
+	sub lr, #4	@ Adjust LR to the correct value
+	srsdb sp!, #19	@ Switch to supervisor mode (DDI0406B D1.6.5) (actually SRSFD)
+	cpsie i, #19
+
+	PUSH_GPRS
+
+	ldr r0, =csIRQ_Tag
+	ldr r1, =csIRQ_Fmt
+	ldr r4, =Log_Debug
+	blx r4
+	
+	@ Call the registered handler
+	ldr r0, gpIRQHandler
+	blx r0
+
+	@ Restore CPU state
+	POP_GPRS
+	rfeia sp!	@ Pop state (actually RFEFD)
+	bx lr
+
+.globl DataAbort
+DataAbort:
+	sub lr, #8	@ Adjust LR to the correct value
+	srsdb sp!, #19	@ Switch to supervisor mode (DDI0406B D1.6.5) (actually SRSFD)
+	cpsie i, #19
+	PUSH_GPRS
+
+	mov r2, lr
+	ldr r1, =csDataAbort_Fmt
+	ldr r0, =csDataAbort_Tag
+	ldr r4, =Log_Error
+	blx r4
 	b .
+
+	POP_GPRS
+	rfeia sp!	@ Pop state (actually RFEFD)
+	bx lr
+
+csIRQ_Tag:
+csDataAbort_Tag:
+	.asciz "ARMv7"
+csIRQ_Fmt:
+	.asciz "IRQ"
+csDataAbort_Fmt:
+	.asciz "Data Abort at %p"
+
+.comm irqstack, 0x1000
 
 .section .padata
 .globl kernel_table0
