@@ -22,6 +22,10 @@ while [ $# -ne 0 ]; do
 		shift
 		QEMU_PARAMS=$QEMU_PARAMS" "$1
 		;;
+	-bin)
+		shift
+		QEMU=$1
+		;;
 	-tuntap)
 		_NETTYPE="tap"
 	esac

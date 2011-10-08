@@ -1313,6 +1313,9 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 			SHORTREL(&glThreadListLock);
 			return NULL;
 		}
+		if( thread->Status != THREAD_STAT_ACTIVE ) {
+			LogF("Oops, Thread %i (%s) is not active\n", thread->TID, thread->ThreadName);
+		}
 	}
 	#elif SCHEDULER_TYPE == SCHED_RR_SIM
 	{		
