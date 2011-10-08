@@ -40,7 +40,7 @@ int PS2_Install(char **Arguments)
 	KBC8042_Init();
 	gpMouse_EnableFcn = KBC8042_EnableMouse;
 	#elif ARCHDIR_is_armv7
-	PL050_Init(KEYBOARD_IRQ, KEYBOARD_IRQ, MOUSE_BASE, MOUSE_IRQ);
+	PL050_Init(KEYBOARD_BASE, KEYBOARD_IRQ, MOUSE_BASE, MOUSE_IRQ);
 	gpMouse_EnableFcn = PL050_EnableMouse;
 	#endif
 

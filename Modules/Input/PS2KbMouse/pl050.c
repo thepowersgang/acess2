@@ -4,6 +4,8 @@
  *
  * PL050 (or comaptible) Driver
  */
+#define DEBUG	1
+
 #include <acess.h>
 #include "common.h"
 
@@ -28,12 +30,18 @@ Uint32	*gpPL050_MouseBase;
 void PL050_Init(Uint32 KeyboardBase, Uint8 KeyboardIRQ, Uint32 MouseBase, Uint8 MouseIRQ)
 {
 	if( KeyboardBase ) {
+		LOG("KeyboardBase = 0x%x", KeyboardBase);
 		gpPL050_KeyboardBase = (void*)MM_MapHWPages(KeyboardBase, 1);
+		LOG("gpPL050_KeyboardBase = %p", gpPL050_KeyboardBase);
 		IRQ_AddHandler(KeyboardIRQ, PL050_KeyboardHandler, NULL);
+
+		gpPL050_KeyboardBase[0] = 0x10;
 	}
 	if( MouseBase ) {
 		gpPL050_MouseBase = (void*)MM_MapHWPages(MouseBase, 1);
 		IRQ_AddHandler(MouseIRQ, PL050_MouseHandler, NULL);
+
+		gpPL050_MouseBase[0] = 0x10;
 	}
 }
 
@@ -64,6 +72,7 @@ void PL050_EnableMouse(void)
 	//PL050_WriteMouseData(0xF6);	// Set Default Settings
 	PL050_WriteMouseData(0xD4);
 	PL050_WriteMouseData(0xF4);	// Enable Packets
+	LOG("Done");
 }
 
 static inline void PL050_WriteMouseData(Uint8 Data)
