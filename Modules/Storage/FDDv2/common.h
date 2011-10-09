@@ -8,6 +8,8 @@
 #ifndef _FDC_COMMON_H_
 #define _FDC_COMMON_H_
 
+#include <mutex.h>
+
 // === CONSTANTS ===
 #define MAX_DISKS	8	// 4 per controller, 2 controllers
 #define TRACKS_PER_DISK	(1440*2/18)
@@ -19,15 +21,19 @@ typedef struct sFDD_Drive	tDrive;
 // === STRUCTURES ===
 struct sFDD_Drive
 {
+	 int	bValid;
 	 int	bInserted;
 	 int	MotorState;
 	 int	Timer;
+
+	tMutex	Mutex;
 	
 	void	*TrackData[TRACKS_PER_DISK];	// Whole tracks are read
 };
 
 // === FUNCTIONS ===
-extern void	FDD_int_IRQHandler(int IRQ, void *Ptr);
+extern int	FDD_SetupIO(void);
+extern int	FDD_int_ReadWriteTrack(int Disk, int Track, int bWrite, void *Buffer);
 
 // === GLOBALS ===
 extern tDrive	gaFDD_Disks[MAX_DISKS];
