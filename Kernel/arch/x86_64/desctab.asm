@@ -118,7 +118,7 @@ Desctab_Init:
 	; Set IA32_FMASK (flags mask)
 	mov ecx, 0xC0000084
 	rdmsr
-	mov eax, 0x202
+	mov eax, ~0x202
 	wrmsr
 	; Set IA32_STAR (Kernel/User CS)
 	mov ecx, 0xC0000081
@@ -385,8 +385,6 @@ SyscallStub:
 	push rbp	; Save User RSP
 	push rcx	; RIP
 	push r11	; RFLAGS
-
-	sti	; Start interrupts again
 
 	; RDI
 	; RSI
