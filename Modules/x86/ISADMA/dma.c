@@ -77,7 +77,6 @@ void DMA_SetChannel(int Channel, int length, int read)
 	read = !!read;
 	if(length > DMA_SIZE)	length = DMA_SIZE;
 	length --;	//Adjust for DMA
-	//__asm__ __volatile__ ("cli");
 	outb( cMASKPORT[chan], 0x04 | (chan & 0x3) );		// mask channel
 	outb( cCLEARPORT[chan], 0x00 );
 	outb( cMODEPORT[chan], (0x44 + (!read)*4) | (chan & 0x3) );
@@ -89,7 +88,6 @@ void DMA_SetChannel(int Channel, int length, int read)
 	outb( cMASKPORT[chan], chan & 0x3 );              // unmask channel
 	dma_addresses[chan] = (char*)DMA_ADDRESS(chan);
 	dma_addresses[chan] += KERNEL_BASE;
-	//__asm__ __volatile__ ("sti");
 }
 
 /**
