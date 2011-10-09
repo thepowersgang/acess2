@@ -3,6 +3,7 @@
  By thePowersGang
 */
 #include "common.h"
+#include <stdint.h>
 
 #define DEBUG	1
 
@@ -61,7 +62,7 @@ void *LoadLibrary(const char *SoName, const char *SearchDir, char **envp)
 	void	*base;
 	void	(*fEntry)(void *, int, char *[], char**);
 	
-	DEBUGS("LoadLibrary: (SoName='%s', SearchDir='%s', envp=0x%x)", SoName, SearchDir, envp);
+	DEBUGS("LoadLibrary: (SoName='%s', SearchDir='%s', envp=%p)", SoName, SearchDir, envp);
 	
 	// Create Temp Name
 	filename = FindLibrary(sTmpName, SoName, SearchDir);
@@ -82,13 +83,13 @@ void *LoadLibrary(const char *SoName, const char *SearchDir, char **envp)
 		return 0;
 	}
 	
-	DEBUGS(" LoadLibrary: iArg=%p, iEntry=0x%x", base, fEntry);
+	DEBUGS(" LoadLibrary: iArg=%p, fEntry=%p", base, fEntry);
 	
 	// Load Symbols
 	fEntry = DoRelocate( base, envp, filename );
 	
 	// Call Entrypoint
-	DEBUGS(" LoadLibrary: '%s' Entry 0x%x", SoName, fEntry);
+	DEBUGS(" LoadLibrary: '%s' Entry %p", SoName, fEntry);
 	fEntry(base, 0, NULL, envp);
 	
 	DEBUGS("LoadLibrary: RETURN 1");
@@ -108,7 +109,7 @@ void *IsFileLoaded(const char *file)
 		if(gLoadedLibraries[i].Base == 0)	break;	// Last entry has Base set to NULL
 		DEBUGS(" strcmp('%s', '%s')", gLoadedLibraries[i].Name, file);
 		if(strcmp(gLoadedLibraries[i].Name, file) == 0) {
-			DEBUGS("IsFileLoaded: Found %i (0x%x)", i, gLoadedLibraries[i].Base);
+			DEBUGS("IsFileLoaded: Found %i (%p)", i, gLoadedLibraries[i].Base);
 			return gLoadedLibraries[i].Base;
 		}
 	}
@@ -125,7 +126,7 @@ void AddLoaded(const char *File, void *base)
 	 int	i, length;
 	char	*name = gsNextAvailString;
 	
-	DEBUGS("AddLoaded: (File='%s', base=0x%x)", File, base);
+	DEBUGS("AddLoaded: (File='%s', base=%p)", File, base);
 	
 	// Find a free slot
 	for( i = 0; i < MAX_LOADED_LIBRARIES; i ++ )
@@ -149,7 +150,7 @@ void AddLoaded(const char *File, void *base)
 	strcpy(name, File);
 	gLoadedLibraries[i].Name = name;
 	gsNextAvailString = &name[length+1];
-	DEBUGS("'%s' (0x%x) loaded as %i", name, base, i);
+	DEBUGS("'%s' (%p) loaded as %i", name, base, i);
 	return;
 }
 
@@ -227,11 +228,13 @@ void *GetSymbol(const char *name)
 */
 int GetSymbolFromBase(void *base, const char *name, void **ret)
 {
-	if(*(Uint32*)base == (0x7F|('E'<<8)|('L'<<16)|('F'<<24)))
+	uint8_t	*hdr = base;
+	if(hdr[0] == 0x7F && hdr[1] == 'E' && hdr[2] == 'L' && hdr[3] == 'F')
 		return ElfGetSymbol(base, name, ret);
-	if(*(Uint16*)base == ('M'|('Z'<<8)))
+	if(hdr[0] == 'M' && hdr[1] == 'Z')
 		return PE_GetSymbol(base, name, ret);
-	SysDebug("Unknown type at %p", base);
+	SysDebug("Unknown type at %p (%02x %02x %02x %02x)", base,
+		hdr[0], hdr[1], hdr[2], hdr[3]);
 	return 0;
 }
 

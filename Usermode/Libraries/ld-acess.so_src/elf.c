@@ -7,7 +7,7 @@
 #include "elf32.h"
 #include "elf64.h"
 
-#define DEBUG	1
+#define DEBUG	0
 
 #if DEBUG
 # define	DEBUGS(v...)	SysDebug("ld-acess - " v)
@@ -25,6 +25,9 @@ static const char	*csaR_NAMES[] = {"R_386_NONE", "R_386_32", "R_386_PC32", "R_38
 void	*ElfRelocate(void *Base, char **envp, const char *Filename);
 void	*Elf32Relocate(void *Base, char **envp, const char *Filename);
 void	*Elf64Relocate(void *Base, char **envp, const char *Filename);
+ int	ElfGetSymbol(void *Base, const char *Name, void **Ret);
+ int	Elf64GetSymbol(void *Base, const char *Name, void **Ret);
+ int	Elf32GetSymbol(void *Base, const char *Name, void **Ret);
 Uint32	ElfHashString(const char *name);
 
 // === CODE ===
@@ -200,6 +203,12 @@ void *Elf64Relocate(void *Base, char **envp, const char *Filename)
 		case R_X86_64_64:
 			*(uint64_t*)ptr = (uint64_t)GetSymbol(symname) + addend;
 			break;
+		case R_X86_64_GLOB_DAT:
+			*(uint64_t*)ptr = (uint64_t)GetSymbol(symname);
+			break;
+		case R_X86_64_JUMP_SLOT:
+			*(uint64_t*)ptr = (uint64_t)GetSymbol(symname);
+			break;
 		default:
 			SysDebug("ld-acess - _Elf64DoReloc: Unknown relocation type %i", type);
 			break;
@@ -258,8 +267,8 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 	Elf32_Phdr	*phtab;
 	 int	i, j;	// Counters
 	char	*libPath;
-	Uint	iRealBase = -1;
-	Uint	iBaseDiff;
+	intptr_t	iRealBase = -1;
+	intptr_t	iBaseDiff;
 	 int	iSegmentCount;
 	 int	iSymCount;
 	Elf32_Rel	*rel = NULL;
@@ -310,7 +319,7 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 	// Check if a PT_DYNAMIC segement was found
 	if(!dynamicTab) {
 		SysDebug(" elf_relocate: No PT_DYNAMIC segment in image %p, returning", Base);
-		return (void *)hdr->entrypoint + iBaseDiff;
+		return (void *)(intptr_t)(hdr->entrypoint + iBaseDiff);
 	}
 	
 	// Adjust Dynamic Table
@@ -339,7 +348,7 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 		// --- Hash Table --
 		case DT_HASH:
 			if(iBaseDiff != 0)	dynamicTab[j].d_val += iBaseDiff;
-			iSymCount = ((Uint*)(dynamicTab[j].d_val))[1];
+			iSymCount = ((Elf32_Word*)(dynamicTab[j].d_val))[1];
 //			hdr->misc.HashTable = dynamicTab[j].d_val;	// Saved in unused bytes of ident
 			break;
 		}
@@ -419,7 +428,7 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 	
 	DEBUGS(" elf_relocate: Beginning Relocation");
 	
-	void elf_doRelocate(Uint r_info, Uint32 *ptr, Uint32 addend, Elf32_Sym *symtab)
+	void elf_doRelocate(uint32_t r_info, uint32_t *ptr, Elf32_Addr addend, Elf32_Sym *symtab)
 	{
 		 int	type = ELF32_R_TYPE(r_info);
 		 int	sym = ELF32_R_SYM(r_info);
@@ -532,26 +541,134 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 int ElfGetSymbol(void *Base, const char *Name, void **ret)
 {
 	Elf32_Ehdr	*hdr = Base;
+
+	switch(hdr->e_ident[4])
+	{
+	case ELFCLASS32:
+		return Elf32GetSymbol(Base, Name, ret);
+	case ELFCLASS64:
+		return Elf64GetSymbol(Base, Name, ret);
+	default:
+		SysDebug("ld-acess - ElfRelocate: Unknown file class %i", hdr->e_ident[4]);
+		return 0;
+	}
+}
+
+int Elf64GetSymbol(void *Base, const char *Name, void **Ret)
+{
+	Elf64_Ehdr	*hdr = Base;
+	Elf64_Sym	*symtab;
+	 int	nbuckets = 0;
+	 int	iSymCount = 0;
+	 int	i;
+	Elf64_Word	*pBuckets;
+	Elf64_Word	*pChains;
+	uint32_t	iNameHash;
+	const char	*dynstrtab;
+	uintptr_t	iBaseDiff = -1;
+
+//	DEBUGS("sizeof(uint32_t) = %i, sizeof(Elf64_Word) = %i", sizeof(uint32_t), sizeof(Elf64_Word));
+
+	dynstrtab = NULL;
+	pBuckets = NULL;
+	symtab = NULL;
+
+	// Catch the current executable
+	if( !pBuckets )
+	{
+		Elf64_Phdr	*phtab;
+		Elf64_Dyn	*dynTab = NULL;
+		 int	j;
+		
+		// Locate the tables
+		phtab = (void*)( Base + hdr->e_phoff );
+		for( i = 0; i < hdr->e_phnum; i ++ )
+		{
+			if(phtab[i].p_type == PT_LOAD && iBaseDiff > phtab[i].p_vaddr)
+				iBaseDiff = phtab[i].p_vaddr;
+			if( phtab[i].p_type == PT_DYNAMIC ) {
+				dynTab = (void*)(intptr_t)phtab[i].p_vaddr;
+			}
+		}
+		if( !dynTab ) {
+			SysDebug("ERROR - Unable to find DYNAMIC segment in %p", Base);
+			return 0;
+		}
+		iBaseDiff = (intptr_t)Base - iBaseDiff;	// Make iBaseDiff actually the diff
+		dynTab = (void*)( (intptr_t)dynTab + iBaseDiff );
+		
+		for( j = 0; dynTab[j].d_tag != DT_NULL; j++)
+		{
+			switch(dynTab[j].d_tag)
+			{
+			// --- Symbol Table ---
+			case DT_SYMTAB:
+				symtab = (void*)(intptr_t) dynTab[j].d_un.d_val;	// Rebased in Relocate
+				break;
+			case DT_STRTAB:
+				dynstrtab = (void*)(intptr_t) dynTab[j].d_un.d_val;
+				break;
+			// --- Hash Table --
+			case DT_HASH:
+				pBuckets = (void*)(intptr_t) dynTab[j].d_un.d_val;
+				break;
+			}
+		}
+	}
+//	DEBUGS("pBuckets = %p", pBuckets);
+
+	nbuckets = pBuckets[0];
+	iSymCount = pBuckets[1];
+	pBuckets = &pBuckets[2];
+//	DEBUGS("nbuckets = %i", nbuckets);
+	pChains = &pBuckets[ nbuckets ];
+	
+	// Get hash
+	iNameHash = ElfHashString(Name);
+	iNameHash %= nbuckets;
+
+	// Walk Chain
+	i = pBuckets[ iNameHash ];
+//	DEBUGS("dynstrtab = %p", dynstrtab);
+//	DEBUGS("symtab = %p, i = %i", symtab, i);
+	if(symtab[i].st_shndx != SHN_UNDEF && strcmp(dynstrtab + symtab[i].st_name, Name) == 0) {
+		*Ret = (void*) (intptr_t) symtab[i].st_value + iBaseDiff;
+		DEBUGS("%s = %p", Name, *Ret);
+		return 1;
+	}
+	
+	while(pChains[i] != STN_UNDEF)
+	{
+		i = pChains[i];
+//		DEBUGS("chains i = %i", i);
+		if(symtab[i].st_shndx != SHN_UNDEF && strcmp(dynstrtab + symtab[i].st_name, Name) == 0) {
+			*Ret = (void*)(intptr_t)symtab[i].st_value + iBaseDiff;
+			DEBUGS("%s = %p", Name, *Ret);
+			return 1;
+		}
+	}
+	
+//	DEBUGS("Elf64GetSymbol: RETURN 0, Symbol '%s' not found", Name);
+	return 0;
+}
+
+int Elf32GetSymbol(void *Base, const char *Name, void **ret)
+{
+	Elf32_Ehdr	*hdr = Base;
 	Elf32_Sym	*symtab;
 	 int	nbuckets = 0;
 	 int	iSymCount = 0;
 	 int	i;
 	Uint32	*pBuckets;
 	Uint32	*pChains;
-	Uint	iNameHash;
+	uint32_t	iNameHash;
 	const char	*dynstrtab;
 	uintptr_t	iBaseDiff = -1;
 
 	//DEBUGS("ElfGetSymbol: (Base=0x%x, Name='%s')", Base, Name);
-	#if 0
-	pBuckets = (void *) (intptr_t) hdr->misc.HashTable;
-	symtab = (void *) (intptr_t) hdr->misc.SymTable;
-	dynstrtab = (void *) (intptr_t) hdr->misc.StrTab;
-	#else
 	dynstrtab = NULL;
 	pBuckets = NULL;
 	symtab = NULL;
-	#endif
 
 	// Catch the current executable
 	if( !pBuckets )
@@ -571,7 +688,7 @@ int ElfGetSymbol(void *Base, const char *Name, void **ret)
 			}
 		}
 		if( !dynTab ) {
-			SysDebug("ERROR - Unable to find DYNAMIC segment in %p");
+			SysDebug("ERROR - Unable to find DYNAMIC segment in %p", Base);
 			return 0;
 		}
 		iBaseDiff = (intptr_t)Base - iBaseDiff;	// Make iBaseDiff actually the diff
@@ -596,7 +713,7 @@ int ElfGetSymbol(void *Base, const char *Name, void **ret)
 		}
 		
 		#if 0
-		hdr->misc.HashTable = pBucktets;
+		hdr->misc.HashTable = pBuckets;
 		hdr->misc.SymTable = symtab;
 		hdr->misc.StrTab = dynstrtab;
 		#endif

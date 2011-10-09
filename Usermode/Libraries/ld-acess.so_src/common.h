@@ -9,6 +9,12 @@
 
 #include <stddef.h>
 #include <stdarg.h>
+#include <stdint.h>
+
+typedef	uintptr_t	Uint;
+typedef uint8_t 	Uint8;
+typedef uint16_t	Uint16;
+typedef uint32_t	Uint32;
 
 // HACK: Replace with underscored
 #define SysDebug	_SysDebug
@@ -19,14 +25,6 @@
 #define	SYSTEM_LIB_DIR	"/Acess/Libs/"
 
 // === Types ===
-typedef unsigned int	Uint;
-typedef unsigned char	Uint8;
-typedef unsigned short	Uint16;
-typedef unsigned long	Uint32;
-typedef signed char		Sint8;
-typedef signed short	Sint16;
-typedef signed long		Sint32;
-
 typedef struct {
 	void	*Base;
 	char	*Name;

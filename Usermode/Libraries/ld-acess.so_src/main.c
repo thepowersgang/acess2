@@ -62,7 +62,7 @@ void *SoMain(void *base)
 */
 void *DoRelocate(void *base, char **envp, const char *Filename)
 {
-	Uint8	*hdr = base;
+	uint8_t	*hdr = base;
 	// Load Executable
 	if(memcmp(base, "\x7F""ELF", 4) == 0)
 		return ElfRelocate(base, envp, Filename);

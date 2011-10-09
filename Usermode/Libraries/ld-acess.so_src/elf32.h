@@ -6,6 +6,12 @@
 #ifndef _ELF32_H
 #define _ELF32_H
 
+#include <stdint.h>
+
+typedef uint32_t	Elf32_Addr;
+typedef uint32_t	Elf32_Word;
+typedef int32_t 	Elf32_Sword;
+
 #define ELFCLASS32	1
 
 /**
@@ -13,8 +19,8 @@
  \brief ELF File Header
 */
 struct sElf32_Ehdr {
-	Uint8	e_ident[16];	//!< Identifier Bytes
-	Uint16	filetype;	//!< File Type
+	uint8_t	e_ident[16];	//!< Identifier Bytes
+	uint16_t	filetype;	//!< File Type
 	Uint16	machine;	//!< Machine / Arch
 	Uint32	version;	//!< Version (File?)
 	Uint32	entrypoint;	//!< Entry Point
@@ -121,9 +127,9 @@ enum {
 
 struct sElf32_Phdr {
 	Uint32	Type;
-	Uint	Offset;
-	Uint	VAddr;
-	Uint	PAddr;
+	Uint32	Offset;
+	Elf32_Addr	VAddr;
+	Elf32_Addr	PAddr;
 	Uint32	FileSize;
 	Uint32	MemSize;
 	Uint32	Flags;
@@ -138,7 +144,7 @@ struct elf32_rel_s {
 struct elf32_rela_s {
 	Uint32	r_offset;
 	Uint32	r_info;
-	Sint32	r_addend;
+	Elf32_Sword	r_addend;
 };
 
 enum {
