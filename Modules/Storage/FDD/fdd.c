@@ -62,7 +62,7 @@ enum FloppyPorts {
 	PORT_DIGOUTPUT	= 0x2,
 	PORT_MAINSTATUS	= 0x4,
 	PORT_DATARATE	= 0x4,
-	PORT_DATA		= 0x5,
+	PORT_DATA   	= 0x5,
 	PORT_DIGINPUT	= 0x7,
 	PORT_CONFIGCTRL	= 0x7
 };
@@ -107,19 +107,23 @@ Uint	FDD_ReadSectors(Uint64 SectorAddr, Uint Count, void *Buffer, Uint Disk);
  int	FDD_ReadSector(Uint32 disk, Uint64 lba, void *Buffer);
  int	FDD_WriteSector(Uint32 Disk, Uint64 LBA, void *Buffer);
 // --- Helpers
+ int	FDD_WaitIRQ();
 void	FDD_IRQHandler(int Num, void *Ptr);
-inline void	FDD_WaitIRQ();
-void	FDD_SensInt(int base, Uint8 *sr0, Uint8 *cyl);
- int	FDD_int_SendByte(int base, Uint8 Byte);
- int	FDD_int_GetByte(int base, Uint8 *Byte);
+void	FDD_SenseInt(int base, Uint8 *sr0, Uint8 *cyl);
+
  int	FDD_Reset(int id);
 void	FDD_Recalibrate(int disk);
  int	FDD_Reconfigure(int ID);
+
  int	FDD_int_SeekTrack(int disk, int head, int track);
 void	FDD_int_TimerCallback(void *Arg);
-void	FDD_int_StopMotor(void *Arg);
+void	FDD_int_StopMotor(int Disk);
+void	FDD_int_StopMotorCallback(void *Arg);
 void	FDD_int_StartMotor(int Disk);
  int	FDD_int_GetDims(int type, int lba, int *c, int *h, int *s, int *spt);
+
+ int	FDD_int_SendByte(int base, Uint8 Byte);
+ int	FDD_int_GetByte(int base, Uint8 *Byte);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, FDD_VERSION, FDD, FDD_Install, NULL, "x86_ISADMA", NULL);
@@ -157,18 +161,19 @@ int FDD_Install(char **Arguments)
 	gFDD_Devices[0].track[0] = -1;
 	gFDD_Devices[1].track[1] = -1;
 	
+	Log_Log("FDD", "Detected Disk 0: %s and Disk 1: %s", cFDD_TYPES[data>>4], cFDD_TYPES[data&0xF]);
+	
+	if( data == 0 ) {
+		return MODULE_ERR_NOTNEEDED;
+	}
+	
+	// Handle arguments
 	if(args) {
 		for(;*args;args++)
 		{
 			if(strcmp(*args, "disable")==0)
 				return MODULE_ERR_NOTNEEDED;
 		}
-	}
-	
-	Log_Log("FDD", "Detected Disk 0: %s and Disk 1: %s", cFDD_TYPES[data>>4], cFDD_TYPES[data&0xF]);
-	
-	if( data == 0 ) {
-		return MODULE_ERR_NOTNEEDED;
 	}
 	
 	// Install IRQ6 Handler
@@ -192,6 +197,24 @@ int FDD_Install(char **Arguments)
 	if( FDD_Reset(0) != 0 ) {
 		return MODULE_ERR_MISC;
 	}
+
+	#if 0
+	{
+		 int	retries;
+		// Recalibrate disks
+		LOG("Recalibrate disks (16x seek)");
+		retries = 16;
+		while(FDD_int_SeekTrack(0, 0, 1) == 0 && retries --)
+			Threads_Yield();	// set track
+		if(retries < 0)	LEAVE_RET('i', -1);
+	
+		retries = 16;
+		while(FDD_int_SeekTrack(0, 1, 1) == 0 && retries --)
+			Threads_Yield();	// set track
+		if(retries < 0)	LEAVE_RET('i', -1);
+	}
+	#endif
+	
 	
 	// Initialise Root Node
 	gFDD_DriverInfo.RootNode.CTime = gFDD_DriverInfo.RootNode.MTime
@@ -243,7 +266,7 @@ void FDD_UnloadModule()
 	Mutex_Acquire(&glFDD);
 	for(i=0;i<4;i++) {
 		Time_RemoveTimer(gFDD_Devices[i].timer);
-		FDD_int_StopMotor((void *)(Uint)i);
+		FDD_int_StopMotor(i);
 	}
 	Mutex_Release(&glFDD);
 	//IRQ_Clear(6);
@@ -395,66 +418,57 @@ int FDD_int_ReadWriteSector(Uint32 Disk, Uint64 SectorAddr, int Write, void *Buf
 		return -1;
 	}
 	LOG("Cyl=%i, Head=%i, Sector=%i", cyl, head, sec);
-	
+
+	// Start the motor	
 	Mutex_Acquire(&glFDD);	// Lock to stop the motor stopping on us
 	Time_RemoveTimer(gFDD_Devices[Disk].timer);	// Remove Old Timer
 	// Start motor if needed
 	if(gFDD_Devices[Disk].motorState != 2)	FDD_int_StartMotor(Disk);
 	Mutex_Release(&glFDD);
 	
-	LOG("Wait for the motor to spin up");
-	
 	// Wait for spinup
+	LOG("Wait for the motor to spin up");
 	while(gFDD_Devices[Disk].motorState == 1)	Threads_Yield();
 	
 	LOG("Acquire Spinlock");
 	Mutex_Acquire(&glFDD);
 	
-	#if 0
-	// Seek to track
-	outb(base + CALIBRATE_DRIVE, 0);
-	i = 0;
-	while(FDD_int_SeekTrack(Disk, head, (Uint8)cyl) == 0 && i++ < FDD_SEEK_TIMEOUT )
-		Threads_Yield();
-	if( i > FDD_SEEK_TIMEOUT ) {
-		Mutex_Release(&glFDD);
-		LEAVE('i', 0);
-		return 0;
-	}
-	//FDD_SensInt(base, NULL, NULL);	// Wait for IRQ
-	#endif
-		
 	// Read Data from DMA
 	LOG("Setting DMA for read");
 	DMA_SetChannel(2, 512, !Write);	// Read/Write 512 Bytes from channel 2
 	
 	LOG("Sending command");
 	
+	#define SENDB(__data)	if(FDD_int_SendByte(base, __data)) { FDD_Reset(Disk >> 1); continue; }
+
 	for( i = 0; i < FDD_MAX_READWRITE_ATTEMPTS; i ++ )
 	{
-		if( Write )
-			FDD_int_SendByte(base, CMD_WRITE_DATA|CMD_FLAG_MFM_ENCODING);
-		else
-			FDD_int_SendByte(base, CMD_READ_DATA|CMD_FLAG_MFM_ENCODING);
-		FDD_int_SendByte(base, (head << 2) | (Disk&1));
-		FDD_int_SendByte(base, (Uint8)cyl);
-		FDD_int_SendByte(base, (Uint8)head);
-		FDD_int_SendByte(base, (Uint8)sec);
-		FDD_int_SendByte(base, 0x02);	// Bytes Per Sector (Real BPS=128*2^{val})
-		FDD_int_SendByte(base, spt);	// SPT
-		FDD_int_SendByte(base, 0x1B);	// Gap Length (27 is default)
-		FDD_int_SendByte(base, 0xFF);	// Data Length
+		FDD_int_SeekTrack(Disk, head, cyl);
+		if( Write ) {
+			SENDB(CMD_WRITE_DATA|CMD_FLAG_MFM_ENCODING);
+		}
+		else {
+			SENDB(CMD_READ_DATA|CMD_FLAG_MFM_ENCODING);
+		}
+		SENDB( (head << 2) | (Disk&1) );
+		SENDB(cyl & 0xFF);
+		SENDB(head & 0xFF);
+		SENDB(sec & 0xFF);
+		SENDB(0x02);	// Bytes Per Sector (Real BPS=128*2^{val})
+		SENDB(spt);	// SPT
+		SENDB(0x1B);	// Gap Length (27 is default)
+		SENDB(0xFF);	// Data Length
 		
 		// Wait for IRQ
 		if( Write ) {
 			LOG("Writing Data");
 			DMA_WriteData(2, 512, Buffer);
 			LOG("Waiting for Data to be written");
-			FDD_WaitIRQ();
+			if( FDD_WaitIRQ() ) { FDD_Reset(Disk>>1); continue; }
 		}
 		else {
 			LOG("Waiting for data to be read");
-			FDD_WaitIRQ();
+			if( FDD_WaitIRQ() ) { FDD_Reset(Disk>>1); continue; }
 			LOG("Reading Data");
 			DMA_ReadData(2, 512, Buffer);
 		}
@@ -510,6 +524,7 @@ int FDD_int_ReadWriteSector(Uint32 Disk, Uint64 SectorAddr, int Write, void *Buf
 		// Success!
 		break;
 	}
+	#undef SENDB
 	
 	// Release Spinlock
 	LOG("Realeasing Spinlock and setting motor to stop");
@@ -523,7 +538,7 @@ int FDD_int_ReadWriteSector(Uint32 Disk, Uint64 SectorAddr, int Write, void *Buf
 	}
 	
 	// Don't turn the motor off now, wait for a while
-	gFDD_Devices[Disk].timer = Time_CreateTimer(MOTOR_OFF_DELAY, FDD_int_StopMotor, (void*)(tVAddr)Disk);
+	FDD_int_StopMotor(Disk);
 
 	// Error check
 	if( i < FDD_MAX_READWRITE_ATTEMPTS ) {
@@ -540,7 +555,7 @@ int FDD_int_ReadWriteSector(Uint32 Disk, Uint64 SectorAddr, int Write, void *Buf
  * \fn int FDD_ReadSector(Uint32 Disk, Uint64 SectorAddr, void *Buffer)
  * \brief Read a sector from disk
  * \todo Make real-hardware safe (account for read errors)
-*/
+ */
 int FDD_ReadSector(Uint32 Disk, Uint64 SectorAddr, void *Buffer)
 {
 	 int	ret;
@@ -579,13 +594,12 @@ int FDD_WriteSector(Uint32 Disk, Uint64 LBA, void *Buffer)
 }
 
 /**
- * \fn int FDD_int_SeekTrack(int disk, int track)
  * \brief Seek disk to selected track
  */
 int FDD_int_SeekTrack(int disk, int head, int track)
 {
 	Uint8	sr0=0, cyl=0;
-	 int	base;
+	 int	base, i, bUnclean;
 	
 	base = cPORTBASE[disk>>1];
 	
@@ -594,17 +608,33 @@ int FDD_int_SeekTrack(int disk, int head, int track)
 		return 1;
 	
 	// - Seek Head 0
-	FDD_int_SendByte(base, CMD_SEEK_TRACK);
-	FDD_int_SendByte(base, (head<<2)|(disk&1));
-	FDD_int_SendByte(base, track);	// Send Seek command
-	FDD_WaitIRQ();
-	FDD_SensInt(base, &sr0, &cyl);	// Wait for IRQ
-	if((sr0 & 0xF0) != 0x20) {
-		LOG("sr0 = 0x%x", sr0);
-		return 0;	//Check Status
-	}
-	if(cyl != track)	return 0;
+	for( i = 0; i < FDD_MAX_READWRITE_ATTEMPTS; i ++ )
+	{
+		if(i && bUnclean)	FDD_Reset(disk >> 1);
+		bUnclean = 1;
+		if(FDD_int_SendByte(base, CMD_SEEK_TRACK))	continue;
+		if(FDD_int_SendByte(base, (head<<2)|(disk&1)))	continue;
+		if(FDD_int_SendByte(base, track))	continue;
+		FDD_WaitIRQ();
+		FDD_SenseInt(base, &sr0, &cyl);	// Wait for IRQ
+
+		bUnclean = 0;
+		if( cyl != track )
+			continue;	// Try again
+		if( (sr0 & 0xF0) != 0x20 ) {
+			LOG("sr0 = 0x%x", sr0);
+			continue ;
+		}
 	
+		break;
+	}
+
+	if( i == FDD_MAX_READWRITE_ATTEMPTS ) {
+		Log_Warning("FDD", "Unable to seek to track %i on disk %i",
+			track, disk);
+		return 0;
+	}	
+
 	// Set Track in structure
 	gFDD_Devices[disk].track[head] = track;
 
@@ -682,17 +712,27 @@ void FDD_IRQHandler(int Num, void *Ptr)
 }
 
 /**
- * \fn FDD_WaitIRQ()
- * \brief Wait for an IRQ6
+ * \brief Wait for the FDD IRQ to fire
+ * \return Boolean failure (1 for timeout)
  */
-inline void FDD_WaitIRQ()
+inline int FDD_WaitIRQ()
 {
+	tTime	end = now() + 2000;
+	
 	// Wait for IRQ
-	while(!gbFDD_IrqFired)	Threads_Yield();
+	while(!gbFDD_IrqFired && now() < end)
+		Threads_Yield();
+
+	if( !gbFDD_IrqFired ) {
+		Log_Warning("FDD", "FDD_WaitIRQ - Timeout");
+		return 1;
+	}	
+
 	gbFDD_IrqFired = 0;
+	return 0;
 }
 
-void FDD_SensInt(int base, Uint8 *sr0, Uint8 *cyl)
+void FDD_SenseInt(int base, Uint8 *sr0, Uint8 *cyl)
 {
 	FDD_int_SendByte(base, CMD_SENSE_INTERRUPT);
 	FDD_int_GetByte(base, sr0);
@@ -709,23 +749,21 @@ int FDD_int_SendByte(int base, Uint8 byte)
 	
 	while( (inb(base + PORT_MAINSTATUS) & 0x80) != 0x80 && now() < end )
 		Threads_Yield();	//Delay
+//		Time_Delay(10);	//Delay
 
 	if( inb(base + PORT_MAINSTATUS) & 0x40 ) {
 		Log_Warning("FDD", "FDD_int_SendByte: DIO set, is this ok?");
 		return -2;
 	}
 	
-	if( now() < end )
-	{
-		outb(base + PORT_DATA, byte);
-//		Log_Debug("FDD", "FDD_int_SendByte: Sent 0x%02x to 0x%x", byte, base);
-		return 0;
-	}
-	else
+	if( now() > end )
 	{
 		Log_Warning("FDD", "FDD_int_SendByte: Timeout sending byte 0x%x to base 0x%x", byte, base);
 		return 1;
 	}
+	outb(base + PORT_DATA, byte);
+//	Log_Debug("FDD", "FDD_int_SendByte: Sent 0x%02x to 0x%x", byte, base);
+	return 0;
 }
 
 /**
@@ -737,25 +775,24 @@ int FDD_int_GetByte(int base, Uint8 *value)
 	tTime	end = now() + 1000;	// 1s
 	
 	while( (inb(base + PORT_MAINSTATUS) & 0x80) != 0x80 && now() < end )
-		Threads_Yield();
+		Time_Delay(10);
 	
 	if( !(inb(base + PORT_MAINSTATUS) & 0x40) ) {
 		Log_Warning("FDD", "FDD_int_GetByte: DIO unset, is this ok?");
 		return -2;
 	}
 
-	if( now() < end )
-	{
-		Uint8	tmp = inb(base + PORT_DATA);
-		if(value)	*value = tmp;
-//		Log_Debug("FDD", "FDD_int_GetByte: Read 0x%02x from 0x%x", *value, base);
-		return 0;
-	}
-	else
+	if( now() > end )
 	{
 		Log_Warning("FDD", "FDD_int_GetByte: Timeout reading byte from base 0x%x", base);
 		return -1;
 	}
+	
+	if(value)
+		*value = inb(base + PORT_DATA);
+	else
+		inb(base + PORT_DATA);
+	return 0;
 }
 
 /**
@@ -768,7 +805,7 @@ void FDD_Recalibrate(int disk)
 	LOG("Starting Motor");
 	FDD_int_StartMotor(disk);
 	// Wait for Spinup
-	while(gFDD_Devices[disk].motorState == 1)	Threads_Yield();
+	while(gFDD_Devices[disk].motorState <= 1)	Threads_Yield();
 	
 	LOG("Sending Calibrate Command");
 	FDD_int_SendByte(cPORTBASE[disk>>1], CMD_RECALIBRATE);
@@ -776,10 +813,10 @@ void FDD_Recalibrate(int disk)
 	
 	LOG("Waiting for IRQ");
 	FDD_WaitIRQ();
-	FDD_SensInt(cPORTBASE[disk>>1], NULL, NULL);
+	FDD_SenseInt(cPORTBASE[disk>>1], NULL, NULL);
 	
 	LOG("Stopping Motor");
-	gFDD_Devices[disk].timer = Time_CreateTimer(MOTOR_OFF_DELAY, FDD_int_StopMotor, (void*)(Uint)disk);
+	FDD_int_StopMotor(disk);
 	LEAVE('-');
 }
 
@@ -812,16 +849,15 @@ int FDD_Reconfigure(int ID)
 int FDD_Reset(int id)
 {
 	Uint16	base = cPORTBASE[id];
-	 int	retries;
+	Uint8	motor_state;
 	
 	ENTER("iID", id);
 
-	// Reset the card	
-	outb(base + PORT_DIGOUTPUT, 0);	// Disable FDC
-	// Wait 4 microseconds - or use 1 thread delay
-	Threads_Yield();
-	Threads_Yield();
-	outb(base + PORT_DIGOUTPUT, 8|4);	// Re-enable FDC (DMA and Enable)
+	// Reset the card
+	motor_state = inb(base + PORT_DIGOUTPUT) & 0xF0;
+	outb(base + PORT_DIGOUTPUT, motor_state|0);	// Disable FDC
+	Time_Delay(1);
+	outb(base + PORT_DIGOUTPUT, motor_state|8|4);	// Re-enable FDC (DMA and Enable)
 	
 	// Set the data rate
 	outb(base + PORT_DATARATE, 0);	// Set data rate to 500K/s
@@ -830,29 +866,14 @@ int FDD_Reset(int id)
 	LOG("Awaiting IRQ");
 	
 	FDD_WaitIRQ();
-	LOG("4x SenseInterrupt");
-	FDD_SensInt(base, NULL, NULL);
-	FDD_SensInt(base, NULL, NULL);
-	FDD_SensInt(base, NULL, NULL);
-	FDD_SensInt(base, NULL, NULL);
+
+	FDD_SenseInt(base, NULL, NULL);
 	
 	// Specify
 	FDD_int_SendByte(base, CMD_SPECIFY);	// Step and Head Load Times
 	FDD_int_SendByte(base, 0xDF);	// Step Rate Time, Head Unload Time (Nibble each)
 	FDD_int_SendByte(base, 0x02);	// Head Load Time >> 1
 
-	// Recalibrate disks
-	LOG("Recalibrate disks (16x seek)");
-	retries = 16;
-	while(FDD_int_SeekTrack(0, 0, 1) == 0 && retries --)
-		Threads_Yield();	// set track
-	if(retries < 0)	LEAVE_RET('i', -1);
-
-	retries = 16;
-	while(FDD_int_SeekTrack(0, 1, 1) == 0 && retries --)
-		Threads_Yield();	// set track
-	if(retries < 0)	LEAVE_RET('i', -1);
-	
 	LOG("Recalibrating Disk");
 	FDD_Recalibrate((id<<1)|0);
 	FDD_Recalibrate((id<<1)|1);
@@ -882,27 +903,55 @@ void FDD_int_TimerCallback(void *Arg)
 void FDD_int_StartMotor(int disk)
 {
 	Uint8	state;
+	if( gFDD_Devices[disk].motorState != 0 )	return ;
+	// Set motor ON bit
 	state = inb( cPORTBASE[ disk>>1 ] + PORT_DIGOUTPUT );
 	state |= 1 << (4+disk);
 	outb( cPORTBASE[ disk>>1 ] + PORT_DIGOUTPUT, state );
+	// Mark as spinning up
 	gFDD_Devices[disk].motorState = 1;
+	// Schedule a timer for when it's up to speed
 	gFDD_Devices[disk].timer = Time_CreateTimer(MOTOR_ON_DELAY, FDD_int_TimerCallback, (void*)(Uint)disk);
 }
 
 /**
- * \fn void FDD_int_StopMotor(int disk)
+ * \brief Schedule the drive motor to stop
+ * \param Disk	Disk number to stop
+ */
+void FDD_int_StopMotor(int Disk)
+{
+	// Ignore if the motor is aready off
+	if( gFDD_Devices[Disk].motorState == 0 )	return ;
+	
+	// Don't double-schedule timer
+	if( gFDD_Devices[Disk].timer != -1 )
+	{
+		Time_RemoveTimer( gFDD_Devices[Disk].timer );
+	}
+	
+	gFDD_Devices[Disk].timer = Time_CreateTimer(MOTOR_OFF_DELAY, FDD_int_StopMotorCallback, (void*)(Uint)Disk);
+}
+
+/**
  * \brief Stops FDD Motor
  */
-void FDD_int_StopMotor(void *Arg)
+void FDD_int_StopMotorCallback(void *Arg)
 {
 	Uint8	state, disk = (Uint)Arg;
+
+	// Mutex is only locked if disk is in use
 	if( Mutex_IsLocked(&glFDD) )	return ;
+
 	ENTER("iDisk", disk);
-	
+
+	// Clear motor on bit	
 	state = inb( cPORTBASE[ disk>>1 ] + PORT_DIGOUTPUT );
 	state &= ~( 1 << (4+disk) );
 	outb( cPORTBASE[ disk>>1 ] + PORT_DIGOUTPUT, state );
+	
+	// Mark as off
 	gFDD_Devices[disk].motorState = 0;
+
 	LEAVE('-');
 }
 
