@@ -646,24 +646,12 @@ void Proc_StartProcess(Uint16 SS, Uint Stack, Uint Flags, Uint16 CS, Uint IP)
 	else
 	{
 		// 64-bit return
-		#if 1
 		__asm__ __volatile__ (
 			"mov %0, %%rsp;\n\t"	// Set stack pointer
 			"mov %2, %%r11;\n\t"	// Set RFLAGS
 			"sysretq;\n\t"
 			: : "r" (Stack), "c" (IP), "r" (Flags)
 			);
-		#else
-		__asm__ __volatile__ (
-			"push $0x23;\n\t"	// SS
-			"push %0;\n\t"	// RSP
-			"push %2;\n\t"	// Flags
-			"push $0x2B;\n\t"	// CS
-			"push %1;\n\t"	// IP
-			"iretq"
-			: : "r" (Stack), "r" (IP), "r" (Flags)
-			);
-		#endif
 	}
 	for(;;);
 }

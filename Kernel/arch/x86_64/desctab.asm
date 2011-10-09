@@ -386,6 +386,8 @@ SyscallStub:
 	push rcx	; RIP
 	push r11	; RFLAGS
 
+	sti	; Start interrupts again
+
 	; RDI
 	; RSI
 	; RDX
