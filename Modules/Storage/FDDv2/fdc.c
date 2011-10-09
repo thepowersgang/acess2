@@ -5,7 +5,7 @@
  * fdc.c
  * - FDC IO Functions
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include "common.h"
 #include <dma.h>
@@ -105,7 +105,7 @@ int FDD_int_ReadWriteTrack(int Disk, int Track, int bWrite, void *Buffer)
 	Uint16	base = FDD_int_GetBase(Disk, &_disk);
 	 int	cyl = Track >> 1, head = Track & 1;
 
-	ENTER("iDisk iTrack BbWrite pBuffer", Disk, Track, bWrite, Buffer);
+	ENTER("iDisk iTrack ibWrite pBuffer", Disk, Track, bWrite, Buffer);
 
 	Mutex_Acquire( &gFDD_IOMutex );
 	
