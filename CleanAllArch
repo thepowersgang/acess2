@@ -1,2 +1,2 @@
 #!/bin/sh
-for a in i386 x86_64 arm7 host; do echo $a; ARCH=$a make clean; done
+for a in i386 x86_64 armv7 host; do echo $a; ARCH=$a make clean; done
