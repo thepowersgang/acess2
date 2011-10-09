@@ -5,6 +5,7 @@
  * fdc.c
  * - FDC IO Functions
  */
+#define DEBUG	1
 #include <acess.h>
 #include "common.h"
 #include <dma.h>
@@ -85,6 +86,8 @@ int FDD_SetupIO(void)
 	// Reset controller
 	FDD_int_Reset(0);
 	// TODO: All controllers
+	
+	return 0;
 }
 
 /**
@@ -102,6 +105,8 @@ int FDD_int_ReadWriteTrack(int Disk, int Track, int bWrite, void *Buffer)
 	Uint16	base = FDD_int_GetBase(Disk, &_disk);
 	 int	cyl = Track >> 1, head = Track & 1;
 
+	ENTER("iDisk iTrack BbWrite pBuffer", Disk, Track, bWrite, Buffer);
+
 	Mutex_Acquire( &gFDD_IOMutex );
 	
 	// Initialise DMA for read/write
@@ -113,21 +118,27 @@ int FDD_int_ReadWriteTrack(int Disk, int Track, int bWrite, void *Buffer)
 		cmd = CMD_WRITE_DATA | 0xC0;
 	else
 		cmd = CMD_READ_DATA | 0xC0;
+
+	LOG("cmd = 0x%x", cmd);
 	
 	// Seek
 	if( FDD_int_SeekToTrack(Disk, Track) ) {
 		Mutex_Release( &gFDD_IOMutex );
+		LEAVE('i', -1);
 		return -1;
 	}
+	LOG("Track seek done");
 
 	for( i = 0; i < 20; i ++ )
 	{
+		LOG("Starting motor");
 		FDD_int_StartMotor(Disk);
 
 		// Write data
 		if( bWrite )
 			DMA_WriteData(2, BYTES_PER_TRACK, Buffer);	
 	
+		LOG("Sending command stream");
 		FDD_int_WriteData(base, cmd);
 		FDD_int_WriteData(base, (head << 2) | _disk);
 		FDD_int_WriteData(base, cyl);
@@ -138,10 +149,12 @@ int FDD_int_ReadWriteTrack(int Disk, int Track, int bWrite, void *Buffer)
 		FDD_int_WriteData(base, 0x1B);	// Gap length - TODO: again
 		FDD_int_WriteData(base, 0xFF);	// Data length - ?
 	
+		LOG("Waiting for IRQ");
 		FDD_int_WaitIRQ();
 	
 		// No Sense Interrupt
 		
+		LOG("Reading result");
 		Uint8	st0=0, st1=0, st2=0, bps=0;
 		FDD_int_ReadData(base, &st0);
 		FDD_int_ReadData(base, &st1);	// st1
@@ -159,6 +172,7 @@ int FDD_int_ReadWriteTrack(int Disk, int Track, int bWrite, void *Buffer)
 		if( st2 & 0x02 ) {
 			Log_Debug("FDD", "Disk %i is not writable", Disk);
 			Mutex_Release( &gFDD_IOMutex );
+			LEAVE('i', 2);
 			return 2;
 		}
 		
@@ -192,14 +206,17 @@ int FDD_int_ReadWriteTrack(int Disk, int Track, int bWrite, void *Buffer)
 		if( !bWrite )
 			DMA_ReadData(2, BYTES_PER_TRACK, Buffer);
 		
+		LOG("All data done");
 		FDD_int_StopMotor(Disk);
 		Mutex_Release( &gFDD_IOMutex );
+		LEAVE('i', 0);
 		return 0;
 	}
 
 	Log_Debug("FDD", "%i retries exhausted", i);
 	FDD_int_StopMotor(Disk);
 	Mutex_Release( &gFDD_IOMutex );
+	LEAVE('i', 1);
 	return 1;
 }
 
@@ -215,19 +232,25 @@ int FDD_int_SeekToTrack(int Disk, int Track)
 	 int	cyl, head;
 	 int	_disk;
 	Uint16	base = FDD_int_GetBase(Disk, &_disk);;
+
+	ENTER("iDisk iTrack", Disk, Track);
 	
 	cyl = Track / 2;
-	head = Track % 1;
+	head = Track % 2;
+
+	LOG("cyl = %i, head = %i", cyl, head);
 	
 	FDD_int_StartMotor(Disk);
 	
 	for( int i = 0; i < 10; i ++ )
 	{
+		LOG("Sending command");
 		FDD_int_ClearIRQ();
 		FDD_int_WriteData(base, CMD_SEEK);
 		FDD_int_WriteData(base, (head << 2) + _disk);
 		FDD_int_WriteData(base, cyl);
 	
+		LOG("Waiting for IRQ");
 		FDD_int_WaitIRQ();
 		FDD_int_SenseInterrupt(base, &st0, &res_cyl);
 	
@@ -239,12 +262,14 @@ int FDD_int_SeekToTrack(int Disk, int Track)
 		
 		if( res_cyl == cyl ) {
 			FDD_int_StopMotor(Disk);
+			LEAVE('i', 0);
 			return 0;
 		}
 	}
 	
 	Log_Error("FDD", "FDD_int_SeekToTrack: 10 retries exhausted\n");
 	FDD_int_StopMotor(Disk);
+	LEAVE('i', 1);
 	return 1;
 }
 
@@ -268,7 +293,7 @@ int FDD_int_Calibrate(int Disk)
 		
 		FDD_int_WaitIRQ();
 	
-		FDD_int_SenseInterrupt(base, &st0, NULL);
+		FDD_int_SenseInterrupt(base, &st0, &cyl);
 		
 		if( st0 & 0xC0 ) {
 			FDD_int_HandleST0Error(__func__, Disk, st0);
@@ -295,7 +320,7 @@ int FDD_int_Reset(int Disk)
 {
 	Uint8	tmp;
 	 int	_disk;
-	Uint16	base = FDD_int_Reset(Disk, &_disk);	
+	Uint16	base = FDD_int_GetBase(Disk, &_disk);
 
 	tmp = inb(base + FDC_DOR) & 0xF0;
 	outb( base + FDC_DOR, 0x00 );
@@ -373,12 +398,13 @@ int FDD_int_StartMotor(int Disk)
 	 int	_disk;
 	Uint16	base = FDD_int_GetBase(Disk, &_disk);
 	
-	if( gaFDD_Disks[Disk].MotorState == MOTOR_ATSPEED )
-		return 0;
-
 	// Clear the motor off timer	
 	Time_RemoveTimer(gaFDD_Disks[Disk].Timer);
 	gaFDD_Disks[Disk].Timer = -1;
+
+	// Check if the motor is already on
+	if( gaFDD_Disks[Disk].MotorState == MOTOR_ATSPEED )
+		return 0;
 
 	// Turn motor on
 	outb(base + FDC_DOR, inb(base+FDC_DOR) | (1 << (_disk + 4)));

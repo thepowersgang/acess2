@@ -5,6 +5,7 @@
  * fdc.c
  * - Core file
  */
+#define DEBUG	0
 #include <acess.h>
 #include <modules.h>
 #include <fs_devfs.h>
@@ -24,6 +25,8 @@ char	*FDD_ReadDir(tVFS_Node *Node, int pos);
 tVFS_Node	*FDD_FindDir(tVFS_Node *dirNode, const char *Name);
  int	FDD_IOCtl(tVFS_Node *Node, int ID, void *Data);
 Uint64	FDD_ReadFS(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer);
+// --- Helpers
+ int	FDD_int_ReadWriteWithinTrack(int Disk, int Track, int bWrite, size_t Offset, size_t Length, void *Buffer);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, FDD_VERSION, Storage_FDDv2, FDD_Install, NULL, "x86_ISADMA", NULL);
@@ -91,6 +94,7 @@ int FDD_RegisterFS(void)
 	}
 	
 	DevFS_AddDevice( &gFDD_DriverInfo );
+	return 0;
 }
 
 /**
@@ -161,13 +165,46 @@ Uint64 FDD_ReadFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 {
 	 int	disk = Node->Inode;
 	 int	track;
+	 int	rem_len;
+	char	*dest = Buffer;
+
+	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
+
+	if( Offset > Node->Size )	LEAVE_RET('i', 0);
+	if( Length > Node->Size )	Length = Node->Size;
+	if( Offset + Length > Node->Size )
+		Length = Node->Size - Offset;
+
+	rem_len = Length;
 
 	track = Offset / BYTES_PER_TRACK;
-	
-	if( Offset % BYTES_PER_TRACK )
+	Offset %= BYTES_PER_TRACK;	
+
+	if( Offset )
 	{
-		
+		 int	len;
+		if(rem_len > BYTES_PER_TRACK-Offset)
+			len = BYTES_PER_TRACK - Offset;
+		else
+			len = rem_len;
+		FDD_int_ReadWriteWithinTrack(disk, track, 0, Offset, len, dest);
+		dest += len;
+		rem_len -= len;
+		track ++;
 	}
+
+	while( rem_len > BYTES_PER_TRACK )
+	{
+		FDD_int_ReadWriteWithinTrack(disk, track, 0, 0, BYTES_PER_TRACK, dest);
+		dest += BYTES_PER_TRACK;
+		rem_len -= BYTES_PER_TRACK;
+		track ++;
+	}
+
+	FDD_int_ReadWriteWithinTrack(disk, track, 0, 0, rem_len, dest);
+	
+	LEAVE('X', Length);
+	return Length;
 }
 
 /**
@@ -179,6 +216,9 @@ int FDD_int_ReadWriteWithinTrack(int Disk, int Track, int bWrite, size_t Offset,
 		return 1;
 	if( Offset + Length > BYTES_PER_TRACK )
 		return 1;
+
+	ENTER("iDisk iTrack bbWrite xOffset xLength pBuffer",
+		Disk, Track, bWrite, Offset, Length, Buffer);
 	
 	Mutex_Acquire( &gaFDD_Disks[Disk].Mutex );
 
@@ -189,6 +229,7 @@ int FDD_int_ReadWriteWithinTrack(int Disk, int Track, int bWrite, size_t Offset,
 		// Don't bother reading if this is a whole track write
 		if( !(bWrite && Offset == 0 && Length == BYTES_PER_TRACK) )
 		{
+			LOG("Reading track");
 			FDD_int_ReadWriteTrack(Disk, Track, 0, gaFDD_Disks[Disk].TrackData[Track]);
 		}
 	}
@@ -198,6 +239,7 @@ int FDD_int_ReadWriteWithinTrack(int Disk, int Track, int bWrite, size_t Offset,
 	{
 		// Write to cache then commit cache to disk
 		char	*dest = gaFDD_Disks[Disk].TrackData[Track];
+		LOG("Write to cache");
 		memcpy( dest + Offset, Buffer, Length );
 		FDD_int_ReadWriteTrack(Disk, Track, 1, gaFDD_Disks[Disk].TrackData[Track]);
 	}
@@ -205,10 +247,12 @@ int FDD_int_ReadWriteWithinTrack(int Disk, int Track, int bWrite, size_t Offset,
 	{
 		// Read from cache
 		char	*src = gaFDD_Disks[Disk].TrackData[Track];
+		LOG("Read from cache");
 		memcpy(Buffer, src + Offset, Length);
 	}
 	
 	Mutex_Release( &gaFDD_Disks[Disk].Mutex );
-	
+
+	LEAVE('i', 0);
 	return 0;
 }
