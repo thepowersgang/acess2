@@ -213,10 +213,7 @@ void Panic(const char *Fmt, ...)
 
 	Threads_Dump();
 
-//	__asm__ __volatile__ ("xchg %bx, %bx");
-//	__asm__ __volatile__ ("cli;\n\thlt");
-//	for(;;)	__asm__ __volatile__ ("hlt");
-	for(;;)	;
+	for(;;)	HALT();
 }
 
 void Debug_SetKTerminal(const char *File)
