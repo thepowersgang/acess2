@@ -130,6 +130,7 @@ void *VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD,
 			else
 			{
 				MM_Map( mapping_dest, pb->PhysAddrs[pagenum - pb->BaseOffset] );
+				MM_RefPhys( pb->PhysAddrs[pagenum - pb->BaseOffset] );
 				LOG("Cached map %X to %p (%P)", pagenum*PAGE_SIZE, mapping_dest,
 					pb->PhysAddrs[pagenum - pb->BaseOffset]);
 			}

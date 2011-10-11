@@ -124,6 +124,7 @@ void Threads_Init(void)
 	
 	Log_Debug("Threads", "Offsets of tThread");
 	Log_Debug("Threads", ".Priority = %i", offsetof(tThread, Priority));
+	Log_Debug("Threads", ".KernelStack = %i", offsetof(tThread, KernelStack));
 	
 	// Create Initial Task
 	#if SCHEDULER_TYPE == SCHED_RR_PRI
@@ -999,7 +1000,7 @@ void Threads_SegFault(tVAddr Addr)
 	tThread	*cur = Proc_GetCurThread();
 	cur->bInstrTrace = 0;
 	Log_Warning("Threads", "Thread #%i committed a segfault at address %p", cur->TID, Addr);
-	MM_DumpTables(0, KERNEL_BASE);
+	MM_DumpTables(0, USER_MAX);
 	Threads_Fault( 1 );
 	//Threads_Exit( 0, -1 );
 }
@@ -1292,7 +1293,7 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 			}
 			// If we fall onto the same queue again, special handling is
 			// needed
-			if( Last && i == Last->Priority ) {
+			if( Last && Last->Status == THREAD_STAT_ACTIVE && i == Last->Priority ) {
 				tThread	*savedThread = thread;
 				
 				// Find the next unscheduled thread in the list

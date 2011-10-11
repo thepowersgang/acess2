@@ -213,7 +213,7 @@ void Panic(const char *Fmt, ...)
 
 	Threads_Dump();
 
-	for(;;)	HALT();
+	for(;;)	;
 }
 
 void Debug_SetKTerminal(const char *File)
