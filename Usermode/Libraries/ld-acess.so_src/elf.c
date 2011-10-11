@@ -203,6 +203,8 @@ void *Elf64Relocate(void *Base, char **envp, const char *Filename)
 		case R_X86_64_64:
 			*(uint64_t*)ptr = (uint64_t)GetSymbol(symname) + addend;
 			break;
+		case R_X86_64_COPY:
+			break;
 		case R_X86_64_GLOB_DAT:
 			*(uint64_t*)ptr = (uint64_t)GetSymbol(symname);
 			break;
