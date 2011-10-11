@@ -83,6 +83,7 @@ int ErrorHandler(int Fault)
 	//	fprintf(stderr, "%02i: %p  %s\n", i, gLoadedLibraries[i].Base, gLoadedLibraries[i].Name);
 	}
 	fprintf(stderr, "\n");
+	exit(-1);
 	return -1;
 }
 

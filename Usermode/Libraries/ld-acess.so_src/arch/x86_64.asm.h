@@ -142,8 +142,10 @@ _SYSCALL_TAIL
 
 ; // Override the clone syscall
 #define clone	_clone_raw
+#define _exit	_exit_raw
 #include "syscalls.s.h"
 #undef clone
+#undef _exit
 
 [global clone:func]
 clone:
@@ -162,11 +164,16 @@ clone:
 	sub rsi, 3*8
 .doCall:
 	mov eax, SYS_CLONE
-	mov rdi, rsi	; Stack
-	mov rsi, [rbp+2*8]	; Flags
 	SYSCALL_OP
 	mov [rel _errno], ebx
 	pop rbx
 	pop rbp
 	ret
 
+[global _exit:func]
+_exit:
+	xor eax, eax
+	SYSCALL_OP
+	jmp $
+
+; vim: ft=nasm
