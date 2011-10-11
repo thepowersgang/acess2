@@ -102,5 +102,8 @@ extern void	SHORTREL(struct sShortSpinlock *Lock);
 extern void	Debug_PutCharDebug(char ch);
 extern void	Debug_PutStringDebug(const char *Str);
 
+// TODO: Move this to acess.h
+extern tPAddr	MM_AllocateZero(tVAddr VAddr);
+
 #endif
 

@@ -717,8 +717,11 @@ void Threads_Sleep(void)
 	// Release Spinlock
 	SHORTREL( &glThreadListLock );
 
-	while(cur->Status != THREAD_STAT_ACTIVE)
+	while(cur->Status != THREAD_STAT_ACTIVE) {
 		Proc_Reschedule();
+		if( cur->Status != THREAD_STAT_ACTIVE )
+			Log("%i - Huh? why am I up? zzzz...", cur->TID);
+	}
 }
 
 

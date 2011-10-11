@@ -549,7 +549,6 @@ int Proc_SpawnWorker(void (*Fcn)(void*), void *Data)
 }
 
 /**
- * \fn Uint Proc_MakeUserStack(void)
  * \brief Creates a new user stack
  */
 Uint Proc_MakeUserStack(void)
@@ -567,7 +566,11 @@ Uint Proc_MakeUserStack(void)
 	if(i != -1)	return 0;
 	
 	// Allocate Stack - Allocate incrementally to clean up MM_Dump output
-	for( i = 0; i < USER_STACK_SZ/0x1000; i++ )
+	for( i = 0; i < (USER_STACK_SZ-USER_STACK_PREALLOC)/0x1000; i++ )
+	{
+		MM_AllocateZero( base + (i<<12) );
+	}
+	for( ; i < USER_STACK_SZ/0x1000; i++ )
 	{
 		tPAddr	alloc = MM_Allocate( base + (i<<12) );
 		Log_Debug("Proc", "Proc_MakeUserStack: alloc = %P", alloc);

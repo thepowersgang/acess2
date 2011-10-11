@@ -63,16 +63,19 @@ void	MM_InitVirt(void);
 //void	MM_FinishVirtualInit(void);
 void	MM_int_ClonePageEnt( Uint64 *Ent, void *NextLevel, tVAddr Addr, int bTable );
  int	MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs);
+void	MM_int_DumpTablesEnt(tVAddr RangeStart, size_t Length, tPAddr Expected);
 void	MM_DumpTables(tVAddr Start, tVAddr End);
  int	MM_GetPageEntryPtr(tVAddr Addr, BOOL bTemp, BOOL bAllocate, BOOL bLargePage, tPAddr **Pointer);
  int	MM_MapEx(tVAddr VAddr, tPAddr PAddr, BOOL bTemp, BOOL bLarge);
 // int	MM_Map(tVAddr VAddr, tPAddr PAddr);
 void	MM_Unmap(tVAddr VAddr);
+void	MM_int_ClearTableLevel(tVAddr VAddr, int LevelBits, int MaxEnts);
 void	MM_ClearUser(void);
  int	MM_GetPageEntry(tVAddr Addr, tPAddr *Phys, Uint *Flags);
 
 // === GLOBALS ===
 tMutex	glMM_TempFractalLock;
+tPAddr	gMM_ZeroPage;
 
 // === CODE ===
 void MM_InitVirt(void)
@@ -99,12 +102,10 @@ void MM_int_ClonePageEnt( Uint64 *Ent, void *NextLevel, tVAddr Addr, int bTable 
 	if( MM_GetRefCount( curpage ) <= 0 ) {
 		Log_KernelPanic("MMVirt", "Page %P still marked COW, but unreferenced", curpage);
 	}
-//	Log_Debug("MM_Virt", "%P refcount %i", curpage, MM_GetRefCount( curpage ));
 	if( MM_GetRefCount( curpage ) == 1 )
 	{
 		*Ent &= ~PF_COW;
 		*Ent |= PF_PRESENT|PF_WRITE;
-//		Log_Debug("MMVirt", "COW ent at %p (%p), last (%P)", Ent, NextLevel, curpage);
 	}
 	else
 	{
@@ -218,7 +219,7 @@ int MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 			);
 	}
 	
-	Log("Code at %p accessed %p", Regs->RIP, Addr);
+	Log("Thread %i - Code at %p accessed %p", Threads_GetTID(), Regs->RIP, Addr);
 	// Print Stack Backtrace
 	Error_Backtrace(Regs->RIP, Regs->RBP);
 	
@@ -227,12 +228,34 @@ int MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 	return 1;	
 }
 
+void MM_int_DumpTablesEnt(tVAddr RangeStart, size_t Length, tPAddr Expected)
+{
+	#define CANOICAL(addr)	((addr)&0x800000000000?(addr)|0xFFFF000000000000:(addr))
+	LogF("%6llx %6llx %6llx %016llx => ",
+		MM_GetPhysAddr( (tVAddr)&PAGEDIRPTR(RangeStart>>30) ),
+		MM_GetPhysAddr( (tVAddr)&PAGEDIR(RangeStart>>21) ),
+		MM_GetPhysAddr( (tVAddr)&PAGETABLE(RangeStart>>12) ),
+		CANOICAL(RangeStart)
+		);
+	if( gMM_ZeroPage && (PAGETABLE(RangeStart>>12) & PADDR_MASK) == gMM_ZeroPage )
+		LogF("%13s", "zero" );
+	else
+		LogF("%13llx", PAGETABLE(RangeStart>>12) & PADDR_MASK );
+	LogF(" : 0x%6llx (%c%c%c%c)\r\n",
+		Length,
+		(Expected & PF_PAGED ? 'p' : '-'),
+		(Expected & PF_COW ? 'C' : '-'),
+		(Expected & PF_USER ? 'U' : '-'),
+		(Expected & PF_WRITE ? 'W' : '-')
+		);
+	#undef CANOICAL
+}
+
 /**
  * \brief Dumps the layout of the page tables
  */
 void MM_DumpTables(tVAddr Start, tVAddr End)
 {
-	#define CANOICAL(addr)	((addr)&0x800000000000?(addr)|0xFFFF000000000000:(addr))
 	const tPAddr	CHANGEABLE_BITS = ~(PF_PRESENT|PF_WRITE|PF_USER|PF_COW|PF_PAGED) & 0xFFF;
 	const tPAddr	MASK = ~CHANGEABLE_BITS;	// Physical address and access bits
 	tVAddr	rangeStart = 0;
@@ -250,9 +273,6 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 		page < End;
 		curPos += 0x1000, page++)
 	{
-		if( curPos == 0x800000000000L )
-			curPos = 0xFFFF800000000000L;
-		
 		//Debug("&PAGEMAPLVL4(%i page>>27) = %p", page>>27, &PAGEMAPLVL4(page>>27));
 		//Debug("&PAGEDIRPTR(%i page>>18) = %p", page>>18, &PAGEDIRPTR(page>>18));
 		//Debug("&PAGEDIR(%i page>>9) = %p", page>>9, &PAGEDIR(page>>9));
@@ -267,17 +287,13 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 		{			
 			if(expected != CHANGEABLE_BITS)
 			{
-				Log("%016llx => %13llx : 0x%6llx (%c%c%c%c)",
-					CANOICAL(rangeStart),
-					PAGETABLE(rangeStart>>12) & PADDR_MASK,
-					curPos - rangeStart,
-					(expected & PF_PAGED ? 'p' : '-'),
-					(expected & PF_COW ? 'C' : '-'),
-					(expected & PF_USER ? 'U' : '-'),
-					(expected & PF_WRITE ? 'W' : '-')
-					);
+				MM_int_DumpTablesEnt( rangeStart, curPos - rangeStart, expected );
 				expected = CHANGEABLE_BITS;
 			}
+			
+			if( curPos == 0x800000000000L )
+				curPos = 0xFFFF800000000000L;
+		
 			if( !(PAGEMAPLVL4(page>>27) & PF_PRESENT) ) {
 				page += (1 << 27) - 1;
 				curPos += (1L << 39) - 0x1000;
@@ -298,23 +314,16 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 			expected = (PAGETABLE(page) & MASK);
 			rangeStart = curPos;
 		}
-		if(expected != CHANGEABLE_BITS)
+		if(gMM_ZeroPage && (expected & PADDR_MASK) == gMM_ZeroPage )
+			expected = expected;
+		else if(expected != CHANGEABLE_BITS)
 			expected += 0x1000;
 	}
 	
 	if(expected != CHANGEABLE_BITS) {
-		Log("%016llx => %13llx : 0x%6llx (%c%c%c%c)",
-			CANOICAL(rangeStart),
-			PAGETABLE(rangeStart>>12) & PADDR_MASK,
-			curPos - rangeStart,
-			(expected & PF_PAGED ? 'p' : '-'),
-			(expected & PF_COW ? 'C' : '-'),
-			(expected & PF_USER ? 'U' : '-'),
-			(expected & PF_WRITE ? 'W' : '-')
-			);
+		MM_int_DumpTablesEnt( rangeStart, curPos - rangeStart, expected );
 		expected = 0;
 	}
-	#undef CANOICAL
 }
 
 /**
@@ -330,9 +339,7 @@ int MM_GetPageEntryPtr(tVAddr Addr, BOOL bTemp, BOOL bAllocate, BOOL bLargePage,
 {
 	tPAddr	*pmlevels[4];
 	tPAddr	tmp;
-	const int	ADDR_SIZES[] = {39, 30, 21, 12};
-	const int	nADDR_SIZES = sizeof(ADDR_SIZES)/sizeof(ADDR_SIZES[0]);
-	 int	i;
+	 int	i, size;
 	
 	#define BITMASK(bits)	( (1LL << (bits))-1 )
 
@@ -354,43 +361,44 @@ int MM_GetPageEntryPtr(tVAddr Addr, BOOL bTemp, BOOL bAllocate, BOOL bLargePage,
 	// Mask address
 	Addr &= (1ULL << 48)-1;
 	
-	for( i = 0; i < nADDR_SIZES-1; i ++ )
+	for( size = 39, i = 0; size > 12; size -= 9, i ++ )
 	{
+		Uint64	*ent = &pmlevels[i][Addr >> size];
 //		INVLPG( &pmlevels[i][ (Addr >> ADDR_SIZES[i]) & 
 		
-		// Check for a large page
-		if( (Addr & ((1ULL << ADDR_SIZES[i])-1)) == 0 && bLargePage )
+		// Check for a free large page slot
+		// TODO: Better support with selectable levels
+		if( (Addr & ((1ULL << size)-1)) == 0 && bLargePage )
 		{
-			if(Pointer)	*Pointer = &pmlevels[i][Addr >> ADDR_SIZES[i]];
-			return ADDR_SIZES[i];
+			if(Pointer)	*Pointer = ent;
+			return size;
 		}
 		// Allocate an entry if required
-		if( !(pmlevels[i][Addr >> ADDR_SIZES[i]] & 1) )
+		if( !(*ent & PF_PRESENT) )
 		{
 			if( !bAllocate )	return -4;	// If allocation is not requested, error
 			if( !(tmp = MM_AllocPhys()) )	return -2;
-			pmlevels[i][Addr >> ADDR_SIZES[i]] = tmp | 3;
+			*ent = tmp | 3;
 			if( Addr < 0x800000000000 )
-				pmlevels[i][Addr >> ADDR_SIZES[i]] |= PF_USER;
-			INVLPG( &pmlevels[i+1][ (Addr>>ADDR_SIZES[i])*512 ] );
-			memset( &pmlevels[i+1][ (Addr>>ADDR_SIZES[i])*512 ], 0, 0x1000 );
+				*ent |= PF_USER;
+			INVLPG( &pmlevels[i+1][ (Addr>>size)*512 ] );
+			memset( &pmlevels[i+1][ (Addr>>size)*512 ], 0, 0x1000 );
 			LOG("Init PML%i ent 0x%x %p with %P", 4 - i,
-				Addr>>ADDR_SIZES[i],
-				(Addr>>ADDR_SIZES[i])<<ADDR_SIZES[i], tmp);
+				Addr>>size, (Addr>>size) << size, tmp);
 		}
 		// Catch large pages
-		else if( pmlevels[i][Addr >> ADDR_SIZES[i]] & PF_LARGE )
+		else if( *ent & PF_LARGE )
 		{
 			// Alignment
-			if( (Addr & ((1ULL << ADDR_SIZES[i])-1)) != 0 )	return -3;
-			if(Pointer)	*Pointer = &pmlevels[i][Addr >> ADDR_SIZES[i]];
-			return ADDR_SIZES[i];	// Large page warning
+			if( (Addr & ((1ULL << size)-1)) != 0 )	return -3;
+			if(Pointer)	*Pointer = ent;
+			return size;	// Large page warning
 		}
 	}
 	
 	// And, set the page table entry
-	if(Pointer)	*Pointer = &pmlevels[i][Addr >> ADDR_SIZES[i]];
-	return ADDR_SIZES[i];
+	if(Pointer)	*Pointer = &pmlevels[i][Addr >> size];
+	return size;
 }
 
 /**
@@ -476,6 +484,26 @@ tPAddr MM_Allocate(tVAddr VAddr)
 	}
 	
 	LEAVE('X', ret);
+	return ret;
+}
+
+tPAddr MM_AllocateZero(tVAddr VAddr)
+{
+	tPAddr	ret = gMM_ZeroPage;
+	
+	MM_GetPageEntryPtr(VAddr, 0, 1, 0, NULL);
+
+	if(!gMM_ZeroPage) {
+		ret = gMM_ZeroPage = MM_AllocPhys();
+		MM_RefPhys(ret);	// Don't free this please
+		MM_Map(VAddr, ret);
+		memset((void*)VAddr, 0, 0x1000);
+	}
+	else {
+		MM_Map(VAddr, ret);
+	}
+	MM_RefPhys(ret);	// Refernce for this map
+	MM_SetFlags(VAddr, MM_PFLAG_COW, MM_PFLAG_COW);
 	return ret;
 }
 
@@ -765,16 +793,16 @@ tPAddr MM_Clone(void)
 	// #3 Set Copy-On-Write to all user pages
 	for( i = 0; i < 256; i ++)
 	{
+		if( PAGEMAPLVL4(i) & PF_WRITE ) {
+			PAGEMAPLVL4(i) |= PF_COW;
+			PAGEMAPLVL4(i) &= ~PF_WRITE;
+		}
+
 		TMPMAPLVL4(i) = PAGEMAPLVL4(i);
 //		Log_Debug("MM", "TMPMAPLVL4(%i) = 0x%016llx", i, TMPMAPLVL4(i));
 		if( !(TMPMAPLVL4(i) & PF_PRESENT) )	continue ;
 		
 		MM_RefPhys( TMPMAPLVL4(i) & PADDR_MASK );
-		
-		if( TMPMAPLVL4(i) & PF_WRITE ) {
-			TMPMAPLVL4(i) |= PF_COW;
-			TMPMAPLVL4(i) &= ~PF_WRITE;
-		}
 	}
 	
 	// #4 Map in kernel pages
@@ -794,7 +822,7 @@ tPAddr MM_Clone(void)
 	}
 	
 	// #5 Set fractal mapping
-	TMPMAPLVL4(508) = ret | 3;
+	TMPMAPLVL4(508) = ret | 3;	// Main
 	TMPMAPLVL4(509) = 0;	// Temp
 	
 	// #6 Create kernel stack
@@ -834,83 +862,36 @@ tPAddr MM_Clone(void)
 	return ret;
 }
 
-void MM_ClearUser(void)
+void MM_int_ClearTableLevel(tVAddr VAddr, int LevelBits, int MaxEnts)
 {
-	tVAddr	addr = 0;
-	 int	pml4, pdpt, pd, pt;
-	
-	for( pml4 = 0; pml4 < 256; pml4 ++ )
+	Uint64	* const table_bases[] = {&PAGETABLE(0), &PAGEDIR(0), &PAGEDIRPTR(0), &PAGEMAPLVL4(0)};
+	Uint64	*table = table_bases[(LevelBits-12)/9] + (VAddr >> LevelBits);
+	 int	i;
+	Log("MM_int_ClearTableLevel: (VAddr=%p, LevelBits=%i, MaxEnts=%i)", VAddr, LevelBits, MaxEnts);
+	for( i = 0; i < MaxEnts; i ++ )
 	{
-		// Catch an un-allocated PML4 entry
-		if( !(PAGEMAPLVL4(pml4) & 1) ) {
-			addr += 1ULL << PML4_SHIFT;
+		// Skip non-present tables
+		if( !(table[i] & PF_PRESENT) ) {
+			table[i] = 0;
 			continue ;
 		}
-		
-		// Catch a large COW
-		if( (PAGEMAPLVL4(pml4) & PF_COW) ) {
-			addr += 1ULL << PML4_SHIFT;
+	
+		if( (table[i] & PF_COW) && MM_GetRefCount(table[i] & PADDR_MASK) > 1 ) {
+			MM_DerefPhys(table[i] & PADDR_MASK);
+			table[i] = 0;
+			continue ;
 		}
-		else
-		{
-			// TODO: Large pages
-			
-			// Child entries
-			for( pdpt = 0; pdpt < 512; pdpt ++ )
-			{
-				// Unallocated
-				if( !(PAGEDIRPTR(addr >> PDP_SHIFT) & 1) ) {
-					addr += 1ULL << PDP_SHIFT;
-					continue;
-				}
-			
-				// Catch a large COW
-				if( (PAGEDIRPTR(addr >> PDP_SHIFT) & PF_COW) ) {
-					addr += 1ULL << PDP_SHIFT;
-				}
-				else {
-					// Child entries
-					for( pd = 0; pd < 512; pd ++ )
-					{
-						// Unallocated PDir entry
-						if( !(PAGEDIR(addr >> PDIR_SHIFT) & 1) ) {
-							addr += 1ULL << PDIR_SHIFT;
-							continue;
-						}
-						
-						// COW Page Table
-						if( PAGEDIR(addr >> PDIR_SHIFT) & PF_COW ) {
-							addr += 1ULL << PDIR_SHIFT;
-						}
-						else
-						{
-							// TODO: Catch large pages
-							
-							// Child entries
-							for( pt = 0; pt < 512; pt ++ )
-							{
-								// Free page
-								if( PAGETABLE(addr >> PTAB_SHIFT) & 1 ) {
-									MM_DerefPhys( PAGETABLE(addr >> PTAB_SHIFT) & PADDR_MASK );
-									PAGETABLE(addr >> PTAB_SHIFT) = 0;
-								}
-								addr += 1ULL << 12;
-							}
-						}
-						// Free page table
-						MM_DerefPhys( PAGEDIR(addr >> PDIR_SHIFT) & PADDR_MASK );
-						PAGEDIR(addr >> PDIR_SHIFT) = 0;
-					}
-				}
-				// Free page directory
-				MM_DerefPhys( PAGEDIRPTR(addr >> PDP_SHIFT) & PADDR_MASK );
-				PAGEDIRPTR(addr >> PDP_SHIFT) = 0;
-			}
-		}
-		// Free page directory pointer table (PML4 entry)
-		MM_DerefPhys( PAGEMAPLVL4(pml4) & PADDR_MASK );
-		PAGEMAPLVL4(pml4) = 0;
+		// Clear table contents (if it is a table)
+		if( LevelBits > 12 )
+			MM_int_ClearTableLevel(VAddr + ((tVAddr)i << LevelBits), LevelBits-9, 512);
+		MM_DerefPhys(table[i] & PADDR_MASK);
+		table[i] = 0;
 	}
+}
+
+void MM_ClearUser(void)
+{
+	MM_int_ClearTableLevel(0, 39, 256);	
 }
 
 tVAddr MM_NewWorkerStack(void *StackData, size_t StackSize)
