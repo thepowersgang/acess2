@@ -80,7 +80,7 @@ tPAddr	gMM_ZeroPage;
 // === CODE ===
 void MM_InitVirt(void)
 {
-	Log_Debug("MMVirt", "&PAGEMAPLVL4(0) = %p", &PAGEMAPLVL4(0));
+//	Log_Debug("MMVirt", "&PAGEMAPLVL4(0) = %p", &PAGEMAPLVL4(0));
 //	MM_DumpTables(0, -1L);
 }
 
@@ -106,6 +106,7 @@ void MM_int_ClonePageEnt( Uint64 *Ent, void *NextLevel, tVAddr Addr, int bTable 
 	{
 		*Ent &= ~PF_COW;
 		*Ent |= PF_PRESENT|PF_WRITE;
+//		Log_Debug("MMVirt", "COW ent at %p (%p) only %P", Ent, NextLevel, curpage);
 	}
 	else
 	{
@@ -820,18 +821,21 @@ tPAddr MM_Clone(void)
 		if( TMPMAPLVL4(i) & 1 )
 			MM_RefPhys( TMPMAPLVL4(i) & PADDR_MASK );
 	}
+
+	// Mark Per-Process data as COW
+	TMPMAPLVL4(MM_PPD_BASE>>39) |= PF_COW;
+	TMPMAPLVL4(MM_PPD_BASE>>39) &= ~PF_WRITE;
 	
 	// #5 Set fractal mapping
-	TMPMAPLVL4(508) = ret | 3;	// Main
-	TMPMAPLVL4(509) = 0;	// Temp
+	TMPMAPLVL4(MM_FRACTAL_BASE>>39) = ret | 3;	// Main
+	TMPMAPLVL4(MM_TMPFRAC_BASE>>39) = 0;	// Temp
 	
 	// #6 Create kernel stack
 	//  tThread->KernelStack is the top
 	//  There is 1 guard page below the stack
 	kstackbase = Proc_GetCurThread()->KernelStack - KERNEL_STACK_SIZE;
 
-	Log("MM_Clone: kstackbase = %p", kstackbase);
-	
+	// Clone stack
 	TMPMAPLVL4(MM_KSTACK_BASE >> PML4_SHIFT) = 0;
 	for( i = 1; i < KERNEL_STACK_SIZE/0x1000; i ++ )
 	{
@@ -839,9 +843,6 @@ tPAddr MM_Clone(void)
 		tVAddr	tmpmapping;
 		MM_MapEx(kstackbase+i*0x1000, phys, 1, 0);
 		
-		Log_Debug("MM", "MM_Clone: Cloning stack page %p from %P to %P",
-			kstackbase+i*0x1000, MM_GetPhysAddr( kstackbase+i*0x1000 ), phys
-			);
 		tmpmapping = MM_MapTemp(phys);
 		if( MM_GetPhysAddr( kstackbase+i*0x1000 ) )
 			memcpy((void*)tmpmapping, (void*)(kstackbase+i*0x1000), 0x1000);
@@ -867,7 +868,7 @@ void MM_int_ClearTableLevel(tVAddr VAddr, int LevelBits, int MaxEnts)
 	Uint64	* const table_bases[] = {&PAGETABLE(0), &PAGEDIR(0), &PAGEDIRPTR(0), &PAGEMAPLVL4(0)};
 	Uint64	*table = table_bases[(LevelBits-12)/9] + (VAddr >> LevelBits);
 	 int	i;
-	Log("MM_int_ClearTableLevel: (VAddr=%p, LevelBits=%i, MaxEnts=%i)", VAddr, LevelBits, MaxEnts);
+//	Log("MM_int_ClearTableLevel: (VAddr=%p, LevelBits=%i, MaxEnts=%i)", VAddr, LevelBits, MaxEnts);
 	for( i = 0; i < MaxEnts; i ++ )
 	{
 		// Skip non-present tables

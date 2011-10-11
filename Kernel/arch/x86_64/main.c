@@ -41,8 +41,6 @@ void kmain(Uint MbMagic, void *MbInfoPtr)
 		// Adjust Multiboot structure address
 		mbInfo = (void*)( (Uint)MbInfoPtr + KERNEL_BASE );
 		gsBootCmdLine = (char*)( (Uint)mbInfo->CommandLine + KERNEL_BASE);
-		Log("gsBootCmdLine = '%s'", gsBootCmdLine);
-		
 		MM_InitPhys_Multiboot( mbInfo );	// Set up physical memory manager
 		break;
 	default:
@@ -57,14 +55,13 @@ void kmain(Uint MbMagic, void *MbInfoPtr)
 	Heap_Install();
 	
 	*(Uint16*)(KERNEL_BASE|0xB8000) = 0x1F00|'E';
-	Log_Log("Arch", "Starting threading...");
 	Threads_Init();
 	
 	Time_Setup();
 	*(Uint16*)(KERNEL_BASE|0xB8000) = 0x1F00|'F';
 	
-	Log_Log("Arch", "Starting VFS...");
 	// Load Virtual Filesystem
+	Log_Log("Arch", "Starting VFS...");
 	VFS_Init();
 	
 	*(Uint16*)(KERNEL_BASE|0xB8000) = 0x1F00|'Z';

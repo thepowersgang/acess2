@@ -23,4 +23,6 @@ typedef struct sTSS {
 	Uint16	Resvd, IOPB;	// IO Permissions Bitmap
 } __attribute__((packed)) tTSS;
 
+#define USER_MAX	KERNEL_BASE
+
 #endif

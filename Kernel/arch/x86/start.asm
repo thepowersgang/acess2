@@ -70,7 +70,7 @@ start:
 	mov cr3, ecx
 	
 	mov ecx, cr0
-	or	ecx, 0x80010000	; PG and WP
+	or ecx, 0x80010000	; PG and WP
 	mov cr0, ecx
 	
 	mov WORD [0xB8002], 0x0763	; 'c'

@@ -183,7 +183,7 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 				paddr = ent->Base;
 			}
 			
-			Log(" MM_InitPhys_Multiboot: paddr=0x%x, avail=%i", paddr, avail);
+			Log("MM_InitPhys_Multiboot: paddr=0x%x, avail=0x%x pg", paddr, avail);
 			
 			// Map
 			while( todo && avail --)
@@ -509,7 +509,7 @@ void MM_RefPhys(tPAddr PAddr)
 				return ;
 			}
 			// Fill block
-			Log("Allocated references for %P-%P", page_base << 12, (page_base+pages_per_refpage-1)<<12);
+			Log("Allocated references for %P-%P", page_base << 12, (page_base+pages_per_refpage)<<12);
 			for( i = 0; i < pages_per_refpage; i ++ ) {
 				 int	pg = page_base + i;
 				gaiPageReferences[pg] = !!PAGE_ALLOC_TEST(pg);

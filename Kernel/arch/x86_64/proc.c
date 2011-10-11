@@ -16,7 +16,7 @@
 #include <hal_proc.h>
 
 // === FLAGS ===
-#define DEBUG_TRACE_SWITCH	1
+#define DEBUG_TRACE_SWITCH	0
 #define BREAK_ON_SWITCH 	0	// Break into bochs debugger on a task switch
 
 // === CONSTANTS ===
@@ -413,7 +413,7 @@ void Proc_Start(void)
 	__asm__ __volatile__("sti");
 	#endif
 	MM_FinishVirtualInit();
-	Log("Multithreading started");
+	Log_Log("Proc", "Multithreading started");
 }
 
 /**
@@ -490,13 +490,15 @@ int Proc_Clone(Uint Flags)
 	newThread->KernelStack = cur->KernelStack;
 	newThread->SavedState.RIP = rip;
 
-	// DEBUG	
+	// DEBUG
+	#if 0
 	Log("New (Clone) %p, rsp = %p, cr3 = %p", rip, newThread->SavedState.RSP, newThread->MemState.CR3);
 	{
 		Uint cr3;
 		__asm__ __volatile__ ("mov %%cr3, %0" : "=r" (cr3));
 		Log("Current CR3 = 0x%x, PADDR(RSP) = 0x%x", cr3, MM_GetPhysAddr(newThread->SavedState.RSP));
 	}
+	#endif
 	// /DEBUG
 	
 	// Lock list and add to active
@@ -573,7 +575,6 @@ Uint Proc_MakeUserStack(void)
 	for( ; i < USER_STACK_SZ/0x1000; i++ )
 	{
 		tPAddr	alloc = MM_Allocate( base + (i<<12) );
-		Log_Debug("Proc", "Proc_MakeUserStack: alloc = %P", alloc);
 		if( !alloc )
 		{
 			// Error
@@ -634,9 +635,8 @@ void Proc_StartProcess(Uint16 SS, Uint Stack, Uint Flags, Uint16 CS, Uint IP)
 			CS, SS);
 		Threads_Exit(0, -1);
 	}
-	Log("Proc_StartProcess: (SS=%x, Stack=%p, Flags=%x, CS=%x, IP=%p)",
-		SS, Stack, Flags, CS, IP);
-	MM_DumpTables(0, USER_MAX);
+//	Log("Proc_StartProcess: (SS=%x, Stack=%p, Flags=%x, CS=%x, IP=%p)", SS, Stack, Flags, CS, IP);
+//	MM_DumpTables(0, USER_MAX);
 	if(CS == 0x1B)
 	{
 		// 32-bit return
@@ -724,12 +724,12 @@ void Proc_Reschedule(void)
 		return ;
 
 	#if DEBUG_TRACE_SWITCH
-	LogF("\nSwitching to task %i, CR3 = 0x%x, RIP = %p, RSP = %p, KStack = %p\n",
-		nextthread->TID,
+	LogF("\nSwitching to task CR3 = 0x%x, RIP = %p, RSP = %p - %i (%s)\n",
 		nextthread->MemState.CR3,
 		nextthread->SavedState.RIP,
 		nextthread->SavedState.RSP,
-		nextthread->KernelStack
+		nextthread->TID,
+		nextthread->ThreadName
 		);
 	#endif
 
