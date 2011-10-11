@@ -8,6 +8,7 @@
 #define _PROC_H_
 
 #define MAX_CPUS	4
+#define USER_MAX	0x80000000
 
 // === STRUCTURES ===
 typedef struct {

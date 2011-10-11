@@ -36,6 +36,8 @@ _start:
 	mcr p15, 0, r0, c1, c0, 0
 
 	@ Prepare for interrupts
+	cps #18	@ IRQ Mode
+	ldr sp, =irqstack+0x1000	@ Set up stack
 	cps #19
 
 	ldr sp, =stack+0x10000	@ Set up stack
@@ -46,6 +48,7 @@ _ptr_kmain:
 	.long kmain
 
 .comm stack, 0x10000	@ ; 64KiB Stack
+.comm irqstack, 0x1000	@ ; 4KiB Stack
 
 SyscallHandler:
 	b .
@@ -58,7 +61,7 @@ IRQ_saved_lr: 	.long	0
 IRQHandler:
 	sub lr, #4	@ Adjust LR to the correct value
 	srsdb sp!, #19	@ Switch to supervisor mode (DDI0406B D1.6.5) (actually SRSFD)
-	cpsie i, #19
+	cps #19
 
 	PUSH_GPRS
 
@@ -73,6 +76,7 @@ IRQHandler:
 
 	@ Restore CPU state
 	POP_GPRS
+	cpsie i
 	rfeia sp!	@ Pop state (actually RFEFD)
 	bx lr
 
@@ -80,7 +84,7 @@ IRQHandler:
 DataAbort:
 	sub lr, #8	@ Adjust LR to the correct value
 	srsdb sp!, #19	@ Switch to supervisor mode (DDI0406B D1.6.5) (actually SRSFD)
-	cpsie i, #19
+	cpsid ifa, #19
 	PUSH_GPRS
 
 	mov r2, lr
