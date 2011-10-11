@@ -1,3 +1,8 @@
+;
+; Acess2 x86_64 port
+;
+
+%include "arch/x86_64/include/common.inc.asm"
 
 [BITS 32]
 
@@ -150,11 +155,11 @@ gKStackPT:	; Covers 2 MiB
 	; Initial stack - 64KiB
 	dq	0
 	%assign i 0
-	%rep 16-1
+	%rep INITIAL_KSTACK_SIZE-1
 	dd	gInitialKernelStack - KERNEL_BASE + i*0x1000 + 0x103, 0
 	%assign i i+1
 	%endrep
-	times 512-16	dq 0
+	times 512-INITIAL_KSTACK_SIZE	dq 0
 gInitialPT1:	; 2 MiB
 	%assign i 0
 	%rep 512
@@ -171,8 +176,10 @@ gInitialPT2:	; 2 MiB
 [section .padata]
 [global gInitialKernelStack]
 gInitialKernelStack:
-	times 0x1000*(16-1)	db 0	; 16 Pages
+	times 0x1000*(INITIAL_KSTACK_SIZE-1)	db 0	; 8 Pages
 
 [section .rodata]
 csNot64BitCapable:
 	db "Not 64-bit Capable",0
+
+; vim: ft=nasm

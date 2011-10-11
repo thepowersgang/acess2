@@ -48,6 +48,7 @@ NewTaskHeader:
 	jmp .hlt
 
 [extern MM_Clone]
+[extern MM_DumpTables]
 [global Proc_CloneInt]
 Proc_CloneInt:
 	PUSH_GPR
@@ -55,13 +56,16 @@ Proc_CloneInt:
 	mov [rdi], rsp
 	call MM_Clone
 	; Save CR3
-	mov rsi, [rsp+0x30]
+	mov rsi, [rsp+0x30]	; Saved version of RSI
 	mov [rsi], rax
 	; Undo the PUSH_GPR
 	add rsp, 0x80
 	mov rax, .newTask
 	ret
 .newTask:
+;	mov rdi, 0
+;	mov rsi, 0x800000000000
+;	call MM_DumpTables
 	POP_GPR
 	xor eax, eax
 	ret
@@ -123,3 +127,4 @@ SwitchTasks:
 	xor eax, eax	; Return zero
 	ret
 
+; vim: ft=nasm

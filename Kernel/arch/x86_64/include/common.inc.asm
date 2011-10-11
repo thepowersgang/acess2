@@ -1,4 +1,6 @@
 
+%define INITIAL_KSTACK_SIZE	8
+
 %macro SAVE_GPR 1
 	mov [%1-0x08], r15
 	mov [%1-0x10], r14

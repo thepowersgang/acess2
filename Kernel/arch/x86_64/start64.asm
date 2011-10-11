@@ -1,6 +1,7 @@
 ;
 ; Acess2 x86_64 Port
 ;
+%include "arch/x86_64/include/common.inc.asm"
 [bits 64]
 ;KERNEL_BASE	equ	0xFFFF800000000000
 KERNEL_BASE	equ	0xFFFFFFFF80000000
@@ -35,7 +36,7 @@ start64:
 	rep stosq
 	
 	; Set kernel stack
-	mov rsp, 0xFFFFA00000000000 + 0x10000
+	mov rsp, 0xFFFFA00000000000 + INITIAL_KSTACK_SIZE*0x1000
 	
 	; Call main
 	mov edi, [gMultibootMagic - KERNEL_BASE]
@@ -55,45 +56,35 @@ GetCPUNum:
 	shr ax, 4	; One 16-byte TSS per CPU
 	ret
 
-KSTACK_USERSTATE_SIZE	equ	(16+1+5)*8	; GPRegs, CPU, IRET
+KSTACK_USERSTATE_SIZE	equ	(5+2+16+2)*8	; IRET, ErrorNum, ErrorCode, GPRs, FS&GS
 [global Proc_ReturnToUser]
-[extern Proc_GetCurThread]
 Proc_ReturnToUser:
-	; RBP is the handler to use
-	
-	call Proc_GetCurThread
-	
-	; EAX is the current thread
-	mov rbx, rax
-	mov rax, [rbx+40]	; Get Kernel Stack
-	sub rax, KSTACK_USERSTATE_SIZE
+	; RDI - Handler
+	; RSI - Kernel Stack
+	; RDX - Signal num
 	
 	;
 	; NOTE: This can cause corruption if the signal happens while the user
 	;       has called a kernel operation.
 	; Good thing this can only be called on a user fault.
 	;
-	
+
+	xchg bx, bx	
 	; Get and alter User SP
-	mov rcx, [rax+KSTACK_USERSTATE_SIZE-3*8]
-	mov rdx, [rbx+60]	; Get Signal Number
-	mov [rcx-8], rdx
-	mov rax, User_Syscall_RetAndExit
+	mov rcx, [rsi-0x20]	; Get user SP
+	xor eax, eax
 	mov [rcx-16], rax
 	sub rcx, 16
 	
-	; Restore Segment Registers
-	mov ax, 0x23
-	mov ds, ax
-	mov es, ax
+	; Drop down to user mode
+	cli
+	mov rsp, rcx	; Set SP
+	mov rcx, rdi	; SYSRET IP
 	
-	push 0x23	; SS
-	push rcx	; RSP
-	push 0x202	; RFLAGS (IF and Rsvd)
-	push 0x1B	; CS
-	push rbp	; RIP
-	
-	iret
+	mov rdi, rdx	; Argument for handler
+	mov r11, 0x202	; RFlags
+	db 0x48
+	sysret
 
 ; int CallWithArgArray(void *Ptr, int NArgs, Uint *Args)
 ; Call a function passing the array as arguments
@@ -152,12 +143,4 @@ CallWithArgArray:
 	pop rbp
 	ret
 
-[section .usertext]
-User_Syscall_RetAndExit:
-	mov rdi, rax
-	jmp User_Syscall_Exit
-User_Syscall_Exit:
-	xor rax, rax
-	; RDI: Return Value
-	int 0xAC
-
+; vim: ft=nasm

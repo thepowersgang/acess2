@@ -16,7 +16,7 @@
 #include <hal_proc.h>
 
 // === FLAGS ===
-#define DEBUG_TRACE_SWITCH	0
+#define DEBUG_TRACE_SWITCH	1
 #define BREAK_ON_SWITCH 	0	// Break into bochs debugger on a task switch
 
 // === CONSTANTS ===
@@ -48,7 +48,7 @@ extern int	giTotalTickets;
 extern int	giNumActiveThreads;
 extern tThread	gThreadZero;
 extern void	Threads_Dump(void);
-extern void	Proc_ReturnToUser(void);
+extern void	Proc_ReturnToUser(tVAddr Handler, tVAddr KStackTop, int Argument);
 extern void	Time_UpdateTimestamp(void);
 extern void	SwitchTasks(Uint NewSP, Uint *OldSP, Uint NewIP, Uint *OldIO, Uint CR3);
 
@@ -486,16 +486,12 @@ int Proc_Clone(Uint Flags)
 	
 	// Save core machine state
 	rip = Proc_CloneInt(&newThread->SavedState.RSP, &newThread->MemState.CR3);
-	if(rip == 0) {
-		outb(0x20, 0x20);	// ACK Timer and return as child
-		__asm__ __volatile__ ("sti");
-		return 0;
-	}
+	if(rip == 0)	return 0;	// Child
 	newThread->KernelStack = cur->KernelStack;
 	newThread->SavedState.RIP = rip;
 
 	// DEBUG	
-//	Log("New (Clone) %p, rsp = %p, cr3 = %p", rip, newThread->SavedState.RSP, newThread->MemState.CR3);
+	Log("New (Clone) %p, rsp = %p, cr3 = %p", rip, newThread->SavedState.RSP, newThread->MemState.CR3);
 	{
 		Uint cr3;
 		__asm__ __volatile__ ("mov %%cr3, %0" : "=r" (cr3));
@@ -563,15 +559,19 @@ Uint Proc_MakeUserStack(void)
 	
 	// Check Prospective Space
 	for( i = USER_STACK_SZ >> 12; i--; )
+	{
 		if( MM_GetPhysAddr( base + (i<<12) ) != 0 )
 			break;
+	}
 	
 	if(i != -1)	return 0;
 	
 	// Allocate Stack - Allocate incrementally to clean up MM_Dump output
 	for( i = 0; i < USER_STACK_SZ/0x1000; i++ )
 	{
-		if( !MM_Allocate( base + (i<<12) ) )
+		tPAddr	alloc = MM_Allocate( base + (i<<12) );
+		Log_Debug("Proc", "Proc_MakeUserStack: alloc = %P", alloc);
+		if( !alloc )
 		{
 			// Error
 			Log_Error("Proc", "Unable to allocate user stack (%i pages requested)", USER_STACK_SZ/0x1000);
@@ -633,6 +633,7 @@ void Proc_StartProcess(Uint16 SS, Uint Stack, Uint Flags, Uint16 CS, Uint IP)
 	}
 	Log("Proc_StartProcess: (SS=%x, Stack=%p, Flags=%x, CS=%x, IP=%p)",
 		SS, Stack, Flags, CS, IP);
+	MM_DumpTables(0, USER_MAX);
 	if(CS == 0x1B)
 	{
 		// 32-bit return
@@ -691,9 +692,8 @@ int Proc_Demote(Uint *Err, int Dest, tRegs *Regs)
  */
 void Proc_CallFaultHandler(tThread *Thread)
 {
-	// Rewinds the stack and calls the user function
 	// Never returns
-	__asm__ __volatile__ ("mov %0, %%rbp;\n\tcall Proc_ReturnToUser" :: "r"(Thread->FaultHandler));
+	Proc_ReturnToUser(Thread->FaultHandler, Thread->KernelStack, Thread->CurFaultNum);
 	for(;;);
 }
 

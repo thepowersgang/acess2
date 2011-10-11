@@ -6,6 +6,7 @@
 #define _ARCH_H_
 
 //#include <stdint.h>
+#define	USER_MAX 	0x00007FFF##FFFFF000
 #define KERNEL_BASE	0xFFFFFFFF##80000000
 #define BITS	64
 #define PAGE_SIZE	0x1000

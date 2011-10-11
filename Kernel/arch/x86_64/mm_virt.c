@@ -56,10 +56,12 @@
 extern void	Error_Backtrace(Uint IP, Uint BP);
 extern tPAddr	gInitialPML4[512];
 extern void	Threads_SegFault(tVAddr Addr);
+extern char	_UsertextBase[];
 
 // === PROTOTYPES ===
 void	MM_InitVirt(void);
 //void	MM_FinishVirtualInit(void);
+void	MM_int_ClonePageEnt( Uint64 *Ent, void *NextLevel, tVAddr Addr, int bTable );
  int	MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs);
 void	MM_DumpTables(tVAddr Start, tVAddr End);
  int	MM_GetPageEntryPtr(tVAddr Addr, BOOL bTemp, BOOL bAllocate, BOOL bLargePage, tPAddr **Pointer);
@@ -75,6 +77,7 @@ tMutex	glMM_TempFractalLock;
 // === CODE ===
 void MM_InitVirt(void)
 {
+	Log_Debug("MMVirt", "&PAGEMAPLVL4(0) = %p", &PAGEMAPLVL4(0));
 //	MM_DumpTables(0, -1L);
 }
 
@@ -84,6 +87,67 @@ void MM_FinishVirtualInit(void)
 }
 
 /**
+ * \brief Clone a page from an entry
+ * \param Ent	Pointer to the entry in the PML4/PDP/PD/PT
+ * \param NextLevel	Pointer to contents of the entry
+ * \param Addr	Dest address
+ * \note Used in COW
+ */
+void MM_int_ClonePageEnt( Uint64 *Ent, void *NextLevel, tVAddr Addr, int bTable )
+{
+	tPAddr	curpage = *Ent & PADDR_MASK; 
+	if( MM_GetRefCount( curpage ) <= 0 ) {
+		Log_KernelPanic("MMVirt", "Page %P still marked COW, but unreferenced", curpage);
+	}
+//	Log_Debug("MM_Virt", "%P refcount %i", curpage, MM_GetRefCount( curpage ));
+	if( MM_GetRefCount( curpage ) == 1 )
+	{
+		*Ent &= ~PF_COW;
+		*Ent |= PF_PRESENT|PF_WRITE;
+//		Log_Debug("MMVirt", "COW ent at %p (%p), last (%P)", Ent, NextLevel, curpage);
+	}
+	else
+	{
+		void	*tmp;
+		tPAddr	paddr;
+		
+		if( !(paddr = MM_AllocPhys()) ) {
+			Threads_SegFault(Addr);
+			return ;
+		}
+
+		ASSERT(paddr != curpage);
+			
+		tmp = (void*)MM_MapTemp(paddr);
+		memcpy( tmp, NextLevel, 0x1000 );
+		MM_FreeTemp( (tVAddr)tmp );
+		
+//		Log_Debug("MMVirt", "COW ent at %p (%p) from %P to %P", Ent, NextLevel, curpage, paddr);
+
+		MM_DerefPhys( curpage );
+		*Ent &= PF_USER;
+		*Ent |= paddr|PF_PRESENT|PF_WRITE;
+	}
+	INVLPG( (tVAddr)NextLevel );
+	
+	// Mark COW on pages
+	if(bTable) 
+	{
+		Uint64	*dp = NextLevel;
+		 int	i;
+		for( i = 0; i < 512; i ++ )
+		{
+			if( !(dp[i] & PF_PRESENT) )	continue;
+			MM_RefPhys( dp[i] & PADDR_MASK );
+			if( dp[i] & PF_WRITE ) {
+				dp[i] &= ~PF_WRITE;
+				dp[i] |= PF_COW;
+			}
+		}
+	}
+}
+
+/*
  * \brief Called on a page fault
  */
 int MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
@@ -93,34 +157,36 @@ int MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 	if( PAGEMAPLVL4(Addr>>39) & PF_PRESENT
 	 && PAGEDIRPTR (Addr>>30) & PF_PRESENT
 	 && PAGEDIR    (Addr>>21) & PF_PRESENT
-	 && PAGETABLE  (Addr>>12) & PF_PRESENT
-	 && PAGETABLE  (Addr>>12) & PF_COW )
+	 && PAGETABLE  (Addr>>12) & PF_PRESENT )
 	{
-		tPAddr	paddr;
-		if(MM_GetRefCount( PAGETABLE(Addr>>12) & PADDR_MASK ) == 1)
+		// PML4 Entry
+		if( PAGEMAPLVL4(Addr>>39) & PF_COW )
 		{
-			PAGETABLE(Addr>>12) &= ~PF_COW;
-			PAGETABLE(Addr>>12) |= PF_PRESENT|PF_WRITE;
+			tPAddr	*dp = &PAGEDIRPTR((Addr>>39)*512);
+			MM_int_ClonePageEnt( &PAGEMAPLVL4(Addr>>39), dp, Addr, 1 );
+//			MM_DumpTables(Addr>>39 << 39, (((Addr>>39) + 1) << 39) - 1);
 		}
-		else
+		// PDP Entry
+		if( PAGEDIRPTR(Addr>>30) & PF_COW )
 		{
-			void	*tmp;
-			//Log("MM_PageFault: COW - MM_DuplicatePage(0x%x)", Addr);
-			paddr = MM_AllocPhys();
-			if( !paddr ) {
-				Threads_SegFault(Addr);
-				return 0;
-			}
-			tmp = (void*)MM_MapTemp(paddr);
-			memcpy( tmp, (void*)(Addr & ~0xFFF), 0x1000 );
-			MM_FreeTemp( (tVAddr)tmp );
-			MM_DerefPhys( PAGETABLE(Addr>>12) & PADDR_MASK );
-			PAGETABLE(Addr>>12) &= PF_USER;
-			PAGETABLE(Addr>>12) |= paddr|PF_PRESENT|PF_WRITE;
+			tPAddr	*dp = &PAGEDIR( (Addr>>30)*512 );
+			MM_int_ClonePageEnt( &PAGEDIRPTR(Addr>>30), dp, Addr, 1 );
+//			MM_DumpTables(Addr>>30 << 30, (((Addr>>30) + 1) << 30) - 1);
 		}
-		
-		INVLPG( Addr & ~0xFFF );
-		return 0;
+		// PD Entry
+		if( PAGEDIR(Addr>>21) & PF_COW )
+		{
+			tPAddr	*dp = &PAGETABLE( (Addr>>21)*512 );
+			MM_int_ClonePageEnt( &PAGEDIR(Addr>>21), dp, Addr, 1 );
+//			MM_DumpTables(Addr>>21 << 21, (((Addr>>21) + 1) << 21) - 1);
+		}
+		// PT Entry
+		if( PAGETABLE(Addr>>12) & PF_COW )
+		{
+			MM_int_ClonePageEnt( &PAGETABLE(Addr>>12), (void*)(Addr & ~0xFFF), Addr, 0 );
+			INVLPG( Addr & ~0xFFF );
+			return 0;
+		}
 	}
 	#endif
 	
@@ -215,19 +281,16 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 			if( !(PAGEMAPLVL4(page>>27) & PF_PRESENT) ) {
 				page += (1 << 27) - 1;
 				curPos += (1L << 39) - 0x1000;
-				//Debug("pml4 ent unset (page = 0x%x now)", page);
 				continue;
 			}
 			if( !(PAGEDIRPTR(page>>18) & PF_PRESENT) ) {
 				page += (1 << 18) - 1;
 				curPos += (1L << 30) - 0x1000;
-				//Debug("pdp ent unset (page = 0x%x now)", page);
 				continue;
 			}
 			if( !(PAGEDIR(page>>9) & PF_PRESENT) ) {
 				page += (1 << 9) - 1;
 				curPos += (1L << 21) - 0x1000;
-				//Debug("pd ent unset (page = 0x%x now)", page);
 				continue;
 			}
 			if( !(PAGETABLE(page) & PF_PRESENT) )	continue;
@@ -382,7 +445,7 @@ void MM_Unmap(tVAddr VAddr)
 	if( !(PAGEDIRPTR(VAddr >> 30) & 1) )	return ;
 	// Check Page Dir
 	if( !(PAGEDIR(VAddr >> 21) & 1) )	return ;
-	
+
 	PAGETABLE(VAddr >> PTAB_SHIFT) = 0;
 	INVLPG( VAddr );
 }
@@ -581,6 +644,7 @@ tVAddr MM_MapHWPages(tPAddr PAddr, Uint Number)
 			ret -= 0x1000;
 			PAddr -= 0x1000;
 			MM_Map(ret, PAddr);
+			MM_RefPhys(PAddr);
 		}
 		
 		return ret;
@@ -598,6 +662,7 @@ void MM_UnmapHWPages(tVAddr VAddr, Uint Number)
 //	Log_KernelPanic("MM", "TODO: Implement MM_UnmapHWPages");
 	while( Number -- )
 	{
+		MM_DerefPhys( MM_GetPhysAddr(VAddr) );
 		MM_Unmap(VAddr);
 		VAddr += 0x1000;
 	}
@@ -626,10 +691,7 @@ tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 		phys = MM_AllocPhys();
 		*PhysAddr = phys;
 		ret = MM_MapHWPages(phys, 1);
-		if(ret == 0) {
-			MM_DerefPhys(phys);
-			return 0;
-		}
+		MM_DerefPhys(phys);
 		return ret;
 	}
 	
@@ -640,10 +702,11 @@ tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 	
 	// Allocated successfully, now map
 	ret = MM_MapHWPages(phys, Pages);
+	// MapHWPages references the pages, so deref them back down to 1
+	for(;Pages--;phys+=0x1000)
+		MM_DerefPhys(phys);
 	if( ret == 0 ) {
 		// If it didn't map, free then return 0
-		for(;Pages--;phys+=0x1000)
-			MM_DerefPhys(phys);
 		return 0;
 	}
 	
@@ -669,6 +732,8 @@ tVAddr MM_MapTemp(tPAddr PAddr)
 			continue ;
 
 		*ent = PAddr | 3;
+		MM_RefPhys(PAddr);
+		INVLPG(ret);
 		return ret;
 	}
 	return 0;
@@ -702,9 +767,11 @@ tPAddr MM_Clone(void)
 	{
 		TMPMAPLVL4(i) = PAGEMAPLVL4(i);
 //		Log_Debug("MM", "TMPMAPLVL4(%i) = 0x%016llx", i, TMPMAPLVL4(i));
-		if( TMPMAPLVL4(i) & 1 )
-		{
-			MM_RefPhys( TMPMAPLVL4(i) & PADDR_MASK );
+		if( !(TMPMAPLVL4(i) & PF_PRESENT) )	continue ;
+		
+		MM_RefPhys( TMPMAPLVL4(i) & PADDR_MASK );
+		
+		if( TMPMAPLVL4(i) & PF_WRITE ) {
 			TMPMAPLVL4(i) |= PF_COW;
 			TMPMAPLVL4(i) &= ~PF_WRITE;
 		}
@@ -735,7 +802,7 @@ tPAddr MM_Clone(void)
 	//  There is 1 guard page below the stack
 	kstackbase = Proc_GetCurThread()->KernelStack - KERNEL_STACK_SIZE;
 
-//	Log("MM_Clone: kstackbase = %p", kstackbase);
+	Log("MM_Clone: kstackbase = %p", kstackbase);
 	
 	TMPMAPLVL4(MM_KSTACK_BASE >> PML4_SHIFT) = 0;
 	for( i = 1; i < KERNEL_STACK_SIZE/0x1000; i ++ )

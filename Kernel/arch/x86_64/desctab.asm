@@ -255,7 +255,7 @@ ErrorCommon:
 	;PUSH_XMM
 	
 	mov rdi, rsp
-	xchg bx, bx
+;	xchg bx, bx
 	call Error_Handler
 	
 	;POP_XMM
@@ -440,3 +440,5 @@ gaIRQ_Handlers:
 	times	16*NUM_IRQ_CALLBACKS	dq	0
 gaIRQ_DataPtrs:
 	times	16*NUM_IRQ_CALLBACKS	dq	0
+
+; vim: ft=nasm

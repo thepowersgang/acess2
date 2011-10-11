@@ -101,7 +101,7 @@ void Error_Backtrace(Uint IP, Uint BP)
 	//	return;
 	//}
 	
-	if( IP > MM_USER_MAX && IP < MM_KERNEL_CODE
+	if( IP > USER_MAX && IP < MM_KERNEL_CODE
 	 && (MM_MODULE_MIN > IP || IP > MM_MODULE_MAX)
 		)
 	{

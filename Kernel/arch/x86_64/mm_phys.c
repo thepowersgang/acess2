@@ -8,6 +8,8 @@
 #include <mboot.h>
 #include <mm_virt.h>
 
+#define TRACE_REF	0
+
 enum eMMPhys_Ranges
 {
 	MM_PHYS_16BIT,	// Does anything need this?
@@ -29,6 +31,14 @@ void	MM_InitPhys_Multiboot(tMBoot_Info *MBoot);
 //void	MM_RefPhys(tPAddr PAddr);
 //void	MM_DerefPhys(tPAddr PAddr);
  int	MM_int_GetRangeID( tPAddr Addr );
+
+// === MACROS ===
+#define PAGE_ALLOC_TEST(__page) 	(gaMainBitmap[(__page)>>6] & (1ULL << ((__page)&63)))
+#define PAGE_ALLOC_SET(__page)  	do{gaMainBitmap[(__page)>>6] |= (1ULL << ((__page)&63));}while(0)
+#define PAGE_ALLOC_CLEAR(__page)	do{gaMainBitmap[(__page)>>6] &= ~(1ULL << ((__page)&63));}while(0)
+//#define PAGE_MULTIREF_TEST(__page)	(gaMultiBitmap[(__page)>>6] & (1ULL << ((__page)&63)))
+//#define PAGE_MULTIREF_SET(__page)	do{gaMultiBitmap[(__page)>>6] |= 1ULL << ((__page)&63);}while(0)
+//#define PAGE_MULTIREF_CLEAR(__page)	do{gaMultiBitmap[(__page)>>6] &= ~(1ULL << ((__page)&63));}while(0)
 
 // === GLOBALS ===
 tMutex	glPhysicalPages;
@@ -425,12 +435,16 @@ tPAddr MM_AllocPhysRange(int Pages, int MaxBits)
 	for( i = 0; i < Pages; i++, addr++ )
 	{
 		gaMainBitmap[addr >> 6] |= 1LL << (addr & 63);
+		if( MM_GetPhysAddr( (tVAddr)&gaiPageReferences[addr] ) )
+			gaiPageReferences[addr] = 1;
+//		Log("page %P refcount = %i", MM_GetRefCount(addr<<12)); 
 		rangeID = MM_int_GetRangeID(addr << 12);
 		giPhysRangeFree[ rangeID ] --;
 		LOG("%x == %x", addr, giPhysRangeFirst[ rangeID ]);
 		if(addr == giPhysRangeFirst[ rangeID ])
 			giPhysRangeFirst[ rangeID ] += 1;
 	}
+	addr -= Pages;
 	ret = addr;	// Save the return address
 	
 	// Update super bitmap
@@ -444,6 +458,9 @@ tPAddr MM_AllocPhysRange(int Pages, int MaxBits)
 	}
 	
 	Mutex_Release(&glPhysicalPages);
+	#if TRACE_REF
+	Log("MM_AllocPhysRange: ret = %P (Ref %i)", ret << 12, MM_GetRefCount(ret<<12));
+	#endif
 	LEAVE('x', ret << 12);
 	return ret << 12;
 }
@@ -476,27 +493,43 @@ void MM_RefPhys(tPAddr PAddr)
 {
 	Uint64	page = PAddr >> 12;
 	
-	if( PAddr >> 12 > giMaxPhysPage )	return ;
+	if( page > giMaxPhysPage )	return ;
 	
-	if( gaMainBitmap[ page >> 6 ] & (1LL << (page&63)) )
+	if( PAGE_ALLOC_TEST(page) )
 	{
-		// Reference again
-		gaMultiBitmap[ page >> 6 ] |= 1LL << (page&63);
-		if( !MM_GetPhysAddr( ((tVAddr)&gaiPageReferences[ page ]) & ~0xFFF ) ) {
-			if( !MM_Allocate( ((tVAddr)&gaiPageReferences[ page ]) & ~0xFFF ) ) {
+		tVAddr	ref_base = ((tVAddr)&gaiPageReferences[ page ]) & ~0xFFF;
+		// Allocate reference page
+		if( !MM_GetPhysAddr(ref_base) )
+		{
+			const int	pages_per_refpage = PAGE_SIZE/sizeof(gaiPageReferences[0]);
+			 int	i;
+			 int	page_base = page / pages_per_refpage * pages_per_refpage;
+			if( !MM_Allocate( ref_base ) ) {
 				Log_Error("Arch", "Out of memory when allocating reference count page");
 				return ;
 			}
+			// Fill block
+			Log("Allocated references for %P-%P", page_base << 12, (page_base+pages_per_refpage-1)<<12);
+			for( i = 0; i < pages_per_refpage; i ++ ) {
+				 int	pg = page_base + i;
+				gaiPageReferences[pg] = !!PAGE_ALLOC_TEST(pg);
+			}
 		}
-		gaiPageReferences[ page ] ++;
+		gaiPageReferences[page] ++;
 	}
 	else
 	{
 		// Allocate
-		gaMainBitmap[page >> 6] |= 1LL << (page&63);
-		if( gaMainBitmap[page >> 6 ] + 1 == 0 )
+		PAGE_ALLOC_SET(page);
+		if( gaMainBitmap[page >> 6] + 1 == 0 )
 			gaSuperBitmap[page>> 12] |= 1LL << ((page >> 6) & 63);
+		if( MM_GetPhysAddr( (tVAddr)&gaiPageReferences[page] ) )
+			gaiPageReferences[page] = 1;
 	}
+
+	#if TRACE_REF
+	Log("MM_RefPhys: %P referenced (%i)", page << 12, MM_GetRefCount(page << 12));
+	#endif
 }
 
 /**
@@ -508,18 +541,17 @@ void MM_DerefPhys(tPAddr PAddr)
 	
 	if( PAddr >> 12 > giMaxPhysPage )	return ;
 	
-	if( gaMultiBitmap[ page >> 6 ] & (1LL << (page&63)) ) {
+	if( MM_GetPhysAddr( (tVAddr) &gaiPageReferences[page] ) )
+	{
 		gaiPageReferences[ page ] --;
-		if( gaiPageReferences[ page ] == 1 )
-			gaMultiBitmap[ page >> 6 ] &= ~(1LL << (page&63));
 		if( gaiPageReferences[ page ] == 0 )
-			gaMainBitmap[ page >> 6 ] &= ~(1LL << (page&63));
+			PAGE_ALLOC_CLEAR(page);
 	}
 	else
-		gaMainBitmap[ page >> 6 ] &= ~(1LL << (page&63));
+		PAGE_ALLOC_CLEAR(page);
 	
 	// Update the free counts if the page was freed
-	if( !(gaMainBitmap[ page >> 6 ] & (1LL << (page&63))) )
+	if( !PAGE_ALLOC_TEST(page) )
 	{
 		 int	rangeID;
 		rangeID = MM_int_GetRangeID( PAddr );
@@ -534,19 +566,23 @@ void MM_DerefPhys(tPAddr PAddr)
 	if(gaMainBitmap[ page >> 6 ] + 1 != 0 ) {
 		gaSuperBitmap[page >> 12] &= ~(1LL << ((page >> 6) & 63));
 	}
+	
+	#if TRACE_REF
+	Log("Page %P dereferenced (%i)", page << 12, MM_GetRefCount(page << 12));
+	#endif
 }
 
 int MM_GetRefCount( tPAddr PAddr )
 {
 	PAddr >>= 12;
 	
-	if( PAddr >> 12 > giMaxPhysPage )	return 0;
+	if( PAddr > giMaxPhysPage )	return 0;
 
-	if( gaMultiBitmap[ PAddr >> 6 ] & (1LL << (PAddr&63)) ) {
+	if( MM_GetPhysAddr( (tVAddr)&gaiPageReferences[PAddr] ) ) {
 		return gaiPageReferences[PAddr];
 	}
 
-	if( gaMainBitmap[ PAddr >> 6 ] & (1LL << (PAddr&63)) )
+	if( PAGE_ALLOC_TEST(PAddr) )
 	{
 		return 1;
 	}
