@@ -11,8 +11,13 @@
 #include <modules.h>
 #include "gic.h"
 
+#define N_IRQS	1024
+
 // === IMPORTS ===
 extern void	*gpIRQHandler;
+
+// === TYPES ===
+typedef void (*tIRQ_Handler)(int, void*);
 
 // === PROTOTYPES ===
  int	GIC_Install(char **Arguments);
@@ -24,6 +29,8 @@ Uint32	*gpGIC_DistributorBase;
 Uint32	*gpGIC_InterfaceBase;
 tPAddr	gGIC_DistributorAddr;
 tPAddr	gGIC_InterfaceAddr;
+tIRQ_Handler	gaIRQ_Handlers[N_IRQS];
+void	*gaIRQ_HandlerData[N_IRQS];
 
 // === CODE ===
 int GIC_Install(char **Arguments)
@@ -51,18 +58,31 @@ void GIC_IRQHandler(void)
 {
 	Uint32	num = gpGIC_InterfaceBase[GICC_IAR];
 	Log_Debug("GIC", "IRQ 0x%x", num);
-	gpGIC_InterfaceBase[GICC_EOIR] = 1;
+	gaIRQ_Handlers[num]( num, gaIRQ_HandlerData[num] );
+	gpGIC_InterfaceBase[GICC_EOIR] = num;
 }
 
-int IRQ_AddHandler(int IRQ, void (*Handler)(int, void*), void *Ptr)
+int IRQ_AddHandler(int IRQ, tIRQ_Handler Handler, void *Ptr)
 {
+	if( IRQ < 0 || IRQ >= N_IRQS-32 ) {
+		return 1;
+	}
+	
 	LOG("IRQ = %i", IRQ);
 	IRQ += 32;	// 32 internal IRQs
 	LOG("IRQ = %i (after adjust)", IRQ);
 	LOG("mask = 0x%x", 1 << (IRQ & (31-1)));
 	gpGIC_DistributorBase[GICD_ISENABLER0+IRQ/32] = 1 << (IRQ & (32-1));
 	((Uint8*)&gpGIC_DistributorBase[GICD_ITARGETSR0])[IRQ] = 1;
-	Log_Warning("GIC", "TODO: Implement IRQ_AddHandler");
+	
+//	Log_Warning("GIC", "TODO: Implement IRQ_AddHandler");
+	
+	if( gaIRQ_Handlers[IRQ] )
+		return 2;
+	
+	gaIRQ_Handlers[IRQ] = Handler;
+	gaIRQ_HandlerData[IRQ] = Ptr;
+	
 	return 0;
 }
 
