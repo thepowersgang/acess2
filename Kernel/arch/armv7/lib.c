@@ -133,7 +133,7 @@ Uint64 __divmod64(Uint64 Num, Uint64 Den, Uint64 *Rem)
 		add >>= 1;
 		Den >>= 1;
 		// If the numerator is > Den, subtract and add to return value
-		if( Num > Den )
+		if( Num >= Den )
 		{
 			ret += add;
 			Num -= Den;
