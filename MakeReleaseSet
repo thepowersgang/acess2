@@ -1,12 +1,12 @@
 #!/bin/sh
 rm -rf Dist
-if [ $# -gt 1 ]; then
+if [ $# -ge 1 ]; then
 	for arch in $*; do
 		echo $arch
-		BUILD_DIST=y ARCH=$arch make install
+		BUILD_DIST=y ARCH=$arch make clean install
 	done
 else
-	BUILD_DIST=y make install
+	BUILD_DIST=y make clean install
 fi
 tar -zcf Acess2_latest_bin.tar.gz Dist/*
 mdeltree b:/Acess2
