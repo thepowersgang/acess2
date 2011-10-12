@@ -13,6 +13,7 @@
 extern tThread	gThreadZero;
 extern void	SwitchTask(Uint32 NewSP, Uint32 *OldSP, Uint32 NewIP, Uint32 *OldIP, Uint32 MemPtr);
 extern void	KernelThreadHeader(void);	// Actually takes args on stack
+extern void	Proc_CloneInt(Uint32 *SP, Uint32 *MemPtr);
 extern tVAddr	MM_NewKStack(int bGlobal);	// TODO: Move out into a header
 
 // === PROTOTYPES ===
@@ -33,8 +34,8 @@ void Proc_IdleThread(void *unused)
 	Threads_SetPriority(gpIdleThread, -1);
 	Threads_SetName("Idle Thread");
 	for(;;) {
-		__asm__ __volatile__ ("wfi");
 		Proc_Reschedule();
+		__asm__ __volatile__ ("wfi");
 	}
 }
 
@@ -56,13 +57,22 @@ tThread *Proc_GetCurThread(void)
 	return gpCurrentThread;
 }
 
-tTID Proc_Clone(Uint Flags)
-{
-	return -1;
-}
-
 void Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **EnvP, int DataSize)
 {
+	Log_Debug("Proc", "Proc_StartUser: (Entrypoint=%p, Bases=%p, ArgC=%i, ...)",
+		Entrypoint, Bases, ArgC);
+}
+
+tTID Proc_Clone(Uint Flags)
+{
+	tThread	*new;
+
+	new = Threads_CloneTCB(Flags);
+	if(!new)	return -1;
+	
+	Log_Error("Proc", "TODO: Implement Proc_Clone");
+	
+	return -1;
 }
 
 tTID Proc_SpawnWorker( void (*Fnc)(void*), void *Ptr )
@@ -70,7 +80,7 @@ tTID Proc_SpawnWorker( void (*Fnc)(void*), void *Ptr )
 	tThread	*new;
 	Uint32	sp;
 
-	new = Threads_CloneTCB(NULL, 0);
+	new = Threads_CloneThreadZero();
 	if(!new)	return -1;
 
 	new->KernelStack = MM_NewKStack(1);
@@ -100,7 +110,7 @@ tTID Proc_NewKThread( void (*Fnc)(void*), void *Ptr )
 	tThread	*new;
 	Uint32	sp;
 
-	new = Threads_CloneTCB(NULL, 0);
+	new = Threads_CloneTCB(0);
 	if(!new)	return -1;
 
 	// TODO: Non-shared stack
