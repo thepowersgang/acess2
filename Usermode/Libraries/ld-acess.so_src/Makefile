@@ -34,5 +34,5 @@ $(_XBIN): $(_OBJPREFIX)_stublib.o
 $(_OBJPREFIX)%: %.h
 	@echo [CPP] -o $@
 	@mkdir -p $(dir $@)
-	@$(CPP) $(CPPFLAGS) -P -D__ASM__ $< -o $@
+	@$(CPP) $(CPPFLAGS) -P -D__ASSEMBLER__ $< -o $@
 

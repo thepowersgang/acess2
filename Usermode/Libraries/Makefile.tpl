@@ -47,7 +47,11 @@ $(_OBJPREFIX)%.ao: %.$(ASSUFFIX)
 	@echo [AS] -o $@
 	@mkdir -p $(dir $@)
 	@$(AS) $(ASFLAGS) -o $@ $<
+ifeq ($(ASSUFFIX),S)
 	@$(AS) $(ASFLAGS) -o $@.dep $< -M
+else
+	@$(AS) $(ASFLAGS) -o $@ $< -M > $@.dep
+endif
 
 #$(OUTPUTDIR)Libs/libld-acess.so:
 #	@make -C $(ACESSDIR)/Usermode/Libraries/ld-acess.so_src/
