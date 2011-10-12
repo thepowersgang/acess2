@@ -6,7 +6,7 @@
 
 -include Makefile.cfg
 
-.PHONY: all clean
+.PHONY: all clean SyscallList all-user
 
 SUBMAKE = $(MAKE) --no-print-directory
 
@@ -48,10 +48,14 @@ kmode:	$(AI_MODULES) $(AI_DYNMODS) allinstall-Kernel
 all-user: $(ALL_USRLIBS) $(ALL_USRAPPS)
 clean-user: $(CLEAN_USRLIBS) $(CLEAN_USRAPPS)
 
-all:	$(ALL_DYNMODS) $(ALL_MODULES) all-Kernel $(ALL_USRLIBS) $(ALL_USRAPPS)
-all-install:	$(AI_DYNMODS) $(AI_MODULES) allinstall-Kernel $(AI_USRLIBS) $(AI_USRAPPS)
+all:	SyscallList $(ALL_USRLIBS) $(ALL_USRAPPS) $(ALL_MODULES) all-Kernel $(ALL_DYNMODS)
+all-install:	SyscallList $(AI_USRLIBS) $(AI_USRAPPS) $(AI_MODULES) allinstall-Kernel $(AI_DYNMODS)
 clean:	$(CLEAN_DYNMODS) $(CLEAN_MODULES) clean-Kernel $(CLEAN_USRLIBS) $(CLEAN_USRAPPS)
-install:	install-Filesystem $(INSTALL_DYNMODS) $(INSTALL_MODULES) install-Kernel $(INSTALL_USRLIBS) $(INSTALL_USRAPPS)
+install:	install-Filesystem SyscallList $(INSTALL_USRLIBS) $(INSTALL_USRAPPS) $(INSTALL_DYNMODS) $(INSTALL_MODULES) install-Kernel
+
+SyscallList: include/syscalls.h
+include/syscalls.h: Kernel/Makefile Kernel/syscalls.lst
+	@make -C Kernel/ include/syscalls.h
 
 # Compile Only
 $(ALL_DYNMODS): all-%:

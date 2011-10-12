@@ -57,7 +57,7 @@ int GIC_Install(char **Arguments)
 void GIC_IRQHandler(void)
 {
 	Uint32	num = gpGIC_InterfaceBase[GICC_IAR];
-	Log_Debug("GIC", "IRQ 0x%x", num);
+//	Log_Debug("GIC", "IRQ 0x%x", num);
 	gaIRQ_Handlers[num]( num, gaIRQ_HandlerData[num] );
 	gpGIC_InterfaceBase[GICC_EOIR] = num;
 }

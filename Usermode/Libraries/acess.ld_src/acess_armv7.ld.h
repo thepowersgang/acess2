@@ -4,6 +4,7 @@ OUTPUT_FORMAT("elf32-littlearm", "elf32-bigarm",
 OUTPUT_ARCH(arm)
 ENTRY(_start)
 SEARCH_DIR(__LIBDIR)
+INPUT(crt0.o)
 SECTIONS
 {
   /* Read-only sections, merged into text segment: */

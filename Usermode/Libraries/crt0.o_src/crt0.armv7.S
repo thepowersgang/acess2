@@ -3,12 +3,12 @@
 @ C Runtime 0
 @ - crt0.arm7.asm
 
-.globl start
-start:
+.globl _start
+_start:
 	bl main
 	push {r0}
 
-	ldr r0, = _crt0_exit_handler
+	ldr r0, =_crt0_exit_handler
 	ldr r0, [r0]
 	tst r0, r0
 	blxne r0

@@ -33,27 +33,20 @@ print HEADER "/*
 #ifndef _SYSCALLS_H
 #define _SYSCALLS_H
 
-enum eSyscalls {
 ";
 
 $lastid = -1;
+$i = 0;
 foreach my $call (@calls)
 {
-	if( $lastid + 1 != $call->[0] ) {
-		print HEADER "\n";
-	}
-	print HEADER "\t", $call->[1];
-	if( $lastid + 1 != $call->[0] ) {
-		print HEADER " = ", $call->[0];
-	}
-	print HEADER ",\t// ", $call->[2], "\n";
-	$lastid = $call->[0];
+	print HEADER "#define ", $call->[1], "\t", $call->[0], "\t// ", $call->[2], "\n";
+	$i = $call->[0] + 1;
 }
 print HEADER "
-\tNUM_SYSCALLS,
-\tSYS_DEBUG = 0x100
-};
+#define NUM_SYSCALLS	",$i,"
+#define SYS_DEBUG	0x100
 
+#ifndef __ASSEMBLER__
 static const char *cSYSCALL_NAMES[] = {
 ";
 
@@ -71,6 +64,7 @@ foreach $call (@calls)
 print HEADER  "
 \t\"\"
 };
+#endif
 
 #endif
 ";

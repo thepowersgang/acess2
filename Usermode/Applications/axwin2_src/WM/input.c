@@ -71,6 +71,6 @@ void Input_HandleSelect(fd_set *set)
 		
 		// Handle movement
 //		Video_SetCursorPos( mouseinfo.Axies[0], mouseinfo.Axies[1] );
-		_SysDebug("Cursor to %i,%i\n", mouseinfo.Axies[0], mouseinfo.Axies[1]);
+		_SysDebug("Cursor to %i,%i\n", mouseinfo.Axies[0].CursorPos, mouseinfo.Axies[1].CursorPos);
 	}
 }

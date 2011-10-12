@@ -65,10 +65,10 @@ IRQHandler:
 
 	PUSH_GPRS
 
-	ldr r0, =csIRQ_Tag
-	ldr r1, =csIRQ_Fmt
-	ldr r4, =Log_Debug
-	blx r4
+@	ldr r0, =csIRQ_Tag
+@	ldr r1, =csIRQ_Fmt
+@	ldr r4, =Log_Debug
+@	blx r4
 	
 	@ Call the registered handler
 	ldr r0, gpIRQHandler

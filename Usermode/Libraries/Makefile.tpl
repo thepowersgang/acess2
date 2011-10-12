@@ -43,11 +43,11 @@ $(_OBJPREFIX)%.o: %.c
 	@$(CC) $(CFLAGS) -o $@ -c $<
 	@$(CC) -M -MT $@ $(CPPFLAGS) $< -o $@.dep
 
-$(_OBJPREFIX)%.ao: %.asm
+$(_OBJPREFIX)%.ao: %.$(ASSUFFIX)
 	@echo [AS] -o $@
 	@mkdir -p $(dir $@)
 	@$(AS) $(ASFLAGS) -o $@ $<
-	@$(AS) $(ASFLAGS) -o $@ $< -M > $@.dep
+	@$(AS) $(ASFLAGS) -o $@.dep $< -M
 
 #$(OUTPUTDIR)Libs/libld-acess.so:
 #	@make -C $(ACESSDIR)/Usermode/Libraries/ld-acess.so_src/

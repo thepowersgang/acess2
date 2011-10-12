@@ -72,9 +72,14 @@ int file_exists(const char *filename)
 	return 1;
 }
 
-uint64_t __udivdi3(uint64_t Num, uint64_t Den)
+uint64_t __divmod64(uint64_t Num, uint64_t Den, uint64_t *Rem)
 {
 	uint64_t	ret = 0, add = 1;
+
+	if( Den == 0 ) {
+		if(Rem)	*Rem = 0;
+		return -1;
+	}
 
 	// Find what power of two times Den is > Num
 	while( Num >= Den )
@@ -88,14 +93,79 @@ uint64_t __udivdi3(uint64_t Num, uint64_t Den)
 	{
 		add >>= 1;
 		Den >>= 1;
-		// If the numerator is > Den, subtract and add to return value
-		if( Num > Den )
+		// If the numerator is >= Den, subtract and add to return value
+		if( Num >= Den )
 		{
 			ret += add;
 			Num -= Den;
 		}
 	}
-//	if(Rem)	*Rem = Num;
+	if(Rem)	*Rem = Num;
+	return ret;
+}
+
+uint32_t __divmod32(uint32_t Num, uint32_t Den, uint32_t *Rem)
+{
+	uint32_t	ret = 0, add = 1;
+
+	if( Den == 0 ) {
+		if(Rem)	*Rem = 0;
+		return -1;
+	}
+
+	// Find what power of two times Den is > Num
+	while( Num >= Den )
+	{
+		Den <<= 1;
+		add <<= 1;
+	}
+
+	// Search backwards
+	while( add > 1 )
+	{
+		add >>= 1;
+		Den >>= 1;
+		// If the numerator is >= Den, subtract and add to return value
+		if( Num >= Den )
+		{
+			ret += add;
+			Num -= Den;
+		}
+	}
+	if(Rem)	*Rem = Num;
+	return ret;
+}
+
+uint64_t __udivdi3(uint64_t Num, uint64_t Den)
+{
+	return __divmod64(Num, Den, NULL);
+}
+
+uint64_t __umoddi3(uint64_t Num, uint64_t Den)
+{
+	uint64_t	ret;
+	__divmod64(Num, Den, &ret);
+	return ret;
+}
+
+int32_t __divsi3(int32_t Num, int32_t Den)
+{
+	int32_t sign = 1;
+	if(Num < 0) {
+		Num = -Num;
+		sign = -sign;
+	}
+	if(Den < 0) {
+		Den = -Den;
+		sign = -sign;
+	}
+	return sign * __divmod32(Num, Den, NULL);
+}
+
+uint32_t __umodsi3(uint32_t Num, uint32_t Den)
+{
+	uint32_t	ret;
+	__divmod32(Num, Den, &ret);
 	return ret;
 }
 

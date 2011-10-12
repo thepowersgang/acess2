@@ -10,6 +10,9 @@ $gOutput = <<<EOF
 
 EOF;
 
+$ACESSDIR = getenv("ACESSDIR");
+$ARCH = getenv("ARCH");
+
 $gInputFile = $argv[1];
 $gOutputFile = $argv[2];
 $gDepFile = ($argc > 3 ? $argv[3] : false);
@@ -24,6 +27,7 @@ $lStack = array( array("",array()) );
 foreach($lines as $line)
 {
 	$line = trim($line);
+	// Directory
 	if(preg_match('/^Dir\s+"([^"]+)"\s+{$/', $line, $matches))
 	{
 		$new = array($matches[1], array());
@@ -31,12 +35,14 @@ foreach($lines as $line)
 		$lDepth ++;
 		continue;
 	}
+	// End of a block
 	if($line == "}")
 	{
 		$lDepth --;
 		$lStack[$lDepth][1][] = array_pop($lStack);
 		continue;
 	}
+	// File
 	if(preg_match('/^File\s+"([^"]+)"\s+"([^"]+)"$/', $line, $matches))
 	{
 		$lStack[$lDepth][1][] = array($matches[1], $matches[2]);
@@ -63,6 +69,7 @@ function hd8($fp)
 function ProcessFolder($prefix, $items)
 {
 	global	$gOutput;
+	global	$ACESSDIR, $ARCH;
 	foreach($items as $i=>$item)
 	{
 		if(is_array($item[1]))
@@ -91,57 +98,40 @@ tVFS_Node {$prefix}_{$i} = {
 
 EOF;
 		}
-		else {
-			if(!file_exists($item[1])) {
-				echo "ERROR: '{$item[1]}' does not exist\n", 
+		else
+		{
+			$path = $item[1];
+			
+			// Parse path components
+			$path = str_replace("__BIN__", "$ACESSDIR/Usermode/Output/$ARCH", $path);
+			$path = str_replace("__FS__", "$ACESSDIR/Usermode/Filesystem", $path);
+			echo $path,"\n";
+			// ---
+
+			if(!file_exists($path)) {
+				echo "ERROR: '{$path}' does not exist\n", 
 				exit(1);
 			}
-			$size = filesize($item[1]);
+			$size = filesize($path);
 			
-			$fp = fopen($item[1], "rb");
-			if(0)
-			{
-				$gOutput .= "Uint32 {$prefix}_{$i}_data[] = {\n";
-				for( $j = 0; $j + 16 < $size; $j += 16 )
-				{
-					$gOutput .= "\t";
-					$gOutput .= hd($fp).",".hd($fp).",";
-					$gOutput .= hd($fp).",".hd($fp).",\n";
-				}
+			$fp = fopen($path, "rb");
+			
+			$gOutput .= "Uint8 {$prefix}_{$i}_data[] = {\n";
+			for( $j = 0; $j + 16 < $size; $j += 16 ) {
 				$gOutput .= "\t";
-				for( ; $j+3 < $size; $j += 4 )
-				{
-					if( $j & 15 )	$gOutput .= ",";
-					$gOutput .= hd($fp);
-				}
-				if($j < $size) {
-					$tmp = "";
-					while($j ++ < $size)
-						$tmp .= fgetc($fp);
-					$tmp .= "\0\0\0";
-						$tmp = unpack("I", $tmp);
-					$gOutput .= "0x".dechex($tmp[1]);
-				}
+				$gOutput .= hd8($fp).",".hd8($fp).",";
+				$gOutput .= hd8($fp).",".hd8($fp).",";
+				$gOutput .= hd8($fp).",".hd8($fp).",";
+				$gOutput .= hd8($fp).",".hd8($fp).",";
+				$gOutput .= hd8($fp).",".hd8($fp).",";
+				$gOutput .= hd8($fp).",".hd8($fp).",";
+				$gOutput .= hd8($fp).",".hd8($fp).",";
+				$gOutput .= hd8($fp).",".hd8($fp).",\n";
 			}
-			else
-			{
-				$gOutput .= "Uint8 {$prefix}_{$i}_data[] = {\n";
-				for( $j = 0; $j + 16 < $size; $j += 16 ) {
-					$gOutput .= "\t";
-					$gOutput .= hd8($fp).",".hd8($fp).",";
-					$gOutput .= hd8($fp).",".hd8($fp).",";
-					$gOutput .= hd8($fp).",".hd8($fp).",";
-					$gOutput .= hd8($fp).",".hd8($fp).",";
-					$gOutput .= hd8($fp).",".hd8($fp).",";
-					$gOutput .= hd8($fp).",".hd8($fp).",";
-					$gOutput .= hd8($fp).",".hd8($fp).",";
-					$gOutput .= hd8($fp).",".hd8($fp).",\n";
-				}
-				$gOutput .= "\t";
-				for( ; $j < $size; $j ++ ) {
-					if( $j & 15 )	$gOutput .= ",";
-					$gOutput .= hd8($fp);
-				}
+			$gOutput .= "\t";
+			for( ; $j < $size; $j ++ ) {
+				if( $j & 15 )	$gOutput .= ",";
+				$gOutput .= hd8($fp);
 			}
 			fclose($fp);
 			$gOutput .= "\n};\n";

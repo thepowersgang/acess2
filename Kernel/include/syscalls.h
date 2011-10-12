@@ -8,67 +8,64 @@
 #ifndef _SYSCALLS_H
 #define _SYSCALLS_H
 
-enum eSyscalls {
-	SYS_EXIT,	// Kill this thread
-	SYS_CLONE,	// Create a new thread
-	SYS_KILL,	// Send a signal
-	SYS_SETFAULTHANDLER,	// Set signal Handler
-	SYS_YIELD,	// Yield remainder of timestamp
-	SYS_SLEEP,	// Sleep until messaged or signaled
-	SYS_WAIT,	// Wait for a time or a message
-	SYS_WAITTID,	// Wait for a thread to do something
-	SYS_SETNAME,	// Set's the name of the current thread
-	SYS_GETNAME,	// Get's the name of a thread
-	SYS_GETTID,	// Get current thread ID
-	SYS_GETPID,	// Get current thread group ID
-	SYS_SETPRI,	// Set process priority
-	SYS_SENDMSG,	// Send an IPC message
-	SYS_GETMSG,	// Recieve an IPC message
-	SYS_GETTIME,	// Get the current timestamp
-	SYS_SPAWN,	// Spawn a new process
-	SYS_EXECVE,	// Replace the current process
-	SYS_LOADBIN,	// Load a binary into the current address space
-	SYS_UNLOADBIN,	// Unload a loaded binary
-	SYS_LOADMOD,	// Load a module into the kernel
+#define SYS_EXIT	0	// Kill this thread
+#define SYS_CLONE	1	// Create a new thread
+#define SYS_KILL	2	// Send a signal
+#define SYS_SETFAULTHANDLER	3	// Set signal Handler
+#define SYS_YIELD	4	// Yield remainder of timestamp
+#define SYS_SLEEP	5	// Sleep until messaged or signaled
+#define SYS_WAIT	6	// Wait for a time or a message
+#define SYS_WAITTID	7	// Wait for a thread to do something
+#define SYS_SETNAME	8	// Set's the name of the current thread
+#define SYS_GETNAME	9	// Get's the name of a thread
+#define SYS_GETTID	10	// Get current thread ID
+#define SYS_GETPID	11	// Get current thread group ID
+#define SYS_SETPRI	12	// Set process priority
+#define SYS_SENDMSG	13	// Send an IPC message
+#define SYS_GETMSG	14	// Recieve an IPC message
+#define SYS_GETTIME	15	// Get the current timestamp
+#define SYS_SPAWN	16	// Spawn a new process
+#define SYS_EXECVE	17	// Replace the current process
+#define SYS_LOADBIN	18	// Load a binary into the current address space
+#define SYS_UNLOADBIN	19	// Unload a loaded binary
+#define SYS_LOADMOD	20	// Load a module into the kernel
+#define SYS_GETPHYS	32	// Get the physical address of a page
+#define SYS_MAP	33	// Map a physical address
+#define SYS_ALLOCATE	34	// Allocate a page
+#define SYS_UNMAP	35	// Unmap a page
+#define SYS_PREALLOC	36	// Preallocate a page
+#define SYS_SETFLAGS	37	// Set a page's flags
+#define SYS_SHAREWITH	38	// Share a page with another thread
+#define SYS_GETUID	39	// Get current User ID
+#define SYS_GETGID	40	// Get current Group ID
+#define SYS_SETUID	41	// Set current user ID
+#define SYS_SETGID	42	// Set current Group ID
+#define SYS_OPEN	64	// Open a file
+#define SYS_REOPEN	65	// Close a file and reuse its handle
+#define SYS_CLOSE	66	// Close a file
+#define SYS_READ	67	// Read from an open file
+#define SYS_WRITE	68	// Write to an open file
+#define SYS_IOCTL	69	// Perform an IOCtl Call
+#define SYS_SEEK	70	// Seek to a new position in the file
+#define SYS_READDIR	71	// Read from an open directory
+#define SYS_OPENCHILD	72	// Open a child entry in a directory
+#define SYS_GETACL	73	// Get an ACL Value
+#define SYS_SETACL	74	// Set an ACL Value
+#define SYS_FINFO	75	// Get file information
+#define SYS_MKDIR	76	// Create a new directory
+#define SYS_LINK	77	// Create a new link to a file
+#define SYS_SYMLINK	78	// Create a symbolic link
+#define SYS_UNLINK	79	// Delete a file
+#define SYS_TELL	80	// Return the current file position
+#define SYS_CHDIR	81	// Change current directory
+#define SYS_GETCWD	82	// Get current directory
+#define SYS_MOUNT	83	// Mount a filesystem
+#define SYS_SELECT	84	// Wait for file handles
 
-	SYS_GETPHYS = 32,	// Get the physical address of a page
-	SYS_MAP,	// Map a physical address
-	SYS_ALLOCATE,	// Allocate a page
-	SYS_UNMAP,	// Unmap a page
-	SYS_PREALLOC,	// Preallocate a page
-	SYS_SETFLAGS,	// Set a page's flags
-	SYS_SHAREWITH,	// Share a page with another thread
-	SYS_GETUID,	// Get current User ID
-	SYS_GETGID,	// Get current Group ID
-	SYS_SETUID,	// Set current user ID
-	SYS_SETGID,	// Set current Group ID
+#define NUM_SYSCALLS	85
+#define SYS_DEBUG	0x100
 
-	SYS_OPEN = 64,	// Open a file
-	SYS_REOPEN,	// Close a file and reuse its handle
-	SYS_CLOSE,	// Close a file
-	SYS_READ,	// Read from an open file
-	SYS_WRITE,	// Write to an open file
-	SYS_IOCTL,	// Perform an IOCtl Call
-	SYS_SEEK,	// Seek to a new position in the file
-	SYS_READDIR,	// Read from an open directory
-	SYS_OPENCHILD,	// Open a child entry in a directory
-	SYS_GETACL,	// Get an ACL Value
-	SYS_SETACL,	// Set an ACL Value
-	SYS_FINFO,	// Get file information
-	SYS_MKDIR,	// Create a new directory
-	SYS_LINK,	// Create a new link to a file
-	SYS_SYMLINK,	// Create a symbolic link
-	SYS_UNLINK,	// Delete a file
-	SYS_TELL,	// Return the current file position
-	SYS_CHDIR,	// Change current directory
-	SYS_GETCWD,	// Get current directory
-	SYS_MOUNT,	// Mount a filesystem
-	SYS_SELECT,	// Wait for file handles
-
-	NUM_SYSCALLS,
-	SYS_DEBUG = 0x100
-};
-
+#ifndef __ASSEMBLER__
 static const char *cSYSCALL_NAMES[] = {
 	"SYS_EXIT",
 	"SYS_CLONE",
@@ -158,5 +155,6 @@ static const char *cSYSCALL_NAMES[] = {
 
 	""
 };
+#endif
 
 #endif

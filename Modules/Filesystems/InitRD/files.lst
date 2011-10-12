@@ -1,25 +1,24 @@
 Dir "SBin" {
-	File "init" "../../../Usermode/Output/i386/SBin/init"
-	File "login" "../../../Usermode/Output/i386/SBin/login"
+	File "init" "__BIN__/SBin/init"
+	File "login" "__BIN__/SBin/login"
 }
 Dir "Bin" {
-	File "CLIShell" "../../../Usermode/Output/i386/Bin/CLIShell"
-	File "ls" "../../../Usermode/Output/i386/Bin/ls"
-	File "cat" "../../../Usermode/Output/i386/Bin/cat"
-	File "mount" "../../../Usermode/Output/i386/Bin/mount"
-	File "pcidump" "../../../Usermode/Output/i386/Bin/pcidump"
-	File "ifconfig" "../../../Usermode/Output/i386/Bin/ifconfig"
-	File "telnet" "../../../Usermode/Output/i386/Bin/telnet"
-	File "irc" "../../../Usermode/Output/i386/Bin/irc"
+	File "CLIShell" "__BIN__/Bin/CLIShell"
+	File "ls" "__BIN__/Bin/ls"
+	File "cat" "__BIN__/Bin/cat"
+	File "mount" "__BIN__/Bin/mount"
+	File "ifconfig" "__BIN__/Bin/ifconfig"
+	File "telnet" "__BIN__/Bin/telnet"
+	File "irc" "__BIN__/Bin/irc"
 }
 Dir "Libs" {
-	File "ld-acess.so" "../../../Usermode/Output/i386/Libs/ld-acess.so"
-	File "libld-acess.so" "../../../Usermode/Output/i386/Libs/libld-acess.so"
-	File "libc.so" "../../../Usermode/Output/i386/Libs/libc.so"
-	File "libgcc.so" "../../../Usermode/Output/i386/Libs/libgcc.so"
-	File "libreadline.so" "../../../Usermode/Output/i386/Libs/libreadline.so"
-	File "libnet.so" "../../../Usermode/Output/i386/Libs/libnet.so"
+	File "ld-acess.so" "__BIN__/Libs/ld-acess.so"
+	File "libld-acess.so" "__BIN__/Libs/libld-acess.so"
+	File "libc.so" "__BIN__/Libs/libc.so"
+	File "libgcc.so" "__BIN__/Libs/libgcc.so"
+	File "libreadline.so" "__BIN__/Libs/libreadline.so"
+	File "libnet.so" "__BIN__/Libs/libnet.so"
 }
 Dir "Conf" {
-	File "BootConf.cfg" "../../../Usermode/Filesystem/Conf/BootConf.cfg"
+	File "BootConf.cfg" "__FS__/Conf/BootConf.cfg"
 }

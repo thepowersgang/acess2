@@ -23,7 +23,7 @@ $(_XBIN): $(_OBJPREFIX)_stublib.o
 
 
 # Override .ao to look in the object prefix for the source
-%.ao: %.asm
+%.ao: %.$(ASSUFFIX)
 	@echo [AS] -o $@
 	@mkdir -p $(dir $@)
 	@$(AS) $(ASFLAGS) -o $@ $<
@@ -34,5 +34,5 @@ $(_XBIN): $(_OBJPREFIX)_stublib.o
 $(_OBJPREFIX)%: %.h
 	@echo [CPP] -o $@
 	@mkdir -p $(dir $@)
-	@$(CPP) $(CPPFLAGS) -P -D_ASM_ $< -o $@
+	@$(CPP) $(CPPFLAGS) -P -D__ASM__ $< -o $@
 
