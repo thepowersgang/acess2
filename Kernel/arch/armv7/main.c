@@ -40,7 +40,7 @@ int kmain(void)
 
 	//
 	LogF("Moving to arch-independent init\n");
-	System_Init("");
+	System_Init("/Acess=initrd:");
 	//TODO: 
 	LogF("End of kmain(), for(;;) Threads_Sleep();\n");
 	for(;;)
