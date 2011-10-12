@@ -233,12 +233,10 @@ void Threads_SetPriority(tThread *Thread, int Pri)
 }
 
 /**
- * \fn tThread *Threads_CloneTCB(Uint *Err, Uint Flags)
  * \brief Clone the TCB of the current thread
- * \param Err	Error pointer
  * \param Flags	Flags for something... (What is this for?)
  */
-tThread *Threads_CloneTCB(Uint *Err, Uint Flags)
+tThread *Threads_CloneTCB(Uint Flags)
 {
 	tThread	*cur, *new;
 	 int	i;
@@ -246,7 +244,7 @@ tThread *Threads_CloneTCB(Uint *Err, Uint Flags)
 	
 	// Allocate and duplicate
 	new = malloc(sizeof(tThread));
-	if(new == NULL) { *Err = -ENOMEM; return NULL; }
+	if(new == NULL) { errno = -ENOMEM; return NULL; }
 	memcpy(new, cur, sizeof(tThread));
 	
 	new->CurCPU = -1;
@@ -309,8 +307,7 @@ tThread *Threads_CloneTCB(Uint *Err, Uint Flags)
 }
 
 /**
- * \fn tThread *Threads_CloneTCB(Uint *Err, Uint Flags)
- * \brief Clone the TCB of the current thread
+ * \brief Clone the TCB of the kernel thread
  */
 tThread *Threads_CloneThreadZero(void)
 {

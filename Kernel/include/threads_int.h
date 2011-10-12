@@ -111,7 +111,7 @@ extern void	Threads_AddActive(tThread *Thread);
 extern tThread	*Threads_RemActive(void);
 extern tThread	*Threads_GetNextToRun(int CPU, tThread *Last);
 
-extern tThread	*Threads_CloneTCB(Uint *Err, Uint Flags);
+extern tThread	*Threads_CloneTCB(Uint Flags);
 extern tThread	*Threads_CloneThreadZero(void);
 
 #endif

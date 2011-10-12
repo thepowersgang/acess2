@@ -557,7 +557,7 @@ int Proc_NewKThread(void (*Fcn)(void*), void *Data)
 	tThread	*newThread, *cur;
 	
 	cur = Proc_GetCurThread();
-	newThread = Threads_CloneTCB(NULL, 0);
+	newThread = Threads_CloneTCB(0);
 	if(!newThread)	return -1;
 	
 	// Set CR3
@@ -604,7 +604,7 @@ int Proc_Clone(Uint Flags)
 	}
 	
 	// New thread
-	newThread = Threads_CloneTCB(NULL, Flags);
+	newThread = Threads_CloneTCB(Flags);
 	if(!newThread)	return -1;
 
 	newThread->KernelStack = cur->KernelStack;
