@@ -46,7 +46,6 @@ foreach($lines as $line)
 	if(preg_match('/^File\s+"([^"]+)"\s+"([^"]+)"$/', $line, $matches))
 	{
 		$lStack[$lDepth][1][] = array($matches[1], $matches[2]);
-		$gDependencies[] = $matches[2];
 		continue;
 	}
 	echo "ERROR: $line\n";
@@ -68,7 +67,7 @@ function hd8($fp)
 
 function ProcessFolder($prefix, $items)
 {
-	global	$gOutput;
+	global	$gOutput, $gDependencies;
 	global	$ACESSDIR, $ARCH;
 	foreach($items as $i=>$item)
 	{
@@ -107,6 +106,8 @@ EOF;
 			$path = str_replace("__FS__", "$ACESSDIR/Usermode/Filesystem", $path);
 			echo $path,"\n";
 			// ---
+			
+			$gDependencies[] = $path;
 
 			if(!file_exists($path)) {
 				echo "ERROR: '{$path}' does not exist\n", 
