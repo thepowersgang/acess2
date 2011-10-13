@@ -357,7 +357,7 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		// String - Null Terminated Array
 		case 's':
 			p = va_arg(args, char*);	// Get Argument
-			if( !CheckString(p) )	p = "(inval)";	// Avoid #PFs  
+			if( !p || !CheckString(p) )	p = "(inval)";	// Avoid #PFs  
 		printString:
 			if(!p)		p = "(null)";
 			len = strlen(p);

@@ -311,9 +311,8 @@ tThread *Threads_CloneTCB(Uint Flags)
  */
 tThread *Threads_CloneThreadZero(void)
 {
-	tThread	*cur, *new;
+	tThread	*new;
 	 int	i;
-	cur = Proc_GetCurThread();
 	
 	// Allocate and duplicate
 	new = malloc(sizeof(tThread));
@@ -340,28 +339,17 @@ tThread *Threads_CloneThreadZero(void)
 	new->LastMessage = NULL;
 	
 	// Set State
-	new->Remaining = new->Quantum = cur->Quantum;
-	new->Priority = cur->Priority;
+	new->Remaining = new->Quantum = DEFAULT_QUANTUM;
+	new->Priority = DEFAULT_PRIORITY;
 	new->bInstrTrace = 0;
 	
 	// Set Signal Handlers
 	new->CurFaultNum = 0;
-	new->FaultHandler = cur->FaultHandler;
+	new->FaultHandler = 0;
 	
 	for( i = 0; i < NUM_CFG_ENTRIES; i ++ )
 	{
-		switch(cCONFIG_TYPES[i])
-		{
-		default:
-			new->Config[i] = cur->Config[i];
-			break;
-		case CFGT_HEAPSTR:
-			if(cur->Config[i])
-				new->Config[i] = (Uint) strdup( (void*)cur->Config[i] );
-			else
-				new->Config[i] = 0;
-			break;
-		}
+		new->Config[i] = 0;
 	}
 	
 	// Maintain a global list of threads
@@ -677,6 +665,7 @@ void Threads_Kill(tThread *Thread, int Status)
  */
 void Threads_Yield(void)
 {
+	Log("Threads_Yield: by %p", __builtin_return_address(0));
 	Proc_Reschedule();
 }
 

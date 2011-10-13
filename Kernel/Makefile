@@ -59,8 +59,7 @@ MODS += $(addprefix ../Modules/, $(addsuffix .xo.$(ARCH),$(MODULES)))
 BIN = ../Acess2.$(ARCH).bin
 GZBIN = ../Acess2.$(ARCH).gz
 
-DEPFILES  = $(filter %.o$(OBJSUFFIX),$(OBJ))
-DEPFILES := $(DEPFILES:%.o$(OBJSUFFIX)=%.dep$(OBJSUFFIX))
+DEPFILES := $(OBJ:%$(OBJSUFFIX)=%.dep$(OBJSUFFIX))
 
 SRCFILES  = $(OBJ:$(OBJDIR)%.o$(OBJSUFFIX)=%.c)
 SRCFILES := $(SRCFILES:$(OBJDIR)%.ao$(OBJSUFFIX)=%.$(AS_SUFFIX))
@@ -97,6 +96,9 @@ $(OBJDIR)%.ao$(OBJSUFFIX): %.$(AS_SUFFIX) Makefile
 	@echo --- AS -o $@
 	@mkdir -p $(dir $@)
 	@$(AS) $(ASFLAGS) $< -o $@
+ifeq ($(AS_SUFFIX),S)
+	@$(MAKEDEP) $(CPPFLAGS) -MT $@ -o $(OBJDIR)$*.ao.dep$(OBJSUFFIX) $<
+endif
 
 $(OBJDIR)%.o$(OBJSUFFIX): %.c Makefile
 #	if exists %*/Makefile
@@ -105,7 +107,7 @@ $(OBJDIR)%.o$(OBJSUFFIX): %.c Makefile
 	@echo --- CC -o $@
 	@mkdir -p $(dir $@)
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $<
-	@$(MAKEDEP) $(CPPFLAGS) -MT $@ -o $(OBJDIR)$*.dep$(OBJSUFFIX) $<
+	@$(MAKEDEP) $(CPPFLAGS) -MT $@ -o $(OBJDIR)$*.o.dep$(OBJSUFFIX) $<
 #	endif
 
 %.xo.$(ARCH):
