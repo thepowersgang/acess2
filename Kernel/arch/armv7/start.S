@@ -1,9 +1,7 @@
 
 #include "include/assembly.h"
+#include "include/options.h"
 
-KERNEL_BASE =	0x80000000
-PCI_PADDR   =	0x60000000	@ Realview
-UART0_PADDR =	0x10009000	@ Realview
 @
 @ Exception defs taken from ARM DDI 0406B
 @ 
@@ -12,7 +10,7 @@ interrupt_vector_table:
 ivt_reset:	b _start @ Reset
 ivt_undef:	b .	@ #UD
 ivt_svc:	b SyscallHandler @ SVC (SWI assume)
-ivt_prefetch:	b DataAbort	@ Prefetch abort
+ivt_prefetch:	b PrefetchAbort	@ Prefetch abort
 ivt_data:	b DataAbort	@ Data abort
 ivt_unused:	b .	@ Not Used
 ivt_irq:	b IRQHandler	@ IRQ
@@ -40,14 +38,14 @@ _start:
 	ldr sp, =irqstack+0x1000	@ Set up stack
 	cps #19
 
-	ldr sp, =stack+0x10000	@ Set up stack
+@	ldr sp, =stack+0x10000	@ Set up stack
+	ldr sp, =0x80000000-4	@ Set up stack (top of user range)
 	ldr r0, =kmain
 	mov pc, r0
 1:	b 1b	@ Infinite loop
 _ptr_kmain:
 	.long kmain
 
-.comm stack, 0x10000	@ ; 64KiB Stack
 .comm irqstack, 0x1000	@ ; 4KiB Stack
 
 SyscallHandler:
@@ -85,11 +83,14 @@ DataAbort:
 	sub lr, #8	@ Adjust LR to the correct value
 	srsdb sp!, #19	@ Switch to supervisor mode (DDI0406B D1.6.5) (actually SRSFD)
 	cpsid ifa, #19
-	PUSH_GPRS
+@	PUSH_GPRS
 
+	mrc p15, 0, r4, c5, c0, 0	@ Read DFSR (Data Fault Address Register) to stack
+	push {r4}
+	mrc p15, 0, r3, c6, c0, 0	@ Read DFAR (Data Fault Address Register) into R3
 	mov r2, lr
 	ldr r1, =csDataAbort_Fmt
-	ldr r0, =csDataAbort_Tag
+	ldr r0, =csAbort_Tag
 	ldr r4, =Log_Error
 	blx r4
 	b .
@@ -98,15 +99,30 @@ DataAbort:
 	rfeia sp!	@ Pop state (actually RFEFD)
 	bx lr
 
+.globl PrefetchAbort
+PrefetchAbort:
+	sub lr, #4	@ Adjust LR to the correct value
+	srsdb sp!, #19	@ Switch to supervisor mode (DDI0406B D1.6.5) (actually SRSFD)
+	cpsid ifa, #19
+	PUSH_GPRS
+
+	ldr r0, =csAbort_Tag
+	ldr r1, =csPrefetchAbort_Fmt
+	mov r2, lr
+	mrc p15, 0, r3, c5, c0, 0	@ Read IFSR (Instruction Fault Address Register) into R3
+	ldr r4, =Log_Error
+	blx r4
+	b .
+
 csIRQ_Tag:
-csDataAbort_Tag:
+csAbort_Tag:
 	.asciz "ARMv7"
 csIRQ_Fmt:
 	.asciz "IRQ"
 csDataAbort_Fmt:
-	.asciz "Data Abort at %p"
-
-.comm irqstack, 0x1000
+	.asciz "Data Abort - %p accessed %p, DFSR=%x Unk:%x Unk:%x"
+csPrefetchAbort_Fmt:
+	.asciz "Prefetch Abort at %p, IFSR=%x"
 
 .section .padata
 .globl kernel_table0
@@ -116,10 +132,10 @@ kernel_table0:
 	.rept 0x7FC - 1
 		.long 0
 	.endr
-	.long user_table1_map + 0x000 - KERNEL_BASE + 1
-	.long user_table1_map + 0x400 - KERNEL_BASE + 1
-	.long 0	@ user_table1_map + 0x800 - KERNEL_BASE + 1
-	.long 0	@ user_table1_map + 0xC00 - KERNEL_BASE + 1
+	.long user_table1_map + 0x000 - KERNEL_BASE + 1	@ 0x7FC00000
+	.long user_table1_map + 0x400 - KERNEL_BASE + 1	@ 0x7FD00000
+	.long user_table1_map + 0x800 - KERNEL_BASE + 1	@ KStacks
+	.long user_table1_map + 0xC00 - KERNEL_BASE + 1
 	@ 0x80000000 - User/Kernel split
 	.long 0x00000002	@ Map first 4 MiB to 2GiB
 	.long 0x00100002	@ 
@@ -162,31 +178,39 @@ kernel_table0:
 	.long kernel_table1_map + 0x400 - KERNEL_BASE + 1
 	.long kernel_table1_map + 0x800 - KERNEL_BASE + 1
 	.long kernel_table1_map + 0xC00 - KERNEL_BASE + 1
-	@ Top level fractals
-	.long 0 	@ removed for alignment constraints, using the KERNEL_BASE identity mapping instead
-	.rept 0x1000 - 0xFF8 - 5
+	.rept 0x1000 - 0xFFC
 		.long 0
 	.endr
 
 @ PID0 user table
 .globl user_table1_map
-user_table1_map:	@ Size = 4KiB
-	.rept 0x7F8/4
+@ User table1 data table (only the first half is needed)
+@ - Abused to provide kernel stacks in upper half
+user_table1_map:	@ Size = 4KiB (only 2KiB used)
+	.rept 0x800/4-4
 		.long 0
 	.endr
-	.long kernel_table0 - KERNEL_BASE + (1 << 4) + 3
-	.long user_table1_map - KERNEL_BASE + (1 << 4) + 3
-	.rept 0x800/4
+	.long kernel_table0 + 0x0000 - KERNEL_BASE + 0x10 + 3	@ ...1FC000 = 0x7FDDC000
+	.long kernel_table0 + 0x1000 - KERNEL_BASE + 0x10 + 3	@ ...1FD000 = 0x7FDDD000
+	.long 0
+	.long user_table1_map - KERNEL_BASE + 0x10 + 3  	@ ...1FF000 = 0x7FDFF000
+	@ Kernel stack zone
+	.rept (0x800/4)-(MM_KSTACK_SIZE/0x1000)
 		.long 0
 	.endr
+	#if MM_KSTACK_SIZE != 0x2000
+	#error Kernel stack size not changed in start.S
+	#endif
+	.long stack + 0x0000 - KERNEL_BASE + 0x10 + 3	@ Kernel Stack
+	.long stack + 0x1000 - KERNEL_BASE + 0x10 + 3	@ 
 
 .globl kernel_table1_map
 kernel_table1_map:	@ Size = 4KiB
-	.rept 0xF00/4
+	.rept (0xF00+16)/4
 		.long 0
 	.endr
 	.long hwmap_table_0 - KERNEL_BASE + (1 << 4) + 3
-	.rept 0xFF8/4 - 0xF00/4 - 1
+	.rept 0xFF8/4 - (0xF00+16)/4 - 1
 		.long 0
 	.endr
 	.long kernel_table1_map - KERNEL_BASE + (1 << 4) + 3
@@ -200,3 +224,7 @@ hwmap_table_0:
 		.long 0
 	.endr
 	
+.section .padata
+stack:
+	.space MM_KSTACK_SIZE, 0	@ Original kernel stack
+

@@ -42,7 +42,7 @@ KernelThreadHeader:
 @ R3: Pointer to save old IP
 @ SP+0: New address space
 SwitchTask:
-	PUSH_GPRS
+	push {r4-r12,lr}
 
 	@ Save IP	
 	ldr r4, =.return
@@ -61,6 +61,26 @@ SwitchTask:
 	bx r2
 
 .return:
-	POP_GPRS
-	bx lr
+	push {r4-r12,pc}
 
+.extern MM_Clone
+.extern MM_DumpTables
+.globl Proc_CloneInt
+Proc_CloneInt:
+	@ R0: SP Destination
+	@ R1: Mem Destination
+	push {r4-r12,lr}
+	mov r4, r1	@ Save mem destination
+	str sp, [r0]	@ Save SP to SP dest
+
+	bl MM_Clone
+	str r0, [r4]	@ Save clone return to Mem Dest
+
+	ldr r0, =Proc_CloneInt_new
+	pop {r4-r12,pc}
+Proc_CloneInt_new:
+	mov r0, #0
+	mov r1, #0x80000000
+	bl MM_DumpTables
+	mov r0, #0
+	pop {r4-r12,pc}

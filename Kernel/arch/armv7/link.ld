@@ -15,6 +15,7 @@ SECTIONS
 		*(.text*)
 		*(.rodata*)
 	}
+	/* 0x4000 (4 pages) alignment needed for root table */
 	.data ALIGN(0x4000) : AT( ADDR(.data) - _kernel_base )
 	{
 		*(.padata)
@@ -32,6 +33,8 @@ SECTIONS
 	{
 		*(.bss*)
 		*(COMMON*)
+		. = ALIGN(0x1000);
+		*(.pabss)
 	}
 	gKernelEnd = .;
 }

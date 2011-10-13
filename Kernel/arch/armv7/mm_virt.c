@@ -13,6 +13,7 @@
 #define AP_KRO_ONLY	0x5
 #define AP_RW_BOTH	0x3
 #define AP_RO_BOTH	0x6
+#define PADDR_MASK_LVL1	0xFFFFFC00
 
 // === IMPORTS ===
 extern Uint32	kernel_table0[];
@@ -31,6 +32,7 @@ typedef struct
 
 //#define FRACTAL(table1, addr)	((table1)[ (0xFF8/4*1024) + ((addr)>>20)])
 #define FRACTAL(table1, addr)	((table1)[ (0xFF8/4*1024) + ((addr)>>22)])
+#define USRFRACTAL(table1, addr)	((table1)[ (0x7F8/4*1024) + ((addr)>>22)])
 #define TLBIALL()	__asm__ __volatile__ ("mcr p15, 0, %0, c8, c7, 0" : : "r" (0))
 
 // === PROTOTYPES ===
@@ -38,7 +40,12 @@ void	MM_int_GetTables(tVAddr VAddr, Uint32 **Table0, Uint32 **Table1);
  int	MM_int_AllocateCoarse(tVAddr VAddr, int Domain);
  int	MM_int_SetPageInfo(tVAddr VAddr, tMM_PageInfo *pi);
  int	MM_int_GetPageInfo(tVAddr VAddr, tMM_PageInfo *pi);
+tPAddr	MM_AllocateRootTable(void);
+void	MM_int_CloneTable(Uint32 *DestEnt, int Table);
+tPAddr	MM_Clone(void);
 tVAddr	MM_NewKStack(int bGlobal);
+void	MM_int_DumpTableEnt(tVAddr Start, size_t Len, tMM_PageInfo *Info);
+//void	MM_DumpTables(tVAddr Start, tVAddr End);
 
 // === GLOBALS ===
 
@@ -199,6 +206,8 @@ int MM_int_GetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 {
 	Uint32	*table0, *table1;
 	Uint32	desc;
+
+//	LogF("MM_int_GetPageInfo: VAddr=%p, pi=%p\n", VAddr, pi);
 	
 	MM_int_GetTables(VAddr, &table0, &table1);
 
@@ -210,7 +219,7 @@ int MM_int_GetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 	pi->bExecutable = 1;
 	pi->bGlobal = 0;
 	pi->bShared = 0;
-
+	pi->AP = 0;
 
 	switch( (desc & 3) )
 	{
@@ -238,15 +247,21 @@ int MM_int_GetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 		case 1:
 			pi->Size = 16;
 			pi->PhysAddr = desc & 0xFFFF0000;
+			pi->AP = ((desc >> 4) & 3) | (((desc >> 9) & 1) << 2);
+			pi->bExecutable = !(desc & 0x8000);
+			pi->bShared = (desc >> 10) & 1;
+//			LogF("Large page, VAddr = %p, table1[VAddr>>12] = %p, desc = %x\n", VAddr, &table1[ VAddr >> 12 ], desc);
+//			LogF("Par desc = %p %x\n", &table0[ VAddr >> 20 ], table0[ VAddr >> 20 ]);
 			return 0;
 		// 2/3: Small page
 		case 2:
 		case 3:
 			pi->Size = 12;
 			pi->PhysAddr = desc & 0xFFFFF000;
-			pi->bExecutable = desc & 1;
+			pi->bExecutable = !(desc & 1);
 			pi->bGlobal = !(desc >> 11);
 			pi->bShared = (desc >> 10) & 1;
+			pi->AP = ((desc >> 4) & 3) | (((desc >> 9) & 1) << 2);
 			return 0;
 		}
 		return 1;
@@ -259,7 +274,8 @@ int MM_int_GetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 			pi->PhysAddr |= (Uint64)((desc >> 20) & 0xF) << 32;
 			pi->PhysAddr |= (Uint64)((desc >> 5) & 0x7) << 36;
 			pi->Size = 24;
-			pi->Domain = 0;	// Superpages default to zero
+			pi->Domain = 0;	// Supersections default to zero
+			pi->AP = ((desc >> 10) & 3) | (((desc >> 15) & 1) << 2);
 			return 0;
 		}
 		
@@ -267,6 +283,7 @@ int MM_int_GetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 		pi->PhysAddr = desc & 0xFFF80000;
 		pi->Size = 20;
 		pi->Domain = (desc >> 5) & 7;
+		pi->AP = ((desc >> 10) & 3) | (((desc >> 15) & 1) << 2);
 		return 0;
 
 	// 3: Reserved (invalid)
@@ -373,6 +390,155 @@ void MM_Deallocate(tVAddr VAddr)
 	MM_int_SetPageInfo(VAddr, &pi);
 }
 
+tPAddr MM_AllocateRootTable(void)
+{
+	tPAddr	ret;
+	
+	ret = MM_AllocPhysRange(2, -1);
+	if( ret & 0x1000 ) {
+		MM_DerefPhys(ret);
+		MM_DerefPhys(ret+0x1000);
+		ret = MM_AllocPhysRange(3, -1);
+		if( ret & 0x1000 ) {
+			MM_DerefPhys(ret);
+			ret += 0x1000;
+		}
+		else {
+			MM_DerefPhys(ret + 0x2000);
+		}
+	}
+	return ret;
+}
+
+void MM_int_CloneTable(Uint32 *DestEnt, int Table)
+{
+	tPAddr	table;
+	Uint32	*tmp_map;
+	Uint32	*cur = (void*)MM_TABLE0USER;
+//	Uint32	*cur = &FRACTAL(MM_TABLE1USER,0);
+	 int	i;
+	
+	table = MM_AllocPhys();
+	if(!table)	return ;
+	
+	tmp_map = (void*)MM_MapTemp(table);
+	
+	for( i = 0; i < 1024; i ++ )
+	{
+		switch(cur[i] & 3)
+		{
+		case 0:	tmp_map[i] = 0;	break;
+		case 1:
+			tmp_map[i] = 0;
+			Log_Error("MMVirt", "TODO: Support large pages in MM_int_CloneTable");
+			// Large page?
+			break;
+		case 2:
+		case 3:
+			// Small page
+			// - If full RW
+			if( (cur[Table*256] & 0x230) == 0x030 )
+				cur[Table*256+i] |= 0x200;	// Set to full RO (Full RO=COW, User RO = RO)
+			tmp_map[i] = cur[Table*256+i];
+			break;
+		}
+	}
+
+	DestEnt[0] = table + 0*0x400 + 1;
+	DestEnt[1] = table + 1*0x400 + 1;
+	DestEnt[2] = table + 2*0x400 + 1;
+	DestEnt[3] = table + 3*0x400 + 1;
+}
+
+tPAddr MM_Clone(void)
+{
+	tPAddr	ret;
+	Uint32	*new_lvl1_1, *new_lvl1_2, *cur;
+	Uint32	*tmp_map;
+	 int	i;
+	
+	ret = MM_AllocateRootTable();
+
+	cur = (void*)MM_TABLE0USER;
+	new_lvl1_1 = (void*)MM_MapTemp(ret);
+	new_lvl1_2 = (void*)MM_MapTemp(ret+0x1000);
+	tmp_map = new_lvl1_1;
+	new_lvl1_1[0] = 0x8202;	// Section mapping the first meg for exception vectors (K-RO)
+	for( i = 1; i < 0x800-4; i ++ )
+	{
+//		Log("i = %i", i);
+		if( i == 0x400 ) {
+			tmp_map = &new_lvl1_2[-0x400];
+			Log("tmp_map = %p", tmp_map);
+		}
+		switch( cur[i] & 3 )
+		{
+		case 0:	tmp_map[i] = 0;	break;
+		case 1:
+			MM_int_CloneTable(&tmp_map[i], i);
+			i += 3;	// Tables are alocated in blocks of 4
+			break;
+		case 2:
+		case 3:
+			Log_Error("MMVirt", "TODO: Support Sections/Supersections in MM_Clone (i=%i)", i);
+			tmp_map[i] = 0;
+			break;
+		}
+	}
+
+	// Allocate Fractal table
+	{
+		 int	j, num;
+		tPAddr	tmp = MM_AllocPhys();
+		Uint32	*table = (void*)MM_MapTemp(tmp);
+		Uint32	sp;
+		register Uint32 __SP asm("sp");
+		// Map table to last 4MiB of user space
+		tmp_map[i+0] = tmp + 0*0x400 + 1;
+		tmp_map[i+1] = tmp + 1*0x400 + 1;
+		tmp_map[i+2] = tmp + 2*0x400 + 1;
+		tmp_map[i+3] = tmp + 3*0x400 + 1;
+		for( j = 0; j < 256; j ++ ) {
+			table[j] = new_lvl1_1[j*4] & PADDR_MASK_LVL1;// 0xFFFFFC00;
+			table[j] |= 0x10|3;	// Kernel Only, Small table, XN
+		}
+		for(      ; j < 512; j ++ ) {
+			table[j] = new_lvl1_2[(j-256)*4] & PADDR_MASK_LVL1;// 0xFFFFFC00;
+			table[j] |= 0x10|3;	// Kernel Only, Small table, XN
+		}
+		for(      ; j < 1024; j ++ )
+			table[j] = 0;
+		
+		// Get kernel stack bottom
+		sp = __SP;
+		sp &= ~(MM_KSTACK_SIZE-1);
+		j = (sp / 0x1000) % 1024;
+		num = MM_KSTACK_SIZE/0x1000;
+		Log("sp = %p, j = %i", sp, j);
+		
+		// Copy stack pages
+		for(; num--; j ++, sp += 0x1000)
+		{
+			tVAddr	page = MM_AllocPhys();
+			void	*tmp_page;
+			table[j] = page | 0x13;
+			tmp_page = (void*)MM_MapTemp(page);
+			memcpy(tmp_page, (void*)sp, 0x1000);
+			MM_FreeTemp( (tVAddr)tmp_page );
+		}
+		
+		MM_FreeTemp( (tVAddr)table );
+	}
+
+	tmp_map = &tmp_map[0x400];
+	MM_FreeTemp( (tVAddr)tmp_map );
+
+	Log("Table dump");
+	MM_DumpTables(0, -1);
+
+	return ret;
+}
+
 tPAddr MM_ClearUser(void)
 {
 	// TODO: Implement ClearUser
@@ -414,9 +580,12 @@ tVAddr MM_MapHWPages(tPAddr PAddr, Uint NPages)
 	 int	i;
 	tMM_PageInfo	pi;
 
+	ENTER("xPAddr iNPages", PAddr, NPages);
+
 	// Scan for a location
 	for( ret = MM_HWMAP_BASE; ret < MM_HWMAP_END - NPages * PAGE_SIZE; ret += PAGE_SIZE )
 	{
+//		LOG("checking %p", ret);
 		// Check if there is `NPages` free pages
 		for( i = 0; i < NPages; i ++ )
 		{
@@ -424,6 +593,7 @@ tVAddr MM_MapHWPages(tPAddr PAddr, Uint NPages)
 				break;
 		}
 		// Nope, jump to after the used page found and try again
+//		LOG("i = %i, ==? %i", i, NPages);
 		if( i != NPages ) {
 			ret += i * PAGE_SIZE;
 			continue ;
@@ -433,9 +603,11 @@ tVAddr MM_MapHWPages(tPAddr PAddr, Uint NPages)
 		for( i = 0; i < NPages; i ++ )
 			MM_Map(ret+i*PAGE_SIZE, PAddr+i*PAddr);
 		// and return
+		LEAVE('p', ret);
 		return ret;
 	}
 	Log_Warning("MMVirt", "MM_MapHWPages: No space for a %i page block", NPages);
+	LEAVE('p', 0);
 	return 0;
 }
 
@@ -493,8 +665,46 @@ tVAddr MM_NewKStack(int bShared)
 	return addr + ofs;
 }
 
+void MM_int_DumpTableEnt(tVAddr Start, size_t Len, tMM_PageInfo *Info)
+{
+	Log("%p => %8x - 0x%7x %i %x",
+		Start, Info->PhysAddr-Len, Len,
+		Info->Domain,
+		Info->AP
+		);
+}
+
 void MM_DumpTables(tVAddr Start, tVAddr End)
 {
+	tVAddr	range_start = 0, addr;
+	tMM_PageInfo	pi, pi_old;
+	 int	i = 0, inRange=0;
 	
+	pi_old.Size = 0;
+
+	range_start = Start;
+	for( addr = Start; i == 0 || (addr && addr < End); i = 1 )
+	{
+		int rv = MM_int_GetPageInfo(addr, &pi);
+		if( rv
+		 || pi.Size != pi_old.Size
+		 || pi.Domain != pi_old.Domain
+		 || pi.AP != pi_old.AP
+		 || pi_old.PhysAddr != pi.PhysAddr )
+		{
+			if(inRange) {
+				MM_int_DumpTableEnt(range_start, addr - range_start, &pi_old);
+			}
+			addr &= ~((1 << pi.Size)-1);
+			range_start = addr;
+		}
+		
+		pi_old = pi;
+		pi_old.PhysAddr += 1 << pi_old.Size;
+		addr += 1 << pi_old.Size;
+		inRange = (rv == 0);
+	}
+	if(inRange)
+		MM_int_DumpTableEnt(range_start, addr - range_start, &pi);
 }
 

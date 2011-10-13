@@ -13,7 +13,7 @@
 extern tThread	gThreadZero;
 extern void	SwitchTask(Uint32 NewSP, Uint32 *OldSP, Uint32 NewIP, Uint32 *OldIP, Uint32 MemPtr);
 extern void	KernelThreadHeader(void);	// Actually takes args on stack
-extern void	Proc_CloneInt(Uint32 *SP, Uint32 *MemPtr);
+extern Uint32	Proc_CloneInt(Uint32 *SP, Uint32 *MemPtr);
 extern tVAddr	MM_NewKStack(int bGlobal);	// TODO: Move out into a header
 
 // === PROTOTYPES ===
@@ -32,7 +32,6 @@ void ArchThreads_Init(void)
 void Proc_IdleThread(void *unused)
 {
 	Threads_SetPriority(gpIdleThread, -1);
-	Threads_SetName("Idle Thread");
 	for(;;) {
 		Proc_Reschedule();
 		__asm__ __volatile__ ("wfi");
@@ -45,6 +44,7 @@ void Proc_Start(void)
 
 	tid = Proc_NewKThread( Proc_IdleThread, NULL );
 	gpIdleThread = Threads_GetThread(tid);
+	gpIdleThread->ThreadName = (char*)"Idle Thread";
 }
 
 int GetCPUNum(void)
@@ -66,13 +66,25 @@ void Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **
 tTID Proc_Clone(Uint Flags)
 {
 	tThread	*new;
+	Uint32	pc, sp, mem;
 
 	new = Threads_CloneTCB(Flags);
 	if(!new)	return -1;
+
+	// Actual clone magic
+	pc = Proc_CloneInt(&sp, &mem);
+	if(pc == 0) {
+		Log("Proc_Clone: In child");
+		return 0;
+	}
 	
-	Log_Error("Proc", "TODO: Implement Proc_Clone");
-	
-	return -1;
+	new->SavedState.IP = pc;
+	new->SavedState.SP = sp;
+	new->MemState.Base = mem;
+
+	Threads_AddActive(new);
+
+	return new->TID;
 }
 
 tTID Proc_SpawnWorker( void (*Fnc)(void*), void *Ptr )
@@ -82,6 +94,8 @@ tTID Proc_SpawnWorker( void (*Fnc)(void*), void *Ptr )
 
 	new = Threads_CloneThreadZero();
 	if(!new)	return -1;
+	free(new->ThreadName);
+	new->ThreadName = NULL;
 
 	new->KernelStack = MM_NewKStack(1);
 	if(!new->KernelStack) {
@@ -112,6 +126,8 @@ tTID Proc_NewKThread( void (*Fnc)(void*), void *Ptr )
 
 	new = Threads_CloneTCB(0);
 	if(!new)	return -1;
+	free(new->ThreadName);
+	new->ThreadName = NULL;
 
 	// TODO: Non-shared stack
 	new->KernelStack = MM_NewKStack(1);
@@ -151,11 +167,11 @@ void Proc_Reschedule(void)
 	if(!next)	next = gpIdleThread;
 	if(!next || next == cur)	return;
 
-	Log("Switching to %p (%i %s) IP=%p SP=%p", next, next->TID, next->ThreadName, next->SavedState.IP, next->SavedState.SP);
+	Log("Switching to %p (%i %s)", next, next->TID, next->ThreadName);
+	Log(" IP=%p SP=%p TTBR0=%p", next->SavedState.IP, next->SavedState.SP, next->MemState.Base);
 	Log("Requested by %p", __builtin_return_address(0));
 	
 	gpCurrentThread = next;
-	// TODO: Change kernel stack?
 
 	SwitchTask(
 		next->SavedState.SP, &cur->SavedState.SP,
