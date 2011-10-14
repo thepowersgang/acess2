@@ -28,17 +28,33 @@ _start:
 	mov r0, #3
 	mcr p15, 0, r0, c3, c0, 0	@ Set Domain 0 to Manager
 
+	@ Enable VMSA
 	mrc p15, 0, r0, c1, c0, 0
 	orr r0, r0, #1
 	orr r0, r0, #1 << 23
 	mcr p15, 0, r0, c1, c0, 0
 
+	@
+	@ Check for security extensions
+	@
+	mrc p15, 0, r0, c0, c1, 1
+	and r0, #0xF0
+	@ - Present
+	ldrne r0,=KERNEL_BASE
+	mcrne p15, 0, r0, c12, c0, 0	@ Set the VBAR (brings exceptions into high memory)
+	@ - Absent
+	mrceq p15, 0, r0, c1, c0, 0	@ Set SCTLR.V
+	orreq r0, #0x2000
+	mcreq p15, 0, r0, c1, c0, 0
+
+
 	@ Prepare for interrupts
 	cps #18	@ IRQ Mode
 	ldr sp, =irqstack+0x1000	@ Set up stack
+	cps #23	@ Abort Mode
+	ldr sp, =abortstack+0x1000
 	cps #19
 
-@	ldr sp, =stack+0x10000	@ Set up stack
 	ldr sp, =0x80000000-4	@ Set up stack (top of user range)
 	ldr r0, =kmain
 	mov pc, r0
@@ -47,6 +63,7 @@ _ptr_kmain:
 	.long kmain
 
 .comm irqstack, 0x1000	@ ; 4KiB Stack
+.comm abortstack, 0x1000	@ ; 4KiB Stack
 
 SyscallHandler:
 	b .
@@ -81,8 +98,8 @@ IRQHandler:
 .globl DataAbort
 DataAbort:
 	sub lr, #8	@ Adjust LR to the correct value
-	srsdb sp!, #19	@ Switch to supervisor mode (DDI0406B D1.6.5) (actually SRSFD)
-	cpsid ifa, #19
+@	srsdb sp!, #19	@ Switch to supervisor mode (DDI0406B D1.6.5) (actually SRSFD)
+@	cpsid ifa, #19
 @	PUSH_GPRS
 
 	mrc p15, 0, r4, c5, c0, 0	@ Read DFSR (Data Fault Address Register) to stack
@@ -95,16 +112,16 @@ DataAbort:
 	blx r4
 	b .
 
-	POP_GPRS
-	rfeia sp!	@ Pop state (actually RFEFD)
+@	POP_GPRS
+@	rfeia sp!	@ Pop state (actually RFEFD)
 	bx lr
 
 .globl PrefetchAbort
 PrefetchAbort:
 	sub lr, #4	@ Adjust LR to the correct value
-	srsdb sp!, #19	@ Switch to supervisor mode (DDI0406B D1.6.5) (actually SRSFD)
-	cpsid ifa, #19
-	PUSH_GPRS
+@	srsdb sp!, #19	@ Switch to supervisor mode (DDI0406B D1.6.5) (actually SRSFD)
+@	cpsid ifa, #19
+@	PUSH_GPRS
 
 	ldr r0, =csAbort_Tag
 	ldr r1, =csPrefetchAbort_Fmt
@@ -178,9 +195,10 @@ kernel_table0:
 	.long kernel_table1_map + 0x400 - KERNEL_BASE + 1
 	.long kernel_table1_map + 0x800 - KERNEL_BASE + 1
 	.long kernel_table1_map + 0xC00 - KERNEL_BASE + 1
-	.rept 0x1000 - 0xFFC
-		.long 0
-	.endr
+	.long kernel_exception_map + 0x000 - KERNEL_BASE + 1
+	.long kernel_exception_map + 0x400 - KERNEL_BASE + 1
+	.long kernel_exception_map + 0x800 - KERNEL_BASE + 1
+	.long kernel_exception_map + 0xC00 - KERNEL_BASE + 1
 
 @ PID0 user table
 .globl user_table1_map
@@ -213,13 +231,27 @@ kernel_table1_map:	@ Size = 4KiB
 		.long 0
 	.endr
 	.long kernel_table1_map - KERNEL_BASE + (1 << 4) + 3
-	.long 0
+	.long kernel_exception_map - KERNEL_BASE + 0x13
 
 @ Hardware mappings 
 .globl hwmap_table_0
 hwmap_table_0:
 	.long UART0_PADDR + (1 << 4) + 3	@ UART0
 	.rept 1024 - 1
+		.long 0
+	.endr
+.globl kernel_exception_map
+kernel_exception_map:
+	@ Padding
+	.rept 1024-256
+		.long 0
+	.endr
+	@ Align to nearly the end
+	.rept 256-16
+		.long	0
+	.endr
+	.long 0x213	@ Map first page for exceptions (Kernel RO)
+	.rept 15
 		.long 0
 	.endr
 	

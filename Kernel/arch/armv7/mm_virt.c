@@ -32,7 +32,7 @@ typedef struct
 
 //#define FRACTAL(table1, addr)	((table1)[ (0xFF8/4*1024) + ((addr)>>20)])
 #define FRACTAL(table1, addr)	((table1)[ (0xFF8/4*1024) + ((addr)>>22)])
-#define USRFRACTAL(table1, addr)	((table1)[ (0x7F8/4*1024) + ((addr)>>22)])
+#define USRFRACTAL(addr)	(*((Uint32*)(0x7FDFF000) + ((addr)>>22)))
 #define TLBIALL()	__asm__ __volatile__ ("mcr p15, 0, %0, c8, c7, 0" : : "r" (0))
 #define TLBIMVA(addr)	__asm__ __volatile__ ("mcr p15, 0, %0, c8, c7, 1" : : "r" (addr))
 
@@ -111,7 +111,14 @@ int MM_int_AllocateCoarse(tVAddr VAddr, int Domain)
 	desc[2] = desc[0] + 0x800;
 	desc[3] = desc[0] + 0xC00;
 
-	FRACTAL(table1, VAddr) = paddr | 3;
+	if( VAddr < 0x80000000 ) {
+//		Log("USRFRACTAL(%p) = %p", VAddr, &USRFRACTAL(VAddr));
+		USRFRACTAL(VAddr) = paddr | 3;
+	}
+	else {
+//		Log("FRACTAL(%p) = %p", VAddr, &FRACTAL(table1, VAddr));
+		FRACTAL(table1, VAddr) = paddr | 3;
+	}
 
 	// TLBIALL 
 	TLBIALL();	
@@ -470,8 +477,7 @@ tPAddr MM_Clone(void)
 	new_lvl1_1 = (void*)MM_MapTemp(ret);
 	new_lvl1_2 = (void*)MM_MapTemp(ret+0x1000);
 	tmp_map = new_lvl1_1;
-	new_lvl1_1[0] = 0x8202;	// Section mapping the first meg for exception vectors (K-RO)
-	for( i = 1; i < 0x800-4; i ++ )
+	for( i = 0; i < 0x800-4; i ++ )
 	{
 //		Log("i = %i", i);
 		if( i == 0x400 )
@@ -498,7 +504,7 @@ tPAddr MM_Clone(void)
 		Uint32	*table = (void*)MM_MapTemp(tmp);
 		Uint32	sp;
 		register Uint32 __SP asm("sp");
-		Log("new_lvl1_2 = %p, &new_lvl1_2[0x3FC] = %p", new_lvl1_2, &new_lvl1_2[0x3FC]);
+
 		// Map table to last 4MiB of user space
 		new_lvl1_2[0x3FC] = tmp + 0*0x400 + 1;
 		new_lvl1_2[0x3FD] = tmp + 1*0x400 + 1;
@@ -521,7 +527,7 @@ tPAddr MM_Clone(void)
 		// Fractal
 		table[j++] = (ret + 0x0000) | 0x813;
 		table[j++] = (ret + 0x1000) | 0x813;
-		Log("table[%i] = %x, table[%i] = %x", j-2, table[j-2], j-1, table[j-1]);
+		// Nuke the rest
 		for(      ; j < 1024; j ++ )
 			table[j] = 0;
 		
@@ -529,7 +535,6 @@ tPAddr MM_Clone(void)
 		sp = __SP & ~(MM_KSTACK_SIZE-1);
 		j = (sp / 0x1000) % 1024;
 		num = MM_KSTACK_SIZE/0x1000;
-		Log("sp = %p, j = %i", sp, j);
 		
 		// Copy stack pages
 		for(; num--; j ++, sp += 0x1000)
@@ -545,19 +550,11 @@ tPAddr MM_Clone(void)
 			MM_FreeTemp( (tVAddr) tmp_page );
 		}
 	
-//		Debug_HexDump("MMVirt - last table", table, 0x1000);
-	
 		MM_FreeTemp( (tVAddr)table );
 	}
 
-//	Debug_HexDump("MMVirt - Return page 1", new_lvl1_1, 0x1000);
-//	Debug_HexDump("MMVirt - Return page 2", new_lvl1_2, 0x1000);
-
 	MM_FreeTemp( (tVAddr)new_lvl1_1 );
 	MM_FreeTemp( (tVAddr)new_lvl1_2 );
-
-//	Log("Table dump");
-//	MM_DumpTables(0, -1);
 
 	return ret;
 }
@@ -733,5 +730,6 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 	}
 	if(inRange)
 		MM_int_DumpTableEnt(range_start, addr - range_start, &pi);
+	Log("Done");
 }
 

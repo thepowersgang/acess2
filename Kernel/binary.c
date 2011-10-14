@@ -179,10 +179,10 @@ int Proc_Execve(const char *File, const char **ArgV, const char **EnvP)
 }
 
 /**
- * \fn tVAddr Binary_Load(char *Path, tVAddr *EntryPoint)
  * \brief Load a binary into the current address space
  * \param Path	Path to binary to load
  * \param EntryPoint	Pointer for exectuable entry point
+ * \return Virtual address where the binary has been loaded
  */
 tVAddr Binary_Load(const char *Path, tVAddr *EntryPoint)
 {
@@ -217,6 +217,7 @@ tVAddr Binary_Load(const char *Path, tVAddr *EntryPoint)
 		VFS_Close(fd);
 		mount_id = info.mount;
 		inode = info.inode;
+		LOG("mount_id = %i, inode = %i", mount_id, inode);
 	}
 
 	// TODO: Also get modifcation time?

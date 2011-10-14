@@ -82,7 +82,8 @@ Proc_CloneInt_new:
 	cps #18
 		
 	mov r0, #0
-	mov r1, #0x80000000
+	mov r1, #0
+	sub r1, #1
 	bl MM_DumpTables
 
 @	ldr r0, =csProc_CloneInt_NewTaskMessage

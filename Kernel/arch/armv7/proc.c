@@ -61,6 +61,7 @@ void Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **
 {
 	Log_Debug("Proc", "Proc_StartUser: (Entrypoint=%p, Bases=%p, ArgC=%i, ...)",
 		Entrypoint, Bases, ArgC);
+	Log_Error("Proc", "TODO: Implement Proc_StartUser");
 }
 
 tTID Proc_Clone(Uint Flags)
