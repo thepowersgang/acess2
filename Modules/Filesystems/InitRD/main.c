@@ -9,11 +9,14 @@
 
 // === IMPORTS ==
 extern tVFS_Node	gInitRD_RootNode;
+extern const int	giInitRD_NumFiles;
+extern tVFS_Node * const	gInitRD_FileList[];
 
 // === PROTOTYPES ===
  int	InitRD_Install(char **Arguments);
 tVFS_Node	*InitRD_InitDevice(const char *Device, const char **Arguments);
 void	InitRD_Unmount(tVFS_Node *Node);
+tVFS_Node	*InitRD_GetNodeFromINode(tVFS_Node *Root, Uint64 Inode);
 Uint64	InitRD_ReadFile(tVFS_Node *Node, Uint64 Offset, Uint64 Size, void *Buffer);
 char	*InitRD_ReadDir(tVFS_Node *Node, int ID);
 tVFS_Node	*InitRD_FindDir(tVFS_Node *Node, const char *Name);
@@ -22,7 +25,7 @@ void	InitRD_DumpDir(tVFS_Node *Node, int Indent);
 // === GLOBALS ===
 MODULE_DEFINE(0, 0x0A, FS_InitRD, InitRD_Install, NULL);
 tVFS_Driver	gInitRD_FSInfo = {
-	"initrd", 0, InitRD_InitDevice, InitRD_Unmount, NULL
+	"initrd", 0, InitRD_InitDevice, InitRD_Unmount, InitRD_GetNodeFromINode
 	};
 
 /**
@@ -53,6 +56,14 @@ tVFS_Node *InitRD_InitDevice(const char *Device, const char **Arguments)
  */
 void InitRD_Unmount(tVFS_Node *Node)
 {
+}
+
+/**
+ */
+tVFS_Node *InitRD_GetNodeFromINode(tVFS_Node *Root, Uint64 Inode)
+{
+	if( Inode >= giInitRD_NumFiles )	return NULL;
+	return gInitRD_FileList[Inode];
 }
 
 /**

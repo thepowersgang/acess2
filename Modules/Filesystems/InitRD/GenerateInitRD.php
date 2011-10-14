@@ -65,12 +65,15 @@ function hd8($fp)
 	return "0x".str_pad( dechex(ord(fgetc($fp))), 2, "0", STR_PAD_LEFT );
 }
 
+$inode = 0;
 function ProcessFolder($prefix, $items)
 {
 	global	$gOutput, $gDependencies;
 	global	$ACESSDIR, $ARCH;
+	global	$inode;
 	foreach($items as $i=>$item)
 	{
+		$inode ++;
 		if(is_array($item[1]))
 		{
 			ProcessFolder("{$prefix}_{$i}", $item[1]);
@@ -90,6 +93,7 @@ tVFS_Node {$prefix}_{$i} = {
 	.ACLs = &gVFS_ACL_EveryoneRX,
 	.Flags = VFS_FFLAG_DIRECTORY,
 	.Size = $size,
+	.Inode = {$inode},
 	.ImplPtr = {$prefix}_{$i}_entries,
 	.ReadDir = InitRD_ReadDir,
 	.FindDir = InitRD_FindDir
@@ -142,6 +146,7 @@ tVFS_Node {$prefix}_{$i} = {
 	.ACLs = &gVFS_ACL_EveryoneRX,
 	.Flags = 0,
 	.Size = $size,
+	.Inode = {$inode},
 	.ImplPtr = {$prefix}_{$i}_data,
 	.Read = InitRD_ReadFile
 };
@@ -175,6 +180,34 @@ tVFS_Node gInitRD_RootNode = {
 	.FindDir = InitRD_FindDir
 };
 EOF;
+
+$gOutput .= <<<EOF
+
+tVFS_Node * const gInitRD_FileList[] = {
+&gInitRD_RootNode
+EOF;
+
+function PutNodePointers($prefix, $items)
+{
+	global $gOutput;
+	foreach($items as $i=>$item)
+	{
+		$gOutput .= ",&{$prefix}_{$i}";
+		if(is_array($item[1]))
+		{
+			PutNodePointers("{$prefix}_{$i}", $item[1]);
+		}
+	}
+}
+
+PutNodePointers("gInitRD_Files", $lStack[0][1]);
+
+$gOutput .= <<<EOF
+};
+const int giInitRD_NumFiles = sizeof(gInitRD_FileList)/sizeof(gInitRD_FileList[0]);
+
+EOF;
+
 
 $fp = fopen($gOutputFile, "w");
 fputs($fp, $gOutput);
