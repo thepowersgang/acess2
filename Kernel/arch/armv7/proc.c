@@ -167,8 +167,10 @@ void Proc_Reschedule(void)
 	if(!next)	next = gpIdleThread;
 	if(!next || next == cur)	return;
 
-	Log("Switching to %p (%i %s)", next, next->TID, next->ThreadName);
-	Log(" IP=%p SP=%p TTBR0=%p", next->SavedState.IP, next->SavedState.SP, next->MemState.Base);
+	Log("Switching to %p (%i %s) IP=%p SP=%p TTBR0=%p",
+		next, next->TID, next->ThreadName,
+		next->SavedState.IP, next->SavedState.SP, next->MemState.Base
+		);
 	Log("Requested by %p", __builtin_return_address(0));
 	
 	gpCurrentThread = next;

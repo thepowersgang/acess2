@@ -11,6 +11,7 @@
 
 #define MM_NUM_RANGES	1	// Single range
 #define MM_RANGE_MAX	0
+#define TRACE_ALLOCS	0
 
 #define NUM_STATIC_ALLOC	4
 

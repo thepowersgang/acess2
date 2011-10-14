@@ -187,15 +187,14 @@ kernel_table0:
 @ User table1 data table (only the first half is needed)
 @ - Abused to provide kernel stacks in upper half
 user_table1_map:	@ Size = 4KiB (only 2KiB used)
-	.rept 0x800/4-4
+	.rept 0x800/4-1
 		.long 0
 	.endr
-	.long kernel_table0 + 0x0000 - KERNEL_BASE + 0x10 + 3	@ ...1FC000 = 0x7FDDC000
-	.long kernel_table0 + 0x1000 - KERNEL_BASE + 0x10 + 3	@ ...1FD000 = 0x7FDDD000
-	.long 0
 	.long user_table1_map - KERNEL_BASE + 0x10 + 3  	@ ...1FF000 = 0x7FDFF000
 	@ Kernel stack zone
-	.rept (0x800/4)-(MM_KSTACK_SIZE/0x1000)
+	.long kernel_table0 + 0x0000 - KERNEL_BASE + 0x10 + 3	@ ...200000 = 0x7FE00000
+	.long kernel_table0 + 0x1000 - KERNEL_BASE + 0x10 + 3	@ ...201000 = 0x7FE01000
+	.rept (0x800/4)-(MM_KSTACK_SIZE/0x1000)-2
 		.long 0
 	.endr
 	#if MM_KSTACK_SIZE != 0x2000

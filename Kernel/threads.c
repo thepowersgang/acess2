@@ -665,7 +665,7 @@ void Threads_Kill(tThread *Thread, int Status)
  */
 void Threads_Yield(void)
 {
-	Log("Threads_Yield: by %p", __builtin_return_address(0));
+//	Log("Threads_Yield: by %p", __builtin_return_address(0));
 	Proc_Reschedule();
 }
 

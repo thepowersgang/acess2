@@ -7,6 +7,7 @@
 
 // === PROTOTYPES ===
 Uint64	__divmod64(Uint64 Num, Uint64 Den, Uint64 *Rem);
+Uint32	__divmod32(Uint32 Num, Uint32 Den, Uint32 *Rem);
 Uint64	__udivdi3(Uint64 Num, Uint64 Den);
 Uint64	__umoddi3(Uint64 Num, Uint64 Den);
 Uint32	__udivsi3(Uint32 Num, Uint32 Den);
@@ -113,35 +114,24 @@ void *memset(void *_dest, int _value, size_t _length)
 	return _dest;
 }
 
-Uint64 __divmod64(Uint64 Num, Uint64 Den, Uint64 *Rem)
-{
-	Uint64	ret, add;
-
-	ret = 0;
-	add = 1;
-
-	// Find what power of two times Den is > Num
-	while( Num >= Den )
-	{
-		Den <<= 1;
-		add <<= 1;
-	}
-
-	// Search backwards
-	while( add > 1 )
-	{
-		add >>= 1;
-		Den >>= 1;
-		// If the numerator is > Den, subtract and add to return value
-		if( Num >= Den )
-		{
-			ret += add;
-			Num -= Den;
-		}
-	}
-	if(Rem)	*Rem = Num;
-	return ret;
+// Divide
+// - Find what power of two times Den is > Num
+// - Iterate down in bit significance
+//  > If the `N` value is greater than `D`, we can set this bit
+#define DEF_DIVMOD(s) Uint##s __divmod##s(Uint##s N, Uint##s D, Uint##s*Rem){\
+	Uint##s ret=0,add=1;\
+	while(N>=D&&add) {D<<=1;add<<=1;}\
+	while(add>1){\
+		add>>=1;D>>=1;\
+		if(N>=D){ret+=add;N-=D;}\
+	}\
+	if(Rem)*Rem = N;\
+	return ret;\
 }
+
+DEF_DIVMOD(64)
+DEF_DIVMOD(32)
+
 
 Uint64 DivMod64U(Uint64 Num, Uint64 Den, Uint64 *Rem)
 {
@@ -172,62 +162,14 @@ Uint64 DivMod64U(Uint64 Num, Uint64 Den, Uint64 *Rem)
 		return Num >> 12;
 	}
 
-	#if 0
-	{
-		// http://www.tofla.iconbar.com/tofla/arm/arm02/index.htm
-		Uint64	tmp = 1;
-		__asm__ __volatile__(
-			"1:"
-			"cmpl %2,%1"
-			"movls %2,%2,lsl#1"
-			"movls %3,%3,lsl#1"
-			"bls 1b"
-			"2:"
-			"cmpl %"
-		while(Num > Den) {
-			Den <<= 1;
-			tmp <<= 1;
-		}
-		Den >>= 1; tmp >>= 1;
-		while(
-	}
-	if(Rem)	*Rem = Num;
-	return ret;
-	#elif 0
-	for( ret = 0; Num > Den; ret ++, Num -= Den) ;
-	if(Rem)	*Rem = Num;
-	return ret;
-	#else
 	ret = __divmod64(Num, Den, Rem);
 	return ret;
-	#endif
 }
 
 // Unsigned Divide 64-bit Integer
 Uint64 __udivdi3(Uint64 Num, Uint64 Den)
 {
 	return DivMod64U(Num, Den, NULL);
-	#if 0
-//	if( Den == 0 )	return 5 / (Uint32)Den;	// Force a #DIV0
-	if( Den == 16 )	return Num >> 4;
-	if( Den == 256 )	return Num >> 8;
-	if( Den == 512 )	return Num >> 9;
-	if( Den == 1024 )	return Num >> 10;
-	if( Den == 2048 )	return Num >> 11;
-	if( Den == 4096 )	return Num >> 12;
-	if( Num < Den )	return 0;
-	if( Num <= 0xFFFFFFFF && Den <= 0xFFFFFFFF )
-		return (Uint32)Num / (Uint32)Den;
-
-	#if 0
-	if( Den <= 0xFFFFFFFF ) {
-		(Uint32)(Num >> 32) / (Uint32)Den
-	}
-	#endif
-	Uint64	ret = 0;
-	for( ret = 0; Num > Den; ret ++, Num -= Den );
-	return ret;
-	#endif
 }
 
 // Unsigned Modulus 64-bit Integer
@@ -236,28 +178,6 @@ Uint64 __umoddi3(Uint64 Num, Uint64 Den)
 	Uint64	ret = 0;
 	DivMod64U(Num, Den, &ret);
 	return ret;
-	#if 0
-	if( Den == 0 )	return 5 / (Uint32)Den;	// Force a #DIV0
-	if( Num < Den )	return Num;
-	if( Den == 1 )	return 0;
-	if( Den == 2 )	return Num & 1;
-	if( Den == 16 )	return Num & 3;
-	if( Den == 256 )	return Num & 0xFF;
-	if( Den == 512 )	return Num & 0x1FF;
-	if( Den == 1024 )	return Num & 0x3FF;
-	if( Den == 2048 )	return Num & 0x7FF;
-	if( Den == 4096 )	return Num & 0xFFF;
-//	if( Num <= 0xFFFFFFFF && Den <= 0xFFFFFFFF )
-//		return (Uint32)Num % (Uint32)Den;
-
-	#if 0
-	if( Den <= 0xFFFFFFFF ) {
-		(Uint32)(Num >> 32) / (Uint32)Den
-	}
-	#endif
-	for( ; Num > Den; Num -= Den );
-	return Num;
-	#endif
 }
 
 #define _divide_s_32(Num, Den, rem)	__asm__ __volatile__ ( \
@@ -274,33 +194,14 @@ Uint64 __umoddi3(Uint64 Num, Uint64 Den)
 		)
 Uint32 __udivsi3(Uint32 Num, Uint32 Den)
 {
-	register Uint32	ret;
-	Uint64	P, D;
-	 int	i;
-
-	if( Num == 0 )	return 0;
-	if( Den == 0 )	return 0xFFFFFFFF;	// TODO: Throw an error
-	if( Den == 1 )	return Num;
-	
-	D = ((Uint64)Den) << 32;	
-
-	for( i = 32; i --; )
-	{
-		P = 2*P - D;
-		if( P >= 0 )
-			ret |= 1;
-		else
-			P += D;
-		ret <<= 1;
-	}
-
-//	_divide_s_32(Num, Den, rem);
-	return Num;
+	return __divmod32(Num, Den, NULL);
 }
 
 Uint32 __umodsi3(Uint32 Num, Uint32 Den)
 {
-	return Num - __udivsi3(Num, Den)*Den;
+	Uint32	rem;
+	__divmod32(Num, Den, &rem);
+	return rem;
 }
 
 Sint32 __divsi3(Sint32 Num, Sint32 Den)
@@ -317,7 +218,12 @@ Sint32 __divsi3(Sint32 Num, Sint32 Den)
 
 Sint32 __modsi3(Sint32 Num, Sint32 Den)
 {
-	//register Sint32	rem;
-	//_divide_s_32(Num, Den, rem);
-	return Num - __divsi3(Num, Den) * Den;
+	if( (Num < 0) && (Den < 0) )
+		return __umodsi3(-Num, -Den);
+	else if( Num < 0 )
+		return __umodsi3(-Num, Den);
+	else if( Den < 0 )
+		return __umodsi3(Den, -Den);
+	else
+		return __umodsi3(Den, Den);
 }

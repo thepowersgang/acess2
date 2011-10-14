@@ -13,7 +13,7 @@
 #define MM_KSTACK_END	0x7F000000
 #define MM_PPD_HANDLES	0x7F800000
 #define MM_TABLE1USER	0x7FC00000	// 2 GiB - 4 MiB
-#define MM_TABLE0USER	0x7FDFC000	// 2 GiB - 2 MiB - 4 pages
+#define MM_TABLE0USER	0x7FE00000	// 2 GiB - 2 MiB
 
 // Page Blocks are 12-bits wide (12 address bits used)
 // Hence, the table is 16KiB large (and must be so aligned)

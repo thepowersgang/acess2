@@ -14,6 +14,10 @@
 #define MM_PAGE_NODES	(MM_PMM_BASE+(MM_MAXPHYSPAGE*sizeof(Uint32)))
 #define MM_PAGE_BITMAP	(MM_PAGE_NODES+(MM_MAXPHYSPAGE*sizeof(void*)))
 
+#define PAGE_BITMAP_FREE(__pg)	(gaPageBitmaps[(__pg)/32] & (1LL << ((__pg)&31)))
+#define PAGE_BITMAP_SETFREE(__pg)	do{gaPageBitmaps[(__pg)/32] |= (1LL << ((__pg)&31));}while(0)
+#define PAGE_BITMAP_SETUSED(__pg)	do{gaPageBitmaps[(__pg)/32] &= ~(1LL << ((__pg)&31));}while(0)
+
 // === PROTOTYPES ===
 //void	MM_InitPhys_Multiboot(tMBoot_Info *MBoot);
 //tPAddr	MM_AllocPhysRange(int Num, int Bits);
@@ -202,7 +206,7 @@ tPAddr MM_AllocPhysRange(int Pages, int MaxBits)
 	for( i = 0; i < Pages; i++, addr++ )
 	{
 		// Mark as used
-		gaPageBitmaps[addr / 32] &= ~(1 << (addr & 31));
+		PAGE_BITMAP_SETUSED(addr);
 		// Maintain first possible free
 		giPhysNumFree --;
 		if(addr == giPhysFirstFree)
@@ -216,6 +220,10 @@ tPAddr MM_AllocPhysRange(int Pages, int MaxBits)
 	}
 	ret = addr - Pages;	// Save the return address
 	LOG("ret = %x", ret);	
+
+	#if TRACE_ALLOCS
+	LogF("MM_AllocPhysRange: %P (%i pages)\n", ret, Pages);
+	#endif
 
 	#if USE_SUPER_BITMAP
 	// Update super bitmap
@@ -272,6 +280,9 @@ tPAddr MM_AllocPhys(void)
 		Log_Error("PMM", "MM_AllocPhys failed duing init");
 		return 0;
 	}
+	#if TRACE_ALLOCS
+	Log("AllocPhys by %p", __builtin_return_address(0));
+	#endif
 	
 	return MM_AllocPhysRange(1, -1);
 }
@@ -282,31 +293,41 @@ tPAddr MM_AllocPhys(void)
 void MM_RefPhys(tPAddr PAddr)
 {
 	tPAddr	page = PAddr / PAGE_SIZE;
+	tVAddr	refpage = (tVAddr)&gaiPageReferences[page] & ~(PAGE_SIZE-1);
 	
 	if( page >= giMaxPhysPage )	return ;
-	
-	if( gaPageBitmaps[ page / 32 ] & (1LL << (page&31)) )
+
+	if( PAGE_BITMAP_FREE(page) )
 	{
 		// Allocate
-		gaPageBitmaps[page / 32] &= ~(1LL << (page&31));
+		PAGE_BITMAP_SETUSED(page);
 		#if USE_SUPER_BITMAP
 		if( gaPageBitmaps[page / 32] == 0 )
 			gaSuperBitmap[page / (32*32)] &= ~(1LL << ((page / 32) & 31));
 		#endif
+		if( MM_GetPhysAddr( refpage ) )
+			gaiPageReferences[page] = 1;
 	}
 	else
 	{
-		tVAddr	refpage = (tVAddr)&gaiPageReferences[page] & ~(PAGE_SIZE-1);
 		// Reference again
 		if( !MM_GetPhysAddr( refpage ) )
 		{
+			 int	pages_per_page, basepage, i;
 			if( MM_Allocate(refpage) == 0 ) {
 				// Out of memory, can this be resolved?
 				// TODO: Reclaim memory
 				Log_Error("PMM", "Out of memory (MM_RefPhys)");
 				return ;
 			}
-			memset((void*)refpage, 0, PAGE_SIZE);
+			pages_per_page = PAGE_SIZE/sizeof(*gaiPageReferences);
+			basepage = page & ~(pages_per_page-1);
+			for( i = 0; i < pages_per_page; i ++ ) {
+				if( PAGE_BITMAP_FREE(basepage+i) )
+					gaiPageReferences[basepage+i] = 0;
+				else
+					gaiPageReferences[basepage+i] = 1;
+			}
 			gaiPageReferences[page] = 2;
 		}
 		else

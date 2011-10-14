@@ -51,7 +51,7 @@ SwitchTask:
 	str sp, [r1]
 
 	@ Only update TTBR0 if the task has an explicit address space
-	ldr r1, [sp,#0x40]
+	ldr r1, [sp,#4*10]
 	tst r1, r1
 	mcrne p15, 0, r1, c2, c0, 0	@ Set TTBR0 to r0
 
@@ -79,8 +79,20 @@ Proc_CloneInt:
 	ldr r0, =Proc_CloneInt_new
 	pop {r4-r12,pc}
 Proc_CloneInt_new:
+	cps #18
+		
 	mov r0, #0
 	mov r1, #0x80000000
 	bl MM_DumpTables
+
+@	ldr r0, =csProc_CloneInt_NewTaskMessage
+@	bl Log
+	
+	cps #19
 	mov r0, #0
 	pop {r4-r12,pc}
+
+
+.section .rodata
+csProc_CloneInt_NewTaskMessage:
+	.asciz "New task"

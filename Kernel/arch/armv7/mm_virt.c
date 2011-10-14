@@ -34,6 +34,7 @@ typedef struct
 #define FRACTAL(table1, addr)	((table1)[ (0xFF8/4*1024) + ((addr)>>22)])
 #define USRFRACTAL(table1, addr)	((table1)[ (0x7F8/4*1024) + ((addr)>>22)])
 #define TLBIALL()	__asm__ __volatile__ ("mcr p15, 0, %0, c8, c7, 0" : : "r" (0))
+#define TLBIMVA(addr)	__asm__ __volatile__ ("mcr p15, 0, %0, c8, c7, 1" : : "r" (addr))
 
 // === PROTOTYPES ===
 void	MM_int_GetTables(tVAddr VAddr, Uint32 **Table0, Uint32 **Table1);
@@ -124,7 +125,7 @@ int MM_int_SetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 	Uint32	*table0, *table1;
 	Uint32	*desc;
 
-	ENTER("pVADdr ppi", VAddr, pi);
+	ENTER("pVAddr ppi", VAddr, pi);
 
 	MM_int_GetTables(VAddr, &table0, &table1);
 
@@ -158,6 +159,7 @@ int MM_int_SetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 			if( pi->bShared)	*desc |= 1 << 10;	// S
 			*desc |= (pi->AP & 3) << 4;	// AP
 			*desc |= ((pi->AP >> 2) & 1) << 9;	// APX
+			TLBIMVA(VAddr & 0xFFFFF000);
 			LEAVE('i', 0);
 			return 0;
 		}
@@ -165,6 +167,7 @@ int MM_int_SetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 		{
 			// Large page
 			// TODO: 
+			Log_Warning("MMVirt", "TODO: Implement large pages in MM_int_SetPageInfo");
 		}
 		break;
 	case 20:	// Section or unmapped
@@ -250,8 +253,6 @@ int MM_int_GetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 			pi->AP = ((desc >> 4) & 3) | (((desc >> 9) & 1) << 2);
 			pi->bExecutable = !(desc & 0x8000);
 			pi->bShared = (desc >> 10) & 1;
-//			LogF("Large page, VAddr = %p, table1[VAddr>>12] = %p, desc = %x\n", VAddr, &table1[ VAddr >> 12 ], desc);
-//			LogF("Par desc = %p %x\n", &table0[ VAddr >> 20 ], table0[ VAddr >> 20 ]);
 			return 0;
 		// 2/3: Small page
 		case 2:
@@ -344,6 +345,8 @@ void MM_SetFlags(tVAddr VAddr, Uint Flags, Uint Mask)
 int MM_Map(tVAddr VAddr, tPAddr PAddr)
 {
 	tMM_PageInfo	pi = {0};
+//	Log("MM_Map %P=>%p", PAddr, VAddr);
+	
 	pi.PhysAddr = PAddr;
 	pi.Size = 12;
 	pi.AP = AP_KRW_ONLY;	// Kernel Read/Write
@@ -402,11 +405,15 @@ tPAddr MM_AllocateRootTable(void)
 		if( ret & 0x1000 ) {
 			MM_DerefPhys(ret);
 			ret += 0x1000;
+//			Log("MM_AllocateRootTable: Second try not aligned, %P", ret);
 		}
 		else {
 			MM_DerefPhys(ret + 0x2000);
+//			Log("MM_AllocateRootTable: Second try aligned, %P", ret);
 		}
 	}
+//	else
+//		Log("MM_AllocateRootTable: Got it in one, %P", ret);
 	return ret;
 }
 
@@ -467,10 +474,8 @@ tPAddr MM_Clone(void)
 	for( i = 1; i < 0x800-4; i ++ )
 	{
 //		Log("i = %i", i);
-		if( i == 0x400 ) {
+		if( i == 0x400 )
 			tmp_map = &new_lvl1_2[-0x400];
-			Log("tmp_map = %p", tmp_map);
-		}
 		switch( cur[i] & 3 )
 		{
 		case 0:	tmp_map[i] = 0;	break;
@@ -493,25 +498,35 @@ tPAddr MM_Clone(void)
 		Uint32	*table = (void*)MM_MapTemp(tmp);
 		Uint32	sp;
 		register Uint32 __SP asm("sp");
+		Log("new_lvl1_2 = %p, &new_lvl1_2[0x3FC] = %p", new_lvl1_2, &new_lvl1_2[0x3FC]);
 		// Map table to last 4MiB of user space
-		tmp_map[i+0] = tmp + 0*0x400 + 1;
-		tmp_map[i+1] = tmp + 1*0x400 + 1;
-		tmp_map[i+2] = tmp + 2*0x400 + 1;
-		tmp_map[i+3] = tmp + 3*0x400 + 1;
-		for( j = 0; j < 256; j ++ ) {
-			table[j] = new_lvl1_1[j*4] & PADDR_MASK_LVL1;// 0xFFFFFC00;
-			table[j] |= 0x10|3;	// Kernel Only, Small table, XN
+		new_lvl1_2[0x3FC] = tmp + 0*0x400 + 1;
+		new_lvl1_2[0x3FD] = tmp + 1*0x400 + 1;
+		new_lvl1_2[0x3FE] = tmp + 2*0x400 + 1;
+		new_lvl1_2[0x3FF] = tmp + 3*0x400 + 1;
+		
+		tmp_map = new_lvl1_1;
+		for( j = 0; j < 512; j ++ )
+		{
+			if( j == 256 )
+				tmp_map = &new_lvl1_2[-0x400];
+			if( (tmp_map[j*4] & 3) == 1 )
+			{
+				table[j] = tmp_map[j*4] & PADDR_MASK_LVL1;// 0xFFFFFC00;
+				table[j] |= 0x813;	// nG, Kernel Only, Small page, XN
+			}
+			else
+				table[j] = 0;
 		}
-		for(      ; j < 512; j ++ ) {
-			table[j] = new_lvl1_2[(j-256)*4] & PADDR_MASK_LVL1;// 0xFFFFFC00;
-			table[j] |= 0x10|3;	// Kernel Only, Small table, XN
-		}
+		// Fractal
+		table[j++] = (ret + 0x0000) | 0x813;
+		table[j++] = (ret + 0x1000) | 0x813;
+		Log("table[%i] = %x, table[%i] = %x", j-2, table[j-2], j-1, table[j-1]);
 		for(      ; j < 1024; j ++ )
 			table[j] = 0;
 		
 		// Get kernel stack bottom
-		sp = __SP;
-		sp &= ~(MM_KSTACK_SIZE-1);
+		sp = __SP & ~(MM_KSTACK_SIZE-1);
 		j = (sp / 0x1000) % 1024;
 		num = MM_KSTACK_SIZE/0x1000;
 		Log("sp = %p, j = %i", sp, j);
@@ -519,22 +534,30 @@ tPAddr MM_Clone(void)
 		// Copy stack pages
 		for(; num--; j ++, sp += 0x1000)
 		{
-			tVAddr	page = MM_AllocPhys();
+			tVAddr	page;
 			void	*tmp_page;
-			table[j] = page | 0x13;
+			
+			page = MM_AllocPhys();
+			table[j] = page | 0x813;
+
 			tmp_page = (void*)MM_MapTemp(page);
 			memcpy(tmp_page, (void*)sp, 0x1000);
-			MM_FreeTemp( (tVAddr)tmp_page );
+			MM_FreeTemp( (tVAddr) tmp_page );
 		}
-		
+	
+//		Debug_HexDump("MMVirt - last table", table, 0x1000);
+	
 		MM_FreeTemp( (tVAddr)table );
 	}
 
-	tmp_map = &tmp_map[0x400];
-	MM_FreeTemp( (tVAddr)tmp_map );
+//	Debug_HexDump("MMVirt - Return page 1", new_lvl1_1, 0x1000);
+//	Debug_HexDump("MMVirt - Return page 2", new_lvl1_2, 0x1000);
 
-	Log("Table dump");
-	MM_DumpTables(0, -1);
+	MM_FreeTemp( (tVAddr)new_lvl1_1 );
+	MM_FreeTemp( (tVAddr)new_lvl1_2 );
+
+//	Log("Table dump");
+//	MM_DumpTables(0, -1);
 
 	return ret;
 }
@@ -549,12 +572,14 @@ tVAddr MM_MapTemp(tPAddr PAddr)
 {
 	tVAddr	ret;
 	tMM_PageInfo	pi;
-	
+
 	for( ret = MM_TMPMAP_BASE; ret < MM_TMPMAP_END - PAGE_SIZE; ret += PAGE_SIZE )
 	{
 		if( MM_int_GetPageInfo(ret, &pi) == 0 )
 			continue;
-	
+
+//		Log("MapTemp %P at %p", PAddr, ret);	
+		MM_RefPhys(PAddr);	// Counter the MM_Deallocate in FreeTemp
 		MM_Map(ret, PAddr);
 		
 		return ret;
@@ -682,9 +707,11 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 	
 	pi_old.Size = 0;
 
+	Log("Page Table Dump:");
 	range_start = Start;
 	for( addr = Start; i == 0 || (addr && addr < End); i = 1 )
 	{
+//		Log("addr = %p", addr);
 		int rv = MM_int_GetPageInfo(addr, &pi);
 		if( rv
 		 || pi.Size != pi_old.Size
