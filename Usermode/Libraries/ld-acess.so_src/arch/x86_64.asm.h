@@ -152,6 +152,9 @@ clone:
 	push rbp
 	mov rbp, rsp
 	push rbx
+	push r11
+	
+	mov r12, rsi	; Save in a reg for after the clone
 	
 	; Check if the new stack is being used
 	test rsi, rsi
@@ -166,9 +169,18 @@ clone:
 	mov eax, SYS_CLONE
 	SYSCALL_OP
 	mov [rel _errno], ebx
+
+	; Change stack pointer
+	test eax, eax
+	jnz .ret
+	test r12, r12
+	jz .ret
+	mov rsp, rsi
+.ret:
 	pop rbx
 	pop rbp
 	ret
+
 
 [global _exit:func]
 _exit:

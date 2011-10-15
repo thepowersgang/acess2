@@ -161,6 +161,7 @@ clone:
 	push ebp
 	mov ebp, esp
 	push ebx
+	push edx
 	
 	mov ebx, [ebp+12]	; Get new stack pointer
 	
@@ -192,11 +193,20 @@ clone:
 	sub ebx, 12
 	%endif
 .doCall:
+	mov edx, ebx	; Save new stack
 	mov eax, SYS_CLONE
 	mov ecx, ebx	; Stack
 	mov ebx, [ebp+8]	; Flags
 	SYSCALL_OP
 	mov [_errno], ebx
+	
+	test eax, eax
+	jnz .ret
+	test edx, edx
+	jz .ret
+	mov esp, edx
+.ret:
+	pop edx
 	pop ebx
 	pop ebp
 	ret

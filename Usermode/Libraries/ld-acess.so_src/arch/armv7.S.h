@@ -7,7 +7,7 @@
 .globl _start
 .extern SoMain
 _start:
-	push {r1,r2,r3}
+	pop {r0}
 	bl SoMain
 	
 	mov r4, r0
@@ -58,19 +58,59 @@ _errno:	.long	0	@ Placed in .text, to allow use of relative addressing
 	mov pc, lr
 .endm
 
+.macro syscall5 _name, _num
+.globl \_name
+\_name:
+	push {r4}
+	ldr r4, [sp,#4]
+	svc #\_num
+	str r2, _errno
+	pop {r4}
+	mov pc, lr
+.endm
+
+.macro syscall6 _name, _num
+.globl \_name
+\_name:
+	push {r4,r5}
+	ldr r4, [sp,#8]
+	ldr r5, [sp,#12]
+	svc #\_num
+	str r2, _errno
+	pop {r4,r5}
+	mov pc, lr
+.endm
+
 #define SYSCALL0(_name,_num)	syscall0 _name, _num
 #define SYSCALL1(_name,_num)	SYSCALL0(_name, _num)
 #define SYSCALL2(_name,_num)	SYSCALL0(_name, _num)
 #define SYSCALL3(_name,_num)	SYSCALL0(_name, _num)
 #define SYSCALL4(_name,_num)	SYSCALL0(_name, _num)
 // TODO: 5/6 need special handling, because the args are on the stack
-#define SYSCALL5(_name,_num)	SYSCALL0(_name, _num)
-#define SYSCALL6(_name,_num)	SYSCALL0(_name, _num)
+#define SYSCALL5(_name,_num)	syscall5 _name, _num
+#define SYSCALL6(_name,_num)	syscall6 _name, _num
 
 // Override the clone syscall
 #define _exit	_exit_raw
+#define _clone	_clone_raw
 #include "syscalls.s.h"
 #undef _exit
+#undef _clone
+
+.globl _clone
+_clone:
+	push {r4}
+	mov r4, r1
+	svc #SYS_CLONE
+	str r2, _errno
+	tst r4, r4
+	beq _clone_ret
+	@ If in child, set SP
+	tst r0,r0
+	movne sp, r4
+_clone_ret:
+	pop {r4}
+	mov pc, lr
 
 .globl _exit
 _exit:
