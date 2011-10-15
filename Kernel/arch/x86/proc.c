@@ -75,7 +75,7 @@ void	Proc_ChangeStack(void);
 // int	Proc_Clone(Uint *Err, Uint Flags);
 Uint	Proc_MakeUserStack(void);
 //void	Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **EnvP, int DataSize);
-void	Proc_StartProcess(Uint16 SS, Uint Stack, Uint Flags, Uint16 CS, Uint IP);
+void	Proc_StartProcess(Uint16 SS, Uint Stack, Uint Flags, Uint16 CS, Uint IP) NORETURN;
  int	Proc_Demote(Uint *Err, int Dest, tRegs *Regs);
 //void	Proc_CallFaultHandler(tThread *Thread);
 //void	Proc_DumpThreadCPUState(tThread *Thread);
@@ -695,51 +695,37 @@ Uint Proc_MakeUserStack(void)
 	return base + USER_STACK_SZ;
 }
 
-/**
- * \fn void Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **EnvP, int DataSize)
- * \brief Starts a user task
- */
-void Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **EnvP, int DataSize)
+void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, char **ArgV, int DataSize)
 {
-	Uint	*stack = (void*)Proc_MakeUserStack();
+	Uint	*stack;
 	 int	i;
-	Uint	delta;
+	char	**envp = NULL;
 	Uint16	ss, cs;
 	
-	//Log("stack = %p", stack);
-	
-	// Copy Arguments
+	// Copy data to the user stack and free original buffer
+	stack = (void*)Proc_MakeUserStack();
 	stack -= DataSize/sizeof(*stack);
 	memcpy( stack, ArgV, DataSize );
+	free(ArgV);
 	
-	//Log("stack = %p", stack);
-	
+	// Adjust Arguments and environment
 	if( DataSize )
 	{
-		// Adjust Arguments and environment
-		delta = (Uint)stack - (Uint)ArgV;
+		Uint delta = (Uint)stack - (Uint)ArgV;
 		ArgV = (char**)stack;
-		for( i = 0; ArgV[i]; i++ )
-			ArgV[i] += delta;
-		i ++;
-		
-		// Do we care about EnvP?
-		if( EnvP ) {
-			EnvP = &ArgV[i];
-			for( i = 0; EnvP[i]; i++ )
-				EnvP[i] += delta;
-		}
+		for( i = 0; ArgV[i]; i++ )	ArgV[i] += delta;
+		envp = &ArgV[i+1];
+		for( i = 0; envp[i]; i++ )	envp[i] += delta;
 	}
 	
 	// User Mode Segments
 	ss = 0x23;	cs = 0x1B;
 	
 	// Arguments
-	*--stack = (Uint)EnvP;
+	*--stack = (Uint)envp;
 	*--stack = (Uint)ArgV;
 	*--stack = (Uint)ArgC;
-	while(*Bases)
-		*--stack = *Bases++;
+	*--stack = Base;
 	*--stack = 0;	// Return Address
 	
 	Proc_StartProcess(ss, (Uint)stack, 0x202, cs, Entrypoint);

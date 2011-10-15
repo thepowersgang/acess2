@@ -592,13 +592,10 @@ Uint Proc_MakeUserStack(void)
 }
 
 
-/**
- * \fn void Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **EnvP, int DataSize)
- * \brief Starts a user task
- */
-void Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **EnvP, int DataSize)
+void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, char **ArgV, int DataSize)
 {
 	Uint	*stack = (void*)Proc_MakeUserStack();
+	char	**envp;
 	 int	i;
 	Uint	delta;
 	Uint16	ss, cs;
@@ -606,27 +603,26 @@ void Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **
 	LOG("stack = 0x%x", stack);
 	
 	// Copy Arguments
-	stack = (void*)( (Uint)stack - DataSize );
+	stack = (void*)( Proc_MakeUserStack() - DataSize );
 	memcpy( stack, ArgV, DataSize );
+	free(ArgV);
 	
 	// Adjust Arguments and environment
 	delta = (Uint)stack - (Uint)ArgV;
 	ArgV = (char**)stack;
 	for( i = 0; ArgV[i]; i++ )	ArgV[i] += delta;
-	i ++;
-	EnvP = &ArgV[i];
-	for( i = 0; EnvP[i]; i++ )	EnvP[i] += delta;
+	envp = &ArgV[i+1];
+	for( i = 0; envp[i]; i++ )	envp[i] += delta;
 	
 	// User Mode Segments
 	// 0x2B = 64-bit
 	ss = 0x23;	cs = 0x2B;
 	
 	// Arguments
-	*--stack = (Uint)EnvP;
+	*--stack = (Uint)envp;
 	*--stack = (Uint)ArgV;
 	*--stack = (Uint)ArgC;
-	while(*Bases)
-		*--stack = *Bases++;
+	*--stack = Base;
 	
 	Proc_StartProcess(ss, (Uint)stack, 0x202, cs, Entrypoint);
 }

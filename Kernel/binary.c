@@ -106,7 +106,7 @@ int Proc_Execve(const char *File, const char **ArgV, const char **EnvP)
 	char	**argvSaved, **envpSaved;
 	char	*savedFile;
 	tVAddr	entry;
-	Uint	bases[2] = {0};	// Uint because Proc_StartUser wants it
+	Uint	base;	// Uint because Proc_StartUser wants it
 	
 	ENTER("sFile pArgV pEnvP", File, ArgV, EnvP);
 	
@@ -158,23 +158,24 @@ int Proc_Execve(const char *File, const char **ArgV, const char **EnvP)
 	MM_ClearUser();
 	
 	// --- Load new binary
-	bases[0] = Binary_Load(savedFile, &entry);
+	base = Binary_Load(savedFile, &entry);
 	free(savedFile);
-	if(bases[0] == 0)
+	if(base == 0)
 	{
+		free(argvSaved);
 		Log_Warning("Binary", "Proc_Execve - Unable to load '%s'", Threads_GetName(-1));
 		LEAVE('-');
 		Threads_Exit(0, -10);
 		for(;;);
 	}
 	
-	LOG("entry = 0x%x, bases[0] = 0x%x", entry, bases[0]);
+	LOG("entry = 0x%x, base = 0x%x", entry, base);
 
 //	MM_DumpTables(0, KERNEL_BASE);
 
 	LEAVE('-');
 	// --- And... Jump to it
-	Proc_StartUser(entry, bases, argc, argvSaved, envpSaved, argenvBytes);
+	Proc_StartUser(entry, base, argc, argvSaved, argenvBytes);
 	for(;;);	// Tell GCC that we never return
 }
 
@@ -344,7 +345,7 @@ tVAddr Binary_MapIn(tBinary *Binary, const char *Path, tVAddr LoadMin, tVAddr Lo
 		tBinarySection	*sect = &Binary->LoadSections[i];
 		Uint	protflags, mapflags;
 		tVAddr	addr = sect->Virtual - Binary->Base + base;
-		LOG("%i - %p to 0x%llx (%x)", i, addr, sect->Offset, sect->Flags);
+		LOG("%i - %p to offset 0x%llx (%x)", i, addr, sect->Offset, sect->Flags);
 
 		protflags = MMAP_PROT_READ;
 		mapflags = MMAP_MAP_FIXED;

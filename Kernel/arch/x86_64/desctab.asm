@@ -394,7 +394,7 @@ SyscallStub:
 	; R9
 	sub rsp, (6+2)*8
 	mov [rsp+0x00], rax	; Number
-;	mov [rsp+0x08], rax	; Errno (don't care really)
+;	mov [rsp+0x08], rax	; Errno (output only)
 	mov [rsp+0x10], rdi	; Arg1
 	mov [rsp+0x18], rsi	; Arg2
 	mov [rsp+0x20], rdx	; Arg3

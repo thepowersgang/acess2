@@ -68,9 +68,6 @@ void SyscallHandler(tSyscallRegs *Regs)
 	case SYS_CLONE:
 		// Call clone system call
 		ret = Proc_Clone(Regs->Arg1);
-		// Change user stack if a new stack address is passed
-		if(ret == 0 && Regs->Arg2)
-			Regs->StackPointer = Regs->Arg2;
 		break;
 	
 	// -- Send a signal
@@ -315,8 +312,9 @@ void SyscallHandler(tSyscallRegs *Regs)
 	// -- Debug
 	//#if DEBUG_BUILD
 	case SYS_DEBUG:
+		CHECK_STR_NONULL( (char*)Regs->Arg1 );
 		LogF("Log: [%i] ", Threads_GetTID());
-		LogF((char*)Regs->Arg1,
+		LogF((const char*)Regs->Arg1,
 			Regs->Arg2, Regs->Arg3, Regs->Arg4, Regs->Arg5, Regs->Arg6);
 		LogF("\r\n");
 		break;

@@ -15,7 +15,16 @@ extern void	ArchThreads_Init(void);
 extern void	Proc_Start(void);
 extern int	GetCPUNum(void);
 extern tTID	Proc_Clone(Uint Flags);
-extern void	Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **EnvP, int DataSize);
+/**
+ * \brief Start a user task
+ * \param Entrypoint	User entrypoint
+ * \param Base	Base of executable (argument for ld-acess)
+ * \param ArgC	Number of arguments when the program was invoked
+ * \param ArgV	Heap allocated arguments and environment (two NULL terminated lists)
+ * \param DataSize	Size of the \a ArgV buffer in bytes
+ * \note This function should free \a ArgV
+ */
+extern void	Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, char **ArgV, int DataSize) NORETURN;
 extern void	Proc_CallFaultHandler(tThread *Thread);
 extern void	Proc_DumpThreadCPUState(tThread *Thread);
 extern void	Proc_Reschedule(void);
