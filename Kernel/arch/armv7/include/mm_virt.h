@@ -7,13 +7,17 @@
 
 #include "options.h"
 
+#define USER_STACK_COMM    0x04000	// Pages to allocate up front
+#define USER_STACK_SIZE	   0x10000	// Stack space
+#define USER_STACK_TOP	0x78000000
+
 #define MM_USER_MIN	0x00001000
 #define USER_LIB_MAX	0x70000000
-#define MM_KSTACK_BASE	0x70000000
-#define MM_KSTACK_END	0x7F000000
 #define MM_PPD_HANDLES	0x7F800000
 #define MM_TABLE1USER	0x7FC00000	// 2 GiB - 4 MiB
 #define MM_TABLE0USER	0x7FE00000	// 2 GiB - 2 MiB
+#define MM_KSTACK_BASE	0x7FE00000
+#define MM_KSTACK_END	0x80000000
 
 // Page Blocks are 12-bits wide (12 address bits used)
 // Hence, the table is 16KiB large (and must be so aligned)

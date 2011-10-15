@@ -37,10 +37,6 @@ typedef struct {
 	Uint32	Arg4;
 	Uint32	Arg5;
 	Uint32	Arg6;	// R6
-	Uint32	Unused[13-6];
-	Uint32	StackPointer;	// R13
-	Uint32	_lr;
-	Uint32	_ip;
 } tSyscallRegs;
 
 // === MACROS ===

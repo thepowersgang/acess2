@@ -35,6 +35,14 @@ KernelThreadHeader:
 	bl Threads_Exit
 	b .
 
+.globl Proc_int_DropToUser
+@ R0: User IP
+@ R1: User SP
+Proc_int_DropToUser:
+	cps #16
+	mov sp, r1
+	mov pc, r0
+
 .globl SwitchTask
 @ R0: New stack
 @ R1: Pointer to where to save old stack
@@ -61,7 +69,7 @@ SwitchTask:
 	bx r2
 
 .return:
-	push {r4-r12,pc}
+	pop {r4-r12,pc}
 
 .extern MM_Clone
 .extern MM_DumpTables

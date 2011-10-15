@@ -9,10 +9,11 @@
 #include <mm_virt.h>
 #include <hal_proc.h>
 
-#define AP_KRW_ONLY	0x1
-#define AP_KRO_ONLY	0x5
-#define AP_RW_BOTH	0x3
-#define AP_RO_BOTH	0x6
+#define AP_KRW_ONLY	1	// Kernel page
+#define AP_KRO_ONLY	5	// Kernel RO page
+#define AP_RW_BOTH	3	// Standard RW
+#define AP_RO_BOTH	6	// COW Page
+#define AP_RO_USER	2	// User RO Page
 #define PADDR_MASK_LVL1	0xFFFFFC00
 
 // === IMPORTS ===
@@ -41,6 +42,8 @@ void	MM_int_GetTables(tVAddr VAddr, Uint32 **Table0, Uint32 **Table1);
  int	MM_int_AllocateCoarse(tVAddr VAddr, int Domain);
  int	MM_int_SetPageInfo(tVAddr VAddr, tMM_PageInfo *pi);
  int	MM_int_GetPageInfo(tVAddr VAddr, tMM_PageInfo *pi);
+tVAddr	MM_NewUserStack(void);
+tPAddr	MM_AllocateZero(tVAddr VAddr);
 tPAddr	MM_AllocateRootTable(void);
 void	MM_int_CloneTable(Uint32 *DestEnt, int Table);
 tPAddr	MM_Clone(void);
@@ -49,6 +52,7 @@ void	MM_int_DumpTableEnt(tVAddr Start, size_t Len, tMM_PageInfo *Info);
 //void	MM_DumpTables(tVAddr Start, tVAddr End);
 
 // === GLOBALS ===
+tPAddr	giMM_ZeroPage;
 
 // === CODE ===
 int MM_InitialiseVirtual(void)
@@ -325,6 +329,8 @@ Uint MM_GetFlags(tVAddr VAddr)
 	
 	switch(pi.AP)
 	{
+	case 0:
+		break;
 	case AP_KRW_ONLY:
 		ret |= MM_PFLAG_KERNEL;
 		break;
@@ -334,6 +340,9 @@ Uint MM_GetFlags(tVAddr VAddr)
 	case AP_RW_BOTH:
 		break;
 	case AP_RO_BOTH:
+		ret |= MM_PFLAG_COW;
+		break;
+	case AP_RO_USER:
 		ret |= MM_PFLAG_RO;
 		break;
 	}
@@ -345,8 +354,37 @@ Uint MM_GetFlags(tVAddr VAddr)
 void MM_SetFlags(tVAddr VAddr, Uint Flags, Uint Mask)
 {
 	tMM_PageInfo	pi;
+	Uint	curFlags;
+	
 	if( MM_int_GetPageInfo(VAddr, &pi) )
-		return;
+		return ;
+	
+	curFlags = MM_GetPhysAddr(VAddr);
+	if( (curFlags & Mask) == Flags )
+		return ;
+	curFlags &= ~Mask;
+	curFlags |= Flags;
+
+	if( curFlags & MM_PFLAG_COW )
+		pi.AP = AP_RO_BOTH;
+	else
+	{
+		switch(curFlags & (MM_PFLAG_KERNEL|MM_PFLAG_RO) )
+		{
+		case 0:
+			pi.AP = AP_RW_BOTH;	break;
+		case MM_PFLAG_KERNEL:
+			pi.AP = AP_KRW_ONLY;	break;
+		case MM_PFLAG_RO:
+			pi.AP = AP_RO_USER;	break;
+		case MM_PFLAG_KERNEL|MM_PFLAG_RO:
+			pi.AP = AP_KRO_ONLY;	break;
+		}
+	}
+	
+	pi.bExecutable = !!(curFlags & MM_PFLAG_EXEC);
+
+	MM_int_SetPageInfo(VAddr, &pi);
 }
 
 int MM_Map(tVAddr VAddr, tPAddr PAddr)
@@ -356,7 +394,10 @@ int MM_Map(tVAddr VAddr, tPAddr PAddr)
 	
 	pi.PhysAddr = PAddr;
 	pi.Size = 12;
-	pi.AP = AP_KRW_ONLY;	// Kernel Read/Write
+	if(VAddr < USER_STACK_TOP)
+		pi.AP = AP_RW_BOTH;
+	else
+		pi.AP = AP_KRW_ONLY;	// Kernel Read/Write
 	pi.bExecutable = 1;
 	if( MM_int_SetPageInfo(VAddr, &pi) ) {
 		MM_DerefPhys(pi.PhysAddr);
@@ -374,7 +415,10 @@ tPAddr MM_Allocate(tVAddr VAddr)
 	pi.PhysAddr = MM_AllocPhys();
 	if( pi.PhysAddr == 0 )	LEAVE_RET('i', 0);
 	pi.Size = 12;
-	pi.AP = AP_KRW_ONLY;	// Kernel Read/Write
+	if(VAddr < USER_STACK_TOP)
+		pi.AP = AP_RW_BOTH;
+	else
+		pi.AP = AP_KRW_ONLY;
 	pi.bExecutable = 1;
 	if( MM_int_SetPageInfo(VAddr, &pi) ) {
 		MM_DerefPhys(pi.PhysAddr);
@@ -383,6 +427,21 @@ tPAddr MM_Allocate(tVAddr VAddr)
 	}
 	LEAVE('x', pi.PhysAddr);
 	return pi.PhysAddr;
+}
+
+tPAddr MM_AllocateZero(tVAddr VAddr)
+{
+	if( !giMM_ZeroPage ) {
+		giMM_ZeroPage = MM_Allocate(VAddr);
+		MM_RefPhys(giMM_ZeroPage);
+		memset((void*)VAddr, 0, PAGE_SIZE);
+	}
+	else {
+		MM_RefPhys(giMM_ZeroPage);
+		MM_Map(VAddr, giMM_ZeroPage);
+	}
+	MM_SetFlags(VAddr, MM_PFLAG_COW, MM_PFLAG_COW);
+	return giMM_ZeroPage;
 }
 
 void MM_Deallocate(tVAddr VAddr)
@@ -687,13 +746,59 @@ tVAddr MM_NewKStack(int bShared)
 	return addr + ofs;
 }
 
+tVAddr MM_NewUserStack(void)
+{
+	tVAddr	addr, ofs;
+
+	addr = USER_STACK_TOP - USER_STACK_SIZE;
+	if( MM_GetPhysAddr(addr + PAGE_SIZE) ) {
+		Log_Error("MMVirt", "Unable to create initial user stack, addr %p taken",
+			addr + PAGE_SIZE
+			);
+		return 0;
+	}
+
+	// 1 guard page
+	for( ofs = PAGE_SIZE; ofs < USER_STACK_SIZE; ofs += PAGE_SIZE )
+	{
+		tPAddr	rv;
+		if(ofs >= USER_STACK_SIZE - USER_STACK_COMM)
+			rv = MM_Allocate(addr + ofs);
+		else
+			rv = MM_AllocateZero(addr + ofs);
+		if(rv == 0)
+		{
+			while(ofs)
+			{
+				ofs -= PAGE_SIZE;
+				MM_Deallocate(addr + ofs);
+			}
+			Log_Warning("MMVirt", "MM_NewUserStack: Unable to allocate");
+			return 0;
+		}
+		MM_SetFlags(addr+ofs, 0, MM_PFLAG_KERNEL);
+	}
+	Log("Return %p", addr + ofs);
+	MM_DumpTables(0, 0x80000000);
+	return addr + ofs;
+}
+
 void MM_int_DumpTableEnt(tVAddr Start, size_t Len, tMM_PageInfo *Info)
 {
-	Log("%p => %8x - 0x%7x %i %x",
-		Start, Info->PhysAddr-Len, Len,
-		Info->Domain,
-		Info->AP
-		);
+	if( giMM_ZeroPage && Info->PhysAddr == giMM_ZeroPage )
+	{
+		Log("%p => %8s - 0x%7x %i %x",
+			Start, "ZERO", Len,
+			Info->Domain, Info->AP
+			);
+	}
+	else
+	{
+		Log("%p => %8x - 0x%7x %i %x",
+			Start, Info->PhysAddr-Len, Len,
+			Info->Domain, Info->AP
+			);
+	}
 }
 
 void MM_DumpTables(tVAddr Start, tVAddr End)
@@ -724,7 +829,9 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 		}
 		
 		pi_old = pi;
-		pi_old.PhysAddr += 1 << pi_old.Size;
+		// Handle the zero page
+		if( !giMM_ZeroPage || pi_old.Size != 12 || pi_old.PhysAddr != giMM_ZeroPage )
+			pi_old.PhysAddr += 1 << pi_old.Size;
 		addr += 1 << pi_old.Size;
 		inRange = (rv == 0);
 	}

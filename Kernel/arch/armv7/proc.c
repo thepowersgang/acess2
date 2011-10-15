@@ -13,8 +13,11 @@
 extern tThread	gThreadZero;
 extern void	SwitchTask(Uint32 NewSP, Uint32 *OldSP, Uint32 NewIP, Uint32 *OldIP, Uint32 MemPtr);
 extern void	KernelThreadHeader(void);	// Actually takes args on stack
+extern void	Proc_int_DropToUser(Uint32 IP, Uint32 SP) NORETURN;
 extern Uint32	Proc_CloneInt(Uint32 *SP, Uint32 *MemPtr);
 extern tVAddr	MM_NewKStack(int bGlobal);	// TODO: Move out into a header
+extern tVAddr	MM_NewUserStack(void);
+extern char	kernel_table0[];
 
 // === PROTOTYPES ===
 void	Proc_IdleThread(void *unused);
@@ -27,6 +30,7 @@ tThread *gpIdleThread = NULL;
 // === CODE ===
 void ArchThreads_Init(void)
 {
+	gThreadZero.MemState.Base = (tPAddr)&kernel_table0 - KERNEL_BASE;
 }
 
 void Proc_IdleThread(void *unused)
@@ -57,11 +61,39 @@ tThread *Proc_GetCurThread(void)
 	return gpCurrentThread;
 }
 
-void Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **EnvP, int DataSize)
+void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, char **ArgV, int DataSize)
 {
-	Log_Debug("Proc", "Proc_StartUser: (Entrypoint=%p, Bases=%p, ArgC=%i, ...)",
-		Entrypoint, Bases, ArgC);
-	Log_Error("Proc", "TODO: Implement Proc_StartUser");
+	Uint32	*usr_sp;
+	 int	i;
+	char	**envp;
+	tVAddr	delta;
+
+	Log_Debug("Proc", "Proc_StartUser: (Entrypoint=%p, Base=%p, ArgC=%i, ArgV=%p, DataSize=0x%x)",
+		Entrypoint, Base, ArgC, ArgV, DataSize);
+
+	// Write data to the user's stack
+	usr_sp = (void*)MM_NewUserStack();
+	usr_sp -= (DataSize+3)/4;
+	memcpy(usr_sp, ArgV, DataSize);
+	free(ArgV);
+
+	// Adjust user's copy of the arguments
+	delta = (tVAddr)usr_sp -  (tVAddr)ArgV;
+	Log("delta = %x", delta);
+	ArgV = (void*)usr_sp;
+	for(i = 0; ArgV[i]; i ++)	ArgV[i] += delta;
+	envp = &ArgV[i+1];
+	for(i = 0; envp[i]; i ++)	envp[i] += delta;
+	Log("envp = %p", envp);
+	
+	*--usr_sp = (Uint32)envp;
+	*--usr_sp = (Uint32)ArgV;
+	*--usr_sp = (Uint32)ArgC;
+	*--usr_sp = Base;
+	
+	// Drop to user code
+	Log_Debug("Proc", "Proc_int_DropToUser(%p, %p)", Entrypoint, usr_sp);
+	Proc_int_DropToUser(Entrypoint, (Uint32)usr_sp);
 }
 
 tTID Proc_Clone(Uint Flags)

@@ -9,7 +9,7 @@
 interrupt_vector_table:
 ivt_reset:	b _start @ Reset
 ivt_undef:	b .	@ #UD
-ivt_svc:	b SyscallHandler @ SVC (SWI assume)
+ivt_svc:	b SVC_Handler @ SVC (used to be called SWI)
 ivt_prefetch:	b PrefetchAbort	@ Prefetch abort
 ivt_data:	b DataAbort	@ Data abort
 ivt_unused:	b .	@ Not Used
@@ -65,8 +65,29 @@ _ptr_kmain:
 .comm irqstack, 0x1000	@ ; 4KiB Stack
 .comm abortstack, 0x1000	@ ; 4KiB Stack
 
-SyscallHandler:
-	b .
+.extern SyscallHandler
+SVC_Handler:
+@	sub lr, #4
+	srsdb sp!, #19	@ Switch to supervisor mode (DDI0406B D1.6.5) (actually SRSFD)
+	cpsid ifa, #19
+	push {r0-r12}
+
+	ldr r4, [lr,#-4]
+	mvn r5, #0xFF000000
+	and r4, r5
+
+	push {r4}
+
+	mov r0, sp
+	ldr r4, =SyscallHandler
+	blx r4
+	
+	pop {r2}	@ errno
+	pop {r0,r1}	@ Ret/RetHi
+	add sp, #2*4	@ Saved r2/r3
+	
+	pop {r4-r12}
+	rfeia sp!	@ Pop state (actually RFEFD)
 
 .globl gpIRQHandler
 gpIRQHandler:	.long	0
