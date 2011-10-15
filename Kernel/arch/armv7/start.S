@@ -68,8 +68,8 @@ _ptr_kmain:
 .extern SyscallHandler
 SVC_Handler:
 @	sub lr, #4
-	srsdb sp!, #19	@ Switch to supervisor mode (DDI0406B D1.6.5) (actually SRSFD)
-	cpsid ifa, #19
+	srsdb sp!, #19	@ Save state to stack
+	cpsie ifa, #19	@ Ensure we're in supervisor with interrupts enabled (should already be there)
 	push {r0-r12}
 
 	ldr r4, [lr,#-4]
@@ -178,7 +178,6 @@ DataAbort:
 
 @	POP_GPRS
 @	rfeia sp!	@ Pop state (actually RFEFD)
-	bx lr
 
 .globl PrefetchAbort
 PrefetchAbort:

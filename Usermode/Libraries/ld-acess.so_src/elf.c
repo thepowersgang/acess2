@@ -156,7 +156,6 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 				dynamicTab[j].d_val, dynamicTab[j].d_val + iBaseDiff);
 			if(iBaseDiff != 0)	dynamicTab[j].d_val += iBaseDiff;
 			dynsymtab = (void*)(dynamicTab[j].d_val);
-//			hdr->misc.SymTable = dynamicTab[j].d_val;	// Saved in unused bytes of ident
 			break;
 		// --- String Table ---
 		case DT_STRTAB:
@@ -169,7 +168,6 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 		case DT_HASH:
 			if(iBaseDiff != 0)	dynamicTab[j].d_val += iBaseDiff;
 			iSymCount = ((Elf32_Word*)(dynamicTab[j].d_val))[1];
-//			hdr->misc.HashTable = dynamicTab[j].d_val;	// Saved in unused bytes of ident
 			break;
 		}
 	}
@@ -179,16 +177,6 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 		return (void *) hdr->entrypoint + iBaseDiff;
 	}
 
-	#if 0	
-	// Alter Symbols to true base
-	for(i=0;i<iSymCount;i++)
-	{
-		dynsymtab[i].value += iBaseDiff;
-		dynsymtab[i].nameOfs += (intptr_t)dynstrtab;
-		//DEBUGS("elf_relocate: Sym '%s' = 0x%x (relocated)", dynsymtab[i].name, dynsymtab[i].value);
-	}
-	#endif
-	
 	// === Add to loaded list (can be imported now) ===
 	AddLoaded( Filename, Base );
 
@@ -214,6 +202,7 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 				#endif
 				return 0;
 			}
+			DEBUGS(" Lib loaded");
 			break;
 		// --- PLT/GOT ---
 		case DT_PLTGOT:	pltgot = (void*)(iBaseDiff + dynamicTab[j].d_val);	break;
