@@ -76,6 +76,9 @@ SVC_Handler:
 	mvn r5, #0xFF000000
 	and r4, r5
 
+	tst r4, #0x1000 
+	bne .arm_specifics
+
 	push {r4}
 
 	mov r0, sp
@@ -88,6 +91,46 @@ SVC_Handler:
 	
 	pop {r4-r12}
 	rfeia sp!	@ Pop state (actually RFEFD)
+.arm_specifics:
+	and r4, #0xFF
+
+@
+@ Cache invalidation
+	cmp r4, #0x001
+	bne 1f
+	@ Page align
+	mov r2, #0x1000
+	sub r2, #1
+	add r1, r2
+	mvn r2, r2
+	and r0, r2
+	and r1, r2
+	cmp r0, #0x78000000
+	cmpls r1, #0x78000000
+	movge r0, #-1
+	movge r1, #0
+	movge r2, #1
+	bge .ret
+
+2:
+	cmp r0, r1
+	mcrlt p15, 0, r0, c7, c5, 1
+	mcrlt p15, 0, r0, c7, c6, 1
+	addlt r0, #0x1000
+	blt 2b
+	mov r0, #0
+	mov r1, #0
+	mov r2, #0
+	b .ret
+1:	
+	mov r0, #-1
+	mov r1, #0
+	mov r2, #-1
+.ret:
+	add sp, #4*4
+	pop {r4-r12}
+	rfeia sp!
+
 
 .globl gpIRQHandler
 gpIRQHandler:	.long	0
