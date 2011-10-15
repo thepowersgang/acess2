@@ -162,6 +162,28 @@ int32_t __divsi3(int32_t Num, int32_t Den)
 	return sign * __divmod32(Num, Den, NULL);
 }
 
+int32_t __modsi3(int32_t Num, int32_t Den)
+{
+	int32_t sign = 1;
+	uint32_t tmp;
+	if(Num < 0) {
+		Num = -Num;
+		sign = -sign;
+	}
+	if(Den < 0) {
+		Den = -Den;
+		sign = -sign;
+	}
+	__divmod32(Num, Den, &tmp);
+	return ((int32_t)tmp)*sign;
+}
+
+uint32_t __udivsi3(uint32_t Num, uint32_t Den)
+{
+	return __divmod32(Num, Den, NULL);
+}
+
+
 uint32_t __umodsi3(uint32_t Num, uint32_t Den)
 {
 	uint32_t	ret;

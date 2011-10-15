@@ -14,6 +14,10 @@ typedef int32_t 	Elf32_Sword;
 
 #define ELFCLASS32	1
 
+#define EM_NONE	0
+#define EM_386	3
+#define EM_ARM	40
+
 /**
  \struct elf_header_s
  \brief ELF File Header
@@ -160,6 +164,37 @@ enum {
 	R_386_GOTOFF,	// S+A-GOT
 	R_386_GOTPC,	// GOT+A-P
 	R_386_LAST	// none
+};
+
+// NOTES:
+//  'T' means the thumb bit
+//  'B(S)' Origin of a symbol
+enum {
+	R_ARM_NONE,	// No action
+	R_ARM_PC24,	// ((S + A) | T) - P
+	R_ARM_ABS32,	// (S + A) | T
+	R_ARM_REL32,	// ((S + A) | T) - P
+	R_ARM_LDR_PC_G0,	// S + A - P
+	R_ARM_ABS16,	// S + A
+	R_ARM_ABS12,	// S + A
+	R_ARM_THM_ABS5,	// S + A
+	R_ARM_ABS8,	// S + A
+	R_ARM_SBREL32,	// ((S + A) | T) - B(S)
+	R_ARM_THM_CALL,	// ((S + A) | T) - P
+	R_ARM_THM_PC8,	// S + A - Pa,
+	R_ARM_BREL_ADJ,	// ΔB(S) + A
+	R_ARM_TLS_DESC,	// --
+	R_ARM_THM_SWI8,	// (Reserved)
+	R_ARM_XPC25,	// (Reserved)
+	R_ARM_THM_XPC22,	// (Reserved)
+	R_ARM_TLS_DTPMOD32,	// Module[S]
+	R_ARM_TLS_DTPOFF32,	// S + A - TLS
+	R_ARM_TLS_TPOFF32,	// S + A - tp
+	R_ARM_COPY,	// Misc
+	R_ARM_GLOB_DAT,	// (S + A) | T
+	R_ARM_JUMP_SLOT,	// (S + A) | T
+	R_ARM_RELATIVE,	// B(S) + A (extra?)
+	// ... More defined (IHI0044)
 };
 
 #define	ELF32_R_SYM(i)	((i)>>8)	// Takes an info value and returns a symbol index

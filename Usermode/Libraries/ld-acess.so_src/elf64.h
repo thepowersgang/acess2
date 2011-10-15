@@ -9,6 +9,8 @@
 
 #define ELFCLASS64	2
 
+#define EM_X86_64	62
+
 typedef uint16_t	Elf64_Half;
 typedef uint32_t	Elf64_Word;
 

@@ -33,6 +33,13 @@ __ucmpdi2:
 	mov r0, #1
 	mov pc, lr
 
+@ Well, can't blame it
+@ - Clear the instruction cache
+.globl __clear_cache
+__clear_cache:
+	svc #0x1001
+	mov pc, lr
+
 @ DEST
 @ SRC
 @_memcpy:
