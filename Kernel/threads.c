@@ -634,14 +634,16 @@ void Threads_Kill(tThread *Thread, int Status)
 	
 	// Save exit status
 	Thread->RetStatus = Status;
-	
+
 	// Don't Zombie if we are being killed because our parent is
 	if(Status == -1)
 	{
 		Thread->Status = THREAD_STAT_DEAD;
 		Threads_AddToDelete( Thread );
+		SHORTREL( &glThreadListLock );
 	} else {
 		Thread->Status = THREAD_STAT_ZOMBIE;
+		SHORTREL( &glThreadListLock );
 		// Wake parent
 		Threads_Wake( Thread->Parent );
 	}
@@ -649,7 +651,6 @@ void Threads_Kill(tThread *Thread, int Status)
 	Log("Thread %i went *hurk* (%i)", Thread->TID, Status);
 	
 	// Release spinlocks
-	SHORTREL( &glThreadListLock );
 	SHORTREL( &Thread->IsLocked );	// TODO: We may not actually be released...
 	
 	// And, reschedule
@@ -734,12 +735,12 @@ int Threads_Wake(tThread *Thread)
 		// Remove from sleeping queue
 		Threads_int_DelFromQueue(&gSleepingThreads, Thread);
 		
+		SHORTREL( &glThreadListLock );
 		Threads_AddActive( Thread );
 		
 		#if DEBUG_TRACE_STATE
 		Log("Threads_Sleep: %p (%i %s) woken", Thread, Thread->TID, Thread->ThreadName);
 		#endif
-		SHORTREL( &glThreadListLock );
 		return -EOK;
 	
 	case THREAD_STAT_SEMAPHORESLEEP: {
@@ -782,9 +783,7 @@ int Threads_Wake(tThread *Thread)
 				sem->LastSignaling = prev;
 		}
 		
-		SHORTLOCK( &glThreadListLock );
 		Threads_AddActive( Thread );
-		SHORTREL( &glThreadListLock );
 		
 		#if DEBUG_TRACE_STATE
 		Log("Threads_Sleep: %p(%i %s) woken from semaphore", Thread, Thread->TID, Thread->ThreadName);
