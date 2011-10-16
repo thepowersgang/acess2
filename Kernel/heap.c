@@ -197,7 +197,8 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 		if(head->Magic != MAGIC_FREE)	{
 			Mutex_Release(&glHeap);	// Release spinlock
 			#if WARNINGS
-			Log_Warning("Heap", "Magic of heap address %p is invalid (0x%x)", head, head->Magic);
+			Log_Warning("Heap", "Magic of heap address %p is invalid (%p = 0x%x)",
+				head, &head->Magic, head->Magic);
 			Heap_Dump();
 			#endif
 			return NULL;
@@ -519,7 +520,7 @@ void Heap_Dump(void)
 	{		
 		foot = (void*)( (Uint)head + head->Size - sizeof(tHeapFoot) );
 		#if VERBOSE_DUMP
-		Log_Log("Heap", "%p (0x%llx): 0x%08lx (%i) %4C",
+		Log_Log("Heap", "%p (0x%P): 0x%08lx (%i) %4C",
 			head, MM_GetPhysAddr((Uint)head), head->Size, head->ValidSize, &head->Magic);
 		Log_Log("Heap", "%p %4C", foot->Head, &foot->Magic);
 		if(head->File) {
@@ -572,7 +573,7 @@ void Heap_Dump(void)
 	Log_Log("Heap", "%p (%P): 0x%08lx %i %4C",
 		head, MM_GetPhysAddr((Uint)head), head->Size, head->ValidSize, &head->Magic);
 	if(foot)
-		Log_Log("Heap", "Backlink = %p %4C", foot->Head, &foot->Magic);
+		Log_Log("Heap", "Foot %p = {Head:%p,Magic=:%4C}", foot, foot->Head, &foot->Magic);
 	if(head->File) {
 		Log_Log("Heap", "%sowned by %s:%i",
 			(head->Magic==MAGIC_FREE?"was ":""), head->File, head->Line);
