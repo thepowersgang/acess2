@@ -51,8 +51,8 @@ enum eTplVideo_IOCtl {
 	 * \return 1 if a mode was found, 0 otherwise
 	 * 
 	 * Using avaliable modes matching the \a bpp and \a flags fields
-	 * set the \a id field to the mode id of the mode with the closest
-	 * \a width and \a height.
+	 * set the \a id, \a width and \a heights fields to the closest
+	 * matching mode.
 	 */
 	VIDEO_IOCTL_FINDMODE,
 	
@@ -111,8 +111,8 @@ typedef struct sVideo_IOCtl_Mode
 	short	id;		//!< Mode ID
 	Uint16	width;	//!< Width
 	Uint16	height;	//!< Height
-	Uint8	bpp;	//!< Bits per Unit (Character or Pixel, depending on \a flags)
-	Uint8	flags;	//!< Mode Flags
+	Uint8	bpp;	//!< Bits per pixel
+	Uint8	flags;	//!< Mode Flags (none defined, should be zero)
 }	tVideo_IOCtl_Mode;
 
 /**
@@ -292,10 +292,40 @@ extern Uint16	VT_Colour12to15(Uint16 Col12);
  */
 extern Uint32	VT_Colour12toN(Uint16 Col12, int Depth);
 
+typedef struct sDrvUtil_Video_BufInfo	tDrvUtil_Video_BufInfo;
+typedef struct sDrvUtil_Video_2DHandlers	tDrvUtil_Video_2DHandlers;
+
+/**
+ * \brief Framebuffer information used by all DrvUtil_Video functions
+ */
+struct sDrvUtil_Video_BufInfo
+{
+	/**
+	 * \brief Framebuffer virtual address
+	 */
+	void	*Framebuffer;
+	/**
+	 * \brief Bytes between the start of each line
+	 */
+	 int	Pitch;
+	/**
+	 * \brief Number of pixels in each line
+	 */
+	 int	Width;
+	/**
+	 * \brief Total number of lines
+	 */
+	 int	Height;
+	/**
+	 * \brief Bit depth of the framebuffer
+	 */
+	 int	Depth;
+};
+
 /**
  * \brief Handlers for eTplVideo_2DCommands
  */
-typedef struct sDrvUtil_Video_2DHandlers
+struct sDrvUtil_Video_2DHandlers
 {
 	/**
 	 * \brief No Operation, Ignored
@@ -323,7 +353,7 @@ typedef struct sDrvUtil_Video_2DHandlers
 	 * \see VIDEO_2DOP_BLIT
 	 */
 	void	(*Blit)(void *Ent, Uint16 DestX, Uint16 DestY, Uint16 SrcX, Uint16 SrcY, Uint16 W, Uint16 H);
-}	tDrvUtil_Video_2DHandlers;
+};
 
 /**
  * \brief Handle a 2D operation stream for a driver
@@ -334,7 +364,19 @@ typedef struct sDrvUtil_Video_2DHandlers
  * \param SizeofHandlers	Size of \a tDrvUtil_Video_2DHandlers according
  *        to the driver. Used as version control and error avoidence.
  */
-extern Uint64	DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
+extern int	DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
 	tDrvUtil_Video_2DHandlers *Handlers, int SizeofHandlers);
 
+/**
+ * \brief Perform write operations to a LFB
+ * \param Mode	Buffer mode (see eTplVideo_BufFormats)
+ * \param FBInfo	Framebuffer descriptor, see type for details
+ * \param Offset	Offset provided by VFS call
+ * \param Length	Length provided by VFS call
+ * \param Src	Data from VFS call
+ * \return Number of bytes written
+ *
+ * Handles all write modes in software, using the VT font calls for rendering.
+ */
+extern int	DrvUtil_Video_WriteLFB(int Mode, tDrvUtil_Video_BufInfo *FBInfo, size_t Offset, size_t Length, void *Src);
 #endif

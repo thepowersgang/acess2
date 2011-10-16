@@ -7,9 +7,24 @@
 #include <api_drv_disk.h>
 #include <api_drv_video.h>
 
+// === TYPES ===
+
+// === PROTOTYPES ===
+//int	DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length, tDrvUtil_Video_2DHandlers *Handlers, int SizeofHandlers);
+//size_t	DrvUtil_Video_WriteLFB(int Mode, tDrvUtil_Video_BufInfo *FBInfo, size_t Offset, size_t Length, void *Src);
+void	DrvUtil_Video_2D_Fill(void *Ent, Uint16 X, Uint16 Y, Uint16 W, Uint16 H, Uint32 Colour);
+void	DrvUtil_Video_2D_Blit(void *Ent, Uint16 DstX, Uint16 DstY, Uint16 SrcX, Uint16 SrcY, Uint16 W, Uint16 H);
+
+// === GLOBALS ===
+tDrvUtil_Video_2DHandlers	gDrvUtil_Stub_2DFunctions = {
+	NULL,
+	DrvUtil_Video_2D_Fill,
+	DrvUtil_Video_2D_Blit
+};
+
 // === CODE ===
 // --- Video Driver Helpers ---
-Uint64 DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
+int DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
 	tDrvUtil_Video_2DHandlers *Handlers, int SizeofHandlers)
 {
 	void	*stream = Buffer;
@@ -22,13 +37,16 @@ Uint64 DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
 		stream = (void*)((tVAddr)stream + 1);
 		
 		if(op > NUM_VIDEO_2DOPS) {
-			Log_Warning("DrvUtil", "DrvUtil_Video_2DStream: Unknown"
-				" operation %i", op);
+			Log_Warning("DrvUtil",
+				"DrvUtil_Video_2DStream: Unknown operation %i",
+				op);
+			return Length-rem;
 		}
 		
 		if(op*sizeof(void*) > SizeofHandlers) {
-			Log_Warning("DrvUtil", "DrvUtil_Video_2DStream: Driver does"
-				" not support op %i", op);
+			Log_Warning("DrvUtil",
+				"DrvUtil_Video_2DStream: Driver does not support op %i",
+				op);
 			return Length-rem;
 		}
 		
@@ -80,6 +98,163 @@ Uint64 DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
 	}
 	return 0;
 }
+
+int DrvUtil_Video_WriteLFB(int Mode, tDrvUtil_Video_BufInfo *FBInfo, size_t Offset, size_t Length, void *Buffer)
+{
+	Uint8	*dest;
+	ENTER("iMode pFBInfo xOffset xLength pBuffer",
+		Mode, FBInfo, Offset, Length, Buffer);
+	switch( Mode )
+	{
+	case VIDEO_BUFFMT_TEXT:
+		{
+		tVT_Char	*chars = Buffer;
+		 int	bytes_per_px = FBInfo->Depth / 8;
+		 int	widthInChars = FBInfo->Width/giVT_CharWidth;
+		 int	heightInChars = FBInfo->Height/giVT_CharHeight;
+		 int	x, y, i;
+		
+		Length /= sizeof(tVT_Char);	Offset /= sizeof(tVT_Char);
+		
+		x = Offset % widthInChars;	y = Offset / widthInChars;
+		
+		// Sanity Check
+		if(Offset > heightInChars * widthInChars)	LEAVE_RET('i', 0);
+		if(y >= heightInChars)	LEAVE_RET('i', 0);
+		
+		if( Offset + Length > heightInChars*widthInChars )
+		{
+			Length = heightInChars*widthInChars - Offset;
+		}
+		
+		dest = FBInfo->Framebuffer;
+		dest += y * giVT_CharHeight * FBInfo->Pitch;
+		
+		for( i = 0; i < Length; i++ )
+		{
+			if( y >= heightInChars )
+			{
+				Log_Notice("DrvUtil", "Stopped at %i", i);
+				break;
+			}
+			
+			VT_Font_Render(
+				chars->Ch,
+				dest + x*giVT_CharWidth*bytes_per_px, FBInfo->Depth, FBInfo->Pitch,
+				VT_Colour12toN(chars->BGCol, FBInfo->Depth),
+				VT_Colour12toN(chars->FGCol, FBInfo->Depth)
+				);
+			
+			chars ++;
+			x ++;
+			if( x >= widthInChars )
+			{
+				x = 0;
+				y ++;
+				dest += FBInfo->Pitch*giVT_CharHeight;
+			}
+		}
+		Length = i * sizeof(tVT_Char);
+		}
+		break;
+	
+	case VIDEO_BUFFMT_FRAMEBUFFER:
+		if(FBInfo->Width*FBInfo->Height*4 < Offset+Length)
+		{
+			Log_Warning("DrvUtil", "DrvUtil_Video_WriteLFB - Framebuffer Overflow");
+			return 0;
+		}
+		
+		//TODO: Handle non 32-bpp framebuffer modes
+		if( FBInfo->Depth != 32 ) {
+			Log_Warning("DrvUtil", "DrvUtil_Video_WriteLFB - Don't support non 32-bpp FB mode");
+			return 0;
+		}	
+
+		
+		//TODO: Handle pitch != Width*BytesPerPixel
+		// Copy to Frambuffer
+		dest = (Uint8 *)FBInfo->Framebuffer + Offset;
+		memcpy(dest, Buffer, Length);
+		break;
+	
+	case VIDEO_BUFFMT_2DSTREAM:
+		Length = DrvUtil_Video_2DStream(
+			FBInfo, Buffer, Length,
+			&gDrvUtil_Stub_2DFunctions, sizeof(gDrvUtil_Stub_2DFunctions)
+			);
+		break;
+	
+	default:
+		LEAVE('i', -1);
+		return -1;
+	}
+	LEAVE('x', Length);
+	return Length;
+}
+
+void DrvUtil_Video_2D_Fill(void *Ent, Uint16 X, Uint16 Y, Uint16 W, Uint16 H, Uint32 Colour)
+{
+	tDrvUtil_Video_BufInfo	*FBInfo = Ent;
+
+	// TODO: Handle non-32bit modes
+	if( FBInfo->Depth != 32 )	return;
+
+	// TODO: Be less hacky
+	 int	pitch = FBInfo->Pitch/4;
+	Uint32	*buf = (Uint32*)FBInfo->Framebuffer + Y*pitch + X;
+	while( H -- ) {
+		Uint32 *tmp;
+		 int	i;
+		tmp = buf;
+		for(i=W;i--;tmp++)	*tmp = Colour;
+		buf += pitch;
+	}
+}
+
+void DrvUtil_Video_2D_Blit(void *Ent, Uint16 DstX, Uint16 DstY, Uint16 SrcX, Uint16 SrcY, Uint16 W, Uint16 H)
+{
+	tDrvUtil_Video_BufInfo	*FBInfo = Ent;
+	 int	scrnpitch = FBInfo->Pitch;
+	 int	bytes_per_px = (FBInfo->Depth + 7) / 8;
+	 int	dst = DstY*scrnpitch + DstX;
+	 int	src = SrcY*scrnpitch + SrcX;
+	 int	tmp;
+	
+	//Log("Vesa_2D_Blit: (Ent=%p, DstX=%i, DstY=%i, SrcX=%i, SrcY=%i, W=%i, H=%i)",
+	//	Ent, DstX, DstY, SrcX, SrcY, W, H);
+	
+	if(SrcX + W > FBInfo->Width)	W = FBInfo->Width - SrcX;
+	if(DstX + W > FBInfo->Width)	W = FBInfo->Width - DstX;
+	if(SrcY + H > FBInfo->Height)	H = FBInfo->Height - SrcY;
+	if(DstY + H > FBInfo->Height)	H = FBInfo->Height - DstY;
+	
+	//Debug("W = %i, H = %i", W, H);
+	
+	if( dst > src ) {
+		// Reverse copy
+		dst += H*scrnpitch;
+		src += H*scrnpitch;
+		while( H -- ) {
+			dst -= scrnpitch;
+			src -= scrnpitch;
+			tmp = W*bytes_per_px;
+			for( tmp = W; tmp --; ) {
+				*((Uint8*)FBInfo->Framebuffer + dst + tmp) = *((Uint8*)FBInfo->Framebuffer + src + tmp);
+			}
+		}
+	}
+	else {
+		// Normal copy is OK
+		while( H -- ) {
+			memcpy((Uint8*)FBInfo->Framebuffer + dst, (Uint8*)FBInfo->Framebuffer + src, W*bytes_per_px);
+			dst += scrnpitch;
+			src += scrnpitch;
+		}
+	}
+	//Log("Vesa_2D_Blit: RETURN");
+}
+	
 
 // --- Disk Driver Helpers ---
 Uint64 DrvUtil_ReadBlock(Uint64 Start, Uint64 Length, void *Buffer,

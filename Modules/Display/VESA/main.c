@@ -390,10 +390,7 @@ int Vesa_Ioctl(tVFS_Node *Node, int ID, void *Data)
 	
 	case VIDEO_IOCTL_SETBUFFORMAT:
 		ret = giVesaCurrentFormat;
-		if(Data) {
-			//Log_Log("VESA", "Buffer mode to %i", *(int*)Data);
-			giVesaCurrentFormat = *(int*)Data;
-		}
+		if(Data)	giVesaCurrentFormat = *(int*)Data;
 		return ret;
 	
 	case VIDEO_IOCTL_SETCURSOR:	// Set cursor position
