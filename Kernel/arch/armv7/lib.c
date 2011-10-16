@@ -180,18 +180,6 @@ Uint64 __umoddi3(Uint64 Num, Uint64 Den)
 	return ret;
 }
 
-#define _divide_s_32(Num, Den, rem)	__asm__ __volatile__ ( \
-		"mov %0, #0\n" \
-	"	adds %1, %1, %1\n" \
-	"	.rept 32\n" \
-	"	adcs %0, %2, %0, lsl #1\n" \
-	"	subcc %0, %0, %3\n" \
-	"	adcs %1, %1, %1\n" \
-	"	.endr\n" \
-		: "=r" (rem), "=r" (Num) \
-		: "r" (Den) \
-		: "cc" \
-		)
 Uint32 __udivsi3(Uint32 Num, Uint32 Den)
 {
 	return __divmod32(Num, Den, NULL);
@@ -204,26 +192,32 @@ Uint32 __umodsi3(Uint32 Num, Uint32 Den)
 	return rem;
 }
 
+static inline Sint32 DivMod32S(Sint32 Num, Sint32 Den, Sint32 *Rem)
+{
+	Sint32	ret = 1;
+	if( Num < 0 ) {
+		ret = -ret;
+		Num = -Num;
+	}
+	if( Den < 0 ) {
+		ret = -ret;
+		Den = -Den;
+	}
+	if(ret < 0)
+		ret = -__divmod32(Num, Den, (Uint32*)Rem);
+	else
+		ret = __divmod32(Num, Den, (Uint32*)Rem);
+	return ret;
+}
+
 Sint32 __divsi3(Sint32 Num, Sint32 Den)
 {
-	if( (Num < 0) && (Den < 0) )
-		return __udivsi3(-Num, -Den);
-	else if( Num < 0 )
-		return __udivsi3(-Num, Den);
-	else if( Den < 0 )
-		return __udivsi3(Den, -Den);
-	else
-		return __udivsi3(Den, Den);
+	return DivMod32S(Num, Den, NULL);
 }
 
 Sint32 __modsi3(Sint32 Num, Sint32 Den)
 {
-	if( (Num < 0) && (Den < 0) )
-		return __umodsi3(-Num, -Den);
-	else if( Num < 0 )
-		return __umodsi3(-Num, Den);
-	else if( Den < 0 )
-		return __umodsi3(Den, -Den);
-	else
-		return __umodsi3(Den, Den);
+	Sint32	rem;
+	DivMod32S(Num, Den, &rem);
+	return rem;
 }

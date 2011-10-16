@@ -694,8 +694,16 @@ tVAddr MM_MapHWPages(tPAddr PAddr, Uint NPages)
 
 tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PAddr)
 {
-	Log_Error("MMVirt", "TODO: Implement MM_AllocDMA");
-	return 0;
+	tPAddr	phys;
+	tVAddr	ret;
+
+	phys = MM_AllocPhysRange(Pages, MaxBits);
+	if(!phys)	return 0;
+	
+	ret = MM_MapHWPages(phys, Pages);
+	*PAddr = phys;
+
+	return ret;
 }
 
 void MM_UnmapHWPages(tVAddr Vaddr, Uint Number)
