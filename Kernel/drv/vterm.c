@@ -110,7 +110,7 @@ const Uint16	caVT100Colours[] = {
 	};
 
 // === GLOBALS ===
-MODULE_DEFINE(0, VERSION, VTerm, VT_Install, NULL, DEFAULT_INPUT, FALLBACK_OUTPUT, NULL);
+MODULE_DEFINE(0, VERSION, VTerm, VT_Install, NULL, DEFAULT_INPUT, NULL);
 tDevFS_Driver	gVT_DrvInfo = {
 	NULL, "VTerm",
 	{
@@ -193,6 +193,10 @@ int VT_Install(char **Arguments)
 	if(!gsVT_OutputDevice)	gsVT_OutputDevice = (char*)DEFAULT_OUTPUT;
 	else if( Module_EnsureLoaded( gsVT_OutputDevice ) )	gsVT_OutputDevice = (char*)DEFAULT_OUTPUT;
 	if( Module_EnsureLoaded( gsVT_OutputDevice ) )	gsVT_OutputDevice = (char*)FALLBACK_OUTPUT;
+	if( Module_EnsureLoaded( gsVT_OutputDevice ) ) {
+		Log_Error("VTerm", "Fallback video '%s' is not avaliable, giving up", FALLBACK_OUTPUT);
+		return MODULE_ERR_MISC;
+	}
 	
 	if(!gsVT_InputDevice)	gsVT_InputDevice = (char*)DEFAULT_INPUT;
 	else if( Module_EnsureLoaded( gsVT_InputDevice ) )	gsVT_InputDevice = (char*)DEFAULT_INPUT;
@@ -213,6 +217,9 @@ int VT_Install(char **Arguments)
 	
 	Log_Log("VTerm", "Using '%s' as output", gsVT_OutputDevice);
 	Log_Log("VTerm", "Using '%s' as input", gsVT_InputDevice);
+	
+	VT_InitOutput();
+	VT_InitInput();
 	
 	// Create Nodes
 	for( i = 0; i < NUM_VTS; i++ )
@@ -244,9 +251,6 @@ int VT_Install(char **Arguments)
 	
 	// Add to DevFS
 	DevFS_AddDevice( &gVT_DrvInfo );
-	
-	VT_InitOutput();
-	VT_InitInput();
 	
 	// Set kernel output to VT0
 	Debug_SetKTerminal("/Devices/VTerm/0");
@@ -315,7 +319,7 @@ void VT_SetResolution(int Width, int Height)
 	VFS_IOCtl( giVT_OutputDevHandle, VIDEO_IOCTL_GETSETMODE, &tmp );
 	
 	// Resize text terminals if needed
-	if( giVT_RealWidth != mode.width || giVT_RealHeight != mode.height )
+	if( gVT_Terminals[0].Text && (giVT_RealWidth != mode.width || giVT_RealHeight != mode.height) )
 	{
 		 int	newBufSize = (giVT_RealWidth/giVT_CharWidth)
 					*(giVT_RealHeight/giVT_CharHeight)
@@ -718,7 +722,7 @@ void VT_SetTerminal(int ID)
 	gpVT_CurTerm = &gVT_Terminals[ID];
 	
 	// Update cursor
-	if( gpVT_CurTerm->Mode == TERM_MODE_TEXT && !(gpVT_CurTerm->Flags & VT_FLAG_HIDECSR) )
+	if( gpVT_CurTerm->Text && gpVT_CurTerm->Mode == TERM_MODE_TEXT && !(gpVT_CurTerm->Flags & VT_FLAG_HIDECSR) )
 	{
 		tVideo_IOCtl_Pos	pos;
 		 int	offset = (gpVT_CurTerm->Flags & VT_FLAG_ALTBUF) ? gpVT_CurTerm->AltWritePos : gpVT_CurTerm->WritePos - gpVT_CurTerm->ViewPos;
@@ -1555,13 +1559,12 @@ void VT_int_UpdateScreen( tVTerm *Term, int UpdateAll )
  */
 void VT_int_ChangeMode(tVTerm *Term, int NewMode, int NewWidth, int NewHeight)
 {
-	
 	// TODO: Increase RealWidth/RealHeight when this happens
 	if(NewWidth > giVT_RealWidth)	NewWidth = giVT_RealWidth;
 	if(NewHeight > giVT_RealHeight)	NewHeight = giVT_RealHeight;
 	
 	Term->Mode = NewMode;
-	
+
 	if(NewWidth != Term->Width || NewHeight != Term->Height)
 	{
 		 int	oldW = Term->Width;
@@ -1622,24 +1625,24 @@ void VT_int_ChangeMode(tVTerm *Term, int NewMode, int NewWidth, int NewHeight)
 			}
 			free(oldFB);
 		}
+		
+		// Debug
+		switch(NewMode)
+		{
+		case TERM_MODE_TEXT:
+			Log_Log("VTerm", "Set VT %p to text mode (%ix%i)",
+				Term, Term->TextWidth, Term->TextHeight);
+			break;
+		case TERM_MODE_FB:
+			Log_Log("VTerm", "Set VT %p to framebuffer mode (%ix%i)",
+				Term, Term->Width, Term->Height);
+			break;
+		//case TERM_MODE_2DACCEL:
+		//case TERM_MODE_3DACCEL:
+		//	return;
+		}
 	}
 	
-	
-	// Debug
-	switch(NewMode)
-	{
-	case TERM_MODE_TEXT:
-		Log_Log("VTerm", "Set VT %p to text mode (%ix%i)",
-			Term, Term->TextWidth, Term->TextHeight);
-		break;
-	case TERM_MODE_FB:
-		Log_Log("VTerm", "Set VT %p to framebuffer mode (%ix%i)",
-			Term, Term->Width, Term->Height);
-		break;
-	//case TERM_MODE_2DACCEL:
-	//case TERM_MODE_3DACCEL:
-	//	return;
-	}
 }
 
 
