@@ -594,16 +594,22 @@ Uint Proc_MakeUserStack(void)
 
 void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, char **ArgV, int DataSize)
 {
-	Uint	*stack = (void*)Proc_MakeUserStack();
+	Uint	*stack;
 	char	**envp;
 	 int	i;
 	Uint	delta;
 	Uint16	ss, cs;
 	
-	LOG("stack = 0x%x", stack);
 	
 	// Copy Arguments
-	stack = (void*)( Proc_MakeUserStack() - DataSize );
+	stack = (void*)Proc_MakeUserStack();
+	if(!stack) {
+		Log_Error("Proc", "Unable to create user stack!");
+		Threads_Exit(0, -1);
+	}
+	stack -= (DataSize+7)/8;
+	LOG("stack = 0x%x", stack);
+	Log("stack = %p, DataSize = %i", stack, DataSize);
 	memcpy( stack, ArgV, DataSize );
 	free(ArgV);
 	
