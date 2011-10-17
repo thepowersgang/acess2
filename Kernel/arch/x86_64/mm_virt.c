@@ -232,12 +232,13 @@ int MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 void MM_int_DumpTablesEnt(tVAddr RangeStart, size_t Length, tPAddr Expected)
 {
 	#define CANOICAL(addr)	((addr)&0x800000000000?(addr)|0xFFFF000000000000:(addr))
-	LogF("%6llx %6llx %6llx %016llx => ",
-		MM_GetPhysAddr( (tVAddr)&PAGEDIRPTR(RangeStart>>30) ),
-		MM_GetPhysAddr( (tVAddr)&PAGEDIR(RangeStart>>21) ),
-		MM_GetPhysAddr( (tVAddr)&PAGETABLE(RangeStart>>12) ),
-		CANOICAL(RangeStart)
-		);
+	LogF("%016llx => ", CANOICAL(RangeStart));
+//	LogF("%6llx %6llx %6llx %016llx => ",
+//		MM_GetPhysAddr( (tVAddr)&PAGEDIRPTR(RangeStart>>30) ),
+//		MM_GetPhysAddr( (tVAddr)&PAGEDIR(RangeStart>>21) ),
+//		MM_GetPhysAddr( (tVAddr)&PAGETABLE(RangeStart>>12) ),
+//		CANOICAL(RangeStart)
+//		);
 	if( gMM_ZeroPage && (PAGETABLE(RangeStart>>12) & PADDR_MASK) == gMM_ZeroPage )
 		LogF("%13s", "zero" );
 	else
@@ -414,7 +415,7 @@ int MM_MapEx(tVAddr VAddr, tPAddr PAddr, BOOL bTemp, BOOL bLarge)
 	tPAddr	*ent;
 	 int	rv;
 	
-	ENTER("xVAddr xPAddr", VAddr, PAddr);
+	ENTER("pVAddr PPAddr", VAddr, PAddr);
 	
 	// Get page pointer (Allow allocating)
 	rv = MM_GetPageEntryPtr(VAddr, bTemp, 1, bLarge, &ent);
@@ -666,6 +667,8 @@ tVAddr MM_MapHWPages(tPAddr PAddr, Uint Number)
 		}
 		if( num >= 0 )	continue;
 		
+//		Log_Debug("MMVirt", "Mapping %i pages to %p (base %P)", Number, ret-Number*0x1000, PAddr);
+
 		PAddr += 0x1000 * Number;
 		
 		while( Number -- )
@@ -679,7 +682,7 @@ tVAddr MM_MapHWPages(tPAddr PAddr, Uint Number)
 		return ret;
 	}
 	
-	Log_KernelPanic("MM", "TODO: Implement MM_MapHWPages");
+	Log_Error("MM", "MM_MapHWPages - No space for %i pages", Number);
 	return 0;
 }
 
