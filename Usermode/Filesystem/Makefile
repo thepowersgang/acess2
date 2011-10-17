@@ -12,11 +12,14 @@ FILES = Conf/BootConf.cfg
 #FILES := $(addprefix $(DISTROOT)/,$(FILES))
 
 .PHONY: all clean
-.PHONY: $(DIRS) $(FILES)
+.PHONY: $(DIRS) $(FILES) DISTROOT
 
-install:	$(DIRS) $(FILES)
+install: DISTROOT $(DIRS) $(FILES)
 
 clean:
+
+DISTROOT:
+	$(xMKDIR) $(DISTROOT); true
 
 $(DIRS):
 	$(xMKDIR) $(DISTROOT)/$@; true
