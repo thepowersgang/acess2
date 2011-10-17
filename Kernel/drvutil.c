@@ -109,15 +109,19 @@ int DrvUtil_Video_WriteLFB(int Mode, tDrvUtil_Video_BufInfo *FBInfo, size_t Offs
 	case VIDEO_BUFFMT_TEXT:
 		{
 		tVT_Char	*chars = Buffer;
-		 int	bytes_per_px = FBInfo->Depth / 8;
+		 int	bytes_per_px = (FBInfo->Depth + 7) / 8;
 		 int	widthInChars = FBInfo->Width/giVT_CharWidth;
 		 int	heightInChars = FBInfo->Height/giVT_CharHeight;
 		 int	x, y, i;
-		
+	
+		LOG("bytes_per_px = %i", bytes_per_px);
+		LOG("widthInChars = %i, heightInChars = %i", widthInChars, heightInChars);
+	
 		Length /= sizeof(tVT_Char);	Offset /= sizeof(tVT_Char);
 		
 		x = Offset % widthInChars;	y = Offset / widthInChars;
-		
+		LOG("x = %i, y = %i", x, y);	
+	
 		// Sanity Check
 		if(Offset > heightInChars * widthInChars)	LEAVE_RET('i', 0);
 		if(y >= heightInChars)	LEAVE_RET('i', 0);
@@ -128,7 +132,9 @@ int DrvUtil_Video_WriteLFB(int Mode, tDrvUtil_Video_BufInfo *FBInfo, size_t Offs
 		}
 		
 		dest = FBInfo->Framebuffer;
+		LOG("dest = %p", dest);
 		dest += y * giVT_CharHeight * FBInfo->Pitch;
+		LOG("dest = %p", dest);
 		
 		for( i = 0; i < Length; i++ )
 		{
@@ -137,7 +143,10 @@ int DrvUtil_Video_WriteLFB(int Mode, tDrvUtil_Video_BufInfo *FBInfo, size_t Offs
 				Log_Notice("DrvUtil", "Stopped at %i", i);
 				break;
 			}
-			
+
+//			LOG("chars->Ch=0x%x,chars->BGCol=0x%x,chars->FGCol=0x%x",
+//				chars->Ch, chars->BGCol, chars->FGCol);		
+
 			VT_Font_Render(
 				chars->Ch,
 				dest + x*giVT_CharWidth*bytes_per_px, FBInfo->Depth, FBInfo->Pitch,
@@ -152,6 +161,7 @@ int DrvUtil_Video_WriteLFB(int Mode, tDrvUtil_Video_BufInfo *FBInfo, size_t Offs
 				x = 0;
 				y ++;
 				dest += FBInfo->Pitch*giVT_CharHeight;
+				LOG("dest = %p", dest);
 			}
 		}
 		Length = i * sizeof(tVT_Char);
