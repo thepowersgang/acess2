@@ -223,6 +223,12 @@ tPAddr MM_AllocPhysRange(int Pages, int MaxBits)
 
 	#if TRACE_ALLOCS
 	LogF("MM_AllocPhysRange: %P (%i pages)\n", ret, Pages);
+	if(Pages > 1) {
+		LogF(" also");
+		for(i = 1; i < Pages; i++)
+			LogF(" %P", ret+i);
+		LogF("\n");
+	}
 	#endif
 
 	#if USE_SUPER_BITMAP
