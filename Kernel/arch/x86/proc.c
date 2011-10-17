@@ -726,7 +726,6 @@ void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, char **ArgV, int DataS
 	*--stack = (Uint)ArgV;
 	*--stack = (Uint)ArgC;
 	*--stack = Base;
-	*--stack = 0;	// Return Address
 	
 	Proc_StartProcess(ss, (Uint)stack, 0x202, cs, Entrypoint);
 }
