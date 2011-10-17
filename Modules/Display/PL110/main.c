@@ -44,7 +44,8 @@ struct sPL110
 };
 
 // === CONSTANTS ===
-#define PL110_BASE	0x10020000	
+#define PL110_BASE	0x10020000	// Integrator
+
 const struct {
 	short W, H;
 }	caPL110_Modes[] = {
