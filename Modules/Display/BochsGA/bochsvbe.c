@@ -104,10 +104,10 @@ int BGA_Install(char **Arguments)
 	version = BGA_int_ReadRegister(VBE_DISPI_INDEX_ID);
 	LOG("version = 0x%x", version);
 	
-	// NOTE: This driver was written for later than 0xB0C2
-	// NOTE: Qemu is braindead and doesn't return the actual version
+	// NOTE: This driver was written for BGA versions >= 0xBOC2
+	// NOTE: However, Qemu is braindead and doesn't return the actual version
 	if( version != 0xB0C0 && ((version & 0xFFF0) != 0xB0C0 || version < 0xB0C2) ) {
-		Log_Warning("BGA", "Bochs Adapter Version is not 0xB0C4 or 0xB0C5, instead 0x%x", version);
+		Log_Warning("BGA", "Bochs Adapter Version is not compatible (need >= 0xB0C2), instead 0x%x", version);
 		return MODULE_ERR_NOTNEEDED;
 	}
 
@@ -138,7 +138,7 @@ int BGA_Install(char **Arguments)
 void BGA_Uninstall(void)
 {
 	DevFS_DelDevice( &gBGA_DriverStruct );
-	MM_UnmapHWPages( VBE_DISPI_LFB_PHYSICAL_ADDRESS, 768 );
+	MM_UnmapHWPages( (tVAddr)gBGA_Framebuffer, 768 );
 }
 
 /**

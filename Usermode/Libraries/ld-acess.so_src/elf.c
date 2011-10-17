@@ -7,7 +7,7 @@
 #include "elf32.h"
 #include "elf64.h"
 
-#define DEBUG	1
+#define DEBUG	0
 
 #if DEBUG
 # define	DEBUGS(v...)	SysDebug("ld-acess - " v)
@@ -15,9 +15,9 @@
 # define	DEBUGS(...)	
 #endif
 
-#if BITS > 32
+//#if BITS > 32
 # define SUPPORT_ELF64
-#endif
+//#endif
 
 // === CONSTANTS ===
 #if DEBUG
@@ -615,6 +615,9 @@ void *Elf64Relocate(void *Base, char **envp, const char *Filename)
 			break;
 		case R_X86_64_JUMP_SLOT:
 			*(uint64_t*)ptr = (uint64_t)GetSymbol(symname);
+			break;
+		case R_X86_64_RELATIVE:
+			*(uint64_t*)ptr = (intptr_t)Base + addend;
 			break;
 		default:
 			SysDebug("ld-acess - _Elf64DoReloc: Unknown relocation type %i", type);
