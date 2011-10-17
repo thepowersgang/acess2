@@ -9,6 +9,8 @@
 #include <mm_virt.h>
 #include <hal_proc.h>
 
+#define TRACE_MAPS	0
+
 #define AP_KRW_ONLY	1	// Kernel page
 #define AP_KRO_ONLY	5	// Kernel RO page
 #define AP_RW_BOTH	3	// Standard RW
@@ -390,7 +392,9 @@ void MM_SetFlags(tVAddr VAddr, Uint Flags, Uint Mask)
 int MM_Map(tVAddr VAddr, tPAddr PAddr)
 {
 	tMM_PageInfo	pi = {0};
-//	Log("MM_Map %P=>%p", PAddr, VAddr);
+	#if TRACE_MAPS
+	Log("MM_Map %P=>%p", PAddr, VAddr);
+	#endif
 	
 	pi.PhysAddr = PAddr;
 	pi.Size = 12;
@@ -682,7 +686,7 @@ tVAddr MM_MapHWPages(tPAddr PAddr, Uint NPages)
 	
 		// Map the pages	
 		for( i = 0; i < NPages; i ++ )
-			MM_Map(ret+i*PAGE_SIZE, PAddr+i*PAddr);
+			MM_Map(ret+i*PAGE_SIZE, PAddr+i*PAGE_SIZE);
 		// and return
 		LEAVE('p', ret);
 		return ret;
@@ -698,7 +702,10 @@ tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PAddr)
 	tVAddr	ret;
 
 	phys = MM_AllocPhysRange(Pages, MaxBits);
-	if(!phys)	return 0;
+	if(!phys) {
+		Log_Warning("MMVirt", "No space left for a %i page block (MM_AllocDMA)", Pages);
+		return 0;
+	}
 	
 	ret = MM_MapHWPages(phys, Pages);
 	*PAddr = phys;

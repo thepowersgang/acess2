@@ -24,11 +24,15 @@ tPAddr	gaiStaticAllocPages[NUM_STATIC_ALLOC] = {
 };
 extern char	gKernelEnd[];
 
+
 #include <tpl_mm_phys_bitmap.h>
+
+//#define REALVIEW_LOWRAM_SIZE	0x10000000
+#define REALVIEW_LOWRAM_SIZE	(32*1024*1024)
 
 void MM_SetupPhys(void)
 {
-	MM_Tpl_InitPhys( 16*1024*1024/0x1000, NULL );
+	MM_Tpl_InitPhys( REALVIEW_LOWRAM_SIZE/0x1000, NULL );
 }
 
 int MM_int_GetMapEntry( void *Data, int Index, tPAddr *Start, tPAddr *Length )
@@ -37,7 +41,7 @@ int MM_int_GetMapEntry( void *Data, int Index, tPAddr *Start, tPAddr *Length )
 	{
 	case 0:
 		*Start = ((tVAddr)&gKernelEnd - KERNEL_BASE + 0xFFF) & ~0xFFF;
-		*Length = 16*1024*1024 - *Start;
+		*Length = REALVIEW_LOWRAM_SIZE - *Start;
 		return 1;
 	default:
 		return 0;
