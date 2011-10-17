@@ -111,7 +111,7 @@ struct sJoystick_FileHeader
 {
 	Uint16	NAxies;	//!< Number of Axies
 	Uint16	NButtons;	//!< Number of buttons
-};
+} PACKED;
 
 /**
  * \brief Axis Definition in file data
@@ -128,7 +128,7 @@ struct sJoystick_Axis
 	Sint16	MaxValue;	//!< Maximum value for \a CurValue
 	Sint16	CurValue;	//!< Current value (joystick position)
 	Uint16	CursorPos;	//!< Current state (cursor position)
-};
+} PACKED;
 
 #define JOY_INFOSTRUCT(_naxies, _nbuttons) struct { \
 	Uint16	NAxies, NButtons;\

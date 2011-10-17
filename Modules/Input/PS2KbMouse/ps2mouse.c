@@ -53,9 +53,15 @@ tDevFS_Driver	gMouse_DriverStruct = {
 // == CODE ==
 int PS2Mouse_Install(char **Arguments)
 {
+	
+
 	// Set up variables
-	gMouse_Axies = (void*)&gMouse_FileData[1];
+	gMouse_Axies = (void*)&gMouse_FileData[4];
 	gMouse_Buttons = (void*)&gMouse_Axies[NUM_AXIES];
+
+	gMouse_FileHeader->NAxies = 2;	gMouse_FileHeader->NButtons = 3;
+	gMouse_Axies[0].MinValue = -10;	gMouse_Axies[0].MaxValue = 10;
+	gMouse_Axies[1].MinValue = -10;	gMouse_Axies[1].MaxValue = 10;
 	
 	// Initialise Mouse Controller
 	giMouse_Cycle = 0;	// Set Current Cycle position
@@ -136,6 +142,7 @@ void PS2Mouse_HandleInterrupt(Uint8 InputByte)
 		gMouse_Axies[i].CursorPos = newCursor;
 	}
 
+//	Log("Mouse at %ix%i", gMouse_Axies[0].CursorPos, gMouse_Axies[1].CursorPos);
 		
 	VFS_MarkAvaliable(&gMouse_DriverStruct.RootNode, 1);
 }
