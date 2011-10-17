@@ -11,9 +11,9 @@ ASFLAGS		= -f elf
 
 USE_MP=0
 
-ifeq ($(ARCH),i386)
+ifeq ($(ARCH),x86)
 	USE_MP=0
-else ifeq ($(ARCH),i386-smp)
+else ifeq ($(ARCH),x86-smp)
 	USE_MP=1
 endif
 

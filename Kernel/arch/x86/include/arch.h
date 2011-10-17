@@ -18,7 +18,7 @@
 #define LOCK_DISABLE_INTS	1
 
 // - Processor/Machine Specific Features
-#if ARCH != i386 && ARCH != i486 && ARCH != i586
+#if ARCH != x86 && ARCH != x86_smp
 # error "Unknown architecture '" #ARCH "'"
 #endif
 
