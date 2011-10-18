@@ -12,7 +12,7 @@
 
 
 // === IMPORTS ===
-extern void	gKernelEnd;
+extern char	gKernelEnd[];
 extern void	Proc_PrintBacktrace(void);
 
 // === PROTOTYPES ===

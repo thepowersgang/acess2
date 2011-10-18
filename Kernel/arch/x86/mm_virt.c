@@ -59,7 +59,7 @@
 typedef Uint32	tTabEnt;
 
 // === IMPORTS ===
-extern void	_UsertextEnd, _UsertextBase;
+extern char	_UsertextEnd[], _UsertextBase[];
 extern Uint32	gaInitPageDir[1024];
 extern Uint32	gaInitPageTable[1024];
 extern void	Threads_SegFault(tVAddr Addr);
