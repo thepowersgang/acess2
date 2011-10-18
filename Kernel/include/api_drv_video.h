@@ -296,6 +296,15 @@ typedef struct sDrvUtil_Video_BufInfo	tDrvUtil_Video_BufInfo;
 typedef struct sDrvUtil_Video_2DHandlers	tDrvUtil_Video_2DHandlers;
 
 /**
+ * \brief Maximum cursor width for using the DrvUtil software cursor
+ */
+#define DRVUTIL_MAX_CURSOR_W	32
+/**
+ * \brief Maximum cursor width for using the DrvUtil software cursor
+ */
+#define DRVUTIL_MAX_CURSOR_H	32
+
+/**
  * \brief Framebuffer information used by all DrvUtil_Video functions
  */
 struct sDrvUtil_Video_BufInfo
@@ -311,15 +320,41 @@ struct sDrvUtil_Video_BufInfo
 	/**
 	 * \brief Number of pixels in each line
 	 */
-	 int	Width;
+	short	Width;
 	/**
 	 * \brief Total number of lines
 	 */
-	 int	Height;
+	short	Height;
 	/**
 	 * \brief Bit depth of the framebuffer
 	 */
 	 int	Depth;
+	
+	/**
+	 * \brief Software cursor controls
+	 * \{
+	 */
+	/**
+	 * \brief X coordinate of the cursor
+	 */
+	short	CursorX;
+	/**
+	 * \brief Y coordinate of the cursor
+	 */
+	short	CursorY;
+
+	/**
+	 * \brief Cursor bitmap
+	 */
+	tVideo_IOCtl_Bitmap	*CursorBitmap;
+
+	/**
+	 * \brief Buffer to store the area under the cursor
+	 */
+	void	*CursorSaveBuf;
+	/*
+	 * \}
+	 */
 };
 
 /**
@@ -377,6 +412,33 @@ extern int	DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
  * \return Number of bytes written
  *
  * Handles all write modes in software, using the VT font calls for rendering.
+ * \note Calls the cursor clear and redraw if the cursor area is touched
  */
 extern int	DrvUtil_Video_WriteLFB(int Mode, tDrvUtil_Video_BufInfo *FBInfo, size_t Offset, size_t Length, void *Src);
+
+/**
+ * \brief Software cursor rendering
+ * \{
+ */
+/**
+ * \brief Set the cursor bitmap for a buffer
+ * \param Buf	Framebuffer descriptor
+ * \param Bitmap	New cursor bitmap
+ */
+extern void	DrvUtil_Video_SetCursor(tDrvUtil_Video_BufInfo *Buf, tVideo_IOCtl_Bitmap *Bitmap);
+/**
+ * \brief Render the cursor at (\a X, \a Y)
+ * \param Buf	Framebuffer descriptor, see type for details
+ * \param X	X coord of the cursor
+ * \param Y	Y coord of the cursor
+ */
+extern void	DrvUtil_Video_DrawCursor(tDrvUtil_Video_BufInfo *Buf, int X, int Y);
+/**
+ * \brief Removes the rendered cursor from the screen
+ * \param Buf	Framebuffer descriptor, see type for details
+ */
+extern void	DrvUtil_Video_RemoveCursor(tDrvUtil_Video_BufInfo *Buf);
+/**
+ * \}
+ */
 #endif

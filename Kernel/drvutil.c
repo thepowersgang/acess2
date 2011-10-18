@@ -203,6 +203,125 @@ int DrvUtil_Video_WriteLFB(int Mode, tDrvUtil_Video_BufInfo *FBInfo, size_t Offs
 	return Length;
 }
 
+void DrvUtil_Video_SetCursor(tDrvUtil_Video_BufInfo *Buf, tVideo_IOCtl_Bitmap *Bitmap)
+{
+	 int	csrX = Buf->CursorX, csrY = Buf->CursorY;
+	size_t	size;
+
+	// Clear old bitmap
+	if( Buf->CursorBitmap )
+	{
+		DrvUtil_Video_RemoveCursor(Buf);
+		if( Bitmap->W != Buf->CursorBitmap->W || Bitmap->H != Buf->CursorBitmap->H )
+		{
+			free( Buf->CursorSaveBuf );
+			Buf->CursorSaveBuf = NULL;
+		}
+		free(Buf->CursorBitmap);
+		Buf->CursorBitmap = NULL;
+	}
+	
+	// Check the new bitmap is valid
+	size = sizeof(tVideo_IOCtl_Bitmap) + Bitmap->W*Bitmap->H*4;
+	if( !CheckMem(Bitmap, size) ) {
+		Log_Warning("DrvUtil", "DrvUtil_Video_SetCursor: Bitmap (%p) invalid mem", Bitmap);
+		return;
+	}
+	
+	// Take a copy
+	Buf->CursorBitmap = malloc( size );
+	memcpy(Buf->CursorBitmap, Bitmap, size);
+	
+	// Restore cursor position
+	DrvUtil_Video_DrawCursor(Buf, csrX, csrY);
+}
+
+void DrvUtil_Video_DrawCursor(tDrvUtil_Video_BufInfo *Buf, int X, int Y)
+{
+	 int	bytes_per_px = (Buf->Depth + 7) / 8;
+	Uint32	*dest, *src;
+	 int	save_pitch, y;
+	 int	render_ox=0, render_oy=0, render_w, render_h;
+
+	if( X < 0 || Y < 0 )	return;
+	if( X >= Buf->Width || Y >= Buf->Height )	return;
+
+	if( !Buf->CursorBitmap )	return ;
+
+	X -= Buf->CursorBitmap->XOfs;
+	Y -= Buf->CursorBitmap->YOfs;
+	
+	render_w = X > Buf->Width  - Buf->CursorBitmap->W ? Buf->Width  - X : Buf->CursorBitmap->W;
+	render_h = Y > Buf->Height - Buf->CursorBitmap->H ? Buf->Height - Y : Buf->CursorBitmap->H;
+
+	if(X < 0) {
+		render_ox = -X;
+		X = 0;
+	}
+	if(Y < 0) {
+		render_oy = -Y;
+		Y = 0;
+	}
+
+	save_pitch = Buf->CursorBitmap->W * bytes_per_px;	
+
+	dest = (void*)( (tVAddr)Buf->Framebuffer + Y * Buf->Pitch + X*bytes_per_px );
+	src = Buf->CursorBitmap->Data;
+	if( !Buf->CursorSaveBuf )
+		Buf->CursorSaveBuf = malloc( Buf->CursorBitmap->W*Buf->CursorBitmap->H*bytes_per_px );
+	// Save behind the cursor
+	for( y = render_oy; y < render_h; y ++ )
+		memcpy(
+			(Uint8*)Buf->CursorSaveBuf + y*save_pitch,
+			(Uint8*)dest + render_ox*bytes_per_px + y*Buf->Pitch,
+			render_w*bytes_per_px
+			);
+	// Draw the cursor
+	switch(Buf->Depth)
+	{
+	case 32:
+		src += render_oy * Buf->CursorBitmap->W;
+		for( y = render_oy; y < render_h; y ++ )
+		{
+			int x;
+			for(x = render_ox; x < render_w; x ++ )
+			{
+				if(src[x] & 0xFF000000)
+					dest[x] = src[x];
+				else
+					;	// NOP, completely transparent
+			}
+			src += Buf->CursorBitmap->W;
+			dest = (void*)((Uint8*)dest + Buf->Pitch);
+		}
+		break;
+	default:
+		Log_Error("DrvUtil", "TODO: Implement non 32-bpp cursor");
+		break;
+	}
+	Buf->CursorX = X;
+	Buf->CursorY = Y;
+}
+
+void DrvUtil_Video_RemoveCursor(tDrvUtil_Video_BufInfo *Buf)
+{
+	 int	bytes_per_px = (Buf->Depth + 7) / 8;
+	 int	y, save_pitch;
+	Uint32	*dest;
+
+	if( !Buf->CursorBitmap || Buf->CursorX == -1 )	return ;
+
+	if( !Buf->CursorSaveBuf )
+		return ;
+
+	save_pitch = Buf->CursorBitmap->W * bytes_per_px;
+	dest = (void*)( (tVAddr)Buf->Framebuffer + Buf->CursorY * Buf->Pitch + Buf->CursorX*bytes_per_px );
+	for( y = 0; y < Buf->CursorBitmap->H; y ++ )
+		memcpy( (Uint8*)dest + y*Buf->Pitch, (Uint8*)Buf->CursorSaveBuf + y*save_pitch, save_pitch);
+	
+	Buf->CursorX = -1;
+}
+
 void DrvUtil_Video_2D_Fill(void *Ent, Uint16 X, Uint16 Y, Uint16 W, Uint16 H, Uint32 Colour)
 {
 	tDrvUtil_Video_BufInfo	*FBInfo = Ent;
