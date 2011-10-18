@@ -9,7 +9,7 @@
  * (tVFS_Node.Read and tVFS_Node.Write are NULL)
  */
 #ifndef _API_DRV_KEYBOARD_H
-#define _API_KEYBOARD_H
+#define _API_DRV_KEYBOARD_H
 
 #include <api_drv_common.h>
 
@@ -57,6 +57,9 @@ enum eTplKeyboard_IOCtl {
 	KB_IOCTL_SETCALLBACK
 };
 
+/**
+ * \brief Symbolic names for Keyboard IOCtls
+ */
 #define DRV_KEYBAORD_IOCTLNAMES	"getset_repeat_rate", "getset_repeat_delay", "set_callback"
 
 /**

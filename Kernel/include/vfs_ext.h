@@ -6,7 +6,10 @@
 #ifndef _VFS_EXT_H
 #define _VFS_EXT_H
 
+//! Inode number type
 typedef Uint64	tInode;
+
+//! Mountpoint identifier type
 typedef Uint32	tMount;
 
 // === CONSTANTS ===
@@ -78,14 +81,28 @@ enum eVFS_SeekDirs
  * \}
  */
 
-#define MMAP_PROT_READ	0x001
-#define MMAP_PROT_WRITE	0x002
-#define MMAP_PROT_EXEC	0x004
+/**
+ * \brief MMap protection flags
+ * \{
+ */
+#define MMAP_PROT_READ	0x001	//!< Readable memory
+#define MMAP_PROT_WRITE	0x002	//!< Writable memory
+#define MMAP_PROT_EXEC	0x004	//!< Executable memory
+/**
+ * \}
+ */
 
-#define MMAP_MAP_SHARED 	0x001
-#define MMAP_MAP_PRIVATE	0x002
-#define MMAP_MAP_FIXED  	0x004
-#define MMAP_MAP_ANONYMOUS	0x008
+/**
+ * \brief MMap mapping flags
+ * \{
+ */
+#define MMAP_MAP_SHARED 	0x001	//!< Shared with all other users of the FD
+#define MMAP_MAP_PRIVATE	0x002	//!< Local (COW) copy
+#define MMAP_MAP_FIXED  	0x004	//!< Load to a fixed address
+#define MMAP_MAP_ANONYMOUS	0x008	//!< Not associated with a FD
+/**
+ * \}
+ */
 
 // -- System Call Structures ---
 /**
@@ -126,11 +143,27 @@ typedef struct sFInfo
  */
 typedef struct
 {
+	//! Bitmap of set file descriptors
 	Uint16	flags[MAX_FILE_DESCS/16];
 }	fd_set;
 
+/**
+ * \brief Clear a descriptor flag in a fd_set
+ * \param fd	File descriptor to clear
+ * \param fdsetp	Set to modify
+ */
 #define FD_CLR(fd, fdsetp) ((fdsetp)->flags[(fd)/16]&=~(1<<((fd)%16)))
+/**
+ * \brief Set a descriptor flag in a fd_set
+ * \param fd	File descriptor to set
+ * \param fdsetp	Set to modify
+ */
 #define FD_SET(fd, fdsetp) ((fdsetp)->flags[(fd)/16]|=~(1<<((fd)%16)))
+/**
+ * \brief Test a descriptor flag in a fd_set
+ * \param fd	File descriptor to test
+ * \param fdsetp	Set to modify
+ */
 #define FD_ISSET(fd, fdsetp) ((fdsetp)->flags[(fd)/16]&(1<<((fd)%16)))
 
 // === FUNCTIONS ===
@@ -338,7 +371,6 @@ extern void	*VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, 
 
 /**
  * \brief Unmap memory allocated by VFS_MMap
- * \param ErrNo	Error status pointer
  * \param Addr	Address of data to unmap
  * \param Length	Length of data
  */

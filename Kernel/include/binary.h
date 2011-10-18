@@ -16,7 +16,7 @@
  */
 typedef struct sBinarySection
 {
-	Uint64	Offset;
+	Uint64	Offset; 	//!< File offset of the section
 	tVAddr	Virtual;	//!< Virtual load address
 	size_t	FileSize;	//!< Number of bytes to load from the file
 	size_t	MemSize;	//!< Number of bytes in memory
@@ -56,8 +56,8 @@ typedef struct sBinary
 {
 	struct sBinary	*Next;	//!< Pointer used by the kernel
 
-	tMount	MountID;
-	tInode	Inode;
+	tMount	MountID;	//!< Mount ID
+	tInode	Inode;  	//!< Inode (Used for fast reopen)
 
 	/**
 	 * \brief Interpreter used to load the file

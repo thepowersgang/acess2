@@ -1,5 +1,5 @@
 /**
- * \file api_drv_joystick
+ * \file api_drv_joystick.h
  * \brief Joystick Driver Interface Definitions
  * \author John Hodge (thePowersGang)
  * 
@@ -80,6 +80,9 @@ enum eTplJoystick_IOCtl {
 	JOY_IOCTL_GETSETBUTTONFLAGS,
 };
 
+/**
+ * \brief Symbolic names for Joystick IOCtls
+ */
 #define	DRV_JOY_IOCTLNAMES	"set_callback", "set_callback_arg", "getset_axis_limit", "getset_axis_position", \
 	"getset_axis_flags", "getset_button_flags"
 
@@ -106,12 +109,13 @@ typedef void (*tJoystick_Callback)(int Ident, int bIsAxis, int Num, int Delta);
 
 /**
  * \struct sJoystick_FileHeader
+ * \brief Format of the joystick VFS node's first bytes
  */
 struct sJoystick_FileHeader
 {
 	Uint16	NAxies;	//!< Number of Axies
 	Uint16	NButtons;	//!< Number of buttons
-} PACKED;
+};
 
 /**
  * \brief Axis Definition in file data
@@ -128,8 +132,15 @@ struct sJoystick_Axis
 	Sint16	MaxValue;	//!< Maximum value for \a CurValue
 	Sint16	CurValue;	//!< Current value (joystick position)
 	Uint16	CursorPos;	//!< Current state (cursor position)
-} PACKED;
+};
 
+/**
+ * \brief Macro to define a structure for a joystick's node
+ * \param _naxies	Number of axies
+ * \param _nbuttons	Number of buttons
+ * \note This just defines the structure, it's up to the driver to set the
+ *       sJoystick_FileHeader.NAxies and sJoystick_FileHeader.NButtons fields.
+ */
 #define JOY_INFOSTRUCT(_naxies, _nbuttons) struct { \
 	Uint16	NAxies, NButtons;\
 	tJoystick_Axis	Axies[_naxies];\

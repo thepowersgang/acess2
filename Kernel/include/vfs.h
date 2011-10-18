@@ -370,7 +370,6 @@ extern tVFS_ACL	gVFS_ACL_EveryoneRO;	//!< Everyone Read only
  */
 extern int	VFS_AddDriver(tVFS_Driver *Info);
 /**
- * \fn tVFS_Driver *VFS_GetFSByName(char *Name)
  * \brief Get the information structure of a driver given its name
  * \param Name	Name of filesystem driver to find
  */
@@ -424,7 +423,13 @@ extern int	VFS_SelectNode(tVFS_Node *Node, int Type, tTime *Timeout, const char 
  * \brief Change the full flag on a node
  */
 extern int	VFS_MarkFull(tVFS_Node *Node, BOOL IsBufferFull);
+/**
+ * \brief Alter the space avaliable flag on a node
+ */
 extern int	VFS_MarkAvaliable(tVFS_Node *Node, BOOL IsDataAvaliable);
+/**
+ * \brief Alter the error flags on a node
+ */
 extern int	VFS_MarkError(tVFS_Node *Node, BOOL IsErrorState);
 
 // --- Node Cache --

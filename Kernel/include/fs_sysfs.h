@@ -25,7 +25,7 @@ extern int	SysFS_RegisterFile(const char *Path, const char *Data, int Length);
 
 /**
  * \brief Updates the size/pointer associated with a SysFD file
- * \param ID	Number returned by ::SysFS_Register
+ * \param ID	Number returned by ::SysFS_RegisterFile
  * \param Data	New buffer address
  * \param Length	New length of the file
  * \return Boolean Success
@@ -34,7 +34,7 @@ extern int	SysFS_UpdateFile(int ID, const char *Data, int Length);
 
 /**
  * \brief Removes a file from the SysFS tree
- * \param ID	Number returned by ::SysFS_Register
+ * \param ID	Number returned by ::SysFS_RegisterFile
  */
 extern int	SysFS_RemoveFile(int ID);
 

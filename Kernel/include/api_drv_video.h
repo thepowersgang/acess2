@@ -98,7 +98,11 @@ enum eTplVideo_IOCtl {
 	 */
 	VIDEO_IOCTL_SETCURSORBITMAP
 };
-#define DRV_VIDEO_IOCTLNAMES	"getset_mode", "find+mode", "mode_info", "set_buf_format", "set_cursor", "set_cursor_bitmap"
+
+/**
+ * \brief Symbolic names for Video IOCtls (#4 onwards)
+ */
+#define DRV_VIDEO_IOCTLNAMES	"getset_mode", "find_mode", "mode_info", "set_buf_format", "set_cursor", "set_cursor_bitmap"
 
 /**
  * \brief Mode Structure used in IOCtl Calls
@@ -252,6 +256,10 @@ extern int	giVT_CharWidth;
 //! \brief Defines the height of a rendered character
 extern int	giVT_CharHeight;
 /**
+ * \name Font rendering
+ * \{
+ */
+/**
  * \brief Driver helper that renders a character to a buffer
  * \param Codepoint	Unicode character to render
  * \param Buffer	Buffer to render to
@@ -291,9 +299,9 @@ extern Uint16	VT_Colour12to15(Uint16 Col12);
  * The final bit of each component is used to fill the lower bits of the output.
  */
 extern Uint32	VT_Colour12toN(Uint16 Col12, int Depth);
-
-typedef struct sDrvUtil_Video_BufInfo	tDrvUtil_Video_BufInfo;
-typedef struct sDrvUtil_Video_2DHandlers	tDrvUtil_Video_2DHandlers;
+/**
+ * \}
+ */
 
 /**
  * \brief Maximum cursor width for using the DrvUtil software cursor
@@ -307,7 +315,7 @@ typedef struct sDrvUtil_Video_2DHandlers	tDrvUtil_Video_2DHandlers;
 /**
  * \brief Framebuffer information used by all DrvUtil_Video functions
  */
-struct sDrvUtil_Video_BufInfo
+typedef struct sDrvUtil_Video_BufInfo
 {
 	/**
 	 * \brief Framebuffer virtual address
@@ -331,7 +339,7 @@ struct sDrvUtil_Video_BufInfo
 	 int	Depth;
 	
 	/**
-	 * \brief Software cursor controls
+	 * \name Software cursor controls
 	 * \{
 	 */
 	/**
@@ -355,12 +363,12 @@ struct sDrvUtil_Video_BufInfo
 	/*
 	 * \}
 	 */
-};
+} tDrvUtil_Video_BufInfo;
 
 /**
  * \brief Handlers for eTplVideo_2DCommands
  */
-struct sDrvUtil_Video_2DHandlers
+typedef struct sDrvUtil_Video_2DHandlers
 {
 	/**
 	 * \brief No Operation, Ignored
@@ -388,7 +396,7 @@ struct sDrvUtil_Video_2DHandlers
 	 * \see VIDEO_2DOP_BLIT
 	 */
 	void	(*Blit)(void *Ent, Uint16 DestX, Uint16 DestY, Uint16 SrcX, Uint16 SrcY, Uint16 W, Uint16 H);
-};
+} tDrvUtil_Video_2DHandlers;
 
 /**
  * \brief Handle a 2D operation stream for a driver
@@ -417,7 +425,7 @@ extern int	DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
 extern int	DrvUtil_Video_WriteLFB(int Mode, tDrvUtil_Video_BufInfo *FBInfo, size_t Offset, size_t Length, void *Src);
 
 /**
- * \brief Software cursor rendering
+ * \name Software cursor rendering
  * \{
  */
 /**
