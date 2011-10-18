@@ -54,10 +54,10 @@ extern int	giNextTID;
 extern tThread	gThreadZero;
 extern void	Isr8(void);	// Double Fault
 extern void	Proc_ReturnToUser(tVAddr Handler, Uint Argument, tVAddr KernelStack);
-extern void	scheduler_return;	// Return address in SchedulerBase
-extern void	IRQCommon;	// Common IRQ handler code
-extern void	IRQCommon_handled;	// IRQCommon call return location
-extern void	GetEIP_Sched_ret;	// GetEIP call return location
+extern char	scheduler_return[];	// Return address in SchedulerBase
+extern char	IRQCommon[];	// Common IRQ handler code
+extern char	IRQCommon_handled[];	// IRQCommon call return location
+extern char	GetEIP_Sched_ret[];	// GetEIP call return location
 extern void	Threads_AddToDelete(tThread *Thread);
 extern void	SwitchTasks(Uint NewSP, Uint *OldSP, Uint NewIP, Uint *OldIO, Uint CR3);
 
