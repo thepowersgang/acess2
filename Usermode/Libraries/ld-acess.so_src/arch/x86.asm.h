@@ -14,12 +14,8 @@ _errno:	dw	0
 [extern SoMain]
 _start:
 	call SoMain
-
-	add esp, 4
-	call eax
-
-	push eax
-	call _exit
+	add esp, 4	; // Base address
+	jmp eax
 
 ; DEST
 ; SRC
