@@ -58,6 +58,13 @@ int memcmp(const void *p1, const void *p2, int len)
 	return 0;
 }
 
+void *memcpy(void *dest, const void *src, size_t len)
+{
+	uint8_t	*d=dest, *s=src;
+	while(len--)	*d++ = *s++;
+	return dest;
+}
+
 /**
  * \fn int file_exists(char *filename)
  * \brief Checks if a file exists

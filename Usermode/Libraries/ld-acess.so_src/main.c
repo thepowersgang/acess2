@@ -9,8 +9,6 @@
 // === PROTOTYPES ===
 void	*DoRelocate(void *base, char **envp, const char *Filename);
  int	CallUser(void *Entry, void *SP);
-void	*ElfRelocate(void *Base, char **envp, const char *Filename);
-void	*PE_Relocate(void *Base, char **envp, const char *Filename);
 
 // === Imports ===
 extern char	gLinkedBase[];

@@ -27,12 +27,12 @@ static const char	*csaR_NAMES[] = {"R_386_NONE", "R_386_32", "R_386_PC32", "R_38
 
 // === PROTOTYPES ===
 void	*ElfRelocate(void *Base, char **envp, const char *Filename);
- int	ElfGetSymbol(void *Base, const char *Name, void **Ret);
+ int	ElfGetSymbol(void *Base, const char *Name, void **Ret, size_t *Size);
 void	*Elf32Relocate(void *Base, char **envp, const char *Filename);
- int	Elf32GetSymbol(void *Base, const char *Name, void **Ret);
+ int	Elf32GetSymbol(void *Base, const char *Name, void **Ret, size_t *Size);
 #ifdef SUPPORT_ELF64
 void	*Elf64Relocate(void *Base, char **envp, const char *Filename);
- int	Elf64GetSymbol(void *Base, const char *Name, void **Ret);
+ int	Elf64GetSymbol(void *Base, const char *Name, void **Ret, size_t *Size);
 #endif
 Uint32	ElfHashString(const char *name);
 
@@ -62,17 +62,17 @@ void *ElfRelocate(void *Base, char **envp, const char *Filename)
 /**
  * \fn int ElfGetSymbol(Uint Base, const char *name, void **ret)
  */
-int ElfGetSymbol(void *Base, const char *Name, void **ret)
+int ElfGetSymbol(void *Base, const char *Name, void **ret, size_t *Size)
 {
 	Elf32_Ehdr	*hdr = Base;
 
 	switch(hdr->e_ident[4])
 	{
 	case ELFCLASS32:
-		return Elf32GetSymbol(Base, Name, ret);
+		return Elf32GetSymbol(Base, Name, ret, Size);
 #ifdef SUPPORT_ELF64
 	case ELFCLASS64:
-		return Elf64GetSymbol(Base, Name, ret);
+		return Elf64GetSymbol(Base, Name, ret, Size);
 #endif
 	default:
 		SysDebug("ld-acess - ElfRelocate: Unknown file class %i", hdr->e_ident[4]);
@@ -155,26 +155,26 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 			DEBUGS(" elf_relocate: DYNAMIC Symbol Table 0x%x (0x%x)",
 				dynamicTab[j].d_val, dynamicTab[j].d_val + iBaseDiff);
 			if(iBaseDiff != 0)	dynamicTab[j].d_val += iBaseDiff;
-			dynsymtab = (void*)(dynamicTab[j].d_val);
+			dynsymtab = (void*)(intptr_t)dynamicTab[j].d_val;
 			break;
 		// --- String Table ---
 		case DT_STRTAB:
 			DEBUGS(" elf_relocate: DYNAMIC String Table 0x%x (0x%x)",
 				dynamicTab[j].d_val, dynamicTab[j].d_val + iBaseDiff);
 			if(iBaseDiff != 0)	dynamicTab[j].d_val += iBaseDiff;
-			dynstrtab = (void*)(dynamicTab[j].d_val);
+			dynstrtab = (void*)(intptr_t)dynamicTab[j].d_val;
 			break;
 		// --- Hash Table --
 		case DT_HASH:
 			if(iBaseDiff != 0)	dynamicTab[j].d_val += iBaseDiff;
-			iSymCount = ((Elf32_Word*)(dynamicTab[j].d_val))[1];
+			iSymCount = ((Elf32_Word*)(intptr_t)dynamicTab[j].d_val)[1];
 			break;
 		}
 	}
 
 	if(dynsymtab == NULL) {
 		SysDebug("ld-acess.so - WARNING: No Dynamic Symbol table in %p, returning", hdr);
-		return (void *) hdr->entrypoint + iBaseDiff;
+		return (void *)(intptr_t) (hdr->entrypoint + iBaseDiff);
 	}
 
 	// === Add to loaded list (can be imported now) ===
@@ -244,7 +244,7 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 		{
 		// Standard 32 Bit Relocation (S+A)
 		case R_386_32:
-			val = (intptr_t) GetSymbol( Sym );
+			val = (intptr_t) GetSymbol(Sym, NULL);
 			DEBUGS(" elf_doRelocate: R_386_32 *0x%x += 0x%x('%s')",
 					ptr, val, Sym);
 			*ptr = val + addend;
@@ -253,7 +253,7 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 		// 32 Bit Relocation wrt. Offset (S+A-P)
 		case R_386_PC32:
 			DEBUGS(" elf_doRelocate: '%s'", Sym);
-			val = (intptr_t) GetSymbol( Sym );
+			val = (intptr_t) GetSymbol(Sym, NULL);
 			DEBUGS(" elf_doRelocate: R_386_PC32 *0x%x = 0x%x + 0x%x - 0x%x",
 				ptr, *ptr, val, (intptr_t)ptr );
 			*ptr = val + addend - (intptr_t)ptr;
@@ -264,7 +264,7 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 		case R_386_GLOB_DAT:
 		case R_386_JMP_SLOT:
 			DEBUGS(" elf_doRelocate: '%s'", Sym);
-			val = (intptr_t) GetSymbol( Sym );
+			val = (intptr_t) GetSymbol( Sym, NULL );
 			DEBUGS(" elf_doRelocate: %s *0x%x = 0x%x", csaR_NAMES[type], ptr, val);
 			*ptr = val;
 			break;
@@ -274,7 +274,14 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 			DEBUGS(" elf_doRelocate: R_386_RELATIVE *0x%x = 0x%x + 0x%x", ptr, iBaseDiff, addend);
 			*ptr = iBaseDiff + addend;
 			break;
-			
+	
+		case R_386_COPY: {
+			size_t	size;
+			void	*src = GetSymbol(Sym, &size);
+			DEBUGS(" elf_doRelocate_386: R_386_COPY (%p, %p, %i)", ptr, val, size);
+			memcpy(ptr, src, size);
+			break; }
+	
 		default:
 			SysDebug("elf_doRelocate_386: Unknown relocation %i", type);
 			break;
@@ -289,7 +296,7 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 		// (S + A) | T
 		case R_ARM_GLOB_DAT:
 		case R_ARM_JUMP_SLOT:
-			val = (intptr_t)GetSymbol(Sym);
+			val = (intptr_t)GetSymbol(Sym, NULL);
 			*ptr = val + addend;
 			break;
 		default:
@@ -375,10 +382,10 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 	}
 	
 	DEBUGS("ElfRelocate: RETURN 0x%x", hdr->entrypoint + iBaseDiff);
-	return (void*)hdr->entrypoint + iBaseDiff;
+	return (void*)(intptr_t)( hdr->entrypoint + iBaseDiff );
 }
 
-int Elf32GetSymbol(void *Base, const char *Name, void **ret)
+int Elf32GetSymbol(void *Base, const char *Name, void **ret, size_t *Size)
 {
 	Elf32_Ehdr	*hdr = Base;
 	Elf32_Sym	*symtab;
@@ -440,6 +447,7 @@ int Elf32GetSymbol(void *Base, const char *Name, void **ret)
 	i = pBuckets[ iNameHash ];
 	if(symtab[i].shndx != SHN_UNDEF && strcmp(dynstrtab + symtab[i].nameOfs, Name) == 0) {
 		*ret = (void*) (intptr_t) symtab[ i ].value + iBaseDiff;
+		if(Size)	*Size = symtab[i].size;
 		return 1;
 	}
 	
@@ -448,6 +456,7 @@ int Elf32GetSymbol(void *Base, const char *Name, void **ret)
 		i = pChains[i];
 		if(symtab[i].shndx != SHN_UNDEF && strcmp(dynstrtab + symtab[ i ].nameOfs, Name) == 0) {
 			*ret = (void*)(intptr_t)symtab[ i ].value + iBaseDiff;
+			if(Size)	*Size = symtab[i].size;
 			return 1;
 		}
 	}
@@ -606,15 +615,18 @@ void *Elf64Relocate(void *Base, char **envp, const char *Filename)
 		case R_X86_64_NONE:
 			break;
 		case R_X86_64_64:
-			*(uint64_t*)ptr = (uint64_t)GetSymbol(symname) + addend;
+			*(uint64_t*)ptr = (uint64_t)GetSymbol(symname, NULL) + addend;
 			break;
-		case R_X86_64_COPY:
-			break;
+		case R_X86_64_COPY: {
+			size_t	size;
+			void	*sym = GetSymbol(symname, &size);
+			memcpy(ptr, sym, size);
+			} break;
 		case R_X86_64_GLOB_DAT:
-			*(uint64_t*)ptr = (uint64_t)GetSymbol(symname);
+			*(uint64_t*)ptr = (uint64_t)GetSymbol(symname, NULL);
 			break;
 		case R_X86_64_JUMP_SLOT:
-			*(uint64_t*)ptr = (uint64_t)GetSymbol(symname);
+			*(uint64_t*)ptr = (uint64_t)GetSymbol(symname, NULL);
 			break;
 		case R_X86_64_RELATIVE:
 			*(uint64_t*)ptr = (intptr_t)Base + addend;
@@ -671,7 +683,7 @@ void *Elf64Relocate(void *Base, char **envp, const char *Filename)
 	return (void *)(hdr->e_entry + baseDiff);
 }
 
-int Elf64GetSymbol(void *Base, const char *Name, void **Ret)
+int Elf64GetSymbol(void *Base, const char *Name, void **Ret, size_t *Size)
 {
 	Elf64_Ehdr	*hdr = Base;
 	Elf64_Sym	*symtab;
@@ -744,6 +756,7 @@ int Elf64GetSymbol(void *Base, const char *Name, void **Ret)
 	i = pBuckets[ iNameHash ];
 	if(symtab[i].st_shndx != SHN_UNDEF && strcmp(dynstrtab + symtab[i].st_name, Name) == 0) {
 		*Ret = (void*) (intptr_t) symtab[i].st_value + iBaseDiff;
+		if(Size)	*Size = symtab[i].st_size;
 		DEBUGS("%s = %p", Name, *Ret);
 		return 1;
 	}
@@ -753,6 +766,7 @@ int Elf64GetSymbol(void *Base, const char *Name, void **Ret)
 		i = pChains[i];
 		if(symtab[i].st_shndx != SHN_UNDEF && strcmp(dynstrtab + symtab[i].st_name, Name) == 0) {
 			*Ret = (void*)(intptr_t)symtab[i].st_value + iBaseDiff;
+			if(Size)	*Size = symtab[i].st_size;
 			DEBUGS("%s = %p", Name, *Ret);
 			return 1;
 		}

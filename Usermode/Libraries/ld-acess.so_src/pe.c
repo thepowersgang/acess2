@@ -19,12 +19,12 @@
 #endif
 
 // === PROTOTYPES ===
- int	PE_Relocate(void *Base, char **envp, char *Filename);
+void	*PE_Relocate(void *Base, char **envp, const char *Filename);
 char	*PE_int_GetTrueFile(char *file);
  int	PE_int_GetForwardSymbol(char *Fwd, void **Value);
 
 // === CODE ===
-int PE_Relocate(void *Base, char *envp[], char *Filename)
+void *PE_Relocate(void *Base, char **envp, const char *Filename)
 {
 	tPE_DOS_HEADER		*dosHdr = Base;
 	tPE_IMAGE_HEADERS	*peHeaders;
@@ -67,7 +67,8 @@ int PE_Relocate(void *Base, char *envp[], char *Filename)
 				void	*symPtr = 0;
 				name = (void*)( iBase + importTab[j] );
 				DEBUGS(" PE_Relocate: Import Name '%s', Hint 0x%x\n", name->Name, name->Hint);
-				if( GetSymbolFromBase(pLibBase, name->Name, symPtr) == 0 ) {
+				if( GetSymbolFromBase(pLibBase, name->Name, symPtr, NULL) == 0 )
+				{
 					SysDebug("Unable to find symbol '%s' in library '%s'\n", name->Name, impDir[i].DLLName);
 					return 0;
 				}
@@ -85,13 +86,13 @@ int PE_Relocate(void *Base, char *envp[], char *Filename)
 	
 	DEBUGS("PE_Relocate: RETURN 0x%x\n", iBase + peHeaders->OptHeader.EntryPoint);
 	
-	return iBase + peHeaders->OptHeader.EntryPoint;
+	return (void*)( iBase + peHeaders->OptHeader.EntryPoint );
 }
 
 /**
  * \fn int PE_GetSymbol(Uint Base, const char *Name, Uint *Ret)
  */
-int PE_GetSymbol(void *Base, const char *Name, void **Ret)
+int PE_GetSymbol(void *Base, const char *Name, void **Ret, size_t *Size)
 {
 	tPE_DOS_HEADER		*dosHdr = Base;
 	tPE_IMAGE_HEADERS	*peHeaders;
@@ -129,6 +130,7 @@ int PE_GetSymbol(void *Base, const char *Name, void **Ret)
 				return PE_int_GetForwardSymbol(fwd, Ret);
 			}
 			*Ret = (void*)retVal;
+			if(Size)	*Size = 0;
 			return 1;
 		}
 	}
@@ -174,9 +176,10 @@ int PE_int_GetForwardSymbol(char *Fwd, void **Value)
 	DEBUGS(" PE_int_GetForwardSymbol: Get '%s' from '%s'\n", sym, libname);
 	
 	libbase = LoadLibrary(libname, DLL_BASE_PATH, NULL);
-	ret = GetSymbolFromBase(libbase, sym, Value);
+	ret = GetSymbolFromBase(libbase, sym, Value, NULL);
 	if(!ret) {
 		SysDebug(" PE_int_GetForwardSymbol: Unable to find '%s' in '%s'\n", sym, libname);
+		return 0;
 	}
 	Fwd[i] = '.';
 	return ret;

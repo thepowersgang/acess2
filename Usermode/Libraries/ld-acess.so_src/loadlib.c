@@ -15,7 +15,7 @@
 
 // === PROTOTYPES ===
 void	*IsFileLoaded(const char *file);
- int	GetSymbolFromBase(void *base, const char *name, void **ret);
+ int	GetSymbolFromBase(void *base, const char *name, void **ret, size_t *size);
 
 // === IMPORTS ===
 extern const struct {
@@ -197,7 +197,7 @@ void Unload(void *Base)
  \fn Uint GetSymbol(const char *name)
  \brief Gets a symbol value from a loaded library
 */
-void *GetSymbol(const char *name)
+void *GetSymbol(const char *name, size_t *Size)
 {
 	 int	i;
 	void	*ret;
@@ -216,7 +216,7 @@ void *GetSymbol(const char *name)
 		
 		//SysDebug(" GetSymbol: Trying 0x%x, '%s'",
 		//	gLoadedLibraries[i].Base, gLoadedLibraries[i].Name);
-		if(GetSymbolFromBase(gLoadedLibraries[i].Base, name, &ret))	return ret;
+		if(GetSymbolFromBase(gLoadedLibraries[i].Base, name, &ret, Size))	return ret;
 	}
 	SysDebug("GetSymbol: === Symbol '%s' not found ===", name);
 	return 0;
@@ -226,13 +226,13 @@ void *GetSymbol(const char *name)
  \fn int GetSymbolFromBase(Uint base, char *name, Uint *ret)
  \breif Gets a symbol from a specified library
 */
-int GetSymbolFromBase(void *base, const char *name, void **ret)
+int GetSymbolFromBase(void *base, const char *name, void **ret, size_t *Size)
 {
 	uint8_t	*hdr = base;
 	if(hdr[0] == 0x7F && hdr[1] == 'E' && hdr[2] == 'L' && hdr[3] == 'F')
-		return ElfGetSymbol(base, name, ret);
+		return ElfGetSymbol(base, name, ret, Size);
 	if(hdr[0] == 'M' && hdr[1] == 'Z')
-		return PE_GetSymbol(base, name, ret);
+		return PE_GetSymbol(base, name, ret, Size);
 	SysDebug("Unknown type at %p (%02x %02x %02x %02x)", base,
 		hdr[0], hdr[1], hdr[2], hdr[3]);
 	return 0;
