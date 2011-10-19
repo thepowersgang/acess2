@@ -156,16 +156,19 @@ void SyscallHandler(tSyscallRegs *Regs)
 				CHECK_NUM_NONULL( &tmp[i], sizeof(char*) );
 				CHECK_STR_NONULL( tmp[i] );
 			}
+			if(ret == -1) break;
 			// Check EnvP also
 			// - EnvP can be NULL
 			if( Regs->Arg3 )
 			{
 				tmp = (char**)Regs->Arg3;
-				//Log("tmp = %p", tmp);
+				CHECK_NUM_NONULL(tmp, sizeof(char**));
+				Log("tmp = %p", tmp);
 				for(i=0;tmp[i];i++) {
-					CHECK_NUM_NULLOK( &tmp[i], sizeof(char*) );
+					CHECK_NUM_NONULL( &tmp[i], sizeof(char*) );
 					CHECK_STR_NONULL( tmp[i] );
 				}
+				if(ret == -1) break;
 			}
 		}
 		LEAVE('s', "Assuming 0");

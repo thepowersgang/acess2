@@ -854,10 +854,14 @@ int CheckString(const char *String)
 
 /**
  * \brief Check if a sized memory region is valid memory
+ * \return Boolean success
  */
 int CheckMem(const void *Mem, int NumBytes)
 {
 	tVAddr	addr = (tVAddr)Mem;
+
+	if( !MM_GetPhysAddr( addr ) )
+		return 0;
 	
 	if( MM_IsUser( addr ) )
 	{
