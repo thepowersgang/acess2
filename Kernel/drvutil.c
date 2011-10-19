@@ -99,12 +99,12 @@ int DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
 	return 0;
 }
 
-int DrvUtil_Video_WriteLFB(int Mode, tDrvUtil_Video_BufInfo *FBInfo, size_t Offset, size_t Length, void *Buffer)
+int DrvUtil_Video_WriteLFB(tDrvUtil_Video_BufInfo *FBInfo, size_t Offset, size_t Length, void *Buffer)
 {
 	Uint8	*dest;
-	ENTER("iMode pFBInfo xOffset xLength pBuffer",
+	ENTER("pFBInfo xOffset xLength pBuffer",
 		Mode, FBInfo, Offset, Length, Buffer);
-	switch( Mode )
+	switch( FBInfo->BufferFormat )
 	{
 	case VIDEO_BUFFMT_TEXT:
 		{

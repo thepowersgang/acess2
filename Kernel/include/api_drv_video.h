@@ -4,8 +4,9 @@
  * \note For AcessOS Version 1
  * 
  * Video drivers extend the common driver interface api_drv_common.h
- * and must support _at least_ the IOCtl numbers defined in this file
- * to be compatable with Acess.
+ * and must support the IOCtl numbers defined in this file to be
+ * compatable with Acess (drivers may implement more IOCtls above
+ * DRV_IOCTL_USERMIN).
  * 
  * \section IOCtls
  * As said, a compatable driver must implement these calls correctly,
@@ -19,10 +20,9 @@
  * framebuffer.
  * 
  * \section Mode Support
- * All video drivers must support at least one text mode (Mode #0)
- * For each graphics mode the driver exposes, there must be a corresponding
- * text mode with the same resolution, this mode will be used when the
- * user switches to a text Virtual Terminal while in graphics mode.
+ * All video drivers must support text output for every resolution (hardware
+ * accelerated or software), and at least the _BLIT and _FILL 2D operations
+ * (these may be implemented specifically for text mode).
  */
 #ifndef _API_DRV_VIDEO_H
 #define _API_DRV_VIDEO_H
@@ -318,6 +318,10 @@ extern Uint32	VT_Colour12toN(Uint16 Col12, int Depth);
 typedef struct sDrvUtil_Video_BufInfo
 {
 	/**
+	 * \name Framebuffer state
+	 * \{
+	 */
+	/**
 	 * \brief Framebuffer virtual address
 	 */
 	void	*Framebuffer;
@@ -336,7 +340,15 @@ typedef struct sDrvUtil_Video_BufInfo
 	/**
 	 * \brief Bit depth of the framebuffer
 	 */
-	 int	Depth;
+	short	Depth;
+	/*
+	 * \}
+	 */
+	
+	/**
+	 * \brief Buffer write format
+	 */
+	short	BufferFormat;
 	
 	/**
 	 * \name Software cursor controls
@@ -355,14 +367,14 @@ typedef struct sDrvUtil_Video_BufInfo
 	 * \brief Cursor bitmap
 	 */
 	tVideo_IOCtl_Bitmap	*CursorBitmap;
+	/*
+	 * \}
+	 */
 
 	/**
 	 * \brief Buffer to store the area under the cursor
 	 */
 	void	*CursorSaveBuf;
-	/*
-	 * \}
-	 */
 } tDrvUtil_Video_BufInfo;
 
 /**
@@ -412,7 +424,6 @@ extern int	DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
 
 /**
  * \brief Perform write operations to a LFB
- * \param Mode	Buffer mode (see eTplVideo_BufFormats)
  * \param FBInfo	Framebuffer descriptor, see type for details
  * \param Offset	Offset provided by VFS call
  * \param Length	Length provided by VFS call
@@ -422,7 +433,7 @@ extern int	DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
  * Handles all write modes in software, using the VT font calls for rendering.
  * \note Calls the cursor clear and redraw if the cursor area is touched
  */
-extern int	DrvUtil_Video_WriteLFB(int Mode, tDrvUtil_Video_BufInfo *FBInfo, size_t Offset, size_t Length, void *Src);
+extern int	DrvUtil_Video_WriteLFB(tDrvUtil_Video_BufInfo *FBInfo, size_t Offset, size_t Length, void *Src);
 
 /**
  * \name Software cursor rendering

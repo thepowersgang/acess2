@@ -78,7 +78,6 @@ tDevFS_Driver	gBGA_DriverStruct = {
 	}
 };
  int	giBGA_CurrentMode = -1;
- int	giBGA_BufferFormat = 0;
 tVideo_IOCtl_Pos	gBGA_CursorPos = {-1,-1};
 Uint	*gBGA_Framebuffer;
 const tBGA_Mode	*gpBGA_CurrentMode;
@@ -120,7 +119,6 @@ int BGA_Install(char **Arguments)
 
 	// Map Framebuffer to hardware address
 	gBGA_Framebuffer = (void *) MM_MapHWPages(base, 768);	// 768 pages (3Mb)
-	MM_DumpTables(0, -1);
 
 	// Install Device
 	if( DevFS_AddDevice( &gBGA_DriverStruct ) == -1 )
@@ -165,7 +163,7 @@ Uint64 BGA_Read(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer)
 Uint64 BGA_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 {
 	if( giBGA_CurrentMode == -1 )	BGA_int_UpdateMode(0);
-	return DrvUtil_Video_WriteLFB(giBGA_BufferFormat, &gBGA_DrvUtil_BufInfo, Offset, Length, Buffer);
+	return DrvUtil_Video_WriteLFB(&gBGA_DrvUtil_BufInfo, Offset, Length, Buffer);
 }
 
 const char *csaBGA_IOCtls[] = {DRV_IOCTLNAMES, DRV_VIDEO_IOCTLNAMES, NULL};
@@ -195,9 +193,9 @@ int BGA_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		break;
 	
 	case VIDEO_IOCTL_SETBUFFORMAT:
-		ret = giBGA_BufferFormat;
+		ret = gBGA_DrvUtil_BufInfo.BufferFormat;
 		if(Data)
-			giBGA_BufferFormat = *(int*)Data;
+			gBGA_DrvUtil_BufInfo.BufferFormat = *(int*)Data;
 		break;
 	
 	case VIDEO_IOCTL_SETCURSOR:

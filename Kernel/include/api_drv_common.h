@@ -75,7 +75,12 @@ enum eTplDrv_IOCtl {
 	 * of this driver's IOCtl calls by taking a string and returning the
 	 * IOCtl call number associated with that method name.
 	 */
-	DRV_IOCTL_LOOKUP
+	DRV_IOCTL_LOOKUP,
+
+	/**
+	 * \brief First non-reserved IOCtl number for driver extension
+	 */
+	DRV_IOCTL_USERMIN = 0x1000,
 };
 
 /**
