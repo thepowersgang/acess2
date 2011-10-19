@@ -135,7 +135,8 @@ Uint64 PL110_Read(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer)
  */
 Uint64 PL110_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 {
-	return DrvUtil_Video_WriteLFB(giPL110_BufferMode, &gPL110_DrvUtil_BufInfo, Offset, Length, Buffer);
+	gPL110_DrvUtil_BufInfo.BufferFormat = giPL110_BufferMode;
+	return DrvUtil_Video_WriteLFB(&gPL110_DrvUtil_BufInfo, Offset, Length, Buffer);
 }
 
 const char *csaPL110_IOCtls[] = {DRV_IOCTLNAMES, DRV_VIDEO_IOCTLNAMES, NULL};
