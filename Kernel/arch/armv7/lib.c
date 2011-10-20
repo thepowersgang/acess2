@@ -8,6 +8,7 @@
 // === IMPORTS ===
 extern void	__memcpy_align4(void *_dest, const void *_src, size_t _length);
 extern void	__memcpy_byte(void *_dest, const void *_src, size_t _length);
+extern Uint32	__divmod32_asm(Uint32 Num, Uint32 Den, Uint32 *Rem);
 
 // === PROTOTYPES ===
 Uint64	__divmod64(Uint64 Num, Uint64 Den, Uint64 *Rem);
@@ -41,7 +42,7 @@ void *memcpy(void *_dest, const void *_src, size_t _length)
 	// Force alignment
 	while( (tVAddr)dst8 & 3 ) *dst8 ++ = *src8++, _length --;
 
-	__memcpy_align32(dst8, src8, _length);
+	__memcpy_align4(dst8, src8, _length);
 	
 	return _dest;
 }
@@ -136,6 +137,10 @@ Uint64 DivMod64U(Uint64 Num, Uint64 Den, Uint64 *Rem)
 {
 	Uint64	ret;
 	if(Den == 0)	return 0;	// TODO: #div0
+	if(Num < Den) {
+		if(Rem)	*Rem = Num;
+		return 0;
+	}
 	if(Num == 0) {
 		if(Rem)	*Rem = 0;
 		return 0;
@@ -160,6 +165,11 @@ Uint64 DivMod64U(Uint64 Num, Uint64 Den, Uint64 *Rem)
 		if(Rem)	*Rem = Num & 0xFFF;
 		return Num >> 12;
 	}
+	
+	if( !(Den >> 32) && !(Num >> 32) ) {
+		if(Rem)	*Rem = 0;	// Clear high bits
+		return __divmod32_asm(Num, Den, (Uint32*)Rem);
+	}
 
 	ret = __divmod64(Num, Den, Rem);
 	return ret;
@@ -181,13 +191,13 @@ Uint64 __umoddi3(Uint64 Num, Uint64 Den)
 
 Uint32 __udivsi3(Uint32 Num, Uint32 Den)
 {
-	return __divmod32(Num, Den, NULL);
+	return __divmod32_asm(Num, Den, NULL);
 }
 
 Uint32 __umodsi3(Uint32 Num, Uint32 Den)
 {
 	Uint32	rem;
-	__divmod32(Num, Den, &rem);
+	__divmod32_asm(Num, Den, &rem);
 	return rem;
 }
 

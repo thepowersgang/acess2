@@ -42,3 +42,43 @@ __memcpy_align4:
 
 3:	pop {r4}
 	mov pc, lr
+
+@
+@ Division
+@
+.globl __divmod32_asm
+__divmod32_asm:
+	push {r4}
+	mov r4, #0	@ Return value
+	mov r3, #1	@ add value
+
+	@ Scan up for first larger multiple of 2
+1:	cmp r0, r1	@ N < D
+	bmi 2f   	@ ^^
+	lsl r1, r1, #1	@ D <<= 1
+	lsls r3, r3, #1	@ add <<= 1
+	beq .err	@ result is zero
+	b 1b
+	
+	@ Go back down
+2:	lsrs r3, r3, #1	@ add >>= 1
+	beq 3f  	@ Done (value is zero)
+	lsr r1, r1, #1	@ D >>= 1
+	cmp r0, r1	@ N < D
+	bmi 2b
+	sub r0, r1	@ N -= D
+	add r4, r3	@ ret += add
+	b 2b
+3:
+	tst r2, r2	@ Remainder (if wanted)
+	strne r0,[r2]
+	mov r0, r4	@ Return value
+	pop {r4}
+	mov pc, lr
+.err:
+	mov r0, #0
+	tst r2, r2
+	strne r0, [r2]
+	pop {r4}
+	mov pc, lr
+
