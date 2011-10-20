@@ -202,6 +202,7 @@ int MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 		Warning("User Pagefault: Instruction at %04x:%p accessed %p",
 			Regs->CS, Regs->RIP, Addr);
 		__asm__ __volatile__ ("sti");	// Restart IRQs
+		Error_Backtrace(Regs->RIP, Regs->RBP);
 		Threads_SegFault(Addr);
 		return 0;
 	}
