@@ -152,7 +152,7 @@ clone:
 	push rbp
 	mov rbp, rsp
 	push rbx
-	push r11
+	push r12
 	
 	mov r12, rsi	; Save in a reg for after the clone
 	
@@ -177,6 +177,7 @@ clone:
 	jz .ret
 	mov rsp, rsi
 .ret:
+	pop r12
 	pop rbx
 	pop rbp
 	ret
