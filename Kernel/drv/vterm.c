@@ -468,7 +468,8 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 			((char*)Buffer)[pos] = term->InputBuffer[term->InputRead];
 			pos ++;
 			term->InputRead ++;
-			term->InputRead %= MAX_INPUT_CHARS8;
+			while(term->InputRead > MAX_INPUT_CHARS8)
+				term->InputRead -= MAX_INPUT_CHARS8;
 		}
 		break;
 	
@@ -491,7 +492,8 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 			codepoint_buf[pos] = codepoint_in[term->InputRead];
 			pos ++;
 			term->InputRead ++;
-			term->InputRead %= MAX_INPUT_CHARS32;
+			while(term->InputRead > MAX_INPUT_CHARS32)
+				term->InputRead -= MAX_INPUT_CHARS32;
 		}
 		pos *= 4;
 		break;
