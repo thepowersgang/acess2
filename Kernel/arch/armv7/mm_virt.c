@@ -545,7 +545,11 @@ tPAddr MM_Clone(void)
 	tmp_map = new_lvl1_1;
 	for( i = 0; i < 0x800-4; i ++ )
 	{
-//		Log("i = %i", i);
+		// HACK! Ignore the original identity mapping
+		if( i == 0 && Threads_GetTID() == 0 ) {
+			tmp_map[0] = 0;
+			continue;
+		}
 		if( i == 0x400 )
 			tmp_map = &new_lvl1_2[-0x400];
 		switch( cur[i] & 3 )

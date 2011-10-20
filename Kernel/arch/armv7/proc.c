@@ -127,7 +127,7 @@ tTID Proc_SpawnWorker( void (*Fnc)(void*), void *Ptr )
 
 	new = Threads_CloneThreadZero();
 	if(!new)	return -1;
-	free(new->ThreadName);
+	if(new->ThreadName)	free(new->ThreadName);
 	new->ThreadName = NULL;
 
 	new->KernelStack = MM_NewKStack(1);
