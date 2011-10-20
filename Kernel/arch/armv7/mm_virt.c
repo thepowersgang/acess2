@@ -491,7 +491,7 @@ void MM_int_CloneTable(Uint32 *DestEnt, int Table)
 {
 	tPAddr	table;
 	Uint32	*tmp_map;
-	Uint32	*cur = (void*)MM_TABLE0USER;
+	Uint32	*cur = (void*)MM_TABLE1USER;
 //	Uint32	*cur = &FRACTAL(MM_TABLE1USER,0);
 	 int	i;
 	
@@ -502,12 +502,13 @@ void MM_int_CloneTable(Uint32 *DestEnt, int Table)
 	
 	for( i = 0; i < 1024; i ++ )
 	{
-		switch(cur[i] & 3)
+//		Log_Debug("MMVirt", "cur[%i] (%p) = %x", Table*256+i, &cur[Table*256+i], cur[Table*256+i]);
+		switch(cur[Table*256+i] & 3)
 		{
 		case 0:	tmp_map[i] = 0;	break;
 		case 1:
 			tmp_map[i] = 0;
-			Log_Error("MMVirt", "TODO: Support large pages in MM_int_CloneTable");
+			Log_Error("MMVirt", "TODO: Support large pages in MM_int_CloneTable (%p)", (Table*256+i)*0x1000);
 			// Large page?
 			break;
 		case 2:
@@ -533,6 +534,8 @@ tPAddr MM_Clone(void)
 	Uint32	*new_lvl1_1, *new_lvl1_2, *cur;
 	Uint32	*tmp_map;
 	 int	i;
+
+//	MM_DumpTables(0, KERNEL_BASE);
 	
 	ret = MM_AllocateRootTable();
 
