@@ -18,16 +18,8 @@ KernelThreadHeader:
 	@ TODO: Do something with the thread pointer
 	
 	ldr r4, [sp],#4	@ Function
-	ldr r5, [sp],#4
-	@ Get arguments
-	sub r5, #1
-	ldrhs r0, [sp],#4
-@	suble r5, #1
-@	ldrhs r1, [sp],#4
-@	suble r5, #1
-@	ldrhs r2, [sp],#4
-@	suble r5, #1
-@	ldrhs r3, [sp],#4
+	@ Get argument
+	ldr r0, [sp],#4
 
 	blx r4
 	
@@ -87,17 +79,16 @@ Proc_CloneInt:
 	ldr r0, =Proc_CloneInt_new
 	pop {r4-r12,pc}
 Proc_CloneInt_new:
-	cps #18
+@	cps #18
 		
 @	mov r0, #0
-@	mov r1, #0
-@	sub r1, #1
+@	mvn r1, #0
 @	bl MM_DumpTables
 
-@	ldr r0, =csProc_CloneInt_NewTaskMessage
-@	bl Log
+	ldr r0, =csProc_CloneInt_NewTaskMessage
+	bl Log
 	
-	cps #19
+@	cps #19
 	mov r0, #0
 	pop {r4-r12,pc}
 

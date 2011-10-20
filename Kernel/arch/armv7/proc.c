@@ -140,7 +140,6 @@ tTID Proc_SpawnWorker( void (*Fnc)(void*), void *Ptr )
 	sp = new->KernelStack;
 	
 	*(Uint32*)(sp -= 4) = (Uint)Ptr;
-	*(Uint32*)(sp -= 4) = 1;
 	*(Uint32*)(sp -= 4) = (Uint)Fnc;
 	*(Uint32*)(sp -= 4) = (Uint)new;
 
