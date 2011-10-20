@@ -79,11 +79,13 @@ tDevFS_Driver	gPL110_DriverStruct = {
 };
 // -- Options
 tPAddr	gPL110_PhysBase = PL110_BASE;
+ int	gbPL110_IsVersatile = 1;
 // -- KeyVal parse rules
 const tKeyVal_ParseRules	gPL110_KeyValueParser = {
 	NULL,
 	{
 		{"Base", "P", &gPL110_PhysBase},
+		{"IsVersatile", "i", &gbPL110_IsVersatile},
 		{NULL, NULL, NULL}
 	}
 };
@@ -258,10 +260,18 @@ int PL110_IOCtl(tVFS_Node *Node, int ID, void *Data)
 //
 
 /**
+ * \brief Set the LCD controller resolution
+ * \param W	Width (aligned to 16 pixels, cipped to 1024)
+ * \param H	Height (clipped to 768)
+ * \return Boolean failure
  */
 int PL110_int_SetResolution(int W, int H)
 {
-	W = (W + 15)/16;
+	W = (W + 15) & ~0xF;
+	if(W <= 0 || H <= 0) {
+		Log_Warning("PL110", "Attempted to set invalid resolution (%ix%i)", W, H);
+		return 1;
+	}
 	if(W > 1024)	W = 1024;
 	if(H > 768)	H = 768;
 
@@ -279,8 +289,20 @@ int PL110_int_SetResolution(int W, int H)
 	gpPL110_IOMem->LCDUPBase = gPL110_FramebufferPhys;
 	gpPL110_IOMem->LCDLPBase = 0;
 
-	gpPL110_IOMem->LCDIMSC = 0;
-	gpPL110_IOMem->LCDControl = (1 << 11)|(1 << 5)|(5<<1)|1;
+	// Power on, BGR mode, ???, ???, enabled
+	Uint32	controlWord = (1 << 11)|(1 << 8)|(1 << 5)|(5 << 1)|1;
+	// According to qemu, the Versatile version has these two the wrong
+	// way around
+	if( gbPL110_IsVersatile )
+	{
+		gpPL110_IOMem->LCDIMSC = controlWord;	// Actually LCDControl
+		gpPL110_IOMem->LCDControl = 0;	// Actually LCDIMSC
+	}
+	else
+	{
+		gpPL110_IOMem->LCDIMSC = 0;
+		gpPL110_IOMem->LCDControl = controlWord;
+	}
 
 	giPL110_Width = W;
 	giPL110_Height = H;
