@@ -30,6 +30,7 @@ int main(int argc, char *argv[])
 
 	do {
 		num = read(fd, buf, BUF_SIZE);
+		if(num < 0)	break;
 		buf[num] = '\0';
 		printf("%s", buf);
 	} while(num == BUF_SIZE);

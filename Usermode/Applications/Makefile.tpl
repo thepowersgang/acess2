@@ -4,7 +4,7 @@
 #
 
 CFLAGS  += -Wall -Werror -fno-builtin -fno-stack-protector -g
-LDFLAGS += 
+LDFLAGS += -g
 
 _BIN := $(OUTPUTDIR)$(DIR)/$(BIN)
 _OBJPREFIX := obj-$(ARCH)/
