@@ -427,7 +427,7 @@ EXPORT int vsnprintf(char *buf, size_t __maxlen, const char *format, va_list arg
 			_addchar('*');
 			_addchar('0');
 			_addchar('x');
-			arg = va_arg(args, uint32_t);
+			arg = va_arg(args, intptr_t);
 			itoa(tmp, arg, 16, minSize, pad, 0);
 			precision = -1;
 			goto sprintf_puts;
@@ -457,8 +457,7 @@ EXPORT int vsnprintf(char *buf, size_t __maxlen, const char *format, va_list arg
 
 		// String
 		case 's':
-			arg = va_arg(args, uint32_t);
-			p = (void*)(intptr_t)arg;
+			p = va_arg(args, char*);
 		sprintf_puts:
 			if(!p)	p = "(null)";
 			//_SysDebug("vsnprintf: p = '%s'", p);
