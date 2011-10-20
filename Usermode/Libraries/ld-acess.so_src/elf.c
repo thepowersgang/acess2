@@ -2,12 +2,12 @@
  * AcessOS 1 - Dynamic Loader
  * By thePowersGang
  */
+#define DEBUG	0
+
 #include "common.h"
 #include <stdint.h>
 #include "elf32.h"
 #include "elf64.h"
-
-#define DEBUG	0
 
 #if DEBUG
 # define	DEBUGS(v...)	SysDebug("ld-acess - " v)
@@ -100,7 +100,7 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 	Elf32_Dyn	*dynamicTab = NULL;	// Dynamic Table Pointer
 	char	*dynstrtab = NULL;	// .dynamic String Table
 	Elf32_Sym	*dynsymtab;
-	void	(*do_relocate)(uint32_t t_info, uint32_t *ptr, Elf32_Addr addend, int Type, const char *Sym);
+	void	(*do_relocate)(uint32_t t_info, uint32_t *ptr, Elf32_Addr addend, int Type, int bRela, const char *Sym);
 	
 	DEBUGS("ElfRelocate: (Base=0x%x)", Base);
 	
@@ -237,7 +237,7 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 	
 	DEBUGS(" elf_relocate: Beginning Relocation");
 	
-	void elf_doRelocate_386(uint32_t r_info, uint32_t *ptr, Elf32_Addr addend, int type, const char *Sym)
+	void elf_doRelocate_386(uint32_t r_info, uint32_t *ptr, Elf32_Addr addend, int type, int bRela, const char *Sym)
 	{
 		Uint32	val;
 		switch( type )
@@ -278,7 +278,7 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 		case R_386_COPY: {
 			size_t	size;
 			void	*src = GetSymbol(Sym, &size);
-			DEBUGS(" elf_doRelocate_386: R_386_COPY (%p, %p, %i)", ptr, val, size);
+			DEBUGS(" elf_doRelocate_386: R_386_COPY (%p, %p, %i)", ptr, src, size);
 			memcpy(ptr, src, size);
 			break; }
 	
@@ -288,14 +288,20 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 		}
 	}
 
-	void elf_doRelocate_arm(uint32_t r_info, uint32_t *ptr, Elf32_Addr addend, int type, const char *Sym)
+	void elf_doRelocate_arm(uint32_t r_info, uint32_t *ptr, Elf32_Addr addend, int type, int bRela, const char *Sym)
 	{
 		uint32_t	val;
 		switch(type)
 		{
 		// (S + A) | T
 		case R_ARM_GLOB_DAT:
+			DEBUGS(" elf_doRelocate_arm: R_ARM_GLOB_DAT %p (%s + %x)", ptr, Sym, addend);
+			val = (intptr_t)GetSymbol(Sym, NULL);
+			*ptr = val + addend;
+			break;
 		case R_ARM_JUMP_SLOT:
+			if(!bRela)	addend = 0;
+			DEBUGS(" elf_doRelocate_arm: R_ARM_JUMP_SLOT %p (%s + %x)", ptr, Sym, addend);
 			val = (intptr_t)GetSymbol(Sym, NULL);
 			*ptr = val + addend;
 			break;
@@ -305,12 +311,12 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 		}
 	}
 
-	void _doRelocate(uint32_t r_info, uint32_t *ptr, Elf32_Addr addend)
+	void _doRelocate(uint32_t r_info, uint32_t *ptr, int bRela, Elf32_Addr addend)
 	{
 		 int	type = ELF32_R_TYPE(r_info);
 		 int	sym = ELF32_R_SYM(r_info);
 		const char	*symname = dynstrtab + dynsymtab[sym].nameOfs;
-		do_relocate(r_info, ptr, addend, type, symname);
+		do_relocate(r_info, ptr, addend, type, bRela, symname);
 	}
 
 	switch(hdr->machine)
@@ -336,7 +342,7 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 		{
 			//DEBUGS("  Rel %i: 0x%x+0x%x", i, iBaseDiff, rel[i].r_offset);
 			ptr = (void*)(iBaseDiff + rel[i].r_offset);
-			_doRelocate(rel[i].r_info, ptr, *ptr);
+			_doRelocate(rel[i].r_info, ptr, 0, *ptr);
 		}
 	}
 	// Parse Relocation Entries
@@ -348,7 +354,7 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 		for( i = 0; i < j; i++ )
 		{
 			ptr = (void*)(iBaseDiff + rela[i].r_offset);
-			_doRelocate(rel[i].r_info, ptr, rela[i].r_addend);
+			_doRelocate(rel[i].r_info, ptr, 1, rela[i].r_addend);
 		}
 	}
 	
@@ -365,7 +371,7 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 			for(i=0;i<j;i++)
 			{
 				ptr = (void*)(iBaseDiff + pltRel[i].r_offset);
-				_doRelocate(pltRel[i].r_info, ptr, *ptr);
+				_doRelocate(pltRel[i].r_info, ptr, 0, *ptr);
 			}
 		}
 		else
@@ -376,12 +382,12 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 			for(i=0;i<j;i++)
 			{
 				ptr = (void*)(iRealBase + pltRela[i].r_offset);
-				_doRelocate(pltRela[i].r_info, ptr, pltRela[i].r_addend);
+				_doRelocate(pltRela[i].r_info, ptr, 1, pltRela[i].r_addend);
 			}
 		}
 	}
 	
-	DEBUGS("ElfRelocate: RETURN 0x%x", hdr->entrypoint + iBaseDiff);
+	DEBUGS("ElfRelocate: RETURN 0x%x to %p", hdr->entrypoint + iBaseDiff, __builtin_return_address(0));
 	return (void*)(intptr_t)( hdr->entrypoint + iBaseDiff );
 }
 
