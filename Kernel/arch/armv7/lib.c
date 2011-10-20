@@ -5,6 +5,10 @@
  */
 #include <acess.h>
 
+// === IMPORTS ===
+extern void	__memcpy_align4(void *_dest, const void *_src, size_t _length);
+extern void	__memcpy_byte(void *_dest, const void *_src, size_t _length);
+
 // === PROTOTYPES ===
 Uint64	__divmod64(Uint64 Num, Uint64 Den, Uint64 *Rem);
 Uint32	__divmod32(Uint32 Num, Uint32 Den, Uint32 *Rem);
@@ -18,31 +22,26 @@ Sint32	__modsi3(Sint32 Num, Sint32 Den);
 // === CODE ===
 void *memcpy(void *_dest, const void *_src, size_t _length)
 {
-	Uint32	*dst;
-	const Uint32	*src;
 	Uint8	*dst8 = _dest;
 	const Uint8	*src8 = _src;
+
+	if( ((tVAddr)_dest & 3) == 0 && ((tVAddr)_src & 3) == 0 )
+	{
+		__memcpy_align4(_dest, _src, _length);
+		return _dest;
+	}
 
 	// Handle small copies / Non-aligned
 	if( _length < 4 || ((tVAddr)_dest & 3) != ((tVAddr)_src & 3) )
 	{
-		for( ; _length--; dst8++,src8++ )
-			*dst8 = *src8;
+		__memcpy_byte(_dest, _src, _length);
 		return _dest;
 	}
 
 	// Force alignment
-	while( (tVAddr)dst8 & 3 ) *dst8 ++ = *src8++;
-	dst = (void *)dst8;	src = (void *)src8;
+	while( (tVAddr)dst8 & 3 ) *dst8 ++ = *src8++, _length --;
 
-	// DWORD copies
-	for( ; _length > 3; _length -= 4)
-		*dst++ = *src++;
-
-	// Trailing bytes
-	dst8 = (void*)dst;	src8 = (void*)src;
-	for( ; _length; _length -- )
-		*dst8 ++ = *src8 ++;
+	__memcpy_align32(dst8, src8, _length);
 	
 	return _dest;
 }
@@ -86,7 +85,7 @@ void *memset(void *_dest, int _value, size_t _length)
 
 	_value = (Uint8)_value;
 
-	// Handle small copies / Non-aligned
+	// Handle small copies
 	if( _length < 4 )
 	{
 		for( ; _length--; dst8++ )
