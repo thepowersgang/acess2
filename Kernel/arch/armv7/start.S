@@ -166,6 +166,7 @@ PrefetchAbort:
 	blx r4
 	b .
 
+.section .rodata
 csIRQ_Tag:
 csAbort_Tag:
 	.asciz "ARMv7"
