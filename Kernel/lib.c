@@ -966,6 +966,10 @@ void *memmove(void *__dest, const void *__src, size_t len)
 	if( (tVAddr)dest + len < (tVAddr)src )
 		return memcpy(dest, src, len);
 	
+	// NOTE: Assumes memcpy works forward
+	if( (tVAddr)dest < (tVAddr)src )
+		return memcpy(dest, src, len);
+
 	if( (tVAddr)dest < (tVAddr)src )
 		block_size = (tVAddr)src - (tVAddr)dest;
 	else
