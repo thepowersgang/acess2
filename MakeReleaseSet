@@ -3,12 +3,12 @@ rm -rf Dist
 if [ $# -ge 1 ]; then
 	ARCH=$1
 else
-	ARCH=i386
+	ARCH=x86
 fi
 mkdir -p Releases/
 BUILD_DIST=y ARCH=$ARCH make clean all-install
 tar --transform="s|Dist/($ARCH/)*|Acess/|x" -zcf Releases/Acess2_latest_${ARCH}_bin.tar.gz Dist/$ARCH Dist/Acess2.$ARCH.gz
-mdeltree b:/Acess2
+mdeltree b:/Acess2 2>&1 >/dev/null || true
 mcopy -s Dist/$ARCH/ b:/Acess2
 mcopy Dist/Acess2* b:/Acess2/Acess2.gz
 gzip -c AcessRelease.img > Releases/Acess2_latest_${ARCH}.img.gz
