@@ -31,6 +31,7 @@
 #define	VT_FLAG_ALTBUF	0x02	//!< Alternate screen buffer
 #define VT_FLAG_RAWIN	0x04	//!< Don't handle ^Z/^C/^V
 #define	VT_FLAG_HASFB	0x10	//!< Set if the VTerm has requested the Framebuffer
+#define VT_FLAG_SHOWCSR	0x20	//!< Always show the text cursor
 
 enum eVT_InModes {
 	VT_INMODE_TEXT8,	// UTF-8 Text Mode (VT100/xterm Emulation)
@@ -60,6 +61,9 @@ typedef struct {
 	 int	AltWritePos;	//!< Alternate write position
 	short	ScrollTop;	//!< Top of scrolling region (smallest)
 	short	ScrollHeight;	//!< Length of scrolling region
+
+	 int	VideoCursorX;
+	 int	VideoCursorY;
 	
 	tMutex	ReadingLock;	//!< Lock the VTerm when a process is reading from it
 	tTID	ReadingThread;	//!< Owner of the lock
@@ -69,6 +73,11 @@ typedef struct {
 //	tSemaphore	InputSemaphore;
 	
 	Uint32		*Buffer;
+
+	// TODO: Do I need to keep this about?
+	// When should it be deallocated? on move to text mode, or some other time
+	// Call set again, it's freed, and if NULL it doesn't get reallocated.
+	tVideo_IOCtl_Bitmap	*VideoCursor;
 	
 	char	Name[2];	//!< Name of the terminal
 	tVFS_Node	Node;
@@ -97,6 +106,7 @@ void	VT_int_ClearLine(tVTerm *Term, int Num);
 void	VT_int_PutChar(tVTerm *Term, Uint32 Ch);
 void	VT_int_ScrollText(tVTerm *Term, int Count);
 void	VT_int_ScrollFramebuffer( tVTerm *Term, int Count );
+void	VT_int_UpdateCursor( tVTerm *Term, int bShow );
 void	VT_int_UpdateScreen( tVTerm *Term, int UpdateAll );
 void	VT_int_ChangeMode(tVTerm *Term, int NewMode, int NewWidth, int NewHeight);
 void	VT_int_ToggleAltBuffer(tVTerm *Term, int Enabled);
@@ -451,21 +461,7 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	Mutex_Acquire( &term->ReadingLock );
 	
 	// Update cursor
-	if( term == gpVT_CurTerm && !(term->Flags & VT_FLAG_HIDECSR) )
-	{
-		tVideo_IOCtl_Pos	csr_pos;
-		 int	offset;
-		
-		if(term->Flags & VT_FLAG_ALTBUF)
-			offset = term->AltWritePos;
-		else
-			offset = term->WritePos - term->ViewPos;
-		
-		csr_pos.x = offset % term->TextWidth;
-		csr_pos.y = offset / term->TextWidth;
-		if( 0 <= csr_pos.y && csr_pos.y < term->TextHeight )
-			VFS_IOCtl(giVT_OutputDevHandle, VIDEO_IOCTL_SETCURSOR, &csr_pos);
-	}
+	VT_int_UpdateCursor(term, 1);
 	
 	// Check current mode
 	switch(term->Mode)
@@ -522,13 +518,8 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	
 	term->ReadingThread = -1;
 
-	if( term == gpVT_CurTerm && !(term->Flags & VT_FLAG_HIDECSR) )
-	{
-		tVideo_IOCtl_Pos	csr_pos;
-		csr_pos.x = -1;	csr_pos.y = -1;
-		VFS_IOCtl(giVT_OutputDevHandle, VIDEO_IOCTL_SETCURSOR, &csr_pos);
-	}
-	
+//	VT_int_UpdateCursor(term, term->Mode == TERM_MODE_TEXT);
+
 	Mutex_Release( &term->ReadingLock );
 	
 	return pos;
@@ -658,9 +649,7 @@ int VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data)
 			Log_Log("VTerm", "VTerm %i mode set to %i", (int)Node->Inode, *iData);
 			
 			// Update mode if needed
-			if( term->Mode != *iData
-			 || term->NewWidth
-			 || term->NewHeight)
+			if( term->Mode != *iData || term->NewWidth || term->NewHeight)
 			{
 				// Adjust for text mode
 				if( *iData == TERM_MODE_TEXT ) {
@@ -727,10 +716,84 @@ int VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data)
 		LEAVE('i', 1);
 		return 1;
 	
-	case TERM_IOCTL_GETCURSOR:
+	case TERM_IOCTL_GETSETCURSOR:
+		if(Data != NULL)
+		{
+			tVideo_IOCtl_Pos	*pos = Data;
+			if( !CheckMem(Data, sizeof(*pos)) ) {
+				errno = -EINVAL;
+				LEAVE('i', -1);
+				return -1;
+			}
+		
+			if( term->Mode == TERM_MODE_TEXT )
+			{
+				if(term->Flags & VT_FLAG_ALTBUF)
+					term->AltWritePos = pos->x + pos->y * term->TextWidth;
+				else
+					term->WritePos = pos->x + pos->y * term->TextWidth + term->ViewPos;
+				VT_int_UpdateCursor(term, 0);
+			}
+			else
+			{
+				term->VideoCursorX = pos->x;
+				term->VideoCursorY = pos->y;
+				VT_int_UpdateCursor(term, 1);
+			}
+		}
 		ret = (term->Flags & VT_FLAG_ALTBUF) ? term->AltWritePos : term->WritePos-term->ViewPos;
 		LEAVE('i', ret);
 		return ret;
+
+	case TERM_IOCTL_SETCURSORBITMAP: {
+		tVideo_IOCtl_Bitmap	*bmp = Data;
+		if( Data == NULL )
+		{
+			free( term->VideoCursor );
+			term->VideoCursor = NULL;
+			LEAVE('i', 0);
+			return 0;
+		}
+
+		// Sanity check bitmap
+		if( !CheckMem(bmp, sizeof(tVideo_IOCtl_Bitmap)) ) {
+			Log_Notice("VTerm", "%p in TERM_IOCTL_SETCURSORBITMAP invalid", bmp);
+			errno = -EINVAL;
+			LEAVE_RET('i', -1);
+		}
+		if( !CheckMem(bmp->Data, bmp->W*bmp->H*sizeof(Uint32)) ) {
+			Log_Notice("VTerm", "%p in TERM_IOCTL_SETCURSORBITMAP invalid", bmp);
+			errno = -EINVAL;
+			LEAVE_RET('i', -1);
+		}
+
+		// Reallocate if needed
+		if(term->VideoCursor)
+		{
+			if(bmp->W * bmp->H != term->VideoCursor->W * term->VideoCursor->H) {
+				free(term->VideoCursor);
+				term->VideoCursor = NULL;
+			}
+		}
+		if(!term->VideoCursor) {
+			term->VideoCursor = malloc(sizeof(tVideo_IOCtl_Pos) + bmp->W*bmp->H*sizeof(Uint32));
+			if(!term->VideoCursor) {
+				Log_Error("VTerm", "Unable to allocate memory for cursor");
+				errno = -ENOMEM;
+				LEAVE_RET('i', -1);
+			}
+		}
+		
+		memcpy(term->VideoCursor, bmp, sizeof(tVideo_IOCtl_Pos) + bmp->W*bmp->H*sizeof(Uint32));
+	
+		Log_Debug("VTerm", "Set VT%i's cursor to %p %ix%i",
+			(int)term->Node.Inode, bmp, bmp->W, bmp->H);
+
+		if(gpVT_CurTerm == term)
+			VFS_IOCtl(giVT_OutputDevHandle, VIDEO_IOCTL_SETCURSORBITMAP, term->VideoCursor);
+	
+		LEAVE('i', 0);
+		return 0; }
 	}
 	LEAVE('i', -1);
 	return -1;
@@ -747,28 +810,23 @@ void VT_SetTerminal(int ID)
 	giVT_CurrentTerminal = ID;
 	gpVT_CurTerm = &gVT_Terminals[ID];
 	
-	// Update cursor
-	// TODO: Check if the reading lock is held
-	if( gpVT_CurTerm->Text && gpVT_CurTerm->Mode == TERM_MODE_TEXT
-	 && !(gpVT_CurTerm->Flags & VT_FLAG_HIDECSR)
-	 && Mutex_IsLocked( &gpVT_CurTerm->ReadingLock )
-	 )
-	{
-		tVideo_IOCtl_Pos	pos;
-		 int	offset = (gpVT_CurTerm->Flags & VT_FLAG_ALTBUF) ? gpVT_CurTerm->AltWritePos : gpVT_CurTerm->WritePos - gpVT_CurTerm->ViewPos;
-		pos.x = offset % gpVT_CurTerm->TextWidth;
-		pos.y = offset / gpVT_CurTerm->TextWidth;
-		if( 0 <= pos.y && pos.y < gpVT_CurTerm->TextHeight )
-			VFS_IOCtl(giVT_OutputDevHandle, VIDEO_IOCTL_SETCURSOR, &pos);
-	}
 	
 	if( gpVT_CurTerm->Mode == TERM_MODE_TEXT )
+	{
 		VT_SetMode( VIDEO_BUFFMT_TEXT );
+	}
 	else
+	{
+		// Update the cursor image
+		if(gpVT_CurTerm->VideoCursor)
+			VFS_IOCtl(giVT_OutputDevHandle, VIDEO_IOCTL_SETCURSORBITMAP, gpVT_CurTerm->VideoCursor);
 		VT_SetMode( VIDEO_BUFFMT_FRAMEBUFFER );
+	}
 	
+	
+	VT_int_UpdateCursor(gpVT_CurTerm, 1);
 	// Update the screen
-	VT_int_UpdateScreen( &gVT_Terminals[ ID ], 1 );
+	VT_int_UpdateScreen( gpVT_CurTerm, 1 );
 }
 
 /**
@@ -1521,6 +1579,50 @@ void VT_int_ScrollFramebuffer( tVTerm *Term, int Count )
 	VFS_IOCtl(giVT_OutputDevHandle, VIDEO_IOCTL_SETBUFFORMAT, &tmp);
 }
 
+void VT_int_UpdateCursor( tVTerm *Term, int bShow )
+{
+	tVideo_IOCtl_Pos	csr_pos;
+
+	if( Term != gpVT_CurTerm )	return ;
+
+	if( !bShow )
+	{
+		csr_pos.x = -1;	
+		csr_pos.y = -1;	
+	}
+	else if( Term->Mode == TERM_MODE_TEXT )
+	{
+		 int	offset;
+		
+//		if( !(Term->Flags & VT_FLAG_SHOWCSR)
+//		 && ( (Term->Flags & VT_FLAG_HIDECSR) || !Term->Node.ReadThreads)
+//		  )
+		if( !Term->Text || Term->Flags & VT_FLAG_HIDECSR )
+		{
+			csr_pos.x = -1;
+			csr_pos.y = -1;
+		}
+		else
+		{
+			if(Term->Flags & VT_FLAG_ALTBUF)
+				offset = Term->AltWritePos;
+			else
+				offset = Term->WritePos - Term->ViewPos;
+					
+			csr_pos.x = offset % Term->TextWidth;
+			csr_pos.y = offset / Term->TextWidth;
+			if( 0 > csr_pos.y || csr_pos.y >= Term->TextHeight )
+				csr_pos.y = -1, csr_pos.x = -1;
+		}
+	}
+	else
+	{
+		csr_pos.x = Term->VideoCursorX;
+		csr_pos.y = Term->VideoCursorY;
+	}
+	VFS_IOCtl(giVT_OutputDevHandle, VIDEO_IOCTL_SETCURSOR, &csr_pos);
+}	
+
 /**
  * \fn void VT_int_UpdateScreen( tVTerm *Term, int UpdateAll )
  * \brief Updates the video framebuffer
@@ -1567,6 +1669,8 @@ void VT_int_UpdateScreen( tVTerm *Term, int UpdateAll )
 			);
 		break;
 	}
+	
+	VT_int_UpdateCursor(Term, 1);
 }
 
 /**

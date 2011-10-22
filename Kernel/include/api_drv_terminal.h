@@ -68,11 +68,20 @@ enum eTplTerminal_IOCtl {
 	TERM_IOCTL_FORCESHOW,
 	
 	/**
-	 * ioctl(...)
+	 * ioctl(..., tVideo_IOCtl_Pos *pos)
 	 * \brief Returns the current text cursor position
+	 * \param pos	New cursor position. If NULL, the position is not changed
 	 * \return Cursor position (as X+Y*Width)
 	 */
-	TERM_IOCTL_GETCURSOR
+	TERM_IOCTL_GETSETCURSOR,
+	
+	/**
+	 * ioctl(..., tVideo_IOCtl_Bitmap *Bmp)
+	 * \brief Set the video cursor bitmap
+	 * \param Bmp	New bitmap (if NULL, the current bitmap is removed)
+	 * \return Boolean failure
+	 */
+	TERM_IOCTL_SETCURSORBITMAP,
 };
 
 /**
@@ -90,7 +99,7 @@ typedef struct sTerm_IOCtl_Mode
 		unsigned bText: 1;	//!< Text Mode marker
 		unsigned unused:	7;
 	};
-}	tTerm_IOCtl_Mode;
+} tTerm_IOCtl_Mode;
 
 /**
  * \brief Terminal Modes
