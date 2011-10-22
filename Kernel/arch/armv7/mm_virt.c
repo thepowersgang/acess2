@@ -605,6 +605,8 @@ tPAddr MM_Clone(void)
 		sp = __SP & ~(MM_KSTACK_SIZE-1);
 		j = (sp / 0x1000) % 1024;
 		num = MM_KSTACK_SIZE/0x1000;
+
+		Log("num = %i, sp = %p, j = %i", num, sp, j);
 		
 		// Copy stack pages
 		for(; num--; j ++, sp += 0x1000)
@@ -809,14 +811,14 @@ void MM_int_DumpTableEnt(tVAddr Start, size_t Len, tMM_PageInfo *Info)
 {
 	if( giMM_ZeroPage && Info->PhysAddr == giMM_ZeroPage )
 	{
-		Log("%p => %8s - 0x%7x %i %x",
+		Debug("%p => %8s - 0x%7x %i %x",
 			Start, "ZERO", Len,
 			Info->Domain, Info->AP
 			);
 	}
 	else
 	{
-		Log("%p => %8x - 0x%7x %i %x",
+		Debug("%p => %8x - 0x%7x %i %x",
 			Start, Info->PhysAddr-Len, Len,
 			Info->Domain, Info->AP
 			);
@@ -831,7 +833,7 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 	
 	pi_old.Size = 0;
 
-	Log("Page Table Dump:");
+	Debug("Page Table Dump:");
 	range_start = Start;
 	for( addr = Start; i == 0 || (addr && addr < End); i = 1 )
 	{
@@ -859,6 +861,6 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 	}
 	if(inRange)
 		MM_int_DumpTableEnt(range_start, addr - range_start, &pi);
-	Log("Done");
+	Debug("Done");
 }
 
