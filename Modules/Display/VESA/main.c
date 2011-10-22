@@ -29,6 +29,8 @@ Uint64	Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
  int	Vesa_Int_SetMode(int Mode);
  int	Vesa_Int_FindMode(tVideo_IOCtl_Mode *data);
  int	Vesa_Int_ModeInfo(tVideo_IOCtl_Mode *data);
+void	Vesa_int_HideCursor(void);
+void	Vesa_int_ShowCursor(void);
 void	Vesa_FlipCursor(void *Arg);
 
 // === GLOBALS ===
@@ -190,48 +192,19 @@ int Vesa_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		return Vesa_Int_ModeInfo((tVideo_IOCtl_Mode*)Data);
 	
 	case VIDEO_IOCTL_SETBUFFORMAT:
-		DrvUtil_Video_DrawCursor( &gVesa_BufInfo, -1, -1 );
-		giVesaCursorX = -1;
-		#if BLINKING_CURSOR
-		if(giVesaCursorTimer != -1) {
-			Time_RemoveTimer(giVesaCursorTimer);
-			giVesaCursorTimer = -1;
-		}
-		#endif
+		Vesa_int_HideCursor();
 		ret = gVesa_BufInfo.BufferFormat;
 		if(Data)	gVesa_BufInfo.BufferFormat = *(int*)Data;
 		if(gVesa_BufInfo.BufferFormat == VIDEO_BUFFMT_TEXT)
 			DrvUtil_Video_SetCursor( &gVesa_BufInfo, &gDrvUtil_TextModeCursor );
+		Vesa_int_ShowCursor();
 		return ret;
 	
 	case VIDEO_IOCTL_SETCURSOR:	// Set cursor position
-		DrvUtil_Video_RemoveCursor( &gVesa_BufInfo );
-		#if BLINKING_CURSOR
-		if(giVesaCursorTimer != -1) {
-			Time_RemoveTimer(giVesaCursorTimer);
-			giVesaCursorTimer = -1;
-		}
-		#endif
+		Vesa_int_HideCursor();
 		giVesaCursorX = ((tVideo_IOCtl_Pos*)Data)->x;
 		giVesaCursorY = ((tVideo_IOCtl_Pos*)Data)->y;
-		gbVesa_CursorVisible = (giVesaCursorX >= 0);
-		if(gVesa_BufInfo.BufferFormat == VIDEO_BUFFMT_TEXT)
-		{
-			DrvUtil_Video_DrawCursor(
-				&gVesa_BufInfo,
-				giVesaCursorX*giVT_CharWidth,
-				giVesaCursorY*giVT_CharHeight
-				);
-			#if BLINKING_CURSOR
-			giVesaCursorTimer = Time_CreateTimer(VESA_CURSOR_PERIOD, Vesa_FlipCursor, NULL);
-			#endif
-		}
-		else
-			DrvUtil_Video_DrawCursor(
-				&gVesa_BufInfo,
-				giVesaCursorX,
-				giVesaCursorY
-				);
+		Vesa_int_ShowCursor();
 		return 0;
 	}
 	return 0;
@@ -361,9 +334,41 @@ int Vesa_Int_ModeInfo(tVideo_IOCtl_Mode *data)
 	return 1;
 }
 
+void Vesa_int_HideCursor(void)
+{
+	DrvUtil_Video_RemoveCursor( &gVesa_BufInfo );
+	#if BLINKING_CURSOR
+	if(giVesaCursorTimer != -1) {
+		Time_RemoveTimer(giVesaCursorTimer);
+		giVesaCursorTimer = -1;
+	}
+	#endif
+}
+
+void Vesa_int_ShowCursor(void)
+{
+	gbVesa_CursorVisible = (giVesaCursorX >= 0);
+	if(gVesa_BufInfo.BufferFormat == VIDEO_BUFFMT_TEXT)
+	{
+		DrvUtil_Video_DrawCursor(
+			&gVesa_BufInfo,
+			giVesaCursorX*giVT_CharWidth,
+			giVesaCursorY*giVT_CharHeight
+			);
+		#if BLINKING_CURSOR
+		giVesaCursorTimer = Time_CreateTimer(VESA_CURSOR_PERIOD, Vesa_FlipCursor, NULL);
+		#endif
+	}
+	else
+		DrvUtil_Video_DrawCursor(
+			&gVesa_BufInfo,
+			giVesaCursorX,
+			giVesaCursorY
+			);
+}
+
 /**
- * \brief Updates the state of the text cursor
- * \note Just does a bitwise not on the cursor region
+ * \brief Swaps the text cursor on/off
  */
 void Vesa_FlipCursor(void *Arg)
 {
