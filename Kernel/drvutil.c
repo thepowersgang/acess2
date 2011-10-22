@@ -131,7 +131,10 @@ int DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
 int DrvUtil_Video_WriteLFB(tDrvUtil_Video_BufInfo *FBInfo, size_t Offset, size_t Length, void *Buffer)
 {
 	Uint8	*dest;
+	Uint32	*src = Buffer;
 	 int	csr_x, csr_y;
+	 int	x, y;
+	 int	bytes_per_px = (FBInfo->Depth + 7) / 8;
 	ENTER("pFBInfo xOffset xLength pBuffer",
 		Mode, FBInfo, Offset, Length, Buffer);
 
@@ -145,10 +148,9 @@ int DrvUtil_Video_WriteLFB(tDrvUtil_Video_BufInfo *FBInfo, size_t Offset, size_t
 	case VIDEO_BUFFMT_TEXT:
 		{
 		tVT_Char	*chars = Buffer;
-		 int	bytes_per_px = (FBInfo->Depth + 7) / 8;
 		 int	widthInChars = FBInfo->Width/giVT_CharWidth;
 		 int	heightInChars = FBInfo->Height/giVT_CharHeight;
-		 int	x, y, i;
+		 int	i;
 	
 		LOG("bytes_per_px = %i", bytes_per_px);
 		LOG("widthInChars = %i, heightInChars = %i", widthInChars, heightInChars);
@@ -208,17 +210,57 @@ int DrvUtil_Video_WriteLFB(tDrvUtil_Video_BufInfo *FBInfo, size_t Offset, size_t
 			return 0;
 		}
 		
-		//TODO: Handle non 32-bpp framebuffer modes
-		if( FBInfo->Depth != 32 ) {
-			Log_Warning("DrvUtil", "DrvUtil_Video_WriteLFB - Don't support non 32-bpp FB mode");
-			return 0;
-		}	
+		switch(FBInfo->Depth)
+		{
+		case 15:
+		case 16:
+			Log_Warning("DrvUtil", "TODO: Support 15/16 bpp modes in LFB write");
+			break;
+		case 24:
+			x = Offset % FBInfo->Width;
+			y = Offset / FBInfo->Width;
+			dest = (Uint8*)FBInfo->Framebuffer + y*FBInfo->Pitch;
+			for( ; Length >= 4; Length -= 4 )
+			{
+				dest[x*3+0] = *src & 0xFF;
+				dest[x*3+1] = (*src >> 8) & 0xFF;
+				dest[x*3+2] = (*src >> 16) & 0xFF;
+				x ++;
+				if(x == FBInfo->Width) {
+					dest += FBInfo->Pitch;
+					x = 0;
+				}
+			}
+			break;
+		case 32:
+			// Copy to Frambuffer
+			if( FBInfo->Pitch != FBInfo->Width*4 )
+			{
+				// Pitch isn't 4*Width
+				x = Offset % FBInfo->Width;
+				y = Offset / FBInfo->Height;
+				
+				dest = (Uint8*)FBInfo->Framebuffer + y*FBInfo->Pitch;
 
-		
-		//TODO: Handle pitch != Width*BytesPerPixel
-		// Copy to Frambuffer
-		dest = (Uint8 *)FBInfo->Framebuffer + Offset;
-		memcpy(dest, Buffer, Length);
+				for( ; Length >= 4; Length -= 4, x )
+				{
+					((Uint32*)dest)[x++] = *src ++;
+					if( x == FBInfo->Width ) {
+						x = 0;
+						dest += FBInfo->Pitch;
+					}
+				}
+			}
+			else
+			{
+				dest = (Uint8 *)FBInfo->Framebuffer + Offset;
+				memcpy(dest, Buffer, Length);
+			}
+			break;
+		default:
+			Log_Warning("DrvUtil", "DrvUtil_Video_WriteLFB - Unknown bit depthn %i", FBInfo->Depth);
+			break;
+		}
 		break;
 	
 	case VIDEO_BUFFMT_2DSTREAM:
@@ -347,8 +389,6 @@ void DrvUtil_Video_RenderCursor(tDrvUtil_Video_BufInfo *Buf)
 	Uint32	*src;
 	 int	x, y;
 
-//	Debug("DrvUtil_Video_RenderCursor: (Buf=%p) dest_x=%i, dest_y=%i", Buf, dest_x, dest_y);
-
 	dest = (Uint8*)Buf->Framebuffer + dest_y*Buf->Pitch + dest_x*bytes_per_px;
 	src = Buf->CursorBitmap->Data + src_y * Buf->CursorBitmap->W + src_x;
 	
@@ -363,17 +403,47 @@ void DrvUtil_Video_RenderCursor(tDrvUtil_Video_BufInfo *Buf)
 			(Uint8*)dest + y*Buf->Pitch,
 			render_w*bytes_per_px
 			);
+
 	// Draw the cursor
 	switch(Buf->Depth)
 	{
+	case 15:
+	case 16:
+		Log_Warning("DrvUtil", "TODO: Support 15/16 bpp modes in cursor draw");
+		break;
+	case 24:
+		for( y = 0; y < render_h; y ++ )
+		{
+			Uint8	*px;
+			px = dest;
+			for(x = 0; x < render_w; x ++, px += 3)
+			{
+				Uint32	value = src[x];
+				// TODO: Should I implement alpha blending?
+				if(value & 0xFF000000)
+				{
+					px[0] = value & 0xFF;
+					px[1] = (value >> 8) & 0xFF;
+					px[2] = (value >> 16) & 0xFF;
+				}
+				else
+					;
+			}
+			src += Buf->CursorBitmap->W;
+			dest = (Uint8*)dest + Buf->Pitch;
+		}
+		break;
 	case 32:
 		for( y = 0; y < render_h; y ++ )
 		{
-			for(x = 0; x < render_w; x ++ )
+			Uint32	*px;
+			px = dest;
+			for(x = 0; x < render_w; x ++, px ++)
 			{
+				Uint32	value = src[x];
 				// TODO: Should I implement alpha blending?
-				if(src[x] & 0xFF000000)
-					((Uint32*)dest)[x] = src[x];
+				if(value & 0xFF000000)
+					*px = value;
 				else
 					;	// NOP, completely transparent
 			}
@@ -382,7 +452,8 @@ void DrvUtil_Video_RenderCursor(tDrvUtil_Video_BufInfo *Buf)
 		}
 		break;
 	default:
-		Log_Error("DrvUtil", "TODO: Implement non 32-bpp cursor");
+		Log_Error("DrvUtil", "RenderCursor - Unknown bit depth %i", Buf->Depth);
+		Buf->CursorX = -1;
 		break;
 	}
 }
