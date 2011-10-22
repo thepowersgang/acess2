@@ -50,7 +50,7 @@ all-user: $(ALL_USRLIBS) $(ALL_USRAPPS)
 clean-user: $(CLEAN_USRLIBS) $(CLEAN_USRAPPS)
 
 all:	SyscallList $(ALL_USRLIBS) $(ALL_USRAPPS) $(ALL_MODULES) all-Kernel $(ALL_DYNMODS)
-all-install:	SyscallList $(AI_USRLIBS) $(AI_USRAPPS) $(AI_MODULES) allinstall-Kernel $(AI_DYNMODS)
+all-install:	install-Filesystem SyscallList $(AI_USRLIBS) $(AI_USRAPPS) $(AI_MODULES) allinstall-Kernel $(AI_DYNMODS)
 clean:	$(CLEAN_DYNMODS) $(CLEAN_MODULES) clean-Kernel $(CLEAN_USRLIBS) $(CLEAN_USRAPPS)
 install:	install-Filesystem SyscallList $(INSTALL_USRLIBS) $(INSTALL_USRAPPS) $(INSTALL_DYNMODS) $(INSTALL_MODULES) install-Kernel
 
