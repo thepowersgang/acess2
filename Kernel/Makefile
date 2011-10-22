@@ -10,8 +10,8 @@
 
 -include Makefile.BuildNum.$(ARCH)
 
-ifeq ($(BUILDNUM),)
-BUILDNUM = 0
+ifeq ($(BUILD_NUM),)
+BUILD_NUM = 0
 endif
 
 KERNEL_VERSION = 0.5
