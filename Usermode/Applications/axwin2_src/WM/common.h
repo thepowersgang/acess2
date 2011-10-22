@@ -92,6 +92,7 @@ extern tApplication	*AxWin_GetClient(tIPC_Type *Method, void *Ident);
 extern tElement	*AxWin_CreateAppWindow(tApplication *App, const char *Name);
 // --- Video ---
 extern void	Video_Setup(void);
+extern void	Video_SetCursorPos(short X, short Y);
 extern void	Video_Update(void);
 extern void	Video_FillRect(short X, short Y, short W, short H, uint32_t Color);
 extern void	Video_DrawRect(short X, short Y, short W, short H, uint32_t Color);

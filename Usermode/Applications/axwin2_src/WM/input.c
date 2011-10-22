@@ -5,6 +5,9 @@
 #include "common.h"
 #include <acess/sys.h>
 
+#define JOY_IOCTL_GETSETAXISLIMIT	6
+#define JOY_IOCTL_GETSETAXISPOSITION	7
+
 // === CODE ===
 int Input_Init(void)
 {
@@ -18,11 +21,15 @@ int Input_Init(void)
 	// Set mouse limits
 	num_value.Num = 0;
 	num_value.Value = giScreenWidth;
-	ioctl(giMouseFD, 6, &num_value);
+	ioctl(giMouseFD, JOY_IOCTL_GETSETAXISLIMIT, &num_value);
+	num_value.Value = giScreenWidth/2;
+	ioctl(giMouseFD, JOY_IOCTL_GETSETAXISPOSITION, &num_value);
 
 	num_value.Num = 1;
 	num_value.Value = giScreenHeight;
-	ioctl(giMouseFD, 6, &num_value);
+	ioctl(giMouseFD, JOY_IOCTL_GETSETAXISLIMIT, &num_value);
+	num_value.Value = giScreenHeight/2;
+	ioctl(giMouseFD, JOY_IOCTL_GETSETAXISPOSITION, &num_value);
 
 	return 0;
 }
@@ -78,7 +85,7 @@ void Input_HandleSelect(fd_set *set)
 //			mouseinfo.Axies[0].CurValue
 //			);
 		// Handle movement
-//		Video_SetCursorPos( mouseinfo.Axies[0], mouseinfo.Axies[1] );
-		_SysDebug("Cursor to %i,%i", mouseinfo.Axies[0].CursorPos, mouseinfo.Axies[1].CursorPos);
+		Video_SetCursorPos( mouseinfo.Axies[0].CursorPos, mouseinfo.Axies[1].CursorPos );
+//		_SysDebug("Cursor to %i,%i", mouseinfo.Axies[0].CursorPos, mouseinfo.Axies[1].CursorPos);
 	}
 }

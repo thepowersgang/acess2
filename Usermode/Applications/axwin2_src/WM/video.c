@@ -6,9 +6,11 @@
 #include <acess/sys.h>
 #include <acess/devices/terminal.h>
 #include <image.h>
+#include "resources/cursor.h"
 
 // === PROTOTYPES ===
 void	Video_Setup(void);
+void	Video_SetCursorPos(short X, short Y);
 void	Video_Update(void);
 void	Video_FillRect(short X, short Y, short W, short H, uint32_t Color);
 void	Video_DrawRect(short X, short Y, short W, short H, uint32_t Color);
@@ -54,12 +56,17 @@ void Video_Setup(void)
 	tmpInt = TERM_MODE_FB;
 	ioctl( giTerminalFD, TERM_IOCTL_MODETYPE, &tmpInt );
 	
-	// Force VT8 to be shown
+	// Force VT to be shown
 	ioctl( giTerminalFD, TERM_IOCTL_FORCESHOW, NULL );
 	
 	// Create local framebuffer (back buffer)
 	gpScreenBuffer = malloc( giScreenWidth*giScreenHeight*4 );
 	memset32( gpScreenBuffer, 0x8888FF, giScreenWidth*giScreenHeight );
+
+	// Set cursor position and bitmap
+	ioctl(giTerminalFD, TERM_IOCTL_SETCURSORBITMAP, &cCursorBitmap);
+	Video_SetCursorPos( giScreenWidth/2, giScreenHeight/2 );
+
 	Video_Update();
 }
 
@@ -68,6 +75,17 @@ void Video_Update(void)
 	//seek(giTerminalFD, 0, SEEK_SET);
 	seek(giTerminalFD, 0, 1);
 	write(giTerminalFD, gpScreenBuffer, giScreenWidth*giScreenHeight*4);
+}
+
+void Video_SetCursorPos(short X, short Y)
+{
+	struct {
+		uint16_t	x;
+		uint16_t	y;
+	} pos;
+	pos.x = giVideo_CursorX = X;
+	pos.y = giVideo_CursorY = Y;
+	ioctl(giTerminalFD, TERM_IOCTL_GETSETCURSOR, &pos);
 }
 
 void Video_FillRect(short X, short Y, short W, short H, uint32_t Color)
