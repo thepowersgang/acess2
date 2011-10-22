@@ -32,22 +32,22 @@ tVideo_IOCtl_Bitmap	gDrvUtil_TextModeCursor = {
 	8, 16,
 	0, 0,
 	{
-		 0, 0         , 0, 0, 0, 0, 0, 0,
-		-1, 0xFF000000, 0, 0, 0, 0, 0, 0,
-		-1, 0xFF000000, 0, 0, 0, 0, 0, 0,
-		-1, 0xFF000000, 0, 0, 0, 0, 0, 0,
-		-1, 0xFF000000, 0, 0, 0, 0, 0, 0,
-		-1, 0xFF000000, 0, 0, 0, 0, 0, 0,
-		-1, 0xFF000000, 0, 0, 0, 0, 0, 0,
-		-1, 0xFF000000, 0, 0, 0, 0, 0, 0,
-		-1, 0xFF000000, 0, 0, 0, 0, 0, 0,
-		-1, 0xFF000000, 0, 0, 0, 0, 0, 0,
-		-1, 0xFF000000, 0, 0, 0, 0, 0, 0,
-		-1, 0xFF000000, 0, 0, 0, 0, 0, 0,
-		-1, 0xFF000000, 0, 0, 0, 0, 0, 0,
-		-1, 0xFF000000, 0, 0, 0, 0, 0, 0,
-		-1, 0xFF000000, 0, 0, 0, 0, 0, 0,
-		 0, 0         , 0, 0, 0, 0, 0, 0
+		0, 0, 0         , 0, 0, 0, 0, 0,
+		0,-1, 0xFF000000, 0, 0, 0, 0, 0,
+		0,-1, 0xFF000000, 0, 0, 0, 0, 0,
+		0,-1, 0xFF000000, 0, 0, 0, 0, 0,
+		0,-1, 0xFF000000, 0, 0, 0, 0, 0,
+		0,-1, 0xFF000000, 0, 0, 0, 0, 0,
+		0,-1, 0xFF000000, 0, 0, 0, 0, 0,
+		0,-1, 0xFF000000, 0, 0, 0, 0, 0,
+		0,-1, 0xFF000000, 0, 0, 0, 0, 0,
+		0,-1, 0xFF000000, 0, 0, 0, 0, 0,
+		0,-1, 0xFF000000, 0, 0, 0, 0, 0,
+		0,-1, 0xFF000000, 0, 0, 0, 0, 0,
+		0,-1, 0xFF000000, 0, 0, 0, 0, 0,
+		0,-1, 0xFF000000, 0, 0, 0, 0, 0,
+		0, 0, 0         , 0, 0, 0, 0, 0,
+		0, 0, 0         , 0, 0, 0, 0, 0
 	}
 };
 
@@ -131,8 +131,15 @@ int DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
 int DrvUtil_Video_WriteLFB(tDrvUtil_Video_BufInfo *FBInfo, size_t Offset, size_t Length, void *Buffer)
 {
 	Uint8	*dest;
+	 int	csr_x, csr_y;
 	ENTER("pFBInfo xOffset xLength pBuffer",
 		Mode, FBInfo, Offset, Length, Buffer);
+
+	csr_x = FBInfo->CursorX;
+	csr_y = FBInfo->CursorY;
+
+	DrvUtil_Video_RemoveCursor(FBInfo);
+
 	switch( FBInfo->BufferFormat )
 	{
 	case VIDEO_BUFFMT_TEXT:
@@ -225,11 +232,14 @@ int DrvUtil_Video_WriteLFB(tDrvUtil_Video_BufInfo *FBInfo, size_t Offset, size_t
 		LEAVE('i', -1);
 		return -1;
 	}
+
+	DrvUtil_Video_DrawCursor(FBInfo, csr_x, csr_y);
+
 	LEAVE('x', Length);
 	return Length;
 }
 
-void DrvUtil_Video_SetCursor(tDrvUtil_Video_BufInfo *Buf, tVideo_IOCtl_Bitmap *Bitmap)
+int DrvUtil_Video_SetCursor(tDrvUtil_Video_BufInfo *Buf, tVideo_IOCtl_Bitmap *Bitmap)
 {
 	 int	csrX = Buf->CursorX, csrY = Buf->CursorY;
 	size_t	size;
@@ -253,29 +263,34 @@ void DrvUtil_Video_SetCursor(tDrvUtil_Video_BufInfo *Buf, tVideo_IOCtl_Bitmap *B
 	{
 		Buf->CursorX = -1;
 		Buf->CursorY = -1;
-		return ;
+		return 0;
 	}
 
-	if( Bitmap != &gDrvUtil_TextModeCursor )
+	// Sanity check the bitmap
+	if( !CheckMem(Bitmap, sizeof(*Bitmap)) || !CheckMem(Bitmap->Data, Bitmap->W*Bitmap->H*sizeof(Uint32)) )
 	{
-		// Check the new bitmap is valid
+		Log_Warning("DrvUtil", "DrvUtil_Video_SetCursor: Bitmap (%p) is in invalid memory", Bitmap);
+		errno = -EINVAL;
+		return -1;
+	}
+
+	// Don't take a copy of the DrvUtil provided cursor
+	if( Bitmap == &gDrvUtil_TextModeCursor )
+	{
+		Buf->CursorBitmap = Bitmap;
+	}
+	else
+	{
 		size = sizeof(tVideo_IOCtl_Bitmap) + Bitmap->W*Bitmap->H*4;
-		if( !CheckMem(Bitmap, size) ) {
-			Log_Warning("DrvUtil", "DrvUtil_Video_SetCursor: Bitmap (%p) is in invalid memory", Bitmap);
-			return;
-		}
 		
 		// Take a copy
 		Buf->CursorBitmap = malloc( size );
 		memcpy(Buf->CursorBitmap, Bitmap, size);
 	}
-	else
-	{
-		Buf->CursorBitmap = &gDrvUtil_TextModeCursor;
-	}
 	
 	// Restore cursor position
 	DrvUtil_Video_DrawCursor(Buf, csrX, csrY);
+	return 0;
 }
 
 void DrvUtil_Video_DrawCursor(tDrvUtil_Video_BufInfo *Buf, int X, int Y)

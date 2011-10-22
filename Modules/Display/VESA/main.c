@@ -206,6 +206,10 @@ int Vesa_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		giVesaCursorY = ((tVideo_IOCtl_Pos*)Data)->y;
 		Vesa_int_ShowCursor();
 		return 0;
+	
+	case VIDEO_IOCTL_SETCURSORBITMAP:
+		DrvUtil_Video_SetCursor( &gVesa_BufInfo, Data );
+		return 0;
 	}
 	return 0;
 }

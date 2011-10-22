@@ -460,7 +460,7 @@ extern int	DrvUtil_Video_WriteLFB(tDrvUtil_Video_BufInfo *FBInfo, size_t Offset,
  * \param Buf	Framebuffer descriptor
  * \param Bitmap	New cursor bitmap
  */
-extern void	DrvUtil_Video_SetCursor(tDrvUtil_Video_BufInfo *Buf, tVideo_IOCtl_Bitmap *Bitmap);
+extern int	DrvUtil_Video_SetCursor(tDrvUtil_Video_BufInfo *Buf, tVideo_IOCtl_Bitmap *Bitmap);
 /**
  * \brief Render the cursor at (\a X, \a Y)
  * \param Buf	Framebuffer descriptor, see type for details
