@@ -193,14 +193,29 @@ int BGA_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		break;
 	
 	case VIDEO_IOCTL_SETBUFFORMAT:
+		DrvUtil_Video_RemoveCursor( &gBGA_DrvUtil_BufInfo );
 		ret = gBGA_DrvUtil_BufInfo.BufferFormat;
 		if(Data)
 			gBGA_DrvUtil_BufInfo.BufferFormat = *(int*)Data;
+		if(gBGA_DrvUtil_BufInfo.BufferFormat == VIDEO_BUFFMT_TEXT)
+			DrvUtil_Video_SetCursor( &gBGA_DrvUtil_BufInfo, &gDrvUtil_TextModeCursor );
 		break;
 	
 	case VIDEO_IOCTL_SETCURSOR:
+		DrvUtil_Video_RemoveCursor( &gBGA_DrvUtil_BufInfo );
 		gBGA_CursorPos.x = ((tVideo_IOCtl_Pos*)Data)->x;
 		gBGA_CursorPos.y = ((tVideo_IOCtl_Pos*)Data)->y;
+		if(gBGA_DrvUtil_BufInfo.BufferFormat == VIDEO_BUFFMT_TEXT)
+			DrvUtil_Video_DrawCursor(
+				&gBGA_DrvUtil_BufInfo,
+				gBGA_CursorPos.x*giVT_CharWidth,
+				gBGA_CursorPos.y*giVT_CharHeight
+				);
+		else
+			DrvUtil_Video_DrawCursor(
+				&gBGA_DrvUtil_BufInfo,
+				gBGA_CursorPos.x, gBGA_CursorPos.y
+				);
 		break;
 	
 	default:
