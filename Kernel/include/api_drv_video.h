@@ -473,6 +473,11 @@ extern void	DrvUtil_Video_DrawCursor(tDrvUtil_Video_BufInfo *Buf, int X, int Y);
  * \param Buf	Framebuffer descriptor, see type for details
  */
 extern void	DrvUtil_Video_RemoveCursor(tDrvUtil_Video_BufInfo *Buf);
+
+/**
+ * \brief Text mode cursor image
+ */
+extern tVideo_IOCtl_Bitmap     gDrvUtil_TextModeCursor;
 /**
  * \}
  */
