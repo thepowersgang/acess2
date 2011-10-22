@@ -1,6 +1,9 @@
 /*
- * Acess2
- * Common Driver/Filesystem Helper Functions
+ * Acess2 Kernel
+ * - By John Hodge
+ *
+ * drvutil.c
+ * - Common Driver/Filesystem Helper Functions
  */
 #define DEBUG	0
 #include <acess.h>
@@ -12,6 +15,10 @@
 // === PROTOTYPES ===
 //int	DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length, tDrvUtil_Video_2DHandlers *Handlers, int SizeofHandlers);
 //size_t	DrvUtil_Video_WriteLFB(int Mode, tDrvUtil_Video_BufInfo *FBInfo, size_t Offset, size_t Length, void *Src);
+//void	DrvUtil_Video_SetCursor(tDrvUtil_Video_BufInfo *Buf, tVideo_IOCtl_Bitmap *Bitmap);
+//void	DrvUtil_Video_DrawCursor(tDrvUtil_Video_BufInfo *Buf, int X, int Y);
+void	DrvUtil_Video_RenderCursor(tDrvUtil_Video_BufInfo *Buf);
+//void	DrvUtil_Video_RemoveCursor(tDrvUtil_Video_BufInfo *Buf);
 void	DrvUtil_Video_2D_Fill(void *Ent, Uint16 X, Uint16 Y, Uint16 W, Uint16 H, Uint32 Colour);
 void	DrvUtil_Video_2D_Blit(void *Ent, Uint16 DstX, Uint16 DstY, Uint16 SrcX, Uint16 SrcY, Uint16 W, Uint16 H);
 
@@ -144,9 +151,6 @@ int DrvUtil_Video_WriteLFB(tDrvUtil_Video_BufInfo *FBInfo, size_t Offset, size_t
 				break;
 			}
 
-//			LOG("chars->Ch=0x%x,chars->BGCol=0x%x,chars->FGCol=0x%x",
-//				chars->Ch, chars->BGCol, chars->FGCol);		
-
 			VT_Font_Render(
 				chars->Ch,
 				dest + x*giVT_CharWidth*bytes_per_px, FBInfo->Depth, FBInfo->Pitch,
@@ -212,7 +216,7 @@ void DrvUtil_Video_SetCursor(tDrvUtil_Video_BufInfo *Buf, tVideo_IOCtl_Bitmap *B
 	if( Buf->CursorBitmap )
 	{
 		DrvUtil_Video_RemoveCursor(Buf);
-		if( Bitmap->W != Buf->CursorBitmap->W || Bitmap->H != Buf->CursorBitmap->H )
+		if( !Bitmap || Bitmap->W != Buf->CursorBitmap->W || Bitmap->H != Buf->CursorBitmap->H )
 		{
 			free( Buf->CursorSaveBuf );
 			Buf->CursorSaveBuf = NULL;
@@ -221,10 +225,18 @@ void DrvUtil_Video_SetCursor(tDrvUtil_Video_BufInfo *Buf, tVideo_IOCtl_Bitmap *B
 		Buf->CursorBitmap = NULL;
 	}
 	
+	// If the new bitmap is null, disable drawing
+	if( !Bitmap )
+	{
+		Buf->CursorX = -1;
+		Buf->CursorY = -1;
+		return ;
+	}
+
 	// Check the new bitmap is valid
 	size = sizeof(tVideo_IOCtl_Bitmap) + Bitmap->W*Bitmap->H*4;
 	if( !CheckMem(Bitmap, size) ) {
-		Log_Warning("DrvUtil", "DrvUtil_Video_SetCursor: Bitmap (%p) invalid mem", Bitmap);
+		Log_Warning("DrvUtil", "DrvUtil_Video_SetCursor: Bitmap (%p) is in invalid memory", Bitmap);
 		return;
 	}
 	
@@ -238,87 +250,118 @@ void DrvUtil_Video_SetCursor(tDrvUtil_Video_BufInfo *Buf, tVideo_IOCtl_Bitmap *B
 
 void DrvUtil_Video_DrawCursor(tDrvUtil_Video_BufInfo *Buf, int X, int Y)
 {
-	 int	bytes_per_px = (Buf->Depth + 7) / 8;
-	Uint32	*dest, *src;
-	 int	save_pitch, y;
 	 int	render_ox=0, render_oy=0, render_w, render_h;
 
+	// X < 0 disables the cursor
+	if( X < 0 ) {
+		Render->CursorX = -1;
+		return ;
+	}
+
+	// Sanity checking
 	if( X < 0 || Y < 0 )	return;
 	if( X >= Buf->Width || Y >= Buf->Height )	return;
 
+	// Ensure the cursor is enabled
 	if( !Buf->CursorBitmap )	return ;
+	
+	// Save cursor position (for changing the bitmap)
+	Buf->CursorX = X;	Buf->CursorY = Y;
 
+	// Apply cursor's center offset
 	X -= Buf->CursorBitmap->XOfs;
 	Y -= Buf->CursorBitmap->YOfs;
 	
+	// Get the width of the cursor on screen (clipping to right/bottom edges)
 	render_w = X > Buf->Width  - Buf->CursorBitmap->W ? Buf->Width  - X : Buf->CursorBitmap->W;
 	render_h = Y > Buf->Height - Buf->CursorBitmap->H ? Buf->Height - Y : Buf->CursorBitmap->H;
 
-	if(X < 0) {
-		render_ox = -X;
-		X = 0;
-	}
-	if(Y < 0) {
-		render_oy = -Y;
-		Y = 0;
-	}
+	// Clipp to left/top edges
+	if(X < 0) {	render_ox = -X;	X = 0;	}
+	if(Y < 0) {	render_oy = -Y;	Y = 0;	}
 
-	save_pitch = Buf->CursorBitmap->W * bytes_per_px;	
+	// Save values
+	Buf->CursorRenderW = render_w;	Buf->CursorRenderH = render_h;
+	Buf->CursorDestX   = X;      	Buf->CursorDestY = Y;
+	Buf->CursorReadX   = render_ox;	Buf->CursorReadY = render_oy;
 
-	dest = (void*)( (tVAddr)Buf->Framebuffer + Y * Buf->Pitch + X*bytes_per_px );
-	src = Buf->CursorBitmap->Data;
+	// Call render routine
+	DrvUtil_Video_RenderCursor(Buf);
+}
+
+void DrvUtil_Video_RenderCursor(tDrvUtil_Video_BufInfo *Buf)
+{
+	 int	src_x = Buf->CursorReadX, src_y = Buf->CursorReadY;
+	 int	render_w = Buf->CursorRenderW, render_h = Buf->CursorRenderH;
+	 int	dest_x = Buf->CursorDestX, dest_y = Buf->CursorDestY;
+	 int	bytes_per_px = (Buf->Depth + 7) / 8;
+	 int	save_pitch = Buf->CursorBitmap->W * bytes_per_px;
+	void	*dest;
+	Uint32	*src;
+	 int	x, y;
+
+	dest = (Uint8*)Buf->Framebuffer + dest_y*Buf->Pitch + dest_x*bytes_per_px;
+	src = Buf->CursorBitmap->Data + src_y * Buf->CursorBitmap->W + src_x;
+	
+	// Allocate save buffer if not already
 	if( !Buf->CursorSaveBuf )
 		Buf->CursorSaveBuf = malloc( Buf->CursorBitmap->W*Buf->CursorBitmap->H*bytes_per_px );
+
 	// Save behind the cursor
-	for( y = render_oy; y < render_h; y ++ )
+	for( y = 0; y < render_h; y ++ )
 		memcpy(
 			(Uint8*)Buf->CursorSaveBuf + y*save_pitch,
-			(Uint8*)dest + render_ox*bytes_per_px + y*Buf->Pitch,
+			(Uint8*)dest + y*Buf->Pitch,
 			render_w*bytes_per_px
 			);
 	// Draw the cursor
 	switch(Buf->Depth)
 	{
 	case 32:
-		src += render_oy * Buf->CursorBitmap->W;
-		for( y = render_oy; y < render_h; y ++ )
+		for( y = 0; y < render_h; y ++ )
 		{
-			int x;
-			for(x = render_ox; x < render_w; x ++ )
+			for(x = 0; x < render_w; x ++ )
 			{
+				// TODO: Should I implement alpha blending?
 				if(src[x] & 0xFF000000)
-					dest[x] = src[x];
+					((Uint32*)dest)[x] = src[x];
 				else
 					;	// NOP, completely transparent
 			}
 			src += Buf->CursorBitmap->W;
-			dest = (void*)((Uint8*)dest + Buf->Pitch);
+			dest = (Uint8*)dest + Buf->Pitch;
 		}
 		break;
 	default:
 		Log_Error("DrvUtil", "TODO: Implement non 32-bpp cursor");
 		break;
 	}
-	Buf->CursorX = X;
-	Buf->CursorY = Y;
 }
 
 void DrvUtil_Video_RemoveCursor(tDrvUtil_Video_BufInfo *Buf)
 {
 	 int	bytes_per_px = (Buf->Depth + 7) / 8;
 	 int	y, save_pitch;
-	Uint32	*dest;
+	Uint8	*dest, *src;
 
+	// Just a little sanity
 	if( !Buf->CursorBitmap || Buf->CursorX == -1 )	return ;
+	if( !Buf->CursorSaveBuf )	return ;
 
-	if( !Buf->CursorSaveBuf )
-		return ;
-
+	// Set up
 	save_pitch = Buf->CursorBitmap->W * bytes_per_px;
-	dest = (void*)( (tVAddr)Buf->Framebuffer + Buf->CursorY * Buf->Pitch + Buf->CursorX*bytes_per_px );
-	for( y = 0; y < Buf->CursorBitmap->H; y ++ )
-		memcpy( (Uint8*)dest + y*Buf->Pitch, (Uint8*)Buf->CursorSaveBuf + y*save_pitch, save_pitch);
+	dest = (Uint8*)Buf->Framebuffer + Buf->CursorDestY * Buf->Pitch + Buf->CursorDestX*bytes_per_px;
+	src = Buf->CursorSaveBuf;
 	
+	// Copy each line back
+	for( y = 0; y < Buf->CursorRenderH; y ++ )
+	{
+		memcpy( dest, src, Buf->CursorRenderW * bytes_per_px );
+		src += save_pitch;
+		dest += Buf->Pitch;
+	}
+	
+	// Set the cursor as removed
 	Buf->CursorX = -1;
 }
 

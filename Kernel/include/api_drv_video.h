@@ -371,10 +371,26 @@ typedef struct sDrvUtil_Video_BufInfo
 	 * \}
 	 */
 
+	/*
+	 * \name Internal fields
+	 * \{
+	 */
+
 	/**
 	 * \brief Buffer to store the area under the cursor
 	 */
 	void	*CursorSaveBuf;
+	
+	 int	CursorReadX;	//!< X offset in cursor bitmap corresponding to \a CursorDestX
+	 int	CursorReadY;	//!< Same as \a CursorReadX but for Y
+	 int	CursorRenderW;	//!< Width of rendered cursor
+	 int	CursorRenderH;	//!< Height of rendered cursor
+	 int	CursorDestX;	//!< X coordinate Destination for rendered cursor
+	 int	CursorDestY;	//!< Y coordinate destination for rendered cursor
+
+	/*
+	 * \}
+	 */
 } tDrvUtil_Video_BufInfo;
 
 /**
