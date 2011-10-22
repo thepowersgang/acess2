@@ -51,14 +51,14 @@ enum eTplJoystick_IOCtl {
 
 	/**
 	 * ioctl(..., tJoystickNumValue *)
-	 * \brief Set maximum value for sJoystick_Axis.CurState
+	 * \brief Set maximum value for sJoystick_Axis.CursorPos
 	 * \note If \a Value is equal to -1 (all bits set), the value is not changed
 	 */
 	JOY_IOCTL_GETSETAXISLIMIT,
 
 	/**
 	 * ioctl(..., tJoystickNumValue *)
-	 * \brief Set the value of sJoystick_Axis.CurState
+	 * \brief Set the value of sJoystick_Axis.CursorPos
 	 * \note If \a Value is equal to -1 (all bits set), the value is not changed
 	 */
 	JOY_IOCTL_GETSETAXISPOSITION,
