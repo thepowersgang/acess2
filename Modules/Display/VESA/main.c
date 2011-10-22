@@ -30,9 +30,6 @@ Uint64	Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
  int	Vesa_Int_FindMode(tVideo_IOCtl_Mode *data);
  int	Vesa_Int_ModeInfo(tVideo_IOCtl_Mode *data);
 void	Vesa_FlipCursor(void *Arg);
-// --- 2D Acceleration Functions --
-void	Vesa_2D_Fill(void *Ent, Uint16 X, Uint16 Y, Uint16 W, Uint16 H, Uint32 Colour);
-void	Vesa_2D_Blit(void *Ent, Uint16 DstX, Uint16 DstY, Uint16 SrcX, Uint16 SrcY, Uint16 W, Uint16 H);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, Vesa, Vesa_Install, NULL, "PCI", "VM8086", NULL);
@@ -59,12 +56,8 @@ char	*gpVesa_Framebuffer = (void*)VESA_DEFAULT_FRAMEBUFFER;
  int	giVesaCursorX = -1;
  int	giVesaCursorY = -1;
  int	giVesaCursorTimer = -1;	// Invalid timer
+ int	gbVesa_CursorVisible = 0;
 // --- 2D Video Stream Handlers ---
-tDrvUtil_Video_2DHandlers	gVesa_2DFunctions = {
-	NULL,
-	Vesa_2D_Fill,
-	Vesa_2D_Blit
-};
 tDrvUtil_Video_BufInfo	gVesa_BufInfo;
 
 // === CODE ===
@@ -197,42 +190,48 @@ int Vesa_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		return Vesa_Int_ModeInfo((tVideo_IOCtl_Mode*)Data);
 	
 	case VIDEO_IOCTL_SETBUFFORMAT:
+		DrvUtil_Video_DrawCursor( &gVesa_BufInfo, -1, -1 );
+		giVesaCursorX = -1;
+		#if BLINKING_CURSOR
+		if(giVesaCursorTimer != -1) {
+			Time_RemoveTimer(giVesaCursorTimer);
+			giVesaCursorTimer = -1;
+		}
+		#endif
 		ret = gVesa_BufInfo.BufferFormat;
 		if(Data)	gVesa_BufInfo.BufferFormat = *(int*)Data;
+		if(gVesa_BufInfo.BufferFormat == VIDEO_BUFFMT_TEXT)
+			DrvUtil_Video_SetCursor( &gVesa_BufInfo, &gDrvUtil_TextModeCursor );
 		return ret;
 	
 	case VIDEO_IOCTL_SETCURSOR:	// Set cursor position
-		#if !BLINKING_CURSOR
-		if(giVesaCursorX >= 0)
-			Vesa_FlipCursor(Node);
+		DrvUtil_Video_RemoveCursor( &gVesa_BufInfo );
+		#if BLINKING_CURSOR
+		if(giVesaCursorTimer != -1) {
+			Time_RemoveTimer(giVesaCursorTimer);
+			giVesaCursorTimer = -1;
+		}
 		#endif
 		giVesaCursorX = ((tVideo_IOCtl_Pos*)Data)->x;
 		giVesaCursorY = ((tVideo_IOCtl_Pos*)Data)->y;
-		//Log_Debug("VESA", "Cursor position (%i,%i)", giVesaCursorX, giVesaCursorY);
-		if(
-			giVesaCursorX < 0 || giVesaCursorY < 0
-		||	giVesaCursorX >= gpVesaCurMode->width/giVT_CharWidth
-		||	giVesaCursorY >= gpVesaCurMode->height/giVT_CharHeight)
+		gbVesa_CursorVisible = (giVesaCursorX >= 0);
+		if(gVesa_BufInfo.BufferFormat == VIDEO_BUFFMT_TEXT)
 		{
+			DrvUtil_Video_DrawCursor(
+				&gVesa_BufInfo,
+				giVesaCursorX*giVT_CharWidth,
+				giVesaCursorY*giVT_CharHeight
+				);
 			#if BLINKING_CURSOR
-			if(giVesaCursorTimer != -1) {
-				Time_RemoveTimer(giVesaCursorTimer);
-				giVesaCursorTimer = -1;
-			}
-			#endif
-			giVesaCursorX = -1;
-			giVesaCursorY = -1;
-		}
-		else {
-			#if BLINKING_CURSOR
-		//	Log_Debug("VESA", "Updating timer %i?", giVesaCursorTimer);
-			if(giVesaCursorTimer == -1)
-				giVesaCursorTimer = Time_CreateTimer(VESA_CURSOR_PERIOD, Vesa_FlipCursor, Node);
-			#else
-			Vesa_FlipCursor(Node);
+			giVesaCursorTimer = Time_CreateTimer(VESA_CURSOR_PERIOD, Vesa_FlipCursor, NULL);
 			#endif
 		}
-		//Log_Debug("VESA", "Cursor position (%i,%i) Timer %i", giVesaCursorX, giVesaCursorY, giVesaCursorTimer);
+		else
+			DrvUtil_Video_DrawCursor(
+				&gVesa_BufInfo,
+				giVesaCursorX,
+				giVesaCursorY
+				);
 		return 0;
 	}
 	return 0;
@@ -368,120 +367,20 @@ int Vesa_Int_ModeInfo(tVideo_IOCtl_Mode *data)
  */
 void Vesa_FlipCursor(void *Arg)
 {
-	 int	pitch = gpVesaCurMode->pitch;
-	 int	bytes_per_px = (gpVesaCurMode->bpp + 7) / 8;
-	 int	x = giVesaCursorX*giVT_CharWidth;
-	 int	y = giVesaCursorY*giVT_CharHeight;
-	 int	i;
-	Uint8	*fb = (void*)gpVesa_Framebuffer;
-	
-	//Debug("Cursor flip");
-	
-	// Sanity check
-	if(giVesaCursorX < 0 || giVesaCursorY < 0
-	|| y*pitch + x + (giVT_CharHeight-1)*pitch > (int)gpVesaCurMode->fbSize) {
-		Log_Notice("VESA", "Cursor OOB (%i,%i)", x, y);
-		giVesaCursorTimer = -1;
-		return;
-	}
-	
-	// Draw cursor
-	fb += (y+1)*pitch + x*bytes_per_px;
-	
-	switch(bytes_per_px)
-	{
-	case 1:
-		for( i = 1; i < giVT_CharHeight-1; i++, fb += pitch )
-			*fb = ~*fb;
-		break;
-	case 2:
-		for( i = 1; i < giVT_CharHeight-1; i++, fb += pitch ) {
-			fb[0] = ~fb[0];
-			fb[1] = ~fb[1];
-		}
-		break;
-	case 3:
-		for( i = 1; i < giVT_CharHeight-1; i++, fb += pitch ) {
-			fb[0] = ~fb[0];
-			fb[1] = ~fb[1];
-			fb[2] = ~fb[2];
-		}
-		break;
-	case 4:
-		for( i = 1; i < giVT_CharHeight-1; i++, fb += pitch ) {
-			fb[0] = ~fb[0];
-			fb[1] = ~fb[1];
-			fb[2] = ~fb[2];
-			fb[3] = ~fb[3];
-		}
-		break;
-	default:
-		Log_Error("VESA", "Vesa_FlipCursor - Bug Report, unknown bytes_per_px (%i)", bytes_per_px);
-		giVesaCursorTimer = -1;
+	if( gVesa_BufInfo.BufferFormat != VIDEO_BUFFMT_TEXT )
 		return ;
-	}
-	
+
+	if( gbVesa_CursorVisible )
+		DrvUtil_Video_RemoveCursor(&gVesa_BufInfo);
+	else
+		DrvUtil_Video_DrawCursor(&gVesa_BufInfo,
+			giVesaCursorX*giVT_CharWidth,
+			giVesaCursorY*giVT_CharHeight
+			);
+	gbVesa_CursorVisible = !gbVesa_CursorVisible;
+		
 	#if BLINKING_CURSOR
 	giVesaCursorTimer = Time_CreateTimer(VESA_CURSOR_PERIOD, Vesa_FlipCursor, Arg);
 	#endif
 }
 
-// ------------------------
-// --- 2D Accelleration ---
-// ------------------------
-void Vesa_2D_Fill(void *Ent, Uint16 X, Uint16 Y, Uint16 W, Uint16 H, Uint32 Colour)
-{
-	// TODO: Handle non-32bit modes
-	 int	pitch = gpVesaCurMode->pitch/4;
-	Uint32	*buf = (Uint32*)gpVesa_Framebuffer + Y*pitch + X;
-	while( H -- ) {
-		memsetd(buf, Colour, W);
-		buf += pitch;
-	}
-}
-
-void Vesa_2D_Blit(void *Ent, Uint16 DstX, Uint16 DstY, Uint16 SrcX, Uint16 SrcY, Uint16 W, Uint16 H)
-{
-	 int	scrnpitch = gpVesaCurMode->pitch;
-	 int	bytes_per_px = (gpVesaCurMode->bpp + 7) / 8;
-	 int	dst = DstY*scrnpitch + DstX;
-	 int	src = SrcY*scrnpitch + SrcX;
-	 int	tmp;
-	
-	//Log("Vesa_2D_Blit: (Ent=%p, DstX=%i, DstY=%i, SrcX=%i, SrcY=%i, W=%i, H=%i)",
-	//	Ent, DstX, DstY, SrcX, SrcY, W, H);
-	
-	if(SrcX + W > gpVesaCurMode->width)
-		W = gpVesaCurMode->width - SrcX;
-	if(DstX + W > gpVesaCurMode->width)
-		W = gpVesaCurMode->width - DstX;
-	if(SrcY + H > gpVesaCurMode->height)
-		H = gpVesaCurMode->height - SrcY;
-	if(DstY + H > gpVesaCurMode->height)
-		H = gpVesaCurMode->height - DstY;
-	
-	//Debug("W = %i, H = %i", W, H);
-	
-	if( dst > src ) {
-		// Reverse copy
-		dst += H*scrnpitch;
-		src += H*scrnpitch;
-		while( H -- ) {
-			dst -= scrnpitch;
-			src -= scrnpitch;
-			tmp = W*bytes_per_px;
-			for( tmp = W; tmp --; ) {
-				*(Uint8*)(gpVesa_Framebuffer + dst + tmp) = *(Uint8*)(gpVesa_Framebuffer + src + tmp);
-			}
-		}
-	}
-	else {
-		// Normal copy is OK
-		while( H -- ) {
-			memcpy((void*)gpVesa_Framebuffer + dst, (void*)gpVesa_Framebuffer + src, W*bytes_per_px);
-			dst += scrnpitch;
-			src += scrnpitch;
-		}
-	}
-	//Log("Vesa_2D_Blit: RETURN");
-}

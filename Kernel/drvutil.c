@@ -28,6 +28,28 @@ tDrvUtil_Video_2DHandlers	gDrvUtil_Stub_2DFunctions = {
 	DrvUtil_Video_2D_Fill,
 	DrvUtil_Video_2D_Blit
 };
+tVideo_IOCtl_Bitmap	gDrvUtil_TextModeCursor = {
+	8, 16,
+	0, 0,
+	{
+		 0, 0         , 0, 0, 0, 0, 0, 0,
+		-1, 0xFF000000, 0, 0, 0, 0, 0, 0,
+		-1, 0xFF000000, 0, 0, 0, 0, 0, 0,
+		-1, 0xFF000000, 0, 0, 0, 0, 0, 0,
+		-1, 0xFF000000, 0, 0, 0, 0, 0, 0,
+		-1, 0xFF000000, 0, 0, 0, 0, 0, 0,
+		-1, 0xFF000000, 0, 0, 0, 0, 0, 0,
+		-1, 0xFF000000, 0, 0, 0, 0, 0, 0,
+		-1, 0xFF000000, 0, 0, 0, 0, 0, 0,
+		-1, 0xFF000000, 0, 0, 0, 0, 0, 0,
+		-1, 0xFF000000, 0, 0, 0, 0, 0, 0,
+		-1, 0xFF000000, 0, 0, 0, 0, 0, 0,
+		-1, 0xFF000000, 0, 0, 0, 0, 0, 0,
+		-1, 0xFF000000, 0, 0, 0, 0, 0, 0,
+		-1, 0xFF000000, 0, 0, 0, 0, 0, 0,
+		 0, 0         , 0, 0, 0, 0, 0, 0
+	}
+};
 
 // === CODE ===
 // --- Video Driver Helpers ---
@@ -221,7 +243,8 @@ void DrvUtil_Video_SetCursor(tDrvUtil_Video_BufInfo *Buf, tVideo_IOCtl_Bitmap *B
 			free( Buf->CursorSaveBuf );
 			Buf->CursorSaveBuf = NULL;
 		}
-		free(Buf->CursorBitmap);
+		if( Buf->CursorBitmap != &gDrvUtil_TextModeCursor)
+			free(Buf->CursorBitmap);
 		Buf->CursorBitmap = NULL;
 	}
 	
@@ -233,16 +256,23 @@ void DrvUtil_Video_SetCursor(tDrvUtil_Video_BufInfo *Buf, tVideo_IOCtl_Bitmap *B
 		return ;
 	}
 
-	// Check the new bitmap is valid
-	size = sizeof(tVideo_IOCtl_Bitmap) + Bitmap->W*Bitmap->H*4;
-	if( !CheckMem(Bitmap, size) ) {
-		Log_Warning("DrvUtil", "DrvUtil_Video_SetCursor: Bitmap (%p) is in invalid memory", Bitmap);
-		return;
+	if( Bitmap != &gDrvUtil_TextModeCursor )
+	{
+		// Check the new bitmap is valid
+		size = sizeof(tVideo_IOCtl_Bitmap) + Bitmap->W*Bitmap->H*4;
+		if( !CheckMem(Bitmap, size) ) {
+			Log_Warning("DrvUtil", "DrvUtil_Video_SetCursor: Bitmap (%p) is in invalid memory", Bitmap);
+			return;
+		}
+		
+		// Take a copy
+		Buf->CursorBitmap = malloc( size );
+		memcpy(Buf->CursorBitmap, Bitmap, size);
 	}
-	
-	// Take a copy
-	Buf->CursorBitmap = malloc( size );
-	memcpy(Buf->CursorBitmap, Bitmap, size);
+	else
+	{
+		Buf->CursorBitmap = &gDrvUtil_TextModeCursor;
+	}
 	
 	// Restore cursor position
 	DrvUtil_Video_DrawCursor(Buf, csrX, csrY);
@@ -252,9 +282,11 @@ void DrvUtil_Video_DrawCursor(tDrvUtil_Video_BufInfo *Buf, int X, int Y)
 {
 	 int	render_ox=0, render_oy=0, render_w, render_h;
 
+	DrvUtil_Video_RemoveCursor(Buf);
+
 	// X < 0 disables the cursor
 	if( X < 0 ) {
-		Render->CursorX = -1;
+		Buf->CursorX = -1;
 		return ;
 	}
 
@@ -299,6 +331,8 @@ void DrvUtil_Video_RenderCursor(tDrvUtil_Video_BufInfo *Buf)
 	void	*dest;
 	Uint32	*src;
 	 int	x, y;
+
+//	Debug("DrvUtil_Video_RenderCursor: (Buf=%p) dest_x=%i, dest_y=%i", Buf, dest_x, dest_y);
 
 	dest = (Uint8*)Buf->Framebuffer + dest_y*Buf->Pitch + dest_x*bytes_per_px;
 	src = Buf->CursorBitmap->Data + src_y * Buf->CursorBitmap->W + src_x;
@@ -347,6 +381,8 @@ void DrvUtil_Video_RemoveCursor(tDrvUtil_Video_BufInfo *Buf)
 	// Just a little sanity
 	if( !Buf->CursorBitmap || Buf->CursorX == -1 )	return ;
 	if( !Buf->CursorSaveBuf )	return ;
+
+//	Debug("DrvUtil_Video_RemoveCursor: (Buf=%p) dest_x=%i, dest_y=%i", Buf, Buf->CursorDestX, Buf->CursorDestY);
 
 	// Set up
 	save_pitch = Buf->CursorBitmap->W * bytes_per_px;
