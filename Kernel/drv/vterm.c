@@ -450,6 +450,23 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	
 	Mutex_Acquire( &term->ReadingLock );
 	
+	// Update cursor
+	if( term == gpVT_CurTerm && !(term->Flags & VT_FLAG_HIDECSR) )
+	{
+		tVideo_IOCtl_Pos	csr_pos;
+		 int	offset;
+		
+		if(term->Flags & VT_FLAG_ALTBUF)
+			offset = term->AltWritePos;
+		else
+			offset = term->WritePos - term->ViewPos;
+		
+		csr_pos.x = offset % term->TextWidth;
+		csr_pos.y = offset / term->TextWidth;
+		if( 0 <= csr_pos.y && csr_pos.y < term->TextHeight )
+			VFS_IOCtl(giVT_OutputDevHandle, VIDEO_IOCTL_SETCURSOR, &csr_pos);
+	}
+	
 	// Check current mode
 	switch(term->Mode)
 	{
@@ -504,6 +521,13 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		VFS_MarkAvaliable(&term->Node, 0);
 	
 	term->ReadingThread = -1;
+
+	if( term == gpVT_CurTerm && !(term->Flags & VT_FLAG_HIDECSR) )
+	{
+		tVideo_IOCtl_Pos	csr_pos;
+		csr_pos.x = -1;	csr_pos.y = -1;
+		VFS_IOCtl(giVT_OutputDevHandle, VIDEO_IOCTL_SETCURSOR, &csr_pos);
+	}
 	
 	Mutex_Release( &term->ReadingLock );
 	
@@ -724,7 +748,11 @@ void VT_SetTerminal(int ID)
 	gpVT_CurTerm = &gVT_Terminals[ID];
 	
 	// Update cursor
-	if( gpVT_CurTerm->Text && gpVT_CurTerm->Mode == TERM_MODE_TEXT && !(gpVT_CurTerm->Flags & VT_FLAG_HIDECSR) )
+	// TODO: Check if the reading lock is held
+	if( gpVT_CurTerm->Text && gpVT_CurTerm->Mode == TERM_MODE_TEXT
+	 && !(gpVT_CurTerm->Flags & VT_FLAG_HIDECSR)
+	 && Mutex_IsLocked( &gpVT_CurTerm->ReadingLock )
+	 )
 	{
 		tVideo_IOCtl_Pos	pos;
 		 int	offset = (gpVT_CurTerm->Flags & VT_FLAG_ALTBUF) ? gpVT_CurTerm->AltWritePos : gpVT_CurTerm->WritePos - gpVT_CurTerm->ViewPos;
@@ -1216,17 +1244,6 @@ void VT_int_PutString(tVTerm *Term, Uint8 *Buffer, Uint Count)
 	}
 	// Update Screen
 	VT_int_UpdateScreen( Term, 0 );
-	
-	// Update cursor
-	if( Term == gpVT_CurTerm && !(Term->Flags & VT_FLAG_HIDECSR) )
-	{
-		tVideo_IOCtl_Pos	pos;
-		 int	offset = (gpVT_CurTerm->Flags & VT_FLAG_ALTBUF) ? gpVT_CurTerm->AltWritePos : gpVT_CurTerm->WritePos - gpVT_CurTerm->ViewPos;
-		pos.x = offset % gpVT_CurTerm->TextWidth;
-		pos.y = offset / gpVT_CurTerm->TextWidth;
-		if( 0 <= pos.y && pos.y < gpVT_CurTerm->TextHeight )
-			VFS_IOCtl(giVT_OutputDevHandle, VIDEO_IOCTL_SETCURSOR, &pos);
-	}
 }
 
 /**
