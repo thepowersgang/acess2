@@ -26,6 +26,6 @@ typedef uint32_t 	uintptr_t;
 # error "Unknown pointer size"
 #endif
 
-typedef uint64_t	off_t;
+//typedef uint64_t	off_t;
 
 #endif

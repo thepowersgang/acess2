@@ -13,6 +13,7 @@ typedef struct stat	t_fstat;
 typedef unsigned long	pid_t;
 typedef unsigned long	tid_t;
 typedef signed long long int	time_t;
+typedef long long int	off_t;
 
 typedef unsigned int	uint;
 
@@ -51,6 +52,6 @@ extern void	FD_CLR(int fd, fd_set *fdsetp);
 extern void	FD_SET(int fd, fd_set *fdsetp);
 extern int	FD_ISSET(int fd, fd_set *fdsetp);
 
-#include <sys/stat.h>
+#include "../sys/stat.h"
 
 #endif

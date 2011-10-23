@@ -8,7 +8,9 @@
 
 #include <stdint.h>
 
+typedef uint16_t	Elf32_Half;
 typedef uint32_t	Elf32_Addr;
+typedef uint32_t	Elf32_Off;
 typedef uint32_t	Elf32_Word;
 typedef int32_t 	Elf32_Sword;
 
@@ -24,19 +26,19 @@ typedef int32_t 	Elf32_Sword;
 */
 struct sElf32_Ehdr {
 	uint8_t	e_ident[16];	//!< Identifier Bytes
-	uint16_t	filetype;	//!< File Type
-	Uint16	machine;	//!< Machine / Arch
-	Uint32	version;	//!< Version (File?)
-	Uint32	entrypoint;	//!< Entry Point
-	Uint32	phoff;	//!< Program Header Offset
-	Uint32	shoff;	//!< Section Header Offset
-	Uint32	flags;	//!< Flags
-	Uint16	headersize;	//!< Header Size
-	Uint16	phentsize;	//!< Program Header Entry Size
-	Uint16	phentcount;	//!< Program Header Entry Count
-	Uint16	shentsize;	//!< Section Header Entry Size
-	Uint16	shentcount;	//!< Section Header Entry Count
-	Uint16	shstrindex;	//!< Section Header String Table Index
+	Elf32_Half	filetype;	//!< File Type
+	Elf32_Half	machine;	//!< Machine / Arch
+	Elf32_Word	version;	//!< Version (File?)
+	Elf32_Addr	entrypoint;	//!< Entry Point
+	Elf32_Off	phoff;	//!< Program Header Offset
+	Elf32_Word	shoff;	//!< Section Header Offset
+	Elf32_Word	flags;	//!< Flags
+	Elf32_Half	headersize;	//!< Header Size
+	Elf32_Half	phentsize;	//!< Program Header Entry Size
+	Elf32_Half	phentcount;	//!< Program Header Entry Count
+	Elf32_Half	shentsize;	//!< Section Header Entry Size
+	Elf32_Half	shentcount;	//!< Section Header Entry Count
+	Elf32_Half	shstrindex;	//!< Section Header String Table Index
 };
 
 /**
@@ -89,6 +91,7 @@ enum eElfSectionTypes {
 	SHT_HIUSER = 0xffffffff
 };
 
+#if 0
 #define SHF_WRITE	0x1
 #define SHF_ALLOC	0x2
 #define SHF_EXECINSTR	0x4
@@ -106,14 +109,15 @@ struct sElf32_Shent {
 	Uint32	addralign;
 	Uint32	entsize;
 };	//sizeof = 40
+#endif
 
 struct elf_sym_s {
-	Uint32	nameOfs;
-	Uint32	value;	//Address
-	Uint32	size;
-	Uint8	info;
-	Uint8	other;
-	Uint16	shndx;
+	Elf32_Word	nameOfs;
+	Elf32_Addr	value;	//Address
+	Elf32_Word	size;
+	uint8_t	info;
+	uint8_t	other;
+	Elf32_Half	shndx;
 };
 #define	STN_UNDEF	0	// Undefined Symbol
 
@@ -130,24 +134,24 @@ enum {
 };
 
 struct sElf32_Phdr {
-	Uint32	Type;
-	Uint32	Offset;
+	Elf32_Word	Type;
+	Elf32_Off	Offset;
 	Elf32_Addr	VAddr;
 	Elf32_Addr	PAddr;
-	Uint32	FileSize;
-	Uint32	MemSize;
-	Uint32	Flags;
-	Uint32	Align;
+	Elf32_Word	FileSize;
+	Elf32_Word	MemSize;
+	Elf32_Word	Flags;
+	Elf32_Word	Align;
 };
 
 struct elf32_rel_s {
-	Uint32	r_offset;
-	Uint32	r_info;
+	Elf32_Addr	r_offset;
+	Elf32_Word	r_info;
 };
 
 struct elf32_rela_s {
-	Uint32	r_offset;
-	Uint32	r_info;
+	Elf32_Addr	r_offset;
+	Elf32_Word	r_info;
 	Elf32_Sword	r_addend;
 };
 
@@ -202,8 +206,8 @@ enum {
 #define	ELF32_R_INFO(s,t)	(((s)<<8)+((t)&0xFF))	// Takes a type and symbol index and returns an info value
 
 struct elf32_dyn_s {
-	Uint16	d_tag;
-	Uint32	d_val;	//Also d_ptr
+	Elf32_Half	d_tag;
+	Elf32_Word	d_val;	//Also d_ptr
 };
 
 enum {
