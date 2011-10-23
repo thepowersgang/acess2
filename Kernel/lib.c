@@ -960,6 +960,9 @@ void *memmove(void *__dest, const void *__src, size_t len)
 	char	*dest = __dest;
 	const char	*src = __src;
 	void	*ret = __dest;
+
+	if( len == 0 || dest == src )
+		return dest;
 	
 	if( (tVAddr)dest > (tVAddr)src + len )
 		return memcpy(dest, src, len);
