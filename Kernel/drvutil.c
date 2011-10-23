@@ -236,18 +236,19 @@ int DrvUtil_Video_WriteLFB(tDrvUtil_Video_BufInfo *FBInfo, size_t Offset, size_t
 			// Copy to Frambuffer
 			if( FBInfo->Pitch != FBInfo->Width*4 )
 			{
+				Uint32	*px;
 				// Pitch isn't 4*Width
 				x = Offset % FBInfo->Width;
 				y = Offset / FBInfo->Height;
 				
-				dest = (Uint8*)FBInfo->Framebuffer + y*FBInfo->Pitch;
+				px = (Uint32*)FBInfo->Framebuffer + y*FBInfo->Pitch/4;
 
 				for( ; Length >= 4; Length -= 4, x )
 				{
-					((Uint32*)dest)[x++] = *src ++;
+					px[x++] = *src ++;
 					if( x == FBInfo->Width ) {
 						x = 0;
-						dest += FBInfo->Pitch;
+						px += FBInfo->Pitch;
 					}
 				}
 			}
