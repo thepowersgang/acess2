@@ -59,16 +59,16 @@ int acess_reopen(int FD, const char *Path, int Flags) {
 	return _Syscall(SYS_REOPEN, ">i >s >i", FD, Path, Flags);
 }
 
-size_t acess_read(int FD, size_t Bytes, void *Dest) {
+size_t acess_read(int FD, void *Dest, size_t Bytes) {
 	if(FD & NATIVE_FILE_MASK)
-		return native_read(FD & (NATIVE_FILE_MASK-1), Bytes, Dest);
+		return native_read(FD & (NATIVE_FILE_MASK-1), Dest, Bytes);
 	DEBUG("read(0x%x, 0x%x, *%p)", FD, Bytes, Dest);
 	return _Syscall(SYS_READ, ">i >i <d", FD, Bytes, Bytes, Dest);
 }
 
-size_t acess_write(int FD, size_t Bytes, const void *Src) {
+size_t acess_write(int FD, const void *Src, size_t Bytes) {
 	if(FD & NATIVE_FILE_MASK)
-		return native_write(FD & (NATIVE_FILE_MASK-1), Bytes, Src);
+		return native_write(FD & (NATIVE_FILE_MASK-1), Src, Bytes);
 	DEBUG("write(0x%x, 0x%x, %p\"%.*s\")", FD, Bytes, Src, Bytes, (char*)Src);
 	return _Syscall(SYS_WRITE, ">i >i >d", FD, Bytes, Bytes, Src);
 }

@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define LIBRARY_PATH	"$$$$../Usermode/Output/i386/Libs"
+#define LIBRARY_PATH	"$$$$../Usermode/Output/x86/Libs"
 
 // === TYPES ===
 typedef struct sBinary {
@@ -20,7 +20,7 @@ typedef struct sBinary {
 // === IMPORTS ===
 extern void	*Elf_Load(int fd);
 extern uintptr_t	ElfRelocate(void *Base);
-extern int	ElfGetSymbol(void *Base, char *Name, uintptr_t *ret);
+extern int	ElfGetSymbol(void *Base, char *Name, uintptr_t *ret, size_t *size);
 extern int	ciNumBuiltinSymbols;
 extern tSym	caBuiltinSymbols[];
 
@@ -156,7 +156,7 @@ void *Binary_Load(const char *Filename, uintptr_t *EntryPoint)
 		return NULL;
 	}
 
-	acess_read(fd, 4, &dword);
+	acess_read(fd, &dword, 4);
 	acess_seek(fd, 0, ACESS_SEEK_SET);
 	
 	if( memcmp(&dword, "\x7F""ELF", 4) == 0 ) {
@@ -221,7 +221,7 @@ void Binary_SetReadyToUse(void *Base)
 	}
 }
 
-int Binary_GetSymbol(const char *SymbolName, uintptr_t *Value)
+int Binary_GetSymbol(const char *SymbolName, uintptr_t *Value, size_t *Size)
 {
 	 int	i;
 	tBinary	*bin;
@@ -236,6 +236,7 @@ int Binary_GetSymbol(const char *SymbolName, uintptr_t *Value)
 	{
 		if( strcmp(caBuiltinSymbols[i].Name, SymbolName) == 0 ) {
 			*Value = (uintptr_t)caBuiltinSymbols[i].Value;
+			if(Size)	*Size = 0;
 			return 1;
 		}
 	}
@@ -245,7 +246,7 @@ int Binary_GetSymbol(const char *SymbolName, uintptr_t *Value)
 	{
 		if( !bin->Ready )	continue;
 		//printf(" Binary_GetSymbol: bin = %p{%p, %s}\n", bin, bin->Base, bin->Path);
-		if( bin->Format->GetSymbol(bin->Base, (char*)SymbolName, Value) )
+		if( bin->Format->GetSymbol(bin->Base, (char*)SymbolName, Value, Size) )
 			return 1;
 	}
 

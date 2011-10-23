@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include <string.h>
 
-extern int	Binary_GetSymbol(const char *SymbolName, uintptr_t *Value);
+extern int	Binary_GetSymbol(const char *SymbolName, uintptr_t *Value, size_t *Size);
 extern void	*Binary_LoadLibrary(const char *Path);
 extern void	*Binary_Load(const char *Path, uintptr_t *EntryPoint);
 extern void	Binary_SetReadyToUse(void *Base);
@@ -17,7 +17,7 @@ extern void	Binary_SetReadyToUse(void *Base);
 static inline void *GetSymbol(const char*sym, size_t*sz)
 {
 	uintptr_t rv;
-	if( Binary_GetSymbol(sym, &rv) )
+	if( !Binary_GetSymbol(sym, &rv, sz) )
 		return NULL;
 	return (void*)rv;
 }
@@ -49,7 +49,7 @@ typedef struct sBinFmt {
 	char	*Name;
 	void	*(*Load)(int fd);
 	uintptr_t	(*Relocate)(void *base);
-	 int	(*GetSymbol)(void*,char*,uintptr_t*);
+	 int	(*GetSymbol)(void*,char*,uintptr_t*,size_t*);
 }	tBinFmt;
 
 #endif

@@ -2,7 +2,7 @@
  * Acess v0.1
  * ELF Executable Loader Code
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -17,7 +17,7 @@
 #define PTR(_val)	((void*)(uintptr_t)(_val))
 
 #if DEBUG
-# define ENTER(...)
+# define ENTER(...)	printf("%s: ---- ENTER ----\n", __func__);
 # define LOG(s, ...)	printf("%s: " s, __func__, __VA_ARGS__)
 # define LOGS(s)	printf("%s: " s, __func__)
 # define LEAVE(...)
@@ -38,7 +38,7 @@ void *Elf_Load(int FD)
 	Elf32_Ehdr	hdr;
 	
 	// Read ELF Header
-	acess_read(FD, sizeof(hdr), &hdr);
+	acess_read(FD, &hdr, sizeof(hdr));
 	
 	// Check the file type
 	if(hdr.e_ident[0] != 0x7F || hdr.e_ident[1] != 'E' || hdr.e_ident[2] != 'L' || hdr.e_ident[3] != 'F') {
@@ -82,7 +82,7 @@ void *Elf32Load(int FD, Elf32_Ehdr *hdr)
 	}
 	LOG("hdr.phoff = 0x%08x\n", hdr->phoff);
 	acess_seek(FD, hdr->phoff, ACESS_SEEK_SET);
-	acess_read(FD, sizeof(Elf32_Phdr) * hdr->phentcount, phtab);
+	acess_read(FD, phtab, sizeof(Elf32_Phdr) * hdr->phentcount);
 	
 	// Count Pages
 	iPageCount = 0;
@@ -132,17 +132,6 @@ void *Elf32Load(int FD, Elf32_Ehdr *hdr)
 	// Load Pages
 	for( i = 0; i < hdr->phentcount; i++ )
 	{
-		//LOG("phtab[%i].Type = 0x%x", i, phtab[i].Type);
-		LOG("phtab[%i] = {\n", i);
-		LOG(" .Type = 0x%08x\n", phtab[i].Type);
-		LOG(" .Offset = 0x%08x\n", phtab[i].Offset);
-		LOG(" .VAddr = 0x%08x\n", phtab[i].VAddr);
-		LOG(" .PAddr = 0x%08x\n", phtab[i].PAddr);
-		LOG(" .FileSize = 0x%08x\n", phtab[i].FileSize);
-		LOG(" .MemSize = 0x%08x\n", phtab[i].MemSize);
-		LOG(" .Flags = 0x%08x\n", phtab[i].Flags);
-		LOG(" .Align = 0x%08x\n", phtab[i].Align);
-		LOGS(" }\n");
 		// Get Interpreter Name
 		if( phtab[i].Type == PT_INTERP )
 		{
@@ -150,7 +139,7 @@ void *Elf32Load(int FD, Elf32_Ehdr *hdr)
 			//if(ret->Interpreter)	continue;
 			tmp = malloc(phtab[i].FileSize);
 			acess_seek(FD, phtab[i].Offset, ACESS_SEEK_SET);
-			acess_read(FD, phtab[i].FileSize, tmp);
+			acess_read(FD, tmp, phtab[i].FileSize);
 			//ret->Interpreter = Binary_RegInterp(tmp);
 			LOG("Interpreter '%s'\n", tmp);
 			free(tmp);
@@ -159,8 +148,8 @@ void *Elf32Load(int FD, Elf32_Ehdr *hdr)
 		// Ignore non-LOAD types
 		if(phtab[i].Type != PT_LOAD)	continue;
 		
-		LOG("phtab[%i] = {VAddr:0x%x,Offset:0x%x,FileSize:0x%x}\n",
-			i, phtab[i].VAddr+baseDiff, phtab[i].Offset, phtab[i].FileSize);
+		LOG("phtab[%i] = PT_LOAD {Adj VAddr:0x%x, Offset:0x%x, FileSize:0x%x, MemSize:0x%x}\n",
+			i, phtab[i].VAddr+baseDiff, phtab[i].Offset, phtab[i].FileSize, phtab[i].MemSize);
 		
 		addr = phtab[i].VAddr + baseDiff;
 
@@ -172,7 +161,7 @@ void *Elf32Load(int FD, Elf32_Ehdr *hdr)
 		}
 		
 		acess_seek(FD, phtab[i].Offset, ACESS_SEEK_SET);
-		acess_read(FD, phtab[i].FileSize, PTRMK(void, addr) );
+		acess_read(FD, PTRMK(void, addr), phtab[i].FileSize);
 		memset( PTRMK(char, addr) + phtab[i].FileSize, 0, phtab[i].MemSize - phtab[i].FileSize );
 	}
 	

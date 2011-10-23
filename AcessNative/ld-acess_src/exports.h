@@ -13,15 +13,15 @@ extern uint64_t	_Syscall(int SyscallID, const char *ArgTypes, ...);
 
 extern int	native_open(const char *Path, int Flags);
 extern void	native_close(int FD);
-extern size_t	native_read(int FD, size_t Bytes, void *Dest);
-extern size_t	native_write(int FD, size_t Bytes, const void *Src);
+extern size_t	native_read(int FD, void *Dest, size_t Bytes);
+extern size_t	native_write(int FD, const void *Src, size_t Bytes);
 extern int	native_seek(int FD, int64_t Offset, int Dir);
 extern uint64_t	native_tell(int FD);
 
 // Syscalls used by the linker
 extern int	acess_open(const char *Path, int Flags);
 extern void	acess_close(int FD);
-extern size_t	acess_read(int FD, size_t Bytes, void *Dest);
+extern size_t	acess_read(int FD, void *Dest, size_t Bytes);
 extern int	acess_seek(int FD, int64_t Offset, int Dir);
 
 // Symbol type

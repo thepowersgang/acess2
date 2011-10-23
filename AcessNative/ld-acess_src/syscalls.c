@@ -290,12 +290,12 @@ void native_close(int FD)
 	gaSyscall_LocalFPs[FD] = NULL;
 }
 
-size_t native_read(int FD, size_t Bytes, void *Dest)
+size_t native_read(int FD, void *Dest, size_t Bytes)
 {
 	return fread( Dest, Bytes, 1, gaSyscall_LocalFPs[FD] );
 }
 
-size_t native_write(int FD, size_t Bytes, const void *Src)
+size_t native_write(int FD, const void *Src, size_t Bytes)
 {
 	return fwrite( Src, Bytes, 1, gaSyscall_LocalFPs[FD] );
 }
