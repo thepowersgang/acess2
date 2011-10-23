@@ -325,6 +325,8 @@ void VT_SetResolution(int Width, int Height)
 			giVT_RealWidth, giVT_RealHeight,
 			mode.width, mode.height
 			);
+		giVT_RealWidth = mode.width;
+		giVT_RealHeight = mode.height;
 	}
 	VFS_IOCtl( giVT_OutputDevHandle, VIDEO_IOCTL_GETSETMODE, &tmp );
 	
@@ -336,8 +338,6 @@ void VT_SetResolution(int Width, int Height)
 					*(giVT_Scrollback+1);
 		//tVT_Char	*tmp;
 		// Resize the text terminals
-		giVT_RealWidth = mode.width;
-		giVT_RealHeight = mode.height;
 		Log_Debug("VTerm", "Resizing terminals to %ix%i",
 			giVT_RealWidth/giVT_CharWidth, giVT_RealHeight/giVT_CharHeight);
 		for( i = 0; i < NUM_VTS; i ++ )
