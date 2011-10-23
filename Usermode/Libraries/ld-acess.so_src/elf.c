@@ -689,8 +689,11 @@ void *Elf64Relocate(void *Base, char **envp, const char *Filename)
 		}
 	}
 
-	DEBUGS("Elf64Relocate: Relocations done, return %p", (void *)(hdr->e_entry + baseDiff));
-	return (void *)(uintptr_t)(hdr->e_entry + baseDiff);
+	{
+	void *ret = (void *)(uintptr_t)(hdr->e_entry + baseDiff);
+	DEBUGS("Elf64Relocate: Relocations done, return %p", ret);
+	return ret;
+	}
 }
 
 int Elf64GetSymbol(void *Base, const char *Name, void **Ret, size_t *Size)
