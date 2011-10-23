@@ -38,6 +38,7 @@ typedef struct {
 // === IMPORTS ===
 extern tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength);
 extern int	Threads_CreateRootProcess(void);
+extern void	Threads_SetThread(int TID);
 // HACK: Should have these in a header
 extern void	Log_Debug(const char *Subsys, const char *Message, ...);
 extern void	Log_Notice(const char *Subsys, const char *Message, ...);
@@ -46,6 +47,7 @@ extern void	Log_Notice(const char *Subsys, const char *Message, ...);
 tClient	*Server_GetClient(int ClientID);
  int	Server_WorkerThread(void *ClientPtr);
  int	SyscallServer(void);
+ int	Server_ListenThread(void *Unused);
 
 // === GLOBALS ===
 #ifdef __WIN32__
@@ -56,6 +58,7 @@ SOCKET	gSocket = INVALID_SOCKET;
  int	gSocket = INVALID_SOCKET;
 #endif
 tClient	gaServer_Clients[MAX_CLIENTS];
+SDL_Thread	*gpServer_ListenThread;
 
 // === CODE ===
 int Server_GetClientID(void)
@@ -229,7 +232,12 @@ int SyscallServer(void)
 	#endif
 	
 	Log_Notice("AcessSrv", "Listening on 0.0.0.0:%i", SERVER_PORT);
-	
+	gpServer_ListenThread = SDL_CreateThread( Server_ListenThread, NULL );
+	return 0;
+}
+
+int Server_ListenThread(void *Unused)
+{	
 	// Wait for something to do :)
 	for( ;; )
 	{
@@ -294,6 +302,5 @@ int SyscallServer(void)
 		SDL_CondSignal(client->WaitFlag);
 		#endif
 	}
-	
 	return -1;
 }

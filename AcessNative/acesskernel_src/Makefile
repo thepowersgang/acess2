@@ -1,6 +1,12 @@
 # AcessNative Server
 # Makefile
 
+-include ../../Makefile.Version.cfg
+-include Makefile.BuildNum
+ifeq ($(BUILD_NUM),)
+BUILD_NUM = 1
+endif
+
 ifeq ($(PLATFORM),)
 	PLATFORM := lin
 endif
@@ -15,18 +21,21 @@ KERNEL_OBJ += drv/vterm.o drv/fifo.o drv/proc.o
 
 N_OBJ := main.o
 
+BUILDINFO_OBJ := obj-$(PLATFORM)/buildinfo.o
+BUILDINFO_SRC := $(BUILDINFO_OBJ:%.o=%.c)
+
 OBJ := helpers.o threads.o server.o syscalls.o
 OBJ += video.o keyboard.o mouse.o nativefs.o vfs_handle.o ui_sdl.o
 OBJ := $(addprefix obj-$(PLATFORM)/,$(OBJ))
 N_OBJ := $(addprefix obj-$(PLATFORM)/,$(N_OBJ))
-K_OBJ := $(addprefix $(KERNEL_SRC)obj-$(PLATFORM)/,$(KERNEL_OBJ))
+K_OBJ := $(addprefix $(KERNEL_SRC)obj-native-$(PLATFORM)/,$(KERNEL_OBJ))
 
 DEPFILES  = $(filter %.o,$(OBJ) $(N_OBJ) $(K_OBJ))
 DEPFILES := $(DEPFILES:%=%.dep)
 
 CPPFLAGS += -I include/ -I $(KERNEL_SRC)include/
 CFLAGS += -Wall -g
-LDFLAGS += -lSDL -lSDLmain -g
+LDFLAGS += -lSDL -lSDLmain -g -Wl,--defsym,__buildnum=$(BUILD_NUM)
 
 ifeq ($(PLATFORM),win)
 	BIN := ../AcessKernel.exe
@@ -43,9 +52,10 @@ all: $(BIN)
 clean:
 	$(RM) $(BIN) $(OBJ) $(N_OBJ) $(K_OBJ) $(DEPFILES)
 
-$(BIN): $(OBJ) $(N_OBJ) $(K_OBJ)
+$(BIN): $(OBJ) $(N_OBJ) $(K_OBJ) $(BUILDINFO_OBJ)
 	@echo [LINK] -o $@
-	@$(CC) $(LDFLAGS) -o $@ $(N_OBJ) $(K_OBJ) $(OBJ)
+	@$(CC) -o $@ $(N_OBJ) $(K_OBJ) $(OBJ) $(BUILDINFO_OBJ) $(LDFLAGS)
+	@echo BUILD_NUM = $$(( $(BUILD_NUM) + 1 )) > Makefile.BuildNum
 
 $(OBJ): obj-$(PLATFORM)/%.o: %.c
 	@mkdir -p $(dir $@)
@@ -53,7 +63,7 @@ $(OBJ): obj-$(PLATFORM)/%.o: %.c
 	@$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
 	@$(CC) -M $(CPPFLAGS) -MT $@ -o $@.dep $<
 
-$(K_OBJ): $(KERNEL_SRC)obj-$(PLATFORM)/%.o: $(KERNEL_SRC)%.c
+$(K_OBJ): $(KERNEL_SRC)obj-native-$(PLATFORM)/%.o: $(KERNEL_SRC)%.c
 	@mkdir -p $(dir $@)
 	@echo [CC] -o $@
 	@$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
@@ -65,5 +75,14 @@ $(N_OBJ): obj-$(PLATFORM)/%.o: %.c
 	@echo [CC] -o $@
 	@$(CC) -c $< -o $@ $(CFLAGS)
 	@$(CC) -M -MT $@ -o $@.dep $<
+
+$(BUILDINFO_SRC): $(filter-out $(BUILDINFO_OBJ), $(OBJ)) Makefile
+	@echo "" > $@
+	@echo "const char gsKernelVersion[] = \"$(ACESS_VERSION)\";" >> $@
+	@echo "const char gsGitHash[] = \""`git log -n 1 | head -n 1 | awk '{print $$2}'`"\";" >> $@
+	@echo "const int giBuildNumber = $(BUILD_NUM);" >> $@
+$(BUILDINFO_OBJ): $(BUILDINFO_SRC)
+	@echo [CC] -o $@
+	@$(CC) -o $@ -c $< $(CFLAGS) $(CPPFLAGS)
 
 -include $(DEPFILES)

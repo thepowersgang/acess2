@@ -19,8 +19,8 @@ typedef struct sBinary {
 
 // === IMPORTS ===
 extern void	*Elf_Load(int fd);
-extern uintptr_t	Elf_Relocate(void *Base);
-extern int	Elf_GetSymbol(void *Base, char *Name, uintptr_t *ret);
+extern uintptr_t	ElfRelocate(void *Base);
+extern int	ElfGetSymbol(void *Base, char *Name, uintptr_t *ret);
 extern int	ciNumBuiltinSymbols;
 extern tSym	caBuiltinSymbols[];
 
@@ -33,8 +33,8 @@ tBinFmt	gElf_FormatDef = {
 //	.Magic = "\x7F""ELF",
 	.Name = "ELF32",
 	.Load = Elf_Load,
-	.Relocate = Elf_Relocate,
-	.GetSymbol = Elf_GetSymbol
+	.Relocate = ElfRelocate,
+	.GetSymbol = ElfGetSymbol
 	};
 tBinary	*gLoadedBinaries;
 
