@@ -118,7 +118,7 @@ typedef struct sVFS_ACL
 		unsigned Inv:	1;	//!< Invert Permissions
 		unsigned Perms:	31;	//!< Permission Flags
 	};
-}	tVFS_ACL;
+} tVFS_ACL;
 
 /**
  * \brief SYS_FINFO structure
@@ -136,7 +136,7 @@ typedef struct sFInfo
 	Sint64	ctime;	//!< Creation time
 	Sint32	numacls;	//!< Total number of ACL entries
 	tVFS_ACL	acls[];	//!< ACL buffer (size is passed in the \a MaxACLs argument to VFS_FInfo)
-}	tFInfo;
+} PACKED tFInfo;
 
 /**
  * \brief fd_set for select()
