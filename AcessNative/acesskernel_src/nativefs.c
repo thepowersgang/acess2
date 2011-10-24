@@ -127,12 +127,16 @@ tVFS_Node *NativeFS_FindDir(tVFS_Node *Node, const char *Name)
 		baseRet.FindDir = NativeFS_FindDir;
 		baseRet.ReadDir = NativeFS_ReadDir;
 		baseRet.Flags |= VFS_FFLAG_DIRECTORY;
+		baseRet.Size = -1;
 	}
 	else
 	{
 		LOG("File");
 		baseRet.Inode = (Uint64) fopen(path, "r+");
 		baseRet.Read = NativeFS_Read;
+		
+		fseek( (FILE*)(tVAddr)baseRet.Inode, 0, SEEK_END );
+		baseRet.Size = ftell( (FILE*)(tVAddr)baseRet.Inode );
 	}
 	
 	// Create new node
@@ -146,9 +150,30 @@ tVFS_Node *NativeFS_FindDir(tVFS_Node *Node, const char *Name)
 
 char *NativeFS_ReadDir(tVFS_Node *Node, int Position)
 {
-	// Keep track of the current directory position
-	// TODO: Implement NativeFS_ReadDir
-	return NULL;
+	struct dirent	*ent;
+	DIR	*dp = (void*)(tVAddr)Node->Inode;
+	char	*ret;
+
+	ENTER("pNode iPosition", Node, Position);
+
+	// TODO: Keep track of current position in the directory
+	// TODO: Lock node during this
+	rewinddir(dp);
+	do {
+		ent = readdir(dp);
+	} while(Position-- && ent);
+
+	if( !ent ) {
+		LEAVE('n');
+		return NULL;
+	}
+	
+	ret = strdup(ent->d_name);
+
+	// TODO: Unlock node	
+
+	LEAVE('s', ret);
+	return ret;
 }
 
 Uint64 NativeFS_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
