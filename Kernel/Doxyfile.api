@@ -291,7 +291,7 @@ INLINE_GROUPED_CLASSES = NO
 # structs, classes, and unions are shown on a separate page (for HTML and Man
 # pages) or section (for LaTeX and RTF).
 
-INLINE_SIMPLE_STRUCTS  = NO
+#INLINE_SIMPLE_STRUCTS  = NO
 
 # When TYPEDEF_HIDES_STRUCT is enabled, a typedef of a struct, union, or enum
 # is documented as struct, union, or enum with the name of the typedef. So
@@ -567,7 +567,7 @@ LAYOUT_FILE            =
 # http://en.wikipedia.org/wiki/BibTeX for more info. For LaTeX the style
 # of the bibliography can be controlled using LATEX_BIB_STYLE.
 
-CITE_BIB_FILES         =
+#CITE_BIB_FILES         =
 
 #---------------------------------------------------------------------------
 # configuration options related to warning and progress messages
@@ -630,6 +630,8 @@ WARN_LOGFILE           =
 # with spaces.
 
 INPUT                  = include/apidoc_mainpage.h \
+                         include/acess.h \
+                         include/hal_proc.h \
                          include/binary.h \
                          include/modules.h \
                          include/vfs.h \
@@ -1173,7 +1175,7 @@ MATHJAX_RELPATH        = http://www.mathjax.org/mathjax
 # The MATHJAX_EXTENSIONS tag can be used to specify one or MathJax extension
 # names that should be enabled during MathJax rendering.
 
-MATHJAX_EXTENSIONS     =
+#MATHJAX_EXTENSIONS     =
 
 # When the SEARCHENGINE tag is enabled doxygen will generate a search box
 # for the HTML output. The underlying search engine uses javascript
@@ -1292,7 +1294,7 @@ LATEX_SOURCE_CODE      = NO
 # bibliography, e.g. plainnat, or ieeetr. The default style is "plain". See
 # http://en.wikipedia.org/wiki/BibTeX for more info.
 
-LATEX_BIB_STYLE        = plain
+#LATEX_BIB_STYLE        = plain
 
 #---------------------------------------------------------------------------
 # configuration options related to the RTF output
@@ -1706,7 +1708,7 @@ DOT_IMAGE_FORMAT       = png
 # need to set HTML_FILE_EXTENSION to xhtml in order to make the SVG files
 # visible. Older versions of IE do not have SVG support.
 
-INTERACTIVE_SVG        = NO
+#INTERACTIVE_SVG        = NO
 
 # The tag DOT_PATH can be used to specify the path where the dot tool can be
 # found. If left blank, it is assumed the dot tool can be found in the path.

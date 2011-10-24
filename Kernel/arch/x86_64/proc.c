@@ -61,7 +61,7 @@ void	MP_SendIPI(Uint8 APICID, int Vector, int DeliveryMode);
 void	Proc_IdleTask(void *unused);
 //void	Proc_Start(void);
 //tThread	*Proc_GetCurThread(void);
- int	Proc_NewKThread(void (*Fcn)(void*), void *Data);
+// int	Proc_NewKThread(void (*Fcn)(void*), void *Data);
 // int	Proc_Clone(Uint *Err, Uint Flags);
 // int	Proc_SpawnWorker(void);
 Uint	Proc_MakeUserStack(void);

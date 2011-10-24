@@ -71,7 +71,7 @@ void	Proc_IdleThread(void *Ptr);
 //void	Proc_Start(void);
 //tThread	*Proc_GetCurThread(void);
 void	Proc_ChangeStack(void);
- int	Proc_NewKThread(void (*Fcn)(void*), void *Data);
+// int	Proc_NewKThread(void (*Fcn)(void*), void *Data);
 // int	Proc_Clone(Uint *Err, Uint Flags);
 Uint	Proc_MakeUserStack(void);
 //void	Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **EnvP, int DataSize);

@@ -4,29 +4,45 @@
  */
 #ifndef _ACESS_H
 #define _ACESS_H
+/**
+ * \file acess.h
+ * \brief Acess2 Kernel API Core
+ */
 
+//! NULL Pointer
 #define NULL	((void*)0)
+//! Pack a structure
 #define PACKED	__attribute__((packed))
+//! Mark a function as not returning
 #define NORETURN	__attribute__((noreturn))
+//! Mark a parameter as unused
 #define UNUSED(x)	UNUSED_##x __attribute__((unused))
+//! Get the offset of a member in a structure
 #define offsetof(st, m) ((Uint)((char *)&((st *)(0))->m - (char *)0 ))
 
+/**
+ * \name Boolean constants
+ * \{
+ */
 #define TRUE	1
 #define FALSE	0
+/**
+ * \}
+ */
 
 #include <arch.h>
 #include <stdarg.h>
 #include "errno.h"
 
 // --- Types ---
-typedef  int	tPID;
-typedef  int	tTID;
-typedef Uint	tUID;
-typedef Uint	tGID;
-typedef Sint64	tTimestamp;
-typedef Sint64	tTime;
-typedef struct sShortSpinlock	tShortSpinlock;
-typedef int	bool;
+typedef  int	tPID;	//!< Process ID type
+typedef  int	tTID;	//!< Thread ID Type
+typedef Uint	tUID;	//!< User ID Type
+typedef Uint	tGID;	//!< Group ID Type
+typedef Sint64	tTimestamp;	//!< Timestamp (miliseconds since 00:00 1 Jan 1970)
+typedef Sint64	tTime;	//!< Same again
+typedef struct sShortSpinlock	tShortSpinlock;	//!< Opaque (kinda) spinlock
+typedef int	bool;	//!< Boolean type
 
 // --- Helper Macros ---
 /**
@@ -88,22 +104,40 @@ enum eConfigs {
  * \}
  */
 // --- Interface Flags & Macros
+/**
+ * \name Flags for Proc_Clone
+ * \{
+ */
+//! Clone the entire process
 #define CLONE_VM	0x10
+/**
+ * \}
+ */
 
 // === Types ===
+/**
+ * \brief Thread root function
+ * 
+ * Function pointer prototype of a thread entrypoint. When it
+ * returns, Threads_Exit is called
+ */
 typedef void (*tThreadFunction)(void*);
 
 // === Kernel Export Macros ===
 /**
- * \name Kernel Function 
+ * \name Kernel exports
  * \{
  */
+//! Kernel symbol definition
 typedef struct sKernelSymbol {
-	const char	*Name;
-	tVAddr	Value;
+	const char	*Name;	//!< Symbolic name
+	tVAddr	Value;	//!< Value of the symbol
 } tKernelSymbol;
+//! Export a pointer symbol (function/array)
 #define	EXPORT(_name)	tKernelSymbol _kexp_##_name __attribute__((section ("KEXPORT"),unused))={#_name, (tVAddr)_name}
+//! Export a variable
 #define	EXPORTV(_name)	tKernelSymbol _kexp_##_name __attribute__((section ("KEXPORT"),unused))={#_name, (tVAddr)&_name}
+//! Export a symbol under another name
 #define	EXPORTAS(_sym,_name)	tKernelSymbol _kexp_##_name __attribute__((section ("KEXPORT"),unused))={#_name, (tVAddr)_sym}
 /**
  * \}
@@ -111,10 +145,21 @@ typedef struct sKernelSymbol {
 
 // === FUNCTIONS ===
 // --- IRQs ---
+/**
+ * \name IRQ hander registration
+ * \{
+ */
 extern int	IRQ_AddHandler(int Num, void (*Callback)(int, void*), void *Ptr);
 extern void	IRQ_RemHandler(int Handle);
+/**
+ * \}
+ */
 
 // --- Logging ---
+/**
+ * \name Logging to kernel ring buffer
+ * \{
+ */
 extern void	Log_KernelPanic(const char *Ident, const char *Message, ...);
 extern void	Log_Panic(const char *Ident, const char *Message, ...);
 extern void	Log_Error(const char *Ident, const char *Message, ...);
@@ -122,6 +167,9 @@ extern void	Log_Warning(const char *Ident, const char *Message, ...);
 extern void	Log_Notice(const char *Ident, const char *Message, ...);
 extern void	Log_Log(const char *Ident, const char *Message, ...);
 extern void	Log_Debug(const char *Ident, const char *Message, ...);
+/**
+ * \}
+ */
 
 // --- Debug ---
 /**
@@ -400,7 +448,19 @@ extern int	UnHex(Uint8 *Dest, size_t DestSize, const char *SourceString);
  * \}
  */
 
+/**
+ * \brief Get a random number
+ * \return Random number
+ * \note Current implementation is a linear congruency
+ */
 extern int	rand(void);
+/**
+ * \brief Call a function with a variable number of arguments
+ * \param Function	Function address
+ * \param NArgs	Number of entries in \a Args
+ * \param Args	Array of arguments
+ * \return Integer from called Function
+ */
 extern int	CallWithArgArray(void *Function, int NArgs, Uint *Args);
 
 // --- Heap ---
@@ -476,7 +536,9 @@ extern int	Threads_SetName(const char *NewName);
  */
 
 // --- Simple Math ---
+//! Divide and round up
 extern int	DivUp(int num, int dem);
+//! Divide and Modulo 64-bit unsigned integer
 extern Uint64	DivMod64U(Uint64 Num, Uint64 Den, Uint64 *Rem);
 
 #include <binary_ext.h>

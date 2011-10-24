@@ -21,7 +21,6 @@ extern char	kernel_table0[];
 
 // === PROTOTYPES ===
 void	Proc_IdleThread(void *unused);
-tTID	Proc_NewKThread(void (*Fnc)(void*), void *Ptr);
 
 // === GLOBALS ===
 tThread	*gpCurrentThread = &gThreadZero;

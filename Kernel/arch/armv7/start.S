@@ -7,14 +7,14 @@
 @ 
 .section .init
 interrupt_vector_table:
-ivt_reset:	b _start @ Reset
-ivt_undef:	b .	@ #UD
-ivt_svc:	b SVC_Handler @ SVC (used to be called SWI)
-ivt_prefetch:	b PrefetchAbort	@ Prefetch abort
-ivt_data:	b DataAbort	@ Data abort
-ivt_unused:	b .	@ Not Used
-ivt_irq:	b IRQHandler	@ IRQ
-ivt_fiq:	b .	@ FIQ (Fast interrupt)
+ivt_reset:	b _start	@ 0x00 Reset
+ivt_undef:	b .     	@ 0x04 #UD
+ivt_svc:	b SVC_Handler	@ 0x08 SVC (used to be called SWI)
+ivt_prefetch:	b PrefetchAbort	@ 0x0C Prefetch abort
+ivt_data:	b DataAbort	@ 0x10 Data abort
+ivt_unused:	b .     	@ 0x14 Not Used
+ivt_irq:	b IRQHandler	@ 0x18 IRQ
+ivt_fiq:	b .     	@ 0x1C FIQ (Fast interrupt)
 
 .globl _start
 _start:
@@ -116,10 +116,10 @@ IRQHandler:
 
 	PUSH_GPRS
 
-@	ldr r0, =csIRQ_Tag
-@	ldr r1, =csIRQ_Fmt
-@	ldr r4, =Log_Debug
-@	blx r4
+	ldr r0, =csIRQ_Tag
+	ldr r1, =csIRQ_Fmt
+	ldr r4, =Log_Debug
+	blx r4
 	
 	@ Call the registered handler
 	ldr r0, gpIRQHandler

@@ -7,7 +7,7 @@
 #define DEBUG	0
 
 /**
- * \file tpl_mm_phys.h
+ * \file tpl_mm_phys_stack.h
  * \brief Template physical memory manager
  *
  * An extensible physical memory manager

@@ -32,7 +32,8 @@ struct sSemaphore {
 /**
  * \brief Initialise the semaphore
  * \param Sem	Semaphore structure to initialsie
- * \param Value	Initial value of the semaphore
+ * \param InitValue	Initial value of the semaphore
+ * \param MaxValue	Maximum value for the semaphore
  * \param Module	Module name
  * \param Name	Symbolic name
  * \note Not always needed, as initialising to 0 is valid, but it is preferred
@@ -43,7 +44,7 @@ struct sSemaphore {
 extern void	Semaphore_Init(tSemaphore *Sem, int InitValue, int MaxValue, const char *Module, const char *Name);
 /**
  * \brief Acquire items from the semaphore
- * \param Semaphore	Semaphore structure to use
+ * \param Sem	Semaphore structure to use
  * \param MaxToTake	Maximum number of items to take off the list (if zero, as much as possible is taken)
  * \return Number of items fetched
  * \retval 0	Semaphore interrupted (signal/message)

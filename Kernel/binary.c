@@ -262,26 +262,29 @@ tVAddr Binary_Load(const char *Path, tVAddr *EntryPoint)
 
 /**
  * \brief Finds a matching binary entry
- * \param TruePath	File Identifier (True path name)
+ * \param MountID	Mountpoint ID of binary file
+ * \param InodeID	Inode ID of the file
+ * \return Pointer to the binary definition (if already loaded)
  */
 tBinary *Binary_GetInfo(tMount MountID, tInode InodeID)
 {
 	tBinary	*pBinary;
-	pBinary = glLoadedBinaries;
-	while(pBinary)
+	for(pBinary = glLoadedBinaries; pBinary; pBinary = pBinary->Next)
 	{
 		if(pBinary->MountID == MountID && pBinary->Inode == InodeID)
 			return pBinary;
-		pBinary = pBinary->Next;
 	}
 	return NULL;
 }
 
 /**
- \fn Uint Binary_MapIn(tBinary *binary)
- \brief Maps an already-loaded binary into an address space.
- \param binary	Pointer to globally stored data.
-*/
+ * \brief Maps an already-loaded binary into an address space.
+ * \param Binary	Pointer to globally stored binary definition
+ * \param Path	Path to the binary's file (for debug)
+ * \param LoadMin	Lowest location to map to
+ * \param LoadMax	Highest location to map to
+ * \return Base load address
+ */
 tVAddr Binary_MapIn(tBinary *Binary, const char *Path, tVAddr LoadMin, tVAddr LoadMax)
 {
 	tVAddr	base;
@@ -299,7 +302,7 @@ tVAddr Binary_MapIn(tBinary *Binary, const char *Path, tVAddr LoadMin, tVAddr Lo
 	if(base != 0)
 	{
 		LOG("Checking base %p", base);
-		for(i=0;i<Binary->NumSections;i++)
+		for( i = 0; i < Binary->NumSections; i ++ )
 		{
 			if( Binary_int_CheckMemFree( Binary->LoadSections[i].Virtual, Binary->LoadSections[i].MemSize ) )
 			{
@@ -352,6 +355,7 @@ tVAddr Binary_MapIn(tBinary *Binary, const char *Path, tVAddr LoadMin, tVAddr Lo
 
 		if( sect->Flags & BIN_SECTFLAG_EXEC )
 			protflags |= MMAP_PROT_EXEC;
+		// Read only pages are COW
 		if( sect->Flags & BIN_SECTFLAG_RO  ) {
 			VFS_MMap( (void*)addr, sect->FileSize, protflags, MMAP_MAP_SHARED|mapflags, fd, sect->Offset );
 		}
@@ -359,6 +363,8 @@ tVAddr Binary_MapIn(tBinary *Binary, const char *Path, tVAddr LoadMin, tVAddr Lo
 			protflags |= MMAP_PROT_WRITE;
 			VFS_MMap( (void*)addr, sect->FileSize, protflags, MMAP_MAP_PRIVATE|mapflags, fd, sect->Offset );
 		}
+		
+		// Apply anonymous memory for BSS
 		if( sect->FileSize < sect->MemSize ) {
 			mapflags |= MMAP_MAP_ANONYMOUS;
 			VFS_MMap(
@@ -366,14 +372,11 @@ tVAddr Binary_MapIn(tBinary *Binary, const char *Path, tVAddr LoadMin, tVAddr Lo
 				protflags, MMAP_MAP_PRIVATE|mapflags,
 				0, 0
 				);
-//			memset((void*)(addr + sect->FileSize), 0, sect->MemSize - sect->FileSize);
 		}
 	}
 	
 	Log_Debug("Binary", "PID %i - Mapped '%s' to 0x%x", Threads_GetPID(), Path, base);
 	VFS_Close(fd);
-	
-	//LOG("*0x%x = 0x%x\n", binary->Pages[0].Virtual, *(Uint*)binary->Pages[0].Virtual);
 	
 	LEAVE('p', base);
 	return base;

@@ -49,7 +49,6 @@ void Heap_Install(void)
 }
 
 /**
- * \fn void *Heap_Extend(int Bytes)
  * \brief Extend the size of the heap
  */
 void *Heap_Extend(int Bytes)
@@ -97,7 +96,6 @@ void *Heap_Extend(int Bytes)
 }
 
 /**
- * \fn void *Heap_Merge(tHeapHead *Head)
  * \brief Merges two ajacent heap blocks
  */
 void *Heap_Merge(tHeapHead *Head)
@@ -142,10 +140,9 @@ void *Heap_Merge(tHeapHead *Head)
 }
 
 /**
- * \brief Allocate memory from the heap
  * \param File	Allocating source file
  * \param Line	Source line
- * \param Bytes	Size of region to allocate
+ * \param __Bytes	Size of region to allocate
  */
 void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 {
@@ -216,7 +213,8 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 			head->AllocateTime = now();
 			Mutex_Release(&glHeap);	// Release spinlock
 			#if DEBUG_TRACE
-			Debug("[Heap   ] Malloc'd %p (%i bytes), returning to %p", head->Data, head->Size,  __builtin_return_address(0));
+			Debug("[Heap   ] Malloc'd %p (%i bytes), returning to %p",
+				head->Data, head->Size,  __builtin_return_address(0));
 			#endif
 			return head->Data;
 		}
@@ -285,7 +283,6 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 }
 
 /**
- * \fn void Heap_Deallocate(void *Ptr)
  * \brief Free an allocated memory block
  */
 void Heap_Deallocate(void *Ptr)

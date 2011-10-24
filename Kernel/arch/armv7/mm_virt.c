@@ -647,7 +647,7 @@ tVAddr MM_MapTemp(tPAddr PAddr)
 		if( MM_int_GetPageInfo(ret, &pi) == 0 )
 			continue;
 
-//		Log("MapTemp %P at %p", PAddr, ret);	
+		Log("MapTemp %P at %p by %p", PAddr, ret, __builtin_return_address(0));
 		MM_RefPhys(PAddr);	// Counter the MM_Deallocate in FreeTemp
 		MM_Map(ret, PAddr);
 		
@@ -837,8 +837,9 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 	range_start = Start;
 	for( addr = Start; i == 0 || (addr && addr < End); i = 1 )
 	{
+		 int	rv;
 //		Log("addr = %p", addr);
-		int rv = MM_int_GetPageInfo(addr, &pi);
+		rv = MM_int_GetPageInfo(addr, &pi);
 		if( rv
 		 || pi.Size != pi_old.Size
 		 || pi.Domain != pi_old.Domain
