@@ -28,11 +28,6 @@ typedef intptr_t	tPAddr;
 
 typedef	int	BOOL;
 
-//typedef uint32_t	tTID;
-//typedef uint32_t	tPID;
-//typedef uint32_t	tUID;
-//typedef uint32_t	tGID;
-
 struct sShortSpinlock
 {
 	 int	IsValid;

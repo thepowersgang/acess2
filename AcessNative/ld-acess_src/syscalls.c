@@ -29,10 +29,12 @@ const char *ReadEntry(tRequestValue *Dest, void *DataDest, void **PtrDest, const
 	 int	direction = 0;	// 0: Invalid, 1: Out, 2: In, 3: Out
 	char	*str;
 	 int	len;
-	
+
 	// Eat whitespace
 	while(*ArgTypes && *ArgTypes == ' ')	ArgTypes ++;
 	if( *ArgTypes == '\0' )	return ArgTypes;
+	
+//	DEBUG("ArgTypes = '%s'", ArgTypes);
 	
 	// Get direction
 	switch(*ArgTypes)

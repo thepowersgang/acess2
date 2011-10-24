@@ -93,10 +93,13 @@ int acess_ioctl(int fd, int id, void *data) {
 	return _Syscall(SYS_IOCTL, ">i >i ?d", fd, id, 1024, data);
 }
 int acess_finfo(int fd, t_sysFInfo *info, int maxacls) {
+	DEBUG("offsetof(size, t_sysFInfo) = %i", offsetof(t_sysFInfo, size));
+	DEBUG("finfo(%i, %p, %i)", fd, info, maxacls);
 	return _Syscall(SYS_FINFO, ">i <d >i",
 		fd,
 		sizeof(t_sysFInfo)+maxacls*sizeof(t_sysACL), info,
-		maxacls);
+		maxacls
+		);
 }
 
 int acess_readdir(int fd, char *dest) {
@@ -120,7 +123,7 @@ int acess__SysOpenChild(int fd, char *name, int flags) {
 }
 
 int acess__SysGetACL(int fd, t_sysACL *dest) {
-	return _Syscall(SYS_GETACL, "<i >i <d", fd, sizeof(t_sysACL), dest);
+	return _Syscall(SYS_GETACL, ">i <d", fd, sizeof(t_sysACL), dest);
 }
 
 int acess__SysMount(const char *Device, const char *Directory, const char *Type, const char *Options) {
@@ -129,7 +132,7 @@ int acess__SysMount(const char *Device, const char *Directory, const char *Type,
 
 
 // --- Error Handler
-int	acess__SysSetFaultHandler(int (*Handler)(int)) {
+int acess__SysSetFaultHandler(int (*Handler)(int)) {
 	printf("TODO: Set fault handler (asked to set to %p)\n", Handler);
 	return 0;
 }

@@ -53,7 +53,10 @@ tVFS_Node *NativeFS_Mount(const char *Device, const char **Arguments)
 	DIR	*dp;
 	
 	dp = opendir(Device);
-	if(!dp)	return NULL;
+	if(!dp) {
+		Log_Warning("NativeFS", "ERRO: Unable to open device root '%s'", Device);
+		return NULL;
+	}
 	
 	// Check if directory exists
 	// Parse flags from arguments
@@ -144,6 +147,7 @@ tVFS_Node *NativeFS_FindDir(tVFS_Node *Node, const char *Name)
 char *NativeFS_ReadDir(tVFS_Node *Node, int Position)
 {
 	// Keep track of the current directory position
+	// TODO: Implement NativeFS_ReadDir
 	return NULL;
 }
 

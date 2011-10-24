@@ -136,11 +136,12 @@ int Server_WorkerThread(void *ClientPtr)
 			cur_client_id = Client->ClientID;
 		}
 		
-		Log_Debug("AcessSrv", "Worker %i takes %p",
-			Client->ClientID, Client->CurrentRequest);
-		
 		// Get the response
 		retHeader = SyscallRecieve(Client->CurrentRequest, &retSize);
+
+		Log_Debug("AcessSrv", "Client %i request %i",
+			Client->ClientID, Client->CurrentRequest->CallID);
+		
 		
 		if( !retHeader ) {
 			// Return an error to the client

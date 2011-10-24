@@ -4,6 +4,7 @@
  *
  * Syscall Distribution
  */
+#define DEBUG	1
 #include <acess.h>
 #include <threads.h>
 #include "../syscalls.h"
@@ -23,6 +24,7 @@ typedef int	(*tSyscallHandler)(Uint *Errno, const char *Format, void *Args, int 
 	a2 = *(_t2*)Args;Args+=sizeof(_t2);\
 	a3 = *(_t3*)Args;Args+=sizeof(_t3);\
 	a4 = *(_t4*)Args;Args+=sizeof(_t4);\
+	LOG("SYSCALL5 '%s' %p %p %p %p %p", Fmt, (intptr_t)a0,(intptr_t)a1,(intptr_t)a2,(intptr_t)a3,(intptr_t)a4);\
 	_call\
 }
 #define SYSCALL4(_name, _fmtstr, _t0, _t1, _t2, _t3, _call) int _name(Uint*Errno,const char*Fmt,void*Args,int*Sizes){\
@@ -32,6 +34,7 @@ typedef int	(*tSyscallHandler)(Uint *Errno, const char *Format, void *Args, int 
 	a1 = *(_t1*)Args;Args+=sizeof(_t1);\
 	a2 = *(_t2*)Args;Args+=sizeof(_t2);\
 	a3 = *(_t3*)Args;Args+=sizeof(_t3);\
+	LOG("SYSCALL4 '%s' %p %p %p %p", Fmt, (intptr_t)a0,(intptr_t)a1,(intptr_t)a2,(intptr_t)a3);\
 	_call\
 }
 
@@ -41,6 +44,7 @@ typedef int	(*tSyscallHandler)(Uint *Errno, const char *Format, void *Args, int 
 	a0 = *(_t0*)Args;Args+=sizeof(_t0);\
 	a1 = *(_t1*)Args;Args+=sizeof(_t1);\
 	a2 = *(_t2*)Args;Args+=sizeof(_t2);\
+	LOG("SYSCALL3 '%s' %p %p %p", Fmt, (intptr_t)a0,(intptr_t)a1,(intptr_t)a2);\
 	_call\
 }
 
@@ -49,6 +53,7 @@ typedef int	(*tSyscallHandler)(Uint *Errno, const char *Format, void *Args, int 
 	if(strcmp(Fmt,_fmtstr)!=0)return 0;\
 	a0 = *(_t0*)Args;Args+=sizeof(_t0);\
 	a1 = *(_t1*)Args;Args+=sizeof(_t1);\
+	LOG("SYSCALL2 '%s' %p %p", Fmt, (intptr_t)a0,(intptr_t)a1);\
 	_call;\
 }
 
@@ -56,11 +61,13 @@ typedef int	(*tSyscallHandler)(Uint *Errno, const char *Format, void *Args, int 
 	_t0 a0;\
 	if(strcmp(Fmt,_fmtstr)!=0)return 0;\
 	a0 = *(_t0*)Args;Args+=sizeof(_t0);\
+	LOG("SYSCALL1 '%s' %p", Fmt,(intptr_t)a0);\
 	_call;\
 }
 
 #define SYSCALL0(_name, _call) int _name(Uint*Errno,const char*Fmt, void*Args,int*Sizes){\
 	if(strcmp(Fmt,"")!=0)return 0;\
+	LOG("SYSCALL0");\
 	_call;\
 }
 
@@ -104,8 +111,12 @@ SYSCALL3(Syscall_IOCtl, "iid", int, int, void *,
 	return VFS_IOCtl(a0, a1, a2);
 );
 SYSCALL3(Syscall_FInfo, "idi", int, void *, int,
-	if( Sizes[1] < sizeof(tFInfo)+a2*sizeof(tVFS_ACL))
+	if( Sizes[1] < sizeof(tFInfo)+a2*sizeof(tVFS_ACL)) {
+		LOG("offsetof(size) = %i", offsetof(tFInfo, size));
+		LOG("Bad size %i < %i", Sizes[1], sizeof(tFInfo)+a2*sizeof(tVFS_ACL));
+		*Errno = -EINVAL;
 		return -1;
+	}
 	return VFS_FInfo(a0, a1, a2);
 );
 SYSCALL2(Syscall_ReadDir, "id", int, char *,
@@ -263,19 +274,19 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 			case ARG_TYPE_VOID:
 				break;
 			case ARG_TYPE_INT32:
-				LOG("Syscalls", "%i INT32: 0x%x", i, *(Uint32*)inData);
+				LOG("%i INT32: 0x%x", i, *(Uint32*)inData);
 				*(Uint32*)&argListData[argListLen] = *(Uint32*)inData;
 				argListLen += sizeof(Uint32);
 				inData += sizeof(Uint32);
 				break;
 			case ARG_TYPE_INT64:
-				LOG("Syscalls", "%i INT64: 0x%llx", i, *(Uint64*)inData);
+				LOG("%i INT64: 0x%llx", i, *(Uint64*)inData);
 				*(Uint64*)&argListData[argListLen] = *(Uint64*)inData;
 				argListLen += sizeof(Uint64);
 				inData += sizeof(Uint64);
 				break;
 			case ARG_TYPE_STRING:
-				LOG("Syscalls", "%i STR: '%s'", i, (char*)inData);
+				LOG("%i STR: '%s'", i, (char*)inData);
 				*(char**)&argListData[argListLen] = (char*)inData;
 				argListLen += sizeof(void*);
 				inData += Request->Params[i].Length;
@@ -296,7 +307,7 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 				{
 					// Allocate and zero the buffer
 					returnData[i] = calloc(1, Request->Params[i].Length);
-					LOG("Syscalls", "%i ZDAT: %i %p", i,
+					LOG("%i ZDAT: %i %p", i,
 						Request->Params[i].Length, returnData[i]);
 					*(void**)&argListData[argListLen] = returnData[i];
 					argListLen += sizeof(void*);
@@ -304,7 +315,7 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 				else
 				{
 					returnData[i] = (void*)inData;
-					LOG("Syscalls", "%i DATA: %i %p", i,
+					LOG("%i DATA: %i %p", i,
 						Request->Params[i].Length, returnData[i]);
 					*(void**)&argListData[argListLen] = (void*)inData;
 					argListLen += sizeof(void*);

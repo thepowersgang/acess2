@@ -25,7 +25,7 @@ extern const char	gsGitHash[];
 extern int	giBuildNumber;
 
 // === GLOBALS ===
-const char	*gsAcessDir = "../Usermode/Output/i386";
+const char	*gsAcessDir = "../Usermode/Output/x86";
 
 // === CODE ===
 int main(int argc, char *argv[])
@@ -55,7 +55,8 @@ int main(int argc, char *argv[])
 			};
 		VT_Install(args);
 	}
-	
+
+	VFS_MkDir("/Acess");	
 	VFS_Mount(gsAcessDir, "/Acess", "nativefs", "");
 
 	Debug_SetKTerminal("/Devices/VTerm/8");
