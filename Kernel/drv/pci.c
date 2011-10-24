@@ -8,14 +8,9 @@
 #include <vfs.h>
 #include <fs_devfs.h>
 #include <drv_pci.h>
+#include <drv_pci_int.h>
 
 #define	LIST_DEVICES	1
-
-// === IMPORTS ===
-extern Uint32	PCI_CfgReadDWord(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset);
-extern void	PCI_CfgWriteDWord(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset, Uint32 data);
-extern Uint16	PCI_CfgReadWord(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset);
-extern Uint8	PCI_CfgReadByte(Uint16 bus, Uint16 dev, Uint16 func, Uint16 offset);
 
 // === STRUCTURES ===
 typedef struct sPCIDevice
@@ -44,6 +39,7 @@ typedef struct sPCIDevice
  
 char	*PCI_int_ReadDirRoot(tVFS_Node *node, int pos);
 tVFS_Node	*PCI_int_FindDirRoot(tVFS_Node *node, const char *filename);
+Uint32	PCI_int_GetBusAddr(Uint16 Bus, Uint16 Slot, Uint16 Fcn, Uint8 Offset);
 Uint64	PCI_int_ReadDevice(tVFS_Node *node, Uint64 pos, Uint64 length, void *buffer);
  int	PCI_int_EnumDevice(Uint16 bus, Uint16 dev, Uint16 fcn, tPCIDevice *info);
 
@@ -339,10 +335,20 @@ int PCI_GetDeviceSubsys(tPCIDev ID, Uint16 *SubsystemVendor, Uint16 *SubsystemID
 	return 0;
 }
 
+Uint32 PCI_int_GetBusAddr(Uint16 Bus, Uint16 Slot, Uint16 Fcn, Uint8 Offset)
+{
+	Bus &= 0xFF;
+	Slot &= 0x1F;
+	Fcn &= 7;
+	Offset &= 0xFC;
+	return ((Uint32)Bus << 16) | (Slot << 11) | (Fcn << 8) | (Offset & 0xFC);
+}
+
 Uint32 PCI_ConfigRead(tPCIDev ID, int Offset, int Size)
 {
 	tPCIDevice	*dev;
-	Uint32	dword;
+	Uint32	dword, addr;
+	
 	if( ID < 0 || ID >= giPCI_DeviceCount )	return 0;
 	if( Offset < 0 || Offset > 256 )	return 0;
 
@@ -350,8 +356,9 @@ Uint32 PCI_ConfigRead(tPCIDev ID, int Offset, int Size)
 	if( Offset & (Size - 1) )	return 0;
 
 	dev = &gPCI_Devices[ID];
+	addr = PCI_int_GetBusAddr(dev->bus, dev->slot, dev->fcn, Offset);
 
-	dword = PCI_CfgReadDWord(dev->bus, dev->slot, dev->fcn, Offset / 4);
+	dword = PCI_CfgReadDWord(addr);
 	gPCI_Devices[ID].ConfigCache[Offset/4] = dword;
 	switch( Size )
 	{
@@ -366,15 +373,16 @@ Uint32 PCI_ConfigRead(tPCIDev ID, int Offset, int Size)
 void PCI_ConfigWrite(tPCIDev ID, int Offset, int Size, Uint32 Value)
 {
 	tPCIDevice	*dev;
-	Uint32	dword;
+	Uint32	dword, addr;
 	 int	shift;
 	if( ID < 0 || ID >= giPCI_DeviceCount )	return ;
 	if( Offset < 0 || Offset > 256 )	return ;
 	
 	dev = &gPCI_Devices[ID];
+	addr = PCI_int_GetBusAddr(dev->bus, dev->slot, dev->fcn, Offset);
 
 	if(Size != 4)
-		dword = PCI_CfgReadDWord(dev->bus, dev->slot, dev->fcn, Offset/4);
+		dword = PCI_CfgReadDWord(addr);
 	switch(Size)
 	{
 	case 1:
@@ -393,7 +401,7 @@ void PCI_ConfigWrite(tPCIDev ID, int Offset, int Size, Uint32 Value)
 	default:
 		return;
 	}
-	PCI_CfgWriteDWord(dev->bus, dev->slot, dev->fcn, Offset/4, dword);
+	PCI_CfgWriteDWord(addr, dword);
 }
 
 /**
@@ -424,26 +432,29 @@ Uint32 PCI_GetBAR(tPCIDev id, int BARNum)
  */
 int PCI_int_EnumDevice(Uint16 bus, Uint16 slot, Uint16 fcn, tPCIDevice *info)
 {
-	Uint16	vendor;
+	Uint32	vendor_dev, tmp;
 	 int	i;
-	
-	vendor = PCI_CfgReadWord(bus, slot, fcn, 0x0|0);
-	if(vendor == 0xFFFF)	// Invalid Device
+	Uint32	addr;
+	addr = PCI_int_GetBusAddr(bus, slot, fcn, 0);	
+
+	vendor_dev = PCI_CfgReadDWord( addr );
+	if((vendor_dev & 0xFFFF) == 0xFFFF)	// Invalid Device
 		return 0;
-		
+
+	info->ConfigCache[0] = vendor_dev;
+	for( i = 1; i < 256/4; i ++, addr += 4 )
+	{
+		info->ConfigCache[i] = PCI_CfgReadDWord(addr);
+	}	
+
 	info->bus = bus;
 	info->slot = slot;
 	info->fcn = fcn;
-	info->vendor = vendor;
-	info->device = PCI_CfgReadWord(bus, slot, fcn, 0x0|2);
-	info->revision = PCI_CfgReadWord(bus, slot, fcn, 0x8|0);
-	info->oc = PCI_CfgReadWord(bus, slot, fcn, 0x8|2);
-	
-	// Load Config Bytes
-	for(i=0;i<256/4;i++)
-	{
-		info->ConfigCache[i] = PCI_CfgReadDWord(bus, slot, fcn, i*4);
-	}
+	info->vendor = vendor_dev & 0xFFFF;
+	info->device = vendor_dev >> 16;
+	tmp = info->ConfigCache[2];
+	info->revision = tmp & 0xFFFF;
+	info->oc = tmp >> 16;
 	
 	//#if LIST_DEVICES
 	//Log("BAR0 0x%08x BAR1 0x%08x BAR2 0x%08x", info->ConfigCache[4], info->ConfigCache[5], info->ConfigCache[6]);

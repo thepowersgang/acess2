@@ -179,12 +179,11 @@ int MM_int_SetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 		else
 		{
 			// Large page
-			// TODO: 
 			Log_Warning("MMVirt", "TODO: Implement large pages in MM_int_SetPageInfo");
 		}
 		break;
 	case 20:	// Section or unmapped
-		Warning("TODO: Implement sections");
+		Log_Warning("MMVirt", "TODO: Implement sections in MM_int_SetPageInfo");
 		break;
 	case 24:	// Supersection
 		// Error if not aligned
@@ -196,20 +195,21 @@ int MM_int_SetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 		{
 			if( pi->PhysAddr == 0 ) {
 				*desc = 0;
-				// TODO: Apply to all entries
-				LEAVE('i', 0);
-				return 0;
 			}
-			// Apply
-			*desc = pi->PhysAddr & 0xFF000000;
-//			*desc |= ((pi->PhysAddr >> 32) & 0xF) << 20;
-//			*desc |= ((pi->PhysAddr >> 36) & 0x7) << 5;
-			*desc |= 2 | (1 << 18);
+			else {
+				// Apply
+				*desc = pi->PhysAddr & 0xFF000000;
+//				*desc |= ((pi->PhysAddr >> 32) & 0xF) << 20;
+//				*desc |= ((pi->PhysAddr >> 36) & 0x7) << 5;
+				*desc |= 2 | (1 << 18);
+			}
 			// TODO: Apply to all entries
+			Log_Warning("MMVirt", "TODO: Apply changes to all entries of supersections");
 			LEAVE('i', 0);
 			return 0;
 		}
 		// TODO: What here?
+		Log_Warning("MMVirt", "TODO: 24-bit not on supersection?");
 		LEAVE('i', 1);
 		return 1;
 	}
@@ -631,10 +631,9 @@ tPAddr MM_Clone(void)
 	return ret;
 }
 
-tPAddr MM_ClearUser(void)
+void MM_ClearUser(void)
 {
-	// TODO: Implement ClearUser
-	return 0;
+	Log_KernelPanic("MMVirt", "TODO: Implement MM_ClearUser");
 }
 
 tVAddr MM_MapTemp(tPAddr PAddr)
@@ -659,7 +658,6 @@ tVAddr MM_MapTemp(tPAddr PAddr)
 
 void MM_FreeTemp(tVAddr VAddr)
 {
-	// TODO: Implement FreeTemp
 	if( VAddr < MM_TMPMAP_BASE || VAddr >= MM_TMPMAP_END ) {
 		Log_Warning("MMVirt", "MM_FreeTemp: Passed an addr not from MM_MapTemp (%p)", VAddr);
 		return ;

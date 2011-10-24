@@ -68,7 +68,7 @@ extern void	Proc_Reschedule(void);
 /**
  * \brief Clear the user's memory space back to the minimum required to run
  */
-extern tPAddr	MM_ClearUser(void);
+extern void	MM_ClearUser(void);
 /**
  * \brief Dump the address space to the debug channel
  * \param Start	First address

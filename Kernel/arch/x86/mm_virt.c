@@ -15,6 +15,7 @@
 #include <mm_virt.h>
 #include <mm_phys.h>
 #include <proc.h>
+#include <hal_proc.h>
 
 #define TAB	22
 
@@ -69,8 +70,8 @@ extern void	Error_Backtrace(Uint eip, Uint ebp);
 void	MM_PreinitVirtual(void);
 void	MM_InstallVirtual(void);
 void	MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs);
-void	MM_DumpTables(tVAddr Start, tVAddr End);
-tVAddr	MM_ClearUser(void);
+//void	MM_DumpTables(tVAddr Start, tVAddr End);
+//void	MM_ClearUser(void);
 tPAddr	MM_DuplicatePage(tVAddr VAddr);
 
 // === GLOBALS ===
@@ -475,10 +476,9 @@ int MM_Map(tVAddr VAddr, tPAddr PAddr)
 }
 
 /**
- * \fn tVAddr MM_ClearUser()
  * \brief Clear user's address space
  */
-tVAddr MM_ClearUser(void)
+void MM_ClearUser(void)
 {
 	Uint	i, j;
 	
@@ -504,8 +504,6 @@ tVAddr MM_ClearUser(void)
 		INVLPG( &gaPageTable[i*1024] );
 	}
 	INVLPG( gaPageDir );
-	
-	return *gpPageCR3;
 }
 
 /**
