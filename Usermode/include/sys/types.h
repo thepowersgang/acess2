@@ -43,7 +43,7 @@ struct s_sysFInfo {
 	time_t	ctime;
 	 int	numacls;
 	struct s_sysACL	acls[];
-};
+} __attribute__((packed));
 typedef struct s_sysFInfo	t_sysFInfo;
 typedef struct s_sysACL	t_sysACL;
 
