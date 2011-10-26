@@ -360,7 +360,7 @@ void MM_SetFlags(tVAddr VAddr, Uint Flags, Uint Mask)
 	if( MM_int_GetPageInfo(VAddr, &pi) )
 		return ;
 	
-	curFlags = MM_GetPhysAddr(VAddr);
+	curFlags = MM_GetFlags(VAddr);
 	if( (curFlags & Mask) == Flags )
 		return ;
 	curFlags &= ~Mask;
@@ -516,10 +516,26 @@ void MM_int_CloneTable(Uint32 *DestEnt, int Table)
 		case 3:
 			// Small page
 			// - If full RW
-			Debug("%p cur[%i] & 0x230 = 0x%x", Table*256*0x1000, i, cur[i] & 0x230);
-			if( (cur[i] & 0x230) == 0x030 )
-				cur[i] |= 0x200;	// Set to full RO (Full RO=COW, User RO = RO)
-			tmp_map[i] = cur[i];
+//			Debug("%p cur[%i] & 0x230 = 0x%x", Table*256*0x1000, i, cur[i] & 0x230);
+			if( (cur[i] & 0x230) == 0x010 )
+			{
+				void	*dst, *src;
+				tPAddr	newpage;
+				newpage = MM_AllocPhys();
+				src = (void*)( (Table*256+i)*0x1000 );
+				dst = (void*)MM_MapTemp(newpage);
+//				Debug("Taking a copy of kernel page %p (%P)", src, cur[i] & ~0xFFF);
+				memcpy(dst, src, PAGE_SIZE);
+				MM_FreeTemp( (tVAddr)dst );
+				tmp_map[i] = newpage | (cur[i] & 0xFFF);
+			}
+			else
+			{
+				if( (cur[i] & 0x230) == 0x030 )
+					cur[i] |= 0x200;	// Set to full RO (Full RO=COW, User RO = RO)
+				tmp_map[i] = cur[i];
+				MM_RefPhys( tmp_map[i] & ~0xFFF );
+			}
 			break;
 		}
 	}
@@ -638,12 +654,15 @@ tPAddr MM_Clone(void)
 void MM_ClearUser(void)
 {
 	 int	i, j;
+	const int	user_table_count = USER_STACK_TOP / (256*0x1000);
 	Uint32	*cur = (void*)MM_TABLE0USER;
 	Uint32	*tab;
 	
 //	MM_DumpTables(0, 0x80000000);
 
-	for( i = 0; i < 0x800-4; i ++ )
+	Log("user_table_count = %i (as opposed to %i)", user_table_count, 0x800-4);
+
+	for( i = 0; i < user_table_count; i ++ )
 	{
 		switch( cur[i] & 3 )
 		{
@@ -677,6 +696,9 @@ void MM_ClearUser(void)
 		}
 		cur[i] = 0;
 	}
+	
+	// Final block of 4 tables are KStack
+	i = 0x800 - 4;
 	
 	// Clear out unused stacks
 	{
@@ -869,8 +891,8 @@ tVAddr MM_NewUserStack(void)
 		}
 		MM_SetFlags(addr+ofs, 0, MM_PFLAG_KERNEL);
 	}
-	Log("Return %p", addr + ofs);
-	MM_DumpTables(0, 0x80000000);
+//	Log("Return %p", addr + ofs);
+//	MM_DumpTables(0, 0x80000000);
 	return addr + ofs;
 }
 
@@ -943,7 +965,6 @@ void MM_PageFault(Uint32 PC, Uint32 Addr, Uint32 DFSR, int bPrefetch)
 	// Check for COW
 	if( rv == 0 &&  pi.AP == AP_RO_BOTH )
 	{
-		Log_Notice("MMVirt", "COW %p caused by %p", Addr, PC);
 		pi.AP = AP_RW_BOTH;
 		if( MM_GetRefCount(pi.PhysAddr) > 1 )
 		{
@@ -961,7 +982,14 @@ void MM_PageFault(Uint32 PC, Uint32 Addr, Uint32 DFSR, int bPrefetch)
 			memcpy( dst, src, PAGE_SIZE );
 			MM_FreeTemp( (tVAddr)dst );
 			
+			Log_Notice("MMVirt", "COW %p caused by %p, %P duped to %P", Addr, PC,
+				pi.PhysAddr, newpage);
+
+			MM_DerefPhys(pi.PhysAddr);
 			pi.PhysAddr = newpage;
+		}
+		else {
+			Log_Notice("MMVirt", "COW %p caused by %p, took last reference to %P", Addr, PC, pi.PhysAddr);
 		}
 		// Unset COW
 		pi.AP = AP_RW_BOTH;

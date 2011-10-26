@@ -89,10 +89,10 @@ SVC_Handler:
 	ldr r4, =SyscallHandler
 	blx r4
 	
-	ldr r0, =csSyscallPrintRetAddr
-	ldr r1, [sp,#9*4+5*4]
-	ldr r4, =Log
-	blx r4
+@	ldr r0, =csSyscallPrintRetAddr
+@	ldr r1, [sp,#9*4+5*4]
+@	ldr r4, =Log
+@	blx r4
 	
 	pop {r2}	@ errno
 	pop {r0,r1}	@ Ret/RetHi
@@ -270,7 +270,7 @@ kernel_table1_map:	@ Size = 4KiB
 	.rept (0xF00+16)/4
 		.long 0
 	.endr
-	.long hwmap_table_0 - KERNEL_BASE + (1 << 4) + 3
+	.long hwmap_table_0 - KERNEL_BASE + 0x13
 	.rept 0xFF8/4 - (0xF00+16)/4 - 1
 		.long 0
 	.endr
@@ -295,9 +295,11 @@ kernel_exception_map:
 		.long	0
 	.endr
 	.long 0x212	@ Map first page for exceptions (Kernel RO, Execute)
-	.rept 15
+	.rept 16-1-2
 		.long 0
 	.endr
+	.long gUsertextPhysStart + 0x22	@ User .text (User RO, Kernel RW, because both is COW)
+	.long 0
 	
 .section .padata
 stack:

@@ -27,14 +27,6 @@ KernelThreadHeader:
 	bl Threads_Exit
 	b .
 
-.globl Proc_int_DropToUser
-@ R0: User IP
-@ R1: User SP
-Proc_int_DropToUser:
-	cps #16
-	mov sp, r1
-	mov pc, r0
-
 .globl SwitchTask
 @ R0: New stack
 @ R1: Pointer to where to save old stack
@@ -81,19 +73,29 @@ Proc_CloneInt:
 	ldr r0, =Proc_CloneInt_new
 	pop {r4-r12,pc}
 Proc_CloneInt_new:
-@	cps #18
-		
-@	mov r0, #0
-@	mvn r1, #0
-@	bl MM_DumpTables
-
-@	ldr r0, =csProc_CloneInt_NewTaskMessage
-@	bl Log
-	
-@	cps #19
 	mov r0, #0
 	pop {r4-r12,pc}
 
+@ R0: New user SP
+@ Return: Old user SP
+.globl Proc_int_SwapUserSP
+Proc_int_SwapUserSP:
+	cps #31	@ Go to system mode
+	mov r1, sp
+	tst r0, r0	@ Only update if non-zero
+	movne sp, r0
+	mov r0, r1
+	cps #19
+	mov pc, lr
+
+.section .usertext, "ax"
+.globl Proc_int_DropToUser
+@ R0: User IP
+@ R1: User SP
+Proc_int_DropToUser:
+	cps #16
+	mov sp, r1
+	mov pc, r0
 
 .section .rodata
 csProc_CloneInt_NewTaskMessage:

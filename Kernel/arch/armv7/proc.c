@@ -14,6 +14,7 @@ extern tThread	gThreadZero;
 extern void	SwitchTask(Uint32 NewSP, Uint32 *OldSP, Uint32 NewIP, Uint32 *OldIP, Uint32 MemPtr);
 extern void	KernelThreadHeader(void);	// Actually takes args on stack
 extern void	Proc_int_DropToUser(Uint32 IP, Uint32 SP) NORETURN;
+extern Uint32	Proc_int_SwapUserSP(Uint32 NewSP);
 extern Uint32	Proc_CloneInt(Uint32 *SP, Uint32 *MemPtr);
 extern tVAddr	MM_NewKStack(int bGlobal);	// TODO: Move out into a header
 extern tVAddr	MM_NewUserStack(void);
@@ -92,7 +93,12 @@ void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, char **ArgV, int DataS
 	
 	// Drop to user code
 	Log_Debug("Proc", "Proc_int_DropToUser(%p, %p)", Entrypoint, usr_sp);
-	Proc_int_DropToUser(Entrypoint, (Uint32)usr_sp);
+
+	// Needed to get around relocation truncation
+	{
+		void	(*drop)(Uint32, Uint32) NORETURN = Proc_int_DropToUser;
+		drop(Entrypoint, (Uint32)usr_sp);
+	}
 }
 
 tTID Proc_Clone(Uint Flags)
@@ -112,6 +118,8 @@ tTID Proc_Clone(Uint Flags)
 	
 	new->SavedState.IP = pc;
 	new->SavedState.SP = sp;
+	new->SavedState.UserSP = Proc_int_SwapUserSP(0);
+	new->SavedState.UserIP = Proc_GetCurThread()->SavedState.UserIP;
 	new->MemState.Base = mem;
 
 	Threads_AddActive(new);
@@ -197,13 +205,16 @@ void Proc_Reschedule(void)
 	if(!next)	next = gpIdleThread;
 	if(!next || next == cur)	return;
 
-	Log("Switching to %p (%i %s) IP=%p SP=%p TTBR0=%p",
+	Log("Switching to %p (%i %s) IP=%p SP=%p TTBR0=%p UsrSP=%p",
 		next, next->TID, next->ThreadName,
-		next->SavedState.IP, next->SavedState.SP, next->MemState.Base
+		next->SavedState.IP, next->SavedState.SP, next->MemState.Base,
+		next->SavedState.UserSP
 		);
 	Log("Requested by %p", __builtin_return_address(0));
 	
 	gpCurrentThread = next;
+
+	cur->SavedState.UserSP = Proc_int_SwapUserSP( next->SavedState.UserSP );
 
 	SwitchTask(
 		next->SavedState.SP, &cur->SavedState.SP,
