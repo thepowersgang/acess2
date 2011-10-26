@@ -143,6 +143,13 @@ void *VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD,
 			else {
 				MM_SetFlags(mapping_dest, 0, MM_PFLAG_RO);
 			}
+			
+			if( Protection & MMAP_PROT_EXEC ) {
+				MM_SetFlags(mapping_dest, MM_PFLAG_EXEC, MM_PFLAG_EXEC);
+			}
+			else {
+				MM_SetFlags(mapping_dest, 0, MM_PFLAG_EXEC);
+			}
 		}
 		else
 		{
