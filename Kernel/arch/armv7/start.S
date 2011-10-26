@@ -143,22 +143,19 @@ IRQHandler:
 .globl DataAbort
 DataAbort:
 	sub lr, #8	@ Adjust LR to the correct value
-@	srsdb sp!, #19	@ Switch to supervisor mode (DDI0406B D1.6.5) (actually SRSFD)
+	srsdb sp!, #23	@ Switch to supervisor mode (DDI0406B D1.6.5) (actually SRSFD)
 @	cpsid ifa, #19
-@	PUSH_GPRS
+	PUSH_GPRS
 
-	mrc p15, 0, r4, c5, c0, 0	@ Read DFSR (Data Fault Address Register) to stack
-	push {r4}
-	mrc p15, 0, r3, c6, c0, 0	@ Read DFAR (Data Fault Address Register) into R3
-	mov r2, lr
-	ldr r1, =csDataAbort_Fmt
-	ldr r0, =csAbort_Tag
-	ldr r4, =Log_Error
+	mov r3, #0	@ not a prefetch abort
+	mrc p15, 0, r2, c5, c0, 0	@ Read DFSR (Data Fault Status Register) to R2
+	mrc p15, 0, r1, c6, c0, 0	@ Read DFAR (Data Fault Address Register) into R1
+	mov r0, lr	@ PC
+	ldr r4, =MM_PageFault
 	blx r4
-	b .
 
-@	POP_GPRS
-@	rfeia sp!	@ Pop state (actually RFEFD)
+	POP_GPRS
+	rfeia sp!	@ Pop state (actually RFEFD)
 
 .globl PrefetchAbort
 PrefetchAbort:
@@ -224,7 +221,7 @@ kernel_table0:
 	.long PCI_PADDR + 12*(1 << 20) + 0x402
 	.long PCI_PADDR + 13*(1 << 20) + 0x402
 	.long PCI_PADDR + 14*(1 << 20) + 0x402
-	.long PCI_PADDR + 15*(1 << 20) + 0x042
+	.long PCI_PADDR + 15*(1 << 20) + 0x402
 #else
 	.rept 16
 		.long 0
@@ -250,7 +247,7 @@ kernel_table0:
 @ PID0 user table
 .globl user_table1_map
 @ User table1 data table (only the first half is needed)
-@ - Abused to provide kernel stacks in upper half
+@ - Abused to provide kernel stacks in the unused half of the table
 user_table1_map:	@ Size = 4KiB (only 2KiB used)
 	.rept 0x800/4-1
 		.long 0
@@ -277,13 +274,13 @@ kernel_table1_map:	@ Size = 4KiB
 	.rept 0xFF8/4 - (0xF00+16)/4 - 1
 		.long 0
 	.endr
-	.long kernel_table1_map - KERNEL_BASE + (1 << 4) + 3
+	.long kernel_table1_map - KERNEL_BASE + 0x13
 	.long kernel_exception_map - KERNEL_BASE + 0x13
 
 @ Hardware mappings 
 .globl hwmap_table_0
 hwmap_table_0:
-	.long UART0_PADDR + (1 << 4) + 0x13	@ UART0
+	.long UART0_PADDR + 0x13	@ UART0
 	.rept 1024 - 1
 		.long 0
 	.endr
@@ -297,7 +294,7 @@ kernel_exception_map:
 	.rept 256-16
 		.long	0
 	.endr
-	.long 0x213	@ Map first page for exceptions (Kernel RO)
+	.long 0x212	@ Map first page for exceptions (Kernel RO, Execute)
 	.rept 15
 		.long 0
 	.endr

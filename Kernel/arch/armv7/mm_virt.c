@@ -52,6 +52,7 @@ tPAddr	MM_Clone(void);
 tVAddr	MM_NewKStack(int bGlobal);
 void	MM_int_DumpTableEnt(tVAddr Start, size_t Len, tMM_PageInfo *Info);
 //void	MM_DumpTables(tVAddr Start, tVAddr End);
+void	MM_PageFault(Uint32 PC, Uint32 Addr, Uint32 DFSR, int bPrefetch);
 
 // === GLOBALS ===
 tPAddr	giMM_ZeroPage;
@@ -118,11 +119,9 @@ int MM_int_AllocateCoarse(tVAddr VAddr, int Domain)
 	desc[3] = desc[0] + 0xC00;
 
 	if( VAddr < 0x80000000 ) {
-//		Log("USRFRACTAL(%p) = %p", VAddr, &USRFRACTAL(VAddr));
 		USRFRACTAL(VAddr) = paddr | 0x13;
 	}
 	else {
-//		Log("FRACTAL(%p) = %p", VAddr, &FRACTAL(table1, VAddr));
 		FRACTAL(table1, VAddr) = paddr | 0x13;
 	}
 
@@ -168,7 +167,7 @@ int MM_int_SetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 
 			*desc = (pi->PhysAddr & 0xFFFFF000) | 2;
 			if(!pi->bExecutable)	*desc |= 1;	// XN
-			if(!pi->bGlobal)	*desc |= 1 << 11;	// NG
+			if(!pi->bGlobal)	*desc |= 1 << 11;	// nG
 			if( pi->bShared)	*desc |= 1 << 10;	// S
 			*desc |= (pi->AP & 3) << 4;	// AP
 			*desc |= ((pi->AP >> 2) & 1) << 9;	// APX
@@ -931,5 +930,49 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 	if(inRange)
 		MM_int_DumpTableEnt(range_start, addr - range_start, &pi);
 	Debug("Done");
+}
+
+// NOTE: Runs in abort context, not much differe, just a smaller stack
+void MM_PageFault(Uint32 PC, Uint32 Addr, Uint32 DFSR, int bPrefetch)
+{
+	 int	rv;
+	tMM_PageInfo	pi;
+	
+	rv = MM_int_GetPageInfo(Addr, &pi);
+	
+	// Check for COW
+	if( rv == 0 &&  pi.AP == AP_RO_BOTH )
+	{
+		Log_Notice("MMVirt", "COW %p caused by %p", Addr, PC);
+		pi.AP = AP_RW_BOTH;
+		if( MM_GetRefCount(pi.PhysAddr) > 1 )
+		{
+			// Duplicate the page
+			tPAddr	newpage;
+			void	*dst, *src;
+			
+			newpage = MM_AllocPhys();
+			if(!newpage) {
+				Log_Error("MMVirt", "Unable to allocate new page for COW");
+				for(;;);
+			}
+			dst = (void*)MM_MapTemp(newpage);
+			src = (void*)(Addr & ~(PAGE_SIZE-1));
+			memcpy( dst, src, PAGE_SIZE );
+			MM_FreeTemp( (tVAddr)dst );
+			
+			pi.PhysAddr = newpage;
+		}
+		// Unset COW
+		pi.AP = AP_RW_BOTH;
+		MM_int_SetPageInfo(Addr, &pi);
+		return ;
+	}
+	
+
+	Log_Error("MMVirt", "Code at %p accessed %p (DFSR = 0x%x)%s", PC, Addr, DFSR,
+		(bPrefetch ? " - Prefetch" : "")
+		);
+	for(;;);
 }
 
