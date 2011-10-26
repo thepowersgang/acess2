@@ -34,6 +34,10 @@ _start:
 	orr r0, r0, #1 << 23
 	mcr p15, 0, r0, c1, c0, 0
 
+	@ Enable access faults on domains 0 & 1
+	mov r0, #0x55	@ 01010101b
+	mcr p15, 0, r0, c3, c0, 0
+
 	@
 	@ Check for security extensions
 	@
@@ -85,10 +89,15 @@ SVC_Handler:
 	ldr r4, =SyscallHandler
 	blx r4
 	
+	ldr r0, =csSyscallPrintRetAddr
+	ldr r1, [sp,#9*4+5*4]
+	ldr r4, =Log
+	blx r4
+	
 	pop {r2}	@ errno
 	pop {r0,r1}	@ Ret/RetHi
 	add sp, #2*4	@ Saved r2/r3
-	
+
 	pop {r4-r12}
 	rfeia sp!	@ Pop state (actually RFEFD)
 .arm_specifics:
@@ -176,12 +185,14 @@ csDataAbort_Fmt:
 	.asciz "Data Abort - %p accessed %p, DFSR=%x Unk:%x Unk:%x"
 csPrefetchAbort_Fmt:
 	.asciz "Prefetch Abort at %p, IFSR=%x"
+csSyscallPrintRetAddr:
+	.asciz "Syscall ret to %p"
 
 .section .padata
 .globl kernel_table0
 
 kernel_table0:
-	.long 0x00000002	@ Identity map the first 1 MiB
+	.long 0x00000402	@ Identity map the first 1 MiB
 	.rept 0x7FC - 1
 		.long 0
 	.endr
@@ -190,30 +201,30 @@ kernel_table0:
 	.long user_table1_map + 0x800 - KERNEL_BASE + 1	@ KStacks
 	.long user_table1_map + 0xC00 - KERNEL_BASE + 1
 	@ 0x80000000 - User/Kernel split
-	.long 0x00000002	@ Map first 4 MiB to 2GiB
-	.long 0x00100002	@ 
-	.long 0x00200002	@ 
-	.long 0x00300002	@ 
+	.long 0x00000402	@ Map first 4 MiB to 2GiB (KRW only)
+	.long 0x00100402 	@ 
+	.long 0x00200402	@ 
+	.long 0x00300402	@ 
 	.rept 0xF00 - 0x800 - 4
 		.long 0
 	.endr
 #if PCI_PADDR
-	.long PCI_PADDR +  0*(1 << 20) + 2	@ Map PCI config space
-	.long PCI_PADDR +  1*(1 << 20) + 2
-	.long PCI_PADDR +  2*(1 << 20) + 2
-	.long PCI_PADDR +  3*(1 << 20) + 2
-	.long PCI_PADDR +  4*(1 << 20) + 2
-	.long PCI_PADDR +  5*(1 << 20) + 2
-	.long PCI_PADDR +  6*(1 << 20) + 2
-	.long PCI_PADDR +  7*(1 << 20) + 2
-	.long PCI_PADDR +  8*(1 << 20) + 2
-	.long PCI_PADDR +  9*(1 << 20) + 2
-	.long PCI_PADDR + 10*(1 << 20) + 2
-	.long PCI_PADDR + 11*(1 << 20) + 2
-	.long PCI_PADDR + 12*(1 << 20) + 2
-	.long PCI_PADDR + 13*(1 << 20) + 2
-	.long PCI_PADDR + 14*(1 << 20) + 2
-	.long PCI_PADDR + 15*(1 << 20) + 2
+	.long PCI_PADDR +  0*(1 << 20) + 0x402	@ Map PCI config space
+	.long PCI_PADDR +  1*(1 << 20) + 0x402
+	.long PCI_PADDR +  2*(1 << 20) + 0x402
+	.long PCI_PADDR +  3*(1 << 20) + 0x402
+	.long PCI_PADDR +  4*(1 << 20) + 0x402
+	.long PCI_PADDR +  5*(1 << 20) + 0x402
+	.long PCI_PADDR +  6*(1 << 20) + 0x402
+	.long PCI_PADDR +  7*(1 << 20) + 0x402
+	.long PCI_PADDR +  8*(1 << 20) + 0x402
+	.long PCI_PADDR +  9*(1 << 20) + 0x402
+	.long PCI_PADDR + 10*(1 << 20) + 0x402
+	.long PCI_PADDR + 11*(1 << 20) + 0x402
+	.long PCI_PADDR + 12*(1 << 20) + 0x402
+	.long PCI_PADDR + 13*(1 << 20) + 0x402
+	.long PCI_PADDR + 14*(1 << 20) + 0x402
+	.long PCI_PADDR + 15*(1 << 20) + 0x042
 #else
 	.rept 16
 		.long 0
@@ -244,18 +255,18 @@ user_table1_map:	@ Size = 4KiB (only 2KiB used)
 	.rept 0x800/4-1
 		.long 0
 	.endr
-	.long user_table1_map - KERNEL_BASE + 0x10 + 3  	@ ...1FF000 = 0x7FDFF000
+	.long user_table1_map - KERNEL_BASE + 0x13  	@ ...1FF000 = 0x7FDFF000
 	@ Kernel stack zone
-	.long kernel_table0 + 0x0000 - KERNEL_BASE + 0x10 + 3	@ ...200000 = 0x7FE00000
-	.long kernel_table0 + 0x1000 - KERNEL_BASE + 0x10 + 3	@ ...201000 = 0x7FE01000
+	.long kernel_table0 + 0x0000 - KERNEL_BASE + 0x13	@ ...200000 = 0x7FE00000
+	.long kernel_table0 + 0x1000 - KERNEL_BASE + 0x13	@ ...201000 = 0x7FE01000
 	.rept (0x800/4)-(MM_KSTACK_SIZE/0x1000)-2
 		.long 0
 	.endr
 	#if MM_KSTACK_SIZE != 0x2000
 	#error Kernel stack size not changed in start.S
 	#endif
-	.long stack + 0x0000 - KERNEL_BASE + 0x10 + 3	@ Kernel Stack
-	.long stack + 0x1000 - KERNEL_BASE + 0x10 + 3	@ 
+	.long stack + 0x0000 - KERNEL_BASE + 0x13	@ Kernel Stack
+	.long stack + 0x1000 - KERNEL_BASE + 0x13	@ 
 
 .globl kernel_table1_map
 kernel_table1_map:	@ Size = 4KiB
@@ -272,7 +283,7 @@ kernel_table1_map:	@ Size = 4KiB
 @ Hardware mappings 
 .globl hwmap_table_0
 hwmap_table_0:
-	.long UART0_PADDR + (1 << 4) + 3	@ UART0
+	.long UART0_PADDR + (1 << 4) + 0x13	@ UART0
 	.rept 1024 - 1
 		.long 0
 	.endr

@@ -14,7 +14,7 @@
 #define AP_KRW_ONLY	1	// Kernel page
 #define AP_KRO_ONLY	5	// Kernel RO page
 #define AP_RW_BOTH	3	// Standard RW
-#define AP_RO_BOTH	6	// COW Page
+#define AP_RO_BOTH	7	// COW Page
 #define AP_RO_USER	2	// User RO Page
 #define PADDR_MASK_LVL1	0xFFFFFC00
 
@@ -119,11 +119,11 @@ int MM_int_AllocateCoarse(tVAddr VAddr, int Domain)
 
 	if( VAddr < 0x80000000 ) {
 //		Log("USRFRACTAL(%p) = %p", VAddr, &USRFRACTAL(VAddr));
-		USRFRACTAL(VAddr) = paddr | 3;
+		USRFRACTAL(VAddr) = paddr | 0x13;
 	}
 	else {
 //		Log("FRACTAL(%p) = %p", VAddr, &FRACTAL(table1, VAddr));
-		FRACTAL(table1, VAddr) = paddr | 3;
+		FRACTAL(table1, VAddr) = paddr | 0x13;
 	}
 
 	// TLBIALL 
@@ -423,7 +423,7 @@ tPAddr MM_Allocate(tVAddr VAddr)
 		pi.AP = AP_RW_BOTH;
 	else
 		pi.AP = AP_KRW_ONLY;
-	pi.bExecutable = 1;
+	pi.bExecutable = 0;
 	if( MM_int_SetPageInfo(VAddr, &pi) ) {
 		MM_DerefPhys(pi.PhysAddr);
 		LEAVE('i', 0);
@@ -497,13 +497,15 @@ void MM_int_CloneTable(Uint32 *DestEnt, int Table)
 	
 	table = MM_AllocPhys();
 	if(!table)	return ;
+
+	cur += 256*Table;
 	
 	tmp_map = (void*)MM_MapTemp(table);
 	
 	for( i = 0; i < 1024; i ++ )
 	{
 //		Log_Debug("MMVirt", "cur[%i] (%p) = %x", Table*256+i, &cur[Table*256+i], cur[Table*256+i]);
-		switch(cur[Table*256+i] & 3)
+		switch(cur[i] & 3)
 		{
 		case 0:	tmp_map[i] = 0;	break;
 		case 1:
@@ -515,12 +517,14 @@ void MM_int_CloneTable(Uint32 *DestEnt, int Table)
 		case 3:
 			// Small page
 			// - If full RW
-			if( (cur[Table*256] & 0x230) == 0x030 )
-				cur[Table*256+i] |= 0x200;	// Set to full RO (Full RO=COW, User RO = RO)
-			tmp_map[i] = cur[Table*256+i];
+			Debug("%p cur[%i] & 0x230 = 0x%x", Table*256*0x1000, i, cur[i] & 0x230);
+			if( (cur[i] & 0x230) == 0x030 )
+				cur[i] |= 0x200;	// Set to full RO (Full RO=COW, User RO = RO)
+			tmp_map[i] = cur[i];
 			break;
 		}
 	}
+	MM_FreeTemp( (tVAddr) tmp_map );
 
 	DestEnt[0] = table + 0*0x400 + 1;
 	DestEnt[1] = table + 1*0x400 + 1;
@@ -615,6 +619,7 @@ tPAddr MM_Clone(void)
 			void	*tmp_page;
 			
 			page = MM_AllocPhys();
+			Log("page = %P", page);
 			table[j] = page | 0x813;
 
 			tmp_page = (void*)MM_MapTemp(page);
@@ -633,7 +638,72 @@ tPAddr MM_Clone(void)
 
 void MM_ClearUser(void)
 {
-	Log_KernelPanic("MMVirt", "TODO: Implement MM_ClearUser");
+	 int	i, j;
+	Uint32	*cur = (void*)MM_TABLE0USER;
+	Uint32	*tab;
+	
+//	MM_DumpTables(0, 0x80000000);
+
+	for( i = 0; i < 0x800-4; i ++ )
+	{
+		switch( cur[i] & 3 )
+		{
+		case 0:	break;	// Already unmapped
+		case 1:	// Sub pages
+			tab = (void*)(MM_TABLE1USER + i*256*sizeof(Uint32));
+			for( j = 0; j < 1024; j ++ )
+			{
+				switch( tab[j] & 3 )
+				{
+				case 0:	break;	// Unmapped
+				case 1:
+					Log_Error("MMVirt", "TODO: Support large pages in MM_ClearUser");
+					break;
+				case 2:
+				case 3:
+					MM_DerefPhys( tab[j] & ~(PAGE_SIZE-1) );
+					break;
+				}
+			}
+			MM_DerefPhys( cur[i] & ~(PAGE_SIZE-1) );
+			cur[i+0] = 0;
+			cur[i+1] = 0;
+			cur[i+2] = 0;
+			i += 3;
+			break;
+		case 2:
+		case 3:
+			Log_Error("MMVirt", "TODO: Implement sections/supersections in MM_ClearUser");
+			break;
+		}
+		cur[i] = 0;
+	}
+	
+	// Clear out unused stacks
+	{
+		register Uint32 __SP asm("sp");
+		 int	cur_stack_base = ((__SP & ~(MM_KSTACK_SIZE-1)) / PAGE_SIZE) % 1024;
+
+		tab = (void*)(MM_TABLE1USER + i*256*sizeof(Uint32));
+		
+		// First 512 is the Table1 mapping + 2 for Table0 mapping
+		for( j = 512+2; j < 1024; j ++ )
+		{
+			// Skip current stack
+			if( j == cur_stack_base ) {
+				j += (MM_KSTACK_SIZE / PAGE_SIZE) - 1;
+				continue ;
+			}
+			if( !(tab[j] & 3) )	continue;
+			ASSERT( (tab[j] & 3) == 2 );
+			MM_DerefPhys( tab[j] & ~(PAGE_SIZE) );
+			tab[j] = 0;
+		}
+	}
+	
+
+	MM_DumpTables(0, 0x80000000);
+//	Log_KernelPanic("MMVirt", "TODO: Implement MM_ClearUser");
 }
 
 tVAddr MM_MapTemp(tPAddr PAddr)

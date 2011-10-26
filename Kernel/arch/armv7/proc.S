@@ -54,6 +54,8 @@ SwitchTask:
 	ldr r1, [sp,#4*10]
 	tst r1, r1
 	mcrne p15, 0, r1, c2, c0, 0	@ Set TTBR0 to r0
+	mov r1, #0
+	mcrne p15, 0, r1, c8, c7, 0	@ Invalidate all (HACK! But it fixes things)
 
 	@ Restore SP
 	mov sp, r0
@@ -85,8 +87,8 @@ Proc_CloneInt_new:
 @	mvn r1, #0
 @	bl MM_DumpTables
 
-	ldr r0, =csProc_CloneInt_NewTaskMessage
-	bl Log
+@	ldr r0, =csProc_CloneInt_NewTaskMessage
+@	bl Log
 	
 @	cps #19
 	mov r0, #0
