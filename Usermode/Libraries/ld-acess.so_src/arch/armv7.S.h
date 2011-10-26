@@ -60,32 +60,31 @@ _errno:	.long	0	@ Placed in .text, to allow use of relative addressing
 .macro syscall0 _name, _num	
 .globl \_name
 \_name:
+	push {lr}
 	svc #\_num
 	str r2, _errno
-	mov pc, lr
+	pop {pc}
 .endm
 
 .macro syscall5 _name, _num
 .globl \_name
 \_name:
-	push {r4}
+	push {r4, lr}
 	ldr r4, [sp,#4]
 	svc #\_num
 	str r2, _errno
-	pop {r4}
-	mov pc, lr
+	pop {r4, pc}
 .endm
 
 .macro syscall6 _name, _num
 .globl \_name
 \_name:
-	push {r4,r5}
+	push {r4,r5,lr}
 	ldr r4, [sp,#8]
 	ldr r5, [sp,#12]
 	svc #\_num
 	str r2, _errno
-	pop {r4,r5}
-	mov pc, lr
+	pop {r4,r5,pc}
 .endm
 
 #define SYSCALL0(_name,_num)	syscall0 _name, _num
