@@ -41,7 +41,9 @@ int GIC_Install(char **Arguments)
 
 	// Initialise
 	gpGIC_InterfaceBase = (void*)MM_MapHWPages(gGIC_InterfaceAddr, 1);
+	LOG("gpGIC_InterfaceBase = %p", gpGIC_InterfaceBase);
 	gpGIC_DistributorBase = (void*)MM_MapHWPages(gGIC_DistributorAddr, 1);
+	LOG("gpGIC_DistributorBase = %p", gpGIC_DistributorBase);
 
 	gpGIC_InterfaceBase[GICC_PMR] = 0xFF;	
 	gpGIC_InterfaceBase[GICC_CTLR] = 1;	// Enable CPU

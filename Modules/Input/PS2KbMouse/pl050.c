@@ -84,11 +84,14 @@ static inline void PL050_WriteMouseData(Uint8 Data)
 		return ;
 	}
 
+	ENTER("xData", Data);
+
 	while( --timeout && gpPL050_MouseBase[1] & PL050_TXBUSY );
 	if(timeout)
 		gpPL050_MouseBase[2] = Data;
 	else
 		Log_Error("PL050", "Write to mouse timed out");
+	LEAVE('-');
 }
 
 static inline Uint8 PL050_ReadMouseData(void)
