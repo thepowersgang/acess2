@@ -307,6 +307,12 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 			val = (intptr_t)GetSymbol(Sym, NULL);
 			*ptr = val + addend;
 			break;
+		case R_ARM_COPY: {
+			size_t	size;
+			void	*src = GetSymbol(Sym, &size);
+			DEBUGS(" elf_doRelocate_arm: R_ARM_COPY (%p, %p, %i)", ptr, src, size);
+			memcpy(ptr, src, size);
+			break; }
 		default:
 			SysDebug("elf_doRelocate_arm: Unknown Relocation, %i", type);
 			break;
