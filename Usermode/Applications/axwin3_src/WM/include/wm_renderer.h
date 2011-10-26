@@ -8,7 +8,9 @@
 #ifndef _WM_RENDERER_H_
 #define _WM_RENDERER_H_
 
-typedef struct sWMRenderer
+#include <wm.h>
+
+struct sWMRenderer
 {
 	/**
 	 * \brief Internal pointer to next loaded renderer
@@ -29,7 +31,7 @@ typedef struct sWMRenderer
 	 * \note Only the fields \a W and \a H need be filled in the window
 	 *       structure, the rest will be filled by the caller.
 	 */
-	tWindow	(*InitWindow)(int W, int H, int Flags);
+	tWindow	*(*CreateWindow)(int W, int H, int Flags);
 
 	/**
 	 * \brief Redraw a window on the screen
@@ -49,7 +51,10 @@ typedef struct sWMRenderer
 	 * \param Length	Length of the buffer \a Data
 	 * \param Data  	Implementation defined data buffer
 	 */
-	 int	(*SendMessage)(tWindow *Window, int MessageID, int Length, void *Data);
-}	tWMRenderer;
+	 int	(*HandleMessage)(tWindow *Window, int MessageID, int Length, void *Data);
+};
+
+extern void	WM_RegisterRenderer(tWMRenderer *Renderer);
+extern tWindow	*WM_CreateWindowStruct(size_t ExtraBytes);
 
 #endif
