@@ -68,8 +68,8 @@ void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, char **ArgV, int DataS
 	char	**envp;
 	tVAddr	delta;
 
-	Log_Debug("Proc", "Proc_StartUser: (Entrypoint=%p, Base=%p, ArgC=%i, ArgV=%p, DataSize=0x%x)",
-		Entrypoint, Base, ArgC, ArgV, DataSize);
+//	Log_Debug("Proc", "Proc_StartUser: (Entrypoint=%p, Base=%p, ArgC=%i, ArgV=%p, DataSize=0x%x)",
+//		Entrypoint, Base, ArgC, ArgV, DataSize);
 
 	// Write data to the user's stack
 	usr_sp = (void*)MM_NewUserStack();
@@ -79,12 +79,10 @@ void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, char **ArgV, int DataS
 
 	// Adjust user's copy of the arguments
 	delta = (tVAddr)usr_sp -  (tVAddr)ArgV;
-	Log("delta = %x", delta);
 	ArgV = (void*)usr_sp;
 	for(i = 0; ArgV[i]; i ++)	ArgV[i] += delta;
 	envp = &ArgV[i+1];
 	for(i = 0; envp[i]; i ++)	envp[i] += delta;
-	Log("envp = %p", envp);
 	
 	*--usr_sp = (Uint32)envp;
 	*--usr_sp = (Uint32)ArgV;

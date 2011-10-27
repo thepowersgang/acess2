@@ -161,6 +161,7 @@ int MM_int_SetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 			if( (*desc & 3) == 1 )	LEAVE_RET('i', 1);
 			if( pi->PhysAddr == 0 ) {
 				*desc = 0;
+				TLBIMVA(VAddr & 0xFFFFF000);
 				LEAVE('i', 0);
 				return 0;
 			}
@@ -403,7 +404,7 @@ int MM_Map(tVAddr VAddr, tPAddr PAddr)
 		pi.AP = AP_KRW_ONLY;	// Kernel Read/Write
 	pi.bExecutable = 1;
 	if( MM_int_SetPageInfo(VAddr, &pi) ) {
-		MM_DerefPhys(pi.PhysAddr);
+//		MM_DerefPhys(pi.PhysAddr);
 		return 0;
 	}
 	return pi.PhysAddr;
@@ -625,7 +626,7 @@ tPAddr MM_Clone(void)
 		j = (sp / 0x1000) % 1024;
 		num = MM_KSTACK_SIZE/0x1000;
 
-		Log("num = %i, sp = %p, j = %i", num, sp, j);
+//		Log("num = %i, sp = %p, j = %i", num, sp, j);
 		
 		// Copy stack pages
 		for(; num--; j ++, sp += 0x1000)
@@ -634,7 +635,7 @@ tPAddr MM_Clone(void)
 			void	*tmp_page;
 			
 			page = MM_AllocPhys();
-			Log("page = %P", page);
+//			Log("page = %P", page);
 			table[j] = page | 0x813;
 
 			tmp_page = (void*)MM_MapTemp(page);
@@ -660,7 +661,7 @@ void MM_ClearUser(void)
 	
 //	MM_DumpTables(0, 0x80000000);
 
-	Log("user_table_count = %i (as opposed to %i)", user_table_count, 0x800-4);
+//	Log("user_table_count = %i (as opposed to %i)", user_table_count, 0x800-4);
 
 	for( i = 0; i < user_table_count; i ++ )
 	{
@@ -723,8 +724,7 @@ void MM_ClearUser(void)
 	}
 	
 
-	MM_DumpTables(0, 0x80000000);
-//	Log_KernelPanic("MMVirt", "TODO: Implement MM_ClearUser");
+//	MM_DumpTables(0, 0x80000000);
 }
 
 tVAddr MM_MapTemp(tPAddr PAddr)
@@ -966,7 +966,28 @@ void MM_PageFault(Uint32 PC, Uint32 Addr, Uint32 DFSR, int bPrefetch)
 	if( rv == 0 &&  pi.AP == AP_RO_BOTH )
 	{
 		pi.AP = AP_RW_BOTH;
-		if( MM_GetRefCount(pi.PhysAddr) > 1 )
+		if( giMM_ZeroPage && pi.PhysAddr == giMM_ZeroPage )
+		{
+			tPAddr	newpage;
+			newpage = MM_AllocPhys();
+			if( !newpage ) {
+				Log_Error("MMVirt", "Unable to allocate new page for COW of ZERO");
+				for(;;);
+			}
+			
+			Log_Notice("MMVirt", "COW %p caused by %p, ZERO duped to %P (RefCnt(%i)--)", Addr, PC,
+				newpage, MM_GetRefCount(pi.PhysAddr));
+
+			MM_DerefPhys(pi.PhysAddr);
+			pi.PhysAddr = newpage;
+			pi.AP = AP_RW_BOTH;
+			MM_int_SetPageInfo(Addr, &pi);
+			
+			memset( (void*)(Addr & ~(PAGE_SIZE-1)), 0, PAGE_SIZE );
+
+			return ;
+		}
+		else if( MM_GetRefCount(pi.PhysAddr) > 1 )
 		{
 			// Duplicate the page
 			tPAddr	newpage;
@@ -982,14 +1003,15 @@ void MM_PageFault(Uint32 PC, Uint32 Addr, Uint32 DFSR, int bPrefetch)
 			memcpy( dst, src, PAGE_SIZE );
 			MM_FreeTemp( (tVAddr)dst );
 			
-			Log_Notice("MMVirt", "COW %p caused by %p, %P duped to %P", Addr, PC,
-				pi.PhysAddr, newpage);
+			Log_Notice("MMVirt", "COW %p caused by %p, %P duped to %P (RefCnt(%i)--)", Addr, PC,
+				pi.PhysAddr, newpage, MM_GetRefCount(pi.PhysAddr));
 
 			MM_DerefPhys(pi.PhysAddr);
 			pi.PhysAddr = newpage;
 		}
 		else {
-			Log_Notice("MMVirt", "COW %p caused by %p, took last reference to %P", Addr, PC, pi.PhysAddr);
+			Log_Notice("MMVirt", "COW %p caused by %p, took last reference to %P",
+				Addr, PC, pi.PhysAddr);
 		}
 		// Unset COW
 		pi.AP = AP_RW_BOTH;

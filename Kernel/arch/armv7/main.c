@@ -4,7 +4,7 @@
  * ARM7 Entrypoint
  * arch/arm7/main.c
  */
-#define DEBUG	1
+#define DEBUG	0
 
 #include <acess.h>
 #include <modules.h>
@@ -65,7 +65,7 @@ Uint32 ARMv7_int_HandleSyscalls(Uint32 Num, Uint32 *Args)
 	switch(Num)
 	{
 	case 1:
-		Log_Debug("ARMv7", "__clear_cache(%p, %p)", Args[0], Args[1]);
+//		Log_Debug("ARMv7", "__clear_cache(%p, %p)", Args[0], Args[1]);
 		// Align
 		Args[0] &= ~0xFFF;
 		Args[1] += 0xFFF;	Args[1] &= ~0xFFF;
