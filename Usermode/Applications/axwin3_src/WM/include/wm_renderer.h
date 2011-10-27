@@ -1,14 +1,15 @@
 /*
-* Acess2 Window Manager v3 (axwin3)
-* - By John Hodge (thePowersGang)
-*
-* include/wm_renderer.h
-* - Window renderer API
-*/
+ * Acess2 Window Manager v3 (axwin3)
+ * - By John Hodge (thePowersGang)
+ *
+ * include/wm_renderer.h
+ * - Window renderer API
+ */
 #ifndef _WM_RENDERER_H_
 #define _WM_RENDERER_H_
 
 #include <wm.h>
+#include <wm_internals.h>
 
 struct sWMRenderer
 {
@@ -50,6 +51,7 @@ struct sWMRenderer
 	 * \param MessageID	Implementation defined message ID (usually the command)
 	 * \param Length	Length of the buffer \a Data
 	 * \param Data  	Implementation defined data buffer
+	 * \return Boolean failure (0: Handled, 1: Unhandled)
 	 */
 	 int	(*HandleMessage)(tWindow *Window, int MessageID, int Length, void *Data);
 };

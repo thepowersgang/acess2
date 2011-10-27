@@ -41,7 +41,7 @@ int Renderer_Widget_Init(void)
 tWindow	*Renderer_Widget_Create(int Width, int Height, int Flags)
 {
 	// TODO: Add info
-	return WM_CreateWindowStruct(tWidgetWin_Info);
+	return WM_CreateWindowStruct( sizeof(tWidgetWin) );
 }
 
 void Renderer_Widget_Redraw(tWindow *Window)
@@ -50,10 +50,11 @@ void Renderer_Widget_Redraw(tWindow *Window)
 
 int Renderer_Widget_HandleMessage(tWindow *Target, int Msg, int Len, void *Data)
 {
-	tClassfulInfo	*info = Target->RendererInfo;
+	tWidgetWin	*info = Target->RendererInfo;
 	switch(Msg)
 	{
-
+	default:
+		return 1;	// Unhandled
 	}
 }
 
