@@ -133,13 +133,13 @@ int RTL8139_Install(char **Options)
 	
 	gaRTL8139_Cards = calloc( giRTL8139_CardCount, sizeof(tCard) );
 	
-	//while( (id = PCI_GetDevice(0x10EC, 0x8139, 0, id)) != -1 )
-	while( (id = PCI_GetDevice(VENDOR_ID, DEVICE_ID, i)) != -1 )
+	for( i = 0 ; (id = PCI_GetDevice(VENDOR_ID, DEVICE_ID, i)) != -1; i ++ )
 	{
 		card = &gaRTL8139_Cards[i];
 		base = PCI_GetBAR( id, 0 );
 		if( !(base & 1) ) {
-			Log_Warning("RTL8139", "Driver does not support MMIO, skipping card");
+			Log_Warning("RTL8139", "Driver does not support MMIO, skipping card (addr %x)",
+				base);
 			card->IOBase = 0;
 			card->IRQ = 0;
 			continue ;
@@ -215,8 +215,6 @@ int RTL8139_Install(char **Options)
 			card->MacAddr[0], card->MacAddr[1], card->MacAddr[2],
 			card->MacAddr[3], card->MacAddr[4], card->MacAddr[5]
 			);
-		
-		i ++;
 	}
 	
 	gRTL8139_DriverInfo.RootNode.Size = giRTL8139_CardCount;
