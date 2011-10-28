@@ -739,7 +739,7 @@ tVAddr MM_MapTemp(tPAddr PAddr)
 		if( MM_int_GetPageInfo(ret, &pi) == 0 )
 			continue;
 
-		Log("MapTemp %P at %p by %p", PAddr, ret, __builtin_return_address(0));
+//		Log("MapTemp %P at %p by %p", PAddr, ret, __builtin_return_address(0));
 		MM_RefPhys(PAddr);	// Counter the MM_Deallocate in FreeTemp
 		MM_Map(ret, PAddr);
 		
@@ -956,7 +956,7 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 	Debug("Done");
 }
 
-// NOTE: Runs in abort context, not much differe, just a smaller stack
+// NOTE: Runs in abort context, not much difference, just a smaller stack
 void MM_PageFault(Uint32 PC, Uint32 Addr, Uint32 DFSR, int bPrefetch)
 {
 	 int	rv;
@@ -977,8 +977,10 @@ void MM_PageFault(Uint32 PC, Uint32 Addr, Uint32 DFSR, int bPrefetch)
 				for(;;);
 			}
 			
+			#if TRACE_COW
 			Log_Notice("MMVirt", "COW %p caused by %p, ZERO duped to %P (RefCnt(%i)--)", Addr, PC,
 				newpage, MM_GetRefCount(pi.PhysAddr));
+			#endif
 
 			MM_DerefPhys(pi.PhysAddr);
 			pi.PhysAddr = newpage;
@@ -1005,16 +1007,20 @@ void MM_PageFault(Uint32 PC, Uint32 Addr, Uint32 DFSR, int bPrefetch)
 			memcpy( dst, src, PAGE_SIZE );
 			MM_FreeTemp( (tVAddr)dst );
 			
+			#if TRACE_COW
 			Log_Notice("MMVirt", "COW %p caused by %p, %P duped to %P (RefCnt(%i)--)", Addr, PC,
 				pi.PhysAddr, newpage, MM_GetRefCount(pi.PhysAddr));
+			#endif
 
 			MM_DerefPhys(pi.PhysAddr);
 			pi.PhysAddr = newpage;
 		}
+		#if TRACE_COW
 		else {
 			Log_Notice("MMVirt", "COW %p caused by %p, took last reference to %P",
 				Addr, PC, pi.PhysAddr);
 		}
+		#endif
 		// Unset COW
 		pi.AP = AP_RW_BOTH;
 		MM_int_SetPageInfo(Addr, &pi);
