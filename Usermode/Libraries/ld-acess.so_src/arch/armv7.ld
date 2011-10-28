@@ -2,7 +2,7 @@ ENTRY(_start)
 OUTPUT_FORMAT(elf32-littlearm)
 
 SECTIONS {
-	. = 0x00100000;
+	. = 0x6FFF0000;
 	gLinkedBase = .;
 	. += SIZEOF_HEADERS;
 	.interp		 : { *(.interp) }
