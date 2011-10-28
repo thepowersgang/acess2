@@ -272,7 +272,7 @@ int PCI_CountDevices(Uint16 vendor, Uint16 device)
 tPCIDev PCI_GetDevice(Uint16 vendor, Uint16 device, int idx)
 {
 	 int	i, j=0;
-	for(i=0;i<giPCI_DeviceCount;i++)
+	for( i = 0; i < giPCI_DeviceCount; i ++ )
 	{
 		if(gPCI_Devices[i].vendor != vendor)	continue;
 		if(gPCI_Devices[i].device != device)	continue;
@@ -442,7 +442,7 @@ int PCI_int_EnumDevice(Uint16 bus, Uint16 slot, Uint16 fcn, tPCIDevice *info)
 		return 0;
 
 	info->ConfigCache[0] = vendor_dev;
-	for( i = 1; i < 256/4; i ++, addr += 4 )
+	for( i = 1, addr += 4; i < 256/4; i ++, addr += 4 )
 	{
 		info->ConfigCache[i] = PCI_CfgReadDWord(addr);
 	}	
@@ -456,11 +456,11 @@ int PCI_int_EnumDevice(Uint16 bus, Uint16 slot, Uint16 fcn, tPCIDevice *info)
 	info->revision = tmp & 0xFFFF;
 	info->oc = tmp >> 16;
 	
-	//#if LIST_DEVICES
-	//Log("BAR0 0x%08x BAR1 0x%08x BAR2 0x%08x", info->ConfigCache[4], info->ConfigCache[5], info->ConfigCache[6]);
-	//Log("BAR3 0x%08x BAR4 0x%08x BAR5 0x%08x", info->ConfigCache[7], info->ConfigCache[8], info->ConfigCache[9]);
-	//Log("Class: 0x%04x", info->oc);
-	//#endif
+//	#if LIST_DEVICES
+//	Log("BAR0 0x%08x BAR1 0x%08x BAR2 0x%08x", info->ConfigCache[4], info->ConfigCache[5], info->ConfigCache[6]);
+//	Log("BAR3 0x%08x BAR4 0x%08x BAR5 0x%08x", info->ConfigCache[7], info->ConfigCache[8], info->ConfigCache[9]);
+//	Log("Class: 0x%04x", info->oc);
+//	#endif
 	
 	// Make node name
 	info->Name[0] = '0' + bus/10;
