@@ -8,6 +8,11 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <stdint.h>
+#ifdef __LINUX__
+#include <sys/prctl.h>
+#endif
+#include <unistd.h>
+#include <string.h>
 
 // === IMPORTS ===
 extern int	UI_Initialise(int Width, int Height);
@@ -19,6 +24,7 @@ extern int	NativeFS_Install(char **Arguments);
 extern void	Debug_SetKTerminal(char *Path);
 extern int	VT_Install(char **Arguments);
 extern int	VFS_Mount(const char *Device, const char *MountPoint, const char *Filesystem, const char *Options);
+extern int	VFS_MkDir(const char *Path);
 extern int	SyscallServer(void);
 extern const char	gsKernelVersion[];
 extern const char	gsGitHash[];
@@ -30,7 +36,26 @@ const char	*gsAcessDir = "../Usermode/Output/x86";
 // === CODE ===
 int main(int argc, char *argv[])
 {
+	char	**rootapp = NULL;
+	 int	rootapp_argc, i;
 	// Parse command line settings
+	for( i = 1; i < argc; i ++ )
+	{
+		if( strcmp(argv[i], "--distroot") == 0 ) {
+			gsAcessDir = argv[++i];
+		}
+		else if( strcmp(argv[i], "--rootapp") == 0 ) {
+			rootapp = &argv[++i];
+			rootapp_argc = argc - i;
+			break;
+		}
+		else {
+			fprintf(stderr, "Unknown command line option '%s'\n", argv[i]);
+			return -1;
+		}
+	}	
+
+	// Kernel build information
 	printf("Acess2 Native v%s\n", gsKernelVersion);
 	printf(" Build %i, Git Hash %s\n", giBuildNumber, gsGitHash);
 
@@ -62,9 +87,37 @@ int main(int argc, char *argv[])
 	Debug_SetKTerminal("/Devices/VTerm/8");
 	
 	// Start syscall server
-	// - Blocks
 	SyscallServer();
 	
+	// Spawn root application
+	if( rootapp )
+	{
+		 int	pid;
+		char	*args[7+rootapp_argc+1];
+		
+		args[0] = "ld-acess";
+		args[1] = "--open";	args[2] = "/Devices/VTerm/0";
+		args[3] = "--open";	args[4] = "/Devices/VTerm/0";
+		args[5] = "--open";	args[6] = "/Devices/VTerm/0";
+		for( i = 0; i < rootapp_argc; i ++ )
+			args[7+i] = rootapp[i];
+		args[7+rootapp_argc] = NULL;
+		
+		pid = fork();
+		if(pid < 0) {
+			perror("Starting root application [fork(2)]");
+			return 1;
+		}
+		if(pid == 0)
+		{
+			#ifdef __LINUX__
+			prctl(PR_SET_PDEATHSIG, SIGHUP);	// LINUX ONLY!
+			#endif
+			execv("./ld-acess", args);
+		}
+		printf("Root application running as PID %i\n", pid);
+	}
+
 	UI_MainLoop();
 
 	return 0;

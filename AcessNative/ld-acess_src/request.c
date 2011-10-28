@@ -195,7 +195,9 @@ int SendRequest(tRequestHeader *Request, int RequestSize, int ResponseSize)
 	
 	// Send it off
 	SendData(Request, RequestSize);
-	
+
+	if( Request->CallID == SYS_EXIT )	return 0;
+
 	// Wait for a response (no timeout)
 	return ReadData(Request, ResponseSize, 0);
 }
