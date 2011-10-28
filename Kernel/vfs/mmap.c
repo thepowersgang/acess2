@@ -1,8 +1,11 @@
 /*
- * Acess2 VFS
- * - Open, Close and ChDir
+ * Acess2 Kernel VFS
+ * - By John Hodge (thePowersGang)
+ *
+ * mmap.c
+ * - VFS_MMap support
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <acess.h>
 #include <vfs.h>
 #include <vfs_ext.h>
@@ -29,6 +32,9 @@ void *VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD,
 
 	ENTER("pDestHint iLength xProtection xFlags xFD XOffset", DestHint, Length, Protection, Flags, FD, Offset);
 
+	if( Flags & MMAP_MAP_ANONYMOUS )
+		Offset = (tVAddr)DestHint & 0xFFF;
+	
 	npages = ((Offset & (PAGE_SIZE-1)) + Length + (PAGE_SIZE - 1)) / PAGE_SIZE;
 	pagenum = Offset / PAGE_SIZE;
 
@@ -41,14 +47,19 @@ void *VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD,
 	if( Flags & MMAP_MAP_ANONYMOUS )
 	{
 		size_t	ofs = 0;
+		LOG("%i pages anonymous to %p", npages, mapping_dest);
 		for( ; npages --; mapping_dest += PAGE_SIZE, ofs += PAGE_SIZE )
 		{
 			if( MM_GetPhysAddr(mapping_dest) ) {
 				// TODO: Set flags to COW if needed (well, if shared)
 				MM_SetFlags(mapping_dest, MM_PFLAG_COW, MM_PFLAG_COW);
+				LOG("clear from %p, %i bytes", (void*)(mapping_base + ofs),
+					PAGE_SIZE - (mapping_base & (PAGE_SIZE-1))
+					);
 				memset( (void*)(mapping_base + ofs), 0, PAGE_SIZE - (mapping_base & (PAGE_SIZE-1)));
 			}
 			else {
+				LOG("New empty page");
 				// TODO: Map a COW zero page instead
 				if( !MM_Allocate(mapping_dest) ) {
 					// TODO: Error
