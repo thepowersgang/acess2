@@ -1661,12 +1661,12 @@ int Semaphore_Signal(tSemaphore *Sem, int AmmountToAdd)
 		#endif
 		
 		// Wake the sleeper
-		SHORTLOCK( &glThreadListLock );
+//		SHORTLOCK( &glThreadListLock );
 		if( toWake->Status != THREAD_STAT_ACTIVE )
 			Threads_AddActive(toWake);
 		else
 			Warning("Thread %p (%i %s) is already awake", toWake, toWake->TID, toWake->ThreadName);
-		SHORTREL( &glThreadListLock );
+//		SHORTREL( &glThreadListLock );
 	}
 	SHORTREL( &Sem->Protector );
 	
