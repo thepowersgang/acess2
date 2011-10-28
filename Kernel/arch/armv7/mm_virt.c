@@ -126,7 +126,9 @@ int MM_int_AllocateCoarse(tVAddr VAddr, int Domain)
 	}
 
 	// TLBIALL 
-	TLBIALL();	
+	TLBIALL();
+	
+	memset( (void*)&table1[ (VAddr >> 12) & ~(1024-1) ], 0, 0x1000 );
 
 	LEAVE('i', 0);
 	return 0;
@@ -922,7 +924,7 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 	
 	pi_old.Size = 0;
 
-	Debug("Page Table Dump:");
+	Debug("Page Table Dump (%p to %p):", Start, End);
 	range_start = Start;
 	for( addr = Start; i == 0 || (addr && addr < End); i = 1 )
 	{
@@ -1023,6 +1025,10 @@ void MM_PageFault(Uint32 PC, Uint32 Addr, Uint32 DFSR, int bPrefetch)
 	Log_Error("MMVirt", "Code at %p accessed %p (DFSR = 0x%x)%s", PC, Addr, DFSR,
 		(bPrefetch ? " - Prefetch" : "")
 		);
+	if( Addr < 0x80000000 )
+		MM_DumpTables(0, 0x80000000);
+	else
+		MM_DumpTables(0x80000000, -1);
 	for(;;);
 }
 
