@@ -100,6 +100,7 @@ tPAddr	gPL110_FramebufferPhys;
 void	*gpPL110_Framebuffer;
 // -- Misc
 tDrvUtil_Video_BufInfo	gPL110_DrvUtil_BufInfo;
+tVideo_IOCtl_Pos	gPL110_CursorPos;
 
 // === CODE ===
 /**
@@ -156,8 +157,11 @@ int PL110_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	BASE_IOCTLS(DRV_TYPE_VIDEO, "PL110", VERSION, csaPL110_IOCtls);
 
 	case VIDEO_IOCTL_SETBUFFORMAT:
+		DrvUtil_Video_RemoveCursor( &gPL110_DrvUtil_BufInfo );
 		ret = giPL110_BufferMode;
 		if(Data)	giPL110_BufferMode = *(int*)Data;
+		if(gPL110_DrvUtil_BufInfo.BufferFormat == VIDEO_BUFFMT_TEXT)
+			DrvUtil_Video_SetCursor( &gPL110_DrvUtil_BufInfo, &gDrvUtil_TextModeCursor );
 		break;
 	
 	case VIDEO_IOCTL_GETSETMODE:
@@ -244,7 +248,26 @@ int PL110_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		break;
 		}
 	
-	case VIDEO_IOCTL_SETCURSOR:	break;
+	case VIDEO_IOCTL_SETCURSOR:
+		if( !Data || !CheckMem(Data, sizeof(tVideo_IOCtl_Pos)) )
+			LEAVE_RET('i', -1);
+
+		DrvUtil_Video_RemoveCursor( &gPL110_DrvUtil_BufInfo );
+		
+		gPL110_CursorPos = *(tVideo_IOCtl_Pos*)Data;
+		if(gPL110_DrvUtil_BufInfo.BufferFormat == VIDEO_BUFFMT_TEXT)
+			DrvUtil_Video_DrawCursor(
+				&gPL110_DrvUtil_BufInfo,
+				gPL110_CursorPos.x*giVT_CharWidth,
+				gPL110_CursorPos.y*giVT_CharHeight
+				);
+		else
+			DrvUtil_Video_DrawCursor(
+				&gPL110_DrvUtil_BufInfo,
+				gPL110_CursorPos.x,
+				gPL110_CursorPos.y
+				);
+		break;
 	
 	default:
 		LEAVE('i', -2);
