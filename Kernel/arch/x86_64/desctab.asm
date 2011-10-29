@@ -104,12 +104,6 @@ Desctab_Init:
 	; Start interrupts
 	sti
 
-	; Initialise System Calls (SYSCALL/SYSRET)
-	; Set IA32_EFER.SCE
-	mov ecx, 0xC0000080
-	rdmsr
-	or eax, 1
-	wrmsr
 	; Set IA32_LSTAR (RIP of handler)
 	mov ecx, 0xC0000082	; IA32_LSTAR
 	mov eax, SyscallStub - 0xFFFFFFFF00000000

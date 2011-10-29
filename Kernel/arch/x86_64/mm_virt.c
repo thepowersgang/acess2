@@ -154,6 +154,25 @@ void MM_int_ClonePageEnt( Uint64 *Ent, void *NextLevel, tVAddr Addr, int bTable 
  */
 int MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 {
+//	Log_Debug("MMVirt", "Addr = %p, ErrorCode = %x", Addr, ErrorCode);
+
+	// Catch reserved bits first
+	if( ErrorCode & 0x8 )
+	{
+		Log_Warning("MMVirt", "Reserved bits trashed!");
+		Log_Warning("MMVirt", "PML4 Ent   = %P", PAGEMAPLVL4(Addr>>39));
+		if( !(PAGEMAPLVL4(Addr>>39) & PF_PRESENT) )	goto print_done;
+		Log_Warning("MMVirt", "PDP Ent    = %P", PAGEDIRPTR(Addr>>30));
+		if( !(PAGEDIRPTR(Addr>>30) & PF_PRESENT) )	goto print_done;
+		Log_Warning("MMVirt", "PDir Ent   = %P", PAGEDIR(Addr>>21));
+		if( !(PAGEDIR(Addr>>21) & PF_PRESENT) )	goto print_done;
+		Log_Warning("MMVirt", "PTable Ent = %P", PAGETABLE(Addr>>12));
+		if( !(PAGETABLE(Addr>>12) & PF_PRESENT) )	goto print_done;
+	print_done:
+		
+		for(;;);
+	}
+
 	// TODO: Implement Copy-on-Write
 	#if 1
 	if( PAGEMAPLVL4(Addr>>39) & PF_PRESENT

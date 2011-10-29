@@ -58,6 +58,13 @@ start:
 	or eax, 0x80|0x20|0x10
 	mov cr4, eax
 
+	; Initialise System Calls (SYSCALL/SYSRET)
+	; Set IA32_EFER.(NXE|SCE)
+	mov ecx, 0xC0000080
+	rdmsr
+	or eax, (1 << 11)|(1 << 0)	; NXE, SCE
+	wrmsr
+
 	; Load PDP4
 	mov eax, gInitialPML4 - KERNEL_BASE
 	mov cr3, eax
