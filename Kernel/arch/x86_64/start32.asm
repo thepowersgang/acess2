@@ -58,21 +58,15 @@ start:
 	or eax, 0x80|0x20|0x10
 	mov cr4, eax
 
-	; Initialise System Calls (SYSCALL/SYSRET)
-	; Set IA32_EFER.(NXE|SCE)
-	mov ecx, 0xC0000080
-	rdmsr
-	or eax, (1 << 11)|(1 << 0)	; NXE, SCE
-	wrmsr
-
 	; Load PDP4
 	mov eax, gInitialPML4 - KERNEL_BASE
 	mov cr3, eax
 
-	; Enable long/compatability mode
+	; Enable IA-32e mode
+	; (Also enables SYSCALL and NX)
 	mov ecx, 0xC0000080
 	rdmsr
-	or ax, 0x100
+	or eax, (1 << 11)|(1 << 8)|(1 << 0)	; NXE, LME, SCE
 	wrmsr
 
 	; Enable paging
@@ -97,6 +91,8 @@ start:
 	jmp .loop
 	
 .hlt:
+	cli
+	hlt
 	jmp .hlt
 
 [section .data]
