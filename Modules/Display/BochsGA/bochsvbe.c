@@ -254,7 +254,6 @@ void BGA_int_SetMode(Uint16 Width, Uint16 Height)
 	BGA_int_WriteRegister(VBE_DISPI_INDEX_YRES, Height);
 	BGA_int_WriteRegister(VBE_DISPI_INDEX_BPP, 32);
 	BGA_int_WriteRegister(VBE_DISPI_INDEX_ENABLE, VBE_DISPI_ENABLED | VBE_DISPI_NOCLEARMEM | VBE_DISPI_LFB_ENABLED);
-	MAGIC_BREAK();
 	LEAVE('-');
 }
 
