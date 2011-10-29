@@ -8,14 +8,24 @@
 #include <common.h>
 #include <acess/sys.h>
 
+// TODO: Move out to a common header
 typedef struct
 {
 	int Num;
 	int Value;
 } tNumValue;
-
 #define JOY_IOCTL_GETSETAXISLIMIT	6
 #define JOY_IOCTL_GETSETAXISPOSITION	7
+
+// === IMPORTS ===
+// TODO: Move out
+const char	*gsMouseDevice;
+ int	giTerminalFD;
+ int	giScreenWidth;
+ int	giScreenHeight;
+
+// === GLOBALS ===
+ int	giMouseFD;
 
 // === CODE ===
 int Input_Init(void)
@@ -26,14 +36,13 @@ int Input_Init(void)
 	giMouseFD = open(gsMouseDevice, 3);
 
 	// Set mouse limits
-	num_value.Num = 0;
-	num_value.Value = giScreenWidth;
+	// TODO: Update these if the screen resolution changes
+	num_value.Num = 0;	num_value.Value = giScreenWidth;
 	ioctl(giMouseFD, JOY_IOCTL_GETSETAXISLIMIT, &num_value);
 	num_value.Value = giScreenWidth/2;
 	ioctl(giMouseFD, JOY_IOCTL_GETSETAXISPOSITION, &num_value);
 
-	num_value.Num = 1;
-	num_value.Value = giScreenHeight;
+	num_value.Num = 1;	num_value.Value = giScreenHeight;
 	ioctl(giMouseFD, JOY_IOCTL_GETSETAXISLIMIT, &num_value);
 	num_value.Value = giScreenHeight/2;
 	ioctl(giMouseFD, JOY_IOCTL_GETSETAXISPOSITION, &num_value);
@@ -85,6 +94,8 @@ void Input_HandleSelect(fd_set *set)
 
 		// Handle movement
 		Video_SetCursorPos( mouseinfo.Axies[0].CursorPos, mouseinfo.Axies[1].CursorPos );
-//		_SysDebug("Cursor to %i,%i", mouseinfo.Axies[0].CursorPos, mouseinfo.Axies[1].CursorPos);
+		
+
+		// TODO: Handle button presses
 	}
 }

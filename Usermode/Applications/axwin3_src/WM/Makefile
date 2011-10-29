@@ -4,9 +4,9 @@
 
 CPPFLAGS += -I include/
 
-DIR := Apps/AxWin/2.0
+DIR := Apps/AxWin/3.0
 BIN := AxWinWM
-OBJ := main.o
+OBJ := main.o wm.o input.o
 OBJ += messageio.o
 OBJ += renderer_classes.o renderer_passthru.o renderer_widget.o
 

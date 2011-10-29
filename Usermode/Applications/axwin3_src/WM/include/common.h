@@ -10,6 +10,8 @@
 
 #include <acess/sys.h>
 
+#define TODO(str)	
+
 // === FUNCTIONS ===
 // --- Input ---
  int	Input_Init(void);
