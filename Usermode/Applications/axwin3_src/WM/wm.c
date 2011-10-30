@@ -11,11 +11,16 @@
 // === CODE ===
 void WM_RegisterRenderer(tWMRenderer *Renderer)
 {
-	TODO("Implement WM_RegisterRenderer");
+	UNIMPLEMENTED();
 }
 
 tWindow *WM_CreateWindowStruct(size_t ExtraSize)
 {
 	return NULL;
+}
+
+void WM_Render_FilledRect(tWindow *Window, tColour Colour, int X, int Y, int W, int H)
+{
+	UNIMPLEMENTED();
 }
 

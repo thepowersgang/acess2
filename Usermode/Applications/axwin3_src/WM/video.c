@@ -5,11 +5,12 @@
  * video.c
  * - Video methods
  */
-#include "common.h"
+#include <common.h>
 #include <acess/sys.h>
 #include <acess/devices/terminal.h>
 #include <image.h>
 #include "resources/cursor.h"
+#include <stdio.h>
 
 // === PROTOTYPES ===
 void	Video_Setup(void);
@@ -21,6 +22,7 @@ void	Video_DrawRect(short X, short Y, short W, short H, uint32_t Color);
 // === GLOBALS ===
  int	giVideo_CursorX;
  int	giVideo_CursorY;
+uint32_t	*gpScreenBuffer;
 
 // === CODE ===
 void Video_Setup(void)
@@ -64,7 +66,7 @@ void Video_Setup(void)
 	
 	// Create local framebuffer (back buffer)
 	gpScreenBuffer = malloc( giScreenWidth*giScreenHeight*4 );
-	memset32( gpScreenBuffer, 0x8888FF, giScreenWidth*giScreenHeight );
+	Video_FillRect(0, 0, giScreenWidth, giScreenHeight, 0x8080FF);
 
 	// Set cursor position and bitmap
 	ioctl(giTerminalFD, TERM_IOCTL_SETCURSORBITMAP, &cCursorBitmap);
@@ -93,6 +95,7 @@ void Video_SetCursorPos(short X, short Y)
 
 void Video_FillRect(short X, short Y, short W, short H, uint32_t Color)
 {
+	 int	i;
 	uint32_t	*buf = gpScreenBuffer + Y*giScreenWidth + X;
 	
 	_SysDebug("Video_FillRect: (X=%i, Y=%i, W=%i, H=%i, Color=%08x)",
@@ -106,8 +109,9 @@ void Video_FillRect(short X, short Y, short W, short H, uint32_t Color)
 	
 	while( H -- )
 	{
-		memset32( buf, Color, W );
-		buf += giScreenWidth;
+		for( i = W; i --; )
+			*buf++ = Color;
+		buf += giScreenWidth - W;
 	}
 }
 

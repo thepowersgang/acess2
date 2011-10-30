@@ -32,7 +32,7 @@ extern int	WM_Reposition(tWindow *Window, int X, int Y, int W, int H);
 extern int	WM_SetFlags(tWindow *Window, int Flags);
 extern int	WM_SendMessage(tWindow *Window, int MessageID, int Length, void *Data);
 // --- Rendering
-extern void	Render_DrawFilledRect(tWindow *Window, tColour Colour, int X, int Y, int W, int H);
+extern void	WM_Render_FilledRect(tWindow *Window, tColour Colour, int X, int Y, int W, int H);
 
 #endif
 

@@ -10,6 +10,7 @@
 
 // === IMPORTS ===
 extern void	WM_Update(void);
+extern void	Video_Setup(void);
 
 // === PROTOTYPES ===
 void	ParseCommandline(int argc, char **argv);
@@ -41,7 +42,7 @@ int main(int argc, char *argv[])
 		gsMouseDevice = "/Devices/PS2Mouse";
 	}
 	
-//	Video_Setup();
+	Video_Setup();
 //	Interface_Init();
 	IPC_Init();
 	Input_Init();

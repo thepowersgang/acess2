@@ -12,15 +12,25 @@
 
 #define TODO(str)	
 
+#define UNIMPLEMENTED()	do{_SysDebug("TODO: Implement %s", __func__); for(;;);}while(0)
+
+#define	AXWIN_VERSION	0x300
+
+// === GLOBALS ===
+extern int 	giTerminalFD;
+extern const char	*gsTerminalDevice;
+
+extern int	giScreenWidth, giScreenHeight;
+
 // === FUNCTIONS ===
 // --- Input ---
- int	Input_Init(void);
-void	Input_FillSelect(int *nfds, fd_set *set);
-void	Input_HandleSelect(fd_set *set);
+extern int	Input_Init(void);
+extern void	Input_FillSelect(int *nfds, fd_set *set);
+extern void	Input_HandleSelect(fd_set *set);
 // --- IPC ---
-void	IPC_Init(void);
-void	IPC_FillSelect(int *nfds, fd_set *set);
-void	IPC_HandleSelect(fd_set *set);
+extern void	IPC_Init(void);
+extern void	IPC_FillSelect(int *nfds, fd_set *set);
+extern void	IPC_HandleSelect(fd_set *set);
 
 #endif
 

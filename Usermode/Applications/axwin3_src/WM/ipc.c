@@ -10,6 +10,7 @@
 #include <net.h>
 #include <string.h>
 #include <ipcmessages.h>
+#include <stdio.h>
 
 #define AXWIN_PORT	4101
 
@@ -28,7 +29,7 @@ struct sIPC_Type
 void	IPC_Init(void);
 void	IPC_FillSelect(int *nfds, fd_set *set);
 void	IPC_HandleSelect(fd_set *set);
-void	IPC_Handle(tIPC_Type *IPCType, void *Ident, size_t MsgLen, tAxWin_Message *Msg);
+void	IPC_Handle(tIPC_Type *IPCType, void *Ident, size_t MsgLen, tAxWin_IPCMessage *Msg);
 void	IPC_ReturnValue(tIPC_Type *IPCType, void *Ident, int MessageID, uint32_t Value);
  int	IPC_Type_Datagram_GetSize(void *Ident);
  int	IPC_Type_Datagram_Compare(void *Ident1, void *Ident2);
@@ -97,25 +98,22 @@ void IPC_HandleSelect(fd_set *set)
 
 void IPC_Handle(tIPC_Type *IPCType, void *Ident, size_t MsgLen, tAxWin_IPCMessage *Msg)
 {
-	tApplication	*app;
-	tElement	*ele;
-	
 	_SysDebug("IPC_Handle: (IPCType=%p, Ident=%p, MsgLen=%i, Msg=%p)",
 		IPCType, Ident, MsgLen, Msg);
 	
-	if( MsgLen < sizeof(tAxWin_Message) )
+	if( MsgLen < sizeof(tAxWin_IPCMessage) )
 		return ;
-	if( MsgLen < sizeof(tAxWin_Message) + Msg->Size )
+	if( MsgLen < sizeof(tAxWin_IPCMessage) + Msg->Size )
 		return ;
 	
-	app = AxWin_GetClient(IPCType, Ident);
+//	win = AxWin_GetClient(IPCType, Ident, Msg->Window);
 
 	switch((enum eAxWin_IPCMessageTypes) Msg->ID)
 	{
 	// --- Ping message (reset timeout and get server version)
 	case IPCMSG_PING:
 		_SysDebug(" IPC_Handle: IPCMSG_PING");
-		if( MsgLen < sizeof(tAxWin_Message) + 4 )	return;
+		if( MsgLen < sizeof(tAxWin_IPCMessage) + 4 )	return;
 		if( Msg->Flags & IPCMSG_FLAG_RETURN )
 		{
 			Msg->ID = IPCMSG_PING;
@@ -133,22 +131,6 @@ void IPC_Handle(tIPC_Type *IPCType, void *Ident, size_t MsgLen, tAxWin_IPCMessag
 		_SysDebug("WARNING: Unknown message %i (%p)\n", Msg->ID, IPCType);
 		break;
 	}
-}
-
-void IPC_ReturnValue(tIPC_Type *IPCType, void *Ident, int MessageID, uint32_t Value)
-{
-	char	data[sizeof(tAxWin_Message) + sizeof(tAxWin_RetMsg)];
-	tAxWin_Message	*msg = (void *)data;
-	tAxWin_RetMsg	*ret_msg = (void *)msg->Data;
-	
-	msg->Source = 0;	// 0 = Server
-	msg->ID = MSG_SRSP_RETURN;
-	msg->Size = sizeof(tAxWin_RetMsg);
-	ret_msg->ReqID = MessageID;
-	ret_msg->Rsvd = 0;
-	ret_msg->Value = Value;
-	
-	IPCType->SendMessage(Ident, sizeof(data), data);
 }
 
 int IPC_Type_Datagram_GetSize(void *Ident)
