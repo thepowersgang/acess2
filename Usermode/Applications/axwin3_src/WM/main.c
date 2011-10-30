@@ -21,7 +21,6 @@ const char	*gsMouseDevice = NULL;
 
  int	giScreenWidth = 640;
  int	giScreenHeight = 480;
-uint32_t	*gpScreenBuffer = NULL;
 
  int	giTerminalFD = -1;
  int	giMouseFD = -1;

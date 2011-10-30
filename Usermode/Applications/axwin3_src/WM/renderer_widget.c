@@ -254,25 +254,19 @@ void Widget_UpdatePosition(tElement *Element)
 
 
 // --- Helpers ---
-tElement *_GetElementById(tWidgetWin *Info, uint32_t ID)
+tElement *Widget_GetElementById(tWidgetWin *Info, uint32_t ID)
 {
 	tElement	*ele;
-	 int	num;
 	
 	if( ID < Info->TableSize )	return Info->ElementTable[ID];
 
-	while( ID >= Info->TableSize ) {
-		num ++;
-		ID -= Info->TableSize;
-	}
-
-	ele = Info->ElementTable[num];
-	while(num-- && ele)	ele = ele->ListNext;
+	ele = Info->ElementTable[ID % Info->TableSize];
+	while(ele && ele->ID != ID)	ele = ele->ListNext;
 	return ele;
 }
 
 // --- Message Handlers ---
-void _NewWidget(tWidgetWin *Info, size_t Len, tWidgetMsg_Create *Msg)
+void Widget_NewWidget(tWidgetWin *Info, size_t Len, tWidgetMsg_Create *Msg)
 {
 	const int	max_debugname_len = Len - sizeof(tWidgetMsg_Create);
 	tElement	*parent;	
@@ -293,9 +287,11 @@ int Renderer_Widget_HandleMessage(tWindow *Target, int Msg, int Len, void *Data)
 	tWidgetWin	*info = Target->RendererInfo;
 	switch(Msg)
 	{
+	// New Widget
 	case MSG_WIDGET_CREATE:
-		_NewWidget(info, Len, Data);
+		Widget_NewWidget(info, Len, Data);
 		return 0;
+	// 
 	default:
 		return 1;	// Unhandled
 	}
