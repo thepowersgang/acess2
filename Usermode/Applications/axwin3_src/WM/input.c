@@ -18,6 +18,7 @@ typedef struct
 #define JOY_IOCTL_GETSETAXISPOSITION	7
 
 // === IMPORTS ===
+extern void	Video_SetCursorPos(short X, short Y);
 // TODO: Move out
 const char	*gsMouseDevice;
  int	giTerminalFD;

@@ -92,7 +92,7 @@ void Renderer_Widget_Redraw(tWindow *Window)
 }
 
 // --- Render / Resize ---
-void _UpdateDimensions(tElement *Ele)
+void Widget_UpdateDimensions(tElement *Element)
 {
 	tElement	*child;
 	 int	nChildren = 0;
@@ -189,12 +189,15 @@ void _UpdateDimensions(tElement *Ele)
 		child->CachedX = -1;
 	
 		// Recurse down so the child elements can be updated	
-		_UpdateDimensions(child);
+		Widget_UpdateDimensions(child);
 	}
 	
 }
 
-void _UpdatePosition(tElement *Element)
+/**
+ * \brief Update the position of child elements
+ */
+void Widget_UpdatePosition(tElement *Element)
 {
 	tElement	*child;
 	 int	x, y;
@@ -236,7 +239,7 @@ void _UpdatePosition(tElement *Element)
 			child->CachedX = newX;
 			child->CachedY = newY;
 			// Update child's children positions
-			WM_UpdatePosition(child);
+			Widget_UpdatePosition(child);
 		}
 		
 		// Increment

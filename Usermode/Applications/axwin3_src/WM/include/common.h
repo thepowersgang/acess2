@@ -18,7 +18,7 @@
 void	Input_FillSelect(int *nfds, fd_set *set);
 void	Input_HandleSelect(fd_set *set);
 // --- IPC ---
- int	IPC_Init(void);
+void	IPC_Init(void);
 void	IPC_FillSelect(int *nfds, fd_set *set);
 void	IPC_HandleSelect(fd_set *set);
 

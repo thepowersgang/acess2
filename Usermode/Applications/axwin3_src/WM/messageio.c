@@ -13,7 +13,7 @@
 // === GLOBALS ===
 
 // === CODE ===
-void DispachMessage(tAxWin_Message *Message)
+void DispachMessage(tAxWin_Message *Message, size_t Length)
 {
 	switch(Message->ID)
 	{

@@ -1,6 +1,9 @@
 /*
- * Acess GUI (AxWin) Version 2
- * By John Hodge (thePowersGang)
+ * Acess2 GUI (AxWin) Version 3
+ * - By John Hodge (thePowersGang)
+ *
+ * video.c
+ * - Video methods
  */
 #include "common.h"
 #include <acess/sys.h>
