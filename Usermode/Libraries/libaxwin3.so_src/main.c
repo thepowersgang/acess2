@@ -14,7 +14,3 @@ int SoMain(void *Base, int argc, const char *argv[], const char **envp)
 	return 0;
 }
 
-void AxWin3_Connect(const char *ServerDesc)
-{
-	// TODO: Handle Message passing, Local UDP and TCP streams
-}

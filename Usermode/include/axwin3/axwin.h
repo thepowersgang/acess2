@@ -10,7 +10,10 @@
 
 typedef void	*tHWND;
 
+typedef void	(*tAxWin3_MessageCallback)(int SourceTID, int Length);
+
 extern void	AxWin3_Connect(const char *ServerDesc);
+extern tAxWin3_MessageCallback	AxWin3_SetMessageCallback(tAxWin3_MessageCallback Callback);
 
 extern tHWND	AxWin3_CreateWindow(tHWND Parent, const char *Renderer, int Flags);
 extern void	AxWin3_DestroyWindow(tHWND Window);
