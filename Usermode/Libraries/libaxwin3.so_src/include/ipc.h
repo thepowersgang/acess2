@@ -10,6 +10,7 @@
 
 typedef struct sAxWin_IPCMessage	tAxWin_IPCMessage;
 typedef struct sIPCMsg_Return	tIPCMsg_Return;
+typedef struct sIPCMsg_CreateWin	sIPCMsg_CreateWin;
 
 /**
  * \name Flags for IPC Messages
@@ -17,6 +18,9 @@ typedef struct sIPCMsg_Return	tIPCMsg_Return;
  */
 //! Request a return value
 #define IPCMSG_FLAG_RETURN	0x01
+/**
+ * \}
+ */
 
 struct sAxWin_IPCMessage
 {
@@ -32,10 +36,18 @@ struct sIPCMsg_Return
 	uint32_t	Value;
 };
 
+struct sIPCMsg_CreateWin
+{
+	uint32_t	NewWinID;
+	uint32_t	Flags;
+	char	Renderer[];
+};
+
 enum eAxWin_IPCMessageTypes
 {
 	IPCMSG_PING,	//!< 
 	IPCMSG_SENDMSG,	//!< Send a message to another window
+	IPCMSG_CREATEWIN,	//!< Create a window
 };
 
 #endif
