@@ -8,6 +8,8 @@
 #ifndef _IPCMESSAGES_H_
 #define _IPCMESSAGES_H_
 
+#include <stdint.h>
+
 typedef struct sAxWin_IPCMessage	tAxWin_IPCMessage;
 typedef struct sIPCMsg_Return	tIPCMsg_Return;
 typedef struct sIPCMsg_CreateWin	tIPCMsg_CreateWin;
@@ -52,6 +54,7 @@ enum eAxWin_IPCMessageTypes
 
 extern tAxWin_IPCMessage	*AxWin3_int_AllocateIPCMessage(tHWND Window, int Message, int Flags, int ExtraBytes);
 extern void	AxWin3_int_SendIPCMessage(tAxWin_IPCMessage *Msg);
+extern tAxWin_IPCMessage	*AxWin3_int_GetIPCMessage(void);
 
 #endif
 

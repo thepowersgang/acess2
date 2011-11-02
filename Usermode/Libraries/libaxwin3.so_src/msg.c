@@ -10,6 +10,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "include/ipc.h"
+#include "include/internal.h"
 
 // === CONSTANTS ===
 enum eConnectionType
@@ -73,7 +74,10 @@ tAxWin_IPCMessage *AxWin3_int_AllocateIPCMessage(tHWND Window, int Message, int 
 	ret = malloc( sizeof(tAxWin_IPCMessage) + ExtraBytes );
 	ret->Flags = Flags;
 	ret->ID = Message;
-	ret->Window = Window;
+	if(Window)
+		ret->Window = Window->ServerID;
+	else
+		ret->Window = -1;
 	ret->Size = ExtraBytes;
 	return ret;
 }

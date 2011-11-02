@@ -16,6 +16,7 @@ typedef int	(*tAxWin3_WindowMessageHandler)(tHWND Window, int Length, void *Data
 
 extern void	AxWin3_Connect(const char *ServerDesc);
 extern tAxWin3_MessageCallback	AxWin3_SetMessageCallback(tAxWin3_MessageCallback Callback);
+extern void	AxWin3_MainLoop(void);
 
 extern tHWND	AxWin3_CreateWindow(tHWND Parent, const char *Renderer, int Flags, int DataBytes, void **DataPtr);
 extern void	AxWin3_DestroyWindow(tHWND Window);
