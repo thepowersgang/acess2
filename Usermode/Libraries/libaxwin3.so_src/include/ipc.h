@@ -10,7 +10,7 @@
 
 typedef struct sAxWin_IPCMessage	tAxWin_IPCMessage;
 typedef struct sIPCMsg_Return	tIPCMsg_Return;
-typedef struct sIPCMsg_CreateWin	sIPCMsg_CreateWin;
+typedef struct sIPCMsg_CreateWin	tIPCMsg_CreateWin;
 
 /**
  * \name Flags for IPC Messages
@@ -49,6 +49,9 @@ enum eAxWin_IPCMessageTypes
 	IPCMSG_SENDMSG,	//!< Send a message to another window
 	IPCMSG_CREATEWIN,	//!< Create a window
 };
+
+extern tAxWin_IPCMessage	*AxWin3_int_AllocateIPCMessage(tHWND Window, int Message, int Flags, int ExtraBytes);
+extern void	AxWin3_int_SendIPCMessage(tAxWin_IPCMessage *Msg);
 
 #endif
 
