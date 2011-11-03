@@ -12,20 +12,20 @@ char **_envp = NULL;
 char *getenv(const char *name)
 {
 	char	**env;
-	char	*str;
+	char	*env_str;
 	 int	len;
 	
 	if(!_envp)	return NULL;
 	if(!name)	return NULL;
 	
-	
 	len = strlen((char*)name);
 	
 	env = _envp;
-	while(*env) {
-		str = *env;
-		if(str[len] == '=' && strncmp((char*)name, str, len) == 0) {
-			return str+len+1;
+	while(*env)
+	{
+		env_str = *env;
+		if(strncmp(name, env_str, len) == 0 && env_str[len] == '=') {
+			return env_str+len+1;
 		}
 		env ++;
 	}

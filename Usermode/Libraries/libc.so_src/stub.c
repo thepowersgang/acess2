@@ -48,6 +48,18 @@ int SoMain(unsigned int BaseAddress, int argc, char **argv, char **envp)
 {
 	// Init for env.c
 	_envp = envp;
+
+	#if 0	
+	{
+		 int	i = 0;
+		char	**tmp;
+		_SysDebug("envp = %p", envp);
+		for(tmp = envp; *tmp; tmp++,i++)
+		{
+			_SysDebug("envp[%i] = '%s'", i, *tmp);
+		}
+	}
+	#endif
 	
 	// Init FileIO Pointers
 	stdin = &_iob[0];
