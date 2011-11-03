@@ -13,6 +13,7 @@ void	*DoRelocate(void *base, char **envp, const char *Filename);
 // === Imports ===
 extern char	gLinkedBase[];
 extern tLoadedLib	gLoadedLibraries[];
+char	**gEnvP;
  
 // === CODE ===
 /**
@@ -20,10 +21,12 @@ extern tLoadedLib	gLoadedLibraries[];
  \brief Library entry point
  \note This is the entrypoint for the library
 */
-void *SoMain(void *base)
+void *SoMain(void *base, int argc, char **argv, char **envp)
 {
 	void	*ret;
 	 
+	gEnvP = envp;
+
 	// - Assume that the file pointer will be less than 4096
 	if((intptr_t)base < 0x1000) {
 		SysDebug("ld-acess - SoMain: Passed file pointer %i\n", base);

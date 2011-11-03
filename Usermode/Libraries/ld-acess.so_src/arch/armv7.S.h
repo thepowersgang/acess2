@@ -8,6 +8,7 @@
 .extern SoMain
 _start:
 	pop {r0}
+	ldm sp, {r1,r2,r3}
 	bl SoMain
 	
 	mov r4, r0

@@ -22,3 +22,5 @@ int32_t __modsi3(int32_t Num, int32_t Den){return 0;}
 uint32_t __udivsi3(uint32_t Num, uint32_t Den){return 0;}
 uint32_t __umodsi3(uint32_t Num, uint32_t Den){return 0;}
 
+void	*_crt0_exit_handler;
+

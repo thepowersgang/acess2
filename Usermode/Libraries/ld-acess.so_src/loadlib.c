@@ -23,6 +23,7 @@ extern const struct {
 	char	*Name;
 }	caLocalExports[];
 extern const int	ciNumLocalExports;
+extern char	**gEnvP;
 
 // === GLOABLS ===
 tLoadedLib	gLoadedLibraries[MAX_LOADED_LIBRARIES];
@@ -90,7 +91,7 @@ void *LoadLibrary(const char *SoName, const char *SearchDir, char **envp)
 	
 	// Call Entrypoint
 	DEBUGS(" LoadLibrary: '%s' Entry %p", SoName, fEntry);
-	fEntry(base, 0, NULL, envp);
+	fEntry(base, 0, NULL, gEnvP);
 	
 	DEBUGS("LoadLibrary: RETURN 1");
 	return base;
