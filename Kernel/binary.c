@@ -91,7 +91,6 @@ int Proc_Spawn(const char *Path)
 }
 
 /**
- * \fn int Proc_Execve(char *File, char **ArgV, char **EnvP)
  * \brief Replace the current user image with another
  * \param File	File to load as the next image
  * \param ArgV	Arguments to pass to user
@@ -118,6 +117,7 @@ int Proc_Execve(const char *File, const char **ArgV, const char **EnvP)
 		argenvBytes += strlen(ArgV[argc])+1;
 	for( envc = 0; EnvP && EnvP[envc]; envc++ )
 		argenvBytes += strlen(EnvP[envc])+1;
+	LOG("argc = %i, envc = %i", envc);
 	argenvBytes = (argenvBytes + sizeof(void*)-1) & ~(sizeof(void*)-1);
 	argenvBytes += (argc+1)*sizeof(void*) + (envc+1)*sizeof(void*);
 	
@@ -136,6 +136,7 @@ int Proc_Execve(const char *File, const char **ArgV, const char **EnvP)
 	{
 		argvSaved[i] = strBuf;
 		strcpy(argvSaved[i], ArgV[i]);
+		LOG("argv[%i] = '%s'", i, strBuf);
 		strBuf += strlen(ArgV[i])+1;
 	}
 	argvSaved[i] = NULL;
@@ -143,6 +144,7 @@ int Proc_Execve(const char *File, const char **ArgV, const char **EnvP)
 	for( i = 0; i < envc; i++ )
 	{
 		envpSaved[i] = strBuf;
+		LOG("envp[%i] = '%s'", i, strBuf);
 		strcpy(envpSaved[i], EnvP[i]);
 		strBuf += strlen(EnvP[i])+1;
 	}

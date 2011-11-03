@@ -14,7 +14,7 @@
 // Configuration
 #define DEBUG_TRACE_TICKETS	0	// Trace ticket counts
 #define DEBUG_TRACE_STATE	0	// Trace state changes (sleep/wake)
-#define SEMAPHORE_DEBUG 	0
+#define SEMAPHORE_DEBUG 	0	// Debug semaphores
 
 // --- Schedulers ---
 #define SCHED_UNDEF	0
@@ -618,7 +618,7 @@ void Threads_Kill(tThread *Thread, int Status)
 		}
 		break;
 	
-	// Brains!... You cannot kill
+	// Brains!... You cannot kill something that is already dead
 	case THREAD_STAT_ZOMBIE:
 		Log_Warning("Threads", "Threads_Kill - Thread %p(%i,%s) is undead, you cannot kill it",
 			Thread, Thread->TID, Thread->ThreadName);
@@ -635,6 +635,8 @@ void Threads_Kill(tThread *Thread, int Status)
 	// Save exit status
 	Thread->RetStatus = Status;
 
+	SHORTREL( &Thread->IsLocked );
+
 	// Don't Zombie if we are being killed because our parent is
 	if(Status == -1)
 	{
@@ -649,9 +651,6 @@ void Threads_Kill(tThread *Thread, int Status)
 	}
 	
 	Log("Thread %i went *hurk* (%i)", Thread->TID, Status);
-	
-	// Release spinlocks
-	SHORTREL( &Thread->IsLocked );	// TODO: We may not actually be released...
 	
 	// And, reschedule
 	if(isCurThread)
@@ -713,7 +712,6 @@ void Threads_Sleep(void)
 
 
 /**
- * \fn int Threads_Wake( tThread *Thread )
  * \brief Wakes a sleeping/waiting thread up
  * \param Thread	Thread to wake
  * \return Boolean Failure (Returns ERRNO)
@@ -783,6 +781,7 @@ int Threads_Wake(tThread *Thread)
 				sem->LastSignaling = prev;
 		}
 		
+		Thread->RetStatus = 0;	// It didn't get anything
 		Threads_AddActive( Thread );
 		
 		#if DEBUG_TRACE_STATE
@@ -1509,8 +1508,17 @@ int Semaphore_Wait(tSemaphore *Sem, int MaxToTake)
 		#endif
 		
 		SHORTREL( &Sem->Protector );	// Release first to make sure it is released
-		SHORTREL( &glThreadListLock );	
-		while(us->Status == THREAD_STAT_SEMAPHORESLEEP)	Threads_Yield();
+		SHORTREL( &glThreadListLock );
+		while( us->Status == THREAD_STAT_SEMAPHORESLEEP )
+		{
+			Threads_Yield();
+			if(us->Status == THREAD_STAT_SEMAPHORESLEEP)
+				Log_Warning("Threads", "Semaphore %p %s:%s re-schedulued while asleep",
+					Sem, Sem->ModName, Sem->Name);
+		}
+		#if DEBUG_TRACE_STATE || SEMAPHORE_DEBUG
+		Log("Semaphore %p %s:%s woken", Sem, Sem->ModName, Sem->Name);
+		#endif
 		// We're only woken when there's something avaliable (or a signal arrives)
 		us->WaitPointer = NULL;
 		
@@ -1557,6 +1565,11 @@ int Semaphore_Wait(tSemaphore *Sem, int MaxToTake)
 	}
 	SHORTREL( &Sem->Protector );
 	
+	#if DEBUG_TRACE_STATE || SEMAPHORE_DEBUG
+	Log("Semaphore %p %s:%s took %i by wait",
+		Sem, Sem->ModName, Sem->Name, taken);
+	#endif
+
 	return taken;
 }
 
