@@ -7,6 +7,8 @@
  */
 #include <common.h>
 #include <acess/sys.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 // === IMPORTS ===
 extern void	WM_Update(void);
@@ -24,7 +26,10 @@ const char	*gsMouseDevice = NULL;
 
  int	giTerminalFD = -1;
  int	giMouseFD = -1;
- 
+
+#define __INSTALL_ROOT	"/Acess/Apps/AxWin/3.0"
+
+const char	*gsInstallRoot = __INSTALL_ROOT;
 
 // === CODE ===
 /**
@@ -32,6 +37,8 @@ const char	*gsMouseDevice = NULL;
  */
 int main(int argc, char *argv[])
 {
+	 int	server_tid = gettid();
+	
 	ParseCommandline(argc, argv);
 	
 	if( gsTerminalDevice == NULL ) {
@@ -48,6 +55,17 @@ int main(int argc, char *argv[])
 	
 //	WM_Update();
 	
+	// Spawn interface root
+	if( clone(CLONE_VM, 0) == 0 )
+	{
+		static char csInterfaceApp[] = __INSTALL_ROOT"/AxWinUI";
+		char	server_info[] = "AXWIN3_SERVER=00000";
+		char	*envp[] = {server_info, NULL};
+		char	*argv[] = {csInterfaceApp, NULL};
+		sprintf(server_info, "AXWIN3_SERVER=%i", server_tid);
+		execve(csInterfaceApp, argv, envp);
+	}
+
 	// Main Loop
 	for(;;)
 	{
@@ -59,7 +77,10 @@ int main(int argc, char *argv[])
 		IPC_FillSelect(&nfds, &fds);
 		
 		nfds ++;
-		select(nfds, &fds, NULL, NULL, NULL);
+		if( select(nfds, &fds, NULL, NULL, NULL) == -1 ) {
+			_SysDebug("ERROR: select() returned -1");
+			return -1;
+		}
 
 		Input_HandleSelect(&fds);
 		IPC_HandleSelect(&fds);

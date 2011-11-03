@@ -278,7 +278,7 @@ void Widget_NewWidget(tWidgetWin *Info, size_t Len, tWidgetMsg_Create *Msg)
 		return ;
 	
 	// Create
-	parent = _GetElementById(Info, Msg->Parent);
+	parent = Widget_GetElementById(Info, Msg->Parent);
 	
 }
 
@@ -293,7 +293,7 @@ int Renderer_Widget_HandleMessage(tWindow *Target, int Msg, int Len, void *Data)
 		return 0;
 	// 
 	default:
-		return 1;	// Unhandled
+		return 1;	// Unhandled, pass to user
 	}
 }
 

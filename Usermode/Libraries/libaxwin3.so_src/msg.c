@@ -31,10 +31,12 @@ tAxWin3_MessageCallback	gAxWin3_MessageCallback;
 // === CODE ===
 void AxWin3_Connect(const char *ServerDesc)
 {
+	_SysDebug("ServerDesc = %s", ServerDesc);
 	if( !ServerDesc )
 	{
 		ServerDesc = gsAxWin3_int_ServerDesc;
 	}
+	_SysDebug("ServerDesc = %s", ServerDesc);
 	if( !ServerDesc )
 	{
 		// TODO: Error out
@@ -113,6 +115,8 @@ tAxWin_IPCMessage *AxWin3_int_GetIPCMessage(void)
 	switch(giConnectionType)
 	{
 	case CONNTYPE_SENDMESSAGE:
+		if(SysGetMessage(NULL, NULL) == 0)
+			sleep();
 		while(SysGetMessage(NULL, NULL))
 		{
 			pid_t	tid;

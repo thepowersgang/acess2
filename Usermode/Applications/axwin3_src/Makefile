@@ -1,6 +1,6 @@
 
 NAME = AxWin3
-DIRS = WM
+DIRS = WM Interface
 
 SUBMAKE = $(MAKE) --no-print-directory
 

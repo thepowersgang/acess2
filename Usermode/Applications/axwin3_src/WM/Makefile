@@ -2,6 +2,7 @@
 
 -include ../../Makefile.cfg
 
+# Some evil lazy evaulation, hopefully it works
 CPPFLAGS += -I include/
 
 DIR := Apps/AxWin/3.0

@@ -16,5 +16,7 @@ struct sAxWin3_Window
 	char	Data[];
 };
 
+extern const char	*gsAxWin3_int_ServerDesc;
+
 #endif
 
