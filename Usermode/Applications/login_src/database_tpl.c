@@ -27,6 +27,7 @@ int ValidateUser(char *Username, char *Password)
 	if(strcmp(Username, "root") == 0)	return 0;
 	if(strcmp(Username, "tpg") == 0)	return 1;
 	if(strcmp(Username, "gui") == 0)	return 2;
+	if(strcmp(Username, "gui3") == 0)	return 3;
 	return -1;
 }
 
@@ -51,6 +52,11 @@ tUserInfo *GetUserInfo(int UID)
 		gUserInfo.UID = 0;	//HACK!
 		gUserInfo.Home = "/Acess/Users/gui";
 		gUserInfo.Shell = "/Acess/Apps/AxWin/1.0/AxWinWM";
+		break;
+	case 3:
+		gUserInfo.UID = 0;
+		gUserInfo.Home = "/Acess/Root";
+		gUserInfo.Shell = "/Acess/Apps/AxWin/3.0/AxWinWM";
 		break;
 	default:
 		gUserInfo.Home = "/Acess/Users/Guest";
