@@ -16,6 +16,7 @@
 #define AXWIN_PORT	4101
 
 #define STATICBUF_SIZE	64
+#define MAX_WINDOWS_PER_APP	128
 
 // === TYPES ===
 typedef struct sIPC_Type	tIPC_Type;
@@ -165,7 +166,6 @@ tIPC_Client *IPC_int_GetClient(const tIPC_Type *IPCType, const void *Ident)
 	 int	pos;	// Position where the new client will be inserted
 	 int	ident_size;
 	tIPC_Client	*ret;
-	UNIMPLEMENTED();
 
 	// - Search list of registered clients
 	{
@@ -206,6 +206,8 @@ tIPC_Client *IPC_int_GetClient(const tIPC_Type *IPCType, const void *Ident)
 	ret->IPCType = IPCType;
 	ret->Ident = &ret + 1;	// Get the end of the structure
 	memcpy( (void*)ret->Ident, Ident, ident_size );
+	ret->nWindows = 0;
+	ret->Windows = NULL;
 	
 	// TODO: Register some way of detecting the client disconnecting
 	//       > Wait on the thread / register with kernel somehow
@@ -224,14 +226,27 @@ tWindow *IPC_int_GetWindow(tIPC_Client *Client, uint32_t WindowID)
 {
 	if( WindowID == -1 )
 		return NULL;
-	
-	UNIMPLEMENTED();
-	return NULL;
+
+	if( WindowID >= Client->nWindows )
+		return NULL;
+
+	return Client->Windows[WindowID];
 }
 
 void IPC_int_SetWindow(tIPC_Client *Client, uint32_t WindowID, tWindow *WindowPtr)
 {
-	UNIMPLEMENTED();
+	if( WindowID >= MAX_WINDOWS_PER_APP )
+		return ;
+
+	if( WindowID >= Client->nWindows )
+	{
+		 int	oldCount = Client->nWindows;
+		Client->nWindows = WindowID + 1;
+		Client->Windows = realloc(Client->Windows, Client->nWindows*sizeof(tWindow*));
+		memset( &Client->Windows[oldCount],  0, (Client->nWindows-oldCount)*sizeof(tWindow*) );
+	}
+	
+	Client->Windows[WindowID] = WindowPtr;
 }
 
 // --- IPC Message Handlers ---

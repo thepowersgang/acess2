@@ -12,7 +12,12 @@
 
 struct sWindow
 {
-	uint32_t	ID;
+	tWindow	*GlobalNext;
+	tWindow	*RenderNext;
+
+	tWindow	*FirstChild;
+	tWindow	*LastChild;
+	
 	tWMRenderer	*Renderer;
 	
 	 int	X;
