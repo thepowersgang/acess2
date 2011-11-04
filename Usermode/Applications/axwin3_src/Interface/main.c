@@ -12,6 +12,11 @@
 tHWND	gSidebar;
 
 // === CODE ===
+int sidebar_callback(tHWND Window, int Length, void *Data)
+{
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	// Connect to AxWin3 Server
@@ -19,8 +24,16 @@ int main(int argc, char *argv[])
 	
 	// Create sidebar
 	// TODO: Use the widget library instead
-	gSidebar = AxWin3_CreateWindow(NULL, "widget", 0, 0, NULL);
+	gSidebar = AxWin3_CreateWindow(NULL, "Widget", 0, 0, NULL, sidebar_callback);
+
+	// TODO: Get screen dimensions somehow
+
+	// Size the window
+	AxWin3_SetWindowPos(gSidebar, 0, 0, 32, 600);
 	
+	// Show!
+	AxWin3_ShowWindow(gSidebar, 1);	
+
 	// Idle loop
 	AxWin3_MainLoop();
 	

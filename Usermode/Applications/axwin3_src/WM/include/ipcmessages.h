@@ -14,6 +14,8 @@
 typedef struct sAxWin_IPCMessage	tAxWin_IPCMessage;
 typedef struct sIPCMsg_Return	tIPCMsg_Return;
 typedef struct sIPCMsg_CreateWin	tIPCMsg_CreateWin;
+typedef struct sIPCMsg_ShowWindow	tIPCMsg_ShowWindow;
+typedef struct sIPCMsg_SetWindowPos	tIPCMsg_SetWindowPos;
 
 /**
  * \name Flags for IPC Messages
@@ -46,11 +48,28 @@ struct sIPCMsg_CreateWin
 	char	Renderer[];
 };
 
+struct sIPCMsg_ShowWindow
+{
+	uint32_t	bShow;
+};
+
+struct sIPCMsg_SetWindowPos
+{
+	 int16_t	X;
+	 int16_t	Y;
+	uint16_t	W;
+	uint16_t	H;
+	uint8_t 	Fields;
+};
+
 enum eAxWin_IPCMessageTypes
 {
-	IPCMSG_PING,	//!< 
-	IPCMSG_SENDMSG,	//!< Send a message to another window
+	IPCMSG_PING,	//!< Get the server version
+	IPCMSG_SENDMSG, 	//!< Send a message to another window (or to self)
 	IPCMSG_CREATEWIN,	//!< Create a window
+	IPCMSG_DESTROYWIN,	//!< Destroy a window
+	IPCMSG_SHOWWINDOW,	//!< Show/Hide a window
+	IPCMSG_SETWINPOS,	//!< Set a window position
 };
 
 #endif

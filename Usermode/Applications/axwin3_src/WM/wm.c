@@ -16,8 +16,7 @@ tWMRenderer	*gpWM_Renderers;
 // === CODE ===
 void WM_RegisterRenderer(tWMRenderer *Renderer)
 {
-	// TODO: Catch re-adding the first somehow?
-	if(Renderer->Next)	return;
+	// TODO: Catch out duplicates
 	Renderer->Next = gpWM_Renderers;
 	gpWM_Renderers = Renderer;
 }
@@ -51,8 +50,28 @@ tWindow *WM_CreateWindowStruct(size_t ExtraSize)
 	return calloc( sizeof(tWindow) + ExtraSize, 1 );
 }
 
+void WM_Update(void)
+{
+	// - Iterate through visible windows, updating them as needed
+	
+	// - Draw windows from back to front to the render buffer
+	
+	// - Blit the buffer to the screen
+}
+
 void WM_Render_FilledRect(tWindow *Window, tColour Colour, int X, int Y, int W, int H)
 {
+	// Clip to window dimensions
+	if(X < 0) { W += X; X = 0; }
+	if(Y < 0) { H += Y; Y = 0; }
+	if(X >= Window->W)	return;
+	if(Y >= Window->H)	return;
+	if(X + W > Window->W)	W = Window->W - X;
+	if(Y + H > Window->H)	H = Window->H - Y;
+
+	// Render to buffer
+	// Create if needed?
+
 	UNIMPLEMENTED();
 }
 

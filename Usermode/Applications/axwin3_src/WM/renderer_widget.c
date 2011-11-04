@@ -67,7 +67,7 @@ int	Renderer_Widget_HandleMessage(tWindow *Target, int Msg, int Len, void *Data)
 
 // === GLOBALS ===
 tWMRenderer	gRenderer_Widget = {
-	.Name = "Classful",
+	.Name = "Widget",
 	.CreateWindow = Renderer_Widget_Create,
 	.Redraw = Renderer_Widget_Redraw,
 	.HandleMessage = Renderer_Widget_HandleMessage

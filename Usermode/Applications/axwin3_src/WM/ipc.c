@@ -311,10 +311,12 @@ void IPC_Handle(const tIPC_Type *IPCType, const void *Ident, size_t MsgLen, tAxW
 		IPC_Msg_CreateWin(client, Msg);
 		break;
 
+//	case IPCMSG_SHOWWINDOW:
+
 	// --- Unknown message
 	default:
 		fprintf(stderr, "WARNING: Unknown message %i (%p)\n", Msg->ID, IPCType);
-		_SysDebug("WARNING: Unknown message %i (%p)\n", Msg->ID, IPCType);
+		_SysDebug("WARNING: Unknown message %i (%p)", Msg->ID, IPCType);
 		break;
 	}
 }

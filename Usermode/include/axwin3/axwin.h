@@ -18,12 +18,15 @@ extern void	AxWin3_Connect(const char *ServerDesc);
 extern tAxWin3_MessageCallback	AxWin3_SetMessageCallback(tAxWin3_MessageCallback Callback);
 extern void	AxWin3_MainLoop(void);
 
-extern tHWND	AxWin3_CreateWindow(tHWND Parent, const char *Renderer, int Flags, int DataBytes, void **DataPtr);
+extern tHWND	AxWin3_CreateWindow(tHWND Parent, const char *Renderer, int Flags, int DataBytes, void **DataPtr,
+	tAxWin3_WindowMessageHandler MessageHandler);
 extern void	AxWin3_DestroyWindow(tHWND Window);
 
 extern void	AxWin3_SendMessage(tHWND Window, int Length, void *Data);
-extern void	AxWin3_SetWindowPos(tHWND Window, int X, int Y, int W, int H);
-extern void	AxWin3_SetWindowShown(tHWND Window, int bShow);
+extern void	AxWin3_ShowWindow(tHWND Window, int bShow);
+extern void	AxWin3_SetWindowPos(tHWND Window, short X, short Y, short W, short H);
+extern void	AxWin3_MoveWindow(tHWND Window, short X, short Y);
+extern void	AxWin3_ResizeWindow(tHWND Window, short W, short H);
 
 #endif
 

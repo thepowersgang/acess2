@@ -55,7 +55,6 @@ int main(int argc, char *argv[])
 	Input_Init();
 	
 	Renderer_Widget_Init();
-//	WM_Update();
 	
 	// Spawn interface root
 	if( clone(CLONE_VM, 0) == 0 )
@@ -66,6 +65,7 @@ int main(int argc, char *argv[])
 		char	*argv[] = {csInterfaceApp, NULL};
 		sprintf(server_info, "AXWIN3_SERVER=%i", server_tid);
 		execve(csInterfaceApp, argv, envp);
+		exit(1);
 	}
 
 	// Main Loop
@@ -75,6 +75,8 @@ int main(int argc, char *argv[])
 		 int	nfds = 0;
 		FD_ZERO(&fds);
 	
+		WM_Update();
+
 		Input_FillSelect(&nfds, &fds);
 		IPC_FillSelect(&nfds, &fds);
 		
