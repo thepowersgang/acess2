@@ -8,8 +8,8 @@
 #include <axwin3/axwin.h>
 #include <stdlib.h>
 #include <string.h>
-#include "include/ipc.h"
 #include "include/internal.h"
+#include "include/ipc.h"
 
 #define WINDOWS_PER_ALLOC	(63)
 
@@ -79,9 +79,8 @@ tWindow *AxWin3_int_AllocateWindowInfo(int DataBytes, int *WinID)
 }
 
 tHWND AxWin3_CreateWindow(
-	tHWND Parent, const char *Renderer, int Flags,
-	int DataBytes, void **DataPtr,
-	tAxWin3_WindowMessageHandler MessageHandler
+	tHWND Parent, const char *Renderer, int RendererArg,
+	int DataBytes, tAxWin3_WindowMessageHandler MessageHandler
 	)
 {
 	tWindow	*ret;
@@ -99,7 +98,7 @@ tHWND AxWin3_CreateWindow(
 	msg = AxWin3_int_AllocateIPCMessage(Parent, IPCMSG_CREATEWIN, 0, dataSize);
 	create_win = (void*)msg->Data;	
 	create_win->NewWinID = newWinID;
-	create_win->Flags = Flags;
+	create_win->RendererArg = RendererArg;
 	strcpy(create_win->Renderer, Renderer);
 
 	// Send and clean up
@@ -109,7 +108,6 @@ tHWND AxWin3_CreateWindow(
 	// TODO: Detect and handle possible errors
 
 	// Return success
-	if(DataPtr)	*DataPtr = ret->Data;
 	return ret;
 }
 
@@ -120,6 +118,11 @@ void AxWin3_DestroyWindow(tHWND Window)
 	msg = AxWin3_int_AllocateIPCMessage(Window, IPCMSG_DESTROYWIN, 0, 0);
 	AxWin3_int_SendIPCMessage(msg);
 	free(msg);
+}
+
+void *AxWin3_int_GetDataPtr(tHWND Window)
+{
+	return &Window->Data;
 }
 
 void AxWin3_ShowWindow(tHWND Window, int bShow)

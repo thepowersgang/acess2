@@ -2,8 +2,7 @@
 
 -include ../../Makefile.cfg
 
-# Some evil lazy evaulation, hopefully it works
-CPPFLAGS += -I include/
+CPPFLAGS += -I include/ -I ../include/
 
 DIR := Apps/AxWin/3.0
 BIN := AxWinWM

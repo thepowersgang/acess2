@@ -9,7 +9,7 @@
 #include <acess/sys.h>
 #include <string.h>
 #include <stdlib.h>
-#include "include/ipc.h"
+#include <ipcmessages.h>	// AxWin3 common
 #include "include/internal.h"
 
 // === CONSTANTS ===

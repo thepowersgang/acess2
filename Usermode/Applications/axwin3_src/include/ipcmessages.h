@@ -44,7 +44,7 @@ struct sIPCMsg_Return
 struct sIPCMsg_CreateWin
 {
 	uint32_t	NewWinID;
-	uint32_t	Flags;
+	uint32_t	RendererArg;
 	char	Renderer[];
 };
 

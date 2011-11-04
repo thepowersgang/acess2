@@ -30,7 +30,7 @@ struct sWMRenderer
 	 * \note \a Flags is provided for convinience, the caller will
 	 *       set the copy in the window structure.
 	 */
-	tWindow	*(*CreateWindow)(int Flags);
+	tWindow	*(*CreateWindow)(int Arg);
 
 	/**
 	 * \brief Redraw a window on the screen

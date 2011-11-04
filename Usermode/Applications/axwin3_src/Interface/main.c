@@ -7,6 +7,7 @@
  */
 #include <stdlib.h>
 #include <axwin3/axwin.h>
+#include <axwin3/widget.h>
 
 // === GLOBALS ===
 tHWND	gSidebar;
@@ -24,12 +25,10 @@ int main(int argc, char *argv[])
 	
 	// Create sidebar
 	// TODO: Use the widget library instead
-	gSidebar = AxWin3_CreateWindow(NULL, "Widget", 0, 0, NULL, sidebar_callback);
-
 	// TODO: Get screen dimensions somehow
+	gSidebar = AxWin3_Widget_CreateWindow(NULL, 32, 600, 0);
 
-	// Size the window
-	AxWin3_SetWindowPos(gSidebar, 0, 0, 32, 600);
+	AxWin3_MoveWindow(gSidebar, 0, 0);
 	
 	// Show!
 	AxWin3_ShowWindow(gSidebar, 1);	

@@ -6,8 +6,8 @@
  * - Entrypoint and setup
  */
 #include <axwin3/axwin.h>
-#include "include/ipc.h"
 #include "include/internal.h"
+#include "include/ipc.h"
 
 // === CODE ===
 int SoMain(void *Base, int argc, const char *argv[], const char **envp)

@@ -21,7 +21,7 @@ void WM_RegisterRenderer(tWMRenderer *Renderer)
 	gpWM_Renderers = Renderer;
 }
 
-tWindow *WM_CreateWindow(tWindow *Parent, int Flags, const char *RendererName)
+tWindow *WM_CreateWindow(tWindow *Parent, int RendererArg, const char *RendererName)
 {
 	tWMRenderer	*renderer;
 	tWindow	*ret;
@@ -36,10 +36,7 @@ tWindow *WM_CreateWindow(tWindow *Parent, int Flags, const char *RendererName)
 		return NULL;
 
 	// - Call create window function
-	ret = renderer->CreateWindow(Flags);
-	
-	// - Fill common fields on that
-	ret->Flags = Flags;
+	ret = renderer->CreateWindow(RendererArg);
 	
 	// - Return!
 	return ret;

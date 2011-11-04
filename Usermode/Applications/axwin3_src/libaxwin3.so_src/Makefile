@@ -3,7 +3,7 @@
 
 include ../../../Libraries/Makefile.cfg
 
-CPPFLAGS +=
+CPPFLAGS += -I ../include/
 CFLAGS   += -Wall
 LDFLAGS  += -lc -soname libaxwin3.so
 

@@ -270,7 +270,7 @@ int IPC_Msg_CreateWin(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
 		return 1;
 
 	// - Create the new window, and save its pointer
-	newwin = WM_CreateWindow(parent, info->Flags, info->Renderer);
+	newwin = WM_CreateWindow(parent, info->RendererArg, info->Renderer);
 	IPC_int_SetWindow(Client, info->NewWinID, newwin);
 
 	return 0;
