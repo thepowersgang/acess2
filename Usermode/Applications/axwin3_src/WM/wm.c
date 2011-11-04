@@ -14,6 +14,20 @@ void WM_RegisterRenderer(tWMRenderer *Renderer)
 	UNIMPLEMENTED();
 }
 
+tWindow *WM_CreateWindow(tWindow *Parent, int Flags, const char *RendererName)
+{
+	UNIMPLEMENTED();
+	
+	// - Get Renderer
+
+	// - Call create window function
+	
+	// - Fill common fields on that
+	
+	// - Return!
+	return NULL;
+}
+
 tWindow *WM_CreateWindowStruct(size_t ExtraSize)
 {
 	return NULL;

@@ -27,7 +27,7 @@ typedef uint32_t	tColour;
 
 // === FUNCTIONS ===
 // --- Management
-extern tWindow	*WM_CreateWindow(tWindow *Parent, int X, int Y, int W, int H, int Flags, tWMRenderer *Handler);
+extern tWindow	*WM_CreateWindow(tWindow *Parent, int Flags, const char *Renderer);
 extern int	WM_Reposition(tWindow *Window, int X, int Y, int W, int H);
 extern int	WM_SetFlags(tWindow *Window, int Flags);
 extern int	WM_SendMessage(tWindow *Window, int MessageID, int Length, void *Data);
