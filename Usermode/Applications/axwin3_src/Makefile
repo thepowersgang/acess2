@@ -1,6 +1,6 @@
 
 NAME = AxWin3
-DIRS = WM Interface
+DIRS = WM libaxwin3.so_src Interface
 
 SUBMAKE = $(MAKE) --no-print-directory
 

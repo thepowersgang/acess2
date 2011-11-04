@@ -12,7 +12,7 @@ SUBMAKE = $(MAKE) --no-print-directory
 
 USRLIBS := crt0.o acess.ld ld-acess.so libgcc.so libc.so
 USRLIBS += libreadline.so libnet.so liburi.so
-USRLIBS += libaxwin2.so libaxwin3.so libimage_sif.so
+USRLIBS += libaxwin2.so libimage_sif.so
 
 USRAPPS := init login CLIShell cat ls mount
 USRAPPS += bomb
