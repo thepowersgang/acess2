@@ -19,6 +19,8 @@ struct sWindow
 	tWindow	*LastChild;
 	
 	tWMRenderer	*Renderer;
+
+	 int	Flags;
 	
 	 int	X;
 	 int	Y;
@@ -27,6 +29,7 @@ struct sWindow
 
 	void	*RendererInfo;	
 
+	void	*RenderBuffer;	//!< Cached copy of the rendered window
 };
 
 #endif

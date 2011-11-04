@@ -61,7 +61,7 @@ struct sWidgetWin
 };
 
 // === PROTOTYPES ===
-tWindow	*Renderer_Widget_Create(int Width, int Height, int Flags);
+tWindow	*Renderer_Widget_Create(int Flags);
 void	Renderer_Widget_Redraw(tWindow *Window);
 int	Renderer_Widget_HandleMessage(tWindow *Target, int Msg, int Len, void *Data);
 
@@ -81,7 +81,7 @@ int Renderer_Widget_Init(void)
 	return 0;
 }
 
-tWindow	*Renderer_Widget_Create(int Width, int Height, int Flags)
+tWindow	*Renderer_Widget_Create(int Flags)
 {
 	// TODO: Add info
 	return WM_CreateWindowStruct( sizeof(tWidgetWin) );

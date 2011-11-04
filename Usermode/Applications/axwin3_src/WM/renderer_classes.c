@@ -16,7 +16,7 @@ typedef struct sClassfulInfo
 } tClassfulInfo;
 
 // === PROTOTYPES ===
-tWindow	*Renderer_Class_Create(int Width, int Height, int Flags);
+tWindow	*Renderer_Class_Create(int Flags);
 void	Renderer_Class_Redraw(tWindow *Window);
 int	Renderer_Class_HandleMessage(tWindow *Target, int Msg, int Len, void *Data);
 
@@ -36,7 +36,7 @@ int Renderer_Class_Init(void)
 	return 0;
 }
 
-tWindow	*Renderer_Class_Create(int Width, int Height, int Flags)
+tWindow	*Renderer_Class_Create(int Flags)
 {
 	return WM_CreateWindowStruct(sizeof(tClassfulInfo));
 }

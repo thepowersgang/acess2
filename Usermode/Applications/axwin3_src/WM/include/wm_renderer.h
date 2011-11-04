@@ -25,14 +25,12 @@ struct sWMRenderer
 
 	/**
 	 * \brief Initialise a window structure for the renderer
-	 * \param W	Width of the new window
-	 * \param H	Height of the new window
 	 * \param Flags	Flags for the window
 	 * \return malloc()'d window structure, or NULL on error
-	 * \note Only the fields \a W and \a H need be filled in the window
-	 *       structure, the rest will be filled by the caller.
+	 * \note \a Flags is provided for convinience, the caller will
+	 *       set the copy in the window structure.
 	 */
-	tWindow	*(*CreateWindow)(int W, int H, int Flags);
+	tWindow	*(*CreateWindow)(int Flags);
 
 	/**
 	 * \brief Redraw a window on the screen

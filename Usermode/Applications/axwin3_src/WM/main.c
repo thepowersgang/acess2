@@ -13,6 +13,7 @@
 // === IMPORTS ===
 extern void	WM_Update(void);
 extern void	Video_Setup(void);
+extern int	Renderer_Widget_Init(void);
 
 // === PROTOTYPES ===
 void	ParseCommandline(int argc, char **argv);
@@ -53,6 +54,7 @@ int main(int argc, char *argv[])
 	IPC_Init();
 	Input_Init();
 	
+	Renderer_Widget_Init();
 //	WM_Update();
 	
 	// Spawn interface root
