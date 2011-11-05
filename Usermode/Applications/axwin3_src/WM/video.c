@@ -11,6 +11,7 @@
 #include <image.h>
 #include "resources/cursor.h"
 #include <stdio.h>
+#include <video.h>
 
 // === PROTOTYPES ===
 void	Video_Setup(void);
@@ -77,9 +78,10 @@ void Video_Setup(void)
 
 void Video_Update(void)
 {
-	//seek(giTerminalFD, 0, SEEK_SET);
+	_SysDebug("Video_Update - gpScreenBuffer[0] = 0x%x", gpScreenBuffer[0]);
 	seek(giTerminalFD, 0, 1);
 	write(giTerminalFD, gpScreenBuffer, giScreenWidth*giScreenHeight*4);
+	_SysDebug("Video_Update - Done");
 }
 
 void Video_SetCursorPos(short X, short Y)
@@ -121,6 +123,36 @@ void Video_DrawRect(short X, short Y, short W, short H, uint32_t Color)
 	Video_FillRect(X, Y+H-1, W, 1, Color);
 	Video_FillRect(X, Y, 1, H, Color);
 	Video_FillRect(X+W-1, Y, 1, H, Color);
+}
+
+/**
+ * \brief Blit an entire buffer to the screen
+ * \note Assumes Pitch = 4*W
+ */
+void Video_Blit(uint32_t *Source, short DstX, short DstY, short W, short H)
+{
+	 int	i;
+	uint32_t	*buf;
+
+	_SysDebug("Video_Blit: (%p (%i, %i) %ix%i)", Source, DstX, DstY, W, H);
+	
+	// TODO: Handle -ve X/Y by clipping
+	if( DstX < 0 || DstY < 0 )	return ;
+	// TODO: Handle out of bounds by clipping too
+	if( DstX + W > giScreenWidth )	return;
+	if( DstY + H > giScreenHeight )	return;
+
+	if( W <= 0 || H <= 0 )	return;
+	
+	_SysDebug(" Clipped to (%i, %i) %ix%i", DstX, DstY, W, H);
+	_SysDebug(" Source[0] = 0x%x", Source[0]);
+	buf = gpScreenBuffer + DstY*giScreenWidth + DstX;
+	while( H -- )
+	{
+		for( i = W; i --; )
+			*buf++ = *Source++;
+		buf += giScreenWidth - W;
+	}
 }
 
 /**

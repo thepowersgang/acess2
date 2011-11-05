@@ -11,9 +11,11 @@
 #include <stdio.h>
 
 // === IMPORTS ===
-extern void	WM_Update(void);
 extern void	Video_Setup(void);
+extern void	WM_Initialise(void);
 extern int	Renderer_Widget_Init(void);
+extern int	Renderer_Background_Init(void);
+extern void	WM_Update(void);
 
 // === PROTOTYPES ===
 void	ParseCommandline(int argc, char **argv);
@@ -55,6 +57,8 @@ int main(int argc, char *argv[])
 	Input_Init();
 	
 	Renderer_Widget_Init();
+	Renderer_Background_Init();
+	WM_Initialise();
 	
 	// Spawn interface root
 	if( clone(CLONE_VM, 0) == 0 )

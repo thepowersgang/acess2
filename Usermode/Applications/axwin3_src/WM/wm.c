@@ -9,16 +9,19 @@
 #include <wm_renderer.h>
 #include <stdlib.h>
 #include <string.h>
+#include <video.h>
 
 // === GLOBALS ===
 tWMRenderer	*gpWM_Renderers;
-// - Render order list (gpWM_FirstWindow is rendered first)
 tWindow	*gpWM_RootWindow;
 
 // === CODE ===
 void WM_Initialise(void)
 {
-	WM_CreateWindow(NULL, 0x8888FF, "Background");
+	WM_CreateWindow(NULL, 0x0088FF, "Background");
+	gpWM_RootWindow->W = giScreenWidth;
+	gpWM_RootWindow->H = giScreenHeight;
+	gpWM_RootWindow->Flags = WINFLAG_SHOW;
 }
 
 void WM_RegisterRenderer(tWMRenderer *Renderer)
@@ -45,6 +48,7 @@ tWindow *WM_CreateWindow(tWindow *Parent, int RendererArg, const char *RendererN
 	// - Call create window function
 	ret = renderer->CreateWindow(RendererArg);
 	ret->Parent = Parent;
+	ret->Renderer = renderer;
 
 	if(!Parent)
 		Parent = gpWM_RootWindow;
@@ -70,7 +74,12 @@ tWindow *WM_CreateWindow(tWindow *Parent, int RendererArg, const char *RendererN
 
 tWindow *WM_CreateWindowStruct(size_t ExtraSize)
 {
-	return calloc( sizeof(tWindow) + ExtraSize, 1 );
+	tWindow	*ret;
+	
+	ret = calloc( sizeof(tWindow) + ExtraSize, 1 );
+	ret->RendererInfo = ret + 1;	// Get end of tWindow
+	
+	return ret;
 }
 
 void WM_int_UpdateWindow(tWindow *Window)
@@ -96,17 +105,45 @@ void WM_int_UpdateWindow(tWindow *Window)
 	Window->Flags |= WINFLAG_CLEAN;
 }
 
-void WM_Update(void)
+void WM_int_BlitWindow(tWindow *Window)
 {
-	// - Iterate through visible windows, updating them as needed
+	tWindow	*child;
+
+	// Ignore hidden windows
+	if( !(Window->Flags & WINFLAG_SHOW) )
+		return ;
 	
-	// - Draw windows from back to front to the render buffer
+	Video_Blit(Window->RenderBuffer, Window->X, Window->Y, Window->W, Window->H);
 	
-	// - Blit the buffer to the screen
+	for( child = Window->FirstChild; child; child = child->NextSibling )
+	{
+		WM_int_BlitWindow(child);
+	}
 }
 
+void WM_Update(void)
+{
+	// Don't redraw if nothing has changed
+	if( gpWM_RootWindow->Flags & WINFLAG_CLEAN )
+		return ;	
+
+	// - Iterate through visible windows, updating them as needed
+	WM_int_UpdateWindow(gpWM_RootWindow);
+	
+	// - Draw windows from back to front to the render buffer
+	WM_int_BlitWindow(gpWM_RootWindow);
+
+	Video_Update();
+}
+
+// --- WM Render Routines
+// TODO: Move to another file?
 void WM_Render_FilledRect(tWindow *Window, tColour Colour, int X, int Y, int W, int H)
 {
+	uint32_t	*dest;
+	 int	i;
+	_SysDebug("WM_Render_FilledRect(%p, 0x%x...", Window, Colour);
+	_SysDebug(" (%i,%i), %ix%i)", X, Y, W, H);
 	// Clip to window dimensions
 	if(X < 0) { W += X; X = 0; }
 	if(Y < 0) { H += Y; Y = 0; }
@@ -114,10 +151,21 @@ void WM_Render_FilledRect(tWindow *Window, tColour Colour, int X, int Y, int W, 
 	if(Y >= Window->H)	return;
 	if(X + W > Window->W)	W = Window->W - X;
 	if(Y + H > Window->H)	H = Window->H - Y;
+	_SysDebug(" Clipped to (%i,%i), %ix%i", X, Y, W, H);
 
 	// Render to buffer
 	// Create if needed?
 
-	UNIMPLEMENTED();
+	if(!Window->RenderBuffer) {
+		Window->RenderBuffer = malloc(Window->W*Window->H*4);
+	}
+
+	dest = (uint32_t*)Window->RenderBuffer + Y*Window->W + X;
+	while( H -- )
+	{
+		for( i = W; i --; )
+			*dest++ = Colour;
+		dest += Window->W - W;
+	}
 }
 
