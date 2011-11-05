@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <video.h>
+#include <wm_messages.h>
 
 // === GLOBALS ===
 tWMRenderer	*gpWM_Renderers;
@@ -118,8 +119,33 @@ int WM_ResizeWindow(tWindow *Window, int W, int H)
 	Window->W = W;	Window->H = H;
 
 	WM_Invalidate(Window);
+
+	{
+		struct sWndMsg_Resize	msg;
+		msg.W = W;
+		msg.H = H;
+		WM_SendMessage(NULL, Window, WNDMSG_RESIZE, sizeof(msg), &msg);
+	}
 	
 	return 0;
+}
+
+int WM_SendMessage(tWindow *Source, tWindow *Dest, int Message, int Length, void *Data)
+{
+	if(Dest == NULL)	return -2;
+	if(Length > 0 && Data == NULL)	return -1;
+	
+	// ->HandleMessage returns 1 when the message was not handled
+	if( Dest->Renderer->HandleMessage(Dest, Message, Length, Data) != 1 )
+	{
+		// TODO: Catch errors from ->HandleMessage
+		return 0;
+	}
+	
+	// TODO: Pass on to user
+	_SysDebug("WM_SendMessage: TODO - Implement sending to client application");
+	
+	return 1;
 }
 
 void WM_Invalidate(tWindow *Window)
@@ -127,7 +153,7 @@ void WM_Invalidate(tWindow *Window)
 	// Don't invalidate twice (speedup)
 	if( !(Window->Flags & WINFLAG_CLEAN) )	return;
 
-	_SysDebug("Invalidating %p");
+//	_SysDebug("Invalidating %p");
 	
 	// Mark for re-render
 	Window->Flags &= ~WINFLAG_CLEAN;
@@ -135,7 +161,7 @@ void WM_Invalidate(tWindow *Window)
 	// Mark up the tree that a child window has changed	
 	while( (Window = Window->Parent) )
 	{
-		_SysDebug("Childclean removed from %p", Window);
+//		_SysDebug("Childclean removed from %p", Window);
 		Window->Flags &= ~WINFLAG_CHILDCLEAN;
 	}
 }
@@ -205,8 +231,8 @@ void WM_Render_FillRect(tWindow *Window, int X, int Y, int W, int H, tColour Col
 {
 	uint32_t	*dest;
 	 int	i;
-	_SysDebug("WM_Render_FilledRect(%p, 0x%x...", Window, Colour);
-	_SysDebug(" (%i,%i), %ix%i)", X, Y, W, H);
+//	_SysDebug("WM_Render_FilledRect(%p, 0x%x...", Window, Colour);
+//	_SysDebug(" (%i,%i), %ix%i)", X, Y, W, H);
 	// Clip to window dimensions
 	if(X < 0) { W += X; X = 0; }
 	if(Y < 0) { H += Y; Y = 0; }
@@ -214,7 +240,7 @@ void WM_Render_FillRect(tWindow *Window, int X, int Y, int W, int H, tColour Col
 	if(Y >= Window->H)	return;
 	if(X + W > Window->W)	W = Window->W - X;
 	if(Y + H > Window->H)	H = Window->H - Y;
-	_SysDebug(" Clipped to (%i,%i), %ix%i", X, Y, W, H);
+//	_SysDebug(" Clipped to (%i,%i), %ix%i", X, Y, W, H);
 
 	// Render to buffer
 	// Create if needed?
@@ -243,6 +269,7 @@ void WM_Render_DrawRect(tWindow *Window, int X, int Y, int W, int H, tColour Col
 void WM_Render_DrawText(tWindow *Window, int X, int Y, int W, int H, void *Font, tColour Colour, const char *Text)
 {
 	// TODO: Implement
+	_SysDebug("WM_Render_DrawText - TODO: Implement");
 }
 
 /**

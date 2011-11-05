@@ -40,7 +40,7 @@ extern void	WM_Invalidate(tWindow *Window);
 extern void	WM_ShowWindow(tWindow *Window, int bShow);
 extern int	WM_ResizeWindow(tWindow *Window, int W, int H);
 extern int	WM_MoveWindow(tWindow *Window, int X, int Y);
-extern int	WM_SendMessage(tWindow *Window, int MessageID, int Length, void *Data);
+extern int	WM_SendMessage(tWindow *Source, tWindow *Dest, int MessageID, int Length, void *Data);
 // --- Rendering
 extern void	WM_Render_FillRect(tWindow *Window, int X, int Y, int W, int H, tColour Colour);
 extern void	WM_Render_DrawRect(tWindow *Window, int X, int Y, int W, int H, tColour Colour);

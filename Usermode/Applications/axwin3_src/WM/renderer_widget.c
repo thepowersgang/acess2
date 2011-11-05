@@ -9,6 +9,7 @@
 #include <wm_renderer.h>
 #include <renderer_widget.h>
 #include <string.h>
+#include <wm_messages.h>
 
 // === PROTOTYPES ===
  int	Renderer_Widget_Init(void);
