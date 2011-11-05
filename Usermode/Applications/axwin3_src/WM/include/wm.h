@@ -8,6 +8,8 @@
 #ifndef _WM_H_
 #define _WM_H_
 
+#include <image.h>
+
 // === CONSTANTS ===
 /**
  * \brief Window Flags
@@ -40,7 +42,10 @@ extern int	WM_ResizeWindow(tWindow *Window, int W, int H);
 extern int	WM_MoveWindow(tWindow *Window, int X, int Y);
 extern int	WM_SendMessage(tWindow *Window, int MessageID, int Length, void *Data);
 // --- Rendering
-extern void	WM_Render_FilledRect(tWindow *Window, tColour Colour, int X, int Y, int W, int H);
+extern void	WM_Render_FillRect(tWindow *Window, int X, int Y, int W, int H, tColour Colour);
+extern void	WM_Render_DrawRect(tWindow *Window, int X, int Y, int W, int H, tColour Colour);
+extern void	WM_Render_DrawText(tWindow *Window, int X, int Y, int W, int H, void *Font, tColour Colour, const char *Text);
+extern void	WM_Render_DrawImage(tWindow *Window, int X, int Y, int W, int H, tImage *Image);
 
 #endif
 

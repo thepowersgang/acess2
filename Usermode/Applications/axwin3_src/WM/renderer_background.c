@@ -51,7 +51,7 @@ void Renderer_Background_Redraw(tWindow *Window)
 {
 	struct sBgWin	*info = Window->RendererInfo;
 	
-	WM_Render_FilledRect(Window, info->Colour, 0, 0, 0xFFFF, 0xFFFF);
+	WM_Render_FillRect(Window, 0, 0, 0xFFFF, 0xFFFF, info->Colour);
 }
 
 int Renderer_Background_HandleMessage(tWindow *Target, int Msg, int Len, void *Data)

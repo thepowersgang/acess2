@@ -44,7 +44,7 @@ tWindow	*Renderer_Class_Create(int Flags)
 void Renderer_Class_Redraw(tWindow *Window)
 {
 	tClassfulInfo	*info = Window->RendererInfo;
-	WM_Render_FilledRect(Window, info->BGColour, 0, 0, Window->W, Window->H);
+	WM_Render_FillRect(Window, 0, 0, Window->W, Window->H, info->BGColour);
 }
 
 int Renderer_Class_HandleMessage(tWindow *Target, int Msg, int Len, void *Data)

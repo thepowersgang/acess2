@@ -10,62 +10,16 @@
 #include <renderer_widget.h>
 #include <string.h>
 
-// === TYPES ===
-typedef struct sWidgetWin	tWidgetWin;
-typedef struct sAxWin_Element	tElement;
-
-// === STRUCTURES ===
-struct sAxWin_Element
-{
-	enum eElementTypes	Type;
-
-	uint32_t	ID;	//!< Application provided ID number
-	tElement	*ListNext;	//!< Next element in bucket
-	
-	// Element Tree
-	tElement	*Parent;
-	tElement	*FirstChild;
-	tElement	*LastChild;
-	tElement	*NextSibling;
-	
-	// User modifiable attributes	
-	short	PaddingL, PaddingR;
-	short	PaddingT, PaddingB;
-	short	GapSize;
-	
-	uint32_t	Flags;
-	
-	short	FixedWith;	//!< Fixed lengthways Size attribute (height)
-	short	FixedCross;	//!< Fixed Cross Size attribute (width)
-	
-	tColour	BackgroundColour;
-
-	char	*Text;
-	
-	// -- Attributes maitained by the element code
-	// Not touched by the user
-	short	MinWith;	//!< Minimum long size
-	short	MinCross;	//!< Minimum cross size
-	void	*Data;	//!< Per-type data
-	
-	// -- Render Cache
-	short	CachedX, CachedY;
-	short	CachedW, CachedH;
-	
-	char	DebugName[];
-};
-struct sWidgetWin
-{
-	tElement	RootElement;
-	
-	 int	TableSize;	//!< Number of entries, anything over will wrap
-	tElement	*ElementTable[];	//!< Hash table essentially
-};
-
 // === PROTOTYPES ===
+ int	Renderer_Widget_Init(void);
 tWindow	*Renderer_Widget_Create(int Flags);
 void	Renderer_Widget_Redraw(tWindow *Window);
-int	Renderer_Widget_HandleMessage(tWindow *Target, int Msg, int Len, void *Data);
+void	Widget_RenderWidget(tWindow *Window, tElement *Element);
+ int	Renderer_Widget_HandleMessage(tWindow *Target, int Msg, int Len, void *Data);
+void	Widget_UpdateDimensions(tElement *Element);
+void	Widget_UpdatePosition(tElement *Element);
+tElement	*Widget_GetElementById(tWidgetWin *Info, uint32_t ID);
+void	Widget_NewWidget(tWidgetWin *Info, size_t Len, tWidgetMsg_Create *Msg);
 
 // === GLOBALS ===
 tWMRenderer	gRenderer_Widget = {
@@ -98,10 +52,30 @@ tWindow	*Renderer_Widget_Create(int Flags)
 void Renderer_Widget_Redraw(tWindow *Window)
 {
 	tWidgetWin	*info = Window->RendererInfo;
-	WM_Render_FilledRect(Window, info->RootElement.BackgroundColour, 0, 0, 0xFFF, 0xFFF);
+	WM_Render_FillRect(Window, 0, 0, 0xFFF, 0xFFF, info->RootElement.BackgroundColour);
+
+	Widget_UpdateDimensions(&info->RootElement);
+	Widget_UpdatePosition(&info->RootElement);
+
+	Widget_RenderWidget(Window, &info->RootElement);
 }
 
 // --- Render / Resize ---
+void Widget_RenderWidget(tWindow *Window, tElement *Element)
+{
+	tElement	*child;
+	
+	if( Element->Flags & ELEFLAG_NORENDER )	return ;
+	if( Element->Flags & ELEFLAG_INVISIBLE )	return ;
+	
+	Widget_Decorator_RenderWidget(Window, Element);
+	
+	for(child = Element->FirstChild; child; child = child->NextSibling)
+	{
+		Widget_RenderWidget(Window, child);
+	}
+}
+
 void Widget_UpdateDimensions(tElement *Element)
 {
 	tElement	*child;
@@ -267,6 +241,9 @@ void Widget_UpdatePosition(tElement *Element)
 tElement *Widget_GetElementById(tWidgetWin *Info, uint32_t ID)
 {
 	tElement	*ele;
+
+	if(ID == -1)
+		return &Info->RootElement;
 	
 	if( ID < Info->TableSize )	return Info->ElementTable[ID];
 
@@ -297,6 +274,14 @@ int Renderer_Widget_HandleMessage(tWindow *Target, int Msg, int Len, void *Data)
 	tWidgetWin	*info = Target->RendererInfo;
 	switch(Msg)
 	{
+	case WNDMSG_RESIZE: {
+		struct sWndMsg_Resize	*msg = Data;
+		if(Len < sizeof(*msg))	return -1;		
+
+		info->RootElement.CachedW = msg->W;		
+		info->RootElement.CachedH = msg->H;
+		return 0; }
+
 	// New Widget
 	case MSG_WIDGET_CREATE:
 		Widget_NewWidget(info, Len, Data);
