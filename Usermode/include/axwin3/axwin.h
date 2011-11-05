@@ -9,6 +9,7 @@
 #define _AXWIN3_AXWIN_H_
 
 typedef struct sAxWin3_Window	*tHWND;
+typedef unsigned int	tAxWin3_Colour;	// TODO: Actual 32-bit
 
 typedef void	(*tAxWin3_MessageCallback)(int SourceTID, int Length);
 

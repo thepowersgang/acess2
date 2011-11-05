@@ -13,7 +13,11 @@
  * \brief Window Flags
  * \{
  */
+//! Render the window
 #define WINFLAG_SHOW    	0x00000001
+//! Window contents are valid
+#define WINFLAG_CLEAN    	0x00000001
+
 #define WINFLAG_RENDER_MASK	0x00FFFF00
 #define WINFLAG_USR_MASK	0xFF000000
 /**

@@ -12,8 +12,10 @@
 
 struct sWindow
 {
-	tWindow	*GlobalNext;
-	tWindow	*RenderNext;
+	tWindow	*NextSibling;
+	tWindow	*PrevSibling;
+
+	tWindow	*Parent;
 
 	tWindow	*FirstChild;
 	tWindow	*LastChild;

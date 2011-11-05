@@ -10,8 +10,16 @@
 #include "include/internal.h"
 
 // === STRUCTURES ===
+struct sAxWin3_Widget
+{
+	tHWND	Window;
+	tAxWin3_Widget_Callback	Callback;
+};
+
 typedef struct
 {
+	 int	nElements;
+	tAxWin3_Widget	**Elements;
 	// Callbacks for each element
 } tWidgetWindowInfo;
 
