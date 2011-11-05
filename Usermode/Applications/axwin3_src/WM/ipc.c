@@ -276,6 +276,39 @@ int IPC_Msg_CreateWin(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
 	return 0;
 }
 
+int IPC_Msg_ShowWindow(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
+{
+	tIPCMsg_ShowWindow	*info = (void*)Msg->Data;
+	tWindow	*win;
+	
+	if( Msg->Size < sizeof(*info) )	return -1;
+	
+	win = IPC_int_GetWindow(Client, Msg->Window);
+	if(!win)	return 1;
+
+	WM_ShowWindow(win, !!info->bShow);
+	
+	return 0;
+}
+
+int IPC_Msg_SetWinPos(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
+{
+	tIPCMsg_SetWindowPos	*info = (void*)Msg->Data;
+	tWindow	*win;
+	
+	if(Msg->Size < sizeof(*info))	return -1;
+	
+	win = IPC_int_GetWindow(Client, Msg->Window);
+	if(!win)	return 1;
+	
+	if(info->bSetPos)
+		WM_MoveWindow(win, info->X, info->Y);
+	if(info->bSetDims)
+		WM_ResizeWindow(win, info->W, info->H);
+	
+	return 0;
+}
+
 void IPC_Handle(const tIPC_Type *IPCType, const void *Ident, size_t MsgLen, tAxWin_IPCMessage *Msg)
 {
 	tIPC_Client	*client;
@@ -305,13 +338,21 @@ void IPC_Handle(const tIPC_Type *IPCType, const void *Ident, size_t MsgLen, tAxW
 		}
 		break;
 
-	// ---  Create window
+	// --- Create window
 	case IPCMSG_CREATEWIN:
 		_SysDebug(" IPC_Handle: IPCMSG_CREATEWIN");
 		IPC_Msg_CreateWin(client, Msg);
 		break;
-
-//	case IPCMSG_SHOWWINDOW:
+	// --- Show/Hide a window
+	case IPCMSG_SHOWWINDOW:
+		_SysDebug(" IPC_Handle: IPCMSG_SHOWWINDOW");
+		IPC_Msg_ShowWindow(client, Msg);
+		break;
+	// --- Move/Resize a window
+	case IPCMSG_SETWINPOS:
+		_SysDebug(" IPC_Handle: IPCMSG_SETWINPOS");
+		IPC_Msg_SetWinPos(client, Msg);
+		break;
 
 	// --- Unknown message
 	default:

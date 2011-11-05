@@ -32,8 +32,9 @@ typedef uint32_t	tColour;
 // === FUNCTIONS ===
 // --- Management
 extern tWindow	*WM_CreateWindow(tWindow *Parent, int Flags, const char *Renderer);
-extern int	WM_Reposition(tWindow *Window, int X, int Y, int W, int H);
-extern int	WM_SetFlags(tWindow *Window, int Flags);
+extern void	WM_ShowWindow(tWindow *Window, int bShow);
+extern int	WM_ResizeWindow(tWindow *Window, int W, int H);
+extern int	WM_MoveWindow(tWindow *Window, int X, int Y);
 extern int	WM_SendMessage(tWindow *Window, int MessageID, int Length, void *Data);
 // --- Rendering
 extern void	WM_Render_FilledRect(tWindow *Window, tColour Colour, int X, int Y, int W, int H);

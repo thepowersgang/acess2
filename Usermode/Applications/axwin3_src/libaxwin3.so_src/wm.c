@@ -147,7 +147,8 @@ void AxWin3_SetWindowPos(tHWND Window, short X, short Y, short W, short H)
 	msg = AxWin3_int_AllocateIPCMessage(Window, IPCMSG_SETWINPOS, 0, sizeof(*info));
 	info = (void*)msg->Data;
 
-	info->Fields = 0xF;
+	info->bSetPos = 1;
+	info->bSetDims = 1;
 	info->X = X;	info->Y = Y;
 	info->W = W;	info->H = H;
 
@@ -163,7 +164,8 @@ void AxWin3_MoveWindow(tHWND Window, short X, short Y)
 	msg = AxWin3_int_AllocateIPCMessage(Window, IPCMSG_SETWINPOS, 0, sizeof(*info));
 	info = (void*)msg->Data;
 
-	info->Fields = 0x3;
+	info->bSetPos = 1;
+	info->bSetDims = 0;
 	info->X = X;
 	info->Y = Y;
 	
@@ -180,7 +182,8 @@ void AxWin3_ResizeWindow(tHWND Window, short W, short H)
 	msg = AxWin3_int_AllocateIPCMessage(Window, IPCMSG_SETWINPOS, 0, sizeof(*info));
 	info = (void*)msg->Data;
 
-	info->Fields = 0xC;
+	info->bSetPos = 0;
+	info->bSetDims = 1;
 	info->W = W;
 	info->H = H;
 	

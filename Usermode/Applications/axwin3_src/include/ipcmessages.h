@@ -55,11 +55,10 @@ struct sIPCMsg_ShowWindow
 
 struct sIPCMsg_SetWindowPos
 {
-	 int16_t	X;
-	 int16_t	Y;
-	uint16_t	W;
-	uint16_t	H;
-	uint8_t 	Fields;
+	 int16_t	X, Y;
+	uint16_t	W, H;
+	uint8_t 	bSetPos;
+	uint8_t 	bSetDims;
 };
 
 enum eAxWin_IPCMessageTypes

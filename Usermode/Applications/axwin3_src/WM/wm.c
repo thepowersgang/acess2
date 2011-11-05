@@ -31,6 +31,7 @@ void WM_RegisterRenderer(tWMRenderer *Renderer)
 	gpWM_Renderers = Renderer;
 }
 
+// --- Manipulation
 tWindow *WM_CreateWindow(tWindow *Parent, int RendererArg, const char *RendererName)
 {
 	tWMRenderer	*renderer;
@@ -82,6 +83,40 @@ tWindow *WM_CreateWindowStruct(size_t ExtraSize)
 	return ret;
 }
 
+void WM_ShowWindow(tWindow *Window, int bShow)
+{
+	// TODO: Message window
+	if(bShow)
+		Window->Flags |= WINFLAG_SHOW;
+	else
+		Window->Flags &= ~WINFLAG_SHOW;
+}
+
+int WM_MoveWindow(tWindow *Window, int X, int Y)
+{
+	// Clip coordinates
+	if(X + Window->W < 0)	X = -Window->W + 1;
+	if(Y + Window->H < 0)	Y = -Window->H + 1;
+	if(X >= giScreenWidth)	X = giScreenWidth - 1;
+	if(Y >= giScreenHeight)	Y = giScreenHeight - 1;
+	
+	Window->X = X;	Window->Y = Y;
+	
+	return 0;
+}
+
+int WM_ResizeWindow(tWindow *Window, int W, int H)
+{
+	if(W <= 0 || H <= 0 )	return 1;
+	if(Window->X + W < 0)	Window->X = -W + 1;
+	if(Window->Y + H < 0)	Window->Y = -H + 1;
+	
+	Window->W = W;	Window->H = H;
+	
+	return 0;
+}
+
+// --- Rendering / Update
 void WM_int_UpdateWindow(tWindow *Window)
 {
 	tWindow	*child;
