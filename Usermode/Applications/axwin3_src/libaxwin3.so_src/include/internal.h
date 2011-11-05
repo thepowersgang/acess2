@@ -19,6 +19,7 @@ struct sAxWin3_Window
 };
 
 extern void	*AxWin3_int_GetDataPtr(tHWND Window);
+extern uint32_t	AxWin3_int_GetWindowID(tHWND Window);
 
 #endif
 

@@ -307,6 +307,3 @@ int Renderer_Widget_HandleMessage(tWindow *Target, int Msg, int Len, void *Data)
 	}
 }
 
-
-
-

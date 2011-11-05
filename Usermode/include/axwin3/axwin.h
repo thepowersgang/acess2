@@ -44,7 +44,7 @@ extern tHWND	AxWin3_CreateWindow(
 extern void	AxWin3_DestroyWindow(tHWND Window);
 
 // --- Core window management functions
-extern void	AxWin3_SendMessage(tHWND Window, int Length, void *Data);
+extern void	AxWin3_SendMessage(tHWND Window, tHWND Dest, int Message, int Length, void *Data);
 extern void	AxWin3_ShowWindow(tHWND Window, int bShow);
 extern void	AxWin3_SetWindowPos(tHWND Window, short X, short Y, short W, short H);
 extern void	AxWin3_MoveWindow(tHWND Window, short X, short Y);

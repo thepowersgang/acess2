@@ -125,6 +125,16 @@ void *AxWin3_int_GetDataPtr(tHWND Window)
 	return &Window->Data;
 }
 
+void AxWin3_SendMessage(tHWND Window, tHWND Destination, int Message, int Length, void *Data)
+{
+	tAxWin_IPCMessage	*msg;
+	tIPCMsg_SendMsg	*info;
+	
+	msg = AxWin3_int_AllocateIPCMessage(Window, IPCMSG_SENDMSG, 0, sizeof(*info)+Length);
+	info = (void*)msg->Data;
+	info->Dest = AxWin3_int_GetWindowID(Destination);
+}
+
 void AxWin3_ShowWindow(tHWND Window, int bShow)
 {
 	tAxWin_IPCMessage	*msg;

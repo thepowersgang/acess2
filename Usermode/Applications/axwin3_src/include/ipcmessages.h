@@ -16,6 +16,7 @@ typedef struct sIPCMsg_Return	tIPCMsg_Return;
 typedef struct sIPCMsg_CreateWin	tIPCMsg_CreateWin;
 typedef struct sIPCMsg_ShowWindow	tIPCMsg_ShowWindow;
 typedef struct sIPCMsg_SetWindowPos	tIPCMsg_SetWindowPos;
+typedef struct sIPCMsg_SendMsg	tIPCMsg_SendMsg;
 
 /**
  * \name Flags for IPC Messages
@@ -46,6 +47,14 @@ struct sIPCMsg_CreateWin
 	uint32_t	NewWinID;
 	uint32_t	RendererArg;
 	char	Renderer[];
+};
+
+struct sIPCMsg_SendMsg
+{
+	uint32_t	Dest;
+	 int	ID;
+	uint16_t	Length;
+	char	Data[];
 };
 
 struct sIPCMsg_ShowWindow

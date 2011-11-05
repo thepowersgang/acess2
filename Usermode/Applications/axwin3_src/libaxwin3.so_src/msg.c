@@ -69,6 +69,14 @@ tAxWin3_MessageCallback AxWin3_SetMessageCallback(tAxWin3_MessageCallback Callba
 	return old;
 }
 
+uint32_t AxWin3_int_GetWindowID(tHWND Window)
+{
+	if(Window)
+		return Window->ServerID;
+	else
+		return -1;
+}
+
 tAxWin_IPCMessage *AxWin3_int_AllocateIPCMessage(tHWND Window, int Message, int Flags, int ExtraBytes)
 {
 	tAxWin_IPCMessage	*ret;
@@ -76,10 +84,7 @@ tAxWin_IPCMessage *AxWin3_int_AllocateIPCMessage(tHWND Window, int Message, int 
 	ret = malloc( sizeof(tAxWin_IPCMessage) + ExtraBytes );
 	ret->Flags = Flags;
 	ret->ID = Message;
-	if(Window)
-		ret->Window = Window->ServerID;
-	else
-		ret->Window = -1;
+	ret->Window = AxWin3_int_GetWindowID(Window);
 	ret->Size = ExtraBytes;
 	return ret;
 }
