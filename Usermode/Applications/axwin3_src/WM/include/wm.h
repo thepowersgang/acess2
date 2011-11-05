@@ -17,6 +17,8 @@
 #define WINFLAG_SHOW    	0x00000001
 //! Window contents are valid
 #define WINFLAG_CLEAN    	0x00000002
+//! All child windows are un-changed
+#define WINFLAG_CHILDCLEAN    	0x00000004
 
 #define WINFLAG_RENDER_MASK	0x00FFFF00
 #define WINFLAG_USR_MASK	0xFF000000
@@ -32,6 +34,7 @@ typedef uint32_t	tColour;
 // === FUNCTIONS ===
 // --- Management
 extern tWindow	*WM_CreateWindow(tWindow *Parent, int Flags, const char *Renderer);
+extern void	WM_Invalidate(tWindow *Window);
 extern void	WM_ShowWindow(tWindow *Window, int bShow);
 extern int	WM_ResizeWindow(tWindow *Window, int W, int H);
 extern int	WM_MoveWindow(tWindow *Window, int X, int Y);

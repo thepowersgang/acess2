@@ -16,7 +16,7 @@ typedef int	(*tAxWin3_Widget_Callback)(tAxWin3_Widget Widget, int EventType, uns
 
 extern tHWND	AxWin3_Widget_CreateWindow(tHWND Parent, int W, int H, int RootEleFlags);
 extern void	AxWin3_Widget_DestroyWindow(tHWND Window);
-extern tAxWin3_Widget	*AxWin3_WidgeT_GetRoot(tHWND Window);
+extern tAxWin3_Widget	*AxWin3_Widget_GetRoot(tHWND Window);
 
 extern tAxWin3_Widget	*AxWin3_Widget_AddWidget(tAxWin3_Widget *Parent, int Type, int Flags, const char *DebugName);
 extern void	AxWin3_Widget_DelWidget(tAxWin3_Widget *Widget);

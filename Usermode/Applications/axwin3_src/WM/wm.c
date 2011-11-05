@@ -46,13 +46,14 @@ tWindow *WM_CreateWindow(tWindow *Parent, int RendererArg, const char *RendererN
 	if(renderer == NULL)
 		return NULL;
 
+	if(!Parent)
+		Parent = gpWM_RootWindow;
+
 	// - Call create window function
 	ret = renderer->CreateWindow(RendererArg);
 	ret->Parent = Parent;
 	ret->Renderer = renderer;
-
-	if(!Parent)
-		Parent = gpWM_RootWindow;
+	ret->Flags = WINFLAG_CLEAN;	// Note, not acutally clean, but it makes invaidate work
 
 	// Append to parent
 	if(Parent)
@@ -90,6 +91,7 @@ void WM_ShowWindow(tWindow *Window, int bShow)
 		Window->Flags |= WINFLAG_SHOW;
 	else
 		Window->Flags &= ~WINFLAG_SHOW;
+	WM_Invalidate(Window);
 }
 
 int WM_MoveWindow(tWindow *Window, int X, int Y)
@@ -101,7 +103,9 @@ int WM_MoveWindow(tWindow *Window, int X, int Y)
 	if(Y >= giScreenHeight)	Y = giScreenHeight - 1;
 	
 	Window->X = X;	Window->Y = Y;
-	
+
+	WM_Invalidate(Window);
+
 	return 0;
 }
 
@@ -112,8 +116,28 @@ int WM_ResizeWindow(tWindow *Window, int W, int H)
 	if(Window->Y + H < 0)	Window->Y = -H + 1;
 	
 	Window->W = W;	Window->H = H;
+
+	WM_Invalidate(Window);
 	
 	return 0;
+}
+
+void WM_Invalidate(tWindow *Window)
+{
+	// Don't invalidate twice (speedup)
+	if( !(Window->Flags & WINFLAG_CLEAN) )	return;
+
+	_SysDebug("Invalidating %p");
+	
+	// Mark for re-render
+	Window->Flags &= ~WINFLAG_CLEAN;
+
+	// Mark up the tree that a child window has changed	
+	while( (Window = Window->Parent) )
+	{
+		_SysDebug("Childclean removed from %p", Window);
+		Window->Flags &= ~WINFLAG_CHILDCLEAN;
+	}
 }
 
 // --- Rendering / Update
@@ -124,20 +148,24 @@ void WM_int_UpdateWindow(tWindow *Window)
 	// Ignore hidden windows
 	if( !(Window->Flags & WINFLAG_SHOW) )
 		return ;
-	// Ignore unchanged windows
-	if( Window->Flags & WINFLAG_CLEAN )
-		return;
-
-	// Render
-	Window->Renderer->Redraw(Window);
 	
-	// Process children
-	for( child = Window->FirstChild; child; child = child->NextSibling )
+	// Render
+	if( !(Window->Flags & WINFLAG_CLEAN) )
 	{
-		WM_int_UpdateWindow(child);
+		Window->Renderer->Redraw(Window);
+		Window->Flags |= WINFLAG_CLEAN;
 	}
 	
-	Window->Flags |= WINFLAG_CLEAN;
+	// Process children
+	if( !(Window->Flags & WINFLAG_CHILDCLEAN) )
+	{
+		for( child = Window->FirstChild; child; child = child->NextSibling )
+		{
+			WM_int_UpdateWindow(child);
+		}
+		Window->Flags |= WINFLAG_CHILDCLEAN;
+	}
+	
 }
 
 void WM_int_BlitWindow(tWindow *Window)
@@ -159,7 +187,7 @@ void WM_int_BlitWindow(tWindow *Window)
 void WM_Update(void)
 {
 	// Don't redraw if nothing has changed
-	if( gpWM_RootWindow->Flags & WINFLAG_CLEAN )
+	if( (gpWM_RootWindow->Flags & WINFLAG_CHILDCLEAN) )
 		return ;	
 
 	// - Iterate through visible windows, updating them as needed

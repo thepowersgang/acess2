@@ -38,6 +38,8 @@ struct sAxWin_Element
 	short	FixedWith;	//!< Fixed lengthways Size attribute (height)
 	short	FixedCross;	//!< Fixed Cross Size attribute (width)
 	
+	tColour	BackgroundColour;
+
 	char	*Text;
 	
 	// -- Attributes maitained by the element code
@@ -83,12 +85,20 @@ int Renderer_Widget_Init(void)
 
 tWindow	*Renderer_Widget_Create(int Flags)
 {
-	// TODO: Add info
-	return WM_CreateWindowStruct( sizeof(tWidgetWin) );
+	tWindow	*ret;
+	tWidgetWin	*info;
+	ret = WM_CreateWindowStruct( sizeof(tWidgetWin) );
+	info = ret->RendererInfo;
+	
+	info->RootElement.BackgroundColour = 0xCCCCCC;
+	
+	return ret;
 }
 
 void Renderer_Widget_Redraw(tWindow *Window)
 {
+	tWidgetWin	*info = Window->RendererInfo;
+	WM_Render_FilledRect(Window, info->RootElement.BackgroundColour, 0, 0, 0xFFF, 0xFFF);
 }
 
 // --- Render / Resize ---

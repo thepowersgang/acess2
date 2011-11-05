@@ -141,7 +141,7 @@ int IPC_Type_Sys_GetSize(const void *Ident)
 
 int IPC_Type_Sys_Compare(const void *Ident1, const void *Ident2)
 {
-	return *(const int*)Ident1 - *(const int*)Ident2;
+	return *(const tid_t*)Ident1 - *(const tid_t*)Ident2;
 }
 
 void IPC_Type_Sys_Send(const void *Ident, size_t Length, const void *Data)
@@ -163,11 +163,12 @@ int _CompareClientPtrs(const void *_a, const void *_b)
 
 tIPC_Client *IPC_int_GetClient(const tIPC_Type *IPCType, const void *Ident)
 {
-	 int	pos;	// Position where the new client will be inserted
+	 int	pos = 0;	// Position where the new client will be inserted
 	 int	ident_size;
 	tIPC_Client	*ret;
 
 	// - Search list of registered clients
+	if(giIPC_ClientCount > 0)
 	{
 		tIPC_Client	target;
 		 int	div;
@@ -183,6 +184,7 @@ tIPC_Client *IPC_int_GetClient(const tIPC_Type *IPCType, const void *Ident)
 		{
 			div /= 2;
 			cmp = _CompareClientPtrs(&ret, &gIPC_Clients[pos]);
+//			_SysDebug("Checking against %i gives %i", pos, cmp);
 			if(cmp == 0)	break;
 			if(cmp < 0)
 				pos -= div;
@@ -201,10 +203,11 @@ tIPC_Client *IPC_int_GetClient(const tIPC_Type *IPCType, const void *Ident)
 
 	// - Create a new client entry
 	ident_size = IPCType->GetIdentSize(Ident);
+//	_SysDebug("ident_size = %i", ident_size);
 	ret = malloc( sizeof(tIPC_Client) + ident_size );
 	if(!ret)	return NULL;
 	ret->IPCType = IPCType;
-	ret->Ident = &ret + 1;	// Get the end of the structure
+	ret->Ident = ret + 1;	// Get the end of the structure
 	memcpy( (void*)ret->Ident, Ident, ident_size );
 	ret->nWindows = 0;
 	ret->Windows = NULL;
@@ -227,8 +230,10 @@ tWindow *IPC_int_GetWindow(tIPC_Client *Client, uint32_t WindowID)
 	if( WindowID == -1 )
 		return NULL;
 
-	if( WindowID >= Client->nWindows )
+	if( WindowID >= Client->nWindows ) {
+//		_SysDebug("Window %i out of range for %p (%i)", WindowID, Client, Client->nWindows);
 		return NULL;
+	}
 
 	return Client->Windows[WindowID];
 }
@@ -244,8 +249,10 @@ void IPC_int_SetWindow(tIPC_Client *Client, uint32_t WindowID, tWindow *WindowPt
 		Client->nWindows = WindowID + 1;
 		Client->Windows = realloc(Client->Windows, Client->nWindows*sizeof(tWindow*));
 		memset( &Client->Windows[oldCount],  0, (Client->nWindows-oldCount)*sizeof(tWindow*) );
+		_SysDebug("Expanded %p's window list from %i to %i", Client, oldCount, Client->nWindows);
 	}
-	
+
+	_SysDebug("Assigned %p to window %i for %p", WindowPtr, WindowID, Client);	
 	Client->Windows[WindowID] = WindowPtr;
 }
 
@@ -301,6 +308,8 @@ int IPC_Msg_SetWinPos(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
 	win = IPC_int_GetWindow(Client, Msg->Window);
 	if(!win)	return 1;
 	
+	_SysDebug("info = {..., bSetPos=%i,bSetDims=%i}", info->bSetPos, info->bSetDims);
+	
 	if(info->bSetPos)
 		WM_MoveWindow(win, info->X, info->Y);
 	if(info->bSetDims)
@@ -312,6 +321,7 @@ int IPC_Msg_SetWinPos(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
 void IPC_Handle(const tIPC_Type *IPCType, const void *Ident, size_t MsgLen, tAxWin_IPCMessage *Msg)
 {
 	tIPC_Client	*client;
+	 int	rv = 0;
 	
 	_SysDebug("IPC_Handle: (IPCType=%p, Ident=%p, MsgLen=%i, Msg=%p)",
 		IPCType, Ident, MsgLen, Msg);
@@ -341,17 +351,17 @@ void IPC_Handle(const tIPC_Type *IPCType, const void *Ident, size_t MsgLen, tAxW
 	// --- Create window
 	case IPCMSG_CREATEWIN:
 		_SysDebug(" IPC_Handle: IPCMSG_CREATEWIN");
-		IPC_Msg_CreateWin(client, Msg);
+		rv = IPC_Msg_CreateWin(client, Msg);
 		break;
 	// --- Show/Hide a window
 	case IPCMSG_SHOWWINDOW:
 		_SysDebug(" IPC_Handle: IPCMSG_SHOWWINDOW");
-		IPC_Msg_ShowWindow(client, Msg);
+		rv = IPC_Msg_ShowWindow(client, Msg);
 		break;
 	// --- Move/Resize a window
 	case IPCMSG_SETWINPOS:
 		_SysDebug(" IPC_Handle: IPCMSG_SETWINPOS");
-		IPC_Msg_SetWinPos(client, Msg);
+		rv = IPC_Msg_SetWinPos(client, Msg);
 		break;
 
 	// --- Unknown message
@@ -360,5 +370,7 @@ void IPC_Handle(const tIPC_Type *IPCType, const void *Ident, size_t MsgLen, tAxW
 		_SysDebug("WARNING: Unknown message %i (%p)", Msg->ID, IPCType);
 		break;
 	}
+	if(rv)
+		_SysDebug("IPC_Handle: rv = %i", rv);
 }
 
