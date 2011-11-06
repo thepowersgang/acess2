@@ -21,6 +21,7 @@ extern tAxWin3_Widget	*AxWin3_Widget_GetRoot(tHWND Window);
 extern tAxWin3_Widget	*AxWin3_Widget_AddWidget(tAxWin3_Widget *Parent, int Type, int Flags, const char *DebugName);
 extern void	AxWin3_Widget_DelWidget(tAxWin3_Widget *Widget);
 
+extern void	AxWin3_Widget_SetFlags(tAxWin3_Widget *Widget, int FlagSet, int FlagMask);
 extern void	AxWin3_Widget_SetSize(tAxWin3_Widget *Widget, int Size);
 extern void	AxWin3_Widget_SetText(tAxWin3_Widget *Widget, const char *Text);
 extern void	AxWin3_Widget_SetColour(tAxWin3_Widget *Widget, int Index, tAxWin3_Colour Colour);
@@ -29,20 +30,16 @@ enum eElementTypes
 {
 	ELETYPE_NONE,
 
-	ELETYPE_WINDOW,	//!< Window root element
-	
 	ELETYPE_BOX,	//!< Content box (invisible in itself)
+	ELETYPE_TEXT,	//!< Text
+	ELETYPE_IMAGE,	//!< Image
+	ELETYPE_BUTTON,	//!< Push Button
+	ELETYPE_SPACER,	//!< Visual Spacer (horizontal / vertical rule)
+
 	ELETYPE_TABBAR,	//!< Tab Bar
 	ELETYPE_TOOLBAR,	//!< Tool Bar
 	
-	ELETYPE_BUTTON,	//!< Push Button
-	
-	ELETYPE_TEXT,	//!< Text
-	ELETYPE_IMAGE,	//!< Image
-	
-	ELETYPE_SPACER,	//!< Visual Spacer (horizontal / vertical rule)
-	
-	MAX_ELETYPES	= 0x100
+	NUM_ELETYPES
 };
 
 enum eElementFlags

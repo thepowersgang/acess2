@@ -96,7 +96,7 @@ void IPC_HandleSelect(fd_set *set)
 		msg = staticBuf + identlen;
 
 		IPC_Handle(&gIPC_Type_Datagram, staticBuf, readlen - identlen, (void*)msg);
-		_SysDebug("IPC_HandleSelect: UDP handled");
+//		_SysDebug("IPC_HandleSelect: UDP handled");
 	}
 
 	while(SysGetMessage(NULL, NULL))
@@ -107,7 +107,7 @@ void IPC_HandleSelect(fd_set *set)
 		SysGetMessage(NULL, data);
 
 		IPC_Handle(&gIPC_Type_SysMessage, &tid, len, (void*)data);
-		_SysDebug("IPC_HandleSelect: Message handled");
+//		_SysDebug("IPC_HandleSelect: Message handled");
 	}
 }
 

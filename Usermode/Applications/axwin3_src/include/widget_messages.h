@@ -12,6 +12,7 @@ enum
 {
 	MSG_WIDGET_CREATE = 0x1000,
 	MSG_WIDGET_DELETE,
+	MSG_WIDGET_SETFLAGS,
 	MSG_WIDGET_SETSIZE,
 	MSG_WIDGET_SETTEXT,
 	MSG_WIDGET_SETCOLOUR
@@ -31,6 +32,13 @@ typedef struct
 {
 	uint32_t	WidgetID;
 } tWidgetMsg_Delete;
+
+typedef struct
+{
+	uint32_t	WidgetID;
+	uint32_t	Value;
+	uint32_t	Mask;
+} tWidgetMsg_SetFlags;
 
 typedef struct
 {

@@ -9,7 +9,7 @@
 #include <axwin3/axwin.h>
 #include <axwin3/widget.h>
 
-#define SIDEBAR_WIDTH	32
+#define SIDEBAR_WIDTH	36
 
 // === PROTOTYPES ===
 void	create_sidebar(void);
@@ -43,15 +43,15 @@ void create_sidebar(void)
 
 	// Create sidebar
 	// TODO: Get screen dimensions somehow
-	gSidebar = AxWin3_Widget_CreateWindow(NULL, SIDEBAR_WIDTH, 480, 0);
+	gSidebar = AxWin3_Widget_CreateWindow(NULL, SIDEBAR_WIDTH, 480, ELEFLAG_VERTICAL);
 	AxWin3_MoveWindow(gSidebar, 0, 0);
 	gSidebarRoot = AxWin3_Widget_GetRoot(gSidebar);	
 
 	// - Main menu
 	btn = AxWin3_Widget_AddWidget(gSidebarRoot, ELETYPE_BUTTON, ELEFLAG_NOSTRETCH, "SystemButton");
-	AxWin3_Widget_SetSize(btn, SIDEBAR_WIDTH-4);
+	AxWin3_Widget_SetSize(btn, SIDEBAR_WIDTH);
 	txt = AxWin3_Widget_AddWidget(btn, ELETYPE_IMAGE, 0, "SystemLogo");
-	AxWin3_Widget_SetText(txt, "file://./AcessLogo.sif");
+	AxWin3_Widget_SetText(txt, "file:///Acess/Apps/AxWin/3.0/AcessLogoSmall.sif");
 	
 	// - Plain <hr/> style spacer
 	ele = AxWin3_Widget_AddWidget(gSidebarRoot, ELETYPE_SPACER, ELEFLAG_NOSTRETCH, "SideBar Spacer Top");
@@ -65,7 +65,8 @@ void create_sidebar(void)
 	AxWin3_Widget_SetSize(ele, 4);
 
 	// > Version/Time
-	txt = AxWin3_Widget_AddWidget(gSidebarRoot, ELETYPE_TEXT, ELEFLAG_NOSTRETCH, "Version String");
+	ele = AxWin3_Widget_AddWidget(gSidebarRoot, ELETYPE_BOX, ELEFLAG_VERTICAL|ELEFLAG_NOSTRETCH, "Version/Time");
+	txt = AxWin3_Widget_AddWidget(ele, ELETYPE_TEXT, ELEFLAG_NOSTRETCH, "Version String");
 	AxWin3_Widget_SetSize(txt, 20);
 	AxWin3_Widget_SetText(txt, "2.0");
 

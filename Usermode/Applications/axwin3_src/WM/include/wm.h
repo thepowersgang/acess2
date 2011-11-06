@@ -8,7 +8,7 @@
 #ifndef _WM_H_
 #define _WM_H_
 
-#include <image.h>
+#include "image.h"
 
 // === CONSTANTS ===
 /**
@@ -32,6 +32,7 @@
 typedef struct sWindow	tWindow;
 typedef struct sWMRenderer	tWMRenderer;
 typedef uint32_t	tColour;
+typedef struct sFont	tFont;
 
 // === FUNCTIONS ===
 // --- Management
@@ -44,8 +45,10 @@ extern int	WM_SendMessage(tWindow *Source, tWindow *Dest, int MessageID, int Len
 // --- Rendering
 extern void	WM_Render_FillRect(tWindow *Window, int X, int Y, int W, int H, tColour Colour);
 extern void	WM_Render_DrawRect(tWindow *Window, int X, int Y, int W, int H, tColour Colour);
-extern void	WM_Render_DrawText(tWindow *Window, int X, int Y, int W, int H, void *Font, tColour Colour, const char *Text);
+extern int	WM_Render_DrawText(tWindow *Window, int X, int Y, int W, int H, tFont *Font, tColour Colour, const char *Text);
+extern void	WM_Render_GetTextDims(tFont *Font, const char *Text, int *W, int *H);
 extern void	WM_Render_DrawImage(tWindow *Window, int X, int Y, int W, int H, tImage *Image);
-
+// NOTE: Should really be elsewhere
+extern tColour	Video_AlphaBlend(tColour _orig, tColour _new, uint8_t _alpha);
 #endif
 

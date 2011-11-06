@@ -80,18 +80,22 @@ tAxWin3_Widget *AxWin3_Widget_AddWidget(tAxWin3_Widget *Parent, int Type, int Fl
 	info = AxWin3_int_GetDataPtr(Parent->Window);
 	
 	// Assign ID
+	// BUG BUG BUG - Double Allocations!
 	// TODO: Atomicity
 	for( newID = info->FirstFreeID; newID < info->nElements; newID ++ )
 	{
 		if( info->Elements[newID] == NULL )
 			break;
 	}
-	if( info->nElements == 0 || info->Elements[newID] )
+	if( newID == info->nElements )
 	{
 		info->nElements ++;
 		info->Elements = realloc(info->Elements, sizeof(*info->Elements)*info->nElements);
 		newID = info->nElements - 1;
+		_SysDebug("Expanded and allocated %i", newID);
 	}
+	else
+		_SysDebug("Allocated %i", newID);
 	info->Elements[newID] = (void*)-1;
 	
 	// Create new widget structure
@@ -108,6 +112,8 @@ tAxWin3_Widget *AxWin3_Widget_AddWidget(tAxWin3_Widget *Parent, int Type, int Fl
 		tWidgetMsg_Create	*msg = (void*)tmp;
 		msg->Parent = Parent->ID;
 		msg->NewID = newID;
+		msg->Type = Type;
+		msg->Flags = Flags;
 		msg->DebugName[0] = '\0';
 		AxWin3_SendMessage(ret->Window, ret->Window, MSG_WIDGET_CREATE, sizeof(tmp), tmp);
 	}
@@ -127,6 +133,16 @@ void AxWin3_Widget_DelWidget(tAxWin3_Widget *Widget)
 	if(Widget->ID < info->FirstFreeID)
 		info->FirstFreeID = Widget->ID;
 	free(Widget);
+}
+
+void AxWin3_Widget_SetFlags(tAxWin3_Widget *Widget, int FlagSet, int FlagMask)
+{
+	tWidgetMsg_SetFlags	msg;
+	msg.WidgetID = Widget->ID;
+	msg.Value = FlagSet;
+	msg.Mask = FlagMask;
+	
+	AxWin3_SendMessage(Widget->Window, Widget->Window, MSG_WIDGET_SETFLAGS, sizeof(msg), &msg);
 }
 
 void AxWin3_Widget_SetSize(tAxWin3_Widget *Widget, int Size)
