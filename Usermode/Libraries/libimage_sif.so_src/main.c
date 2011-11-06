@@ -45,6 +45,7 @@ tImage *Image_SIF_Parse(void *Buffer, size_t Size)
 	else if(hdr->Magic == 0xF051)	// Big Endian
 		bRevOrder = 1;
 	else {
+		_SysDebug(" Image_SIF_Parse: Magic invalid (0x%x)", hdr->Magic);
 		return NULL;
 	}
 	

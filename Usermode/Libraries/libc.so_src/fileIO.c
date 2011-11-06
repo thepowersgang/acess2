@@ -82,7 +82,7 @@ EXPORT FILE *freopen(const char *file, const char *mode, FILE *fp)
 	case 'x':	openFlags = OPENFLAG_EXEC;
 		break;
 	}
-	
+
 	//Open File
 	if(fp->FD != -1)
 		fp->FD = reopen(fp->FD, file, openFlags);
@@ -225,7 +225,8 @@ EXPORT size_t fread(void *ptr, size_t size, size_t num, FILE *fp)
 {
 	 int	ret;
 	if(!fp || !fp->FD)	return -1;
-	
+
+	// TODO: Fit the spec better with the return value	
 	ret = read(fp->FD, ptr, size*num);
 	
 	return ret;
