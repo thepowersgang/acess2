@@ -54,8 +54,6 @@ struct sAxWin_Element
 	// -- Render Cache
 	short	CachedX, CachedY;
 	short	CachedW, CachedH;
-	
-	char	DebugName[];
 };
 struct sWidgetWin
 {

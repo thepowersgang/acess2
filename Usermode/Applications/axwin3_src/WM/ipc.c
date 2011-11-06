@@ -257,6 +257,27 @@ void IPC_int_SetWindow(tIPC_Client *Client, uint32_t WindowID, tWindow *WindowPt
 }
 
 // --- IPC Message Handlers ---
+int IPC_Msg_SendMsg(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
+{
+	tIPCMsg_SendMsg	*info = (void*)Msg->Data;
+	tWindow	*src, *dest;
+	
+	// - Sanity checks
+	if( Msg->Size < sizeof(tIPCMsg_SendMsg) )
+		return -1;
+	if( Msg->Size < sizeof(tIPCMsg_SendMsg) + info->Length )
+		return -1;
+	
+	src = IPC_int_GetWindow(Client, Msg->Window);
+	if(!src)	return 1;
+	dest = IPC_int_GetWindow(Client, info->Dest);
+	if(!dest)	return 1;
+
+	WM_SendMessage(src, dest, info->ID, info->Length, info->Data);	
+
+	return 0;
+}
+
 int IPC_Msg_CreateWin(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
 {
 	tIPCMsg_CreateWin	*info = (void*)Msg->Data;
@@ -346,6 +367,12 @@ void IPC_Handle(const tIPC_Type *IPCType, const void *Ident, size_t MsgLen, tAxW
 			((tIPCMsg_Return*)Msg->Data)->Value = AXWIN_VERSION;
 			IPCType->SendMessage(Ident, sizeof(tIPCMsg_Return), Msg);
 		}
+		break;
+
+	// --- Send a message
+	case IPCMSG_SENDMSG:
+		_SysDebug(" IPC_Handle: IPCMSG_SENDMSG %i", ((tIPCMsg_SendMsg*)Msg->Data)->ID);
+		rv = IPC_Msg_SendMsg(client, Msg);
 		break;
 
 	// --- Create window

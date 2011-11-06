@@ -52,7 +52,7 @@ struct sIPCMsg_CreateWin
 struct sIPCMsg_SendMsg
 {
 	uint32_t	Dest;
-	 int	ID;
+	uint16_t	ID;
 	uint16_t	Length;
 	char	Data[];
 };

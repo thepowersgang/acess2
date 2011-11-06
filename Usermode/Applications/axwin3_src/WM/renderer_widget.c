@@ -10,6 +10,9 @@
 #include <renderer_widget.h>
 #include <string.h>
 #include <wm_messages.h>
+#include <stdlib.h>
+
+#define DEFAULT_ELETABLE_SIZE	64
 
 // === PROTOTYPES ===
  int	Renderer_Widget_Init(void);
@@ -42,9 +45,14 @@ tWindow	*Renderer_Widget_Create(int Flags)
 {
 	tWindow	*ret;
 	tWidgetWin	*info;
-	ret = WM_CreateWindowStruct( sizeof(tWidgetWin) );
+	 int	eletable_size = DEFAULT_ELETABLE_SIZE;
+
+	// TODO: Use `Flags` as default element count?
+
+	ret = WM_CreateWindowStruct( sizeof(tWidgetWin) + sizeof(tElement*)*eletable_size );
 	info = ret->RendererInfo;
 	
+	info->TableSize = eletable_size;
 	info->RootElement.BackgroundColour = 0xCCCCCC;
 	
 	return ret;
@@ -257,7 +265,7 @@ tElement *Widget_GetElementById(tWidgetWin *Info, uint32_t ID)
 void Widget_NewWidget(tWidgetWin *Info, size_t Len, tWidgetMsg_Create *Msg)
 {
 	const int	max_debugname_len = Len - sizeof(tWidgetMsg_Create);
-	tElement	*parent;	
+	tElement	*parent, *new;
 
 	// Sanity check
 	if( Len < sizeof(tWidgetMsg_Create) )
@@ -267,6 +275,61 @@ void Widget_NewWidget(tWidgetWin *Info, size_t Len, tWidgetMsg_Create *Msg)
 	
 	// Create
 	parent = Widget_GetElementById(Info, Msg->Parent);
+	if(!parent)
+	{
+		_SysDebug("Widget_NewWidget - Bad parent ID %i", Msg->Parent);
+		return ;
+	}
+
+	// Check if the ID is already in use
+	if( Widget_GetElementById(Info, Msg->NewID) )
+		return ;
+
+	// Create new element
+	new = calloc(sizeof(tElement), 1);
+	new->ID = Msg->NewID;
+	new->Type = Msg->Type;
+	new->Parent = parent;
+	new->Flags = Msg->Flags;
+	new->PaddingT = 2;
+	new->PaddingB = 2;
+	new->PaddingL = 2;
+	new->PaddingR = 2;
+	
+	// Add to parent's list
+	if(parent->LastChild)
+		parent->LastChild->NextSibling = new;
+	else
+		parent->FirstChild = new;
+	new->NextSibling = parent->LastChild;
+	parent->LastChild = new;
+
+	// Add to info
+	{
+		tElement	*ele, *prev = NULL;
+		for(ele = Info->ElementTable[new->ID % Info->TableSize]; ele; prev = ele, ele = ele->ListNext);
+		if(prev)
+			prev->ListNext = new;
+		else
+			Info->ElementTable[new->ID % Info->TableSize] = new;
+	}
+}
+
+void Widget_SetSize(tWidgetWin *Info, int Len, tWidgetMsg_SetSize *Msg)
+{
+	tElement	*ele;
+	
+	if( Len < sizeof(tWidgetMsg_SetSize) )
+		return ;
+	
+	ele = Widget_GetElementById(Info, Msg->WidgetID);
+	if(!ele)	return ;
+	
+	ele->FixedWith = Msg->Value;
+}
+
+void Widget_SetText(tWidgetWin *Info, int Len, tWidgetMsg_SetText *Msg)
+{
 	
 }
 
@@ -287,6 +350,16 @@ int Renderer_Widget_HandleMessage(tWindow *Target, int Msg, int Len, void *Data)
 	case MSG_WIDGET_CREATE:
 		Widget_NewWidget(info, Len, Data);
 		return 0;
+	
+	// Set length
+	case MSG_WIDGET_SETSIZE:
+		Widget_SetSize(info, Len, Data);
+		return 0;
+	// Set text
+	case MSG_WIDGET_SETTEXT:
+		Widget_SetText(info, Len, Data);
+		return 0;
+	
 	// 
 	default:
 		return 1;	// Unhandled, pass to user

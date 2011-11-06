@@ -122,7 +122,7 @@ void AxWin3_DestroyWindow(tHWND Window)
 
 void *AxWin3_int_GetDataPtr(tHWND Window)
 {
-	return &Window->Data;
+	return Window->Data;
 }
 
 void AxWin3_SendMessage(tHWND Window, tHWND Destination, int Message, int Length, void *Data)
@@ -133,6 +133,12 @@ void AxWin3_SendMessage(tHWND Window, tHWND Destination, int Message, int Length
 	msg = AxWin3_int_AllocateIPCMessage(Window, IPCMSG_SENDMSG, 0, sizeof(*info)+Length);
 	info = (void*)msg->Data;
 	info->Dest = AxWin3_int_GetWindowID(Destination);
+	info->ID = Message;
+	info->Length = Length;
+	memcpy(info->Data, Data, Length);
+	
+	AxWin3_int_SendIPCMessage(msg);
+	free(msg);
 }
 
 void AxWin3_ShowWindow(tHWND Window, int bShow)

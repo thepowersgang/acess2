@@ -10,6 +10,7 @@
 #include "include/internal.h"
 #include <stdlib.h>
 #include <widget_messages.h>
+#include <string.h>
 
 // === STRUCTURES ===
 struct sAxWin3_Widget
@@ -24,6 +25,7 @@ typedef struct
 	 int	nElements;
 	tAxWin3_Widget	**Elements;
 	 int	FirstFreeID;
+	tAxWin3_Widget	RootElement;
 	// Callbacks for each element
 } tWidgetWindowInfo;
 
@@ -44,10 +46,8 @@ tHWND AxWin3_Widget_CreateWindow(tHWND Parent, int W, int H, int RootEleFlags)
 		);
 	info = AxWin3_int_GetDataPtr(ret);
 
-	info->nElements = 1;
-	info->Elements = malloc(sizeof(tAxWin3_Widget*));
-	info->Elements[0] = (void*)(info + 1);	// Get end of *info
-	info->FirstFreeID = 1;
+	info->RootElement.Window = ret;
+	info->RootElement.ID = -1;
 
 	AxWin3_ResizeWindow(ret, W, H);
 	
@@ -66,7 +66,7 @@ void AxWin3_Widget_DestroyWindow(tHWND Window)
 tAxWin3_Widget *AxWin3_Widget_GetRoot(tHWND Window)
 {
 	tWidgetWindowInfo	*info = AxWin3_int_GetDataPtr(Window);
-	return info->Elements[0];
+	return &info->RootElement;
 }
 
 tAxWin3_Widget *AxWin3_Widget_AddWidget(tAxWin3_Widget *Parent, int Type, int Flags, const char *DebugName)
@@ -86,7 +86,7 @@ tAxWin3_Widget *AxWin3_Widget_AddWidget(tAxWin3_Widget *Parent, int Type, int Fl
 		if( info->Elements[newID] == NULL )
 			break;
 	}
-	if( info->Elements[newID] )
+	if( info->nElements == 0 || info->Elements[newID] )
 	{
 		info->nElements ++;
 		info->Elements = realloc(info->Elements, sizeof(*info->Elements)*info->nElements);
@@ -113,4 +113,48 @@ tAxWin3_Widget *AxWin3_Widget_AddWidget(tAxWin3_Widget *Parent, int Type, int Fl
 	}
 
 	return ret;
+}
+
+void AxWin3_Widget_DelWidget(tAxWin3_Widget *Widget)
+{
+	tWidgetMsg_Delete	msg;
+	tWidgetWindowInfo	*info = AxWin3_int_GetDataPtr(Widget->Window);
+	
+	msg.WidgetID = Widget->ID;
+	AxWin3_SendMessage(Widget->Window, Widget->Window, MSG_WIDGET_DELETE, sizeof(msg), &msg);
+	
+	info->Elements[Widget->ID] = NULL;
+	if(Widget->ID < info->FirstFreeID)
+		info->FirstFreeID = Widget->ID;
+	free(Widget);
+}
+
+void AxWin3_Widget_SetSize(tAxWin3_Widget *Widget, int Size)
+{
+	tWidgetMsg_SetSize	msg;
+	
+	msg.WidgetID = Widget->ID;
+	msg.Value = Size;
+	AxWin3_SendMessage(Widget->Window, Widget->Window, MSG_WIDGET_SETSIZE, sizeof(msg), &msg);
+}
+
+void AxWin3_Widget_SetText(tAxWin3_Widget *Widget, const char *Text)
+{
+	char	buf[sizeof(tWidgetMsg_SetText) + strlen(Text) + 1];
+	tWidgetMsg_SetText	*msg = (void*)buf;
+	
+	msg->WidgetID = Widget->ID;
+	strcpy(msg->Text, Text);
+	
+	AxWin3_SendMessage(Widget->Window, Widget->Window, MSG_WIDGET_SETTEXT, sizeof(buf), buf);
+}
+
+void AxWin3_Widget_SetColour(tAxWin3_Widget *Widget, int Index, tAxWin3_Colour Colour)
+{
+	tWidgetMsg_SetColour	msg;
+	
+	msg.WidgetID = Widget->ID;
+	msg.Index = Index;
+	msg.Colour = Colour;
+	AxWin3_SendMessage(Widget->Window, Widget->Window, MSG_WIDGET_SETCOLOUR, sizeof(msg), &msg);
 }

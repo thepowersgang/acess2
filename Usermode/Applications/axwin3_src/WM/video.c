@@ -67,14 +67,10 @@ void Video_Setup(void)
 	
 	// Create local framebuffer (back buffer)
 	gpScreenBuffer = malloc( giScreenWidth*giScreenHeight*4 );
-//	memset(gpScreenBufferi
-//	Video_FillRect(0, 0, giScreenWidth, giScreenHeight, 0x8080FF);
 
 	// Set cursor position and bitmap
 	ioctl(giTerminalFD, TERM_IOCTL_SETCURSORBITMAP, &cCursorBitmap);
 	Video_SetCursorPos( giScreenWidth/2, giScreenHeight/2 );
-
-	Video_Update();
 }
 
 void Video_Update(void)
