@@ -19,14 +19,17 @@ typedef struct
 
 // === IMPORTS ===
 extern void	Video_SetCursorPos(short X, short Y);
-// TODO: Move out
+extern void	WM_Input_MouseMoved(int OldX, int OldY, int NewX, int NewY);
+extern void	WM_Input_MouseButton(int X, int Y, int Button, int Pressed);
 const char	*gsMouseDevice;
- int	giTerminalFD;
- int	giScreenWidth;
- int	giScreenHeight;
+extern int	giTerminalFD;
+extern int	giScreenWidth;
+extern int	giScreenHeight;
 
 // === GLOBALS ===
  int	giMouseFD;
+ int	giInput_MouseButtonState;
+ int	giInput_MouseX, giInput_MouseY;
 
 // === CODE ===
 int Input_Init(void)
@@ -41,11 +44,13 @@ int Input_Init(void)
 	num_value.Num = 0;	num_value.Value = giScreenWidth;
 	ioctl(giMouseFD, JOY_IOCTL_GETSETAXISLIMIT, &num_value);
 	num_value.Value = giScreenWidth/2;
+	giInput_MouseX = giScreenWidth/2;
 	ioctl(giMouseFD, JOY_IOCTL_GETSETAXISPOSITION, &num_value);
 
 	num_value.Num = 1;	num_value.Value = giScreenHeight;
 	ioctl(giMouseFD, JOY_IOCTL_GETSETAXISLIMIT, &num_value);
 	num_value.Value = giScreenHeight/2;
+	giInput_MouseY = giScreenHeight/2;
 	ioctl(giMouseFD, JOY_IOCTL_GETSETAXISPOSITION, &num_value);
 
 	return 0;
@@ -74,6 +79,7 @@ void Input_HandleSelect(fd_set *set)
 
 	if(FD_ISSET(giMouseFD, set))
 	{
+		 int	i;
 		struct sMouseInfo {
 			uint16_t	NAxies;
 			uint16_t	NButtons;
@@ -95,8 +101,25 @@ void Input_HandleSelect(fd_set *set)
 
 		// Handle movement
 		Video_SetCursorPos( mouseinfo.Axies[0].CursorPos, mouseinfo.Axies[1].CursorPos );
-		
 
-		// TODO: Handle button presses
+		WM_Input_MouseMoved(
+			giInput_MouseX, giInput_MouseY,
+			mouseinfo.Axies[0].CursorPos, mouseinfo.Axies[1].CursorPos
+			);
+		giInput_MouseX = mouseinfo.Axies[0].CursorPos;
+		giInput_MouseY = mouseinfo.Axies[1].CursorPos;
+
+		for( i = 0; i < mouseinfo.NButtons; i ++ )
+		{
+			int bit = 1 << i;
+			int cur = mouseinfo.Buttons[i] > 128;
+
+			if( !!(giInput_MouseButtonState & bit) != cur )
+			{
+				WM_Input_MouseButton(giInput_MouseX, giInput_MouseY, i, cur);
+				// Flip button state
+				giInput_MouseButtonState ^= bit;
+			}
+		}
 	}
 }

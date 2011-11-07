@@ -54,7 +54,7 @@ tWindow *WM_CreateWindow(tWindow *Parent, int RendererArg, const char *RendererN
 	ret = renderer->CreateWindow(RendererArg);
 	ret->Parent = Parent;
 	ret->Renderer = renderer;
-	ret->Flags = WINFLAG_CLEAN;	// Note, not acutally clean, but it makes invaidate work
+	ret->Flags = WINFLAG_CLEAN;	// Needed to stop invaildate early exiting
 
 	// Append to parent
 	if(Parent)

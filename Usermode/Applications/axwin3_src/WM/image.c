@@ -58,7 +58,6 @@ tImage *Image_Load(const char *URI)
 		}
 		
 		tmp = fread(buf, 1, filesize, fp);
-		_SysDebug("Image_Load: fread() returned %i",tmp);
 		fclose(fp);
 	}
 	else if( strcmp(uri->Proto, "base64") == 0 )
