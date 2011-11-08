@@ -539,6 +539,9 @@ void DrvUtil_Video_2D_Blit(void *Ent, Uint16 DstX, Uint16 DstY, Uint16 SrcX, Uin
 			}
 		}
 	}
+	else if(W == FBInfo->Width && FBInfo->Pitch == FBInfo->Width*bytes_per_px) {
+		memmove((Uint8*)FBInfo->Framebuffer + dst, (Uint8*)FBInfo->Framebuffer + src, H*FBInfo->Pitch);
+	}
 	else {
 		// Normal copy is OK
 		while( H -- ) {
