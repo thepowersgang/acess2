@@ -8,6 +8,7 @@
 #include <axwin3/axwin.h>
 #include "include/internal.h"
 #include "include/ipc.h"
+#include <stdlib.h>
 
 // === CODE ===
 int SoMain(void *Base, int argc, const char *argv[], const char **envp)
@@ -25,8 +26,13 @@ void AxWin3_MainLoop(void)
 	while(!bExit)
 	{
 		msg = AxWin3_int_GetIPCMessage();
-		
+		if(!msg)	continue;	
+	
 		// TODO: Handle message
+		_SysDebug("oh look, a message (Type=%i, Window=%i, Len=%i)",
+			msg->ID, msg->Window, msg->Size);
+		
+		free(msg);
 	}
 }
 

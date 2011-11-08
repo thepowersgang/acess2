@@ -129,6 +129,7 @@ tAxWin_IPCMessage *AxWin3_int_GetIPCMessage(void)
 			// Check if the message came from the server
 			if(tid != giConnectionNum)
 			{
+				_SysDebug("%i byte message from %i", len, tid);
 				// If not, pass the buck (or ignore)
 				if( gAxWin3_MessageCallback )
 					gAxWin3_MessageCallback(tid, len);
@@ -139,7 +140,11 @@ tAxWin_IPCMessage *AxWin3_int_GetIPCMessage(void)
 			
 			// If it's from the server, allocate a buffer and return it
 			ret = malloc(len);
-			if(ret == NULL)	return NULL;
+			if(ret == NULL) {
+				_SysDebug("malloc() failed, ignoring message");
+				SysGetMessage(NULL, GETMSG_IGNORE);
+				return NULL;
+			}
 			SysGetMessage(NULL, ret);
 			break;
 		}
