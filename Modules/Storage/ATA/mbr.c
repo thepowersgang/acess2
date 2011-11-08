@@ -36,7 +36,7 @@ void ATA_ParseMBR(int Disk, tMBR *MBR)
 			)
 		{
 			if( MBR->Parts[i].SystemID == 0xF || MBR->Parts[i].SystemID == 5 ) {
-				LOG("Extended Partition");
+				LOG("Extended Partition at 0x%llx", MBR->Parts[i].LBAStart);
 				if(extendedLBA != 0) {
 					Warning("Disk %i has multiple extended partitions, ignoring rest", Disk);
 					continue;
@@ -44,7 +44,7 @@ void ATA_ParseMBR(int Disk, tMBR *MBR)
 				extendedLBA = MBR->Parts[i].LBAStart;
 				continue;
 			}
-			LOG("Primary Partition");
+			LOG("Primary Partition at 0x%llx", MBR->Parts[i].LBAStart);
 			
 			gATA_Disks[Disk].NumPartitions ++;
 			continue;
@@ -54,7 +54,7 @@ void ATA_ParseMBR(int Disk, tMBR *MBR)
 	while(extendedLBA != 0)
 	{
 		extendedLBA = ATA_MBR_int_ReadExt(Disk, extendedLBA, &base, &len);
-		if( extendedLBA == 0xFFFFFFFF )	return ;
+		if( extendedLBA == -1 )	break;
 		gATA_Disks[Disk].NumPartitions ++;
 	}
 	LOG("gATA_Disks[Disk].NumPartitions = %i", gATA_Disks[Disk].NumPartitions);
@@ -101,6 +101,7 @@ void ATA_ParseMBR(int Disk, tMBR *MBR)
 	while(extendedLBA != 0)
 	{
 		extendedLBA = ATA_MBR_int_ReadExt(Disk, extendedLBA, &base, &len);
+		if(extendedLBA == -1)	break;
 		ATA_int_MakePartition(
 			&gATA_Disks[Disk].Partitions[j], Disk, k, base, len
 			);
