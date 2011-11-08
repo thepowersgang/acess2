@@ -1,8 +1,11 @@
 /*
- * AcessOS Microkernel Version
+ * Acess2 Kernel
+ * - By John Hodge (thePowersGang)
+ *
  * messages.c
+ * - IPC Messages
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include <threads.h>
 #include <threads_int.h>
@@ -85,21 +88,27 @@ int Proc_GetMessage(Uint *Err, Uint *Source, void *Buffer)
 	 int	ret;
 	void	*tmp;
 	tThread	*cur = Proc_GetCurThread();
+
+	ENTER("pSource pBuffer", Source, Buffer);
 	
 	// Check if queue has any items
 	if(!cur->Messages) {
+		LEAVE('i', 0);
 		return 0;
 	}
 
 	SHORTLOCK( &cur->IsLocked );
 	
-	if(Source)
+	if(Source) {
 		*Source = cur->Messages->Source;
+		LOG("*Source = %i", *Source);
+	}
 	
 	// Get message length
 	if( !Buffer ) {
 		ret = cur->Messages->Length;
 		SHORTREL( &cur->IsLocked );
+		LEAVE('i', ret);
 		return ret;
 	}
 	
@@ -108,10 +117,13 @@ int Proc_GetMessage(Uint *Err, Uint *Source, void *Buffer)
 	{
 		if( !CheckMem( Buffer, cur->Messages->Length ) )
 		{
+			LOG("Invalid buffer");
 			*Err = -EINVAL;
 			SHORTREL( &cur->IsLocked );
+			LEAVE('i', -1);
 			return -1;
 		}
+		LOG("Copied to buffer");
 		memcpy(Buffer, cur->Messages->Data, cur->Messages->Length);
 	}
 	ret = cur->Messages->Length;
@@ -119,10 +131,12 @@ int Proc_GetMessage(Uint *Err, Uint *Source, void *Buffer)
 	// Remove from list
 	tmp = cur->Messages;
 	cur->Messages = cur->Messages->Next;
+	if(cur->Messages == NULL)	cur->LastMessage = NULL;
 	
 	SHORTREL( &cur->IsLocked );
 	
 	free(tmp);	// Free outside of lock
-	
+
+	LEAVE('i', ret);
 	return ret;
 }
