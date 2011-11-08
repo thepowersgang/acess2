@@ -37,4 +37,11 @@ struct sWndMsg_Resize
 	uint16_t	W, H;
 };
 
+struct sWndMsg_MouseButton
+{
+	uint16_t	X, Y;
+	uint8_t 	Button;
+	uint8_t 	bPressed;
+};
+
 #endif

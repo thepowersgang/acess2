@@ -10,12 +10,18 @@
 
 enum
 {
+	// Control (Client->Server) messages
 	MSG_WIDGET_CREATE = 0x1000,
 	MSG_WIDGET_DELETE,
 	MSG_WIDGET_SETFLAGS,
 	MSG_WIDGET_SETSIZE,
 	MSG_WIDGET_SETTEXT,
-	MSG_WIDGET_SETCOLOUR
+	MSG_WIDGET_SETCOLOUR,
+	
+	// Event (Server->Client) messages
+	MSG_WIDGET_FIRE,
+	MSG_WIDGET_KEYPRESS,
+	MSG_WIDGET_MOUSEBTN,
 };
 
 
@@ -58,6 +64,27 @@ typedef struct
 	uint32_t	Index;
 	uint32_t	Colour;
 } tWidgetMsg_SetColour;
+
+typedef struct
+{
+	uint32_t	WidgetID;
+} tWidgetMsg_Fire;
+
+typedef struct
+{
+	uint32_t	WidgetID;
+	uint32_t	KeySym;
+	uint32_t	Character;
+} tWidgetMsg_KeyEvent;
+
+typedef struct
+{
+	uint32_t	WidgetID;
+	uint16_t	X;
+	uint16_t	Y;
+	uint8_t 	Button;
+	uint8_t 	bPressed;
+} tWidgetMsg_MouseBtn;
 
 #endif
 

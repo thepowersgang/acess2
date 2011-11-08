@@ -22,6 +22,7 @@ struct sAxWin_Element
 {
 	enum eElementTypes	Type;
 
+	tWindow 	*Window;
 	uint32_t	ID;	//!< Application provided ID number
 	tElement	*ListNext;	//!< Next element in bucket
 	

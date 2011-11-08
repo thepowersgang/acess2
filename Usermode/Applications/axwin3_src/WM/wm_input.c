@@ -7,6 +7,7 @@
  */
 #include <common.h>
 #include <wm_internals.h>
+#include <wm_messages.h>
 
 // === IMPORTS ===
 extern tWindow	*gpWM_RootWindow;
@@ -42,8 +43,15 @@ void WM_Input_MouseMoved(int OldX, int OldY, int NewX, int NewY)
 
 void WM_Input_MouseButton(int X, int Y, int ButtonIndex, int Pressed)
 {
-//	tWindow	*win = WM_int_GetWindowAtPos(X, Y);
-	
+	tWindow	*win = WM_int_GetWindowAtPos(X, Y);
+	struct sWndMsg_MouseButton	msg;	
+
 	// Send Press/Release message
+	msg.X = X - win->X;
+	msg.Y = Y - win->Y;
+	msg.Button = ButtonIndex;
+	msg.bPressed = !!Pressed;
+	
+	WM_SendMessage(NULL, win, WNDMSG_MOUSEBTN, sizeof(msg), &msg);
 }
 

@@ -33,6 +33,7 @@ void	Widget_SetText(tWidgetWin *Info, int Len, tWidgetMsg_SetText *Msg);
 // --- Type helpers
 void	Widget_TextBox_UpdateText(tElement *Element, const char *Text);
 void	Widget_Image_UpdateText(tElement *Element, const char *Text);
+ int	Widget_Button_MouseButton(tElement *Element, int X, int Y, int Button, int bPress);
 
 // === GLOBALS ===
 tWMRenderer	gRenderer_Widget = {
@@ -42,19 +43,34 @@ tWMRenderer	gRenderer_Widget = {
 	.HandleMessage = Renderer_Widget_HandleMessage
 };
 	
-// --- Element type flags
+// --- Element callbacks
 struct {
 	void	(*Init)(tElement *Ele);
 	void	(*Delete)(tElement *Ele);
+	
 	void	(*UpdateFlags)(tElement *Ele);
 	void	(*UpdateSize)(tElement *Ele);
 	void	(*UpdateText)(tElement *Ele, const char *Text);	// This should update Ele->Text
+
+	/**
+	 * \name Input handlers
+	 * \note Returns boolean unhandled
+	 * \{
+	 */	
+	 int	(*MouseButton)(tElement *Ele, int X, int Y, int Button, int bPressed);
+	 int	(*MouseMove)(tElement *Ele, int X, int Y);
+	 int	(*KeyDown)(tElement *Ele, int KeySym, int Character);
+	 int	(*KeyUp)(tElement *Ele, int KeySym);
+	 int	(*KeyFire)(tElement *Ele, int KeySym, int Character);
+	/**
+	 * \}
+	 */
 }	gaWM_WidgetTypes[NUM_ELETYPES] = {
-	{NULL, NULL, NULL, NULL, NULL},	// NULL
-	{NULL, NULL, NULL, NULL, NULL},	// Box
-	{NULL, NULL, NULL, NULL, Widget_TextBox_UpdateText},	// Text
-	{NULL, NULL, NULL, NULL, Widget_Image_UpdateText},	// Image
-	{NULL, NULL, NULL, NULL, NULL}	// Button
+	{0},	// NULL
+	{0},	// Box
+	{.UpdateText = Widget_TextBox_UpdateText},	// Text
+	{.UpdateText = Widget_Image_UpdateText},	// Image
+	{.MouseButton = Widget_Button_MouseButton}	// Button
 };
 const int	ciWM_NumWidgetTypes = sizeof(gaWM_WidgetTypes)/sizeof(gaWM_WidgetTypes[0]);
 
@@ -82,6 +98,7 @@ tWindow	*Renderer_Widget_Create(int Flags)
 	info = ret->RendererInfo;
 	
 	info->TableSize = eletable_size;
+	info->RootElement.Window = ret;
 	info->RootElement.ID = -1;
 	info->RootElement.BackgroundColour = 0xCCCCCC;
 	info->RootElement.Flags = Flags;
@@ -337,6 +354,27 @@ void Widget_UpdateMinDims(tElement *Element)
 	Widget_UpdateMinDims(Element->Parent);
 }
 
+tElement *Widget_GetElementByPos(tWidgetWin *Info, int X, int Y)
+{
+	tElement	*ret, *next, *ele;
+	
+	next = &Info->RootElement;
+	while(next)
+	{
+		ret = next;
+		next = NULL;
+		for(ele = ret->FirstChild; ele; ele = ele->NextSibling)
+		{
+			if(ele->Flags & ELEFLAG_NORENDER)	continue;
+			if(X < ele->CachedX)	continue;
+			if(Y < ele->CachedY)	continue;
+			if(X >= ele->CachedX + ele->CachedW)	continue;
+			if(Y >= ele->CachedY + ele->CachedH)	continue;
+			next = ele;
+		}
+	}
+	return ret;
+}
 
 // --- Helpers ---
 tElement *Widget_GetElementById(tWidgetWin *Info, uint32_t ID)
@@ -381,6 +419,7 @@ void Widget_NewWidget(tWidgetWin *Info, size_t Len, tWidgetMsg_Create *Msg)
 
 	// Create new element
 	new = calloc(sizeof(tElement), 1);
+	new->Window = parent->Window;
 	new->ID = Msg->NewID;
 	new->Type = Msg->Type;
 	new->Parent = parent;
@@ -480,6 +519,47 @@ int Renderer_Widget_HandleMessage(tWindow *Target, int Msg, int Len, void *Data)
 
 		info->RootElement.CachedW = msg->W;		
 		info->RootElement.CachedH = msg->H;
+		
+		// TODO: Update dimensions of all child elements?
+		
+		return 0; }
+
+	case WNDMSG_MOUSEBTN: {
+		struct sWndMsg_MouseButton	*msg = Data;
+		tWidgetMsg_MouseBtn	client_msg;
+		tElement	*ele;
+		 int	x, y;
+		 int	rv;
+		
+		if(Len < sizeof(*msg))	return -1;
+
+		x = msg->X; y = msg->Y;
+		client_msg.Button = msg->Button;
+		client_msg.bPressed = msg->bPressed;
+
+		ele = Widget_GetElementByPos(info, x, y);
+		// Send event to all elements from `ele` upwards
+		for( ; ele; ele = ele->Parent )
+		{
+			if(ele->Type < ciWM_NumWidgetTypes && gaWM_WidgetTypes[ele->Type].MouseButton)
+			{
+				rv = gaWM_WidgetTypes[ele->Type].MouseButton(
+					ele,
+					x - ele->CachedX, y - ele->CachedY,
+					msg->Button, msg->bPressed
+					);
+				// Allow a type to trap the input from going any higher
+				if(rv == 0)	break;
+			}
+			else
+			{
+				// Pass to user
+				client_msg.X = x - ele->CachedX;
+				client_msg.Y = y - ele->CachedY;
+				client_msg.WidgetID = ele->ID;
+				WM_SendMessage(Target, Target, MSG_WIDGET_MOUSEBTN, sizeof(client_msg), &client_msg);
+			}
+		}
 		return 0; }
 
 	// New Widget
@@ -510,6 +590,13 @@ int Renderer_Widget_HandleMessage(tWindow *Target, int Msg, int Len, void *Data)
 	default:
 		return 1;	// Unhandled, pass to user
 	}
+}
+
+void Widget_Fire(tElement *Element)
+{
+	tWidgetMsg_Fire	msg;
+	msg.WidgetID = Element->ID;
+	WM_SendMessage(Element->Window, Element->Window, MSG_WIDGET_FIRE, sizeof(msg), &msg);
 }
 
 // --- Type Helpers
@@ -557,5 +644,15 @@ void Widget_Image_UpdateText(tElement *Element, const char *Text)
 	Widget_UpdateMinDims(Element->Parent);
 	
 	// NOTE: Doesn't update Element->Text because it's useless
+}
+
+int Widget_Button_MouseButton(tElement *Element, int X, int Y, int Button, int bPress)
+{
+	_SysDebug("Ele %i - Button %i %s",
+		Element->ID, Button,
+		(bPress ? "pressed" : "released")
+		);
+	if(!bPress)	Widget_Fire(Element);
+	return 0;	// Handled
 }
 
