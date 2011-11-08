@@ -51,7 +51,7 @@ struct sIPCMsg_CreateWin
 
 struct sIPCMsg_SendMsg
 {
-	uint32_t	Dest;
+	uint32_t	Remote;	// Dest/Source for Server/Client bound
 	uint16_t	ID;
 	uint16_t	Length;
 	char	Data[];

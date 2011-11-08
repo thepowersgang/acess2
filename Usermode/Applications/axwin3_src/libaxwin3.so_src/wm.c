@@ -132,7 +132,7 @@ void AxWin3_SendMessage(tHWND Window, tHWND Destination, int Message, int Length
 	
 	msg = AxWin3_int_AllocateIPCMessage(Window, IPCMSG_SENDMSG, 0, sizeof(*info)+Length);
 	info = (void*)msg->Data;
-	info->Dest = AxWin3_int_GetWindowID(Destination);
+	info->Remote = AxWin3_int_GetWindowID(Destination);
 	info->ID = Message;
 	info->Length = Length;
 	memcpy(info->Data, Data, Length);

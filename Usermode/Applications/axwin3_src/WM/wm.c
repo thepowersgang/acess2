@@ -12,6 +12,9 @@
 #include <video.h>
 #include <wm_messages.h>
 
+// === IMPORTS ===
+extern void	IPC_SendWMMessage(tIPC_Client *Client, uint32_t Src, uint32_t Dst, int Msg, int Len, void *Data);
+
 // === GLOBALS ===
 tWMRenderer	*gpWM_Renderers;
 tWindow	*gpWM_RootWindow;
@@ -19,7 +22,7 @@ tWindow	*gpWM_RootWindow;
 // === CODE ===
 void WM_Initialise(void)
 {
-	WM_CreateWindow(NULL, 0x0088FF, "Background");
+	WM_CreateWindow(NULL, NULL, 0, 0x0088FF, "Background");
 	gpWM_RootWindow->W = giScreenWidth;
 	gpWM_RootWindow->H = giScreenHeight;
 	gpWM_RootWindow->Flags = WINFLAG_SHOW;
@@ -33,7 +36,7 @@ void WM_RegisterRenderer(tWMRenderer *Renderer)
 }
 
 // --- Manipulation
-tWindow *WM_CreateWindow(tWindow *Parent, int RendererArg, const char *RendererName)
+tWindow *WM_CreateWindow(tWindow *Parent, tIPC_Client *Client, uint32_t ID, int RendererArg, const char *RendererName)
 {
 	tWMRenderer	*renderer;
 	tWindow	*ret;
@@ -52,6 +55,8 @@ tWindow *WM_CreateWindow(tWindow *Parent, int RendererArg, const char *RendererN
 
 	// - Call create window function
 	ret = renderer->CreateWindow(RendererArg);
+	ret->Client = Client;
+	ret->ID = ID;
 	ret->Parent = Parent;
 	ret->Renderer = renderer;
 	ret->Flags = WINFLAG_CLEAN;	// Needed to stop invaildate early exiting
@@ -141,10 +146,26 @@ int WM_SendMessage(tWindow *Source, tWindow *Dest, int Message, int Length, void
 		// TODO: Catch errors from ->HandleMessage
 		return 0;
 	}
-	
-	// TODO: Pass on to user
-	_SysDebug("WM_SendMessage: TODO - Implement sending to client application");
-	
+
+	// TODO: Implement message masking
+
+	if(Dest->Client)
+	{
+		uint32_t	src_id;
+		if(!Source)
+			src_id = -1;
+		else if(Source->Client != Dest->Client) {
+			// TODO: Support different client source windows
+			_SysDebug("WM_SendMessage: TODO - Support inter-client messages");
+			return -1;
+		}
+		else {
+			src_id = Source->ID;
+		}
+		
+		IPC_SendWMMessage(Dest->Client, src_id, Dest->ID, Message, Length, Data);
+	}	
+
 	return 1;
 }
 
@@ -153,17 +174,12 @@ void WM_Invalidate(tWindow *Window)
 	// Don't invalidate twice (speedup)
 	if( !(Window->Flags & WINFLAG_CLEAN) )	return;
 
-//	_SysDebug("Invalidating %p");
-	
 	// Mark for re-render
 	Window->Flags &= ~WINFLAG_CLEAN;
 
 	// Mark up the tree that a child window has changed	
 	while( (Window = Window->Parent) )
-	{
-//		_SysDebug("Childclean removed from %p", Window);
 		Window->Flags &= ~WINFLAG_CHILDCLEAN;
-	}
 }
 
 // --- Rendering / Update

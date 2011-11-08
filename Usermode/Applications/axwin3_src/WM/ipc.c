@@ -20,7 +20,6 @@
 
 // === TYPES ===
 typedef struct sIPC_Type	tIPC_Type;
-typedef struct sIPC_Client	tIPC_Client;
 
 struct sIPC_Type
 {
@@ -270,7 +269,7 @@ int IPC_Msg_SendMsg(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
 	
 	src = IPC_int_GetWindow(Client, Msg->Window);
 	if(!src)	return 1;
-	dest = IPC_int_GetWindow(Client, info->Dest);
+	dest = IPC_int_GetWindow(Client, info->Remote);
 	if(!dest)	return 1;
 
 	WM_SendMessage(src, dest, info->ID, info->Length, info->Data);	
@@ -298,7 +297,7 @@ int IPC_Msg_CreateWin(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
 		return 1;
 
 	// - Create the new window, and save its pointer
-	newwin = WM_CreateWindow(parent, info->RendererArg, info->Renderer);
+	newwin = WM_CreateWindow(parent, Client, info->NewWinID, info->RendererArg, info->Renderer);
 	IPC_int_SetWindow(Client, info->NewWinID, newwin);
 
 	return 0;
@@ -399,5 +398,28 @@ void IPC_Handle(const tIPC_Type *IPCType, const void *Ident, size_t MsgLen, tAxW
 	}
 	if(rv)
 		_SysDebug("IPC_Handle: rv = %i", rv);
+}
+
+// --- Server->Client replies
+void IPC_SendWMMessage(tIPC_Client *Client, uint32_t Src, uint32_t Dst, int MsgID, int Len, void *Data)
+{
+	tAxWin_IPCMessage	*hdr;
+	tIPCMsg_SendMsg 	*msg;
+	char	buf[sizeof(*hdr)+sizeof(*msg)+Len];
+	
+	hdr = (void*)buf;
+	msg = (void*)hdr->Data;
+	
+	hdr->ID = IPCMSG_SENDMSG;
+	hdr->Flags = 0;
+	hdr->Size = sizeof(*msg) + Len;
+	hdr->Window = Dst;
+	
+	msg->Remote = Src;
+	msg->ID = MsgID;
+	msg->Length = Len;
+	memcpy(msg->Data, Data, Len);
+	
+	Client->IPCType->SendMessage(Client->Ident, sizeof(buf), buf);
 }
 

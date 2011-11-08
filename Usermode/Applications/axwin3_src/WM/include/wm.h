@@ -33,10 +33,11 @@ typedef struct sWindow	tWindow;
 typedef struct sWMRenderer	tWMRenderer;
 typedef uint32_t	tColour;
 typedef struct sFont	tFont;
+typedef struct sIPC_Client	tIPC_Client;
 
 // === FUNCTIONS ===
 // --- Management
-extern tWindow	*WM_CreateWindow(tWindow *Parent, int Flags, const char *Renderer);
+extern tWindow	*WM_CreateWindow(tWindow *Parent, tIPC_Client *Client, uint32_t ID, int Flags, const char *Renderer);
 extern void	WM_Invalidate(tWindow *Window);
 extern void	WM_ShowWindow(tWindow *Window, int bShow);
 extern int	WM_ResizeWindow(tWindow *Window, int W, int H);

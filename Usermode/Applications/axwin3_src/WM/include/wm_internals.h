@@ -19,7 +19,9 @@ struct sWindow
 
 	tWindow	*FirstChild;
 	tWindow	*LastChild;
-	
+
+	tIPC_Client	*Client;
+	uint32_t	ID;	//!< Client assigned ID
 	tWMRenderer	*Renderer;
 
 	 int	Flags;
