@@ -40,6 +40,17 @@ tWindow *AxWin3_int_CreateWindowStruct(uint32_t ServerID, int ExtraBytes)
 	return ret;
 }
 
+tWindow *AxWin3_int_GetWindowFromID(uint32_t ServerID)
+{
+	tWindowBlock	*block = &gAxWin3_WindowList;
+	while(block && ServerID > WINDOWS_PER_ALLOC) {
+		block = block->Next;
+		ServerID -= WINDOWS_PER_ALLOC;
+	}
+	if(!block)	return NULL;
+	return block->Windows[ServerID];
+}
+
 tWindow *AxWin3_int_AllocateWindowInfo(int DataBytes, int *WinID)
 {
 	 int	idx, newWinID;
@@ -123,6 +134,24 @@ void AxWin3_DestroyWindow(tHWND Window)
 void *AxWin3_int_GetDataPtr(tHWND Window)
 {
 	return Window->Data;
+}
+
+void AxWin3_int_HandleMessage(tAxWin_IPCMessage *Msg)
+{
+	tWindow	*dest;
+
+	dest = AxWin3_int_GetWindowFromID(Msg->Window);
+
+	switch(Msg->ID)
+	{
+	case IPCMSG_SENDMSG: {
+		tIPCMsg_SendMsg	*info = (void*)Msg->Data;
+		if(Msg->Size < sizeof(*info))	return ;
+		if(Msg->Size < sizeof(*info) + info->Length)	return ;
+		if(!dest || !dest->Handler)	return ;
+		dest->Handler(dest, info->ID, info->Length, info->Data);
+		break; }
+	}
 }
 
 void AxWin3_SendMessage(tHWND Window, tHWND Destination, int Message, int Length, void *Data)

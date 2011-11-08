@@ -5,6 +5,7 @@
  * main.c
  * - Interface core
  */
+#include <acess/sys.h>
 #include <stdlib.h>
 #include <axwin3/axwin.h>
 #include <axwin3/widget.h>
@@ -19,8 +20,9 @@ tHWND	gSidebar;
 tAxWin3_Widget	*gSidebarRoot;
 
 // === CODE ===
-int sidebar_callback(tHWND Window, int Length, void *Data)
+int systembutton_fire(tAxWin3_Widget *Widget)
 {
+	_SysDebug("SystemButton pressed");
 	return 0;
 }
 
@@ -50,6 +52,7 @@ void create_sidebar(void)
 	// - Main menu
 	btn = AxWin3_Widget_AddWidget(gSidebarRoot, ELETYPE_BUTTON, ELEFLAG_NOSTRETCH, "SystemButton");
 	AxWin3_Widget_SetSize(btn, SIDEBAR_WIDTH);
+	AxWin3_Widget_SetFireHandler(btn, systembutton_fire);
 	txt = AxWin3_Widget_AddWidget(btn, ELETYPE_IMAGE, 0, "SystemLogo");
 	AxWin3_Widget_SetText(txt, "file:///Acess/Apps/AxWin/3.0/AcessLogoSmall.sif");
 	

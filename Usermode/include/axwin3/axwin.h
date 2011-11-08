@@ -13,7 +13,7 @@ typedef unsigned int	tAxWin3_Colour;	// TODO: Actual 32-bit
 
 typedef void	(*tAxWin3_MessageCallback)(int SourceTID, int Length);
 
-typedef int	(*tAxWin3_WindowMessageHandler)(tHWND Window, int Length, void *Data);
+typedef int	(*tAxWin3_WindowMessageHandler)(tHWND Window, int Message, int Length, void *Data);
 
 // --- Connection management
 extern void	AxWin3_Connect(const char *ServerDesc);

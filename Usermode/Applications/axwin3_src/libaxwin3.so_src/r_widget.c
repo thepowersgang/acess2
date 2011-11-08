@@ -17,7 +17,12 @@ struct sAxWin3_Widget
 {
 	tHWND	Window;
 	uint32_t	ID;
-	tAxWin3_Widget_Callback	Callback;
+	// Callbacks
+	tAxWin3_Widget_FireCb	Fire;
+	tAxWin3_Widget_KeyUpDownCb	KeyUpDown;
+	tAxWin3_Widget_KeyFireCb	KeyFire;
+	tAxWin3_Widget_MouseMoveCb	MouseMove;
+	tAxWin3_Widget_MouseBtnCb	MouseButton;
 };
 
 typedef struct
@@ -30,9 +35,33 @@ typedef struct
 } tWidgetWindowInfo;
 
 // === CODE ===
-int AxWin3_Widget_MessageHandler(tHWND Window, int Size, void *Data)
+tAxWin3_Widget *AxWin3_Widget_int_GetElementByID(tHWND Window, uint32_t ID)
 {
-	return 0;
+	tWidgetWindowInfo	*info;
+	if(!Window)	return NULL;
+	
+	info = AxWin3_int_GetDataPtr(Window);
+	if(ID >= info->nElements)	return NULL;
+	
+	return info->Elements[ID];
+}
+
+int AxWin3_Widget_MessageHandler(tHWND Window, int MessageID, int Size, void *Data)
+{
+	tAxWin3_Widget	*widget;
+
+	switch(MessageID)
+	{
+	case MSG_WIDGET_FIRE: {
+		tWidgetMsg_Fire	*msg = Data;
+		if(Size < sizeof(*msg))	return -1;
+		widget = AxWin3_Widget_int_GetElementByID(Window, msg->WidgetID);
+		if(widget->Fire)	widget->Fire(widget);
+		
+		return 0; }
+	default:
+		return 0;
+	}
 }
 
 tHWND AxWin3_Widget_CreateWindow(tHWND Parent, int W, int H, int RootEleFlags)
@@ -99,10 +128,9 @@ tAxWin3_Widget *AxWin3_Widget_AddWidget(tAxWin3_Widget *Parent, int Type, int Fl
 	info->Elements[newID] = (void*)-1;
 	
 	// Create new widget structure
-	ret = malloc(sizeof(tAxWin3_Widget));
+	ret = calloc(sizeof(tAxWin3_Widget), 1);
 	ret->Window = Parent->Window;
 	ret->ID = newID;
-	ret->Callback = NULL;
 
 	info->Elements[newID] = ret;
 
@@ -135,6 +163,38 @@ void AxWin3_Widget_DelWidget(tAxWin3_Widget *Widget)
 	free(Widget);
 }
 
+// --- Callbacks
+void AxWin3_Widget_SetFireHandler(tAxWin3_Widget *Widget, tAxWin3_Widget_FireCb Callback)
+{
+	if(!Widget)	return;
+	Widget->Fire = Callback;
+}
+
+void AxWin3_Widget_SetKeyHandler(tAxWin3_Widget *Widget, tAxWin3_Widget_KeyUpDownCb Callback)
+{
+	if(!Widget)	return;
+	Widget->KeyUpDown = Callback;
+}
+
+void AxWin3_Widget_SetKeyFireHandler(tAxWin3_Widget *Widget, tAxWin3_Widget_KeyFireCb Callback)
+{
+	if(!Widget)	return;
+	Widget->KeyFire = Callback;
+}
+
+void AxWin3_Widget_SetMouseMoveHandler(tAxWin3_Widget *Widget, tAxWin3_Widget_MouseMoveCb Callback)
+{
+	if(!Widget)	return;
+	Widget->MouseMove = Callback;
+}
+
+void AxWin3_Widget_SetMouseButtonHandler(tAxWin3_Widget *Widget, tAxWin3_Widget_MouseBtnCb Callback)
+{
+	if(!Widget)	return;
+	Widget->MouseButton = Callback;
+}
+
+// --- Manipulation
 void AxWin3_Widget_SetFlags(tAxWin3_Widget *Widget, int FlagSet, int FlagMask)
 {
 	tWidgetMsg_SetFlags	msg;

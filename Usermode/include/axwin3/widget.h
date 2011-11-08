@@ -12,15 +12,29 @@
 
 typedef struct sAxWin3_Widget	tAxWin3_Widget;
 
-typedef int	(*tAxWin3_Widget_Callback)(tAxWin3_Widget Widget, int EventType, unsigned long EventArg);
+// --- Callback types
+typedef int	(*tAxWin3_Widget_FireCb)(tAxWin3_Widget *Widget);
+typedef int	(*tAxWin3_Widget_KeyUpDownCb)(tAxWin3_Widget *Widget, int KeySym);
+typedef int	(*tAxWin3_Widget_KeyFireCb)(tAxWin3_Widget *Widget, int KeySym, int Character);
+typedef int	(*tAxWin3_Widget_MouseMoveCb)(tAxWin3_Widget *Widget, int X, int Y);
+typedef int	(*tAxWin3_Widget_MouseBtnCb)(tAxWin3_Widget *Widget, int X, int Y, int Button, int bPressed);
 
+// --- Windows
 extern tHWND	AxWin3_Widget_CreateWindow(tHWND Parent, int W, int H, int RootEleFlags);
 extern void	AxWin3_Widget_DestroyWindow(tHWND Window);
 extern tAxWin3_Widget	*AxWin3_Widget_GetRoot(tHWND Window);
 
+// --- Element Creation
 extern tAxWin3_Widget	*AxWin3_Widget_AddWidget(tAxWin3_Widget *Parent, int Type, int Flags, const char *DebugName);
 extern void	AxWin3_Widget_DelWidget(tAxWin3_Widget *Widget);
 
+// --- Callbacks
+extern void	AxWin3_Widget_SetFireHandler(tAxWin3_Widget *Widget, tAxWin3_Widget_FireCb Callback);
+extern void	AxWin3_Widget_SetKeyHandler(tAxWin3_Widget *Widget, tAxWin3_Widget_KeyUpDownCb Callback);
+extern void	AxWin3_Widget_SetKeyFireHandler(tAxWin3_Widget *Widget, tAxWin3_Widget_KeyFireCb Callback);
+extern void	AxWin3_Widget_SetMouseMoveHandler(tAxWin3_Widget *Widget, tAxWin3_Widget_MouseMoveCb Callback);
+extern void	AxWin3_Widget_SetMouseButtonHandler(tAxWin3_Widget *Widget, tAxWin3_Widget_MouseBtnCb Callback);
+// --- Manipulation
 extern void	AxWin3_Widget_SetFlags(tAxWin3_Widget *Widget, int FlagSet, int FlagMask);
 extern void	AxWin3_Widget_SetSize(tAxWin3_Widget *Widget, int Size);
 extern void	AxWin3_Widget_SetText(tAxWin3_Widget *Widget, const char *Text);
