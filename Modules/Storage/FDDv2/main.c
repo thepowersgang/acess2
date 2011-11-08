@@ -174,6 +174,7 @@ Uint64 FDD_ReadFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	if( Length > Node->Size )	Length = Node->Size;
 	if( Offset + Length > Node->Size )
 		Length = Node->Size - Offset;
+	if( Length == 0 )	return 0;
 
 	rem_len = Length;
 
