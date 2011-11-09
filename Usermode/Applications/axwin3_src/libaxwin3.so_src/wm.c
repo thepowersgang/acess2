@@ -89,6 +89,48 @@ tWindow *AxWin3_int_AllocateWindowInfo(int DataBytes, int *WinID)
 	return ret;
 }
 
+int AxWin3_GetDisplayCount(void)
+{
+	tAxWin_IPCMessage	*msg;
+	tIPCMsg_ReturnInt	*ret;
+	 int	rv;
+	
+	msg = AxWin3_int_AllocateIPCMessage(NULL, IPCMSG_GETDISPLAYCOUNT, IPCMSG_FLAG_RETURN, 0);
+	AxWin3_int_SendIPCMessage(msg);
+	free(msg);	
+
+	msg = AxWin3_int_WaitIPCMessage(IPCMSG_GETDISPLAYCOUNT);
+	if(msg->Size < sizeof(*ret))	return -1;
+	ret = (void*)msg->Data;
+	rv = ret->Value;
+	free(msg);
+	return rv;
+}
+
+int AxWin3_GetDisplayDims(int Display, int *X, int *Y, int *Width, int *Height)
+{
+	tAxWin_IPCMessage	*msg;
+	tIPCMsg_GetDisplayDims	*req;
+	tIPCMsg_RetDisplayDims	*ret;
+	
+	msg = AxWin3_int_AllocateIPCMessage(NULL, IPCMSG_GETDISPLAYDIMS, IPCMSG_FLAG_RETURN, sizeof(*req));
+	req = (void*)msg->Data;
+	req->DisplayID = Display;
+	AxWin3_int_SendIPCMessage(msg);
+	free(msg);
+
+	msg = AxWin3_int_WaitIPCMessage(IPCMSG_GETDISPLAYDIMS);
+	if(msg->Size < sizeof(*ret))	return -1;
+	ret = (void*)msg->Data;
+	
+	if(X)	*X = ret->X;
+	if(X)	*X = ret->Y;
+	if(Width)	*Width = ret->W;
+	if(Height)	*Height = ret->H;
+	
+	return 0;
+}
+
 tHWND AxWin3_CreateWindow(
 	tHWND Parent, const char *Renderer, int RendererArg,
 	int DataBytes, tAxWin3_WindowMessageHandler MessageHandler

@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <ipcmessages.h>	// AxWin3 common
 #include "include/internal.h"
+#include "include/ipc.h"
 
 // === CONSTANTS ===
 enum eConnectionType
@@ -162,5 +163,17 @@ tAxWin_IPCMessage *AxWin3_int_GetIPCMessage(void)
 	// TODO: Sanity checks, so a stupid server can't crash us
 
 	return ret;
+}
+
+tAxWin_IPCMessage *AxWin3_int_WaitIPCMessage(int WantedID)
+{
+	tAxWin_IPCMessage	*msg;
+	for(;;)
+	{
+		msg = AxWin3_int_GetIPCMessage();
+		if(msg->ID == WantedID)	return msg;
+		AxWin3_int_HandleMessage( msg );
+		free(msg);
+	}
 }
 

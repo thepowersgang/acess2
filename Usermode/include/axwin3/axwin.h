@@ -20,6 +20,10 @@ extern void	AxWin3_Connect(const char *ServerDesc);
 extern tAxWin3_MessageCallback	AxWin3_SetMessageCallback(tAxWin3_MessageCallback Callback);
 extern void	AxWin3_MainLoop(void);
 
+// --- Non-Window based functions
+extern int	AxWin3_GetDisplayCount(void);
+extern int	AxWin3_GetDisplayDims(int Display, int *X, int *Y, int *Width, int *Height);
+
 // --- Window creation/deletion
 /**
  * \brief Create a new window (with the required client structures)

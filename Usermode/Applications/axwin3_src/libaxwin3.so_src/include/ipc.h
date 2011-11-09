@@ -15,6 +15,7 @@ extern const char	*gsAxWin3_int_ServerDesc;
 extern tAxWin_IPCMessage	*AxWin3_int_AllocateIPCMessage(tHWND Window, int Message, int Flags, int ExtraBytes);
 extern void	AxWin3_int_SendIPCMessage(tAxWin_IPCMessage *Msg);
 extern tAxWin_IPCMessage	*AxWin3_int_GetIPCMessage(void);
+extern tAxWin_IPCMessage	*AxWin3_int_WaitIPCMessage(int WantedID);
 extern void	AxWin3_int_HandleMessage(tAxWin_IPCMessage *Msg);
 
 

@@ -12,11 +12,14 @@
 #include <stdint.h>
 
 typedef struct sAxWin_IPCMessage	tAxWin_IPCMessage;
-typedef struct sIPCMsg_Return	tIPCMsg_Return;
+typedef struct sIPCMsg_ReturnInt	tIPCMsg_ReturnInt;
 typedef struct sIPCMsg_CreateWin	tIPCMsg_CreateWin;
 typedef struct sIPCMsg_ShowWindow	tIPCMsg_ShowWindow;
 typedef struct sIPCMsg_SetWindowPos	tIPCMsg_SetWindowPos;
 typedef struct sIPCMsg_SendMsg	tIPCMsg_SendMsg;
+
+typedef struct sIPCMsg_GetDisplayDims	tIPCMsg_GetDisplayDims;
+typedef struct sIPCMsg_RetDisplayDims	tIPCMsg_RetDisplayDims;
 
 /**
  * \name Flags for IPC Messages
@@ -37,7 +40,7 @@ struct sAxWin_IPCMessage
 	char	Data[];
 };
 
-struct sIPCMsg_Return
+struct sIPCMsg_ReturnInt
 {
 	uint32_t	Value;
 };
@@ -70,9 +73,25 @@ struct sIPCMsg_SetWindowPos
 	uint8_t 	bSetDims;
 };
 
+struct sIPCMsg_GetDisplayDims
+{
+	uint16_t	DisplayID;
+};
+
+struct sIPCMsg_RetDisplayDims
+{
+	uint16_t	X;
+	uint16_t	Y;
+	uint16_t	W;
+	uint16_t	H;
+};
+
 enum eAxWin_IPCMessageTypes
 {
 	IPCMSG_PING,	//!< Get the server version
+	IPCMSG_GETDISPLAYCOUNT,	
+	IPCMSG_GETDISPLAYDIMS,
+
 	IPCMSG_SENDMSG, 	//!< Send a message to another window (or to self)
 	IPCMSG_CREATEWIN,	//!< Create a window
 	IPCMSG_DESTROYWIN,	//!< Destroy a window

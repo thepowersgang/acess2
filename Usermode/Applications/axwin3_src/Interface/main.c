@@ -18,6 +18,8 @@ void	create_sidebar(void);
 // === GLOBALS ===
 tHWND	gSidebar;
 tAxWin3_Widget	*gSidebarRoot;
+ int	giScreenWidth;
+ int	giScreenHeight;
 
 // === CODE ===
 int systembutton_fire(tAxWin3_Widget *Widget)
@@ -43,9 +45,11 @@ void create_sidebar(void)
 {
 	tAxWin3_Widget	*btn, *txt, *ele;
 
+	// TODO: Register to be told when the display layout changes
+	AxWin3_GetDisplayDims(0, NULL, NULL, &giScreenWidth, &giScreenHeight);
+
 	// Create sidebar
-	// TODO: Get screen dimensions somehow
-	gSidebar = AxWin3_Widget_CreateWindow(NULL, SIDEBAR_WIDTH, 480, ELEFLAG_VERTICAL);
+	gSidebar = AxWin3_Widget_CreateWindow(NULL, SIDEBAR_WIDTH, giScreenHeight, ELEFLAG_VERTICAL);
 	AxWin3_MoveWindow(gSidebar, 0, 0);
 	gSidebarRoot = AxWin3_Widget_GetRoot(gSidebar);	
 
@@ -71,10 +75,14 @@ void create_sidebar(void)
 	ele = AxWin3_Widget_AddWidget(gSidebarRoot, ELETYPE_BOX, ELEFLAG_VERTICAL|ELEFLAG_NOSTRETCH, "Version/Time");
 	txt = AxWin3_Widget_AddWidget(ele, ELETYPE_TEXT, ELEFLAG_NOSTRETCH, "Version String");
 	AxWin3_Widget_SetSize(txt, 20);
-	AxWin3_Widget_SetText(txt, "2.0");
+	AxWin3_Widget_SetText(txt, "3.0");
 
 	// Show!
 	AxWin3_ShowWindow(gSidebar, 1);	
 	
+}
+
+void create_mainmenu(void)
+{
 }
 

@@ -118,10 +118,12 @@ tAxWin3_Widget *AxWin3_Widget_AddWidget(tAxWin3_Widget *Parent, int Type, int Fl
 	}
 	if( newID == info->nElements )
 	{
-		info->nElements ++;
+		const int size_step = 4;
+		info->nElements += 4;
 		info->Elements = realloc(info->Elements, sizeof(*info->Elements)*info->nElements);
-		newID = info->nElements - 1;
-		_SysDebug("Expanded and allocated %i", newID);
+		newID = info->nElements - 4;
+		memset( &info->Elements[newID+1], 0, (size_step-1)*sizeof(info->Elements));
+		_SysDebug("Expanded to %i and allocated %i", info->nElements, newID);
 	}
 	else
 		_SysDebug("Allocated %i", newID);

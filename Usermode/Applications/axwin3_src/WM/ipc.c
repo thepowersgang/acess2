@@ -338,6 +338,62 @@ int IPC_Msg_SetWinPos(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
 	return 0;
 }
 
+int IPC_Msg_GetDisplayCount(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
+{
+	tAxWin_IPCMessage	*ret_hdr;
+	tIPCMsg_ReturnInt	*ret;
+	char	buf[sizeof(*ret_hdr)+sizeof(*ret)];
+	
+	if( !(Msg->Flags & IPCMSG_FLAG_RETURN) )	return 0;
+	
+	ret_hdr = (void*)buf;
+	ret_hdr->ID = IPCMSG_GETDISPLAYCOUNT;
+	ret_hdr->Flags = 0;
+	ret_hdr->Window = -1;
+	ret_hdr->Size = sizeof(*ret);
+	ret = (void*)ret_hdr->Data;
+	ret->Value = 1;	// HARD CODE - Current version only supports one display
+	
+	Client->IPCType->SendMessage(Client->Ident, sizeof(buf), buf);
+	return 0;
+}
+
+int IPC_Msg_GetDisplayDims(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
+{
+	tIPCMsg_GetDisplayDims	*info;
+	tAxWin_IPCMessage	*ret_hdr;
+	tIPCMsg_RetDisplayDims	*ret;
+	char	buf[sizeof(*ret_hdr)+sizeof(*ret)];
+	
+	if( !(Msg->Flags & IPCMSG_FLAG_RETURN) )	return 0;
+
+	info = (void*)Msg->Data;	
+
+	ret_hdr = (void*)buf;
+	ret_hdr->ID = IPCMSG_GETDISPLAYDIMS;
+	ret_hdr->Flags = 0;
+	ret_hdr->Window = -1;
+	ret_hdr->Size = sizeof(*ret);
+	ret = (void*)ret_hdr->Data;
+	
+	// HARD CODE! Only one display supported
+	if( info->DisplayID == 0 )
+	{
+		ret->X = 0;
+		ret->Y = 0;
+		ret->W = giScreenWidth;
+		ret->H = giScreenHeight;
+	}
+	else
+	{
+		ret->X = 0;	ret->Y = 0;
+		ret->W = 0;	ret->H = 0;
+	}
+	
+	Client->IPCType->SendMessage(Client->Ident, sizeof(buf), buf);
+	return 0;
+}
+
 void IPC_Handle(const tIPC_Type *IPCType, const void *Ident, size_t MsgLen, tAxWin_IPCMessage *Msg)
 {
 	tIPC_Client	*client;
@@ -361,11 +417,22 @@ void IPC_Handle(const tIPC_Type *IPCType, const void *Ident, size_t MsgLen, tAxW
 		if( Msg->Size < 4 )	return;
 		if( Msg->Flags & IPCMSG_FLAG_RETURN )
 		{
+			tIPCMsg_ReturnInt	*ret = (void*)Msg->Data;
 			Msg->ID = IPCMSG_PING;
-			Msg->Size = sizeof(tIPCMsg_Return);
-			((tIPCMsg_Return*)Msg->Data)->Value = AXWIN_VERSION;
-			IPCType->SendMessage(Ident, sizeof(tIPCMsg_Return), Msg);
+			Msg->Size = sizeof(*ret);
+			ret->Value = AXWIN_VERSION;
+			IPCType->SendMessage(Ident, sizeof(*Msg)+sizeof(*ret), Msg);
 		}
+		break;
+
+	// -- Get display count
+	case IPCMSG_GETDISPLAYCOUNT:
+		rv = IPC_Msg_GetDisplayCount(client, Msg);
+		break;
+	
+	// --- Get display dimensions
+	case IPCMSG_GETDISPLAYDIMS:
+		rv = IPC_Msg_GetDisplayDims(client, Msg);
 		break;
 
 	// --- Send a message

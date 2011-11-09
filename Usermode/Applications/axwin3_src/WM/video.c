@@ -39,29 +39,14 @@ void Video_Setup(void)
 		exit(-1);
 	}
 	
-	// Set width
-	tmpInt = giScreenWidth;
-	tmpInt = ioctl( giTerminalFD, TERM_IOCTL_WIDTH, &tmpInt );
-	if(tmpInt != giScreenWidth)
-	{
-		fprintf(stderr, "Warning: Selected width (%i) is invalid, clipped to %i\n",
-			giScreenWidth, tmpInt);
-		giScreenWidth = tmpInt;
-	}
-	
-	// Set height
-	tmpInt = giScreenHeight;
-	tmpInt = ioctl( giTerminalFD, TERM_IOCTL_HEIGHT, &tmpInt );
-	if(tmpInt != giScreenHeight)
-	{
-		fprintf(stderr, "Warning: Selected height (%i) is invalid, clipped to %i\n",
-			giScreenHeight, tmpInt);
-		giScreenHeight = tmpInt;
-	}
 	
 	// Set mode to video
 	tmpInt = TERM_MODE_FB;
 	ioctl( giTerminalFD, TERM_IOCTL_MODETYPE, &tmpInt );
+	
+	// Get dimensions
+	giScreenWidth = ioctl( giTerminalFD, TERM_IOCTL_WIDTH, NULL );
+	giScreenHeight = ioctl( giTerminalFD, TERM_IOCTL_HEIGHT, NULL );
 	
 	// Force VT to be shown
 	ioctl( giTerminalFD, TERM_IOCTL_FORCESHOW, NULL );
