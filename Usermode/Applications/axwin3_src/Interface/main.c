@@ -9,14 +9,17 @@
 #include <stdlib.h>
 #include <axwin3/axwin.h>
 #include <axwin3/widget.h>
+#include <axwin3/menu.h>
 
 #define SIDEBAR_WIDTH	36
 
 // === PROTOTYPES ===
 void	create_sidebar(void);
+void	create_mainmenu(void);
 
 // === GLOBALS ===
 tHWND	gSidebar;
+tHWND	gSystemMenu;
 tAxWin3_Widget	*gSidebarRoot;
  int	giScreenWidth;
  int	giScreenHeight;
@@ -25,6 +28,7 @@ tAxWin3_Widget	*gSidebarRoot;
 int systembutton_fire(tAxWin3_Widget *Widget)
 {
 	_SysDebug("SystemButton pressed");
+	AxWin3_Menu_ShowAt(gSystemMenu, SIDEBAR_WIDTH, 0);
 	return 0;
 }
 
@@ -34,6 +38,7 @@ int main(int argc, char *argv[])
 	AxWin3_Connect(NULL);
 	
 	create_sidebar();
+	create_mainmenu();
 	
 	// Idle loop
 	AxWin3_MainLoop();
@@ -82,7 +87,22 @@ void create_sidebar(void)
 	
 }
 
+void mainmenu_app_textedit(void *unused)
+{
+	_SysDebug("TODO: Launch text editor");
+}
+
+void mainmenu_run_dialog(void *unused)
+{
+	_SysDebug("TODO: Show run dialog");
+}
+
 void create_mainmenu(void)
 {
+	gSystemMenu = AxWin3_Menu_Create(gSidebar);
+	
+	AxWin3_Menu_AddItem(gSystemMenu, "Text &Editor\tWin+E", mainmenu_app_textedit, NULL, 0, NULL);
+	AxWin3_Menu_AddItem(gSystemMenu, NULL, NULL, NULL, 0, NULL);
+	AxWin3_Menu_AddItem(gSystemMenu, "Run\tWin+R", mainmenu_run_dialog, NULL, 0, NULL);
 }
 

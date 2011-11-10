@@ -2,8 +2,8 @@
  * AxWin3 Interface Library
  * - By John Hodge (thePowersGang)
  *
- * main.c
- * - Entrypoint and setup
+ * r_widget.c
+ * - Widget window type interface
  */
 #include <axwin3/axwin.h>
 #include <axwin3/widget.h>
