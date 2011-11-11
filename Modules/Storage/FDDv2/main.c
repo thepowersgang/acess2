@@ -184,7 +184,7 @@ Uint64 FDD_ReadFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	if( Offset )
 	{
 		 int	len;
-		if(rem_len > BYTES_PER_TRACK-Offset)
+		if(rem_len > BYTES_PER_TRACK - Offset)
 			len = BYTES_PER_TRACK - Offset;
 		else
 			len = rem_len;
@@ -194,15 +194,18 @@ Uint64 FDD_ReadFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		track ++;
 	}
 
-	while( rem_len > BYTES_PER_TRACK )
+	if( rem_len > 0)
 	{
-		FDD_int_ReadWriteWithinTrack(disk, track, 0, 0, BYTES_PER_TRACK, dest);
-		dest += BYTES_PER_TRACK;
-		rem_len -= BYTES_PER_TRACK;
-		track ++;
-	}
+		while( rem_len > BYTES_PER_TRACK )
+		{
+			FDD_int_ReadWriteWithinTrack(disk, track, 0, 0, BYTES_PER_TRACK, dest);
+			dest += BYTES_PER_TRACK;
+				rem_len -= BYTES_PER_TRACK;
+			track ++;
+		}
 
-	FDD_int_ReadWriteWithinTrack(disk, track, 0, 0, rem_len, dest);
+		FDD_int_ReadWriteWithinTrack(disk, track, 0, 0, rem_len, dest);
+	}
 	
 	LEAVE('X', Length);
 	return Length;
@@ -218,6 +221,9 @@ int FDD_int_ReadWriteWithinTrack(int Disk, int Track, int bWrite, size_t Offset,
 	if( Offset + Length > BYTES_PER_TRACK )
 		return 1;
 
+	if( Length == 0 )
+		return 0;
+	
 	ENTER("iDisk iTrack bbWrite xOffset xLength pBuffer",
 		Disk, Track, bWrite, Offset, Length, Buffer);
 	
