@@ -3,6 +3,8 @@
 
 [bits 32]
 
+%define SAVEFLAG_FPU	0x1
+
 KERNEL_BASE	equ 0xC0000000
 
 KSTACK_USERSTATE_SIZE	equ	(4+8+1+5)*4	; SRegs, GPRegs, CPU, IRET
@@ -61,20 +63,54 @@ SwitchTasks:
 	mov ecx, [esp+0x20+12]	; New IP
 	mov eax, [esp+0x20+20]	; New CR3
 	mov esp, [esp+0x20+ 4]	; New SP
+	
 	test eax, eax
 	jz .setState
 	mov cr3, eax
 	invlpg [esp]
 	invlpg [esp+0x1000]
 .setState:
-;	xchg bx, bx
 	jmp ecx
 
 .restore:
+
 	popa
 	xor eax, eax
 	ret
 
+[global Proc_InitialiseSSE]
+Proc_InitialiseSSE:
+	mov eax, cr4
+	or eax, (1 << 9)|(1 << 10)	; Set OSFXSR and OSXMMEXCPT
+	mov cr4, eax
+	mov eax, cr0
+	and ax, ~(1 << 2)	; Clear EM
+	or eax, (1 << 1)	; Set MP
+	mov eax, cr0
+	ret
+[global Proc_DisableSSE]
+Proc_DisableSSE:
+	mov eax, cr0
+	or ax, 1 << 3	; Set TS
+	mov cr0, eax
+	ret
+[global Proc_EnableSSE]
+Proc_EnableSSE:
+	mov eax, cr0
+	and ax, ~(1 << 3)	; Clear TS
+	mov cr0, eax
+	ret
+
+[global Proc_SaveSSE]
+Proc_SaveSSE:
+	mov eax, [esp+4]
+	fxsave [eax]
+	ret
+[global Proc_RestoreSSE]
+Proc_RestoreSSE:
+	mov eax, [esp+4]
+	fxrstor [eax]
+	ret
 
 %if USE_MP
 [extern giMP_TimerCount]

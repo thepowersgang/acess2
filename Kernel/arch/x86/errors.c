@@ -16,6 +16,8 @@ extern void	Threads_Dump(void);
 extern void	Threads_Fault(int Num);
 extern int	GetCPUNum(void);
 extern void	MM_DumpTables(tVAddr, tVAddr);
+extern void	Proc_EnableSSE(void);
+extern void	Proc_RestoreSSE(Uint32 Data);
 
 // === PROTOTYPES ===
 void	__stack_chk_fail(void);
@@ -81,6 +83,24 @@ void ErrorHandler(tRegs *Regs)
 		__asm__ __volatile__ ("mov %%cr2, %0":"=r"(cr));
 		MM_PageFault( cr, Regs->err_code, Regs );
 		return ;
+	}
+
+	// #NM - Coprocessor unavaliable
+	if(Regs->int_num == 7)
+	{
+		tThread	*thread = Proc_GetCurThread();
+		if(!thread->SavedState.bSSEModified)
+		{
+			Proc_EnableSSE();
+			if(!thread->SavedState.SSE)
+				thread->SavedState.SSE = malloc(sizeof(tSSEState) + 0xF);
+			else
+				Proc_RestoreSSE( ((Uint)thread->SavedState.SSE + 0xF) & ~0xF );
+			thread->SavedState.bSSEModified = 1;
+			__asm__ __volatile__ ("sti");
+			return ;
+		}
+		// oops, SSE enabled but a #NM, bad news
 	}
 	
 	// VM8086 GPF

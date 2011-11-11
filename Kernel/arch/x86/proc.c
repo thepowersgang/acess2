@@ -45,7 +45,7 @@ extern void	APStartup(void);	// 16-bit AP startup code
 extern Uint	GetEIP(void);	// start.asm
 extern Uint	GetEIP_Sched(void);	// proc.asm
 extern void	NewTaskHeader(tThread *Thread, void *Fcn, int nArgs, ...);	// Actually takes cdecl args
-extern Uint	Proc_CloneInt(Uint *ESP, Uint *CR3);
+extern Uint	Proc_CloneInt(Uint *ESP, Uint32 *CR3);
 extern Uint32	gaInitPageDir[1024];	// start.asm
 extern char	Kernel_Stack_Top[];
 extern tShortSpinlock	glThreadListLock;
@@ -60,6 +60,9 @@ extern char	IRQCommon_handled[];	// IRQCommon call return location
 extern char	GetEIP_Sched_ret[];	// GetEIP call return location
 extern void	Threads_AddToDelete(tThread *Thread);
 extern void	SwitchTasks(Uint NewSP, Uint *OldSP, Uint NewIP, Uint *OldIO, Uint CR3);
+extern void	Proc_InitialiseSSE(void);
+extern void	Proc_SaveSSE(Uint DestPtr);
+extern void	Proc_DisableSSE(void);
 
 // === PROTOTYPES ===
 //void	ArchThreads_Init(void);
@@ -371,6 +374,9 @@ void ArchThreads_Init(void)
 	{
 		Panic("OOM - No space for initial Per-Process Config");
 	}
+
+	// Initialise SSE support
+	Proc_InitialiseSSE();
 	
 	// Change Stacks
 	Proc_ChangeStack();
@@ -579,6 +585,7 @@ int Proc_NewKThread(void (*Fcn)(void*), void *Data)
 	
 	newThread->SavedState.ESP = esp;
 	newThread->SavedState.EIP = (Uint)&NewTaskHeader;
+	newThread->SavedState.SSE = NULL;
 	Log("New (KThread) %p, esp = %p\n", newThread->SavedState.EIP, newThread->SavedState.ESP);
 	
 //	MAGIC_BREAK();	
@@ -616,6 +623,8 @@ int Proc_Clone(Uint Flags)
 		return 0;
 	}
 	newThread->SavedState.EIP = eip;
+	newThread->SavedState.SSE = NULL;
+	newThread->SavedState.bSSEModified = 0;
 	
 	// Check for errors
 	if( newThread->MemState.CR3 == 0 ) {
@@ -656,8 +665,9 @@ int Proc_SpawnWorker(void (*Fcn)(void*), void *Data)
 
 	// Save core machine state
 	new->SavedState.ESP = new->KernelStack - sizeof(stack_contents);
-	new->SavedState.EBP = 0;
 	new->SavedState.EIP = (Uint)NewTaskHeader;
+	new->SavedState.SSE = NULL;
+	new->SavedState.bSSEModified = 0;
 	
 	// Mark as active
 	new->Status = THREAD_STAT_PREINIT;
@@ -849,7 +859,6 @@ void Proc_DumpThreadCPUState(tThread *Thread)
 		return ;
 	}
 	
-	#if 1
 	tVAddr	diffFromScheduler = Thread->SavedState.EIP - (tVAddr)SwitchTasks;
 	tVAddr	diffFromClone = Thread->SavedState.EIP - (tVAddr)Proc_CloneInt;
 	tVAddr	diffFromSpawn = Thread->SavedState.EIP - (tVAddr)NewTaskHeader;
@@ -867,24 +876,6 @@ void Proc_DumpThreadCPUState(tThread *Thread)
 	}
 	
 	if( diffFromScheduler > 0 && diffFromScheduler < 128 )	// When I last checked, GetEIP was at .+0x30
-	#else
-	Uint32	data[3];
-	MM_ReadFromAddrSpace(Thread->MemState.CR3, Thread->SavedState.EBP, data, 12);
-	if( data[1] == (Uint32)&IRQCommon + 25 )
-	{
-		tRegs	*regs = (void *) data[2];
-		Log("  oldebp = 0x%08x, ret = 0x%08x, regs = 0x%x",
-			data[0], data[1], data[2]
-			);
-		// [EBP] = old EBP
-		// [EBP+0x04] = Return Addr
-		// [EBP+0x08] = Arg 1 (CPU Number)
-		// [EBP+0x0C] = Arg 2 (Thread)
-		// [EBP+0x10] = GS (start of tRegs)
-		Log("  IRQ%i from %02x:%08x", regs->int_num regs->cs, regs->eip);
-	}
-	if( stack[1] == (Uint32)&scheduler_return )
-	#endif
 	{
 		// Scheduled out
 		Log("  At %04x:%08x", Thread->SavedState.UserCS, Thread->SavedState.UserEIP);
@@ -899,7 +890,7 @@ void Proc_Reschedule(void)
 	tThread	*nextthread, *curthread;
 	 int	cpu = GetCPUNum();
 
-	// TODO: Wait for it?
+	// TODO: Wait for the lock?
 	if(IS_LOCKED(&glThreadListLock))        return;
 	
 	curthread = Proc_GetCurThread();
@@ -925,11 +916,20 @@ void Proc_Reschedule(void)
 	gTSSs[cpu].ESP0 = nextthread->KernelStack-4;
 	__asm__ __volatile__("mov %0, %%db0\n\t" : : "r"(nextthread) );
 
+	// Save FPU/MMX/XMM/SSE state
+	if( curthread->SavedState.SSE )
+	{
+		Proc_SaveSSE( ((Uint)curthread->SavedState.SSE + 0xF) & ~0xF );
+		curthread->SavedState.bSSEModified = 0;
+		Proc_DisableSSE();
+	}
+
 	SwitchTasks(
 		nextthread->SavedState.ESP, &curthread->SavedState.ESP,
 		nextthread->SavedState.EIP, &curthread->SavedState.EIP,
 		nextthread->MemState.CR3
 		);
+
 	return ;
 }
 

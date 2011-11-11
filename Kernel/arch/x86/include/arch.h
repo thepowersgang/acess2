@@ -123,19 +123,6 @@ typedef struct {
 	Uint	Resvd4[1];	// SS
 } tSyscallRegs;
 
-typedef struct {
-	#if USE_PAE
-	Uint	PDPT[4];
-	#else
-	Uint	CR3;
-	#endif
-} tMemoryState;
-
-typedef struct {
-	Uint	EIP, ESP, EBP;
-	Uint32	UserCS, UserEIP;
-} tTaskState;
-
 // === FUNCTIONS ===
 extern void	Debug_PutCharDebug(char ch);
 extern void	Debug_PutStringDebug(const char *String);
