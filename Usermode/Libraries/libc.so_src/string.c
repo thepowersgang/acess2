@@ -217,12 +217,36 @@ EXPORT void *memset(void *dest, int val, size_t num)
  * \fn EXPORT void *memcpy(void *dest, const void *src, size_t count)
  * \brief Copy one memory area to another
  */
-EXPORT void *memcpy(void *dest, const void *src, size_t count)
+EXPORT void *memcpy(void *__dest, const void *__src, size_t count)
 {
-    char *sp = (char *)src;
-    char *dp = (char *)dest;
-    for(;count--;) *dp++ = *sp++;
-    return dest;
+	const int	wordmask = sizeof(void*)-1;
+	uintptr_t	src = (uintptr_t)__src;
+	uintptr_t	dst = (uintptr_t)__dest;
+
+	if( count < sizeof(void*)*2 || (dst & wordmask) != (src & wordmask) )
+	{
+		char	*dp = __dest;
+		const char	*sp = __src;
+		while(count--) *dp++ = *sp ++;
+	}
+	else
+	{
+		void	**dp, **sp;
+		for( ; count && (dst & wordmask) != 0; count -- )
+			*(char*)dst++ = *(char*)src++;
+
+		dp = (void*)dst; sp = (void*)src;
+		while( count >= sizeof(void*) )
+		{
+			*dp++ = *sp++;
+			count -= sizeof(void*);
+		}
+		dst = (uintptr_t)dp; src = (uintptr_t)sp;
+		for( ; count; count -- )
+			*(char*)dst++ = *(char*)src++;
+	}
+
+	return __dest;
 }
 
 /**
