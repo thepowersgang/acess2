@@ -108,6 +108,7 @@ EOF;
 			// Parse path components
 			$path = str_replace("__BIN__", "$ACESSDIR/Usermode/Output/$ARCH", $path);
 			$path = str_replace("__FS__", "$ACESSDIR/Usermode/Filesystem", $path);
+			$path = str_replace("__SRC__", "$ACESSDIR", $path);
 			echo $path,"\n";
 			// ---
 			

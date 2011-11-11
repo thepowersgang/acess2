@@ -18,7 +18,18 @@ Dir "Libs" {
 	File "libgcc.so" "__BIN__/Libs/libgcc.so"
 	File "libreadline.so" "__BIN__/Libs/libreadline.so"
 	File "libnet.so" "__BIN__/Libs/libnet.so"
+	File "liburi.so" "__BIN__/Libs/liburi.so"
+	File "libimage_sif.so" "__BIN__/Libs/libimage_sif.so"
 }
 Dir "Conf" {
 	File "BootConf.cfg" "__FS__/Conf/BootConf.cfg"
+}
+Dir "Apps" {
+	Dir "AxWin" {
+		Dir "3.0" {
+			File "AxWinWM" "__BIN__/Apps/AxWin/3.0/AxWinWM"
+			File "AxWinUI" "__BIN__/Apps/AxWin/3.0/AxWinUI"
+			File "AcessLogoSmall.sif" "__SRC__/Usermode/Applications/axwin3_src/AcessLogoSmall.sif"
+		}
+	}
 }
