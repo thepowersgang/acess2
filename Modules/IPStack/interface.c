@@ -251,7 +251,7 @@ tInterface *IPStack_AddInterface(const char *Device, const char *Name)
 	// Delay setting ImplInt until after the adapter is opened
 	// Keeps things simple
 	iface->Node.ImplInt = giIP_NextIfaceId++;
-	sprintf(iface->Name, "%i", iface->Node.ImplInt);
+	sprintf(iface->Name, "%i", (int)iface->Node.ImplInt);
 	
 	// Append to list
 	SHORTLOCK( &glIP_Interfaces );
