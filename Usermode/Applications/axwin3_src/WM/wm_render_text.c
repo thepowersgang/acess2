@@ -73,8 +73,8 @@ int WM_Render_DrawText(tWindow *Window, int X, int Y, int W, int H, tFont *Font,
 	tGlyph	*glyph;
 	uint32_t	ch = 0;
 
-	_SysDebug("WM_Render_DrawText: (X=%i,Y=%i,W=%i,H=%i,Font=%p,", X, Y, W, H, Font);
-	_SysDebug("  Colour=%08x,Text='%s')", Colour, Text);
+//	_SysDebug("WM_Render_DrawText: (X=%i,Y=%i,W=%i,H=%i,Font=%p,", X, Y, W, H, Font);
+//	_SysDebug("  Colour=%08x,Text='%s')", Colour, Text);
 	
 	if(!Text)	return 0;
 

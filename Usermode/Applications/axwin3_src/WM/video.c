@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <video.h>
 #include <wm.h>
+#include <string.h>
 
 // === PROTOTYPES ===
 void	Video_Setup(void);
@@ -25,6 +26,8 @@ void	Video_DrawRect(short X, short Y, short W, short H, uint32_t Color);
  int	giVideo_CursorX;
  int	giVideo_CursorY;
 uint32_t	*gpScreenBuffer;
+ int	giVideo_FirstDirtyLine;
+ int	giVideo_LastDirtyLine;
 
 // === CODE ===
 void Video_Setup(void)
@@ -47,6 +50,8 @@ void Video_Setup(void)
 	// Get dimensions
 	giScreenWidth = ioctl( giTerminalFD, TERM_IOCTL_WIDTH, NULL );
 	giScreenHeight = ioctl( giTerminalFD, TERM_IOCTL_HEIGHT, NULL );
+
+	giVideo_LastDirtyLine = giScreenHeight;
 	
 	// Force VT to be shown
 	ioctl( giTerminalFD, TERM_IOCTL_FORCESHOW, NULL );
@@ -61,10 +66,18 @@ void Video_Setup(void)
 
 void Video_Update(void)
 {
-	_SysDebug("Video_Update - gpScreenBuffer[0] = 0x%x", gpScreenBuffer[0]);
-	seek(giTerminalFD, 0, 1);
-	write(giTerminalFD, gpScreenBuffer, giScreenWidth*giScreenHeight*4);
+	 int	ofs = giVideo_FirstDirtyLine*giScreenWidth;
+	 int	size = (giVideo_LastDirtyLine-giVideo_FirstDirtyLine)*giScreenWidth;
+	
+	if( giVideo_LastDirtyLine == 0 )	return;	
+
+	_SysDebug("Video_Update - Updating lines %i to %i (0x%x+0x%x px)",
+		giVideo_FirstDirtyLine, giVideo_LastDirtyLine, ofs, size);
+	seek(giTerminalFD, ofs*4, 1);
+	write(giTerminalFD, gpScreenBuffer+ofs, size*4);
 	_SysDebug("Video_Update - Done");
+	giVideo_FirstDirtyLine = 0;
+	giVideo_LastDirtyLine = 0;
 }
 
 void Video_SetCursorPos(short X, short Y)
@@ -84,11 +97,8 @@ void Video_SetCursorPos(short X, short Y)
  */
 void Video_Blit(uint32_t *Source, short DstX, short DstY, short W, short H)
 {
-	 int	i;
 	uint32_t	*buf;
 
-//	_SysDebug("Video_Blit: (%p (%i, %i) %ix%i)", Source, DstX, DstY, W, H);
-	
 	if( DstX >= giScreenWidth)	return ;
 	if( DstY >= giScreenHeight)	return ;
 	// TODO: Handle -ve X/Y by clipping
@@ -99,15 +109,25 @@ void Video_Blit(uint32_t *Source, short DstX, short DstY, short W, short H)
 		H = giScreenWidth - DstY;
 
 	if( W <= 0 || H <= 0 )	return;
+
+	if( DstX < giVideo_FirstDirtyLine )
+		giVideo_FirstDirtyLine = DstY;
+	if( DstY + H > giVideo_LastDirtyLine )
+		giVideo_LastDirtyLine = DstY + H;
 	
-//	_SysDebug(" Clipped to (%i, %i) %ix%i", DstX, DstY, W, H);
-//	_SysDebug(" Source[0] = 0x%x", Source[0]);
 	buf = gpScreenBuffer + DstY*giScreenWidth + DstX;
-	while( H -- )
+	if(W != giScreenWidth)
 	{
-		for( i = W; i --; )
-			*buf++ = *Source++;
-		buf += giScreenWidth - W;
+		while( H -- )
+		{
+			memcpy(buf, Source, W*4);
+			Source += W;
+			buf += giScreenWidth;
+		}
+	}
+	else
+	{
+		memcpy(buf, Source, giScreenWidth*H*4);
 	}
 }
 
