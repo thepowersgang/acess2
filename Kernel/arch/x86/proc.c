@@ -48,7 +48,6 @@ extern void	NewTaskHeader(tThread *Thread, void *Fcn, int nArgs, ...);	// Actual
 extern Uint	Proc_CloneInt(Uint *ESP, Uint32 *CR3);
 extern Uint32	gaInitPageDir[1024];	// start.asm
 extern char	Kernel_Stack_Top[];
-extern tShortSpinlock	glThreadListLock;
 extern int	giNumCPUs;
 extern int	giNextTID;
 extern tThread	gThreadZero;
@@ -555,6 +554,14 @@ void Proc_ChangeStack(void)
 	
 	__asm__ __volatile__ ("mov %0, %%esp"::"r"(esp));
 	__asm__ __volatile__ ("mov %0, %%ebp"::"r"(ebp));
+}
+
+void Proc_ClearThread(tThread *Thread)
+{
+	if(Thread->SavedState.SSE) {
+		free(Thread->SavedState.SSE);
+		Thread->SavedState.SSE = NULL;
+	}
 }
 
 int Proc_NewKThread(void (*Fcn)(void*), void *Data)

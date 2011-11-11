@@ -99,6 +99,7 @@ static const char * const casTHREAD_STAT[] = {
 
 // === GLOBALS ===
 extern BOOL	gaThreads_NoTaskSwitch[MAX_CPUS];
+extern tShortSpinlock	glThreadListLock;
 
 // === FUNCTIONS ===
 extern tThread	*Proc_GetCurThread(void);

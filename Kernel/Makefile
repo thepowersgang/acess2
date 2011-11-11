@@ -42,10 +42,9 @@ BUILDINFO_SRC := $(OBJDIR)buildinfo.c$(OBJSUFFIX)
 
 OBJ := $(addprefix arch/$(ARCHDIR)/,$(A_OBJ))
 OBJ += heap.o drvutil.o logging.o debug.o lib.o adt.o time.o
-OBJ += messages.o modules.o syscalls.o system.o threads.o
-OBJ += $(addprefix vfs/fs/, $(addsuffix .o,$(FILESYSTEMS)))
+OBJ += messages.o modules.o syscalls.o system.o
+OBJ += threads.o mutex.o semaphore.o
 OBJ += drv/vterm.o drv/proc.o drv/fifo.o drv/iocache.o drv/pci.o
-#OBJ += drv/kb.o drv/dma.o drv/vga.o
 OBJ += binary.o bin/elf.o bin/pe.o
 OBJ += vfs/main.o vfs/open.o vfs/acls.o vfs/dir.o vfs/io.o vfs/mount.o
 OBJ += vfs/memfile.o vfs/nodecache.o vfs/handle.o vfs/select.o vfs/mmap.o

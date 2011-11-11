@@ -11,9 +11,6 @@
 #include <threads_int.h>
 #include <errno.h>
 
-// === IMPORTS ===
-extern tShortSpinlock	glThreadListLock;
-
 // === CODE ===
 /**
  * \fn int Proc_SendMessage(Uint *Err, Uint Dest, int Length, void *Data)

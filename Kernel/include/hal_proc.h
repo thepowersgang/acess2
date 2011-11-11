@@ -24,6 +24,10 @@ extern void	ArchThreads_Init(void);
  */
 extern void	Proc_Start(void);
 /**
+ * \brief Called just before a thread is freed
+ */
+extern void	Proc_ClearThread(tThread *Thread);
+/**
  * \brief Get the ID of this CPU
  * \return Zero based CPU ID
  */
