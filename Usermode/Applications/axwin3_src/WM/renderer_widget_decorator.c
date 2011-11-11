@@ -20,11 +20,11 @@
 // === CODE ===
 void Widget_Decorator_RenderWidget(tWindow *Window, tElement *Element)
 {
-	_SysDebug("Widget_Decorator_RenderWidget: (Element={Type:%i,(%i,%i) %ix%i})",
-		Element->Type,
-		Element->CachedX, Element->CachedY,
-		Element->CachedW, Element->CachedH
-		);
+//	_SysDebug("Widget_Decorator_RenderWidget: (Element={Type:%i,(%i,%i) %ix%i})",
+//		Element->Type,
+//		Element->CachedX, Element->CachedY,
+//		Element->CachedW, Element->CachedH
+//		);
 	
 	#if BORDER_EVERYTHING
 	WM_Render_DrawRect(

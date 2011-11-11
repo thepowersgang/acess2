@@ -37,8 +37,30 @@ tWindow *WM_int_GetWindowAtPos(int X, int Y)
 
 void WM_Input_MouseMoved(int OldX, int OldY, int NewX, int NewY)
 {
-	// TODO: Mouse motion events
+	tWindow	*win, *newWin;
+	struct sWndMsg_MouseMove	msg;
+	
+	win = WM_int_GetWindowAtPos(OldX, OldY);
+	msg.X = NewX - win->X;
+	msg.Y = NewY - win->Y;
+	msg.dX = NewX - OldX;
+	msg.dY = NewY - OldY;
+	WM_SendMessage(NULL, win, WNDMSG_MOUSEMOVE, sizeof(msg), &msg);
+	
+	// If the new coordinates are not in a new window
+	// NOTE: Should this handle crossing over a small window?
+	// - Nah, no need
+	newWin = WM_int_GetWindowAtPos(NewX, NewY);
+	if(win == newWin)	return;
+
 	// TODO: Send mouseup to match mousedown if the cursor moves out of a window?
+
+	win = newWin;
+	msg.X = NewX - win->X;
+	msg.Y = NewY - win->Y;
+	msg.dX = NewX - OldX;
+	msg.dY = NewY - OldY;
+	WM_SendMessage(NULL, win, WNDMSG_MOUSEMOVE, sizeof(msg), &msg);
 }
 
 void WM_Input_MouseButton(int X, int Y, int ButtonIndex, int Pressed)

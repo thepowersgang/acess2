@@ -99,7 +99,7 @@ void mainmenu_run_dialog(void *unused)
 
 void create_mainmenu(void)
 {
-	gSystemMenu = AxWin3_Menu_Create(gSidebar);
+	gSystemMenu = AxWin3_Menu_Create(NULL);
 	
 	AxWin3_Menu_AddItem(gSystemMenu, "Text &Editor\tWin+E", mainmenu_app_textedit, NULL, 0, NULL);
 	AxWin3_Menu_AddItem(gSystemMenu, NULL, NULL, NULL, 0, NULL);

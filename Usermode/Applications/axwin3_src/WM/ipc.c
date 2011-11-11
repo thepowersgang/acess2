@@ -284,10 +284,19 @@ int IPC_Msg_CreateWin(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
 
 	// - Sanity checks
 	//  > +1 is for NULL byte on string
-	if( Msg->Size < sizeof(tIPCMsg_CreateWin) + 1 )
+	if( Msg->Size < sizeof(*info) + 1 ) {
+		_SysDebug("IPC_Msg_CreateWin: Size check 1 failed");
 		return -1;
-	if( info->Renderer[Msg->Size - sizeof(tIPCMsg_CreateWin)] != '\0' )
+	}
+	if( info->Renderer[Msg->Size - sizeof(*info) - 1] != '\0' ) {
+		_SysDebug("IPC_Msg_CreateWin: Size check 2 failed");
+		_SysDebug("info = {");
+		_SysDebug("  .NewWinID = %i", info->NewWinID);
+		_SysDebug("  .RendererArg = %i", info->RendererArg);
+		_SysDebug("  .Renderer = '%.*s'", Msg->Size - sizeof(*info), info->Renderer);
+		_SysDebug("}");
 		return -1;
+	}
 	
 	// - Get the parent window ID
 	parent = IPC_int_GetWindow(Client, Msg->Window);

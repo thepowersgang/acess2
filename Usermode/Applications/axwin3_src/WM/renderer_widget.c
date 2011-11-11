@@ -182,8 +182,8 @@ void Widget_UpdateDimensions(tElement *Element)
 		dynWith /= nChildren - nFixed;
 	}
 	
-	_SysDebug("%i - nChildren = %i, nFixed = %i, dynWith = %i, fixedSize = %i",
-		Element->ID, nChildren, nFixed, dynWith, fixedSize);
+//	_SysDebug("%i - nChildren = %i, nFixed = %i, dynWith = %i, fixedSize = %i",
+//		Element->ID, nChildren, nFixed, dynWith, fixedSize);
 
 	// Get the cross size
 	if( Element->Flags & ELEFLAG_VERTICAL )
@@ -256,8 +256,8 @@ void Widget_UpdatePosition(tElement *Element)
 	
 	if( Element->Flags & ELEFLAG_NORENDER )	return ;
 
-	_SysDebug("Widget_UpdatePosition: (Element=%p(%i Type=%i Flags=0x%x))",
-		Element, Element->ID, Element->Type, Element->Flags);
+//	_SysDebug("Widget_UpdatePosition: (Element=%p(%i Type=%i Flags=0x%x))",
+//		Element, Element->ID, Element->Type, Element->Flags);
 	
 	// Initialise
 	x = Element->CachedX + Element->PaddingL;
@@ -288,7 +288,7 @@ void Widget_UpdatePosition(tElement *Element)
 					- Element->PaddingT - Element->PaddingB;
 		}
 
-		_SysDebug(" Widget_UpdatePosition[%i]: newX = %i, newY = %i", Element->ID, newX, newY);
+//		_SysDebug(" Widget_UpdatePosition[%i]: newX = %i, newY = %i", Element->ID, newX, newY);
 
 		// Check for changes, and don't update if there was no change
 		if( newX != child->CachedX || newY != child->CachedY )
@@ -522,6 +522,10 @@ int Renderer_Widget_HandleMessage(tWindow *Target, int Msg, int Len, void *Data)
 		
 		// TODO: Update dimensions of all child elements?
 		
+		return 0; }
+
+	case WNDMSG_MOUSEMOVE: {
+		_SysDebug("TODO: Support widget mouse move events");
 		return 0; }
 
 	case WNDMSG_MOUSEBTN: {

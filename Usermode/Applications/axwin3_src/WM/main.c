@@ -13,6 +13,7 @@
 // === IMPORTS ===
 extern void	Video_Setup(void);
 extern void	WM_Initialise(void);
+extern int	Renderer_Menu_Init(void);
 extern int	Renderer_Widget_Init(void);
 extern int	Renderer_Background_Init(void);
 extern void	WM_Update(void);
@@ -56,6 +57,7 @@ int main(int argc, char *argv[])
 	IPC_Init();
 	Input_Init();
 	
+	Renderer_Menu_Init();
 	Renderer_Widget_Init();
 	Renderer_Background_Init();
 	WM_Initialise();

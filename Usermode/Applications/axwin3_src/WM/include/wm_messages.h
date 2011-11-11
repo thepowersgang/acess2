@@ -37,6 +37,12 @@ struct sWndMsg_Resize
 	uint16_t	W, H;
 };
 
+struct sWndMsg_MouseMove
+{
+	 int16_t	X, Y;
+	 int16_t	dX, dY;
+};
+
 struct sWndMsg_MouseButton
 {
 	uint16_t	X, Y;

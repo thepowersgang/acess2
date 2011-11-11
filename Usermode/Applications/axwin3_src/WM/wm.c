@@ -171,8 +171,9 @@ int WM_SendMessage(tWindow *Source, tWindow *Dest, int Message, int Length, void
 
 void WM_Invalidate(tWindow *Window)
 {
+	_SysDebug("Invalidating %p", Window);
 	// Don't invalidate twice (speedup)
-	if( !(Window->Flags & WINFLAG_CLEAN) )	return;
+//	if( !(Window->Flags & WINFLAG_CLEAN) )	return;
 
 	// Mark for re-render
 	Window->Flags &= ~WINFLAG_CLEAN;
@@ -217,7 +218,8 @@ void WM_int_BlitWindow(tWindow *Window)
 	// Ignore hidden windows
 	if( !(Window->Flags & WINFLAG_SHOW) )
 		return ;
-	
+
+	_SysDebug("Blit %p to (%i,%i) %ix%i", Window, Window->X, Window->Y, Window->W, Window->H);
 	Video_Blit(Window->RenderBuffer, Window->X, Window->Y, Window->W, Window->H);
 	
 	for( child = Window->FirstChild; child; child = child->NextSibling )

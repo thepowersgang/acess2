@@ -10,7 +10,6 @@
 #include <axwin3/menu.h>
 #include <menu_messages.h>
 #include "include/internal.h"
-#include "include/ipc.h"
 #include <string.h>
 
 // === TYPES ===
@@ -96,16 +95,17 @@ tAxWin3_MenuItem *AxWin3_Menu_AddItem(
 	ret->SubMenu = SubMenu;	
 
 	{
-		tAxWin_IPCMessage	*msg;
 		tMenuMsg_AddItem	*req;
-		msg = AxWin3_int_AllocateIPCMessage(Menu, MSG_MENU_ADDITEM, 0, sizeof(*req)+strlen(Label));
-		req = (void*)msg->Data;
+		 int	data_size;
+		if(!Label)	Label = "";
+		data_size = sizeof(*req)+strlen(Label)+1;
+		req = malloc(data_size);
 		req->ID = ret->ID;
 		req->Flags = Flags;
 		req->SubMenuID = AxWin3_int_GetWindowID(SubMenu);
 		strcpy(req->Label, Label);
-		AxWin3_int_SendIPCMessage(msg);
-		free(msg);
+		AxWin3_SendMessage(Menu, Menu, MSG_MENU_ADDITEM, data_size, req);
+		free(req);
 	}
 	
 	return ret;
