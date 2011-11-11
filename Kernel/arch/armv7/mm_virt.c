@@ -391,6 +391,33 @@ void MM_SetFlags(tVAddr VAddr, Uint Flags, Uint Mask)
 	MM_int_SetPageInfo(VAddr, &pi);
 }
 
+int MM_IsValidBuffer(tVAddr Addr, size_t Size)
+{
+	tMM_PageInfo	pi;
+	 int	bUser = 0;
+	
+	Size += Addr & (PAGE_SIZE-1);
+	Addr &= ~(PAGE_SIZE-1);
+
+	if( MM_int_GetPageInfo(Addr, &pi) )	return 0;
+	Addr += PAGE_SIZE;
+
+	if(pi.AP != AP_KRW_ONLY && pi.AP != AP_KRO_ONLY)
+		bUser = 1;
+
+	while( Size >= PAGE_SIZE )
+	{
+		if( MM_int_GetPageInfo(Addr, &pi) )
+			return 0;
+		if(bUser && (pi.AP == AP_KRW_ONLY || pi.AP == AP_KRO_ONLY))
+			return 0;
+		Addr += PAGE_SIZE;
+		Size -= PAGE_SIZE;
+	}
+	
+	return 1;
+}
+
 int MM_Map(tVAddr VAddr, tPAddr PAddr)
 {
 	tMM_PageInfo	pi = {0};
@@ -923,6 +950,8 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 	 int	i = 0, inRange=0;
 	
 	pi_old.Size = 0;
+	pi_old.AP = 0;
+	pi_old.PhysAddr = 0;
 
 	Debug("Page Table Dump (%p to %p):", Start, End);
 	range_start = Start;

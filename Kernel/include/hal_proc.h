@@ -80,4 +80,11 @@ extern void	MM_ClearUser(void);
  */
 extern void	MM_DumpTables(tVAddr Start, tVAddr End);
 
+/**
+ * \brief Check if a buffer is valid (and all user if originally user)
+ * \param Addr	Base address
+ * \param Size	Size of the buffer in bytes
+ * \return Boolean valid (0: invalid, non-0: Valid)
+ */
+extern int	MM_IsValidBuffer(tVAddr Addr, size_t Size);
 #endif

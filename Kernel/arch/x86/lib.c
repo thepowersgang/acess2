@@ -334,29 +334,30 @@ void *memcpy(void *Dest, const void *Src, size_t Num)
 	#if 1
 	else if( Num > 128 && (dst & 15) == (src & 15) )
 	{
+		char	tmp[16+15];	// Note, this is a hack to save/restor xmm0
 		 int	count = 16 - (dst & 15);
 //		Debug("\nmemcpy:Num=0x%x by %p (SSE)", Num, __builtin_return_address(0));
 		if( count < 16 )
 		{
 			Num -= count;
-//			Debug("dst = %p, src = %p, count = %i (Num=0x%x) (head)", dst, src, count, Num);
 			__asm__ __volatile__ ("rep movsb" : "=D"(dst),"=S"(src): "0"(dst), "1"(src), "c"(count));
 		}
 		
 		count = Num / 16;
-//		Debug("dst = %p, src = %p, count = %i (bulk)", dst, src, count);
 		__asm__ __volatile__ (
+			"movdqa 0(%5), %%xmm0;\n\t"
 			"1:\n\t"
 			"movdqa 0(%1), %%xmm0;\n\t"
 			"movdqa %%xmm0, 0(%0);\n\t"
 			"add $16,%0;\n\t"
 			"add $16,%1;\n\t"
 			"loop 1b;\n\t"
-			: "=r"(dst),"=r"(src) : "0"(dst), "1"(src), "c"(count)
+			"movdqa %%xmm0, 0(%5);\n\t"
+			: "=r"(dst),"=r"(src)
+			: "0"(dst), "1"(src), "c"(count), "r" (((tVAddr)tmp+15)&~15)
 			);
 
 		count = Num & 15;
-//		Debug("dst = %p, src = %p, count = %i (tail)", dst, src, count);
 		if(count)
 			__asm__ __volatile__ ("rep movsb" :: "D"(dst), "S"(src), "c"(count));
 	}
@@ -372,6 +373,7 @@ void *memcpy(void *Dest, const void *Src, size_t Num)
 	}
 	return Dest;
 }
+
 /**
  * \fn void *memcpyd(void *Dest, const void *Src, size_t Num)
  * \brief Copy \a Num DWORDs from \a Src to \a Dest

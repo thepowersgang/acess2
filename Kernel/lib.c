@@ -3,6 +3,7 @@
  * Common Library Functions
  */
 #include <acess.h>
+#include <hal_proc.h>
 
 // === CONSTANTS ===
 #define	RANDOM_SEED	0xACE55052
@@ -821,35 +822,29 @@ int rand(void)
  */
 int CheckString(const char *String)
 {
-	if( !MM_GetPhysAddr( (tVAddr)String ) )
+	tVAddr	addr;
+	 int	bUser;
+
+	addr = (tVAddr)String;
+
+	if( !MM_GetPhysAddr( addr ) )
 		return 0;
 	
 	// Check 1st page
-	if( MM_IsUser( (tVAddr)String ) )
+	bUser = MM_IsUser( addr );
+	
+	while( *(char*)addr )
 	{
-		// Traverse String
-		while( *String )
+		if( (addr & (PAGE_SIZE-1)) == 0 )
 		{
-			if( !MM_IsUser( (tVAddr)String ) )
+			if(bUser && !MM_IsUser(addr) )
 				return 0;
-			// Increment string pointer
-			String ++;
-		}
-		return 1;
-	}
-	else if( MM_GetPhysAddr( (tVAddr)String ) )
-	{
-		// Traverse String
-		while( *String )
-		{
-			if( !MM_GetPhysAddr( (tVAddr)String ) )
+			if(!bUser && !MM_GetPhysAddr(addr) )
 				return 0;
-			// Increment string pointer
-			String ++;
 		}
-		return 1;
+		addr ++;
 	}
-	return 0;
+	return 1;
 }
 
 /**
@@ -858,32 +853,7 @@ int CheckString(const char *String)
  */
 int CheckMem(const void *Mem, int NumBytes)
 {
-	tVAddr	addr = (tVAddr)Mem;
-
-	if( !MM_GetPhysAddr( addr ) )
-		return 0;
-	
-	if( MM_IsUser( addr ) )
-	{
-		while( NumBytes-- )
-		{
-			if( !MM_IsUser( addr ) )
-				return 0;
-			addr ++;
-		}
-		return 1;
-	}
-	else if( MM_GetPhysAddr( addr ) )
-	{
-		while( NumBytes-- )
-		{
-			if( !MM_GetPhysAddr( addr ) )
-				return 0;
-			addr ++;
-		}
-		return 1;
-	}
-	return 0;
+	return MM_IsValidBuffer( (tVAddr)Mem, NumBytes );
 }
 /* *
  * \}

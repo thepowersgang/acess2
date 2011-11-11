@@ -8,6 +8,7 @@
 #include <mm_virt.h>
 #include <threads_int.h>
 #include <proc.h>
+#include <hal_proc.h>
 
 // === CONSTANTS ===
 #define PHYS_BITS	52	// TODO: Move out
@@ -64,13 +65,13 @@ void	MM_InitVirt(void);
 void	MM_int_ClonePageEnt( Uint64 *Ent, void *NextLevel, tVAddr Addr, int bTable );
  int	MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs);
 void	MM_int_DumpTablesEnt(tVAddr RangeStart, size_t Length, tPAddr Expected);
-void	MM_DumpTables(tVAddr Start, tVAddr End);
+//void	MM_DumpTables(tVAddr Start, tVAddr End);
  int	MM_GetPageEntryPtr(tVAddr Addr, BOOL bTemp, BOOL bAllocate, BOOL bLargePage, tPAddr **Pointer);
  int	MM_MapEx(tVAddr VAddr, tPAddr PAddr, BOOL bTemp, BOOL bLarge);
 // int	MM_Map(tVAddr VAddr, tPAddr PAddr);
 void	MM_Unmap(tVAddr VAddr);
 void	MM_int_ClearTableLevel(tVAddr VAddr, int LevelBits, int MaxEnts);
-void	MM_ClearUser(void);
+//void	MM_ClearUser(void);
  int	MM_GetPageEntry(tVAddr Addr, tPAddr *Phys, Uint *Flags);
 
 // === GLOBALS ===
@@ -667,6 +668,60 @@ Uint MM_GetFlags(tVAddr VAddr)
 	if( !(*ent & PF_NX) )	ret |= MM_PFLAG_EXEC;
 	
 	return ret;
+}
+
+/**
+ * \brief Check if the provided buffer is valid
+ * \return Boolean valid
+ */
+int MM_IsValidBuffer(tVAddr Addr, size_t Size)
+{
+	 int	bIsUser;
+	 int	pml4, pdp, dir, tab;
+
+	Size += Addr & (PAGE_SIZE-1);
+	Addr &= ~(PAGE_SIZE-1);
+	Addr &= ((1UL << 48)-1);	// Clap to address space
+
+	pml4 = Addr >> 39;
+	pdp = Addr >> 30;
+	dir = Addr >> 21;
+	tab = Addr >> 12;
+	
+//	Debug("Addr = %p, Size = 0x%x, dir = %i, tab = %i", Addr, Size, dir, tab);
+
+	if( !(PAGEMAPLVL4(pml4) & 1) )	return 0;
+	if( !(PAGEDIRPTR(pdp) & 1) )	return 0;
+	if( !(PAGEDIR(dir) & 1) )	return 0;
+	if( !(PAGETABLE(tab) & 1) )	return 0;
+	
+	bIsUser = !!(PAGETABLE(tab) & PF_USER);
+
+	while( Size >= PAGE_SIZE )
+	{
+		if( (tab & 511) == 0 )
+		{
+			dir ++;
+			if( ((dir >> 9) & 511) == 0 )
+			{
+				pdp ++;
+				if( ((pdp >> 18) & 511) == 0 )
+				{
+					pml4 ++;
+					if( !(PAGEMAPLVL4(pml4) & 1) )	return 0;
+				}
+				if( !(PAGEDIRPTR(pdp) & 1) )	return 0;
+			}
+			if( !(PAGEDIR(dir) & 1) )	return 0;
+		}
+		
+		if( !(PAGETABLE(tab) & 1) )   return 0;
+		if( bIsUser && !(PAGETABLE(tab) & PF_USER) )	return 0;
+
+		tab ++;
+		Size -= PAGE_SIZE;
+	}
+	return 1;
 }
 
 // --- Hardware Mappings ---

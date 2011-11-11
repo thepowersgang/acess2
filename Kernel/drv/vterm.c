@@ -589,7 +589,8 @@ Uint64 VT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 				}
 				return 0;
 			}
-			else {
+			else
+			{
 				return VFS_WriteAt( giVT_OutputDevHandle, Offset, Length, Buffer );
 			}
 		}

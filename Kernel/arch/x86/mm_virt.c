@@ -828,6 +828,45 @@ Uint MM_GetFlags(tVAddr VAddr)
 }
 
 /**
+ * \brief Check if the provided buffer is valid
+ * \return Boolean valid
+ */
+int MM_IsValidBuffer(tVAddr Addr, size_t Size)
+{
+	 int	bIsUser;
+	 int	dir, tab;
+
+	Size += Addr & (PAGE_SIZE-1);
+	Addr &= ~(PAGE_SIZE-1);
+
+	dir = Addr >> 22;
+	tab = Addr >> 12;
+	
+//	Debug("Addr = %p, Size = 0x%x, dir = %i, tab = %i", Addr, Size, dir, tab);
+
+	if( !(gaPageDir[dir] & 1) )	return 0;
+	if( !(gaPageTable[tab] & 1) )	return 0;
+	
+	bIsUser = !!(gaPageTable[tab] & PF_USER);
+
+	while( Size >= PAGE_SIZE )
+	{
+		if( (tab & 1023) == 0 )
+		{
+			dir ++;
+			if( !(gaPageDir[dir] & 1) )	return 0;
+		}
+		
+		if( !(gaPageTable[tab] & 1) )   return 0;
+		if( bIsUser && !(gaPageTable[tab] & PF_USER) )	return 0;
+
+		tab ++;
+		Size -= PAGE_SIZE;
+	}
+	return 1;
+}
+
+/**
  * \fn tPAddr MM_DuplicatePage(tVAddr VAddr)
  * \brief Duplicates a virtual page to a physical one
  */
