@@ -1352,8 +1352,11 @@ tVFS_Node *FAT_FindDir(tVFS_Node *Node, const char *Name)
 			lfnInfo = (fat_longfilename *) &fileinfo[i&0xF];
 			if(lfnInfo->id & 0x40) {
 				memset(lfn, 0, 256);
-				lfnPos = 255;
+				lfnPos = (lfnInfo->id & 0x3F) * 13 - 1;
 			}
+			// Sanity check the position so we don't overflow
+			if( lfnPos < 12 )
+				continue ;
 			lfn[lfnPos--] = lfnInfo->name3[1];	lfn[lfnPos--] = lfnInfo->name3[0];
 			lfn[lfnPos--] = lfnInfo->name2[5];	lfn[lfnPos--] = lfnInfo->name2[4];
 			lfn[lfnPos--] = lfnInfo->name2[3];	lfn[lfnPos--] = lfnInfo->name2[2];
@@ -1363,7 +1366,6 @@ tVFS_Node *FAT_FindDir(tVFS_Node *Node, const char *Name)
 			lfn[lfnPos--] = lfnInfo->name1[0];
 			if((lfnInfo->id&0x3F) == 1)
 			{
-				memcpy(lfn, lfn+lfnPos+1, 256-lfnPos);
 				lfnId = i+1;
 			}
 		}
