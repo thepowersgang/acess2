@@ -56,9 +56,9 @@ char *IPStack_RouteDir_ReadDir(tVFS_Node *Node, int Pos)
 	}
 	
 	{
-		 int	len = sprintf(NULL, "%i", rt->Node.Inode);
+		 int	len = sprintf(NULL, "%i", (int)rt->Node.Inode);
 		char	buf[len+1];
-		sprintf(buf, "%i", rt->Node.Inode);
+		sprintf(buf, "%i", (int)rt->Node.Inode);
 		return strdup(buf);
 	}
 }

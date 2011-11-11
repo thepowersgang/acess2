@@ -55,12 +55,9 @@ char *VFS_GetAbsPath(const char *Path)
 	}
 	
 	// - Fetch ChRoot
-	if( chroot == NULL ) {
+	if( chroot == NULL )
 		chroot = "";
-		chrootLen = 0;
-	} else {
-		chrootLen = strlen(chroot);
-	}
+	chrootLen = strlen(chroot);
 	
 	// Check if the path is already absolute
 	if(Path[0] == '/') {
@@ -155,7 +152,8 @@ char *VFS_GetAbsPath(const char *Path)
 		ret[iPos2] = 0;
 
 	// Prepend the chroot
-	memcpy( ret, chroot, chrootLen );
+	if(chrootLen)
+		memcpy( ret, chroot, chrootLen );
 	
 	LEAVE('s', ret);
 //	Log_Debug("VFS", "VFS_GetAbsPath: RETURN '%s'", ret);
