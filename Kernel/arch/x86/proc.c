@@ -57,7 +57,6 @@ extern char	scheduler_return[];	// Return address in SchedulerBase
 extern char	IRQCommon[];	// Common IRQ handler code
 extern char	IRQCommon_handled[];	// IRQCommon call return location
 extern char	GetEIP_Sched_ret[];	// GetEIP call return location
-extern void	Threads_AddToDelete(tThread *Thread);
 extern void	SwitchTasks(Uint NewSP, Uint *OldSP, Uint NewIP, Uint *OldIO, Uint CR3);
 extern void	Proc_InitialiseSSE(void);
 extern void	Proc_SaveSSE(Uint DestPtr);
@@ -558,6 +557,7 @@ void Proc_ChangeStack(void)
 
 void Proc_ClearThread(tThread *Thread)
 {
+	Log_Warning("Proc", "TODO: Nuke address space etc");
 	if(Thread->SavedState.SSE) {
 		free(Thread->SavedState.SSE);
 		Thread->SavedState.SSE = NULL;
@@ -636,7 +636,7 @@ int Proc_Clone(Uint Flags)
 	// Check for errors
 	if( newThread->MemState.CR3 == 0 ) {
 		Log_Error("Proc", "Proc_Clone: MM_Clone failed");
-		Threads_AddToDelete(newThread);
+		Threads_Delete(newThread);
 		return -1;
 	}
 

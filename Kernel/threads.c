@@ -37,6 +37,7 @@ const enum eConfigTypes	cCONFIG_TYPES[] = {
 // === PROTOTYPES ===
 void	Threads_Init(void);
 #if 0
+void	Threads_Delete(tThread *Thread);
  int	Threads_SetName(const char *NewName);
 #endif
 char	*Threads_GetName(int ID);
@@ -46,7 +47,6 @@ tThread	*Threads_CloneTCB(Uint *Err, Uint Flags);
  int	Threads_WaitTID(int TID, int *status);
 tThread	*Threads_GetThread(Uint TID);
 #endif
-void	Threads_AddToDelete(tThread *Thread);
 tThread	*Threads_int_DelFromQueue(tThread **List, tThread *Thread);
 #if 0
 void	Threads_Exit(int TID, int Status);
@@ -90,7 +90,6 @@ volatile Uint	giNextTID = 1;	// Next TID to allocate
 // --- Thread Lists ---
 tThread	*gAllThreads = NULL;		// All allocated threads
 tThread	*gSleepingThreads = NULL;	// Sleeping Threads
-tThread	*gDeleteThreads = NULL;		// Threads to delete
  int	giNumCPUs = 1;	// Number of CPUs
 BOOL     gaThreads_NoTaskSwitch[MAX_CPUS];	// Disables task switches for each core (Pseudo-IF)
 // --- Scheduler Types ---
@@ -130,6 +129,25 @@ void Threads_Init(void)
 	giNumActiveThreads = 1;
 		
 	Proc_Start();
+}
+
+void Threads_Delete(tThread *Thread)
+{
+	// Set to dead
+	Thread->Status = THREAD_STAT_BURIED;
+	
+	// Free name
+	if( IsHeap(Thread->ThreadName) )
+		free(Thread->ThreadName);
+	
+	// Remove from global list
+	// TODO: Lock this too
+	if( Thread == gAllThreads )
+		gAllThreads = Thread->GlobalNext;
+	else
+		Thread->GlobalPrev->GlobalNext = Thread->GlobalNext;
+	
+	free(Thread);
 }
 
 /**
@@ -425,7 +443,7 @@ tTID Threads_WaitTID(int TID, int *Status)
 			// TODO: Child return value?
 			if(Status)	*Status = t->RetStatus;
 			// add to delete queue
-			Threads_AddToDelete( t );
+			Threads_Delete( t );
 			break;
 		default:
 			if(Status)	*Status = -1;
@@ -458,23 +476,6 @@ tThread *Threads_GetThread(Uint TID)
 	Log("Unable to find TID %i on main list\n", TID);
 	
 	return NULL;
-}
-
-/**
- * \brief Adds a thread to the delete queue
- * \param Thread	Thread to delete
- */
-void Threads_AddToDelete(tThread *Thread)
-{
-	// Add to delete queue
-	// TODO: Is locking needed?
-	if(gDeleteThreads) {
-		Thread->Next = gDeleteThreads;
-		gDeleteThreads = Thread;
-	} else {
-		Thread->Next = NULL;
-		gDeleteThreads = Thread;
-	}
 }
 
 /**
@@ -537,17 +538,17 @@ void Threads_Kill(tThread *Thread, int Status)
 	tMsg	*msg;
 	 int	isCurThread = Thread == Proc_GetCurThread();
 	
-	// TODO: Kill all children
+	// TODO: Disown all children?
 	#if 1
 	{
 		tThread	*child;
-		// TODO: I should keep a .Parent pointer, and a .Children list
+		// TODO: I should keep a .Children list
 		for(child = gAllThreads;
 			child;
 			child = child->GlobalNext)
 		{
 			if(child->Parent == Thread)
-				Threads_Kill(child, -1);
+				child->Parent = &gThreadZero;
 		}
 	}
 	#endif
@@ -629,19 +630,13 @@ void Threads_Kill(tThread *Thread, int Status)
 	Thread->RetStatus = Status;
 
 	SHORTREL( &Thread->IsLocked );
+	// Clear out process state
+	Proc_ClearThread(Thread);			
 
-	// Don't Zombie if we are being killed because our parent is
-	if(Status == -1)
-	{
-		Thread->Status = THREAD_STAT_DEAD;
-		Threads_AddToDelete( Thread );
-		SHORTREL( &glThreadListLock );
-	} else {
-		Thread->Status = THREAD_STAT_ZOMBIE;
-		SHORTREL( &glThreadListLock );
-		// Wake parent
-		Threads_Wake( Thread->Parent );
-	}
+	Thread->Status = THREAD_STAT_ZOMBIE;
+	SHORTREL( &glThreadListLock );
+	// TODO: Send something like SIGCHLD
+	Threads_Wake( Thread->Parent );
 	
 	Log("Thread %i went *hurk* (%i)", Thread->TID, Status);
 	
@@ -1125,31 +1120,6 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 	// Lock thread list
 	SHORTLOCK( &glThreadListLock );
 	
-	// Clear Delete Queue
-	// - I should probably put this in a worker thread to avoid calling free() in the scheduler
-	//   DEFINITELY - free() can deadlock in this case
-	//   I'll do it when it becomes an issue
-	while(gDeleteThreads)
-	{
-		thread = gDeleteThreads->Next;
-		// Only free if structure is unused
-		if( !IS_LOCKED(&gDeleteThreads->IsLocked) )
-		{
-			// Set to dead
-			gDeleteThreads->Status = THREAD_STAT_BURIED;
-			// Free name
-			if( IsHeap(gDeleteThreads->ThreadName) )
-				free(gDeleteThreads->ThreadName);
-			// Remove from global list
-			if( gDeleteThreads == gAllThreads )
-				gAllThreads = gDeleteThreads->GlobalNext;
-			else
-				gDeleteThreads->GlobalPrev->GlobalNext = gDeleteThreads->GlobalNext;
-			free( gDeleteThreads );
-		}
-		gDeleteThreads = thread;
-	}
-
 	// Make sure the current (well, old) thread is marked as de-scheduled	
 	if(Last)	Last->CurCPU = -1;
 

@@ -41,7 +41,6 @@ extern Uint	Proc_CloneInt(Uint *RSP, Uint *CR3);
 extern void	NewTaskHeader(void);	// Actually takes cdecl args
 
 extern Uint64	gInitialPML4[512];	// start.asm
-extern tShortSpinlock	glThreadListLock;
 extern int	giNumCPUs;
 extern int	giNextTID;
 extern int	giTotalTickets;
@@ -427,6 +426,14 @@ tThread *Proc_GetCurThread(void)
 	#else
 	return gaCPUs[ 0 ].Current;
 	#endif
+}
+
+/*
+ * 
+ */
+void Proc_ClearThread(tThread *Thread)
+{
+	Log_Warning("Proc", "TODO: Nuke address space etc");
 }
 
 /**

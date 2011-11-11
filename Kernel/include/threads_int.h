@@ -110,6 +110,7 @@ extern int	Threads_Wake(tThread *Thread);
 extern void	Threads_Kill(tThread *Thread, int Status);
 extern void	Threads_AddActive(tThread *Thread);
 extern tThread	*Threads_RemActive(void);
+extern void	Threads_Delete(tThread *Thread);
 extern tThread	*Threads_GetNextToRun(int CPU, tThread *Last);
 
 extern tThread	*Threads_CloneTCB(Uint Flags);

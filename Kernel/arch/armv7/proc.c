@@ -99,6 +99,11 @@ void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, char **ArgV, int DataS
 	}
 }
 
+void Proc_ClearThread(tThread *Thread)
+{
+	Log_Warning("Proc", "TODO: Nuke address space etc");
+}
+
 tTID Proc_Clone(Uint Flags)
 {
 	tThread	*new;

@@ -38,7 +38,8 @@ int Semaphore_Wait(tSemaphore *Sem, int MaxToTake)
 	SHORTLOCK( &Sem->Protector );
 	
 	// Check if there's already items avaliable
-	if( Sem->Value > 0 ) {
+	if( Sem->Value > 0 )
+	{
 		// Take what we need
 		if( MaxToTake && Sem->Value > MaxToTake )
 			taken = MaxToTake;
