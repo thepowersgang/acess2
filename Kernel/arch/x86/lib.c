@@ -324,10 +324,12 @@ int memcmp(const void *m1, const void *m2, size_t Num)
  */
 void *memcpy(void *Dest, const void *Src, size_t Num)
 {
-//	Debug("\nmemcpy:Num=0x%x by %p", Num, __builtin_return_address(0));
-	if( ((Uint)Dest & 3) || ((Uint)Src & 3) )
+	if( ((Uint)Dest & 3) || ((Uint)Src & 3) ) {
 		__asm__ __volatile__ ("rep movsb" :: "D" (Dest), "S" (Src), "c" (Num));
+//		Debug("\nmemcpy:Num=0x%x by %p (UA)", Num, __builtin_return_address(0));
+	}
 	else {
+//		Debug("\nmemcpy:Num=0x%x by %p", Num, __builtin_return_address(0));
 		__asm__ __volatile__ (
 			"rep movsl;\n\t"
 			"mov %3, %%ecx;\n\t"
