@@ -430,7 +430,7 @@ int VFS_int_Select_AddThread(tVFS_SelectList *List, tVFS_SelectThread *Thread, i
 void VFS_int_Select_RemThread(tVFS_SelectList *List, tVFS_SelectThread *Thread)
 {
 	 int	i;
-	tVFS_SelectListEnt	*block, *prev;
+	tVFS_SelectListEnt	*block, *prev = NULL;
 	
 	ENTER("pList pThread", List, Thread);
 	

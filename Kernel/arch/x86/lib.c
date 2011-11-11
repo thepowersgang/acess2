@@ -324,11 +324,45 @@ int memcmp(const void *m1, const void *m2, size_t Num)
  */
 void *memcpy(void *Dest, const void *Src, size_t Num)
 {
-	if( ((Uint)Dest & 3) || ((Uint)Src & 3) ) {
-		__asm__ __volatile__ ("rep movsb" :: "D" (Dest), "S" (Src), "c" (Num));
+	tVAddr	dst = (tVAddr)Dest;
+	tVAddr	src = (tVAddr)Src;
+	if( (dst & 3) != (src & 3) )
+	{
+		__asm__ __volatile__ ("rep movsb" :: "D" (dst), "S" (src), "c" (Num));
 //		Debug("\nmemcpy:Num=0x%x by %p (UA)", Num, __builtin_return_address(0));
 	}
-	else {
+	#if 1
+	else if( Num > 128 && (dst & 15) == (src & 15) )
+	{
+		 int	count = 16 - (dst & 15);
+//		Debug("\nmemcpy:Num=0x%x by %p (SSE)", Num, __builtin_return_address(0));
+		if( count < 16 )
+		{
+			Num -= count;
+//			Debug("dst = %p, src = %p, count = %i (Num=0x%x) (head)", dst, src, count, Num);
+			__asm__ __volatile__ ("rep movsb" : "=D"(dst),"=S"(src): "0"(dst), "1"(src), "c"(count));
+		}
+		
+		count = Num / 16;
+//		Debug("dst = %p, src = %p, count = %i (bulk)", dst, src, count);
+		__asm__ __volatile__ (
+			"1:\n\t"
+			"movdqa 0(%1), %%xmm0;\n\t"
+			"movdqa %%xmm0, 0(%0);\n\t"
+			"add $16,%0;\n\t"
+			"add $16,%1;\n\t"
+			"loop 1b;\n\t"
+			: "=r"(dst),"=r"(src) : "0"(dst), "1"(src), "c"(count)
+			);
+
+		count = Num & 15;
+//		Debug("dst = %p, src = %p, count = %i (tail)", dst, src, count);
+		if(count)
+			__asm__ __volatile__ ("rep movsb" :: "D"(dst), "S"(src), "c"(count));
+	}
+	#endif
+	else
+	{
 //		Debug("\nmemcpy:Num=0x%x by %p", Num, __builtin_return_address(0));
 		__asm__ __volatile__ (
 			"rep movsl;\n\t"

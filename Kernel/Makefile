@@ -23,6 +23,7 @@ CPPFLAGS	+= -DARCH=$(ARCH) -DARCHDIR=$(ARCHDIR) -DARCHDIR_IS_$(ARCHDIR)=1
 CPPFLAGS	+= -DKERNEL_VERSION=$(KERNEL_VERSION)
 CFLAGS  	+= -Wall -Werror -fno-stack-protector -Wstrict-prototypes -g
 CFLAGS  	+= -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings -Wmissing-prototypes -Wmissing-declarations -Wredundant-decls -Wnested-externs -Winline -Wuninitialized
+CFLAGS          += -O3
 LDFLAGS		+= -T arch/$(ARCHDIR)/link.ld -g
 
 OBJDIR := obj-$(ARCH)/

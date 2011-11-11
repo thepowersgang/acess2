@@ -26,7 +26,7 @@
 #define	DEFAULT_QUANTUM	5
 #define	DEFAULT_PRIORITY	5
 #define MIN_PRIORITY		10
-const enum eConfigTypes	cCONFIG_TYPES[] = {
+const enum eConfigTypes	cCONFIG_TYPES[NUM_CFG_ENTRIES] = {
 	CFGT_HEAPSTR,	// e.g. CFG_VFS_CWD
 	CFGT_INT,	// e.g. CFG_VFS_MAXFILES
 	CFGT_NULL
