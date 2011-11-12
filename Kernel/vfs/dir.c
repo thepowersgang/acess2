@@ -15,6 +15,7 @@ extern tVFS_Mount	*gRootMount;
  int	VFS_MkDir(const char *Path);
 #endif
  int	VFS_MkNod(const char *Path, Uint Flags);
+// int	VFS_Symlink(const char *Name, const char *Link);
 
 // === CODE ===
 /**
@@ -115,19 +116,23 @@ int VFS_Symlink(const char *Name, const char *Link)
 {
 	char	*realLink;
 	 int	fp;
-	tVFS_Node	*destNode;
 	char	*_link;
 	
-	//ENTER("sName sLink", Name, Link);
+	ENTER("sName sLink", Name, Link);
 	
 	// Get absolue path name
 	_link = VFS_GetAbsPath( Link );
 	if(!_link) {
 		Log_Warning("VFS", "Path '%s' is badly formed", Link);
+		LEAVE('i', -1);
 		return -1;
 	}
+
+	LOG("_link = '%s'", _link);
 	
-	destNode = VFS_ParsePath( _link, &realLink, NULL );
+	#if 1
+	{
+	tVFS_Node *destNode = VFS_ParsePath( _link, &realLink, NULL );
 	#if 0
 	// Get true path and node
 	free(_link);
@@ -144,10 +149,16 @@ int VFS_Symlink(const char *Name, const char *Link)
 	
 	// Derefence the destination
 	if(destNode->Close)	destNode->Close(destNode);
-	
+	}
+	#else
+	realLink = _link;
+	#endif	
+	LOG("realLink = '%s'", realLink);
+
 	// Make node
 	if( VFS_MkNod(Name, VFS_FFLAG_SYMLINK) != 0 ) {
 		Log_Warning("VFS", "Unable to create link node '%s'", Name);
+		LEAVE('i', -2);
 		return -2;	// Make link node
 	}
 	
@@ -158,6 +169,7 @@ int VFS_Symlink(const char *Name, const char *Link)
 	
 	free(realLink);
 	
+	LEAVE('i', 1);
 	return 1;
 }
 

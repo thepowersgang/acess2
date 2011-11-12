@@ -346,6 +346,7 @@ restart_parse:
 				}
 				curNode->Read( curNode, 0, curNode->Size, path_buffer );
 				path_buffer[ curNode->Size ] = '\0';
+				LOG("path_buffer = '%s'", path_buffer);
 				strcat(path_buffer, Path + ofs+nextSlash);
 				
 				Path = path_buffer;
@@ -354,6 +355,7 @@ restart_parse:
 			}
 
 			// EVIL: Goto :)
+			LOG("Symlink -> '%s', restart", Path);
 			goto restart_parse;
 		}
 		
@@ -452,7 +454,7 @@ int VFS_int_CreateHandle( tVFS_Node *Node, tVFS_Mount *Mount, int Mode )
 {
 	 int	i;
 	
-	ENTER("pNode pMount iMode", Node, Mount, Mode);
+	ENTER("pNode pMount xMode", Node, Mount, Mode);
 
 	i = 0;
 	i |= (Mode & VFS_OPENFLAG_EXEC) ? VFS_PERM_EXECUTE : 0;

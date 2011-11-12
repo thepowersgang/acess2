@@ -9,6 +9,7 @@
 
 // === CONSTANTS ===
 #define MAX_FILES	64
+#define	MAX_FILE_SIZE	1024
 
 // === PROTOTYPES ===
 tVFS_Node	*Root_InitDevice(const char *Device, const char **Options);
@@ -171,15 +172,21 @@ char *Root_ReadDir(tVFS_Node *Node, int Pos)
 Uint64 Root_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 {
 	tRamFS_File	*file = Node->ImplPtr;
+	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
 	
-	if(Offset > Node->Size)	return 0;
-	if(Length > Node->Size)	return 0;
+	if(Offset > Node->Size) {
+		LEAVE('i', 0);
+		return 0;
+	}
+	if(Length > Node->Size)	Length = Node->Size;
 	
 	if(Offset+Length > Node->Size)
 		Length = Node->Size - Offset;
 	
 	memcpy(Buffer, file->Data.Bytes+Offset, Length);
-	
+	LOG("Buffer = '%.*s'", (int)Length, Buffer);
+
+	LEAVE('i', Length);
 	return Length;
 }
 
@@ -190,6 +197,20 @@ Uint64 Root_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 Uint64 Root_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 {
 	tRamFS_File	*file = Node->ImplPtr;
+
+	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
+
+	if(Offset > Node->Size) {
+		LEAVE('i', -1);
+		return -1;
+	}	
+
+	if(Offset + Length > MAX_FILE_SIZE)
+	{
+		Length = MAX_FILE_SIZE - Offset;
+	}
+
+	LOG("Buffer = '%.*s'", (int)Length, Buffer);
 	
 	// Check if buffer needs to be expanded
 	if(Offset + Length > Node->Size)
@@ -197,15 +218,18 @@ Uint64 Root_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		void *tmp = realloc( file->Data.Bytes, Offset + Length );
 		if(tmp == NULL)	{
 			Warning("Root_Write - Increasing buffer size failed");
+			LEAVE('i', -1);
 			return -1;
 		}
 		file->Data.Bytes = tmp;
 		Node->Size = Offset + Length;
-		//LOG("Expanded buffer to %i bytes", Node->Size);
+		LOG("Expanded buffer to %i bytes", (int)Node->Size);
 	}
 	
 	memcpy(file->Data.Bytes+Offset, Buffer, Length);
+	LOG("File - '%.*s'", Node->Size, file->Data.Bytes);
 	
+	LEAVE('i', Length);
 	return Length;
 }
 
