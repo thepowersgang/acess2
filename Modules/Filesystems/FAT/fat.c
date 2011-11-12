@@ -614,6 +614,7 @@ void FAT_int_ReadCluster(tFAT_VolInfo *Disk, Uint32 Cluster, int Length, void *B
 Uint64 FAT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 {
 	 int	preSkip, count;
+	Uint64	final_bytes;
 	 int	i, cluster, pos;
 	tFAT_VolInfo	*disk = Node->ImplPtr;
 	char	tmpBuf[disk->BytesPerCluster];
@@ -623,7 +624,7 @@ Uint64 FAT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	
 	// Sanity Check offset
 	if(Offset > Node->Size) {
-		LOG("Reading past EOF (%i > %i)", Offset, Node->Size);
+		LOG("Seek past EOF (%i > %i)", Offset, Node->Size);
 		LEAVE('i', 0);
 		return 0;
 	}
@@ -632,28 +633,18 @@ Uint64 FAT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	cluster = Node->Inode & 0xFFFFFFFF;
 	
 	// Clamp Size
-	if(Offset >= Node->Size || Offset + Length > Node->Size) {
+	if(Offset + Length > Node->Size) {
 		LOG("Reading past EOF (%lli + %lli > %lli), clamped to %lli",
 			Offset, Length, Node->Size, Node->Size - Offset);
 		Length = Node->Size - Offset;
 	}
 	
-	// Reading from within the first cluster only?
-	if((int)Offset + (int)Length < bpc)
-	{
-		LOG("First cluster only");
-		FAT_int_ReadCluster(disk, cluster, bpc, tmpBuf);
-		memcpy( Buffer, (void*)( tmpBuf + Offset%bpc ), Length );
-		#if DEBUG
-		//Debug_HexDump("FAT_Read", Buffer, Length);
-		#endif
-		LEAVE('i', 1);
-		return Length;
-	}
-	
 	// Skip previous clusters
 	preSkip = Offset / bpc;
-	for(i = preSkip; i--; )	{
+	Offset %= bpc;
+	LOG("preSkip = %i, Offset = %i", preSkip, (int)Offset);
+	for(i = preSkip; i--; )
+	{
 		cluster = FAT_int_GetFatValue(disk, cluster);
 		if(cluster == -1) {
 			Log_Warning("FAT", "Offset is past end of cluster chain mark");
@@ -661,75 +652,69 @@ Uint64 FAT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 			return 0;
 		}
 	}
-	
-	// Get Count of Clusters to read
-	count = ((Offset%bpc + Length) / bpc) + 1;
-	
-	// Get buffer Position after 1st cluster
-	pos = bpc - Offset%bpc;
-	
-	// Read 1st Cluster (performs alignment for us)
-	if( pos == bpc && (int)Length >= bpc ) {
-		FAT_int_ReadCluster(disk, cluster, bpc, Buffer);
-	}
-	else {
+
+	// Reading from within one cluster
+	if((int)Offset + (int)Length <= bpc)
+	{
+		LOG("single cluster only");
 		FAT_int_ReadCluster(disk, cluster, bpc, tmpBuf);
-		memcpy(
-			Buffer,
-			(void*)( tmpBuf + (bpc-pos) ),
-			(pos < (int)Length ? (Uint)pos : Length)
-			);
-	}
-	
-	// Simple return
-	if( count == 1 ) {
-		#if DEBUG
-		//Debug_HexDump("FAT_Read", Buffer, Length);
-		#endif
-		LEAVE('i', 1);
+		memcpy( Buffer, (void*)( tmpBuf + Offset%bpc ), Length );
+		LEAVE('X', Length);
 		return Length;
 	}
 	
-	#if DEBUG
-	LOG("pos = %i", pos);
-	LOG("Reading the rest of the clusters");
-	#endif
-	
-	// Read the rest of the cluster data
-	for( i = 1; i < count-1; i++ )
+	// Align read to a cluster
+	if( Offset > 0 )
 	{
+		pos = bpc - Offset;
+		FAT_int_ReadCluster(disk, cluster, bpc, tmpBuf);
+		memcpy( Buffer, (void*)( tmpBuf + Offset ), pos );
+		LOG("pos = %i, Reading the rest of the clusters");
 		// Get next cluster in the chain
 		cluster = FAT_int_GetFatValue(disk, cluster);
 		if(cluster == -1) {
-			Log_Warning("FAT", "FAT_Read: Read past End of Cluster Chain");
-			LEAVE('i', 0);
-			return 0;
+			Log_Warning("FAT", "Read past End of Cluster Chain (Align)");
+			LEAVE('X', pos);
+			return pos;
+		}
+	}
+	else
+		pos = 0;
+
+	// Get Count of Clusters to read
+//	count = DivMod64U(Length - pos, bpc, &final_bytes);
+	count = (Length - pos) / bpc;
+	final_bytes = (Length - pos) % bpc;
+	LOG("Offset = %i, Length = %i, count = %i, final_bytes = %i", (int)Offset, (int)Length, count, final_bytes);
+	
+	// Read the rest of the cluster data
+	for( ; count; count -- )
+	{
+		if(cluster == -1) {
+			Log_Warning("FAT", "Read past End of Cluster Chain (Bulk)");
+			LEAVE('X', pos);
+			return pos;
 		}
 		// Read cluster
 		FAT_int_ReadCluster(disk, cluster, bpc, (void*)(Buffer+pos));
 		pos += bpc;
+		// Get next cluster in the chain
+		cluster = FAT_int_GetFatValue(disk, cluster);
 	}
-	
-	// Get next cluster in the chain
-	cluster = FAT_int_GetFatValue(disk, cluster);
-	if(cluster == -1) {
-		Log_Warning("FAT", "FAT_Read: Read past End of Cluster Chain");
-		LEAVE('i', 0);
-		return 0;
-	}
-	
-	// Read final cluster
-	if( (int)Length - pos == bpc )
+
+	if( final_bytes > 0 )
 	{
-		FAT_int_ReadCluster( disk, cluster, bpc, (void*)(Buffer+pos) );
-	}
-	else {
+		if(cluster == -1) {
+			Log_Warning("FAT", "Read past End of Cluster Chain (Final)");
+			LEAVE('X', pos);
+			return pos;
+		}
+		// Read final cluster
 		FAT_int_ReadCluster( disk, cluster, bpc, tmpBuf );
 		memcpy( (void*)(Buffer+pos), tmpBuf, Length-pos );
 	}
-	
+		
 	#if DEBUG
-	LOG("Free tmpBuf(0x%x) and Return", tmpBuf);
 	//Debug_HexDump("FAT_Read", Buffer, Length);
 	#endif
 	
@@ -1322,8 +1307,8 @@ tVFS_Node *FAT_FindDir(tVFS_Node *Node, const char *Name)
 	tFAT_VolInfo	*disk = Node->ImplPtr;
 	Uint32	cluster;
 	
-	ENTER("pNode sname", Node, Name);
-	
+	ENTER("pNode sname", Node, Name);	
+
 	// Fast Returns
 	if(!Name || Name[0] == '\0') {
 		LEAVE('n');
