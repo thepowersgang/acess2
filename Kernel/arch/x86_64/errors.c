@@ -5,12 +5,15 @@
 #include <acess.h>
 #include <proc.h>
 #include <mm_virt.h>
+#include <threads_int.h>	// Needed for SSE handling
 
 #define MAX_BACKTRACE	6
 
 // === IMPORTS ===
- int	MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs);
-void	Error_Backtrace(Uint IP, Uint BP);
+extern int	MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs);
+extern void	Error_Backtrace(Uint IP, Uint BP);
+extern void	Proc_EnableSSE(void);
+extern void	Proc_RestoreSSE(Uint32 Data);
 
 // === PROTOTYPES ===
 void	Error_Handler(tRegs *Regs);
@@ -31,6 +34,23 @@ const char * const csaERROR_NAMES[] = {
 void Error_Handler(tRegs *Regs)
 {
 	Uint	cr;
+
+	if( Regs->IntNum == 7 )
+	{
+		tThread	*thread = Proc_GetCurThread();
+		if(!thread->SavedState.bSSEModified)
+		{
+			Proc_EnableSSE();
+			if(!thread->SavedState.SSE)
+				thread->SavedState.SSE = malloc(sizeof(tSSEState) + 0xF);
+			else
+				Proc_RestoreSSE( ((Uint)thread->SavedState.SSE + 0xF) & ~0xF );
+			thread->SavedState.bSSEModified = 1;
+//			__asm__ __volatile__ ("sti");
+			return ;
+		}
+		// oops, SSE enabled but a #NM, bad news
+	}
 	
 	if( Regs->IntNum == 14 ) {
 		__asm__ __volatile__ ("mov %%cr2, %0":"=r"(cr));
@@ -44,7 +64,7 @@ void Error_Handler(tRegs *Regs)
 	}
 	
 	Log("CPU Error %x, Code: 0x%x", Regs->IntNum, Regs->ErrorCode);
-//	Log(" - %s", csaERROR_NAMES[Regs->IntNum]);
+	Log(" - %s", csaERROR_NAMES[Regs->IntNum]);
 	Log(" CS:RIP = 0x%04x:%016llx", Regs->CS, Regs->RIP);
 	Log(" SS:RSP = 0x%04x:%016llx", Regs->SS, Regs->RSP);
 	Log(" RFLAGS = 0x%016llx", Regs->RFlags);

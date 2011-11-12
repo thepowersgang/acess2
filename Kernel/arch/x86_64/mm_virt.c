@@ -100,6 +100,8 @@ void MM_FinishVirtualInit(void)
 void MM_int_ClonePageEnt( Uint64 *Ent, void *NextLevel, tVAddr Addr, int bTable )
 {
 	tPAddr	curpage = *Ent & PADDR_MASK; 
+	 int	bCopied = 0;
+	
 	if( MM_GetRefCount( curpage ) <= 0 ) {
 		Log_KernelPanic("MMVirt", "Page %P still marked COW, but unreferenced", curpage);
 	}
@@ -107,7 +109,7 @@ void MM_int_ClonePageEnt( Uint64 *Ent, void *NextLevel, tVAddr Addr, int bTable 
 	{
 		*Ent &= ~PF_COW;
 		*Ent |= PF_PRESENT|PF_WRITE;
-//		Log_Debug("MMVirt", "COW ent at %p (%p) only %P", Ent, NextLevel, curpage);
+		Log_Debug("MMVirt", "COW ent at %p (%p) only %P", Ent, NextLevel, curpage);
 	}
 	else
 	{
@@ -125,23 +127,28 @@ void MM_int_ClonePageEnt( Uint64 *Ent, void *NextLevel, tVAddr Addr, int bTable 
 		memcpy( tmp, NextLevel, 0x1000 );
 		MM_FreeTemp( (tVAddr)tmp );
 		
-//		Log_Debug("MMVirt", "COW ent at %p (%p) from %P to %P", Ent, NextLevel, curpage, paddr);
+		Log_Debug("MMVirt", "COW ent at %p (%p) from %P to %P", Ent, NextLevel, curpage, paddr);
 
 		MM_DerefPhys( curpage );
 		*Ent &= PF_USER;
 		*Ent |= paddr|PF_PRESENT|PF_WRITE;
+		
+		bCopied = 1;
 	}
 	INVLPG( (tVAddr)NextLevel );
 	
-	// Mark COW on pages
+	// Mark COW on contents if it's a PDPT, Dir or Table
 	if(bTable) 
 	{
 		Uint64	*dp = NextLevel;
 		 int	i;
 		for( i = 0; i < 512; i ++ )
 		{
-			if( !(dp[i] & PF_PRESENT) )	continue;
-			MM_RefPhys( dp[i] & PADDR_MASK );
+			if( !(dp[i] & PF_PRESENT) )
+				continue;
+			
+			if( bCopied )
+				MM_RefPhys( dp[i] & PADDR_MASK );
 			if( dp[i] & PF_WRITE ) {
 				dp[i] &= ~PF_WRITE;
 				dp[i] |= PF_COW;

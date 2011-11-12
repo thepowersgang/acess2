@@ -127,4 +127,36 @@ SwitchTasks:
 	xor eax, eax	; Return zero
 	ret
 
+[global Proc_InitialiseSSE]
+Proc_InitialiseSSE:
+	mov rax, cr4
+	or ax, (1 << 9)|(1 << 10)	; Set OSFXSR and OSXMMEXCPT
+	mov cr4, rax
+	mov rax, cr0
+	and ax, ~(1 << 2)	; Clear EM
+	or rax, (1 << 1)	; Set MP
+	mov rax, cr0
+	ret
+[global Proc_DisableSSE]
+Proc_DisableSSE:
+	mov rax, cr0
+	or ax, 1 << 3	; Set TS
+	mov cr0, rax
+	ret
+[global Proc_EnableSSE]
+Proc_EnableSSE:
+	mov rax, cr0
+	and ax, ~(1 << 3)	; Clear TS
+	mov cr0, rax
+	ret
+
+[global Proc_SaveSSE]
+Proc_SaveSSE:
+	fxsave [rdi]
+	ret
+[global Proc_RestoreSSE]
+Proc_RestoreSSE:
+	fxrstor [rdi]
+	ret
+
 ; vim: ft=nasm

@@ -33,6 +33,12 @@ typedef struct sMemoryState
 	tPAddr	CR3;
 }	tMemoryState;
 
+// 512 bytes, 16 byte aligned
+typedef struct sSSEState
+{
+	char	data[512];
+} tSSEState;
+
 /**
  * \brief Task state for thread handler
  */
@@ -40,6 +46,8 @@ typedef struct sTaskState
 {
 	Uint	RIP, RSP;
 	Uint64	UserRIP, UserCS;
+	tSSEState	*SSE;
+	 int	bSSEModified;
 }	tTaskState;
 
 // === CONSTANTS ===

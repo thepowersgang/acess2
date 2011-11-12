@@ -39,6 +39,9 @@ extern Uint	GetRIP(void);	// start.asm
 extern Uint	SaveState(Uint *RSP, Uint *Regs);
 extern Uint	Proc_CloneInt(Uint *RSP, Uint *CR3);
 extern void	NewTaskHeader(void);	// Actually takes cdecl args
+extern void	Proc_InitialiseSSE(void);
+extern void	Proc_SaveSSE(Uint DestPtr);
+extern void	Proc_DisableSSE(void);
 
 extern Uint64	gInitialPML4[512];	// start.asm
 extern int	giNumCPUs;
@@ -322,6 +325,8 @@ void ArchThreads_Init(void)
 		Warning("Oh, hell, Unable to allocate PPD for Thread#0");
 	}
 
+	Proc_InitialiseSSE();
+
 	Log_Log("Proc", "Multithreading initialised");
 }
 
@@ -467,6 +472,7 @@ int Proc_NewKThread(void (*Fcn)(void*), void *Data)
 	
 	newThread->SavedState.RSP = rsp;
 	newThread->SavedState.RIP = (Uint)&NewTaskHeader;
+	newThread->SavedState.SSE = NULL;
 //	Log("New (KThread) %p, rsp = %p\n", newThread->SavedState.RIP, newThread->SavedState.RSP);
 	
 //	MAGIC_BREAK();	
@@ -499,6 +505,7 @@ int Proc_Clone(Uint Flags)
 	if(rip == 0)	return 0;	// Child
 	newThread->KernelStack = cur->KernelStack;
 	newThread->SavedState.RIP = rip;
+	newThread->SavedState.SSE = NULL;
 
 	// DEBUG
 	#if 0
@@ -550,6 +557,7 @@ int Proc_SpawnWorker(void (*Fcn)(void*), void *Data)
 
 	new->SavedState.RSP = new->KernelStack - sizeof(stack_contents);
 	new->SavedState.RIP = (Uint)&NewTaskHeader;
+	new->SavedState.SSE = NULL;
 	
 //	Log("New (Worker) %p, rsp = %p\n", new->SavedState.RIP, new->SavedState.RSP);
 	
@@ -598,13 +606,11 @@ Uint Proc_MakeUserStack(void)
 	return base + USER_STACK_SZ;
 }
 
-
 void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, char **ArgV, int DataSize)
 {
 	Uint	*stack;
-	char	**envp;
 	 int	i;
-	Uint	delta;
+	char	**envp = NULL;
 	Uint16	ss, cs;
 	
 	
@@ -615,17 +621,18 @@ void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, char **ArgV, int DataS
 		Threads_Exit(0, -1);
 	}
 	stack -= (DataSize+7)/8;
-	LOG("stack = 0x%x", stack);
-	Log("stack = %p, DataSize = %i", stack, DataSize);
 	memcpy( stack, ArgV, DataSize );
 	free(ArgV);
 	
 	// Adjust Arguments and environment
-	delta = (Uint)stack - (Uint)ArgV;
-	ArgV = (char**)stack;
-	for( i = 0; ArgV[i]; i++ )	ArgV[i] += delta;
-	envp = &ArgV[i+1];
-	for( i = 0; envp[i]; i++ )	envp[i] += delta;
+	if(DataSize)
+	{
+		Uint	delta = (Uint)stack - (Uint)ArgV;
+		ArgV = (char**)stack;
+		for( i = 0; ArgV[i]; i++ )	ArgV[i] += delta;
+		envp = &ArgV[i+1];
+		for( i = 0; envp[i]; i++ )	envp[i] += delta;
+	}
 	
 	// User Mode Segments
 	// 0x2B = 64-bit
@@ -749,6 +756,14 @@ void Proc_Reschedule(void)
 	gaCPUs[cpu].Current = nextthread;
 	gTSSs[cpu].RSP0 = nextthread->KernelStack-4;
 	__asm__ __volatile__ ("mov %0, %%db0" : : "r" (nextthread));
+
+	// Save FPU/MMX/XMM/SSE state
+	if( curthread->SavedState.SSE )
+	{
+		Proc_SaveSSE( ((Uint)curthread->SavedState.SSE + 0xF) & ~0xF );
+		curthread->SavedState.bSSEModified = 0;
+		Proc_DisableSSE();
+	}
 
 	SwitchTasks(
 		nextthread->SavedState.RSP, &curthread->SavedState.RSP,
