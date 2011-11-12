@@ -677,7 +677,7 @@ Uint MM_GetFlags(tVAddr VAddr)
 int MM_IsValidBuffer(tVAddr Addr, size_t Size)
 {
 	 int	bIsUser;
-	 int	pml4, pdp, dir, tab;
+	Uint64	pml4, pdp, dir, tab;
 
 	Size += Addr & (PAGE_SIZE-1);
 	Addr &= ~(PAGE_SIZE-1);
@@ -687,8 +687,6 @@ int MM_IsValidBuffer(tVAddr Addr, size_t Size)
 	pdp = Addr >> 30;
 	dir = Addr >> 21;
 	tab = Addr >> 12;
-	
-//	Debug("Addr = %p, Size = 0x%x, dir = %i, tab = %i", Addr, Size, dir, tab);
 
 	if( !(PAGEMAPLVL4(pml4) & 1) )	return 0;
 	if( !(PAGEDIRPTR(pdp) & 1) )	return 0;
@@ -889,11 +887,11 @@ tPAddr MM_Clone(void)
 	{
 		// Skip addresses:
 		// 320 0xFFFFA....	- Kernel Stacks
-		if( i == 320 )	continue;
+		if( i == MM_KSTACK_BASE>>39 )	continue;
 		// 509 0xFFFFFE0..	- Fractal mapping
-		if( i == 508 )	continue;
+		if( i == MM_FRACTAL_BASE>>39 )	continue;
 		// 510 0xFFFFFE8..	- Temp fractal mapping
-		if( i == 509 )	continue;
+		if( i == MM_TMPFRAC_BASE>>39 )	continue;
 		
 		TMPMAPLVL4(i) = PAGEMAPLVL4(i);
 		if( TMPMAPLVL4(i) & 1 )

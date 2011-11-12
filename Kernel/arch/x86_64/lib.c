@@ -319,22 +319,22 @@ int memcmp(const void *__dest, const void *__src, size_t __count)
 
 void *memcpy(void *__dest, const void *__src, size_t __count)
 {
-	if( ((tVAddr)__dest & 7) != ((tVAddr)__src & 7) )
-		__asm__ __volatile__ ("rep movsb" : : "D"(__dest),"S"(__src),"c"(__count));
-	else {
-		const Uint8	*src = __src;
-		Uint8	*dst = __dest;
-		while( (tVAddr)src & 7 && __count ) {
-			*dst++ = *src++;
+	tVAddr	dst = (tVAddr)__dest, src = (tVAddr)__src;
+	if( (dst & 7) != (src & 7) )
+	{
+		__asm__ __volatile__ ("rep movsb" : : "D"(dst),"S"(src),"c"(__count));
+	}
+	else
+	{
+		while( (src & 7) && __count ) {
+			*(char*)dst++ = *(char*)src++;
 			__count --;
 		}
 
-		__asm__ __volatile__ ("rep movsq" : : "D"(dst),"S"(src),"c"(__count/8));
-		src += __count & ~7;
-		dst += __count & ~7;
+		__asm__ __volatile__ ("rep movsq" : "=D"(dst),"=S"(src) : "0"(dst),"1"(src),"c"(__count/8));
 		__count = __count & 7;
 		while( __count-- )
-			*dst++ = *src++;
+			*(char*)dst++ = *(char*)src++;
 	}
 	return __dest;
 }
