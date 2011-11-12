@@ -10,12 +10,15 @@
 [global _start]
 [extern SoMain]
 _start:
-	pop rdi
+	mov rdi, [rsp   ]	; Base
+	mov rsi, [rsp+ 8]	; ArgC
+	mov rdx, [rsp+16]	; ArgV
+	mov rcx, [rsp+24]	; EnvP
 	call SoMain
 	
-	mov rdi, [rsp]
-	mov rsi, [rsp+8]
-	mov rdx, [rsp+16]
+	mov rdi, [rsp+8]
+	mov rsi, [rsp+16]
+	mov rdx, [rsp+24]
 	call rax
 	
 	mov rdi, rax
