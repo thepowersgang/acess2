@@ -69,6 +69,7 @@ int main(int argc, char *argv[])
 		char	server_info[] = "AXWIN3_SERVER=00000";
 		char	*envp[] = {server_info, NULL};
 		char	*argv[] = {csInterfaceApp, NULL};
+		_SysDebug("server_tid = %i, &server_tid = %p", server_tid, &server_tid);
 		sprintf(server_info, "AXWIN3_SERVER=%i", server_tid);
 		execve(csInterfaceApp, argv, envp);
 		exit(1);

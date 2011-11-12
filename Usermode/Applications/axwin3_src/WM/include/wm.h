@@ -17,10 +17,12 @@
  */
 //! Render the window
 #define WINFLAG_SHOW    	0x00000001
+//! Window isn't contained within the parent/owner
+#define WINFLAG_NONNESTED	0x00000002
 //! Window contents are valid
-#define WINFLAG_CLEAN    	0x00000002
+#define WINFLAG_CLEAN    	0x00000040
 //! All child windows are un-changed
-#define WINFLAG_CHILDCLEAN    	0x00000004
+#define WINFLAG_CHILDCLEAN    	0x00000080
 
 #define WINFLAG_RENDER_MASK	0x00FFFF00
 #define WINFLAG_USR_MASK	0xFF000000
@@ -43,6 +45,8 @@ extern void	WM_ShowWindow(tWindow *Window, int bShow);
 extern int	WM_ResizeWindow(tWindow *Window, int W, int H);
 extern int	WM_MoveWindow(tWindow *Window, int X, int Y);
 extern int	WM_SendMessage(tWindow *Source, tWindow *Dest, int MessageID, int Length, void *Data);
+extern void	WM_GiveFocus(tWindow *Destination);
+extern void	WM_RaiseWindow(tWindow *Window);
 // --- Rendering
 extern void	WM_Render_FillRect(tWindow *Window, int X, int Y, int W, int H, tColour Colour);
 extern void	WM_Render_DrawRect(tWindow *Window, int X, int Y, int W, int H, tColour Colour);

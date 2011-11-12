@@ -9,8 +9,16 @@
 #include <wm_internals.h>
 #include <wm_messages.h>
 
+#define MAX_BUTTONS	3
+
 // === IMPORTS ===
 extern tWindow	*gpWM_RootWindow;
+
+// === GLOBALS ===
+//! Window which will recieve the next keyboard event
+tWindow	*gpWM_FocusedWindow;
+//! Window in which the mouse button was originally pressed
+tWindow	*gpWM_DownStartWindow[MAX_BUTTONS];
 
 // === CODE ===
 tWindow *WM_int_GetWindowAtPos(int X, int Y)
@@ -63,17 +71,60 @@ void WM_Input_MouseMoved(int OldX, int OldY, int NewX, int NewY)
 	WM_SendMessage(NULL, win, WNDMSG_MOUSEMOVE, sizeof(msg), &msg);
 }
 
-void WM_Input_MouseButton(int X, int Y, int ButtonIndex, int Pressed)
+inline void WM_Input_int_SendBtnMsg(tWindow *Win, int X, int Y, int Index, int Pressed)
 {
-	tWindow	*win = WM_int_GetWindowAtPos(X, Y);
 	struct sWndMsg_MouseButton	msg;	
 
-	// Send Press/Release message
-	msg.X = X - win->X;
-	msg.Y = Y - win->Y;
-	msg.Button = ButtonIndex;
+	msg.X = X - Win->X;
+	msg.Y = Y - Win->Y;
+	msg.Button = Index;
 	msg.bPressed = !!Pressed;
 	
-	WM_SendMessage(NULL, win, WNDMSG_MOUSEBTN, sizeof(msg), &msg);
+	WM_SendMessage(NULL, Win, WNDMSG_MOUSEBTN, sizeof(msg), &msg);
+}
+
+void WM_Input_MouseButton(int X, int Y, int ButtonIndex, int Pressed)
+{
+	tWindow	*win;
+
+	win = WM_int_GetWindowAtPos(X, Y);
+
+	// Handle press of primary button to change focus
+	if( ButtonIndex == 0 && Pressed == 1 )
+	{
+		_SysDebug("Gave focus to %p", win);
+		WM_GiveFocus(win);
+		WM_RaiseWindow(win);
+	}
+
+	// Make sure that even if the mouse has moved out of the original window,
+	// mouse release messages reach the window.
+	if( !Pressed && ButtonIndex < MAX_BUTTONS && gpWM_DownStartWindow[ButtonIndex] != win )
+	{
+		WM_Input_int_SendBtnMsg(gpWM_DownStartWindow[ButtonIndex], X, Y, ButtonIndex, 0);
+	}
+	if( Pressed && ButtonIndex < MAX_BUTTONS )
+	{
+		gpWM_DownStartWindow[ButtonIndex] = win;
+	}
+
+	// Send Press/Release message
+	WM_Input_int_SendBtnMsg(win, X, Y, ButtonIndex, Pressed);
+}
+
+// --- Manipulation Functions ---
+void WM_GiveFocus(tWindow *Destination)
+{
+	struct sWndMsg_Bool	_msg;
+	
+	if( gpWM_FocusedWindow == Destination )
+		return ;
+	
+	_msg.Val = 0;
+	WM_SendMessage(NULL, gpWM_FocusedWindow, WNDMSG_FOCUS, sizeof(_msg), &_msg);
+	_msg.Val = 1;
+	WM_SendMessage(NULL, Destination, WNDMSG_FOCUS, sizeof(_msg), &_msg);
+	
+	gpWM_FocusedWindow = Destination;
 }
 

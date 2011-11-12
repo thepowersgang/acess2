@@ -102,9 +102,6 @@ void Renderer_Menu_Redraw(tWindow *Window)
 {
 	tMenuWindowInfo	*info = Window->RendererInfo;
 	 int	w, h, y, i;
-	_SysDebug("TODO: Implement Renderer_Menu_Redraw");
-
-//	_SysDebug("info->nItems = %i", info->nItems);
 
 	w = info->CachedW;
 	h = ciMenu_TopPadding + ciMenu_BottomPadding;
@@ -310,54 +307,103 @@ int Renderer_Menu_int_AddItem(tWindow *Window, int Length, void *Data)
 	return 0;
 }
 
+int Renderer_Menu_int_GetItemByPos(tWindow *Window, tMenuWindowInfo *Info, int X, int Y)
+{
+	 int	i;
+
+	if( X < 0 || X >= Window->W )
+		return -1;
+	
+	for( i = 0; i < Info->nItems; i ++ )
+	{
+		if( !Info->Items[i] )	continue;
+			
+		if( !Info->Items[i]->Label )
+		{
+			// Spacer - doesn't hilight
+			if(Y < ciMenu_SpacerHeight) {
+				return -1;
+			}
+			Y -= ciMenu_SpacerHeight;
+		}
+		else
+		{
+			// Normal item, set the hilight
+			if(Y < ciMenu_ItemHeight) {
+				return i;
+			}
+			Y -= ciMenu_ItemHeight;
+		}
+	}
+	return -1;
+}
+
 int Renderer_Menu_HandleMessage(tWindow *Window, int Msg, int Length, void *Data)
 {
+	tMenuWindowInfo	*info = Window->RendererInfo;
 	switch(Msg)
 	{
+	case WNDMSG_SHOW: {
+		struct sWndMsg_Bool	*msg = Data;
+		if(Length < sizeof(*msg))	return -1;
+		if(msg->Val) {
+			// Take focus?
+			_SysDebug(" - Shown, take focus");
+			WM_GiveFocus(Window);
+		}
+		else
+		{
+			// Hide Children
+			_SysDebug("- Hidden, hide the children!");
+		}
+		return 0; }
+	case WNDMSG_FOCUS: {
+		struct sWndMsg_Bool	*msg = Data;
+		if(Length < sizeof(*msg))	return -1;
+		if(!msg->Val) {
+			// TODO: Catch if focus was given away to a child
+			_SysDebug("- Lost focus");
+			WM_ShowWindow(Window, 0);	// Hide!
+		}
+ 		else {
+			_SysDebug("- Focus gained, TODO: Show accel keys");
+		}
+		return 0; }
+
+	case WNDMSG_MOUSEBTN: {
+		struct sWndMsg_MouseButton	*msg = Data;
+		 int	item;
+		
+		if(Length < sizeof(*msg))	return -1;
+
+		if(msg->Button == 0 && msg->bPressed == 0)
+		{
+			item = Renderer_Menu_int_GetItemByPos(Window, info, msg->X, msg->Y);
+			if(item != -1)
+			{
+				tMenuMsg_Select	_msg;
+				// TODO: Ignore sub-menus too
+				_msg.ID = item;
+				WM_SendMessage(Window, Window, MSG_MENU_SELECT, sizeof(_msg), &_msg);
+				WM_ShowWindow(Window, 0);
+			}
+		}
+				
+
+		return 0; }	
+
 	case WNDMSG_MOUSEMOVE: {
-		tMenuWindowInfo	*info = Window->RendererInfo;
 		struct sWndMsg_MouseMove	*msg = Data;
 		 int	new_hilight;
 
 		if(Length < sizeof(*msg))	return -1;
 
-		if( msg->X < 0 || msg->X >= Window->W )
-		{
-			new_hilight = -1;
-		}
-		else
-		{
-			 int	i, y;
-			y = msg->Y;
-			new_hilight = -1;
-			for( i = 0; i < info->nItems; i ++ )
-			{
-				if( !info->Items[i] )	continue;
-					
-				if( !info->Items[i]->Label )
-				{
-					// Spacer - doesn't hilight
-					if(y < ciMenu_SpacerHeight) {
-						new_hilight = -1;
-						break;
-					}
-					y -= ciMenu_SpacerHeight;
-				}
-				else
-				{
-					// Normal item, set the hilight
-					if(y < ciMenu_ItemHeight) {
-						new_hilight = i;
-						break;
-					}
-					y -= ciMenu_ItemHeight;
-				}
-			}
-		}
+		new_hilight = Renderer_Menu_int_GetItemByPos(Window, info, msg->X, msg->Y);
 
 		if( new_hilight != info->HilightedItem )
 		{
 			info->HilightedItem = new_hilight;
+			// TODO: Change sub-menu
 			WM_Invalidate(Window);
 		}
 

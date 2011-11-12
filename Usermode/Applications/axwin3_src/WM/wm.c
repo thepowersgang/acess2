@@ -70,6 +70,7 @@ tWindow *WM_CreateWindow(tWindow *Parent, tIPC_Client *Client, uint32_t ID, int 
 			Parent->FirstChild = ret;
 		ret->PrevSibling = Parent->LastChild;
 		Parent->LastChild = ret;
+		ret->NextSibling = NULL;
 	}
 	else
 	{
@@ -90,9 +91,39 @@ tWindow *WM_CreateWindowStruct(size_t ExtraSize)
 	return ret;
 }
 
+void WM_RaiseWindow(tWindow *Window)
+{
+	tWindow	*parent = Window->Parent;
+	if(!Window->Parent)	return ;
+	
+	// Remove from list
+	if(Window->PrevSibling)
+		Window->PrevSibling->NextSibling = Window->NextSibling;
+	if(Window->NextSibling)
+		Window->NextSibling->PrevSibling = Window->PrevSibling;
+	if(parent->FirstChild == Window)
+		parent->FirstChild = Window->NextSibling;
+	if(parent->LastChild == Window)
+		parent->LastChild = Window->PrevSibling;
+
+	// Append to end
+	if(parent->LastChild)
+		parent->LastChild->NextSibling = Window;
+	else
+		parent->FirstChild = Window;
+	Window->PrevSibling = parent->LastChild;
+	Window->NextSibling = NULL;
+	parent->LastChild = Window;
+}
+
 void WM_ShowWindow(tWindow *Window, int bShow)
 {
-	// TODO: Message window
+	// Message window
+	struct sWndMsg_Bool	_msg;
+	
+	_msg.Val = !!bShow;
+	WM_SendMessage(NULL, Window, WNDMSG_SHOW, sizeof(_msg), &_msg);
+	
 	if(bShow)
 		Window->Flags |= WINFLAG_SHOW;
 	else

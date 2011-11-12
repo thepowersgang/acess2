@@ -32,6 +32,11 @@ enum eWM_WindowMessages
 	WNDMSG_CLASS_MAX = 0x2000,
 };
 
+struct sWndMsg_Bool
+{
+	 uint8_t	Val;
+};
+
 struct sWndMsg_Resize
 {
 	uint16_t	W, H;

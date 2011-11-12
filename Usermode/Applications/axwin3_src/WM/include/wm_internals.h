@@ -15,8 +15,8 @@ struct sWindow
 	tWindow	*NextSibling;
 	tWindow	*PrevSibling;
 
+	// Render tree
 	tWindow	*Parent;
-
 	tWindow	*FirstChild;
 	tWindow	*LastChild;
 
