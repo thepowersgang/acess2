@@ -377,7 +377,7 @@ tVAddr Binary_MapIn(tBinary *Binary, const char *Path, tVAddr LoadMin, tVAddr Lo
 		}
 	}
 	
-	Log_Debug("Binary", "PID %i - Mapped '%s' to 0x%x", Threads_GetPID(), Path, base);
+	Log_Debug("Binary", "PID %i - Mapped '%s' to %p", Threads_GetPID(), Path, base);
 	VFS_Close(fd);
 	
 	LEAVE('p', base);
