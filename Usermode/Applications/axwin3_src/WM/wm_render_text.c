@@ -78,13 +78,19 @@ int WM_Render_DrawText(tWindow *Window, int X, int Y, int W, int H, tFont *Font,
 	
 	if(!Text)	return 0;
 
+
+	X += Window->BorderL;
+	Y += Window->BorderT;
+
 	// Check the bounds
-	if(W < 0 || X < 0 || X >= Window->W)	return 0;
-	if(X + W > Window->W)	W = Window->W - X;
+	if(W < 0 || X < 0 || X >= Window->RealW)	return 0;
+	if(X + W > Window->RealW)	W = Window->RealW - X;
 	
-	if(H < 0 || Y < 0 || Y >= Window->H)	return 0;
-	if(Y + H > Window->H)	H = Window->H - Y;
+	if(H < 0 || Y < 0 || Y >= Window->RealH)	return 0;
+	if(Y + H > Window->RealH)	H = Window->RealH - Y;
 	
+	// TODO: Catch trampling of decorations
+
 	// Handle NULL font (system default monospace)
 	if( !Font )	Font = &gSystemFont;
 	
@@ -239,7 +245,7 @@ void _RenderGlyph(tWindow *Window, short X, short Y, tGlyph *Glyph, uint32_t Col
 	}
 
 //	_SysDebug("X = %i, Y = %i", X, Y);
-	outBuf = (uint32_t*)Window->RenderBuffer + Y*Window->W + X;
+	outBuf = (uint32_t*)Window->RenderBuffer + Y*Window->RealW + X;
 	inBuf = Glyph->Bitmap + yStart*Glyph->TrueWidth;
 
 	for( y = yStart; y < Glyph->TrueHeight; y ++ )
@@ -248,7 +254,7 @@ void _RenderGlyph(tWindow *Window, short X, short Y, tGlyph *Glyph, uint32_t Col
 		{
 			outBuf[dst_x] = Video_AlphaBlend( outBuf[dst_x], Color, inBuf[x] );
 		}
-		outBuf += Window->W;
+		outBuf += Window->RealW;
 		inBuf += Glyph->TrueWidth;
 	}
 }

@@ -331,9 +331,24 @@ int IPC_Msg_CreateWin(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
 	return 0;
 }
 
+int IPC_Msg_SetWindowTitle(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
+{
+	tWindow	*win;
+
+	if( Msg->Size < 1 )	return -1;
+	if( Msg->Data[ Msg->Size-1 ] != '\0' )	return -1;	
+
+	win = IPC_int_GetWindow(Client, Msg->Window);
+	if(!win)	return 1;
+
+	WM_SetWindowTitle(win, Msg->Data);
+
+	return 0;
+}
+
 int IPC_Msg_ShowWindow(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
 {
-	tIPCMsg_ShowWindow	*info = (void*)Msg->Data;
+	tIPCMsg_Boolean	*info = (void*)Msg->Data;
 	tWindow	*win;
 	
 	if( Msg->Size < sizeof(*info) )	return -1;
@@ -341,8 +356,22 @@ int IPC_Msg_ShowWindow(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
 	win = IPC_int_GetWindow(Client, Msg->Window);
 	if(!win)	return 1;
 
-	WM_ShowWindow(win, !!info->bShow);
+	WM_ShowWindow(win, !!info->Value);
 	
+	return 0;
+}
+
+int IPC_Msg_DecorateWindow(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
+{
+	tIPCMsg_Boolean	*info = (void*)Msg->Data;
+	tWindow	*win;
+	
+	if( Msg->Size < sizeof(*info) )	return -1;
+	
+	win = IPC_int_GetWindow(Client, Msg->Window);
+	if(!win)	return 1;
+	
+	WM_DecorateWindow(win, !!info->Value);
 	return 0;
 }
 
@@ -474,6 +503,14 @@ void IPC_Handle(const tIPC_Type *IPCType, const void *Ident, size_t MsgLen, tAxW
 		_SysDebug(" IPC_Handle: IPCMSG_CREATEWIN");
 		rv = IPC_Msg_CreateWin(client, Msg);
 		break;
+	// TODO: Destroy window
+	
+	// --- Set window title
+	case IPCMSG_SETWINTITLE:
+		_SysDebug(" IPC_Handle: IPCMSG_SETWINTITLE");
+		rv = IPC_Msg_SetWindowTitle(client, Msg);
+		break;
+
 	// --- Give a window focus
 	case IPCMSG_FOCUSWINDOW:
 		_SysDebug(" IPC_Handle: IPCMSG_FOCUSWINDOW");
@@ -483,6 +520,10 @@ void IPC_Handle(const tIPC_Type *IPCType, const void *Ident, size_t MsgLen, tAxW
 	case IPCMSG_SHOWWINDOW:
 		_SysDebug(" IPC_Handle: IPCMSG_SHOWWINDOW");
 		rv = IPC_Msg_ShowWindow(client, Msg);
+		break;
+	case IPCMSG_DECORATEWINDOW:
+		_SysDebug(" IPC_Handle: IPCMSG_DECORATEWINDOW");
+		rv = IPC_Msg_DecorateWindow(client, Msg);
 		break;
 	// --- Move/Resize a window
 	case IPCMSG_SETWINPOS:

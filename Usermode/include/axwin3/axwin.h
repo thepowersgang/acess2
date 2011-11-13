@@ -8,6 +8,9 @@
 #ifndef _AXWIN3_AXWIN_H_
 #define _AXWIN3_AXWIN_H_
 
+// === CONSTANTS ===
+
+// === TYPES ===
 typedef struct sAxWin3_Window	*tHWND;
 typedef unsigned int	tAxWin3_Colour;	// TODO: Actual 32-bit
 
@@ -49,8 +52,10 @@ extern void	AxWin3_DestroyWindow(tHWND Window);
 
 // --- Core window management functions
 extern void	AxWin3_SendMessage(tHWND Window, tHWND Dest, int Message, int Length, void *Data);
+extern void	AxWin3_SetWindowTitle(tHWND Window, const char *Title);
 extern void	AxWin3_FocusWindow(tHWND Window);
 extern void	AxWin3_ShowWindow(tHWND Window, int bShow);
+extern void	AxWin3_DecorateWindow(tHWND Window, int bDecorate);
 extern void	AxWin3_SetWindowPos(tHWND Window, short X, short Y, short W, short H);
 extern void	AxWin3_MoveWindow(tHWND Window, short X, short Y);
 extern void	AxWin3_ResizeWindow(tHWND Window, short W, short H);

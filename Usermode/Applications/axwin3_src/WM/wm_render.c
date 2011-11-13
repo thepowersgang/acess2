@@ -15,23 +15,26 @@ void WM_Render_FillRect(tWindow *Window, int X, int Y, int W, int H, tColour Col
 {
 	uint32_t	*dest;
 	 int	i;
-//	_SysDebug("WM_Render_FilledRect(%p, 0x%x...", Window, Colour);
-//	_SysDebug(" (%i,%i), %ix%i)", X, Y, W, H);
+
+	X += Window->BorderL;	
+	Y += Window->BorderT;
+
 	// Clip to window dimensions
 	if(X < 0) { W += X; X = 0; }
 	if(Y < 0) { H += Y; Y = 0; }
 	if(W <= 0 || H <= 0)	return;
-	if(X >= Window->W)	return;
-	if(Y >= Window->H)	return;
-	if(X + W > Window->W)	W = Window->W - X;
-	if(Y + H > Window->H)	H = Window->H - Y;
-//	_SysDebug(" Clipped to (%i,%i), %ix%i", X, Y, W, H);
+	if(X >= Window->RealW)	return;
+	if(Y >= Window->RealH)	return;
+	if(X + W > Window->RealW)	W = Window->RealW - X;
+	if(Y + H > Window->RealH)	H = Window->RealH - Y;
+
+	// TODO: Catch overflow into decorator area
 
 	if(!Window->RenderBuffer) {
-		Window->RenderBuffer = malloc(Window->W*Window->H*4);
+		Window->RenderBuffer = malloc(Window->RealW*Window->RealH*4);
 	}
 
-	dest = (uint32_t*)Window->RenderBuffer + Y*Window->W + X;
+	dest = (uint32_t*)Window->RenderBuffer + Y*Window->RealW + X;
 	while( H -- )
 	{
 		for( i = W; i --; )
@@ -65,20 +68,35 @@ void WM_Render_DrawImage(tWindow *Window, int X, int Y, int W, int H, tImage *Im
 	if(!Window->RenderBuffer) {
 		Window->RenderBuffer = malloc(Window->W*Window->H*4);
 	}
-	
+
+	// Apply offset
+	X += Window->BorderL;
+	Y += Window->BorderT;
+
 	// Bounds Check
-	if( X >= Window->W )	return ;
-	if( Y >= Window->H )	return ;
+	if( X >= Window->RealW )	return ;
+	if( Y >= Window->RealH )	return ;
 	
 	// Wrap to image size
 	if( W > Image->Width )	W = Image->Width;
 	if( H > Image->Height )	H = Image->Height;
 	
 	// Wrap to screen size
-	if( X + W > Window->W )	W = Window->W - X;
-	if( Y + H > Window->H )	H = Window->H - Y;
+	if( X + W > Window->RealW )	W = Window->RealW - X;
+	if( Y + H > Window->RealH )	H = Window->RealH - Y;
 
-	dest = (uint32_t*)Window->RenderBuffer + Y * Window->W + X;
+	// TODO: Catch overflow into decorator area
+	#if 0
+	if( !Window->bDrawingDecorations )
+	{
+		if( X < Window->BorderL )	return ;
+		if( Y < Window->BorderT )	return ;
+		if( X + W > Window->BorderL + Window->W )	W = X - (Window->BorderL + Window->W);
+		if( Y + H > Window->BorderT + Window->H )	H = Y - (Window->BorderT + Window->H);
+	}
+	#endif
+
+	dest = (uint32_t*)Window->RenderBuffer + Y * Window->RealW + X;
 	data = Image->Data;
 
 	// Do the render
@@ -116,7 +134,7 @@ void WM_Render_DrawImage(tWindow *Window, int X, int Y, int W, int H, tImage *Im
 				dest[x] = b | (g << 8) | (r << 16);
 			}
 			data += Image->Width * 4;
-			dest += Window->W;
+			dest += Window->RealW;
 		}
 		break;
 	
@@ -130,7 +148,7 @@ void WM_Render_DrawImage(tWindow *Window, int X, int Y, int W, int H, tImage *Im
 				dest[x] = data[x*3+2] | (data[x*3+1] << 8) | (data[x*3+0] << 16);
 			}
 			data += W * 3;
-			dest += Window->W;
+			dest += Window->RealW;
 		}
 		break;
 	default:

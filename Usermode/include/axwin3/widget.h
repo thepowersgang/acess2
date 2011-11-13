@@ -49,6 +49,8 @@ enum eElementTypes
 	ELETYPE_IMAGE,	//!< Image
 	ELETYPE_BUTTON,	//!< Push Button
 	ELETYPE_SPACER,	//!< Visual Spacer (horizontal / vertical rule)
+	ELETYPE_TEXTINPUT,	//!< Text Input Field
+	ELETYPE_TEXTBOX,	//!< Text Box Input
 
 	ELETYPE_TABBAR,	//!< Tab Bar
 	ELETYPE_TOOLBAR,	//!< Tool Bar

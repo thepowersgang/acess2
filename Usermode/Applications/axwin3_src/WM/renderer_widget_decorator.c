@@ -16,6 +16,8 @@
 #define BUTTON_BGCOLOUR 0xD0D0D0
 #define BUTTON_BORDER   0xF0F0F0
 #define	TEXT_COLOUR     0x000000
+#define TEXTINPUT_BACKGROUND	0xFFFFFF
+#define TEXTINPUT_BORDER_OUT	0x404040
 
 // === CODE ===
 void Widget_Decorator_RenderWidget(tWindow *Window, tElement *Element)
@@ -92,6 +94,29 @@ void Widget_Decorator_RenderWidget(tWindow *Window, tElement *Element)
 			Element->CachedW-1, Element->CachedH-1,
 			BUTTON_BORDER
 			);
+		break;
+
+	// Text input field / Text Box
+	case ELETYPE_TEXTINPUT:
+	case ELETYPE_TEXTBOX:
+		WM_Render_FillRect(
+			Window, 
+			Element->CachedX, Element->CachedY,
+			Element->CachedW, Element->CachedH,
+			TEXTINPUT_BACKGROUND
+			);
+		WM_Render_DrawRect(
+			Window, 
+			Element->CachedX, Element->CachedY,
+			Element->CachedW, Element->CachedH,
+			TEXTINPUT_BORDER_OUT
+			);
+//		WM_Render_DrawRect(
+//			Window, 
+//			Element->CachedX+1, Element->CachedY+1,
+//			Element->CachedW-2, Element->CachedH-2,
+//			TEXTINPUT_BORDER_IN
+//			);
 		break;
 	
 	case ELETYPE_TEXT:

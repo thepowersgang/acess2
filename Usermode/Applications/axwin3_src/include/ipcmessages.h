@@ -14,7 +14,7 @@
 typedef struct sAxWin_IPCMessage	tAxWin_IPCMessage;
 typedef struct sIPCMsg_ReturnInt	tIPCMsg_ReturnInt;
 typedef struct sIPCMsg_CreateWin	tIPCMsg_CreateWin;
-typedef struct sIPCMsg_ShowWindow	tIPCMsg_ShowWindow;
+typedef struct sIPCMsg_Boolean	tIPCMsg_Boolean;
 typedef struct sIPCMsg_SetWindowPos	tIPCMsg_SetWindowPos;
 typedef struct sIPCMsg_SendMsg	tIPCMsg_SendMsg;
 
@@ -60,9 +60,9 @@ struct sIPCMsg_SendMsg
 	char	Data[];
 };
 
-struct sIPCMsg_ShowWindow
+struct sIPCMsg_Boolean
 {
-	uint32_t	bShow;
+	uint32_t	Value;
 };
 
 struct sIPCMsg_SetWindowPos
@@ -95,7 +95,9 @@ enum eAxWin_IPCMessageTypes
 	IPCMSG_SENDMSG, 	//!< Send a message to another window (or to self)
 	IPCMSG_CREATEWIN,	//!< Create a window
 	IPCMSG_DESTROYWIN,	//!< Destroy a window
+	IPCMSG_SETWINTITLE,	//!< Set window title
 	IPCMSG_SHOWWINDOW,	//!< Show/Hide a window
+	IPCMSG_DECORATEWINDOW,	//!< Enable/Disable decorations
 	IPCMSG_FOCUSWINDOW,	//!< Give a window focus (no data)
 	IPCMSG_SETWINPOS,	//!< Set a window position
 };

@@ -93,7 +93,10 @@ tWindow	*Renderer_Menu_Create(int Argument)
 	info->MaxItems = Argument;
 	info->HilightedItem = -1;
 
-	_SysDebug("Renderer_Menu_Create: ->MaxItems = %i", info->MaxItems);
+	ret->Flags |= WINFLAG_NODECORATE;
+	ret->H = ciMenu_TopPadding + ciMenu_BottomPadding;
+
+//	_SysDebug("Renderer_Menu_Create: ->MaxItems = %i", info->MaxItems);
 	
 	return ret;
 }
@@ -104,6 +107,7 @@ void Renderer_Menu_Redraw(tWindow *Window)
 	 int	w, h, y, i;
 
 	w = info->CachedW;
+	#if 0
 	h = ciMenu_TopPadding + ciMenu_BottomPadding;
 	for( i = 0; i < info->nItems; i ++ )
 	{
@@ -114,11 +118,11 @@ void Renderer_Menu_Redraw(tWindow *Window)
 		else
 			h += ciMenu_SpacerHeight;
 	}
+	#else
+	h = Window->H;
+	#endif
 
 //	_SysDebug("w = %i, h = %i", w, h);
-
-	// - Resize window to contain all items
-	WM_ResizeWindow(Window, w, h);
 
 	// - Move the window such that it is on screen
 	//  > Make sure to catch if the menu can't fit fully onscreen
@@ -212,7 +216,10 @@ int Renderer_Menu_int_AddItem(tWindow *Window, int Length, void *Data)
 	}
 	
 	// Don't overwrite
-	if(info->Items[req->ID])	return 0;
+	if(info->Items[req->ID]) {
+		_SysDebug("- Caught overwrite of %i", req->ID);
+		return 0;
+	}
 	// Bookkeeping
 	if(req->ID >= info->nItems)	info->nItems = req->ID + 1;
 	// Allocate
@@ -223,6 +230,7 @@ int Renderer_Menu_int_AddItem(tWindow *Window, int Length, void *Data)
 	{
 		// Spacer
 		item->Label = NULL;
+		WM_ResizeWindow(Window, info->CachedW, Window->H+ciMenu_SpacerHeight);
 		
 		return 0;
 	}
@@ -300,10 +308,8 @@ int Renderer_Menu_int_AddItem(tWindow *Window, int Length, void *Data)
 		info->CachedW = ciMenu_LeftPadding + info->MaxLabelWidth
 			+ ciMenu_Gap + info->MaxShortcutWidth
 			+ ciMenu_RightPadding;
-		// TODO: Smarter height?
-		//  Doesn't matter a lot here really
-		WM_ResizeWindow(Window, info->CachedW, info->nItems*ciMenu_ItemHeight);
 	}
+	WM_ResizeWindow(Window, info->CachedW, Window->H+ciMenu_ItemHeight);
 	
 	return 0;
 }
@@ -414,7 +420,7 @@ int Renderer_Menu_HandleMessage(tWindow *Window, int Msg, int Length, void *Data
 
 	// Manipulation messages
 	case MSG_MENU_ADDITEM:
-		_SysDebug("MSG_MENU_ADDITEM");
+//		_SysDebug("MSG_MENU_ADDITEM");
 		return Renderer_Menu_int_AddItem(Window, Length, Data);
 	
 	// Only message to pass to client

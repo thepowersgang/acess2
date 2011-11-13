@@ -31,9 +31,10 @@ void	Widget_SetSize(tWidgetWin *Info, int Len, tWidgetMsg_SetSize *Msg);
 void	Widget_SetText(tWidgetWin *Info, int Len, tWidgetMsg_SetText *Msg);
  int	Renderer_Widget_HandleMessage(tWindow *Target, int Msg, int Len, void *Data);
 // --- Type helpers
-void	Widget_TextBox_UpdateText(tElement *Element, const char *Text);
+void	Widget_DispText_UpdateText(tElement *Element, const char *Text);
 void	Widget_Image_UpdateText(tElement *Element, const char *Text);
  int	Widget_Button_MouseButton(tElement *Element, int X, int Y, int Button, int bPress);
+void	Widget_TextInput_Init(tElement *Element);
 
 // === GLOBALS ===
 tWMRenderer	gRenderer_Widget = {
@@ -68,9 +69,11 @@ struct {
 }	gaWM_WidgetTypes[NUM_ELETYPES] = {
 	{0},	// NULL
 	{0},	// Box
-	{.UpdateText = Widget_TextBox_UpdateText},	// Text
+	{.UpdateText = Widget_DispText_UpdateText},	// Text
 	{.UpdateText = Widget_Image_UpdateText},	// Image
-	{.MouseButton = Widget_Button_MouseButton}	// Button
+	{.MouseButton = Widget_Button_MouseButton},	// Button
+	{0},	// Spacer
+	{.Init = Widget_TextInput_Init},	// Text Box (Single Line)
 };
 const int	ciWM_NumWidgetTypes = sizeof(gaWM_WidgetTypes)/sizeof(gaWM_WidgetTypes[0]);
 
@@ -604,7 +607,7 @@ void Widget_Fire(tElement *Element)
 }
 
 // --- Type Helpers
-void Widget_TextBox_UpdateText(tElement *Element, const char *Text)
+void Widget_DispText_UpdateText(tElement *Element, const char *Text)
 {
 	 int	w=0, h=0;
 
@@ -658,5 +661,20 @@ int Widget_Button_MouseButton(tElement *Element, int X, int Y, int Button, int b
 		);
 	if(!bPress)	Widget_Fire(Element);
 	return 0;	// Handled
+}
+
+void Widget_TextInput_Init(tElement *Element)
+{
+	 int	h;
+
+	// TODO: Select font correctly	
+	WM_Render_GetTextDims(NULL, "jJ", NULL, &h);
+	
+	if( Element->Parent && (Element->Parent->Flags & ELEFLAG_VERTICAL) )
+		Element->MinWith = h;
+	else
+		Element->MinCross = h;
+
+	// No need to explicitly update parent min dims, as the AddElement routine does that	
 }
 

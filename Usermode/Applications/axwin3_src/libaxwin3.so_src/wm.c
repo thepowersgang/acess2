@@ -196,6 +196,19 @@ void AxWin3_int_HandleMessage(tAxWin_IPCMessage *Msg)
 	}
 }
 
+void AxWin3_SetWindowTitle(tHWND Window, const char *Title)
+{
+	tAxWin_IPCMessage	*msg;
+	 int	len = strlen(Title);
+	
+	msg = AxWin3_int_AllocateIPCMessage(Window, IPCMSG_SETWINTITLE, 0, len+1);
+	strcpy(msg->Data, Title);
+	
+	AxWin3_int_SendIPCMessage(msg);
+	
+	free(msg);
+}
+
 void AxWin3_SendMessage(tHWND Window, tHWND Destination, int Message, int Length, void *Data)
 {
 	tAxWin_IPCMessage	*msg;
@@ -225,11 +238,25 @@ void AxWin3_FocusWindow(tHWND Window)
 void AxWin3_ShowWindow(tHWND Window, int bShow)
 {
 	tAxWin_IPCMessage	*msg;
-	tIPCMsg_ShowWindow	*info;
+	tIPCMsg_Boolean	*info;
 
 	msg = AxWin3_int_AllocateIPCMessage(Window, IPCMSG_SHOWWINDOW, 0, sizeof(*info));
 	info = (void*)msg->Data;
-	info->bShow = !!bShow;
+	info->Value = !!bShow;
+	
+	AxWin3_int_SendIPCMessage(msg);
+	
+	free(msg);
+}
+
+void AxWin3_DecorateWindow(tHWND Window, int bDecorate)
+{
+	tAxWin_IPCMessage	*msg;
+	tIPCMsg_Boolean	*info;
+
+	msg = AxWin3_int_AllocateIPCMessage(Window, IPCMSG_DECORATEWINDOW, 0, sizeof(*info));
+	info = (void*)msg->Data;
+	info->Value = !!bDecorate;
 	
 	AxWin3_int_SendIPCMessage(msg);
 	

@@ -24,12 +24,17 @@ struct sWindow
 	uint32_t	ID;	//!< Client assigned ID
 	tWMRenderer	*Renderer;
 
+	char	*Title;
+
 	 int	Flags;
-	
-	 int	X;
-	 int	Y;
-	 int	W;
-	 int	H;
+
+	 int	BorderL, BorderR;
+	 int	BorderT, BorderB;
+
+	 int	RealW, RealH;	
+
+	 int	X, Y;
+	 int	W, H;
 
 	void	*RendererInfo;	
 

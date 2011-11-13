@@ -11,6 +11,7 @@
 #include <string.h>
 #include <video.h>
 #include <wm_messages.h>
+#include <decorator.h>
 
 // === IMPORTS ===
 extern void	IPC_SendWMMessage(tIPC_Client *Client, uint32_t Src, uint32_t Dst, int Msg, int Len, void *Data);
@@ -27,7 +28,7 @@ void WM_Initialise(void)
 	WM_CreateWindow(NULL, NULL, 0, 0x0088FF, "Background");
 	gpWM_RootWindow->W = giScreenWidth;
 	gpWM_RootWindow->H = giScreenHeight;
-	gpWM_RootWindow->Flags = WINFLAG_SHOW;
+	gpWM_RootWindow->Flags = WINFLAG_SHOW|WINFLAG_NODECORATE;
 }
 
 void WM_RegisterRenderer(tWMRenderer *Renderer)
@@ -61,7 +62,7 @@ tWindow *WM_CreateWindow(tWindow *Parent, tIPC_Client *Client, uint32_t ID, int 
 	ret->ID = ID;
 	ret->Parent = Parent;
 	ret->Renderer = renderer;
-	ret->Flags = WINFLAG_CLEAN;	// Needed to stop invaildate early exiting
+	ret->Flags |= WINFLAG_CLEAN;	// Needed to stop invaildate early exiting
 
 	// Append to parent
 	if(Parent)
@@ -79,6 +80,12 @@ tWindow *WM_CreateWindow(tWindow *Parent, tIPC_Client *Client, uint32_t ID, int 
 		gpWM_RootWindow = ret;
 	}
 
+	// Don't decorate child windows by default
+	if(Parent != gpWM_RootWindow)
+	{
+		ret->Flags |= WINFLAG_NODECORATE;
+	}
+	
 	// - Return!
 	return ret;
 }
@@ -91,6 +98,14 @@ tWindow *WM_CreateWindowStruct(size_t ExtraSize)
 	ret->RendererInfo = ret + 1;	// Get end of tWindow
 	
 	return ret;
+}
+
+void WM_SetWindowTitle(tWindow *Window, const char *Title)
+{
+	if(Window->Title)
+		free(Window->Title);
+	Window->Title = strdup(Title);
+	_SysDebug("Window %p title set to '%s'", Window, Title);
 }
 
 void WM_RaiseWindow(tWindow *Window)
@@ -154,6 +169,27 @@ void WM_ShowWindow(tWindow *Window, int bShow)
 		if( Window == gpWM_FocusedWindow )
 			WM_FocusWindow(Window->Parent);
 	}
+	// Just a little memory saving for large hidden windows
+	if(Window->RenderBuffer)
+		free(Window->RenderBuffer);
+	
+	WM_Invalidate(Window);
+}
+
+void WM_DecorateWindow(tWindow *Window, int bDecorate)
+{
+	if( !(Window->Flags & WINFLAG_NODECORATE) == !!bDecorate )
+		return ;
+	
+	if(bDecorate)
+		Window->Flags &= ~WINFLAG_NODECORATE;
+	else
+		Window->Flags |= WINFLAG_NODECORATE;
+	
+	// Needed because the window size changes
+	if(Window->RenderBuffer)
+		free(Window->RenderBuffer);
+	
 	WM_Invalidate(Window);
 }
 
@@ -177,9 +213,11 @@ int WM_ResizeWindow(tWindow *Window, int W, int H)
 	if(W <= 0 || H <= 0 )	return 1;
 	if(Window->X + W < 0)	Window->X = -W + 1;
 	if(Window->Y + H < 0)	Window->Y = -H + 1;
-	
+
 	Window->W = W;	Window->H = H;
 
+	if(Window->RenderBuffer)
+		free(Window->RenderBuffer);
 	WM_Invalidate(Window);
 
 	{
@@ -252,6 +290,25 @@ void WM_int_UpdateWindow(tWindow *Window)
 	// Render
 	if( !(Window->Flags & WINFLAG_CLEAN) )
 	{
+		// Calculate RealW/RealH
+		if( !(Window->Flags & WINFLAG_NODECORATE) )
+		{
+			_SysDebug("Applying decorations to %p", Window);
+			Decorator_UpdateBorderSize(Window);
+			Window->RealW = Window->BorderL + Window->W + Window->BorderR;
+			Window->RealH = Window->BorderT + Window->H + Window->BorderB;
+			Decorator_Redraw(Window);
+		}
+		else
+		{
+			Window->BorderL = 0;
+			Window->BorderR = 0;
+			Window->BorderT = 0;
+			Window->BorderB = 0;
+			Window->RealW = Window->W;
+			Window->RealH = Window->H;
+		}
+		
 		Window->Renderer->Redraw(Window);
 		Window->Flags |= WINFLAG_CLEAN;
 	}
@@ -276,8 +333,8 @@ void WM_int_BlitWindow(tWindow *Window)
 	if( !(Window->Flags & WINFLAG_SHOW) )
 		return ;
 
-	_SysDebug("Blit %p to (%i,%i) %ix%i", Window, Window->X, Window->Y, Window->W, Window->H);
-	Video_Blit(Window->RenderBuffer, Window->X, Window->Y, Window->W, Window->H);
+	_SysDebug("Blit %p to (%i,%i) %ix%i", Window, Window->X, Window->Y, Window->RealW, Window->RealH);
+	Video_Blit(Window->RenderBuffer, Window->X, Window->Y, Window->RealW, Window->RealH);
 	
 	for( child = Window->FirstChild; child; child = child->NextSibling )
 	{

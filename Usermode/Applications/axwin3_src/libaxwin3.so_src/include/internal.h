@@ -10,6 +10,8 @@
 
 #include <stdint.h>
 
+extern void	_SysDebug(const char *Fmt, ...);
+
 struct sAxWin3_Window
 {
 	uint32_t	ServerID;
