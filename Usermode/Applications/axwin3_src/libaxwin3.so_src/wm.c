@@ -54,7 +54,7 @@ tWindow *AxWin3_int_GetWindowFromID(uint32_t ServerID)
 tWindow *AxWin3_int_AllocateWindowInfo(int DataBytes, int *WinID)
 {
 	 int	idx, newWinID;
-	tWindowBlock *block, *prev;
+	tWindowBlock *block, *prev = NULL;
 	tWindow	*ret;	
 
 	block = &gAxWin3_WindowList;
@@ -207,6 +207,16 @@ void AxWin3_SendMessage(tHWND Window, tHWND Destination, int Message, int Length
 	info->ID = Message;
 	info->Length = Length;
 	memcpy(info->Data, Data, Length);
+	
+	AxWin3_int_SendIPCMessage(msg);
+	free(msg);
+}
+
+void AxWin3_FocusWindow(tHWND Window)
+{
+	tAxWin_IPCMessage	*msg;
+	
+	msg = AxWin3_int_AllocateIPCMessage(Window, IPCMSG_FOCUSWINDOW, 0, 0);
 	
 	AxWin3_int_SendIPCMessage(msg);
 	free(msg);

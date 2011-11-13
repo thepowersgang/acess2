@@ -96,6 +96,7 @@ enum eAxWin_IPCMessageTypes
 	IPCMSG_CREATEWIN,	//!< Create a window
 	IPCMSG_DESTROYWIN,	//!< Destroy a window
 	IPCMSG_SHOWWINDOW,	//!< Show/Hide a window
+	IPCMSG_FOCUSWINDOW,	//!< Give a window focus (no data)
 	IPCMSG_SETWINPOS,	//!< Set a window position
 };
 

@@ -67,6 +67,7 @@ void AxWin3_Menu_ShowAt(tHWND Menu, int X, int Y)
 {
 	AxWin3_MoveWindow(Menu, X, Y);
 	AxWin3_ShowWindow(Menu, 1);
+	AxWin3_FocusWindow(Menu);
 }
 
 tAxWin3_MenuItem *AxWin3_Menu_AddItem(

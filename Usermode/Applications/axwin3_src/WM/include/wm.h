@@ -41,12 +41,12 @@ typedef struct sIPC_Client	tIPC_Client;
 // --- Management
 extern tWindow	*WM_CreateWindow(tWindow *Parent, tIPC_Client *Client, uint32_t ID, int Flags, const char *Renderer);
 extern void	WM_Invalidate(tWindow *Window);
+extern void	WM_FocusWindow(tWindow *Destination);
+extern void	WM_RaiseWindow(tWindow *Window);
 extern void	WM_ShowWindow(tWindow *Window, int bShow);
 extern int	WM_ResizeWindow(tWindow *Window, int W, int H);
 extern int	WM_MoveWindow(tWindow *Window, int X, int Y);
 extern int	WM_SendMessage(tWindow *Source, tWindow *Dest, int MessageID, int Length, void *Data);
-extern void	WM_GiveFocus(tWindow *Destination);
-extern void	WM_RaiseWindow(tWindow *Window);
 // --- Rendering
 extern void	WM_Render_FillRect(tWindow *Window, int X, int Y, int W, int H, tColour Colour);
 extern void	WM_Render_DrawRect(tWindow *Window, int X, int Y, int W, int H, tColour Colour);

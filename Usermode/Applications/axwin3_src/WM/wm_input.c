@@ -15,8 +15,6 @@
 extern tWindow	*gpWM_RootWindow;
 
 // === GLOBALS ===
-//! Window which will recieve the next keyboard event
-tWindow	*gpWM_FocusedWindow;
 //! Window in which the mouse button was originally pressed
 tWindow	*gpWM_DownStartWindow[MAX_BUTTONS];
 
@@ -93,7 +91,7 @@ void WM_Input_MouseButton(int X, int Y, int ButtonIndex, int Pressed)
 	if( ButtonIndex == 0 && Pressed == 1 )
 	{
 		_SysDebug("Gave focus to %p", win);
-		WM_GiveFocus(win);
+		WM_FocusWindow(win);
 		WM_RaiseWindow(win);
 	}
 
@@ -110,21 +108,5 @@ void WM_Input_MouseButton(int X, int Y, int ButtonIndex, int Pressed)
 
 	// Send Press/Release message
 	WM_Input_int_SendBtnMsg(win, X, Y, ButtonIndex, Pressed);
-}
-
-// --- Manipulation Functions ---
-void WM_GiveFocus(tWindow *Destination)
-{
-	struct sWndMsg_Bool	_msg;
-	
-	if( gpWM_FocusedWindow == Destination )
-		return ;
-	
-	_msg.Val = 0;
-	WM_SendMessage(NULL, gpWM_FocusedWindow, WNDMSG_FOCUS, sizeof(_msg), &_msg);
-	_msg.Val = 1;
-	WM_SendMessage(NULL, Destination, WNDMSG_FOCUS, sizeof(_msg), &_msg);
-	
-	gpWM_FocusedWindow = Destination;
 }
 

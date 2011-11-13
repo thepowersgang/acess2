@@ -18,6 +18,8 @@ extern void	IPC_SendWMMessage(tIPC_Client *Client, uint32_t Src, uint32_t Dst, i
 // === GLOBALS ===
 tWMRenderer	*gpWM_Renderers;
 tWindow	*gpWM_RootWindow;
+//! Window which will recieve the next keyboard event
+tWindow	*gpWM_FocusedWindow;
 
 // === CODE ===
 void WM_Initialise(void)
@@ -116,18 +118,42 @@ void WM_RaiseWindow(tWindow *Window)
 	parent->LastChild = Window;
 }
 
+void WM_FocusWindow(tWindow *Destination)
+{
+	struct sWndMsg_Bool	_msg;
+	
+	if( gpWM_FocusedWindow == Destination )
+		return ;
+	if( Destination && !(Destination->Flags & WINFLAG_SHOW) )
+		return ;
+	
+	_msg.Val = 0;
+	WM_SendMessage(NULL, gpWM_FocusedWindow, WNDMSG_FOCUS, sizeof(_msg), &_msg);
+	_msg.Val = 1;
+	WM_SendMessage(NULL, Destination, WNDMSG_FOCUS, sizeof(_msg), &_msg);
+	
+	gpWM_FocusedWindow = Destination;
+}
+
+
 void WM_ShowWindow(tWindow *Window, int bShow)
 {
 	// Message window
 	struct sWndMsg_Bool	_msg;
 	
+	if( !!(Window->Flags & WINFLAG_SHOW) == bShow )
+		return ;
+
 	_msg.Val = !!bShow;
 	WM_SendMessage(NULL, Window, WNDMSG_SHOW, sizeof(_msg), &_msg);
 	
 	if(bShow)
 		Window->Flags |= WINFLAG_SHOW;
-	else
+	else {
 		Window->Flags &= ~WINFLAG_SHOW;
+		if( Window == gpWM_FocusedWindow )
+			WM_FocusWindow(Window->Parent);
+	}
 	WM_Invalidate(Window);
 }
 

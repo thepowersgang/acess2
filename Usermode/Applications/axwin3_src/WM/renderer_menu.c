@@ -170,7 +170,7 @@ void Renderer_Menu_Redraw(tWindow *Window)
 		if(item->UnderlineW)
 		{
 			WM_Render_FillRect(Window,
-				ciMenu_LeftPadding + item->UnderlineX, y + ciMenu_FontHeight + 1,
+				ciMenu_LeftPadding + item->UnderlineX, y + ciMenu_FontHeight,
 				item->UnderlineW, 1,
 				cMenu_LabelColour
 				);
@@ -301,6 +301,7 @@ int Renderer_Menu_int_AddItem(tWindow *Window, int Length, void *Data)
 			+ ciMenu_Gap + info->MaxShortcutWidth
 			+ ciMenu_RightPadding;
 		// TODO: Smarter height?
+		//  Doesn't matter a lot here really
 		WM_ResizeWindow(Window, info->CachedW, info->nItems*ciMenu_ItemHeight);
 	}
 	
@@ -320,7 +321,7 @@ int Renderer_Menu_int_GetItemByPos(tWindow *Window, tMenuWindowInfo *Info, int X
 			
 		if( !Info->Items[i]->Label )
 		{
-			// Spacer - doesn't hilight
+			// Spacer - not selectable
 			if(Y < ciMenu_SpacerHeight) {
 				return -1;
 			}
@@ -328,7 +329,7 @@ int Renderer_Menu_int_GetItemByPos(tWindow *Window, tMenuWindowInfo *Info, int X
 		}
 		else
 		{
-			// Normal item, set the hilight
+			// Normal item, can be selected/hilighted
 			if(Y < ciMenu_ItemHeight) {
 				return i;
 			}
@@ -346,10 +347,12 @@ int Renderer_Menu_HandleMessage(tWindow *Window, int Msg, int Length, void *Data
 	case WNDMSG_SHOW: {
 		struct sWndMsg_Bool	*msg = Data;
 		if(Length < sizeof(*msg))	return -1;
-		if(msg->Val) {
-			// Take focus?
-			_SysDebug(" - Shown, take focus");
-			WM_GiveFocus(Window);
+		if(msg->Val)
+		{
+//			_SysDebug(" - Shown, take focus");
+			// TODO: This shouldn't really be done, instead focus should be given
+			//       when the menu is shown.
+//			WM_FocusWindow(Window);
 		}
 		else
 		{

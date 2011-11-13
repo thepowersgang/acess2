@@ -12,6 +12,7 @@
 #include <ipcmessages.h>
 #include <stdio.h>
 #include <wm.h>
+#include <wm_internals.h>
 
 #define AXWIN_PORT	4101
 
@@ -37,6 +38,8 @@ struct sIPC_Client
 	tWindow	**Windows;
 };
 
+// === IMPORTS ===
+extern tWindow	*gpWM_FocusedWindow;	// Needed for _FocusWindow
 
 // === PROTOTYPES ===
 void	IPC_Init(void);
@@ -277,6 +280,22 @@ int IPC_Msg_SendMsg(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
 	return 0;
 }
 
+int IPC_Msg_FocusWindow(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
+{
+	tWindow	*win;
+
+	// Don't allow the focus to be changed unless the client has the focus
+	if(!gpWM_FocusedWindow)	return 1;
+	if(gpWM_FocusedWindow->Client != Client)	return 1;
+
+	win = IPC_int_GetWindow(Client, Msg->Window);
+	if(!win)	return 1;
+
+	WM_FocusWindow(win);
+
+	return 0;
+}
+
 int IPC_Msg_CreateWin(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
 {
 	tIPCMsg_CreateWin	*info = (void*)Msg->Data;
@@ -454,6 +473,11 @@ void IPC_Handle(const tIPC_Type *IPCType, const void *Ident, size_t MsgLen, tAxW
 	case IPCMSG_CREATEWIN:
 		_SysDebug(" IPC_Handle: IPCMSG_CREATEWIN");
 		rv = IPC_Msg_CreateWin(client, Msg);
+		break;
+	// --- Give a window focus
+	case IPCMSG_FOCUSWINDOW:
+		_SysDebug(" IPC_Handle: IPCMSG_FOCUSWINDOW");
+		rv = IPC_Msg_FocusWindow(client, Msg);
 		break;
 	// --- Show/Hide a window
 	case IPCMSG_SHOWWINDOW:
