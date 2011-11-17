@@ -132,9 +132,9 @@ int run_close(tAxWin3_Widget *unused)
 tAxWin3_Widget *make_textbutton(tAxWin3_Widget *Parent, const char *Label, tAxWin3_Widget_FireCb handler)
 {
 	tAxWin3_Widget	*ret, *txt;
-	ret = AxWin3_Widget_AddWidget(Parent, ELETYPE_BUTTON, ELEFLAG_NOSTRETCH, "_btn");
+	ret = AxWin3_Widget_AddWidget(Parent, ELETYPE_BUTTON, ELEFLAG_ALIGN_CENTER, "_btn");
 	AxWin3_Widget_SetFireHandler(ret, handler);
-	txt = AxWin3_Widget_AddWidget(ret, ELETYPE_TEXT, 0, "_txt");
+	txt = AxWin3_Widget_AddWidget(ret, ELETYPE_TEXT, ELEFLAG_NOSTRETCH|ELEFLAG_NOEXPAND, "_txt");
 	AxWin3_Widget_SetText(txt, Label);
 	return ret;
 }

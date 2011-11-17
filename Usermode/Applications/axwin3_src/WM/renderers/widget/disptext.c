@@ -29,6 +29,10 @@ void Widget_DispText_UpdateText(tElement *Element, const char *Text)
 	Element->Text = strdup(Text);
 
 	WM_Render_GetTextDims(NULL, Element->Text, &w, &h);
+
+	// Apply edge padding
+	w += 2;	h += 2;
+	
 	if(Element->Parent && (Element->Parent->Flags & ELEFLAG_VERTICAL)) {
 		Element->MinCross = w;
 		Element->MinWith = h;

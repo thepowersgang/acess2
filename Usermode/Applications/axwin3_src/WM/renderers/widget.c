@@ -319,40 +319,50 @@ void Widget_UpdatePosition(tElement *Element)
 void Widget_UpdateMinDims(tElement *Element)
 {
 	tElement	*child;
+	 int	minW, minH;
 	
 	if(!Element)	return;
 	
-	Element->MinCross = 0;
-	Element->MinWith = 0;
+	minW = 0;
+	minH = 0;
 	
 	for(child = Element->FirstChild; child; child = child->NextSibling)
 	{
-		if( Element->Parent &&
-			(Element->Flags & ELEFLAG_VERTICAL) == (Element->Parent->Flags & ELEFLAG_VERTICAL)
-			)
+		if( (Element->Flags & ELEFLAG_VERTICAL) )
 		{
 			if(child->FixedCross)
-				Element->MinCross += child->FixedCross;
+				minW += child->FixedCross;
 			else
-				Element->MinCross += child->MinCross;
+				minW += child->MinCross;
 			if(child->FixedWith)
-				Element->MinWith += child->FixedWith;
+				minH += child->FixedWith;
 			else
-				Element->MinWith += child->MinWith;
+				minH += child->MinWith;
 		}
 		else
 		{
 			if(child->FixedCross)
-				Element->MinWith += child->FixedCross;
+				minH += child->FixedCross;
 			else
-				Element->MinWith += child->MinCross;
+				minH += child->MinCross;
 			if(child->FixedWith)
-				Element->MinCross += child->FixedWith;
+				minW += child->FixedWith;
 			else
-				Element->MinCross += child->MinWith;
+				minW += child->MinWith;
 		}
 	}
 	
+	if( Element->Parent && (Element->Parent->Flags & ELEFLAG_VERTICAL) )
+	{
+		Element->MinCross = Element->PaddingL + minW + Element->PaddingR;
+		Element->MinWith  = Element->PaddingT + minH + Element->PaddingB;
+	}
+	else
+	{
+		Element->MinWith  = Element->PaddingL + minW + Element->PaddingR;
+		Element->MinCross = Element->PaddingL + minH + Element->PaddingR;
+	}
+
 	// Recurse upwards
 	Widget_UpdateMinDims(Element->Parent);
 }
