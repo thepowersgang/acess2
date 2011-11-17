@@ -44,7 +44,7 @@ endif
 $(OBJ): $(_OBJPREFIX)%.o: %.c
 	@echo [CC] -o $@
 ifneq ($(_OBJPREFIX),)
-	@mkdir -p $(_OBJPREFIX)
+	@mkdir -p $(dir $@)
 endif
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 	@$(CC) -M -MT $@ $(CPPFLAGS) $< -o $(_OBJPREFIX)$*.dep
