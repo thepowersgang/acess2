@@ -296,6 +296,11 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 		switch(type)
 		{
 		// (S + A) | T
+		case R_ARM_ABS32:
+			DEBUGS(" elf_doRelocate_arm: R_ARM_ABS32 %p (%s + %x)", ptr, Sym, addend);
+			val = (intptr_t)GetSymbol(Sym, NULL);
+			*ptr = val + addend;
+			break;
 		case R_ARM_GLOB_DAT:
 			DEBUGS(" elf_doRelocate_arm: R_ARM_GLOB_DAT %p (%s + %x)", ptr, Sym, addend);
 			val = (intptr_t)GetSymbol(Sym, NULL);
@@ -307,12 +312,23 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 			val = (intptr_t)GetSymbol(Sym, NULL);
 			*ptr = val + addend;
 			break;
+		// Copy
 		case R_ARM_COPY: {
 			size_t	size;
 			void	*src = GetSymbol(Sym, &size);
 			DEBUGS(" elf_doRelocate_arm: R_ARM_COPY (%p, %p, %i)", ptr, src, size);
 			memcpy(ptr, src, size);
 			break; }
+		// Delta between link and runtime locations + A
+		case R_ARM_RELATIVE:
+			if(Sym[0] != '\0') {
+				// TODO: Get delta for a symbol
+				SysDebug("elf_doRelocate_arm: TODO - Implment R_ARM_RELATIVE for symbols");
+			}
+			else {
+				*ptr = iBaseDiff + addend;
+			}
+			break;
 		default:
 			SysDebug("elf_doRelocate_arm: Unknown Relocation, %i", type);
 			break;

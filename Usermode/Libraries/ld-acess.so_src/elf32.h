@@ -174,30 +174,30 @@ enum {
 //  'T' means the thumb bit
 //  'B(S)' Origin of a symbol
 enum {
-	R_ARM_NONE,	// No action
-	R_ARM_PC24,	// ((S + A) | T) - P
-	R_ARM_ABS32,	// (S + A) | T
-	R_ARM_REL32,	// ((S + A) | T) - P
-	R_ARM_LDR_PC_G0,	// S + A - P
-	R_ARM_ABS16,	// S + A
-	R_ARM_ABS12,	// S + A
-	R_ARM_THM_ABS5,	// S + A
-	R_ARM_ABS8,	// S + A
-	R_ARM_SBREL32,	// ((S + A) | T) - B(S)
-	R_ARM_THM_CALL,	// ((S + A) | T) - P
-	R_ARM_THM_PC8,	// S + A - Pa,
-	R_ARM_BREL_ADJ,	// ΔB(S) + A
-	R_ARM_TLS_DESC,	// --
-	R_ARM_THM_SWI8,	// (Reserved)
-	R_ARM_XPC25,	// (Reserved)
-	R_ARM_THM_XPC22,	// (Reserved)
-	R_ARM_TLS_DTPMOD32,	// Module[S]
-	R_ARM_TLS_DTPOFF32,	// S + A - TLS
-	R_ARM_TLS_TPOFF32,	// S + A - tp
-	R_ARM_COPY,	// Misc
-	R_ARM_GLOB_DAT,	// (S + A) | T
-	R_ARM_JUMP_SLOT,	// (S + A) | T
-	R_ARM_RELATIVE,	// B(S) + A (extra?)
+	R_ARM_NONE,	//  0 No action
+	R_ARM_PC24,	//  1 ((S + A) | T) - P
+	R_ARM_ABS32,	//  2 (S + A) | T
+	R_ARM_REL32,	//  3 ((S + A) | T) - P
+	R_ARM_LDR_PC_G0,	//  4 S + A - P
+	R_ARM_ABS16,	//  5 S + A
+	R_ARM_ABS12,	//  6 S + A
+	R_ARM_THM_ABS5,	//  7 S + A
+	R_ARM_ABS8,	//  8 S + A
+	R_ARM_SBREL32,	//  9 ((S + A) | T) - B(S)
+	R_ARM_THM_CALL,	// 10 ((S + A) | T) - P
+	R_ARM_THM_PC8,	// 11 S + A - Pa,
+	R_ARM_BREL_ADJ,	// 12 ΔB(S) + A
+	R_ARM_TLS_DESC,	// 13 --
+	R_ARM_THM_SWI8,	// 14 (Reserved)
+	R_ARM_XPC25,	// 15 (Reserved)
+	R_ARM_THM_XPC22,	// 16 (Reserved)
+	R_ARM_TLS_DTPMOD32,	// 17 Module[S]
+	R_ARM_TLS_DTPOFF32,	// 18 S + A - TLS
+	R_ARM_TLS_TPOFF32,	// 19 S + A - tp
+	R_ARM_COPY,	// 20 Misc
+	R_ARM_GLOB_DAT,	// 21 (S + A) | T
+	R_ARM_JUMP_SLOT,	// 22 (S + A) | T
+	R_ARM_RELATIVE,	// 23 B(S) + A (extra?)
 	// ... More defined (IHI0044)
 };
 
