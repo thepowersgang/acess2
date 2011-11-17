@@ -14,7 +14,7 @@
  */
 EXPORT int strcmp(const char *s1, const char *s2)
 {
-	while(*s1 == *s2 && *s1 != '\0' && *s2 != '\0') {
+	while(*s1 && *s1 == *s2) {
 		s1++; s2++;
 	}
 	return (int)*s1 - (int)*s2;
@@ -26,7 +26,7 @@ EXPORT int strcmp(const char *s1, const char *s2)
  */
 EXPORT int strncmp(const char *s1, const char *s2, size_t n)
 {
-	while(n && *s1 == *s2 && *s1 != '\0' && *s2 != '\0')
+	while(n && *s1 && *s1 == *s2)
 	{
 		s1++; s2++;
 		n --;
@@ -229,6 +229,21 @@ EXPORT void *memcpy(void *__dest, const void *__src, size_t count)
 		const char	*sp = __src;
 		while(count--) *dp++ = *sp ++;
 	}
+	// TODO: Bulk aligned copies
+	#if 0
+	else if(count > 128 && (dst & 15) == (src & 15) )
+	{
+		// SSE/bulk copy
+		for( ; dst & 15; count -- )
+			*(char*)dst++ = *(char*)src++;
+		memcpy_16byte(dst, src, count / 16);
+		dst += count & ~15;
+		src += count & ~15;
+		count &= 15;
+		while(count --)
+			*(char*)dst++ = *(char*)src++;
+	}
+	#endif
 	else
 	{
 		void	**dp, **sp;
@@ -255,14 +270,14 @@ EXPORT void *memcpy(void *__dest, const void *__src, size_t count)
  */
 EXPORT void *memmove(void *dest, const void *src, size_t count)
 {
-    char *sp = (char *)src;
-    char *dp = (char *)dest;
-	// Check if corruption will happen
+	char *sp = (char *)src;
+	char *dp = (char *)dest;
+	// Check if the areas overlap
 	if( (intptr_t)dest > (intptr_t)src && (intptr_t)dest < (intptr_t)src+count )
 		for(;count--;) dp[count] = sp[count];
 	else
-    	for(;count--;) *dp++ = *sp++;
-    return dest;
+    		for(;count--;) *dp++ = *sp++;
+	return dest;
 }
 
 /**
@@ -274,12 +289,13 @@ EXPORT void *memmove(void *dest, const void *src, size_t count)
  */
 EXPORT int memcmp(const void *mem1, const void *mem2, size_t count)
 {
+	const unsigned char	*p1 = mem1, *p2 = mem2;
 	while(count--)
 	{
-		if( *(unsigned char*)mem1 != *(unsigned char*)mem2 )
-			return *(unsigned char*)mem1 - *(unsigned char*)mem2;
-		mem1 ++;
-		mem2 ++;
+		if( *p1 != *p2 )
+			return *p1 - *p2;
+		p1 ++;
+		p2 ++;
 	}
 	return 0;
 }

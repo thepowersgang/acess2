@@ -18,7 +18,7 @@ extern char	*strcpy(char *dst, const char *src);
 extern char	*strncpy(char *dst, const char *src, size_t num);
 extern char	*strcat(char *dst, const char *src);
 extern char	*strdup(const char *src);
-extern char	*strndup(const char *src, int length);
+extern char	*strndup(const char *src, size_t length);
 extern char	*strchr(const char *str, int character);
 extern char	*strrchr(const char *str, int character);
 extern char	*strstr(const char *str1, const char *str2);
