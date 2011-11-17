@@ -120,6 +120,7 @@ tURI *URI_Parse(const char *String)
 		else {
 			ret->PortStr = NULL;
 			ret->PortNum = -1;
+			portlen = 0;
 		}
 		
 		if(*tmp == '\0')
@@ -249,7 +250,7 @@ size_t URI_Read(tURIFile *File, size_t Bytes, void *Buffer)
 	size_t	tmp;
 	
 	printf("URI_Read(File=%p, Bytes=%u, Buffer=%p)\n",
-		File, Bytes, Buffer);
+		File, (unsigned int)Bytes, Buffer);
 	
 	if(!File || !Buffer)	return -1;
 	if(Bytes == 0)	return 0;
@@ -315,7 +316,7 @@ int URI_file_Open(char *Host, int Port, char *Path, int Mode)
 	if(Mode & URI_MODE_READ)	smode |= OPENFLAG_READ;
 	if(Mode & URI_MODE_WRITE)	smode |= OPENFLAG_WRITE;
 	
-	printf("URI_file_Open: open('%s', 0x%x)\n", Path, smode);
+//	printf("URI_file_Open: open('%s', 0x%x)\n", Path, smode);
 	{
 		 int	ret;
 		ret = open(Path, smode);
@@ -324,8 +325,8 @@ int URI_file_Open(char *Host, int Port, char *Path, int Mode)
 }
 size_t URI_file_Read(int Handle, size_t Bytes, void *Buffer)
 {
-	printf("URI_file_Read: (Handle=%i, Buffer=%p, Bytes=%i)\n",
-		Handle, Buffer, Bytes);
+//	printf("URI_file_Read: (Handle=%i, Buffer=%p, Bytes=%i)\n",
+//		Handle, Buffer, (int)Bytes);
 	return read(Handle, Buffer, Bytes);
 }
 size_t URI_file_Write(int Handle, size_t Bytes, void *Buffer)

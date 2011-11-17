@@ -69,6 +69,7 @@ char *Net_GetInterface(int AddressType, void *Address)
 	// Query the route manager for the route number
 	{
 		char	buf[sizeof(int)+size];
+		uint32_t	*type = (void*)buf;
 		
 		// Open
 		fd = open("/Devices/ip/routes", 0);
@@ -78,8 +79,8 @@ char *Net_GetInterface(int AddressType, void *Address)
 		}
 		
 		// Make structure and ask
-		*(int*)buf = AddressType;
-		memcpy(&buf[sizeof(int)], Address, size);
+		*type = AddressType;
+		memcpy(type+1, Address, size);
 		routeNum = ioctl(fd, ioctl(fd, 3, "locate_route"), buf);
 		
 		// Close
