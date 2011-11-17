@@ -135,13 +135,13 @@ tAxWin3_Widget *make_textbutton(tAxWin3_Widget *Parent, const char *Label, tAxWi
 	ret = AxWin3_Widget_AddWidget(Parent, ELETYPE_BUTTON, ELEFLAG_NOSTRETCH, "_btn");
 	AxWin3_Widget_SetFireHandler(ret, handler);
 	txt = AxWin3_Widget_AddWidget(ret, ELETYPE_TEXT, 0, "_txt");
-	AxWin3_Widget_SetText(ret, Label);
+	AxWin3_Widget_SetText(txt, Label);
 	return ret;
 }
 
 void create_run_dialog(void)
 {
-	tAxWin3_Widget	*root, *box, *ele;
+	tAxWin3_Widget	*root, *box;
 	
 	gRunDialog = AxWin3_Widget_CreateWindow(NULL, RUN_WIDTH, RUN_HEIGHT, ELEFLAG_VERTICAL);
 	AxWin3_SetWindowTitle(gRunDialog, "Run Program...");
@@ -153,7 +153,7 @@ void create_run_dialog(void)
 	AxWin3_Widget_SetFireHandler(gRunInput, run_dorun);
 	
 	box = AxWin3_Widget_AddWidget(root, ELETYPE_BOX, ELEFLAG_ALIGN_CENTER|ELEFLAG_NOSTRETCH, "Button Area");
-	ele = make_textbutton(box, "Ok", run_dorun);
-	ele = make_textbutton(box, "Cancel", run_close);
+	make_textbutton(box, "Ok", run_dorun);
+	make_textbutton(box, "Cancel", run_close);
 }
 
