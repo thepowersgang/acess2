@@ -1,0 +1,6 @@
+Hide/close condition
+- Focus lost (not transfered to child)
+- If not transfered back up, inform parent?
+ > Get parent type, send magic message if it's a menu
+Item selected
+- In that case, send the magic child-closed message too
