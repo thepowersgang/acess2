@@ -50,7 +50,7 @@ struct sWndMsg_MouseMove
 
 struct sWndMsg_MouseButton
 {
-	uint16_t	X, Y;
+	 int16_t	X, Y;
 	uint8_t 	Button;
 	uint8_t 	bPressed;
 };

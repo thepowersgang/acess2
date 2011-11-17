@@ -11,7 +11,7 @@
 #include <axwin3/widget.h>
 #include <axwin3/menu.h>
 
-#define SIDEBAR_WIDTH	36
+#define SIDEBAR_WIDTH	40
 #define RUN_WIDTH	200
 #define RUN_HEIGHT	70
 

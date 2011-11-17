@@ -11,7 +11,7 @@
 #include <string.h>
 #include <wm_messages.h>
 #include <stdlib.h>
-#include "include/image.h"
+#include "widget/common.h"
 
 #define DEFAULT_ELETABLE_SIZE	64
 
@@ -25,16 +25,11 @@ void	Widget_UpdateDimensions(tElement *Element);
 void	Widget_UpdatePosition(tElement *Element);
 // --- Messages
 tElement	*Widget_GetElementById(tWidgetWin *Info, uint32_t ID);
-void	Widget_NewWidget(tWidgetWin *Info, size_t Len, tWidgetMsg_Create *Msg);
-void	Widget_SetFlags(tWidgetWin *Info, int Len, tWidgetMsg_SetFlags *Msg);
-void	Widget_SetSize(tWidgetWin *Info, int Len, tWidgetMsg_SetSize *Msg);
-void	Widget_SetText(tWidgetWin *Info, int Len, tWidgetMsg_SetText *Msg);
- int	Renderer_Widget_HandleMessage(tWindow *Target, int Msg, int Len, void *Data);
-// --- Type helpers
-void	Widget_DispText_UpdateText(tElement *Element, const char *Text);
-void	Widget_Image_UpdateText(tElement *Element, const char *Text);
- int	Widget_Button_MouseButton(tElement *Element, int X, int Y, int Button, int bPress);
-void	Widget_TextInput_Init(tElement *Element);
+void	Widget_NewWidget(tWidgetWin *Info, size_t Len, const tWidgetMsg_Create *Msg);
+void	Widget_SetFlags(tWidgetWin *Info, int Len, const tWidgetMsg_SetFlags *Msg);
+void	Widget_SetSize(tWidgetWin *Info, int Len, const tWidgetMsg_SetSize *Msg);
+void	Widget_SetText(tWidgetWin *Info, int Len, const tWidgetMsg_SetText *Msg);
+ int	Renderer_Widget_HandleMessage(tWindow *Target, int Msg, int Len, const void *Data);
 
 // === GLOBALS ===
 tWMRenderer	gRenderer_Widget = {
@@ -45,36 +40,7 @@ tWMRenderer	gRenderer_Widget = {
 };
 	
 // --- Element callbacks
-struct {
-	void	(*Init)(tElement *Ele);
-	void	(*Delete)(tElement *Ele);
-	
-	void	(*UpdateFlags)(tElement *Ele);
-	void	(*UpdateSize)(tElement *Ele);
-	void	(*UpdateText)(tElement *Ele, const char *Text);	// This should update Ele->Text
-
-	/**
-	 * \name Input handlers
-	 * \note Returns boolean unhandled
-	 * \{
-	 */	
-	 int	(*MouseButton)(tElement *Ele, int X, int Y, int Button, int bPressed);
-	 int	(*MouseMove)(tElement *Ele, int X, int Y);
-	 int	(*KeyDown)(tElement *Ele, int KeySym, int Character);
-	 int	(*KeyUp)(tElement *Ele, int KeySym);
-	 int	(*KeyFire)(tElement *Ele, int KeySym, int Character);
-	/**
-	 * \}
-	 */
-}	gaWM_WidgetTypes[NUM_ELETYPES] = {
-	{0},	// NULL
-	{0},	// Box
-	{.UpdateText = Widget_DispText_UpdateText},	// Text
-	{.UpdateText = Widget_Image_UpdateText},	// Image
-	{.MouseButton = Widget_Button_MouseButton},	// Button
-	{0},	// Spacer
-	{.Init = Widget_TextInput_Init},	// Text Box (Single Line)
-};
+tWidgetDef	*gaWM_WidgetTypes[NUM_ELETYPES];
 const int	ciWM_NumWidgetTypes = sizeof(gaWM_WidgetTypes)/sizeof(gaWM_WidgetTypes[0]);
 
 // === CODE ===
@@ -83,6 +49,26 @@ int Renderer_Widget_Init(void)
 	WM_RegisterRenderer(&gRenderer_Widget);	
 
 	return 0;
+}
+
+void Widget_int_SetTypeDef(int Type, tWidgetDef *Ptr)
+{
+	if( Type < 0 || Type >= ciWM_NumWidgetTypes ) {
+		_SysDebug("ERROR - Widget ID %i out of range (from %p)",
+			Type, __builtin_return_address(0)
+			);
+		return ;
+	}
+	
+	if( gaWM_WidgetTypes[Type] ) {
+		_SysDebug("ERROR - Widget ID %i redefined by %p",
+			Type, __builtin_return_address(0)
+			);
+		return ;
+	}
+	
+	gaWM_WidgetTypes[Type] = Ptr;
+	_SysDebug("Registered type %i to %p", Type, Ptr);
 }
 
 tWindow	*Renderer_Widget_Create(int Flags)
@@ -105,6 +91,10 @@ tWindow	*Renderer_Widget_Create(int Flags)
 	info->RootElement.ID = -1;
 	info->RootElement.BackgroundColour = 0xCCCCCC;
 	info->RootElement.Flags = Flags;
+	info->RootElement.PaddingT = 2;
+	info->RootElement.PaddingB = 2;
+	info->RootElement.PaddingL = 2;
+	info->RootElement.PaddingR = 2;
 	
 	return ret;
 }
@@ -127,8 +117,18 @@ void Widget_RenderWidget(tWindow *Window, tElement *Element)
 	
 	if( Element->Flags & ELEFLAG_NORENDER )	return ;
 	if( Element->Flags & ELEFLAG_INVISIBLE )	return ;
-	
-	Widget_Decorator_RenderWidget(Window, Element);
+
+	if( Element->Type < ciWM_NumWidgetTypes
+	 && gaWM_WidgetTypes[Element->Type]
+	 && gaWM_WidgetTypes[Element->Type]->Render
+	    )
+	{
+		gaWM_WidgetTypes[Element->Type]->Render(Window, Element);
+	}
+	else
+	{
+		Widget_Decorator_RenderWidget(Window, Element);
+	}
 	
 	for(child = Element->FirstChild; child; child = child->NextSibling)
 	{
@@ -394,13 +394,13 @@ tElement *Widget_GetElementById(tWidgetWin *Info, uint32_t ID)
 }
 
 // --- Message Handlers ---
-void Widget_NewWidget(tWidgetWin *Info, size_t Len, tWidgetMsg_Create *Msg)
+void Widget_NewWidget(tWidgetWin *Info, size_t Len, const tWidgetMsg_Create *Msg)
 {
 	const int	max_debugname_len = Len - sizeof(tWidgetMsg_Create);
 	tElement	*parent, *new;
 
 	// Sanity check
-	if( Len < sizeof(tWidgetMsg_Create) )
+	if( Len < sizeof(*Msg) )
 		return ;
 	if( strnlen(Msg->DebugName, max_debugname_len) == max_debugname_len )
 		return ;
@@ -433,8 +433,8 @@ void Widget_NewWidget(tWidgetWin *Info, size_t Len, tWidgetMsg_Create *Msg)
 	new->PaddingR = 2;
 	new->CachedX = -1;
 	
-	if( new->Type < ciWM_NumWidgetTypes && gaWM_WidgetTypes[new->Type].Init )
-		gaWM_WidgetTypes[new->Type].Init(new);
+	if( new->Type < ciWM_NumWidgetTypes && gaWM_WidgetTypes[new->Type] && gaWM_WidgetTypes[new->Type]->Init )
+		gaWM_WidgetTypes[new->Type]->Init(new);
 	
 	// Add to parent's list
 	if(parent->LastChild)
@@ -456,11 +456,11 @@ void Widget_NewWidget(tWidgetWin *Info, size_t Len, tWidgetMsg_Create *Msg)
 	Widget_UpdateMinDims(parent);
 }
 
-void Widget_SetFlags(tWidgetWin *Info, int Len, tWidgetMsg_SetFlags *Msg)
+void Widget_SetFlags(tWidgetWin *Info, int Len, const tWidgetMsg_SetFlags *Msg)
 {
 	tElement	*ele;
 	
-	if( Len < sizeof(tWidgetMsg_SetFlags) )
+	if( Len < sizeof(*Msg) )
 		return ;
 
 	_SysDebug("Widget_SetFlags: (%i 0x%x 0x%x)", Msg->WidgetID, Msg->Value, Msg->Mask);
@@ -468,17 +468,15 @@ void Widget_SetFlags(tWidgetWin *Info, int Len, tWidgetMsg_SetFlags *Msg)
 	ele = Widget_GetElementById(Info, Msg->WidgetID);
 	if(!ele)	return;
 
-	Msg->Value &= Msg->Mask;
-	
 	ele->Flags &= ~Msg->Mask;
-	ele->Flags |= Msg->Value;
+	ele->Flags |= Msg->Value & Msg->Mask;
 }
 
-void Widget_SetSize(tWidgetWin *Info, int Len, tWidgetMsg_SetSize *Msg)
+void Widget_SetSize(tWidgetWin *Info, int Len, const tWidgetMsg_SetSize *Msg)
 {
 	tElement	*ele;
 	
-	if( Len < sizeof(tWidgetMsg_SetSize) )
+	if( Len < sizeof(*Msg) )
 		return ;
 	
 	ele = Widget_GetElementById(Info, Msg->WidgetID);
@@ -487,22 +485,24 @@ void Widget_SetSize(tWidgetWin *Info, int Len, tWidgetMsg_SetSize *Msg)
 	ele->FixedWith = Msg->Value;
 }
 
-void Widget_SetText(tWidgetWin *Info, int Len, tWidgetMsg_SetText *Msg)
+void Widget_SetText(tWidgetWin *Info, int Len, const tWidgetMsg_SetText *Msg)
 {
 	tElement	*ele;
 	
-	if( Len < sizeof(tWidgetMsg_SetText) + 1 )
+	if( Len < sizeof(*Msg) + 1 )
 		return ;
-	if( Msg->Text[Len - sizeof(tWidgetMsg_SetText) - 1] != '\0' )
+	if( Msg->Text[Len - sizeof(*Msg) - 1] != '\0' )
 		return ;
 
 	ele = Widget_GetElementById(Info, Msg->WidgetID);
 	if(!ele)	return ;
 
 
-	if( ele->Type < ciWM_NumWidgetTypes && gaWM_WidgetTypes[ele->Type].UpdateText )
+	if( ele->Type < ciWM_NumWidgetTypes
+	 && gaWM_WidgetTypes[ele->Type]
+	 && gaWM_WidgetTypes[ele->Type]->UpdateText )
 	{
-		gaWM_WidgetTypes[ele->Type].UpdateText( ele, Msg->Text );
+		gaWM_WidgetTypes[ele->Type]->UpdateText( ele, Msg->Text );
 	}
 //	else
 //	{
@@ -511,13 +511,13 @@ void Widget_SetText(tWidgetWin *Info, int Len, tWidgetMsg_SetText *Msg)
 //	}
 }
 
-int Renderer_Widget_HandleMessage(tWindow *Target, int Msg, int Len, void *Data)
+int Renderer_Widget_HandleMessage(tWindow *Target, int Msg, int Len, const void *Data)
 {
 	tWidgetWin	*info = Target->RendererInfo;
 	switch(Msg)
 	{
 	case WNDMSG_RESIZE: {
-		struct sWndMsg_Resize	*msg = Data;
+		const struct sWndMsg_Resize	*msg = Data;
 		if(Len < sizeof(*msg))	return -1;		
 
 		info->RootElement.CachedW = msg->W;		
@@ -528,11 +528,11 @@ int Renderer_Widget_HandleMessage(tWindow *Target, int Msg, int Len, void *Data)
 		return 0; }
 
 	case WNDMSG_MOUSEMOVE: {
-		_SysDebug("TODO: Support widget mouse move events");
+//		_SysDebug("TODO: Support widget mouse move events");
 		return 0; }
 
 	case WNDMSG_MOUSEBTN: {
-		struct sWndMsg_MouseButton	*msg = Data;
+		const struct sWndMsg_MouseButton	*msg = Data;
 		tWidgetMsg_MouseBtn	client_msg;
 		tElement	*ele;
 		 int	x, y;
@@ -548,9 +548,11 @@ int Renderer_Widget_HandleMessage(tWindow *Target, int Msg, int Len, void *Data)
 		// Send event to all elements from `ele` upwards
 		for( ; ele; ele = ele->Parent )
 		{
-			if(ele->Type < ciWM_NumWidgetTypes && gaWM_WidgetTypes[ele->Type].MouseButton)
+			if(ele->Type < ciWM_NumWidgetTypes
+			 && gaWM_WidgetTypes[ele->Type]
+			 && gaWM_WidgetTypes[ele->Type]->MouseButton)
 			{
-				rv = gaWM_WidgetTypes[ele->Type].MouseButton(
+				rv = gaWM_WidgetTypes[ele->Type]->MouseButton(
 					ele,
 					x - ele->CachedX, y - ele->CachedY,
 					msg->Button, msg->bPressed
@@ -604,77 +606,5 @@ void Widget_Fire(tElement *Element)
 	tWidgetMsg_Fire	msg;
 	msg.WidgetID = Element->ID;
 	WM_SendMessage(Element->Window, Element->Window, MSG_WIDGET_FIRE, sizeof(msg), &msg);
-}
-
-// --- Type Helpers
-void Widget_DispText_UpdateText(tElement *Element, const char *Text)
-{
-	 int	w=0, h=0;
-
-	if(Element->Text)	free(Element->Text);
-	Element->Text = strdup(Text);
-
-	WM_Render_GetTextDims(NULL, Element->Text, &w, &h);
-	if(Element->Parent && (Element->Parent->Flags & ELEFLAG_VERTICAL)) {
-		Element->MinCross = w;
-		Element->MinWith = h;
-	}
-	else {
-		Element->MinWith = w;
-		Element->MinCross = h;
-	}
-
-	Widget_UpdateMinDims(Element->Parent);
-}
-
-void Widget_Image_UpdateText(tElement *Element, const char *Text)
-{
-	if(Element->Data)	free(Element->Data);
-	Element->Data = Image_Load( Text );
-	if(!Element->Data) {
-//		Element->Flags &= ~ELEFLAG_FIXEDSIZE;
-		return ;
-	}
-	
-	Element->CachedW = ((tImage*)Element->Data)->Width;
-	Element->CachedH = ((tImage*)Element->Data)->Height;
-	
-	if(Element->Parent && (Element->Parent->Flags & ELEFLAG_VERTICAL) ) {
-		Element->MinCross = ((tImage*)Element->Data)->Width;
-		Element->MinWith = ((tImage*)Element->Data)->Height;
-	}
-	else {
-		Element->MinWith = ((tImage*)Element->Data)->Width;
-		Element->MinCross = ((tImage*)Element->Data)->Height;
-	}
-
-	Widget_UpdateMinDims(Element->Parent);
-	
-	// NOTE: Doesn't update Element->Text because it's useless
-}
-
-int Widget_Button_MouseButton(tElement *Element, int X, int Y, int Button, int bPress)
-{
-	_SysDebug("Ele %i - Button %i %s",
-		Element->ID, Button,
-		(bPress ? "pressed" : "released")
-		);
-	if(!bPress)	Widget_Fire(Element);
-	return 0;	// Handled
-}
-
-void Widget_TextInput_Init(tElement *Element)
-{
-	 int	h;
-
-	// TODO: Select font correctly	
-	WM_Render_GetTextDims(NULL, "jJ", NULL, &h);
-	
-	if( Element->Parent && (Element->Parent->Flags & ELEFLAG_VERTICAL) )
-		Element->MinWith = h;
-	else
-		Element->MinCross = h;
-
-	// No need to explicitly update parent min dims, as the AddElement routine does that	
 }
 

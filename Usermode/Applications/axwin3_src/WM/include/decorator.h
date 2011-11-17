@@ -12,7 +12,7 @@
 
 extern void	Decorator_UpdateBorderSize(tWindow *Window);
 extern void	Decorator_Redraw(tWindow *Window);
-extern int	Decorator_HandleMessage(tWindow *Window, int Message, int Length, void *Data);
+extern int	Decorator_HandleMessage(tWindow *Window, int Message, int Length, const void *Data);
 
 #endif
 

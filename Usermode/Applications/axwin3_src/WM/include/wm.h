@@ -53,7 +53,7 @@ extern void	WM_ShowWindow(tWindow *Window, int bShow);
 extern void	WM_DecorateWindow(tWindow *Window, int bDecorate);
 extern int	WM_ResizeWindow(tWindow *Window, int W, int H);
 extern int	WM_MoveWindow(tWindow *Window, int X, int Y);
-extern int	WM_SendMessage(tWindow *Source, tWindow *Dest, int MessageID, int Length, void *Data);
+extern int	WM_SendMessage(tWindow *Source, tWindow *Dest, int MessageID, int Length, const void *Data);
 // --- Rendering
 extern void	WM_Render_FillRect(tWindow *Window, int X, int Y, int W, int H, tColour Colour);
 extern void	WM_Render_DrawRect(tWindow *Window, int X, int Y, int W, int H, tColour Colour);

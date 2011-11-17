@@ -8,17 +8,19 @@
 #include <common.h>
 #include <wm.h>
 #include <decorator.h>
+#include <wm_messages.h>
 
 // === PROTOTYPES ===
 void	Decorator_UpdateBorderSize(tWindow *Window);
 void	Decorator_Redraw(tWindow *Window);
- int	Decorator_HandleMessage(tWindow *Window, int Message, int Length, void *Data);
+ int	Decorator_HandleMessage(tWindow *Window, int Message, int Length, const void *Data);
 
 // === CONSTANTS ===
 tColour	cColourActive_Titlebar   = 0xFF8800;
 tColour	cColourActive_TitleText  = 0x000000;
 tColour	cColourInactive_Titlebar = 0xD0D0D0;
 tColour	cColourInactive_TitleText= 0x000000;
+tColour	cColour_TitleTopBorder   = 0xFFFFFF;
 tColour	cColour_SideBorder       = 0xD0D0D0;
 tColour	cColour_BottomBorder     = 0xD0D0D0;
  int	ciTitlebarHeight	= 18;
@@ -53,6 +55,18 @@ void Decorator_Redraw(tWindow *Window)
 	WM_Render_FillRect(Window,
 		0, -ciTitlebarHeight, Window->W, ciTitlebarHeight,
 		(bActive ? cColourActive_Titlebar : cColourInactive_Titlebar)
+		);
+	WM_Render_FillRect(Window,
+		0, -ciTitlebarHeight, Window->W, 1,
+		cColour_TitleTopBorder
+		);
+	WM_Render_FillRect(Window,
+		0, -ciTitlebarHeight, 1, ciTitlebarHeight,
+		cColour_SideBorder
+		);
+	WM_Render_FillRect(Window,
+		Window->W, -ciTitlebarHeight, 1, ciTitlebarHeight,
+		cColour_SideBorder
 		);
 
 	WM_Render_GetTextDims(
@@ -92,10 +106,22 @@ void Decorator_Redraw(tWindow *Window)
 		);
 }
 
-int Decorator_HandleMessage(tWindow *Window, int Message, int Length, void *Data)
+int Decorator_HandleMessage(tWindow *Window, int Message, int Length, const void *Data)
 {
 	switch(Message)
 	{
+	case WNDMSG_MOUSEMOVE: {
+		const struct sWndMsg_MouseMove	*msg = Data;
+		if(msg->Y >= 0)	return 1;	// Pass
+		
+		// TODO: Handle
+		return 0; }
+	case WNDMSG_MOUSEBTN: {
+		const struct sWndMsg_MouseButton	*msg = Data;
+		if(msg->Y >= 0)	return 1;	// Pass
+		
+		// TODO: Handle
+		return 0; }
 	default:	// Anything unhandled is passed on
 		return 1;
 	}

@@ -11,7 +11,7 @@
 // === PROTOTYPES ===
 tWindow	*Renderer_Passthru_Create(int Flags);
 void	Renderer_Passthru_Redraw(tWindow *Window);
- int	Renderer_Passthru_HandleMessage(tWindow *Target, int Msg, int Len, void *Data);
+ int	Renderer_Passthru_HandleMessage(tWindow *Target, int Msg, int Len, const void *Data);
 
 // === GLOBALS ===
 tWMRenderer	gRenderer_Passthru = {
@@ -37,7 +37,7 @@ void Renderer_Passthru_Redraw(tWindow *Window)
 	
 }
 
-int Renderer_Passthru_HandleMessage(tWindow *Target, int Msg, int Len, void *Data)
+int Renderer_Passthru_HandleMessage(tWindow *Target, int Msg, int Len, const void *Data)
 {
 	return 1;
 }

@@ -9,10 +9,15 @@ BIN := AxWinWM
 OBJ := main.o input.o video.o ipc.o image.o
 OBJ += wm.o wm_input.o wm_render.o wm_render_text.o
 OBJ += decorator.o
-OBJ += renderer_passthru.o
-OBJ += renderer_background.o
-OBJ += renderer_widget.o renderer_widget_decorator.o
-OBJ += renderer_menu.o
+OBJ += renderers/passthru.o
+OBJ += renderers/background.o
+OBJ += renderers/menu.o
+# TODO: Move to a lower makefile
+OBJ += renderers/widget.o renderers/widget/widget_decorator.o
+OBJ += renderers/widget/button.o
+OBJ += renderers/widget/image.o
+OBJ += renderers/widget/disptext.o
+OBJ += renderers/widget/textinput.o
 
 LDFLAGS += -limage_sif -luri -lnet
 

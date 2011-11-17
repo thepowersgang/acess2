@@ -19,7 +19,7 @@ struct sBgWin
 // === PROTOTYPES ===
 tWindow	*Renderer_Background_Create(int Flags);
 void	Renderer_Background_Redraw(tWindow *Window);
-int	Renderer_Background_HandleMessage(tWindow *Target, int Msg, int Len, void *Data);
+int	Renderer_Background_HandleMessage(tWindow *Target, int Msg, int Len, const void *Data);
 
 // === GLOBALS ===
 tWMRenderer	gRenderer_Background = {
@@ -54,7 +54,7 @@ void Renderer_Background_Redraw(tWindow *Window)
 	WM_Render_FillRect(Window, 0, 0, 0xFFFF, 0xFFFF, info->Colour);
 }
 
-int Renderer_Background_HandleMessage(tWindow *Target, int Msg, int Len, void *Data)
+int Renderer_Background_HandleMessage(tWindow *Target, int Msg, int Len, const void *Data)
 {
 	switch(Msg)
 	{

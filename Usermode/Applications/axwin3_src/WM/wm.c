@@ -14,7 +14,7 @@
 #include <decorator.h>
 
 // === IMPORTS ===
-extern void	IPC_SendWMMessage(tIPC_Client *Client, uint32_t Src, uint32_t Dst, int Msg, int Len, void *Data);
+extern void	IPC_SendWMMessage(tIPC_Client *Client, uint32_t Src, uint32_t Dst, int Msg, int Len, const void *Data);
 
 // === GLOBALS ===
 tWMRenderer	*gpWM_Renderers;
@@ -230,10 +230,16 @@ int WM_ResizeWindow(tWindow *Window, int W, int H)
 	return 0;
 }
 
-int WM_SendMessage(tWindow *Source, tWindow *Dest, int Message, int Length, void *Data)
+int WM_SendMessage(tWindow *Source, tWindow *Dest, int Message, int Length, const void *Data)
 {
 	if(Dest == NULL)	return -2;
 	if(Length > 0 && Data == NULL)	return -1;
+
+	if( Decorator_HandleMessage(Dest, Message, Length, Data) != 1 )
+	{
+		// TODO: Catch errors from ->HandleMessage
+		return 0;
+	}
 	
 	// ->HandleMessage returns 1 when the message was not handled
 	if( Dest->Renderer->HandleMessage(Dest, Message, Length, Data) != 1 )

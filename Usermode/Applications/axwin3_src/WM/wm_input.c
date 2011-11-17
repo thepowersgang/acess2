@@ -47,8 +47,8 @@ void WM_Input_MouseMoved(int OldX, int OldY, int NewX, int NewY)
 	struct sWndMsg_MouseMove	msg;
 	
 	win = WM_int_GetWindowAtPos(OldX, OldY);
-	msg.X = NewX - win->X;
-	msg.Y = NewY - win->Y;
+	msg.X = NewX - win->X - win->BorderL;
+	msg.Y = NewY - win->Y - win->BorderT;
 	msg.dX = NewX - OldX;
 	msg.dY = NewY - OldY;
 	WM_SendMessage(NULL, win, WNDMSG_MOUSEMOVE, sizeof(msg), &msg);
@@ -62,8 +62,8 @@ void WM_Input_MouseMoved(int OldX, int OldY, int NewX, int NewY)
 	// TODO: Send mouseup to match mousedown if the cursor moves out of a window?
 
 	win = newWin;
-	msg.X = NewX - win->X;
-	msg.Y = NewY - win->Y;
+	msg.X = NewX - win->X - win->BorderL;
+	msg.Y = NewY - win->Y - win->BorderT;
 	msg.dX = NewX - OldX;
 	msg.dY = NewY - OldY;
 	WM_SendMessage(NULL, win, WNDMSG_MOUSEMOVE, sizeof(msg), &msg);
@@ -73,8 +73,8 @@ inline void WM_Input_int_SendBtnMsg(tWindow *Win, int X, int Y, int Index, int P
 {
 	struct sWndMsg_MouseButton	msg;	
 
-	msg.X = X - Win->X;
-	msg.Y = Y - Win->Y;
+	msg.X = X - Win->X - Win->BorderL;
+	msg.Y = Y - Win->Y - Win->BorderT;
 	msg.Button = Index;
 	msg.bPressed = !!Pressed;
 	
@@ -90,7 +90,7 @@ void WM_Input_MouseButton(int X, int Y, int ButtonIndex, int Pressed)
 	// Handle press of primary button to change focus
 	if( ButtonIndex == 0 && Pressed == 1 )
 	{
-		_SysDebug("Gave focus to %p", win);
+//		_SysDebug("Gave focus to %p", win);
 		WM_FocusWindow(win);
 		WM_RaiseWindow(win);
 	}

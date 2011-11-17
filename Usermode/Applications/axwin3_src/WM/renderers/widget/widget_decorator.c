@@ -11,13 +11,7 @@
 
 #define BORDER_EVERYTHING	1
 
-#define BOX_BGCOLOUR    0xC0C0C0
-#define BOX_BORDER      0xA0A0A0
-#define BUTTON_BGCOLOUR 0xD0D0D0
-#define BUTTON_BORDER   0xF0F0F0
-#define	TEXT_COLOUR     0x000000
-#define TEXTINPUT_BACKGROUND	0xFFFFFF
-#define TEXTINPUT_BORDER_OUT	0x404040
+#include "./colours.h"
 
 // === CODE ===
 void Widget_Decorator_RenderWidget(tWindow *Window, tElement *Element)
@@ -82,61 +76,17 @@ void Widget_Decorator_RenderWidget(tWindow *Window, tElement *Element)
 		break;
 	
 	case ELETYPE_BUTTON:	// Button
-		WM_Render_FillRect(
-			Window,
-			Element->CachedX+1, Element->CachedY+1,
-			Element->CachedW-2, Element->CachedH-2,
-			BUTTON_BGCOLOUR
-			);
-		WM_Render_DrawRect(
-			Window,
-			Element->CachedX, Element->CachedY,
-			Element->CachedW-1, Element->CachedH-1,
-			BUTTON_BORDER
-			);
 		break;
 
 	// Text input field / Text Box
 	case ELETYPE_TEXTINPUT:
 	case ELETYPE_TEXTBOX:
-		WM_Render_FillRect(
-			Window, 
-			Element->CachedX, Element->CachedY,
-			Element->CachedW, Element->CachedH,
-			TEXTINPUT_BACKGROUND
-			);
-		WM_Render_DrawRect(
-			Window, 
-			Element->CachedX, Element->CachedY,
-			Element->CachedW, Element->CachedH,
-			TEXTINPUT_BORDER_OUT
-			);
-//		WM_Render_DrawRect(
-//			Window, 
-//			Element->CachedX+1, Element->CachedY+1,
-//			Element->CachedW-2, Element->CachedH-2,
-//			TEXTINPUT_BORDER_IN
-//			);
 		break;
 	
 	case ELETYPE_TEXT:
-		WM_Render_DrawText(
-			Window,
-			Element->CachedX+1, Element->CachedY+1,
-			Element->CachedW-2, Element->CachedH-2,
-			NULL,
-			TEXT_COLOUR,
-			Element->Text
-			);
 		break;
 	
 	case ELETYPE_IMAGE:
-		WM_Render_DrawImage(
-			Window,
-			Element->CachedX, Element->CachedY,
-			Element->CachedW, Element->CachedH,
-			Element->Data
-			);
 		break;
 		
 	default:

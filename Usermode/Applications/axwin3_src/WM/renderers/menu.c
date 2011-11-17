@@ -47,7 +47,7 @@ typedef struct sMenuWindowInfo
 void	Renderer_Menu_Init(void);
 tWindow	*Renderer_Menu_Create(int Argument);
 void	Renderer_Menu_Redraw(tWindow *Window);
- int	Renderer_Menu_HandleMessage(tWindow *Window, int Msg, int Length, void *Data);
+ int	Renderer_Menu_HandleMessage(tWindow *Window, int Msg, int Length, const void *Data);
 
 // === CONSTANTS ===
 const int	ciMenu_Gap = 10; 	// Gap between label and shortcut
@@ -196,37 +196,36 @@ void Renderer_Menu_Redraw(tWindow *Window)
 	}
 }
 
-int Renderer_Menu_int_AddItem(tWindow *Window, int Length, void *Data)
+int Renderer_Menu_int_AddItem(tWindow *Window, int Length, const tMenuMsg_AddItem *Msg)
 {
 	tMenuWindowInfo	*info = Window->RendererInfo;
-	tMenuMsg_AddItem	*req = Data;
 	tMenuItem	*item;
 	
 	// Sanity checking
 	// - Message length
-	if(Length < sizeof(*req) + 1 || req->Label[Length-sizeof(*req)-1] != '\0') {
+	if(Length < sizeof(*Msg) + 1 || Msg->Label[Length-sizeof(*Msg)-1] != '\0') {
 		_SysDebug("Renderer_Menu_int_AddItem: Size checks failed");
 		return -1;
 	}
 	// - ID Number
-	if(req->ID >= info->MaxItems) {
+	if(Msg->ID >= info->MaxItems) {
 		_SysDebug("Renderer_Menu_int_AddItem: ID (%i) >= MaxItems (%i)",
-			req->ID, info->MaxItems);
+			Msg->ID, info->MaxItems);
 		return -1;
 	}
 	
 	// Don't overwrite
-	if(info->Items[req->ID]) {
-		_SysDebug("- Caught overwrite of %i", req->ID);
+	if(info->Items[Msg->ID]) {
+		_SysDebug("- Caught overwrite of %i", Msg->ID);
 		return 0;
 	}
 	// Bookkeeping
-	if(req->ID >= info->nItems)	info->nItems = req->ID + 1;
+	if(Msg->ID >= info->nItems)	info->nItems = Msg->ID + 1;
 	// Allocate
-	item = malloc(sizeof(tMenuItem)+strlen(req->Label));
-	info->Items[req->ID] = item;
+	item = malloc(sizeof(tMenuItem)+strlen(Msg->Label)+1);
+	info->Items[Msg->ID] = item;
 	
-	if(req->Label[0] == '\0')
+	if(Msg->Label[0] == '\0')
 	{
 		// Spacer
 		item->Label = NULL;
@@ -237,7 +236,7 @@ int Renderer_Menu_int_AddItem(tWindow *Window, int Length, void *Data)
 	
 	// Actual item
 	char	*dest = item->Data;
-	char	*src = req->Label;
+	const char	*src = Msg->Label;
 	 int	ofs = 0;
 
 	// - Main label
@@ -345,13 +344,13 @@ int Renderer_Menu_int_GetItemByPos(tWindow *Window, tMenuWindowInfo *Info, int X
 	return -1;
 }
 
-int Renderer_Menu_HandleMessage(tWindow *Window, int Msg, int Length, void *Data)
+int Renderer_Menu_HandleMessage(tWindow *Window, int Msg, int Length, const void *Data)
 {
 	tMenuWindowInfo	*info = Window->RendererInfo;
 	switch(Msg)
 	{
 	case WNDMSG_SHOW: {
-		struct sWndMsg_Bool	*msg = Data;
+		const struct sWndMsg_Bool	*msg = Data;
 		if(Length < sizeof(*msg))	return -1;
 		if(msg->Val)
 		{
@@ -367,7 +366,7 @@ int Renderer_Menu_HandleMessage(tWindow *Window, int Msg, int Length, void *Data
 		}
 		return 0; }
 	case WNDMSG_FOCUS: {
-		struct sWndMsg_Bool	*msg = Data;
+		const struct sWndMsg_Bool	*msg = Data;
 		if(Length < sizeof(*msg))	return -1;
 		if(!msg->Val) {
 			// TODO: Catch if focus was given away to a child
@@ -380,7 +379,7 @@ int Renderer_Menu_HandleMessage(tWindow *Window, int Msg, int Length, void *Data
 		return 0; }
 
 	case WNDMSG_MOUSEBTN: {
-		struct sWndMsg_MouseButton	*msg = Data;
+		const struct sWndMsg_MouseButton	*msg = Data;
 		 int	item;
 		
 		if(Length < sizeof(*msg))	return -1;
@@ -402,7 +401,7 @@ int Renderer_Menu_HandleMessage(tWindow *Window, int Msg, int Length, void *Data
 		return 0; }	
 
 	case WNDMSG_MOUSEMOVE: {
-		struct sWndMsg_MouseMove	*msg = Data;
+		const struct sWndMsg_MouseMove	*msg = Data;
 		 int	new_hilight;
 
 		if(Length < sizeof(*msg))	return -1;
