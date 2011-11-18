@@ -33,14 +33,8 @@ void Widget_DispText_UpdateText(tElement *Element, const char *Text)
 	// Apply edge padding
 	w += 2;	h += 2;
 	
-	if(Element->Parent && (Element->Parent->Flags & ELEFLAG_VERTICAL)) {
-		Element->MinCross = w;
-		Element->MinWith = h;
-	}
-	else {
-		Element->MinWith = w;
-		Element->MinCross = h;
-	}
+	Element->MinW = w;
+	Element->MinH = h;
 
 	Widget_UpdateMinDims(Element->Parent);
 }

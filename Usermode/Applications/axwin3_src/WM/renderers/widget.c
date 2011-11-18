@@ -14,7 +14,7 @@
 #include "widget/common.h"
 
 #define DEFAULT_ELETABLE_SIZE	64
-#define BORDER_EVERYTHING	1
+#define BORDER_EVERYTHING	0
 
 // === PROTOTYPES ===
  int	Renderer_Widget_Init(void);
@@ -161,6 +161,7 @@ void Widget_UpdateDimensions(tElement *Element)
 	 int	maxCross = 0;
 	 int	fixedSize = 0;
 	 int	fullCross, dynWith = 0;
+	 int	bVertical = Element->Flags & ELEFLAG_VERTICAL;
 
 	// Check if this element can have children
 	if( (gaWM_WidgetTypes[Element->Type]->Flags & WIDGETTYPE_FLAG_NOCHILDREN) )
@@ -170,6 +171,9 @@ void Widget_UpdateDimensions(tElement *Element)
 	// - Get the fixed and minimum sizes of the element
 	for( child = Element->FirstChild; child; child = child->NextSibling )
 	{
+		 int	minWith  = bVertical ? child->MinH : child->MinW;
+		 int	minCross = bVertical ? child->MinW : child->MinH;
+
 		// Ignore elements that will not be rendered
 		if( child->Flags & ELEFLAG_NORENDER )	continue ;
 		
@@ -185,19 +189,17 @@ void Widget_UpdateDimensions(tElement *Element)
 		else if( child->Flags & ELEFLAG_NOSTRETCH )
 		{
 			nFixed ++;
-			fixedSize += child->MinWith;
+			fixedSize += minWith;
 		}
 		
-		if( child->FixedCross && maxCross < child->FixedCross )
-			maxCross = child->FixedCross;
-		if( child->MinCross && maxCross < child->MinCross )
-			maxCross = child->MinCross;
+		if( maxCross < child->FixedCross )	maxCross = child->FixedCross;
+		if( maxCross < minCross )	maxCross = minCross;
 		nChildren ++;
 	}
 
 	// Get the dynamic with size from the unused space in the element
 	if( nChildren > nFixed ) {
-		if( Element->Flags & ELEFLAG_VERTICAL )
+		if( bVertical )
 			dynWith = Element->CachedH - Element->PaddingT - Element->PaddingB;
 		else
 			dynWith = Element->CachedW - Element->PaddingL - Element->PaddingR;
@@ -211,7 +213,7 @@ void Widget_UpdateDimensions(tElement *Element)
 	}
 	
 	// Get the cross size
-	if( Element->Flags & ELEFLAG_VERTICAL )
+	if( bVertical )
 		fullCross = Element->CachedW - Element->PaddingL - Element->PaddingR;
 	else
 		fullCross = Element->CachedH - Element->PaddingT - Element->PaddingB;
@@ -228,52 +230,39 @@ void Widget_UpdateDimensions(tElement *Element)
 	// Pass 2 - Set sizes and recurse
 	for( child = Element->FirstChild; child; child = child->NextSibling )
 	{
-		 int	cross, with;
+		 int	w, h;
 
 		// Ignore elements that will not be rendered
 		if( child->Flags & ELEFLAG_NORENDER )	continue ;
 		// Don't resize floating elements
 		if( child->Flags & ELEFLAG_ABSOLUTEPOS )	continue ;
 		
-		// --- Cross Size ---
-		// TODO: Expand to fill?
-		// TODO: Extra flag so options are (Expand, Equal, Wrap)
-		if( child->FixedCross )
-			cross = child->FixedCross;
-		else if( child->Flags & ELEFLAG_NOEXPAND )
-			cross = child->MinCross;
+		// --- Width ---
+		if( child->Flags & ELEFLAG_NOEXPAND )
+			w = child->MinW;
+		else if( bVertical )
+			w = child->FixedCross ? child->FixedCross : fullCross;
 		else
-			cross = fullCross;
-		
-		// --- With Size ---
-		if( child->FixedWith )
-			with = child->FixedWith;
-		else if( child->Flags & ELEFLAG_NOSTRETCH )
-			with = child->MinWith;
-		else
-			with = dynWith;
+			w = child->FixedWith ? child->FixedWith : dynWith;
 	
+		// --- Height ---
+		if( child->Flags & ELEFLAG_NOSTRETCH )
+			h = child->MinH;
+		else if( bVertical )
+			h = child->FixedWith ? child->FixedWith : dynWith;
+		else
+			h = child->FixedCross ? child->FixedCross : fullCross;
 
-		if(with < child->MinWith)	with = child->MinWith;
-		if(cross < child->MinCross)	cross = child->MinCross;
+		if(w < child->MinW)	w = child->MinW;
+		if(h < child->MinH)	h = child->MinH;
 	
-		_SysDebug("with = %i", with);
+		_SysDebug("Child %ix%i (min %ix%i)", w, h, child->MinW, child->MinH);
 	
 		// Update the dimensions if they have changed
-		if( Element->Flags & ELEFLAG_VERTICAL ) {
-			// If no change, don't recurse
-			if( child->CachedW == cross && child->CachedH == with )
-				continue ;
-			child->CachedW = cross;
-			child->CachedH = with;
-		}
-		else {
-			// If no change, don't recurse
-			if( child->CachedW == with && child->CachedH == cross )
-				continue ;
-			child->CachedW = with;
-			child->CachedH = cross;
-		}
+		if( child->CachedW == w && child->CachedH == h )
+			continue ;
+		child->CachedW = w;
+		child->CachedH = h;
 		
 		// Force the positions of child elements to be recalculated
 		child->CachedX = -1;
@@ -359,48 +348,44 @@ void Widget_UpdateMinDims(tElement *Element)
 {
 	tElement	*child;
 	 int	minW, minH;
+	 int	nChildren;
 	
 	if(!Element)	return;
 	
 	minW = 0;
 	minH = 0;
+	nChildren = 0;
 	
 	for(child = Element->FirstChild; child; child = child->NextSibling)
 	{
+		 int	cross;
+		
+		if(Element->Flags & ELEFLAG_NORENDER)	continue ;
+		
 		if( (Element->Flags & ELEFLAG_VERTICAL) )
 		{
-			if(child->FixedCross)
-				minW += child->FixedCross;
-			else
-				minW += child->MinCross;
-			if(child->FixedWith)
-				minH += child->FixedWith;
-			else
-				minH += child->MinWith;
+			cross = child->FixedCross ? child->FixedCross : child->MinW;
+			if(minW < cross)	minW = cross;
+			minH += child->FixedWith  ? child->FixedWith  : child->MinH;
 		}
 		else
 		{
-			if(child->FixedCross)
-				minH += child->FixedCross;
-			else
-				minH += child->MinCross;
-			if(child->FixedWith)
-				minW += child->FixedWith;
-			else
-				minW += child->MinWith;
+			cross = child->FixedCross ? child->FixedCross : child->MinH;
+			minW += child->FixedWith  ? child->FixedWith  : child->MinW;
+			if(minH < cross)	minH = cross;
 		}
+//		_SysDebug("%i/%i cross = %i", Element->ID, child->ID, cross);
+	
+		nChildren ++;
 	}
 	
-	if( Element->Parent && (Element->Parent->Flags & ELEFLAG_VERTICAL) )
-	{
-		Element->MinCross = Element->PaddingL + minW + Element->PaddingR;
-		Element->MinWith  = Element->PaddingT + minH + Element->PaddingB;
-	}
+	if( Element->Flags & ELEFLAG_VERTICAL )
+		minH += (nChildren - 1) * Element->GapSize;
 	else
-	{
-		Element->MinWith  = Element->PaddingL + minW + Element->PaddingR;
-		Element->MinCross = Element->PaddingL + minH + Element->PaddingR;
-	}
+		minW += (nChildren - 1) * Element->GapSize;
+
+	Element->MinW = Element->PaddingL + minW + Element->PaddingR;
+	Element->MinH = Element->PaddingT + minH + Element->PaddingB;
 
 	// Recurse upwards
 	Widget_UpdateMinDims(Element->Parent);

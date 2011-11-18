@@ -103,7 +103,6 @@ void mainmenu_app_textedit(void *unused)
 
 void mainmenu_run_dialog(void *unused)
 {
-	_SysDebug("TODO: Show run dialog");
 	AxWin3_ShowWindow(gRunDialog, 1);
 }
 

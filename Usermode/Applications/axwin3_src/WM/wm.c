@@ -170,8 +170,10 @@ void WM_ShowWindow(tWindow *Window, int bShow)
 			WM_FocusWindow(Window->Parent);
 	}
 	// Just a little memory saving for large hidden windows
-	if(Window->RenderBuffer)
+	if(Window->RenderBuffer) {
 		free(Window->RenderBuffer);
+		Window->RenderBuffer = NULL;
+	}
 	
 	WM_Invalidate(Window);
 }
@@ -187,8 +189,10 @@ void WM_DecorateWindow(tWindow *Window, int bDecorate)
 		Window->Flags |= WINFLAG_NODECORATE;
 	
 	// Needed because the window size changes
-	if(Window->RenderBuffer)
+	if(Window->RenderBuffer) {
 		free(Window->RenderBuffer);
+		Window->RenderBuffer = NULL;
+	}
 	
 	WM_Invalidate(Window);
 }
@@ -216,8 +220,10 @@ int WM_ResizeWindow(tWindow *Window, int W, int H)
 
 	Window->W = W;	Window->H = H;
 
-	if(Window->RenderBuffer)
+	if(Window->RenderBuffer) {
 		free(Window->RenderBuffer);
+		Window->RenderBuffer = NULL;
+	}
 	WM_Invalidate(Window);
 
 	{

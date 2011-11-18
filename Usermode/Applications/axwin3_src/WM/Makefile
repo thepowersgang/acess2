@@ -18,6 +18,7 @@ OBJ += renderers/widget/button.o
 OBJ += renderers/widget/image.o
 OBJ += renderers/widget/disptext.o
 OBJ += renderers/widget/textinput.o
+OBJ += renderers/widget/spacer.o
 
 LDFLAGS += -limage_sif -luri -lnet
 

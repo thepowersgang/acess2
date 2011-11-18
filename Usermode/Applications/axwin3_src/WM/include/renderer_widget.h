@@ -48,8 +48,8 @@ struct sAxWin_Element
 	
 	// -- Attributes maitained by the element code
 	// Not touched by the user
-	short	MinWith;	//!< Minimum long size
-	short	MinCross;	//!< Minimum cross size
+	short	MinW;	//!< Minimum long size
+	short	MinH;	//!< Minimum cross size
 	void	*Data;	//!< Per-type data
 	
 	// -- Render Cache

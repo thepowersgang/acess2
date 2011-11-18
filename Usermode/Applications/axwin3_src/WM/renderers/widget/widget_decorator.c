@@ -56,12 +56,6 @@ void Widget_Decorator_RenderWidget(tWindow *Window, tElement *Element)
 		break;
 	
 	case ELETYPE_SPACER:	// Spacer (subtle line)
-		WM_Render_FillRect(
-			Window,
-			Element->CachedX+3, Element->CachedY+3,
-			Element->CachedW-6, Element->CachedH-6,
-			BOX_BORDER
-			);
 		break;
 	
 	case ELETYPE_BUTTON:	// Button

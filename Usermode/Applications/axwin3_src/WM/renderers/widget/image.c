@@ -31,19 +31,13 @@ void Widget_Image_UpdateText(tElement *Element, const char *Text)
 	
 	Element->CachedW = ((tImage*)Element->Data)->Width;
 	Element->CachedH = ((tImage*)Element->Data)->Height;
-	
-	if(Element->Parent && (Element->Parent->Flags & ELEFLAG_VERTICAL) ) {
-		Element->MinCross = ((tImage*)Element->Data)->Width;
-		Element->MinWith = ((tImage*)Element->Data)->Height;
-	}
-	else {
-		Element->MinWith = ((tImage*)Element->Data)->Width;
-		Element->MinCross = ((tImage*)Element->Data)->Height;
-	}
 
+	Element->MinW = ((tImage*)Element->Data)->Width;
+	Element->MinH = ((tImage*)Element->Data)->Width;
+	
 	Widget_UpdateMinDims(Element->Parent);
 	
-	// NOTE: Doesn't update Element->Text because it's useless
+	// NOTE: Doesn't update Element->Text because it's not really needed here
 }
 
 DEFWIDGETTYPE(ELETYPE_IMAGE,

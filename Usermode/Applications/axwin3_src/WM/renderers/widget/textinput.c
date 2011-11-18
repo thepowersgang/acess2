@@ -41,10 +41,8 @@ void Widget_TextInput_Init(tElement *Element)
 
 	h += 2+2;	// Border padding	
 
-	if( Element->Parent && (Element->Parent->Flags & ELEFLAG_VERTICAL) )
-		Element->MinWith = h;
-	else
-		Element->MinCross = h;
+	Element->MinH = h;
+	Element->MinW = 4;
 
 	_SysDebug("h = %i", h);
 
