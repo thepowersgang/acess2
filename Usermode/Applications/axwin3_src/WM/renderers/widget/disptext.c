@@ -46,6 +46,7 @@ void Widget_DispText_UpdateText(tElement *Element, const char *Text)
 }
 
 DEFWIDGETTYPE(ELETYPE_TEXT,
+	WIDGETTYPE_FLAG_NOCHILDREN,
 	.Render = Widget_DispText_Render,
 	.UpdateText = Widget_DispText_UpdateText
 	);

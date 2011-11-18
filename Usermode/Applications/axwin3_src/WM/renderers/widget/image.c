@@ -47,6 +47,7 @@ void Widget_Image_UpdateText(tElement *Element, const char *Text)
 }
 
 DEFWIDGETTYPE(ELETYPE_IMAGE,
+	WIDGETTYPE_FLAG_NOCHILDREN,
 	.Render = Widget_Image_Render,
 	.UpdateText = Widget_Image_UpdateText
 	);

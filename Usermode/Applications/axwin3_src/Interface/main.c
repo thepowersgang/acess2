@@ -13,7 +13,7 @@
 
 #define SIDEBAR_WIDTH	40
 #define RUN_WIDTH	200
-#define RUN_HEIGHT	70
+#define RUN_HEIGHT	60
 
 // === PROTOTYPES ===
 void	create_sidebar(void);
@@ -134,8 +134,10 @@ tAxWin3_Widget *make_textbutton(tAxWin3_Widget *Parent, const char *Label, tAxWi
 	tAxWin3_Widget	*ret, *txt;
 	ret = AxWin3_Widget_AddWidget(Parent, ELETYPE_BUTTON, ELEFLAG_ALIGN_CENTER, "_btn");
 	AxWin3_Widget_SetFireHandler(ret, handler);
+	AxWin3_Widget_AddWidget(ret, ELETYPE_NONE, 0, "_spacer1");
 	txt = AxWin3_Widget_AddWidget(ret, ELETYPE_TEXT, ELEFLAG_NOSTRETCH|ELEFLAG_NOEXPAND, "_txt");
 	AxWin3_Widget_SetText(txt, Label);
+	AxWin3_Widget_AddWidget(ret, ELETYPE_NONE, 0, "_spacer2");
 	return ret;
 }
 
@@ -145,14 +147,14 @@ void create_run_dialog(void)
 	
 	gRunDialog = AxWin3_Widget_CreateWindow(NULL, RUN_WIDTH, RUN_HEIGHT, ELEFLAG_VERTICAL);
 	AxWin3_SetWindowTitle(gRunDialog, "Run Program...");
-
 	AxWin3_MoveWindow(gRunDialog, giScreenWidth/2-RUN_WIDTH/2, giScreenHeight/2-RUN_HEIGHT/2);
+
 	root = AxWin3_Widget_GetRoot(gRunDialog);
 
-	gRunInput = AxWin3_Widget_AddWidget(root, ELETYPE_TEXTINPUT, 0, "Input");
+	gRunInput = AxWin3_Widget_AddWidget(root, ELETYPE_TEXTINPUT, ELEFLAG_NOSTRETCH, "Input");
 	AxWin3_Widget_SetFireHandler(gRunInput, run_dorun);
 	
-	box = AxWin3_Widget_AddWidget(root, ELETYPE_BOX, ELEFLAG_ALIGN_CENTER|ELEFLAG_NOSTRETCH, "Button Area");
+	box = AxWin3_Widget_AddWidget(root, ELETYPE_BOX, ELEFLAG_ALIGN_CENTER, "Button Area");
 	make_textbutton(box, "Ok", run_dorun);
 	make_textbutton(box, "Cancel", run_close);
 }

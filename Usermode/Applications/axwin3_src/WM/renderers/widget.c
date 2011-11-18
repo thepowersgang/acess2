@@ -14,6 +14,7 @@
 #include "widget/common.h"
 
 #define DEFAULT_ELETABLE_SIZE	64
+#define BORDER_EVERYTHING	1
 
 // === PROTOTYPES ===
  int	Renderer_Widget_Init(void);
@@ -42,11 +43,20 @@ tWMRenderer	gRenderer_Widget = {
 // --- Element callbacks
 tWidgetDef	*gaWM_WidgetTypes[NUM_ELETYPES];
 const int	ciWM_NumWidgetTypes = sizeof(gaWM_WidgetTypes)/sizeof(gaWM_WidgetTypes[0]);
+tWidgetDef	gWidget_NullWidgetDef;
 
 // === CODE ===
 int Renderer_Widget_Init(void)
 {
+	 int	i;
 	WM_RegisterRenderer(&gRenderer_Widget);	
+
+	for(i = 0; i < ciWM_NumWidgetTypes; i ++)
+	{
+		if(gaWM_WidgetTypes[i] != NULL)	continue;
+		
+		gaWM_WidgetTypes[i] = &gWidget_NullWidgetDef;
+	}
 
 	return 0;
 }
@@ -60,7 +70,8 @@ void Widget_int_SetTypeDef(int Type, tWidgetDef *Ptr)
 		return ;
 	}
 	
-	if( gaWM_WidgetTypes[Type] ) {
+	if( gaWM_WidgetTypes[Type] && gaWM_WidgetTypes[Type] != &gWidget_NullWidgetDef )
+	{
 		_SysDebug("ERROR - Widget ID %i redefined by %p",
 			Type, __builtin_return_address(0)
 			);
@@ -118,10 +129,16 @@ void Widget_RenderWidget(tWindow *Window, tElement *Element)
 	if( Element->Flags & ELEFLAG_NORENDER )	return ;
 	if( Element->Flags & ELEFLAG_INVISIBLE )	return ;
 
-	if( Element->Type < ciWM_NumWidgetTypes
-	 && gaWM_WidgetTypes[Element->Type]
-	 && gaWM_WidgetTypes[Element->Type]->Render
-	    )
+	#if BORDER_EVERYTHING
+	WM_Render_DrawRect(
+		Window,
+		Element->CachedX, Element->CachedY,
+		Element->CachedW, Element->CachedH,
+		0
+		);
+	#endif	
+
+	if(gaWM_WidgetTypes[Element->Type]->Render)
 	{
 		gaWM_WidgetTypes[Element->Type]->Render(Window, Element);
 	}
@@ -143,7 +160,11 @@ void Widget_UpdateDimensions(tElement *Element)
 	 int	nFixed = 0;
 	 int	maxCross = 0;
 	 int	fixedSize = 0;
-	 int	fullCross, dynWith;
+	 int	fullCross, dynWith = 0;
+
+	// Check if this element can have children
+	if( (gaWM_WidgetTypes[Element->Type]->Flags & WIDGETTYPE_FLAG_NOCHILDREN) )
+		return ;
 	
 	// Pass 1
 	// - Get the fixed and minimum sizes of the element
@@ -181,18 +202,28 @@ void Widget_UpdateDimensions(tElement *Element)
 		else
 			dynWith = Element->CachedW - Element->PaddingL - Element->PaddingR;
 		dynWith -= fixedSize;
+		dynWith -= Element->GapSize * (nChildren-1);
 		if( dynWith < 0 )	return ;
 		dynWith /= nChildren - nFixed;
 	}
+	else {
+		dynWith = 0;
+	}
 	
-//	_SysDebug("%i - nChildren = %i, nFixed = %i, dynWith = %i, fixedSize = %i",
-//		Element->ID, nChildren, nFixed, dynWith, fixedSize);
-
 	// Get the cross size
 	if( Element->Flags & ELEFLAG_VERTICAL )
 		fullCross = Element->CachedW - Element->PaddingL - Element->PaddingR;
 	else
 		fullCross = Element->CachedH - Element->PaddingT - Element->PaddingB;
+
+	_SysDebug("%i (p=%i) - WxH=%ix%i",
+		Element->ID, (Element->Parent ? Element->Parent->ID : -1),
+		Element->CachedW, Element->CachedH
+		);
+	_SysDebug("  %s dynWith = %i, fullCross = %i",
+		(Element->Flags & ELEFLAG_VERTICAL ? "Vert" : "Horiz"),
+		dynWith, fullCross
+		);
 	
 	// Pass 2 - Set sizes and recurse
 	for( child = Element->FirstChild; child; child = child->NextSibling )
@@ -201,6 +232,8 @@ void Widget_UpdateDimensions(tElement *Element)
 
 		// Ignore elements that will not be rendered
 		if( child->Flags & ELEFLAG_NORENDER )	continue ;
+		// Don't resize floating elements
+		if( child->Flags & ELEFLAG_ABSOLUTEPOS )	continue ;
 		
 		// --- Cross Size ---
 		// TODO: Expand to fill?
@@ -223,7 +256,9 @@ void Widget_UpdateDimensions(tElement *Element)
 
 		if(with < child->MinWith)	with = child->MinWith;
 		if(cross < child->MinCross)	cross = child->MinCross;
-		
+	
+		_SysDebug("with = %i", with);
+	
 		// Update the dimensions if they have changed
 		if( Element->Flags & ELEFLAG_VERTICAL ) {
 			// If no change, don't recurse
@@ -259,6 +294,10 @@ void Widget_UpdatePosition(tElement *Element)
 	
 	if( Element->Flags & ELEFLAG_NORENDER )	return ;
 
+	// Check if this element can have children
+	if( (gaWM_WidgetTypes[Element->Type]->Flags & WIDGETTYPE_FLAG_NOCHILDREN) )
+		return ;
+
 //	_SysDebug("Widget_UpdatePosition: (Element=%p(%i Type=%i Flags=0x%x))",
 //		Element, Element->ID, Element->Type, Element->Flags);
 	
@@ -275,7 +314,7 @@ void Widget_UpdatePosition(tElement *Element)
 
 		newX = x; newY = y;
 		
-		// Handle alignment
+		// Handle alignment (across parent)
 		if( Element->Flags & ELEFLAG_ALIGN_CENTER ) {
 			if(Element->Flags & ELEFLAG_VERTICAL)
 				newX += Element->CachedW/2 - child->CachedW/2;
@@ -418,6 +457,12 @@ void Widget_NewWidget(tWidgetWin *Info, size_t Len, const tWidgetMsg_Create *Msg
 	_SysDebug("Widget_NewWidget (%i %i Type %i Flags 0x%x)",
 		Msg->Parent, Msg->NewID, Msg->Type, Msg->Flags);
 	
+	if(Msg->Type >= ciWM_NumWidgetTypes)
+	{
+		_SysDebug("Widget_NewWidget - Bad widget type %i", Msg->Type);
+		return ;
+	}
+
 	// Create
 	parent = Widget_GetElementById(Info, Msg->Parent);
 	if(!parent)
@@ -443,7 +488,7 @@ void Widget_NewWidget(tWidgetWin *Info, size_t Len, const tWidgetMsg_Create *Msg
 	new->PaddingR = 2;
 	new->CachedX = -1;
 	
-	if( new->Type < ciWM_NumWidgetTypes && gaWM_WidgetTypes[new->Type] && gaWM_WidgetTypes[new->Type]->Init )
+	if( gaWM_WidgetTypes[new->Type]->Init )
 		gaWM_WidgetTypes[new->Type]->Init(new);
 	
 	// Add to parent's list
@@ -508,9 +553,7 @@ void Widget_SetText(tWidgetWin *Info, int Len, const tWidgetMsg_SetText *Msg)
 	if(!ele)	return ;
 
 
-	if( ele->Type < ciWM_NumWidgetTypes
-	 && gaWM_WidgetTypes[ele->Type]
-	 && gaWM_WidgetTypes[ele->Type]->UpdateText )
+	if( gaWM_WidgetTypes[ele->Type]->UpdateText )
 	{
 		gaWM_WidgetTypes[ele->Type]->UpdateText( ele, Msg->Text );
 	}
@@ -558,9 +601,7 @@ int Renderer_Widget_HandleMessage(tWindow *Target, int Msg, int Len, const void 
 		// Send event to all elements from `ele` upwards
 		for( ; ele; ele = ele->Parent )
 		{
-			if(ele->Type < ciWM_NumWidgetTypes
-			 && gaWM_WidgetTypes[ele->Type]
-			 && gaWM_WidgetTypes[ele->Type]->MouseButton)
+			if(gaWM_WidgetTypes[ele->Type]->MouseButton)
 			{
 				rv = gaWM_WidgetTypes[ele->Type]->MouseButton(
 					ele,

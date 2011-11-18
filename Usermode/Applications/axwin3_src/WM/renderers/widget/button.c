@@ -36,6 +36,7 @@ int Widget_Button_MouseButton(tElement *Element, int X, int Y, int Button, int b
 }
 
 DEFWIDGETTYPE(ELETYPE_BUTTON,
+	0,
 	.Render = Widget_Button_Render,
 	.MouseButton = Widget_Button_MouseButton
 	)

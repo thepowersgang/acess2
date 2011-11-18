@@ -9,8 +9,6 @@
 #include <wm.h>
 #include <renderer_widget.h>
 
-#define BORDER_EVERYTHING	1
-
 #include "./colours.h"
 
 // === CODE ===
@@ -21,15 +19,6 @@ void Widget_Decorator_RenderWidget(tWindow *Window, tElement *Element)
 //		Element->CachedX, Element->CachedY,
 //		Element->CachedW, Element->CachedH
 //		);
-	
-	#if BORDER_EVERYTHING
-	WM_Render_DrawRect(
-		Window,
-		Element->CachedX, Element->CachedY,
-		Element->CachedW, Element->CachedH,
-		0
-		);
-	#endif
 	
 	switch(Element->Type)
 	{

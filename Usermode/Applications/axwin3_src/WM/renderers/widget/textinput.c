@@ -38,16 +38,21 @@ void Widget_TextInput_Init(tElement *Element)
 
 	// TODO: Select font correctly	
 	WM_Render_GetTextDims(NULL, "jJ", NULL, &h);
-	
+
+	h += 2+2;	// Border padding	
+
 	if( Element->Parent && (Element->Parent->Flags & ELEFLAG_VERTICAL) )
 		Element->MinWith = h;
 	else
 		Element->MinCross = h;
 
+	_SysDebug("h = %i", h);
+
 	// No need to explicitly update parent min dims, as the AddElement routine does that	
 }
 
 DEFWIDGETTYPE(ELETYPE_TEXTINPUT,
+	WIDGETTYPE_FLAG_NOCHILDREN,
 	.Render = Widget_TextInput_Render,
 	.Init = Widget_TextInput_Init
 	);
