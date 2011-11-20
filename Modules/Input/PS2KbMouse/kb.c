@@ -64,6 +64,7 @@ int KB_Install(char **Arguments)
 void KB_HandleScancode(Uint8 scancode)
 {
 	Uint32	ch;
+	 int	bCaseSwitch = (gbKB_ShiftState != 0) != (gbKB_CapsState != 0);
 
 	//Log_Debug("Keyboard", "scancode = %02x", scancode);
 
@@ -99,12 +100,23 @@ void KB_HandleScancode(Uint8 scancode)
 		gbKB_KeyUp = 1;
 	}
 	#endif
+	
+	if( gKB_Callback )
+		gKB_Callback( (giKB_KeyLayer << 8) | scancode | KEY_ACTION_RAWSYM );
 
 	// Translate
-	ch = gpKB_Map[giKB_KeyLayer][scancode];
+	ch = gpKB_Map[giKB_KeyLayer*2+bCaseSwitch][scancode];
+	// - Unknown characters in the shift layer fall through to lower
+	if(bCaseSwitch && ch == 0)
+		ch = gpKB_Map[giKB_KeyLayer*2][scancode];
 	// Check for unknown key
-	if(!ch && !gbKB_KeyUp)
-		Log_Warning("Keyboard", "UNK %i %x", giKB_KeyLayer, scancode);
+	if(!ch)
+	{
+		if(!gbKB_KeyUp)
+			Log_Warning("Keyboard", "UNK %i %x", giKB_KeyLayer, scancode);
+//		return ;
+		// Can pass through to ensure each raw message has a up/down with it
+	}
 
 	// Key Up?
 	if (gbKB_KeyUp)
@@ -121,12 +133,19 @@ void KB_HandleScancode(Uint8 scancode)
 		if(ch == KEY_RSHIFT)	gbKB_ShiftState &= ~2;
 
 		// Call callback
-		if(ch != 0 && gKB_Callback)
-			gKB_Callback( ch & 0x80000000 );
+		if(gKB_Callback)	gKB_Callback( ch | KEY_ACTION_RELEASE );
 
 		// Reset Layer
 		giKB_KeyLayer = 0;
 		return;
+	}
+
+	// Refire?
+	if( gbaKB_States[giKB_KeyLayer][scancode] == 1 )
+	{
+		if(gKB_Callback)	gKB_Callback(ch | KEY_ACTION_REFIRE);
+		giKB_KeyLayer = 0;
+		return ;
 	}
 
 	// Set the bit relating to the key
@@ -140,12 +159,6 @@ void KB_HandleScancode(Uint8 scancode)
 		gbKB_CapsState = !gbKB_CapsState;
 		KB_UpdateLEDs();
 	}
-
-	// Reset Layer
-	giKB_KeyLayer = 0;
-
-	// Ignore Non-Printable Characters
-	if(ch == 0)		return;
 
 	// --- Check for Kernel Magic Combos
 	#if USE_KERNEL_MAGIC
@@ -190,42 +203,11 @@ void KB_HandleScancode(Uint8 scancode)
 	}
 	#endif
 
-	// Capitals required?
-	if( (gbKB_ShiftState != 0) != (gbKB_CapsState != 0))
-	{
-		// TODO: Move this to the keyboard map header
-		switch(ch)
-		{
-		case 0:	break;
-		case '`':	ch = '~';	break;
-		case '1':	ch = '!';	break;
-		case '2':	ch = '@';	break;
-		case '3':	ch = '#';	break;
-		case '4':	ch = '$';	break;
-		case '5':	ch = '%';	break;
-		case '6':	ch = '^';	break;
-		case '7':	ch = '&';	break;
-		case '8':	ch = '*';	break;
-		case '9':	ch = '(';	break;
-		case '0':	ch = ')';	break;
-		case '-':	ch = '_';	break;
-		case '=':	ch = '+';	break;
-		case '[':	ch = '{';	break;
-		case ']':	ch = '}';	break;
-		case '\\':	ch = '|';	break;
-		case ';':	ch = ':';	break;
-		case '\'':	ch = '"';	break;
-		case ',':	ch = '<';	break;
-		case '.':	ch = '>';	break;
-		case '/':	ch = '?';	break;
-		default:
-			if('a' <= ch && ch <= 'z')
-				ch -= 0x20;
-			break;
-		}
-	}
+	if(gKB_Callback)
+		gKB_Callback(ch | KEY_ACTION_PRESS);
 
-	if(gKB_Callback && ch != 0)	gKB_Callback(ch);
+	// Reset Layer
+	giKB_KeyLayer = 0;
 }
 
 /**

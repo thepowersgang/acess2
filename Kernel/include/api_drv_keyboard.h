@@ -53,6 +53,10 @@ enum eTplKeyboard_IOCtl {
 	 * Sets the function to be called when a key event occurs (press, release
 	 * or repeat). This function pointer must be in kernel mode (although,
 	 * kernel->user or kernel->ring3driver abstraction functions can be used)
+	 *
+	 * This function is called when a key is pressed, repeated or released.
+	 * If the raw scancode is to be included with the key event, it should precede
+	 * the event.
 	 */
 	KB_IOCTL_SETCALLBACK
 };
@@ -64,10 +68,24 @@ enum eTplKeyboard_IOCtl {
 
 /**
  * \brief Callback type for KB_IOCTL_SETCALLBACK
- * \param Key Unicode character code for the pressed key (with bit 31
- *            set if the key is released)
+ * \param Key	Key symbol (Unicode or eTplKeyboard_KeyCodes)
  */
 typedef void (*tKeybardCallback)(Uint32 Key);
+
+/**
+ * \name Callback key flags
+ * \brief Flags for values passed to the callback
+ * \{
+ */
+#define KEY_CODEPOINT_MASK	0x3FFFFFFF
+#define KEY_ACTION_MASK 	0xC0000000
+#define KEY_ACTION_PRESS	0x00000000	//!< Key pressed
+#define KEY_ACTION_RELEASE	0x40000000	//!< Key released
+#define KEY_ACTION_REFIRE	0x80000000	//!< Repeated key
+#define KEY_ACTION_RAWSYM	0xC0000000	//!< Raw key symbol (comes before a press/repeat/release)
+/**
+ * \}
+ */
 
 /**
  * \brief Symbolic key codes
@@ -80,7 +98,7 @@ typedef void (*tKeybardCallback)(Uint32 Key);
 enum eTplKeyboard_KeyCodes {
 	KEY_ESC = 0x1B,	//!< Escape Character
 	
-	KEY_NP_MASK = 0x40000000,	//! Mask for non-printable characters
+	KEY_NP_MASK = 0x20000000,	//! Mask for non-printable characters
 	
 	/**
 	 * \name Special Keys
@@ -109,7 +127,7 @@ enum eTplKeyboard_KeyCodes {
 	 * \brief These keye usually alter the character stream sent to the user
 	 * \{
 	 */
-	KEY_MODIFIERS = 0x60000000,
+	KEY_MODIFIERS = 0x30000000,
 	KEY_LCTRL, KEY_RCTRL,
 	KEY_LALT, KEY_RALT,
 	KEY_LSHIFT, KEY_RSHIFT,

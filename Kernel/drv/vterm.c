@@ -889,35 +889,32 @@ void VT_SetTerminal(int ID)
 void VT_KBCallBack(Uint32 Codepoint)
 {
 	tVTerm	*term = gpVT_CurTerm;
-	
-	// How the hell did we get a codepoint of zero?
-	if(Codepoint == 0)	return;
-	
+
 	// Key Up
-	if( Codepoint & 0x80000000 )
+	switch( Codepoint & KEY_ACTION_MASK )
 	{
-		Codepoint &= 0x7FFFFFFF;
-		switch(Codepoint)
+	case KEY_ACTION_RELEASE:
+		switch(Codepoint & KEY_CODEPOINT_MASK)
 		{
 		case KEY_LALT:	gbVT_AltDown &= ~1;	break;
 		case KEY_RALT:	gbVT_AltDown &= ~2;	break;
 		case KEY_LCTRL:	gbVT_CtrlDown &= ~1;	break;
 		case KEY_RCTRL:	gbVT_CtrlDown &= ~2;	break;
 		}
-		return;
-	}
+		break;
 	
-	switch(Codepoint)
-	{
-	case KEY_LALT:	gbVT_AltDown |= 1;	break;
-	case KEY_RALT:	gbVT_AltDown |= 2;	break;
-	case KEY_LCTRL:	gbVT_CtrlDown |= 1;	break;
-	case KEY_RCTRL:	gbVT_CtrlDown |= 2;	break;
-	
-	default:
+	case KEY_ACTION_PRESS:
+		switch(Codepoint & KEY_CODEPOINT_MASK)
+		{
+		case KEY_LALT:	gbVT_AltDown |= 1;	break;
+		case KEY_RALT:	gbVT_AltDown |= 2;	break;
+		case KEY_LCTRL:	gbVT_CtrlDown |= 1;	break;
+		case KEY_RCTRL:	gbVT_CtrlDown |= 2;	break;
+		}
+		
 		if(!gbVT_AltDown || !gbVT_CtrlDown)
 			break;
-		switch(Codepoint)
+		switch(Codepoint & KEY_CODEPOINT_MASK)
 		{
 		case KEY_F1:	VT_SetTerminal(0);	return;
 		case KEY_F2:	VT_SetTerminal(1);	return;
@@ -949,6 +946,7 @@ void VT_KBCallBack(Uint32 Codepoint)
 				gpVT_CurTerm->ViewPos = gpVT_CurTerm->Width*gpVT_CurTerm->Height*(giVT_Scrollback);
 			return;
 		}
+		break;
 	}
 	
 	// Encode key
@@ -956,37 +954,49 @@ void VT_KBCallBack(Uint32 Codepoint)
 	{
 		Uint8	buf[6] = {0};
 		 int	len = 0;
-		
+	
+		// Ignore anything that isn't a press or refire
+		if( (Codepoint & KEY_ACTION_MASK) != KEY_ACTION_PRESS
+		 && (Codepoint & KEY_ACTION_MASK) != KEY_ACTION_REFIRE
+		    )
+		{
+			return ;
+		}
+	
+		Codepoint &= KEY_CODEPOINT_MASK;
+
 		// Ignore Modifer Keys
 		if(Codepoint > KEY_MODIFIERS)	return;
 		
 		// Get UTF-8/ANSI Encoding
 		switch(Codepoint)
 		{
+		// 0: No translation, don't send to user
+		case 0:	break;
 		case KEY_LEFT:
-			buf[0] = '\x1B';	buf[1] = '[';	buf[2] = 'D';
+			buf[0] = '\x1B'; buf[1] = '['; buf[2] = 'D';
 			len = 3;
 			break;
 		case KEY_RIGHT:
-			buf[0] = '\x1B';	buf[1] = '[';	buf[2] = 'C';
+			buf[0] = '\x1B'; buf[1] = '['; buf[2] = 'C';
 			len = 3;
 			break;
 		case KEY_UP:
-			buf[0] = '\x1B';	buf[1] = '[';	buf[2] = 'A';
+			buf[0] = '\x1B'; buf[1] = '['; buf[2] = 'A';
 			len = 3;
 			break;
 		case KEY_DOWN:
-			buf[0] = '\x1B';	buf[1] = '[';	buf[2] = 'B';
+			buf[0] = '\x1B'; buf[1] = '['; buf[2] = 'B';
 			len = 3;
 			break;
 		
 		case KEY_PGUP:
-			//buf[0] = '\x1B';	buf[1] = '[';	buf[2] = '5';	// Some overline also
-			//len = 4;	// Commented out until I'm sure
-			len = 0;
+			buf[0] = '\x1B'; buf[1] = '['; buf[2] = '5'; buf[3] = '~';
+			len = 4;
 			break;
 		case KEY_PGDOWN:
-			len = 0;
+			buf[0] = '\x1B'; buf[1] = '['; buf[2] = '6'; buf[3] = '~';
+			len = 4;
 			break;
 		
 		// Attempt to encode in UTF-8
@@ -1033,7 +1043,7 @@ void VT_KBCallBack(Uint32 Codepoint)
 	}
 	else
 	{
-		// Encode the raw UTF-32 Key
+		// Encode the raw key event
 		Uint32	*raw_in = (void*)term->InputBuffer;
 		raw_in[ term->InputWrite ] = Codepoint;
 		term->InputWrite ++;
