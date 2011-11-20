@@ -49,7 +49,7 @@ char	**gasCommandHistory;
  int	giCommandSpace = 0;
 
 // ==== CODE ====
-int main(int argc, char *argv[], char *envp[])
+int main(int argc, char *argv[], char **envp)
 {
 	char	*sCommandStr;
 	char	*saArgs[32] = {0};
@@ -391,8 +391,11 @@ void CallCommand(char **Args)
 	// Create new process
 	pid = clone(CLONE_VM, 0);
 	// Start Task
-	if(pid == 0)
+	if(pid == 0) {
 		execve(sTmpBuffer, Args, gasEnvironment);
+		printf("Execve returned, ... oops\n");
+		exit(-1);
+	}
 	if(pid <= 0) {
 		printf("Unable to create process: `%s'\n", sTmpBuffer);	// Error Message
 	}
