@@ -39,7 +39,7 @@ void WM_Render_FillRect(tWindow *Window, int X, int Y, int W, int H, tColour Col
 	{
 		for( i = W; i --; )
 			*dest++ = Colour;
-		dest += Window->W - W;
+		dest += Window->RealW - W;
 	}
 }
 
@@ -155,5 +155,19 @@ void WM_Render_DrawImage(tWindow *Window, int X, int Y, int W, int H, tImage *Im
 		_SysDebug("ERROR: Unknown image format %i\n", Image->Format);
 		break;
 	}
+}
+
+void WM_Render_SetTextCursor(tWindow *Window, int X, int Y, int W, int H, tColour Colour)
+{
+	if( X < 0 || Y < 0 )	return ;
+	if( X >= Window->W )	return ;
+	if( Y >= Window->H )	return ;
+	if( X + W >= Window->W )	W = Window->W - X;
+	if( Y + H >= Window->H )	H = Window->H - Y;
+	
+	Window->CursorX = X;
+	Window->CursorY = Y;
+	Window->CursorW = W;
+	Window->CursorH = H;
 }
 

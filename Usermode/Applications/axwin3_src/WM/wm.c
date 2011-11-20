@@ -21,6 +21,8 @@ tWMRenderer	*gpWM_Renderers;
 tWindow	*gpWM_RootWindow;
 //! Window which will recieve the next keyboard event
 tWindow	*gpWM_FocusedWindow;
+//! Hilighted window (owner of the currently focused window)
+tWindow	*gpWM_HilightedWindow;
 
 // === CODE ===
 void WM_Initialise(void)
@@ -53,26 +55,26 @@ tWindow *WM_CreateWindow(tWindow *Parent, tIPC_Client *Client, uint32_t ID, int 
 	if(renderer == NULL)
 		return NULL;
 
-	if(!Parent)
-		Parent = gpWM_RootWindow;
-
 	// - Call create window function
 	ret = renderer->CreateWindow(RendererArg);
 	ret->Client = Client;
 	ret->ID = ID;
 	ret->Parent = Parent;
+	if(!ret->Parent)
+		ret->Parent = gpWM_RootWindow;
+	ret->Owner = Parent;
 	ret->Renderer = renderer;
 	ret->Flags |= WINFLAG_CLEAN;	// Needed to stop invaildate early exiting
 
 	// Append to parent
-	if(Parent)
+	if(ret->Parent)
 	{
-		if(Parent->LastChild)
-			Parent->LastChild->NextSibling = ret;
+		if(ret->Parent->LastChild)
+			ret->Parent->LastChild->NextSibling = ret;
 		else
-			Parent->FirstChild = ret;
-		ret->PrevSibling = Parent->LastChild;
-		Parent->LastChild = ret;
+			ret->Parent->FirstChild = ret;
+		ret->PrevSibling = ret->Parent->LastChild;
+		ret->Parent->LastChild = ret;
 		ret->NextSibling = NULL;
 	}
 	else
@@ -81,7 +83,7 @@ tWindow *WM_CreateWindow(tWindow *Parent, tIPC_Client *Client, uint32_t ID, int 
 	}
 
 	// Don't decorate child windows by default
-	if(Parent != gpWM_RootWindow)
+	if(Parent)
 	{
 		ret->Flags |= WINFLAG_NODECORATE;
 	}
@@ -147,32 +149,43 @@ void WM_FocusWindow(tWindow *Destination)
 	_msg.Val = 1;
 	WM_SendMessage(NULL, Destination, WNDMSG_FOCUS, sizeof(_msg), &_msg);
 	
+	WM_Invalidate(gpWM_FocusedWindow);
+	WM_Invalidate(Destination);
 	gpWM_FocusedWindow = Destination;
+
+
+	// Get the owner of the focused window	
+//	while(Destination && Destination->Owner)	Destination = Destination->Owner;
+//	gpWM_HilightedWindow = Destination;
 }
 
 
 void WM_ShowWindow(tWindow *Window, int bShow)
 {
-	// Message window
 	struct sWndMsg_Bool	_msg;
 	
 	if( !!(Window->Flags & WINFLAG_SHOW) == bShow )
 		return ;
 
+	// Message window
 	_msg.Val = !!bShow;
 	WM_SendMessage(NULL, Window, WNDMSG_SHOW, sizeof(_msg), &_msg);
-	
+
+	// Update the flag
 	if(bShow)
 		Window->Flags |= WINFLAG_SHOW;
-	else {
+	else
+	{
 		Window->Flags &= ~WINFLAG_SHOW;
+
 		if( Window == gpWM_FocusedWindow )
 			WM_FocusWindow(Window->Parent);
-	}
-	// Just a little memory saving for large hidden windows
-	if(Window->RenderBuffer) {
-		free(Window->RenderBuffer);
-		Window->RenderBuffer = NULL;
+		
+		// Just a little memory saving for large hidden windows
+		if(Window->RenderBuffer) {
+			free(Window->RenderBuffer);
+			Window->RenderBuffer = NULL;
+		}
 	}
 	
 	WM_Invalidate(Window);
@@ -278,6 +291,7 @@ int WM_SendMessage(tWindow *Source, tWindow *Dest, int Message, int Length, cons
 
 void WM_Invalidate(tWindow *Window)
 {
+	if(!Window)	return ;
 	_SysDebug("Invalidating %p", Window);
 	// Don't invalidate twice (speedup)
 //	if( !(Window->Flags & WINFLAG_CLEAN) )	return;
@@ -293,7 +307,7 @@ void WM_Invalidate(tWindow *Window)
 // --- Rendering / Update
 void WM_int_UpdateWindow(tWindow *Window)
 {
-	tWindow	*child;
+	 int	bDecoratorRedraw = 0;
 
 	// Ignore hidden windows
 	if( !(Window->Flags & WINFLAG_SHOW) )
@@ -309,7 +323,7 @@ void WM_int_UpdateWindow(tWindow *Window)
 			Decorator_UpdateBorderSize(Window);
 			Window->RealW = Window->BorderL + Window->W + Window->BorderR;
 			Window->RealH = Window->BorderT + Window->H + Window->BorderB;
-			Decorator_Redraw(Window);
+			bDecoratorRedraw = 1;
 		}
 		else
 		{
@@ -328,6 +342,7 @@ void WM_int_UpdateWindow(tWindow *Window)
 	// Process children
 	if( !(Window->Flags & WINFLAG_CHILDCLEAN) )
 	{
+		tWindow	*child;
 		for( child = Window->FirstChild; child; child = child->NextSibling )
 		{
 			WM_int_UpdateWindow(child);
@@ -335,6 +350,8 @@ void WM_int_UpdateWindow(tWindow *Window)
 		Window->Flags |= WINFLAG_CHILDCLEAN;
 	}
 	
+	if( bDecoratorRedraw )
+		Decorator_Redraw(Window);
 }
 
 void WM_int_BlitWindow(tWindow *Window)
@@ -345,9 +362,20 @@ void WM_int_BlitWindow(tWindow *Window)
 	if( !(Window->Flags & WINFLAG_SHOW) )
 		return ;
 
-	_SysDebug("Blit %p to (%i,%i) %ix%i", Window, Window->X, Window->Y, Window->RealW, Window->RealH);
+//	_SysDebug("Blit %p to (%i,%i) %ix%i", Window, Window->X, Window->Y, Window->RealW, Window->RealH);
 	Video_Blit(Window->RenderBuffer, Window->X, Window->Y, Window->RealW, Window->RealH);
 	
+	if( Window == gpWM_FocusedWindow && Window->CursorW )
+	{
+		Video_FillRect(
+			Window->X + Window->BorderL + Window->CursorX,
+			Window->Y + Window->BorderT + Window->CursorY,
+			Window->CursorW, Window->CursorH,
+			0x000000
+			);
+			
+	}
+
 	for( child = Window->FirstChild; child; child = child->NextSibling )
 	{
 		WM_int_BlitWindow(child);

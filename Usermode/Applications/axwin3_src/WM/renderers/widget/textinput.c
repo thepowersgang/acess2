@@ -4,36 +4,64 @@
  * 
  * renderer/widget/textinput.c
  * - Single line text box
+ *
+ * TODO: Support Right-to-Left text
  */
 #include <common.h>
 #include "./common.h"
 #include "./colours.h"
 
+struct sTextInputInfo
+{
+	 int	DrawOfs;	// Byte offset for the leftmost character
+	 int	CursorXOfs;	// Pixel offset of the cursor
+};
+
 void Widget_TextInput_Render(tWindow *Window, tElement *Element)
 {
-	WM_Render_FillRect(
-		Window, 
+	struct sTextInputInfo	*info = (void*)Element->Data;
+	struct sWidgetWin	*wininfo = Window->RendererInfo;
+	
+	WM_Render_FillRect(Window, 
 		Element->CachedX, Element->CachedY,
 		Element->CachedW, Element->CachedH,
 		TEXTINPUT_BACKGROUND
 		);
-	WM_Render_DrawRect(
-		Window, 
+	WM_Render_DrawRect(Window, 
 		Element->CachedX, Element->CachedY,
 		Element->CachedW, Element->CachedH,
 		TEXTINPUT_BORDER_OUT
 		);
-	WM_Render_DrawRect(
-		Window, 
+	WM_Render_DrawRect(Window, 
 		Element->CachedX+1, Element->CachedY+1,
 		Element->CachedW-2, Element->CachedH-2,
 		TEXTINPUT_BORDER_IN
 		);
-	// TODO: Cursor?
+	
+	// Text
+	WM_Render_DrawText(Window,
+		Element->CachedX+2, Element->CachedY+2,
+		Element->CachedW-4, Element->CachedW-4,
+		NULL, TEXTINPUT_TEXT,
+		&Element->Text[info->DrawOfs]
+		);
+
+	// TODO: Determine if this element has focus
+	if( wininfo->FocusedElement == Element )
+	{
+		// TODO: Multiple Cursors
+		WM_Render_SetTextCursor(Window,
+			Element->CachedX+2+info->CursorXOfs,
+			Element->CachedY+2,
+			Element->CachedW-4, 1,
+			TEXTINPUT_TEXT
+			);
+	}
 }
 
 void Widget_TextInput_Init(tElement *Element)
 {
+	struct sTextInputInfo	*info;
 	 int	h;
 
 	// TODO: Select font correctly	
@@ -44,7 +72,9 @@ void Widget_TextInput_Init(tElement *Element)
 	Element->MinH = h;
 	Element->MinW = 4;
 
-	_SysDebug("h = %i", h);
+	info = Element->Data = malloc(sizeof(*info));
+	info->DrawOfs = 0;
+	info->CursorXOfs = 0;
 
 	// No need to explicitly update parent min dims, as the AddElement routine does that	
 }
@@ -54,5 +84,4 @@ DEFWIDGETTYPE(ELETYPE_TEXTINPUT,
 	.Render = Widget_TextInput_Render,
 	.Init = Widget_TextInput_Init
 	);
-
 

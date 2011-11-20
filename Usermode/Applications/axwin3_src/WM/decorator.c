@@ -10,19 +10,22 @@
 #include <decorator.h>
 #include <wm_messages.h>
 
+// === IMPORTS ===
+extern tWindow	*gpWM_FocusedWindow;
+
 // === PROTOTYPES ===
 void	Decorator_UpdateBorderSize(tWindow *Window);
 void	Decorator_Redraw(tWindow *Window);
  int	Decorator_HandleMessage(tWindow *Window, int Message, int Length, const void *Data);
 
 // === CONSTANTS ===
-tColour	cColourActive_Titlebar   = 0xFF8800;
+tColour	cColourActive_Titlebar   = 0x00CC44;
 tColour	cColourActive_TitleText  = 0x000000;
 tColour	cColourInactive_Titlebar = 0xD0D0D0;
 tColour	cColourInactive_TitleText= 0x000000;
 tColour	cColour_TitleTopBorder   = 0xFFFFFF;
-tColour	cColour_SideBorder       = 0xD0D0D0;
-tColour	cColour_BottomBorder     = 0xD0D0D0;
+tColour	cColour_SideBorder       = 0x008000;
+tColour	cColour_BottomBorder     = 0x008000;
  int	ciTitlebarHeight	= 18;
  int	ciSideBorderWidth	= 2;
  int	ciBottomBorderWidth	= 4;
@@ -30,14 +33,15 @@ tColour	cColour_BottomBorder     = 0xD0D0D0;
 // === CODE ===
 void Decorator_UpdateBorderSize(tWindow *Window)
 {
-	Window->BorderT = 0;
+	Window->BorderT = ciTitlebarHeight;
 	Window->BorderB = 0;
 	Window->BorderL = 0;
 	Window->BorderR = 0;
 	
-	Window->BorderT = ciTitlebarHeight;
 	if( Window->Flags & WINFLAG_MAXIMIZED )
 		return ;
+
+	_SysDebug("BorderL = %i", ciSideBorderWidth);
 	
 	Window->BorderB = ciBottomBorderWidth;
 	Window->BorderR = ciSideBorderWidth;
@@ -46,11 +50,21 @@ void Decorator_UpdateBorderSize(tWindow *Window)
 
 void Decorator_Redraw(tWindow *Window)
 {
-	 int	bActive = 1;
+	 int	bActive;
 	 int	text_width, text_height;
 	
-	// TODO: Detect if window has focus
-	
+	// TODO: This could possibly be expensive, but is there a better way?
+	{
+		tWindow	*win;
+		for(win = gpWM_FocusedWindow; win; win = win->Owner)
+		{
+			if(win == Window) {
+				bActive = 1;
+				break;
+			}
+		}
+	}
+
 	// Draw title bar
 	WM_Render_FillRect(Window,
 		0, -ciTitlebarHeight, Window->W, ciTitlebarHeight,
@@ -101,7 +115,12 @@ void Decorator_Redraw(tWindow *Window)
 	// Bottom
 	WM_Render_FillRect(Window,
 		-ciSideBorderWidth, Window->H,
-		ciSideBorderWidth*2+Window->W, ciBottomBorderWidth,
+		ciSideBorderWidth*2+Window->W, 1,
+		0x000000
+		);
+	WM_Render_FillRect(Window,
+		-ciSideBorderWidth, Window->H+1,
+		ciSideBorderWidth*2+Window->W, ciBottomBorderWidth-1,
 		cColour_BottomBorder
 		);
 }

@@ -23,7 +23,7 @@
 //! Don't decoratate even if root
 #define WINFLAG_NODECORATE	0x00000002
 //! Window takes up all of screen
-#define WINFLAG_MAXIMIZED	0x00000005
+#define WINFLAG_MAXIMIZED	0x00000004
 //! Window contents are valid
 #define WINFLAG_CLEAN    	0x00000040
 //! All child windows are un-changed
@@ -60,6 +60,7 @@ extern void	WM_Render_DrawRect(tWindow *Window, int X, int Y, int W, int H, tCol
 extern int	WM_Render_DrawText(tWindow *Window, int X, int Y, int W, int H, tFont *Font, tColour Colour, const char *Text);
 extern void	WM_Render_GetTextDims(tFont *Font, const char *Text, int *W, int *H);
 extern void	WM_Render_DrawImage(tWindow *Window, int X, int Y, int W, int H, tImage *Image);
+extern void	WM_Render_SetTextCursor(tWindow *Window, int X, int Y, int W, int H, tColour Colour);
 // NOTE: Should really be elsewhere
 extern tColour	Video_AlphaBlend(tColour _orig, tColour _new, uint8_t _alpha);
 #endif

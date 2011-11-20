@@ -164,7 +164,7 @@ void Renderer_Menu_Redraw(tWindow *Window)
 	
 		// Text
 		WM_Render_DrawText(Window,
-			ciMenu_LeftPadding, y,
+			ciMenu_LeftPadding, y+1,
 			w, ciMenu_ItemHeight,
 			gMenu_Font,
 			cMenu_LabelColour,
@@ -174,7 +174,7 @@ void Renderer_Menu_Redraw(tWindow *Window)
 		if(item->UnderlineW)
 		{
 			WM_Render_FillRect(Window,
-				ciMenu_LeftPadding + item->UnderlineX, y + ciMenu_FontHeight,
+				ciMenu_LeftPadding + item->UnderlineX, y + 1 + ciMenu_FontHeight,
 				item->UnderlineW, 1,
 				cMenu_LabelColour
 				);

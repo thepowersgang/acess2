@@ -83,7 +83,7 @@ void create_sidebar(void)
 	AxWin3_Widget_SetSize(ele, 4);
 
 	// > Version/Time
-	ele = AxWin3_Widget_AddWidget(gSidebarRoot, ELETYPE_BOX, ELEFLAG_VERTICAL|ELEFLAG_NOSTRETCH, "Version/Time");
+	ele = AxWin3_Widget_AddWidget(gSidebarRoot, ELETYPE_BOX, ELEFLAG_VERTICAL|ELEFLAG_ALIGN_CENTER|ELEFLAG_NOSTRETCH, "Version/Time");
 	txt = AxWin3_Widget_AddWidget(ele, ELETYPE_TEXT, ELEFLAG_NOSTRETCH, "Version String");
 	AxWin3_Widget_SetSize(txt, 20);
 	AxWin3_Widget_SetText(txt, "3.0");
@@ -101,6 +101,11 @@ void mainmenu_app_textedit(void *unused)
 	_SysDebug("TODO: Launch text editor");
 }
 
+void mainmenu_app_terminal(void *unused)
+{
+	_SysDebug("TODO: Launch terminal emulator");
+}
+
 void mainmenu_run_dialog(void *unused)
 {
 	AxWin3_ShowWindow(gRunDialog, 1);
@@ -111,6 +116,7 @@ void create_mainmenu(void)
 	gSystemMenu = AxWin3_Menu_Create(NULL);
 	
 	AxWin3_Menu_AddItem(gSystemMenu, "Text &Editor\tWin+E", mainmenu_app_textedit, NULL, 0, NULL);
+	AxWin3_Menu_AddItem(gSystemMenu, "Terminal Emulator\tWin+T", mainmenu_app_terminal, NULL, 0, NULL);
 	AxWin3_Menu_AddItem(gSystemMenu, NULL, NULL, NULL, 0, NULL);
 	AxWin3_Menu_AddItem(gSystemMenu, "Run\tWin+R", mainmenu_run_dialog, NULL, 0, NULL);
 }

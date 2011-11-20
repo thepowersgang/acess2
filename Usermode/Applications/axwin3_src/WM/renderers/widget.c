@@ -113,7 +113,7 @@ tWindow	*Renderer_Widget_Create(int Flags)
 void Renderer_Widget_Redraw(tWindow *Window)
 {
 	tWidgetWin	*info = Window->RendererInfo;
-	WM_Render_FillRect(Window, 0, 0, 0xFFF, 0xFFF, info->RootElement.BackgroundColour);
+	WM_Render_FillRect(Window, 0, 0, Window->W, Window->H, info->RootElement.BackgroundColour);
 
 	Widget_UpdateDimensions(&info->RootElement);
 	Widget_UpdatePosition(&info->RootElement);
@@ -141,10 +141,6 @@ void Widget_RenderWidget(tWindow *Window, tElement *Element)
 	if(gaWM_WidgetTypes[Element->Type]->Render)
 	{
 		gaWM_WidgetTypes[Element->Type]->Render(Window, Element);
-	}
-	else
-	{
-		Widget_Decorator_RenderWidget(Window, Element);
 	}
 	
 	for(child = Element->FirstChild; child; child = child->NextSibling)
@@ -256,7 +252,7 @@ void Widget_UpdateDimensions(tElement *Element)
 		if(w < child->MinW)	w = child->MinW;
 		if(h < child->MinH)	h = child->MinH;
 	
-		_SysDebug("Child %ix%i (min %ix%i)", w, h, child->MinW, child->MinH);
+//		_SysDebug("Child %ix%i (min %ix%i)", w, h, child->MinW, child->MinH);
 	
 		// Update the dimensions if they have changed
 		if( child->CachedW == w && child->CachedH == h )

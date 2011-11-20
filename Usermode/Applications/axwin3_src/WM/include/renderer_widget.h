@@ -59,13 +59,12 @@ struct sAxWin_Element
 struct sWidgetWin
 {
 	tElement	RootElement;
+
+	tElement	*FocusedElement;
 	
 	 int	TableSize;	//!< Number of entries, anything over will wrap
 	tElement	*ElementTable[];	//!< Hash table essentially
 };
-
-// === FUNCTIONS === 
-extern void	Widget_Decorator_RenderWidget(tWindow *Window, tElement *Element);
 
 #endif
 

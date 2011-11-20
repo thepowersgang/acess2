@@ -12,31 +12,37 @@
 
 struct sWindow
 {
-	tWindow	*NextSibling;
-	tWindow	*PrevSibling;
+	tWindow	*Owner;
 
 	// Render tree
 	tWindow	*Parent;
 	tWindow	*FirstChild;
 	tWindow	*LastChild;
+	tWindow	*NextSibling;
+	tWindow	*PrevSibling;
 
 	tIPC_Client	*Client;
 	uint32_t	ID;	//!< Client assigned ID
+
 	tWMRenderer	*Renderer;
+	void	*RendererInfo;	
 
 	char	*Title;
 
 	 int	Flags;
 
+	// Text Cursor
+	 int	CursorX, CursorY;
+	 int	CursorW, CursorH;
+
+	// Gutter sizes (cached from decorator)
 	 int	BorderL, BorderR;
 	 int	BorderT, BorderB;
 
-	 int	RealW, RealH;	
-
+	// Position and dimensions
 	 int	X, Y;
+	 int	RealW, RealH;
 	 int	W, H;
-
-	void	*RendererInfo;	
 
 	void	*RenderBuffer;	//!< Cached copy of the rendered window
 };

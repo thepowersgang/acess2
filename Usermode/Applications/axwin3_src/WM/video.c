@@ -19,8 +19,7 @@
 void	Video_Setup(void);
 void	Video_SetCursorPos(short X, short Y);
 void	Video_Update(void);
-void	Video_FillRect(short X, short Y, short W, short H, uint32_t Color);
-void	Video_DrawRect(short X, short Y, short W, short H, uint32_t Color);
+void	Video_FillRect(int X, int Y, int W, int H, uint32_t Color);
 
 // === GLOBALS ===
  int	giVideo_CursorX;
@@ -89,6 +88,25 @@ void Video_SetCursorPos(short X, short Y)
 	pos.x = giVideo_CursorX = X;
 	pos.y = giVideo_CursorY = Y;
 	ioctl(giTerminalFD, TERM_IOCTL_GETSETCURSOR, &pos);
+}
+
+void Video_FillRect(int X, int Y, int W, int H, uint32_t Colour)
+{
+	uint32_t	*dest;
+	 int	i;
+	
+	if(X < 0 || Y < 0)	return;
+	if(W >= giScreenWidth)	return;
+	if(H >= giScreenHeight)	return;
+	if(X + W >= giScreenWidth)	W = giScreenWidth - W;
+	if(Y + H >= giScreenHeight)	W = giScreenHeight - H;
+	
+	dest = gpScreenBuffer + Y * giScreenWidth + X;
+	while(H --)
+	{
+		for( i = W; W --; dest ++)	*dest = Colour;
+		dest += giScreenWidth - W;
+	}
 }
 
 /**

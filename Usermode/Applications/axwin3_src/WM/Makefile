@@ -13,7 +13,7 @@ OBJ += renderers/passthru.o
 OBJ += renderers/background.o
 OBJ += renderers/menu.o
 # TODO: Move to a lower makefile
-OBJ += renderers/widget.o renderers/widget/widget_decorator.o
+OBJ += renderers/widget.o
 OBJ += renderers/widget/button.o
 OBJ += renderers/widget/image.o
 OBJ += renderers/widget/disptext.o
