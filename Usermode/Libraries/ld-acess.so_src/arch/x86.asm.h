@@ -15,7 +15,8 @@ _errno:	dw	0
 _start:
 	call SoMain
 	add esp, 4	; // Base address
-	jmp eax
+	call eax
+	call _exit
 
 ; DEST
 ; SRC
