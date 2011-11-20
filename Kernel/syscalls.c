@@ -163,7 +163,6 @@ void SyscallHandler(tSyscallRegs *Regs)
 			{
 				tmp = (char**)Regs->Arg3;
 				CHECK_NUM_NONULL(tmp, sizeof(char**));
-				Log("tmp = %p", tmp);
 				for(i=0;tmp[i];i++) {
 					CHECK_NUM_NONULL( &tmp[i], sizeof(char*) );
 					CHECK_STR_NONULL( tmp[i] );

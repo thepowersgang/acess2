@@ -236,8 +236,8 @@ int VT_Install(char **Arguments)
 	for( i = 0; i < NUM_VTS; i++ )
 	{
 		gVT_Terminals[i].Mode = TERM_MODE_TEXT;
-//		gVT_Terminals[i].Flags = 0;
-		gVT_Terminals[i].Flags = VT_FLAG_HIDECSR;	//HACK - Stop all those memcpy calls
+		gVT_Terminals[i].Flags = 0;
+//		gVT_Terminals[i].Flags = VT_FLAG_HIDECSR;	//HACK - Stop all those memcpy calls
 		gVT_Terminals[i].CurColour = DEFAULT_COLOUR;
 		gVT_Terminals[i].WritePos = 0;
 		gVT_Terminals[i].AltWritePos = 0;
@@ -462,14 +462,13 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	
 	Mutex_Acquire( &term->ReadingLock );
 	
-	// Update cursor
-	VT_int_UpdateCursor(term, 1);
-	
 	// Check current mode
 	switch(term->Mode)
 	{
 	// Text Mode (UTF-8)
 	case TERM_MODE_TEXT:
+		VT_int_UpdateCursor(term, 1);
+	
 		VFS_SelectNode(Node, VFS_SELECT_READ, NULL, "VT_Read (UTF-8)");
 		
 		avail = term->InputWrite - term->InputRead;

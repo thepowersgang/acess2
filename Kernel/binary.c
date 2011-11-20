@@ -452,8 +452,6 @@ tBinary *Binary_DoLoad(tMount MountID, tInode Inode, const char *Path)
 		break;
 	}
 
-	LOG("pBinary = %p", pBinary);
-	
 	// Close File
 	VFS_Close(fp);
 	
@@ -464,6 +462,8 @@ tBinary *Binary_DoLoad(tMount MountID, tInode Inode, const char *Path)
 		LEAVE('n');
 		return NULL;
 	}
+	
+	LOG("pBinary = %p", pBinary);
 	
 	// Error Check
 	if(pBinary == NULL) {
