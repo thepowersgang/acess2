@@ -541,6 +541,9 @@ extern int	DivUp(int num, int dem);
 //! Divide and Modulo 64-bit unsigned integer
 extern Uint64	DivMod64U(Uint64 Num, Uint64 Den, Uint64 *Rem);
 
+static inline int MIN(int a, int b) { return a < b ? a : b; }
+static inline int MAX(int a, int b) { return a > b ? a : b; }
+
 #include <binary_ext.h>
 #include <vfs_ext.h>
 #include <mutex.h>

@@ -490,11 +490,11 @@ char *strcpy(char *__str1, const char *__str2)
  * \brief Copy a string to a new location
  * \note Copies at most `max` chars
  */
-char *strncpy(char *__str1, const char *__str2, size_t max)
+char *strncpy(char *__str1, const char *__str2, size_t __max)
 {
-	while(*__str2 && max-- >= 1)
+	while(*__str2 && __max-- >= 1)
 		*__str1++ = *__str2++;
-	if(max)
+	if(__max)
 		*__str1 = '\0';	// Terminate String
 	return __str1;
 }

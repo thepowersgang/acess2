@@ -10,9 +10,6 @@
 #include <api_drv_joystick.h>
 #include "common.h"
 
-static inline int MIN(int a, int b) { return (a < b) ? a : b; }
-static inline int MAX(int a, int b) { return (a > b) ? a : b; }
-
 // == CONSTANTS ==
 #define NUM_AXIES	2	// X+Y
 #define NUM_BUTTONS	5	// Left, Right, Scroll Click, Scroll Up, Scroll Down

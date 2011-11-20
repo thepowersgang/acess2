@@ -890,7 +890,7 @@ void VT_KBCallBack(Uint32 Codepoint)
 {
 	tVTerm	*term = gpVT_CurTerm;
 
-	// Key Up
+	// Catch VT binds
 	switch( Codepoint & KEY_ACTION_MASK )
 	{
 	case KEY_ACTION_RELEASE:
@@ -928,22 +928,30 @@ void VT_KBCallBack(Uint32 Codepoint)
 		case KEY_F10:	VT_SetTerminal(9);	return;
 		case KEY_F11:	VT_SetTerminal(10);	return;
 		case KEY_F12:	VT_SetTerminal(11);	return;
+		}
+		
+		// Scrolling is only valid in text mode
+		if(gpVT_CurTerm->Mode != TERM_MODE_TEXT)
+			break;
+		
+		switch(Codepoint & KEY_CODEPOINT_MASK)
+		{
 		// Scrolling
 		case KEY_PGUP:
 			if( gpVT_CurTerm->Flags & VT_FLAG_ALTBUF )
 				return ;
-			if( gpVT_CurTerm->ViewPos > gpVT_CurTerm->Width )
-				gpVT_CurTerm->ViewPos -= gpVT_CurTerm->Width;
-			else
-				gpVT_CurTerm->ViewPos = 0;
+			gpVT_CurTerm->ViewPos = MAX(
+				0,
+				gpVT_CurTerm->ViewPos - gpVT_CurTerm->Width
+				);
 			return;
 		case KEY_PGDOWN:
 			if( gpVT_CurTerm->Flags & VT_FLAG_ALTBUF )
 				return ;
-			if( gpVT_CurTerm->ViewPos < gpVT_CurTerm->Width*gpVT_CurTerm->Height*(giVT_Scrollback) )
-				gpVT_CurTerm->ViewPos += gpVT_CurTerm->Width;
-			else
-				gpVT_CurTerm->ViewPos = gpVT_CurTerm->Width*gpVT_CurTerm->Height*(giVT_Scrollback);
+			gpVT_CurTerm->ViewPos = MIN(
+				gpVT_CurTerm->ViewPos + gpVT_CurTerm->Width,
+				gpVT_CurTerm->Width * gpVT_CurTerm->Height*giVT_Scrollback
+				);
 			return;
 		}
 		break;
