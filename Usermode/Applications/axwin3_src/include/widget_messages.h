@@ -13,6 +13,7 @@ enum
 	// Control (Client->Server) messages
 	MSG_WIDGET_CREATE = 0x1000,
 	MSG_WIDGET_DELETE,
+	MSG_WIDGET_SETFOCUS,
 	MSG_WIDGET_SETFLAGS,
 	MSG_WIDGET_SETSIZE,
 	MSG_WIDGET_SETTEXT,
@@ -38,6 +39,11 @@ typedef struct
 {
 	uint32_t	WidgetID;
 } tWidgetMsg_Delete;
+
+typedef struct
+{
+	uint32_t	WidgetID;
+} tWidgetMsg_SetFocus;
 
 typedef struct
 {

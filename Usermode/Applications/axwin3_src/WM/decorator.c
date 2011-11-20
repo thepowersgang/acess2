@@ -41,8 +41,6 @@ void Decorator_UpdateBorderSize(tWindow *Window)
 	if( Window->Flags & WINFLAG_MAXIMIZED )
 		return ;
 
-	_SysDebug("BorderL = %i", ciSideBorderWidth);
-	
 	Window->BorderB = ciBottomBorderWidth;
 	Window->BorderR = ciSideBorderWidth;
 	Window->BorderL = ciSideBorderWidth;

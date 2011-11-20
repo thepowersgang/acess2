@@ -13,6 +13,7 @@
 
 // === IMPORTS ===
 extern tWindow	*gpWM_RootWindow;
+extern tWindow	*gpWM_FocusedWindow;
 
 // === GLOBALS ===
 //! Window in which the mouse button was originally pressed
@@ -108,5 +109,29 @@ void WM_Input_MouseButton(int X, int Y, int ButtonIndex, int Pressed)
 
 	// Send Press/Release message
 	WM_Input_int_SendBtnMsg(win, X, Y, ButtonIndex, Pressed);
+}
+
+void WM_Input_KeyDown(uint32_t Character, uint32_t Scancode)
+{
+	struct sWndMsg_KeyAction	msg;
+	msg.KeySym = Scancode;
+	msg.UCS32 = Character;
+	WM_SendMessage(NULL, gpWM_FocusedWindow, WNDMSG_KEYDOWN, sizeof(msg), &msg);
+}
+
+void WM_Input_KeyFire(uint32_t Character, uint32_t Scancode)
+{
+	struct sWndMsg_KeyAction	msg;
+	msg.KeySym = Scancode;
+	msg.UCS32 = Character;
+	WM_SendMessage(NULL, gpWM_FocusedWindow, WNDMSG_KEYFIRE, sizeof(msg), &msg);
+}
+
+void WM_Input_KeyUp(uint32_t Character, uint32_t Scancode)
+{
+	struct sWndMsg_KeyAction	msg;
+	msg.KeySym = Scancode;
+	msg.UCS32 = Character;
+	WM_SendMessage(NULL, gpWM_FocusedWindow, WNDMSG_KEYUP, sizeof(msg), &msg);
 }
 

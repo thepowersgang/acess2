@@ -53,7 +53,7 @@ void Widget_TextInput_Render(tWindow *Window, tElement *Element)
 		WM_Render_SetTextCursor(Window,
 			Element->CachedX+2+info->CursorXOfs,
 			Element->CachedY+2,
-			Element->CachedW-4, 1,
+			1, Element->CachedH-4,
 			TEXTINPUT_TEXT
 			);
 	}
@@ -79,9 +79,16 @@ void Widget_TextInput_Init(tElement *Element)
 	// No need to explicitly update parent min dims, as the AddElement routine does that	
 }
 
+int Widget_TextInput_KeyFire(tElement *Ele, int KeySym, int Character)
+{
+	_SysDebug("Key 0x%x fired ('%c')", Character, Character);
+	return 0;
+}
+
 DEFWIDGETTYPE(ELETYPE_TEXTINPUT,
 	WIDGETTYPE_FLAG_NOCHILDREN,
 	.Render = Widget_TextInput_Render,
-	.Init = Widget_TextInput_Init
+	.Init = Widget_TextInput_Init,
+	.KeyFire = Widget_TextInput_KeyFire
 	);
 

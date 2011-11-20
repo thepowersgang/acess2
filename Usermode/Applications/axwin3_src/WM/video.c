@@ -104,7 +104,7 @@ void Video_FillRect(int X, int Y, int W, int H, uint32_t Colour)
 	dest = gpScreenBuffer + Y * giScreenWidth + X;
 	while(H --)
 	{
-		for( i = W; W --; dest ++)	*dest = Colour;
+		for( i = W; i --; dest ++ )	*dest = Colour;
 		dest += giScreenWidth - W;
 	}
 }

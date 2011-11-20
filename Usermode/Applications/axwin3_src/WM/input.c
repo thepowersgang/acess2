@@ -7,6 +7,7 @@
  */
 #include <common.h>
 #include <acess/sys.h>
+#include <wm_input.h>
 
 // TODO: Move out to a common header
 typedef struct
@@ -19,8 +20,6 @@ typedef struct
 
 // === IMPORTS ===
 extern void	Video_SetCursorPos(short X, short Y);
-extern void	WM_Input_MouseMoved(int OldX, int OldY, int NewX, int NewY);
-extern void	WM_Input_MouseButton(int X, int Y, int Button, int Pressed);
 const char	*gsMouseDevice;
 extern int	giTerminalFD;
 extern int	giScreenWidth;
@@ -69,10 +68,31 @@ void Input_HandleSelect(fd_set *set)
 	if(FD_ISSET(giTerminalFD, set))
 	{
 		uint32_t	codepoint;
+		static uint32_t	scancode;
+		#define KEY_CODEPOINT_MASK	0x3FFFFFFF
+		
 		if( read(giTerminalFD, &codepoint, sizeof(codepoint)) != sizeof(codepoint) )
 		{
 			// oops, error
 		}
+	
+		switch(codepoint & 0xC0000000)
+		{
+		case 0x00000000:	// Key pressed
+			WM_Input_KeyDown(codepoint & KEY_CODEPOINT_MASK, scancode);
+		case 0x40000000:	// Key refire
+			WM_Input_KeyFire(codepoint & KEY_CODEPOINT_MASK, scancode);
+			scancode = 0;
+			break;
+		case 0x80000000:	// Key release
+			WM_Input_KeyUp(codepoint & KEY_CODEPOINT_MASK, scancode);
+			scancode = 0;
+			break;
+		case 0xC0000000:	// Raw scancode
+			scancode = codepoint & KEY_CODEPOINT_MASK;
+			break;
+		}
+	
 		// TODO: pass on to message handler
 		_SysDebug("Keypress 0x%x", codepoint);
 	}

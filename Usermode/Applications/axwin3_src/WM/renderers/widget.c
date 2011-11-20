@@ -79,7 +79,6 @@ void Widget_int_SetTypeDef(int Type, tWidgetDef *Ptr)
 	}
 	
 	gaWM_WidgetTypes[Type] = Ptr;
-	_SysDebug("Registered type %i to %p", Type, Ptr);
 }
 
 tWindow	*Renderer_Widget_Create(int Flags)
@@ -98,6 +97,7 @@ tWindow	*Renderer_Widget_Create(int Flags)
 	info = ret->RendererInfo;
 	
 	info->TableSize = eletable_size;
+	info->FocusedElement = &info->RootElement;
 	info->RootElement.Window = ret;
 	info->RootElement.ID = -1;
 	info->RootElement.BackgroundColour = 0xCCCCCC;
@@ -492,6 +492,13 @@ void Widget_NewWidget(tWidgetWin *Info, size_t Len, const tWidgetMsg_Create *Msg
 	Widget_UpdateMinDims(parent);
 }
 
+void Widget_SetFocus(tWidgetWin *Info, tElement *Ele)
+{
+	// TODO: Callbacks
+
+	Info->FocusedElement = Ele;
+}
+
 void Widget_SetFlags(tWidgetWin *Info, int Len, const tWidgetMsg_SetFlags *Msg)
 {
 	tElement	*ele;
@@ -548,6 +555,7 @@ void Widget_SetText(tWidgetWin *Info, int Len, const tWidgetMsg_SetText *Msg)
 int Renderer_Widget_HandleMessage(tWindow *Target, int Msg, int Len, const void *Data)
 {
 	tWidgetWin	*info = Target->RendererInfo;
+	tElement	*ele;
 	switch(Msg)
 	{
 	case WNDMSG_RESIZE: {
@@ -568,7 +576,6 @@ int Renderer_Widget_HandleMessage(tWindow *Target, int Msg, int Len, const void 
 	case WNDMSG_MOUSEBTN: {
 		const struct sWndMsg_MouseButton	*msg = Data;
 		tWidgetMsg_MouseBtn	client_msg;
-		tElement	*ele;
 		 int	x, y;
 		 int	rv;
 		
@@ -579,6 +586,7 @@ int Renderer_Widget_HandleMessage(tWindow *Target, int Msg, int Len, const void 
 		client_msg.bPressed = msg->bPressed;
 
 		ele = Widget_GetElementByPos(info, x, y);
+		Widget_SetFocus(info, ele);
 		// Send event to all elements from `ele` upwards
 		for( ; ele; ele = ele->Parent )
 		{
@@ -603,14 +611,71 @@ int Renderer_Widget_HandleMessage(tWindow *Target, int Msg, int Len, const void 
 		}
 		return 0; }
 
+	case WNDMSG_KEYDOWN: {
+		const struct sWndMsg_KeyAction	*msg = Data;
+		if(Len < sizeof(*msg))	return -1;
+		
+		if(!info->FocusedElement)	return 0;
+		ele = info->FocusedElement;
+
+		if(gaWM_WidgetTypes[ele->Type]->KeyDown)
+			gaWM_WidgetTypes[ele->Type]->KeyDown(ele, msg->KeySym, msg->UCS32);
+		else
+		{
+			// TODO: Pass to user
+		}	
+
+		return 0; }
+	
+	case WNDMSG_KEYFIRE: {
+		const struct sWndMsg_KeyAction	*msg = Data;
+		if(Len < sizeof(*msg))	return -1;
+		
+		if(!info->FocusedElement)	return 0;
+		ele = info->FocusedElement;
+
+		if(gaWM_WidgetTypes[ele->Type]->KeyFire)
+			gaWM_WidgetTypes[ele->Type]->KeyFire(ele, msg->KeySym, msg->UCS32);
+		else
+		{
+			// TODO: Pass the buck
+		}
+		return 0; }
+	
+	case WNDMSG_KEYUP: {
+		const struct sWndMsg_KeyAction	*msg = Data;
+		if(Len < sizeof(*msg))	return -1;
+		
+		if(!info->FocusedElement)	return 0;
+		ele = info->FocusedElement;
+
+		if(gaWM_WidgetTypes[ele->Type]->KeyUp)
+			gaWM_WidgetTypes[ele->Type]->KeyUp(ele, msg->KeySym);
+		else
+		{
+			// TODO: Pass the buck
+		}
+		return 0; }
+
 	// New Widget
 	case MSG_WIDGET_CREATE:
 		Widget_NewWidget(info, Len, Data);
 		return 0;
 
+	// Delete a widget
 	case MSG_WIDGET_DELETE:
 		_SysDebug("TODO: Implement MSG_WIDGET_DELETE");
 		return 0;
+
+	// Set focused widget
+	case MSG_WIDGET_SETFOCUS: {
+		tElement	*ele;
+		const tWidgetMsg_SetFocus	*msg = Data;
+		if(Len < sizeof(*msg))	return -1;
+		
+		ele = Widget_GetElementById(info, msg->WidgetID);
+		Widget_SetFocus(info, ele);
+		return 0; }
 
 	// Set Flags
 	case MSG_WIDGET_SETFLAGS:

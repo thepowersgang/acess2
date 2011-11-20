@@ -55,4 +55,10 @@ struct sWndMsg_MouseButton
 	uint8_t 	bPressed;
 };
 
+struct sWndMsg_KeyAction
+{
+	uint32_t	KeySym;
+	uint32_t	UCS32;
+};
+
 #endif
