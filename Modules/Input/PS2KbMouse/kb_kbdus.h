@@ -37,10 +37,8 @@ Uint32	gpKBDUS2[256] = {
 /*10*/	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, KEY_KPENTER, KEY_RCTRL, 0, 0,
 /*20*/	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 /*30*/	0, 0, 0, 0, 0, KEY_KPSLASH, 0, 0, KEY_RALT, 0, 0, 0, 0, 0, 0, 0,
-/*40*/	0, 0, 0, 0, 0, 0, 0, KEY_HOME,
-			KEY_UP, KEY_PGUP, 0, KEY_LEFT, 0, KEY_RIGHT, 0, KEY_END,
-/*50*/	KEY_DOWN, KEY_PGDOWN, KEY_INS, KEY_DEL, 0, 0, 0, 0,
-			0, 0, KEY_WIN, 0, 0, KEY_MENU, 0, 0,
+/*40*/	0, 0, 0, 0, 0, 0, 0, KEY_HOME, KEY_UP, KEY_PGUP, 0, KEY_LEFT, 0, KEY_RIGHT, 0, KEY_END,
+/*50*/	KEY_DOWN, KEY_PGDOWN, KEY_INS, KEY_DEL, 0, 0, 0, 0, 0, 0, 0, KEY_LWIN, KEY_RWIN, KEY_MENU, 0, 0,
 /*60*/	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 /*70*/	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };

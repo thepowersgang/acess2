@@ -482,7 +482,7 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 			((char*)Buffer)[pos] = term->InputBuffer[term->InputRead];
 			pos ++;
 			term->InputRead ++;
-			while(term->InputRead > MAX_INPUT_CHARS8)
+			while(term->InputRead >= MAX_INPUT_CHARS8)
 				term->InputRead -= MAX_INPUT_CHARS8;
 		}
 		break;
@@ -495,8 +495,9 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		avail = term->InputWrite - term->InputRead;
 		if(avail < 0)
 			avail += MAX_INPUT_CHARS32;
+		Length /= 4;
 		if(avail > Length - pos)
-			avail = Length/4 - pos;
+			avail = Length - pos;
 		
 		codepoint_in = (void*)term->InputBuffer;
 		codepoint_buf = Buffer;
@@ -506,7 +507,7 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 			codepoint_buf[pos] = codepoint_in[term->InputRead];
 			pos ++;
 			term->InputRead ++;
-			while(term->InputRead > MAX_INPUT_CHARS32)
+			while(term->InputRead >= MAX_INPUT_CHARS32)
 				term->InputRead -= MAX_INPUT_CHARS32;
 		}
 		pos *= 4;
@@ -1053,13 +1054,26 @@ void VT_KBCallBack(Uint32 Codepoint)
 	{
 		// Encode the raw key event
 		Uint32	*raw_in = (void*)term->InputBuffer;
+	
+		#if 0
+		// Drop new keys
+		if( term->InputWrite == term->InputRead )
+			return ;		
+		#endif
+
 		raw_in[ term->InputWrite ] = Codepoint;
 		term->InputWrite ++;
-		term->InputWrite %= MAX_INPUT_CHARS32;
+		if(term->InputWrite >= MAX_INPUT_CHARS32)
+			term->InputWrite -= MAX_INPUT_CHARS32;
+		
+		#if 1
+		// TODO: Should old or new be dropped?
 		if(term->InputRead == term->InputWrite) {
 			term->InputRead ++;
-			term->InputRead %= MAX_INPUT_CHARS32;
+			if( term->InputRead >= MAX_INPUT_CHARS32 )
+				term->InputRead -= MAX_INPUT_CHARS32;
 		}
+		#endif
 	}
 	
 	VFS_MarkAvaliable(&term->Node, 1);
@@ -1324,6 +1338,9 @@ int VT_int_ParseEscape(tVTerm *Term, char *Buffer)
 					if(argc != 1)	break;
 					switch(args[0])
 					{
+					case 25:
+						Term->Flags &= ~VT_FLAG_HIDECSR;
+						break;
 					case 1047:
 						VT_int_ToggleAltBuffer(Term, 1);
 						break;
@@ -1333,6 +1350,9 @@ int VT_int_ParseEscape(tVTerm *Term, char *Buffer)
 					if(argc != 1)	break;
 					switch(args[0])
 					{
+					case 25:
+						Term->Flags |= VT_FLAG_HIDECSR;
+						break;
 					case 1047:
 						VT_int_ToggleAltBuffer(Term, 0);
 						break;
