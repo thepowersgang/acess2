@@ -17,7 +17,7 @@ void Widget_DispText_Render(tWindow *Window, tElement *Element)
 		Element->CachedX+1, Element->CachedY+1,
 		Element->CachedW-2, Element->CachedH-2,
 		NULL, TEXT_COLOUR,
-		Element->Text
+		Element->Text, -1
 		);
 }
 
@@ -28,7 +28,7 @@ void Widget_DispText_UpdateText(tElement *Element, const char *Text)
 	if(Element->Text)	free(Element->Text);
 	Element->Text = strdup(Text);
 
-	WM_Render_GetTextDims(NULL, Element->Text, &w, &h);
+	WM_Render_GetTextDims(NULL, Element->Text, -1, &w, &h);
 
 	// Apply edge padding
 	w += 2;	h += 2;

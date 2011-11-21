@@ -57,8 +57,32 @@ extern int	WM_SendMessage(tWindow *Source, tWindow *Dest, int MessageID, int Len
 // --- Rendering
 extern void	WM_Render_FillRect(tWindow *Window, int X, int Y, int W, int H, tColour Colour);
 extern void	WM_Render_DrawRect(tWindow *Window, int X, int Y, int W, int H, tColour Colour);
-extern int	WM_Render_DrawText(tWindow *Window, int X, int Y, int W, int H, tFont *Font, tColour Colour, const char *Text);
-extern void	WM_Render_GetTextDims(tFont *Font, const char *Text, int *W, int *H);
+/**
+ * \brief Draw text to a window
+ * \param Window	Destination Window
+ * \param X	X coordinate (Left)
+ * \param Y	Y coordinate (Top)
+ * \param W	Width of destination region
+ * \param H	Height of destination region
+ * \param Font	Font to use
+ * \param Colour	Text foreground colour
+ * \param Text	UTF-8 string to render
+ * \param MaxLen	Number of bytes in \a Text to read (Note: A final multi-byte sequence can exceed this count)
+ *
+ * \note As as noted in the \a MaxLen parameter, up to 3 more bytes may be read
+ *       if the final character is a multi-byte UTF-8 sequence. This allows 1
+ *       to be passed to only render a single character.
+ */
+extern int	WM_Render_DrawText(tWindow *Window, int X, int Y, int W, int H, tFont *Font, tColour Colour, const char *Text, int MaxLen);
+/**
+ * \brief Get the dimensions of a string if it was rendered
+ * \param Font	Font to use
+ * \param Text	UTF-8 string to be processed
+ * \param MaxLen	Number of bytes in \a Text to read (same caveat as WM_Render_DrawText applies)
+ * \param W	Pointer to an integer to store the width of the rendered text
+ * \param H	Pointer to an integer to store the height of the rendered text
+ */
+extern void	WM_Render_GetTextDims(tFont *Font, const char *Text, int MaxLen, int *W, int *H);
 extern void	WM_Render_DrawImage(tWindow *Window, int X, int Y, int W, int H, tImage *Image);
 extern void	WM_Render_SetTextCursor(tWindow *Window, int X, int Y, int W, int H, tColour Colour);
 // NOTE: Should really be elsewhere

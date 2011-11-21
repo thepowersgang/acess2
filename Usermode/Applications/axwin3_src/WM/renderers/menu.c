@@ -168,7 +168,7 @@ void Renderer_Menu_Redraw(tWindow *Window)
 			w, ciMenu_ItemHeight,
 			gMenu_Font,
 			cMenu_LabelColour,
-			item->Label
+			item->Label, -1
 			);
 		// Underline
 		if(item->UnderlineW)
@@ -188,7 +188,7 @@ void Renderer_Menu_Redraw(tWindow *Window)
 				w, ciMenu_ItemHeight,
 				gMenu_Font,
 				cMenu_ShortcutColour,
-				item->Shortcut
+				item->Shortcut, -1
 				);
 		}
 		
@@ -277,23 +277,20 @@ int Renderer_Menu_int_AddItem(tWindow *Window, int Length, const tMenuMsg_AddIte
 	{
 		char	tmp = item->Label[item->KeyOffset];
 		// Get width of preceding substring
-		item->Label[item->KeyOffset] = '\0';
-		WM_Render_GetTextDims(NULL, item->Label, &item->UnderlineX, NULL);
+		WM_Render_GetTextDims(NULL, item->Label, item->KeyOffset, &item->UnderlineX, NULL);
 		// Get the width of the underlined character
-		// TODO: Fix for high UTF-8 characters
 		item->Label[item->KeyOffset] = tmp;
-		tmp = item->Label[item->KeyOffset+1];
-		item->Label[item->KeyOffset+1] = '\0';
+		// NOTE: 1 makes only one character be parsed, even if it is >1 byte long
 		WM_Render_GetTextDims(
-			NULL, item->Label+item->KeyOffset,
+			NULL, item->Label+item->KeyOffset, 1,
 			&item->UnderlineW, NULL
 			);
 		item->Label[item->KeyOffset+1] = tmp;
 	}
 	// - Labels
-	WM_Render_GetTextDims(NULL, item->Label, &item->LabelWidth, NULL);
+	WM_Render_GetTextDims(NULL, item->Label, -1, &item->LabelWidth, NULL);
 	if(item->Shortcut)
-		WM_Render_GetTextDims(NULL, item->Shortcut, &item->ShortcutWidth, NULL);
+		WM_Render_GetTextDims(NULL, item->Shortcut, -1, &item->ShortcutWidth, NULL);
 	else
 		item->ShortcutWidth = 0;
 	

@@ -122,6 +122,9 @@ void WM_Input_KeyDown(uint32_t Character, uint32_t Scancode)
 void WM_Input_KeyFire(uint32_t Character, uint32_t Scancode)
 {
 	struct sWndMsg_KeyAction	msg;
+
+	// TODO: Properly translate into KeySyms and Unicode
+
 	msg.KeySym = Scancode;
 	msg.UCS32 = Character;
 	WM_SendMessage(NULL, gpWM_FocusedWindow, WNDMSG_KEYFIRE, sizeof(msg), &msg);

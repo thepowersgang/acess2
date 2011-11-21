@@ -74,17 +74,20 @@ void Input_HandleSelect(fd_set *set)
 		if( read(giTerminalFD, &codepoint, sizeof(codepoint)) != sizeof(codepoint) )
 		{
 			// oops, error
+			_SysDebug("Terminal read failed?");
 		}
+	
+//		_SysDebug("Keypress 0x%x", codepoint);
 	
 		switch(codepoint & 0xC0000000)
 		{
 		case 0x00000000:	// Key pressed
 			WM_Input_KeyDown(codepoint & KEY_CODEPOINT_MASK, scancode);
-		case 0x40000000:	// Key refire
+		case 0x80000000:	// Key release
 			WM_Input_KeyFire(codepoint & KEY_CODEPOINT_MASK, scancode);
 			scancode = 0;
 			break;
-		case 0x80000000:	// Key release
+		case 0x40000000:	// Key refire
 			WM_Input_KeyUp(codepoint & KEY_CODEPOINT_MASK, scancode);
 			scancode = 0;
 			break;
@@ -92,9 +95,6 @@ void Input_HandleSelect(fd_set *set)
 			scancode = codepoint & KEY_CODEPOINT_MASK;
 			break;
 		}
-	
-		// TODO: pass on to message handler
-		_SysDebug("Keypress 0x%x", codepoint);
 	}
 
 	if(FD_ISSET(giMouseFD, set))

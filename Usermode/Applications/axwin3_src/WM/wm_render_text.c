@@ -8,6 +8,7 @@
 #include <common.h>
 #include <wm_internals.h>
 #include <stdlib.h>
+#include <utf8.h>
 
 // === TYPES ===
 typedef struct sGlyph	tGlyph;
@@ -51,12 +52,11 @@ struct sFont
 
 
 // === PROTOTYPES ===
- int	WM_Render_DrawText(tWindow *Window, int X, int Y, int W, int H, tFont *Font, tColour Color, const char *Text);
-void	WM_Render_GetTextDims(tFont *Font, const char *Text, int *W, int *H);
+ int	WM_Render_DrawText(tWindow *Window, int X, int Y, int W, int H, tFont *Font, tColour Color, const char *Text, int MaxLen);
+void	WM_Render_GetTextDims(tFont *Font, const char *Text, int MaxLen, int *W, int *H);
 tGlyph	*_GetGlyph(tFont *Font, uint32_t Codepoint);
 void	_RenderGlyph(tWindow *Window, short X, short Y, tGlyph *Glyph, uint32_t Color);
 tGlyph	*_SystemFont_CacheGlyph(tFont *Font, uint32_t Codepoint);
- int	ReadUTF8(const char *Input, uint32_t *Output);
 
 // === GLOBALS ===
 tFont	gSystemFont = {
@@ -67,7 +67,7 @@ tFont	gSystemFont = {
 /**
  * \brief Draw text to the screen
  */
-int WM_Render_DrawText(tWindow *Window, int X, int Y, int W, int H, tFont *Font, tColour Colour, const char *Text)
+int WM_Render_DrawText(tWindow *Window, int X, int Y, int W, int H, tFont *Font, tColour Colour, const char *Text, int MaxLen)
 {
 	 int	xOfs = 0;
 	tGlyph	*glyph;
@@ -78,6 +78,7 @@ int WM_Render_DrawText(tWindow *Window, int X, int Y, int W, int H, tFont *Font,
 	
 	if(!Text)	return 0;
 
+	if(MaxLen < 0)	MaxLen = INT_MAX;
 
 	X += Window->BorderL;
 	Y += Window->BorderT;
@@ -94,10 +95,13 @@ int WM_Render_DrawText(tWindow *Window, int X, int Y, int W, int H, tFont *Font,
 	// Handle NULL font (system default monospace)
 	if( !Font )	Font = &gSystemFont;
 	
-	while( *Text )
+	while( MaxLen > 0 && *Text )
 	{
+		 int	len;
 		// Read character
-		Text += ReadUTF8(Text, &ch);
+		len = ReadUTF8(Text, &ch);
+		Text += len;
+		MaxLen -= len;
 		
 		// Find (or load) the glyph
 		glyph = _GetGlyph(Font, ch);
@@ -114,16 +118,21 @@ int WM_Render_DrawText(tWindow *Window, int X, int Y, int W, int H, tFont *Font,
 	return xOfs;
 }
 
-void WM_Render_GetTextDims(tFont *Font, const char *Text, int *W, int *H)
+void WM_Render_GetTextDims(tFont *Font, const char *Text, int MaxLen, int *W, int *H)
 {
 	 int	w=0, h=0;
 	uint32_t	ch;
 	tGlyph	*glyph;
 	if( !Font )	Font = &gSystemFont;
 	
-	while( *Text )
+	if(MaxLen < 0)	MaxLen = INT_MAX;
+
+	while( MaxLen > 0 && *Text )
 	{
-		Text += ReadUTF8(Text, &ch);
+		 int	len;
+		len = ReadUTF8(Text, &ch);
+		Text += len;
+		MaxLen -= len;
 		glyph = _GetGlyph(Font, ch);
 		if( !glyph )	continue;
 		
@@ -315,68 +324,4 @@ tGlyph *_SystemFont_CacheGlyph(tFont *Font, uint32_t Codepoint)
 
 	return ret;
 }
-
-
-/**
- * \fn int ReadUTF8(char *Input, uint32_t *Val)
- * \brief Read a UTF-8 character from a string
- */
-int ReadUTF8(const char *Input, uint32_t *Val)
-{
-	const uint8_t	*str = (const uint8_t *)Input;
-	*Val = 0xFFFD;	// Assume invalid character
-	
-	// ASCII
-	if( !(*str & 0x80) ) {
-		*Val = *str;
-		return 1;
-	}
-	
-	// Middle of a sequence
-	if( (*str & 0xC0) == 0x80 ) {
-		return 1;
-	}
-	
-	// Two Byte
-	if( (*str & 0xE0) == 0xC0 ) {
-		*Val = (*str & 0x1F) << 6;	// Upper 6 Bits
-		str ++;
-		if( (*str & 0xC0) != 0x80)	return -1;	// Validity check
-		*Val |= (*str & 0x3F);	// Lower 6 Bits
-		return 2;
-	}
-	
-	// Three Byte
-	if( (*str & 0xF0) == 0xE0 ) {
-		*Val = (*str & 0x0F) << 12;	// Upper 4 Bits
-		str ++;
-		if( (*str & 0xC0) != 0x80)	return -1;	// Validity check
-		*Val |= (*str & 0x3F) << 6;	// Middle 6 Bits
-		str ++;
-		if( (*str & 0xC0) != 0x80)	return -1;	// Validity check
-		*Val |= (*str & 0x3F);	// Lower 6 Bits
-		return 3;
-	}
-	
-	// Four Byte
-	if( (*str & 0xF1) == 0xF0 ) {
-		*Val = (*str & 0x07) << 18;	// Upper 3 Bits
-		str ++;
-		if( (*str & 0xC0) != 0x80)	return -1;	// Validity check
-		*Val |= (*str & 0x3F) << 12;	// Middle-upper 6 Bits
-		str ++;
-		if( (*str & 0xC0) != 0x80)	return -1;	// Validity check
-		*Val |= (*str & 0x3F) << 6;	// Middle-lower 6 Bits
-		str ++;
-		if( (*str & 0xC0) != 0x80)	return -1;	// Validity check
-		*Val |= (*str & 0x3F);	// Lower 6 Bits
-		return 4;
-	}
-	
-	// UTF-8 Doesn't support more than four bytes
-	return 4;
-}
-
-
-
 

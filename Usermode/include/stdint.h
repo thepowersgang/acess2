@@ -3,6 +3,9 @@
 #ifndef _STDINT_H_
 #define _STDINT_H_
 
+#define INT_MIN	-0x80000000
+#define INT_MAX	0x7FFFFFFF
+
 typedef unsigned char	uint8_t;
 typedef unsigned short	uint16_t;
 typedef unsigned int	uint32_t;

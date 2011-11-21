@@ -83,7 +83,7 @@ void Decorator_Redraw(tWindow *Window)
 
 	WM_Render_GetTextDims(
 		NULL,	// TODO: Select font
-		Window->Title ? Window->Title : "jI",
+		Window->Title ? Window->Title : "jI", -1,
 		&text_width, &text_height
 		);
 	WM_Render_DrawText(Window,
@@ -91,7 +91,7 @@ void Decorator_Redraw(tWindow *Window)
 		Window->W - ciTitlebarHeight - 4, text_height,
 		NULL,	// TODO: Select font
 		(bActive ? cColourActive_TitleText : cColourInactive_TitleText),
-		Window->Title ? Window->Title : "--"
+		Window->Title ? Window->Title : "--", -1
 		);
 	
 	// Maximized windows don't have any other borders
