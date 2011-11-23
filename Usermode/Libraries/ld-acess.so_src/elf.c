@@ -83,6 +83,102 @@ int ElfGetSymbol(void *Base, const char *Name, void **ret, size_t *Size)
 	}
 }
 
+void elf_doRelocate_386(uint32_t r_info, uint32_t *ptr, Elf32_Addr addend, int type, int bRela, const char *Sym, intptr_t iBaseDiff)
+{
+	intptr_t	val;
+	switch( type )
+	{
+	// Standard 32 Bit Relocation (S+A)
+	case R_386_32:
+		val = (intptr_t) GetSymbol(Sym, NULL);
+		DEBUGS(" elf_doRelocate: R_386_32 *0x%x += 0x%x('%s')",
+				ptr, val, Sym);
+		*ptr = val + addend;
+		break;
+		
+	// 32 Bit Relocation wrt. Offset (S+A-P)
+	case R_386_PC32:
+		DEBUGS(" elf_doRelocate: '%s'", Sym);
+		val = (intptr_t) GetSymbol(Sym, NULL);
+		DEBUGS(" elf_doRelocate: R_386_PC32 *0x%x = 0x%x + 0x%x - 0x%x",
+			ptr, *ptr, val, (intptr_t)ptr );
+		*ptr = val + addend - (intptr_t)ptr;
+		//*ptr = val + addend - ((Uint)ptr - iBaseDiff);
+		break;
+
+	// Absolute Value of a symbol (S)
+	case R_386_GLOB_DAT:
+	case R_386_JMP_SLOT:
+		DEBUGS(" elf_doRelocate: '%s'", Sym);
+		val = (intptr_t) GetSymbol( Sym, NULL );
+		DEBUGS(" elf_doRelocate: %s *0x%x = 0x%x", csaR_NAMES[type], ptr, val);
+		*ptr = val;
+		break;
+
+	// Base Address (B+A)
+	case R_386_RELATIVE:
+		DEBUGS(" elf_doRelocate: R_386_RELATIVE *0x%x = 0x%x + 0x%x", ptr, iBaseDiff, addend);
+		*ptr = iBaseDiff + addend;
+		break;
+
+	case R_386_COPY: {
+		size_t	size;
+		void	*src = GetSymbol(Sym, &size);
+		DEBUGS(" elf_doRelocate_386: R_386_COPY (%p, %p, %i)", ptr, src, size);
+		memcpy(ptr, src, size);
+		break; }
+
+	default:
+		SysDebug("elf_doRelocate_386: Unknown relocation %i", type);
+		break;
+	}
+}
+
+void elf_doRelocate_arm(uint32_t r_info, uint32_t *ptr, Elf32_Addr addend, int type, int bRela, const char *Sym, intptr_t iBaseDiff)
+{
+	uint32_t	val;
+	switch(type)
+	{
+	// (S + A) | T
+	case R_ARM_ABS32:
+		DEBUGS(" elf_doRelocate_arm: R_ARM_ABS32 %p (%s + %x)", ptr, Sym, addend);
+		val = (intptr_t)GetSymbol(Sym, NULL);
+		*ptr = val + addend;
+		break;
+	case R_ARM_GLOB_DAT:
+		DEBUGS(" elf_doRelocate_arm: R_ARM_GLOB_DAT %p (%s + %x)", ptr, Sym, addend);
+		val = (intptr_t)GetSymbol(Sym, NULL);
+		*ptr = val + addend;
+		break;
+	case R_ARM_JUMP_SLOT:
+		if(!bRela)	addend = 0;
+		DEBUGS(" elf_doRelocate_arm: R_ARM_JUMP_SLOT %p (%s + %x)", ptr, Sym, addend);
+		val = (intptr_t)GetSymbol(Sym, NULL);
+		*ptr = val + addend;
+		break;
+	// Copy
+	case R_ARM_COPY: {
+		size_t	size;
+		void	*src = GetSymbol(Sym, &size);
+		DEBUGS(" elf_doRelocate_arm: R_ARM_COPY (%p, %p, %i)", ptr, src, size);
+		memcpy(ptr, src, size);
+		break; }
+	// Delta between link and runtime locations + A
+	case R_ARM_RELATIVE:
+		if(Sym[0] != '\0') {
+			// TODO: Get delta for a symbol
+			SysDebug("elf_doRelocate_arm: TODO - Implment R_ARM_RELATIVE for symbols");
+		}
+		else {
+			*ptr = iBaseDiff + addend;
+		}
+		break;
+	default:
+		SysDebug("elf_doRelocate_arm: Unknown Relocation, %i", type);
+		break;
+	}
+}
+
 void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 {
 	Elf32_Ehdr	*hdr = Base;
@@ -102,7 +198,7 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 	Elf32_Dyn	*dynamicTab = NULL;	// Dynamic Table Pointer
 	char	*dynstrtab = NULL;	// .dynamic String Table
 	Elf32_Sym	*dynsymtab;
-	void	(*do_relocate)(uint32_t t_info, uint32_t *ptr, Elf32_Addr addend, int Type, int bRela, const char *Sym);
+	void	(*do_relocate)(uint32_t t_info, uint32_t *ptr, Elf32_Addr addend, int Type, int bRela, const char *Sym, intptr_t iBaseDiff);
 	
 	DEBUGS("ElfRelocate: (Base=0x%x)", Base);
 	
@@ -238,109 +334,13 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 	}
 	
 	DEBUGS(" elf_relocate: Beginning Relocation");
-	
-	void elf_doRelocate_386(uint32_t r_info, uint32_t *ptr, Elf32_Addr addend, int type, int bRela, const char *Sym)
-	{
-		intptr_t	val;
-		switch( type )
-		{
-		// Standard 32 Bit Relocation (S+A)
-		case R_386_32:
-			val = (intptr_t) GetSymbol(Sym, NULL);
-			DEBUGS(" elf_doRelocate: R_386_32 *0x%x += 0x%x('%s')",
-					ptr, val, Sym);
-			*ptr = val + addend;
-			break;
-			
-		// 32 Bit Relocation wrt. Offset (S+A-P)
-		case R_386_PC32:
-			DEBUGS(" elf_doRelocate: '%s'", Sym);
-			val = (intptr_t) GetSymbol(Sym, NULL);
-			DEBUGS(" elf_doRelocate: R_386_PC32 *0x%x = 0x%x + 0x%x - 0x%x",
-				ptr, *ptr, val, (intptr_t)ptr );
-			*ptr = val + addend - (intptr_t)ptr;
-			//*ptr = val + addend - ((Uint)ptr - iBaseDiff);
-			break;
-	
-		// Absolute Value of a symbol (S)
-		case R_386_GLOB_DAT:
-		case R_386_JMP_SLOT:
-			DEBUGS(" elf_doRelocate: '%s'", Sym);
-			val = (intptr_t) GetSymbol( Sym, NULL );
-			DEBUGS(" elf_doRelocate: %s *0x%x = 0x%x", csaR_NAMES[type], ptr, val);
-			*ptr = val;
-			break;
-	
-		// Base Address (B+A)
-		case R_386_RELATIVE:
-			DEBUGS(" elf_doRelocate: R_386_RELATIVE *0x%x = 0x%x + 0x%x", ptr, iBaseDiff, addend);
-			*ptr = iBaseDiff + addend;
-			break;
-	
-		case R_386_COPY: {
-			size_t	size;
-			void	*src = GetSymbol(Sym, &size);
-			DEBUGS(" elf_doRelocate_386: R_386_COPY (%p, %p, %i)", ptr, src, size);
-			memcpy(ptr, src, size);
-			break; }
-	
-		default:
-			SysDebug("elf_doRelocate_386: Unknown relocation %i", type);
-			break;
-		}
-	}
-
-	void elf_doRelocate_arm(uint32_t r_info, uint32_t *ptr, Elf32_Addr addend, int type, int bRela, const char *Sym)
-	{
-		uint32_t	val;
-		switch(type)
-		{
-		// (S + A) | T
-		case R_ARM_ABS32:
-			DEBUGS(" elf_doRelocate_arm: R_ARM_ABS32 %p (%s + %x)", ptr, Sym, addend);
-			val = (intptr_t)GetSymbol(Sym, NULL);
-			*ptr = val + addend;
-			break;
-		case R_ARM_GLOB_DAT:
-			DEBUGS(" elf_doRelocate_arm: R_ARM_GLOB_DAT %p (%s + %x)", ptr, Sym, addend);
-			val = (intptr_t)GetSymbol(Sym, NULL);
-			*ptr = val + addend;
-			break;
-		case R_ARM_JUMP_SLOT:
-			if(!bRela)	addend = 0;
-			DEBUGS(" elf_doRelocate_arm: R_ARM_JUMP_SLOT %p (%s + %x)", ptr, Sym, addend);
-			val = (intptr_t)GetSymbol(Sym, NULL);
-			*ptr = val + addend;
-			break;
-		// Copy
-		case R_ARM_COPY: {
-			size_t	size;
-			void	*src = GetSymbol(Sym, &size);
-			DEBUGS(" elf_doRelocate_arm: R_ARM_COPY (%p, %p, %i)", ptr, src, size);
-			memcpy(ptr, src, size);
-			break; }
-		// Delta between link and runtime locations + A
-		case R_ARM_RELATIVE:
-			if(Sym[0] != '\0') {
-				// TODO: Get delta for a symbol
-				SysDebug("elf_doRelocate_arm: TODO - Implment R_ARM_RELATIVE for symbols");
-			}
-			else {
-				*ptr = iBaseDiff + addend;
-			}
-			break;
-		default:
-			SysDebug("elf_doRelocate_arm: Unknown Relocation, %i", type);
-			break;
-		}
-	}
 
 	void _doRelocate(uint32_t r_info, uint32_t *ptr, int bRela, Elf32_Addr addend)
 	{
 		 int	type = ELF32_R_TYPE(r_info);
 		 int	sym = ELF32_R_SYM(r_info);
 		const char	*symname = dynstrtab + dynsymtab[sym].nameOfs;
-		do_relocate(r_info, ptr, addend, type, bRela, symname);
+		do_relocate(r_info, ptr, addend, type, bRela, symname, iBaseDiff);
 	}
 
 	switch(hdr->machine)
@@ -356,6 +356,8 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 		break;
 	}
 	
+	DEBUGS("do_relocate = %p (%p or %p)", do_relocate, &elf_doRelocate_386, &elf_doRelocate_arm);
+
 	// Parse Relocation Entries
 	if(rel && relSz)
 	{
