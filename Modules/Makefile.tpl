@@ -58,12 +58,12 @@ endif
 ifneq ($(BUILDTYPE),static)
 $(BIN): %.kmd.$(ARCH): $(OBJ)
 	@echo --- $(LD) -o $@
-	@$(LD) --allow-shlib-undefined -shared -nostdlib -o $@ $(OBJ) -defsym=DriverInfo=_DriverInfo_$(FULLNAME)
+	@$(LD) --allow-shlib-undefined -shared -nostdlib -o $@ $(OBJ) -defsym=DriverInfo=_DriverInfo_$(FULLNAME) $(LDFLAGS)
 	@$(DISASM) $(BIN) > $(BIN).dsm
 else
 $(BIN): %.xo.$(ARCH): $(OBJ)
 	@echo --- $(LD) -o $@
-	@$(LD) -r -o $@ $(OBJ)
+	@$(LD) -r -o $@ $(OBJ) $(LDFLAGS)
 endif
 
 obj-$(_SUFFIX)/%.o: %.c Makefile $(CFGFILES)

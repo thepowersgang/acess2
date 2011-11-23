@@ -15,7 +15,8 @@ $ARCH = getenv("ARCH");
 
 $gInputFile = $argv[1];
 $gOutputFile = $argv[2];
-$gDepFile = ($argc > 3 ? $argv[3] : false);
+$gOutputLDOptsFile = $argv[3];
+$gDepFile = ($argc > 4 ? $argv[4] : false);
 
 $gDependencies = array();
 
@@ -66,11 +67,13 @@ function hd8($fp)
 }
 
 $inode = 0;
+$gSymFiles = array();
 function ProcessFolder($prefix, $items)
 {
 	global	$gOutput, $gDependencies;
 	global	$ACESSDIR, $ARCH;
 	global	$inode;
+	global	$gSymFiles;
 	foreach($items as $i=>$item)
 	{
 		$inode ++;
@@ -119,10 +122,12 @@ EOF;
 				exit(1);
 			}
 			$size = filesize($path);
-			
+	
+/*		
+			$_sym = $prefix."_".$i."_data";
 			$fp = fopen($path, "rb");
 			
-			$gOutput .= "Uint8 {$prefix}_{$i}_data[] = {\n";
+			$gOutput .= "Uint8 $_sym[] = {\n";
 			for( $j = 0; $j + 16 < $size; $j += 16 ) {
 				$gOutput .= "\t";
 				$gOutput .= hd8($fp).",".hd8($fp).",";
@@ -141,6 +146,13 @@ EOF;
 			}
 			fclose($fp);
 			$gOutput .= "\n};\n";
+*/
+			
+//*
+			$_sym = "_binary_".str_replace(array("/","-","."), "_", $path)."_start";
+			$gOutput .= "extern Uint8 {$_sym}[];";
+			$gSymFiles[] = $path;
+//*/
 			$gOutput .= <<<EOF
 tVFS_Node {$prefix}_{$i} = {
 	.NumACLs = 1,
@@ -148,7 +160,7 @@ tVFS_Node {$prefix}_{$i} = {
 	.Flags = 0,
 	.Size = $size,
 	.Inode = {$inode},
-	.ImplPtr = {$prefix}_{$i}_data,
+	.ImplPtr = $_sym,
 	.Read = InitRD_ReadFile
 };
 
@@ -214,6 +226,15 @@ $fp = fopen($gOutputFile, "w");
 fputs($fp, $gOutput);
 fclose($fp);
 
+// - Create options call
+$fp = fopen($gOutputLDOptsFile, "w");
+fputs($fp, "--format binary\n");
+foreach($gSymFiles as $sym=>$file)
+{
+	fputs($fp, "$file\n");
+//	fputs($fp, "--defsym $sym=_binary_".$sym_filename."_start\n");
+}
+fclose($fp);
 
 if($gDepFile !== false)
 {
