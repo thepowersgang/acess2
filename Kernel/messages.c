@@ -65,10 +65,8 @@ int Proc_SendMessage(Uint *Err, Uint Dest, int Length, void *Data)
 	
 	SHORTREL(&thread->IsLocked);
 	
-	SHORTLOCK(&glThreadListLock);
 	LOG("Waking %p (%i %s)", thread, thread->TID, thread->ThreadName);
 	Threads_Wake( thread );
-	SHORTREL(&glThreadListLock);
 	
 	LEAVE_RET('i', 0);
 }
