@@ -71,7 +71,7 @@ _errno:	.long	0	@ Placed in .text, to allow use of relative addressing
 .globl \_name
 \_name:
 	push {r4, lr}
-	ldr r4, [sp,#4]
+	ldr r4, [sp,#8]
 	svc #\_num
 	str r2, _errno
 	pop {r4, pc}
@@ -81,8 +81,8 @@ _errno:	.long	0	@ Placed in .text, to allow use of relative addressing
 .globl \_name
 \_name:
 	push {r4,r5,lr}
-	ldr r4, [sp,#8]
-	ldr r5, [sp,#12]
+	ldr r4, [sp,#12]
+	ldr r5, [sp,#16]
 	svc #\_num
 	str r2, _errno
 	pop {r4,r5,pc}
