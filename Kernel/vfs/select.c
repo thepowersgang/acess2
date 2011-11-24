@@ -149,7 +149,7 @@ int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set 
 	LOG("Register ret = %i", ret);
 	
 	// If there were events waiting, de-register and return
-	if( ret )
+	if( ret > 0 )
 	{
 		ret  = VFS_int_Select_Deregister(thread_info, MaxHandle, ReadHandles, 0, IsKernel);
 		ret += VFS_int_Select_Deregister(thread_info, MaxHandle, WriteHandles, 1, IsKernel);
@@ -160,6 +160,7 @@ int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set 
 	}
 	
 	// TODO: Implement timeout
+	LOG("Timeout = %p", Timeout);
 	
 	// Wait (only if there is no timeout, or it is greater than zero
 	if( !Timeout || *Timeout > 0 )
