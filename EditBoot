@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #./MountDisk
 #vim mnt/boot/menu.lst
 #sudo umount mnt/

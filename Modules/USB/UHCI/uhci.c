@@ -80,6 +80,7 @@ int UHCI_Initialise(const char **Arguments)
 		}
 		
 		cinfo->RootHub = USB_RegisterHost(&gUHCI_HostDef, cinfo, 2);
+		LOG("cinfo->RootHub = %p", cinfo->RootHub);
 
 		i ++;
 	}
