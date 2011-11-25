@@ -13,15 +13,21 @@
 
 typedef struct sUSBHostDef	tUSBHostDef;
 
+typedef void	(*tUSBHostCb)(void *DataPtr);
+
+typedef void	*(*tUSBHostOp)(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb bIOC, void *Data, size_t Length);
+
 /**
  * \brief Defines a USB Host Controller type
  */
 struct sUSBHostDef
 {
-	void	*(*SendIN)(void *Ptr, int Fcn, int Endpt, int DataTgl, int bIOC, void *Data, size_t Length);
-	void	*(*SendOUT)(void *Ptr, int Fcn, int Endpt, int DataTgl, int bIOC, void *Data, size_t Length);
-	void	*(*SendSETUP)(void *Ptr, int Fcn, int Endpt, int DataTgl, int bIOC, void *Data, size_t Length);
-	
+	tUSBHostOp	SendIN;
+	tUSBHostOp	SendOUT;
+	tUSBHostOp	SendSETUP;
+
+	 int	(*IsOpComplete)(void *Ptr, void *OpPtr);
+
 	void	(*CheckPorts)(void *Ptr);
 };
 

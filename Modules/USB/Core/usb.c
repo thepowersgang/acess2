@@ -130,8 +130,11 @@ int USB_int_SendSetupSetAddress(tUSBHost *Host, int Address)
 
 int USB_int_ReadDescriptor(tUSBDevice *Dev, int Endpoint, int Type, int Index, int Length, void *Dest)
 {
-	struct sDeviceRequest	req;
 	const int	ciMaxPacketSize = 0x400;
+	struct sDeviceRequest	req;
+	 int	bToggle = 0;
+	void	*final;
+
 	req.ReqType = 0x80;
 	req.Request = 6;	// GET_DESCRIPTOR
 	req.Value = ((Type & 0xFF) << 8) | (Index & 0xFF);
@@ -140,21 +143,30 @@ int USB_int_ReadDescriptor(tUSBDevice *Dev, int Endpoint, int Type, int Index, i
 	
 	Dev->Host->HostDef->SendSETUP(
 		Dev->Host->Ptr, Dev->Address, Endpoint,
-		0, FALSE,
+		0, NULL,
 		&req, sizeof(req)
 		);
 	
+	bToggle = 1;
 	while( Length > ciMaxPacketSize )
 	{
 		Dev->Host->HostDef->SendIN(
 			Dev->Host->Ptr, Dev->Address, Endpoint,
-			1, FALSE,
+			bToggle, NULL,
 			Dest, ciMaxPacketSize
 			);
+		bToggle = !bToggle;
 		Length -= ciMaxPacketSize;
 	}
 
-	// TODO: Complete and get completion	
+	final = Dev->Host->HostDef->SendIN(
+		Dev->Host->Ptr, Dev->Address, Endpoint,
+		bToggle, INVLPTR,
+		Dest, Length
+		);
+
+	while( Dev->Host->HostDef->IsOpComplete(Dev->Host->Ptr, final) == 0 )
+		Time_Delay(1);
 
 	return 0;
 }

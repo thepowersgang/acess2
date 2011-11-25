@@ -20,10 +20,10 @@
 void	UHCI_Cleanup();
 tUHCI_TD	*UHCI_int_AllocateTD(tUHCI_Controller *Cont);
 void	UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_TD *TD);
-void	*UHCI_int_SendTransaction(tUHCI_Controller *Cont, int Addr, Uint8 Type, int bTgl, int bIOC, void *Data, size_t Length);
-void	*UHCI_DataIN(void *Ptr, int Fcn, int Endpt, int DataTgl, int bIOC, void *Data, size_t Length);
-void	*UHCI_DataOUT(void *Ptr, int Fcn, int Endpt, int DataTgl, int bIOC, void *Data, size_t Length);
-void	*UHCI_SendSetup(void *Ptr, int Fcn, int Endpt, int DataTgl, int bIOC, void *Data, size_t Length);
+void	*UHCI_int_SendTransaction(tUHCI_Controller *Cont, int Addr, Uint8 Type, int bTgl, tUSBHostCb Cb, void *Data, size_t Length);
+void	*UHCI_DataIN(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, void *Data, size_t Length);
+void	*UHCI_DataOUT(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, void *Data, size_t Length);
+void	*UHCI_SendSetup(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, void *Data, size_t Length);
 void	UHCI_Hub_Poll(tUSBHub *Hub, tUSBDevice *Dev);
  int	UHCI_Int_InitHost(tUHCI_Controller *Host);
 void	UHCI_CheckPortUpdate(tUHCI_Controller *Host);
@@ -122,7 +122,7 @@ void UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_TD *TD)
  * \param Addr	Function Address * 16 + Endpoint
  * \param bTgl	Data toggle value
  */
-void *UHCI_int_SendTransaction(tUHCI_Controller *Cont, int Addr, Uint8 Type, int bTgl, int bIOC, void *Data, size_t Length)
+void *UHCI_int_SendTransaction(tUHCI_Controller *Cont, int Addr, Uint8 Type, int bTgl, tUSBHostCb Cb, void *Data, size_t Length)
 {
 	tUHCI_TD	*td;
 
@@ -149,8 +149,13 @@ void *UHCI_int_SendTransaction(tUHCI_Controller *Cont, int Addr, Uint8 Type, int
 		td->BufferPointer = MM_GetPhysAddr( (tVAddr)Data );
 	}
 
-	if( bIOC ) {
+	// Interrupt on completion
+	if( Cb ) {
 		td->Control |= (1 << 24);
+		td->Avaliable[0] = (tVAddr)Cb;	// NOTE: if ERRPTR then the TD is kept allocated until checked
+		#if BITS > 32
+		td->Avaliable[1] = (tVAddr)Cb >> 32;
+		#endif
 		Log_Warning("UHCI", "TODO: Support IOC... somehow");
 	}
 
@@ -159,24 +164,24 @@ void *UHCI_int_SendTransaction(tUHCI_Controller *Cont, int Addr, Uint8 Type, int
 	return td;
 }
 
-void *UHCI_DataIN(void *Ptr, int Fcn, int Endpt, int DataTgl, int bIOC, void *Data, size_t Length)
+void *UHCI_DataIN(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, void *Data, size_t Length)
 {
-	return UHCI_int_SendTransaction(Ptr, Fcn*16+Endpt, 0x69, DataTgl, bIOC, Data, Length);
+	return UHCI_int_SendTransaction(Ptr, Fcn*16+Endpt, 0x69, DataTgl, Cb, Data, Length);
 }
 
-void *UHCI_DataOUT(void *Ptr, int Fcn, int Endpt, int DataTgl, int bIOC, void *Data, size_t Length)
+void *UHCI_DataOUT(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, void *Data, size_t Length)
 {
-	return UHCI_int_SendTransaction(Ptr, Fcn*16+Endpt, 0xE1, DataTgl, bIOC, Data, Length);
+	return UHCI_int_SendTransaction(Ptr, Fcn*16+Endpt, 0xE1, DataTgl, Cb, Data, Length);
 }
 
-void *UHCI_SendSetup(void *Ptr, int Fcn, int Endpt, int DataTgl, int bIOC, void *Data, size_t Length)
+void *UHCI_SendSetup(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, void *Data, size_t Length)
 {
-	return UHCI_int_SendTransaction(Ptr, Fcn*16+Endpt, 0x2D, DataTgl, bIOC, Data, Length);
+	return UHCI_int_SendTransaction(Ptr, Fcn*16+Endpt, 0x2D, DataTgl, Cb, Data, Length);
 }
 
 void UHCI_Hub_Poll(tUSBHub *Hub, tUSBDevice *Dev)
 {
-	tUHCI_Controller	*cont = USB_GetDeviceDataPtr(Dev);
+	tUHCI_Controller *cont = USB_GetDeviceDataPtr(Dev);
 	
 	UHCI_CheckPortUpdate(cont);
 }
