@@ -59,7 +59,6 @@ int UHCI_Initialise(const char **Arguments)
 		// NOTE: Check "protocol" from PCI?
 		
 		cinfo->PciId = id;
-		// Assign a port range (BAR4, Reserve 32 ports)
 		cinfo->IOBase = PCI_GetBAR(id, 4);
 		if( !(cinfo->IOBase & 1) ) {
 			Log_Warning("UHCI", "MMIO is not supported");
@@ -142,6 +141,7 @@ void *UHCI_int_SendTransaction(tUHCI_Controller *Cont, int Addr, Uint8 Type, int
 	// TODO: Ensure 32-bit paddr
 	if( ((tVAddr)Data & PAGE_SIZE) + Length > PAGE_SIZE ) {
 		Log_Warning("UHCI", "TODO: Support non single page transfers");
+		// TODO: Need to enable IOC to copy the data back
 //		td->BufferPointer = 
 		return NULL;
 	}
@@ -150,7 +150,8 @@ void *UHCI_int_SendTransaction(tUHCI_Controller *Cont, int Addr, Uint8 Type, int
 	}
 
 	if( bIOC ) {
-//		td->Control
+		td->Control |= (1 << 24);
+		Log_Warning("UHCI", "TODO: Support IOC... somehow");
 	}
 
 	UHCI_int_AppendTD(Cont, td);
@@ -247,10 +248,12 @@ void UHCI_CheckPortUpdate(tUHCI_Controller *Host)
 		{
 			LOG("Port %i has something", i);
 			// Reset port (set bit 9)
+			LOG("Reset");
 			outw( port, 0x0100 );
 			Time_Delay(50);	// 50ms delay
 			outw( port, inw(port) & ~0x0100 );
 			// Enable port
+			LOG("Enable");
 			Time_Delay(50);	// 50ms delay
 			outw( port, inw(port) & 0x0004 );
 			// Tell USB there's a new device

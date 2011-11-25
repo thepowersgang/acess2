@@ -30,8 +30,8 @@ tDevFS_Driver	gUSB_DrvInfo = {
 	}
 };
 tUSBHost	*gUSB_Hosts = NULL;
-tUSBHub	*gUSB_Hubs = NULL;
-tUSBHub	*gUSB_HubsEnd = NULL;
+tUSBDevice	*gUSB_InterruptDevs = NULL;
+tUSBDevice	*gUSB_InterruptLast = NULL;
 
 // === CODE ===
 /**
@@ -50,9 +50,9 @@ int USB_PollThread(void *unused)
 {
 	for(;;)
 	{
-		for( tUSBHub *hub = gUSB_Hubs; hub; hub = hub->Next )
+		for( tUSBDevice *dev = gUSB_InterruptDevs; dev; dev = dev->Next )
 		{
-			hub->CheckPorts(hub, hub->Device);
+//			hub->CheckPorts(hub, hub->Device);
 		}
 		// TODO: Fine tune
 		Time_Delay(250);

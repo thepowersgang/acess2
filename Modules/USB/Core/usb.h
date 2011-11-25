@@ -17,7 +17,6 @@ typedef struct sUSBHost	tUSBHost;
  */
 struct sUSBHub
 {
-	tUSBHub	*Next;
 	tUSBDevice	*Device;
 	
 	tUSB_HubPoll	CheckPorts;
@@ -32,7 +31,7 @@ struct sUSBHub
 struct sUSBDevice
 {
 	tUSBDevice	*Next;
-	tUSBDevice	*ParentHub;
+	tUSBHub	*ParentHub;
 
 	/**
 	 * \brief Host controller used
@@ -52,6 +51,9 @@ struct sUSBHost
 	void	*Ptr;
 	
 	Uint8	AddressBitmap[128/8];
+	
+	tUSBDevice	RootHubDev;
+	tUSBHub	RootHub;
 };
 
 extern void	USB_NewDevice(tUSBHub *Hub);
