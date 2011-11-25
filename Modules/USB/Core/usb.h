@@ -5,37 +5,23 @@
 #ifndef _USB_H_
 #define _USB_H_
 
-// === TYPES ===
+#include <usb_core.h>
+#include <usb_hub.h>
+#include <usb_host.h>
+
 typedef struct sUSBHost	tUSBHost;
-typedef struct sUSBHub	tUSBHub;
-typedef struct sUSBDevice	tUSBDevice;
 
 // === STRUCTURES ===
-/**
- * \brief Defines a USB Host Controller type
- */
-struct sUSBHost
-{
-	tUSBHost	*Next;
-
-	void	(*CheckPorts)(void *Ptr);
-
-	void	*(*SendIN)(void *Ptr, int Fcn, int Endpt, int DataTgl, int bIOC, void *Data, size_t Length);
-	void	*(*SendOUT)(void *Ptr, int Fcn, int Endpt, int DataTgl, int bIOC, void *Data, size_t Length);
-	void	*(*SendSETUP)(void *Ptr, int Fcn, int Endpt, int DataTgl, int bIOC, void *Data, size_t Length);
-};
-
 /**
  * \brief USB Hub data
  */
 struct sUSBHub
 {
-	/**
-	 * \brief Host controller used
-	 */
-	tUSBHost	*HostDef;
-	void	*Controller;
-
+	tUSBHub	*Next;
+	tUSBDevice	*Device;
+	
+	tUSB_HubPoll	CheckPorts;
+	
 	 int	nPorts;
 	tUSBDevice	*Devices[];
 };
@@ -46,19 +32,28 @@ struct sUSBHub
 struct sUSBDevice
 {
 	tUSBDevice	*Next;
-	tUSBDevice	*Hub;
+	tUSBDevice	*ParentHub;
 
+	/**
+	 * \brief Host controller used
+	 */
+	tUSBHost	*Host;
 	 int	Address;
 	
-	 int	Type;
-	
-	union {
-		tUSBHub	Hub;
-		char	Impl[0];
-	}	Data;
+	tUSBDriver	*Driver;
+	void	*Data;
 };
 
-extern void	USB_RegisterHost(tUSBHost *HostDef, void *ControllerPtr);
+struct sUSBHost
+{
+	struct sUSBHost	*Next;
+	
+	tUSBHostDef	*HostDef;
+	void	*Ptr;
+	
+	Uint8	AddressBitmap[128/8];
+};
+
 extern void	USB_NewDevice(tUSBHub *Hub);
 
 #endif

@@ -10,9 +10,6 @@
 #include <modules.h>
 #include "usb.h"
 
-// === IMPORTS ===
-extern int	UHCI_Initialise(void);
-
 // === PROTOTYPES ===
  int	USB_Install(char **Arguments);
 void	USB_Cleanup(void);
@@ -32,8 +29,9 @@ tDevFS_Driver	gUSB_DrvInfo = {
 		.IOCtl = USB_IOCtl
 	}
 };
-tUSBDevice	*gUSB_RootHubs = NULL;
 tUSBHost	*gUSB_Hosts = NULL;
+tUSBHub	*gUSB_Hubs = NULL;
+tUSBHub	*gUSB_HubsEnd = NULL;
 
 // === CODE ===
 /**
@@ -41,7 +39,6 @@ tUSBHost	*gUSB_Hosts = NULL;
  */
 int USB_Install(char **Arguments)
 {
-	UHCI_Initialise();
 	Log_Warning("USB", "Not Complete - Devel Only");
 	return MODULE_ERR_OK;
 }
@@ -53,15 +50,12 @@ int USB_PollThread(void *unused)
 {
 	for(;;)
 	{
-		for( tUSBHost *host = gUSB_Hosts; host; host = host->Next )
+		for( tUSBHub *hub = gUSB_Hubs; hub; hub = hub->Next )
 		{
-			// host->CheckPorts(host);
+			hub->CheckPorts(hub, hub->Device);
 		}
-
-		for( tUSBDevice *dev = gUSB_RootHubs; dev; dev = dev->Next )
-		{
-			
-		}
+		// TODO: Fine tune
+		Time_Delay(250);
 	}
 }
 

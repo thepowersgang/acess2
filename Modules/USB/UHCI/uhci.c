@@ -3,11 +3,12 @@
  * Universal Host Controller Interface
  */
 #define DEBUG	1
+#define VERSION	VER2(0,5)
 #include <acess.h>
 #include <vfs.h>
 #include <drv_pci.h>
 #include <modules.h>
-#include "usb.h"
+#include <usb_host.h>
 #include "uhci.h"
 
 // === CONSTANTS ===
@@ -23,16 +24,20 @@ void	*UHCI_int_SendTransaction(tUHCI_Controller *Cont, int Addr, Uint8 Type, int
 void	*UHCI_DataIN(void *Ptr, int Fcn, int Endpt, int DataTgl, int bIOC, void *Data, size_t Length);
 void	*UHCI_DataOUT(void *Ptr, int Fcn, int Endpt, int DataTgl, int bIOC, void *Data, size_t Length);
 void	*UHCI_SendSetup(void *Ptr, int Fcn, int Endpt, int DataTgl, int bIOC, void *Data, size_t Length);
+void	UHCI_Hub_Poll(tUSBHub *Hub, tUSBDevice *Dev);
  int	UHCI_Int_InitHost(tUHCI_Controller *Host);
+void	UHCI_CheckPortUpdate(tUHCI_Controller *Host);
 void	UHCI_InterruptHandler(int IRQ, void *Ptr);
 
 // === GLOBALS ===
+MODULE_DEFINE(0, VERSION, USB_UHCI, UHCI_Initialise, NULL, "USB_Core", NULL);
 tUHCI_TD	gaUHCI_TDPool[NUM_TDs];
 tUHCI_Controller	gUHCI_Controllers[MAX_CONTROLLERS];
-tUSBHost	gUHCI_HostDef = {
+tUSBHostDef	gUHCI_HostDef = {
 	.SendIN = UHCI_DataIN,
 	.SendOUT = UHCI_DataOUT,
 	.SendSETUP = UHCI_SendSetup,
+	.CheckPorts = (void*)UHCI_CheckPortUpdate
 	};
 
 // === CODE ===
@@ -75,7 +80,7 @@ int UHCI_Initialise(const char **Arguments)
 			return ret;
 		}
 		
-		USB_RegisterHost(&gUHCI_HostDef, cinfo);
+		cinfo->RootHub = USB_RegisterHost(&gUHCI_HostDef, cinfo, 2);
 
 		i ++;
 	}
@@ -168,6 +173,13 @@ void *UHCI_SendSetup(void *Ptr, int Fcn, int Endpt, int DataTgl, int bIOC, void 
 	return UHCI_int_SendTransaction(Ptr, Fcn*16+Endpt, 0x2D, DataTgl, bIOC, Data, Length);
 }
 
+void UHCI_Hub_Poll(tUSBHub *Hub, tUSBDevice *Dev)
+{
+	tUHCI_Controller	*cont = USB_GetDeviceDataPtr(Dev);
+	
+	UHCI_CheckPortUpdate(cont);
+}
+
 // === INTERNAL FUNCTIONS ===
 /**
  * \fn int UHCI_Int_InitHost(tUCHI_Controller *Host)
@@ -227,7 +239,8 @@ void UHCI_CheckPortUpdate(tUHCI_Controller *Host)
 		// Check if the port is connected
 		if( !(inw(port) & 1) )
 		{
-			// TODO: Tell the USB code it's gone?
+			// Tell the USB code it's gone.
+			USB_DeviceDisconnected(Host->RootHub, i);
 			continue;
 		}
 		else
@@ -240,6 +253,8 @@ void UHCI_CheckPortUpdate(tUHCI_Controller *Host)
 			// Enable port
 			Time_Delay(50);	// 50ms delay
 			outw( port, inw(port) & 0x0004 );
+			// Tell USB there's a new device
+			USB_DeviceConnected(Host->RootHub, i);
 		}
 	}
 }

@@ -43,6 +43,8 @@ struct sUHCI_Controller
 	 * \brief Physical Address of the Frame List
 	 */
 	tPAddr	PhysFrameList;
+
+	tUSBHub	*RootHub;
 };
 
 struct sUHCI_TD
