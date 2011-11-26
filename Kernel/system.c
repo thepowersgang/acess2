@@ -136,7 +136,7 @@ void System_ParseCommandLine(char *ArgString)
 		argc ++;	// Count last argument
 	
 	// --- Parse Arguments (Pass 1) ---
-	for( i = 0; i < argc; i++ )
+	for( i = 1; i < argc; i++ )
 	{
 		switch(argv[i][0])
 		{
@@ -162,7 +162,9 @@ void System_ParseCommandLine(char *ArgString)
 void System_ExecuteCommandLine(void)
 {
 	 int	i;
-	for( i = 0; i < argc; i++ )
+	if(argc > 0)
+		LOG("Invocation '%s'", argv[0]);
+	for( i = 1; i < argc; i++ )
 	{
 		LOG("argv[%i] = '%s'", i, argv[i]);
 		switch(argv[i][0])

@@ -79,13 +79,13 @@ int VM8086_Install(char **Arguments)
 		// Set Image Name
 		Threads_SetName("VM8086");
 
-		Log_Debug("VM8086", "Mapping memory");	
+//		Log_Debug("VM8086", "Mapping memory");	
 	
 		// Map ROM Area
 		for(i=0xA0;i<0x100;i++) {
 			MM_Map( i * 0x1000, i * 0x1000 );
 		}
-		Log_Debug("VM8086", "ROM area mapped");
+//		Log_Debug("VM8086", "ROM area mapped");
 		MM_Map( 0, 0 );	// IVT / BDA
 		// Map (but allow allocation) of 0x1000 - 0x9F000
 		// - So much hack, it isn't funny
@@ -102,7 +102,7 @@ int VM8086_Install(char **Arguments)
 			gVM8086_WorkerPID = 0;
 			Threads_Exit(0, 1);
 		}
-		Log_Debug("VM8086", "Mapped low memory");
+//		Log_Debug("VM8086", "Mapped low memory");
 		
 		*(Uint8*)(0x100000) = VM8086_OP_IRET;
 		*(Uint8*)(0x100001) = 0x07;	// POP ES
@@ -148,7 +148,7 @@ int VM8086_Install(char **Arguments)
 	}
 	
 	gVM8086_WorkerPID = pid;
-	Log_Log("VM8086", "gVM8086_WorkerPID = %i", pid);
+//	Log_Log("VM8086", "gVM8086_WorkerPID = %i", pid);
 	while( gpVM8086_State != NULL )
 		Threads_Yield();	// Yield to allow the child to initialise
 	
@@ -170,7 +170,7 @@ void VM8086_GPF(tRegs *Regs)
 	&& Threads_GetPID() == gVM8086_WorkerPID)
 	{
 		if( gpVM8086_State == (void*)-1 ) {
-			Log_Log("VM8086", "Worker thread ready and waiting");
+//			Log_Log("VM8086", "Worker thread ready and waiting");
 			gpVM8086_State = NULL;
 			Mutex_Release( &glVM8086_Process );	// Release lock obtained in VM8086_Install
 		}
