@@ -33,7 +33,7 @@ struct sDescriptor_Device
 	Uint8	SerialNumberStr;
 	
 	Uint8	NumConfigurations;
-};
+} PACKED;
 
 struct sDescriptor_Configuration
 {
@@ -46,7 +46,7 @@ struct sDescriptor_Configuration
 	Uint8	ConfigurationStr;
 	Uint8	AttributesBmp;
 	Uint8	MaxPower;	// in units of 2 mA
-};
+} PACKED;
 
 struct sDescriptor_String
 {
@@ -54,7 +54,7 @@ struct sDescriptor_String
 	Uint8	Type;	// = 3
 	
 	Uint16	Data[62];	// 62 is arbitary
-};
+} PACKED;
 
 struct sDescriptor_Interface
 {
@@ -70,7 +70,7 @@ struct sDescriptor_Interface
 	Uint8	InterfaceProtocol;
 	
 	Uint8	InterfaceStr;
-};
+} PACKED;
 
 struct sDescriptor_Endpoint
 {
@@ -100,7 +100,7 @@ struct sDescriptor_Endpoint
 	 * 
 	 */
 	Uint8	PollingInterval;
-};
+} PACKED;
 
 #endif
 

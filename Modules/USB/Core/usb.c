@@ -138,9 +138,10 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 	for( int i = 0; i < 1; i ++ )
 	{
 		struct sDescriptor_Configuration	desc;
-//		void	*full_buf;
+		void	*full_buf;
+		char	*cur_ptr;
 		
-		USB_int_ReadDescriptor(dev, 0, 2, 0, sizeof(desc), &desc);
+		USB_int_ReadDescriptor(dev, 0, 2, i, sizeof(desc), &desc);
 		LOG("Configuration Descriptor %i = {", i);
 		LOG(" .Length = %i", desc.Length);
 		LOG(" .Type = %i", desc.Type);
@@ -156,8 +157,46 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 			LOG("ConfigurationStr = '%s'", tmp);
 			free(tmp);
 		}
-		
+
+		cur_ptr = full_buf = malloc( LittleEndian16(desc.TotalLength) );
+		USB_int_ReadDescriptor(dev, 0, 2, i, desc.TotalLength, full_buf);
+
+		cur_ptr += desc.Length;
+
 		// TODO: Interfaces
+		for( int j = 0; j < desc.NumInterfaces; j ++ )
+		{
+			struct sDescriptor_Interface *iface;
+			iface = (void*)cur_ptr;
+			// TODO: Sanity check with remaining space
+			cur_ptr += sizeof(*iface);
+			
+			LOG("Interface %i/%i = {");
+			LOG(" .InterfaceNum = %i", iface->InterfaceNum);
+			LOG(" .NumEndpoints = %i", iface->NumEndpoints);
+			LOG(" .InterfaceClass = 0x%x", iface->InterfaceClass);
+			LOG(" .InterfaceSubClass = 0x%x", iface->InterfaceSubClass);
+			LOG(" .InterfaceProcol = 0x%x", iface->InterfaceProtocol);
+
+			if( iface->InterfaceStr ) {
+				char	*tmp = USB_int_GetDeviceString(dev, 0, iface->InterfaceStr);
+				LOG(" .InterfaceStr = %i '%s'", iface->InterfaceStr, tmp);
+				free(tmp);
+			}
+			LOG("}");
+
+			for( int k = 0; k < iface->NumEndpoints; k ++ )
+			{
+				struct sDescriptor_Endpoint *endpt;
+				endpt = (void*)cur_ptr;
+				// TODO: Sanity check with remaining space
+				cur_ptr += sizeof(*endpt);
+				
+				
+			}
+		}
+		
+		free(full_buf);
 	}
 
 	// Done.
