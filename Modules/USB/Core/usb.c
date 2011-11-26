@@ -22,6 +22,10 @@ void	*USB_GetDeviceDataPtr(tUSBDevice *Dev);
 void	USB_SetDeviceDataPtr(tUSBDevice *Dev, void *Ptr);
  int	USB_int_AllocateAddress(tUSBHost *Host);
  int	USB_int_SendSetupSetAddress(tUSBHost *Host, int Address);
+ int	USB_int_ReadDescriptor(tUSBDevice *Dev, int Endpoint, int Type, int Index, int Length, void *Dest);
+char	*USB_int_GetDeviceString(tUSBDevice *Dev, int Endpoint, int Index);
+
+ int	_UTF16to8(Uint16 *Input, int InputLen, char *Dest);
 
 // === CODE ===
 tUSBHub *USB_RegisterHost(tUSBHostDef *HostDef, void *ControllerPtr, int nPorts)
@@ -44,7 +48,7 @@ tUSBHub *USB_RegisterHost(tUSBHostDef *HostDef, void *ControllerPtr, int nPorts)
 	host->RootHubDev.Driver = NULL;
 	host->RootHubDev.Data = NULL;
 
-	host->RootHub.Device = NULL;
+	host->RootHub.Device = &host->RootHubDev;
 	host->RootHub.CheckPorts = NULL;
 	host->RootHub.nPorts = nPorts;
 	memset(host->RootHub.Devices, 0, sizeof(void*)*nPorts);
@@ -53,9 +57,6 @@ tUSBHub *USB_RegisterHost(tUSBHostDef *HostDef, void *ControllerPtr, int nPorts)
 	host->Next = gUSB_Hosts;
 	gUSB_Hosts = host;
 
-	// Initialise?
-	HostDef->CheckPorts(ControllerPtr);
-	
 	return &host->RootHub;
 }
 
@@ -90,6 +91,74 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 	LOG("Assigned address %i", dev->Address);
 	
 	// 2. Get device information
+	{
+		struct sDescriptor_Device	desc;
+		LOG("Getting device descriptor");
+		// Endpoint 0, Desc Type 1, Index 0
+		USB_int_ReadDescriptor(dev, 0, 1, 0, sizeof(desc), &desc);
+		
+		LOG("Device Descriptor = {");
+		LOG(" .Length = %i", desc.Length);
+		LOG(" .Type = %i", desc.Type);
+		LOG(" .USBVersion = 0x%04x", desc.USBVersion);
+		LOG(" .DeviceClass = 0x%02x", desc.DeviceClass);
+		LOG(" .DeviceSubClass = 0x%02x", desc.DeviceSubClass);
+		LOG(" .DeviceProtocol = 0x%02x", desc.DeviceProtocol);
+		LOG(" .MaxPacketSize = 0x%02x", desc.MaxPacketSize);
+		LOG(" .VendorID = 0x%04x", desc.VendorID);
+		LOG(" .ProductID = 0x%04x", desc.ProductID);
+		LOG(" .DeviceID = 0x%04x", desc.DeviceID);
+		LOG(" .ManufacturerStr = Str %i", desc.ManufacturerStr);
+		LOG(" .ProductStr = Str %i", desc.ProductStr);
+		LOG(" .SerialNumberStr = Str %i", desc.SerialNumberStr);
+		LOG(" .NumConfigurations = %i", desc.SerialNumberStr);
+		LOG("}");
+		
+		if( desc.ManufacturerStr )
+		{
+			char	*tmp = USB_int_GetDeviceString(dev, 0, desc.ManufacturerStr);
+			LOG("ManufacturerStr = '%s'", tmp);
+			free(tmp);
+		}
+		if( desc.ProductStr )
+		{
+			char	*tmp = USB_int_GetDeviceString(dev, 0, desc.ProductStr);
+			LOG("ProductStr = '%s'", tmp);
+			free(tmp);
+		}
+		if( desc.SerialNumberStr )
+		{
+			char	*tmp = USB_int_GetDeviceString(dev, 0, desc.SerialNumberStr);
+			LOG("SerialNumbertStr = '%s'", tmp);
+			free(tmp);
+		}
+	}
+	
+	// 3. Get configurations
+	for( int i = 0; i < 1; i ++ )
+	{
+		struct sDescriptor_Configuration	desc;
+//		void	*full_buf;
+		
+		USB_int_ReadDescriptor(dev, 0, 2, 0, sizeof(desc), &desc);
+		LOG("Configuration Descriptor %i = {", i);
+		LOG(" .Length = %i", desc.Length);
+		LOG(" .Type = %i", desc.Type);
+		LOG(" .TotalLength = 0x%x", LittleEndian16(desc.TotalLength));
+		LOG(" .NumInterfaces = %i", desc.NumInterfaces);
+		LOG(" .ConfigurationValue = %i", desc.ConfigurationValue);
+		LOG(" .ConfigurationStr = %i", desc.ConfigurationStr);
+		LOG(" .AttributesBmp = 0b%b", desc.AttributesBmp);
+		LOG(" .MaxPower = %i (*2mA)", desc.MaxPower);
+		LOG("}");
+		if( desc.ConfigurationStr ) {
+			char	*tmp = USB_int_GetDeviceString(dev, 0, desc.ConfigurationStr);
+			LOG("ConfigurationStr = '%s'", tmp);
+			free(tmp);
+		}
+		
+		// TODO: Interfaces
+	}
 
 	// Done.
 	LEAVE('-');
@@ -108,24 +177,42 @@ int USB_int_AllocateAddress(tUSBHost *Host)
 	 int	i;
 	for( i = 1; i < 128; i ++ )
 	{
-		if(Host->AddressBitmap[i/8] & (1 << i))
+		if(Host->AddressBitmap[i/8] & (1 << (i%8)))
 			continue ;
+		Host->AddressBitmap[i/8] |= 1 << (i%8);
 		return i;
 	}
 	return 0;
 }
 
+void USB_int_DeallocateAddress(tUSBHost *Host, int Address)
+{
+	Host->AddressBitmap[Address/8] &= ~(1 << (Address%8));
+}
+
 int USB_int_SendSetupSetAddress(tUSBHost *Host, int Address)
 {
+	void	*hdl;
 	struct sDeviceRequest	req;
 	req.ReqType = 0;	// bmRequestType
 	req.Request = 5;	// SET_ADDRESS
-	req.Value = Address & 0x7F;	// wValue
-	req.Index = 0;	// wIndex
-	req.Length = 0;	// wLength
+	// TODO: Endian
+	req.Value = LittleEndian16( Address & 0x7F );	// wValue
+	req.Index = LittleEndian16( 0 );	// wIndex
+	req.Length = LittleEndian16( 0 );	// wLength
 	
 	// Addr 0:0, Data Toggle = 0, no interrupt
-	return Host->HostDef->SendSETUP(Host->Ptr, 0, 0, 0, FALSE, &req, sizeof(req)) == NULL;
+	hdl = Host->HostDef->SendSETUP(Host->Ptr, 0, 0, 0, FALSE, &req, sizeof(req));
+	if(!hdl)
+		return 1;
+
+	// TODO: Data toggle?
+	hdl = Host->HostDef->SendIN(Host->Ptr, 0, 0, 0, FALSE, NULL, 0);
+	
+	while( Host->HostDef->IsOpComplete(Host->Ptr, hdl) == 0 )
+		Time_Delay(1);
+	
+	return 0;
 }
 
 int USB_int_ReadDescriptor(tUSBDevice *Dev, int Endpoint, int Type, int Index, int Length, void *Dest)
@@ -137,9 +224,9 @@ int USB_int_ReadDescriptor(tUSBDevice *Dev, int Endpoint, int Type, int Index, i
 
 	req.ReqType = 0x80;
 	req.Request = 6;	// GET_DESCRIPTOR
-	req.Value = ((Type & 0xFF) << 8) | (Index & 0xFF);
-	req.Index = 0;	// TODO: Language ID
-	req.Length = Length;
+	req.Value = LittleEndian16( ((Type & 0xFF) << 8) | (Index & 0xFF) );
+	req.Index = LittleEndian16( 0 );	// TODO: Language ID
+	req.Length = LittleEndian16( Length );
 	
 	Dev->Host->HostDef->SendSETUP(
 		Dev->Host->Ptr, Dev->Address, Endpoint,
@@ -170,3 +257,72 @@ int USB_int_ReadDescriptor(tUSBDevice *Dev, int Endpoint, int Type, int Index, i
 
 	return 0;
 }
+
+char *USB_int_GetDeviceString(tUSBDevice *Dev, int Endpoint, int Index)
+{
+	struct sDescriptor_String	str;
+	 int	src_len, new_len;
+	char	*ret;
+	
+	USB_int_ReadDescriptor(Dev, Endpoint, 3, Index, sizeof(str), &str);
+	if(str.Length > sizeof(str)) {
+		Log_Notice("USB", "String is %i bytes, which is over prealloc size (%i)",
+			str.Length, sizeof(str)
+			);
+		// HACK: 
+		str.Length = sizeof(str);
+	}
+	src_len = (str.Length - 2) / sizeof(str.Data[0]);
+
+	new_len = _UTF16to8(str.Data, src_len, NULL);	
+	ret = malloc( new_len + 1 );
+	_UTF16to8(str.Data, src_len, ret);
+	ret[new_len] = 0;
+	return ret;
+}
+
+int _UTF16to8(Uint16 *Input, int InputLen, char *Dest)
+{
+	 int	str_len, cp_len;
+	Uint32	saved_bits = 0;
+	str_len = 0;
+	for( int i = 0; i < InputLen; i ++)
+	{
+		Uint32	cp;
+		Uint16	val = Input[i];
+		if( val >= 0xD800 && val <= 0xDBFF )
+		{
+			// Multibyte - Leading
+			if(i + 1 > InputLen) {
+				cp = '?';
+			}
+			else {
+				saved_bits = (val - 0xD800) << 10;
+				saved_bits += 0x10000;
+				continue ;
+			}
+		}
+		else if( val >= 0xDC00 && val <= 0xDFFF )
+		{
+			if( !saved_bits ) {
+				cp = '?';
+			}
+			else {
+				saved_bits |= (val - 0xDC00);
+				cp = saved_bits;
+			}
+		}
+		else
+			cp = val;
+
+		cp_len = WriteUTF8((Uint8*)Dest, cp);
+		if(Dest)
+			Dest += cp_len;
+		str_len += cp_len;
+
+		saved_bits = 0;
+	}
+	
+	return str_len;
+}
+

@@ -720,37 +720,39 @@ int WriteUTF8(Uint8 *str, Uint32 Val)
 {
 	// ASCII
 	if( Val < 128 ) {
-		*str = Val;
+		if( str ) {
+			*str = Val;
+		}
 		return 1;
 	}
 	
 	// Two Byte
 	if( Val < 0x8000 ) {
-		*str = 0xC0 | (Val >> 6);
-		str ++;
-		*str = 0x80 | (Val & 0x3F);
+		if( str ) {
+			*str++ = 0xC0 | (Val >> 6);
+			*str++ = 0x80 | (Val & 0x3F);
+		}
 		return 2;
 	}
 	
 	// Three Byte
 	if( Val < 0x10000 ) {
-		*str = 0xE0 | (Val >> 12);
-		str ++;
-		*str = 0x80 | ((Val >> 6) & 0x3F);
-		str ++;
-		*str = 0x80 | (Val & 0x3F);
+		if( str ) {
+			*str++ = 0xE0 | (Val >> 12);
+			*str++ = 0x80 | ((Val >> 6) & 0x3F);
+			*str++ = 0x80 | (Val & 0x3F);
+		}
 		return 3;
 	}
 	
 	// Four Byte
 	if( Val < 0x110000 ) {
-		*str = 0xF0 | (Val >> 18);
-		str ++;
-		*str = 0x80 | ((Val >> 12) & 0x3F);
-		str ++;
-		*str = 0x80 | ((Val >> 6) & 0x3F);
-		str ++;
-		*str = 0x80 | (Val & 0x3F);
+		if( str ) {
+			*str++ = 0xF0 | (Val >> 18);
+			*str++ = 0x80 | ((Val >> 12) & 0x3F);
+			*str++ = 0x80 | ((Val >> 6) & 0x3F);
+			*str++ = 0x80 | (Val & 0x3F);
+		}
 		return 4;
 	}
 	

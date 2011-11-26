@@ -24,6 +24,7 @@ void	*UHCI_int_SendTransaction(tUHCI_Controller *Cont, int Addr, Uint8 Type, int
 void	*UHCI_DataIN(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, void *Data, size_t Length);
 void	*UHCI_DataOUT(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, void *Data, size_t Length);
 void	*UHCI_SendSetup(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, void *Data, size_t Length);
+ int	UHCI_IsTransferComplete(void *Ptr, void *Handle);
 void	UHCI_Hub_Poll(tUSBHub *Hub, tUSBDevice *Dev);
  int	UHCI_Int_InitHost(tUHCI_Controller *Host);
 void	UHCI_CheckPortUpdate(tUHCI_Controller *Host);
@@ -37,7 +38,8 @@ tUSBHostDef	gUHCI_HostDef = {
 	.SendIN = UHCI_DataIN,
 	.SendOUT = UHCI_DataOUT,
 	.SendSETUP = UHCI_SendSetup,
-	.CheckPorts = (void*)UHCI_CheckPortUpdate
+	.CheckPorts = (void*)UHCI_CheckPortUpdate,
+	.IsOpComplete = UHCI_IsTransferComplete
 	};
 
 // === CODE ===
@@ -64,6 +66,7 @@ int UHCI_Initialise(const char **Arguments)
 			Log_Warning("UHCI", "MMIO is not supported");
 			continue ;
 		}
+		cinfo->IOBase &= ~1;
 		cinfo->IRQNum = PCI_GetIRQ(id);
 		
 		Log_Debug("UHCI", "Controller PCI #%i: IO Base = 0x%x, IRQ %i",
@@ -81,6 +84,8 @@ int UHCI_Initialise(const char **Arguments)
 		
 		cinfo->RootHub = USB_RegisterHost(&gUHCI_HostDef, cinfo, 2);
 		LOG("cinfo->RootHub = %p", cinfo->RootHub);
+
+		UHCI_CheckPortUpdate(cinfo);
 
 		i ++;
 	}
@@ -106,15 +111,56 @@ tUHCI_TD *UHCI_int_AllocateTD(tUHCI_Controller *Cont)
 	{
 		if(gaUHCI_TDPool[i].Link == 0) {
 			gaUHCI_TDPool[i].Link = 1;
+			gaUHCI_TDPool[i].Control = 1 << 23;
 			return &gaUHCI_TDPool[i];
 		}
+		// Still in use? Skip
+		if( gaUHCI_TDPool[i].Control & (1 << 23) )
+			continue ;
+		// Is there a callback on it? Skip
+		if( gaUHCI_TDPool[i]._info.Callback )
+			continue ;
+		// TODO: Garbage collect, but that means removing from the list too
+		#if 0
+		// Ok, this is actually unused
+		gaUHCI_TDPool[i].Link = 1;
+		gaUHCI_TDPool[i].Control = 1 << 23;
+		return &gaUHCI_TDPool[i];
+		#endif
 	}
 	return NULL;
 }
 
 void UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_TD *TD)
 {
-	Log_Warning("UHCI", "TODO: Implement AppendTD");
+	 int	next_frame = (inw(Cont->IOBase + FRNUM) + 2) & (1024-1);
+	tPAddr	td_pool_base = MM_GetPhysAddr( (tVAddr)gaUHCI_TDPool );
+	tUHCI_TD	*prev_td;
+	Uint32	link;
+
+	// TODO: How to handle FRNUM incrementing while we are in this function?
+
+	// Empty list
+	if( Cont->FrameList[next_frame] & 1 )
+	{
+		// TODO: Ensure 32-bit paddr
+		Cont->FrameList[next_frame] = MM_GetPhysAddr( (tVAddr)TD );
+		LOG("next_frame = %i", next_frame);	
+		return;
+	}
+
+	// Find the end of the list
+	link = Cont->FrameList[next_frame];
+	do {
+		// TODO: Fix this to work with a non-contiguous pool
+		prev_td = gaUHCI_TDPool + (link - td_pool_base) / sizeof(gaUHCI_TDPool[0]);
+		link = prev_td->Link;
+	} while( !(link & 1) );
+	
+	// Append
+	prev_td->Link = MM_GetPhysAddr( (tVAddr)TD );
+
+	LOG("next_frame = %i, prev_td = %p", next_frame, prev_td);
 }
 
 /**
@@ -131,8 +177,15 @@ void *UHCI_int_SendTransaction(tUHCI_Controller *Cont, int Addr, Uint8 Type, int
 
 	td = UHCI_int_AllocateTD(Cont);
 
+	if( !td ) {
+		// 
+		Log_Error("UHCI", "No avaliable TDs, transaction dropped");
+		return NULL;
+	}
+
 	td->Link = 1;
 	td->Control = (Length - 1) & 0x7FF;
+	td->Control |= (1 << 23);
 	td->Token  = ((Length - 1) & 0x7FF) << 21;
 	td->Token |= (bTgl & 1) << 19;
 	td->Token |= (Addr & 0xF) << 15;
@@ -140,8 +193,10 @@ void *UHCI_int_SendTransaction(tUHCI_Controller *Cont, int Addr, Uint8 Type, int
 	td->Token |= Type;
 
 	// TODO: Ensure 32-bit paddr
-	if( ((tVAddr)Data & PAGE_SIZE) + Length > PAGE_SIZE ) {
-		Log_Warning("UHCI", "TODO: Support non single page transfers");
+	if( ((tVAddr)Data & (PAGE_SIZE-1)) + Length > PAGE_SIZE ) {
+		Log_Warning("UHCI", "TODO: Support non single page transfers (%x + %x > %x)",
+			(tVAddr)Data & (PAGE_SIZE-1), Length, PAGE_SIZE
+			);
 		// TODO: Need to enable IOC to copy the data back
 //		td->BufferPointer = 
 		return NULL;
@@ -153,12 +208,14 @@ void *UHCI_int_SendTransaction(tUHCI_Controller *Cont, int Addr, Uint8 Type, int
 	// Interrupt on completion
 	if( Cb ) {
 		td->Control |= (1 << 24);
-		td->Avaliable[0] = (tVAddr)Cb;	// NOTE: if ERRPTR then the TD is kept allocated until checked
-		#if BITS > 32
-		td->Avaliable[1] = (tVAddr)Cb >> 32;
-		#endif
-		Log_Warning("UHCI", "TODO: Support IOC... somehow");
+		td->_info.Callback = Cb;	// NOTE: if ERRPTR then the TD is kept allocated until checked
+		if( Cb != INVLPTR )
+		{
+			Log_Warning("UHCI", "TODO: Support IOC... somehow");
+		}
 	}
+	
+	td->_info.DestPtr = Data;
 
 	UHCI_int_AppendTD(Cont, td);
 
@@ -178,6 +235,12 @@ void *UHCI_DataOUT(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, vo
 void *UHCI_SendSetup(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, void *Data, size_t Length)
 {
 	return UHCI_int_SendTransaction(Ptr, Fcn*16+Endpt, 0x2D, DataTgl, Cb, Data, Length);
+}
+
+int UHCI_IsTransferComplete(void *Ptr, void *Handle)
+{
+	tUHCI_TD	*td = Handle;
+	return !(td->Control & (1 << 23));
 }
 
 void UHCI_Hub_Poll(tUSBHub *Hub, tUSBDevice *Dev)
@@ -227,6 +290,7 @@ int UHCI_Int_InitHost(tUHCI_Controller *Host)
 	outw( Host->IOBase + USBINTR, 0x000F );
 	PCI_ConfigWrite( Host->PciId, 0xC0, 2, 0x2000 );
 
+	// Enable processing
 	outw( Host->IOBase + USBCMD, 0x0001 );
 
 	LEAVE('i', 0);
@@ -255,13 +319,13 @@ void UHCI_CheckPortUpdate(tUHCI_Controller *Host)
 			LOG("Port %i has something", i);
 			// Reset port (set bit 9)
 			LOG("Reset");
-			outw( port, 0x0100 );
+			outw( port, 0x0200 );
 			Time_Delay(50);	// 50ms delay
-			outw( port, inw(port) & ~0x0100 );
+			outw( port, inw(port) & ~0x0200 );
 			// Enable port
 			LOG("Enable");
 			Time_Delay(50);	// 50ms delay
-			outw( port, inw(port) & 0x0004 );
+			outw( port, inw(port) | 0x0004 );
 			// Tell USB there's a new device
 			USB_DeviceConnected(Host->RootHub, i);
 		}
@@ -270,5 +334,14 @@ void UHCI_CheckPortUpdate(tUHCI_Controller *Host)
 
 void UHCI_InterruptHandler(int IRQ, void *Ptr)
 {
-	Log_Debug("UHCI", "UHIC Interrupt");
+	tUHCI_Controller *Host = Ptr;
+	Uint16	status = inw(Host->IOBase + USBSTS);
+	Log_Debug("UHCI", "UHIC Interrupt, status = 0x%x", status);
+	
+	if( status & 1 )
+	{
+		// Interrupt-on-completion
+	}
+
+	outw(Host->IOBase + USBSTS, status);
 }

@@ -104,10 +104,19 @@ struct sUHCI_TD
 	 */
 	Uint32	BufferPointer;
 
-	/**
-	 * \brief Avaliable for use by software
-	 */
-	Uint32	Avaliable[4];
+	union
+	{
+		/**
+		 * \brief Avaliable for use by software
+		 */
+		Uint32	Avaliable[4];
+		
+		struct
+		{
+			void	*Callback;
+			void	*DestPtr;
+		} _info;
+	};
 };
 
 struct sUHCI_QH
