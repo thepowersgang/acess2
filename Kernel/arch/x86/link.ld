@@ -3,8 +3,8 @@
  * Linker Script
  */
 
-//lowStart = start - 0xC0000000;
-ENTRY(start)
+lowStart = start - 0xC0000000;
+ENTRY(lowStart)
 OUTPUT_FORMAT(elf32-i386)
 
 SECTIONS {
