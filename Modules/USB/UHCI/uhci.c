@@ -1,8 +1,10 @@
 /*
  * Acess 2 USB Stack
+ * - By John Hodge (thePowersGang)
+ *
  * Universal Host Controller Interface
  */
-#define DEBUG	1
+#define DEBUG	0
 #define VERSION	VER2(0,5)
 #include <acess.h>
 #include <vfs.h>

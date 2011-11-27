@@ -19,7 +19,10 @@ struct sUSBDriver
 	
 	const char	*Name;
 	
-	// TODO: Check class codes and provide other identifcation options
+	// 23:16 - Interface Class
+	// 15:8  - Interface Sub Class
+	// 7:0   - Interface Protocol
+	Uint32	ClassMask;
 	Uint32	ClassCode;
 
 	void	(*Connected)(tUSBDevice *Dev);
