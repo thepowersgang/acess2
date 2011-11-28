@@ -9,6 +9,14 @@
 
 #define MAX_PORTS	32	// Not actually a max, but used for DeviceRemovable
 
+#define GET_STATUS	0
+#define SET_FEATURE	3
+
+#define PORT_CONNECTION	0
+#define PORT_ENABLE	1
+#define PORT_RESET	4
+#define PORT_POWER	8
+
 struct sHubDescriptor
 {
 	Uint8	DescLength;
@@ -96,11 +104,32 @@ void Hub_PortStatusChange(tUSBInterface *Dev, int Length, void *Data)
 
 void Hub_int_HandleChange(tUSBInterface *Dev, int Port)
 {
+	struct sHubInfo	*info = USB_GetDeviceDataPtr(Dev);
 	Uint16	status[2];	// Status, Change
 	
 	// Get port status
-	USB_Request(Dev, 0, 0xA3, 0, 0, Port, 4, status);
+	USB_Request(Dev, 0, 0xA3, GET_STATUS, 0, Port, 4, status);
 	
 	// Handle connections / disconnections
+	if( status[1] & 0x0001 )
+	{
+		if( status[0] & 0x0001 ) {
+			// Connected
+			// - Power on port
+			USB_Request(Dev, 0, 0x23, SET_FEATURE, PORT_POWER, Port, 0, NULL);
+			Time_Delay(info->PowerOnDelay);
+			// - Reset
+			USB_Request(Dev, 0, 0x23, SET_FEATURE, PORT_RESET, Port, 0, NULL);
+			Time_Delay(50);
+			// - Enable
+			USB_Request(Dev, 0, 0x23, SET_FEATURE, PORT_ENABLE, Port, 0, NULL);
+			// - Poke USB Stack
+			USB_DeviceConnected(info->HubPtr, Port);
+		}
+		else {
+			// Disconnected
+			USB_DeviceDisconnected(info->HubPtr, Port);
+		}
+	}
 }
 
