@@ -875,7 +875,7 @@ void VT_SetTerminal(int ID)
 	
 	VT_int_UpdateCursor(gpVT_CurTerm, 1);
 	// Update the screen
-//	VT_int_UpdateScreen(gpVT_CurTerm, 1);
+	VT_int_UpdateScreen(gpVT_CurTerm, 1);
 }
 
 /**
