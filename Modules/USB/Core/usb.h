@@ -19,9 +19,7 @@ typedef struct sUSBEndpoint	tUSBEndpoint;
  */
 struct sUSBHub
 {
-	tUSBDevice	*Device;
-	
-	tUSB_HubPoll	CheckPorts;
+	tUSBInterface	*Interface;
 	
 	 int	nPorts;
 	tUSBDevice	*Devices[];
@@ -29,8 +27,10 @@ struct sUSBHub
 
 struct sUSBEndpoint
 {
-	tUSBInterface	*Interface;
 	tUSBEndpoint	*Next;	// In the poll list
+	tUSBInterface	*Interface;
+	 int	EndpointNum;
+	
 	 int	PollingPeriod;	// In 1ms intervals
 	 int	MaxPacketSize;	// In bytes
 
@@ -81,6 +81,7 @@ struct sUSBHost
 	Uint8	AddressBitmap[128/8];
 	
 	tUSBDevice	RootHubDev;
+	tUSBInterface	RootHubIf;
 	tUSBHub	RootHub;
 };
 

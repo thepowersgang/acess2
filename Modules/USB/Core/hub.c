@@ -7,9 +7,17 @@
  */
 #include <usb_hub.h>
 
-struct sHubInfo
+#define MAX_PORTS	32	// Not actually a max, but used for DeviceRemovable
+
+struct sHubDescriptor
 {
-	 int	nPorts;
+	Uint8	DescLength;
+	Uint8	DescType;	// = 0x29
+	Uint8	NbrPorts;
+	Uint16	HubCharacteristics;
+	Uint8	PwrOn2PwrGood;	// 2 ms intervals
+	Uint8	HubContrCurrent;	// Max internal current (mA)
+	Uint8	DeviceRemovable[MAX_PORTS];
 };
 
 // === PROTOTYPES ===
@@ -32,10 +40,21 @@ tUSBDriver	gUSBHub_Driver = {
 // === CODE ===
 void Hub_Connected(tUSBInterface *Dev)
 {
-	// Register poll on endpoint
-	USB_PollEndpoint(Dev, 0);
+	struct sHubDescriptor	*hub_desc;
 	
-	USB_RegisterHub(Dev, nPorts);
+	hub_desc = malloc(sizeof(*hub_desc));
+	if(!hub_desc) {
+		Log_Error("USBHub", "malloc() failed");
+		return ;
+	}
+	USB_SetDeviceDataPtr(Dev, hub_desc);
+
+	USB_ReadDescriptor(Dev, 0, 0x29, 0, sizeof(hub_desc), hub_desc);
+
+	// Register poll on endpoint
+	USB_PollEndpoint(Dev, 1);
+	
+	USB_RegisterHub(Dev, hub_desc->NbrPorts);
 }
 
 void Hub_Disconnected(tUSBInterface *Dev)
@@ -44,9 +63,10 @@ void Hub_Disconnected(tUSBInterface *Dev)
 
 void Hub_PortStatusChange(tUSBInterface *Dev, int Length, void *Data)
 {
-	 int	i;
 	Uint8	*status = Data;
-	for( i = 0; i < info->nPorts; i += 8, status ++ )
+	struct sHubDescriptor	*info = USB_GetDeviceDataPtr(Dev);
+	 int	i;
+	for( i = 0; i < info->NbrPorts; i += 8, status ++ )
 	{
 		if( i/8 >= Length )	break;
 		if( *status == 0 )	continue;

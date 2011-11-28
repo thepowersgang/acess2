@@ -41,15 +41,17 @@ tUSBHub *USB_RegisterHost(tUSBHostDef *HostDef, void *ControllerPtr, int nPorts)
 	host->Ptr = ControllerPtr;
 	memset(host->AddressBitmap, 0, sizeof(host->AddressBitmap));
 
-//	host->RootHubDev.Next = NULL;
 	host->RootHubDev.ParentHub = NULL;
 	host->RootHubDev.Host = host;
 	host->RootHubDev.Address = 0;
-//	host->RootHubDev.Driver = NULL;
-//	host->RootHubDev.Data = NULL;
 
-	host->RootHub.Device = &host->RootHubDev;
-	host->RootHub.CheckPorts = NULL;
+	host->RootHubIf.Next = NULL;
+	host->RootHubIf.Dev = &host->RootHubDev;
+	host->RootHubIf.Driver = NULL;
+	host->RootHubIf.Data = NULL;
+	host->RootHubIf.nEndpoints = 0;
+
+	host->RootHub.Interface = &host->RootHubIf;
 	host->RootHub.nPorts = nPorts;
 	memset(host->RootHub.Devices, 0, sizeof(void*)*nPorts);
 
@@ -72,12 +74,9 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 	
 	// Create structure
 	dev = malloc(sizeof(tUSBDevice));
-//	dev->Next = NULL;
 	dev->ParentHub = Hub;
-	dev->Host = Hub->Device->Host;
+	dev->Host = Hub->Interface->Dev->Host;
 	dev->Address = 0;
-//	dev->Driver = 0;
-//	dev->Data = 0;
 
 	// 1. Assign an address
 	dev->Address = USB_int_AllocateAddress(dev->Host);
