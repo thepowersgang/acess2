@@ -10,6 +10,8 @@
 #include <usb_host.h>
 
 typedef struct sUSBHost	tUSBHost;
+typedef struct sUSBDevice	tUSBDevice;
+typedef struct sUSBEndpoint	tUSBEndpoint;
 
 // === STRUCTURES ===
 /**
@@ -25,12 +27,38 @@ struct sUSBHub
 	tUSBDevice	*Devices[];
 };
 
+struct sUSBEndpoint
+{
+	tUSBInterface	*Interface;
+	tUSBEndpoint	*Next;	// In the poll list
+	 int	PollingPeriod;	// In 1ms intervals
+	 int	MaxPacketSize;	// In bytes
+
+	char	Direction;	// 1 Polled Input, 0 Output
+	
+	Uint8	Type;	// Same as sDescriptor_Endpoint.Type
+};
+
+/**
+ * \brief Structure for a device's interface
+ */
+struct sUSBInterface
+{
+	tUSBInterface	*Next;
+	tUSBDevice	*Dev;
+
+	tUSBDriver	*Driver;
+	void	*Data;
+	
+	 int	nEndpoints;
+	tUSBEndpoint	Endpoints[];
+};
+
 /**
  * \brief Defines a single device on the USB Bus
  */
 struct sUSBDevice
 {
-	tUSBDevice	*Next;
 	tUSBHub	*ParentHub;
 
 	/**
@@ -38,9 +66,9 @@ struct sUSBDevice
 	 */
 	tUSBHost	*Host;
 	 int	Address;
-	
-	tUSBDriver	*Driver;
-	void	*Data;
+
+	 int	nInterfaces;
+	tUSBInterface	*Interfaces[];
 };
 
 struct sUSBHost

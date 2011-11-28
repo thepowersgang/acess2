@@ -53,7 +53,7 @@ struct sDescriptor_String
 	Uint8	Length;
 	Uint8	Type;	// = 3
 	
-	Uint16	Data[62];	// 62 is arbitary
+	Uint16	Data[128-1];	// (256 bytes - 2 bytes) / Uint16
 } PACKED;
 
 struct sDescriptor_Interface
@@ -76,7 +76,7 @@ struct sDescriptor_Endpoint
 {
 	Uint8	Length;
 	Uint8	Type;	// = 5
-	Uint8	Address;	// 3:0 Endpoint Num, 7: Direction (IN/OUT)
+	Uint8	Address;	// 3:0 Endpoint Num, 7: Direction (1=IN)
 	/**
 	 * 1:0 - Transfer Type
 	 * - 00 = Control

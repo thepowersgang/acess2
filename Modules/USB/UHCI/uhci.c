@@ -27,7 +27,6 @@ void	*UHCI_DataIN(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, voi
 void	*UHCI_DataOUT(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, void *Data, size_t Length);
 void	*UHCI_SendSetup(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, void *Data, size_t Length);
  int	UHCI_IsTransferComplete(void *Ptr, void *Handle);
-void	UHCI_Hub_Poll(tUSBHub *Hub, tUSBDevice *Dev);
  int	UHCI_Int_InitHost(tUHCI_Controller *Host);
 void	UHCI_CheckPortUpdate(tUHCI_Controller *Host);
 void	UHCI_InterruptHandler(int IRQ, void *Ptr);
@@ -243,13 +242,6 @@ int UHCI_IsTransferComplete(void *Ptr, void *Handle)
 {
 	tUHCI_TD	*td = Handle;
 	return !(td->Control & (1 << 23));
-}
-
-void UHCI_Hub_Poll(tUSBHub *Hub, tUSBDevice *Dev)
-{
-	tUHCI_Controller *cont = USB_GetDeviceDataPtr(Dev);
-	
-	UHCI_CheckPortUpdate(cont);
 }
 
 // === INTERNAL FUNCTIONS ===

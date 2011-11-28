@@ -30,8 +30,8 @@ tDevFS_Driver	gUSB_DrvInfo = {
 	}
 };
 tUSBHost	*gUSB_Hosts = NULL;
-tUSBDevice	*gUSB_InterruptDevs = NULL;
-tUSBDevice	*gUSB_InterruptLast = NULL;
+tUSBInterface	*gUSB_InterruptDevs = NULL;
+tUSBInterface	*gUSB_InterruptLast = NULL;
 
 // === CODE ===
 /**
@@ -50,7 +50,7 @@ int USB_PollThread(void *unused)
 {
 	for(;;)
 	{
-		for( tUSBDevice *dev = gUSB_InterruptDevs; dev; dev = dev->Next )
+		for( tUSBInterface *dev = gUSB_InterruptDevs; dev; dev = dev->Next )
 		{
 //			hub->CheckPorts(hub, hub->Device);
 		}

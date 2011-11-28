@@ -18,8 +18,8 @@ extern tUSBHost	*gUSB_Hosts;
 tUSBHub	*USB_RegisterHost(tUSBHostDef *HostDef, void *ControllerPtr, int nPorts);
 void	USB_DeviceConnected(tUSBHub *Hub, int Port);
 void	USB_DeviceDisconnected(tUSBHub *Hub, int Port);
-void	*USB_GetDeviceDataPtr(tUSBDevice *Dev);
-void	USB_SetDeviceDataPtr(tUSBDevice *Dev, void *Ptr);
+void	*USB_GetDeviceDataPtr(tUSBInterface *Dev);
+void	USB_SetDeviceDataPtr(tUSBInterface *Dev, void *Ptr);
  int	USB_int_AllocateAddress(tUSBHost *Host);
  int	USB_int_SendSetupSetAddress(tUSBHost *Host, int Address);
  int	USB_int_ReadDescriptor(tUSBDevice *Dev, int Endpoint, int Type, int Index, int Length, void *Dest);
@@ -41,12 +41,12 @@ tUSBHub *USB_RegisterHost(tUSBHostDef *HostDef, void *ControllerPtr, int nPorts)
 	host->Ptr = ControllerPtr;
 	memset(host->AddressBitmap, 0, sizeof(host->AddressBitmap));
 
-	host->RootHubDev.Next = NULL;
+//	host->RootHubDev.Next = NULL;
 	host->RootHubDev.ParentHub = NULL;
 	host->RootHubDev.Host = host;
 	host->RootHubDev.Address = 0;
-	host->RootHubDev.Driver = NULL;
-	host->RootHubDev.Data = NULL;
+//	host->RootHubDev.Driver = NULL;
+//	host->RootHubDev.Data = NULL;
 
 	host->RootHub.Device = &host->RootHubDev;
 	host->RootHub.CheckPorts = NULL;
@@ -72,12 +72,12 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 	
 	// Create structure
 	dev = malloc(sizeof(tUSBDevice));
-	dev->Next = NULL;
+//	dev->Next = NULL;
 	dev->ParentHub = Hub;
 	dev->Host = Hub->Device->Host;
 	dev->Address = 0;
-	dev->Driver = 0;
-	dev->Data = 0;
+//	dev->Driver = 0;
+//	dev->Data = 0;
 
 	// 1. Assign an address
 	dev->Address = USB_int_AllocateAddress(dev->Host);
@@ -171,7 +171,7 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 			// TODO: Sanity check with remaining space
 			cur_ptr += sizeof(*iface);
 			
-			LOG("Interface %i/%i = {");
+			LOG("Interface %i/%i = {", i, j);
 			LOG(" .InterfaceNum = %i", iface->InterfaceNum);
 			LOG(" .NumEndpoints = %i", iface->NumEndpoints);
 			LOG(" .InterfaceClass = 0x%x", iface->InterfaceClass);
@@ -192,7 +192,12 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 				// TODO: Sanity check with remaining space
 				cur_ptr += sizeof(*endpt);
 				
-				
+				LOG("Endpoint %i/%i/%i = {", i, j, k);
+				LOG(" .Address = 0x%2x", endpt->Address);
+				LOG(" .Attributes = 0b%8b", endpt->Attributes);
+				LOG(" .MaxPacketSize = %i", LittleEndian16(endpt->MaxPacketSize));
+				LOG(" .PollingInterval = %i", endpt->PollingInterval);
+				LOG("}");
 			}
 		}
 		
@@ -208,8 +213,8 @@ void USB_DeviceDisconnected(tUSBHub *Hub, int Port)
 	
 }
 
-void *USB_GetDeviceDataPtr(tUSBDevice *Dev) { return Dev->Data; }
-void USB_SetDeviceDataPtr(tUSBDevice *Dev, void *Ptr) { Dev->Data = Ptr; }
+void *USB_GetDeviceDataPtr(tUSBInterface *Dev) { return Dev->Data; }
+void USB_SetDeviceDataPtr(tUSBInterface *Dev, void *Ptr) { Dev->Data = Ptr; }
 
 int USB_int_AllocateAddress(tUSBHost *Host)
 {
@@ -229,6 +234,34 @@ void USB_int_DeallocateAddress(tUSBHost *Host, int Address)
 	Host->AddressBitmap[Address/8] &= ~(1 << (Address%8));
 }
 
+void *USB_int_Request(tUSBHost *Host, int Addr, int EndPt, int Type, int Req, int Val, int Indx, int Len, void *Data)
+{
+	void	*hdl;
+	// TODO: Sanity check (and check that Type is valid)
+	struct sDeviceRequest	req;
+	req.ReqType = Type;
+	req.Request = Req;
+	req.Value = LittleEndian16( Val );
+	req.Index = LittleEndian16( Indx );
+	req.Length = LittleEndian16( Len );
+	
+	hdl = Host->HostDef->SendSETUP(Host->Ptr, Addr, EndPt, 0, NULL, &req, sizeof(req));
+
+	// TODO: Data toggle?
+	// TODO: Correct sequence? (Some OUT requests need an IN)
+	if( Type & 0x80 )
+	{
+		hdl = Host->HostDef->SendIN(Host->Ptr, Addr, EndPt, 0, NULL, Data, Len);
+		while( Host->HostDef->IsOpComplete(Host->Ptr, hdl) == 0 )
+			Time_Delay(1);
+	}
+	else
+	{
+		hdl = Host->HostDef->SendOUT(Host->Ptr, Addr, EndPt, 0, NULL, Data, Len);
+	}
+	return hdl;
+}
+
 int USB_int_SendSetupSetAddress(tUSBHost *Host, int Address)
 {
 	void	*hdl;
@@ -241,12 +274,11 @@ int USB_int_SendSetupSetAddress(tUSBHost *Host, int Address)
 	req.Length = LittleEndian16( 0 );	// wLength
 	
 	// Addr 0:0, Data Toggle = 0, no interrupt
-	hdl = Host->HostDef->SendSETUP(Host->Ptr, 0, 0, 0, FALSE, &req, sizeof(req));
+	hdl = Host->HostDef->SendSETUP(Host->Ptr, 0, 0, 0, NULL, &req, sizeof(req));
 	if(!hdl)
 		return 1;
 
-	// TODO: Data toggle?
-	hdl = Host->HostDef->SendIN(Host->Ptr, 0, 0, 0, FALSE, NULL, 0);
+	hdl = Host->HostDef->SendIN(Host->Ptr, 0, 0, 0, NULL, NULL, 0);
 	
 	while( Host->HostDef->IsOpComplete(Host->Ptr, hdl) == 0 )
 		Time_Delay(1);
@@ -304,13 +336,12 @@ char *USB_int_GetDeviceString(tUSBDevice *Dev, int Endpoint, int Index)
 	char	*ret;
 	
 	USB_int_ReadDescriptor(Dev, Endpoint, 3, Index, sizeof(str), &str);
-	if(str.Length > sizeof(str)) {
-		Log_Notice("USB", "String is %i bytes, which is over prealloc size (%i)",
-			str.Length, sizeof(str)
-			);
-		// HACK: 
-		str.Length = sizeof(str);
-	}
+//	if(str.Length > sizeof(str)) {
+//		// IMPOSSIBLE!
+//		Log_Error("USB", "String is %i bytes, which is over prealloc size (%i)",
+//			str.Length, sizeof(str)
+//			);
+//	}
 	src_len = (str.Length - 2) / sizeof(str.Data[0]);
 
 	new_len = _UTF16to8(str.Data, src_len, NULL);	

@@ -12,14 +12,12 @@
 
 typedef struct sUSBHub	tUSBHub;
 
-typedef void	(*tUSB_HubPoll)(tUSBHub *Hub, tUSBDevice *HubDev);
-
 /**
  * \brief Register a device as a hub
  * 
  * Used by the hub class initialisation routine.
  */
-extern tUSBHub	USB_RegisterHub(tUSBDevice *Device, int nPorts, tUSB_HubPoll PollCallback);
+extern tUSBHub	USB_RegisterHub(tUSBInterface *Device, int nPorts);
 
 extern void	USB_DeviceConnected(tUSBHub *Hub, int Port);
 extern void	USB_DeviceDisconnected(tUSBHub *Hub, int Port);
