@@ -50,7 +50,11 @@ struct sUSBDriver
 extern void	*USB_GetDeviceDataPtr(tUSBInterface *Dev);
 extern void	USB_SetDeviceDataPtr(tUSBInterface *Dev, void *Ptr);
 
+extern void	USB_StartPollingEndpoint(tUSBInterface *Dev, int Endpoint);
+extern void	USB_ReadDescriptor(tUSBInterface *Dev, int Type, int Index, int Length, void *Data);
+// TODO: Async
 extern void	USB_SendData(tUSBInterface *Dev, int Endpoint, int Length, void *Data);
+extern void	USB_RecvData(tUSBInterface *Dev, int Endpoint, int Length, void *Data);
 
 #endif
 

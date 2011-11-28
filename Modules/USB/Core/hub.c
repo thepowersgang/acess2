@@ -20,6 +20,14 @@ struct sHubDescriptor
 	Uint8	DeviceRemovable[MAX_PORTS];
 };
 
+struct sHubInfo
+{
+	tUSBHub	*HubPtr;
+	 int	PowerOnDelay;	// in ms
+	 int	nPorts;
+	Uint8	DeviceRemovable[];
+}
+
 // === PROTOTYPES ===
 void	Hub_Connected(tUSBInterface *Dev);
 void	Hub_Disconnected(tUSBInterface *Dev);
@@ -40,33 +48,42 @@ tUSBDriver	gUSBHub_Driver = {
 // === CODE ===
 void Hub_Connected(tUSBInterface *Dev)
 {
-	struct sHubDescriptor	*hub_desc;
-	
-	hub_desc = malloc(sizeof(*hub_desc));
-	if(!hub_desc) {
+	struct sHubDescriptor	hub_desc;
+	struct sHubInfo	*info;	
+
+	// Read hub descriptor
+	USB_ReadDescriptor(Dev, 0x29, 0, sizeof(*hub_desc), hub_desc);
+
+	// Allocate infomation structure
+	info = malloc(sizeof(*info) + (hub_desc.NbrPorts+7)/8);
+	if(!info) {
 		Log_Error("USBHub", "malloc() failed");
 		return ;
 	}
-	USB_SetDeviceDataPtr(Dev, hub_desc);
+	USB_SetDeviceDataPtr(Dev, info);
 
-	USB_ReadDescriptor(Dev, 0, 0x29, 0, sizeof(hub_desc), hub_desc);
+	// Fill data
+	info->nPorts = hub_desc.NbrPorts;
+	info->PowerOnDelay = hub_desc.PwrOn2PwrGood * 2;
+	memcpy(info->DeviceRemovable, hub_desc.DeviceRemovable, (hub_desc.NbrPorts+7)/8);
+	// Register
+	info->HubPtr = USB_RegisterHub(Dev, info->nPorts);
 
 	// Register poll on endpoint
-	USB_PollEndpoint(Dev, 1);
-	
-	USB_RegisterHub(Dev, hub_desc->NbrPorts);
+	USB_StartPollingEndpoint(Dev, 1);
 }
 
 void Hub_Disconnected(tUSBInterface *Dev)
 {
+	USB_RemoveHub(Dev);
 }
 
 void Hub_PortStatusChange(tUSBInterface *Dev, int Length, void *Data)
 {
 	Uint8	*status = Data;
-	struct sHubDescriptor	*info = USB_GetDeviceDataPtr(Dev);
+	struct sHubInfo	*info = USB_GetDeviceDataPtr(Dev);
 	 int	i;
-	for( i = 0; i < info->NbrPorts; i += 8, status ++ )
+	for( i = 0; i < info->nPorts; i += 8, status ++ )
 	{
 		if( i/8 >= Length )	break;
 		if( *status == 0 )	continue;
@@ -80,7 +97,10 @@ void Hub_PortStatusChange(tUSBInterface *Dev, int Length, void *Data)
 void Hub_int_HandleChange(tUSBInterface *Dev, int Port)
 {
 	Uint16	status[2];	// Status, Change
-	// Get change status
+	
+	// Get port status
 	USB_Request(Dev, 0, 0xA3, 0, 0, Port, 4, status);
+	
+	// Handle connections / disconnections
 }
 

@@ -34,9 +34,7 @@ struct sUSBEndpoint
 	 int	PollingPeriod;	// In 1ms intervals
 	 int	MaxPacketSize;	// In bytes
 
-	char	Direction;	// 1 Polled Input, 0 Output
-	
-	Uint8	Type;	// Same as sDescriptor_Endpoint.Type
+	Uint8	Type;	// Same as sUSBDriver.Endpoints.Type
 };
 
 /**

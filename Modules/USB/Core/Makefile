@@ -1,7 +1,7 @@
 #
 #
 
-OBJ = main.o usb.o
+OBJ = main.o usb.o usb_lowlevel.o
 CPPFLAGS = -Iinclude
 NAME = Core
 

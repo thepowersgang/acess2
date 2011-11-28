@@ -17,7 +17,8 @@ typedef struct sUSBHub	tUSBHub;
  * 
  * Used by the hub class initialisation routine.
  */
-extern tUSBHub	USB_RegisterHub(tUSBInterface *Device, int nPorts);
+extern tUSBHub	*USB_RegisterHub(tUSBInterface *Device, int nPorts);
+extern void	USB_RemoveHub(tUSBHub *Hub);
 
 extern void	USB_DeviceConnected(tUSBHub *Hub, int Port);
 extern void	USB_DeviceDisconnected(tUSBHub *Hub, int Port);

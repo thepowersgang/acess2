@@ -1,4 +1,9 @@
 /**
+ * Acess2 USB Stack
+ * - By John Hodge (thePowersGang)
+ * 
+ * usb_proto.h
+ * - USB Core Protocol Definitions
  */
 #ifndef _USB_PROTO_H_
 #define _USB_PROTO_H_
