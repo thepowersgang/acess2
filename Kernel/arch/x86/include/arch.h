@@ -14,7 +14,6 @@
 #define INVLPTR	((void*)-1)
 
 // Allow nested spinlocks?
-#define STACKED_LOCKS	2	// 0: No, 1: Per-CPU, 2: Per-Thread
 #define LOCK_DISABLE_INTS	1
 
 // - Processor/Machine Specific Features
@@ -41,17 +40,10 @@
  * \brief Short Spinlock structure
  */
 struct sShortSpinlock {
-	#if STACKED_LOCKS == 2
-	volatile void	*Lock;	//!< Lock value
-	#else
 	volatile int	Lock;	//!< Lock value
-	#endif
 	
 	#if LOCK_DISABLE_INTS
 	 int	IF;	//!< Interrupt state on call to SHORTLOCK
-	#endif
-	#if STACKED_LOCKS
-	 int	Depth;
 	#endif
 };
 

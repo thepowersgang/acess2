@@ -45,13 +45,7 @@ int IS_LOCKED(struct sShortSpinlock *Lock)
  */
 int CPU_HAS_LOCK(struct sShortSpinlock *Lock)
 {
-	#if STACKED_LOCKS == 1
 	return Lock->Lock == GetCPUNum() + 1;
-	#elif STACKED_LOCKS == 2
-	return Lock->Lock == Proc_GetCurThread();
-	#else
-	return 0;
-	#endif
 }
 
 /**
@@ -70,32 +64,12 @@ int CPU_HAS_LOCK(struct sShortSpinlock *Lock)
 void SHORTLOCK(struct sShortSpinlock *Lock)
 {
 	 int	v = 1;
-	#if LOCK_DISABLE_INTS
 	 int	IF;
-	#endif
-	#if STACKED_LOCKS == 1
 	 int	cpu = GetCPUNum() + 1;
-	#elif STACKED_LOCKS == 2
-	void	*thread = Proc_GetCurThread();
-	#endif
 	
-	#if LOCK_DISABLE_INTS
 	// Save interrupt state
 	__ASM__ ("pushf;\n\tpop %0" : "=r"(IF));
 	IF &= 0x200;	// AND out all but the interrupt flag
-	#endif
-	
-	#if STACKED_LOCKS == 1
-	if( Lock->Lock == cpu ) {
-		Lock->Depth ++;
-		return ;
-	}
-	#elif STACKED_LOCKS == 2
-	if( Lock->Lock == thread ) {
-		Lock->Depth ++;
-		return ;
-	}
-	#endif
 	
 	#if TRACE_LOCKS
 	if( Lock != &glDebug_Lock && Lock != &glThreadListLock )
@@ -107,32 +81,11 @@ void SHORTLOCK(struct sShortSpinlock *Lock)
 	
 	// Wait for another CPU to release
 	while(v) {
-		// CMPXCHG:
-		//  If r/m32 == EAX, set ZF and set r/m32 = r32
-		//  Else, clear ZF and set EAX = r/m32
-		#if STACKED_LOCKS == 1
-		__ASM__("lock cmpxchgl %2, (%3)"
-			: "=a"(v)
-			: "a"(0), "r"(cpu), "r"(&Lock->Lock)
-			);
-		#elif STACKED_LOCKS == 2
-		__ASM__("lock cmpxchgl %2, (%3)"
-			: "=a"(v)
-			: "a"(0), "r"(thread), "r"(&Lock->Lock)
-			);
-		#else
-		__ASM__("xchgl %%eax, (%%edi)":"=a"(v):"a"(1),"D"(&Lock->Lock));
-		#endif
-		
-		#if LOCK_DISABLE_INTS
-		if( v )	__ASM__("sti");	// Re-enable interrupts
-		#endif
+		__ASM__("xchgl %%eax, (%%edi)":"=a"(v):"a"(cpu),"D"(&Lock->Lock));
 	}
 	
-	#if LOCK_DISABLE_INTS
 	__ASM__("cli");
 	Lock->IF = IF;
-	#endif
 	
 	#if TRACE_LOCKS
 	if( Lock != &glDebug_Lock && Lock != &glThreadListLock )
@@ -149,13 +102,6 @@ void SHORTLOCK(struct sShortSpinlock *Lock)
  */
 void SHORTREL(struct sShortSpinlock *Lock)
 {	
-	#if STACKED_LOCKS
-	if( Lock->Depth ) {
-		Lock->Depth --;
-		return ;
-	}
-	#endif
-	
 	#if TRACE_LOCKS
 	if( Lock != &glDebug_Lock && Lock != &glThreadListLock )
 	{
@@ -164,7 +110,6 @@ void SHORTREL(struct sShortSpinlock *Lock)
 	}
 	#endif
 	
-	#if LOCK_DISABLE_INTS
 	// Lock->IF can change anytime once Lock->Lock is zeroed
 	if(Lock->IF) {
 		Lock->Lock = 0;
@@ -173,9 +118,6 @@ void SHORTREL(struct sShortSpinlock *Lock)
 	else {
 		Lock->Lock = 0;
 	}
-	#else
-	Lock->Lock = 0;
-	#endif
 }
 
 // === DEBUG IO ===
