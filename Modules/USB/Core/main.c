@@ -30,8 +30,6 @@ tDevFS_Driver	gUSB_DrvInfo = {
 	}
 };
 tUSBHost	*gUSB_Hosts = NULL;
-tUSBInterface	*gUSB_InterruptDevs = NULL;
-tUSBInterface	*gUSB_InterruptLast = NULL;
 
 // === CODE ===
 /**
@@ -41,22 +39,6 @@ int USB_Install(char **Arguments)
 {
 	Log_Warning("USB", "Not Complete - Devel Only");
 	return MODULE_ERR_OK;
-}
-
-/**
- * \brief USB polling thread
- */
-int USB_PollThread(void *unused)
-{
-	for(;;)
-	{
-		for( tUSBInterface *dev = gUSB_InterruptDevs; dev; dev = dev->Next )
-		{
-//			hub->CheckPorts(hub, hub->Device);
-		}
-		// TODO: Fine tune
-		Time_Delay(250);
-	}
 }
 
 /**

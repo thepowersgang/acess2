@@ -1,6 +1,9 @@
 /*
- * AcessOS Version 1
- * USB Stack
+ * Acess2 USB Stack
+ * - By John Hodge (thePowersGang)
+ * 
+ * usb.h
+ * - USB Internal definitions
  */
 #ifndef _USB_H_
 #define _USB_H_
@@ -27,11 +30,12 @@ struct sUSBHub
 
 struct sUSBEndpoint
 {
-	tUSBEndpoint	*Next;	// In the poll list
+	tUSBEndpoint	*Next;	// In the segmented list
 	tUSBInterface	*Interface;
 	 int	EndpointNum;
 	
 	 int	PollingPeriod;	// In 1ms intervals
+	 int	PollingAtoms;	// *INTERNAL* usb_poll.c
 	 int	MaxPacketSize;	// In bytes
 
 	Uint8	Type;	// Same as sUSBDriver.Endpoints.Type

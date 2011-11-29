@@ -28,7 +28,7 @@ void	*UHCI_DataOUT(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, vo
 void	*UHCI_SendSetup(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, void *Data, size_t Length);
  int	UHCI_IsTransferComplete(void *Ptr, void *Handle);
  int	UHCI_Int_InitHost(tUHCI_Controller *Host);
-void	UHCI_CheckPortUpdate(tUHCI_Controller *Host);
+void	UHCI_CheckPortUpdate(void *Ptr);
 void	UHCI_InterruptHandler(int IRQ, void *Ptr);
 
 // === GLOBALS ===
@@ -39,7 +39,7 @@ tUSBHostDef	gUHCI_HostDef = {
 	.SendIN = UHCI_DataIN,
 	.SendOUT = UHCI_DataOUT,
 	.SendSETUP = UHCI_SendSetup,
-	.CheckPorts = (void*)UHCI_CheckPortUpdate,
+	.CheckPorts = UHCI_CheckPortUpdate,
 	.IsOpComplete = UHCI_IsTransferComplete
 	};
 
@@ -291,8 +291,9 @@ int UHCI_Int_InitHost(tUHCI_Controller *Host)
 	return 0;
 }
 
-void UHCI_CheckPortUpdate(tUHCI_Controller *Host)
+void UHCI_CheckPortUpdate(void *Ptr)
 {
+	tUHCI_Controller	*Host = Ptr;
 	// Enable ports
 	for( int i = 0; i < 2; i ++ )
 	{

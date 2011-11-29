@@ -8,6 +8,8 @@
 #ifndef _USB_CORE_H_
 #define _USB_CORE_H_
 
+#include <acess.h>
+
 typedef struct sUSBInterface	tUSBInterface;
 typedef struct sUSBDriver	tUSBDriver;
 
@@ -52,6 +54,7 @@ extern void	USB_SetDeviceDataPtr(tUSBInterface *Dev, void *Ptr);
 
 extern void	USB_StartPollingEndpoint(tUSBInterface *Dev, int Endpoint);
 extern void	USB_ReadDescriptor(tUSBInterface *Dev, int Type, int Index, int Length, void *Data);
+extern void	USB_Request(tUSBInterface *Dev, int Endpoint, int Type, int Req, int Value, int Index, int Len, void *Data);
 // TODO: Async
 extern void	USB_SendData(tUSBInterface *Dev, int Endpoint, int Length, void *Data);
 extern void	USB_RecvData(tUSBInterface *Dev, int Endpoint, int Length, void *Data);

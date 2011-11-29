@@ -34,12 +34,13 @@ struct sHubInfo
 	 int	PowerOnDelay;	// in ms
 	 int	nPorts;
 	Uint8	DeviceRemovable[];
-}
+};
 
 // === PROTOTYPES ===
 void	Hub_Connected(tUSBInterface *Dev);
 void	Hub_Disconnected(tUSBInterface *Dev);
 void	Hub_PortStatusChange(tUSBInterface *Dev, int Length, void *Data);
+void	Hub_int_HandleChange(tUSBInterface *Dev, int Port);
 
 // === GLOBALS ===
 tUSBDriver	gUSBHub_Driver = {
@@ -50,17 +51,28 @@ tUSBDriver	gUSBHub_Driver = {
 	.MaxEndpoints = 1,
 	.Endpoints = {
 		{0x83, Hub_PortStatusChange}
-	};
+	}
 };
 
 // === CODE ===
+#if 0
+int Hub_DriverInitialise(char **Arguments)
+{
+	USB_RegisterDriver( &gUSBHub_Driver );
+	return 0;
+}
+#endif
+
 void Hub_Connected(tUSBInterface *Dev)
 {
 	struct sHubDescriptor	hub_desc;
 	struct sHubInfo	*info;	
 
 	// Read hub descriptor
-	USB_ReadDescriptor(Dev, 0x29, 0, sizeof(*hub_desc), hub_desc);
+	USB_ReadDescriptor(Dev, 0x29, 0, sizeof(hub_desc), &hub_desc);
+
+	LOG("%i Ports", hub_desc.NbrPorts);
+	LOG("Takes %i ms for power to stabilise", hub_desc.PwrOn2PwrGood*2);
 
 	// Allocate infomation structure
 	info = malloc(sizeof(*info) + (hub_desc.NbrPorts+7)/8);
@@ -83,7 +95,9 @@ void Hub_Connected(tUSBInterface *Dev)
 
 void Hub_Disconnected(tUSBInterface *Dev)
 {
-	USB_RemoveHub(Dev);
+	struct sHubInfo	*info = USB_GetDeviceDataPtr(Dev);
+	USB_RemoveHub(info->HubPtr);
+	free(info);
 }
 
 void Hub_PortStatusChange(tUSBInterface *Dev, int Length, void *Data)
@@ -120,7 +134,7 @@ void Hub_int_HandleChange(tUSBInterface *Dev, int Port)
 			Time_Delay(info->PowerOnDelay);
 			// - Reset
 			USB_Request(Dev, 0, 0x23, SET_FEATURE, PORT_RESET, Port, 0, NULL);
-			Time_Delay(50);
+			Time_Delay(20);	// Spec says 10ms after reset, but how long is reset?
 			// - Enable
 			USB_Request(Dev, 0, 0x23, SET_FEATURE, PORT_ENABLE, Port, 0, NULL);
 			// - Poke USB Stack
