@@ -30,7 +30,7 @@ void *USB_int_Request(tUSBHost *Host, int Addr, int EndPt, int Type, int Req, in
 	req.Index = LittleEndian16( Indx );
 	req.Length = LittleEndian16( Len );
 	
-	hdl = Host->HostDef->SendSETUP(Host->Ptr, Addr, EndPt, 0, NULL, &req, sizeof(req));
+	hdl = Host->HostDef->SendSETUP(Host->Ptr, Addr, EndPt, 0, NULL, NULL, &req, sizeof(req));
 
 	// TODO: Data toggle?
 	// TODO: Multi-packet transfers
@@ -38,9 +38,9 @@ void *USB_int_Request(tUSBHost *Host, int Addr, int EndPt, int Type, int Req, in
 	{
 		void	*hdl2;
 		
-		hdl = Host->HostDef->SendIN(Host->Ptr, Addr, EndPt, 0, NULL, Data, Len);
+		hdl = Host->HostDef->SendIN(Host->Ptr, Addr, EndPt, 0, NULL, NULL, Data, Len);
 
-		hdl2 = Host->HostDef->SendOUT(Host->Ptr, Addr, EndPt, 0, NULL, NULL, 0);
+		hdl2 = Host->HostDef->SendOUT(Host->Ptr, Addr, EndPt, 0, NULL, NULL, NULL, 0);
 		while( Host->HostDef->IsOpComplete(Host->Ptr, hdl2) == 0 )
 			Time_Delay(1);
 	}
@@ -49,12 +49,12 @@ void *USB_int_Request(tUSBHost *Host, int Addr, int EndPt, int Type, int Req, in
 		void	*hdl2;
 		
 		if( Len > 0 )
-			hdl = Host->HostDef->SendOUT(Host->Ptr, Addr, EndPt, 0, NULL, Data, Len);
+			hdl = Host->HostDef->SendOUT(Host->Ptr, Addr, EndPt, 0, NULL, NULL, Data, Len);
 		else
 			hdl = NULL;
 		
 		// Status phase (DataToggle=1)
-		hdl2 = Host->HostDef->SendIN(Host->Ptr, Addr, EndPt, 1, NULL, NULL, 0);
+		hdl2 = Host->HostDef->SendIN(Host->Ptr, Addr, EndPt, 1, NULL, NULL, NULL, 0);
 		while( Host->HostDef->IsOpComplete(Host->Ptr, hdl2) == 0 )
 			Time_Delay(1);
 	}
@@ -75,6 +75,13 @@ int USB_int_ReadDescriptor(tUSBDevice *Dev, int Endpoint, int Type, int Index, i
 	void	*final;
 
 	req.ReqType = 0x80;
+	switch( Type & 0xF00 )
+	{
+	case 0x000:	req.ReqType |= (0 << 5);	break;	// Standard
+	case 0x100:	req.ReqType |= (1 << 5);	break;	// Class
+	case 0x200:	req.ReqType |= (2 << 5);	break;	// Vendor
+	}
+
 	req.Request = 6;	// GET_DESCRIPTOR
 	req.Value = LittleEndian16( ((Type & 0xFF) << 8) | (Index & 0xFF) );
 	req.Index = LittleEndian16( 0 );	// TODO: Language ID
@@ -82,7 +89,7 @@ int USB_int_ReadDescriptor(tUSBDevice *Dev, int Endpoint, int Type, int Index, i
 	
 	Dev->Host->HostDef->SendSETUP(
 		Dev->Host->Ptr, Dev->Address, Endpoint,
-		0, NULL,
+		0, NULL, NULL,
 		&req, sizeof(req)
 		);
 	
@@ -91,7 +98,7 @@ int USB_int_ReadDescriptor(tUSBDevice *Dev, int Endpoint, int Type, int Index, i
 	{
 		Dev->Host->HostDef->SendIN(
 			Dev->Host->Ptr, Dev->Address, Endpoint,
-			bToggle, NULL,
+			bToggle, NULL, NULL,
 			Dest, ciMaxPacketSize
 			);
 		bToggle = !bToggle;
@@ -100,7 +107,7 @@ int USB_int_ReadDescriptor(tUSBDevice *Dev, int Endpoint, int Type, int Index, i
 
 	final = Dev->Host->HostDef->SendIN(
 		Dev->Host->Ptr, Dev->Address, Endpoint,
-		bToggle, INVLPTR,
+		bToggle, INVLPTR, NULL,
 		Dest, Length
 		);
 

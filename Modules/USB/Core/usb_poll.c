@@ -33,6 +33,8 @@ void USB_StartPollingEndpoint(tUSBInterface *Iface, int Endpoint)
 
 	// TODO: Check that this endpoint isn't already on the queue
 
+	endpt->InputData = malloc(endpt->MaxPacketSize);
+
 	// Determine polling period in atoms
 	endpt->PollingAtoms = (endpt->PollingPeriod + POLL_ATOM-1) / POLL_ATOM;
 	if(endpt->PollingAtoms > POLL_SLOTS)	endpt->PollingAtoms = POLL_SLOTS;
@@ -78,6 +80,12 @@ int USB_PollThread(void *unused)
 			// TODO: Check the endpoint
 			// TODO: Async checking?
 			// - Send the read request on all of them then wait for the first to complete
+			USB_RecvDataA(
+				ep->Interface, ep->EndpointIdx,
+				ep->MaxPacketSize, ep->InputData,
+				ep->Interface->Driver->Endpoints[ep->EndpointIdx].DataAvail
+				);
+				
 			// Call callback
 
 			// Reschedule

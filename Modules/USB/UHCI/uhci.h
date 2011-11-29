@@ -104,20 +104,14 @@ struct sUHCI_TD
 	 */
 	Uint32	BufferPointer;
 
-	union
+	struct
 	{
-		/**
-		 * \brief Avaliable for use by software
-		 */
-		Uint32	Avaliable[4];
-		
-		struct
-		{
-			void	*Callback;
-			void	*DestPtr;
-		} _info;
-	};
-};
+		tUSBHostCb	Callback;
+		void	*CallbackPtr;
+		void	*DataPtr;
+		 int	bCopyData;
+	} _info;
+} __attribute__((aligned(16)));
 
 struct sUHCI_QH
 {

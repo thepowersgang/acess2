@@ -13,6 +13,8 @@
 typedef struct sUSBInterface	tUSBInterface;
 typedef struct sUSBDriver	tUSBDriver;
 
+typedef void	(*tUSB_DataCallback)(tUSBInterface *Dev, int EndPt, int Length, void *Data);
+
 /**
  */
 struct sUSBDriver
@@ -27,8 +29,8 @@ struct sUSBDriver
 			// 23:16 - Interface Class
 			// 15:8  - Interface Sub Class
 			// 7:0   - Interface Protocol
-			Uint32	ClassMask;
 			Uint32	ClassCode;
+			Uint32	ClassMask;
 		} Class;
 		struct {
 			Uint16	VendorID;
@@ -45,7 +47,7 @@ struct sUSBDriver
 		// NOTE: Top bit indicates the direction (1=Input)
 		Uint8	Attributes;
 		// Data availiable Callback
-		void	(*DataAvail)(tUSBInterface *Dev, int Length, void *Data);
+		tUSB_DataCallback	DataAvail;
 	} Endpoints[];
 };
 
@@ -58,6 +60,7 @@ extern void	USB_Request(tUSBInterface *Dev, int Endpoint, int Type, int Req, int
 // TODO: Async
 extern void	USB_SendData(tUSBInterface *Dev, int Endpoint, int Length, void *Data);
 extern void	USB_RecvData(tUSBInterface *Dev, int Endpoint, int Length, void *Data);
+extern void	USB_RecvDataA(tUSBInterface *Dev, int Endpoint, int Length, void *DataBuf, tUSB_DataCallback Callback);
 
 #endif
 

@@ -22,10 +22,10 @@
 void	UHCI_Cleanup();
 tUHCI_TD	*UHCI_int_AllocateTD(tUHCI_Controller *Cont);
 void	UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_TD *TD);
-void	*UHCI_int_SendTransaction(tUHCI_Controller *Cont, int Addr, Uint8 Type, int bTgl, tUSBHostCb Cb, void *Data, size_t Length);
-void	*UHCI_DataIN(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, void *Data, size_t Length);
-void	*UHCI_DataOUT(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, void *Data, size_t Length);
-void	*UHCI_SendSetup(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, void *Data, size_t Length);
+void	*UHCI_int_SendTransaction(tUHCI_Controller *Cont, int Addr, Uint8 Type, int bTgl, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length);
+void	*UHCI_DataIN(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length);
+void	*UHCI_DataOUT(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, void *CbData,  void *Buf, size_t Length);
+void	*UHCI_SendSetup(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length);
  int	UHCI_IsTransferComplete(void *Ptr, void *Handle);
  int	UHCI_Int_InitHost(tUHCI_Controller *Host);
 void	UHCI_CheckPortUpdate(void *Ptr);
@@ -132,10 +132,17 @@ tUHCI_TD *UHCI_int_AllocateTD(tUHCI_Controller *Cont)
 	return NULL;
 }
 
+tUHCI_TD *UHCI_int_GetTDFromPhys(tPAddr PAddr)
+{
+	// TODO: Fix this to work with a non-contiguous pool
+	static tPAddr	td_pool_base;
+	if(!td_pool_base)	td_pool_base = MM_GetPhysAddr( (tVAddr)gaUHCI_TDPool );
+	return gaUHCI_TDPool + (PAddr - td_pool_base) / sizeof(gaUHCI_TDPool[0]);
+}
+
 void UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_TD *TD)
 {
 	 int	next_frame = (inw(Cont->IOBase + FRNUM) + 2) & (1024-1);
-	tPAddr	td_pool_base = MM_GetPhysAddr( (tVAddr)gaUHCI_TDPool );
 	tUHCI_TD	*prev_td;
 	Uint32	link;
 
@@ -153,8 +160,7 @@ void UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_TD *TD)
 	// Find the end of the list
 	link = Cont->FrameList[next_frame];
 	do {
-		// TODO: Fix this to work with a non-contiguous pool
-		prev_td = gaUHCI_TDPool + (link - td_pool_base) / sizeof(gaUHCI_TDPool[0]);
+		prev_td = UHCI_int_GetTDFromPhys(link);
 		link = prev_td->Link;
 	} while( !(link & 1) );
 	
@@ -170,7 +176,9 @@ void UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_TD *TD)
  * \param Addr	Function Address * 16 + Endpoint
  * \param bTgl	Data toggle value
  */
-void *UHCI_int_SendTransaction(tUHCI_Controller *Cont, int Addr, Uint8 Type, int bTgl, tUSBHostCb Cb, void *Data, size_t Length)
+void *UHCI_int_SendTransaction(
+	tUHCI_Controller *Cont, int Addr, Uint8 Type, int bTgl,
+	tUSBHostCb Cb, void *CbData, void *Data, size_t Length)
 {
 	tUHCI_TD	*td;
 
@@ -179,7 +187,7 @@ void *UHCI_int_SendTransaction(tUHCI_Controller *Cont, int Addr, Uint8 Type, int
 	td = UHCI_int_AllocateTD(Cont);
 
 	if( !td ) {
-		// 
+		// TODO: Wait for one to free?
 		Log_Error("UHCI", "No avaliable TDs, transaction dropped");
 		return NULL;
 	}
@@ -200,48 +208,53 @@ void *UHCI_int_SendTransaction(tUHCI_Controller *Cont, int Addr, Uint8 Type, int
 			);
 		// TODO: Need to enable IOC to copy the data back
 //		td->BufferPointer = 
+		td->_info.bCopyData = 1;
 		return NULL;
 	}
 	else {
 		td->BufferPointer = MM_GetPhysAddr( (tVAddr)Data );
+		td->_info.bCopyData = 0;
 	}
 
 	// Interrupt on completion
 	if( Cb ) {
 		td->Control |= (1 << 24);
 		td->_info.Callback = Cb;	// NOTE: if ERRPTR then the TD is kept allocated until checked
-		if( Cb != INVLPTR )
-		{
-			Log_Warning("UHCI", "TODO: Support IOC... somehow");
-		}
+		td->_info.CallbackPtr = CbData;
 	}
 	
-	td->_info.DestPtr = Data;
+	td->_info.DataPtr = Data;
 
 	UHCI_int_AppendTD(Cont, td);
 
 	return td;
 }
 
-void *UHCI_DataIN(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, void *Data, size_t Length)
+void *UHCI_DataIN(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length)
 {
-	return UHCI_int_SendTransaction(Ptr, Fcn*16+Endpt, 0x69, DataTgl, Cb, Data, Length);
+	return UHCI_int_SendTransaction(Ptr, Fcn*16+Endpt, 0x69, DataTgl, Cb, CbData, Buf, Length);
 }
 
-void *UHCI_DataOUT(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, void *Data, size_t Length)
+void *UHCI_DataOUT(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length)
 {
-	return UHCI_int_SendTransaction(Ptr, Fcn*16+Endpt, 0xE1, DataTgl, Cb, Data, Length);
+	return UHCI_int_SendTransaction(Ptr, Fcn*16+Endpt, 0xE1, DataTgl, Cb, CbData, Buf, Length);
 }
 
-void *UHCI_SendSetup(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, void *Data, size_t Length)
+void *UHCI_SendSetup(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length)
 {
-	return UHCI_int_SendTransaction(Ptr, Fcn*16+Endpt, 0x2D, DataTgl, Cb, Data, Length);
+	return UHCI_int_SendTransaction(Ptr, Fcn*16+Endpt, 0x2D, DataTgl, Cb, CbData, Buf, Length);
 }
 
 int UHCI_IsTransferComplete(void *Ptr, void *Handle)
 {
 	tUHCI_TD	*td = Handle;
-	return !(td->Control & (1 << 23));
+	 int	ret;
+	ret = !(td->Control & (1 << 23));
+	if(ret) {
+		td->_info.Callback = NULL;
+		td->Link = 1;
+	}
+	return ret;
 }
 
 // === INTERNAL FUNCTIONS ===
@@ -333,9 +346,39 @@ void UHCI_InterruptHandler(int IRQ, void *Ptr)
 	Uint16	status = inw(Host->IOBase + USBSTS);
 	Log_Debug("UHCI", "UHIC Interrupt, status = 0x%x", status);
 	
+	// Interrupt-on-completion
 	if( status & 1 )
 	{
-		// Interrupt-on-completion
+		tPAddr	link;
+		 int	frame = inw(Host->IOBase + FRNUM) - 1;
+		if(frame < 0)	frame += 1024;
+		
+		link = Host->FrameList[frame];
+		Host->FrameList[frame] = 1;
+		while( !(link & 1) )
+		{
+			tUHCI_TD *td = UHCI_int_GetTDFromPhys(link);
+			 int	byte_count = (td->Control&0x7FF)+1;
+			// Handle non-page aligned destination
+			// TODO: This will break if the destination is not in global memory
+			if(td->_info.bCopyData)
+			{
+				void *ptr = (void*)MM_MapTemp(td->BufferPointer);
+				memcpy(td->_info.DataPtr, ptr, byte_count);
+				MM_FreeTemp((tVAddr)ptr);
+			}
+			// Callback
+			if(td->_info.Callback && td->_info.Callback != INVLPTR)
+			{
+				td->_info.Callback(td->_info.CallbackPtr, td->_info.DataPtr, byte_count);
+				td->_info.Callback = NULL;
+			}
+			link = td->Link;
+			if( td->_info.Callback != INVLPTR )
+				td->Link = 1;
+		}
+		
+//		Host->LastCleanedFrame = frame;
 	}
 
 	outw(Host->IOBase + USBSTS, status);

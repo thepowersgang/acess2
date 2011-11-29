@@ -30,15 +30,17 @@ struct sUSBHub
 
 struct sUSBEndpoint
 {
-	tUSBEndpoint	*Next;	// In the segmented list
+	tUSBEndpoint	*Next;	// (usb_poll.c) Clock list
 	tUSBInterface	*Interface;
-	 int	EndpointNum;
+	 int	EndpointIdx;	// Interface endpoint index
+	 int	EndpointNum;	// Device endpoint num
 	
 	 int	PollingPeriod;	// In 1ms intervals
-	 int	PollingAtoms;	// *INTERNAL* usb_poll.c
 	 int	MaxPacketSize;	// In bytes
-
 	Uint8	Type;	// Same as sUSBDriver.Endpoints.Type
+	
+	 int	PollingAtoms;	// (usb_poll.c) Period in clock list
+	void	*InputData;
 };
 
 /**
@@ -46,7 +48,7 @@ struct sUSBEndpoint
  */
 struct sUSBInterface
 {
-	tUSBInterface	*Next;
+//	tUSBInterface	*Next;
 	tUSBDevice	*Dev;
 
 	tUSBDriver	*Driver;
@@ -87,6 +89,6 @@ struct sUSBHost
 	tUSBHub	RootHub;
 };
 
-extern void	USB_NewDevice(tUSBHub *Hub);
+extern tUSBDriver	*USB_int_FindDriverByClass(Uint32 ClassCode);
 
 #endif

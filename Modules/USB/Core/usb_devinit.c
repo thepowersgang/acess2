@@ -24,7 +24,8 @@ void	USB_SetDeviceDataPtr(tUSBInterface *Dev, void *Ptr);
 // === CODE ===
 void USB_DeviceConnected(tUSBHub *Hub, int Port)
 {
-	tUSBDevice	*dev;
+	tUSBDevice	tmpdev;
+	tUSBDevice	*dev = &tmpdev;
 	if( Port >= Hub->nPorts )	return ;
 	if( Hub->Devices[Port] )	return ;
 
@@ -33,7 +34,6 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 	// Device should be in 'Default' state
 	
 	// Create structure
-	dev = malloc(sizeof(tUSBDevice));
 	dev->ParentHub = Hub;
 	dev->Host = Hub->Interface->Dev->Host;
 	dev->Address = 0;
@@ -92,6 +92,8 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 			free(tmp);
 		}
 	}
+
+	// TODO: Support alternate configurations
 	
 	// 3. Get configurations
 	for( int i = 0; i < 1; i ++ )
@@ -99,7 +101,7 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 		struct sDescriptor_Configuration	desc;
 		void	*full_buf;
 		char	*cur_ptr;
-		
+	
 		USB_int_ReadDescriptor(dev, 0, 2, i, sizeof(desc), &desc);
 		LOG("Configuration Descriptor %i = {", i);
 		LOG(" .Length = %i", desc.Length);
@@ -117,6 +119,14 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 			free(tmp);
 		}
 
+		// TODO: Split here and allow some method of selection
+
+		// Allocate device now that we have the configuration
+		dev = malloc(sizeof(tUSBDevice) + desc.NumInterfaces * sizeof(void*));
+		memcpy(dev, &tmpdev, sizeof(tUSBDevice));
+		dev->nInterfaces = desc.NumInterfaces;
+	
+		// Allocate a temp buffer for config info
 		cur_ptr = full_buf = malloc( LittleEndian16(desc.TotalLength) );
 		USB_int_ReadDescriptor(dev, 0, 2, i, desc.TotalLength, full_buf);
 
@@ -126,10 +136,11 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 		for( int j = 0; j < desc.NumInterfaces; j ++ )
 		{
 			struct sDescriptor_Interface *iface;
+			tUSBInterface	*dev_if;
 			iface = (void*)cur_ptr;
 			// TODO: Sanity check with remaining space
 			cur_ptr += sizeof(*iface);
-			
+
 			LOG("Interface %i/%i = {", i, j);
 			LOG(" .InterfaceNum = %i", iface->InterfaceNum);
 			LOG(" .NumEndpoints = %i", iface->NumEndpoints);
@@ -144,6 +155,14 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 			}
 			LOG("}");
 
+			dev_if = malloc(sizeof(tUSBInterface) + iface->NumEndpoints*sizeof(dev_if->Endpoints[0]));
+			dev_if->Dev = dev;
+			dev_if->Driver = NULL;
+			dev_if->Data = NULL;
+			dev_if->nEndpoints = iface->NumEndpoints;
+			dev->Interfaces[j] = dev_if;
+
+			// Copy interface data
 			for( int k = 0; k < iface->NumEndpoints; k ++ )
 			{
 				struct sDescriptor_Endpoint *endpt;
@@ -157,6 +176,31 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 				LOG(" .MaxPacketSize = %i", LittleEndian16(endpt->MaxPacketSize));
 				LOG(" .PollingInterval = %i", endpt->PollingInterval);
 				LOG("}");
+				
+				dev_if->Endpoints[k].Next = NULL;
+				dev_if->Endpoints[k].Interface = dev_if;
+				dev_if->Endpoints[k].EndpointIdx = k;
+				dev_if->Endpoints[k].EndpointNum = endpt->Address & 0x7F;
+				dev_if->Endpoints[k].PollingPeriod = endpt->PollingInterval;
+				dev_if->Endpoints[k].MaxPacketSize = LittleEndian16(endpt->MaxPacketSize);
+				dev_if->Endpoints[k].Type = endpt->Attributes | (endpt->Address & 0x80);
+				dev_if->Endpoints[k].PollingAtoms = 0;
+				dev_if->Endpoints[k].InputData = NULL;
+			}
+			
+			// Initialise driver
+			dev_if->Driver = USB_int_FindDriverByClass(
+				 ((int)iface->InterfaceClass << 16)
+				|((int)iface->InterfaceSubClass << 8)
+				|((int)iface->InterfaceProtocol << 0)
+				);
+			if(!dev_if->Driver) {
+				Log_Notice("USB", "No driver for Class %02x:%02x:%02x",
+					iface->InterfaceClass, iface->InterfaceSubClass, iface->InterfaceProtocol
+					);
+			}
+			else {
+				dev_if->Driver->Connected( dev_if );
 			}
 		}
 		

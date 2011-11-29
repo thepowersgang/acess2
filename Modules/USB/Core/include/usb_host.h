@@ -13,9 +13,9 @@
 
 typedef struct sUSBHostDef	tUSBHostDef;
 
-typedef void	(*tUSBHostCb)(void *DataPtr);
+typedef void	(*tUSBHostCb)(void *DataPtr, void *Data, int Length);
 
-typedef void	*(*tUSBHostOp)(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb bIOC, void *Data, size_t Length);
+typedef void	*(*tUSBHostOp)(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb CB, void *CbData, void *Data, size_t Length);
 
 /**
  * \brief Defines a USB Host Controller type

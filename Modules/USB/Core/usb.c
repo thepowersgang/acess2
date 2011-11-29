@@ -21,7 +21,7 @@ extern tUSBDriver gUSBHub_Driver;
 tUSBHub	*USB_RegisterHost(tUSBHostDef *HostDef, void *ControllerPtr, int nPorts);
 
 // === GLOBALS ===
-tUSBDriver	*gUSB_InterfaceDrivers = &gUSBHub_Driver;
+tUSBDriver	*gpUSB_InterfaceDrivers = &gUSBHub_Driver;
 
 // === CODE ===
 tUSBHub *USB_RegisterHost(tUSBHostDef *HostDef, void *ControllerPtr, int nPorts)
@@ -41,7 +41,7 @@ tUSBHub *USB_RegisterHost(tUSBHostDef *HostDef, void *ControllerPtr, int nPorts)
 	host->RootHubDev.Host = host;
 	host->RootHubDev.Address = 0;
 
-	host->RootHubIf.Next = NULL;
+//	host->RootHubIf.Next = NULL;
 	host->RootHubIf.Dev = &host->RootHubDev;
 	host->RootHubIf.Driver = NULL;
 	host->RootHubIf.Data = NULL;
@@ -58,9 +58,27 @@ tUSBHub *USB_RegisterHost(tUSBHostDef *HostDef, void *ControllerPtr, int nPorts)
 	return &host->RootHub;
 }
 
+// --- Drivers ---
 void USB_RegisterDriver(tUSBDriver *Driver)
 {
 	Log_Warning("USB", "TODO: Implement USB_RegisterDriver");
+}
+
+tUSBDriver *USB_int_FindDriverByClass(Uint32 ClassCode)
+{
+	ENTER("xClassCode", ClassCode);
+	for( tUSBDriver *ret = gpUSB_InterfaceDrivers; ret; ret = ret->Next )
+	{
+		LOG(" 0x%x & 0x%x == 0x%x?", ClassCode, ret->Match.Class.ClassMask, ret->Match.Class.ClassCode);
+		if( (ClassCode & ret->Match.Class.ClassMask) == ret->Match.Class.ClassCode )
+		{
+			LOG("Found '%s'", ret->Name);
+			LEAVE('p', ret);
+			return ret;
+		}
+	}
+	LEAVE('n');
+	return NULL;
 }
 
 // --- Hub Registration ---
