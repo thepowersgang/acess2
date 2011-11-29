@@ -10,6 +10,10 @@
 #include <modules.h>
 #include "usb.h"
 
+// === IMPORTS ===
+extern void	USB_PollThread(void *unused);
+extern void	USB_AsyncThread(void *Unused);
+
 // === PROTOTYPES ===
  int	USB_Install(char **Arguments);
 void	USB_Cleanup(void);
@@ -38,6 +42,10 @@ tUSBHost	*gUSB_Hosts = NULL;
 int USB_Install(char **Arguments)
 {
 	Log_Warning("USB", "Not Complete - Devel Only");
+	
+	Proc_SpawnWorker(USB_PollThread, NULL);
+	Proc_SpawnWorker(USB_AsyncThread, NULL);
+	
 	return MODULE_ERR_OK;
 }
 

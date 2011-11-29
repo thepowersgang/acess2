@@ -4,7 +4,7 @@
  *
  * Universal Host Controller Interface
  */
-#define DEBUG	0
+#define DEBUG	1
 #define VERSION	VER2(0,5)
 #include <acess.h>
 #include <vfs.h>
@@ -148,6 +148,8 @@ void UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_TD *TD)
 
 	// TODO: How to handle FRNUM incrementing while we are in this function?
 
+//	LOG("USBINTR = 0x%x", inw(Cont->IOBase + USBINTR));
+
 	// Empty list
 	if( Cont->FrameList[next_frame] & 1 )
 	{
@@ -219,6 +221,7 @@ void *UHCI_int_SendTransaction(
 	// Interrupt on completion
 	if( Cb ) {
 		td->Control |= (1 << 24);
+		LOG("IOC Cb=%p CbData=%p", Cb, CbData);
 		td->_info.Callback = Cb;	// NOTE: if ERRPTR then the TD is kept allocated until checked
 		td->_info.CallbackPtr = CbData;
 	}
@@ -343,22 +346,23 @@ void UHCI_CheckPortUpdate(void *Ptr)
 void UHCI_InterruptHandler(int IRQ, void *Ptr)
 {
 	tUHCI_Controller *Host = Ptr;
+	 int	frame = ((int)inw(Host->IOBase + FRNUM) & 0x3FF) - 1;
 	Uint16	status = inw(Host->IOBase + USBSTS);
-	Log_Debug("UHCI", "UHIC Interrupt, status = 0x%x", status);
+	if(frame < 0)	frame += 1024;
+	Log_Debug("UHCI", "UHIC Interrupt, status = 0x%x, frame = %i", status, frame);
 	
 	// Interrupt-on-completion
 	if( status & 1 )
 	{
 		tPAddr	link;
-		 int	frame = inw(Host->IOBase + FRNUM) - 1;
-		if(frame < 0)	frame += 1024;
-		
+	
 		link = Host->FrameList[frame];
 		Host->FrameList[frame] = 1;
 		while( !(link & 1) )
 		{
 			tUHCI_TD *td = UHCI_int_GetTDFromPhys(link);
 			 int	byte_count = (td->Control&0x7FF)+1;
+			LOG("link = 0x%x, td = %p, byte_count = %i", link, td, byte_count);
 			// Handle non-page aligned destination
 			// TODO: This will break if the destination is not in global memory
 			if(td->_info.bCopyData)
@@ -370,6 +374,7 @@ void UHCI_InterruptHandler(int IRQ, void *Ptr)
 			// Callback
 			if(td->_info.Callback && td->_info.Callback != INVLPTR)
 			{
+				LOG("Calling cb %p", td->_info.Callback);
 				td->_info.Callback(td->_info.CallbackPtr, td->_info.DataPtr, byte_count);
 				td->_info.Callback = NULL;
 			}
@@ -381,5 +386,6 @@ void UHCI_InterruptHandler(int IRQ, void *Ptr)
 //		Host->LastCleanedFrame = frame;
 	}
 
+	LOG("status = 0x%02x", status);
 	outw(Host->IOBase + USBSTS, status);
 }

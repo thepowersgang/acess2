@@ -26,7 +26,7 @@ void USB_StartPollingEndpoint(tUSBInterface *Iface, int Endpoint)
 	tUSBEndpoint	*endpt;
 
 	// Some sanity checks
-	if(Endpoint <= 0 || Endpoint >= Iface->nEndpoints)	return ;
+	if(Endpoint <= 0 || Endpoint > Iface->nEndpoints)	return ;
 	endpt = &Iface->Endpoints[Endpoint-1];
 	if(endpt->PollingPeriod > POLL_MAX || endpt->PollingPeriod <= 0)
 		return ;
@@ -39,8 +39,14 @@ void USB_StartPollingEndpoint(tUSBInterface *Iface, int Endpoint)
 	endpt->PollingAtoms = (endpt->PollingPeriod + POLL_ATOM-1) / POLL_ATOM;
 	if(endpt->PollingAtoms > POLL_SLOTS)	endpt->PollingAtoms = POLL_SLOTS;
 	// Add to poll queue
-	endpt->Next = gUSB_PollQueues[endpt->PollingAtoms];
-	gUSB_PollQueues[endpt->PollingAtoms] = endpt;
+	// TODO: Locking
+	{
+		 int	idx = giUSB_PollPosition + 1;
+		if(idx >= POLL_SLOTS)	idx -= POLL_SLOTS;
+		LOG("idx = %i", idx);
+		endpt->Next = gUSB_PollQueues[idx];
+		gUSB_PollQueues[idx] = endpt;
+	}
 }
 
 /**
@@ -48,6 +54,7 @@ void USB_StartPollingEndpoint(tUSBInterface *Iface, int Endpoint)
  */
 int USB_PollThread(void *unused)
 {
+	Threads_SetName("USB Polling Thread");
 	for(;;)
 	{
 		tUSBEndpoint	*ep, *prev;
@@ -56,9 +63,11 @@ int USB_PollThread(void *unused)
 		prev = (void*)( (tVAddr)&gUSB_PollQueues[giUSB_PollPosition] - offsetof(tUSBEndpoint, Next) );
 
 		// Process queue
+//		LOG("giUSB_PollPosition = %i", giUSB_PollPosition);
 		for( ep = gUSB_PollQueues[giUSB_PollPosition]; ep; prev = ep, ep = ep->Next )
 		{
 			 int	period_in_atoms = ep->PollingAtoms;
+			LOG("%i: ep = %p", giUSB_PollPosition, ep);
 
 			// Check for invalid entries
 			if(period_in_atoms < 0 || period_in_atoms > POLL_ATOM)
@@ -81,7 +90,7 @@ int USB_PollThread(void *unused)
 			// TODO: Async checking?
 			// - Send the read request on all of them then wait for the first to complete
 			USB_RecvDataA(
-				ep->Interface, ep->EndpointIdx,
+				ep->Interface, ep->EndpointIdx+1,
 				ep->MaxPacketSize, ep->InputData,
 				ep->Interface->Driver->Endpoints[ep->EndpointIdx].DataAvail
 				);

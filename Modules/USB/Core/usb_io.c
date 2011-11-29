@@ -10,7 +10,7 @@
 #include <usb_core.h>
 #include "usb.h"
 #include "usb_lowlevel.h"
-#include <semaphore.h>
+#include <workqueue.h>
 
 typedef struct sAsyncOp	tAsyncOp;
 
@@ -25,9 +25,11 @@ struct sAsyncOp
 // === PROTOTYPES ===
 void	USB_ReadDescriptor(tUSBInterface *Iface, int Type, int Index, int Length, void *Data);
 void	USB_Request(tUSBInterface *Iface, int Endpoint, int Type, int Req, int Value, int Index, int Len, void *Data);
+void	USB_AsyncCallback(void *Ptr, void *Buf, int Length);
+void	USB_AsyncThread(void *unused);
 
 // === GLOBALS ===
-tSemaphore	glUSB_AsyncQueue;
+tWorkqueue	gUSB_AsyncQueue;
 
 // === CODE ===
 void USB_ReadDescriptor(tUSBInterface *Iface, int Type, int Index, int Length, void *Data)
@@ -65,15 +67,52 @@ void USB_RecvData(tUSBInterface *Dev, int Endpoint, int Length, void *Data)
 
 void USB_RecvDataA(tUSBInterface *Dev, int Endpoint, int Length, void *DataBuf, tUSB_DataCallback Callback)
 {
-	Log_Warning("USB", "TODO: Implement USB_RecvDataA");
+	tAsyncOp *op;
+	tUSBHost *host;
+
+	ENTER("pDev iEndpoint iLength pDataBuf", Dev, Endpoint, Length, DataBuf); 
+
+	op = malloc(sizeof(*op));
+	op->Next = NULL;
+	op->Endpt = &Dev->Endpoints[Endpoint-1];
+	op->Length = Length;
+	op->Data = DataBuf;
+
+	// TODO: Handle transfers that are larger than one packet
+
+	host = Dev->Dev->Host;
+	LOG("IN from %p %i:%i", host->Ptr, Dev->Dev->Address, op->Endpt->EndpointNum);
+	host->HostDef->SendIN(
+		host->Ptr, Dev->Dev->Address, op->Endpt->EndpointNum,
+		0, USB_AsyncCallback, op,
+		DataBuf, Length
+		);
+	
+	LEAVE('-');
+
+//	Log_Warning("USB", "TODO: Implement USB_RecvDataA");
+}
+
+void USB_AsyncCallback(void *Ptr, void *Buf, int Length)
+{
+	tAsyncOp *op = Ptr;
+	op->Length = Length;
+	LOG("adding %p to work queue", op);
+	Workqueue_AddWork(&gUSB_AsyncQueue, op);
 }
 
 void USB_AsyncThread(void *Unused)
 {
 	for(;;)
 	{
-		Semaphore_Wait(&glUSB_AsyncQueue, 1);
-		
+		tAsyncOp *op = Workqueue_GetWork(&gUSB_AsyncQueue);
+		tUSBInterface	*iface = op->Endpt->Interface;
+
+		LOG("op = %p", op);	
+
+		iface->Driver->Endpoints[op->Endpt->EndpointIdx].DataAvail(
+			iface, op->Endpt->EndpointIdx,
+			op->Length, op->Data);
 	}
 }
 
