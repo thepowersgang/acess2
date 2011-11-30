@@ -5,7 +5,7 @@
  * usb_io.c
  * - High-level IO
  */
-#define DEBUG	1
+#define DEBUG	0
 
 #include <usb_core.h>
 #include "usb.h"

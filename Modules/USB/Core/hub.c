@@ -10,13 +10,26 @@
 
 #define MAX_PORTS	32	// Not actually a max, but used for DeviceRemovable
 
+
 #define GET_STATUS	0
+#define CLEAR_FEATURE	1
+// resvd
 #define SET_FEATURE	3
 
 #define PORT_CONNECTION	0
 #define PORT_ENABLE	1
+#define PORT_SUSPEND	2
+#define PORT_OVER_CURRENT	3
 #define PORT_RESET	4
 #define PORT_POWER	8
+#define PORT_LOW_SPEED	9
+#define C_PORT_CONNECTION	16
+#define C_PORT_ENABLE	17
+#define C_PORT_SUSPEND	18
+#define C_PORT_OVER_CURRENT	19
+#define C_PORT_RESET	20
+#define PORT_TEST	21
+#define PORT_INDICATOR	21
 
 struct sHubDescriptor
 {
@@ -124,6 +137,8 @@ void Hub_int_HandleChange(tUSBInterface *Dev, int Port)
 	
 	// Get port status
 	USB_Request(Dev, 0, 0xA3, GET_STATUS, 0, Port, 4, status);
+
+	LOG("Port %i: status = {0b%b, 0b%b}", Port, status[0], status[1]);
 	
 	// Handle connections / disconnections
 	if( status[1] & 0x0001 )
@@ -145,6 +160,7 @@ void Hub_int_HandleChange(tUSBInterface *Dev, int Port)
 			// Disconnected
 			USB_DeviceDisconnected(info->HubPtr, Port);
 		}
+		
+		USB_Request(Dev, 0, 0x23, CLEAR_FEATURE, C_PORT_CONNECTION, Port, 0, NULL);
 	}
 }
-

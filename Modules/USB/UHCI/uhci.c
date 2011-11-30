@@ -4,7 +4,7 @@
  *
  * Universal Host Controller Interface
  */
-#define DEBUG	1
+#define DEBUG	0
 #define VERSION	VER2(0,5)
 #include <acess.h>
 #include <vfs.h>
@@ -148,13 +148,12 @@ void UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_TD *TD)
 
 	// TODO: How to handle FRNUM incrementing while we are in this function?
 
-//	LOG("USBINTR = 0x%x", inw(Cont->IOBase + USBINTR));
-
 	// Empty list
 	if( Cont->FrameList[next_frame] & 1 )
 	{
 		// TODO: Ensure 32-bit paddr
 		Cont->FrameList[next_frame] = MM_GetPhysAddr( (tVAddr)TD );
+		TD->Control |= (1 << 24);	// Ensure that there is an interrupt for each used frame
 		LOG("next_frame = %i", next_frame);	
 		return;
 	}
@@ -346,41 +345,48 @@ void UHCI_CheckPortUpdate(void *Ptr)
 void UHCI_InterruptHandler(int IRQ, void *Ptr)
 {
 	tUHCI_Controller *Host = Ptr;
-	 int	frame = ((int)inw(Host->IOBase + FRNUM) & 0x3FF) - 1;
+	 int	frame = ((int)inw(Host->IOBase + FRNUM) - 1) & 0x3FF;
 	Uint16	status = inw(Host->IOBase + USBSTS);
-	if(frame < 0)	frame += 1024;
-	Log_Debug("UHCI", "UHIC Interrupt, status = 0x%x, frame = %i", status, frame);
+//	Log_Debug("UHCI", "UHIC Interrupt, status = 0x%x, frame = %i", status, frame);
 	
 	// Interrupt-on-completion
 	if( status & 1 )
 	{
 		tPAddr	link;
-	
-		link = Host->FrameList[frame];
-		Host->FrameList[frame] = 1;
-		while( !(link & 1) )
+		
+		for( int i = 0; i < 10; i ++ )
 		{
-			tUHCI_TD *td = UHCI_int_GetTDFromPhys(link);
-			 int	byte_count = (td->Control&0x7FF)+1;
-			LOG("link = 0x%x, td = %p, byte_count = %i", link, td, byte_count);
-			// Handle non-page aligned destination
-			// TODO: This will break if the destination is not in global memory
-			if(td->_info.bCopyData)
+			link = Host->FrameList[frame];
+			Host->FrameList[frame] = 1;
+			while( !(link & 1) )
 			{
-				void *ptr = (void*)MM_MapTemp(td->BufferPointer);
-				memcpy(td->_info.DataPtr, ptr, byte_count);
-				MM_FreeTemp((tVAddr)ptr);
+				tUHCI_TD *td = UHCI_int_GetTDFromPhys(link);
+				 int	byte_count = (td->Control&0x7FF)+1;
+				LOG("link = 0x%x, td = %p, byte_count = %i", link, td, byte_count);
+				// Handle non-page aligned destination
+				// TODO: This will break if the destination is not in global memory
+				if(td->_info.bCopyData)
+				{
+					void *ptr = (void*)MM_MapTemp(td->BufferPointer);
+					memcpy(td->_info.DataPtr, ptr, byte_count);
+					MM_FreeTemp((tVAddr)ptr);
+				}
+				// Callback
+				if(td->_info.Callback && td->_info.Callback != INVLPTR)
+				{
+					LOG("Calling cb %p", td->_info.Callback);
+					td->_info.Callback(td->_info.CallbackPtr, td->_info.DataPtr, byte_count);
+					td->_info.Callback = NULL;
+				}
+				link = td->Link;
+				if( td->_info.Callback != INVLPTR )
+					td->Link = 1;
 			}
-			// Callback
-			if(td->_info.Callback && td->_info.Callback != INVLPTR)
-			{
-				LOG("Calling cb %p", td->_info.Callback);
-				td->_info.Callback(td->_info.CallbackPtr, td->_info.DataPtr, byte_count);
-				td->_info.Callback = NULL;
-			}
-			link = td->Link;
-			if( td->_info.Callback != INVLPTR )
-				td->Link = 1;
+			
+			if(frame == 0)
+				frame = 0x3ff;
+			else
+				frame --;
 		}
 		
 //		Host->LastCleanedFrame = frame;

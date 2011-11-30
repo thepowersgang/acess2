@@ -28,6 +28,11 @@ struct sUHCI_Controller
 	 * \brief IRQ Number assigned to the device
 	 */
 	 int	IRQNum;
+
+	/**
+	 * \brief Number of the last frame to be cleaned
+	 */
+	 int	LastCleanedFrame;
 	
 	/**
 	 * \brief Frame list

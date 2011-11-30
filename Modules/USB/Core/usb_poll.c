@@ -107,6 +107,7 @@ int USB_PollThread(void *unused)
 				
 				ep->Next = *newqueue;
 				*newqueue = ep;
+				ep = prev;
 			}
 		}
 		giUSB_PollPosition ++;
