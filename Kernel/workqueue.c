@@ -65,10 +65,9 @@ void Workqueue_AddWork(tWorkqueue *Queue, void *Ptr)
 	
 	if( Queue->Sleeper )
 	{	
-		SHORTLOCK( &glThreadListLock );
+		Debug("Waking %p", Queue->Sleeper);
 		if( Queue->Sleeper->Status != THREAD_STAT_ACTIVE )
 			Threads_AddActive(Queue->Sleeper);
-		SHORTREL( &glThreadListLock );
 		Queue->Sleeper = NULL;
 	}
 	SHORTREL(&Queue->Protector);
