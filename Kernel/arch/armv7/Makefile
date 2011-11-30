@@ -16,8 +16,8 @@ endif
 
 
 
-#ASFLAGS += -D USE_MP=$(USE_MP) -D USE_PAE=$(USE_PAE)
-CPPFLAGS += -DMMU_PRESENT=$(MMU_PRESENT) -DPCI_ADDRESS=$(PCI_ADDRESS)
+ASFLAGS += -DCONFIG_is_$(CONFIG)=1
+CPPFLAGS += -DMMU_PRESENT=$(MMU_PRESENT) -DPCI_ADDRESS=$(PCI_ADDRESS) -DCONFIG_is_$(CONFIG)=1
 LDFLAGS += `$(CC) --print-libgcc-file-name`
 
 A_OBJ  = start.ao main.o lib.o lib.ao time.o pci.o debug.o

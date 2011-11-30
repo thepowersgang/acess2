@@ -19,6 +19,7 @@
 #include <drv_pci.h>
 #include <api_drv_video.h>
 #include <lib/keyvalue.h>
+#include <options.h>	// ARM Arch
 
 #define ABS(a)	((a)>0?(a):-(a))
 
@@ -43,9 +44,11 @@ struct sPL110
 	Uint32	LCDLPCurr;
 };
 
-// === CONSTANTS ===
+#ifndef PL110_BASE
 #define PL110_BASE	0x10020000	// Integrator
+#endif
 
+// === CONSTANTS ===
 const struct {
 	short W, H;
 }	caPL110_Modes[] = {

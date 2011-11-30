@@ -27,7 +27,7 @@ void *Workqueue_GetWork(tWorkqueue *Queue)
 		if(Queue->Head)
 		{
 			void *ret = Queue->Head;
-			Queue->Head = *(void**)( (char*)ret + Queue->NextOffset );
+			Queue->Head = *( (void**)ret + Queue->NextOffset/sizeof(void*) );
 			if(Queue->Tail == ret)
 				Queue->Tail = NULL;
 			SHORTREL(&Queue->Protector);	
@@ -58,7 +58,7 @@ void Workqueue_AddWork(tWorkqueue *Queue, void *Ptr)
 	SHORTLOCK(&Queue->Protector);
 
 	if( Queue->Tail )
-		*(void**)( (char*)Queue->Tail + Queue->NextOffset ) = Ptr;
+		*( (void**)Queue->Tail + Queue->NextOffset/sizeof(void*) ) = Ptr;
 	else
 		Queue->Head = Ptr;
 	Queue->Tail = Ptr;

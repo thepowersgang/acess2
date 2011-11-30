@@ -10,6 +10,7 @@
 #include <acess.h>
 #include <modules.h>
 #include "gic.h"
+#include <options.h>
 
 #define N_IRQS	1024
 
