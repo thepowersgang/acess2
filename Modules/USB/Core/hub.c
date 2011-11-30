@@ -163,4 +163,17 @@ void Hub_int_HandleChange(tUSBInterface *Dev, int Port)
 		
 		USB_Request(Dev, 0, 0x23, CLEAR_FEATURE, C_PORT_CONNECTION, Port, 0, NULL);
 	}
+	
+	// Reset change
+	if( status[1] & 0x0010 )
+	{
+		if( status[0] & 0x0010 ) {
+			// Reset complete
+		}
+		else {
+			// Useful?
+		}
+		// ACK
+		USB_Request(Dev, 0, 0x23, CLEAR_FEATURE, C_PORT_RESET, Port, 0, NULL);
+	}
 }

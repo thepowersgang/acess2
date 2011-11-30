@@ -13,6 +13,9 @@
 #define POLL_MAX	256	// Max period that can be nominated
 #define POLL_SLOTS	((int)(POLL_MAX/POLL_ATOM))
 
+// === IMPORTS ===
+extern tUSBHost	*gUSB_Hosts;
+
 // === PROTOTYPES ===
 void	USB_StartPollingEndpoint(tUSBInterface *Iface, int Endpoint);
 
@@ -43,7 +46,6 @@ void USB_StartPollingEndpoint(tUSBInterface *Iface, int Endpoint)
 	{
 		 int	idx = giUSB_PollPosition + 1;
 		if(idx >= POLL_SLOTS)	idx -= POLL_SLOTS;
-		LOG("idx = %i", idx);
 		endpt->Next = gUSB_PollQueues[idx];
 		gUSB_PollQueues[idx] = endpt;
 	}
@@ -59,6 +61,15 @@ int USB_PollThread(void *unused)
 	{
 		tUSBEndpoint	*ep, *prev;
 
+		if(giUSB_PollPosition == 0)
+		{
+			// Check hosts
+			for( tUSBHost *host = gUSB_Hosts; host; host = host->Next )
+			{
+				host->HostDef->CheckPorts(host->Ptr);
+			}
+		}
+
 		// A little evil for neater code
 		prev = (void*)( (tVAddr)&gUSB_PollQueues[giUSB_PollPosition] - offsetof(tUSBEndpoint, Next) );
 
@@ -67,7 +78,7 @@ int USB_PollThread(void *unused)
 		for( ep = gUSB_PollQueues[giUSB_PollPosition]; ep; prev = ep, ep = ep->Next )
 		{
 			 int	period_in_atoms = ep->PollingAtoms;
-			LOG("%i: ep = %p", giUSB_PollPosition, ep);
+//			LOG("%i: ep = %p", giUSB_PollPosition, ep);
 
 			// Check for invalid entries
 			if(period_in_atoms < 0 || period_in_atoms > POLL_ATOM)

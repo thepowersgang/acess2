@@ -132,6 +132,8 @@ char *USB_int_GetDeviceString(tUSBDevice *Dev, int Endpoint, int Index)
 //	}
 	src_len = (str.Length - 2) / sizeof(str.Data[0]);
 
+	LOG("&str = %p, src_len = %i", &str, src_len);
+
 	new_len = _UTF16to8(str.Data, src_len, NULL);	
 	ret = malloc( new_len + 1 );
 	_UTF16to8(str.Data, src_len, ret);
