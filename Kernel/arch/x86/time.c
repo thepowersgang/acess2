@@ -7,12 +7,11 @@
 
 // === MACROS ===
 #define	TIMER_QUANTUM	100
-// 2^(15-rate), 15: 1HZ, 5: 1024Hz, 2: 8192Hz
-// (Max: 15, Min: 2) - 15 = 1Hz, 13 = 4Hz, 12 = 8Hz, 11 = 16Hz 10 = 32Hz, 2 = 8192Hz
+// 2^(15-rate), 14: 2Hz, 5: 1024Hz, 2: 8192Hz
+// (Max: 14, Min: 2) - 14 = 2Hz, 13 = 4Hz, 12 = 8Hz, 11 = 16Hz 10 = 32Hz, 2 = 8192Hz
 //#define TIMER_RATE	10	// 32 Hz
 //#define TIMER_RATE	12	// 8 Hz
-#define TIMER_RATE	14	// 2Hz
-//#define TIMER_RATE	15	// 1HZ
+#define TIMER_RATE	14	// 2 Hz - Lowest
 #define TIMER_FREQ	(0x8000>>TIMER_RATE)	//Hz
 #define MS_PER_TICK_WHOLE	(1000/(TIMER_FREQ))
 #define MS_PER_TICK_FRACT	((0x80000000*(1000%TIMER_FREQ))/TIMER_FREQ)
@@ -68,9 +67,9 @@ int Time_Setup(void)
 	// Set IRQ8 firing rate
 	outb(0x70, 0x0A);	// Set the index to register A
 	val = inb(0x71); // Get the current value of register A
-	outb(0x70, 0x0A); // Reset index to A
 	val &= 0xF0;
-	val |= TIMER_RATE;
+	val |= TIMER_RATE+1;
+	outb(0x70, 0x0A); // Reset index to A
 	outb(0x71, val);	// Update the timer rate
 		
 	// Enable IRQ8
@@ -94,11 +93,9 @@ int Time_Setup(void)
 
 /**
  * \brief Called on the timekeeping IRQ
- * \param irq	IRQ number (unused)
  */
 void Time_Interrupt(int IRQ, void *Ptr)
 {
-	//Log("RTC Tick");
 	Uint64	curTSC = Time_ReadTSC();
 	
 	if( giTime_TSCAtLastTick )
@@ -121,25 +118,6 @@ void Time_Interrupt(int IRQ, void *Ptr)
 	outb(0x70, 0x0C); // Select register C
 	inb(0x71);	// Just throw away contents.
 }
-
-#if 0
-/**
- * \fn void Time_TimerThread(void)
- */
-void Time_TimerThread(void)
-{
-	Sint64	next;
-	Threads_SetName("TIMER");
-	
-	next = giTimestamp + TIMER_QUANTUM;
-	for(;;)
-	{
-		while(giTimestamp < next)	Threads_Yield();
-		next = giTimestamp + TIMER_QUANTUM;	
-		Timer_CallTimers();
-	}
-}
-#endif
 
 Uint64 Time_ReadTSC(void)
 {

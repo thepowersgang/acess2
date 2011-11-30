@@ -79,12 +79,13 @@ void SHORTLOCK(struct sShortSpinlock *Lock)
 	}
 	#endif
 	
+	__ASM__("cli");
+	
 	// Wait for another CPU to release
 	while(v) {
 		__ASM__("xchgl %%eax, (%%edi)":"=a"(v):"a"(cpu),"D"(&Lock->Lock));
 	}
 	
-	__ASM__("cli");
 	Lock->IF = IF;
 	
 	#if TRACE_LOCKS
