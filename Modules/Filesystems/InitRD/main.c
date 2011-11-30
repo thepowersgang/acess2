@@ -47,7 +47,7 @@ tVFS_Node *InitRD_InitDevice(const char *Device, const char **Arguments)
 	#if DUMP_ON_MOUNT
 	InitRD_DumpDir( &gInitRD_RootNode, 0 );
 	#endif
-	Log_Notice("InitRD", "Mounted");
+	Log_Notice("InitRD", "Mounted (%i files)", giInitRD_NumFiles);
 	return &gInitRD_RootNode;
 }
 

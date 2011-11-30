@@ -43,7 +43,7 @@ int kmain(void)
 
 	//
 	LogF("Moving to arch-independent init\n");
-	System_Init("/Acess=initrd: -VTerm:Video=PL110");
+	System_Init("Acess2.armv7.bin /Acess=initrd: -VTerm:Video=PL110");
 //	System_Init("/Acess=initrd:");
 	//TODO: 
 	LogF("End of kmain(), for(;;) Threads_Sleep();\n");
