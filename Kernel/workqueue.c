@@ -65,7 +65,6 @@ void Workqueue_AddWork(tWorkqueue *Queue, void *Ptr)
 	
 	if( Queue->Sleeper )
 	{	
-		Debug("Waking %p", Queue->Sleeper);
 		if( Queue->Sleeper->Status != THREAD_STAT_ACTIVE )
 			Threads_AddActive(Queue->Sleeper);
 		Queue->Sleeper = NULL;
