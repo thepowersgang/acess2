@@ -93,7 +93,9 @@ Uint8	gaAPIC_to_CPU[256] = {0};
  int	giProc_BootProcessorID = 0;
 tTSS	gaTSSs[MAX_CPUS];	// TSS Array
 #endif
-tCPU	gaCPUs[MAX_CPUS];
+tCPU	gaCPUs[MAX_CPUS] = {
+	{.Current = &gThreadZero}
+	};
 tTSS	*gTSSs = NULL;	// Pointer to TSS array
 tTSS	gTSS0 = {0};
 // --- Error Recovery ---
@@ -315,7 +317,7 @@ void ArchThreads_Init(void)
 	outb(0x40, TIMER_DIVISOR&0xFF);	// Low Byte of Divisor
 	outb(0x40, (TIMER_DIVISOR>>8)&0xFF);	// High Byte
 	
-	Log("Timer Frequency %i.%03i Hz",
+	Log_Debug("Proc", "PIT Frequency %i.%03i Hz",
 		TIMER_BASE/TIMER_DIVISOR,
 		((Uint64)TIMER_BASE*1000/TIMER_DIVISOR)%1000
 		);
@@ -593,7 +595,7 @@ int Proc_NewKThread(void (*Fcn)(void*), void *Data)
 	newThread->SavedState.ESP = esp;
 	newThread->SavedState.EIP = (Uint)&NewTaskHeader;
 	newThread->SavedState.SSE = NULL;
-	Log("New (KThread) %p, esp = %p\n", newThread->SavedState.EIP, newThread->SavedState.ESP);
+//	Log("New (KThread) %p, esp = %p", newThread->SavedState.EIP, newThread->SavedState.ESP);
 	
 //	MAGIC_BREAK();	
 	Threads_AddActive(newThread);

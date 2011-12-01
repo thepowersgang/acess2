@@ -139,6 +139,11 @@ int ATA_ScanDisk(int Disk)
 
 	LOG("gATA_Disks[ %i ].Sectors = 0x%x", Disk, gATA_Disks[ Disk ].Sectors);
 
+	// Create Name
+	gATA_Disks[ Disk ].Name[0] = 'A'+Disk;
+	gATA_Disks[ Disk ].Name[1] = '\0';
+
+	#if 1
 	{
 		Uint64	val = gATA_Disks[ Disk ].Sectors / 2;
 		char	*units = "KiB";
@@ -154,13 +159,10 @@ int ATA_ScanDisk(int Disk)
 			val /= 1024;
 			units = "TiB";
 		}
-		Log_Log("ATA", "Disk %i: 0x%llx Sectors (%lli %s)", Disk,
-			gATA_Disks[ Disk ].Sectors, val, units);
+		Log_Notice("ATA", "Disk %s: 0x%llx Sectors (%lli %s)",
+			gATA_Disks[ Disk ].Name, gATA_Disks[ Disk ].Sectors, val, units);
 	}
-
-	// Create Name
-	gATA_Disks[ Disk ].Name[0] = 'A'+Disk;
-	gATA_Disks[ Disk ].Name[1] = '\0';
+	#endif
 
 	// Get pointer to vfs node and populate it
 	node = &gATA_Disks[ Disk ].Node;
@@ -225,7 +227,7 @@ void ATA_int_MakePartition(tATA_Partition *Part, int Disk, int Num, Uint64 Start
 	Part->Node.Read = ATA_ReadFS;
 	Part->Node.Write = ATA_WriteFS;
 	Part->Node.IOCtl = ATA_IOCtl;
-	Log_Notice("ATA", "Note '%s' at 0x%llx, 0x%llx long", Part->Name, Part->Start, Part->Length);
+	Log_Notice("ATA", "Partition %s at 0x%llx+0x%llx", Part->Name, Part->Start, Part->Length);
 	LOG("Made '%s' (&Node=%p)", Part->Name, &Part->Node);
 	LEAVE('-');
 }

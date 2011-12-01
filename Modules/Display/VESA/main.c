@@ -222,12 +222,6 @@ int Vesa_Int_SetMode(int mode)
 	// Sanity Check values
 	if(mode < 0 || mode > giVesaModeCount)	return -1;
 
-	Log_Log("VESA", "Setting mode to %i (%ix%i %ibpp)",
-		mode,
-		gVesa_Modes[mode].width, gVesa_Modes[mode].height,
-		gVesa_Modes[mode].bpp
-		);
-	
 	// Check for fast return
 	if(mode == giVesaCurrentMode)	return 1;
 	
@@ -239,7 +233,6 @@ int Vesa_Int_SetMode(int mode)
 	gpVesa_BiosState->AX = 0x4F02;
 	gpVesa_BiosState->BX = gVesa_Modes[mode].code;
 	if(gVesa_Modes[mode].flags & FLAG_LFB) {
-		Log_Log("VESA", "Using LFB");
 		gpVesa_BiosState->BX |= 0x4000;	// Bit 14 - Use LFB
 	}
 	
@@ -252,8 +245,12 @@ int Vesa_Int_SetMode(int mode)
 	giVesaPageCount = (gVesa_Modes[mode].fbSize + 0xFFF) >> 12;
 	gpVesa_Framebuffer = (void*)MM_MapHWPages(gVesa_Modes[mode].framebuffer, giVesaPageCount);
 	
-	Log_Log("VESA", "Framebuffer (Phys) = 0x%x, (Virt) = 0x%x, Size = 0x%x",
-		gVesa_Modes[mode].framebuffer, gpVesa_Framebuffer, giVesaPageCount << 12);
+	Log_Log("VESA", "Setting mode to %i (%ix%i %ibpp) %p[0x%x] maps %P",
+		mode,
+		gVesa_Modes[mode].width, gVesa_Modes[mode].height,
+		gVesa_Modes[mode].bpp,
+		gpVesa_Framebuffer, giVesaPageCount << 12, gVesa_Modes[mode].framebuffer
+		);
 	
 	// Record Mode Set
 	giVesaCurrentMode = mode;

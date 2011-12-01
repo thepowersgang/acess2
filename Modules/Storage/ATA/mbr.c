@@ -125,7 +125,6 @@ Uint64 ATA_MBR_int_ReadExt(int Disk, Uint64 Addr, Uint64 *Base, Uint64 *Length)
 	if( ATA_ReadDMA( Disk, Addr, 1, &mbr ) != 0 )
 		return -1;	// Stop on Errors
 	
-	
 	for( i = 0; i < 4; i ++ )
 	{
 		if( mbr.Parts[i].SystemID == 0 )	continue;
@@ -141,8 +140,10 @@ Uint64 ATA_MBR_int_ReadExt(int Disk, Uint64 Addr, Uint64 *Base, Uint64 *Length)
 			len = (mbr.Parts[i].LengthHi << 16) | mbr.Parts[i].LBALength;
 		}
 		else {
-			Warning("Unknown partition type, Disk %i 0x%llx Part %i",
-				Disk, Addr, i);
+			Log_Warning("ATA MBR",
+				"Unknown partition type 0x%x, Disk %i Ext 0x%llx Part %i",
+				mbr.Parts[i].Boot, Disk, Addr, i
+				);
 			return -1;
 		}
 		
@@ -151,16 +152,20 @@ Uint64 ATA_MBR_int_ReadExt(int Disk, Uint64 Addr, Uint64 *Base, Uint64 *Length)
 		case 0xF:
 		case 0x5:
 			if(link != 0) {
-				Warning("Disk %i has two forward links in the extended partition",
-					Disk);
+				Log_Warning("ATA MBR",
+					"Disk %i has two forward links in the extended partition",
+					Disk
+					);
 				return -1;
 			}
 			link = base;
 			break;
 		default:
 			if(bFoundPart) {
-				Warning("Disk %i has more than one partition in the extended partition at 0x%llx",
-					Disk, Addr);
+				Warning("ATA MBR",
+					"Disk %i has more than one partition in the extended partition at 0x%llx",
+					Disk, Addr
+					);
 				return -1;
 			}
 			bFoundPart = 1;
@@ -171,7 +176,8 @@ Uint64 ATA_MBR_int_ReadExt(int Disk, Uint64 Addr, Uint64 *Base, Uint64 *Length)
 	}
 	
 	if(!bFoundPart) {
-		Warning("No partition in extended partiton, Disk %i 0x%llx",
+		Log_Warning("ATA MBR",
+			"No partition in extended partiton, Disk %i 0x%llx",
 			Disk, Addr);
 		return -1;
 	}

@@ -127,10 +127,10 @@ int RTL8139_Install(char **Options)
 	tCard	*card;
 	
 	giRTL8139_CardCount = PCI_CountDevices(VENDOR_ID, DEVICE_ID);
-	Log_Debug("RTL8139", "%i cards", giRTL8139_CardCount);
 	
 	if( giRTL8139_CardCount == 0 )	return MODULE_ERR_NOTNEEDED;
-	
+
+	Log_Debug("RTL8139", "%i cards", giRTL8139_CardCount);	
 	gaRTL8139_Cards = calloc( giRTL8139_CardCount, sizeof(tCard) );
 	
 	for( i = 0 ; (id = PCI_GetDevice(VENDOR_ID, DEVICE_ID, i)) != -1; i ++ )

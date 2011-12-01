@@ -129,10 +129,7 @@ int Ne2k_Install(char **Options)
 		giNe2k_CardCount += PCI_CountDevices( csaCOMPAT_DEVICES[i].Vendor, csaCOMPAT_DEVICES[i].Device );
 	}
 	
-	if( giNe2k_CardCount == 0 ) {
-		Log_Warning("Ne2k", "No cards detected");
-		return MODULE_ERR_NOTNEEDED;
-	}
+	if( giNe2k_CardCount == 0 )	return MODULE_ERR_NOTNEEDED;
 	
 	// Enumerate Cards
 	k = 0;

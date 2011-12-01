@@ -666,11 +666,11 @@ tVAddr MM_NewKStack(void)
 			}
 		}
 		// Success
-		Log("MM_NewKStack - Allocated %p", base + KERNEL_STACK_SIZE);
+//		Log("MM_NewKStack - Allocated %p", base + KERNEL_STACK_SIZE);
 		return base+KERNEL_STACK_SIZE;
 	}
 	// No stacks left
-	Warning("MM_NewKStack - No address space left");
+	Log_Warning("MMVirt", "MM_NewKStack - No address space left");
 	return 0;
 }
 
