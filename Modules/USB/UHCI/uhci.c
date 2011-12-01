@@ -18,7 +18,7 @@
 #define NUM_TDs	1024
 
 // === PROTOTYPES ===
- int	UHCI_Initialise(const char **Arguments);
+ int	UHCI_Initialise(char **Arguments);
 void	UHCI_Cleanup();
 tUHCI_TD	*UHCI_int_AllocateTD(tUHCI_Controller *Cont);
 void	UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_TD *TD);
@@ -48,7 +48,7 @@ tUSBHostDef	gUHCI_HostDef = {
  * \fn int UHCI_Initialise()
  * \brief Called to initialise the UHCI Driver
  */
-int UHCI_Initialise(const char **Arguments)
+int UHCI_Initialise(char **Arguments)
 {
 	 int	i=0, id=-1;
 	 int	ret;
