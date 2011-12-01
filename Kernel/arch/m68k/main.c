@@ -14,6 +14,8 @@ void	kmain(void);
 // === CODE ===
 void kmain(void)
 {
+	LogF("Acess2 m68k v"EXPAND_STR(KERNEL_VERSION)"\n");
+	LogF(" Build %i, Git Hash %s\n", BUILD_NUM, gsGitHash);
 	
 }
 
