@@ -18,7 +18,7 @@
 #define NUM_TDs	1024
 
 // === PROTOTYPES ===
- int	UHCI_Initialise();
+ int	UHCI_Initialise(const char **Arguments);
 void	UHCI_Cleanup();
 tUHCI_TD	*UHCI_int_AllocateTD(tUHCI_Controller *Cont);
 void	UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_TD *TD);
