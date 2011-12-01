@@ -30,6 +30,11 @@ void	*UHCI_SendSetup(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, 
  int	UHCI_Int_InitHost(tUHCI_Controller *Host);
 void	UHCI_CheckPortUpdate(void *Ptr);
 void	UHCI_InterruptHandler(int IRQ, void *Ptr);
+// 
+static void	_OutByte(tUHCI_Controller *Host, int Reg, Uint8 Value);
+static void	_OutWord(tUHCI_Controller *Host, int Reg, Uint16 Value);
+static void	_OutDWord(tUHCI_Controller *Host, int Reg, Uint32 Value);
+static Uint16	_InWord(tUHCI_Controller *Host, int Reg);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, USB_UHCI, UHCI_Initialise, NULL, "USB_Core", NULL);
@@ -56,22 +61,28 @@ int UHCI_Initialise(char **Arguments)
 	ENTER("");
 	
 	// Enumerate PCI Bus, getting a maximum of `MAX_CONTROLLERS` devices
-	while( (id = PCI_GetDeviceByClass(0x0C03, 0xFFFF, id)) >= 0 && i < MAX_CONTROLLERS )
+	while( (id = PCI_GetDeviceByClass(0x0C0300, 0xFFFFFF, id)) >= 0 && i < MAX_CONTROLLERS )
 	{
 		tUHCI_Controller	*cinfo = &gUHCI_Controllers[i];
+		Uint32	base_addr;
 		// NOTE: Check "protocol" from PCI?
 		
 		cinfo->PciId = id;
-		cinfo->IOBase = PCI_GetBAR(id, 4);
-		if( !(cinfo->IOBase & 1) ) {
-			Log_Warning("UHCI", "MMIO is not supported");
-			continue ;
+		base_addr = PCI_GetBAR(id, 4);
+		
+		if( base_addr & 1 )
+		{
+			cinfo->IOBase = base_addr & ~1;
+			cinfo->MemIOMap = NULL;
 		}
-		cinfo->IOBase &= ~1;
+		else
+		{
+			cinfo->MemIOMap = (void*)MM_MapHWPages(base_addr, 1);
+		}
 		cinfo->IRQNum = PCI_GetIRQ(id);
 		
 		Log_Debug("UHCI", "Controller PCI #%i: IO Base = 0x%x, IRQ %i",
-			id, cinfo->IOBase, cinfo->IRQNum);
+			id, base_addr, cinfo->IRQNum);
 		
 		IRQ_AddHandler(cinfo->IRQNum, UHCI_InterruptHandler, cinfo);
 	
@@ -90,6 +101,12 @@ int UHCI_Initialise(char **Arguments)
 
 		i ++;
 	}
+
+	if(i == 0) {
+		LEAVE('i', MODULE_ERR_NOTNEEDED);
+		return MODULE_ERR_NOTNEEDED;
+	}
+
 	if(i == MAX_CONTROLLERS) {
 		Log_Warning("UHCI", "Over "EXPAND_STR(MAX_CONTROLLERS)" UHCI controllers detected, ignoring rest");
 	}
@@ -142,7 +159,7 @@ tUHCI_TD *UHCI_int_GetTDFromPhys(tPAddr PAddr)
 
 void UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_TD *TD)
 {
-	 int	next_frame = (inw(Cont->IOBase + FRNUM) + 2) & (1024-1);
+	 int	next_frame = (_InWord(Cont, FRNUM) + 2) & (1024-1);
 	tUHCI_TD	*prev_td;
 	Uint32	link;
 
@@ -269,10 +286,9 @@ int UHCI_Int_InitHost(tUHCI_Controller *Host)
 {
 	ENTER("pHost", Host);
 
-	outw( Host->IOBase + USBCMD, 4 );	// GRESET
-	Time_Delay(10);
+	_OutWord( Host, USBCMD, 4 );	// GRESET
 	// TODO: Wait for at least 10ms
-	outw( Host->IOBase + USBCMD, 0 );	// GRESET
+	_OutWord( Host, USBCMD, 0 );	// GRESET
 	
 	// Allocate Frame List
 	// - 1 Page, 32-bit address
@@ -289,18 +305,18 @@ int UHCI_Int_InitHost(tUHCI_Controller *Host)
 	//! \todo Properly fill frame list
 	
 	// Set frame length to 1 ms
-	outb( Host->IOBase + SOFMOD, 64 );
+	_OutByte( Host, SOFMOD, 64 );
 	
 	// Set Frame List
-	outd( Host->IOBase + FLBASEADD, Host->PhysFrameList );
-	outw( Host->IOBase + FRNUM, 0 );
+	_OutDWord( Host, FLBASEADD, Host->PhysFrameList );
+	_OutWord( Host, FRNUM, 0 );
 	
 	// Enable Interrupts
-	outw( Host->IOBase + USBINTR, 0x000F );
+	_OutWord( Host, USBINTR, 0x000F );
 	PCI_ConfigWrite( Host->PciId, 0xC0, 2, 0x2000 );
 
 	// Enable processing
-	outw( Host->IOBase + USBCMD, 0x0001 );
+	_OutWord( Host, USBCMD, 0x0001 );
 
 	LEAVE('i', 0);
 	return 0;
@@ -312,13 +328,16 @@ void UHCI_CheckPortUpdate(void *Ptr)
 	// Enable ports
 	for( int i = 0; i < 2; i ++ )
 	{
-		 int	port = Host->IOBase + PORTSC1 + i*2;
+		 int	port = PORTSC1 + i*2;
+		Uint16	status;
+	
+		status = _InWord(Host, port);
 		// Check for port change
-		if( !(inw(port) & 0x0002) )	continue;
-		outw(port, 0x0002);
+		if( !(status & 0x0002) )	continue;
+		_OutWord(Host, port, 0x0002);
 		
 		// Check if the port is connected
-		if( !(inw(port) & 1) )
+		if( !(status & 1) )
 		{
 			// Tell the USB code it's gone.
 			USB_DeviceDisconnected(Host->RootHub, i);
@@ -329,13 +348,13 @@ void UHCI_CheckPortUpdate(void *Ptr)
 			LOG("Port %i has something", i);
 			// Reset port (set bit 9)
 			LOG("Reset");
-			outw( port, 0x0200 );
+			_OutWord(Host, port, 0x0200);
 			Time_Delay(50);	// 50ms delay
-			outw( port, inw(port) & ~0x0200 );
+			_OutWord(Host, port, _InWord(Host, port) & ~0x0200);
 			// Enable port
 			LOG("Enable");
 			Time_Delay(50);	// 50ms delay
-			outw( port, inw(port) | 0x0004 );
+			_OutWord(Host, port, _InWord(Host, port) | 0x0004);
 			// Tell USB there's a new device
 			USB_DeviceConnected(Host->RootHub, i);
 		}
@@ -345,8 +364,8 @@ void UHCI_CheckPortUpdate(void *Ptr)
 void UHCI_InterruptHandler(int IRQ, void *Ptr)
 {
 	tUHCI_Controller *Host = Ptr;
-	 int	frame = ((int)inw(Host->IOBase + FRNUM) - 1) & 0x3FF;
-	Uint16	status = inw(Host->IOBase + USBSTS);
+	 int	frame = (_InWord(Host, FRNUM) - 1) & 0x3FF;
+	Uint16	status = _InWord(Host, USBSTS);
 //	Log_Debug("UHCI", "UHIC Interrupt, status = 0x%x, frame = %i", status, frame);
 	
 	// Interrupt-on-completion
@@ -393,5 +412,38 @@ void UHCI_InterruptHandler(int IRQ, void *Ptr)
 	}
 
 	LOG("status = 0x%02x", status);
-	outw(Host->IOBase + USBSTS, status);
+	_OutWord(Host, USBSTS, status);
 }
+
+void _OutByte(tUHCI_Controller *Host, int Reg, Uint8 Value)
+{
+	if( Host->MemIOMap )
+		((Uint8*)Host->MemIOMap)[Reg] = Value;
+	else
+		outb(Host->IOBase + Reg, Value);
+}
+
+void _OutWord(tUHCI_Controller *Host, int Reg, Uint16 Value)
+{
+	if( Host->MemIOMap )
+		Host->MemIOMap[Reg/2] = Value;
+	else
+		outw(Host->IOBase + Reg, Value);
+}
+
+void _OutDWord(tUHCI_Controller *Host, int Reg, Uint32 Value)
+{
+	if( Host->MemIOMap )
+		((Uint32*)Host->MemIOMap)[Reg/4] = Value;
+	else
+		outd(Host->IOBase + Reg, Value);
+}
+
+Uint16 _InWord(tUHCI_Controller *Host, int Reg)
+{
+	if( Host->MemIOMap )
+		return Host->MemIOMap[Reg/2];
+	else
+		return inw(Host->IOBase + Reg);
+}
+

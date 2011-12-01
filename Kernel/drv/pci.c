@@ -17,13 +17,8 @@ typedef struct sPCIDevice
 {
 	Uint16	bus, slot, fcn;
 	Uint16	vendor, device;
-	union {
-		struct {
-			Uint8 class, subclass;
-		};
-		Uint16	oc;
-	};
-	Uint8	revision, progif;
+	Uint32	class;	// Class:Subclass:ProgIf
+	Uint8	revision;
 	Uint32	ConfigCache[256/4];
 	char	Name[8];
 	tVFS_Node	Node;
@@ -143,7 +138,7 @@ int PCI_ScanBus(int BusID, int bFill)
 			if(!PCI_int_EnumDevice(BusID, dev, fcn, &devInfo))
 				continue;
 			
-			if(devInfo.oc == PCI_OC_PCIBRIDGE)
+			if(devInfo.class == PCI_OC_PCIBRIDGE)
 			{
 				#if LIST_DEVICES
 				if( !bFill )
@@ -158,8 +153,8 @@ int PCI_ScanBus(int BusID, int bFill)
 			{
 				#if LIST_DEVICES
 				if( !bFill )
-					Log_Log("PCI", "Device %i,%i:%i %04x => 0x%04x:0x%04x",
-						BusID, dev, fcn, devInfo.oc, devInfo.vendor, devInfo.device);
+					Log_Log("PCI", "Device %i,%i:%i %06x => 0x%04x:0x%04x",
+						BusID, dev, fcn, devInfo.class, devInfo.vendor, devInfo.device);
 				#endif
 			}
 			
@@ -288,7 +283,7 @@ tPCIDev PCI_GetDevice(Uint16 vendor, Uint16 device, int idx)
  * \param mask	Mask for class comparison
  * \param prev	ID of previous device (-1 for no previous)
  */
-tPCIDev PCI_GetDeviceByClass(Uint16 class, Uint16 mask, tPCIDev prev)
+tPCIDev PCI_GetDeviceByClass(Uint32 class, Uint32 mask, tPCIDev prev)
 {
 	 int	i;
 	// Check if prev is negative (meaning get first)
@@ -297,30 +292,29 @@ tPCIDev PCI_GetDeviceByClass(Uint16 class, Uint16 mask, tPCIDev prev)
 	
 	for( ; i < giPCI_DeviceCount; i++ )
 	{
-		if((gPCI_Devices[i].oc & mask) == class)
+		if((gPCI_Devices[i].class & mask) == class)
 			return i;
 	}
 	return -1;
 }
 
-int PCI_GetDeviceInfo(tPCIDev ID, Uint16 *Vendor, Uint16 *Device, Uint16 *Class)
+int PCI_GetDeviceInfo(tPCIDev ID, Uint16 *Vendor, Uint16 *Device, Uint32 *Class)
 {
 	tPCIDevice	*dev = &gPCI_Devices[ID];
 	if(ID < 0 || ID >= giPCI_DeviceCount)	return 1;
 	
 	if(Vendor)	*Vendor = dev->vendor;
 	if(Device)	*Device = dev->device;
-	if(Class)	*Class = dev->oc;
+	if(Class)	*Class = dev->class;
 	return 0;
 }
 
-int PCI_GetDeviceVersion(tPCIDev ID, Uint8 *Revision, Uint8 *ProgIF)
+int PCI_GetDeviceVersion(tPCIDev ID, Uint8 *Revision)
 {
 	tPCIDevice	*dev = &gPCI_Devices[ID];
 	if(ID < 0 || ID >= giPCI_DeviceCount)	return 1;
 	
 	if(Revision)	*Revision = dev->revision;
-	if(ProgIF)	*ProgIF = dev->progif;
 	return 0;
 }
 
@@ -453,13 +447,13 @@ int PCI_int_EnumDevice(Uint16 bus, Uint16 slot, Uint16 fcn, tPCIDevice *info)
 	info->vendor = vendor_dev & 0xFFFF;
 	info->device = vendor_dev >> 16;
 	tmp = info->ConfigCache[2];
-	info->revision = tmp & 0xFFFF;
-	info->oc = tmp >> 16;
+	info->revision = tmp & 0xFF;
+	info->class = tmp >> 8;
 	
 //	#if LIST_DEVICES
 //	Log("BAR0 0x%08x BAR1 0x%08x BAR2 0x%08x", info->ConfigCache[4], info->ConfigCache[5], info->ConfigCache[6]);
 //	Log("BAR3 0x%08x BAR4 0x%08x BAR5 0x%08x", info->ConfigCache[7], info->ConfigCache[8], info->ConfigCache[9]);
-//	Log("Class: 0x%04x", info->oc);
+//	Log("Class: 0x%06x", info->class);
 //	#endif
 	
 	// Make node name

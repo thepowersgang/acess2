@@ -117,7 +117,7 @@ int ATA_SetupIO(void)
 	ENTER("");
 
 	// Get IDE Controller's PCI Entry
-	ent = PCI_GetDeviceByClass(0x0101, 0xFFFF, -1);
+	ent = PCI_GetDeviceByClass(0x010100, 0xFFFF00, -1);
 	LOG("ent = %i", ent);
 	gATA_BusMasterBase = PCI_GetBAR(ent, 4);
 	if( gATA_BusMasterBase == 0 ) {

@@ -25,6 +25,11 @@ struct sUHCI_Controller
 	Uint16	IOBase;
 	
 	/**
+	 * \brief Memory Mapped-IO base address
+	 */
+	Uint16	*MemIOMap;
+
+	/**
 	 * \brief IRQ Number assigned to the device
 	 */
 	 int	IRQNum;

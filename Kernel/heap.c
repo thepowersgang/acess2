@@ -684,7 +684,10 @@ void Heap_Stats(void)
 	else
 		frag = 0;
 	Log_Log("Heap", "%i.%02i%% Heap Fragmentation", frag/100, frag%100);
-	avgAlloc = (totalBytes-freeBytes)/(nBlocks-nFree);
+	if(nBlocks <= nFree)
+		avgAlloc = 0;
+	else
+		avgAlloc = (totalBytes-freeBytes)/(nBlocks-nFree);
 	if(avgAlloc != 0)
 		overhead = (sizeof(tHeapFoot)+sizeof(tHeapHead))*10000/avgAlloc;
 	else

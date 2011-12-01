@@ -29,8 +29,8 @@ enum ePCIClasses
 
 enum ePCIOverClasses
 {
-	PCI_OC_PCIBRIDGE = 0x0604,
-	PCI_OC_SCSI = 0x0100
+	PCI_OC_PCIBRIDGE = 0x060400,
+	PCI_OC_SCSI = 0x010000
 };
 
 typedef int	tPCIDev;
@@ -42,10 +42,13 @@ typedef int	tPCIDev;
  */
 extern int	PCI_CountDevices(Uint16 VendorID, Uint16 DeviceID);
 extern tPCIDev	PCI_GetDevice(Uint16 VendorID, Uint16 DeviceID, int index);
-extern tPCIDev	PCI_GetDeviceByClass(Uint16 ClassCode, Uint16 Mask, tPCIDev prev);
+/**
+ * \param ClassCode (Class:SubClass:PI)
+ */
+extern tPCIDev	PCI_GetDeviceByClass(Uint32 ClassCode, Uint32 Mask, tPCIDev prev);
 
-extern int	PCI_GetDeviceInfo(tPCIDev id, Uint16 *Vendor, Uint16 *Device, Uint16 *Class);
-extern int	PCI_GetDeviceVersion(tPCIDev id, Uint8 *Revision, Uint8 *ProgIF);
+extern int	PCI_GetDeviceInfo(tPCIDev id, Uint16 *Vendor, Uint16 *Device, Uint32 *Class);
+extern int	PCI_GetDeviceVersion(tPCIDev id, Uint8 *Revision);
 extern int	PCI_GetDeviceSubsys(tPCIDev id, Uint16 *SubsystemVendor, Uint16 *SubsystemID);
 
 extern Uint32	PCI_ConfigRead(tPCIDev id, int Offset, int Size);
