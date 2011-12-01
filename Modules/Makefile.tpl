@@ -13,7 +13,7 @@ CPPFLAGS := -I$(ACESSDIR)/Kernel/include -I$(ACESSDIR)/Kernel/arch/$(ARCHDIR)/in
 CPPFLAGS += -DARCH=$(ARCH) -DARCH_is_$(ARCH) -DARCHDIR_is_$(ARCHDIR)
 CPPFLAGS += $(_CPPFLAGS)
 CPPFLAGS += $(LIBINCLUDES)
-CFLAGS := -std=gnu99 -Wall -Werror -fno-stack-protector -g -O3
+CFLAGS := -std=gnu99 -Wall -fno-stack-protector -g -O3
 
 ifneq ($(CATEGORY),)
 	FULLNAME := $(CATEGORY)_$(NAME)

@@ -285,7 +285,6 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	 int	disk = Disk & 1;
 	Uint16	base;
 	Sint64	timeoutTime;
-	Uint8	val;
 
 	ENTER("iDisk XAddress iCount pBuffer", Disk, Address, Count, Buffer);
 
@@ -376,9 +375,15 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	// Complete Transfer
 	ATA_int_BusMasterWriteByte( cont * 8, 8 );	// Read and stop
 
-	val = inb(base+0x7);
-	LOG("Status byte = 0x%02x, Controller Status = 0x%02x",
-		val, ATA_int_BusMasterReadByte(cont * 8 + 2));
+	#if DEBUG
+	{
+		Uint8	val = inb(base+0x7);
+		LOG("Status byte = 0x%02x, Controller Status = 0x%02x",
+			val, ATA_int_BusMasterReadByte(cont * 8 + 2));
+	}
+	#else
+	inb(base+0x7);
+	#endif
 
 	if( gaATA_IRQs[cont] == 0 )
 	{
