@@ -18,6 +18,8 @@ extern size_t	native_write(int FD, const void *Src, size_t Bytes);
 extern int	native_seek(int FD, int64_t Offset, int Dir);
 extern uint64_t	native_tell(int FD);
 
+extern int	native_execve(const char *filename, char *const argv[], char *const envp[]);
+
 // Syscalls used by the linker
 extern int	acess_open(const char *Path, int Flags);
 extern void	acess_close(int FD);

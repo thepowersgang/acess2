@@ -5,5 +5,10 @@
 
 #include <arch.h>
 
+#define MAX_CPUS	1
+
+typedef struct {} tTaskState;
+typedef struct {} tMemoryState;
+
 #endif
 

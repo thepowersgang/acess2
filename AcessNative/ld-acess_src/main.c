@@ -8,6 +8,7 @@
 
 // === IMPORTS ===
 extern int	giSyscall_ClientID;
+extern void	acess__exit(int Status);
 
 // === PROTOTYPES ===
 void	CallUser(void *Entry, int argc, char *argv[], char **envp) __attribute__((noreturn));
@@ -19,8 +20,9 @@ int main(int argc, char *argv[], char **envp)
 	 int	appArgc;
 	char	**appArgv;
 	char	*appPath = NULL;
-	 int	(*appMain)(int, char *[], char **);
+	 int	(*appMain)(int, char *[], char **) __attribute__((cdecl));
 	void	*base;
+	 int	rv;
 	
 //	 int	syscall_handle = -1;
 	
@@ -77,28 +79,24 @@ int main(int argc, char *argv[], char **envp)
 		printf("\"%s\" ", appArgv[i]);
 	printf("\n");
 	printf("[DEBUG %i] appMain = %p\n", giSyscall_ClientID, appMain);
-	#if 0
-	__asm__ __volatile__ (
-		"push %0;\n\t"
-		"push %1;\n\t"
-		"push %2;\n\t"
-		"jmp *%3;\n\t"
-		: : "r" (envp), "r" (appArgv), "r" (appArgc), "r" (appMain) );
-	return -1;
-	#elif 1
-	CallUser(appMain, appArgc, appArgv, envp);
-	#else
-	return appMain(appArgc, appArgv, NULL);
-	#endif
+//	CallUser(appMain, appArgc, appArgv, envp);
+	rv = appMain(appArgc, appArgv, envp);
+	acess__exit(rv);
+	return rv;
 }
 
 void CallUser(void *Entry, int argc, char *argv[], char **envp)
 {
+	#if 0
 	__asm__ __volatile__ (
-		"mov %1, %%esp;\n\t"
-		"jmp *%0"
-		: : "r" (Entry), "r" (&argc)
+		"push %3;\n\t"
+		"push %2;\n\t"
+		"push %1;\n\t"
+		"call *%0"
+		: : "r" (Entry), "r" (argc), "r" (argv), "r" (envp)
 		);
+	#else
+	#endif
 	for(;;);
 }
 

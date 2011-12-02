@@ -131,16 +131,20 @@ void UI_MainLoop(void)
 				acess_sym = UI_GetAcessKeyFromSDL(event.key.keysym.sym,
 					event.key.keysym.unicode);
 				
-				if( gUI_KeyboardCallback )
-					gUI_KeyboardCallback(acess_sym);
+				if( gUI_KeyboardCallback ) {
+					gUI_KeyboardCallback(KEY_ACTION_RAWSYM|event.key.keysym.sym);
+					gUI_KeyboardCallback(KEY_ACTION_PRESS|acess_sym);
+				}
 				break;
 			
 			case SDL_KEYUP:
 				acess_sym = UI_GetAcessKeyFromSDL(event.key.keysym.sym,
 					event.key.keysym.unicode);
 				
-				if( gUI_KeyboardCallback )
-					gUI_KeyboardCallback(0x80000000|acess_sym);
+				if( gUI_KeyboardCallback ) {
+					gUI_KeyboardCallback(KEY_ACTION_RAWSYM|event.key.keysym.sym);
+					gUI_KeyboardCallback(KEY_ACTION_RELEASE|acess_sym);
+				}
 				break;
 			
 			default:

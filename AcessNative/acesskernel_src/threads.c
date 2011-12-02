@@ -70,8 +70,8 @@ typedef struct sThread
 
 // === GLOBALS ===
 tThread	gThreadZero = {
-	State: 1,
-	ThreadName: "ThreadZero"
+	.State=1,
+	.ThreadName="ThreadZero"
 };
 tThread	*gpThreads = &gThreadZero;
 __thread tThread	*gpCurrentThread = &gThreadZero;
@@ -207,6 +207,7 @@ int Threads_WaitTID(int TID, int *Status)
 		
 		us->Next = NULL;
 		us->State = 3;
+		// TODO: Locking
 		if(thread->WaitingThreadsEnd)
 		{
 			thread->WaitingThreadsEnd->Next = us;
@@ -219,7 +220,10 @@ int Threads_WaitTID(int TID, int *Status)
 		}
 		
 		while(thread->State != 0)
+		{
 			pause();
+			Log_Debug("Threads", "Huh?... state = %i", thread->State);
+		}
 		
 		if(Status)	*Status = thread->ExitStatus;
 		thread->WaitingThreads = thread->WaitingThreads->Next;
@@ -247,15 +251,22 @@ void Threads_Exit(int TID, int Status)
 	tThread	*toWake;
 	
 //	VFS_Handles_Cleanup();
+
+	gpCurrentThread->ExitStatus = Status;
 	
 	#if 1
-	// Wait for the thread to be waited upon
-	while( gpCurrentThread->WaitingThreads == NULL )
-		SDL_Delay(10);
+	if( gpCurrentThread->Parent )
+	{
+		// Wait for the thread to be waited upon
+		while( gpCurrentThread->WaitingThreads == NULL )
+			SDL_Delay(10);
+	}
 	#endif
 	
 	while( (toWake = gpCurrentThread->WaitingThreads) )
 	{
+		Log_Debug("Threads", "Threads_Exit - Waking %p %i '%s'", toWake, toWake->TID, toWake->ThreadName);
+
 		Threads_Wake(toWake);
 		
 		while(gpCurrentThread->WaitingThreads == toWake)
@@ -265,6 +276,7 @@ void Threads_Exit(int TID, int Status)
 
 int Threads_Wake(tThread *Thread)
 {
+	Thread->State = 0;
 	kill( Thread->KernelTID, SIGUSR1 );
 	return 0;
 }

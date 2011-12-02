@@ -8,6 +8,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <stddef.h>
+#include <unistd.h>
 #include "request.h"
 
 #define DEBUG(str, x...)	Debug(str, x)
@@ -315,4 +316,12 @@ int native_seek(int FD, int64_t Ofs, int Dir)
 uint64_t native_tell(int FD)
 {
 	return ftell( gaSyscall_LocalFPs[FD] );
+}
+
+int native_execve(const char *filename, char *const argv[], char *const envp[])
+{
+	int ret;
+	ret = execve(filename, argv, envp);
+	perror("native_execve");
+	return ret;
 }

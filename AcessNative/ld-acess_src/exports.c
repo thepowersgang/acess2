@@ -200,10 +200,17 @@ int acess_execve(char *path, char **argv, char **envp)
 	for( i = 0; i < argc; i ++ )
 		printf("\"%s\" ", new_argv[i]);
 	printf("\n");
+	if(envp)
+	{
+		printf("envp = %p\n", envp);
+		for( i = 0; envp[i]; i ++ )
+			printf("%i: \"%s\"\n", i, envp[i]);
+		printf("envc = %i\n", i);
+	}
 	#endif
 	
 	// Call actual execve
-	return execve("./ld-acess", new_argv, envp);
+	return native_execve("./ld-acess", new_argv, envp);
 }
 
 void acess_sleep(void)

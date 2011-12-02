@@ -9,6 +9,7 @@
 #undef CLONE_VM
 #define	_MODULE_NAME_	"NativeKernel"
 
+#define PAGE_SIZE	0x1000	// Assume, making an Ass out of u and me
 #define BITS	(sizeof(intptr_t)*8)
 
 typedef uint8_t	Uint8;

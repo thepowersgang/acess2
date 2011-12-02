@@ -98,6 +98,11 @@ tPAddr MM_GetPhysAddr(tVAddr VAddr)
 	return VAddr;	// HACK!
 }
 
+int MM_IsValidBuffer(tVAddr Base, int Size)
+{
+	return 1;
+}
+
 Uint MM_GetFlags(tVAddr VAddr)
 {
 	return 0;
