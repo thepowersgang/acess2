@@ -8,8 +8,9 @@ typedef	void	(*constructor_t)(void);
 
 exithandler_t	_crt0_exit_handler;
 extern constructor_t	_crtbegin_ctors[];
+extern void	_exit(int status) __attribute__((noreturn));
 
-int start(int argc, char *argv[], char **envp)
+void start(int argc, char *argv[], char **envp)
 {
 	 int	i;
 	 int	rv;
@@ -21,6 +22,6 @@ int start(int argc, char *argv[], char **envp)
 	
 	if( _crt0_exit_handler )
 		_crt0_exit_handler();
-	
-	return rv;
+
+	_exit(rv);
 }
