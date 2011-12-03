@@ -21,25 +21,25 @@ ifeq ($(AS_SUFFIX),)
 	AS_SUFFIX = S
 endif
 
-ASFLAGS         += -D ARCHDIR_IS_$(ARCHDIR)=1 -DCONFIG_is_$(CONFIG)=1
+ASFLAGS         += -D ARCHDIR_IS_$(ARCHDIR)=1 -D PLATFORM_is_$(PLATFORM)=1
 CPPFLAGS	+= -I./include -I./arch/$(ARCHDIR)/include -D_MODULE_NAME_=\"Kernel\"
-CPPFLAGS	+= -DARCH=$(ARCH) -DARCHDIR=$(ARCHDIR) -DARCHDIR_IS_$(ARCHDIR)=1 -DCONFIG_is_$(CONFIG)=1
-CPPFLAGS	+= -DKERNEL_VERSION=$(KERNEL_VERSION)
+CPPFLAGS	+= -D ARCH=$(ARCH) -D ARCHDIR=$(ARCHDIR) -D ARCHDIR_IS_$(ARCHDIR)=1 -D PLATFORM_is_$(PLATFORM)=1
+CPPFLAGS	+= -D KERNEL_VERSION=$(KERNEL_VERSION)
 CFLAGS  	+= -Wall -fno-stack-protector -Wstrict-prototypes -g
 CFLAGS  	+= -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings -Wmissing-prototypes -Wmissing-declarations -Wredundant-decls -Wnested-externs -Winline -Wuninitialized
 CFLAGS          += -O3
 LDFLAGS		+= -T arch/$(ARCHDIR)/link.ld -g
 
-ifeq ($(CONFIG),default)
+ifeq ($(PLATFORM),default)
 	OBJDIR := obj-$(ARCH)/
 	#OBJSUFFIX := .$(ARCH)
 	BIN := ../Acess2.$(ARCH).bin
 	GZBIN := ../Acess2.$(ARCH).gz
 else
-	OBJDIR := obj-$(ARCH)-$(CONFIG)/
-	#OBJSUFFIX := .$(ARCH)-$(CONFIG)
-	BIN := ../Acess2.$(ARCH)-$(CONFIG).bin
-	GZBIN := ../Acess2.$(ARCH)-$(CONFIG).gz
+	OBJDIR := obj-$(ARCH)-$(PLATFORM)/
+	#OBJSUFFIX := .$(ARCH)-$(PLATFORM)
+	BIN := ../Acess2.$(ARCH)-$(PLATFORM).bin
+	GZBIN := ../Acess2.$(ARCH)-$(PLATFORM).gz
 endif
 
 ifeq ($(DEBUG_BUILD),yes)

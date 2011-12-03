@@ -5,7 +5,7 @@ QEMU=qemu-system-arm
 USE_GDB=
 
 _SYSTEM=realview-pb-a8
-_KERNEL=Acess2.armv7.bin
+_KERNEL=Acess2.armv7-realview_pb.bin
 
 QEMU_PARAMS=""
 _NETTYPE="user"

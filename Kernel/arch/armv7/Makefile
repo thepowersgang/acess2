@@ -7,8 +7,7 @@ CPPFLAGS	=
 CFLAGS		=
 ASFLAGS		=
 
-ASFLAGS += -DCONFIG_is_$(CONFIG)=1
-CPPFLAGS += -DMMU_PRESENT=$(MMU_PRESENT)
+CPPFLAGS += -DMMU_PRESENT=1
 LDFLAGS += `$(CC) --print-libgcc-file-name`
 
 A_OBJ  = start.ao main.o lib.o lib.ao time.o pci.o debug.o

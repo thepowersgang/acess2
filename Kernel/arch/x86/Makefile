@@ -11,9 +11,9 @@ ASFLAGS		= -f elf
 
 USE_MP=0
 
-ifeq ($(CONFIG),default)
+ifeq ($(PLATFORM),default)
 	USE_MP=0
-else ifeq ($(CONFIG),smp)
+else ifeq ($(PLATFORM),smp)
 	USE_MP=1
 endif
 
