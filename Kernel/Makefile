@@ -84,9 +84,9 @@ clean:
 install: $(BIN) 
 	cp $(BIN) $(BIN)_
 	$(STRIP) $(BIN)_
-	gzip -c $(BIN)_ > ../Acess2.$(ARCH).gz
+	gzip -c $(BIN)_ > $(GZBIN)
 	$(RM) $(BIN)_
-	$(xCP) ../Acess2.$(ARCH).gz $(DISTROOT)
+	$(xCP) $(GZBIN) $(DISTROOT)
 
 apidoc:
 	doxygen Doxyfile.api
