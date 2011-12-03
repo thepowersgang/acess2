@@ -11,13 +11,12 @@ ASFLAGS		= -f elf
 
 USE_MP=0
 
-ifeq ($(ARCH),x86)
+ifeq ($(CONFIG),default)
 	USE_MP=0
-else ifeq ($(ARCH),x86-smp)
+else ifeq ($(CONFIG),smp)
 	USE_MP=1
 endif
 
-#ASFLAGS		+= -D ARCH=\"$(ARCH)\" -D ARCHDIR=\"$(ARCHDIR)\"
 ASFLAGS += -D USE_MP=$(USE_MP)
 CPPFLAGS += -DUSE_MP=$(USE_MP)
 

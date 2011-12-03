@@ -15,27 +15,36 @@ BUILD_NUM = 0
 endif
 
 KERNEL_VERSION = $(ACESS_VERSION)
-
 MAKEDEP		= $(CC) -M
 
+ifeq ($(AS_SUFFIX),)
+	AS_SUFFIX = S
+endif
+
+ASFLAGS         += -D ARCHDIR_IS_$(ARCHDIR)=1 -DCONFIG_is_$(CONFIG)=1
 CPPFLAGS	+= -I./include -I./arch/$(ARCHDIR)/include -D_MODULE_NAME_=\"Kernel\"
-CPPFLAGS	+= -DARCH=$(ARCH) -DARCHDIR=$(ARCHDIR) -DARCHDIR_IS_$(ARCHDIR)=1
+CPPFLAGS	+= -DARCH=$(ARCH) -DARCHDIR=$(ARCHDIR) -DARCHDIR_IS_$(ARCHDIR)=1 -DCONFIG_is_$(CONFIG)=1
 CPPFLAGS	+= -DKERNEL_VERSION=$(KERNEL_VERSION)
 CFLAGS  	+= -Wall -fno-stack-protector -Wstrict-prototypes -g
 CFLAGS  	+= -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings -Wmissing-prototypes -Wmissing-declarations -Wredundant-decls -Wnested-externs -Winline -Wuninitialized
 CFLAGS          += -O3
 LDFLAGS		+= -T arch/$(ARCHDIR)/link.ld -g
 
-OBJDIR := obj-$(ARCH)/
-#OBJSUFFIX := .$(ARCH)
+ifeq ($(CONFIG),default)
+	OBJDIR := obj-$(ARCH)/
+	#OBJSUFFIX := .$(ARCH)
+	BIN := ../Acess2.$(ARCH).bin
+	GZBIN := ../Acess2.$(ARCH).gz
+else
+	OBJDIR := obj-$(ARCH)-$(CONFIG)/
+	#OBJSUFFIX := .$(ARCH)-$(CONFIG)
+	BIN := ../Acess2.$(ARCH)-$(CONFIG).bin
+	GZBIN := ../Acess2.$(ARCH)-$(CONFIG).gz
+endif
 
 ifeq ($(DEBUG_BUILD),yes)
 	LDFLAGS += -g
 	CFLAGS += -g
-endif
-
-ifeq ($(AS_SUFFIX),)
-	AS_SUFFIX = S
 endif
 
 BUILDINFO_OBJ := $(OBJDIR)buildinfo.o$(OBJSUFFIX)
@@ -56,8 +65,6 @@ OBJ := $(addsuffix $(OBJSUFFIX), $(OBJ))
 OBJ := $(addprefix $(OBJDIR), $(OBJ))
 
 MODS += $(addprefix ../Modules/, $(addsuffix .xo.$(ARCH),$(MODULES)))
-BIN = ../Acess2.$(ARCH).bin
-GZBIN = ../Acess2.$(ARCH).gz
 
 DEPFILES := $(OBJ:%$(OBJSUFFIX)=%.dep$(OBJSUFFIX))
 

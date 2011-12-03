@@ -7,17 +7,8 @@ CPPFLAGS	=
 CFLAGS		=
 ASFLAGS		=
 
-PCI_ADDRESS=0
-ifeq ($(ARCH),integrator-cp)
-	MMU_PRESENT=1
-else
-	MMU_PRESENT=1
-endif
-
-
-
 ASFLAGS += -DCONFIG_is_$(CONFIG)=1
-CPPFLAGS += -DMMU_PRESENT=$(MMU_PRESENT) -DPCI_ADDRESS=$(PCI_ADDRESS) -DCONFIG_is_$(CONFIG)=1
+CPPFLAGS += -DMMU_PRESENT=$(MMU_PRESENT)
 LDFLAGS += `$(CC) --print-libgcc-file-name`
 
 A_OBJ  = start.ao main.o lib.o lib.ao time.o pci.o debug.o
