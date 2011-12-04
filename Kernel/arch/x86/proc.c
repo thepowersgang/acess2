@@ -14,7 +14,7 @@
 #include <hal_proc.h>
 
 // === FLAGS ===
-#define DEBUG_TRACE_SWITCH	0
+#define DEBUG_TRACE_SWITCH	1
 #define DEBUG_DISABLE_DOUBLEFAULT	1
 #define DEBUG_VERY_SLOW_SWITCH	0
 
@@ -34,7 +34,6 @@ typedef struct sCPU
 	Uint8	State;	// 0: Unavaliable, 1: Idle, 2: Active
 	Uint16	Resvd;
 	tThread	*Current;
-	tThread	*IdleThread;
 }	tCPU;
 
 // === IMPORTS ===
@@ -66,6 +65,7 @@ extern void	Proc_DisableSSE(void);
 //void	ArchThreads_Init(void);
 #if USE_MP
 void	MP_StartAP(int CPU);
+void	MP_SendIPIVector(int CPU, Uint8 Vector);
 void	MP_SendIPI(Uint8 APICID, int Vector, int DeliveryMode);
 #endif
 void	Proc_IdleThread(void *Ptr);
@@ -331,8 +331,8 @@ void ArchThreads_Init(void)
 	Log("APIC Count %i", giMP_TimerCount);
 	{
 		Uint64	freq = giMP_TimerCount;
-		freq /= TIMER_DIVISOR;
 		freq *= TIMER_BASE;
+		freq /= TIMER_DIVISOR;
 		if( (freq /= 1000) < 2*1000)
 			Log("Bus Frequency %i KHz", freq);
 		else if( (freq /= 1000) < 2*1000)
@@ -383,9 +383,12 @@ void ArchThreads_Init(void)
 }
 
 #if USE_MP
+/**
+ * \brief Start an AP
+ */
 void MP_StartAP(int CPU)
 {
-	Log("Starting AP %i (APIC %i)", CPU, gaCPUs[CPU].APICID);
+	Log_Log("Proc", "Starting AP %i (APIC %i)", CPU, gaCPUs[CPU].APICID);
 	
 	// Set location of AP startup code and mark for a warm restart
 	*(Uint16*)(KERNEL_BASE|0x467) = (Uint)&APWait - (KERNEL_BASE|0xFFFF0);
@@ -409,11 +412,17 @@ void MP_StartAP(int CPU)
 	giNumInitingCPUs ++;
 }
 
+void MP_SendIPIVector(int CPU, Uint8 Vector)
+{
+	MP_SendIPI(gaCPUs[CPU].APICID, Vector, 0);
+}
+
 /**
  * \brief Send an Inter-Processor Interrupt
  * \param APICID	Processor's Local APIC ID
  * \param Vector	Argument of some kind
- * \param DeliveryMode	Type of signal?
+ * \param DeliveryMode	Type of signal
+ * \note 3A 10.5 "APIC/Handling Local Interrupts"
  */
 void MP_SendIPI(Uint8 APICID, int Vector, int DeliveryMode)
 {
@@ -421,23 +430,24 @@ void MP_SendIPI(Uint8 APICID, int Vector, int DeliveryMode)
 	
 	// Hi
 	val = (Uint)APICID << 24;
-	Log("*%p = 0x%08x", &gpMP_LocalAPIC->ICR[1], val);
+//	Log("%p = 0x%08x", &gpMP_LocalAPIC->ICR[1], val);
 	gpMP_LocalAPIC->ICR[1].Val = val;
 	// Low (and send)
 	val = ((DeliveryMode & 7) << 8) | (Vector & 0xFF);
-	Log("*%p = 0x%08x", &gpMP_LocalAPIC->ICR[0], val);
+//	Log("%p = 0x%08x", &gpMP_LocalAPIC->ICR[0], val);
 	gpMP_LocalAPIC->ICR[0].Val = val;
 }
 #endif
 
 void Proc_IdleThread(void *Ptr)
 {
-	tCPU	*cpu = Ptr;
-	cpu->IdleThread->ThreadName = strdup("Idle Thread");
-	Threads_SetPriority( cpu->IdleThread, -1 );	// Never called randomly
-	cpu->IdleThread->Quantum = 1;	// 1 slice quantum
+	tCPU	*cpu = &gaCPUs[GetCPUNum()];
+	cpu->Current->ThreadName = strdup("Idle Thread");
+	Threads_SetPriority( cpu->Current, -1 );	// Never called randomly
+	cpu->Current->Quantum = 1;	// 1 slice quantum
 	for(;;) {
-		HALT();
+		__asm__ __volatile__ ("sti");	// Make sure interrupts are enabled
+		__asm__ __volatile__ ("hlt");	// Make sure interrupts are enabled
 		Proc_Reschedule();
 	}
 }
@@ -461,7 +471,6 @@ void Proc_Start(void)
 		
 		// Create Idle Task
 		tid = Proc_NewKThread(Proc_IdleThread, &gaCPUs[i]);
-		gaCPUs[i].IdleThread = Threads_GetThread(tid);
 		
 		// Start the AP
 		if( i != giProc_BootProcessorID ) {
@@ -473,7 +482,7 @@ void Proc_Start(void)
 	gaCPUs[0].Current = &gThreadZero;
 	
 	// Start interrupts and wait for APs to come up
-	Log("Waiting for APs to come up\n");
+	Log_Debug("Proc", "Waiting for APs to come up");
 	__asm__ __volatile__ ("sti");
 	while( giNumInitingCPUs )	__asm__ __volatile__ ("hlt");
 	#else
@@ -484,9 +493,6 @@ void Proc_Start(void)
 	// Set current task
 	gaCPUs[0].Current = &gThreadZero;
 
-//	while( gaCPUs[0].IdleThread == NULL )
-//		Threads_Yield();
-	
 	// Start Interrupts (and hence scheduler)
 	__asm__ __volatile__("sti");
 	#endif
@@ -906,18 +912,21 @@ void Proc_Reschedule(void)
 
 	nextthread = Threads_GetNextToRun(cpu, curthread);
 
-	if(!nextthread)
-		nextthread = gaCPUs[cpu].IdleThread;
 	if(!nextthread || nextthread == curthread)
 		return ;
 
 	#if DEBUG_TRACE_SWITCH
-	LogF("\nSwitching to task %i, CR3 = 0x%x, EIP = %p, ESP = %p\n",
-		nextthread->TID,
-		nextthread->MemState.CR3,
-		nextthread->SavedState.EIP,
-		nextthread->SavedState.ESP
-		);
+	// HACK: Ignores switches to the idle threads
+	if( nextthread->TID == 0 || nextthread->TID > giNumCPUs )
+	{
+		LogF("\nSwitching CPU %i to %p (%i %s) - CR3 = 0x%x, EIP = %p, ESP = %p\n",
+			GetCPUNum(),
+			nextthread, nextthread->TID, nextthread->ThreadName,
+			nextthread->MemState.CR3,
+			nextthread->SavedState.EIP,
+			nextthread->SavedState.ESP
+			);
+	}
 	#endif
 
 	// Update CPU state
@@ -926,7 +935,7 @@ void Proc_Reschedule(void)
 	__asm__ __volatile__("mov %0, %%db0\n\t" : : "r"(nextthread) );
 
 	// Save FPU/MMX/XMM/SSE state
-	if( curthread->SavedState.SSE )
+	if( curthread && curthread->SavedState.SSE )
 	{
 		Proc_SaveSSE( ((Uint)curthread->SavedState.SSE + 0xF) & ~0xF );
 		curthread->SavedState.bSSEModified = 0;

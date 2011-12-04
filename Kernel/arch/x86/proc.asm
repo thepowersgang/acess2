@@ -162,8 +162,7 @@ SetAPICTimerCount:
 	pop es
 	pop ds
 	popa
-	add esp, 4	; CPU ID
-	; No Error code / int num
+	add esp, 8	; CPU ID / Error Code
 	iret
 %endif
 ; --------------
@@ -376,3 +375,5 @@ User_Syscall_Exit:
 	xor eax, eax
 	mov ebx, [esp+4]
 	int 0xAC
+
+; vim: ft=nasm, ts=8

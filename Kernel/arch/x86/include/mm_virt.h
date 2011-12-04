@@ -39,6 +39,10 @@
 // 1024 items per page
 #define	MM_REFCOUNT_BASE	0xE4000000
 
+#define MM_KERNEL_STACKS	0xF0000000
+#define	MM_KERNEL_STACK_SIZE	0x00008000
+#define MM_KERNEL_STACKS_END	0xFC000000
+
 // === FUNCTIONS ===
 extern void	MM_FinishVirtualInit(void);
 extern void	MM_SetCR3(Uint CR3);

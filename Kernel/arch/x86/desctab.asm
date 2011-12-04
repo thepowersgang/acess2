@@ -89,6 +89,7 @@ Desctab_Install:
 	
 	; MP ISRs
 	%if USE_MP
+	SETISR	0xED	; 0xED Inter-processor HALT
 	SETISR	0xEE	; 0xEE Timer
 	SETISR	0xEF	; 0xEF Spurious Interrupt
 	%endif
@@ -206,12 +207,21 @@ ISR_NOERR	31; 31: Reserved
 DEF_SYSCALL	0xAC	; Acess System Call
 
 %if USE_MP
+[global Isr0xED]
+; 0xED - Interprocessor HALT
+Isr0xED:
+	cli
+.jmp:	hlt
+	jmp .jmp
+
 [global Isr0xEE]
 [extern SchedulerBase]
 ; AP's Timer Interrupt
 Isr0xEE:
-	push 0	; Line up with interrupt number
-	xchg bx, bx	; MAGIC BREAK
+	push eax	; Line up with interrupt number
+	mov eax, dr1	; CPU Number
+	push eax
+	mov eax, [esp-4]	; Load EAX back
 	jmp SchedulerBase
 ; Spurious Interrupt
 [global Isr0xEF]

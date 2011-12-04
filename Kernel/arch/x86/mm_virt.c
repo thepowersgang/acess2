@@ -19,11 +19,8 @@
 
 #define TAB	22
 
-#define KERNEL_STACKS		0xF0000000
-#define	KERNEL_STACK_SIZE	0x00008000
-#define KERNEL_STACKS_END	0xFC000000
 #define WORKER_STACKS		0x00100000	// Thread0 Only!
-#define	WORKER_STACK_SIZE	KERNEL_STACK_SIZE
+#define	WORKER_STACK_SIZE	MM_KERNEL_STACK_SIZE
 #define WORKER_STACKS_END	0xB0000000
 #define	NUM_WORKER_STACKS	((WORKER_STACKS_END-WORKER_STACKS)/WORKER_STACK_SIZE)
 
@@ -125,7 +122,7 @@ void MM_InstallVirtual(void)
 	{
 		if( gaPageDir[ i ] )	continue;
 		// Skip stack tables, they are process unique
-		if( i > KERNEL_STACKS >> 22 && i < KERNEL_STACKS_END >> 22) {
+		if( i > MM_KERNEL_STACKS >> 22 && i < MM_KERNEL_STACKS_END >> 22) {
 			gaPageDir[ i ] = 0;
 			continue;
 		}
@@ -515,7 +512,7 @@ tPAddr MM_Clone(void)
 	Uint	i, j;
 	tVAddr	ret;
 	Uint	page = 0;
-	tVAddr	kStackBase = Proc_GetCurThread()->KernelStack - KERNEL_STACK_SIZE;
+	tVAddr	kStackBase = Proc_GetCurThread()->KernelStack - MM_KERNEL_STACK_SIZE;
 	void	*tmp;
 	
 	Mutex_Acquire( &glTempFractal );
@@ -587,9 +584,7 @@ tPAddr MM_Clone(void)
 	}
 	
 	// Allocate kernel stack
-	for(i = KERNEL_STACKS >> 22;
-		i < KERNEL_STACKS_END >> 22;
-		i ++ )
+	for(i = MM_KERNEL_STACKS >> 22; i < MM_KERNEL_STACKS_END >> 22; i ++ )
 	{
 		// Check if directory is allocated
 		if( (gaPageDir[i] & 1) == 0 ) {
@@ -616,7 +611,7 @@ tPAddr MM_Clone(void)
 			}
 			
 			// We don't care about other kernel stacks
-			if( ((i*1024+j)*4096 & ~(KERNEL_STACK_SIZE-1)) != kStackBase ) {
+			if( ((i*1024+j)*4096 & ~(MM_KERNEL_STACK_SIZE-1)) != kStackBase ) {
 				gaTmpTable[i*1024+j] = 0;
 				continue;
 			}
@@ -647,27 +642,27 @@ tVAddr MM_NewKStack(void)
 {
 	tVAddr	base;
 	Uint	i;
-	for(base = KERNEL_STACKS; base < KERNEL_STACKS_END; base += KERNEL_STACK_SIZE)
+	for(base = MM_KERNEL_STACKS; base < MM_KERNEL_STACKS_END; base += MM_KERNEL_STACK_SIZE)
 	{
 		// Check if space is free
 		if(MM_GetPhysAddr(base) != 0)	continue;
 		// Allocate
-		//for(i = KERNEL_STACK_SIZE; i -= 0x1000 ; )
-		for(i = 0; i < KERNEL_STACK_SIZE; i += 0x1000 )
+		//for(i = MM_KERNEL_STACK_SIZE; i -= 0x1000 ; )
+		for(i = 0; i < MM_KERNEL_STACK_SIZE; i += 0x1000 )
 		{
 			if( MM_Allocate(base+i) == 0 )
 			{
 				// On error, print a warning and return error
 				Warning("MM_NewKStack - Out of memory");
 				// - Clean up
-				//for( i += 0x1000 ; i < KERNEL_STACK_SIZE; i += 0x1000 )
+				//for( i += 0x1000 ; i < MM_KERNEL_STACK_SIZE; i += 0x1000 )
 				//	MM_Deallocate(base+i);
 				return 0;
 			}
 		}
 		// Success
-//		Log("MM_NewKStack - Allocated %p", base + KERNEL_STACK_SIZE);
-		return base+KERNEL_STACK_SIZE;
+//		Log("MM_NewKStack - Allocated %p", base + MM_KERNEL_STACK_SIZE);
+		return base+MM_KERNEL_STACK_SIZE;
 	}
 	// No stacks left
 	Log_Warning("MMVirt", "MM_NewKStack - No address space left");

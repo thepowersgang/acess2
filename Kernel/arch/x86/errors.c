@@ -5,6 +5,7 @@
  */
 #include <acess.h>
 #include <proc.h>
+#include <mm_virt.h>
 
 // === CONSTANTS ===
 #define	MAX_BACKTRACE	8	//!< Maximum distance to trace the stack backwards
@@ -233,6 +234,7 @@ void Error_Backtrace(Uint eip, Uint ebp)
 	
 	while( MM_GetPhysAddr(ebp) && i < MAX_BACKTRACE )
 	{
+		if( ebp >= MM_KERNEL_STACKS_END )	break;
 		//str = Debug_GetSymbol(*(Uint*)(ebp+4), &delta);
 		if(str == NULL)
 			LogF(" >> 0x%x", *(Uint*)(ebp+4));

@@ -97,8 +97,6 @@ int UHCI_Initialise(char **Arguments)
 		cinfo->RootHub = USB_RegisterHost(&gUHCI_HostDef, cinfo, 2);
 		LOG("cinfo->RootHub = %p", cinfo->RootHub);
 
-		UHCI_CheckPortUpdate(cinfo);
-
 		i ++;
 	}
 
@@ -271,7 +269,7 @@ int UHCI_IsTransferComplete(void *Ptr, void *Handle)
 	ret = !(td->Control & (1 << 23));
 	if(ret) {
 		td->_info.Callback = NULL;
-		td->Link = 1;
+		td->Link = 0;
 	}
 	return ret;
 }
@@ -399,7 +397,7 @@ void UHCI_InterruptHandler(int IRQ, void *Ptr)
 				}
 				link = td->Link;
 				if( td->_info.Callback != INVLPTR )
-					td->Link = 1;
+					td->Link = 0;
 			}
 			
 			if(frame == 0)

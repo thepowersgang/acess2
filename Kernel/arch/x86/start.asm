@@ -120,6 +120,7 @@ APWait:
 .hlt:
 	;hlt
 	jmp .hlt
+[extern Proc_Reschedule]
 [global APStartup]
 APStartup:
 	;xchg bx, bx	; MAGIC BREAK!
@@ -160,11 +161,13 @@ APStartup:
 	mov ebx, [ebp+0x20]	; Read ID
 	shr ebx, 24
 	;xchg bx, bx	; MAGIC BREAK
-	; CL is now local APIC ID
+	; BL is now local APIC ID
 	mov cl, BYTE [gaAPIC_to_CPU+ebx]
 	xor ebx, ebx
 	mov bl, cl
 	; BL is now the CPU ID
+	mov dr1, ebx	; Save the CPU number to a debug register
+	; Mark the CPU as up
 	mov BYTE [gaCPUs+ebx*8+1], 1
 	; Decrement the remaining CPU count
 	dec DWORD [giNumInitingCPUs]
@@ -179,8 +182,6 @@ APStartup:
 	; Set TSS
 	lea ecx, [ebx*8+0x30]
 	ltr cx
-	; Save the CPU number to a debug register
-	mov dr1, ebx
 	
 	;xchg bx, bx	; MAGIC_BREAK
 	; Enable Local APIC
@@ -196,9 +197,10 @@ APStartup:
 	mov DWORD [ebp+0x0B0], 0	; Send an EOI (just in case)
 	
 	; CPU is now marked as initialised
-	sti
-	;xchg bx, bx	; MAGIC BREAK
+
 .hlt:
+	sti
+	call Proc_Reschedule	
 	hlt
 	jmp .hlt
 %endif
@@ -252,4 +254,5 @@ ALIGN 4096
 Kernel_Stack_Top:
 gInitAPStacks:
 	times 32*MAX_CPUS	dd	0
-	
+
+; vim: ft=nasm ts=8	

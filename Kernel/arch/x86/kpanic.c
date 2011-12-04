@@ -1,23 +1,34 @@
 /*
  * Acess 2 Kernel
- * By John Hodge (thePowersGang)
+ * - By John Hodge (thePowersGang)
+ * 
+ * kpanic.c
  * - x86 Kernel Panic Handler
  */
 
 #include <acess.h>
+#include <proc.h>
 
-
-
+// === CONSTANTS ===
 #define	FB	((Uint16 *)(KERNEL_BASE|0xB8000))
 #define BGC	0x4F00	// White on Red
 //#define BGC	0xC000	// Black on Bright Red
 //#define BGC	0x1F00	// White on Blue (BSOD!)
 
+// === IMPORTS ===
 extern Uint32	GetEIP(void);
 extern void	Error_Backtrace(Uint32 eip, Uint32 ebp);
+#if USE_MP
+extern void	MP_SendIPIVector(int CPU, Uint8 Vector);
+extern int	giNumCPUs;
+extern int	GetCPUNum(void);
+#endif
 
- int	giKP_Pos = 0;
+// === PROTOTYPES ===
+void	KernelPanic_SetMode(void);
+void	KernelPanic_PutChar(char Ch);
 
+// === CONSTANTS ===
 const struct {
 	Uint16	IdxPort;
 	Uint16	DatPort;
@@ -57,9 +68,8 @@ const struct {
 };
 #define	NUM_REGVALUES	(sizeof(caRegValues)/sizeof(caRegValues[0]))
 
-// === PROTOTYPES ===
-void	KernelPanic_SetMode(void);
-void	KernelPanic_PutChar(char Ch);
+// === GLOBALS ===
+ int	giKP_Pos = 0;
 
 // === CODE ===
 /**
@@ -88,6 +98,16 @@ void KernelPanic_SetMode(void)
 	
 	inb(0x3DA);
 	outb(0x3C0, 0x20);
+	#endif
+
+	#if USE_MP
+	// Send halt to all processors
+	for( i = 0; i < giNumCPUs; i ++ )
+	{
+		if(i == GetCPUNum())	continue ;
+		FB[i] = BGC|'A'+i;
+		MP_SendIPIVector(i, 0xED);
+	}
 	#endif
 	
 	// Clear Screen
