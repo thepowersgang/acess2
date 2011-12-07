@@ -488,7 +488,7 @@ void Proc_Start(void)
 	#else
 	// Create Idle Task
 	tid = Proc_NewKThread(Proc_IdleThread, &gaCPUs[0]);
-	gaCPUs[0].IdleThread = Threads_GetThread(tid);
+//	gaCPUs[0].IdleThread = Threads_GetThread(tid);
 	
 	// Set current task
 	gaCPUs[0].Current = &gThreadZero;
