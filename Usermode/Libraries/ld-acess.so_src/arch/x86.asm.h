@@ -2,7 +2,7 @@
 ; AcssMicro - System Calls
 ; ========================
 
-%include "../../../Kernel/include/syscalls.inc.asm"
+#include "../../../../Kernel/include/syscalls.h"
 
 [bits 32]
 [section .data]
