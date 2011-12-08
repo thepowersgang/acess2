@@ -16,6 +16,7 @@ OBJ := $(call fcn_src2obj,$(SRCS))
 ALL_OBJ := $(ALL_OBJ) $(OBJ)
 OBJ-$(DIR) := $(OBJ) $(XOBJ)
 BIN-$(DIR) := $(BIN) $(XBIN)
+$(foreach f,$(OBJ) $(XOBJ) $(BIN) $(XBIN),$(eval _DIR-$f := $(DIR)))
 
 # Rules
 .PHONY: all-$(DIR) clean-$(DIR)
@@ -29,7 +30,7 @@ clean-$(DIR): clean-%:
 $(BIN): $(OBJ)
 
 # Stub library
-$(XBIN): $(call fcn_mkobj,_stublib.c.o)
+$(XBIN): $(call fcn_mkobj,_stublib.c.o) $(BIN)
 	@echo [LD] -shared -o libld-acess.so
 	@$(LD) -shared -o $@ $<
 

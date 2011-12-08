@@ -30,7 +30,7 @@ else
     DEFAULT_RULES := $(abspath $(pwd)/$(_REL_POS))
 endif
 
-include $(_REL_POS)../Makefile.cfg
+include $(BASE)Makefile.cfg
 
 .PHONY: all clean
 
@@ -44,13 +44,16 @@ include $(SUB_DIRS)
 
 # === Rules ===
 fcn_obj2src = $(subst $(OBJECT_DIR)/,$(SOURCE_DIR)/,$(patsubst %$(OBJECT_SUFFIX).o,%,$1))
+# ACESS SPECIFIC
+fcn_getlibs = $(patsubst -l%,$(OUTPUTDIR)/Libs/lib%.so,$(filter -l%,$(LDFLAGS-$(_DIR-$1))))
 
-ifeq (x,)
-$(foreach file,$(filter %.cpp$(OBJECT_SUFFIX).o,$(ALL_OBJ)), $(eval $f: $(call fcn_obj2src,$f)))
-$(foreach file,$(filter %.cc$(OBJECT_SUFFIX).o,$(ALL_OBJ)), $(eval $f: $(call fcn_obj2src,$f)))
-$(foreach file,$(filter %.c$(OBJECT_SUFFIX).o,$(ALL_OBJ)), $(eval $f: $(call fcn_obj2src,$f)))
-$(foreach file,$(filter %.S$(OBJECT_SUFFIX).o,$(ALL_OBJ)), $(eval $f: $(call fcn_obj2src,$f))))
-$(foreach file,$(filter %.asm$(OBJECT_SUFFIX).o,$(ALL_OBJ)), $(eval $f: $(call fcn_obj2src,$f)))
+fcn_mkrule = $(eval $f: $(call fcn_getlibs,$f) $(call fcn_obj2src,$f))
+ifeq (,)
+$(foreach file,$(filter %.cpp$(OBJECT_SUFFIX).o,$(ALL_OBJ)), $(call fcn_mkrule,$f))
+$(foreach file,$(filter %.cc$(OBJECT_SUFFIX).o,$(ALL_OBJ)), $(call fcn_mkrule,$f))
+$(foreach file,$(filter %.c$(OBJECT_SUFFIX).o,$(ALL_OBJ)), $(call fcn_mkrule,$f))
+$(foreach file,$(filter %.S$(OBJECT_SUFFIX).o,$(ALL_OBJ)), $(call fcn_mkrule,$f))
+$(foreach file,$(filter %.asm$(OBJECT_SUFFIX).o,$(ALL_OBJ)), $(call fcn_mkrule,$f))
 else
 .PHONY: $(BASE)obj_rules.mk
 $(BASE)obj_rules.mk:
@@ -65,28 +68,28 @@ endif
 # --- Object Files ---
 # C++ (.cpp)
 %.cpp$(OBJECT_SUFFIX).o:
-	$(eval _dir=$(dir $(subst $(OBJECT_DIR)/,,$*)))
+	$(eval _dir=$(_DIR-$@))
 	$(eval <=$(call fcn_obj2src,$@))
 	@echo [CXX] -o $<
 	@mkdir -p $(dir $@)
 	@$(CCPP) $(CXXFLAGS) $(CPPFLAGS) $(CXXFLAGS-$(_dir)) $(CPPFLAGS-$(_dir))-c $(_src) -o $@
 # C++ (.cc)
 %.cc$(OBJECT_SUFFIX).o:
-	$(eval _dir=$(dir $(subst $(OBJECT_DIR)/,,$*)))
+	$(eval _dir=$(_DIR-$@))
 	$(eval _src=$(call fcn_obj2src,$@))
 	@echo [CXX] -o $<
 	@mkdir -p $(dir $@)
 	@$(CCPP) $(CXXFLAGS) $(CXXFLAGS-$(_dir)) $(CPPFLAGS-$(_dir)) -c $(_src) -o $@
 # C (.c)
 %.c$(OBJECT_SUFFIX).o:
-	$(eval _dir=$(dir $(subst $(OBJECT_DIR)/,,$*)))
+	$(eval _dir=$(_DIR-$@))
 	$(eval _src=$(call fcn_obj2src,$@))
 	@echo [CC] -o $@
 	@mkdir -p $(dir $@)
 	@$(CC) $(CFLAGS) $(CPPFLAGS) $(CFLAGS-$(_dir)) $(CPPFLAGS-$(_dir)) -c $(_src) -o $@
 # Assembly (.S)
 %.S$(OBJECT_SUFFIX).o:
-	$(eval _dir=$(dir $(subst $(OBJECT_DIR)/,,$*)))
+	$(eval _dir=$(_DIR-$@))
 	$(eval _src=$(call fcn_obj2src,$@))
 	@echo [AS] -o $@
 	@mkdir -p $(dir $@)
@@ -94,7 +97,7 @@ endif
 	@$(AS) $(ASFLAGS) $(ASFLAGS-$(_dir)) -o $@.dep $(_src) -M
 # Assembly (.asm)
 %.asm$(OBJECT_SUFFIX).o:
-	$(eval _dir=$(dir $(subst $(OBJECT_DIR)/,,$*)))
+	$(eval _dir=$(_DIR-$@))
 	$(eval _src=$(call fcn_obj2src,$@))
 	@echo [AS] -o $@
 	@mkdir -p $(dir $@)
@@ -104,19 +107,23 @@ endif
 # --- Binaries ---
 # Static Library (.a)
 %.a:
-	$(eval _dir=$(subst $(OBJECT_DIR),,$(dir $<)))
+	$(eval _dir=$(_DIR-$@))
 	@echo [AR] ru $@
 	@$(RM) $@
 	@$(AR) ru $@ $(OBJ-$(_dir))
 # Dynamic Library (.so)
 %.so:
-	$(eval _dir=$(subst $(OBJECT_DIR),,$(dir $<)))
+	$(eval _dir=$(_DIR-$@))
 	@echo [LD] -shared -o $@
 	@$(LD) $(LDFLAGS) -shared -soname $(basename $@) -o $@ $(filter %.o,$^) $(LDFLAGS-$(_dir))
 # Executable (.bin)
 %.bin:
-	$(eval _dir=$(subst $(OBJECT_DIR),,$(dir $<)))
+	$(eval _dir=$(_DIR-$@))
 	@echo [LD] -o $@
-	@$(ld) $(LDFLAGS) -o $@ $(OBJ-$(_dir)) $(LDFLAGS-$(_dir))
-	@$(CP) $@ $(@:%.bin=%)
+	@$(LD) $(LDFLAGS) -o $@ $(OBJ-$(_dir)) $(LDFLAGS-$(_dir))
+	@$(CP) $@ $(@:%.bin=%)   
+$(OUTPUTDIR)%:
+	$(eval _dir=$(_DIR-$@))
+	@echo [LD] -o $@
+	@$(LD) $(LDFLAGS) -o $@ $(OBJ-$(_dir)) $(LDFLAGS-$(_dir))
     
