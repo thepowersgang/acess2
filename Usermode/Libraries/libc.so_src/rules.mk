@@ -10,10 +10,8 @@ BIN  := $(OUTPUTDIR)Libs/libc.so
 
 CFLAGS-$(DIR) := $(CFLAGS-$(PDIR)) -g
 CPPFLAGS-$(DIR) := $(CPPFLAGS-$(PDIR))
-LDFLAGS-$(DIR) := $(LDFLAGS-$(PDIR))
+LDFLAGS-$(DIR) := $(LDFLAGS-$(PDIR)) -lgcc
 
 include $(BASE)body.mk
-
-$(BIN): $(OBJ) $(OUTPUTDIR)Libs/libgcc.so
 
 include $(BASE)footer.mk

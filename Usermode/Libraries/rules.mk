@@ -1,3 +1,5 @@
+# Library - Common Rules
+
 include $(BASE)header.mk
 
 # Rules

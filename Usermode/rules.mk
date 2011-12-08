@@ -4,7 +4,7 @@
 
 # Config Options
 SOURCE_DIR = 
-OBJECT_DIR = obj-$(ARCH)
+OBJECT_DIR = obj-$(ARCH)/
 OBJECT_SUFFIX =
 
 # Functions used later
@@ -14,8 +14,11 @@ fcn_src2obj_int = \
 	$(patsubst %,%$(OBJECT_SUFFIX).o,$(filter %.cc,$1)) \
 	$(patsubst %,%$(OBJECT_SUFFIX).o,$(filter %.S,$1)) \
 	$(patsubst %,%$(OBJECT_SUFFIX).o,$(filter %.asm,$1))
-fcn_mkobj = $(addprefix $(DIR)$(OBJECT_DIR)/,$(patsubst $(SOURCE_DIR)%,%,$1))
+fcn_mkobj = $(addprefix $(DIR)$(OBJECT_DIR),$(patsubst $(SOURCE_DIR)%,%,$1))
 fcn_src2obj = $(call fcn_mkobj, $(call fcn_src2obj_int,$1))
+fcn_obj2src = $(subst $(OBJECT_DIR),$(SOURCE_DIR),$(patsubst %$(OBJECT_SUFFIX).o,%,$1))
+
+fcn_addbin = $(eval ALL_OBJ:=$(ALL_OBJ) $2) $(eval ALL_BIN:=$(ALL_BIN) $1) $(foreach f,$2 $1,$(eval _DIR-$f := $(DIR))) $(eval $1: $2) $(eval OBJ-$(DIR):=$(OBJ-$(DIR)) $2) $(eval BIN-$(DIR):=$(BIN-$(DIR)) $1)
 
 # Start of Voodoo code
 SUB_DIRS = $(wildcard */rules.mk)
@@ -34,7 +37,7 @@ include $(BASE)Makefile.cfg
 
 .PHONY: all clean
 
-all: $(BASE)obj_rules.mk $(addprefix all-,$(DEFAULT_RULES))
+all: $(addprefix all-,$(DEFAULT_RULES))
 clean: $(addprefix clean-,$(DEFAULT_RULES))
 
 # Sub-directory rules
@@ -43,27 +46,16 @@ include $(SUB_DIRS)
 
 
 # === Rules ===
-fcn_obj2src = $(subst $(OBJECT_DIR)/,$(SOURCE_DIR)/,$(patsubst %$(OBJECT_SUFFIX).o,%,$1))
 # ACESS SPECIFIC
-fcn_getlibs = $(patsubst -l%,$(OUTPUTDIR)/Libs/lib%.so,$(filter -l%,$(LDFLAGS-$(_DIR-$1))))
+fcn_getlibs = $(patsubst -l%,$(OUTPUTDIR)Libs/lib%.so,$(filter -l%,$(LDFLAGS-$(_DIR-$1))))
 
-fcn_mkrule = $(eval $f: $(call fcn_getlibs,$f) $(call fcn_obj2src,$f))
-ifeq (,)
-$(foreach file,$(filter %.cpp$(OBJECT_SUFFIX).o,$(ALL_OBJ)), $(call fcn_mkrule,$f))
-$(foreach file,$(filter %.cc$(OBJECT_SUFFIX).o,$(ALL_OBJ)), $(call fcn_mkrule,$f))
-$(foreach file,$(filter %.c$(OBJECT_SUFFIX).o,$(ALL_OBJ)), $(call fcn_mkrule,$f))
-$(foreach file,$(filter %.S$(OBJECT_SUFFIX).o,$(ALL_OBJ)), $(call fcn_mkrule,$f))
-$(foreach file,$(filter %.asm$(OBJECT_SUFFIX).o,$(ALL_OBJ)), $(call fcn_mkrule,$f))
-else
-.PHONY: $(BASE)obj_rules.mk
-$(BASE)obj_rules.mk:
-	@echo "$(foreach f,$(filter %.cpp$(OBJECT_SUFFIX).o,$(ALL_OBJ)),$f: $(call fcn_obj2src,$f)\n)" > $@
-	@echo "$(foreach f,$(filter %.cc$(OBJECT_SUFFIX).o,$(ALL_OBJ)),$f: $(call fcn_obj2src,$f)\n)" >> $@
-	@echo "$(foreach f,$(filter %.c$(OBJECT_SUFFIX).o,$(ALL_OBJ)),$f: $(call fcn_obj2src,$f)\n)" >> $@
-	@echo "$(foreach f,$(filter %.S$(OBJECT_SUFFIX).o,$(ALL_OBJ)),$f: $(call fcn_obj2src,$f)\n)" >> $@
-	@echo "$(foreach f,$(filter %.asm$(OBJECT_SUFFIX).o,$(ALL_OBJ)),$f: $(call fcn_obj2src,$f)\n)" >> $@
-include $(BASE)obj_rules.mk
-endif
+fcn_mkrule = $(eval $1: $(call fcn_obj2src,$1))
+$(foreach f,$(filter %.cpp$(OBJECT_SUFFIX).o,$(ALL_OBJ)), $(call fcn_mkrule,$f))
+$(foreach f,$(filter %.cc$(OBJECT_SUFFIX).o,$(ALL_OBJ)), $(call fcn_mkrule,$f))
+$(foreach f,$(filter %.c$(OBJECT_SUFFIX).o,$(ALL_OBJ)), $(call fcn_mkrule,$f))
+$(foreach f,$(filter %.S$(OBJECT_SUFFIX).o,$(ALL_OBJ)), $(call fcn_mkrule,$f))
+$(foreach f,$(filter %.asm$(OBJECT_SUFFIX).o,$(ALL_OBJ)), $(call fcn_mkrule,$f))
+$(foreach f,$(ALL_BIN), $(eval $f: $(EXTRA_DEP-$(_DIR-$f)) $(call fcn_getlibs,$f)))
 
 # --- Object Files ---
 # C++ (.cpp)
@@ -102,7 +94,7 @@ endif
 	@echo [AS] -o $@
 	@mkdir -p $(dir $@)
 	@$(AS) $(ASFLAGS) $(ASFLAGS-$(_dir)) -o $@ $(_src)
-	@$(AS) $(ASFLAGS) $(ASFLAGS-$(_dir)) -o $@ $(_src) -MD $@.dep
+	@$(AS) $(ASFLAGS) $(ASFLAGS-$(_dir)) -o $@ $(_src) -MT $@ -MD $@.dep
 
 # --- Binaries ---
 # Static Library (.a)
@@ -126,4 +118,8 @@ $(OUTPUTDIR)%:
 	$(eval _dir=$(_DIR-$@))
 	@echo [LD] -o $@
 	@$(LD) $(LDFLAGS) -o $@ $(OBJ-$(_dir)) $(LDFLAGS-$(_dir))
-    
+
+-include $(ALL_OBJ:%=%.dep)
+
+%.asm: %.asm.o
+ 
