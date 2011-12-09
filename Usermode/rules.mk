@@ -21,16 +21,17 @@ fcn_obj2src = $(subst $(OBJECT_DIR),$(SOURCE_DIR),$(patsubst %$(OBJECT_SUFFIX).o
 fcn_addbin = $(eval ALL_OBJ:=$(ALL_OBJ) $2) $(eval ALL_BIN:=$(ALL_BIN) $1) $(foreach f,$2 $1,$(eval _DIR-$f := $(DIR))) $(eval $1: $2) $(eval OBJ-$(DIR):=$(OBJ-$(DIR)) $2) $(eval BIN-$(DIR):=$(BIN-$(DIR)) $1)
 
 # Start of Voodoo code
-SUB_DIRS = $(wildcard */rules.mk)
-
 _REL_POS := $(dir $(lastword $(MAKEFILE_LIST)))
 BASE = $(abspath $(_REL_POS))/
+SUB_DIRS = $(wildcard $(BASE)*/rules.mk)
+#$(warning $(SUB_DIRS))
 ifeq ($(_REL_POS),./)
     # Root makefile
     DEFAULT_RULES := $(dir $(SUB_DIRS))
 else
     # Build part of the tree
-    DEFAULT_RULES := $(abspath $(pwd)/$(_REL_POS))
+    DEFAULT_RULES := $(abspath $(shell pwd))/
+#    $(warning $(DEFAULT_RULES))
 endif
 
 include $(BASE)Makefile.cfg
@@ -45,16 +46,18 @@ x = x
 include $(SUB_DIRS)
 
 
-# === Rules ===
-# ACESS SPECIFIC
-fcn_getlibs = $(patsubst -l%,$(OUTPUTDIR)Libs/lib%.so,$(filter -l%,$(LDFLAGS-$(_DIR-$1))))
+# Transforms LDFLAGS -l arguments into library binary paths
+fcn_getlibs = $(foreach f,$(patsubst -l%,lib%.so,$(filter -l%,$(LDFLAGS-$(_DIR-$1)))),$(filter %/$f,$(ALL_BIN)))
 
+# === Rules ===
+# - Binds source files to object targets
 fcn_mkrule = $(eval $1: $(call fcn_obj2src,$1))
 $(foreach f,$(filter %.cpp$(OBJECT_SUFFIX).o,$(ALL_OBJ)), $(call fcn_mkrule,$f))
 $(foreach f,$(filter %.cc$(OBJECT_SUFFIX).o,$(ALL_OBJ)), $(call fcn_mkrule,$f))
 $(foreach f,$(filter %.c$(OBJECT_SUFFIX).o,$(ALL_OBJ)), $(call fcn_mkrule,$f))
 $(foreach f,$(filter %.S$(OBJECT_SUFFIX).o,$(ALL_OBJ)), $(call fcn_mkrule,$f))
 $(foreach f,$(filter %.asm$(OBJECT_SUFFIX).o,$(ALL_OBJ)), $(call fcn_mkrule,$f))
+# - Bind extra dependencies and libraries to objects
 $(foreach f,$(ALL_BIN), $(eval $f: $(EXTRA_DEP-$(_DIR-$f)) $(call fcn_getlibs,$f)))
 
 # --- Object Files ---
