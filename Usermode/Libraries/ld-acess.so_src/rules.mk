@@ -15,7 +15,7 @@ include $(BASE)body.mk
 $(call fcn_addbin, $(OUTPUTDIR)Libs/libld-acess.so, $(call fcn_mkobj,_stublib.c.o))
 
 # Handle preprocessed files
-$(DIR)/%: $(DIR)/%.h
+$(DIR)%: $(DIR)%.h
 	@echo [CPP] -o $@
 	@mkdir -p $(dir $@)
 	@$(CPP) $(CPPFLAGS-$(DIR)) -P -D__ASSEMBLER__ $< -o $@
