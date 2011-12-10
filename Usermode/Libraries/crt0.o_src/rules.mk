@@ -14,10 +14,10 @@ LDFLAGS-$(DIR) := $(LDFLAGS-$(PDIR))
 include $(BASE)body.mk
 
 $(filter %crt0.o,$(BIN)): $(filter %crt0.c.o,$(OBJ))
-	cp $< $@
+	@cp $< $@
 $(filter %crtbegin.o,$(BIN)): $(filter %crtbegin.c.o,$(OBJ))
-	cp $< $@
+	@cp $< $@
 $(filter %crtend.o,$(BIN)): $(filter %crtend.c.o,$(OBJ))
-	cp $< $@
+	@cp $< $@
 
 include $(BASE)footer.mk

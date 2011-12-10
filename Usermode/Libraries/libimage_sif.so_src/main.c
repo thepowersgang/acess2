@@ -6,6 +6,7 @@
 #include <string.h>
 #include <image.h>
 //#include <image_sif.h>
+#include <acess/sys.h>	// _SysDebug
 
 // === STRUCTURES ===
 struct sHeader

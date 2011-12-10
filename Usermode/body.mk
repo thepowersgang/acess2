@@ -8,6 +8,6 @@ $(call fcn_addbin,$(BIN),$(OBJ))
 all-$(DIR): $(BIN)
 clean-$(DIR): clean-%: 
 	$(eval BIN=$(BIN-$*/))
-	$(eval OBJ=$(OBJ-$*/))
+	$(eval OBJ=$(foreach f, $(BIN), $(OBJ-$f)))
 	$(RM) $(BIN) $(OBJ) $(OBJ:%=%.dep)
 

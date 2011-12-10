@@ -12,7 +12,7 @@ LDFLAGS-$(DIR) := -g -T $(DIR)/arch/$(ARCHDIR).ld -Map $(call fcn_mkobj,map.txt)
 
 include $(BASE)body.mk
 
-$(call fcn_addbin, $(OUTPUTDIR)Libs/libld-acess.so, $(call fcn_mkobj,_stublib.c.o))
+$(call fcn_addbin,$(OUTPUTDIR)Libs/libld-acess.so,$(call fcn_src2obj,_stublib.c))
 
 # Handle preprocessed files
 $(DIR)%: $(DIR)%.h

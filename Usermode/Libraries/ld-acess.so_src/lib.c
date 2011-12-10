@@ -60,7 +60,8 @@ int memcmp(const void *p1, const void *p2, int len)
 
 void *memcpy(void *dest, const void *src, size_t len)
 {
-	uint8_t	*d=dest, *s=src;
+	uint8_t	*d=dest;
+	const uint8_t *s=src;
 	while(len--)	*d++ = *s++;
 	return dest;
 }

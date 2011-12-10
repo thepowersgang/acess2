@@ -7,18 +7,14 @@
 #include <stdio.h>
 #include <string.h>
 #include "header.h"
-
-#if USE_READLINE
-# include "readline.h"
-#endif
+#include <readline.h>
 
 #define _stdin	0
 #define _stdout	1
 #define _stderr	2
 
 // ==== PROTOTYPES ====
-char	*ReadCommandLine(int *Length);
-void	Parse_Args(char *str, char **dest);
+ int	Parse_Args(const char *str, char **dest);
 void	CallCommand(char **Args);
 void	Command_Logout(int argc, char **argv);
 void	Command_Clear(int argc, char **argv);
@@ -56,11 +52,7 @@ int main(int argc, char *argv[], char **envp)
 	 int	length = 0;
 	 int	i;
 	 int	iArgCount = 0;
-	#if !USE_READLINE
-	 int	bCached = 1;
-	#else
 	tReadline	*readline_state = Readline_Init(1);
-	#endif
 	
 	gasEnvironment = envp;
 	
@@ -81,46 +73,17 @@ int main(int argc, char *argv[], char **envp)
 	for(;;)
 	{
 		// Free last command & arguments
-		if(saArgs[0])	free(saArgs);
-		#if !USE_READLINE
-		if(!bCached)	free(sCommandStr);
-		bCached = 0;
-		#endif
+		if(saArgs[0])	free(saArgs[0]);
 		
 		printf("%s$ ", gsCurrentDirectory);
 		
 		// Read Command line
-		#if USE_READLINE
 		sCommandStr = Readline( readline_state );
 		printf("\n");
 		length = strlen(sCommandStr);
-		#else
-		sCommandStr = ReadCommandLine( &length );
-		
-		if(!sCommandStr) {
-			printf("PANIC: Out of heap space\n");
-			return -1;
-		}
-		
-		// Check if the command should be cached
-		if(gasCommandHistory == NULL || strcmp(sCommandStr, gasCommandHistory[giLastCommand]) != 0)
-		{
-			if(giLastCommand >= giCommandSpace) {
-				giCommandSpace += 12;
-				gasCommandHistory = realloc(gasCommandHistory, giCommandSpace*sizeof(char*));
-			}
-			giLastCommand ++;
-			gasCommandHistory[ giLastCommand ] = sCommandStr;
-			bCached = 1;
-		}
-		#endif
 		
 		// Parse Command Line into arguments
-		Parse_Args(sCommandStr, saArgs);
-		
-		// Count Arguments
-		iArgCount = 0;
-		while(saArgs[iArgCount])	iArgCount++;
+		iArgCount = Parse_Args(sCommandStr, saArgs);
 		
 		// Silently Ignore all empty commands
 		if(saArgs[1][0] == '\0')	continue;
@@ -139,157 +102,15 @@ int main(int argc, char *argv[], char **envp)
 		// Shall we?
 		CallCommand( &saArgs[1] );
 		
-		#if USE_READLINE
 		free( sCommandStr );
-		#endif
 	}
 }
 
-#if !USE_READLINE
 /**
- * \fn char *ReadCommandLine(int *Length)
- * \brief Read from the command line
- */
-char *ReadCommandLine(int *Length)
-{
-	char	*ret;
-	 int	len, pos, space = 1023;
-	char	ch;
-	#if 0
-	 int	scrollbackPos = giLastCommand;
-	#endif
-	 
-	// Preset Variables
-	ret = malloc( space+1 );
-	if(!ret)	return NULL;
-	len = 0;	pos = 0;
-		
-	// Read In Command Line
-	do {
-		ch = getchar();	// Read Character from stdin (read is a blocking call)
-		if(ch == '\n')	break;
-		
-		switch(ch)
-		{
-		// Control characters
-		case '\x1B':
-			ch = getchar();	// Read control character
-			switch(ch)
-			{
-			//case 'D':	if(pos)	pos--;	break;
-			//case 'C':	if(pos<len)	pos++;	break;
-			case '[':
-				ch = getchar();	// Read control character
-				switch(ch)
-				{
-				#if 0
-				case 'A':	// Up
-					{
-						 int	oldLen = len;
-						if( scrollbackPos > 0 )	break;
-						
-						free(ret);
-						ret = strdup( gasCommandHistory[--scrollbackPos] );
-						
-						len = strlen(ret);
-						while(pos--)	printf("\x1B[D");
-						write(_stdout, len, ret);	pos = len;
-						while(pos++ < oldLen)	write(_stdout, 1, " ");
-					}
-					break;
-				case 'B':	// Down
-					{
-						 int	oldLen = len;
-						if( scrollbackPos < giLastCommand-1 )	break;
-						
-						free(ret);
-						ret = strdup( gasCommandHistory[++scrollbackPos] );
-						
-						len = strlen(ret);
-						while(pos--)	write(_stdout, 3, "\x1B[D");
-						write(_stdout, len, ret);	pos = len;
-						while(pos++ < oldLen)	write(_stdout, 1, " ");
-					}
-					break;
-				#endif
-				case 'D':	// Left
-					if(pos == 0)	break;
-					pos --;
-					printf("\x1B[D");
-					break;
-				case 'C':	// Right
-					if(pos == len)	break;
-					pos++;
-					printf("\x1B[C");
-					break;
-				}
-			}
-			break;
-		
-		// Backspace
-		case '\b':
-			if(len <= 0)		break;	// Protect against underflows
-			putchar(ch);
-			if(pos == len) {	// Simple case of end of string
-				len --;
-				pos--;
-			}
-			else {
-				printf("%.*s ", len-pos, &ret[pos]);	// Move Text
-				printf("\x1B[%iD", len-pos+1);
-				// Alter Buffer
-				memmove(&ret[pos-1], &ret[pos], len-pos);
-				pos --;
-				len --;
-			}
-			break;
-		
-		// Tab
-		case '\t':
-			//TODO: Implement Tab-Completion
-			//Currently just ignore tabs
-			break;
-		
-		default:		
-			// Expand Buffer
-			if(len+1 > space) {
-				space += 256;
-				ret = realloc(ret, space+1);
-				if(!ret)	return NULL;
-			}
-			
-			// Editing inside the buffer
-			if(pos != len) {
-				putchar(ch);	// Print new character
-				printf("%.*s", len-pos, &ret[pos]);	// Move Text
-				printf("\x1B[%iD", len-pos);
-				memmove( &ret[pos+1], &ret[pos], len-pos );
-			}
-			else {
-				putchar(ch);
-			}
-			ret[pos++] = ch;
-			len ++;
-			break;
-		}
-	} while(ch != '\n');
-	
-	// Cap String
-	ret[len] = '\0';
-	printf("\n");
-	
-	// Return length
-	if(Length)	*Length = len;
-	
-	return ret;
-}
-#endif
-
-/**
- * \fn void Parse_Args(char *str, char **dest)
+ * \fn int Parse_Args(const char *str, char **dest)
  * \brief Parse a string into an argument array
  */
-void Parse_Args(char *str, char **dest)
+int Parse_Args(const char *str, char **dest)
 {
 	 int	i = 1;
 	char	*buf = malloc( strlen(str) + 1 );
@@ -297,7 +118,7 @@ void Parse_Args(char *str, char **dest)
 	if(buf == NULL) {
 		dest[0] = NULL;
 		printf("Parse_Args: Out of heap space!\n");
-		return ;
+		return 0;
 	}
 	
 	strcpy(buf, str);
@@ -324,10 +145,8 @@ void Parse_Args(char *str, char **dest)
 		if(*buf == '\0')	break;
 	}
 	dest[i] = NULL;
-	if(i == 1) {
-		free(buf);
-		dest[0] = NULL;
-	}
+	
+	return i;
 }
 
 /**

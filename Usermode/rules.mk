@@ -18,7 +18,7 @@ fcn_mkobj = $(addprefix $(DIR)$(OBJECT_DIR),$(patsubst $(SOURCE_DIR)%,%,$1))
 fcn_src2obj = $(call fcn_mkobj, $(call fcn_src2obj_int,$1))
 fcn_obj2src = $(subst $(OBJECT_DIR),$(SOURCE_DIR),$(patsubst %$(OBJECT_SUFFIX).o,%,$1))
 
-fcn_addbin = $(eval ALL_OBJ:=$(ALL_OBJ) $2) $(eval ALL_BIN:=$(ALL_BIN) $1) $(foreach f,$2 $1,$(eval _DIR-$f := $(DIR))) $(eval $1: $2) $(eval OBJ-$(DIR):=$(OBJ-$(DIR)) $2) $(eval BIN-$(DIR):=$(BIN-$(DIR)) $1)
+fcn_addbin = $(eval ALL_OBJ:=$(ALL_OBJ) $2) $(eval ALL_BIN:=$(ALL_BIN) $1) $(foreach f,$2 $1,$(eval _DIR-$f := $(DIR))) $(eval $1: $2) $(eval BIN-$(DIR):=$(BIN-$(DIR)) $1) $(eval OBJ-$1:=$2)
 
 # Start of Voodoo code
 _REL_POS := $(dir $(lastword $(MAKEFILE_LIST)))
@@ -105,22 +105,22 @@ $(foreach f,$(ALL_BIN), $(eval $f: $(EXTRA_DEP-$(_DIR-$f)) $(call fcn_getlibs,$f
 	$(eval _dir=$(_DIR-$@))
 	@echo [AR] ru $@
 	@$(RM) $@
-	@$(AR) ru $@ $(OBJ-$(_dir))
+	@$(AR) ru $@ $(OBJ-$@)
 # Dynamic Library (.so)
 %.so:
 	$(eval _dir=$(_DIR-$@))
 	@echo [LD] -shared -o $@
-	@$(LD) $(LDFLAGS) -shared -soname $(basename $@) -o $@ $(filter %.o,$^) $(LDFLAGS-$(_dir))
+	@$(LD) $(LDFLAGS) -shared -soname $(notdir $@) -o $@ $(OBJ-$@) $(LDFLAGS-$(_dir))
 # Executable (.bin)
 %.bin:
 	$(eval _dir=$(_DIR-$@))
 	@echo [LD] -o $@
-	@$(LD) $(LDFLAGS) -o $@ $(OBJ-$(_dir)) $(LDFLAGS-$(_dir))
+	@$(LD) $(LDFLAGS) -o $@ $(OBJ-$@) $(LDFLAGS-$(_dir))
 	@$(CP) $@ $(@:%.bin=%)   
 $(OUTPUTDIR)%:
 	$(eval _dir=$(_DIR-$@))
 	@echo [LD] -o $@
-	@$(LD) $(LDFLAGS) -o $@ $(OBJ-$(_dir)) $(LDFLAGS-$(_dir))
+	@$(LD) $(LDFLAGS) -o $@ $(OBJ-$@) $(LDFLAGS-$(_dir))
 
 -include $(ALL_OBJ:%=%.dep)
 

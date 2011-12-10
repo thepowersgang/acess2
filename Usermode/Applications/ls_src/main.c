@@ -152,7 +152,7 @@ void ParseArguments(int argc, char *argv[])
 				// Human readable sizes
 				case 'h':	gbViewHumanReadable = 1;	continue;
 				default:
-					fprintf(stderr, "%s: Unknown option '%c'\n", *str);
+					fprintf(stderr, "%s: Unknown option '%c'\n", argv[0], *str);
 					ShowUsage(argv[0]);
 					exit(EXIT_FAILURE);
 				}
@@ -283,22 +283,22 @@ void DisplayFile(char *Filename)
 		printf("%s %4i %4i ", permStr, owner, group);
 		if(gbViewHumanReadable && type != FTYPE_DIR) {
 			if(size < 2048) {	// < 2 KiB
-				printf("%4i B   ", size);
+				printf("%4lli B   ", size);
 			}
 			else if(size < 2048*1024) {	// < 2 MiB
-				printf("%4i KiB ", size>>10);
+				printf("%4lli KiB ", size>>10);
 			}
 			else if(size < (uint64_t)2048*1024*1024) {	// < 2 GiB
-				printf("%4i MiB ", size>>20);
+				printf("%4lli MiB ", size>>20);
 			}
 			else if(size < (uint64_t)2048*1024*1024*1024) {	// < 2 TiB
-				printf("%4i GiB ", size>>30);
+				printf("%4lli GiB ", size>>30);
 			}
 			else {	// Greater than 2 TiB (if your files are larger than this, you are Doing It Wrong [TM])
-				printf("%4i TiB ", size>>40);
+				printf("%4lli TiB ", size>>40);
 			}
 		} else {
-			printf("%8i ", size);
+			printf("%8lli ", size);
 		}
 	}
 	
