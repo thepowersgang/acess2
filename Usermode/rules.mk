@@ -104,22 +104,26 @@ $(foreach f,$(ALL_BIN), $(eval $f: $(EXTRA_DEP-$(_DIR-$f)) $(call fcn_getlibs,$f
 %.a:
 	$(eval _dir=$(_DIR-$@))
 	@echo [AR] ru $@
+	@mkdir -p $(dir $@)
 	@$(RM) $@
 	@$(AR) ru $@ $(OBJ-$@)
 # Dynamic Library (.so)
 %.so:
 	$(eval _dir=$(_DIR-$@))
 	@echo [LD] -shared -o $@
+	@mkdir -p $(dir $@)
 	@$(LD) $(LDFLAGS) -shared -soname $(notdir $@) -o $@ $(OBJ-$@) $(LDFLAGS-$(_dir))
 # Executable (.bin)
 %.bin:
 	$(eval _dir=$(_DIR-$@))
 	@echo [LD] -o $@
+	@mkdir -p $(dir $@)
 	@$(LD) $(LDFLAGS) -o $@ $(OBJ-$@) $(LDFLAGS-$(_dir))
 	@$(CP) $@ $(@:%.bin=%)   
 $(OUTPUTDIR)%:
 	$(eval _dir=$(_DIR-$@))
 	@echo [LD] -o $@
+	@mkdir -p $(dir $@)
 	@$(LD) $(LDFLAGS) -o $@ $(OBJ-$@) $(LDFLAGS-$(_dir))
 
 -include $(ALL_OBJ:%=%.dep)
