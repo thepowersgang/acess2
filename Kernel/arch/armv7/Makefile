@@ -15,4 +15,4 @@ A_OBJ += mm_phys.o mm_virt.o proc.o proc.ao
 
 #main.c: Makefile.BuildNum.$(ARCH)
 
-POSTBUILD = objcopy $(BIN) -F binary $(BIN)
+POSTBUILD = arm-elf-objcopy $(BIN) -O binary $(BIN)

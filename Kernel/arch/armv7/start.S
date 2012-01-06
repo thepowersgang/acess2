@@ -18,19 +18,28 @@ ivt_fiq:	b .     	@ 0x1C FIQ (Fast interrupt)
 
 .globl _start
 _start:
-	ldr r0, =DEBUG_UART_PADDR
-	ldr r1, 'A'
-	str r0, r1	
+	ldr r2, =UART0_PADDR
+	mov r1, #'A'
+	str r1, [r2]	
 
 	ldr r0, =kernel_table0-KERNEL_BASE
 	mcr p15, 0, r0, c2, c0, 1	@ Set TTBR1 to r0
 	mcr p15, 0, r0, c2, c0, 0	@ Set TTBR0 to r0 too (for identity)
 
+	mov r1, #'c'
+	str r1, [r2]	
+
 	mov r0, #1
 	mcr p15, 0, r0, c2, c0, 2	@ Set TTCR to 1 (50/50 split)
+
+	mov r1, #'e'
+	str r1, [r2]	
 	
 	mov r0, #3
 	mcr p15, 0, r0, c3, c0, 0	@ Set Domain 0 to Manager
+
+	mov r1, #'s'
+	str r1, [r2]	
 
 	@ Enable VMSA
 	mrc p15, 0, r0, c1, c0, 0
@@ -38,9 +47,16 @@ _start:
 	orr r0, r0, #1 << 23
 	mcr p15, 0, r0, c1, c0, 0
 
+	ldr r2, =0xF1000000
+	mov r1, #'s'
+	str r1, [r2]	
+
 	@ Enable access faults on domains 0 & 1
 	mov r0, #0x55	@ 01010101b
 	mcr p15, 0, r0, c3, c0, 0
+
+	mov r1, #'2'
+	str r1, [r2]	
 
 	@
 	@ Check for security extensions
@@ -55,6 +71,8 @@ _start:
 	orreq r0, #0x2000
 	mcreq p15, 0, r0, c1, c0, 0
 
+	mov r1, #'-'
+	str r1, [r2]	
 
 	@ Prepare for interrupts
 	cps #18	@ IRQ Mode
@@ -62,6 +80,13 @@ _start:
 	cps #23	@ Abort Mode
 	ldr sp, =abortstack+0x1000
 	cps #19
+
+	mov r1, #'a'
+	str r1, [r2]	
+	mov r1, #'r'
+	str r1, [r2]	
+	mov r1, #'m'
+	str r1, [r2]	
 
 	ldr sp, =0x80000000-4	@ Set up stack (top of user range)
 	ldr r0, =kmain
@@ -309,5 +334,5 @@ kernel_exception_map:
 stack:
 	.space MM_KSTACK_SIZE, 0	@ Original kernel stack
 
-; vim: ts=8, ft=armv7
+// vim: ts=8, ft=armv7
 
