@@ -18,6 +18,10 @@ ivt_fiq:	b .     	@ 0x1C FIQ (Fast interrupt)
 
 .globl _start
 _start:
+	ldr r0, =DEBUG_UART_PADDR
+	ldr r1, 'A'
+	str r0, r1	
+
 	ldr r0, =kernel_table0-KERNEL_BASE
 	mcr p15, 0, r0, c2, c0, 1	@ Set TTBR1 to r0
 	mcr p15, 0, r0, c2, c0, 0	@ Set TTBR0 to r0 too (for identity)
@@ -304,4 +308,6 @@ kernel_exception_map:
 .section .padata
 stack:
 	.space MM_KSTACK_SIZE, 0	@ Original kernel stack
+
+; vim: ts=8, ft=armv7
 
