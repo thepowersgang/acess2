@@ -9,7 +9,7 @@
 
 #define	DEBUG_MAX_LINE_LEN	256
 
-#define	LOCK_DEBUG_OUTPUT	1
+#define	LOCK_DEBUG_OUTPUT	0
 
 #define TRACE_TO_KTERM	0
 
@@ -37,7 +37,7 @@ tShortSpinlock	glDebug_Lock;
 
 // === CODE ===
 static void Debug_Putchar(char ch)
-{	
+{
 	Debug_PutCharDebug(ch);
 	if( !gbDebug_IsKPanic )
 	{

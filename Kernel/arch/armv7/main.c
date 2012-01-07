@@ -24,8 +24,8 @@ Uint32	ARMv7_int_HandleSyscalls(Uint32 Num, Uint32 *Args);
 int kmain(void)
 {
 	LogF("Acess2 ARMv7 v"EXPAND_STR(KERNEL_VERSION)"\n");
-	LogF(" Build %i, Git Hash %s\n", BUILD_NUM, gsGitHash);
-//	Interrupts_Setup();
+	LogF(" Git Hash %s\n", gsGitHash);
+	LogF(" Build %i\n", BUILD_NUM);
 	
 	MM_SetupPhys();
 

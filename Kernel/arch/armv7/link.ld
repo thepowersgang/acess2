@@ -44,10 +44,12 @@ SECTIONS
 	}
 	.bss : AT( ADDR(.bss) - _kernel_base )
 	{
+		bss_start = .;
 		*(.bss*)
 		*(COMMON*)
 		. = ALIGN(0x1000);
 		*(.pabss)
+		bss_end = .;
 	}
 	gKernelEnd = .;
 }

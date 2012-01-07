@@ -87,13 +87,27 @@ _start:
 	str r1, [r2]	
 	mov r1, #'m'
 	str r1, [r2]	
+	mov r1, #13
+	str r1, [r2]	
+	mov r1, #10
+	str r1, [r2]	
 
-	ldr sp, =0x80000000-4	@ Set up stack (top of user range)
+.extern bss_start
+.extern bss_size_div_4
+.zero_bss:
+	ldr r0, =bss_start
+	ldr r1, =bss_end
+	mov r3, #0
+.zero_bss_loop:
+	str r3, [r0],#4
+	cmp r0, r1
+	bls .zero_bss_loop
+
+.goto_c:
+	ldr sp, =0x80000000-8	@ Set up stack (top of user range)
 	ldr r0, =kmain
 	mov pc, r0
 1:	b 1b	@ Infinite loop
-_ptr_kmain:
-	.long kmain
 
 .comm irqstack, 0x1000	@ ; 4KiB Stack
 .comm abortstack, 0x1000	@ ; 4KiB Stack

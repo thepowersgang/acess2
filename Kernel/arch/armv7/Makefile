@@ -15,4 +15,6 @@ A_OBJ += mm_phys.o mm_virt.o proc.o proc.ao
 
 #main.c: Makefile.BuildNum.$(ARCH)
 
-POSTBUILD = arm-elf-objcopy $(BIN) -O binary $(BIN)
+ifeq ($(PLATFORM),tegra2)
+	POSTBUILD = arm-elf-objcopy $(BIN) -O binary $(BIN)
+endif

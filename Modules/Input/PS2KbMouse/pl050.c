@@ -86,7 +86,7 @@ static inline void PL050_WriteMouseData(Uint8 Data)
 
 	ENTER("xData", Data);
 
-	while( --timeout && gpPL050_MouseBase[1] & PL050_TXBUSY );
+	while( --timeout && (gpPL050_MouseBase[1] & PL050_TXBUSY) );
 	if(timeout)
 		gpPL050_MouseBase[2] = Data;
 	else

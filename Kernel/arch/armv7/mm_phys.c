@@ -32,6 +32,7 @@ extern char	gKernelEnd[];
 
 void MM_SetupPhys(void)
 {
+	LogF("MM_SetupPhys: ()\n");
 	MM_Tpl_InitPhys( REALVIEW_LOWRAM_SIZE/0x1000, NULL );
 }
 

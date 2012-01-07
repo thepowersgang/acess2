@@ -191,11 +191,7 @@ void itoa(char *buf, Uint64 num, int base, int minLength, char pad)
 /**
  * \brief Append a character the the vsnprintf output
  */
-#define PUTCH(c)	do{\
-	char ch=(c);\
-	if(pos==__maxlen){return pos;}\
-	if(__s){__s[pos++]=ch;}else{pos++;}\
-	}while(0)
+#define PUTCH(c)	_putch(c)
 #define GETVAL()	do {\
 	if(isLongLong)	val = va_arg(args, Uint64);\
 	else	val = va_arg(args, unsigned int);\
@@ -214,16 +210,23 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 	size_t	pos = 0;
 	// Flags
 	 int	bPadLeft = 0;
-	
-	//Log("vsnprintf: (__s=%p, __maxlen=%i, __format='%s', ...)", __s, __maxlen, __format);
-	
+
+	inline void _putch(char ch)
+	{
+		if(pos < __maxlen)
+		{
+			if(__s) __s[pos] = ch;
+			pos ++;
+		}
+	}
+
 	while((c = *__format++) != 0)
 	{
 		// Non control character
 		if(c != '%') { PUTCH(c); continue; }
-		
+
 		c = *__format++;
-		//Log("pos = %i", pos);
+		if(c == '\0')	break;
 		
 		// Literal %
 		if(c == '%') { PUTCH('%'); continue; }
@@ -232,9 +235,9 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		if(c == 'p') {
 			Uint	ptr = va_arg(args, Uint);
 			PUTCH('*');	PUTCH('0');	PUTCH('x');
-			itoa(tmpBuf, ptr, 16, BITS/4, '0');
-			p = tmpBuf;
-			goto printString;
+			for( len = BITS/4; len --; )
+				PUTCH( cUCDIGITS[ (ptr>>(len*4))&15 ] );
+			continue ;
 		}
 		
 		// - Padding Side Flag

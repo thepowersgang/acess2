@@ -23,8 +23,14 @@ void	StartupPrint(const char *str);
 // === CODE ===
 void Debug_PutCharDebug(char ch)
 {
-//	while( *(volatile Uint32*)(SERIAL_BASE + SERIAL_REG_FLAG) & SERIAL_FLAG_FULL )
+	if(ch == '\n')
+		Debug_PutCharDebug('\r');
+
+	#if PLATFORM_is_tegra2
+	// Tegra2
+	while( !(*(volatile Uint32*)(UART0_BASE + 0x14) & (1 << 5)) )
 		;
+	#endif
 	
 //	*(volatile Uint32*)(SERIAL_BASE + SERIAL_REG_DATA) = ch;
 	*(volatile Uint32*)(UART0_BASE) = ch;
