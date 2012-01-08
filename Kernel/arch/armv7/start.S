@@ -203,16 +203,18 @@ DataAbort:
 .globl PrefetchAbort
 PrefetchAbort:
 	sub lr, #4	@ Adjust LR to the correct value
-@	srsdb sp!, #19	@ Switch to supervisor mode (DDI0406B D1.6.5) (actually SRSFD)
+	srsdb sp!, #23	@ Switch to supervisor mode (DDI0406B D1.6.5) (actually SRSFD)
 @	cpsid ifa, #19
-@	PUSH_GPRS
+	PUSH_GPRS
 
 	ldr r0, =csAbort_Tag
 	ldr r1, =csPrefetchAbort_Fmt
-	mov r2, lr
-	mrc p15, 0, r3, c5, c0, 0	@ Read IFSR (Instruction Fault Address Register) into R3
-	ldr r4, =Log_Error
-	blx r4
+#	mov r2, lr
+	mrc p15, 0, r2, c6, c0, 2	@ Read IFAR (Instruction Fault Address Register) into R3
+	mrc p15, 0, r3, c5, c0, 1	@ Read IFSR (Instruction Fault Status Register) into R3
+	ldr r5, =Log_Error
+	blx r5
+
 	b .
 
 .section .rodata
