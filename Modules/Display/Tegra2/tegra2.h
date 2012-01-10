@@ -1,0 +1,30 @@
+/*
+ * Acess2 NVidia Tegra2 Display Driver
+ * - By John Hodge (thePowersGang)
+ *
+ * tegra2.h
+ * - Driver definitions
+ */
+#ifndef _TEGRA2_DISP_H_
+#define _TEGRA2_DISP_H_
+
+
+enum eTegra2_Disp_Regs
+{
+	DC_DISP_DISP_SIGNAL_OPTIONS0_0 = 0x400,
+	DC_DISP_DISP_SIGNAL_OPTIONS1_0,
+	DC_DISP_DISP_WIN_OPTIONS_0,
+	DC_DISP_MEM_HIGH_PRIORITY_0,
+	DC_DISP_MEM_HIGH_PRIORITY_TIMER_0,
+	DC_DISP_DISP_TIMING_OPTIONS_0
+	DC_DISP_REF_TO_SYNC_0,
+	DC_DISP_SYNC_WIDTH_0,
+	DC_DISP_BACK_PORCH_0,
+	DC_DISP_DISP_ACTIVE_0,
+	DC_DISP_FRONT_PORCH_0,
+
+	DC_DISP_H_PULSE0_CONTROL_0,
+}
+
+#endif
+
