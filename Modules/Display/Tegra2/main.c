@@ -13,6 +13,7 @@
 #include <api_drv_video.h>
 #include <lib/keyvalue.h>
 #include <options.h>	// ARM Arch
+#include "tegra2.h"
 
 #define ABS(a)	((a)>0?(a):-(a))
 
@@ -26,10 +27,10 @@ Uint64	Tegra2Vid_Read(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer);
 Uint64	Tegra2Vid_Write(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer);
  int	Tegra2Vid_IOCtl(tVFS_Node *node, int id, void *data);
 // -- Internals
- int	Tegra2Vid_int_SetResolution(int W, int H);
+ int	Tegra2Vid_int_SetMode(int Mode);
 
 // === GLOBALS ===
-MODULE_DEFINE(0, VERSION, PL110, Tegra2Vid_Install, NULL, NULL);
+MODULE_DEFINE(0, VERSION, Video_Tegra2, Tegra2Vid_Install, NULL, NULL);
 tDevFS_Driver	gTegra2Vid_DriverStruct = {
 	NULL, "PL110",
 	{
@@ -39,7 +40,7 @@ tDevFS_Driver	gTegra2Vid_DriverStruct = {
 	}
 };
 // -- Options
-tPAddr	gTegra2Vid_PhysBase = Tegra2Vid_BASE;
+tPAddr	gTegra2Vid_PhysBase = TEGRA2VID_BASE;
  int	gbTegra2Vid_IsVersatile = 1;
 // -- KeyVal parse rules
 const tKeyVal_ParseRules	gTegra2Vid_KeyValueParser = {
@@ -72,7 +73,7 @@ int Tegra2Vid_Install(char **Arguments)
 	
 	gpTegra2Vid_IOMem = (void*)MM_MapHWPages(gTegra2Vid_PhysBase, 1);
 
-	Tegra2Vid_int_SetResolution(caTegra2Vid_Modes[0].W, caTegra2Vid_Modes[0].H);
+	Tegra2Vid_int_SetMode(4);
 
 	DevFS_AddDevice( &gTegra2Vid_DriverStruct );
 
@@ -141,7 +142,7 @@ int Tegra2Vid_IOCtl(tVFS_Node *Node, int ID, void *Data)
 			if(newMode != giTegra2Vid_CurrentMode)
 			{
 				giTegra2Vid_CurrentMode = newMode;
-				Tegra2Vid_int_SetResolution( caTegra2Vid_Modes[newMode].W, caTegra2Vid_Modes[newMode].H );
+				Tegra2Vid_int_SetMode( newMode );
 			}
 		}
 		ret = giTegra2Vid_CurrentMode;
@@ -243,73 +244,41 @@ int Tegra2Vid_IOCtl(tVFS_Node *Node, int ID, void *Data)
 //
 //
 
-/**
- * \brief Set the LCD controller resolution
- * \param W	Width (aligned to 16 pixels, cipped to 1024)
- * \param H	Height (clipped to 768)
- * \return Boolean failure
- */
-int Tegra2Vid_int_SetResolution(int W, int H)
+int Tegra2Vid_int_SetMode(int Mode)
 {
-	W = (W + 15) & ~0xF;
-	if(W <= 0 || H <= 0) {
-		Log_Warning("PL110", "Attempted to set invalid resolution (%ix%i)", W, H);
-		return 1;
-	}
-	if(W > 1024)	W = 1920;
-	if(H > 768)	H = 1080;
-
-	gpTegra2Vid_IOMem->DCWinAPos = 0;
-	gpTegra2Vid_IOMem->DCWinASize = (H << 16) | W;
-
-	if( gpTegra2Vid_Framebuffer ) {
-		MM_UnmapHWPages((tVAddr)gpTegra2Vid_Framebuffer, (giTegra2Vid_FramebufferSize+0xFFF)>>12);
-	}
-	giTegra2Vid_FramebufferSize = W*H*4;
-
-	gpTegra2Vid_Framebuffer = (void*)MM_AllocDMA( (giTegra2Vid_FramebufferSize+0xFFF)>>12, 32, &gTegra2Vid_FramebufferPhys );
-	gpTegra2Vid_IOMem->LCDUPBase = gTegra2Vid_FramebufferPhys;
-	gpTegra2Vid_IOMem->LCDLPBase = 0;
-
-	// Power on, BGR mode, ???, ???, enabled
-	Uint32	controlWord = (1 << 11)|(1 << 8)|(1 << 5)|(5 << 1)|1;
-	// According to qemu, the Versatile version has these two the wrong
-	// way around
-	if( gbTegra2Vid_IsVersatile )
-	{
-		gpTegra2Vid_IOMem->LCDIMSC = controlWord;	// Actually LCDControl
-		gpTegra2Vid_IOMem->LCDControl = 0;	// Actually LCDIMSC
-	}
-	else
-	{
-		gpTegra2Vid_IOMem->LCDIMSC = 0;
-		gpTegra2Vid_IOMem->LCDControl = controlWord;
-	}
-
-	giTegra2Vid_Width = W;
-	giTegra2Vid_Height = H;
-
-	// Update the DrvUtil buffer info
-	gTegra2Vid_DrvUtil_BufInfo.Framebuffer = gpTegra2Vid_Framebuffer;
-	gTegra2Vid_DrvUtil_BufInfo.Pitch = W * 4;
-	gTegra2Vid_DrvUtil_BufInfo.Width = W;
-	gTegra2Vid_DrvUtil_BufInfo.Height = H;
-	gTegra2Vid_DrvUtil_BufInfo.Depth = 32;
-	
-	return 0;
-}
-
-int Tegra2_int_SetMode(int Mode)
-{
-	*(Uint32*)(gpTegra2Vid_IOMem + DC_DISP_FRONT_PORTCH_0) = (gaTegra2Modes[Mode].VFP << 16) | gaTegra2Modes[Mode].HFP; 
-	*(Uint32*)(gpTegra2Vid_IOMem + DC_DISP_SYNC_WIDTH_0) = (gaTegra2Modes[Mode].HS << 16) | gaTegra2Modes[Mode].HS;
-	*(Uint32*)(gpTegra2Vid_IOMem + DC_DISP_BACK_PORTCH_0) = (gaTegra2Modes[Mode].VBP << 16) | gaTegra2Modes[Mode].HBP;
-	*(Uint32*)(gpTegra2Vid_IOMem + DC_DISP_DISP_ACTIVE_0) = (gaTegra2Modes[Mode].VA << 16) | gaTegra2Modes[Mode].HA;
+	const struct sTegra2_Disp_Mode	*mode = &caTegra2Vid_Modes[Mode];
+	 int	w = mode->W, h = mode->H;	// Horizontal/Vertical Active
+	*(Uint32*)(gpTegra2Vid_IOMem + DC_DISP_FRONT_PORCH_0) = (mode->VFP << 16) | mode->HFP; 
+	*(Uint32*)(gpTegra2Vid_IOMem + DC_DISP_SYNC_WIDTH_0)  = (mode->HS << 16)  | mode->HS;
+	*(Uint32*)(gpTegra2Vid_IOMem + DC_DISP_BACK_PORCH_0)  = (mode->VBP << 16) | mode->HBP;
+	*(Uint32*)(gpTegra2Vid_IOMem + DC_DISP_DISP_ACTIVE_0) = (mode->H << 16)   | mode->W;
 
 	*(Uint32*)(gpTegra2Vid_IOMem + DC_WIN_A_POSITION_0) = 0;
-	*(Uint32*)(gpTegra2Vid_IOMem + DC_WIN_A_SIZE_0) = (gaTegra2Modes[Mode].VA << 16) | gaTegra2Modes[Mode].HA;
+	*(Uint32*)(gpTegra2Vid_IOMem + DC_WIN_A_SIZE_0) = (mode->H << 16) | mode->W;
 	*(Uint8*)(gpTegra2Vid_IOMem + DC_WIN_A_COLOR_DEPTH_0) = 12;	// Could be 13 (BGR/RGB)
-	*(Uint32*)(gpTegra2Vid_IOMem + DC_WIN_A_PRESCALED_SIZE_0) = (gaTegra2Modes[Mode].VA << 16) | gaTegra2Modes[Mode].HA;
+	*(Uint32*)(gpTegra2Vid_IOMem + DC_WIN_A_PRESCALED_SIZE_0) = (mode->H << 16) | mode->W;
+
+	if( !gpTegra2Vid_Framebuffer || w*h*4 != giTegra2Vid_FramebufferSize )
+	{
+		if( gpTegra2Vid_Framebuffer )
+		{
+			// TODO: Free framebuffer for reallocation
+		}
+
+		giTegra2Vid_FramebufferSize = w*h*4;		
+
+		gpTegra2Vid_Framebuffer = (void*)MM_AllocDMA(
+			(giTegra2Vid_FramebufferSize + PAGE_SIZE-1) / PAGE_SIZE,
+			32,
+			&gTegra2Vid_FramebufferPhys
+			);
+		// TODO: Catch allocation failures
+		
+		// Tell hardware
+		*(Uint32*)(gpTegra2Vid_IOMem + DC_WINBUF_A_START_ADDR_0) = gTegra2Vid_FramebufferPhys;
+		*(Uint32*)(gpTegra2Vid_IOMem + DC_WINBUF_A_ADDR_V_OFFSET_0) = 0;	// Y offset
+		*(Uint32*)(gpTegra2Vid_IOMem + DC_WINBUF_A_ADDR_H_OFFSET_0) = 0;	// X offset
+	}
 
 	return 0;
 }
