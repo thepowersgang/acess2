@@ -47,15 +47,12 @@ const tKeyVal_ParseRules	gTegra2Vid_KeyValueParser = {
 	NULL,
 	{
 		{"Base", "P", &gTegra2Vid_PhysBase},
-		{"IsVersatile", "i", &gbTegra2Vid_IsVersatile},
 		{NULL, NULL, NULL}
 	}
 };
 // -- Driver state
  int	giTegra2Vid_CurrentMode = 0;
  int	giTegra2Vid_BufferMode;
- int	giTegra2Vid_Width = 640;
- int	giTegra2Vid_Height = 480;
 size_t	giTegra2Vid_FramebufferSize;
 Uint8	*gpTegra2Vid_IOMem;
 tPAddr	gTegra2Vid_FramebufferPhys;
@@ -71,7 +68,7 @@ int Tegra2Vid_Install(char **Arguments)
 {
 //	KeyVal_Parse(&gTegra2Vid_KeyValueParser, Arguments);
 	
-	gpTegra2Vid_IOMem = (void*)MM_MapHWPages(gTegra2Vid_PhysBase, 1);
+	gpTegra2Vid_IOMem = (void*)MM_MapHWPages(gTegra2Vid_PhysBase, 256/4);
 
 	Tegra2Vid_int_SetMode(4);
 
