@@ -94,7 +94,7 @@ apidoc:
 $(BIN): $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile
 	@echo --- LD -o $(BIN)
 	@$(LD) $(LDFLAGS) -o $(BIN) $(OBJ) $(MODS) --defsym __buildnum=$$(( $(BUILD_NUM) + 1 )) -Map ../Map.$(ARCH).txt
-	$(DISASM) -S $(BIN) > $(BIN).dsm
+	@$(DISASM) -S $(BIN) > $(BIN).dsm
 	@wc -l $(SRCFILES) include/*.h > LineCounts.$(ARCH).txt
 	@echo BUILD_NUM = $$(( $(BUILD_NUM) + 1 )) > Makefile.BuildNum.$(ARCH)
 	$(POSTBUILD)

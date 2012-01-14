@@ -350,5 +350,5 @@ kernel_exception_map:
 stack:
 	.space MM_KSTACK_SIZE, 0	@ Original kernel stack
 
-// vim: ts=8, ft=armv7
+// vim: ts=8 ft=armv7
 
