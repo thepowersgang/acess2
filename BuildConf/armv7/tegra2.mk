@@ -1,4 +1,4 @@
 
 include $(ACESSDIR)/BuildConf/armv7/default.mk
 
-MODULES += Display/Tegra2
+MODULES += Display/Tegra2Vid

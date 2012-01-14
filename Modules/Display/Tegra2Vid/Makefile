@@ -2,6 +2,6 @@
 #
 
 OBJ = main.o
-NAME = Tegra2
+NAME = Tegra2Vid
 
 -include ../Makefile.tpl

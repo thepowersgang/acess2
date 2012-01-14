@@ -30,9 +30,9 @@ Uint64	Tegra2Vid_Write(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer);
  int	Tegra2Vid_int_SetMode(int Mode);
 
 // === GLOBALS ===
-MODULE_DEFINE(0, VERSION, Video_Tegra2, Tegra2Vid_Install, NULL, NULL);
+MODULE_DEFINE(0, VERSION, Tegra2Vid, Tegra2Vid_Install, NULL, NULL);
 tDevFS_Driver	gTegra2Vid_DriverStruct = {
-	NULL, "PL110",
+	NULL, "Tegra2Vid",
 	{
 	.Read = Tegra2Vid_Read,
 	.Write = Tegra2Vid_Write,
@@ -54,7 +54,7 @@ const tKeyVal_ParseRules	gTegra2Vid_KeyValueParser = {
  int	giTegra2Vid_CurrentMode = 0;
  int	giTegra2Vid_BufferMode;
 size_t	giTegra2Vid_FramebufferSize;
-Uint8	*gpTegra2Vid_IOMem;
+Uint32	*gpTegra2Vid_IOMem;
 tPAddr	gTegra2Vid_FramebufferPhys;
 void	*gpTegra2Vid_Framebuffer;
 // -- Misc
@@ -252,8 +252,11 @@ int Tegra2Vid_int_SetMode(int Mode)
 
 	*(Uint32*)(gpTegra2Vid_IOMem + DC_WIN_A_POSITION_0) = 0;
 	*(Uint32*)(gpTegra2Vid_IOMem + DC_WIN_A_SIZE_0) = (mode->H << 16) | mode->W;
-	*(Uint8*)(gpTegra2Vid_IOMem + DC_WIN_A_COLOR_DEPTH_0) = 12;	// Could be 13 (BGR/RGB)
+	*(Uint32*)(gpTegra2Vid_IOMem + DC_DISP_DISP_COLOR_CONTROL_0) = 0x8;	// BASE888
+	*(Uint32*)(gpTegra2Vid_IOMem + DC_WIN_A_COLOR_DEPTH_0) = 12;	// Could be 13 (BGR/RGB)
 	*(Uint32*)(gpTegra2Vid_IOMem + DC_WIN_A_PRESCALED_SIZE_0) = (mode->H << 16) | mode->W;
+
+	Log_Debug("Tegra2Vid", "Mode %i (%ix%i) selected", Mode, w, h);
 
 	if( !gpTegra2Vid_Framebuffer || w*h*4 != giTegra2Vid_FramebufferSize )
 	{
@@ -270,6 +273,11 @@ int Tegra2Vid_int_SetMode(int Mode)
 			&gTegra2Vid_FramebufferPhys
 			);
 		// TODO: Catch allocation failures
+		Log_Debug("Tegra2Vid", "0x%x byte framebuffer at %p (%P phys)",
+				giTegra2Vid_FramebufferSize,
+				gpTegra2Vid_Framebuffer,
+				gTegra2Vid_FramebufferPhys
+				);
 		
 		// Tell hardware
 		*(Uint32*)(gpTegra2Vid_IOMem + DC_WINBUF_A_START_ADDR_0) = gTegra2Vid_FramebufferPhys;
