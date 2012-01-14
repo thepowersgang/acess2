@@ -103,6 +103,7 @@ void USB_AsyncCallback(void *Ptr, void *Buf, int Length)
 
 void USB_AsyncThread(void *Unused)
 {
+	Threads_SetName("USB Async IO Thread");
 	for(;;)
 	{
 		tAsyncOp *op = Workqueue_GetWork(&gUSB_AsyncQueue);
