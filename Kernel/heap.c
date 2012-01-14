@@ -700,6 +700,7 @@ void Heap_Stats(void)
 	
 	// Scan and get distribution
 	#if 1
+	if(nBlocks > 0)
 	{
 		struct {
 			Uint	Size;

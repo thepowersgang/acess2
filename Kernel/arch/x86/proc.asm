@@ -55,11 +55,14 @@ SwitchTasks:
 	
 	; Old IP
 	mov eax, [esp+0x20+16]
+	test eax, eax
+	jz .nosave
 	mov DWORD [eax], .restore
 	; Old SP
 	mov eax, [esp+0x20+8]
 	mov [eax], esp
 
+.nosave:
 	mov ecx, [esp+0x20+12]	; New IP
 	mov eax, [esp+0x20+20]	; New CR3
 	mov esp, [esp+0x20+ 4]	; New SP
@@ -376,4 +379,4 @@ User_Syscall_Exit:
 	mov ebx, [esp+4]
 	int 0xAC
 
-; vim: ft=nasm, ts=8
+; vim: ft=nasm ts=8

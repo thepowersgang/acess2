@@ -70,6 +70,8 @@ int USB_PollThread(void *unused)
 			}
 		}
 
+//		Log_Debug("USBPoll", "giUSB_PollPosition = %i", giUSB_PollPosition);
+
 		// A little evil for neater code
 		prev = (void*)( (tVAddr)&gUSB_PollQueues[giUSB_PollPosition] - offsetof(tUSBEndpoint, Next) );
 

@@ -212,14 +212,15 @@ void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 			);
 	}
 	
-	Log("Code at %p accessed %p", Regs->eip, Addr);
+	Log("CPU %i - Code at %p accessed %p", GetCPUNum(), Regs->eip, Addr);
 	// Print Stack Backtrace
 	Error_Backtrace(Regs->eip, Regs->ebp);
-	
+
+	#if 0	
 	Log("gaPageDir[0x%x] = 0x%x", Addr>>22, gaPageDir[Addr>>22]);
 	if( gaPageDir[Addr>>22] & PF_PRESENT )
 		Log("gaPageTable[0x%x] = 0x%x", Addr>>12, gaPageTable[Addr>>12]);
-	
+	#endif
 	//MM_DumpTables(0, -1);	
 	
 	// Register Dump

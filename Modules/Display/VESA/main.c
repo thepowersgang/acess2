@@ -51,6 +51,7 @@ tVM8086	*gpVesa_BiosState;
 tVesa_Mode	*gVesa_Modes;
 tVesa_Mode	*gpVesaCurMode;
  int	giVesaModeCount = 0;
+ int	gbVesaModesChecked;
 // --- Framebuffer ---
 char	*gpVesa_Framebuffer = (void*)VESA_DEFAULT_FRAMEBUFFER;
  int	giVesaPageCount = 0;	//!< Framebuffer size in pages
@@ -67,15 +68,12 @@ int Vesa_Install(char **Arguments)
 {
 	tVesa_CallInfo	*info;
 	tFarPtr	infoPtr;
-	tVesa_CallModeInfo	*modeinfo;
-	tFarPtr	modeinfoPtr;
 	Uint16	*modes;
 	int	i;
 	
 	// Allocate Info Block
 	gpVesa_BiosState = VM8086_Init();
 	info = VM8086_Allocate(gpVesa_BiosState, 512, &infoPtr.seg, &infoPtr.ofs);
-	modeinfo = VM8086_Allocate(gpVesa_BiosState, 512, &modeinfoPtr.seg, &modeinfoPtr.ofs);
 	// Set Requested Version
 	memcpy(info->signature, "VBE2", 4);
 	// Set Registers
@@ -109,42 +107,62 @@ int Vesa_Install(char **Arguments)
 	for( i = 1; i < giVesaModeCount; i++ )
 	{
 		gVesa_Modes[i].code = modes[i];
-		// Get Mode info
-		gpVesa_BiosState->AX = 0x4F01;
-		gpVesa_BiosState->CX = gVesa_Modes[i].code;
-		gpVesa_BiosState->ES = modeinfoPtr.seg;
-		gpVesa_BiosState->DI = modeinfoPtr.ofs;
-		VM8086_Int(gpVesa_BiosState, 0x10);
-		
-		// Parse Info
-		gVesa_Modes[i].flags = 0;
-		if ( (modeinfo->attributes & 0x90) == 0x90 )
-		{
-			gVesa_Modes[i].flags |= FLAG_LFB;
-			gVesa_Modes[i].framebuffer = modeinfo->physbase;
-			gVesa_Modes[i].fbSize = modeinfo->Yres*modeinfo->pitch;
-		} else {
-			gVesa_Modes[i].framebuffer = 0;
-			gVesa_Modes[i].fbSize = 0;
-		}
-		
-		gVesa_Modes[i].pitch = modeinfo->pitch;
-		gVesa_Modes[i].width = modeinfo->Xres;
-		gVesa_Modes[i].height = modeinfo->Yres;
-		gVesa_Modes[i].bpp = modeinfo->bpp;
-		
-		#if DEBUG
-		Log_Log("VESA", "0x%x - %ix%ix%i",
-			gVesa_Modes[i].code, gVesa_Modes[i].width, gVesa_Modes[i].height, gVesa_Modes[i].bpp);
-		#endif
 	}
-	
+
+//	VM8086_Deallocate( info );
 	
 	// Install Device
 	giVesaDriverId = DevFS_AddDevice( &gVesa_DriverStruct );
 	if(giVesaDriverId == -1)	return MODULE_ERR_MISC;
 	
 	return MODULE_ERR_OK;
+}
+
+void Vesa_int_FillModeList(void)
+{
+	if( !gbVesaModesChecked )
+	{
+		 int	i;
+		tVesa_CallModeInfo	*modeinfo;
+		tFarPtr	modeinfoPtr;
+		
+		modeinfo = VM8086_Allocate(gpVesa_BiosState, 512, &modeinfoPtr.seg, &modeinfoPtr.ofs);
+		for( i = 1; i < giVesaModeCount; i ++ )
+		{
+			// Get Mode info
+			gpVesa_BiosState->AX = 0x4F01;
+			gpVesa_BiosState->CX = gVesa_Modes[i].code;
+			gpVesa_BiosState->ES = modeinfoPtr.seg;
+			gpVesa_BiosState->DI = modeinfoPtr.ofs;
+			VM8086_Int(gpVesa_BiosState, 0x10);
+			
+			// Parse Info
+			gVesa_Modes[i].flags = 0;
+			if ( (modeinfo->attributes & 0x90) == 0x90 )
+			{
+				gVesa_Modes[i].flags |= FLAG_LFB;
+				gVesa_Modes[i].framebuffer = modeinfo->physbase;
+				gVesa_Modes[i].fbSize = modeinfo->Yres*modeinfo->pitch;
+			} else {
+				gVesa_Modes[i].framebuffer = 0;
+				gVesa_Modes[i].fbSize = 0;
+			}
+			
+			gVesa_Modes[i].pitch = modeinfo->pitch;
+			gVesa_Modes[i].width = modeinfo->Xres;
+			gVesa_Modes[i].height = modeinfo->Yres;
+			gVesa_Modes[i].bpp = modeinfo->bpp;
+			
+			#if DEBUG
+			Log_Log("VESA", "0x%x - %ix%ix%i",
+				gVesa_Modes[i].code, gVesa_Modes[i].width, gVesa_Modes[i].height, gVesa_Modes[i].bpp);
+			#endif
+		}
+	
+//		VM8086_Deallocate( modeinfo );
+		
+		gbVesaModesChecked = 1;
+	}
 }
 
 /* Read from the framebuffer
@@ -225,6 +243,8 @@ int Vesa_Int_SetMode(int mode)
 	// Check for fast return
 	if(mode == giVesaCurrentMode)	return 1;
 	
+	Vesa_int_FillModeList();
+
 	Time_RemoveTimer(giVesaCursorTimer);
 	giVesaCursorTimer = -1;
 	
@@ -274,6 +294,8 @@ int Vesa_Int_FindMode(tVideo_IOCtl_Mode *data)
 	 int	factor, tmp;
 	
 	ENTER("idata->width idata->height idata->bpp", data->width, data->height, data->bpp);
+
+	Vesa_int_FillModeList();
 	
 	for(i=0;i<giVesaModeCount;i++)
 	{
@@ -329,6 +351,9 @@ int Vesa_Int_FindMode(tVideo_IOCtl_Mode *data)
 int Vesa_Int_ModeInfo(tVideo_IOCtl_Mode *data)
 {
 	if(data->id < 0 || data->id > giVesaModeCount)	return -1;
+
+	Vesa_int_FillModeList();
+
 	data->width = gVesa_Modes[data->id].width;
 	data->height = gVesa_Modes[data->id].height;
 	data->bpp = gVesa_Modes[data->id].bpp;

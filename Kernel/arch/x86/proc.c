@@ -14,9 +14,9 @@
 #include <hal_proc.h>
 
 // === FLAGS ===
-#define DEBUG_TRACE_SWITCH	1
+#define DEBUG_TRACE_SWITCH	0
 #define DEBUG_DISABLE_DOUBLEFAULT	1
-#define DEBUG_VERY_SLOW_SWITCH	0
+#define DEBUG_VERY_SLOW_PERIOD	0
 
 // === CONSTANTS ===
 // Base is 1193182
@@ -165,6 +165,7 @@ void ArchThreads_Init(void)
 	{
 		 int	i;
 	 	tMPTable_Ent	*ents;
+		#if DUMP_MP_TABLE
 		Log("gMPFloatPtr = %p", gMPFloatPtr);
 		Log("*gMPFloatPtr = {");
 		Log("\t.Sig = 0x%08x", gMPFloatPtr->Sig);
@@ -178,8 +179,10 @@ void ArchThreads_Init(void)
 			gMPFloatPtr->Features[4]
 			);
 		Log("}");
-		
+		#endif		
+
 		mptable = (void*)( KERNEL_BASE|gMPFloatPtr->MPConfig );
+		#if DUMP_MP_TABLE
 		Log("mptable = %p", mptable);
 		Log("*mptable = {");
 		Log("\t.Sig = 0x%08x", mptable->Sig);
@@ -195,6 +198,7 @@ void ArchThreads_Init(void)
 		Log("\t.ExtendedTableLen = 0x%04x", mptable->ExtendedTableLen);
 		Log("\t.ExtendedTableChecksum = 0x%02x", mptable->ExtendedTableChecksum);
 		Log("}");
+		#endif
 		
 		gpMP_LocalAPIC = (void*)MM_MapHWPages(mptable->LocalAPICMemMap, 1);
 		
@@ -208,13 +212,14 @@ void ArchThreads_Init(void)
 			{
 			case 0:	// Processor
 				entSize = 20;
+				#if DUMP_MP_TABLE
 				Log("%i: Processor", i);
 				Log("\t.APICID = %i", ents->Proc.APICID);
 				Log("\t.APICVer = 0x%02x", ents->Proc.APICVer);
 				Log("\t.CPUFlags = 0x%02x", ents->Proc.CPUFlags);
 				Log("\t.CPUSignature = 0x%08x", ents->Proc.CPUSignature);
 				Log("\t.FeatureFlags = 0x%08x", ents->Proc.FeatureFlags);
-				
+				#endif
 				
 				if( !(ents->Proc.CPUFlags & 1) ) {
 					Log("DISABLED");
@@ -240,7 +245,7 @@ void ArchThreads_Init(void)
 				
 				break;
 			
-			#if DUMP_MP_TABLES
+			#if DUMP_MP_TABLE >= 2
 			case 1:	// Bus
 				entSize = 8;
 				Log("%i: Bus", i);
@@ -942,11 +947,22 @@ void Proc_Reschedule(void)
 		Proc_DisableSSE();
 	}
 
-	SwitchTasks(
-		nextthread->SavedState.ESP, &curthread->SavedState.ESP,
-		nextthread->SavedState.EIP, &curthread->SavedState.EIP,
-		nextthread->MemState.CR3
-		);
+	if( curthread )
+	{
+		SwitchTasks(
+			nextthread->SavedState.ESP, &curthread->SavedState.ESP,
+			nextthread->SavedState.EIP, &curthread->SavedState.EIP,
+			nextthread->MemState.CR3
+			);
+	}
+	else
+	{
+		SwitchTasks(
+			nextthread->SavedState.ESP, 0,
+			nextthread->SavedState.EIP, 0,
+			nextthread->MemState.CR3
+			);
+	}
 
 	return ;
 }

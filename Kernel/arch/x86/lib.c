@@ -22,6 +22,7 @@ extern struct sShortSpinlock	glThreadListLock;
 extern int	GetCPUNum(void);
 
 // === PROTOTYPES ==
+Uint64	__divmod64(Uint64 Num, Uint64 Den, Uint64 *Rem);
 Uint64	__udivdi3(Uint64 Num, Uint64 Den);
 Uint64	__umoddi3(Uint64 Num, Uint64 Den);
 
@@ -330,9 +331,12 @@ void *memcpyd(void *Dest, const void *Src, size_t Num)
 	return Dest;
 }
 
+#include "../helpers.h"
+
+DEF_DIVMOD(64);
+
 Uint64 DivMod64U(Uint64 Num, Uint64 Div, Uint64 *Rem)
 {
-	Uint64	ret;
 	if( Div < 0x100000000ULL && Num < 0xFFFFFFFF * Div ) {
 		Uint32	rem, ret_32;
 		__asm__ __volatile__(
@@ -344,9 +348,7 @@ Uint64 DivMod64U(Uint64 Num, Uint64 Div, Uint64 *Rem)
 		return ret_32;
 	}
 
-	ret = __udivdi3(Num, Div);
-	if(Rem)	*Rem = __umoddi3(Num, Div);
-	return ret;
+	return __divmod64(Num, Div, Rem);
 }
 
 /**
@@ -355,11 +357,10 @@ Uint64 DivMod64U(Uint64 Num, Uint64 Div, Uint64 *Rem)
  */
 Uint64 __udivdi3(Uint64 Num, Uint64 Den)
 {
-	Uint64	P[2];
-	Uint64	q = 0;
-	 int	i;
-	
-	if(Den == 0)	__asm__ __volatile__ ("int $0x0");
+	if(Den == 0) {
+		__asm__ __volatile__ ("int $0x0");
+		return -1;
+	}
 	// Common speedups
 	if(Num <= 0xFFFFFFFF && Den <= 0xFFFFFFFF)
 		return (Uint32)Num / (Uint32)Den;
@@ -375,46 +376,8 @@ Uint64 __udivdi3(Uint64 Num, Uint64 Den)
 	if(Num < Den)	return 0;
 	if(Num < Den*2)	return 1;
 	if(Num == Den*2)	return 2;
-	
-	#if 1
-	i = 0;	// Shut up
-	P[0] = Num;
-	P[1] = Den;
-	__asm__ __volatile__ (
-		"fildq %2\n\t"	// Num
-		"fildq %1\n\t"	// Den
-		"fdivp\n\t"
-		"fistpq %0"
-		: "=m" (q)
-		: "m" (P[0]), "m" (P[1])
-		);
-		
-	//Log("%llx / %llx = %llx\n", Num, Den, q);
-	#else
-	// Restoring division, from wikipedia
-	// http://en.wikipedia.org/wiki/Division_(digital)
-	P[0] = Num;	P[1] = 0;
-	for( i = 64; i--; )
-	{
-		// P <<= 1;
-		P[1] = (P[1] << 1) | (P[0] >> 63);
-		P[0] = P[0] << 1;
-		
-		// P -= Den << 64
-		P[1] -= Den;
-		
-		// P >= 0
-		if( !(P[1] & (1ULL<<63)) ) {
-			q |= (Uint64)1 << (63-i);
-		}
-		else {
-			//q |= 0 << (63-i);
-			P[1] += Den;
-		}
-	}
-	#endif
-	
-	return q;
+
+	return __divmod64(Num, Den, NULL);
 }
 
 /**
@@ -423,7 +386,11 @@ Uint64 __udivdi3(Uint64 Num, Uint64 Den)
  */
 Uint64 __umoddi3(Uint64 Num, Uint64 Den)
 {
-	if(Den == 0)	__asm__ __volatile__ ("int $0x0");	// Call Div by Zero Error
+	Uint64	ret = 0;
+	if(Den == 0) {
+		__asm__ __volatile__ ("int $0x0");	// Call Div by Zero Error
+		return -1;
+	}
 	if(Den == 1)	return 0;	// Speed Hacks
 	if(Den == 2)	return Num & 1;	// Speed Hacks
 	if(Den == 4)	return Num & 3;	// Speed Hacks
@@ -437,7 +404,8 @@ Uint64 __umoddi3(Uint64 Num, Uint64 Den)
 	if(Num >> 32 == 0 && Den >> 32 == 0)
 		return (Uint32)Num % (Uint32)Den;
 	
-	return Num - __udivdi3(Num, Den) * Den;
+	__divmod64(Num, Den, &ret);
+	return ret;
 }
 
 

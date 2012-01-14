@@ -68,17 +68,23 @@ start:
 	; Start Paging
 	mov ecx, gaInitPageDir - KERNEL_BASE
 	mov cr3, ecx
-	
 	mov ecx, cr0
 	or ecx, 0x80010000	; PG and WP
 	mov cr0, ecx
 	
 	mov WORD [0xB8002], 0x0763	; 'c'
-	mov WORD [0xB8004], 0x0765	; 'e'
 	
-	lea ecx, [.higherHalf]
-	jmp ecx
-.higherHalf:
+	; Set GDT
+	lgdt [gGDTPtr]
+	mov cx, 0x10	; PL0 Data
+	mov ss, cx
+	mov ds, cx
+	mov es, cx
+	mov gs, cx
+	mov fs, cx
+	mov WORD [0xB8004], 0x0765	; 'e'
+	jmp 0x08:.higher_half
+.higher_half:
 	
 	mov WORD [0xB8006], 0x0773	; 's'
 	mov WORD [0xB8008], 0x0773	; 's'
@@ -99,8 +105,6 @@ start:
 ; Multiprocessing AP Startup Code (Must be within 0 - 0x10FFF0)
 ;
 %if USE_MP
-[extern gGDT]
-[extern gGDTPtr]
 [extern gIDTPtr]
 [extern gpMP_LocalAPIC]
 [extern giMP_TimerCount]
@@ -108,6 +112,7 @@ start:
 [extern gaCPUs]
 [extern giNumInitingCPUs]
 [extern MM_NewKStack]
+[extern Proc_InitialiseSSE]
 
 lGDTPtr:	; Local GDT Pointer
 	dw	3*8-1
@@ -195,6 +200,9 @@ APStartup:
 	mov DWORD [ebp+0x360], 0x000100D2	; ##Enable LINT1 on IVT#0xD2
 	mov DWORD [ebp+0x370], 0x000100E1	; ##Enable Error on IVT#0xE1
 	mov DWORD [ebp+0x0B0], 0	; Send an EOI (just in case)
+
+	; Initialise SSE support
+	call Proc_InitialiseSSE
 	
 	; CPU is now marked as initialised
 
@@ -229,6 +237,25 @@ CallWithArgArray:
 	lea esp, [ebp]
 	pop ebp
 	ret
+
+[section .data]
+; GDT
+GDT_SIZE	equ	(1+2*2+1+MAX_CPUS)*8
+[global gGDT]
+gGDT:
+	; PL0 - Kernel
+	; PL3 - User
+	dd 0x00000000, 0x00000000	; 00 NULL Entry
+	dd 0x0000FFFF, 0x00CF9A00	; 08 PL0 Code
+	dd 0x0000FFFF, 0x00CF9200	; 10 PL0 Data
+	dd 0x0000FFFF, 0x00CFFA00	; 18 PL3 Code
+	dd 0x0000FFFF, 0x00CFF200	; 20 PL3 Data
+	dd 26*4-1, 0x00408900	; 28 Double Fault TSS
+	times MAX_CPUS	dd 26*4-1, 0x00408900	; 30+ TSSes
+[global gGDTPtr]
+gGDTPtr:
+	dw	GDT_SIZE-1
+	dd	gGDT
 
 [section .initpd]
 [global gaInitPageDir]

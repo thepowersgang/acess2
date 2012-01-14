@@ -105,7 +105,7 @@ void KernelPanic_SetMode(void)
 	for( i = 0; i < giNumCPUs; i ++ )
 	{
 		if(i == GetCPUNum())	continue ;
-		FB[i] = BGC|'A'+i;
+		FB[i] = BGC|('A'+i);
 		MP_SendIPIVector(i, 0xED);
 	}
 	#endif
