@@ -8,7 +8,7 @@
 .section .init
 interrupt_vector_table:
 ivt_reset:	b _start	@ 0x00 Reset
-ivt_undef:	b .     	@ 0x04 #UD
+ivt_undef:	b Undef_Handler	@ 0x04 #UD
 ivt_svc:	b SVC_Handler	@ 0x08 SVC (used to be called SWI)
 ivt_prefetch:	b PrefetchAbort	@ 0x0C Prefetch abort
 ivt_data:	b DataAbort	@ 0x10 Data abort
@@ -45,7 +45,12 @@ _start:
 	mrc p15, 0, r0, c1, c0, 0
 	orr r0, r0, #1
 	orr r0, r0, #1 << 23
+	mvn r1, #1 << 2
+	and r0, r0, r1
 	mcr p15, 0, r0, c1, c0, 0
+
+	@ HACK! Disable caching
+	mrc p15, 0, r1, c1, c0, 0
 
 	ldr r2, =0xF1000000
 	mov r1, #'s'
@@ -215,7 +220,15 @@ PrefetchAbort:
 	ldr r5, =Log_Error
 	blx r5
 
-	b .
+.loop:
+	wfi
+	b .loop
+.globl Undef_Handler
+Undef_Handler:
+	wfi
+	b Undef_Handler
+
+
 
 .section .rodata
 csIRQ_Tag:

@@ -37,7 +37,8 @@ typedef struct
 #define FRACTAL(table1, addr)	((table1)[ (0xFF8/4*1024) + ((addr)>>22)])
 #define USRFRACTAL(addr)	(*((Uint32*)(0x7FDFF000) + ((addr)>>22)))
 #define TLBIALL()	__asm__ __volatile__ ("mcr p15, 0, %0, c8, c7, 0" : : "r" (0))
-#define TLBIMVA(addr)	__asm__ __volatile__ ("mcr p15, 0, %0, c8, c7, 1" : : "r" (addr))
+#define TLBIMVA(addr)	__asm__ __volatile__ ("mcr p15, 0, %0, c8, c7, 1;dsb;isb" : : "r" ((addr)&~0xFFF):"memory")
+#define DCCMVAC(addr)	__asm__ __volatile__ ("mcr p15, 0, %0, c7, c10, 1" : : "r" ((addr)&~0xFFF))
 
 // === PROTOTYPES ===
 void	MM_int_GetTables(tVAddr VAddr, Uint32 **Table0, Uint32 **Table1);
@@ -163,7 +164,9 @@ int MM_int_SetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 			if( (*desc & 3) == 1 )	LEAVE_RET('i', 1);
 			if( pi->PhysAddr == 0 ) {
 				*desc = 0;
-				TLBIMVA(VAddr & 0xFFFFF000);
+				TLBIMVA( VAddr );
+				DCCMVAC( (tVAddr) desc );
+				TLBIALL();
 				LEAVE('i', 0);
 				return 0;
 			}
@@ -174,7 +177,9 @@ int MM_int_SetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 			if( pi->bShared)	*desc |= 1 << 10;	// S
 			*desc |= (pi->AP & 3) << 4;	// AP
 			*desc |= ((pi->AP >> 2) & 1) << 9;	// APX
-			TLBIMVA(VAddr & 0xFFFFF000);
+			TLBIMVA( VAddr );	
+			TLBIALL();
+			DCCMVAC( (tVAddr) desc );
 			LEAVE('i', 0);
 			return 0;
 		}
@@ -482,7 +487,6 @@ void MM_Deallocate(tVAddr VAddr)
 	tMM_PageInfo	pi;
 	
 	if( MM_int_GetPageInfo(VAddr, &pi) )	return ;
-
 	if( pi.PhysAddr == 0 )	return;
 	MM_DerefPhys(pi.PhysAddr);
 	
@@ -671,12 +675,14 @@ tPAddr MM_Clone(void)
 			memcpy(tmp_page, (void*)sp, 0x1000);
 			MM_FreeTemp( (tVAddr) tmp_page );
 		}
-	
+
 		MM_FreeTemp( (tVAddr)table );
 	}
 
 	MM_FreeTemp( (tVAddr)new_lvl1_1 );
 	MM_FreeTemp( (tVAddr)new_lvl1_2 );
+
+//	Log("MM_Clone: ret = %P", ret);
 
 	return ret;
 }

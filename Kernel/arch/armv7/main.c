@@ -43,8 +43,12 @@ int kmain(void)
 
 	//
 	LogF("Moving to arch-independent init\n");
+	#if PLATFORM_is_tegra2
+	System_Init("Acess2.armv7.bin /Acess=initrd: -VTerm:Video=Tegra2Vid");
+	#else
 	System_Init("Acess2.armv7.bin /Acess=initrd: -VTerm:Video=PL110");
-//	System_Init("/Acess=initrd:");
+	#endif
+//	System_Init("Acess2.armv7.bin /Acess=initrd:");
 	//TODO: 
 	LogF("End of kmain(), for(;;) Threads_Sleep();\n");
 	for(;;)

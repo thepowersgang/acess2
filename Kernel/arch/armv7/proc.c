@@ -208,6 +208,7 @@ void Proc_Reschedule(void)
 		next->SavedState.IP, next->SavedState.SP, next->MemState.Base,
 		next->SavedState.UserSP
 		);
+
 	Log("Requested by %p", __builtin_return_address(0));
 	
 	gpCurrentThread = next;

@@ -47,7 +47,7 @@ SwitchTask:
 	tst r1, r1
 	mcrne p15, 0, r1, c2, c0, 0	@ Set TTBR0 to r0
 	mov r1, #0
-	mcrne p15, 0, r1, c8, c7, 0	@ Invalidate all (HACK! But it fixes things)
+	mcrne p15, 0, r1, c8, c7, 0	@ TLBIALL - Invalidate all
 
 	@ Restore SP
 	mov sp, r0
@@ -99,4 +99,6 @@ Proc_int_DropToUser:
 
 .section .rodata
 csProc_CloneInt_NewTaskMessage:
-	.asciz "New task"
+	.asciz "New task PC=%p, R4=%p, sp=%p"
+csProc_CloneInt_OldTaskMessage:
+	.asciz "Parent task PC=%p, R4=%p, SP=%p"
