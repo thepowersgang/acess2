@@ -59,12 +59,15 @@ Uint32	gaVM8086_MemBitmap[VM8086_BLOCKCOUNT/32];
 int VM8086_Install(char **Arguments)
 {
 	tPID	pid;	
+
+	Semaphore_Init(&gVM8086_TasksToDo, 0, 10, "VM8086", "TasksToDo");
 	
 	// Lock to avoid race conditions
 	Mutex_Acquire( &glVM8086_Process );
 	
 	// Create BIOS Call process
 	pid = Proc_Clone(CLONE_VM);
+	Log_Debug("VM8086", "pid = %i", pid);
 	if(pid == -1)
 	{
 		Log_Error("VM8086", "Unable to clone kernel into VM8086 worker");
@@ -75,17 +78,16 @@ int VM8086_Install(char **Arguments)
 		Uint	* volatile stacksetup;	// Initialising Stack
 		Uint16	* volatile rmstack;	// Real Mode Stack
 		 int	i;
-		
+
+		Log_Debug("VM8086", "Initialising worker");	
+	
 		// Set Image Name
 		Threads_SetName("VM8086");
 
-//		Log_Debug("VM8086", "Mapping memory");	
-	
 		// Map ROM Area
 		for(i=0xA0;i<0x100;i++) {
 			MM_Map( i * 0x1000, i * 0x1000 );
 		}
-//		Log_Debug("VM8086", "ROM area mapped");
 		MM_Map( 0, 0 );	// IVT / BDA
 		// Map (but allow allocation) of 0x1000 - 0x9F000
 		// - So much hack, it isn't funny
@@ -102,7 +104,6 @@ int VM8086_Install(char **Arguments)
 			gVM8086_WorkerPID = 0;
 			Threads_Exit(0, 1);
 		}
-//		Log_Debug("VM8086", "Mapped low memory");
 		
 		*(Uint8*)(0x100000) = VM8086_OP_IRET;
 		*(Uint8*)(0x100001) = 0x07;	// POP ES
@@ -148,9 +149,10 @@ int VM8086_Install(char **Arguments)
 	}
 	
 	gVM8086_WorkerPID = pid;
-//	Log_Log("VM8086", "gVM8086_WorkerPID = %i", pid);
-	while( gpVM8086_State != NULL )
-		Threads_Yield();	// Yield to allow the child to initialise
+
+	// It's released when the GPF fires
+	Mutex_Acquire( &glVM8086_Process );
+	Mutex_Release( &glVM8086_Process );
 	
 	// Worker killed itself
 	if( gVM8086_WorkerPID != pid ) {
@@ -164,7 +166,7 @@ void VM8086_GPF(tRegs *Regs)
 {
 	Uint8	opcode;
 	
-	//Log_Log("VM8086", "GPF - %04x:%04x", Regs->cs, Regs->eip);
+//	Log_Log("VM8086", "GPF - %04x:%04x", Regs->cs, Regs->eip);
 	
 	if(Regs->eip == VM8086_MAGIC_IP && Regs->cs == VM8086_MAGIC_CS
 	&& Threads_GetPID() == gVM8086_WorkerPID)
@@ -174,8 +176,8 @@ void VM8086_GPF(tRegs *Regs)
 			gpVM8086_State = NULL;
 			Mutex_Release( &glVM8086_Process );	// Release lock obtained in VM8086_Install
 		}
-		//Log_Log("VM8086", "gpVM8086_State = %p, gVM8086_CallingThread = %i",
-		//	gpVM8086_State, gVM8086_CallingThread);
+//		Log_Log("VM8086", "gpVM8086_State = %p, gVM8086_CallingThread = %i",
+//			gpVM8086_State, gVM8086_CallingThread);
 		if( gpVM8086_State ) {
 			gpVM8086_State->AX = Regs->eax;	gpVM8086_State->CX = Regs->ecx;
 			gpVM8086_State->DX = Regs->edx;	gpVM8086_State->BX = Regs->ebx;
@@ -192,12 +194,12 @@ void VM8086_GPF(tRegs *Regs)
 		Semaphore_Wait(&gVM8086_TasksToDo, 1);
 		
 		//Log_Log("VM8086", "We have a task (%p)", gpVM8086_State);
-		Regs->esp -= 2;	*(Uint16*volatile)( (Regs->ss<<4) + (Regs->esp&0xFFFF) ) = VM8086_MAGIC_CS;
-		Regs->esp -= 2;	*(Uint16*volatile)( (Regs->ss<<4) + (Regs->esp&0xFFFF) ) = VM8086_MAGIC_IP;
-		Regs->esp -= 2;	*(Uint16*volatile)( (Regs->ss<<4) + (Regs->esp&0xFFFF) ) = gpVM8086_State->CS;
-		Regs->esp -= 2;	*(Uint16*volatile)( (Regs->ss<<4) + (Regs->esp&0xFFFF) ) = gpVM8086_State->IP;
-		Regs->esp -= 2;	*(Uint16*volatile)( (Regs->ss<<4) + (Regs->esp&0xFFFF) ) = gpVM8086_State->DS;
-		Regs->esp -= 2;	*(Uint16*volatile)( (Regs->ss<<4) + (Regs->esp&0xFFFF) ) = gpVM8086_State->ES;
+		Regs->esp -= 2;	*(Uint16*)( (Regs->ss<<4) + (Regs->esp&0xFFFF) ) = VM8086_MAGIC_CS;
+		Regs->esp -= 2;	*(Uint16*)( (Regs->ss<<4) + (Regs->esp&0xFFFF) ) = VM8086_MAGIC_IP;
+		Regs->esp -= 2;	*(Uint16*)( (Regs->ss<<4) + (Regs->esp&0xFFFF) ) = gpVM8086_State->CS;
+		Regs->esp -= 2;	*(Uint16*)( (Regs->ss<<4) + (Regs->esp&0xFFFF) ) = gpVM8086_State->IP;
+		Regs->esp -= 2;	*(Uint16*)( (Regs->ss<<4) + (Regs->esp&0xFFFF) ) = gpVM8086_State->DS;
+		Regs->esp -= 2;	*(Uint16*)( (Regs->ss<<4) + (Regs->esp&0xFFFF) ) = gpVM8086_State->ES;
 		
 		// Set Registers
 		Regs->eip = 0x11;	Regs->cs = 0xFFFF;
@@ -222,8 +224,9 @@ void VM8086_GPF(tRegs *Regs)
 		#endif
 		break;
 	case VM8086_OP_POPF:	//POPF
-		Regs->eflags &= 0xFFFF0002;
-		Regs->eflags |= *(Uint16*)( Regs->ss*16 + (Regs->esp&0xFFFF) ) & 0xFFFD;	// Changing IF is not allowed
+		// Changing IF is not allowed
+		Regs->eflags &= 0xFFFF0202;
+		Regs->eflags |= *(Uint16*)( Regs->ss*16 + (Regs->esp&0xFFFF) );
 		Regs->esp += 2;
 		#if TRACE_EMU
 		Log_Debug("VM8086", "Emulated POPF");
@@ -236,8 +239,8 @@ void VM8086_GPF(tRegs *Regs)
 		id = *(Uint8*)( Regs->cs*16 +(Regs->eip&0xFFFF));
 		Regs->eip ++;
 		
-		Regs->esp -= 2;	*(Uint16*volatile)( Regs->ss*16 + (Regs->esp&0xFFFF) ) = Regs->cs;
-		Regs->esp -= 2;	*(Uint16*volatile)( Regs->ss*16 + (Regs->esp&0xFFFF) ) = Regs->eip;
+		Regs->esp -= 2;	*(Uint16*)( Regs->ss*16 + (Regs->esp&0xFFFF) ) = Regs->cs;
+		Regs->esp -= 2;	*(Uint16*)( Regs->ss*16 + (Regs->esp&0xFFFF) ) = Regs->eip;
 		
 		Regs->cs = *(Uint16*)(4*id + 2);
 		Regs->eip = *(Uint16*)(4*id);

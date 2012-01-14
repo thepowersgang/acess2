@@ -45,7 +45,7 @@ int kmain(Uint MbMagic, void *MbInfoPtr)
 	tMBoot_Module	*mods;
 	tMBoot_Info	*mbInfo;
 
-	LogF("Acess2 x86 v"EXPAND_STR(KERNEL_VERSION)"\n");
+	LogF("Acess2 x86-"PLATFORM" v"EXPAND_STR(KERNEL_VERSION)"\n");
 	LogF(" Build %i, Git Hash %s\n", BUILD_NUM, gsGitHash);
 	
 	Log("MbMagic = %08x, MbInfoPtr = %p", MbMagic, MbInfoPtr);
@@ -81,7 +81,6 @@ int kmain(Uint MbMagic, void *MbInfoPtr)
 	MM_InstallVirtual();	// Clean up virtual address space
 	Heap_Install();		// Create initial heap
 	
-	//Log_Log("Arch", "Starting Multitasking...");
 	// Start Multitasking
 	Threads_Init();
 	

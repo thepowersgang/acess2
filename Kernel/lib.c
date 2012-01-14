@@ -210,8 +210,10 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 	size_t	pos = 0;
 	// Flags
 	 int	bPadLeft = 0;
+	
+	auto void _putch(char ch);
 
-	inline void _putch(char ch)
+	void _putch(char ch)
 	{
 		if(pos < __maxlen)
 		{

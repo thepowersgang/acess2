@@ -3,30 +3,8 @@
 ; desctab.asm
 [BITS 32]
 
-%if USE_MP
-MAX_CPUS	equ	8
-%else
-MAX_CPUS	equ	1
-%endif
-GDT_SIZE	equ	(1+2*2+1+MAX_CPUS)*8
 
 [section .data]
-; GDT
-[global gGDT]
-gGDT:
-	; PL0 - Kernel
-	; PL3 - User
-	dd 0x00000000, 0x00000000	; 00 NULL Entry
-	dd 0x0000FFFF, 0x00CF9A00	; 08 PL0 Code
-	dd 0x0000FFFF, 0x00CF9200	; 10 PL0 Data
-	dd 0x0000FFFF, 0x00CFFA00	; 18 PL3 Code
-	dd 0x0000FFFF, 0x00CFF200	; 20 PL3 Data
-	dd 26*4-1, 0x00408900	; 28 Double Fault TSS
-	times MAX_CPUS	dd 26*4-1, 0x00408900	; 30+ TSSes
-[global gGDTPtr]
-gGDTPtr:
-	dw	GDT_SIZE-1
-	dd	gGDT
 ; IDT
 ALIGN 8
 [global gIDT]
@@ -42,17 +20,6 @@ gIDTPtr:
 
 [global Desctab_Install]
 Desctab_Install:
-	; Set GDT
-	lgdt [gGDTPtr]
-	mov ax, 0x10	; PL0 Data
-	mov ss, ax
-	mov ds, ax
-	mov es, ax
-	mov gs, ax
-	mov fs, ax
-	jmp 0x08:.pl0code
-.pl0code:
-
 	; Set up IDT
 	; Helper Macros
 	; - Set an IDT entry to an ISR
