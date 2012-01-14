@@ -67,10 +67,47 @@ tVideo_IOCtl_Pos	gTegra2Vid_CursorPos;
 int Tegra2Vid_Install(char **Arguments)
 {
 //	KeyVal_Parse(&gTegra2Vid_KeyValueParser, Arguments);
-	
-	gpTegra2Vid_IOMem = (void*)MM_MapHWPages(gTegra2Vid_PhysBase, 256/4);
 
-	Tegra2Vid_int_SetMode(4);
+	gpTegra2Vid_IOMem = (void*)MM_MapHWPages(gTegra2Vid_PhysBase, 256/4);
+	{
+		Log_Debug("Tegra2Vid", "Display CMD Registers");
+		for( int i = 0x000; i <= 0x01A; i ++ )
+			Log_Debug("Tegra2Vid", "[0x%03x] = 0x%08x", i, gpTegra2Vid_IOMem[i]);
+		for( int i = 0x028; i <= 0x043; i ++ )
+			Log_Debug("Tegra2Vid", "[0x%03x] = 0x%08x", i, gpTegra2Vid_IOMem[i]);
+		Log_Debug("Tegra2Vid", "Display COM Registers");
+		for( int i = 0x300; i <= 0x329; i ++ )
+			Log_Debug("Tegra2Vid", "[0x%03x] = 0x%08x", i, gpTegra2Vid_IOMem[i]);
+		Log_Debug("Tegra2Vid", "Display DISP Registers");
+		for( int i = 0x400; i <= 0x446; i ++ )
+			Log_Debug("Tegra2Vid", "[0x%03x] = 0x%08x", i, gpTegra2Vid_IOMem[i]);
+		for( int i = 0x480; i <= 0x484; i ++ )
+			Log_Debug("Tegra2Vid", "[0x%03x] = 0x%08x", i, gpTegra2Vid_IOMem[i]);
+		for( int i = 0x4C0; i <= 0x4C1; i ++ )
+			Log_Debug("Tegra2Vid", "[0x%03x] = 0x%08x", i, gpTegra2Vid_IOMem[i]);
+
+		Log_Debug("Tegra2Vid", "WINC_A Registers");
+		for( int i = 0x700; i <= 0x714; i ++ )
+			Log_Debug("Tegra2Vid", "[0x%03x] = 0x%08x", i, gpTegra2Vid_IOMem[i]);
+		Log_Debug("Tegra2Vid", "WINBUF_A");
+		for( int i = 0x800; i <= 0x80A; i ++ )
+			Log_Debug("Tegra2Vid", "[0x%03x] = 0x%08x", i, gpTegra2Vid_IOMem[i]);
+	}
+//	return 1;
+	
+	giTegra2Vid_FramebufferSize =
+		(gpTegra2Vid_IOMem[DC_WIN_A_SIZE_0]&0xFFFF)
+		*(gpTegra2Vid_IOMem[DC_WIN_A_SIZE_0]>>16)*4;
+
+	Log_Debug("Tegra2Vid", "giTegra2Vid_FramebufferSize = 0x%x", giTegra2Vid_FramebufferSize);
+	gpTegra2Vid_Framebuffer = MM_MapHWPages(
+		gpTegra2Vid_IOMem[DC_WINBUF_A_START_ADDR_0],
+		(giTegra2Vid_FramebufferSize+PAGE_SIZE-1)/PAGE_SIZE
+		);
+	memset(gpTegra2Vid_Framebuffer, 0x1F, 0x1000);
+
+
+//	Tegra2Vid_int_SetMode(4);
 
 	DevFS_AddDevice( &gTegra2Vid_DriverStruct );
 
