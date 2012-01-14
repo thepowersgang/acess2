@@ -166,6 +166,7 @@ int MM_int_SetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 				*desc = 0;
 				TLBIMVA( VAddr );
 				DCCMVAC( (tVAddr) desc );
+				#warning "HACK: TLBIALL"
 				TLBIALL();
 				LEAVE('i', 0);
 				return 0;
@@ -178,6 +179,7 @@ int MM_int_SetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 			*desc |= (pi->AP & 3) << 4;	// AP
 			*desc |= ((pi->AP >> 2) & 1) << 9;	// APX
 			TLBIMVA( VAddr );	
+			#warning "HACK: TLBIALL"
 			TLBIALL();
 			DCCMVAC( (tVAddr) desc );
 			LEAVE('i', 0);
