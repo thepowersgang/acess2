@@ -76,7 +76,6 @@ SwitchTasks:
 	jmp ecx
 
 .restore:
-
 	popa
 	xor eax, eax
 	ret

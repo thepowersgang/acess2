@@ -199,8 +199,8 @@ void Proc_PrintBacktrace(void)
 void Error_Backtrace(Uint eip, Uint ebp)
 {
 	 int	i = 0;
-	Uint	delta = 0;
-	char	*str = NULL;
+//	Uint	delta = 0;
+//	char	*str = NULL;
 	
 	//if(eip < 0xC0000000 && eip > 0x1000)
 	//{
@@ -221,10 +221,10 @@ void Error_Backtrace(Uint eip, Uint ebp)
 	}
 	
 	//str = Debug_GetSymbol(eip, &delta);
-	if(str == NULL)
+//	if(str == NULL)
 		LogF("Backtrace: 0x%x", eip);
-	else
-		LogF("Backtrace: %s+0x%x", str, delta);
+//	else
+//		LogF("Backtrace: %s+0x%x", str, delta);
 	if(!MM_GetPhysAddr(ebp))
 	{
 		LogF("\nBacktrace: Invalid EBP, stopping\n");
@@ -236,10 +236,10 @@ void Error_Backtrace(Uint eip, Uint ebp)
 	{
 		if( ebp >= MM_KERNEL_STACKS_END )	break;
 		//str = Debug_GetSymbol(*(Uint*)(ebp+4), &delta);
-		if(str == NULL)
+//		if(str == NULL)
 			LogF(" >> 0x%x", *(Uint*)(ebp+4));
-		else
-			LogF(" >> %s+0x%x", str, delta);
+//		else
+//			LogF(" >> %s+0x%x", str, delta);
 		ebp = *(Uint*)ebp;
 		i++;
 	}
