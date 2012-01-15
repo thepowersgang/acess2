@@ -392,7 +392,7 @@ tElement *Widget_GetElementByPos(tWidgetWin *Info, int X, int Y)
 	tElement	*ret, *next, *ele;
 	
 	next = &Info->RootElement;
-	while(next)
+	do
 	{
 		ret = next;
 		next = NULL;
@@ -405,7 +405,7 @@ tElement *Widget_GetElementByPos(tWidgetWin *Info, int X, int Y)
 			if(Y >= ele->CachedY + ele->CachedH)	continue;
 			next = ele;
 		}
-	}
+	} while(next);
 	return ret;
 }
 

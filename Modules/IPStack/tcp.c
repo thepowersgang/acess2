@@ -764,7 +764,7 @@ Uint16 TCP_GetUnusedPort()
 
 	// Get Next outbound port
 	ret = giTCP_NextOutPort++;
-	while( gaTCP_PortBitmap[ret/32] & (1 << (ret%32)) )
+	while( gaTCP_PortBitmap[ret/32] & (1UL << (ret%32)) )
 	{
 		ret ++;
 		giTCP_NextOutPort++;

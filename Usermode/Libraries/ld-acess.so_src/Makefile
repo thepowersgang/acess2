@@ -8,6 +8,7 @@ OBJ := main.o lib.o loadlib.o export.o elf.o pe.o
 OBJ += arch/$(ARCHDIR).ao
 BIN = ld-acess.so
 EXTRABIN := libld-acess.so
+EXTRACLEAN := $(_OBJPREFIX)_stublib.o
 
 CFLAGS   = -g -Wall -fno-builtin -fno-leading-underscore -fno-stack-protector -fPIC
 CFLAGS  += $(CPPFLAGS)

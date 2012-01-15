@@ -22,7 +22,7 @@ tWindow	*gpWM_DownStartWindow[MAX_BUTTONS];
 // === CODE ===
 tWindow *WM_int_GetWindowAtPos(int X, int Y)
 {
-	tWindow	*win, *next_win, *ret;
+	tWindow	*win, *next_win, *ret = NULL;
 	
 	next_win = gpWM_RootWindow;
 

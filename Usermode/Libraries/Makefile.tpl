@@ -19,7 +19,7 @@ DEPFILES := $(addsuffix .dep,$(OBJ))
 all: $(_BIN) $(_XBIN)
 
 clean:
-	$(RM) $(_BIN) $(_XBIN) $(OBJ) $(_BIN).dsm $(DEPFILES)
+	$(RM) $(_BIN) $(_XBIN) $(OBJ) $(_BIN).dsm $(DEPFILES) $(EXTRACLEAN)
 
 install: all
 	@echo [xCP] $(DISTROOT)/Libs/$(BIN)

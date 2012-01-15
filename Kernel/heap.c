@@ -68,7 +68,7 @@ void *Heap_Extend(int Bytes)
 	
 	// Bounds Check
 	if( (tVAddr)gHeapEnd + ((Bytes+0xFFF)&~0xFFF) > MM_KHEAP_MAX ) {
-		Bytes = MM_KHEAP_MAX - (tVAddr)gHeapEnd;
+//		Bytes = MM_KHEAP_MAX - (tVAddr)gHeapEnd;
 		return NULL;
 	}
 	

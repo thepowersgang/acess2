@@ -135,8 +135,8 @@ tPAddr MM_AllocPhys(void)
 	 int	first, last;
 	for( i = numAddrClasses; i -- > 1; )
 	{
-		first = 1 << (addrClasses[i-1] - 12);
-		last = (1 << (addrClasses[i] - 12)) - 1;
+		first = 1UL << (addrClasses[i-1] - 12);
+		last = (1UL << (addrClasses[i] - 12)) - 1;
 		// Range is above the last free page
 		if( first > giLastPossibleFree )
 			continue;
