@@ -27,7 +27,7 @@ int Mutex_Acquire(tMutex *Mutex)
 	// Get protector
 	SHORTLOCK( &Mutex->Protector );
 	
-	//Log("Mutex_Acquire: (%p)", Mutex);
+//	Log("Mutex_Acquire: (%p)", Mutex);
 	
 	// Check if the lock is already held
 	if( Mutex->Owner ) {
@@ -94,17 +94,12 @@ void Mutex_Release(tMutex *Mutex)
 		Mutex->Owner = Mutex->Waiting;	// Set owner
 		Mutex->Waiting = Mutex->Waiting->Next;	// Next!
 		// Reset ->LastWaiting to NULL if we have just removed the last waiting thread
-		// 2010-10-02 21:50 - Comemerating the death of the longest single
-		//                    blocker in the Acess2 history. REMEMBER TO
-		//                    FUCKING MAINTAIN YOUR FUCKING LISTS DIPWIT
 		if( Mutex->LastWaiting == Mutex->Owner )
 			Mutex->LastWaiting = NULL;
 		
 		// Wake new owner
-		SHORTLOCK( &glThreadListLock );
 		if( Mutex->Owner->Status != THREAD_STAT_ACTIVE )
 			Threads_AddActive(Mutex->Owner);
-		SHORTREL( &glThreadListLock );
 	}
 	else {
 		Mutex->Owner = NULL;
