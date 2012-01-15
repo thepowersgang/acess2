@@ -9,7 +9,7 @@ SUBMAKE = $(MAKE) --no-print-directory
 
 .PNONY: all install clean $(FILES)
 
-all: $(FILES)
+all:
 	@$(foreach DIR,$(DIRS), echo --- $(NAME)/$(DIR) && $(SUBMAKE) -C $(DIR) $@ &&) true
 install: $(FILES)
 	@$(xMKDIR) $(DISTROOT)/Apps ; true
