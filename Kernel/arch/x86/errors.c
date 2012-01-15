@@ -207,7 +207,8 @@ void Error_Backtrace(Uint eip, Uint ebp)
 	//	LogF("Backtrace: User - 0x%x\n", eip);
 	//	return;
 	//}
-	
+
+	#if 0	
 	if(eip > 0xE0000000)
 	{
 		LogF("Backtrace: Data Area - 0x%x\n", eip);
@@ -219,7 +220,8 @@ void Error_Backtrace(Uint eip, Uint ebp)
 		LogF("Backtrace: Kernel Module - 0x%x\n", eip);
 		return;
 	}
-	
+	#endif	
+
 	//str = Debug_GetSymbol(eip, &delta);
 //	if(str == NULL)
 		LogF("Backtrace: 0x%x", eip);

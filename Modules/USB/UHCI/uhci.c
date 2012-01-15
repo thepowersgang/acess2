@@ -151,8 +151,16 @@ tUHCI_TD *UHCI_int_GetTDFromPhys(tPAddr PAddr)
 {
 	// TODO: Fix this to work with a non-contiguous pool
 	static tPAddr	td_pool_base;
+	const int pool_size = NUM_TDs;
+	 int	offset;
 	if(!td_pool_base)	td_pool_base = MM_GetPhysAddr( (tVAddr)gaUHCI_TDPool );
-	return gaUHCI_TDPool + (PAddr - td_pool_base) / sizeof(gaUHCI_TDPool[0]);
+	offset = (PAddr - td_pool_base) / sizeof(gaUHCI_TDPool[0]);
+	if( offset < 0 || offset >= pool_size )
+	{
+		Log_Error("UHCI", "TD PAddr %P not from pool", PAddr);
+		return NULL;
+	}
+	return gaUHCI_TDPool + offset;
 }
 
 void UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_TD *TD)
@@ -375,7 +383,7 @@ void UHCI_InterruptHandler(int IRQ, void *Ptr)
 		{
 			link = Host->FrameList[frame];
 			Host->FrameList[frame] = 1;
-			while( !(link & 1) )
+			while( link && !(link & 1) )
 			{
 				tUHCI_TD *td = UHCI_int_GetTDFromPhys(link);
 				 int	byte_count = (td->Control&0x7FF)+1;
@@ -385,6 +393,7 @@ void UHCI_InterruptHandler(int IRQ, void *Ptr)
 				if(td->_info.bCopyData)
 				{
 					void *ptr = (void*)MM_MapTemp(td->BufferPointer);
+					Log_Debug("UHCI", "td->_info.DataPtr = %p", td->_info.DataPtr);
 					memcpy(td->_info.DataPtr, ptr, byte_count);
 					MM_FreeTemp((tVAddr)ptr);
 				}
