@@ -188,7 +188,7 @@ Isr0xEE:
 	push eax	; Line up with interrupt number
 	mov eax, dr1	; CPU Number
 	push eax
-	mov eax, [esp-4]	; Load EAX back
+	mov eax, [esp+4]	; Load EAX back
 	jmp SchedulerBase
 ; Spurious Interrupt
 [global Isr0xEF]
@@ -323,3 +323,5 @@ IRQCommon:
 	popa
 	add esp, 8	; Error Code and ID
 	iret
+
+; vim: ft=nasm ts=8

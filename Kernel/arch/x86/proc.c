@@ -973,6 +973,7 @@ void Proc_Reschedule(void)
  */
 void Proc_Scheduler(int CPU)
 {
+#if 0
 	tThread	*thread;
 	
 	// If the spinlock is set, let it complete
@@ -1005,7 +1006,6 @@ void Proc_Scheduler(int CPU)
 			regs->eflags &= ~0x100;	// Clear TF
 	}
 
-#if 0
 	// TODO: Ack timer?
 	#if USE_MP
 	if( GetCPUNum() )
