@@ -135,6 +135,9 @@ void Threads_Delete(tThread *Thread)
 {
 	// Set to dead
 	Thread->Status = THREAD_STAT_BURIED;
+
+	// Clear out process state
+	Proc_ClearThread(Thread);			
 	
 	// Free name
 	if( IsHeap(Thread->ThreadName) )
@@ -418,22 +421,17 @@ tTID Threads_WaitTID(int TID, int *Status)
 	// Specific Thread
 	if(TID > 0) {
 		tThread	*t = Threads_GetThread(TID);
-		 int	initStatus = t->Status;
 		tTID	ret;
 		
 		// Wait for the thread to die!
-		if(initStatus != THREAD_STAT_ZOMBIE) {
-			// TODO: Handle child also being suspended if wanted
-			while(t->Status != THREAD_STAT_ZOMBIE) {
-				Threads_Sleep();
-				Log_Debug("Threads", "%i waiting for %i, t->Status = %i",
-					Threads_GetTID(), t->TID, t->Status);
-			}
+		// TODO: Handle child also being suspended if wanted
+		while(t->Status != THREAD_STAT_ZOMBIE) {
+			Threads_Sleep();
+			Log_Debug("Threads", "%i waiting for %i, t->Status = %i",
+				Threads_GetTID(), t->TID, t->Status);
 		}
 		
 		// Set return status
-		Log_Debug("Threads", "%i waiting for %i, t->Status = %i",
-			Threads_GetTID(), t->TID, t->Status);
 		ret = t->TID;
 		switch(t->Status)
 		{
@@ -630,8 +628,6 @@ void Threads_Kill(tThread *Thread, int Status)
 	Thread->RetStatus = Status;
 
 	SHORTREL( &Thread->IsLocked );
-	// Clear out process state
-	Proc_ClearThread(Thread);			
 
 	Thread->Status = THREAD_STAT_ZOMBIE;
 	SHORTREL( &glThreadListLock );
