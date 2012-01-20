@@ -530,7 +530,8 @@ void MM_ClearSpace(Uint32 CR3)
 	}
 
 	if( MM_GetRefCount(CR3) > 1 ) {
-		Log_Log("MMVirt", "CR3 %P is still referenced, not clearing", CR3);
+		MM_DerefPhys(CR3);
+		Log_Log("MMVirt", "CR3 %P is still referenced, not cleaning (but dereferenced)", CR3);
 		return ;
 	}
 

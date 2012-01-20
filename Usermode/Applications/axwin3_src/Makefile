@@ -11,12 +11,12 @@ SUBMAKE = $(MAKE) --no-print-directory
 
 all:
 	@$(foreach DIR,$(DIRS), echo --- $(NAME)/$(DIR) && $(SUBMAKE) -C $(DIR) $@ &&) true
-install: $(FILES)
+install:
 	@$(xMKDIR) $(DISTROOT)/Apps ; true
 	@$(xMKDIR) $(DISTROOT)/Apps/AxWin ; true
 	@$(xMKDIR) $(DISTROOT)/Apps/3.0 ; true
 	@$(foreach DIR,$(DIRS), echo --- $(NAME)/$(DIR) && $(SUBMAKE) -C $(DIR) $@ &&) true
-#	@$(foreach FILE,$(FILES), $(SUBMAKE) -C $(FILE);) true
+	@$(foreach FILE,$(FILES), $(xCP) $(FILE:-%=%) $(DISTROOT)/Apps/AxWin/3.0/$(FILE:-%=%) &&) true
 
 clean:
 	@$(foreach DIR,$(DIRS), $(SUBMAKE) -C $(DIR) $@ &&) true
