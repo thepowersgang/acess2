@@ -6,6 +6,8 @@
  */
 #include <acess.h>
 #include <threads_int.h>
+#include <arch_int.h>
+#include <hal_proc.h>	// GetCPUNum
 
 #define TRACE_LOCKS	0
 
@@ -21,8 +23,6 @@ extern tMutex	glPhysAlloc;
 #define TRACE_LOCK_COND	(Lock != &glDebug_Lock && Lock != &glThreadListLock && Lock != &glPhysAlloc.Protector)
 //#define TRACE_LOCK_COND	(Lock != &glDebug_Lock && Lock != &glPhysAlloc.Protector)
 #endif
-
-extern int	GetCPUNum(void);
 
 // === PROTOTYPES ==
 Uint64	__divmod64(Uint64 Num, Uint64 Den, Uint64 *Rem);
@@ -52,6 +52,17 @@ int CPU_HAS_LOCK(struct sShortSpinlock *Lock)
 	return Lock->Lock == GetCPUNum() + 1;
 }
 
+void __AtomicTestSetLoop(Uint *Ptr, Uint Value)
+{
+	__ASM__(
+		"1:\n\t"
+		"xor %%eax, %%eax;\n\t"
+		"lock cmpxchgl %0, (%1);\n\t"
+		"jnz 1b;\n\t"
+		:: "r"(Value), "r"(Ptr)
+		: "eax" // EAX clobbered
+		);
+}
 /**
  * \brief Acquire a Short Spinlock
  * \param Lock	Lock pointer
@@ -85,15 +96,7 @@ void SHORTLOCK(struct sShortSpinlock *Lock)
 	__ASM__("cli");
 	
 	// Wait for another CPU to release
-	__ASM__(
-		"1:\n\t"
-		"xor %%eax, %%eax;\n\t"
-		"lock cmpxchgl %0, (%1);\n\t"
-		"jnz 1b;\n\t"
-		:: "r"(cpu), "r"(&Lock->Lock)
-		: "eax" // EAX clobbered
-		);
-	
+	__AtomicTestSetLoop( (Uint*)&Lock->Lock, cpu );
 	Lock->IF = IF;
 	
 	#if TRACE_LOCKS

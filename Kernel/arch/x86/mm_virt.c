@@ -16,6 +16,7 @@
 #include <mm_phys.h>
 #include <proc.h>
 #include <hal_proc.h>
+#include <arch_int.h>
 
 #define TAB	22
 
@@ -53,6 +54,15 @@
 #define	PF_NOPAGE	0x400
 
 #define INVLPG(addr)	__asm__ __volatile__ ("invlpg (%0)"::"r"(addr))
+
+#define GET_TEMP_MAPPING(cr3) do { \
+	__ASM__("cli"); \
+	__AtomicTestSetLoop( (Uint *)gpTmpCR3, cr3 | 3 ); \
+} while(0)
+#define REL_TEMP_MAPPING() do { \
+	*gpTmpCR3 = 0; \
+	__ASM__("sti"); \
+} while(0)
 
 typedef Uint32	tTabEnt;
 
@@ -136,6 +146,8 @@ void MM_InstallVirtual(void)
 	for( i = ((tVAddr)&_UsertextEnd-(tVAddr)&_UsertextBase+0xFFF)/4096; i--; ) {
 		MM_SetFlags( (tVAddr)&_UsertextBase + i*4096, 0, MM_PFLAG_KERNEL );
 	}
+	
+	*gpTmpCR3 = 0;
 }
 
 /**
@@ -178,8 +190,9 @@ void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 		INVLPG( Addr & ~0xFFF );
 		return;
 	}
-	
-	__asm__ __volatile__ ("pushf; andw $0xFEFF, 0(%esp); popf");
+
+	// Disable instruction tracing	
+	__ASM__("pushf; andw $0xFEFF, 0(%esp); popf");
 	Proc_GetCurThread()->bInstrTrace = 0;
 
 	// If it was a user, tell the thread handler
@@ -190,7 +203,7 @@ void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 			(ErrorCode&16?" (Instruction Fetch)":"")
 			);
 		Log_Warning("MMVirt", "Instruction %04x:%08x accessed %p", Regs->cs, Regs->eip, Addr);
-		__asm__ __volatile__ ("sti");	// Restart IRQs
+		__ASM__("sti");	// Restart IRQs
 		#if 1
 		Error_Backtrace(Regs->eip, Regs->ebp);
 		#endif
@@ -329,7 +342,7 @@ tPAddr MM_Allocate(tVAddr VAddr)
 {
 	tPAddr	paddr;
 	//ENTER("xVAddr", VAddr);
-	//__asm__ __volatile__ ("xchg %bx,%bx");
+	//__ASM__("xchg %bx,%bx");
 	// Check if the directory is mapped
 	if( gaPageDir[ VAddr >> 22 ] == 0 )
 	{
@@ -414,7 +427,7 @@ tPAddr MM_GetPhysAddr(tVAddr Addr)
  */
 void MM_SetCR3(Uint CR3)
 {
-	__asm__ __volatile__ ("mov %0, %%cr3"::"r"(CR3));
+	__ASM__("mov %0, %%cr3"::"r"(CR3));
 }
 
 /**
@@ -426,7 +439,7 @@ int MM_Map(tVAddr VAddr, tPAddr PAddr)
 	//ENTER("xVAddr xPAddr", VAddr, PAddr);
 	// Sanity check
 	if( PAddr & 0xFFF || VAddr & 0xFFF ) {
-		Warning("MM_Map - Physical or Virtual Addresses are not aligned");
+		Log_Warning("MM_Virt", "MM_Map - Physical or Virtual Addresses are not aligned");
 		//LEAVE('i', 0);
 		return 0;
 	}
@@ -505,27 +518,78 @@ void MM_ClearUser(void)
 }
 
 /**
+ * \brief Deallocate an address space
+ */
+void MM_ClearSpace(Uint32 CR3)
+{
+	 int	i, j;
+	
+	if(CR3 == (*gpPageCR3 & ~0xFFF)) {
+		Log_Error("MMVirt", "Can't clear current address space");
+		return ;
+	}
+
+	if( MM_GetRefCount(CR3) > 1 ) {
+		Log_Log("MMVirt", "CR3 %P is still referenced, not clearing", CR3);
+		return ;
+	}
+
+	Log_Debug("MMVirt", "Clearing out address space 0x%x from 0x%x", CR3, *gpPageCR3);
+	
+	GET_TEMP_MAPPING(CR3);
+	INVLPG( gaTmpDir );
+
+	for( i = 0; i < 1024; i ++ )
+	{
+		Uint32	*table = &gaTmpTable[i*1024];
+		if( !(gaTmpDir[i] & PF_PRESENT) )
+			continue ;
+
+		INVLPG( table );	
+
+		if( i < 768 || (i > MM_KERNEL_STACKS >> 22 && i < MM_KERNEL_STACKS_END >> 22) )
+		{
+			for( j = 0; j < 1024; j ++ )
+			{
+				if( !(table[j] & 1) )
+					continue;
+				MM_DerefPhys( table[j] & ~0xFFF );
+			}
+		}
+
+		if( i != (PAGE_TABLE_ADDR >> 22) )
+		{		
+			MM_DerefPhys( gaTmpDir[i] & ~0xFFF );
+		}
+	}
+
+
+	MM_DerefPhys( CR3 );
+
+	REL_TEMP_MAPPING();
+}
+
+/**
  * \fn tPAddr MM_Clone(void)
  * \brief Clone the current address space
  */
 tPAddr MM_Clone(void)
 {
 	Uint	i, j;
-	tVAddr	ret;
+	tPAddr	ret;
 	Uint	page = 0;
 	tVAddr	kStackBase = Proc_GetCurThread()->KernelStack - MM_KERNEL_STACK_SIZE;
 	void	*tmp;
 	
-	Mutex_Acquire( &glTempFractal );
-	
 	// Create Directory Table
-	*gpTmpCR3 = MM_AllocPhys() | 3;
-	if( *gpTmpCR3 == 3 ) {
-		*gpTmpCR3 = 0;
+	ret = MM_AllocPhys();
+	if( ret == 0 ) {
 		return 0;
 	}
+	
+	// Map
+	GET_TEMP_MAPPING( ret );
 	INVLPG( gaTmpDir );
-	//LOG("Allocated Directory (%x)", *gpTmpCR3);
 	memsetd( gaTmpDir, 0, 1024 );
 	
 	if( Threads_GetPID() != 0 )
@@ -572,6 +636,10 @@ tPAddr MM_Clone(void)
 		if( i == (PAGE_TABLE_ADDR >> 22) ) {
 			gaTmpDir[ PAGE_TABLE_ADDR >> 22 ] = *gpTmpCR3;
 			continue;
+		}
+		if( i == (TMP_TABLE_ADDR >> 22) ) {
+			gaTmpDir[ TMP_TABLE_ADDR >> 22 ] = 0;
+			continue ;
 		}
 		
 		if( gaPageDir[i] == 0 ) {
@@ -628,8 +696,7 @@ tPAddr MM_Clone(void)
 		}
 	}
 	
-	ret = *gpTmpCR3 & ~0xFFF;
-	Mutex_Release( &glTempFractal );
+	REL_TEMP_MAPPING();
 	
 	//LEAVE('x', ret);
 	return ret;
@@ -709,14 +776,9 @@ tVAddr MM_NewWorkerStack(Uint *StackContents, size_t ContentsSize)
 	base = WORKER_STACKS + base * WORKER_STACK_SIZE;
 	//Log(" MM_NewWorkerStack: base = 0x%x", base);
 	
-	// Acquire the lock for the temp fractal mappings
-	Mutex_Acquire(&glTempFractal);
-	
 	// Set the temp fractals to TID0's address space
-	*gpTmpCR3 = ((Uint)gaInitPageDir - KERNEL_BASE) | 3;
-	//Log(" MM_NewWorkerStack: *gpTmpCR3 = 0x%x", *gpTmpCR3);
+	GET_TEMP_MAPPING( ((Uint)gaInitPageDir - KERNEL_BASE) );
 	INVLPG( gaTmpDir );
-	
 	
 	// Check if the directory is mapped (we are assuming that the stacks
 	// will fit neatly in a directory)
@@ -732,9 +794,9 @@ tVAddr MM_NewWorkerStack(Uint *StackContents, size_t ContentsSize)
 		page = MM_AllocPhys();
 		gaTmpTable[ (base + addr) >> 12 ] = page | 3;
 	}
-	*gpTmpCR3 = 0;
-	// Release the temp mapping lock
-	Mutex_Release(&glTempFractal);
+
+	// Release temporary fractal
+	REL_TEMP_MAPPING();
 
 	// NOTE: Max of 1 page
 	// `page` is the last allocated page from the previious for loop

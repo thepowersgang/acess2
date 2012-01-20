@@ -12,6 +12,7 @@
 # include <mp.h>
 #endif
 #include <hal_proc.h>
+#include <arch_int.h>
 
 // === FLAGS ===
 #define DEBUG_TRACE_SWITCH	0
@@ -570,7 +571,7 @@ void Proc_ChangeStack(void)
 
 void Proc_ClearThread(tThread *Thread)
 {
-	Log_Warning("Proc", "TODO: Nuke address space etc");
+	MM_ClearSpace(Thread->MemState.CR3);
 	if(Thread->SavedState.SSE) {
 		free(Thread->SavedState.SSE);
 		Thread->SavedState.SSE = NULL;
@@ -587,6 +588,7 @@ int Proc_NewKThread(void (*Fcn)(void*), void *Data)
 	if(!newThread)	return -1;
 	
 	// Set CR3
+	MM_RefPhys( cur->MemState.CR3 );
 	newThread->MemState.CR3 = cur->MemState.CR3;
 
 	// Create new KStack
