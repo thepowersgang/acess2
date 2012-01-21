@@ -65,20 +65,21 @@ void	PL110_Uninstall();
 // Internal
 // Filesystem
 Uint64	PL110_Read(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer);
-Uint64	PL110_Write(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer);
+Uint64	PL110_Write(tVFS_Node *node, Uint64 off, Uint64 len, const void *buffer);
  int	PL110_IOCtl(tVFS_Node *node, int id, void *data);
 // -- Internals
  int	PL110_int_SetResolution(int W, int H);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, PL110, PL110_Install, NULL, NULL);
-tDevFS_Driver	gPL110_DriverStruct = {
-	NULL, "PL110",
-	{
+tVFS_NodeType	gPL110_DevNodeType = {
 	.Read = PL110_Read,
 	.Write = PL110_Write,
 	.IOCtl = PL110_IOCtl
-	}
+	};
+tDevFS_Driver	gPL110_DriverStruct = {
+	NULL, "PL110",
+	{.Type = &gPL110_DevNodeType}
 };
 // -- Options
 tPAddr	gPL110_PhysBase = PL110_BASE;
@@ -139,7 +140,7 @@ Uint64 PL110_Read(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer)
 /**
  * \brief Write to the framebuffer
  */
-Uint64 PL110_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+Uint64 PL110_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
 {
 	gPL110_DrvUtil_BufInfo.BufferFormat = giPL110_BufferMode;
 	return DrvUtil_Video_WriteLFB(&gPL110_DrvUtil_BufInfo, Offset, Length, Buffer);

@@ -27,6 +27,13 @@ MODULE_DEFINE(0, 0x0A, FS_InitRD, InitRD_Install, NULL);
 tVFS_Driver	gInitRD_FSInfo = {
 	"initrd", 0, InitRD_InitDevice, InitRD_Unmount, InitRD_GetNodeFromINode
 	};
+tVFS_NodeType	gInitRD_DirType = {
+	.ReadDir = InitRD_ReadFile,
+	.FindDir = InitRD_FindDir
+	};
+tVFS_NodeType	gInitRD_FileType = {
+	.Read = InitRD_ReadFile
+	};
 
 /**
  * \brief Register initrd with the kernel
