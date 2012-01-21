@@ -5,8 +5,19 @@ if [ $# -ge 1 ]; then
 else
 	ARCH=x86
 fi
+
+if [ $# -ge 2 ]; then
+	PLATFORM=$2
+else
+	PLATFORM=default
+fi
+
 mkdir -p Releases/
 BUILD_DIST=y ARCH=$ARCH make clean all-install
+while [ $# -ge 2 ]; do
+	BUILD_DIST=y ARCH=$ARCH PLATFORM=$2 make
+	shift
+done
 tar --transform="s|Dist/($ARCH/)*|Acess/|x" -zcf Releases/Acess2_latest_${ARCH}_bin.tar.gz Dist/$ARCH Dist/Acess2.$ARCH.gz
 mdeltree b:/Acess2 2>&1 >/dev/null || true
 mcopy -s Dist/$ARCH/ b:/Acess2
