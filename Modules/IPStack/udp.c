@@ -12,7 +12,7 @@
 void	UDP_Initialise();
 void	UDP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffer);
 void	UDP_Unreachable(tInterface *Interface, int Code, void *Address, int Length, void *Buffer);
-void	UDP_SendPacketTo(tUDPChannel *Channel, int AddrType, void *Address, Uint16 Port, void *Data, size_t Length);
+void	UDP_SendPacketTo(tUDPChannel *Channel, int AddrType, const void *Address, Uint16 Port, const void *Data, size_t Length);
 // --- Client Channels
 tVFS_Node	*UDP_Channel_Init(tInterface *Interface);
 Uint64	UDP_Channel_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
@@ -141,7 +141,7 @@ void UDP_Unreachable(tInterface *Interface, int Code, void *Address, int Length,
  * \param Data	Packet data
  * \param Length	Length in bytes of packet data
  */
-void UDP_SendPacketTo(tUDPChannel *Channel, int AddrType, void *Address, Uint16 Port, void *Data, size_t Length)
+void UDP_SendPacketTo(tUDPChannel *Channel, int AddrType, const void *Address, Uint16 Port, const void *Data, size_t Length)
 {
 	tUDPHeader	*hdr;
 
@@ -250,15 +250,15 @@ Uint64 UDP_Channel_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buf
 Uint64 UDP_Channel_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
 {
 	tUDPChannel	*chan = Node->ImplPtr;
-	tUDPEndpoint	*ep;
-	void	*data;
+	const tUDPEndpoint	*ep;
+	const void	*data;
 	 int	ofs;
 	if(chan->LocalPort == 0)	return 0;
 	
 	ep = Buffer;	
 	ofs = 2 + 2 + IPStack_GetAddressSize( ep->AddrType );
 
-	data = (char*)Buffer + ofs;
+	data = (const char *)Buffer + ofs;
 
 	UDP_SendPacketTo(chan, ep->AddrType, &ep->Addr, ep->Port, data, (size_t)Length - ofs);
 	
