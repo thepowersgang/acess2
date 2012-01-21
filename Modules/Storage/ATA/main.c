@@ -27,14 +27,25 @@ Uint16	ATA_GetBasePort(int Disk);
 char	*ATA_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*ATA_FindDir(tVFS_Node *Node, const char *Name);
 Uint64	ATA_ReadFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
-Uint64	ATA_WriteFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
+Uint64	ATA_WriteFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer);
  int	ATA_IOCtl(tVFS_Node *Node, int Id, void *Data);
 // Read/Write Interface/Quantiser
 Uint	ATA_ReadRaw(Uint64 Address, Uint Count, void *Buffer, Uint Disk);
-Uint	ATA_WriteRaw(Uint64 Address, Uint Count, void *Buffer, Uint Disk);
+Uint	ATA_WriteRaw(Uint64 Address, Uint Count, const void *Buffer, Uint Disk);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, i386ATA, ATA_Install, NULL, "PCI", NULL);
+tVFS_NodeType	gATA_RootNodeType = {
+	.TypeName = "ATA Root Node",
+	.ReadDir = ATA_ReadDir,
+	.FindDir = ATA_FindDir
+	};
+tVFS_NodeType	gATA_DiskNodeType = {
+	.TypeName = "ATA Volume",
+	.Read = ATA_ReadFS,
+	.Write = ATA_WriteFS,
+	.IOCtl = ATA_IOCtl
+	};
 tDevFS_Driver	gATA_DriverInfo = {
 	NULL, "ata",
 	{
@@ -42,8 +53,7 @@ tDevFS_Driver	gATA_DriverInfo = {
 		.Size = -1,
 		.Flags = VFS_FFLAG_DIRECTORY,
 		.ACLs = &gVFS_ACL_EveryoneRX,
-		.ReadDir = ATA_ReadDir,
-		.FindDir = ATA_FindDir
+		.Type = &gATA_RootNodeType
 	}
 };
 tATA_Disk	gATA_Disks[MAX_ATA_DISKS];
@@ -171,12 +181,9 @@ int ATA_ScanDisk(int Disk)
 	node->Inode = (Disk << 8) | 0xFF;
 	node->ImplPtr = gATA_Disks[ Disk ].Name;
 
-	node->ATime = node->MTime
-		= node->CTime = now();
+	node->ATime = node->MTime = node->CTime = now();
 
-	node->Read = ATA_ReadFS;
-	node->Write = ATA_WriteFS;
-	node->IOCtl = ATA_IOCtl;
+	node->Type = &gATA_DiskNodeType;
 
 	// --- Scan Partitions ---
 	LOG("Reading MBR");
@@ -224,9 +231,7 @@ void ATA_int_MakePartition(tATA_Partition *Part, int Disk, int Num, Uint64 Start
 	Part->Node.Inode = (Disk << 8) | Num;
 	Part->Node.ImplPtr = Part->Name;
 
-	Part->Node.Read = ATA_ReadFS;
-	Part->Node.Write = ATA_WriteFS;
-	Part->Node.IOCtl = ATA_IOCtl;
+	Part->Node.Type = &gATA_DiskNodeType;
 	Log_Notice("ATA", "Partition %s at 0x%llx+0x%llx", Part->Name, Part->Start, Part->Length);
 	LOG("Made '%s' (&Node=%p)", Part->Name, &Part->Node);
 	LEAVE('-');
@@ -330,9 +335,9 @@ Uint64 ATA_ReadFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 }
 
 /**
- * \fn Uint64 ATA_WriteFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+ * \fn Uint64 ATA_WriteFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
  */
-Uint64 ATA_WriteFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+Uint64 ATA_WriteFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
 {
 	 int	disk = Node->Inode >> 8;
 	 int	part = Node->Inode & 0xFF;
@@ -417,9 +422,9 @@ Uint ATA_ReadRaw(Uint64 Address, Uint Count, void *Buffer, Uint Disk)
 }
 
 /**
- * \fn Uint ATA_WriteRaw(Uint64 Address, Uint Count, void *Buffer, Uint Disk)
+ * \fn Uint ATA_WriteRaw(Uint64 Address, Uint Count, const void *Buffer, Uint Disk)
  */
-Uint ATA_WriteRaw(Uint64 Address, Uint Count, void *Buffer, Uint Disk)
+Uint ATA_WriteRaw(Uint64 Address, Uint Count, const void *Buffer, Uint Disk)
 {
 	 int	ret;
 	Uint	offset;

@@ -12,6 +12,9 @@
 #include "ext2_common.h"
 #include <modules.h>
 
+// === IMPORTS ===
+extern tVFS_NodeType	gExt2_DirType;
+
 // === PROTOTYPES ===
  int	Ext2_Install(char **Arguments);
 // Interface Functions
@@ -130,10 +133,8 @@ tVFS_Node *Ext2_InitDevice(const char *Device, const char **Options)
 	disk->RootNode.ImplPtr = disk;	// Save disk pointer
 	disk->RootNode.Size = -1;	// Fill in later (on readdir)
 	disk->RootNode.Flags = VFS_FFLAG_DIRECTORY;
-	
-	disk->RootNode.ReadDir = Ext2_ReadDir;
-	disk->RootNode.FindDir = Ext2_FindDir;
-	//disk->RootNode.Relink = Ext2_Relink;
+
+	disk->RootNode.Type = &gExt2_DirType;
 	
 	// Complete root node
 	disk->RootNode.UID = inode.i_uid;

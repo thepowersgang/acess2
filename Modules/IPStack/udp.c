@@ -16,7 +16,7 @@ void	UDP_SendPacketTo(tUDPChannel *Channel, int AddrType, void *Address, Uint16 
 // --- Client Channels
 tVFS_Node	*UDP_Channel_Init(tInterface *Interface);
 Uint64	UDP_Channel_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
-Uint64	UDP_Channel_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
+Uint64	UDP_Channel_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer);
  int	UDP_Channel_IOCtl(tVFS_Node *Node, int ID, void *Data);
 void	UDP_Channel_Close(tVFS_Node *Node);
 // --- Helpers
@@ -25,6 +25,12 @@ Uint16	UDP_int_AllocatePort();
 void	UDP_int_FreePort(Uint16 Port);
 
 // === GLOBALS ===
+tVFS_NodeType	gUDP_NodeType = {
+	.Read = UDP_Channel_Read,
+	.Write = UDP_Channel_Write,
+	.IOCtl = UDP_Channel_IOCtl,
+	.Close = UDP_Channel_Close
+};
 tMutex	glUDP_Channels;
 tUDPChannel	*gpUDP_Channels;
 
@@ -169,10 +175,7 @@ tVFS_Node *UDP_Channel_Init(tInterface *Interface)
 	new->Node.ImplPtr = new;
 	new->Node.NumACLs = 1;
 	new->Node.ACLs = &gVFS_ACL_EveryoneRW;
-	new->Node.Read = UDP_Channel_Read;
-	new->Node.Write = UDP_Channel_Write;
-	new->Node.IOCtl = UDP_Channel_IOCtl;
-	new->Node.Close = UDP_Channel_Close;
+	new->Node.Type = &gUDP_NodeType;
 	
 	Mutex_Acquire(&glUDP_Channels);
 	new->Next = gpUDP_Channels;
@@ -244,7 +247,7 @@ Uint64 UDP_Channel_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buf
 /**
  * \brief Write to the channel file (send a packet)
  */
-Uint64 UDP_Channel_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+Uint64 UDP_Channel_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
 {
 	tUDPChannel	*chan = Node->ImplPtr;
 	tUDPEndpoint	*ep;

@@ -26,6 +26,8 @@
  */
 typedef struct sVFS_SelectList	tVFS_SelectList;
 
+typedef struct sVFS_NodeType	tVFS_NodeType;
+
 /**
  * \name tVFS_Node Flags
  * \brief Flag values for tVFS_Node.Flags
@@ -178,6 +180,22 @@ typedef struct sVFS_Node
 	 */
 	
 	/**
+	 * \brief Functions associated with the node
+	 */
+	tVFS_NodeType	*Type;
+} tVFS_Node;
+
+/**
+ * \brief Functions for a specific node type
+ */
+struct sVFS_NodeType
+{
+	/**
+	 * \brief Debug name for the type
+	 */
+	const char	*TypeName;
+
+	/**
 	 * \name Common Functions
 	 * \brief Functions that are used no matter the value of .Flags
 	 * \{
@@ -233,7 +251,7 @@ typedef struct sVFS_Node
 	 * \param Buffer	Source of written data
 	 * \return Number of bytes read
 	 */
-	Uint64	(*Write)(struct sVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
+	Uint64	(*Write)(struct sVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer);
 
 	/**
 	 * \brief Map a region of a file into memory
@@ -299,14 +317,14 @@ typedef struct sVFS_Node
 	 * \param Node	Pointer to this node (directory)
 	 * \param Child	Node to create a new link to
 	 * \param NewName	Name for the new link
-	 * \return Zeron on success, non-zero on error (see errno.h)
+	 * \retur Zeron on success, non-zero on error (see errno.h)
 	 */
 	 int	(*Link)(struct sVFS_Node *Node, struct sVFS_Node *Child, const char *NewName);
 	 
 	 /**
 	  * \}
 	  */
-} tVFS_Node;
+};
 
 /**
  * \brief VFS Driver (Filesystem) Definition

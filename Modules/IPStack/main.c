@@ -30,6 +30,11 @@ extern tRoute	*IPStack_AddRoute(const char *Interface, void *Network, int Subnet
 
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, IPStack, IPStack_Install, NULL, NULL);
+tVFS_NodeType	gIP_RootNodeType = {
+	.ReadDir = IPStack_Root_ReadDir,
+	.FindDir = IPStack_Root_FindDir,
+	.IOCtl = IPStack_Root_IOCtl
+};
 tDevFS_Driver	gIP_DriverInfo = {
 	NULL, "ip",
 	{
@@ -37,9 +42,7 @@ tDevFS_Driver	gIP_DriverInfo = {
 	.NumACLs = 1,
 	.ACLs = &gVFS_ACL_EveryoneRX,
 	.Flags = VFS_FFLAG_DIRECTORY,
-	.ReadDir = IPStack_Root_ReadDir,
-	.FindDir = IPStack_Root_FindDir,
-	.IOCtl = IPStack_Root_IOCtl
+	.Type = &gIP_RootNodeType
 	}
 };
 

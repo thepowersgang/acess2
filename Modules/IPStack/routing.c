@@ -31,14 +31,20 @@ tRoute	*IPStack_FindRoute(int AddressType, tInterface *Interface, void *Address)
  int	giIP_NextRouteId = 1;
 tRoute	*gIP_Routes;
 tRoute	*gIP_RoutesEnd;
+tVFS_NodeType	gIP_RouteNodeType = {
+	.IOCtl = IPStack_Route_IOCtl
+};
+tVFS_NodeType	gIP_RouteDirNodeType = {
+	.ReadDir = IPStack_RouteDir_ReadDir,
+	.FindDir = IPStack_RouteDir_FindDir,
+	.IOCtl = IPStack_RouteDir_IOCtl
+};
 tVFS_Node	gIP_RouteNode = {
 	.Flags = VFS_FFLAG_DIRECTORY,
 	.Size = -1,
 	.NumACLs = 1,
 	.ACLs = &gVFS_ACL_EveryoneRX,
-	.ReadDir = IPStack_RouteDir_ReadDir,
-	.FindDir = IPStack_RouteDir_FindDir,
-	.IOCtl = IPStack_RouteDir_IOCtl
+	.Type = &gIP_RouteDirNodeType
 };
 
 // === CODE ===
@@ -192,7 +198,7 @@ tRoute *IPStack_Route_Create(const char *InterfaceName)
 			return NULL;
 		}
 		iface = node->ImplPtr;
-		if(node->Close)	node->Close(node);
+		if(node->Type->Close)	node->Type->Close(node);
 	}
 	
 	// Get the size of the specified address type
@@ -210,7 +216,7 @@ tRoute *IPStack_Route_Create(const char *InterfaceName)
 	rt->Node.Size = 0;
 	rt->Node.NumACLs = 1,
 	rt->Node.ACLs = &gVFS_ACL_EveryoneRO;
-	rt->Node.IOCtl = IPStack_Route_IOCtl;
+	rt->Node.Type = &gIP_RouteNodeType;
 	
 	// Set up state
 	rt->AddressType = iface->Type;

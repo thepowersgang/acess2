@@ -40,7 +40,7 @@ void	TCP_Server_Close(tVFS_Node *Node);
 // --- Client
 tVFS_Node	*TCP_Client_Init(tInterface *Interface);
 Uint64	TCP_Client_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
-Uint64	TCP_Client_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
+Uint64	TCP_Client_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer);
  int	TCP_Client_IOCtl(tVFS_Node *Node, int ID, void *Data);
 void	TCP_Client_Close(tVFS_Node *Node);
 // --- Helpers
@@ -49,6 +49,20 @@ void	TCP_Client_Close(tVFS_Node *Node);
 // === TEMPLATES ===
 tSocketFile	gTCP_ServerFile = {NULL, "tcps", TCP_Server_Init};
 tSocketFile	gTCP_ClientFile = {NULL, "tcpc", TCP_Client_Init};
+tVFS_NodeType	gTCP_ServerNodeType = {
+	.TypeName = "TCP Server",
+	.ReadDir = TCP_Server_ReadDir,
+	.FindDir = TCP_Server_FindDir,
+	.IOCtl   = TCP_Server_IOCtl,
+	.Close   = TCP_Server_Close
+	};
+tVFS_NodeType	gTCP_ClientNodeType = {
+	.TypeName = "TCP Client/Connection",
+	.Read  = TCP_Client_Read,
+	.Write = TCP_Client_Write,
+	.IOCtl = TCP_Client_IOCtl,
+	.Close = TCP_Client_Close
+	};
 
 // === GLOBALS ===
  int	giTCP_NumHalfopen = 0;
@@ -226,9 +240,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 			conn->Node.ACLs = &gVFS_ACL_EveryoneRW;
 			conn->Node.ImplPtr = conn;
 			conn->Node.ImplInt = srv->NextID ++;
-			conn->Node.Read = TCP_Client_Read;
-			conn->Node.Write = TCP_Client_Write;
-			//conn->Node.Close = TCP_SrvConn_Close;
+			conn->Node.Type = &gTCP_ClientNodeType;	// TODO: Special type for the server end?
 			
 			// Hmm... Theoretically, this lock will never have to wait,
 			// as the interface is locked to the watching thread, and this
@@ -835,10 +847,7 @@ tVFS_Node *TCP_Server_Init(tInterface *Interface)
 	srv->Node.ImplPtr = srv;
 	srv->Node.NumACLs = 1;
 	srv->Node.ACLs = &gVFS_ACL_EveryoneRW;
-	srv->Node.ReadDir = TCP_Server_ReadDir;
-	srv->Node.FindDir = TCP_Server_FindDir;
-	srv->Node.IOCtl = TCP_Server_IOCtl;
-	srv->Node.Close = TCP_Server_Close;
+	srv->Node.Type = &gTCP_ServerNodeType;
 
 	SHORTLOCK(&glTCP_Listeners);
 	srv->Next = gTCP_Listeners;
@@ -1003,10 +1012,7 @@ tVFS_Node *TCP_Client_Init(tInterface *Interface)
 	conn->Node.ImplPtr = conn;
 	conn->Node.NumACLs = 1;
 	conn->Node.ACLs = &gVFS_ACL_EveryoneRW;
-	conn->Node.Read = TCP_Client_Read;
-	conn->Node.Write = TCP_Client_Write;
-	conn->Node.IOCtl = TCP_Client_IOCtl;
-	conn->Node.Close = TCP_Client_Close;
+	conn->Node.Type = &gTCP_ClientNodeType;
 
 	conn->RecievedBuffer = RingBuffer_Create( TCP_RECIEVE_BUFFER_SIZE );
 	#if 0
@@ -1086,7 +1092,7 @@ Uint64 TCP_Client_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buff
 /**
  * \brief Send a data packet on a connection
  */
-void TCP_INT_SendDataPacket(tTCPConnection *Connection, size_t Length, void *Data)
+void TCP_INT_SendDataPacket(tTCPConnection *Connection, size_t Length, const void *Data)
 {
 	char	buf[sizeof(tTCPHeader)+Length];
 	tTCPHeader	*packet = (void*)buf;
@@ -1115,7 +1121,7 @@ void TCP_INT_SendDataPacket(tTCPConnection *Connection, size_t Length, void *Dat
 /**
  * \brief Send some bytes on a connection
  */
-Uint64 TCP_Client_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+Uint64 TCP_Client_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
 {
 	tTCPConnection	*conn = Node->ImplPtr;
 	size_t	rem = Length;

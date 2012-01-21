@@ -15,9 +15,9 @@
 #define MAX_PATH_LEN	255
 
 // === IMPORTS ===
-extern tVFS_Node	gVFS_MemRoot;
 extern tVFS_Mount	*gVFS_RootMount;
 extern int	VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode);
+extern tVFS_Node	*VFS_MemFile_Create(const char *Path);
 
 // === PROTOTYPES ===
  int	VFS_int_CreateHandle( tVFS_Node *Node, tVFS_Mount *Mount, int Mode );
@@ -176,13 +176,13 @@ tVFS_Node *VFS_ParsePath(const char *Path, char **TruePath, tVFS_Mount **MountPo
 	
 	ENTER("sPath pTruePath", Path, TruePath);
 	
-	// Memory File
-	if(Path[0] == '$') {
+	// HACK: Memory File
+	if(Threads_GetUID() == 0 && Path[0] == '$') {
 		if(TruePath) {
 			*TruePath = malloc(strlen(Path)+1);
 			strcpy(*TruePath, Path);
 		}
-		curNode = gVFS_MemRoot.FindDir(&gVFS_MemRoot, Path);
+		curNode = VFS_MemFile_Create(Path);
 		if(MountPoint) {
 			*MountPoint = NULL;
 		}
@@ -268,48 +268,27 @@ restart_parse:
 	
 		// Check permissions on root of filesystem
 		if( !VFS_CheckACL(curNode, VFS_PERM_EXECUTE) ) {
-			if(curNode->Close)	curNode->Close( curNode );
-			if(TruePath) {
-				free(*TruePath);
-				*TruePath = NULL;
-			}
 			//Log("Permissions fail on '%s'", Path);
-			LEAVE('n');
-			return NULL;
+			goto _error;
 		}
 		
 		// Check if the node has a FindDir method
-		if( !curNode->FindDir )
+		if( !curNode->Type->FindDir )
 		{
-			if(curNode->Close)	curNode->Close(curNode);
-			if(TruePath) {
-				free(*TruePath);
-				*TruePath = NULL;
-			}
 			//Log("FindDir fail on '%s'", Path);
-			LEAVE('n');
-			return NULL;
+			goto _error;
 		}
-		LOG("FindDir{=%p}(%p, '%s')", curNode->FindDir, curNode, pathEle);
+		LOG("FindDir{=%p}(%p, '%s')", curNode->Type->FindDir, curNode, pathEle);
 		// Get Child Node
-		tmpNode = curNode->FindDir(curNode, pathEle);
+		tmpNode = curNode->Type->FindDir(curNode, pathEle);
 		LOG("tmpNode = %p", tmpNode);
-		if(curNode->Close) {
-			//LOG2("curNode->Close = %p", curNode->Close);
-			curNode->Close(curNode);
-		}
+		_CloseNode( curNode );
 		curNode = tmpNode;
 		
 		// Error Check
 		if(!curNode) {
 			LOG("Node '%s' not found in dir '%s'", pathEle, Path);
-			if(TruePath) {
-				free(*TruePath);
-				*TruePath = NULL;
-			}
-			//Log("Child fail on '%s' ('%s)", Path, pathEle);
-			LEAVE('n');
-			return NULL;
+			goto _error;
 		}
 		
 		// Handle Symbolic Links
@@ -318,19 +297,15 @@ restart_parse:
 				free(*TruePath);
 				*TruePath = NULL;
 			}
-			if(!curNode->Read) {
+			if(!curNode->Type || !curNode->Type->Read) {
 				Log_Warning("VFS", "VFS_ParsePath - Read of symlink node %p'%s' is NULL",
 					curNode, Path);
-				if(curNode->Close)	curNode->Close(curNode);
-				// No need to free *TruePath, it should already be NULL
-				LEAVE('n');
-				return NULL;
+				goto _error;
 			}
 			
 			if(iNestedLinks > MAX_NESTED_LINKS) {
-				if(curNode->Close)	curNode->Close(curNode);
-				LEAVE('n');
-				return NULL;
+				Log_Notice("VFS", "VFS_ParsePath - Nested link limit exceeded");
+				goto _error;
 			}
 			
 			// Parse Symlink Path
@@ -339,12 +314,10 @@ restart_parse:
 			{
 				 int	remlen = strlen(Path) - (ofs + nextSlash);
 				if( curNode->Size + remlen > MAX_PATH_LEN ) {
-					if(curNode->Close)	curNode->Close(curNode);
 					Log_Warning("VFS", "VFS_ParsePath - Symlinked path too long");
-					LEAVE('n');
-					return NULL;
+					goto _error;
 				}
-				curNode->Read( curNode, 0, curNode->Size, path_buffer );
+				curNode->Type->Read( curNode, 0, curNode->Size, path_buffer );
 				path_buffer[ curNode->Size ] = '\0';
 				LOG("path_buffer = '%s'", path_buffer);
 				strcat(path_buffer, Path + ofs+nextSlash);
@@ -363,9 +336,7 @@ restart_parse:
 		if( !(curNode->Flags & VFS_FFLAG_DIRECTORY) )
 		{
 			Log_Warning("VFS", "VFS_ParsePath - Path segment is not a directory");
-			if(TruePath)	free(*TruePath);
-			LEAVE('n');
-			return NULL;
+			goto _error;
 		}
 		
 		// Check if path needs extending
@@ -376,11 +347,7 @@ restart_parse:
 		// Check if allocation succeeded
 		if(!tmp) {
 			Log_Warning("VFS", "VFS_ParsePath - Unable to reallocate true path buffer");
-			free(*TruePath);
-			*TruePath = NULL;
-			if(curNode->Close)	curNode->Close(curNode);
-			LEAVE('n');
-			return NULL;
+			goto _error;
 		}
 		*TruePath = tmp;
 		// Append to path
@@ -392,32 +359,23 @@ restart_parse:
 		// - Extend Path
 		retLength += nextSlash + 1;
 	}
-	
-	if( !curNode->FindDir ) {
-		if(curNode->Close)	curNode->Close(curNode);
-		if(TruePath) {
-			free(*TruePath);
-			*TruePath = NULL;
-		}
+
+	// Check final finddir call	
+	if( !curNode->Type || !curNode->Type->FindDir ) {
 		Log_Warning("VFS", "VFS_ParsePath - FindDir doesn't exist for element of '%s'", Path);
-		LEAVE('n');
-		return NULL;
+		goto _error;
 	}
 	
 	// Get last node
 	LOG("FindDir(%p, '%s')", curNode, &Path[ofs]);
-	tmpNode = curNode->FindDir(curNode, &Path[ofs]);
+	tmpNode = curNode->Type->FindDir(curNode, &Path[ofs]);
 	LOG("tmpNode = %p", tmpNode);
-	if(curNode->Close)	curNode->Close(curNode);
 	// Check if file was found
 	if(!tmpNode) {
 		LOG("Node '%s' not found in dir '%s'", &Path[ofs], Path);
-		//Log("Child fail '%s' ('%s')", Path, &Path[ofs]);
-		if(TruePath)	free(*TruePath);
-		if(curNode->Close)	curNode->Close(curNode);
-		LEAVE('n');
-		return NULL;
+		goto _error;
 	}
+	_CloseNode( curNode );
 	
 	if(TruePath)
 	{
@@ -426,10 +384,7 @@ restart_parse:
 		// Check if allocation succeeded
 		if(!tmp) {
 			Log_Warning("VFS", "VFS_ParsePath -  Unable to reallocate true path buffer");
-			free(*TruePath);
-			if(tmpNode->Close)	tmpNode->Close(curNode);
-			LEAVE('n');
-			return NULL;
+			goto _error;
 		}
 		*TruePath = tmp;
 		// Append to path
@@ -445,6 +400,16 @@ restart_parse:
 	
 	LEAVE('p', tmpNode);
 	return tmpNode;
+
+_error:
+	_CloseNode( curNode );
+	
+	if(TruePath && *TruePath) {
+		free(*TruePath);
+		*TruePath = NULL;
+	}
+	LEAVE('n');
+	return NULL;
 }
 
 /**
@@ -465,7 +430,7 @@ int VFS_int_CreateHandle( tVFS_Node *Node, tVFS_Mount *Mount, int Mode )
 	
 	// Permissions Check
 	if( !VFS_CheckACL(Node, i) ) {
-		if(Node->Close)	Node->Close( Node );
+		_CloseNode( Node );
 		Log_Log("VFS", "VFS_int_CreateHandle: Permissions Failed");
 		errno = EACCES;
 		LEAVE_RET('i', -1);
@@ -521,14 +486,14 @@ int VFS_Open(const char *Path, Uint Mode)
 			Log_Warning("VFS", "VFS_Open - Symlink is too long (%i)", node->Size);
 			LEAVE_RET('i', -1);
 		}
-		if( !node->Read ) {
+		if( !node->Type || !node->Type->Read ) {
 			Log_Warning("VFS", "VFS_Open - No read method on symlink");
 			LEAVE_RET('i', -1);
 		}
 		// Read symlink's path
-		node->Read( node, 0, node->Size, tmppath );
+		node->Type->Read( node, 0, node->Size, tmppath );
 		tmppath[ node->Size ] = '\0';
-		if(node->Close)	node->Close( node );
+		_CloseNode( node );
 		// Open the target
 		node = VFS_ParsePath(tmppath, NULL, &mnt);
 		if(!node) {
@@ -562,13 +527,20 @@ int VFS_OpenChild(int FD, const char *Name, Uint Mode)
 	
 	// Check for directory
 	if( !(h->Node->Flags & VFS_FFLAG_DIRECTORY) ) {
-		Log_Warning("VFS", "VFS_OpenChild - Passed handle is not a directory", FD);
+		Log_Warning("VFS", "VFS_OpenChild - Passed handle is not a directory");
+		errno = ENOTDIR;
+		LEAVE_RET('i', -1);
+	}
+
+	// Sanity check
+	if( !h->Node->Type || !h->Node->Type->FindDir ) {
+		Log_Error("VFS", "VFS_OpenChild - Node does not have a type/is missing FindDir");
 		errno = ENOTDIR;
 		LEAVE_RET('i', -1);
 	}
 	
 	// Find Child
-	node = h->Node->FindDir(h->Node, Name);
+	node = h->Node->Type->FindDir(h->Node, Name);
 	if(!node) {
 		errno = ENOENT;
 		LEAVE_RET('i', -1);
@@ -633,8 +605,7 @@ void VFS_Close(int FD)
 	}
 	#endif
 	
-	if(h->Node->Close)
-		h->Node->Close( h->Node );
+	_CloseNode(h->Node);
 	
 	h->Node = NULL;
 }

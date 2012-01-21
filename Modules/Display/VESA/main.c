@@ -24,7 +24,7 @@
 // === PROTOTYPES ===
  int	Vesa_Install(char **Arguments);
 Uint64	Vesa_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
-Uint64	Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
+Uint64	Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer);
  int	Vesa_IOCtl(tVFS_Node *Node, int ID, void *Data);
  int	Vesa_Int_SetMode(int Mode);
  int	Vesa_Int_FindMode(tVideo_IOCtl_Mode *data);
@@ -35,14 +35,15 @@ void	Vesa_FlipCursor(void *Arg);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, Vesa, Vesa_Install, NULL, "PCI", "VM8086", NULL);
-tDevFS_Driver	gVesa_DriverStruct = {
-	NULL, "Vesa",
-	{
+tVFS_NodeType	gVesa_NodeType = {
 	.Read = Vesa_Read,
 	.Write = Vesa_Write,
 	.IOCtl = Vesa_IOCtl
-	}
-};
+	};
+tDevFS_Driver	gVesa_DriverStruct = {
+	NULL, "Vesa",
+	{.Type = &gVesa_NodeType}
+	};
 tMutex	glVesa_Lock;
 tVM8086	*gpVesa_BiosState;
  int	giVesaDriverId = -1;
@@ -178,7 +179,7 @@ Uint64 Vesa_Read(tVFS_Node *Node, Uint64 off, Uint64 len, void *buffer)
 /**
  * \brief Write to the framebuffer
  */
-Uint64 Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+Uint64 Vesa_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
 {
 	if( gVesa_Modes[giVesaCurrentMode].framebuffer == 0 ) {
 		Log_Warning("VESA", "Vesa_Write - Non-LFB Modes not yet supported.");

@@ -31,11 +31,25 @@ tVFS_Node	*FIFO_FindDir(tVFS_Node *Node, const char *Filename);
 void	FIFO_Close(tVFS_Node *Node);
  int	FIFO_Relink(tVFS_Node *Node, const char *OldName, const char *NewName);
 Uint64	FIFO_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
-Uint64	FIFO_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
+Uint64	FIFO_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer);
 tPipe	*FIFO_Int_NewPipe(int Size, const char *Name);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, 0x0032, FIFO, FIFO_Install, NULL, NULL);
+tVFS_NodeType	gFIFO_DirNodeType = {
+	.TypeName = "FIFO Dir Node",
+	.ReadDir = FIFO_ReadDir,
+	.FindDir = FIFO_FindDir,
+	.MkNod = FIFO_MkNod,
+	.Relink = FIFO_Relink,
+	.IOCtl = FIFO_IOCtl
+};
+tVFS_NodeType	gFIFO_PipeNodeType = {
+	.TypeName = "FIFO Pipe Node",
+	.Read = FIFO_Read,
+	.Write = FIFO_Write,
+	.Close = FIFO_Close
+};
 tDevFS_Driver	gFIFO_DriverInfo = {
 	NULL, "fifo",
 	{
@@ -43,11 +57,7 @@ tDevFS_Driver	gFIFO_DriverInfo = {
 	.NumACLs = 1,
 	.ACLs = &gVFS_ACL_EveryoneRW,
 	.Flags = VFS_FFLAG_DIRECTORY,
-	.ReadDir = FIFO_ReadDir,
-	.FindDir = FIFO_FindDir,
-	.MkNod = FIFO_MkNod,
-	.Relink = FIFO_Relink,
-	.IOCtl = FIFO_IOCtl
+	.Type = &gFIFO_DirNodeType
 	}
 };
 tVFS_Node	gFIFO_AnonNode = {
@@ -280,7 +290,7 @@ Uint64 FIFO_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
  * \fn Uint64 FIFO_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
  * \brief Write to a fifo pipe
  */
-Uint64 FIFO_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+Uint64 FIFO_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
 {
 	tPipe	*pipe = Node->ImplPtr;
 	Uint	len;
@@ -386,9 +396,7 @@ tPipe *FIFO_Int_NewPipe(int Size, const char *Name)
 	ret->Node.CTime
 		= ret->Node.MTime
 		= ret->Node.ATime = now();
-	ret->Node.Read = FIFO_Read;
-	ret->Node.Write = FIFO_Write;
-	ret->Node.Close = FIFO_Close;
+	ret->Node.Type = &gFIFO_PipeNodeType;
 	
 	return ret;
 }

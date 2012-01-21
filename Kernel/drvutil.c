@@ -53,17 +53,17 @@ tVideo_IOCtl_Bitmap	gDrvUtil_TextModeCursor = {
 
 // === CODE ===
 // --- Video Driver Helpers ---
-int DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
+int DrvUtil_Video_2DStream(void *Ent, const void *Buffer, int Length,
 	tDrvUtil_Video_2DHandlers *Handlers, int SizeofHandlers)
 {
-	void	*stream = Buffer;
+	const Uint8	*stream = Buffer;
 	 int	rem = Length;
 	 int	op;
 	while( rem )
 	{
 		rem --;
-		op = *(Uint8*)stream;
-		stream = (void*)((tVAddr)stream + 1);
+		op = *stream;
+		stream ++;
 		
 		if(op > NUM_VIDEO_2DOPS) {
 			Log_Warning("DrvUtil",
@@ -84,7 +84,7 @@ int DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
 		case VIDEO_2DOP_NOP:	break;
 		
 		case VIDEO_2DOP_FILL:
-			if(rem < 12)	return Length-rem;
+			if(rem < 10)	return Length-rem;
 			
 			if(!Handlers->Fill) {
 				Log_Warning("DrvUtil", "DrvUtil_Video_2DStream: Driver"
@@ -94,13 +94,13 @@ int DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
 			
 			Handlers->Fill(
 				Ent,
-				((Uint16*)stream)[0], ((Uint16*)stream)[1],
-				((Uint16*)stream)[2], ((Uint16*)stream)[3],
-				((Uint32*)stream)[2]
+				((const Uint16*)stream)[0], ((const Uint16*)stream)[1],
+				((const Uint16*)stream)[2], ((const Uint16*)stream)[3],
+				((const Uint32*)stream)[4]
 				);
 			
-			rem -= 12;
-			stream = (void*)((tVAddr)stream + 12);
+			rem -= 10;
+			stream += 10;
 			break;
 		
 		case VIDEO_2DOP_BLIT:
@@ -114,13 +114,13 @@ int DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
 			
 			Handlers->Blit(
 				Ent,
-				((Uint16*)stream)[0], ((Uint16*)stream)[1],
-				((Uint16*)stream)[2], ((Uint16*)stream)[3],
-				((Uint16*)stream)[4], ((Uint16*)stream)[5]
+				((const Uint16*)stream)[0], ((const Uint16*)stream)[1],
+				((const Uint16*)stream)[2], ((const Uint16*)stream)[3],
+				((const Uint16*)stream)[4], ((const Uint16*)stream)[5]
 				);
 			
 			rem -= 12;
-			stream = (void*)((tVAddr)stream + 12);
+			stream += 12;
 			break;
 		
 		}
@@ -128,10 +128,10 @@ int DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
 	return 0;
 }
 
-int DrvUtil_Video_WriteLFB(tDrvUtil_Video_BufInfo *FBInfo, size_t Offset, size_t Length, void *Buffer)
+int DrvUtil_Video_WriteLFB(tDrvUtil_Video_BufInfo *FBInfo, size_t Offset, size_t Length, const void *Buffer)
 {
 	Uint8	*dest;
-	Uint32	*src = Buffer;
+	const Uint32	*src = Buffer;
 	 int	csr_x, csr_y;
 	 int	x, y;
 	 int	bytes_per_px = (FBInfo->Depth + 7) / 8;
@@ -147,7 +147,7 @@ int DrvUtil_Video_WriteLFB(tDrvUtil_Video_BufInfo *FBInfo, size_t Offset, size_t
 	{
 	case VIDEO_BUFFMT_TEXT:
 		{
-		tVT_Char	*chars = Buffer;
+		const tVT_Char	*chars = Buffer;
 		 int	widthInChars = FBInfo->Width/giVT_CharWidth;
 		 int	heightInChars = FBInfo->Height/giVT_CharHeight;
 		 int	i;
@@ -556,7 +556,7 @@ void DrvUtil_Video_2D_Blit(void *Ent, Uint16 DstX, Uint16 DstY, Uint16 SrcX, Uin
 
 // --- Disk Driver Helpers ---
 Uint64 DrvUtil_ReadBlock(Uint64 Start, Uint64 Length, void *Buffer,
-	tDrvUtil_Callback ReadBlocks, Uint64 BlockSize, Uint Argument)
+	tDrvUtil_Read_Callback ReadBlocks, Uint64 BlockSize, Uint Argument)
 {
 	Uint8	tmp[BlockSize];	// C99
 	Uint64	block = Start / BlockSize;
@@ -625,8 +625,8 @@ Uint64 DrvUtil_ReadBlock(Uint64 Start, Uint64 Length, void *Buffer,
 	return Length;
 }
 
-Uint64 DrvUtil_WriteBlock(Uint64 Start, Uint64 Length, void *Buffer,
-	tDrvUtil_Callback ReadBlocks, tDrvUtil_Callback WriteBlocks,
+Uint64 DrvUtil_WriteBlock(Uint64 Start, Uint64 Length, const void *Buffer,
+	tDrvUtil_Read_Callback ReadBlocks, tDrvUtil_Write_Callback WriteBlocks,
 	Uint64 BlockSize, Uint Argument)
 {
 	Uint8	tmp[BlockSize];	// C99

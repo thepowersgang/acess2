@@ -25,13 +25,12 @@ void	KB_UpdateLEDs(void);
  int	KB_IOCtl(tVFS_Node *Node, int Id, void *Data);
 
 // === GLOBALS ===
+tVFS_NodeType	gKB_NodeType = {
+	.IOCtl = KB_IOCtl
+};
 tDevFS_Driver	gKB_DevInfo = {
 	NULL, "PS2Keyboard",
-	{
-	.NumACLs = 0,
-	.Size = 0,
-	.IOCtl = KB_IOCtl
-	}
+	{ .Type = &gKB_NodeType }
 };
 tKeybardCallback	gKB_Callback = NULL;
 Uint32	**gpKB_Map = gpKBDUS;

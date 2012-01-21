@@ -23,6 +23,23 @@ tVFS_Node	*Ext2_FindDir(tVFS_Node *Node, const char *FileName);
 // --- Helpers ---
 tVFS_Node	*Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeId);
 
+// === GLOBALS ===
+tVFS_NodeType	gExt2_DirType = {
+	.TypeName = "ext2-dir",
+	.ReadDir = Ext2_ReadDir,
+	.FindDir = Ext2_FindDir,
+	.MkNod = Ext2_MkNod,
+	.Relink = Ext2_Relink,
+	.Link = Ext2_Link,
+	.Close = Ext2_CloseFile
+	};
+tVFS_NodeType	gExt2_FileType = {
+	.TypeName = "ext2-file",
+	.Read = Ext2_Read,
+	.Write = Ext2_Write,
+	.Close = Ext2_CloseFile
+	};
+
 // === CODE ===
 /**
  * \brief Reads a directory entry
@@ -345,9 +362,7 @@ tVFS_Node *Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeID)
 	retNode.ACLs = VFS_UnixToAcessACL(inode.i_mode & 0777, inode.i_uid, inode.i_gid);
 	
 	//  Set Function Pointers
-	retNode.Read = Ext2_Read;
-	retNode.Write = Ext2_Write;
-	retNode.Close = Ext2_CloseFile;
+	retNode.Type = &gExt2_FileType;
 	
 	switch(inode.i_mode & EXT2_S_IFMT)
 	{
@@ -362,11 +377,7 @@ tVFS_Node *Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeID)
 		break;
 	// Directory
 	case EXT2_S_IFDIR:
-		retNode.ReadDir = Ext2_ReadDir;
-		retNode.FindDir = Ext2_FindDir;
-		retNode.MkNod = Ext2_MkNod;
-		retNode.Relink = Ext2_Relink;
-		retNode.Link = Ext2_Link;
+		retNode.Type = &gExt2_DirType;
 		retNode.Flags = VFS_FFLAG_DIRECTORY;
 		retNode.Data = calloc( sizeof(Uint16), DivUp(retNode.Size, Disk->BlockSize) );
 		break;

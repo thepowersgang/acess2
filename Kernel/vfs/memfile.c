@@ -7,24 +7,23 @@
 #include <vfs.h>
 
 // === PROTOTYPES ===
-tVFS_Node	*VFS_MemFile_Create(tVFS_Node *Unused, const char *Path);
+tVFS_Node	*VFS_MemFile_Create(const char *Path);
 void	VFS_MemFile_Close(tVFS_Node *Node);
 Uint64	VFS_MemFile_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
-Uint64	VFS_MemFile_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
+Uint64	VFS_MemFile_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer);
 
 // === GLOBALS ===
-tVFS_Node	gVFS_MemRoot = {
-	.Flags = VFS_FFLAG_DIRECTORY,
-	.NumACLs = 0,
-	.FindDir = VFS_MemFile_Create
+tVFS_NodeType	gVFS_MemFileType = {
+	.Close = VFS_MemFile_Close,
+	.Read = VFS_MemFile_Read,
+	.Write = VFS_MemFile_Write
 	};
 
 // === CODE ===
 /**
- * \fn tVFS_Node *VFS_MemFile_Create(tVFS_Node *Unused, const char *Path)
- * \note Treated as finddir by VFS_ParsePath
+ * \fn tVFS_Node *VFS_MemFile_Create(const char *Path)
  */
-tVFS_Node *VFS_MemFile_Create(tVFS_Node *Unused, const char *Path)
+tVFS_Node *VFS_MemFile_Create(const char *Path)
 {
 	Uint	base, size;
 	const char	*str = Path;
@@ -73,9 +72,7 @@ tVFS_Node *VFS_MemFile_Create(tVFS_Node *Unused, const char *Path)
 	ret->ACLs = &gVFS_ACL_EveryoneRWX;
 	
 	// Functions
-	ret->Close = VFS_MemFile_Close;
-	ret->Read = VFS_MemFile_Read;
-	ret->Write = VFS_MemFile_Write;
+	ret->Type = &gVFS_MemFileType;
 	
 	return ret;
 }
@@ -119,7 +116,7 @@ Uint64 VFS_MemFile_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buf
  * \fn Uint64 VFS_MemFile_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
  * \brief Write to a memory file
  */
-Uint64 VFS_MemFile_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+Uint64 VFS_MemFile_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
 {
 	// Check for use of free'd file
 	if(Node->ImplPtr == NULL)	return 0;

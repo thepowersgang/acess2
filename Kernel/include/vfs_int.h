@@ -54,4 +54,13 @@ extern int	VFS_CheckACL(tVFS_Node *Node, Uint Permissions);
 // --- mount.c ---
 extern tVFS_Mount	*VFS_GetMountByIdent(Uint32 MountID);
 
+
+// --- VFS Helpers ---
+static inline void _CloseNode(tVFS_Node *Node)
+{
+	if(Node && Node->Type && Node->Type->Close)
+		Node->Type->Close( Node );
+}
+
+
 #endif

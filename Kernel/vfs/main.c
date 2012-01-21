@@ -81,7 +81,7 @@ char *VFS_GetTruePath(const char *Path)
 	//Log(" VFS_GetTruePath: node=%p, ret='%s'", node, ret);
 	
 	if(!node)	return NULL;
-	if(node->Close)	node->Close(node);
+	if(node->Type->Close)	node->Type->Close(node);
 	
 	return ret;
 }

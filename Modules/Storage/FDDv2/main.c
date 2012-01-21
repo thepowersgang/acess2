@@ -32,6 +32,17 @@ Uint64	FDD_ReadFS(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer);
 MODULE_DEFINE(0, FDD_VERSION, Storage_FDDv2, FDD_Install, NULL, "x86_ISADMA", NULL);
 tDrive	gaFDD_Disks[MAX_DISKS];
 tVFS_Node	gaFDD_DiskNodes[MAX_DISKS];
+tVFS_NodeType	gFDD_RootNodeType = {
+	.TypeName = "FDD Root Node",
+	.ReadDir = FDD_ReadDir,
+	.FindDir = FDD_FindDir,
+	.IOCtl = FDD_IOCtl
+	};
+tVFS_NodeType	gFDD_DevNodeType = {
+	.TypeName = "FDD Device",
+	.Read = FDD_ReadFS,
+	.Write = NULL	// FDD_WriteFS?
+	};
 tDevFS_Driver	gFDD_DriverInfo = {
 	NULL, "fdd",
 	{
@@ -39,9 +50,7 @@ tDevFS_Driver	gFDD_DriverInfo = {
 	.NumACLs = 1,
 	.ACLs = &gVFS_ACL_EveryoneRX,
 	.Flags = VFS_FFLAG_DIRECTORY,
-	.ReadDir = FDD_ReadDir,
-	.FindDir = FDD_FindDir,
-	.IOCtl = FDD_IOCtl
+	.Type = &gFDD_RootNodeType
 	}
 	};
 
@@ -88,8 +97,7 @@ int FDD_RegisterFS(void)
 		gaFDD_DiskNodes[i].Inode = i;
 		gaFDD_DiskNodes[i].Flags = 0;
 		gaFDD_DiskNodes[i].NumACLs = 0;
-		gaFDD_DiskNodes[i].Read = FDD_ReadFS;
-		gaFDD_DiskNodes[i].Write = NULL;//FDD_WriteFS;
+		gaFDD_DiskNodes[i].Type = &gFDD_DevNodeType;
 		gaFDD_DiskNodes[i].Size = 1440*1024;	// TODO: Non 1.44 disks
 	}
 	

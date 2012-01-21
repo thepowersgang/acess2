@@ -32,6 +32,11 @@ tVFS_Node	*IPStack_Iface_FindDir(tVFS_Node *Node, const char *Name);
  int	IPStack_Iface_IOCtl(tVFS_Node *Node, int ID, void *Data);
 
 // === GLOBALS ===
+tVFS_NodeType	gIP_InterfaceNodeType = {
+		.ReadDir = IPStack_Iface_ReadDir,
+		.FindDir = IPStack_Iface_FindDir,
+		.IOCtl = IPStack_Iface_IOCtl
+};
 //! Loopback (127.0.0.0/8, ::1) Pseudo-Interface
 tInterface	gIP_LoopInterface = {
 	.Node = {
@@ -40,9 +45,7 @@ tInterface	gIP_LoopInterface = {
 		.Size = -1,
 		.NumACLs = 1,
 		.ACLs = &gVFS_ACL_EveryoneRX,
-		.ReadDir = IPStack_Iface_ReadDir,
-		.FindDir = IPStack_Iface_FindDir,
-		.IOCtl = IPStack_Iface_IOCtl
+		.Type = &gIP_InterfaceNodeType
 	},
 	.Adapter = NULL,
 	.Type = 0
@@ -234,13 +237,7 @@ tInterface *IPStack_AddInterface(const char *Device, const char *Name)
 	iface->Node.Size = -1;
 	iface->Node.NumACLs = 1;
 	iface->Node.ACLs = &gVFS_ACL_EveryoneRX;
-	iface->Node.ReadDir = IPStack_Iface_ReadDir;
-	iface->Node.FindDir = IPStack_Iface_FindDir;
-	iface->Node.IOCtl = IPStack_Iface_IOCtl;
-	iface->Node.MkNod = NULL;
-	iface->Node.Link = NULL;
-	iface->Node.Relink = NULL;
-	iface->Node.Close = NULL;
+	iface->Node.Type = &gIP_InterfaceNodeType;
 	
 	// Set Defaults
 	iface->TimeoutDelay = DEFAULT_TIMEOUT;

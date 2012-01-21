@@ -25,9 +25,9 @@ Uint64 VFS_Read(int FD, Uint64 Length, void *Buffer)
 	if( !(h->Mode & VFS_OPENFLAG_READ) || h->Node->Flags & VFS_FFLAG_DIRECTORY )
 		LEAVE_RET('i', -1);
 
-	if(!h->Node->Read)	LEAVE_RET('i', 0);
+	if(!h->Node->Type || !h->Node->Type->Read)	LEAVE_RET('i', 0);
 	
-	ret = h->Node->Read(h->Node, h->Position, Length, Buffer);
+	ret = h->Node->Type->Read(h->Node, h->Position, Length, Buffer);
 	if(ret == -1)	LEAVE_RET('i', -1);
 	
 	h->Position += ret;
@@ -50,11 +50,11 @@ Uint64 VFS_ReadAt(int FD, Uint64 Offset, Uint64 Length, void *Buffer)
 	if( !(h->Mode & VFS_OPENFLAG_READ) )	return -1;
 	if( h->Node->Flags & VFS_FFLAG_DIRECTORY )	return -1;
 
-	if(!h->Node->Read) {
+	if( !h->Node->Type || !h->Node->Type->Read) {
 		Warning("VFS_ReadAt - Node %p, does not have a read method", h->Node);
 		return 0;
 	}
-	ret = h->Node->Read(h->Node, Offset, Length, Buffer);
+	ret = h->Node->Type->Read(h->Node, Offset, Length, Buffer);
 	if(ret == -1)	return -1;
 	return ret;
 }
@@ -74,11 +74,11 @@ Uint64 VFS_Write(int FD, Uint64 Length, const void *Buffer)
 	if( !(h->Mode & VFS_OPENFLAG_WRITE) )	return -1;
 	if( h->Node->Flags & VFS_FFLAG_DIRECTORY )	return -1;
 
-	if(!h->Node->Write)	return 0;
+	if( !h->Node->Type || !h->Node->Type->Write )	return 0;
 	
-	// TODO: This is a hack, I need to change VFS_Node to have "const void*"
-	ret = h->Node->Write(h->Node, h->Position, Length, (void*)Buffer);
+	ret = h->Node->Type->Write(h->Node, h->Position, Length, Buffer);
 	if(ret == -1)	return -1;
+
 	h->Position += ret;
 	return ret;
 }
@@ -98,9 +98,9 @@ Uint64 VFS_WriteAt(int FD, Uint64 Offset, Uint64 Length, const void *Buffer)
 	if( !(h->Mode & VFS_OPENFLAG_WRITE) )	return -1;
 	if( h->Node->Flags & VFS_FFLAG_DIRECTORY )	return -1;
 
-	if(!h->Node->Write)	return 0;
-	// TODO: This is a hack, I need to change VFS_Node to have "const void*"
-	ret = h->Node->Write(h->Node, Offset, Length, (void*)Buffer);
+	if(!h->Node->Type || !h->Node->Type->Write)	return 0;
+	ret = h->Node->Type->Write(h->Node, Offset, Length, Buffer);
+
 	if(ret == -1)	return -1;
 	return ret;
 }
@@ -166,8 +166,8 @@ int VFS_IOCtl(int FD, int ID, void *Buffer)
 	h = VFS_GetHandle(FD);
 	if(!h)	return -1;
 
-	if(!h->Node->IOCtl)	return -1;
-	return h->Node->IOCtl(h->Node, ID, Buffer);
+	if(!h->Node->Type || !h->Node->Type->IOCtl)	return -1;
+	return h->Node->Type->IOCtl(h->Node, ID, Buffer);
 }
 
 /**

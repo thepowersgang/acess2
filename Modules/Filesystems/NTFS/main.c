@@ -24,6 +24,12 @@ void	NTFS_DumpEntry(tNTFS_Disk *Disk, Uint32 Entry);
 // === GLOBALS ===
 MODULE_DEFINE(0, 0x0A /*v0.1*/, FS_NTFS, NTFS_Install, NULL);
 tVFS_Driver	gNTFS_FSInfo = {"ntfs", 0, NTFS_InitDevice, NTFS_Unmount, NULL};
+tVFS_NodeType	gNTFS_DirType = {
+	.TypeName = "NTFS-File",
+	.ReadDir = NTFS_ReadDir,
+	.FindDir = NTFS_FindDir,
+	.Close = NULL
+	};
 
 tNTFS_Disk	gNTFS_Disks;
 
@@ -99,12 +105,8 @@ tVFS_Node *NTFS_InitDevice(const char *Device, const char **Options)
 	disk->RootNode.NumACLs = 1;
 	disk->RootNode.ACLs = &gVFS_ACL_EveryoneRX;
 	
-	disk->RootNode.ReadDir = NTFS_ReadDir;
-	disk->RootNode.FindDir = NTFS_FindDir;
-	disk->RootNode.MkNod = NULL;
-	disk->RootNode.Link = NULL;
-	disk->RootNode.Relink = NULL;
-	disk->RootNode.Close = NULL;
+	disk->RootNode.Type = &gNTFS_DirType;
+
 	
 	NTFS_DumpEntry(disk, 5);
 	

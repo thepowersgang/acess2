@@ -94,16 +94,16 @@ char	*VT_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*VT_FindDir(tVFS_Node *Node, const char *Name);
  int	VT_Root_IOCtl(tVFS_Node *Node, int Id, void *Data);
 Uint64	VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
-Uint64	VT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
+Uint64	VT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer);
  int	VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data);
 void	VT_SetResolution(int Width, int Height);
 void	VT_SetMode(int Mode);
 void	VT_SetTerminal(int ID);
 void	VT_KBCallBack(Uint32 Codepoint);
-void	VT_int_PutString(tVTerm *Term, Uint8 *Buffer, Uint Count);
+void	VT_int_PutString(tVTerm *Term, const Uint8 *Buffer, Uint Count);
 void	VT_int_ClearLine(tVTerm *Term, int Num);
 void	VT_int_ParseEscape_StandardLarge(tVTerm *Term, char CmdChar, int argc, int *args);
- int	VT_int_ParseEscape(tVTerm *Term, char *Buffer);
+ int	VT_int_ParseEscape(tVTerm *Term, const char *Buffer);
 void	VT_int_PutChar(tVTerm *Term, Uint32 Ch);
 void	VT_int_ScrollText(tVTerm *Term, int Count);
 void	VT_int_ScrollFramebuffer( tVTerm *Term, int Count );
@@ -122,6 +122,18 @@ const Uint16	caVT100Colours[] = {
 
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, VTerm, VT_Install, NULL, DEFAULT_INPUT, NULL);
+tVFS_NodeType	gVT_RootNodeType = {
+	.TypeName = "VTerm Root",
+	.ReadDir = VT_ReadDir,
+	.FindDir = VT_FindDir,
+	.IOCtl = VT_Root_IOCtl
+	};
+tVFS_NodeType	gVT_TermNodeType = {
+	.TypeName = "VTerm",
+	.Read = VT_Read,
+	.Write = VT_Write,
+	.IOCtl = VT_Terminal_IOCtl
+	};
 tDevFS_Driver	gVT_DrvInfo = {
 	NULL, "VTerm",
 	{
@@ -129,9 +141,7 @@ tDevFS_Driver	gVT_DrvInfo = {
 	.Size = NUM_VTS,
 	.Inode = -1,
 	.NumACLs = 0,
-	.ReadDir = VT_ReadDir,
-	.FindDir = VT_FindDir,
-	.IOCtl = VT_Root_IOCtl
+	.Type = &gVT_RootNodeType
 	}
 };
 // --- Terminals ---
@@ -254,10 +264,8 @@ int VT_Install(char **Arguments)
 		gVT_Terminals[i].Node.Inode = i;
 		gVT_Terminals[i].Node.ImplPtr = &gVT_Terminals[i];
 		gVT_Terminals[i].Node.NumACLs = 0;	// Only root can open virtual terminals
-		
-		gVT_Terminals[i].Node.Read = VT_Read;
-		gVT_Terminals[i].Node.Write = VT_Write;
-		gVT_Terminals[i].Node.IOCtl = VT_Terminal_IOCtl;
+	
+		gVT_Terminals[i].Node.Type = &gVT_TermNodeType;	
 //		Semaphore_Init(&gVT_Terminals[i].InputSemaphore, 0, MAX_INPUT_CHARS8, "VTerm", gVT_Terminals[i].Name);
 	}
 	
@@ -528,10 +536,10 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 }
 
 /**
- * \fn Uint64 VT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+ * \fn Uint64 VT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
  * \brief Write to a virtual terminal
  */
-Uint64 VT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+Uint64 VT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
 {
 	tVTerm	*term = &gVT_Terminals[ Node->Inode ];
 	 int	size;
@@ -1293,10 +1301,10 @@ void VT_int_ParseEscape_StandardLarge(tVTerm *Term, char CmdChar, int argc, int 
 }
 
 /**
- * \fn int VT_int_ParseEscape(tVTerm *Term, char *Buffer)
+ * \fn int VT_int_ParseEscape(tVTerm *Term, const char *Buffer)
  * \brief Parses a VT100 Escape code
  */
-int VT_int_ParseEscape(tVTerm *Term, char *Buffer)
+int VT_int_ParseEscape(tVTerm *Term, const char *Buffer)
 {
 	char	c;
 	 int	argc = 0, j = 1;
@@ -1380,10 +1388,10 @@ int VT_int_ParseEscape(tVTerm *Term, char *Buffer)
 }
 
 /**
- * \fn void VT_int_PutString(tVTerm *Term, Uint8 *Buffer, Uint Count)
+ * \fn void VT_int_PutString(tVTerm *Term, const Uint8 *Buffer, Uint Count)
  * \brief Print a string to the Virtual Terminal
  */
-void VT_int_PutString(tVTerm *Term, Uint8 *Buffer, Uint Count)
+void VT_int_PutString(tVTerm *Term, const Uint8 *Buffer, Uint Count)
 {
 	Uint32	val;
 	 int	i;
@@ -1395,7 +1403,7 @@ void VT_int_PutString(tVTerm *Term, Uint8 *Buffer, Uint Count)
 		if( Buffer[i] == 0x1B )
 		{
 			i ++;
-			i += VT_int_ParseEscape(Term, (char*)&Buffer[i]) - 1;
+			i += VT_int_ParseEscape(Term, (const char*)&Buffer[i]) - 1;
 			continue;
 		}
 		

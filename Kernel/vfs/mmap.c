@@ -114,8 +114,13 @@ void *VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD,
 		{
 			if( pb->PhysAddrs[pagenum - pb->BaseOffset] == 0 )
 			{
-				if( h->Node->MMap )
-					h->Node->MMap(h->Node, pagenum*PAGE_SIZE, PAGE_SIZE, (void*)mapping_dest);
+				tVFS_NodeType	*nt = h->Node->Type;
+				if( !nt ) 
+				{
+					// TODO: error
+				}
+				else if( nt->MMap )
+					nt->MMap(h->Node, pagenum*PAGE_SIZE, PAGE_SIZE, (void*)mapping_dest);
 				else
 				{
 					 int	read_len;
@@ -127,7 +132,7 @@ void *VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD,
 						return NULL;
 					}
 					// TODO: Clip read length
-					read_len = h->Node->Read(h->Node, pagenum*PAGE_SIZE, PAGE_SIZE, (void*)mapping_dest);
+					read_len = nt->Read(h->Node, pagenum*PAGE_SIZE, PAGE_SIZE, (void*)mapping_dest);
 //					if( read_len != PAGE_SIZE ) {
 //						memset( (void*)(mapping_dest+read_len), 0, PAGE_SIZE-read_len );
 //					}
