@@ -69,6 +69,9 @@ typedef struct sThread
 	volatile int	CurCPU;
 	
 	 int	bInstrTrace;
+	
+	// --- event.c
+	Uint32	EventState;
 } tThread;
 
 
@@ -79,6 +82,7 @@ enum {
 	THREAD_STAT_MUTEXSLEEP,	// Mutex Sleep
 	THREAD_STAT_SEMAPHORESLEEP,	// Semaphore Sleep
 	THREAD_STAT_QUEUESLEEP,	// Queue
+	THREAD_STAT_EVENTSLEEP,	// Event sleep
 	THREAD_STAT_WAITING,	// ??? (Waiting for a thread)
 	THREAD_STAT_PREINIT,	// Being created
 	THREAD_STAT_ZOMBIE,	// Died/Killed, but parent not informed
@@ -92,6 +96,7 @@ static const char * const casTHREAD_STAT[] = {
 	"THREAD_STAT_MUTEXSLEEP",
 	"THREAD_STAT_SEMAPHORESLEEP",
 	"THREAD_STAT_QUEUESLEEP",
+	"THREAD_STAT_EVENTSLEEP",
 	"THREAD_STAT_WAITING",
 	"THREAD_STAT_PREINIT",
 	"THREAD_STAT_ZOMBIE",
