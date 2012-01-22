@@ -1,0 +1,16 @@
+Per-thread event system
+
+enum eEvents
+{
+	EVENT_VFS,
+	EVENT_IPCMESSAGE,
+	...
+};
+
+Uint32	tThread.ActiveEvents
+tSemaphore	tThread.EventSemaphore
+
+
+Threads_PostEvent(tThread *, int EventID);
+Threads_WaitEvents(Uint32 Mask);
+- Clears events watched when wait is over
