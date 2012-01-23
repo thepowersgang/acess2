@@ -4,6 +4,9 @@
  * 
  * select.c
  * - Implements the select() system call (and supporting code)
+ *
+ * TODO: Implment timeouts (via an alarm event?)
+ * TODO: Remove malloc for read/write queues
  */
 #define DEBUG	0
 #include <acess.h>
@@ -11,31 +14,30 @@
 #include "vfs_int.h"
 #include "vfs_ext.h"
 #include <semaphore.h>
+#include <threads.h>
+#include <events.h>
 
 // === CONSTANTS ===
 #define	NUM_THREADS_PER_ALLOC	4
 
+// === IMPORTS ===
+extern tThread	*Proc_GetCurThread(void);
+
 // === TYPES ===
-typedef struct sVFS_SelectThread	tVFS_SelectThread;
 typedef struct sVFS_SelectListEnt	tVFS_SelectListEnt;
 
 // === STRUCTURES ===
 struct sVFS_SelectListEnt
 {
 	tVFS_SelectListEnt	*Next;
-	tVFS_SelectThread	*Threads[NUM_THREADS_PER_ALLOC];
+	tThread	*Threads[NUM_THREADS_PER_ALLOC];
 };
 
+// NOTE: Typedef is in vfs.h
 struct sVFS_SelectList
 {
 	tMutex	Lock;
 	tVFS_SelectListEnt	FirstEnt;
-};
-
-struct sVFS_SelectThread
-{
-	//! \brief Semaphore to atomically put the listener to sleep
-	tSemaphore	SleepHandle;	// TODO: Allow timeouts (by setting an alarm?)
 };
 
 // === PROTOTYPES ===
@@ -45,10 +47,10 @@ struct sVFS_SelectThread
 // int	VFS_MarkAvaliable(tVFS_Node *Node, BOOL IsDataAvaliable);
 // int	VFS_MarkError(tVFS_Node *Node, BOOL IsErrorState);
  int	VFS_int_Select_GetType(int Type, tVFS_Node *Node, tVFS_SelectList ***List, int **Flag, int *WantedFlag, int *MaxAllowed);
- int	VFS_int_Select_Register(tVFS_SelectThread *Thread, int MaxHandle, fd_set *Handles, int Type, BOOL IsKernel);
- int	VFS_int_Select_Deregister(tVFS_SelectThread *Thread, int MaxHandle, fd_set *Handles, int Type, BOOL IsKernel);
- int	VFS_int_Select_AddThread(tVFS_SelectList *List, tVFS_SelectThread *Thread, int MaxAllowed);
-void	VFS_int_Select_RemThread(tVFS_SelectList *List, tVFS_SelectThread *Thread);
+ int	VFS_int_Select_Register(tThread *Thread, int MaxHandle, fd_set *Handles, int Type, BOOL IsKernel);
+ int	VFS_int_Select_Deregister(tThread *Thread, int MaxHandle, fd_set *Handles, int Type, BOOL IsKernel);
+ int	VFS_int_Select_AddThread(tVFS_SelectList *List, tThread *Thread, int MaxAllowed);
+void	VFS_int_Select_RemThread(tVFS_SelectList *List, tThread *Thread);
 void	VFS_int_Select_SignalAll(tVFS_SelectList *List);
 
 // === GLOBALS ===
@@ -56,15 +58,10 @@ void	VFS_int_Select_SignalAll(tVFS_SelectList *List);
 // === FUNCTIONS ===
 int VFS_SelectNode(tVFS_Node *Node, int TypeFlags, tTime *Timeout, const char *Name)
 {
-	tVFS_SelectThread	*thread_info;
+	tThread	*thisthread = Proc_GetCurThread();
 	 int	ret, type;
 	
 	ENTER("pNode iTypeFlags pTimeout", Node, TypeFlags, Timeout);
-	
-	thread_info = malloc(sizeof(tVFS_SelectThread));
-	if(!thread_info)	LEAVE_RET('i', -1);
-
-	Semaphore_Init(&thread_info->SleepHandle, 0, 0, "VFS_SelectNode()", Name);
 	
 	// Initialise
 	for( type = 0; type < 3; type ++ )
@@ -73,7 +70,6 @@ int VFS_SelectNode(tVFS_Node *Node, int TypeFlags, tTime *Timeout, const char *N
 		 int	*flag, wanted, maxAllowed;
 		if( !(TypeFlags & (1 << type)) )	continue;
 		if( VFS_int_Select_GetType(type, Node, &list, &flag, &wanted, &maxAllowed) ) {
-			free(thread_info);
 			LEAVE('i', -1);
 			return -1;
 		}
@@ -81,11 +77,10 @@ int VFS_SelectNode(tVFS_Node *Node, int TypeFlags, tTime *Timeout, const char *N
 		// Alloc if needed
 		if( !*list )	*list = calloc(1, sizeof(tVFS_SelectList));
 	
-		VFS_int_Select_AddThread(*list, thread_info, maxAllowed);
+		VFS_int_Select_AddThread(*list, thisthread, maxAllowed);
 		if( *flag == wanted )
 		{
-			VFS_int_Select_RemThread(*list, thread_info);
-			free(thread_info);
+			VFS_int_Select_RemThread(*list, thisthread);
 			LEAVE('i', 1);
 			return 1;
 		}
@@ -99,7 +94,7 @@ int VFS_SelectNode(tVFS_Node *Node, int TypeFlags, tTime *Timeout, const char *N
 	{
 		LOG("Semaphore_Wait()");
 		// TODO: Actual timeout
-		Semaphore_Wait(&thread_info->SleepHandle, 1);
+		Threads_WaitEvents( THREAD_EVENT_VFS );
 	}
 	
 	// Get return value
@@ -111,11 +106,9 @@ int VFS_SelectNode(tVFS_Node *Node, int TypeFlags, tTime *Timeout, const char *N
 		if( !(TypeFlags & (1 << type)) )	continue;
 		VFS_int_Select_GetType(type, Node, &list, &flag, &wanted, &maxAllowed);
 		LOG("VFS_int_Select_RemThread()");
-		VFS_int_Select_RemThread(*list, thread_info);
+		VFS_int_Select_RemThread(*list, thisthread);
 		ret = ret || *flag == wanted;
 	}
-	
-	free(thread_info);
 	
 	LEAVE('i', ret);
 	return ret;
@@ -123,18 +116,13 @@ int VFS_SelectNode(tVFS_Node *Node, int TypeFlags, tTime *Timeout, const char *N
 
 int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set *ErrHandles, tTime *Timeout, BOOL IsKernel)
 {
-	tVFS_SelectThread	*thread_info;
+	tThread	*thisthread = Proc_GetCurThread();
 	 int	ret;
-	
-	thread_info = malloc(sizeof(tVFS_SelectThread));
-	if(!thread_info)	return -1;
 	
 	ENTER("iMaxHandle pReadHandles pWriteHandles pErrHandles pTimeout bIsKernel",
 		MaxHandle, ReadHandles, WriteHandles, ErrHandles, Timeout, IsKernel);
 	
-	Semaphore_Init(&thread_info->SleepHandle, 0, 0, "VFS_Select()", "");
-	
-	// Notes: The idea is to make sure we only enter wait (on the semaphore)
+	// Notes: The idea is to make sure we only enter wait (Threads_WaitEvents)
 	// if we are going to be woken up (either by an event at a later time,
 	// or by an event that happened while or before we were registering).
 	// Hence, register must happen _before_ we check the state flag
@@ -142,19 +130,18 @@ int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set 
 	// or the semaphore is incremeneted (or both, but never none)
 	
 	// Register with nodes
-	ret  = VFS_int_Select_Register(thread_info, MaxHandle, ReadHandles, 0, IsKernel);
-	ret += VFS_int_Select_Register(thread_info, MaxHandle, WriteHandles, 1, IsKernel);
-	ret += VFS_int_Select_Register(thread_info, MaxHandle, ErrHandles, 2, IsKernel);
+	ret  = VFS_int_Select_Register(thisthread, MaxHandle, ReadHandles, 0, IsKernel);
+	ret += VFS_int_Select_Register(thisthread, MaxHandle, WriteHandles, 1, IsKernel);
+	ret += VFS_int_Select_Register(thisthread, MaxHandle, ErrHandles, 2, IsKernel);
 	
 	LOG("Register ret = %i", ret);
 	
 	// If there were events waiting, de-register and return
 	if( ret > 0 )
 	{
-		ret  = VFS_int_Select_Deregister(thread_info, MaxHandle, ReadHandles, 0, IsKernel);
-		ret += VFS_int_Select_Deregister(thread_info, MaxHandle, WriteHandles, 1, IsKernel);
-		ret += VFS_int_Select_Deregister(thread_info, MaxHandle, ErrHandles, 2, IsKernel);
-		free(thread_info);
+		ret  = VFS_int_Select_Deregister(thisthread, MaxHandle, ReadHandles, 0, IsKernel);
+		ret += VFS_int_Select_Deregister(thisthread, MaxHandle, WriteHandles, 1, IsKernel);
+		ret += VFS_int_Select_Deregister(thisthread, MaxHandle, ErrHandles, 2, IsKernel);
 		LEAVE('i', ret);
 		return ret;
 	}
@@ -165,16 +152,16 @@ int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set 
 	// Wait (only if there is no timeout, or it is greater than zero
 	if( !Timeout || *Timeout > 0 )
 	{
-		ret = Semaphore_Wait(&thread_info->SleepHandle, 1);
-		// TODO: Do something with ret?
+		// TODO: Timeout
+		// TODO: Allow extra events to be waited upon
+		Threads_WaitEvents( THREAD_EVENT_VFS );
 	}
 	
 	// Fill output (modify *Handles)
 	// - Also, de-register
-	ret  = VFS_int_Select_Deregister(thread_info, MaxHandle, ReadHandles, 0, IsKernel);
-	ret += VFS_int_Select_Deregister(thread_info, MaxHandle, WriteHandles, 1, IsKernel);
-	ret += VFS_int_Select_Deregister(thread_info, MaxHandle, ErrHandles, 2, IsKernel);
-	free(thread_info);
+	ret  = VFS_int_Select_Deregister(thisthread, MaxHandle, ReadHandles, 0, IsKernel);
+	ret += VFS_int_Select_Deregister(thisthread, MaxHandle, WriteHandles, 1, IsKernel);
+	ret += VFS_int_Select_Deregister(thisthread, MaxHandle, ErrHandles, 2, IsKernel);
 	LEAVE('i', ret);
 	return ret;
 }
@@ -246,7 +233,7 @@ int VFS_int_Select_GetType(int Type, tVFS_Node *Node, tVFS_SelectList ***List, i
 /**
  * \return Number of files with an action
  */
-int VFS_int_Select_Register(tVFS_SelectThread *Thread, int MaxHandle, fd_set *Handles, int Type, BOOL IsKernel)
+int VFS_int_Select_Register(tThread *Thread, int MaxHandle, fd_set *Handles, int Type, BOOL IsKernel)
 {
 	 int	i, numFlagged = 0;
 	tVFS_SelectList	**list;
@@ -308,7 +295,7 @@ int VFS_int_Select_Register(tVFS_SelectThread *Thread, int MaxHandle, fd_set *Ha
 /**
  * \return Number of files with an action
  */
-int VFS_int_Select_Deregister(tVFS_SelectThread *Thread, int MaxHandle, fd_set *Handles, int Type, BOOL IsKernel)
+int VFS_int_Select_Deregister(tThread *Thread, int MaxHandle, fd_set *Handles, int Type, BOOL IsKernel)
 {
 	 int	i, numFlagged = 0;
 	tVFS_SelectList	**list;
@@ -367,7 +354,7 @@ int VFS_int_Select_Deregister(tVFS_SelectThread *Thread, int MaxHandle, fd_set *
 /**
  * \return Boolean failure
  */
-int VFS_int_Select_AddThread(tVFS_SelectList *List, tVFS_SelectThread *Thread, int MaxAllowed)
+int VFS_int_Select_AddThread(tVFS_SelectList *List, tThread *Thread, int MaxAllowed)
 {
 	 int	i, count = 0;
 	tVFS_SelectListEnt	*block, *prev;
@@ -428,7 +415,7 @@ int VFS_int_Select_AddThread(tVFS_SelectList *List, tVFS_SelectThread *Thread, i
 	return 0;
 }
 
-void VFS_int_Select_RemThread(tVFS_SelectList *List, tVFS_SelectThread *Thread)
+void VFS_int_Select_RemThread(tVFS_SelectList *List, tThread *Thread)
 {
 	 int	i;
 	tVFS_SelectListEnt	*block, *prev = NULL;
@@ -507,7 +494,7 @@ void VFS_int_Select_SignalAll(tVFS_SelectList *List)
 			if( block->Threads[i]  )
 			{
 				LOG("block(%p)->Threads[%i] = %p", block, i, block->Threads[i]);
-				Semaphore_Signal( &block->Threads[i]->SleepHandle, 1 );
+				Threads_PostEvent( block->Threads[i], THREAD_EVENT_VFS );
 			}
 		}
 		

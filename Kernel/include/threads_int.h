@@ -23,7 +23,7 @@ typedef struct sMessage
  * \brief Core threading structure
  * 
  */
-typedef struct sThread
+struct sThread
 {
 	// --- threads.c's
 	/**
@@ -72,7 +72,7 @@ typedef struct sThread
 	
 	// --- event.c
 	Uint32	EventState;
-} tThread;
+};
 
 
 enum {

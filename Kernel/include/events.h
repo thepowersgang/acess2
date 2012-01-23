@@ -8,6 +8,8 @@
 #ifndef _EVENTS_H_
 #define _EVENTS_H_
 
+#include <threads.h>
+
 #define THREAD_EVENT_VFS	0x00000001
 #define THREAD_EVENT_IPCMSG	0x00000002
 #define THREAD_EVENT_SIGNAL	0x00000004

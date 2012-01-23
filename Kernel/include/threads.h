@@ -1,11 +1,12 @@
 /*
+ * Acess2 Kernel
  */
 #ifndef _THREADS_H_
 #define _THREADS_H_
 
 #include <arch.h>
 #include <signal.h>
-#include <proc.h>
+//#include <proc.h>
 
 enum eFaultNumbers
 {
@@ -18,6 +19,8 @@ enum eFaultNumbers
 };
 
 #define GETMSG_IGNORE	((void*)-1)
+
+typedef struct sThread	tThread;
 
 // === FUNCTIONS ===
 extern void	Threads_SetFaultHandler(Uint Handler);

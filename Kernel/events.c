@@ -12,8 +12,10 @@
 // === CODE ===
 void Threads_PostEvent(tThread *Thread, Uint32 EventMask)
 {
-	// TODO: Check that only one bit is set?
+	// Sanity checking
+	if( !Thread )	return ;
 	if( EventMask == 0 )	return ;
+	// TODO: Check that only one bit is set?
 	
 	SHORTLOCK( &Thread->IsLocked );
 
@@ -34,6 +36,9 @@ void Threads_PostEvent(tThread *Thread, Uint32 EventMask)
 	SHORTREL( &Thread->IsLocked );
 }
 
+/**
+ * \brief Wait for an event to occur
+ */
 Uint32 Threads_WaitEvents(Uint32 EventMask)
 {
 	Uint32	rv;
@@ -47,7 +52,7 @@ Uint32 Threads_WaitEvents(Uint32 EventMask)
 	
 	// Check if a wait is needed
 	SHORTLOCK( &us->IsLocked );
-	if( !(us->EventState & EventMask) )
+	while( !(us->EventState & EventMask) )
 	{
 		// Wait
 		us->RetStatus = EventMask;	// HACK: Store EventMask in RetStatus

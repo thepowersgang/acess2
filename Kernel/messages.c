@@ -10,6 +10,7 @@
 #include <threads.h>
 #include <threads_int.h>
 #include <errno.h>
+#include <events.h>
 
 // === CODE ===
 /**
@@ -32,6 +33,9 @@ int Proc_SendMessage(Uint *Err, Uint Dest, int Length, void *Data)
 		LEAVE_RET('i', -1);
 	}
 	
+	// TODO: Check message length against global/per-thread maximums
+	// TODO: Restrict queue length
+
 	// Get thread
 	thread = Threads_GetThread( Dest );
 	
@@ -64,9 +68,10 @@ int Proc_SendMessage(Uint *Err, Uint Dest, int Length, void *Data)
 	}
 	
 	SHORTREL(&thread->IsLocked);
-	
+
+	// Wake the thread	
 	LOG("Waking %p (%i %s)", thread, thread->TID, thread->ThreadName);
-	Threads_Wake( thread );
+	Threads_PostEvent( thread, THREAD_EVENT_IPCMSG );
 	
 	LEAVE_RET('i', 0);
 }
@@ -77,6 +82,7 @@ int Proc_SendMessage(Uint *Err, Uint Dest, int Length, void *Data)
  * \param Err	Pointer to \a errno
  * \param Source	Where to put the source TID
  * \param Buffer	Buffer to place the message data (set to NULL to just get message length)
+ * \return Message length
  */
 int Proc_GetMessage(Uint *Err, Uint *Source, void *Buffer)
 {
