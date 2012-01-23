@@ -34,6 +34,13 @@ const enum eConfigTypes	cCONFIG_TYPES[NUM_CFG_ENTRIES] = {
 
 // === IMPORTS ===
 
+// === TYPE ===
+typedef struct
+{
+	tThread	*Head;
+	tThread	*Tail;
+} tThreadList;
+
 // === PROTOTYPES ===
 void	Threads_Init(void);
 #if 0
@@ -47,7 +54,8 @@ tThread	*Threads_CloneTCB(Uint *Err, Uint Flags);
  int	Threads_WaitTID(int TID, int *status);
 tThread	*Threads_GetThread(Uint TID);
 #endif
-tThread	*Threads_int_DelFromQueue(tThread **List, tThread *Thread);
+tThread	*Threads_int_DelFromQueue(tThreadList *List, tThread *Thread);
+void	Threads_int_AddToList(tThreadList *List, tThread *Thread);
 #if 0
 void	Threads_Exit(int TID, int Status);
 void	Threads_Kill(tThread *Thread, int Status);
@@ -89,18 +97,18 @@ volatile int	giNumActiveThreads = 0;	// Number of threads on the active queue
 volatile Uint	giNextTID = 1;	// Next TID to allocate
 // --- Thread Lists ---
 tThread	*gAllThreads = NULL;		// All allocated threads
-tThread	*gSleepingThreads = NULL;	// Sleeping Threads
+tThreadList	gSleepingThreads;	// Sleeping Threads
  int	giNumCPUs = 1;	// Number of CPUs
 BOOL     gaThreads_NoTaskSwitch[MAX_CPUS];	// Disables task switches for each core (Pseudo-IF)
 // --- Scheduler Types ---
 #if SCHEDULER_TYPE == SCHED_LOTTERY
 const int	caiTICKET_COUNTS[MIN_PRIORITY+1] = {100,81,64,49,36,25,16,9,4,1,0};
 volatile int	giFreeTickets = 0;	// Number of tickets held by non-scheduled threads
-tThread	*gActiveThreads = NULL;		// Currently Running Threads
+tThreadList	gActiveThreads;		// Currently Running Threads
 #elif SCHEDULER_TYPE == SCHED_RR_SIM
-tThread	*gActiveThreads = NULL;		// Currently Running Threads
+tThreadList	gActiveThreads;		// Currently Running Threads
 #elif SCHEDULER_TYPE == SCHED_RR_PRI
-tThread	*gaActiveThreads[MIN_PRIORITY+1];	// Active threads for each priority level
+tThreadList	gaActiveThreads[MIN_PRIORITY+1];	// Active threads for each priority level
 #else
 # error "Unkown scheduler type"
 #endif
@@ -119,11 +127,13 @@ void Threads_Init(void)
 	Log_Debug("Threads", ".KernelStack = %i", offsetof(tThread, KernelStack));
 	
 	// Create Initial Task
-	#if SCHEDULER_TYPE == SCHED_RR_PRI
-	gaActiveThreads[gThreadZero.Priority] = &gThreadZero;
-	#else
-	gActiveThreads = &gThreadZero;
-	#endif
+//	#if SCHEDULER_TYPE == SCHED_RR_PRI
+//	gaActiveThreads[gThreadZero.Priority].Head = &gThreadZero;
+//	gaActiveThreads[gThreadZero.Priority].Tail = &gThreadZero;
+//	#else
+//	gActiveThreads.Head = &gThreadZero;
+//	gActiveThreads.Tail = &gThreadZero;
+//	#endif
 	
 	gAllThreads = &gThreadZero;
 	giNumActiveThreads = 1;
@@ -210,14 +220,18 @@ void Threads_SetPriority(tThread *Thread, int Pri)
 	if( Pri == Thread->Priority )	return;
 	
 	#if SCHEDULER_TYPE == SCHED_RR_PRI
-	SHORTLOCK( &glThreadListLock );
-	// Remove from old priority
-	Threads_int_DelFromQueue( &gaActiveThreads[Thread->Priority], Thread );
-	// And add to new
-	Thread->Next = gaActiveThreads[Pri];
-	gaActiveThreads[Pri] = Thread;
-	Thread->Priority = Pri;
-	SHORTREL( &glThreadListLock );
+	if( Thread != Proc_GetCurThread() )
+	{
+		SHORTLOCK( &glThreadListLock );
+		// Remove from old priority
+		Threads_int_DelFromQueue( &gaActiveThreads[Thread->Priority], Thread );
+		// And add to new
+		Threads_int_AddToList( &gaActiveThreads[Pri], Thread );
+		Thread->Priority = Pri;
+		SHORTREL( &glThreadListLock );
+	}
+	else
+		Thread->Priority = Pri;
 	#else
 	// If this isn't the current thread, we need to lock
 	if( Thread != Proc_GetCurThread() )
@@ -482,11 +496,11 @@ tThread *Threads_GetThread(Uint TID)
  * \param Thread	Thread to find
  * \return \a Thread
  */
-tThread *Threads_int_DelFromQueue(tThread **List, tThread *Thread)
+tThread *Threads_int_DelFromQueue(tThreadList *List, tThread *Thread)
 {
 	tThread *ret, *prev = NULL;
 	
-	for(ret = *List;
+	for(ret = List->Head;
 		ret && ret != Thread;
 		prev = ret, ret = ret->Next
 		);
@@ -498,15 +512,27 @@ tThread *Threads_int_DelFromQueue(tThread **List, tThread *Thread)
 	}
 	
 	if( !prev ) {
-		*List = Thread->Next;
+		List->Head = Thread->Next;
 		//LogF("%p(%s) removed from head of %p\n", Thread, Thread->ThreadName, List);
 	}
 	else {
 		prev->Next = Thread->Next;
 		//LogF("%p(%s) removed from %p (prev=%p)\n", Thread, Thread->ThreadName, List, prev);
 	}
+	if( Thread->Next == NULL )
+		List->Tail = prev;
 	
 	return Thread;
+}
+
+void Threads_int_AddToList(tThreadList *List, tThread *Thread)
+{
+	if( List->Head )
+		List->Tail->Next = Thread;
+	else
+		List->Head = Thread;
+	List->Tail = Thread;
+	Thread->Next = NULL;
 }
 
 /**
@@ -574,30 +600,33 @@ void Threads_Kill(tThread *Thread, int Status)
 	
 	// Currently active thread
 	case THREAD_STAT_ACTIVE:
-		#if SCHEDULER_TYPE == SCHED_RR_PRI
-		if( Threads_int_DelFromQueue( &gaActiveThreads[Thread->Priority], Thread ) )
-		#else
-		if( Threads_int_DelFromQueue( &gActiveThreads, Thread ) )
-		#endif
+		if( Thread != Proc_GetCurThread() )
 		{
-			// Ensure that we are not rescheduled
-			Thread->Remaining = 0;	// Clear Remaining Quantum
-			Thread->Quantum = 0;	// Clear Quantum to indicate dead thread
-			
-			// Update bookkeeping
-			giNumActiveThreads --;
+			#if SCHEDULER_TYPE == SCHED_RR_PRI
+			tThreadList	*list = &gaActiveThreads[Thread->Priority];
+			#else
+			tThreadList	*list = &gActiveThreads;
+			#endif
+			if( Threads_int_DelFromQueue( list, Thread ) )
+			{
+			}
+			else
+			{
+				Log_Warning("Threads",
+					"Threads_Kill - Thread %p(%i,%s) marked as active, but not on list",
+					Thread, Thread->TID, Thread->ThreadName
+					);
+			}
 			#if SCHEDULER_TYPE == SCHED_LOTTERY
-			if( Thread != Proc_GetCurThread() )
-				giFreeTickets -= caiTICKET_COUNTS[ Thread->Priority ];
+			giFreeTickets -= caiTICKET_COUNTS[ Thread->Priority ];
 			#endif
 		}
-		else
-		{
-			Log_Warning("Threads",
-				"Threads_Kill - Thread %p(%i,%s) marked as active, but not on list",
-				Thread, Thread->TID, Thread->ThreadName
-				);
-		}
+		// Ensure that we are not rescheduled
+		Thread->Remaining = 0;	// Clear Remaining Quantum
+		Thread->Quantum = 0;	// Clear Quantum to indicate dead thread
+			
+		// Update bookkeeping
+		giNumActiveThreads --;
 		break;
 	// Kill it while it sleeps!
 	case THREAD_STAT_SLEEPING:
@@ -676,9 +705,7 @@ void Threads_Sleep(void)
 	cur->Status = THREAD_STAT_SLEEPING;
 	
 	// Add to Sleeping List (at the top)
-	cur->Next = gSleepingThreads;
-	gSleepingThreads = cur;
-	
+	Threads_int_AddToList( &gSleepingThreads, cur );
 	
 	#if DEBUG_TRACE_STATE
 	Log("Threads_Sleep: %p (%i %s) sleeping", cur, cur->TID, cur->ThreadName);
@@ -832,21 +859,12 @@ void Threads_AddActive(tThread *Thread)
 //	Thread->CurCPU = -1;
 	// Add to active list
 	{
-		tThread	*tmp, *prev = NULL;
 		#if SCHEDULER_TYPE == SCHED_RR_PRI
-		for( tmp = gaActiveThreads[Thread->Priority]; tmp; prev = tmp, tmp = tmp->Next );
-		if(prev)
-			prev->Next = Thread;
-		else
-			gaActiveThreads[Thread->Priority] = Thread;
+		tThreadList	*list = &gaActiveThreads[Thread->Priority];
 		#else
-		for( tmp = gActiveThreads; tmp; prev = tmp, tmp = tmp->Next );
-		if(prev)
-			prev->Next = Thread;
-		else
-			gActiveThreads = Thread;
+		tThreadList	*list = &gActiveThreads;
 		#endif
-		Thread->Next = NULL;
+		Threads_int_AddToList( list, Thread );
 	}
 	
 	// Update bookkeeping
@@ -881,6 +899,7 @@ void Threads_AddActive(tThread *Thread)
  */
 tThread *Threads_RemActive(void)
 {
+	#if 0
 	tThread	*ret = Proc_GetCurThread();
 
 	if( !IS_LOCKED(&glThreadListLock) ) {
@@ -895,7 +914,6 @@ tThread *Threads_RemActive(void)
 	if( !Threads_int_DelFromQueue(&gActiveThreads, ret) )
 	#endif
 	{
-		SHORTREL( &glThreadListLock );
 		Log_Warning("Threads", "Current thread %p(%i %s) is not on active queue",
 			ret, ret->TID, ret->ThreadName
 			);
@@ -914,6 +932,9 @@ tThread *Threads_RemActive(void)
 	#endif
 	
 	return ret;
+	#else
+	return Proc_GetCurThread();
+	#endif
 }
 
 /**
@@ -1024,6 +1045,7 @@ int Threads_SetGID(Uint *Errno, tGID ID)
 void Threads_DumpActive(void)
 {
 	tThread	*thread;
+	tThreadList	*list;
 	#if SCHEDULER_TYPE == SCHED_RR_PRI
 	 int	i;
 	#endif
@@ -1033,15 +1055,17 @@ void Threads_DumpActive(void)
 	#if SCHEDULER_TYPE == SCHED_RR_PRI
 	for( i = 0; i < MIN_PRIORITY+1; i++ )
 	{
-		for(thread=gaActiveThreads[i];thread;thread=thread->Next)
+		list = &gaActiveThreads[i];
 	#else
-		for(thread=gActiveThreads;thread;thread=thread->Next)
+		list = &gActiveThreads;
 	#endif
+		for(thread=list->Head;thread;thread=thread->Next)
 		{
 			Log(" %p %i (%i) - %s (CPU %i)",
 				thread, thread->TID, thread->TGID, thread->ThreadName, thread->CurCPU);
 			if(thread->Status != THREAD_STAT_ACTIVE)
-				Log("  ERROR State (%i) != THREAD_STAT_ACTIVE (%i)", thread->Status, THREAD_STAT_ACTIVE);
+				Log("  ERROR State (%i) != THREAD_STAT_ACTIVE (%i)",
+					thread->Status, THREAD_STAT_ACTIVE);
 			Log("  Priority %i, Quantum %i", thread->Priority, thread->Quantum);
 			Log("  KStack 0x%x", thread->KernelStack);
 			if( thread->bInstrTrace )
@@ -1127,25 +1151,28 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 		#endif
 		return NULL;
 	}
-	
+
+	#if 0	
 	#if SCHEDULER_TYPE != SCHED_RR_PRI
 	// Special case: 1 thread
 	if(giNumActiveThreads == 1) {
-		if( gActiveThreads->CurCPU == -1 )
-			gActiveThreads->CurCPU = CPU;
+		if( gActiveThreads.Head->CurCPU == -1 )
+			gActiveThreads.Head->CurCPU = CPU;
 		
 		SHORTREL( &glThreadListLock );
 		
-		if( gActiveThreads->CurCPU == CPU )
-			return gActiveThreads;
+		if( gActiveThreads.Head->CurCPU == CPU )
+			return gActiveThreads.Head;
 		
 		return NULL;	// CPU has nothing to do
 	}
 	#endif
-	
+	#endif	
+
 	// Allow the old thread to be scheduled again
 	if( Last ) {
 		if( Last->Status == THREAD_STAT_ACTIVE ) {
+			tThreadList	*list;
 			#if SCHEDULER_TYPE == SCHED_LOTTERY
 			giFreeTickets += caiTICKET_COUNTS[ Last->Priority ];
 			# if DEBUG_TRACE_TICKETS
@@ -1154,6 +1181,14 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 				caiTICKET_COUNTS[ Last->Priority ]);
 			# endif
 			#endif
+			
+			#if SCHEDULER_TYPE == SCHED_RR_PRI
+			list = &gaActiveThreads[ Last->Priority ];
+			#else
+			list = &gActiveThreads;
+			#endif
+			// Add to end of list
+			Threads_int_AddToList( list, Last );
 		}
 		#if SCHEDULER_TYPE == SCHED_LOTTERY && DEBUG_TRACE_TICKETS
 		else
@@ -1171,8 +1206,8 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 		 int	ticket, number;
 		# if 1
 		number = 0;
-		for(thread = gActiveThreads; thread; thread = thread->Next) {
-			if(thread->CurCPU >= 0)	continue;
+		for(thread = gActiveThreads.Head; thread; thread = thread->Next)
+		{
 			if(thread->Status != THREAD_STAT_ACTIVE)
 				Panic("Bookkeeping fail - %p %i(%s) is on the active queue with a status of %i",
 					thread, thread->TID, thread->ThreadName, thread->Status);
@@ -1198,9 +1233,8 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 		ticket = number = rand() % giFreeTickets;
 		
 		// Find the next thread
-		for(thread=gActiveThreads;thread;thread=thread->Next)
+		for(thread = gActiveThreads.Head; thread; prev = thread, thread = thread->Next )
 		{
-			if(thread->CurCPU >= 0)	continue;
 			if( caiTICKET_COUNTS[ thread->Priority ] > number)	break;
 			number -= caiTICKET_COUNTS[ thread->Priority ];
 		}
@@ -1216,7 +1250,15 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 			Panic("Bookeeping Failed - giFreeTickets(%i) > true count (%i)",
 				giFreeTickets, number);
 		}
-		
+
+		// Remove
+		if(prev)
+			prev->Next = thread->Next;
+		else
+			gActiveThreads.Head = thread->Next;
+		if(!thread->Next)
+			gActiveThreads.Tail = prev;		
+
 		giFreeTickets -= caiTICKET_COUNTS[ thread->Priority ];
 		# if DEBUG_TRACE_TICKETS
 		LogF("Log: CPU%i allocated %p (%i %s), (%i [-%i] tickets in pool), \n",
@@ -1231,28 +1273,20 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 	#elif SCHEDULER_TYPE == SCHED_RR_PRI
 	{
 		 int	i;
+		thread = NULL;
 		for( i = 0; i < MIN_PRIORITY + 1; i ++ )
 		{
-			for(thread = gaActiveThreads[i]; thread; thread = thread->Next)
-			{
-				if( thread->CurCPU == -1 )	break;
-			}
-			// If we fall onto the same queue again, special handling is
-			// needed
-			if( Last && Last->Status == THREAD_STAT_ACTIVE && i == Last->Priority ) {
-				tThread	*savedThread = thread;
-				
-				// Find the next unscheduled thread in the list
-				for( thread = Last->Next; thread; thread = thread->Next )
-				{
-					if( thread->CurCPU == -1 )	break;
-				}
-				// If we don't find anything after, just use the one 
-				// found above.
-				if( !thread )	thread = savedThread;
-			}
-			// Found a thread? Schedule it!
-			if( thread )	break;
+			if( !gaActiveThreads[i].Head )
+				continue ;
+	
+			thread = gaActiveThreads[i].Head;
+			
+			// Remove from head
+			gaActiveThreads[i].Head = thread->Next;
+			if(!thread->Next)
+				gaActiveThreads[i].Tail = NULL;
+			thread->Next = NULL;
+			break;
 		}
 		
 		// Anything to do?
@@ -1265,20 +1299,13 @@ tThread *Threads_GetNextToRun(int CPU, tThread *Last)
 		}
 	}
 	#elif SCHEDULER_TYPE == SCHED_RR_SIM
-	{		
-		// Find the next unscheduled thread in the list
-		for( thread = Last->Next; thread; thread = thread->Next )
-		{
-			if( thread->CurCPU == -1 )	break;
-		}
-		// If we don't find anything after, search from the beginning
-		if( !thread )
-		{
-			for(thread = gActiveThreads; thread; thread = thread->Next)
-			{
-				if( thread->CurCPU == -1 )	break;
-			}	
-		}
+	{
+		// Get the next thread off the list
+		thread = gActiveThreads.Head;	
+		gActiveThreads.Head = thread->Next;
+		if(!thread->Next)
+			gaActiveThreads.Tail = NULL;
+		thread->Next = NULL;
 		
 		// Anything to do?
 		if( !thread ) {
