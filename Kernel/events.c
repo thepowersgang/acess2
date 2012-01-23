@@ -10,29 +10,28 @@
 #include <events.h>
 
 // === CODE ===
-void Threads_PostEvent(tThread *Thread, int EventID)
+void Threads_PostEvent(tThread *Thread, Uint32 EventMask)
 {
-	if( EventID < 0 || EventID > N_EVENTS )
-	{
-		return ;
-	}
+	// TODO: Check that only one bit is set?
+	if( EventMask == 0 )	return ;
 	
-	SHORTLOCK( Thread->IsLocked );
+	SHORTLOCK( &Thread->IsLocked );
 
-	Thread->EventState |= 1 << EventID;
+	Thread->EventState |= EventMask;
 	
 	// Currently sleeping on an event?
-	if( Thread->State == THREAD_STAT_EVENTSLEEP )
+	if( Thread->Status == THREAD_STAT_EVENTSLEEP )
 	{
 		// Waiting on this event?
-		if( (Uint32)Thread->RetStatus & (1 << EventID) )
+		if( (Uint32)Thread->RetStatus & EventMask )
 		{
 			// Wake up
+			// TODO: Does it matter if the thread is locked here?
 			Threads_AddActive(Thread);
 		}
 	}
 	
-	SHORTREL( Thread->IsLocked );
+	SHORTREL( &Thread->IsLocked );
 }
 
 Uint32 Threads_WaitEvents(Uint32 EventMask)
@@ -66,7 +65,7 @@ Uint32 Threads_WaitEvents(Uint32 EventMask)
 	rv = us->EventState & EventMask;
 	us->EventState &= ~EventMask;
 	
-	SHORTREL( us->IsLocked );
+	SHORTREL( &us->IsLocked );
 	
 	return rv;
 }
