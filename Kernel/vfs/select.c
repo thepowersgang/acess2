@@ -42,7 +42,7 @@ struct sVFS_SelectList
 
 // === PROTOTYPES ===
 // int	VFS_SelectNode(tVFS_Node *Node, enum eVFS_SelectTypes Type, tTime *Timeout);
-// int	VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set *ErrHandles, tTime *Timeout, BOOL IsKernel);
+// int	VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set *ErrHandles, tTime *Timeout, Uint32 ExtraEvents, BOOL IsKernel);
 // int	VFS_MarkFull(tVFS_Node *Node, BOOL IsBufferFull);
 // int	VFS_MarkAvaliable(tVFS_Node *Node, BOOL IsDataAvaliable);
 // int	VFS_MarkError(tVFS_Node *Node, BOOL IsErrorState);
@@ -114,7 +114,7 @@ int VFS_SelectNode(tVFS_Node *Node, int TypeFlags, tTime *Timeout, const char *N
 	return ret;
 }
 
-int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set *ErrHandles, tTime *Timeout, BOOL IsKernel)
+int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set *ErrHandles, tTime *Timeout, Uint32 ExtraEvents, BOOL IsKernel)
 {
 	tThread	*thisthread = Proc_GetCurThread();
 	 int	ret;
@@ -154,7 +154,7 @@ int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set 
 	{
 		// TODO: Timeout
 		// TODO: Allow extra events to be waited upon
-		Threads_WaitEvents( THREAD_EVENT_VFS );
+		Threads_WaitEvents( THREAD_EVENT_VFS|ExtraEvents );
 	}
 	
 	// Fill output (modify *Handles)

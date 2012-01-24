@@ -12,6 +12,10 @@
 # define NULL	((void*)0)
 #endif
 
+#define THREAD_EVENT_VFS	0x0001
+#define THREAD_EVENT_IPCMSG	0x0002
+#define THREAD_EVENT_SIGNAL	0x0004
+
 #define OPENFLAG_EXEC	0x01
 #define OPENFLAG_READ	0x02
 #define OPENFLAG_WRITE	0x04
@@ -38,7 +42,8 @@ extern void	_exit(int status)	__attribute__((noreturn));
 extern void	sleep(void);
 extern void	yield(void);
 extern int	kill(int pid, int sig);
-extern void	wait(int miliseconds);
+//extern void	wait(int miliseconds);
+extern int	_SysWaitEvent(int EventMask);
 extern int	waittid(int id, int *status);
 extern int	clone(int flags, void *stack);
 extern int	execve(char *path, char **argv, char **envp);
@@ -69,7 +74,8 @@ extern int	readdir(int fd, char *dest);
 extern int	_SysOpenChild(int fd, char *name, int flags);
 extern int	_SysGetACL(int fd, t_sysACL *dest);
 extern int	_SysMount(const char *Device, const char *Directory, const char *Type, const char *Options);
-extern int	select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *errfds, time_t *timeout);
+extern int	_SysSelect(int nfds, fd_set *read, fd_set *write, fd_set *err, time_t *timeout, int extraevents);
+#define select(nfs, rdfds, wrfds, erfds, timeout)	_SysSelect(nfs, rdfds, wrfds, erfds, timeout, 0)
 
 // --- IPC ---
 extern int	SysSendMessage(pid_t dest, uint length, const void *Data);

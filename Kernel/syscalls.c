@@ -10,6 +10,7 @@
 #include <hal_proc.h>
 #include <errno.h>
 #include <threads.h>
+#include <events.h>
 
 #define CHECK_NUM_NULLOK(v,size)	\
 	if((v)&&!Syscall_Valid((size),(v))){ret=-1;err=-EINVAL;break;}
@@ -75,7 +76,13 @@ void SyscallHandler(tSyscallRegs *Regs)
 		err = -ENOSYS;
 		ret = -1;
 		break;
-	
+
+	// -- Wait fr an event	
+	case SYS_WAITEVENT:
+		// Message mask
+		ret = Threads_WaitEvents(Regs->Arg1);
+		break;
+
 	// -- Wait for a thread
 	case SYS_WAITTID:
 		// Sanity Check (Status can be NULL)
@@ -307,6 +314,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 			(fd_set *)Regs->Arg3,	// Write
 			(fd_set *)Regs->Arg4,	// Errors
 			(tTime *)Regs->Arg5,	// Timeout
+			(Uint32)Regs->Arg6,	// Extra wakeup events
 			0	// User handles
 			);
 		break;

@@ -353,10 +353,11 @@ extern int	VFS_ReadDir(int FD, char *Dest);
  * \param WriteHandles	Handles to wait to write to
  * \param ErrHandles	Handle to wait for errors on
  * \param Timeout	Timeout for select() (if null, there is no timeout), if zero select() is non blocking
+ * \param ExtraEvents	Extra event set to wait on
  * \param IsKernel	Use kernel handles as opposed to user handles
  * \return Number of handles that actioned
  */
-extern int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set *ErrHandles, tTime *Timeout, BOOL IsKernel);
+extern int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set *ErrHandles, tTime *Timeout, Uint32 ExtraEvents, BOOL IsKernel);
 
 /**
  * \brief Map a file into memory

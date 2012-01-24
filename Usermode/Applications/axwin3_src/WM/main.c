@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
 		IPC_FillSelect(&nfds, &fds);
 		
 		nfds ++;
-		if( select(nfds, &fds, NULL, NULL, NULL) == -1 ) {
+		if( _SysSelect(nfds, &fds, NULL, NULL, NULL, THREAD_EVENT_IPCMSG) == -1 ) {
 			_SysDebug("ERROR: select() returned -1");
 			return -1;
 		}

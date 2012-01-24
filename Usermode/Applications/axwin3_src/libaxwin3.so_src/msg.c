@@ -122,7 +122,7 @@ tAxWin_IPCMessage *AxWin3_int_GetIPCMessage(void)
 	{
 	case CONNTYPE_SENDMESSAGE:
 		// TODO: Less hack, I need a version of select for GetMessage etc
-		if(SysGetMessage(NULL, NULL) == 0)	sleep();
+		if(SysGetMessage(NULL, NULL) == 0)	_SysWaitEvent(THREAD_EVENT_IPCMSG);
 		while(SysGetMessage(NULL, NULL))
 		{
 			pid_t	tid;
