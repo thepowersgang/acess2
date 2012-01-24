@@ -802,7 +802,7 @@ Sint64 timestamp(int sec, int min, int hrs, int day, int month, int year)
 	stamp *= 3600*24;
 	stamp += UNIX_TO_2K;
 	stamp += sec;
-	stamp += mins*60;
+	stamp += min*60;
 	stamp += hrs*3600;
 	
 	return stamp * 1000;
@@ -812,7 +812,9 @@ void format_date(tTime TS, int *year, int *month, int *day, int *hrs, int *mins,
 {
 	 int	is_leap = 0, i;
 
-	inline Sint64 DivMod64(Sint64 N, Sint64 D, Sint64 *R)
+	auto Sint64 DivMod64(Sint64 N, Sint64 D, Sint64 *R);
+	
+	Sint64 DivMod64(Sint64 N, Sint64 D, Sint64 *R)
 	{
 		int sign = (N < 0) != (D < 0);
 		if(N < 0)	N = -N;
@@ -823,7 +825,7 @@ void format_date(tTime TS, int *year, int *month, int *day, int *hrs, int *mins,
 			return DivMod64U(N, D, (Uint64*)R);
 	}
 
-	// Get within-day time
+	// Get time
 	// TODO: Leap-seconds?
 	{
 		Sint64	rem;
