@@ -914,30 +914,43 @@ tVFS_Node *TCP_Server_FindDir(tVFS_Node *Node, const char *Name)
 	 int	id = atoi(Name);
 	
 	ENTER("pNode sName", Node, Name);
-	
-	// Sanity Check
-	itoa(tmp, id, 16, 8, '0');
-	if(strcmp(tmp, Name) != 0) {
-		LOG("'%s' != '%s' (%08x)", Name, tmp, id);
-		LEAVE('n');
-		return NULL;
+
+	// Check for a non-empty name
+	if( Name[0] ) 
+	{	
+		// Sanity Check
+		itoa(tmp, id, 16, 8, '0');
+		if(strcmp(tmp, Name) != 0) {
+			LOG("'%s' != '%s' (%08x)", Name, tmp, id);
+			LEAVE('n');
+			return NULL;
+		}
+		
+		Log_Debug("TCP", "srv->Connections = %p", srv->Connections);
+		Log_Debug("TCP", "srv->NewConnections = %p", srv->NewConnections);
+		Log_Debug("TCP", "srv->ConnectionsTail = %p", srv->ConnectionsTail);
+		
+		// Search
+		SHORTLOCK( &srv->lConnections );
+		for(conn = srv->Connections;
+			conn;
+			conn = conn->Next)
+		{
+			LOG("conn->Node.ImplInt = %i", conn->Node.ImplInt);
+			if(conn->Node.ImplInt == id)	break;
+		}
+		SHORTREL( &srv->lConnections );
 	}
-	
-	Log_Debug("TCP", "srv->Connections = %p", srv->Connections);
-	Log_Debug("TCP", "srv->NewConnections = %p", srv->NewConnections);
-	Log_Debug("TCP", "srv->ConnectionsTail = %p", srv->ConnectionsTail);
-	
-	// Search
-	SHORTLOCK( &srv->lConnections );
-	for(conn = srv->Connections;
-		conn;
-		conn = conn->Next)
+	// Empty Name - Check for a new connection and if it's there, open it
+	else
 	{
-		LOG("conn->Node.ImplInt = %i", conn->Node.ImplInt);
-		if(conn->Node.ImplInt == id)	break;
+		SHORTLOCK( &srv->lConnections );
+		conn = srv->NewConnections;
+		if( conn != NULL )
+			srv->NewConnections = conn->Next;
+		SHORTREL( &srv->lConnections );
 	}
-	SHORTREL( &srv->lConnections );
-	
+		
 	// If not found, ret NULL
 	if(!conn) {
 		LOG("Connection %i not found", id);
