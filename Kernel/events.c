@@ -32,7 +32,6 @@ void Threads_PostEvent(tThread *Thread, Uint32 EventMask)
 		if( (Uint32)Thread->RetStatus & EventMask )
 		{
 			// Wake up
-			// TODO: Does it matter if the thread is locked here?
 			LOG("Waking thread %p(%i %s)", Thread, Thread->TID, Thread->ThreadName);
 			Threads_AddActive(Thread);
 		}
