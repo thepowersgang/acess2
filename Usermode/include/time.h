@@ -8,6 +8,9 @@
 #ifndef _TIME_H_
 #define _TIME_H_
 
+#include <acess/intdefs.h>
+#include <sys/types.h>	// time_t
+
 struct tm
 {
 	 int	tm_sec;
@@ -20,6 +23,12 @@ struct tm
 	 int	tm_yday;
 	 int	tm_isdst;
 };
+
+#define CLOCKS_PER_SEC	1000
+
+typedef signed long long	clock_t;
+
+extern clock_t	clock();
 
 #endif
 

@@ -8,7 +8,13 @@
 #ifndef _SIGNAL_H_
 #define _SIGNAL_H_
 
+#define SIG_DFL	((void*)0)
+#define SIG_ERR	((void*)-1)
 
+#define	SIGABRT	6
+
+#define SIGPIPE	1001
+#define SIGCHLD	1002
 
 #endif
 

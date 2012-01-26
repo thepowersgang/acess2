@@ -3,31 +3,22 @@
 #ifndef _STDINT_H_
 #define _STDINT_H_
 
+#include "acess/intdefs.h"
+
 #define INT_MIN	-0x80000000
 #define INT_MAX	0x7FFFFFFF
 
-typedef unsigned char	uint8_t;
-typedef unsigned short	uint16_t;
-typedef unsigned int	uint32_t;
-typedef unsigned long long	uint64_t;
+typedef __uint8_t	uint8_t;
+typedef __uint16_t	uint16_t;
+typedef __uint32_t	uint32_t;
+typedef __uint64_t	uint64_t;
+typedef __int8_t	int8_t;
+typedef __int16_t	int16_t;
+typedef __int32_t	int32_t;
+typedef __int64_t	int64_t;
 
-typedef signed char		int8_t;
-typedef signed short	int16_t;
-typedef signed int		int32_t;
-typedef signed long long	int64_t;
-
-#if ARCHDIR_is_x86
-typedef int32_t 	intptr_t;
-typedef uint32_t	uintptr_t;
-#elif ARCHDIR_is_x86_64
-typedef int64_t 	intptr_t;
-typedef uint64_t	uintptr_t;
-#elif ARCHDIR_is_armv7
-typedef int32_t 	intptr_t;
-typedef uint32_t 	uintptr_t;
-#else
-# error "Unknown pointer size"
-#endif
+typedef __intptr_t	intptr_t;
+typedef __uintptr_t	uintptr_t;
 
 //typedef uint64_t	off_t;
 

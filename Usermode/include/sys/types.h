@@ -3,6 +3,8 @@
 #ifndef _SYS_TYPES_H
 #define _SYS_TYPES_H
 
+#include <acess/intdefs.h>
+
 typedef struct stat	t_fstat;
 
 #define FD_SETSIZE	128
@@ -51,6 +53,10 @@ extern void	FD_ZERO(fd_set *fdsetp);
 extern void	FD_CLR(int fd, fd_set *fdsetp);
 extern void	FD_SET(int fd, fd_set *fdsetp);
 extern int	FD_ISSET(int fd, fd_set *fdsetp);
+
+typedef __uint8_t	u_int8_t;
+typedef __uint16_t	u_int16_t;
+typedef __uint32_t	u_int32_t;
 
 #include "../sys/stat.h"
 
