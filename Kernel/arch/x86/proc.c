@@ -51,6 +51,7 @@ extern char	Kernel_Stack_Top[];
 extern int	giNumCPUs;
 extern int	giNextTID;
 extern tThread	gThreadZero;
+extern tProcess	gProcessZero;
 extern void	Isr8(void);	// Double Fault
 extern void	Proc_ReturnToUser(tVAddr Handler, Uint Argument, tVAddr KernelStack);
 extern char	scheduler_return[];	// Return address in SchedulerBase
@@ -373,7 +374,7 @@ void ArchThreads_Init(void)
 	gaCPUs[0].Current = &gThreadZero;
 	gThreadZero.CurCPU = 0;
 	
-	gThreadZero.MemState.CR3 = (Uint)gaInitPageDir - KERNEL_BASE;
+	gProcessZero.MemState.CR3 = (Uint)gaInitPageDir - KERNEL_BASE;
 	
 	// Create Per-Process Data Block
 	if( !MM_Allocate(MM_PPD_CFG) )
@@ -569,16 +570,20 @@ void Proc_ChangeStack(void)
 	__asm__ __volatile__ ("mov %0, %%ebp"::"r"(ebp));
 }
 
+void Proc_ClearProcess(tProcess *Process)
+{
+	MM_ClearSpace(Process->MemState.CR3);
+}
+
 void Proc_ClearThread(tThread *Thread)
 {
-	MM_ClearSpace(Thread->MemState.CR3);
 	if(Thread->SavedState.SSE) {
 		free(Thread->SavedState.SSE);
 		Thread->SavedState.SSE = NULL;
 	}
 }
 
-int Proc_NewKThread(void (*Fcn)(void*), void *Data)
+tTID Proc_NewKThread(void (*Fcn)(void*), void *Data)
 {
 	Uint	esp;
 	tThread	*newThread, *cur;
@@ -587,10 +592,6 @@ int Proc_NewKThread(void (*Fcn)(void*), void *Data)
 	newThread = Threads_CloneTCB(0);
 	if(!newThread)	return -1;
 	
-	// Set CR3
-	MM_RefPhys( cur->MemState.CR3 );
-	newThread->MemState.CR3 = cur->MemState.CR3;
-
 	// Create new KStack
 	newThread->KernelStack = MM_NewKStack();
 	// Check for errors
@@ -620,7 +621,7 @@ int Proc_NewKThread(void (*Fcn)(void*), void *Data)
  * \fn int Proc_Clone(Uint *Err, Uint Flags)
  * \brief Clone the current process
  */
-int Proc_Clone(Uint Flags)
+tPID Proc_Clone(Uint Flags)
 {
 	tThread	*newThread;
 	tThread	*cur = Proc_GetCurThread();
@@ -639,7 +640,7 @@ int Proc_Clone(Uint Flags)
 	newThread->KernelStack = cur->KernelStack;
 
 	// Clone state
-	eip = Proc_CloneInt(&newThread->SavedState.ESP, &newThread->MemState.CR3);
+	eip = Proc_CloneInt(&newThread->SavedState.ESP, &newThread->Process->MemState.CR3);
 	if( eip == 0 ) {
 		// ACK the interrupt
 		return 0;
@@ -649,7 +650,7 @@ int Proc_Clone(Uint Flags)
 	newThread->SavedState.bSSEModified = 0;
 	
 	// Check for errors
-	if( newThread->MemState.CR3 == 0 ) {
+	if( newThread->Process->MemState.CR3 == 0 ) {
 		Log_Error("Proc", "Proc_Clone: MM_Clone failed");
 		Threads_Delete(newThread);
 		return -1;
@@ -929,10 +930,11 @@ void Proc_Reschedule(void)
 		LogF("\nSwitching CPU %i to %p (%i %s) - CR3 = 0x%x, EIP = %p, ESP = %p\n",
 			GetCPUNum(),
 			nextthread, nextthread->TID, nextthread->ThreadName,
-			nextthread->MemState.CR3,
+			nextthread->Process->MemState.CR3,
 			nextthread->SavedState.EIP,
 			nextthread->SavedState.ESP
 			);
+		LogF("OldCR3 = %P\n", curthread->Process->MemState.CR3);
 	}
 	#endif
 
@@ -954,7 +956,7 @@ void Proc_Reschedule(void)
 		SwitchTasks(
 			nextthread->SavedState.ESP, &curthread->SavedState.ESP,
 			nextthread->SavedState.EIP, &curthread->SavedState.EIP,
-			nextthread->MemState.CR3
+			nextthread->Process->MemState.CR3
 			);
 	}
 	else
@@ -962,7 +964,7 @@ void Proc_Reschedule(void)
 		SwitchTasks(
 			nextthread->SavedState.ESP, 0,
 			nextthread->SavedState.EIP, 0,
-			nextthread->MemState.CR3
+			nextthread->Process->MemState.CR3
 			);
 	}
 

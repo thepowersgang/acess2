@@ -4,9 +4,10 @@
  */
 #include <acess.h>
 #include <fs_sysfs.h>
-#include "vfs.h"
-#include "vfs_int.h"
-#include "vfs_ext.h"
+#include <threads.h>
+#include <vfs.h>
+#include <vfs_int.h>
+#include <vfs_ext.h>
 
 // === IMPORTS ===
 extern tVFS_Driver	gRootFS_Info;
@@ -60,7 +61,7 @@ int VFS_Init(void)
 	VFS_Mount("dev", "/Devices", "devfs", "");
 		
 	Log_Debug("VFS", "Setting max files");
-	CFGINT(CFG_VFS_MAXFILES) = 32;
+	*Threads_GetMaxFD() = 32;
 	return 0;
 }
 

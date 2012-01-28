@@ -262,7 +262,7 @@ SpawnTask:
 .parent:
 	ret
 
-; void Proc_ReturnToUser(void *Method, Uint Parameter)
+; void Proc_ReturnToUser(void *Method, Uint Parameter, tVAddr KernelStack)
 ; Calls a user fault handler
 ;
 [global Proc_ReturnToUser]
@@ -274,12 +274,8 @@ Proc_ReturnToUser:
 	; [EBP+12]: parameter
 	; [EBP+16]: kernel stack top
 	
-	;call Proc_GetCurThread
-	
-	; EAX is the current thread
-	;mov ebx, eax
-	;mov eax, [ebx+12*4]	; Get Kernel Stack
-	mov eax, [ebp+16]	; Get Kernel Stack
+	; Get kernel stack	
+	mov eax, [ebp+16]
 	sub eax, KSTACK_USERSTATE_SIZE
 	
 	;
@@ -345,10 +341,6 @@ Proc_ReturnToUser:
 
 [global GetCPUNum]
 GetCPUNum:	; TODO: Store in debug registers
-;	xor eax, eax
-;	str ax
-;	sub ax, 0x30
-;	shr ax, 3	; ax /= 8
 	mov eax, dr1
 	ret
 

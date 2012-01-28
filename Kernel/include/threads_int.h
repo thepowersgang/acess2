@@ -8,6 +8,9 @@
 #include <threads.h>
 #include <proc.h>
 
+
+typedef struct sProcess	tProcess;
+
 /**
  * \brief IPC Message
  */
@@ -18,6 +21,23 @@ typedef struct sMessage
 	Uint	Length;	//!< Length of message data in bytes
 	Uint8	Data[];	//!< Message data
 } tMsg;
+
+/**
+ * \brief Process state
+ */
+struct sProcess
+{
+	tPID	PID;
+	 int	nThreads;
+	
+	tUID	UID;	//!< User ID
+	tGID	GID;	//!< User and Group
+	tMemoryState	MemState;
+
+	 int	MaxFD;
+	char	*CurrentWorkingDir;
+	char	*RootDir;
+};
 
 /**
  * \brief Core threading structure
@@ -38,18 +58,14 @@ struct sThread
 	void	*WaitPointer;	//!< What (Mutex/Thread/other) is the thread waiting on
 	 int	RetStatus;	//!< Return Status
 	
-	Uint	TID;	//!< Thread ID
-	Uint	TGID;	//!< Thread Group (Process)
+	tTID	TID;	//!< Thread ID
+	struct sProcess	*Process;	//!< Thread Group / Process
 	struct sThread	*Parent;	//!< Parent Thread
-	Uint	UID, GID;	//!< User and Group
 	char	*ThreadName;	//!< Name of thread
 	
 	// --- arch/proc.c's responsibility
 	//! Kernel Stack Base
 	tVAddr	KernelStack;
-	
-	//! Memory Manager State
-	tMemoryState	MemState;
 	
 	//! State on task switch
 	tTaskState	SavedState;
@@ -64,11 +80,11 @@ struct sThread
 	 int	Quantum, Remaining;	//!< Quantum Size and remaining timesteps
 	 int	Priority;	//!< Priority - 0: Realtime, higher means less time
 	
-	Uint	Config[NUM_CFG_ENTRIES];	//!< Per-process configuration
+	 int	_errno;
 	
 	volatile int	CurCPU;
 	
-	 int	bInstrTrace;
+	bool	bInstrTrace;
 	
 	// --- event.c
 	Uint32	EventState;

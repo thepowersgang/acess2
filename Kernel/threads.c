@@ -26,11 +26,6 @@
 #define	DEFAULT_QUANTUM	5
 #define	DEFAULT_PRIORITY	5
 #define MIN_PRIORITY		10
-const enum eConfigTypes	cCONFIG_TYPES[NUM_CFG_ENTRIES] = {
-	CFGT_HEAPSTR,	// e.g. CFG_VFS_CWD
-	CFGT_INT,	// e.g. CFG_VFS_MAXFILES
-	CFGT_NULL
-};
 
 // === IMPORTS ===
 
@@ -47,7 +42,7 @@ void	Threads_Init(void);
 void	Threads_Delete(tThread *Thread);
  int	Threads_SetName(const char *NewName);
 #endif
-char	*Threads_GetName(int ID);
+char	*Threads_GetName(tTID ID);
 #if 0
 void	Threads_SetPriority(tThread *Thread, int Pri);
 tThread	*Threads_CloneTCB(Uint *Err, Uint Flags);
@@ -81,6 +76,8 @@ void	Threads_DumpActive(void);
 
 // === GLOBALS ===
 // -- Core Thread --
+struct sProcess	gProcessZero = {
+	};
 // Only used for the core kernel
 tThread	gThreadZero = {
 	.Status 	= THREAD_STAT_ACTIVE,	// Status
@@ -137,6 +134,7 @@ void Threads_Init(void)
 	
 	gAllThreads = &gThreadZero;
 	giNumActiveThreads = 1;
+	gThreadZero.Process = &gProcessZero;
 		
 	Proc_Start();
 }
@@ -148,6 +146,15 @@ void Threads_Delete(tThread *Thread)
 
 	// Clear out process state
 	Proc_ClearThread(Thread);			
+
+	Thread->Process->nThreads --;
+	if( Thread->Process->nThreads == 0 )
+	{
+		Proc_ClearProcess( Thread->Process );
+		free( Thread->Process->CurrentWorkingDir );
+		free( Thread->Process->RootDir );
+		free( Thread->Process );
+	}
 	
 	// Free name
 	if( IsHeap(Thread->ThreadName) )
@@ -179,9 +186,11 @@ int Threads_SetName(const char *NewName)
 	
 	cur->ThreadName = NULL;
 	
-	if( IsHeap(oldname) )	free( oldname );
-	
+	if( IsHeap(oldname) )	free( oldname );	
 	cur->ThreadName = strdup(NewName);
+
+	Log_Debug("Threads", "Thread renamed to '%s'", NewName);	
+
 	return 0;
 }
 
@@ -267,7 +276,6 @@ void Threads_SetPriority(tThread *Thread, int Pri)
 tThread *Threads_CloneTCB(Uint Flags)
 {
 	tThread	*cur, *new;
-	 int	i;
 	cur = Proc_GetCurThread();
 	
 	// Allocate and duplicate
@@ -290,10 +298,28 @@ tThread *Threads_CloneTCB(Uint Flags)
 	new->ThreadName = strdup(cur->ThreadName);
 	
 	// Set Thread Group ID (PID)
-	if(Flags & CLONE_VM)
-		new->TGID = new->TID;
-	else
-		new->TGID = cur->TGID;
+	if(Flags & CLONE_VM) {
+		tProcess	*newproc, *oldproc;
+		oldproc = cur->Process;
+		new->Process = malloc( sizeof(struct sProcess) );
+		newproc = new->Process;
+		newproc->PID = new->TID;
+		newproc->UID = oldproc->UID;
+		newproc->GID = oldproc->GID;
+		newproc->MaxFD = oldproc->MaxFD;
+		if( oldproc->CurrentWorkingDir )
+			newproc->CurrentWorkingDir = strdup( oldproc->CurrentWorkingDir );
+		else
+			newproc->CurrentWorkingDir = NULL;
+		if( oldproc->RootDir )
+			newproc->RootDir = strdup( oldproc->RootDir );
+		else
+			newproc->RootDir = NULL;
+		newproc->nThreads = 1;
+	}
+	else {
+		new->Process->nThreads ++;
+	}
 	
 	// Messages are not inherited
 	new->Messages = NULL;
@@ -302,26 +328,11 @@ tThread *Threads_CloneTCB(Uint Flags)
 	// Set State
 	new->Remaining = new->Quantum = cur->Quantum;
 	new->Priority = cur->Priority;
+	new->_errno = 0;
 	
 	// Set Signal Handlers
 	new->CurFaultNum = 0;
 	new->FaultHandler = cur->FaultHandler;
-	
-	for( i = 0; i < NUM_CFG_ENTRIES; i ++ )
-	{
-		switch(cCONFIG_TYPES[i])
-		{
-		default:
-			new->Config[i] = cur->Config[i];
-			break;
-		case CFGT_HEAPSTR:
-			if(cur->Config[i])
-				new->Config[i] = (Uint) strdup( (void*)cur->Config[i] );
-			else
-				new->Config[i] = 0;
-			break;
-		}
-	}
 	
 	// Maintain a global list of threads
 	SHORTLOCK( &glThreadListLock );
@@ -340,7 +351,6 @@ tThread *Threads_CloneTCB(Uint Flags)
 tThread *Threads_CloneThreadZero(void)
 {
 	tThread	*new;
-	 int	i;
 	
 	// Allocate and duplicate
 	new = malloc(sizeof(tThread));
@@ -348,6 +358,8 @@ tThread *Threads_CloneThreadZero(void)
 		return NULL;
 	}
 	memcpy(new, &gThreadZero, sizeof(tThread));
+
+	new->Process->nThreads ++;
 	
 	new->CurCPU = -1;
 	new->Next = NULL;
@@ -375,11 +387,6 @@ tThread *Threads_CloneThreadZero(void)
 	new->CurFaultNum = 0;
 	new->FaultHandler = 0;
 	
-	for( i = 0; i < NUM_CFG_ENTRIES; i ++ )
-	{
-		new->Config[i] = 0;
-	}
-	
 	// Maintain a global list of threads
 	SHORTLOCK( &glThreadListLock );
 	new->GlobalPrev = NULL;	// Protect against bugs
@@ -389,21 +396,6 @@ tThread *Threads_CloneThreadZero(void)
 	SHORTREL( &glThreadListLock );
 	
 	return new;
-}
-
-/**
- * \brief Get a configuration pointer from the Per-Thread data area
- * \param ID	Config slot ID
- * \return Pointer at ID
- */
-Uint *Threads_GetCfgPtr(int ID)
-{
-	if(ID < 0 || ID >= NUM_CFG_ENTRIES) {
-		Warning("Threads_GetCfgPtr: Index %i is out of bounds", ID);
-		return NULL;
-	}
-	
-	return &Proc_GetCurThread()->Config[ID];
 }
 
 /**
@@ -1000,7 +992,7 @@ void Threads_SegFault(tVAddr Addr)
 // --- Process Structure Access Functions ---
 tPID Threads_GetPID(void)
 {
-	return Proc_GetCurThread()->TGID;
+	return Proc_GetCurThread()->Process->PID;
 }
 tTID Threads_GetTID(void)
 {
@@ -1008,36 +1000,57 @@ tTID Threads_GetTID(void)
 }
 tUID Threads_GetUID(void)
 {
-	return Proc_GetCurThread()->UID;
+	return Proc_GetCurThread()->Process->UID;
 }
 tGID Threads_GetGID(void)
 {
-	return Proc_GetCurThread()->GID;
+	return Proc_GetCurThread()->Process->GID;
 }
 
-int Threads_SetUID(Uint *Errno, tUID ID)
+int Threads_SetUID(tUID ID)
 {
 	tThread	*t = Proc_GetCurThread();
-	if( t->UID != 0 ) {
-		*Errno = -EACCES;
+	if( t->Process->UID != 0 ) {
+		errno = -EACCES;
 		return -1;
 	}
-	Log_Debug("Threads", "TID %i's UID set to %i", t->TID, ID);
-	t->UID = ID;
+	Log_Debug("Threads", "PID %i's UID set to %i", t->Process->PID, ID);
+	t->Process->UID = ID;
 	return 0;
 }
 
-int Threads_SetGID(Uint *Errno, tGID ID)
+int Threads_SetGID(tGID ID)
 {
 	tThread	*t = Proc_GetCurThread();
-	if( t->UID != 0 ) {
-		*Errno = -EACCES;
+	if( t->Process->UID != 0 ) {
+		errno = -EACCES;
 		return -1;
 	}
-	Log_Debug("Threads", "TID %i's GID set to %i", t->TID, ID);
-	t->GID = ID;
+	Log_Debug("Threads", "PID %i's GID set to %i", t->Process->PID, ID);
+	t->Process->GID = ID;
 	return 0;
 }
+
+// --- Per-thread storage ---
+int *Threads_GetErrno(void)
+{
+	return &Proc_GetCurThread()->_errno;
+}
+
+// --- Configuration ---
+int *Threads_GetMaxFD(void)
+{
+	return &Proc_GetCurThread()->Process->MaxFD;
+}
+char **Threads_GetChroot(void)
+{
+	return &Proc_GetCurThread()->Process->RootDir;
+}
+char **Threads_GetCWD(void)
+{
+	return &Proc_GetCurThread()->Process->CurrentWorkingDir;
+}
+// ---
 
 /**
  * \fn void Threads_Dump(void)
@@ -1062,7 +1075,7 @@ void Threads_DumpActive(void)
 		for(thread=list->Head;thread;thread=thread->Next)
 		{
 			Log(" %p %i (%i) - %s (CPU %i)",
-				thread, thread->TID, thread->TGID, thread->ThreadName, thread->CurCPU);
+				thread, thread->TID, thread->Process->PID, thread->ThreadName, thread->CurCPU);
 			if(thread->Status != THREAD_STAT_ACTIVE)
 				Log("  ERROR State (%i) != THREAD_STAT_ACTIVE (%i)",
 					thread->Status, THREAD_STAT_ACTIVE);
@@ -1093,7 +1106,7 @@ void Threads_Dump(void)
 	for(thread=gAllThreads;thread;thread=thread->GlobalNext)
 	{
 		Log(" %p %i (%i) - %s (CPU %i)",
-			thread, thread->TID, thread->TGID, thread->ThreadName, thread->CurCPU);
+			thread, thread->TID, thread->Process->PID, thread->ThreadName, thread->CurCPU);
 		Log("  State %i (%s)", thread->Status, casTHREAD_STAT[thread->Status]);
 		switch(thread->Status)
 		{

@@ -28,6 +28,10 @@ extern void	Proc_Start(void);
  */
 extern void	Proc_ClearThread(tThread *Thread);
 /**
+ * \brief Called just before a process is freed
+ */
+extern void	Proc_ClearProcess(tProcess *Process);
+/**
  * \brief Get the ID of this CPU
  * \return Zero based CPU ID
  */

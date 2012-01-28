@@ -112,7 +112,7 @@ void ErrorHandler(tRegs *Regs)
 	}
 	
 	// Check if it's a user mode fault
-	if( Regs->eip < KERNEL_BASE || (Regs->cs & 3) == 3 ) {
+	if( (Regs->cs & 3) == 3 ) {
 		Log_Warning("Arch", "User Fault -  %s, Code: 0x%x",
 			csaERROR_NAMES[Regs->int_num], Regs->err_code);
 		Log_Warning("Arch", "at CS:EIP %04x:%08x",
@@ -136,7 +136,7 @@ void ErrorHandler(tRegs *Regs)
 	
 	Debug_KernelPanic();
 	
-	LogF("CPU %i Error %i - %s, Code: 0x%x - At %08x",
+	LogF("CPU %i Error %i - %s, Code: 0x%x - At %08x\n",
 		GetCPUNum(),
 		Regs->int_num, csaERROR_NAMES[Regs->int_num], Regs->err_code,
 		Regs->eip);
@@ -169,8 +169,8 @@ void ErrorHandler(tRegs *Regs)
 	{
 	case 6:	// #UD
 		Warning(" Offending bytes: %02x %02x %02x %02x",
-			*(Uint8*)Regs->eip+0, *(Uint8*)Regs->eip+1,
-			*(Uint8*)Regs->eip+2, *(Uint8*)Regs->eip+3);
+			*(Uint8*)(Regs->eip+0), *(Uint8*)(Regs->eip+1),
+			*(Uint8*)(Regs->eip+2), *(Uint8*)(Regs->eip+3));
 		break;
 	}
 	

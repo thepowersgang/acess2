@@ -7,6 +7,7 @@
 #include "vfs.h"
 #include "vfs_int.h"
 #include "vfs_ext.h"
+#include <threads.h>
 
 // === CONSTANTS ===
 #define	OPEN_MOUNT_ROOT	1
@@ -35,9 +36,9 @@ char *VFS_GetAbsPath(const char *Path)
 	char	*tmpStr;
 	int		iPos = 0;
 	int		iPos2 = 0;
-	const char	*chroot = CFGPTR(CFG_VFS_CHROOT);
+	const char	*chroot = *Threads_GetChroot();
 	 int	chrootLen;
-	const char	*cwd = CFGPTR(CFG_VFS_CWD);
+	const char	*cwd = *Threads_GetCWD();
 	 int	cwdLen;
 	
 	ENTER("sPath", Path);
@@ -644,11 +645,13 @@ int VFS_ChDir(const char *Dest)
 	// Close file
 	VFS_Close(fd);
 	
-	// Free old working directory
-	if( CFGPTR(CFG_VFS_CWD) )
-		free( CFGPTR(CFG_VFS_CWD) );
-	// Set new
-	CFGPTR(CFG_VFS_CWD) = buf;
+	{
+		char	**cwdptr = Threads_GetCWD();
+		// Free old working directory
+		if( *cwdptr )	free( *cwdptr );
+		// Set new
+		*cwdptr = buf;
+	}
 	
 	Log("Updated CWD to '%s'", buf);
 	
@@ -692,12 +695,13 @@ int VFS_ChRoot(const char *New)
 	
 	// Close file
 	VFS_Close(fd);
-	
-	// Free old working directory
-	if( CFGPTR(CFG_VFS_CHROOT) )
-		free( CFGPTR(CFG_VFS_CHROOT) );
-	// Set new
-	CFGPTR(CFG_VFS_CHROOT) = buf;
+
+	// Update	
+	{
+		char	**chroot_ptr = Threads_GetChroot();
+		if( *chroot_ptr )	free( *chroot_ptr );
+		*chroot_ptr = buf;
+	}
 	
 	LOG("Updated Root to '%s'", buf);
 	

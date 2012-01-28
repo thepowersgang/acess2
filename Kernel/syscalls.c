@@ -114,14 +114,14 @@ void SyscallHandler(tSyscallRegs *Regs)
 	case SYS_GETGID:	ret = Threads_GetGID();	break;
 	
 	// -- Set User/Group IDs
-	case SYS_SETUID:	ret = Threads_SetUID(&err, Regs->Arg1);	break;
-	case SYS_SETGID:	ret = Threads_SetGID(&err, Regs->Arg1);	break;
+	case SYS_SETUID:	ret = Threads_SetUID(Regs->Arg1);	break;
+	case SYS_SETGID:	ret = Threads_SetGID(Regs->Arg1);	break;
 	
 	// -- Send Message
 	case SYS_SENDMSG:
 		CHECK_NUM_NONULL( (void*)Regs->Arg3, Regs->Arg2 );
 		// Destination, Size, *Data
-		ret = Proc_SendMessage(&err, Regs->Arg1, Regs->Arg2, (void*)Regs->Arg3);
+		ret = Proc_SendMessage(Regs->Arg1, Regs->Arg2, (void*)Regs->Arg3);
 		break;
 	// -- Check for messages
 	case SYS_GETMSG:
@@ -132,7 +132,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 			err = -EINVAL;	ret = -1;	break;
 		}
 		// *Source, *Data
-		ret = Proc_GetMessage(&err, (Uint*)Regs->Arg1, (void*)Regs->Arg2);
+		ret = Proc_GetMessage((Uint*)Regs->Arg1, (void*)Regs->Arg2);
 		break;
 	
 	// -- Get the current timestamp

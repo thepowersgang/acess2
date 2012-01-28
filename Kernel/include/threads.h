@@ -25,11 +25,16 @@ typedef struct sThread	tThread;
 // === FUNCTIONS ===
 extern void	Threads_SetFaultHandler(Uint Handler);
 
-extern int	Threads_SetUID(Uint *Errno, tUID ID);
-extern int	Threads_SetGID(Uint *Errno, tUID ID);
-extern int	Threads_WaitTID(int TID, int *Status);
+extern int	Threads_SetUID(tUID ID);
+extern int	Threads_SetGID(tUID ID);
+extern tTID	Threads_WaitTID(int TID, int *Status);
 
-extern int	Proc_SendMessage(Uint *Err, Uint Dest, int Length, void *Data);
-extern int	Proc_GetMessage(Uint *Err, Uint *Source, void *Buffer);
+
+extern int	*Threads_GetMaxFD(void);
+extern char	**Threads_GetCWD(void);
+extern char	**Threads_GetChroot(void);
+
+extern int	Proc_SendMessage(Uint Dest, int Length, void *Data);
+extern int	Proc_GetMessage(Uint *Source, void *Buffer);
 
 #endif

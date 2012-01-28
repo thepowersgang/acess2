@@ -8,6 +8,7 @@
 #include "vfs.h"
 #include "vfs_int.h"
 #include "vfs_ext.h"
+#include <threads.h>	// GetMaxFD
 
 // === CONSTANTS ===
 #define MAX_KERNEL_FILES	128
@@ -40,7 +41,7 @@ tVFS_Handle *VFS_GetHandle(int FD)
 		if(FD >= MAX_KERNEL_FILES)	return NULL;
 		h = &gaKernelHandles[ FD ];
 	} else {
-		if(FD >= CFGINT(CFG_VFS_MAXFILES))	return NULL;
+		if(FD >= *Threads_GetMaxFD())	return NULL;
 		h = &gaUserHandles[ FD ];
 	}
 	
@@ -56,14 +57,15 @@ int VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode)
 	// Check for a user open
 	if(bIsUser)
 	{
+		 int	max_handles = *Threads_GetMaxFD();
 		// Allocate Buffer
-		if( MM_GetPhysAddr( (Uint)gaUserHandles ) == 0 )
+		if( MM_GetPhysAddr( (tVAddr)gaUserHandles ) == 0 )
 		{
 			Uint	addr, size;
-			size = CFGINT(CFG_VFS_MAXFILES) * sizeof(tVFS_Handle);
+			size = max_handles * sizeof(tVFS_Handle);
 			for(addr = 0; addr < size; addr += 0x1000)
 			{
-				if( !MM_Allocate( (Uint)gaUserHandles + addr ) )
+				if( !MM_Allocate( (tVAddr)gaUserHandles + addr ) )
 				{
 					Warning("OOM - VFS_AllocHandle");
 					Threads_Exit(0, 0xFF);	// Terminate user
@@ -72,7 +74,7 @@ int VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode)
 			memset( gaUserHandles, 0, size );
 		}
 		// Get a handle
-		for(i=0;i<CFGINT(CFG_VFS_MAXFILES);i++)
+		for( i = 0; i < max_handles; i ++ )
 		{
 			if(gaUserHandles[i].Node)	continue;
 			gaUserHandles[i].Node = Node;
@@ -84,13 +86,13 @@ int VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode)
 	else
 	{
 		// Allocate space if not already
-		if( MM_GetPhysAddr( (Uint)gaKernelHandles ) == 0 )
+		if( MM_GetPhysAddr( (tVAddr)gaKernelHandles ) == 0 )
 		{
 			Uint	addr, size;
 			size = MAX_KERNEL_FILES * sizeof(tVFS_Handle);
 			for(addr = 0; addr < size; addr += 0x1000)
 			{
-				if( !MM_Allocate( (Uint)gaKernelHandles + addr ) )
+				if( !MM_Allocate( (tVAddr)gaKernelHandles + addr ) )
 				{
 					Panic("OOM - VFS_AllocHandle");
 					Threads_Exit(0, 0xFF);	// Terminate application (get some space back)

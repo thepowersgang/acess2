@@ -35,10 +35,10 @@
 #include "errno.h"
 
 // --- Types ---
-typedef  int	tPID;	//!< Process ID type
-typedef  int	tTID;	//!< Thread ID Type
-typedef Uint	tUID;	//!< User ID Type
-typedef Uint	tGID;	//!< Group ID Type
+typedef Uint32	tPID;	//!< Process ID type
+typedef Uint32	tTID;	//!< Thread ID Type
+typedef Uint32	tUID;	//!< User ID Type
+typedef Uint32	tGID;	//!< Group ID Type
 typedef Sint64	tTimestamp;	//!< Timestamp (miliseconds since 00:00 1 Jan 1970)
 typedef Sint64	tTime;	//!< Same again
 typedef struct sShortSpinlock	tShortSpinlock;	//!< Opaque (kinda) spinlock
@@ -63,30 +63,8 @@ extern const char gsGitHash[];
  * \}
  */
 
-/**
- * \name Per-Thread Configuration Settings
- * \{
- */
-enum eConfigTypes {
-	CFGT_NULL,
-	CFGT_INT,
-	CFGT_HEAPSTR,
-	CFGT_PTR
-};
-enum eConfigs {
-	CFG_VFS_CWD,
-	CFG_VFS_MAXFILES,
-	CFG_VFS_CHROOT,
-	CFG_ERRNO,
-	NUM_CFG_ENTRIES
-};
-#define CFGINT(id)	(*Threads_GetCfgPtr(id))
-#define CFGPTR(id)	(*(void**)Threads_GetCfgPtr(id))
-
-#define errno	(CFGINT(CFG_ERRNO))
-/**
- * \}
- */
+//! \brief Error number
+#define errno	(*Threads_GetErrno())
 
 // === CONSTANTS ===
 // --- Memory Flags --
@@ -212,7 +190,7 @@ extern void	Debug_HexDump(const char *Header, const void *Data, Uint Length);
 
 // --- IO ---
 #if NO_IO_BUS
-#define inb(a)	(Log_Panic("Arch", "ARMv7 does not support in*/out* (%s:%i)", __FILE__, __LINE__),0)
+#define inb(a)	(Log_Panic("Arch", STR(ARCHDIR)" does not support in*/out* (%s:%i)", __FILE__, __LINE__),0)
 #define inw(a)	inb(a)
 #define ind(a)	inb(a)
 #define inq(a)	inb(a)
@@ -529,7 +507,7 @@ extern tTID	Threads_GetTID(void);
 extern tUID	Threads_GetUID(void);
 extern tGID	Threads_GetGID(void);
 extern int	SpawnTask(tThreadFunction Function, void *Arg);
-extern Uint	*Threads_GetCfgPtr(int Id);
+extern int	*Threads_GetErrno(void);
 extern int	Threads_SetName(const char *NewName);
 /**
  * \}

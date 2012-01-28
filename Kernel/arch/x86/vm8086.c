@@ -172,7 +172,7 @@ void VM8086_GPF(tRegs *Regs)
 	&& Threads_GetPID() == gVM8086_WorkerPID)
 	{
 		if( gpVM8086_State == (void*)-1 ) {
-//			Log_Log("VM8086", "Worker thread ready and waiting");
+			Log_Log("VM8086", "Worker thread ready and waiting");
 			gpVM8086_State = NULL;
 			Mutex_Release( &glVM8086_Process );	// Release lock obtained in VM8086_Install
 		}
