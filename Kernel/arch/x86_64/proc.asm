@@ -14,29 +14,14 @@ GetRIP:
 
 [global NewTaskHeader]
 NewTaskHeader:
-	mov rax, [rsp]
-	mov dr0, rax
-	
-	sti
-	mov al, 0x20
-	mov dx, 0x20
-	out dx, al
+	; [rsp+0x00]: Thread
+	; [rsp+0x08]: Function
+	; [rsp+0x10]: Argument
 
-	mov rdi, [rsp+0x18]
-	dec QWORD [rsp+0x10]
-	jz .call
-	mov rsi, [rsp+0x20]
-	dec QWORD [rsp+0x10]
-	jz .call
-	mov rdx, [rsp+0x28]
-	dec QWORD [rsp+0x10]
-	jz .call
-	mov rcx, [rsp+0x30]
-	dec QWORD [rsp+0x10]
-	jz .call
-.call:
+	mov rdi, [rsp+0x10]
 	mov rax, [rsp+0x8]
-;	xchg bx, bx
+	add rsp, 0x10	; Reclaim stack space (thread/fcn)
+	xchg bx, bx
 	call rax
 	
 	; Quit thread with RAX as the return code
@@ -113,6 +98,7 @@ SwitchTasks:
 	mov cr3, r8
 	
 	; Make sure the stack is valid before jumping
+	invlpg [rdi-0x1000]
 	invlpg [rdi]
 	invlpg [rdi+0x1000]
 	

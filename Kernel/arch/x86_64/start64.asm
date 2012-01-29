@@ -50,10 +50,7 @@ start64:
 
 [global GetCPUNum]
 GetCPUNum:
-	xor rax, rax
-	str ax
-	sub ax, 0x38	; TSS Base
-	shr ax, 4	; One 16-byte TSS per CPU
+	mov rax, dr1
 	ret
 
 KSTACK_USERSTATE_SIZE	equ	(5+2+16+2)*8	; IRET, ErrorNum, ErrorCode, GPRs, FS&GS

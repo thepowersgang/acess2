@@ -10,6 +10,9 @@
 #include <proc.h>
 #include <hal_proc.h>
 
+// === DEBUG OPTIONS ===
+#define TRACE_COW	0
+
 // === CONSTANTS ===
 #define PHYS_BITS	52	// TODO: Move out
 #define VIRT_BITS	48
@@ -109,7 +112,9 @@ void MM_int_ClonePageEnt( Uint64 *Ent, void *NextLevel, tVAddr Addr, int bTable 
 	{
 		*Ent &= ~PF_COW;
 		*Ent |= PF_PRESENT|PF_WRITE;
+		#if TRACE_COW
 		Log_Debug("MMVirt", "COW ent at %p (%p) only %P", Ent, NextLevel, curpage);
+		#endif
 	}
 	else
 	{
@@ -127,7 +132,9 @@ void MM_int_ClonePageEnt( Uint64 *Ent, void *NextLevel, tVAddr Addr, int bTable 
 		memcpy( tmp, NextLevel, 0x1000 );
 		MM_FreeTemp( (tVAddr)tmp );
 		
+		#if TRACE_COW
 		Log_Debug("MMVirt", "COW ent at %p (%p) from %P to %P", Ent, NextLevel, curpage, paddr);
+		#endif
 
 		MM_DerefPhys( curpage );
 		*Ent &= PF_USER;
@@ -271,8 +278,10 @@ void MM_int_DumpTablesEnt(tVAddr RangeStart, size_t Length, tPAddr Expected)
 		LogF("%13s", "zero" );
 	else
 		LogF("%13llx", PAGETABLE(RangeStart>>12) & PADDR_MASK );
-	LogF(" : 0x%6llx (%c%c%c%c)\r\n",
+	LogF(" : 0x%6llx (%c%c%c%c%c%c)\r\n",
 		Length,
+		(Expected & PF_GLOBAL ? 'G' : '-'),
+		(Expected & PF_NX ? '-' : 'x'),
 		(Expected & PF_PAGED ? 'p' : '-'),
 		(Expected & PF_COW ? 'C' : '-'),
 		(Expected & PF_USER ? 'U' : '-'),
@@ -286,13 +295,17 @@ void MM_int_DumpTablesEnt(tVAddr RangeStart, size_t Length, tPAddr Expected)
  */
 void MM_DumpTables(tVAddr Start, tVAddr End)
 {
-	const tPAddr	CHANGEABLE_BITS = ~(PF_PRESENT|PF_WRITE|PF_USER|PF_COW|PF_PAGED) & 0xFFF;
+	const tPAddr	FIXED_BITS = PF_PRESENT|PF_WRITE|PF_USER|PF_COW|PF_PAGED|PF_NX|PF_GLOBAL;
+	const tPAddr	CHANGEABLE_BITS = ~FIXED_BITS & 0xFFF;
 	const tPAddr	MASK = ~CHANGEABLE_BITS;	// Physical address and access bits
 	tVAddr	rangeStart = 0;
 	tPAddr	expected = CHANGEABLE_BITS;	// CHANGEABLE_BITS is used because it's not a vaild value
 	tVAddr	curPos;
 	Uint	page;
-	
+	tPAddr	expected_pml4 = PF_WRITE|PF_USER;	
+	tPAddr	expected_pdp = PF_WRITE|PF_USER;	
+	tPAddr	expected_pd = PF_WRITE|PF_USER;	
+
 	Log("Table Entries: (%p to %p)", Start, End);
 	
 	End &= (1L << 48) - 1;
@@ -310,13 +323,26 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 		
 		// End of a range
 		if(!(PAGEMAPLVL4(page>>27) & PF_PRESENT)
+		||  (PAGEMAPLVL4(page>>27) & FIXED_BITS) != expected_pml4
 		|| !(PAGEDIRPTR(page>>18) & PF_PRESENT)
+		||  (PAGEDIRPTR(page>>18) & FIXED_BITS) != expected_pdp
 		|| !(PAGEDIR(page>>9) & PF_PRESENT)
+		||  (PAGEDIR(page>>9) & FIXED_BITS) != expected_pd
 		|| !(PAGETABLE(page) & PF_PRESENT)
-		|| (PAGETABLE(page) & MASK) != expected)
+		||  (PAGETABLE(page) & MASK) != expected)
 		{			
 			if(expected != CHANGEABLE_BITS)
 			{
+				// Merge
+				expected &= expected_pml4 | ~(PF_WRITE|PF_USER);
+				expected &= expected_pdp  | ~(PF_WRITE|PF_USER);
+				expected &= expected_pd   | ~(PF_WRITE|PF_USER);
+				expected |= expected_pml4 & PF_NX;
+				expected |= expected_pdp  & PF_NX;
+				expected |= expected_pd   & PF_NX;
+				Log("expected (pml4 = %x, pdp = %x, pd = %x)",
+					expected_pml4, expected_pdp, expected_pd);
+				// Dump
 				MM_int_DumpTablesEnt( rangeStart, curPos - rangeStart, expected );
 				expected = CHANGEABLE_BITS;
 			}
@@ -342,6 +368,9 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 			if( !(PAGETABLE(page) & PF_PRESENT) )	continue;
 			
 			expected = (PAGETABLE(page) & MASK);
+			expected_pml4 = (PAGEMAPLVL4(page>>27) & FIXED_BITS);
+			expected_pdp  = (PAGEDIRPTR (page>>18) & FIXED_BITS);
+			expected_pd   = (PAGEDIR    (page>> 9) & FIXED_BITS);
 			rangeStart = curPos;
 		}
 		if(gMM_ZeroPage && (expected & PADDR_MASK) == gMM_ZeroPage )
@@ -351,6 +380,9 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 	}
 	
 	if(expected != CHANGEABLE_BITS) {
+		// Merge
+		
+		// Dump
 		MM_int_DumpTablesEnt( rangeStart, curPos - rangeStart, expected );
 		expected = 0;
 	}
@@ -413,8 +445,8 @@ int MM_GetPageEntryPtr(tVAddr Addr, BOOL bTemp, BOOL bAllocate, BOOL bLargePage,
 				*ent |= PF_USER;
 			INVLPG( &pmlevels[i+1][ (Addr>>size)*512 ] );
 			memset( &pmlevels[i+1][ (Addr>>size)*512 ], 0, 0x1000 );
-			LOG("Init PML%i ent 0x%x %p with %P", 4 - i,
-				Addr>>size, (Addr>>size) << size, tmp);
+			LOG("Init PML%i ent 0x%x %p with %P (*ent = %P)", 4 - i,
+				Addr>>size, (Addr>>size) << size, tmp, *ent);
 		}
 		// Catch large pages
 		else if( *ent & PF_LARGE )
@@ -633,6 +665,7 @@ void MM_SetFlags(tVAddr VAddr, Uint Flags, Uint Mask)
 		if( Flags & MM_PFLAG_COW ) {
 			*ent &= ~PF_WRITE;
 			*ent |= PF_COW;
+	INVLPG_ALL();
 		}
 		else {
 			*ent &= ~PF_COW;
@@ -875,18 +908,21 @@ tPAddr MM_Clone(void)
 	INVLPG_ALL();
 	
 	// #3 Set Copy-On-Write to all user pages
-	for( i = 0; i < 256; i ++)
+	if( Threads_GetPID() != 0 )
 	{
-		if( PAGEMAPLVL4(i) & PF_WRITE ) {
-			PAGEMAPLVL4(i) |= PF_COW;
-			PAGEMAPLVL4(i) &= ~PF_WRITE;
+		for( i = 0; i < 256; i ++)
+		{
+			if( PAGEMAPLVL4(i) & PF_WRITE ) {
+				PAGEMAPLVL4(i) |= PF_COW;
+				PAGEMAPLVL4(i) &= ~PF_WRITE;
+			}
+	
+			TMPMAPLVL4(i) = PAGEMAPLVL4(i);
+//			Log_Debug("MM", "TMPMAPLVL4(%i) = 0x%016llx", i, TMPMAPLVL4(i));
+			if( !(TMPMAPLVL4(i) & PF_PRESENT) )	continue ;
+			
+			MM_RefPhys( TMPMAPLVL4(i) & PADDR_MASK );
 		}
-
-		TMPMAPLVL4(i) = PAGEMAPLVL4(i);
-//		Log_Debug("MM", "TMPMAPLVL4(%i) = 0x%016llx", i, TMPMAPLVL4(i));
-		if( !(TMPMAPLVL4(i) & PF_PRESENT) )	continue ;
-		
-		MM_RefPhys( TMPMAPLVL4(i) & PADDR_MASK );
 	}
 	
 	// #4 Map in kernel pages
@@ -981,11 +1017,13 @@ void MM_ClearUser(void)
 tVAddr MM_NewWorkerStack(void *StackData, size_t StackSize)
 {
 	tVAddr	ret;
+	tPAddr	phys;
 	 int	i;
 	
 	// #1 Set temp fractal to PID0
 	Mutex_Acquire(&glMM_TempFractalLock);
 	TMPCR3() = ((tPAddr)gInitialPML4 - KERNEL_BASE) | 3;
+	INVLPG_ALL();
 	
 	// #2 Scan for a free stack addresss < 2^47
 	for(ret = 0x100000; ret < (1ULL << 47); ret += KERNEL_STACK_SIZE)
@@ -1000,31 +1038,35 @@ tVAddr MM_NewWorkerStack(void *StackData, size_t StackSize)
 	}
 	
 	// #3 Map all save the last page in the range
-	//    - This acts as as guard page, and doesn't cost us anything.
+	//  - This acts as as guard page
+	MM_GetPageEntryPtr(ret, 1, 1, 0, NULL);	// Make sure tree is allocated
 	for( i = 0; i < KERNEL_STACK_SIZE/0x1000 - 1; i ++ )
 	{
-		tPAddr	phys = MM_AllocPhys();
+		phys = MM_AllocPhys();
 		if(!phys) {
 			// TODO: Clean up
 			Log_Error("MM", "MM_NewWorkerStack - Unable to allocate page");
 			return 0;
 		}
 		MM_MapEx(ret + i*0x1000, phys, 1, 0);
+		MM_SetFlags(ret + i*0x1000, MM_PFLAG_KERNEL|MM_PFLAG_RO, MM_PFLAG_KERNEL);
 	}
 
+	// Copy data
 	if( StackSize > 0x1000 ) {
 		Log_Error("MM", "MM_NewWorkerStack: StackSize(0x%x) > 0x1000, cbf handling", StackSize);
 	}
 	else {
-		tPAddr	*ptr, paddr;
-		tVAddr	tmp_addr;
-		MM_GetPageEntryPtr(ret + i*0x1000, 1, 0, 0, &ptr);
-		paddr = *ptr & ~0xFFF;
-		tmp_addr = MM_MapTemp(paddr);
-		memcpy( (void*)(tmp_addr + (0x1000 - StackSize)), StackData, StackSize );
+		tVAddr	tmp_addr, dest;
+		tmp_addr = MM_MapTemp(phys);
+		dest = tmp_addr + (0x1000 - StackSize);
+		memcpy( (void*)dest, StackData, StackSize );
+		Log_Debug("MM", "MM_NewWorkerStack: %p->%p %i bytes (i=%i)", StackData, dest, StackSize, i);
+		Log_Debug("MM", "MM_NewWorkerStack: ret = %p", ret);
 		MM_FreeTemp(tmp_addr);
 	}
-	
+
+	TMPCR3() = 0;
 	Mutex_Release(&glMM_TempFractalLock);
 	
 	return ret + i*0x1000;
