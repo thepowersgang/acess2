@@ -8,8 +8,6 @@
 #include <net.h>
 #include <readline.h>
 
-#define BUFSIZ	1023
-
 // === TYPES ===
 typedef struct sServer {
 	struct sServer	*Next;

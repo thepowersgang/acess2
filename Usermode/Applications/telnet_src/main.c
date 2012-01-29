@@ -7,8 +7,6 @@
 #include <readline.h>
 #include <string.h>
 
-#define BUFSIZ	2048
-
 // === PROTOTYPES ===
  int	main(int argc, char *argv[], char *envp[]);
  int	OpenTCP(const char *AddressString, short PortNumber);
