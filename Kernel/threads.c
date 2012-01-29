@@ -150,10 +150,13 @@ void Threads_Delete(tThread *Thread)
 	Thread->Process->nThreads --;
 	if( Thread->Process->nThreads == 0 )
 	{
-		Proc_ClearProcess( Thread->Process );
-		free( Thread->Process->CurrentWorkingDir );
-		free( Thread->Process->RootDir );
-		free( Thread->Process );
+		tProcess	*proc = Thread->Process;
+		Proc_ClearProcess( proc );
+		if( proc->CurrentWorkingDir)
+			free( proc->CurrentWorkingDir );
+		if( proc->RootDir )
+			free( proc->RootDir );
+		free( proc );
 	}
 	
 	// Free name
