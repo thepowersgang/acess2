@@ -642,7 +642,6 @@ tPID Proc_Clone(Uint Flags)
 	// Clone state
 	eip = Proc_CloneInt(&newThread->SavedState.ESP, &newThread->Process->MemState.CR3);
 	if( eip == 0 ) {
-		// ACK the interrupt
 		return 0;
 	}
 	newThread->SavedState.EIP = eip;
