@@ -1,6 +1,7 @@
 /* AcessOS
  * FIFO Pipe Driver
  */
+#define DEBUG	0
 #include <acess.h>
 #include <modules.h>
 #include <fs_devfs.h>
@@ -28,6 +29,7 @@ typedef struct sPipe {
 char	*FIFO_ReadDir(tVFS_Node *Node, int Id);
 tVFS_Node	*FIFO_FindDir(tVFS_Node *Node, const char *Filename);
  int	FIFO_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
+void	FIFO_Reference(tVFS_Node *Node);
 void	FIFO_Close(tVFS_Node *Node);
  int	FIFO_Relink(tVFS_Node *Node, const char *OldName, const char *NewName);
 Uint64	FIFO_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
@@ -48,7 +50,8 @@ tVFS_NodeType	gFIFO_PipeNodeType = {
 	.TypeName = "FIFO Pipe Node",
 	.Read = FIFO_Read,
 	.Write = FIFO_Write,
-	.Close = FIFO_Close
+	.Close = FIFO_Close,
+	.Reference = FIFO_Reference
 };
 tDevFS_Driver	gFIFO_DriverInfo = {
 	NULL, "fifo",
@@ -144,6 +147,13 @@ int FIFO_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
 	return 0;
 }
 
+void FIFO_Reference(tVFS_Node *Node)
+{
+	if(!Node->ImplPtr)	return ;
+	
+	Node->ReferenceCount ++;
+}
+
 /**
  * \fn void FIFO_Close(tVFS_Node *Node)
  * \brief Close a FIFO end
@@ -159,6 +169,7 @@ void FIFO_Close(tVFS_Node *Node)
 	pipe = Node->ImplPtr;
 	
 	if(strcmp(pipe->Name, "anon") == 0) {
+		Log_Debug("FIFO", "Pipe %p closed", Node->ImplPtr);
 		free(Node->ImplPtr);
 		return ;
 	}
@@ -223,37 +234,44 @@ Uint64 FIFO_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	tPipe	*pipe = Node->ImplPtr;
 	Uint	len;
 	Uint	remaining = Length;
-	
+
 	if(!pipe)	return 0;
+	
+	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
 	
 	while(remaining)
 	{
 		// Wait for buffer to fill
 		if(pipe->Flags & PF_BLOCKING)
 		{
-			#if 0
-			len = Semaphore_Wait( &pipe->Semaphore, remaining );
-			#else
-			VFS_SelectNode(Node, VFS_SELECT_READ, NULL, "FIFO_Read");
-			// Read buffer
-			// TODO: Rethink this, it might not work on buffer overflow
-			if(pipe->WritePos - pipe->ReadPos < remaining)
-				len = pipe->WritePos - pipe->ReadPos;
-			else
-				len = remaining;
-			#endif
+			if( pipe->ReadPos == pipe->WritePos )
+				VFS_SelectNode(Node, VFS_SELECT_READ, NULL, "FIFO_Read");
+			
 		}
 		else
 		{
 			if(pipe->ReadPos == pipe->WritePos)
+			{
+				VFS_MarkAvaliable(Node, 0);
+				LEAVE('i', 0);
 				return 0;
-			// Read buffer
-			if(pipe->WritePos - pipe->ReadPos < remaining)
-				len = pipe->WritePos - pipe->ReadPos;
-			else
-				len = remaining;
+			}
 		}
-		
+	
+		len = remaining;
+		if( pipe->ReadPos < pipe->WritePos )
+		{
+			 int	avail_bytes = pipe->WritePos - pipe->ReadPos;
+			if( avail_bytes < remaining )	len = avail_bytes;
+		}
+		else
+		{
+			 int	avail_bytes = pipe->WritePos + pipe->BufSize - pipe->ReadPos;
+			if( avail_bytes < remaining )	len = avail_bytes;
+		}
+
+		LOG("len = %i, remaining = %i", len, remaining);		
+
 		// Check if read overflows buffer
 		if(len > pipe->BufSize - pipe->ReadPos)
 		{
@@ -280,8 +298,13 @@ Uint64 FIFO_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		remaining -= len;
 		// Increment Buffer address
 		Buffer = (Uint8*)Buffer + len;
+		
+		// TODO: Option to read differently
+		LEAVE('i', len);
+		return len;
 	}
 
+	LEAVE('i', Length);
 	return Length;
 
 }
@@ -297,25 +320,35 @@ Uint64 FIFO_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buf
 	Uint	remaining = Length;
 	
 	if(!pipe)	return 0;
+
+	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
 	
 	while(remaining)
 	{
 		// Wait for buffer to empty
 		if(pipe->Flags & PF_BLOCKING) {
-			#if 0
-			len = Semaphore_Signal( &pipe->Semaphore, remaining );
-			#else
-			VFS_SelectNode(Node, VFS_SELECT_WRITE, NULL, "FIFO_Write");
-			if(pipe->ReadPos - pipe->WritePos < remaining)
-				len = pipe->ReadPos - pipe->WritePos;
+			if( pipe->ReadPos == (pipe->WritePos+1)%pipe->BufSize )
+				VFS_SelectNode(Node, VFS_SELECT_WRITE, NULL, "FIFO_Write");
+
+			len = remaining;
+			if( pipe->ReadPos > pipe->WritePos )
+			{
+				 int	rem_space = pipe->ReadPos - pipe->WritePos;
+				if(rem_space < remaining)	len = rem_space;
+			}
 			else
-				len = remaining;
-			#endif
+			{
+				 int	rem_space = pipe->ReadPos + pipe->BufSize - pipe->WritePos;
+				if(rem_space < remaining)	len = rem_space;
+			}
 		}
 		else
 		{
 			if(pipe->ReadPos == (pipe->WritePos+1)%pipe->BufSize)
+			{
+				LEAVE('i', 0);
 				return 0;
+			}
 			// Write buffer
 			if(pipe->ReadPos - pipe->WritePos < remaining)
 				len = pipe->ReadPos - pipe->WritePos;
@@ -351,6 +384,7 @@ Uint64 FIFO_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buf
 		Buffer = (Uint8*)Buffer + len;
 	}
 
+	LEAVE('i', Length);
 	return Length;
 }
 
@@ -365,11 +399,10 @@ tPipe *FIFO_Int_NewPipe(int Size, const char *Name)
 	 int	namelen = strlen(Name) + 1;
 	 int	allocsize = sizeof(tPipe) + sizeof(tVFS_ACL) + Size + namelen;
 	
-	ret = malloc(allocsize);
+	ret = calloc(1, allocsize);
 	if(!ret)	return NULL;
 	
 	// Clear Return
-	memset(ret, 0, allocsize);
 	ret->Flags = PF_BLOCKING;
 	
 	// Allocate Buffer
@@ -383,6 +416,7 @@ tPipe *FIFO_Int_NewPipe(int Size, const char *Name)
 	//Semaphore_Init( &ret->Semaphore, 0, Size, "FIFO", ret->Name );
 	
 	// Set Node
+	ret->Node.ReferenceCount = 1;
 	ret->Node.Size = 0;
 	ret->Node.ImplPtr = ret;
 	ret->Node.UID = Threads_GetUID();

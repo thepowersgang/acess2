@@ -178,7 +178,7 @@ int Proc_SysSpawn(const char *Binary, const char **ArgV, const char **EnvP, int 
 	
 	// --- Save File, ArgV and EnvP
 	size = Binary_int_CacheArgs( &Binary, &ArgV, &EnvP, NULL );
-	cachebuf = alloca( size );
+	cachebuf = malloc( size );
 	Binary_int_CacheArgs( &Binary, &ArgV, &EnvP, cachebuf );
 
 	// Cache the VFS handles	
@@ -190,6 +190,7 @@ int Proc_SysSpawn(const char *Binary, const char **ArgV, const char **EnvP, int 
 	{
 		VFS_RestoreHandles(nFD, handles);
 		VFS_FreeSavedHandles(nFD, handles);
+		// Frees cachebuf
 		Proc_Execve(Binary, ArgV, EnvP, size);
 		for(;;);
 	}

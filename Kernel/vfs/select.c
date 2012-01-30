@@ -61,7 +61,7 @@ int VFS_SelectNode(tVFS_Node *Node, int TypeFlags, tTime *Timeout, const char *N
 	tThread	*thisthread = Proc_GetCurThread();
 	 int	ret, type;
 	
-	ENTER("pNode iTypeFlags pTimeout", Node, TypeFlags, Timeout);
+	ENTER("pNode iTypeFlags pTimeout sName", Node, TypeFlags, Timeout, Name);
 	
 	// Initialise
 	for( type = 0; type < 3; type ++ )
@@ -180,7 +180,7 @@ int VFS_MarkAvaliable(tVFS_Node *Node, BOOL IsDataAvaliable)
 // Mark a node as having a full buffer
 int VFS_MarkFull(tVFS_Node *Node, BOOL IsBufferFull)
 {
-	ENTER("pNode bIsDataAvaliable", Node, IsBufferFull);
+	ENTER("pNode bIsBufferFull", Node, IsBufferFull);
 	Node->BufferFull = !!IsBufferFull;
 	if( !Node->BufferFull )
 		VFS_int_Select_SignalAll(Node->WriteThreads);
@@ -191,7 +191,7 @@ int VFS_MarkFull(tVFS_Node *Node, BOOL IsBufferFull)
 // Mark a node as errored
 int VFS_MarkError(tVFS_Node *Node, BOOL IsErrorState)
 {
-	ENTER("pNode bIsDataAvaliable", Node, IsErrorState);
+	ENTER("pNode bIsErrorState", Node, IsErrorState);
 	Node->ErrorOccurred = !!IsErrorState;
 	if( Node->ErrorOccurred )
 		VFS_int_Select_SignalAll(Node->ErrorThreads);

@@ -36,7 +36,13 @@ int main(int argc, char *argv[])
 	gaClients = calloc(giConfig_MaxClients, sizeof(tClient));
 
 	// Open server
-	giServerFD = Net_OpenSocket(0, NULL, "tcps");
+	{
+		uint8_t	data[16];
+		 int	addrtype = Net_ParseAddress("10.0.2.10", data);
+		 int	port = 23;
+		giServerFD = Net_OpenSocket(addrtype, data, "tcps");
+		ioctl(giServerFD, 4, &port);	// Set port and start listening
+	}
 
 	// Event loop
 	EventLoop();
@@ -57,11 +63,15 @@ void EventLoop(void)
 
 	for( ;; )
 	{
+		FD_ZERO(&fds);
 		maxfd = 0;
 		// Fill select
 		FD_SET_MAX(&fds, giServerFD, &maxfd);
 		for( int i = 0; i < giConfig_MaxClients; i ++ )
 		{
+			if( gaClients[i].Socket == 0 )	continue ;
+			_SysDebug("Socket = %i, stdout = %i",
+				gaClients[i].Socket, gaClients[i].stdout);
 			FD_SET_MAX(&fds, gaClients[i].Socket, &maxfd);
 			FD_SET_MAX(&fds, gaClients[i].stdout,  &maxfd);
 		}
@@ -112,16 +122,17 @@ void Server_NewClient(int FD)
 	}
 	// Accept the connection
 	clt->Socket = _SysOpenChild(FD, "", O_RDWR);
-	giNumClients ++;	
+	giNumClients ++;
 	
 	// Create stdin/stdout
-	clt->stdin = open("/Devices/fifo", O_RDWR);
-	clt->stdout = open("/Devices/fifo", O_RDWR);
+	clt->stdin = open("/Devices/fifo/anon", O_RDWR);
+	clt->stdout = open("/Devices/fifo/anon", O_RDWR);
 	
 	// TODO: Arguments and envp
 	{
 		int fds[3] = {clt->stdin, clt->stdout, clt->stdout};
-		_SysSpawn("/Acess/SBin/login", NULL, NULL, 3, fds);
+		const char	*argv[] = {NULL};
+		_SysSpawn("/Acess/SBin/login", argv, argv, 3, fds);
 	}
 }
 
@@ -131,6 +142,7 @@ void HandleServerBoundData(tClient *Client)
 	 int	len;
 	
 	len = read(Client->Socket, buf, BUFSIZ);
+	if( len <= 0 )	return ;
 	write(Client->stdin, buf, len);
 }
 
@@ -140,6 +152,7 @@ void HandleClientBoundData(tClient *Client)
 	 int	len;
 	
 	len = read(Client->stdout, buf, BUFSIZ);
+	if( len <= 0 )	return ;
 	write(Client->Socket, buf, len);
 }
 

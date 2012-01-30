@@ -31,6 +31,9 @@ while [ $# -ne 0 ]; do
 		shift
 		QEMU_PARAMS=$QEMU_PARAMS" "$1
 		;;
+	-fwd)
+		_NETTYPE=$_NETTYPE",hostfwd=tcp::10023-10.0.2.10:23"
+		;;
 	-tuntap)
 		_NETTYPE="tap"
 	esac

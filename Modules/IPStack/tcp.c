@@ -150,9 +150,9 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 	tTCPConnection	*conn;
 
 	Log_Log("TCP", "TCP_GetPacket: <Local>:%i from [%s]:%i, Flags= %s%s%s%s%s%s%s%s",
-		ntohs(hdr->SourcePort),
-		IPStack_PrintAddress(Interface->Type, Address),
 		ntohs(hdr->DestPort),
+		IPStack_PrintAddress(Interface->Type, Address),
+		ntohs(hdr->SourcePort),
 		(hdr->Flags & TCP_FLAG_CWR) ? "CWR " : "",
 		(hdr->Flags & TCP_FLAG_ECE) ? "ECE " : "",
 		(hdr->Flags & TCP_FLAG_URG) ? "URG " : "",
@@ -199,7 +199,11 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 				if(conn->RemotePort != ntohs(hdr->SourcePort))	continue;
 
 				// Check Source IP
-				if( IPStack_CompareAddress(conn->Interface->Type, &conn->RemoteIP, Address, -1) != 0 )
+				Log_Debug("TCP", "TCP_GetPacket: conn->RemoteIP(%s)",
+					IPStack_PrintAddress(conn->Interface->Type, &conn->RemoteIP));
+				Log_Debug("TCP", "                == Address(%s)",
+					IPStack_PrintAddress(conn->Interface->Type, Address));
+				if( IPStack_CompareAddress(conn->Interface->Type, &conn->RemoteIP, Address, -1) == 0 )
 					continue ;
 
 				Log_Log("TCP", "TCP_GetPacket: Matches connection %p", conn);
@@ -256,6 +260,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 			srv->ConnectionsTail = conn;
 			if(!srv->NewConnections)
 				srv->NewConnections = conn;
+			VFS_MarkAvaliable( &srv->Node, 1 );
 			SHORTREL(&srv->lConnections);
 
 			// Send the SYN ACK
@@ -828,7 +833,7 @@ tVFS_Node *TCP_Server_Init(tInterface *Interface)
 {
 	tTCPListener	*srv;
 	
-	srv = malloc( sizeof(tTCPListener) );
+	srv = calloc( 1, sizeof(tTCPListener) );
 
 	if( srv == NULL ) {
 		Log_Warning("TCP", "malloc failed for listener (%i) bytes", sizeof(tTCPListener));
@@ -878,7 +883,6 @@ char *TCP_Server_ReadDir(tVFS_Node *Node, int Pos)
 		if( srv->NewConnections != NULL )	break;
 		SHORTREL( &srv->lConnections );
 		Threads_Yield();	// TODO: Sleep until poked
-		continue;
 	}
 	
 
@@ -886,6 +890,9 @@ char *TCP_Server_ReadDir(tVFS_Node *Node, int Pos)
 	// normal list)
 	conn = srv->NewConnections;
 	srv->NewConnections = conn->Next;
+
+	if( srv->NewConnections == NULL )
+		VFS_MarkAvaliable( Node, 0 );
 	
 	SHORTREL( &srv->lConnections );
 	
@@ -940,6 +947,13 @@ tVFS_Node *TCP_Server_FindDir(tVFS_Node *Node, const char *Name)
 			if(conn->Node.ImplInt == id)	break;
 		}
 		SHORTREL( &srv->lConnections );
+
+		// If not found, ret NULL
+		if(!conn) {
+			LOG("Connection %i not found", id);
+			LEAVE('n');
+			return NULL;
+		}
 	}
 	// Empty Name - Check for a new connection and if it's there, open it
 	else
@@ -948,16 +962,15 @@ tVFS_Node *TCP_Server_FindDir(tVFS_Node *Node, const char *Name)
 		conn = srv->NewConnections;
 		if( conn != NULL )
 			srv->NewConnections = conn->Next;
+		VFS_MarkAvaliable( Node, srv->NewConnections != NULL );
 		SHORTREL( &srv->lConnections );
+		if( !conn ) {
+			LOG("No new connections");
+			LEAVE('n');
+			return NULL;
+		}
 	}
 		
-	// If not found, ret NULL
-	if(!conn) {
-		LOG("Connection %i not found", id);
-		LEAVE('n');
-		return NULL;
-	}
-	
 	// Return node
 	LEAVE('p', &conn->Node);
 	return &conn->Node;

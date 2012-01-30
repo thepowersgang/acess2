@@ -20,6 +20,16 @@
 	if(!(v)||!Syscall_Valid((size),(v))){ret=-1;err=-EINVAL;break;}
 #define CHECK_STR_NONULL(v)	\
 	if(!(v)||!Syscall_ValidString((v))){ret=-1;err=-EINVAL;break;}
+#define CHECK_STR_ARRAY(arr)	do {\
+	 int	i;\
+	char	**tmp = (char**)arr; \
+	CHECK_NUM_NONULL( tmp, sizeof(char**) ); \
+	for(i=0;tmp[i];i++) { \
+		CHECK_STR_NONULL( tmp[i] ); \
+		CHECK_NUM_NONULL( &tmp[i+1], sizeof(char*) ); \
+	}\
+	if(tmp[i]) break;\
+} while(0)
 
 // === IMPORTS ===
 extern Uint	Binary_Load(const char *file, Uint *entryPoint);
@@ -148,46 +158,34 @@ void SyscallHandler(tSyscallRegs *Regs)
 	// ---
 	// Binary Control
 	// ---
+	// -- Create a new process
+	case SYS_SPAWN:
+		CHECK_STR_NONULL((const char*)Regs->Arg1);
+		CHECK_STR_ARRAY((const char**)Regs->Arg2);
+		CHECK_STR_ARRAY((const char**)Regs->Arg3);
+		CHECK_NUM_NONULL((void*)Regs->Arg5, Regs->Arg4*sizeof(int));
+		ret = Proc_SysSpawn(
+			(const char*)Regs->Arg1, (const char**)Regs->Arg2, (const char**)Regs->Arg3,
+			Regs->Arg4, (int*)Regs->Arg5
+			);
+		break;
 	// -- Replace the current process with another
 	case SYS_EXECVE:
 		CHECK_STR_NONULL((char*)Regs->Arg1);
-		// Check the argument arrays
-		{
-			 int	i;
-			char	**tmp = (char**)Regs->Arg2;
-			// Check ArgV (traverse array checking all string pointers)
-			CHECK_NUM_NONULL( tmp, sizeof(char**) );
-			//Log("tmp = %p", tmp);
-			for(i=0;tmp[i];i++) {
-				CHECK_NUM_NONULL( &tmp[i], sizeof(char*) );
-				CHECK_STR_NONULL( tmp[i] );
-			}
-			if(ret == -1) break;
-			// Check EnvP also
-			// - EnvP can be NULL
-			if( Regs->Arg3 )
-			{
-				tmp = (char**)Regs->Arg3;
-				CHECK_NUM_NONULL(tmp, sizeof(char**));
-				for(i=0;tmp[i];i++) {
-					CHECK_NUM_NONULL( &tmp[i], sizeof(char*) );
-					CHECK_STR_NONULL( tmp[i] );
-				}
-				if(ret == -1) break;
-			}
-		}
+		CHECK_STR_ARRAY( (char**)Regs->Arg2 );
+		if( Regs->Arg3 )
+			CHECK_STR_ARRAY( (char**)Regs->Arg3 );
 		LEAVE('s', "Assuming 0");
 		// Path, **Argv, **Envp, DataSize (=0 to tell it to create a copy)
-		ret = Proc_Execve( (const char*)Regs->Arg1, (const char**)Regs->Arg2, (const char**)Regs->Arg3, 0 );
+		ret = Proc_Execve(
+			(const char*)Regs->Arg1, (const char**)Regs->Arg2, (const char**)Regs->Arg3,
+			0
+			);
 		break;
 	// -- Load a binary into the current process
 	case SYS_LOADBIN:
-		if( !Syscall_ValidString( (char*) Regs->Arg1)
-		||  !Syscall_Valid(sizeof(Uint), (Uint*)Regs->Arg2) ) {
-			err = -EINVAL;
-			ret = 0;
-			break;
-		}
+		CHECK_STR_NONULL( (char*)Regs->Arg1 );
+		CHECK_NUM_NONULL( (Uint*)Regs->Arg2, sizeof(Uint) );
 		// Path, *Entrypoint
 		ret = Binary_Load((char*)Regs->Arg1, (Uint*)Regs->Arg2);
 		break;
@@ -251,7 +249,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 	// Open a file that is a entry in an open directory
 	case SYS_OPENCHILD:
 		CHECK_STR_NONULL( (char*)Regs->Arg2 );
-		ret = VFS_OpenChild( Regs->Arg1, (char*)Regs->Arg2, Regs->Arg3);
+		ret = VFS_OpenChild( Regs->Arg1, (char*)Regs->Arg2, Regs->Arg3 | VFS_OPENFLAG_USER);
 		break;
 	
 	// Change Directory

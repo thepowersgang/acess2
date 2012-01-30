@@ -45,7 +45,7 @@ const struct {
 	EXP(SysSendMessage),
 	EXP(SysGetMessage),
 
-	//EXP(SysSpawn),
+	EXP(_SysSpawn),
 	EXP(execve),
 	EXP(SysLoadBin),
 	EXP(SysUnloadBin),
