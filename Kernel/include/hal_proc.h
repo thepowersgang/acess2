@@ -58,7 +58,7 @@ extern tTID	Proc_NewKThread( void (*Fnc)(void*), void *Ptr );
  * \param DataSize	Size of the \a ArgV buffer in bytes
  * \note This function should free \a ArgV
  */
-extern void	Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, char **ArgV, int DataSize) NORETURN;
+extern void	Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, const char **ArgV, int DataSize) NORETURN;
 /**
  * \brief Call the fault handler for a thread
  * \param Thread	Thread that is at fault :)

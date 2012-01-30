@@ -7,6 +7,7 @@
 #include <binary.h>
 #include <mm_virt.h>
 #include <hal_proc.h>
+#include <vfs_threads.h>
 
 // === CONSTANTS ===
 #define BIN_LOWEST	MM_USER_MIN		// 1MiB
@@ -30,7 +31,7 @@ extern tKernelSymbol	gKernelSymbolsEnd[];
 extern tBinaryType	gELF_Info;
 
 // === PROTOTYPES ===
- int	Proc_Execve(const char *File, const char **ArgV, const char **EnvP);
+ int	Binary_int_CacheArgs(const char **Path, const char ***ArgV, const char ***EnvP, void *DestBuffer);
 tVAddr	Binary_Load(const char *Path, tVAddr *EntryPoint);
 tBinary	*Binary_GetInfo(tMount MountID, tInode InodeID);
 tVAddr	Binary_MapIn(tBinary *Binary, const char *Path, tVAddr LoadMin, tVAddr LoadMax);
@@ -78,16 +79,126 @@ int Proc_Spawn(const char *Path)
 	
 	LOG("stackPath = '%s'", stackPath);
 	
-	if(Proc_Clone(CLONE_VM) == 0)
+	if(Proc_Clone(CLONE_VM|CLONE_NOUSER) == 0)
 	{
 		// CHILD
 		const char	*args[2] = {stackPath, NULL};
 		LOG("stackPath = '%s'", stackPath);
-		Proc_Execve(stackPath, args, &args[1]);
+		Proc_Execve(stackPath, args, &args[1], 0);
 		for(;;);
 	}
 	LEAVE('i', 0);
 	return 0;
+}
+
+/**
+ * \todo Document
+ */
+int Binary_int_CacheArgs(const char **Path, const char ***ArgV, const char ***EnvP, void *DestBuffer)
+{
+	 int	size, argc=0, envc=0;
+	 int	i;
+	char	*strbuf;
+	const char	**arrays;
+	
+	// Calculate size
+	size = 0;
+	if( ArgV && *ArgV )
+	{
+		const char	**argv = *ArgV;
+		for( argc = 0; argv[argc]; argc ++ )
+			size += strlen( argv[argc] ) + 1;
+	}
+	if( EnvP && *EnvP )
+	{
+		const char	**envp = *EnvP;
+		for( envc = 0; envp[envc]; envc ++ )
+			size += strlen( envp[envc] ) + 1;
+	}
+	size = (size + sizeof(void*)-1) & ~(sizeof(void*)-1);	// Word align
+	size += (argc+1+envc+1)*sizeof(void*);	// Arrays
+	if( Path )
+	{
+		size += strlen( *Path ) + 1;
+	}
+
+	if( DestBuffer )	
+	{
+		arrays = DestBuffer;
+		strbuf = (void*)&arrays[argc+1+envc+1];
+	
+		// Fill ArgV
+		if( ArgV && *ArgV )
+		{
+			const char	**argv = *ArgV;
+			for( i = 0; argv[i]; i ++ )
+			{
+				arrays[i] = strbuf;
+				strcpy(strbuf, argv[i]);
+				strbuf += strlen( argv[i] ) + 1;
+			}
+			*ArgV = arrays;
+			arrays += i;
+		}
+		*arrays++ = NULL;
+		// Fill EnvP
+		if( EnvP && *EnvP )
+		{
+			const char	**envp = *EnvP;
+			for( i = 0; envp[i]; i ++ )
+			{
+				arrays[i] = strbuf;
+				strcpy(strbuf, envp[i]);
+				strbuf += strlen( envp[i] ) + 1;
+			}
+			*EnvP = arrays;
+			arrays += i;
+		}
+		*arrays++ = NULL;
+		// Fill path
+		if( Path )
+		{
+			strcpy(strbuf, *Path);
+			*Path = strbuf;
+		}
+	}
+	
+	return size;
+}
+
+/**
+ * \brief Create a new process with the specified set of file descriptors
+ */
+int Proc_SysSpawn(const char *Binary, const char **ArgV, const char **EnvP, int nFD, int *FDs)
+{
+	void	*handles;
+	void	*cachebuf;
+	 int	size;
+	tPID	ret;
+	
+	// --- Save File, ArgV and EnvP
+	size = Binary_int_CacheArgs( &Binary, &ArgV, &EnvP, NULL );
+	cachebuf = alloca( size );
+	Binary_int_CacheArgs( &Binary, &ArgV, &EnvP, cachebuf );
+
+	// Cache the VFS handles	
+	handles = VFS_SaveHandles(nFD, FDs);
+
+	// Create new process	
+	ret = Proc_Clone(CLONE_VM|CLONE_NOUSER);
+	if( ret == 0 )
+	{
+		VFS_RestoreHandles(nFD, handles);
+		VFS_FreeSavedHandles(nFD, handles);
+		Proc_Execve(Binary, ArgV, EnvP, size);
+		for(;;);
+	}
+	if( ret < 0 )
+	{
+		VFS_FreeSavedHandles(nFD, handles);
+	}
+	
+	return ret;
 }
 
 /**
@@ -97,61 +208,25 @@ int Proc_Spawn(const char *Path)
  * \param EnvP	User's environment
  * \note Called Proc_ for historical reasons
  */
-int Proc_Execve(const char *File, const char **ArgV, const char **EnvP)
+int Proc_Execve(const char *File, const char **ArgV, const char **EnvP, int DataSize)
 {
-	 int	argc, envc, i;
-	 int	argenvBytes;
-	char	**argenvBuf, *strBuf;
-	char	**argvSaved, **envpSaved;
-	char	*savedFile;
+	void	*cachebuf;
 	tVAddr	entry;
 	Uint	base;	// Uint because Proc_StartUser wants it
+	 int	argc;
 	
 	ENTER("sFile pArgV pEnvP", File, ArgV, EnvP);
 	
-	// --- Save File, ArgV and EnvP (also get argc)
-	
-	// Count Arguments, Environment Variables and total string sizes
-	argenvBytes = 0;
-	for( argc = 0; ArgV && ArgV[argc]; argc++ )
-		argenvBytes += strlen(ArgV[argc])+1;
-	for( envc = 0; EnvP && EnvP[envc]; envc++ )
-		argenvBytes += strlen(EnvP[envc])+1;
-	LOG("argc = %i, envc = %i", envc);
-	argenvBytes = (argenvBytes + sizeof(void*)-1) & ~(sizeof(void*)-1);
-	argenvBytes += (argc+1)*sizeof(void*) + (envc+1)*sizeof(void*);
-	
-	// Allocate
-	argenvBuf = malloc(argenvBytes);
-	if(argenvBuf == NULL) {
-		Log_Error("Binary", "Proc_Execve - What the hell? The kernel is out of heap space");
-		LEAVE('i', 0);
-		return 0;
-	}
-	strBuf = (char*)argenvBuf + (argc+1)*sizeof(void*) + (envc+1)*sizeof(void*);
-	
-	// Populate
-	argvSaved = argenvBuf;
-	for( i = 0; i < argc; i++ )
+	// --- Save File, ArgV and EnvP
+	if( DataSize == 0 )
 	{
-		argvSaved[i] = strBuf;
-		strcpy(argvSaved[i], ArgV[i]);
-		LOG("argv[%i] = '%s'", i, strBuf);
-		strBuf += strlen(ArgV[i])+1;
+		DataSize = Binary_int_CacheArgs( &File, &ArgV, &EnvP, NULL );
+		cachebuf = malloc( DataSize );
+		Binary_int_CacheArgs( &File, &ArgV, &EnvP, cachebuf );
 	}
-	argvSaved[i] = NULL;
-	envpSaved = &argvSaved[i+1];
-	for( i = 0; i < envc; i++ )
-	{
-		envpSaved[i] = strBuf;
-		LOG("envp[%i] = '%s'", i, strBuf);
-		strcpy(envpSaved[i], EnvP[i]);
-		strBuf += strlen(EnvP[i])+1;
-	}
-	envpSaved[i] = NULL;
-	
-	savedFile = malloc(strlen(File)+1);
-	strcpy(savedFile, File);
+
+	// --- Get argc	
+	for( argc = 0; ArgV && ArgV[argc]; argc ++ );
 	
 	// --- Set Process Name
 	Threads_SetName(File);
@@ -160,24 +235,19 @@ int Proc_Execve(const char *File, const char **ArgV, const char **EnvP)
 	MM_ClearUser();
 	
 	// --- Load new binary
-	base = Binary_Load(savedFile, &entry);
-	free(savedFile);
+	base = Binary_Load(File, &entry);
 	if(base == 0)
 	{
-		free(argvSaved);
-		Log_Warning("Binary", "Proc_Execve - Unable to load '%s'", Threads_GetName(-1));
+		Log_Warning("Binary", "Proc_Execve - Unable to load '%s'", File);
 		LEAVE('-');
 		Threads_Exit(0, -10);
 		for(;;);
 	}
 	
 	LOG("entry = 0x%x, base = 0x%x", entry, base);
-
-//	MM_DumpTables(0, KERNEL_BASE);
-
 	LEAVE('-');
 	// --- And... Jump to it
-	Proc_StartUser(entry, base, argc, argvSaved, argenvBytes);
+	Proc_StartUser(entry, base, argc, ArgV, DataSize);
 	for(;;);	// Tell GCC that we never return
 }
 

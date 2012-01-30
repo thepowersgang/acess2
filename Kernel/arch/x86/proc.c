@@ -45,7 +45,7 @@ extern void	APStartup(void);	// 16-bit AP startup code
 extern Uint	GetEIP(void);	// start.asm
 extern Uint	GetEIP_Sched(void);	// proc.asm
 extern void	NewTaskHeader(tThread *Thread, void *Fcn, int nArgs, ...);	// Actually takes cdecl args
-extern Uint	Proc_CloneInt(Uint *ESP, Uint32 *CR3);
+extern Uint	Proc_CloneInt(Uint *ESP, Uint32 *CR3, int bNoUserClone);
 extern Uint32	gaInitPageDir[1024];	// start.asm
 extern char	Kernel_Stack_Top[];
 extern int	giNumCPUs;
@@ -640,7 +640,7 @@ tPID Proc_Clone(Uint Flags)
 	newThread->KernelStack = cur->KernelStack;
 
 	// Clone state
-	eip = Proc_CloneInt(&newThread->SavedState.ESP, &newThread->Process->MemState.CR3);
+	eip = Proc_CloneInt(&newThread->SavedState.ESP, &newThread->Process->MemState.CR3, Flags & CLONE_NOUSER);
 	if( eip == 0 ) {
 		return 0;
 	}
@@ -727,16 +727,16 @@ Uint Proc_MakeUserStack(void)
 	return base + USER_STACK_SZ;
 }
 
-void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, char **ArgV, int DataSize)
+void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, const char **ArgV, int DataSize)
 {
 	Uint	*stack;
 	 int	i;
-	char	**envp = NULL;
+	const char	**envp = NULL;
 	Uint16	ss, cs;
 	
 	// Copy data to the user stack and free original buffer
 	stack = (void*)Proc_MakeUserStack();
-	stack -= DataSize/sizeof(*stack);
+	stack -= (DataSize+sizeof(*stack)-1)/sizeof(*stack);
 	memcpy( stack, ArgV, DataSize );
 	free(ArgV);
 	
@@ -744,7 +744,7 @@ void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, char **ArgV, int DataS
 	if( DataSize )
 	{
 		Uint delta = (Uint)stack - (Uint)ArgV;
-		ArgV = (char**)stack;
+		ArgV = (const char**)stack;
 		for( i = 0; ArgV[i]; i++ )	ArgV[i] += delta;
 		envp = &ArgV[i+1];
 		for( i = 0; envp[i]; i++ )	envp[i] += delta;

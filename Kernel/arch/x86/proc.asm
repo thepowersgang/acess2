@@ -31,7 +31,9 @@ Proc_CloneInt:
 	; Save RSP
 	mov eax, [esp+0x20+4]
 	mov [eax], esp
+	push DWORD [esp+0x20+12]
 	call MM_Clone
+	add esp, 4
 	; Save CR3
 	mov esi, [esp+0x20+8]
 	mov [esi], eax

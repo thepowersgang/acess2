@@ -62,11 +62,11 @@ tThread *Proc_GetCurThread(void)
 	return gpCurrentThread;
 }
 
-void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, char **ArgV, int DataSize)
+void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, const char **ArgV, int DataSize)
 {
 	Uint32	*usr_sp;
 	 int	i;
-	char	**envp;
+	const char	**envp;
 	tVAddr	delta;
 
 //	Log_Debug("Proc", "Proc_StartUser: (Entrypoint=%p, Base=%p, ArgC=%i, ArgV=%p, DataSize=0x%x)",

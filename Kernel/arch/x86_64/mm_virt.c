@@ -924,6 +924,13 @@ tPAddr MM_Clone(void)
 			MM_RefPhys( TMPMAPLVL4(i) & PADDR_MASK );
 		}
 	}
+	else
+	{
+		for( i = 0; i < 256; i ++ )
+		{
+			TMPMAPLVL4(i) = 0;
+		}
+	}
 	
 	// #4 Map in kernel pages
 	for( i = 256; i < 512; i ++ )

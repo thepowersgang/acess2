@@ -586,10 +586,12 @@ Uint Proc_MakeUserStack(void)
 	if(i != -1)	return 0;
 	
 	// Allocate Stack - Allocate incrementally to clean up MM_Dump output
+	// - Most of the user stack is the zero page
 	for( i = 0; i < (USER_STACK_SZ-USER_STACK_PREALLOC)/0x1000; i++ )
 	{
 		MM_AllocateZero( base + (i<<12) );
 	}
+	// - but the top USER_STACK_PREALLOC pages are actually allocated
 	for( ; i < USER_STACK_SZ/0x1000; i++ )
 	{
 		tPAddr	alloc = MM_Allocate( base + (i<<12) );
@@ -606,11 +608,11 @@ Uint Proc_MakeUserStack(void)
 	return base + USER_STACK_SZ;
 }
 
-void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, char **ArgV, int DataSize)
+void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, const char **ArgV, int DataSize)
 {
 	Uint	*stack;
 	 int	i;
-	char	**envp = NULL;
+	const char	**envp = NULL;
 	Uint16	ss, cs;
 	
 	
@@ -628,7 +630,7 @@ void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, char **ArgV, int DataS
 	if(DataSize)
 	{
 		Uint	delta = (Uint)stack - (Uint)ArgV;
-		ArgV = (char**)stack;
+		ArgV = (const char**)stack;
 		for( i = 0; ArgV[i]; i++ )	ArgV[i] += delta;
 		envp = &ArgV[i+1];
 		for( i = 0; envp[i]; i++ )	envp[i] += delta;

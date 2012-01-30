@@ -88,6 +88,8 @@ extern const char gsGitHash[];
  */
 //! Clone the entire process
 #define CLONE_VM	0x10
+//! Don't copy user pages
+#define CLONE_NOUSER	0x20
 /**
  * \}
  */
@@ -443,6 +445,10 @@ extern int	CallWithArgArray(void *Function, int NArgs, Uint *Args);
 
 // --- Heap ---
 #include <heap.h>
+/**
+ * \brief Magic heap allocation function
+ */
+extern void	*alloca(size_t Size);
 
 // --- Modules ---
 /**
@@ -498,6 +504,8 @@ extern void	Time_Delay(int Delay);
  */
 extern int	Proc_SpawnWorker(void (*Fcn)(void*), void *Data);
 extern int	Proc_Spawn(const char *Path);
+extern int	Proc_SysSpawn(const char *Binary, const char **ArgV, const char **EnvP, int nFD, int *FDs);
+extern int	Proc_Execve(const char *File, const char **ArgV, const char **EnvP, int DataSize);
 extern void	Threads_Exit(int TID, int Status);
 extern void	Threads_Yield(void);
 extern void	Threads_Sleep(void);

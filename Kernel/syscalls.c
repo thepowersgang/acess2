@@ -22,7 +22,6 @@
 	if(!(v)||!Syscall_ValidString((v))){ret=-1;err=-EINVAL;break;}
 
 // === IMPORTS ===
-extern int	Proc_Execve(char *File, char **ArgV, char **EnvP);
 extern Uint	Binary_Load(const char *file, Uint *entryPoint);
 
 // === PROTOTYPES ===
@@ -178,8 +177,8 @@ void SyscallHandler(tSyscallRegs *Regs)
 			}
 		}
 		LEAVE('s', "Assuming 0");
-		// Path, **Argv, **Envp
-		ret = Proc_Execve( (char*)Regs->Arg1, (char**)Regs->Arg2, (char**)Regs->Arg3 );
+		// Path, **Argv, **Envp, DataSize (=0 to tell it to create a copy)
+		ret = Proc_Execve( (const char*)Regs->Arg1, (const char**)Regs->Arg2, (const char**)Regs->Arg3, 0 );
 		break;
 	// -- Load a binary into the current process
 	case SYS_LOADBIN:

@@ -574,7 +574,7 @@ void MM_ClearSpace(Uint32 CR3)
  * \fn tPAddr MM_Clone(void)
  * \brief Clone the current address space
  */
-tPAddr MM_Clone(void)
+tPAddr MM_Clone(int bNoUserCopy)
 {
 	Uint	i, j;
 	tPAddr	ret;
@@ -593,7 +593,7 @@ tPAddr MM_Clone(void)
 	INVLPG( gaTmpDir );
 	memsetd( gaTmpDir, 0, 1024 );
 	
-	if( Threads_GetPID() != 0 )
+	if( Threads_GetPID() != 0 && !bNoUserCopy )
 	{	
 		// Copy Tables
 		for( i = 0; i < 768; i ++)
