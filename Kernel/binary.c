@@ -232,7 +232,17 @@ int Proc_Execve(const char *File, const char **ArgV, const char **EnvP, int Data
 	Threads_SetName(File);
 	
 	// --- Clear User Address space
-	MM_ClearUser();
+	// NOTE: This is a little roundabout, maybe telling ClearUser to not touch the
+	//       PPD area would be a better idea.
+	{
+		 int	nfd = *Threads_GetMaxFD();
+		void	*handles;
+		handles = VFS_SaveHandles(nfd, NULL);
+		VFS_CloseAllUserHandles();
+		MM_ClearUser();
+		VFS_RestoreHandles(nfd, handles);
+		VFS_FreeSavedHandles(nfd, handles);
+	}
 	
 	// --- Load new binary
 	base = Binary_Load(File, &entry);

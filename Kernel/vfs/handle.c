@@ -119,11 +119,17 @@ void VFS_ReferenceUserHandles(void)
 {
 	 int	i;
 	 int	max_handles = *Threads_GetMaxFD();
+
+	// Check if this process has any handles
+	if( MM_GetPhysAddr( (tVAddr)gaUserHandles ) == 0 )
+		return ;
 	
 	for( i = 0; i < max_handles; i ++ )
 	{
 		tVFS_Handle	*h;
 		h = &gaUserHandles[i];
+		if( !h->Node )
+			continue ;
 		if( h->Node->Type && h->Node->Type->Reference )
 			h->Node->Type->Reference( h->Node );
 	}
@@ -133,11 +139,17 @@ void VFS_CloseAllUserHandles(void)
 {
 	 int	i;
 	 int	max_handles = *Threads_GetMaxFD();
+
+	// Check if this process has any handles
+	if( MM_GetPhysAddr( (tVAddr)gaUserHandles ) == 0 )
+		return ;
 	
 	for( i = 0; i < max_handles; i ++ )
 	{
 		tVFS_Handle	*h;
 		h = &gaUserHandles[i];
+		if( !h->Node )
+			continue ;
 		if( h->Node->Type && h->Node->Type->Close )
 			h->Node->Type->Close( h->Node );
 	}
@@ -150,6 +162,7 @@ void *VFS_SaveHandles(int NumFDs, int *FDs)
 {
 	tVFS_Handle	*ret;
 	 int	i;
+	 int	max_handles = *Threads_GetMaxFD();
 	
 	// Check if this process has any handles
 	if( MM_GetPhysAddr( (tVAddr)gaUserHandles ) == 0 )
@@ -160,20 +173,29 @@ void *VFS_SaveHandles(int NumFDs, int *FDs)
 	if( !ret )
 		return NULL;	
 
+	if( NumFDs > max_handles )
+		NumFDs = max_handles;
+
 	// Take copies of the handles
 	for( i = 0; i < NumFDs; i ++ )
 	{
 		tVFS_Handle	*h;
-		h = VFS_GetHandle(FDs[i] & (VFS_KERNEL_FLAG - 1));
-		if(!h) {
-			Log_Warning("VFS", "VFS_SaveHandles - Invalid FD %i",
-				FDs[i] & (VFS_KERNEL_FLAG - 1) );
-			free(ret);
-			return NULL;
+		if( FDs == NULL )
+			h = &gaUserHandles[i];
+		else {
+			h = VFS_GetHandle(FDs[i] & (VFS_KERNEL_FLAG - 1));
+			if(!h) {
+				Log_Warning("VFS", "VFS_SaveHandles - Invalid FD %i",
+					FDs[i] & (VFS_KERNEL_FLAG - 1) );
+				free(ret);
+				return NULL;
+			}
 		}
 		memcpy( &ret[i], h, sizeof(tVFS_Handle) );
 		
 		// Reference node
+		if( !h->Node )
+			continue ;
 		if( h->Node->Type && h->Node->Type->Reference )
 			h->Node->Type->Reference( h->Node );
 	}	
@@ -218,6 +240,8 @@ void VFS_RestoreHandles(int NumFDs, void *Handles)
 	{
 		tVFS_Handle	*h = &handles[i];
 	
+		if( !h->Node )
+			continue ;
 		if( h->Node->Type && h->Node->Type->Reference )
 			h->Node->Type->Reference( h->Node );
 	}
@@ -227,12 +251,18 @@ void VFS_FreeSavedHandles(int NumFDs, void *Handles)
 {
 	tVFS_Handle	*handles = Handles;
 	 int	i;
+
+	// NULL = nothing to do
+	if( !Handles )
+		return ;	
 	
 	// Dereference all saved nodes
 	for( i = 0; i < NumFDs; i ++ )
 	{
 		tVFS_Handle	*h = &handles[i];
 	
+		if( !h->Node )
+			continue ;
 		if( h->Node->Type && h->Node->Type->Close )
 			h->Node->Type->Close( h->Node );
 	}

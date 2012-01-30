@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <hal_proc.h>
 #include <semaphore.h>
+#include <vfs_threads.h>	// VFS Handle maintainence
 
 // Configuration
 #define DEBUG_TRACE_TICKETS	0	// Trace ticket counts
@@ -151,11 +152,16 @@ void Threads_Delete(tThread *Thread)
 	if( Thread->Process->nThreads == 0 )
 	{
 		tProcess	*proc = Thread->Process;
+		// VFS Cleanup
+		VFS_CloseAllUserHandles();
+		// Architecture cleanup
 		Proc_ClearProcess( proc );
+		// VFS Configuration strings
 		if( proc->CurrentWorkingDir)
 			free( proc->CurrentWorkingDir );
 		if( proc->RootDir )
 			free( proc->RootDir );
+		// Process descriptor
 		free( proc );
 	}
 	
@@ -319,6 +325,8 @@ tThread *Threads_CloneTCB(Uint Flags)
 		else
 			newproc->RootDir = NULL;
 		newproc->nThreads = 1;
+		// Reference all handles in the VFS
+		VFS_ReferenceUserHandles();
 	}
 	else {
 		new->Process->nThreads ++;
