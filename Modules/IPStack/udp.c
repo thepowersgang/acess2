@@ -91,6 +91,7 @@ int UDP_int_ScanList(tUDPChannel *List, tInterface *Interface, void *Address, in
 		pack->Next = NULL;
 		memcpy(&pack->Remote.Addr, Address, IPStack_GetAddressSize(Interface->Type));
 		pack->Remote.Port = ntohs(hdr->SourcePort);
+		pack->Remote.AddrType = Interface->Type;
 		pack->Length = len;
 		memcpy(pack->Data, hdr->Data, len);
 		
@@ -193,7 +194,7 @@ Uint64 UDP_Channel_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buf
 	tUDPChannel	*chan = Node->ImplPtr;
 	tUDPPacket	*pack;
 	tUDPEndpoint	*ep;
-	 int	ofs;
+	 int	ofs, addrlen;
 	
 	if(chan->LocalPort == 0) {
 		Log_Notice("UDP", "Channel %p sent with no local port", chan);
@@ -221,8 +222,9 @@ Uint64 UDP_Channel_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buf
 	}
 
 	// Check that the header fits
+	addrlen = IPStack_GetAddressSize(pack->Remote.AddrType);
 	ep = Buffer;
-	ofs = 4 + IPStack_GetAddressSize(pack->Remote.AddrType);
+	ofs = 4 + addrlen;
 	if(Length < ofs) {
 		free(pack);
 		Log_Notice("UDP", "Insuficient space for header in buffer (%i < %i)", (int)Length, ofs);
@@ -232,7 +234,7 @@ Uint64 UDP_Channel_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buf
 	// Fill header
 	ep->Port = pack->Remote.Port;
 	ep->AddrType = pack->Remote.AddrType;
-	memcpy(&ep->Addr, &pack->Remote.Addr, IPStack_GetAddressSize(pack->Remote.AddrType));
+	memcpy(&ep->Addr, &pack->Remote.Addr, addrlen);
 	
 	// Copy packet data
 	if(Length > ofs + pack->Length)	Length = ofs + pack->Length;

@@ -2,6 +2,7 @@
  * Acess2 IP Stack
  * - IPv4 Protcol Handling
  */
+#define DEBUG	1
 #include "ipstack.h"
 #include "link.h"
 #include "ipv4.h"
@@ -63,12 +64,13 @@ int IPv4_RegisterCallback(int ID, tIPCallback Callback)
  */
 int IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, int Length, const void *Data)
 {
-	tMacAddr	to = ARP_Resolve4(Iface, Address);
+	tMacAddr	to;
 	 int	bufSize = sizeof(tIPv4Header) + Length;
 	char	buf[bufSize];
 	tIPv4Header	*hdr = (void*)buf;
 	 int	ret;
 	
+	to = ARP_Resolve4(Iface, Address);
 	if( MAC_EQU(to, cMAC_ZERO) ) {
 		// No route to host
 		Log_Notice("IPv4", "No route to host %i.%i.%i.%i",
@@ -171,6 +173,11 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	// TODO: Handle packet fragmentation
 	
 	
+	Log_Debug("IPv4", " From %i.%i.%i.%i to %i.%i.%i.%i",
+		hdr->Source.B[0], hdr->Source.B[1], hdr->Source.B[2], hdr->Source.B[3],
+		hdr->Destination.B[0], hdr->Destination.B[1], hdr->Destination.B[2], hdr->Destination.B[3]
+		);
+	
 	// Get Data and Data Length
 	dataLength = ntohs(hdr->TotalLength) - sizeof(tIPv4Header);
 	data = &hdr->Options[0];
@@ -221,13 +228,15 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 		Log_Debug("IPv4", "Route the packet");
 		// Drop the packet if the TTL is zero
 		if( hdr->TTL == 0 ) {
-			Log_Warning("IPv4", "TODO: Sent ICMP-Timeout when TTL exceeded");
+			Log_Warning("IPv4", "TODO: Send ICMP-Timeout when TTL exceeded");
 			return ;
 		}
 		
 		hdr->TTL --;
 		
 		rt = IPStack_FindRoute(4, NULL, &hdr->Destination);	// Get the route (gets the interface)
+		if( !rt || !rt->Interface )
+			return ;
 		to = ARP_Resolve4(rt->Interface, hdr->Destination);	// Resolve address
 		if( MAC_EQU(to, cMAC_ZERO) )
 			return ;
@@ -265,27 +274,37 @@ tInterface *IPv4_GetInterface(tAdapter *Adapter, tIPv4 Address, int Broadcast)
 	tInterface	*iface = NULL;
 	Uint32	netmask;
 	Uint32	addr, this;
-	
+
+	ENTER("pAdapter xAddress bBroadcast", Adapter, Address, Broadcast);	
+
 	addr = ntohl( Address.L );
+	LOG("addr = 0x%x", addr);
 	
 	for( iface = gIP_Interfaces; iface; iface = iface->Next)
 	{
 		if( iface->Adapter != Adapter )	continue;
 		if( iface->Type != 4 )	continue;
-		if( IP4_EQU(Address, *(tIPv4*)iface->Address) )
+		if( IP4_EQU(Address, *(tIPv4*)iface->Address) ) {
+			LOG("Exact match");
+			LEAVE('p', iface);
 			return iface;
+		}
 		
 		if( !Broadcast )	continue;
 		
-		this = ntohl( ((tIPv4*)iface->Address)->L );
-		
 		// Check for broadcast
+		this = ntohl( ((tIPv4*)iface->Address)->L );
 		netmask = IPv4_Netmask(iface->SubnetBits);
-		
-		if( (addr & netmask) == (this & netmask)
-		 && (addr & ~netmask) == (0xFFFFFFFF & ~netmask) )
+		LOG("iface addr = 0x%x, netmask = 0x%x (bits = %i)", this, netmask, iface->SubnetBits);
+
+		if( (addr & netmask) == (this & netmask) && (addr & ~netmask) == (0xFFFFFFFF & ~netmask) )
+		{
+			LOG("Broadcast match");
+			LEAVE('p', iface);
 			return iface;
+		}
 	}
+	LEAVE('n');
 	return NULL;
 }
 
@@ -298,8 +317,13 @@ tInterface *IPv4_GetInterface(tAdapter *Adapter, tIPv4 Address, int Broadcast)
 Uint32 IPv4_Netmask(int FixedBits)
 {
 	Uint32	ret = 0xFFFFFFFF;
-	ret >>= (32-FixedBits);
-	ret <<= (32-FixedBits);
+	if( FixedBits == 0 )
+		return 0;
+	if( FixedBits < 32 )
+	{
+		ret >>= (32-FixedBits);
+		ret <<= (32-FixedBits);
+	}
 	// Returns a native endian netmask
 	return ret;
 }

@@ -77,6 +77,14 @@ tMacAddr ARP_Resolve4(tInterface *Interface, tIPv4 Address)
 	
 	ENTER("pInterface xAddress", Interface, Address);
 	
+	// Check for broadcast
+	if( Address.L == -1 )
+	{
+		LOG("Broadcast");
+		LEAVE('-');
+		return cMAC_BROADCAST;
+	}
+
 	// Check routing tables if not on this subnet
 	if( IPStack_CompareAddress(4, &Address, Interface->Address, Interface->SubnetBits) == 0 )
 	{
@@ -86,7 +94,22 @@ tMacAddr ARP_Resolve4(tInterface *Interface, tIPv4 Address)
 		if( route && ((tIPv4*)route->NextHop)->L != 0 )
 		{
 			// Recursion: see /Recursion/
+			LOG("Recursing with %s", IPStack_PrintAddress(4, route->NextHop));
+			LEAVE('-');
 			return ARP_Resolve4(Interface, *(tIPv4*)route->NextHop);
+		}
+		// No route, fall though
+	}
+	else
+	{
+		Uint32	netmask;
+		// Check for broadcast
+		netmask = IPv4_Netmask(Interface->SubnetBits);
+		if( (Address.L & ~netmask) == (0xFFFFFFFF & ~netmask) )
+		{
+			LOG("Local Broadcast");
+			LEAVE('-');
+			return cMAC_BROADCAST;
 		}
 	}
 	

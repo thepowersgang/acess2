@@ -35,6 +35,11 @@ extern void	*calloc(size_t __nmemb, size_t __size);
 extern void	*realloc(void *__ptr, size_t __size);
 extern int	IsHeap(void *ptr);
 
+/* --- Random --- */
+extern void	srand(unsigned int seed);
+extern int	rand(void);
+extern int	rand_p(unsigned int *seedp);
+
 #ifndef SEEK_CUR
 # define SEEK_CUR	0
 # define SEEK_SET	1

@@ -78,10 +78,12 @@ char *IPStack_Root_ReadDir(tVFS_Node *Node, int Pos)
 
 	// Routing Subdir
 	if( Pos == 0 ) {
+		LEAVE('s', "routes");
 		return strdup("routes");
 	}
 	// Pseudo Interfaces
 	if( Pos == 1 ) {
+		LEAVE('s', "lo");
 		return strdup("lo");
 	}
 	Pos -= 2;
@@ -139,11 +141,13 @@ tVFS_Node *IPStack_Root_FindDir(tVFS_Node *Node, const char *Name)
 	
 	// Routing subdir
 	if( strcmp(Name, "routes") == 0 ) {
+		LEAVE('p', &gIP_RouteNode);
 		return &gIP_RouteNode;
 	}
 	
 	// Loopback
 	if( strcmp(Name, "lo") == 0 ) {
+		LEAVE('p', &gIP_LoopInterface.Node);
 		return &gIP_LoopInterface.Node;
 	}
 	
@@ -181,6 +185,7 @@ int IPStack_Root_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	case 4:
 		if( Threads_GetUID() != 0 )	LEAVE_RET('i', -1);
 		if( !CheckString( Data ) )	LEAVE_RET('i', -1);
+		LOG("New interface for '%s'", Data);
 		{
 			char	name[4] = "";
 			tInterface	*iface = IPStack_AddInterface(Data, name);
@@ -364,6 +369,7 @@ int IPStack_Iface_IOCtl(tVFS_Node *Node, int ID, void *Data)
 			
 			// Set type
 			iface->Type = *(int*)Data;
+			LOG("Interface type set to %i", iface->Type);
 			size = IPStack_GetAddressSize(iface->Type);
 			// Check it's actually valid
 			if( iface->Type != 0 && size == 0 ) {
@@ -399,9 +405,9 @@ int IPStack_Iface_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		size = IPStack_GetAddressSize(iface->Type);
 		if( !CheckMem( Data, size ) )	LEAVE_RET('i', -1);
 		// TODO: Protect against trashing
+		LOG("Interface address set to '%s'", IPStack_PrintAddress(iface->Type, Data));
 		memcpy( iface->Address, Data, size );
-		LEAVE('i', 1);
-		return 1;
+		LEAVE_RET('i', 1);
 	
 	/*
 	 * getset_subnet
@@ -419,12 +425,11 @@ int IPStack_Iface_IOCtl(tVFS_Node *Node, int ID, void *Data)
 			// Is the mask sane?
 			if( *(int*)Data < 0 || *(int*)Data > IPStack_GetAddressSize(iface->Type)*8-1 )
 				LEAVE_RET('i', -1);
-			
+			LOG("Set subnet bits to %i", *(int*)Data);
 			// Ok, set it
 			iface->SubnetBits = *(int*)Data;
 		}
-		LEAVE('i', iface->SubnetBits);
-		return iface->SubnetBits;
+		LEAVE_RET('i', iface->SubnetBits);
 	
 	/*
 	 * get_device
@@ -438,7 +443,7 @@ int IPStack_Iface_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		if( !CheckMem( Data, iface->Adapter->DeviceLen+1 ) )
 			LEAVE_RET('i', -1);
 		strcpy( Data, iface->Adapter->Device );
-		return iface->Adapter->DeviceLen;
+		LEAVE_RET('i', iface->Adapter->DeviceLen);
 	
 	/*
 	 * ping
@@ -453,8 +458,7 @@ int IPStack_Iface_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		case 4:
 			if( !CheckMem( Data, sizeof(tIPv4) ) )	LEAVE_RET('i', -1);
 			tmp = IPv4_Ping(iface, *(tIPv4*)Data);
-			LEAVE('i', tmp);
-			return tmp;
+			LEAVE_RET('i', tmp);
 			
 		case 6:
 			LEAVE_RET('i', 1);

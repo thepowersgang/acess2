@@ -8,7 +8,7 @@ CFLAGS   +=
 ASFLAGS  +=
 LDFLAGS  += -soname libc.so -Map map.txt -lgcc
 
-OBJ  = stub.o heap.o stdlib.o env.o fileIO.o string.o select.o
+OBJ  = stub.o heap.o stdlib.o env.o fileIO.o string.o select.o rand.o
 OBJ += arch/$(ARCHDIR).ao
 # signals.o
 DEPFILES := $(OBJ:%.o=%.d)

@@ -483,8 +483,8 @@ void AddRoute(const char *Interface, int AddressType, void *Dest, int MaskBits, 
 
 /**
  * \note Debugging HACK!
- * \brief Autoconfigure the specified device to 10.0.2.55/8 using
- *        10.0.2.1 as the gateway.
+ * \brief Autoconfigure the specified device to 10.0.2.55/24 using
+ *        10.0.2.2 as the gateway.
  */
 int DoAutoConfig(const char *Device)
 {
