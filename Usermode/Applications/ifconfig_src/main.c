@@ -227,7 +227,7 @@ void DumpRoutes(void)
 	
 	dp = open(IPSTACK_ROOT"/routes", OPENFLAG_READ);
 	
-	printf("ID\tType\tNetwork \tGateway \tMetric\tIFace\n");
+	printf("Type\tNetwork \tGateway \tMetric\tIFace\n");
 	
 	while( readdir(dp, filename) )
 	{
@@ -327,15 +327,24 @@ void DumpRoute(const char *Name)
 		return ;
 	}
 	
-	type = ioctl(fd, 4, NULL);
+	 int	ofs = 2;
+	type = atoi(Name);
 	
-	// Ignore -1 values
-	if( type == -1 ) {
-		return ;
+	 int	i;
+	 int	len = Net_GetAddressSize(type);
+	uint8_t	net[len], gw[len];
+	 int	subnet, metric;
+	for( i = 0; i < len; i ++ ) {
+		char tmp[5] = "0x00";
+		tmp[2] = Name[ofs++];
+		tmp[3] = Name[ofs++];
+		net[i] = atoi(tmp);
 	}
-	
-	// Number
-	printf("%s\t", Name);
+	ofs ++;
+	subnet = atoi(Name+ofs);
+	ofs ++;
+	metric = atoi(Name+ofs);
+	ioctl(fd, ioctl(fd, 3, "get_nexthop"), gw);	// Get Gateway/NextHop
 	
 	// Get the address type
 	switch(type)
@@ -344,37 +353,18 @@ void DumpRoute(const char *Name)
 		printf("DISABLED\n");
 		break;
 	case 4:	// IPv4
-		{
-		uint8_t	net[4], addr[4];
-		 int	subnet, metric;
 		printf("IPv4\t");
-		ioctl(fd, ioctl(fd, 3, "get_network"), net);	// Get Network
-		ioctl(fd, ioctl(fd, 3, "get_nexthop"), addr);	// Get Gateway/NextHop
-		subnet = ioctl(fd, ioctl(fd, 3, "getset_subnetbits"), NULL);	// Get Subnet Bits
-		metric = ioctl(fd, ioctl(fd, 3, "getset_metric"), NULL);	// Get Subnet Bits
-		printf("%s/%i\t", Net_PrintAddress(4, net), subnet);
-		printf("%s \t", Net_PrintAddress(4, addr));
-		printf("%i\t", metric);
-		}
 		break;
 	case 6:	// IPv6
-		{
-		uint16_t	net[8], addr[8];
-		 int	subnet, metric;
 		printf("IPv6\t");
-		ioctl(fd, ioctl(fd, 3, "get_network"), net);	// Get Network
-		ioctl(fd, ioctl(fd, 3, "get_nexthop"), addr);	// Get Gateway/NextHop
-		subnet = ioctl(fd, ioctl(fd, 3, "getset_subnetbits"), NULL);	// Get Subnet Bits
-		metric = ioctl(fd, ioctl(fd, 3, "getset_metric"), NULL);	// Get Subnet Bits
-		printf("%s/%i\t", Net_PrintAddress(6, net), subnet);
-		printf("%s\t", Net_PrintAddress(6, addr));
-		printf("%i\t", metric);
-		}
 		break;
 	default:	// Unknow
 		printf("UNKNOWN (%i)\n", type);
 		break;
 	}
+	printf("%s/%i\t", Net_PrintAddress(type, net), subnet);
+	printf("%s \t", Net_PrintAddress(type, gw));
+	printf("%i\t", metric);
 	
 	// Interface
 	{
@@ -417,7 +407,6 @@ void AddRoute(const char *Interface, int AddressType, void *Dest, int MaskBits, 
 {
 	 int	fd;
 	 int	num;
-	char	tmp[sizeof(IPSTACK_ROOT"/routes/") + 5];	// enough for 4 digits
 	char	*ifaceToFree = NULL;
 	
 	// Get interface name
@@ -460,19 +449,33 @@ void AddRoute(const char *Interface, int AddressType, void *Dest, int MaskBits, 
 	}
 	
 	// Create route
-	fd = open(IPSTACK_ROOT"/routes", 0);
-	num = ioctl(fd, ioctl(fd, 3, "add_route"), (char*)Interface);
-	close(fd);
+	 int	addrsize = Net_GetAddressSize(AddressType);
+	 int	len = snprintf(NULL, 0, "/Devices/ip/routes/%i::%i:%i", AddressType, MaskBits, Metric) + addrsize*2;
+	char	path[len+1];
+	{
+		 int	i, ofs;
+		ofs = sprintf(path, "/Devices/ip/routes/%i:", AddressType);
+		for( i = 0; i < addrsize; i ++ )
+			sprintf(path+ofs+i*2, "%02x", ((uint8_t*)Dest)[i]);
+		ofs += addrsize*2;
+		sprintf(path+ofs, ":%i:%i", MaskBits, Metric);
+	}
+
+	fd = open(path, 0);
+	if( fd != -1 ) {
+		close(fd);
+		fprintf(stderr, "Unable to create route '%s', already exists\n", path);
+		return ;
+	}
+	fd = open(path, OPENFLAG_CREATE, 0);
+	if( fd == -1 ) {
+		fprintf(stderr, "Unable to create '%s'\n", path);
+		return ;
+	}
 	
-	// Open route
-	sprintf(tmp, IPSTACK_ROOT"/routes/%i", num);
-	fd = open(tmp, 0);
-	
-	ioctl(fd, ioctl(fd, 3, "set_network"), Dest);
 	if( NextHop )
 		ioctl(fd, ioctl(fd, 3, "set_nexthop"), NextHop);
-	ioctl(fd, ioctl(fd, 3, "getset_subnetbits"), &MaskBits);
-	ioctl(fd, ioctl(fd, 3, "getset_metric"), &Metric);
+	ioctl(fd, ioctl(fd, 3, "set_interface"), (void*)Interface);
 	
 	close(fd);
 	

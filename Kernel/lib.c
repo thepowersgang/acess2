@@ -50,6 +50,7 @@ void	format_date(tTime TS, int *year, int *month, int *day, int *hrs, int *mins,
  int	ModUtil_LookupString(char **Array, char *Needle);
  int	ModUtil_SetIdent(char *Dest, char *Value);
  
+ int	Hex(char *Dest, size_t Size, const Uint8 *SourceData);
  int	UnHex(Uint8 *Dest, size_t DestSize, const char *SourceString);
 #endif
 
@@ -93,8 +94,15 @@ EXPORT(memmove);
  */
 int atoi(const char *string)
 {
+	int ret = 0;
+	ParseInt(string, &ret);
+	return ret;
+}
+int ParseInt(const char *string, int *Val)
+{
 	 int	ret = 0;
 	 int	bNeg = 0;
+	const char *orig_string = string;
 	
 	//Log("atoi: (string='%s')", string);
 	
@@ -146,13 +154,17 @@ int atoi(const char *string)
 			ret *= 10;
 			ret += *string - '0';
 		}
+		// Error check
+		if( ret == 0 )	return 0;
 	}
 	
 	if(bNeg)	ret = -ret;
 	
 	//Log("atoi: RETURN %i", ret);
 	
-	return ret;
+	if(Val)	*Val = ret;
+	
+	return string - orig_string;
 }
 
 static const char cUCDIGITS[] = "0123456789ABCDEF";
@@ -979,6 +991,16 @@ int ModUtil_SetIdent(char *Dest, const char *Value)
 	if( !CheckMem(Dest, 32) )	return -1;
 	strncpy(Dest, Value, 32);
 	return 1;
+}
+
+int Hex(char *Dest, size_t Size, const Uint8 *SourceData)
+{
+	 int	i;
+	for( i = 0; i < Size; i ++ )
+	{
+		sprintf(Dest + i*2, "%02x", SourceData[i]);
+	}
+	return i*2;
 }
 
 /**

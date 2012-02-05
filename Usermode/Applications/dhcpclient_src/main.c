@@ -21,6 +21,7 @@ static inline uint16_t htons(uint16_t v)
 }
 #define htonb(v)	v
 #define ntohl(v)	htonl(v)
+#define ntohs(v)	htons(v)
 
 // === CONSTANTS ===
 enum eStates
@@ -357,8 +358,20 @@ void SetAddress(tInterface *Iface, void *Addr, void *Mask, void *Router)
 	{
 		uint8_t	*addr = Router;
 		_SysDebug("Router %i.%i.%i.%i", addr[0], addr[1], addr[2], addr[3]);
-//		ioctl(Iface->IfaceFD, 8, addr);
-		// TODO: Default route
+		
+		// Set default route
+		 int	fd;
+		fd = open("/Devices/ip/routes/4:00000000:0:0", OPENFLAG_CREATE);
+		if(fd == -1) {
+			fprintf(stderr, "ERROR: Unable to open default route\n");
+		}
+		else {
+			char ifname[snprintf(NULL,0,"%i",Iface->Num)+1];
+			sprintf(ifname, "%i", Iface->Num);
+			ioctl(fd, ioctl(fd, 3, "set_nexthop"), Router);
+			ioctl(fd, ioctl(fd, 3, "set_interface"), ifname);
+			close(fd);
+		}
 	}
 }
 

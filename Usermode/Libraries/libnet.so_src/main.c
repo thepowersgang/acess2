@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+
 // === CODE ===
 int SoMain(void)
 {
@@ -40,16 +41,16 @@ int Net_OpenSocket(int AddrType, void *Addr, const char *Filename)
 	
 	if(Filename)
 	{
-		 int	len = snprintf(NULL, 100, "/Devices/ip/routes/%i:%s/%s", AddrType, hexAddr, Filename);
+		 int	len = snprintf(NULL, 100, "/Devices/ip/routes/@%i:%s/%s", AddrType, hexAddr, Filename);
 		char	path[len+1];
-		snprintf(path, 100, "/Devices/ip/routes/%i:%s/%s", AddrType, hexAddr, Filename);
+		snprintf(path, 100, "/Devices/ip/routes/@%i:%s/%s", AddrType, hexAddr, Filename);
 		return open(path, OPENFLAG_READ|OPENFLAG_WRITE);
 	}
 	else
 	{
-		 int	len = snprintf(NULL, 100, "/Devices/ip/routes/%i:%s", AddrType, hexAddr);
+		 int	len = snprintf(NULL, 100, "/Devices/ip/routes/@%i:%s", AddrType, hexAddr);
 		char	path[len+1];
-		snprintf(path, 100, "/Devices/ip/routes/%i:%s", AddrType, hexAddr);
+		snprintf(path, 100, "/Devices/ip/routes/@%i:%s", AddrType, hexAddr);
 		return open(path, OPENFLAG_READ);
 	}
 }
@@ -89,15 +90,18 @@ char *Net_GetInterface(int AddressType, void *Address)
 	
 	// Check answer validity
 	if( routeNum > 0 ) {
-		 int	len = sprintf(NULL, "/Devices/ip/routes/%i", routeNum);
+		 int	len = sprintf(NULL, "/Devices/ip/routes/#%i", routeNum);
 		char	buf[len+1];
 		char	*ret;
 		
-		sprintf(buf, "/Devices/ip/routes/%i", routeNum);
+		sprintf(buf, "/Devices/ip/routes/#%i", routeNum);
 		
 		// Open route
 		fd = open(buf, 0);
-		if( !fd )	return NULL;	// Shouldn't happen :/
+		if( fd == -1 ) {
+			fprintf(stderr, "Net_GetInterface - ERROR: Unabel to open %s\n", buf);
+			return NULL;	// Shouldn't happen :/
+		}
 		
 		// Allocate space for name
 		ret = malloc( ioctl(fd, ioctl(fd, 3, "get_interface"), NULL) + 1 );

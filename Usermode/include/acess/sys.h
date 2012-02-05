@@ -62,7 +62,7 @@ extern void	setgid(int id);
 
 // --- VFS ---
 extern int	chdir(const char *dir);
-extern int	open(const char *path, int flags);
+extern int	open(const char *path, int flags, ...);
 extern int	reopen(int fd, const char *path, int flags);
 extern int	close(int fd);
 extern uint	read(int fd, void *buffer, uint length);

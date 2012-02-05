@@ -17,6 +17,7 @@ enum eErrorNums
 	EREADONLY,	// Read only
 	ENOTIMPL,	// Not implemented
 	ENOENT,	// No entry?
+	EEXIST,	// Already exists
 	ENFILE,	// Too many open files
 	ENOTDIR,	// Not a directory
 	

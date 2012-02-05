@@ -53,6 +53,8 @@ extern tVFS_Handle	*VFS_GetHandle(int FD);
 extern int	VFS_CheckACL(tVFS_Node *Node, Uint Permissions);
 // --- mount.c ---
 extern tVFS_Mount	*VFS_GetMountByIdent(Uint32 MountID);
+// --- dir.c ---
+extern int	VFS_MkNod(const char *Path, Uint Flags);
 
 
 // --- VFS Helpers ---

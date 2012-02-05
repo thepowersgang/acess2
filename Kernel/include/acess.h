@@ -417,12 +417,14 @@ extern int	strpos(const char *Str, char Ch);
 extern int	strpos8(const char *str, Uint32 search);
 extern void	itoa(char *buf, Uint64 num, int base, int minLength, char pad);
 extern int	atoi(const char *string);
+extern int	ParseInt(const char *string, int *Val);
 extern int	ReadUTF8(const Uint8 *str, Uint32 *Val);
 extern int	WriteUTF8(Uint8 *str, Uint32 Val);
 extern int	ModUtil_SetIdent(char *Dest, const char *Value);
 extern int	ModUtil_LookupString(const char **Array, const char *Needle);
 
 extern Uint8	ByteSum(const void *Ptr, int Size);
+extern int	Hex(char *Dest, size_t Size, const Uint8 *SourceData);
 extern int	UnHex(Uint8 *Dest, size_t DestSize, const char *SourceString);
 /**
  * \}

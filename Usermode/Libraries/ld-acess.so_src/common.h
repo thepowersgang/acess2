@@ -57,7 +57,7 @@ extern void	SysDebugV(const char *fmt, ...);
 extern void	*SysLoadBin(const char *path, void **entry);
 extern int	SysUnloadBin(void *Base);
 extern void	SysSetFaultHandler(int (*Hanlder)(int));
-extern int	open(const char *filename, int flags);
+extern int	open(const char *filename, int flags, ...);
 extern int	close(int fd);
 
 // === ELF Loader ===

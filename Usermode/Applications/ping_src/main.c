@@ -80,19 +80,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 	
-	if( !iface )
-	{
-		iface = Net_GetInterface(type, addr);
-		if( !iface ) {
-			fprintf(stderr, "Unable to find a route to '%s'\n",
-				Net_PrintAddress(type, addr)
-				);
-			return -1;
-		}
-		
-		printf("iface = '%s'\n", iface);
-	}
-	
+	if( iface )
 	{
 		char	*_iface = malloc( sizeof("/Devices/ip/") + strlen(iface) + 1 );
 		strcpy(_iface, "/Devices/ip/");
@@ -100,14 +88,24 @@ int main(int argc, char *argv[])
 		free(iface);	// TODO: Handle when this is not heap
 		iface = _iface;
 		printf("iface = '%s'\n", iface);
+		fd = open(iface, OPENFLAG_EXEC);
+		if(fd == -1) {
+			fprintf(stderr, "ERROR: Unable to open interface '%s'\n", iface);
+			return 1;
+		}
+		
+	}
+	else
+	{
+		fd = Net_OpenSocket(type, addr, NULL);
+		if( fd == -1 ) {
+			fprintf(stderr, "Unable to find a route to '%s'\n",
+				Net_PrintAddress(type, addr)
+				);
+			return -1;
+		}
 	}
 	
-	fd = open(iface, OPENFLAG_EXEC);
-	if(fd == -1) {
-		fprintf(stderr, "ERROR: Unable to open interface '%s'\n", iface);
-		return 1;
-	}
-		
 	call = ioctl(fd, 3, "ping");
 	if(call == 0) {
 		fprintf(stderr, "ERROR: '%s' does not have a 'ping' call\n", iface);

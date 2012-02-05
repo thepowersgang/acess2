@@ -1,0 +1,19 @@
+Network only?
+- "/Devices/ip/routes/4:0A000200:24"
+Network and Metric?
+- "/Devices/ip/routes/4:0A000200:24:10"
+
+Would it need the interface?
+- "/Devices/ip/routes/0:4:0A000200:24:10"
+
+
+Current model
+- num = "/Devices/ip/routes"->CreateRoute("interface")
+- "/Devices/ip/routes/{num}"->SetNetwork()
+- "/Devices/ip/routes/{num}"->SetSubnetBits()
+- "/Devices/ip/routes/{num}"->SetMetric()
+- "/Devices/ip/routes/{num}"->SetNextHop()
+
+New Model
+- "/Devices/ip/routes/{type}:{network}:{subnet}:{metric}"->SetNextHop()
+- "/Devices/ip/routes/{type}:{network}:{subnet}:{metric}"->SetInterface()?

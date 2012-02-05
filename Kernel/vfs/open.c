@@ -453,13 +453,18 @@ int VFS_int_CreateHandle( tVFS_Node *Node, tVFS_Mount *Mount, int Mode )
  * \fn int VFS_Open(const char *Path, Uint Mode)
  * \brief Open a file
  */
-int VFS_Open(const char *Path, Uint Mode)
+int VFS_Open(const char *Path, Uint Flags)
+{
+	return VFS_OpenEx(Path, Flags, 0);
+}
+
+int VFS_OpenEx(const char *Path, Uint Flags, Uint Mode)
 {
 	tVFS_Node	*node;
 	tVFS_Mount	*mnt;
 	char	*absPath;
 	
-	ENTER("sPath xMode", Path, Mode);
+	ENTER("sPath xFlags oMode", Path, Flags);
 	
 	// Get absolute path
 	absPath = VFS_GetAbsPath(Path);
@@ -468,19 +473,32 @@ int VFS_Open(const char *Path, Uint Mode)
 		LEAVE_RET('i', -1);
 	}
 	LOG("absPath = \"%s\"", absPath);
+	
 	// Parse path and get mount point
 	node = VFS_ParsePath(absPath, NULL, &mnt);
+	
+	// Create file if requested and it doesn't exist
+	if( !node && (Flags & VFS_OPENFLAG_CREATE) )
+	{
+		// TODO: Translate `Mode` into ACL and node flags
+		// Get parent, create node
+		VFS_MkNod(absPath, 0);
+		node = VFS_ParsePath(absPath, NULL, &mnt);
+	}
+	
 	// Free generated path
 	free(absPath);
 	
-	if(!node) {
+	// Check for error
+	if(!node)
+	{
 		LOG("Cannot find node");
 		errno = ENOENT;
 		LEAVE_RET('i', -1);
 	}
 	
 	// Check for symlinks
-	if( !(Mode & VFS_OPENFLAG_NOLINK) && (node->Flags & VFS_FFLAG_SYMLINK) )
+	if( !(Flags & VFS_OPENFLAG_NOLINK) && (node->Flags & VFS_FFLAG_SYMLINK) )
 	{
 		char	tmppath[node->Size+1];
 		if( node->Size > MAX_PATH_LEN ) {
@@ -504,7 +522,7 @@ int VFS_Open(const char *Path, Uint Mode)
 		}
 	}
 
-	LEAVE_RET('x', VFS_int_CreateHandle(node, mnt, Mode));
+	LEAVE_RET('x', VFS_int_CreateHandle(node, mnt, Flags));
 }
 
 
