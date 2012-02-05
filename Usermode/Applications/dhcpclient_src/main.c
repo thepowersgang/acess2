@@ -6,6 +6,7 @@
 #include <string.h>
 #include <net.h>
 
+#define FILENAME_MAX	255
 // --- Translation functions ---
 static inline uint32_t htonl(uint32_t v)
 {
@@ -56,7 +57,8 @@ struct sDHCP_Message
 
 typedef struct sInterface
 {
-	const char	*Adapter;
+	struct sInterface	*Next;
+	char	*Adapter;
 	 int	State;
 	 int	Num;
 	 int	SocketFD;
@@ -65,40 +67,56 @@ typedef struct sInterface
 
 // === PROTOTYPES ===
 int	main(int argc, char *argv[]);
+void	Scan_Dir(tInterface **IfaceList, const char *Directory);
 int	Start_Interface(tInterface *Iface);
 void	Send_DHCPDISCOVER(tInterface *Iface);
 void	Send_DHCPREQUEST(tInterface *Iface, void *OfferBuffer, int TypeOffset);
-void	Handle_Packet(tInterface *Iface);
+int	Handle_Packet(tInterface *Iface);
 void	SetAddress(tInterface *Iface, void *Addr, void *Mask, void *Router);
 
 // === CODE ===
 int main(int argc, char *argv[])
 {
-	tInterface	iface;
+	tInterface	*ifaces = NULL, *i;
 
-	if( argc != 2 ) {
+	// TODO: Scan /Devices and search for network adapters
+	if( argc > 2 ) {
 		fprintf(stderr, "Usage: %s <interface>\n", argv[0]);
-		return -1;
-	}	
-
-	iface.State = STATE_PREINIT;
-	iface.Adapter = argv[1];
-
-	if( Start_Interface(&iface) < 0 ) {
 		return -1;
 	}
 	
-	// Send request
-	Send_DHCPDISCOVER(&iface);
+	if( argc == 2 ) {
+		ifaces = malloc(sizeof(tInterface));
+		ifaces->Next = NULL;
+		ifaces->Adapter = argv[1];
+	}
+	else {
+		Scan_Dir( &ifaces, "/Devices" );
+	}
 
-	for( ;; ) 
+	for( i = ifaces; i; i = i->Next )
+	{
+		i->State = STATE_PREINIT;
+		if( Start_Interface(i) < 0 ) {
+			return -1;
+		}
+		
+		// Send request
+		Send_DHCPDISCOVER(i);
+	}
+
+	while( ifaces ) 
 	{
 		 int	maxfd;
 		fd_set	fds;
 	
 		maxfd = 0;
 		FD_ZERO(&fds);
-		FD_SET(iface.SocketFD, &fds);	if(maxfd < iface.SocketFD) maxfd = iface.SocketFD;
+		for( i = ifaces; i; i = i->Next )
+		{
+			FD_SET(i->SocketFD, &fds);
+			if(maxfd < i->SocketFD) maxfd = i->SocketFD;
+		}
 		if( select(maxfd+1, &fds, NULL, NULL, NULL) < 0 )
 		{
 			// TODO: Check error result
@@ -106,15 +124,59 @@ int main(int argc, char *argv[])
 		}
 
 		_SysDebug("select returned");	
-	
-		if( FD_ISSET(iface.SocketFD, &fds) )
+		tInterface	*p;
+		for( p = (void*)&ifaces, i = ifaces; i; p=i,i = i->Next )
 		{
-			// TODO: Catch response
-			Handle_Packet( &iface );
-			
+			if( FD_ISSET(i->SocketFD, &fds) )
+			{
+				if( Handle_Packet( i ) )
+				{
+					close(i->SocketFD);
+					close(i->IfaceFD);
+					p->Next = i->Next;
+					free(i);
+					i = p;
+				}
+			}
 		}
 	}
 	return 0;
+}
+
+void Scan_Dir(tInterface **IfaceList, const char *Directory)
+{
+	int dp = open(Directory, OPENFLAG_READ);
+	char filename[FILENAME_MAX];
+
+	while( readdir(dp, filename) )
+	{
+		 int	pathlen = strlen(Directory) + 1 + strlen(filename) + 1;
+		char	path[pathlen];
+		 int	fd;
+		t_sysFInfo	info;
+
+		sprintf(path, "%s/%s", Directory, filename);
+		fd = open(path, 0);
+
+		if( ioctl(fd, 0, NULL) != 9 )
+			continue ;
+
+		finfo(fd, &info, 0);
+
+		if( info.flags & FILEFLAG_DIRECTORY )
+		{
+			Scan_Dir(IfaceList, path);
+		}
+		else
+		{
+			tInterface	*new = malloc(sizeof(tInterface) + pathlen);
+			new->Adapter = (void*)(new + 1);
+			strcpy(new->Adapter, path);
+			new->Next = *IfaceList;
+			*IfaceList = new;
+		}
+	}
+	close(dp);
 }
 
 // RETURN: Client FD
@@ -227,7 +289,7 @@ void Send_DHCPREQUEST(tInterface *Iface, void *OfferPacket, int TypeOffset)
 	Iface->State = STATE_REQUEST_SENT;
 }
 
-void Handle_Packet(tInterface *Iface)
+int Handle_Packet(tInterface *Iface)
 {
 	char	data[8+576];
 	struct sDHCP_Message	*msg = (void*)(data + 8);
@@ -250,13 +312,13 @@ void Handle_Packet(tInterface *Iface)
 	if( msg->op != 2 ) {
 		// Not a response
 		_SysDebug("Not a response message");
-		return ;
+		return 0;
 	}
 
 	if( htonl(msg->dhcp_magic) != DHCP_MAGIC ) {
 		_SysDebug("DHCP magic doesn't match (got 0x%x, expected 0x%x)",
 			htonl(msg->dhcp_magic), DHCP_MAGIC);
-		return ;
+		return 0;
 	}	
 
 	i = 0;
@@ -291,7 +353,7 @@ void Handle_Packet(tInterface *Iface)
 		break;
 	case 2:	// DHCPOFFER
 		// Send out request for this address
-		if( Iface->State != STATE_DISCOVER_SENT )	return ;
+		if( Iface->State != STATE_DISCOVER_SENT )	return 0;
 		Send_DHCPREQUEST(Iface, data, dhcp_msg_type_ofs);
 		break;
 	case 3:	// DHCPREQUEST - wut?
@@ -301,9 +363,9 @@ void Handle_Packet(tInterface *Iface)
 	case 5:	// DHCPACK
 		// TODO: Apply address
 		SetAddress(Iface, &msg->yiaddr, subnet_mask, router);
-		exit( 0 );
-		break;
+		return 1;
 	}
+	return 0;
 }
 
 void SetAddress(tInterface *Iface, void *Addr, void *Mask, void *Router)
