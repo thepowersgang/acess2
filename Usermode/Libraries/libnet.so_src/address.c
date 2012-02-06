@@ -10,6 +10,23 @@
 #include <stdio.h>
 #define DEBUG	0
 
+static inline uint32_t htonl(uint32_t v)
+{
+	return	  (((v >> 24) & 0xFF) <<  0)
+		| (((v >> 16) & 0xFF) <<  8)
+		| (((v >>  8) & 0xFF) << 16)
+		| (((v >>  0) & 0xFF) << 24);
+}
+static inline uint16_t htons(uint16_t v)
+{
+	return	  (((v >> 8) & 0xFF) <<  0)
+		| (((v >> 0) & 0xFF) <<  8);
+}
+#define htonb(v)	v
+#define ntohl(v)	htonl(v)
+#define ntohs(v)	htons(v)
+#define ntohb(v)	v
+
 #define __thread		// Disable TLS
 
 /**
@@ -191,8 +208,8 @@ static const char *Net_PrintIPv6Address(uint16_t *Address)
 	#endif
 	
 	sprintf(ret, "%x:%x:%x:%x:%x:%x:%x:%x",
-		Address[0], Address[1], Address[2], Address[3],
-		Address[4], Address[5], Address[6], Address[7]
+		ntohs(Address[0]), ntohs(Address[1]), ntohs(Address[2]), ntohs(Address[3]),
+		ntohs(Address[4]), ntohs(Address[5]), ntohs(Address[6]), ntohs(Address[7])
 		);
 	
 	return ret;

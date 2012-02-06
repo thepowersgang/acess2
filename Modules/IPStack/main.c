@@ -30,6 +30,11 @@ extern tRoute	*IPStack_AddRoute(const char *Interface, void *Network, int Subnet
 
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, IPStack, IPStack_Install, NULL, NULL);
+tVFS_NodeType	gIP_RootNodeType = {
+	.ReadDir = IPStack_Root_ReadDir,
+	.FindDir = IPStack_Root_FindDir,
+	.IOCtl = IPStack_Root_IOCtl
+};
 tDevFS_Driver	gIP_DriverInfo = {
 	NULL, "ip",
 	{
@@ -37,9 +42,7 @@ tDevFS_Driver	gIP_DriverInfo = {
 	.NumACLs = 1,
 	.ACLs = &gVFS_ACL_EveryoneRX,
 	.Flags = VFS_FFLAG_DIRECTORY,
-	.ReadDir = IPStack_Root_ReadDir,
-	.FindDir = IPStack_Root_FindDir,
-	.IOCtl = IPStack_Root_IOCtl
+	.Type = &gIP_RootNodeType
 	}
 };
 
@@ -263,8 +266,8 @@ const char *IPStack_PrintAddress(int AddressType, const void *Address)
 		static char	ret[8*4+7+1];
 		const Uint16	*addr = Address;
 		sprintf(ret, "%x:%x:%x:%x:%x:%x:%x:%x",
-			addr[0], addr[1], addr[2], addr[3],
-			addr[4], addr[5], addr[6], addr[7]
+			ntohs(addr[0]), ntohs(addr[1]), ntohs(addr[2]), ntohs(addr[3]),
+			ntohs(addr[4]), ntohs(addr[5]), ntohs(addr[6]), ntohs(addr[7])
 			);
 		return ret;
 		}

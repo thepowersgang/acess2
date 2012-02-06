@@ -39,6 +39,9 @@ char	**str_split(const char *__str, char __ch);
  int	WriteUTF8(Uint8 *str, Uint32 Val);
  int	DivUp(int num, int dem);
 Sint64	timestamp(int sec, int mins, int hrs, int day, int month, int year);
+#endif
+void	format_date(tTime TS, int *year, int *month, int *day, int *hrs, int *mins, int *sec, int *ms);
+#if 0
  int	rand(void);
  
  int	CheckString(char *String);
@@ -47,6 +50,7 @@ Sint64	timestamp(int sec, int mins, int hrs, int day, int month, int year);
  int	ModUtil_LookupString(char **Array, char *Needle);
  int	ModUtil_SetIdent(char *Dest, char *Value);
  
+ int	Hex(char *Dest, size_t Size, const Uint8 *SourceData);
  int	UnHex(Uint8 *Dest, size_t DestSize, const char *SourceString);
 #endif
 
@@ -90,8 +94,15 @@ EXPORT(memmove);
  */
 int atoi(const char *string)
 {
+	int ret = 0;
+	ParseInt(string, &ret);
+	return ret;
+}
+int ParseInt(const char *string, int *Val)
+{
 	 int	ret = 0;
 	 int	bNeg = 0;
+	const char *orig_string = string;
 	
 	//Log("atoi: (string='%s')", string);
 	
@@ -143,13 +154,17 @@ int atoi(const char *string)
 			ret *= 10;
 			ret += *string - '0';
 		}
+		// Error check
+		if( ret == 0 )	return 0;
 	}
 	
 	if(bNeg)	ret = -ret;
 	
 	//Log("atoi: RETURN %i", ret);
 	
-	return ret;
+	if(Val)	*Val = ret;
+	
+	return string - orig_string;
 }
 
 static const char cUCDIGITS[] = "0123456789ABCDEF";
@@ -769,26 +784,116 @@ int WriteUTF8(Uint8 *str, Uint32 Val)
  * \fn Uint64 timestamp(int sec, int mins, int hrs, int day, int month, int year)
  * \brief Converts a date into an Acess Timestamp
  */
-Sint64 timestamp(int sec, int mins, int hrs, int day, int month, int year)
+Sint64 timestamp(int sec, int min, int hrs, int day, int month, int year)
 {
+	 int	is_leap;
 	Sint64	stamp;
-	stamp = sec;
-	stamp += mins*60;
+
+	if( !(0 <= sec && sec < 60) )	return 0;
+	if( !(0 <= min && min < 60) )	return 0;
+	if( !(0 <= hrs && hrs < 24) )	return 0;
+	if( !(0 <= day && day < 31) )	return 0;
+	if( !(0 <= month && month < 12) )	return 0;
+
+	stamp = DAYS_BEFORE[month] + day;
+
+	// Every 4 years
+	// - every 100 years
+	// + every 400 years
+	is_leap = (year % 4 == 0) - (year % 100 == 0) + (year % 400 == 0);
+	ASSERT(is_leap == 0 || is_leap == 1);
+
+	if( is_leap && month > 1 )	// Leap year and after feb
+		stamp += 1;
+
+	// Get seconds before the first of specified year
+	year -= 2000;	// Base off Y2K
+	// base year days + total leap year days
+	stamp += year*365 + (year/400) - (year/100) + (year/4);
+	
+	stamp *= 3600*24;
+	stamp += UNIX_TO_2K;
+	stamp += sec;
+	stamp += min*60;
 	stamp += hrs*3600;
 	
-	stamp += day*3600*24;
-	stamp += month*DAYS_BEFORE[month]*3600*24;
-	if(	(
-		((year&3) == 0 || year%100 != 0)
-		|| (year%100 == 0 && ((year/100)&3) == 0)
-		) && month > 1)	// Leap year and after feb
-		stamp += 3600*24;
-	
-	stamp += ((365*4+1) * ((year-2000)&~3)) * 3600*24;	// Four Year Segments
-	stamp += ((year-2000)&3) * 365*3600*24;	// Inside four year segment
-	stamp += UNIX_TO_2K;
-	
 	return stamp * 1000;
+}
+
+void format_date(tTime TS, int *year, int *month, int *day, int *hrs, int *mins, int *sec, int *ms)
+{
+	 int	is_leap = 0, i;
+
+	auto Sint64 DivMod64(Sint64 N, Sint64 D, Sint64 *R);
+	
+	Sint64 DivMod64(Sint64 N, Sint64 D, Sint64 *R)
+	{
+		int sign = (N < 0) != (D < 0);
+		if(N < 0)	N = -N;
+		if(D < 0)	D = -D;
+		if(sign)
+			return -DivMod64U(N, D, (Uint64*)R);
+		else
+			return DivMod64U(N, D, (Uint64*)R);
+	}
+
+	// Get time
+	// TODO: Leap-seconds?
+	{
+		Sint64	rem;
+		TS = DivMod64( TS, 1000, &rem );
+		*ms = rem;
+		TS = DivMod64( TS, 60, &rem );
+		*sec = rem;
+		TS = DivMod64( TS, 60, &rem );
+		*mins = rem;
+		TS = DivMod64( TS, 24, &rem );
+		*hrs = rem;
+	}
+
+	// Adjust to Y2K
+	TS -= UNIX_TO_2K/(3600*24);
+
+	// Year (400 yr blocks) - (400/4-3) leap years
+	*year = 400 * DivMod64( TS, 365*400 + (400/4-3), &TS );
+	if( TS < 366 )	// First year in 400 is a leap
+		is_leap = 1;
+	else
+	{
+		// 100 yr blocks - 100/4-1 leap years
+		*year += 100 * DivMod64( TS, 365*100 + (100/4-1), &TS );
+		if( TS < 366 )	// First year in 100 isn't a leap
+			is_leap = 0;
+		else
+		{
+			*year += 4 * DivMod64( TS, 365*4 + 1, &TS );
+			if( TS < 366 )	// First year in 4 is a leap
+				is_leap = 1;
+			else
+			{
+				*year += DivMod64( TS, 356, &TS );
+			}
+		}
+	}
+	*year += 2000;
+
+	ASSERT(TS >= 0);
+	
+	*day = 0;
+	// Month (if after the first of march, which is 29 Feb in a leap year)
+	if( is_leap && TS > DAYS_BEFORE[2] ) {
+		TS -= 1;	// Shifts 29 Feb to 28 Feb
+		*day = 1;
+	}
+	// Get what month it is
+	for( i = 0; i < 12; i ++ ) {
+		if( TS < DAYS_BEFORE[i] )
+			break;
+	}
+	*month = i - 1;
+	// Get day
+	TS -= DAYS_BEFORE[i-1];
+	*day += TS;	// Plus offset from leap handling above
 }
 
 /**
@@ -886,6 +991,16 @@ int ModUtil_SetIdent(char *Dest, const char *Value)
 	if( !CheckMem(Dest, 32) )	return -1;
 	strncpy(Dest, Value, 32);
 	return 1;
+}
+
+int Hex(char *Dest, size_t Size, const Uint8 *SourceData)
+{
+	 int	i;
+	for( i = 0; i < Size; i ++ )
+	{
+		sprintf(Dest + i*2, "%02x", SourceData[i]);
+	}
+	return i*2;
 }
 
 /**

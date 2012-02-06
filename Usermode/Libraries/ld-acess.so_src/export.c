@@ -27,6 +27,7 @@ const struct {
 	EXP(kill),
 	EXP(yield),
 	EXP(sleep),
+	EXP(_SysWaitEvent),
 	EXP(waittid),
 	EXP(gettid),
 	EXP(getpid),
@@ -44,7 +45,7 @@ const struct {
 	EXP(SysSendMessage),
 	EXP(SysGetMessage),
 
-	//EXP(SysSpawn),
+	EXP(_SysSpawn),
 	EXP(execve),
 	EXP(SysLoadBin),
 	EXP(SysUnloadBin),
@@ -64,7 +65,7 @@ const struct {
 	EXP(chdir),
 	EXP(ioctl),
 	EXP(_SysMount),
-	EXP(select),
+	EXP(_SysSelect),
 
 	EXP(_SysOpenChild),
 	

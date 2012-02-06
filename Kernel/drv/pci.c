@@ -44,6 +44,15 @@ MODULE_DEFINE(0, 0x0100, PCI, PCI_Install, NULL, NULL);
  int	giPCI_InodeHandle = -1;
  int	giPCI_DeviceCount = 0;
 tPCIDevice	*gPCI_Devices = NULL;
+tVFS_NodeType	gPCI_RootNodeType = {
+	.TypeName = "PCI Root Node",
+	.ReadDir = PCI_int_ReadDirRoot,
+	.FindDir = PCI_int_FindDirRoot
+};
+tVFS_NodeType	gPCI_DevNodeType = {
+	.TypeName = "PCI Dev Node",
+	.Read = PCI_int_ReadDevice
+};
 tDevFS_Driver	gPCI_DriverStruct = {
 	NULL, "pci",
 	{
@@ -51,8 +60,7 @@ tDevFS_Driver	gPCI_DriverStruct = {
 	.Size = -1,
 	.NumACLs = 1,
 	.ACLs = &gVFS_ACL_EveryoneRX,
-	.ReadDir = PCI_int_ReadDirRoot,
-	.FindDir = PCI_int_FindDirRoot
+	.Type = &gPCI_RootNodeType
 	}
 };
 Uint32	*gaPCI_PortBitmap = NULL;
@@ -473,7 +481,7 @@ int PCI_int_EnumDevice(Uint16 bus, Uint16 slot, Uint16 fcn, tPCIDevice *info)
 	info->Node.NumACLs = 1;
 	info->Node.ACLs = &gVFS_ACL_EveryoneRO;
 	
-	info->Node.Read = PCI_int_ReadDevice;
+	info->Node.Type = &gPCI_RootNodeType;
 	
 	return 1;
 }

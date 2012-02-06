@@ -178,8 +178,8 @@ void Inode_ClearCache(int Handle)
 		ent->Node.ReferenceCount = 1;
 		next = ent->Next;
 		
-		if(ent->Node.Close)
-			ent->Node.Close( &ent->Node );
+		if(ent->Node.Type && ent->Node.Type->Close)
+			ent->Node.Type->Close( &ent->Node );
 		free(ent);
 		
 		ent = next;

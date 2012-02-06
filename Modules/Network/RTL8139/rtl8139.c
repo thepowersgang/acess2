@@ -95,21 +95,29 @@ char	*RTL8139_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*RTL8139_FindDir(tVFS_Node *Node, const char *Filename);
  int	RTL8139_RootIOCtl(tVFS_Node *Node, int ID, void *Arg);
 Uint64	RTL8139_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
-Uint64	RTL8139_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
+Uint64	RTL8139_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer);
  int	RTL8139_IOCtl(tVFS_Node *Node, int ID, void *Arg);
 void	RTL8139_IRQHandler(int Num, void *Ptr);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, RTL8139, RTL8139_Install, NULL, NULL);
+tVFS_NodeType	gRTL8139_RootNodeType = {
+	.ReadDir = RTL8139_ReadDir,
+	.FindDir = RTL8139_FindDir,
+	.IOCtl = RTL8139_IOCtl
+	};
+tVFS_NodeType	gRTL8139_DevNodeType = {
+	.Write = RTL8139_Write,
+	.Read = RTL8139_Read,
+	.IOCtl = RTL8139_IOCtl	
+	};
 tDevFS_Driver	gRTL8139_DriverInfo = {
 	NULL, "RTL8139",
 	{
 	.NumACLs = 1,
 	.ACLs = &gVFS_ACL_EveryoneRX,
 	.Flags = VFS_FFLAG_DIRECTORY,
-	.ReadDir = RTL8139_ReadDir,
-	.FindDir = RTL8139_FindDir,
-	.IOCtl = RTL8139_RootIOCtl
+	.Type = &gRTL8139_RootNodeType
 	}
 };
  int	giRTL8139_CardCount;
@@ -206,9 +214,7 @@ int RTL8139_Install(char **Options)
 		card->Node.ImplPtr = card;
 		card->Node.NumACLs = 0;
 		card->Node.CTime = now();
-		card->Node.Write = RTL8139_Write;
-		card->Node.Read = RTL8139_Read;
-		card->Node.IOCtl = RTL8139_IOCtl;
+		card->Node.Type = &gRTL8139_DevNodeType;
 		
 		Log_Log("RTL8139", "Card %i 0x%04x, IRQ %i %02x:%02x:%02x:%02x:%02x:%02x",
 			i, card->IOBase, card->IRQ,
@@ -307,7 +313,7 @@ retry:
 	return Length;
 }
 
-Uint64 RTL8139_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+Uint64 RTL8139_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
 {
 	 int	td;
 	Uint32	status;

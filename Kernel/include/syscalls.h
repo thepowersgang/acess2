@@ -14,10 +14,10 @@
 #define SYS_SETFAULTHANDLER	3	// Set signal Handler
 #define SYS_YIELD	4	// Yield remainder of timestamp
 #define SYS_SLEEP	5	// Sleep until messaged or signaled
-#define SYS_WAIT	6	// Wait for a time or a message
+#define SYS_WAITEVENT	6	// Wait for an event
 #define SYS_WAITTID	7	// Wait for a thread to do something
-#define SYS_SETNAME	8	// Set's the name of the current thread
-#define SYS_GETNAME	9	// Get's the name of a thread
+#define SYS_SETNAME	8	// Sets the name of the current thread
+#define SYS_GETNAME	9	// Gets the name of a thread
 #define SYS_GETTID	10	// Get current thread ID
 #define SYS_GETPID	11	// Get current thread group ID
 #define SYS_SETPRI	12	// Set process priority
@@ -73,7 +73,7 @@ static const char *cSYSCALL_NAMES[] = {
 	"SYS_SETFAULTHANDLER",
 	"SYS_YIELD",
 	"SYS_SLEEP",
-	"SYS_WAIT",
+	"SYS_WAITEVENT",
 	"SYS_WAITTID",
 	"SYS_SETNAME",
 	"SYS_GETNAME",

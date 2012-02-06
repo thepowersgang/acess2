@@ -53,8 +53,9 @@ BUILDINFO_SRC := $(OBJDIR)buildinfo.c$(OBJSUFFIX)
 OBJ := $(addprefix arch/$(ARCHDIR)/,$(A_OBJ))
 OBJ += heap.o drvutil.o logging.o debug.o lib.o adt.o time.o
 OBJ += messages.o modules.o syscalls.o system.o
-OBJ += threads.o mutex.o semaphore.o workqueue.o
-OBJ += drv/vterm.o drv/proc.o drv/fifo.o drv/iocache.o drv/pci.o
+OBJ += threads.o mutex.o semaphore.o workqueue.o events.o
+OBJ += drv/proc.o drv/fifo.o drv/iocache.o drv/pci.o
+OBJ += drv/vterm.o drv/vterm_font.o drv/vterm_vt100.o drv/vterm_output.o drv/vterm_input.o drv/vterm_termbuf.o
 OBJ += binary.o bin/elf.o bin/pe.o
 OBJ += vfs/main.o vfs/open.o vfs/acls.o vfs/dir.o vfs/io.o vfs/mount.o
 OBJ += vfs/memfile.o vfs/nodecache.o vfs/handle.o vfs/select.o vfs/mmap.o
@@ -78,20 +79,20 @@ OBJ += $(BUILDINFO_OBJ)
 all: $(BIN)
 
 clean:
-#	$(RM) $(BIN) ../Acess2.$(ARCH).gz $(BIN).dsm ../Map.$(ARCH).txt LineCounts.$(ARCH).txt $(OBJ) $(DEPFILES)
-	@$(RM) $(BIN) ../Acess2.$(ARCH).gz $(BIN).dsm ../Map.$(ARCH).txt LineCounts.$(ARCH).txt -r $(OBJDIR) $(OBJ) $(DEPFILES) $(BUILDINFO_SRC)
+	@$(RM) $(BIN) ../Acess2.$(ARCH).gz $(BIN).dsm ../Map.$(ARCH).txt LineCounts.$(ARCH).txt
+	@$(RM) -r $(OBJDIR) $(OBJ) $(DEPFILES) $(BUILDINFO_SRC)
 
 install: $(BIN) 
-	cp $(BIN) $(BIN)_
-	$(STRIP) $(BIN)_
-	gzip -c $(BIN)_ > $(GZBIN)
-	$(RM) $(BIN)_
+	@cp $(BIN) $(BIN)_
+	@$(STRIP) $(BIN)_
+	@gzip -c $(BIN)_ > $(GZBIN)
+	@$(RM) $(BIN)_
 	$(xCP) $(GZBIN) $(DISTROOT)
 
 apidoc:
 	doxygen Doxyfile.api
 
-$(BIN): $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile
+$(BIN): $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile ../BuildConf/$(ARCH)/Makefile.cfg ../BuildConf/$(ARCH)/$(PLATFORM).mk
 	@echo --- LD -o $(BIN)
 	@$(LD) $(LDFLAGS) -o $(BIN) $(OBJ) $(MODS) --defsym __buildnum=$$(( $(BUILD_NUM) + 1 )) -Map ../Map.$(ARCH).txt
 	@$(DISASM) -S $(BIN) > $(BIN).dsm

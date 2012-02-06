@@ -64,19 +64,20 @@ void	BGA_int_SetMode(Uint16 width, Uint16 height);
  int	BGA_int_MapFB(void *Dest);
 // Filesystem
 Uint64	BGA_Read(tVFS_Node *Node, Uint64 off, Uint64 len, void *buffer);
-Uint64	BGA_Write(tVFS_Node *Node, Uint64 off, Uint64 len, void *buffer);
+Uint64	BGA_Write(tVFS_Node *Node, Uint64 off, Uint64 len, const void *buffer);
  int	BGA_IOCtl(tVFS_Node *Node, int ID, void *Data);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, BochsGA, BGA_Install, NULL, "PCI", NULL);
-tDevFS_Driver	gBGA_DriverStruct = {
-	NULL, "BochsGA",
-	{
+tVFS_NodeType	gBGA_NodeType = {
 	.Read = BGA_Read,
 	.Write = BGA_Write,
 	.IOCtl = BGA_IOCtl
-	}
-};
+	};
+tDevFS_Driver	gBGA_DriverStruct = {
+	NULL, "BochsGA",
+	{.Type = &gBGA_NodeType}
+	};
  int	giBGA_CurrentMode = -1;
 tVideo_IOCtl_Pos	gBGA_CursorPos = {-1,-1};
 Uint	*gBGA_Framebuffer;
@@ -160,7 +161,7 @@ Uint64 BGA_Read(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer)
 /**
  * \brief Write to the framebuffer
  */
-Uint64 BGA_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+Uint64 BGA_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
 {
 	if( giBGA_CurrentMode == -1 )	BGA_int_UpdateMode(0);
 	return DrvUtil_Video_WriteLFB(&gBGA_DrvUtil_BufInfo, Offset, Length, Buffer);

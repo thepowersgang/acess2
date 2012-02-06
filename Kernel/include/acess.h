@@ -35,10 +35,10 @@
 #include "errno.h"
 
 // --- Types ---
-typedef  int	tPID;	//!< Process ID type
-typedef  int	tTID;	//!< Thread ID Type
-typedef Uint	tUID;	//!< User ID Type
-typedef Uint	tGID;	//!< Group ID Type
+typedef Uint32	tPID;	//!< Process ID type
+typedef Uint32	tTID;	//!< Thread ID Type
+typedef Uint32	tUID;	//!< User ID Type
+typedef Uint32	tGID;	//!< Group ID Type
 typedef Sint64	tTimestamp;	//!< Timestamp (miliseconds since 00:00 1 Jan 1970)
 typedef Sint64	tTime;	//!< Same again
 typedef struct sShortSpinlock	tShortSpinlock;	//!< Opaque (kinda) spinlock
@@ -63,30 +63,8 @@ extern const char gsGitHash[];
  * \}
  */
 
-/**
- * \name Per-Thread Configuration Settings
- * \{
- */
-enum eConfigTypes {
-	CFGT_NULL,
-	CFGT_INT,
-	CFGT_HEAPSTR,
-	CFGT_PTR
-};
-enum eConfigs {
-	CFG_VFS_CWD,
-	CFG_VFS_MAXFILES,
-	CFG_VFS_CHROOT,
-	CFG_ERRNO,
-	NUM_CFG_ENTRIES
-};
-#define CFGINT(id)	(*Threads_GetCfgPtr(id))
-#define CFGPTR(id)	(*(void**)Threads_GetCfgPtr(id))
-
-#define errno	(CFGINT(CFG_ERRNO))
-/**
- * \}
- */
+//! \brief Error number
+#define errno	(*Threads_GetErrno())
 
 // === CONSTANTS ===
 // --- Memory Flags --
@@ -110,6 +88,8 @@ enum eConfigs {
  */
 //! Clone the entire process
 #define CLONE_VM	0x10
+//! Don't copy user pages
+#define CLONE_NOUSER	0x20
 /**
  * \}
  */
@@ -212,7 +192,7 @@ extern void	Debug_HexDump(const char *Header, const void *Data, Uint Length);
 
 // --- IO ---
 #if NO_IO_BUS
-#define inb(a)	(Log_Panic("Arch", "ARMv7 does not support in*/out* (%s:%i)", __FILE__, __LINE__),0)
+#define inb(a)	(Log_Panic("Arch", STR(ARCHDIR)" does not support in*/out* (%s:%i)", __FILE__, __LINE__),0)
 #define inw(a)	inb(a)
 #define ind(a)	inb(a)
 #define inq(a)	inb(a)
@@ -437,12 +417,14 @@ extern int	strpos(const char *Str, char Ch);
 extern int	strpos8(const char *str, Uint32 search);
 extern void	itoa(char *buf, Uint64 num, int base, int minLength, char pad);
 extern int	atoi(const char *string);
+extern int	ParseInt(const char *string, int *Val);
 extern int	ReadUTF8(const Uint8 *str, Uint32 *Val);
 extern int	WriteUTF8(Uint8 *str, Uint32 Val);
 extern int	ModUtil_SetIdent(char *Dest, const char *Value);
 extern int	ModUtil_LookupString(const char **Array, const char *Needle);
 
 extern Uint8	ByteSum(const void *Ptr, int Size);
+extern int	Hex(char *Dest, size_t Size, const Uint8 *SourceData);
 extern int	UnHex(Uint8 *Dest, size_t DestSize, const char *SourceString);
 /**
  * \}
@@ -465,6 +447,10 @@ extern int	CallWithArgArray(void *Function, int NArgs, Uint *Args);
 
 // --- Heap ---
 #include <heap.h>
+/**
+ * \brief Magic heap allocation function
+ */
+extern void	*alloca(size_t Size);
 
 // --- Modules ---
 /**
@@ -520,6 +506,8 @@ extern void	Time_Delay(int Delay);
  */
 extern int	Proc_SpawnWorker(void (*Fcn)(void*), void *Data);
 extern int	Proc_Spawn(const char *Path);
+extern int	Proc_SysSpawn(const char *Binary, const char **ArgV, const char **EnvP, int nFD, int *FDs);
+extern int	Proc_Execve(const char *File, const char **ArgV, const char **EnvP, int DataSize);
 extern void	Threads_Exit(int TID, int Status);
 extern void	Threads_Yield(void);
 extern void	Threads_Sleep(void);
@@ -529,7 +517,7 @@ extern tTID	Threads_GetTID(void);
 extern tUID	Threads_GetUID(void);
 extern tGID	Threads_GetGID(void);
 extern int	SpawnTask(tThreadFunction Function, void *Arg);
-extern Uint	*Threads_GetCfgPtr(int Id);
+extern int	*Threads_GetErrno(void);
 extern int	Threads_SetName(const char *NewName);
 /**
  * \}

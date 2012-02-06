@@ -17,7 +17,7 @@ tVFS_Node	*Root_InitDevice(const char *Device, const char **Options);
 tVFS_Node	*Root_FindDir(tVFS_Node *Node, const char *Name);
 char	*Root_ReadDir(tVFS_Node *Node, int Pos);
 Uint64	Root_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
-Uint64	Root_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
+Uint64	Root_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer);
 tRamFS_File	*Root_int_AllocFile(void);
 
 // === GLOBALS ===
@@ -34,6 +34,17 @@ tVFS_ACL	RootFS_FileACLs[3] = {
 	{{0,0}, {0,VFS_PERM_ALL^VFS_PERM_EXECUTE}},	// Owner (Root)
 	{{1,0}, {0,VFS_PERM_ALL^VFS_PERM_EXECUTE}},	// Group (Root)
 	{{0,-1}, {0,VFS_PERM_READ}}	// World (Nobody)
+};
+tVFS_NodeType	gRootFS_DirType = {
+	.TypeName = "RootFS-Dir",
+	.ReadDir = Root_ReadDir,
+	.FindDir = Root_FindDir,
+	.MkNod = Root_MkNod
+};
+tVFS_NodeType	gRootFS_FileType = {
+	.TypeName = "RootFS-File",
+	.Read = Root_Read,
+	.Write = Root_Write,
 };
 
 // === CODE ===
@@ -57,12 +68,8 @@ tVFS_Node *Root_InitDevice(const char *Device, const char **Options)
 		= root->Node.ATime = now();
 	root->Node.NumACLs = 3;
 	root->Node.ACLs = RootFS_DirACLs;
-	
-	//root->Node.Close = Root_CloseFile;	// Not Needed (It's a RAM Disk!)
-	//root->Node.Relink = Root_RelinkRoot;	// Not Needed (Why relink the root of the tree)
-	root->Node.FindDir = Root_FindDir;
-	root->Node.ReadDir = Root_ReadDir;
-	root->Node.MkNod = Root_MkNod;
+
+	root->Node.Type = &gRootFS_DirType;
 	
 	return &root->Node;
 }
@@ -109,16 +116,13 @@ int Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
 	if(Flags & VFS_FFLAG_DIRECTORY)
 	{
 		child->Node.ACLs = RootFS_DirACLs;
-		child->Node.ReadDir = Root_ReadDir;
-		child->Node.FindDir = Root_FindDir;
-		child->Node.MkNod = Root_MkNod;
+		child->Node.Type = &gRootFS_DirType;
 	} else {
 		if(Flags & VFS_FFLAG_SYMLINK)
 			child->Node.ACLs = RootFS_DirACLs;
 		else
 			child->Node.ACLs = RootFS_FileACLs;
-		child->Node.Read = Root_Read;
-		child->Node.Write = Root_Write;
+		child->Node.Type = &gRootFS_FileType;
 	}
 	
 	prev->Next = child;
@@ -194,7 +198,7 @@ Uint64 Root_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
  * \fn Uint64 Root_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
  * \brief Write to a file in the root directory
  */
-Uint64 Root_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+Uint64 Root_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
 {
 	tRamFS_File	*file = Node->ImplPtr;
 

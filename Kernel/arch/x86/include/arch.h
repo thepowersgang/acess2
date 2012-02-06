@@ -1,7 +1,7 @@
 /*
  * Acess2
  * - x86 Architecture
- * arch/i386/include/arch.h
+ * arch/x86/include/arch.h
  */
 #ifndef _ARCH_H_
 #define _ARCH_H_

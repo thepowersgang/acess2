@@ -20,13 +20,17 @@ tVFS_Node	*DevFS_FindDir(tVFS_Node *Node, const char *Name);
 tVFS_Driver	gDevFS_Info = {
 	"devfs", 0, DevFS_InitDevice, NULL, NULL
 	};
+tVFS_NodeType	gDevFS_DirType = {
+	.TypeName = "DevFS-Dir",
+	.ReadDir = DevFS_ReadDir,
+	.FindDir = DevFS_FindDir
+	};
 tVFS_Node	gDevFS_RootNode = {
 	.Size = 0,
 	.Flags = VFS_FFLAG_DIRECTORY,
 	.NumACLs = 1,
 	.ACLs = &gVFS_ACL_EveryoneRX,
-	.ReadDir = DevFS_ReadDir,
-	.FindDir = DevFS_FindDir
+	.Type = &gDevFS_DirType
 	};
 tDevFS_Driver	*gDevFS_Drivers = NULL;
  int	giDevFS_NextID = 1;

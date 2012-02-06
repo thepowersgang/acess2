@@ -171,7 +171,7 @@ tGlyph *_GetGlyph(tFont *Font, uint32_t Codepoint)
 				 prev = next, next = next->Next
 				 );
 			
-			if( next->Codepoint == Codepoint )
+			if( next && next->Codepoint == Codepoint )
 				return next;
 			
 		}
@@ -185,7 +185,7 @@ tGlyph *_GetGlyph(tFont *Font, uint32_t Codepoint)
 				 prev && prev->Codepoint > Codepoint;
 				 next = prev, prev = prev->Prev
 				 );
-			if( prev->Codepoint == Codepoint )
+			if( prev && prev->Codepoint == Codepoint )
 				return prev;
 		}
 	}

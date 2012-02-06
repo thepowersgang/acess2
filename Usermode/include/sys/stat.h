@@ -5,18 +5,19 @@
 #ifndef _SYS_STAT_H_
 #define _SYS_STAT_H_
 
-#include <stdint.h>	/* Evil */
-#include <stddef.h>
+#include <acess/intdefs.h>	/* Evil */
+#include "../stddef.h"
 
+;
 typedef void	*dev_t;	/* TODO: How to identify a device with Acess */
-typedef uint64_t	ino_t;
+typedef __uint64_t	ino_t;
 typedef unsigned int	blksize_t;
-typedef uint64_t	blkcnt_t;
+typedef __uint64_t	blkcnt_t;
 typedef unsigned int	nlink_t;
-typedef uint32_t	mode_t;
+typedef __uint32_t	mode_t;
 
-typedef uint32_t	uid_t;
-typedef uint32_t	gid_t;
+typedef __uint32_t	uid_t;
+typedef __uint32_t	gid_t;
 
 #define	S_IFMT		0170000	/* type of file */
 #define		S_IFDIR	0040000	/* directory */

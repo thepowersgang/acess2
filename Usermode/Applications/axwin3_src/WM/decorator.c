@@ -48,7 +48,7 @@ void Decorator_UpdateBorderSize(tWindow *Window)
 
 void Decorator_Redraw(tWindow *Window)
 {
-	 int	bActive;
+	 int	bActive = 0;
 	 int	text_width, text_height;
 	
 	// TODO: This could possibly be expensive, but is there a better way?

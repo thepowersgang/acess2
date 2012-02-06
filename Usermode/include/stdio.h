@@ -13,6 +13,7 @@ typedef struct sFILE	FILE;
 
 /* === CONSTANTS === */
 #define EOF	(-1)
+#define BUFSIZ	1024
 
 /* --- Standard IO --- */
 extern int	printf(const char *format, ...);

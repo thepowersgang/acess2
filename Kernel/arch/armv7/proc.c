@@ -11,6 +11,7 @@
 
 // === IMPORTS ===
 extern tThread	gThreadZero;
+extern tProcess	gProcessZero;
 extern void	SwitchTask(Uint32 NewSP, Uint32 *OldSP, Uint32 NewIP, Uint32 *OldIP, Uint32 MemPtr);
 extern void	KernelThreadHeader(void);	// Actually takes args on stack
 extern void	Proc_int_DropToUser(Uint32 IP, Uint32 SP) NORETURN __attribute__((long_call));
@@ -30,7 +31,7 @@ tThread *gpIdleThread = NULL;
 // === CODE ===
 void ArchThreads_Init(void)
 {
-	gThreadZero.MemState.Base = (tPAddr)&kernel_table0 - KERNEL_BASE;
+	gProcessZero.MemState.Base = (tPAddr)&kernel_table0 - KERNEL_BASE;
 }
 
 void Proc_IdleThread(void *unused)
@@ -61,11 +62,11 @@ tThread *Proc_GetCurThread(void)
 	return gpCurrentThread;
 }
 
-void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, char **ArgV, int DataSize)
+void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, const char **ArgV, int DataSize)
 {
 	Uint32	*usr_sp;
 	 int	i;
-	char	**envp;
+	const char	**envp;
 	tVAddr	delta;
 
 //	Log_Debug("Proc", "Proc_StartUser: (Entrypoint=%p, Base=%p, ArgC=%i, ArgV=%p, DataSize=0x%x)",
@@ -94,9 +95,13 @@ void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, char **ArgV, int DataS
 	Proc_int_DropToUser(Entrypoint, (Uint32)usr_sp);
 }
 
-void Proc_ClearThread(tThread *Thread)
+void Proc_ClearProcess(tProcess *Process)
 {
 	Log_Warning("Proc", "TODO: Nuke address space etc");
+}
+
+void Proc_ClearThread(tThread *Thread)
+{
 }
 
 tTID Proc_Clone(Uint Flags)
@@ -118,14 +123,14 @@ tTID Proc_Clone(Uint Flags)
 	new->SavedState.SP = sp;
 	new->SavedState.UserSP = Proc_int_SwapUserSP(0);
 	new->SavedState.UserIP = Proc_GetCurThread()->SavedState.UserIP;
-	new->MemState.Base = mem;
+	new->Process->MemState.Base = mem;
 
 	Threads_AddActive(new);
 
 	return new->TID;
 }
 
-tTID Proc_SpawnWorker( void (*Fnc)(void*), void *Ptr )
+int Proc_SpawnWorker( void (*Fnc)(void*), void *Ptr )
 {
 	tThread	*new;
 	Uint32	sp;
@@ -205,7 +210,7 @@ void Proc_Reschedule(void)
 
 	Log("Switching to %p (%i %s) IP=%p SP=%p TTBR0=%p UsrSP=%p",
 		next, next->TID, next->ThreadName,
-		next->SavedState.IP, next->SavedState.SP, next->MemState.Base,
+		next->SavedState.IP, next->SavedState.SP, next->Process->MemState.Base,
 		next->SavedState.UserSP
 		);
 
@@ -218,7 +223,7 @@ void Proc_Reschedule(void)
 	SwitchTask(
 		next->SavedState.SP, &cur->SavedState.SP,
 		next->SavedState.IP, &cur->SavedState.IP,
-		next->MemState.Base
+		next->Process->MemState.Base
 		);
 	
 }

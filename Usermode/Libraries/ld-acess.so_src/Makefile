@@ -5,9 +5,10 @@
 -include ../Makefile.cfg
 
 OBJ := main.o lib.o loadlib.o export.o elf.o pe.o
-OBJ += arch/$(ARCHDIR).ao
+OBJ += arch/$(ARCHDIR).ao_
 BIN = ld-acess.so
 EXTRABIN := libld-acess.so
+EXTRACLEAN := $(_OBJPREFIX)_stublib.o
 
 CFLAGS   = -g -Wall -fno-builtin -fno-leading-underscore -fno-stack-protector -fPIC
 CFLAGS  += $(CPPFLAGS)
@@ -23,16 +24,18 @@ $(_XBIN): $(_OBJPREFIX)_stublib.o
 
 
 # Override .ao to look in the object prefix for the source
-%.ao: %.$(ASSUFFIX)
+$(_OBJPREFIX)arch/$(ARCHDIR).ao_: $(_OBJPREFIX)arch/$(ARCHDIR).$(ASSUFFIX)
 	@echo [AS] -o $@
 	@mkdir -p $(dir $@)
 	@$(AS) $(ASFLAGS) -o $@ $<
 
-.PRECIOUS: $(OBJ:%.ao=%.asm)
+#.PRECIOUS: $(OBJ:%.ao=%.asm)
 
 # Preprocessing objects if needed
-$(_OBJPREFIX)%: %.h
+$(_OBJPREFIX)arch/$(ARCHDIR).$(ASSUFFIX): arch/$(ARCHDIR).$(ASSUFFIX).h arch/syscalls.s.h
 	@echo [CPP] -o $@
 	@mkdir -p $(dir $@)
 	@$(CPP) $(CPPFLAGS) -P -D__ASSEMBLER__ $< -o $@
+
+$(_OBJPREFIX)_stublib.o: arch/syscalls.s.h
 

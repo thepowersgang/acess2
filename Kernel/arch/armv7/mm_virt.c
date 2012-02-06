@@ -937,16 +937,18 @@ void MM_int_DumpTableEnt(tVAddr Start, size_t Len, tMM_PageInfo *Info)
 {
 	if( giMM_ZeroPage && Info->PhysAddr == giMM_ZeroPage )
 	{
-		Debug("%p => %8s - 0x%7x %i %x",
+		Debug("%p => %8s - 0x%7x %i %x %s",
 			Start, "ZERO", Len,
-			Info->Domain, Info->AP
+			Info->Domain, Info->AP,
+			Info->bGlobal ? "G" : "nG"
 			);
 	}
 	else
 	{
-		Debug("%p => %8x - 0x%7x %i %x",
+		Debug("%p => %8x - 0x%7x %i %x %s",
 			Start, Info->PhysAddr-Len, Len,
-			Info->Domain, Info->AP
+			Info->Domain, Info->AP,
+			Info->bGlobal ? "G" : "nG"
 			);
 	}
 }
@@ -957,9 +959,7 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 	tMM_PageInfo	pi, pi_old;
 	 int	i = 0, inRange=0;
 	
-	pi_old.Size = 0;
-	pi_old.AP = 0;
-	pi_old.PhysAddr = 0;
+	memset(&pi_old, 0, sizeof(pi_old));
 
 	Debug("Page Table Dump (%p to %p):", Start, End);
 	range_start = Start;
@@ -972,6 +972,7 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 		 || pi.Size != pi_old.Size
 		 || pi.Domain != pi_old.Domain
 		 || pi.AP != pi_old.AP
+		 || pi.bGlobal != pi_old.bGlobal
 		 || pi_old.PhysAddr != pi.PhysAddr )
 		{
 			if(inRange) {

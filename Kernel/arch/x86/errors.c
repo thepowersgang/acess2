@@ -112,7 +112,7 @@ void ErrorHandler(tRegs *Regs)
 	}
 	
 	// Check if it's a user mode fault
-	if( Regs->eip < KERNEL_BASE || (Regs->cs & 3) == 3 ) {
+	if( (Regs->cs & 3) == 3 ) {
 		Log_Warning("Arch", "User Fault -  %s, Code: 0x%x",
 			csaERROR_NAMES[Regs->int_num], Regs->err_code);
 		Log_Warning("Arch", "at CS:EIP %04x:%08x",
@@ -136,7 +136,7 @@ void ErrorHandler(tRegs *Regs)
 	
 	Debug_KernelPanic();
 	
-	LogF("CPU %i Error %i - %s, Code: 0x%x - At %08x",
+	LogF("CPU %i Error %i - %s, Code: 0x%x - At %08x\n",
 		GetCPUNum(),
 		Regs->int_num, csaERROR_NAMES[Regs->int_num], Regs->err_code,
 		Regs->eip);
@@ -169,8 +169,8 @@ void ErrorHandler(tRegs *Regs)
 	{
 	case 6:	// #UD
 		Warning(" Offending bytes: %02x %02x %02x %02x",
-			*(Uint8*)Regs->eip+0, *(Uint8*)Regs->eip+1,
-			*(Uint8*)Regs->eip+2, *(Uint8*)Regs->eip+3);
+			*(Uint8*)(Regs->eip+0), *(Uint8*)(Regs->eip+1),
+			*(Uint8*)(Regs->eip+2), *(Uint8*)(Regs->eip+3));
 		break;
 	}
 	
@@ -199,15 +199,16 @@ void Proc_PrintBacktrace(void)
 void Error_Backtrace(Uint eip, Uint ebp)
 {
 	 int	i = 0;
-	Uint	delta = 0;
-	char	*str = NULL;
+//	Uint	delta = 0;
+//	char	*str = NULL;
 	
 	//if(eip < 0xC0000000 && eip > 0x1000)
 	//{
 	//	LogF("Backtrace: User - 0x%x\n", eip);
 	//	return;
 	//}
-	
+
+	#if 0	
 	if(eip > 0xE0000000)
 	{
 		LogF("Backtrace: Data Area - 0x%x\n", eip);
@@ -219,12 +220,13 @@ void Error_Backtrace(Uint eip, Uint ebp)
 		LogF("Backtrace: Kernel Module - 0x%x\n", eip);
 		return;
 	}
-	
+	#endif	
+
 	//str = Debug_GetSymbol(eip, &delta);
-	if(str == NULL)
+//	if(str == NULL)
 		LogF("Backtrace: 0x%x", eip);
-	else
-		LogF("Backtrace: %s+0x%x", str, delta);
+//	else
+//		LogF("Backtrace: %s+0x%x", str, delta);
 	if(!MM_GetPhysAddr(ebp))
 	{
 		LogF("\nBacktrace: Invalid EBP, stopping\n");
@@ -236,10 +238,10 @@ void Error_Backtrace(Uint eip, Uint ebp)
 	{
 		if( ebp >= MM_KERNEL_STACKS_END )	break;
 		//str = Debug_GetSymbol(*(Uint*)(ebp+4), &delta);
-		if(str == NULL)
+//		if(str == NULL)
 			LogF(" >> 0x%x", *(Uint*)(ebp+4));
-		else
-			LogF(" >> %s+0x%x", str, delta);
+//		else
+//			LogF(" >> %s+0x%x", str, delta);
 		ebp = *(Uint*)ebp;
 		i++;
 	}

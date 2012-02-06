@@ -86,7 +86,7 @@ typedef struct sNe2k_Card {
 char	*Ne2k_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*Ne2k_FindDir(tVFS_Node *Node, const char *Name);
  int	Ne2k_IOCtl(tVFS_Node *Node, int ID, void *Data);
-Uint64	Ne2k_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
+Uint64	Ne2k_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer);
 Uint64	Ne2k_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
 
  int	Ne2k_int_ReadDMA(tCard *Card, int FirstPage, int NumPages, void *Buffer);
@@ -95,15 +95,23 @@ void	Ne2k_IRQHandler(int IntNum, void *Ptr);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, Ne2k, Ne2k_Install, NULL, NULL);
+tVFS_NodeType	gNe2K_RootNodeType = {
+	.ReadDir = Ne2k_ReadDir,
+	.FindDir = Ne2k_FindDir,
+	.IOCtl = Ne2k_IOCtl
+	};
+tVFS_NodeType	gNe2K_DevNodeType = {
+	.Write = Ne2k_Write,
+	.Read = Ne2k_Read,
+	.IOCtl = Ne2k_IOCtl	
+	};
 tDevFS_Driver	gNe2k_DriverInfo = {
 	NULL, "ne2k",
 	{
 	.NumACLs = 1,
 	.ACLs = &gVFS_ACL_EveryoneRX,
 	.Flags = VFS_FFLAG_DIRECTORY,
-	.ReadDir = Ne2k_ReadDir,
-	.FindDir = Ne2k_FindDir,
-	.IOCtl = Ne2k_IOCtl
+	.Type = &gNe2K_RootNodeType
 	}
 };
 Uint16	gNe2k_BaseAddress;
@@ -202,9 +210,7 @@ int Ne2k_Install(char **Options)
 			gpNe2k_Cards[ k ].Node.ImplPtr = &gpNe2k_Cards[ k ];
 			gpNe2k_Cards[ k ].Node.NumACLs = 0;	// Root Only
 			gpNe2k_Cards[ k ].Node.CTime = now();
-			gpNe2k_Cards[ k ].Node.Write = Ne2k_Write;
-			gpNe2k_Cards[ k ].Node.Read = Ne2k_Read;
-			gpNe2k_Cards[ k ].Node.IOCtl = Ne2k_IOCtl;
+			gpNe2k_Cards[ k ].Node.Type = &gNe2K_DevNodeType;
 			
 			// Initialise packet semaphore
 			// - Start at zero, no max
@@ -275,13 +281,13 @@ int Ne2k_IOCtl(tVFS_Node *Node, int ID, void *Data)
 }
 
 /**
- * \fn Uint64 Ne2k_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+ * \fn Uint64 Ne2k_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
  * \brief Send a packet from the network card
  */
-Uint64 Ne2k_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+Uint64 Ne2k_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
 {
 	tCard	*Card = (tCard*)Node->ImplPtr;
-	Uint16	*buf = Buffer;
+	const Uint16	*buf = Buffer;
 	 int	rem = Length;
 	 int	page;
 	

@@ -28,6 +28,10 @@ extern void	Proc_Start(void);
  */
 extern void	Proc_ClearThread(tThread *Thread);
 /**
+ * \brief Called just before a process is freed
+ */
+extern void	Proc_ClearProcess(tProcess *Process);
+/**
  * \brief Get the ID of this CPU
  * \return Zero based CPU ID
  */
@@ -54,7 +58,7 @@ extern tTID	Proc_NewKThread( void (*Fnc)(void*), void *Ptr );
  * \param DataSize	Size of the \a ArgV buffer in bytes
  * \note This function should free \a ArgV
  */
-extern void	Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, char **ArgV, int DataSize) NORETURN;
+extern void	Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, const char **ArgV, int DataSize) NORETURN;
 /**
  * \brief Call the fault handler for a thread
  * \param Thread	Thread that is at fault :)

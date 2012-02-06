@@ -6,6 +6,8 @@
  */
 #include <acess.h>
 #include <threads_int.h>
+#include <arch_int.h>
+#include <hal_proc.h>	// GetCPUNum
 
 #define TRACE_LOCKS	0
 
@@ -17,9 +19,10 @@
 // === IMPRORTS ===
 #if TRACE_LOCKS
 extern struct sShortSpinlock	glDebug_Lock;
-extern struct sShortSpinlock	glThreadListLock;
+extern tMutex	glPhysAlloc;
+#define TRACE_LOCK_COND	(Lock != &glDebug_Lock && Lock != &glThreadListLock && Lock != &glPhysAlloc.Protector)
+//#define TRACE_LOCK_COND	(Lock != &glDebug_Lock && Lock != &glPhysAlloc.Protector)
 #endif
-extern int	GetCPUNum(void);
 
 // === PROTOTYPES ==
 Uint64	__divmod64(Uint64 Num, Uint64 Den, Uint64 *Rem);
@@ -49,6 +52,17 @@ int CPU_HAS_LOCK(struct sShortSpinlock *Lock)
 	return Lock->Lock == GetCPUNum() + 1;
 }
 
+void __AtomicTestSetLoop(Uint *Ptr, Uint Value)
+{
+	__ASM__(
+		"1:\n\t"
+		"xor %%eax, %%eax;\n\t"
+		"lock cmpxchgl %0, (%1);\n\t"
+		"jnz 1b;\n\t"
+		:: "r"(Value), "r"(Ptr)
+		: "eax" // EAX clobbered
+		);
+}
 /**
  * \brief Acquire a Short Spinlock
  * \param Lock	Lock pointer
@@ -64,7 +78,6 @@ int CPU_HAS_LOCK(struct sShortSpinlock *Lock)
  */
 void SHORTLOCK(struct sShortSpinlock *Lock)
 {
-	 int	v = 1;
 	 int	IF;
 	 int	cpu = GetCPUNum() + 1;
 	
@@ -73,31 +86,25 @@ void SHORTLOCK(struct sShortSpinlock *Lock)
 	IF &= 0x200;	// AND out all but the interrupt flag
 	
 	#if TRACE_LOCKS
-	if( Lock != &glDebug_Lock && Lock != &glThreadListLock )
+	if( TRACE_LOCK_COND )
 	{
 		//Log_Log("LOCK", "%p locked by %p", Lock, __builtin_return_address(0));
-		Debug("%p obtaining %p (Called by %p)", __builtin_return_address(0), Lock, __builtin_return_address(1));
+		Debug("%i %p obtaining %p (Called by %p)", cpu-1,  __builtin_return_address(0), Lock, __builtin_return_address(1));
 	}
 	#endif
 	
 	__ASM__("cli");
 	
 	// Wait for another CPU to release
-	__ASM__(
-		"1: lock cmpxchgl %2, (%3)\n\t"
-		"jnz 1b"
-		: "=a"(v)
-		: "a"(0), "r"(cpu), "r"(&Lock->Lock)
-		);
-	
+	__AtomicTestSetLoop( (Uint*)&Lock->Lock, cpu );
 	Lock->IF = IF;
 	
 	#if TRACE_LOCKS
-	if( Lock != &glDebug_Lock && Lock != &glThreadListLock )
+	if( TRACE_LOCK_COND )
 	{
 		//Log_Log("LOCK", "%p locked by %p", Lock, __builtin_return_address(0));
-		//Debug("Lock %p locked by %p\t%p", Lock, __builtin_return_address(0), __builtin_return_address(1));
-		Debug("got it");
+		Debug("%i %p locked by %p\t%p", cpu-1, Lock, __builtin_return_address(0), __builtin_return_address(1));
+//		Debug("got it");
 	}
 	#endif
 }
@@ -108,7 +115,7 @@ void SHORTLOCK(struct sShortSpinlock *Lock)
 void SHORTREL(struct sShortSpinlock *Lock)
 {	
 	#if TRACE_LOCKS
-	if( Lock != &glDebug_Lock && Lock != &glThreadListLock )
+	if( TRACE_LOCK_COND )
 	{
 		//Log_Log("LOCK", "%p released by %p", Lock, __builtin_return_address(0));
 		Debug("Lock %p released by %p\t%p", Lock, __builtin_return_address(0), __builtin_return_address(1));

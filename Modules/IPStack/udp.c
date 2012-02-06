@@ -12,11 +12,11 @@
 void	UDP_Initialise();
 void	UDP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffer);
 void	UDP_Unreachable(tInterface *Interface, int Code, void *Address, int Length, void *Buffer);
-void	UDP_SendPacketTo(tUDPChannel *Channel, int AddrType, void *Address, Uint16 Port, void *Data, size_t Length);
+void	UDP_SendPacketTo(tUDPChannel *Channel, int AddrType, const void *Address, Uint16 Port, const void *Data, size_t Length);
 // --- Client Channels
 tVFS_Node	*UDP_Channel_Init(tInterface *Interface);
 Uint64	UDP_Channel_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
-Uint64	UDP_Channel_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
+Uint64	UDP_Channel_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer);
  int	UDP_Channel_IOCtl(tVFS_Node *Node, int ID, void *Data);
 void	UDP_Channel_Close(tVFS_Node *Node);
 // --- Helpers
@@ -25,6 +25,12 @@ Uint16	UDP_int_AllocatePort();
 void	UDP_int_FreePort(Uint16 Port);
 
 // === GLOBALS ===
+tVFS_NodeType	gUDP_NodeType = {
+	.Read = UDP_Channel_Read,
+	.Write = UDP_Channel_Write,
+	.IOCtl = UDP_Channel_IOCtl,
+	.Close = UDP_Channel_Close
+};
 tMutex	glUDP_Channels;
 tUDPChannel	*gpUDP_Channels;
 
@@ -85,6 +91,7 @@ int UDP_int_ScanList(tUDPChannel *List, tInterface *Interface, void *Address, in
 		pack->Next = NULL;
 		memcpy(&pack->Remote.Addr, Address, IPStack_GetAddressSize(Interface->Type));
 		pack->Remote.Port = ntohs(hdr->SourcePort);
+		pack->Remote.AddrType = Interface->Type;
 		pack->Length = len;
 		memcpy(pack->Data, hdr->Data, len);
 		
@@ -135,7 +142,7 @@ void UDP_Unreachable(tInterface *Interface, int Code, void *Address, int Length,
  * \param Data	Packet data
  * \param Length	Length in bytes of packet data
  */
-void UDP_SendPacketTo(tUDPChannel *Channel, int AddrType, void *Address, Uint16 Port, void *Data, size_t Length)
+void UDP_SendPacketTo(tUDPChannel *Channel, int AddrType, const void *Address, Uint16 Port, const void *Data, size_t Length)
 {
 	tUDPHeader	*hdr;
 
@@ -169,10 +176,7 @@ tVFS_Node *UDP_Channel_Init(tInterface *Interface)
 	new->Node.ImplPtr = new;
 	new->Node.NumACLs = 1;
 	new->Node.ACLs = &gVFS_ACL_EveryoneRW;
-	new->Node.Read = UDP_Channel_Read;
-	new->Node.Write = UDP_Channel_Write;
-	new->Node.IOCtl = UDP_Channel_IOCtl;
-	new->Node.Close = UDP_Channel_Close;
+	new->Node.Type = &gUDP_NodeType;
 	
 	Mutex_Acquire(&glUDP_Channels);
 	new->Next = gpUDP_Channels;
@@ -190,7 +194,7 @@ Uint64 UDP_Channel_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buf
 	tUDPChannel	*chan = Node->ImplPtr;
 	tUDPPacket	*pack;
 	tUDPEndpoint	*ep;
-	 int	ofs;
+	 int	ofs, addrlen;
 	
 	if(chan->LocalPort == 0) {
 		Log_Notice("UDP", "Channel %p sent with no local port", chan);
@@ -218,8 +222,9 @@ Uint64 UDP_Channel_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buf
 	}
 
 	// Check that the header fits
+	addrlen = IPStack_GetAddressSize(pack->Remote.AddrType);
 	ep = Buffer;
-	ofs = 4 + IPStack_GetAddressSize(pack->Remote.AddrType);
+	ofs = 4 + addrlen;
 	if(Length < ofs) {
 		free(pack);
 		Log_Notice("UDP", "Insuficient space for header in buffer (%i < %i)", (int)Length, ofs);
@@ -229,7 +234,7 @@ Uint64 UDP_Channel_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buf
 	// Fill header
 	ep->Port = pack->Remote.Port;
 	ep->AddrType = pack->Remote.AddrType;
-	memcpy(&ep->Addr, &pack->Remote.Addr, IPStack_GetAddressSize(pack->Remote.AddrType));
+	memcpy(&ep->Addr, &pack->Remote.Addr, addrlen);
 	
 	// Copy packet data
 	if(Length > ofs + pack->Length)	Length = ofs + pack->Length;
@@ -244,18 +249,18 @@ Uint64 UDP_Channel_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buf
 /**
  * \brief Write to the channel file (send a packet)
  */
-Uint64 UDP_Channel_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+Uint64 UDP_Channel_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
 {
 	tUDPChannel	*chan = Node->ImplPtr;
-	tUDPEndpoint	*ep;
-	void	*data;
+	const tUDPEndpoint	*ep;
+	const void	*data;
 	 int	ofs;
 	if(chan->LocalPort == 0)	return 0;
 	
 	ep = Buffer;	
 	ofs = 2 + 2 + IPStack_GetAddressSize( ep->AddrType );
 
-	data = (char*)Buffer + ofs;
+	data = (const char *)Buffer + ofs;
 
 	UDP_SendPacketTo(chan, ep->AddrType, &ep->Addr, ep->Port, data, (size_t)Length - ofs);
 	

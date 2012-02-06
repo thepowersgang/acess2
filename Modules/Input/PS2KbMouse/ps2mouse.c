@@ -39,11 +39,15 @@ tJoystick_Callback	gMouse_Callback;
  int	giMouse_Cycle = 0;	// IRQ Position
 Uint8	gaMouse_Bytes[4] = {0,0,0,0};
 // - Driver definition
+tVFS_NodeType	gMouse_NodeType = {
+	.Read = PS2Mouse_Read,
+	.IOCtl = PS2Mouse_IOCtl
+};
 tDevFS_Driver	gMouse_DriverStruct = {
 	NULL, "PS2Mouse",
 	{
 	.NumACLs = 1, .ACLs = &gVFS_ACL_EveryoneRX,
-	.Read = PS2Mouse_Read, .IOCtl = PS2Mouse_IOCtl
+	.Type = &gMouse_NodeType
 	}
 };
 

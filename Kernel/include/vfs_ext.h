@@ -27,8 +27,10 @@ typedef Uint32	tMount;
 #define VFS_OPENFLAG_WRITE	0x04
 //! Do not resolve the final symbolic link
 #define	VFS_OPENFLAG_NOLINK	0x40
+//! Create the file if it doesn't exist
+#define VFS_OPENFLAG_CREATE	0x80
 //! Open as a user
-#define	VFS_OPENFLAG_USER	0x80
+#define	VFS_OPENFLAG_USER	0x8000
 /**
  * \}
  */
@@ -176,10 +178,19 @@ extern int	VFS_Init(void);
 /**
  * \brief Open a file
  * \param Path	Absolute or relative path to the file
- * \param Mode	Flags defining how to open the file
+ * \param Flags	Flags defining how to open the file
+ * \return VFS Handle (an integer) or -1 if an error occured
+ * \note Calls VFS_OpenEx(Path, Flags, 0)
+ */
+extern int	VFS_Open(const char *Path, Uint Flags);
+/**
+ * \brief Open a file
+ * \param Path	Absolute or relative path to the file
+ * \param Flags	Flags defining how to open the file
+ * \param Mode	Mode for newly created file (POSIX compatability)
  * \return VFS Handle (an integer) or -1 if an error occured
  */
-extern int	VFS_Open(const char *Path, Uint Mode);
+extern int	VFS_OpenEx(const char *Path, Uint Flags, Uint Mode);
 /**
  * \brief Opens a file via an open directory
  * \note The file to open must be a direct child of the parent
@@ -353,10 +364,11 @@ extern int	VFS_ReadDir(int FD, char *Dest);
  * \param WriteHandles	Handles to wait to write to
  * \param ErrHandles	Handle to wait for errors on
  * \param Timeout	Timeout for select() (if null, there is no timeout), if zero select() is non blocking
+ * \param ExtraEvents	Extra event set to wait on
  * \param IsKernel	Use kernel handles as opposed to user handles
  * \return Number of handles that actioned
  */
-extern int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set *ErrHandles, tTime *Timeout, BOOL IsKernel);
+extern int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set *ErrHandles, tTime *Timeout, Uint32 ExtraEvents, BOOL IsKernel);
 
 /**
  * \brief Map a file into memory

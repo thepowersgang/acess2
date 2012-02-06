@@ -40,6 +40,15 @@ void	SysFS_Comm_CloseFile(tVFS_Node *Node);
 extern tSysFS_Ent	gSysFS_Version;	// Defined Later
 extern tSysFS_Ent	gSysFS_Root;	// Defined Later
 MODULE_DEFINE(0, VERSION, SysFS, SysFS_Install, NULL, NULL);
+tVFS_NodeType	gSysFS_FileNodeType = {
+	.TypeName = "SysFS File",
+	.Read = SysFS_Comm_ReadFile
+	};
+tVFS_NodeType	gSysFS_DirNodeType = {
+	.TypeName = "SysFS Dir",
+	.ReadDir = SysFS_Comm_ReadDir,
+	.FindDir = SysFS_Comm_FindDir
+	};
 tSysFS_Ent	gSysFS_Version_Kernel = {
 	NULL, NULL,	// Nexts
 	&gSysFS_Version,	// Parent
@@ -50,7 +59,7 @@ tSysFS_Ent	gSysFS_Version_Kernel = {
 		.Size = 0,
 		.NumACLs = 1,
 		.ACLs = &gVFS_ACL_EveryoneRO,
-		.Read = SysFS_Comm_ReadFile
+		.Type = &gSysFS_FileNodeType
 	},
 	"Kernel"
 };
@@ -64,8 +73,7 @@ tSysFS_Ent	gSysFS_Version = {
 		.NumACLs = 1,
 		.ACLs = &gVFS_ACL_EveryoneRX,
 		.Flags = VFS_FFLAG_DIRECTORY,
-		.ReadDir = SysFS_Comm_ReadDir,
-		.FindDir = SysFS_Comm_FindDir
+		.Type = &gSysFS_DirNodeType
 	},
 	"Version"
 };
@@ -88,9 +96,7 @@ tDevFS_Driver	gSysFS_DriverInfo = {
 	.Flags = VFS_FFLAG_DIRECTORY,
 	.ImplPtr = &gSysFS_Version,
 	.Size = sizeof(gSysFS_Root)/sizeof(tSysFS_Ent),
-	.ReadDir = SysFS_Comm_ReadDir,
-	.FindDir = SysFS_Comm_FindDir,
-	.IOCtl = NULL
+	.Type = &gSysFS_DirNodeType
 	}
 };
  int	giSysFS_NextFileID = 2;
@@ -158,8 +164,7 @@ int SysFS_RegisterFile(const char *Path, const char *Data, int Length)
 			child->Node.NumACLs = 1;
 			child->Node.ACLs = &gVFS_ACL_EveryoneRX;
 			child->Node.Flags = VFS_FFLAG_DIRECTORY;
-			child->Node.ReadDir = SysFS_Comm_ReadDir;
-			child->Node.FindDir = SysFS_Comm_FindDir;
+			child->Node.Type = &gSysFS_DirNodeType;
 			if( !prev ) {
 				if(ent)
 					ent->Node.ImplPtr = child;
@@ -212,8 +217,7 @@ int SysFS_RegisterFile(const char *Path, const char *Data, int Length)
 	child->Node.Size = Length;
 	child->Node.NumACLs = 1;
 	child->Node.ACLs = &gVFS_ACL_EveryoneRO;
-	child->Node.Read = SysFS_Comm_ReadFile;
-	child->Node.Close = SysFS_Comm_CloseFile;
+	child->Node.Type = &gSysFS_FileNodeType;
 	
 	// Add to parent's child list
 	if(ent) {

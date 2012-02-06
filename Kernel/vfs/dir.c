@@ -73,7 +73,7 @@ int VFS_MkNod(const char *Path, Uint Flags)
 	
 	// Permissions Check
 	if( !VFS_CheckACL(parent, VFS_PERM_EXECUTE|VFS_PERM_WRITE) ) {
-		if(parent->Close)	parent->Close( parent );
+		_CloseNode(parent);
 		free(absPath);
 		LEAVE('i', -1);
 		return -1;
@@ -81,20 +81,20 @@ int VFS_MkNod(const char *Path, Uint Flags)
 	
 	LOG("parent = %p", parent);
 	
-	if(parent->MkNod == NULL) {
+	if(!parent->Type || !parent->Type->MkNod) {
 		Warning("VFS_MkNod - Directory has no MkNod method");
 		LEAVE('i', -1);
 		return -1;
 	}
 	
 	// Create node
-	ret = parent->MkNod(parent, name, Flags);
+	ret = parent->Type->MkNod(parent, name, Flags);
 	
 	// Free allocated string
 	free(absPath);
 	
 	// Free Parent
-	if(parent->Close)	parent->Close( parent );
+	_CloseNode(parent);
 	
 	// Error Check
 	if(ret == 0) {
@@ -116,48 +116,23 @@ int VFS_Symlink(const char *Name, const char *Link)
 {
 	char	*realLink;
 	 int	fp;
-	char	*_link;
 	
 	ENTER("sName sLink", Name, Link);
 	
 	// Get absolue path name
-	_link = VFS_GetAbsPath( Link );
-	if(!_link) {
+	realLink = VFS_GetAbsPath( Link );
+	if(!realLink) {
 		Log_Warning("VFS", "Path '%s' is badly formed", Link);
 		LEAVE('i', -1);
 		return -1;
 	}
 
-	LOG("_link = '%s'", _link);
-	
-	#if 1
-	{
-	tVFS_Node *destNode = VFS_ParsePath( _link, &realLink, NULL );
-	#if 0
-	// Get true path and node
-	free(_link);
-	_link = NULL;
-	#else
-	realLink = _link;
-	#endif
-	
-	// Check if destination exists
-	if(!destNode) {
-		Log_Warning("VFS", "File '%s' does not exist, symlink not created", Link);
-		return -1;
-	}
-	
-	// Derefence the destination
-	if(destNode->Close)	destNode->Close(destNode);
-	}
-	#else
-	realLink = _link;
-	#endif	
 	LOG("realLink = '%s'", realLink);
 
 	// Make node
 	if( VFS_MkNod(Name, VFS_FFLAG_SYMLINK) != 0 ) {
 		Log_Warning("VFS", "Unable to create link node '%s'", Name);
+		free(realLink);
 		LEAVE('i', -2);
 		return -2;	// Make link node
 	}
@@ -184,7 +159,7 @@ int VFS_ReadDir(int FD, char *Dest)
 	
 	//ENTER("ph pDest", h, Dest);
 	
-	if(!h || h->Node->ReadDir == NULL) {
+	if(!h || !h->Node->Type || !h->Node->Type->ReadDir) {
 		//LEAVE('i', 0);
 		return 0;
 	}
@@ -195,7 +170,7 @@ int VFS_ReadDir(int FD, char *Dest)
 	}
 	
 	do {
-		tmp = h->Node->ReadDir(h->Node, h->Position);
+		tmp = h->Node->Type->ReadDir(h->Node, h->Position);
 		if((Uint)tmp < (Uint)VFS_MAXSKIP)
 			h->Position += (Uint)tmp;
 		else

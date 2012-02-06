@@ -8,6 +8,9 @@
 #include <threads.h>
 #include <proc.h>
 
+
+typedef struct sProcess	tProcess;
+
 /**
  * \brief IPC Message
  */
@@ -20,10 +23,27 @@ typedef struct sMessage
 } tMsg;
 
 /**
+ * \brief Process state
+ */
+struct sProcess
+{
+	tPID	PID;
+	 int	nThreads;
+	
+	tUID	UID;	//!< User ID
+	tGID	GID;	//!< User and Group
+	tMemoryState	MemState;
+
+	 int	MaxFD;
+	char	*CurrentWorkingDir;
+	char	*RootDir;
+};
+
+/**
  * \brief Core threading structure
  * 
  */
-typedef struct sThread
+struct sThread
 {
 	// --- threads.c's
 	/**
@@ -38,18 +58,14 @@ typedef struct sThread
 	void	*WaitPointer;	//!< What (Mutex/Thread/other) is the thread waiting on
 	 int	RetStatus;	//!< Return Status
 	
-	Uint	TID;	//!< Thread ID
-	Uint	TGID;	//!< Thread Group (Process)
+	tTID	TID;	//!< Thread ID
+	struct sProcess	*Process;	//!< Thread Group / Process
 	struct sThread	*Parent;	//!< Parent Thread
-	Uint	UID, GID;	//!< User and Group
 	char	*ThreadName;	//!< Name of thread
 	
 	// --- arch/proc.c's responsibility
 	//! Kernel Stack Base
 	tVAddr	KernelStack;
-	
-	//! Memory Manager State
-	tMemoryState	MemState;
 	
 	//! State on task switch
 	tTaskState	SavedState;
@@ -64,12 +80,15 @@ typedef struct sThread
 	 int	Quantum, Remaining;	//!< Quantum Size and remaining timesteps
 	 int	Priority;	//!< Priority - 0: Realtime, higher means less time
 	
-	Uint	Config[NUM_CFG_ENTRIES];	//!< Per-process configuration
+	 int	_errno;
 	
 	volatile int	CurCPU;
 	
-	 int	bInstrTrace;
-} tThread;
+	bool	bInstrTrace;
+	
+	// --- event.c
+	Uint32	EventState;
+};
 
 
 enum {
@@ -79,6 +98,7 @@ enum {
 	THREAD_STAT_MUTEXSLEEP,	// Mutex Sleep
 	THREAD_STAT_SEMAPHORESLEEP,	// Semaphore Sleep
 	THREAD_STAT_QUEUESLEEP,	// Queue
+	THREAD_STAT_EVENTSLEEP,	// Event sleep
 	THREAD_STAT_WAITING,	// ??? (Waiting for a thread)
 	THREAD_STAT_PREINIT,	// Being created
 	THREAD_STAT_ZOMBIE,	// Died/Killed, but parent not informed
@@ -92,6 +112,7 @@ static const char * const casTHREAD_STAT[] = {
 	"THREAD_STAT_MUTEXSLEEP",
 	"THREAD_STAT_SEMAPHORESLEEP",
 	"THREAD_STAT_QUEUESLEEP",
+	"THREAD_STAT_EVENTSLEEP",
 	"THREAD_STAT_WAITING",
 	"THREAD_STAT_PREINIT",
 	"THREAD_STAT_ZOMBIE",

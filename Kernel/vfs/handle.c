@@ -8,6 +8,8 @@
 #include "vfs.h"
 #include "vfs_int.h"
 #include "vfs_ext.h"
+#include <threads.h>	// GetMaxFD
+#include <vfs_threads.h>	// Handle maintainance
 
 // === CONSTANTS ===
 #define MAX_KERNEL_FILES	128
@@ -40,7 +42,7 @@ tVFS_Handle *VFS_GetHandle(int FD)
 		if(FD >= MAX_KERNEL_FILES)	return NULL;
 		h = &gaKernelHandles[ FD ];
 	} else {
-		if(FD >= CFGINT(CFG_VFS_MAXFILES))	return NULL;
+		if(FD >= *Threads_GetMaxFD())	return NULL;
 		h = &gaUserHandles[ FD ];
 	}
 	
@@ -56,14 +58,15 @@ int VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode)
 	// Check for a user open
 	if(bIsUser)
 	{
+		 int	max_handles = *Threads_GetMaxFD();
 		// Allocate Buffer
-		if( MM_GetPhysAddr( (Uint)gaUserHandles ) == 0 )
+		if( MM_GetPhysAddr( (tVAddr)gaUserHandles ) == 0 )
 		{
 			Uint	addr, size;
-			size = CFGINT(CFG_VFS_MAXFILES) * sizeof(tVFS_Handle);
+			size = max_handles * sizeof(tVFS_Handle);
 			for(addr = 0; addr < size; addr += 0x1000)
 			{
-				if( !MM_Allocate( (Uint)gaUserHandles + addr ) )
+				if( !MM_Allocate( (tVAddr)gaUserHandles + addr ) )
 				{
 					Warning("OOM - VFS_AllocHandle");
 					Threads_Exit(0, 0xFF);	// Terminate user
@@ -72,7 +75,7 @@ int VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode)
 			memset( gaUserHandles, 0, size );
 		}
 		// Get a handle
-		for(i=0;i<CFGINT(CFG_VFS_MAXFILES);i++)
+		for( i = 0; i < max_handles; i ++ )
 		{
 			if(gaUserHandles[i].Node)	continue;
 			gaUserHandles[i].Node = Node;
@@ -84,13 +87,13 @@ int VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode)
 	else
 	{
 		// Allocate space if not already
-		if( MM_GetPhysAddr( (Uint)gaKernelHandles ) == 0 )
+		if( MM_GetPhysAddr( (tVAddr)gaKernelHandles ) == 0 )
 		{
 			Uint	addr, size;
 			size = MAX_KERNEL_FILES * sizeof(tVFS_Handle);
 			for(addr = 0; addr < size; addr += 0x1000)
 			{
-				if( !MM_Allocate( (Uint)gaKernelHandles + addr ) )
+				if( !MM_Allocate( (tVAddr)gaKernelHandles + addr ) )
 				{
 					Panic("OOM - VFS_AllocHandle");
 					Threads_Exit(0, 0xFF);	// Terminate application (get some space back)
@@ -110,4 +113,158 @@ int VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode)
 	}
 	
 	return -1;
+}
+
+void VFS_ReferenceUserHandles(void)
+{
+	 int	i;
+	 int	max_handles = *Threads_GetMaxFD();
+
+	// Check if this process has any handles
+	if( MM_GetPhysAddr( (tVAddr)gaUserHandles ) == 0 )
+		return ;
+	
+	for( i = 0; i < max_handles; i ++ )
+	{
+		tVFS_Handle	*h;
+		h = &gaUserHandles[i];
+		if( !h->Node )
+			continue ;
+		if( h->Node->Type && h->Node->Type->Reference )
+			h->Node->Type->Reference( h->Node );
+	}
+}
+
+void VFS_CloseAllUserHandles(void)
+{
+	 int	i;
+	 int	max_handles = *Threads_GetMaxFD();
+
+	// Check if this process has any handles
+	if( MM_GetPhysAddr( (tVAddr)gaUserHandles ) == 0 )
+		return ;
+	
+	for( i = 0; i < max_handles; i ++ )
+	{
+		tVFS_Handle	*h;
+		h = &gaUserHandles[i];
+		if( !h->Node )
+			continue ;
+		if( h->Node->Type && h->Node->Type->Close )
+			h->Node->Type->Close( h->Node );
+	}
+}
+
+/**
+ * \brief Take a backup of a set of file descriptors
+ */
+void *VFS_SaveHandles(int NumFDs, int *FDs)
+{
+	tVFS_Handle	*ret;
+	 int	i;
+	 int	max_handles = *Threads_GetMaxFD();
+	
+	// Check if this process has any handles
+	if( MM_GetPhysAddr( (tVAddr)gaUserHandles ) == 0 )
+		return NULL;
+
+	// Allocate
+	ret = malloc( NumFDs * sizeof(tVFS_Handle) );
+	if( !ret )
+		return NULL;	
+
+	if( NumFDs > max_handles )
+		NumFDs = max_handles;
+
+	// Take copies of the handles
+	for( i = 0; i < NumFDs; i ++ )
+	{
+		tVFS_Handle	*h;
+		if( FDs == NULL )
+			h = &gaUserHandles[i];
+		else {
+			h = VFS_GetHandle(FDs[i] & (VFS_KERNEL_FLAG - 1));
+			if(!h) {
+				Log_Warning("VFS", "VFS_SaveHandles - Invalid FD %i",
+					FDs[i] & (VFS_KERNEL_FLAG - 1) );
+				free(ret);
+				return NULL;
+			}
+		}
+		memcpy( &ret[i], h, sizeof(tVFS_Handle) );
+		
+		// Reference node
+		if( !h->Node )
+			continue ;
+		if( h->Node->Type && h->Node->Type->Reference )
+			h->Node->Type->Reference( h->Node );
+	}	
+
+	return ret;
+}
+
+void VFS_RestoreHandles(int NumFDs, void *Handles)
+{
+	tVFS_Handle	*handles = Handles;
+	 int	i;
+
+	// NULL = nothing to do
+	if( !Handles )
+		return ;	
+
+	// Check if there is already a set of handles
+	if( MM_GetPhysAddr( (tVAddr)gaUserHandles ) != 0 )
+		return ;
+	
+	
+	// Allocate user handle area
+	{
+		Uint	addr, size;
+		 int	max_handles = *Threads_GetMaxFD();
+		size = max_handles * sizeof(tVFS_Handle);
+		for(addr = 0; addr < size; addr += 0x1000)
+		{
+			if( !MM_Allocate( (tVAddr)gaUserHandles + addr ) )
+			{
+				Warning("OOM - VFS_AllocHandle");
+				Threads_Exit(0, 0xFF);	// Terminate user
+			}
+		}
+		memset( gaUserHandles, 0, size );
+	}
+	
+	// Restore handles
+	memcpy(	gaUserHandles, handles, NumFDs * sizeof(tVFS_Handle) );
+	// Reference when copied
+	for( i = 0; i < NumFDs; i ++ )
+	{
+		tVFS_Handle	*h = &handles[i];
+	
+		if( !h->Node )
+			continue ;
+		if( h->Node->Type && h->Node->Type->Reference )
+			h->Node->Type->Reference( h->Node );
+	}
+}
+
+void VFS_FreeSavedHandles(int NumFDs, void *Handles)
+{
+	tVFS_Handle	*handles = Handles;
+	 int	i;
+
+	// NULL = nothing to do
+	if( !Handles )
+		return ;	
+	
+	// Dereference all saved nodes
+	for( i = 0; i < NumFDs; i ++ )
+	{
+		tVFS_Handle	*h = &handles[i];
+	
+		if( !h->Node )
+			continue ;
+		if( h->Node->Type && h->Node->Type->Close )
+			h->Node->Type->Close( h->Node );
+	}
+	free( Handles );
 }

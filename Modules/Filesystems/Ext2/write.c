@@ -12,7 +12,6 @@
 #include "ext2_common.h"
 
 // === PROTOYPES ===
-Uint64		Ext2_Write(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer);
 Uint32		Ext2_int_AllocateBlock(tExt2_Disk *Disk, Uint32 PrevBlock);
 void	Ext2_int_DeallocateBlock(tExt2_Disk *Disk, Uint32 Block);
  int	Ext2_int_AppendBlock(tExt2_Disk *Disk, tExt2_Inode *Inode, Uint32 Block);
@@ -22,7 +21,7 @@ void	Ext2_int_DeallocateBlock(tExt2_Disk *Disk, Uint32 Block);
  * \fn Uint64 Ext2_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
  * \brief Write to a file
  */
-Uint64 Ext2_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+Uint64 Ext2_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
 {
 	tExt2_Disk	*disk = Node->ImplPtr;
 	tExt2_Inode	inode;

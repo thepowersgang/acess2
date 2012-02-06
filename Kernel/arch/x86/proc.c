@@ -12,6 +12,7 @@
 # include <mp.h>
 #endif
 #include <hal_proc.h>
+#include <arch_int.h>
 
 // === FLAGS ===
 #define DEBUG_TRACE_SWITCH	0
@@ -44,12 +45,13 @@ extern void	APStartup(void);	// 16-bit AP startup code
 extern Uint	GetEIP(void);	// start.asm
 extern Uint	GetEIP_Sched(void);	// proc.asm
 extern void	NewTaskHeader(tThread *Thread, void *Fcn, int nArgs, ...);	// Actually takes cdecl args
-extern Uint	Proc_CloneInt(Uint *ESP, Uint32 *CR3);
+extern Uint	Proc_CloneInt(Uint *ESP, Uint32 *CR3, int bNoUserClone);
 extern Uint32	gaInitPageDir[1024];	// start.asm
 extern char	Kernel_Stack_Top[];
 extern int	giNumCPUs;
 extern int	giNextTID;
 extern tThread	gThreadZero;
+extern tProcess	gProcessZero;
 extern void	Isr8(void);	// Double Fault
 extern void	Proc_ReturnToUser(tVAddr Handler, Uint Argument, tVAddr KernelStack);
 extern char	scheduler_return[];	// Return address in SchedulerBase
@@ -372,7 +374,7 @@ void ArchThreads_Init(void)
 	gaCPUs[0].Current = &gThreadZero;
 	gThreadZero.CurCPU = 0;
 	
-	gThreadZero.MemState.CR3 = (Uint)gaInitPageDir - KERNEL_BASE;
+	gProcessZero.MemState.CR3 = (Uint)gaInitPageDir - KERNEL_BASE;
 	
 	// Create Per-Process Data Block
 	if( !MM_Allocate(MM_PPD_CFG) )
@@ -568,16 +570,20 @@ void Proc_ChangeStack(void)
 	__asm__ __volatile__ ("mov %0, %%ebp"::"r"(ebp));
 }
 
+void Proc_ClearProcess(tProcess *Process)
+{
+	MM_ClearSpace(Process->MemState.CR3);
+}
+
 void Proc_ClearThread(tThread *Thread)
 {
-	Log_Warning("Proc", "TODO: Nuke address space etc");
 	if(Thread->SavedState.SSE) {
 		free(Thread->SavedState.SSE);
 		Thread->SavedState.SSE = NULL;
 	}
 }
 
-int Proc_NewKThread(void (*Fcn)(void*), void *Data)
+tTID Proc_NewKThread(void (*Fcn)(void*), void *Data)
 {
 	Uint	esp;
 	tThread	*newThread, *cur;
@@ -586,9 +592,6 @@ int Proc_NewKThread(void (*Fcn)(void*), void *Data)
 	newThread = Threads_CloneTCB(0);
 	if(!newThread)	return -1;
 	
-	// Set CR3
-	newThread->MemState.CR3 = cur->MemState.CR3;
-
 	// Create new KStack
 	newThread->KernelStack = MM_NewKStack();
 	// Check for errors
@@ -618,7 +621,7 @@ int Proc_NewKThread(void (*Fcn)(void*), void *Data)
  * \fn int Proc_Clone(Uint *Err, Uint Flags)
  * \brief Clone the current process
  */
-int Proc_Clone(Uint Flags)
+tPID Proc_Clone(Uint Flags)
 {
 	tThread	*newThread;
 	tThread	*cur = Proc_GetCurThread();
@@ -637,9 +640,8 @@ int Proc_Clone(Uint Flags)
 	newThread->KernelStack = cur->KernelStack;
 
 	// Clone state
-	eip = Proc_CloneInt(&newThread->SavedState.ESP, &newThread->MemState.CR3);
+	eip = Proc_CloneInt(&newThread->SavedState.ESP, &newThread->Process->MemState.CR3, Flags & CLONE_NOUSER);
 	if( eip == 0 ) {
-		// ACK the interrupt
 		return 0;
 	}
 	newThread->SavedState.EIP = eip;
@@ -647,7 +649,7 @@ int Proc_Clone(Uint Flags)
 	newThread->SavedState.bSSEModified = 0;
 	
 	// Check for errors
-	if( newThread->MemState.CR3 == 0 ) {
+	if( newThread->Process->MemState.CR3 == 0 ) {
 		Log_Error("Proc", "Proc_Clone: MM_Clone failed");
 		Threads_Delete(newThread);
 		return -1;
@@ -725,16 +727,16 @@ Uint Proc_MakeUserStack(void)
 	return base + USER_STACK_SZ;
 }
 
-void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, char **ArgV, int DataSize)
+void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, const char **ArgV, int DataSize)
 {
 	Uint	*stack;
 	 int	i;
-	char	**envp = NULL;
+	const char	**envp = NULL;
 	Uint16	ss, cs;
 	
 	// Copy data to the user stack and free original buffer
 	stack = (void*)Proc_MakeUserStack();
-	stack -= DataSize/sizeof(*stack);
+	stack -= (DataSize+sizeof(*stack)-1)/sizeof(*stack);
 	memcpy( stack, ArgV, DataSize );
 	free(ArgV);
 	
@@ -742,7 +744,7 @@ void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, char **ArgV, int DataS
 	if( DataSize )
 	{
 		Uint delta = (Uint)stack - (Uint)ArgV;
-		ArgV = (char**)stack;
+		ArgV = (const char**)stack;
 		for( i = 0; ArgV[i]; i++ )	ArgV[i] += delta;
 		envp = &ArgV[i+1];
 		for( i = 0; envp[i]; i++ )	envp[i] += delta;
@@ -927,10 +929,11 @@ void Proc_Reschedule(void)
 		LogF("\nSwitching CPU %i to %p (%i %s) - CR3 = 0x%x, EIP = %p, ESP = %p\n",
 			GetCPUNum(),
 			nextthread, nextthread->TID, nextthread->ThreadName,
-			nextthread->MemState.CR3,
+			nextthread->Process->MemState.CR3,
 			nextthread->SavedState.EIP,
 			nextthread->SavedState.ESP
 			);
+		LogF("OldCR3 = %P\n", curthread->Process->MemState.CR3);
 	}
 	#endif
 
@@ -952,7 +955,7 @@ void Proc_Reschedule(void)
 		SwitchTasks(
 			nextthread->SavedState.ESP, &curthread->SavedState.ESP,
 			nextthread->SavedState.EIP, &curthread->SavedState.EIP,
-			nextthread->MemState.CR3
+			nextthread->Process->MemState.CR3
 			);
 	}
 	else
@@ -960,7 +963,7 @@ void Proc_Reschedule(void)
 		SwitchTasks(
 			nextthread->SavedState.ESP, 0,
 			nextthread->SavedState.EIP, 0,
-			nextthread->MemState.CR3
+			nextthread->Process->MemState.CR3
 			);
 	}
 
@@ -973,6 +976,7 @@ void Proc_Reschedule(void)
  */
 void Proc_Scheduler(int CPU)
 {
+#if 0
 	tThread	*thread;
 	
 	// If the spinlock is set, let it complete
@@ -1005,7 +1009,6 @@ void Proc_Scheduler(int CPU)
 			regs->eflags &= ~0x100;	// Clear TF
 	}
 
-#if 0
 	// TODO: Ack timer?
 	#if USE_MP
 	if( GetCPUNum() )

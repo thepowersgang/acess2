@@ -13,10 +13,10 @@
 
 // === PROTOTYPES ===
  int	VGA_Install(char **Arguments);
-Uint64	VGA_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
+Uint64	VGA_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer);
  int	VGA_IOCtl(tVFS_Node *Node, int Id, void *Data);
 Uint8	VGA_int_GetColourNibble(Uint16 col);
-Uint16	VGA_int_GetWord(tVT_Char *Char);
+Uint16	VGA_int_GetWord(const tVT_Char *Char);
 void	VGA_int_SetCursor(Sint16 x, Sint16 y);
 // --- 2D Acceleration Functions --
 void	VGA_2D_Fill(void *Ent, Uint16 X, Uint16 Y, Uint16 W, Uint16 H, Uint32 Colour);
@@ -24,14 +24,17 @@ void	VGA_2D_Blit(void *Ent, Uint16 DstX, Uint16 DstY, Uint16 SrcX, Uint16 SrcY, 
 
 // === GLOBALS ===
 MODULE_DEFINE(0, 0x000A, x86_VGAText, VGA_Install, NULL, NULL);
+tVFS_NodeType	gVGA_NodeType = {
+	//.Read = VGA_Read,
+	.Write = VGA_Write,
+	.IOCtl = VGA_IOCtl
+	};
 tDevFS_Driver	gVGA_DevInfo = {
 	NULL, "x86_VGAText",
 	{
 	.NumACLs = 0,
 	.Size = VGA_WIDTH*VGA_HEIGHT*sizeof(tVT_Char),
-	//.Read = VGA_Read,
-	.Write = VGA_Write,
-	.IOCtl = VGA_IOCtl
+	.Type = &gVGA_NodeType
 	}
 };
 Uint16	*gVGA_Framebuffer = (void*)( KERNEL_BASE|0xB8000 );
@@ -65,17 +68,16 @@ int VGA_Install(char **Arguments)
 }
 
 /**
- * \fn Uint64 VGA_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
  * \brief Writes a string of bytes to the VGA controller
  */
-Uint64 VGA_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+Uint64 VGA_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
 {
 	if( giVGA_BufferFormat == VIDEO_BUFFMT_TEXT )
 	{
 		 int	num = Length / sizeof(tVT_Char);
 		 int	ofs = Offset / sizeof(tVT_Char);
 		 int	i = 0;
-		tVT_Char	*chars = Buffer;
+		const tVT_Char	*chars = Buffer;
 		Uint16	word;
 		
 		//ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
@@ -197,7 +199,7 @@ Uint8 VGA_int_GetColourNibble(Uint16 col)
  * \fn Uint16 VGA_int_GetWord(tVT_Char *Char)
  * \brief Convers a character structure to a VGA character word
  */
-Uint16 VGA_int_GetWord(tVT_Char *Char)
+Uint16 VGA_int_GetWord(const tVT_Char *Char)
 {
 	Uint16	ret;
 	Uint16	col;

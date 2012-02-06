@@ -6,11 +6,11 @@ SYS_KILL	Send a signal
 SYS_SETFAULTHANDLER	Set signal Handler
 SYS_YIELD	Yield remainder of timestamp
 SYS_SLEEP	Sleep until messaged or signaled
-SYS_WAIT	Wait for a time or a message
+SYS_WAITEVENT	Wait for an event
 SYS_WAITTID	Wait for a thread to do something
 
-SYS_SETNAME	Set's the name of the current thread
-SYS_GETNAME	Get's the name of a thread
+SYS_SETNAME	Sets the name of the current thread
+SYS_GETNAME	Gets the name of a thread
 SYS_GETTID	Get current thread ID
 SYS_GETPID	Get current thread group ID
 SYS_SETPRI	Set process priority

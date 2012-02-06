@@ -49,6 +49,7 @@ extern int	giNextTID;
 extern int	giTotalTickets;
 extern int	giNumActiveThreads;
 extern tThread	gThreadZero;
+extern tProcess	gProcessZero;
 extern void	Threads_Dump(void);
 extern void	Proc_ReturnToUser(tVAddr Handler, tVAddr KStackTop, int Argument);
 extern void	Time_UpdateTimestamp(void);
@@ -310,7 +311,7 @@ void ArchThreads_Init(void)
 	
 	gaCPUs[0].Current = &gThreadZero;
 	
-	gThreadZero.MemState.CR3 = (Uint)gInitialPML4 - KERNEL_BASE;
+	gProcessZero.MemState.CR3 = (Uint)gInitialPML4 - KERNEL_BASE;
 	gThreadZero.CurCPU = 0;
 	gThreadZero.KernelStack = 0xFFFFA00000000000 + KERNEL_STACK_SIZE;
 	
@@ -405,6 +406,7 @@ void Proc_Start(void)
 	
 	// BSP still should run the current task
 	gaCPUs[0].Current = &gThreadZero;
+	__asm__ __volatile__ ("mov %0, %%db0" : : "r"(&gThreadZero));
 	
 	// Start interrupts and wait for APs to come up
 	Log("Waiting for APs to come up\n");
@@ -427,10 +429,17 @@ void Proc_Start(void)
 tThread *Proc_GetCurThread(void)
 {
 	#if USE_MP
-	return gaCPUs[ GetCPUNum() ].Current;
+	tThread	*ret;
+	__asm__ __volatile__ ("mov %%db0, %0" : "=r"(thread));
+	return ret;	// gaCPUs[ GetCPUNum() ].Current;
 	#else
 	return gaCPUs[ 0 ].Current;
 	#endif
+}
+
+void Proc_ClearProcess(tProcess *Process)
+{
+	Log_Warning("Proc", "TODO: Nuke address space etc");
 }
 
 /*
@@ -438,13 +447,12 @@ tThread *Proc_GetCurThread(void)
  */
 void Proc_ClearThread(tThread *Thread)
 {
-	Log_Warning("Proc", "TODO: Nuke address space etc");
 }
 
 /**
  * \brief Create a new kernel thread
  */
-int Proc_NewKThread(void (*Fcn)(void*), void *Data)
+tTID Proc_NewKThread(void (*Fcn)(void*), void *Data)
 {
 	Uint	rsp;
 	tThread	*newThread, *cur;
@@ -453,9 +461,6 @@ int Proc_NewKThread(void (*Fcn)(void*), void *Data)
 	newThread = Threads_CloneTCB(0);
 	if(!newThread)	return -1;
 	
-	// Set CR3
-	newThread->MemState.CR3 = cur->MemState.CR3;
-
 	// Create new KStack
 	newThread->KernelStack = MM_NewKStack();
 	// Check for errors
@@ -466,7 +471,6 @@ int Proc_NewKThread(void (*Fcn)(void*), void *Data)
 
 	rsp = newThread->KernelStack;
 	*(Uint*)(rsp-=8) = (Uint)Data;	// Data (shadowed)
-	*(Uint*)(rsp-=8) = 1;	// Number of params
 	*(Uint*)(rsp-=8) = (Uint)Fcn;	// Function to call
 	*(Uint*)(rsp-=8) = (Uint)newThread;	// Thread ID
 	
@@ -485,7 +489,7 @@ int Proc_NewKThread(void (*Fcn)(void*), void *Data)
  * \fn int Proc_Clone(Uint Flags)
  * \brief Clone the current process
  */
-int Proc_Clone(Uint Flags)
+tTID Proc_Clone(Uint Flags)
 {
 	tThread	*newThread, *cur = Proc_GetCurThread();
 	Uint	rip;
@@ -501,7 +505,7 @@ int Proc_Clone(Uint Flags)
 	if(!newThread)	return -1;
 	
 	// Save core machine state
-	rip = Proc_CloneInt(&newThread->SavedState.RSP, &newThread->MemState.CR3);
+	rip = Proc_CloneInt(&newThread->SavedState.RSP, &newThread->Process->MemState.CR3);
 	if(rip == 0)	return 0;	// Child
 	newThread->KernelStack = cur->KernelStack;
 	newThread->SavedState.RIP = rip;
@@ -531,28 +535,24 @@ int Proc_Clone(Uint Flags)
 int Proc_SpawnWorker(void (*Fcn)(void*), void *Data)
 {
 	tThread	*new, *cur;
-	Uint	stack_contents[4];
+	Uint	stack_contents[3];
 
 	cur = Proc_GetCurThread();
 	
 	// Create new thread
-	new = malloc( sizeof(tThread) );
+	new = Threads_CloneThreadZero();
 	if(!new) {
 		Warning("Proc_SpawnWorker - Out of heap space!\n");
 		return -1;
 	}
-	memcpy(new, &gThreadZero, sizeof(tThread));
-	// Set Thread ID
-	new->TID = giNextTID++;
 
 	// Create the stack contents
-	stack_contents[3] = (Uint)Data;
-	stack_contents[2] = 1;
+	stack_contents[2] = (Uint)Data;
 	stack_contents[1] = (Uint)Fcn;
 	stack_contents[0] = (Uint)new;
 	
 	// Create a new worker stack (in PID0's address space)
-	// The stack is relocated by this code
+	// - The stack is built by this code using stack_contents
 	new->KernelStack = MM_NewWorkerStack(stack_contents, sizeof(stack_contents));
 
 	new->SavedState.RSP = new->KernelStack - sizeof(stack_contents);
@@ -586,10 +586,12 @@ Uint Proc_MakeUserStack(void)
 	if(i != -1)	return 0;
 	
 	// Allocate Stack - Allocate incrementally to clean up MM_Dump output
+	// - Most of the user stack is the zero page
 	for( i = 0; i < (USER_STACK_SZ-USER_STACK_PREALLOC)/0x1000; i++ )
 	{
 		MM_AllocateZero( base + (i<<12) );
 	}
+	// - but the top USER_STACK_PREALLOC pages are actually allocated
 	for( ; i < USER_STACK_SZ/0x1000; i++ )
 	{
 		tPAddr	alloc = MM_Allocate( base + (i<<12) );
@@ -606,11 +608,11 @@ Uint Proc_MakeUserStack(void)
 	return base + USER_STACK_SZ;
 }
 
-void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, char **ArgV, int DataSize)
+void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, const char **ArgV, int DataSize)
 {
 	Uint	*stack;
 	 int	i;
-	char	**envp = NULL;
+	const char	**envp = NULL;
 	Uint16	ss, cs;
 	
 	
@@ -628,7 +630,7 @@ void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, char **ArgV, int DataS
 	if(DataSize)
 	{
 		Uint	delta = (Uint)stack - (Uint)ArgV;
-		ArgV = (char**)stack;
+		ArgV = (const char**)stack;
 		for( i = 0; ArgV[i]; i++ )	ArgV[i] += delta;
 		envp = &ArgV[i+1];
 		for( i = 0; envp[i]; i++ )	envp[i] += delta;
@@ -744,7 +746,7 @@ void Proc_Reschedule(void)
 
 	#if DEBUG_TRACE_SWITCH
 	LogF("\nSwitching to task CR3 = 0x%x, RIP = %p, RSP = %p - %i (%s)\n",
-		nextthread->MemState.CR3,
+		nextthread->Process->MemState.CR3,
 		nextthread->SavedState.RIP,
 		nextthread->SavedState.RSP,
 		nextthread->TID,
@@ -757,19 +759,30 @@ void Proc_Reschedule(void)
 	gTSSs[cpu].RSP0 = nextthread->KernelStack-4;
 	__asm__ __volatile__ ("mov %0, %%db0" : : "r" (nextthread));
 
-	// Save FPU/MMX/XMM/SSE state
-	if( curthread->SavedState.SSE )
+	if( curthread )
 	{
-		Proc_SaveSSE( ((Uint)curthread->SavedState.SSE + 0xF) & ~0xF );
-		curthread->SavedState.bSSEModified = 0;
-		Proc_DisableSSE();
+		// Save FPU/MMX/XMM/SSE state
+		if( curthread->SavedState.SSE )
+		{
+			Proc_SaveSSE( ((Uint)curthread->SavedState.SSE + 0xF) & ~0xF );
+			curthread->SavedState.bSSEModified = 0;
+			Proc_DisableSSE();
+		}
+		SwitchTasks(
+			nextthread->SavedState.RSP, &curthread->SavedState.RSP,
+			nextthread->SavedState.RIP, &curthread->SavedState.RIP,
+			nextthread->Process->MemState.CR3
+			);
 	}
-
-	SwitchTasks(
-		nextthread->SavedState.RSP, &curthread->SavedState.RSP,
-		nextthread->SavedState.RIP, &curthread->SavedState.RIP,
-		nextthread->MemState.CR3
-		);
+	else
+	{
+		Uint	tmp;
+		SwitchTasks(
+			nextthread->SavedState.RSP, &tmp,
+			nextthread->SavedState.RIP, &tmp,
+			nextthread->Process->MemState.CR3
+			);
+	}
 	return ;
 }
 
@@ -780,7 +793,6 @@ void Proc_Reschedule(void)
 void Proc_Scheduler(int CPU, Uint RSP, Uint RIP)
 {
 #if 0
-	{
 	tThread	*thread;
 
 	// If the spinlock is set, let it complete
@@ -808,7 +820,6 @@ void Proc_Scheduler(int CPU, Uint RSP, Uint RIP)
 	// ACK Timer here?
 
 	Proc_Reschedule();
-	}
 #endif
 }
 

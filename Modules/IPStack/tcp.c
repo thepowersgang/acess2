@@ -40,7 +40,7 @@ void	TCP_Server_Close(tVFS_Node *Node);
 // --- Client
 tVFS_Node	*TCP_Client_Init(tInterface *Interface);
 Uint64	TCP_Client_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
-Uint64	TCP_Client_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
+Uint64	TCP_Client_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer);
  int	TCP_Client_IOCtl(tVFS_Node *Node, int ID, void *Data);
 void	TCP_Client_Close(tVFS_Node *Node);
 // --- Helpers
@@ -49,6 +49,20 @@ void	TCP_Client_Close(tVFS_Node *Node);
 // === TEMPLATES ===
 tSocketFile	gTCP_ServerFile = {NULL, "tcps", TCP_Server_Init};
 tSocketFile	gTCP_ClientFile = {NULL, "tcpc", TCP_Client_Init};
+tVFS_NodeType	gTCP_ServerNodeType = {
+	.TypeName = "TCP Server",
+	.ReadDir = TCP_Server_ReadDir,
+	.FindDir = TCP_Server_FindDir,
+	.IOCtl   = TCP_Server_IOCtl,
+	.Close   = TCP_Server_Close
+	};
+tVFS_NodeType	gTCP_ClientNodeType = {
+	.TypeName = "TCP Client/Connection",
+	.Read  = TCP_Client_Read,
+	.Write = TCP_Client_Write,
+	.IOCtl = TCP_Client_IOCtl,
+	.Close = TCP_Client_Close
+	};
 
 // === GLOBALS ===
  int	giTCP_NumHalfopen = 0;
@@ -136,9 +150,9 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 	tTCPConnection	*conn;
 
 	Log_Log("TCP", "TCP_GetPacket: <Local>:%i from [%s]:%i, Flags= %s%s%s%s%s%s%s%s",
-		ntohs(hdr->SourcePort),
-		IPStack_PrintAddress(Interface->Type, Address),
 		ntohs(hdr->DestPort),
+		IPStack_PrintAddress(Interface->Type, Address),
+		ntohs(hdr->SourcePort),
 		(hdr->Flags & TCP_FLAG_CWR) ? "CWR " : "",
 		(hdr->Flags & TCP_FLAG_ECE) ? "ECE " : "",
 		(hdr->Flags & TCP_FLAG_URG) ? "URG " : "",
@@ -185,7 +199,11 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 				if(conn->RemotePort != ntohs(hdr->SourcePort))	continue;
 
 				// Check Source IP
-				if( IPStack_CompareAddress(conn->Interface->Type, &conn->RemoteIP, Address, -1) != 0 )
+				Log_Debug("TCP", "TCP_GetPacket: conn->RemoteIP(%s)",
+					IPStack_PrintAddress(conn->Interface->Type, &conn->RemoteIP));
+				Log_Debug("TCP", "                == Address(%s)",
+					IPStack_PrintAddress(conn->Interface->Type, Address));
+				if( IPStack_CompareAddress(conn->Interface->Type, &conn->RemoteIP, Address, -1) == 0 )
 					continue ;
 
 				Log_Log("TCP", "TCP_GetPacket: Matches connection %p", conn);
@@ -226,9 +244,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 			conn->Node.ACLs = &gVFS_ACL_EveryoneRW;
 			conn->Node.ImplPtr = conn;
 			conn->Node.ImplInt = srv->NextID ++;
-			conn->Node.Read = TCP_Client_Read;
-			conn->Node.Write = TCP_Client_Write;
-			//conn->Node.Close = TCP_SrvConn_Close;
+			conn->Node.Type = &gTCP_ClientNodeType;	// TODO: Special type for the server end?
 			
 			// Hmm... Theoretically, this lock will never have to wait,
 			// as the interface is locked to the watching thread, and this
@@ -244,6 +260,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 			srv->ConnectionsTail = conn;
 			if(!srv->NewConnections)
 				srv->NewConnections = conn;
+			VFS_MarkAvaliable( &srv->Node, 1 );
 			SHORTREL(&srv->lConnections);
 
 			// Send the SYN ACK
@@ -764,7 +781,7 @@ Uint16 TCP_GetUnusedPort()
 
 	// Get Next outbound port
 	ret = giTCP_NextOutPort++;
-	while( gaTCP_PortBitmap[ret/32] & (1 << (ret%32)) )
+	while( gaTCP_PortBitmap[ret/32] & (1UL << (ret%32)) )
 	{
 		ret ++;
 		giTCP_NextOutPort++;
@@ -816,7 +833,7 @@ tVFS_Node *TCP_Server_Init(tInterface *Interface)
 {
 	tTCPListener	*srv;
 	
-	srv = malloc( sizeof(tTCPListener) );
+	srv = calloc( 1, sizeof(tTCPListener) );
 
 	if( srv == NULL ) {
 		Log_Warning("TCP", "malloc failed for listener (%i) bytes", sizeof(tTCPListener));
@@ -835,10 +852,7 @@ tVFS_Node *TCP_Server_Init(tInterface *Interface)
 	srv->Node.ImplPtr = srv;
 	srv->Node.NumACLs = 1;
 	srv->Node.ACLs = &gVFS_ACL_EveryoneRW;
-	srv->Node.ReadDir = TCP_Server_ReadDir;
-	srv->Node.FindDir = TCP_Server_FindDir;
-	srv->Node.IOCtl = TCP_Server_IOCtl;
-	srv->Node.Close = TCP_Server_Close;
+	srv->Node.Type = &gTCP_ServerNodeType;
 
 	SHORTLOCK(&glTCP_Listeners);
 	srv->Next = gTCP_Listeners;
@@ -869,7 +883,6 @@ char *TCP_Server_ReadDir(tVFS_Node *Node, int Pos)
 		if( srv->NewConnections != NULL )	break;
 		SHORTREL( &srv->lConnections );
 		Threads_Yield();	// TODO: Sleep until poked
-		continue;
 	}
 	
 
@@ -877,6 +890,9 @@ char *TCP_Server_ReadDir(tVFS_Node *Node, int Pos)
 	// normal list)
 	conn = srv->NewConnections;
 	srv->NewConnections = conn->Next;
+
+	if( srv->NewConnections == NULL )
+		VFS_MarkAvaliable( Node, 0 );
 	
 	SHORTREL( &srv->lConnections );
 	
@@ -905,37 +921,56 @@ tVFS_Node *TCP_Server_FindDir(tVFS_Node *Node, const char *Name)
 	 int	id = atoi(Name);
 	
 	ENTER("pNode sName", Node, Name);
-	
-	// Sanity Check
-	itoa(tmp, id, 16, 8, '0');
-	if(strcmp(tmp, Name) != 0) {
-		LOG("'%s' != '%s' (%08x)", Name, tmp, id);
-		LEAVE('n');
-		return NULL;
+
+	// Check for a non-empty name
+	if( Name[0] ) 
+	{	
+		// Sanity Check
+		itoa(tmp, id, 16, 8, '0');
+		if(strcmp(tmp, Name) != 0) {
+			LOG("'%s' != '%s' (%08x)", Name, tmp, id);
+			LEAVE('n');
+			return NULL;
+		}
+		
+		Log_Debug("TCP", "srv->Connections = %p", srv->Connections);
+		Log_Debug("TCP", "srv->NewConnections = %p", srv->NewConnections);
+		Log_Debug("TCP", "srv->ConnectionsTail = %p", srv->ConnectionsTail);
+		
+		// Search
+		SHORTLOCK( &srv->lConnections );
+		for(conn = srv->Connections;
+			conn;
+			conn = conn->Next)
+		{
+			LOG("conn->Node.ImplInt = %i", conn->Node.ImplInt);
+			if(conn->Node.ImplInt == id)	break;
+		}
+		SHORTREL( &srv->lConnections );
+
+		// If not found, ret NULL
+		if(!conn) {
+			LOG("Connection %i not found", id);
+			LEAVE('n');
+			return NULL;
+		}
 	}
-	
-	Log_Debug("TCP", "srv->Connections = %p", srv->Connections);
-	Log_Debug("TCP", "srv->NewConnections = %p", srv->NewConnections);
-	Log_Debug("TCP", "srv->ConnectionsTail = %p", srv->ConnectionsTail);
-	
-	// Search
-	SHORTLOCK( &srv->lConnections );
-	for(conn = srv->Connections;
-		conn;
-		conn = conn->Next)
+	// Empty Name - Check for a new connection and if it's there, open it
+	else
 	{
-		LOG("conn->Node.ImplInt = %i", conn->Node.ImplInt);
-		if(conn->Node.ImplInt == id)	break;
+		SHORTLOCK( &srv->lConnections );
+		conn = srv->NewConnections;
+		if( conn != NULL )
+			srv->NewConnections = conn->Next;
+		VFS_MarkAvaliable( Node, srv->NewConnections != NULL );
+		SHORTREL( &srv->lConnections );
+		if( !conn ) {
+			LOG("No new connections");
+			LEAVE('n');
+			return NULL;
+		}
 	}
-	SHORTREL( &srv->lConnections );
-	
-	// If not found, ret NULL
-	if(!conn) {
-		LOG("Connection %i not found", id);
-		LEAVE('n');
-		return NULL;
-	}
-	
+		
 	// Return node
 	LEAVE('p', &conn->Node);
 	return &conn->Node;
@@ -1003,10 +1038,7 @@ tVFS_Node *TCP_Client_Init(tInterface *Interface)
 	conn->Node.ImplPtr = conn;
 	conn->Node.NumACLs = 1;
 	conn->Node.ACLs = &gVFS_ACL_EveryoneRW;
-	conn->Node.Read = TCP_Client_Read;
-	conn->Node.Write = TCP_Client_Write;
-	conn->Node.IOCtl = TCP_Client_IOCtl;
-	conn->Node.Close = TCP_Client_Close;
+	conn->Node.Type = &gTCP_ClientNodeType;
 
 	conn->RecievedBuffer = RingBuffer_Create( TCP_RECIEVE_BUFFER_SIZE );
 	#if 0
@@ -1086,7 +1118,7 @@ Uint64 TCP_Client_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buff
 /**
  * \brief Send a data packet on a connection
  */
-void TCP_INT_SendDataPacket(tTCPConnection *Connection, size_t Length, void *Data)
+void TCP_INT_SendDataPacket(tTCPConnection *Connection, size_t Length, const void *Data)
 {
 	char	buf[sizeof(tTCPHeader)+Length];
 	tTCPHeader	*packet = (void*)buf;
@@ -1115,7 +1147,7 @@ void TCP_INT_SendDataPacket(tTCPConnection *Connection, size_t Length, void *Dat
 /**
  * \brief Send some bytes on a connection
  */
-Uint64 TCP_Client_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+Uint64 TCP_Client_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
 {
 	tTCPConnection	*conn = Node->ImplPtr;
 	size_t	rem = Length;

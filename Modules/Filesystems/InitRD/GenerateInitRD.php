@@ -98,8 +98,7 @@ tVFS_Node {$prefix}_{$i} = {
 	.Size = $size,
 	.Inode = {$inode},
 	.ImplPtr = {$prefix}_{$i}_entries,
-	.ReadDir = InitRD_ReadDir,
-	.FindDir = InitRD_FindDir
+	.Type = &gInitRD_DirType
 };
 
 EOF;
@@ -161,7 +160,7 @@ tVFS_Node {$prefix}_{$i} = {
 	.Size = $size,
 	.Inode = {$inode},
 	.ImplPtr = $_sym,
-	.Read = InitRD_ReadFile
+	.Type = &gInitRD_FileType
 };
 
 EOF;
@@ -189,8 +188,7 @@ tVFS_Node gInitRD_RootNode = {
 	.Flags = VFS_FFLAG_DIRECTORY,
 	.Size = $nRootFiles,
 	.ImplPtr = gInitRD_Root_Files,
-	.ReadDir = InitRD_ReadDir,
-	.FindDir = InitRD_FindDir
+	.Type = &gInitRD_DirType
 };
 EOF;
 

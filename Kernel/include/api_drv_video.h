@@ -435,7 +435,7 @@ typedef struct sDrvUtil_Video_2DHandlers
  * \param SizeofHandlers	Size of \a tDrvUtil_Video_2DHandlers according
  *        to the driver. Used as version control and error avoidence.
  */
-extern int	DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
+extern int	DrvUtil_Video_2DStream(void *Ent, const void *Buffer, int Length,
 	tDrvUtil_Video_2DHandlers *Handlers, int SizeofHandlers);
 
 /**
@@ -449,7 +449,7 @@ extern int	DrvUtil_Video_2DStream(void *Ent, void *Buffer, int Length,
  * Handles all write modes in software, using the VT font calls for rendering.
  * \note Calls the cursor clear and redraw if the cursor area is touched
  */
-extern int	DrvUtil_Video_WriteLFB(tDrvUtil_Video_BufInfo *FBInfo, size_t Offset, size_t Length, void *Src);
+extern int	DrvUtil_Video_WriteLFB(tDrvUtil_Video_BufInfo *FBInfo, size_t Offset, size_t Length, const void *Src);
 
 /**
  * \name Software cursor rendering

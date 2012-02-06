@@ -90,6 +90,24 @@ MODULE_DEFINE(0, (0<<8)|50 /*v0.50*/, VFAT, FAT_Install, NULL, NULL);
 tFAT_VolInfo	gFAT_Disks[8];
  int	giFAT_PartCount = 0;
 tVFS_Driver	gFAT_FSInfo = {"fat", 0, FAT_InitDevice, FAT_Unmount, FAT_GetNodeFromINode, NULL};
+tVFS_NodeType	gFAT_DirType = {
+	.TypeName = "FAT-Dir",
+	.ReadDir = FAT_ReadDir,
+	.FindDir = FAT_FindDir,
+	#if SUPPORT_WRITE
+	.MkNod = FAT_Mknod,
+	.Relink = FAT_Relink,
+	#endif
+	.Close = FAT_CloseFile
+	};
+tVFS_NodeType	gFAT_FileType = {
+	.TypeName = "FAT-File",
+	.Read = FAT_Read,
+	#if SUPPORT_WRITE
+	.Write = FAT_Write,
+	#endif
+	.Close = FAT_CloseFile
+	};
 
 // === CODE ===
 /**
@@ -273,18 +291,8 @@ tVFS_Node *FAT_InitDevice(const char *Device, const char **Options)
 	node->ACLs = &gVFS_ACL_EveryoneRWX;
 	node->Flags = VFS_FFLAG_DIRECTORY;
 	node->CTime = node->MTime = node->ATime = now();
-	
-	node->Read = node->Write = NULL;
-	node->ReadDir = FAT_ReadDir;
-	node->FindDir = FAT_FindDir;
-	#if SUPPORT_WRITE
-	node->Relink = FAT_Relink;
-	node->MkNod = FAT_Mknod;
-	#else
-	node->Relink = NULL;
-	node->MkNod = NULL;
-	#endif
-	//node->Close = FAT_Unmount;
+
+	node->Type = &gFAT_DirType;	
 	
 	giFAT_PartCount ++;
 	return node;
@@ -977,21 +985,12 @@ tVFS_Node *FAT_int_CreateNode(tVFS_Node *Parent, fat_filetable *Entry, int Pos)
 	// Set pointers
 	if(node.Flags & VFS_FFLAG_DIRECTORY) {
 		//Log_Debug("FAT", "Directory %08x has size 0x%x", node.Inode, node.Size);
-		node.ReadDir = FAT_ReadDir;
-		node.FindDir = FAT_FindDir;
-		#if SUPPORT_WRITE
-		node.MkNod = FAT_Mknod;
-		node.Relink = FAT_Relink;
-		#endif
+		node.Type = &gFAT_DirType;	
 		node.Size = -1;
 	}
 	else {
-		node.Read = FAT_Read;
-		#if SUPPORT_WRITE
-		node.Write = FAT_Write;
-		#endif
+		node.Type = &gFAT_FileType;
 	}
-	node.Close = FAT_CloseFile;
 	
 	ret = Inode_CacheNode(disk->inodeHandle, &node);
 	LEAVE('p', ret);
