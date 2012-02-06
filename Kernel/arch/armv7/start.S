@@ -45,12 +45,11 @@ _start:
 	mrc p15, 0, r0, c1, c0, 0
 	orr r0, r0, #1
 	orr r0, r0, #1 << 23
-	mvn r1, #1 << 2
-	and r0, r0, r1
 	mcr p15, 0, r0, c1, c0, 0
 
-	@ HACK! Disable caching
-	mrc p15, 0, r1, c1, c0, 0
+	@ HACK: Set ASID to non zero
+	mov r0, #1
+	MCR p15,0,r0,c13,c0,1
 
 	ldr r2, =0xF1000000
 	mov r1, #'s'

@@ -121,7 +121,7 @@ const Uint16	caVT100Colours[] = {
 	};
 
 // === GLOBALS ===
-MODULE_DEFINE(0, VERSION, VTerm, VT_Install, NULL, DEFAULT_INPUT, NULL);
+MODULE_DEFINE(0, VERSION, VTerm, VT_Install, NULL, NULL);
 tDevFS_Driver	gVT_DrvInfo = {
 	NULL, "VTerm",
 	{
@@ -211,6 +211,9 @@ int VT_Install(char **Arguments)
 	
 	if(!gsVT_InputDevice)	gsVT_InputDevice = (char*)DEFAULT_INPUT;
 	else if( Module_EnsureLoaded( gsVT_InputDevice ) )	gsVT_InputDevice = (char*)DEFAULT_INPUT;
+	if( Module_EnsureLoaded( gsVT_OutputDevice ) ) {
+		Log_Error("VTerm", "Fallback input '%s' is not avaliable, input will not be avaliable", DEFAULT_INPUT);
+	}
 	
 	// Create device paths
 	{

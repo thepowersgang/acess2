@@ -37,7 +37,7 @@ typedef struct
 #define FRACTAL(table1, addr)	((table1)[ (0xFF8/4*1024) + ((addr)>>22)])
 #define USRFRACTAL(addr)	(*((Uint32*)(0x7FDFF000) + ((addr)>>22)))
 #define TLBIALL()	__asm__ __volatile__ ("mcr p15, 0, %0, c8, c7, 0" : : "r" (0))
-#define TLBIMVA(addr)	__asm__ __volatile__ ("mcr p15, 0, %0, c8, c7, 1;dsb;isb" : : "r" ((addr)&~0xFFF):"memory")
+#define TLBIMVA(addr)	__asm__ __volatile__ ("mcr p15, 0, %0, c8, c7, 1;dsb;isb" : : "r" (((addr)&~0xFFF)|1):"memory")
 #define DCCMVAC(addr)	__asm__ __volatile__ ("mcr p15, 0, %0, c7, c10, 1" : : "r" ((addr)&~0xFFF))
 
 // === PROTOTYPES ===
@@ -166,8 +166,8 @@ int MM_int_SetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 				*desc = 0;
 				TLBIMVA( VAddr );
 				DCCMVAC( (tVAddr) desc );
-				#warning "HACK: TLBIALL"
-				TLBIALL();
+//				#warning "HACK: TLBIALL"
+//				TLBIALL();				
 				LEAVE('i', 0);
 				return 0;
 			}
@@ -179,8 +179,8 @@ int MM_int_SetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 			*desc |= (pi->AP & 3) << 4;	// AP
 			*desc |= ((pi->AP >> 2) & 1) << 9;	// APX
 			TLBIMVA( VAddr );	
-			#warning "HACK: TLBIALL"
-			TLBIALL();
+//			#warning "HACK: TLBIALL"
+//			TLBIALL();
 			DCCMVAC( (tVAddr) desc );
 			LEAVE('i', 0);
 			return 0;

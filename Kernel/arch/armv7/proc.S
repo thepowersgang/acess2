@@ -46,8 +46,8 @@ SwitchTask:
 	ldr r1, [sp,#4*10]
 	tst r1, r1
 	mcrne p15, 0, r1, c2, c0, 0	@ Set TTBR0 to r0
-	mov r1, #0
-	mcrne p15, 0, r1, c8, c7, 0	@ TLBIALL - Invalidate all
+#	mov r1, #1
+	mcrne p15, 0, r1, c8, c7, 0	@ TLBIALL - Invalid user space
 
 	@ Restore SP
 	mov sp, r0
