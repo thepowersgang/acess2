@@ -5,16 +5,20 @@
  * Timer Code
  */
 #include <acess.h>
+#include <timers.h>
+#include <events.h>
+#include <hal_proc.h>	// Proc_GetCurThread
 
 // === CONSTANTS ===
 #define	NUM_TIMERS	8
 
 // === TYPEDEFS ===
-typedef struct sTimer {
-	 int	FiresAfter;
+struct sTimer {
+	tTimer	*Next;
+	Sint64	FiresAfter;
 	void	(*Callback)(void*);
 	void	*Argument;
-} tTimer;
+};
 
 // === PROTOTYPES ===
 void	Timer_CallTimers(void);
@@ -23,7 +27,7 @@ void	Timer_CallTimers(void);
 volatile Uint64	giTicks = 0;
 volatile Sint64	giTimestamp = 0;
 volatile Uint64	giPartMiliseconds = 0;
-tTimer	gTimers[NUM_TIMERS];	// TODO: Replace by a ring-list timer
+tTimer	*gTimers;	// TODO: Replace by a ring-list timer
 
 // === CODE ===
 /**
@@ -31,51 +35,65 @@ tTimer	gTimers[NUM_TIMERS];	// TODO: Replace by a ring-list timer
  */
 void Timer_CallTimers()
 {
-	 int	i;
-	void	(*callback)(void *);
-	void	*arg;
-	
-	for(i = 0; i < NUM_TIMERS; i ++)
+	while( gTimers && gTimers->FiresAfter < now() )
 	{
-		if(gTimers[i].Callback == NULL)	continue;
-		if(giTimestamp < gTimers[i].FiresAfter)	continue;
-		callback = gTimers[i].Callback;	arg = gTimers[i].Argument;
-		gTimers[i].Callback = NULL;
-		callback(arg);
+		tTimer	*next;
+	
+		if( gTimers->Callback )
+			gTimers->Callback(gTimers->Argument);
+		else
+			Threads_PostEvent(gTimers->Argument, THREAD_EVENT_TIMER);
+		
+		next = gTimers->Next;
+		free(gTimers);
+		gTimers = next;
 	}
 }
 
 /**
- * \fn int Time_CreateTimer(int Delta, tTimerCallback *Callback, void *Argument)
+ * \brief Schedule an action
  */
-int Time_CreateTimer(int Delta, tTimerCallback *Callback, void *Argument)
+tTimer *Time_CreateTimer(int Delta, tTimerCallback *Callback, void *Argument)
 {
-	 int	ret;
+	tTimer	*ret;
+	tTimer	*t, *p;
 	
-	if(Callback == NULL)	return -1;
+	if(Callback == NULL)
+		Argument = Proc_GetCurThread();
+
+	// TODO: Use a pool instead?
+	ret = malloc(sizeof(tTimer));
 	
-	for(ret = 0;
-		ret < NUM_TIMERS;
-		ret++)
+	ret->Callback = Callback;
+	ret->FiresAfter = now() + Delta;
+	ret->Argument = Argument;
+
+	// Add into list (sorted)
+	for( p = (tTimer*)&gTimers, t = gTimers; t; p = t, t = t->Next )
 	{
-		if(gTimers[ret].Callback != NULL)	continue;
-		gTimers[ret].Callback = Callback;
-		gTimers[ret].FiresAfter = giTimestamp + Delta;
-		gTimers[ret].Argument = Argument;
-		//Log("Callback = %p", Callback);
-		//Log("Timer %i fires at %lli", ret, gTimers[ret].FiresAfter);
-		return ret;
+		if( t->FiresAfter > ret->FiresAfter )	break;
 	}
-	return -1;
+	ret->Next = t;
+	p->Next = ret;
+
+	return ret;
 }
 
 /**
- * \fn void Time_RemoveTimer(int ID)
+ * \brief Delete a timer
  */
-void Time_RemoveTimer(int ID)
+void Time_RemoveTimer(tTimer *Timer)
 {
-	if(ID < 0 || ID >= NUM_TIMERS)	return;
-	gTimers[ID].Callback = NULL;
+	tTimer	*t, *p;
+	for( p = (tTimer*)&gTimers, t = gTimers; t; p = t, t = t->Next )
+	{
+		if( t == Timer )
+		{
+			p->Next = t->Next;
+			free(Timer);
+			return ;
+		}
+	}
 }
 
 /**
@@ -84,8 +102,10 @@ void Time_RemoveTimer(int ID)
  */
 void Time_Delay(int Delay)
 {
-	tTime	dest = now() + Delay;
-	while(dest > now())	Threads_Yield();
+//	tTime	dest = now() + Delay;
+//	while(dest > now())	Threads_Yield();
+	Time_CreateTimer(Delay, NULL, NULL);
+	Threads_WaitEvents(THREAD_EVENT_TIMER);
 }
 
 // === EXPORTS ===

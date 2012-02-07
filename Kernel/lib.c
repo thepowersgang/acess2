@@ -39,9 +39,7 @@ char	**str_split(const char *__str, char __ch);
  int	WriteUTF8(Uint8 *str, Uint32 Val);
  int	DivUp(int num, int dem);
 Sint64	timestamp(int sec, int mins, int hrs, int day, int month, int year);
-#endif
 void	format_date(tTime TS, int *year, int *month, int *day, int *hrs, int *mins, int *sec, int *ms);
-#if 0
  int	rand(void);
  
  int	CheckString(char *String);

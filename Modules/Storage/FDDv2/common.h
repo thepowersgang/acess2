@@ -9,6 +9,7 @@
 #define _FDC_COMMON_H_
 
 #include <mutex.h>
+#include <timers.h>
 
 // === CONSTANTS ===
 #define MAX_DISKS	8	// 4 per controller, 2 controllers
@@ -24,7 +25,7 @@ struct sFDD_Drive
 	 int	bValid;
 	 int	bInserted;
 	 int	MotorState;
-	 int	Timer;
+	tTimer	*Timer;
 
 	tMutex	Mutex;
 	

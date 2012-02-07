@@ -13,6 +13,7 @@
 #define THREAD_EVENT_VFS	0x00000001
 #define THREAD_EVENT_IPCMSG	0x00000002
 #define THREAD_EVENT_SIGNAL	0x00000004
+#define THREAD_EVENT_TIMER	0x00000008
 
 // === FUNCTIONS ===
 extern void	Threads_PostEvent(tThread *Thread, Uint32 EventMask);
