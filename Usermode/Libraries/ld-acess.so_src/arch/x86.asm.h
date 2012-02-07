@@ -2,8 +2,6 @@
 ; AcssMicro - System Calls
 ; ========================
 
-#include "../../../../Kernel/include/syscalls.h"
-
 [bits 32]
 [section .data]
 [global _errno:data 4]
