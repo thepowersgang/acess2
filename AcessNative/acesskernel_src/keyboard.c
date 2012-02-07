@@ -15,13 +15,12 @@
 
 // === GLOBALS ===
 MODULE_DEFINE(0, 0x0100, NativeKeyboard, NativeKeyboard_Install, NULL, NULL);
+tVFS_NodeType	gKB_NodeType = {
+	.IOCtl = NativeKeyboard_IOCtl
+};
 tDevFS_Driver	gKB_DevInfo = {
 	NULL, "NativeKeyboard",
-	{
-	.NumACLs = 0,
-	.Size = 0,
-	.IOCtl = NativeKeyboard_IOCtl
-	}
+	{ .Type = &gKB_NodeType }
 };
 
 // === CODE ===
