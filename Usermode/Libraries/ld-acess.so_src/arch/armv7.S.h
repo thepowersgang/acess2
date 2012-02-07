@@ -2,8 +2,6 @@
 // Acess2 ARMv7 - System Calls
 //
 
-#include "../../../../Kernel/include/syscalls.h"
-
 .globl _start
 .extern SoMain
 _start:

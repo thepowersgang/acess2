@@ -54,16 +54,20 @@ clean:	$(CLEAN_DYNMODS) $(CLEAN_MODULES) clean-Kernel $(CLEAN_USRLIBS) $(CLEAN_U
 install:	install-Filesystem SyscallList $(INSTALL_USRLIBS) $(INSTALL_USRAPPS) $(INSTALL_DYNMODS) $(INSTALL_MODULES) install-Kernel
 
 SyscallList: include/syscalls.h
-include/syscalls.h: Kernel/Makefile Kernel/syscalls.lst
-	@make -C Kernel/ include/syscalls.h
+include/syscalls.h: KernelLand/Kernel/Makefile KernelLand/Kernel/syscalls.lst
+	@make -C KernelLand/Kernel/ include/syscalls.h
+
+_build_dynmod := BUILDTYPE=dynamic $(SUBMAKE) -C KernelLand/Modules/
+_build_stmod  := BUILDTYPE=static $(SUBMAKE) -C KernelLand/Modules/
+_build_kernel := $(SUBMAKE) $1 -C KernelLand/Kernel
 
 # Compile Only
 $(ALL_DYNMODS): all-%:
-	+@echo === Dynamic Module: $* && BUILDTYPE=dynamic $(SUBMAKE) all -C Modules/$*
+	+@echo === Dynamic Module: $* && $(_build_dynmod)$* all
 $(ALL_MODULES): all-%:
-	+@echo === Module: $* && BUILDTYPE=static $(SUBMAKE) all -C Modules/$*
+	+@echo === Module: $* && $(_build_stmod)$* all
 all-Kernel:
-	+@echo === Kernel && $(SUBMAKE) all -C Kernel
+	+@echo === Kernel && $(_build_kernel) all
 $(ALL_USRLIBS): all-%:
 	+@echo === User Library: $* && $(SUBMAKE) all -C Usermode/Libraries/$*_src
 $(ALL_USRAPPS): all-%:
@@ -71,11 +75,11 @@ $(ALL_USRAPPS): all-%:
 
 # Compile & Install
 $(AI_DYNMODS): allinstall-%:
-	+@echo === Dynamic Module: $* && BUILDTYPE=dynamic $(SUBMAKE) all install -C Modules/$*
+	+@echo === Dynamic Module: $* && $(_build_dynmod)$* all install
 $(AI_MODULES): allinstall-%:
-	+@echo === Module: $* && BUILDTYPE=static $(SUBMAKE) all install -C Modules/$*
+	+@echo === Module: $* && $(_build_stmod)$* all install
 allinstall-Kernel:
-	+@echo === Kernel && $(SUBMAKE) all install -C Kernel
+	+@echo === Kernel && $(_build_kernel) all install
 $(AI_USRLIBS): allinstall-%:
 	+@echo === User Library: $* && $(SUBMAKE) all install -C Usermode/Libraries/$*_src
 $(AI_USRAPPS): allinstall-%:
@@ -83,11 +87,11 @@ $(AI_USRAPPS): allinstall-%:
 
 # Clean up compilation
 $(CLEAN_DYNMODS): clean-%:
-	+@BUILDTYPE=dynamic $(SUBMAKE) clean -C Modules/$*
+	+@$(_build_dynmod)$* clean
 $(CLEAN_MODULES): clean-%:
-	+@BUILDTYPE=static $(SUBMAKE) clean -C Modules/$*
+	+@$(_build_stmod)$* clean
 clean-Kernel:
-	+@$(SUBMAKE) clean -C Kernel
+	+@$(_build_kernel) clean
 $(CLEAN_USRLIBS): clean-%:
 	+@$(SUBMAKE) clean -C Usermode/Libraries/$*_src
 $(CLEAN_USRAPPS): clean-%:
@@ -95,13 +99,13 @@ $(CLEAN_USRAPPS): clean-%:
 
 # Install
 $(INSTALL_DYNMODS): install-%:
-	@BUILDTYPE=dynamic $(SUBMAKE) install -C Modules/$*
+	@$(_build_dynmod)$* install
 $(INSTALL_MODULES): install-%:
-	@BUILDTYPE=static $(SUBMAKE) install -C Modules/$*
+	@$(_build_stmod)$* install
 install-Filesystem:
 	@$(SUBMAKE) install -C Usermode/Filesystem
 install-Kernel:
-	@$(SUBMAKE) install -C Kernel
+	@$(_build_kernel) install
 $(INSTALL_USRLIBS): install-%:
 	@$(SUBMAKE) install -C Usermode/Libraries/$*_src
 $(INSTALL_USRAPPS): install-%:
