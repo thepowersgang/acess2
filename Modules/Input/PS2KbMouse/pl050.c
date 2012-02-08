@@ -70,8 +70,8 @@ void PL050_EnableMouse(void)
 	
 	//PL050_WriteMouseData(0xD4);
 	//PL050_WriteMouseData(0xF6);	// Set Default Settings
-	PL050_WriteMouseData(0xD4);
-	PL050_WriteMouseData(0xF4);	// Enable Packets
+//	PL050_WriteMouseData(0xD4);
+//	PL050_WriteMouseData(0xF4);	// Enable Packets
 	LOG("Done");
 }
 

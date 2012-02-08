@@ -66,6 +66,7 @@ tVideo_IOCtl_Pos	gTegra2Vid_CursorPos;
  */
 int Tegra2Vid_Install(char **Arguments)
 {
+	return MODULE_ERR_NOTNEEDED;
 //	KeyVal_Parse(&gTegra2Vid_KeyValueParser, Arguments);
 
 	gpTegra2Vid_IOMem = (void*)MM_MapHWPages(gTegra2Vid_PhysBase, 256/4);
@@ -94,7 +95,15 @@ int Tegra2Vid_Install(char **Arguments)
 			Log_Debug("Tegra2Vid", "[0x%03x] = 0x%08x", i, gpTegra2Vid_IOMem[i]);
 	}
 //	return 1;
-	
+
+	// HACK!!!
+//	{
+//		int	w = 1980, h = 1080;
+//		gpTegra2Vid_IOMem[DC_DISP_DISP_ACTIVE_0] = (h << 16) | w;
+//		gpTegra2Vid_IOMem[DC_WIN_A_SIZE_0] = (h << 16) | w;
+//		gpTegra2Vid_IOMem[DC_WIN_A_PRESCALED_SIZE_0] = (h << 16) | w;
+//	}
+
 	giTegra2Vid_FramebufferSize =
 		(gpTegra2Vid_IOMem[DC_WIN_A_SIZE_0]&0xFFFF)
 		*(gpTegra2Vid_IOMem[DC_WIN_A_SIZE_0]>>16)*4;
@@ -104,7 +113,15 @@ int Tegra2Vid_Install(char **Arguments)
 		gpTegra2Vid_IOMem[DC_WINBUF_A_START_ADDR_0],
 		(giTegra2Vid_FramebufferSize+PAGE_SIZE-1)/PAGE_SIZE
 		);
-	memset(gpTegra2Vid_Framebuffer, 0x1F, 0x1000);
+	memset(gpTegra2Vid_Framebuffer, 0xFF, 0x1000);
+
+	gpTegra2Vid_IOMem[DC_WIN_A_WIN_OPTIONS_0] &= ~0x40;
+	gpTegra2Vid_IOMem[DC_WIN_A_COLOR_DEPTH_0] = 12;	// Could be 13 (BGR/RGB)
+	gTegra2Vid_DrvUtil_BufInfo.Width = 1024;
+	gTegra2Vid_DrvUtil_BufInfo.Height = 768;
+	gTegra2Vid_DrvUtil_BufInfo.Pitch = 1024*4;
+	gTegra2Vid_DrvUtil_BufInfo.Depth = 32;
+	gTegra2Vid_DrvUtil_BufInfo.Framebuffer = gpTegra2Vid_Framebuffer;
 
 
 //	Tegra2Vid_int_SetMode(4);
@@ -288,10 +305,10 @@ int Tegra2Vid_int_SetMode(int Mode)
 	*(Uint32*)(gpTegra2Vid_IOMem + DC_DISP_DISP_ACTIVE_0) = (mode->H << 16)   | mode->W;
 
 	*(Uint32*)(gpTegra2Vid_IOMem + DC_WIN_A_POSITION_0) = 0;
-	*(Uint32*)(gpTegra2Vid_IOMem + DC_WIN_A_SIZE_0) = (mode->H << 16) | mode->W;
+	*(Uint32*)(gpTegra2Vid_IOMem + DC_WIN_A_SIZE_0) = (h << 16) | w;
 	*(Uint32*)(gpTegra2Vid_IOMem + DC_DISP_DISP_COLOR_CONTROL_0) = 0x8;	// BASE888
 	*(Uint32*)(gpTegra2Vid_IOMem + DC_WIN_A_COLOR_DEPTH_0) = 12;	// Could be 13 (BGR/RGB)
-	*(Uint32*)(gpTegra2Vid_IOMem + DC_WIN_A_PRESCALED_SIZE_0) = (mode->H << 16) | mode->W;
+	*(Uint32*)(gpTegra2Vid_IOMem + DC_WIN_A_PRESCALED_SIZE_0) = (h << 16) | w;
 
 	Log_Debug("Tegra2Vid", "Mode %i (%ix%i) selected", Mode, w, h);
 
