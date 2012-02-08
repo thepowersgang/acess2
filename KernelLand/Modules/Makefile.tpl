@@ -6,10 +6,10 @@ _CPPFLAGS := $(CPPFLAGS)
 
 -include $(dir $(lastword $(MAKEFILE_LIST)))../Makefile.cfg
 
-LIBINCLUDES := $(addprefix -I$(ACESSDIR)/Modules/,$(DEPS))
+LIBINCLUDES := $(addprefix -I$(ACESSDIR)/KernelLand/Modules/,$(DEPS))
 LIBINCLUDES := $(addsuffix /include,$(LIBINCLUDES))
 
-CPPFLAGS := -I$(ACESSDIR)/Kernel/include -I$(ACESSDIR)/Kernel/arch/$(ARCHDIR)/include
+CPPFLAGS := -I$(ACESSDIR)/KernelLand/Kernel/include -I$(ACESSDIR)/KernelLand/Kernel/arch/$(ARCHDIR)/include
 CPPFLAGS += -DARCH=$(ARCH) -DARCH_is_$(ARCH) -DARCHDIR_is_$(ARCHDIR)
 CPPFLAGS += $(_CPPFLAGS)
 CPPFLAGS += $(LIBINCLUDES)

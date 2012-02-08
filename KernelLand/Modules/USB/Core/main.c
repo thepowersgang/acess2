@@ -23,14 +23,17 @@ tVFS_Node	*USB_FindDir(tVFS_Node *Node, const char *Name);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, USB_Core, USB_Install, NULL, NULL);
+tVFS_NodeType	gUSB_RootNodeType = {
+	.ReadDir = USB_ReadDir,
+	.FindDir = USB_FindDir,
+	.IOCtl = USB_IOCtl
+};
 tDevFS_Driver	gUSB_DrvInfo = {
 	NULL, "usb", {
 		.NumACLs = 1,
 		.ACLs = &gVFS_ACL_EveryoneRX,
 		.Flags = VFS_FFLAG_DIRECTORY,
-		.ReadDir = USB_ReadDir,
-		.FindDir = USB_FindDir,
-		.IOCtl = USB_IOCtl
+		.Type = &gUSB_RootNodeType
 	}
 };
 tUSBHost	*gUSB_Hosts = NULL;

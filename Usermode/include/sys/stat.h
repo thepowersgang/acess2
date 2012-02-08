@@ -5,7 +5,7 @@
 #ifndef _SYS_STAT_H_
 #define _SYS_STAT_H_
 
-#include <acess/intdefs.h>	/* Evil */
+#include "../acess/intdefs.h"	/* Evil */
 #include "../stddef.h"
 
 ;

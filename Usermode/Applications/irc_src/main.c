@@ -357,8 +357,7 @@ tMessage *Message_Append(tServer *Server, int Type, const char *Source, const ch
 	// Determine if it's a channel or PM message
 	else if( Dest[0] == '#' || Dest[0] == '&' )	// TODO: Better determining here
 	{
-		tWindow	*prev = NULL;
-		for(win = gpWindows; win; prev = win, win = win->Next)
+		for(win = gpWindows; win; win = win->Next)
 		{
 			if( win->Server == Server && strcmp(win->Name, Dest) == 0 )
 			{
@@ -575,6 +574,7 @@ void ParseServerLine(tServer *Server, char *Line)
 			char	*class, *message;
 			
 			class = GetValue(Line, &pos);
+			_SysDebug("NOTICE class='%s'", class);
 			
 			if( Line[pos] == ':' ) {
 				message = Line + pos + 1;

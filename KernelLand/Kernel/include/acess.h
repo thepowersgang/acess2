@@ -471,30 +471,15 @@ extern int	Module_LoadFile(const char *Path, const char *ArgStr);
 /**
  * \brief Create a timestamp from a time
  */
-extern Sint64	timestamp(int sec, int mins, int hrs, int day, int month, int year);
+extern tTime	timestamp(int sec, int mins, int hrs, int day, int month, int year);
+/**
+ * \brief Extract the date/time from a timestamp
+ */
+extern void	format_date(tTime TS, int *year, int *month, int *day, int *hrs, int *mins, int *sec, int *ms);
 /**
  * \brief Gets the current timestamp (miliseconds since Midnight 1st January 1970)
  */
 extern Sint64	now(void);
-/**
- * \brief Timer callback function
- */
-typedef void (tTimerCallback)(void *);
-/**
- * \brief Creates a one-shot timer
- * \param Delta	Period of the timer
- * \param Callback	Function to call each time
- * \param Argument	Argument to pass to the callback
- */
-extern int	Time_CreateTimer(int Delta, tTimerCallback *Callback, void *Argument);
-/**
- * \brief Removed an active timer
- */
-extern void	Time_RemoveTimer(int ID);
-/**
- * \brief Wait for a period of milliseconds
- */
-extern void	Time_Delay(int Delay);
 /**
  * \}
  */

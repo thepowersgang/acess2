@@ -24,6 +24,12 @@ tUSBHub	*USB_RegisterHost(tUSBHostDef *HostDef, void *ControllerPtr, int nPorts)
 tUSBDriver	*gpUSB_InterfaceDrivers = &gUSBHub_Driver;
 
 // === CODE ===
+void USB_RegisterDriver(tUSBDriver *Driver)
+{
+	Driver->Next = gpUSB_InterfaceDrivers;
+	gpUSB_InterfaceDrivers = Driver;
+}
+
 tUSBHub *USB_RegisterHost(tUSBHostDef *HostDef, void *ControllerPtr, int nPorts)
 {
 	tUSBHost	*host;

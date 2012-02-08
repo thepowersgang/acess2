@@ -33,6 +33,13 @@ char	*NativeFS_ReadDir(tVFS_Node *Node, int Position);
 Uint64	NativeFS_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
 
 // === GLOBALS ===
+tVFS_NodeType	gNativeFS_FileNodeType = {
+	.Read = NativeFS_Read
+};
+tVFS_NodeType	gNativeFS_DirNodeType = {
+	.FindDir = NativeFS_FindDir,
+	.ReadDir = NativeFS_ReadDir,
+};
 tVFS_Driver	gNativeFS_Driver = {
 	"nativefs", 0,
 	NativeFS_Mount,	NativeFS_Unmount,
@@ -70,9 +77,8 @@ tVFS_Node *NativeFS_Mount(const char *Device, const char **Arguments)
 	ret->ImplInt = strlen(ret->Data);
 	ret->ImplPtr = info;
 	ret->Inode = (Uint64)dp;
-	
-	ret->FindDir = NativeFS_FindDir;
-	ret->ReadDir = NativeFS_ReadDir;
+
+	ret->Type = &gNativeFS_DirNodeType;	
 	
 	return ret;
 }
@@ -124,8 +130,7 @@ tVFS_Node *NativeFS_FindDir(tVFS_Node *Node, const char *Name)
 	{
 		LOG("Directory");
 		baseRet.Inode = (Uint64) opendir(path);
-		baseRet.FindDir = NativeFS_FindDir;
-		baseRet.ReadDir = NativeFS_ReadDir;
+		baseRet.Type = &gNativeFS_DirNodeType;
 		baseRet.Flags |= VFS_FFLAG_DIRECTORY;
 		baseRet.Size = -1;
 	}
@@ -133,7 +138,7 @@ tVFS_Node *NativeFS_FindDir(tVFS_Node *Node, const char *Name)
 	{
 		LOG("File");
 		baseRet.Inode = (Uint64) fopen(path, "r+");
-		baseRet.Read = NativeFS_Read;
+		baseRet.Type = &gNativeFS_FileNodeType;
 		
 		fseek( (FILE*)(tVAddr)baseRet.Inode, 0, SEEK_END );
 		baseRet.Size = ftell( (FILE*)(tVAddr)baseRet.Inode );

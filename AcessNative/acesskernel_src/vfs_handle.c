@@ -7,6 +7,7 @@
 #include <vfs.h>
 #include <vfs_int.h>
 #include <vfs_ext.h>
+#include <threads.h>
 
 // === CONSTANTS ===
 #define MAX_KERNEL_FILES	128
@@ -68,21 +69,22 @@ void VFS_CloneHandleList(int PID)
 {
 	tUserHandles	*ent;
 	tUserHandles	*cur;
-	 int	i;
+	 int	i, maxhandles;
 	
 	cur = VFS_int_GetUserHandles(Threads_GetPID(), 0);
 	if(!cur)	return ;	// Don't need to do anything if the current list is empty
 	
 	ent = VFS_int_GetUserHandles(PID, 1);
 	
-	memcpy(ent->Handles, cur->Handles, CFGINT(CFG_VFS_MAXFILES)*sizeof(tVFS_Handle));
+	maxhandles = *Threads_GetMaxFD();
+	memcpy(ent->Handles, cur->Handles, maxhandles*sizeof(tVFS_Handle));
 	
-	for( i = 0; i < CFGINT(CFG_VFS_MAXFILES); i ++ )
+	for( i = 0; i < maxhandles; i ++ )
 	{
 		if(!cur->Handles[i].Node)	continue;
 		
-		if(ent->Handles[i].Node->Reference)
-			ent->Handles[i].Node->Reference(ent->Handles[i].Node);
+		if(ent->Handles[i].Node->Type->Reference)
+			ent->Handles[i].Node->Type->Reference(ent->Handles[i].Node);
 	}
 }
 
@@ -113,6 +115,7 @@ tVFS_Handle *VFS_GetHandle(int FD)
 	{
 		tUserHandles	*ent;
 		 int	pid = Threads_GetPID();
+		 int	maxhandles = *Threads_GetMaxFD();
 		
 		ent = VFS_int_GetUserHandles(pid, 0);
 		if(!ent) {
@@ -120,8 +123,8 @@ tVFS_Handle *VFS_GetHandle(int FD)
 			return NULL;
 		}
 		
-		if(FD >= CFGINT(CFG_VFS_MAXFILES)) {
-			LOG("FD (%i) > Limit (%i), RETURN NULL", FD, CFGINT(CFG_VFS_MAXFILES));
+		if(FD >= maxhandles) {
+			LOG("FD (%i) > Limit (%i), RETURN NULL", FD, maxhandles);
 			return NULL;
 		}
 		h = &ent->Handles[ FD ];
@@ -144,10 +147,11 @@ int VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode)
 	if(bIsUser)
 	{
 		tUserHandles	*ent;
+		 int	maxhandles = *Threads_GetMaxFD();
 		// Find the PID's handle list
 		ent = VFS_int_GetUserHandles(Threads_GetPID(), 1);
 		// Get a handle
-		for(i=0;i<CFGINT(CFG_VFS_MAXFILES);i++)
+		for( i = 0; i < maxhandles; i ++ )
 		{
 			if(ent->Handles[i].Node)	continue;
 			ent->Handles[i].Node = Node;

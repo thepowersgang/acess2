@@ -49,7 +49,6 @@ int main(int argc, char *argv[], char **envp)
 {
 	char	*sCommandStr;
 	char	*saArgs[32] = {0};
-	 int	length = 0;
 	 int	i;
 	 int	iArgCount = 0;
 	tReadline	*readline_state = Readline_Init(1);
@@ -80,7 +79,6 @@ int main(int argc, char *argv[], char **envp)
 		// Read Command line
 		sCommandStr = Readline( readline_state );
 		printf("\n");
-		length = strlen(sCommandStr);
 		
 		// Parse Command Line into arguments
 		iArgCount = Parse_Args(sCommandStr, saArgs);

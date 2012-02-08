@@ -32,6 +32,15 @@ typedef struct sState
 }	tState;
 #endif
 
+typedef struct sProcess
+{
+	 int	nThreads;
+	 int	NativePID;
+	char	*CWD;
+	char	*Chroot;
+	 int	MaxFD;
+} tProcess;
+
 typedef struct sThread
 {
 	struct sThread	*GlobalNext;
@@ -48,9 +57,7 @@ typedef struct sThread
 
 	 int	State;	// 0: Dead, 1: Active, 2: Paused, 3: Asleep
 	 int	ExitStatus;
-	#if 0
-	tState	CurState;
-	#endif
+	 int	_errno;
 
 	// Threads waiting for this thread to exit.
 	// Quit logic:
@@ -61,23 +68,38 @@ typedef struct sThread
 	struct sThread	*WaitingThreads;
 	struct sThread	*WaitingThreadsEnd;
 
-	// Config?
-	Uint	Config[NUM_CFG_ENTRIES];
+	tProcess	*Process;	
+
+	Uint32	Events, WaitMask;
+	SDL_sem	*EventSem;
+
 }	tThread;
 
 // === PROTOTYPES ===
  int	Threads_Wake(tThread *Thread);
 
 // === GLOBALS ===
+tProcess gProcessZero = {
+	.NativePID = 0,
+	.CWD = "/",
+	.Chroot = "/",
+	.MaxFD = 100
+};
 tThread	gThreadZero = {
 	.State=1,
-	.ThreadName="ThreadZero"
+	.ThreadName="ThreadZero",
+	.Process = &gProcessZero
 };
 tThread	*gpThreads = &gThreadZero;
 __thread tThread	*gpCurrentThread = &gThreadZero;
  int	giThreads_NextThreadID = 1;
 
 // === CODE ===
+tThread *Proc_GetCurThread(void)
+{
+	return gpCurrentThread;
+}
+
 void Threads_Dump(void)
 {
 	tThread	*thread;
@@ -167,16 +189,10 @@ int Threads_SetGID(int *Errno, tGID NewGID)
 	return 0;
 }
 
-Uint *Threads_GetCfgPtr(int Index)
-{
-//	Log_Debug("Threads", "Index=%i, gpCurrentThread=%p",
-//		Index, gpCurrentThread);
-	if( Index < 0 || Index >= NUM_CFG_ENTRIES )
-		return NULL;
-	if( !gpCurrentThread )
-		return NULL;
-	return &gpCurrentThread->Config[Index];
-}
+int *Threads_GetErrno(void) { return &gpCurrentThread->_errno; }
+char **Threads_GetCWD(void) { return &gpCurrentThread->Process->CWD; }
+char **Threads_GetChroot(void) { return &gpCurrentThread->Process->Chroot; }
+int *Threads_GetMaxFD(void) { return &gpCurrentThread->Process->MaxFD; };
 
 int Threads_WaitTID(int TID, int *Status)
 {
@@ -346,35 +362,23 @@ int Semaphore_Signal(tSemaphore *Sem, int AmmountToAdd)
 	return AmmountToAdd;
 }
 
-#if 0
-void Threads_Sleep()
+Uint32 Threads_WaitEvents(Uint32 Mask)
 {
-	gpCurrentThread->State = 3;
-	if( setjmp(&gpCurrentThread->CurState) == 0 ) {
-		// Return to user wait
-		// Hmm... maybe I should have a "kernel" thread for every "user" thread
-	}
-	else {
-		// Just woken up, return
-		return ;
-	}
+	Uint32	rv;
+	gpCurrentThread->WaitMask = Mask;
+	if( !(gpCurrentThread->Events & Mask) )
+		SDL_SemWait( gpCurrentThread->EventSem );
+	rv = gpCurrentThread->Events & Mask;
+	gpCurrentThread->Events &= ~Mask;
+	gpCurrentThread->WaitMask = -1;
+	return rv;
 }
 
-int SaveState(tState *To)
+void Threads_PostEvent(tThread *Thread, Uint32 Events)
 {
-	Uint	ip;
-	__asm__ __volatile__(
-		"call 1f;\n\t"
-		"1f:\n\t"
-		"pop %%eax"
-		: "=a" (ip)
-		: );
-	// If we just returned
-	if(!ip)	return 1;
-
-	To->IP = ip;
-	__asm__ __volatile__ ("mov %%esp, %1" : "=r"(To->SP));
-	__asm__ __volatile__ ("mov %%ebp, %1" : "=r"(To->BP));
+	Thread->Events |= Events;
+	
+	if( Thread->WaitMask & Events )
+		SDL_SemPost( gpCurrentThread->EventSem );
 }
-#endif
 

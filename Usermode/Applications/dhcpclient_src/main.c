@@ -109,6 +109,7 @@ int main(int argc, char *argv[])
 	{
 		 int	maxfd;
 		fd_set	fds;
+		tInterface	*p;
 	
 		maxfd = 0;
 		FD_ZERO(&fds);
@@ -123,8 +124,7 @@ int main(int argc, char *argv[])
 			return -1;
 		}
 
-		_SysDebug("select returned");	
-		tInterface	*p;
+		// Check for changes (with magic to allow inline deletion)
 		for( p = (void*)&ifaces, i = ifaces; i; p=i,i = i->Next )
 		{
 			if( FD_ISSET(i->SocketFD, &fds) )
@@ -158,17 +158,20 @@ void Scan_Dir(tInterface **IfaceList, const char *Directory)
 		sprintf(path, "%s/%s", Directory, filename);
 		fd = open(path, 0);
 
+		// Check if the device type is 9 (Network)
 		if( ioctl(fd, 0, NULL) != 9 )
 			continue ;
 
+		// Check if it's a directory
 		finfo(fd, &info, 0);
-
 		if( info.flags & FILEFLAG_DIRECTORY )
 		{
+			// If so, recurse
 			Scan_Dir(IfaceList, path);
 		}
 		else
 		{
+			// Otherwise, add it to the list
 			tInterface	*new = malloc(sizeof(tInterface) + pathlen);
 			new->Adapter = (void*)(new + 1);
 			strcpy(new->Adapter, path);

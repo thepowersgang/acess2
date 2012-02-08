@@ -10,6 +10,7 @@
 #include "usb.h"
 #include "usb_proto.h"
 #include "usb_lowlevel.h"
+#include <timers.h>
 
 // === PROTOTYPES ===
 void	*USB_int_Request(tUSBHost *Host, int Addr, int EndPt, int Type, int Req, int Val, int Indx, int Len, void *Data);
@@ -112,7 +113,7 @@ int USB_int_ReadDescriptor(tUSBDevice *Dev, int Endpoint, int Type, int Index, i
 		);
 
 	while( Dev->Host->HostDef->IsOpComplete(Dev->Host->Ptr, final) == 0 )
-		Time_Delay(1);
+		Threads_Yield();
 
 	return 0;
 }

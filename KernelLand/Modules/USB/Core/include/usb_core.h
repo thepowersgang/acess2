@@ -51,6 +51,8 @@ struct sUSBDriver
 	} Endpoints[];
 };
 
+extern void	USB_RegisterDriver(tUSBDriver *Driver);
+
 extern void	*USB_GetDeviceDataPtr(tUSBInterface *Dev);
 extern void	USB_SetDeviceDataPtr(tUSBInterface *Dev, void *Ptr);
 

@@ -1,3 +1,5 @@
+#include "../../../../KernelLand/Kernel/include/syscalls.h"
+
 // --- Process Control ---
 SYSCALL1(_exit, SYS_EXIT)
 

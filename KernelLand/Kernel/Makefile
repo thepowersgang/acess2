@@ -92,7 +92,7 @@ install: $(BIN)
 apidoc:
 	doxygen Doxyfile.api
 
-$(BIN): $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile ../BuildConf/$(ARCH)/Makefile.cfg ../BuildConf/$(ARCH)/$(PLATFORM).mk
+$(BIN): $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile ../../BuildConf/$(ARCH)/Makefile.cfg ../../BuildConf/$(ARCH)/$(PLATFORM).mk
 	@echo --- LD -o $(BIN)
 	@$(LD) $(LDFLAGS) -o $(BIN) $(OBJ) $(MODS) --defsym __buildnum=$$(( $(BUILD_NUM) + 1 )) -Map ../Map.$(ARCH).txt
 	@$(DISASM) -S $(BIN) > $(BIN).dsm
