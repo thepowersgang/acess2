@@ -3,7 +3,7 @@
 #ifndef _SYS_TYPES_H
 #define _SYS_TYPES_H
 
-#include <acess/intdefs.h>
+#include "../acess/intdefs.h"
 
 typedef struct stat	t_fstat;
 
