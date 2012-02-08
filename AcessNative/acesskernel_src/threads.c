@@ -70,6 +70,9 @@ typedef struct sThread
 
 	tProcess	*Process;	
 
+	Uint32	Events, WaitMask;
+	SDL_sem	*EventSem;
+
 }	tThread;
 
 // === PROTOTYPES ===
@@ -357,5 +360,25 @@ int Semaphore_Signal(tSemaphore *Sem, int AmmountToAdd)
 	for( i = 0; i < AmmountToAdd; i ++ )
 		SDL_SemPost( *(void**)(&Sem->Protector) );
 	return AmmountToAdd;
+}
+
+Uint32 Threads_WaitEvents(Uint32 Mask)
+{
+	Uint32	rv;
+	gpCurrentThread->WaitMask = Mask;
+	if( !(gpCurrentThread->Events & Mask) )
+		SDL_SemWait( gpCurrentThread->EventSem );
+	rv = gpCurrentThread->Events & Mask;
+	gpCurrentThread->Events &= ~Mask;
+	gpCurrentThread->WaitMask = -1;
+	return rv;
+}
+
+void Threads_PostEvent(tThread *Thread, Uint32 Events)
+{
+	Thread->Events |= Events;
+	
+	if( Thread->WaitMask & Events )
+		SDL_SemPost( gpCurrentThread->EventSem );
 }
 

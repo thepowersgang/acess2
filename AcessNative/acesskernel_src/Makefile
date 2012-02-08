@@ -11,7 +11,7 @@ ifeq ($(PLATFORM),)
 	PLATFORM := lin
 endif
 
-KERNEL_SRC = ../../Kernel/
+KERNEL_SRC = ../../KernelLand/Kernel/
 
 KERNEL_OBJ := logging.o adt.o lib.o drvutil.o debug.o
 KERNEL_OBJ += vfs/main.o vfs/open.o vfs/acls.o vfs/io.o vfs/dir.o
