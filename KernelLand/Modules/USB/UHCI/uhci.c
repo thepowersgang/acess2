@@ -23,9 +23,9 @@ void	UHCI_Cleanup();
 tUHCI_TD	*UHCI_int_AllocateTD(tUHCI_Controller *Cont);
 void	UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_TD *TD);
 void	*UHCI_int_SendTransaction(tUHCI_Controller *Cont, int Addr, Uint8 Type, int bTgl, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length);
-void	*UHCI_DataIN(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length);
-void	*UHCI_DataOUT(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, void *CbData,  void *Buf, size_t Length);
-void	*UHCI_SendSetup(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length);
+void	*UHCI_DataIN(void *Ptr, int Dest, int DataTgl, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length);
+void	*UHCI_DataOUT(void *Ptr, int Dest, int DataTgl, tUSBHostCb Cb, void *CbData,  void *Buf, size_t Length);
+void	*UHCI_SendSetup(void *Ptr, int Dest, int DataTgl, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length);
  int	UHCI_IsTransferComplete(void *Ptr, void *Handle);
  int	UHCI_Int_InitHost(tUHCI_Controller *Host);
 void	UHCI_CheckPortUpdate(void *Ptr);
@@ -255,19 +255,19 @@ void *UHCI_int_SendTransaction(
 	return td;
 }
 
-void *UHCI_DataIN(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length)
+void *UHCI_DataIN(void *Ptr, int Dest, int DataTgl, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length)
 {
-	return UHCI_int_SendTransaction(Ptr, Fcn*16+Endpt, 0x69, DataTgl, Cb, CbData, Buf, Length);
+	return UHCI_int_SendTransaction(Ptr, Dest, 0x69, DataTgl, Cb, CbData, Buf, Length);
 }
 
-void *UHCI_DataOUT(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length)
+void *UHCI_DataOUT(void *Ptr, int Dest, int DataTgl, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length)
 {
-	return UHCI_int_SendTransaction(Ptr, Fcn*16+Endpt, 0xE1, DataTgl, Cb, CbData, Buf, Length);
+	return UHCI_int_SendTransaction(Ptr, Dest, 0xE1, DataTgl, Cb, CbData, Buf, Length);
 }
 
-void *UHCI_SendSetup(void *Ptr, int Fcn, int Endpt, int DataTgl, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length)
+void *UHCI_SendSetup(void *Ptr, int Dest, int DataTgl, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length)
 {
-	return UHCI_int_SendTransaction(Ptr, Fcn*16+Endpt, 0x2D, DataTgl, Cb, CbData, Buf, Length);
+	return UHCI_int_SendTransaction(Ptr, Dest, 0x2D, DataTgl, Cb, CbData, Buf, Length);
 }
 
 int UHCI_IsTransferComplete(void *Ptr, void *Handle)

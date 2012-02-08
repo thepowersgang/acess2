@@ -83,7 +83,7 @@ void USB_RecvDataA(tUSBInterface *Dev, int Endpoint, int Length, void *DataBuf, 
 	host = Dev->Dev->Host;
 	LOG("IN from %p %i:%i", host->Ptr, Dev->Dev->Address, op->Endpt->EndpointNum);
 	host->HostDef->SendIN(
-		host->Ptr, Dev->Dev->Address, op->Endpt->EndpointNum,
+		host->Ptr, Dev->Dev->Address*16 + op->Endpt->EndpointNum,
 		0, USB_AsyncCallback, op,
 		DataBuf, Length
 		);
