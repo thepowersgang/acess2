@@ -8,6 +8,7 @@
 #define DEBUG	1
 #include <usb_core.h>
 #include "usb.h"
+#include <timers.h>
 
 #define POLL_ATOM	25	// 25ms atom
 #define POLL_MAX	256	// Max period that can be nominated
