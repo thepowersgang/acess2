@@ -706,38 +706,21 @@ int writef(int FD, const char *Format, ...)
 int OpenTCP(const char *AddressString, short PortNumber)
 {
 	 int	fd, addrType;
-	char	*iface;
 	char	addrBuffer[8];
 	
 	// Parse IP Address
 	addrType = Net_ParseAddress(AddressString, addrBuffer);
 	if( addrType == 0 ) {
 		fprintf(stderr, "Unable to parse '%s' as an IP address\n", AddressString);
+		_SysDebug("Unable to parse '%s' as an IP address\n", AddressString);
 		return -1;
 	}
 	
 	// Finds the interface for the destination address
-	iface = Net_GetInterface(addrType, addrBuffer);
-	if( iface == NULL ) {
-		fprintf(stderr, "Unable to find a route to '%s'\n", AddressString);
-		return -1;
-	}
-	
-//	printf("iface = '%s'\n", iface);
-	
-	// Open client socket
-	// TODO: Move this out to libnet?
-	{
-		 int	len = snprintf(NULL, 100, "/Devices/ip/%s/tcpc", iface);
-		char	path[len+1];
-		snprintf(path, 100, "/Devices/ip/%s/tcpc", iface);
-		fd = open(path, OPENFLAG_READ|OPENFLAG_WRITE);
-	}
-	
-	free(iface);
-	
+	fd = Net_OpenSocket(addrType, addrBuffer, "tcpc");
 	if( fd == -1 ) {
-		fprintf(stderr, "Unable to open TCP Client for reading\n");
+		fprintf(stderr, "Unable to open TCP Client to '%s'\n", AddressString);
+		_SysDebug("Unable to open TCP client to '%s'\n", AddressString);
 		return -1;
 	}
 	

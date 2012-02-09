@@ -50,7 +50,7 @@ extern char	*Net_GetInterface(int AddrType, void *Addr);
  *                      If NULL, the node directory is opened
  * \return Socket file descriptor (as returned by \a open), or -1 on error
  * 
- * Opens a file using /Devices/ip/routes/<AddrType>:<Addr>/<SocketName>
+ * Opens a file using /Devices/ip/routes/@<AddrType>:<Addr>/<SocketName>
  * 
  */
 extern int	Net_OpenSocket(int AddrType, void *Addr, const char *SocketName);

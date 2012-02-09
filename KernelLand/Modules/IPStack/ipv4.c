@@ -2,7 +2,7 @@
  * Acess2 IP Stack
  * - IPv4 Protcol Handling
  */
-#define DEBUG	1
+#define DEBUG	0
 #include "ipstack.h"
 #include "link.h"
 #include "ipv4.h"

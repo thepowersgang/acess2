@@ -136,7 +136,7 @@ int VT_Install(char **Arguments)
 	
 	if(!gsVT_InputDevice)	gsVT_InputDevice = (char*)DEFAULT_INPUT;
 	else if( Module_EnsureLoaded( gsVT_InputDevice ) )	gsVT_InputDevice = (char*)DEFAULT_INPUT;
-	if( Module_EnsureLoaded( gsVT_OutputDevice ) ) {
+	if( Module_EnsureLoaded( gsVT_InputDevice ) ) {
 		Log_Error("VTerm", "Fallback input '%s' is not avaliable, input will not be avaliable", DEFAULT_INPUT);
 	}
 	
