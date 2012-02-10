@@ -81,7 +81,8 @@ void MM_Install(tMBoot_Info *MBoot)
 	kernelPages = (Uint)&gKernelEnd - KERNEL_BASE - 0x100000;
 	kernelPages += 0xFFF;	// Page Align
 	kernelPages >>= 12;
-	
+	giPhysAlloc += kernelPages;	// Add to used count	
+
 	// Fill page bitmap
 	num = kernelPages/32;
 	memsetd( &gaPageBitmap[0x100000/(4096*32)], -1, num );
@@ -109,7 +110,9 @@ void MM_Install(tMBoot_Info *MBoot)
 
 	gaPageReferences = (void*)MM_REFCOUNT_BASE;
 
-	Log_Log("PMem", "Physical memory set up");
+	Log_Log("PMem", "Physical memory set up (%lli pages of ~%lli MiB used)",
+		giPhysAlloc, (giPageCount*4)/1024
+		);
 }
 
 /**
@@ -423,7 +426,10 @@ void MM_RefPhys(tPAddr PAddr)
 //			Log_Debug("PMem", "MM_RefPhys: Allocating info for %X", PAddr);
 			Mutex_Release( &glPhysAlloc );
 			if( MM_Allocate( addr ) == 0 ) {
-				Log_KernelPanic("PMem", "MM_RefPhys: Out of physical memory allocating info for %X", PAddr*PAGE_SIZE);
+				Log_KernelPanic("PMem",
+					"MM_RefPhys: Out of physical memory allocating info for %X",
+					PAddr*PAGE_SIZE
+					);
 			}
 			Mutex_Acquire( &glPhysAlloc );
 			
@@ -434,9 +440,13 @@ void MM_RefPhys(tPAddr PAddr)
 		}
 		gaPageReferences[ PAddr ] ++;
 	}
-	
-	// Mark as used
-	gaPageBitmap[ PAddr / 32 ] |= 1 << (PAddr&31);
+
+	// If not already used
+	if( !(gaPageBitmap[ PAddr / 32 ] & 1 << (PAddr&31)) ) {
+		giPhysAlloc ++;
+		// Mark as used
+		gaPageBitmap[ PAddr / 32 ] |= 1 << (PAddr&31);
+	}
 	
 	// Mark used block
 	if(gaPageBitmap[ PAddr / 32 ] == -1)
