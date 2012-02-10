@@ -31,25 +31,31 @@ void ATA_ParseMBR(int Disk, tMBR *MBR)
 	for( i = 0; i < 4; i ++ )
 	{
 		if( MBR->Parts[i].SystemID == 0 )	continue;
-		if(	MBR->Parts[i].Boot == 0x0 || MBR->Parts[i].Boot == 0x80	// LBA 28
-		||	MBR->Parts[i].Boot == 0x1 || MBR->Parts[i].Boot == 0x81	// LBA 48
-			)
+		
+		if( MBR->Parts[i].Boot == 0x0 || MBR->Parts[i].Boot == 0x80 )	// LBA 28
 		{
-			if( MBR->Parts[i].SystemID == 0xF || MBR->Parts[i].SystemID == 5 ) {
-				LOG("Extended Partition at 0x%llx", MBR->Parts[i].LBAStart);
-				if(extendedLBA != 0) {
-					Warning("Disk %i has multiple extended partitions, ignoring rest", Disk);
-					continue;
-				}
-				extendedLBA = MBR->Parts[i].LBAStart;
+			base = MBR->Parts[i].LBAStart;
+		}
+		else if( MBR->Parts[i].Boot == 0x1 || MBR->Parts[i].Boot == 0x81 )	// LBA 48
+		{
+			base = (MBR->Parts[i].StartHi << 16) | MBR->Parts[i].LBAStart;
+		}
+		else
+			continue;	// Invalid, don't count
+
+		if( MBR->Parts[i].SystemID == 0xF || MBR->Parts[i].SystemID == 5 ) {
+			LOG("Extended Partition at 0x%llx", base);
+			if(extendedLBA != 0) {
+				Warning("Disk %i has multiple extended partitions, ignoring rest", Disk);
 				continue;
 			}
-			LOG("Primary Partition at 0x%llx", MBR->Parts[i].LBAStart);
+			extendedLBA = base;
+		}
+		else {
+			LOG("Primary Partition at 0x%llx", base);
 			
 			gATA_Disks[Disk].NumPartitions ++;
-			continue;
 		}
-		// Invalid Partition, so don't count it
 	}
 	while(extendedLBA != 0)
 	{
@@ -73,7 +79,7 @@ void ATA_ParseMBR(int Disk, tMBR *MBR)
 			base = MBR->Parts[i].LBAStart;
 			len = MBR->Parts[i].LBALength;
 		}
-		else if( MBR->Parts[i].Boot == 0x1 || MBR->Parts[i].Boot == 0x81 )	// LBA 58
+		else if( MBR->Parts[i].Boot == 0x1 || MBR->Parts[i].Boot == 0x81 )	// LBA 48
 		{
 			base = (MBR->Parts[i].StartHi << 16) | MBR->Parts[i].LBAStart;
 			len = (MBR->Parts[i].LengthHi << 16) | MBR->Parts[i].LBALength;
@@ -146,6 +152,7 @@ Uint64 ATA_MBR_int_ReadExt(int Disk, Uint64 Addr, Uint64 *Base, Uint64 *Length)
 				);
 			return -1;
 		}
+		base += Addr;	// Addresses are relative
 		
 		switch(mbr.Parts[i].SystemID)
 		{
