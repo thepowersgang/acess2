@@ -44,8 +44,8 @@ tUSBHostDef	gUHCI_HostDef = {
 	.SendIN = UHCI_DataIN,
 	.SendOUT = UHCI_DataOUT,
 	.SendSETUP = UHCI_SendSetup,
-	.CheckPorts = UHCI_CheckPortUpdate,
-	.IsOpComplete = UHCI_IsTransferComplete
+	.IsOpComplete = UHCI_IsTransferComplete,
+	.CheckPorts = UHCI_CheckPortUpdate
 	};
 
 // === CODE ===
