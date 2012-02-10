@@ -143,12 +143,13 @@ struct sOHCI_Controller
 	Uint	IRQNum;	
 	tPAddr	ControlSpacePhys;
 
-	struct sRegisters	*ControlSpace;
+	volatile struct sRegisters	*ControlSpace;
 
 	tPAddr	HCCAPhys;
-	struct sHCCA	*HCCA;
+	volatile struct sHCCA	*HCCA;
 	struct sOHCI_IntLists	*IntLists;	// At HCCA+512
 
+	 int	nPorts;
 	tUSBHub	*RootHub;
 };
 
