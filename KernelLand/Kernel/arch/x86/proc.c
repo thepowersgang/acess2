@@ -978,14 +978,23 @@ void Proc_Reschedule(void)
  */
 void Proc_Scheduler(int CPU)
 {
+	#if USE_MP
+	if( GetCPUNum() )
+		gpMP_LocalAPIC->EOI.Val = 0;
+	else
+	#endif
+		outb(0x20, 0x20);
+	__asm__ __volatile__ ("sti");	
+
+	gaCPUs[CPU].LastTimerThread = gaCPUs[CPU].Current;
+	// Call the timer update code
+	Timer_CallTimers();
+
 	// If two ticks happen within the same task, and it's not an idle task, swap
 	if( gaCPUs[CPU].Current->TID > giNumCPUs && gaCPUs[CPU].Current == gaCPUs[CPU].LastTimerThread )
 	{
 		Proc_Reschedule();
 	}
-	gaCPUs[CPU].LastTimerThread = gaCPUs[CPU].Current;
-	// Call the timer update code
-	Timer_CallTimers();
 }
 
 // === EXPORTS ===

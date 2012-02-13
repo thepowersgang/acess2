@@ -1,5 +1,5 @@
 /*
- * Acess 2
+ * Acess2 Kernel
  * - By John Hodge (thePowersGang) 
  *
  * Timer Code
