@@ -49,6 +49,7 @@ tShortSpinlock	gTimers_ListLock;
 void Timer_CallbackThread(void *Unused)
 {
 	Threads_SetName("Timer Callback Thread");
+	Workqueue_Init(&gTimers_CallbackQueue, "Timer Callbacks", offsetof(tTimer, Next));
 
 	for(;;)
 	{
