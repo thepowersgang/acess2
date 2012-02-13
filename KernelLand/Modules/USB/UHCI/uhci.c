@@ -12,6 +12,7 @@
 #include <modules.h>
 #include <usb_host.h>
 #include "uhci.h"
+#include <timers.h>
 
 // === CONSTANTS ===
 #define	MAX_CONTROLLERS	4

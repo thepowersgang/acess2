@@ -35,6 +35,7 @@ typedef struct sCPU
 	Uint8	State;	// 0: Unavaliable, 1: Idle, 2: Active
 	Uint16	Resvd;
 	tThread	*Current;
+	tThread	*LastTimerThread;	// Used to do preeemption
 }	tCPU;
 
 // === IMPORTS ===
@@ -939,6 +940,7 @@ void Proc_Reschedule(void)
 
 	// Update CPU state
 	gaCPUs[cpu].Current = nextthread;
+	gaCPUs[cpu].LastTimerThread = NULL;
 	gTSSs[cpu].ESP0 = nextthread->KernelStack-4;
 	__asm__ __volatile__("mov %0, %%db0\n\t" : : "r"(nextthread) );
 
@@ -976,49 +978,14 @@ void Proc_Reschedule(void)
  */
 void Proc_Scheduler(int CPU)
 {
-#if 0
-	tThread	*thread;
-	
-	// If the spinlock is set, let it complete
-	if(IS_LOCKED(&glThreadListLock))	return;
-	
-	// Get current thread
-	thread = gaCPUs[CPU].Current;
-	
-	if( thread )
+	// If two ticks happen within the same task, and it's not an idle task, swap
+	if( gaCPUs[CPU].Current->TID > giNumCPUs && gaCPUs[CPU].Current == gaCPUs[CPU].LastTimerThread )
 	{
-		tRegs	*regs;
-		Uint	ebp;
-		// Reduce remaining quantum and continue timeslice if non-zero
-		if( thread->Remaining-- )
-			return;
-		// Reset quantum for next call
-		thread->Remaining = thread->Quantum;
-		
-		// TODO: Make this more stable somehow
-		__asm__ __volatile__("mov %%ebp, %0" : "=r" (ebp));
-		regs = (tRegs*)(ebp+(2+2)*4);	// EBP,Ret + CPU,CurThread
-		thread->SavedState.UserCS = regs->cs;
-		thread->SavedState.UserEIP = regs->eip;
-		
-		if(thread->bInstrTrace) {
-			regs->eflags |= 0x100;	// Set TF
-			Log("%p De-scheduled", thread);
-		}
-		else
-			regs->eflags &= ~0x100;	// Clear TF
+		Proc_Reschedule();
 	}
-
-	// TODO: Ack timer?
-	#if USE_MP
-	if( GetCPUNum() )
-		gpMP_LocalAPIC->EOI.Val = 0;
-	else
-	#endif
-		outb(0x20, 0x20);
-	__asm__ __volatile__ ("sti");
-	Proc_Reschedule();
-#endif
+	gaCPUs[CPU].LastTimerThread = gaCPUs[CPU].Current;
+	// Call the timer update code
+	Timer_CallTimers();
 }
 
 // === EXPORTS ===

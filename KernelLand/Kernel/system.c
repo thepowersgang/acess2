@@ -12,6 +12,7 @@ extern void	Arch_LoadBootModules(void);
 extern int	Modules_LoadBuiltins(void);
 extern void	Modules_SetBuiltinParams(char *Name, char *ArgString);
 extern void	Debug_SetKTerminal(const char *File);
+extern void	Timer_CallbackThread(void *);
 
 // === PROTOTYPES ===
 void	System_Init(char *Commandline);
@@ -29,6 +30,8 @@ char	*argv[32];
 // === CODE ===
 void System_Init(char *CommandLine)
 {
+	Proc_SpawnWorker(Timer_CallbackThread, NULL);
+
 	// Parse Kernel's Command Line
 	System_ParseCommandLine(CommandLine);
 	

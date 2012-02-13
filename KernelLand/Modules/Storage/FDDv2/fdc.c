@@ -84,10 +84,17 @@ int FDD_SetupIO(void)
 	// Install IRQ6 Handler
 	IRQ_AddHandler(6, FDD_int_IRQHandler, NULL);
 	
+	for( int i = 0; i < 2; i ++ )
+	{
+		if( !gaFDD_Disks[i].bValid )	continue ;
+		
+		gaFDD_Disks[i].Timer = Time_AllocateTimer(FDD_int_StopMotorCallback, (void*)(tVAddr)i);
+	}
+	
 	// Reset controller
 	FDD_int_Reset(0);
 	// TODO: All controllers
-	
+
 	return 0;
 }
 
@@ -401,7 +408,6 @@ int FDD_int_StartMotor(int Disk)
 	
 	// Clear the motor off timer	
 	Time_RemoveTimer(gaFDD_Disks[Disk].Timer);
-	gaFDD_Disks[Disk].Timer = NULL;
 
 	// Check if the motor is already on
 	if( gaFDD_Disks[Disk].MotorState == MOTOR_ATSPEED )
@@ -425,10 +431,8 @@ int FDD_int_StopMotor(int Disk)
 {
 	if( gaFDD_Disks[Disk].MotorState != MOTOR_ATSPEED )
 		return 0;
-	if( gaFDD_Disks[Disk].Timer != NULL )
-		return 0;
 
-	gaFDD_Disks[Disk].Timer = Time_CreateTimer(MOTOR_OFF_DELAY, FDD_int_StopMotorCallback, (void*)(tVAddr)Disk);
+	Time_ScheduleTimer(gaFDD_Disks[Disk].Timer, MOTOR_OFF_DELAY);
 
 	return 0;
 }
@@ -443,7 +447,6 @@ void FDD_int_StopMotorCallback(void *Ptr)
 	 int	_disk;
 	Uint16	base = FDD_int_GetBase(Disk, &_disk);
 
-	gaFDD_Disks[Disk].Timer = NULL;
 	gaFDD_Disks[Disk].MotorState = MOTOR_OFF;
 	
 	outb(base + FDC_DOR, inb(base+FDC_DOR) & ~(1 << (_disk + 4)));

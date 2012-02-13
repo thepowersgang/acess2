@@ -9,6 +9,8 @@
 #include <workqueue.h>
 #include <threads_int.h>
 
+#define QUEUENEXT(ptr)	(*( (void**)(ptr) + Queue->NextOffset/sizeof(void*) ))
+
 // === CODE ===
 void Workqueue_Init(tWorkqueue *Queue, const char *Name, size_t NextOfset)
 {
@@ -27,7 +29,7 @@ void *Workqueue_GetWork(tWorkqueue *Queue)
 		if(Queue->Head)
 		{
 			void *ret = Queue->Head;
-			Queue->Head = *( (void**)ret + Queue->NextOffset/sizeof(void*) );
+			Queue->Head = QUEUENEXT( ret );
 			if(Queue->Tail == ret)
 				Queue->Tail = NULL;
 			SHORTREL(&Queue->Protector);	
@@ -58,11 +60,12 @@ void Workqueue_AddWork(tWorkqueue *Queue, void *Ptr)
 	SHORTLOCK(&Queue->Protector);
 
 	if( Queue->Tail )
-		*( (void**)Queue->Tail + Queue->NextOffset/sizeof(void*) ) = Ptr;
+		QUEUENEXT(Queue->Tail) = Ptr;
 	else
 		Queue->Head = Ptr;
 	Queue->Tail = Ptr;
-	
+	QUEUENEXT(Ptr) = NULL;
+
 	if( Queue->Sleeper )
 	{	
 		if( Queue->Sleeper->Status != THREAD_STAT_ACTIVE )

@@ -12,6 +12,7 @@
 #include <modules.h>
 #include <vm8086.h>
 #include "common.h"
+#include <timers.h>
 
 // === CONSTANTS ===
 #define	FLAG_LFB	0x1
@@ -59,7 +60,9 @@ char	*gpVesa_Framebuffer = (void*)VESA_DEFAULT_FRAMEBUFFER;
 // --- Cursor Control ---
  int	giVesaCursorX = -1;
  int	giVesaCursorY = -1;
- int	giVesaCursorTimer = -1;	// Invalid timer
+#if BLINKING_CURSOR
+tTimer	*gpVesaCursorTimer;
+#endif
  int	gbVesa_CursorVisible = 0;
 // --- 2D Video Stream Handlers ---
 tDrvUtil_Video_BufInfo	gVesa_BufInfo;
@@ -112,10 +115,15 @@ int Vesa_Install(char **Arguments)
 
 //	VM8086_Deallocate( info );
 	
+	#if BLINKING_CURSOR
+	// Create blink timer
+	gpVesaCursorTimer = Time_AllocateTimer( Vesa_FlipCursor, NULL );
+	#endif
+
 	// Install Device
 	giVesaDriverId = DevFS_AddDevice( &gVesa_DriverStruct );
 	if(giVesaDriverId == -1)	return MODULE_ERR_MISC;
-	
+
 	return MODULE_ERR_OK;
 }
 
@@ -246,8 +254,7 @@ int Vesa_Int_SetMode(int mode)
 	
 	Vesa_int_FillModeList();
 
-	Time_RemoveTimer(giVesaCursorTimer);
-	giVesaCursorTimer = -1;
+	Time_RemoveTimer(gpVesaCursorTimer);
 	
 	Mutex_Acquire( &glVesa_Lock );
 	
@@ -365,9 +372,8 @@ void Vesa_int_HideCursor(void)
 {
 	DrvUtil_Video_RemoveCursor( &gVesa_BufInfo );
 	#if BLINKING_CURSOR
-	if(giVesaCursorTimer != -1) {
-		Time_RemoveTimer(giVesaCursorTimer);
-		giVesaCursorTimer = -1;
+	if(gpVesaCursorTimer) {
+		Time_RemoveTimer(gpVesaCursorTimer);
 	}
 	#endif
 }
@@ -383,7 +389,7 @@ void Vesa_int_ShowCursor(void)
 			giVesaCursorY*giVT_CharHeight
 			);
 		#if BLINKING_CURSOR
-		giVesaCursorTimer = Time_CreateTimer(VESA_CURSOR_PERIOD, Vesa_FlipCursor, NULL);
+		Time_ScheduleTimer( gpVesaCursorTimer, VESA_CURSOR_PERIOD );
 		#endif
 	}
 	else
@@ -412,7 +418,7 @@ void Vesa_FlipCursor(void *Arg)
 	gbVesa_CursorVisible = !gbVesa_CursorVisible;
 		
 	#if BLINKING_CURSOR
-	giVesaCursorTimer = Time_CreateTimer(VESA_CURSOR_PERIOD, Vesa_FlipCursor, Arg);
+	Time_ScheduleTimer( gpVesaCursorTimer, VESA_CURSOR_PERIOD );
 	#endif
 }
 

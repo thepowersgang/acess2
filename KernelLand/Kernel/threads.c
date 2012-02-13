@@ -926,7 +926,6 @@ tThread *Threads_RemActive(void)
 	ret->Next = NULL;
 	ret->Remaining = 0;
 	
-	giNumActiveThreads --;
 	// no need to decrement tickets, scheduler did it for us
 	
 	#if SCHEDULER_TYPE == SCHED_LOTTERY && DEBUG_TRACE_TICKETS
@@ -936,6 +935,7 @@ tThread *Threads_RemActive(void)
 	
 	return ret;
 	#else
+	giNumActiveThreads --;
 	return Proc_GetCurThread();
 	#endif
 }

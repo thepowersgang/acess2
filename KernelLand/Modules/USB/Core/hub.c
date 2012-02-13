@@ -7,6 +7,7 @@
  */
 #define DEBUG	1
 #include <usb_hub.h>
+#include <timers.h>
 
 #define MAX_PORTS	32	// Not actually a max, but used for DeviceRemovable
 

@@ -15,6 +15,8 @@
 #define PACKED	__attribute__((packed))
 //! Mark a function as not returning
 #define NORETURN	__attribute__((noreturn))
+//! Mark a function (or variable) as deprecated
+#define DEPRECATED	__attribute__((deprecated))
 //! Mark a parameter as unused
 #define UNUSED(x)	UNUSED_##x __attribute__((unused))
 //! Get the offset of a member in a structure
@@ -182,7 +184,7 @@ extern void	Debug_HexDump(const char *Header, const void *Data, Uint Length);
 # define LEAVE_RET0()	return
 #endif
 #if SANITY
-# define ASSERT(expr) do{if(!(expr))Panic("%s: Assertion '"#expr"' failed",(char*)__func__);}while(0)
+# define ASSERT(expr) do{if(!(expr))Panic("%s:%i - %s: Assertion '"#expr"' failed",__FILE__,__LINE__,(char*)__func__);}while(0)
 #else
 # define ASSERT(expr)
 #endif

@@ -78,6 +78,8 @@ const struct {
 void KernelPanic_SetMode(void)
 {
 	 int	i;
+
+	__asm__ __volatile__ ("cli");	// Stop the processor!
 	
 	// This function is called by Panic(), but MM_PageFault and the
 	// CPU exception handers also call it, so let's not clear the screen

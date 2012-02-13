@@ -171,6 +171,7 @@ void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 	 && gaPageTable[Addr>>12] & PF_COW )
 	{
 		tPAddr	paddr;
+		__asm__ __volatile__ ("sti");
 		if(MM_GetRefCount( gaPageTable[Addr>>12] & ~0xFFF ) == 1)
 		{
 			gaPageTable[Addr>>12] &= ~PF_COW;
@@ -197,6 +198,7 @@ void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 
 	// If it was a user, tell the thread handler
 	if(ErrorCode & 4) {
+		__asm__ __volatile__ ("sti");
 		Log_Warning("MMVirt", "User %s %s memory%s",
 			(ErrorCode&2?"write to":"read from"),
 			(ErrorCode&1?"bad/locked":"non-present"),

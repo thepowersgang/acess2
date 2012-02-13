@@ -9,7 +9,7 @@
 
 #define	DEBUG_MAX_LINE_LEN	256
 
-#define	LOCK_DEBUG_OUTPUT	1
+#define	LOCK_DEBUG_OUTPUT	0
 
 #define TRACE_TO_KTERM	0
 
