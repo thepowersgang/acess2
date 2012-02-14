@@ -53,7 +53,6 @@ int main(int argc, char *argv[])
 	}
 	
 	Video_Setup();
-//	Interface_Init();
 	IPC_Init();
 	Input_Init();
 	

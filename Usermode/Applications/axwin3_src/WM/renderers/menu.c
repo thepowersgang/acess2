@@ -275,17 +275,14 @@ int Renderer_Menu_int_AddItem(tWindow *Window, int Length, const tMenuMsg_AddIte
 	}
 	else
 	{
-		char	tmp = item->Label[item->KeyOffset];
 		// Get width of preceding substring
 		WM_Render_GetTextDims(NULL, item->Label, item->KeyOffset, &item->UnderlineX, NULL);
 		// Get the width of the underlined character
-		item->Label[item->KeyOffset] = tmp;
 		// NOTE: 1 makes only one character be parsed, even if it is >1 byte long
 		WM_Render_GetTextDims(
 			NULL, item->Label+item->KeyOffset, 1,
 			&item->UnderlineW, NULL
 			);
-		item->Label[item->KeyOffset+1] = tmp;
 	}
 	// - Labels
 	WM_Render_GetTextDims(NULL, item->Label, -1, &item->LabelWidth, NULL);
@@ -293,12 +290,16 @@ int Renderer_Menu_int_AddItem(tWindow *Window, int Length, const tMenuMsg_AddIte
 		WM_Render_GetTextDims(NULL, item->Shortcut, -1, &item->ShortcutWidth, NULL);
 	else
 		item->ShortcutWidth = 0;
-	
+
+	// Get maximum lengths (to determine the size of the menu	
 	if( item->LabelWidth > info->MaxLabelWidth )
 		info->MaxLabelWidth = item->LabelWidth;
 	if( item->ShortcutWidth > info->MaxShortcutWidth )
 		info->MaxShortcutWidth = item->ShortcutWidth;
 	
+	// Update width
+	// TODO: Check, do I want to resize down too?
+	// TODO: Take into account padding too
 	if( info->MaxLabelWidth + info->MaxShortcutWidth + ciMenu_Gap > info->CachedW )
 	{
 		info->CachedW = ciMenu_LeftPadding + info->MaxLabelWidth
@@ -310,6 +311,9 @@ int Renderer_Menu_int_AddItem(tWindow *Window, int Length, const tMenuMsg_AddIte
 	return 0;
 }
 
+/**
+ * \brief Convert coordinates into an item index
+ */
 int Renderer_Menu_int_GetItemByPos(tWindow *Window, tMenuWindowInfo *Info, int X, int Y)
 {
 	 int	i;
