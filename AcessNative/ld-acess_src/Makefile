@@ -14,10 +14,14 @@ ifeq ($(PLATFORM),win)
 endif
 ifeq ($(PLATFORM),lin)
 	BIN := ../ld-acess
-	LD += -m elf_i386
+#	LD += -m elf_i386
 endif
 
-CFLAGS += -Wall -Werror -g -m32
+CFLAGS   += -Wall
+CFLAGS   += -Werror
+CFLAGS   += -g
+CPPFLAGS += -DARCHDIR_is_x86_64=1
+LDFLAGS  += -g -Wl,-T,obj-$(PLATFORM)/link.ld
 
 DEPFILES  = $(filter %.o,$(OBJ))
 DEPFILES := $(DEPFILES:%=%.dep)
@@ -27,10 +31,10 @@ DEPFILES := $(DEPFILES:%=%.dep)
 all: $(BIN)
 
 clean:
-	$(RM) $(BIN) $(OBJ) $(DEPFILES)
+	$(RM) $(BIN) $(OBJ) $(DEPFILES) obj-$(PLATFORM)/link.ld
 
 $(BIN): obj-$(PLATFORM)/link.ld $(OBJ)
-	$(CC) -g -o $@ $(OBJ) -m32 -Wl,-T,obj-$(PLATFORM)/link.ld
+	$(CC) $(LDFLAGS) -o $@ $(OBJ)
 
 obj-$(PLATFORM)/%.o: %.c
 	@mkdir -p $(dir $@)
@@ -42,7 +46,7 @@ obj-$(PLATFORM)/%.o: %.c
 obj-lin/link.ld:
 	@mkdir -p $(dir $@)
 	@echo "Making Linker Script ($@)"
-	@$(LD) --verbose | awk '{ if( substr($$0,0,5) == "====="){ bPrint = !bPrint; } else { if(bPrint){ print $$0;} } }' | sed 's/\b0x0[08][0-9]*\b/0x00100000/g' > $@
+	$(LD) --verbose | awk '{ if( substr($$0,0,5) == "====="){ bPrint = !bPrint; } else { if(bPrint){ print $$0;} } }' | sed 's/\b0x[048][0-9]*\b/0x00200000/g' > $@
 
 -include $(DEPFILES)
 

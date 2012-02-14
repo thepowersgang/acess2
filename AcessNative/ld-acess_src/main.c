@@ -20,7 +20,7 @@ int main(int argc, char *argv[], char **envp)
 	 int	appArgc;
 	char	**appArgv;
 	char	*appPath = NULL;
-	 int	(*appMain)(int, char *[], char **) __attribute__((cdecl));
+	 int	(*appMain)(int, char *[], char **);
 	void	*base;
 	 int	rv;
 	

@@ -9,6 +9,7 @@
 #include "../syscalls.h"
 #include "exports.h"
 #include <stdarg.h>
+#include <stddef.h>
 
 #define DEBUG(v...)	Debug(v)
 
@@ -93,7 +94,7 @@ int acess_ioctl(int fd, int id, void *data) {
 	return _Syscall(SYS_IOCTL, ">i >i ?d", fd, id, 1024, data);
 }
 int acess_finfo(int fd, t_sysFInfo *info, int maxacls) {
-	DEBUG("offsetof(size, t_sysFInfo) = %i", offsetof(t_sysFInfo, size));
+//	DEBUG("offsetof(size, t_sysFInfo) = %i", offsetof(t_sysFInfo, size));
 	DEBUG("finfo(%i, %p, %i)", fd, info, maxacls);
 	return _Syscall(SYS_FINFO, ">i <d >i",
 		fd,

@@ -31,7 +31,7 @@ extern const char	gsGitHash[];
 extern int	giBuildNumber;
 
 // === GLOBALS ===
-const char	*gsAcessDir = "../Usermode/Output/x86";
+const char	*gsAcessDir = "../Usermode/Output/x86_64";
 
 // === CODE ===
 int main(int argc, char *argv[])
@@ -68,8 +68,12 @@ int main(int argc, char *argv[])
 	// Initialise VFS
 	VFS_Init();
 	// - Start IO Drivers
-	Video_Install(NULL);
-	NativeKeyboard_Install(NULL);
+	if( Video_Install(NULL) ) {
+		Log_Error("Init", "Unable to load NativeVideo");
+	}
+	if( NativeKeyboard_Install(NULL) ) {
+		Log_Error("Init", "Unable to load NativeKeyboard");
+	}
 	NativeFS_Install(NULL);
 	// - Start VTerm
 	{

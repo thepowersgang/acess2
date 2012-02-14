@@ -272,7 +272,7 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 	}
 	formatString[i] = '\0';
 	
-	LOG("Request %i(%s) '%s'", Request->CallID, casSYSCALL_NAMES[Request->CallID], formatString);
+	//LOG("Request %i(%s) '%s'", Request->CallID, casSYSCALL_NAMES[Request->CallID], formatString);
 	
 	{
 		char	argListData[argListLen];
@@ -286,19 +286,19 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 			case ARG_TYPE_VOID:
 				break;
 			case ARG_TYPE_INT32:
-				LOG("%i INT32: 0x%x", i, *(Uint32*)inData);
+				//LOG("%i INT32: 0x%x", i, *(Uint32*)inData);
 				*(Uint32*)&argListData[argListLen] = *(Uint32*)inData;
 				argListLen += sizeof(Uint32);
 				inData += sizeof(Uint32);
 				break;
 			case ARG_TYPE_INT64:
-				LOG("%i INT64: 0x%llx", i, *(Uint64*)inData);
+				//LOG("%i INT64: 0x%llx", i, *(Uint64*)inData);
 				*(Uint64*)&argListData[argListLen] = *(Uint64*)inData;
 				argListLen += sizeof(Uint64);
 				inData += sizeof(Uint64);
 				break;
 			case ARG_TYPE_STRING:
-				LOG("%i STR: '%s'", i, (char*)inData);
+				//LOG("%i STR: '%s'", i, (char*)inData);
 				*(char**)&argListData[argListLen] = (char*)inData;
 				argListLen += sizeof(void*);
 				inData += Request->Params[i].Length;
@@ -319,16 +319,16 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 				{
 					// Allocate and zero the buffer
 					returnData[i] = calloc(1, Request->Params[i].Length);
-					LOG("%i ZDAT: %i %p", i,
-						Request->Params[i].Length, returnData[i]);
+					//LOG("%i ZDAT: %i %p", i,
+					//	Request->Params[i].Length, returnData[i]);
 					*(void**)&argListData[argListLen] = returnData[i];
 					argListLen += sizeof(void*);
 				}
 				else
 				{
 					returnData[i] = (void*)inData;
-					LOG("%i DATA: %i %p", i,
-						Request->Params[i].Length, returnData[i]);
+					//LOG("%i DATA: %i %p", i,
+					//	Request->Params[i].Length, returnData[i]);
 					*(void**)&argListData[argListLen] = (void*)inData;
 					argListLen += sizeof(void*);
 					inData += Request->Params[i].Length;
