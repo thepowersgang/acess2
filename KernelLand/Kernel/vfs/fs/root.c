@@ -142,14 +142,20 @@ tVFS_Node *Root_FindDir(tVFS_Node *Node, const char *Name)
 	tRamFS_File	*parent = Node->ImplPtr;
 	tRamFS_File	*child = parent->Data.FirstChild;
 	
+	ENTER("pNode sName", Node, Name);
 	//Log("Root_FindDir: (Node=%p, Name='%s')", Node, Name);
 	
 	for(;child;child = child->Next)
 	{
 		//Log(" Root_FindDir: strcmp('%s', '%s')", child->Node.Name, Name);
-		if(strcmp(child->Name, Name) == 0)	return &child->Node;
+		LOG("child->Name = '%s'", child->Name);
+		if(strcmp(child->Name, Name) == 0) {
+			LEAVE('p', &child->Node);
+			return &child->Node;
+		}
 	}
 	
+	LEAVE('n');
 	return NULL;
 }
 

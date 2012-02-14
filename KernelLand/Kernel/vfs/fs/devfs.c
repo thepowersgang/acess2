@@ -3,6 +3,7 @@
  * Device Filesystem (DevFS)
  * - vfs/fs/devfs.c
  */
+#define DEBUG	0
 #include <acess.h>
 #include <vfs.h>
 #include <fs_devfs.h>
@@ -44,6 +45,9 @@ int DevFS_AddDevice(tDevFS_Driver *Device)
 {
 	 int	ret = 0;
 	tDevFS_Driver	*dev;
+
+	ENTER("pDevice", Device);
+	LOG("Device->Name = '%s'", Device->Name);
 	
 	SHORTLOCK( &glDevFS_ListLock );
 	
@@ -61,7 +65,7 @@ int DevFS_AddDevice(tDevFS_Driver *Device)
 		else
 			Log_Warning("DevFS", "Device %p attempted to register '%s' which was owned by %p",
 				Device, dev->Name, dev);
-		ret = 0;	// Error
+		ret = -1;	// Error
 	}
 	else {
 		Device->Next = gDevFS_Drivers;
@@ -71,6 +75,7 @@ int DevFS_AddDevice(tDevFS_Driver *Device)
 	}
 	SHORTREL( &glDevFS_ListLock );
 	
+	LEAVE('i', ret);
 	return ret;
 }
 
@@ -140,7 +145,7 @@ tVFS_Node *DevFS_FindDir(tVFS_Node *Node, const char *Name)
 {
 	tDevFS_Driver	*dev;
 	
-	//ENTER("pNode sName", Node, Name);
+	ENTER("pNode sName", Node, Name);
 	
 	for(dev = gDevFS_Drivers;
 		dev;
@@ -148,14 +153,14 @@ tVFS_Node *DevFS_FindDir(tVFS_Node *Node, const char *Name)
 		)
 	{
 		//LOG("dev = %p", dev);
-		//LOG("dev->Name = '%s'", dev->Name);
+		LOG("dev->Name = '%s'", dev->Name);
 		if(strcmp(dev->Name, Name) == 0) {
-			//LEAVE('p', &dev->RootNode);
+			LEAVE('p', &dev->RootNode);
 			return &dev->RootNode;
 		}
 	}
 	
-	//LEAVE('n');
+	LEAVE('n');
 	return NULL;
 }
 

@@ -59,6 +59,9 @@ char *VFS_GetAbsPath(const char *Path)
 	if( chroot == NULL )
 		chroot = "";
 	chrootLen = strlen(chroot);
+	// Trim trailing slash off chroot
+	if( chrootLen && chroot[chrootLen - 1] == '/' )
+		chrootLen -= 1;
 	
 	// Check if the path is already absolute
 	if(Path[0] == '/') {
@@ -269,14 +272,14 @@ restart_parse:
 	
 		// Check permissions on root of filesystem
 		if( !VFS_CheckACL(curNode, VFS_PERM_EXECUTE) ) {
-			//Log("Permissions fail on '%s'", Path);
+			LOG("Permissions failure on '%s'", Path);
 			goto _error;
 		}
 		
 		// Check if the node has a FindDir method
 		if( !curNode->Type->FindDir )
 		{
-			//Log("FindDir fail on '%s'", Path);
+			LOG("Finddir failure on '%s'", Path);
 			goto _error;
 		}
 		LOG("FindDir{=%p}(%p, '%s')", curNode->Type->FindDir, curNode, pathEle);
