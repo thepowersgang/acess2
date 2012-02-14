@@ -16,13 +16,13 @@ typedef signed short	__int16_t;
 typedef signed int		__int32_t;
 typedef signed long long	__int64_t;
 
-#if ARCHDIR_is_x86
+#if defined(ARCHDIR_is_x86)
 typedef __int32_t 	__intptr_t;
 typedef __uint32_t	__uintptr_t;
-#elif ARCHDIR_is_x86_64
+#elif defined(ARCHDIR_is_x86_64)
 typedef __int64_t 	__intptr_t;
 typedef __uint64_t	__uintptr_t;
-#elif ARCHDIR_is_armv7
+#elif defined(ARCHDIR_is_armv7)
 typedef __int32_t 	__intptr_t;
 typedef __uint32_t 	__uintptr_t;
 #else

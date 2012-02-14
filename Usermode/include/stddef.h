@@ -1,10 +1,12 @@
 #ifndef _STDDEF_H_
 #define _STDDEF_H_
 
+#include "acess/intdefs.h"
+
 #ifndef NULL
 # define NULL	((void*)0)
 #endif
 
-typedef unsigned int	size_t;
+typedef __intptr_t	size_t;
 
 #endif
