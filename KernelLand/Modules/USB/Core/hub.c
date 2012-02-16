@@ -52,7 +52,7 @@ struct sHubInfo
 };
 
 // === PROTOTYPES ===
-void	Hub_Connected(tUSBInterface *Dev);
+void	Hub_Connected(tUSBInterface *Dev, void *Descriptors, size_t Length);
 void	Hub_Disconnected(tUSBInterface *Dev);
 void	Hub_PortStatusChange(tUSBInterface *Dev, int Endpoint, int Length, void *Data);
 void	Hub_int_HandleChange(tUSBInterface *Dev, int Port);
@@ -78,13 +78,13 @@ int Hub_DriverInitialise(char **Arguments)
 }
 #endif
 
-void Hub_Connected(tUSBInterface *Dev)
+void Hub_Connected(tUSBInterface *Dev, void *Descriptors, size_t Length)
 {
 	struct sHubDescriptor	hub_desc;
 	struct sHubInfo	*info;	
 
-	// Read hub descriptor (Class descriptor 0x29)
-	USB_ReadDescriptor(Dev, 0x129, 0, sizeof(hub_desc), &hub_desc);
+	// Read hub descriptor (Class descriptor 0x9, destined for device)
+	USB_ReadDescriptor(Dev, 0x0129, 0, sizeof(hub_desc), &hub_desc);
 
 	LOG("%i Ports", hub_desc.NbrPorts);
 	LOG("Takes %i ms for power to stabilise", hub_desc.PwrOn2PwrGood*2);

@@ -22,6 +22,7 @@
  int	UHCI_Initialise(char **Arguments);
 void	UHCI_Cleanup();
 tUHCI_TD	*UHCI_int_AllocateTD(tUHCI_Controller *Cont);
+tUHCI_TD	*UHCI_int_GetTDFromPhys(tPAddr PAddr);
 void	UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_TD *TD);
 void	*UHCI_int_SendTransaction(tUHCI_Controller *Cont, int Addr, Uint8 Type, int bTgl, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length);
 void	*UHCI_DataIN(void *Ptr, int Dest, int DataTgl, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length);
@@ -166,19 +167,23 @@ tUHCI_TD *UHCI_int_GetTDFromPhys(tPAddr PAddr)
 
 void UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_TD *TD)
 {
-	 int	next_frame = (_InWord(Cont, FRNUM) + 2) & (1024-1);
+	 int	next_frame;
 	tUHCI_TD	*prev_td;
 	Uint32	link;
 
-	// TODO: How to handle FRNUM incrementing while we are in this function?
+	ENTER("pCont pTD", Cont, TD);
 
+	// TODO: How to handle FRNUM incrementing while we are in this function?
+	next_frame = (_InWord(Cont, FRNUM) + 2) & (1024-1);
+	
 	// Empty list
 	if( Cont->FrameList[next_frame] & 1 )
 	{
 		// TODO: Ensure 32-bit paddr
 		Cont->FrameList[next_frame] = MM_GetPhysAddr( (tVAddr)TD );
 		TD->Control |= (1 << 24);	// Ensure that there is an interrupt for each used frame
-		LOG("next_frame = %i", next_frame);	
+		LOG("next_frame = %i", next_frame);
+		LEAVE('-');
 		return;
 	}
 
@@ -193,6 +198,7 @@ void UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_TD *TD)
 	prev_td->Link = MM_GetPhysAddr( (tVAddr)TD );
 
 	LOG("next_frame = %i, prev_td = %p", next_frame, prev_td);
+	LEAVE('-');
 }
 
 /**
@@ -307,7 +313,8 @@ int UHCI_Int_InitHost(tUHCI_Controller *Host)
 		return -1;
 	}
 	LOG("Allocated frame list 0x%x (0x%x)", Host->FrameList, Host->PhysFrameList);
-	memsetd( Host->FrameList, 1, 1024 );	// Clear List (Disabling all entries)
+	for( int i = 0; i < 1024; i ++ )
+		Host->FrameList[i] = 1;	// Clear List (Disabling all entries)
 	
 	//! \todo Properly fill frame list
 	

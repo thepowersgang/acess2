@@ -41,7 +41,7 @@ struct sDescriptor_HID
 	struct {
 		Uint8	DescType;
 		Uint16	DescLen;
-	} Descriptors[];
-}
+	} PACKED Descriptors[];
+} PACKED;
 
 #endif

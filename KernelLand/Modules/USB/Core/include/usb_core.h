@@ -38,7 +38,7 @@ struct sUSBDriver
 		} VendorDev;
 	} Match;
 
-	void	(*Connected)(tUSBInterface *Dev);
+	void	(*Connected)(tUSBInterface *Dev, void *Descriptors, size_t Size);
 	void	(*Disconnected)(tUSBInterface *Dev);
 
 	 int	MaxEndpoints;	

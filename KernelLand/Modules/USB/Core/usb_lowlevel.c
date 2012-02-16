@@ -78,16 +78,12 @@ int USB_int_ReadDescriptor(tUSBDevice *Dev, int Endpoint, int Type, int Index, i
 	 int	dest = Dev->Address*16 + Endpoint;
 
 	req.ReqType = 0x80;
-	switch( Type & 0xF00 )
-	{
-	case 0x000:	req.ReqType |= (0 << 5);	break;	// Standard
-	case 0x100:	req.ReqType |= (1 << 5);	break;	// Class
-	case 0x200:	req.ReqType |= (2 << 5);	break;	// Vendor
-	}
+	req.ReqType |= ((Type >> 8) & 0x3) << 5;	// Bits 5/6
+	req.ReqType |= (Type >> 12) & 3;	// Destination (Device, Interface, Endpoint, Other);
 
 	req.Request = 6;	// GET_DESCRIPTOR
 	req.Value = LittleEndian16( ((Type & 0xFF) << 8) | (Index & 0xFF) );
-	req.Index = LittleEndian16( 0 );	// TODO: Language ID
+	req.Index = LittleEndian16( 0 );	// TODO: Language ID / Interface
 	req.Length = LittleEndian16( Length );
 	
 	Dev->Host->HostDef->SendSETUP(

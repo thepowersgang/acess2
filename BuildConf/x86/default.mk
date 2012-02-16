@@ -6,5 +6,7 @@ MODULES += Display/VESA
 MODULES += Display/BochsGA
 MODULES += Input/PS2KbMouse
 MODULES += x86/ISADMA x86/VGAText
+
 MODULES += USB/Core USB/UHCI USB/OHCI
+MODULES += USB/HID
 #MODULES += Interfaces/UDI

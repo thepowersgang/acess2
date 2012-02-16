@@ -61,7 +61,6 @@ tUSBHub *USB_RegisterHost(tUSBHostDef *HostDef, void *ControllerPtr, int nPorts)
 // --- Drivers ---
 void USB_RegisterDriver(tUSBDriver *Driver)
 {
-	Log_Warning("USB", "TODO: Implement USB_RegisterDriver");
 	Driver->Next = gpUSB_InterfaceDrivers;
 	gpUSB_InterfaceDrivers = Driver;
 }
