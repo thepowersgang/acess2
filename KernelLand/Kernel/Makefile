@@ -82,6 +82,8 @@ clean:
 	@$(RM) $(BIN) ../Acess2.$(ARCH).gz $(BIN).dsm ../Map.$(ARCH).txt LineCounts.$(ARCH).txt
 	@$(RM) -r $(OBJDIR) $(OBJ) $(DEPFILES) $(BUILDINFO_SRC)
 
+# Creates a stripped and compressed copy of the kernel
+# and installs it to the target
 install: $(BIN) 
 	@cp $(BIN) $(BIN)_
 	@$(STRIP) $(BIN)_
@@ -89,9 +91,16 @@ install: $(BIN)
 	@$(RM) $(BIN)_
 	$(xCP) $(GZBIN) $(DISTROOT)
 
+# Compile API documentation
 apidoc:
 	doxygen Doxyfile.api
 
+# Output binary
+# - Links kernel
+# - Disassembles it
+# - Gets a line count
+# - Increments the build count
+# - Does whatever architecture defined rules
 $(BIN): $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile ../../BuildConf/$(ARCH)/Makefile.cfg ../../BuildConf/$(ARCH)/$(PLATFORM).mk
 	@echo --- LD -o $(BIN)
 	@$(LD) $(LDFLAGS) -o $(BIN) $(OBJ) $(MODS) --defsym __buildnum=$$(( $(BUILD_NUM) + 1 )) -Map ../Map.$(ARCH).txt
@@ -100,6 +109,7 @@ $(BIN): $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile ../../BuildConf/$(ARCH)/
 	@echo BUILD_NUM = $$(( $(BUILD_NUM) + 1 )) > Makefile.BuildNum.$(ARCH)
 	$(POSTBUILD)
 
+# Assembly Sources
 $(OBJDIR)%.ao$(OBJSUFFIX): %.$(AS_SUFFIX) Makefile
 	@echo --- AS -o $@
 	@mkdir -p $(dir $@)
@@ -108,28 +118,30 @@ ifeq ($(AS_SUFFIX),S)
 	@$(MAKEDEP) $(CPPFLAGS) -MT $@ -o $(OBJDIR)$*.ao.dep$(OBJSUFFIX) $<
 endif
 
+# C Sources
 $(OBJDIR)%.o$(OBJSUFFIX): %.c Makefile
-#	if exists %*/Makefile
-#	@make -C %*/ all
-#	else
 	@echo --- CC -o $@
 	@mkdir -p $(dir $@)
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $<
 	@$(MAKEDEP) $(CPPFLAGS) -MT $@ -o $(OBJDIR)$*.o.dep$(OBJSUFFIX) $<
-#	endif
 
+# Build-time linked modules
 %.xo.$(ARCH):
 	@BUILDTYPE=static make -C $* all
 
+# System call lists
 include/syscalls.h include/syscalls.inc.asm:	syscalls.lst Makefile GenSyscalls.pl
 	perl GenSyscalls.pl
 
-Makefile:	../Makefile.cfg arch/$(ARCHDIR)/Makefile
+# Rules based on the makefile
+Makefile:	../../Makefile.cfg arch/$(ARCHDIR)/Makefile
 
+# Build-time information (git hash and build number)
 $(BUILDINFO_SRC): $(filter-out $(BUILDINFO_OBJ), $(OBJ)) $(MODS) arch/$(ARCHDIR)/link.ld Makefile
 	@echo "#include <acess.h>" > $@
 	@echo "const char gsGitHash[] = \""`git log -n 1 | head -n 1 | awk '{print $$2}'`"\";" >> $@
 	@echo "const int giBuildNumber = $(BUILD_NUM);" >> $@
+# Compile rule for buildinfo (needs a special one because it's not a general source file)
 $(BUILDINFO_OBJ): $(BUILDINFO_SRC)
 	@echo --- CC -o $@
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $<

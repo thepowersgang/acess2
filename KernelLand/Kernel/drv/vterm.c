@@ -1,5 +1,9 @@
 /*
- * Acess2 Virtual Terminal Driver
+ * Acess2 Kernel
+ * - By John Hodge (thePowersGang)
+ *
+ * drv/vterm.c
+ * - Virtual Terminal - Initialisation and VFS Interface
  */
 #define DEBUG	0
 #include "vterm.h"

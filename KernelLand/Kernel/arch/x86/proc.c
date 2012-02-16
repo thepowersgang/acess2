@@ -986,7 +986,6 @@ void Proc_Scheduler(int CPU)
 		outb(0x20, 0x20);
 	__asm__ __volatile__ ("sti");	
 
-	gaCPUs[CPU].LastTimerThread = gaCPUs[CPU].Current;
 	// Call the timer update code
 	Timer_CallTimers();
 
@@ -995,6 +994,8 @@ void Proc_Scheduler(int CPU)
 	{
 		Proc_Reschedule();
 	}
+	
+	gaCPUs[CPU].LastTimerThread = gaCPUs[CPU].Current;
 }
 
 // === EXPORTS ===
