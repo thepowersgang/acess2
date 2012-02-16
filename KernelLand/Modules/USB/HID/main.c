@@ -13,8 +13,19 @@
 #include "hid.h"
 #include "hid_reports.h"
 
+// === TYPES ===
+typedef struct sHID_Device	tHID_Device;
+
+struct sHID_Device
+{
+	void	*Next;	// Used by sub-driver
+	tUSB_DataCallback	DataAvail;
+	// ... Device-specific data
+};
+
 // === PROTOTYPES ===
  int	HID_Initialise(char **Arguments);
+void	HID_InterruptCallback(tUSBInterface *Dev, int EndPt, int Length, void *Data);
 void	HID_DeviceConnected(tUSBInterface *Dev, void *Descriptors, size_t DescriptorsLen);
 tHID_ReportCallbacks	*HID_RootCollection(tUSBInterface *Dev, tHID_ReportGlobalState *Global, tHID_ReportLocalState *Local, Uint32 Value);
 void	HID_int_ParseReport(tUSBInterface *Dev, Uint8 *Data, size_t Length, tHID_ReportCallbacks *StartCBs);
@@ -29,6 +40,11 @@ tUSBDriver	gHID_USBDriver = {
 	.Name = "HID",
 	.Match = {.Class = {0x030000, 0xFF0000}},
 	.Connected = HID_DeviceConnected,
+	.MaxEndpoints = 2,
+	.Endpoints = {
+		{0x80, HID_InterruptCallback},
+		{0, NULL}
+	}
 };
 tHID_ReportCallbacks	gHID_RootCallbacks = {
 	.Collection = HID_RootCollection
@@ -41,6 +57,27 @@ int HID_Initialise(char **Arguments)
 	return 0;
 }
 
+/**
+ * \brief Callback for when there's new data from the device
+ * 
+ * Calls the subdriver callback (stored at a fixed offset in the device data structure)
+ */
+void HID_InterruptCallback(tUSBInterface *Dev, int EndPt, int Length, void *Data)
+{
+	tHID_Device	*info;
+	
+	info = USB_GetDeviceDataPtr(Dev);
+	if(!info) {
+		Log_Error("USB HID", "Device %p doesn't have a data pointer.", Dev);
+		return ;
+	}
+	
+	info->DataAvail(Dev, EndPt, Length, Data);
+}
+
+/**
+ * \brief Handle a device connection
+ */
 void HID_DeviceConnected(tUSBInterface *Dev, void *Descriptors, size_t DescriptorsLen)
 {
 	struct sDescriptor_HID	*hid_desc;
@@ -49,7 +86,7 @@ void HID_DeviceConnected(tUSBInterface *Dev, void *Descriptors, size_t Descripto
 	
 	ENTER("pDev pDescriptors iDescriptorsLen", Dev, Descriptors, DescriptorsLen);
 
-	// Locate HID descriptor
+	// --- Locate HID descriptor ---
 	hid_desc = NULL;
 	while(ofs + 2 <= DescriptorsLen)
 	{
@@ -70,16 +107,7 @@ void HID_DeviceConnected(tUSBInterface *Dev, void *Descriptors, size_t Descripto
 		LEAVE('-');
 		return ;
 	}
-	
-
-	// Dump descriptor header
-	LOG("hid_desc = {");
-	LOG("  .Length  = %i", hid_desc->Length);
-	LOG("  .Type    = 0x%x", hid_desc->Type);
-	LOG("  .Version = 0x%x", hid_desc->Version);
-	LOG("  .NumDescriptors = %i", hid_desc->NumDescriptors);
-	LOG("}");
-
+	// - Sanity check length
 	if( hid_desc->Length < sizeof(*hid_desc) + hid_desc->NumDescriptors * sizeof(hid_desc->Descriptors[0]) )
 	{
 		// Too small!
@@ -90,7 +118,15 @@ void HID_DeviceConnected(tUSBInterface *Dev, void *Descriptors, size_t Descripto
 		return ;
 	}
 
-	// Locate report descriptor
+	// --- Dump descriptor header ---
+	LOG("hid_desc = {");
+	LOG("  .Length  = %i", hid_desc->Length);
+	LOG("  .Type    = 0x%x", hid_desc->Type);
+	LOG("  .Version = 0x%x", hid_desc->Version);
+	LOG("  .NumDescriptors = %i", hid_desc->NumDescriptors);
+	LOG("}");
+
+	// --- Locate report descriptor length ---
 	for( int i = 0; i < hid_desc->NumDescriptors; i ++ )
 	{
 		if( hid_desc->Descriptors[i].DescType == 0x22 ) {
@@ -104,7 +140,8 @@ void HID_DeviceConnected(tUSBInterface *Dev, void *Descriptors, size_t Descripto
 		return ;
 	}
 	
-	// Read and parse report descriptor
+	// --- Read and parse report descriptor ---
+	// NOTE: Also does sub-driver selection and initialisation
 	Uint8	*report_data = alloca(report_len);
 	USB_ReadDescriptor(Dev, 0x1022, 0, report_len, report_data);
 	HID_int_ParseReport(Dev, report_data, report_len, &gHID_RootCallbacks);
@@ -169,19 +206,22 @@ void HID_int_ParseReport(tUSBInterface *Dev, Uint8 *Data, size_t Length, tHID_Re
 	
 	ENTER("pData iLength pStartCBs", Data, Length, StartCBs);
 
+	// Initialise callback stack
 	cb_stack[0] = StartCBs;
 	cur_cbs = StartCBs;
 
+	// Clear state
 	memset(&global_state, 0, sizeof(global_state));
 	memset(&local_state, 0, sizeof(local_state));
 
+	// Iterate though the report data
 	for( int ofs = 0; ofs < Length; )
 	{
 		Uint8	byte;
 		Uint32	val;
 		
+		// --- Get value and length ---
 		byte = Data[ofs];
-		// Get value (and increase offset)
 		switch(byte & 3)
 		{
 		case 0:
@@ -189,19 +229,23 @@ void HID_int_ParseReport(tUSBInterface *Dev, Uint8 *Data, size_t Length, tHID_Re
 			ofs += 1;
 			break;
 		case 1:
+			if( ofs + 2 > Length ) { LEAVE('-'); return; }
 			val = Data[ofs+1];
 			ofs += 2;
 			break;
 		case 2:
+			if( ofs + 3 > Length ) { LEAVE('-'); return; }
 			val = Data[ofs + 1] | (Data[ofs + 1]<<8);
 			ofs += 3;
 			break;
 		case 3:
+			if( ofs + 5 > Length ) { LEAVE('-'); return; }
 			val = Data[ofs + 1] | (Data[ofs + 2] << 8) | (Data[ofs + 3] << 16) | (Data[ofs + 4] << 24);
 			ofs += 5;
 			break;
 		}
 	
+		// --- Process the item ---
 		LOG("Type = 0x%x, len = %i, val = 0x%x", byte & 0xFC, byte & 3, val);
 		switch(byte & 0xFC)
 		{
@@ -329,6 +373,9 @@ void HID_int_ParseReport(tUSBInterface *Dev, Uint8 *Data, size_t Length, tHID_Re
 	LEAVE('-');
 }
 
+// --------------------------------------------------------------------
+// List helpers
+// --------------------------------------------------------------------
 static void _AddItem(struct sHID_IntList *List, Uint32 Value)
 {
 	if( List->Space == List->nItems )
@@ -352,6 +399,7 @@ static void _AddItems(struct sHID_IntList *List, Uint32 First, Uint32 Last)
 
 static void _FreeList(struct sHID_IntList *List)
 {
-	free(List->Items);
+	if( List->Items )
+		free(List->Items);
 }
 
