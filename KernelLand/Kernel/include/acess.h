@@ -402,6 +402,7 @@ extern Uint32	SwapEndian32(Uint32 Val);
  * \{
  */
 extern int	vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args);
+extern size_t	snprintf(char *__s, size_t __n, const char *__format, ...);
 extern int	sprintf(char *__s, const char *__format, ...);
 extern size_t	strlen(const char *Str);
 extern char	*strcpy(char *__dest, const char *__src);

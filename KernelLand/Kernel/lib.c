@@ -17,8 +17,10 @@ const short DAYS_BEFORE[] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 3
 // === PROTOTYPES ===
 #if 0
  int	atoi(const char *string);
+ int	ParseInt(const char *string, int *Val);
 void	itoa(char *buf, Uint64 num, int base, int minLength, char pad);
  int	vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args);
+size_t	snprintf(char *__s, size_t __n, const char *__format, ...);
  int	sprintf(char *__s, const char *__format, ...);
 #endif
  int	tolower(int c);
@@ -407,6 +409,20 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 	return pos;
 }
 #undef PUTCH
+
+/**
+ */
+size_t snprintf(char *__s, size_t __n, const char *__format, ...)
+{
+	va_list	args;
+	 int	ret;
+	
+	va_start(args, __format);
+	ret = vsnprintf(__s, __n, __format, args);
+	va_end(args);
+	
+	return ret;
+}
 
 /**
  */
