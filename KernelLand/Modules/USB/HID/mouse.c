@@ -24,21 +24,27 @@ struct sHID_Mouse
 	tHID_Mouse	*Next;
 	tUSB_DataCallback	DataAvail;
 
+	// VFS Node
 	tVFS_Node	Node;
-	 int	CollectionDepth;
-	
+
+	// Joystick Spec data	
 	Uint8	FileData[ FILE_SIZE ];
 	tJoystick_FileHeader	*FileHeader;
 	tJoystick_Axis	*Axies;
 	Uint8	*Buttons;
 
+	// Limits for axis positions
 	Uint16	AxisLimits[MAX_AXIES];
 	
+	// - Report parsing
 	 int	nMappings;
 	struct {
 		Uint8	Dest;	// 0x00-0x7F = Buttons, 0x80-0xFE = Axies, 0xFF = Ignore
 		Uint8	BitSize;
 	} *Mappings;
+	
+	// - Initialisation only data
+	 int	CollectionDepth;
 };
 
 // === PROTOTYES ===
@@ -151,12 +157,22 @@ void HID_Mouse_Dev_Close(tVFS_Node *Node)
 // ----------------------------------------------------------------------------
 // Data input / Update
 // ----------------------------------------------------------------------------
+/**
+ * \brief Read a set amounts of bits from a stream
+ * \param Data	Base of data
+ * \param Offset	Bit offset
+ * \param Length	Number of bits to read
+ * \return Sign-extended value
+ */
 Sint32 _ReadBits(void *Data, int Offset, int Length)
 {
 	 int	dest_ofs = 0;
 	Uint32	rv = 0;
 	Uint8	*bytes = (Uint8*)Data + Offset / 8;
-	
+
+	// Sanity please	
+	if( Length > 32 )	return 0;
+
 	// Leading byte
 	if( Offset & 7 )
 	{
@@ -195,6 +211,9 @@ _ext:
 	return rv;
 }
 
+/**
+ * \brief Handle an update from the device
+ */
 void HID_Mouse_DataAvail(tUSBInterface *Dev, int EndPt, int Length, void *Data)
 {
 	tHID_Mouse	*info;
@@ -253,6 +272,7 @@ void HID_Mouse_DataAvail(tUSBInterface *Dev, int EndPt, int Length, void *Data)
 // Device initialisation
 // ----------------------------------------------------------------------------
 /**
+ * \brief Handle the opening of a collection
  */
 tHID_ReportCallbacks *HID_Mouse_Report_Collection(
 	tUSBInterface *Dev,
@@ -287,6 +307,9 @@ tHID_ReportCallbacks *HID_Mouse_Report_Collection(
 	return &gHID_Mouse_ReportCBs;
 }
 
+/**
+ * \brief Handle the end of a collection
+ */
 void HID_Mouse_Report_EndCollection(tUSBInterface *Dev)
 {
 	tHID_Mouse	*info;
@@ -312,6 +335,9 @@ void HID_Mouse_Report_EndCollection(tUSBInterface *Dev)
 	}
 }
 
+/**
+ * \brief Add a new input mapping
+ */
 void HID_int_AddInput(tUSBInterface *Dev, Uint32 Usage, Uint8 Size, Uint32 Min, Uint32 Max)
 {
 	Uint8	tag;
@@ -323,6 +349,7 @@ void HID_int_AddInput(tUSBInterface *Dev, Uint32 Usage, Uint8 Size, Uint32 Min, 
 		return ;
 	}
 
+	// --- Get the destination for the field ---
 	switch(Usage)
 	{
 	case 0x00010030:	tag = 0x80;	break;	// Generic Desktop - X
@@ -336,13 +363,15 @@ void HID_int_AddInput(tUSBInterface *Dev, Uint32 Usage, Uint8 Size, Uint32 Min, 
 	default:	tag = 0xFF;	break;
 	}
 	
+	// --- Add to list of mappings ---
 	info->nMappings ++;
 	info->Mappings = realloc(info->Mappings, info->nMappings * sizeof(info->Mappings[0]));
 	// TODO: NULL check
-	
 	info->Mappings[ info->nMappings - 1].Dest = tag;
 	info->Mappings[ info->nMappings - 1].BitSize = Size;
 	
+	// --- Update Min/Max for Axies ---
+	// TODO: DPI too
 	if( tag != 0xFF && (tag & 0x80) )
 	{
 		info->Axies[ tag & 0x7F ].MinValue = Min;
@@ -350,6 +379,9 @@ void HID_int_AddInput(tUSBInterface *Dev, Uint32 Usage, Uint8 Size, Uint32 Min, 
 	}
 }
 
+/**
+ * \brief Handle an input item in a report
+ */
 void HID_Mouse_Report_Input(
 	tUSBInterface *Dev,
 	tHID_ReportGlobalState *Global, tHID_ReportLocalState *Local,
@@ -359,8 +391,10 @@ void HID_Mouse_Report_Input(
 	Uint32	usage = 0;
 	for( int i = 0; i < Global->ReportCount; i ++ )
 	{
+		// - Update usage
 		if( i < Local->Usages.nItems )
 			usage = Local->Usages.Items[i];
+		// - Add to list
 		HID_int_AddInput(Dev, usage, Global->ReportSize, Global->LogMin, Global->LogMax);
 	}
 }
