@@ -148,8 +148,8 @@ enum eTplDisk_CacheFlags
  * \param Buffer	Destination for read blocks
  * \param Argument	Argument provided in ::DrvUtil_ReadBlock and ::DrvUtil_WriteBlock
  */
-typedef Uint	(*tDrvUtil_Read_Callback)(Uint64 Address, Uint Count, void *Buffer, Uint Argument);
-typedef Uint	(*tDrvUtil_Write_Callback)(Uint64 Address, Uint Count, const void *Buffer, Uint Argument);
+typedef Uint	(*tDrvUtil_Read_Callback)(Uint64 Address, Uint Count, void *Buffer, void *Argument);
+typedef Uint	(*tDrvUtil_Write_Callback)(Uint64 Address, Uint Count, const void *Buffer, void *Argument);
 
 /**
  * \brief Reads a range from a block device using aligned reads
@@ -162,7 +162,7 @@ typedef Uint	(*tDrvUtil_Write_Callback)(Uint64 Address, Uint Count, const void *
  * \return Number of bytes read
  */
 extern Uint64 DrvUtil_ReadBlock(Uint64 Start, Uint64 Length, void *Buffer,
-	tDrvUtil_Read_Callback ReadBlocks, Uint64 BlockSize, Uint Argument);
+	tDrvUtil_Read_Callback ReadBlocks, Uint64 BlockSize, void *Argument);
 /**
  * \brief Writes a range to a block device using aligned writes
  * \param Start	Base byte offset
@@ -176,7 +176,7 @@ extern Uint64 DrvUtil_ReadBlock(Uint64 Start, Uint64 Length, void *Buffer,
  */
 extern Uint64 DrvUtil_WriteBlock(Uint64 Start, Uint64 Length, const void *Buffer,
 	tDrvUtil_Read_Callback ReadBlocks, tDrvUtil_Write_Callback WriteBlocks,
-	Uint64 BlockSize, Uint Argument);
+	Uint64 BlockSize, void *Argument);
 
 /**
  * \}

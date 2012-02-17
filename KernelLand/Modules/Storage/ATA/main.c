@@ -30,8 +30,8 @@ size_t	ATA_ReadFS(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
 size_t	ATA_WriteFS(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
  int	ATA_IOCtl(tVFS_Node *Node, int Id, void *Data);
 // Read/Write Interface/Quantiser
-Uint	ATA_ReadRaw(Uint64 Address, Uint Count, void *Buffer, Uint Disk);
-Uint	ATA_WriteRaw(Uint64 Address, Uint Count, const void *Buffer, Uint Disk);
+Uint	ATA_ReadRaw(Uint64 Address, Uint Count, void *Buffer, void *Argument);
+Uint	ATA_WriteRaw(Uint64 Address, Uint Count, const void *Buffer, void *Argument);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, i386ATA, ATA_Install, NULL, "PCI", NULL);
@@ -326,7 +326,10 @@ size_t ATA_ReadFS(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 	}
 
 	{
-		int ret = DrvUtil_ReadBlock(Offset, Length, Buffer, ATA_ReadRaw, SECTOR_SIZE, disk);
+		int ret = DrvUtil_ReadBlock(
+			Offset, Length, Buffer,
+			ATA_ReadRaw, SECTOR_SIZE, (void*)disk
+			);
 		//Log("ATA_ReadFS: disk=%i, Offset=%lli, Length=%lli", disk, Offset, Length);
 		//Debug_HexDump("ATA_ReadFS", Buffer, Length);
 		LEAVE('i', ret);
@@ -362,7 +365,10 @@ size_t ATA_WriteFS(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buf
 
 	Log("ATA_WriteFS: (Node=%p, Offset=0x%llx, Length=0x%llx, Buffer=%p)", Node, Offset, Length, Buffer);
 	Debug_HexDump("ATA_WriteFS", Buffer, Length);
-	return DrvUtil_WriteBlock(Offset, Length, Buffer, ATA_ReadRaw, ATA_WriteRaw, SECTOR_SIZE, disk);
+	return DrvUtil_WriteBlock(
+		Offset, Length, Buffer,
+		ATA_ReadRaw, ATA_WriteRaw, SECTOR_SIZE, (void*)disk
+		);
 }
 
 const char	*csaATA_IOCtls[] = {DRV_IOCTLNAMES, DRV_DISK_IOCTLNAMES, NULL};
@@ -389,8 +395,9 @@ int ATA_IOCtl(tVFS_Node *UNUSED(Node), int Id, void *Data)
 /**
  * \fn Uint ATA_ReadRaw(Uint64 Address, Uint Count, void *Buffer, Uint Disk)
  */
-Uint ATA_ReadRaw(Uint64 Address, Uint Count, void *Buffer, Uint Disk)
+Uint ATA_ReadRaw(Uint64 Address, Uint Count, void *Buffer, void *Argument)
 {
+	 int	Disk = (tVAddr)Argument;
 	 int	ret;
 	Uint	offset;
 	Uint	done = 0;
@@ -424,8 +431,9 @@ Uint ATA_ReadRaw(Uint64 Address, Uint Count, void *Buffer, Uint Disk)
 /**
  * \fn Uint ATA_WriteRaw(Uint64 Address, Uint Count, const void *Buffer, Uint Disk)
  */
-Uint ATA_WriteRaw(Uint64 Address, Uint Count, const void *Buffer, Uint Disk)
+Uint ATA_WriteRaw(Uint64 Address, Uint Count, const void *Buffer, void *Argument)
 {
+	 int	Disk = (tVAddr)Argument;
 	 int	ret;
 	Uint	offset;
 	Uint	done = 0;

@@ -556,7 +556,7 @@ void DrvUtil_Video_2D_Blit(void *Ent, Uint16 DstX, Uint16 DstY, Uint16 SrcX, Uin
 
 // --- Disk Driver Helpers ---
 Uint64 DrvUtil_ReadBlock(Uint64 Start, Uint64 Length, void *Buffer,
-	tDrvUtil_Read_Callback ReadBlocks, Uint64 BlockSize, Uint Argument)
+	tDrvUtil_Read_Callback ReadBlocks, Uint64 BlockSize, void *Argument)
 {
 	Uint8	tmp[BlockSize];	// C99
 	Uint64	block = Start / BlockSize;
@@ -566,7 +566,7 @@ Uint64 DrvUtil_ReadBlock(Uint64 Start, Uint64 Length, void *Buffer,
 	 int	tailings;
 	Uint64	ret;
 	
-	ENTER("XStart XLength pBuffer pReadBlocks XBlockSize xArgument",
+	ENTER("XStart XLength pBuffer pReadBlocks XBlockSize pArgument",
 		Start, Length, Buffer, ReadBlocks, BlockSize, Argument);
 	
 	// Non aligned start, let's fix that!
@@ -627,7 +627,7 @@ Uint64 DrvUtil_ReadBlock(Uint64 Start, Uint64 Length, void *Buffer,
 
 Uint64 DrvUtil_WriteBlock(Uint64 Start, Uint64 Length, const void *Buffer,
 	tDrvUtil_Read_Callback ReadBlocks, tDrvUtil_Write_Callback WriteBlocks,
-	Uint64 BlockSize, Uint Argument)
+	Uint64 BlockSize, void *Argument)
 {
 	Uint8	tmp[BlockSize];	// C99
 	Uint64	block = Start / BlockSize;
@@ -637,7 +637,7 @@ Uint64 DrvUtil_WriteBlock(Uint64 Start, Uint64 Length, const void *Buffer,
 	 int	tailings;
 	Uint64	ret;
 	
-	ENTER("XStart XLength pBuffer pReadBlocks pWriteBlocks XBlockSize xArgument",
+	ENTER("XStart XLength pBuffer pReadBlocks pWriteBlocks XBlockSize pArgument",
 		Start, Length, Buffer, ReadBlocks, WriteBlocks, BlockSize, Argument);
 	
 	// Non aligned start, let's fix that!

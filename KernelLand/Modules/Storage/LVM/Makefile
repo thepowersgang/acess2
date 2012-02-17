@@ -3,7 +3,7 @@
 # - Handles MBR Partitions (and eventually others)
 # 
 
-OBJ = main.o mbr.o
+OBJ = main.o volumes.o mbr.o
 NAME = LVM
 
 -include ../Makefile.tpl

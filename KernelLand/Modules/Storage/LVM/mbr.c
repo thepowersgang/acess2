@@ -1,66 +1,93 @@
 /*
- * Acess2 IDE Harddisk Driver
- * - MBR Parsing Code
+ * Acess2 Logical Volume Manager
+ * - By John Hodge (thePowersGang)
+ * 
  * mbr.c
+ * - MBR Parsing Code
  */
 #define DEBUG	0
 #include <acess.h>
-#include "lvm_int.h"
+#include "lvm.h"
+#include "mbr.h"
 
 // === PROTOTYPES ===
-void	LVM_MBR_Initialise(int Disk, tMBR *MBR);
-Uint64	LVM_MBR_int_ReadExt(int Disk, Uint64 Addr, Uint64 *Base, Uint64 *Length);
+ int	LVM_MBR_CountSubvolumes(tLVM_Vol *Volume, void *FirstSector);
+void	LVM_MBR_PopulateSubvolumes(tLVM_Vol *Volume, void *FirstSector);
+Uint64	LVM_MBR_int_ReadExt(tLVM_Vol *Volume, Uint64 Addr, Uint64 *Base, Uint64 *Length);
 
 // === GLOBALS ===
 
 // === CODE ===
 /**
- * \fn void ATA_ParseMBR(int Disk, tMBR *MBR)
+ * \brief Initialise a volume as 
  */
-void ATA_ParseMBR(int Disk, tMBR *MBR)
+int LVM_MBR_CountSubvolumes(tLVM_Vol *Volume, void *FirstSector)
 {
-	 int	i, j = 0, k = 4;
+	tMBR	*MBR = FirstSector;
+	 int	i;
 	Uint64	extendedLBA;
 	Uint64	base, len;
+	 int	numPartitions = 0;
 	
-	ENTER("iDisk", Disk);
+	ENTER("pVolume pFirstSector", Volume, FirstSector);
 	
 	// Count Partitions
-	gATA_Disks[Disk].NumPartitions = 0;
+	numPartitions = 0;
 	extendedLBA = 0;
 	for( i = 0; i < 4; i ++ )
 	{
 		if( MBR->Parts[i].SystemID == 0 )	continue;
-		if(	MBR->Parts[i].Boot == 0x0 || MBR->Parts[i].Boot == 0x80	// LBA 28
-		||	MBR->Parts[i].Boot == 0x1 || MBR->Parts[i].Boot == 0x81	// LBA 48
-			)
+	
+		if( MBR->Parts[i].Boot == 0x0 || MBR->Parts[i].Boot == 0x80 )	// LBA 28
 		{
-			if( MBR->Parts[i].SystemID == 0xF || MBR->Parts[i].SystemID == 5 ) {
-				LOG("Extended Partition at 0x%llx", MBR->Parts[i].LBAStart);
-				if(extendedLBA != 0) {
-					Warning("Disk %i has multiple extended partitions, ignoring rest", Disk);
-					continue;
-				}
-				extendedLBA = MBR->Parts[i].LBAStart;
+			base = MBR->Parts[i].LBAStart;
+		}
+		else if( MBR->Parts[i].Boot == 0x1 || MBR->Parts[i].Boot == 0x81 )	// LBA 48
+		{
+			base = (MBR->Parts[i].StartHi << 16) | MBR->Parts[i].LBAStart;
+		}
+		else
+			continue ;	// Invalid, so don't count
+		
+		if( MBR->Parts[i].SystemID == 0xF || MBR->Parts[i].SystemID == 5 )
+		{
+			LOG("Extended Partition at 0x%llx", base);
+			if(extendedLBA != 0) {
+				Log_Warning(
+					"LBA MBR",
+					"Volume %p has multiple extended partitions, ignoring all but first",
+					Volume
+					);
 				continue;
 			}
-			LOG("Primary Partition at 0x%llx", MBR->Parts[i].LBAStart);
-			
-			gATA_Disks[Disk].NumPartitions ++;
-			continue;
+			extendedLBA = base;
 		}
-		// Invalid Partition, so don't count it
+		else
+		{
+			LOG("Primary Partition at 0x%llx", base);
+			numPartitions ++;
+		}
 	}
 	while(extendedLBA != 0)
 	{
-		extendedLBA = ATA_MBR_int_ReadExt(Disk, extendedLBA, &base, &len);
+		extendedLBA = LVM_MBR_int_ReadExt(Volume, extendedLBA, &base, &len);
 		if( extendedLBA == -1 )	break;
-		gATA_Disks[Disk].NumPartitions ++;
+		numPartitions ++;
 	}
-	LOG("gATA_Disks[Disk].NumPartitions = %i", gATA_Disks[Disk].NumPartitions);
-	
-	// Create patition array
-	gATA_Disks[Disk].Partitions = malloc( gATA_Disks[Disk].NumPartitions * sizeof(tATA_Partition) );
+	LOG("numPartitions = %i", numPartitions);
+
+	LEAVE('i', numPartitions);
+	return numPartitions;	
+}
+
+void LVM_MBR_PopulateSubvolumes(tLVM_Vol *Volume, void *FirstSector)
+{
+	Uint64	extendedLBA;
+	Uint64	base, len;
+	 int	i, j;
+	tMBR	*MBR = FirstSector;
+
+	ENTER("pVolume pFirstSector", Volume, FirstSector);
 	
 	// --- Fill Partition Info ---
 	extendedLBA = 0;
@@ -73,7 +100,7 @@ void ATA_ParseMBR(int Disk, tMBR *MBR)
 			base = MBR->Parts[i].LBAStart;
 			len = MBR->Parts[i].LBALength;
 		}
-		else if( MBR->Parts[i].Boot == 0x1 || MBR->Parts[i].Boot == 0x81 )	// LBA 58
+		else if( MBR->Parts[i].Boot == 0x1 || MBR->Parts[i].Boot == 0x81 )	// LBA 48
 		{
 			base = (MBR->Parts[i].StartHi << 16) | MBR->Parts[i].LBAStart;
 			len = (MBR->Parts[i].LengthHi << 16) | MBR->Parts[i].LBALength;
@@ -82,29 +109,22 @@ void ATA_ParseMBR(int Disk, tMBR *MBR)
 			continue;
 		
 		if( MBR->Parts[i].SystemID == 0xF || MBR->Parts[i].SystemID == 5 ) {
-			if(extendedLBA != 0) {
-				Log_Warning("ATA", "Disk %i has multiple extended partitions, ignoring rest", Disk);
-				continue;
-			}
-			extendedLBA = base;
+			if(extendedLBA == 0)
+				extendedLBA = base;
 			continue;
 		}
 		// Create Partition
-		ATA_int_MakePartition(
-			&gATA_Disks[Disk].Partitions[j], Disk, j,
-			base, len
-			);
+		LVM_int_SetSubvolume_Anon( Volume, j, base, len );
 		j ++;
 		
 	}
 	// Scan extended partitions
 	while(extendedLBA != 0)
 	{
-		extendedLBA = ATA_MBR_int_ReadExt(Disk, extendedLBA, &base, &len);
+		extendedLBA = LVM_MBR_int_ReadExt(Volume, extendedLBA, &base, &len);
 		if(extendedLBA == -1)	break;
-		ATA_int_MakePartition(
-			&gATA_Disks[Disk].Partitions[j], Disk, k, base, len
-			);
+		LVM_int_SetSubvolume_Anon( Volume, j, base, len );
+		j ++ ;
 	}
 	
 	LEAVE('-');
@@ -114,7 +134,7 @@ void ATA_ParseMBR(int Disk, tMBR *MBR)
  * \brief Reads an extended partition
  * \return LBA of next Extended, -1 on error, 0 for last
  */
-Uint64 ATA_MBR_int_ReadExt(int Disk, Uint64 Addr, Uint64 *Base, Uint64 *Length)
+Uint64 LVM_MBR_int_ReadExt(tLVM_Vol *Volume, Uint64 Addr, Uint64 *Base, Uint64 *Length)
 {
 	Uint64	link = 0;
 	 int	bFoundPart = 0;;
@@ -122,7 +142,8 @@ Uint64 ATA_MBR_int_ReadExt(int Disk, Uint64 Addr, Uint64 *Base, Uint64 *Length)
 	tMBR	mbr;
 	Uint64	base, len;
 	
-	if( ATA_ReadDMA( Disk, Addr, 1, &mbr ) != 0 )
+	// TODO: Handle non-512 byte sectors
+	if( LVM_int_ReadVolume( Volume, Addr, 1, &mbr ) != 0 )
 		return -1;	// Stop on Errors
 	
 	for( i = 0; i < 4; i ++ )
@@ -140,9 +161,9 @@ Uint64 ATA_MBR_int_ReadExt(int Disk, Uint64 Addr, Uint64 *Base, Uint64 *Length)
 			len = (mbr.Parts[i].LengthHi << 16) | mbr.Parts[i].LBALength;
 		}
 		else {
-			Log_Warning("ATA MBR",
-				"Unknown partition type 0x%x, Disk %i Ext 0x%llx Part %i",
-				mbr.Parts[i].Boot, Disk, Addr, i
+			Log_Warning("LVM MBR",
+				"Unknown partition type 0x%x, Volume %p Ext 0x%llx Part %i",
+				mbr.Parts[i].Boot, Volume, Addr, i
 				);
 			return -1;
 		}
@@ -152,9 +173,9 @@ Uint64 ATA_MBR_int_ReadExt(int Disk, Uint64 Addr, Uint64 *Base, Uint64 *Length)
 		case 0xF:
 		case 0x5:
 			if(link != 0) {
-				Log_Warning("ATA MBR",
-					"Disk %i has two forward links in the extended partition",
-					Disk
+				Log_Warning("LVM MBR",
+					"Volume %p has two forward links in the extended partition",
+					Volume
 					);
 				return -1;
 			}
@@ -162,23 +183,24 @@ Uint64 ATA_MBR_int_ReadExt(int Disk, Uint64 Addr, Uint64 *Base, Uint64 *Length)
 			break;
 		default:
 			if(bFoundPart) {
-				Warning("ATA MBR",
-					"Disk %i has more than one partition in the extended partition at 0x%llx",
-					Disk, Addr
+				Warning("LVM MBR",
+					"Volume %p has more than one partition in the extended partition at 0x%llx",
+					Volume, Addr
 					);
 				return -1;
 			}
 			bFoundPart = 1;
-			*Base = base;
+			*Base = Addr + base;	// Extended partitions are based off the sub-mbr
 			*Length = len;
 			break;
 		}
 	}
 	
 	if(!bFoundPart) {
-		Log_Warning("ATA MBR",
-			"No partition in extended partiton, Disk %i 0x%llx",
-			Disk, Addr);
+		Log_Warning("LVM MBR",
+			"No partition in extended partiton, Volume %p 0x%llx",
+			Volume, Addr
+			);
 		return -1;
 	}
 	
