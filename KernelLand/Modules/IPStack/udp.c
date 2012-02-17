@@ -15,8 +15,8 @@ void	UDP_Unreachable(tInterface *Interface, int Code, void *Address, int Length,
 void	UDP_SendPacketTo(tUDPChannel *Channel, int AddrType, const void *Address, Uint16 Port, const void *Data, size_t Length);
 // --- Client Channels
 tVFS_Node	*UDP_Channel_Init(tInterface *Interface);
-Uint64	UDP_Channel_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
-Uint64	UDP_Channel_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer);
+size_t	UDP_Channel_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
+size_t	UDP_Channel_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
  int	UDP_Channel_IOCtl(tVFS_Node *Node, int ID, void *Data);
 void	UDP_Channel_Close(tVFS_Node *Node);
 // --- Helpers
@@ -189,7 +189,7 @@ tVFS_Node *UDP_Channel_Init(tInterface *Interface)
 /**
  * \brief Read from the channel file (wait for a packet)
  */
-Uint64 UDP_Channel_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+size_t UDP_Channel_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 {
 	tUDPChannel	*chan = Node->ImplPtr;
 	tUDPPacket	*pack;
@@ -249,7 +249,7 @@ Uint64 UDP_Channel_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buf
 /**
  * \brief Write to the channel file (send a packet)
  */
-Uint64 UDP_Channel_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
+size_t UDP_Channel_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer)
 {
 	tUDPChannel	*chan = Node->ImplPtr;
 	const tUDPEndpoint	*ep;

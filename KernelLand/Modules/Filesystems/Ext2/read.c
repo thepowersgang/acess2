@@ -11,15 +11,11 @@
 #define VERBOSE	0
 #include "ext2_common.h"
 
-// === PROTOTYPES ===
-Uint64		Ext2_Read(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer);
-
 // === CODE ===
 /**
- * \fn Uint64 Ext2_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
  * \brief Read from a file
  */
-Uint64 Ext2_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+size_t Ext2_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 {
 	tExt2_Disk	*disk = Node->ImplPtr;
 	tExt2_Inode	inode;

@@ -94,8 +94,8 @@ typedef struct sCard
 char	*RTL8139_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*RTL8139_FindDir(tVFS_Node *Node, const char *Filename);
  int	RTL8139_RootIOCtl(tVFS_Node *Node, int ID, void *Arg);
-Uint64	RTL8139_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
-Uint64	RTL8139_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer);
+size_t	RTL8139_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
+size_t	RTL8139_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
  int	RTL8139_IOCtl(tVFS_Node *Node, int ID, void *Arg);
 void	RTL8139_IRQHandler(int Num, void *Ptr);
 
@@ -258,13 +258,13 @@ int RTL8139_RootIOCtl(tVFS_Node *Node, int ID, void *Data)
 }
 
 // --- File Functions ---
-Uint64 RTL8139_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+size_t RTL8139_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 {
 	tCard	*card = Node->ImplPtr;
 	Uint16	read_ofs, pkt_length;
 	 int	new_read_ofs;
 
-	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
+	ENTER("pNode XOffset xLength pBuffer", Node, Offset, Length, Buffer);
 
 retry:
 	if( Semaphore_Wait( &card->ReadSemaphore, 1 ) != 1 )
@@ -313,7 +313,7 @@ retry:
 	return Length;
 }
 
-Uint64 RTL8139_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
+size_t RTL8139_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer)
 {
 	 int	td;
 	Uint32	status;

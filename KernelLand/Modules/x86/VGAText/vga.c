@@ -13,7 +13,7 @@
 
 // === PROTOTYPES ===
  int	VGA_Install(char **Arguments);
-Uint64	VGA_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer);
+size_t	VGA_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
  int	VGA_IOCtl(tVFS_Node *Node, int Id, void *Data);
 Uint8	VGA_int_GetColourNibble(Uint16 col);
 Uint16	VGA_int_GetWord(const tVT_Char *Char);
@@ -70,7 +70,7 @@ int VGA_Install(char **Arguments)
 /**
  * \brief Writes a string of bytes to the VGA controller
  */
-Uint64 VGA_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
+size_t VGA_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer)
 {
 	if( giVGA_BufferFormat == VIDEO_BUFFMT_TEXT )
 	{

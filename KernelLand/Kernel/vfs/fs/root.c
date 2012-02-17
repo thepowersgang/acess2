@@ -16,8 +16,8 @@ tVFS_Node	*Root_InitDevice(const char *Device, const char **Options);
  int	Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
 tVFS_Node	*Root_FindDir(tVFS_Node *Node, const char *Name);
 char	*Root_ReadDir(tVFS_Node *Node, int Pos);
-Uint64	Root_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
-Uint64	Root_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer);
+size_t	Root_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
+size_t	Root_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
 tRamFS_File	*Root_int_AllocFile(void);
 
 // === GLOBALS ===
@@ -176,39 +176,32 @@ char *Root_ReadDir(tVFS_Node *Node, int Pos)
 }
 
 /**
- * \fn Uint64 Root_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
  * \brief Read from a file in the root directory
  */
-Uint64 Root_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+size_t Root_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 {
 	tRamFS_File	*file = Node->ImplPtr;
-	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
 	
-	if(Offset > Node->Size) {
-		LEAVE('i', 0);
-		return 0;
-	}
-	if(Length > Node->Size)	Length = Node->Size;
-	
+	if(Offset > Node->Size)	return 0;
+
+	if(Length > Node->Size)
+		Length = Node->Size;
 	if(Offset+Length > Node->Size)
 		Length = Node->Size - Offset;
 	
 	memcpy(Buffer, file->Data.Bytes+Offset, Length);
-	LOG("Buffer = '%.*s'", (int)Length, Buffer);
-
-	LEAVE('i', Length);
+	
 	return Length;
 }
 
 /**
- * \fn Uint64 Root_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
  * \brief Write to a file in the root directory
  */
-Uint64 Root_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
+size_t Root_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer)
 {
 	tRamFS_File	*file = Node->ImplPtr;
 
-	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
+	ENTER("pNode XOffset xLength pBuffer", Node, Offset, Length, Buffer);
 
 	if(Offset > Node->Size) {
 		LEAVE('i', -1);

@@ -39,8 +39,8 @@ tVFS_Node	*TCP_Server_FindDir(tVFS_Node *Node, const char *Name);
 void	TCP_Server_Close(tVFS_Node *Node);
 // --- Client
 tVFS_Node	*TCP_Client_Init(tInterface *Interface);
-Uint64	TCP_Client_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
-Uint64	TCP_Client_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer);
+size_t	TCP_Client_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
+size_t	TCP_Client_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
  int	TCP_Client_IOCtl(tVFS_Node *Node, int ID, void *Data);
 void	TCP_Client_Close(tVFS_Node *Node);
 // --- Helpers
@@ -1065,7 +1065,7 @@ tVFS_Node *TCP_Client_Init(tInterface *Interface)
  * \note If \a Length is smaller than the size of the packet, the rest
  *       of the packet's data will be discarded.
  */
-Uint64 TCP_Client_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+size_t TCP_Client_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 {
 	tTCPConnection	*conn = Node->ImplPtr;
 	size_t	len;
@@ -1147,7 +1147,7 @@ void TCP_INT_SendDataPacket(tTCPConnection *Connection, size_t Length, const voi
 /**
  * \brief Send some bytes on a connection
  */
-Uint64 TCP_Client_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
+size_t TCP_Client_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer)
 {
 	tTCPConnection	*conn = Node->ImplPtr;
 	size_t	rem = Length;

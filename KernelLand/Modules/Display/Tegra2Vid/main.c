@@ -23,21 +23,22 @@
 void	Tegra2Vid_Uninstall();
 // Internal
 // Filesystem
-Uint64	Tegra2Vid_Read(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer);
-Uint64	Tegra2Vid_Write(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer);
+size_t	Tegra2Vid_Read(tVFS_Node *node, off_t off, size_t len, void *buffer);
+size_t	Tegra2Vid_Write(tVFS_Node *node, off_t off, size_t len, const void *buffer);
  int	Tegra2Vid_IOCtl(tVFS_Node *node, int id, void *data);
 // -- Internals
  int	Tegra2Vid_int_SetMode(int Mode);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, Tegra2Vid, Tegra2Vid_Install, NULL, NULL);
-tDevFS_Driver	gTegra2Vid_DriverStruct = {
-	NULL, "Tegra2Vid",
-	{
+tVFS_NodeType	gTegra2Vid_NodeType = {
 	.Read = Tegra2Vid_Read,
 	.Write = Tegra2Vid_Write,
 	.IOCtl = Tegra2Vid_IOCtl
-	}
+	};
+tDevFS_Driver	gTegra2Vid_DriverStruct = {
+	NULL, "Tegra2Vid",
+	{.Type = &gTegra2Vid_NodeType}
 };
 // -- Options
 tPAddr	gTegra2Vid_PhysBase = TEGRA2VID_BASE;
@@ -109,7 +110,7 @@ int Tegra2Vid_Install(char **Arguments)
 		*(gpTegra2Vid_IOMem[DC_WIN_A_SIZE_0]>>16)*4;
 
 	Log_Debug("Tegra2Vid", "giTegra2Vid_FramebufferSize = 0x%x", giTegra2Vid_FramebufferSize);
-	gpTegra2Vid_Framebuffer = MM_MapHWPages(
+	gpTegra2Vid_Framebuffer = (void*)MM_MapHWPages(
 		gpTegra2Vid_IOMem[DC_WINBUF_A_START_ADDR_0],
 		(giTegra2Vid_FramebufferSize+PAGE_SIZE-1)/PAGE_SIZE
 		);
@@ -141,7 +142,7 @@ void Tegra2Vid_Uninstall()
 /**
  * \brief Read from the framebuffer
  */
-Uint64 Tegra2Vid_Read(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer)
+size_t Tegra2Vid_Read(tVFS_Node *node, off_t off, size_t len, void *buffer)
 {
 	return 0;
 }
@@ -149,7 +150,7 @@ Uint64 Tegra2Vid_Read(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer)
 /**
  * \brief Write to the framebuffer
  */
-Uint64 Tegra2Vid_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+size_t Tegra2Vid_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer)
 {
 	gTegra2Vid_DrvUtil_BufInfo.BufferFormat = giTegra2Vid_BufferMode;
 	return DrvUtil_Video_WriteLFB(&gTegra2Vid_DrvUtil_BufInfo, Offset, Length, Buffer);
@@ -202,7 +203,7 @@ int Tegra2Vid_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	case VIDEO_IOCTL_FINDMODE:
 		{
 		tVideo_IOCtl_Mode *mode = Data;
-		 int	closest, closestArea, reqArea = 0;
+		 int	closest=0, closestArea, reqArea = 0;
 		if(!Data || !CheckMem(Data, sizeof(tVideo_IOCtl_Mode)))
 			LEAVE_RET('i', -1);
 		if( mode->bpp != 32 )

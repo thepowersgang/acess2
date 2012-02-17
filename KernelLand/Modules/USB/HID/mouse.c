@@ -50,7 +50,7 @@ struct sHID_Mouse
 // === PROTOTYES ===
 char	*HID_Mouse_Root_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*HID_Mouse_Root_FindDir(tVFS_Node *Node, const char *Name);
-Uint64	HID_Mouse_Dev_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
+size_t	HID_Mouse_Dev_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
  int	HID_Mouse_Dev_IOCtl(tVFS_Node *Node, int ID, void *Data);
 void	HID_Mouse_Dev_Reference(tVFS_Node *Node);
 void	HID_Mouse_Dev_Close(tVFS_Node *Node);
@@ -122,7 +122,7 @@ tVFS_Node *HID_Mouse_Root_FindDir(tVFS_Node *Node, const char *Name)
 	return &mouse->Node;
 }
 
-Uint64 HID_Mouse_Dev_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+size_t HID_Mouse_Dev_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 {
 	tHID_Mouse	*info = Node->ImplPtr;
 	

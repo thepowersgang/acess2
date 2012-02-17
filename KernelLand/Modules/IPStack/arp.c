@@ -7,6 +7,7 @@
 #include "ipstack.h"
 #include "arp.h"
 #include "link.h"
+#include "ipv4.h"	// For IPv4_Netmask
 
 #define ARPv6	0
 #define	ARP_CACHE_SIZE	64

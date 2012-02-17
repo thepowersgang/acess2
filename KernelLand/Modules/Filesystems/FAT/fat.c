@@ -67,10 +67,10 @@ Uint32	FAT_int_FreeCluster(tFAT_VolInfo *Disk, Uint32 Cluster);
 #endif
 void	FAT_int_ReadCluster(tFAT_VolInfo *Disk, Uint32 Cluster, int Length, void *Buffer);
 // --- File IO
-Uint64	FAT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
+size_t	FAT_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
 #if SUPPORT_WRITE
 void	FAT_int_WriteCluster(tFAT_VolInfo *Disk, Uint32 Cluster, void *Buffer);
-Uint64	FAT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
+size_t	FAT_Write(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
 #endif
 // --- Directory IO
 char	*FAT_ReadDir(tVFS_Node *Node, int ID);
@@ -616,10 +616,9 @@ void FAT_int_ReadCluster(tFAT_VolInfo *Disk, Uint32 Cluster, int Length, void *B
  * ====================
  */
 /**
- * \fn Uint64 FAT_Read(tVFS_Node *node, Uint64 offset, Uint64 length, void *buffer)
  * \brief Reads data from a specified file
  */
-Uint64 FAT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+size_t FAT_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 {
 	 int	preSkip, count;
 	Uint64	final_bytes;
@@ -628,7 +627,7 @@ Uint64 FAT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 	char	tmpBuf[disk->BytesPerCluster];
 	 int	bpc = disk->BytesPerCluster;
 	
-	ENTER("pNode Xoffset Xlength pbuffer", Node, Offset, Length, Buffer);
+	ENTER("pNode Xoffset xlength pbuffer", Node, Offset, Length, Buffer);
 	
 	// Sanity Check offset
 	if(Offset > Node->Size) {
@@ -754,7 +753,7 @@ void FAT_int_WriteCluster(tFAT_VolInfo *Disk, Uint32 Cluster, void *Buffer)
  * \param Length	Size of data to write
  * \param Buffer	Data source
  */
-Uint64 FAT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+size_t FAT_Write(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 {
 	tFAT_VolInfo	*disk = Node->ImplPtr;
 	char	tmpBuf[disk->BytesPerCluster];

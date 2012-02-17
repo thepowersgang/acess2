@@ -37,8 +37,8 @@ extern void	Debug_SetKTerminal(const char *File);
 char	*VT_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*VT_FindDir(tVFS_Node *Node, const char *Name);
  int	VT_Root_IOCtl(tVFS_Node *Node, int Id, void *Data);
-Uint64	VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
-Uint64	VT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer);
+size_t	VT_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
+size_t	VT_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
  int	VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data);
 
 // === CONSTANTS ===
@@ -344,7 +344,7 @@ int VT_Root_IOCtl(tVFS_Node *Node, int Id, void *Data)
 /**
  * \brief Read from a virtual terminal
  */
-Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+size_t VT_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 {
 	 int	pos = 0;
 	 int	avail;
@@ -420,10 +420,9 @@ Uint64 VT_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 }
 
 /**
- * \fn Uint64 VT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
  * \brief Write to a virtual terminal
  */
-Uint64 VT_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
+size_t VT_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer)
 {
 	tVTerm	*term = &gVT_Terminals[ Node->Inode ];
 	 int	size;

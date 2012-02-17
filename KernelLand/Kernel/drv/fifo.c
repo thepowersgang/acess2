@@ -32,8 +32,8 @@ tVFS_Node	*FIFO_FindDir(tVFS_Node *Node, const char *Filename);
 void	FIFO_Reference(tVFS_Node *Node);
 void	FIFO_Close(tVFS_Node *Node);
  int	FIFO_Relink(tVFS_Node *Node, const char *OldName, const char *NewName);
-Uint64	FIFO_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
-Uint64	FIFO_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer);
+size_t	FIFO_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
+size_t	FIFO_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
 tPipe	*FIFO_Int_NewPipe(int Size, const char *Name);
 
 // === GLOBALS ===
@@ -226,10 +226,9 @@ int FIFO_Relink(tVFS_Node *Node, const char *OldName, const char *NewName)
 }
 
 /**
- * \fn Uint64 FIFO_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
  * \brief Read from a fifo pipe
  */
-Uint64 FIFO_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+size_t FIFO_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 {
 	tPipe	*pipe = Node->ImplPtr;
 	Uint	len;
@@ -237,7 +236,7 @@ Uint64 FIFO_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 
 	if(!pipe)	return 0;
 	
-	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
+	ENTER("pNode XOffset xLength pBuffer", Node, Offset, Length, Buffer);
 	
 	while(remaining)
 	{
@@ -310,10 +309,9 @@ Uint64 FIFO_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 }
 
 /**
- * \fn Uint64 FIFO_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
  * \brief Write to a fifo pipe
  */
-Uint64 FIFO_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
+size_t FIFO_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer)
 {
 	tPipe	*pipe = Node->ImplPtr;
 	Uint	len;
@@ -321,7 +319,7 @@ Uint64 FIFO_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buf
 	
 	if(!pipe)	return 0;
 
-	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
+	ENTER("pNode XOffset xLength pBuffer", Node, Offset, Length, Buffer);
 	
 	while(remaining)
 	{

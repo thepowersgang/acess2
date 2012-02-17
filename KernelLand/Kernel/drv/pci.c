@@ -35,7 +35,7 @@ typedef struct sPCIDevice
 char	*PCI_int_ReadDirRoot(tVFS_Node *node, int pos);
 tVFS_Node	*PCI_int_FindDirRoot(tVFS_Node *node, const char *filename);
 Uint32	PCI_int_GetBusAddr(Uint16 Bus, Uint16 Slot, Uint16 Fcn, Uint8 Offset);
-Uint64	PCI_int_ReadDevice(tVFS_Node *node, Uint64 pos, Uint64 length, void *buffer);
+size_t	PCI_int_ReadDevice(tVFS_Node *node, off_t Offset, size_t Length, void *buffer);
  int	PCI_int_EnumDevice(Uint16 bus, Uint16 dev, Uint16 fcn, tPCIDevice *info);
 
 // === GLOBALS ===
@@ -235,8 +235,9 @@ tVFS_Node *PCI_int_FindDirRoot(tVFS_Node *node, const char *filename)
 }
 
 /**
+ * \brief Read the PCI configuration space of a device
  */
-Uint64 PCI_int_ReadDevice(tVFS_Node *node, Uint64 pos, Uint64 length, void *buffer)
+size_t PCI_int_ReadDevice(tVFS_Node *node, off_t pos, size_t length, void *buffer)
 {	
 	if( pos + length > 256 )	return 0;
 	

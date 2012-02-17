@@ -18,10 +18,9 @@ void	Ext2_int_DeallocateBlock(tExt2_Disk *Disk, Uint32 Block);
 
 // === CODE ===
 /**
- * \fn Uint64 Ext2_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
  * \brief Write to a file
  */
-Uint64 Ext2_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
+size_t Ext2_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer)
 {
 	tExt2_Disk	*disk = Node->ImplPtr;
 	tExt2_Inode	inode;

@@ -24,7 +24,7 @@
 char	*FDD_ReadDir(tVFS_Node *Node, int pos);
 tVFS_Node	*FDD_FindDir(tVFS_Node *dirNode, const char *Name);
  int	FDD_IOCtl(tVFS_Node *Node, int ID, void *Data);
-Uint64	FDD_ReadFS(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer);
+size_t	FDD_ReadFS(tVFS_Node *node, off_t Offset, size_t Len, void *buffer);
 // --- Helpers
  int	FDD_int_ReadWriteWithinTrack(int Disk, int Track, int bWrite, size_t Offset, size_t Length, void *Buffer);
 
@@ -169,14 +169,14 @@ int FDD_IOCtl(tVFS_Node *Node, int ID, void *Data)
  * \param Buffer	Destination buffer
  * \return Number of bytes read
  */
-Uint64 FDD_ReadFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+size_t FDD_ReadFS(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 {
 	 int	disk = Node->Inode;
 	 int	track;
 	 int	rem_len;
 	char	*dest = Buffer;
 
-	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
+	ENTER("pNode XOffset xLength pBuffer", Node, Offset, Length, Buffer);
 
 	if( Offset > Node->Size )	LEAVE_RET('i', 0);
 	if( Length > Node->Size )	Length = Node->Size;

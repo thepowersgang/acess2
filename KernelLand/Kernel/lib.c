@@ -20,7 +20,7 @@ const short DAYS_BEFORE[] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 3
  int	ParseInt(const char *string, int *Val);
 void	itoa(char *buf, Uint64 num, int base, int minLength, char pad);
  int	vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args);
-size_t	snprintf(char *__s, size_t __n, const char *__format, ...);
+ int	snprintf(char *__s, size_t __n, const char *__format, ...);
  int	sprintf(char *__s, const char *__format, ...);
 #endif
  int	tolower(int c);
@@ -58,6 +58,7 @@ void	format_date(tTime TS, int *year, int *month, int *day, int *hrs, int *mins,
 EXPORT(atoi);
 EXPORT(itoa);
 EXPORT(vsnprintf);
+EXPORT(snprintf);
 EXPORT(sprintf);
 EXPORT(tolower);
 EXPORT(strucmp);
@@ -412,7 +413,7 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 
 /**
  */
-size_t snprintf(char *__s, size_t __n, const char *__format, ...)
+int snprintf(char *__s, size_t __n, const char *__format, ...)
 {
 	va_list	args;
 	 int	ret;

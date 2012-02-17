@@ -45,6 +45,7 @@ typedef Sint64	tTimestamp;	//!< Timestamp (miliseconds since 00:00 1 Jan 1970)
 typedef Sint64	tTime;	//!< Same again
 typedef struct sShortSpinlock	tShortSpinlock;	//!< Opaque (kinda) spinlock
 typedef int	bool;	//!< Boolean type
+typedef Uint64	off_t;	//!< VFS Offset
 
 // --- Helper Macros ---
 /**
@@ -402,7 +403,7 @@ extern Uint32	SwapEndian32(Uint32 Val);
  * \{
  */
 extern int	vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args);
-extern size_t	snprintf(char *__s, size_t __n, const char *__format, ...);
+extern int	snprintf(char *__s, size_t __n, const char *__format, ...);
 extern int	sprintf(char *__s, const char *__format, ...);
 extern size_t	strlen(const char *Str);
 extern char	*strcpy(char *__dest, const char *__src);

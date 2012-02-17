@@ -63,8 +63,8 @@ void	BGA_int_SetMode(Uint16 width, Uint16 height);
  int	BGA_int_ModeInfo(tVideo_IOCtl_Mode *info);
  int	BGA_int_MapFB(void *Dest);
 // Filesystem
-Uint64	BGA_Read(tVFS_Node *Node, Uint64 off, Uint64 len, void *buffer);
-Uint64	BGA_Write(tVFS_Node *Node, Uint64 off, Uint64 len, const void *buffer);
+size_t	BGA_Read(tVFS_Node *Node, off_t off, size_t len, void *buffer);
+size_t	BGA_Write(tVFS_Node *Node, off_t off, size_t len, const void *buffer);
  int	BGA_IOCtl(tVFS_Node *Node, int ID, void *Data);
 
 // === GLOBALS ===
@@ -141,10 +141,9 @@ void BGA_Uninstall(void)
 }
 
 /**
- * \fn Uint64 BGA_Read(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer)
  * \brief Read from the framebuffer
  */
-Uint64 BGA_Read(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer)
+size_t BGA_Read(tVFS_Node *node, off_t off, size_t len, void *buffer)
 {
 	// Check Mode
 	if(giBGA_CurrentMode == -1)	return -1;
@@ -161,7 +160,7 @@ Uint64 BGA_Read(tVFS_Node *node, Uint64 off, Uint64 len, void *buffer)
 /**
  * \brief Write to the framebuffer
  */
-Uint64 BGA_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
+size_t BGA_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer)
 {
 	if( giBGA_CurrentMode == -1 )	BGA_int_UpdateMode(0);
 	return DrvUtil_Video_WriteLFB(&gBGA_DrvUtil_BufInfo, Offset, Length, Buffer);

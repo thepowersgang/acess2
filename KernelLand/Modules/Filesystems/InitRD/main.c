@@ -17,7 +17,7 @@ extern tVFS_Node * const	gInitRD_FileList[];
 tVFS_Node	*InitRD_InitDevice(const char *Device, const char **Arguments);
 void	InitRD_Unmount(tVFS_Node *Node);
 tVFS_Node	*InitRD_GetNodeFromINode(tVFS_Node *Root, Uint64 Inode);
-Uint64	InitRD_ReadFile(tVFS_Node *Node, Uint64 Offset, Uint64 Size, void *Buffer);
+size_t	InitRD_ReadFile(tVFS_Node *Node, off_t Offset, size_t Size, void *Buffer);
 char	*InitRD_ReadDir(tVFS_Node *Node, int ID);
 tVFS_Node	*InitRD_FindDir(tVFS_Node *Node, const char *Name);
 void	InitRD_DumpDir(tVFS_Node *Node, int Indent);
@@ -28,7 +28,7 @@ tVFS_Driver	gInitRD_FSInfo = {
 	"initrd", 0, InitRD_InitDevice, InitRD_Unmount, InitRD_GetNodeFromINode
 	};
 tVFS_NodeType	gInitRD_DirType = {
-	.ReadDir = InitRD_ReadFile,
+	.ReadDir = InitRD_ReadDir,
 	.FindDir = InitRD_FindDir
 	};
 tVFS_NodeType	gInitRD_FileType = {
@@ -76,7 +76,7 @@ tVFS_Node *InitRD_GetNodeFromINode(tVFS_Node *Root, Uint64 Inode)
 /**
  * \brief Read from a file
  */
-Uint64 InitRD_ReadFile(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+size_t InitRD_ReadFile(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 {
 	if(Offset > Node->Size)
 		return 0;

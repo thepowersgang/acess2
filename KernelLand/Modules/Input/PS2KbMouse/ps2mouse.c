@@ -19,8 +19,8 @@
  int	PS2Mouse_Install(char **Arguments);
 void	PS2Mouse_HandleInterrupt(Uint8 InputByte);
 // - Filesystem -
-Uint64	PS2Mouse_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
-int	PS2Mouse_IOCtl(tVFS_Node *Node, int ID, void *Data);
+size_t	PS2Mouse_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
+ int	PS2Mouse_IOCtl(tVFS_Node *Node, int ID, void *Data);
 
 // == GLOBALS ==
 void	(*gpMouse_EnableFcn)(void);
@@ -150,7 +150,7 @@ void PS2Mouse_HandleInterrupt(Uint8 InputByte)
 
 /* Read mouse state (coordinates)
  */
-Uint64 PS2Mouse_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+size_t PS2Mouse_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 {
 	if(Offset > sizeof(gMouse_FileData))	return 0;
 	if(Length > sizeof(gMouse_FileData))	Length = sizeof(gMouse_FileData);

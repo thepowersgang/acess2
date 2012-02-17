@@ -86,8 +86,8 @@ typedef struct sNe2k_Card {
 char	*Ne2k_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*Ne2k_FindDir(tVFS_Node *Node, const char *Name);
  int	Ne2k_IOCtl(tVFS_Node *Node, int ID, void *Data);
-Uint64	Ne2k_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer);
-Uint64	Ne2k_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
+size_t	Ne2k_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
+size_t	Ne2k_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
 
  int	Ne2k_int_ReadDMA(tCard *Card, int FirstPage, int NumPages, void *Buffer);
 Uint8	Ne2k_int_GetWritePage(tCard *Card, Uint16 Length);
@@ -281,17 +281,16 @@ int Ne2k_IOCtl(tVFS_Node *Node, int ID, void *Data)
 }
 
 /**
- * \fn Uint64 Ne2k_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
  * \brief Send a packet from the network card
  */
-Uint64 Ne2k_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
+size_t Ne2k_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer)
 {
 	tCard	*Card = (tCard*)Node->ImplPtr;
 	const Uint16	*buf = Buffer;
 	 int	rem = Length;
 	 int	page;
 	
-	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
+	ENTER("pNode XOffset xLength pBuffer", Node, Offset, Length, Buffer);
 	
 	// TODO: Lock
 	
@@ -349,12 +348,11 @@ Uint64 Ne2k_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buf
 }
 
 /**
- * \fn Uint64 Ne2k_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
  * \brief Wait for and read a packet from the network card
  */
-Uint64 Ne2k_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+size_t Ne2k_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 {
-	tCard	*Card = (tCard*)Node->ImplPtr;
+	tCard	*Card = Node->ImplPtr;
 	Uint8	page;
 	Uint8	data[256];
 	struct {
@@ -363,7 +361,7 @@ Uint64 Ne2k_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 		Uint16	Length;	// Little Endian
 	}	*pktHdr;
 	
-	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
+	ENTER("pNode XOffset xLength pBuffer", Node, Offset, Length, Buffer);
 	
 	// Wait for packets
 	if( Semaphore_Wait( &Card->Semaphore, 1 ) != 1 )

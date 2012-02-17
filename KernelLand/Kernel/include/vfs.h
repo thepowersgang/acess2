@@ -135,9 +135,9 @@ typedef struct sVFS_Node
 	 * \name Times
 	 * \{
 	 */
-	Sint64	ATime;	//!< Last Accessed Time
-	Sint64	MTime;	//!< Last Modified Time
-	Sint64	CTime;	//!< Creation Time
+	tTime	ATime;	//!< Last Accessed Time
+	tTime	MTime;	//!< Last Modified Time
+	tTime	CTime;	//!< Creation Time
 	/**
 	 * \}
 	 */
@@ -242,7 +242,7 @@ struct sVFS_NodeType
 	 * \param Buffer	Destination for read data
 	 * \return Number of bytes read
 	 */
-	Uint64	(*Read)(struct sVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
+	size_t	(*Read)(struct sVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
 	/**
 	 * \brief Write to the file
 	 * \param Node	Pointer to this node
@@ -251,7 +251,7 @@ struct sVFS_NodeType
 	 * \param Buffer	Source of written data
 	 * \return Number of bytes read
 	 */
-	Uint64	(*Write)(struct sVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer);
+	size_t	(*Write)(struct sVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
 
 	/**
 	 * \brief Map a region of a file into memory
@@ -262,7 +262,7 @@ struct sVFS_NodeType
 	 * \return Boolean Failure
 	 * \note If NULL, the VFS implements it using .Read
 	 */
-	 int	(*MMap)(struct sVFS_Node *Node, Uint64 Offset, int Length, void *Dest);
+	 int	(*MMap)(struct sVFS_Node *Node, off_t Offset, int Length, void *Dest);
 	
 	/**
 	 * \}

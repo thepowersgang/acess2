@@ -26,8 +26,8 @@ Uint16	ATA_GetBasePort(int Disk);
 // Filesystem Interface
 char	*ATA_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*ATA_FindDir(tVFS_Node *Node, const char *Name);
-Uint64	ATA_ReadFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
-Uint64	ATA_WriteFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer);
+size_t	ATA_ReadFS(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
+size_t	ATA_WriteFS(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
  int	ATA_IOCtl(tVFS_Node *Node, int Id, void *Data);
 // Read/Write Interface/Quantiser
 Uint	ATA_ReadRaw(Uint64 Address, Uint Count, void *Buffer, Uint Disk);
@@ -294,9 +294,9 @@ tVFS_Node *ATA_FindDir(tVFS_Node *UNUSED(Node), const char *Name)
 }
 
 /**
- * \fn Uint64 ATA_ReadFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+ * \brief Read handler for VFS interface
  */
-Uint64 ATA_ReadFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+size_t ATA_ReadFS(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 {
 	 int	disk = Node->Inode >> 8;
 	 int	part = Node->Inode & 0xFF;
@@ -335,9 +335,9 @@ Uint64 ATA_ReadFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
 }
 
 /**
- * \fn Uint64 ATA_WriteFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
+ * \brief Write handler for VFS interface
  */
-Uint64 ATA_WriteFS(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Buffer)
+size_t ATA_WriteFS(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer)
 {
 	 int	disk = Node->Inode >> 8;
 	 int	part = Node->Inode & 0xFF;
