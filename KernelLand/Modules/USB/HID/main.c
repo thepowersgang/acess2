@@ -12,6 +12,7 @@
 #include <usb_core.h>
 #include "hid.h"
 #include "hid_reports.h"
+#include <fs_devfs.h>
 
 // === TYPES ===
 typedef struct sHID_Device	tHID_Device;
@@ -22,6 +23,10 @@ struct sHID_Device
 	tUSB_DataCallback	DataAvail;
 	// ... Device-specific data
 };
+
+// === IMPORTS ===
+extern tHID_ReportCallbacks	gHID_Mouse_ReportCBs;
+extern tDevFS_Driver	gHID_Mouse_DevFS;
 
 // === PROTOTYPES ===
  int	HID_Initialise(char **Arguments);
@@ -54,6 +59,9 @@ tHID_ReportCallbacks	gHID_RootCallbacks = {
 int HID_Initialise(char **Arguments)
 {
 	USB_RegisterDriver( &gHID_USBDriver );
+	
+	DevFS_AddDevice( &gHID_Mouse_DevFS );
+	
 	return 0;
 }
 
@@ -146,6 +154,19 @@ void HID_DeviceConnected(tUSBInterface *Dev, void *Descriptors, size_t Descripto
 	USB_ReadDescriptor(Dev, 0x1022, 0, report_len, report_data);
 	HID_int_ParseReport(Dev, report_data, report_len, &gHID_RootCallbacks);
 	
+	// --- Start polling ---
+	// Only if the device was initialised
+	if( USB_GetDeviceDataPtr(Dev) )
+	{
+		// Poll Endpoint .+1 (interupt)
+		USB_StartPollingEndpoint(Dev, 1);
+	}
+	else
+	{
+		Log_Log("USB_HID", "Device not intitialised");
+	}
+	
+	
 	LEAVE('-');
 }
 
@@ -178,7 +199,7 @@ tHID_ReportCallbacks *HID_RootCollection(
 			break;
 		case 0x0002:	// Mouse
 			LOG("Desktop->Mouse");
-			break;
+			return &gHID_Mouse_ReportCBs;
 		case 0x0004:	// Joystick
 		case 0x0005:	// Game Pad
 			LOG("Desktop->Gamepad");

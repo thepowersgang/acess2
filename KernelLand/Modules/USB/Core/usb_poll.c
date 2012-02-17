@@ -5,7 +5,7 @@
  * usb_poll.c
  * - Endpoint polling
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <usb_core.h>
 #include "usb.h"
 #include <timers.h>
@@ -29,9 +29,14 @@ void USB_StartPollingEndpoint(tUSBInterface *Iface, int Endpoint)
 {
 	tUSBEndpoint	*endpt;
 
+	ENTER("pIface iEndpoint", Iface, Endpoint);
+	LEAVE('-');
+
 	// Some sanity checks
-	if(Endpoint <= 0 || Endpoint > Iface->nEndpoints)	return ;
+	if(Endpoint <= 0 || Endpoint > Iface->nEndpoints)
+		return ;
 	endpt = &Iface->Endpoints[Endpoint-1];
+	LOG("endpt(%p)->PollingPeriod = %i", endpt, endpt->PollingPeriod);
 	if(endpt->PollingPeriod > POLL_MAX || endpt->PollingPeriod <= 0)
 		return ;
 
@@ -42,6 +47,7 @@ void USB_StartPollingEndpoint(tUSBInterface *Iface, int Endpoint)
 	// Determine polling period in atoms
 	endpt->PollingAtoms = (endpt->PollingPeriod + POLL_ATOM-1) / POLL_ATOM;
 	if(endpt->PollingAtoms > POLL_SLOTS)	endpt->PollingAtoms = POLL_SLOTS;
+	LOG("endpt(%p)->PollingAtoms = %i", endpt, endpt->PollingAtoms);
 	// Add to poll queue
 	// TODO: Locking
 	{
@@ -81,7 +87,7 @@ int USB_PollThread(void *unused)
 		for( ep = gUSB_PollQueues[giUSB_PollPosition]; ep; prev = ep, ep = ep->Next )
 		{
 			 int	period_in_atoms = ep->PollingAtoms;
-//			LOG("%i: ep = %p", giUSB_PollPosition, ep);
+			LOG("%i: ep = %p", giUSB_PollPosition, ep);
 
 			// Check for invalid entries
 			if(period_in_atoms < 0 || period_in_atoms > POLL_ATOM)

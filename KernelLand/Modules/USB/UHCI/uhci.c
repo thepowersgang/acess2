@@ -191,6 +191,12 @@ void UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_TD *TD)
 	link = Cont->FrameList[next_frame];
 	do {
 		prev_td = UHCI_int_GetTDFromPhys(link);
+		if(!prev_td) {
+			Log_Error("UHCI", "ERROR: TD list is bad");
+			TD->Link = 1;
+			LEAVE('-');
+			return ;
+		}
 		link = prev_td->Link;
 	} while( !(link & 1) );
 	
