@@ -76,7 +76,10 @@ tVFS_NodeType	gHID_Mouse_DevNodeType = {
 };
 tDevFS_Driver	gHID_Mouse_DevFS = {
 	.Name = "USBMouse",
-	.RootNode = {.Type = &gHID_Mouse_RootNodeType}
+	.RootNode = {
+		.Type = &gHID_Mouse_RootNodeType,
+		.Flags = VFS_FFLAG_DIRECTORY
+	}
 };
 tHID_ReportCallbacks	gHID_Mouse_ReportCBs = {
 	.Collection = HID_Mouse_Report_Collection,
