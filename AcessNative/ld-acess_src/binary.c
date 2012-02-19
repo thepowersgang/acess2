@@ -1,12 +1,13 @@
 /*
  * AcessNative
  */
+#define DEBUG	1
 #include "common.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
-#define LIBRARY_PATH	"$$$$../Usermode/Output/x86/Libs"
+#define LIBRARY_PATH	"$$$$../Usermode/Output/x86_64/Libs"
 
 // === TYPES ===
 typedef struct sBinary {
@@ -169,12 +170,12 @@ void *Binary_Load(const char *Filename, uintptr_t *EntryPoint)
 	}
 	
 	#if DEBUG
-	printf("fmt->Load(%i)...\n", fd);
+	printf("fmt->Load(0x%x)...\n", fd);
 	#endif
 	ret = fmt->Load(fd);
 	acess_close(fd);
 	#if DEBUG
-	printf("fmt->Load(%p): %p\n", fd, ret);
+	printf("fmt->Load(0x%x): %p\n", fd, ret);
 	#endif
 	if( !ret ) {
 		return NULL;

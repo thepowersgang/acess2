@@ -7,8 +7,10 @@
 #include <string.h>
 
 // === IMPORTS ===
+extern int	gSocket;
 extern int	giSyscall_ClientID;
 extern void	acess__exit(int Status);
+extern void	Request_Preinit(void);
 
 // === PROTOTYPES ===
 void	CallUser(void *Entry, int argc, char *argv[], char **envp) __attribute__((noreturn));
@@ -24,12 +26,19 @@ int main(int argc, char *argv[], char **envp)
 	void	*base;
 	 int	rv;
 	
+	Request_Preinit();
+
 //	 int	syscall_handle = -1;
 	
 	for( i = 1; i < argc; i ++ )
 	{
 		if(strcmp(argv[i], "--key") == 0) {
 			giSyscall_ClientID = atoi(argv[++i]);
+			continue ;
+		}
+
+		if(strcmp(argv[i], "--socket") == 0) {
+			gSocket = atoi(argv[++i]);
 			continue ;
 		}
 		

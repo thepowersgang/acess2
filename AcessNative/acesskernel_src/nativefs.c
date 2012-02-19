@@ -6,8 +6,10 @@
  * - Host filesystem access
  */
 #define DEBUG	1
+#define off_t	_acess_off_t
 #include <acess.h>	// Acess
 #include <vfs.h>	// Acess
+#undef off_t
 #include <dirent.h>	// Posix
 #include <sys/stat.h>	// Posix
 #include <stdio.h>	// Posix

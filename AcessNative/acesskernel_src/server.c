@@ -139,8 +139,13 @@ int Server_WorkerThread(void *ClientPtr)
 		// Get the response
 		retHeader = SyscallRecieve(Client->CurrentRequest, &retSize);
 
-		Log_Debug("AcessSrv", "Client %i request %i",
-			Client->ClientID, Client->CurrentRequest->CallID);
+		{
+			int	callid = Client->CurrentRequest->CallID;
+			Log_Debug("AcessSrv", "Client %i request %i %s",
+				Client->ClientID, callid,
+				callid < N_SYSCALLS ? casSYSCALL_NAMES[callid] : "UNK"
+				);
+		}
 		
 		
 		if( !retHeader ) {
@@ -156,13 +161,14 @@ int Server_WorkerThread(void *ClientPtr)
 		retHeader->ClientID = Client->ClientID;
 		
 		// Mark the thread as ready for another job
+		free(Client->CurrentRequest);
 		Client->CurrentRequest = 0;
 		
-		Log_Debug("AcessSrv", "Sending %i to %x:%i (Client %i)",
-			retSize, ntohl(Client->ClientAddr.sin_addr.s_addr),
-			ntohs(Client->ClientAddr.sin_port),
-			Client->ClientID
-			);
+//		Log_Debug("AcessSrv", "Sending %i to %x:%i (Client %i)",
+//			retSize, ntohl(Client->ClientAddr.sin_addr.s_addr),
+//			ntohs(Client->ClientAddr.sin_port),
+//			Client->ClientID
+//			);
 		
 		// Return the data
 		sentSize = sendto(gSocket, retHeader, retSize, 0,
@@ -272,8 +278,8 @@ int Server_ListenThread(void *Unused)
 		
 		// Hand off to a worker thread
 		// - TODO: Actually have worker threads
-		printf("%i bytes from %x:%i\n", length,
-			ntohl(addr.sin_addr.s_addr), ntohs(addr.sin_port));
+//		Log_Debug("Server", "%i bytes from %x:%i", length,
+//			ntohl(addr.sin_addr.s_addr), ntohs(addr.sin_port));
 		
 		client = Server_GetClient(req->ClientID);
 		// NOTE: Hack - Should check if all zero
@@ -298,7 +304,10 @@ int Server_ListenThread(void *Unused)
 		
 		Log_Debug("AcessSrv", "Message from Client %i (%p)",
 			client->ClientID, client);
-		
+
+		// Make a copy of the request data	
+		req = malloc(length);
+		memcpy(req, data, length);
 		client->CurrentRequest = req;
 		SDL_CondSignal(client->WaitFlag);
 		#endif

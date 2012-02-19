@@ -23,7 +23,11 @@ extern int	sprintf(char *,const char *, ...);
 extern int	vprintf(const char *, va_list);
 extern int	strncmp(const char *, const char *, size_t);
 
+extern int	gSocket;
 extern int	giSyscall_ClientID;	// Needed for execve
+extern void	_InitSyscalls(void);
+extern void	_CloseSyscalls(void);
+
 extern void	Debug(const char *Format, ...);
 extern int	AllocateMemory(uintptr_t VirtAddr, size_t ByteCount);
 
@@ -153,14 +157,18 @@ int acess_clone(int flags, void *stack)
 	extern int fork(void);
 	if(flags & CLONE_VM) {
 		 int	ret, newID, kernel_tid=0;
-		printf("fork()");
+		printf("USERSIDE fork()\n");
 		
-		newID = _Syscall(SYS_FORK, "<d", sizeof(int), &kernel_tid);
+		newID = _Syscall(SYS_AN_FORK, "<d", sizeof(int), &kernel_tid);
 		ret = fork();
-		if(ret < 0)	return ret;
+		if(ret < 0) {
+			return ret;
+		}
 		
 		if(ret == 0)
 		{
+			_CloseSyscalls();
+			_InitSyscalls();
 			giSyscall_ClientID = newID;
 			return 0;
 		}
@@ -184,20 +192,24 @@ int acess_execve(char *path, char **argv, char **envp)
 	// Get argument count
 	for( argc = 0; argv[argc]; argc ++ ) ;
 	DEBUG(" acess_execve: argc = %i", argc);
-	
-	char	*new_argv[5+argc+1];
-	char	key[11];
-	sprintf(key, "%i", giSyscall_ClientID);
+
+	char	*new_argv[7+argc+1];
+	char	client_id_str[11];
+	char	socket_fd_str[11];
+	sprintf(client_id_str, "%i", giSyscall_ClientID);
+	sprintf(socket_fd_str, "%i", gSocket);
 	new_argv[0] = "ld-acess";	// TODO: Get path to ld-acess executable
-	new_argv[1] = "--key";	// Set socket/client ID for Request.c
-	new_argv[2] = key;
-	new_argv[3] = "--binary";	// Set the binary path (instead of using argv[0])
-	new_argv[4] = path;
-	for( i = 0; i < argc; i ++ )	new_argv[5+i] = argv[i];
-	new_argv[5+i] = NULL;
+	new_argv[1] = "--key";  	// Set client ID for Request.c
+	new_argv[2] = client_id_str;
+	new_argv[3] = "--socket";	// Socket
+	new_argv[4] = socket_fd_str;
+	new_argv[5] = "--binary";	// Set the binary path (instead of using argv[0])
+	new_argv[6] = path;
+	for( i = 0; i < argc; i ++ )	new_argv[7+i] = argv[i];
+	new_argv[7+i] = NULL;
 	
 	#if 1
-	argc += 5;
+	argc += 7;
 	for( i = 0; i < argc; i ++ )
 		printf("\"%s\" ", new_argv[i]);
 	printf("\n");

@@ -55,7 +55,7 @@ enum eSyscalls {
 	
 	// IPC
 	SYS_SLEEP,
-	SYS_FORK,
+	SYS_AN_FORK,
 	SYS_SENDMSG,
 	SYS_GETMSG,
 	SYS_SELECT,
@@ -82,9 +82,18 @@ static const char * casSYSCALL_NAMES[] = {
 	"SYS_GETACL",
 	"SYS_MOUNT",
 	"SYS_REOPEN",
+	"SYS_CHDIR",
+	
+	"SYS_WAITTID",
+	"SYS_SETUID",
+	"SYS_SETGID",
 	
 	// IPC
-	"SYS_SLEEP"
+	"SYS_SLEEP",
+	"SYS_AN_FORK",
+	"SYS_SENDMSG",
+	"SYS_GETMSG",
+	"SYS_SELECT"
 };
 #endif
 

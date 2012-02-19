@@ -38,7 +38,7 @@ int UI_Initialise(int MaxWidth, int MaxHeight)
 	// Set up video
 	SDL_Init(SDL_INIT_VIDEO);
 	printf("UI attempting %ix%i %ibpp\n", giUI_Width, giUI_Height, 32);
-	gScreen = SDL_SetVideoMode(giUI_Width, giUI_Height, 32, 0);
+	gScreen = SDL_SetVideoMode(giUI_Width, giUI_Height, 32, SDL_DOUBLEBUF);
  	if( !gScreen ) {
 		fprintf(stderr, "Couldn't set %ix%i video mode: %s\n", giUI_Width, giUI_Height, SDL_GetError());
 		SDL_Quit();
@@ -146,7 +146,12 @@ void UI_MainLoop(void)
 					gUI_KeyboardCallback(KEY_ACTION_RELEASE|acess_sym);
 				}
 				break;
-			
+
+			case SDL_USEREVENT:
+				SDL_UpdateRect(gScreen, 0, 0, giUI_Width, giUI_Height);
+				SDL_Flip(gScreen);
+				break;		
+	
 			default:
 				break;
 			}
@@ -202,5 +207,13 @@ void UI_FillBitmap(int X, int Y, int W, int H, Uint32 Value)
 void UI_Redraw(void)
 {
 	// TODO: Keep track of changed rectangle
-	SDL_UpdateRect(gScreen, 0, 0, giUI_Width, giUI_Height);
+//	SDL_UpdateRect(gScreen, 0, 0, giUI_Width, giUI_Height);
+	SDL_Event	e;
+
+	e.type = SDL_USEREVENT;
+	e.user.code = 0;
+	e.user.data1 = 0;
+	e.user.data2 = 0;	
+
+	SDL_PushEvent( &e );
 }

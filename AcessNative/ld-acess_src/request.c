@@ -44,9 +44,16 @@ SOCKET	gSocket = INVALID_SOCKET;
 struct sockaddr_in	gSyscall_ServerAddr;
 
 // === CODE ===
-int _InitSyscalls()
+void Request_Preinit(void)
 {
-	
+	// Set server address
+	memset((void *)&gSyscall_ServerAddr, '\0', sizeof(struct sockaddr_in));
+	gSyscall_ServerAddr.sin_family = AF_INET;
+	gSyscall_ServerAddr.sin_port = htons(SERVER_PORT);
+}
+
+int _InitSyscalls(void)
+{
 	#ifdef __WIN32__
 	/* Open windows connection */
 	if (WSAStartup(0x0101, &gWinsock) != 0)
@@ -72,12 +79,6 @@ int _InitSyscalls()
 		exit(0);
 	}
 	
-	// Set server address
-	memset((void *)&gSyscall_ServerAddr, '\0', sizeof(struct sockaddr_in));
-	gSyscall_ServerAddr.sin_family = AF_INET;
-	gSyscall_ServerAddr.sin_port = htons(SERVER_PORT);
-	gSyscall_ServerAddr.sin_addr.s_addr = htonl(0x7F000001);
-	
 	#if 0
 	// Set client address
 	memset((void *)&client, '\0', sizeof(struct sockaddr_in));
@@ -100,7 +101,6 @@ int _InitSyscalls()
 		#endif
 		exit(0);
 	}
-	giSyscall_ClientID = gSocket;	// A bit of a hack really :(
 	#endif
 	
 	#if 0
@@ -141,6 +141,20 @@ int _InitSyscalls()
 	#endif
 	
 	return 0;
+}
+
+/**
+ * \brief Close the syscall socket
+ * \note Used in acess_fork to get a different port number
+ */
+void _CloseSyscalls(void)
+{
+	#if __WIN32__
+	closesocket(gSocket);
+	WSACleanup();
+	#else
+	close(gSocket);
+	#endif
 }
 
 int SendRequest(tRequestHeader *Request, int RequestSize, int ResponseSize)

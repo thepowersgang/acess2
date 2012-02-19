@@ -177,7 +177,7 @@ SYSCALL1(Syscall_SetGID, "i", int,
 	return Threads_SetGID(a0);
 );
 
-SYSCALL1(Syscall_Fork, "d", int *,
+SYSCALL1(Syscall_AN_Fork, "d", int *,
 	if(Sizes[0] < sizeof(int))
 		return -1;
 	*a0 = Threads_Fork();
@@ -207,7 +207,7 @@ const tSyscallHandler	caSyscalls[] = {
 	Syscall_SetGID,
 	
 	Syscall_Sleep,
-	Syscall_Fork,
+	Syscall_AN_Fork,
 
 	NULL,
 	NULL,

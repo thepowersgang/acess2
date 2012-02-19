@@ -8,17 +8,26 @@
 #define _SIGNAL_H_	// Stop the acess signal.h being used
 #define _HEAP_H_	// Stop heap.h being imported (collides with stdlib heap)
 #define _VFS_EXT_H	// Stop vfs_ext.h being imported (collides with fd_set)
-#undef CLONE_VM	// Such a hack
+
+#define off_t	_acess_off_t
 #include <arch.h>
 #undef NULL	// Remove acess definition
 #include <acess.h>
 #include <mutex.h>
 #include <semaphore.h>
+#include <events.h>
+
+#undef CLONE_VM	// Such a hack
+#undef off_t	
+
+// - Native headers
 #include <unistd.h>
 #include <sys/types.h>
 #include <stdint.h>
 #include "/usr/include/signal.h"
 #include <SDL/SDL.h>
+
+#define THREAD_EVENT_WAKEUP	0x80000000
 
 // === IMPORTS ===
 void	VFS_CloneHandleList(int PID);
@@ -150,6 +159,7 @@ tThread *Threads_CloneTCB(tThread *TemplateThread)
 	ret->TID = giThreads_NextThreadID ++;
 	
 	ret->ThreadName = strdup(TemplateThread->ThreadName);
+	ret->EventSem = SDL_CreateSemaphore(0);
 	
 	ret->WaitingThreads = NULL;
 	ret->WaitingThreadsEnd = NULL;
@@ -167,10 +177,10 @@ tGID Threads_GetGID() { return gpCurrentThread->GID; }
 tTID Threads_GetTID() { return gpCurrentThread->TID; }
 tPID Threads_GetPID() { return gpCurrentThread->PID; }
 
-int Threads_SetUID(int *Errno, tUID NewUID)
+int Threads_SetUID(tUID NewUID)
 {
 	if(Threads_GetUID() != 0) {
-		if(Errno)	*Errno = -EACCES;
+		errno = EACCES;
 		return -1;
 	}
 	
@@ -178,10 +188,10 @@ int Threads_SetUID(int *Errno, tUID NewUID)
 	return 0;
 }
 
-int Threads_SetGID(int *Errno, tGID NewGID)
+int Threads_SetGID(tGID NewGID)
 {
 	if(Threads_GetUID() != 0) {
-		if(Errno)	*Errno = -EACCES;
+		errno = -EACCES;
 		return -1;
 	}
 	
@@ -194,7 +204,7 @@ char **Threads_GetCWD(void) { return &gpCurrentThread->Process->CWD; }
 char **Threads_GetChroot(void) { return &gpCurrentThread->Process->Chroot; }
 int *Threads_GetMaxFD(void) { return &gpCurrentThread->Process->MaxFD; };
 
-int Threads_WaitTID(int TID, int *Status)
+tTID Threads_WaitTID(int TID, int *Status)
 {
 	// Any Child
 	if(TID == -1) {
@@ -235,11 +245,7 @@ int Threads_WaitTID(int TID, int *Status)
 			thread->WaitingThreadsEnd = us;
 		}
 		
-		while(thread->State != 0)
-		{
-			pause();
-			Log_Debug("Threads", "Huh?... state = %i", thread->State);
-		}
+		Threads_WaitEvents( THREAD_EVENT_WAKEUP );
 		
 		if(Status)	*Status = thread->ExitStatus;
 		thread->WaitingThreads = thread->WaitingThreads->Next;
@@ -293,7 +299,7 @@ void Threads_Exit(int TID, int Status)
 int Threads_Wake(tThread *Thread)
 {
 	Thread->State = 0;
-	kill( Thread->KernelTID, SIGUSR1 );
+	Threads_PostEvent(Thread, THREAD_EVENT_WAKEUP);
 	return 0;
 }
 
@@ -365,20 +371,29 @@ int Semaphore_Signal(tSemaphore *Sem, int AmmountToAdd)
 Uint32 Threads_WaitEvents(Uint32 Mask)
 {
 	Uint32	rv;
+
+	Log_Debug("Threads", "Mask = %x, ->Events = %x", Mask, gpCurrentThread->Events);	
+
 	gpCurrentThread->WaitMask = Mask;
 	if( !(gpCurrentThread->Events & Mask) )
+	{
 		SDL_SemWait( gpCurrentThread->EventSem );
+	}
 	rv = gpCurrentThread->Events & Mask;
 	gpCurrentThread->Events &= ~Mask;
 	gpCurrentThread->WaitMask = -1;
+	
 	return rv;
 }
 
 void Threads_PostEvent(tThread *Thread, Uint32 Events)
 {
 	Thread->Events |= Events;
+	Log_Debug("Threads", "Trigger event %x (->Events = %p)", Events, Thread->Events);
 	
-	if( Thread->WaitMask & Events )
-		SDL_SemPost( gpCurrentThread->EventSem );
+	if( Thread->WaitMask & Events ) {
+		SDL_SemPost( Thread->EventSem );
+//		Log_Debug("Threads", "Waking %p(%i %s)", Thread, Thread->TID, Thread->ThreadName);
+	}
 }
 

@@ -1,0 +1,5 @@
+#!/bin/sh
+trap '' 2
+./AcessKernel --rootapp /Acess/SBin/login
+trap 2
+killall ld-acess
