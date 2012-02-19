@@ -4,51 +4,70 @@
 
 Acess2 is [TPG]'s hobby operating system.
 
-The Acess kernel is SEMI-posix compilant, but there will be a comatability
-library that emulates the different functions.
+It's mostly a learning experiment, but I've tried to keep the source simple
+and have a _nearly_ POSIX compliant userland.
 
 === Source Tree ===
---- /Kernel ---
-The /Kernel tree contains the kernel sources.
- Within the root of the tree is the miscelanious architecture agnostic
-   code for managing threads, loading modules and other things.
- /Kernel/arch/<archname> - Architecture dependent code
- /Kernel/bin - Binary file format parsers. Takes a binary file and
-   convertes it into a binary object that the loader can then load into memory.
- /Kernel/vfs - The Virtual Filesystem
- /Kernel/vfs/fs - The various filesystem drivers for the VFS.
- /Kernel/drv - Drivers
+--- /KernelLand ---
+The /KernelLand folder contains the kernel code
+  Kernel/
+    - Core kernel
+    arch/<archname>/
+      - Architecture dependent code (memory management and process switching)
+    bin/
+      - Binary file loaders
+    vfs/
+      - Virtual Filesystem layer
+    drv/
+      - Core system drivers (PCI, VTerm, FIFO)
+  Modules/
+    - All manner of drivers and helper code, capable of being build-time and runtime linked
 
 --- Usermode ---
-/Usermode contains the base acess system
- /Usermode/Applications - Usermode applications such as the default
-   command shell and the login shell.
- /Usermode/Libraries - Usermode shared libraries and crt0.o, currently
-   implemented are libacess (kernel interface), a basic libc and ld-acess
-   (dynamic linker).
- /Usermode/include - Required include files for the shared libraries.
+The Usermode folder contains the user-land portion of the Acess OS
+  Applications/
+    - Usermode applications (Shell, IRC Client, GUI, ...)
+ Libraries/
+   - Dynamic linker, and nearly all shared libraries used
+ include/
+   - Header files for libraries and the C standard
+
+--- AcessNative ---
+This folder contains a rather hacky emulation framework for the Acess Userland
+(and to an extent, the kernel). It combines parts of the kernel code, IPC and
+thread emulation to allow Acess applications to be run on Linux/Windows without
+recompilation.
+  acesskernel_src/
+    - The kernel emulation framework
+  ld-acess_src/
+    - Replacement ld-acess.so to load programs and translate syscalls into IPC
+
+--- BuildConf ---
+Build configuration settings (compiler options, module selection)
 
 === Building ===
-Required Tools: GNU Toolchain (GCC,Gas,binutils), NASM, mtools, GNU calc
+Required Tools: GNU Toolchain (GCC,Gas,binutils), NASM, mtools, PHP
 Compiling Acess is relatively simple (at the moment)
 First edit /Makefile.cfg and set the build programs (making sure they match
   the architecture you are building for).
-Then select the architecture to build (At the moment only x86:i386 works).
 Edit the FILESYSTEMS variable to alter what filesystems are comipled in 
   (see /Kernel/vfs/fs for what filesystems are included).
-DRIVERS defines what device drivers are to be included from the Kernel
-  tree (see /Kernel/drv for a list).
 MODULES defines what modules should be statically linked with the kernel
   (see /Modules for a list)
 
-Set the source root directory (ACESSDIR) and the destination  directory
- (DISTROOT).
-To be able to build usermode programs, Usermode/Libraries/acess.ld needs
- to be edited to change the SEARCH_DIR directive to the correct path.
-You may also want to edit Usermode/Filesystem/Conf/BootConf.cfg before
- installing.
+Set the destination install directory (DISTROOT).
 
 Now you can compile the kernel and usermode applications by calling make
  in the source root.
+
+e.g.
+`make`
+- Build and install the kernel (x86)
+`PLATFORM=smp make`
+- Build and install the x86:smp kernel
+`ARCH=x86_64 make all`
+- Build (but don't install) the entire x86_64 kernel and userland
+`ARCH=armv7 PLATFORM=tegra2 make all install`
+- Build and install the entire armv7 kernel and userland (with the kernel targeting a Tegra2)
 
 
