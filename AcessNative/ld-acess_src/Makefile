@@ -14,6 +14,7 @@ ifeq ($(PLATFORM),win)
 endif
 ifeq ($(PLATFORM),lin)
 	BIN := ../ld-acess
+	LINKADDR := 0x200000
 #	LD += -m elf_i386
 endif
 
@@ -46,7 +47,7 @@ obj-$(PLATFORM)/%.o: %.c
 obj-lin/link.ld:
 	@mkdir -p $(dir $@)
 	@echo "Making Linker Script ($@)"
-	$(LD) --verbose | awk '{ if( substr($$0,0,5) == "====="){ bPrint = !bPrint; } else { if(bPrint){ print $$0;} } }' | sed 's/\b0x[048][0-9]*\b/0x00200000/g' > $@
+	$(LD) --verbose | awk '{ if( substr($$0,0,5) == "====="){ bPrint = !bPrint; } else { if(bPrint){ print $$0;} } }' | sed 's/\b0x[048][0-9]*\b/$(LINKADDR)/g' | sed 's/CONSTANT (MAXPAGESIZE)/0x1000/g' > $@
 
 -include $(DEPFILES)
 

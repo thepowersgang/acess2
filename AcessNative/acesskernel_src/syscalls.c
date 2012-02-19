@@ -177,6 +177,11 @@ SYSCALL1(Syscall_SetGID, "i", int,
 	return Threads_SetGID(a0);
 );
 
+SYSCALL0(Syscall_GetTID, return Threads_GetTID());
+SYSCALL0(Syscall_GetPID, return Threads_GetPID());
+SYSCALL0(Syscall_GetUID, return Threads_GetUID());
+SYSCALL0(Syscall_GetGID, return Threads_GetGID());
+
 SYSCALL1(Syscall_AN_Fork, "d", int *,
 	if(Sizes[0] < sizeof(int))
 		return -1;
@@ -206,6 +211,11 @@ const tSyscallHandler	caSyscalls[] = {
 	Syscall_SetUID,
 	Syscall_SetGID,
 	
+	Syscall_GetTID,
+	Syscall_GetPID,
+	Syscall_GetUID,
+	Syscall_GetGID,
+
 	Syscall_Sleep,
 	Syscall_AN_Fork,
 

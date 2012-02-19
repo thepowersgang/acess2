@@ -252,6 +252,7 @@ int Binary_GetSymbol(const char *SymbolName, uintptr_t *Value, size_t *Size)
 	}
 
 	//printf("Binary_GetSymbol: RETURN 0, not found\n");
+	printf("--- ERROR: Unable to find symbol '%s'\n", SymbolName);
 	
 	return 0;
 }

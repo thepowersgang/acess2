@@ -52,7 +52,12 @@ enum eSyscalls {
 	SYS_WAITTID,
 	SYS_SETUID,
 	SYS_SETGID,
-	
+
+	SYS_GETTID,
+	SYS_GETPID,
+	SYS_GETUID,
+	SYS_GETGID,
+
 	// IPC
 	SYS_SLEEP,
 	SYS_AN_FORK,
@@ -87,6 +92,11 @@ static const char * casSYSCALL_NAMES[] = {
 	"SYS_WAITTID",
 	"SYS_SETUID",
 	"SYS_SETGID",
+	
+	"SYS_GETTID",
+	"SYS_GETPID",
+	"SYS_GETUID",
+	"SYS_GETGID",
 	
 	// IPC
 	"SYS_SLEEP",

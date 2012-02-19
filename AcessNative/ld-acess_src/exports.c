@@ -112,16 +112,23 @@ int acess_readdir(int fd, char *dest) {
 	return _Syscall(SYS_READDIR, ">i <d", fd, 256, dest);
 }
 
-int acess_select(int nfds, fd_set *read, fd_set *write, fd_set *error, time_t *timeout)
+int acess__SysSelect(int nfds, fd_set *read, fd_set *write, fd_set *error, time_t *timeout, uint32_t events)
 {
-	DEBUG("select(%i, %p, %p, %p, %p)", nfds, read, write, error, timeout);
-	return _Syscall(SYS_SELECT, ">i ?d ?d ?d >d", nfds,
+	DEBUG("_SysSelect(%i, %p, %p, %p, %p, 0x%x)", nfds, read, write, error, timeout, events);
+	return _Syscall(SYS_SELECT, ">i ?d ?d ?d >d >i", nfds,
 		read ? (nfds+7)/8 : 0, read,
 		write ? (nfds+7)/8 : 0, write,
 		error ? (nfds+7)/8 : 0, error,
-		sizeof(*timeout), timeout
+		sizeof(*timeout), timeout,
+		events
 		);
 }
+
+int acess_select(int nfds, fd_set *read, fd_set *write, fd_set *error, time_t *timeout)
+{
+	return acess__SysSelect(nfds, read, write, error, timeout, 0);
+}
+
 
 int acess__SysOpenChild(int fd, char *name, int flags) {
 	return _Syscall(SYS_OPENCHILD, ">i >s >i", fd, name, flags);
@@ -236,15 +243,12 @@ int acess_waittid(int TID, int *ExitStatus)
 	return _Syscall(SYS_WAITTID, ">i <d", TID, sizeof(int), &ExitStatus);
 }
 
-int acess_setuid(int ID)
-{
-	return _Syscall(SYS_SETUID, ">i", ID);
-}
-
-int acess_setgid(int ID)
-{
-	return _Syscall(SYS_SETGID, ">i", ID);
-}
+int acess_setuid(int ID) { return _Syscall(SYS_SETUID, ">i", ID); }
+int acess_setgid(int ID) { return _Syscall(SYS_SETGID, ">i", ID); }
+int acess_gettid(void) { return _Syscall(SYS_GETTID, ""); }
+int acess_getpid(void) { return _Syscall(SYS_GETPID, ""); }
+int acess_getuid(void) { return _Syscall(SYS_GETUID, ""); }
+int acess_getgid(void) { return _Syscall(SYS_GETGID, ""); }
 
 int acess_SysSendMessage(int DestTID, int Length, void *Data)
 {
@@ -301,6 +305,7 @@ const tSym	caBuiltinSymbols[] = {
 	DEFSYM(_SysOpenChild),
 	DEFSYM(_SysGetACL),
 	DEFSYM(_SysMount),
+	DEFSYM(_SysSelect),
 	
 	DEFSYM(clone),
 	DEFSYM(execve),
@@ -309,6 +314,7 @@ const tSym	caBuiltinSymbols[] = {
 	DEFSYM(waittid),
 	DEFSYM(setuid),
 	DEFSYM(setgid),
+	DEFSYM(gettid),
 
 	DEFSYM(SysSendMessage),
 	DEFSYM(SysGetMessage),

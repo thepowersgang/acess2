@@ -83,7 +83,7 @@ int main(int argc, char *argv[], char **envp)
 	if( !base )	return 127;
 	
 	printf("==============================\n");
-	printf("[DEBUG %i] %i %p ", giSyscall_ClientID, appArgc, appArgv);
+	printf("[DEBUG %i] %i ", giSyscall_ClientID, appArgc);
 	for(i = 0; i < appArgc; i ++)
 		printf("\"%s\" ", appArgv[i]);
 	printf("\n");
