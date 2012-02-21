@@ -100,39 +100,50 @@ void Input_HandleSelect(fd_set *set)
 	if(FD_ISSET(giMouseFD, set))
 	{
 		 int	i;
-		struct sMouseInfo {
+		struct sMouseAxis {
+			 int16_t	MinValue;
+			 int16_t	MaxValue;
+			 int16_t	CurValue;
+			uint16_t	CursorPos;
+		}	*axies;
+		uint8_t	*buttons;
+		struct sMouseHdr {
 			uint16_t	NAxies;
 			uint16_t	NButtons;
-			struct sMouseAxis {
-				 int16_t	MinValue;
-				 int16_t	MaxValue;
-				 int16_t	CurValue;
-				uint16_t	CursorPos;
-			}	Axies[2];
-			uint8_t	Buttons[3];
-		}	mouseinfo;
-	
+		}	*mouseinfo;
+		char	data[sizeof(*mouseinfo) + sizeof(*axies)*3 + 5];
+
+		mouseinfo = (void*)data;
+
 		seek(giMouseFD, 0, SEEK_SET);
-		if( read(giMouseFD, &mouseinfo, sizeof(mouseinfo)) != sizeof(mouseinfo) )
-		{
-			// Not a 3 button mouse, oops
+		i = read(giMouseFD, data, sizeof(data));
+		i -= sizeof(*mouseinfo);
+		if( i < 0 )
 			return ;
-		}
+		if( i < sizeof(*axies)*mouseinfo->NAxies + mouseinfo->NButtons )
+			return ;
+
+		// What? No X/Y?
+		if( mouseinfo->NAxies < 2 )
+			return ;
+	
+		axies = (void*)( mouseinfo + 1 );
+		buttons = (void*)( axies + mouseinfo->NAxies );
 
 		// Handle movement
-		Video_SetCursorPos( mouseinfo.Axies[0].CursorPos, mouseinfo.Axies[1].CursorPos );
+		Video_SetCursorPos( axies[0].CursorPos, axies[1].CursorPos );
 
 		WM_Input_MouseMoved(
 			giInput_MouseX, giInput_MouseY,
-			mouseinfo.Axies[0].CursorPos, mouseinfo.Axies[1].CursorPos
+			axies[0].CursorPos, axies[1].CursorPos
 			);
-		giInput_MouseX = mouseinfo.Axies[0].CursorPos;
-		giInput_MouseY = mouseinfo.Axies[1].CursorPos;
+		giInput_MouseX = axies[0].CursorPos;
+		giInput_MouseY = axies[1].CursorPos;
 
-		for( i = 0; i < mouseinfo.NButtons; i ++ )
+		for( i = 0; i < mouseinfo->NButtons; i ++ )
 		{
-			int bit = 1 << i;
-			int cur = mouseinfo.Buttons[i] > 128;
+			 int	bit = 1 << i;
+			 int	cur = buttons[i] > 128;
 
 			if( !!(giInput_MouseButtonState & bit) != cur )
 			{
