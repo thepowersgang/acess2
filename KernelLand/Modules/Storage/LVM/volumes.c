@@ -8,15 +8,27 @@
 #include "lvm_int.h"
 
 // === PROTOTYPES ===
+ int	LVM_int_VFSReadEmul(void *Arg, Uint64 BlockStart, size_t BlockCount, void *Dest);
+ int	LVM_int_VFSWriteEmul(void *Arg, Uint64 BlockStart, size_t BlockCount, const void *Source);
 
 // === CODE ===
 // --------------------------------------------------------------------
 // Managment / Initialisation
 // --------------------------------------------------------------------
-int LVM_AddVolume(const char *Name, int FD)
+int LVM_AddVolumeVFS(const char *Name, int FD)
 {
-	// Make dummy volume descriptor (for the read code)
+	return LVM_AddVolume(Name, (void*)FD, LVM_int_VFSReadEmul, LVM_int_VFSWriteEmul);
+}
 
+int LVM_AddVolume(const char *Name, void *Ptr, tLVM_ReadFcn Read, tLVM_WriteFcn Write)
+{
+	tLVM_Vol	dummy_vol;
+//	tLVM_Vol	*real_vol;
+
+	dummy_vol.Ptr = Ptr;
+	dummy_vol.Read = Read;
+	dummy_vol.Write = Write;
+	
 	// Determine Type
 
 	// Type->CountSubvolumes
@@ -70,25 +82,35 @@ void LVM_int_SetSubvolume_Anon(tLVM_Vol *Volume, int Index, Uint64 FirstBlock, U
 // --------------------------------------------------------------------
 size_t LVM_int_ReadVolume(tLVM_Vol *Volume, Uint64 BlockNum, size_t BlockCount, void *Dest)
 {
-	size_t	rv;
-	rv = VFS_ReadAt(
-		Volume->BackingDescriptor,
-		BlockNum * Volume->BlockSize,
-		BlockCount * Volume->BlockSize,
-		Dest
-		);
-	return rv / Volume->BlockSize;
+	return Volume->Read(Volume->Ptr, BlockNum, BlockCount, Dest);
 }
 
 size_t LVM_int_WriteVolume(tLVM_Vol *Volume, Uint64 BlockNum, size_t BlockCount, const void *Src)
 {
+	return Volume->Write(Volume->Ptr, BlockNum, BlockCount, Src);	
+}
+
+int LVM_int_VFSReadEmul(void *Arg, Uint64 BlockStart, size_t BlockCount, void *Dest)
+{
+	size_t	blocksize;
 	size_t	rv;
-	rv = VFS_WriteAt(
-		Volume->BackingDescriptor,
-		BlockNum * Volume->BlockSize,
-		BlockCount * Volume->BlockSize,
-		Src
-		);
-	return rv / Volume->BlockSize;
+
+	blocksize = 512;	// TODO: Don't assume	
+
+	rv = VFS_ReadAt( (int)Arg, BlockStart * blocksize, BlockCount * blocksize, Dest );
+	rv /= blocksize;
+	return rv;
+}
+
+int LVM_int_VFSWriteEmul(void *Arg, Uint64 BlockStart, size_t BlockCount, const void *Source)
+{
+	size_t	blocksize;
+	size_t	rv;
+
+	blocksize = 512;	// TODO: Don't assume	
+
+	rv = VFS_WriteAt( (int)Arg, BlockStart * blocksize, BlockCount * blocksize, Source );
+	rv /= blocksize;
+	return rv;
 }
 

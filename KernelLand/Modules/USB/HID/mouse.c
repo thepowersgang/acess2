@@ -136,15 +136,37 @@ size_t HID_Mouse_Dev_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Bu
 
 	memcpy( Buffer, info->FileData + Offset, Length );
 
+	VFS_MarkAvaliable( &info->Node, 0 );
+	
 	return Length;
 }
 
 static const char *csaDevIOCtls[] = {DRV_IOCTLNAMES, DRV_JOY_IOCTLNAMES, NULL};
 int HID_Mouse_Dev_IOCtl(tVFS_Node *Node, int ID, void *Data)
 {
+	tJoystick_NumValue	*numval = Data;
+	tHID_Mouse	*info = Node->ImplPtr;
 	switch(ID)
 	{
 	BASE_IOCTLS(DRV_TYPE_JOYSTICK, "USBMouse", 0x050, csaDevIOCtls);
+	
+	case JOY_IOCTL_GETSETAXISLIMIT:
+		if( !numval || !CheckMem(numval, sizeof(*numval)) )
+			return -1;
+		if(numval->Num < 0 || numval->Num >= MAX_AXIES)
+			return 0;
+		if(numval->Value != -1)
+			info->AxisLimits[numval->Num] = numval->Value;
+		return info->AxisLimits[numval->Num];
+
+	case JOY_IOCTL_GETSETAXISPOSITION:
+		if( !numval || !CheckMem(numval, sizeof(*numval)) )
+			return -1;
+		if(numval->Num < 0 || numval->Num >= MAX_AXIES)
+			return 0;
+		if(numval->Value != -1)
+			info->Axies[numval->Num].CursorPos = numval->Value;
+		return info->Axies[numval->Num].CursorPos;
 	}
 	return -1;
 }
@@ -170,6 +192,7 @@ void HID_Mouse_Dev_Close(tVFS_Node *Node)
 Sint32 _ReadBits(void *Data, int Offset, int Length)
 {
 	 int	dest_ofs = 0;
+	 int	rem = Length;
 	Uint32	rv = 0;
 	Uint8	*bytes = (Uint8*)Data + Offset / 8;
 
@@ -188,23 +211,22 @@ Sint32 _ReadBits(void *Data, int Offset, int Length)
 		rv = (*bytes >> Offset);
 		
 		dest_ofs = Offset & 7;
-		Length -= Offset & 7;
+		rem = Length - (Offset & 7);
 		bytes ++;
 	}
 
 	// Body bytes
-	while( Length >= 8 )
+	while( rem >= 8 )
 	{
 		rv |= *bytes << dest_ofs;
 		dest_ofs += 8;
-		Length -= 8;
+		rem -= 8;
 		bytes ++;
 	}
 	
-	if( Length )
+	if( rem )
 	{
-		rv |= (*bytes & ((1 << Length)-1)) << dest_ofs;
-		
+		rv |= (*bytes & ((1 << rem)-1)) << dest_ofs;
 	}
 	
 	// Do sign extension
@@ -225,8 +247,6 @@ void HID_Mouse_DataAvail(tUSBInterface *Dev, int EndPt, int Length, void *Data)
 	info = USB_GetDeviceDataPtr(Dev);
 	if( !info )	return ;
 
-	Log_Debug("USBMouse", "info = %p", info);	
-	
 	ofs = 0;
 	for( int i = 0; i < info->nMappings; i ++ )
 	{
@@ -237,6 +257,7 @@ void HID_Mouse_DataAvail(tUSBInterface *Dev, int EndPt, int Length, void *Data)
 			return ;
 
 		value = _ReadBits(Data, ofs, info->Mappings[i].BitSize);
+		LOG("%i+%i: value = %i", ofs, info->Mappings[i].BitSize, value);
 		ofs += info->Mappings[i].BitSize;
 		
 		if( dest == 0xFF )	continue ;
@@ -266,9 +287,10 @@ void HID_Mouse_DataAvail(tUSBInterface *Dev, int EndPt, int Length, void *Data)
 		
 		info->Axies[i].CursorPos = newpos;
 	}
-	Log_Debug("USBMouse", "New Pos (%i,%i,%i)",
-		info->Axies[0].CursorPos, info->Axies[1].CursorPos, info->Axies[2].CursorPos
-		);
+//	Log_Debug("USBMouse", "New Pos (%i,%i,%i)",
+//		info->Axies[0].CursorPos, info->Axies[1].CursorPos, info->Axies[2].CursorPos
+//		);
+	VFS_MarkAvaliable( &info->Node, 1 );
 }
 
 // ----------------------------------------------------------------------------
@@ -297,6 +319,14 @@ tHID_ReportCallbacks *HID_Mouse_Report_Collection(
 		info->FileHeader = (void*)info->FileData;
 		info->Axies = (void*)(info->FileHeader + 1);
 		info->Buttons = (void*)(info->Axies + MAX_AXIES);
+		info->FileHeader->NAxies = MAX_AXIES;
+		info->FileHeader->NButtons = MAX_BUTTONS;
+
+		for( int i = 0; i < MAX_AXIES; i ++ ) {
+			info->Axies[i].MinValue = -10;
+			info->Axies[i].MaxValue = 10;
+		}
+		
 	
 		LOG("Initialised new mouse at %p", info);
 		

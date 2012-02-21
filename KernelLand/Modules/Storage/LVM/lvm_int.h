@@ -8,18 +8,28 @@
 #ifndef _LVM_LVM_INT_H_
 #define _LVM_LVM_INT_H_
 
+#include "include/lvm.h"
 #include "lvm.h"
 #include <vfs.h>
 
 typedef struct sLVM_SubVolume	tLVM_SubVolume;
+
+enum eLVM_BackType
+{
+	LVM_BACKING_VFS,
+	LVM_BACKING_PTRS
+};
 
 struct sLVM_Vol
 {
 	tLVM_Vol	*Next;
 	
 	tVFS_Node	Node;
-	
-	 int	BackingDescriptor;
+
+	void	*Ptr;
+	tLVM_ReadFcn	Read;
+	tLVM_WriteFcn	Write;
+
 	size_t	BlockSize;
 	
 	 int	nSubVolumes;
