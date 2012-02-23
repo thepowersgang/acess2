@@ -26,6 +26,10 @@ struct sUSBHostDef
 	tUSBHostOp	SendOUT;
 	tUSBHostOp	SendSETUP;
 
+	/**
+	 * \brief Check if an operation has completed
+	 * \note Only valid to call if CB passed was ERRPTR
+	 */
 	 int	(*IsOpComplete)(void *Ptr, void *OpPtr);
 
 	void	(*CheckPorts)(void *Ptr);

@@ -26,12 +26,17 @@ void *USB_int_Request(tUSBHost *Host, int Addr, int EndPt, int Type, int Req, in
 	// TODO: Sanity check (and check that Type is valid)
 	struct sDeviceRequest	req;
 	 int	dest = Addr * 16 + EndPt;	// TODO: Validate
+	
+	ENTER("pHost xdest iType iReq iVal iIndx iLen pData",
+		Host, dest, Type, Req, Val, Indx, Len, Data);
+	
 	req.ReqType = Type;
 	req.Request = Req;
 	req.Value = LittleEndian16( Val );
 	req.Index = LittleEndian16( Indx );
 	req.Length = LittleEndian16( Len );
-	
+
+	LOG("SETUP");	
 	hdl = Host->HostDef->SendSETUP(Host->Ptr, dest, 0, NULL, NULL, &req, sizeof(req));
 
 	// TODO: Data toggle?
@@ -40,9 +45,12 @@ void *USB_int_Request(tUSBHost *Host, int Addr, int EndPt, int Type, int Req, in
 	{
 		void	*hdl2;
 		
+		LOG("IN");
 		hdl = Host->HostDef->SendIN(Host->Ptr, dest, 0, NULL, NULL, Data, Len);
 
-		hdl2 = Host->HostDef->SendOUT(Host->Ptr, dest, 0, NULL, NULL, NULL, 0);
+		LOG("OUT (Done)");
+		hdl2 = Host->HostDef->SendOUT(Host->Ptr, dest, 0, INVLPTR, NULL, NULL, 0);
+		LOG("Wait...");
 		while( Host->HostDef->IsOpComplete(Host->Ptr, hdl2) == 0 )
 			Time_Delay(1);
 	}
@@ -50,16 +58,20 @@ void *USB_int_Request(tUSBHost *Host, int Addr, int EndPt, int Type, int Req, in
 	{
 		void	*hdl2;
 		
+		LOG("OUT");
 		if( Len > 0 )
 			hdl = Host->HostDef->SendOUT(Host->Ptr, dest, 0, NULL, NULL, Data, Len);
 		else
 			hdl = NULL;
 		
+		LOG("IN (Status)");
 		// Status phase (DataToggle=1)
-		hdl2 = Host->HostDef->SendIN(Host->Ptr, dest, 1, NULL, NULL, NULL, 0);
+		hdl2 = Host->HostDef->SendIN(Host->Ptr, dest, 1, INVLPTR, NULL, NULL, 0);
+		LOG("Wait...");
 		while( Host->HostDef->IsOpComplete(Host->Ptr, hdl2) == 0 )
 			Time_Delay(1);
 	}
+	LEAVE('p', hdl);
 	return hdl;
 }
 
@@ -77,6 +89,9 @@ int USB_int_ReadDescriptor(tUSBDevice *Dev, int Endpoint, int Type, int Index, i
 	void	*final;
 	 int	dest = Dev->Address*16 + Endpoint;
 
+	ENTER("pDev xdest iType iIndex iLength pDest",
+		Dev, dest, Type, Index, Length, Dest);
+
 	req.ReqType = 0x80;
 	req.ReqType |= ((Type >> 8) & 0x3) << 5;	// Bits 5/6
 	req.ReqType |= (Type >> 12) & 3;	// Destination (Device, Interface, Endpoint, Other);
@@ -85,7 +100,8 @@ int USB_int_ReadDescriptor(tUSBDevice *Dev, int Endpoint, int Type, int Index, i
 	req.Value = LittleEndian16( ((Type & 0xFF) << 8) | (Index & 0xFF) );
 	req.Index = LittleEndian16( 0 );	// TODO: Language ID / Interface
 	req.Length = LittleEndian16( Length );
-	
+
+	LOG("SETUP");	
 	Dev->Host->HostDef->SendSETUP(
 		Dev->Host->Ptr, dest,
 		0, NULL, NULL,
@@ -95,6 +111,7 @@ int USB_int_ReadDescriptor(tUSBDevice *Dev, int Endpoint, int Type, int Index, i
 	bToggle = 1;
 	while( Length > ciMaxPacketSize )
 	{
+		LOG("IN (%i rem)", Length - ciMaxPacketSize);
 		Dev->Host->HostDef->SendIN(
 			Dev->Host->Ptr, dest,
 			bToggle, NULL, NULL,
@@ -104,15 +121,18 @@ int USB_int_ReadDescriptor(tUSBDevice *Dev, int Endpoint, int Type, int Index, i
 		Length -= ciMaxPacketSize;
 	}
 
+	LOG("IN (final)");
 	final = Dev->Host->HostDef->SendIN(
 		Dev->Host->Ptr, dest,
 		bToggle, INVLPTR, NULL,
 		Dest, Length
 		);
 
+	LOG("Waiting");
 	while( Dev->Host->HostDef->IsOpComplete(Dev->Host->Ptr, final) == 0 )
-		Threads_Yield();
+		Threads_Yield();	// BAD BAD BAD
 
+	LEAVE('i', 0);
 	return 0;
 }
 

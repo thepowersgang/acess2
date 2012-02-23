@@ -5,7 +5,7 @@
  * usb_devinit.c
  * - USB Device Initialisation
  */
-#define DEBUG	0
+#define DEBUG	1
 
 #include <acess.h>
 #include <vfs.h>
@@ -72,7 +72,8 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 		LOG(" .SerialNumberStr = Str %i", desc.SerialNumberStr);
 		LOG(" .NumConfigurations = %i", desc.SerialNumberStr);
 		LOG("}");
-		
+	
+		#if DEBUG	
 		if( desc.ManufacturerStr )
 		{
 			char	*tmp = USB_int_GetDeviceString(dev, 0, desc.ManufacturerStr);
@@ -91,6 +92,7 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 			LOG("SerialNumbertStr = '%s'", tmp);
 			free(tmp);
 		}
+		#endif
 	}
 
 	// TODO: Support alternate configurations
@@ -142,6 +144,10 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 			size_t	iface_base_ofs;
 
 			iface = (void*)(full_buf + ptr_ofs);
+			if( iface->Length == 0 ) {
+				Log_Warning("USB", "Bad USB descriptor (length = 0)");
+				break ;
+			}
 			ptr_ofs += iface->Length;
 			if( ptr_ofs > total_length ) {
 				// Sanity fail
@@ -161,11 +167,13 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 			LOG(" .InterfaceClass = 0x%x", iface->InterfaceClass);
 			LOG(" .InterfaceSubClass = 0x%x", iface->InterfaceSubClass);
 			LOG(" .InterfaceProcol = 0x%x", iface->InterfaceProtocol);
+			#if DEBUG	
 			if( iface->InterfaceStr ) {
 				char	*tmp = USB_int_GetDeviceString(dev, 0, iface->InterfaceStr);
 				LOG(" .InterfaceStr = %i '%s'", iface->InterfaceStr, tmp);
 				free(tmp);
 			}
+			#endif
 			LOG("}");
 
 			dev_if = malloc(sizeof(tUSBInterface) + iface->NumEndpoints*sizeof(dev_if->Endpoints[0]));
