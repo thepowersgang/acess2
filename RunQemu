@@ -10,10 +10,6 @@ QEMU_PARAMS=$QEMU_PARAMS" -vga std"
 QEMU_PARAMS=$QEMU_PARAMS" -smp 2"
 QEMU_PARAMS=$QEMU_PARAMS" -net nic"
 
-QEMU_PARAMS=$QEMU_PARAMS" -usb"
-QEMU_PARAMS=$QEMU_PARAMS" -drive id=test_usb_image,file=USB_Test_Image.img,if=none"
-QEMU_PARAMS=$QEMU_PARAMS" -device usb-storage,drive=test_usb_image"
-QEMU_PARAMS=$QEMU_PARAMS" -usbdevice mouse"
 _NETTYPE="user"
 
 while [ $# -ne 0 ]; do
@@ -36,11 +32,29 @@ while [ $# -ne 0 ]; do
 		;;
 	-tuntap)
 		_NETTYPE="tap"
+		;;
+	-nousb)
+		_NOUSB="yes"
+		;;
+	-notee)
+		_NOTEE="yes"
+		;;
 	esac
 	shift
 done
 QEMU_PARAMS=$QEMU_PARAMS" -net "$_NETTYPE
 
+if [ "x$_NOUSB" != "xyes" ] ; then
+	QEMU_PARAMS=$QEMU_PARAMS" -usb"
+	QEMU_PARAMS=$QEMU_PARAMS" -drive id=test_usb_image,file=USB_Test_Image.img,if=none"
+	QEMU_PARAMS=$QEMU_PARAMS" -device usb-storage,drive=test_usb_image"
+	QEMU_PARAMS=$QEMU_PARAMS" -usbdevice mouse"
+fi
+
 #	/home/tpg/apps/bin/qemu-system-x86_64 $QEMU_PARAMS -serial stdio -serial file:QemuLog.txt
 #	qemu-system-x86_64 $QEMU_PARAMS -serial stdio | tee QemuLog.txt
-$QEMU $QEMU_PARAMS -serial stdio | tee QemuLog.txt
+if [ "x$_NOTEE" != "xyes" ] ; then
+	$QEMU $QEMU_PARAMS -serial stdio | tee QemuLog.txt
+else
+	$QEMU $QEMU_PARAMS -serial stdio
+fi
