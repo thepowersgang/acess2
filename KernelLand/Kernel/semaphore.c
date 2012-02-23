@@ -33,6 +33,7 @@ int Semaphore_Wait(tSemaphore *Sem, int MaxToTake)
 	if( MaxToTake < 0 ) {
 		Log_Warning("Threads", "Semaphore_Wait: User bug - MaxToTake(%i) < 0, Sem=%p(%s)",
 			MaxToTake, Sem, Sem->Name);
+		MaxToTake = 0;
 	}
 	
 	SHORTLOCK( &Sem->Protector );
