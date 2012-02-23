@@ -8,53 +8,20 @@
 
 // === TYPES ===
 typedef struct sUHCI_Controller	tUHCI_Controller;
+typedef struct sUHCI_ExtraTDInfo	tUHCI_ExtraTDInfo;
+
 typedef struct sUHCI_TD	tUHCI_TD;
 typedef struct sUHCI_QH	tUHCI_QH;
 
 // === STRUCTURES ===
-struct sUHCI_Controller
+struct sUHCI_ExtraTDInfo
 {
-	/**
-	 * \brief PCI Device ID
-	 */
-	Uint16	PciId;
+	 int	Offset;
+	tPAddr	FirstPage;
+	tPAddr	SecondPage;
 	
-	/**
-	 * \brief IO Base Address
-	 */
-	Uint16	IOBase;
-	
-	/**
-	 * \brief Memory Mapped-IO base address
-	 */
-	Uint16	*MemIOMap;
-
-	/**
-	 * \brief IRQ Number assigned to the device
-	 */
-	 int	IRQNum;
-
-	/**
-	 * \brief Number of the last frame to be cleaned
-	 */
-	 int	LastCleanedFrame;
-	
-	/**
-	 * \brief Frame list
-	 * 
-	 * 31:4 - Frame Pointer
-	 * 3:2 - Reserved
-	 * 1 - QH/TD Selector
-	 * 0 - Terminate (Empty Pointer)
-	 */
-	Uint32	*FrameList;
-	
-	/**
-	 * \brief Physical Address of the Frame List
-	 */
-	tPAddr	PhysFrameList;
-
-	tUSBHub	*RootHub;
+	tUSBHostCb	Callback;
+	void	*CallbackPtr;
 };
 
 struct sUHCI_TD
@@ -116,10 +83,10 @@ struct sUHCI_TD
 
 	struct
 	{
-		tUSBHostCb	Callback;
-		void	*CallbackPtr;
-		void	*DataPtr;
-		 int	bCopyData;
+		tUHCI_ExtraTDInfo	*ExtraInfo;
+		char	bActive;	// Allocated
+		char	bComplete;	// Job complete
+		char	bFreePointer;	// Free \a BufferPointer once done
 	} _info;
 } __attribute__((aligned(16)));
 
@@ -145,6 +112,61 @@ struct sUHCI_QH
 	 * 0 - Terminate (Last in List)
 	 */
 	Uint32	Child;
+	
+	/*
+	 * \note Area for software use
+	 * \brief Last TD in this list, used to add things to the end
+	 */
+	tUHCI_TD	*_LastItem;
+} __attribute__((aligned(16)));
+
+struct sUHCI_Controller
+{
+	/**
+	 * \brief PCI Device ID
+	 */
+	Uint16	PciId;
+	
+	/**
+	 * \brief IO Base Address
+	 */
+	Uint16	IOBase;
+	
+	/**
+	 * \brief Memory Mapped-IO base address
+	 */
+	Uint16	*MemIOMap;
+
+	/**
+	 * \brief IRQ Number assigned to the device
+	 */
+	 int	IRQNum;
+
+	/**
+	 * \brief Number of the last frame to be cleaned
+	 */
+	 int	LastCleanedFrame;
+	
+	/**
+	 * \brief Frame list
+	 * 
+	 * 31:4 - Frame Pointer
+	 * 3:2 - Reserved
+	 * 1 - QH/TD Selector
+	 * 0 - Terminate (Empty Pointer)
+	 */
+	Uint32	*FrameList;
+	
+	/**
+	 * \brief Physical Address of the Frame List
+	 */
+	tPAddr	PhysFrameList;
+
+	tUSBHub	*RootHub;
+
+	tUHCI_QH	InterruptQH;
+	tUHCI_QH	ControlQH;
+	tUHCI_QH	BulkQH;
 };
 
 // === ENUMERATIONS ===

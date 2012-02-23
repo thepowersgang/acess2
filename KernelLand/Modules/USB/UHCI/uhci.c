@@ -4,7 +4,7 @@
  *
  * Universal Host Controller Interface
  */
-#define DEBUG	0
+#define DEBUG	1
 #define VERSION	VER2(0,5)
 #include <acess.h>
 #include <vfs.h>
@@ -13,16 +13,17 @@
 #include <usb_host.h>
 #include "uhci.h"
 #include <timers.h>
+#include <semaphore.h>
 
 // === CONSTANTS ===
 #define	MAX_CONTROLLERS	4
-#define NUM_TDs	1024
+//#define NUM_TDs	1024
+#define NUM_TDs	64
 
 // === PROTOTYPES ===
  int	UHCI_Initialise(char **Arguments);
 void	UHCI_Cleanup();
 tUHCI_TD	*UHCI_int_AllocateTD(tUHCI_Controller *Cont);
-tUHCI_TD	*UHCI_int_GetTDFromPhys(tPAddr PAddr);
 void	UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_TD *TD);
 void	*UHCI_int_SendTransaction(tUHCI_Controller *Cont, int Addr, Uint8 Type, int bTgl, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length);
 void	*UHCI_DataIN(void *Ptr, int Dest, int DataTgl, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length);
@@ -31,6 +32,7 @@ void	*UHCI_SendSetup(void *Ptr, int Dest, int DataTgl, tUSBHostCb Cb, void *CbDa
  int	UHCI_IsTransferComplete(void *Ptr, void *Handle);
  int	UHCI_Int_InitHost(tUHCI_Controller *Host);
 void	UHCI_CheckPortUpdate(void *Ptr);
+void	UHCI_int_InterruptThread(void *Unused);
 void	UHCI_InterruptHandler(int IRQ, void *Ptr);
 // 
 static void	_OutByte(tUHCI_Controller *Host, int Reg, Uint8 Value);
@@ -49,6 +51,7 @@ tUSBHostDef	gUHCI_HostDef = {
 	.IsOpComplete = UHCI_IsTransferComplete,
 	.CheckPorts = UHCI_CheckPortUpdate
 	};
+tSemaphore	gUHCI_InterruptSempahore;
 
 // === CODE ===
 /**
@@ -62,6 +65,18 @@ int UHCI_Initialise(char **Arguments)
 	
 	ENTER("");
 	
+	// Initialise with no maximum value
+	Semaphore_Init( &gUHCI_InterruptSempahore, 0, 0, "UHCI", "Interrupt Queue");
+
+	if( PCI_GetDeviceByClass(0x0C0300, 0xFFFFFF, -1) < 0 )
+	{
+		LEAVE('i', MODULE_ERR_NOTNEEDED);
+		return MODULE_ERR_NOTNEEDED;
+	}
+	
+	// Spin off interrupt handling thread
+	Proc_SpawnWorker( UHCI_int_InterruptThread, NULL );
+
 	// Enumerate PCI Bus, getting a maximum of `MAX_CONTROLLERS` devices
 	while( (id = PCI_GetDeviceByClass(0x0C0300, 0xFFFFFF, id)) >= 0 && i < MAX_CONTROLLERS )
 	{
@@ -102,11 +117,6 @@ int UHCI_Initialise(char **Arguments)
 		i ++;
 	}
 
-	if(i == 0) {
-		LEAVE('i', MODULE_ERR_NOTNEEDED);
-		return MODULE_ERR_NOTNEEDED;
-	}
-
 	if(i == MAX_CONTROLLERS) {
 		Log_Warning("UHCI", "Over "EXPAND_STR(MAX_CONTROLLERS)" UHCI controllers detected, ignoring rest");
 	}
@@ -124,87 +134,65 @@ void UHCI_Cleanup()
 
 tUHCI_TD *UHCI_int_AllocateTD(tUHCI_Controller *Cont)
 {
-	 int	i;
-	for(i = 0; i < NUM_TDs; i ++)
+	static tMutex	lock;
+	Mutex_Acquire( &lock );
+	for( int i = 0; i < NUM_TDs; i ++ )
 	{
-		if(gaUHCI_TDPool[i].Link == 0) {
+		if(gaUHCI_TDPool[i]._info.bActive == 0)
+		{
 			gaUHCI_TDPool[i].Link = 1;
-			gaUHCI_TDPool[i].Control = 1 << 23;
+			gaUHCI_TDPool[i].Control = (1 << 23);
+			gaUHCI_TDPool[i]._info.bActive = 1;
+			gaUHCI_TDPool[i]._info.bComplete = 0;
+			Mutex_Release( &lock );
 			return &gaUHCI_TDPool[i];
 		}
-		// Still in use? Skip
-		if( gaUHCI_TDPool[i].Control & (1 << 23) )
-			continue ;
-		// Is there a callback on it? Skip
-		if( gaUHCI_TDPool[i]._info.Callback )
-			continue ;
-		// TODO: Garbage collect, but that means removing from the list too
-		#if 0
-		// Ok, this is actually unused
-		gaUHCI_TDPool[i].Link = 1;
-		gaUHCI_TDPool[i].Control = 1 << 23;
-		return &gaUHCI_TDPool[i];
-		#endif
 	}
+	Mutex_Release( &lock );
 	return NULL;
-}
-
-tUHCI_TD *UHCI_int_GetTDFromPhys(tPAddr PAddr)
-{
-	// TODO: Fix this to work with a non-contiguous pool
-	static tPAddr	td_pool_base;
-	const int pool_size = NUM_TDs;
-	 int	offset;
-	if(!td_pool_base)	td_pool_base = MM_GetPhysAddr( (tVAddr)gaUHCI_TDPool );
-	offset = (PAddr - td_pool_base) / sizeof(gaUHCI_TDPool[0]);
-	if( offset < 0 || offset >= pool_size )
-	{
-		Log_Error("UHCI", "TD PAddr %P not from pool", PAddr);
-		return NULL;
-	}
-	return gaUHCI_TDPool + offset;
 }
 
 void UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_TD *TD)
 {
+	static tMutex	lock;	// TODO: Should I use a shortlock (avoid being preempted)
+
+	Mutex_Acquire(&lock);
+	
+	#if 0
 	 int	next_frame;
-	tUHCI_TD	*prev_td;
-	Uint32	link;
 
-	ENTER("pCont pTD", Cont, TD);
-
-	// TODO: How to handle FRNUM incrementing while we are in this function?
 	next_frame = (_InWord(Cont, FRNUM) + 2) & (1024-1);
+
+	TD->Control |= (1 << 24);	// Ensure that there is an interrupt for each used frame
 	
-	// Empty list
-	if( Cont->FrameList[next_frame] & 1 )
-	{
-		// TODO: Ensure 32-bit paddr
-		Cont->FrameList[next_frame] = MM_GetPhysAddr( (tVAddr)TD );
-		TD->Control |= (1 << 24);	// Ensure that there is an interrupt for each used frame
-		LOG("next_frame = %i", next_frame);
-		LEAVE('-');
-		return;
+	TD->Link = Cont->FrameList[next_frame];
+	Cont->FrameList[next_frame] = MM_GetPhysAddr( (tVAddr)TD );
+	#else
+
+	// TODO: Support other QHs
+	tUHCI_QH *qh = &Cont->BulkQH;
+	
+	// Ensure that there is an interrupt for each used frame
+	TD->Control |= (1 << 24);
+
+	// Stop controller
+	_OutWord( Cont, USBCMD, 0x0000 );
+	
+	// Add
+	TD->Link = 1;
+	if( qh->Child & 1 ) {
+		qh->Child = MM_GetPhysAddr( (tVAddr)TD );
 	}
+	else {
+		qh->_LastItem->Link = MM_GetPhysAddr( (tVAddr)TD );
+	}
+	qh->_LastItem = TD;
 
-	// Find the end of the list
-	link = Cont->FrameList[next_frame];
-	do {
-		prev_td = UHCI_int_GetTDFromPhys(link);
-		if(!prev_td) {
-			Log_Error("UHCI", "ERROR: TD list is bad");
-			TD->Link = 1;
-			LEAVE('-');
-			return ;
-		}
-		link = prev_td->Link;
-	} while( !(link & 1) );
-	
-	// Append
-	prev_td->Link = MM_GetPhysAddr( (tVAddr)TD );
+	// Reenable controller
+	_OutWord( Cont, USBCMD, 0x0001 );
+	#endif
 
-	LOG("next_frame = %i, prev_td = %p", next_frame, prev_td);
-	LEAVE('-');
+	Mutex_Release(&lock);
 }
 
 /**
@@ -218,8 +206,12 @@ void *UHCI_int_SendTransaction(
 	tUSBHostCb Cb, void *CbData, void *Data, size_t Length)
 {
 	tUHCI_TD	*td;
+	tUHCI_ExtraTDInfo	*info = NULL;
 
-	if( Length > 0x400 )	return NULL;	// Controller allows up to 0x500, but USB doesn't
+	if( Length > 0x400 ) {
+		Log_Error("UHCI", "Transaction length too large (%i > 0x400)", Length);
+		return NULL;	// Controller allows up to 0x500, but USB doesn't
+	}
 
 	td = UHCI_int_AllocateTD(Cont);
 
@@ -229,7 +221,9 @@ void *UHCI_int_SendTransaction(
 		return NULL;
 	}
 
-	td->Link = 1;
+	LOG("TD %p %i bytes, Type %x to 0x%x",
+		td, Length, Type, Addr);
+
 	td->Control = (Length - 1) & 0x7FF;
 	td->Control |= (1 << 23);
 	td->Token  = ((Length - 1) & 0x7FF) << 21;
@@ -238,30 +232,57 @@ void *UHCI_int_SendTransaction(
 	td->Token |= ((Addr/16) & 0xFF) << 8;
 	td->Token |= Type;
 
-	// TODO: Ensure 32-bit paddr
-	if( ((tVAddr)Data & (PAGE_SIZE-1)) + Length > PAGE_SIZE ) {
-		Log_Warning("UHCI", "TODO: Support non single page transfers (%x + %x > %x)",
-			(tVAddr)Data & (PAGE_SIZE-1), Length, PAGE_SIZE
-			);
-		// TODO: Need to enable IOC to copy the data back
-//		td->BufferPointer = 
-		td->_info.bCopyData = 1;
-		return NULL;
+	if(
+		((tVAddr)Data & (PAGE_SIZE-1)) + Length > PAGE_SIZE
+	#if PHYS_BITS > 32
+		|| MM_GetPhysAddr( (tVAddr)Data ) >> 32
+	#endif
+		)
+	{
+		td->BufferPointer = MM_AllocPhysRange(1, 32);
+
+		LOG("Allocated page %x", td->BufferPointer);		
+
+		if( Type == 0x69 )	// IN token
+		{
+			LOG("Relocated IN");
+			info = calloc( sizeof(tUHCI_ExtraTDInfo), 1 );
+			info->Offset = ((tVAddr)Data & (PAGE_SIZE-1));
+			info->FirstPage = MM_GetPhysAddr( (tVAddr)Data );
+			info->SecondPage = MM_GetPhysAddr( (tVAddr)Data + Length - 1 );
+		}
+		else
+		{
+			LOG("Relocated OUT/SETUP");
+			tVAddr	ptr = MM_MapTemp(td->BufferPointer);
+			memcpy( (void*)ptr, Data, Length );
+			MM_FreeTemp(ptr);
+			td->Control |= (1 << 24);
+		}
+		td->_info.bFreePointer = 1;
 	}
-	else {
+	else
+	{
 		td->BufferPointer = MM_GetPhysAddr( (tVAddr)Data );
-		td->_info.bCopyData = 0;
+		td->_info.bFreePointer = 0;
 	}
 
 	// Interrupt on completion
-	if( Cb ) {
-		td->Control |= (1 << 24);
+	if( Cb )
+	{
+		if( !info )
+			info = calloc( sizeof(tUHCI_ExtraTDInfo), 1 );
 		LOG("IOC Cb=%p CbData=%p", Cb, CbData);
-		td->_info.Callback = Cb;	// NOTE: if ERRPTR then the TD is kept allocated until checked
-		td->_info.CallbackPtr = CbData;
+		// NOTE: if ERRPTR then the TD is kept allocated until checked
+		info->Callback = Cb;
+		info->CallbackPtr = CbData;
 	}
 	
-	td->_info.DataPtr = Data;
+	if( info ) {
+		LOG("info = %p", info);
+		td->Control |= (1 << 24);
+		td->_info.ExtraInfo = info;
+	}
 
 	UHCI_int_AppendTD(Cont, td);
 
@@ -286,13 +307,27 @@ void *UHCI_SendSetup(void *Ptr, int Dest, int DataTgl, tUSBHostCb Cb, void *CbDa
 int UHCI_IsTransferComplete(void *Ptr, void *Handle)
 {
 	tUHCI_TD	*td = Handle;
-	 int	ret;
-	ret = !(td->Control & (1 << 23));
-	if(ret) {
-		td->_info.Callback = NULL;
-		td->Link = 0;
+	#if DEBUG
+	tUHCI_Controller	*Cont = &gUHCI_Controllers[0];
+	LOG("%p->Control = %x", td, td->Control);
+	LOG("USBSTS = 0x%x, USBINTR = 0x%x", _InWord(Cont, USBSTS), _InWord(Cont, USBINTR));
+	LOG("Cont->BulkQH.Child = %x", Cont->BulkQH.Child);
+	#endif
+	if(td->Control & (1 << 23)) {
+		return 0;
 	}
-	return ret;
+//	LOG("inactive, waiting for completion");
+	if(td->_info.bComplete)
+	{
+		td->_info.bActive = 0;
+		td->_info.bComplete = 0;
+		td->Link = 0;
+		return 1;
+	}
+	else
+	{
+		return 0;
+	}
 }
 
 // === INTERNAL FUNCTIONS ===
@@ -306,7 +341,7 @@ int UHCI_Int_InitHost(tUHCI_Controller *Host)
 	ENTER("pHost", Host);
 
 	_OutWord( Host, USBCMD, 4 );	// GRESET
-	// TODO: Wait for at least 10ms
+	Time_Delay(10);
 	_OutWord( Host, USBCMD, 0 );	// GRESET
 	
 	// Allocate Frame List
@@ -318,11 +353,21 @@ int UHCI_Int_InitHost(tUHCI_Controller *Host)
 		LEAVE('i', -1);
 		return -1;
 	}
+
+	// TODO: Handle QHs not being in a 32-bit paddr range
+	// Need another page, probably get some more TDs from it too
+
+	// Set up interrupt and bulk queue
+	Host->InterruptQH.Next = MM_GetPhysAddr( (tVAddr)&Host->ControlQH ) | 2;
+	Host->InterruptQH.Child = 1;
+	Host->ControlQH.Next = MM_GetPhysAddr( (tVAddr)&Host->BulkQH ) | 2;
+	Host->ControlQH.Child = 1;
+	Host->BulkQH.Next = 1;
+	Host->BulkQH.Child = 1;
+
 	LOG("Allocated frame list 0x%x (0x%x)", Host->FrameList, Host->PhysFrameList);
 	for( int i = 0; i < 1024; i ++ )
-		Host->FrameList[i] = 1;	// Clear List (Disabling all entries)
-	
-	//! \todo Properly fill frame list
+		Host->FrameList[i] = MM_GetPhysAddr( (tVAddr)&Host->InterruptQH ) | 2;
 	
 	// Set frame length to 1 ms
 	_OutByte( Host, SOFMOD, 64 );
@@ -381,58 +426,115 @@ void UHCI_CheckPortUpdate(void *Ptr)
 	}
 }
 
+void UHCI_int_InterruptThread(void *Unused)
+{
+	Threads_SetName("UHCI Interrupt Handler");
+	for( ;; )
+	{
+		LOG("zzzzz....");
+		// 0 = Take all
+		Semaphore_Wait(&gUHCI_InterruptSempahore, 0);
+		LOG("Huh?");
+	
+		for( int i = 0; i < NUM_TDs; i ++ )
+		{
+			 int	byte_count;
+			tUHCI_ExtraTDInfo	*info;
+			tUHCI_TD	*td;
+			
+			td = &gaUHCI_TDPool[i];
+			info = td->_info.ExtraInfo;
+
+			// Skip completely inactive TDs
+			if( td->_info.bActive == 0 )	continue ;
+			// Skip ones that are still in use
+			if( td->Control & (1 << 23) )	continue ;
+
+			// If no callback/alt buffer, mark as free and move on
+			if( td->_info.ExtraInfo )
+			{
+				// Get size of transfer
+				byte_count = (td->Control & 0x7FF)+1;
+			
+				// Handle non page-aligned destination (with a > 32-bit paddr)
+				if(info->FirstPage)
+				{
+					char	*src, *dest;
+					 int	src_ofs = td->BufferPointer & (PAGE_SIZE-1);
+					src = (void *) MM_MapTemp(td->BufferPointer);
+					dest = (void *) MM_MapTemp(info->FirstPage);
+					// Check for a single page transfer
+					if( byte_count + info->Offset <= PAGE_SIZE )
+					{
+						LOG("Single page copy %P to %P of %p",
+							td->BufferPointer, info->FirstPage, td);
+						memcpy(dest + info->Offset, src + src_ofs, byte_count);
+					}
+					else
+					{
+						// Multi-page
+						LOG("Multi page copy %P to (%P,%P) of %p",
+							td->BufferPointer, info->FirstPage, info->SecondPage, td);
+						 int	part_len = PAGE_SIZE - info->Offset;
+						memcpy(dest + info->Offset, src + src_ofs, part_len);
+						MM_FreeTemp( (tVAddr)dest );
+						dest = (void *) MM_MapTemp(info->SecondPage);
+						memcpy(dest, src + src_ofs + part_len, byte_count - part_len);
+					}
+					MM_FreeTemp( (tVAddr)src );
+					MM_FreeTemp( (tVAddr)dest );
+				}
+	
+				// Don't mark as inactive, the check should do that
+				if( info->Callback == INVLPTR )
+				{
+					LOG("Marking %p as complete", td);
+					td->_info.bComplete = 1;
+					free( info );
+					td->_info.ExtraInfo = NULL;
+					if( td->_info.bFreePointer )
+						MM_DerefPhys( td->BufferPointer );			
+					continue ;
+				}
+
+				// Callback
+				if( info->Callback != NULL )
+				{
+					LOG("Calling cb %p", info->Callback);
+					void	*ptr = (void *) MM_MapTemp( td->BufferPointer );
+					info->Callback( info->CallbackPtr, ptr, byte_count );
+					MM_FreeTemp( (tVAddr)ptr );
+				}
+				
+				// Clean up info
+				free( info );
+				td->_info.ExtraInfo = NULL;
+			}
+
+			if( td->_info.bFreePointer )
+				MM_DerefPhys( td->BufferPointer );			
+	
+			// Clean up
+			td->_info.bActive = 0;
+			LOG("Cleaned %p", td);
+		}
+	}
+}
+
 void UHCI_InterruptHandler(int IRQ, void *Ptr)
 {
 	tUHCI_Controller *Host = Ptr;
-	 int	frame = (_InWord(Host, FRNUM) - 1) & 0x3FF;
+//	 int	frame = (_InWord(Host, FRNUM) - 1) & 0x3FF;
 	Uint16	status = _InWord(Host, USBSTS);
-//	Log_Debug("UHCI", "UHIC Interrupt, status = 0x%x, frame = %i", status, frame);
 	
 	// Interrupt-on-completion
 	if( status & 1 )
 	{
-		tPAddr	link;
-		
-		for( int i = 0; i < 10; i ++ )
-		{
-			link = Host->FrameList[frame];
-			Host->FrameList[frame] = 1;
-			while( link && !(link & 1) )
-			{
-				tUHCI_TD *td = UHCI_int_GetTDFromPhys(link);
-				 int	byte_count = (td->Control&0x7FF)+1;
-				LOG("link = 0x%x, td = %p, byte_count = %i", link, td, byte_count);
-				// Handle non-page aligned destination
-				// TODO: This will break if the destination is not in global memory
-				if(td->_info.bCopyData)
-				{
-					void *ptr = (void*)MM_MapTemp(td->BufferPointer);
-					Log_Debug("UHCI", "td->_info.DataPtr = %p", td->_info.DataPtr);
-					memcpy(td->_info.DataPtr, ptr, byte_count);
-					MM_FreeTemp((tVAddr)ptr);
-				}
-				// Callback
-				if(td->_info.Callback && td->_info.Callback != INVLPTR)
-				{
-					LOG("Calling cb %p", td->_info.Callback);
-					td->_info.Callback(td->_info.CallbackPtr, td->_info.DataPtr, byte_count);
-					td->_info.Callback = NULL;
-				}
-				link = td->Link;
-				if( td->_info.Callback != INVLPTR )
-					td->Link = 0;
-			}
-			
-			if(frame == 0)
-				frame = 0x3ff;
-			else
-				frame --;
-		}
-		
-//		Host->LastCleanedFrame = frame;
+		// TODO: Support isochronous transfers (will need updating the frame pointer)
+		Semaphore_Signal(&gUHCI_InterruptSempahore, 1);
 	}
 
-	LOG("status = 0x%02x", status);
+	LOG("status = 0x%04x", status);
 	_OutWord(Host, USBSTS, status);
 }
 
