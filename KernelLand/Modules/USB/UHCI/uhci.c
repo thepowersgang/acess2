@@ -190,6 +190,7 @@ void UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_TD *TD)
 
 	// Reenable controller
 	_OutWord( Cont, USBCMD, 0x0001 );
+	LOG("TD(%p)->Control = %x", TD, TD->Control);
 	#endif
 
 	Mutex_Release(&lock);
@@ -282,6 +283,7 @@ void *UHCI_int_SendTransaction(
 		LOG("info = %p", info);
 		td->Control |= (1 << 24);
 		td->_info.ExtraInfo = info;
+		LOG("TD(%p)->Control = 0x%0x", td, td->Control);
 	}
 
 	UHCI_int_AppendTD(Cont, td);
@@ -309,7 +311,7 @@ int UHCI_IsTransferComplete(void *Ptr, void *Handle)
 	tUHCI_TD	*td = Handle;
 	#if DEBUG
 	tUHCI_Controller	*Cont = &gUHCI_Controllers[0];
-	LOG("%p->Control = %x", td, td->Control);
+	LOG("%p->Control = 0x%0x", td, td->Control);
 	LOG("USBSTS = 0x%x, USBINTR = 0x%x", _InWord(Cont, USBSTS), _InWord(Cont, USBINTR));
 	LOG("Cont->BulkQH.Child = %x", Cont->BulkQH.Child);
 	#endif
