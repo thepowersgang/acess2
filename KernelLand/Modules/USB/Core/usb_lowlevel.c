@@ -41,36 +41,35 @@ void *USB_int_Request(tUSBHost *Host, int Addr, int EndPt, int Type, int Req, in
 
 	// TODO: Data toggle?
 	// TODO: Multi-packet transfers
-	if( Type & 0x80 )
+	if( Len > 0 )
 	{
-		void	*hdl2;
-		
-		LOG("IN");
-		hdl = Host->HostDef->SendIN(Host->Ptr, dest, 0, NULL, NULL, Data, Len);
-
-		LOG("OUT (Done)");
-		hdl2 = Host->HostDef->SendOUT(Host->Ptr, dest, 0, INVLPTR, NULL, NULL, 0);
-		LOG("Wait...");
-		while( Host->HostDef->IsOpComplete(Host->Ptr, hdl2) == 0 )
-			Time_Delay(1);
+		if( Type & 0x80 )
+		{
+			LOG("IN");
+			hdl = Host->HostDef->SendIN(Host->Ptr, dest, 1, NULL, NULL, Data, Len);
+	
+			LOG("OUT (Status)");
+			hdl = Host->HostDef->SendOUT(Host->Ptr, dest, 1, INVLPTR, NULL, NULL, 0);
+		}
+		else
+		{
+			LOG("OUT");
+			Host->HostDef->SendOUT(Host->Ptr, dest, 1, NULL, NULL, Data, Len);
+			
+			// Status phase (DataToggle=1)
+			LOG("IN (Status)");
+			hdl = Host->HostDef->SendIN(Host->Ptr, dest, 1, INVLPTR, NULL, NULL, 0);
+		}
 	}
 	else
 	{
-		void	*hdl2;
-		
-		LOG("OUT");
-		if( Len > 0 )
-			hdl = Host->HostDef->SendOUT(Host->Ptr, dest, 0, NULL, NULL, Data, Len);
-		else
-			hdl = NULL;
-		
+		// Zero length, IN status
 		LOG("IN (Status)");
-		// Status phase (DataToggle=1)
-		hdl2 = Host->HostDef->SendIN(Host->Ptr, dest, 1, INVLPTR, NULL, NULL, 0);
-		LOG("Wait...");
-		while( Host->HostDef->IsOpComplete(Host->Ptr, hdl2) == 0 )
-			Time_Delay(1);
+		hdl = Host->HostDef->SendIN(Host->Ptr, dest, 1, INVLPTR, NULL, NULL, 0);
 	}
+	LOG("Wait...");
+	while( Host->HostDef->IsOpComplete(Host->Ptr, hdl) == 0 )
+		Time_Delay(1);
 	LEAVE('p', hdl);
 	return hdl;
 }
@@ -122,11 +121,14 @@ int USB_int_ReadDescriptor(tUSBDevice *Dev, int Endpoint, int Type, int Index, i
 	}
 
 	LOG("IN (final)");
-	final = Dev->Host->HostDef->SendIN(
+	Dev->Host->HostDef->SendIN(
 		Dev->Host->Ptr, dest,
-		bToggle, INVLPTR, NULL,
+		bToggle, NULL, NULL,
 		Dest, Length
 		);
+
+	LOG("OUT (Status)");
+	final = Dev->Host->HostDef->SendOUT(Dev->Host->Ptr, dest, 1, INVLPTR, NULL, NULL, 0);
 
 	LOG("Waiting");
 	while( Dev->Host->HostDef->IsOpComplete(Dev->Host->Ptr, final) == 0 )

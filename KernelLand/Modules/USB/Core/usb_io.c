@@ -79,6 +79,7 @@ void USB_RecvDataA(tUSBInterface *Dev, int Endpoint, int Length, void *DataBuf, 
 	op->Data = DataBuf;
 
 	// TODO: Handle transfers that are larger than one packet
+	// TODO: Data toggle
 
 	host = Dev->Dev->Host;
 	LOG("IN from %p %i:%i", host->Ptr, Dev->Dev->Address, op->Endpt->EndpointNum);

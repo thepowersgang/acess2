@@ -311,14 +311,14 @@ int UHCI_IsTransferComplete(void *Ptr, void *Handle)
 	tUHCI_TD	*td = Handle;
 	#if DEBUG
 	tUHCI_Controller	*Cont = &gUHCI_Controllers[0];
-	LOG("%p->Control = 0x%0x", td, td->Control);
+	LOG("%p->Control = 0x%08x", td, td->Control);
 	LOG("USBSTS = 0x%x, USBINTR = 0x%x", _InWord(Cont, USBSTS), _InWord(Cont, USBINTR));
 	LOG("Cont->BulkQH.Child = %x", Cont->BulkQH.Child);
 	#endif
 	if(td->Control & (1 << 23)) {
 		return 0;
 	}
-//	LOG("inactive, waiting for completion");
+	LOG("inactive, waiting for completion");
 	if(td->_info.bComplete)
 	{
 		td->_info.bActive = 0;
@@ -451,6 +451,8 @@ void UHCI_int_InterruptThread(void *Unused)
 			if( td->_info.bActive == 0 )	continue ;
 			// Skip ones that are still in use
 			if( td->Control & (1 << 23) )	continue ;
+			// Skip ones that are waiting for ACK
+			if( td->_info.bComplete == 1 )	continue ;
 
 			// If no callback/alt buffer, mark as free and move on
 			if( td->_info.ExtraInfo )
