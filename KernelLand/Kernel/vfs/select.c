@@ -20,9 +20,6 @@
 // === CONSTANTS ===
 #define	NUM_THREADS_PER_ALLOC	4
 
-// === IMPORTS ===
-extern tThread	*Proc_GetCurThread(void);
-
 // === TYPES ===
 typedef struct sVFS_SelectListEnt	tVFS_SelectListEnt;
 

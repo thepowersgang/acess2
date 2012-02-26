@@ -42,6 +42,14 @@ void Threads_PostEvent(tThread *Thread, Uint32 EventMask)
 }
 
 /**
+ * \brief Clear an event without waiting
+ */
+void Threads_ClearEvent(Uint32 EventMask)
+{
+	Proc_GetCurThread()->EventState &= ~EventMask;
+}
+
+/**
  * \brief Wait for an event to occur
  */
 Uint32 Threads_WaitEvents(Uint32 EventMask)

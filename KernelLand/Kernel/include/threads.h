@@ -23,6 +23,8 @@ enum eFaultNumbers
 typedef struct sThread	tThread;
 
 // === FUNCTIONS ===
+extern tThread	*Proc_GetCurThread(void);
+
 extern void	Threads_SetFaultHandler(Uint Handler);
 
 extern int	Threads_SetUID(tUID ID);

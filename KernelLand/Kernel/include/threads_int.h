@@ -125,8 +125,6 @@ extern BOOL	gaThreads_NoTaskSwitch[MAX_CPUS];
 extern tShortSpinlock	glThreadListLock;
 
 // === FUNCTIONS ===
-extern tThread	*Proc_GetCurThread(void);
-
 extern tThread	*Threads_GetThread(Uint TID);
 extern void	Threads_SetPriority(tThread *Thread, int Pri);
 extern int	Threads_Wake(tThread *Thread);
