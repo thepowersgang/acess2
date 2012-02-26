@@ -25,7 +25,7 @@ struct sAsyncOp
 // === PROTOTYPES ===
 void	USB_ReadDescriptor(tUSBInterface *Iface, int Type, int Index, int Length, void *Data);
 void	USB_Request(tUSBInterface *Iface, int Endpoint, int Type, int Req, int Value, int Index, int Len, void *Data);
-void	USB_AsyncCallback(void *Ptr, void *Buf, int Length);
+void	USB_AsyncCallback(void *Ptr, void *Buf, size_t Length);
 void	USB_AsyncThread(void *unused);
 
 // === GLOBALS ===
@@ -83,7 +83,7 @@ void USB_RecvDataA(tUSBInterface *Dev, int Endpoint, int Length, void *DataBuf, 
 
 	host = Dev->Dev->Host;
 	LOG("IN from %p %i:%i", host->Ptr, Dev->Dev->Address, op->Endpt->EndpointNum);
-	host->HostDef->SendIN(
+	host->HostDef->BulkIN(
 		host->Ptr, Dev->Dev->Address*16 + op->Endpt->EndpointNum,
 		0, USB_AsyncCallback, op,
 		DataBuf, Length
@@ -94,7 +94,7 @@ void USB_RecvDataA(tUSBInterface *Dev, int Endpoint, int Length, void *DataBuf, 
 //	Log_Warning("USB", "TODO: Implement USB_RecvDataA");
 }
 
-void USB_AsyncCallback(void *Ptr, void *Buf, int Length)
+void USB_AsyncCallback(void *Ptr, void *Buf, size_t Length)
 {
 	tAsyncOp *op = Ptr;
 	op->Length = Length;

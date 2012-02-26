@@ -85,7 +85,7 @@ struct sUHCI_TD
 	{
 		tUHCI_ExtraTDInfo	*ExtraInfo;
 		char	bActive;	// Allocated
-		char	bComplete;	// Job complete
+		Uint8	period_entry;	// index + 1, 0 = non-interrupt, 1 = offset 0
 		char	bFreePointer;	// Free \a BufferPointer once done
 	} _info;
 } __attribute__((aligned(16)));
@@ -164,9 +164,29 @@ struct sUHCI_Controller
 
 	tUSBHub	*RootHub;
 
-	tUHCI_QH	InterruptQH;
-	tUHCI_QH	ControlQH;
-	tUHCI_QH	BulkQH;
+	/**
+	 */
+//	 int	FrameLoads[1024];
+
+	tPAddr  	PhysTDQHPage;
+	struct
+	{
+		// 127 Interrupt Queue Heads
+		// - 4ms -> 256ms range of periods
+		tUHCI_QH	InterruptQHs_256ms[64];
+		tUHCI_QH	InterruptQHs_128ms[32];
+		tUHCI_QH	InterruptQHs_64ms [16];
+		tUHCI_QH	InterruptQHs_32ms [ 8];
+		tUHCI_QH	InterruptQHs_16ms [ 4];
+		tUHCI_QH	InterruptQHs_8ms  [ 2];
+		tUHCI_QH	InterruptQHs_4ms  [ 1];
+		tUHCI_QH	_padding;
+	
+		tUHCI_QH	ControlQH;
+		tUHCI_QH	BulkQH;
+		
+		tUHCI_TD	LocalTDPool[ (4096-(128+2)*sizeof(tUHCI_QH)) / sizeof(tUHCI_TD) ];
+	}	*TDQHPage;
 };
 
 // === ENUMERATIONS ===

@@ -11,9 +11,11 @@
 #include "usb_proto.h"
 #include "usb_lowlevel.h"
 #include <timers.h>
+#include <events.h>
 
 // === PROTOTYPES ===
 void	*USB_int_Request(tUSBHost *Host, int Addr, int EndPt, int Type, int Req, int Val, int Indx, int Len, void *Data);
+void	USB_int_WakeThread(void *Thread, void *Data, size_t Length);
  int	USB_int_SendSetupSetAddress(tUSBHost *Host, int Address);
  int	USB_int_ReadDescriptor(tUSBDevice *Dev, int Endpoint, int Type, int Index, int Length, void *Dest);
 char	*USB_int_GetDeviceString(tUSBDevice *Dev, int Endpoint, int Index);
@@ -26,6 +28,7 @@ void *USB_int_Request(tUSBHost *Host, int Addr, int EndPt, int Type, int Req, in
 	// TODO: Sanity check (and check that Type is valid)
 	struct sDeviceRequest	req;
 	 int	dest = Addr * 16 + EndPt;	// TODO: Validate
+	tThread	*thisthread = Proc_GetCurThread();
 	
 	ENTER("pHost xdest iType iReq iVal iIndx iLen pData",
 		Host, dest, Type, Req, Val, Indx, Len, Data);
@@ -36,8 +39,10 @@ void *USB_int_Request(tUSBHost *Host, int Addr, int EndPt, int Type, int Req, in
 	req.Index = LittleEndian16( Indx );
 	req.Length = LittleEndian16( Len );
 
+	Threads_ClearEvent(THREAD_EVENT_SHORTWAIT);
+
 	LOG("SETUP");	
-	hdl = Host->HostDef->SendSETUP(Host->Ptr, dest, 0, NULL, NULL, &req, sizeof(req));
+	hdl = Host->HostDef->ControlSETUP(Host->Ptr, dest, 0, &req, sizeof(req));
 
 	// TODO: Data toggle?
 	// TODO: Multi-packet transfers
@@ -46,32 +51,37 @@ void *USB_int_Request(tUSBHost *Host, int Addr, int EndPt, int Type, int Req, in
 		if( Type & 0x80 )
 		{
 			LOG("IN");
-			hdl = Host->HostDef->SendIN(Host->Ptr, dest, 1, NULL, NULL, Data, Len);
+			hdl = Host->HostDef->ControlIN(Host->Ptr, dest, 1, NULL, NULL, Data, Len);
 	
 			LOG("OUT (Status)");
-			hdl = Host->HostDef->SendOUT(Host->Ptr, dest, 1, INVLPTR, NULL, NULL, 0);
+			hdl = Host->HostDef->ControlOUT(Host->Ptr, dest, 1, USB_int_WakeThread, thisthread, NULL, 0);
 		}
 		else
 		{
 			LOG("OUT");
-			Host->HostDef->SendOUT(Host->Ptr, dest, 1, NULL, NULL, Data, Len);
+			Host->HostDef->ControlOUT(Host->Ptr, dest, 1, NULL, NULL, Data, Len);
 			
 			// Status phase (DataToggle=1)
 			LOG("IN (Status)");
-			hdl = Host->HostDef->SendIN(Host->Ptr, dest, 1, INVLPTR, NULL, NULL, 0);
+			hdl = Host->HostDef->ControlIN(Host->Ptr, dest, 1, USB_int_WakeThread, thisthread, NULL, 0);
 		}
 	}
 	else
 	{
 		// Zero length, IN status
 		LOG("IN (Status)");
-		hdl = Host->HostDef->SendIN(Host->Ptr, dest, 1, INVLPTR, NULL, NULL, 0);
+		hdl = Host->HostDef->ControlIN(Host->Ptr, dest, 1, USB_int_WakeThread, thisthread, NULL, 0);
 	}
 	LOG("Wait...");
-	while( Host->HostDef->IsOpComplete(Host->Ptr, hdl) == 0 )
-		Time_Delay(1);
+	Threads_WaitEvents(THREAD_EVENT_SHORTWAIT);
+
 	LEAVE('p', hdl);
 	return hdl;
+}
+
+void USB_int_WakeThread(void *Thread, void *Data, size_t Length)
+{
+	Threads_PostEvent(Thread, THREAD_EVENT_SHORTWAIT);
 }
 
 int USB_int_SendSetupSetAddress(tUSBHost *Host, int Address)
@@ -101,17 +111,13 @@ int USB_int_ReadDescriptor(tUSBDevice *Dev, int Endpoint, int Type, int Index, i
 	req.Length = LittleEndian16( Length );
 
 	LOG("SETUP");	
-	Dev->Host->HostDef->SendSETUP(
-		Dev->Host->Ptr, dest,
-		0, NULL, NULL,
-		&req, sizeof(req)
-		);
+	Dev->Host->HostDef->ControlSETUP(Dev->Host->Ptr, dest, 0, &req, sizeof(req));
 	
 	bToggle = 1;
 	while( Length > ciMaxPacketSize )
 	{
 		LOG("IN (%i rem)", Length - ciMaxPacketSize);
-		Dev->Host->HostDef->SendIN(
+		Dev->Host->HostDef->ControlIN(
 			Dev->Host->Ptr, dest,
 			bToggle, NULL, NULL,
 			Dest, ciMaxPacketSize
@@ -121,18 +127,18 @@ int USB_int_ReadDescriptor(tUSBDevice *Dev, int Endpoint, int Type, int Index, i
 	}
 
 	LOG("IN (final)");
-	Dev->Host->HostDef->SendIN(
-		Dev->Host->Ptr, dest,
-		bToggle, NULL, NULL,
-		Dest, Length
+	Dev->Host->HostDef->ControlIN( Dev->Host->Ptr, dest, bToggle, NULL, NULL, Dest, Length );
+
+	Threads_ClearEvent(THREAD_EVENT_SHORTWAIT);
+	LOG("OUT (Status)");
+	final = Dev->Host->HostDef->ControlOUT(
+		Dev->Host->Ptr, dest, 1,
+		USB_int_WakeThread, Proc_GetCurThread(),
+		NULL, 0
 		);
 
-	LOG("OUT (Status)");
-	final = Dev->Host->HostDef->SendOUT(Dev->Host->Ptr, dest, 1, INVLPTR, NULL, NULL, 0);
-
 	LOG("Waiting");
-	while( Dev->Host->HostDef->IsOpComplete(Dev->Host->Ptr, final) == 0 )
-		Threads_Yield();	// BAD BAD BAD
+	Threads_WaitEvents(THREAD_EVENT_SHORTWAIT);
 
 	LEAVE('i', 0);
 	return 0;
