@@ -18,6 +18,7 @@
 #define DEBUG_TRACE_SWITCH	0
 #define DEBUG_DISABLE_DOUBLEFAULT	1
 #define DEBUG_VERY_SLOW_PERIOD	0
+#define DEBUG_NOPREEMPT	1
 
 // === CONSTANTS ===
 // Base is 1193182
@@ -989,6 +990,7 @@ void Proc_Scheduler(int CPU)
 	// Call the timer update code
 	Timer_CallTimers();
 
+	#if !DEBUG_NOPREEMPT
 	// If two ticks happen within the same task, and it's not an idle task, swap
 	if( gaCPUs[CPU].Current->TID > giNumCPUs && gaCPUs[CPU].Current == gaCPUs[CPU].LastTimerThread )
 	{
@@ -996,6 +998,7 @@ void Proc_Scheduler(int CPU)
 	}
 	
 	gaCPUs[CPU].LastTimerThread = gaCPUs[CPU].Current;
+	#endif
 }
 
 // === EXPORTS ===
