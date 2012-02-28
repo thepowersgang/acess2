@@ -119,10 +119,14 @@ tVFS_Node *HID_Mouse_Root_FindDir(tVFS_Node *Node, const char *Name)
 	// Scan list, locate item
 	Mutex_Acquire(&glHID_MouseListLock);
 	for( mouse = gpHID_FirstMouse; mouse && ID --; mouse = mouse->Next ) ;
-	mouse->Node.ReferenceCount ++;	
+	if( mouse )
+		mouse->Node.ReferenceCount ++;	
 	Mutex_Release(&glHID_MouseListLock);
 
-	return &mouse->Node;
+	if( mouse )
+		return &mouse->Node;
+	else
+		return NULL;
 }
 
 size_t HID_Mouse_Dev_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)

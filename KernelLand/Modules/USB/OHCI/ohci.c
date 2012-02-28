@@ -17,7 +17,7 @@
 #define MAX_CONTROLLERS	4
 #define MAX_TD_PAGES	2
 #define MAX_ENDPT_PAGES	2
-#define MAX_PACKET_SIZE	1023	// TODO: Check what should be used
+#define MAX_PACKET_SIZE	0x400	// TODO: Check what should be used
 
 // === PROTOTYPES ===
  int	OHCI_Initialise(char **Arguments);
@@ -44,13 +44,14 @@ tOHCI_GeneralTD	*OHCI_int_GetGTDFromPhys(tPAddr PhysAddr);
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, USB_OHCI, OHCI_Initialise, OHCI_Cleanup, "USB_Core", NULL);
 tUSBHostDef	gOHCI_HostDef = {
+	.InterruptIN = OHCI_StartPoll,
+	.StopInterrupt = OHCI_StopPoll,
+
 	.SendIN = OHCI_DataIN,
 	.SendOUT = OHCI_DataOUT,
 	.SendSETUP = OHCI_SendSETUP,
 	.IsOpComplete = OHCI_IsTransferComplete,
 
-//	.StartPolling = OHCI_StartPoll,
-//	.StopPolling = OHCI_StopPoll,
 
 	.CheckPorts = OHCI_CheckPortUpdate
 	};

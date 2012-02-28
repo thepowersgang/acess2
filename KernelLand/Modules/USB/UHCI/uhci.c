@@ -4,7 +4,7 @@
  *
  * Universal Host Controller Interface
  */
-#define DEBUG	1
+#define DEBUG	0
 #define VERSION	VER2(0,5)
 #include <acess.h>
 #include <vfs.h>
@@ -18,7 +18,7 @@
 // === CONSTANTS ===
 #define	MAX_CONTROLLERS	4
 //#define NUM_TDs	1024
-#define NUM_TDs	64
+#define NUM_TDs	(PAGE_SIZE/sizeof(tUHCI_TD))
 #define MAX_PACKET_SIZE	0x400
 #define PID_IN	0x69
 #define PID_OUT	0xE1
@@ -53,7 +53,7 @@ static Uint16	_InWord(tUHCI_Controller *Host, int Reg);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, USB_UHCI, UHCI_Initialise, NULL, "USB_Core", NULL);
-tUHCI_TD	gaUHCI_TDPool[NUM_TDs];
+tUHCI_TD	*gaUHCI_TDPool;
 tUHCI_Controller	gUHCI_Controllers[MAX_CONTROLLERS];
 tUSBHostDef	gUHCI_HostDef = {
 	.InterruptIN   = UHCI_InterruptIN,
@@ -91,7 +91,12 @@ int UHCI_Initialise(char **Arguments)
 		LEAVE('i', MODULE_ERR_NOTNEEDED);
 		return MODULE_ERR_NOTNEEDED;
 	}
-	
+
+	{
+		tPAddr	tmp;	
+		gaUHCI_TDPool = (void *) MM_AllocDMA(1, 32, &tmp);
+	}
+
 	// Enumerate PCI Bus, getting a maximum of `MAX_CONTROLLERS` devices
 	while( (id = PCI_GetDeviceByClass(0x0C0300, 0xFFFFFF, id)) >= 0 && i < MAX_CONTROLLERS )
 	{
@@ -159,11 +164,6 @@ int UHCI_int_InitHost(tUHCI_Controller *Host)
 {
 	ENTER("pHost", Host);
 
-	_OutWord( Host, USBCMD, 4 );	// GRESET
-	Time_Delay(10);
-	_OutWord( Host, USBCMD, 0 );	// GRESET
-	
-	// Allocate Frame List
 	// - 1 Page, 32-bit address
 	// - 1 page = 1024  4 byte entries
 	Host->FrameList = (void *) MM_AllocDMA(1, 32, &Host->PhysFrameList);
@@ -193,46 +193,30 @@ int UHCI_int_InitHost(tUHCI_Controller *Host)
 	}
 	for( int i = 0; i < 64; i ++ ) {
 		 int	ofs = dest_offsets[ i & (32-1) ];
-		Uint32	addr = MM_GetPhysAddr( (tVAddr)&Host->TDQHPage->InterruptQHs_256ms[ofs] );
+		Uint32	addr = Host->PhysTDQHPage + ofs * sizeof(tUHCI_QH);
 		Host->FrameList[  0 + i*4] = addr | 2;
 		Host->FrameList[256 + i*4] = addr | 2;
 		Host->FrameList[512 + i*4] = addr | 2;
 		Host->FrameList[768 + i*4] = addr | 2;
 	}
-	for( int i = 0; i < 32; i ++ ) {
-		Uint32	addr = MM_GetPhysAddr( (tVAddr)&Host->TDQHPage->InterruptQHs_128ms[i] );
-		Host->TDQHPage->InterruptQHs_256ms[i*2  ].Next = addr | 2;
-		Host->TDQHPage->InterruptQHs_256ms[i*2+1].Next = addr | 2;
-	}
-	for( int i = 0; i < 16; i ++ ) {
-		Uint32	addr = MM_GetPhysAddr( (tVAddr)&Host->TDQHPage->InterruptQHs_64ms[i] );
-		Host->TDQHPage->InterruptQHs_128ms[i*2  ].Next = addr | 2;
-		Host->TDQHPage->InterruptQHs_128ms[i*2+1].Next = addr | 2;
-	}
-	for( int i = 0; i < 8; i ++ ) {
-		Uint32	addr = MM_GetPhysAddr( (tVAddr)&Host->TDQHPage->InterruptQHs_32ms[i] );
-		Host->TDQHPage->InterruptQHs_64ms[i*2  ].Next = addr | 2;
-		Host->TDQHPage->InterruptQHs_64ms[i*2+1].Next = addr | 2;
-	}
-	for( int i = 0; i < 4; i ++ ) {
-		Uint32	addr = MM_GetPhysAddr( (tVAddr)&Host->TDQHPage->InterruptQHs_16ms[i] );
-		Host->TDQHPage->InterruptQHs_32ms[i*2  ].Next = addr | 2;
-		Host->TDQHPage->InterruptQHs_32ms[i*2+1].Next = addr | 2;
-	}
-	for( int i = 0; i < 2; i ++ ) {
-		Uint32	addr = MM_GetPhysAddr( (tVAddr)&Host->TDQHPage->InterruptQHs_8ms[i] );
-		Host->TDQHPage->InterruptQHs_16ms[i*2  ].Next = addr | 2;
-		Host->TDQHPage->InterruptQHs_16ms[i*2+1].Next = addr | 2;
-	}
-	for( int i = 0; i < 1; i ++ ) {
-		Uint32	addr = MM_GetPhysAddr( (tVAddr)&Host->TDQHPage->InterruptQHs_4ms[i] );
-		Host->TDQHPage->InterruptQHs_8ms[i*2  ].Next = addr | 2;
-		Host->TDQHPage->InterruptQHs_8ms[i*2+1].Next = addr | 2;
-	}
-	Host->TDQHPage->InterruptQHs_4ms[0].Next = MM_GetPhysAddr( (tVAddr)&Host->TDQHPage->ControlQH ) | 2;
-	// Set child pointers
-	for( int i = 0; i < 127; i ++ ) {
-		Host->TDQHPage->InterruptQHs_256ms[i].Child = 1;
+
+	// Build up interrupt binary tree	
+	{
+		tUHCI_QH	*dest = Host->TDQHPage->InterruptQHs;
+		Uint32	destphys = Host->PhysTDQHPage;
+		
+		// Set up next pointer to index to i/2 in the next step
+		for( int _count = 64; _count > 1; _count /= 2 )
+		{
+			for( int i = 0; i < _count; i ++ ) {
+				dest[i].Next = destphys + (_count + i/2) * sizeof(tUHCI_QH) + 2;
+				dest[i].Child = 1;
+			}
+			dest +=	_count; destphys += _count * sizeof(tUHCI_QH);
+		}
+		// Skip padding, and move to control QH
+		dest->Next = MM_GetPhysAddr( (tVAddr)&Host->TDQHPage->BulkQH ) | 2;
+		dest->Child = 1;
 	}
 
 	// Set up control and bulk queues
@@ -240,7 +224,13 @@ int UHCI_int_InitHost(tUHCI_Controller *Host)
 	Host->TDQHPage->ControlQH.Child = 1;
 	Host->TDQHPage->BulkQH.Next = 1;
 	Host->TDQHPage->BulkQH.Child = 1;
+
+	// Global reset	
+	_OutWord( Host, USBCMD, 4 );
+	Time_Delay(10);
+	_OutWord( Host, USBCMD, 0 );
 	
+	// Allocate Frame List
 	// Set frame length to 1 ms
 	_OutByte( Host, SOFMOD, 64 );
 	
@@ -273,7 +263,7 @@ tUHCI_TD *UHCI_int_AllocateTD(tUHCI_Controller *Cont)
 			gaUHCI_TDPool[i].Link = 1;
 			gaUHCI_TDPool[i].Control = (1 << 23);
 			gaUHCI_TDPool[i]._info.bActive = 1;
-			gaUHCI_TDPool[i]._info.period_entry = 0;
+			gaUHCI_TDPool[i]._info.QueueIndex = 128;
 			Mutex_Release( &lock );
 			return &gaUHCI_TDPool[i];
 		}
@@ -290,6 +280,7 @@ void UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_QH *QH, tUHCI_TD *TD)
 	
 	// Ensure that there is an interrupt for each used frame
 	TD->Control |= (1 << 24);
+	TD->_info.QueueIndex = ((tVAddr)QH - (tVAddr)Cont->TDQHPage->InterruptQHs) / sizeof(tUHCI_QH);
 
 	// Stop controller
 	_OutWord( Cont, USBCMD, 0x0000 );
@@ -310,7 +301,7 @@ void UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_QH *QH, tUHCI_TD *TD)
 	
 	// DEBUG!
 	LOG("QH(%p)->Child = %x", QH, QH->Child);
-	LOG("TD(%p)->Control = %x", TD, TD->Control);
+	LOG("TD(%p)->Control = %x, ->Link = %x", TD, TD->Control, TD->Link);
 
 	Mutex_Release(&lock);
 }
@@ -343,7 +334,8 @@ tUHCI_TD *UHCI_int_CreateTD(
 		td, Length, Type, Addr);
 
 	td->Control = (Length - 1) & 0x7FF;
-	td->Control |= (1 << 23);
+	td->Control |= (1 << 23);	// Active set
+	td->Control |= (3 << 27);	// 3 retries
 	td->Token  = ((Length - 1) & 0x7FF) << 21;
 	td->Token |= (bTgl & 1) << 19;
 	td->Token |= (Addr & 0xF) << 15;
@@ -422,12 +414,12 @@ void UHCI_int_SetInterruptPoll(tUHCI_Controller *Cont, tUHCI_TD *TD, int Period)
 	if( period_slot < 2 )	period_slot = 0;
 	else	period_slot -= 2;
 	
-	TD->_info.period_entry = qh_offsets[period_slot] + 1;
-	qh = Cont->TDQHPage->InterruptQHs_4ms + TD->_info.period_entry - 1;
+	TD->_info.QueueIndex = qh_offsets[period_slot];	// Actually re-filled in _AppendTD, but meh
+	qh = Cont->TDQHPage->InterruptQHs + TD->_info.QueueIndex;
 	// TODO: Find queue with lowest load
 
-	LOG("period_slot = %i, period_entry = %i (+1 when encoded)",
-		period_slot, TD->_info.period_entry);
+	LOG("period_slot = %i, QueueIndex = %i",
+		period_slot, TD->_info.QueueIndex);
 
 	UHCI_int_AppendTD(Cont, qh, TD);
 }
@@ -512,7 +504,7 @@ void *UHCI_ControlIN(void *Ptr, int Dest, int Tgl, tUSBHostCb Cb, void *CbData, 
 
 	ENTER("pPtr xDest iTgl pCb pCbData pData iLength", Ptr, Dest, Tgl, Cb, CbData, Data, Length);
 	
-	td = UHCI_int_CreateTD(Cont, Dest, PID_OUT, !!Tgl, Cb, CbData, Data, Length);
+	td = UHCI_int_CreateTD(Cont, Dest, PID_IN, !!Tgl, Cb, CbData, Data, Length);
 	UHCI_int_AppendTD(Cont, qh, td);
 
 	LEAVE('p', td);
@@ -613,6 +605,65 @@ void UHCI_CheckPortUpdate(void *Ptr)
 	}
 }
 
+tUHCI_TD *UHCI_int_GetTDFromPhys(tUHCI_Controller *Controller, Uint32 PAddr)
+{
+	if( PAddr >= Controller->PhysTDQHPage && PAddr < Controller->PhysTDQHPage + PAGE_SIZE )
+	{
+		PAddr -= Controller->PhysTDQHPage;
+		PAddr -= (128+2)*sizeof(tUHCI_QH);
+		if( PAddr > PAGE_SIZE )	return NULL;	// Wrapping will bring above page size
+		PAddr /= sizeof(tUHCI_TD);
+		return &Controller->TDQHPage->LocalTDPool[PAddr];
+	}
+
+	
+	tPAddr	global_pool = MM_GetPhysAddr( (tVAddr)gaUHCI_TDPool );
+	
+	if( PAddr < global_pool || PAddr >= global_pool + PAGE_SIZE )	return NULL;
+	
+	PAddr -= global_pool;
+	PAddr /= sizeof(tUHCI_TD);
+	return &gaUHCI_TDPool[PAddr];
+}
+
+void UHCI_int_CleanQH(tUHCI_Controller *Cont, tUHCI_QH *QH)
+{
+	tUHCI_TD	*td, *prev = NULL;
+	Uint32	cur_td;
+
+	// Disable controller
+	_OutWord( Cont, USBCMD, 0x0000 );
+	
+	// Scan QH list
+	cur_td = QH->Child;
+	while( !(cur_td & 1) )
+	{
+		td = UHCI_int_GetTDFromPhys(Cont, cur_td);
+		if(!td) {
+			Log_Warning("UHCI", "_int_CleanQH: QH %p contains TD %x, which was not from a pool",
+				QH, cur_td);
+			break ;
+		}
+		
+		// Active? Ok.
+		if( td->Control & (1 << 23) ) {
+			prev = td;
+			continue ;
+		}
+
+		LOG("Removed %p from QH %p", td, QH);		
+
+		if( !prev )
+			QH->Child = td->Link;
+		else
+			prev->Link = td->Link;
+		cur_td = td->Link;
+	}
+
+	// re-enable controller
+	_OutWord( Cont, USBCMD, 0x0001 );	
+}
+
 void UHCI_int_InterruptThread(void *Pointer)
 {
 	tUHCI_Controller	*Cont = Pointer;
@@ -687,26 +738,42 @@ void UHCI_int_InterruptThread(void *Pointer)
 				td->_info.ExtraInfo = NULL;
 			}
 
-			if( td->_info.period_entry > 0 )
+			if( td->_info.QueueIndex <= 127 )
 			{
-				LOG("Re-schedule interrupt %p (offset %i)", td, td->_info.period_entry-1);
+				LOG("Re-schedule interrupt %p (offset %i)", td, td->_info.QueueIndex);
 				// TODO: Flip toggle?
 				td->Control |= (1 << 23);
 				// Add back into controller's interrupt list
 				UHCI_int_AppendTD(
 					Cont,
-					Cont->TDQHPage->InterruptQHs_256ms + td->_info.period_entry - 1,
+					Cont->TDQHPage->InterruptQHs + td->_info.QueueIndex,
 					td
 					);
 				continue ;
 			}
 
 			if( td->_info.bFreePointer )
-				MM_DerefPhys( td->BufferPointer );			
+				MM_DerefPhys( td->BufferPointer );
+
+			// Error check
+			if( td->Control & 0x00FF0000 ) {
+				LOG("td->control(Status) = %s%s%s%s%s%s%s%s",
+					td->Control & (1 << 23) ? "Active " : "",
+					td->Control & (1 << 22) ? "Stalled " : "",
+					td->Control & (1 << 21) ? "Data Buffer Error " : "",
+					td->Control & (1 << 20) ? "Babble " : "",
+					td->Control & (1 << 19) ? "NAK " : "",
+					td->Control & (1 << 18) ? "CRC Error, " : "",
+					td->Control & (1 << 17) ? "Bitstuff Error, " : "",
+					td->Control & (1 << 16) ? "Reserved " : ""
+					);
+				// Clean up QH (removing all inactive entries)
+				UHCI_int_CleanQH(Cont, Cont->TDQHPage->InterruptQHs + td->_info.QueueIndex);
+			}
 	
 			// Clean up
+			LOG("Cleaned %p (->Control = %x)", td, td->Control);
 			td->_info.bActive = 0;
-			LOG("Cleaned %p", td);
 		}
 	}
 }

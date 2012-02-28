@@ -85,7 +85,7 @@ struct sUHCI_TD
 	{
 		tUHCI_ExtraTDInfo	*ExtraInfo;
 		char	bActive;	// Allocated
-		Uint8	period_entry;	// index + 1, 0 = non-interrupt, 1 = offset 0
+		Uint8	QueueIndex;	// QH, 0-127 are interrupt, 128 undef, 129 Control, 130 Bulk
 		char	bFreePointer;	// Free \a BufferPointer once done
 	} _info;
 } __attribute__((aligned(16)));
@@ -173,6 +173,7 @@ struct sUHCI_Controller
 	{
 		// 127 Interrupt Queue Heads
 		// - 4ms -> 256ms range of periods
+		tUHCI_QH	InterruptQHs[0];
 		tUHCI_QH	InterruptQHs_256ms[64];
 		tUHCI_QH	InterruptQHs_128ms[32];
 		tUHCI_QH	InterruptQHs_64ms [16];
