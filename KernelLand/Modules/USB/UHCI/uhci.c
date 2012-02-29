@@ -421,6 +421,10 @@ void UHCI_int_SetInterruptPoll(tUHCI_Controller *Cont, tUHCI_TD *TD, int Period)
 	LOG("period_slot = %i, QueueIndex = %i",
 		period_slot, TD->_info.QueueIndex);
 
+	// Stop any errors causing the TD to stop (NAK will error)
+	// - If the device goes away, the interrupt should be stopped anyway
+	TD->Control &= ~(3 << 27);
+
 	UHCI_int_AppendTD(Cont, qh, TD);
 }
 
@@ -465,6 +469,7 @@ void *UHCI_InterruptOUT(void *Ptr, int Dest, int Period, tUSBHostCb Cb, void *Cb
 void UHCI_StopInterrupt(void *Ptr, void *Handle)
 {
 	// TODO: Stop interrupt transaction
+	Log_Error("UHCI", "TODO: Implement UHCI_StopInterrupt");
 }
 
 void *UHCI_ControlSETUP(void *Ptr, int Dest, int Tgl, void *Data, size_t Length)
@@ -664,6 +669,55 @@ void UHCI_int_CleanQH(tUHCI_Controller *Cont, tUHCI_QH *QH)
 	_OutWord( Cont, USBCMD, 0x0001 );	
 }
 
+void UHCI_int_HandleTDComplete(tUHCI_Controller *Cont, tUHCI_TD *TD)
+{
+	 int	byte_count = (TD->Control & 0x7FF)+1;
+	tUHCI_ExtraTDInfo	*info = TD->_info.ExtraInfo;
+
+	// Handle non page-aligned destination (or with a > 32-bit paddr)
+	// TODO: Needs fixing for alignment issues
+	if(info->FirstPage)
+	{
+		char	*src, *dest;
+		 int	src_ofs = TD->BufferPointer & (PAGE_SIZE-1);
+		src = (void *) MM_MapTemp(TD->BufferPointer);
+		dest = (void *) MM_MapTemp(info->FirstPage);
+		// Check for a single page transfer
+		if( byte_count + info->Offset <= PAGE_SIZE )
+		{
+			LOG("Single page copy %P to %P of %p",
+				td->BufferPointer, info->FirstPage, td);
+			memcpy(dest + info->Offset, src + src_ofs, byte_count);
+		}
+		else
+		{
+			// Multi-page
+			LOG("Multi page copy %P to (%P,%P) of %p",
+				td->BufferPointer, info->FirstPage, info->SecondPage, td);
+			 int	part_len = PAGE_SIZE - info->Offset;
+			memcpy(dest + info->Offset, src + src_ofs, part_len);
+			MM_FreeTemp( (tVAddr)dest );
+			dest = (void *) MM_MapTemp(info->SecondPage);
+			memcpy(dest, src + src_ofs + part_len, byte_count - part_len);
+		}
+		MM_FreeTemp( (tVAddr)src );
+		MM_FreeTemp( (tVAddr)dest );
+	}
+
+	// Callback
+	if( info->Callback != NULL )
+	{
+		LOG("Calling cb %p", info->Callback);
+		void	*ptr = (void *) MM_MapTemp( TD->BufferPointer );
+		info->Callback( info->CallbackPtr, ptr, byte_count );
+		MM_FreeTemp( (tVAddr)ptr );
+	}
+	
+	// Clean up info
+	free( info );
+	TD->_info.ExtraInfo = NULL;
+}
+
 void UHCI_int_InterruptThread(void *Pointer)
 {
 	tUHCI_Controller	*Cont = Pointer;
@@ -677,12 +731,9 @@ void UHCI_int_InterruptThread(void *Pointer)
 	
 		for( int i = 0; i < NUM_TDs; i ++ )
 		{
-			 int	byte_count;
-			tUHCI_ExtraTDInfo	*info;
 			tUHCI_TD	*td;
 			
 			td = &gaUHCI_TDPool[i];
-			info = td->_info.ExtraInfo;
 
 			// Skip completely inactive TDs
 			if( td->_info.bActive == 0 )	continue ;
@@ -692,52 +743,10 @@ void UHCI_int_InterruptThread(void *Pointer)
 			// If no callback/alt buffer, mark as free and move on
 			if( td->_info.ExtraInfo )
 			{
-				// Get size of transfer
-				byte_count = (td->Control & 0x7FF)+1;
-			
-				// Handle non page-aligned destination (or with a > 32-bit paddr)
-				if(info->FirstPage)
-				{
-					char	*src, *dest;
-					 int	src_ofs = td->BufferPointer & (PAGE_SIZE-1);
-					src = (void *) MM_MapTemp(td->BufferPointer);
-					dest = (void *) MM_MapTemp(info->FirstPage);
-					// Check for a single page transfer
-					if( byte_count + info->Offset <= PAGE_SIZE )
-					{
-						LOG("Single page copy %P to %P of %p",
-							td->BufferPointer, info->FirstPage, td);
-						memcpy(dest + info->Offset, src + src_ofs, byte_count);
-					}
-					else
-					{
-						// Multi-page
-						LOG("Multi page copy %P to (%P,%P) of %p",
-							td->BufferPointer, info->FirstPage, info->SecondPage, td);
-						 int	part_len = PAGE_SIZE - info->Offset;
-						memcpy(dest + info->Offset, src + src_ofs, part_len);
-						MM_FreeTemp( (tVAddr)dest );
-						dest = (void *) MM_MapTemp(info->SecondPage);
-						memcpy(dest, src + src_ofs + part_len, byte_count - part_len);
-					}
-					MM_FreeTemp( (tVAddr)src );
-					MM_FreeTemp( (tVAddr)dest );
-				}
-	
-				// Callback
-				if( info->Callback != NULL )
-				{
-					LOG("Calling cb %p", info->Callback);
-					void	*ptr = (void *) MM_MapTemp( td->BufferPointer );
-					info->Callback( info->CallbackPtr, ptr, byte_count );
-					MM_FreeTemp( (tVAddr)ptr );
-				}
-				
-				// Clean up info
-				free( info );
-				td->_info.ExtraInfo = NULL;
+				UHCI_int_HandleTDComplete(Cont, td);
 			}
 
+			// Handle rescheduling of interrupt TDs
 			if( td->_info.QueueIndex <= 127 )
 			{
 				LOG("Re-schedule interrupt %p (offset %i)", td, td->_info.QueueIndex);
@@ -752,6 +761,7 @@ void UHCI_int_InterruptThread(void *Pointer)
 				continue ;
 			}
 
+			// Clean up
 			if( td->_info.bFreePointer )
 				MM_DerefPhys( td->BufferPointer );
 
