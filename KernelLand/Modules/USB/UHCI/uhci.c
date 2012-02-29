@@ -281,6 +281,9 @@ void UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_QH *QH, tUHCI_TD *TD)
 	// Ensure that there is an interrupt for each used frame
 	TD->Control |= (1 << 24);
 	TD->_info.QueueIndex = ((tVAddr)QH - (tVAddr)Cont->TDQHPage->InterruptQHs) / sizeof(tUHCI_QH);
+	// Update length
+	TD->Control &= ~0x7FF;
+	TD->Control |= (TD->Token >> 21) & 0x7FF;
 
 	// Stop controller
 	_OutWord( Cont, USBCMD, 0x0000 );
@@ -399,12 +402,13 @@ tUHCI_TD *UHCI_int_CreateTD(
 void UHCI_int_SetInterruptPoll(tUHCI_Controller *Cont, tUHCI_TD *TD, int Period)
 {
 	tUHCI_QH	*qh;
-	const int	qh_offsets[] = { 0, 64, 96, 112, 120, 124, 126};
-//	const int	qh_sizes[]   = {64, 32, 16,   8,   4,   2,   1};
+	const int	qh_offsets[] = {126, 124, 120, 112, 96, 64,  0};
+//	const int	qh_sizes[]   = {  1,   2,   4,   8, 16, 32, 64};
 	
 	// Bounds limit
 	if( Period < 0 )	return ;
 	if( Period > 256 )	Period = 256;
+	if( Period == 255 )	Period = 256;
 
 	// Get the log base2 of the period
 	 int	period_slot = 0;
@@ -434,7 +438,7 @@ void *UHCI_InterruptIN(void *Ptr, int Dest, int Period, tUSBHostCb Cb, void *CbD
 
 	if( Period < 0 )	return NULL;
 
-	ENTER("pPtr xDest iPeriod pCb pCbData pBuf, iLength",
+	ENTER("pPtr xDest iPeriod pCb pCbData pBuf iLength",
 		Ptr, Dest, Period, Cb, CbData, Buf, Length);
 
 	// TODO: Data toggle?
@@ -686,14 +690,14 @@ void UHCI_int_HandleTDComplete(tUHCI_Controller *Cont, tUHCI_TD *TD)
 		if( byte_count + info->Offset <= PAGE_SIZE )
 		{
 			LOG("Single page copy %P to %P of %p",
-				td->BufferPointer, info->FirstPage, td);
+				TD->BufferPointer, info->FirstPage, TD);
 			memcpy(dest + info->Offset, src + src_ofs, byte_count);
 		}
 		else
 		{
 			// Multi-page
 			LOG("Multi page copy %P to (%P,%P) of %p",
-				td->BufferPointer, info->FirstPage, info->SecondPage, td);
+				TD->BufferPointer, info->FirstPage, info->SecondPage, TD);
 			 int	part_len = PAGE_SIZE - info->Offset;
 			memcpy(dest + info->Offset, src + src_ofs, part_len);
 			MM_FreeTemp( (tVAddr)dest );
@@ -707,15 +711,18 @@ void UHCI_int_HandleTDComplete(tUHCI_Controller *Cont, tUHCI_TD *TD)
 	// Callback
 	if( info->Callback != NULL )
 	{
-		LOG("Calling cb %p", info->Callback);
+		LOG("Calling cb %p (%i bytes)", info->Callback, byte_count);
 		void	*ptr = (void *) MM_MapTemp( TD->BufferPointer );
 		info->Callback( info->CallbackPtr, ptr, byte_count );
 		MM_FreeTemp( (tVAddr)ptr );
 	}
 	
 	// Clean up info
-	free( info );
-	TD->_info.ExtraInfo = NULL;
+	if( TD->_info.QueueIndex > 127 )
+	{
+		free( info );
+		TD->_info.ExtraInfo = NULL;
+	}
 }
 
 void UHCI_int_InterruptThread(void *Pointer)
@@ -746,6 +753,22 @@ void UHCI_int_InterruptThread(void *Pointer)
 				UHCI_int_HandleTDComplete(Cont, td);
 			}
 
+			// Error check
+			if( td->Control & 0x00FF0000 ) {
+				LOG("td->control(Status) = %s%s%s%s%s%s%s%s",
+					td->Control & (1 << 23) ? "Active " : "",
+					td->Control & (1 << 22) ? "Stalled " : "",
+					td->Control & (1 << 21) ? "Data Buffer Error " : "",
+					td->Control & (1 << 20) ? "Babble " : "",
+					td->Control & (1 << 19) ? "NAK " : "",
+					td->Control & (1 << 18) ? "CRC Error, " : "",
+					td->Control & (1 << 17) ? "Bitstuff Error, " : "",
+					td->Control & (1 << 16) ? "Reserved " : ""
+					);
+				// Clean up QH (removing all inactive entries)
+				UHCI_int_CleanQH(Cont, Cont->TDQHPage->InterruptQHs + td->_info.QueueIndex);
+			}
+	
 			// Handle rescheduling of interrupt TDs
 			if( td->_info.QueueIndex <= 127 )
 			{
@@ -765,22 +788,6 @@ void UHCI_int_InterruptThread(void *Pointer)
 			if( td->_info.bFreePointer )
 				MM_DerefPhys( td->BufferPointer );
 
-			// Error check
-			if( td->Control & 0x00FF0000 ) {
-				LOG("td->control(Status) = %s%s%s%s%s%s%s%s",
-					td->Control & (1 << 23) ? "Active " : "",
-					td->Control & (1 << 22) ? "Stalled " : "",
-					td->Control & (1 << 21) ? "Data Buffer Error " : "",
-					td->Control & (1 << 20) ? "Babble " : "",
-					td->Control & (1 << 19) ? "NAK " : "",
-					td->Control & (1 << 18) ? "CRC Error, " : "",
-					td->Control & (1 << 17) ? "Bitstuff Error, " : "",
-					td->Control & (1 << 16) ? "Reserved " : ""
-					);
-				// Clean up QH (removing all inactive entries)
-				UHCI_int_CleanQH(Cont, Cont->TDQHPage->InterruptQHs + td->_info.QueueIndex);
-			}
-	
 			// Clean up
 			LOG("Cleaned %p (->Control = %x)", td, td->Control);
 			td->_info.bActive = 0;

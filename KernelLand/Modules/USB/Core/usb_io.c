@@ -11,16 +11,7 @@
 #include "usb.h"
 #include "usb_lowlevel.h"
 #include <workqueue.h>
-
-typedef struct sAsyncOp	tAsyncOp;
-
-struct sAsyncOp
-{
-	tAsyncOp	*Next;
-	tUSBEndpoint	*Endpt;
-	 int	Length;
-	void	*Data;
-};
+#include "usb_async.h"
 
 // === PROTOTYPES ===
 void	USB_ReadDescriptor(tUSBInterface *Iface, int Type, int Index, int Length, void *Data);
@@ -115,6 +106,8 @@ void USB_AsyncThread(void *Unused)
 		iface->Driver->Endpoints[op->Endpt->EndpointIdx].DataAvail(
 			iface, op->Endpt->EndpointIdx,
 			op->Length, op->Data);
+		
+		free(op);
 	}
 }
 

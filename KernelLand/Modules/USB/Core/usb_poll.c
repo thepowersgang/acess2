@@ -9,10 +9,7 @@
 #include <usb_core.h>
 #include "usb.h"
 #include <timers.h>
-
-#define POLL_ATOM	25	// 25ms atom
-#define POLL_MAX	256	// Max period that can be nominated
-#define POLL_SLOTS	((int)(POLL_MAX/POLL_ATOM))
+#include "usb_async.h"
 
 // === IMPORTS ===
 extern tUSBHost	*gUSB_Hosts;
@@ -25,9 +22,17 @@ void	USB_StartPollingEndpoint(tUSBInterface *Iface, int Endpoint);
 // === CODE ===
 void USB_int_PollCallback(void *Ptr, void *Data, size_t Length)
 {
+	tAsyncOp *op;
 	tUSBEndpoint	*ep = Ptr;
 	
-	ep->Interface->Driver->Endpoints[ep->EndpointIdx].DataAvail(ep->Interface, ep->EndpointIdx, Length, Data);
+	op = malloc(sizeof(*op));
+
+	op->Next = NULL;
+	op->Endpt = ep;
+	op->Length = Length;
+	op->Data = ep->InputData;
+
+	Workqueue_AddWork(&gUSB_AsyncQueue, op);
 }
 
 void USB_StartPollingEndpoint(tUSBInterface *Iface, int Endpoint)
@@ -35,15 +40,18 @@ void USB_StartPollingEndpoint(tUSBInterface *Iface, int Endpoint)
 	tUSBEndpoint	*endpt;
 
 	ENTER("pIface iEndpoint", Iface, Endpoint);
-	LEAVE('-');
 
 	// Some sanity checks
-	if(Endpoint <= 0 || Endpoint > Iface->nEndpoints)
+	if(Endpoint <= 0 || Endpoint > Iface->nEndpoints) {
+		LEAVE('-');
 		return ;
+	}
 	endpt = &Iface->Endpoints[Endpoint-1];
 	LOG("endpt(%p)->PollingPeriod = %i", endpt, endpt->PollingPeriod);
-	if(endpt->PollingPeriod > POLL_MAX || endpt->PollingPeriod <= 0)
+	if(endpt->PollingPeriod > 256 || endpt->PollingPeriod <= 0) {
+		LEAVE('-');
 		return ;
+	}
 
 	// TODO: Check that this endpoint isn't already on the queue
 
@@ -73,7 +81,7 @@ int USB_PollThread(void *unused)
 			host->HostDef->CheckPorts(host->Ptr);
 		}
 
-		Time_Delay(POLL_ATOM);
+		Time_Delay(100);
 	}
 }
 

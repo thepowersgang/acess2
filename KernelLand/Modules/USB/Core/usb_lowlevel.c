@@ -5,7 +5,7 @@
  * usb_lowlevel.c
  * - Low Level IO
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include "usb.h"
 #include "usb_proto.h"

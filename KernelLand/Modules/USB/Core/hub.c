@@ -5,7 +5,7 @@
  * hub.c
  * - Basic hub driver
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <usb_hub.h>
 #include <timers.h>
 
@@ -123,8 +123,9 @@ void Hub_PortStatusChange(tUSBInterface *Dev, int Endpoint, int Length, void *Da
 	for( i = 0; i < info->nPorts; i += 8, status ++ )
 	{
 		if( i/8 >= Length )	break;
-		if( *status == 0 )	continue;
-	
+		LOG("status[%i] = %x", i/8, *status);
+		if( *status == 0 )	continue;	
+
 		for( int j = 0; j < 8; j ++ )
 			if( *status & (1 << j) )
 				Hub_int_HandleChange(Dev, i+j);
