@@ -296,7 +296,7 @@ void HID_int_ParseReport(tUSBInterface *Dev, Uint8 *Data, size_t Length, tHID_Re
 			else
 				next_cbs = NULL;
 			cur_cbs = next_cbs;
-			break;
+			goto _clear_local;
 		// - Feature
 		case 0xB0:
 			LOG("Feature 0x%x", val);
@@ -342,14 +342,17 @@ void HID_int_ParseReport(tUSBInterface *Dev, Uint8 *Data, size_t Length, tHID_Re
 		// - Usages
 		case 0x08:	// Single
 			if( (byte & 3) != 3 )	val |= global_state.UsagePage;
+			LOG("Usage %x", val);
 			_AddItem(&local_state.Usages, val);
 			break;
 		case 0x18:	// Range start
 			if( (byte & 3) != 3 )	val |= global_state.UsagePage;
+			LOG("Usage start %x", val);
 			local_state.UsageMin = val;
 			break;
 		case 0x28:	// Range end (apply)
 			if( (byte & 3) != 3 )	val |= global_state.UsagePage;
+			LOG("Usage end %x (from %x)", val, local_state.UsageMin);
 			_AddItems(&local_state.Usages, local_state.UsageMin, val);
 			break;
 		// - Designators (Index into Physical report)
@@ -405,6 +408,7 @@ static void _AddItem(struct sHID_IntList *List, Uint32 Value)
 		List->Items = realloc( List->Items, List->Space * sizeof(List->Items[0]) );
 	}
 	
+//	LOG("Added %x to %p", Value, List);
 	List->Items[ List->nItems ] = Value;
 	List->nItems ++;
 }

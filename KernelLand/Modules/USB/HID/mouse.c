@@ -5,7 +5,7 @@
  * mouse.c
  * - USB Mouse driver
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include "hid_reports.h"
 #include <fs_devfs.h>
@@ -270,11 +270,13 @@ void HID_Mouse_DataAvail(tUSBInterface *Dev, int EndPt, int Length, void *Data)
 		{
 			// Axis
 			info->Axies[ dest & 0x7F ].CurValue = value;
+			LOG("Axis %i = %i", dest & 0x7F, info->Axies[dest & 0x7F].CurValue);
 		}
 		else
 		{
 			// Button
 			info->Buttons[ dest & 0x7F ] = (value == 0) ? 0 : 0xFF;
+			LOG("Button %i = %x", dest & 0x7F, info->Buttons[dest & 0x7F]);
 		}
 	}
 	
@@ -400,6 +402,8 @@ void HID_int_AddInput(tUSBInterface *Dev, Uint32 Usage, Uint8 Size, Uint32 Min, 
 	default:	tag = 0xFF;	break;
 	}
 	
+	LOG("Usage = 0x%08x, tag = 0x%2x", Usage, tag);
+
 	// --- Add to list of mappings ---
 	info->nMappings ++;
 	info->Mappings = realloc(info->Mappings, info->nMappings * sizeof(info->Mappings[0]));
@@ -426,11 +430,13 @@ void HID_Mouse_Report_Input(
 	)
 {
 	Uint32	usage = 0;
+	LOG("Local->Usages.nItems = %i", Local->Usages.nItems);
 	for( int i = 0; i < Global->ReportCount; i ++ )
 	{
 		// - Update usage
 		if( i < Local->Usages.nItems )
 			usage = Local->Usages.Items[i];
+		LOG("%i: usage = %x", i, usage);
 		// - Add to list
 		HID_int_AddInput(Dev, usage, Global->ReportSize, Global->LogMin, Global->LogMax);
 	}
