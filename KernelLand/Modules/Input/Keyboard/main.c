@@ -1,9 +1,9 @@
 /*
- * Acess2 Kernel - Keyboard Character Mappings
+ * Acess2 Kernel - Keyboard Driver
  * - By John Hodge (thePowersGang)
  *
  * main.c
- * - Core keyboard multiplexer
+ * - Keyboard driver core
  *
  * TODO: Make the key transation code more general (for non-US layouts)
  * TODO: Support multiple virtual keyboards
@@ -54,28 +54,49 @@ tDevFS_Driver	gKB_DevInfo = {
 #endif
 
 // === CODE ===
+/**
+ * \brief Initialise the keyboard driver
+ */
 int Keyboard_Install(char **Arguments)
 {
+	/// - Register with DevFS
 	DevFS_AddDevice( &gKB_DevInfo );
 	return 0;
 }
 
+/**
+ * \brief Pre-unload cleanup function
+ */
 void Keyboard_Cleanup(void)
 {
 	// TODO: Do I need this?
 }
 
-tKeymap *Keyboard_LoadMap(const char *Name)
+// --- Map Management ---
+/**
+ * \brief Load an arbitary keyboard map
+ * \param Name	Keymap name (e.g. "en-us")
+ * \return Keymap pointer
+ */
+tKeymap *Keyboard_int_LoadMap(const char *Name)
 {
+	Log_Warning("Keyboard", "TOD: Impliment Keyboard_int_LoadMap");
 	return NULL;
 }
 
-void Keyboard_FreeMap(tKeymap *Keymap)
+/**
+ * \brief Unload a keyboard map
+ * \param Keymap	Keymap to unload/free
+ */
+void Keyboard_int_FreeMap(tKeymap *Keymap)
 {
 }
 
 // --- VFS Interface ---
 static const char *csaIOCTL_NAMES[] = {DRV_IOCTLNAMES, DRV_KEYBAORD_IOCTLNAMES, NULL};
+/**
+ * \brief Keyboard IOCtl
+ */
 int Keyboard_IOCtl(tVFS_Node *Node, int Id, void *Data)
 {
 	switch(Id)
@@ -93,6 +114,11 @@ int Keyboard_IOCtl(tVFS_Node *Node, int Id, void *Data)
 }
 
 // --- Device Interface ---
+/*
+ * Create a new keyboard device instance
+ * TODO: Allow linking to other VFS nodes
+ * See Input/Keyboard/include/keyboard.h
+ */
 tKeyboard *Keyboard_CreateInstance(int MaxSym, const char *Name)
 {
 	tKeyboard	*ret;
@@ -115,12 +141,20 @@ tKeyboard *Keyboard_CreateInstance(int MaxSym, const char *Name)
 	return ret;
 }
 
+/*
+ * Destroy a keyboard instance
+ * - See Input/Keyboard/include/keyboard.h
+ */
 void Keyboard_RemoveInstance(tKeyboard *Instance)
 {
 	// TODO: Implement
 	Log_Error("Keyboard", "TODO: Implement Keyboard_RemoveInstance");
 }
 
+/*
+ * Handle a key press/release event
+ * - See Input/Keyboard/include/keyboard.h
+ */
 void Keyboard_HandleKey(tKeyboard *Source, Uint32 HIDKeySym)
 {
 	 int	bPressed;
@@ -131,7 +165,7 @@ void Keyboard_HandleKey(tKeyboard *Source, Uint32 HIDKeySym)
 	bPressed = !(HIDKeySym & (1 << 31));
 	HIDKeySym &= 0x7FFFFFFF;
 
-	// Determine action
+	// - Determine the action (Press, Release or Refire)
 	{
 		Uint8	mask = 1 << (HIDKeySym&7);
 		 int	ofs = HIDKeySym / 8;
@@ -152,7 +186,7 @@ void Keyboard_HandleKey(tKeyboard *Source, Uint32 HIDKeySym)
 		else
 			Source->KeyStates[ ofs ] &= ~mask;
 		
-		// Get the action (Press, Refire or Release)
+		// Get the final flag
 		if( bPressed )
 		{
 			if( !oldstate && !otherstate )
@@ -165,7 +199,7 @@ void Keyboard_HandleKey(tKeyboard *Source, Uint32 HIDKeySym)
 			if( !otherstate )
 				flag = KEY_ACTION_RELEASE; // Up
 			else
-				flag = -1 ; // Do nothing
+				flag = -1; // Do nothing
 		}
 	}
 
@@ -173,7 +207,7 @@ void Keyboard_HandleKey(tKeyboard *Source, Uint32 HIDKeySym)
 	// TODO: Support non-trivial layouts
 	layer = !!(Source->State & 3);
 	
-	// Send raw symbol
+	// Do translation
 	if( flag == KEY_ACTION_RELEASE )
 		trans = 0;
 	else {	
@@ -190,6 +224,7 @@ void Keyboard_HandleKey(tKeyboard *Source, Uint32 HIDKeySym)
 			trans = Source->Keymap->Layers[0]->Sym[HIDKeySym];
 	}
 
+	// Call callback (only if the action is valid)
 	if( flag != -1 )
 	{
 		tKeybardCallback Callback = (void*)Source->Node->ImplInt;
@@ -212,7 +247,8 @@ void Keyboard_HandleKey(tKeyboard *Source, Uint32 HIDKeySym)
 
 	// --- Check for Kernel Magic Combos
 	#if USE_KERNEL_MAGIC
-	if(Source->KeyStates[KEYSYM_LEFTCTRL/8] & (1 << (KEYSYM_LEFTCTRL&7))
+	if(bPressed
+	&& Source->KeyStates[KEYSYM_LEFTCTRL/8] & (1 << (KEYSYM_LEFTCTRL&7))
 	&& Source->KeyStates[KEYSYM_LEFTALT/8]  & (1 << (KEYSYM_LEFTALT &7)) )
 	{
 		 int	val;
