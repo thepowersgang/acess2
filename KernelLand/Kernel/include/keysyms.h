@@ -127,6 +127,8 @@ enum eUSB_Keysyms
 	KEYSYM_KBINT7,
 	KEYSYM_KBINT8,
 	KEYSYM_KBINT9,
+
+	// TODO: Define this void
 	
 	KEYSYM_LEFTCTRL = 0xE0,
 	KEYSYM_LEFTSHIFT,
@@ -137,7 +139,7 @@ enum eUSB_Keysyms
 	KEYSYM_RIGHTALT,
 	KEYSYM_RIGHTGUI
 
-	// TODO: Define the rest
+	// > 0xE7 is undefined as of revision 1.12 of the HID Usage Tables
 };
 
 #endif
