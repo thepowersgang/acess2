@@ -137,5 +137,6 @@ enum eTplKeyboard_KeyCodes {
 	 */
 };
 
+#include "keysyms.h"
 
 #endif

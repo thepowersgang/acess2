@@ -30,7 +30,7 @@
 
 // === GLOBALS ===
 MODULE_DEFINE(0, 0x0100, Input_PS2KbMouse, PS2_Install, NULL, NULL);	// Shuts the makefile up
-MODULE_DEFINE(0, 0x0100, PS2Keyboard, KB_Install, NULL, "Input_PS2KbMouse", NULL);
+MODULE_DEFINE(0, 0x0100, PS2Keyboard, KB_Install, NULL, "Input_PS2KbMouse", "Keyboard", NULL);
 MODULE_DEFINE(0, 0x0100, PS2Mouse, PS2Mouse_Install, NULL, "Input_PS2KbMouse", NULL);
 
 // === CODE ===

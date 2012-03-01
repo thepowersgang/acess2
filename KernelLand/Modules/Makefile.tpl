@@ -10,6 +10,7 @@ LIBINCLUDES := $(addprefix -I$(ACESSDIR)/KernelLand/Modules/,$(DEPS))
 LIBINCLUDES := $(addsuffix /include,$(LIBINCLUDES))
 
 CPPFLAGS := -I$(ACESSDIR)/KernelLand/Kernel/include -I$(ACESSDIR)/KernelLand/Kernel/arch/$(ARCHDIR)/include
+CPPFLAGS += -I$(ACESSDIR)/KernelLand/Modules
 CPPFLAGS += -DARCH=$(ARCH) -DARCH_is_$(ARCH) -DARCHDIR_is_$(ARCHDIR)
 CPPFLAGS += $(_CPPFLAGS)
 CPPFLAGS += $(LIBINCLUDES)

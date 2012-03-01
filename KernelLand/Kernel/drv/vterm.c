@@ -21,7 +21,7 @@
 //#define DEFAULT_OUTPUT	"BochsGA"
 #define DEFAULT_OUTPUT	"Vesa"
 #define FALLBACK_OUTPUT	"x86_VGAText"
-#define DEFAULT_INPUT	"PS2Keyboard"
+#define DEFAULT_INPUT	"Keyboard"
 #define	DEFAULT_WIDTH	640
 #define	DEFAULT_HEIGHT	480
 #define DEFAULT_SCROLLBACK	2	// 2 Screens of text + current screen
