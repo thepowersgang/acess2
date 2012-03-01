@@ -72,6 +72,7 @@ struct sVTerm
 	 int	InputRead;	//!< Input buffer read position
 	 int	InputWrite;	//!< Input buffer write position
 	char	InputBuffer[MAX_INPUT_CHARS8];
+	Uint32	RawScancode;	//!< last raw scancode recieved
 //	tSemaphore	InputSemaphore;
 	
 	Uint32		*Buffer;

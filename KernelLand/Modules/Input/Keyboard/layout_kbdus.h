@@ -1,4 +1,12 @@
-
+/*
+ * Acess2 Keyboard Driver
+ * - By John Hodge (thePowersGang)
+ *
+ * layout_kbdus.h
+ * - US Keyboard Layout
+ *
+ * TODO: Support Num-Lock
+ */
 #ifndef _KEYMAP__LAYOUT_KBDUS_H_
 #define _KEYMAP__LAYOUT_KBDUS_H_
 
@@ -14,14 +22,15 @@ tKeymapLayer	gpKBDUS1 = {
 	'1', '2', '3', '4', '5', '6', '7', '8', '9', '0',
 	'\n', '\x1b', '\b', '\t', ' ', '-', '=', '[', ']', '\\', '#', ';',
 	'\'', '`', ',', '.', '/',
-//	KEY_CAPSLOCK,
-//	KEY_F1, KEY_F2, KEY_F3, KEY_F4, KEY_F5, KEY_F6,
-//	KEY_F7, KEY_F8, KEY_F9, KEY_F10, KEY_F11, KEY_F12,
-//	0, KEY_SCROLLLOCK, KEY_PAUSE, KEY_INS, KEY_HOME, KEY_PGUP, KEY_PGDOWN,
-//	KEY_RIGHT, KEY_LEFT, KEY_UP, KEY_DOWN,
-//	KEY_NUMLOCK, KEY_KPSLASH, KEY_KPSTAR, KEY_KPMINUS,
-//	KEY_KPPLUS, KEY_KPENTER,
-//	KEY_KPEND, KEY_KPDOWN, KEY_KPLEFT,
+	0,	// Capslock
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	// F1 -> F12
+	0, 0, 0, 0, 0, 0, 0,	// ?, ScrollLock, Pause, Insert, Home, PgUp, PgDn
+	0, 0, 0, 0,	// Right, Left, Up, Down
+	0, '/', '*', '-', '+', '\n',	// NumLock, Keypad /, *, -, +, Enter
+//	KEYSYM_KPEND, KEYSYM_KPDOWN, KEYSYM_KPPGDN,
+//	KEYSYM_KPLEFT, KEYSYM_KP5, KEY_KPRIGHT,
+//	KEYSYM_KPHOME, KEYSYM_KPUP, KEYSYM_KPPGUP,
+//	KEYSYM_PKINS, KEYSYM_KPDEL
 	}
 };
 tKeymapLayer	gpKBDUS1s = {
@@ -38,8 +47,7 @@ tKeymapLayer	gpKBDUS1s = {
 
 tKeymap	gKeymap_KBDUS = {
 	"en-us",
-	2,
-	{&gpKBDUS1, &gpKBDUS1s}
+	2, {&gpKBDUS1, &gpKBDUS1s}
 };
 
 #endif
