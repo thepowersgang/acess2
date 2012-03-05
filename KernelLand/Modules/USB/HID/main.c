@@ -27,6 +27,7 @@ struct sHID_Device
 // === IMPORTS ===
 extern tHID_ReportCallbacks	gHID_Mouse_ReportCBs;
 extern tDevFS_Driver	gHID_Mouse_DevFS;
+extern tHID_ReportCallbacks	gHID_Kb_ReportCBs;
 
 // === PROTOTYPES ===
  int	HID_Initialise(char **Arguments);
@@ -79,7 +80,8 @@ void HID_InterruptCallback(tUSBInterface *Dev, int EndPt, int Length, void *Data
 		Log_Error("USB HID", "Device %p doesn't have a data pointer.", Dev);
 		return ;
 	}
-	
+
+	LOG("Data for %p", info->DataAvail);	
 	info->DataAvail(Dev, EndPt, Length, Data);
 }
 
@@ -206,12 +208,12 @@ tHID_ReportCallbacks *HID_RootCollection(
 			break;
 		case 0x0006:	// Keyboard
 			LOG("Desktop->Keyboard");
-			break;
+			return &gHID_Kb_ReportCBs;
 		}
 		break;
 	case 0x0007:	// Keyboard / Keypad
 		LOG("Keyboard");
-		break;
+		return &gHID_Kb_ReportCBs;
 	}
 	return NULL;
 }
