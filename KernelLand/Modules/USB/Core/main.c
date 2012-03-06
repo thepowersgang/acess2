@@ -36,7 +36,6 @@ tDevFS_Driver	gUSB_DrvInfo = {
 		.Type = &gUSB_RootNodeType
 	}
 };
-tUSBHost	*gUSB_Hosts = NULL;
 
 // === CODE ===
 /**
