@@ -67,10 +67,11 @@ tVideo_IOCtl_Pos	gTegra2Vid_CursorPos;
  */
 int Tegra2Vid_Install(char **Arguments)
 {
-	return MODULE_ERR_NOTNEEDED;
+//	return MODULE_ERR_NOTNEEDED;
 //	KeyVal_Parse(&gTegra2Vid_KeyValueParser, Arguments);
 
 	gpTegra2Vid_IOMem = (void*)MM_MapHWPages(gTegra2Vid_PhysBase, 256/4);
+	#if 0
 	{
 		Log_Debug("Tegra2Vid", "Display CMD Registers");
 		for( int i = 0x000; i <= 0x01A; i ++ )
@@ -95,11 +96,12 @@ int Tegra2Vid_Install(char **Arguments)
 		for( int i = 0x800; i <= 0x80A; i ++ )
 			Log_Debug("Tegra2Vid", "[0x%03x] = 0x%08x", i, gpTegra2Vid_IOMem[i]);
 	}
+	#endif
 //	return 1;
 
 	// HACK!!!
 //	{
-//		int	w = 1980, h = 1080;
+//		int	w = 1680, h = 1050;
 //		gpTegra2Vid_IOMem[DC_DISP_DISP_ACTIVE_0] = (h << 16) | w;
 //		gpTegra2Vid_IOMem[DC_WIN_A_SIZE_0] = (h << 16) | w;
 //		gpTegra2Vid_IOMem[DC_WIN_A_PRESCALED_SIZE_0] = (h << 16) | w;
@@ -116,7 +118,7 @@ int Tegra2Vid_Install(char **Arguments)
 		);
 	memset(gpTegra2Vid_Framebuffer, 0xFF, 0x1000);
 
-	gpTegra2Vid_IOMem[DC_WIN_A_WIN_OPTIONS_0] &= ~0x40;
+//	gpTegra2Vid_IOMem[DC_WIN_A_WIN_OPTIONS_0] &= ~0x40;
 	gpTegra2Vid_IOMem[DC_WIN_A_COLOR_DEPTH_0] = 12;	// Could be 13 (BGR/RGB)
 	gTegra2Vid_DrvUtil_BufInfo.Width = 1024;
 	gTegra2Vid_DrvUtil_BufInfo.Height = 768;
@@ -210,6 +212,11 @@ int Tegra2Vid_IOCtl(tVFS_Node *Node, int ID, void *Data)
 			LEAVE_RET('i', 0);
 		if( mode->flags	!= 0 )
 			LEAVE_RET('i', 0);
+
+		// DEBUG!!!
+		mode->width = 1024;
+		mode->height = 768;
+		break;
 
 		ret = 0;
 
