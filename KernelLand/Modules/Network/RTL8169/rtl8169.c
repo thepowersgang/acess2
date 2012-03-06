@@ -27,6 +27,8 @@
 
 enum eRegisters
 {
+	REG_INTMASK  = 0x3C,
+	REG_INSSTATE = 0x3E,
 	REG_TXC = 0x40,
 	REG_RXC = 0x44,
 }
