@@ -98,12 +98,14 @@ int Tegra2Vid_Install(char **Arguments)
 //	return 1;
 
 	// HACK!!!
-//	{
-//		int	w = 1980, h = 1080;
-//		gpTegra2Vid_IOMem[DC_DISP_DISP_ACTIVE_0] = (h << 16) | w;
-//		gpTegra2Vid_IOMem[DC_WIN_A_SIZE_0] = (h << 16) | w;
-//		gpTegra2Vid_IOMem[DC_WIN_A_PRESCALED_SIZE_0] = (h << 16) | w;
-//	}
+#if 0
+	{
+		int	w = 1680, h = 1050;
+		gpTegra2Vid_IOMem[DC_DISP_DISP_ACTIVE_0] = (h << 16) | w;
+		gpTegra2Vid_IOMem[DC_WIN_A_SIZE_0] = (h << 16) | w;
+		gpTegra2Vid_IOMem[DC_WIN_A_PRESCALED_SIZE_0] = (h << 16) | w;
+	}
+#endif
 
 	giTegra2Vid_FramebufferSize =
 		(gpTegra2Vid_IOMem[DC_WIN_A_SIZE_0]&0xFFFF)
@@ -116,8 +118,8 @@ int Tegra2Vid_Install(char **Arguments)
 		);
 	memset(gpTegra2Vid_Framebuffer, 0xFF, 0x1000);
 
-	gpTegra2Vid_IOMem[DC_WIN_A_WIN_OPTIONS_0] &= ~0x40;
-	gpTegra2Vid_IOMem[DC_WIN_A_COLOR_DEPTH_0] = 12;	// Could be 13 (BGR/RGB)
+//	gpTegra2Vid_IOMem[DC_WIN_A_WIN_OPTIONS_0] &= ~0x40;
+//	gpTegra2Vid_IOMem[DC_WIN_A_COLOR_DEPTH_0] = 12;	// Could be 13 (BGR/RGB)
 	gTegra2Vid_DrvUtil_BufInfo.Width = 1024;
 	gTegra2Vid_DrvUtil_BufInfo.Height = 768;
 	gTegra2Vid_DrvUtil_BufInfo.Pitch = 1024*4;
