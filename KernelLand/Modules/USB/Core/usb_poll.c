@@ -5,7 +5,7 @@
  * usb_poll.c
  * - Endpoint polling
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <usb_core.h>
 #include "usb.h"
 #include <timers.h>
@@ -32,6 +32,9 @@ void USB_int_PollCallback(void *Ptr, void *Data, size_t Length)
 	op->Length = Length;
 	op->Data = ep->InputData;
 
+	LOG("op %p, endpoint %p (0x%x)", op, ep,
+		ep->Interface->Dev->Address * 16 + ep->EndpointNum);
+
 	Workqueue_AddWork(&gUSB_AsyncQueue, op);
 }
 
@@ -49,6 +52,7 @@ void USB_StartPollingEndpoint(tUSBInterface *Iface, int Endpoint)
 	endpt = &Iface->Endpoints[Endpoint-1];
 	LOG("endpt(%p)->PollingPeriod = %i", endpt, endpt->PollingPeriod);
 	if(endpt->PollingPeriod > 256 || endpt->PollingPeriod <= 0) {
+		LOG("Invalid polling period");
 		LEAVE('-');
 		return ;
 	}
@@ -56,7 +60,7 @@ void USB_StartPollingEndpoint(tUSBInterface *Iface, int Endpoint)
 	// TODO: Check that this endpoint isn't already on the queue
 
 	endpt->InputData = malloc(endpt->MaxPacketSize);
-
+	LOG("Polling 0x%x at %i ms", Iface->Dev->Address * 16 + endpt->EndpointNum, endpt->PollingPeriod);
 	Iface->Dev->Host->HostDef->InterruptIN(
 		Iface->Dev->Host->Ptr,
 		Iface->Dev->Address * 16 + endpt->EndpointNum,

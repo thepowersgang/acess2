@@ -133,6 +133,8 @@ void Input_HandleSelect(fd_set *set)
 		// Handle movement
 		Video_SetCursorPos( axies[0].CursorPos, axies[1].CursorPos );
 
+		_SysDebug("Mouse to %i,%i", axies[0].CursorPos, axies[1].CursorPos);
+
 		WM_Input_MouseMoved(
 			giInput_MouseX, giInput_MouseY,
 			axies[0].CursorPos, axies[1].CursorPos

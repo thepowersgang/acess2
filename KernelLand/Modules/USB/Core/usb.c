@@ -21,6 +21,9 @@ extern tUSBDriver gUSBHub_Driver;
 tUSBHub	*USB_RegisterHost(tUSBHostDef *HostDef, void *ControllerPtr, int nPorts);
 
 // === GLOBALS ===
+tMutex	glUSB_Hosts;
+tUSBHost	*gUSB_Hosts = NULL;
+tMutex	glUSB_InterfaceDrivers;
 tUSBDriver	*gpUSB_InterfaceDrivers = &gUSBHub_Driver;
 
 // === CODE ===
@@ -51,9 +54,11 @@ tUSBHub *USB_RegisterHost(tUSBHostDef *HostDef, void *ControllerPtr, int nPorts)
 	host->RootHub.nPorts = nPorts;
 	memset(host->RootHub.Devices, 0, sizeof(void*)*nPorts);
 
-	// TODO: Lock
+	// Append to list
+	Mutex_Acquire( &glUSB_Hosts );
 	host->Next = gUSB_Hosts;
 	gUSB_Hosts = host;
+	Mutex_Release( &glUSB_Hosts );
 
 	return &host->RootHub;
 }
@@ -61,8 +66,12 @@ tUSBHub *USB_RegisterHost(tUSBHostDef *HostDef, void *ControllerPtr, int nPorts)
 // --- Drivers ---
 void USB_RegisterDriver(tUSBDriver *Driver)
 {
+	Mutex_Acquire( &glUSB_InterfaceDrivers );
 	Driver->Next = gpUSB_InterfaceDrivers;
 	gpUSB_InterfaceDrivers = Driver;
+	Mutex_Release( &glUSB_InterfaceDrivers );
+	
+	// TODO: Recheck devices that didn't have a driver
 }
 
 tUSBDriver *USB_int_FindDriverByClass(Uint32 ClassCode)
