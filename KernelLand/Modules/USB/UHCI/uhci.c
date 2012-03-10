@@ -20,6 +20,8 @@
 //#define NUM_TDs	1024
 #define NUM_TDs	(PAGE_SIZE/sizeof(tUHCI_TD))
 #define MAX_PACKET_SIZE	0x400
+#define MAX_INTERRUPT_LOAD	1024	// Maximum bytes per frame for interrupts
+
 #define PID_IN	0x69
 #define PID_OUT	0xE1
 #define PID_SETUP	0x2D
@@ -192,8 +194,10 @@ int UHCI_int_InitHost(tUHCI_Controller *Host)
 		Host->FrameList[i] = addr | 2;
 	}
 	for( int i = 0; i < 64; i ++ ) {
-		 int	ofs = dest_offsets[ i & (32-1) ];
+		 int	ofs = dest_offsets[ i & (32-1) ] * 2 + (i >= 32);
 		Uint32	addr = Host->PhysTDQHPage + ofs * sizeof(tUHCI_QH);
+		LOG("Slot %i to (%i,%i,%i,%i) ms slots",
+			ofs, 0 + i*4, 256 + i*4, 512 + i*4, 768 + i*4);
 		Host->FrameList[  0 + i*4] = addr | 2;
 		Host->FrameList[256 + i*4] = addr | 2;
 		Host->FrameList[512 + i*4] = addr | 2;
@@ -403,7 +407,7 @@ void UHCI_int_SetInterruptPoll(tUHCI_Controller *Cont, tUHCI_TD *TD, int Period)
 {
 	tUHCI_QH	*qh;
 	const int	qh_offsets[] = {126, 124, 120, 112, 96, 64,  0};
-//	const int	qh_sizes[]   = {  1,   2,   4,   8, 16, 32, 64};
+	const int	qh_sizes[]   = {  1,   2,   4,   8, 16, 32, 64};
 	
 	// Bounds limit
 	if( Period < 0 )	return ;
@@ -418,15 +422,52 @@ void UHCI_int_SetInterruptPoll(tUHCI_Controller *Cont, tUHCI_TD *TD, int Period)
 	if( period_slot < 2 )	period_slot = 0;
 	else	period_slot -= 2;
 	
-	TD->_info.QueueIndex = qh_offsets[period_slot];	// Actually re-filled in _AppendTD, but meh
-	qh = Cont->TDQHPage->InterruptQHs + TD->_info.QueueIndex;
+	// _AppendTD calculates this from qh, but we use it to determine qh
+	TD->_info.QueueIndex = qh_offsets[period_slot];
 	// TODO: Find queue with lowest load
+#if 1
+	 int	min_load = 0;
+	 int	min_load_slot = 0;
+	for( int i = 0; i < qh_sizes[period_slot]; i ++ )
+	{
+		int load, index;
+		index = qh_offsets[period_slot] + i;
+		load = 0;
+		while( index >= 0 && index < 127 )
+		{
+			qh = Cont->TDQHPage->InterruptQHs + index;
+			load += Cont->InterruptLoad[index];
+			index = ((qh->Next & ~3) - Cont->PhysTDQHPage)/sizeof(tUHCI_QH);
+		}
+
+		LOG("Slot %i (and below) load %i", qh_offsets[period_slot] + i, load);
+
+		// i = 0 will initialise the values, otherwise update if lower
+		if( i == 0 || load < min_load )
+		{
+			min_load = load;
+			min_load_slot = i;
+		}
+		// - Fast return if no load
+		if( load == 0 )	break;
+	}
+	min_load_slot += qh_offsets[period_slot];
+	TD->_info.QueueIndex = min_load_slot;
+	if( min_load + (TD->Control & 0x7FF) > MAX_INTERRUPT_LOAD )
+	{
+		Log_Warning("UHCI", "Interrupt load on %i ms is too high (slot %i load %i bytes)",
+			1 << (period_slot+2), min_load_slot, min_load
+			);
+	}
+	Cont->InterruptLoad[min_load_slot] += (TD->Control & 0x7FF);
+#endif
+	qh = Cont->TDQHPage->InterruptQHs + TD->_info.QueueIndex;
 
 	LOG("period_slot = %i, QueueIndex = %i",
 		period_slot, TD->_info.QueueIndex);
 
 	// Stop any errors causing the TD to stop (NAK will error)
-	// - If the device goes away, the interrupt should be stopped anyway
+	// - If the device is unplugged, the removal code should remove the interrupt
 	TD->Control &= ~(3 << 27);
 
 	UHCI_int_AppendTD(Cont, qh, TD);

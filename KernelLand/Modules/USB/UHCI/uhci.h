@@ -165,8 +165,9 @@ struct sUHCI_Controller
 	tUSBHub	*RootHub;
 
 	/**
+	 * \brief Load in bytes on each interrupt queue
 	 */
-//	 int	FrameLoads[1024];
+	 int	InterruptLoad[128];
 
 	tPAddr  	PhysTDQHPage;
 	struct
