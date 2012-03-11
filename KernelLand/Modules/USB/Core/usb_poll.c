@@ -5,7 +5,7 @@
  * usb_poll.c
  * - Endpoint polling
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <usb_core.h>
 #include "usb.h"
 #include <timers.h>

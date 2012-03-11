@@ -7,7 +7,7 @@
 #include <modules.h>
 #include "common.h"
 
-// === IMPORTS ===
+// === CONSTANTS ===
 // TODO: Allow runtime/compile-time switching
 //       Maybe PCI will have it?
 // Integrator-CP
@@ -31,17 +31,17 @@
 // === GLOBALS ===
 MODULE_DEFINE(0, 0x0100, Input_PS2KbMouse, PS2_Install, NULL, NULL);	// Shuts the makefile up
 MODULE_DEFINE(0, 0x0100, PS2Keyboard, KB_Install, NULL, "Input_PS2KbMouse", "Keyboard", NULL);
-MODULE_DEFINE(0, 0x0100, PS2Mouse, PS2Mouse_Install, NULL, "Input_PS2KbMouse", NULL);
+MODULE_DEFINE(0, 0x0100, PS2Mouse, PS2Mouse_Install, NULL, "Input_PS2KbMouse", "Mouse", NULL);
 
 // === CODE ===
 int PS2_Install(char **Arguments)
 {
 	#if ARCHDIR_is_x86 || ARCHDIR_is_x86_64
 	KBC8042_Init();
-	gpMouse_EnableFcn = KBC8042_EnableMouse;
+	gpPS2Mouse_EnableFcn = KBC8042_EnableMouse;
 	#elif ARCHDIR_is_armv7
 	PL050_Init(KEYBOARD_BASE, KEYBOARD_IRQ, MOUSE_BASE, MOUSE_IRQ);
-	gpMouse_EnableFcn = PL050_EnableMouse;
+	gpPS2Mouse_EnableFcn = PL050_EnableMouse;
 	#endif
 
 	return MODULE_ERR_OK;

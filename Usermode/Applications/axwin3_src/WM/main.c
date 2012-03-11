@@ -49,7 +49,7 @@ int main(int argc, char *argv[])
 		gsTerminalDevice = "/Devices/VTerm/6";
 	}
 	if( gsMouseDevice == NULL ) {
-		gsMouseDevice = "/Devices/PS2Mouse";
+		gsMouseDevice = "/Devices/Mouse/system";
 	}
 	
 	Video_Setup();

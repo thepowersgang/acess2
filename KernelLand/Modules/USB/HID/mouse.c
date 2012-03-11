@@ -8,7 +8,6 @@
 #define DEBUG	0
 #include <acess.h>
 #include "hid_reports.h"
-#include <fs_devfs.h>
 #include <Input/Mouse/include/mouse.h>
 
 // === CONSTANTS ===

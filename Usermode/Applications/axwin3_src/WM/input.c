@@ -99,6 +99,8 @@ void Input_HandleSelect(fd_set *set)
 
 	if(FD_ISSET(giMouseFD, set))
 	{
+		const int c_n_axies = 4;
+		const int c_n_buttons = 5;
 		 int	i;
 		struct sMouseAxis {
 			 int16_t	MinValue;
@@ -111,17 +113,30 @@ void Input_HandleSelect(fd_set *set)
 			uint16_t	NAxies;
 			uint16_t	NButtons;
 		}	*mouseinfo;
-		char	data[sizeof(*mouseinfo) + sizeof(*axies)*3 + 5];
+		char	data[sizeof(*mouseinfo) + sizeof(*axies)*c_n_axies + c_n_buttons];
 
 		mouseinfo = (void*)data;
 
 		seek(giMouseFD, 0, SEEK_SET);
 		i = read(giMouseFD, data, sizeof(data));
 		i -= sizeof(*mouseinfo);
-		if( i < 0 )
+		if( i < 0 ) {
+			_SysDebug("Mouse data undersized (no header)");
 			return ;
-		if( i < sizeof(*axies)*mouseinfo->NAxies + mouseinfo->NButtons )
+		}
+		if( mouseinfo->NAxies > c_n_axies || mouseinfo->NButtons > c_n_buttons ) {
+			_SysDebug(
+				"%i axies, %i buttons above prealloc counts (%i, %i)",
+				mouseinfo->NAxies, mouseinfo->NButtons, c_n_axies, c_n_buttons
+				);
 			return ;
+		}
+		if( i < sizeof(*axies)*mouseinfo->NAxies + mouseinfo->NButtons ) {
+			_SysDebug("Mouse data undersized (body doesn't fit %i < %i)",
+				i, sizeof(*axies)*mouseinfo->NAxies + mouseinfo->NButtons
+				);
+			return ;
+		}
 
 		// What? No X/Y?
 		if( mouseinfo->NAxies < 2 )
@@ -133,7 +148,7 @@ void Input_HandleSelect(fd_set *set)
 		// Handle movement
 		Video_SetCursorPos( axies[0].CursorPos, axies[1].CursorPos );
 
-		_SysDebug("Mouse to %i,%i", axies[0].CursorPos, axies[1].CursorPos);
+//		_SysDebug("Mouse to %i,%i", axies[0].CursorPos, axies[1].CursorPos);
 
 		WM_Input_MouseMoved(
 			giInput_MouseX, giInput_MouseY,

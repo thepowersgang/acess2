@@ -38,7 +38,7 @@ tVFS_NodeType	gMouse_DevNodeType = {
 };
 tDevFS_Driver	gMouse_DevInfo = {
 	NULL, "Mouse",
-	{ .Flags = VFS_FFLAG_DIRECTORY, .Type = &gMouse_RootNodeType }
+	{ .Flags = VFS_FFLAG_DIRECTORY, .Type = &gMouse_RootNodeType, .Size = 1 }
 };
 tPointer	gMouse_Pointer;
 
@@ -53,6 +53,8 @@ int Mouse_Install(char **Arguments)
 
 	gMouse_Pointer.Node.Type = &gMouse_DevNodeType;
 	gMouse_Pointer.Node.ImplPtr = &gMouse_Pointer;
+	gMouse_Pointer.FileHeader = (void*)gMouse_Pointer.FileData;
+	gMouse_Pointer.Axies = (void*)( gMouse_Pointer.FileHeader + 1 );
 
 	return 0;
 }
@@ -92,6 +94,7 @@ int Mouse_Dev_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	case JOY_IOCTL_GETSETAXISLIMIT:
 		if( !numval || !CheckMem(numval, sizeof(*numval)) )
 			return -1;
+		LOG("GetSetAxisLimit %i = %i", numval->Num, numval->Value);
 		if(numval->Num < 0 || numval->Num >= ptr->FileHeader->NAxies)
 			return 0;
 		if(numval->Value != -1)
@@ -118,6 +121,8 @@ size_t Mouse_Dev_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Data)
 	tPointer *ptr = Node->ImplPtr;
 	 int	n_buttons = ptr->FileHeader->NButtons;
 	 int	n_axies = ptr->FileHeader->NAxies;
+
+	ENTER("pNode iLength pData", Node, Length, Data);
 
 	// TODO: Locking (Acquire)
 
@@ -155,6 +160,7 @@ size_t Mouse_Dev_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Data)
 
 	// TODO: Locking (Release)
 
+	LEAVE('i', Length);
 	return Length;
 }
 
@@ -192,7 +198,7 @@ tMouse *Mouse_Register(const char *Name, int NumButtons, int NumAxies)
 	// TODO: Locking
 	ret->Next = target->FirstDev;
 	target->FirstDev = ret;
-	if( ret->NumAxies <= MAX_AXIES && ret->NumAxies > target->FileHeader->NAxies ) {
+	if( ret->NumAxies > target->FileHeader->NAxies ) {
 		// Clear new axis data
 		memset(
 			target->Axies + target->FileHeader->NAxies,
@@ -202,7 +208,7 @@ tMouse *Mouse_Register(const char *Name, int NumButtons, int NumAxies)
 		target->FileHeader->NAxies = ret->NumAxies;
 		target->Buttons = (void*)( target->Axies + ret->NumAxies );
 	}
-	if( ret->NumButtons <= MAX_BUTTONS && ret->NumButtons > target->FileHeader->NButtons ) {
+	if( ret->NumButtons > target->FileHeader->NButtons ) {
 		// No need to move as buttons can expand out into space
 		target->FileHeader->NButtons = ret->NumButtons;
 	}
@@ -225,18 +231,25 @@ void Mouse_RemoveInstance(tMouse *Instance)
  */
 void Mouse_HandleEvent(tMouse *Handle, Uint32 ButtonState, int *AxisDeltas)
 {
-	tPointer *ptr = Handle->Pointer;
+	tPointer *ptr;
 	
-	Handle->ButtonState = ButtonState;
+	ENTER("pHandle xButtonState pAxisDeltas", Handle, ButtonState, AxisDeltas);
 
+	ptr = Handle->Pointer;
+
+	// Update device state
+	Handle->ButtonState = ButtonState;
 	memcpy(Handle->LastAxisVal, AxisDeltas, sizeof(*AxisDeltas)*Handle->NumAxies);
 
+	// Update cursor position
 	// TODO: Acceleration?
-	
 	for( int i = 0; i < Handle->NumAxies; i ++ )
 	{
 		ptr->Axies[i].CursorPos = MIN(MAX(0, ptr->Axies[i].CursorPos+AxisDeltas[i]), ptr->AxisLimits[i]);
+		LOG("Axis %i: delta = %i, pos = %i", i, AxisDeltas[i], ptr->Axies[i].CursorPos);
 	}
+
 	VFS_MarkAvaliable( &ptr->Node, 1 );
+	LEAVE('-');
 }
 

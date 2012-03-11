@@ -5,7 +5,7 @@
  * main.c
  * - Driver Core
  */
-#define DEBUG	1
+#define DEBUG	0
 #define VERSION	VER2(0,1)
 #include <acess.h>
 #include <modules.h>

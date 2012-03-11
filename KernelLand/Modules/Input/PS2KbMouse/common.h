@@ -21,6 +21,6 @@ extern void	PL050_EnableMouse(void);
 extern void	KB_HandleScancode(Uint8 scancode);
 extern void	PS2Mouse_HandleInterrupt(Uint8 InputByte);
 
-extern void	(*gpMouse_EnableFcn)(void);
+extern void	(*gpPS2Mouse_EnableFcn)(void);
 
 #endif
