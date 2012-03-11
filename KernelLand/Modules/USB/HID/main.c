@@ -26,7 +26,6 @@ struct sHID_Device
 
 // === IMPORTS ===
 extern tHID_ReportCallbacks	gHID_Mouse_ReportCBs;
-extern tDevFS_Driver	gHID_Mouse_DevFS;
 extern tHID_ReportCallbacks	gHID_Kb_ReportCBs;
 
 // === PROTOTYPES ===
@@ -41,7 +40,7 @@ static void	_AddItems(struct sHID_IntList *List, Uint32 First, Uint32 Last);
 static void	_FreeList(struct sHID_IntList *List);
 
 // === GLOBALS ===
-MODULE_DEFINE(0, VERSION, USB_HID, HID_Initialise, NULL, "USB_Core", NULL);
+MODULE_DEFINE(0, VERSION, USB_HID, HID_Initialise, NULL, "USB_Core", "Keyboard", "Mouse", NULL);
 tUSBDriver	gHID_USBDriver = {
 	.Name = "HID",
 	.Match = {.Class = {0x030000, 0xFF0000}},
@@ -60,8 +59,6 @@ tHID_ReportCallbacks	gHID_RootCallbacks = {
 int HID_Initialise(char **Arguments)
 {
 	USB_RegisterDriver( &gHID_USBDriver );
-	
-	DevFS_AddDevice( &gHID_Mouse_DevFS );
 	
 	return 0;
 }

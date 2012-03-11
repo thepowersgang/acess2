@@ -9,12 +9,11 @@
 #include <acess.h>
 #include "hid_reports.h"
 #include <fs_devfs.h>
-#include <api_drv_joystick.h>
+#include <Input/Mouse/include/mouse.h>
 
 // === CONSTANTS ===
 #define MAX_AXIES	3	// X, Y, Scroll
 #define MAX_BUTTONS	5	// Left, Right, Middle, ...
-#define FILE_SIZE	(sizeof(tJoystick_FileHeader) + MAX_AXIES*sizeof(tJoystick_Axis) + MAX_BUTTONS)
 
 // === TYPES ===
 typedef struct sHID_Mouse	tHID_Mouse;
@@ -24,18 +23,8 @@ struct sHID_Mouse
 	tHID_Mouse	*Next;
 	tUSB_DataCallback	DataAvail;
 
-	// VFS Node
-	tVFS_Node	Node;
+	tMouse	*Handle;
 
-	// Joystick Spec data	
-	Uint8	FileData[ FILE_SIZE ];
-	tJoystick_FileHeader	*FileHeader;
-	tJoystick_Axis	*Axies;
-	Uint8	*Buttons;
-
-	// Limits for axis positions
-	Uint16	AxisLimits[MAX_AXIES];
-	
 	// - Report parsing
 	 int	nMappings;
 	struct {
@@ -48,13 +37,7 @@ struct sHID_Mouse
 };
 
 // === PROTOTYES ===
-char	*HID_Mouse_Root_ReadDir(tVFS_Node *Node, int Pos);
-tVFS_Node	*HID_Mouse_Root_FindDir(tVFS_Node *Node, const char *Name);
-size_t	HID_Mouse_Dev_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
- int	HID_Mouse_Dev_IOCtl(tVFS_Node *Node, int ID, void *Data);
-void	HID_Mouse_Dev_Reference(tVFS_Node *Node);
-void	HID_Mouse_Dev_Close(tVFS_Node *Node);
-
+Sint32	_ReadBits(void *Data, int Offset, int Length);
 void	HID_Mouse_DataAvail(tUSBInterface *Dev, int EndPt, int Length, void *Data);
 
 tHID_ReportCallbacks	*HID_Mouse_Report_Collection(tUSBInterface *Dev, tHID_ReportGlobalState *Global, tHID_ReportLocalState *Local, Uint32 Value);
@@ -62,25 +45,6 @@ void	HID_Mouse_Report_EndCollection(tUSBInterface *Dev);
 void	HID_Mouse_Report_Input(tUSBInterface *Dev, tHID_ReportGlobalState *Global, tHID_ReportLocalState *Local, Uint32 Value);
 
 // === GLOBALS ===
-tVFS_NodeType	gHID_Mouse_RootNodeType = {
-	.TypeName = "HID Mouse Root",
-	.ReadDir = HID_Mouse_Root_ReadDir,
-	.FindDir = HID_Mouse_Root_FindDir
-};
-tVFS_NodeType	gHID_Mouse_DevNodeType = {
-	.TypeName = "HID Mouse Dev",
-	.Read = HID_Mouse_Dev_Read,
-	.IOCtl = HID_Mouse_Dev_IOCtl,
-	.Reference = HID_Mouse_Dev_Reference,
-	.Close = HID_Mouse_Dev_Close,
-};
-tDevFS_Driver	gHID_Mouse_DevFS = {
-	.Name = "USBMouse",
-	.RootNode = {
-		.Type = &gHID_Mouse_RootNodeType,
-		.Flags = VFS_FFLAG_DIRECTORY
-	}
-};
 tHID_ReportCallbacks	gHID_Mouse_ReportCBs = {
 	.Collection = HID_Mouse_Report_Collection,
 	.EndCollection = HID_Mouse_Report_EndCollection,
@@ -91,98 +55,6 @@ tHID_Mouse	*gpHID_FirstMouse;
 tHID_Mouse	*gpHID_LastMouse = (tHID_Mouse*)&gpHID_FirstMouse;
 
 // === CODE ===
-// ----------------------------------------------------------------------------
-// VFS Interface
-// ----------------------------------------------------------------------------
-char *HID_Mouse_Root_ReadDir(tVFS_Node *Node, int Pos)
-{
-	char	data[3];
-	if(Pos < 0 || Pos >= Node->Size)	return NULL;
-	
-	snprintf(data, 3, "%i", Pos);
-	return strdup(data);
-}
-
-tVFS_Node *HID_Mouse_Root_FindDir(tVFS_Node *Node, const char *Name)
-{
-	 int	ID;
-	 int	ofs;
-	tHID_Mouse	*mouse;
-	
-	if( Name[0] == '\0' )
-		return NULL;
-	
-	ofs = ParseInt(Name, &ID);
-	if( ofs == 0 || Name[ofs] != '\0' )
-		return NULL;
-	
-	// Scan list, locate item
-	Mutex_Acquire(&glHID_MouseListLock);
-	for( mouse = gpHID_FirstMouse; mouse && ID --; mouse = mouse->Next ) ;
-	if( mouse )
-		mouse->Node.ReferenceCount ++;	
-	Mutex_Release(&glHID_MouseListLock);
-
-	if( mouse )
-		return &mouse->Node;
-	else
-		return NULL;
-}
-
-size_t HID_Mouse_Dev_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
-{
-	tHID_Mouse	*info = Node->ImplPtr;
-	
-	if( Offset > FILE_SIZE )	return 0;
-	
-	if( Length > FILE_SIZE )	Length = FILE_SIZE;
-	if( Offset + Length > FILE_SIZE )	Length = FILE_SIZE - Offset;
-
-	memcpy( Buffer, info->FileData + Offset, Length );
-
-	VFS_MarkAvaliable( &info->Node, 0 );
-	
-	return Length;
-}
-
-static const char *csaDevIOCtls[] = {DRV_IOCTLNAMES, DRV_JOY_IOCTLNAMES, NULL};
-int HID_Mouse_Dev_IOCtl(tVFS_Node *Node, int ID, void *Data)
-{
-	tJoystick_NumValue	*numval = Data;
-	tHID_Mouse	*info = Node->ImplPtr;
-	switch(ID)
-	{
-	BASE_IOCTLS(DRV_TYPE_JOYSTICK, "USBMouse", 0x050, csaDevIOCtls);
-	
-	case JOY_IOCTL_GETSETAXISLIMIT:
-		if( !numval || !CheckMem(numval, sizeof(*numval)) )
-			return -1;
-		if(numval->Num < 0 || numval->Num >= MAX_AXIES)
-			return 0;
-		if(numval->Value != -1)
-			info->AxisLimits[numval->Num] = numval->Value;
-		return info->AxisLimits[numval->Num];
-
-	case JOY_IOCTL_GETSETAXISPOSITION:
-		if( !numval || !CheckMem(numval, sizeof(*numval)) )
-			return -1;
-		if(numval->Num < 0 || numval->Num >= MAX_AXIES)
-			return 0;
-		if(numval->Value != -1)
-			info->Axies[numval->Num].CursorPos = numval->Value;
-		return info->Axies[numval->Num].CursorPos;
-	}
-	return -1;
-}
-void HID_Mouse_Dev_Reference(tVFS_Node *Node)
-{
-	Node->ReferenceCount ++;
-}
-void HID_Mouse_Dev_Close(tVFS_Node *Node)
-{
-	Node->ReferenceCount --;
-}
-
 // ----------------------------------------------------------------------------
 // Data input / Update
 // ----------------------------------------------------------------------------
@@ -247,6 +119,8 @@ void HID_Mouse_DataAvail(tUSBInterface *Dev, int EndPt, int Length, void *Data)
 {
 	tHID_Mouse	*info;
 	 int	ofs;
+	Uint32	button_value = 0;
+	 int	axis_values[MAX_AXIES] = {0};
 	
 	info = USB_GetDeviceDataPtr(Dev);
 	if( !info )	return ;
@@ -269,34 +143,20 @@ void HID_Mouse_DataAvail(tUSBInterface *Dev, int EndPt, int Length, void *Data)
 		if( dest & 0x80 )
 		{
 			// Axis
-			info->Axies[ dest & 0x7F ].CurValue = value;
-			LOG("Axis %i = %i", dest & 0x7F, info->Axies[dest & 0x7F].CurValue);
+			axis_values[ dest & 0x7F ] = value;
+			LOG("Axis %i = %i", dest & 0x7F, value);
 		}
 		else
 		{
 			// Button
-			info->Buttons[ dest & 0x7F ] = (value == 0) ? 0 : 0xFF;
-			LOG("Button %i = %x", dest & 0x7F, info->Buttons[dest & 0x7F]);
+			if( value == 0 )
+				;
+			else
+				button_value |= 1 << (dest & 0x7F);
 		}
 	}
 	
-	// Update axis positions
-	for( int i = 0; i < MAX_AXIES; i ++ )
-	{
-		 int	newpos;
-		
-		// TODO: Scaling
-		newpos = info->Axies[i].CursorPos + info->Axies[i].CurValue;
-		
-		if(newpos < 0)	newpos = 0;
-		if(newpos > info->AxisLimits[i])	newpos = info->AxisLimits[i];
-		
-		info->Axies[i].CursorPos = newpos;
-	}
-//	Log_Debug("USBMouse", "New Pos (%i,%i,%i)",
-//		info->Axies[0].CursorPos, info->Axies[1].CursorPos, info->Axies[2].CursorPos
-//		);
-	VFS_MarkAvaliable( &info->Node, 1 );
+	Mouse_HandleEvent(info->Handle, button_value, axis_values);
 }
 
 // ----------------------------------------------------------------------------
@@ -319,20 +179,8 @@ tHID_ReportCallbacks *HID_Mouse_Report_Collection(
 		// New device!
 		info = calloc( sizeof(tHID_Mouse), 1 );
 		info->DataAvail = HID_Mouse_DataAvail;
-		info->Node.ImplPtr = info;
-		info->Node.Type = &gHID_Mouse_DevNodeType;
-		
-		info->FileHeader = (void*)info->FileData;
-		info->Axies = (void*)(info->FileHeader + 1);
-		info->Buttons = (void*)(info->Axies + MAX_AXIES);
-		info->FileHeader->NAxies = MAX_AXIES;
-		info->FileHeader->NButtons = MAX_BUTTONS;
-
-		for( int i = 0; i < MAX_AXIES; i ++ ) {
-			info->Axies[i].MinValue = -10;
-			info->Axies[i].MaxValue = 10;
-		}
-		
+	
+		info->Handle = Mouse_Register("USBMouse", MAX_BUTTONS, MAX_AXIES);
 	
 		LOG("Initialised new mouse at %p", info);
 		
@@ -365,7 +213,6 @@ void HID_Mouse_Report_EndCollection(tUSBInterface *Dev)
 		Mutex_Acquire(&glHID_MouseListLock);
 		gpHID_LastMouse->Next = info;
 		gpHID_LastMouse = info;
-		gHID_Mouse_DevFS.RootNode.Size ++;
 		Mutex_Release(&glHID_MouseListLock);
 	}
 	else
@@ -413,11 +260,12 @@ void HID_int_AddInput(tUSBInterface *Dev, Uint32 Usage, Uint8 Size, Uint32 Min, 
 	
 	// --- Update Min/Max for Axies ---
 	// TODO: DPI too
-	if( tag != 0xFF && (tag & 0x80) )
-	{
-		info->Axies[ tag & 0x7F ].MinValue = Min;
-		info->Axies[ tag & 0x7F ].MaxValue = Max;
-	}
+	// TODO: Pass to mouse multiplexer
+//	if( tag != 0xFF && (tag & 0x80) )
+//	{
+//		info->Axies[ tag & 0x7F ].MinValue = Min;
+//		info->Axies[ tag & 0x7F ].MaxValue = Max;
+//	}
 }
 
 /**

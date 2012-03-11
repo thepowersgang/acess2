@@ -32,7 +32,7 @@ void	Keyboard_Cleanup(void);
 // - Internal
 tKeymap	*Keyboard_LoadMap(const char *Name);
 void	Keyboard_FreeMap(tKeymap *Keymap);
-// - User side
+// - "User" side (Actually VT)
  int	Keyboard_IOCtl(tVFS_Node *Node, int ID, void *Data);
 // - Device Side
 tKeyboard *Keyboard_CreateInstance(int MaxSym, const char *Name);
