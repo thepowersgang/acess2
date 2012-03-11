@@ -1,8 +1,8 @@
 /*
- * Acess2 USB Stack HID Driver
+ * Acess2 Kernel
  * - By John Hodge (thePowersGang)
  *
- * usb_keysyms.h
+ * keysyms.h
  * - USB HID Keyboard Symbols
  */
 #ifndef _USB_KEYSYMS_H_

@@ -13,6 +13,10 @@
 #include <utf8.h>
 #include <string.h>
 
+// TODO: Include a proper keysym header
+#define KEYSYM_LEFTARROW	0x50
+#define KEYSYM_RIGHTARROW	0x4F
+
 struct sTextInputInfo
 {
 	 int	DrawOfs;	// Byte offset for the leftmost character
@@ -128,7 +132,26 @@ int Widget_TextInput_KeyFire(tElement *Element, int KeySym, int Character)
 //	_SysDebug("Key 0x%x fired ('%c')", Character, Character);
 	
 	if( Character == 0 )
+	{
+		switch(KeySym)
+		{
+		case KEYSYM_LEFTARROW:
+			if( info->CursorByteOfs > 0 )
+			{
+				len = ReadUTF8Rev(Element->Text, info->CursorByteOfs, &cp);
+				info->CursorByteOfs -= len;
+			}
+			break;
+		case KEYSYM_RIGHTARROW:
+			if( info->CursorByteOfs < info->Length )
+			{
+				len = ReadUTF8(Element->Text + info->CursorByteOfs, &cp);
+				info->CursorByteOfs += len;
+			}
+			break;
+		}
 		return 0;
+	}
 
 	// TODO: Don't hard code
 	if(Character > 0x30000000)	return 0;

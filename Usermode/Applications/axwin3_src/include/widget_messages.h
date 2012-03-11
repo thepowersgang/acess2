@@ -19,6 +19,10 @@ enum
 	MSG_WIDGET_SETTEXT,
 	MSG_WIDGET_SETCOLOUR,
 	
+
+	// Request (Client->Server->Client) messages
+	MSG_WIDGET_GETTEXT,
+
 	// Event (Server->Client) messages
 	MSG_WIDGET_FIRE,
 	MSG_WIDGET_KEYPRESS,

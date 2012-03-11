@@ -28,7 +28,6 @@ void AxWin3_MainLoop(void)
 		msg = AxWin3_int_GetIPCMessage();
 		if(!msg)	continue;	
 
-		// TODO: Handle message
 		_SysDebug("oh look, a message (Type=%i, Window=%i, Len=%i)",
 			msg->ID, msg->Window, msg->Size);
 

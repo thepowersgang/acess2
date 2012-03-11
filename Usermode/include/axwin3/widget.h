@@ -39,6 +39,8 @@ extern void	AxWin3_Widget_SetFlags(tAxWin3_Widget *Widget, int FlagSet, int Flag
 extern void	AxWin3_Widget_SetSize(tAxWin3_Widget *Widget, int Size);
 extern void	AxWin3_Widget_SetText(tAxWin3_Widget *Widget, const char *Text);
 extern void	AxWin3_Widget_SetColour(tAxWin3_Widget *Widget, int Index, tAxWin3_Colour Colour);
+// --- Inspection
+extern char	*AxWin3_Widget_GetText(tAxWin3_Widget *Widget);
 
 enum eElementTypes
 {

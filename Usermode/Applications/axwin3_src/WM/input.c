@@ -125,8 +125,7 @@ void Input_HandleSelect(fd_set *set)
 			return ;
 		}
 		if( mouseinfo->NAxies > c_n_axies || mouseinfo->NButtons > c_n_buttons ) {
-			_SysDebug(
-				"%i axies, %i buttons above prealloc counts (%i, %i)",
+			_SysDebug("%i axies, %i buttons above prealloc counts (%i, %i)",
 				mouseinfo->NAxies, mouseinfo->NButtons, c_n_axies, c_n_buttons
 				);
 			return ;

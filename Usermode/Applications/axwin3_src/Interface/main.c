@@ -125,15 +125,20 @@ void create_mainmenu(void)
 	AxWin3_Menu_AddItem(gSystemMenu, "&Run\tWin+R", mainmenu_run_dialog, NULL, 0, NULL);
 }
 
+// --------------------------------------------------------------------
+// "Run" Dialog box
+// --------------------------------------------------------------------
 int run_dorun(tAxWin3_Widget *unused)
 {
-//	char *cmd = AxWin3_Widget_GetText(gRunInput);
+	char *cmd = AxWin3_Widget_GetText(gRunInput);
+	_SysDebug("Command string '%s'", cmd);
 	AxWin3_ShowWindow(gRunDialog, 0);
 	return 0;
 }
 
 int run_close(tAxWin3_Widget *unused)
 {
+	_SysDebug("Run diaglog closed");
 	AxWin3_ShowWindow(gRunDialog, 0);
 	return 0;
 }
