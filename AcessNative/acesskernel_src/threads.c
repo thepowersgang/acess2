@@ -50,7 +50,7 @@ typedef struct sProcess
 	 int	MaxFD;
 } tProcess;
 
-typedef struct sThread
+struct sThread
 {
 	struct sThread	*GlobalNext;
 	struct sThread	*Next;
@@ -82,7 +82,7 @@ typedef struct sThread
 	Uint32	Events, WaitMask;
 	SDL_sem	*EventSem;
 
-}	tThread;
+};
 
 // === PROTOTYPES ===
  int	Threads_Wake(tThread *Thread);

@@ -12,6 +12,7 @@
 #include <stddef.h>
 
 #define DEBUG(v...)	Debug(v)
+#define PAGE_SIZE	4096
 
 typedef struct sFILE	FILE;
 
@@ -93,9 +94,14 @@ uint64_t acess_tell(int FD) {
 }
 
 int acess_ioctl(int fd, int id, void *data) {
+	 int	len;
 	// NOTE: 1024 byte size is a hack
 	DEBUG("ioctl(%i, %i, %p)", fd, id, data);
-	return _Syscall(SYS_IOCTL, ">i >i ?d", fd, id, 1024, data);
+	if( data == NULL )
+		len = 0;
+	else
+		len = PAGE_SIZE - ((uintptr_t)data % PAGE_SIZE);
+	return _Syscall(SYS_IOCTL, ">i >i ?d", fd, id, len, data);
 }
 int acess_finfo(int fd, t_sysFInfo *info, int maxacls) {
 //	DEBUG("offsetof(size, t_sysFInfo) = %i", offsetof(t_sysFInfo, size));
