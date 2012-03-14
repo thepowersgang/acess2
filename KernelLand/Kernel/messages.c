@@ -25,7 +25,7 @@ int Proc_SendMessage(Uint Dest, int Length, void *Data)
 	tThread	*thread;
 	tMsg	*msg;
 	
-	ENTER("pErr iDest iLength pData", Err, Dest, Length, Data);
+	ENTER("iDest iLength pData", Dest, Length, Data);
 	
 	if(Length <= 0 || !Data) {
 		errno = -EINVAL;
@@ -37,9 +37,8 @@ int Proc_SendMessage(Uint Dest, int Length, void *Data)
 
 	// Get thread
 	thread = Threads_GetThread( Dest );
-	
-	// Error check
 	if(!thread)	LEAVE_RET('i', -1);
+	LOG("Destination %p(%i %s)", thread, thread->TID, thread->ThreadName);
 	
 	// Get Spinlock
 	SHORTLOCK( &thread->IsLocked );
