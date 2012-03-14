@@ -189,6 +189,16 @@ SYSCALL1(Syscall_AN_Fork, "d", int *,
 	return *a0;
 );
 
+SYSCALL2(Syscall_SendMessage, "id", int, void *,
+	return Proc_SendMessage(a0, Sizes[1], a1);
+);
+
+SYSCALL2(Syscall_GetMessage, "dd", Uint *, void *,
+	if( Sizes[0] < sizeof(*a0) )
+		return -1;
+	return Proc_GetMessage(a0, a1);
+);
+
 const tSyscallHandler	caSyscalls[] = {
 	Syscall_Null,
 	Syscall_Exit,
@@ -219,8 +229,8 @@ const tSyscallHandler	caSyscalls[] = {
 	Syscall_Sleep,
 	Syscall_AN_Fork,
 
-	NULL,
-	NULL,
+	Syscall_SendMessage,
+	Syscall_GetMessage,
 	Syscall_select
 };
 const int	ciNumSyscalls = sizeof(caSyscalls)/sizeof(caSyscalls[0]);
@@ -377,7 +387,7 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 		ret->Params[retValueCount].Flags = 0;
 		ret->Params[retValueCount].Length = Request->Params[i].Length;
 		
-		LOG("Syscalls", "Ret %i: Type %i, Len %i",
+		LOG("Ret %i: Type %i, Len %i",
 			i, Request->Params[i].Type, Request->Params[i].Length);
 		
 		memcpy(inData, returnData[i], Request->Params[i].Length);
