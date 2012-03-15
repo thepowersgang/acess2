@@ -40,13 +40,14 @@ Uint32	gp101_to_HID_2[128] = {
 //   	0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
 /*00*/	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //0-F
 /*10*/	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, KEYSYM_KPENTER, KEYSYM_RIGHTCTRL, 0, 0,
-/*20*/	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-/*30*/	0, 0, 0, 0, 0, KEYSYM_KPSLASH, 0, 0, KEYSYM_RIGHTALT, 0, 0, 0, 0, 0, 0, 0,
-/*40*/	0, 0, 0, 0, 0, 0, 0, KEYSYM_HOME,
+/*20*/	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1/*Fake LShift*/, 0, 0, 0, 0, 0,
+/*30*/	0, 0, 0, 0, 0, KEYSYM_KPSLASH, 0, KEYSYM_PRINTSCREEN,
+	KEYSYM_RIGHTALT, 0, 0, 0, 0, 0, 0, 0,
+/*40*/	0, 0, 0, 0, 0, 0, 0/*Break*/, KEYSYM_HOME,
 	KEYSYM_UPARROW, KEYSYM_PGUP, 0, KEYSYM_LEFTARROW, 0, KEYSYM_RIGHTARROW, 0, KEYSYM_END,
 /*50*/	KEYSYM_DOWNARROW, KEYSYM_PGDN, KEYSYM_INSERT, KEYSYM_DELETE, 0, 0, 0, 0,
-	0, 0, 0, KEYSYM_LEFTGUI, KEYSYM_RIGHTGUI, KEYSYM_APPLICATION, 0, 0,
-/*60*/	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, KEYSYM_LEFTGUI, KEYSYM_RIGHTGUI, KEYSYM_APPLICATION, KEYSYM_POWER/*Power*/, 0/*Sleep*/,
+/*60*/	0, 0, 0/*Wake*/, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 /*70*/	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 };
 // - 0xE1 Prefixed

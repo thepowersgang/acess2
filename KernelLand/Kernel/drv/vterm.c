@@ -24,7 +24,7 @@
 #define DEFAULT_INPUT	"Keyboard"
 #define	DEFAULT_WIDTH	640
 #define	DEFAULT_HEIGHT	480
-#define DEFAULT_SCROLLBACK	2	// 2 Screens of text + current screen
+#define DEFAULT_SCROLLBACK	4	// 2 Screens of text + current screen
 //#define DEFAULT_SCROLLBACK	0
 
 // === TYPES ===

@@ -91,6 +91,8 @@ void VT_KBCallBack(Uint32 Codepoint)
 		if(term->Mode != TERM_MODE_TEXT)
 			break;
 		
+//		Log_Debug("VTerm", "Magic Ctrl-Alt-0x%x", term->RawScancode);	
+
 		switch(term->RawScancode)
 		{
 		// Scrolling
@@ -98,6 +100,7 @@ void VT_KBCallBack(Uint32 Codepoint)
 			if( term->Flags & VT_FLAG_ALTBUF )
 				return ;
 			term->ViewPos = MAX( 0, term->ViewPos - term->Width );
+			VT_int_UpdateScreen(term, 1);
 			return;
 		case KEYSYM_PGDN:
 			if( term->Flags & VT_FLAG_ALTBUF )
@@ -106,6 +109,7 @@ void VT_KBCallBack(Uint32 Codepoint)
 				term->ViewPos + term->Width,
 				term->Width * term->Height * giVT_Scrollback
 				);
+			VT_int_UpdateScreen(term, 1);
 			return;
 		}
 		break;

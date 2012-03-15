@@ -72,10 +72,15 @@ void KB_HandleScancode(Uint8 scancode)
 	#endif
 
 	hidcode = gp101_to_HID[giPS2Kb_Layer][scancode];
-	if( !hidcode )
+	if( hidcode == 0)
 	{
-		Log_Warning("PS2Kb", "Unknown scancode %i:0x%x", giPS2Kb_Layer, scancode);
-		return ;
+		Log_Warning("PS2Kb", "Unknown scancode %i:0x%x %s", giPS2Kb_Layer, scancode,
+			gbPS2Kb_KeyUp ? "release" : "press"
+			);
+	}
+	else if( hidcode == -1 )
+	{
+		// Ignored (Fake shift)
 	}
 	else
 	{

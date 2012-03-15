@@ -70,14 +70,15 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 		write_pos -= write_pos % Term->TextWidth;
 		break;
 	
-	case '\t': { int tmp = write_pos / Term->TextWidth;
+	case '\t': {
+		int line = write_pos / Term->TextWidth;
 		write_pos %= Term->TextWidth;
 		do {
 			buffer[ write_pos ].Ch = '\0';
 			buffer[ write_pos ].Colour = Term->CurColour;
 			write_pos ++;
 		} while(write_pos & 7);
-		write_pos += tmp * Term->TextWidth;
+		write_pos += line * Term->TextWidth;
 		break; }
 	
 	case '\b':
@@ -85,7 +86,7 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 		if(write_pos == 0)	break;
 		
 		write_pos --;
-		// Singe Character
+		// Single Character
 		if(buffer[ write_pos ].Ch != '\0') {
 			buffer[ write_pos ].Ch = 0;
 			buffer[ write_pos ].Colour = Term->CurColour;
@@ -114,7 +115,6 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 	
 	if(Term->Flags & VT_FLAG_ALTBUF)
 	{
-		Term->AltBuf = buffer;
 		Term->AltWritePos = write_pos;
 		
 		if(Term->AltWritePos >= Term->TextWidth*Term->TextHeight)
@@ -126,17 +126,12 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 	}
 	else
 	{
-		Term->Text = buffer;
 		Term->WritePos = write_pos;
 		// Move Screen
 		// - Check if we need to scroll the entire scrollback buffer
 		if(Term->WritePos >= Term->TextWidth*Term->TextHeight*(giVT_Scrollback+1))
 		{
 			 int	base;
-			
-			// Update previous line
-			Term->WritePos -= Term->TextWidth;
-			VT_int_UpdateScreen( Term, 0 );
 			
 			// Update view position
 			base = Term->TextWidth*Term->TextHeight*(giVT_Scrollback);
@@ -146,16 +141,12 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 				Term->ViewPos = base;
 			
 			VT_int_ScrollText(Term, 1);
+			Term->WritePos -= Term->TextWidth;
 		}
 		// Ok, so we only need to scroll the screen
 		else if(Term->WritePos >= Term->ViewPos + Term->TextWidth*Term->TextHeight)
 		{
-			// Update the last line
-			Term->WritePos -= Term->TextWidth;
-			VT_int_UpdateScreen( Term, 0 );
-			Term->WritePos += Term->TextWidth;
-			
-			VT_int_ScrollText(Term, 1);
+			VT_int_ScrollFramebuffer( Term, 1 );
 			
 			Term->ViewPos += Term->TextWidth;
 		}
@@ -189,7 +180,7 @@ void VT_int_ScrollText(tVTerm *Term, int Count)
 		scroll_height = height;
 	}
 
-	// Scroll text downwards	
+	// Scroll text upwards (more space at bottom)
 	if( Count > 0 )
 	{
 		 int	base;
