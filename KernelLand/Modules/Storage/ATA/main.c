@@ -328,7 +328,7 @@ size_t ATA_ReadFS(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 	{
 		int ret = DrvUtil_ReadBlock(
 			Offset, Length, Buffer,
-			ATA_ReadRaw, SECTOR_SIZE, (void*)disk
+			ATA_ReadRaw, SECTOR_SIZE, (void*)(Uint)disk
 			);
 		//Log("ATA_ReadFS: disk=%i, Offset=%lli, Length=%lli", disk, Offset, Length);
 		//Debug_HexDump("ATA_ReadFS", Buffer, Length);
@@ -367,7 +367,7 @@ size_t ATA_WriteFS(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buf
 	Debug_HexDump("ATA_WriteFS", Buffer, Length);
 	return DrvUtil_WriteBlock(
 		Offset, Length, Buffer,
-		ATA_ReadRaw, ATA_WriteRaw, SECTOR_SIZE, (void*)disk
+		ATA_ReadRaw, ATA_WriteRaw, SECTOR_SIZE, (void*)(Uint)disk
 		);
 }
 

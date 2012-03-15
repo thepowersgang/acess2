@@ -17,7 +17,7 @@
 // --------------------------------------------------------------------
 int LVM_AddVolumeVFS(const char *Name, int FD)
 {
-	return LVM_AddVolume(Name, (void*)FD, LVM_int_VFSReadEmul, LVM_int_VFSWriteEmul);
+	return LVM_AddVolume(Name, (void*)(Uint)FD, LVM_int_VFSReadEmul, LVM_int_VFSWriteEmul);
 }
 
 int LVM_AddVolume(const char *Name, void *Ptr, tLVM_ReadFcn Read, tLVM_WriteFcn Write)
@@ -97,7 +97,7 @@ int LVM_int_VFSReadEmul(void *Arg, Uint64 BlockStart, size_t BlockCount, void *D
 
 	blocksize = 512;	// TODO: Don't assume	
 
-	rv = VFS_ReadAt( (int)Arg, BlockStart * blocksize, BlockCount * blocksize, Dest );
+	rv = VFS_ReadAt( (int)(Uint)Arg, BlockStart * blocksize, BlockCount * blocksize, Dest );
 	rv /= blocksize;
 	return rv;
 }
@@ -109,7 +109,7 @@ int LVM_int_VFSWriteEmul(void *Arg, Uint64 BlockStart, size_t BlockCount, const 
 
 	blocksize = 512;	// TODO: Don't assume	
 
-	rv = VFS_WriteAt( (int)Arg, BlockStart * blocksize, BlockCount * blocksize, Source );
+	rv = VFS_WriteAt( (int)(Uint)Arg, BlockStart * blocksize, BlockCount * blocksize, Source );
 	rv /= blocksize;
 	return rv;
 }
