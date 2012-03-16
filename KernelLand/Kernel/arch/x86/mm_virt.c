@@ -441,7 +441,8 @@ int MM_Map(tVAddr VAddr, tPAddr PAddr)
 	//ENTER("xVAddr xPAddr", VAddr, PAddr);
 	// Sanity check
 	if( PAddr & 0xFFF || VAddr & 0xFFF ) {
-		Log_Warning("MM_Virt", "MM_Map - Physical or Virtual Addresses are not aligned");
+		Log_Warning("MM_Virt", "MM_Map - Physical or Virtual Addresses are not aligned (0x%P and %p)",
+			PAddr, VAddr);
 		//LEAVE('i', 0);
 		return 0;
 	}

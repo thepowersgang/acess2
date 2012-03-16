@@ -93,14 +93,13 @@ void *VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD,
 	if( !pb || pb->BaseOffset > pagenum )
 	{
 		void	*old_pb = pb;
-		pb = malloc( sizeof(tVFS_MMapPageBlock) );
+		pb = calloc( 1, sizeof(tVFS_MMapPageBlock) );
 		if(!pb) {
 			Mutex_Release( &h->Node->Lock );
 			LEAVE_RET('n', NULL);
 		}
 		pb->Next = old_pb;
 		pb->BaseOffset = pagenum - pagenum % MMAP_PAGES_PER_BLOCK;
-		memset(pb->PhysAddrs, 0, sizeof(pb->PhysAddrs));
 		if(prev)
 			prev->Next = pb;
 		else
@@ -194,7 +193,6 @@ void *VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD,
 				memset(pb->PhysAddrs, 0, sizeof(pb->PhysAddrs));
 				oldpb->Next = pb;
 			}
-			pagenum = 0;
 		}
 	}
 	

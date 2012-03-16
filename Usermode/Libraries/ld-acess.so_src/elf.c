@@ -18,9 +18,9 @@
 # define	DEBUGS(...)	
 #endif
 
-//#if BITS > 32
+#ifndef DISABLE_ELF64
 # define SUPPORT_ELF64
-//#endif
+#endif
 
 // === CONSTANTS ===
 #if DEBUG
@@ -33,6 +33,8 @@ void	*ElfRelocate(void *Base, char **envp, const char *Filename);
  int	ElfGetSymbol(void *Base, const char *Name, void **Ret, size_t *Size);
 void	*Elf32Relocate(void *Base, char **envp, const char *Filename);
  int	Elf32GetSymbol(void *Base, const char *Name, void **Ret, size_t *Size);
+void	elf_doRelocate_386(uint32_t r_info, uint32_t *ptr, Elf32_Addr addend, int type, int bRela, const char *Sym, intptr_t iBaseDiff);
+void	elf_doRelocate_arm(uint32_t r_info, uint32_t *ptr, Elf32_Addr addend, int type, int bRela, const char *Sym, intptr_t iBaseDiff);
 #ifdef SUPPORT_ELF64
 void	*Elf64Relocate(void *Base, char **envp, const char *Filename);
  int	Elf64GetSymbol(void *Base, const char *Name, void **Ret, size_t *Size);
@@ -199,6 +201,7 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 	char	*dynstrtab = NULL;	// .dynamic String Table
 	Elf32_Sym	*dynsymtab;
 	void	(*do_relocate)(uint32_t t_info, uint32_t *ptr, Elf32_Addr addend, int Type, int bRela, const char *Sym, intptr_t iBaseDiff);
+	auto void _doRelocate(uint32_t r_info, uint32_t *ptr, int bRela, Elf32_Addr addend);
 	
 	DEBUGS("ElfRelocate: (Base=0x%x)", Base);
 	
@@ -206,7 +209,7 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 	
 	
 	// Parse Program Header to get Dynamic Table
-	phtab = Base + hdr->phoff;
+	phtab = (void*)( (uintptr_t)Base + hdr->phoff );
 	iSegmentCount = hdr->phentcount;
 	for(i=0;i<iSegmentCount;i++)
 	{
@@ -420,20 +423,19 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 int Elf32GetSymbol(void *Base, const char *Name, void **ret, size_t *Size)
 {
 	Elf32_Ehdr	*hdr = Base;
-	Elf32_Sym	*symtab;
+	Elf32_Sym	*symtab = NULL;
 	 int	nbuckets = 0;
-//	 int	iSymCount = 0;
-	 int	i;
-	Elf32_Word	*pBuckets;
+	Elf32_Word	*pBuckets = NULL;
 	Elf32_Word	*pChains;
 	uint32_t	iNameHash;
-	const char	*dynstrtab;
+	const char	*dynstrtab = NULL;
 	uintptr_t	iBaseDiff = -1;
 	Elf32_Phdr	*phtab;
 	Elf32_Dyn	*dynTab = NULL;
+	 int	i;
 
 	// Locate the tables
-	phtab = (void*)( Base + hdr->phoff );
+	phtab = (void*)( (uintptr_t)Base + hdr->phoff );
 	for( i = 0; i < hdr->phentcount; i ++ )
 	{
 		if(phtab[i].Type == PT_LOAD && iBaseDiff > phtab[i].VAddr)
@@ -466,6 +468,19 @@ int Elf32GetSymbol(void *Base, const char *Name, void **ret, size_t *Size)
 		}
 	}
 	
+	if( !symtab ) {
+		SysDebug("ERRO - No DT_SYMTAB in %p", Base);
+		return 0;
+	}
+	if( !pBuckets ) {
+		SysDebug("ERRO - No DT_HASH in %p", Base);
+		return 0;
+	}
+	if( !dynstrtab ) {
+		SysDebug("ERRO - No DT_STRTAB in %p", Base);
+		return 0;
+	}
+
 	nbuckets = pBuckets[0];
 //	iSymCount = pBuckets[1];
 	pBuckets = &pBuckets[2];
@@ -478,7 +493,7 @@ int Elf32GetSymbol(void *Base, const char *Name, void **ret, size_t *Size)
 	// Walk Chain
 	i = pBuckets[ iNameHash ];
 	if(symtab[i].shndx != SHN_UNDEF && strcmp(dynstrtab + symtab[i].nameOfs, Name) == 0) {
-		*ret = (void*) (intptr_t) symtab[ i ].value + iBaseDiff;
+		*ret = (void*)( (uintptr_t) symtab[ i ].value + iBaseDiff );
 		if(Size)	*Size = symtab[i].size;
 		return 1;
 	}
@@ -487,7 +502,7 @@ int Elf32GetSymbol(void *Base, const char *Name, void **ret, size_t *Size)
 	{
 		i = pChains[i];
 		if(symtab[i].shndx != SHN_UNDEF && strcmp(dynstrtab + symtab[ i ].nameOfs, Name) == 0) {
-			*ret = (void*)(intptr_t)symtab[ i ].value + iBaseDiff;
+			*ret = (void*)( (uintptr_t)symtab[ i ].value + iBaseDiff );
 			if(Size)	*Size = symtab[i].size;
 			return 1;
 		}
@@ -745,7 +760,7 @@ int Elf64GetSymbol(void *Base, const char *Name, void **Ret, size_t *Size)
 		 int	j;
 		
 		// Locate the tables
-		phtab = (void*)( Base + hdr->e_phoff );
+		phtab = (void*)( (intptr_t)Base + hdr->e_phoff );
 		for( i = 0; i < hdr->e_phnum; i ++ )
 		{
 			if(phtab[i].p_type == PT_LOAD && iBaseDiff > phtab[i].p_vaddr)
@@ -792,7 +807,7 @@ int Elf64GetSymbol(void *Base, const char *Name, void **Ret, size_t *Size)
 	// Walk Chain
 	i = pBuckets[ iNameHash ];
 	if(symtab[i].st_shndx != SHN_UNDEF && strcmp(dynstrtab + symtab[i].st_name, Name) == 0) {
-		*Ret = (void*) (intptr_t) symtab[i].st_value + iBaseDiff;
+		*Ret = (void*)( (intptr_t)symtab[i].st_value + iBaseDiff );
 		if(Size)	*Size = symtab[i].st_size;
 		DEBUGS("%s = %p", Name, *Ret);
 		return 1;
@@ -802,7 +817,7 @@ int Elf64GetSymbol(void *Base, const char *Name, void **Ret, size_t *Size)
 	{
 		i = pChains[i];
 		if(symtab[i].st_shndx != SHN_UNDEF && strcmp(dynstrtab + symtab[i].st_name, Name) == 0) {
-			*Ret = (void*)(intptr_t)symtab[i].st_value + iBaseDiff;
+			*Ret = (void*)((intptr_t)symtab[i].st_value + iBaseDiff);
 			if(Size)	*Size = symtab[i].st_size;
 			DEBUGS("%s = %p", Name, *Ret);
 			return 1;

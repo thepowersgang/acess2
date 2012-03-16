@@ -133,6 +133,10 @@ enum {
 	PT_HIPROC = 0x7fffffff
 };
 
+#define PF_X	1
+#define PF_W	2
+#define PF_R	4
+
 struct sElf32_Phdr {
 	Elf32_Word	Type;
 	Elf32_Off	Offset;

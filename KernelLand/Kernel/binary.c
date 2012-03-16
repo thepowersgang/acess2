@@ -406,7 +406,10 @@ tVAddr Binary_MapIn(tBinary *Binary, const char *Path, tVAddr LoadMin, tVAddr Lo
 			for( i = 0; i < Binary->NumSections; i ++ )
 			{
 				tVAddr	addr = Binary->LoadSections[i].Virtual - Binary->Base + base;
-				if( Binary_int_CheckMemFree( addr, Binary->LoadSections[i].MemSize ) )
+				size_t	size = Binary->LoadSections[i].MemSize;
+				if( addr + size > LoadMax )
+					break;
+				if( Binary_int_CheckMemFree( addr, size ) )
 					break;
 			}
 			// If space was found, break
@@ -425,13 +428,16 @@ tVAddr Binary_MapIn(tBinary *Binary, const char *Path, tVAddr LoadMin, tVAddr Lo
 	}
 	
 	// Map Executable In
-	fd = VFS_OpenInode(Binary->MountID, Binary->Inode, VFS_OPENFLAG_READ);
+	if( Binary->MountID )
+		fd = VFS_OpenInode(Binary->MountID, Binary->Inode, VFS_OPENFLAG_READ);
+	else
+		fd = VFS_Open(Path, VFS_OPENFLAG_READ);
 	for( i = 0; i < Binary->NumSections; i ++ )
 	{
 		tBinarySection	*sect = &Binary->LoadSections[i];
 		Uint	protflags, mapflags;
 		tVAddr	addr = sect->Virtual - Binary->Base + base;
-		LOG("%i - %p to offset 0x%llx (%x)", i, addr, sect->Offset, sect->Flags);
+		LOG("%i - %p, 0x%x bytes from offset 0x%llx (%x)", i, addr, sect->FileSize, sect->Offset, sect->Flags);
 
 		protflags = MMAP_PROT_READ;
 		mapflags = MMAP_MAP_FIXED;
@@ -508,7 +514,14 @@ tBinary *Binary_DoLoad(tMount MountID, tInode Inode, const char *Path)
 	ENTER("iMountID XInode sPath", MountID, Inode, Path);
 	
 	// Open File
-	fp = VFS_OpenInode(MountID, Inode, VFS_OPENFLAG_READ);
+	if( MountID )
+	{
+		fp = VFS_OpenInode(MountID, Inode, VFS_OPENFLAG_READ);
+	}
+	else
+	{
+		fp = VFS_Open(Path, VFS_OPENFLAG_READ);
+	}
 	if(fp == -1) {
 		LOG("Unable to load file, access denied");
 		LEAVE('n');
@@ -697,6 +710,7 @@ void *Binary_LoadKernel(const char *File)
 		int fd = VFS_Open(File, VFS_OPENFLAG_READ);
 		tFInfo	info;
 		if(fd == -1) {
+			LOG("Opening failed");
 			LEAVE('n');
 			return NULL;
 		}
@@ -704,6 +718,7 @@ void *Binary_LoadKernel(const char *File)
 		mount_id = info.mount;
 		inode = info.inode;
 		VFS_Close(fd);
+		LOG("Mount %i, Inode %lli", mount_id, inode);
 	}
 	
 	// Check if the binary has already been loaded
@@ -714,6 +729,7 @@ void *Binary_LoadKernel(const char *File)
 			pKBinary = pKBinary->Next )
 		{
 			if(pKBinary->Info == pBinary) {
+				LOG("Already loaded");
 				LEAVE('p', pKBinary->Base);
 				return pKBinary->Base;
 			}
@@ -728,6 +744,7 @@ void *Binary_LoadKernel(const char *File)
 		return NULL;
 	}
 	
+	LOG("Loaded as %p", pBinary);
 	// --------------
 	// Now pBinary is valid (either freshly loaded or only user mapped)
 	// So, map it into kernel space
@@ -736,8 +753,22 @@ void *Binary_LoadKernel(const char *File)
 	// Reference Executable (Makes sure that it isn't unloaded)
 	pBinary->ReferenceCount ++;
 
-	Binary_MapIn(pBinary, File, KLIB_LOWEST, KLIB_HIGHEST);
+	base = Binary_MapIn(pBinary, File, KLIB_LOWEST, KLIB_HIGHEST);
+	if( base == 0 ) {
+		LEAVE('n');
+		return 0;
+	}
 
+	// Add to list
+	// TODO: Could this cause race conditions if a binary isn't fully loaded when used
+	pKBinary = malloc(sizeof(*pKBinary));
+	pKBinary->Base = (void*)base;
+	pKBinary->Info = pBinary;
+	SHORTLOCK( &glKBinListLock );
+	pKBinary->Next = glLoadedKernelLibs;
+	glLoadedKernelLibs = pKBinary;
+	SHORTREL( &glKBinListLock );
+	
 	// Relocate Library
 	if( !Binary_Relocate( (void*)base ) )
 	{
@@ -747,15 +778,6 @@ void *Binary_LoadKernel(const char *File)
 		LEAVE('n');
 		return 0;
 	}
-	
-	// Add to list (relocator must look at itself manually, not via Binary_GetSymbol)
-	pKBinary = malloc(sizeof(*pKBinary));
-	pKBinary->Base = (void*)base;
-	pKBinary->Info = pBinary;
-	SHORTLOCK( &glKBinListLock );
-	pKBinary->Next = glLoadedKernelLibs;
-	glLoadedKernelLibs = pKBinary;
-	SHORTREL( &glKBinListLock );
 	
 	LEAVE('p', base);
 	return (void*)base;
@@ -772,7 +794,7 @@ Uint Binary_Relocate(void *Base)
 	Uint32	ident = *(Uint32*) Base;
 	tBinaryType	*bt = gRegBinTypes;
 	
-	for(; bt; bt = bt->Next)
+	for( ; bt; bt = bt->Next)
 	{
 		if( (ident & bt->Mask) == (Uint)bt->Ident )
 			return bt->Relocate( (void*)Base);
@@ -862,15 +884,23 @@ Uint Binary_FindSymbol(void *Base, const char *Name, Uint *Val)
  */
 int Binary_int_CheckMemFree( tVAddr _start, size_t _len )
 {
+	ENTER("p_start x_len", _start, _len);
+
 	_len += _start & (PAGE_SIZE-1);
 	_len = (_len + PAGE_SIZE - 1) & ~(PAGE_SIZE-1);
 	_start &= ~(PAGE_SIZE-1);
+	LOG("_start = %p, _len = 0x%x", _start, _len);
 	for( ; _len > PAGE_SIZE; _len -= PAGE_SIZE, _start += PAGE_SIZE ) {
-		if( MM_GetPhysAddr(_start) != 0 )
+		if( MM_GetPhysAddr(_start) != 0 ) {
+			LEAVE('i', 1);
 			return 1;
+		}
 	}
-	if( _len == PAGE_SIZE && MM_GetPhysAddr(_start) != 0 )
+	if( _len == PAGE_SIZE && MM_GetPhysAddr(_start) != 0 ) {
+		LEAVE('i', 1);
 		return 1;
+	}
+	LEAVE('i', 0);
 	return 0;
 }
 
