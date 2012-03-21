@@ -6,6 +6,7 @@
 #define _IPV4_H_
 
 #include "ipstack.h"
+#include "include/buffer.h"
 
 typedef struct sIPv4Header	tIPv4Header;
 
@@ -41,6 +42,7 @@ struct sIPv4Header
 #define IP4PROT_ICMP	1
 #define IP4PROT_TCP 	6
 #define IP4PROT_UDP 	17
+#define IPV4_BUFFERS	3	// 1 + Link
 
 #define IPV4_ETHERNET_ID	0x0800
 
@@ -48,6 +50,6 @@ struct sIPv4Header
 extern int	IPv4_RegisterCallback(int ID, tIPCallback Callback);
 extern Uint16	IPv4_Checksum(const void *Buf, size_t Length);
 extern Uint32	IPv4_Netmask(int FixedBits);
-extern int	IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, int Length, const void *Data);
+extern int	IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, tIPStackBuffer *Buffer);
 
 #endif

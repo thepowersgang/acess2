@@ -62,14 +62,15 @@ int IPv4_RegisterCallback(int ID, tIPCallback Callback)
  * \param Data	Packet Data
  * \return Boolean Success
  */
-int IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, int Length, const void *Data)
+int IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, tIPStackBuffer *Buffer)
 {
 	tMacAddr	to;
-	 int	bufSize = sizeof(tIPv4Header) + Length;
-	char	buf[bufSize];
-	tIPv4Header	*hdr = (void*)buf;
-	 int	ret;
+	tIPv4Header	hdr;
+	 int	length;
+
+	length = IPStack_Buffer_GetLength(Buffer);
 	
+	// --- Resolve destination MAC address
 	to = ARP_Resolve4(Iface, Address);
 	if( MAC_EQU(to, cMAC_ZERO) ) {
 		// No route to host
@@ -78,40 +79,47 @@ int IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, int 
 		return 0;
 	}
 	
-	// OUTPUT Firewall rule go here
-	ret = IPTables_TestChain("OUTPUT",
+	// --- Handle OUTPUT firewall rules
+	// TODO: Update firewall rules for tIPStackBuffer
+	#if 0
+	int ret = IPTables_TestChain("OUTPUT",
 		4, (tIPv4*)Iface->Address, &Address,
 		Protocol, 0,
-		Length, Data);
+		length, Data);
 	if(ret > 0) {
 		// Just drop it (with an error)
 		Log_Notice("IPv4", "Firewall dropped packet");
 		return 0;
 	}
+	#endif
+
+	// --- Initialise header	
+	hdr.Version = 4;
+	hdr.HeaderLength = sizeof(tIPv4Header)/4;
+	hdr.DiffServices = 0;	// TODO: Check
 	
-	memcpy(&hdr->Options[0], Data, Length);
-	hdr->Version = 4;
-	hdr->HeaderLength = sizeof(tIPv4Header)/4;
-	hdr->DiffServices = 0;	// TODO: Check
+	hdr.Reserved = 0;
+	hdr.DontFragment = 0;
+	hdr.MoreFragments = 0;
+	hdr.FragOffLow = 0;
+	hdr.FragOffHi = 0;
 	
-	hdr->Reserved = 0;
-	hdr->DontFragment = 0;
-	hdr->MoreFragments = 0;
-	hdr->FragOffLow = 0;
-	hdr->FragOffHi = 0;
-	
-	hdr->TotalLength = htons( bufSize );
-	hdr->Identifcation = htons( ID );	// TODO: Check
-	hdr->TTL = DEFAULT_TTL;
-	hdr->Protocol = Protocol;
-	hdr->HeaderChecksum = 0;	// Will be set later
-	hdr->Source = *(tIPv4*)Iface->Address;
-	hdr->Destination = Address;
-	hdr->HeaderChecksum = htons( IPv4_Checksum(hdr, sizeof(tIPv4Header)) );
-	
+	hdr.TotalLength = htons( sizeof(tIPv4Header) + length );
+	hdr.Identifcation = htons( ID );	// TODO: Check
+	hdr.TTL = DEFAULT_TTL;
+	hdr.Protocol = Protocol;
+	hdr.HeaderChecksum = 0;	// Will be set later
+	hdr.Source = *(tIPv4*)Iface->Address;
+	hdr.Destination = Address;
+
+	// Actually set checksum (zeroed above)
+	hdr.HeaderChecksum = htons( IPv4_Checksum(&hdr, sizeof(tIPv4Header)) );
+
+	IPStack_Buffer_AppendSubBuffer(Buffer, sizeof(tIPv4Header), 0, &hdr, NULL, NULL);
+
 	Log_Log("IPv4", "Sending packet to %i.%i.%i.%i",
 		Address.B[0], Address.B[1], Address.B[2], Address.B[3]);
-	Link_SendPacket(Iface->Adapter, IPV4_ETHERNET_ID, to, bufSize, buf);
+	Link_SendPacket(Iface->Adapter, IPV4_ETHERNET_ID, to, Buffer);
 	return 1;
 }
 
@@ -247,8 +255,8 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 			hdr->Destination.B[2], hdr->Destination.B[3],
 			((tIPv4*)rt->NextHop)->B[0], ((tIPv4*)rt->NextHop)->B[1],
 			((tIPv4*)rt->NextHop)->B[2], ((tIPv4*)rt->NextHop)->B[3]);
-		Link_SendPacket(rt->Interface->Adapter, IPV4_ETHERNET_ID, to, Length, Buffer);
-		
+		Log_Warning("IPv4", "TODO: Implement forwarding with tIPStackBuffer");
+//		Link_SendPacket(rt->Interface->Adapter, IPV4_ETHERNET_ID, to, Length, Buffer);
 		
 		return ;
 	}

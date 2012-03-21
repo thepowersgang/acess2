@@ -5,11 +5,13 @@
 #ifndef _LINK_H_
 #define _LINK_H_
 
+#include "include/buffer.h"
+
 // === EXTERNAL ===
 typedef void (*tPacketCallback)(tAdapter *Interface, tMacAddr From, int Length, void *Buffer);
 
 extern void	Link_RegisterType(Uint16 Type, tPacketCallback Callback);
-extern void	Link_SendPacket(tAdapter *Interface, Uint16 Type, tMacAddr To, int Length, void *Buffer);
+extern void	Link_SendPacket(tAdapter *Interface, Uint16 Type, tMacAddr To, tIPStackBuffer *Buffer);
 extern void	Link_WatchDevice(tAdapter *Adapter);
 
 // === INTERNAL ===

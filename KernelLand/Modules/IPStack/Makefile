@@ -2,6 +2,7 @@
 #
 
 OBJ := main.o interface.o
+OBJ += buffer.o
 OBJ += link.o arp.o
 OBJ += ipv4.o icmp.o
 OBJ += ipv6.o

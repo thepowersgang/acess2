@@ -23,7 +23,7 @@
 // === PROTOTYPES ===
 void	TCP_Initialise(void);
 void	TCP_StartConnection(tTCPConnection *Conn);
-void	TCP_SendPacket(tTCPConnection *Conn, size_t Length, tTCPHeader *Data);
+void	TCP_SendPacket(tTCPConnection *Conn, tTCPHeader *Header, size_t DataLen, const void *Data);
 void	TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffer);
 void	TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Header, int Length);
 int	TCP_INT_AppendRecieved(tTCPConnection *Connection, const void *Data, size_t Length);
@@ -94,30 +94,42 @@ void TCP_Initialise(void)
  * \param Length	Length of data
  * \param Data	Packet data (cast as a TCP Header)
  */
-void TCP_SendPacket( tTCPConnection *Conn, size_t Length, tTCPHeader *Data )
+void TCP_SendPacket( tTCPConnection *Conn, tTCPHeader *Header, size_t Length, const void *Data )
 {
-	Uint16	checksum[2];
+	tIPStackBuffer	*buffer;
+	Uint16	checksum[3];
+	 int	packlen = sizeof(*Header) + Length;
 	
-	Data->Checksum = 0;
-	checksum[1] = htons( ~IPv4_Checksum( (void*)Data, Length ) );	// Partial checksum
-	if(Length & 1)
-		((Uint8*)Data)[Length] = 0;
+	buffer = IPStack_Buffer_CreateBuffer(2 + IPV4_BUFFERS);
+	if( Data && Length )
+		IPStack_Buffer_AppendSubBuffer(buffer, Length, 0, Data, NULL, NULL);
+	IPStack_Buffer_AppendSubBuffer(buffer, sizeof(*Header), 0, Header, NULL, NULL);
+
+	Log_Debug("TCP", "Sending %i+%i to %s:%i", sizeof(*Header), Length,
+		IPStack_PrintAddress(Conn->Interface->Type, &Conn->RemoteIP),
+		Conn->RemotePort
+		);
+
+	Header->Checksum = 0;
+	checksum[1] = htons( ~IPv4_Checksum(Header, sizeof(tTCPHeader)) );
+	checksum[2] = htons( ~IPv4_Checksum(Data, Length) );
 	
 	// TODO: Fragment packet
 	
 	switch( Conn->Interface->Type )
 	{
 	case 4:
-		// Append IPv4 Pseudo Header
+		// Get IPv4 pseudo-header checksum
 		{
 			Uint32	buf[3];
 			buf[0] = ((tIPv4*)Conn->Interface->Address)->L;
 			buf[1] = Conn->RemoteIP.v4.L;
-			buf[2] = (htons(Length)<<16) | (6<<8) | 0;
+			buf[2] = (htons(packlen)<<16) | (6<<8) | 0;
 			checksum[0] = htons( ~IPv4_Checksum(buf, sizeof(buf)) );	// Partial checksum
 		}
-		Data->Checksum = htons( IPv4_Checksum(checksum, 2*2) );	// Combine the two
-		IPv4_SendPacket(Conn->Interface, Conn->RemoteIP.v4, IP4PROT_TCP, 0, Length, Data);
+		// - Combine checksums
+		Header->Checksum = htons( IPv4_Checksum(checksum, sizeof(checksum)) );
+		IPv4_SendPacket(Conn->Interface, Conn->RemoteIP.v4, IP4PROT_TCP, 0, buffer);
 		break;
 		
 	case 6:
@@ -126,11 +138,11 @@ void TCP_SendPacket( tTCPConnection *Conn, size_t Length, tTCPHeader *Data )
 			Uint32	buf[4+4+1+1];
 			memcpy(buf, Conn->Interface->Address, 16);
 			memcpy(&buf[4], &Conn->RemoteIP, 16);
-			buf[8] = htonl(Length);
+			buf[8] = htonl(packlen);
 			buf[9] = htonl(6);
 			checksum[0] = htons( ~IPv4_Checksum(buf, sizeof(buf)) );	// Partial checksum
 		}
-		Data->Checksum = htons( IPv4_Checksum(checksum, 2*2) );	// Combine the two
+		Header->Checksum = htons( IPv4_Checksum(checksum, sizeof(checksum)) );	// Combine the two
 		IPv6_SendPacket(Conn->Interface, Conn->RemoteIP.v6, IP4PROT_TCP, Length, Data);
 		break;
 	}
@@ -176,106 +188,103 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 	}
 
 	// Check Servers
+	for( srv = gTCP_Listeners; srv; srv = srv->Next )
 	{
-		for( srv = gTCP_Listeners; srv; srv = srv->Next )
+		// Check if the server is active
+		if(srv->Port == 0)	continue;
+		// Check the interface
+		if(srv->Interface && srv->Interface != Interface)	continue;
+		// Check the destination port
+		if(srv->Port != htons(hdr->DestPort))	continue;
+		
+		Log_Log("TCP", "TCP_GetPacket: Matches server %p", srv);
+		// Is this in an established connection?
+		for( conn = srv->Connections; conn; conn = conn->Next )
 		{
-			// Check if the server is active
-			if(srv->Port == 0)	continue;
-			// Check the interface
-			if(srv->Interface && srv->Interface != Interface)	continue;
-			// Check the destination port
-			if(srv->Port != htons(hdr->DestPort))	continue;
-			
-			Log_Log("TCP", "TCP_GetPacket: Matches server %p", srv);
-			// Is this in an established connection?
-			for( conn = srv->Connections; conn; conn = conn->Next )
-			{
-				// Check that it is coming in on the same interface
-				if(conn->Interface != Interface)	continue;
+			// Check that it is coming in on the same interface
+			if(conn->Interface != Interface)	continue;
 
-				// Check Source Port
-				Log_Log("TCP", "TCP_GetPacket: conn->RemotePort(%i) == hdr->SourcePort(%i)",
-					conn->RemotePort, ntohs(hdr->SourcePort));
-				if(conn->RemotePort != ntohs(hdr->SourcePort))	continue;
+			// Check Source Port
+			Log_Log("TCP", "TCP_GetPacket: conn->RemotePort(%i) == hdr->SourcePort(%i)",
+				conn->RemotePort, ntohs(hdr->SourcePort));
+			if(conn->RemotePort != ntohs(hdr->SourcePort))	continue;
 
-				// Check Source IP
-				Log_Debug("TCP", "TCP_GetPacket: conn->RemoteIP(%s)",
-					IPStack_PrintAddress(conn->Interface->Type, &conn->RemoteIP));
-				Log_Debug("TCP", "                == Address(%s)",
-					IPStack_PrintAddress(conn->Interface->Type, Address));
-				if( IPStack_CompareAddress(conn->Interface->Type, &conn->RemoteIP, Address, -1) == 0 )
-					continue ;
+			// Check Source IP
+			Log_Debug("TCP", "TCP_GetPacket: conn->RemoteIP(%s)",
+				IPStack_PrintAddress(conn->Interface->Type, &conn->RemoteIP));
+			Log_Debug("TCP", "                == Address(%s)",
+				IPStack_PrintAddress(conn->Interface->Type, Address));
+			if( IPStack_CompareAddress(conn->Interface->Type, &conn->RemoteIP, Address, -1) == 0 )
+				continue ;
 
-				Log_Log("TCP", "TCP_GetPacket: Matches connection %p", conn);
-				// We have a response!
-				TCP_INT_HandleConnectionPacket(conn, hdr, Length);
+			Log_Log("TCP", "TCP_GetPacket: Matches connection %p", conn);
+			// We have a response!
+			TCP_INT_HandleConnectionPacket(conn, hdr, Length);
 
-				return;
-			}
+			return;
+		}
 
-			Log_Log("TCP", "TCP_GetPacket: Opening Connection");
-			// Open a new connection (well, check that it's a SYN)
-			if(hdr->Flags != TCP_FLAG_SYN) {
-				Log_Log("TCP", "TCP_GetPacket: Packet is not a SYN");
-				return ;
-			}
-			
-			// TODO: Check for halfopen max
-			
-			conn = calloc(1, sizeof(tTCPConnection));
-			conn->State = TCP_ST_SYN_RCVD;
-			conn->LocalPort = srv->Port;
-			conn->RemotePort = ntohs(hdr->SourcePort);
-			conn->Interface = Interface;
-			
-			switch(Interface->Type)
-			{
-			case 4:	conn->RemoteIP.v4 = *(tIPv4*)Address;	break;
-			case 6:	conn->RemoteIP.v6 = *(tIPv6*)Address;	break;
-			}
-			
-			conn->RecievedBuffer = RingBuffer_Create( TCP_RECIEVE_BUFFER_SIZE );
-			
-			conn->NextSequenceRcv = ntohl( hdr->SequenceNumber ) + 1;
-			conn->NextSequenceSend = rand();
-			
-			// Create node
-			conn->Node.NumACLs = 1;
-			conn->Node.ACLs = &gVFS_ACL_EveryoneRW;
-			conn->Node.ImplPtr = conn;
-			conn->Node.ImplInt = srv->NextID ++;
-			conn->Node.Type = &gTCP_ClientNodeType;	// TODO: Special type for the server end?
-			
-			// Hmm... Theoretically, this lock will never have to wait,
-			// as the interface is locked to the watching thread, and this
-			// runs in the watching thread. But, it's a good idea to have
-			// it, just in case
-			// Oh, wait, there is a case where a wildcard can be used
-			// (srv->Interface == NULL) so having the lock is a good idea
-			SHORTLOCK(&srv->lConnections);
-			if( !srv->Connections )
-				srv->Connections = conn;
-			else
-				srv->ConnectionsTail->Next = conn;
-			srv->ConnectionsTail = conn;
-			if(!srv->NewConnections)
-				srv->NewConnections = conn;
-			VFS_MarkAvaliable( &srv->Node, 1 );
-			SHORTREL(&srv->lConnections);
-
-			// Send the SYN ACK
-			hdr->Flags |= TCP_FLAG_ACK;
-			hdr->AcknowlegementNumber = htonl(conn->NextSequenceRcv);
-			hdr->SequenceNumber = htonl(conn->NextSequenceSend);
-			hdr->DestPort = hdr->SourcePort;
-			hdr->SourcePort = htons(srv->Port);
-			hdr->DataOffset = (sizeof(tTCPHeader)/4) << 4;
-			TCP_SendPacket( conn, sizeof(tTCPHeader), hdr );
-			conn->NextSequenceSend ++;
+		Log_Log("TCP", "TCP_GetPacket: Opening Connection");
+		// Open a new connection (well, check that it's a SYN)
+		if(hdr->Flags != TCP_FLAG_SYN) {
+			Log_Log("TCP", "TCP_GetPacket: Packet is not a SYN");
 			return ;
 		}
-	}
+		
+		// TODO: Check for halfopen max
+		
+		conn = calloc(1, sizeof(tTCPConnection));
+		conn->State = TCP_ST_SYN_RCVD;
+		conn->LocalPort = srv->Port;
+		conn->RemotePort = ntohs(hdr->SourcePort);
+		conn->Interface = Interface;
+		
+		switch(Interface->Type)
+		{
+		case 4:	conn->RemoteIP.v4 = *(tIPv4*)Address;	break;
+		case 6:	conn->RemoteIP.v6 = *(tIPv6*)Address;	break;
+		}
+		
+		conn->RecievedBuffer = RingBuffer_Create( TCP_RECIEVE_BUFFER_SIZE );
+		
+		conn->NextSequenceRcv = ntohl( hdr->SequenceNumber ) + 1;
+		conn->NextSequenceSend = rand();
+		
+		// Create node
+		conn->Node.NumACLs = 1;
+		conn->Node.ACLs = &gVFS_ACL_EveryoneRW;
+		conn->Node.ImplPtr = conn;
+		conn->Node.ImplInt = srv->NextID ++;
+		conn->Node.Type = &gTCP_ClientNodeType;	// TODO: Special type for the server end?
+		
+		// Hmm... Theoretically, this lock will never have to wait,
+		// as the interface is locked to the watching thread, and this
+		// runs in the watching thread. But, it's a good idea to have
+		// it, just in case
+		// Oh, wait, there is a case where a wildcard can be used
+		// (srv->Interface == NULL) so having the lock is a good idea
+		SHORTLOCK(&srv->lConnections);
+		if( !srv->Connections )
+			srv->Connections = conn;
+		else
+			srv->ConnectionsTail->Next = conn;
+		srv->ConnectionsTail = conn;
+		if(!srv->NewConnections)
+			srv->NewConnections = conn;
+		VFS_MarkAvaliable( &srv->Node, 1 );
+		SHORTREL(&srv->lConnections);
 
+		// Send the SYN ACK
+		hdr->Flags |= TCP_FLAG_ACK;
+		hdr->AcknowlegementNumber = htonl(conn->NextSequenceRcv);
+		hdr->SequenceNumber = htonl(conn->NextSequenceSend);
+		hdr->DestPort = hdr->SourcePort;
+		hdr->SourcePort = htons(srv->Port);
+		hdr->DataOffset = (sizeof(tTCPHeader)/4) << 4;
+		TCP_SendPacket( conn, hdr, 0, NULL );
+		conn->NextSequenceSend ++;
+		return ;
+	}
 
 	// Check Open Connections
 	{
@@ -358,7 +367,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 			Header->WindowSize = htons(TCP_WINDOW_SIZE);
 			Header->Flags = TCP_FLAG_ACK;
 			Header->DataOffset = (sizeof(tTCPHeader)/4) << 4;
-			TCP_SendPacket( Connection, sizeof(tTCPHeader), Header );
+			TCP_SendPacket( Connection, Header, 0, NULL );
 			
 			if( Header->Flags & TCP_FLAG_ACK )
 			{	
@@ -412,7 +421,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 			Header->AcknowlegementNumber = htonl(Connection->NextSequenceRcv);
 			Header->SequenceNumber = htonl(Connection->NextSequenceSend);
 			Header->Flags |= TCP_FLAG_ACK;
-			TCP_SendPacket( Connection, sizeof(tTCPHeader), Header );
+			TCP_SendPacket( Connection, Header, 0, NULL );
 			return ;
 		}
 		
@@ -459,7 +468,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 			Header->Flags &= TCP_FLAG_SYN;	// Eliminate all flags save for SYN
 			Header->Flags |= TCP_FLAG_ACK;	// Add ACK
 			Log_Log("TCP", "Sending ACK for 0x%08x", Connection->NextSequenceRcv);
-			TCP_SendPacket( Connection, sizeof(tTCPHeader), Header );
+			TCP_SendPacket( Connection, Header, 0, NULL );
 			//Connection->NextSequenceSend ++;
 		}
 		// Check if the packet is in window
@@ -568,7 +577,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 			Header->SequenceNumber = htonl(Connection->NextSequenceSend);
 			Header->WindowSize = htons(TCP_WINDOW_SIZE);
 			Header->Flags = TCP_FLAG_ACK;
-			TCP_SendPacket( Connection, sizeof(tTCPHeader), Header );
+			TCP_SendPacket( Connection, Header, 0, NULL );
 			break ;
 		}
 		
@@ -594,7 +603,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 			Header->SequenceNumber = htonl(Connection->NextSequenceSend);
 			Header->WindowSize = htons(TCP_WINDOW_SIZE);
 			Header->Flags = TCP_FLAG_ACK;
-			TCP_SendPacket( Connection, sizeof(tTCPHeader), Header );
+			TCP_SendPacket( Connection, Header, 0, NULL );
 		}
 		break;
 	
@@ -1139,7 +1148,7 @@ void TCP_INT_SendDataPacket(tTCPConnection *Connection, size_t Length, const voi
 	Debug_HexDump("TCP_INT_SendDataPacket: Data = ", Data, Length);
 #endif
 	
-	TCP_SendPacket( Connection, sizeof(tTCPHeader)+Length, packet );
+	TCP_SendPacket( Connection, packet, Length, Data );
 	
 	Connection->NextSequenceSend += Length;
 }
@@ -1211,7 +1220,7 @@ void TCP_StartConnection(tTCPConnection *Conn)
 	hdr.WindowSize = htons(TCP_WINDOW_SIZE);	// Max
 	hdr.Checksum = 0;	// TODO
 	
-	TCP_SendPacket( Conn, sizeof(tTCPHeader), &hdr );
+	TCP_SendPacket( Conn, &hdr, 0, NULL );
 	
 	Conn->NextSequenceSend ++;
 	Conn->State = TCP_ST_SYN_SENT;
@@ -1312,7 +1321,7 @@ void TCP_Client_Close(tVFS_Node *Node)
 		packet.SequenceNumber = htonl(conn->NextSequenceSend);
 		packet.Flags = TCP_FLAG_FIN;
 		
-		TCP_SendPacket( conn, sizeof(tTCPHeader), &packet );
+		TCP_SendPacket( conn, &packet, 0, NULL );
 	}
 	
 	switch( conn->State )

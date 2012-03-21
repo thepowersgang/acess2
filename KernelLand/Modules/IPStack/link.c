@@ -4,16 +4,19 @@
  */
 #include "ipstack.h"
 #include "link.h"
+#include "include/buffer.h"
 
 // === CONSTANTS ===
 #define	MAX_PACKET_SIZE	2048
 
 // === PROTOTYPES ===
 void	Link_RegisterType(Uint16 Type, tPacketCallback Callback);
-void	Link_InitCRC();
-Uint32	Link_CalculateCRC(void *Data, int Length);
-void	Link_SendPacket(tAdapter *Adapter, Uint16 Type, tMacAddr To, int Length, void *Buffer);
+void	Link_SendPacket(tAdapter *Adapter, Uint16 Type, tMacAddr To, tIPStackBuffer *Buffer);
 void	Link_WatchDevice(tAdapter *Adapter);
+// --- CRC ---
+void	Link_InitCRC(void);
+Uint32	Link_CalculateCRC(tIPStackBuffer *Buffer);
+Uint32	Link_CalculatePartialCRC(Uint32 CRC, const void *Data, int Length);
 
 // === GLOBALS ===
  int	giRegisteredTypes = 0;
@@ -71,25 +74,31 @@ void Link_RegisterType(Uint16 Type, tPacketCallback Callback)
  * \fn void Link_SendPacket(tAdapter *Adapter, Uint16 Type, tMacAddr To, int Length, void *Buffer)
  * \brief Formats and sends a packet on the specified interface
  */
-void Link_SendPacket(tAdapter *Adapter, Uint16 Type, tMacAddr To, int Length, void *Buffer)
+void Link_SendPacket(tAdapter *Adapter, Uint16 Type, tMacAddr To, tIPStackBuffer *Buffer)
 {
-	 int	bufSize = sizeof(tEthernetHeader) + ((Length+3)&~3) + 4;
-	Uint8	buf[bufSize];	// dynamic stack arrays ftw!
+	 int	length = IPStack_Buffer_GetLength(Buffer);
+	 int	ofs = 4 - (length & 3);
+	Uint8	buf[sizeof(tEthernetHeader) + ofs + 4];
 	tEthernetHeader	*hdr = (void*)buf;
-	
+
+	if( ofs == 4 )	ofs = 0;	
+
 	Log_Log("Net Link", "Sending %i bytes to %02x:%02x:%02x:%02x:%02x:%02x (Type 0x%x)",
-		Length, To.B[0], To.B[1], To.B[2], To.B[3], To.B[4], To.B[5], Type);
-	
+		length, To.B[0], To.B[1], To.B[2], To.B[3], To.B[4], To.B[5], Type);
+
 	hdr->Dest = To;
 	hdr->Src = Adapter->MacAddr;
 	hdr->Type = htons(Type);
+	*(Uint32*)(buf + sizeof(tEthernetHeader) + ofs) = 0;
+
+	IPStack_Buffer_AppendSubBuffer(Buffer, sizeof(tEthernetHeader), ofs + 4, hdr, NULL, NULL);
 	
-	memcpy(hdr->Data, Buffer, Length);
-	
-	*(Uint32*) &hdr->Data[bufSize-4] = 0;
-	*(Uint32*) &hdr->Data[bufSize-4] = htonl( Link_CalculateCRC(buf, bufSize) );
-	
-	VFS_Write(Adapter->DeviceFD, bufSize, buf);
+	*(Uint32*)(buf + sizeof(tEthernetHeader) + ofs) = htonl( Link_CalculateCRC(Buffer) );
+
+	size_t outlen = 0;
+	void *data = IPStack_Buffer_CompactBuffer(Buffer, &outlen);
+	VFS_Write(Adapter->DeviceFD, outlen, data);
+	free(data);
 }
 
 void Link_WorkerThread(void *Ptr)
@@ -181,45 +190,49 @@ void Link_WatchDevice(tAdapter *Adapter)
 #define	QUOTIENT	0x04c11db7
 void Link_InitCRC(void)
 {
-     int	i, j;
-    Uint32	crc;
+	 int	i, j;
+	Uint32	crc;
 
-    for (i = 0; i < 256; i++)
-    {
-        crc = i << 24;
-        for (j = 0; j < 8; j++)
-        {
-            if (crc & 0x80000000)
-                crc = (crc << 1) ^ QUOTIENT;
-            else
-                crc = crc << 1;
-        }
-        gaiLink_CRCTable[i] = crc;
-    }
+	for (i = 0; i < 256; i++)
+	{
+		crc = i << 24;
+		for (j = 0; j < 8; j++)
+		{
+			if (crc & 0x80000000)
+				crc = (crc << 1) ^ QUOTIENT;
+			else
+				crc = crc << 1;
+		}
+		gaiLink_CRCTable[i] = crc;
+	}
 	
 	gbLink_CRCTableGenerated = 1;
 }
 
-Uint32 Link_CalculateCRC(void *Data, int Length)
+Uint32 Link_CalculateCRC(tIPStackBuffer *Buffer)
+{
+	Uint32	ret = 0xFFFFFFFF;
+	const void	*data;
+	size_t	length;
+
+	 int	id = -1;
+	while( (id = IPStack_Buffer_GetBuffer(Buffer, id, &length, &data)) != -1 )
+	{
+		ret = Link_CalculatePartialCRC(ret, data, length);
+	}
+
+	return ~ret;
+}
+
+Uint32 Link_CalculatePartialCRC(Uint32 CRC, const void *Data, int Length)
 {
 	// x32 + x26 + x23 + x22 + x16 + x12 + x11 + x10 + x8 + x7 + x5 + x4 + x2 + x + 1
-	Uint32	result;
-     int	i;
-	Uint32	*data = Data;
-    
-    if(Length < 4)	return 0;
+	const Uint32	*data = Data;
 
-    result = *data++ << 24;
-    result |= *data++ << 16;
-    result |= *data++ << 8;
-    result |= *data++;
-    result = ~ result;
-    Length -= 4;
-    
-    for( i = 0; i < Length; i++ )
-    {
-        result = (result << 8 | *data++) ^ gaiLink_CRCTable[result >> 24];
-    }
-    
-    return ~result;
+	for( int i = 0; i < Length/4; i++ )
+	{
+		CRC = (CRC << 8 | *data++) ^ gaiLink_CRCTable[CRC >> 24];
+	}
+
+	return CRC;
 }

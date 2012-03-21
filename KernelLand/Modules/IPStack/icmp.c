@@ -83,7 +83,11 @@ void ICMP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buff
 		hdr->Checksum = 0;
 		hdr->Checksum = htons( IPv4_Checksum( (Uint16*)hdr, Length/2 ) );
 		//Log_Debug("ICMPv4", "Checksum = 0x%04x", hdr->Checksum);
-		IPv4_SendPacket(Interface, *(tIPv4*)Address, 1, ntohs(hdr->Sequence), Length, hdr);
+		
+		tIPStackBuffer	*buffer = IPStack_Buffer_CreateBuffer(1 + IPV4_BUFFERS);
+		IPStack_Buffer_AppendSubBuffer(buffer, Length, 0, hdr, NULL, NULL);
+		IPv4_SendPacket(Interface, *(tIPv4*)Address, 1, ntohs(hdr->Sequence), buffer);
+		IPStack_Buffer_DestroyBuffer(buffer);
 		break;
 	default:
 		break;
@@ -121,7 +125,10 @@ int ICMP_Ping(tInterface *Interface, tIPv4 Addr)
 	
 	ts = now();
 	
-	IPv4_SendPacket(Interface, Addr, 1, i, sizeof(buf), buf);
+	tIPStackBuffer	*buffer = IPStack_Buffer_CreateBuffer(1 + IPV4_BUFFERS);
+	IPStack_Buffer_AppendSubBuffer(buffer, sizeof(buf), 0, buf, NULL, NULL);
+	IPv4_SendPacket(Interface, Addr, 1, i, buffer);
+	IPStack_Buffer_DestroyBuffer(buffer);
 	
 	end = ts + Interface->TimeoutDelay;
 	while( !gICMP_PingSlots[i].bArrived && now() < end)	Threads_Yield();

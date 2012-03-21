@@ -144,7 +144,7 @@ void UDP_Unreachable(tInterface *Interface, int Code, void *Address, int Length,
  */
 void UDP_SendPacketTo(tUDPChannel *Channel, int AddrType, const void *Address, Uint16 Port, const void *Data, size_t Length)
 {
-	tUDPHeader	*hdr;
+	tUDPHeader	hdr;
 
 	if(Channel->Interface && Channel->Interface->Type != AddrType)	return ;
 	
@@ -152,17 +152,17 @@ void UDP_SendPacketTo(tUDPChannel *Channel, int AddrType, const void *Address, U
 	{
 	case 4:
 		// Create the packet
-		hdr = malloc(sizeof(tUDPHeader)+Length);
-		hdr->SourcePort = htons( Channel->LocalPort );
-		hdr->DestPort = htons( Port );
-		hdr->Length = htons( sizeof(tUDPHeader) + Length );
-		hdr->Checksum = 0;	// Checksum can be zero on IPv4
-		memcpy(hdr->Data, Data, Length);
+		hdr.SourcePort = htons( Channel->LocalPort );
+		hdr.DestPort = htons( Port );
+		hdr.Length = htons( sizeof(tUDPHeader) + Length );
+		hdr.Checksum = 0;	// Checksum can be zero on IPv4
 		// Pass on the the IPv4 Layer
+		tIPStackBuffer	*buffer = IPStack_Buffer_CreateBuffer(2 + IPV4_BUFFERS);
+		IPStack_Buffer_AppendSubBuffer(buffer, Length, 0, Data, NULL, NULL);
+		IPStack_Buffer_AppendSubBuffer(buffer, sizeof(hdr), 0, &hdr, NULL, NULL);
 		// TODO: What if Channel->Interface is NULL here?
-		IPv4_SendPacket(Channel->Interface, *(tIPv4*)Address, IP4PROT_UDP, 0, sizeof(tUDPHeader)+Length, hdr);
-		// Free allocated packet
-		free(hdr);
+		IPv4_SendPacket(Channel->Interface, *(tIPv4*)Address, IP4PROT_UDP, 0, buffer);
+		IPStack_Buffer_DestroyBuffer(buffer);
 		break;
 	}
 }

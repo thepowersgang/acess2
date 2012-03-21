@@ -149,9 +149,14 @@ tMacAddr ARP_Resolve4(tInterface *Interface, tIPv4 Address)
 	req.SourceIP = *(tIPv4*)Interface->Address;
 	req.DestMac = cMAC_BROADCAST;
 	req.DestIP = Address;
-	
+
+	tIPStackBuffer	*buffer = IPStack_Buffer_CreateBuffer(3);	// Assumes only a header and footer at link layer
+	IPStack_Buffer_AppendSubBuffer(buffer, sizeof(struct sArpRequest4), 0, &req, NULL, NULL);
+
 	// Send Request
-	Link_SendPacket(Interface->Adapter, 0x0806, req.DestMac, sizeof(struct sArpRequest4), &req);
+	Link_SendPacket(Interface->Adapter, 0x0806, req.DestMac, buffer);
+
+	IPStack_Buffer_DestroyBuffer(buffer);
 	
 	timeout = now() + Interface->TimeoutDelay;
 	
@@ -333,7 +338,12 @@ void ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffe
 					req4->SourceMac.B[0], req4->SourceMac.B[1],
 					req4->SourceMac.B[2], req4->SourceMac.B[3],
 					req4->SourceMac.B[4], req4->SourceMac.B[5]);
-				Link_SendPacket(Adapter, 0x0806, req4->DestMac, sizeof(tArpRequest4), req4);
+				
+				// Assumes only a header and footer at link layer
+				tIPStackBuffer	*buffer = IPStack_Buffer_CreateBuffer(3);
+				IPStack_Buffer_AppendSubBuffer(buffer, sizeof(struct sArpRequest4), 0, &req4, NULL, NULL);
+				Link_SendPacket(Adapter, 0x0806, req4->DestMac, buffer);
+				IPStack_Buffer_DestroyBuffer(buffer);
 			}
 			break;
 		#if ARPv6
