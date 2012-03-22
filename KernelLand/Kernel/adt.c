@@ -12,9 +12,7 @@
 // --- Ring Buffers ---
 tRingBuffer *RingBuffer_Create(size_t Space)
 {
-	tRingBuffer	*ret = malloc(sizeof(tRingBuffer)+Space);
-	ret->Start = 0;
-	ret->Length = 0;
+	tRingBuffer	*ret = calloc(1, sizeof(tRingBuffer)+Space);
 	ret->Space = Space;
 	return ret;
 }
