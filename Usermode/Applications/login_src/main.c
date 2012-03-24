@@ -19,7 +19,7 @@ int main(int argc, char *argv[])
 	tUserInfo	*uinfo;
 
 	printf("\x1B[?25h");	// Re-enable the cursor	
-	printf("\x1B[2J");	// Clear Screen
+//	printf("\x1B[2J");	// Clear Screen
 
 	for(;;)
 	{
