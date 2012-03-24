@@ -5,7 +5,7 @@
 #include "initrd.h"
 #include <modules.h>
 
-#define DUMP_ON_MOUNT	1
+#define DUMP_ON_MOUNT	0
 
 // === IMPORTS ==
 extern tVFS_Node	gInitRD_RootNode;
