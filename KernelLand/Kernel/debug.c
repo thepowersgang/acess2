@@ -11,7 +11,7 @@
 
 #define	LOCK_DEBUG_OUTPUT	1
 
-#define TRACE_TO_KTERM	0
+#define TRACE_TO_KTERM	1
 
 // === IMPORTS ===
 extern void	Threads_Dump(void);
