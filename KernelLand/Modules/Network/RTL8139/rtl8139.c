@@ -60,8 +60,16 @@ enum eRTL8139_Regs
 	
 };
 
-#define FLAG_ISR_TOK	0x04
-#define FLAG_ISR_ROK	0x01
+#define FLAG_ISR_SERR	0x8000	// System error
+#define FLAG_ISR_TIMEO	0x4000	// Timer timeout (See TIMERINT)
+#define FLAG_ISR_LENCHG	0x2000	// Cable length changed
+#define FLAG_ISR_FOVW	0x0040	// Rx FIFO Underflow
+#define FLAG_ISR_PUN	0x0020	// Packet Underrung
+#define FLAG_ISR_RXOVW	0x0010	// Rx Buffer Overflow
+#define FLAG_ISR_TER	0x0008	// Tx Error
+#define FLAG_ISR_TOK	0x0004	// Tx OK
+#define FLAG_ISR_RER	0x0002	// Rx Error
+#define FLAG_ISR_ROK	0x0001	// Rx OK
 
 // === TYPES ===
 typedef struct sCard
@@ -165,6 +173,9 @@ int RTL8139_Install(char **Options)
 		// Reset (0x10 to CMD)
 		outb( base + CMD, 0x10 );	
 		while( inb(base + CMD) & 0x10 )	;
+
+		// Set IMR to all interrupts!
+		outw(base + IMR, 0xE07F);
 		
 		// Set up recieve buffer
 		// - Allocate 3 pages below 4GiB for the recieve buffer (Allows 8k+16+1500)
@@ -173,8 +184,6 @@ int RTL8139_Install(char **Options)
 		outd(base + RBSTART, (Uint32)card->PhysReceiveBuffer);
 		outd(base + CBA, 0);
 		outd(base + CAPR, 0);
-		// Set IMR to Transmit OK and Receive OK
-		outw(base + IMR, 0x5);
 		
 		// Set up transmit buffers
 		// - 2 non-contiguous pages (each page can fit 2 1500 byte packets)
@@ -195,7 +204,10 @@ int RTL8139_Install(char **Options)
 		// - Bit 7 being set tells the card to overflow the recieve buffer if needed
 		//   (i.e. when the packet starts at the end of the bufffer, it overflows up
 		//    to 1500 bytes)
-		outd(base + RCR, 0x8F);
+		// Bits 10: 8 set the max DMA burst size (6=1024)
+		// Bits 12:11 set the size (8k+16 -> 64k+16)
+		// Bits 15:13 set the FIFO threshold (6 = 1024)
+		outd(base + RCR, (6<<13)|(6<<8)|0x80|0x1F);	// All valid + runt packets
 	
 		// Recive Enable and Transmit Enable	
 		outb(base + CMD, 0x0C);
@@ -401,6 +413,13 @@ void RTL8139_IRQHandler(int Num, void *Ptr)
 		}
 		outw(card->IOBase + ISR, FLAG_ISR_TOK);
 	}
+
+	// Transmit error, ... oops
+	if( status & FLAG_ISR_TER )
+	{
+		Log_Error("RTK8139", "Tx Error, dunno what to do");
+		outw(card->IOBase + ISR, FLAG_ISR_TER);
+	}
 	
 	// Recieve OK, inform read
 	if( status & FLAG_ISR_ROK )
@@ -436,6 +455,7 @@ void RTL8139_IRQHandler(int Num, void *Ptr)
 		while( read_ofs < end_ofs )
 		{
 			packet_count ++;
+//			Log_Debug("RTL8139", "RX %i at 0x%x", packet_count, read_ofs);
 			LOG("%i 0x%x Pkt Hdr: 0x%04x, len: 0x%04x",
 				packet_count, read_ofs,
 				*(Uint16*)&card->ReceiveBuffer[read_ofs],
@@ -461,5 +481,34 @@ void RTL8139_IRQHandler(int Num, void *Ptr)
 		}
 		
 		outw(card->IOBase + ISR, FLAG_ISR_ROK);
-	}	
+	}
+	
+	// Recieve error, ... oops
+	if( status & FLAG_ISR_RER )
+	{
+		Log_Error("RTL8139", "Rx Error, dunno what to do");
+		outw(card->IOBase + ISR, FLAG_ISR_RER);
+	}
+
+	// Packet Underrun/Link Change
+	if( status & FLAG_ISR_PUN )
+	{
+		// Set when CAPR is written but Rx is empty, OR when the link status changes
+		Log_Notice("RTL8139", "ISR[PUN] set... hmmm");
+		outw(card->IOBase + ISR, FLAG_ISR_PUN);
+	}
+
+	// Rx Overflow
+	if( status & FLAG_ISR_RXOVW )
+	{
+		Log_Error("RTL8139", "Rx Overflow... oh fsck");
+		outw(card->IOBase + ISR, FLAG_ISR_RXOVW);
+	}
+
+	// Rx FIFO Overflow
+	if( status & FLAG_ISR_FOVW )
+	{
+		Log_Error("RTL8139", "Rx FIFO Overflow... huh?");
+		outw(card->IOBase + ISR, FLAG_ISR_FOVW);
+	}
 }
