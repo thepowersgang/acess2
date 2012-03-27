@@ -313,6 +313,10 @@ tThread *Threads_CloneTCB(Uint Flags)
 		new->Process = malloc( sizeof(struct sProcess) );
 		newproc = new->Process;
 		newproc->PID = new->TID;
+		if( Flags & CLONE_PGID )
+			newproc->PGID = oldproc->PGID;
+		else
+			newproc->PGID = newproc->PID;
 		newproc->UID = oldproc->UID;
 		newproc->GID = oldproc->GID;
 		newproc->MaxFD = oldproc->MaxFD;
@@ -1001,6 +1005,10 @@ void Threads_SegFault(tVAddr Addr)
 }
 
 // --- Process Structure Access Functions ---
+tPGID Threads_GetPGID(void)
+{
+	return Proc_GetCurThread()->Process->PGID;
+}
 tPID Threads_GetPID(void)
 {
 	return Proc_GetCurThread()->Process->PID;

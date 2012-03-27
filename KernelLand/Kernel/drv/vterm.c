@@ -40,6 +40,9 @@ tVFS_Node	*VT_FindDir(tVFS_Node *Node, const char *Name);
 size_t	VT_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
 size_t	VT_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
  int	VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data);
+void	VT_Terminal_Reference(tVFS_Node *Node);
+void	VT_Terminal_Close(tVFS_Node *Node);
+//void	VT_SetTerminal(int Term);
 
 // === CONSTANTS ===
 
@@ -164,7 +167,9 @@ int VT_Install(char **Arguments)
 	VT_InitOutput();
 	VT_InitInput();
 	
+	
 	// Create Nodes
+	Log_Debug("VTerm", "Initialising nodes (and creating buffers)");
 	for( i = 0; i < NUM_VTS; i++ )
 	{
 		gVT_Terminals[i].Mode = TERM_MODE_TEXT;
@@ -191,10 +196,12 @@ int VT_Install(char **Arguments)
 //		Semaphore_Init(&gVT_Terminals[i].InputSemaphore, 0, MAX_INPUT_CHARS8, "VTerm", gVT_Terminals[i].Name);
 	}
 	
+	Log_Debug("VTerm", "Registering with DevFS");
 	// Add to DevFS
 	DevFS_AddDevice( &gVT_DrvInfo );
 	
 	// Set kernel output to VT0
+	Log_Debug("VTerm", "Setting kernel output to VT#0");
 	Debug_SetKTerminal("/Devices/VTerm/0");
 	
 	return MODULE_ERR_OK;
@@ -701,6 +708,16 @@ int VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data)
 	}
 	LEAVE('i', -1);
 	return -1;
+}
+
+void VT_Terminal_Reference(tVFS_Node *Node)
+{
+	// Append PID to list
+}
+
+void VT_Terminal_Close(tVFS_Node *Node)
+{
+	// Remove PID from list
 }
 
 /**

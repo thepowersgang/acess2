@@ -38,6 +38,7 @@
 
 // --- Types ---
 typedef Uint32	tPID;	//!< Process ID type
+typedef Uint32	tPGID;	//!< Process Group ID type
 typedef Uint32	tTID;	//!< Thread ID Type
 typedef Uint32	tUID;	//!< User ID Type
 typedef Uint32	tGID;	//!< Group ID Type
@@ -93,6 +94,8 @@ extern const char gsGitHash[];
 #define CLONE_VM	0x10
 //! Don't copy user pages
 #define CLONE_NOUSER	0x20
+//! Inherit the parent's PGID
+#define CLONE_PGID	0x40
 /**
  * \}
  */

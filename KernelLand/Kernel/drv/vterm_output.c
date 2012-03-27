@@ -7,6 +7,7 @@
  */
 #include "vterm.h"
 #include <api_drv_video.h>
+#define DEBUG	1
 
 // === CODE ===
 /**
@@ -23,6 +24,7 @@ void VT_InitOutput()
 	VT_SetResolution( giVT_RealWidth, giVT_RealHeight );
 	VT_SetTerminal( 0 );
 	VT_SetMode( VIDEO_BUFFMT_TEXT );
+	LOG("VTerm output initialised");
 }
 
 /**

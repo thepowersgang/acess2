@@ -8,7 +8,6 @@
 #include <threads.h>
 #include <proc.h>
 
-
 typedef struct sProcess	tProcess;
 
 /**
@@ -27,8 +26,12 @@ typedef struct sMessage
  */
 struct sProcess
 {
+	struct sProcess	*Next;
+	tPGID	PGID;
 	tPID	PID;
+
 	 int	nThreads;
+	struct sThread	*FirstThread;
 	
 	tUID	UID;	//!< User ID
 	tGID	GID;	//!< User and Group
@@ -53,6 +56,7 @@ struct sThread
 	struct sThread	*Next;
 	struct sThread	*GlobalNext;	//!< Next thread in global list
 	struct sThread	*GlobalPrev;	//!< Previous thread in global list
+	struct sThread	*ProcessNext;
 	tShortSpinlock	IsLocked;	//!< Thread's spinlock
 	volatile int	Status;		//!< Thread Status
 	void	*WaitPointer;	//!< What (Mutex/Thread/other) is the thread waiting on

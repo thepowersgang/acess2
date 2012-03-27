@@ -75,6 +75,8 @@ struct sVTerm
 	Uint32	RawScancode;	//!< last raw scancode recieved
 //	tSemaphore	InputSemaphore;
 	
+	tPGID	OwningProcessGroup;	//!< The process group that owns the terminal
+
 	Uint32		*Buffer;
 
 	// TODO: Do I need to keep this about?

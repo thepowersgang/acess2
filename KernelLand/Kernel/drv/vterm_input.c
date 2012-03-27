@@ -7,6 +7,7 @@
  */
 #include "vterm.h"
 #include <api_drv_keyboard.h>
+#define DEBUG	1
 
 // === GLOBALS ===
 // --- Key States --- (Used for VT Switching/Magic Combos)
@@ -27,6 +28,7 @@ void VT_InitInput()
 		return ;
 	}
 	VFS_IOCtl(giVT_InputDevHandle, KB_IOCTL_SETCALLBACK, VT_KBCallBack);
+	LOG("VTerm input initialised");
 }
 
 /**
@@ -173,30 +175,53 @@ void VT_KBCallBack(Uint32 Codepoint)
 				break;
 			
 			case KEYSYM_HOME:
-			case KEYSYM_KP7:
+			case KEYSYM_KP7:	// Codepoint==0, then it's home (not translated)
 				buf[0] = '\x1B'; buf[1] = 'O'; buf[2] = 'H';
 				len = 3;
 				break;
 			case KEYSYM_END:
-			case KEYSYM_KP1:
+			case KEYSYM_KP1:	// You get the drill
 				buf[0] = '\x1B'; buf[1] = 'O'; buf[2] = 'F';
 				len = 3;
 				break;
 			
 			case KEYSYM_INSERT:
-			case KEYSYM_KP0:
+			case KEYSYM_KP0:	// See above
 				buf[0] = '\x1B'; buf[1] = '['; buf[2] = '2'; buf[3] = '~';
 				len = 4;
 				break;
 			case KEYSYM_DELETE:
-			case KEYSYM_KPPERIOD:
+			case KEYSYM_KPPERIOD:	// Are you that dumb? Look up
 				buf[0] = '\x1B'; buf[1] = '['; buf[2] = '3'; buf[3] = '~';
 				len = 4;
 				break;
 			}
 		}
+		else if( gbVT_CtrlDown )
+		{
+			len = 1;
+			switch( term->RawScancode )
+			{
+			case KEYSYM_2:
+				buf[0] = '\0';
+				break;
+			case KEYSYM_3 ... KEYSYM_7:
+				buf[0] = 0x1b + (term->RawScancode - KEYSYM_3);
+				break;
+			case KEYSYM_8:
+				buf[0] = 0x7f;
+				break;
+			// - Ctrl-A = \1, Ctrl-Z = \x1a
+			case KEYSYM_a ... KEYSYM_z:
+				buf[0] = 0x01 + (term->RawScancode - KEYSYM_a);
+				break;
+			default:
+				goto utf_encode;
+			}
+		}
 		else
 		{
+		utf_encode:
 			// Attempt to encode in UTF-8
 			len = WriteUTF8( buf, Codepoint );
 			if(len == 0) {
@@ -214,6 +239,14 @@ void VT_KBCallBack(Uint32 Codepoint)
 		// Handle meta characters
 		if( !(term->Flags & VT_FLAG_RAWIN) )
 		{
+			// Implementation options for Ctrl-C -> SIGINT
+			// - Kernel-land: here in the VT
+			//  > Pros: No userland change needed
+			//  > Cons: Requires process groups
+			// - User-land, in the shell
+			//  > Pros: Less threading changes
+			//  > Cons: Needs the shell to get all user input before the app, worse latency
+			//  >       Won't work with bash etc
 			switch(buf[0])
 			{
 			case '\3':	// ^C
@@ -224,8 +257,9 @@ void VT_KBCallBack(Uint32 Codepoint)
 #endif
 		
 		// Write
-		if( MAX_INPUT_CHARS8 - term->InputWrite >= len )
+		if( MAX_INPUT_CHARS8 - term->InputWrite >= len ) {
 			memcpy( &term->InputBuffer[term->InputWrite], buf, len );
+		}
 		else {
 			memcpy( &term->InputBuffer[term->InputWrite], buf, MAX_INPUT_CHARS8 - term->InputWrite );
 			memcpy( &term->InputBuffer[0], buf, len - (MAX_INPUT_CHARS8 - term->InputWrite) );
