@@ -177,8 +177,8 @@ void Debug_PutCharDebug(char ch)
 	if(!gbDebug_SerialSetup) {
 		outb(SERIAL_PORT + 1, 0x00);	// Disable all interrupts
 		outb(SERIAL_PORT + 3, 0x80);	// Enable DLAB (set baud rate divisor)
-		outb(SERIAL_PORT + 0, 0x0C);	// Set divisor to 12 (lo byte) 9600 baud
-		outb(SERIAL_PORT + 1, 0x00);	//                   (hi byte)
+		outb(SERIAL_PORT + 0, 0x01);	// Set divisor to 1 (lo byte) - 115200 baud
+		outb(SERIAL_PORT + 1, 0x00);	//                  (hi byte)
 		outb(SERIAL_PORT + 3, 0x03);	// 8 bits, no parity, one stop bit
 		outb(SERIAL_PORT + 2, 0xC7);	// Enable FIFO with 14-byte threshold and clear it
 		outb(SERIAL_PORT + 4, 0x0B);	// IRQs enabled, RTS/DSR set

@@ -73,7 +73,7 @@ Uint32	gaPCI_BusBitmap[256/32];
  */
 int PCI_Install(char **Arguments)
 {
-	 int	i;
+	 int	i, ret, bus;
 	void	*tmpPtr;
 	
 	// Build Portmap
@@ -89,8 +89,11 @@ int PCI_Install(char **Arguments)
 		gaPCI_PortBitmap[MAX_RESERVED_PORT / 32] = 1 << i;
 	
 	// Scan Bus (Bus 0, Don't fill gPCI_Devices)
-	i = PCI_ScanBus(0, 0);
-	if(i != MODULE_ERR_OK)	return i;
+	for( bus = 0; bus < giPCI_BusCount; bus ++ )
+	{
+		ret = PCI_ScanBus(bus, 0);
+		if(ret != MODULE_ERR_OK)	return i;
+	}
 		
 	if(giPCI_DeviceCount == 0) {
 		Log_Notice("PCI", "No devices were found");
@@ -109,10 +112,13 @@ int PCI_Install(char **Arguments)
 	
 	// Reset counts
 	giPCI_DeviceCount = 0;
-	giPCI_BusCount = 0;
+	giPCI_BusCount = 1;
 	memset(gaPCI_BusBitmap, 0, sizeof(gaPCI_BusBitmap));
 	// Rescan, filling the PCI device array
-	PCI_ScanBus(0, 1);
+	for( bus = 0; bus < giPCI_BusCount; bus ++ )
+	{
+		PCI_ScanBus(bus, 1);
+	}
 	
 	// Complete Driver Structure
 	gPCI_DriverStruct.RootNode.Size = giPCI_DeviceCount;
