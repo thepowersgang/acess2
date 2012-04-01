@@ -321,6 +321,15 @@ void VM8086_GPF(tRegs *Regs)
 		}
 		break;
 	
+	case 0x0F:
+		opcode = *(Uint8*)( (Regs->cs*16) + (Regs->eip&0xFFFF));
+		Log_Error("VM8086", "Error - Unknown opcode 0F %02x caused a GPF at %04x:%04x",
+			opcode, Regs->cs, Regs->eip);
+		// Force an end to the call
+		Regs->cs = VM8086_MAGIC_CS;
+		Regs->eip = VM8086_MAGIC_IP;
+		break;
+
 	default:
 		Log_Error("VM8086", "Error - Unknown opcode %02x caused a GPF at %04x:%04x",
 			opcode, Regs->cs, Regs->eip);
