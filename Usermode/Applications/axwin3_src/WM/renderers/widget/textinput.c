@@ -140,13 +140,25 @@ int Widget_TextInput_KeyFire(tElement *Element, int KeySym, int Character)
 			{
 				len = ReadUTF8Rev(Element->Text, info->CursorByteOfs, &cp);
 				info->CursorByteOfs -= len;
+				WM_Render_GetTextDims(
+					gpTextInput_Font,
+					Element->Text+info->CursorByteOfs,
+					len, &w, 0
+					);
+				info->CursorXOfs -= w;
 			}
 			break;
 		case KEYSYM_RIGHTARROW:
 			if( info->CursorByteOfs < info->Length )
 			{
 				len = ReadUTF8(Element->Text + info->CursorByteOfs, &cp);
+				WM_Render_GetTextDims(
+					gpTextInput_Font,
+					Element->Text+info->CursorByteOfs,
+					len, &w, 0
+					);
 				info->CursorByteOfs += len;
+				info->CursorXOfs += w;
 			}
 			break;
 		}
