@@ -592,6 +592,7 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 	case NODETYPE_BITSHIFTRIGHT:
 	case NODETYPE_BITROTATELEFT:
 	case NODETYPE_EQUALS:
+	case NODETYPE_NOTEQUALS:
 	case NODETYPE_LESSTHAN:
 	case NODETYPE_GREATERTHAN:
 	case NODETYPE_LESSTHANEQUAL:
@@ -760,6 +761,7 @@ tSpiderValue *AST_ExecuteNode_BinOp(tSpiderScript *Script, tAST_Node *Node, int 
 	switch(Operation)
 	{
 	case NODETYPE_EQUALS:
+	case NODETYPE_NOTEQUALS:
 	case NODETYPE_LESSTHAN:
 	case NODETYPE_GREATERTHAN:
 	case NODETYPE_LESSTHANEQUAL:
@@ -818,6 +820,7 @@ tSpiderValue *AST_ExecuteNode_BinOp(tSpiderScript *Script, tAST_Node *Node, int 
 			switch(Operation)
 			{
 			case NODETYPE_EQUALS:	ret->Integer = (cmp == 0);	break;
+			case NODETYPE_NOTEQUALS:	ret->Integer = (cmp != 0);	break;
 			case NODETYPE_LESSTHAN:	ret->Integer = (cmp < 0);	break;
 			case NODETYPE_GREATERTHAN:	ret->Integer = (cmp > 0);	break;
 			case NODETYPE_LESSTHANEQUAL:	ret->Integer = (cmp <= 0);	break;

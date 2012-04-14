@@ -24,10 +24,10 @@ tSpiderValue	*SpiderScript_CastValueTo(int Type, tSpiderValue *Source);
 void	SpiderScript_FreeValue(tSpiderValue *Value);
 char	*SpiderScript_DumpValue(tSpiderValue *Value);
 // --- Operations
-tSpiderValue	*SpiderScript_DoOp(tSpiderValue *Left, int Operation, int bCanCast, tSpiderValue *Right);
-tSpiderValue	*SpiderScript_int_DoOpInt(tSpiderValue *Left, int Operation, int bCanCast, tSpiderValue *Right);
-tSpiderValue	*SpiderScript_int_DoOpReal(tSpiderValue *Left, int Operation, int bCanCast, tSpiderValue *Right);
-tSpiderValue	*SpiderScript_int_DoOpString(tSpiderValue *Left, int Operation, int bCanCast, tSpiderValue *Right);
+tSpiderValue	*SpiderScript_DoOp(tSpiderValue *Left, enum eSpiderValueOps, int bCanCast, tSpiderValue *Right);
+tSpiderValue	*SpiderScript_int_DoOpInt(tSpiderValue *Left, enum eSpiderValueOps, int bCanCast, tSpiderValue *Right);
+tSpiderValue	*SpiderScript_int_DoOpReal(tSpiderValue *Left, enum eSpiderValueOps, int bCanCast, tSpiderValue *Right);
+tSpiderValue	*SpiderScript_int_DoOpString(tSpiderValue *Left, enum eSpiderValueOps, int bCanCast, tSpiderValue *Right);
 
 
 // === CODE ===
@@ -405,26 +405,28 @@ char *SpiderScript_DumpValue(tSpiderValue *Value)
 }
 
 // ---
-tSpiderValue *SpiderScript_DoOp(tSpiderValue *Left, int Operation, int bCanCast, tSpiderValue *Right)
+tSpiderValue *SpiderScript_DoOp(tSpiderValue *Left, enum eSpiderValueOps Operation, int bCanCast, tSpiderValue *Right)
 {
 	switch(Left->Type)
 	{
 	case SS_DATATYPE_INTEGER:
 		return SpiderScript_int_DoOpInt(Left, Operation, bCanCast, Right);
+	default:
+		return NULL;
 	}
 	return NULL;
 }
 
-tSpiderValue *SpiderScript_int_DoOpInt(tSpiderValue *Left, int Operation, int bCanCast, tSpiderValue *Right)
+tSpiderValue *SpiderScript_int_DoOpInt(tSpiderValue *Left, enum eSpiderValueOps Operation, int bCanCast, tSpiderValue *Right)
 {
 	tSpiderValue	*oldright = Right;
 	tSpiderValue	*ret = NULL;
-	 int64_t	rv;
+	 int64_t	rv = 0;
 
 	// Casting
 	if(Right && Right->Type != SS_DATATYPE_INTEGER) {
 		if(!bCanCast)	return ERRPTR;
-		Right = SpiderScript_CastValueTo(Right, SS_DATATYPE_INTEGER);
+		Right = SpiderScript_CastValueTo(SS_DATATYPE_INTEGER, Right);
 	}
 
 	// Do the operation
@@ -437,6 +439,14 @@ tSpiderValue *SpiderScript_int_DoOpInt(tSpiderValue *Left, int Operation, int bC
 	case SS_VALUEOP_ADD:
 		if(!Right)	ret = ERRPTR;
 		else	rv = Left->Integer + Right->Integer;
+		break;
+	case SS_VALUEOP_SUBTRACT:
+		if(!Right)	ret = ERRPTR;
+		else	rv = Left->Integer - Right->Integer;
+		break;
+	default:
+		ret = ERRPTR;
+		AST_RuntimeError(NULL, "BUG - BUG REPORT: Unimplemented integer operation %i", Operation);
 		break;
 	}
 

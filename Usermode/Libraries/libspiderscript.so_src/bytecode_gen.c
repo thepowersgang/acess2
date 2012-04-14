@@ -377,8 +377,12 @@ void Bytecode_AppendConstString(tBC_Function *Handle, const void *Data, size_t L
 // --- Indexing / Scoping
 void Bytecode_AppendElement(tBC_Function *Handle, const char *Name)
 	DEF_BC_STR(BC_OP_ELEMENT, Name)
+void Bytecode_AppendSetElement(tBC_Function *Handle, const char *Name)
+	DEF_BC_STR(BC_OP_SETELEMENT, Name)
 void Bytecode_AppendIndex(tBC_Function *Handle)
 	DEF_BC_NONE(BC_OP_INDEX)
+void Bytecode_AppendSetIndex(tBC_Function *Handle)
+	DEF_BC_NONE(BC_OP_SETINDEX);
 
 void Bytecode_AppendCreateObj(tBC_Function *Handle, const char *Name, int ArgumentCount)
 	DEF_BC_STRINT(BC_OP_CREATEOBJ, Name, ArgumentCount)

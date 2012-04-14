@@ -35,6 +35,7 @@ typedef struct sAST_BlockInfo
 // === PROTOTYPES ===
 // Node Traversal
  int	AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue);
+ int	BC_SaveValue(tAST_BlockInfo *Block, tAST_Node *DestNode);
 // Variables
  int 	BC_Variable_Define(tAST_BlockInfo *Block, int Type, const char *Name);
  int	BC_Variable_SetValue(tAST_BlockInfo *Block, tAST_Node *VarNode);
@@ -131,17 +132,10 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 	
 	// Assignment
 	case NODETYPE_ASSIGN:
-		// TODO: Support assigning to object attributes
-		if( Node->Assign.Dest->Type != NODETYPE_VARIABLE ) {
-			AST_RuntimeError(Node, "LVALUE of assignment is not a variable");
-			return -1;
-		}
-		
 		// Perform assignment operation
 		if( Node->Assign.Operation != NODETYPE_NOP )
 		{
-			
-			ret = BC_Variable_GetValue(Block, Node->Assign.Dest);
+			ret = AST_ConvertNode(Block, Node->Assign.Dest, 1);
 			if(ret)	return ret;
 			ret = AST_ConvertNode(Block, Node->Assign.Value, 1);
 			if(ret)	return ret;
@@ -164,7 +158,7 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 				AST_RuntimeError(Node, "Unknown operation in ASSIGN %i", Node->Assign.Operation);
 				break;
 			}
-			printf("assign, op = %i\n", op);
+//			printf("assign, op = %i\n", op);
 			Bytecode_AppendBinOp(Block->Handle, op);
 		}
 		else
@@ -175,19 +169,13 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 		
 		if( bKeepValue )
 			Bytecode_AppendDuplicate(Block->Handle);
-		// Set the variable value
-		ret = BC_Variable_SetValue( Block, Node->Assign.Dest );
+		
+		ret = BC_SaveValue(Block, Node->Assign.Dest);
 		break;
 	
 	// Post increment/decrement
 	case NODETYPE_POSTINC:
 	case NODETYPE_POSTDEC:
-		// TODO: Support assigning to object attributes
-		if( Node->UniOp.Value->Type != NODETYPE_VARIABLE ) {
-			AST_RuntimeError(Node, "LVALUE of assignment is not a variable");
-			return -1;
-		}
-
 		// Save original value if requested
 		if(bKeepValue) {
 			ret = BC_Variable_GetValue(Block, Node->UniOp.Value);
@@ -196,7 +184,7 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 		
 		Bytecode_AppendConstInt(Block->Handle, 1);
 		
-		ret = BC_Variable_GetValue(Block, Node->UniOp.Value);
+		ret = AST_ConvertNode(Block, Node->UniOp.Value, 1);
 		if(ret)	return ret;
 
 		if( Node->Type == NODETYPE_POSTDEC )
@@ -205,12 +193,9 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 			Bytecode_AppendBinOp(Block->Handle, BC_OP_ADD);
 		if(ret)	return ret;
 
-
-		ret = BC_Variable_SetValue(Block, Node->UniOp.Value);
-		if(ret)	return ret;
-		// Doesn't push unless needed
+		ret = BC_SaveValue(Block, Node->UniOp.Value);
 		break;
-	
+
 	// Function Call
 	case NODETYPE_METHODCALL:
 	case NODETYPE_FUNCTIONCALL:
@@ -481,8 +466,9 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 	case NODETYPE_LOGICALOR:	if(!op)	op = BC_OP_LOGICOR;
 	case NODETYPE_LOGICALXOR:	if(!op)	op = BC_OP_LOGICXOR;
 	// Comparisons
-	case NODETYPE_EQUALS:	if(!op)	op = BC_OP_EQUALS;
-	case NODETYPE_LESSTHAN:	if(!op)	op = BC_OP_LESSTHAN;
+	case NODETYPE_EQUALS:   	if(!op)	op = BC_OP_EQUALS;
+	case NODETYPE_NOTEQUALS:	if(!op)	op = BC_OP_NOTEQUALS;
+	case NODETYPE_LESSTHAN: 	if(!op)	op = BC_OP_LESSTHAN;
 	case NODETYPE_GREATERTHAN:	if(!op)	op = BC_OP_GREATERTHAN;
 	case NODETYPE_LESSTHANEQUAL:	if(!op)	op = BC_OP_LESSTHANOREQUAL;
 	case NODETYPE_GREATERTHANEQUAL:	if(!op)	op = BC_OP_GREATERTHANOREQUAL;
@@ -522,6 +508,38 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 	}
 	#endif
 
+	return ret;
+}
+
+int BC_SaveValue(tAST_BlockInfo *Block, tAST_Node *DestNode)
+{
+	 int	ret;
+	switch(DestNode->Type)
+	{
+	// Variable, simple
+	case NODETYPE_VARIABLE:
+		ret = BC_Variable_SetValue( Block, DestNode );
+		break;
+	// Array index
+	case NODETYPE_INDEX:
+		ret = AST_ConvertNode(Block, DestNode->BinOp.Left, 1);	// Array
+		if(ret)	return ret;
+		ret = AST_ConvertNode(Block, DestNode->BinOp.Right, 1);	// Offset
+		if(ret)	return ret;
+		Bytecode_AppendSetIndex( Block->Handle );
+		break;
+	// Object element
+	case NODETYPE_ELEMENT:
+		ret = AST_ConvertNode(Block, DestNode->Scope.Element, 1);
+		if(ret)	return ret;
+		Bytecode_AppendSetElement( Block->Handle, DestNode->Scope.Name );
+		break;
+	// Anything else
+	default:
+		// TODO: Support assigning to object attributes
+		AST_RuntimeError(DestNode, "Assignment target is not a LValue");
+		return -1;
+	}
 	return ret;
 }
 

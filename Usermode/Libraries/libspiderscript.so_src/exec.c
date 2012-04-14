@@ -48,9 +48,11 @@ tSpiderValue *SpiderScript_ExecuteFunction(tSpiderScript *Script,
 		// Execute!
 		if(fcn)
 		{
+			#if 1
 			if( fcn->BCFcn )
 				ret = Bytecode_ExecuteFunction(Script, fcn, NArguments, Arguments);
 			else
+			#endif
 				ret = AST_ExecuteFunction(Script, fcn, NArguments, Arguments);
 			bFound = 1;
 		}

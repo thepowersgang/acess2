@@ -57,7 +57,9 @@ extern void	Bytecode_AppendConstReal(tBC_Function *Handle, double Value);
 extern void	Bytecode_AppendConstString(tBC_Function *Handle, const void *Data, size_t Length);
 //  > Scoping
 extern void	Bytecode_AppendElement(tBC_Function *Handle, const char *Name);	// Obj->SubObj
+extern void	Bytecode_AppendSetElement(tBC_Function *Handle, const char *Name);	// Set an object member
 extern void	Bytecode_AppendIndex(tBC_Function *Handle);	// Index into an array
+extern void	Bytecode_AppendSetIndex(tBC_Function *Handle);	// Write an array element
 //  > Function Calls
 extern void	Bytecode_AppendCreateObj(tBC_Function *Handle, const char *Name, int ArgumentCount);
 extern void	Bytecode_AppendMethodCall(tBC_Function *Handle, const char *Name, int ArgumentCount);

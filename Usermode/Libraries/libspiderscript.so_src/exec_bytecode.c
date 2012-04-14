@@ -84,7 +84,7 @@ int Bytecode_int_IsStackEntTrue(tBC_StackEnt *Ent)
 	case SS_DATATYPE_INTEGER:
 		return !!Ent->Integer;
 	case SS_DATATYPE_REAL:
-		return (-.5f < Ent->Real && Ent->Real < 0.5f);
+		return !(-.5f < Ent->Real && Ent->Real < 0.5f);
 	case SS_DATATYPE_OBJECT:
 		return Ent->Object != NULL;
 	case ET_FUNCTION_START:
@@ -521,11 +521,14 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 			Bytecode_int_StackPush(Stack, &val2);
 			Bytecode_int_DerefStackValue(&val1);
 			break;
+		
 		case BC_OP_BITNOT:
-			if(!ast_op)	ast_op = NODETYPE_BWNOT;
+			if(!ast_op)	ast_op = NODETYPE_BWNOT,	opstr = "BITNOT";
+		case BC_OP_NEG:
+			if(!ast_op)	ast_op = NODETYPE_NEGATE,	opstr = "NEG";
 
 			STATE_HDR();
-			DEBUG_F("UNIOP %i\n", ast_op);
+			DEBUG_F("%s\n", opstr);
 
 			GET_STACKVAL(val1);
 			pval1 = Bytecode_int_GetSpiderValue(&val1, &tmpVal1);
@@ -600,6 +603,8 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 
 		case BC_OP_EQUALS:
 			if(!ast_op)	ast_op = NODETYPE_EQUALS,	opstr = "EQUALS";
+		case BC_OP_NOTEQUALS:
+			if(!ast_op)	ast_op = NODETYPE_NOTEQUALS,	opstr = "NOTEQUALS";
 		case BC_OP_LESSTHAN:
 			if(!ast_op)	ast_op = NODETYPE_LESSTHAN,	opstr = "LESSTHAN";
 		case BC_OP_LESSTHANOREQUAL:
@@ -615,17 +620,22 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 			GET_STACKVAL(val2);	// Right
 			GET_STACKVAL(val1);	// Left
 
+			DEBUG_F(" ("); PRINT_STACKVAL(val1); DEBUG_F(")");
+			DEBUG_F(" ("); PRINT_STACKVAL(val2); DEBUG_F(")\n");
+
 			#define PERFORM_NUM_OP(_type, _field) if(val1.Type == _type && val1.Type == val2.Type) { \
 				switch(op->Operation) { \
 				case BC_OP_ADD:	val1._field = val1._field + val2._field;	break; \
 				case BC_OP_SUBTRACT:	val1._field = val1._field - val2._field;	break; \
 				case BC_OP_MULTIPLY:	val1._field = val1._field * val2._field;	break; \
 				case BC_OP_DIVIDE:	val1._field = val1._field / val2._field;	break; \
-				case BC_OP_EQUALS:	val1._field = val1._field == val2._field;	break; \
-				case BC_OP_LESSTHAN:	val1._field = val1._field < val2._field;	break; \
-				case BC_OP_LESSTHANOREQUAL:	val1._field = val1._field <= val2._field;	break; \
-				case BC_OP_GREATERTHAN:	val1._field = val1._field > val2._field;	break; \
-				case BC_OP_GREATERTHANOREQUAL:	val1._field = val1._field >= val2._field;	break; \
+				\
+				case BC_OP_EQUALS:	val1.Type=SS_DATATYPE_INTEGER; val1.Integer = (val1._field == val2._field);	break; \
+				case BC_OP_NOTEQUALS:	val1.Type=SS_DATATYPE_INTEGER; val1.Integer = (val1._field != val2._field);	break; \
+				case BC_OP_LESSTHAN:	val1.Type=SS_DATATYPE_INTEGER; val1.Integer = val1._field < val2._field;	break; \
+				case BC_OP_LESSTHANOREQUAL:	val1.Type=SS_DATATYPE_INTEGER; val1.Integer = val1._field <= val2._field;	break; \
+				case BC_OP_GREATERTHAN:	val1.Type=SS_DATATYPE_INTEGER; val1.Integer = val1._field > val2._field;	break; \
+				case BC_OP_GREATERTHANOREQUAL:	val1.Type=SS_DATATYPE_INTEGER; val1.Integer = val1._field >= val2._field;	break; \
 				\
 				case BC_OP_BITAND:	val1._field = (int64_t)val1._field & (int64_t)val2._field;	break; \
 				case BC_OP_BITOR:	val1._field = (int64_t)val1._field | (int64_t)val2._field;	break; \
@@ -633,6 +643,7 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 				case BC_OP_MODULO:	val1._field = (int64_t)val1._field % (int64_t)val2._field;	break; \
 				default:	AST_RuntimeError(NULL, "Invalid operation on datatype %i", _type); nextop = NULL; break;\
 				}\
+				DEBUG_F(" - Fast local op\n");\
 				PUT_STACKVAL(val1);\
 				break;\
 			}
@@ -728,7 +739,7 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 					
 					if(val1.Type == SS_DATATYPE_OBJECT)
 						obj = val1.Object;
-					else if(val1.Type == ET_REFERENCE && val1.Reference->Type == SS_DATATYPE_OBJECT)
+					else if(val1.Type == ET_REFERENCE && val1.Reference && val1.Reference->Type == SS_DATATYPE_OBJECT)
 						obj = val1.Reference->Object;
 					else {
 						// Error

@@ -274,6 +274,11 @@ int GetToken(tParser *File)
 	
 	// Logical NOT
 	case '!':
+		if( *File->CurPos == '=' ) {
+			File->CurPos ++;
+			ret = TOK_NOTEQUALS;
+			break;
+		}
 		ret = TOK_LOGICNOT;
 		break;
 	// Bitwise NOT

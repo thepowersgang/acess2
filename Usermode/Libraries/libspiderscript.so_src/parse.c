@@ -581,6 +581,9 @@ tAST_Node *Parse_DoExpr2(tParser *Parser)
 		case TOK_EQUALS:
 			ret = AST_NewBinOp(Parser, NODETYPE_EQUALS, ret, _next(Parser));
 			break;
+		case TOK_NOTEQUALS:
+			ret = AST_NewBinOp(Parser, NODETYPE_NOTEQUALS, ret, _next(Parser));
+			break;
 		case TOK_LT:
 			ret = AST_NewBinOp(Parser, NODETYPE_LESSTHAN, ret, _next(Parser));
 			break;

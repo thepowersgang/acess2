@@ -54,6 +54,7 @@ enum eAST_NodeTypes
 	NODETYPE_LOGICALXOR,	//!< Logical XOR operator
 	
 	NODETYPE_EQUALS,	//!< Comparison Equals
+	NODETYPE_NOTEQUALS,	//!< Comparison Not Equals
 	NODETYPE_LESSTHAN,	//!< Comparison Less Than
 	NODETYPE_LESSTHANEQUAL,	//!< Comparison Less Than or Equal
 	NODETYPE_GREATERTHAN,	//!< Comparison Greater Than

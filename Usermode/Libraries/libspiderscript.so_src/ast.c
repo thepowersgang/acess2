@@ -254,7 +254,7 @@ size_t AST_WriteNode(void *Buffer, size_t Offset, tAST_Node *Node)
 	case NODETYPE_BWAND:	case NODETYPE_LOGICALAND:
 	case NODETYPE_BWOR: 	case NODETYPE_LOGICALOR:
 	case NODETYPE_BWXOR:	case NODETYPE_LOGICALXOR:
-	case NODETYPE_EQUALS:
+	case NODETYPE_EQUALS:	case NODETYPE_NOTEQUALS:
 	case NODETYPE_LESSTHAN:	case NODETYPE_LESSTHANEQUAL:
 	case NODETYPE_GREATERTHAN:	case NODETYPE_GREATERTHANEQUAL:
 		Offset += AST_WriteNode(Buffer, Offset, Node->BinOp.Left);
@@ -394,7 +394,7 @@ void AST_FreeNode(tAST_Node *Node)
 	case NODETYPE_BWAND:	case NODETYPE_LOGICALAND:
 	case NODETYPE_BWOR: 	case NODETYPE_LOGICALOR:
 	case NODETYPE_BWXOR:	case NODETYPE_LOGICALXOR:
-	case NODETYPE_EQUALS:
+	case NODETYPE_EQUALS:	case NODETYPE_NOTEQUALS:
 	case NODETYPE_LESSTHAN:	case NODETYPE_LESSTHANEQUAL:
 	case NODETYPE_GREATERTHAN:	case NODETYPE_GREATERTHANEQUAL:
 		AST_FreeNode( Node->BinOp.Left );
@@ -506,7 +506,8 @@ tAST_Node *AST_NewAssign(tParser *Parser, int Operation, tAST_Node *Dest, tAST_N
 {
 	tAST_Node	*ret = AST_int_AllocateNode(Parser, NODETYPE_ASSIGN, 0);
 	
-	if( Dest->Type != NODETYPE_VARIABLE && Dest->Type != NODETYPE_ELEMENT ) {
+	if( Dest->Type != NODETYPE_VARIABLE && Dest->Type != NODETYPE_ELEMENT && Dest->Type != NODETYPE_INDEX )
+	{
 		free(ret);
 		SyntaxError(Parser, 1, "Assign target is not a variable or attribute (instead %i)",
 			Dest->Type);
