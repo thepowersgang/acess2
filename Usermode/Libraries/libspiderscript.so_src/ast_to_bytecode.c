@@ -28,7 +28,8 @@ typedef struct sAST_BlockInfo
 
 	 int	BreakTarget;
 	 int	ContinueTarget;
-	
+
+	 int	NamespaceDepth;
 	const char	*CurNamespaceStack[MAX_NAMESPACE_DEPTH];
 } tAST_BlockInfo;
 
@@ -197,16 +198,48 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 		break;
 
 	// Function Call
-	case NODETYPE_METHODCALL:
+	case NODETYPE_METHODCALL: {
+		 int	nargs = 0;
+		
+		ret = AST_ConvertNode(Block, Node->FunctionCall.Object, 1);
+		if(ret)	return ret;
+
+		// Push arguments to the stack
+		for(node = Node->FunctionCall.FirstArg; node; node = node->NextSibling)
+		{
+			ret = AST_ConvertNode(Block, node, 1);
+			if(ret)	return ret;
+			nargs ++;
+		}
+		
+		// TODO: Sanity check stack top?
+		Bytecode_AppendMethodCall(Block->Handle, Node->FunctionCall.Name, nargs);
+		
+		CHECK_IF_NEEDED(0);	// Don't warn
+		// TODO: Implement warn_unused_ret
+		
+		} break;
 	case NODETYPE_FUNCTIONCALL:
 	case NODETYPE_CREATEOBJECT: {
 		 int	nargs = 0;
-
-		// Put the object earlier on the stack to the arguments (for exec)
-		if( Node->Type == NODETYPE_METHODCALL ) {
-			ret = AST_ConvertNode(Block, Node->FunctionCall.Object, 1);
-			if(ret)	return ret;
-		}		
+		
+		// Get name (mangled into a single string)
+		 int	newnamelen = 0;
+		char	*manglename;
+		for( i = 0; i < Block->NamespaceDepth; i ++ )
+			newnamelen += strlen(Block->CurNamespaceStack[i]) + 1;
+		newnamelen += strlen(Node->FunctionCall.Name) + 1;
+		manglename = alloca(newnamelen);
+		manglename[0] = 0;
+		for( i = 0; i < Block->NamespaceDepth; i ++ ) {
+			 int	pos;
+			strcat(manglename, Block->CurNamespaceStack[i]);
+			pos = strlen(manglename);
+			manglename[pos] = BC_NS_SEPARATOR;
+			manglename[pos+1] = '\0';
+		}
+		strcat(manglename, Node->FunctionCall.Name);
+		Block->NamespaceDepth = 0;
 
 		// Push arguments to the stack
 		for(node = Node->FunctionCall.FirstArg; node; node = node->NextSibling)
@@ -217,39 +250,15 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 		}
 		
 		// Call the function
-		if( Node->Type == NODETYPE_METHODCALL )
+		if( Node->Type == NODETYPE_CREATEOBJECT )
 		{
-			// TODO: Sanity check stack top
-			Bytecode_AppendMethodCall(Block->Handle, Node->FunctionCall.Name, nargs);
+			Bytecode_AppendCreateObj(Block->Handle, manglename, nargs);
 		}
 		else
 		{
-			 int	newnamelen = 0;
-			char	*manglename;
-			for( i = 0; i < MAX_NAMESPACE_DEPTH && Block->CurNamespaceStack[i]; i ++ )
-				newnamelen = strlen(Block->CurNamespaceStack[i]) + 1;
-			newnamelen += strlen(Node->FunctionCall.Name) + 1;
-			manglename = alloca(newnamelen);
-			manglename[0] = 0;
-			for( i = 0; i < MAX_NAMESPACE_DEPTH && Block->CurNamespaceStack[i]; i ++ ) {
-				 int	pos;
-				strcat(manglename, Block->CurNamespaceStack[i]);
-				pos = strlen(manglename);
-				manglename[pos] = BC_NS_SEPARATOR;
-				manglename[pos+1] = '\0';
-			}
-			strcat(manglename, Node->FunctionCall.Name);
-				
-			if( Node->Type == NODETYPE_CREATEOBJECT )
-			{
-				// TODO: Sanity check stack top
-				Bytecode_AppendCreateObj(Block->Handle, manglename, nargs);
-			}
-			else
-			{
-				Bytecode_AppendFunctionCall(Block->Handle, manglename, nargs);
-			}
+			Bytecode_AppendFunctionCall(Block->Handle, manglename, nargs);
 		}
+		
 		CHECK_IF_NEEDED(0);	// Don't warn
 		// TODO: Implement warn_unused_ret
 		} break;
@@ -381,16 +390,17 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 	
 	// Scope
 	case NODETYPE_SCOPE:
-		for( i = 0; i < MAX_NAMESPACE_DEPTH && Block->CurNamespaceStack[i]; i ++ );
-		if( i == MAX_NAMESPACE_DEPTH ) {
-			AST_RuntimeError(Node, "Exceeded max explicit namespace depth (%i)", i);
+		if( Block->NamespaceDepth == MAX_NAMESPACE_DEPTH ) {
+			AST_RuntimeError(Node, "Exceeded max explicit namespace depth (%i)", MAX_NAMESPACE_DEPTH);
 			return 2;
 		}
-		Block->CurNamespaceStack[i] = Node->Scope.Name;
+		Block->CurNamespaceStack[ Block->NamespaceDepth ] = Node->Scope.Name;
+		Block->NamespaceDepth ++;
 		ret = AST_ConvertNode(Block, Node->Scope.Element, 2);
-		Block->CurNamespaceStack[i] = NULL;
+		if( Block->NamespaceDepth != 0 ) {
+			AST_RuntimeError(Node, "Namespace scope used but no element at the end");
+		}
 		CHECK_IF_NEEDED(0);	// No warning?
-		// TODO: Will this collide with _CALLFUNCTION etc?
 		break;
 	
 	// Variable
@@ -431,6 +441,7 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 	case NODETYPE_CONSTANT:
 		// TODO: Scan namespace for constant name
 		AST_RuntimeError(Node, "TODO - Runtime Constants");
+		Block->NamespaceDepth = 0;
 		ret = -1;
 		break;
 	
