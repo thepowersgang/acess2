@@ -42,7 +42,6 @@ int SpiderScript_SaveBytecode(tSpiderScript *Script, const char *DestFile)
 
 	fp = fopen(DestFile, "wb");
 	if(!fp)	return 1;
-	
 	// Create header
 	fwrite("SSBC\r\n\xBC\x55", 8, 1, fp);
 	_put32(0);	// Function count, to be filled
@@ -112,7 +111,7 @@ int SpiderScript_SaveBytecode(tSpiderScript *Script, const char *DestFile)
 		{
 			tString	*nextstr = str->Next;
 			fwrite(str->Data, str->Length, 1, fp);
-			_put8(0);
+			_put8(0);	// NULL separator
 			free(str);
 			str = nextstr;
 		}

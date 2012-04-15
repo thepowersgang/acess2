@@ -135,11 +135,49 @@ int Bytecode_int_Serialize(const tBC_Function *Function, void *Output, int *Labe
 		}
 		len += 4;
 	}
-	
+
+	void _put_index(uint32_t value)
+	{
+		if( !Output && !value ) {
+			len += 5;
+			return ;
+		}
+		if( value < 0x8000 ) {
+			_put_byte(value >> 8);
+			_put_byte(value & 0xFF);
+		}
+		else if( value < 0x400000 ) {
+			_put_byte( (value >> 16) | 0x80 );
+			_put_byte(value >> 8);
+			_put_byte(value & 0xFF);
+		}
+		else {
+			_put_byte( 0xC0 );
+			_put_byte(value >> 24);
+			_put_byte(value >> 16);
+			_put_byte(value >> 8 );
+			_put_byte(value & 0xFF);
+		}
+	}	
+
 	void _put_qword(uint64_t value)
 	{
-		_put_dword(value & 0xFFFFFFFF);
-		_put_dword(value >> 32);
+		if( value < 0x80 ) {	// 7 bits into 1 byte
+			_put_byte(value);
+		}
+		else if( !(value >> (8+6)) ) {	// 14 bits packed into 2 bytes
+			_put_byte( 0x80 | ((value >> 8) & 0x3F) );
+			_put_byte( value & 0xFF );
+		}
+		else if( !(value >> (32+5)) ) {	// 37 bits into 5 bytes
+			_put_byte( 0xC0 | ((value >> 32) & 0x1F) );
+			_put_dword(value & 0xFFFFFFFF);
+		}
+		else {
+			_put_byte( 0xE0 );	// 64 (actually 68) bits into 9 bytes
+			_put_dword(value & 0xFFFFFFFF);
+			_put_dword(value >> 32);
+		}
 	}
 
 	void _put_double(double value)
@@ -159,7 +197,7 @@ int Bytecode_int_Serialize(const tBC_Function *Function, void *Output, int *Labe
 		}
 	
 		// TODO: Relocations	
-		_put_dword(strIdx);
+		_put_index(strIdx);
 	}
 
 	for( op = Function->Operations; op; op = op->Next, idx ++ )
@@ -184,11 +222,11 @@ int Bytecode_int_Serialize(const tBC_Function *Function, void *Output, int *Labe
 		case BC_OP_JUMPIF:
 		case BC_OP_JUMPIFNOT:
 			// TODO: Relocations?
-			_put_dword( LabelOffsets[op->Content.StringInt.Integer] );
+			_put_index( LabelOffsets[op->Content.StringInt.Integer] );
 			break;
 		// Special case for inline values
 		case BC_OP_LOADINT:
-			_put_qword(op->Content.Integer);
+			_put_index(op->Content.Integer);
 			break;
 		case BC_OP_LOADREAL:
 			_put_double(op->Content.Real);
@@ -201,7 +239,7 @@ int Bytecode_int_Serialize(const tBC_Function *Function, void *Output, int *Labe
 			if( op->bUseString )
 				_put_string(op->Content.StringInt.String, strlen(op->Content.StringInt.String));
 			if( op->bUseInteger )
-				_put_dword(op->Content.StringInt.Integer);
+				_put_index(op->Content.StringInt.Integer);
 			break;
 		}
 	}
@@ -221,8 +259,9 @@ char *Bytecode_SerialiseFunction(const tBC_Function *Function, int *Length, tStr
 	len = Bytecode_int_Serialize(Function, NULL, label_offsets, Strings);
 
 	code = malloc(len);
-	
-	Bytecode_int_Serialize(Function, code, label_offsets, Strings);
+
+	// Update length to the correct length (may decrease due to encoding)	
+	len = Bytecode_int_Serialize(Function, code, label_offsets, Strings);
 
 	free(label_offsets);
 

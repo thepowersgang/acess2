@@ -303,6 +303,140 @@ tSpiderNamespace *Bytecode_int_ResolveNamespace(tSpiderNamespace *Start, const c
 	return ns;
 }
 
+/**
+ * \brief Call an external function (may recurse into Bytecode_ExecuteFunction, but may not)
+ */
+int Bytecode_int_CallExternFunction(tSpiderScript *Script, tBC_Stack *Stack, tSpiderNamespace *DefaultNS, tBC_Op *op )
+{
+	const char	*name = OP_STRING(op);
+	 int	arg_count = OP_INDX(op);
+	 int	i, ret = 0;
+	tSpiderNamespace	*ns = NULL;
+	tSpiderValue	*args[arg_count];
+	tSpiderValue	*rv;
+	tBC_StackEnt	val1;	
+
+	DEBUG_F("CALL (general) %s %i args\n", name, arg_count);
+	
+	// Read arguments
+	for( i = arg_count; i --; )
+	{
+		GET_STACKVAL(val1);
+		args[i] = Bytecode_int_GetSpiderValue(&val1, NULL);
+		Bytecode_int_DerefStackValue(&val1);
+	}
+	
+	// Resolve namespace into pointer
+	if( op->Operation != BC_OP_CALLMETHOD ) {
+		const char *name_orig = name;
+		if( name[0] == BC_NS_SEPARATOR ) {
+			name ++;
+			ns = Bytecode_int_ResolveNamespace(&Script->Variant->RootNamespace, name, &name);
+		}
+		else {
+			// TODO: Support multiple default namespaces
+			ns = Bytecode_int_ResolveNamespace(DefaultNS, name, &name);
+		}
+		if( !ns ) {
+			AST_RuntimeError(NULL, "Namespace '%s' not found in '%s'", name, name_orig);
+			return -1;
+		}
+	}
+	
+	// Call the function etc.
+	if( op->Operation == BC_OP_CALLFUNCTION )
+	{
+		rv = SpiderScript_ExecuteFunction(Script, ns, name, arg_count, args);
+	}
+	else if( op->Operation == BC_OP_CREATEOBJ )
+	{
+		rv = SpiderScript_CreateObject(Script, ns, name, arg_count, args);
+	}
+	else if( op->Operation == BC_OP_CALLMETHOD )
+	{
+		tSpiderObject	*obj;
+		GET_STACKVAL(val1);
+		
+		if(val1.Type == SS_DATATYPE_OBJECT)
+			obj = val1.Object;
+		else if(val1.Type == ET_REFERENCE && val1.Reference && val1.Reference->Type == SS_DATATYPE_OBJECT)
+			obj = val1.Reference->Object;
+		else {
+			// Error
+			AST_RuntimeError(NULL, "OP_CALLMETHOD on non object");
+			return -1;
+		}
+		rv = SpiderScript_ExecuteMethod(Script, obj, name, arg_count, args);
+		Bytecode_int_DerefStackValue(&val1);
+	}
+	else
+	{
+		AST_RuntimeError(NULL, "BUG - Unknown operation for CALL/CREATEOBJ (%i)", op->Operation);
+		rv = ERRPTR;
+	}
+	if(rv == ERRPTR) {
+		AST_RuntimeError(NULL, "SpiderScript_ExecuteFunction returned ERRPTR");
+		return -1;
+	}
+	// Clean up args
+	for( i = arg_count; i --; )
+		SpiderScript_DereferenceValue(args[i]);
+	// Get and push return
+	Bytecode_int_SetSpiderValue(&val1, rv);
+	PUT_STACKVAL(val1);
+	// Deref return
+	SpiderScript_DereferenceValue(rv);
+	
+	return ret;
+}
+
+int Bytecode_int_LocalBinOp_Integer(int Operation, tBC_StackEnt *Val1, tBC_StackEnt *Val2)
+{
+	switch(Operation)
+	{
+	case BC_OP_ADD: 	Val1->Integer = Val1->Integer + Val2->Integer;	break;
+	case BC_OP_SUBTRACT:	Val1->Integer = Val1->Integer - Val2->Integer;	break;
+	case BC_OP_MULTIPLY:	Val1->Integer = Val1->Integer * Val2->Integer;	break;
+	case BC_OP_DIVIDE:	Val1->Integer = Val1->Integer / Val2->Integer;	break;
+	
+	case BC_OP_EQUALS:      	Val1->Integer = (Val1->Integer == Val2->Integer);	break;
+	case BC_OP_NOTEQUALS:   	Val1->Integer = (Val1->Integer != Val2->Integer);	break;
+	case BC_OP_LESSTHAN:    	Val1->Integer = (Val1->Integer <  Val2->Integer);	break;
+	case BC_OP_LESSTHANOREQUAL:	Val1->Integer = (Val1->Integer <= Val2->Integer);	break;
+	case BC_OP_GREATERTHAN: 	Val1->Integer = (Val1->Integer >  Val2->Integer);	break;
+	case BC_OP_GREATERTHANOREQUAL:	Val1->Integer = (Val1->Integer >= Val2->Integer);	break;
+	
+	case BC_OP_BITAND:	Val1->Integer = Val1->Integer & Val2->Integer;	break;
+	case BC_OP_BITOR:	Val1->Integer = Val1->Integer | Val2->Integer;	break;
+	case BC_OP_BITXOR:	Val1->Integer = Val1->Integer ^ Val2->Integer;	break;
+	case BC_OP_MODULO:	Val1->Integer = Val1->Integer % Val2->Integer;	break;
+	default:	AST_RuntimeError(NULL, "Invalid operation on datatype %i", Val1->Type); return -1;
+	}
+	return 0;
+}
+
+int Bytecode_int_LocalBinOp_Real(int Operation, tBC_StackEnt *Val1, tBC_StackEnt *Val2)
+{
+	switch(Operation)
+	{
+	case BC_OP_ADD: 	Val1->Real = Val1->Real + Val2->Real;	return 0;
+	case BC_OP_SUBTRACT:	Val1->Real = Val1->Real - Val2->Real;	return 0;
+	case BC_OP_MULTIPLY:	Val1->Real = Val1->Real * Val2->Real;	return 0;
+	case BC_OP_DIVIDE:	Val1->Real = Val1->Real / Val2->Real;	return 0;
+
+	case BC_OP_EQUALS:      	Val1->Integer = (Val1->Real == Val2->Real);	break;
+	case BC_OP_NOTEQUALS:   	Val1->Integer = (Val1->Real != Val2->Real);	break;
+	case BC_OP_LESSTHAN:    	Val1->Integer = (Val1->Real <  Val2->Real);	break;
+	case BC_OP_LESSTHANOREQUAL:	Val1->Integer = (Val1->Real <= Val2->Real);	break;
+	case BC_OP_GREATERTHAN: 	Val1->Integer = (Val1->Real >  Val2->Real);	break;
+	case BC_OP_GREATERTHANOREQUAL:	Val1->Integer = (Val1->Real >= Val2->Real);	break;
+	
+	default:	AST_RuntimeError(NULL, "Invalid operation on datatype %i", Val1->Type); return -1;
+	}
+	Val1->Type = SS_DATATYPE_INTEGER;	// Becomes logical
+	return 0;
+}
+
 #define STATE_HDR()	DEBUG_F("%p %2i ", op, Stack->EntryCount)
 
 /**
@@ -326,6 +460,7 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 	// Pop off arguments
 	if( ArgCount > Fcn->ArgumentCount )	return -1;
 	DEBUG_F("Fcn->ArgumentCount = %i\n", Fcn->ArgumentCount);
+	// - Handle optional arguments
 	for( i = Fcn->ArgumentCount; i > ArgCount; )
 	{
 		i --;
@@ -623,39 +758,33 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 			DEBUG_F(" ("); PRINT_STACKVAL(val1); DEBUG_F(")");
 			DEBUG_F(" ("); PRINT_STACKVAL(val2); DEBUG_F(")\n");
 
-			#define PERFORM_NUM_OP(_type, _field) if(val1.Type == _type && val1.Type == val2.Type) { \
-				switch(op->Operation) { \
-				case BC_OP_ADD:	val1._field = val1._field + val2._field;	break; \
-				case BC_OP_SUBTRACT:	val1._field = val1._field - val2._field;	break; \
-				case BC_OP_MULTIPLY:	val1._field = val1._field * val2._field;	break; \
-				case BC_OP_DIVIDE:	val1._field = val1._field / val2._field;	break; \
-				\
-				case BC_OP_EQUALS:	val1.Type=SS_DATATYPE_INTEGER; val1.Integer = (val1._field == val2._field);	break; \
-				case BC_OP_NOTEQUALS:	val1.Type=SS_DATATYPE_INTEGER; val1.Integer = (val1._field != val2._field);	break; \
-				case BC_OP_LESSTHAN:	val1.Type=SS_DATATYPE_INTEGER; val1.Integer = val1._field < val2._field;	break; \
-				case BC_OP_LESSTHANOREQUAL:	val1.Type=SS_DATATYPE_INTEGER; val1.Integer = val1._field <= val2._field;	break; \
-				case BC_OP_GREATERTHAN:	val1.Type=SS_DATATYPE_INTEGER; val1.Integer = val1._field > val2._field;	break; \
-				case BC_OP_GREATERTHANOREQUAL:	val1.Type=SS_DATATYPE_INTEGER; val1.Integer = val1._field >= val2._field;	break; \
-				\
-				case BC_OP_BITAND:	val1._field = (int64_t)val1._field & (int64_t)val2._field;	break; \
-				case BC_OP_BITOR:	val1._field = (int64_t)val1._field | (int64_t)val2._field;	break; \
-				case BC_OP_BITXOR:	val1._field = (int64_t)val1._field ^ (int64_t)val2._field;	break; \
-				case BC_OP_MODULO:	val1._field = (int64_t)val1._field % (int64_t)val2._field;	break; \
-				default:	AST_RuntimeError(NULL, "Invalid operation on datatype %i", _type); nextop = NULL; break;\
-				}\
-				DEBUG_F(" - Fast local op\n");\
-				PUT_STACKVAL(val1);\
-				break;\
+			// Perform integer operations locally
+			if( val1.Type == SS_DATATYPE_INTEGER && val2.Type == SS_DATATYPE_INTEGER )
+			{
+				if( Bytecode_int_LocalBinOp_Integer(op->Operation, &val1, &val2) ) {
+					nextop = NULL;
+					break;
+				}
+				PUT_STACKVAL(val1);
+				break;
 			}
 
-			PERFORM_NUM_OP(SS_DATATYPE_INTEGER, Integer);
-			PERFORM_NUM_OP(SS_DATATYPE_REAL, Real);
+			if(val1. Type == SS_DATATYPE_REAL && val2.Type == SS_DATATYPE_REAL )
+			{
+				if( Bytecode_int_LocalBinOp_Real(op->Operation, &val1, &val2) ) {
+					nextop = NULL;
+					break;
+				}
+				PUT_STACKVAL(val1);
+				break;
+			}
 		
 			pval1 = Bytecode_int_GetSpiderValue(&val1, &tmpVal1);
 			pval2 = Bytecode_int_GetSpiderValue(&val2, &tmpVal2);
 			Bytecode_int_DerefStackValue(&val1);
 			Bytecode_int_DerefStackValue(&val2);
 
+			// Hand to AST execution code
 			ret_val = AST_ExecuteNode_BinOp(Script, NULL, ast_op, pval1, pval2);
 			if(pval1 != &tmpVal1)	SpiderScript_DereferenceValue(pval1);
 			if(pval2 != &tmpVal2)	SpiderScript_DereferenceValue(pval2);
@@ -673,16 +802,15 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 		// Functions etc
 		case BC_OP_CREATEOBJ:
 		case BC_OP_CALLFUNCTION:
-		case BC_OP_CALLMETHOD: {
-			tScript_Function	*fcn = NULL;
-			const char	*name = OP_STRING(op);
-			 int	arg_count = OP_INDX(op);
-			
+		case BC_OP_CALLMETHOD:
 			STATE_HDR();
-			DEBUG_F("CALL FUNCTION %s %i args\n", name, arg_count);
 
 			if( op->Operation == BC_OP_CALLFUNCTION )
 			{
+				tScript_Function	*fcn = NULL;
+				const char	*name = OP_STRING(op);
+				 int	arg_count = OP_INDX(op);
+				DEBUG_F("CALL (local) %s %i args\n", name, arg_count);
 				// Check current script functions (for fast call)
 				for(fcn = Script->Functions; fcn; fcn = fcn->Next)
 				{
@@ -697,82 +825,17 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 					break;
 				}
 			}
-			
+		
 			// Slower call
-			{
-				tSpiderNamespace	*ns = NULL;
-				tSpiderValue	*args[arg_count];
-				tSpiderValue	*rv;
-				// Read arguments
-				for( i = arg_count; i --; )
-				{
-					GET_STACKVAL(val1);
-					args[i] = Bytecode_int_GetSpiderValue(&val1, NULL);
-					Bytecode_int_DerefStackValue(&val1);
-				}
-				
-				// Resolve namespace into pointer
-				if( op->Operation != BC_OP_CALLMETHOD ) {
-					if( name[0] == BC_NS_SEPARATOR ) {
-						name ++;
-						ns = Bytecode_int_ResolveNamespace(&Script->Variant->RootNamespace, name, &name);
-					}
-					else {
-						// TODO: Support multiple default namespaces
-						ns = Bytecode_int_ResolveNamespace(default_namespace, name, &name);
-					}
-				}
-				
-				// Call the function etc.
-				if( op->Operation == BC_OP_CALLFUNCTION )
-				{
-					rv = SpiderScript_ExecuteFunction(Script, ns, name, arg_count, args);
-				}
-				else if( op->Operation == BC_OP_CREATEOBJ )
-				{
-					rv = SpiderScript_CreateObject(Script, ns, name, arg_count, args);
-				}
-				else if( op->Operation == BC_OP_CALLMETHOD )
-				{
-					tSpiderObject	*obj;
-					GET_STACKVAL(val1);
-					
-					if(val1.Type == SS_DATATYPE_OBJECT)
-						obj = val1.Object;
-					else if(val1.Type == ET_REFERENCE && val1.Reference && val1.Reference->Type == SS_DATATYPE_OBJECT)
-						obj = val1.Reference->Object;
-					else {
-						// Error
-						AST_RuntimeError(NULL, "OP_CALLMETHOD on non object");
-						nextop = NULL;
-						break;
-					}
-					rv = SpiderScript_ExecuteMethod(Script, obj, name, arg_count, args);
-					Bytecode_int_DerefStackValue(&val1);
-				}
-				else
-				{
-					AST_RuntimeError(NULL, "BUG - Unknown operation for CALL/CREATEOBJ (%i)", op->Operation);
-					rv = ERRPTR;
-				}
-				if(rv == ERRPTR) {
-					AST_RuntimeError(NULL, "SpiderScript_ExecuteFunction returned ERRPTR");
-					nextop = NULL;
-					break;
-				}
-				// Clean up args
-				for( i = arg_count; i --; )
-					SpiderScript_DereferenceValue(args[i]);
-				// Get and push return
-				Bytecode_int_SetSpiderValue(&val1, rv);
-				PUT_STACKVAL(val1);
-				// Deref return
-				SpiderScript_DereferenceValue(rv);
+			if( Bytecode_int_CallExternFunction( Script, Stack, default_namespace, op ) ) {
+				nextop = NULL;
+				break;
 			}
-			} break;
+			break;
 
 		case BC_OP_RETURN:
 			STATE_HDR();
+
 			DEBUG_F("RETURN\n");
 			nextop = NULL;
 			break;
@@ -798,17 +861,19 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 	}
 	
 	// - Restore stack
-//	printf("TODO: Roll back stack\n");
 	if( Stack->Entries[Stack->EntryCount - 1].Type == ET_FUNCTION_START )
 		Stack->EntryCount --;
 	else
 	{
+		 int	n_rolled = 1;
 		GET_STACKVAL(val1);
 		while( Stack->EntryCount && Stack->Entries[ --Stack->EntryCount ].Type != ET_FUNCTION_START )
 		{
 			Bytecode_int_DerefStackValue( &Stack->Entries[Stack->EntryCount] );
+			n_rolled ++;
 		}
 		PUT_STACKVAL(val1);
+		DEBUG_F("Rolled back %i entried\n", n_rolled);
 	}
 	
 

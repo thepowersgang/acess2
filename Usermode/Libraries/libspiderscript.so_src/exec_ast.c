@@ -482,36 +482,48 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 			return ERRPTR;
 		}
 		
-		if( !op1 || op1->Type != SS_DATATYPE_ARRAY )
+		if( !op2 || op2->Type != SS_DATATYPE_INTEGER )
 		{
+			if( !Block->Script->Variant->bImplicitCasts ) {
+				AST_RuntimeError(Node, "Array index is not an integer");
+				ret = ERRPTR;
+				break;
+			}
+			else {
+				tmpobj = SpiderScript_CastValueTo(SS_DATATYPE_INTEGER, op2);
+				SpiderScript_DereferenceValue(op2);
+				op2 = tmpobj;
+			}
+		}
+	
+		if( !op1 )
+		{
+			SpiderScript_DereferenceValue(op2);
+			AST_RuntimeError(Node, "Indexing NULL value");
+			ret = ERRPTR;
+			break;
+		}
+
+		switch( op1->Type )
+		{
+		case SS_DATATYPE_ARRAY:
+			if( op2->Integer >= op1->Array.Length ) {
+				AST_RuntimeError(Node, "Array index out of bounds %i >= %i",
+					op2->Integer, op1->Array.Length);
+				ret = ERRPTR;
+				break;
+			}
+			
+			ret = op1->Array.Items[ op2->Integer ];
+			SpiderScript_ReferenceValue(ret);
+			break;
+		
+		default:
 			// TODO: Implement "operator []" on objects
 			AST_RuntimeError(Node, "Indexing non-array");
 			ret = ERRPTR;
 			break;
 		}
-		
-		if( (!op2 || op2->Type != SS_DATATYPE_INTEGER) && !Block->Script->Variant->bImplicitCasts ) {
-			AST_RuntimeError(Node, "Array index is not an integer");
-			ret = ERRPTR;
-			break;
-		}
-		
-		if( !op2 || op2->Type != SS_DATATYPE_INTEGER )
-		{
-			tmpobj = SpiderScript_CastValueTo(SS_DATATYPE_INTEGER, op2);
-			SpiderScript_DereferenceValue(op2);
-			op2 = tmpobj;
-		}
-		
-		if( op2->Integer >= op1->Array.Length ) {
-			AST_RuntimeError(Node, "Array index out of bounds %i >= %i",
-				op2->Integer, op1->Array.Length);
-			ret = ERRPTR;
-			break;
-		}
-		
-		ret = op1->Array.Items[ op2->Integer ];
-		SpiderScript_ReferenceValue(ret);
 		
 		SpiderScript_DereferenceValue(op1);
 		SpiderScript_DereferenceValue(op2);
