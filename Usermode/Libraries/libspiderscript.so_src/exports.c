@@ -8,13 +8,68 @@
 #include <spiderscript.h>
 
 // === PROTOTYPES ===
+tSpiderValue	*Exports_sizeof(tSpiderScript *Script, int NArgs, tSpiderValue **Args);
+tSpiderValue	*Exports_Lang_Strings_Split(tSpiderScript *Script, int NArgs, tSpiderValue **Args);
 tSpiderValue	*Exports_Lang_Struct(tSpiderScript *Script, int NArgs, tSpiderValue **Args);
 
 // === GLOBALS ===
-tSpiderFunction	gExports_Lang_Struct = {NULL,"Lang.Struct", Exports_Lang_Struct, {SS_DATATYPE_STRING,-1}};
-tSpiderFunction	*gpExports_First = &gExports_Lang_Struct;
+tSpiderFunction	gExports_Lang_Strings_Split = {
+	.Name = "Split",
+	.Handler = Exports_Lang_Strings_Split,
+	.ReturnType = SS_MAKEARRAY(SS_DATATYPE_STRING),
+	.ArgTypes = {SS_DATATYPE_STRING, SS_DATATYPE_STRING, -1}
+};
+tSpiderNamespace	gExports_NS_Lang_Strings = {
+	.Name = "Strings",
+	.Functions = &gExports_Lang_Strings_Split
+	};
+
+tSpiderFunction	gExports_Lang_Struct = {
+	.Name = "Struct",
+	.Handler = Exports_Lang_Struct,
+	.ReturnType = SS_DATATYPE_OPAQUE,
+	.ArgTypes = {SS_DATATYPE_STRING, -1}
+};
+// - Lang Namespace
+tSpiderNamespace	gExports_NS_Lang = {
+	.Name = "Lang",
+	.Functions = &gExports_Lang_Struct,
+	.FirstChild = &gExports_NS_Lang_Strings
+	};
+tSpiderNamespace	gExportNamespaceRoot = {
+	.FirstChild = &gExports_NS_Lang
+};
+
+// -- Global Functions
+tSpiderFunction	gExports_sizeof = {
+	.Name = "sizeof",
+	.Handler = Exports_sizeof,
+	.ReturnType = SS_DATATYPE_INTEGER,
+	.ArgTypes = {SS_DATATYPE_UNDEF, -1}
+};
+tSpiderFunction	*gpExports_First;
 
 // === CODE ===
+tSpiderValue *Exports_sizeof(tSpiderScript *Script, int NArgs, tSpiderValue **Args)
+{
+	if(NArgs != 1 || !Args[0])	return NULL;
+
+	switch( Args[0]->Type )
+	{
+	case SS_DATATYPE_STRING:
+		return SpiderScript_CreateInteger(Args[0]->String.Length);
+	case SS_DATATYPE_ARRAY:
+		return SpiderScript_CreateInteger(Args[0]->Array.Length);
+	default:
+		return NULL;
+	}
+}
+
+tSpiderValue *Exports_Lang_Strings_Split(tSpiderScript *Script, int NArgs, tSpiderValue **Args)
+{
+	return NULL;
+}
+
 tSpiderValue *Exports_Lang_Struct(tSpiderScript *Script, int NArgs, tSpiderValue **Args)
 {
 	 int	i;

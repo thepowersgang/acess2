@@ -65,6 +65,10 @@ enum eSpiderScript_DataTypes
 	NUM_SS_DATATYPES
 };
 
+#define SS_MAKEARRAY(_type)	((_type) + 0x10000)
+#define SS_DOWNARRAY(_type)	((_type) - 0x10000)
+#define SS_GETARRAYDEPTH(_type)	((_type) >> 16)
+
 enum eSpiderValueOps
 {
 	SS_VALUEOP_NOP,
@@ -236,6 +240,12 @@ struct sSpiderFunction
 	 * \brief Function handler
 	 */
 	tSpiderValue	*(*Handler)(tSpiderScript *Script, int nParams, tSpiderValue **Parameters);
+
+	/**
+	 * \brief What type is returned
+	 */
+	 int	ReturnType;	
+
 	/**
 	 * \brief Argument types
 	 * 

@@ -403,11 +403,13 @@ int Bytecode_int_LocalBinOp_Real(int Operation, tBC_StackEnt *Val1, tBC_StackEnt
 {
 	switch(Operation)
 	{
+	// Real = Real OP Real
 	case BC_OP_ADD: 	Val1->Real = Val1->Real + Val2->Real;	return 0;
 	case BC_OP_SUBTRACT:	Val1->Real = Val1->Real - Val2->Real;	return 0;
 	case BC_OP_MULTIPLY:	Val1->Real = Val1->Real * Val2->Real;	return 0;
 	case BC_OP_DIVIDE:	Val1->Real = Val1->Real / Val2->Real;	return 0;
 
+	// Bool/Integer = Real OP Real
 	case BC_OP_EQUALS:      	Val1->Integer = (Val1->Real == Val2->Real);	break;
 	case BC_OP_NOTEQUALS:   	Val1->Integer = (Val1->Real != Val2->Real);	break;
 	case BC_OP_LESSTHAN:    	Val1->Integer = (Val1->Real <  Val2->Real);	break;
@@ -596,25 +598,20 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 				PUT_STACKVAL(val1);
 				break;
 			}
-			switch(val2.Type * 100 + val1.Type )
-			{
-			case SS_DATATYPE_INTEGER*100 + SS_DATATYPE_REAL:
+			if( val2.Type == SS_DATATYPE_INTEGER && val1.Type == SS_DATATYPE_REAL ) {
 				val2.Integer = val1.Real;
-				PUT_STACKVAL(val2);
-				break;
-			case SS_DATATYPE_REAL*100 + SS_DATATYPE_INTEGER:
+			}
+			else if( val2.Type == SS_DATATYPE_REAL && val2.Type == SS_DATATYPE_INTEGER ) {
 				val2.Real = val1.Integer;
-				PUT_STACKVAL(val2);
-				break;
-			default: {
+			}
+			else {
 				pval1 = Bytecode_int_GetSpiderValue(&val1, &tmpVal1);
 				pval2 = SpiderScript_CastValueTo(val2.Type, pval1);
 				if(pval1 != &tmpVal1)	SpiderScript_DereferenceValue(pval1);
 				Bytecode_int_SetSpiderValue(&val2, pval2);
 				SpiderScript_DereferenceValue(pval2);
-				PUT_STACKVAL(val2);
-				} break;
 			}
+			PUT_STACKVAL(val2);
 			break;
 
 		case BC_OP_DUPSTACK:

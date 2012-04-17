@@ -152,6 +152,7 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 				if(ret)	return ret;
 				if( blockInfo.StackDepth != 0 ) {
 					AST_RuntimeError(node, "Stack not reset at end of node");
+					blockInfo.StackDepth = 0;
 				}
 			}
 			
@@ -538,7 +539,7 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 		//  > Type check
 		ret = _StackPop(Block, Node, SS_DATATYPE_UNDEF);
 		if(ret < 0)	return -1;
-		if(ret != SS_DATATYPE_ARRAY && (ret >> 16) == 0) {
+		if(ret != SS_DATATYPE_ARRAY && SS_GETARRAYDEPTH(ret) == 0) {
 			AST_RuntimeError(Node, "Type mismatch, Expected an array, got %i",
 				ret);
 			return -2;
@@ -555,7 +556,7 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 		
 		// Update the array depth
 		if( i != SS_DATATYPE_ARRAY ) {
-			i -= 0x10000;	// Decrease the array level
+			i = SS_DOWNARRAY(i);	// Decrease the array level
 		}
 		ret = _StackPush(Block, Node, i);
 		if(ret < 0)	return -1;
@@ -664,12 +665,13 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 
 int BC_SaveValue(tAST_BlockInfo *Block, tAST_Node *DestNode)
 {
-	 int	ret;
+	 int	ret, type;
 	switch(DestNode->Type)
 	{
 	// Variable, simple
 	case NODETYPE_VARIABLE:
 		ret = BC_Variable_SetValue( Block, DestNode );
+		if(ret)	return ret;
 		break;
 	// Array index
 	case NODETYPE_INDEX:
@@ -677,11 +679,12 @@ int BC_SaveValue(tAST_BlockInfo *Block, tAST_Node *DestNode)
 		if(ret)	return ret;
 		ret = _StackPop(Block, DestNode->BinOp.Left, SS_DATATYPE_UNDEF);
 		if(ret < 0)	return -1;
-		if(ret != SS_DATATYPE_ARRAY && (ret >> 16) == 0) {
+		if(ret != SS_DATATYPE_ARRAY && SS_GETARRAYDEPTH(ret) == 0) {
 			AST_RuntimeError(DestNode, "Type mismatch, Expected an array, got %i",
 				ret);
 			return -2;
 		}
+		type = SS_DOWNARRAY(ret);
 		
 		ret = AST_ConvertNode(Block, DestNode->BinOp.Right, 1);	// Offset
 		if(ret)	return ret;
@@ -689,6 +692,7 @@ int BC_SaveValue(tAST_BlockInfo *Block, tAST_Node *DestNode)
 		if(ret < 0)	return -1;
 		
 		Bytecode_AppendSetIndex( Block->Handle );
+		_StackPop(Block, DestNode, type);
 		break;
 	// Object element
 	case NODETYPE_ELEMENT:

@@ -16,6 +16,7 @@
 
 // === IMPORTS ===
 extern tSpiderFunction	*gpExports_First;
+extern tSpiderNamespace	gExportNamespaceRoot;
 extern tSpiderValue	*AST_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, int NArguments, tSpiderValue **Arguments);
 extern tSpiderValue	*Bytecode_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, int NArguments, tSpiderValue **Args);
 
@@ -63,11 +64,12 @@ void *SpiderScript_int_GetNamespace(tSpiderScript *Script, tSpiderNamespace *Roo
 		// Check for this level
 		for( ns = lastns->FirstChild; ns; ns = ns->Next )
 		{
+			printf("%p %.*s == %s\n", lastns, len, name, ns->Name);
 			if( strncmp(name, ns->Name, len) == 0 && ns->Name[len] == 0 )
 				break ;
 		}
 		
-		if(!ns)	return NULL;		
+		if(!ns)	return NULL;
 
 		if(!end && !bTriedBase) {
 			end = ItemPath - 1;	// -1 to counter (name = end + 1)
@@ -145,10 +147,12 @@ tSpiderValue *SpiderScript_ExecuteFunction(tSpiderScript *Script,
 	for( i = 0; i == 0 || (DefaultNamespaces && DefaultNamespaces[i-1]); i ++ )
 	{
 		const char *ns = DefaultNamespaces ? DefaultNamespaces[i] : NULL;
-		fcn = SpiderScript_int_GetNativeFunction(Script, &Script->Variant->RootNamespace,
-			ns, Function);
+		fcn = SpiderScript_int_GetNativeFunction(Script, &Script->Variant->RootNamespace, ns, Function);
 		if( fcn )	break;
-		
+
+		fcn = SpiderScript_int_GetNativeFunction(Script, &gExportNamespaceRoot, ns, Function);
+		if( fcn )	break;
+	
 		// TODO: Script namespacing
 	}
 
@@ -297,9 +301,12 @@ tSpiderValue *SpiderScript_CreateObject(tSpiderScript *Script,
 	// Scan list, Last item should always be NULL, so abuse that to check non-prefixed	
 	for( i = 0; i == 0 || DefaultNamespaces[i-1]; i ++ )
 	{
-		class = SpiderScript_int_GetNativeClass(Script, &Script->Variant->RootNamespace,
-			DefaultNamespaces[i], ClassPath);
-		if( class != NULL )	break;
+		const char *ns = DefaultNamespaces[i];
+		class = SpiderScript_int_GetNativeClass(Script, &Script->Variant->RootNamespace, ns, ClassPath);
+		if( class )	break;
+
+		class = SpiderScript_int_GetNativeClass(Script, &gExportNamespaceRoot, ns, ClassPath);
+		if( class )	break;
 		
 		// TODO: Language defined classes
 	}
