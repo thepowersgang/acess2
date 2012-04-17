@@ -47,6 +47,7 @@ typedef struct sAST_BlockInfo
  int 	BC_Variable_Define(tAST_BlockInfo *Block, int Type, const char *Name);
  int	BC_Variable_SetValue(tAST_BlockInfo *Block, tAST_Node *VarNode);
  int	BC_Variable_GetValue(tAST_BlockInfo *Block, tAST_Node *VarNode);
+void	BC_Variable_Clear(tAST_BlockInfo *Block);
 // - Errors
 void	AST_RuntimeMessage(tAST_Node *Node, const char *Type, const char *Format, ...);
 void	AST_RuntimeError(tAST_Node *Node, const char *Format, ...);
@@ -76,6 +77,7 @@ tBC_Function *Bytecode_ConvertFunction(tScript_Function *Fcn)
 {
 	tBC_Function	*ret;
 	tAST_BlockInfo bi = {0};
+	 int	i;
 
 	// TODO: Return BCFcn instead?
 	if(Fcn->BCFcn)	return Fcn->BCFcn;
@@ -84,12 +86,22 @@ tBC_Function *Bytecode_ConvertFunction(tScript_Function *Fcn)
 	if(!ret)	return NULL;
 	
 	bi.Handle = ret;
+	
+	// Parse arguments
+	for( i = 0; i < Fcn->ArgumentCount; i ++ )
+	{
+		BC_Variable_Define(&bi, Fcn->Arguments[i].Type, Fcn->Arguments[i].Name);
+	}
+
 	if( AST_ConvertNode(&bi, Fcn->ASTFcn, 0) )
 	{
 		AST_RuntimeError(Fcn->ASTFcn, "Error in converting function");
 		Bytecode_DeleteFunction(ret);
+		BC_Variable_Clear(&bi);
 		return NULL;
 	}
+	BC_Variable_Clear(&bi);
+
 
 	Bytecode_AppendConstInt(ret, 0);	// TODO: NULL
 	Bytecode_AppendReturn(ret);
@@ -136,12 +148,14 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 				node;
 				node = node->NextSibling )
 			{
-				ret = AST_ConvertNode(Block, node, 0);
+				ret = AST_ConvertNode(&blockInfo, node, 0);
 				if(ret)	return ret;
 				if( blockInfo.StackDepth != 0 ) {
 					AST_RuntimeError(node, "Stack not reset at end of node");
 				}
 			}
+			
+			BC_Variable_Clear(&blockInfo);
 		}
 		Bytecode_AppendLeaveContext(Block->Handle);	// Leave this context
 		break;
@@ -275,16 +289,18 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 		for( i = 0; i < Block->NamespaceDepth; i ++ )
 			newnamelen += strlen(Block->CurNamespaceStack[i]) + 1;
 		newnamelen += strlen(Node->FunctionCall.Name) + 1;
+//		newnamelen += 1;
+		
 		manglename = alloca(newnamelen);
-		manglename[0] = 0;
+		newnamelen = 0;
 		for( i = 0; i < Block->NamespaceDepth; i ++ ) {
-			 int	pos;
-			strcat(manglename, Block->CurNamespaceStack[i]);
-			pos = strlen(manglename);
-			manglename[pos] = BC_NS_SEPARATOR;
-			manglename[pos+1] = '\0';
+			strcpy(manglename+newnamelen, Block->CurNamespaceStack[i]);
+			newnamelen += strlen(Block->CurNamespaceStack[i]) + 1;
+			manglename[ newnamelen - 1 ] = BC_NS_SEPARATOR;
 		}
-		strcat(manglename, Node->FunctionCall.Name);
+		strcpy(manglename + newnamelen, Node->FunctionCall.Name);
+		newnamelen += strlen(Node->FunctionCall.Name) + 1;
+//		manglename[ newnamelen ] = '\0';	// Zero length terminator
 		Block->NamespaceDepth = 0;
 
 		// Push arguments to the stack
@@ -356,7 +372,7 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 	
 	// Loop
 	case NODETYPE_LOOP: {
-		 int	loop_start, loop_end;
+		 int	loop_start, loop_end, code_end;
 		 int	saved_break, saved_continue;
 		const char	*saved_tag;
 
@@ -365,13 +381,14 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 		if(ret)	return ret;
 		
 		loop_start = Bytecode_AllocateLabel(Block->Handle);
+		code_end = Bytecode_AllocateLabel(Block->Handle);
 		loop_end = Bytecode_AllocateLabel(Block->Handle);
 
 		saved_break = Block->BreakTarget;
 		saved_continue = Block->ContinueTarget;
 		saved_tag = Block->Tag;
 		Block->BreakTarget = loop_end;
-		Block->ContinueTarget = loop_end;
+		Block->ContinueTarget = code_end;
 		Block->Tag = Node->For.Tag;
 
 		Bytecode_SetLabel(Block->Handle, loop_start);
@@ -390,7 +407,9 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 		// Code
 		ret = AST_ConvertNode(Block, Node->For.Code, 0);
 		if(ret)	return ret;
-		
+
+		Bytecode_SetLabel(Block->Handle, code_end);
+	
 		// Increment
 		ret = AST_ConvertNode(Block, Node->For.Increment, 0);
 		if(ret)	return ret;
@@ -431,7 +450,12 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 	case NODETYPE_CONTINUE: {
 		tAST_BlockInfo	*bi = Block;
 		if( Node->Variable.Name[0] ) {
-			while(bi && strcmp(bi->Tag, Node->Variable.Name) == 0)	bi = bi->Parent;
+			while(bi && (!bi->Tag || strcmp(bi->Tag, Node->Variable.Name) != 0))
+				bi = bi->Parent;
+		}
+		else {
+			while(bi && !bi->Tag)
+				bi = bi->Parent;
 		}
 		if( !bi )	return 1;
 		// TODO: Check if BreakTarget/ContinueTarget are valid
@@ -544,8 +568,7 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 		// TODO: Scan namespace for constant name
 		AST_RuntimeError(Node, "TODO - Runtime Constants");
 		Block->NamespaceDepth = 0;
-		ret = -1;
-		break;
+		return -1;
 	
 	// Constant Values
 	case NODETYPE_STRING:
@@ -566,7 +589,13 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 		if(ret < 0)	return -1;
 		CHECK_IF_NEEDED(1);
 		break;
-	
+	case NODETYPE_NULL:
+		Bytecode_AppendConstNull(Block->Handle);
+		ret = _StackPush(Block, Node, SS_DATATYPE_UNDEF);
+		if(ret < 0)	return -1;
+		CHECK_IF_NEEDED(1);
+		break;
+
 	// --- Operations ---
 	// Boolean Operations
 	case NODETYPE_LOGICALNOT:	// Logical NOT (!)
@@ -724,7 +753,7 @@ tAST_Variable *BC_Variable_Lookup(tAST_BlockInfo *Block, tAST_Node *VarNode, int
 		}
 		if(var)	break;
 	}
-	
+
 	if( !var )
 	{
 //		if( Block->Script->Variant->bDyamicTyped && CreateType != SS_DATATYPE_UNDEF ) {
@@ -778,6 +807,18 @@ int BC_Variable_GetValue(tAST_BlockInfo *Block, tAST_Node *VarNode)
 	_StackPush(Block, VarNode, var->Type);
 	Bytecode_AppendLoadVar(Block->Handle, VarNode->Variable.Name);
 	return 0;
+}
+
+void BC_Variable_Clear(tAST_BlockInfo *Block)
+{
+	tAST_Variable	*var;
+	for( var = Block->FirstVar; var; )
+	{
+		tAST_Variable	*tv = var->Next;
+		free( var );
+		var = tv;
+	}
+	Block->FirstVar = NULL;
 }
 
 #if 0

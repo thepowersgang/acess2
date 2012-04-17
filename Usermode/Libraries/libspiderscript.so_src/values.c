@@ -38,8 +38,8 @@ void SpiderScript_DereferenceValue(tSpiderValue *Object)
 {
 	if(!Object || Object == ERRPTR)	return ;
 	Object->ReferenceCount --;
-	if(Object->Type == SS_DATATYPE_OBJECT) {
-	}
+//	if(Object->Type == SS_DATATYPE_OBJECT) {
+//	}
 	if( Object->ReferenceCount == 0 )
 	{
 		switch( (enum eSpiderScript_DataTypes) Object->Type )

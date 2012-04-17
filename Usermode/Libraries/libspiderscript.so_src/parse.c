@@ -853,7 +853,7 @@ tAST_Node *Parse_DoValue(tParser *Parser)
 		return Parse_GetVariable(Parser);
 	case TOK_RWD_NULL:
 		GetToken(Parser);
-		return AST_NewNop(Parser);	// NODETYPE_NOP returns NULL
+		return AST_NewNull(Parser);	// nODETYPE_NOP returns NULL
 	case TOK_RWD_NEW:
 		GetToken(Parser);
 		return Parse_GetIdent(Parser, 1);

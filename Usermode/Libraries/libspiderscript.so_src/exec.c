@@ -12,6 +12,8 @@
 #include <string.h>
 #include <stdarg.h>
 
+#define BC_NS_SEPARATOR	'@'
+
 // === IMPORTS ===
 extern tSpiderFunction	*gpExports_First;
 extern tSpiderValue	*AST_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, int NArguments, tSpiderValue **Arguments);
@@ -22,6 +24,104 @@ void	AST_RuntimeMessage(tAST_Node *Node, const char *Type, const char *Format, .
 void	AST_RuntimeError(tAST_Node *Node, const char *Format, ...);
 
 // === CODE ===
+void *SpiderScript_int_GetNamespace(tSpiderScript *Script, tSpiderNamespace *RootNamespace,
+	const char *BasePath, const char *ItemPath,
+	const char **ItemName
+	)
+{
+	 int	len;
+	const char	*name;
+	const char	*end;
+	 int	bTriedBase;
+	
+	tSpiderNamespace	*lastns, *ns;
+
+	// Prepend the base namespace
+	if( BasePath ) {
+		name = BasePath;
+		bTriedBase = 0;
+	}
+	else {
+		bTriedBase = 1;
+		name = ItemPath;
+	}
+	
+	// Scan
+	lastns = RootNamespace;
+	do {
+		end = strchr(name, BC_NS_SEPARATOR);
+		if(!end) {
+			if( !bTriedBase )
+				len = strlen(name);
+			else
+				break;
+		}
+		else {
+			len = end - name;
+		}
+
+		// Check for this level
+		for( ns = lastns->FirstChild; ns; ns = ns->Next )
+		{
+			if( strncmp(name, ns->Name, len) == 0 && ns->Name[len] == 0 )
+				break ;
+		}
+		
+		if(!ns)	return NULL;		
+
+		if(!end && !bTriedBase) {
+			end = ItemPath - 1;	// -1 to counter (name = end + 1)
+			bTriedBase = 1;
+		}
+
+		lastns = ns;
+		name = end + 1;
+	} while( end );
+
+	*ItemName = name;
+
+	return lastns;
+}
+
+tSpiderFunction *SpiderScript_int_GetNativeFunction(tSpiderScript *Script, tSpiderNamespace *RootNamespace,
+	const char *BasePath, const char *FunctionPath)
+{
+	tSpiderNamespace *ns;
+	const char *name;
+	tSpiderFunction	*fcn;
+
+	ns = SpiderScript_int_GetNamespace(Script, RootNamespace, BasePath, FunctionPath, &name);
+	if(!ns)	return NULL;
+
+	for( fcn = ns->Functions; fcn; fcn = fcn->Next )
+	{
+		if( strcmp(name, fcn->Name) == 0 )
+			return fcn;
+	}
+	
+	return NULL;
+}
+
+tSpiderObjectDef *SpiderScript_int_GetNativeClass(tSpiderScript *Script, tSpiderNamespace *RootNamespace,
+	const char *BasePath, const char *ClassPath
+	)
+{
+	tSpiderNamespace *ns;
+	const char *name;
+	tSpiderObjectDef *class;
+
+	ns = SpiderScript_int_GetNamespace(Script, RootNamespace, BasePath, ClassPath, &name);
+	if(!ns)	return NULL;
+	
+	for( class = ns->Classes; class; class = class->Next )
+	{
+		if( strcmp(name, class->Name) == 0 )
+			return class;
+	}
+
+	return NULL;
+}
+
 /**
  * \brief Execute a script function
  * \param Script	Script context to execute in
@@ -31,87 +131,91 @@ void	AST_RuntimeError(tAST_Node *Node, const char *Format, ...);
  * \param Arguments	Arguments passed
  */
 tSpiderValue *SpiderScript_ExecuteFunction(tSpiderScript *Script,
-	tSpiderNamespace *Namespace, const char *Function,
-	int NArguments, tSpiderValue **Arguments)
+	const char *Function,
+	const char *DefaultNamespaces[],
+	int NArguments, tSpiderValue **Arguments,
+	void **FunctionIdent
+	)
 {
-	 int	bFound = 0;	// Used to keep nesting levels down
 	tSpiderValue	*ret = ERRPTR;
-	
-	// First: Find the function in the script
-	if( !Namespace )
+	tSpiderFunction	*fcn = NULL;
+	 int	i;
+
+	// Scan list, Last item should always be NULL, so abuse that to check non-prefixed	
+	for( i = 0; i == 0 || (DefaultNamespaces && DefaultNamespaces[i-1]); i ++ )
 	{
-		tScript_Function	*fcn;
-		for( fcn = Script->Functions; fcn; fcn = fcn->Next )
+		const char *ns = DefaultNamespaces ? DefaultNamespaces[i] : NULL;
+		fcn = SpiderScript_int_GetNativeFunction(Script, &Script->Variant->RootNamespace,
+			ns, Function);
+		if( fcn )	break;
+		
+		// TODO: Script namespacing
+	}
+
+	// Search the variant's global exports
+	if( !fcn )
+	{
+		for( fcn = Script->Variant->Functions; fcn; fcn = fcn->Next )
 		{
-			if( strcmp(fcn->Name, Function) == 0 )
+			if( strcmp( fcn->Name, Function ) == 0 )
+				break;
+		}
+	}
+	
+	// Fourth: Search language exports
+	if( !fcn )
+	{
+		for( fcn = gpExports_First; fcn; fcn = fcn->Next )
+		{
+			if( strcmp( fcn->Name, Function ) == 0 )
+				break;
+		}
+	}
+	
+	// Find the function in the script?
+	// TODO: Script namespacing
+	if( !fcn && strchr(Function, BC_NS_SEPARATOR) == NULL )
+	{
+		tScript_Function	*sfcn;
+		for( sfcn = Script->Functions; sfcn; sfcn = sfcn->Next )
+		{
+			if( strcmp(sfcn->Name, Function) == 0 )
 				break;
 		}
 		// Execute!
-		if(fcn)
+		if(sfcn)
 		{
-			if( fcn->BCFcn )
-				ret = Bytecode_ExecuteFunction(Script, fcn, NArguments, Arguments);
+			if( sfcn->BCFcn )
+				ret = Bytecode_ExecuteFunction(Script, sfcn, NArguments, Arguments);
 			else
-				ret = AST_ExecuteFunction(Script, fcn, NArguments, Arguments);
-			bFound = 1;
+				ret = AST_ExecuteFunction(Script, sfcn, NArguments, Arguments);
+
+			if( FunctionIdent ) {
+				*FunctionIdent = sfcn;
+				// Abuses alignment requirements on almost all platforms
+				*(intptr_t*)FunctionIdent |= 1;
+			}
+
 			return ret;
 		}
 	}
 	
-	// Didn't find it in script?
-	if(!bFound)
+	if(fcn)
 	{
-		tSpiderFunction	*fcn;
-		fcn = NULL;	// Just to allow the below code to be neat
-		
-		// Second: Scan current namespace
-		if( !fcn && Namespace )
-		{
-			for( fcn = Namespace->Functions; fcn; fcn = fcn->Next )
-			{
-				if( strcmp( fcn->Name, Function ) == 0 )
-					break;
-			}
-		}
-		
-		// Third: Search the variant's global exports
-		if( !fcn )
-		{
-			for( fcn = Script->Variant->Functions; fcn; fcn = fcn->Next )
-			{
-				if( strcmp( fcn->Name, Function ) == 0 )
-					break;
-			}
-		}
-		
-		// Fourth: Search language exports
-		if( !fcn )
-		{
-			for( fcn = gpExports_First; fcn; fcn = fcn->Next )
-			{
-				if( strcmp( fcn->Name, Function ) == 0 )
-					break;
-			}
-		}
-		
 		// Execute!
-		if(fcn)
-		{
-			// TODO: Type Checking
-			ret = fcn->Handler( Script, NArguments, Arguments );
-			bFound = 1;
-		}
-	}
+		// TODO: Type Checking
+		ret = fcn->Handler( Script, NArguments, Arguments );
 	
-	// Not found?
-	if(!bFound)
+		if( FunctionIdent )
+			*FunctionIdent = fcn;		
+
+		return ret;
+	}
+	else
 	{
-		fprintf(stderr, "Undefined reference to function '%s' (ns='%s')\n",
-			Function, Namespace->Name);
+		fprintf(stderr, "Undefined reference to function '%s'\n", Function);
 		return ERRPTR;
 	}
-	
-	return ret;
 }
 
 /**
@@ -183,13 +287,23 @@ tSpiderValue *SpiderScript_ExecuteMethod(tSpiderScript *Script,
  * \param Arguments	Arguments passed
  */
 tSpiderValue *SpiderScript_CreateObject(tSpiderScript *Script,
-	tSpiderNamespace *Namespace, const char *ClassName,
+	const char *ClassPath, const char *DefaultNamespaces[],
 	int NArguments, tSpiderValue **Arguments)
 {
-	 int	bFound = 0;	// Used to keep nesting levels down
 	tSpiderValue	*ret = ERRPTR;
 	tSpiderObjectDef	*class;
-	
+	 int	i;	
+
+	// Scan list, Last item should always be NULL, so abuse that to check non-prefixed	
+	for( i = 0; i == 0 || DefaultNamespaces[i-1]; i ++ )
+	{
+		class = SpiderScript_int_GetNativeClass(Script, &Script->Variant->RootNamespace,
+			DefaultNamespaces[i], ClassPath);
+		if( class != NULL )	break;
+		
+		// TODO: Language defined classes
+	}
+		
 	// First: Find the function in the script
 	// TODO: Implement script-defined classes
 	#if 0
@@ -244,76 +358,30 @@ tSpiderValue *SpiderScript_CreateObject(tSpiderScript *Script,
 	}
 	#endif
 	
-	// Didn't find it in script?
-	if(!bFound)
+	// Execute!
+	if(class)
 	{
-		class = NULL;	// Just to allow the below code to be neat
+		tSpiderObject	*obj;
+		// TODO: Type Checking
 		
-		//if( !Namespace )
-		//	Namespace = &Script->Variant->RootNamespace;
+		// Call constructor
+		obj = class->Constructor( NArguments, Arguments );
+		if( obj == NULL || obj == ERRPTR )
+			return (void *)obj;
 		
-		// Second: Scan current namespace
-		if( !class && Namespace )
-		{
-			for( class = Namespace->Classes; class; class = class->Next )
-			{
-				if( strcmp( class->Name, ClassName ) == 0 )
-					break;
-			}
-		}
+		// Creatue return object
+		ret = malloc( sizeof(tSpiderValue) );
+		ret->Type = SS_DATATYPE_OBJECT;
+		ret->ReferenceCount = 1;
+		ret->Object = obj;
 		
-		#if 0
-		// Third: Search the variant's global exports
-		if( !class )
-		{
-			for( class = Script->Variant->Classes; class; class = fcn->Next )
-			{
-				if( strcmp( class->Name, Function ) == 0 )
-					break;
-			}
-		}
-		#endif
-		
-		#if 0
-		// Fourth: Search language exports
-		if( !class )
-		{
-			for( class = gpExports_First; class; class = fcn->Next )
-			{
-				if( strcmp( class->Name, ClassName ) == 0 )
-					break;
-			}
-		}
-		#endif
-		
-		// Execute!
-		if(class)
-		{
-			tSpiderObject	*obj;
-			// TODO: Type Checking
-			
-			// Call constructor
-			obj = class->Constructor( NArguments, Arguments );
-			if( obj == NULL || obj == ERRPTR )
-				return (void *)obj;
-			
-			// Creatue return object
-			ret = malloc( sizeof(tSpiderValue) );
-			ret->Type = SS_DATATYPE_OBJECT;
-			ret->ReferenceCount = 1;
-			ret->Object = obj;
-			bFound = 1;
-		}
+		return ret;
 	}
-	
-	// Not found?
-	if(!bFound)
+	else	// Not found?
 	{
-		fprintf(stderr, "Undefined reference to class '%s'\n", ClassName);
+		fprintf(stderr, "Undefined reference to class '%s'\n", ClassPath);
 		return ERRPTR;
 	}
-	
-	return ret;
 }
 
 void AST_RuntimeMessage(tAST_Node *Node, const char *Type, const char *Format, ...)

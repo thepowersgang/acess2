@@ -263,8 +263,9 @@ extern tSpiderScript	*SpiderScript_ParseFile(tSpiderVariant *Variant, const char
  * \return Return value
  */
 extern tSpiderValue	*SpiderScript_ExecuteFunction(tSpiderScript *Script,
-	tSpiderNamespace *Namespace, const char *Function,
-	int NArguments, tSpiderValue **Arguments
+	const char *Function, const char *DefaultNamespaces[],
+	int NArguments, tSpiderValue **Arguments,
+	void **FunctionIdent
 	);
 /**
  * \brief Execute an object method
@@ -277,7 +278,7 @@ extern tSpiderValue	*SpiderScript_ExecuteMethod(tSpiderScript *Script,
  * \brief Creates an object instance
  */
 extern tSpiderValue	*SpiderScript_CreateObject(tSpiderScript *Script,
-	tSpiderNamespace *Namespace, const char *ClassName,
+	const char *ClassName, const char *DefaultNamespaces[],
 	int NArguments, tSpiderValue **Arguments
 	);
 

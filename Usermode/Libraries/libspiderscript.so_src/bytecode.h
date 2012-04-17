@@ -18,6 +18,9 @@ struct sBC_Op
 	 int	Operation;
 	char	bUseInteger;	// Used for serialisation
 	char	bUseString;	// Used for serialisation
+
+	void	*CacheEnt;	// Used to runtime cache function calls
+
 	union {
 		struct {
 			 int	Integer;

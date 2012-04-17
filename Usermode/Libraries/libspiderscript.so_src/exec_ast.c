@@ -234,9 +234,11 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 	case NODETYPE_CREATEOBJECT:
 		// Logical block (used to allocate `params`)
 		{
-			tSpiderNamespace	*ns = Block->CurNamespace;
+			const char	*namespaces[] = {NULL};	// TODO: Default namespaces?
 			tSpiderValue	*params[Node->FunctionCall.NumArgs];
 			i = 0;
+			
+			// Get arguments
 			for(node = Node->FunctionCall.FirstArg; node; node = node->NextSibling)
 			{
 				params[i] = AST_ExecuteNode(Block, node);
@@ -247,15 +249,15 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 				}
 				i ++;
 			}
-			
-			if( !ns )	ns = Block->BaseNamespace;
-			
+
+			// TODO: Check for cached function reference			
+
 			// Call the function
 			if( Node->Type == NODETYPE_CREATEOBJECT )
 			{
 				ret = SpiderScript_CreateObject(Block->Script,
-					ns,
 					Node->FunctionCall.Name,
+					namespaces,
 					Node->FunctionCall.NumArgs, params
 					);
 			}
@@ -278,8 +280,10 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 			else
 			{
 				ret = SpiderScript_ExecuteFunction(Block->Script,
-					ns, Node->FunctionCall.Name,
-					Node->FunctionCall.NumArgs, params
+					Node->FunctionCall.Name,
+					namespaces,
+					Node->FunctionCall.NumArgs, params,
+					NULL
 					);
 			}
 
@@ -426,7 +430,9 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 			break;
 		}
 		Block->CurNamespace = ns;
-		
+	
+		// TODO: Check type of child node (Scope, Constant or Function)	
+	
 		ret = AST_ExecuteNode(Block, Node->Scope.Element);
 		}
 		break;
@@ -544,6 +550,9 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 	case NODETYPE_REAL:
 		ret = &Node->Constant;
 		SpiderScript_ReferenceValue(ret);
+		break;
+	case NODETYPE_NULL:
+		ret = NULL;
 		break;
 	
 	// --- Operations ---

@@ -412,6 +412,8 @@ void Bytecode_AppendConstString(tBC_Function *Handle, const void *Data, size_t L
 	op->Content.StringInt.String[Length] = 0;
 	Bytecode_int_AppendOp(Handle, op);
 }
+void Bytecode_AppendConstNull(tBC_Function *Handle)
+	DEF_BC_NONE(BC_OP_LOADNULL)
 
 // --- Indexing / Scoping
 void Bytecode_AppendElement(tBC_Function *Handle, const char *Name)

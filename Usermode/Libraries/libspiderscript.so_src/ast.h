@@ -28,14 +28,15 @@ enum eAST_NodeTypes
 	NODETYPE_STRING,	//!< String Constant
 	NODETYPE_INTEGER,	//!< Integer Constant
 	NODETYPE_REAL,	//!< Real Constant
+	NODETYPE_NULL,
 	
-	// 7
+	// 8
 	NODETYPE_DEFVAR,	//!< Define a variable (Variable)
 	NODETYPE_SCOPE,	//!< Dereference a Namespace/Class static
 	NODETYPE_ELEMENT,	//!< Reference a class attribute
 	NODETYPE_CAST,	//!< Cast a value to another (Uniop)
 	
-	// 11
+	// 12
 	NODETYPE_RETURN,	//!< Return from a function (reserved word)
 	NODETYPE_BREAK, 	//!< Break out of a loop
 	NODETYPE_CONTINUE,	//!< Next loop iteration
@@ -46,14 +47,14 @@ enum eAST_NodeTypes
 	NODETYPE_METHODCALL,	//!< Call a class method
 	NODETYPE_CREATEOBJECT,	//!< Create an object
 	
-	// 20
+	// 21
 	NODETYPE_IF,	//!< Conditional
 	NODETYPE_LOOP,	//!< Looping Construct
 	
-	// 22
+	// 23
 	NODETYPE_INDEX,	//!< Index into an array
 	
-	// 23
+	// 24
 	NODETYPE_LOGICALNOT,	//!< Logical NOT operator
 	NODETYPE_LOGICALAND,	//!< Logical AND operator
 	NODETYPE_LOGICALOR, 	//!< Logical OR operator
@@ -207,6 +208,8 @@ extern tAST_Node	*AST_NewNop(tParser *Parser);
 extern tAST_Node	*AST_NewString(tParser *Parser, const char *String, int Length);
 extern tAST_Node	*AST_NewInteger(tParser *Parser, int64_t Value);
 extern tAST_Node	*AST_NewReal(tParser *Parser, double Value);
+extern tAST_Node	*AST_NewNull(tParser *Parser);
+
 extern tAST_Node	*AST_NewVariable(tParser *Parser, const char *Name);
 extern tAST_Node	*AST_NewDefineVar(tParser *Parser, int Type, const char *Name);
 extern tAST_Node	*AST_NewConstant(tParser *Parser, const char *Name);

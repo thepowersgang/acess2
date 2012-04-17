@@ -281,6 +281,8 @@ size_t AST_WriteNode(void *Buffer, size_t Offset, tAST_Node *Node)
 	case NODETYPE_REAL:
 		WRITE_REAL(Buffer, Offset, Node->Constant.Real);
 		break;
+	case NODETYPE_NULL:
+		break;
 	
 	//default:
 	//	fprintf(stderr, "AST_WriteNode: Unknown node type %i\n", Node->Type);
@@ -403,6 +405,7 @@ void AST_FreeNode(tAST_Node *Node)
 	
 	// Node types with no children
 	case NODETYPE_NOP:	break;
+	case NODETYPE_NULL:	break;
 	case NODETYPE_VARIABLE:	break;
 	case NODETYPE_CONSTANT:	break;
 	case NODETYPE_BREAK:
@@ -611,6 +614,16 @@ tAST_Node *AST_NewReal(tParser *Parser, double Value)
 	ret->Constant.Type = SS_DATATYPE_REAL;
 	ret->Constant.ReferenceCount = 1;
 	ret->Constant.Real = Value;
+	return ret;
+}
+
+/**
+ * \brief Return a null value
+ */
+tAST_Node *AST_NewNull(tParser *Parser)
+{
+	tAST_Node	*ret = AST_int_AllocateNode(Parser, NODETYPE_NULL, 0);
+	
 	return ret;
 }
 

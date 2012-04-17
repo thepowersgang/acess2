@@ -272,6 +272,7 @@ tSpiderValue *Bytecode_ExecuteFunction(tSpiderScript *Script, tScript_Function *
 		return NULL;
 	}
 	free(stack);
+	
 	ret = Bytecode_int_GetSpiderValue(&val, &tmpsval);
 	// Ensure it's a heap value
 	if(ret == &tmpsval) {
@@ -311,10 +312,10 @@ int Bytecode_int_CallExternFunction(tSpiderScript *Script, tBC_Stack *Stack, tSp
 	const char	*name = OP_STRING(op);
 	 int	arg_count = OP_INDX(op);
 	 int	i, ret = 0;
-	tSpiderNamespace	*ns = NULL;
 	tSpiderValue	*args[arg_count];
 	tSpiderValue	*rv;
-	tBC_StackEnt	val1;	
+	tBC_StackEnt	val1;
+	const char	*namespaces[] = {NULL};	// TODO: Default/imported namespaces
 
 	DEBUG_F("CALL (general) %s %i args\n", name, arg_count);
 	
@@ -326,31 +327,14 @@ int Bytecode_int_CallExternFunction(tSpiderScript *Script, tBC_Stack *Stack, tSp
 		Bytecode_int_DerefStackValue(&val1);
 	}
 	
-	// Resolve namespace into pointer
-	if( op->Operation != BC_OP_CALLMETHOD ) {
-		const char *name_orig = name;
-		if( name[0] == BC_NS_SEPARATOR ) {
-			name ++;
-			ns = Bytecode_int_ResolveNamespace(&Script->Variant->RootNamespace, name, &name);
-		}
-		else {
-			// TODO: Support multiple default namespaces
-			ns = Bytecode_int_ResolveNamespace(DefaultNS, name, &name);
-		}
-		if( !ns ) {
-			AST_RuntimeError(NULL, "Namespace '%s' not found in '%s'", name, name_orig);
-			return -1;
-		}
-	}
-	
 	// Call the function etc.
 	if( op->Operation == BC_OP_CALLFUNCTION )
 	{
-		rv = SpiderScript_ExecuteFunction(Script, ns, name, arg_count, args);
+		rv = SpiderScript_ExecuteFunction(Script, name, namespaces, arg_count, args, &op->CacheEnt);
 	}
 	else if( op->Operation == BC_OP_CREATEOBJ )
 	{
-		rv = SpiderScript_CreateObject(Script, ns, name, arg_count, args);
+		rv = SpiderScript_CreateObject(Script, name, namespaces, arg_count, args);
 	}
 	else if( op->Operation == BC_OP_CALLMETHOD )
 	{
@@ -593,6 +577,13 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 			DEBUG_F("LOADSTR %i \"%s\"\n", OP_INDX(op), OP_STRING(op));
 			val1.Type = SS_DATATYPE_STRING;
 			val1.Reference = SpiderScript_CreateString(OP_INDX(op), OP_STRING(op));
+			PUT_STACKVAL(val1);
+			break;
+		case BC_OP_LOADNULL:
+			STATE_HDR();
+			DEBUG_F("LOADNULL\n");
+			val1.Type = ET_REFERENCE;
+			val1.Reference = NULL;
 			PUT_STACKVAL(val1);
 			break;
 
@@ -872,7 +863,7 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 			n_rolled ++;
 		}
 		PUT_STACKVAL(val1);
-		DEBUG_F("Rolled back %i entried\n", n_rolled);
+		DEBUG_F("Rolled back %i entries\n", n_rolled);
 	}
 	
 

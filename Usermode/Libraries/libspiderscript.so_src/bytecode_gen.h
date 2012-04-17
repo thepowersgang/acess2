@@ -55,6 +55,7 @@ extern void	Bytecode_AppendSaveVar(tBC_Function *Handle, const char *Name);	// (
 extern void	Bytecode_AppendConstInt(tBC_Function *Handle, uint64_t Value);
 extern void	Bytecode_AppendConstReal(tBC_Function *Handle, double Value);
 extern void	Bytecode_AppendConstString(tBC_Function *Handle, const void *Data, size_t Length);
+extern void	Bytecode_AppendConstNull(tBC_Function *Handle);
 //  > Scoping
 extern void	Bytecode_AppendElement(tBC_Function *Handle, const char *Name);	// Obj->SubObj
 extern void	Bytecode_AppendSetElement(tBC_Function *Handle, const char *Name);	// Set an object member
