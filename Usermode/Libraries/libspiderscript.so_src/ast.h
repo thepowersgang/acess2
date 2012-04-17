@@ -22,17 +22,20 @@ enum eAST_NodeTypes
 	
 	NODETYPE_BLOCK,	//!< Node Block
 	
+	// 2
 	NODETYPE_VARIABLE,	//!< Variable
 	NODETYPE_CONSTANT,	//!< Runtime Constant
 	NODETYPE_STRING,	//!< String Constant
 	NODETYPE_INTEGER,	//!< Integer Constant
 	NODETYPE_REAL,	//!< Real Constant
 	
+	// 7
 	NODETYPE_DEFVAR,	//!< Define a variable (Variable)
 	NODETYPE_SCOPE,	//!< Dereference a Namespace/Class static
 	NODETYPE_ELEMENT,	//!< Reference a class attribute
 	NODETYPE_CAST,	//!< Cast a value to another (Uniop)
 	
+	// 11
 	NODETYPE_RETURN,	//!< Return from a function (reserved word)
 	NODETYPE_BREAK, 	//!< Break out of a loop
 	NODETYPE_CONTINUE,	//!< Next loop iteration
@@ -43,11 +46,14 @@ enum eAST_NodeTypes
 	NODETYPE_METHODCALL,	//!< Call a class method
 	NODETYPE_CREATEOBJECT,	//!< Create an object
 	
+	// 20
 	NODETYPE_IF,	//!< Conditional
 	NODETYPE_LOOP,	//!< Looping Construct
 	
+	// 22
 	NODETYPE_INDEX,	//!< Index into an array
 	
+	// 23
 	NODETYPE_LOGICALNOT,	//!< Logical NOT operator
 	NODETYPE_LOGICALAND,	//!< Logical AND operator
 	NODETYPE_LOGICALOR, 	//!< Logical OR operator

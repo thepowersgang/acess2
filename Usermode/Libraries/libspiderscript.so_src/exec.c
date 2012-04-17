@@ -38,6 +38,7 @@ tSpiderValue *SpiderScript_ExecuteFunction(tSpiderScript *Script,
 	tSpiderValue	*ret = ERRPTR;
 	
 	// First: Find the function in the script
+	if( !Namespace )
 	{
 		tScript_Function	*fcn;
 		for( fcn = Script->Functions; fcn; fcn = fcn->Next )
@@ -48,13 +49,12 @@ tSpiderValue *SpiderScript_ExecuteFunction(tSpiderScript *Script,
 		// Execute!
 		if(fcn)
 		{
-			#if 1
 			if( fcn->BCFcn )
 				ret = Bytecode_ExecuteFunction(Script, fcn, NArguments, Arguments);
 			else
-			#endif
 				ret = AST_ExecuteFunction(Script, fcn, NArguments, Arguments);
 			bFound = 1;
+			return ret;
 		}
 	}
 	

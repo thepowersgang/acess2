@@ -10,6 +10,7 @@
 #include "common.h"
 #include "ast.h"
 
+#define USE_AST_EXEC	1
 #define TRACE_VAR_LOOKUPS	0
 #define TRACE_NODE_RETURNS	0
 
@@ -33,6 +34,7 @@ void	AST_RuntimeError(tAST_Node *Node, const char *Format, ...);
  int	giNextBlockIdent = 1;
 
 // === CODE ===
+#if USE_AST_EXEC
 tSpiderValue *AST_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, int NArguments, tSpiderValue **Arguments)
 {
 	tAST_BlockState	bs;
@@ -646,6 +648,7 @@ _return:
 
 	return ret;
 }
+#endif
 
 tSpiderValue *AST_ExecuteNode_UniOp(tSpiderScript *Script, tAST_Node *Node, int Operation, tSpiderValue *Value)
 {
@@ -938,6 +941,7 @@ tSpiderValue *AST_ExecuteNode_BinOp(tSpiderScript *Script, tAST_Node *Node, int 
 	return ret;
 }
 
+#if USE_AST_EXEC
 /**
  * \brief Define a variable
  * \param Block	Current block state
@@ -1074,4 +1078,5 @@ void Variable_Destroy(tAST_Variable *Variable)
 	SpiderScript_DereferenceValue(Variable->Object);
 	free(Variable);
 }
+#endif
 

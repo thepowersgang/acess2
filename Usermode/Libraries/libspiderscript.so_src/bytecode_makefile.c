@@ -88,7 +88,13 @@ int SpiderScript_SaveBytecode(tSpiderScript *Script, const char *DestFile)
 		fcn_hdr_offset += 4+4+1+1+(4+1)*fcn->ArgumentCount;
 		
 		// Write code
-		if( !fcn->BCFcn )	Bytecode_ConvertFunction(fcn);
+		if( !fcn->BCFcn )
+			Bytecode_ConvertFunction(fcn);
+		if( !fcn->BCFcn )
+		{
+			fclose(fp);
+			return 1;
+		}
 		code = Bytecode_SerialiseFunction(fcn->BCFcn, &len, &strings);
 		fwrite(code, len, 1, fp);
 		free(code);

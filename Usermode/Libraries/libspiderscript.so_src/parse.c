@@ -85,6 +85,7 @@ int Parse_Buffer(tSpiderScript *Script, const char *Buffer, const char *Filename
 	*(int*)(parser.Filename) = 0;	// Set reference count
 	parser.Filename += sizeof(int);	// Move filename
 	parser.ErrorHit = 0;
+	parser.Variant = Script->Variant;
 	
 	mainCode = AST_NewCodeBlock(&parser);
 	
@@ -455,15 +456,18 @@ tAST_Node *Parse_GetVarDef(tParser *Parser, int Type)
 {
 	char	name[Parser->TokenLen];
 	tAST_Node	*ret;
+	 int	level;
 	
 	SyntaxAssert(Parser, Parser->Token, TOK_VARIABLE);
 	
 	// copy the name (trimming the $)
 	memcpy(name, Parser->TokenStr+1, Parser->TokenLen-1);
 	name[Parser->TokenLen-1] = 0;
+	
 	// Define the variable
 	ret = AST_NewDefineVar(Parser, Type, name);
 	// Handle arrays
+	level = 0;
 	while( LookAhead(Parser) == TOK_SQUARE_OPEN )
 	{
 		tAST_Node *node;
@@ -475,8 +479,18 @@ tAST_Node *Parse_GetVarDef(tParser *Parser, int Type)
 		}
 		AST_AppendNode(ret, node);
 		SyntaxAssert(Parser, GetToken(Parser), TOK_SQUARE_CLOSE);
+		level ++;
 	}
 	
+	// Maul the type to denote the dereference level
+	if( Parser->Variant->bDyamicTyped ) {
+		ret->DefVar.DataType = SS_DATATYPE_ARRAY;
+	}
+	else {
+		ret->DefVar.DataType |= (level << 16);
+	}
+
+	// Initial value
 	if( LookAhead(Parser) == TOK_ASSIGN )
 	{
 		GetToken(Parser);

@@ -51,7 +51,7 @@ enum eSpiderScript_DataTypes
 	 */
 	SS_DATATYPE_OBJECT,
 	/**
-	 * \brief Array data type
+	 * \brief Array data type (invalid when using static typing)
 	 */
 	SS_DATATYPE_ARRAY,
 	/**

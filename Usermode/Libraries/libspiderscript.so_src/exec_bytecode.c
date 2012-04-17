@@ -410,7 +410,7 @@ int Bytecode_int_LocalBinOp_Integer(int Operation, tBC_StackEnt *Val1, tBC_Stack
 	case BC_OP_BITOR:	Val1->Integer = Val1->Integer | Val2->Integer;	break;
 	case BC_OP_BITXOR:	Val1->Integer = Val1->Integer ^ Val2->Integer;	break;
 	case BC_OP_MODULO:	Val1->Integer = Val1->Integer % Val2->Integer;	break;
-	default:	AST_RuntimeError(NULL, "Invalid operation on datatype %i", Val1->Type); return -1;
+	default:	AST_RuntimeError(NULL, "Invalid operation on datatype Integer"); return -1;
 	}
 	return 0;
 }
@@ -431,7 +431,7 @@ int Bytecode_int_LocalBinOp_Real(int Operation, tBC_StackEnt *Val1, tBC_StackEnt
 	case BC_OP_GREATERTHAN: 	Val1->Integer = (Val1->Real >  Val2->Real);	break;
 	case BC_OP_GREATERTHANOREQUAL:	Val1->Integer = (Val1->Real >= Val2->Real);	break;
 	
-	default:	AST_RuntimeError(NULL, "Invalid operation on datatype %i", Val1->Type); return -1;
+	default:	AST_RuntimeError(NULL, "Invalid operation on datatype Real"); return -1;
 	}
 	Val1->Type = SS_DATATYPE_INTEGER;	// Becomes logical
 	return 0;
@@ -494,7 +494,6 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 		// Jumps
 		case BC_OP_JUMP:
 			STATE_HDR();
-			// NOTE: Evil, all jumps are off by -1, so fix that
 			jmp_target = Fcn->BCFcn->Labels[ OP_INDX(op) ]->Next;
 			DEBUG_F("JUMP #%i %p\n", OP_INDX(op), jmp_target);
 			nextop = jmp_target;

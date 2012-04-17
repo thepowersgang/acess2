@@ -226,7 +226,7 @@ int Bytecode_int_Serialize(const tBC_Function *Function, void *Output, int *Labe
 			break;
 		// Special case for inline values
 		case BC_OP_LOADINT:
-			_put_index(op->Content.Integer);
+			_put_qword(op->Content.Integer);
 			break;
 		case BC_OP_LOADREAL:
 			_put_double(op->Content.Real);

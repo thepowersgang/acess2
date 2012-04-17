@@ -32,6 +32,8 @@ typedef struct
 	
 	jmp_buf	JmpTarget;
 	 int	ErrorHit;
+	
+	struct sSpiderVariant	*Variant;
 }	tParser;
 
 // === FUNCTIONS ===
