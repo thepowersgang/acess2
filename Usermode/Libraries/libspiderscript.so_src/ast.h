@@ -156,8 +156,6 @@ struct sAST_Node
 		
 		struct {
 			 int	DataType;
-			tAST_Node	*LevelSizes;
-			tAST_Node	*LevelSizes_Last;
 			tAST_Node	*InitialValue;
 			char	Name[];
 		}	DefVar;
@@ -241,5 +239,6 @@ extern void	Object_Reference(tSpiderValue *Object);
 extern tSpiderValue	*AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node);
 extern tSpiderValue	*AST_ExecuteNode_BinOp(tSpiderScript *Script, tAST_Node *Node, int Operation, tSpiderValue *Left, tSpiderValue *Right);
 extern tSpiderValue	*AST_ExecuteNode_UniOp(tSpiderScript *Script, tAST_Node *Node, int Operation, tSpiderValue *Value);
+extern tSpiderValue	*AST_ExecuteNode_Index(tSpiderScript *Script, tAST_Node *Node, tSpiderValue *Array, int Index, tSpiderValue *SaveValue);
 
 #endif

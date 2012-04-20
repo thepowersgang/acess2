@@ -216,11 +216,9 @@ size_t AST_WriteNode(void *Buffer, size_t Offset, tAST_Node *Node)
 	
 	// Define a variable
 	case NODETYPE_DEFVAR:
-		WRITE_8(Buffer, Offset, Node->DefVar.DataType);
+		WRITE_32(Buffer, Offset, Node->DefVar.DataType);
 		// TODO: Duplicate compress the strings
 		WRITE_STR(Buffer, Offset, Node->DefVar.Name);
-		
-		WRITE_NODELIST(Buffer, Offset, Node->DefVar.LevelSizes);
 		Offset += AST_WriteNode(Buffer, Offset, Node->DefVar.InitialValue);
 		break;
 	
@@ -364,12 +362,6 @@ void AST_FreeNode(tAST_Node *Node)
 	
 	// Define a variable
 	case NODETYPE_DEFVAR:
-		for( node = Node->DefVar.LevelSizes; node; )
-		{
-			tAST_Node	*savedNext = node->NextSibling;
-			AST_FreeNode(node);
-			node = savedNext;
-		}
 		AST_FreeNode(Node->DefVar.InitialValue);
 		break;
 	
@@ -463,15 +455,6 @@ void AST_AppendNode(tAST_Node *Parent, tAST_Node *Child)
 		else {
 			Parent->Block.LastChild->NextSibling = Child;
 			Parent->Block.LastChild = Child;
-		}
-		break;
-	case NODETYPE_DEFVAR:
-		if(Parent->DefVar.LevelSizes == NULL) {
-			Parent->DefVar.LevelSizes = Parent->DefVar.LevelSizes_Last = Child;
-		}
-		else {
-			Parent->DefVar.LevelSizes_Last->NextSibling = Child;
-			Parent->DefVar.LevelSizes_Last = Child;
 		}
 		break;
 	default:
@@ -645,8 +628,6 @@ tAST_Node *AST_NewDefineVar(tParser *Parser, int Type, const char *Name)
 	tAST_Node	*ret = AST_int_AllocateNode(Parser, NODETYPE_DEFVAR, strlen(Name) + 1 );
 	
 	ret->DefVar.DataType = Type;
-	ret->DefVar.LevelSizes = NULL;
-	ret->DefVar.LevelSizes_Last = NULL;
 	ret->DefVar.InitialValue = NULL;
 	strcpy(ret->DefVar.Name, Name);
 	

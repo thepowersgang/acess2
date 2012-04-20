@@ -35,6 +35,7 @@ tBC_Op *Bytecode_int_AllocateOp(int Operation, int ExtraBytes)
 	ret->Operation = Operation;
 	ret->bUseInteger = 0;
 	ret->bUseString = (ExtraBytes > 0);
+	ret->CacheEnt = NULL;
 
 	return ret;
 }

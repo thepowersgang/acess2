@@ -38,25 +38,38 @@ void SpiderScript_DereferenceValue(tSpiderValue *Object)
 {
 	if(!Object || Object == ERRPTR)	return ;
 	Object->ReferenceCount --;
-//	if(Object->Type == SS_DATATYPE_OBJECT) {
-//	}
 	if( Object->ReferenceCount == 0 )
 	{
-		switch( (enum eSpiderScript_DataTypes) Object->Type )
-		{
-		case SS_DATATYPE_OBJECT:
-			Object->Object->ReferenceCount --;
-			if(Object->Object->ReferenceCount == 0) {
-				Object->Object->Type->Destructor( Object->Object );
-			}
-			Object->Object = NULL;
-			break;
+		 int	i;
 
-		case SS_DATATYPE_OPAQUE:
-			Object->Opaque.Destroy( Object->Opaque.Data );
-			break;
-		default:
-			break;
+		if( Object->Type == SS_DATATYPE_ARRAY || SS_GETARRAYDEPTH(Object->Type) )
+		{
+			for( i = 0; i < Object->Array.Length; i ++ )
+			{
+				if( Object->Array.Items[i] ) {
+					SpiderScript_DereferenceValue(Object->Array.Items[i]);
+				}
+				Object->Array.Items[i] = NULL;
+			}
+		}
+		else
+		{		
+			switch( (enum eSpiderScript_DataTypes) Object->Type )
+			{
+			case SS_DATATYPE_OBJECT:
+				Object->Object->ReferenceCount --;
+				if(Object->Object->ReferenceCount == 0) {
+						Object->Object->Type->Destructor( Object->Object );
+				}
+				Object->Object = NULL;
+				break;
+	
+			case SS_DATATYPE_OPAQUE:
+				Object->Opaque.Destroy( Object->Opaque.Data );
+				break;
+			default:
+				break;
+			}
 		}
 		free(Object);
 	}
@@ -125,6 +138,16 @@ tSpiderValue *SpiderScript_CreateString(int Length, const char *Data)
 	else
 		memset(ret->String.Data, 0, Length);
 	ret->String.Data[Length] = '\0';
+	return ret;
+}
+
+tSpiderValue *SpiderScript_CreateArray(int InnerType, int ItemCount)
+{
+	tSpiderValue	*ret = malloc( sizeof(tSpiderValue) + ItemCount*sizeof(tSpiderValue*) );
+	ret->Type = SS_MAKEARRAY(InnerType);
+	ret->ReferenceCount = 1;
+	ret->Array.Length = ItemCount;
+	memset(ret->Array.Items, 0, ItemCount*sizeof(tSpiderValue*));
 	return ret;
 }
 

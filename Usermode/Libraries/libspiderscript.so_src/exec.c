@@ -64,7 +64,7 @@ void *SpiderScript_int_GetNamespace(tSpiderScript *Script, tSpiderNamespace *Roo
 		// Check for this level
 		for( ns = lastns->FirstChild; ns; ns = ns->Next )
 		{
-			printf("%p %.*s == %s\n", lastns, len, name, ns->Name);
+//			printf("%p %.*s == %s\n", lastns, len, name, ns->Name);
 			if( strncmp(name, ns->Name, len) == 0 && ns->Name[len] == 0 )
 				break ;
 		}
@@ -141,7 +141,19 @@ tSpiderValue *SpiderScript_ExecuteFunction(tSpiderScript *Script,
 {
 	tSpiderValue	*ret = ERRPTR;
 	tSpiderFunction	*fcn = NULL;
+	tScript_Function	*sfcn;
 	 int	i;
+
+	if( FunctionIdent && *FunctionIdent ) {
+		if( *(intptr_t*)FunctionIdent & 1 ) {
+			sfcn = (void*)( *(intptr_t*)FunctionIdent & ~1 );
+			goto _exec_sfcn;
+		}
+		else {
+			fcn = *FunctionIdent;
+			goto _exec_fcn;
+		}
+	}
 
 	// Scan list, Last item should always be NULL, so abuse that to check non-prefixed	
 	for( i = 0; i == 0 || (DefaultNamespaces && DefaultNamespaces[i-1]); i ++ )
@@ -180,12 +192,12 @@ tSpiderValue *SpiderScript_ExecuteFunction(tSpiderScript *Script,
 	// TODO: Script namespacing
 	if( !fcn && strchr(Function, BC_NS_SEPARATOR) == NULL )
 	{
-		tScript_Function	*sfcn;
 		for( sfcn = Script->Functions; sfcn; sfcn = sfcn->Next )
 		{
 			if( strcmp(sfcn->Name, Function) == 0 )
 				break;
 		}
+	_exec_sfcn:
 		// Execute!
 		if(sfcn)
 		{
@@ -203,7 +215,8 @@ tSpiderValue *SpiderScript_ExecuteFunction(tSpiderScript *Script,
 			return ret;
 		}
 	}
-	
+
+_exec_fcn:
 	if(fcn)
 	{
 		// Execute!

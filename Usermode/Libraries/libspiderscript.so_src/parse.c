@@ -18,8 +18,9 @@
 // === PROTOTYPES ===
  int	Parse_Buffer(tSpiderScript *Script, const char *Buffer, const char *Filename);
 void	*Parse_FunctionDefinition(tSpiderScript *Script, tParser *Parser, int Type);
-tAST_Node	*Parse_DoCodeBlock(tParser *Parser);
-tAST_Node	*Parse_DoBlockLine(tParser *Parser);
+tAST_Node	*Parse_DoCodeBlock(tParser *Parser, tAST_Node *CodeNode);
+tAST_Node	*Parse_DoBlockLine(tParser *Parser, tAST_Node *CodeNode);
+tAST_Node	*Parse_VarDefList(tParser *Parser, tAST_Node *CodeNode, int Type);
 tAST_Node	*Parse_GetVarDef(tParser *Parser, int Type);
 
 tAST_Node	*Parse_DoExpr0(tParser *Parser);	// Assignment
@@ -43,14 +44,17 @@ tAST_Node	*Parse_GetIdent(tParser *Parser, int bObjectCreate);
 void	SyntaxAssert(tParser *Parser, int Have, int Want);
 void	SyntaxError(tParser *Parser, int bFatal, const char *Message, ...);
 
-#define SyntaxAssert(_parser, _have, _want) do { \
+#if 0
+#define SyntaxAssert(_parser, _have, _want)	SyntaxAssertV(_parser, _have, _want, NULL)
+#define SyntaxAssertV(_parser, _have, _want, _rv) do { \
 	int have = (_have), want = (_want); \
 	if( (have) != (want) ) { \
 		SyntaxError(Parser, 1, "Unexpected %s(%i), expecting %s(%i)\n", \
 			csaTOKEN_NAMES[have], have, csaTOKEN_NAMES[want], want); \
-		return NULL; \
+		return _rv; \
 	} \
 }while(0)
+#endif
 
 #define TODO(Parser, message...) do {\
 	fprintf(stderr, "TODO: "message);\
@@ -119,26 +123,18 @@ int Parse_Buffer(tSpiderScript *Script, const char *Buffer, const char *Filename
 		case TOKEN_GROUP_TYPES:
 			TOKEN_GET_DATATYPE(type, Parser->Token);
 			
-			switch(GetToken(Parser))
+			switch(LookAhead(Parser))
 			{
 			// Define a function (pass on to the other function definition code)
 			case TOK_IDENT:
-				PutBack(Parser);
 				if( Parse_FunctionDefinition(Script, Parser, type) == NULL )
 					longjmp(Parser->JmpTarget, -1);
 				break ;
-			// Define a variable
+			// Define a variable (pass back to _DoBlockLine)
 			case TOK_VARIABLE:
-				node = Parse_GetVarDef(Parser, type);
-				if(!node)	longjmp(Parser->JmpTarget, -1);
-				
-				AST_AppendNode( mainCode, node );
-				// Can't use SyntaxAssert because that returns
-				if(GetToken(Parser) != TOK_SEMICOLON) {
-					SyntaxError(Parser, 1, "Unexpected %s, expected TOK_SEMICOLON",
-						csaTOKEN_NAMES[Parser->Token]);
-					longjmp(Parser->JmpTarget, -1);
-				}
+				node = Parse_VarDefList(Parser, mainCode, type);
+				AST_AppendNode(mainCode, node);
+				SyntaxAssert(Parser, GetToken(Parser), TOK_SEMICOLON);
 				break;
 			default:
 				SyntaxError(Parser, 1, "Unexpected %s, expected TOK_IDENT or TOK_VARIABLE\n",
@@ -164,7 +160,7 @@ int Parse_Buffer(tSpiderScript *Script, const char *Buffer, const char *Filename
 		// Ordinary Statement
 		default:
 			PutBack(Parser);
-			node = Parse_DoBlockLine(Parser);
+			node = Parse_DoBlockLine(Parser, mainCode);
 			if(!node)	longjmp(Parser->JmpTarget, -1);
 			AST_AppendNode( mainCode, node );
 			break;
@@ -218,7 +214,7 @@ void *Parse_FunctionDefinition(tSpiderScript *Script, tParser *Parser, int Type)
 		GetToken(Parser);
 	SyntaxAssert(Parser, Parser->Token, TOK_PAREN_CLOSE );
 
-	code = Parse_DoCodeBlock(Parser);
+	code = Parse_DoCodeBlock(Parser, NULL);
 
 	rv = AST_AppendFunction( Script, name, Type, first_arg, code );
 
@@ -240,21 +236,21 @@ void *Parse_FunctionDefinition(tSpiderScript *Script, tParser *Parser, int Type)
 /**
  * \brief Parse a block of code surrounded by { }
  */
-tAST_Node *Parse_DoCodeBlock(tParser *Parser)
+tAST_Node *Parse_DoCodeBlock(tParser *Parser, tAST_Node *CodeNode)
 {
 	tAST_Node	*ret;
 	
 	// Check if we are being called for a one-liner
 	if( GetToken(Parser) != TOK_BRACE_OPEN ) {
 		PutBack(Parser);
-		return Parse_DoBlockLine(Parser);
+		return Parse_DoBlockLine(Parser, CodeNode);
 	}
 	
 	ret = AST_NewCodeBlock(Parser);
 	
 	while( LookAhead(Parser) != TOK_BRACE_CLOSE )
 	{
-		tAST_Node	*node = Parse_DoBlockLine(Parser);
+		tAST_Node	*node = Parse_DoBlockLine(Parser, ret);
 		if(!node) {
 			AST_FreeNode(ret);
 			return NULL;
@@ -268,7 +264,7 @@ tAST_Node *Parse_DoCodeBlock(tParser *Parser)
 /**
  * \brief Parse a line in a block
  */
-tAST_Node *Parse_DoBlockLine(tParser *Parser)
+tAST_Node *Parse_DoBlockLine(tParser *Parser, tAST_Node *CodeNode)
 {
 	tAST_Node	*ret;
 	
@@ -278,7 +274,7 @@ tAST_Node *Parse_DoBlockLine(tParser *Parser)
 	{
 	// New block
 	case TOK_BRACE_OPEN:
-		return Parse_DoCodeBlock(Parser);
+		return Parse_DoCodeBlock(Parser, CodeNode);
 	
 	// Empty statement
 	case TOK_SEMICOLON:
@@ -327,10 +323,10 @@ tAST_Node *Parse_DoBlockLine(tParser *Parser)
 		SyntaxAssert(Parser, GetToken(Parser), TOK_PAREN_OPEN);
 		cond = Parse_DoExpr0(Parser);	// Get condition
 		SyntaxAssert(Parser, GetToken(Parser), TOK_PAREN_CLOSE);
-		true = Parse_DoCodeBlock(Parser);
+		true = Parse_DoCodeBlock(Parser, CodeNode);
 		if( LookAhead(Parser) == TOK_RWD_ELSE ) {
 			GetToken(Parser);
-			false = Parse_DoCodeBlock(Parser);
+			false = Parse_DoCodeBlock(Parser, CodeNode);
 		}
 		else
 			false = AST_NewNop(Parser);
@@ -371,7 +367,7 @@ tAST_Node *Parse_DoBlockLine(tParser *Parser)
 		
 		SyntaxAssert(Parser, GetToken(Parser), TOK_PAREN_CLOSE);
 		
-		code = Parse_DoCodeBlock(Parser);
+		code = Parse_DoCodeBlock(Parser, CodeNode);
 		ret = AST_NewLoop(Parser, tag, init, 0, cond, inc, code);
 		if(tag)	free(tag);
 		}
@@ -393,7 +389,7 @@ tAST_Node *Parse_DoBlockLine(tParser *Parser)
 		}
 		#endif
 		
-		code = Parse_DoCodeBlock(Parser);
+		code = Parse_DoCodeBlock(Parser, CodeNode);
 		SyntaxAssert( Parser, GetToken(Parser), TOK_RWD_WHILE );
 		SyntaxAssert( Parser, GetToken(Parser), TOK_PAREN_OPEN );
 		cond = Parse_DoExpr0(Parser);
@@ -420,7 +416,7 @@ tAST_Node *Parse_DoBlockLine(tParser *Parser)
 		SyntaxAssert( Parser, GetToken(Parser), TOK_PAREN_OPEN );
 		cond = Parse_DoExpr0(Parser);
 		SyntaxAssert( Parser, GetToken(Parser), TOK_PAREN_CLOSE );
-		code = Parse_DoCodeBlock(Parser);
+		code = Parse_DoCodeBlock(Parser, CodeNode);
 		ret = AST_NewLoop(Parser, tag, AST_NewNop(Parser), 0, cond, AST_NewNop(Parser), code);
 		}
 		return ret;
@@ -431,10 +427,7 @@ tAST_Node *Parse_DoBlockLine(tParser *Parser)
 			 int	type;
 			GetToken(Parser);
 			TOKEN_GET_DATATYPE(type, Parser->Token);
-			
-			SyntaxAssert(Parser, GetToken(Parser), TOK_VARIABLE);
-			
-			ret = Parse_GetVarDef(Parser, type);
+			ret = Parse_VarDefList(Parser, CodeNode, type);
 		}
 		break;
 	
@@ -446,6 +439,23 @@ tAST_Node *Parse_DoBlockLine(tParser *Parser)
 	}
 	
 	SyntaxAssert(Parser, GetToken(Parser), TOK_SEMICOLON );
+	return ret;
+}
+
+tAST_Node *Parse_VarDefList(tParser *Parser, tAST_Node *CodeNode, int Type)
+{
+	tAST_Node	*ret;
+	
+	ret = NULL;		
+	do {
+		if(ret)	AST_AppendNode( CodeNode, ret );
+		SyntaxAssert(Parser, GetToken(Parser), TOK_VARIABLE);
+		
+		ret = Parse_GetVarDef(Parser, Type);
+		if(!ret)	longjmp(Parser->JmpTarget, -1);
+	} while(GetToken(Parser) == TOK_COMMA);
+	PutBack(Parser);	// Semicolon is checked by caller
+	
 	return ret;
 }
 
@@ -468,16 +478,21 @@ tAST_Node *Parse_GetVarDef(tParser *Parser, int Type)
 	ret = AST_NewDefineVar(Parser, Type, name);
 	// Handle arrays
 	level = 0;
+	if( LookAhead(Parser) == TOK_SQUARE_OPEN )
+	{
+		GetToken(Parser);
+		if( LookAhead(Parser) != TOK_SQUARE_CLOSE )
+		{
+			ret->DefVar.InitialValue = AST_NewFunctionCall(Parser, "array");
+			AST_AppendFunctionCallArg(ret->DefVar.InitialValue, Parse_DoExpr0(Parser));
+		}
+		SyntaxAssert(Parser, GetToken(Parser), TOK_SQUARE_CLOSE);
+	
+		level ++;
+	}
 	while( LookAhead(Parser) == TOK_SQUARE_OPEN )
 	{
-		tAST_Node *node;
 		GetToken(Parser);
-		node = Parse_DoExpr0(Parser);
-		if(!node) {
-			AST_FreeNode(ret);
-			return NULL;
-		}
-		AST_AppendNode(ret, node);
 		SyntaxAssert(Parser, GetToken(Parser), TOK_SQUARE_CLOSE);
 		level ++;
 	}
@@ -493,12 +508,20 @@ tAST_Node *Parse_GetVarDef(tParser *Parser, int Type)
 	// Initial value
 	if( LookAhead(Parser) == TOK_ASSIGN )
 	{
+		if( ret->DefVar.InitialValue )
+		{
+			SyntaxError(Parser, 1, "Cannot assign and set array size at the same time");
+		}
 		GetToken(Parser);
 		ret->DefVar.InitialValue = Parse_DoExpr0(Parser);
 		if(!ret->DefVar.InitialValue) {
 			AST_FreeNode(ret);
 			return NULL;
 		}
+	}
+	else if( ret->DefVar.InitialValue )
+	{
+		AST_AppendFunctionCallArg(ret->DefVar.InitialValue, AST_NewInteger(Parser, ret->DefVar.DataType));
 	}
 	
 	return ret;
@@ -1097,3 +1120,11 @@ void SyntaxError(tParser *Parser, int bFatal, const char *Message, ...)
 	}
 }
 
+void SyntaxAssert(tParser *Parser, int Have, int Want)
+{
+	if( Have != Want )
+	{
+		SyntaxError(Parser, 1, "Unexpected %s(%i), expecting %s(%i)\n",
+			csaTOKEN_NAMES[Have], Have, csaTOKEN_NAMES[Want], Want);
+	}
+}

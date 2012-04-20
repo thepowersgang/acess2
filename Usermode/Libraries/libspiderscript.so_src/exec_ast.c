@@ -21,6 +21,7 @@
 tSpiderValue	*AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node);
 tSpiderValue	*AST_ExecuteNode_BinOp(tSpiderScript *Script, tAST_Node *Node, int Operation, tSpiderValue *Left, tSpiderValue *Right);
 tSpiderValue	*AST_ExecuteNode_UniOp(tSpiderScript *Script, tAST_Node *Node, int Operation, tSpiderValue *Value);
+tSpiderValue	*AST_ExecuteNode_Index(tSpiderScript *Script, tAST_Node *Node, tSpiderValue *Array, int Index, tSpiderValue *SaveValue);
 // - Variables
 tAST_Variable *Variable_Define(tAST_BlockState *Block, int Type, const char *Name, tSpiderValue *Value);
  int	Variable_SetValue(tAST_BlockState *Block, tAST_Node *VarNode, tSpiderValue *Value);
@@ -512,27 +513,8 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 			break;
 		}
 
-		switch( op1->Type )
-		{
-		case SS_DATATYPE_ARRAY:
-			if( op2->Integer >= op1->Array.Length ) {
-				AST_RuntimeError(Node, "Array index out of bounds %i >= %i",
-					op2->Integer, op1->Array.Length);
-				ret = ERRPTR;
-				break;
-			}
-			
-			ret = op1->Array.Items[ op2->Integer ];
-			SpiderScript_ReferenceValue(ret);
-			break;
-		
-		default:
-			// TODO: Implement "operator []" on objects
-			AST_RuntimeError(Node, "Indexing non-array");
-			ret = ERRPTR;
-			break;
-		}
-		
+		ret = AST_ExecuteNode_Index(Block->Script, Node, op1, op2->Integer, NULL);
+
 		SpiderScript_DereferenceValue(op1);
 		SpiderScript_DereferenceValue(op2);
 		break;
@@ -948,6 +930,51 @@ tSpiderValue *AST_ExecuteNode_BinOp(tSpiderScript *Script, tAST_Node *Node, int 
 	if(Right && Right != preCastValue)	free(Right);
 	
 	return ret;
+}
+
+tSpiderValue *AST_ExecuteNode_Index(tSpiderScript *Script, tAST_Node *Node,
+	tSpiderValue *Array, int Index, tSpiderValue *SaveValue)
+{
+	// Quick sanity check
+	if( !Array )
+	{
+		AST_RuntimeError(Node, "Indexing NULL, not a good idea");
+		return ERRPTR;
+	}
+
+	// Array?
+	if( SS_GETARRAYDEPTH(Array->Type) )
+	{
+		if( Index < 0 || Index >= Array->Array.Length ) {
+			AST_RuntimeError(Node, "Array index out of bounds %i not in (0, %i]",
+				Index, Array->Array.Length);
+			return ERRPTR;
+		}
+		
+		if( SaveValue )
+		{
+			if( SaveValue->Type != SS_DOWNARRAY(Array->Type) ) {
+				// TODO: Implicit casting
+				AST_RuntimeError(Node, "Type mismatch assiging to array element");
+				return ERRPTR;
+			}
+			SpiderScript_DereferenceValue( Array->Array.Items[Index] );
+			Array->Array.Items[Index] = SaveValue;
+			SpiderScript_ReferenceValue( Array->Array.Items[Index] );
+			return NULL;
+		}
+		else
+		{
+			SpiderScript_ReferenceValue( Array->Array.Items[Index] );
+			return Array->Array.Items[Index];
+		}
+	}
+	else
+	{
+		AST_RuntimeError(Node, "TODO - Implement indexing on non-arrays (type = %x)",
+			Array->Type);
+		return ERRPTR;
+	}
 }
 
 #if USE_AST_EXEC

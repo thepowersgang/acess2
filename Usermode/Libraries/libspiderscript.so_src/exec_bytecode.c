@@ -105,6 +105,7 @@ tSpiderValue *Bytecode_int_GetSpiderValue(tBC_StackEnt *Ent, tSpiderValue *tmp)
 			tmp = malloc(sizeof(tSpiderValue));
 			tmp->ReferenceCount = 1;
 		} else {
+			// Stops a stack value from having free() called on it
 			tmp->ReferenceCount = 2;
 		}
 		break;
@@ -222,7 +223,10 @@ void Bytecode_int_PrintStackValue(tBC_StackEnt *Ent)
 		printf("Obj %p", Ent->Object);
 		break;
 	default:
-		printf("*%p", Ent->Reference);
+		if( Ent->Reference )
+			printf("*%p (%i refs)", Ent->Reference, Ent->Reference->ReferenceCount);
+		else
+			printf("NULL");
 		break;
 	}
 }
@@ -278,6 +282,8 @@ tSpiderValue *Bytecode_ExecuteFunction(tSpiderScript *Script, tScript_Function *
 	if(ret == &tmpsval) {
 		ret = malloc(sizeof(tSpiderValue));
 		memcpy(ret, &tmpsval, sizeof(tSpiderValue));
+		// Set to 2 in _GetSpiderValue, so stack doesn't have free() called
+		ret->ReferenceCount = 1;
 	}
 
 	return ret;
@@ -370,8 +376,18 @@ int Bytecode_int_CallExternFunction(tSpiderScript *Script, tBC_Stack *Stack, tSp
 	PUT_STACKVAL(val1);
 	// Deref return
 	SpiderScript_DereferenceValue(rv);
-	
-	return ret;
+
+	#if 0
+	if(!rv) {
+		printf("%s returned NULL\n", name);
+	}
+	if( rv && rv != ERRPTR && rv->ReferenceCount != 1 ) {
+		printf("Return value from %s reference count fail (%i)\n",
+			name, rv->ReferenceCount);
+	}
+	#endif	
+
+	return 0;
 }
 
 int Bytecode_int_LocalBinOp_Integer(int Operation, tBC_StackEnt *Val1, tBC_StackEnt *Val2)
@@ -552,12 +568,56 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 				AST_RuntimeError(NULL, "Loading from invalid slot %i", slot);
 				return -1;
 			}
+			// Remove whatever was in there before
 			DEBUG_F("[Deref "); PRINT_STACKVAL(local_vars[slot]); DEBUG_F("] ");
 			Bytecode_int_DerefStackValue( &local_vars[slot] );
+			// Place new in
 			GET_STACKVAL(local_vars[slot]);
 			PRINT_STACKVAL(local_vars[slot]);
 			DEBUG_F("\n");
 			} break;
+
+		case BC_OP_INDEX:
+		case BC_OP_SETINDEX:
+			STATE_HDR();
+			GET_STACKVAL(val1);	// Index
+			// TODO: Check that index is an integer
+			if( val1.Type != SS_DATATYPE_INTEGER ) {
+				nextop = NULL;
+				break;
+			}
+
+			// Get array as raw spider value
+			GET_STACKVAL(val2);	// Array
+			pval1 = Bytecode_int_GetSpiderValue(&val2, &tmpVal1);
+			Bytecode_int_DerefStackValue(&val2);
+
+			if( op->Operation == BC_OP_SETINDEX ) {
+				GET_STACKVAL(val2);
+				pval2 = Bytecode_int_GetSpiderValue(&val2, NULL);
+				Bytecode_int_DerefStackValue(&val2);
+				
+				ret_val = AST_ExecuteNode_Index(Script, NULL, pval1, val1.Integer, pval2);
+				if(ret_val == ERRPTR) { nextop = NULL; break; }
+				SpiderScript_DereferenceValue(pval2);
+			}
+			else {
+				ret_val = AST_ExecuteNode_Index(Script, NULL, pval1, val1.Integer, NULL);
+				if(ret_val == ERRPTR) { nextop = NULL; break; }
+				
+				Bytecode_int_SetSpiderValue(&val1, ret_val);
+				SpiderScript_DereferenceValue(ret_val);
+				PUT_STACKVAL(val1);
+			}
+			// Dereference the stack
+			if(pval1 != &tmpVal1)	SpiderScript_DereferenceValue(pval1);
+			break;
+		case BC_OP_ELEMENT:
+		case BC_OP_SETELEMENT:
+			STATE_HDR();
+			AST_RuntimeError(NULL, "TODO: Impliment ELEMENT/SETELEMENT");
+			nextop = NULL;
+			break;
 
 		// Constants:
 		case BC_OP_LOADINT:
@@ -607,9 +667,15 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 			else {
 				pval1 = Bytecode_int_GetSpiderValue(&val1, &tmpVal1);
 				pval2 = SpiderScript_CastValueTo(val2.Type, pval1);
-				if(pval1 != &tmpVal1)	SpiderScript_DereferenceValue(pval1);
+				
 				Bytecode_int_SetSpiderValue(&val2, pval2);
 				SpiderScript_DereferenceValue(pval2);
+				
+				if(pval1 != &tmpVal1)	SpiderScript_DereferenceValue(pval1);
+				Bytecode_int_DerefStackValue(&val1);
+//				printf("CAST (%x->%x) - Original %i references remaining\n",
+//					pval1->Type, OP_INDX(op),
+//					pval1->ReferenceCount);
 			}
 			PUT_STACKVAL(val2);
 			break;
@@ -843,8 +909,13 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 	{
 		if( local_vars[i].Type != ET_NULL )
 		{
+			DEBUG_F("Var %i - ", i); 
+			PRINT_STACKVAL(local_vars[i]);
 			Bytecode_int_DerefStackValue(&local_vars[i]);
+			DEBUG_F("\n");
 		}
+		else
+			DEBUG_F("Var %i - empty\n", i);
 	}
 	
 	// - Restore stack

@@ -318,6 +318,7 @@ extern void	SpiderScript_ReferenceValue(tSpiderValue *Object);
 extern tSpiderValue	*SpiderScript_CreateInteger(uint64_t Value);
 extern tSpiderValue	*SpiderScript_CreateReal(double Value);
 extern tSpiderValue	*SpiderScript_CreateString(int Length, const char *Data);
+extern tSpiderValue	*SpiderScript_CreateArray(int InnerType, int ItemCount);
 extern tSpiderValue	*SpiderScript_StringConcat(const tSpiderValue *Str1, const tSpiderValue *Str2);
 extern tSpiderValue	*SpiderScript_CastValueTo(int Type, tSpiderValue *Source);
 extern int	SpiderScript_IsValueTrue(tSpiderValue *Value);

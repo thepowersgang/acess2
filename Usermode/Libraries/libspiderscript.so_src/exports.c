@@ -2,6 +2,7 @@
  * Acess2 - SpiderScript
  * - Script Exports (Lang. Namespace)
  */
+#define _GNU_SOURCE	// HACK!
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -9,6 +10,7 @@
 
 // === PROTOTYPES ===
 tSpiderValue	*Exports_sizeof(tSpiderScript *Script, int NArgs, tSpiderValue **Args);
+tSpiderValue	*Exports_array(tSpiderScript *Script, int NArgs, tSpiderValue **Args);
 tSpiderValue	*Exports_Lang_Strings_Split(tSpiderScript *Script, int NArgs, tSpiderValue **Args);
 tSpiderValue	*Exports_Lang_Struct(tSpiderScript *Script, int NArgs, tSpiderValue **Args);
 
@@ -41,13 +43,21 @@ tSpiderNamespace	gExportNamespaceRoot = {
 };
 
 // -- Global Functions
+tSpiderFunction	gExports_array = {
+	.Next = NULL,
+	.Name = "array",
+	.Handler = Exports_array,
+	.ReturnType = SS_DATATYPE_DYNAMIC,
+	.ArgTypes = {SS_DATATYPE_INTEGER, -1}
+};
 tSpiderFunction	gExports_sizeof = {
+	.Next = &gExports_array,
 	.Name = "sizeof",
 	.Handler = Exports_sizeof,
 	.ReturnType = SS_DATATYPE_INTEGER,
 	.ArgTypes = {SS_DATATYPE_UNDEF, -1}
 };
-tSpiderFunction	*gpExports_First;
+tSpiderFunction	*gpExports_First = &gExports_sizeof;
 
 // === CODE ===
 tSpiderValue *Exports_sizeof(tSpiderScript *Script, int NArgs, tSpiderValue **Args)
@@ -65,9 +75,71 @@ tSpiderValue *Exports_sizeof(tSpiderScript *Script, int NArgs, tSpiderValue **Ar
 	}
 }
 
+tSpiderValue *Exports_array(tSpiderScript *Script, int NArgs, tSpiderValue **Args)
+{
+	if(NArgs != 2)	return ERRPTR;
+	if(!Args[0] || !Args[1])	return ERRPTR;
+	
+	if(Args[0]->Type != SS_DATATYPE_INTEGER || Args[1]->Type != SS_DATATYPE_INTEGER)
+		return ERRPTR;
+
+	 int	type = Args[1]->Integer;
+	 int	size = Args[0]->Integer;
+
+	if( type != SS_DATATYPE_ARRAY )
+	{
+		if( !SS_GETARRAYDEPTH(type) ) {
+			// ERROR - This should never happen
+			return ERRPTR;
+		}
+		type = SS_DOWNARRAY(type);
+	}
+
+	return SpiderScript_CreateArray(type, size);
+}
+
 tSpiderValue *Exports_Lang_Strings_Split(tSpiderScript *Script, int NArgs, tSpiderValue **Args)
 {
-	return NULL;
+	 int	len, ofs, slen;
+	void	*haystack, *end;
+	 int	nSubStrs = 0;
+	tSpiderValue	**strings = NULL;
+	tSpiderValue	*ret;
+
+	// Error checking
+	if( NArgs != 2 )
+		return ERRPTR;
+	if( !Args[0] || !Args[1] )
+		return ERRPTR;
+	if( Args[0]->Type != SS_DATATYPE_STRING )
+		return ERRPTR;
+	if( Args[1]->Type != SS_DATATYPE_STRING )
+		return ERRPTR;
+
+	// Split the string
+	len = Args[0]->String.Length;
+	haystack = Args[0]->String.Data;
+	ofs = 0;
+	do {
+		end = memmem(haystack + ofs, len - ofs, Args[1]->String.Data, Args[1]->String.Length);
+		if( end )
+			slen = end - (haystack + ofs);
+		else
+			slen = len - ofs;
+		
+		strings = realloc(strings, (nSubStrs+1)*sizeof(tSpiderValue*));
+		strings[nSubStrs] = SpiderScript_CreateString(slen, haystack + ofs);
+		nSubStrs ++;
+
+		ofs += slen + Args[1]->String.Length;
+	} while(end);
+
+	// Create output array
+	ret = SpiderScript_CreateArray(SS_DATATYPE_STRING, nSubStrs);
+	memcpy(ret->Array.Items, strings, nSubStrs*sizeof(tSpiderValue*));
+	free(strings);
+
+	return ret;
 }
 
 tSpiderValue *Exports_Lang_Struct(tSpiderScript *Script, int NArgs, tSpiderValue **Args)
