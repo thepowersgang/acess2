@@ -199,15 +199,29 @@ struct sSpiderObjectDef
 	 *       by this function.
 	 */
 	void	(*Destructor)(tSpiderObject *This);
+
+
+	/**
+	 * \brief Get/Set an attribute's value
+	 */
+	tSpiderValue	*(*GetSetAttribute)(tSpiderObject *This, int AttibuteID, tSpiderValue *NewValue);
 	
-	tSpiderFunction	*Methods;	//!< Method Definitions (linked list)
+	/**
+	 * \brief Method Definitions (linked list)
+	 */
+	tSpiderFunction	*Methods;
 	
-	 int	NAttributes;	//!< Number of attributes
+	/**
+	 * \brief Number of attributes
+	 */
+	 int	NAttributes;
 	
 	//! Attribute definitions
 	struct {
 		const char	*Name;	//!< Attribute Name
-		 int	bReadOnly;	//!< Allow writes to the attribute?
+		 int	Type;	//!< Datatype
+		char	bReadOnly;	//!< Allow writes to the attribute?
+		char	bMethod;	//!< IO Goes via GetSetAttribute function
 	}	AttributeDefs[];
 };
 

@@ -100,10 +100,8 @@ int SpiderScript_SaveAST(tSpiderScript *Script, const char *Filename)
 	size_t	size;
 	FILE	*fp;
 	void	*data;
-	printf("Total Size: ");
-	fflush(stdout);
+	
 	size = AST_WriteScript(NULL, Script);
-	printf("0x%x bytes\n", (unsigned)size);
 	
 	fp = fopen(Filename, "wb");
 	if(!fp)	return 1;

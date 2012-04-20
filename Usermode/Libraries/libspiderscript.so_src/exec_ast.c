@@ -447,28 +447,8 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 	case NODETYPE_ELEMENT:
 		tmpobj = AST_ExecuteNode( Block, Node->Scope.Element );
 		if(tmpobj == ERRPTR)	return ERRPTR;
-		if( !tmpobj || tmpobj->Type != SS_DATATYPE_OBJECT )
-		{
-			AST_RuntimeError(Node->Scope.Element, "Unable to dereference a non-object");
-			ret = ERRPTR;
-			break ;
-		}
-		
-		for( i = 0; i < tmpobj->Object->Type->NAttributes; i ++ )
-		{
-			if( strcmp(Node->Scope.Name, tmpobj->Object->Type->AttributeDefs[i].Name) == 0 )
-			{
-				ret = tmpobj->Object->Attributes[i];
-				SpiderScript_ReferenceValue(ret);
-				break;
-			}
-		}
-		if( i == tmpobj->Object->Type->NAttributes )
-		{
-			AST_RuntimeError(Node->Scope.Element, "Unknown attribute '%s' of class '%s'",
-				Node->Scope.Name, tmpobj->Object->Type->Name);
-			ret = ERRPTR;
-		}
+
+		ret = AST_ExecuteNode_Element(Block->Script, Node, tmpobj, Node->Scope.Name, ERRPTR);
 		break;
 
 	// Cast a value to another
@@ -513,7 +493,7 @@ tSpiderValue *AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node)
 			break;
 		}
 
-		ret = AST_ExecuteNode_Index(Block->Script, Node, op1, op2->Integer, NULL);
+		ret = AST_ExecuteNode_Index(Block->Script, Node, op1, op2->Integer, ERRPTR);
 
 		SpiderScript_DereferenceValue(op1);
 		SpiderScript_DereferenceValue(op2);
@@ -951,9 +931,9 @@ tSpiderValue *AST_ExecuteNode_Index(tSpiderScript *Script, tAST_Node *Node,
 			return ERRPTR;
 		}
 		
-		if( SaveValue )
+		if( SaveValue != ERRPTR )
 		{
-			if( SaveValue->Type != SS_DOWNARRAY(Array->Type) ) {
+			if( SaveValue && SaveValue->Type != SS_DOWNARRAY(Array->Type) ) {
 				// TODO: Implicit casting
 				AST_RuntimeError(Node, "Type mismatch assiging to array element");
 				return ERRPTR;
@@ -973,6 +953,54 @@ tSpiderValue *AST_ExecuteNode_Index(tSpiderScript *Script, tAST_Node *Node,
 	{
 		AST_RuntimeError(Node, "TODO - Implement indexing on non-arrays (type = %x)",
 			Array->Type);
+		return ERRPTR;
+	}
+}
+
+/**
+ * \brief Get/Set the value of an element/attribute of a class
+ * \param Script	Executing script
+ * \param Node	Current execution node (only used for AST_RuntimeError)
+ * \param Object	Object value
+ * \param ElementName	Name of the attribute to be accessed
+ * \param SaveValue	Value to set the element to (if ERRPTR, element value is returned)
+ */
+tSpiderValue *AST_ExecuteNode_Element(tSpiderScript *Script, tAST_Node *Node,
+	tSpiderValue *Object, const char *ElementName, tSpiderValue *SaveValue)
+{
+	 int	i;
+	tSpiderValue	*ret;	
+
+	if( !Object ) {
+		AST_RuntimeError(Node, "Tried to access an element of NULL");
+		return ERRPTR;
+	}
+	
+	switch( Object->Type )
+	{
+	case SS_DATATYPE_OBJECT: {
+		tSpiderObjectDef	*class = Object->Object->Type;
+		for( i = 0; i < class->NAttributes; i ++ )
+		{
+			if( strcmp(ElementName, class->AttributeDefs[i].Name) == 0 )
+			{
+				if( SaveValue != ERRPTR ) {
+					Object->Object->Attributes[i] = SaveValue;
+					SpiderScript_ReferenceValue(SaveValue);
+					return NULL;
+				}
+				else {
+					ret = Object->Object->Attributes[i];
+					SpiderScript_ReferenceValue(ret);
+					return ret;
+				}
+			}
+		}
+		AST_RuntimeError(Node, "Unknown attribute '%s' of class '%s'",
+			ElementName, class->Name);
+		return ERRPTR; }
+	default:
+		AST_RuntimeError(Node, "Unable to get element of type %i", Object->Type);
 		return ERRPTR;
 	}
 }

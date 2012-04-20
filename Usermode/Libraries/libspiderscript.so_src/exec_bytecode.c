@@ -577,6 +577,7 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 			DEBUG_F("\n");
 			} break;
 
+		// Array index (get or set)
 		case BC_OP_INDEX:
 		case BC_OP_SETINDEX:
 			STATE_HDR();
@@ -597,26 +598,69 @@ int Bytecode_int_ExecuteFunction(tSpiderScript *Script, tScript_Function *Fcn, t
 				pval2 = Bytecode_int_GetSpiderValue(&val2, NULL);
 				Bytecode_int_DerefStackValue(&val2);
 				
+				DEBUG_F("SETINDEX %i ", val1.Integer); PRINT_STACKVAL(val2); DEBUG_F("\n");
+			
 				ret_val = AST_ExecuteNode_Index(Script, NULL, pval1, val1.Integer, pval2);
 				if(ret_val == ERRPTR) { nextop = NULL; break; }
 				SpiderScript_DereferenceValue(pval2);
 			}
 			else {
-				ret_val = AST_ExecuteNode_Index(Script, NULL, pval1, val1.Integer, NULL);
+				DEBUG_F("INDEX %i ", val1.Integer);
+				ret_val = AST_ExecuteNode_Index(Script, NULL, pval1, val1.Integer, ERRPTR);
 				if(ret_val == ERRPTR) { nextop = NULL; break; }
 				
 				Bytecode_int_SetSpiderValue(&val1, ret_val);
 				SpiderScript_DereferenceValue(ret_val);
 				PUT_STACKVAL(val1);
+
+				DEBUG_F("[Got "); PRINT_STACKVAL(val1); DEBUG_F("]\n");
+
 			}
-			// Dereference the stack
+			// Dereference the array (or object, ...)
 			if(pval1 != &tmpVal1)	SpiderScript_DereferenceValue(pval1);
 			break;
+		
+		// Object element (get or set)
 		case BC_OP_ELEMENT:
 		case BC_OP_SETELEMENT:
 			STATE_HDR();
-			AST_RuntimeError(NULL, "TODO: Impliment ELEMENT/SETELEMENT");
-			nextop = NULL;
+			
+			GET_STACKVAL(val1);
+			// - Integers/Reals can't have elements :)
+			if( val1.Type != ET_REFERENCE ) {
+				nextop = NULL;
+				break;
+			}
+
+			pval1 = Bytecode_int_GetSpiderValue(&val1, NULL);
+			Bytecode_int_DerefStackValue(&val1);
+
+			if( op->Operation == BC_OP_SETELEMENT ) {
+				GET_STACKVAL(val2);
+				pval2 = Bytecode_int_GetSpiderValue(&val2, &tmpVal2);
+				Bytecode_int_DerefStackValue(&val2);
+				
+				DEBUG_F("SETELEMENT %s ", OP_STRING(op)); PRINT_STACKVAL(val2); DEBUG_F("\n");
+
+				ret_val = AST_ExecuteNode_Element(Script, NULL, pval1, OP_STRING(op), pval2);
+				if(ret_val == ERRPTR) { nextop = NULL; break; }
+				
+				if(pval2 != &tmpVal2)	SpiderScript_DereferenceValue(pval2);
+			}
+			else {
+				DEBUG_F("ELEMENT %s ", OP_STRING(op));
+				
+				ret_val = AST_ExecuteNode_Element(Script, NULL, pval1, OP_STRING(op), ERRPTR);
+				if(ret_val == ERRPTR) { nextop = NULL; break; }
+
+				Bytecode_int_SetSpiderValue(&val2, ret_val);
+				SpiderScript_DereferenceValue(ret_val);
+				PUT_STACKVAL(val2);
+	
+				DEBUG_F("[Got "); PRINT_STACKVAL(val2); DEBUG_F("]\n");
+			}
+			
+			SpiderScript_DereferenceValue(pval1);
 			break;
 
 		// Constants:

@@ -240,5 +240,6 @@ extern tSpiderValue	*AST_ExecuteNode(tAST_BlockState *Block, tAST_Node *Node);
 extern tSpiderValue	*AST_ExecuteNode_BinOp(tSpiderScript *Script, tAST_Node *Node, int Operation, tSpiderValue *Left, tSpiderValue *Right);
 extern tSpiderValue	*AST_ExecuteNode_UniOp(tSpiderScript *Script, tAST_Node *Node, int Operation, tSpiderValue *Value);
 extern tSpiderValue	*AST_ExecuteNode_Index(tSpiderScript *Script, tAST_Node *Node, tSpiderValue *Array, int Index, tSpiderValue *SaveValue);
+extern tSpiderValue	*AST_ExecuteNode_Element(tSpiderScript *Script, tAST_Node *Node, tSpiderValue *Object, const char *Element, tSpiderValue *SaveValue);
 
 #endif

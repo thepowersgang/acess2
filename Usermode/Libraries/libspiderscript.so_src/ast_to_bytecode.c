@@ -509,10 +509,13 @@ int AST_ConvertNode(tAST_BlockInfo *Block, tAST_Node *Node, int bKeepValue)
 		ret = AST_ConvertNode( Block, Node->Scope.Element, 1 );
 		if(ret)	return ret;
 
+		// TODO: Support elements for non-objects
 		ret = _StackPop(Block, Node, SS_DATATYPE_OBJECT);
 		if(ret < 0)	return -1;
 
 		Bytecode_AppendElement(Block->Handle, Node->Scope.Name);
+		
+		// TODO: Somehow know this at compile time?
 		ret = _StackPush(Block, Node, SS_DATATYPE_UNDEF);
 		if(ret < 0)	return -1;
 		CHECK_IF_NEEDED(1);
