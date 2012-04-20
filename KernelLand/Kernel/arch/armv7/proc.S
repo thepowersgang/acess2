@@ -49,9 +49,8 @@ SwitchTask:
 #	mov r1, #1
 	mcrne p15, 0, r1, c8, c7, 0	@ TLBIALL - Invalid user space
 
-	@ Restore SP
+	@ Restore state
 	mov sp, r0
-
 	bx r2
 
 .return:
@@ -102,3 +101,5 @@ csProc_CloneInt_NewTaskMessage:
 	.asciz "New task PC=%p, R4=%p, sp=%p"
 csProc_CloneInt_OldTaskMessage:
 	.asciz "Parent task PC=%p, R4=%p, SP=%p"
+
+@ vim: ft=armv7
