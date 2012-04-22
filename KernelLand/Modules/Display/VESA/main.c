@@ -16,6 +16,8 @@
 
 // === CONSTANTS ===
 #define	FLAG_LFB	0x1
+#define FLAG_POPULATED	0x2
+#define FLAG_VALID	0x4
 #define VESA_DEFAULT_FRAMEBUFFER	(KERNEL_BASE|0xA0000)
 #define BLINKING_CURSOR	1
 #if BLINKING_CURSOR
@@ -24,6 +26,7 @@
 
 // === PROTOTYPES ===
  int	Vesa_Install(char **Arguments);
+ int	VBE_int_GetModeList(void);
 size_t	Vesa_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
  int	Vesa_IOCtl(tVFS_Node *Node, int ID, void *Data);
  int	Vesa_Int_SetMode(int Mode);
@@ -68,13 +71,33 @@ tDrvUtil_Video_BufInfo	gVesa_BufInfo;
 // === CODE ===
 int Vesa_Install(char **Arguments)
 {
+	 int	rv;
+	
+	gpVesa_BiosState = VM8086_Init();
+	
+	if( (rv = VBE_int_GetModeList()) )
+		return rv;
+		
+	#if BLINKING_CURSOR
+	// Create blink timer
+	gpVesaCursorTimer = Time_AllocateTimer( Vesa_FlipCursor, NULL );
+	#endif
+
+	// Install Device
+	giVesaDriverId = DevFS_AddDevice( &gVesa_DriverStruct );
+	if(giVesaDriverId == -1)	return MODULE_ERR_MISC;
+
+	return MODULE_ERR_OK;
+}
+
+int VBE_int_GetModeList(void)
+{
 	tVesa_CallInfo	*info;
 	tFarPtr	infoPtr;
 	Uint16	*modes;
 	int	i;
 	
 	// Allocate Info Block
-	gpVesa_BiosState = VM8086_Init();
 	info = VM8086_Allocate(gpVesa_BiosState, 512, &infoPtr.seg, &infoPtr.ofs);
 	// Set Requested Version
 	memcpy(info->signature, "VBE2", 4);
@@ -88,15 +111,16 @@ int Vesa_Install(char **Arguments)
 		return MODULE_ERR_NOTNEEDED;
 	}
 	
-	//Log_Debug("VESA", "info->VideoModes = %04x:%04x", info->VideoModes.seg, info->VideoModes.ofs);
 	modes = (Uint16 *) VM8086_GetPointer(gpVesa_BiosState, info->VideoModes.seg, info->VideoModes.ofs);
+//	VM8086_Deallocate( gpVesa_BiosState, info );
 	
-	// Read Modes
+	// Count Modes
 	for( giVesaModeCount = 0; modes[giVesaModeCount] != 0xFFFF; giVesaModeCount++ );
+	giVesaModeCount ++;	// First text mode
 	gVesa_Modes = (tVesa_Mode *)malloc( giVesaModeCount * sizeof(tVesa_Mode) );
 	
-	Log_Debug("VESA", "%i Modes", giVesaModeCount);
-	
+	Log_Debug("VBE", "%i Modes", giVesaModeCount);
+
 	// Insert Text Mode
 	gVesa_Modes[0].width = 80;
 	gVesa_Modes[0].height = 25;
@@ -108,22 +132,103 @@ int Vesa_Install(char **Arguments)
 	
 	for( i = 1; i < giVesaModeCount; i++ )
 	{
-		gVesa_Modes[i].code = modes[i];
+		gVesa_Modes[i].code = modes[i-1];
+	}
+	
+	return 0;
+}
+
+void VBE_int_FillMode_Int(int Index, tVesa_CallModeInfo *vbeinfo, tFarPtr *BufPtr)
+{
+	tVesa_Mode	*mode = &gVesa_Modes[Index];
+
+	// Get Mode info
+	gpVesa_BiosState->AX = 0x4F01;
+	gpVesa_BiosState->CX = mode->code;
+	gpVesa_BiosState->ES = BufPtr->seg;
+	gpVesa_BiosState->DI = BufPtr->ofs;
+	VM8086_Int(gpVesa_BiosState, 0x10);
+
+	if( gpVesa_BiosState->AX != 0x004F ) {
+		Log_Error("VESA", "Getting info on mode 0x%x failed (AX=0x%x)",
+			mode->code, gpVesa_BiosState->AX);
+		return ;
 	}
 
-//	VM8086_Deallocate( info );
+	#define S_LOG(s, fld, fmt)	LOG(" ."#fld" = "fmt, (s).fld)
+	LOG("vbeinfo[0x%x] = {", mode->code);
+	S_LOG(*vbeinfo, attributes, "0x%02x");
+	S_LOG(*vbeinfo, winA, "0x%02x");
+	S_LOG(*vbeinfo, winB, "0x%02x");
+	S_LOG(*vbeinfo, granularity, "0x%04x");
+	S_LOG(*vbeinfo, winsize, "0x%04x");
+	S_LOG(*vbeinfo, segmentA, "0x%04x");
+	S_LOG(*vbeinfo, segmentB, "0x%04x");
+	LOG(" .realFctPtr = %04x:%04x", vbeinfo->realFctPtr.seg, vbeinfo->realFctPtr.ofs);
+	S_LOG(*vbeinfo, pitch, "0x%04x");
+	// -- Extended
+	S_LOG(*vbeinfo, Xres, "%i");
+	S_LOG(*vbeinfo, Yres, "%i");
+	S_LOG(*vbeinfo, Wchar, "%i");
+	S_LOG(*vbeinfo, Ychar, "%i");
+	S_LOG(*vbeinfo, planes, "%i");
+	S_LOG(*vbeinfo, bpp, "%i");
+	S_LOG(*vbeinfo, banks, "%i");
+	S_LOG(*vbeinfo, memory_model, "%i");
+	S_LOG(*vbeinfo, bank_size, "%i");
+	S_LOG(*vbeinfo, image_pages, "%i");
+	// -- VBE 1.2+
+	LOG(" Red   = %i bits at %i", vbeinfo->red_mask,   vbeinfo->red_position  );
+	LOG(" Green = %i bits at %i", vbeinfo->green_mask, vbeinfo->green_position);
+	LOG(" Blue  = %i bits at %i", vbeinfo->blue_mask,  vbeinfo->blue_position );
+	#if 0
+	Uint8	rsv_mask, rsv_position;
+	Uint8	directcolor_attributes;
+	#endif
+	// --- VBE 2.0+
+	S_LOG(*vbeinfo, physbase, "0x%08x");
+	S_LOG(*vbeinfo, offscreen_ptr, "0x%08x");
+	S_LOG(*vbeinfo, offscreen_size_kb, "0x%04x");
+	// --- VBE 3.0+
+	S_LOG(*vbeinfo, lfb_pitch, "0x%04x");
+	S_LOG(*vbeinfo, image_count_banked, "%i");
+	S_LOG(*vbeinfo, image_count_lfb, "%i");
+	LOG("}");
+
+	mode->flags = FLAG_POPULATED;
+	if( !(vbeinfo->attributes & 1) ) {
+		#if DEBUG
+		Log_Log("VESA", "0x%x - not supported", mode->code);
+		#endif
+		mode->width = 0;
+		mode->height = 0;
+		mode->bpp = 0;
+		return ;
+	}
+
+	// Parse Info
+	mode->flags |= FLAG_VALID;
+	if ( (vbeinfo->attributes & 0x90) == 0x90 )
+	{
+		mode->flags |= FLAG_LFB;
+		mode->framebuffer = vbeinfo->physbase;
+		mode->fbSize = vbeinfo->Yres*vbeinfo->pitch;
+	} else {
+		mode->framebuffer = 0;
+		mode->fbSize = 0;
+	}
 	
-	#if BLINKING_CURSOR
-	// Create blink timer
-	gpVesaCursorTimer = Time_AllocateTimer( Vesa_FlipCursor, NULL );
+	mode->pitch = vbeinfo->pitch;
+	mode->width = vbeinfo->Xres;
+	mode->height = vbeinfo->Yres;
+	mode->bpp = vbeinfo->bpp;
+	
+	#if DEBUG
+	Log_Log("VESA", "#%i 0x%x - %ix%ix%i (%x)",
+		Index, mode->code, mode->width, mode->height, mode->bpp, mode->flags);
 	#endif
 
-	// Install Device
-	giVesaDriverId = DevFS_AddDevice( &gVesa_DriverStruct );
-	if(giVesaDriverId == -1)	return MODULE_ERR_MISC;
-
-	return MODULE_ERR_OK;
-}
+} 
 
 void Vesa_int_FillModeList(void)
 {
@@ -133,40 +238,12 @@ void Vesa_int_FillModeList(void)
 		tVesa_CallModeInfo	*modeinfo;
 		tFarPtr	modeinfoPtr;
 		
-		modeinfo = VM8086_Allocate(gpVesa_BiosState, 512, &modeinfoPtr.seg, &modeinfoPtr.ofs);
+		modeinfo = VM8086_Allocate(gpVesa_BiosState, 256, &modeinfoPtr.seg, &modeinfoPtr.ofs);
 		for( i = 1; i < giVesaModeCount; i ++ )
 		{
-			// Get Mode info
-			gpVesa_BiosState->AX = 0x4F01;
-			gpVesa_BiosState->CX = gVesa_Modes[i].code;
-			gpVesa_BiosState->ES = modeinfoPtr.seg;
-			gpVesa_BiosState->DI = modeinfoPtr.ofs;
-			VM8086_Int(gpVesa_BiosState, 0x10);
-			
-			// Parse Info
-			gVesa_Modes[i].flags = 0;
-			if ( (modeinfo->attributes & 0x90) == 0x90 )
-			{
-				gVesa_Modes[i].flags |= FLAG_LFB;
-				gVesa_Modes[i].framebuffer = modeinfo->physbase;
-				gVesa_Modes[i].fbSize = modeinfo->Yres*modeinfo->pitch;
-			} else {
-				gVesa_Modes[i].framebuffer = 0;
-				gVesa_Modes[i].fbSize = 0;
-			}
-			
-			gVesa_Modes[i].pitch = modeinfo->pitch;
-			gVesa_Modes[i].width = modeinfo->Xres;
-			gVesa_Modes[i].height = modeinfo->Yres;
-			gVesa_Modes[i].bpp = modeinfo->bpp;
-			
-			#if DEBUG
-			Log_Log("VESA", "0x%x - %ix%ix%i",
-				gVesa_Modes[i].code, gVesa_Modes[i].width, gVesa_Modes[i].height, gVesa_Modes[i].bpp);
-			#endif
-		}
-	
-//		VM8086_Deallocate( modeinfo );
+			VBE_int_FillMode_Int(i, modeinfo, &modeinfoPtr);
+		}	
+//		VM8086_Deallocate( gpVesa_BiosState, modeinfo );
 		
 		gbVesaModesChecked = 1;
 	}
@@ -192,7 +269,6 @@ const char *csaVESA_IOCtls[] = {DRV_IOCTLNAMES, DRV_VIDEO_IOCTLNAMES, NULL};
 int Vesa_IOCtl(tVFS_Node *Node, int ID, void *Data)
 {
 	 int	ret;
-	//Log_Debug("VESA", "Vesa_Ioctl: (Node=%p, ID=%i, Data=%p)", Node, ID, Data);
 	switch(ID)
 	{
 	BASE_IOCTLS(DRV_TYPE_VIDEO, "VESA", VERSION, csaVESA_IOCtls);
@@ -207,11 +283,15 @@ int Vesa_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		return Vesa_Int_ModeInfo((tVideo_IOCtl_Mode*)Data);
 	
 	case VIDEO_IOCTL_SETBUFFORMAT:
+		LOG("Hide cursor");
 		Vesa_int_HideCursor();
+		LOG("Update internals");
 		ret = gVesa_BufInfo.BufferFormat;
 		if(Data)	gVesa_BufInfo.BufferFormat = *(int*)Data;
+		LOG("Swap back to text mode cursor");
 		if(gVesa_BufInfo.BufferFormat == VIDEO_BUFFMT_TEXT)
 			DrvUtil_Video_SetCursor( &gVesa_BufInfo, &gDrvUtil_TextModeCursor );
+		LOG("Show again");
 		Vesa_int_ShowCursor();
 		return ret;
 	
@@ -249,11 +329,15 @@ int Vesa_Int_SetMode(int mode)
 	gpVesa_BiosState->AX = 0x4F02;
 	gpVesa_BiosState->BX = gVesa_Modes[mode].code;
 	if(gVesa_Modes[mode].flags & FLAG_LFB) {
-		gpVesa_BiosState->BX |= 0x4000;	// Bit 14 - Use LFB
+		gpVesa_BiosState->BX |= 1 << 14;	// Use LFB
 	}
+	LOG("In : AX=%04x/BX=%04x",
+		gpVesa_BiosState->AX, gpVesa_BiosState->BX);
 	
 	// Set Mode
 	VM8086_Int(gpVesa_BiosState, 0x10);
+
+	LOG("Out: AX = %04x", gpVesa_BiosState->AX);
 	
 	// Map Framebuffer
 	if( (tVAddr)gpVesa_Framebuffer != VESA_DEFAULT_FRAMEBUFFER )
@@ -261,8 +345,8 @@ int Vesa_Int_SetMode(int mode)
 	giVesaPageCount = (gVesa_Modes[mode].fbSize + 0xFFF) >> 12;
 	gpVesa_Framebuffer = (void*)MM_MapHWPages(gVesa_Modes[mode].framebuffer, giVesaPageCount);
 	
-	Log_Log("VESA", "Setting mode to %i (%ix%i %ibpp) %p[0x%x] maps %P",
-		mode,
+	Log_Log("VESA", "Setting mode to %i 0x%x (%ix%i %ibpp) %p[0x%x] maps %P",
+		mode, gVesa_Modes[mode].code,
 		gVesa_Modes[mode].width, gVesa_Modes[mode].height,
 		gVesa_Modes[mode].bpp,
 		gpVesa_Framebuffer, giVesaPageCount << 12, gVesa_Modes[mode].framebuffer

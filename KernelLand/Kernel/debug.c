@@ -1,17 +1,13 @@
 /*
  * AcessOS Microkernel Version
  * debug.c
- * 
- * TODO: Move the Debug_putchar methods out to the arch/ tree
  */
 #include <acess.h>
 #include <stdarg.h>
 
 #define	DEBUG_MAX_LINE_LEN	256
-
-#define	LOCK_DEBUG_OUTPUT	1
-
-#define TRACE_TO_KTERM	1
+#define	LOCK_DEBUG_OUTPUT	1	// Avoid interleaving of output lines?
+#define TRACE_TO_KTERM	0	// Send ENTER/DEBUG/LEAVE to debug?
 
 // === IMPORTS ===
 extern void	Threads_Dump(void);

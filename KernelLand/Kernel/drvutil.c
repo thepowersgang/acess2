@@ -136,7 +136,7 @@ int DrvUtil_Video_WriteLFB(tDrvUtil_Video_BufInfo *FBInfo, size_t Offset, size_t
 	 int	x, y;
 	 int	bytes_per_px = (FBInfo->Depth + 7) / 8;
 	ENTER("pFBInfo xOffset xLength pBuffer",
-		Mode, FBInfo, Offset, Length, Buffer);
+		FBInfo, Offset, Length, Buffer);
 
 	csr_x = FBInfo->CursorX;
 	csr_y = FBInfo->CursorY;
@@ -287,9 +287,12 @@ int DrvUtil_Video_SetCursor(tDrvUtil_Video_BufInfo *Buf, tVideo_IOCtl_Bitmap *Bi
 	 int	csrX = Buf->CursorX, csrY = Buf->CursorY;
 	size_t	size;
 
+	ENTER("pBuf pBitmap", Buf, Bitmap);
+
 	// Clear old bitmap
 	if( Buf->CursorBitmap )
 	{
+		LOG("Clearing old cursor");
 		DrvUtil_Video_RemoveCursor(Buf);
 		if( !Bitmap || Bitmap->W != Buf->CursorBitmap->W || Bitmap->H != Buf->CursorBitmap->H )
 		{
@@ -306,24 +309,29 @@ int DrvUtil_Video_SetCursor(tDrvUtil_Video_BufInfo *Buf, tVideo_IOCtl_Bitmap *Bi
 	{
 		Buf->CursorX = -1;
 		Buf->CursorY = -1;
+		LEAVE('i', 0);
 		return 0;
 	}
 
 	// Sanity check the bitmap
+	LOG("Sanity checking plox");
 	if( !CheckMem(Bitmap, sizeof(*Bitmap)) || !CheckMem(Bitmap->Data, Bitmap->W*Bitmap->H*sizeof(Uint32)) )
 	{
 		Log_Warning("DrvUtil", "DrvUtil_Video_SetCursor: Bitmap (%p) is in invalid memory", Bitmap);
 		errno = -EINVAL;
+		LEAVE('i', -1);
 		return -1;
 	}
 
 	// Don't take a copy of the DrvUtil provided cursor
 	if( Bitmap == &gDrvUtil_TextModeCursor )
 	{
+		LOG("No copy (provided cursor)");
 		Buf->CursorBitmap = Bitmap;
 	}
 	else
 	{
+		LOG("Make copy");
 		size = sizeof(tVideo_IOCtl_Bitmap) + Bitmap->W*Bitmap->H*4;
 		
 		// Take a copy
@@ -332,7 +340,9 @@ int DrvUtil_Video_SetCursor(tDrvUtil_Video_BufInfo *Buf, tVideo_IOCtl_Bitmap *Bi
 	}
 	
 	// Restore cursor position
+	LOG("Drawing");
 	DrvUtil_Video_DrawCursor(Buf, csrX, csrY);
+	LEAVE('i', 0);
 	return 0;
 }
 
@@ -340,24 +350,30 @@ void DrvUtil_Video_DrawCursor(tDrvUtil_Video_BufInfo *Buf, int X, int Y)
 {
 	 int	render_ox=0, render_oy=0, render_w, render_h;
 
+	ENTER("pBuf iX iY", Buf, X, Y);
 	DrvUtil_Video_RemoveCursor(Buf);
 
 	// X < 0 disables the cursor
 	if( X < 0 ) {
 		Buf->CursorX = -1;
+		LEAVE('-');
 		return ;
 	}
 
 	// Sanity checking
-	if( X < 0 || Y < 0 )	return;
-	if( X >= Buf->Width || Y >= Buf->Height )	return;
+	if( X < 0 || Y < 0 || X >= Buf->Width || Y >= Buf->Height ) {
+		LEAVE('-');
+		return ;
+	}
 
 	// Ensure the cursor is enabled
-	if( !Buf->CursorBitmap )	return ;
+	if( !Buf->CursorBitmap ) {
+		LEAVE('-');
+		return ;
+	}
 	
 	// Save cursor position (for changing the bitmap)
 	Buf->CursorX = X;	Buf->CursorY = Y;
-
 	// Apply cursor's center offset
 	X -= Buf->CursorBitmap->XOfs;
 	Y -= Buf->CursorBitmap->YOfs;
@@ -375,8 +391,12 @@ void DrvUtil_Video_DrawCursor(tDrvUtil_Video_BufInfo *Buf, int X, int Y)
 	Buf->CursorDestX   = X;      	Buf->CursorDestY = Y;
 	Buf->CursorReadX   = render_ox;	Buf->CursorReadY = render_oy;
 
+	LOG("%ix%i at %i,%i offset %i,%i",
+		render_w, render_h, X, Y, render_ox, render_oy);
+
 	// Call render routine
 	DrvUtil_Video_RenderCursor(Buf);
+	LEAVE('-');
 }
 
 void DrvUtil_Video_RenderCursor(tDrvUtil_Video_BufInfo *Buf)
@@ -393,10 +413,13 @@ void DrvUtil_Video_RenderCursor(tDrvUtil_Video_BufInfo *Buf)
 	dest = (Uint8*)Buf->Framebuffer + dest_y*Buf->Pitch + dest_x*bytes_per_px;
 	src = Buf->CursorBitmap->Data + src_y * Buf->CursorBitmap->W + src_x;
 	
+	LOG("dest = %p, src = %p", dest, src);
+
 	// Allocate save buffer if not already
 	if( !Buf->CursorSaveBuf )
 		Buf->CursorSaveBuf = malloc( Buf->CursorBitmap->W*Buf->CursorBitmap->H*bytes_per_px );
 
+	LOG("Saving back");
 	// Save behind the cursor
 	for( y = 0; y < render_h; y ++ )
 		memcpy(
@@ -413,6 +436,7 @@ void DrvUtil_Video_RenderCursor(tDrvUtil_Video_BufInfo *Buf)
 		Log_Warning("DrvUtil", "TODO: Support 15/16 bpp modes in cursor draw");
 		break;
 	case 24:
+		LOG("24-bit render");
 		for( y = 0; y < render_h; y ++ )
 		{
 			Uint8	*px;
@@ -435,6 +459,7 @@ void DrvUtil_Video_RenderCursor(tDrvUtil_Video_BufInfo *Buf)
 		}
 		break;
 	case 32:
+		LOG("32-bit render");
 		for( y = 0; y < render_h; y ++ )
 		{
 			Uint32	*px;
@@ -448,6 +473,7 @@ void DrvUtil_Video_RenderCursor(tDrvUtil_Video_BufInfo *Buf)
 				else
 					;	// NOP, completely transparent
 			}
+			LOG("row %i/%i (%p-%P) done", y+1, render_h, dest, MM_GetPhysAddr(dest));
 			src += Buf->CursorBitmap->W;
 			dest = (Uint8*)dest + Buf->Pitch;
 		}

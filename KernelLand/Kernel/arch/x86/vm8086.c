@@ -10,6 +10,8 @@
 #include <semaphore.h>
 
 // === CONSTANTS ===
+#define TRACE_EMU	0
+
 #define VM8086_MAGIC_CS	0xFFFF
 #define VM8086_MAGIC_IP	0x0010
 #define VM8086_STACK_SEG	0x9F00
@@ -54,6 +56,7 @@ tPID	gVM8086_WorkerPID;
 tTID	gVM8086_CallingThread;
 tVM8086	volatile * volatile gpVM8086_State = (void*)-1;	// Set to -1 to avoid race conditions
 Uint32	gaVM8086_MemBitmap[VM8086_BLOCKCOUNT/32];
+ int	gbVM8086_ShadowIF = 0;
 
 // === FUNCTIONS ===
 int VM8086_Install(char **Arguments)
@@ -91,11 +94,11 @@ int VM8086_Install(char **Arguments)
 		MM_Map( 0, 0 );	// IVT / BDA
 		// Map (but allow allocation) of 0x1000 - 0x9F000
 		// - So much hack, it isn't funny
+		// TODO: Remove this and replce with something less hacky
 		for(i=1;i<0x9F;i++) {
 			MM_Map( i * 0x1000, i * 0x1000 );
-			MM_DerefPhys( i * 0x1000 );	// Above
 			while(MM_GetRefCount(i*0x1000))
-				MM_DerefPhys( i * 0x1000 );	// Phys setup
+				MM_DerefPhys( i * 0x1000 );
 		}
 		MM_Map( 0x9F000, 0x9F000 );	// Stack / EBDA
 		// System Stack / Stub
@@ -165,9 +168,12 @@ int VM8086_Install(char **Arguments)
 void VM8086_GPF(tRegs *Regs)
 {
 	Uint8	opcode;
+	Uint16	newcs, newip;
 	
 //	Log_Log("VM8086", "GPF - %04x:%04x", Regs->cs, Regs->eip);
-	
+
+	LOG("VM8086 GPF at %04x:%04x", Regs->cs, Regs->eip);
+
 	if(Regs->eip == VM8086_MAGIC_IP && Regs->cs == VM8086_MAGIC_CS
 	&& Threads_GetPID() == gVM8086_WorkerPID)
 	{
@@ -219,17 +225,24 @@ void VM8086_GPF(tRegs *Regs)
 	case VM8086_OP_PUSHF:	//PUSHF
 		Regs->esp -= 2;
 		*(Uint16*)( Regs->ss*16 + (Regs->esp&0xFFFF) ) = Regs->eflags & 0xFFFF;
+		if( gbVM8086_ShadowIF )
+			*(Uint16*)( Regs->ss*16 + (Regs->esp&0xFFFF) ) |= 0x200;
+		else
+			*(Uint16*)( Regs->ss*16 + (Regs->esp&0xFFFF) ) &= ~0x200;
 		#if TRACE_EMU
-		Log_Debug("VM8086", "Emulated PUSHF");
+		Log_Debug("VM8086", "%04x:%04x Emulated PUSHF (value 0x%x)",
+			Regs->cs, Regs->eip-1, Regs->eflags & 0xFFFF);
 		#endif
 		break;
 	case VM8086_OP_POPF:	//POPF
 		// Changing IF is not allowed
 		Regs->eflags &= 0xFFFF0202;
 		Regs->eflags |= *(Uint16*)( Regs->ss*16 + (Regs->esp&0xFFFF) );
+		gbVM8086_ShadowIF = !!(*(Uint16*)( Regs->ss*16 + (Regs->esp&0xFFFF) ) & 0x200);
 		Regs->esp += 2;
 		#if TRACE_EMU
-		Log_Debug("VM8086", "Emulated POPF");
+		Log_Debug("VM8086", "%04x:%04x Emulated POPF (new value 0x%x)",
+			Regs->cs, Regs->eip-1, Regs->eflags & 0xFFFF);
 		#endif
 		break;
 	
@@ -242,20 +255,26 @@ void VM8086_GPF(tRegs *Regs)
 		Regs->esp -= 2;	*(Uint16*)( Regs->ss*16 + (Regs->esp&0xFFFF) ) = Regs->cs;
 		Regs->esp -= 2;	*(Uint16*)( Regs->ss*16 + (Regs->esp&0xFFFF) ) = Regs->eip;
 		
-		Regs->cs = *(Uint16*)(4*id + 2);
-		Regs->eip = *(Uint16*)(4*id);
+		newcs = *(Uint16*)(4*id + 2);
+		newip = *(Uint16*)(4*id);
 		#if TRACE_EMU
-		Log_Debug("VM8086", "Emulated INT 0x%x", id);
+		Log_Debug("VM8086", "%04x:%04x Emulated INT 0x%x (%04x:%04x) - AX=%04x,BX=%04x",
+			Regs->cs, Regs->eip-2, id, newcs, newip, Regs->eax, Regs->ebx);
 		#endif
+		Regs->cs = newcs;
+		Regs->eip = newip;
 		}
 		break;
 	
 	case VM8086_OP_IRET:	//IRET
-		Regs->eip = *(Uint16*)( Regs->ss*16 + (Regs->esp&0xFFFF) );	Regs->esp += 2;
-		Regs->cs  = *(Uint16*)( Regs->ss*16 + (Regs->esp&0xFFFF) );	Regs->esp += 2;
+		newip = *(Uint16*)( Regs->ss*16 + (Regs->esp&0xFFFF) );	Regs->esp += 2;
+		newcs = *(Uint16*)( Regs->ss*16 + (Regs->esp&0xFFFF) );	Regs->esp += 2;
 		#if TRACE_EMU
-		Log_Debug("VM8086", "IRET to %04x:%04x", Regs->cs, Regs->eip);
+		Log_Debug("VM8086", "%04x:%04x IRET to %04x:%04x",
+			Regs->cs, Regs->eip-1, newcs, newip);
 		#endif
+		Regs->cs = newcs;
+		Regs->eip = newip;
 		break;
 	
 	
@@ -263,55 +282,72 @@ void VM8086_GPF(tRegs *Regs)
 		Regs->eax &= 0xFFFFFF00;
 		Regs->eax |= inb(Regs->edx&0xFFFF);
 		#if TRACE_EMU
-		Log_Debug("VM8086", "Emulated IN AL, DX (Port 0x%x)\n", Regs->edx&0xFFFF);
+		Log_Debug("VM8086", "%04x:%04x Emulated IN AL, DX (Port 0x%x [Val 0x%02x])",
+			Regs->cs, Regs->eip-1, Regs->edx&0xFFFF, Regs->eax&0xFF);
 		#endif
 		break;
 	case VM8086_OP_IN_ADX:	//IN AX, DX
 		Regs->eax &= 0xFFFF0000;
 		Regs->eax |= inw(Regs->edx&0xFFFF);
 		#if TRACE_EMU
-		Log_Debug("VM8086", "Emulated IN AX, DX (Port 0x%x)\n", Regs->edx&0xFFFF);
+		Log_Debug("VM8086", "%04x:%04x Emulated IN AX, DX (Port 0x%x [Val 0x%04x])",
+			Regs->cs, Regs->eip-1, Regs->edx&0xFFFF, Regs->eax&0xFFFF);
 		#endif
 		break;
 		
 	case VM8086_OP_OUT_AD:	//OUT DX, AL
 		outb(Regs->edx&0xFFFF, Regs->eax&0xFF);
 		#if TRACE_EMU
-		Log_Debug("VM8086", "Emulated OUT DX, AL (*0x%04x = 0x%02x)\n", Regs->edx&0xFFFF, Regs->eax&0xFF);
+		Log_Debug("VM8086", "%04x:%04x Emulated OUT DX, AL (*0x%04x = 0x%02x)",
+			Regs->cs, Regs->eip-1, Regs->edx&0xFFFF, Regs->eax&0xFF);
 		#endif
 		break;
 	case VM8086_OP_OUT_ADX:	//OUT DX, AX
 		outw(Regs->edx&0xFFFF, Regs->eax&0xFFFF);
 		#if TRACE_EMU
-		Log_Debug("VM8086", "Emulated OUT DX, AX (*0x%04x = 0x%04x)\n", Regs->edx&0xFFFF, Regs->eax&0xFFFF);
+		Log_Debug("VM8086", "%04x:%04x Emulated OUT DX, AX (*0x%04x = 0x%04x)",
+			Regs->cs, Regs->eip-1, Regs->edx&0xFFFF, Regs->eax&0xFFFF);
 		#endif
 		break;
 		
 	// TODO: Decide on allowing VM8086 Apps to enable/disable interrupts
 	case 0xFA:	//CLI
+		#if TRACE_EMU
+		Log_Debug("VM8086", "%04x:%04x Ignored CLI",
+			Regs->cs, Regs->eip);
+		#endif
+		gbVM8086_ShadowIF = 0;
 		break;
 	case 0xFB:	//STI
+		#if TRACE_EMU
+		Log_Debug("VM8086", "%04x:%04x Ignored STI",
+			Regs->cs, Regs->eip);
+		#endif
+		gbVM8086_ShadowIF = 1;
 		break;
 	
 	case 0x66:
 		opcode = *(Uint8*)( (Regs->cs*16) + (Regs->eip&0xFFFF));
+		Regs->eip ++;
 		switch( opcode )
 		{
 		case VM8086_OP_IN_ADX:	//IN AX, DX
 			Regs->eax = ind(Regs->edx&0xFFFF);
 			#if TRACE_EMU
-			Log_Debug("VM8086", "Emulated IN EAX, DX (Port 0x%x)\n", Regs->edx&0xFFFF);
+			Log_Debug("VM8086", "%04x:%04x Emulated IN EAX, DX (Port 0x%x [Val 0x%08x])",
+				Regs->cs, Regs->eip-1, Regs->edx&0xFFFF, Regs->eax);
 			#endif
 			break;
 		case VM8086_OP_OUT_ADX:	//OUT DX, AX
 			outd(Regs->edx&0xFFFF, Regs->eax);
 			#if TRACE_EMU
-			Log_Debug("VM8086", "Emulated OUT DX, EAX (*0x%04x = 0x%08x)\n", Regs->edx&0xFFFF, Regs->eax);
+			Log_Debug("VM8086", "%04x:%04x Emulated OUT DX, EAX (*0x%04x = 0x%08x)",
+				Regs->cs, Regs->eip-1, Regs->edx&0xFFFF, Regs->eax);
 			#endif
 			break;
 		default:
 			Log_Error("VM8086", "Error - Unknown opcode 66 %02x caused a GPF at %04x:%04x",
-				Regs->cs, Regs->eip,
+				Regs->cs, Regs->eip-2,
 				opcode
 				);
 			// Force an end to the call
@@ -323,7 +359,7 @@ void VM8086_GPF(tRegs *Regs)
 	
 	default:
 		Log_Error("VM8086", "Error - Unknown opcode %02x caused a GPF at %04x:%04x",
-			opcode, Regs->cs, Regs->eip);
+			opcode, Regs->cs, Regs->eip-1);
 		// Force an end to the call
 		Regs->cs = VM8086_MAGIC_CS;
 		Regs->eip = VM8086_MAGIC_IP;

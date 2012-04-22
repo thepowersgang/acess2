@@ -758,6 +758,8 @@ void VT_SetTerminal(int ID)
 	giVT_CurrentTerminal = ID;
 	gpVT_CurTerm = &gVT_Terminals[ID];
 	
+	LOG("Attempting VT_SetMode");
+	
 	if( gpVT_CurTerm->Mode == TERM_MODE_TEXT )
 	{
 		VT_SetMode( VIDEO_BUFFMT_TEXT );
@@ -769,7 +771,9 @@ void VT_SetTerminal(int ID)
 			VFS_IOCtl(giVT_OutputDevHandle, VIDEO_IOCTL_SETCURSORBITMAP, gpVT_CurTerm->VideoCursor);
 		VT_SetMode( VIDEO_BUFFMT_FRAMEBUFFER );
 	}
-	
+
+	LOG("Mode set");	
+
 	if(gpVT_CurTerm->Buffer)
 	{
 		// TODO: Handle non equal sized
@@ -779,9 +783,11 @@ void VT_SetTerminal(int ID)
 			gpVT_CurTerm->Width*gpVT_CurTerm->Height*sizeof(Uint32),
 			gpVT_CurTerm->Buffer
 			);
+		LOG("Updated screen contents");
 	}
 	
 	VT_int_UpdateCursor(gpVT_CurTerm, 1);
 	// Update the screen
 	VT_int_UpdateScreen(gpVT_CurTerm, 1);
+	LOG("done");
 }
