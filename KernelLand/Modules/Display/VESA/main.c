@@ -283,15 +283,11 @@ int Vesa_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		return Vesa_Int_ModeInfo((tVideo_IOCtl_Mode*)Data);
 	
 	case VIDEO_IOCTL_SETBUFFORMAT:
-		LOG("Hide cursor");
 		Vesa_int_HideCursor();
-		LOG("Update internals");
 		ret = gVesa_BufInfo.BufferFormat;
 		if(Data)	gVesa_BufInfo.BufferFormat = *(int*)Data;
-		LOG("Swap back to text mode cursor");
 		if(gVesa_BufInfo.BufferFormat == VIDEO_BUFFMT_TEXT)
 			DrvUtil_Video_SetCursor( &gVesa_BufInfo, &gDrvUtil_TextModeCursor );
-		LOG("Show again");
 		Vesa_int_ShowCursor();
 		return ret;
 	
