@@ -26,6 +26,7 @@ void	*gaIRQ_DataPointers[16][MAX_CALLBACKS_PER_IRQ];
 void IRQ_Handler(tRegs *Regs)
 {
 	 int	i, irq = Regs->int_num - 0xF0;
+	 int	bHandled = 0;
 
 	//Log("IRQ_Handler: (Regs={int_num:%i})", Regs->int_num);
 
@@ -37,7 +38,12 @@ void IRQ_Handler(tRegs *Regs)
 			if( irq != 8 )
 				Log("IRQ %i: Call %p", Regs->int_num, gIRQ_Handlers[Regs->int_num][i]);
 			#endif
+			bHandled = 1;
 		}
+	}
+	
+	if( !bHandled ) {
+		Log_Debug("IRQ", "Unhandled IRQ %i", irq);
 	}
 
 	//Log(" IRQ_Handler: Resetting");

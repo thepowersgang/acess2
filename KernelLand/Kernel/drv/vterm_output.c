@@ -7,7 +7,7 @@
  */
 #include "vterm.h"
 #include <api_drv_video.h>
-#define DEBUG	1
+#define DEBUG	0
 
 // === CODE ===
 /**
