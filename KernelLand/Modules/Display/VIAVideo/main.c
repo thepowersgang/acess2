@@ -13,6 +13,7 @@
 #include <drv_pci.h>
 #include <modules.h>
 #include <api_drv_video.h>
+#include <timers.h>
 #include "common.h"
 
 #define VERSION	VER2(0,1)
@@ -27,6 +28,11 @@ const struct sVGA_Timings
 	{24, 136, 1024, 160,  3, 6, 768, 29},	// XGA @ 60Hz
 	{38, 112, 1280, 248,  1, 3, 1024, 38}	// 1280x1024 @ 60Hz
 };
+const Uint16	caVIAVideo_CardIDs[][2] = {
+	{0x1106, 0x3108},	// minuet (unk chip)
+	{0x1106, 0x3157},	// CX700/VX700 (S3 UniChrome Pro)
+};
+const int	ciVIAVideo_NumCardIDs = sizeof(caVIAVideo_CardIDs)/sizeof(caVIAVideo_CardIDs[0]);
 
 // === PROTOTYPES ===
  int	VIAVideo_Initialise(char **Arguments);
@@ -59,39 +65,65 @@ int VIAVideo_Initialise(char **Arguments)
 {
 	 int	count = 0;
 	
-	count += PCI_CountDevices(0x1106, 0x3108);
+	for( int i = 0; i < ciVIAVideo_NumCardIDs; i ++ )
+	{
+		count += PCI_CountDevices(caVIAVideo_CardIDs[i][0], caVIAVideo_CardIDs[i][1]);
+	}
 	if(count == 0)	return MODULE_ERR_NOTNEEDED;
 	
 
-	for( int i = 0; (i = PCI_GetDevice(0x1106, 0x3108, i)) != -1; i ++ )
+	for( int i = 0; i < ciVIAVideo_NumCardIDs; i ++ )
 	{
-		// TODO: Support MMIO
-		Log_Log("VIAVideo", "BAR0 = 0x%x", PCI_GetBAR(i, 0));
-		Log_Log("VIAVideo", "BAR1 = 0x%x", PCI_GetBAR(i, 1));
-		Log_Log("VIAVideo", "BAR2 = 0x%x", PCI_GetBAR(i, 2));
-		Log_Log("VIAVideo", "BAR3 = 0x%x", PCI_GetBAR(i, 3));
-		Log_Log("VIAVideo", "BAR4 = 0x%x", PCI_GetBAR(i, 4));
-		Log_Log("VIAVideo", "BAR5 = 0x%x", PCI_GetBAR(i, 5));
-		
-		if( gVIAVideo_Info.FramebufferPhys )	continue ;
-		
-		gVIAVideo_Info.FramebufferPhys = PCI_GetBAR(i, 0);
-		gVIAVideo_Info.MMIOPhys = PCI_GetBAR(i, 1);
-		
-		gVIAVideo_Info.Framebuffer = (void*)MM_MapHWPages(gVIAVideo_Info.FramebufferPhys, (1024*768*4)/PAGE_SIZE);
-		// TODO: Map MMIO
+		for( int id = 0; (id = PCI_GetDevice(caVIAVideo_CardIDs[i][0], caVIAVideo_CardIDs[i][1], id)) != -1; id ++ )
+		{
+			// TODO: Support MMIO
+			Log_Log("VIAVideo", "BAR0 = 0x%x", PCI_GetBAR(id, 0));
+			Log_Log("VIAVideo", "BAR1 = 0x%x", PCI_GetBAR(id, 1));
+			Log_Log("VIAVideo", "BAR2 = 0x%x", PCI_GetBAR(id, 2));
+			Log_Log("VIAVideo", "BAR3 = 0x%x", PCI_GetBAR(id, 3));
+			Log_Log("VIAVideo", "BAR4 = 0x%x", PCI_GetBAR(id, 4));
+			Log_Log("VIAVideo", "BAR5 = 0x%x", PCI_GetBAR(id, 5));
+			
+			// Ignore multiple cards
+			if( gVIAVideo_Info.FramebufferPhys )	continue ;
+			
+			gVIAVideo_Info.FramebufferPhys = PCI_GetBAR(id, 0);
+			gVIAVideo_Info.MMIOPhys = PCI_GetBAR(id, 1);
+			
+			gVIAVideo_Info.Framebuffer = (void*)MM_MapHWPages(
+				gVIAVideo_Info.FramebufferPhys, (1024*768*4)/PAGE_SIZE
+				);
+			// TODO: Map MMIO
 
-		memset(gVIAVideo_Info.Framebuffer, 128, 1024*4*200);
+			Uint8	tmp;
+			tmp = PCI_ConfigRead(id, 0xA1, 1);
+			Uint32	vidram = (1 << ((tmp & 0x70) >> 4)) * 4096;
+			Log_Debug("VIAVideo", "0x%x bytes of video ram?", vidram);
 
-		gVIAVideo_Info.BufInfo.Framebuffer = gVIAVideo_Info.Framebuffer;
-		gVIAVideo_Info.BufInfo.Pitch = 1024*4;
-		gVIAVideo_Info.BufInfo.Width = 1024;
-		gVIAVideo_Info.BufInfo.Height = 768;
-		gVIAVideo_Info.BufInfo.Depth = 32;	
 
+			// Enable Framebuffer
+			_SRMask(0x02, 0x0F, 0xFF);	/* Enable writing to all VGA memory planes */
+			_SRMask(0x04, 0x0E, 0xFF);	/* Enable Extended VGA memory */
+			_SRMask(0x1A, 0x08, 0x08);	/* Enable Extended Memory access */
+
+			gVIAVideo_Info.BufInfo.Framebuffer = gVIAVideo_Info.Framebuffer;
+			gVIAVideo_Info.BufInfo.Pitch = 1024*4;
+			gVIAVideo_Info.BufInfo.Width = 1024;
+			gVIAVideo_Info.BufInfo.Height = 768;
+			gVIAVideo_Info.BufInfo.Depth = 32;
+		}
 	}
 
 	VIAVideo_int_SetMode( &csaTimings[1], 32 );
+	for( int i = 0; i < 768; i ++ )
+	{
+		Uint32	*scanline = gVIAVideo_Info.Framebuffer + i * 0x1000;
+		for( int j = 0; j < 200; j ++ )
+		{
+			scanline[j] = 0xFFA06000;
+		}
+		Time_Delay(500);
+	}
 
 	// Install Device
 	giVIAVideo_DriverID = DevFS_AddDevice( &gVIAVideo_DriverStruct );
@@ -134,9 +166,14 @@ int VIAVideo_IOCtl(tVFS_Node *Node, int ID, void *Data)
 void VIAVideo_int_SetMode(const struct sVGA_Timings *Timings, int Depth)
 {
 	 int	temp;
-	
-	// ??? Some Magic (Unichrome - VGACRMask(pVia, 0x17, 0x00, 0x80);)	
 
+	// Disable power
+	_CRMask(0x36, 0x30, 0x30);	// CRT Off (TODO: Others)
+	// VQ Disable (optional?)
+	
+	// Unlock registers
+	_CRMask(0x17, 0x00, 0x80);
+	
 	// Reset CRTC1
 	VIAVideo_int_ResetCRTC(0, TRUE);
 	
@@ -250,8 +287,16 @@ void VIAVideo_int_SetMode(const struct sVGA_Timings *Timings, int Depth)
 
 	// Set scaling?
 
+	// Some magic? (Not Simultaneous)
+	_CRMask(0x6B, 0x00, 0x08);
+
 	// Disable CRTC reset
 	VIAVideo_int_ResetCRTC(0, FALSE);
+
+	// Some other magic? (VGA - Lock registers?)
+	_CRMask(0x17, 0x80, 0x80);
+		
+	_CRMask(0x36, 0x00, 0x30);	// CRT On (TODO: Others)
 }
 
 void VIAVideo_int_ResetCRTC(int Index, BOOL Reset)
