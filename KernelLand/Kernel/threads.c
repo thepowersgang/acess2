@@ -1,5 +1,6 @@
 /*
- * Acess2
+ * Acess2 Kernel
+ * - By John Hodge (thePowersGang)
  * threads.c
  * - Common Thread Control
  */
@@ -125,14 +126,6 @@ void Threads_Init(void)
 	Log_Debug("Threads", ".KernelStack = %i", offsetof(tThread, KernelStack));
 	
 	// Create Initial Task
-//	#if SCHEDULER_TYPE == SCHED_RR_PRI
-//	gaActiveThreads[gThreadZero.Priority].Head = &gThreadZero;
-//	gaActiveThreads[gThreadZero.Priority].Tail = &gThreadZero;
-//	#else
-//	gActiveThreads.Head = &gThreadZero;
-//	gActiveThreads.Tail = &gThreadZero;
-//	#endif
-	
 	gAllThreads = &gThreadZero;
 	giNumActiveThreads = 1;
 	gThreadZero.Process = &gProcessZero;
@@ -149,6 +142,25 @@ void Threads_Delete(tThread *Thread)
 	Proc_ClearThread(Thread);			
 
 	Thread->Process->nThreads --;
+
+	if( Thread->Process->FirstThread == Thread )
+	{
+		Thread->Process->FirstThread = Thread->ProcessNext;
+	}
+	else
+	{
+		tThread	*prev = Thread->Process->FirstThread;
+		while(prev && prev->ProcessNext != Thread)
+			prev = prev->ProcessNext;
+		if( !prev )
+			Log_Error("Threads", "Thread %p(%i %s) is not on the process's list",
+				Thread, Thread->TID, Thread->ThreadName
+				);
+		else
+			prev->ProcessNext = Thread->ProcessNext;
+	}
+
+	// If the final thread is being terminated, clean up the process
 	if( Thread->Process->nThreads == 0 )
 	{
 		tProcess	*proc = Thread->Process;
@@ -906,42 +918,8 @@ void Threads_AddActive(tThread *Thread)
  */
 tThread *Threads_RemActive(void)
 {
-	#if 0
-	tThread	*ret = Proc_GetCurThread();
-
-	if( !IS_LOCKED(&glThreadListLock) ) {
-		Log_KernelPanic("Threads", "Threads_RemActive called without lock held");
-		return NULL;
-	}
-	
-	// Delete from active queue
-	#if SCHEDULER_TYPE == SCHED_RR_PRI
-	if( !Threads_int_DelFromQueue(&gaActiveThreads[ret->Priority], ret) )
-	#else
-	if( !Threads_int_DelFromQueue(&gActiveThreads, ret) )
-	#endif
-	{
-		Log_Warning("Threads", "Current thread %p(%i %s) is not on active queue",
-			ret, ret->TID, ret->ThreadName
-			);
-		return NULL;
-	}
-	
-	ret->Next = NULL;
-	ret->Remaining = 0;
-	
-	// no need to decrement tickets, scheduler did it for us
-	
-	#if SCHEDULER_TYPE == SCHED_LOTTERY && DEBUG_TRACE_TICKETS
-	Log("CPU%i %p (%i %s) removed, giFreeTickets = %i [nc]",
-		GetCPUNum(), ret, ret->TID, ret->ThreadName, giFreeTickets);
-	#endif
-	
-	return ret;
-	#else
 	giNumActiveThreads --;
 	return Proc_GetCurThread();
-	#endif
 }
 
 /**

@@ -504,6 +504,7 @@ extern void	Threads_Exit(int TID, int Status);
 extern void	Threads_Yield(void);
 extern void	Threads_Sleep(void);
 extern int	Threads_WakeTID(tTID Thread);
+extern tPGID	Threads_GetPGID(void);
 extern tPID	Threads_GetPID(void);
 extern tTID	Threads_GetTID(void);
 extern tUID	Threads_GetUID(void);
