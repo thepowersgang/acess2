@@ -1075,6 +1075,9 @@ tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 	
 	ENTER("iPages iMaxBits pPhysAddr", Pages, MaxBits, PhysAddr);
 	
+	if(MaxBits == -1)
+		MaxBits = PHYS_BITS;
+	
 	// Sanity Check
 	if(MaxBits < 12 || !PhysAddr) {
 		LEAVE('i', 0);

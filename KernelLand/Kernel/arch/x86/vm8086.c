@@ -1,6 +1,9 @@
 /*
- * Acess2 VM8086 Driver
+ * Acess2 Kernel (x86)
  * - By John Hodge (thePowersGang)
+ *
+ * vm8086.c
+ * - Virtual 8086 Mode Monitor
  */
 #define DEBUG	0
 #include <acess.h>
@@ -11,6 +14,8 @@
 
 // === CONSTANTS ===
 #define TRACE_EMU	0
+
+#define VM8086_USER_BASE	0x1000
 
 #define VM8086_MAGIC_CS	0xFFFF
 #define VM8086_MAGIC_IP	0x0010
@@ -33,13 +38,15 @@ enum eVM8086_Opcodes
 #define VM8086_BLOCKCOUNT	((0x9F000-0x10000)/VM8086_BLOCKSIZE)
 
 // === TYPES ===
+struct sVM8086_InternalPages
+{
+	Uint32	Bitmap;	// 32 sections = 128 byte blocks
+	tVAddr	VirtBase;
+	tPAddr	PhysAddr;
+};
 struct sVM8086_InternalData
 {
-	struct {
-		Uint32	Bitmap;	// 32 sections = 128 byte blocks
-		tVAddr	VirtBase;
-		tPAddr	PhysAddr;
-	}	AllocatedPages[VM8086_PAGES_PER_INST];
+	struct sVM8086_InternalPages	AllocatedPages[VM8086_PAGES_PER_INST];
 };
 
 // === PROTOTYPES ===
@@ -92,15 +99,15 @@ int VM8086_Install(char **Arguments)
 			MM_Map( i * 0x1000, i * 0x1000 );
 		}
 		MM_Map( 0, 0 );	// IVT / BDA
-		// Map (but allow allocation) of 0x1000 - 0x9F000
-		// - So much hack, it isn't funny
-		// TODO: Remove this and replce with something less hacky
-		for(i=1;i<0x9F;i++) {
-			MM_Map( i * 0x1000, i * 0x1000 );
-			while(MM_GetRefCount(i*0x1000))
-				MM_DerefPhys( i * 0x1000 );
+		if( MM_GetRefCount(0x00000) > 2 ) {
+			Log_Notice("VM8086", "Ok, who's touched the IVT? (%i)",
+				MM_GetRefCount(0x00000));
 		}
 		MM_Map( 0x9F000, 0x9F000 );	// Stack / EBDA
+		if( MM_GetRefCount(0x9F000) > 2 ) {
+			Log_Notice("VM8086", "And who's been playing with my EBDA? (%i)",
+				MM_GetRefCount(0x9F000));
+		}
 		// System Stack / Stub
 		if( MM_Allocate( 0x100000 ) == 0 ) {
 			Log_Error("VM8086", "Unable to allocate memory for stack/stub");
@@ -177,6 +184,7 @@ void VM8086_GPF(tRegs *Regs)
 	if(Regs->eip == VM8086_MAGIC_IP && Regs->cs == VM8086_MAGIC_CS
 	&& Threads_GetPID() == gVM8086_WorkerPID)
 	{
+		 int	i;
 		if( gpVM8086_State == (void*)-1 ) {
 			Log_Log("VM8086", "Worker thread ready and waiting");
 			gpVM8086_State = NULL;
@@ -190,7 +198,17 @@ void VM8086_GPF(tRegs *Regs)
 			gpVM8086_State->BP = Regs->ebp;
 			gpVM8086_State->SI = Regs->esi;	gpVM8086_State->DI = Regs->edi;
 			gpVM8086_State->DS = Regs->ds;	gpVM8086_State->ES = Regs->es;
+
+			LOG("gpVM8086_State = %p", gpVM8086_State);
+			LOG("gpVM8086_State->Internal = %p", gpVM8086_State->Internal);
+			for( i = 0; i < VM8086_PAGES_PER_INST; i ++ ) {
+				if( !gpVM8086_State->Internal->AllocatedPages[i].VirtBase )
+					continue ;
+				MM_Deallocate( VM8086_USER_BASE + i*PAGE_SIZE );
+			}
+
 			gpVM8086_State = NULL;
+				
 			// Wake the caller
 			Semaphore_Signal(&gVM8086_TaskComplete, 1);
 		}
@@ -198,6 +216,14 @@ void VM8086_GPF(tRegs *Regs)
 		//Log_Log("VM8086", "Waiting for something to do");
 		__asm__ __volatile__ ("sti");
 		Semaphore_Wait(&gVM8086_TasksToDo, 1);
+		
+		for( i = 0; i < VM8086_PAGES_PER_INST; i ++ )
+		{
+			if( !gpVM8086_State->Internal->AllocatedPages[i].VirtBase )
+				continue ;
+			MM_Map( VM8086_USER_BASE + i*PAGE_SIZE, gpVM8086_State->Internal->AllocatedPages[i].PhysAddr );
+		}
+
 		
 		//Log_Log("VM8086", "We have a task (%p)", gpVM8086_State);
 		Regs->esp -= 2;	*(Uint16*)( (Regs->ss<<4) + (Regs->esp&0xFFFF) ) = VM8086_MAGIC_CS;
@@ -252,6 +278,7 @@ void VM8086_GPF(tRegs *Regs)
 		id = *(Uint8*)( Regs->cs*16 +(Regs->eip&0xFFFF));
 		Regs->eip ++;
 		
+		Regs->esp -= 2;	*(Uint16*)( Regs->ss*16 + (Regs->esp&0xFFFF) ) = Regs->eflags;
 		Regs->esp -= 2;	*(Uint16*)( Regs->ss*16 + (Regs->esp&0xFFFF) ) = Regs->cs;
 		Regs->esp -= 2;	*(Uint16*)( Regs->ss*16 + (Regs->esp&0xFFFF) ) = Regs->eip;
 		
@@ -390,6 +417,7 @@ tVM8086 *VM8086_Init(void)
 void VM8086_Free(tVM8086 *State)
 {
 	 int	i;
+	// TODO: Make sure the state isn't in use currently
 	for( i = VM8086_PAGES_PER_INST; i --; )
 		MM_UnmapHWPages( State->Internal->AllocatedPages[i].VirtBase, 1);
 	free(State);
@@ -397,6 +425,7 @@ void VM8086_Free(tVM8086 *State)
 
 void *VM8086_Allocate(tVM8086 *State, int Size, Uint16 *Segment, Uint16 *Offset)
 {
+	struct sVM8086_InternalPages	*pages = State->Internal->AllocatedPages;
 	 int	i, j, base = 0;
 	 int	nBlocks, rem;
 	
@@ -407,16 +436,15 @@ void *VM8086_Allocate(tVM8086 *State, int Size, Uint16 *Segment, Uint16 *Offset)
 	
 	for( i = 0; i < VM8086_PAGES_PER_INST; i++ )
 	{
-		if( State->Internal->AllocatedPages[i].VirtBase == 0 )	continue;
+		if( pages[i].VirtBase == 0 )	continue;
 		
-		
-		//Log_Debug("VM8086", "AllocatedPages[%i].Bitmap = 0b%b", i, State->Internal->AllocatedPages[i].Bitmap);
+		//Log_Debug("VM8086", "pages[%i].Bitmap = 0b%b", i, pages[i].Bitmap);
 		
 		rem = nBlocks;
 		base = 0;
 		// Scan the bitmap for a free block
 		for( j = 0; j < 32; j++ ) {
-			if( State->Internal->AllocatedPages[i].Bitmap & (1 << j) ) {
+			if( pages[i].Bitmap & (1 << j) ) {
 				base = j+1;
 				rem = nBlocks;
 			}
@@ -425,12 +453,12 @@ void *VM8086_Allocate(tVM8086 *State, int Size, Uint16 *Segment, Uint16 *Offset)
 			if(rem == 0)	// Goodie, there's a gap
 			{
 				for( j = 0; j < nBlocks; j++ )
-					State->Internal->AllocatedPages[i].Bitmap |= 1 << (base + j);
-				*Segment = State->Internal->AllocatedPages[i].PhysAddr / 16 + base * 8;
+					pages[i].Bitmap |= 1 << (base + j);
+				*Segment = (VM8086_USER_BASE + i * 0x1000) / 16 + base * 8;
 				*Offset = 0;
-				LOG("Allocated at #%i,%04x", i, base*128);
+				LOG("Allocated at #%i,%04x", i, base*8*16);
 				LOG(" - %x:%x", *Segment, *Offset);
-				return (void*)( State->Internal->AllocatedPages[i].VirtBase + base * 128 );
+				return (void*)( pages[i].VirtBase + base * 8 * 16 );
 			}
 		}
 	}
@@ -438,7 +466,7 @@ void *VM8086_Allocate(tVM8086 *State, int Size, Uint16 *Segment, Uint16 *Offset)
 	// No pages with free space?, allocate a new one
 	for( i = 0; i < VM8086_PAGES_PER_INST; i++ )
 	{
-		if( State->Internal->AllocatedPages[i].VirtBase == 0 )	break;
+		if( pages[i].VirtBase == 0 )	break;
 	}
 	// Darn, we can't allocate any more
 	if( i == VM8086_PAGES_PER_INST ) {
@@ -446,22 +474,40 @@ void *VM8086_Allocate(tVM8086 *State, int Size, Uint16 *Segment, Uint16 *Offset)
 		return NULL;
 	}
 	
-	State->Internal->AllocatedPages[i].VirtBase = MM_AllocDMA(
-		1, 20, &State->Internal->AllocatedPages[i].PhysAddr);
-	State->Internal->AllocatedPages[i].Bitmap = 0;
+	pages[i].VirtBase = MM_AllocDMA(1, -1, &pages[i].PhysAddr);
+	if( pages[i].VirtBase == 0 ) {
+		Log_Warning("VM8086", "Unable to allocate data page");
+		return NULL;
+	}
+	pages[i].Bitmap = 0;
+	LOG("AllocatedPages[%i].VirtBase = %p", i, pages[i].VirtBase);
+	LOG("AllocatedPages[%i].PhysAddr = %P", i, pages[i].PhysAddr);
 		
 	for( j = 0; j < nBlocks; j++ )
-		State->Internal->AllocatedPages[i].Bitmap |= 1 << j;
-	LOG("AllocatedPages[%i].Bitmap = 0b%b", i, State->Internal->AllocatedPages[i].Bitmap);
-	*Segment = State->Internal->AllocatedPages[i].PhysAddr / 16;
+		pages[i].Bitmap |= 1 << j;
+	LOG("AllocatedPages[%i].Bitmap = 0b%b", i, pages[i].Bitmap);
+	*Segment = (VM8086_USER_BASE + i * 0x1000) / 16;
 	*Offset = 0;
-	LOG(" - %x:%x", *Segment, *Offset);
-	return (void*) State->Internal->AllocatedPages[i].VirtBase;
+	LOG(" - %04x:%04x", *Segment, *Offset);
+	return (void*) pages[i].VirtBase;
 }
 
 void *VM8086_GetPointer(tVM8086 *State, Uint16 Segment, Uint16 Offset)
 {
-	return (void*)( KERNEL_BASE + Segment*16 + Offset );
+	Uint32	addr = Segment * 16 + Offset;
+	
+	if( VM8086_USER_BASE <= addr && addr < VM8086_USER_BASE + VM8086_PAGES_PER_INST*0x1000 )
+	{
+		int pg = (addr - VM8086_USER_BASE) / 0x1000;
+		if( State->Internal->AllocatedPages[pg].VirtBase == 0)
+			return NULL;
+		else
+			return (Uint8*)State->Internal->AllocatedPages[pg].VirtBase + (addr & 0xFFF);
+	}
+	else
+	{
+		return (void*)( KERNEL_BASE + addr );
+	}
 }
 
 void VM8086_Int(tVM8086 *State, Uint8 Interrupt)
