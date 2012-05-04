@@ -1,4 +1,9 @@
 /*
+ * Acess2 Kernel (x86-64/amd64)
+ * - By John Hodge (thePowersGang)
+ *
+ * vm8086.c
+ * - Real-mode emulation (Stub until emulator is included)
  */
 #include <acess.h>
 #include <vm8086.h>
