@@ -73,6 +73,7 @@ tGID	Threads_GetGID(void);
  int	Threads_SetUID(Uint *Errno, tUID ID);
  int	Threads_SetGID(Uint *Errno, tUID ID);
 #endif
+void	Threads_int_DumpThread(tThread *thread);
 void	Threads_Dump(void);
 void	Threads_DumpActive(void);
 
@@ -343,9 +344,16 @@ tThread *Threads_CloneTCB(Uint Flags)
 		newproc->nThreads = 1;
 		// Reference all handles in the VFS
 		VFS_ReferenceUserHandles();
+
+		newproc->FirstThread = new;
+		new->ProcessNext = NULL;
 	}
 	else {
 		new->Process->nThreads ++;
+		new->Process = cur->Process;
+		// TODO: Locking
+		new->ProcessNext = new->Process->FirstThread;
+		new->Process->FirstThread = new;
 	}
 	
 	// Messages are not inherited
@@ -1049,6 +1057,36 @@ char **Threads_GetCWD(void)
 }
 // ---
 
+void Threads_int_DumpThread(tThread *thread)
+{
+	Log(" %p %i (%i) - %s (CPU %i) - %i (%s)",
+		thread, thread->TID, thread->Process->PID, thread->ThreadName, thread->CurCPU,
+		thread->Status, casTHREAD_STAT[thread->Status]
+		);
+	switch(thread->Status)
+	{
+	case THREAD_STAT_MUTEXSLEEP:
+		Log("  Mutex Pointer: %p", thread->WaitPointer);
+		break;
+	case THREAD_STAT_SEMAPHORESLEEP:
+		Log("  Semaphore Pointer: %p", thread->WaitPointer);
+		Log("  Semaphore Name: %s:%s", 
+			((tSemaphore*)thread->WaitPointer)->ModName,
+			((tSemaphore*)thread->WaitPointer)->Name
+			);
+		break;
+	case THREAD_STAT_ZOMBIE:
+		Log("  Return Status: %i", thread->RetStatus);
+		break;
+	default:	break;
+	}
+	Log("  Priority %i, Quantum %i", thread->Priority, thread->Quantum);
+	Log("  KStack 0x%x", thread->KernelStack);
+	if( thread->bInstrTrace )
+		Log("  Tracing Enabled");
+	Proc_DumpThreadCPUState(thread);
+}
+
 /**
  * \fn void Threads_Dump(void)
  */
@@ -1071,16 +1109,10 @@ void Threads_DumpActive(void)
 	#endif
 		for(thread=list->Head;thread;thread=thread->Next)
 		{
-			Log(" %p %i (%i) - %s (CPU %i)",
-				thread, thread->TID, thread->Process->PID, thread->ThreadName, thread->CurCPU);
+			Threads_int_DumpThread(thread);
 			if(thread->Status != THREAD_STAT_ACTIVE)
 				Log("  ERROR State (%i) != THREAD_STAT_ACTIVE (%i)",
 					thread->Status, THREAD_STAT_ACTIVE);
-			Log("  Priority %i, Quantum %i", thread->Priority, thread->Quantum);
-			Log("  KStack 0x%x", thread->KernelStack);
-			if( thread->bInstrTrace )
-				Log("  Tracing Enabled");
-			Proc_DumpThreadCPUState(thread);
 		}
 	
 	#if SCHEDULER_TYPE == SCHED_RR_PRI
@@ -1102,31 +1134,7 @@ void Threads_Dump(void)
 	Log("All Threads:");
 	for(thread=gAllThreads;thread;thread=thread->GlobalNext)
 	{
-		Log(" %p %i (%i) - %s (CPU %i)",
-			thread, thread->TID, thread->Process->PID, thread->ThreadName, thread->CurCPU);
-		Log("  State %i (%s)", thread->Status, casTHREAD_STAT[thread->Status]);
-		switch(thread->Status)
-		{
-		case THREAD_STAT_MUTEXSLEEP:
-			Log("  Mutex Pointer: %p", thread->WaitPointer);
-			break;
-		case THREAD_STAT_SEMAPHORESLEEP:
-			Log("  Semaphore Pointer: %p", thread->WaitPointer);
-			Log("  Semaphore Name: %s:%s", 
-				((tSemaphore*)thread->WaitPointer)->ModName,
-				((tSemaphore*)thread->WaitPointer)->Name
-				);
-			break;
-		case THREAD_STAT_ZOMBIE:
-			Log("  Return Status: %i", thread->RetStatus);
-			break;
-		default:	break;
-		}
-		Log("  Priority %i, Quantum %i", thread->Priority, thread->Quantum);
-		Log("  KStack 0x%x", thread->KernelStack);
-		if( thread->bInstrTrace )
-			Log("  Tracing Enabled");
-		Proc_DumpThreadCPUState(thread);
+		Threads_int_DumpThread(thread);
 	}
 }
 
