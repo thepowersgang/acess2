@@ -211,7 +211,7 @@ int Threads_SetName(const char *NewName)
 	if( IsHeap(oldname) )	free( oldname );	
 	cur->ThreadName = strdup(NewName);
 
-	Log_Debug("Threads", "Thread renamed to '%s'", NewName);	
+//	Log_Debug("Threads", "Thread renamed to '%s'", NewName);	
 
 	return 0;
 }
