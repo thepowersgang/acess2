@@ -16,7 +16,7 @@
 #include <semaphore.h>
 
 // === CONSTANTS ===
-#define	MAX_CONTROLLERS	4
+#define	MAX_CONTROLLERS	8
 //#define NUM_TDs	1024
 #define NUM_TDs	(PAGE_SIZE/sizeof(tUHCI_TD))
 #define MAX_PACKET_SIZE	0x400
@@ -97,6 +97,7 @@ int UHCI_Initialise(char **Arguments)
 	{
 		tPAddr	tmp;	
 		gaUHCI_TDPool = (void *) MM_AllocDMA(1, 32, &tmp);
+		memset(gaUHCI_TDPool, 0, PAGE_SIZE);
 	}
 
 	// Enumerate PCI Bus, getting a maximum of `MAX_CONTROLLERS` devices
@@ -265,7 +266,7 @@ tUHCI_TD *UHCI_int_AllocateTD(tUHCI_Controller *Cont)
 		if(gaUHCI_TDPool[i]._info.bActive == 0)
 		{
 			gaUHCI_TDPool[i].Link = 1;
-			gaUHCI_TDPool[i].Control = (1 << 23);
+			gaUHCI_TDPool[i].Control = TD_CTL_ACTIVE;
 			gaUHCI_TDPool[i]._info.bActive = 1;
 			gaUHCI_TDPool[i]._info.QueueIndex = 128;
 			Mutex_Release( &lock );
@@ -283,8 +284,9 @@ void UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_QH *QH, tUHCI_TD *TD)
 	Mutex_Acquire(&lock);
 	
 	// Ensure that there is an interrupt for each used frame
-	TD->Control |= (1 << 24);
+	TD->Control |= TD_CTL_IOC;
 	TD->_info.QueueIndex = ((tVAddr)QH - (tVAddr)Cont->TDQHPage->InterruptQHs) / sizeof(tUHCI_QH);
+	LOG("TD(%p)->QueueIndex = %i", TD, TD->_info.QueueIndex);
 	// Update length
 	TD->Control &= ~0x7FF;
 	TD->Control |= (TD->Token >> 21) & 0x7FF;
@@ -341,8 +343,14 @@ tUHCI_TD *UHCI_int_CreateTD(
 		td, Length, Type, Addr);
 
 	td->Control = (Length - 1) & 0x7FF;
-	td->Control |= (1 << 23);	// Active set
+	td->Control |= TD_CTL_ACTIVE;	// Active set
 	td->Control |= (3 << 27);	// 3 retries
+	// High speed device (must be explicitly enabled
+	if( Addr & 0x8000 )
+		;
+	else
+		td->Control |= 1 << 26;
+		
 	td->Token  = ((Length - 1) & 0x7FF) << 21;
 	td->Token |= (bTgl & 1) << 19;
 	td->Token |= (Addr & 0xF) << 15;
@@ -374,7 +382,7 @@ tUHCI_TD *UHCI_int_CreateTD(
 			tVAddr	ptr = MM_MapTemp(td->BufferPointer);
 			memcpy( (void*)ptr, Data, Length );
 			MM_FreeTemp(ptr);
-			td->Control |= (1 << 24);
+			td->Control |= TD_CTL_IOC;
 		}
 		td->_info.bFreePointer = 1;
 	}
@@ -396,7 +404,7 @@ tUHCI_TD *UHCI_int_CreateTD(
 	
 	if( info ) {
 		LOG("info = %p", info);
-		td->Control |= (1 << 24);
+		td->Control |= TD_CTL_IOC;
 		td->_info.ExtraInfo = info;
 	}
 
@@ -680,12 +688,14 @@ void UHCI_int_CleanQH(tUHCI_Controller *Cont, tUHCI_QH *QH)
 {
 	tUHCI_TD	*td, *prev = NULL;
 	Uint32	cur_td;
+	 int	nCleaned = 0;
 
 	// Disable controller
 	_OutWord( Cont, USBCMD, 0x0000 );
 	
 	// Scan QH list
 	cur_td = QH->Child;
+	LOG("cur_td = 0x%08x", cur_td);
 	while( !(cur_td & 1) )
 	{
 		td = UHCI_int_GetTDFromPhys(Cont, cur_td);
@@ -696,8 +706,10 @@ void UHCI_int_CleanQH(tUHCI_Controller *Cont, tUHCI_QH *QH)
 		}
 		
 		// Active? Ok.
-		if( td->Control & (1 << 23) ) {
+		if( td->Control & TD_CTL_ACTIVE ) {
+			LOG("%p still active", td);
 			prev = td;
+			cur_td = td->Link;
 			continue ;
 		}
 
@@ -708,6 +720,11 @@ void UHCI_int_CleanQH(tUHCI_Controller *Cont, tUHCI_QH *QH)
 		else
 			prev->Link = td->Link;
 		cur_td = td->Link;
+		nCleaned ++;
+	}
+
+	if( nCleaned == 0 ) {
+		LOG("Nothing cleaned... what the?");
 	}
 
 	// re-enable controller
@@ -772,6 +789,8 @@ void UHCI_int_InterruptThread(void *Pointer)
 	Threads_SetName("UHCI Interrupt Handler");
 	for( ;; )
 	{
+		 int	nSeen = 0;
+		
 		LOG("zzzzz....");
 		// 0 = Take all
 		Semaphore_Wait(&gUHCI_InterruptSempahore, 0);
@@ -786,7 +805,9 @@ void UHCI_int_InterruptThread(void *Pointer)
 			// Skip completely inactive TDs
 			if( td->_info.bActive == 0 )	continue ;
 			// Skip ones that are still in use
-			if( td->Control & (1 << 23) )	continue ;
+			if( td->Control & TD_CTL_ACTIVE )	continue ;
+
+			nSeen ++;
 
 			// If no callback/alt buffer, mark as free and move on
 			if( td->_info.ExtraInfo )
@@ -797,17 +818,19 @@ void UHCI_int_InterruptThread(void *Pointer)
 			// Error check
 			if( td->Control & 0x00FF0000 ) {
 				LOG("td->control(Status) = %s%s%s%s%s%s%s%s",
-					td->Control & (1 << 23) ? "Active " : "",
-					td->Control & (1 << 22) ? "Stalled " : "",
-					td->Control & (1 << 21) ? "Data Buffer Error " : "",
-					td->Control & (1 << 20) ? "Babble " : "",
-					td->Control & (1 << 19) ? "NAK " : "",
-					td->Control & (1 << 18) ? "CRC Error, " : "",
-					td->Control & (1 << 17) ? "Bitstuff Error, " : "",
-					td->Control & (1 << 16) ? "Reserved " : ""
+					td->Control & TD_CTL_ACTIVE     ? "Active, " : "",
+					td->Control & TD_CTL_STALLED    ? "Stalled, " : "",
+					td->Control & TD_CTL_DATABUFERR ? "Data Buffer Error, " : "",
+					td->Control & TD_CTL_BABBLE     ? "Babble, " : "",
+					td->Control & TD_CTL_NAK        ? "NAK, " : "",
+					td->Control & TD_CTL_CRCERR     ? "CRC Error, " : "",
+					td->Control & TD_CTL_BITSTUFF   ? "Bitstuff Error, " : "",
+					td->Control & TD_CTL_RESERVED   ? "Reserved " : ""
 					);
+				LOG("From queue %i", td->_info.QueueIndex);
 				// Clean up QH (removing all inactive entries)
 				UHCI_int_CleanQH(Cont, Cont->TDQHPage->InterruptQHs + td->_info.QueueIndex);
+				td->Control = 0;
 			}
 	
 			// Handle rescheduling of interrupt TDs
@@ -815,7 +838,7 @@ void UHCI_int_InterruptThread(void *Pointer)
 			{
 				LOG("Re-schedule interrupt %p (offset %i)", td, td->_info.QueueIndex);
 				// TODO: Flip toggle?
-				td->Control |= (1 << 23);
+				td->Control |= TD_CTL_ACTIVE;
 				// Add back into controller's interrupt list
 				UHCI_int_AppendTD(
 					Cont,
@@ -833,6 +856,10 @@ void UHCI_int_InterruptThread(void *Pointer)
 			LOG("Cleaned %p (->Control = %x)", td, td->Control);
 			td->_info.bActive = 0;
 		}
+
+		if( nSeen == 0 ) {
+			LOG("Why did you wake me?");
+		}
 	}
 }
 
@@ -842,6 +869,7 @@ void UHCI_InterruptHandler(int IRQ, void *Ptr)
 //	 int	frame = (_InWord(Host, FRNUM) - 1) & 0x3FF;
 	Uint16	status = _InWord(Host, USBSTS);
 	
+	LOG("%p: status = 0x%04x", Ptr, status);
 	// Interrupt-on-completion
 	if( status & 1 )
 	{
@@ -849,7 +877,6 @@ void UHCI_InterruptHandler(int IRQ, void *Ptr)
 		Semaphore_Signal(&gUHCI_InterruptSempahore, 1);
 	}
 
-	LOG("status = 0x%04x", status);
 	_OutWord(Host, USBSTS, status);
 }
 

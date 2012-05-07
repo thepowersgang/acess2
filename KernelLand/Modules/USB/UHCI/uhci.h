@@ -24,6 +24,17 @@ struct sUHCI_ExtraTDInfo
 	void	*CallbackPtr;
 };
 
+#define TD_CTL_IOC	(1 << 24)
+
+#define TD_CTL_ACTIVE	(1 << 23)
+#define TD_CTL_STALLED	(1 << 22)
+#define TD_CTL_DATABUFERR	(1 << 21)
+#define TD_CTL_BABBLE	(1 << 20)
+#define TD_CTL_NAK	(1 << 19)
+#define TD_CTL_CRCERR	(1 << 18)
+#define TD_CTL_BITSTUFF	(1 << 17)
+#define TD_CTL_RESERVED	(1 << 16)
+
 struct sUHCI_TD
 {
 	/**
