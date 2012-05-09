@@ -103,6 +103,10 @@ int BGA_Install(char **Arguments)
 	// Check BGA Version
 	version = BGA_int_ReadRegister(VBE_DISPI_INDEX_ID);
 	LOG("version = 0x%x", version);
+	if( version == 0xFFFF ) {
+		// Floating bus, nothing there
+		return MODULE_ERR_NOTNEEDED;
+	}
 	
 	// NOTE: This driver was written for BGA versions >= 0xBOC2
 	// NOTE: However, Qemu is braindead and doesn't return the actual version

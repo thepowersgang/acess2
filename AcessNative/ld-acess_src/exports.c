@@ -263,10 +263,19 @@ int acess_SysSendMessage(int DestTID, int Length, void *Data)
 
 int acess_SysGetMessage(int *SourceTID, void *Data)
 {
-	return _Syscall(SYS_GETMSG, "<d <d",
+//	static __thread int lastlen = 1024;
+	int lastlen;
+
+	lastlen = _Syscall(SYS_GETMSG, "<d <d",
 		SourceTID ? sizeof(int) : 0, SourceTID,
-		Data ? 4096 : 0, Data
+		Data ? 1024 : 0, Data
 		);
+	return lastlen;
+}
+
+int acess__SysWaitEvent(int Mask)
+{
+	return _Syscall(SYS_WAITEVENT, ">i", Mask);
 }
 
 // --- Logging
@@ -327,7 +336,8 @@ const tSym	caBuiltinSymbols[] = {
 	
 	DEFSYM(_SysAllocate),
 	DEFSYM(_SysDebug),
-	DEFSYM(_SysSetFaultHandler)
+	DEFSYM(_SysSetFaultHandler),
+	DEFSYM(_SysWaitEvent)
 };
 
 const int	ciNumBuiltinSymbols = sizeof(caBuiltinSymbols)/sizeof(caBuiltinSymbols[0]);

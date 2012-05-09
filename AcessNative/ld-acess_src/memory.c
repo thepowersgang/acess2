@@ -27,14 +27,14 @@ int AllocateMemory(uintptr_t VirtAddr, size_t ByteCount)
 		return -1;
 	}
 	#else
-	printf("AllocateMemory: mmap(%p, %lx, ...)\n", (void*)base, ByteCount);
+//	printf("AllocateMemory: mmap(%p, 0x%lx, ...)\n", (void*)base, ByteCount);
 	tmp = mmap((void*)base, size, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0);
 	if( tmp == MAP_FAILED ) {
 		printf("ERROR: Unable to allocate memory\n");
 		perror("AllocateMemory");
 		return -1;
 	}
-	printf("AllocateMemory: RETURN 0\n");
+//	printf("AllocateMemory: RETURN 0\n");
 	#endif
 	return 0;
 }

@@ -77,20 +77,26 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 		if( desc.ManufacturerStr )
 		{
 			char	*tmp = USB_int_GetDeviceString(dev, 0, desc.ManufacturerStr);
-			LOG("ManufacturerStr = '%s'", tmp);
-			free(tmp);
+			if( tmp ) {
+				LOG("ManufacturerStr = '%s'", tmp);
+				free(tmp);
+			}
 		}
 		if( desc.ProductStr )
 		{
 			char	*tmp = USB_int_GetDeviceString(dev, 0, desc.ProductStr);
-			LOG("ProductStr = '%s'", tmp);
-			free(tmp);
+			if( tmp ) {
+				LOG("ProductStr = '%s'", tmp);
+				free(tmp);
+			}
 		}
 		if( desc.SerialNumberStr )
 		{
 			char	*tmp = USB_int_GetDeviceString(dev, 0, desc.SerialNumberStr);
-			LOG("SerialNumbertStr = '%s'", tmp);
-			free(tmp);
+			if( tmp ) {
+				LOG("SerialNumbertStr = '%s'", tmp);
+				free(tmp);
+			}
 		}
 		#endif
 	}

@@ -230,7 +230,7 @@ void VT_SetResolution(int Width, int Height)
 	if( Width != mode.width || Height != mode.height )
 	{
 		Log_Warning("VTerm",
-			"Selected resolution (%ix%i is not supported) by the device, using (%ix%i)",
+			"Selected resolution (%ix%i) is not supported by the device, using (%ix%i)",
 			giVT_RealWidth, giVT_RealHeight,
 			mode.width, mode.height
 			);

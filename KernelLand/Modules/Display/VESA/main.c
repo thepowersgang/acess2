@@ -112,6 +112,8 @@ int VBE_int_GetModeList(void)
 	}
 	
 	modes = (Uint16 *) VM8086_GetPointer(gpVesa_BiosState, info->VideoModes.seg, info->VideoModes.ofs);
+	LOG("Virtual addres of mode list from %04x:%04x is %p",
+		info->VideoModes.seg, info->VideoModes.ofs, modes);
 //	VM8086_Deallocate( gpVesa_BiosState, info );
 	
 	// Count Modes
@@ -155,6 +157,7 @@ void VBE_int_FillMode_Int(int Index, tVesa_CallModeInfo *vbeinfo, tFarPtr *BufPt
 		return ;
 	}
 
+	#if 0
 	#define S_LOG(s, fld, fmt)	LOG(" ."#fld" = "fmt, (s).fld)
 	LOG("vbeinfo[0x%x] = {", mode->code);
 	S_LOG(*vbeinfo, attributes, "0x%02x");
@@ -166,6 +169,7 @@ void VBE_int_FillMode_Int(int Index, tVesa_CallModeInfo *vbeinfo, tFarPtr *BufPt
 	S_LOG(*vbeinfo, segmentB, "0x%04x");
 	LOG(" .realFctPtr = %04x:%04x", vbeinfo->realFctPtr.seg, vbeinfo->realFctPtr.ofs);
 	S_LOG(*vbeinfo, pitch, "0x%04x");
+
 	// -- Extended
 	S_LOG(*vbeinfo, Xres, "%i");
 	S_LOG(*vbeinfo, Yres, "%i");
@@ -194,6 +198,7 @@ void VBE_int_FillMode_Int(int Index, tVesa_CallModeInfo *vbeinfo, tFarPtr *BufPt
 	S_LOG(*vbeinfo, image_count_banked, "%i");
 	S_LOG(*vbeinfo, image_count_lfb, "%i");
 	LOG("}");
+	#endif
 
 	mode->flags = FLAG_POPULATED;
 	if( !(vbeinfo->attributes & 1) ) {
@@ -366,14 +371,14 @@ int Vesa_Int_SetMode(int mode)
 int Vesa_Int_FindMode(tVideo_IOCtl_Mode *data)
 {
 	 int	i;
-	 int	best = -1, bestFactor = 1000;
-	 int	factor, tmp;
+	 int	best = -1, tmp;
+	unsigned int factor, bestFactor = -1;
 	
 	ENTER("idata->width idata->height idata->bpp", data->width, data->height, data->bpp);
 
 	Vesa_int_FillModeList();
 	
-	for(i=0;i<giVesaModeCount;i++)
+	for(i = 0; i < giVesaModeCount; i ++)
 	{
 		LOG("Mode %i (%ix%ix%i)", i, gVesa_Modes[i].width, gVesa_Modes[i].height, gVesa_Modes[i].bpp);
 	
@@ -392,7 +397,7 @@ int Vesa_Int_FindMode(tVideo_IOCtl_Mode *data)
 		tmp = gVesa_Modes[i].width * gVesa_Modes[i].height;
 		tmp -= data->width * data->height;
 		tmp = tmp < 0 ? -tmp : tmp;
-		factor = tmp * 1000 / (data->width * data->height);
+		factor = (Uint64)tmp * 1000 / (data->width * data->height);
 		
 		if( data->bpp == 8 && gVesa_Modes[i].bpp != 8 )	continue;
 		if( data->bpp == 16 && gVesa_Modes[i].bpp != 16 )	continue;

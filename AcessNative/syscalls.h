@@ -64,6 +64,7 @@ enum eSyscalls {
 	SYS_SENDMSG,
 	SYS_GETMSG,
 	SYS_SELECT,
+	SYS_WAITEVENT,
 	
 	N_SYSCALLS
 };
@@ -103,7 +104,8 @@ static const char * casSYSCALL_NAMES[] = {
 	"SYS_AN_FORK",
 	"SYS_SENDMSG",
 	"SYS_GETMSG",
-	"SYS_SELECT"
+	"SYS_SELECT",
+	"SYS_WAITEVENT"
 };
 #endif
 

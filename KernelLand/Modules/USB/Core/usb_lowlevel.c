@@ -152,7 +152,9 @@ char *USB_int_GetDeviceString(tUSBDevice *Dev, int Endpoint, int Index)
 
 	if(Index == 0)	return strdup("");
 	
+	str.Length = 0;
 	USB_int_ReadDescriptor(Dev, Endpoint, 3, Index, sizeof(str), &str);
+	if(str.Length == 0)	return NULL;
 	if(str.Length < 2) {
 		Log_Error("USB", "String %p:%i:%i:%i descriptor is undersized (%i)",
 			Dev->Host, Dev->Address, Endpoint, Index, str.Length);
