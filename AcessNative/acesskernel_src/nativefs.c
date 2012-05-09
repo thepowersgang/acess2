@@ -79,6 +79,7 @@ tVFS_Node *NativeFS_Mount(const char *Device, const char **Arguments)
 	ret->ImplInt = strlen(ret->Data);
 	ret->ImplPtr = info;
 	ret->Inode = (Uint64)dp;
+	ret->Flags = VFS_FFLAG_DIRECTORY;
 
 	ret->Type = &gNativeFS_DirNodeType;	
 	

@@ -7,6 +7,7 @@
 #define DEBUG	1
 #include <acess.h>
 #include <threads.h>
+#include <events.h>
 #include "../syscalls.h"
 
 // === IMPORTS ===
@@ -199,6 +200,10 @@ SYSCALL2(Syscall_GetMessage, "dd", Uint *, void *,
 	return Proc_GetMessage(a0, a1);
 );
 
+SYSCALL1(Syscall_WaitEvent, "i", int,
+	return Threads_WaitEvents(a0);
+);
+
 const tSyscallHandler	caSyscalls[] = {
 	Syscall_Null,
 	Syscall_Exit,
@@ -231,7 +236,8 @@ const tSyscallHandler	caSyscalls[] = {
 
 	Syscall_SendMessage,
 	Syscall_GetMessage,
-	Syscall_select
+	Syscall_select,
+	Syscall_WaitEvent
 };
 const int	ciNumSyscalls = sizeof(caSyscalls)/sizeof(caSyscalls[0]);
 /**
