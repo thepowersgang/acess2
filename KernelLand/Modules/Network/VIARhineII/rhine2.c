@@ -10,22 +10,11 @@
 #include <drv_pci.h>
 #include <api_drv_network.h>
 #include <semaphore.h>
+#include "rhine2_hw.h"
 
 // === CONSTANTS ===
 #define VENDOR_ID	0x1106
 #define DEVICE_ID	0x3065
-
-enum eRegs
-{
-	REG_PAR0, REG_PAR1,
-	REG_PAR2, REG_PAR3,
-	REG_PAR4, REG_PAR5,
-	REG_RCR,  REG_TCR,
-	REG_CR0,  REG_CR1,
-	REG_rsv0, REG_rsv1,
-	REG_ISR0, REG_ISR1,
-	REG_IMR0, REG_IMR1,
-};
 
 // === TYPES ===
 typedef struct sCard
@@ -34,6 +23,9 @@ typedef struct sCard
 	Uint8	IRQ;
 	
 	 int	NumWaitingPackets;
+
+	Uint32	DescTablePAddr;
+	void	*DescTable;
 	
 	char	Name[2];
 	tVFS_Node	Node;
@@ -71,7 +63,7 @@ tCard	*gaRhine2_Cards;
 
 // === CODE ===
 /**
- * \brief Installs the PCnet3 Driver
+ * \brief Initialises the driver
  */
 int Rhine2_Install(char **Options)
 {
@@ -81,7 +73,7 @@ int Rhine2_Install(char **Options)
 	tCard	*card;
 	
 	giRhine2_CardCount = PCI_CountDevices(VENDOR_ID, DEVICE_ID);
-	Log_Debug("PCnet3", "%i cards", giRhine2_CardCount);
+	Log_Debug("Rhine2", "%i cards", giRhine2_CardCount);
 	
 	if( giRhine2_CardCount == 0 )	return MODULE_ERR_NOTNEEDED;
 	
@@ -143,7 +135,7 @@ int Rhine2_RootIOCtl(tVFS_Node *Node, int ID, void *Data)
 	ENTER("pNode iID pData", Node, ID, Data);
 	switch(ID)
 	{
-	BASE_IOCTLS(DRV_TYPE_NETWORK, "PCnet3", VERSION, csaRhine2_RootIOCtls);
+	BASE_IOCTLS(DRV_TYPE_NETWORK, "Rhine2", VERSION, csaRhine2_RootIOCtls);
 	}
 	LEAVE('i', 0);
 	return 0;
@@ -258,7 +250,7 @@ int Rhine2_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	ENTER("pNode iID pData", Node, ID, Data);
 	switch(ID)
 	{
-	BASE_IOCTLS(DRV_TYPE_NETWORK, "PCnet3", VERSION, csaRhine2_NodeIOCtls);
+	BASE_IOCTLS(DRV_TYPE_NETWORK, "Rhine2", VERSION, csaRhine2_NodeIOCtls);
 	case NET_IOCTL_GETMAC:
 		if( !CheckMem(Data, 6) ) {
 			LEAVE('i', -1);
