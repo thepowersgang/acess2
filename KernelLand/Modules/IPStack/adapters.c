@@ -143,9 +143,7 @@ char *Adapter_ReadDir(tVFS_Node *Node, int Pos)
 		tAdapter *a;  int i;\
 		for(i=0,a=list; i < Pos && a; i ++, a = a->Next ); \
 		if( a ) { \
-			char	buf[sizeof(type)+10]; \
-			sprintf(buf, type"%i", a->Index); \
-			return strdup(buf); \
+			return Adapter_GetName(a);\
 		} \
 		Pos -= i; \
 	} while(0);
@@ -227,6 +225,21 @@ tAdapter *Adapter_GetByName(const char *Name)
 	}
 	
 	return NULL;
+}
+
+char *Adapter_GetName(tAdapter *Adapter)
+{
+	if( Adapter == &gIP_LoopAdapter )
+	{
+		return strdup("lo");
+	}
+	else
+	{
+		// TODO: Support multiple adapter types
+		char	buf[sizeof("eth")+10];
+		sprintf(buf, "eth%i", Adapter->Index);
+		return strdup(buf);
+	}
 }
 
 void Adapter_SendPacket(tAdapter *Handle, tIPStackBuffer *Buffer)

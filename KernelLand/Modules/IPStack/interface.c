@@ -440,15 +440,19 @@ int IPStack_Iface_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	 * - Gets the name of the attached device
 	 */
 	case 8:
-		Log_Error("IPStack", "TODO: Reimplement interface.ioctl(get_device)");
-//		if( iface->Adapter == NULL )
+		if( iface->Adapter == NULL )
 			LEAVE_RET('i', 0);
-//		if( Data == NULL )
-//			LEAVE_RET('i', iface->Adapter->DeviceLen);
-//		if( !CheckMem( Data, iface->Adapter->DeviceLen+1 ) )
-//			LEAVE_RET('i', -1);
-//		strcpy( Data, iface->Adapter->Device );
-//		LEAVE_RET('i', iface->Adapter->DeviceLen);
+		char *name = Adapter_GetName(iface->Adapter);
+		 int len = strlen(name);
+		if( Data ) {
+			if( !CheckMem( Data, len+1 ) ) {
+				free(name);
+				LEAVE_RET('i', -1);
+			}
+			strcpy( Data, name );
+		}
+		free(name);
+		LEAVE_RET('i', len);
 	
 	/*
 	 * ping

@@ -11,6 +11,7 @@
 #include "adapters_api.h"
 
 extern tAdapter	*Adapter_GetByName(const char *Name);
+extern char	*Adapter_GetName(tAdapter *Adapter);
 extern void	Adapter_SendPacket(tAdapter *Handle, tIPStackBuffer *Buffer);
 
 
