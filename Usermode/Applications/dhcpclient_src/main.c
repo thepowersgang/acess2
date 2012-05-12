@@ -91,7 +91,7 @@ int main(int argc, char *argv[])
 		ifaces->Adapter = argv[1];
 	}
 	else {
-		Scan_Dir( &ifaces, "/Devices" );
+		Scan_Dir( &ifaces, "/Devices/ip/adapters" );
 	}
 
 	for( i = ifaces; i; i = i->Next )
@@ -150,34 +150,14 @@ void Scan_Dir(tInterface **IfaceList, const char *Directory)
 
 	while( readdir(dp, filename) )
 	{
-		 int	pathlen = strlen(Directory) + 1 + strlen(filename) + 1;
-		char	path[pathlen];
-		 int	fd;
-		t_sysFInfo	info;
+		if( filename[0] == '.' )	continue ;		
+		if( strcmp(filename, "lo") == 0 )	continue ;
 
-		sprintf(path, "%s/%s", Directory, filename);
-		fd = open(path, 0);
-
-		// Check if the device type is 9 (Network)
-		if( ioctl(fd, 0, NULL) != 9 )
-			continue ;
-
-		// Check if it's a directory
-		finfo(fd, &info, 0);
-		if( info.flags & FILEFLAG_DIRECTORY )
-		{
-			// If so, recurse
-			Scan_Dir(IfaceList, path);
-		}
-		else
-		{
-			// Otherwise, add it to the list
-			tInterface	*new = malloc(sizeof(tInterface) + pathlen);
-			new->Adapter = (void*)(new + 1);
-			strcpy(new->Adapter, path);
-			new->Next = *IfaceList;
-			*IfaceList = new;
-		}
+		tInterface *new = malloc(sizeof(tInterface) + strlen(filename)+1);
+		new->Adapter = (void*)(new + 1);
+		strcpy(new->Adapter, filename);
+		new->Next = *IfaceList;
+		*IfaceList = new;
 	}
 	close(dp);
 }
@@ -253,11 +233,17 @@ void Send_DHCPDISCOVER(tInterface *Iface)
 	msg->giaddr = htonl(0);	// giaddr - Zero?
 	// Request MAC address from network adapter
 	{
-		int fd = open(Iface->Adapter, 0);
-		// TODO: Check if open() failed
-		ioctl(fd, 4, msg->chaddr);
-		// TODO: Check if ioctl() failed
-		close(fd);
+		char	path[] = "/Devices/ip/adapters/ethXXXX";
+		sprintf(path, "/Devices/ip/adapters/%s", Iface->Adapter);
+		int fd = open(path, 0);
+		if(fd == -1) {
+			_SysDebug("Unable to open adapter %s", path);
+		}
+		else {
+			ioctl(fd, 4, msg->chaddr);
+			// TODO: Check if ioctl() failed
+			close(fd);
+		}
 	}
 	memset(msg->sname, 0, sizeof(msg->sname));	// Nuke the rest
 	memset(msg->file, 0, sizeof(msg->file));	// Nuke the rest
@@ -356,7 +342,10 @@ int Handle_Packet(tInterface *Iface)
 		break;
 	case 2:	// DHCPOFFER
 		// Send out request for this address
-		if( Iface->State != STATE_DISCOVER_SENT )	return 0;
+		if( Iface->State != STATE_DISCOVER_SENT ) {
+			_SysDebug("Ignoring DHCPOFFER when not in STATE_DISCOVER_SENT");
+			return 0;
+		}
 		Send_DHCPREQUEST(Iface, data, dhcp_msg_type_ofs);
 		break;
 	case 3:	// DHCPREQUEST - wut?

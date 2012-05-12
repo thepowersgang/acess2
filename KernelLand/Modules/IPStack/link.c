@@ -1,10 +1,15 @@
 /*
- * Acess2 IP Stack
- * - Link/Media Layer Interface
+ * Acess2 Networking Stack
+ * - By John Hodge (thePowersGang)
+ *
+ * link.c
+ * - Ethernet/802.3 Handling code
+ * TODO: Rename file
  */
 #include "ipstack.h"
 #include "link.h"
 #include "include/buffer.h"
+#include "include/adapters_int.h"
 
 // === CONSTANTS ===
 #define	MAX_PACKET_SIZE	2048
@@ -12,7 +17,7 @@
 // === PROTOTYPES ===
 void	Link_RegisterType(Uint16 Type, tPacketCallback Callback);
 void	Link_SendPacket(tAdapter *Adapter, Uint16 Type, tMacAddr To, tIPStackBuffer *Buffer);
-void	Link_WatchDevice(tAdapter *Adapter);
+ int	Link_HandlePacket(tAdapter *Adapter, tIPStackBuffer *Buffer);
 // --- CRC ---
 void	Link_InitCRC(void);
 Uint32	Link_CalculateCRC(tIPStackBuffer *Buffer);
@@ -87,7 +92,7 @@ void Link_SendPacket(tAdapter *Adapter, Uint16 Type, tMacAddr To, tIPStackBuffer
 		length, To.B[0], To.B[1], To.B[2], To.B[3], To.B[4], To.B[5], Type);
 
 	hdr->Dest = To;
-	hdr->Src = Adapter->MacAddr;
+	memcpy(&hdr->Src, Adapter->HWAddr, 6);	// TODO: Remove hard coded 6
 	hdr->Type = htons(Type);
 	*(Uint32*)(buf + sizeof(tEthernetHeader) + ofs) = 0;
 
@@ -95,95 +100,67 @@ void Link_SendPacket(tAdapter *Adapter, Uint16 Type, tMacAddr To, tIPStackBuffer
 	
 	*(Uint32*)(buf + sizeof(tEthernetHeader) + ofs) = htonl( Link_CalculateCRC(Buffer) );
 
-	size_t outlen = 0;
-	void *data = IPStack_Buffer_CompactBuffer(Buffer, &outlen);
-	VFS_Write(Adapter->DeviceFD, outlen, data);
-	free(data);
+	Log_Log("Net Link", " from %02x:%02x:%02x:%02x:%02x:%02x",
+		hdr->Src.B[0], hdr->Src.B[1], hdr->Src.B[2],
+		hdr->Src.B[3], hdr->Src.B[4], hdr->Src.B[5]
+		);
+
+	Adapter_SendPacket(Adapter, Buffer);
 }
 
-void Link_WorkerThread(void *Ptr)
+int Link_HandlePacket(tAdapter *Adapter, tIPStackBuffer *Buffer)
 {
-	tAdapter	*Adapter = Ptr;
+	size_t	len = 0;
+	void	*data = IPStack_Buffer_CompactBuffer(Buffer, &len);
 	
-	Threads_SetName(Adapter->Device);
-	Log_Log("Net Link", "Thread %i watching '%s'", Threads_GetTID(), Adapter->Device);
+	tEthernetHeader	*hdr = (void*)data;
+	 int	i;
+	Uint32	checksum;
 
-	// Child Thread
-	while(Adapter->DeviceFD != -1)
+	if(len < sizeof(tEthernetHeader)) {
+		Log_Log("Net Link", "Recieved an undersized packet (%i < %i)",
+			len, sizeof(tEthernetHeader));
+		free(data);
+		return 1;
+	}
+		
+	Log_Log("Net Link",
+		"Packet from %02x:%02x:%02x:%02x:%02x:%02x"
+		" to %02x:%02x:%02x:%02x:%02x:%02x (Type=%04x)",
+		hdr->Src.B[0], hdr->Src.B[1], hdr->Src.B[2],
+		hdr->Src.B[3], hdr->Src.B[4], hdr->Src.B[5],
+		hdr->Dest.B[0], hdr->Dest.B[1], hdr->Dest.B[2],
+		hdr->Dest.B[3], hdr->Dest.B[4], hdr->Dest.B[5],
+		ntohs(hdr->Type)
+		);
+	checksum = *(Uint32*)&hdr->Data[len-sizeof(tEthernetHeader)-4];
+	//Log_Log("NET", "Checksum 0x%08x", checksum);
+	// TODO: Check checksum
+	
+	// Check if there is a registered callback for this packet type
+	for( i = giRegisteredTypes; i--; )
 	{
-		Uint8	buf[MAX_PACKET_SIZE];
-		tEthernetHeader	*hdr = (void*)buf;
-		 int	ret, i;
-		Uint32	checksum;
+		if(gaRegisteredTypes[i].Type == ntohs(hdr->Type))	break;
+	}
+	// No? Ignore it
+	if( i == -1 ) {
+		Log_Log("Net Link", "Unregistered type 0x%x", ntohs(hdr->Type));
 		
-		// Wait for a packet (Read on a network device is blocking)
-		//Log_Debug("NET", "Waiting on adapter FD#0x%x", Adapter->DeviceFD);
-		ret = VFS_Read(Adapter->DeviceFD, MAX_PACKET_SIZE, buf);
-		if(ret == -1)	break;
-		
-		if(ret < sizeof(tEthernetHeader)) {
-			Log_Log("Net Link", "Recieved an undersized packet (%i < %i)",
-				ret, sizeof(tEthernetHeader));
-			continue;
-		}
-		
-		Log_Log("Net Link",
-			"Packet from %02x:%02x:%02x:%02x:%02x:%02x"
-			" to %02x:%02x:%02x:%02x:%02x:%02x (Type=%04x)",
-			hdr->Src.B[0], hdr->Src.B[1], hdr->Src.B[2],
-			hdr->Src.B[3], hdr->Src.B[4], hdr->Src.B[5],
-			hdr->Dest.B[0], hdr->Dest.B[1], hdr->Dest.B[2],
-			hdr->Dest.B[3], hdr->Dest.B[4], hdr->Dest.B[5],
-			ntohs(hdr->Type)
-			);
-		checksum = *(Uint32*)&hdr->Data[ret-sizeof(tEthernetHeader)-4];
-		//Log_Log("NET", "Checksum 0x%08x", checksum);
-		// TODO: Check checksum
-		
-		// Check if there is a registered callback for this packet type
-		for( i = giRegisteredTypes; i--; )
-		{
-			if(gaRegisteredTypes[i].Type == ntohs(hdr->Type))	break;
-		}
-		// No? Ignore it
-		if( i == -1 ) {
-			Log_Log("Net Link", "Unregistered type 0x%x", ntohs(hdr->Type));
-			continue;
-		}
-		
-		// Call the callback
-		gaRegisteredTypes[i].Callback(
-			Adapter,
-			hdr->Src,
-			ret - sizeof(tEthernetHeader),
-			hdr->Data
-			);
+		free(data);	
+		return 1;
 	}
 	
-	Log_Log("Net Link", "Watcher terminated (file closed)");
+	// Call the callback
+	gaRegisteredTypes[i].Callback(
+		Adapter,
+		hdr->Src,
+		len - sizeof(tEthernetHeader),
+		hdr->Data
+		);
 	
-	Threads_Exit(0, 0);
-}
-
-/**
- * \fn void Link_WatchDevice(tAdapter *Adapter)
- * \brief Spawns a worker thread to watch the specified adapter
- */
-void Link_WatchDevice(tAdapter *Adapter)
-{
-	 int	tid;
-
-	if( !gbLink_CRCTableGenerated )
-		Link_InitCRC();
+	free(data);
 	
-	tid = Proc_SpawnWorker(Link_WorkerThread, Adapter);	// Create a new worker thread
-	
-	if(tid < 0) {
-		Log_Warning("Net Link", "Unable to create watcher thread for '%s'", Adapter->Device);
-		return ;
-	}
-	
-	Log_Log("Net Link", "Watching '%s' using tid %i", Adapter->Device, tid);
+	return 0;
 }
 
 // From http://www.cl.cam.ac.uk/research/srg/bluebook/21/crc/node6.html

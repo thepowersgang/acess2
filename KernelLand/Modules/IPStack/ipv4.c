@@ -15,6 +15,7 @@ extern tInterface	*gIP_Interfaces;
 extern void	ICMP_Initialise();
 extern  int	ICMP_Ping(tInterface *Interface, tIPv4 Addr);
 extern tMacAddr	ARP_Resolve4(tInterface *Interface, tIPv4 Address);
+extern void	ARP_UpdateCache4(tIPv4 SWAddr, tMacAddr HWAddr);
 
 // === PROTOTYPES ===
  int	IPv4_Initialise();
@@ -185,6 +186,9 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 		hdr->Source.B[0], hdr->Source.B[1], hdr->Source.B[2], hdr->Source.B[3],
 		hdr->Destination.B[0], hdr->Destination.B[1], hdr->Destination.B[2], hdr->Destination.B[3]
 		);
+
+	// TODO: Tell ARP?
+	ARP_UpdateCache4(hdr->Source, From);
 	
 	// Get Data and Data Length
 	dataLength = ntohs(hdr->TotalLength) - sizeof(tIPv4Header);

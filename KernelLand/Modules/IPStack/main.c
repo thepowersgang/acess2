@@ -8,6 +8,7 @@
 #include "link.h"
 #include <modules.h>
 #include <fs_devfs.h>
+#include "include/adapters.h"
 
 // === IMPORTS ===
 extern int	ARP_Initialise();
@@ -16,7 +17,6 @@ extern void	TCP_Initialise();
 extern int	IPv4_Initialise();
 extern int	IPv6_Initialise();
 
-extern tAdapter	*IPStack_GetAdapter(const char *Path);
 extern char	*IPStack_Root_ReadDir(tVFS_Node *Node, int Pos);
 extern tVFS_Node	*IPStack_Root_FindDir(tVFS_Node *Node, const char *Name);
 extern int	IPStack_Root_IOCtl(tVFS_Node *Node, int ID, void *Data);
@@ -192,7 +192,7 @@ int IPStack_Install(char **Arguments)
 	}
 	
 	// Initialise loopback interface
-	gIP_LoopInterface.Adapter = IPStack_GetAdapter("LOOPBACK");
+	gIP_LoopInterface.Adapter = Adapter_GetByName("lo");
 	
 	DevFS_AddDevice( &gIP_DriverInfo );
 	

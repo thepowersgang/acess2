@@ -16,6 +16,10 @@ typedef void	(*tIPStackBufferCb)(void *Arg, size_t HeadLen, size_t FootLen, cons
  */
 extern tIPStackBuffer	*IPStack_Buffer_CreateBuffer(int MaxSubBuffers);
 /**
+ * \brief Clear a buffer object without deallocating it
+ */
+extern void	IPStack_Buffer_ClearBuffer(tIPStackBuffer *Buffer);
+/**
  * \brief Destory a created buffer object
  */
 extern void	IPStack_Buffer_DestroyBuffer(tIPStackBuffer *Buffer);
@@ -38,6 +42,15 @@ extern void	IPStack_Buffer_AppendSubBuffer(tIPStackBuffer *Buffer,
  * \brief Get the total length of a buffer
  */
 extern size_t	IPStack_Buffer_GetLength(tIPStackBuffer *Buffer);
+
+/**
+ * \brief Copy data from a buffer to a preallocated flat buffer
+ * \param Dest	Destination flat buffer
+ * \param MaxBytes	Maximum number of bytes to copy (size of \a Dest)
+ * \return Number of bytes copied
+ */
+extern size_t	IPStack_Buffer_GetData(tIPStackBuffer *Buffer, void *Dest, size_t MaxBytes);
+
 /**
  * \brief Get a sub-buffer from the buffer object
  * \param PrevID	Previous return value, or -1 to start

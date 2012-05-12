@@ -134,7 +134,6 @@ int main(int argc, char *argv[])
 			PrintUsage(argv[0]);
 			return -1;
 		}
-		// TODO: Also set the IP address as the usage says it does
 		ret = AddInterface( argv[2] );
 		if(ret < 0)	return ret;
 		ret = SetAddress( ret, argv[3] );

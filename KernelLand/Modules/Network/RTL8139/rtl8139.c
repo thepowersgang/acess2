@@ -6,10 +6,9 @@
 #define VERSION	((0<<8)|20)
 #include <acess.h>
 #include <modules.h>
-#include <fs_devfs.h>
 #include <drv_pci.h>
-#include <api_drv_network.h>
 #include <semaphore.h>
+#include <IPStack/include/adapters_api.h>
 
 // === CONSTANTS ===
 #define VENDOR_ID	0x10EC
@@ -38,7 +37,7 @@ enum eRTL8139_Regs
 	// Early RX Status Register
 	ERSR = 0x36,
 	
-	// ??, ??, ??, RST, RE, TE, ??, ??
+	// -, -, -, RST, RE, TE, -, BUFE
 	CMD 	= 0x37,
 	
 	CAPR	= 0x38,	// Current address of packet read
@@ -92,42 +91,26 @@ typedef struct sCard
 	tMutex	CurTXProtector;	//!< Protects \a .CurTXDescriptor
 	 int	CurTXDescriptor;
 	
-	char	Name[2];
-	tVFS_Node	Node;
+	void	*IPStackHandle;
 	Uint8	MacAddr[6];
 }	tCard;
 
 // === PROTOTYPES ===
  int	RTL8139_Install(char **Options);
-char	*RTL8139_ReadDir(tVFS_Node *Node, int Pos);
-tVFS_Node	*RTL8139_FindDir(tVFS_Node *Node, const char *Filename);
- int	RTL8139_RootIOCtl(tVFS_Node *Node, int ID, void *Arg);
-size_t	RTL8139_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
-size_t	RTL8139_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
- int	RTL8139_IOCtl(tVFS_Node *Node, int ID, void *Arg);
+tIPStackBuffer	*RTL8139_WaitForPacket(void *Ptr);
+void	RTL8139_int_UpdateCAPR(void *Ptr, size_t pkt_length, size_t Unused, const void *DataPtr);
+ int	RTL8139_SendPacket(void *Ptr, tIPStackBuffer *Buffer);
 void	RTL8139_IRQHandler(int Num, void *Ptr);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, RTL8139, RTL8139_Install, NULL, NULL);
-tVFS_NodeType	gRTL8139_RootNodeType = {
-	.ReadDir = RTL8139_ReadDir,
-	.FindDir = RTL8139_FindDir,
-	.IOCtl = RTL8139_IOCtl
+tIPStack_AdapterType	gRTL8139_AdapterType = {
+	.Name = "RTL8139",
+	.Type = 0,	// TODO: Differentiate differnet wire protos and speeds
+	.Flags = 0,	// TODO: IP checksum offloading, MAC checksum offloading etc
+	.SendPacket = RTL8139_SendPacket,
+	.WaitForPacket = RTL8139_WaitForPacket
 	};
-tVFS_NodeType	gRTL8139_DevNodeType = {
-	.Write = RTL8139_Write,
-	.Read = RTL8139_Read,
-	.IOCtl = RTL8139_IOCtl	
-	};
-tDevFS_Driver	gRTL8139_DriverInfo = {
-	NULL, "RTL8139",
-	{
-	.NumACLs = 1,
-	.ACLs = &gVFS_ACL_EveryoneRX,
-	.Flags = VFS_FFLAG_DIRECTORY,
-	.Type = &gRTL8139_RootNodeType
-	}
-};
  int	giRTL8139_CardCount;
 tCard	*gaRTL8139_Cards;
 
@@ -220,14 +203,9 @@ int RTL8139_Install(char **Options)
 		card->MacAddr[4] = inb(base+MAC4);
 		card->MacAddr[5] = inb(base+MAC5);
 		
-		// Set VFS Node
-		card->Name[0] = '0'+i;
-		card->Name[1] = '\0';
-		card->Node.ImplPtr = card;
-		card->Node.NumACLs = 0;
-		card->Node.CTime = now();
-		card->Node.Type = &gRTL8139_DevNodeType;
-		
+		// Interface with IPStack
+		card->IPStackHandle = IPStack_Adapter_Add(&gRTL8139_AdapterType, card, card->MacAddr);
+
 		Log_Log("RTL8139", "Card %i 0x%04x, IRQ %i %02x:%02x:%02x:%02x:%02x:%02x",
 			i, card->IOBase, card->IRQ,
 			card->MacAddr[0], card->MacAddr[1], card->MacAddr[2],
@@ -235,53 +213,24 @@ int RTL8139_Install(char **Options)
 			);
 	}
 	
-	gRTL8139_DriverInfo.RootNode.Size = giRTL8139_CardCount;
-	DevFS_AddDevice( &gRTL8139_DriverInfo );
-	
 	return MODULE_ERR_OK;
 }
 
-// --- Root Functions ---
-char *RTL8139_ReadDir(tVFS_Node *Node, int Pos)
-{
-	if( Pos < 0 || Pos >= giRTL8139_CardCount )	return NULL;
-	
-	return strdup( gaRTL8139_Cards[Pos].Name );
-}
-
-tVFS_Node *RTL8139_FindDir(tVFS_Node *Node, const char *Filename)
-{
-	//TODO: It might be an idea to supprt >10 cards
-	if(Filename[0] == '\0' || Filename[1] != '\0')	return NULL;
-	if(Filename[0] < '0' || Filename[0] > '9')	return NULL;
-	return &gaRTL8139_Cards[ Filename[0]-'0' ].Node;
-}
-
-const char *csaRTL8139_RootIOCtls[] = {DRV_IOCTLNAMES, NULL};
-int RTL8139_RootIOCtl(tVFS_Node *Node, int ID, void *Data)
-{
-	ENTER("pNode iID pData", Node, ID, Data);
-	switch(ID)
-	{
-	BASE_IOCTLS(DRV_TYPE_NETWORK, "RTL8139", VERSION, csaRTL8139_RootIOCtls);
-	}
-	LEAVE('i', 0);
-	return 0;
-}
-
 // --- File Functions ---
-size_t RTL8139_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
+tIPStackBuffer	*RTL8139_WaitForPacket(void *Ptr)
 {
-	tCard	*card = Node->ImplPtr;
+	tCard	*card = Ptr;
 	Uint16	read_ofs, pkt_length;
-	 int	new_read_ofs;
+	tIPStackBuffer	*ret;
 
-	ENTER("pNode XOffset xLength pBuffer", Node, Offset, Length, Buffer);
+	ENTER("pPtr", Ptr);
 
 retry:
+	LOG("IMR = %x, ISR = %x", inw(card->IOBase + IMR), inw(card->IOBase + ISR));
 	if( Semaphore_Wait( &card->ReadSemaphore, 1 ) != 1 )
 	{
-		LEAVE_RET('i', 0);
+		LEAVE('n');
+		return NULL;
 	}
 	
 	Mutex_Acquire( &card->ReadMutex );
@@ -293,6 +242,37 @@ retry:
 	
 	pkt_length = *(Uint16*)&card->ReceiveBuffer[read_ofs+2];
 	
+	// Check for errors
+	if( *(Uint16*)&card->ReceiveBuffer[read_ofs] & 0x1E )
+	{
+		// Update CAPR
+		RTL8139_int_UpdateCAPR( card, pkt_length, 0, &card->ReceiveBuffer[read_ofs+4] );
+		Mutex_Release( &card->ReadMutex );
+		goto retry;	// I feel evil
+	}
+	
+	ret = IPStack_Buffer_CreateBuffer(1);
+	IPStack_Buffer_AppendSubBuffer(ret,
+		pkt_length, 0, &card->ReceiveBuffer[read_ofs+4],
+		RTL8139_int_UpdateCAPR, card
+		);
+	
+	Mutex_Release( &card->ReadMutex );
+	
+	LEAVE('p', ret);
+	return ret;
+}
+
+/**
+ * \brief Updates CAPR after a packet has been read
+ * \note Assumes that buffers are freed in the order we allocate them
+ */
+void RTL8139_int_UpdateCAPR(void *Ptr, size_t pkt_length, size_t Unused, const void *DataPtr)
+{
+	tCard	*card = Ptr;
+	 int	read_ofs = DataPtr - (const void *)card->ReceiveBuffer - 4;
+	 int	new_read_ofs;
+
 	// Calculate new read offset
 	new_read_ofs = read_ofs + pkt_length + 4;
 	new_read_ofs = (new_read_ofs + 3) & ~3;	// Align
@@ -302,38 +282,24 @@ retry:
 	}
 	new_read_ofs -= 0x10;	// I dunno
 	LOG("new_read_ofs = %i", new_read_ofs);
-	
-	// Check for errors
-	if( *(Uint16*)&card->ReceiveBuffer[read_ofs] & 0x1E ) {
-		// Update CAPR
-		outw(card->IOBase + CAPR, new_read_ofs);
-		Mutex_Release( &card->ReadMutex );
-		goto retry;	// I feel evil
-	}
-	
-	// Get packet
-	if( Length > pkt_length )	Length = pkt_length;
-	memcpy(Buffer, &card->ReceiveBuffer[read_ofs+4], Length);
-	
+
 	// Update CAPR
 	outw(card->IOBase + CAPR, new_read_ofs);
-	
-	Mutex_Release( &card->ReadMutex );
-	
-	LEAVE('i', Length);
-	
-	return Length;
 }
 
-size_t RTL8139_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer)
+int RTL8139_SendPacket(void *Ptr, tIPStackBuffer *Buffer)
 {
-	 int	td;
+	 int	td, length;
 	Uint32	status;
-	tCard	*card = Node->ImplPtr;
+	tCard	*card = Ptr;
 	
-	if( Length > 1500 )	return 0;	// MTU exceeded
-	
-	ENTER("pNode XLength pBuffer", Node, Length, Buffer);
+	ENTER("pPtr pBuffer", Ptr, Buffer);
+
+	length = IPStack_Buffer_GetLength(Buffer);
+	if( length > 1500 ) {
+		LEAVE('i', -1);
+		return -1;	// MTU exceeded
+	}
 	
 	// TODO: Implement a semaphore for avaliable transmit buffers
 
@@ -351,40 +317,20 @@ size_t RTL8139_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *B
 	// Transmit using descriptor `td`
 	LOG("card->PhysTransmitBuffers[td] = %P", card->PhysTransmitBuffers[td]);
 	outd(card->IOBase + TSAD0 + td*4, card->PhysTransmitBuffers[td]);
-	LOG("card->TransmitBuffers[td] = %p", card->TransmitBuffers[td]);
+	
 	// Copy to buffer
-	memcpy(card->TransmitBuffers[td], Buffer, Length);
+	LOG("card->TransmitBuffers[td] = %p", card->TransmitBuffers[td]);
+	IPStack_Buffer_GetData(Buffer, card->TransmitBuffers[td], length);
+	
 	// Start
 	status = 0;
-	status |= Length & 0x1FFF;	// 0-12: Length
+	status |= length & 0x1FFF;	// 0-12: Length
 	status |= 0 << 13;	// 13: OWN bit
 	status |= (0 & 0x3F) << 16;	// 16-21: Early TX threshold (zero atm, TODO: check)
 	LOG("status = 0x%08x", status);
 	outd(card->IOBase + TSD0 + td*4, status);
 	
-	LEAVE('i', (int)Length);
-	
-	return Length;
-}
-
-const char *csaRTL8139_NodeIOCtls[] = {DRV_IOCTLNAMES, NULL};
-int RTL8139_IOCtl(tVFS_Node *Node, int ID, void *Data)
-{
-	tCard	*card = Node->ImplPtr;
-	ENTER("pNode iID pData", Node, ID, Data);
-	switch(ID)
-	{
-	BASE_IOCTLS(DRV_TYPE_NETWORK, "RTL8139", VERSION, csaRTL8139_NodeIOCtls);
-	case NET_IOCTL_GETMAC:
-		if( !CheckMem(Data, 6) ) {
-			LEAVE('i', -1);
-			return -1;
-		}
-		memcpy( Data, card->MacAddr, 6 );
-		LEAVE('i', 1);
-		return 1;
-	}
-	LEAVE('i', 0);
+	LEAVE('i', 0);	
 	return 0;
 }
 
@@ -394,11 +340,10 @@ void RTL8139_IRQHandler(int Num, void *Ptr)
 	tCard	*card = Ptr;
 	Uint16	status;
 
-	LOG("Num = %i", Num);
-	
 	if( Num != card->IRQ )	return;
 		
 	status = inw(card->IOBase + ISR);
+	if( !status )	return ;
 	LOG("status = 0x%02x", status);
 		
 	// Transmit OK, a transmit descriptor is now free
@@ -476,8 +421,8 @@ void RTL8139_IRQHandler(int Num, void *Ptr)
 		{
 			if( Semaphore_Signal( &card->ReadSemaphore, packet_count ) != packet_count ) {
 				// Oops?
+				Log_Warning("RTL8139", "IRQ: signalling read semaphore failed, Oops?");
 			}
-			VFS_MarkAvaliable( &card->Node, 1 );
 		}
 		
 		outw(card->IOBase + ISR, FLAG_ISR_ROK);
