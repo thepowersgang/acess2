@@ -84,5 +84,10 @@ struct sTXDesc
 	Uint32	TDBranchAddress;	// Bit 0: Disable interrupt
 };
 
+#define TD_TCR_CRC	(1 << 0)	// Disable CRC generation
+#define TD_TCR_STP	(1 << 5)	// First descriptor in packet
+#define TD_TCR_EDP	(1 << 6)	// Last descriptor in packet
+#define TD_TCR_IC	(1 << 7)	// Interrupt when transmitted
+
 #endif
 
