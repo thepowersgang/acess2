@@ -6,13 +6,14 @@
  * - USB Device Initialisation
  */
 #define DEBUG	1
-
 #include <acess.h>
 #include <vfs.h>
 #include <drv_pci.h>
 #include "usb.h"
 #include "usb_proto.h"
 #include "usb_lowlevel.h"
+
+#define DUMP_DESCRIPTORS	0
 
 // === PROTOTYPES ===
 void	USB_DeviceConnected(tUSBHub *Hub, int Port);
@@ -55,7 +56,8 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 		LOG("Getting device descriptor");
 		// Endpoint 0, Desc Type 1, Index 0
 		USB_int_ReadDescriptor(dev, 0, 1, 0, sizeof(desc), &desc);
-		
+
+		#if DUMP_DESCRIPTORS		
 		LOG("Device Descriptor = {");
 		LOG(" .Length = %i", desc.Length);
 		LOG(" .Type = %i", desc.Type);
@@ -99,6 +101,7 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 			}
 		}
 		#endif
+		#endif
 	}
 
 	// TODO: Support alternate configurations
@@ -112,6 +115,7 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 		size_t	total_length;
 	
 		USB_int_ReadDescriptor(dev, 0, 2, i, sizeof(desc), &desc);
+		#if DUMP_DESCRIPTORS
 		LOG("Configuration Descriptor %i = {", i);
 		LOG(" .Length = %i", desc.Length);
 		LOG(" .Type = %i", desc.Type);
@@ -127,6 +131,7 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 			LOG("ConfigurationStr = '%s'", tmp);
 			free(tmp);
 		}
+		#endif
 
 		// TODO: Split here and allow some method of selection
 
@@ -167,20 +172,22 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 				continue ;
 			}
 
+			#if DUMP_DESCRIPTORS
 			LOG("Interface %i/%i = {", i, j);
 			LOG(" .InterfaceNum = %i", iface->InterfaceNum);
 			LOG(" .NumEndpoints = %i", iface->NumEndpoints);
 			LOG(" .InterfaceClass = 0x%x", iface->InterfaceClass);
 			LOG(" .InterfaceSubClass = 0x%x", iface->InterfaceSubClass);
 			LOG(" .InterfaceProcol = 0x%x", iface->InterfaceProtocol);
-			#if DEBUG	
+			# if DEBUG	
 			if( iface->InterfaceStr ) {
 				char	*tmp = USB_int_GetDeviceString(dev, 0, iface->InterfaceStr);
 				LOG(" .InterfaceStr = %i '%s'", iface->InterfaceStr, tmp);
 				free(tmp);
 			}
-			#endif
+			# endif
 			LOG("}");
+			#endif
 
 			dev_if = malloc(sizeof(tUSBInterface) + iface->NumEndpoints*sizeof(dev_if->Endpoints[0]));
 			dev_if->Dev = dev;

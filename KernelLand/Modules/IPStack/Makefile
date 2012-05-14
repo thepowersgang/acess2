@@ -1,7 +1,7 @@
 #
 #
 
-OBJ := main.o interface.o
+OBJ := main.o interface.o adapters.o
 OBJ += buffer.o
 OBJ += link.o arp.o
 OBJ += ipv4.o icmp.o

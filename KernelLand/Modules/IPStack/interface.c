@@ -7,7 +7,7 @@
 #include "ipstack.h"
 #include "link.h"
 #include <api_drv_common.h>
-#include <api_drv_network.h>
+#include "include/adapters.h"
 
 // === CONSTANTS ===
 //! Default timeout value, 30 seconds
@@ -17,6 +17,7 @@
 extern int	IPv4_Ping(tInterface *Iface, tIPv4 Addr);
 //extern int	IPv6_Ping(tInterface *Iface, tIPv6 Addr);
 extern tVFS_Node	gIP_RouteNode;
+extern tVFS_Node	gIP_AdaptersNode;
 
 // === PROTOTYPES ===
 char	*IPStack_Root_ReadDir(tVFS_Node *Node, int Pos);
@@ -25,7 +26,6 @@ tVFS_Node	*IPStack_Root_FindDir(tVFS_Node *Node, const char *Name);
 
  int	IPStack_AddFile(tSocketFile *File);
 tInterface	*IPStack_AddInterface(const char *Device, const char *Name);
-tAdapter	*IPStack_GetAdapter(const char *Path);
 
 char	*IPStack_Iface_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*IPStack_Iface_FindDir(tVFS_Node *Node, const char *Name);
@@ -53,16 +53,9 @@ tInterface	gIP_LoopInterface = {
 tShortSpinlock	glIP_Interfaces;
 tInterface	*gIP_Interfaces = NULL;
 tInterface	*gIP_Interfaces_Last = NULL;
+ int	giIP_NextIfaceId = 1;
 
 tSocketFile	*gIP_FileTemplates;
-
-tAdapter	gIP_LoopAdapter = {
-	.DeviceLen = 8,
-	.Device = "LOOPBACK"
-	};
-tMutex	glIP_Adapters;
-tAdapter	*gIP_Adapters = NULL;
- int	giIP_NextIfaceId = 1;
 
 // === CODE ===
 
@@ -81,12 +74,17 @@ char *IPStack_Root_ReadDir(tVFS_Node *Node, int Pos)
 		LEAVE('s', "routes");
 		return strdup("routes");
 	}
-	// Pseudo Interfaces
+	// Adapters
 	if( Pos == 1 ) {
+		LEAVE('s', "adapters");
+		return strdup("adapters");
+	}
+	// Pseudo Interfaces
+	if( Pos == 2 ) {
 		LEAVE('s', "lo");
 		return strdup("lo");
 	}
-	Pos -= 2;
+	Pos -= 3;
 	
 	// Traverse the list
 	for( iface = gIP_Interfaces; iface && Pos--; iface = iface->Next ) ;
@@ -143,6 +141,12 @@ tVFS_Node *IPStack_Root_FindDir(tVFS_Node *Node, const char *Name)
 	if( strcmp(Name, "routes") == 0 ) {
 		LEAVE('p', &gIP_RouteNode);
 		return &gIP_RouteNode;
+	}
+	
+	// Adapters subdir
+	if( strcmp(Name, "adapters") == 0 ) {
+		LEAVE('p', &gIP_AdaptersNode);
+		return &gIP_AdaptersNode;
 	}
 	
 	// Loopback
@@ -210,7 +214,7 @@ tInterface *IPStack_AddInterface(const char *Device, const char *Name)
 	
 	ENTER("sDevice", Device);
 	
-	card = IPStack_GetAdapter(Device);
+	card = Adapter_GetByName(Device);
 	if( !card ) {
 		Log_Debug("IPStack", "Unable to open card '%s'", Device);
 		LEAVE('n');
@@ -438,12 +442,17 @@ int IPStack_Iface_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	case 8:
 		if( iface->Adapter == NULL )
 			LEAVE_RET('i', 0);
-		if( Data == NULL )
-			LEAVE_RET('i', iface->Adapter->DeviceLen);
-		if( !CheckMem( Data, iface->Adapter->DeviceLen+1 ) )
-			LEAVE_RET('i', -1);
-		strcpy( Data, iface->Adapter->Device );
-		LEAVE_RET('i', iface->Adapter->DeviceLen);
+		char *name = Adapter_GetName(iface->Adapter);
+		 int len = strlen(name);
+		if( Data ) {
+			if( !CheckMem( Data, len+1 ) ) {
+				free(name);
+				LEAVE_RET('i', -1);
+			}
+			strcpy( Data, name );
+		}
+		free(name);
+		LEAVE_RET('i', len);
 	
 	/*
 	 * ping
@@ -471,109 +480,3 @@ int IPStack_Iface_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	return 0;
 }
 
-// --- Internal ---
-/**
- * \fn tAdapter *IPStack_GetAdapter(const char *Path)
- * \brief Gets/opens an adapter given the path
- */
-tAdapter *IPStack_GetAdapter(const char *Path)
-{
-	tAdapter	*dev;
-	 int	tmp;
-	
-	ENTER("sPath", Path);
-	
-	// Check for loopback
-	if( strcmp(Path, "LOOPBACK") == 0 )
-	{
-		// Initialise if required
-		if( gIP_LoopAdapter.DeviceFD == 0 )
-		{
-			dev = &gIP_LoopAdapter;
-			
-			dev->NRef = 1;
-			dev->DeviceLen = 8;
-			
-			dev->DeviceFD = VFS_Open( "/Devices/fifo/anon", VFS_OPENFLAG_READ|VFS_OPENFLAG_WRITE );
-			if( dev->DeviceFD == -1 ) {
-				Log_Warning("IPStack", "Unable to open FIFO '/Devices/fifo/anon' for loopback");
-				return NULL;
-			}
-			
-			dev->MacAddr.B[0] = 'A';
-			dev->MacAddr.B[1] = 'c';
-			dev->MacAddr.B[2] = 'e';
-			dev->MacAddr.B[3] = 's';
-			dev->MacAddr.B[4] = 's';
-			dev->MacAddr.B[5] = '2';
-			
-			// Start watcher
-			Link_WatchDevice( dev );
-		}
-		LEAVE('p', &gIP_LoopAdapter);
-		return &gIP_LoopAdapter;
-	}
-	
-	Mutex_Acquire( &glIP_Adapters );
-	
-	// Check if this adapter is already open
-	for( dev = gIP_Adapters; dev; dev = dev->Next )
-	{
-		if( strcmp(dev->Device, Path) == 0 ) {
-			dev->NRef ++;
-			Mutex_Release( &glIP_Adapters );
-			LEAVE('p', dev);
-			return dev;
-		}
-	}
-	
-	// Ok, so let's open it
-	dev = malloc( sizeof(tAdapter) + strlen(Path) + 1 );
-	if(!dev) {
-		Log_Warning("IPStack", "GetAdapter - malloc() failed");
-		Mutex_Release( &glIP_Adapters );
-		LEAVE('n');
-		return NULL;
-	}
-	
-	// Fill Structure
-	strcpy( dev->Device, Path );
-	dev->NRef = 1;
-	dev->DeviceLen = strlen(Path);
-	
-	// Open Device
-	dev->DeviceFD = VFS_Open( dev->Device, VFS_OPENFLAG_READ|VFS_OPENFLAG_WRITE );
-	if( dev->DeviceFD == -1 ) {
-		free( dev );
-		Mutex_Release( &glIP_Adapters );
-		LEAVE('n');
-		return NULL;
-	}
-	
-	// Check that it is a network interface
-	tmp = VFS_IOCtl(dev->DeviceFD, 0, NULL);
-	LOG("Device type = %i", tmp);
-	if( tmp != DRV_TYPE_NETWORK ) {
-		Log_Warning("IPStack", "IPStack_GetAdapter: '%s' is not a network interface", dev->Device);
-		VFS_Close( dev->DeviceFD );
-		free( dev );
-		Mutex_Release( &glIP_Adapters );
-		LEAVE('n');
-		return NULL;
-	}
-	
-	// Get MAC Address
-	VFS_IOCtl(dev->DeviceFD, NET_IOCTL_GETMAC, &dev->MacAddr);
-	
-	// Add to list
-	dev->Next = gIP_Adapters;
-	gIP_Adapters = dev;
-	
-	Mutex_Release( &glIP_Adapters );
-	
-	// Start watcher
-	Link_WatchDevice( dev );
-	
-	LEAVE('p', dev);
-	return dev;
-}

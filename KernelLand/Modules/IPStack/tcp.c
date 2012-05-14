@@ -2,7 +2,7 @@
  * Acess2 IP Stack
  * - TCP Handling
  */
-#define DEBUG	1
+#define DEBUG	0
 #include "ipstack.h"
 #include "ipv4.h"
 #include "ipv6.h"
@@ -105,7 +105,7 @@ void TCP_SendPacket( tTCPConnection *Conn, tTCPHeader *Header, size_t Length, co
 		IPStack_Buffer_AppendSubBuffer(buffer, Length, 0, Data, NULL, NULL);
 	IPStack_Buffer_AppendSubBuffer(buffer, sizeof(*Header), 0, Header, NULL, NULL);
 
-	Log_Debug("TCP", "Sending %i+%i to %s:%i", sizeof(*Header), Length,
+	LOG("Sending %i+%i to %s:%i", sizeof(*Header), Length,
 		IPStack_PrintAddress(Conn->Interface->Type, &Conn->RemoteIP),
 		Conn->RemotePort
 		);
@@ -161,7 +161,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 	tTCPListener	*srv;
 	tTCPConnection	*conn;
 
-	Log_Log("TCP", "TCP_GetPacket: <Local>:%i from [%s]:%i, Flags= %s%s%s%s%s%s%s%s",
+	Log_Log("TCP", "TCP_GetPacket: <Local>:%i from [%s]:%i, Flags = %s%s%s%s%s%s%s%s",
 		ntohs(hdr->DestPort),
 		IPStack_PrintAddress(Interface->Type, Address),
 		ntohs(hdr->SourcePort),
@@ -177,7 +177,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 
 	if( Length > (hdr->DataOffset >> 4)*4 )
 	{
-		Log_Log("TCP", "TCP_GetPacket: SequenceNumber = 0x%x", ntohl(hdr->SequenceNumber));
+		LOG("SequenceNumber = 0x%x", ntohl(hdr->SequenceNumber));
 #if HEXDUMP_INCOMING
 		Debug_HexDump(
 			"TCP_GetPacket: Packet Data = ",
@@ -337,12 +337,12 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 	// Ackowledge a sent packet
 	if(Header->Flags & TCP_FLAG_ACK) {
 		// TODO: Process an ACKed Packet
-		Log_Log("TCP", "Conn %p, Sent packet 0x%x ACKed", Connection, Header->AcknowlegementNumber);
+		LOG("Conn %p, Sent packet 0x%x ACKed", Connection, Header->AcknowlegementNumber);
 	}
 	
 	// Get length of data
 	dataLen = Length - (Header->DataOffset>>4)*4;
-	Log_Log("TCP", "HandleConnectionPacket - dataLen = %i", dataLen);
+	LOG("dataLen = %i", dataLen);
 	
 	// 
 	// State Machine
@@ -432,7 +432,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 		
 		sequence_num = ntohl(Header->SequenceNumber);
 		
-		Log_Log("TCP", "0x%08x <= 0x%08x < 0x%08x",
+		LOG("TCP", "0x%08x <= 0x%08x < 0x%08x",
 			Connection->NextSequenceRcv,
 			ntohl(Header->SequenceNumber),
 			Connection->NextSequenceRcv + TCP_WINDOW_SIZE
@@ -450,7 +450,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 			if(rv != 0) {
 				break;
 			}
-			Log_Log("TCP", "0x%08x += %i", Connection->NextSequenceRcv, dataLen);
+			LOG("0x%08x += %i", Connection->NextSequenceRcv, dataLen);
 			Connection->NextSequenceRcv += dataLen;
 			
 			// TODO: This should be moved out of the watcher thread,
@@ -460,6 +460,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 			TCP_INT_UpdateRecievedFromFuture(Connection);
 		
 			// ACK Packet
+			// TODO: Implement delayed ACK sending
 			Header->DestPort = Header->SourcePort;
 			Header->SourcePort = htons(Connection->LocalPort);
 			Header->AcknowlegementNumber = htonl(Connection->NextSequenceRcv);
@@ -467,7 +468,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 			Header->WindowSize = htons(TCP_WINDOW_SIZE);
 			Header->Flags &= TCP_FLAG_SYN;	// Eliminate all flags save for SYN
 			Header->Flags |= TCP_FLAG_ACK;	// Add ACK
-			Log_Log("TCP", "Sending ACK for 0x%08x", Connection->NextSequenceRcv);
+			LOG("TCP", "Sending ACK for 0x%08x", Connection->NextSequenceRcv);
 			TCP_SendPacket( Connection, Header, 0, NULL );
 			//Connection->NextSequenceSend ++;
 		}

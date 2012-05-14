@@ -1,5 +1,5 @@
 /*
- * Acess2 IFCONFIG command
+ * Acess2 ping command
  */
 #include <stdlib.h>
 #include <stdint.h>

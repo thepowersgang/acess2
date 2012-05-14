@@ -71,6 +71,7 @@ struct sInterface {
 	char	Name[];
 };
 
+#if 0
 /**
  * \brief Represents a network adapter
  */
@@ -84,6 +85,7 @@ struct sAdapter {
 	 int	DeviceLen;	//!< Device name length
 	char	Device[];	//!< Device name
 };
+#endif
 
 /**
  * \brief Describes a socket file definition

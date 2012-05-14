@@ -113,10 +113,12 @@ int main(int argc, const char *argv[], const char *envp[])
 	
 	// HACK: Static server entry
 	// UCC (University [of Western Australia] Computer Club) IRC Server
-//	gWindow_Status.Server = Server_Connect( "UCC", "130.95.13.18", 6667 );
-	gWindow_Status.Server = Server_Connect( "Freenode", "89.16.176.16", 6667 );
+	gWindow_Status.Server = Server_Connect( "UCC", "130.95.13.18", 6667 );
+	// Freenode (#osdev)
+//	gWindow_Status.Server = Server_Connect( "Freenode", "89.16.176.16", 6667 );
 //	gWindow_Status.Server = Server_Connect( "Host", "10.0.2.2", 6667 );
-//	gWindow_Status.Server = Server_Connect( "BitlBee", "192.168.1.34", 6667 );
+	// Local server
+//	gWindow_Status.Server = Server_Connect( "BitlBee", "192.168.1.39", 6667 );
 	
 	if( !gWindow_Status.Server )
 		return -1;
@@ -205,6 +207,9 @@ int ParseArguments(int argc, const char *argv[])
 	return 0;
 }
 
+/**
+ * \brief Handle a line from the prompt
+ */
 int ParseUserCommand(char *String)
 {
 	if( String[0] == '/' )
@@ -519,11 +524,12 @@ void ParseServerLine(tServer *Server, char *Line)
 	 int	pos = 0;
 	char	*ident, *cmd;
 
-	_SysDebug("Server %s: Line = %s", Server->Name, Line);	
+	_SysDebug("[%s] %s", Server->Name, Line);	
 	
 	// Message?
 	if( *Line == ':' )
 	{
+		pos ++;
 		ident = GetValue(Line, &pos);	// Ident (user or server)
 		cmd = GetValue(Line, &pos);
 		
@@ -547,18 +553,29 @@ void ParseServerLine(tServer *Server, char *Line)
 			
 			switch(num)
 			{
+			case 332:	// Topic
+				user = message;	// Channel
+				message = Line + pos + 1;	// Topic
+				Message_AppendF(Server, MSG_TYPE_SERVER, user, user, "Topic: %s", message);
+				break;
+			case 333:	// Topic set by
+				user = message;	// Channel
+				message = GetValue(Line, &pos);	// User
+				GetValue(Line, &pos);	// Timestamp
+				Message_AppendF(Server, MSG_TYPE_SERVER, user, user, "Set by %s", message);
+				break;
 			case 353:	// /NAMES list
 				// <user> = <channel> :list
-//				GetValue(Line, &pos);	// '='
+				// '=' was eaten in and set to message
 				user = GetValue(Line, &pos);	// Actually channel
 				message = Line + pos + 1;	// List
-				Message_AppendF(Server, MSG_TYPE_SERVER, user, "", "Names: %s", message);
+				Message_AppendF(Server, MSG_TYPE_SERVER, user, user, "Names: %s", message);
 				break;
 			case 366:	// end of /NAMES list
 				// <user> <channel> :msg
 				user = message;
 				message = Line + pos + 1;
-				Message_Append(Server, MSG_TYPE_SERVER, user, "", message);
+				Message_Append(Server, MSG_TYPE_SERVER, user, user, message);
 				break;
 			case 372:	// MOTD Data
 			case 376:	// MOTD End
@@ -597,13 +614,17 @@ void ParseServerLine(tServer *Server, char *Line)
 			else {
 				message = GetValue(Line, &pos);
 			}
+
+			// TODO: Catch when the privmsg is addressed to the user
+
 //			Cmd_PRIVMSG(Server, dest, ident, message);
+			*strchr(ident, '!') = '\0';	// Hello SIGSEGV
 			Message_Append(Server, MSG_TYPE_STANDARD, ident, dest, message);
 		}
 		else if( strcmp(cmd, "JOIN" ) == 0 )
 		{
 			char	*channel;
-			channel = GetValue(Line, &pos) + 1;
+			channel = Line + pos + 1;
 			Window_Create(Server, channel);
 		}
 		else

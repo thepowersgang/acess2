@@ -8,6 +8,7 @@
 #include "arp.h"
 #include "link.h"
 #include "ipv4.h"	// For IPv4_Netmask
+#include "include/adapters_int.h"	// for MAC addr
 
 #define ARPv6	0
 #define	ARP_CACHE_SIZE	64
@@ -145,7 +146,7 @@ tMacAddr ARP_Resolve4(tInterface *Interface, tIPv4 Address)
 	req.HWSize = 6;
 	req.SWSize = 4;
 	req.Request = htons(1);
-	req.SourceMac = Interface->Adapter->MacAddr;
+	memcpy(&req.SourceMac, Interface->Adapter->HWAddr, 6);	// TODO: Remove hard size
 	req.SourceIP = *(tIPv4*)Interface->Address;
 	req.DestMac = cMAC_BROADCAST;
 	req.DestIP = Address;
@@ -332,7 +333,7 @@ void ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffe
 				req4->DestIP = req4->SourceIP;
 				req4->DestMac = req4->SourceMac;
 				req4->SourceIP = *(tIPv4*)iface->Address;;
-				req4->SourceMac = Adapter->MacAddr;
+				memcpy(&req4->SourceMac, Adapter->HWAddr, 6);	// TODO: Remove hard size
 				req4->Request = htons(2);
 				Log_Debug("ARP", "Sending back us (%02x:%02x:%02x:%02x:%02x:%02x)",
 					req4->SourceMac.B[0], req4->SourceMac.B[1],
@@ -341,7 +342,7 @@ void ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffe
 				
 				// Assumes only a header and footer at link layer
 				tIPStackBuffer	*buffer = IPStack_Buffer_CreateBuffer(3);
-				IPStack_Buffer_AppendSubBuffer(buffer, sizeof(struct sArpRequest4), 0, &req4, NULL, NULL);
+				IPStack_Buffer_AppendSubBuffer(buffer, sizeof(struct sArpRequest4), 0, req4, NULL, NULL);
 				Link_SendPacket(Adapter, 0x0806, req4->DestMac, buffer);
 				IPStack_Buffer_DestroyBuffer(buffer);
 			}

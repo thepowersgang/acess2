@@ -27,6 +27,7 @@ tRoute	*_Route_FindExactRoute(int Type, void *Network, int Subnet, int Metric);
 // - Route Management
 tRoute	*IPStack_Route_Create(int AddrType, void *Network, int SubnetBits, int Metric);
 tRoute	*IPStack_AddRoute(const char *Interface, void *Network, int SubnetBits, void *NextHop, int Metric);
+tRoute	*_Route_FindInterfaceRoute(int AddressType, void *Address);
 tRoute	*IPStack_FindRoute(int AddressType, tInterface *Interface, void *Address);
 // - Individual Routes
  int	IPStack_Route_IOCtl(tVFS_Node *Node, int ID, void *Data);
@@ -112,17 +113,25 @@ tVFS_Node *IPStack_RouteDir_FindDir(tVFS_Node *Node, const char *Name)
 		rt = IPStack_FindRoute(type, NULL, addrData);
 		if(!rt)	return NULL;
 	
-		if( rt->Interface )
+		if( !rt->Interface )
 		{	
-			// Return the interface node
-			// - Sure it's hijacking it from inteface.c's area, but it's
-			//   simpler this way
-			return &rt->Interface->Node;
+			LOG("Why does this route not have a node? trying to find an iface for the next hop");
+
+			rt = _Route_FindInterfaceRoute(type, rt->NextHop);
+			if(!rt) {
+				Log_Notice("Cannot find route to next hop '%s'",
+					IPStack_PrintAddress(type, rt->NextHop));
+				return NULL;
+			}
 		}
-		else
-		{
+		if( !rt->Interface ) {
+			Log_Notice("Routes", "No interface for route %p, what the?", rt);
 			return NULL;
 		}
+		// Return the interface node
+		// - Sure it's hijacking it from inteface.c's area, but it's
+		//   simpler this way
+		return &rt->Interface->Node;
 	}
 	else if( Name[0] == '#' )
 	{
@@ -436,12 +445,55 @@ tRoute *IPStack_AddRoute(const char *Interface, void *Network, int SubnetBits, v
 }
 
 /**
+ * \brief Locates what interface should be used to get directly to an address
+ */
+tRoute *_Route_FindInterfaceRoute(int AddressType, void *Address)
+{
+	tRoute	*best = NULL, *rt;
+	 int addrSize = IPStack_GetAddressSize(AddressType);
+	for( tInterface *iface = gIP_Interfaces; iface; iface = iface->Next )
+	{
+		if( iface->Type != AddressType )	continue;
+		
+		// Check if the address matches
+		if( !IPStack_CompareAddress(AddressType, iface->Address, Address, iface->SubnetBits) )
+			continue;
+		
+		rt = &iface->Route;
+		if( !rt->Interface )
+		{
+			memcpy(rt->Network, iface->Address, addrSize);
+			memset(rt->NextHop, 0, addrSize);
+			rt->Metric = DEFAUTL_METRIC;
+			rt->SubnetBits = iface->SubnetBits;
+			rt->Interface = iface;
+		}
+		
+		if( best ) {
+			// More direct routes are preferred
+			if( best->SubnetBits > rt->SubnetBits ) {
+				LOG("Skipped - less direct (%i < %i)", rt->SubnetBits, best->SubnetBits);
+				continue;
+			}
+			// If equally direct, choose the best metric
+			if( best->SubnetBits == rt->SubnetBits && best->Metric < rt->Metric ) {
+				LOG("Skipped - higher metric (%i > %i)", rt->Metric, best->Metric);
+				continue;
+			}
+		}
+		
+		best = rt;
+	}
+
+	return best;
+}
+
+/**
  */
 tRoute *IPStack_FindRoute(int AddressType, tInterface *Interface, void *Address)
 {
 	tRoute	*rt;
 	tRoute	*best = NULL;
-	tInterface	*iface;
 	 int	addrSize;
 	
 	ENTER("iAddressType pInterface sAddress",
@@ -460,7 +512,7 @@ tRoute *IPStack_FindRoute(int AddressType, tInterface *Interface, void *Address)
 	for( rt = gIP_Routes; rt; rt = rt->Next )
 	{
 		// Check interface
-		if( Interface && rt->Interface != Interface )	continue;
+		if( Interface && rt->Interface && rt->Interface != Interface )	continue;
 		// Check address type
 		if( rt->AddressType != AddressType )	continue;
 		
@@ -489,37 +541,7 @@ tRoute *IPStack_FindRoute(int AddressType, tInterface *Interface, void *Address)
 	// Check against implicit routes
 	if( !best && !Interface )
 	{
-		for( iface = gIP_Interfaces; iface; iface = iface->Next )
-		{
-			if( Interface && iface != Interface )	continue;
-			if( iface->Type != AddressType )	continue;
-			
-			
-			// Check if the address matches
-			if( !IPStack_CompareAddress(AddressType, iface->Address, Address, iface->SubnetBits) )
-				continue;
-			
-			if( best ) {
-				// More direct routes are preferred
-				if( best->SubnetBits > rt->SubnetBits ) {
-					LOG("Skipped - less direct (%i < %i)", rt->SubnetBits, best->SubnetBits);
-					continue;
-				}
-				// If equally direct, choose the best metric
-				if( best->SubnetBits == rt->SubnetBits && best->Metric < rt->Metric ) {
-					LOG("Skipped - higher metric (%i > %i)", rt->Metric, best->Metric);
-					continue;
-				}
-			}
-			
-			rt = &iface->Route;
-			memcpy(rt->Network, iface->Address, addrSize);
-			memset(rt->NextHop, 0, addrSize);
-			rt->Metric = DEFAUTL_METRIC;
-			rt->SubnetBits = iface->SubnetBits;
-			
-			best = rt;
-		}
+		best = _Route_FindInterfaceRoute(AddressType, Address);
 	}
 	if( !best && Interface )
 	{
@@ -559,6 +581,8 @@ int IPStack_Route_IOCtl(tVFS_Node *Node, int ID, void *Data)
 {
 	tRoute	*rt = Node->ImplPtr;
 	 int	addrSize = IPStack_GetAddressSize(rt->AddressType);
+
+	ENTER("pNode iID pData", Node, ID, Data);
 	
 	switch(ID)
 	{
@@ -567,57 +591,57 @@ int IPStack_Route_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	
 	// Get Next Hop
 	case 4:
-		if( !CheckMem(Data, addrSize) )	return -1;
+		if( !CheckMem(Data, addrSize) )	LEAVE_RET('i', -1);
 		memcpy(Data, rt->NextHop, addrSize);
-		return 1;
+		LEAVE_RET('i', 1);
 	// Set Next Hop
 	case 5:
-		if( Threads_GetUID() != 0 )	return -1;
-		if( !CheckMem(Data, addrSize) )	return -1;
+		if( Threads_GetUID() != 0 )	LEAVE_RET('i', -1);
+		if( !CheckMem(Data, addrSize) )	LEAVE_RET('i', -1);
 		memcpy(rt->NextHop, Data, addrSize);
-		return 1;
+		LEAVE_RET('i', 1);
 
 	// Get interface name
 	case 6:
 		if( !rt->Interface ) {
 			if(Data && !CheckMem(Data, 1) )
-				return -1;
+				LEAVE_RET('i', -1);
 			if(Data)
 				*(char*)Data = 0;
-			return 0;
+			LEAVE_RET('i', 0);
 		}
 		if( Data ) {
 			if( !CheckMem(Data, strlen(rt->Interface->Name) + 1) )
-				return -1;
+				LEAVE_RET('i', -1);
 			strcpy(Data, rt->Interface->Name);
 		}
-		return strlen(rt->Interface->Name);
+		LEAVE_RET('i', strlen(rt->Interface->Name));
 	// Set interface name
 	case 7:
 		if( Threads_GetUID() != 0 )
-			return -1;
+			LEAVE_RET('i', -1);
 		if( !CheckString(Data) )
-			return -1;
+			LEAVE_RET('i', -1);
 		else
 		{
 			tInterface	*iface;
 			tVFS_Node	*tmp;
 			tmp = IPStack_Root_FindDir(NULL, Data);
 			if(!tmp)
-				return -1;
+				LEAVE_RET('i', -1);
 			iface = tmp->ImplPtr;
 			if(tmp->Type->Close)	tmp->Type->Close(tmp);
 			
 			if( iface->Type != rt->AddressType )
-				return -1;
+				LEAVE_RET('i', -1);
 
 			// TODO: Other checks?		
 	
 			rt->Interface = iface;
 		}
-		return 0;
+		LEAVE_RET('i', 0);
 
 	default:
-		return -1;
+		LEAVE_RET('i', -1);
 	}
 }

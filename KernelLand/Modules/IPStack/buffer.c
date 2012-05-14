@@ -19,6 +19,8 @@ struct sIPStackBuffer
 		const void	*Data;
 		size_t	PreLength;
 		size_t	PostLength;
+		tIPStackBufferCb	Cb;
+		void	*CbArg;
 		// TODO: Callbacks?
 	} SubBuffers[];
 };
@@ -36,11 +38,27 @@ tIPStackBuffer *IPStack_Buffer_CreateBuffer(int MaxBuffers)
 	return ret;
 }
 
+void IPStack_Buffer_ClearBuffer(tIPStackBuffer *Buffer)
+{
+	for( int i = 0; i < Buffer->nSubBuffers; i ++ )
+	{
+		if( Buffer->SubBuffers[i].Cb == NULL )
+			continue ;
+		Buffer->SubBuffers[i].Cb(
+			Buffer->SubBuffers[i].CbArg,
+			Buffer->SubBuffers[i].PreLength,
+			Buffer->SubBuffers[i].PostLength,
+			Buffer->SubBuffers[i].Data
+			);
+	}
+	// TODO: Fire callbacks?
+	Buffer->nSubBuffers = 0;
+}
+
 void IPStack_Buffer_DestroyBuffer(tIPStackBuffer *Buffer)
 {
-	// TODO: Fire callbacks?
+	IPStack_Buffer_ClearBuffer(Buffer);
 	Buffer->MaxSubBufffers = 0;
-	Buffer->nSubBuffers = 0;
 	free(Buffer);
 }
 
@@ -62,6 +80,8 @@ void IPStack_Buffer_AppendSubBuffer(tIPStackBuffer *Buffer,
 	Buffer->SubBuffers[index].Data = Data;
 	Buffer->SubBuffers[index].PreLength = HeaderLen;
 	Buffer->SubBuffers[index].PostLength = FooterLen;
+	Buffer->SubBuffers[index].Cb = Cb;
+	Buffer->SubBuffers[index].CbArg = Arg;
 }
 
 size_t IPStack_Buffer_GetLength(tIPStackBuffer *Buffer)
@@ -69,9 +89,43 @@ size_t IPStack_Buffer_GetLength(tIPStackBuffer *Buffer)
 	return Buffer->TotalLength;
 }
 
+size_t IPStack_Buffer_GetData(tIPStackBuffer *Buffer, void *Dest, size_t MaxBytes)
+{
+	Uint8	*dest = Dest;
+	size_t	rem_space = MaxBytes;
+	size_t	len;
+	
+	for( int i = Buffer->nSubBuffers; i -- && rem_space != 0; )
+	{
+		len = MIN(Buffer->SubBuffers[i].PreLength, rem_space);
+		memcpy(dest,
+			Buffer->SubBuffers[i].Data,
+			len
+			);
+		dest += len;
+		rem_space -= len;
+	}
+	for( int i = 0; i < Buffer->nSubBuffers && rem_space; i ++ )
+	{
+		if( Buffer->SubBuffers[i].PostLength == 0  )
+			continue ;
+		
+		len = MIN(Buffer->SubBuffers[i].PostLength, rem_space);
+		memcpy(dest,
+			(Uint8*)Buffer->SubBuffers[i].Data + Buffer->SubBuffers[i].PreLength,
+			len
+			);
+		dest += len;
+		rem_space -= len;
+	}
+	
+	return MaxBytes - rem_space;
+}
+
 void *IPStack_Buffer_CompactBuffer(tIPStackBuffer *Buffer, size_t *Length)
 {
 	void	*ret;
+	
 	ret = malloc(Buffer->TotalLength);
 	if(!ret) {
 		*Length = 0;
@@ -79,27 +133,9 @@ void *IPStack_Buffer_CompactBuffer(tIPStackBuffer *Buffer, size_t *Length)
 	}
 	
 	*Length = Buffer->TotalLength;
-	
-	Uint8	*dest = ret;
-	for( int i = Buffer->nSubBuffers; i --; )
-	{
-		memcpy(dest,
-			Buffer->SubBuffers[i].Data,
-			Buffer->SubBuffers[i].PreLength
-			);
-		dest += Buffer->SubBuffers[i].PreLength;
-	}
-	for( int i = 0; i < Buffer->nSubBuffers; i ++ )
-	{
-		if( Buffer->SubBuffers[i].PostLength )
-		{
-			memcpy(dest,
-				(Uint8*)Buffer->SubBuffers[i].Data + Buffer->SubBuffers[i].PreLength,
-				Buffer->SubBuffers[i].PostLength
-				);
-			dest += Buffer->SubBuffers[i].PreLength;
-		}
-	}
+
+	IPStack_Buffer_GetData(Buffer, ret, Buffer->TotalLength);
+
 	return ret;
 }
 
