@@ -45,6 +45,24 @@ enum eRegs
 #define TCR_RSVD1	(1 << 4)	// reserved
 #define TCR_TRSF(v)	(((v)&7)<<5)	// Transmit FIFO threshold
 
+#define CR0_INIT	(1 << 0)
+#define CR0_STRT	(1 << 1)
+#define CR0_STOP	(1 << 2)
+#define CR0_RXON	(1 << 3)
+#define CR0_TXON	(1 << 4)
+#define CR0_TDMD	(1 << 5)
+#define CR0_RDMD	(1 << 6)
+#define CR0_RESV	(1 << 7)	// reserved
+
+#define CR1_EREN	(1 << 0)	// Early recieve enable
+#define CR1_RESV0	(1 << 1)
+#define CR1_FDX 	(1 << 2)	// Full/Half-duplex selector
+#define CR1_DPOLL	(1 << 3)	// Disable automatic polling
+#define CR1_RESV1	(1 << 4)
+#define CR1_TDMD	(1 << 5)
+#define CR1_RDMD	(1 << 6)
+#define CR1_SFRST	(1 << 7)	// Software reset
+
 // TODO: Other Regs?
 
 struct sRXDesc
@@ -88,6 +106,8 @@ struct sTXDesc
 #define TD_TCR_STP	(1 << 5)	// First descriptor in packet
 #define TD_TCR_EDP	(1 << 6)	// Last descriptor in packet
 #define TD_TCR_IC	(1 << 7)	// Interrupt when transmitted
+
+#define TD_TSR_OWN	(1 << 31)
 
 #endif
 
