@@ -188,11 +188,21 @@ void AxWin3_int_HandleMessage(tAxWin_IPCMessage *Msg)
 	{
 	case IPCMSG_SENDMSG: {
 		tIPCMsg_SendMsg	*info = (void*)Msg->Data;
-		if(Msg->Size < sizeof(*info))	return ;
-		if(Msg->Size < sizeof(*info) + info->Length)	return ;
-		if(!dest || !dest->Handler)	return ;
+		if(Msg->Size < sizeof(*info) || Msg->Size < sizeof(*info) + info->Length) {
+			_SysDebug("Message is undersized (%i < %i + %i)",
+				Msg->Size < sizeof(*info), info->Length);
+			return ;
+		}
+		if(!dest || !dest->Handler) {
+			_SysDebug("No handler for destination %p", dest);
+			return ;
+		}
+		_SysDebug("IPC Message 0x%x - %i bytes", info->ID, info->Length);
 		dest->Handler(dest, info->ID, info->Length, info->Data);
 		break; }
+	default:
+		_SysDebug("Unknow message ID %i", Msg->ID);
+		break;
 	}
 }
 

@@ -537,8 +537,7 @@ void IPC_Handle(const tIPC_Type *IPCType, const void *Ident, size_t MsgLen, tAxW
 		_SysDebug("WARNING: Unknown message %i (%p)", Msg->ID, IPCType);
 		break;
 	}
-	if(rv)
-		_SysDebug("IPC_Handle: rv = %i", rv);
+	_SysDebug("IPC_Handle: rv = %i", rv);
 }
 
 // --- Server->Client replies

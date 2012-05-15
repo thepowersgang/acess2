@@ -125,6 +125,8 @@ void WM_Input_KeyFire(uint32_t Character, uint32_t Scancode)
 
 	// TODO: Properly translate into KeySyms and Unicode
 
+	// TODO: Shortcuts
+
 	msg.KeySym = Scancode;
 	msg.UCS32 = Character;
 	WM_SendMessage(NULL, gpWM_FocusedWindow, WNDMSG_KEYFIRE, sizeof(msg), &msg);
