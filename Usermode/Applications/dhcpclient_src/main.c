@@ -148,6 +148,10 @@ void Scan_Dir(tInterface **IfaceList, const char *Directory)
 	int dp = open(Directory, OPENFLAG_READ);
 	char filename[FILENAME_MAX];
 
+	if( dp == -1 ) {
+		fprintf(stderr, "Unable to open directory '%s'\n", Directory);
+	}
+
 	while( readdir(dp, filename) )
 	{
 		if( filename[0] == '.' )	continue ;		
@@ -204,11 +208,11 @@ int Start_Interface(tInterface *Iface)
 	}
 	tmp = 68; ioctl(fd, 4, &tmp);	// Local port
 	tmp = 67; ioctl(fd, 5, &tmp);	// Remote port
-	tmp = 0;	ioctl(fd, 7, &tmp);	// Remote addr mask - we don't care where the reply comes from
+	tmp = 0;	ioctl(fd, 7, &tmp);	// Remote addr mask bits - we don't care where the reply comes from
 	addr[0] = addr[1] = addr[2] = addr[3] = 255;	// 255.255.255.255
 	ioctl(fd, 8, addr);	// Remote address
 	
-	return fd;
+	return 0;
 }
 
 void Send_DHCPDISCOVER(tInterface *Iface)
