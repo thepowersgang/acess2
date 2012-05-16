@@ -237,6 +237,7 @@ tInterface *IPStack_AddInterface(const char *Device, const char *Name)
 	iface->Next = NULL;
 	iface->Type = 0;	// Unset type
 	iface->Address = iface->Name + nameLen + 1;	// Address
+	memset(&iface->Route, 0, sizeof(iface->Route));
 	iface->Route.Network = iface->Address + IPStack_GetAddressSize(-1);
 	iface->Route.NextHop = iface->Route.Network + IPStack_GetAddressSize(-1);
 	
