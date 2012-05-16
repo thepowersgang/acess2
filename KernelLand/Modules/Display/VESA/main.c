@@ -67,11 +67,19 @@ tTimer	*gpVesaCursorTimer;
  int	gbVesa_CursorVisible = 0;
 // --- 2D Video Stream Handlers ---
 tDrvUtil_Video_BufInfo	gVesa_BufInfo;
+// --- Settings ---
+// int	gbVesa_DisableFBCache;	// Disables the main-memory framebuffer cache
 
 // === CODE ===
 int Vesa_Install(char **Arguments)
 {
 	 int	rv;
+
+//	for( int i = 0; Arguments[i]; i ++ )
+//	{
+//		if( strcmp(Aguments[i], "nocache") == 0 )
+//			gbVesa_DisableFBCache = 1;
+//	}
 	
 	gpVesa_BiosState = VM8086_Init();
 	

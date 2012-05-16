@@ -115,6 +115,7 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 		size_t	total_length;
 	
 		USB_int_ReadDescriptor(dev, 0, 2, i, sizeof(desc), &desc);
+		// TODO: Check return length? (Do we get a length?)
 		#if DUMP_DESCRIPTORS
 		LOG("Configuration Descriptor %i = {", i);
 		LOG(" .Length = %i", desc.Length);
@@ -132,6 +133,11 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 			free(tmp);
 		}
 		#endif
+
+		if( desc.NumInterfaces == 0 ) {
+			Log_Notice("USB", "Device does not have any interfaces");
+			continue ;
+		}
 
 		// TODO: Split here and allow some method of selection
 
@@ -179,13 +185,11 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 			LOG(" .InterfaceClass = 0x%x", iface->InterfaceClass);
 			LOG(" .InterfaceSubClass = 0x%x", iface->InterfaceSubClass);
 			LOG(" .InterfaceProcol = 0x%x", iface->InterfaceProtocol);
-			# if DEBUG	
 			if( iface->InterfaceStr ) {
 				char	*tmp = USB_int_GetDeviceString(dev, 0, iface->InterfaceStr);
 				LOG(" .InterfaceStr = %i '%s'", iface->InterfaceStr, tmp);
 				free(tmp);
 			}
-			# endif
 			LOG("}");
 			#endif
 
@@ -246,11 +250,11 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 					);
 			}
 			else {
+				LOG("Driver '%s' in use", dev_if->Driver->Name);
 				dev_if->Driver->Connected(
 					dev_if,
 					full_buf + iface_base_ofs, ptr_ofs - iface_base_ofs
 					);
-			//	dev_if->Driver->Connected( dev_if );
 			}
 		}
 		
