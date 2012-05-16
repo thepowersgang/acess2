@@ -244,7 +244,7 @@ void Error_Backtrace(Uint eip, Uint ebp)
 		ebp = *(Uint*)ebp;
 		i++;
 	}
-	LogF("\n");
+	LogF("\r\n");
 }
 
 /**

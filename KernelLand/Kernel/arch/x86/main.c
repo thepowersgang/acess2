@@ -45,8 +45,8 @@ int kmain(Uint MbMagic, void *MbInfoPtr)
 	tMBoot_Module	*mods;
 	tMBoot_Info	*mbInfo;
 
-	LogF("Acess2 x86-"PLATFORM" v"EXPAND_STR(KERNEL_VERSION)"\n");
-	LogF(" Build %i, Git Hash %s\n", BUILD_NUM, gsGitHash);
+	LogF("Acess2 x86-"PLATFORM" v"EXPAND_STR(KERNEL_VERSION)"\r\n");
+	LogF(" Build %i, Git Hash %s\r\n", BUILD_NUM, gsGitHash);
 	
 	Log("MbMagic = %08x, MbInfoPtr = %p", MbMagic, MbInfoPtr);
 	
