@@ -63,6 +63,24 @@ enum eRegs
 #define CR1_RDMD	(1 << 6)
 #define CR1_SFRST	(1 << 7)	// Software reset
 
+#define ISR0_PRX	(1 << 0)	// Packet recieved
+#define ISR0_PTX	(1 << 1)	// Packet transmitted successfully
+#define ISR0_RXE	(1 << 2)	// RX Error
+#define ISR0_TXE	(1 << 3)	// TX Error
+#define ISR0_TU 	(1 << 4)	// Transmit buffer underflow
+#define ISR0_RU 	(1 << 5)	// Recieve buffer link error
+#define ISR0_BE 	(1 << 6)	// PCI Bus error
+#define ISR0_CNT	(1 << 7)	// CRC error / missed packet counter overflow
+
+#define ISR1_ERI	(1 << 0)	// Early recieve interrupt
+#define ISR1_UDFI	(1 << 1)	// TX FIFO underflow event
+#define ISR1_OVFI	(1 << 2)	// Recieve overflow
+#define ISR1_PKTR	(1 << 3)	// FIFO overflow (?"next packet race with current packet")
+#define ISR1_NORBF	(1 << 4)	// No more recieve buffers avaiable (overflow essentialy)
+#define ISR1_ABTI	(1 << 5)	// Transmission abort due to excessive collisions
+#define ISR1_SRCI	(1 << 6)	// Port state change
+#define ISR1_GENI	(1 << 7)	// General purpose interrupt
+
 // TODO: Other Regs?
 
 struct sRXDesc
@@ -73,7 +91,7 @@ struct sRXDesc
 	Uint16	_resvd;
 	Uint32	RXBufferStart;
 	Uint32	RDBranchAddress;	// ? - I'm guessing it's the next descriptor in the chain
-};
+} PACKED;
 
 #define RSR_RERR	(1 << 0)	// Receiver error
 #define RSR_CRC 	(1 << 1)	// CRC Error
@@ -100,7 +118,7 @@ struct sTXDesc
 	Uint8	_resvd;
 	Uint32	TXBufferStart;
 	Uint32	TDBranchAddress;	// Bit 0: Disable interrupt
-};
+} PACKED;
 
 #define TD_TCR_CRC	(1 << 0)	// Disable CRC generation
 #define TD_TCR_STP	(1 << 5)	// First descriptor in packet
