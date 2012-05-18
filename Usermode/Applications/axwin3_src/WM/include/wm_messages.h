@@ -27,6 +27,8 @@ enum eWM_WindowMessages
 	WNDMSG_KEYDOWN,
 	WNDMSG_KEYFIRE,
 	WNDMSG_KEYUP,
+
+	WNDMSG_HOTKEY,
 	
 	WNDMSG_CLASS_MIN = 0x1000,
 	WNDMSG_CLASS_MAX = 0x2000,
@@ -59,6 +61,11 @@ struct sWndMsg_KeyAction
 {
 	uint32_t	KeySym;
 	uint32_t	UCS32;
+};
+
+struct sWndMsg_Hotkey
+{
+	uint16_t	ID;
 };
 
 #endif
