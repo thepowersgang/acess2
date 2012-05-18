@@ -36,7 +36,7 @@ typedef struct sCard
 	struct {
 		Uint32	Phys;
 		void	*Virt;
-	} RXBuffers[N_RX_PAGES];
+	} RXBuffers[N_RX_BUF_PAGES];
 
 	Uint32	DescTablePhys;
 	void	*DescTable;
@@ -145,7 +145,7 @@ void Rhine2_int_InitialiseCard(tCard *Card)
 	
 	LOG("Allocaating RX buffers");
 	// Allocate memory for things
-	for( int i = 0; i < N_RX_PAGES; i ++ )
+	for( int i = 0; i < N_RX_BUF_PAGES; i ++ )
 	{
 		Card->RXBuffers[i].Virt = (void*)MM_AllocDMA(1, 32, &phys);
 		Card->RXBuffers[i].Phys = phys;
@@ -408,7 +408,7 @@ struct sRXDesc *Rhine2_int_GetDescFromPhys(tCard *Card, Uint32 Addr)
 
 void *Rhine2_int_GetBufferFromPhys(tCard *Card, Uint32 Addr)
 {
-	for( int i = 0; i < N_RX_PAGES; i ++ )
+	for( int i = 0; i < N_RX_BUF_PAGES; i ++ )
 	{
 		if( Card->RXBuffers[i].Phys > Addr )	continue;
 		if( Card->RXBuffers[i].Phys + PAGE_SIZE <= Addr )	continue;
