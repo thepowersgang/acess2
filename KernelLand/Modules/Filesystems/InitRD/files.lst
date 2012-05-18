@@ -1,17 +1,17 @@
 Dir "SBin" {
 	File "init" "__BIN__/SBin/init"
 	File "login" "__BIN__/SBin/login"
-	File "dhcpc" "__BIN__/SBin/dhcpc"
 }
 Dir "Bin" {
 	File "CLIShell" "__BIN__/Bin/CLIShell"
 	File "ls" "__BIN__/Bin/ls"
 	File "cat" "__BIN__/Bin/cat"
 	File "mount" "__BIN__/Bin/mount"
-	File "ifconfig" "__BIN__/Bin/ifconfig"
+	File "ip" "__BIN__/Bin/ip"
 	File "ping" "__BIN__/Bin/ping"
 	File "telnet" "__BIN__/Bin/telnet"
 	File "irc" "__BIN__/Bin/irc"
+	File "dhcpc" "__BIN__/SBin/dhcpc"
 }
 Dir "Libs" {
 	File "ld-acess.so" "__BIN__/Libs/ld-acess.so"

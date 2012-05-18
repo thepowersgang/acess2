@@ -14,7 +14,8 @@
 #define DESC_SIZE	16
 #define N_RX_DESCS	16
 #define RX_BUF_SIZE	1024
-#define N_RX_PAGES	((N_RX_DESCS*RX_BUF_SIZE)/PAGE_SIZE)
+#define N_RX_BUF_PER_PAGE	(PAGE_SIZE/RX_BUF_SIZE)
+#define N_RX_BUF_PAGES	((N_RX_DESCS*RX_BUF_SIZE)/PAGE_SIZE)
 #define N_TX_DESCS	((PAGE_SIZE/DESC_SIZE)-N_RX_DESCS)
 
 #define CR0_BASEVAL	(CR0_STRT|CR0_TXON|CR0_RXON)
@@ -44,8 +45,7 @@ typedef struct sCard
 	 int	NextTX;
 	 int	nFreeTX;
 	
-	struct sRXDesc	*FirstRX;	// Most recent unread packet
-	struct sRXDesc	*LastRX;	// End of RX descriptor queue
+	struct sRXDesc	*NextRX;	// Most recent unread packet
 
 	void	*IPHandle;	
 	Uint8	MacAddr[6];
@@ -161,14 +161,16 @@ void Rhine2_int_InitialiseCard(tCard *Card)
 	{
 		rxdescs[i].RSR = 0;
 		rxdescs[i].BufferSize = RX_BUF_SIZE;
-		rxdescs[i].RXBufferStart = Card->RXBuffers[i/(PAGE_SIZE/RX_BUF_SIZE)].Phys
-			+ (i % (PAGE_SIZE/RX_BUF_SIZE)) * RX_BUF_SIZE;
+		rxdescs[i].RXBufferStart = Card->RXBuffers[i/N_RX_BUF_PER_PAGE].Phys
+			+ (i % N_RX_BUF_PER_PAGE) * RX_BUF_SIZE;
 		rxdescs[i].RDBranchAddress = Card->DescTablePhys + (i+1) * DESC_SIZE;
 		rxdescs[i].Length = (1 << 15);	// set OWN
+		LOG("RX Desc %p = {Buf:0x%8x, Next:0x%x}", rxdescs,
+			rxdescs[i].RXBufferStart, rxdescs[i].RDBranchAddress
+			);
 	}
 	rxdescs[ N_RX_DESCS - 1 ].RDBranchAddress = Card->DescTablePhys;
-	Card->FirstRX = &rxdescs[0];
-	Card->LastRX = &rxdescs[N_RX_DESCS - 1];
+	Card->NextRX = &rxdescs[0];
 
 	Card->TXDescs = (void*)(rxdescs + N_RX_DESCS);
 	memset(Card->TXDescs, 0, sizeof(struct sTXDesc)*N_TX_DESCS);
@@ -191,7 +193,7 @@ void Rhine2_int_InitialiseCard(tCard *Card)
 	
 	LOG("RX started");
 	outb(Card->IOBase + REG_CR0, CR0_BASEVAL);
-	outb(Card->IOBase + REG_CR1, CR1_DPOLL);	// Disabled TX polling only?
+	outb(Card->IOBase + REG_CR1, 0);	// Disabled TX polling only?
 	
 	LOG("ISR state: %02x %02x", inb(Card->IOBase + REG_ISR0), inb(Card->IOBase + REG_ISR1));
 }
@@ -214,7 +216,7 @@ tIPStackBuffer *Rhine2_WaitPacket(void *Ptr)
 	}
 	
 	nDesc = 0;
-	desc = card->FirstRX;
+	desc = card->NextRX;
 	while( !(desc->Length & (1 << 15)) )
 	{
 //		LOG("desc(%p) = {RSR:%04x,Length:%04x,BufferSize:%04x,RXBufferStart:%08x,RDBranchAddress:%08x}",
@@ -227,7 +229,7 @@ tIPStackBuffer *Rhine2_WaitPacket(void *Ptr)
 	LOG("%i descriptors in packet", nDesc);
 
 	ret = IPStack_Buffer_CreateBuffer(nDesc);
-	desc = card->FirstRX;
+	desc = card->NextRX;
 	while( !(desc->Length & (1 << 15)) )
 	{
 		void	*data = Rhine2_int_GetBufferFromPhys(card, desc->RXBufferStart);
@@ -237,7 +239,7 @@ tIPStackBuffer *Rhine2_WaitPacket(void *Ptr)
 			);
 		desc = Rhine2_int_GetDescFromPhys(card, desc->RDBranchAddress);
 	}	
-	card->FirstRX = desc;
+	card->NextRX = desc;
 
 	LEAVE('p', ret);
 	return ret;
@@ -418,6 +420,8 @@ void *Rhine2_int_GetBufferFromPhys(tCard *Card, Uint32 Addr)
 void Rhine2_int_FreeRXDesc(void *Ptr, size_t u1, size_t u2, const void *u3)
 {
 	struct sRXDesc	*desc = Ptr;
+
+	LOG("Descriptor %p returned to card", desc);
 	
 	desc->RSR = 0;
 	desc->Length = (1 << 15);	// Reset OWN

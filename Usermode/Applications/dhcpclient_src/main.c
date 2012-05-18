@@ -1,4 +1,6 @@
 /*
+ * 
+ * http://www.ietf.org/rfc/rfc2131.txt
  */
 #include <unistd.h>
 #include <stdint.h>
@@ -63,6 +65,11 @@ typedef struct sInterface
 	 int	Num;
 	 int	SocketFD;
 	 int	IfaceFD;
+
+	uint32_t	TransactionID;
+	char	HWAddr[6];
+	
+	int64_t	Timeout;
 } tInterface;
 
 // === PROTOTYPES ===
@@ -72,6 +79,8 @@ int	Start_Interface(tInterface *Iface);
 void	Send_DHCPDISCOVER(tInterface *Iface);
 void	Send_DHCPREQUEST(tInterface *Iface, void *OfferBuffer, int TypeOffset);
 int	Handle_Packet(tInterface *Iface);
+void	Handle_Timeout(tInterface *Iface);
+void	Update_State(tInterface *Iface, int newState);
 void	SetAddress(tInterface *Iface, void *Addr, void *Mask, void *Router);
 
 // === CODE ===
@@ -96,10 +105,10 @@ int main(int argc, char *argv[])
 
 	for( i = ifaces; i; i = i->Next )
 	{
-		i->State = STATE_PREINIT;
 		if( Start_Interface(i) < 0 ) {
 			return -1;
 		}
+		i->State = STATE_PREINIT;
 		
 		// Send request
 		Send_DHCPDISCOVER(i);
@@ -110,6 +119,7 @@ int main(int argc, char *argv[])
 		 int	maxfd;
 		fd_set	fds;
 		tInterface	*p;
+		int64_t	timeout = 1000;
 	
 		maxfd = 0;
 		FD_ZERO(&fds);
@@ -118,11 +128,14 @@ int main(int argc, char *argv[])
 			FD_SET(i->SocketFD, &fds);
 			if(maxfd < i->SocketFD) maxfd = i->SocketFD;
 		}
-		if( select(maxfd+1, &fds, NULL, NULL, NULL) < 0 )
+		
+		if( select(maxfd+1, &fds, NULL, NULL, &timeout) < 0 )
 		{
 			// TODO: Check error result
 			return -1;
 		}
+
+		_SysDebug("select() returned");
 
 		// Check for changes (with magic to allow inline deletion)
 		for( p = (void*)&ifaces, i = ifaces; i; p=i,i = i->Next )
@@ -137,6 +150,11 @@ int main(int argc, char *argv[])
 					free(i);
 					i = p;
 				}
+			}
+			
+			if( _SysTimestamp() > i->Timeout )
+			{
+				Handle_Timeout(i);
 			}
 		}
 	}
@@ -174,6 +192,20 @@ int Start_Interface(tInterface *Iface)
 	char	addr[4] = {0,0,0,0};
 	
 	// TODO: Check that the adapter is not in use
+	
+	// Request MAC address from network adapter
+	{
+		char	path[] = "/Devices/ip/adapters/ethXXXX";
+		sprintf(path, "/Devices/ip/adapters/%s", Iface->Adapter);
+		fd = open(path, 0);
+		if(fd == -1) {
+			_SysDebug("Unable to open adapter %s", path);
+			return -1;
+		}
+		ioctl(fd, 4, Iface->HWAddr);
+		// TODO: Check if ioctl() failed
+		close(fd);
+	}
 	
 	// Initialise an interface, with a dummy IP address (zero)
 	fd = open("/Devices/ip", 0);
@@ -215,6 +247,10 @@ int Start_Interface(tInterface *Iface)
 	return 0;
 }
 
+void Send_DHCPRELEASE(tInterface *Iface)
+{
+}
+
 void Send_DHCPDISCOVER(tInterface *Iface)
 {
 	uint32_t	transaction_id;
@@ -222,7 +258,10 @@ void Send_DHCPDISCOVER(tInterface *Iface)
 	char	data[8 + sizeof(struct sDHCP_Message) + 3 + 1];
 	msg = (void*)data + 8;
 	
+	_SysDebug("DHCPDISCOVER to %s", Iface->Adapter);
+
 	transaction_id = rand();
+	Iface->TransactionID = transaction_id;
 
 	msg->op    = htonb(1);	// BOOTREQUEST
 	msg->htype = htonb(1);	// 10mb Ethernet
@@ -230,25 +269,13 @@ void Send_DHCPDISCOVER(tInterface *Iface)
 	msg->hops  = htonb(0);	// Hop count so far
 	msg->xid   = htonl(transaction_id);	// Transaction ID
 	msg->secs  = htons(0);	// secs - No time has elapsed
-	msg->flags = htons(0);	// flags - TODO: Check if broadcast bit need be set
+	msg->flags = htons(0x0000);	// flags - Broadcast is unset
 	msg->ciaddr = htonl(0);	// ciaddr - Zero, as we don't have one yet
 	msg->yiaddr = htonl(0);	// yiaddr - Zero?
 	msg->siaddr = htonl(0);	// siaddr - Zero? maybe -1
 	msg->giaddr = htonl(0);	// giaddr - Zero?
-	// Request MAC address from network adapter
-	{
-		char	path[] = "/Devices/ip/adapters/ethXXXX";
-		sprintf(path, "/Devices/ip/adapters/%s", Iface->Adapter);
-		int fd = open(path, 0);
-		if(fd == -1) {
-			_SysDebug("Unable to open adapter %s", path);
-		}
-		else {
-			ioctl(fd, 4, msg->chaddr);
-			// TODO: Check if ioctl() failed
-			close(fd);
-		}
-	}
+	memcpy(msg->chaddr, Iface->HWAddr, 6);
+
 	memset(msg->sname, 0, sizeof(msg->sname));	// Nuke the rest
 	memset(msg->file, 0, sizeof(msg->file));	// Nuke the rest
 	msg->dhcp_magic = htonl(DHCP_MAGIC);
@@ -265,21 +292,53 @@ void Send_DHCPDISCOVER(tInterface *Iface)
 	data[4] = 255;	data[5] = 255;	data[6] = 255;	data[7] = 255;
 
 	write(Iface->SocketFD, data, sizeof(data));
-	Iface->State = STATE_DISCOVER_SENT;
+	Update_State(Iface, STATE_DISCOVER_SENT);
 }
 
 void Send_DHCPREQUEST(tInterface *Iface, void *OfferPacket, int TypeOffset)
 {
 	struct sDHCP_Message	*msg;
+	 int	i;
 	msg = (void*) ((char*)OfferPacket) + 8;
 
 	// Reuses old data :)
-	msg->op = 1;
-	msg->options[TypeOffset+2] = 3;	// DHCPREQUEST
-	msg->options[TypeOffset+3] = 255;
+	msg->op    = 1;
+	msg->htype = 1;
+	msg->hlen  = 6;
+	msg->hops  = 0;
+	msg->xid   = msg->xid;
+	msg->secs  = htons(0);	// TODO: Maintain times
+	msg->flags = htons(0);
+	memcpy(msg->chaddr, Iface->HWAddr, 6);
+	memset(msg->sname, 0, sizeof(msg->sname));	// Nuke the rest
+	memset(msg->file, 0, sizeof(msg->file));	// Nuke the rest
+
+	i = 0;
+	msg->options[i++] = 53;	// Message type = DHCPREQUEST
+	msg->options[i++] = 1;
+	msg->options[i++] = 3;
+	msg->options[i++] = 50;	// Requested Address
+	msg->options[i++] = 4;
+	memcpy(msg->options + i, &msg->yiaddr, 4);	i += 4;
+//	msg->options[i++] = 54;	// Server identifier
+//	msg->options[i++] = 4;
+//	memcpy(msg->options + i, (char*)OfferPacket + 4, 4);	i += 4;
+	msg->options[i++] = 255;
 	
-	write(Iface->SocketFD, OfferPacket, 8 + sizeof(*msg) + TypeOffset + 4);
-	Iface->State = STATE_REQUEST_SENT;
+	// Clear last because yiaddr is needed in option setup
+	msg->ciaddr = htonl(0);
+	msg->yiaddr = htonl(0);
+	msg->siaddr = htonl(0);
+	msg->giaddr = htonl(0);
+
+	// HACK
+	((uint8_t*)OfferPacket)[4] = 255;
+	((uint8_t*)OfferPacket)[5] = 255;
+	((uint8_t*)OfferPacket)[6] = 255;
+	((uint8_t*)OfferPacket)[7] = 255;
+	
+	write(Iface->SocketFD, OfferPacket, 8 + sizeof(*msg) + i);
+	Update_State(Iface, STATE_REQUEST_SENT);
 }
 
 int Handle_Packet(tInterface *Iface)
@@ -314,6 +373,19 @@ int Handle_Packet(tInterface *Iface)
 		return 0;
 	}	
 
+
+	// Check if the packet is related to our requests
+	if( ntohl(msg->xid) != Iface->TransactionID ) {
+		_SysDebug("Transaction ID mis-match, ignoring (0x%x != 0x%x)",
+			ntohl(msg->xid), Iface->TransactionID);
+		return 0;
+	}
+	if( memcmp(msg->chaddr, Iface->HWAddr, 6) != 0 ) {
+		_SysDebug("Hardware address mis-match, ignoring");
+		return 0;
+	}
+
+	// Parse options
 	i = 0;
 	while( i < len - sizeof(*msg) - 8 && msg->options[i] != 255 )
 	{
@@ -357,11 +429,39 @@ int Handle_Packet(tInterface *Iface)
 	case 4:	// DHCPDECLINE - ?
 		break;
 	case 5:	// DHCPACK
-		// TODO: Apply address
 		SetAddress(Iface, &msg->yiaddr, subnet_mask, router);
+		// Return 1 to remove from list
 		return 1;
 	}
 	return 0;
+}
+
+void Handle_Timeout(tInterface *Iface)
+{
+	switch(Iface->State)
+	{
+	case STATE_DISCOVER_SENT:
+		Send_DHCPDISCOVER(Iface);
+		break;
+	default:
+		_SysDebug("Timeout with state = %i", Iface->State);
+		break;
+	}
+}
+
+void Update_State(tInterface *Iface, int newState)
+{
+	if( Iface->State != newState )
+	{
+		Iface->Timeout = _SysTimestamp() + 500;
+		Iface->State = newState;
+	}
+	else
+	{
+		// TODO: Exponential backoff
+		Iface->Timeout = _SysTimestamp() + 3000;
+		_SysDebug("State %i repeated, timeout is 3000ms now", newState);
+	}
 }
 
 void SetAddress(tInterface *Iface, void *Addr, void *Mask, void *Router)
