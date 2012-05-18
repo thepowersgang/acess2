@@ -10,8 +10,8 @@
 #include "include/adapters.h"
 
 // === CONSTANTS ===
-//! Default timeout value, 30 seconds
-#define DEFAULT_TIMEOUT	(30*1000)
+//! Default timeout value, 5 seconds
+#define DEFAULT_TIMEOUT	(5*1000)
 
 // === IMPORTS ===
 extern int	IPv4_Ping(tInterface *Iface, tIPv4 Addr);
