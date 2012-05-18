@@ -40,6 +40,8 @@ const struct {
 	EXP(SysSetName),
 	//EXP(SysGetName),
 
+	EXP(_SysTimestamp),
+
 	//EXP(SysSetPri),
 
 	EXP(SysSendMessage),

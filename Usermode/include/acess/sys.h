@@ -53,6 +53,7 @@ extern int	getpid(void);
 extern int	_SysSetFaultHandler(int (*Handler)(int));
 extern void	SysSetName(const char *Name);
 //extern int	SysGetName(const char *Name);
+extern int64_t	_SysTimestamp(void);
 
 // --- Permissions ---
 extern int	getuid(void);
