@@ -121,11 +121,16 @@ tAxWin_IPCMessage *AxWin3_int_GetIPCMessage(void)
 	switch(giConnectionType)
 	{
 	case CONNTYPE_SENDMESSAGE:
-		_SysWaitEvent(THREAD_EVENT_IPCMSG);
-		while(SysGetMessage(NULL, NULL))
+		for( ;; )
 		{
 			pid_t	tid;
-			len = SysGetMessage(&tid, NULL);
+		
+			// Wait for a message to arrive	
+			while( !(len = SysGetMessage(&tid, NULL)) )
+			{
+				_SysWaitEvent(THREAD_EVENT_IPCMSG);
+			}
+			
 			// Check if the message came from the server
 			if(tid != giConnectionNum)
 			{

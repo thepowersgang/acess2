@@ -70,11 +70,11 @@ void Video_Update(void)
 	
 	if( giVideo_LastDirtyLine == 0 )	return;	
 
-	_SysDebug("Video_Update - Updating lines %i to %i (0x%x+0x%x px)",
-		giVideo_FirstDirtyLine, giVideo_LastDirtyLine, ofs, size);
+//	_SysDebug("Video_Update - Updating lines %i to %i (0x%x+0x%x px)",
+//		giVideo_FirstDirtyLine, giVideo_LastDirtyLine, ofs, size);
 	seek(giTerminalFD, ofs*4, 1);
 	write(giTerminalFD, gpScreenBuffer+ofs, size*4);
-	_SysDebug("Video_Update - Done");
+//	_SysDebug("Video_Update - Done");
 	giVideo_FirstDirtyLine = 0;
 	giVideo_LastDirtyLine = 0;
 }

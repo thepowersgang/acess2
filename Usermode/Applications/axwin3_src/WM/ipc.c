@@ -259,10 +259,88 @@ void IPC_int_SetWindow(tIPC_Client *Client, uint32_t WindowID, tWindow *WindowPt
 }
 
 // --- IPC Message Handlers ---
+int IPC_Msg_Ping(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
+{
+	ASSERT(Msg->ID == IPCMSG_PING);
+	
+	if( !(Msg->Flags & IPCMSG_FLAG_RETURN) )	return 0;
+	
+	if( Msg->Size < 4 )	return -1;
+	
+	tIPCMsg_ReturnInt	*ret = (void*)Msg->Data;
+	Msg->ID = IPCMSG_PING;
+	Msg->Size = sizeof(*ret);
+	ret->Value = AXWIN_VERSION;
+	Client->IPCType->SendMessage(Client->Ident, sizeof(*Msg)+sizeof(*ret), Msg);
+	return 0;
+}
+
+int IPC_Msg_GetDisplayCount(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
+{
+	tAxWin_IPCMessage	*ret_hdr;
+	tIPCMsg_ReturnInt	*ret;
+	char	buf[sizeof(*ret_hdr)+sizeof(*ret)];
+	
+	ASSERT(Msg->ID == IPCMSG_GETDISPLAYCOUNT);
+
+	if( !(Msg->Flags & IPCMSG_FLAG_RETURN) )	return 0;
+	
+	ret_hdr = (void*)buf;
+	ret_hdr->ID = IPCMSG_GETDISPLAYCOUNT;
+	ret_hdr->Flags = 0;
+	ret_hdr->Window = -1;
+	ret_hdr->Size = sizeof(*ret);
+	ret = (void*)ret_hdr->Data;
+	ret->Value = 1;	// HARD CODE - Current version only supports one display
+	
+	Client->IPCType->SendMessage(Client->Ident, sizeof(buf), buf);
+	return 0;
+}
+
+int IPC_Msg_GetDisplayDims(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
+{
+	tIPCMsg_GetDisplayDims	*info;
+	tAxWin_IPCMessage	*ret_hdr;
+	tIPCMsg_RetDisplayDims	*ret;
+	char	buf[sizeof(*ret_hdr)+sizeof(*ret)];
+	
+	ASSERT(Msg->ID == IPCMSG_GETDISPLAYDIMS);
+
+	if( !(Msg->Flags & IPCMSG_FLAG_RETURN) )	return 0;
+
+	info = (void*)Msg->Data;	
+
+	ret_hdr = (void*)buf;
+	ret_hdr->ID = IPCMSG_GETDISPLAYDIMS;
+	ret_hdr->Flags = 0;
+	ret_hdr->Window = -1;
+	ret_hdr->Size = sizeof(*ret);
+	ret = (void*)ret_hdr->Data;
+	
+	// HARD CODE! Only one display supported
+	if( info->DisplayID == 0 )
+	{
+		ret->X = 0;
+		ret->Y = 0;
+		ret->W = giScreenWidth;
+		ret->H = giScreenHeight;
+	}
+	else
+	{
+		ret->X = 0;	ret->Y = 0;
+		ret->W = 0;	ret->H = 0;
+	}
+	
+	Client->IPCType->SendMessage(Client->Ident, sizeof(buf), buf);
+	return 0;
+}
+
 int IPC_Msg_SendMsg(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
 {
 	tIPCMsg_SendMsg	*info = (void*)Msg->Data;
 	tWindow	*src, *dest;
+
+	ASSERT(Msg->ID == IPCMSG_SENDMSG);
 	
 	// - Sanity checks
 	if( Msg->Size < sizeof(tIPCMsg_SendMsg) )
@@ -280,26 +358,12 @@ int IPC_Msg_SendMsg(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
 	return 0;
 }
 
-int IPC_Msg_FocusWindow(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
-{
-	tWindow	*win;
-
-	// Don't allow the focus to be changed unless the client has the focus
-	if(!gpWM_FocusedWindow)	return 1;
-	if(gpWM_FocusedWindow->Client != Client)	return 1;
-
-	win = IPC_int_GetWindow(Client, Msg->Window);
-	if(!win)	return 1;
-
-	WM_FocusWindow(win);
-
-	return 0;
-}
-
 int IPC_Msg_CreateWin(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
 {
 	tIPCMsg_CreateWin	*info = (void*)Msg->Data;
 	tWindow	*newwin, *parent;
+
+	ASSERT(Msg->ID == IPCMSG_CREATEWIN);
 
 	// - Sanity checks
 	//  > +1 is for NULL byte on string
@@ -335,6 +399,8 @@ int IPC_Msg_SetWindowTitle(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
 {
 	tWindow	*win;
 
+	ASSERT(Msg->ID == IPCMSG_SETWINTITLE);
+	
 	if( Msg->Size < 1 )	return -1;
 	if( Msg->Data[ Msg->Size-1 ] != '\0' )	return -1;	
 
@@ -350,6 +416,8 @@ int IPC_Msg_ShowWindow(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
 {
 	tIPCMsg_Boolean	*info = (void*)Msg->Data;
 	tWindow	*win;
+	
+	ASSERT(Msg->ID == IPCMSG_SHOWWINDOW);
 	
 	if( Msg->Size < sizeof(*info) )	return -1;
 	
@@ -375,10 +443,30 @@ int IPC_Msg_DecorateWindow(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
 	return 0;
 }
 
+int IPC_Msg_FocusWindow(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
+{
+	tWindow	*win;
+
+	ASSERT(Msg->ID == IPCMSG_FOCUSWINDOW);
+	
+	// Don't allow the focus to be changed unless the client has the focus
+	if(!gpWM_FocusedWindow)	return 1;
+	if(gpWM_FocusedWindow->Client != Client)	return 1;
+
+	win = IPC_int_GetWindow(Client, Msg->Window);
+	if(!win)	return 1;
+
+	WM_FocusWindow(win);
+
+	return 0;
+}
+
 int IPC_Msg_SetWinPos(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
 {
 	tIPCMsg_SetWindowPos	*info = (void*)Msg->Data;
 	tWindow	*win;
+	
+	ASSERT(Msg->ID == IPCMSG_SETWINPOS);
 	
 	if(Msg->Size < sizeof(*info))	return -1;
 	
@@ -395,61 +483,27 @@ int IPC_Msg_SetWinPos(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
 	return 0;
 }
 
-int IPC_Msg_GetDisplayCount(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
+int IPC_Msg_RegisterAction(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
 {
-	tAxWin_IPCMessage	*ret_hdr;
-	tIPCMsg_ReturnInt	*ret;
-	char	buf[sizeof(*ret_hdr)+sizeof(*ret)];
-	
-	if( !(Msg->Flags & IPCMSG_FLAG_RETURN) )	return 0;
-	
-	ret_hdr = (void*)buf;
-	ret_hdr->ID = IPCMSG_GETDISPLAYCOUNT;
-	ret_hdr->Flags = 0;
-	ret_hdr->Window = -1;
-	ret_hdr->Size = sizeof(*ret);
-	ret = (void*)ret_hdr->Data;
-	ret->Value = 1;	// HARD CODE - Current version only supports one display
-	
-	Client->IPCType->SendMessage(Client->Ident, sizeof(buf), buf);
+	ASSERT(Msg->ID == IPCMSG_REGACTION);
 	return 0;
 }
 
-int IPC_Msg_GetDisplayDims(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
-{
-	tIPCMsg_GetDisplayDims	*info;
-	tAxWin_IPCMessage	*ret_hdr;
-	tIPCMsg_RetDisplayDims	*ret;
-	char	buf[sizeof(*ret_hdr)+sizeof(*ret)];
-	
-	if( !(Msg->Flags & IPCMSG_FLAG_RETURN) )	return 0;
-
-	info = (void*)Msg->Data;	
-
-	ret_hdr = (void*)buf;
-	ret_hdr->ID = IPCMSG_GETDISPLAYDIMS;
-	ret_hdr->Flags = 0;
-	ret_hdr->Window = -1;
-	ret_hdr->Size = sizeof(*ret);
-	ret = (void*)ret_hdr->Data;
-	
-	// HARD CODE! Only one display supported
-	if( info->DisplayID == 0 )
-	{
-		ret->X = 0;
-		ret->Y = 0;
-		ret->W = giScreenWidth;
-		ret->H = giScreenHeight;
-	}
-	else
-	{
-		ret->X = 0;	ret->Y = 0;
-		ret->W = 0;	ret->H = 0;
-	}
-	
-	Client->IPCType->SendMessage(Client->Ident, sizeof(buf), buf);
-	return 0;
-}
+int (*gIPC_MessageHandlers[])(tIPC_Client *Client, tAxWin_IPCMessage *Msg) = {
+	IPC_Msg_Ping,
+	IPC_Msg_GetDisplayCount,
+	IPC_Msg_GetDisplayDims,
+	IPC_Msg_SendMsg,
+	IPC_Msg_CreateWin,
+	NULL,	// Destroy window
+	IPC_Msg_SetWindowTitle,
+	IPC_Msg_ShowWindow,
+	IPC_Msg_DecorateWindow,
+	IPC_Msg_FocusWindow,
+	IPC_Msg_SetWinPos,
+	IPC_Msg_RegisterAction
+};
+const int giIPC_NumMessageHandlers = sizeof(gIPC_MessageHandlers)/sizeof(gIPC_MessageHandlers[0]);
 
 void IPC_Handle(const tIPC_Type *IPCType, const void *Ident, size_t MsgLen, tAxWin_IPCMessage *Msg)
 {
@@ -466,77 +520,20 @@ void IPC_Handle(const tIPC_Type *IPCType, const void *Ident, size_t MsgLen, tAxW
 	
 	client = IPC_int_GetClient(IPCType, Ident);
 
-	switch((enum eAxWin_IPCMessageTypes) Msg->ID)
-	{
-	// --- Ping message (reset timeout and get server version)
-	case IPCMSG_PING:
-		_SysDebug(" IPC_Handle: IPCMSG_PING");
-		if( Msg->Size < 4 )	return;
-		if( Msg->Flags & IPCMSG_FLAG_RETURN )
-		{
-			tIPCMsg_ReturnInt	*ret = (void*)Msg->Data;
-			Msg->ID = IPCMSG_PING;
-			Msg->Size = sizeof(*ret);
-			ret->Value = AXWIN_VERSION;
-			IPCType->SendMessage(Ident, sizeof(*Msg)+sizeof(*ret), Msg);
-		}
-		break;
-
-	// -- Get display count
-	case IPCMSG_GETDISPLAYCOUNT:
-		rv = IPC_Msg_GetDisplayCount(client, Msg);
-		break;
-	
-	// --- Get display dimensions
-	case IPCMSG_GETDISPLAYDIMS:
-		rv = IPC_Msg_GetDisplayDims(client, Msg);
-		break;
-
-	// --- Send a message
-	case IPCMSG_SENDMSG:
-		_SysDebug(" IPC_Handle: IPCMSG_SENDMSG %i", ((tIPCMsg_SendMsg*)Msg->Data)->ID);
-		rv = IPC_Msg_SendMsg(client, Msg);
-		break;
-
-	// --- Create window
-	case IPCMSG_CREATEWIN:
-		_SysDebug(" IPC_Handle: IPCMSG_CREATEWIN");
-		rv = IPC_Msg_CreateWin(client, Msg);
-		break;
-	// TODO: Destroy window
-	
-	// --- Set window title
-	case IPCMSG_SETWINTITLE:
-		_SysDebug(" IPC_Handle: IPCMSG_SETWINTITLE");
-		rv = IPC_Msg_SetWindowTitle(client, Msg);
-		break;
-
-	// --- Give a window focus
-	case IPCMSG_FOCUSWINDOW:
-		_SysDebug(" IPC_Handle: IPCMSG_FOCUSWINDOW");
-		rv = IPC_Msg_FocusWindow(client, Msg);
-		break;
-	// --- Show/Hide a window
-	case IPCMSG_SHOWWINDOW:
-		_SysDebug(" IPC_Handle: IPCMSG_SHOWWINDOW");
-		rv = IPC_Msg_ShowWindow(client, Msg);
-		break;
-	case IPCMSG_DECORATEWINDOW:
-		_SysDebug(" IPC_Handle: IPCMSG_DECORATEWINDOW");
-		rv = IPC_Msg_DecorateWindow(client, Msg);
-		break;
-	// --- Move/Resize a window
-	case IPCMSG_SETWINPOS:
-		_SysDebug(" IPC_Handle: IPCMSG_SETWINPOS");
-		rv = IPC_Msg_SetWinPos(client, Msg);
-		break;
-
-	// --- Unknown message
-	default:
+	if( Msg->ID >= giIPC_NumMessageHandlers ) {
 		fprintf(stderr, "WARNING: Unknown message %i (%p)\n", Msg->ID, IPCType);
 		_SysDebug("WARNING: Unknown message %i (%p)", Msg->ID, IPCType);
-		break;
+		return ;
 	}
+	
+	if( !gIPC_MessageHandlers[ Msg->ID ] ) {
+		fprintf(stderr, "WARNING: Message %i does not have a handler\n", Msg->ID);
+		_SysDebug("WARNING: Message %i does not have a handler", Msg->ID);
+		return ;
+	}
+
+	_SysDebug("IPC_Handle: Msg->ID = %i", Msg->ID);
+	rv = gIPC_MessageHandlers[Msg->ID](client, Msg);
 	_SysDebug("IPC_Handle: rv = %i", rv);
 }
 

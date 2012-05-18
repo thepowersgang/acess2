@@ -100,6 +100,7 @@ enum eAxWin_IPCMessageTypes
 	IPCMSG_DECORATEWINDOW,	//!< Enable/Disable decorations
 	IPCMSG_FOCUSWINDOW,	//!< Give a window focus (no data)
 	IPCMSG_SETWINPOS,	//!< Set a window position
+	IPCMSG_REGACTION	//!< Register an action name
 };
 
 #endif
