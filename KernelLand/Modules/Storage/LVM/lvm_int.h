@@ -24,12 +24,14 @@ struct sLVM_Vol
 {
 	tLVM_Vol	*Next;
 	
-	tVFS_Node	Node;
+	tVFS_Node	DirNode;
+	tVFS_Node	VolNode;
 
 	void	*Ptr;
 	tLVM_ReadFcn	Read;
 	tLVM_WriteFcn	Write;
 
+	Uint64	BlockCount;
 	size_t	BlockSize;
 	
 	 int	nSubVolumes;
@@ -52,6 +54,10 @@ struct sLVM_SubVolume
 };
 
 extern tVFS_NodeType	gLVM_SubVolNodeType;
+extern tVFS_NodeType	gLVM_VolNodeType;
+
+extern tLVM_Vol	*gpLVM_FirstVolume;
+extern tLVM_Vol	*gpLVM_LastVolume;
 
 #endif
 

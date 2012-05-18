@@ -21,6 +21,8 @@ char	*LVM_Root_ReadDir(tVFS_Node *Node, int ID);
 tVFS_Node	*LVM_Root_FindDir(tVFS_Node *Node, const char *Name);
 char	*LVM_Vol_ReadDir(tVFS_Node *Node, int ID);
 tVFS_Node	*LVM_Vol_FindDir(tVFS_Node *Node, const char *Name);
+size_t	LVM_Vol_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
+size_t	LVM_Vol_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
 size_t	LVM_SubVol_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
 size_t	LVM_SubVol_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
 
@@ -35,7 +37,9 @@ tVFS_NodeType	gLVM_RootNodeType = {
 };
 tVFS_NodeType	gLVM_VolNodeType = {
 	.ReadDir = LVM_Vol_ReadDir,
-	.FindDir = LVM_Vol_FindDir
+	.FindDir = LVM_Vol_FindDir,
+	.Read = LVM_Vol_Read,
+	.Write = LVM_Vol_Write
 };
 tVFS_NodeType	gLVM_SubVolNodeType = {
 	.Read = LVM_SubVol_Read,
@@ -84,7 +88,7 @@ tVFS_Node *LVM_Root_FindDir(tVFS_Node *Node, const char *Name)
 	{
 		if( strcmp(vol->Name, Name) == 0 )
 		{
-			return &vol->Node;
+			return &vol->DirNode;
 		}
 	}
 	return NULL;
@@ -94,14 +98,20 @@ char *LVM_Vol_ReadDir(tVFS_Node *Node, int ID)
 {
 	tLVM_Vol	*vol = Node->ImplPtr;
 	
-	if( ID < 0 || ID >= vol->nSubVolumes )
+	if( ID < 0 || ID >= vol->nSubVolumes+1 )
 		return NULL;
-	
-	return strdup( vol->SubVolumes[ID]->Name );
+
+	if( ID == 0 )
+		return strdup(".volume");
+	else
+		return strdup( vol->SubVolumes[ID-1]->Name );
 }
 tVFS_Node *LVM_Vol_FindDir(tVFS_Node *Node, const char *Name)
 {
 	tLVM_Vol	*vol = Node->ImplPtr;
+
+	if( strcmp(".volume", Name) == 0 )
+		return &vol->VolNode;
 	
 	for( int i = 0; i < vol->nSubVolumes; i ++ )
 	{
@@ -112,6 +122,29 @@ tVFS_Node *LVM_Vol_FindDir(tVFS_Node *Node, const char *Name)
 	}
 
 	return NULL;
+}
+
+size_t LVM_Vol_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
+{
+	tLVM_Vol	*vol = Node->ImplPtr;
+	Uint64	byte_size = vol->BlockCount * vol->BlockSize;	
+
+	if( Offset > byte_size )
+		return 0;
+	if( Length > byte_size )
+		Length = byte_size;
+	if( Offset + Length > byte_size )
+		Length = byte_size - Offset;
+
+	return DrvUtil_ReadBlock(
+		Offset, Length, Buffer, 
+		LVM_int_DrvUtil_ReadBlock, vol->BlockSize, vol
+		);
+}
+
+size_t LVM_Vol_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer)
+{
+	return 0;
 }
 
 size_t LVM_SubVol_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)

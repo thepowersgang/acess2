@@ -17,27 +17,61 @@
 // --------------------------------------------------------------------
 int LVM_AddVolumeVFS(const char *Name, int FD)
 {
-	return LVM_AddVolume(Name, (void*)(Uint)FD, LVM_int_VFSReadEmul, LVM_int_VFSWriteEmul);
+	// Assuming 512-byte blocks, not a good idea
+	return LVM_AddVolume(Name, (void*)(Uint)FD, 512, LVM_int_VFSReadEmul, LVM_int_VFSWriteEmul);
 }
 
-int LVM_AddVolume(const char *Name, void *Ptr, tLVM_ReadFcn Read, tLVM_WriteFcn Write)
+int LVM_AddVolume(const char *Name, void *Ptr, size_t BlockSize, tLVM_ReadFcn Read, tLVM_WriteFcn Write)
 {
 	tLVM_Vol	dummy_vol;
-//	tLVM_Vol	*real_vol;
+	tLVM_Vol	*real_vol;
+	tLVM_Format	*type;
+	void	*first_block;
 
 	dummy_vol.Ptr = Ptr;
 	dummy_vol.Read = Read;
 	dummy_vol.Write = Write;
+	dummy_vol.BlockSize = BlockSize;
+
+	// Read the first block of the volume	
+	first_block = malloc(BlockSize);
+	Read(Ptr, 0, 1, first_block);
 	
 	// Determine Type
+	// TODO: Determine type
+	type = &gLVM_MBRType;
 
 	// Type->CountSubvolumes
+	dummy_vol.nSubVolumes = type->CountSubvolumes(&dummy_vol, first_block);
 	
 	// Create real volume descriptor
+	// TODO: If this needs to be rescanned later, having the subvolume list separate might be an idea
+	real_vol = malloc( sizeof(tLVM_Vol) + strlen(Name) + 1 + sizeof(tLVM_SubVolume*) * dummy_vol.nSubVolumes );
+	real_vol->Ptr = Ptr;
+	real_vol->Read = Read;
+	real_vol->Write = Write;
+	real_vol->BlockSize = BlockSize;
+	real_vol->nSubVolumes = dummy_vol.nSubVolumes;
+	real_vol->SubVolumes = (void*)( real_vol->Name + strlen(Name) + 1 );
+	strcpy(real_vol->Name, Name);
+	memset(real_vol->SubVolumes, 0, sizeof(tLVM_SubVolume*) * real_vol->nSubVolumes);
+	// - VFS Nodes
+	memset(&real_vol->DirNode, 0, sizeof(tVFS_Node));
+	real_vol->DirNode.Type = &gLVM_VolNodeType;
+	real_vol->DirNode.ImplPtr = real_vol;
+	real_vol->DirNode.Flags = VFS_FFLAG_DIRECTORY;
+	memset(&real_vol->VolNode, 0, sizeof(tVFS_Node));
+	real_vol->VolNode.Type = &gLVM_VolNodeType;
+	real_vol->VolNode.ImplPtr = real_vol;
+	real_vol->VolNode.Flags = VFS_FFLAG_DIRECTORY;
 
 	// Type->PopulateSubvolumes
+	type->PopulateSubvolumes(real_vol, first_block);
+	free(first_block);
 
 	// Add to volume list
+	gpLVM_LastVolume->Next = real_vol;
+	gpLVM_LastVolume = real_vol;
 
 	return 0;
 }

@@ -16,6 +16,11 @@ void	LVM_MBR_PopulateSubvolumes(tLVM_Vol *Volume, void *FirstSector);
 Uint64	LVM_MBR_int_ReadExt(tLVM_Vol *Volume, Uint64 Addr, Uint64 *Base, Uint64 *Length);
 
 // === GLOBALS ===
+tLVM_Format	gLVM_MBRType = {
+	.Name = "MBR",
+	.CountSubvolumes = LVM_MBR_CountSubvolumes,
+	.PopulateSubvolumes = LVM_MBR_PopulateSubvolumes
+};
 
 // === CODE ===
 /**
