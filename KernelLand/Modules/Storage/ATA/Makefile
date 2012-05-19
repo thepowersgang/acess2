@@ -1,7 +1,7 @@
 #
 #
 
-OBJ = main.o io.o mbr.o
+OBJ = main.o io.o
 NAME = ATA
 
 -include ../Makefile.tpl

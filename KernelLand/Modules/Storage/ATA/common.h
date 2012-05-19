@@ -43,10 +43,6 @@ typedef struct
 typedef struct
 {
 	Uint64	Sectors;
-	char	Name[2];
-	tVFS_Node	Node;
-	 int	NumPartitions;
-	tATA_Partition	*Partitions;
 }	tATA_Disk;
 
 // === GLOBALS ===

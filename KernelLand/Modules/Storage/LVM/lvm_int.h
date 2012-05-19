@@ -28,11 +28,9 @@ struct sLVM_Vol
 	tVFS_Node	VolNode;
 
 	void	*Ptr;
-	tLVM_ReadFcn	Read;
-	tLVM_WriteFcn	Write;
+	const tLVM_VolType	*Type;
 
 	Uint64	BlockCount;
-	size_t	BlockSize;
 	
 	 int	nSubVolumes;
 	tLVM_SubVolume	**SubVolumes;
