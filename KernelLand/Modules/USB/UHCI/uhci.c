@@ -590,7 +590,7 @@ void *UHCI_BulkOUT(void *Ptr, int Dest, int bToggle, tUSBHostCb Cb, void *CbData
 	}
 
 	LOG("Final");
-	td = UHCI_int_CreateTD(Cont, Dest, PID_OUT, bToggle, NULL, NULL, src, Length);
+	td = UHCI_int_CreateTD(Cont, Dest, PID_OUT, bToggle, Cb, CbData, src, Length);
 	UHCI_int_AppendTD(Cont, qh, td);
 
 	LEAVE('p', td);
@@ -616,7 +616,7 @@ void *UHCI_BulkIN(void *Ptr, int Dest, int bToggle, tUSBHostCb Cb, void *CbData,
 	}
 
 	LOG("Final");
-	td = UHCI_int_CreateTD(Cont, Dest, PID_IN, bToggle, NULL, NULL, dst, Length);
+	td = UHCI_int_CreateTD(Cont, Dest, PID_IN, bToggle, Cb, CbData, dst, Length);
 	UHCI_int_AppendTD(Cont, qh, td);
 
 	LEAVE('p', td);
