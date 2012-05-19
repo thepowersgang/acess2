@@ -1,14 +1,12 @@
 /*
- * Acess OS
- * Ext2 Driver Version 1
+ * Acess2 Ext2 Driver
+ * - By John Hodge (thePowersGang)
+ *
+ * ext2.c
+ * - Driver core
  */
-/**
- * \file fs/ext2.c
- * \brief Second Extended Filesystem Driver
- * \todo Implement file full write support
- */
-#define DEBUG	1
-#define VERBOSE	0
+#define DEBUG	0
+#define VERSION	VER2(0,90)
 #include "ext2_common.h"
 #include <modules.h>
 
@@ -17,18 +15,19 @@ extern tVFS_NodeType	gExt2_DirType;
 
 // === PROTOTYPES ===
  int	Ext2_Install(char **Arguments);
-// Interface Functions
+void	Ext2_Cleanup(void);
+// - Interface Functions
 tVFS_Node	*Ext2_InitDevice(const char *Device, const char **Options);
 void		Ext2_Unmount(tVFS_Node *Node);
 void		Ext2_CloseFile(tVFS_Node *Node);
-// Internal Helpers
+// - Internal Helpers
  int		Ext2_int_GetInode(tVFS_Node *Node, tExt2_Inode *Inode);
 Uint64		Ext2_int_GetBlockAddr(tExt2_Disk *Disk, Uint32 *Blocks, int BlockNum);
 Uint32		Ext2_int_AllocateInode(tExt2_Disk *Disk, Uint32 Parent);
 void		Ext2_int_UpdateSuperblock(tExt2_Disk *Disk);
 
 // === SEMI-GLOBALS ===
-MODULE_DEFINE(0, 0x5B /*v0.90*/, FS_Ext2, Ext2_Install, NULL);
+MODULE_DEFINE(0, VERSION, FS_Ext2, Ext2_Install, Ext2_Cleanup);
 tExt2_Disk	gExt2_disks[6];
  int	giExt2_count = 0;
 tVFS_Driver	gExt2_FSInfo = {
@@ -44,6 +43,14 @@ int Ext2_Install(char **Arguments)
 {
 	VFS_AddDriver( &gExt2_FSInfo );
 	return MODULE_ERR_OK;
+}
+
+/**
+ * \brief Clean up driver state before unload
+ */
+void Ext2_Cleanup(void)
+{
+	
 }
 
 /**
@@ -102,10 +109,11 @@ tVFS_Node *Ext2_InitDevice(const char *Device, const char **Options)
 	disk->CacheID = Inode_GetHandle();
 	
 	// Get Block Size
-	LOG("s_log_block_size = 0x%x", sb.s_log_block_size);
 	disk->BlockSize = 1024 << sb.s_log_block_size;
+	LOG("Disk->BlockSie = 0x%x (1024 << %i)", disk->BlockSize, sb.s_log_block_size);
 	
 	// Read Group Information
+	LOG("sb,s_first_data_block = %x", sb.s_first_data_block);
 	VFS_ReadAt(
 		disk->FD,
 		sb.s_first_data_block * disk->BlockSize + 1024,
@@ -113,7 +121,6 @@ tVFS_Node *Ext2_InitDevice(const char *Device, const char **Options)
 		disk->Groups
 		);
 	
-	#if VERBOSE
 	LOG("Block Group 0");
 	LOG(".bg_block_bitmap = 0x%x", disk->Groups[0].bg_block_bitmap);
 	LOG(".bg_inode_bitmap = 0x%x", disk->Groups[0].bg_inode_bitmap);
@@ -122,7 +129,6 @@ tVFS_Node *Ext2_InitDevice(const char *Device, const char **Options)
 	LOG(".bg_block_bitmap = 0x%x", disk->Groups[1].bg_block_bitmap);
 	LOG(".bg_inode_bitmap = 0x%x", disk->Groups[1].bg_inode_bitmap);
 	LOG(".bg_inode_table = 0x%x", disk->Groups[1].bg_inode_table);
-	#endif
 	
 	// Get root Inode
 	Ext2_int_ReadInode(disk, 2, &inode);

@@ -1,13 +1,11 @@
 /*
- * Acess OS
- * Ext2 Driver Version 1
+ * Acess2 Ext2 Driver
+ * - By John Hodge (thePowersGang)
+ *
+ * dir.c
+ * - Directory Handling
  */
-/**
- * \file dir.c
- * \brief Second Extended Filesystem Driver
- * \todo Implement file full write support
- */
-#define DEBUG	1
+#define DEBUG	0
 #define VERBOSE	0
 #include "ext2_common.h"
 
@@ -143,6 +141,7 @@ tVFS_Node *Ext2_FindDir(tVFS_Node *Node, const char *Filename)
 	while(size > 0)
 	{
 		VFS_ReadAt( disk->FD, Base+ofs, sizeof(tExt2_DirEnt), &dirent);
+		// TODO: Possible overrun if name_len == 255?
 		dirent.name[ dirent.name_len ] = '\0';	// Cap off string
 		// If it matches, create a node and return it
 		if(dirent.name_len == filenameLen && strcmp(dirent.name, Filename) == 0)
