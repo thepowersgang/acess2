@@ -20,7 +20,7 @@ struct sMSC_CBW
 	Uint8	bCBWLUN;
 	Uint8	bCBWLength;
 	Uint8	CBWCB[16];
-};
+} PACKED;
 
 struct sMSC_CSW
 {
@@ -28,6 +28,6 @@ struct sMSC_CSW
 	Uint32	dCSWTag;
 	Uint32	dCSWDataResidue;
 	Uint8	dCSWStatus;
-};
+} PACKED;
 
 #endif

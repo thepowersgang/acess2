@@ -5,7 +5,7 @@
  * main.c
  * - Driver Core
  */
-#define DEBUG	1
+#define DEBUG	0
 #define VERSION	VER2(0,1)
 #include <acess.h>
 #include <modules.h>
@@ -57,7 +57,9 @@ void MSC_DeviceConnected(tUSBInterface *Dev, void *Descriptors, size_t Descripto
 	USB_SetDeviceDataPtr(Dev, info);	
 
 	info->BlockCount = MSC_SCSI_GetSize(Dev, &info->BlockSize);
-	
+
+	LOG("Device has 0x%llx blocks of 0x%x bytes",
+		info->BlockCount, info->BlockSize);
 	LVM_AddVolume(&gMSC_SCSI_VolType, "0", Dev, info->BlockSize, info->BlockCount);
 }
 
@@ -79,10 +81,10 @@ int MSC_int_CreateCBW(tMSC_CBW *Cbw, int bInput, size_t CmdLen, const void *CmdD
 	}
 	
 	Cbw->dCBWSignature = LittleEndian32(0x43425355);
-	Cbw->dCBWTag = giMSC_NextTag ++;
+	Cbw->dCBWTag    = giMSC_NextTag ++;
 	Cbw->dCBWDataTransferLength = LittleEndian32(DataLen);
 	Cbw->bmCBWFlags = (bInput ? 0x80 : 0x00);
-	Cbw->bCBWLUN = 0;	// TODO: Logical Unit Number (param from proto)
+	Cbw->bCBWLUN    = 0;	// TODO: Logical Unit Number (param from proto)
 	Cbw->bCBWLength = CmdLen;
 	memcpy(Cbw->CBWCB, CmdData, CmdLen);
 	
@@ -121,21 +123,24 @@ void MSC_RecvData(tUSBInterface *Dev, size_t CmdLen, const void *CmdData, size_t
 	const int	endpoint_out = 2;
 	const int	endpoint_in = 1;
 	const int	max_packet_size = 64;
-	
+		
 	if( MSC_int_CreateCBW(&cbw, 1, CmdLen, CmdData, DataLen) )
 		return ;
 	
 	// Send CBW
+	LOG("Send CBW");
 	USB_SendData(Dev, endpoint_out, sizeof(cbw), &cbw);
 	
 	// Read Data
 	for( size_t ofs = 0; ofs < DataLen; ofs += max_packet_size )
 	{
+		LOG("Read bytes 0x%x+0x%x", ofs, MIN(max_packet_size, DataLen - ofs));
 		// TODO: use async version and wait for the transaction to complete
 		USB_RecvData(Dev, endpoint_in, MIN(max_packet_size, DataLen - ofs), Data + ofs);
 	}
 	
 	// Read CSW
+	LOG("Read CSW");
 	USB_RecvData(Dev, endpoint_in, sizeof(csw), &csw);
 	// TODO: Validate CSW
 }
