@@ -60,7 +60,8 @@ void MSC_DeviceConnected(tUSBInterface *Dev, void *Descriptors, size_t Descripto
 
 	LOG("Device has 0x%llx blocks of 0x%x bytes",
 		info->BlockCount, info->BlockSize);
-	LVM_AddVolume(&gMSC_SCSI_VolType, "0", Dev, info->BlockSize, info->BlockCount);
+	// TODO: Get serial number
+	LVM_AddVolume(&gMSC_SCSI_VolType, "usb0", Dev, info->BlockSize, info->BlockCount);
 }
 
 void MSC_DataIn(tUSBInterface *Dev, int EndPt, int Length, void *Data)
