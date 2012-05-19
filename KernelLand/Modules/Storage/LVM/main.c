@@ -127,7 +127,7 @@ tVFS_Node *LVM_Vol_FindDir(tVFS_Node *Node, const char *Name)
 size_t LVM_Vol_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 {
 	tLVM_Vol	*vol = Node->ImplPtr;
-	Uint64	byte_size = vol->BlockCount * vol->Type->BlockSize;	
+	Uint64	byte_size = vol->BlockCount * vol->BlockSize;	
 
 	if( Offset > byte_size )
 		return 0;
@@ -138,7 +138,7 @@ size_t LVM_Vol_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 
 	return DrvUtil_ReadBlock(
 		Offset, Length, Buffer, 
-		LVM_int_DrvUtil_ReadBlock, vol->Type->BlockSize, vol
+		LVM_int_DrvUtil_ReadBlock, vol->BlockSize, vol
 		);
 }
 
@@ -150,7 +150,7 @@ size_t LVM_Vol_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *B
 size_t LVM_SubVol_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 {
 	tLVM_SubVolume	*sv = Node->ImplPtr;
-	Uint64	byte_size = sv->BlockCount * sv->Vol->Type->BlockSize;
+	Uint64	byte_size = sv->BlockCount * sv->Vol->BlockSize;
 
 	if( Offset > byte_size )
 		return 0;
@@ -160,21 +160,21 @@ size_t LVM_SubVol_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffe
 		Length = byte_size - Offset;
 
 	LOG("Reading (0x%llx+0x%llx)+0x%x to %p",
-		(Uint64)(sv->FirstBlock * sv->Vol->Type->BlockSize), Offset,
+		(Uint64)(sv->FirstBlock * sv->Vol->BlockSize), Offset,
 		Length, Buffer
 		);
 	
-	Offset += sv->FirstBlock * sv->Vol->Type->BlockSize;	
+	Offset += sv->FirstBlock * sv->Vol->BlockSize;	
 
 	return DrvUtil_ReadBlock(
 		Offset, Length, Buffer, 
-		LVM_int_DrvUtil_ReadBlock, sv->Vol->Type->BlockSize, sv->Vol
+		LVM_int_DrvUtil_ReadBlock, sv->Vol->BlockSize, sv->Vol
 		);
 }
 size_t LVM_SubVol_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer)
 {
 	tLVM_SubVolume	*sv = Node->ImplPtr;
-	Uint64	byte_size = sv->BlockCount * sv->Vol->Type->BlockSize;
+	Uint64	byte_size = sv->BlockCount * sv->Vol->BlockSize;
 
 	if( Offset > byte_size )
 		return 0;
@@ -183,12 +183,12 @@ size_t LVM_SubVol_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void
 	if( Offset + Length > byte_size )
 		Length = byte_size - Offset;
 
-	Offset += sv->FirstBlock * sv->Vol->Type->BlockSize;	
+	Offset += sv->FirstBlock * sv->Vol->BlockSize;	
 	
 	return DrvUtil_WriteBlock(
 		Offset, Length, Buffer,
 		LVM_int_DrvUtil_ReadBlock, LVM_int_DrvUtil_WriteBlock,
-		sv->Vol->Type->BlockSize, sv->Vol
+		sv->Vol->BlockSize, sv->Vol
 		);
 }
 

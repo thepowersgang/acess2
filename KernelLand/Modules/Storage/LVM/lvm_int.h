@@ -30,6 +30,7 @@ struct sLVM_Vol
 	void	*Ptr;
 	const tLVM_VolType	*Type;
 
+	size_t	BlockSize;
 	Uint64	BlockCount;
 	
 	 int	nSubVolumes;

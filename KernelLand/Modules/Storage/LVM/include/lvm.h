@@ -16,14 +16,12 @@ struct sLVM_VolType
 {
 	const char *Name;
 
-	size_t	BlockSize;
-	
 	int	(*Read)(void *, Uint64, size_t, void *);
 	int	(*Write)(void *, Uint64, size_t, const void *);
 };
 
 
-extern int	LVM_AddVolume(const tLVM_VolType *Type, const char *Name, void *Ptr, size_t BlockCount);
+extern int	LVM_AddVolume(const tLVM_VolType *Type, const char *Name, void *Ptr, size_t BlockSize, size_t BlockCount);
 
 #endif
 

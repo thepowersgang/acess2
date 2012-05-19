@@ -32,8 +32,7 @@ MODULE_DEFINE(0, VERSION, i386ATA, ATA_Install, NULL, "PCI", "LVM", NULL);
 tLVM_VolType	gATA_VolType = {
 	.Name = "ATA",
 	.Read = ATA_ReadRaw,
-	.Write = ATA_WriteRaw,
-	.BlockSize = 512,
+	.Write = ATA_WriteRaw
 	};
 
 // === CODE ===
@@ -106,7 +105,7 @@ int ATA_ScanDisk(int Disk)
 
 	char name[] = "ata0";
 	sprintf(name, "ata%i", Disk);
-	LVM_AddVolume(&gATA_VolType, name, (void*)(Uint*)Disk, sector_count);
+	LVM_AddVolume(&gATA_VolType, name, (void*)(Uint*)Disk, 512, sector_count);
 
 	#if DEBUG >= 2
 	{

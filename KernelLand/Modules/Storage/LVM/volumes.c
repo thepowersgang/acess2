@@ -23,7 +23,7 @@ int LVM_AddVolumeVFS(const char *Name, int FD)
 	return 0;
 }
 
-int LVM_AddVolume(const tLVM_VolType *Type, const char *Name, void *Ptr, size_t BlockCount)
+int LVM_AddVolume(const tLVM_VolType *Type, const char *Name, void *Ptr, size_t BlockSize, size_t BlockCount)
 {
 	tLVM_Vol	dummy_vol;
 	tLVM_Vol	*real_vol;
@@ -33,13 +33,11 @@ int LVM_AddVolume(const tLVM_VolType *Type, const char *Name, void *Ptr, size_t 
 	dummy_vol.Type = Type;
 	dummy_vol.Ptr = Ptr;
 	dummy_vol.BlockCount = BlockCount;
+	dummy_vol.BlockSize = BlockSize;
 
 	// Read the first block of the volume	
-	LOG("Type->BlockSize = %i", Type->BlockSize);
-	first_block = malloc(Type->BlockSize);
-	LOG("first_block = %p", first_block);
+	first_block = malloc(BlockSize);
 	Type->Read(Ptr, 0, 1, first_block);
-	LOG("first block read");
 	
 	// Determine Format
 	// TODO: Determine format
@@ -67,7 +65,7 @@ int LVM_AddVolume(const tLVM_VolType *Type, const char *Name, void *Ptr, size_t 
 	memset(&real_vol->VolNode, 0, sizeof(tVFS_Node));
 	real_vol->VolNode.Type = &gLVM_VolNodeType;
 	real_vol->VolNode.ImplPtr = real_vol;
-	real_vol->VolNode.Size = BlockCount * Type->BlockSize;
+	real_vol->VolNode.Size = BlockCount * BlockSize;
 
 	// Type->PopulateSubvolumes
 	fmt->PopulateSubvolumes(real_vol, first_block);
@@ -113,7 +111,7 @@ void LVM_int_SetSubvolume_Anon(tLVM_Vol *Volume, int Index, Uint64 FirstBlock, U
 	
 	sv->Node.ImplPtr = sv;
 	sv->Node.Type = &gLVM_SubVolNodeType;
-	sv->Node.Size = BlockCount * Volume->Type->BlockSize;
+	sv->Node.Size = BlockCount * Volume->BlockSize;
 	
 	Log_Log("LVM", "Partition %s/%s - 0x%llx+0x%llx blocks",
 		Volume->Name, sv->Name, FirstBlock, BlockCount);
