@@ -87,6 +87,7 @@ EXPORT(ModUtil_SetIdent);
 EXPORT(UnHex);
 EXPORT(SwapEndian16);
 EXPORT(SwapEndian32);
+EXPORT(SwapEndian64);
 EXPORT(memmove);
 
 // === CODE ===
@@ -1059,6 +1060,10 @@ Uint16 SwapEndian16(Uint16 Val)
 Uint32 SwapEndian32(Uint32 Val)
 {
 	return ((Val&0xFF)<<24) | ((Val&0xFF00)<<8) | ((Val>>8)&0xFF00) | ((Val>>24)&0xFF);
+}
+Uint64 SwapEndian64(Uint64 Val)
+{
+	return SwapEndian32(Val >> 32) | ((Uint64)SwapEndian32(Val) << 32);
 }
 
 void *memmove(void *__dest, const void *__src, size_t len)

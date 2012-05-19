@@ -386,16 +386,21 @@ extern int	CheckMem(const void *Mem, int Num);
 #ifdef __BIG_ENDIAN__
 #define	LittleEndian16(_val)	SwapEndian16(_val)
 #define	LittleEndian32(_val)	SwapEndian32(_val)
+#define	LittleEndian64(_val)	SwapEndian32(_val)
 #define	BigEndian16(_val)	(_val)
 #define	BigEndian32(_val)	(_val)
+#define	BigEndian64(_val)	(_val)
 #else
 #define	LittleEndian16(_val)	(_val)
 #define	LittleEndian32(_val)	(_val)
+#define	LittleEndian64(_val)	(_val)
 #define	BigEndian16(_val)	SwapEndian16(_val)
 #define	BigEndian32(_val)	SwapEndian32(_val)
+#define	BigEndian64(_val)	SwapEndian64(_val)
 #endif
 extern Uint16	SwapEndian16(Uint16 Val);
 extern Uint32	SwapEndian32(Uint32 Val);
+extern Uint64	SwapEndian64(Uint64 Val);
 /**
  * \}
  */
