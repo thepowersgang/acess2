@@ -11,11 +11,14 @@
 #include "usb.h"
 #include "usb_lowlevel.h"
 #include <workqueue.h>
+#include <events.h>
 #include "usb_async.h"
 
 // === PROTOTYPES ===
 void	USB_ReadDescriptor(tUSBInterface *Iface, int Type, int Index, int Length, void *Data);
 void	USB_Request(tUSBInterface *Iface, int Endpoint, int Type, int Req, int Value, int Index, int Len, void *Data);
+void	USB_SendData(tUSBInterface *Dev, int Endpoint, size_t Length, const void *Data);
+void	USB_WakeCallback(void *Ptr, void *Buf, size_t Length);
 void	USB_AsyncCallback(void *Ptr, void *Buf, size_t Length);
 void	USB_AsyncThread(void *unused);
 
@@ -46,14 +49,54 @@ void USB_Request(tUSBInterface *Iface, int Endpoint, int Type, int Req, int Valu
 }
 
 
-void USB_SendData(tUSBInterface *Dev, int Endpoint, int Length, void *Data)
+void USB_SendData(tUSBInterface *Dev, int Endpoint, size_t Length, const void *Data)
 {
-	Log_Warning("USB", "TODO: Implement USB_SendData");
+	tUSBHost *host;
+	tUSBEndpoint	*ep;
+	ENTER("pDev iEndpoint iLength pData", Dev, Endpoint, Length, Data);
+
+	ep = &Dev->Endpoints[Endpoint-1];
+	host = Dev->Dev->Host;
+
+	if( Length > ep->MaxPacketSize ) {
+		Log_Warning("USB", "Max packet size exceeded (%i > %i)", ep->MaxPacketSize);
+		LEAVE('-');
+	}
+
+	Threads_ClearEvent(THREAD_EVENT_SHORTWAIT);
+	host->HostDef->BulkOUT(
+		host->Ptr, Dev->Dev->Address*16 + Dev->Endpoints[Endpoint-1].EndpointNum,
+		0, USB_WakeCallback, Proc_GetCurThread(),
+		(void*)Data, Length
+		);
+	Threads_WaitEvents(THREAD_EVENT_SHORTWAIT);
+	
+	LEAVE('-');
 }
 
-void USB_RecvData(tUSBInterface *Dev, int Endpoint, int Length, void *Data)
+void USB_RecvData(tUSBInterface *Dev, int Endpoint, size_t Length, void *Data)
 {
-	Log_Warning("USB", "TODO: Implement USB_RecvData");
+	tUSBHost *host;
+	tUSBEndpoint	*ep;
+	ENTER("pDev iEndpoint iLength pData", Dev, Endpoint, Length, Data);
+
+	ep = &Dev->Endpoints[Endpoint-1];
+	host = Dev->Dev->Host;
+
+	if( Length > ep->MaxPacketSize ) {
+		Log_Warning("USB", "Max packet size exceeded (%i > %i)", ep->MaxPacketSize);
+		LEAVE('-');
+	}
+
+	Threads_ClearEvent(THREAD_EVENT_SHORTWAIT);
+	host->HostDef->BulkIN(
+		host->Ptr, Dev->Dev->Address*16 + Dev->Endpoints[Endpoint-1].EndpointNum,
+		0, USB_WakeCallback, Proc_GetCurThread(),
+		Data, Length
+		);
+	Threads_WaitEvents(THREAD_EVENT_SHORTWAIT);
+	
+	LEAVE('-');
 }
 
 void USB_RecvDataA(tUSBInterface *Dev, int Endpoint, int Length, void *DataBuf, tUSB_DataCallback Callback)
@@ -83,6 +126,11 @@ void USB_RecvDataA(tUSBInterface *Dev, int Endpoint, int Length, void *DataBuf, 
 	LEAVE('-');
 
 //	Log_Warning("USB", "TODO: Implement USB_RecvDataA");
+}
+
+void USB_WakeCallback(void *Ptr, void *Buf, size_t Length)
+{
+	Threads_PostEvent(Ptr, THREAD_EVENT_SHORTWAIT);
 }
 
 void USB_AsyncCallback(void *Ptr, void *Buf, size_t Length)

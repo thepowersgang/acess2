@@ -60,8 +60,8 @@ extern void	USB_StartPollingEndpoint(tUSBInterface *Dev, int Endpoint);
 extern void	USB_ReadDescriptor(tUSBInterface *Dev, int Type, int Index, int Length, void *Data);
 extern void	USB_Request(tUSBInterface *Dev, int Endpoint, int Type, int Req, int Value, int Index, int Len, void *Data);
 // TODO: Async
-extern void	USB_SendData(tUSBInterface *Dev, int Endpoint, int Length, void *Data);
-extern void	USB_RecvData(tUSBInterface *Dev, int Endpoint, int Length, void *Data);
+extern void	USB_SendData(tUSBInterface *Dev, int Endpoint, size_t Length, const void *Data);
+extern void	USB_RecvData(tUSBInterface *Dev, int Endpoint, size_t Length, void *Data);
 extern void	USB_RecvDataA(tUSBInterface *Dev, int Endpoint, int Length, void *DataBuf, tUSB_DataCallback Callback);
 
 #endif
