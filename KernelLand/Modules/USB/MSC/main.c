@@ -5,7 +5,7 @@
  * main.c
  * - Driver Core
  */
-#define DEBUG	0
+#define DEBUG	1
 #define VERSION	VER2(0,1)
 #include <acess.h>
 #include <modules.h>
@@ -50,18 +50,46 @@ void MSC_Cleanup(void)
 void MSC_DeviceConnected(tUSBInterface *Dev, void *Descriptors, size_t DescriptorsLen)
 {
 	tMSCInfo	*info;
-	// TODO: Get the class code (and hence what command set is in use)
-	// TODO: Get the maximum packet size too
-
+	tLVM_VolType	*vt;
+	
 	info = malloc( sizeof(*info) );
-	USB_SetDeviceDataPtr(Dev, info);	
+	USB_SetDeviceDataPtr(Dev, info);
+	
+	// Get the class code (and hence what command set is in use)
+	Uint8	sc = (USB_GetInterfaceClass(Dev) & 0x00FF00) >> 8;
+	switch( sc )
+	{
+	// SCSI Transparent Command Set
+	case 0x06:
+		info->BlockCount = MSC_SCSI_GetSize(Dev, &info->BlockSize);
+		vt = &gMSC_SCSI_VolType;
+		break;
+	// Unknown, prepare to chuck sad
+	default:
+		Log_Error("USB MSC", "Unknown sub-class 0x%02x", sc);
+		USB_SetDeviceDataPtr(Dev, NULL);
+		free(info);
+		return ;
+	}
 
-	info->BlockCount = MSC_SCSI_GetSize(Dev, &info->BlockSize);
+	// Create device name from Vendor ID, Device ID and Serial Number
+	Uint16	vendor, devid;
+	char	*serial_number;
+	USB_GetDeviceVendor(Dev, &vendor, &devid);
+	serial_number = USB_GetSerialNumber(Dev);
+	if( !serial_number ) {
+		// No serial number - this breaks spec, but it's easy to handle
+		Log_Warning("USB MSC", "Device does not have a serial number, using a random one");
+		serial_number = malloc(4+8+1);
+		sprintf(serial_number, "rand%08x", rand());
+	}
+	char	name[4 + 4 + 1 + 4 + 1 + strlen(serial_number) + 1];
+	sprintf(name, "usb-%04x:%04x-%s", vendor, devid, serial_number);
+	free(serial_number);
 
-	LOG("Device has 0x%llx blocks of 0x%x bytes",
-		info->BlockCount, info->BlockSize);
-	// TODO: Get serial number
-	LVM_AddVolume(&gMSC_SCSI_VolType, "usb0", Dev, info->BlockSize, info->BlockCount);
+	// Pass the buck to LVM
+	LOG("Device '%s' has 0x%llx blocks of 0x%x bytes", name, info->BlockCount, info->BlockSize);
+	LVM_AddVolume(vt, name, Dev, info->BlockSize, info->BlockCount);
 }
 
 void MSC_DataIn(tUSBInterface *Dev, int EndPt, int Length, void *Data)
@@ -69,6 +97,9 @@ void MSC_DataIn(tUSBInterface *Dev, int EndPt, int Length, void *Data)
 	// Will this ever be needed?
 }
 
+/**
+ * \brief Create a CBW structure
+ */
 int MSC_int_CreateCBW(tMSC_CBW *Cbw, int bInput, size_t CmdLen, const void *CmdData, size_t DataLen)
 {
 	if( CmdLen == 0 ) {
@@ -98,7 +129,6 @@ void MSC_SendData(tUSBInterface *Dev, size_t CmdLen, const void *CmdData, size_t
 	tMSC_CSW	csw;
 	const int	endpoint_out = 2;
 	const int	endpoint_in = 1;
-	const int	max_packet_size = 64;
 	
 	if( MSC_int_CreateCBW(&cbw, 0, CmdLen, CmdData, DataLen) )
 		return ;
@@ -107,10 +137,7 @@ void MSC_SendData(tUSBInterface *Dev, size_t CmdLen, const void *CmdData, size_t
 	USB_SendData(Dev, endpoint_out, sizeof(cbw), &cbw);
 	
 	// Send Data
-	for( size_t ofs = 0; ofs < DataLen; ofs += max_packet_size )
-	{
-		USB_SendData(Dev, endpoint_out, MIN(max_packet_size, DataLen - ofs), Data + ofs);
-	}
+	USB_SendData(Dev, endpoint_out, DataLen, Data);
 	
 	// Read CSW
 	USB_RecvData(Dev, endpoint_in, sizeof(csw), &csw);
@@ -123,25 +150,18 @@ void MSC_RecvData(tUSBInterface *Dev, size_t CmdLen, const void *CmdData, size_t
 	tMSC_CSW	csw;
 	const int	endpoint_out = 2;
 	const int	endpoint_in = 1;
-	const int	max_packet_size = 64;
 		
 	if( MSC_int_CreateCBW(&cbw, 1, CmdLen, CmdData, DataLen) )
 		return ;
 	
 	// Send CBW
-	LOG("Send CBW");
 	USB_SendData(Dev, endpoint_out, sizeof(cbw), &cbw);
 	
 	// Read Data
-	for( size_t ofs = 0; ofs < DataLen; ofs += max_packet_size )
-	{
-		LOG("Read bytes 0x%x+0x%x", ofs, MIN(max_packet_size, DataLen - ofs));
-		// TODO: use async version and wait for the transaction to complete
-		USB_RecvData(Dev, endpoint_in, MIN(max_packet_size, DataLen - ofs), Data + ofs);
-	}
+	// TODO: use async version and wait for the transaction to complete
+	USB_RecvData(Dev, endpoint_in, DataLen, Data);
 	
 	// Read CSW
-	LOG("Read CSW");
 	USB_RecvData(Dev, endpoint_in, sizeof(csw), &csw);
 	// TODO: Validate CSW
 }
