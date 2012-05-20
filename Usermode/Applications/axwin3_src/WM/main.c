@@ -16,6 +16,7 @@ extern void	WM_Initialise(void);
 extern int	Renderer_Menu_Init(void);
 extern int	Renderer_Widget_Init(void);
 extern int	Renderer_Background_Init(void);
+extern int	Renderer_Framebuffer_Init(void);
 extern void	WM_Update(void);
 
 // === PROTOTYPES ===
@@ -59,6 +60,7 @@ int main(int argc, char *argv[])
 	Renderer_Menu_Init();
 	Renderer_Widget_Init();
 	Renderer_Background_Init();
+	Renderer_Framebuffer_Init();
 	WM_Initialise();
 	
 	// Spawn interface root
