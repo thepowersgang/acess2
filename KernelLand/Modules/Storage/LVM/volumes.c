@@ -49,6 +49,7 @@ int LVM_AddVolume(const tLVM_VolType *Type, const char *Name, void *Ptr, size_t 
 	// Create real volume descriptor
 	// TODO: If this needs to be rescanned later, having the subvolume list separate might be an idea
 	real_vol = malloc( sizeof(tLVM_Vol) + strlen(Name) + 1 + sizeof(tLVM_SubVolume*) * dummy_vol.nSubVolumes );
+	real_vol->Next = NULL;
 	real_vol->Type = Type;
 	real_vol->Ptr = Ptr;
 	real_vol->BlockCount = BlockCount;
