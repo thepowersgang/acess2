@@ -11,6 +11,7 @@
 #include <usb_core.h>
 #include <usb_hub.h>
 #include <usb_host.h>
+#include "usb_proto.h"
 
 typedef struct sUSBHost	tUSBHost;
 typedef struct sUSBDevice	tUSBDevice;
@@ -53,6 +54,8 @@ struct sUSBInterface
 
 	tUSBDriver	*Driver;
 	void	*Data;
+
+	struct sDescriptor_Interface	IfaceDesc;
 	
 	 int	nEndpoints;
 	tUSBEndpoint	Endpoints[];
@@ -70,6 +73,8 @@ struct sUSBDevice
 	 */
 	tUSBHost	*Host;
 	 int	Address;
+
+	struct sDescriptor_Device	DevDesc;
 
 	 int	nInterfaces;
 	tUSBInterface	*Interfaces[];

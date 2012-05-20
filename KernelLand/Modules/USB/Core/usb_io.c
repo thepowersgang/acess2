@@ -58,17 +58,17 @@ void USB_SendData(tUSBInterface *Dev, int Endpoint, size_t Length, const void *D
 	ep = &Dev->Endpoints[Endpoint-1];
 	host = Dev->Dev->Host;
 
-	if( Length > ep->MaxPacketSize ) {
-		Log_Warning("USB", "Max packet size exceeded (%i > %i)", ep->MaxPacketSize);
-		LEAVE('-');
-	}
-
 	Threads_ClearEvent(THREAD_EVENT_SHORTWAIT);
-	host->HostDef->BulkOUT(
-		host->Ptr, Dev->Dev->Address*16 + Dev->Endpoints[Endpoint-1].EndpointNum,
-		0, USB_WakeCallback, Proc_GetCurThread(),
-		(void*)Data, Length
-		);
+	for( size_t ofs = 0; ofs < Length; ofs += ep->MaxPacketSize )
+	{
+		size_t	len = MIN(Length - ofs, ep->MaxPacketSize);
+		
+		host->HostDef->BulkOUT(
+			host->Ptr, Dev->Dev->Address*16 + Dev->Endpoints[Endpoint-1].EndpointNum,
+			0, (len == Length - ofs ? USB_WakeCallback : NULL), Proc_GetCurThread(),
+			(char*)Data + ofs, len
+			);
+	}
 	Threads_WaitEvents(THREAD_EVENT_SHORTWAIT);
 	
 	LEAVE('-');
@@ -83,23 +83,23 @@ void USB_RecvData(tUSBInterface *Dev, int Endpoint, size_t Length, void *Data)
 	ep = &Dev->Endpoints[Endpoint-1];
 	host = Dev->Dev->Host;
 
-	if( Length > ep->MaxPacketSize ) {
-		Log_Warning("USB", "Max packet size exceeded (%i > %i)", ep->MaxPacketSize);
-		LEAVE('-');
-	}
-
 	Threads_ClearEvent(THREAD_EVENT_SHORTWAIT);
-	host->HostDef->BulkIN(
-		host->Ptr, Dev->Dev->Address*16 + Dev->Endpoints[Endpoint-1].EndpointNum,
-		0, USB_WakeCallback, Proc_GetCurThread(),
-		Data, Length
-		);
+	for( size_t ofs = 0; ofs < Length; ofs += ep->MaxPacketSize )
+	{
+		size_t	len = MIN(Length - ofs, ep->MaxPacketSize);
+		
+		host->HostDef->BulkIN(
+			host->Ptr, Dev->Dev->Address*16 + Dev->Endpoints[Endpoint-1].EndpointNum,
+			0, (len == Length - ofs ? USB_WakeCallback : NULL), Proc_GetCurThread(),
+			(char*)Data + ofs, len
+			);
+	}
 	Threads_WaitEvents(THREAD_EVENT_SHORTWAIT);
 	
 	LEAVE('-');
 }
 
-void USB_RecvDataA(tUSBInterface *Dev, int Endpoint, int Length, void *DataBuf, tUSB_DataCallback Callback)
+void USB_RecvDataA(tUSBInterface *Dev, int Endpoint, size_t Length, void *DataBuf, tUSB_DataCallback Callback)
 {
 	tAsyncOp *op;
 	tUSBHost *host;
@@ -116,12 +116,18 @@ void USB_RecvDataA(tUSBInterface *Dev, int Endpoint, int Length, void *DataBuf, 
 	// TODO: Data toggle
 
 	host = Dev->Dev->Host;
+	
 	LOG("IN from %p %i:%i", host->Ptr, Dev->Dev->Address, op->Endpt->EndpointNum);
-	host->HostDef->BulkIN(
-		host->Ptr, Dev->Dev->Address*16 + op->Endpt->EndpointNum,
-		0, USB_AsyncCallback, op,
-		DataBuf, Length
-		);
+	for( size_t ofs = 0; ofs < Length; ofs += op->Endpt->MaxPacketSize )
+	{
+		size_t	len = MIN(Length - ofs, op->Endpt->MaxPacketSize);
+		
+		host->HostDef->BulkIN(
+			host->Ptr, Dev->Dev->Address*16 + op->Endpt->EndpointNum,
+			0, (len == Length - ofs ? USB_AsyncCallback : NULL), op,
+			(char*)DataBuf + ofs, len
+			);
+	}
 	
 	LEAVE('-');
 

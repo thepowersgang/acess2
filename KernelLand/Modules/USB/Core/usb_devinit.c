@@ -102,6 +102,8 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 		}
 		#endif
 		#endif
+		
+		memcpy(&dev->DevDesc, &desc, sizeof(desc));
 	}
 
 	// TODO: Support alternate configurations
@@ -150,10 +152,10 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 		total_length = LittleEndian16(desc.TotalLength);
 		full_buf = malloc( total_length );
 		USB_int_ReadDescriptor(dev, 0, 2, i, total_length, full_buf);
-
 		ptr_ofs += desc.Length;
 
-		// TODO: Interfaces
+
+		// Interfaces!
 		for( int j = 0; ptr_ofs < total_length && j < desc.NumInterfaces; j ++ )
 		{
 			struct sDescriptor_Interface *iface;
@@ -193,11 +195,15 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 			LOG("}");
 			#endif
 
-			dev_if = malloc(sizeof(tUSBInterface) + iface->NumEndpoints*sizeof(dev_if->Endpoints[0]));
+			dev_if = malloc(
+				sizeof(tUSBInterface)
+				+ iface->NumEndpoints*sizeof(dev_if->Endpoints[0])
+				);
 			dev_if->Dev = dev;
 			dev_if->Driver = NULL;
 			dev_if->Data = NULL;
 			dev_if->nEndpoints = iface->NumEndpoints;
+			memcpy(&dev_if->IfaceDesc, iface, sizeof(*iface));
 			dev->Interfaces[j] = dev_if;
 
 			// Copy interface data
