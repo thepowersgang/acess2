@@ -119,7 +119,7 @@ void *IPStack_Adapter_AddVFS(const char *Path)
 	// Get MAC Address
 	VFS_IOCtl(fd, NET_IOCTL_GETMAC, mac);
 
-	return IPStack_Adapter_Add(NULL, (void*)fd, mac);
+	return IPStack_Adapter_Add(NULL, (void*)(tVAddr)fd, mac);
 }
 
 void IPStack_Adapter_Del(void *Handle)

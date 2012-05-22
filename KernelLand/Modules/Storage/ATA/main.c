@@ -105,7 +105,7 @@ int ATA_ScanDisk(int Disk)
 
 	char name[] = "ata0";
 	sprintf(name, "ata%i", Disk);
-	LVM_AddVolume(&gATA_VolType, name, (void*)(Uint*)Disk, 512, sector_count);
+	LVM_AddVolume(&gATA_VolType, name, (void*)(Uint)Disk, 512, sector_count);
 
 	#if DEBUG >= 2
 	{
