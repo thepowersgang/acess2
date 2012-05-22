@@ -56,6 +56,7 @@ int main(int argc, char *argv[])
 			{
 			// -t <driver> :: Filesystem driver to use
 			case 't':	sType = argv[++i];	break;
+			case 'o':	sOptions = argv[++i];	break;
 			case '-':
 				//TODO: Long Arguments
 			default:
@@ -147,7 +148,7 @@ int main(int argc, char *argv[])
 void ShowUsage(char *ProgName)
 {
 	fprintf(stderr, "Usage:\n");
-	fprintf(stderr, "    %s [-t <type>] <device> <directory>\n", ProgName);
+	fprintf(stderr, "    %s [-t <type>] <device> <directory> [-o <options>]\n", ProgName);
 	fprintf(stderr, "or  %s <device>\n", ProgName);
 	fprintf(stderr, "or  %s <directory>\n", ProgName);
 	fprintf(stderr, "or  %s\n", ProgName);
