@@ -5,7 +5,7 @@
  * ramdisk.c
  * - Core File
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <acess.h>
 #include <modules.h>
 #include "ramdisk.h"
@@ -15,75 +15,93 @@
 #define MAX_RAMDISK_SIZE	(64*1024*1024)
 
 // === PROTOTYPES ===
- int	RAMDisk_Install(char **Arguments);
-void	RAMDisk_Cleanup(void);
+ int	RAMFS_Install(char **Arguments);
+void	RAMFS_Cleanup(void);
 // --- Mount/Unmount ---
-tVFS_Node	*RAMDisk_InitDevice(const char *Device, const char **Options);
-void	RAMDisk_Unmount(tVFS_Node *Node);
+tVFS_Node	*RAMFS_InitDevice(const char *Device, const char **Options);
+void	RAMFS_Unmount(tVFS_Node *Node);
 // --- Directories ---
-char	*RAMDisk_ReadDir(tVFS_Node *Node, int Index);
-tVFS_Node	*RAMDisk_FindDir(tVFS_Node *Node, const char *Name);
- int	RAMDisk_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
- int	RAMDisk_Link(tVFS_Node *DirNode, const char *Name, tVFS_Node *Node);
- int	RAMDisk_Unlink(tVFS_Node *Node, const char *Name);
+char	*RAMFS_ReadDir(tVFS_Node *Node, int Index);
+tVFS_Node	*RAMFS_FindDir(tVFS_Node *Node, const char *Name);
+ int	RAMFS_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
+ int	RAMFS_Link(tVFS_Node *DirNode, const char *Name, tVFS_Node *Node);
+ int	RAMFS_Unlink(tVFS_Node *Node, const char *Name);
 // --- Files ---
-size_t	RAMDisk_Read(tVFS_Node *Node, off_t Offset, size_t Size, void *Buffer);
-size_t	RAMDisk_Write(tVFS_Node *Node, off_t Offset, size_t Size, const void *Buffer);
+size_t	RAMFS_Read(tVFS_Node *Node, off_t Offset, size_t Size, void *Buffer);
+size_t	RAMFS_Write(tVFS_Node *Node, off_t Offset, size_t Size, const void *Buffer);
 // --- Internals --
-void	RAMDisk_int_RefFile(tRAMDisk_Inode *Inode);
-void	RAMDisk_int_DerefFile(tRAMDisk_Inode *Inode);
-void	*_GetPage(tRAMDisk_File *File, int Page, int bCanAlloc);
-void	_DropPage(void *Page);
+void	RAMFS_int_RefFile(tRAMFS_Inode *Inode);
+void	RAMFS_int_DerefFile(tRAMFS_Inode *Inode);
+void	*RAMFS_int_GetPage(tRAMFS_File *File, int Page, int bCanAlloc);
+void	RAMFS_int_DropPage(void *Page);
+Uint32	RAMFS_int_AllocatePage(tRAMDisk *Disk);
+void	RAMFS_int_RefFile(tRAMFS_Inode *Inode);
+void	RAMFS_int_DerefFile(tRAMFS_Inode *Inode);
 
 // === GLOBALS ===
-MODULE_DEFINE(0, VERSION, FS_RAMDisk, RAMDisk_Install, RAMDisk_Cleanup, NULL);
-tVFS_Driver	gRAMDisk_Driver = {
-	.Name = "RAMDisk",
-	.InitDevice = RAMDisk_InitDevice,
-	.Unmount = RAMDisk_Unmount
+MODULE_DEFINE(0, VERSION, FS_RAMDisk, RAMFS_Install, RAMFS_Cleanup, NULL);
+tVFS_Driver	gRAMFS_Driver = {
+	.Name = "ramfs",
+	.InitDevice = RAMFS_InitDevice,
+	.Unmount = RAMFS_Unmount
 	// TODO: GetNodeFromInode
 	};
-tVFS_NodeType	gRAMDisk_DirNodeType = {
-	.ReadDir = RAMDisk_ReadDir,
-	.FindDir = RAMDisk_FindDir,
-	.MkNod   = RAMDisk_MkNod,
-//	.Link    = RAMDisk_Link,
-//	.Unlink  = RAMDisk_Unink
+tVFS_NodeType	gRAMFS_DirNodeType = {
+	.ReadDir = RAMFS_ReadDir,
+	.FindDir = RAMFS_FindDir,
+	.MkNod   = RAMFS_MkNod,
+	.Link    = RAMFS_Link,
+	.Unlink  = RAMFS_Unlink
 	};
-tVFS_NodeType	gRAMDisk_FileNodeType = {
-	.Read  = RAMDisk_Read,
-	.Write = RAMDisk_Write
+tVFS_NodeType	gRAMFS_FileNodeType = {
+	.Read  = RAMFS_Read,
+	.Write = RAMFS_Write
 	};
 
 // === CODE ===
-int RAMDisk_Install(char **Arguments)
+int RAMFS_Install(char **Arguments)
 {
-	VFS_AddDriver( &gRAMDisk_Driver );
+	VFS_AddDriver( &gRAMFS_Driver );
 	return 0;
 }
 
-void RAMDisk_Cleanup(void)
+void RAMFS_Cleanup(void)
 {
 	
 }
 
 
 // --- Mount/Unmount
-tVFS_Node *RAMDisk_InitDevice(const char *Device, const char **Options)
+const char *_GetOption(const char *Data, const char *Option)
+{
+	 int	len = strlen(Option);
+	if( strncmp(Data, Option, len) != 0 )
+		return NULL;
+	if( Data[len] != '=' )
+		return NULL;
+	return Data + len + 1;
+}
+
+tVFS_Node *RAMFS_InitDevice(const char *Device, const char **Options)
 {
 	size_t	size = 0;
 	tRAMDisk	*rd;
 
 	if( Options ) 
 	{
+		const char *v;
 		for( int i = 0; Options[i]; i ++ )
 		{
-			if( strcmp(Options[i], "megs") == '=' )
+			LOG("Options[%i] = '%s'", i, Options[i]);
+			if( (v = _GetOption(Options[i], "megs")) )
 			{
-				size = atoi(Options[i] + 5) * 1024 * 1024;
+				size = atoi(v) * 1024 * 1024;
+				LOG("Size set to %iMiB", size>>20);
 			}
 		}
 	}
+
+	LOG("Disk Size %iKiB", size>>10);
 
 	if( size > MAX_RAMDISK_SIZE || size < MIN_RAMDISK_SIZE )
 		return NULL;
@@ -96,7 +114,7 @@ tVFS_Node *RAMDisk_InitDevice(const char *Device, const char **Options)
 	rd->RootDir.Inode.Node.ImplPtr = &rd->RootDir;
 	rd->RootDir.Inode.Node.Flags = VFS_FFLAG_DIRECTORY;
 	rd->RootDir.Inode.Node.Size = -1;
-	rd->RootDir.Inode.Node.Type = &gRAMDisk_DirNodeType;
+	rd->RootDir.Inode.Node.Type = &gRAMFS_DirNodeType;
 	rd->Bitmap = (void*)&rd->PhysPages[ n_pages ];
 
 	for( int i = 0; i < n_pages; i ++ )
@@ -108,64 +126,72 @@ tVFS_Node *RAMDisk_InitDevice(const char *Device, const char **Options)
 		}
 	}
 
+	LOG("Mounted");
 	return &rd->RootDir.Inode.Node;
 }
 
-void RAMDisk_Unmount(tVFS_Node *Node)
+void RAMFS_Unmount(tVFS_Node *Node)
 {
 	Log_Warning("RAMDisk", "TODO: Impliment unmounting");
 }
 
 // --- Directories ---
-char *RAMDisk_ReadDir(tVFS_Node *Node, int Index)
+char *RAMFS_ReadDir(tVFS_Node *Node, int Index)
 {
-	tRAMDisk_Dir	*dir = Node->ImplPtr;
-	for( tRAMDisk_DirEnt *d = dir->FirstEnt; d; d = d->Next )
+	tRAMFS_Dir	*dir = Node->ImplPtr;
+	for( tRAMFS_DirEnt *d = dir->FirstEnt; d; d = d->Next )
 	{
-		if( Index -- == 0 )
+		if( Index -- == 0 ) {
+			LOG("Return %s", d->Name);
 			return strdup(d->Name);
+		}
 	}
+	LOG("Return NULL");
 	return NULL;
 }
 
-tVFS_Node *RAMDisk_FindDir(tVFS_Node *Node, const char *Name)
+tVFS_Node *RAMFS_FindDir(tVFS_Node *Node, const char *Name)
 {
-	tRAMDisk_Dir	*dir = Node->ImplPtr;
-	for( tRAMDisk_DirEnt *d = dir->FirstEnt; d; d = d->Next )
+	tRAMFS_Dir	*dir = Node->ImplPtr;
+
+	for( tRAMFS_DirEnt *d = dir->FirstEnt; d; d = d->Next )
 	{
-		if( strcmp(d->Name, Name) == 0 )
+		if( strcmp(d->Name, Name) == 0 ) {
+			LOG("Return %p", &d->Inode->Node);
 			return &d->Inode->Node;
+		}
 	}
 	
+	LOG("Return NULL");
 	return NULL;
 }
 
-int RAMDisk_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
+int RAMFS_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
 {
-	tRAMDisk_Dir	*dir = Node->ImplPtr;
-	if( RAMDisk_FindDir(Node, Name) != NULL )
+	tRAMFS_Dir	*dir = Node->ImplPtr;
+	if( RAMFS_FindDir(Node, Name) != NULL )
 		return -1;
 	
-	tRAMDisk_DirEnt	*de = malloc( sizeof(tRAMDisk_DirEnt) + strlen(Name) + 1 );
+	tRAMFS_DirEnt	*de = malloc( sizeof(tRAMFS_DirEnt) + strlen(Name) + 1 );
 	de->Next = NULL;
 	de->NameLen = strlen(Name);
 	strcpy(de->Name, Name);
 
 	if( Flags & VFS_FFLAG_DIRECTORY ) {
-		tRAMDisk_Dir	*newdir = calloc(1, sizeof(tRAMDisk_Dir));
-		newdir->Inode.Node.Type = &gRAMDisk_DirNodeType;
+		tRAMFS_Dir	*newdir = calloc(1, sizeof(tRAMFS_Dir));
+		newdir->Inode.Node.Type = &gRAMFS_DirNodeType;
 		de->Inode = &newdir->Inode;
 	}
 	else {
-		tRAMDisk_File	*newfile = calloc(1, sizeof(tRAMDisk_File));
-		newfile->Inode.Node.Type = &gRAMDisk_FileNodeType;
+		tRAMFS_File	*newfile = calloc(1, sizeof(tRAMFS_File));
+		newfile->Inode.Node.Type = &gRAMFS_FileNodeType;
 		de->Inode = &newfile->Inode;
 	}
 	de->Inode->Disk = dir->Inode.Disk;
 	de->Inode->Node.Flags = Flags;
 	de->Inode->Node.ImplPtr = de->Inode;
 
-	RAMDisk_int_RefFile(de->Inode);
+	RAMFS_int_RefFile(de->Inode);
 
 	// TODO: Lock?
 	if(dir->FirstEnt)
@@ -177,10 +203,10 @@ int RAMDisk_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
 	return 0;
 }
 
-int RAMDisk_Link(tVFS_Node *DirNode, const char *Name, tVFS_Node *FileNode)
+int RAMFS_Link(tVFS_Node *DirNode, const char *Name, tVFS_Node *FileNode)
 {
-	tRAMDisk_Dir	*dir = DirNode->ImplPtr;
-	tRAMDisk_DirEnt	*dp;
+	tRAMFS_Dir	*dir = DirNode->ImplPtr;
+	tRAMFS_DirEnt	*dp;
 
 	for( dp = dir->FirstEnt; dp; dp = dp->Next )
 	{
@@ -188,10 +214,10 @@ int RAMDisk_Link(tVFS_Node *DirNode, const char *Name, tVFS_Node *FileNode)
 			return -1;
 	}
 	
-	dp = malloc( sizeof(tRAMDisk_DirEnt) + strlen(Name) + 1 );
+	dp = malloc( sizeof(tRAMFS_DirEnt) + strlen(Name) + 1 );
 	dp->Next = NULL;
 	dp->Inode = FileNode->ImplPtr;
-	RAMDisk_int_RefFile(dp->Inode);
+	RAMFS_int_RefFile(dp->Inode);
 	strcpy(dp->Name, Name);
 
 	// TODO: Lock?	
@@ -204,13 +230,14 @@ int RAMDisk_Link(tVFS_Node *DirNode, const char *Name, tVFS_Node *FileNode)
 	return 0;
 }
 
-int RAMDisk_Unlink(tVFS_Node *Node, const char *Name)
+int RAMFS_Unlink(tVFS_Node *Node, const char *Name)
 {
-	tRAMDisk_Dir	*dir = Node->ImplPtr;
-	tRAMDisk_DirEnt	*dp, *p = NULL;
+	tRAMFS_Dir	*dir = Node->ImplPtr;
+	tRAMFS_DirEnt	*dp, *p = NULL;
 
 	// TODO: Is locking needed?
 
+	// Find the directory entry
 	for( dp = dir->FirstEnt; dp; p = dp, dp = dp->Next )
 	{
 		if( strcmp(dp->Name, Name) == 0 )
@@ -218,9 +245,11 @@ int RAMDisk_Unlink(tVFS_Node *Node, const char *Name)
 	}
 	if( !dp )	return -1;
 	
-	RAMDisk_int_DerefFile( dp->Inode );
+	// Dereference the file
+	RAMFS_int_DerefFile( dp->Inode );
 
-	if( !p )
+	// Remove and free directory entry
+	if(!p)
 		dir->FirstEnt = dp->Next;
 	else
 		p->Next = dp->Next;
@@ -232,7 +261,7 @@ int RAMDisk_Unlink(tVFS_Node *Node, const char *Name)
 }
 
 // --- Files ---
-size_t _DoIO(tRAMDisk_File *File, off_t Offset, size_t Size, void *Buffer, int bRead)
+size_t RAMFS_int_DoIO(tRAMFS_File *File, off_t Offset, size_t Size, void *Buffer, int bRead)
 {
 	size_t	rem;
 	Uint8	*page_virt;
@@ -248,7 +277,7 @@ size_t _DoIO(tRAMDisk_File *File, off_t Offset, size_t Size, void *Buffer, int b
 	Offset %= PAGE_SIZE;
 	rem = Size;
 
-	page_virt = _GetPage(File, page++, !bRead);
+	page_virt = RAMFS_int_GetPage(File, page++, !bRead);
 	if(!page_virt)	return 0;
 	
 	if( Offset + Size <= PAGE_SIZE )
@@ -269,8 +298,8 @@ size_t _DoIO(tRAMDisk_File *File, off_t Offset, size_t Size, void *Buffer, int b
 	
 	while( rem >= PAGE_SIZE )
 	{
-		_DropPage(page_virt);
-		page_virt = _GetPage(File, page++, !bRead);
+		RAMFS_int_DropPage(page_virt);
+		page_virt = RAMFS_int_GetPage(File, page++, !bRead);
 		if(!page_virt)	return Size - rem;
 		
 		if( bRead )
@@ -284,7 +313,7 @@ size_t _DoIO(tRAMDisk_File *File, off_t Offset, size_t Size, void *Buffer, int b
 
 	if( rem > 0 )
 	{
-		page_virt = _GetPage(File, page, !bRead);
+		page_virt = RAMFS_int_GetPage(File, page, !bRead);
 		if(!page_virt)	return Size - rem;
 		if( bRead )
 			memcpy(Buffer, page_virt, rem);
@@ -292,27 +321,155 @@ size_t _DoIO(tRAMDisk_File *File, off_t Offset, size_t Size, void *Buffer, int b
 			memcpy(page_virt, Buffer, rem);
 	}
 
-	_DropPage(page_virt);
+	RAMFS_int_DropPage(page_virt);
 	
 	return Size;
 }
 
-size_t RAMDisk_Read(tVFS_Node *Node, off_t Offset, size_t Size, void *Buffer)
+size_t RAMFS_Read(tVFS_Node *Node, off_t Offset, size_t Size, void *Buffer)
 {
-	tRAMDisk_File	*file = Node->ImplPtr;
+	tRAMFS_File	*file = Node->ImplPtr;
 	
-	return _DoIO(file, Offset, Size, Buffer, 1);
+	return RAMFS_int_DoIO(file, Offset, Size, Buffer, 1);
 }
 
-size_t RAMDisk_Write(tVFS_Node *Node, off_t Offset, size_t Size, const void *Buffer)
+size_t RAMFS_Write(tVFS_Node *Node, off_t Offset, size_t Size, const void *Buffer)
 {
-	tRAMDisk_File	*file = Node->ImplPtr;
+	tRAMFS_File	*file = Node->ImplPtr;
 	
 	// TODO: Limit checks?
 	if( Offset == file->Size )
 		file->Size += Size;
 
-	return _DoIO(file, Offset, Size, (void*)Buffer, 0);
+	return RAMFS_int_DoIO(file, Offset, Size, (void*)Buffer, 0);
 }
 
+// --- Internals ---
+void *RAMFS_int_GetPage(tRAMFS_File *File, int Page, int bCanAlloc)
+{
+	Uint32	page_id = 0;
+	Uint32	*page_in_1 = NULL;
+	Uint32	*page_in_2 = NULL;
 
+	 int	ofs = 0, block;
+
+	if( Page < 0 )	return NULL;
+	
+	if( Page < RAMFS_NDIRECT )
+	{
+		if( File->PagesDirect[Page] )
+			page_id = File->PagesDirect[Page];
+	}
+	else if( Page - RAMFS_NDIRECT < PAGE_SIZE/4 )
+	{
+		ofs = Page - RAMFS_NDIRECT;
+		if( File->Indirect1Page == 0 ) {
+			if( !bCanAlloc )
+				return NULL;
+			else
+				File->Indirect1Page = RAMFS_int_AllocatePage(File->Inode.Disk) + 1;
+		}
+		page_in_1 = MM_MapTemp( File->Inode.Disk->PhysPages[File->Indirect1Page-1] );
+		page_id = page_in_1[ofs];
+	}
+	else if( Page - RAMFS_NDIRECT - PAGE_SIZE/4 < (PAGE_SIZE/4)*(PAGE_SIZE/4) )
+	{
+		block = (Page - RAMFS_NDIRECT - PAGE_SIZE/4) / (PAGE_SIZE/4);
+		ofs   = (Page - RAMFS_NDIRECT - PAGE_SIZE/4) % (PAGE_SIZE/4);
+		if( File->Indirect2Page == 0 ){
+			if( !bCanAlloc )
+				return NULL;
+			else
+				File->Indirect2Page = RAMFS_int_AllocatePage(File->Inode.Disk) + 1;
+		}
+
+		page_in_2 = MM_MapTemp( File->Inode.Disk->PhysPages[File->Indirect2Page-1] );
+		if( page_in_2[block] == 0 ) {
+			if( !bCanAlloc )
+				return NULL;
+			else
+				page_in_2[block] = RAMFS_int_AllocatePage(File->Inode.Disk) + 1;
+		}
+
+		page_in_1 = MM_MapTemp( File->Inode.Disk->PhysPages[page_in_2[block] - 1] );
+		page_id = page_in_1[ofs];
+	}
+
+	if( page_id == 0 )
+	{
+		if( !bCanAlloc )
+			return NULL;
+		
+		page_id = RAMFS_int_AllocatePage(File->Inode.Disk) + 1;
+		if(page_in_1)
+			page_in_1[ofs] = page_id;
+		else
+			File->PagesDirect[Page] = page_id;
+	}
+	
+	MM_FreeTemp( page_in_1 );
+	MM_FreeTemp( page_in_2 );
+
+	return MM_MapTemp( File->Inode.Disk->PhysPages[page_id - 1] );
+}
+
+void RAMFS_int_DropPage(void *Page)
+{
+	MM_FreeTemp( Page );
+}
+
+Uint32 RAMFS_int_AllocatePage(tRAMDisk *Disk)
+{
+	 int	i, j;
+
+	// Quick check
+	if( Disk->nUsedPages == Disk->MaxPages )
+		return 0;
+
+	// Find a chunk with at least one free page
+	for( i = 0; i < Disk->MaxPages / 32; i ++ )
+	{
+		if( Disk->Bitmap[i] != -1 )
+			break;
+	}
+	if( i == Disk->MaxPages / 32 ) {
+		Log_Error("RAMFS", "Bookkeeping error, count and bitmap disagree");
+		return 0;
+	}
+
+	// Find the exact page
+	for( j = 0; j < 32; j ++ )
+	{
+		if( !(Disk->Bitmap[i] & (1U << j)) )
+			break ;
+	}
+	ASSERT(j < 32);
+
+	return i * 32 + j;
+}
+
+void RAMFS_int_RefFile(tRAMFS_Inode *Inode)
+{
+	Inode->nLink ++;
+}
+
+void RAMFS_int_DerefFile(tRAMFS_Inode *Inode)
+{
+	Inode->nLink --;
+	if( Inode->nLink >= 0 )
+		return ;
+
+	Log_Error("RAMFS", "TODO: Clean up files when deleted");
+
+	// Need to delete file
+	switch( Inode->Type )
+	{
+	case 0:	// File
+		break ;
+	case 1:	// Directory
+		break ;
+	case 2:	// Symlink
+		break ;
+	}
+	free(Inode);
+}

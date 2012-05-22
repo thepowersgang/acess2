@@ -379,8 +379,8 @@ tUHCI_TD *UHCI_int_CreateTD(
 		else
 		{
 			LOG("Relocated OUT/SETUP");
-			tVAddr	ptr = MM_MapTemp(td->BufferPointer);
-			memcpy( (void*)ptr, Data, Length );
+			void *ptr = MM_MapTemp(td->BufferPointer);
+			memcpy( ptr, Data, Length );
 			MM_FreeTemp(ptr);
 			td->Control |= TD_CTL_IOC;
 		}
@@ -728,8 +728,8 @@ void UHCI_int_HandleTDComplete(tUHCI_Controller *Cont, tUHCI_TD *TD)
 	{
 		char	*src, *dest;
 		 int	src_ofs = TD->BufferPointer & (PAGE_SIZE-1);
-		src = (void *) MM_MapTemp(TD->BufferPointer);
-		dest = (void *) MM_MapTemp(info->FirstPage);
+		src = MM_MapTemp(TD->BufferPointer);
+		dest = MM_MapTemp(info->FirstPage);
 		// Check for a single page transfer
 		if( byte_count + info->Offset <= PAGE_SIZE )
 		{
@@ -744,21 +744,21 @@ void UHCI_int_HandleTDComplete(tUHCI_Controller *Cont, tUHCI_TD *TD)
 				TD->BufferPointer, info->FirstPage, info->SecondPage, TD);
 			 int	part_len = PAGE_SIZE - info->Offset;
 			memcpy(dest + info->Offset, src + src_ofs, part_len);
-			MM_FreeTemp( (tVAddr)dest );
-			dest = (void *) MM_MapTemp(info->SecondPage);
+			MM_FreeTemp( dest );
+			dest = MM_MapTemp(info->SecondPage);
 			memcpy(dest, src + src_ofs + part_len, byte_count - part_len);
 		}
-		MM_FreeTemp( (tVAddr)src );
-		MM_FreeTemp( (tVAddr)dest );
+		MM_FreeTemp( src );
+		MM_FreeTemp( dest );
 	}
 
 	// Callback
 	if( info->Callback != NULL )
 	{
 		LOG("Calling cb %p (%i bytes)", info->Callback, byte_count);
-		void	*ptr = (void *) MM_MapTemp( TD->BufferPointer );
+		void	*ptr = MM_MapTemp( TD->BufferPointer );
 		info->Callback( info->CallbackPtr, ptr, byte_count );
-		MM_FreeTemp( (tVAddr)ptr );
+		MM_FreeTemp( ptr );
 	}
 	
 	// Clean up info

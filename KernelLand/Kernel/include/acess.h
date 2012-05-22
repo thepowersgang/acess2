@@ -278,12 +278,12 @@ extern Uint	MM_GetFlags(tVAddr VAddr);
  * \return Virtual address of page in memory
  * \note There is only a limited ammount of slots avaliable
  */
-extern tVAddr	MM_MapTemp(tPAddr PAddr);
+extern void	*MM_MapTemp(tPAddr PAddr);
 /**
  * \brief Free a temporarily mapped page
  * \param VAddr	Allocate virtual addres of page
  */
-extern void	MM_FreeTemp(tVAddr VAddr);
+extern void	MM_FreeTemp(void *Ptr);
 /**
  * \brief Map a physcal address range into the virtual address space
  * \param PAddr	Physical address to map in

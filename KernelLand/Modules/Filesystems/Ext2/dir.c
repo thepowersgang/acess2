@@ -16,8 +16,8 @@
 char	*Ext2_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*Ext2_FindDir(tVFS_Node *Node, const char *FileName);
  int	Ext2_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
- int	Ext2_Relink(tVFS_Node *Node, const char *OldName, const char *NewName);
- int	Ext2_Link(tVFS_Node *Parent, tVFS_Node *Node, const char *Name);
+ int	Ext2_Unlink(tVFS_Node *Node, const char *OldName);
+ int	Ext2_Link(tVFS_Node *Parent, const char *Name, tVFS_Node *Node);
 // --- Helpers ---
 tVFS_Node	*Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeId);
 
@@ -27,7 +27,7 @@ tVFS_NodeType	gExt2_DirType = {
 	.ReadDir = Ext2_ReadDir,
 	.FindDir = Ext2_FindDir,
 	.MkNod = Ext2_MkNod,
-	.Relink = Ext2_Relink,
+	.Unlink = Ext2_Unlink,
 	.Link = Ext2_Link,
 	.Close = Ext2_CloseFile
 	};
@@ -207,9 +207,9 @@ int Ext2_MkNod(tVFS_Node *Parent, const char *Name, Uint Flags)
  * \param Node	This (directory) node
  * \param OldName	Old name of file
  * \param NewName	New name for file
- * \return Boolean Failure - See ::tVFS_Node.Relink for info
+ * \return Boolean Failure - See ::tVFS_Node.Unlink for info
  */
-int Ext2_Relink(tVFS_Node *Node, const char *OldName, const char *NewName)
+int Ext2_Unlink(tVFS_Node *Node, const char *OldName)
 {
 	return 1;
 }
@@ -217,11 +217,11 @@ int Ext2_Relink(tVFS_Node *Node, const char *OldName, const char *NewName)
 /**
  * \brief Links an existing node to a new name
  * \param Parent	Parent (directory) node
- * \param Node	Node to link
  * \param Name	New name for the node
+ * \param Node	Node to link
  * \return Boolean Failure - See ::tVFS_Node.Link for info
  */
-int Ext2_Link(tVFS_Node *Node, tVFS_Node *Child, const char *Name)
+int Ext2_Link(tVFS_Node *Node, const char *Name, tVFS_Node *Child)
 {	
 	#if 0
 	tExt2_Disk	*disk = Node->ImplPtr;

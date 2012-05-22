@@ -10,13 +10,15 @@
 
 #include <vfs.h>
 
-typedef struct sRAMDisk_Inode	tRAMDisk_Inode;
-typedef struct sRAMDisk_File	tRAMDisk_File;
-typedef struct sRAMDisk_DirEnt	tRAMDisk_DirEnt;
-typedef struct sRAMDisk_Dir	tRAMDisk_Dir;
+#define RAMFS_NDIRECT	12
+
+typedef struct sRAMFS_Inode	tRAMFS_Inode;
+typedef struct sRAMFS_File	tRAMFS_File;
+typedef struct sRAMFS_DirEnt	tRAMFS_DirEnt;
+typedef struct sRAMFS_Dir	tRAMFS_Dir;
 typedef struct sRAMDisk 	tRAMDisk;
 
-struct sRAMDisk_Inode
+struct sRAMFS_Inode
 {
 	tRAMDisk	*Disk;
 	tVFS_Node	Node;
@@ -24,35 +26,35 @@ struct sRAMDisk_Inode
 	 int	nLink;
 };
 
-struct sRAMDisk_File
+struct sRAMFS_File
 {
-	tRAMDisk_Inode	Inode;
+	tRAMFS_Inode	Inode;
 	size_t	Size;
 	 int	nAllocPageSlots;
-	Uint32	PagesDirect[12];
+	Uint32	PagesDirect[RAMFS_NDIRECT];
 	Uint32	Indirect1Page;	// PAGE_SIZE/sizeof(Uint32) = 1024 on x86
 	Uint32	Indirect2Page;	// ~1 Million on x86
 };
 
-struct sRAMDisk_DirEnt
+struct sRAMFS_DirEnt
 {
-	tRAMDisk_DirEnt	*Next;
-	tRAMDisk_Inode	*Inode;
+	tRAMFS_DirEnt	*Next;
+	tRAMFS_Inode	*Inode;
 	Uint8	NameLen;
 	char	Name[];
 };
 
-struct sRAMDisk_Dir
+struct sRAMFS_Dir
 {
-	tRAMDisk_Inode	Inode;
+	tRAMFS_Inode	Inode;
 
-	tRAMDisk_DirEnt	*FirstEnt;
-	tRAMDisk_DirEnt	*LastEnt;
+	tRAMFS_DirEnt	*FirstEnt;
+	tRAMFS_DirEnt	*LastEnt;
 };
 
 struct sRAMDisk
 {
-	tRAMDisk_Dir	RootDir;
+	tRAMFS_Dir	RootDir;
 	
 	 int	MaxPages;
 	Uint32	*Bitmap;

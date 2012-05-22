@@ -20,7 +20,7 @@ extern tVFS_Node	*IPStack_Root_FindDir(tVFS_Node *Node, const char *Filename);
 char	*IPStack_RouteDir_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*IPStack_RouteDir_FindDir(tVFS_Node *Node, const char *Name);
  int	IPStack_RouteDir_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
- int	IPStack_RouteDir_Relink(tVFS_Node *Node, const char *OldName, const char *NewName);
+ int	IPStack_RouteDir_Unlink(tVFS_Node *Node, const char *OldName);
 tRoute	*_Route_FindExactRoute(int Type, void *Network, int Subnet, int Metric);
  int	_Route_ParseRouteName(const char *Name, void *Addr, int *SubnetBits, int *Metric);
  int	IPStack_RouteDir_IOCtl(tVFS_Node *Node, int ID, void *Data);
@@ -43,7 +43,7 @@ tVFS_NodeType	gIP_RouteDirNodeType = {
 	.ReadDir = IPStack_RouteDir_ReadDir,
 	.FindDir = IPStack_RouteDir_FindDir,
 	.MkNod = IPStack_RouteDir_MkNod,
-	.Relink = IPStack_RouteDir_Relink,
+	.Unlink = IPStack_RouteDir_Unlink,
 	.IOCtl = IPStack_RouteDir_IOCtl
 };
 tVFS_Node	gIP_RouteNode = {
@@ -195,7 +195,7 @@ int IPStack_RouteDir_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
 /**
  * \brief Rename / Delete a route
  */
-int IPStack_RouteDir_Relink(tVFS_Node *Node, const char *OldName, const char *NewName)
+int IPStack_RouteDir_Unlink(tVFS_Node *Node, const char *OldName)
 {
 	tRoute	*rt;
 	
@@ -212,29 +212,15 @@ int IPStack_RouteDir_Relink(tVFS_Node *Node, const char *OldName, const char *Ne
 		rt = _Route_FindExactRoute(type, addr, subnet, metric);
 	}	
 
-	if( NewName == NULL )
-	{
-		// Delete the route
-		tRoute	*prev = NULL;
-		for(tRoute *r = gIP_Routes; r && r != rt; prev = r, r = r->Next);
-		
-		if(prev)
-			prev->Next = rt->Next;
-		else
-			gIP_Routes = rt->Next;
-		free(rt);
-	}
-	else
-	{
-		// Change the route
-		 int	type = _Route_ParseRouteName(NewName, NULL, NULL, NULL);
-		if(type <= 0)	return -EINVAL;
-		Uint8	addr[IPStack_GetAddressSize(type)];
-		 int	subnet, metric;
-		_Route_ParseRouteName(NewName, addr, &subnet, &metric);
+	// Delete the route
+	tRoute	*prev = NULL;
+	for(tRoute *r = gIP_Routes; r && r != rt; prev = r, r = r->Next);
 	
-		return -ENOTIMPL;	
-	}
+	if(prev)
+		prev->Next = rt->Next;
+	else
+		gIP_Routes = rt->Next;
+	free(rt);
 	return 0;
 }
 

@@ -307,19 +307,18 @@ struct sVFS_NodeType
 	 * \brief Relink (Rename/Remove) a file/directory
 	 * \param Node	Pointer to this node
 	 * \param OldName	Name of the item to move/delete
-	 * \param NewName	New name (or NULL if unlinking is wanted)
 	 * \return Zero on Success, non-zero on error (see errno.h)
 	 */
-	 int	(*Relink)(struct sVFS_Node *Node, const char *OldName, const char *NewName);
+	 int	(*Unlink)(struct sVFS_Node *Node, const char *OldName);
 	
 	/**
 	 * \brief Link a node to a name
 	 * \param Node	Pointer to this node (directory)
-	 * \param Child	Node to create a new link to
 	 * \param NewName	Name for the new link
+	 * \param Child	Node to create a new link to
 	 * \retur Zeron on success, non-zero on error (see errno.h)
 	 */
-	 int	(*Link)(struct sVFS_Node *Node, struct sVFS_Node *Child, const char *NewName);
+	 int	(*Link)(struct sVFS_Node *Node, const char *NewName, struct sVFS_Node *Child);
 	 
 	 /**
 	  * \}

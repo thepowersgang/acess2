@@ -74,12 +74,33 @@ int VFS_Mount(const char *Device, const char *MountPoint, const char *Filesystem
 	mnt->Options = &mnt->StrData[deviceLen+1+mountLen+1];
 	memcpy( mnt->Options, Options, argLen+1 );
 	
+	// Parse options string
+	char	*str = mnt->Options;
+	 int	nArg = 0;
+	do {
+		nArg ++;
+	} while( (str = strchr(str, ',')) );
+
+	char	*args[nArg + 1];
+	str = mnt->Options;
+	nArg = 0;
+	do {
+		args[nArg++] = str;
+		str = strchr(str, ',');
+		if(str)	*str = '\0';
+	} while( str );
+	args[nArg] = 0;	// NULL terminal
+
 	// Initialise Volume
-	mnt->RootNode = fs->InitDevice(Device, NULL);	//&ArgString);
+	mnt->RootNode = fs->InitDevice(Device, (const char **)args);
 	if(!mnt->RootNode) {
 		free(mnt);
 		return -2;
 	}
+
+	// Repair the options string
+	while( nArg -- > 1 )
+		args[nArg][-1] = ',';
 
 	mnt->Identifier = giVFS_NextMountIdent++;
 	#if 0
