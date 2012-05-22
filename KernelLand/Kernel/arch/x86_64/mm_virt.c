@@ -128,9 +128,9 @@ void MM_int_ClonePageEnt( Uint64 *Ent, void *NextLevel, tVAddr Addr, int bTable 
 
 		ASSERT(paddr != curpage);
 			
-		tmp = (void*)MM_MapTemp(paddr);
+		tmp = MM_MapTemp(paddr);
 		memcpy( tmp, NextLevel, 0x1000 );
-		MM_FreeTemp( (tVAddr)tmp );
+		MM_FreeTemp( tmp );
 		
 		#if TRACE_COW
 		Log_Debug("MMVirt", "COW ent at %p (%p) from %P to %P", Ent, NextLevel, curpage, paddr);
@@ -860,7 +860,7 @@ tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 }
 
 // --- Tempory Mappings ---
-tVAddr MM_MapTemp(tPAddr PAddr)
+void *MM_MapTemp(tPAddr PAddr)
 {
 	const int max_slots = (MM_TMPMAP_END - MM_TMPMAP_BASE) / PAGE_SIZE;
 	tVAddr	ret = MM_TMPMAP_BASE;
@@ -879,14 +879,14 @@ tVAddr MM_MapTemp(tPAddr PAddr)
 		*ent = PAddr | 3;
 		MM_RefPhys(PAddr);
 		INVLPG(ret);
-		return ret;
+		return (void*)ret;
 	}
 	return 0;
 }
 
-void MM_FreeTemp(tVAddr VAddr)
+void MM_FreeTemp(void *Ptr)
 {
-	MM_Deallocate(VAddr);
+	MM_Deallocate((tVAddr)Ptr);
 	return ;
 }
 
@@ -966,14 +966,14 @@ tPAddr MM_Clone(void)
 	for( i = 1; i < KERNEL_STACK_SIZE/0x1000; i ++ )
 	{
 		tPAddr	phys = MM_AllocPhys();
-		tVAddr	tmpmapping;
+		void	*tmpmapping;
 		MM_MapEx(kstackbase+i*0x1000, phys, 1, 0);
 		
 		tmpmapping = MM_MapTemp(phys);
 		if( MM_GetPhysAddr( kstackbase+i*0x1000 ) )
-			memcpy((void*)tmpmapping, (void*)(kstackbase+i*0x1000), 0x1000);
+			memcpy(tmpmapping, (void*)(kstackbase+i*0x1000), 0x1000);
 		else
-			memset((void*)tmpmapping, 0, 0x1000);
+			memset(tmpmapping, 0, 0x1000);
 //		if( i == 0xF )
 //			Debug_HexDump("MM_Clone: *tmpmapping = ", (void*)tmpmapping, 0x1000);
 		MM_FreeTemp(tmpmapping);
@@ -1064,10 +1064,10 @@ tVAddr MM_NewWorkerStack(void *StackData, size_t StackSize)
 		Log_Error("MM", "MM_NewWorkerStack: StackSize(0x%x) > 0x1000, cbf handling", StackSize);
 	}
 	else {
-		tVAddr	tmp_addr, dest;
+		void	*tmp_addr, *dest;
 		tmp_addr = MM_MapTemp(phys);
-		dest = tmp_addr + (0x1000 - StackSize);
-		memcpy( (void*)dest, StackData, StackSize );
+		dest = (char*)tmp_addr + (0x1000 - StackSize);
+		memcpy( dest, StackData, StackSize );
 		Log_Debug("MM", "MM_NewWorkerStack: %p->%p %i bytes (i=%i)", StackData, dest, StackSize, i);
 		Log_Debug("MM", "MM_NewWorkerStack: ret = %p", ret);
 		MM_FreeTemp(tmp_addr);

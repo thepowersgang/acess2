@@ -535,7 +535,7 @@ void MM_int_CloneTable(Uint32 *DestEnt, int Table)
 
 	cur += 256*Table;
 	
-	tmp_map = (void*)MM_MapTemp(table);
+	tmp_map = MM_MapTemp(table);
 	
 	for( i = 0; i < 1024; i ++ )
 	{
@@ -559,10 +559,10 @@ void MM_int_CloneTable(Uint32 *DestEnt, int Table)
 				tPAddr	newpage;
 				newpage = MM_AllocPhys();
 				src = (void*)( (Table*256+i)*0x1000 );
-				dst = (void*)MM_MapTemp(newpage);
+				dst = MM_MapTemp(newpage);
 //				Debug("Taking a copy of kernel page %p (%P)", src, cur[i] & ~0xFFF);
 				memcpy(dst, src, PAGE_SIZE);
-				MM_FreeTemp( (tVAddr)dst );
+				MM_FreeTemp( dst );
 				tmp_map[i] = newpage | (cur[i] & 0xFFF);
 			}
 			else
@@ -575,7 +575,7 @@ void MM_int_CloneTable(Uint32 *DestEnt, int Table)
 			break;
 		}
 	}
-	MM_FreeTemp( (tVAddr) tmp_map );
+	MM_FreeTemp( tmp_map );
 
 	DestEnt[0] = table + 0*0x400 + 1;
 	DestEnt[1] = table + 1*0x400 + 1;
@@ -595,8 +595,8 @@ tPAddr MM_Clone(void)
 	ret = MM_AllocateRootTable();
 
 	cur = (void*)MM_TABLE0USER;
-	new_lvl1_1 = (void*)MM_MapTemp(ret);
-	new_lvl1_2 = (void*)MM_MapTemp(ret+0x1000);
+	new_lvl1_1 = MM_MapTemp(ret);
+	new_lvl1_2 = MM_MapTemp(ret+0x1000);
 	tmp_map = new_lvl1_1;
 	for( i = 0; i < 0x800-4; i ++ )
 	{
@@ -626,7 +626,7 @@ tPAddr MM_Clone(void)
 	{
 		 int	j, num;
 		tPAddr	tmp = MM_AllocPhys();
-		Uint32	*table = (void*)MM_MapTemp(tmp);
+		Uint32	*table = MM_MapTemp(tmp);
 		Uint32	sp;
 		register Uint32 __SP asm("sp");
 
@@ -673,16 +673,16 @@ tPAddr MM_Clone(void)
 //			Log("page = %P", page);
 			table[j] = page | 0x813;
 
-			tmp_page = (void*)MM_MapTemp(page);
+			tmp_page = MM_MapTemp(page);
 			memcpy(tmp_page, (void*)sp, 0x1000);
-			MM_FreeTemp( (tVAddr) tmp_page );
+			MM_FreeTemp( tmp_page );
 		}
 
-		MM_FreeTemp( (tVAddr)table );
+		MM_FreeTemp( table );
 	}
 
-	MM_FreeTemp( (tVAddr)new_lvl1_1 );
-	MM_FreeTemp( (tVAddr)new_lvl1_2 );
+	MM_FreeTemp( new_lvl1_1 );
+	MM_FreeTemp( new_lvl1_2 );
 
 //	Log("MM_Clone: ret = %P", ret);
 
@@ -764,7 +764,7 @@ void MM_ClearUser(void)
 //	MM_DumpTables(0, 0x80000000);
 }
 
-tVAddr MM_MapTemp(tPAddr PAddr)
+void *MM_MapTemp(tPAddr PAddr)
 {
 	tVAddr	ret;
 	tMM_PageInfo	pi;
@@ -778,14 +778,15 @@ tVAddr MM_MapTemp(tPAddr PAddr)
 		MM_RefPhys(PAddr);	// Counter the MM_Deallocate in FreeTemp
 		MM_Map(ret, PAddr);
 		
-		return ret;
+		return (void*)ret;
 	}
 	Log_Warning("MMVirt", "MM_MapTemp: All slots taken");
 	return 0;
 }
 
-void MM_FreeTemp(tVAddr VAddr)
+void MM_FreeTemp(void *Ptr)
 {
+	tVAddr	VAddr = (tVAddr)Ptr;
 	if( VAddr < MM_TMPMAP_BASE || VAddr >= MM_TMPMAP_END ) {
 		Log_Warning("MMVirt", "MM_FreeTemp: Passed an addr not from MM_MapTemp (%p)", VAddr);
 		return ;
@@ -1040,10 +1041,10 @@ void MM_PageFault(Uint32 PC, Uint32 Addr, Uint32 DFSR, int bPrefetch)
 				Log_Error("MMVirt", "Unable to allocate new page for COW");
 				for(;;);
 			}
-			dst = (void*)MM_MapTemp(newpage);
+			dst = MM_MapTemp(newpage);
 			src = (void*)(Addr & ~(PAGE_SIZE-1));
 			memcpy( dst, src, PAGE_SIZE );
-			MM_FreeTemp( (tVAddr)dst );
+			MM_FreeTemp( dst );
 			
 			#if TRACE_COW
 			Log_Notice("MMVirt", "COW %p caused by %p, %P duped to %P (RefCnt(%i)--)", Addr, PC,
