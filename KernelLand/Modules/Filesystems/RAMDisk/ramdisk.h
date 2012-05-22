@@ -55,6 +55,7 @@ struct sRAMDisk
 	tRAMDisk_Dir	RootDir;
 	
 	 int	MaxPages;
+	Uint32	*Bitmap;
 	 int	nUsedPages;
 	tPAddr	PhysPages[];
 };

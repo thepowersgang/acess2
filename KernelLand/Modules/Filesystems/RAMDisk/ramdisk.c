@@ -32,7 +32,7 @@ size_t	RAMDisk_Write(tVFS_Node *Node, off_t Offset, size_t Size, const void *Buf
 // --- Internals --
 void	RAMDisk_int_RefFile(tRAMDisk_Inode *Inode);
 void	RAMDisk_int_DerefFile(tRAMDisk_Inode *Inode);
-void	*_GetPage(tRAMDisk_File *File, int Page);
+void	*_GetPage(tRAMDisk_File *File, int Page, int bCanAlloc);
 void	_DropPage(void *Page);
 
 // === GLOBALS ===
@@ -90,13 +90,23 @@ tVFS_Node *RAMDisk_InitDevice(const char *Device, const char **Options)
 
 	 int	n_pages = size / PAGE_SIZE;
 	
-	rd = calloc(1, sizeof(tRAMDisk) + n_pages * sizeof(tPAddr));
+	rd = calloc(1, sizeof(tRAMDisk) + n_pages * sizeof(tPAddr) + n_pages / 8);
 	rd->MaxPages = n_pages;
 	rd->RootDir.Inode.Disk = rd;
 	rd->RootDir.Inode.Node.ImplPtr = &rd->RootDir;
 	rd->RootDir.Inode.Node.Flags = VFS_FFLAG_DIRECTORY;
 	rd->RootDir.Inode.Node.Size = -1;
 	rd->RootDir.Inode.Node.Type = &gRAMDisk_DirNodeType;
+	rd->Bitmap = (void*)&rd->PhysPages[ n_pages ];
+
+	for( int i = 0; i < n_pages; i ++ )
+	{
+		rd->PhysPages[i] = MM_AllocPhys();
+		if( !rd->PhysPages[i] ) {
+			// Um... oops?
+			break;
+		}
+	}
 
 	return &rd->RootDir.Inode.Node;
 }
@@ -222,49 +232,64 @@ int RAMDisk_Unlink(tVFS_Node *Node, const char *Name)
 }
 
 // --- Files ---
-size_t RAMDisk_Read(tVFS_Node *Node, off_t Offset, size_t Size, void *Buffer)
+size_t _DoIO(tRAMDisk_File *File, off_t Offset, size_t Size, void *Buffer, int bRead)
 {
-	tRAMDisk_File	*file = Node->ImplPtr;
-	 int	page_ofs;
-	char	*page_virt;
 	size_t	rem;
-	
-	if( Offset >= file->Size )
-		return 0;
-	
-	if( Offset + Size > file->Size )
-		Size = file->Size - Size;
+	Uint8	*page_virt;
+	 int	page;
 
-	if( Size == 0 )
-		return 0;
+	if( Offset >= File->Size )	return 0;
+	
+	if( Offset + Size > File->Size )	Size = File->Size - Size;
 
-	page_ofs = Offset / PAGE_SIZE;
+	if( Size == 0 )		return 0;
+
+	page = Offset / PAGE_SIZE;
 	Offset %= PAGE_SIZE;
 	rem = Size;
 
-	page_virt = _GetPage(file, page_ofs++);
-	if( Offset + Size <= PAGE_SIZE ) {
-		memcpy(Buffer, page_virt + Offset, Size);
-		return Size;
+	page_virt = _GetPage(File, page++, !bRead);
+	if(!page_virt)	return 0;
+	
+	if( Offset + Size <= PAGE_SIZE )
+	{
+		if( bRead )
+			memcpy(Buffer, page_virt + Offset, Size);
+		else
+			memcpy(page_virt + Offset, Buffer, Size);
+		return 0;
 	}
 	
-	memcpy(Buffer, page_virt + Offset, PAGE_SIZE - Offset);
+	if( bRead )
+		memcpy(Buffer, page_virt + Offset, PAGE_SIZE - Offset);
+	else
+		memcpy(page_virt + Offset, Buffer, PAGE_SIZE - Offset);
 	Buffer += PAGE_SIZE - Offset;
 	rem -= PAGE_SIZE - Offset;
 	
 	while( rem >= PAGE_SIZE )
 	{
 		_DropPage(page_virt);
-		page_virt = _GetPage(file, page_ofs++);
-		memcpy(Buffer, page_virt, PAGE_SIZE);
+		page_virt = _GetPage(File, page++, !bRead);
+		if(!page_virt)	return Size - rem;
+		
+		if( bRead )
+			memcpy(Buffer, page_virt, PAGE_SIZE);
+		else
+			memcpy(page_virt, Buffer, PAGE_SIZE);
+		
 		Buffer += PAGE_SIZE;
 		rem -= PAGE_SIZE;
 	}
 
 	if( rem > 0 )
 	{
-		page_virt = _GetPage(file, page_ofs);
-		memcpy(Buffer, page_virt, rem);
+		page_virt = _GetPage(File, page, !bRead);
+		if(!page_virt)	return Size - rem;
+		if( bRead )
+			memcpy(Buffer, page_virt, rem);
+		else
+			memcpy(page_virt, Buffer, rem);
 	}
 
 	_DropPage(page_virt);
@@ -272,9 +297,22 @@ size_t RAMDisk_Read(tVFS_Node *Node, off_t Offset, size_t Size, void *Buffer)
 	return Size;
 }
 
+size_t RAMDisk_Read(tVFS_Node *Node, off_t Offset, size_t Size, void *Buffer)
+{
+	tRAMDisk_File	*file = Node->ImplPtr;
+	
+	return _DoIO(file, Offset, Size, Buffer, 1);
+}
+
 size_t RAMDisk_Write(tVFS_Node *Node, off_t Offset, size_t Size, const void *Buffer)
 {
-	return 0;
+	tRAMDisk_File	*file = Node->ImplPtr;
+	
+	// TODO: Limit checks?
+	if( Offset == file->Size )
+		file->Size += Size;
+
+	return _DoIO(file, Offset, Size, (void*)Buffer, 0);
 }
 
 
