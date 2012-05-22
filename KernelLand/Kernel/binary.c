@@ -768,17 +768,7 @@ void *Binary_LoadKernel(const char *File)
 	pKBinary->Next = glLoadedKernelLibs;
 	glLoadedKernelLibs = pKBinary;
 	SHORTREL( &glKBinListLock );
-	
-	// Relocate Library
-	if( !Binary_Relocate( (void*)base ) )
-	{
-		Log_Warning("Binary", "Relocation of '%s' failed, unloading", File);
-		Binary_Unload( (void*)base );
-		Binary_Dereference( pBinary );
-		LEAVE('n');
-		return 0;
-	}
-	
+
 	LEAVE('p', base);
 	return (void*)base;
 }

@@ -341,6 +341,7 @@ int Module_LoadFile(const char *Path, const char *ArgString)
 {
 	void	*base;
 	tModule	*info;
+	tModuleLoader	*loader = NULL;
 	
 	// Load Binary
 	base = Binary_LoadKernel(Path);
@@ -352,36 +353,36 @@ int Module_LoadFile(const char *Path, const char *ArgString)
 	}
 	
 	// Check for Acess Driver
-	if( Binary_FindSymbol(base, "DriverInfo", (Uint*)&info ) == 0 )
+	if( Binary_FindSymbol(base, "DriverInfo", (Uint*)&info )  )
 	{
-		tModuleLoader	*tmp;
-		for( tmp = gModule_Loaders; tmp; tmp = tmp->Next)
+		for( loader = gModule_Loaders; loader; loader = loader->Next)
 		{
-			if( tmp->Detector(base) == 0 )	continue;
-			
-			return tmp->Loader(base);
+			if( loader->Detector(base) )
+				break;
 		}
-		
-		#if USE_EDI
-		// Check for EDI Driver
-		if( Binary_FindSymbol(base, "driver_init", NULL ) != 0 )
-		{
-			return Module_InitEDI( base );	// And intialise
-		}
-		#endif
 		
 		// Unknown module type?, return error
+		if( !loader ) {
+			Binary_Unload(base);
+			Log_Warning("Module", "Module '%s' does not have a Module Info struct", Path);
+			return 0;
+		}
+	}
+
+	if( !Module_int_ResolveDeps(info) ) {
+		Log_Warning("Dependencies not met for '%s'", Path);
 		Binary_Unload(base);
-		#if USE_EDI
-		Log_Warning("Module", "Module '%s' has neither a Module Info struct, nor an EDI entrypoint", Path);
-		#else
-		Log_Warning("Module", "Module '%s' does not have a Module Info struct", Path);
-		#endif
 		return 0;
 	}
-	
+
+	if( !Binary_Relocate(base) ) {
+		Log_Warning("Relocation of module %s failed", Path);
+		Binary_Unload(base);
+		return 0;
+	}
+
 	// Initialise (and register)
-	if( Module_int_Initialise( info, ArgString ) )
+	if( loader ? loader->Loader(base) : Module_int_Initialise( info, ArgString ) )
 	{
 		Binary_Unload(base);
 		return 0;
