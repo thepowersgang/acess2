@@ -98,6 +98,10 @@ $(CLEAN_USRAPPS): clean-%:
 	+@$(SUBMAKE) clean -C Usermode/Applications/$*_src
 
 # Install
+ifeq ($(ARCH),host)
+install-%:
+	
+else
 $(INSTALL_DYNMODS): install-%:
 	@$(_build_dynmod)$* install
 $(INSTALL_MODULES): install-%:
@@ -110,3 +114,4 @@ $(INSTALL_USRLIBS): install-%:
 	@$(SUBMAKE) install -C Usermode/Libraries/$*_src
 $(INSTALL_USRAPPS): install-%:
 	@$(SUBMAKE) install -C Usermode/Applications/$*_src
+endif

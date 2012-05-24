@@ -76,7 +76,7 @@ extern int	readdir(int fd, char *dest);
 extern int	_SysOpenChild(int fd, char *name, int flags);
 extern int	_SysGetACL(int fd, t_sysACL *dest);
 extern int	_SysMount(const char *Device, const char *Directory, const char *Type, const char *Options);
-extern int	_SysSelect(int nfds, fd_set *read, fd_set *write, fd_set *err, time_t *timeout, int extraevents);
+extern int	_SysSelect(int nfds, fd_set *read, fd_set *write, fd_set *err, int64_t *timeout, unsigned int extraevents);
 #define select(nfs, rdfds, wrfds, erfds, timeout)	_SysSelect(nfs, rdfds, wrfds, erfds, timeout, 0)
 
 // --- IPC ---
