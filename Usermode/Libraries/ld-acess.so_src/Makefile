@@ -9,6 +9,7 @@ OBJ += arch/$(ARCHDIR).ao_
 BIN = ld-acess.so
 EXTRABIN := libld-acess.so
 EXTRACLEAN := $(_OBJPREFIX)_stublib.o
+INCFILES := sys/sys.h
 
 CFLAGS   = -g -Wall -fno-builtin -fno-leading-underscore -fno-stack-protector -fPIC
 CFLAGS  += $(CPPFLAGS)

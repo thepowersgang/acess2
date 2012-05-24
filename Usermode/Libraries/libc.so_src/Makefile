@@ -8,6 +8,8 @@ CFLAGS   +=
 ASFLAGS  +=
 LDFLAGS  += -soname libc.so -Map map.txt -lgcc
 
+INCFILES := stdio.h stdlib.h
+
 OBJ  = stub.o heap.o stdlib.o env.o fileIO.o string.o select.o rand.o
 OBJ += arch/$(ARCHDIR).ao
 # signals.o
