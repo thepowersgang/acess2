@@ -10,6 +10,7 @@
 #include <uri.h>
 #include <string.h>
 #include <unistd.h>
+#include <netdb.h>
 
 enum eProcols
 {
@@ -21,7 +22,9 @@ enum eProcols
 const char	**gasURLs;
  int	giNumURLs;
 
-int _ParseHeaderLine(char *Line, int State, size_t *Size);
+ int	main(int argc, char *argv[]);
+ int	_ParseHeaderLine(char *Line, int State, size_t *Size);
+void	writef(int fd, const char *format, ...);
 
 int main(int argc, char *argv[])
 {
@@ -47,7 +50,7 @@ int main(int argc, char *argv[])
 	// Do the download
 	for( int i = 0; i < giNumURLs; i ++ )
 	{
-		char	*outfile;
+		char	*outfile = NULL;
 		tURI	*uri = URI_Parse(gasURLs[i]);
 		struct addrinfo	*addrinfo;
 
@@ -58,12 +61,15 @@ int main(int argc, char *argv[])
 
 		printf("Proto: %s, Host: %s, Path: %s\n", uri->Proto, uri->Host, uri->Path);
 
-		if( uri->Path[0] == '\0' )
+		if( uri->Path[0] == '\0' || uri->Path[strlen(uri->Path)-1] == '/' )
 			outfile = "index.html";
-		else
-			outfile = strrchr(uri->Path, '/') + 1;
-		if( !outfile )
-			outfile = uri->Path;
+		else {
+			outfile = strrchr(uri->Path, '/');
+			if( !outfile )
+				outfile = uri->Path;
+			else
+				outfile += 1;
+		}
 
 		if( strcmp(uri->Proto, "http") == 0 ) {
 			proto = PROTO_HTTP;
@@ -88,9 +94,18 @@ int main(int argc, char *argv[])
 		{
 			 int	bSkipLine = 0;
 			// TODO: Convert to POSIX/BSD
-			 int	sock = Net_OpenSocket(addr->ai_family, addr->ai_addr, "tcpc");
-			if( sock == -1 )	continue ;
+			// NOTE: using addr->ai_addr will break for IPv6, as there is more info before the address
+			 int	sock;
+			
+			printf("Attempting [%s]:80\n", Net_PrintAddress(addr->ai_family, addr->ai_addr->sa_data));
+			
+			sock = Net_OpenSocket_TCPC(addr->ai_family, addr->ai_addr->sa_data, 80);
+			if( sock == -1 ) {
+				continue ;
+			}
 
+			_SysDebug("Connected as %i", sock);
+			
 			writef(sock, "GET /%s HTTP/1.1\r\n", uri->Path);
 			writef(sock, "Host: %s\r\n", uri->Host);
 //			writef(sock, "Accept-Encodings: */*\r\n");
@@ -99,67 +114,81 @@ int main(int argc, char *argv[])
 			
 			// Parse headers
 			char	inbuf[BUFSIZ+1];
-			size_t	offset = 0;
+			size_t	offset = 0, len = 0;
 			 int	state = 0;
 			size_t	bytes_seen = 0;
 			size_t	bytes_wanted = -1;	// invalid
 			
+
+			inbuf[0] = '\0';
 			while( state == 0 || state == 1 )
 			{
-				if( offset == sizeof(inbuf) ) {
+				if( offset == BUFSIZ ) {
 					bSkipLine = 1;
 					offset = 0;
 				}
-				// TODO: Handle -1 return
-				offset += read(sock, inbuf + offset, sizeof(inbuf) - offset);
-				inbuf[offset] = 0;
-				
+				inbuf[len] = '\0';
+			
 				char	*eol = strchr(inbuf, '\n');
 				// No end of line char? read some more
-				if( eol == NULL )	continue ;
-				// Update write offset	
-				offset = eol + 1 - inbuf;
-				
+				if( eol == NULL ) {
+					// TODO: Handle -1 return
+					len += read(sock, inbuf + offset, BUFSIZ - 1 - offset);
+					continue ;
+				}
+
+				// abuse offset as the end of the string	
+				offset = (eol - inbuf) + 1;
+
 				// Clear EOL bytes
 				*eol = '\0';
 				// Nuke the \r
 				if( eol - 1 >= inbuf )
 					eol[-1] = '\0';
-					
 				
 				if( !bSkipLine )
 					state = _ParseHeaderLine(inbuf, state, &bytes_wanted);
-				
-				memmove( inbuf, inbuf + offset, sizeof(inbuf) - offset );
-				offset = 0;
+		
+				// Move unused data down in memory	
+				len -= offset;
+				memmove( inbuf, inbuf + offset, BUFSIZ - offset );
+				offset = len;
 			}
 
 			if( state == 2 )
 			{
+				_SysDebug("RXing %i bytes to '%s'", bytes_wanted, outfile);
 				 int	outfd = open(outfile, O_WR|O_CREAT, 0666);
-				if( outfd != -1 )
+				if( outfd == -1 ) {
+					fprintf(stderr, "Unable to open '%s' for writing\n", outfile);
+				}
+				else
 				{
-					while( bytes_seen < bytes_wanted )
+					// Write the remainder of the buffer
+					do
 					{
-						// Abuses offset as read byte count
-						offset = read(sock, inbuf, sizeof(inbuf));
-						write(outfd, inbuf, offset);
-						bytes_seen += offset;
-					}
+						write(outfd, inbuf, len);
+						bytes_seen += len;
+						_SysDebug("%i/%i bytes done", bytes_seen, bytes_wanted);
+					} while( bytes_seen < bytes_wanted && (len = read(sock, inbuf, sizeof(inbuf))) > 0 );
 					close(outfd);
 				}
 			}
 			
+			_SysDebug("Closing socket");
 			close(sock);
 			break ;
 		}
 
 		free(uri);
 	}
+	
+	return 0;
 }
 
 int _ParseHeaderLine(char *Line, int State, size_t *Size)
 {
+	_SysDebug("Header - %s", Line);
 	// First line (Status and version)
 	if( State == 0 )
 	{
@@ -182,18 +211,37 @@ int _ParseHeaderLine(char *Line, int State, size_t *Size)
 	// Body lines
 	else
 	{
+		char	*value;
 		char	*colon = strchr(Line, ':');
 		if(colon == NULL)	return 1;
 
 		*colon = '\0';
+		value = colon + 2;
 		if( strcmp(Line, "Content-Length") == 0 ) {
-			*Size = atoi(colon + 1);
+			*Size = atoi(value);
 		}
 		else {
-			printf("Ignorning header '%s' = '%s'\n", Line, colon+1);
+			printf("Ignorning header '%s' = '%s'\n", Line, value);
 		}
 
 		return 1;
 	}
+}
+
+void writef(int fd, const char *format, ...)
+{
+	va_list	args;
+	size_t	len;
+	
+	va_start(args, format);
+	len = vsnprintf(NULL, 0, format, args);
+	va_end(args);
+	
+	char data[len + 1];
+	va_start(args, format);
+	vsnprintf(data, len+1, format, args);
+	va_end(args);
+	
+	write(fd, data, len);
 }
 
