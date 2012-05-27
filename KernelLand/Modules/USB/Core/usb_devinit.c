@@ -13,7 +13,7 @@
 #include "usb_proto.h"
 #include "usb_lowlevel.h"
 
-#define DUMP_DESCRIPTORS	0
+#define DUMP_DESCRIPTORS	1
 
 // === PROTOTYPES ===
 void	USB_DeviceConnected(tUSBHub *Hub, int Port);

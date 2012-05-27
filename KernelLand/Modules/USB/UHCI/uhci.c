@@ -856,11 +856,37 @@ void UHCI_InterruptHandler(int IRQ, void *Ptr)
 	Uint16	status = _InWord(Host, USBSTS);
 	
 	LOG("%p: status = 0x%04x", Ptr, status);
+	
 	// Interrupt-on-completion
 	if( status & 1 )
 	{
 		// TODO: Support isochronous transfers (will need updating the frame pointer)
 		Semaphore_Signal(&gUHCI_InterruptSempahore, 1);
+	}
+
+	// USB Error Interrupt
+	if( status & 2 )
+	{
+		
+	}
+
+	// Resume Detect
+	// - Fired if in suspend state and a USB device sends the RESUME signal
+	if( status & 4 )
+	{
+		
+	}
+
+	// Host System Error
+	if( status & 8 )
+	{
+		
+	}
+
+	// Host Controller Process Error
+	if( status & 0x10 )
+	{
+		Log_Error("UHCI", "Host controller process error on controller %p", Ptr);
 	}
 
 	_OutWord(Host, USBSTS, status);
