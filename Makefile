@@ -11,12 +11,12 @@
 SUBMAKE = $(MAKE) --no-print-directory
 
 USRLIBS := crt0.o acess.ld ld-acess.so libgcc.so libc.so
-USRLIBS += libreadline.so libnet.so liburi.so
+USRLIBS += libreadline.so libnet.so liburi.so libpsocket.so
 USRLIBS += libimage_sif.so
 
 USRAPPS := init login CLIShell cat ls mount
 USRAPPS += bomb dhcpclient
-USRAPPS += ip ping telnet irc
+USRAPPS += ip ping telnet irc wget
 USRAPPS += axwin3
 
 ALL_DYNMODS = $(addprefix all-,$(DYNMODS))
