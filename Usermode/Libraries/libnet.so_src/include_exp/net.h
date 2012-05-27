@@ -55,4 +55,6 @@ extern char	*Net_GetInterface(int AddrType, void *Addr);
  */
 extern int	Net_OpenSocket(int AddrType, void *Addr, const char *SocketName);
 
+extern int	Net_OpenSocket_TCPC(int AddrType, void *Addr, int Port);
+
 #endif
