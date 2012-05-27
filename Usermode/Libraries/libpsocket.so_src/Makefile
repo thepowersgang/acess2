@@ -4,7 +4,7 @@ include ../Makefile.cfg
 
 CPPFLAGS +=
 CFLAGS   += -Wall
-LDFLAGS  += -lc -soname libpsocket.so
+LDFLAGS  += -lc -soname libpsocket.so -lnet
 
 OBJ = main.o getaddrinfo.o socket.o
 BIN = libpsocket.so

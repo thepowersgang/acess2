@@ -1,7 +1,29 @@
 #ifndef _LIBPSOCKET__NETDB_H_
 #define _LIBPSOCKET__NETDB_H_
 
-typedef unsigned int	socklen_t;
+#include <sys/socket.h>
+
+#define AI_PASSIVE	0x001
+#define AI_V4MAPPED	0x002
+#define AI_ADDRCONFIG	0x004
+#define AI_NUMERICHOST	0x008
+
+enum
+{
+	EAI_SUCCESS,
+	EAI_AGAIN,
+	EAI_BADFLAGS,
+	EAI_FAMILY,
+	EAI_SOCKTTPE,
+	
+	EAI_ADDRFAMILY,
+	EAI_FAIL,
+	EAI_MEMORY,
+	EAI_NODATA,
+	EAI_NONAME,
+	EAI_SERVICE,
+	EAI_SYSTEM
+};
 
 struct addrinfo
 {
