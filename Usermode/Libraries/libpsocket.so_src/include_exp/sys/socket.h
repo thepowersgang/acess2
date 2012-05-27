@@ -9,13 +9,16 @@
 #ifndef _SYS_SOCKETS_H_
 #define _SYS_SOCKETS_H_
 
+#include <sys/types.h>
+
 typedef int	socklen_t;
 
 typedef enum
 {
 	AF_UNSPEC	= 0,
+	AF_PACKET	= 1,
 	AF_INET 	= 4,
-	AF_INET6	= 6
+	AF_INET6	= 6,
 } sa_family_t;
 
 struct sockaddr
@@ -70,6 +73,11 @@ extern int	listen(int sockfd, int backlog);
  * \brief Accept an incoming connection
  */
 extern int	accept(int sockfd, struct sockaddr *clientaddr, socklen_t addrlen);
+
+extern int	recvfrom(int sockfd, void *buffer, size_t length, int flags, struct sockaddr *clientaddr, socklen_t *addrlen);
+extern int	recv(int sockfd, void *buffer, size_t length, int flags);
+extern int	sendto(int sockfd, const void *buffer, size_t length, int flags, const struct sockaddr *clientaddr, socklen_t addrlen);
+extern int	send(int sockfd, void *buffer, size_t length, int flags);
 
 #endif
 
