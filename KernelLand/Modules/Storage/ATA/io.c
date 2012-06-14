@@ -371,6 +371,10 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	{
 		HALT();
 	}
+	
+	if( now() >= timeoutTime ) {
+		Log_Notice("ATA", "Timeout of %i ms exceeded", ATA_TIMEOUT);
+	}
 
 	// Complete Transfer
 	ATA_int_BusMasterWriteByte( cont * 8, 8 );	// Read and stop
