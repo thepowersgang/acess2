@@ -7,7 +7,7 @@
 #include <binary.h>
 
 #define _COMMON_H
-#define SysDebug(...)	LOG(v)
+#define SysDebug(v...)	LOG(v)
 #define DISABLE_ELF64
 void	*GetSymbol(const char *Name, size_t *Size);
 void	*GetSymbol(const char *Name, size_t *Size) { Uint val; Binary_GetSymbol(Name, &val); if(Size)*Size=0; return (void*)val; };

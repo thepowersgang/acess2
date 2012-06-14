@@ -5,7 +5,9 @@
  * elf.c
  * - ELF32/ELF64 relocation
  */
-#define DEBUG	0
+#ifndef DEBUG	// This code is #include'd from the kernel, so DEBUG may already be defined
+# define DEBUG	0
+#endif
 
 #include "common.h"
 #include <stdint.h>
@@ -481,11 +483,20 @@ int Elf32GetSymbol(void *Base, const char *Name, void **ret, size_t *Size)
 		return 0;
 	}
 
+	// ... ok... maybe they haven't been relocated
+	if( (uintptr_t)symtab < (uintptr_t)Base )
+	{
+		symtab    = (void*)( (uintptr_t)symtab    + iBaseDiff );
+		pBuckets  = (void*)( (uintptr_t)pBuckets  + iBaseDiff );
+		dynstrtab = (void*)( (uintptr_t)dynstrtab + iBaseDiff );
+		SysDebug("Executable not yet relocated");
+	}
+
 	nbuckets = pBuckets[0];
 //	iSymCount = pBuckets[1];
 	pBuckets = &pBuckets[2];
 	pChains = &pBuckets[ nbuckets ];
-	
+
 	// Get hash
 	iNameHash = ElfHashString(Name);
 	iNameHash %= nbuckets;
