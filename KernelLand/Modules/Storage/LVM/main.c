@@ -102,7 +102,7 @@ char *LVM_Vol_ReadDir(tVFS_Node *Node, int ID)
 		return NULL;
 
 	if( ID == 0 )
-		return strdup(".volume");
+		return strdup("ROOT");
 	else
 		return strdup( vol->SubVolumes[ID-1]->Name );
 }
@@ -110,7 +110,7 @@ tVFS_Node *LVM_Vol_FindDir(tVFS_Node *Node, const char *Name)
 {
 	tLVM_Vol	*vol = Node->ImplPtr;
 
-	if( strcmp(".volume", Name) == 0 )
+	if( strcmp("ROOT", Name) == 0 )
 		return &vol->VolNode;
 	
 	for( int i = 0; i < vol->nSubVolumes; i ++ )
