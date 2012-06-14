@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
 			continue ;
 		}
 
-		rv = getaddrinfo(uri->Host, NULL, NULL, &addrinfo);
+		rv = getaddrinfo(uri->Host, "http", NULL, &addrinfo);
 		if( rv != 0 ) {
 			fprintf(stderr, "Unable to resolve %s: %s\n", uri->Host, gai_strerror(rv));
 			continue ;
