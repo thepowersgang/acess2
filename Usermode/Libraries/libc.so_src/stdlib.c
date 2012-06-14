@@ -134,3 +134,7 @@ EXPORT int atoi(const char *str)
 	if(neg)	ret = -ret;
 	return ret;
 }
+
+int abs(int j) { return j < 0 ? -j : j; }
+long int labs(long int j) { return j < 0 ? -j : j; }
+
