@@ -55,6 +55,7 @@ int LVM_AddVolume(const tLVM_VolType *Type, const char *Name, void *Ptr, size_t 
 	real_vol->BlockCount = BlockCount;
 	real_vol->nSubVolumes = dummy_vol.nSubVolumes;
 	real_vol->SubVolumes = (void*)( real_vol->Name + strlen(Name) + 1 );
+	real_vol->BlockSize = BlockSize;
 	strcpy(real_vol->Name, Name);
 	memset(real_vol->SubVolumes, 0, sizeof(tLVM_SubVolume*) * real_vol->nSubVolumes);
 	// - VFS Nodes
