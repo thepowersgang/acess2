@@ -351,9 +351,17 @@ int Module_LoadFile(const char *Path, const char *ArgString)
 		Log_Warning("Module", "Module_LoadFile - Unable to load '%s'", Path);
 		return 0;
 	}
+
+	// TODO: I need a way of relocating the dependencies before everything else, so
+	// they can be resolved before any other link errors
+	if( !Binary_Relocate(base) ) {
+		Log_Warning("Relocation of module %s failed", Path);
+		Binary_Unload(base);
+		return 0;
+	}
 	
 	// Check for Acess Driver
-	if( Binary_FindSymbol(base, "DriverInfo", (Uint*)&info )  )
+	if( Binary_FindSymbol(base, "DriverInfo", (Uint*)&info ) == 0 )
 	{
 		for( loader = gModule_Loaders; loader; loader = loader->Next)
 		{
@@ -371,12 +379,6 @@ int Module_LoadFile(const char *Path, const char *ArgString)
 
 	if( !Module_int_ResolveDeps(info) ) {
 		Log_Warning("Dependencies not met for '%s'", Path);
-		Binary_Unload(base);
-		return 0;
-	}
-
-	if( !Binary_Relocate(base) ) {
-		Log_Warning("Relocation of module %s failed", Path);
 		Binary_Unload(base);
 		return 0;
 	}
