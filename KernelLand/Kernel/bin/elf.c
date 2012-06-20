@@ -50,7 +50,7 @@ tBinary *Elf_Load(int fp)
 	switch(hdr.e_ident[4])	// EI_CLASS
 	{
 	case ELFCLASS32:
-		return Elf_Load32(fp, (Elf32_Ehdr*)&hdr);
+		return Elf_Load32(fp, (void*)&hdr);
 	case ELFCLASS64:
 		return Elf_Load64(fp, &hdr);
 	default:

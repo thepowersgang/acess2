@@ -59,6 +59,9 @@ int DrvUtil_Video_2DStream(void *Ent, const void *Buffer, int Length,
 	const Uint8	*stream = Buffer;
 	 int	rem = Length;
 	 int	op;
+
+	Uint16	tmp[6];
+
 	while( rem )
 	{
 		rem --;
@@ -84,7 +87,8 @@ int DrvUtil_Video_2DStream(void *Ent, const void *Buffer, int Length,
 		case VIDEO_2DOP_NOP:	break;
 		
 		case VIDEO_2DOP_FILL:
-			if(rem < 10)	return Length-rem;
+			if(rem < 12)	return Length-rem;
+			memcpy(tmp, stream, 6*2);
 			
 			if(!Handlers->Fill) {
 				Log_Warning("DrvUtil", "DrvUtil_Video_2DStream: Driver"
@@ -93,10 +97,9 @@ int DrvUtil_Video_2DStream(void *Ent, const void *Buffer, int Length,
 			}
 			
 			Handlers->Fill(
-				Ent,
-				((const Uint16*)stream)[0], ((const Uint16*)stream)[1],
-				((const Uint16*)stream)[2], ((const Uint16*)stream)[3],
-				((const Uint32*)stream)[4]
+				Ent, 
+				tmp[0], tmp[1], tmp[2], tmp[3],
+				tmp[4] | ((Uint32)tmp[5] << 16)
 				);
 			
 			rem -= 10;
@@ -114,9 +117,8 @@ int DrvUtil_Video_2DStream(void *Ent, const void *Buffer, int Length,
 			
 			Handlers->Blit(
 				Ent,
-				((const Uint16*)stream)[0], ((const Uint16*)stream)[1],
-				((const Uint16*)stream)[2], ((const Uint16*)stream)[3],
-				((const Uint16*)stream)[4], ((const Uint16*)stream)[5]
+				tmp[0], tmp[1], tmp[2], tmp[3],
+				tmp[4], tmp[5]
 				);
 			
 			rem -= 12;
