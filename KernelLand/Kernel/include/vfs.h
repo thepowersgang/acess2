@@ -91,6 +91,11 @@ typedef struct sVFS_NodeType	tVFS_NodeType;
 typedef struct sVFS_Node
 {
 	/**
+	 * \brief Functions associated with the node
+	 */
+	tVFS_NodeType	*Type;
+	
+	/**
 	 * \name Identifiers
 	 * \brief Fields used by the driver to identify what data this node
 	 *        corresponds to.
@@ -178,11 +183,6 @@ typedef struct sVFS_Node
 	/**
 	 * \}
 	 */
-	
-	/**
-	 * \brief Functions associated with the node
-	 */
-	tVFS_NodeType	*Type;
 } tVFS_Node;
 
 /**
