@@ -10,6 +10,8 @@
 //#define USE_STACK	1
 #define TRACE_ALLOCS	0	// Print trace messages on AllocPhys/DerefPhys
 
+static const int addrClasses[] = {0,16,20,24,32,64};
+static const int numAddrClasses = sizeof(addrClasses)/sizeof(addrClasses[0]);
 
 // === IMPORTS ===
 extern char	gKernelEnd[];
@@ -28,6 +30,7 @@ tMutex	glPhysAlloc;
 Uint64	giPhysAlloc = 0;	// Number of allocated pages
 Uint64	giPageCount = 0;	// Total number of pages
 Uint64	giLastPossibleFree = 0;	// Last possible free page (before all pages are used)
+Uint64	giTotalMemorySize = 0;	// Total number of allocatable pages
 
 Uint32	gaSuperBitmap[1024];	// Blocks of 1024 Pages
 Uint32	gaPageBitmap[1024*1024/32];	// Individual pages
@@ -53,8 +56,12 @@ void MM_Install(tMBoot_Info *MBoot)
 		ent->Size += 4;
 		
 		// If entry is RAM and is above `maxAddr`, change `maxAddr`
-		if(ent->Type == 1 && ent->Base + ent->Length > maxAddr)
-			maxAddr = ent->Base + ent->Length;
+		if(ent->Type == 1)
+		{
+			if(ent->Base + ent->Length > maxAddr)
+				maxAddr = ent->Base + ent->Length;
+			giTotalMemorySize += ent->Length >> 12;
+		}
 		// Go to next entry
 		ent = (tMBoot_MMapEnt *)( (Uint)ent + ent->Size );
 	}
@@ -111,8 +118,48 @@ void MM_Install(tMBoot_Info *MBoot)
 	gaPageReferences = (void*)MM_REFCOUNT_BASE;
 
 	Log_Log("PMem", "Physical memory set up (%lli pages of ~%lli MiB used)",
-		giPhysAlloc, (giPageCount*4)/1024
+		giPhysAlloc, (giTotalMemorySize*4)/1024
 		);
+}
+
+void MM_DumpStatistics(void)
+{
+	 int	i, pg;
+	for( i = 1; i < numAddrClasses; i ++ )
+	{
+		 int	first = (i == 1 ? 0 : (1UL << (addrClasses[i-1] - 12)));
+		 int	last  = (1UL << (addrClasses[i] - 12)) - 1;
+		 int	nFree = 0;
+		 int	nMultiRef = 0;
+		 int	totalRefs = 0;
+
+		if( last > giPageCount )
+			last = giPageCount;
+		
+		 int	total = last - first + 1;
+	
+		for( pg = first; pg < last; pg ++ )
+		{
+			if( !MM_GetPhysAddr(&gaPageReferences[pg]) || gaPageReferences[pg] == 0 ) {
+				nFree ++;
+				continue ;
+			}
+			totalRefs += gaPageReferences[pg];
+			if(gaPageReferences[pg] > 1)
+				nMultiRef ++;
+		}
+		
+		 int	nUsed = (total - nFree);
+		Log_Log("MMPhys", "%ipbit - %i/%i used, %i reused, %i average reference count",
+			addrClasses[i], nUsed, total, nMultiRef,
+			nMultiRef ? (totalRefs-(nUsed - nMultiRef)) / nMultiRef : 0
+			);
+		
+		if( last == giPageCount )
+			break;
+	}
+	Log_Log("MMPhys", "%lli/%lli total pages used, 0 - %i possible free range",
+		giPhysAlloc, giTotalMemorySize, giLastPossibleFree);
 }
 
 /**
@@ -132,8 +179,6 @@ tPAddr MM_AllocPhys(void)
 	// Classful scan
 	#if 1
 	{
-	const int addrClasses[] = {0,16,20,24,32,64};
-	const int numAddrClasses = sizeof(addrClasses)/sizeof(addrClasses[0]);
 	 int	i;
 	 int	first, last;
 	for( i = numAddrClasses; i -- > 1; )

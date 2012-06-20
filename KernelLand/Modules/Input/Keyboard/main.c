@@ -16,6 +16,7 @@
 #include <Input/Keyboard/include/keyboard.h>
 #include "keymap_int.h"
 #include "layout_kbdus.h"
+#include <hal_proc.h>
 
 #define USE_KERNEL_MAGIC	1
 
@@ -279,6 +280,8 @@ void Keyboard_HandleKey(tKeyboard *Source, Uint32 HIDKeySym)
 		case 'p':	Threads_Dump();	return;
 		// Heap Statistics
 		case 'h':	Heap_Stats();	return;
+		// PMem Statistics
+		case 'm':	MM_DumpStatistics();	return;
 		// Dump Structure
 		case 's':	return;
 		}
