@@ -28,6 +28,7 @@ $lStack = array( array("",array()) );
 foreach($lines as $line)
 {
 	$line = trim($line);
+	if($line[0] == "#")	continue;
 	// Directory
 	if(preg_match('/^Dir\s+"([^"]+)"\s+{$/', $line, $matches))
 	{
