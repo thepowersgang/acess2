@@ -27,6 +27,7 @@
  int	MM_int_GetRangeID( tPAddr Addr );
  int	MM_int_GetMapEntry( void *Data, int Index, tPAddr *Start, tPAddr *Length );
 void	MM_Tpl_InitPhys(int MaxRAMPage, void *MemoryMap);
+void	MM_DumpStatistics(void);
 
 // === GLOBALS ===
 tMutex	glPhysicalPages;
@@ -110,6 +111,11 @@ void MM_Tpl_InitPhys(int MaxRAMPage, void *MemoryMap)
 
 	LOG("giPhysFirstFree = 0x%x, giPhysLastFree = 0x%x", giPhysFirstFree, giPhysLastFree);
 	LEAVE('-');
+}
+
+void MM_DumpStatistics(void)
+{
+	// TODO: PM Statistics for tpl_mm_phys_bitmap
 }
 
 /**

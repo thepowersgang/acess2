@@ -316,6 +316,11 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 	LEAVE('-');
 }
 
+void MM_DumpStatistics(void)
+{
+	// TODO: Statistics for x86_64 PMM
+}
+
 /**
  * \brief Allocate a contiguous range of physical pages with a maximum
  *        bit size of \a MaxBits

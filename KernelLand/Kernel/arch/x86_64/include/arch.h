@@ -11,6 +11,10 @@
 #define BITS	64
 #define PAGE_SIZE	0x1000
 
+#ifndef MAX_CPUS
+# define MAX_CPUS	8
+#endif
+
 #define STACKED_LOCKS	2	// 0: No, 1: Per-CPU, 2: Per-Thread
 #define LOCK_DISABLE_INTS	0
 
