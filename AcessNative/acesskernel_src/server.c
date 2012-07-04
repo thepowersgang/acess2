@@ -131,14 +131,14 @@ int Server_WorkerThread(void *ClientPtr)
 		while( Client->CurrentRequest == NULL )
 			SDL_CondWait(Client->WaitFlag, Client->Mutex);
 		
+		Log_Debug("AcessSrv", "Worker got message %p", Client->CurrentRequest);
+		
 		if(Client->ClientID != cur_client_id) {
 			Threads_SetThread( Client->ClientID );
 			cur_client_id = Client->ClientID;
 		}
 		
-		// Get the response
-		retHeader = SyscallRecieve(Client->CurrentRequest, &retSize);
-
+		// Debug
 		{
 			int	callid = Client->CurrentRequest->CallID;
 			Log_Debug("AcessSrv", "Client %i request %i %s",
@@ -147,7 +147,9 @@ int Server_WorkerThread(void *ClientPtr)
 				);
 		}
 		
-		
+		// Get the response
+		retHeader = SyscallRecieve(Client->CurrentRequest, &retSize);
+
 		if( !retHeader ) {
 			// Return an error to the client
 			printf("ERROR: SyscallRecieve failed\n");

@@ -24,6 +24,7 @@ extern uintptr_t	ElfRelocate(void *Base);
 extern int	ElfGetSymbol(void *Base, char *Name, uintptr_t *ret, size_t *size);
 extern int	ciNumBuiltinSymbols;
 extern tSym	caBuiltinSymbols[];
+extern char	**gEnvP;
 
 // === PROTOTYPES ===
 void	Binary_AddToList(const char *Filename, void *Base, tBinFmt *Format);
@@ -120,7 +121,7 @@ void *Binary_LoadLibrary(const char *Name)
 		#if DEBUG
 		printf("Calling '%s' entry point %p\n", Name, entry);
 		#endif
-		entry(ret, 0, argv, NULL);
+		entry(ret, 0, argv, gEnvP);
 	}
 
 	return ret;

@@ -16,6 +16,7 @@
 #include <mutex.h>
 #include <semaphore.h>
 #include <events.h>
+#include <threads_int.h>
 
 #undef CLONE_VM	// Such a hack
 #undef off_t	
@@ -41,49 +42,6 @@ typedef struct sState
 }	tState;
 #endif
 
-typedef struct sProcess
-{
-	 int	nThreads;
-	 int	NativePID;
-	char	*CWD;
-	char	*Chroot;
-	 int	MaxFD;
-} tProcess;
-
-struct sThread
-{
-	struct sThread	*GlobalNext;
-	struct sThread	*Next;
-
-	 int	KernelTID;
-
-	tTID	TID, PID;
-	tUID	UID, GID;
-
-	struct sThread	*Parent;
-
-	char	*ThreadName;
-
-	 int	State;	// 0: Dead, 1: Active, 2: Paused, 3: Asleep
-	 int	ExitStatus;
-	 int	_errno;
-
-	// Threads waiting for this thread to exit.
-	// Quit logic:
-	// - Wait for `WaitingThreads` to be non-null (maybe?)
-	// - Wake first in the queue, wait for it to be removed
-	// - Repeat
-	// - Free thread and quit kernel thread
-	struct sThread	*WaitingThreads;
-	struct sThread	*WaitingThreadsEnd;
-
-	tProcess	*Process;	
-
-	Uint32	Events, WaitMask;
-	SDL_sem	*EventSem;
-
-};
-
 // === PROTOTYPES ===
  int	Threads_Wake(tThread *Thread);
 
@@ -95,7 +53,7 @@ tProcess gProcessZero = {
 	.MaxFD = 100
 };
 tThread	gThreadZero = {
-	.State=1,
+	.Status=THREAD_STAT_ACTIVE,
 	.ThreadName="ThreadZero",
 	.Process = &gProcessZero
 };
@@ -136,13 +94,17 @@ void Threads_SetThread(int TID)
 	Log_Error("Threads", "_SetThread - Thread %i is not on global list", TID);
 }
 
-tThread	*Threads_GetThread(int TID)
+tThread	*Threads_GetThread(Uint TID)
 {
 	tThread	*thread;
+	Log_Debug("Threads", "Looking for TID %i", TID);
 	for( thread = gpThreads; thread; thread = thread->GlobalNext )
 	{
-		if( thread->TID == TID )
+		if( thread->TID == TID ) {
+			Log_Debug("Threads", "Found %p", thread);
+			Log_Debug("Threads", "- Name = %s", thread->ThreadName);
 			return thread;
+		}
 	}
 	return NULL;
 }
@@ -232,7 +194,7 @@ tTID Threads_WaitTID(int TID, int *Status)
 		if(!thread)	return -1;
 		
 		us->Next = NULL;
-		us->State = 3;
+		us->Status = THREAD_STAT_WAITING;
 		// TODO: Locking
 		if(thread->WaitingThreadsEnd)
 		{
@@ -298,7 +260,7 @@ void Threads_Exit(int TID, int Status)
 
 int Threads_Wake(tThread *Thread)
 {
-	Thread->State = 0;
+	Thread->Status = THREAD_STAT_ACTIVE;
 	Threads_PostEvent(Thread, THREAD_EVENT_WAKEUP);
 	return 0;
 }
@@ -332,6 +294,9 @@ int Threads_Fork(void)
 	return thread->PID;
 }
 
+// --------------------------------------------------------------------
+// Mutexes 
+// --------------------------------------------------------------------
 int Mutex_Acquire(tMutex *Mutex)
 {
 	if(!Mutex->Protector.IsValid) {
@@ -347,6 +312,9 @@ void Mutex_Release(tMutex *Mutex)
 	pthread_mutex_unlock( &Mutex->Protector.Mutex );
 }
 
+// --------------------------------------------------------------------
+// Semaphores
+// --------------------------------------------------------------------
 void Semaphore_Init(tSemaphore *Sem, int InitValue, int MaxValue, const char *Module, const char *Name)
 {
 	memset(Sem, 0, sizeof(tSemaphore));
@@ -368,6 +336,9 @@ int Semaphore_Signal(tSemaphore *Sem, int AmmountToAdd)
 	return AmmountToAdd;
 }
 
+// --------------------------------------------------------------------
+// Event handling
+// --------------------------------------------------------------------
 Uint32 Threads_WaitEvents(Uint32 Mask)
 {
 	Uint32	rv;
@@ -395,5 +366,10 @@ void Threads_PostEvent(tThread *Thread, Uint32 Events)
 		SDL_SemPost( Thread->EventSem );
 //		Log_Debug("Threads", "Waking %p(%i %s)", Thread, Thread->TID, Thread->ThreadName);
 	}
+}
+
+void Threads_ClearEvent(Uint32 EventMask)
+{
+	gpCurrentThread->Events &= ~EventMask;
 }
 
