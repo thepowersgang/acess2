@@ -4,7 +4,8 @@ include $(BASE)header.mk
 
 # Rules
 ASFLAGS-$(DIR)  := -D ARCHDIR=$(ARCHDIR) -D __ASSEMBLER__=1
-CPPFLAGS-$(DIR) := -I$(ACESSDIR)/Usermode/include/ -DARCHDIR=$(ARCHDIR) -DARCHDIR_is_$(ARCHDIR)=1
+CPPFLAGS-$(DIR) := -ffreestanding -I$(ACESSDIR)/Usermode/include/ -DARCHDIR=$(ARCHDIR) -DARCHDIR_is_$(ARCHDIR)=1
+CPPFLAGS-$(DIR) += $(addprefix -I,$(wildcard $(ACESSUSERDIR)Libraries/*/include_exp/))
 CFLAGS-$(DIR)   := -g -Wall -fPIC -fno-stack-protector -O3
 LDFLAGS-$(DIR)  := -g -nostdlib -shared -I/Acess/Libs/ld-acess.so -lld-acess -e SoMain -x -L$(OUTPUTDIR)Libs/ --no-undefined
 

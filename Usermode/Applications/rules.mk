@@ -2,7 +2,8 @@ include $(BASE)header.mk
 
 # Rules
 ASFLAGS-$(DIR)  := -felf -D ARCHDIR=$(ARCHDIR) -D __ASSEMBLER__=1
-CPPFLAGS-$(DIR) := -I$(ACESSDIR)/Usermode/include/ -DARCHDIR=$(ARCHDIR) -DARCHDIR_is_$(ARCHDIR)=1
+CPPFLAGS-$(DIR) := -ffreestanding -I$(ACESSDIR)/Usermode/include/ -DARCHDIR=$(ARCHDIR) -DARCHDIR_is_$(ARCHDIR)=1
+CPPFLAGS-$(DIR) += $(addprefix -I,$(wildcard $(ACESSUSERDIR)Libraries/*/include_exp/))
 CFLAGS-$(DIR)   := -g -Wall -fno-stack-protector -O3
 LDFLAGS-$(DIR)  := -T $(OUTPUTDIR)Libs/acess.ld -rpath-link $(OUTPUTDIR)Libs -L $(OUTPUTDIR)Libs -I /Acess/Libs/ld-acess.so -lld-acess -lc $(OUTPUTDIR)Libs/crtbegin.o $(OUTPUTDIR)Libs/crtend.o
 
