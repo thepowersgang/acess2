@@ -131,9 +131,11 @@ int Server_WorkerThread(void *ClientPtr)
 		while( Client->CurrentRequest == NULL )
 			SDL_CondWait(Client->WaitFlag, Client->Mutex);
 		
-		Log_Debug("AcessSrv", "Worker got message %p", Client->CurrentRequest);
+//		Log_Debug("AcessSrv", "Worker got message %p", Client->CurrentRequest);
 		
 		if(Client->ClientID != cur_client_id) {
+//			Log_Debug("AcessSrv", "Client thread ID changed from %i to %i",
+//				cur_client_id, Client->ClientID);
 			Threads_SetThread( Client->ClientID );
 			cur_client_id = Client->ClientID;
 		}
@@ -304,8 +306,8 @@ int Server_ListenThread(void *Unused)
 			continue;
 		}
 		
-		Log_Debug("AcessSrv", "Message from Client %i (%p)",
-			client->ClientID, client);
+//		Log_Debug("AcessSrv", "Message from Client %i (%p)",
+//			client->ClientID, client);
 
 		// Make a copy of the request data	
 		req = malloc(length);

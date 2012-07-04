@@ -68,7 +68,7 @@ int acess_reopen(int FD, const char *Path, int Flags) {
 size_t acess_read(int FD, void *Dest, size_t Bytes) {
 	if(FD & NATIVE_FILE_MASK)
 		return native_read(FD & (NATIVE_FILE_MASK-1), Dest, Bytes);
-	if( FD > 2 )
+//	if( FD > 2 )
 		DEBUG("read(0x%x, 0x%x, *%p)", FD, Bytes, Dest);
 	return _Syscall(SYS_READ, ">i >i <d", FD, Bytes, Bytes, Dest);
 }
@@ -76,7 +76,7 @@ size_t acess_read(int FD, void *Dest, size_t Bytes) {
 size_t acess_write(int FD, const void *Src, size_t Bytes) {
 	if(FD & NATIVE_FILE_MASK)
 		return native_write(FD & (NATIVE_FILE_MASK-1), Src, Bytes);
-	if( FD > 2 )
+//	if( FD > 2 )
 		DEBUG("write(0x%x, 0x%x, %p\"%.*s\")", FD, Bytes, Src, Bytes, (char*)Src);
 	return _Syscall(SYS_WRITE, ">i >i >d", FD, Bytes, Bytes, Src);
 }
@@ -287,7 +287,7 @@ void acess__SysDebug(const char *Format, ...)
 	
 	va_start(args, Format);
 	
-	printf("[_SysDebug %i]", giSyscall_ClientID);
+	printf("[_SysDebug %i] ", giSyscall_ClientID);
 	vprintf(Format, args);
 	printf("\n");
 	

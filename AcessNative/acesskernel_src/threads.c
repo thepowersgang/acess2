@@ -97,12 +97,9 @@ void Threads_SetThread(int TID)
 tThread	*Threads_GetThread(Uint TID)
 {
 	tThread	*thread;
-	Log_Debug("Threads", "Looking for TID %i", TID);
 	for( thread = gpThreads; thread; thread = thread->GlobalNext )
 	{
 		if( thread->TID == TID ) {
-			Log_Debug("Threads", "Found %p", thread);
-			Log_Debug("Threads", "- Name = %s", thread->ThreadName);
 			return thread;
 		}
 	}

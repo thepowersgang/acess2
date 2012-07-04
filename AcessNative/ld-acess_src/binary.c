@@ -1,7 +1,11 @@
 /*
- * AcessNative
+ * AcessNative Dynamic Linker
+ * - By John Hodge (thePowersGang)
+ * 
+ * binary.c
+ * - Provides binary loading and type abstraction
  */
-#define DEBUG	1
+#define DEBUG	0
 #include "common.h"
 #include <stdint.h>
 #include <stdio.h>
@@ -110,7 +114,8 @@ void *Binary_LoadLibrary(const char *Name)
 	}
 
 	ret = Binary_Load(path, (uintptr_t*)&entry);
-	printf("LOADED '%s' to %p (Entry=%p)\n", path, ret, entry);
+	if( ret != (void*)-1 )
+		Debug("LOADED '%s' to %p (Entry=%p)", path, ret, entry);
 	free(path);
 	
 	#if DEBUG

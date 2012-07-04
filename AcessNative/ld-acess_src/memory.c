@@ -53,7 +53,7 @@ uintptr_t FindFreeRange(size_t ByteCount, int MaxBits)
 
 	end <<= (sizeof(intptr_t)*8-MaxBits);
 	end >>= (sizeof(intptr_t)*8-MaxBits);
-	printf("end = %p\n", (void*)end);
+//	printf("end = %p\n", (void*)end);
 	
 //	for( base = 0; base < end - size; base -= PAGE_SIZE )
 	for( base = end - size + 1; base > 0; base -= PAGE_SIZE )

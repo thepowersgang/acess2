@@ -3,7 +3,7 @@
  *
  * ELF Executable Loader Code
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
