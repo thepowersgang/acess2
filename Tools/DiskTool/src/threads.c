@@ -2,8 +2,19 @@
  * 
  */
 #include <acess.h>
+#include <threads.h>
 
 // === CODE ===
+tThread *Proc_GetCurThread(void)
+{
+	return NULL;
+}
+
+void Threads_PostEvent(tThread *Thread, Uint32 Events)
+{
+	
+}
+
 Uint32 Threads_WaitEvents(Uint32 Events)
 {
 	Log_KernelPanic("Threads", "Can't use _WaitEvents in DiskTool");
