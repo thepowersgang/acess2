@@ -102,12 +102,13 @@ int DrvUtil_Video_2DStream(void *Ent, const void *Buffer, int Length,
 				tmp[4] | ((Uint32)tmp[5] << 16)
 				);
 			
-			rem -= 10;
-			stream += 10;
+			rem -= 12;
+			stream += 12;
 			break;
 		
 		case VIDEO_2DOP_BLIT:
 			if(rem < 12)	return Length-rem;
+			memcpy(tmp, stream, 6*2);
 			
 			if(!Handlers->Blit) {
 				Log_Warning("DrvUtil", "DrvUtil_Video_2DStream: Driver"

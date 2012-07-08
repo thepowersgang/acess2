@@ -13,6 +13,7 @@
 extern void	Threads_Dump(void);
 extern void	KernelPanic_SetMode(void);
 extern void	KernelPanic_PutChar(char Ch);
+extern void	IPStack_SendDebugText(const char *Text);
 
 // === PROTOTYPES ===
 static void	Debug_Putchar(char ch);
@@ -30,11 +31,14 @@ volatile int	gbInPutChar = 0;
 #if LOCK_DEBUG_OUTPUT
 tShortSpinlock	glDebug_Lock;
 #endif
+// - Disabled because it breaks shit
+ int	gbSendNetworkDebug = 0;
 
 // === CODE ===
 static void Debug_Putchar(char ch)
 {
 	Debug_PutCharDebug(ch);
+	
 	if( !gbDebug_IsKPanic )
 	{
 		if(gbInPutChar)	return ;
@@ -45,6 +49,12 @@ static void Debug_Putchar(char ch)
 	}
 	else
 		KernelPanic_PutChar(ch);
+	
+	if( gbSendNetworkDebug )
+	{
+		char str[2] = {ch, 0};
+		IPStack_SendDebugText(str);
+	}
 }
 
 static void Debug_Puts(int UseKTerm, const char *Str)
@@ -60,7 +70,10 @@ static void Debug_Puts(int UseKTerm, const char *Str)
 	}
 	else
 		for( len = 0; Str[len]; len ++ );
-	
+
+	if( gbSendNetworkDebug )
+		IPStack_SendDebugText(Str);
+
 	// Output to the kernel terminal
 	if( UseKTerm && !gbDebug_IsKPanic && giDebug_KTerm != -1)
 	{
@@ -79,9 +92,9 @@ void Debug_DbgOnlyFmt(const char *format, va_list args)
 void Debug_Fmt(int bUseKTerm, const char *format, va_list args)
 {
 	char	buf[DEBUG_MAX_LINE_LEN];
-	 int	len;
+//	 int	len;
 	buf[DEBUG_MAX_LINE_LEN-1] = 0;
-	len = vsnprintf(buf, DEBUG_MAX_LINE_LEN-1, format, args);
+	/*len = */vsnprintf(buf, DEBUG_MAX_LINE_LEN-1, format, args);
 	//if( len < DEBUG_MAX_LINE )
 		// do something
 	Debug_Puts(bUseKTerm, buf);
