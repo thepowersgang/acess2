@@ -144,7 +144,7 @@ tVFS_Node *FAT_InitDevice(const char *Device, const char **Options)
 	VFS_ReadAt(diskInfo->fileHandle, 0, 512, bs);
 	
 	if(bs->bps == 0 || bs->spc == 0) {
-		Log_Notice("FAT", "Error in FAT Boot Sector");
+		Log_Notice("FAT", "Error in FAT Boot Sector (zero BPS/SPC)");
 		return NULL;
 	}
 	
