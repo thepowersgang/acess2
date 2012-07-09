@@ -1,16 +1,23 @@
 
 TARGET := $(shell gcc -v 2>&1 | grep Targ | awk '{print $$2}')
 
+-include ../../Makefile.Version.cfg
+-include Makefile.BuildNum
+ifeq ($(BUILD_NUM),)
+BUILD_NUM = 1
+endif
+
+
 KERNEL_SRC = ../../../KernelLand/Kernel/
 
 BIN = ../DiskTool
 # Kernel Sources (compiled with -ffreestanding)
 K_OBJ  = vfs/main.o vfs/open.o vfs/acls.o vfs/io.o vfs/dir.o
-K_OBJ += vfs/nodecache.o vfs/mount.o vfs/memfile.o vfs/select.o
+K_OBJ += vfs/nodecache.o vfs/mount.o vfs/memfile.o # vfs/select.o
 K_OBJ += vfs/fs/root.o vfs/fs/devfs.o
 K_OBJ += drv/proc.o
 # Local kernel soruces (same as above, but located in same directory as Makefile)
-L_OBJ = vfs_handles.o threads.o nativefs.o
+L_OBJ = vfs_handles.o threads.o nativefs.o time.o
 # Native Sources (compiled as usual)
 N_OBJ = main.o script.o logging.o
 
@@ -18,6 +25,10 @@ N_OBJ = main.o script.o logging.o
 CFLAGS := -Wall
 CPPFLAGS := -I include/
 K_CPPFLAGS := -I $(KERNEL_SRC)include
+LDFLAGS += -Wl,--defsym,__buildnum=$(BUILD_NUM)
+
+BUILDINFO_OBJ := obj/$(TARGET)/buildinfo.o
+BUILDINFO_SRC := $(BUILDINFO_OBJ:%.o=%.c)
 
 # == Start of Magic ==
 OBJ_PREFIX = obj/$(TARGET)/
@@ -26,7 +37,7 @@ K_OBJ := $(addprefix $(K_OBJ_PREFIX),$(K_OBJ))
 L_OBJ := $(addprefix $(OBJ_PREFIX),$(L_OBJ))
 N_OBJ := $(addprefix $(OBJ_PREFIX),$(N_OBJ))
 
-OBJ := $(N_OBJ) $(L_OBJ) $(K_OBJ)
+OBJ := $(N_OBJ) $(L_OBJ) $(K_OBJ) $(BUILDINFO_OBJ)
 
 DEPFILES  = $(filter %.o,$(OBJ))
 DEPFILES := $(DEPFILES:%=%.dep)
@@ -40,18 +51,35 @@ clean:
 	$(RM) -f $(OBJ) $(DEPFILES) $(BIN)
 
 $(BIN): $(OBJ)
-	$(CC) -o $(BIN) $(OBJ) $(LDFLAGS)
+	@echo [CC Link] -o $(BIN)
+	@$(CC) -o $(BIN) $(OBJ) $(LDFLAGS)
+	@echo BUILD_NUM = $$(( $(BUILD_NUM) + 1 )) > Makefile.BuildNum
 
 $(K_OBJ): $(K_OBJ_PREFIX)%.o: $(KERNEL_SRC)%.c
 	@mkdir -p $(dir $@)
-	$(CC) -c $< -o $@ -ffreestanding $(CFLAGS) $(CPPFLAGS) $(K_CPPFLAGS) -MMD -MP -MF $@.dep
+	@echo [CC Acess] -o $@
+	@$(CC) -c $< -o $@ -ffreestanding $(CFLAGS) $(CPPFLAGS) $(K_CPPFLAGS) -MMD -MP -MF $@.dep
 
 $(L_OBJ): $(OBJ_PREFIX)%.o: %.c
 	@mkdir -p $(dir $@)
-	$(CC) -c $< -o $@ -ffreestanding $(CFLAGS) $(CPPFLAGS) $(K_CPPFLAGS) -MMD -MP -MF $@.dep
+	@echo [CC Acess] -o $@
+	@$(CC) -c $< -o $@ -ffreestanding $(CFLAGS) $(CPPFLAGS) $(K_CPPFLAGS) -MMD -MP -MF $@.dep
 
 $(N_OBJ): $(OBJ_PREFIX)%.o: %.c
 	@mkdir -p $(dir $@)
-	$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS) -MMD -MP -MF $@.dep
+	@echo [CC Native] -o $@
+	@$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS) -MMD -MP -MF $@.dep
+
+# Hacky buildinfo.c file
+$(BUILDINFO_SRC): $(filter-out $(BUILDINFO_OBJ), $(OBJ)) Makefile
+	@echo "" > $@
+	@echo "const char gsKernelVersion[] = \"$(ACESS_VERSION)\";" >> $@
+	@echo "const char gsGitHash[] = \""`git log -n 1 | head -n 1 | awk '{print $$2}'`"\";" >> $@
+	@echo "const int giBuildNumber = $(BUILD_NUM);" >> $@
+$(BUILDINFO_OBJ): $(BUILDINFO_SRC)
+	@echo [CC] -o $@
+	@$(CC) -o $@ -c $< $(CFLAGS) $(CPPFLAGS)
+
+$(OBJ): Makefile
 
 -include $(DEPFILES)

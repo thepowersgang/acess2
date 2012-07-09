@@ -79,6 +79,8 @@ extern tGID	Threads_GetGID(void);
 #define errno	(*(Threads_GetErrno()))
 
 #include <string.h>
+extern int	strpos(const char *Str, char Ch);
+extern void	itoa(char *buf, uint64_t num, int base, int minLength, char pad);
 
 
 #define ENTER(...)	do{}while(0)

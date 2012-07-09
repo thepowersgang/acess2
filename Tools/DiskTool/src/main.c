@@ -9,16 +9,18 @@
 // === CODE ===
 int main(int argc, char *argv[])
 {
+	
 	return 0;
 }
 
+// NOTE: This is in a native compiled file because it needs access to the real errno macro
 int *Threads_GetErrno(void)
 {
 	return &errno;
 }
 
 // TODO: Move into a helper lib?
-extern void itoa(char *buf, uint64_t num, int base, int minLength, char pad)
+void itoa(char *buf, uint64_t num, int base, int minLength, char pad)
 {
 	char fmt[] = "%0ll*x";
 	switch(base)
