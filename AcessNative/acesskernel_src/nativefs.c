@@ -32,7 +32,7 @@ tVFS_Node	*NativeFS_Mount(const char *Device, const char **Arguments);
 void	NativeFS_Unmount(tVFS_Node *Node);
 tVFS_Node	*NativeFS_FindDir(tVFS_Node *Node, const char *Name);
 char	*NativeFS_ReadDir(tVFS_Node *Node, int Position);
-Uint64	NativeFS_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
+size_t	NativeFS_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
 
 // === GLOBALS ===
 tVFS_NodeType	gNativeFS_FileNodeType = {
@@ -78,7 +78,7 @@ tVFS_Node *NativeFS_Mount(const char *Device, const char **Arguments)
 	ret->Data = strdup(Device);
 	ret->ImplInt = strlen(ret->Data);
 	ret->ImplPtr = info;
-	ret->Inode = (Uint64)dp;
+	ret->Inode = (Uint64)(tVAddr)dp;
 	ret->Flags = VFS_FFLAG_DIRECTORY;
 
 	ret->Type = &gNativeFS_DirNodeType;	
@@ -90,7 +90,7 @@ void NativeFS_Unmount(tVFS_Node *Node)
 {
 	tNativeFS	*info = Node->ImplPtr;
 	Inode_ClearCache( info->InodeHandle );
-	closedir( (void *)Node->Inode );
+	closedir( (void *)(tVAddr)Node->Inode );
 	free(Node->Data);
 	free(Node);
 	free(info);
@@ -132,7 +132,7 @@ tVFS_Node *NativeFS_FindDir(tVFS_Node *Node, const char *Name)
 	if( S_ISDIR(statbuf.st_mode) )
 	{
 		LOG("Directory");
-		baseRet.Inode = (Uint64) opendir(path);
+		baseRet.Inode = (Uint64)(tVAddr) opendir(path);
 		baseRet.Type = &gNativeFS_DirNodeType;
 		baseRet.Flags |= VFS_FFLAG_DIRECTORY;
 		baseRet.Size = -1;
@@ -140,7 +140,7 @@ tVFS_Node *NativeFS_FindDir(tVFS_Node *Node, const char *Name)
 	else
 	{
 		LOG("File");
-		baseRet.Inode = (Uint64) fopen(path, "r+");
+		baseRet.Inode = (Uint64)(tVAddr) fopen(path, "r+");
 		baseRet.Type = &gNativeFS_FileNodeType;
 		
 		fseek( (FILE*)(tVAddr)baseRet.Inode, 0, SEEK_END );
@@ -184,14 +184,14 @@ char *NativeFS_ReadDir(tVFS_Node *Node, int Position)
 	return ret;
 }
 
-Uint64 NativeFS_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+size_t NativeFS_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 {
-	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
-	if( fseek( (void *)Node->Inode, Offset, SEEK_SET ) != 0 )
+	ENTER("pNode XOffset xLength pBuffer", Node, Offset, Length, Buffer);
+	if( fseek( (void *)(tVAddr)Node->Inode, Offset, SEEK_SET ) != 0 )
 	{
 		LEAVE('i', 0);
 		return 0;
 	}
 	LEAVE('-');
-	return fread( Buffer, 1, Length, (void *)Node->Inode );
+	return fread( Buffer, 1, Length, (void *)(tVAddr)Node->Inode );
 }
