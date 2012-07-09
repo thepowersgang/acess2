@@ -5,11 +5,31 @@
 #include <errno.h>
 #include <stdint.h>
 #include <string.h>
+#include <disktool_common.h>
 
 // === CODE ===
 int main(int argc, char *argv[])
 {
-	
+	// Setup
+
+	// Parse arguments
+	for( int i = 1; i < argc; i ++ )
+	{
+		if( strcmp("--image", argv[i]) == 0 || strcmp("-i", argv[i]) == 0 ) {
+			// Mount an image
+			if( argc - i < 3 ) {
+				fprintf(stderr, "--image/-i takes 2 arguments (ident and path)\n");
+				exit(-1);
+			}
+
+			if( DiskTool_MountImage(argv[i+1], argv[i+2]) ) {
+				fprintf(stderr, "Unable to mount '%s' as '%s'\n", argv[i+2], argv[i+1]);
+				exit(-1);
+			}
+
+			i += 2;
+		}
+	}
 	return 0;
 }
 
