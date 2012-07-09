@@ -32,7 +32,7 @@ tVFS_Node	*NativeFS_Mount(const char *Device, const char **Arguments);
 void	NativeFS_Unmount(tVFS_Node *Node);
 tVFS_Node	*NativeFS_FindDir(tVFS_Node *Node, const char *Name);
 char	*NativeFS_ReadDir(tVFS_Node *Node, int Position);
-size_t	NativeFS_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
+size_t	NativeFS_Read(tVFS_Node *Node, _acess_off_t Offset, size_t Length, void *Buffer);
 
 // === GLOBALS ===
 tVFS_NodeType	gNativeFS_FileNodeType = {
@@ -184,7 +184,7 @@ char *NativeFS_ReadDir(tVFS_Node *Node, int Position)
 	return ret;
 }
 
-size_t NativeFS_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
+size_t NativeFS_Read(tVFS_Node *Node, _acess_off_t Offset, size_t Length, void *Buffer)
 {
 	ENTER("pNode XOffset xLength pBuffer", Node, Offset, Length, Buffer);
 	if( fseek( (void *)(tVAddr)Node->Inode, Offset, SEEK_SET ) != 0 )
