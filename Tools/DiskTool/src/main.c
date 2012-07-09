@@ -26,6 +26,16 @@ int main(int argc, char *argv[])
 			}
 
 			i += 2;
+			continue ;
+		}
+		
+		if( strcmp("ls", argv[i]) == 0 ) {
+			if( argc - i < 2 ) {
+				fprintf(stderr, "ls 1 argument (path)\n");
+				exit(-1);
+			}
+
+			DiskTool_ListDirectory(argv[i+1]);
 		}
 	}
 	return 0;

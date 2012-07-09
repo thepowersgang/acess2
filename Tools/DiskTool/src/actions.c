@@ -51,9 +51,31 @@ int DiskTool_Copy(const char *Source, const char *Destination)
 	return -1;
 }
 
+int DiskTool_ListDirectory(const char *Directory)
+{
+	int fd = DiskTool_int_TranslateOpen(Directory, 2);
+	if(fd == -1) {
+//		fprintf(stderr, "Can't open '%s'\n", Directory);
+		return -1;
+	}
+
+	printf("Directory listing of '%s'\n", Directory);	
+
+	char	name[256];
+	while( VFS_ReadDir(fd, name) )
+	{
+		printf("%s\n", name);
+	}
+	
+	VFS_Close(fd);
+	
+	return 0;
+}
+
 // --- Internal helpers ---
 size_t DiskTool_int_TranslatePath(char *Buffer, const char *Path)
 {
+	 int	len;
 	const char *colon = strchr(Path, ':');
 	if( colon )
 	{
@@ -64,11 +86,18 @@ size_t DiskTool_int_TranslatePath(char *Buffer, const char *Path)
 				goto native_path;
 		}
 		
-		return -1;
+		len = strlen("/Mount/");
+		len += strlen(Path);
+		if( Buffer ) {
+			strcpy(Buffer, "/Mount/");
+			strncat(Buffer+strlen("/Mount/"), Path, colon - Path);
+			strcat(Buffer, colon + 1);
+		}
+		return len;
 	}
 	
-native_path: {
-	 int	len = strlen("/Native");
+native_path:
+	len = strlen("/Native");
 	len += strlen( getenv("PWD") ) + 1;
 	len += strlen(Path);
 	if( Buffer ) {
@@ -78,12 +107,28 @@ native_path: {
 		strcat(Buffer, Path);
 	}
 	return len;
-	}
 }
 
 int DiskTool_int_TranslateOpen(const char *File, int Mode)
 {
-	// Determine if the source is a mounted image or a file on the source FS
-	return -1;
+	size_t tpath_len = DiskTool_int_TranslatePath(NULL, File);
+	if(tpath_len == -1)
+		return -1;
+	char tpath[tpath_len-1];
+	DiskTool_int_TranslatePath(tpath, File);
+
+//	printf("Opening '%s'\n", tpath);	
+
+	switch(Mode)
+	{
+	case 0:	// Read
+		return VFS_Open(tpath, VFS_OPENFLAG_READ);
+	case 1:	// Write
+		return VFS_Open(tpath, VFS_OPENFLAG_READ|VFS_OPENFLAG_WRITE);
+	case 2:	// Directory
+		return VFS_Open(tpath, VFS_OPENFLAG_READ|VFS_OPENFLAG_EXEC);
+	default:
+		return -1;
+	}
 }
 
