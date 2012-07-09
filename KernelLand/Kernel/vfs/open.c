@@ -222,11 +222,11 @@ restart_parse:
 		// Length Check - If the length is smaller than the longest match sofar
 		if(mnt->MountPointLen < longestMount->MountPointLen)	continue;
 		// String Compare
-		cmp = strcmp(Path, mnt->MountPoint);
+		cmp = strncmp(Path, mnt->MountPoint, mnt->MountPointLen);
 		
 		#if OPEN_MOUNT_ROOT
 		// Fast Break - Request Mount Root
-		if(cmp == 0) {
+		if(Path[mnt->MountPointLen] == '\0') {
 			if(TruePath) {
 				*TruePath = malloc( mnt->MountPointLen+1 );
 				strcpy(*TruePath, mnt->MountPoint);
@@ -238,7 +238,7 @@ restart_parse:
 		}
 		#endif
 		// Not a match, continue
-		if(cmp != '/')	continue;
+		if(cmp != 0)	continue;
 		longestMount = mnt;
 	}
 	
