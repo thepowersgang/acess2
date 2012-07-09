@@ -34,9 +34,15 @@ void Log_Debug(const char *Ident, const char *Message, ...)
 
 void Warning(const char *Message, ...) {
 	const char *Ident = "WARNING";
-	PUTERR("34", "W")
+	PUTERR("33", "W")
 }
 void Log(const char *Message, ...) {
 	const char *Ident = "LOGLOG";
-	PUTERR("31", "L")
+	PUTERR("37", "L")
 }
+
+void Debug_HexDump(const char *Prefix, size_t Length, const void *Data)
+{
+
+}
+

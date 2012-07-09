@@ -10,11 +10,23 @@
 #include <disktool_common.h>
 #include <ctype.h>
 
+// === IMPORTS ===
+extern int	NativeFS_Install(char **Arguments);
+
 // === PROTOTYPES ===
+void	DiskTool_Initialise(void)	__attribute__((constructor(101)));
 size_t	DiskTool_int_TranslatePath(char *Buffer, const char *Path);
  int	DiskTool_int_TranslateOpen(const char *File, int Mode);
 
 // === CODE ===
+void DiskTool_Initialise(void)
+{
+	VFS_Init();
+	NativeFS_Install(NULL);
+	VFS_MkDir("/Native");
+	VFS_Mount("/", "/Native", "nativefs", "");
+}
+
 int DiskTool_MountImage(const char *Identifier, const char *Path)
 {
 	// Validate Identifier and make mountpoint string
@@ -55,10 +67,18 @@ size_t DiskTool_int_TranslatePath(char *Buffer, const char *Path)
 		return -1;
 	}
 	
-native_path:
-	if( Buffer )
-		strcpy(Buffer, Path);
-	return strlen(Path);
+native_path: {
+	 int	len = strlen("/Native");
+	len += strlen( getenv("PWD") ) + 1;
+	len += strlen(Path);
+	if( Buffer ) {
+		strcpy(Buffer, "/Native");
+		strcat(Buffer, getenv("PWD"));
+		strcat(Buffer, "/");
+		strcat(Buffer, Path);
+	}
+	return len;
+	}
 }
 
 int DiskTool_int_TranslateOpen(const char *File, int Mode)

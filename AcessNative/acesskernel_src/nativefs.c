@@ -5,7 +5,7 @@
  * nativefs.c
  * - Host filesystem access
  */
-#define DEBUG	1
+#define DEBUG	0
 #define off_t	_acess_off_t
 #include <acess.h>	// Acess
 #include <vfs.h>	// Acess
@@ -63,7 +63,7 @@ tVFS_Node *NativeFS_Mount(const char *Device, const char **Arguments)
 	
 	dp = opendir(Device);
 	if(!dp) {
-		Log_Warning("NativeFS", "ERRO: Unable to open device root '%s'", Device);
+		Log_Warning("NativeFS", "ERROR: Unable to open device root '%s'", Device);
 		return NULL;
 	}
 	
@@ -82,7 +82,7 @@ tVFS_Node *NativeFS_Mount(const char *Device, const char **Arguments)
 	ret->Flags = VFS_FFLAG_DIRECTORY;
 
 	ret->Type = &gNativeFS_DirNodeType;	
-	
+
 	return ret;
 }
 

@@ -82,11 +82,20 @@ extern tGID	Threads_GetGID(void);
 extern int	strpos(const char *Str, char Ch);
 extern void	itoa(char *buf, uint64_t num, int base, int minLength, char pad);
 
+// TODO: Move out?
+extern int64_t	DivUp(int64_t value, int64_t divisor);
 
-#define ENTER(...)	do{}while(0)
-#define LOG(...)	do{}while(0)
-#define LEAVE(...)	do{}while(0)
-#define LEAVE_RET(t,v)	return v;
+#if DEBUG
+# define ENTER(str, v...)	Log("%s:%i: ENTER "str, __func__, __LINE__)
+# define LOG(fmt, v...) 	Log("%s:%i: "fmt, __func__, __LINE__, ##v)
+# define LEAVE(...)	do{}while(0)
+# define LEAVE_RET(t,v)	return v;
+#else
+# define ENTER(...)	do{}while(0)
+# define LOG(...)	do{}while(0)
+# define LEAVE(...)	do{}while(0)
+# define LEAVE_RET(t,v)	return v;
+#endif
 
 static inline int Mutex_Acquire(tMutex *m) {
 	if(*m)	Log_KernelPanic("---", "Double mutex lock");

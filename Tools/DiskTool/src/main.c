@@ -10,8 +10,6 @@
 // === CODE ===
 int main(int argc, char *argv[])
 {
-	// Setup
-
 	// Parse arguments
 	for( int i = 1; i < argc; i ++ )
 	{
@@ -64,3 +62,19 @@ int strpos(const char *Str, char Ch)
 	if(!r)	return -1;
 	return r - Str;
 }
+
+int strucmp(const char *s1, const char *s2)
+{
+	return strcasecmp(s1, s2);
+}
+
+int64_t DivUp(int64_t value, int64_t divisor)
+{
+	return (value + divisor - 1) / divisor;
+}
+
+int64_t timestamp(int sec, int min, int hr, int day, int month, int year)
+{
+	return 0;
+}
+

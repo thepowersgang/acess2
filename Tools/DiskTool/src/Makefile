@@ -25,10 +25,10 @@ L_OBJ = vfs_handles.o threads.o nativefs.o time.o actions.o
 N_OBJ = main.o script.o logging.o
 
 # Compilation Options
-CFLAGS := -Wall -std=gnu99
+CFLAGS := -Wall -std=gnu99 -g
 CPPFLAGS := -I include/
 K_CPPFLAGS := -I $(KERNEL_SRC)include
-LDFLAGS += -Wl,--defsym,__buildnum=$(BUILD_NUM)
+LDFLAGS += -Wl,--defsym,__buildnum=$(BUILD_NUM) -g
 
 BUILDINFO_OBJ := obj/$(TARGET)/buildinfo.o
 BUILDINFO_SRC := $(BUILDINFO_OBJ:%.o=%.c)
