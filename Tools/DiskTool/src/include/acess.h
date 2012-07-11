@@ -13,6 +13,8 @@
 #define STR(x) #x
 #define EXPAND_STR(x) STR(x)
 
+#define ASSERT(x)	do{}while(0)
+
 extern char	__buildnum[];
 #define BUILD_NUM	((int)(Uint)&__buildnum)
 extern const char gsGitHash[];
@@ -22,7 +24,8 @@ extern const char gsGitHash[];
 #include <stdint.h>
 
 typedef uintptr_t	Uint;
-typedef unsigned int	size_t;
+//typedef unsigned int	size_t;
+#include <stddef.h>
 typedef uint64_t	off_t;
 typedef char	BOOL;
 
@@ -49,6 +52,8 @@ typedef char	tMutex;
 typedef char	tShortSpinlock;
 
 typedef int64_t	tTime;
+extern tTime	now(void);
+extern int64_t	timestamp(int sec, int min, int hr, int day, int month, int year);
 
 #define PACKED	__attribute__((packed))
 #define DEPRECATED
@@ -64,7 +69,6 @@ extern void	*realloc(void *oldptr, size_t bytes);
 extern void	free(void *buffer);
 
 #include <errno.h>
-
 #include <acess_logging.h>
 
 // Threads
@@ -79,11 +83,19 @@ extern tGID	Threads_GetGID(void);
 #define errno	(*(Threads_GetErrno()))
 
 #include <string.h>
+extern int	strucmp(const char *s1, const char *s2);
 extern int	strpos(const char *Str, char Ch);
 extern void	itoa(char *buf, uint64_t num, int base, int minLength, char pad);
+extern int	snprintf(char *buf, size_t len, const char *fmt, ...);
+extern int	sprintf(char *buf, const char *fmt, ...);
+extern int	ReadUTF8(const Uint8 *str, Uint32 *Val);
+extern int	WriteUTF8(Uint8 *str, Uint32 Val);
+#define CheckString(str)	(1)
+#define CheckMem(mem,sz)	(1)
 
 // TODO: Move out?
-extern int64_t	DivUp(int64_t value, int64_t divisor);
+extern int	DivUp(int value, int divisor);
+extern uint64_t	DivMod64U(uint64_t Num, uint64_t Den, uint64_t *Rem);
 
 #if DEBUG
 # define ENTER(str, v...)	Log("%s:%i: ENTER "str, __func__, __LINE__)

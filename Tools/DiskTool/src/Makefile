@@ -13,7 +13,8 @@ MODULE_SRC = ../../../KernelLand/Modules/
 
 BIN = ../DiskTool
 # Kernel Sources (compiled with -ffreestanding)
-K_OBJ  = vfs/main.o vfs/open.o vfs/acls.o vfs/io.o vfs/dir.o
+K_OBJ := lib.o
+K_OBJ += vfs/main.o vfs/open.o vfs/acls.o vfs/io.o vfs/dir.o
 K_OBJ += vfs/nodecache.o vfs/mount.o vfs/memfile.o # vfs/select.o
 K_OBJ += vfs/fs/root.o vfs/fs/devfs.o
 K_OBJ += drv/proc.o
@@ -22,10 +23,10 @@ MODULES := Filesystems/FAT Filesystems/Ext2
 # Local kernel soruces (same as above, but located in same directory as Makefile)
 L_OBJ = vfs_handles.o threads.o nativefs.o time.o actions.o
 # Native Sources (compiled as usual)
-N_OBJ = main.o script.o logging.o
+N_OBJ = main.o script.o logging.o helpers.o
 
 # Compilation Options
-CFLAGS := -Wall -std=gnu99 -g
+CFLAGS := -Wall -std=gnu99 -g -Werror
 CPPFLAGS := -I include/
 K_CPPFLAGS := -I $(KERNEL_SRC)include
 LDFLAGS += -Wl,--defsym,__buildnum=$(BUILD_NUM) -g

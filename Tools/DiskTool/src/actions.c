@@ -8,14 +8,12 @@
  */
 #include <acess.h>
 #include <disktool_common.h>
-#include <ctype.h>
 
 // === IMPORTS ===
 extern int	NativeFS_Install(char **Arguments);
 
 // === PROTOTYPES ===
 void	DiskTool_Initialise(void)	__attribute__((constructor(101)));
-size_t	DiskTool_int_TranslatePath(char *Buffer, const char *Path);
  int	DiskTool_int_TranslateOpen(const char *File, int Mode);
 
 // === CODE ===
@@ -48,23 +46,46 @@ int DiskTool_MountImage(const char *Identifier, const char *Path)
 
 int DiskTool_Copy(const char *Source, const char *Destination)
 {
-	return -1;
+	int src = DiskTool_int_TranslateOpen(Source, VFS_OPENFLAG_READ);
+	if( src == -1 ) {
+		Log_Error("DiskTool", "Unable to open %s for reading", Source);
+		return -1;
+	}
+	int dst = DiskTool_int_TranslateOpen(Destination, VFS_OPENFLAG_WRITE|VFS_OPENFLAG_CREATE);
+	if( dst == -1 ) {
+		Log_Error("DiskTool", "Unable to open %s for writing", Destination);
+		VFS_Close(src);
+		return -1;
+	}
+
+	char	buf[1024];
+	size_t	len, total = 0;
+	while( (len = VFS_Read(src, sizeof(buf), buf)) == sizeof(buf) )
+		VFS_Write(dst, len, buf), total += len;
+	VFS_Write(dst, len, buf), total += len;
+
+	Log_Notice("DiskTool", "Copied %i from %s to %s", total, Source, Destination);
+
+	VFS_Close(dst);
+	VFS_Close(src);
+	
+	return 0;
 }
 
 int DiskTool_ListDirectory(const char *Directory)
 {
-	int fd = DiskTool_int_TranslateOpen(Directory, 2);
+	int fd = DiskTool_int_TranslateOpen(Directory, VFS_OPENFLAG_READ|VFS_OPENFLAG_DIRECTORY);
 	if(fd == -1) {
 //		fprintf(stderr, "Can't open '%s'\n", Directory);
 		return -1;
 	}
 
-	printf("Directory listing of '%s'\n", Directory);	
+	Log("Directory listing of '%s'", Directory);	
 
 	char	name[256];
 	while( VFS_ReadDir(fd, name) )
 	{
-		printf("%s\n", name);
+		Log("- %s", name);
 	}
 	
 	VFS_Close(fd);
@@ -73,43 +94,7 @@ int DiskTool_ListDirectory(const char *Directory)
 }
 
 // --- Internal helpers ---
-size_t DiskTool_int_TranslatePath(char *Buffer, const char *Path)
-{
-	 int	len;
-	const char *colon = strchr(Path, ':');
-	if( colon )
-	{
-		const char *pos;
-		for(pos = Path; pos < colon; pos ++)
-		{
-			if( !isalpha(*pos) )
-				goto native_path;
-		}
-		
-		len = strlen("/Mount/");
-		len += strlen(Path);
-		if( Buffer ) {
-			strcpy(Buffer, "/Mount/");
-			strncat(Buffer+strlen("/Mount/"), Path, colon - Path);
-			strcat(Buffer, colon + 1);
-		}
-		return len;
-	}
-	
-native_path:
-	len = strlen("/Native");
-	len += strlen( getenv("PWD") ) + 1;
-	len += strlen(Path);
-	if( Buffer ) {
-		strcpy(Buffer, "/Native");
-		strcat(Buffer, getenv("PWD"));
-		strcat(Buffer, "/");
-		strcat(Buffer, Path);
-	}
-	return len;
-}
-
-int DiskTool_int_TranslateOpen(const char *File, int Mode)
+int DiskTool_int_TranslateOpen(const char *File, int Flags)
 {
 	size_t tpath_len = DiskTool_int_TranslatePath(NULL, File);
 	if(tpath_len == -1)
@@ -117,18 +102,6 @@ int DiskTool_int_TranslateOpen(const char *File, int Mode)
 	char tpath[tpath_len-1];
 	DiskTool_int_TranslatePath(tpath, File);
 
-//	printf("Opening '%s'\n", tpath);	
-
-	switch(Mode)
-	{
-	case 0:	// Read
-		return VFS_Open(tpath, VFS_OPENFLAG_READ);
-	case 1:	// Write
-		return VFS_Open(tpath, VFS_OPENFLAG_READ|VFS_OPENFLAG_WRITE);
-	case 2:	// Directory
-		return VFS_Open(tpath, VFS_OPENFLAG_READ|VFS_OPENFLAG_EXEC);
-	default:
-		return -1;
-	}
+	return VFS_Open(tpath, Flags);
 }
 

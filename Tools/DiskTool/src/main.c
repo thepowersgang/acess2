@@ -36,6 +36,21 @@ int main(int argc, char *argv[])
 			}
 
 			DiskTool_ListDirectory(argv[i+1]);
+			i += 1;
+			continue ;
+		}
+		
+		if( strcmp("cp", argv[i]) == 0 ) {
+			
+			if( argc - i < 3 ) {
+				fprintf(stderr, "cp takes 2 arguments (source and destination)\n");
+				exit(-1);
+			}
+
+			DiskTool_Copy(argv[i+1], argv[i+2]);			
+
+			i += 2;
+			continue ;
 		}
 	}
 	return 0;
@@ -78,13 +93,10 @@ int strucmp(const char *s1, const char *s2)
 	return strcasecmp(s1, s2);
 }
 
-int64_t DivUp(int64_t value, int64_t divisor)
+uint64_t DivMod64U(uint64_t value, uint64_t divisor, uint64_t *remainder)
 {
-	return (value + divisor - 1) / divisor;
-}
-
-int64_t timestamp(int sec, int min, int hr, int day, int month, int year)
-{
-	return 0;
+	if(remainder)
+		*remainder = value % divisor;
+	return value / divisor;
 }
 

@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <acess_logging.h>
 
 #define PUTERR(col,type)	{\
@@ -33,16 +34,37 @@ void Log_Debug(const char *Ident, const char *Message, ...)
 	PUTERR("37", "d")
 
 void Warning(const char *Message, ...) {
-	const char *Ident = "WARNING";
+	const char *Ident = "";
 	PUTERR("33", "W")
 }
 void Log(const char *Message, ...) {
-	const char *Ident = "LOGLOG";
+	const char *Ident = "";
 	PUTERR("37", "L")
 }
 
-void Debug_HexDump(const char *Prefix, size_t Length, const void *Data)
+void Debug_HexDump(const char *Prefix, const void *Data, size_t Length)
 {
-
+	const uint8_t *data = Data;
+	size_t	ofs;
+	fprintf(stderr, "[HexDump ]d %s: %i bytes\n", Prefix, (int)Length);
+	for( ofs = 0; ofs + 16 <= Length; ofs += 16 )
+	{
+		fprintf(stderr, "[HexDump ]d %s:", Prefix);
+		fprintf(stderr, "  %02x %02x %02x %02x %02x %02x %02x %02x",
+			data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]);
+		data += 8;
+		fprintf(stderr, "  %02x %02x %02x %02x %02x %02x %02x %02x",
+			data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]);
+		data += 8;
+		fprintf(stderr, "\n");
+	}
+	
+	fprintf(stderr, "[HexDump ]d %s:", Prefix);
+	for( ; ofs < Length; ofs ++ )
+	{
+		if( ofs % 16 == 8 )	fprintf(stderr, " ");
+		fprintf(stderr, " %02x", data[ofs%16]);
+	}
+	fprintf(stderr, "\n");
 }
 

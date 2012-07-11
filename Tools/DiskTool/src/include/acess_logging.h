@@ -12,5 +12,6 @@ extern void	Log_Debug(const char *Ident, const char *Message, ...);
 
 extern void	Warning(const char *Message, ...);
 extern void	Log(const char *Message, ...);
+extern void	Debug_HexDump(const char *Prefix, const void *Data, size_t Length);
 #endif
 

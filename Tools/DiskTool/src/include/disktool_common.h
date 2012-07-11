@@ -10,6 +10,9 @@
 
 extern int	DiskTool_MountImage(const char *Identifier, const char *Path);
 extern int	DiskTool_Copy(const char *Source, const char *Destination);
+extern int	DiskTool_ListDirectory(const char *Directory);
+
+extern size_t	DiskTool_int_TranslatePath(char *Buffer, const char *Path);
 
 #endif
 
