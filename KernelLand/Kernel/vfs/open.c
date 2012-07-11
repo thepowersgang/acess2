@@ -485,7 +485,10 @@ int VFS_OpenEx(const char *Path, Uint Flags, Uint Mode)
 	{
 		// TODO: Translate `Mode` into ACL and node flags
 		// Get parent, create node
-		VFS_MkNod(absPath, 0);
+		if( VFS_MkNod(absPath, 0) ) {
+			free(absPath);
+			return -1;
+		}
 		node = VFS_ParsePath(absPath, NULL, &mnt);
 	}
 	

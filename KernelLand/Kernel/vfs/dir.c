@@ -97,7 +97,7 @@ int VFS_MkNod(const char *Path, Uint Flags)
 	_CloseNode(parent);
 	
 	// Error Check
-	if(ret == 0) {
+	if(ret != 0) {
 		LEAVE('i', -1);
 		return -1;
 	}

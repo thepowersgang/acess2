@@ -29,6 +29,8 @@ typedef Uint32	tMount;
 #define	VFS_OPENFLAG_NOLINK	0x40
 //! Create the file if it doesn't exist
 #define VFS_OPENFLAG_CREATE	0x80
+//! Treat as a directory
+#define VFS_OPENFLAG_DIRECTORY	0x100
 //! Open as a user
 #define	VFS_OPENFLAG_USER	0x8000
 /**
