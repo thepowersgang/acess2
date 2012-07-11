@@ -6,6 +6,9 @@
 #ifndef _FS_FAT_H_
 #define _FS_FAT_H_
 
+#define FAT16_MIN_SECTORS	4085
+#define FAT32_MIN_CLUSTERS	65525
+
 // === On Disk Structures ===
 /**
  * \struct fat_bootsect_s
@@ -117,16 +120,6 @@ struct fat_longfilename_s {
  */
 
 /**
- * \brief Internal IDs for FAT types
- */
-enum eFatType
-{
-	FAT12,	//!< FAT12 Volume
-	FAT16,	//!< FAT16 Volume
-	FAT32,	//!< FAT32 Volume
-};
-
-/**
  * \name End of Cluster marks
  * \brief FAT values that indicate the end of a cluster chain in
  *        different versions.
@@ -142,30 +135,5 @@ enum eFatType
 typedef struct fat_bootsect_s fat_bootsect;
 typedef struct fat_filetable_s fat_filetable;
 typedef struct fat_longfilename_s fat_longfilename;
-
-// === Memory Structures ===
-/**
- * \struct drv_fat_volinfo_s
- * \brief Representation of a volume in memory
- */
-struct drv_fat_volinfo_s
-{
-	 int	fileHandle;	//!< File Handle
-	 int	type;	//!< FAT Type. See eFatType
-	char	name[12];	//!< Volume Name (With NULL Terminator)
-	tMutex	lFAT;	//!< Lock to prevent double-writing to the FAT
-	Uint32	firstDataSect;	//!< First data sector
-	Uint32	rootOffset;	//!< Root Offset (clusters)
-	Uint32	ClusterCount;	//!< Total Cluster Count
-	fat_bootsect	bootsect;	//!< Boot Sector
-	tVFS_Node	rootNode;	//!< Root Node
-	 int	BytesPerCluster;
-	 int	inodeHandle;	//!< Inode Cache Handle
-	#if CACHE_FAT
-	Uint32	*FATCache;	//!< FAT Cache
-	#endif
-};
-
-typedef struct drv_fat_volinfo_s tFAT_VolInfo;
 
 #endif
