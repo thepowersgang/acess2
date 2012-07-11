@@ -51,7 +51,7 @@ BUILDINFO_OBJ := $(OBJDIR)buildinfo.o$(OBJSUFFIX)
 BUILDINFO_SRC := $(OBJDIR)buildinfo.c$(OBJSUFFIX)
 
 OBJ := $(addprefix arch/$(ARCHDIR)/,$(A_OBJ))
-OBJ += heap.o drvutil.o logging.o debug.o lib.o adt.o time.o
+OBJ += heap.o drvutil.o logging.o debug.o lib.o libc.o adt.o time.o
 OBJ += messages.o modules.o syscalls.o system.o
 OBJ += threads.o mutex.o semaphore.o workqueue.o events.o
 OBJ += drv/proc.o drv/fifo.o drv/iocache.o drv/pci.o
