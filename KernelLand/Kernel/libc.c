@@ -22,9 +22,6 @@ void	itoa(char *buf, Uint64 num, int base, int minLength, char pad);
  int	vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args);
  int	snprintf(char *__s, size_t __n, const char *__format, ...);
  int	sprintf(char *__s, const char *__format, ...);
-#endif
- int	tolower(int c);
-#if 0
  int	strucmp(const char *Str1, const char *Str2);
 char	*strchr(const char *__s, int __c);
  int	strpos(const char *Str, char Ch);
@@ -49,6 +46,7 @@ EXPORT(vsnprintf);
 EXPORT(snprintf);
 EXPORT(sprintf);
 EXPORT(tolower);
+
 EXPORT(strucmp);
 EXPORT(strchr);
 EXPORT(strpos);
@@ -417,15 +415,95 @@ int sprintf(char *__s, const char *__format, ...)
 	return ret;
 }
 
-/**
- * \fn int tolower(int c)
- * \brief Converts a character to lower case
+/*
+ * ==================
+ * ctype.h
+ * ==================
  */
+int isalnum(int c)
+{
+	return isalpha(c) || isdigit(c);
+}
+int isalpha(int c)
+{
+	return isupper(c) || islower(c);
+}
+int isascii(int c)
+{
+	return (0 <= c && c < 128);
+}
+int isblank(int c)
+{
+	if(c == '\t')	return 1;
+	if(c == ' ')	return 1;
+	return 0;
+}
+int iscntrl(int c)
+{
+	// TODO: Check iscntrl
+	if(c < ' ')	return 1;
+	return 0;
+}
+int isdigit(int c)
+{
+	return ('0' <= c && c <= '9');
+}
+int isgraph(int c)
+{
+	// TODO: Check isgraph
+	return 0;
+}
+int islower(int c)
+{
+	return ('a' <= c && c <= 'z');
+}
+int isprint(int c)
+{
+	if( ' ' <= c && c <= 0x7F )	return 1;
+	return 0;
+}
+int ispunct(int c)
+{
+	switch(c)
+	{
+	case '.':	case ',':
+	case '?':	case '!':
+		return 1;
+	default:
+		return 0;
+	}
+}
+int isspace(int c)
+{
+	if(c == ' ')	return 1;
+	if(c == '\t')	return 1;
+	if(c == '\v')	return 1;
+	if(c == '\n')	return 1;
+	if(c == '\r')	return 1;
+	return 0;
+}
+int isupper(int c)
+{
+	return ('a' <= c && c <= 'z');
+}
+int isxdigit(int c)
+{
+	return isdigit(c) || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F');
+}
+
+int toupper(int c)
+{
+	if( islower(c) )
+		return c - 0x20;
+	else
+		return c;
+}
 int tolower(int c)
 {
-	if('A' <= c && c <= 'Z')
-		return c - 'A' + 'a';
-	return c;
+	if( isupper(c) )
+		return c + 0x20;
+	else
+		return c;
 }
 
 /**

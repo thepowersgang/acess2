@@ -442,6 +442,8 @@ extern int	UnHex(Uint8 *Dest, size_t DestSize, const char *SourceString);
  * \}
  */
 
+#include <ctype.h>
+
 /**
  * \brief Get a random number
  * \return Random number

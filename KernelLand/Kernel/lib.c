@@ -441,4 +441,3 @@ Uint64 SwapEndian64(Uint64 Val)
 {
 	return SwapEndian32(Val >> 32) | ((Uint64)SwapEndian32(Val) << 32);
 }
-
