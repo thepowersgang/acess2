@@ -82,6 +82,33 @@ extern tGID	Threads_GetGID(void);
 // Kinda hacky way of not colliding with native errno
 #define errno	(*(Threads_GetErrno()))
 
+/**
+ * \name Endianness Swapping
+ * \{
+ */
+#ifdef __BIG_ENDIAN__
+#define	LittleEndian16(_val)	SwapEndian16(_val)
+#define	LittleEndian32(_val)	SwapEndian32(_val)
+#define	LittleEndian64(_val)	SwapEndian32(_val)
+#define	BigEndian16(_val)	(_val)
+#define	BigEndian32(_val)	(_val)
+#define	BigEndian64(_val)	(_val)
+#else
+#define	LittleEndian16(_val)	(_val)
+#define	LittleEndian32(_val)	(_val)
+#define	LittleEndian64(_val)	(_val)
+#define	BigEndian16(_val)	SwapEndian16(_val)
+#define	BigEndian32(_val)	SwapEndian32(_val)
+#define	BigEndian64(_val)	SwapEndian64(_val)
+#endif
+extern Uint16	SwapEndian16(Uint16 Val);
+extern Uint32	SwapEndian32(Uint32 Val);
+extern Uint64	SwapEndian64(Uint64 Val);
+/**
+ * \}
+ */
+
+
 #include <string.h>
 extern int	strucmp(const char *s1, const char *s2);
 extern int	strpos(const char *Str, char Ch);
@@ -92,22 +119,11 @@ extern int	ReadUTF8(const Uint8 *str, Uint32 *Val);
 extern int	WriteUTF8(Uint8 *str, Uint32 Val);
 #define CheckString(str)	(1)
 #define CheckMem(mem,sz)	(1)
+#include <ctype.h>
 
 // TODO: Move out?
 extern int	DivUp(int value, int divisor);
 extern uint64_t	DivMod64U(uint64_t Num, uint64_t Den, uint64_t *Rem);
-
-#if DEBUG
-# define ENTER(str, v...)	Log("%s:%i: ENTER "str, __func__, __LINE__)
-# define LOG(fmt, v...) 	Log("%s:%i: "fmt, __func__, __LINE__, ##v)
-# define LEAVE(...)	do{}while(0)
-# define LEAVE_RET(t,v)	return v;
-#else
-# define ENTER(...)	do{}while(0)
-# define LOG(...)	do{}while(0)
-# define LEAVE(...)	do{}while(0)
-# define LEAVE_RET(t,v)	return v;
-#endif
 
 static inline int Mutex_Acquire(tMutex *m) {
 	if(*m)	Log_KernelPanic("---", "Double mutex lock");

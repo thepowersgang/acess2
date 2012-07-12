@@ -6,13 +6,17 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <acess_logging.h>
+#include <ctype.h>
+
+#define LOGHDR(col,type)	fprintf(stderr, "\e["col"m[%-8.8s]"type" ", Ident)
+#define LOGTAIL()	fprintf(stderr, "\e[0m\n")
 
 #define PUTERR(col,type)	{\
-	fprintf(stderr, "\e["col"m[%-8.8s]"type" ", Ident); \
+	LOGHDR(col,type);\
 	va_list	args; va_start(args, Message);\
 	vfprintf(stderr, Message, args);\
 	va_end(args);\
-	fprintf(stderr, "\e[0m\n"); \
+	LOGTAIL();\
 }
 
 // === CODE ===
@@ -66,5 +70,119 @@ void Debug_HexDump(const char *Prefix, const void *Data, size_t Length)
 		fprintf(stderr, " %02x", data[ofs%16]);
 	}
 	fprintf(stderr, "\n");
+}
+
+ int	giDebug_TraceLevel = 0;
+
+void Debug_TraceEnter(const char *Function, const char *Format, ...)
+{
+	const char *Ident = "Trace";
+	LOGHDR("37","T");
+	for( int i = 0; i < giDebug_TraceLevel; i ++ )
+		fprintf(stderr, " ");
+	fprintf(stderr, "%s: (", Function);
+
+	va_list args;
+	va_start(args, Format);
+	
+	int hasBeenPrev = 0;
+	while(*Format)
+	{
+		while( *Format && isblank(*Format) )
+			Format ++;
+		if( !*Format )	break;
+		
+		char type = *Format++;
+		const char *start = Format;
+		while( *Format && !isblank(*Format) )
+			Format ++;
+		
+		if(hasBeenPrev)
+			fprintf(stderr, ",");
+		hasBeenPrev = 1;
+		
+		fprintf(stderr, "%.*s=", (int)(Format-start), start);
+		switch(type)
+		{
+		case 'p':
+			fprintf(stderr, "%p", va_arg(args,const void *));
+			break;
+		case 's':
+			fprintf(stderr, "\"%s\"", va_arg(args,const char *));
+			break;
+		case 'i':
+			fprintf(stderr, "%i", va_arg(args,int));
+			break;
+		case 'x':
+			fprintf(stderr, "0x%x", va_arg(args,unsigned int));
+			break;
+		default:
+			va_arg(args,uintptr_t);
+			fprintf(stderr, "?");
+			break;
+		}
+	}
+
+	va_end(args);
+
+	fprintf(stderr, ")");
+	LOGTAIL();
+	giDebug_TraceLevel ++;
+}
+
+void Debug_TraceLog(const char *Function, const char *Format, ...)
+{
+	const char *Ident = "Trace";
+	LOGHDR("37","T");
+	
+	for( int i = 0; i < giDebug_TraceLevel; i ++ )
+		fprintf(stderr, " ");
+	fprintf(stderr, "%s: ", Function);
+	
+	va_list args;
+	va_start(args, Format);
+
+	vfprintf(stderr, Format, args);
+	
+	va_end(args);
+	LOGTAIL();
+}
+
+void Debug_TraceLeave(const char *Function, char Type, ...)
+{
+	if( giDebug_TraceLevel == 0 ) {
+		Log_Error("Debug", "Function %s called LEAVE without ENTER", Function);
+	}
+	
+	const char *Ident = "Trace";
+	LOGHDR("37","T");
+	
+	va_list args;
+	va_start(args, Type);
+
+	if( giDebug_TraceLevel > 0 )
+	{	
+		giDebug_TraceLevel --;
+		for( int i = 0; i < giDebug_TraceLevel; i ++ )
+			fprintf(stderr, " ");
+	}
+	fprintf(stderr, "%s: RETURN", Function);
+	switch(Type)
+	{
+	case '-':
+		break;
+	case 'i':
+		fprintf(stderr, " %i", va_arg(args, int));
+		break;
+	case 'p':
+		fprintf(stderr, " \"%s\"", va_arg(args, const char *));
+		break;
+	default:
+		fprintf(stderr, " ?");
+		break;
+	}
+	
+	va_end(args);
+	LOGTAIL();
 }
 
