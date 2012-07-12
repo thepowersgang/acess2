@@ -17,7 +17,7 @@
  * \todo Implement changing of the parent directory when a file is written to
  * \todo Implement file creation / deletion
  */
-#define DEBUG	1
+#define DEBUG	0
 #define VERBOSE	1
 
 #include <acess.h>
@@ -43,7 +43,7 @@ void	FAT_CloseFile(tVFS_Node *node);
  int	giFAT_MaxCachedClusters = 1024*512/4;
 
 // === SEMI-GLOBALS ===
-MODULE_DEFINE(0, VER2(1,1) /*v1.01*/, VFAT, FAT_Install, NULL, NULL);
+MODULE_DEFINE(0, VER2(0,80) /*v0.80*/, VFAT, FAT_Install, NULL, NULL);
 tFAT_VolInfo	gFAT_Disks[8];
  int	giFAT_PartCount = 0;
 tVFS_Driver	gFAT_FSInfo = {"fat", 0, FAT_InitDevice, FAT_Unmount, FAT_GetNodeFromINode, NULL};
@@ -295,7 +295,7 @@ int FAT_int_GetAddress(tVFS_Node *Node, Uint64 Offset, Uint64 *Addr, Uint32 *Clu
 	ENTER("pNode XOffset", Node, Offset);
 	
 	cluster = base_cluster = Node->Inode & 0xFFFFFFF;	// Cluster ID
-	LOG("base cluster = 0x%07x", cluster);
+//	LOG("base cluster = 0x%07x", cluster);
 	
 	// Do Cluster Skip
 	// - Pre FAT32 had a reserved area for the root.
@@ -315,12 +315,12 @@ int FAT_int_GetAddress(tVFS_Node *Node, Uint64 Offset, Uint64 *Addr, Uint32 *Clu
 	}
 	else {
 		// TODO: Bounds checking on root
-		LOG("Root cluster count %i", disk->bootsect.files_in_root*32/disk->BytesPerCluster);
+//		LOG("Root cluster count %i", disk->bootsect.files_in_root*32/disk->BytesPerCluster);
 		// Increment by clusters in offset
 		cluster += Offset / disk->BytesPerCluster;
 	}
 	
-	LOG("cluster = 0x%07x", cluster);
+//	LOG("cluster = 0x%07x", cluster);
 	
 	// Bounds Checking (Used to spot corruption)
 	if(cluster > disk->ClusterCount + 2)
@@ -602,22 +602,21 @@ void FAT_CloseFile(tVFS_Node *Node)
 		Node->ImplInt &= ~FAT_FLAG_DIRTY;
 	}
 	#endif
+
+	Uint32	cluster = Node->Inode;
+	Uint32	implint = Node->ImplInt;
 	
-	// TODO: Make this more thread safe somehow, probably by moving the
-	// Inode_UncacheNode higher up and saving the cluster value somewhere
-	if( Node->ReferenceCount == 1 )
-	{		
-		#if SUPPORT_WRITE
+	#if SUPPORT_WRITE
+	if( FAT_int_DerefNode(Node) == 1 )
+	{
+		LOG("implint = %x", implint);
 		// Delete File
-		if( Node->ImplInt & FAT_FLAG_DELETE ) {
+		if( implint & FAT_FLAG_DELETE ) {
+			Log_Debug("FAT", "Deallocating chain stating at 0x%07x", cluster);
 			// Since the node is marked, we only need to remove it's data
-			Uint32	cluster = Node->Inode & 0xFFFFFFFF;
 			while( cluster != -1 )
-				cluster = FAT_int_FreeCluster(Node->ImplPtr, cluster);
+				cluster = FAT_int_FreeCluster(disk, cluster);
 		}
-		#endif
 	}
-	
-	FAT_int_DerefNode(Node);
-	return ;
+	#endif
 }

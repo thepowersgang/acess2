@@ -91,7 +91,7 @@ extern int	FAT_int_GetAddress(tVFS_Node *Node, Uint64 Offset, Uint64 *Addr, Uint
 extern tVFS_Node	*FAT_int_CreateNode(tVFS_Node *Parent, fat_filetable *Entry);
 extern tVFS_Node	*FAT_int_CreateIncompleteDirNode(tFAT_VolInfo *Disk, Uint32 Cluster);
 extern tVFS_Node	*FAT_int_GetNode(tFAT_VolInfo *Disk, Uint32 Cluster);
-extern void	FAT_int_DerefNode(tVFS_Node *Node);
+extern int	FAT_int_DerefNode(tVFS_Node *Node);
 extern void	FAT_int_ClearNodeCache(tFAT_VolInfo *Disk);
 
 // --- FAT Access ---

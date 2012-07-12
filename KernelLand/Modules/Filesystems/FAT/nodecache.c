@@ -155,13 +155,14 @@ tVFS_Node *FAT_int_CacheNode(tFAT_VolInfo *Disk, const tVFS_Node *Node)
 	return &cnode->Node;
 }
 
-void FAT_int_DerefNode(tVFS_Node *Node)
+int FAT_int_DerefNode(tVFS_Node *Node)
 {
 	tFAT_VolInfo	*Disk = Node->ImplPtr;
 	tFAT_CachedNode	*cnode, *prev = NULL;
+	 int	bFreed = 0;
 
 	if( Node == &Disk->rootNode )
-		return ;	
+		return 0;
 
 	Mutex_Acquire(&Disk->lNodeCache);
 	Node->ReferenceCount --;
@@ -175,15 +176,19 @@ void FAT_int_DerefNode(tVFS_Node *Node)
 			break;
 		}
 	}
+	if(Node->ReferenceCount == 0 && cnode) {
+		// Already out of the list :)
+		free(cnode->Node.Data);
+		free(cnode);
+		bFreed = 1;
+	}
 	Mutex_Release(&Disk->lNodeCache);
 	if( !cnode ) {
 		// Not here?
-		return ;
+		return -1;
 	}
 	
-	// Already out of the list :)
-	free(cnode->Node.Data);
-	free(cnode);
+	return bFreed;
 }
 
 void FAT_int_ClearNodeCache(tFAT_VolInfo *Disk)

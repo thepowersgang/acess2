@@ -58,20 +58,22 @@ Uint32 FAT_int_GetFatValue(tFAT_VolInfo *Disk, Uint32 cluster)
  */
 Uint32 FAT_int_AllocateCluster(tFAT_VolInfo *Disk, Uint32 Previous)
 {
-	Uint32	ret = -1, eoc;
-
-	switch(Disk->type)
-	{
-	case FAT12:	eoc = EOC_FAT12;	break;
-	case FAT16:	eoc = EOC_FAT16;	break;
-	case FAT32:	eoc = EOC_FAT32;	break;
-	default:	return 0;
-	}
+	Uint32	ret = -1;
 	
 	#if CACHE_FAT
 	if( Disk->ClusterCount <= giFAT_MaxCachedClusters )
 	{
 		 int	bFoundCluster = 0;
+		Uint32	eoc;
+
+		switch(Disk->type)
+		{
+		case FAT12:	eoc = EOC_FAT12;	break;
+		case FAT16:	eoc = EOC_FAT16;	break;
+		case FAT32:	eoc = EOC_FAT32;	break;
+			default:	return 0;
+		}
+		
 		Mutex_Acquire(&Disk->lFAT);
 		if( Previous != -1 )
 		{
@@ -201,6 +203,13 @@ Uint32 FAT_int_AllocateCluster(tFAT_VolInfo *Disk, Uint32 Previous)
 Uint32 FAT_int_FreeCluster(tFAT_VolInfo *Disk, Uint32 Cluster)
 {
 	Uint32	ret;
+
+	if( Cluster < 2 || Cluster > Disk->ClusterCount )	// oops?
+	{
+		Log_Notice("FAT", "Cluster 0x%x is out of range (2 ... 0x%x)", 
+			Cluster, Disk->ClusterCount-1);
+		return -1;
+	}
 	
 	Mutex_Acquire(&Disk->lFAT);
 	#if CACHE_FAT
@@ -213,40 +222,50 @@ Uint32 FAT_int_FreeCluster(tFAT_VolInfo *Disk, Uint32 Cluster)
 	else
 	{
 	#endif
-		Uint32	val;
+		Uint32	val = 0;
 		Uint32	ofs = Disk->bootsect.resvSectCount*512;
 		switch(Disk->type)
 		{
 		case FAT12:
 			VFS_ReadAt(Disk->fileHandle, ofs+(Cluster>>1)*3, 3, &val);
+			val = LittleEndian32(val);
 			if( Cluster & 1 ) {
-				ret = val & 0xFFF0000;
+				ret = (val >> 12) & 0xFFF;
 				val &= 0xFFF;
 			}
 			else {
 				ret = val & 0xFFF;
 				val &= 0xFFF000;
 			}
+			val = LittleEndian32(val);
 			VFS_WriteAt(Disk->fileHandle, ofs+(Cluster>>1)*3, 3, &val);
 			break;
 		case FAT16:
 			VFS_ReadAt(Disk->fileHandle, ofs+Cluster*2, 2, &ret);
+			ret = LittleEndian16(ret);
 			val = 0;
 			VFS_WriteAt(Disk->fileHandle, ofs+Cluster*2, 2, &val);
 			break;
 		case FAT32:
 			VFS_ReadAt(Disk->fileHandle, ofs+Cluster*4, 4, &ret);
+			ret = LittleEndian32(ret);
 			val = 0;
-			VFS_WriteAt(Disk->fileHandle, ofs+Cluster*2, 2, &val);
+			VFS_WriteAt(Disk->fileHandle, ofs+Cluster*2, 4, &val);
 			break;
 		}
 	#if CACHE_FAT
 	}
 	#endif
 	Mutex_Release(&Disk->lFAT);
+	LOG("ret = %07x, eoc = %07x", ret, EOC_FAT12);
+	if(ret == 0) {
+		Log_Notice("FAT", "Cluster 0x%x was already free", Cluster);
+		return -1;
+	}
 	if(Disk->type == FAT12 && ret == EOC_FAT12)	ret = -1;
 	if(Disk->type == FAT16 && ret == EOC_FAT16)	ret = -1;
 	if(Disk->type == FAT32 && ret == EOC_FAT32)	ret = -1;
+	LOG("ret = %07x", ret);
 	return ret;
 }
 #endif
