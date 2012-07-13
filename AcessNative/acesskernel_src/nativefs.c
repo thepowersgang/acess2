@@ -33,10 +33,12 @@ void	NativeFS_Unmount(tVFS_Node *Node);
 tVFS_Node	*NativeFS_FindDir(tVFS_Node *Node, const char *Name);
 char	*NativeFS_ReadDir(tVFS_Node *Node, int Position);
 size_t	NativeFS_Read(tVFS_Node *Node, _acess_off_t Offset, size_t Length, void *Buffer);
+size_t	NativeFS_Write(tVFS_Node *Node, _acess_off_t Offset, size_t Length, const void *Buffer);
 
 // === GLOBALS ===
 tVFS_NodeType	gNativeFS_FileNodeType = {
-	.Read = NativeFS_Read
+	.Read = NativeFS_Read,
+	.Write = NativeFS_Write,
 };
 tVFS_NodeType	gNativeFS_DirNodeType = {
 	.FindDir = NativeFS_FindDir,
@@ -187,11 +189,27 @@ char *NativeFS_ReadDir(tVFS_Node *Node, int Position)
 size_t NativeFS_Read(tVFS_Node *Node, _acess_off_t Offset, size_t Length, void *Buffer)
 {
 	ENTER("pNode XOffset xLength pBuffer", Node, Offset, Length, Buffer);
-	if( fseek( (void *)(tVAddr)Node->Inode, Offset, SEEK_SET ) != 0 )
+	if( fseek( (FILE *)(tVAddr)Node->Inode, Offset, SEEK_SET ) != 0 )
 	{
 		LEAVE('i', 0);
 		return 0;
 	}
 	LEAVE('-');
-	return fread( Buffer, 1, Length, (void *)(tVAddr)Node->Inode );
+	return fread( Buffer, 1, Length, (FILE *)(tVAddr)Node->Inode );
+}
+
+size_t NativeFS_Write(tVFS_Node *Node, _acess_off_t Offset, size_t Length, const void *Buffer)
+{
+	FILE	*fp = (FILE *)(tVAddr)Node->Inode;
+	ENTER("pNode XOffset xLength pBuffer", Node, Offset, Length, Buffer);
+	if( fseek( fp, Offset, SEEK_SET ) != 0 )
+	{
+		LEAVE('i', 0);
+		return 0;
+	}
+	size_t ret = fwrite( Buffer, 1, Length, fp );
+	fflush( fp );
+	LEAVE('i', ret);
+	return ret;
+
 }
