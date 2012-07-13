@@ -35,7 +35,8 @@ Uint32 FAT_int_GetFatValue(tFAT_VolInfo *Disk, Uint32 cluster)
 		ofs = Disk->bootsect.resvSectCount*512;
 		if(Disk->type == FAT12) {
 			VFS_ReadAt(Disk->fileHandle, ofs+(cluster/2)*3, 3, &val);
-			val = (cluster & 1 ? val>>12 : val & 0xFFF);
+			LOG("3 bytes at 0x%x are (Uint32)0x%x", ofs+(cluster/2)*3, val);
+			val = (cluster & 1) ? (val>>12) : (val & 0xFFF);
 			if(val == EOC_FAT12)	val = -1;
 		} else if(Disk->type == FAT16) {
 			VFS_ReadAt(Disk->fileHandle, ofs+cluster*2, 2, &val);
@@ -108,6 +109,7 @@ Uint32 FAT_int_AllocateCluster(tFAT_VolInfo *Disk, Uint32 Previous)
 		}
 			
 		Mutex_Release(&Disk->lFAT);
+		LOG("Allocated cluster %x", ret);
 		return ret;
 	}
 	else
@@ -137,7 +139,7 @@ Uint32 FAT_int_AllocateCluster(tFAT_VolInfo *Disk, Uint32 Previous)
 			
 			// Search within the same block as the previous cluster first
 			do {
-				VFS_ReadAt(Disk->fileHandle, base + block, block_size, sector_data);
+				VFS_ReadAt(Disk->fileHandle, base + block*block_size, block_size, sector_data);
 				for( block_ofs = 0; block_ofs < ents_per_block_12; block_ofs ++ )
 				{
 					Uint32	*valptr = (void*)( sector_data + block_ofs / 2 * 3 );
@@ -166,16 +168,21 @@ Uint32 FAT_int_AllocateCluster(tFAT_VolInfo *Disk, Uint32 Previous)
 				VFS_WriteAt(Disk->fileHandle, base + block, block_size, sector_data);
 	
 				// Note the new cluster in the chain
-				VFS_ReadAt(Disk->fileHandle, base + (Previous>>1)*3, 3, &val); 
-				if( ret & 1 ) {
-					val &= 0x000FFF;
-					val |= ret << 12;
+				if( Previous != -1 )
+				{
+					LOG("Updating cluster %x to point to %x (offset %x)", Previous, ret,
+						base + (Previous>>1)*3);
+					VFS_ReadAt(Disk->fileHandle, base + (Previous>>1)*3, 3, &val); 
+					if( Previous & 1 ) {
+						val &= 0x000FFF;
+						val |= ret << 12;
+					}
+					else {
+						val &= 0xFFF000;
+						val |= ret << 0;
+					}
+					VFS_WriteAt(Disk->fileHandle, base + (Previous>>1)*3, 3, &val);
 				}
-				else {
-					val &= 0xFFF000;
-					val |= ret << 0;
-				}
-				VFS_WriteAt(Disk->fileHandle, base + (Previous>>1)*3, 3, &val);
 			}
 			break;
 		case FAT16:
@@ -190,6 +197,7 @@ Uint32 FAT_int_AllocateCluster(tFAT_VolInfo *Disk, Uint32 Previous)
 			break;
 		}
 		Mutex_Release(&Disk->lFAT);
+		LOG("Allocated cluster %x", ret);
 		return ret;
 	#if CACHE_FAT
 	}

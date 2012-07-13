@@ -13,6 +13,29 @@
 extern tVFS_Node	*FAT_int_CacheNode(tFAT_VolInfo *Disk, const tVFS_Node *Node);
 
 // === CODE ===
+tTime FAT_int_GetAcessTimestamp(Uint16 Date, Uint16 Time, Uint8 MS)
+{
+	return MS * 10 + timestamp(
+		// Seconds         Minutes              Hours
+		(Time & 0x1F) * 2, (Time >> 5) & 0x3F, (Time >> 11) & 0x1F,
+		// Day             Month                    Year
+		(Date & 0x1F) - 1, ((Date >> 5) & 0xF) - 1, 1980 + ((Date >> 9) & 0xFF)
+		);
+}
+
+void FAT_int_GetFATTimestamp(tTime AcessTimestamp, Uint16 *Date, Uint16 *Time, Uint8 *MS)
+{
+	 int	y, m, d;
+	 int	h, min, s, ms;
+	format_date(AcessTimestamp, &y, &m, &d, &h, &min, &s, &ms);
+	if(Date)
+		*Date = (d + 1) | ((m + 1) << 5) | ((y - 1980) << 9);
+	if(Time)
+		*Time = (s / 2) | (min << 5) | (h << 11);
+	if(MS)
+		*MS = (ms / 10) + (s & 1) * 100;
+}
+
 /**
  * \brief Creates a tVFS_Node structure for a given file entry
  * \param Parent	Parent directory VFS node
@@ -58,30 +81,9 @@ tVFS_Node *FAT_int_CreateNode(tVFS_Node *Parent, fat_filetable *Entry)
 	}
 	
 	// Create timestamps
-	node.ATime = timestamp(0,0,0,
-			((Entry->adate&0x1F) - 1),	// Days
-			((Entry->adate&0x1E0) - 1),	// Months
-			1980+((Entry->adate&0xFF00)>>8)	// Years
-			);
-	
-	node.CTime = Entry->ctimems * 10;	// Miliseconds
-	node.CTime += timestamp(
-			((Entry->ctime&0x1F)<<1),	// Seconds
-			((Entry->ctime&0x3F0)>>5),	// Minutes
-			((Entry->ctime&0xF800)>>11),	// Hours
-			((Entry->cdate&0x1F)-1),		// Days
-			((Entry->cdate&0x1E0)-1),		// Months
-			1980+((Entry->cdate&0xFF00)>>8)	// Years
-			);
-			
-	node.MTime = timestamp(
-			((Entry->mtime&0x1F)<<1),	// Seconds
-			((Entry->mtime&0x3F0)>>5),	// Minutes
-			((Entry->mtime&0xF800)>>11),	// Hours
-			((Entry->mdate&0x1F)-1),		// Days
-			((Entry->mdate&0x1E0)-1),		// Months
-			1980+((Entry->mdate&0xFF00)>>8)	// Years
-			);
+	node.CTime = FAT_int_GetAcessTimestamp(Entry->cdate, Entry->ctime, Entry->ctimems);
+	node.MTime = FAT_int_GetAcessTimestamp(Entry->mdate, Entry->mtime, 0);
+	node.ATime = FAT_int_GetAcessTimestamp(Entry->adate, 0, 0);
 	
 	// Set pointers
 	if(node.Flags & VFS_FFLAG_DIRECTORY) {
@@ -101,9 +103,28 @@ tVFS_Node *FAT_int_CreateNode(tVFS_Node *Parent, fat_filetable *Entry)
 
 tVFS_Node *FAT_int_CreateIncompleteDirNode(tFAT_VolInfo *Disk, Uint32 Cluster)
 {
+	if( Cluster == Disk->rootOffset )
+		return &Disk->rootNode;
+	
 	// If the directory isn't in the cache, what do?
 	// - we want to lock it such that we don't collide, but don't want to put crap data in the cache
 	// - Put a temp node in with a flag that indicates it's incomplete?
+	
+	Mutex_Acquire(&Disk->lNodeCache);
+	tFAT_CachedNode	*cnode;
+
+	for(cnode = Disk->NodeCache; cnode; cnode = cnode->Next)
+	{
+		if( (cnode->Node.Inode & 0xFFFFFFFF) == Cluster ) {
+			cnode->Node.ReferenceCount ++;
+			Mutex_Release(&Disk->lNodeCache);
+			return &cnode->Node;
+		}
+	}	
+
+	// Create a temporary node?
+
+	Mutex_Release(&Disk->lNodeCache);
 	return NULL;
 }
 

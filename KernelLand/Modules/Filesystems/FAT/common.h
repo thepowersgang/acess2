@@ -84,6 +84,8 @@ struct sFAT_CachedNode
 
 // --- General Helpers ---
 extern int	FAT_int_GetAddress(tVFS_Node *Node, Uint64 Offset, Uint64 *Addr, Uint32 *Cluster);
+extern tTime	FAT_int_GetAcessTimestamp(Uint16 Date, Uint16 Time, Uint8 MS);
+extern void	FAT_int_GetFATTimestamp(tTime AcessTimestamp, Uint16 *Date, Uint16 *Time, Uint8 *MS);
 
 // --- Node Caching ---
 // NOTE: FAT uses its own node cache that references by cluster (not the inode value that the Inode_* cache uses)

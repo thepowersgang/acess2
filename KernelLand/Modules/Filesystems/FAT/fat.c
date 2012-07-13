@@ -17,7 +17,7 @@
  * \todo Implement changing of the parent directory when a file is written to
  * \todo Implement file creation / deletion
  */
-#define DEBUG	0
+#define DEBUG	1
 #define VERBOSE	1
 
 #include <acess.h>
@@ -483,8 +483,11 @@ size_t FAT_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffe
 	 int	remLength = Length;
 	Uint32	cluster, tmpCluster;
 	 int	bNewCluster = 0;
+	off_t	original_offset = Offset;
 	
 	if(Offset > Node->Size)	return 0;
+	
+	ENTER("pNode Xoffset xlength pbuffer", Node, Offset, Length, Buffer);
 	
 	// Seek Clusters
 	cluster = Node->Inode & 0xFFFFFFFF;
@@ -493,6 +496,7 @@ size_t FAT_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffe
 		cluster = FAT_int_GetFatValue( disk, cluster );
 		if(cluster == -1) {
 			Log_Warning("FAT", "EOC Unexpectedly Reached");
+			LEAVE('i', 0);
 			return 0;
 		}
 		Offset -= disk->BytesPerCluster;
@@ -500,7 +504,10 @@ size_t FAT_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffe
 	if( Offset == disk->BytesPerCluster )
 	{
 		Uint32	tmp = FAT_int_AllocateCluster(disk, cluster);
-		if(!tmp)	return 0;
+		if(!tmp) {
+			LEAVE('i', 0);
+			return 0;
+		}
 		cluster = tmp;
 		Offset -= disk->BytesPerCluster;
 	}
@@ -509,17 +516,20 @@ size_t FAT_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffe
 	{
 		char	tmpBuf[disk->BytesPerCluster];
 		
+		LOG("Read-Modify-Write single");
+		
 		// Read-Modify-Write
 		FAT_int_ReadCluster( disk, cluster, disk->BytesPerCluster, tmpBuf );
 		memcpy(	tmpBuf + Offset, Buffer, Length );
 		FAT_int_WriteCluster( disk, cluster, tmpBuf );
-		
-		return Length;
+		goto return_full;
 	}
 	
 	// Clean up changes within a cluster
 	if( Offset )
 	{	
+		LOG("Read-Modify-Write first");
+
 		// Read-Modify-Write
 		FAT_int_ReadCluster( disk, cluster, disk->BytesPerCluster, tmpBuf );
 		memcpy(	tmpBuf + Offset, Buffer, disk->BytesPerCluster - Offset );
@@ -532,9 +542,8 @@ size_t FAT_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffe
 		tmpCluster = FAT_int_GetFatValue(disk, cluster);
 		if(tmpCluster == -1) {
 			tmpCluster = FAT_int_AllocateCluster(disk, cluster);
-			if( tmpCluster == 0 ) {
-				return Length - remLength;
-			}
+			if( tmpCluster == 0 )
+				goto ret_incomplete;
 		}
 		cluster = tmpCluster;
 	}
@@ -543,28 +552,47 @@ size_t FAT_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffe
 	{
 		FAT_int_WriteCluster( disk, cluster, Buffer );
 		Buffer += disk->BytesPerCluster;
+		remLength -= disk->BytesPerCluster;
 		
 		// Get next cluster (allocating if needed)
 		tmpCluster = FAT_int_GetFatValue(disk, cluster);
 		if(tmpCluster == -1) {
 			bNewCluster = 1;
 			tmpCluster = FAT_int_AllocateCluster(disk, cluster);
-			if( tmpCluster == 0 ) {
-				return Length - remLength;
-			}
+			if( tmpCluster == 0 )
+				goto ret_incomplete;
 		}
 		cluster = tmpCluster;
 	}
 	
 	// Finish off
-	if( bNewCluster )
-		memset(tmpBuf, 0, disk->BytesPerCluster);
-	else
-		FAT_int_ReadCluster( disk, cluster, disk->BytesPerCluster, tmpBuf );
-	memcpy(	tmpBuf, Buffer, remLength );
-	FAT_int_WriteCluster( disk, cluster, tmpBuf );
-	free( tmpBuf );
-	
+	if( remLength )
+	{
+		if( bNewCluster )
+			memset(tmpBuf, 0, disk->BytesPerCluster);
+		else
+			FAT_int_ReadCluster( disk, cluster, disk->BytesPerCluster, tmpBuf );
+		memcpy(	tmpBuf, Buffer, remLength );
+		FAT_int_WriteCluster( disk, cluster, tmpBuf );
+	}
+
+return_full:
+	if( original_offset + Length > Node->Size ) {
+		Node->Size = original_offset + Length;
+		LOG("Updated size to %x", Node->Size);
+		Node->ImplInt |= FAT_FLAG_DIRTY;
+	}
+
+	LEAVE('i', Length);
+	return Length;
+ret_incomplete:
+	LOG("Write incomplete");
+	Length -= remLength;
+	if( original_offset + Length > Node->Size ) {
+		Node->Size = original_offset + Length;	
+		Node->ImplInt |= FAT_FLAG_DIRTY;
+	}
+	LEAVE('i', Length);
 	return Length;
 }
 #endif
@@ -577,7 +605,9 @@ void FAT_CloseFile(tVFS_Node *Node)
 {
 	tFAT_VolInfo	*disk = Node->ImplPtr;
 	if(Node == NULL)	return ;
-	
+
+	ENTER("pNode", Node);	
+
 	#if SUPPORT_WRITE
 	// Update the node if it's dirty (don't bother if it's marked for
 	// deletion)
@@ -589,6 +619,7 @@ void FAT_CloseFile(tVFS_Node *Node)
 		dirnode = FAT_int_CreateIncompleteDirNode(disk, Node->Inode >> 32);
 		if( !dirnode ) {
 			Log_Error("FAT", "Can't get node for directory cluster #0x%x", Node->Inode>>32);
+			LEAVE('-');
 			return ;
 		}
 
@@ -619,4 +650,5 @@ void FAT_CloseFile(tVFS_Node *Node)
 		}
 	}
 	#endif
+	LEAVE('-');
 }

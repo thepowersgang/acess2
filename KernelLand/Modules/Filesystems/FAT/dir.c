@@ -305,7 +305,7 @@ int FAT_int_GetEntryByCluster(tVFS_Node *DirNode, Uint32 Cluster, fat_filetable 
 		
 		if(fileinfo[i].attrib == ATTR_LFN)	continue;
 
-		LOG("fileinfo[i].cluster = %x %04x", fileinfo[i].clusterHi, fileinfo[i].cluster);
+		LOG("fileinfo[i].cluster = %x:%04x", fileinfo[i].clusterHi, fileinfo[i].cluster);
 		#if DEBUG
 		{
 			char	tmpName[13];
@@ -752,10 +752,23 @@ static inline int is_valid_83_char(char ch)
 	if( 'A' <= ch && ch <= 'Z' )
 		return 1;
 	if( 'a' <= ch && ch <= 'z' )
-		return 0;
-	if( strchr(";+=[]',\"*\\<>/?:| ", ch) )
-		return 0;
-	return 1;
+		return 1;
+	if( strchr("$%'-_@~`#!(){}^#&", ch) )
+		return 1;
+	if( ch > 128 )
+		return 1;
+	return 0;
+}
+
+Uint8 FAT_int_UnicodeTo83(Uint32 Input)
+{
+	Input = toupper(Input);
+	// Input = unicode_to_oem(Input);
+	if( Input > 256 )
+		Input = '_';
+	if(!is_valid_83_char(Input))
+		Input = '_';
+	return Input;
 }
 
 /**
@@ -788,10 +801,22 @@ int FAT_int_IsValid83Filename(const char *Name)
 	}
 	
 	// After the extension must be the end
-	if( !Name[i+j] )
+	if( Name[i+j] )
 		return 0;
 	
 	return 1;
+}
+
+Uint8 FAT_int_MakeLFNChecksum(const char *ShortName)
+{
+	Uint8 ret = 0;
+	for( int i = 0; i < 11; i++ )
+	{
+		// ret = (ret >>> 1) + ShortName[i]
+		// where >>> is rotate right
+		ret = ((ret & 1) ? 0x80 : 0x00) + (ret >> 1) + ShortName[i];
+	}
+	return ret;
 }
 
 /**
@@ -816,6 +841,50 @@ int FAT_Link(tVFS_Node *DirNode, const char *NewName, tVFS_Node *NewNode)
 	}
 	
 	// -- Create filetable entry --
+	#if 0
+	{
+		 int	bDirty = 0;
+		 int	inofs = 0;
+		while( NewName[inofs] && NewName[inofs] == '.' )
+			inofs ++, bDirty = 1;
+		for( int i = 0; i < 8 && NewName[inofs] && NewName[inofs] != '.'; i ++ )
+		{
+			Uint32	cp;
+			inofs += ReadUTF8(NewName + inofs, &cp);
+			// Spaces are silently skipped
+			if(isspace(cp)) {
+				i --, bDirty = 1;
+				continue ;
+			}
+			ft.name[i] = FAT_int_UnicodeTo83(cp);
+			if(ft.name[i] != cp)
+				bDirty = 1;
+		}
+		while( NewName[inofs] && NewName[inofs] != '.' )
+			inofs ++, bDirty = 1;
+		for( ; i < 8+3 && NewName[inofs]; i ++ )
+		{
+			Uint32	cp;
+			inofs += ReadUTF8(NewName + inofs, &cp);
+			// Spaces are silently skipped
+			if(isspace(cp)) {
+				i --, bDirty = 1;
+				continue ;
+			}
+			ft.name[i] = FAT_int_UnicodeTo83(cp);
+			if(ft.name[i] != cp)
+				bDirty = 1;
+		}
+		if( !NewName[inofs] )	bDirty = 1;
+		
+		if( bDirty )
+		{
+			int lfnlen = FAT_int_ConvertUTF8_to_UTF16(lfn, (const Uint8*)NewName);
+			lfn[lfnlen] = 0;
+			nLFNEnt = DivUp(lfnlen, 13);
+		}
+	}
+	#endif
 	 int	bNeedsLFN = !FAT_int_IsValid83Filename(NewName);
 	if( bNeedsLFN )
 	{
@@ -834,7 +903,7 @@ int FAT_Link(tVFS_Node *DirNode, const char *NewName, tVFS_Node *NewNode)
 				ft.name[i] = toupper(NewName[j]);
 		}
 		ft.name[i++] = '~';
-		ft.name[i++] = '0';
+		ft.name[i++] = '1';
 		while(i < 8)	ft.name[i++] = ' ';
 		while(NewName[j] && NewName[j] != '.')	j ++;
 		for( ; i < 8+3 && NewName[j]; i ++, j ++ )
@@ -917,7 +986,16 @@ int FAT_Link(tVFS_Node *DirNode, const char *NewName, tVFS_Node *NewNode)
 	ft.attrib = 0;
 	if(NewNode->Flags & VFS_FFLAG_DIRECTORY )
 		ft.attrib |= ATTR_DIRECTORY;	
-	// TODO: Fill in creation/modifcation times
+	ft.ntres     = 0;
+	FAT_int_GetFATTimestamp(NewNode->CTime, &ft.cdate, &ft.ctime, &ft.ctimems);
+//	ft.ctimems   = ft.ctimems;
+	ft.ctime     = LittleEndian16(ft.ctime);
+	ft.cdate     = LittleEndian16(ft.cdate);
+	FAT_int_GetFATTimestamp(NewNode->MTime, &ft.mdate, &ft.mtime, NULL);
+	ft.mtime     = LittleEndian16(ft.mtime);
+	ft.mdate     = LittleEndian16(ft.mdate);
+	FAT_int_GetFATTimestamp(NewNode->ATime, &ft.adate, NULL, NULL);
+	ft.adate     = LittleEndian16(ft.adate);
 	ft.clusterHi = LittleEndian16((NewNode->Inode >> 16) & 0xFFFF);
 	ft.cluster   = LittleEndian16(NewNode->Inode & 0xFFFF);
 	ft.size      = LittleEndian32(NewNode->Size);
@@ -974,6 +1052,13 @@ int FAT_Link(tVFS_Node *DirNode, const char *NewName, tVFS_Node *NewNode)
 		return ENOTIMPL;
 	}
 
+	// Calculate the checksum used for LFN
+	Uint8	lfn_checksum = 0;
+	if( nLFNEnt )
+	{
+		lfn_checksum = FAT_int_MakeLFNChecksum(ft.name);
+	}
+
 	// Insert entries	
 	if( range_first % eps != 0 )
 		FAT_int_ReadDirSector(DirNode, range_first/eps, fileinfo);
@@ -1000,7 +1085,7 @@ int FAT_Link(tVFS_Node *DirNode, const char *NewName, tVFS_Node *NewNode)
 			lfnent->attrib = ATTR_LFN;
 			lfnent->type = 0;
 			lfnent->firstCluster = 0;
-			lfnent->checksum = 0;	// ???
+			lfnent->checksum = lfn_checksum;	// ???
 
 			for( i = 0; i < 13; i ++ )
 			{
@@ -1014,8 +1099,6 @@ int FAT_Link(tVFS_Node *DirNode, const char *NewName, tVFS_Node *NewNode)
 				else
 					lfnent->name3[i-5-6] = wd;
 			}
-			
-			lfnent->checksum = 0;	// ???
 		}
 	}
 	FAT_int_WriteDirSector(DirNode, range_last/eps, fileinfo);
