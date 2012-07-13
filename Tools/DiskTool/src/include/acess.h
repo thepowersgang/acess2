@@ -54,6 +54,7 @@ typedef char	tShortSpinlock;
 typedef int64_t	tTime;
 extern tTime	now(void);
 extern int64_t	timestamp(int sec, int min, int hr, int day, int month, int year);
+extern void	format_date(tTime TS, int *year, int *month, int *day, int *hrs, int *mins, int *sec, int *ms);
 
 #define PACKED	__attribute__((packed))
 #define DEPRECATED

@@ -60,8 +60,10 @@ int DiskTool_Copy(const char *Source, const char *Destination)
 
 	char	buf[1024];
 	size_t	len, total = 0;
-	while( (len = VFS_Read(src, sizeof(buf), buf)) == sizeof(buf) )
-		VFS_Write(dst, len, buf), total += len;
+	while( (len = VFS_Read(src, sizeof(buf), buf)) == sizeof(buf) ) {
+		VFS_Write(dst, len, buf);
+		total += len;
+	}
 	VFS_Write(dst, len, buf), total += len;
 
 	Log_Notice("DiskTool", "Copied %i from %s to %s", total, Source, Destination);

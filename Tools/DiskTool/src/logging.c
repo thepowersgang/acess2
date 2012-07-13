@@ -174,8 +174,14 @@ void Debug_TraceLeave(const char *Function, char Type, ...)
 	case 'i':
 		fprintf(stderr, " %i", va_arg(args, int));
 		break;
-	case 'p':
+	case 'x':
+		fprintf(stderr, " 0x%x", va_arg(args, unsigned int));
+		break;
+	case 's':
 		fprintf(stderr, " \"%s\"", va_arg(args, const char *));
+		break;
+	case 'p':
+		fprintf(stderr, " %p", va_arg(args, const void *));
 		break;
 	default:
 		fprintf(stderr, " ?");
