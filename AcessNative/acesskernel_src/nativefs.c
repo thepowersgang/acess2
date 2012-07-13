@@ -34,15 +34,18 @@ tVFS_Node	*NativeFS_FindDir(tVFS_Node *Node, const char *Name);
 char	*NativeFS_ReadDir(tVFS_Node *Node, int Position);
 size_t	NativeFS_Read(tVFS_Node *Node, _acess_off_t Offset, size_t Length, void *Buffer);
 size_t	NativeFS_Write(tVFS_Node *Node, _acess_off_t Offset, size_t Length, const void *Buffer);
+void	NativeFS_Close(tVFS_Node *Node);
 
 // === GLOBALS ===
 tVFS_NodeType	gNativeFS_FileNodeType = {
 	.Read = NativeFS_Read,
 	.Write = NativeFS_Write,
+	.Close = NativeFS_Close
 };
 tVFS_NodeType	gNativeFS_DirNodeType = {
 	.FindDir = NativeFS_FindDir,
 	.ReadDir = NativeFS_ReadDir,
+	.Close = NativeFS_Close
 };
 tVFS_Driver	gNativeFS_Driver = {
 	"nativefs", 0,
@@ -101,12 +104,18 @@ void NativeFS_Unmount(tVFS_Node *Node)
 void NativeFS_Close(tVFS_Node *Node)
 {
 	tNativeFS	*info = Node->ImplPtr;
-	Inode_UncacheNode( info->InodeHandle, Node->Inode );
+	DIR	*dp = (Node->Flags & VFS_FFLAG_DIRECTORY) ? (DIR*)(tVAddr)Node->Inode : 0;
+	FILE	*fp = (Node->Flags & VFS_FFLAG_DIRECTORY) ? 0 : (FILE*)(tVAddr)Node->Inode;
+	
+	if( Inode_UncacheNode( info->InodeHandle, Node->Inode ) == 1 ) {
+		if(dp)	closedir(dp);
+		if(fp)	fclose(fp);
+	}
 }
 
 tVFS_Node *NativeFS_FindDir(tVFS_Node *Node, const char *Name)
 {
-	char	*path = malloc(Node->ImplInt + 1 + strlen(Name) + 1);
+	char	*path;
 	tNativeFS	*info = Node->ImplPtr;
 	tVFS_Node	baseRet;
 	struct stat statbuf;
@@ -114,6 +123,7 @@ tVFS_Node *NativeFS_FindDir(tVFS_Node *Node, const char *Name)
 	ENTER("pNode sName", Node, Name);
 	
 	// Create path
+	path = malloc(Node->ImplInt + 1 + strlen(Name) + 1);
 	strcpy(path, Node->Data);
 	path[Node->ImplInt] = '/';
 	strcpy(path + Node->ImplInt + 1, Name);
