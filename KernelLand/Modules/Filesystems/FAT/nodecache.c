@@ -123,6 +123,7 @@ tVFS_Node *FAT_int_CreateIncompleteDirNode(tFAT_VolInfo *Disk, Uint32 Cluster)
 	}	
 
 	// Create a temporary node?
+	Log_Warning("FAT", "TODO: Impliment FAT_int_CreateIncompleteDirNode()");
 
 	Mutex_Release(&Disk->lNodeCache);
 	return NULL;
