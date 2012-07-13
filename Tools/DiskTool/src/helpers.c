@@ -19,6 +19,13 @@ size_t DiskTool_int_TranslatePath(char *Buffer, const char *Path)
 {
 	 int	len;
 	const char *colon = strchr(Path, ':');
+
+	if( Path[0] == '#' )
+	{
+		if(Buffer)
+			strcpy(Buffer, Path+1);
+		return strlen(Path) - 1;
+	}
 	
 	if( colon )
 	{

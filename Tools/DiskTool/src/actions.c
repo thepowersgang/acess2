@@ -8,6 +8,7 @@
  */
 #include <acess.h>
 #include <disktool_common.h>
+#include <Storage/LVM/include/lvm.h>
 
 // === IMPORTS ===
 extern int	NativeFS_Install(char **Arguments);
@@ -15,6 +16,15 @@ extern int	NativeFS_Install(char **Arguments);
 // === PROTOTYPES ===
 void	DiskTool_Initialise(void)	__attribute__((constructor(101)));
  int	DiskTool_int_TranslateOpen(const char *File, int Mode);
+ int	DiskTook_LVM_Read(void *Handle, Uint64 Block, size_t BlockCount, void *Dest);
+ int	DiskTook_LVM_Write(void *Handle, Uint64 Block, size_t BlockCount, const void *Dest);
+
+// === GLOBALS ===
+tLVM_VolType	gDiskTool_VolumeType = {
+	.Name = "DiskTool",
+	.Read  = DiskTook_LVM_Read,
+	.Write = DiskTook_LVM_Write
+};
 
 // === CODE ===
 void DiskTool_Initialise(void)
@@ -23,6 +33,16 @@ void DiskTool_Initialise(void)
 	NativeFS_Install(NULL);
 	VFS_MkDir("/Native");
 	VFS_Mount("/", "/Native", "nativefs", "");
+}
+
+int DiskTool_RegisterLVM(const char *Identifier, const char *Path)
+{
+	int fd = DiskTool_int_TranslateOpen(Path, VFS_OPENFLAG_READ|VFS_OPENFLAG_WRITE);
+	if(fd == -1)
+		return -1;
+	VFS_Seek(fd, 0, SEEK_END);
+	LVM_AddVolume( &gDiskTool_VolumeType, Identifier, (void*)(tVAddr)fd, 512, VFS_Tell(fd)/512);
+	return 0;
 }
 
 int DiskTool_MountImage(const char *Identifier, const char *Path)
@@ -92,6 +112,17 @@ int DiskTool_ListDirectory(const char *Directory)
 	
 	VFS_Close(fd);
 	
+	return 0;
+}
+
+int DiskTook_LVM_Read(void *Handle, Uint64 Block, size_t BlockCount, void *Dest)
+{
+	VFS_ReadAt( (int)(tVAddr)Handle, Block*512, BlockCount*512, Dest);
+	return 0;
+}
+int DiskTook_LVM_Write(void *Handle, Uint64 Block, size_t BlockCount, const void *Dest)
+{
+	VFS_WriteAt( (int)(tVAddr)Handle, Block*512, BlockCount*512, Dest);
 	return 0;
 }
 

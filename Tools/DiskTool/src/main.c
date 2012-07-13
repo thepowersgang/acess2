@@ -29,6 +29,22 @@ int main(int argc, char *argv[])
 			continue ;
 		}
 		
+		if( strcmp("mountlvm", argv[i]) == 0 ) {
+			
+			if( argc - i < 3 ) {
+				fprintf(stderr, "mountlvm takes 2 arguments (ident and path)\n");
+				exit(-1);
+			}
+
+			if( DiskTool_RegisterLVM(argv[i+1], argv[i+2]) ) {
+				fprintf(stderr, "Unable to register '%s' as LVM '%s'\n", argv[i+2], argv[i+1]);
+				exit(-1);
+			}
+			
+			i += 2;
+			continue ;
+		}
+		
 		if( strcmp("ls", argv[i]) == 0 ) {
 			if( argc - i < 2 ) {
 				fprintf(stderr, "ls 1 argument (path)\n");
@@ -53,6 +69,10 @@ int main(int argc, char *argv[])
 			continue ;
 		}
 	}
+	
+	// Unmount all
+	// Clear LVM
+	
 	return 0;
 }
 
