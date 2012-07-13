@@ -1,7 +1,11 @@
 /*
- * AcessMicro VFS
- * - File IO Passthru's
+ * Acess2 Kernel
+ * - By John Hodge (thePowersGang)
+ *
+ * vfs/nodecache.c
+ * - VFS Node Caching facility
  */
+#define DEBUG	0
 #include <acess.h>
 #include "vfs.h"
 #include "vfs_int.h"
@@ -45,7 +49,7 @@ int Inode_GetHandle()
 	gVFS_InodeCache = ent;
 	SHORTREL( &glVFS_InodeCache );
 	
-	return gVFS_NextInodeHandle-1;
+	return ent->Handle;
 }
 
 /**
@@ -107,7 +111,10 @@ tVFS_Node *Inode_CacheNode(int Handle, tVFS_Node *Node)
 	newEnt->Next = ent;
 	memcpy(&newEnt->Node, Node, sizeof(tVFS_Node));
 	prev->Next = newEnt;
-		
+	newEnt->Node.ReferenceCount = 1;
+
+	LOG("Cached %llx as %p", Node->Inode, &newEnt->Node);
+
 	return &newEnt->Node;
 }
 
@@ -115,15 +122,23 @@ tVFS_Node *Inode_CacheNode(int Handle, tVFS_Node *Node)
  * \fn void Inode_UncacheNode(int Handle, Uint64 Inode)
  * \brief Dereferences/Removes a cached node
  */
-void Inode_UncacheNode(int Handle, Uint64 Inode)
+int Inode_UncacheNode(int Handle, Uint64 Inode)
 {
 	tInodeCache	*cache;
 	tCachedInode	*ent, *prev;
 	
 	cache = Inode_int_GetFSCache(Handle);
-	if(!cache)	return ;
-	
-	if(Inode > cache->MaxCached)	return ;
+	if(!cache) {
+		Log_Notice("Inode", "Invalid cache handle %i used", Handle);
+		return -1;
+	}
+
+	ENTER("iHandle XInode", Handle, Inode);
+
+	if(Inode > cache->MaxCached) {
+		LEAVE('i', -1);
+		return -1;
+	}
 	
 	// Search Cache
 	ent = cache->FirstNode;
@@ -131,26 +146,45 @@ void Inode_UncacheNode(int Handle, Uint64 Inode)
 	for( ; ent; prev = ent, ent = ent->Next )
 	{
 		if(ent->Node.Inode < Inode)	continue;
-		if(ent->Node.Inode > Inode)	return;
-		ent->Node.ReferenceCount --;
-		// Check if node needs to be freed
-		if(ent->Node.ReferenceCount == 0)
-		{
-			prev->Next = ent->Next;
-			if(ent->Node.Inode == cache->MaxCached)
-			{
-				if(ent != cache->FirstNode)
-					cache->MaxCached = prev->Node.Inode;
-				else
-					cache->MaxCached = 0;
-			}
-				
-			free(ent);
+		if(ent->Node.Inode > Inode) {
+			LEAVE('i', -1);
+			return -1;
 		}
-		return ;
+		break;
 	}
-	
-	return ;
+
+	LOG("ent = %p", ent);
+
+	if( !ent ) {
+		LEAVE('i', -1);
+		return -1;
+	}
+
+	ent->Node.ReferenceCount --;
+	// Check if node needs to be freed
+	if(ent->Node.ReferenceCount == 0)
+	{
+		prev->Next = ent->Next;
+		if(ent->Node.Inode == cache->MaxCached)
+		{
+			if(ent != cache->FirstNode)
+				cache->MaxCached = prev->Node.Inode;
+			else
+				cache->MaxCached = 0;
+		}
+		
+		if(ent->Node.Data)
+			free(ent->Node.Data);	
+		free(ent);
+		LOG("Freed");
+		LEAVE('i', 1);
+		return 1;
+	}
+	else
+	{
+		LEAVE('i', 0);
+		return 0;
+	}
 }
 
 /**
