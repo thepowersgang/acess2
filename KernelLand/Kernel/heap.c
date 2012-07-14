@@ -308,7 +308,7 @@ void Heap_Deallocate(void *Ptr)
 	// Sanity check
 	if((Uint)Ptr < (Uint)gHeapStart || (Uint)Ptr > (Uint)gHeapEnd)
 	{
-		Log_Warning("Heap", "free - Passed a non-heap address by %p (%p < %p < %p)\n",
+		Log_Warning("Heap", "free - Passed a non-heap address by %p (%p < %p < %p)",
 			__builtin_return_address(0), gHeapStart, Ptr, gHeapEnd);
 		return;
 	}

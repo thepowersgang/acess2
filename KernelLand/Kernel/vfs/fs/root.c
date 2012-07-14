@@ -90,15 +90,15 @@ int Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
 	
 	LOG("Sanity check name length - %i > %i", strlen(Name)+1, sizeof(child->Name));
 	if(strlen(Name) + 1 > sizeof(child->Name))
-		LEAVE_RET('i', 0);
+		LEAVE_RET('i', EINVAL);
 	
 	// Find last child, while we're at it, check for duplication
 	for( child = parent->Data.FirstChild; child; prev = child, child = child->Next )
 	{
 		if(strcmp(child->Name, Name) == 0) {
 			LOG("Duplicate");
-			LEAVE('i', 0);
-			return 0;
+			LEAVE('i', EEXIST);
+			return EEXIST;
 		}
 	}
 	
@@ -137,8 +137,8 @@ int Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
 	
 	parent->Node.Size ++;
 	
-	LEAVE('i', 1);
-	return 1;
+	LEAVE('i', EOK);
+	return EOK;
 }
 
 /**

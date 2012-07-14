@@ -99,15 +99,10 @@ int VFS_MkNod(const char *Path, Uint Flags)
 	// Free Parent
 	mountpt->OpenHandleCount --;
 	_CloseNode(parent);
-	
-	// Error Check
-	if(ret != 0) {
-		LEAVE('i', -1);
-		return -1;
-	}
-	
-	LEAVE('i', 0);
-	return 0;
+
+	// Return whatever the driver said	
+	LEAVE('i', ret);
+	return ret;
 }
 
 /**
