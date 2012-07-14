@@ -210,8 +210,8 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		if(pos < __maxlen)
 		{
 			if(__s) __s[pos] = ch;
-			pos ++;
 		}
+		pos ++;
 	}
 
 	while((c = *__format++) != 0)
