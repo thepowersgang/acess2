@@ -48,6 +48,7 @@ typedef struct sVFS_MMapPage {
 // === GLOBALS ===
 extern tRWLock  	glVFS_MountList;
 extern tVFS_Mount	*gVFS_Mounts;
+extern tVFS_Driver	*gVFS_Drivers;
 
 // === PROTOTYPES ===
 // --- open.c ---
