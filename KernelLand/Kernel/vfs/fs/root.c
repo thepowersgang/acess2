@@ -71,6 +71,7 @@ tVFS_Node *Root_InitDevice(const char *Device, const char **Options)
 	root->Node.NumACLs = 3;
 	root->Node.ACLs = RootFS_DirACLs;
 
+	root->Node.Flags = VFS_FFLAG_DIRECTORY;
 	root->Node.Type = &gRootFS_DirType;
 	
 	return &root->Node;
