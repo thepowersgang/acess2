@@ -68,6 +68,8 @@ int main(int argc, char *argv[])
 			i += 2;
 			continue ;
 		}
+	
+		fprintf(stderr, "Unknown command '%s'\n", argv[i]);
 	}
 	
 	DiskTool_Cleanup();

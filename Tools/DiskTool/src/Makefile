@@ -19,7 +19,7 @@ K_OBJ += vfs/nodecache.o vfs/mount.o vfs/memfile.o # vfs/select.o
 K_OBJ += vfs/fs/root.o vfs/fs/devfs.o
 K_OBJ += drvutil_disk.o drv/proc.o
 # Modules
-MODULES := Storage/LVM Filesystems/FAT Filesystems/Ext2
+MODULES := Storage/LVM Filesystems/FAT Filesystems/Ext2 Filesystems/NTFS
 # Local kernel soruces (same as above, but located in same directory as Makefile)
 L_OBJ = vfs_handles.o threads.o nativefs.o time.o actions.o
 # Native Sources (compiled as usual)

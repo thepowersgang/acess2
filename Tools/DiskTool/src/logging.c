@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <acess_logging.h>
 #include <ctype.h>
+#include <inttypes.h>
 
 #define LOGHDR(col,type)	fprintf(stderr, "\e["col"m[%-8.8s]"type" ", Ident)
 #define LOGTAIL()	fprintf(stderr, "\e[0m\n")
@@ -22,7 +23,7 @@
 // === CODE ===
 void Log_KernelPanic(const char *Ident, const char *Message, ...) {
 	PUTERR("35", "k")
-	exit(-1);
+	abort();
 }
 void Log_Panic(const char *Ident, const char *Message, ...)
 	PUTERR("34", "p")
@@ -116,6 +117,9 @@ void Debug_TraceEnter(const char *Function, const char *Format, ...)
 		case 'x':
 			fprintf(stderr, "0x%x", va_arg(args,unsigned int));
 			break;
+		case 'X':
+			fprintf(stderr, "0x%"PRIx64, va_arg(args,uint64_t));
+			break;
 		default:
 			va_arg(args,uintptr_t);
 			fprintf(stderr, "?");
@@ -176,6 +180,9 @@ void Debug_TraceLeave(const char *Function, char Type, ...)
 		break;
 	case 'x':
 		fprintf(stderr, " 0x%x", va_arg(args, unsigned int));
+		break;
+	case 'X':
+		fprintf(stderr, " 0x%"PRIx64, va_arg(args,uint64_t));
 		break;
 	case 's':
 		fprintf(stderr, " \"%s\"", va_arg(args, const char *));
