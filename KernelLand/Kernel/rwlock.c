@@ -5,6 +5,7 @@
  * rwlock.c
  * - Reader-Writer Lockes
  */
+#define DEBUG	0
 #include <acess.h>
 #include <threads_int.h>
 #include <rwlock.h>
@@ -16,12 +17,14 @@
 int RWLock_AcquireRead(tRWLock *Lock)
 {
 	tThread	*us;
+	LOG("Acquire RWLock Read %p", Lock);
 	// Get protector
 	SHORTLOCK( &Lock->Protector );
 	
 	// Check if the lock is already held by a writer
 	if( Lock->Owner )
 	{
+		LOG("Waiting");
 		SHORTLOCK( &glThreadListLock );
 		
 		// - Remove from active list
@@ -56,6 +59,7 @@ int RWLock_AcquireRead(tRWLock *Lock)
 		Lock->Level++;
 		SHORTREL( & Lock->Protector );
 	}
+	LOG("Obtained");
 	
 	return 0;
 }
@@ -64,9 +68,12 @@ int RWLock_AcquireWrite(tRWLock *Lock)
 {
 	tThread	*us;
 	
+	LOG("Acquire RWLock Write %p", Lock);
+	
 	SHORTLOCK(&Lock->Protector);
 	if( Lock->Owner || Lock->Level != 0 )
 	{
+		LOG("Waiting");
 		SHORTLOCK(&glThreadListLock);
 		
 		us = Threads_RemActive();
@@ -92,15 +99,17 @@ int RWLock_AcquireWrite(tRWLock *Lock)
 		Lock->Owner = Proc_GetCurThread();
 		SHORTREL(&Lock->Protector);
 	}
+	LOG("Obtained");
 	return 0;
 }
 
 // Release a mutex
 void RWLock_Release(tRWLock *Lock)
 {
+	LOG("Release RWLock %p", Lock);
 	SHORTLOCK( &Lock->Protector );
 
-	if( Lock->Owner == Proc_GetCurThread() )
+	if( Lock->Owner != Proc_GetCurThread() )
 		Lock->Level --;
 	
 	// Writers first
