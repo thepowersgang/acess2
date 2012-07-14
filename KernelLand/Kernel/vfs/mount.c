@@ -63,7 +63,7 @@ int VFS_Mount(const char *Device, const char *MountPoint, const char *Filesystem
 		}
 		
 		tVFS_Driver	*bestfs = NULL;
-		 int	bestrank, rank;
+		 int	bestrank = 0, rank;
 		for( fs = gVFS_Drivers; fs; fs = fs->Next )
 		{
 			if(!fs->Detect)	continue ;

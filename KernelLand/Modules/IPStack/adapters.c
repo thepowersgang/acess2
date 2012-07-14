@@ -370,13 +370,13 @@ void IPStack_SendDebugText(const char *Text)
 	memcpy(buffer, pkt_hdr, sizeof(pkt_hdr));
 	memcpy(buffer + sizeof(pkt_hdr), cache, cache_len);
 	
-	*(Uint16*)&buffer[14+2] = BigEndian16( sizeof(pkt_hdr)-14 + cache_len );	// IP Size
-	*(Uint16*)&buffer[14+10] = BigEndian16( 0 );	// IP Header
-	*(Uint16*)&buffer[14+20+4] = BigEndian16( 8+cache_len );	// UDP Size
-	*(Uint16*)&buffer[14+20+6] = BigEndian16( 0 );	// UDP Checksum
-	*(Uint32*)&buffer[link_checksum_ofs] = BigEndian32( 0 );	// 802.3 checksum?
+	((Uint16*)buffer)[(14+2)/2] = BigEndian16( sizeof(pkt_hdr)-14 + cache_len );	// IP Size
+	((Uint16*)buffer)[(14+10)/2] = BigEndian16( 0 );	// IP Header
+	((Uint16*)buffer)[(14+20+4)/2] = BigEndian16( 8+cache_len );	// UDP Size
+	((Uint16*)buffer)[(14+20+6)/2] = BigEndian16( 0 );	// UDP Checksum
+//	*(Uint32*)&buffer[link_checksum_ofs] = BigEndian32( 0 );	// 802.3 checksum?
 	// TODO: Calculate checksums
-	*(Uint16*)&buffer[14+10] = BigEndian16( IPv4_Checksum(buffer+14,20) );	// IP Header
+	((Uint16*)buffer)[(14+10)/2] = BigEndian16( IPv4_Checksum(buffer+14,20) );	// IP Header
 	
 	// Create buffer
 	tIPStackBuffer	*buf = IPStack_Buffer_CreateBuffer(1);
