@@ -5,7 +5,7 @@
  * lvm.h
  * - LVM Core definitions
  */
-#define DEBUG	1
+#define DEBUG	0
 #define VERSION	VER2(0,1)
 #include "lvm_int.h"
 #include <fs_devfs.h>
@@ -25,6 +25,7 @@ size_t	LVM_Vol_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
 size_t	LVM_Vol_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
 size_t	LVM_SubVol_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
 size_t	LVM_SubVol_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
+void	LVM_CloseNode(tVFS_Node *Node);
 
 Uint	LVM_int_DrvUtil_ReadBlock(Uint64 Address, Uint Count, void *Buffer, void *Argument);
 Uint	LVM_int_DrvUtil_WriteBlock(Uint64 Address, Uint Count, const void *Buffer, void *Argument);
@@ -39,11 +40,13 @@ tVFS_NodeType	gLVM_VolNodeType = {
 	.ReadDir = LVM_Vol_ReadDir,
 	.FindDir = LVM_Vol_FindDir,
 	.Read = LVM_Vol_Read,
-	.Write = LVM_Vol_Write
+	.Write = LVM_Vol_Write,
+	.Close = LVM_CloseNode
 };
 tVFS_NodeType	gLVM_SubVolNodeType = {
 	.Read = LVM_SubVol_Read,
-	.Write = LVM_SubVol_Write
+	.Write = LVM_SubVol_Write,
+	.Close = LVM_CloseNode
 };
 tDevFS_Driver	gLVM_DevFS = {
 	NULL, "LVM",
@@ -84,9 +87,13 @@ int LVM_Cleanup(void)
 			if(sv->Node.ReferenceCount == 0) {
 				nFree ++;
 				vol->SubVolumes[i] = NULL;
+				Mutex_Release(&sv->Node.Lock);
 			}
-			Mutex_Release(&sv->Node.Lock);
-			
+			else {
+				Mutex_Release(&sv->Node.Lock);
+				continue ;
+			}
+
 			Mutex_Acquire(&sv->Node.Lock);
 			LOG("Removed subvolume %s:%s", vol->Name, sv->Name);
 			free(sv);
@@ -137,6 +144,7 @@ tVFS_Node *LVM_Root_FindDir(tVFS_Node *Node, const char *Name)
 	{
 		if( strcmp(vol->Name, Name) == 0 )
 		{
+			vol->DirNode.ReferenceCount ++;
 			return &vol->DirNode;
 		}
 	}
@@ -166,6 +174,7 @@ tVFS_Node *LVM_Vol_FindDir(tVFS_Node *Node, const char *Name)
 	{
 		if( strcmp(vol->SubVolumes[i]->Name, Name) == 0 )
 		{
+			vol->SubVolumes[i]->Node.ReferenceCount ++;
 			return &vol->SubVolumes[i]->Node;
 		}
 	}
@@ -239,6 +248,11 @@ size_t LVM_SubVol_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void
 		LVM_int_DrvUtil_ReadBlock, LVM_int_DrvUtil_WriteBlock,
 		sv->Vol->BlockSize, sv->Vol
 		);
+}
+
+void LVM_CloseNode(tVFS_Node *Node)
+{
+	Node->ReferenceCount --;
 }
 
 Uint LVM_int_DrvUtil_ReadBlock(Uint64 Address, Uint Count, void *Buffer, void *Argument)
