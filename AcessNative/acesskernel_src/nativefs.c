@@ -5,7 +5,7 @@
  * nativefs.c
  * - Host filesystem access
  */
-#define DEBUG	1
+#define DEBUG	0
 #define off_t	_acess_off_t
 #include <acess.h>	// Acess
 #include <vfs.h>	// Acess
@@ -32,15 +32,20 @@ tVFS_Node	*NativeFS_Mount(const char *Device, const char **Arguments);
 void	NativeFS_Unmount(tVFS_Node *Node);
 tVFS_Node	*NativeFS_FindDir(tVFS_Node *Node, const char *Name);
 char	*NativeFS_ReadDir(tVFS_Node *Node, int Position);
-Uint64	NativeFS_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer);
+size_t	NativeFS_Read(tVFS_Node *Node, _acess_off_t Offset, size_t Length, void *Buffer);
+size_t	NativeFS_Write(tVFS_Node *Node, _acess_off_t Offset, size_t Length, const void *Buffer);
+void	NativeFS_Close(tVFS_Node *Node);
 
 // === GLOBALS ===
 tVFS_NodeType	gNativeFS_FileNodeType = {
-	.Read = NativeFS_Read
+	.Read = NativeFS_Read,
+	.Write = NativeFS_Write,
+	.Close = NativeFS_Close
 };
 tVFS_NodeType	gNativeFS_DirNodeType = {
 	.FindDir = NativeFS_FindDir,
 	.ReadDir = NativeFS_ReadDir,
+	.Close = NativeFS_Close
 };
 tVFS_Driver	gNativeFS_Driver = {
 	"nativefs", 0,
@@ -63,7 +68,7 @@ tVFS_Node *NativeFS_Mount(const char *Device, const char **Arguments)
 	
 	dp = opendir(Device);
 	if(!dp) {
-		Log_Warning("NativeFS", "ERRO: Unable to open device root '%s'", Device);
+		Log_Warning("NativeFS", "ERROR: Unable to open device root '%s'", Device);
 		return NULL;
 	}
 	
@@ -78,11 +83,11 @@ tVFS_Node *NativeFS_Mount(const char *Device, const char **Arguments)
 	ret->Data = strdup(Device);
 	ret->ImplInt = strlen(ret->Data);
 	ret->ImplPtr = info;
-	ret->Inode = (Uint64)dp;
+	ret->Inode = (Uint64)(tVAddr)dp;
 	ret->Flags = VFS_FFLAG_DIRECTORY;
 
 	ret->Type = &gNativeFS_DirNodeType;	
-	
+
 	return ret;
 }
 
@@ -90,7 +95,7 @@ void NativeFS_Unmount(tVFS_Node *Node)
 {
 	tNativeFS	*info = Node->ImplPtr;
 	Inode_ClearCache( info->InodeHandle );
-	closedir( (void *)Node->Inode );
+	closedir( (void *)(tVAddr)Node->Inode );
 	free(Node->Data);
 	free(Node);
 	free(info);
@@ -99,12 +104,18 @@ void NativeFS_Unmount(tVFS_Node *Node)
 void NativeFS_Close(tVFS_Node *Node)
 {
 	tNativeFS	*info = Node->ImplPtr;
-	Inode_UncacheNode( info->InodeHandle, Node->Inode );
+	DIR	*dp = (Node->Flags & VFS_FFLAG_DIRECTORY) ? (DIR*)(tVAddr)Node->Inode : 0;
+	FILE	*fp = (Node->Flags & VFS_FFLAG_DIRECTORY) ? 0 : (FILE*)(tVAddr)Node->Inode;
+	
+	if( Inode_UncacheNode( info->InodeHandle, Node->Inode ) == 1 ) {
+		if(dp)	closedir(dp);
+		if(fp)	fclose(fp);
+	}
 }
 
 tVFS_Node *NativeFS_FindDir(tVFS_Node *Node, const char *Name)
 {
-	char	*path = malloc(Node->ImplInt + 1 + strlen(Name) + 1);
+	char	*path;
 	tNativeFS	*info = Node->ImplPtr;
 	tVFS_Node	baseRet;
 	struct stat statbuf;
@@ -112,6 +123,7 @@ tVFS_Node *NativeFS_FindDir(tVFS_Node *Node, const char *Name)
 	ENTER("pNode sName", Node, Name);
 	
 	// Create path
+	path = malloc(Node->ImplInt + 1 + strlen(Name) + 1);
 	strcpy(path, Node->Data);
 	path[Node->ImplInt] = '/';
 	strcpy(path + Node->ImplInt + 1, Name);
@@ -132,7 +144,7 @@ tVFS_Node *NativeFS_FindDir(tVFS_Node *Node, const char *Name)
 	if( S_ISDIR(statbuf.st_mode) )
 	{
 		LOG("Directory");
-		baseRet.Inode = (Uint64) opendir(path);
+		baseRet.Inode = (Uint64)(tVAddr) opendir(path);
 		baseRet.Type = &gNativeFS_DirNodeType;
 		baseRet.Flags |= VFS_FFLAG_DIRECTORY;
 		baseRet.Size = -1;
@@ -140,7 +152,7 @@ tVFS_Node *NativeFS_FindDir(tVFS_Node *Node, const char *Name)
 	else
 	{
 		LOG("File");
-		baseRet.Inode = (Uint64) fopen(path, "r+");
+		baseRet.Inode = (Uint64)(tVAddr) fopen(path, "r+");
 		baseRet.Type = &gNativeFS_FileNodeType;
 		
 		fseek( (FILE*)(tVAddr)baseRet.Inode, 0, SEEK_END );
@@ -184,14 +196,30 @@ char *NativeFS_ReadDir(tVFS_Node *Node, int Position)
 	return ret;
 }
 
-Uint64 NativeFS_Read(tVFS_Node *Node, Uint64 Offset, Uint64 Length, void *Buffer)
+size_t NativeFS_Read(tVFS_Node *Node, _acess_off_t Offset, size_t Length, void *Buffer)
 {
-	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
-	if( fseek( (void *)Node->Inode, Offset, SEEK_SET ) != 0 )
+	ENTER("pNode XOffset xLength pBuffer", Node, Offset, Length, Buffer);
+	if( fseek( (FILE *)(tVAddr)Node->Inode, Offset, SEEK_SET ) != 0 )
 	{
 		LEAVE('i', 0);
 		return 0;
 	}
 	LEAVE('-');
-	return fread( Buffer, 1, Length, (void *)Node->Inode );
+	return fread( Buffer, 1, Length, (FILE *)(tVAddr)Node->Inode );
+}
+
+size_t NativeFS_Write(tVFS_Node *Node, _acess_off_t Offset, size_t Length, const void *Buffer)
+{
+	FILE	*fp = (FILE *)(tVAddr)Node->Inode;
+	ENTER("pNode XOffset xLength pBuffer", Node, Offset, Length, Buffer);
+	if( fseek( fp, Offset, SEEK_SET ) != 0 )
+	{
+		LEAVE('i', 0);
+		return 0;
+	}
+	size_t ret = fwrite( Buffer, 1, Length, fp );
+	fflush( fp );
+	LEAVE('i', ret);
+	return ret;
+
 }

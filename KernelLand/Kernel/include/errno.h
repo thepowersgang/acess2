@@ -13,6 +13,7 @@ enum eErrorNums
 	EINVAL,	// Invalid Paramater
 	ENOMEM,	// No free memory
 	EACCES,	// Not permitted
+	EBUSY,	// Resource is busy
 	ENOTFOUND,	// Item not found
 	EREADONLY,	// Read only
 	ENOTIMPL,	// Not implemented

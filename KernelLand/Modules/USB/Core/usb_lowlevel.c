@@ -95,7 +95,6 @@ int USB_int_ReadDescriptor(tUSBDevice *Dev, int Endpoint, int Type, int Index, i
 	const int	ciMaxPacketSize = 0x400;
 	struct sDeviceRequest	req;
 	 int	bToggle = 0;
-	void	*final;
 	 int	dest = Dev->Address*16 + Endpoint;
 
 	ENTER("pDev xdest iType iIndex iLength pDest",
@@ -131,7 +130,7 @@ int USB_int_ReadDescriptor(tUSBDevice *Dev, int Endpoint, int Type, int Index, i
 
 	Threads_ClearEvent(THREAD_EVENT_SHORTWAIT);
 	LOG("OUT (Status)");
-	final = Dev->Host->HostDef->ControlOUT(
+	Dev->Host->HostDef->ControlOUT(
 		Dev->Host->Ptr, dest, 1,
 		USB_int_WakeThread, Proc_GetCurThread(),
 		NULL, 0

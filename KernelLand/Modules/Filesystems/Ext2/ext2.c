@@ -15,7 +15,7 @@ extern tVFS_NodeType	gExt2_DirType;
 
 // === PROTOTYPES ===
  int	Ext2_Install(char **Arguments);
-void	Ext2_Cleanup(void);
+ int	Ext2_Cleanup(void);
 // - Interface Functions
 tVFS_Node	*Ext2_InitDevice(const char *Device, const char **Options);
 void		Ext2_Unmount(tVFS_Node *Node);
@@ -48,9 +48,9 @@ int Ext2_Install(char **Arguments)
 /**
  * \brief Clean up driver state before unload
  */
-void Ext2_Cleanup(void)
+int Ext2_Cleanup(void)
 {
-	
+	return 0;
 }
 
 /**

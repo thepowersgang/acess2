@@ -100,6 +100,7 @@ enum {
 	THREAD_STAT_ACTIVE,	// Running and schedulable process
 	THREAD_STAT_SLEEPING,	// Message Sleep
 	THREAD_STAT_MUTEXSLEEP,	// Mutex Sleep
+	THREAD_STAT_RWLOCKSLEEP,	// Read-Writer lock Sleep
 	THREAD_STAT_SEMAPHORESLEEP,	// Semaphore Sleep
 	THREAD_STAT_QUEUESLEEP,	// Queue
 	THREAD_STAT_EVENTSLEEP,	// Event sleep

@@ -12,6 +12,11 @@ _NETTYPE="user"
 
 while [ $# -ne 0 ]; do
 	case $1 in
+	-raspberrypi)
+		_SYSTEM="versatilepb"
+		QEMU_PARAMS=$QEMU_PARAMS" -cpu arm1176 -m 192 -localtime"
+		_KERNEL=Acess2.armv6-raspberrypi.bin
+		;;
 	-gdb)
 		QEMU_PARAMS=$QEMU_PARAMS" -s -S"
 		;;
@@ -31,7 +36,7 @@ while [ $# -ne 0 ]; do
 	esac
 	shift
 done
-QEMU_PARAMS="-M $_SYSTEM -kernel $_KERNEL -net nic -net $_NETTYPE"$QEMU_PARAMS
+QEMU_PARAMS="-M $_SYSTEM -kernel KernelLand/$_KERNEL -net nic -net $_NETTYPE"$QEMU_PARAMS
 
 #	/home/tpg/apps/bin/qemu-system-x86_64 $QEMU_PARAMS -serial stdio -serial file:QemuLog.txt
 #	qemu-system-x86_64 $QEMU_PARAMS -serial stdio | tee QemuLog.txt

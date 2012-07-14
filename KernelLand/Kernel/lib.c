@@ -3,38 +3,15 @@
  * Common Library Functions
  */
 #include <acess.h>
-#include <hal_proc.h>
 
 // === CONSTANTS ===
-#define	RANDOM_SEED	0xACE55052
-#define	RANDOM_A	0x00731ADE
-#define	RANDOM_C	12345
-#define	RANDOM_SPRUCE	0xf12b039
 //                          Jan Feb Mar Apr May  Jun  Jul  Aug  Sept Oct  Nov  Dec
 const short DAYS_BEFORE[] = {0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
 #define UNIX_TO_2K	((30*365*3600*24) + (7*3600*24))	//Normal years + leap years
 
 // === PROTOTYPES ===
 #if 0
- int	atoi(const char *string);
- int	ParseInt(const char *string, int *Val);
-void	itoa(char *buf, Uint64 num, int base, int minLength, char pad);
- int	vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args);
- int	snprintf(char *__s, size_t __n, const char *__format, ...);
- int	sprintf(char *__s, const char *__format, ...);
-#endif
- int	tolower(int c);
-#if 0
- int	strucmp(const char *Str1, const char *Str2);
-char	*strchr(const char *__s, int __c);
- int	strpos(const char *Str, char Ch);
  Uint8	ByteSum(void *Ptr, int Size);
-size_t	strlen(const char *__s);
-char	*strcpy(char *__str1, const char *__str2);
-char	*strncpy(char *__str1, const char *__str2, size_t max);
- int	strcmp(const char *str1, const char *str2);
- int	strncmp(const char *str1, const char *str2, size_t num);
-char	*_strdup(const char *File, int Line, const char *Str);
 char	**str_split(const char *__str, char __ch);
  int	strpos8(const char *str, Uint32 Search);
  int	ReadUTF8(Uint8 *str, Uint32 *Val);
@@ -42,452 +19,35 @@ char	**str_split(const char *__str, char __ch);
  int	DivUp(int num, int dem);
 Sint64	timestamp(int sec, int mins, int hrs, int day, int month, int year);
 void	format_date(tTime TS, int *year, int *month, int *day, int *hrs, int *mins, int *sec, int *ms);
- int	rand(void);
- 
- int	CheckString(char *String);
- int	CheckMem(void *Mem, int NumBytes);
  
  int	ModUtil_LookupString(char **Array, char *Needle);
  int	ModUtil_SetIdent(char *Dest, char *Value);
  
  int	Hex(char *Dest, size_t Size, const Uint8 *SourceData);
  int	UnHex(Uint8 *Dest, size_t DestSize, const char *SourceString);
+
+Uint16	SwapEndian16(Uint16 Val);
+Uint32	SwapEndian32(Uint16 Val);
+Uint64	SwapEndian64(Uint16 Val);
 #endif
 
 // === EXPORTS ===
-EXPORT(atoi);
-EXPORT(itoa);
-EXPORT(vsnprintf);
-EXPORT(snprintf);
-EXPORT(sprintf);
-EXPORT(tolower);
-EXPORT(strucmp);
-EXPORT(strchr);
-EXPORT(strpos);
 EXPORT(ByteSum);
-EXPORT(strlen);
-EXPORT(strcpy);
-EXPORT(strncpy);
-EXPORT(strcat);
-EXPORT(strncat);
-EXPORT(strcmp);
-EXPORT(strncmp);
-//EXPORT(strdup);
-EXPORT(_strdup);	// Takes File/Line too
 EXPORT(str_split);
 EXPORT(strpos8);
 EXPORT(DivUp);
 EXPORT(ReadUTF8);
 EXPORT(WriteUTF8);
 EXPORT(timestamp);
-EXPORT(CheckString);
-EXPORT(CheckMem);
 EXPORT(ModUtil_LookupString);
 EXPORT(ModUtil_SetIdent);
+EXPORT(Hex);
 EXPORT(UnHex);
 EXPORT(SwapEndian16);
 EXPORT(SwapEndian32);
 EXPORT(SwapEndian64);
-EXPORT(memmove);
 
 // === CODE ===
-/**
- * \brief Convert a string into an integer
- */
-int atoi(const char *string)
-{
-	int ret = 0;
-	ParseInt(string, &ret);
-	return ret;
-}
-int ParseInt(const char *string, int *Val)
-{
-	 int	ret = 0;
-	 int	bNeg = 0;
-	const char *orig_string = string;
-	
-	//Log("atoi: (string='%s')", string);
-	
-	// Clear non-numeric characters
-	while( !('0' <= *string && *string <= '9') && *string != '-' )	string++;
-	if( *string == '-' ) {
-		bNeg = 1;
-		while( !('0' <= *string && *string <= '9') )	string++;
-	}
-	
-	if(*string == '0')
-	{
-		string ++;
-		if(*string == 'x')
-		{
-			// Hex
-			string ++;
-			for( ;; string ++ )
-			{
-				if('0' <= *string && *string <= '9') {
-					ret *= 16;
-					ret += *string - '0';
-				}
-				else if('A' <= *string && *string <= 'F') {
-					ret *= 16;
-					ret += *string - 'A' + 10;
-				}
-				else if('a' <= *string && *string <= 'f') {
-					ret *= 16;
-					ret += *string - 'a' + 10;
-				}
-				else
-					break;
-			}
-		}
-		else	// Octal
-		{
-			for( ; '0' <= *string && *string <= '7'; string ++ )
-			{
-				ret *= 8;
-				ret += *string - '0';
-			}
-		}
-	}
-	else	// Decimal
-	{
-		for( ; '0' <= *string && *string <= '9'; string++)
-		{
-			ret *= 10;
-			ret += *string - '0';
-		}
-		// Error check
-		if( ret == 0 )	return 0;
-	}
-	
-	if(bNeg)	ret = -ret;
-	
-	//Log("atoi: RETURN %i", ret);
-	
-	if(Val)	*Val = ret;
-	
-	return string - orig_string;
-}
-
-static const char cUCDIGITS[] = "0123456789ABCDEF";
-/**
- * \fn void itoa(char *buf, Uint64 num, int base, int minLength, char pad)
- * \brief Convert an integer into a character string
- */
-void itoa(char *buf, Uint64 num, int base, int minLength, char pad)
-{
-	char	tmpBuf[64+1];
-	 int	pos=0, i;
-	Uint64	rem;
-
-	// Sanity check
-	if(!buf)	return;
-	
-	// Sanity Check
-	if(base > 16 || base < 2) {
-		buf[0] = 0;
-		return;
-	}
-	
-	// Convert 
-	while(num > base-1) {
-		num = DivMod64U(num, base, &rem);	// Shift `num` and get remainder
-		tmpBuf[pos] = cUCDIGITS[ rem ];
-		pos++;
-	}
-	tmpBuf[pos++] = cUCDIGITS[ num ];		// Last digit of `num`
-	
-	// Put in reverse
-	i = 0;
-	minLength -= pos;
-	while(minLength-- > 0)	buf[i++] = pad;
-	while(pos-- > 0)		buf[i++] = tmpBuf[pos];	// Reverse the order of characters
-	buf[i] = 0;
-}
-
-/**
- * \brief Append a character the the vsnprintf output
- */
-#define PUTCH(c)	_putch(c)
-#define GETVAL()	do {\
-	if(isLongLong)	val = va_arg(args, Uint64);\
-	else	val = va_arg(args, unsigned int);\
-	}while(0)
-/**
- * \brief VArg String Number Print Formatted
- */
-int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
-{
-	char	c, pad = ' ';
-	 int	minSize = 0, precision = -1, len;
-	char	tmpBuf[34];	// For Integers
-	const char	*p = NULL;
-	 int	isLongLong = 0;
-	Uint64	val;
-	size_t	pos = 0;
-	// Flags
-	 int	bPadLeft = 0;
-	
-	auto void _putch(char ch);
-
-	void _putch(char ch)
-	{
-		if(pos < __maxlen)
-		{
-			if(__s) __s[pos] = ch;
-			pos ++;
-		}
-	}
-
-	while((c = *__format++) != 0)
-	{
-		// Non control character
-		if(c != '%') { PUTCH(c); continue; }
-
-		c = *__format++;
-		if(c == '\0')	break;
-		
-		// Literal %
-		if(c == '%') { PUTCH('%'); continue; }
-		
-		// Pointer - Done first for debugging
-		if(c == 'p') {
-			Uint	ptr = va_arg(args, Uint);
-			PUTCH('*');	PUTCH('0');	PUTCH('x');
-			for( len = BITS/4; len --; )
-				PUTCH( cUCDIGITS[ (ptr>>(len*4))&15 ] );
-			continue ;
-		}
-		
-		// - Padding Side Flag
-		if(c == '-') {
-			bPadLeft = 1;
-			c = *__format++;
-		}
-		
-		// - Padding
-		if(c == '0') {
-			pad = '0';
-			c = *__format++;
-		}
-		else
-			pad = ' ';
-		
-		// - Minimum length
-		if(c == '*') {	// Dynamic length
-			minSize = va_arg(args, unsigned int);
-			c = *__format++;
-		}
-		else if('1' <= c && c <= '9')
-		{
-			minSize = 0;
-			while('0' <= c && c <= '9')
-			{
-				minSize *= 10;
-				minSize += c - '0';
-				c = *__format++;
-			}
-		}
-		else
-			minSize = 0;
-		
-		// - Precision
-		precision = -1;
-		if( c == '.' ) {
-			c = *__format++;
-			
-			if(c == '*') {	// Dynamic length
-				precision = va_arg(args, unsigned int);
-				c = *__format++;
-			}
-			else if('1' <= c && c <= '9')
-			{
-				precision = 0;
-				while('0' <= c && c <= '9')
-				{
-					precision *= 10;
-					precision += c - '0';
-					c = *__format++;
-				}
-			}
-		}
-		
-		// - Default, Long or LongLong?
-		isLongLong = 0;
-		if(c == 'l')	// Long is actually the default on x86
-		{
-			c = *__format++;
-			if(c == 'l') {
-				c = *__format++;
-				isLongLong = 1;
-			}
-		}
-		
-		// - Now get the format code
-		p = tmpBuf;
-		switch(c)
-		{
-		case 'd':
-		case 'i':
-			GETVAL();
-			if( isLongLong && val >> 63 ) {
-				PUTCH('-');
-				val = -val;
-			}
-			else if( !isLongLong && val >> 31 ) {
-				PUTCH('-');
-				val = -(Sint32)val;
-			}
-			itoa(tmpBuf, val, 10, minSize, pad);
-			goto printString;
-		case 'u':	// Unsigned
-			GETVAL();
-			itoa(tmpBuf, val, 10, minSize, pad);
-			goto printString;
-		case 'P':	// Physical Address
-			PUTCH('0');
-			PUTCH('x');
-			if(sizeof(tPAddr) > 4)	isLongLong = 1;
-			GETVAL();
-			itoa(tmpBuf, val, 16, minSize, pad);
-			goto printString;
-		case 'X':	// Hex
-			if(BITS == 64)
-				isLongLong = 1;	// TODO: Handle non-x86 64-bit archs
-			GETVAL();
-			itoa(tmpBuf, val, 16, minSize, pad);
-			goto printString;
-			
-		case 'x':	// Lower case hex
-			GETVAL();
-			itoa(tmpBuf, val, 16, minSize, pad);
-			goto printString;
-		case 'o':	// Octal
-			GETVAL();
-			itoa(tmpBuf, val, 8, minSize, pad);
-			goto printString;
-		case 'b':
-			GETVAL();
-			itoa(tmpBuf, val, 2, minSize, pad);
-			goto printString;
-
-		case 'B':	//Boolean
-			val = va_arg(args, unsigned int);
-			if(val)	p = "True";
-			else	p = "False";
-			goto printString;
-		
-		// String - Null Terminated Array
-		case 's':
-			p = va_arg(args, char*);	// Get Argument
-			if( !p || !CheckString(p) )	p = "(inval)";	// Avoid #PFs  
-		printString:
-			if(!p)		p = "(null)";
-			len = strlen(p);
-			if( !bPadLeft )	while(len++ < minSize)	PUTCH(pad);
-			while(*p && precision--)	PUTCH(*p++);
-			if( bPadLeft )	while(len++ < minSize)	PUTCH(pad);
-			break;
-		
-		case 'C':	// Non-Null Terminated Character Array
-			p = va_arg(args, char*);
-			if( !CheckMem(p, minSize) )	continue;	// No #PFs please
-			if(!p)	goto printString;
-			while(minSize--)	PUTCH(*p++);
-			break;
-		
-		// Single Character
-		case 'c':
-		default:
-			GETVAL();
-			PUTCH( (Uint8)val );
-			break;
-		}
-	}
-	
-	if(__s && pos != __maxlen)
-		__s[pos] = '\0';
-	
-	return pos;
-}
-#undef PUTCH
-
-/**
- */
-int snprintf(char *__s, size_t __n, const char *__format, ...)
-{
-	va_list	args;
-	 int	ret;
-	
-	va_start(args, __format);
-	ret = vsnprintf(__s, __n, __format, args);
-	va_end(args);
-	
-	return ret;
-}
-
-/**
- */
-int sprintf(char *__s, const char *__format, ...)
-{
-	va_list	args;
-	 int	ret;
-	
-	va_start(args, __format);
-	ret = vsnprintf(__s, -1, __format, args);
-	va_end(args);
-	
-	return ret;
-}
-
-/**
- * \fn int tolower(int c)
- * \brief Converts a character to lower case
- */
-int tolower(int c)
-{
-	if('A' <= c && c <= 'Z')
-		return c - 'A' + 'a';
-	return c;
-}
-
-/**
- * \fn int strucmp(const char *Str1, const char *Str2)
- * \brief Compare \a Str1 and \a Str2 case-insensitively
- */
-int strucmp(const char *Str1, const char *Str2)
-{
-	while(*Str1 && tolower(*Str1) == tolower(*Str2))
-		Str1++, Str2++;
-	return tolower(*Str1) - tolower(*Str2);
-}
-
-/**
- * \brief Locate a byte in a string
- */
-char *strchr(const char *__s, int __c)
-{
-	for( ; *__s; __s ++ )
-	{
-		if( *__s == __c )	return (char*)__s;
-	}
-	return NULL;
-}
-
-/**
- * \fn int strpos(const char *Str, char Ch)
- * \brief Search a string for an ascii character
- */
-int strpos(const char *Str, char Ch)
-{
-	 int	pos;
-	for(pos=0;Str[pos];pos++)
-	{
-		if(Str[pos] == Ch)	return pos;
-	}
-	return -1;
-}
-
 /**
  * \fn Uint8 ByteSum(void *Ptr, int Size)
  * \brief Adds the bytes in a memory region and returns the sum
@@ -499,120 +59,6 @@ Uint8 ByteSum(const void *Ptr, int Size)
 	while(Size--)	sum += *(data++);
 	return sum;
 }
-
-/**
- * \fn size_t strlen(const char *__str)
- * \brief Get the length of string
- */
-size_t strlen(const char *__str)
-{
-	size_t	ret = 0;
-	while(*__str++)	ret++;
-	return ret;
-}
-
-/**
- * \brief Copy a string to a new location
- */
-char *strcpy(char *__str1, const char *__str2)
-{
-	while(*__str2)
-		*__str1++ = *__str2++;
-	*__str1 = '\0';	// Terminate String
-	return __str1;
-}
-
-/**
- * \brief Copy a string to a new location
- * \note Copies at most `max` chars
- */
-char *strncpy(char *__str1, const char *__str2, size_t __max)
-{
-	while(*__str2 && __max-- >= 1)
-		*__str1++ = *__str2++;
-	if(__max)
-		*__str1 = '\0';	// Terminate String
-	return __str1;
-}
-
-/**
- * \brief Append a string to another
- */
-char *strcat(char *__dest, const char *__src)
-{
-	while(*__dest++);
-	__dest--;
-	while(*__src)
-		*__dest++ = *__src++;
-	*__dest = '\0';
-	return __dest;
-}
-
-/**
- * \brief Append at most \a n chars to a string from another
- * \note At most n+1 chars are written (the dest is always zero terminated)
- */
-char *strncat(char *__dest, const char *__src, size_t n)
-{
-	while(*__dest++);
-	while(*__src && n-- >= 1)
-		*__dest++ = *__src++;
-	*__dest = '\0';
-	return __dest;
-}
-
-/**
- * \fn int strcmp(const char *str1, const char *str2)
- * \brief Compare two strings return the difference between
- *        the first non-matching characters.
- */
-int strcmp(const char *str1, const char *str2)
-{
-	while(*str1 && *str1 == *str2)
-		str1++, str2++;
-	return *str1 - *str2;
-}
-
-/**
- * \fn int strncmp(const char *Str1, const char *Str2, size_t num)
- * \brief Compare strings \a Str1 and \a Str2 to a maximum of \a num characters
- */
-int strncmp(const char *Str1, const char *Str2, size_t num)
-{
-	if(num == 0)	return 0;	// TODO: Check what should officially happen here
-	while(--num && *Str1 && *Str1 == *Str2)
-		Str1++, Str2++;
-	return *Str1-*Str2;
-}
-
-#if 0
-/**
- * \fn char *strdup(const char *Str)
- * \brief Duplicates a string
- */
-char *strdup(const char *Str)
-{
-	char	*ret;
-	ret = malloc(strlen(Str)+1);
-	if( !ret )	return NULL;
-	strcpy(ret, Str);
-	return ret;
-}
-#else
-
-/**
- * \fn char *_strdup(const char *File, int Line, const char *Str)
- * \brief Duplicates a string
- */
-char *_strdup(const char *File, int Line, const char *Str)
-{
-	char	*ret;
-	ret = Heap_Allocate(File, Line, strlen(Str)+1);
-	if( !ret )	return NULL;
-	strcpy(ret, Str);
-	return ret;
-}
-#endif
 
 /**
  * \brief Split a string using the passed character
@@ -695,6 +141,8 @@ int strpos8(const char *str, Uint32 Search)
  */
 int ReadUTF8(const Uint8 *str, Uint32 *Val)
 {
+	Uint32	outval;
+	
 	*Val = 0xFFFD;	// Assume invalid character
 	
 	// ASCII
@@ -710,37 +158,40 @@ int ReadUTF8(const Uint8 *str, Uint32 *Val)
 	
 	// Two Byte
 	if( (*str & 0xE0) == 0xC0 ) {
-		*Val = (*str & 0x1F) << 6;	// Upper 6 Bits
+		outval = (*str & 0x1F) << 6;	// Upper 6 Bits
 		str ++;
-		if( (*str & 0xC0) != 0x80)	return -1;	// Validity check
-		*Val |= (*str & 0x3F);	// Lower 6 Bits
+		if( (*str & 0xC0) != 0x80)	return 2;	// Validity check
+		outval |= (*str & 0x3F);	// Lower 6 Bits
+		*Val = outval;
 		return 2;
 	}
 	
 	// Three Byte
 	if( (*str & 0xF0) == 0xE0 ) {
-		*Val = (*str & 0x0F) << 12;	// Upper 4 Bits
+		outval = (*str & 0x0F) << 12;	// Upper 4 Bits
 		str ++;
-		if( (*str & 0xC0) != 0x80)	return -1;	// Validity check
-		*Val |= (*str & 0x3F) << 6;	// Middle 6 Bits
+		if( (*str & 0xC0) != 0x80)	return 2;	// Validity check
+		outval |= (*str & 0x3F) << 6;	// Middle 6 Bits
 		str ++;
-		if( (*str & 0xC0) != 0x80)	return -1;	// Validity check
-		*Val |= (*str & 0x3F);	// Lower 6 Bits
+		if( (*str & 0xC0) != 0x80)	return 3;	// Validity check
+		outval |= (*str & 0x3F);	// Lower 6 Bits
+		*Val = outval;
 		return 3;
 	}
 	
 	// Four Byte
 	if( (*str & 0xF1) == 0xF0 ) {
-		*Val = (*str & 0x07) << 18;	// Upper 3 Bits
+		outval = (*str & 0x07) << 18;	// Upper 3 Bits
 		str ++;
-		if( (*str & 0xC0) != 0x80)	return -1;	// Validity check
-		*Val |= (*str & 0x3F) << 12;	// Middle-upper 6 Bits
+		if( (*str & 0xC0) != 0x80)	return 2;	// Validity check
+		outval |= (*str & 0x3F) << 12;	// Middle-upper 6 Bits
 		str ++;
-		if( (*str & 0xC0) != 0x80)	return -1;	// Validity check
-		*Val |= (*str & 0x3F) << 6;	// Middle-lower 6 Bits
+		if( (*str & 0xC0) != 0x80)	return 3;	// Validity check
+		outval |= (*str & 0x3F) << 6;	// Middle-lower 6 Bits
 		str ++;
-		if( (*str & 0xC0) != 0x80)	return -1;	// Validity check
-		*Val |= (*str & 0x3F);	// Lower 6 Bits
+		if( (*str & 0xC0) != 0x80)	return 4;	// Validity check
+		outval |= (*str & 0x3F);	// Lower 6 Bits
+		*Val = outval;
 		return 4;
 	}
 	
@@ -913,81 +364,6 @@ void format_date(tTime TS, int *year, int *month, int *day, int *hrs, int *mins,
 }
 
 /**
- * \fn int rand()
- * \brief Pseudo random number generator
- */
-int rand(void)
-{
-	#if 0
-	static Uint	state = RANDOM_SEED;
-	Uint	old = state;
-	// Get the next state value
-	giRandomState = (RANDOM_A*state + RANDOM_C);
-	// Check if it has changed, and if it hasn't, change it
-	if(state == old)	state += RANDOM_SPRUCE;
-	return state;
-	#else
-	// http://en.wikipedia.org/wiki/Xorshift
-	// 2010-10-03
-	static Uint32	x = 123456789;
-	static Uint32	y = 362436069;
-	static Uint32	z = 521288629;
-	static Uint32	w = 88675123; 
-	Uint32	t;
- 
-	t = x ^ (x << 11);
-	x = y; y = z; z = w;
-	return w = w ^ (w >> 19) ^ t ^ (t >> 8); 
-	#endif
-}
-
-/* *
- * \name Memory Validation
- * \{
- */
-/**
- * \brief Checks if a string resides fully in valid memory
- */
-int CheckString(const char *String)
-{
-	tVAddr	addr;
-	 int	bUser;
-
-	addr = (tVAddr)String;
-
-	if( !MM_GetPhysAddr( addr ) )
-		return 0;
-	
-	// Check 1st page
-	bUser = MM_IsUser( addr );
-	
-	while( *(char*)addr )
-	{
-		if( (addr & (PAGE_SIZE-1)) == 0 )
-		{
-			if(bUser && !MM_IsUser(addr) )
-				return 0;
-			if(!bUser && !MM_GetPhysAddr(addr) )
-				return 0;
-		}
-		addr ++;
-	}
-	return 1;
-}
-
-/**
- * \brief Check if a sized memory region is valid memory
- * \return Boolean success
- */
-int CheckMem(const void *Mem, int NumBytes)
-{
-	return MM_IsValidBuffer( (tVAddr)Mem, NumBytes );
-}
-/* *
- * \}
- */
-
-/**
  * \brief Search a string array for \a Needle
  * \note Helper function for eTplDrv_IOCtl::DRV_IOCTL_LOOKUP
  */
@@ -1065,42 +441,3 @@ Uint64 SwapEndian64(Uint64 Val)
 {
 	return SwapEndian32(Val >> 32) | ((Uint64)SwapEndian32(Val) << 32);
 }
-
-void *memmove(void *__dest, const void *__src, size_t len)
-{
-	size_t	block_size;
-	char	*dest = __dest;
-	const char	*src = __src;
-	void	*ret = __dest;
-
-	if( len == 0 || dest == src )
-		return dest;
-	
-	if( (tVAddr)dest > (tVAddr)src + len )
-		return memcpy(dest, src, len);
-	if( (tVAddr)dest + len < (tVAddr)src )
-		return memcpy(dest, src, len);
-	
-	// NOTE: Assumes memcpy works forward
-	if( (tVAddr)dest < (tVAddr)src )
-		return memcpy(dest, src, len);
-
-	if( (tVAddr)dest < (tVAddr)src )
-		block_size = (tVAddr)src - (tVAddr)dest;
-	else
-		block_size = (tVAddr)dest - (tVAddr)src;
-	
-	block_size &= ~0xF;
-	
-	while(len >= block_size)
-	{
-		memcpy(dest, src, block_size);
-		len -= block_size;
-		dest += block_size;
-		src += block_size;
-	}
-	memcpy(dest, src, len);
-	return ret;
-	
-}
-

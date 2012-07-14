@@ -5,6 +5,7 @@
 #define _VFS_INT_H
 
 #include "vfs.h"
+#include <rwlock.h>
 
 // === TYPES ===
 typedef struct sVFS_Mount {
@@ -16,6 +17,9 @@ typedef struct sVFS_Mount {
 	char	*Options;
 	tVFS_Driver	*Filesystem;
 	tVFS_Node	*RootNode;
+	
+	 int	OpenHandleCount;
+	
 	char	StrData[];
 } tVFS_Mount;
 
@@ -42,6 +46,7 @@ typedef struct sVFS_MMapPage {
 } tVFS_MMapPage;
 
 // === GLOBALS ===
+extern tRWLock  	glVFS_MountList;
 extern tVFS_Mount	*gVFS_Mounts;
 
 // === PROTOTYPES ===

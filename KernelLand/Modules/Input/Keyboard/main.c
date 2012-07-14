@@ -29,7 +29,7 @@ extern void	Heap_Stats(void);
 
 // === PROTOTYPES ===
  int	Keyboard_Install(char **Arguments);
-void	Keyboard_Cleanup(void);
+ int	Keyboard_Cleanup(void);
 // - Internal
 tKeymap	*Keyboard_LoadMap(const char *Name);
 void	Keyboard_FreeMap(tKeymap *Keymap);
@@ -68,9 +68,10 @@ int Keyboard_Install(char **Arguments)
 /**
  * \brief Pre-unload cleanup function
  */
-void Keyboard_Cleanup(void)
+int Keyboard_Cleanup(void)
 {
 	// TODO: Do I need this?
+	return 0;
 }
 
 // --- Map Management ---

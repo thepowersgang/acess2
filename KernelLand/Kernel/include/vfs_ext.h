@@ -29,6 +29,8 @@ typedef Uint32	tMount;
 #define	VFS_OPENFLAG_NOLINK	0x40
 //! Create the file if it doesn't exist
 #define VFS_OPENFLAG_CREATE	0x80
+//! Treat as a directory
+#define VFS_OPENFLAG_DIRECTORY	0x100
 //! Open as a user
 #define	VFS_OPENFLAG_USER	0x8000
 /**
@@ -336,6 +338,19 @@ extern char	*VFS_GetTruePath(const char *Path);
  * \return 1 on succes, -1 on error
  */
 extern int	VFS_Mount(const char *Device, const char *MountPoint, const char *Filesystem, const char *Options);
+/**
+ * \brief Unmount a mounted filesystem
+ * \param Mountpoint	Location of the mount
+ * \return 0 on success, errno on error
+ */
+extern int	VFS_Unmount(const char *Mountpoint);
+/**
+ * \brief Attemt to unmount all fileystems
+ * \return Number of unmounted filesytems, -1 if none left to unmount
+ * \note Can return 0 when there are stil volumes mounted if there are open handles
+ */
+extern int	VFS_UnmountAll(void);
+
 /**
  * \brief Create a new directory
  * \param Path	Path to new directory (absolute or relative)

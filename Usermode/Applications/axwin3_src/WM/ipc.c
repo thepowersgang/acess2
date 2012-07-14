@@ -75,30 +75,40 @@ void IPC_Init(void)
 	 int	tmp;
 	// TODO: Check this
 	giNetworkFileHandle = open("/Devices/ip/loop/udp", OPENFLAG_READ);
-	tmp = AXWIN_PORT;	ioctl(giNetworkFileHandle, 4, &tmp);	// TODO: Don't hard-code IOCtl number
+	if( giNetworkFileHandle != -1 )
+	{
+		tmp = AXWIN_PORT;
+		ioctl(giNetworkFileHandle, 4, &tmp);	// TODO: Don't hard-code IOCtl number
+	}
 }
 
 void IPC_FillSelect(int *nfds, fd_set *set)
 {
-	if( giNetworkFileHandle > *nfds )	*nfds = giNetworkFileHandle;
-	FD_SET(giNetworkFileHandle, set);
+	if( giNetworkFileHandle != -1 )
+	{
+		if( giNetworkFileHandle > *nfds )	*nfds = giNetworkFileHandle;
+		FD_SET(giNetworkFileHandle, set);
+	}
 }
 
 void IPC_HandleSelect(fd_set *set)
 {
-	if( FD_ISSET(giNetworkFileHandle, set) )
+	if( giNetworkFileHandle != -1 )
 	{
-		char	staticBuf[STATICBUF_SIZE];
-		 int	readlen, identlen;
-		char	*msg;
-
-		readlen = read(giNetworkFileHandle, staticBuf, sizeof(staticBuf));
-		
-		identlen = 4 + Net_GetAddressSize( ((uint16_t*)staticBuf)[1] );
-		msg = staticBuf + identlen;
-
-		IPC_Handle(&gIPC_Type_Datagram, staticBuf, readlen - identlen, (void*)msg);
-//		_SysDebug("IPC_HandleSelect: UDP handled");
+		if( FD_ISSET(giNetworkFileHandle, set) )
+		{
+			char	staticBuf[STATICBUF_SIZE];
+			 int	readlen, identlen;
+			char	*msg;
+	
+			readlen = read(giNetworkFileHandle, staticBuf, sizeof(staticBuf));
+			
+			identlen = 4 + Net_GetAddressSize( ((uint16_t*)staticBuf)[1] );
+			msg = staticBuf + identlen;
+	
+			IPC_Handle(&gIPC_Type_Datagram, staticBuf, readlen - identlen, (void*)msg);
+//			_SysDebug("IPC_HandleSelect: UDP handled");
+		}
 	}
 
 	while(SysGetMessage(NULL, NULL))

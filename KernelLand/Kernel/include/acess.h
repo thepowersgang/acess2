@@ -442,6 +442,8 @@ extern int	UnHex(Uint8 *Dest, size_t DestSize, const char *SourceString);
  * \}
  */
 
+#include <ctype.h>
+
 /**
  * \brief Get a random number
  * \return Random number
@@ -482,10 +484,12 @@ extern int	Module_LoadFile(const char *Path, const char *ArgStr);
  */
 /**
  * \brief Create a timestamp from a time
+ * \note Days/Months are zero-based (e.g. December is 11, and has a day range of 0-30)
  */
 extern tTime	timestamp(int sec, int mins, int hrs, int day, int month, int year);
 /**
  * \brief Extract the date/time from a timestamp
+ * \note Days/Months are zero-based (e.g. December is 11, and has a day range of 0-30)
  */
 extern void	format_date(tTime TS, int *year, int *month, int *day, int *hrs, int *mins, int *sec, int *ms);
 /**

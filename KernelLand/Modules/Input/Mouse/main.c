@@ -15,7 +15,7 @@
 
 // === PROTOTYPES ===
  int	Mouse_Install(char **Arguments);
-void	Mouse_Cleanup(void);
+ int	Mouse_Cleanup(void);
 // - "User" side
 char	*Mouse_Root_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*Mouse_Root_FindDir(tVFS_Node *Node, const char *Name);
@@ -62,8 +62,9 @@ int Mouse_Install(char **Arguments)
 /**
  * \brief Pre-unload cleanup function
  */
-void Mouse_Cleanup(void)
+int Mouse_Cleanup(void)
 {
+	return 0;
 }
 
 // --- VFS Interface ---
