@@ -50,53 +50,64 @@ tVFS_Node *FAT_int_CreateNode(tVFS_Node *Parent, fat_filetable *Entry)
 	ENTER("pParent pEntry", Parent, Entry);
 	LOG("disk = %p", disk);
 	
-	if( (ret = FAT_int_GetNode(disk, Entry->cluster | (Entry->clusterHi<<16))) ) {
-		LEAVE('p', ret);
-		return ret;
+	if( (ret = FAT_int_GetNode(disk, Entry->cluster | (Entry->clusterHi<<16))) )
+	{
+		if( (ret->Inode >> 32) != 0 )
+		{
+			LEAVE('p', ret);
+			return ret;
+		}
 	}
-
-	memset(&node, 0, sizeof(tVFS_Node));
+	else
+	{
+		ret = &node;
+		memset(ret, 0, sizeof(tVFS_Node));
+	}
 	
 	// Set Other Data
 	// 0-27: Cluster, 32-59: Parent Cluster
-	node.Inode = Entry->cluster | (Entry->clusterHi<<16) | (Parent->Inode << 32);
-	LOG("node.Inode = %llx", node.Inode);
-	node.ImplInt = 0;
+	ret->Inode = Entry->cluster | (Entry->clusterHi<<16) | (Parent->Inode << 32);
+	LOG("node.Inode = %llx", ret->Inode);
+	ret->ImplInt = 0;
 	// Disk Pointer
-	node.ImplPtr = disk;
-	node.Size = Entry->size;
+	ret->ImplPtr = disk;
+	ret->Size = Entry->size;
 	LOG("Entry->size = %i", Entry->size);
 	// root:root
-	node.UID = 0;	node.GID = 0;
-	node.NumACLs = 1;
+	ret->UID = 0;	ret->GID = 0;
+	ret->NumACLs = 1;
 	
-	node.Flags = 0;
-	if(Entry->attrib & ATTR_DIRECTORY)	node.Flags |= VFS_FFLAG_DIRECTORY;
+	ret->Flags = 0;
+	if(Entry->attrib & ATTR_DIRECTORY)
+		ret->Flags |= VFS_FFLAG_DIRECTORY;
 	if(Entry->attrib & ATTR_READONLY) {
-		node.Flags |= VFS_FFLAG_READONLY;
-		node.ACLs = &gVFS_ACL_EveryoneRX;	// R-XR-XR-X
+		ret->Flags |= VFS_FFLAG_READONLY;
+		ret->ACLs = &gVFS_ACL_EveryoneRX;	// R-XR-XR-X
 	}
 	else {
-		node.ACLs = &gVFS_ACL_EveryoneRWX;	// RWXRWXRWX
+		ret->ACLs = &gVFS_ACL_EveryoneRWX;	// RWXRWXRWX
 	}
 	
 	// Create timestamps
-	node.CTime = FAT_int_GetAcessTimestamp(Entry->cdate, Entry->ctime, Entry->ctimems);
-	node.MTime = FAT_int_GetAcessTimestamp(Entry->mdate, Entry->mtime, 0);
-	node.ATime = FAT_int_GetAcessTimestamp(Entry->adate, 0, 0);
+	ret->CTime = FAT_int_GetAcessTimestamp(Entry->cdate, Entry->ctime, Entry->ctimems);
+	ret->MTime = FAT_int_GetAcessTimestamp(Entry->mdate, Entry->mtime, 0);
+	ret->ATime = FAT_int_GetAcessTimestamp(Entry->adate, 0, 0);
 	
 	// Set pointers
-	if(node.Flags & VFS_FFLAG_DIRECTORY) {
+	if(ret->Flags & VFS_FFLAG_DIRECTORY) {
 		//Log_Debug("FAT", "Directory %08x has size 0x%x", node.Inode, node.Size);
-		node.Type = &gFAT_DirType;	
-		node.Size = -1;
+		ret->Type = &gFAT_DirType;	
+		ret->Size = -1;
 	}
 	else {
-		node.Type = &gFAT_FileType;
+		ret->Type = &gFAT_FileType;
 	}
 
-	// TODO: Cache node	
-	ret = FAT_int_CacheNode(disk, &node);
+	// Cache node only if we're not updating a cache
+	if( ret == &node ) {
+		ret = FAT_int_CacheNode(disk, &node);
+	}
+	
 	LEAVE('p', ret);
 	return ret;
 }
@@ -111,9 +122,9 @@ tVFS_Node *FAT_int_CreateIncompleteDirNode(tFAT_VolInfo *Disk, Uint32 Cluster)
 	// - Put a temp node in with a flag that indicates it's incomplete?
 	
 	Mutex_Acquire(&Disk->lNodeCache);
-	tFAT_CachedNode	*cnode;
+	tFAT_CachedNode	*cnode, *prev = NULL;
 
-	for(cnode = Disk->NodeCache; cnode; cnode = cnode->Next)
+	for(cnode = Disk->NodeCache; cnode; prev = cnode, cnode = cnode->Next)
 	{
 		if( (cnode->Node.Inode & 0xFFFFFFFF) == Cluster ) {
 			cnode->Node.ReferenceCount ++;
@@ -123,10 +134,20 @@ tVFS_Node *FAT_int_CreateIncompleteDirNode(tFAT_VolInfo *Disk, Uint32 Cluster)
 	}	
 
 	// Create a temporary node?
-	Log_Warning("FAT", "TODO: Impliment FAT_int_CreateIncompleteDirNode()");
+	cnode = calloc( sizeof(tFAT_CachedNode), 1 );
+	cnode->Node.Inode = Cluster;
+	cnode->Node.ReferenceCount = 1;
+	cnode->Node.ImplPtr = Disk;
+	cnode->Node.Type = &gFAT_DirType;	
+	cnode->Node.Size = -1;
+
+	if( prev )
+		prev->Next = cnode;
+	else
+		Disk->NodeCache = cnode;
 
 	Mutex_Release(&Disk->lNodeCache);
-	return NULL;
+	return &cnode->Node;
 }
 
 tVFS_Node *FAT_int_GetNode(tFAT_VolInfo *Disk, Uint32 Cluster)
@@ -143,7 +164,7 @@ tVFS_Node *FAT_int_GetNode(tFAT_VolInfo *Disk, Uint32 Cluster)
 			Mutex_Release(&Disk->lNodeCache);
 			return &cnode->Node;
 		}
-	}	
+	}
 
 	Mutex_Release(&Disk->lNodeCache);
 	return NULL;
@@ -200,7 +221,8 @@ int FAT_int_DerefNode(tVFS_Node *Node)
 	}
 	if(Node->ReferenceCount == 0 && cnode) {
 		// Already out of the list :)
-		free(cnode->Node.Data);
+		if(cnode->Node.Data)
+			free(cnode->Node.Data);
 		free(cnode);
 		bFreed = 1;
 	}

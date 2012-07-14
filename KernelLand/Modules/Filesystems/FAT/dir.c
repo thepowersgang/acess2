@@ -5,7 +5,7 @@
  * dir.c
  * - Directory access/manipulation code
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include <vfs.h>
 #include "common.h"

@@ -5,7 +5,7 @@
  * fatio.c
  * - FAT Manipulation and Cluster IO
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include <vfs.h>
 #include "common.h"
