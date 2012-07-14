@@ -182,7 +182,8 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 		#endif
 			Mutex_Release(&glHeap);	// Release spinlock
 			#if WARNINGS
-			Log_Warning("Heap", "Size of heap address %p is invalid not aligned (0x%x)", head, head->Size);
+			Log_Warning("Heap", "Size of heap address %p is invalid - not aligned (0x%x) [at paddr 0x%x]",
+				head, head->Size, MM_GetPhysAddr(&head->Size));
 			Heap_Dump();
 			#endif
 			return NULL;
