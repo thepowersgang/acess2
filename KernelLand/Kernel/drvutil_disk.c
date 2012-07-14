@@ -49,6 +49,7 @@ Uint64 DrvUtil_ReadBlock(Uint64 Start, Uint64 Length, void *Buffer,
 	else {
 		num = Length / BlockSize;
 		tailings = Length % BlockSize;
+		leading = 0;
 	}
 	
 	// Read central blocks
@@ -57,6 +58,7 @@ Uint64 DrvUtil_ReadBlock(Uint64 Start, Uint64 Length, void *Buffer,
 		LOG("Reading %i blocks", num);
 		ret = ReadBlocks(block, num, Buffer, Argument);
 		if(ret != num ) {
+			LOG("Incomplete read (%i != %i)", ret, num);
 			LEAVE('X', leading + ret * BlockSize);
 			return leading + ret * BlockSize;
 		}
