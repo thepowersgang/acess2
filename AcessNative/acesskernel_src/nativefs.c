@@ -48,9 +48,9 @@ tVFS_NodeType	gNativeFS_DirNodeType = {
 	.Close = NativeFS_Close
 };
 tVFS_Driver	gNativeFS_Driver = {
-	"nativefs", 0,
-	NativeFS_Mount,	NativeFS_Unmount,
-	NULL,
+	.Name = "nativefs",
+	.InitDevice = NativeFS_Mount,
+	.Unmount = NativeFS_Unmount
 };
 
 // === CODE ===

@@ -201,6 +201,7 @@ restart_parse:
 			*TruePath = malloc( gVFS_RootMount->MountPointLen+1 );
 			strcpy(*TruePath, gVFS_RootMount->MountPoint);
 		}
+		gVFS_RootMount->OpenHandleCount ++;
 		if(MountPoint)	*MountPoint = gVFS_RootMount;
 		LEAVE('p', gVFS_RootMount->RootNode);
 		return gVFS_RootMount->RootNode;

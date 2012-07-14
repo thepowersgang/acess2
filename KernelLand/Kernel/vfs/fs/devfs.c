@@ -20,7 +20,9 @@ tVFS_Node	*DevFS_FindDir(tVFS_Node *Node, const char *Name);
 
 // === GLOBALS ===
 tVFS_Driver	gDevFS_Info = {
-	"devfs", 0, DevFS_InitDevice, DevFS_Unmount, NULL
+	.Name = "devfs",
+	.InitDevice = DevFS_InitDevice,
+	.Unmount = DevFS_Unmount
 	};
 tVFS_NodeType	gDevFS_DirType = {
 	.TypeName = "DevFS-Dir",

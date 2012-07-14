@@ -340,6 +340,15 @@ typedef struct sVFS_Driver
 	Uint	Flags;
 	
 	/**
+	 * \brief Detect if a volume is accessible using this driver
+	 * \return Boolean success (with higher numbers being higher priority)
+	 *
+	 * E.g. FAT would return 1 as it's the lowest common denominator while ext2 might return 2,
+	 * because it can be embedded in a FAT volume (and is a more fully featured filesystem).
+	 */
+	 int	(*Detect)(int FD);
+
+	/**
 	 * \brief Callback to mount a device
 	 */
 	tVFS_Node	*(*InitDevice)(const char *Device, const char **Options);

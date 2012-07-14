@@ -65,10 +65,13 @@ void DiskTool_Cleanup(void)
 int DiskTool_RegisterLVM(const char *Identifier, const char *Path)
 {
 	int fd = DiskTool_int_TranslateOpen(Path, VFS_OPENFLAG_READ|VFS_OPENFLAG_WRITE);
-	if(fd == -1)
+	if(fd == -1) {
+		Log_Notice("DiskTool", "Can't open '%s' for LVM %s", Path, Identifier);
 		return -1;
+	}
 	VFS_Seek(fd, 0, SEEK_END);
 	LVM_AddVolume( &gDiskTool_VolumeType, Identifier, (void*)(tVAddr)fd, 512, VFS_Tell(fd)/512);
+	Log_Debug("DiskTool", "Registered '%s' for LVM %s", Path, Identifier);
 	return 0;
 }
 
@@ -89,7 +92,7 @@ int DiskTool_MountImage(const char *Identifier, const char *Path)
 	// Call mount
 	VFS_MkDir(mountpoint);
 	// TODO: Detect filesystem?
-	return VFS_Mount(tpath, mountpoint, "fat", "");
+	return VFS_Mount(tpath, mountpoint, "", "");
 }
 
 int DiskTool_Copy(const char *Source, const char *Destination)
@@ -145,13 +148,11 @@ int DiskTool_ListDirectory(const char *Directory)
 
 int DiskTool_LVM_Read(void *Handle, Uint64 Block, size_t BlockCount, void *Dest)
 {
-	VFS_ReadAt( (int)(tVAddr)Handle, Block*512, BlockCount*512, Dest);
-	return 0;
+	return VFS_ReadAt( (int)(tVAddr)Handle, Block*512, BlockCount*512, Dest) / 512;
 }
 int DiskTool_LVM_Write(void *Handle, Uint64 Block, size_t BlockCount, const void *Dest)
 {
-	VFS_WriteAt( (int)(tVAddr)Handle, Block*512, BlockCount*512, Dest);
-	return 0;
+	return VFS_WriteAt( (int)(tVAddr)Handle, Block*512, BlockCount*512, Dest) / 512;
 }
 void DiskTool_LVM_Cleanup(void *Handle)
 {

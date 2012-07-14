@@ -142,7 +142,7 @@ int Inode_UncacheNode(int Handle, Uint64 Inode)
 	
 	// Search Cache
 	ent = cache->FirstNode;
-	prev = (tCachedInode*) &cache->FirstNode;	// Special case removal
+	prev = NULL;
 	for( ; ent; prev = ent, ent = ent->Next )
 	{
 		if(ent->Node.Inode < Inode)	continue;
@@ -164,10 +164,13 @@ int Inode_UncacheNode(int Handle, Uint64 Inode)
 	// Check if node needs to be freed
 	if(ent->Node.ReferenceCount == 0)
 	{
-		prev->Next = ent->Next;
+		if( prev )
+			prev->Next = ent->Next;
+		else
+			cache->FirstNode = ent->Next;
 		if(ent->Node.Inode == cache->MaxCached)
 		{
-			if(ent != cache->FirstNode)
+			if(ent != cache->FirstNode && prev)
 				cache->MaxCached = prev->Node.Inode;
 			else
 				cache->MaxCached = 0;

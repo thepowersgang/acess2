@@ -1,7 +1,7 @@
 /* 
  * Acess Micro - VFS Server version 1
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include <vfs.h>
 #include <vfs_int.h>
@@ -15,6 +15,7 @@ extern char	*gsVFS_MountFile;
 #if 0
  int	VFS_Mount(const char *Device, const char *MountPoint, const char *Filesystem, const char *Options);
 #endif
+void	VFS_int_Unmount(tVFS_Mount *Mount);
 void	VFS_UpdateMountFile(void);
 
 // === GLOBALS ===
@@ -45,18 +46,43 @@ int VFS_Mount(const char *Device, const char *MountPoint, const char *Filesystem
 	 int	argLen = strlen(Options);
 	
 	// Get the filesystem
-	fs = VFS_GetFSByName(Filesystem);
-	if(!fs) {
-		Log_Warning("VFS", "VFS_Mount - Unknown FS Type '%s'", Filesystem);
-		return -1;
+	if( Filesystem && Filesystem[0] )
+	{
+		fs = VFS_GetFSByName(Filesystem);
+		if(!fs) {
+			Log_Warning("VFS", "VFS_Mount - Unknown FS Type '%s'", Filesystem);
+			return -ENOENT;
+		}
+	}
+	else
+	{
+		int fd = VFS_Open(Device, VFS_OPENFLAG_READ);
+		if( fd == -1 ) {
+			Log_Warning("VFS", "VFS_Mount - Unable to open '%s' for autodetect", Device);
+			return -ENOENT;
+		}
+		
+		tVFS_Driver	*bestfs = NULL;
+		 int	bestrank, rank;
+		for( fs = gVFS_Drivers; fs; fs = fs->Next )
+		{
+			if(!fs->Detect)	continue ;
+			rank = fs->Detect(fd);
+			if(!rank)	continue ;
+			if(!bestfs || rank > bestrank) {
+				bestfs = fs;
+				bestrank = rank;
+			}
+		}
+		VFS_Close(fd);
+		if( bestfs == NULL ) {
+			Log_Warning("VFS", "VFS_Mount - Filesystem autodetection failed");
+			return -1;
+		}
+		
+		fs = bestfs;
 	}
 	
-	// Create mount information
-	mnt = malloc( sizeof(tVFS_Mount)+deviceLen+1+mountLen+1+argLen+1 );
-	if(!mnt) {
-		return -2;
-	}
-
 	// Validate the mountpoint target
 	// - Only if / is mounted
 	if( gVFS_Mounts )
@@ -75,6 +101,13 @@ int VFS_Mount(const char *Device, const char *MountPoint, const char *Filesystem
 		}
 	}
 	
+	// Create mount information
+	mnt = malloc( sizeof(tVFS_Mount)+deviceLen+1+mountLen+1+argLen+1 );
+	if(!mnt) {
+		parent_mnt->OpenHandleCount --;
+		return -2;
+	}
+
 	// HACK: Forces VFS_ParsePath to fall back on root  
 	if(mountLen == 1 && MountPoint[0] == '/')
 		mnt->MountPointLen = 0;
@@ -149,11 +182,39 @@ int VFS_Mount(const char *Device, const char *MountPoint, const char *Filesystem
 	}
 	RWLock_Release( &glVFS_MountList );
 	
-	Log_Log("VFS", "Mounted '%s' to '%s' ('%s')", Device, MountPoint, Filesystem);
+	Log_Log("VFS", "Mounted '%s' to '%s' ('%s')", Device, MountPoint, fs->Name);
 	
 	VFS_UpdateMountFile();
 	
 	return 0;
+}
+
+void VFS_int_Unmount(tVFS_Mount *Mount)
+{
+	// Decrease the open handle count for the mountpoint filesystem.
+	if( Mount != gVFS_RootMount )
+	{
+		tVFS_Mount	*mpmnt;
+		for( mpmnt = gVFS_Mounts; mpmnt; mpmnt = mpmnt->Next )
+		{
+			if( strncmp(mpmnt->MountPoint, Mount->MountPoint, mpmnt->MountPointLen) != 0 )
+				continue ;
+			if( Mount->MountPoint[ mpmnt->MountPointLen ] != '/' )
+				continue ;
+			break;
+		}
+		if(mpmnt) {
+			mpmnt->OpenHandleCount -= 1;
+		}
+		else {
+			Log_Notice("VFS", "Mountpoint '%s' has no parent", Mount->MountPoint);
+		}
+	}
+
+	if( Mount->Filesystem->Unmount )
+		Mount->Filesystem->Unmount( Mount->RootNode );
+	LOG("%p (%s) unmounted", Mount, Mount->MountPoint);
+	free(Mount);
 }
 
 int VFS_Unmount(const char *Mountpoint)
@@ -180,20 +241,11 @@ int VFS_Unmount(const char *Mountpoint)
 		LOG("Mountpoint not found");
 		return ENOENT;
 	}
+
+	VFS_int_Unmount(mount);
+
+	VFS_UpdateMountFile();
 	
-	Log_Warning("VFS", "TODO: Impliment unmount");
-
-	// Decrease the open handle count for the mountpoint filesystem.
-	tVFS_Mount	*mpmnt;
-	tVFS_Node *mpnode = VFS_ParsePath(mount->MountPoint, NULL, &mpmnt);
-	if(mpnode)
-	{
-		mpmnt->OpenHandleCount -= 2;	// -1 for _ParsePath here, -1 for in _Mount
-	}
-
-	mount->Filesystem->Unmount( mount->RootNode );
-	free(mount);
-
 	return EOK;
 }
 
@@ -224,18 +276,13 @@ int VFS_UnmountAll(void)
 		else
 			gVFS_Mounts = mount->Next;
 		
-		if( mount->Filesystem->Unmount ) {
-			mount->Filesystem->Unmount( mount->RootNode );
-		}
-		else {
-			Log_Error("VFS", "%s (%s) does not have an unmount method, not calling it",
-				mount->MountPoint, mount->Filesystem->Name);
-		}
-		free(mount);
+		VFS_int_Unmount(mount);
 		mount = prev;
 		nUnmounted ++;
 	}
 	RWLock_Release( &glVFS_MountList );
+
+	VFS_UpdateMountFile();
 
 	return nUnmounted;
 }
