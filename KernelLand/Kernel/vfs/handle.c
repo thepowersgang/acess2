@@ -198,6 +198,7 @@ void *VFS_SaveHandles(int NumFDs, int *FDs)
 			continue ;
 		if( h->Node->Type && h->Node->Type->Reference )
 			h->Node->Type->Reference( h->Node );
+		h->Mount->OpenHandleCount ++;
 	}	
 
 	return ret;
@@ -244,6 +245,7 @@ void VFS_RestoreHandles(int NumFDs, void *Handles)
 			continue ;
 		if( h->Node->Type && h->Node->Type->Reference )
 			h->Node->Type->Reference( h->Node );
+		h->Mount->OpenHandleCount ++;
 	}
 }
 
@@ -265,6 +267,7 @@ void VFS_FreeSavedHandles(int NumFDs, void *Handles)
 			continue ;
 		if( h->Node->Type && h->Node->Type->Close )
 			h->Node->Type->Close( h->Node );
+		h->Mount->OpenHandleCount --;
 	}
 	free( Handles );
 }

@@ -339,6 +339,19 @@ extern char	*VFS_GetTruePath(const char *Path);
  */
 extern int	VFS_Mount(const char *Device, const char *MountPoint, const char *Filesystem, const char *Options);
 /**
+ * \brief Unmount a mounted filesystem
+ * \param Mountpoint	Location of the mount
+ * \return 0 on success, errno on error
+ */
+extern int	VFS_Unmount(const char *Mountpoint);
+/**
+ * \brief Attemt to unmount all fileystems
+ * \return Number of unmounted filesytems, -1 if none left to unmount
+ * \note Can return 0 when there are stil volumes mounted if there are open handles
+ */
+extern int	VFS_UnmountAll(void);
+
+/**
  * \brief Create a new directory
  * \param Path	Path to new directory (absolute or relative)
  * \return Boolean success

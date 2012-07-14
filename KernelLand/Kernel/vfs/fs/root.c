@@ -60,7 +60,9 @@ tVFS_Node *Root_InitDevice(const char *Device, const char **Options)
 	
 	// Create Root Node
 	root = &RootFS_Files[0];
-	
+
+	root->Name[0] = '/';
+	root->Name[1] = '\0';
 	root->Node.ImplPtr = root;
 	
 	root->Node.CTime
@@ -82,11 +84,11 @@ int Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
 {
 	tRamFS_File	*parent = Node->ImplPtr;
 	tRamFS_File	*child;
-	tRamFS_File	*prev = (tRamFS_File *) &parent->Data.FirstChild;
+	tRamFS_File	*prev = NULL;
 	
 	ENTER("pNode sName xFlags", Node, Name, Flags);
 	
-	LOG("%i > %i", strlen(Name)+1, sizeof(child->Name));
+	LOG("Sanity check name length - %i > %i", strlen(Name)+1, sizeof(child->Name));
 	if(strlen(Name) + 1 > sizeof(child->Name))
 		LEAVE_RET('i', 0);
 	
@@ -94,6 +96,7 @@ int Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
 	for( child = parent->Data.FirstChild; child; prev = child, child = child->Next )
 	{
 		if(strcmp(child->Name, Name) == 0) {
+			LOG("Duplicate");
 			LEAVE('i', 0);
 			return 0;
 		}
@@ -103,6 +106,7 @@ int Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
 	memset(child, 0, sizeof(tRamFS_File));
 	
 	strcpy(child->Name, Name);
+	LOG("Name = '%s'", child->Name);
 	
 	child->Parent = parent;
 	child->Next = NULL;
@@ -125,7 +129,11 @@ int Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
 		child->Node.Type = &gRootFS_FileType;
 	}
 	
-	prev->Next = child;
+	// Append!
+	if( prev )
+		prev->Next = child;
+	else
+		parent->Data.FirstChild = child;
 	
 	parent->Node.Size ++;
 	
@@ -143,13 +151,12 @@ tVFS_Node *Root_FindDir(tVFS_Node *Node, const char *Name)
 	tRamFS_File	*child = parent->Data.FirstChild;
 	
 	ENTER("pNode sName", Node, Name);
-	//Log("Root_FindDir: (Node=%p, Name='%s')", Node, Name);
 	
-	for(;child;child = child->Next)
+	for( child = parent->Data.FirstChild; child; child = child->Next )
 	{
-		//Log(" Root_FindDir: strcmp('%s', '%s')", child->Node.Name, Name);
 		LOG("child->Name = '%s'", child->Name);
-		if(strcmp(child->Name, Name) == 0) {
+		if(strcmp(child->Name, Name) == 0)
+		{
 			LEAVE('p', &child->Node);
 			return &child->Node;
 		}

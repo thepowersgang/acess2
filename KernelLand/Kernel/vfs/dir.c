@@ -36,6 +36,7 @@ int VFS_MkDir(const char *Path)
  */
 int VFS_MkNod(const char *Path, Uint Flags)
 {
+	tVFS_Mount	*mountpt;
 	char	*absPath, *name;
 	 int	pos = 0, oldpos = 0;
 	 int	next = 0;
@@ -60,9 +61,9 @@ int VFS_MkNod(const char *Path, Uint Flags)
 	
 	// Check for root
 	if(absPath[0] == '\0')
-		parent = VFS_ParsePath("/", NULL, NULL);
+		parent = VFS_ParsePath("/", NULL, &mountpt);
 	else
-		parent = VFS_ParsePath(absPath, NULL, NULL);
+		parent = VFS_ParsePath(absPath, NULL, &mountpt);
 	
 	LOG("parent = %p", parent);
 	
@@ -70,10 +71,11 @@ int VFS_MkNod(const char *Path, Uint Flags)
 		LEAVE('i', -1);
 		return -1;	// Error Check
 	}
-	
+
 	// Permissions Check
 	if( !VFS_CheckACL(parent, VFS_PERM_EXECUTE|VFS_PERM_WRITE) ) {
 		_CloseNode(parent);
+		mountpt->OpenHandleCount --;
 		free(absPath);
 		LEAVE('i', -1);
 		return -1;
@@ -82,7 +84,8 @@ int VFS_MkNod(const char *Path, Uint Flags)
 	LOG("parent = %p", parent);
 	
 	if(!parent->Type || !parent->Type->MkNod) {
-		Warning("VFS_MkNod - Directory has no MkNod method");
+		Log_Warning("VFS", "VFS_MkNod - Directory has no MkNod method");
+		mountpt->OpenHandleCount --;
 		LEAVE('i', -1);
 		return -1;
 	}
@@ -94,6 +97,7 @@ int VFS_MkNod(const char *Path, Uint Flags)
 	free(absPath);
 	
 	// Free Parent
+	mountpt->OpenHandleCount --;
 	_CloseNode(parent);
 	
 	// Error Check

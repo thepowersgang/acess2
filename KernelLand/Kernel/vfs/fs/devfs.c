@@ -14,12 +14,13 @@
 void	DevFS_DelDevice(tDevFS_Driver *Device);
 #endif
 tVFS_Node	*DevFS_InitDevice(const char *Device, const char **Options);
+void	DevFS_Unmount(tVFS_Node *RootNode);
 char	*DevFS_ReadDir(tVFS_Node *Node, int Pos);
 tVFS_Node	*DevFS_FindDir(tVFS_Node *Node, const char *Name);
 
 // === GLOBALS ===
 tVFS_Driver	gDevFS_Info = {
-	"devfs", 0, DevFS_InitDevice, NULL, NULL
+	"devfs", 0, DevFS_InitDevice, DevFS_Unmount, NULL
 	};
 tVFS_NodeType	gDevFS_DirType = {
 	.TypeName = "DevFS-Dir",
@@ -115,6 +116,11 @@ void DevFS_DelDevice(tDevFS_Driver *Device)
 tVFS_Node *DevFS_InitDevice(const char *Device, const char **Options)
 {
 	return &gDevFS_RootNode;
+}
+
+void DevFS_Unmount(tVFS_Node *RootNode)
+{
+	
 }
 
 /**

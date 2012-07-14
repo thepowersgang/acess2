@@ -214,6 +214,7 @@ restart_parse:
 	
 	// Find Mountpoint
 	longestMount = gVFS_RootMount;
+	RWLock_AcquireRead( &glVFS_MountList );
 	for(mnt = gVFS_Mounts; mnt; mnt = mnt->Next)
 	{
 		// Quick Check
@@ -223,6 +224,8 @@ restart_parse:
 		if(mnt->MountPointLen < longestMount->MountPointLen)	continue;
 		// String Compare
 		cmp = strncmp(Path, mnt->MountPoint, mnt->MountPointLen);
+		// Not a match, continue
+		if(cmp != 0)	continue;
 		
 		#if OPEN_MOUNT_ROOT
 		// Fast Break - Request Mount Root
@@ -233,14 +236,16 @@ restart_parse:
 			}
 			if(MountPoint)
 				*MountPoint = mnt;
+			RWLock_Release( &glVFS_MountList );
+			LOG("Mount %p root", mnt);
 			LEAVE('p', mnt->RootNode);
 			return mnt->RootNode;
 		}
 		#endif
-		// Not a match, continue
-		if(cmp != 0)	continue;
 		longestMount = mnt;
 	}
+	longestMount->OpenHandleCount ++;	// Increment assuimg it worked
+	RWLock_Release( &glVFS_MountList );
 	
 	// Save to shorter variable
 	mnt = longestMount;
@@ -333,6 +338,7 @@ restart_parse:
 
 			// EVIL: Goto :)
 			LOG("Symlink -> '%s', restart", Path);
+			mnt->OpenHandleCount --;	// Not in this mountpoint
 			goto restart_parse;
 		}
 		
@@ -402,6 +408,8 @@ restart_parse:
 		*MountPoint = mnt;
 	}
 	
+	// Leave the mointpoint's count increased
+	
 	LEAVE('p', tmpNode);
 	return tmpNode;
 
@@ -412,6 +420,9 @@ _error:
 		free(*TruePath);
 		*TruePath = NULL;
 	}
+	// Open failed, so decrement the open handle count
+	mnt->OpenHandleCount --;
+	
 	LEAVE('n');
 	return NULL;
 }
@@ -571,6 +582,9 @@ int VFS_OpenChild(int FD, const char *Name, Uint Mode)
 		LEAVE_RET('i', -1);
 	}
 
+	// Increment open handle count, no problems with the mount going away as `h` is already open on it
+	h->Mount->OpenHandleCount ++;
+
 	LEAVE_RET('x', VFS_int_CreateHandle(node, h->Mount, Mode));
 }
 
@@ -631,7 +645,9 @@ void VFS_Close(int FD)
 	#endif
 	
 	_CloseNode(h->Node);
-	
+
+	h->Mount->OpenHandleCount --;	
+
 	h->Node = NULL;
 }
 
