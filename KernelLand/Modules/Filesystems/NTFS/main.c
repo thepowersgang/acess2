@@ -23,7 +23,12 @@ void	NTFS_DumpEntry(tNTFS_Disk *Disk, Uint32 Entry);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, 0x0A /*v0.1*/, FS_NTFS, NTFS_Install, NULL);
-tVFS_Driver	gNTFS_FSInfo = {"ntfs", 0, NTFS_InitDevice, NTFS_Unmount, NULL};
+tVFS_Driver	gNTFS_FSInfo = {
+	.Name = "ntfs",
+	.InitDevice = NTFS_InitDevice,
+	.Unmount = NTFS_Unmount,
+	.GetNodeFromINode = NULL
+};
 tVFS_NodeType	gNTFS_DirType = {
 	.TypeName = "NTFS-File",
 	.ReadDir = NTFS_ReadDir,

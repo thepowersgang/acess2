@@ -17,6 +17,7 @@ extern tVFS_NodeType	gExt2_DirType;
  int	Ext2_Install(char **Arguments);
  int	Ext2_Cleanup(void);
 // - Interface Functions
+ int    	Ext2_Detect(int FD);
 tVFS_Node	*Ext2_InitDevice(const char *Device, const char **Options);
 void		Ext2_Unmount(tVFS_Node *Node);
 void		Ext2_CloseFile(tVFS_Node *Node);
@@ -31,7 +32,11 @@ MODULE_DEFINE(0, VERSION, FS_Ext2, Ext2_Install, Ext2_Cleanup);
 tExt2_Disk	gExt2_disks[6];
  int	giExt2_count = 0;
 tVFS_Driver	gExt2_FSInfo = {
-	"ext2", 0, Ext2_InitDevice, Ext2_Unmount, NULL
+	.Name = "ext2",
+	.Detect = Ext2_Detect,
+	.InitDevice = Ext2_InitDevice,
+	.Unmount = Ext2_Unmount,
+	.GetNodeFromINode = NULL
 	};
 
 // === CODE ===
@@ -51,6 +56,31 @@ int Ext2_Install(char **Arguments)
 int Ext2_Cleanup(void)
 {
 	return 0;
+}
+
+/**
+ * Detect if a volume is Ext2 formatted
+ */
+int Ext2_Detect(int FD)
+{
+	tExt2_SuperBlock	sb;
+	size_t	len;
+	
+	len = VFS_ReadAt(FD, 1024, 1024, &sb);
+
+	if( len != 1024 ) {
+		Log_Debug("Ext2", "_Detect: Read failed? (0x%x != 1024)", len);
+		return 0;
+	}
+	
+	switch(sb.s_magic)
+	{
+	case 0xEF53:
+		return 2;
+	default:
+		Log_Debug("Ext2", "_Detect: s_magic = 0x%x", sb.s_magic);
+		return 0;
+	}
 }
 
 /**

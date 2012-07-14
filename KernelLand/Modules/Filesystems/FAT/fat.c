@@ -27,6 +27,7 @@
 // === PROTOTYPES ===
 // --- Driver Core
  int	FAT_Install(char **Arguments);
+ int	FAT_Detect(int FD);
 tVFS_Node	*FAT_InitDevice(const char *device, const char **options);
 void	FAT_Unmount(tVFS_Node *Node);
 // --- Helpers
@@ -46,7 +47,13 @@ void	FAT_CloseFile(tVFS_Node *node);
 MODULE_DEFINE(0, VER2(0,80) /*v0.80*/, VFAT, FAT_Install, NULL, NULL);
 tFAT_VolInfo	gFAT_Disks[8];
  int	giFAT_PartCount = 0;
-tVFS_Driver	gFAT_FSInfo = {"fat", 0, FAT_InitDevice, FAT_Unmount, FAT_GetNodeFromINode, NULL};
+tVFS_Driver	gFAT_FSInfo = {
+	.Name = "fat",
+	.Detect = FAT_Detect,
+	.InitDevice = FAT_InitDevice,
+	.Unmount = FAT_Unmount,
+	.GetNodeFromINode = FAT_GetNodeFromINode
+};
 tVFS_NodeType	gFAT_DirType = {
 	.TypeName = "FAT-Dir",
 	.ReadDir = FAT_ReadDir,
@@ -78,6 +85,22 @@ int FAT_Install(char **Arguments)
 	return MODULE_ERR_OK;
 }
 
+/**
+ * \brief Detect if a file is a FAT device
+ */
+int FAT_Detect(int FD)
+{
+	fat_bootsect bs;
+	
+	if( VFS_ReadAt(FD, 0, 512, &bs) != 512) {
+		return 0;
+	}
+
+	if(bs.bps == 0 || bs.spc == 0)
+		return 0;
+	
+	return 1;
+}
 /**
  * \brief Reads the boot sector of a disk and prepares the structures for it
  */
