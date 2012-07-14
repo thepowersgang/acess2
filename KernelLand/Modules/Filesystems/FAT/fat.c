@@ -105,6 +105,7 @@ tVFS_Node *FAT_InitDevice(const char *Device, const char **Options)
 	
 	if(bs->bps == 0 || bs->spc == 0) {
 		Log_Notice("FAT", "Error in FAT Boot Sector (zero BPS/SPC)");
+		VFS_Close(diskInfo->fileHandle);
 		return NULL;
 	}
 	
@@ -185,6 +186,7 @@ tVFS_Node *FAT_InitDevice(const char *Device, const char **Options)
 		diskInfo->FATCache = (Uint32*)malloc(sizeof(Uint32)*diskInfo->ClusterCount);
 		if(diskInfo->FATCache == NULL) {
 			Log_Warning("FAT", "Heap Exhausted");
+			VFS_Cose(diskInfo->fileHandle);
 			return NULL;
 		}
 		Ofs = bs->resvSectCount*512;

@@ -14,7 +14,7 @@
 
 // === PROTOTYPES ===
  int	MSC_Initialise(char **Arguments);
-void	MSC_Cleanup(void);
+ int	MSC_Cleanup(void);
 void	MSC_DeviceConnected(tUSBInterface *Dev, void *Descriptors, size_t DescriptorsLen);
 void	MSC_DataIn(tUSBInterface *Dev, int EndPt, int Length, void *Data);
 // --- Internal Helpers
@@ -43,8 +43,9 @@ int MSC_Initialise(char **Arguments)
 	return 0;
 }
 
-void MSC_Cleanup(void)
+int MSC_Cleanup(void)
 {
+	return 0;
 }
 
 void MSC_DeviceConnected(tUSBInterface *Dev, void *Descriptors, size_t DescriptorsLen)

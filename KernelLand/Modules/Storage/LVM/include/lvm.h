@@ -16,8 +16,9 @@ struct sLVM_VolType
 {
 	const char *Name;
 
-	int	(*Read)(void *, Uint64, size_t, void *);
-	int	(*Write)(void *, Uint64, size_t, const void *);
+	 int	(*Read)(void *, Uint64, size_t, void *);
+	 int	(*Write)(void *, Uint64, size_t, const void *);
+	void	(*Cleanup)(void *);
 };
 
 

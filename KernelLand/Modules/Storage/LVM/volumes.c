@@ -52,6 +52,7 @@ int LVM_AddVolume(const tLVM_VolType *Type, const char *Name, void *Ptr, size_t 
 	real_vol->Next = NULL;
 	real_vol->Type = Type;
 	real_vol->Ptr = Ptr;
+	real_vol->BlockSize = BlockSize;
 	real_vol->BlockCount = BlockCount;
 	real_vol->nSubVolumes = dummy_vol.nSubVolumes;
 	real_vol->SubVolumes = (void*)( real_vol->Name + strlen(Name) + 1 );

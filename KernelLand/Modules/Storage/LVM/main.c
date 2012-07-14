@@ -5,7 +5,7 @@
  * lvm.h
  * - LVM Core definitions
  */
-#define DEBUG	0
+#define DEBUG	1
 #define VERSION	VER2(0,1)
 #include "lvm_int.h"
 #include <fs_devfs.h>
@@ -15,7 +15,7 @@
 // === PROTOTYPES ===
 // ---
  int	LVM_Initialise(char **Arguments);
-void	LVM_Cleanup(void);
+ int	LVM_Cleanup(void);
 // ---
 char	*LVM_Root_ReadDir(tVFS_Node *Node, int ID);
 tVFS_Node	*LVM_Root_FindDir(tVFS_Node *Node, const char *Name);
@@ -60,9 +60,58 @@ int LVM_Initialise(char **Arguments)
 	return 0;
 }
 
-void LVM_Cleanup(void)
+int LVM_Cleanup(void)
 {
+	// Attempt to destroy all volumes
+	tLVM_Vol	*vol, *prev = NULL, *next;
 	
+	// TODO: Locks?
+	for( vol = gpLVM_FirstVolume; vol; prev = vol, vol = next )
+	{
+		next = vol->Next;
+		 int	nFree = 0;
+		
+		for( int i = 0; i < vol->nSubVolumes; i ++ )
+		{
+			tLVM_SubVolume	*sv;
+			sv = vol->SubVolumes[i];
+			if( sv == NULL ) {
+				nFree ++;
+				continue;
+			}
+
+			Mutex_Acquire(&sv->Node.Lock);
+			if(sv->Node.ReferenceCount == 0) {
+				nFree ++;
+				vol->SubVolumes[i] = NULL;
+			}
+			Mutex_Release(&sv->Node.Lock);
+			
+			Mutex_Acquire(&sv->Node.Lock);
+			LOG("Removed subvolume %s:%s", vol->Name, sv->Name);
+			free(sv);
+		}
+		
+		if( nFree != vol->nSubVolumes )
+			continue ;
+
+		if(prev)
+			prev->Next = next;
+		else
+			gpLVM_FirstVolume = next;
+
+		Mutex_Acquire(&vol->DirNode.Lock);
+		Mutex_Acquire(&vol->VolNode.Lock);
+		if( vol->Type->Cleanup )
+			vol->Type->Cleanup( vol->Ptr );
+		LOG("Removed volume %s", vol->Name);
+		free(vol);
+	}
+
+	if( gpLVM_FirstVolume )	
+		return EBUSY;
+	
+	return EOK;
 }
 
 // --------------------------------------------------------------------
