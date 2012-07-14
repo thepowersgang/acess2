@@ -10,6 +10,7 @@
 #include <drv_pci.h>
 #include <drv_pci_int.h>
 
+#define USE_PORT_BITMAP	0
 #define	LIST_DEVICES	1
 
 // === STRUCTURES ===
@@ -63,7 +64,9 @@ tDevFS_Driver	gPCI_DriverStruct = {
 	.Type = &gPCI_RootNodeType
 	}
 };
+#if USE_PORT_BITMAP
 Uint32	*gaPCI_PortBitmap = NULL;
+#endif
 Uint32	gaPCI_BusBitmap[256/32];
  
 // === CODE ===
@@ -73,9 +76,10 @@ Uint32	gaPCI_BusBitmap[256/32];
  */
 int PCI_Install(char **Arguments)
 {
-	 int	i, ret, bus;
+	 int	ret, bus;
 	void	*tmpPtr;
 	
+	#if USE_PORT_BITMAP
 	// Build Portmap
 	gaPCI_PortBitmap = malloc( 1 << 13 );
 	if( !gaPCI_PortBitmap ) {
@@ -83,16 +87,18 @@ int PCI_Install(char **Arguments)
 		return MODULE_ERR_MALLOC;
 	}
 	memset( gaPCI_PortBitmap, 0, 1 << 13 );
+	 int	i;
 	for( i = 0; i < MAX_RESERVED_PORT / 32; i ++ )
 		gaPCI_PortBitmap[i] = -1;
 	for( i = 0; i < MAX_RESERVED_PORT % 32; i ++ )
 		gaPCI_PortBitmap[MAX_RESERVED_PORT / 32] = 1 << i;
-	
+	#endif	
+
 	// Scan Bus (Bus 0, Don't fill gPCI_Devices)
 	for( bus = 0; bus < giPCI_BusCount; bus ++ )
 	{
 		ret = PCI_ScanBus(bus, 0);
-		if(ret != MODULE_ERR_OK)	return i;
+		if(ret != MODULE_ERR_OK)	return ret;
 	}
 		
 	if(giPCI_DeviceCount == 0) {
