@@ -13,7 +13,7 @@ int main(int argc, char *argv[])
 	// Parse arguments
 	for( int i = 1; i < argc; i ++ )
 	{
-		if( strcmp("--image", argv[i]) == 0 || strcmp("-i", argv[i]) == 0 ) {
+		if( strcmp("mount", argv[i]) == 0 || strcmp("-i", argv[i]) == 0 ) {
 			// Mount an image
 			if( argc - i < 3 ) {
 				fprintf(stderr, "--image/-i takes 2 arguments (ident and path)\n");
@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
 
 			if( DiskTool_MountImage(argv[i+1], argv[i+2]) ) {
 				fprintf(stderr, "Unable to mount '%s' as '%s'\n", argv[i+2], argv[i+1]);
-				exit(-1);
+				break;
 			}
 
 			i += 2;
@@ -38,7 +38,7 @@ int main(int argc, char *argv[])
 
 			if( DiskTool_RegisterLVM(argv[i+1], argv[i+2]) ) {
 				fprintf(stderr, "Unable to register '%s' as LVM '%s'\n", argv[i+2], argv[i+1]);
-				exit(-1);
+				break;
 			}
 			
 			i += 2;
@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
 		if( strcmp("ls", argv[i]) == 0 ) {
 			if( argc - i < 2 ) {
 				fprintf(stderr, "ls 1 argument (path)\n");
-				exit(-1);
+				break;
 			}
 
 			DiskTool_ListDirectory(argv[i+1]);
@@ -60,7 +60,7 @@ int main(int argc, char *argv[])
 			
 			if( argc - i < 3 ) {
 				fprintf(stderr, "cp takes 2 arguments (source and destination)\n");
-				exit(-1);
+				break;
 			}
 
 			DiskTool_Copy(argv[i+1], argv[i+2]);			
@@ -70,8 +70,7 @@ int main(int argc, char *argv[])
 		}
 	}
 	
-	// Unmount all
-	// Clear LVM
+	DiskTool_Cleanup();
 	
 	return 0;
 }

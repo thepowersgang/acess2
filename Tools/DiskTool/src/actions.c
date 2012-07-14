@@ -12,18 +12,22 @@
 
 // === IMPORTS ===
 extern int	NativeFS_Install(char **Arguments);
+extern int	LVM_Cleanup(void);
 
 // === PROTOTYPES ===
 void	DiskTool_Initialise(void)	__attribute__((constructor(101)));
+void	DiskTool_Cleanup(void);
  int	DiskTool_int_TranslateOpen(const char *File, int Mode);
- int	DiskTook_LVM_Read(void *Handle, Uint64 Block, size_t BlockCount, void *Dest);
- int	DiskTook_LVM_Write(void *Handle, Uint64 Block, size_t BlockCount, const void *Dest);
+ int	DiskTool_LVM_Read(void *Handle, Uint64 Block, size_t BlockCount, void *Dest);
+ int	DiskTool_LVM_Write(void *Handle, Uint64 Block, size_t BlockCount, const void *Dest);
+void	DiskTool_LVM_Cleanup(void *Handle);
 
 // === GLOBALS ===
 tLVM_VolType	gDiskTool_VolumeType = {
 	.Name = "DiskTool",
-	.Read  = DiskTook_LVM_Read,
-	.Write = DiskTook_LVM_Write
+	.Read  = DiskTool_LVM_Read,
+	.Write = DiskTool_LVM_Write,
+	.Cleanup = DiskTool_LVM_Cleanup
 };
 
 // === CODE ===
@@ -33,6 +37,29 @@ void DiskTool_Initialise(void)
 	NativeFS_Install(NULL);
 	VFS_MkDir("/Native");
 	VFS_Mount("/", "/Native", "nativefs", "");
+}
+
+void DiskTool_Cleanup(void)
+{
+	 int	vfs_rv, lvm_rv;
+	 int	nNochangeLoop = 0;
+	// Unmount all
+	do {
+		lvm_rv = LVM_Cleanup();
+		vfs_rv = VFS_UnmountAll();
+		Log_Debug("DiskTool", "Unmounted %i volumes", vfs_rv);
+		if( vfs_rv == 0 && lvm_rv == 0 ) {
+			nNochangeLoop ++;
+			if(nNochangeLoop == 2) {
+				Log_Error("DiskTool", "Possible handle leak");
+				break;
+			}
+		}
+		else {
+			nNochangeLoop = 0;
+		}
+	}
+	while( vfs_rv >= 0 || lvm_rv != 0 );
 }
 
 int DiskTool_RegisterLVM(const char *Identifier, const char *Path)
@@ -60,6 +87,7 @@ int DiskTool_MountImage(const char *Identifier, const char *Path)
 	DiskTool_int_TranslatePath(tpath, Path);
 	
 	// Call mount
+	VFS_MkDir(mountpoint);
 	// TODO: Detect filesystem?
 	return VFS_Mount(tpath, mountpoint, "fat", "");
 }
@@ -115,15 +143,19 @@ int DiskTool_ListDirectory(const char *Directory)
 	return 0;
 }
 
-int DiskTook_LVM_Read(void *Handle, Uint64 Block, size_t BlockCount, void *Dest)
+int DiskTool_LVM_Read(void *Handle, Uint64 Block, size_t BlockCount, void *Dest)
 {
 	VFS_ReadAt( (int)(tVAddr)Handle, Block*512, BlockCount*512, Dest);
 	return 0;
 }
-int DiskTook_LVM_Write(void *Handle, Uint64 Block, size_t BlockCount, const void *Dest)
+int DiskTool_LVM_Write(void *Handle, Uint64 Block, size_t BlockCount, const void *Dest)
 {
 	VFS_WriteAt( (int)(tVAddr)Handle, Block*512, BlockCount*512, Dest);
 	return 0;
+}
+void DiskTool_LVM_Cleanup(void *Handle)
+{
+	VFS_Close( (int)(tVAddr)Handle );
 }
 
 // --- Internal helpers ---
