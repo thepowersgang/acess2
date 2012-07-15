@@ -55,6 +55,7 @@ ifneq ($(BUILDTYPE),static)
 	@gzip -c $(BIN) > $(BIN).gz
 	$(xCP) $(BIN).gz $(DISTROOT)/$(ARCH)/Modules/$(NAME).kmd.gz
 else
+	@true
 endif
 
 
