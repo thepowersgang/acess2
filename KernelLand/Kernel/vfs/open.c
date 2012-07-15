@@ -283,9 +283,16 @@ restart_parse:
 		}
 		
 		// Check if the node has a FindDir method
+		if( !curNode->Type )
+		{
+			LOG("Finddir failure on '%s' - No type", Path);
+			Log_Error("VFS", "Node at '%s' has no type (mount %s:%s)",
+				Path, mnt->Filesystem->Name, mnt->MountPoint);
+			goto _error;
+		}
 		if( !curNode->Type->FindDir )
 		{
-			LOG("Finddir failure on '%s'", Path);
+			LOG("Finddir failure on '%s' - No FindDir method in %s", Path, curNode->Type->Name);
 			goto _error;
 		}
 		LOG("FindDir{=%p}(%p, '%s')", curNode->Type->FindDir, curNode, pathEle);
@@ -647,7 +654,8 @@ void VFS_Close(int FD)
 	
 	_CloseNode(h->Node);
 
-	h->Mount->OpenHandleCount --;	
+	if( h->Mount )
+		h->Mount->OpenHandleCount --;	
 
 	h->Node = NULL;
 }

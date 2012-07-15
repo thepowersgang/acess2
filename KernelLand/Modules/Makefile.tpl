@@ -51,8 +51,9 @@ clean:
 
 install: $(BIN)
 ifneq ($(BUILDTYPE),static)
-	@$(xMKDIR) $(DISTROOT)/Modules/$(ARCH); true
-	$(xCP) $(BIN) $(DISTROOT)/Modules/$(ARCH)/$(NAME).kmd
+	@$(xMKDIR) $(DISTROOT)/$(ARCH)/Modules; true
+	@gzip -c $(BIN) > $(BIN).gz
+	$(xCP) $(BIN).gz $(DISTROOT)/$(ARCH)/Modules/$(NAME).kmd.gz
 else
 endif
 
