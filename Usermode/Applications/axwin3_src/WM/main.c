@@ -30,6 +30,7 @@ const char	*gsMouseDevice = NULL;
  int	giScreenHeight = 480;
 
  int	giTerminalFD = -1;
+ int	giTerminalFD_Input = 0;
  int	giMouseFD = -1;
 
 #define __INSTALL_ROOT	"/Acess/Apps/AxWin/3.0"
