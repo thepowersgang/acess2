@@ -106,7 +106,7 @@ $(BIN): $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile ../../BuildConf/$(ARCH)/
 	@echo BUILD_NUM = $$(( $(BUILD_NUM) + 1 )) > Makefile.BuildNum.$(ARCH)
 	$(POSTBUILD)
 	@cp $(BIN) $(BIN)_
-	@$(STRIP) $(BIN)_
+	@-$(STRIP) $(BIN)_
 	@gzip -c $(BIN)_ > $(GZBIN)
 	@$(RM) $(BIN)_
 

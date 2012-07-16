@@ -24,8 +24,8 @@ const struct sVGA_Timings
 	 int	HFP, HSync, HDisplay, HBP;
 	 int	VFP, VSync, VDisplay, VBP;
 } csaTimings[] = {
-	{40, 128, 800, 88,    1, 4, 600, 23},	// SVGA @ 60Hz
-	{24, 136, 1024, 160,  3, 6, 768, 29},	// XGA @ 60Hz
+	{40, 128,  800,  88,  1, 4,  600, 23},	// SVGA @ 60Hz
+	{24, 136, 1024, 160,  3, 6,  768, 29},	// XGA @ 60Hz
 	{38, 112, 1280, 248,  1, 3, 1024, 38}	// 1280x1024 @ 60Hz
 };
 const Uint16	caVIAVideo_CardIDs[][2] = {
