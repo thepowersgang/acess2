@@ -77,7 +77,15 @@ typedef struct sVFS_NodeType	tVFS_NodeType;
  * is unmapped. Nice for read-only files and memory-only files (or 
  * pseudo-readonly filesystems)
  */
-#define VFS_FFLAG_NOWRITEBACK
+#define VFS_FFLAG_NOWRITEBACK	0x1000
+
+/**
+ * \brief "Dirty Metadata" Flag
+ *
+ * Indicates that the node's metadata has been altered since the flag was last
+ * cleared. Tells the driver that it should update the inode at the next flush.
+ */
+#define VFS_FFLAG_DIRTY 	0x8000
 /**
  * \}
  */
