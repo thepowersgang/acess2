@@ -15,6 +15,9 @@
 #include <wm.h>
 #include <string.h>
 
+// === IMPORTS ===
+extern int	giTerminalFD_Input;
+
 // === PROTOTYPES ===
 void	Video_Setup(void);
 void	Video_SetCursorPos(short X, short Y);
@@ -43,6 +46,7 @@ void Video_Setup(void)
 	}
 	#else
 	giTerminalFD = 1;
+	giTerminalFD_Input = 0;
 	// Check that the console is a VT
 	// - ioctl(..., 0, NULL) returns the type, which should be 2
 	if( ioctl(1, 0, NULL) != 2 )

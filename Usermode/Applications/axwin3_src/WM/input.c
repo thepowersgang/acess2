@@ -21,7 +21,7 @@ typedef struct
 // === IMPORTS ===
 extern void	Video_SetCursorPos(short X, short Y);
 const char	*gsMouseDevice;
-extern int	giTerminalFD;
+extern int	giTerminalFD_Input;
 extern int	giScreenWidth;
 extern int	giScreenHeight;
 
@@ -57,24 +57,25 @@ int Input_Init(void)
 
 void Input_FillSelect(int *nfds, fd_set *set)
 {
-	if(*nfds < giTerminalFD)	*nfds = giTerminalFD;
+	if(*nfds < giTerminalFD_Input)	*nfds = giTerminalFD_Input;
 	if(*nfds < giMouseFD)	*nfds = giMouseFD;
-	FD_SET(giTerminalFD, set);
+	FD_SET(giTerminalFD_Input, set);
 	FD_SET(giMouseFD, set);
 }
 
 void Input_HandleSelect(fd_set *set)
 {
-	if(FD_ISSET(giTerminalFD, set))
+	if(FD_ISSET(giTerminalFD_Input, set))
 	{
 		uint32_t	codepoint;
 		static uint32_t	scancode;
 		#define KEY_CODEPOINT_MASK	0x3FFFFFFF
 		
-		if( read(giTerminalFD, &codepoint, sizeof(codepoint)) != sizeof(codepoint) )
+		size_t readlen = read(giTerminalFD_Input, &codepoint, sizeof(codepoint));
+		if( readlen != sizeof(codepoint) )
 		{
 			// oops, error
-			_SysDebug("Terminal read failed?");
+			_SysDebug("Terminal read failed? (%i != %i)", readlen, sizeof(codepoint));
 		}
 	
 //		_SysDebug("Keypress 0x%x", codepoint);

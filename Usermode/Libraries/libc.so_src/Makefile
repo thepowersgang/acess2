@@ -18,9 +18,3 @@ BIN = libc.so
 
 include ../Makefile.tpl
 
-#all: $(OUTPUTDIR)Libs/crt0.o
-
-# C Runtime 0
-#$(OUTPUTDIR)Libs/crt0.o: crt0.asm
-#	@echo --- $(AS) -o $@
-#	@$(AS) $(ASFLAGS) -o $@ $<

@@ -6,6 +6,7 @@
  */
 #define DEBUG	0
 #include <acess.h>
+#include <hal_proc.h>
 
 // === IMPORTS ===
 extern void	Arch_LoadBootModules(void);
@@ -44,7 +45,12 @@ void System_Init(char *CommandLine)
 	
 	// - Execute the Config Script
 	Log_Log("Config", "Spawning init '%s'", gsInitBinary);
-	Proc_Spawn(gsInitBinary);
+	if(Proc_Clone(CLONE_VM|CLONE_NOUSER) == 0)
+	{
+		const char	*args[] = {gsInitBinary, 0};
+		Proc_Execve(gsInitBinary, args, &args[1], 0);
+		Log_KernelPanic("System", "Unable to spawn init '%s'", gsInitBinary);
+	}
 	
 	// Set the debug to be echoed to the terminal
 	Log_Log("Config", "Kernel now echoes to VT7 (Ctrl-Alt-F8)");

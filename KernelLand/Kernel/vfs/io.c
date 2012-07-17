@@ -20,12 +20,24 @@ Uint64 VFS_Read(int FD, Uint64 Length, void *Buffer)
 	ENTER("iFD XLength pBuffer", FD, Length, Buffer);
 	
 	h = VFS_GetHandle(FD);
-	if(!h)	LEAVE_RET('i', -1);
-	
-	if( !(h->Mode & VFS_OPENFLAG_READ) || h->Node->Flags & VFS_FFLAG_DIRECTORY )
+	if(!h) {
+		LOG("Bad Handle");
 		LEAVE_RET('i', -1);
+	}
+	
+	if( !(h->Mode & VFS_OPENFLAG_READ) ) {
+		LOG("Bad mode");
+		LEAVE_RET('i', -1);
+	}
+	if( (h->Node->Flags & VFS_FFLAG_DIRECTORY) ) {
+		LOG("Reading directory");
+		LEAVE_RET('i', -1);
+	}
 
-	if(!h->Node->Type || !h->Node->Type->Read)	LEAVE_RET('i', 0);
+	if(!h->Node->Type || !h->Node->Type->Read) {
+		LOG("No read method");
+		LEAVE_RET('i', -1);
+	}
 	
 	ret = h->Node->Type->Read(h->Node, h->Position, Length, Buffer);
 	if(ret == -1)	LEAVE_RET('i', -1);

@@ -61,18 +61,18 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 		LOG("Device Descriptor = {");
 		LOG(" .Length = %i", desc.Length);
 		LOG(" .Type = %i", desc.Type);
-		LOG(" .USBVersion = 0x%04x", desc.USBVersion);
+		LOG(" .USBVersion = 0x%04x", LittleEndian16(desc.USBVersion));
 		LOG(" .DeviceClass = 0x%02x", desc.DeviceClass);
 		LOG(" .DeviceSubClass = 0x%02x", desc.DeviceSubClass);
 		LOG(" .DeviceProtocol = 0x%02x", desc.DeviceProtocol);
 		LOG(" .MaxPacketSize = 0x%02x", desc.MaxPacketSize);
-		LOG(" .VendorID = 0x%04x", desc.VendorID);
-		LOG(" .ProductID = 0x%04x", desc.ProductID);
-		LOG(" .DeviceID = 0x%04x", desc.DeviceID);
+		LOG(" .VendorID = 0x%04x",  LittleEndian16(desc.VendorID));
+		LOG(" .ProductID = 0x%04x", LittleEndian16(desc.ProductID));
+		LOG(" .DeviceID = 0x%04x",  LittleEndian16(desc.DeviceID));
 		LOG(" .ManufacturerStr = Str %i", desc.ManufacturerStr);
 		LOG(" .ProductStr = Str %i", desc.ProductStr);
 		LOG(" .SerialNumberStr = Str %i", desc.SerialNumberStr);
-		LOG(" .NumConfigurations = %i", desc.SerialNumberStr);
+		LOG(" .NumConfigurations = %i", desc.NumConfigurations);
 		LOG("}");
 	
 		#if DEBUG	

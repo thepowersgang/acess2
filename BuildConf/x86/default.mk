@@ -13,3 +13,5 @@ MODULES += USB/Core USB/UHCI
 #USB/OHCI
 MODULES += USB/HID USB/MSC
 #MODULES += Interfaces/UDI
+
+DYNMODS += Filesystems/InitRD

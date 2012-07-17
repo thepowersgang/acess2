@@ -86,10 +86,6 @@ clean:
 # Creates a stripped and compressed copy of the kernel
 # and installs it to the target
 install: $(BIN) 
-	@cp $(BIN) $(BIN)_
-	@$(STRIP) $(BIN)_
-	@gzip -c $(BIN)_ > $(GZBIN)
-	@$(RM) $(BIN)_
 	$(xCP) $(GZBIN) $(DISTROOT)
 
 # Compile API documentation
@@ -109,6 +105,10 @@ $(BIN): $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile ../../BuildConf/$(ARCH)/
 	@wc -l $(SRCFILES) include/*.h > LineCounts.$(ARCH).txt
 	@echo BUILD_NUM = $$(( $(BUILD_NUM) + 1 )) > Makefile.BuildNum.$(ARCH)
 	$(POSTBUILD)
+	@cp $(BIN) $(BIN)_
+	@$(STRIP) $(BIN)_
+	@gzip -c $(BIN)_ > $(GZBIN)
+	@$(RM) $(BIN)_
 
 # Assembly Sources
 $(OBJDIR)%.ao$(OBJSUFFIX): %.$(AS_SUFFIX) Makefile

@@ -25,7 +25,10 @@ void	InitRD_DumpDir(tVFS_Node *Node, int Indent);
 // === GLOBALS ===
 MODULE_DEFINE(0, 0x0A, FS_InitRD, InitRD_Install, NULL);
 tVFS_Driver	gInitRD_FSInfo = {
-	"initrd", 0, InitRD_InitDevice, InitRD_Unmount, InitRD_GetNodeFromINode
+	.Name = "initrd",
+	.InitDevice = InitRD_InitDevice,
+	.Unmount = InitRD_Unmount,
+	.GetNodeFromINode = InitRD_GetNodeFromINode
 	};
 tVFS_NodeType	gInitRD_DirType = {
 	.ReadDir = InitRD_ReadDir,
