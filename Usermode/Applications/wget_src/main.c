@@ -84,6 +84,12 @@ int main(int argc, char *argv[])
 			continue ;
 		}
 
+		if( proto != PROTO_HTTP ) {
+			fprintf(stderr, "TODO: Support protocols other than HTTP\n");
+			free(uri);
+			continue ;
+		}
+
 		rv = getaddrinfo(uri->Host, "http", NULL, &addrinfo);
 		if( rv != 0 ) {
 			fprintf(stderr, "Unable to resolve %s: %s\n", uri->Host, gai_strerror(rv));
