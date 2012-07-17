@@ -172,34 +172,32 @@ tVFS_Node *Ext2_FindDir(tVFS_Node *Node, const char *Filename)
  */
 int Ext2_MkNod(tVFS_Node *Parent, const char *Name, Uint Flags)
 {
-	#if 0
-	tVFS_Node	*child;
-	Uint64	inodeNum;
-	tExt2_Inode	inode;
-	inodeNum = Ext2_int_AllocateInode(Parent->ImplPtr, Parent->Inode);
+	ENTER("pParent sName xFlags", Parent, Name, Flags);
 	
-	memset(&inode, 0, sizeof(tExt2_Inode));
-	
-	// File type
-	inode.i_mode = 0664;
-	if( Flags & VFS_FFLAG_READONLY )
-		inode.i_mode &= ~0222;
-	if( Flags & VFS_FFLAG_SYMLINK )
-		inode.i_mode |= EXT2_S_IFLNK;
-	else if( Flags & VFS_FFLAG_DIRECTORY )
-		inode.i_mode |= EXT2_S_IFDIR | 0111;
-	
-	inode.i_uid = Threads_GetUID();
-	inode.i_gid = Threads_GetGID();
-	inode.i_ctime =
-		inode.i_mtime =
-		inode.i_atime = now() / 1000;
-	
-	child = Ext2_int_CreateNode(Parent->ImplPtr, inodeNum);
-	return Ext2_Link(Parent, child, Name);
-	#else
-	return 1;
-	#endif
+	Uint64 inodeNum = Ext2_int_AllocateInode(Parent->ImplPtr, Parent->Inode);
+	if( inodeNum == 0 ) {
+		return -1;
+	}
+	tVFS_Node *child = Ext2_int_CreateNode(Parent->ImplPtr, inodeNum);
+	if( !child ) {
+		Ext2_int_DereferenceInode(Parent->ImplPtr, inodeNum);
+		return -1;
+	}
+
+	child->Flags = Flags & (VFS_FFLAG_DIRECTORY|VFS_FFLAG_SYMLINK|VFS_FFLAG_READONLY);
+	child->UID = Threads_GetUID();
+	child->GID = Threads_GetGID();
+	child->CTime =
+		child->MTime =
+		child->ATime =
+		now();
+	child->ImplInt = 0;	// ImplInt is the link count
+	// TODO: Set up ACLs
+
+	int rv = Ext2_Link(Parent, Name, child);
+	child->Type->Close(child);
+	LEAVE('i', rv);
+	return rv;
 }
 
 /**

@@ -32,6 +32,8 @@ typedef struct {
 extern void	Ext2_CloseFile(tVFS_Node *Node);
 extern Uint64	Ext2_int_GetBlockAddr(tExt2_Disk *Disk, Uint32 *Blocks, int BlockNum);
 extern void	Ext2_int_UpdateSuperblock(tExt2_Disk *Disk);
+extern Uint32	Ext2_int_AllocateInode(tExt2_Disk *Disk, Uint32 Parent);
+extern void	Ext2_int_DereferenceInode(tExt2_Disk *Disk, Uint32 Inode);
 extern int	Ext2_int_ReadInode(tExt2_Disk *Disk, Uint32 InodeId, tExt2_Inode *Inode);
 extern int	Ext2_int_WriteInode(tExt2_Disk *Disk, Uint32 InodeId, tExt2_Inode *Inode);
 // --- Dir ---

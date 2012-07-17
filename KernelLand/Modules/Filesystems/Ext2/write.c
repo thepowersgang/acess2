@@ -119,7 +119,12 @@ addBlocks:
 	}
 	base = block * disk->BlockSize;
 	VFS_WriteAt(disk->FD, base, retLen, Buffer);
+	
+	// TODO: When should the size update be committed?
 	inode.i_size += retLen;
+	Node->Size += retLen;
+	Node->Flags |= VFS_FFLAG_DIRTY;
+	
 	retLen = 0;
 
 ret:	// Makes sure the changes to the inode are committed
