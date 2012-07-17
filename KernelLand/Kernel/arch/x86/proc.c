@@ -863,6 +863,10 @@ void Proc_DumpThreadCPUState(tThread *Thread)
 		__asm__ __volatile__ ("mov %%ebp, %0" : "=r" (stack));
 		while( maxBacktraceDistance -- )
 		{
+			if( !CheckMem(stack, 8) ) {
+				regs = NULL;
+				break;
+			}
 			// [ebp] = oldEbp
 			// [ebp+4] = retaddr
 			

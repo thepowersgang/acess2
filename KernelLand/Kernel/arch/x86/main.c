@@ -48,8 +48,6 @@ int kmain(Uint MbMagic, void *MbInfoPtr)
 	LogF("Acess2 x86-"PLATFORM" v"EXPAND_STR(KERNEL_VERSION)"\r\n");
 	LogF(" Build %i, Git Hash %s\r\n", BUILD_NUM, gsGitHash);
 	
-	Log("MbMagic = %08x, MbInfoPtr = %p", MbMagic, MbInfoPtr);
-	
 	// Set up non-boot info dependent stuff
 	Desctab_Install();	// Set up GDT and IDT
 	MM_PreinitVirtual();	// Initialise virtual mappings
@@ -121,6 +119,7 @@ int kmain(Uint MbMagic, void *MbInfoPtr)
 		}
 		else
 			gaArch_BootModules[i].ArgString = (char *)mods[i].String + KERNEL_BASE;
+		Log_Log("Arch", " - %s", gaArch_BootModules[i].ArgString);
 	}
 	
 	// Pass on to Independent Loader

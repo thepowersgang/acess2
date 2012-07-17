@@ -118,7 +118,7 @@ void MM_Install(tMBoot_Info *MBoot)
 	gaPageReferences = (void*)MM_REFCOUNT_BASE;
 
 	Log_Log("PMem", "Physical memory set up (%lli pages of ~%lli MiB used)",
-		giPhysAlloc, (giTotalMemorySize*4)/1024
+		giPhysAlloc, (giTotalMemorySize*PAGE_SIZE)/(1024*1024)
 		);
 }
 

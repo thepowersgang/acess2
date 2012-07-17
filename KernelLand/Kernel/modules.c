@@ -8,6 +8,7 @@
 
 #define	USE_EDI	0
 #define	USE_UDI	0
+#define MODULE_FLAG_LOADERROR	0x1
 
 // === PROTOTYPES ===
  int	Module_int_Initialise(tModule *Module, const char *ArgString);
@@ -80,6 +81,15 @@ int Module_int_Initialise(tModule *Module, const char *ArgString)
 			"Module %p (%s) is for another architecture (%i)",
 			Module, Module->Name, Module->Arch
 			);
+		LEAVE('i', MODULE_ERR_BADMODULE);
+		return MODULE_ERR_BADMODULE;
+	}
+
+	LOG("Module->Flags = %x", Module->Flags);	
+	if(Module->Flags & MODULE_FLAG_LOADERROR ) {
+		Log_Warning("Module", "%s has already attempted to load and encountered errors", Module->Name);
+		LEAVE('i', MODULE_ERR_MISC);
+		return MODULE_ERR_MISC;
 	}
 	
 	deps = Module->Dependencies;
@@ -168,7 +178,7 @@ int Module_int_Initialise(tModule *Module, const char *ArgString)
 			Log_Warning("Module", "Unable to load, reason: Miscelanious");
 			break;
 		case MODULE_ERR_NOTNEEDED:
-//			Log_Debug("Module", "Unable to load, reason: Module not needed");
+			Log_Debug("Module", "Unable to load, reason: Module not needed");
 			break;
 		case MODULE_ERR_MALLOC:
 			Log_Warning("Module", "Unable to load, reason: Error in malloc/realloc/calloc, probably not good");
@@ -177,6 +187,7 @@ int Module_int_Initialise(tModule *Module, const char *ArgString)
 			Log_Warning("Module", "Unable to load reason - Unknown code %i", ret);
 			break;
 		}
+		Module->Flags |= MODULE_FLAG_LOADERROR;
 		LEAVE_RET('i', ret);
 		return ret;
 	}
