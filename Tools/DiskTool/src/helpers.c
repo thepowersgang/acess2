@@ -22,12 +22,21 @@ size_t DiskTool_int_TranslatePath(char *Buffer, const char *Path)
 
 	if( Path[0] == '#' )
 	{
-		if(Buffer)
+		len = strlen(Path+1);
+		if(Buffer) {
 			strcpy(Buffer, Path+1);
-		return strlen(Path) - 1;
+		}
 	}
-	
-	if( colon )
+	else if( Path[0] == ':' )
+	{
+		len = strlen("/Devices/LVM/");
+		len += strlen(Path+1);
+		if(Buffer) {
+			strcpy(Buffer, "/Devices/LVM/");
+			strcat(Buffer, Path+1);
+		}
+	}
+	else if( colon )
 	{
 		const char *pos;
 		for(pos = Path; pos < colon; pos ++)
@@ -43,23 +52,23 @@ size_t DiskTool_int_TranslatePath(char *Buffer, const char *Path)
 			strncat(Buffer+strlen("/Mount/"), Path, colon - Path);
 			strcat(Buffer, colon + 1);
 		}
-		return len;
 	}
+	else
+	{
+	native_path:
+		if( !gsWorkingDirectory[0] ) {	
+			getcwd(gsWorkingDirectory, 1024);
+		}
 	
-native_path:
-
-	if( !gsWorkingDirectory[0] ) {	
-		getcwd(gsWorkingDirectory, 1024);
-	}
-
-	len = strlen("/Native");
-	len += strlen( gsWorkingDirectory ) + 1;
-	len += strlen(Path);
-	if( Buffer ) {
-		strcpy(Buffer, "/Native");
-		strcat(Buffer, gsWorkingDirectory);
-		strcat(Buffer, "/");
-		strcat(Buffer, Path);
+		len = strlen("/Native");
+		len += strlen( gsWorkingDirectory ) + 1;
+		len += strlen(Path);
+		if( Buffer ) {
+			strcpy(Buffer, "/Native");
+			strcat(Buffer, gsWorkingDirectory);
+			strcat(Buffer, "/");
+			strcat(Buffer, Path);
+		}
 	}
 	return len;
 }

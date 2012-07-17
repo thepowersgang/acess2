@@ -16,12 +16,12 @@ int main(int argc, char *argv[])
 		if( strcmp("mount", argv[i]) == 0 || strcmp("-i", argv[i]) == 0 ) {
 			// Mount an image
 			if( argc - i < 3 ) {
-				fprintf(stderr, "--image/-i takes 2 arguments (ident and path)\n");
+				fprintf(stderr, "mount takes 2 arguments (image and mountpoint)\n");
 				exit(-1);
 			}
 
-			if( DiskTool_MountImage(argv[i+1], argv[i+2]) ) {
-				fprintf(stderr, "Unable to mount '%s' as '%s'\n", argv[i+2], argv[i+1]);
+			if( DiskTool_MountImage(argv[i+2], argv[i+1]) ) {
+				fprintf(stderr, "Unable to mount '%s' as '%s'\n", argv[i+1], argv[i+2]);
 				break;
 			}
 
@@ -32,12 +32,12 @@ int main(int argc, char *argv[])
 		if( strcmp("mountlvm", argv[i]) == 0 ) {
 			
 			if( argc - i < 3 ) {
-				fprintf(stderr, "mountlvm takes 2 arguments (ident and path)\n");
+				fprintf(stderr, "mountlvm takes 2 arguments (iamge and ident)\n");
 				exit(-1);
 			}
 
-			if( DiskTool_RegisterLVM(argv[i+1], argv[i+2]) ) {
-				fprintf(stderr, "Unable to register '%s' as LVM '%s'\n", argv[i+2], argv[i+1]);
+			if( DiskTool_RegisterLVM(argv[i+2], argv[i+1]) ) {
+				fprintf(stderr, "Unable to register '%s' as LVM '%s'\n", argv[i+1], argv[i+2]);
 				break;
 			}
 			
