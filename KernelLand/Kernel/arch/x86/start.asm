@@ -57,6 +57,7 @@ mboot:
 	
 [section .text]
 [extern kmain]
+[extern Desctab_Install]
 [global start]
 start:
 	; Just show we're here
@@ -87,11 +88,15 @@ start:
 .higher_half:
 	
 	mov WORD [0xB8006], 0x0773	; 's'
+	
+	push ebx	; Multiboot Info
+	push eax	; Multiboot Magic Value
+	; NOTE: These are actually for kmain
+	
+	call Desctab_Install
 	mov WORD [0xB8008], 0x0773	; 's'
 
 	; Call the kernel
-	push ebx	; Multiboot Info
-	push eax	; Multiboot Magic Value
 	mov WORD [0xB800A], 0x0732	; '2'
 	call kmain
 

@@ -25,7 +25,7 @@ ASFLAGS         += -D ARCHDIR_IS_$(ARCHDIR)=1 -D PLATFORM_is_$(PLATFORM)=1
 CPPFLAGS	+= -I./include -I./arch/$(ARCHDIR)/include -D_MODULE_NAME_=\"Kernel\"
 CPPFLAGS	+= -D ARCH=$(ARCH) -D ARCHDIR=$(ARCHDIR) -D PLATFORM=\"$(PLATFORM)\" -D ARCHDIR_IS_$(ARCHDIR)=1 -D PLATFORM_is_$(PLATFORM)=1
 CPPFLAGS	+= -D KERNEL_VERSION=$(KERNEL_VERSION) -ffreestanding
-CFLAGS  	+= -Wall -fno-stack-protector -Wstrict-prototypes -g
+CFLAGS  	+= -Wall -fno-stack-protector -Wstrict-prototypes -std=gnu99 -g
 CFLAGS  	+= -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings -Wmissing-prototypes -Wmissing-declarations -Wredundant-decls -Wnested-externs -Winline -Wuninitialized
 CFLAGS          += -O3
 LDFLAGS		+= -T arch/$(ARCHDIR)/link.ld -g
@@ -51,6 +51,7 @@ BUILDINFO_OBJ := $(OBJDIR)buildinfo.o$(OBJSUFFIX)
 BUILDINFO_SRC := $(OBJDIR)buildinfo.c$(OBJSUFFIX)
 
 OBJ := $(addprefix arch/$(ARCHDIR)/,$(A_OBJ))
+OBJ += pmemmap.o
 OBJ += heap.o logging.o debug.o lib.o libc.o adt.o time.o
 OBJ += drvutil_video.o drvutil_disk.o
 OBJ += messages.o modules.o syscalls.o system.o
@@ -116,7 +117,7 @@ $(OBJDIR)%.ao$(OBJSUFFIX): %.$(AS_SUFFIX) Makefile
 	@mkdir -p $(dir $@)
 	@$(AS) $(ASFLAGS) $< -o $@
 ifeq ($(AS_SUFFIX),S)
-	@$(MAKEDEP) $(CPPFLAGS) -MT $@ -o $(OBJDIR)$*.ao.dep$(OBJSUFFIX) $<
+	@$(MAKEDEP) $(CPPFLAGS) -MT $@ -MP -o $(OBJDIR)$*.ao.dep$(OBJSUFFIX) $<
 endif
 
 # C Sources
@@ -124,7 +125,7 @@ $(OBJDIR)%.o$(OBJSUFFIX): %.c Makefile
 	@echo --- CC -o $@
 	@mkdir -p $(dir $@)
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $<
-	@$(MAKEDEP) $(CPPFLAGS) -MT $@ -o $(OBJDIR)$*.o.dep$(OBJSUFFIX) $<
+	@$(MAKEDEP) $(CPPFLAGS) -MT $@ -MP -o $(OBJDIR)$*.o.dep$(OBJSUFFIX) $<
 
 # Build-time linked modules
 %.xo.$(ARCH):
@@ -149,3 +150,5 @@ $(BUILDINFO_OBJ): $(BUILDINFO_SRC)
 
 # Dependency Files
 -include $(DEPFILES)
+
+%.h:

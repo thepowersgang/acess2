@@ -4,8 +4,9 @@
  */
 #define DEBUG	0
 #include <acess.h>
-#include <mboot.h>
 #include <mm_virt.h>
+#include <pmemmap.h>
+#include <hal_proc.h>
 
 //#define USE_STACK	1
 #define TRACE_ALLOCS	0	// Print trace messages on AllocPhys/DerefPhys
@@ -14,11 +15,10 @@ static const int addrClasses[] = {0,16,20,24,32,64};
 static const int numAddrClasses = sizeof(addrClasses)/sizeof(addrClasses[0]);
 
 // === IMPORTS ===
-extern char	gKernelEnd[];
 extern void	Proc_PrintBacktrace(void);
 
 // === PROTOTYPES ===
-void	MM_Install(tMBoot_Info *MBoot);
+void	MM_Install(int NPMemRanges, tPMemMapEnt *PMemRanges);
 //tPAddr	MM_AllocPhys(void);
 //tPAddr	MM_AllocPhysRange(int Pages, int MaxBits);
 //void	MM_RefPhys(tPAddr PAddr);
@@ -39,82 +39,66 @@ void	**gaPageNodes = (void*)MM_PAGENODE_BASE;
 #define REFENT_PER_PAGE	(0x1000/sizeof(gaPageReferences[0]))
 
 // === CODE ===
-void MM_Install(tMBoot_Info *MBoot)
+void MM_Install(int NPMemRanges, tPMemMapEnt *PMemRanges)
 {
-	Uint	kernelPages, num;
 	Uint	i;
 	Uint64	maxAddr = 0;
-	tMBoot_Module	*mods;
-	tMBoot_MMapEnt	*ent;
 	
 	// --- Find largest address
-	MBoot->MMapAddr |= KERNEL_BASE;
-	ent = (void *)( MBoot->MMapAddr );
-	while( (Uint)ent < MBoot->MMapAddr + MBoot->MMapLength )
+	for( i = 0; i < NPMemRanges; i ++ )
 	{
-		// Adjust for size
-		ent->Size += 4;
-		
+		tPMemMapEnt	*ent = &PMemRanges[i];
 		// If entry is RAM and is above `maxAddr`, change `maxAddr`
-		if(ent->Type == 1)
+		if(ent->Type == PMEMTYPE_FREE || ent->Type == PMEMTYPE_USED)
 		{
-			if(ent->Base + ent->Length > maxAddr)
-				maxAddr = ent->Base + ent->Length;
+			if(ent->Start + ent->Length > maxAddr)
+				maxAddr = ent->Start + ent->Length;
 			giTotalMemorySize += ent->Length >> 12;
 		}
-		// Go to next entry
-		ent = (tMBoot_MMapEnt *)( (Uint)ent + ent->Size );
 	}
 	
-	if(maxAddr == 0) {	
-		giPageCount = (MBoot->HighMem >> 2) + 256;	// HighMem is a kByte value
-	}
-	else {
-		giPageCount = maxAddr >> 12;
-	}
+	giPageCount = maxAddr >> 12;
 	giLastPossibleFree = giPageCount - 1;
 	
 	memsetd(gaPageBitmap, 0xFFFFFFFF, giPageCount/32);
 	
 	// Set up allocateable space
-	ent = (void *)( MBoot->MMapAddr );
-	while( (Uint)ent < MBoot->MMapAddr + MBoot->MMapLength )
-	{		
-		memsetd( &gaPageBitmap[ent->Base/(4096*32)], 0, ent->Length/(4096*32) );
-		ent = (tMBoot_MMapEnt *)( (Uint)ent + ent->Size );
-	}
-	
-	// Get used page count (Kernel)
-	kernelPages = (Uint)&gKernelEnd - KERNEL_BASE - 0x100000;
-	kernelPages += 0xFFF;	// Page Align
-	kernelPages >>= 12;
-	giPhysAlloc += kernelPages;	// Add to used count	
-
-	// Fill page bitmap
-	num = kernelPages/32;
-	memsetd( &gaPageBitmap[0x100000/(4096*32)], -1, num );
-	gaPageBitmap[ 0x100000/(4096*32) + num ] = (1 << (kernelPages & 31)) - 1;
-	
-	// Fill Superpage bitmap
-	num = kernelPages/(32*32);
-	memsetd( &gaSuperBitmap[0x100000/(4096*32*32)], -1, num );
-	gaSuperBitmap[ 0x100000/(4096*32*32) + num ] = (1 << ((kernelPages / 32) & 31)) - 1;
-	
-	// Mark Multiboot's pages as taken
-	// - Structure
-	MM_RefPhys( (Uint)MBoot - KERNEL_BASE );
-	// - Module List
-	for(i = (MBoot->ModuleCount*sizeof(tMBoot_Module)+0xFFF)>12; i--; )
-		MM_RefPhys( MBoot->Modules + (i << 12) );
-	// - Modules
-	mods = (void*)(MBoot->Modules + KERNEL_BASE);
-	for(i = 0; i < MBoot->ModuleCount; i++)
+	for( i = 0; i < NPMemRanges; i ++ )
 	{
-		num = (mods[i].End - mods[i].Start + 0xFFF) >> 12;
-		while(num--)
-			MM_RefPhys( (mods[i].Start & ~0xFFF) + (num<<12) );
+		tPMemMapEnt *ent = &PMemRanges[i];
+		if( ent->Type == PMEMTYPE_FREE )
+		{
+			Uint64	startpg = ent->Start / PAGE_SIZE;
+			Uint64	pgcount = ent->Length / PAGE_SIZE;
+			while( startpg % 32 && pgcount ) {
+				gaPageBitmap[startpg/32] &= ~(1U << (startpg%32));
+				startpg ++;
+				pgcount --;
+			}
+			memsetd( &gaPageBitmap[startpg/32], 0, pgcount/32 );
+			startpg += pgcount - pgcount%32;
+			pgcount -= pgcount - pgcount%32;
+			while(pgcount) {
+				gaPageBitmap[startpg/32] &= ~(1U << (startpg%32));
+				startpg ++;
+				pgcount --;
+			}
+		}
+		else if( ent->Type == PMEMTYPE_USED )
+		{
+			giPhysAlloc += ent->Length / PAGE_SIZE;
+		}
 	}
 
+	// Fill Superpage bitmap
+	// - A set bit means that there are no free pages in this block of 32
+	for( i = 0; i < (giPageCount+31)/32; i ++ )
+	{
+		if( gaPageBitmap[i] + 1 == 0 ) {
+			gaSuperBitmap[i/32] |= (1 << i%32);
+		}
+	}
+	
 	gaPageReferences = (void*)MM_REFCOUNT_BASE;
 
 	Log_Log("PMem", "Physical memory set up (%lli pages of ~%lli MiB used)",
