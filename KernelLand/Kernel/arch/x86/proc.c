@@ -467,7 +467,6 @@ void Proc_IdleThread(void *Ptr)
  */
 void Proc_Start(void)
 {
-	 int	tid;
 	#if USE_MP
 	 int	i;
 	#endif
@@ -479,7 +478,7 @@ void Proc_Start(void)
 		if(i)	gaCPUs[i].Current = NULL;
 		
 		// Create Idle Task
-		tid = Proc_NewKThread(Proc_IdleThread, &gaCPUs[i]);
+		Proc_NewKThread(Proc_IdleThread, &gaCPUs[i]);
 		
 		// Start the AP
 		if( i != giProc_BootProcessorID ) {
@@ -496,8 +495,7 @@ void Proc_Start(void)
 	while( giNumInitingCPUs )	__asm__ __volatile__ ("hlt");
 	#else
 	// Create Idle Task
-	tid = Proc_NewKThread(Proc_IdleThread, &gaCPUs[0]);
-//	gaCPUs[0].IdleThread = Threads_GetThread(tid);
+	Proc_NewKThread(Proc_IdleThread, &gaCPUs[0]);
 	
 	// Set current task
 	gaCPUs[0].Current = &gThreadZero;
@@ -588,9 +586,8 @@ void Proc_ClearThread(tThread *Thread)
 tTID Proc_NewKThread(void (*Fcn)(void*), void *Data)
 {
 	Uint	esp;
-	tThread	*newThread, *cur;
+	tThread	*newThread;
 	
-	cur = Proc_GetCurThread();
 	newThread = Threads_CloneTCB(0);
 	if(!newThread)	return -1;
 	
@@ -711,7 +708,7 @@ Uint Proc_MakeUserStack(void)
 	
 	// Check Prospective Space
 	for( i = USER_STACK_SZ >> 12; i--; )
-		if( MM_GetPhysAddr( base + (i<<12) ) != 0 )
+		if( MM_GetPhysAddr( (void*)(base + (i<<12)) ) != 0 )
 			break;
 	
 	if(i != -1)	return 0;

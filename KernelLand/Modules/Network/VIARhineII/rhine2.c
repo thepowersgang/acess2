@@ -330,7 +330,7 @@ int Rhine2_SendPacket(void *Ptr, tIPStackBuffer *Buffer)
 	card->NextTX = (card->NextTX + nDescs) % N_TX_DESCS;
 	desc = card->TXDescs + first_desc_id;
 	
-	desc->TXBufferStart = MM_GetPhysAddr( (tVAddr)data );
+	desc->TXBufferStart = MM_GetPhysAddr( data );
 	desc->BufferSize = len | (1 << 15);
 	desc->TSR = 0;
 	desc->TCR = 0;

@@ -739,7 +739,7 @@ int CheckString(const char *String)
 
 	addr = (tVAddr)String;
 
-	if( !MM_GetPhysAddr( addr ) )
+	if( !MM_GetPhysAddr( (void*)addr ) )
 		return 0;
 	
 	// Check 1st page
@@ -751,7 +751,7 @@ int CheckString(const char *String)
 		{
 			if(bUser && !MM_IsUser(addr) )
 				return 0;
-			if(!bUser && !MM_GetPhysAddr(addr) )
+			if(!bUser && !MM_GetPhysAddr((void*)addr) )
 				return 0;
 		}
 		addr ++;

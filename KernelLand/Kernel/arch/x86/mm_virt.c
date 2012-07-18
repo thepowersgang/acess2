@@ -414,13 +414,14 @@ void MM_Deallocate(tVAddr VAddr)
  * \fn tPAddr MM_GetPhysAddr(tVAddr Addr)
  * \brief Checks if the passed address is accesable
  */
-tPAddr MM_GetPhysAddr(tVAddr Addr)
+tPAddr MM_GetPhysAddr(const void *Addr)
 {
-	if( !(gaPageDir[Addr >> 22] & 1) )
+	tVAddr	addr = (tVAddr)Addr;
+	if( !(gaPageDir[addr >> 22] & 1) )
 		return 0;
-	if( !(gaPageTable[Addr >> 12] & 1) )
+	if( !(gaPageTable[addr >> 12] & 1) )
 		return 0;
-	return (gaPageTable[Addr >> 12] & ~0xFFF) | (Addr & 0xFFF);
+	return (gaPageTable[addr >> 12] & ~0xFFF) | (addr & 0xFFF);
 }
 
 /**
@@ -717,7 +718,8 @@ tVAddr MM_NewKStack(void)
 	for(base = MM_KERNEL_STACKS; base < MM_KERNEL_STACKS_END; base += MM_KERNEL_STACK_SIZE)
 	{
 		// Check if space is free
-		if(MM_GetPhysAddr(base) != 0)	continue;
+		if(MM_GetPhysAddr( (void*) base) != 0)
+			continue;
 		// Allocate
 		//for(i = MM_KERNEL_STACK_SIZE; i -= 0x1000 ; )
 		for(i = 0; i < MM_KERNEL_STACK_SIZE; i += 0x1000 )
@@ -1069,7 +1071,6 @@ tVAddr MM_MapHWPages(tPAddr PAddr, Uint Number)
  */
 tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 {
-	tPAddr	maxCheck = (1 << MaxBits);
 	tPAddr	phys;
 	tVAddr	ret;
 	
@@ -1083,9 +1084,6 @@ tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 		LEAVE('i', 0);
 		return 0;
 	}
-	
-	// Bound
-	if(MaxBits >= PHYS_BITS)	maxCheck = -1;
 	
 	// Fast Allocate
 	if(Pages == 1 && MaxBits >= PHYS_BITS)

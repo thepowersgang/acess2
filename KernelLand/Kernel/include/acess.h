@@ -252,7 +252,7 @@ extern int	MM_Map(tVAddr VAddr, tPAddr PAddr);
  * \param Addr	Address of the page to get the physical address of
  * \return Physical page mapped at \a Addr
  */
-extern tPAddr	MM_GetPhysAddr(tVAddr Addr);
+extern tPAddr	MM_GetPhysAddr(const void *Addr);
 /**
  * \brief Set the access flags on a page
  * \param VAddr	Virtual address of the page

@@ -102,7 +102,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 	
 	// -- Get the physical address of a page
 	case SYS_GETPHYS:
-		ret = MM_GetPhysAddr(Regs->Arg1);
+		ret = MM_GetPhysAddr( (void*)Regs->Arg1 );
 		break;
 	
 	// -- Map an address

@@ -519,7 +519,7 @@ void Heap_Dump(void)
 		foot = (void*)( (Uint)head + head->Size - sizeof(tHeapFoot) );
 		#if VERBOSE_DUMP
 		Log_Log("Heap", "%p (0x%P): 0x%08x (%i) %4C",
-			head, MM_GetPhysAddr((tVAddr)head), head->Size, head->ValidSize, &head->Magic);
+			head, MM_GetPhysAddr(head), head->Size, head->ValidSize, &head->Magic);
 		Log_Log("Heap", "%p %4C", foot->Head, &foot->Magic);
 		if(head->File) {
 			Log_Log("Heap", "%sowned by %s:%i",
@@ -569,7 +569,7 @@ void Heap_Dump(void)
 
 	#if !VERBOSE_DUMP
 	Log_Log("Heap", "%p (%P): 0x%08lx %i %4C",
-		head, MM_GetPhysAddr((Uint)head), head->Size, head->ValidSize, &head->Magic);
+		head, MM_GetPhysAddr(head), head->Size, head->ValidSize, &head->Magic);
 	if(foot)
 		Log_Log("Heap", "Foot %p = {Head:%p,Magic:%4C}", foot, foot->Head, &foot->Magic);
 	if(head->File) {
@@ -589,7 +589,7 @@ void Heap_Dump(void)
 	while( (tVAddr)head >= (tVAddr)badHead )
 	{
 		Log_Log("Heap", "%p (%P): 0x%08lx %i %4C",
-			head, MM_GetPhysAddr((Uint)head), head->Size, head->ValidSize, &head->Magic);
+			head, MM_GetPhysAddr(head), head->Size, head->ValidSize, &head->Magic);
 		Log_Log("Heap", "%p %4C", foot->Head, &foot->Magic);
 		if(head->File)
 			Log_Log("Heap", "%sowned by %s:%i",
@@ -669,10 +669,10 @@ void Heap_Stats(void)
 		#if 1
 		if( head->Magic == MAGIC_FREE )
 			Log_Debug("Heap", "%p (%P) - 0x%x free",
-				head->Data, MM_GetPhysAddr((tVAddr)&head->Data), head->Size);
+				head->Data, MM_GetPhysAddr(&head->Data), head->Size);
 		else
 			Log_Debug("Heap", "%p (%P) - 0x%x (%i) Owned by %s:%i (%lli ms old)",
-				head->Data, MM_GetPhysAddr((tVAddr)&head->Data), head->Size, head->ValidSize, head->File, head->Line,
+				head->Data, MM_GetPhysAddr(&head->Data), head->Size, head->ValidSize, head->File, head->Line,
 				now() - head->AllocateTime
 				);
 		#endif
