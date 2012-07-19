@@ -110,7 +110,7 @@ tSysFS_Ent	*gSysFS_FileList;
 int SysFS_Install(char **Options)
 {
 	gSysFS_Version_Kernel.Node.Size = strlen(gsBuildInfo);
-	gSysFS_Version_Kernel.Node.ImplPtr = gsBuildInfo;
+	gSysFS_Version_Kernel.Node.ImplPtr = (void*)gsBuildInfo;
 
 	DevFS_AddDevice( &gSysFS_DriverInfo );
 	return MODULE_ERR_OK;

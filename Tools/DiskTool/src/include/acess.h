@@ -18,6 +18,7 @@
 extern char	__buildnum[];
 #define BUILD_NUM	((int)(Uint)&__buildnum)
 extern const char gsGitHash[];
+extern const char gsBuildInfo[];
 
 #define BITS	32
 #define NULL	((void*)0)
