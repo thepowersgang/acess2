@@ -178,7 +178,7 @@ int Module_int_Initialise(tModule *Module, const char *ArgString)
 			Log_Warning("Module", "Unable to load, reason: Miscelanious");
 			break;
 		case MODULE_ERR_NOTNEEDED:
-			Log_Debug("Module", "Unable to load, reason: Module not needed");
+//			Log_Debug("Module", "Unable to load, reason: Module not needed");
 			break;
 		case MODULE_ERR_MALLOC:
 			Log_Warning("Module", "Unable to load, reason: Error in malloc/realloc/calloc, probably not good");
