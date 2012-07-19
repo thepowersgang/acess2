@@ -20,6 +20,7 @@
 #define _VFS_H
 
 #include <acess.h>
+#include <mutex.h>
 
 /**
  * \brief Thread list datatype for VFS_Select

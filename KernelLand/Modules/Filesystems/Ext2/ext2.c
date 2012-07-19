@@ -221,9 +221,16 @@ void Ext2_CloseFile(tVFS_Node *Node)
 	}
 
 	int was_not_referenced = (Node->ImplInt == 0);
-	if( Inode_UncacheNode(disk->CacheID, Node->Inode) && was_not_referenced )
+	tVFS_ACL	*acls = Node->ACLs;
+	if( Inode_UncacheNode(disk->CacheID, Node->Inode) )
 	{
-		// Remove inode
+		if( was_not_referenced )
+		{
+			// Remove inode
+		}
+		if( acls != &gVFS_ACL_EveryoneRW ) {
+			free(acls);
+		}
 	}
 	return ;
 }

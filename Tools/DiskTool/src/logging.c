@@ -190,6 +190,9 @@ void Debug_TraceLeave(const char *Function, char Type, ...)
 	case 'p':
 		fprintf(stderr, " %p", va_arg(args, const void *));
 		break;
+	case 'n':
+		fprintf(stderr, " NULL");
+		break;
 	default:
 		fprintf(stderr, " ?");
 		break;
