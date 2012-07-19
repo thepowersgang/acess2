@@ -1,6 +1,7 @@
 Dir "SBin" {
 	File "init" "__BIN__/SBin/init"
 	File "login" "__BIN__/SBin/login"
+	File "telnetd" "__BIN__/SBin/telnetd"
 }
 Dir "Bin" {
 	File "CLIShell" "__BIN__/Bin/CLIShell"
