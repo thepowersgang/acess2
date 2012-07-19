@@ -162,7 +162,7 @@ void System_ParseVFS(char *Arg)
 	// - Symbolic Link <link>=<destination>
 	if(value[0] == '/')
 	{
-		Log_Log("Config", "Symbolic link '%s' pointing to '%s'", Arg, value);
+//		Log_Log("Config", "Symbolic link '%s' pointing to '%s'", Arg, value);
 		VFS_Symlink(Arg, value);
 	}
 	// - Mount <mountpoint>=<fs>:<device>
@@ -177,13 +177,13 @@ void System_ParseVFS(char *Arg)
 		}
 		// Create Mountpoint
 		if( (fd = VFS_Open(Arg, 0)) == -1 ) {
-			Log_Log("Config", "Creating directory '%s'", Arg, value);
+//			Log_Log("Config", "Creating directory '%s'", Arg, value);
 			VFS_MkDir( Arg );
 		} else {
 			VFS_Close(fd);
 		}
 		// Mount
-		Log_Log("Config", "Mounting '%s' to '%s' ('%s')", dev, Arg, value);
+//		Log_Log("Config", "Mounting '%s' to '%s' ('%s')", dev, Arg, value);
 		VFS_Mount(dev, Arg, value, "");
 	}
 }
