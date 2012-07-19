@@ -60,7 +60,8 @@ typedef Uint64	off_t;	//!< VFS Offset
 
 extern char	__buildnum[];
 #define BUILD_NUM	((int)(Uint)&__buildnum)
-extern const char gsGitHash[];
+extern const char	gsGitHash[];
+extern const char	gsBuildInfo[];
 
 #define VER2(major,minor)	((((major)&0xFF)<<8)|((minor)&0xFF))
 /**

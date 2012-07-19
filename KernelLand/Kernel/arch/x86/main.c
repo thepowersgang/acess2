@@ -20,14 +20,10 @@
 // === IMPORTS ===
 extern char	gKernelEnd[];
 extern void	Heap_Install(void);
-extern void	Desctab_Install(void);
 extern void	MM_PreinitVirtual(void);
 extern void	MM_Install(int NPMemRanges, tPMemMapEnt *PMemRanges);
 extern void	MM_InstallVirtual(void);
-extern void	Threads_Init(void);
 extern int	Time_Setup(void);
-// --- Core ---
-extern void	System_Init(char *Commandline);
 
 // === PROTOTYPES ===
  int	kmain(Uint MbMagic, void *MbInfoPtr);
@@ -50,8 +46,7 @@ int kmain(Uint MbMagic, void *MbInfoPtr)
 	tPMemMapEnt	pmemmap[MAX_PMEMMAP_ENTS];
 	 int	nPMemMapEnts;
 
-	LogF("Acess2 x86-"PLATFORM" v"EXPAND_STR(KERNEL_VERSION)"\r\n");
-	LogF(" Build %i, Git Hash %s\r\n", BUILD_NUM, gsGitHash);
+	LogF("%s\r\n", gsBuildInfo);
 	
 	MM_PreinitVirtual();	// Initialise virtual mappings
 

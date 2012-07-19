@@ -12,7 +12,7 @@
 void	*GetSymbol(const char *Name, size_t *Size);
 void	*GetSymbol(const char *Name, size_t *Size) { Uint val; Binary_GetSymbol(Name, &val); if(Size)*Size=0; return (void*)val; };
 #define AddLoaded(a,b)	do{}while(0)
-#define LoadLibrary(a,b,c)	0
+#define LoadLibrary(a,b,c)	(Log_Debug("ELF", "Module requested lib '%s'",a),0)
 #include "../../../Usermode/Libraries/ld-acess.so_src/elf.c"
 
 #define DEBUG_WARN	1
