@@ -688,7 +688,6 @@ int rand(void)
 
 void *memmove(void *__dest, const void *__src, size_t len)
 {
-	size_t	block_size;
 	char	*dest = __dest;
 	const char	*src = __src;
 	void	*ret = __dest;
@@ -705,6 +704,8 @@ void *memmove(void *__dest, const void *__src, size_t len)
 	if( (tVAddr)dest < (tVAddr)src )
 		return memcpy(dest, src, len);
 
+	#if 0
+	size_t	block_size;
 	if( (tVAddr)dest < (tVAddr)src )
 		block_size = (tVAddr)src - (tVAddr)dest;
 	else
@@ -721,6 +722,13 @@ void *memmove(void *__dest, const void *__src, size_t len)
 	}
 	memcpy(dest, src, len);
 	return ret;
+	#else
+	for( int i = len; i--; )
+	{
+		dest[i] = src[i];
+	}
+	return ret;
+	#endif
 	
 }
 

@@ -5,6 +5,7 @@
  * pmemmap.c
  * - Physical memory map manipulation
  */
+#define DEBUG	0
 #include <acess.h>
 #include <pmemmap.h>
 
@@ -13,7 +14,7 @@ void PMemMap_DumpBlocks(tPMemMapEnt *map, int NEnts)
 {
 	for( int i = 0; i < NEnts; i ++ )
 	{
-		Log_Debug("Arch", "%i: %i 0x%02x %08llx+%llx",
+		Log_Debug("PMemMap", "%i: %i 0x%02x %08llx+%llx",
 			i, map[i].Type, map[i].NUMADomain,
 			map[i].Start, map[i].Length
 			);
@@ -30,11 +31,11 @@ int PMemMap_SplitBlock(tPMemMapEnt *map, int NEnts, int MaxEnts, int Block, Uint
 		// out of space
 		return NEnts;
 	}
-	Block ++;
 	if( Block < NEnts ) {
-		// Can't be anything after
-		memmove(&map[Block+1], &map[Block], (NEnts - Block)*sizeof(map[0]));
+		LOG("Moving %i entries from %i to %i", (NEnts - Block-1), Block+1, Block);
+		memmove(&map[Block+2], &map[Block+1], (NEnts - Block)*sizeof(map[0]));
 	}
+	Block ++;
 	NEnts ++;
 	
 	// New (free) block
@@ -64,7 +65,8 @@ int PMemMap_CompactMap(tPMemMapEnt *map, int NEnts, int MaxEnts)
 		// Ok, they should be together
 		map[i-1].Length += map[i].Length;
 		memmove(&map[i], &map[i+1], (NEnts - (i+1))*sizeof(map[0]));
-		
+		LOG("Joined %i and %i into %llx+%llx", i-1, i, map[i-1].Start, map[i-1].Length);		
+
 		// Counteract the i++ in the loop iterator
 		i --;
 		NEnts --;
@@ -85,8 +87,24 @@ int PMemMap_ValidateMap(tPMemMapEnt *map, int NEnts, int MaxEnts)
 	}
 	if( bNeedsSort )
 	{
-		Log_Warning("Arch", "TODO: Impliment memory map sorting");
-		// TODO: Sort memory map
+		// Use a selection/swap sort
+		for( int i = 0; i < NEnts; i ++ )
+		{
+			int sel = i;
+			for( int j = i+1; j < NEnts; j ++ )
+			{
+				if( map[j].Start < map[sel].Start )
+					sel = j;
+			}
+			if( sel != i ) {
+				LOG("Swapping %i and %i", i, sel);
+				LOG(" - %llx+%llx", map[i].Start, map[i].Length);
+				LOG(" - %llx+%llx", map[sel].Start, map[sel].Length);
+				tPMemMapEnt tmp = map[i];
+				map[i] = map[sel];
+				map[sel] = tmp;
+			}
+		}
 	}
 	
 	// Ensure that the map has no overlaps
@@ -101,7 +119,8 @@ int PMemMap_ValidateMap(tPMemMapEnt *map, int NEnts, int MaxEnts)
 			);
 	}
 	
-	return PMemMap_CompactMap(map, NEnts, MaxEnts);
+	NEnts = PMemMap_CompactMap(map, NEnts, MaxEnts);
+	return NEnts;
 }
 
 
