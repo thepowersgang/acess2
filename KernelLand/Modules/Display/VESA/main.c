@@ -367,6 +367,8 @@ int Vesa_Int_SetMode(int mode)
 	
 	Mutex_Release( &glVesa_Lock );
 
+	gVesa_BufInfo.BackBuffer  = realloc(gVesa_BufInfo.BackBuffer,
+		gVesa_Modes[mode].height * gVesa_Modes[mode].pitch);
 	gVesa_BufInfo.Framebuffer = gpVesa_Framebuffer;
 	gVesa_BufInfo.Pitch = gVesa_Modes[mode].pitch;
 	gVesa_BufInfo.Width = gVesa_Modes[mode].width;
