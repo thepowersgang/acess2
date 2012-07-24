@@ -16,7 +16,7 @@ USRLIBS += libimage_sif.so
 
 USRAPPS := init login CLIShell cat ls mount
 USRAPPS += bomb dhcpclient
-USRAPPS += ip ping telnet irc wget
+USRAPPS += ip ping telnet irc wget telnetd
 USRAPPS += axwin3
 
 ALL_DYNMODS = $(addprefix all-,$(DYNMODS))

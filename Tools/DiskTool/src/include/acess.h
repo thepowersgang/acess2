@@ -18,6 +18,7 @@
 extern char	__buildnum[];
 #define BUILD_NUM	((int)(Uint)&__buildnum)
 extern const char gsGitHash[];
+extern const char gsBuildInfo[];
 
 #define BITS	32
 #define NULL	((void*)0)
@@ -48,7 +49,6 @@ typedef uint32_t	tGID;
 typedef uint32_t	tTID;
 
 // NOTE: Since this is single-threaded (for now) mutexes can be implimented as simple locks
-typedef char	tMutex;
 typedef char	tShortSpinlock;
 
 typedef int64_t	tTime;
@@ -125,13 +125,6 @@ extern int	WriteUTF8(Uint8 *str, Uint32 Val);
 // TODO: Move out?
 extern int	DivUp(int value, int divisor);
 extern uint64_t	DivMod64U(uint64_t Num, uint64_t Den, uint64_t *Rem);
-
-static inline int Mutex_Acquire(tMutex *m) {
-	if(*m)	Log_KernelPanic("---", "Double mutex lock");
-	*m = 1;
-	return 0;
-}
-static inline void Mutex_Release(tMutex *m) { *m = 0; }
 
 static inline void SHORTLOCK(tShortSpinlock *Lock) {
 	if(*Lock)	Log_KernelPanic("---", "Double short lock");

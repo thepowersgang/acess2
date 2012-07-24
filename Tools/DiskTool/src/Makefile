@@ -93,6 +93,7 @@ $(BUILDINFO_SRC): $(filter-out $(BUILDINFO_OBJ), $(OBJ)) Makefile
 	@echo "const char gsKernelVersion[] = \"$(ACESS_VERSION)\";" >> $@
 	@echo "const char gsGitHash[] = \""`git log -n 1 | head -n 1 | awk '{print $$2}'`"\";" >> $@
 	@echo "const int giBuildNumber = $(BUILD_NUM);" >> $@
+	@echo "const char gsBuildInfo[] = \"Acess2 DiskTool v$(ACESS_VERSION)\";" >> $@
 $(BUILDINFO_OBJ): $(BUILDINFO_SRC)
 	@echo [CC] -o $@
 	@$(CC) -o $@ -c $< $(CFLAGS) $(CPPFLAGS)

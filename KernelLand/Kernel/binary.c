@@ -881,12 +881,12 @@ int Binary_int_CheckMemFree( tVAddr _start, size_t _len )
 	_start &= ~(PAGE_SIZE-1);
 	LOG("_start = %p, _len = 0x%x", _start, _len);
 	for( ; _len > PAGE_SIZE; _len -= PAGE_SIZE, _start += PAGE_SIZE ) {
-		if( MM_GetPhysAddr(_start) != 0 ) {
+		if( MM_GetPhysAddr( (void*)_start ) != 0 ) {
 			LEAVE('i', 1);
 			return 1;
 		}
 	}
-	if( _len == PAGE_SIZE && MM_GetPhysAddr(_start) != 0 ) {
+	if( _len == PAGE_SIZE && MM_GetPhysAddr( (void*)_start ) != 0 ) {
 		LEAVE('i', 1);
 		return 1;
 	}

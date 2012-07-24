@@ -228,14 +228,14 @@ void Error_Backtrace(Uint eip, Uint ebp)
 		LogF("Backtrace: 0x%x", eip);
 //	else
 //		LogF("Backtrace: %s+0x%x", str, delta);
-	if(!MM_GetPhysAddr(ebp))
+	if(!MM_GetPhysAddr((void*)ebp))
 	{
 		LogF("\nBacktrace: Invalid EBP %p, stopping\n", ebp);
 		return;
 	}
 	
 	
-	while( MM_GetPhysAddr(ebp) && i < MAX_BACKTRACE )
+	while( MM_GetPhysAddr((void*)ebp) && i < MAX_BACKTRACE )
 	{
 		if( ebp >= MM_KERNEL_STACKS_END )	break;
 		//str = Debug_GetSymbol(*(Uint*)(ebp+4), &delta);

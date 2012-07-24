@@ -17,15 +17,16 @@ extern tVFS_NodeType	gExt2_DirType;
  int	Ext2_Install(char **Arguments);
  int	Ext2_Cleanup(void);
 // - Interface Functions
- int    	Ext2_Detect(int FD);
+ int    Ext2_Detect(int FD);
 tVFS_Node	*Ext2_InitDevice(const char *Device, const char **Options);
-void		Ext2_Unmount(tVFS_Node *Node);
-void		Ext2_CloseFile(tVFS_Node *Node);
+void	Ext2_Unmount(tVFS_Node *Node);
+void	Ext2_CloseFile(tVFS_Node *Node);
 // - Internal Helpers
- int		Ext2_int_GetInode(tVFS_Node *Node, tExt2_Inode *Inode);
-Uint64		Ext2_int_GetBlockAddr(tExt2_Disk *Disk, Uint32 *Blocks, int BlockNum);
-Uint32		Ext2_int_AllocateInode(tExt2_Disk *Disk, Uint32 Parent);
-void		Ext2_int_UpdateSuperblock(tExt2_Disk *Disk);
+ int	Ext2_int_GetInode(tVFS_Node *Node, tExt2_Inode *Inode);
+Uint64	Ext2_int_GetBlockAddr(tExt2_Disk *Disk, Uint32 *Blocks, int BlockNum);
+Uint32	Ext2_int_AllocateInode(tExt2_Disk *Disk, Uint32 Parent);
+void	Ext2_int_DereferenceInode(tExt2_Disk *Disk, Uint32 Inode);
+void	Ext2_int_UpdateSuperblock(tExt2_Disk *Disk);
 
 // === SEMI-GLOBALS ===
 MODULE_DEFINE(0, VERSION, FS_Ext2, Ext2_Install, Ext2_Cleanup);
@@ -208,7 +209,29 @@ void Ext2_Unmount(tVFS_Node *Node)
 void Ext2_CloseFile(tVFS_Node *Node)
 {
 	tExt2_Disk	*disk = Node->ImplPtr;
-	Inode_UncacheNode(disk->CacheID, Node->Inode);
+
+	if( Mutex_Acquire(&Node->Lock) != 0 )
+	{
+		return ;
+	}
+
+	if( Node->Flags & VFS_FFLAG_DIRTY )
+	{
+		// Commit changes
+	}
+
+	int was_not_referenced = (Node->ImplInt == 0);
+	tVFS_ACL	*acls = Node->ACLs;
+	if( Inode_UncacheNode(disk->CacheID, Node->Inode) )
+	{
+		if( was_not_referenced )
+		{
+			// Remove inode
+		}
+		if( acls != &gVFS_ACL_EveryoneRW ) {
+			free(acls);
+		}
+	}
 	return ;
 }
 
@@ -335,6 +358,14 @@ Uint32 Ext2_int_AllocateInode(tExt2_Disk *Disk, Uint32 Parent)
 //	Uint	block = (Parent - 1) / Disk->SuperBlock.s_inodes_per_group;
 	Log_Warning("EXT2", "Ext2_int_AllocateInode is unimplemented");
 	return 0;
+}
+
+/**
+ * \brief Reduce the reference count on an inode
+ */
+void Ext2_int_DereferenceInode(tExt2_Disk *Disk, Uint32 Inode)
+{
+	
 }
 
 /**

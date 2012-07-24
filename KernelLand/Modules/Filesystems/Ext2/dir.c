@@ -61,14 +61,14 @@ char *Ext2_ReadDir(tVFS_Node *Node, int Pos)
 	Ext2_int_ReadInode(disk, Node->Inode, &inode);
 	size = inode.i_size;
 	
-	LOG("inode.i_block[0] = 0x%x", inode.i_block[0]);
+	LOG("inode={.i_block[0]= 0x%x, .i_size=0x%x}", inode.i_block[0], inode.i_size);
 	
 	// Find Entry
 	// Get First Block
 	// - Do this ourselves as it is a simple operation
 	Base = inode.i_block[0] * disk->BlockSize;
 	// Scan directory
-	while(Pos -- && size > 0)
+	while(Pos -- && size > 0 && size <= inode.i_size)
 	{
 		VFS_ReadAt( disk->FD, Base+ofs, sizeof(tExt2_DirEnt), &dirent);
 		ofs += dirent.rec_len;
@@ -83,22 +83,29 @@ char *Ext2_ReadDir(tVFS_Node *Node, int Pos)
 			}
 			ofs = 0;
 			Base = Ext2_int_GetBlockAddr( disk, inode.i_block, block );
+			if( Base == 0 ) {
+				size = 0;
+				break;
+			}
 		}
 	}
 	
 	// Check for the end of the list
-	if(size <= 0) {
+	if(size <= 0 || size > inode.i_size) {
 		LEAVE('n');
 		return NULL;
 	}
 	
 	// Read Entry
 	VFS_ReadAt( disk->FD, Base+ofs, sizeof(tExt2_DirEnt), &dirent );
-	//LOG("dirent.inode = %i", dirent.inode);
-	//LOG("dirent.rec_len = %i", dirent.rec_len);
-	//LOG("dirent.name_len = %i", dirent.name_len);
+	LOG("dirent={.rec_len=%i,.inode=0x%x,.name_len=%i}",
+		dirent.rec_len, dirent.inode, dirent.name_len);
 	dirent.name[ dirent.name_len ] = '\0';	// Cap off string
 	
+	if( dirent.name_len == 0 ) {
+		LEAVE('p', VFS_SKIP);
+		return VFS_SKIP;
+	}
 	
 	// Ignore . and .. (these are done in the VFS)
 	if( (dirent.name[0] == '.' && dirent.name[1] == '\0')
@@ -172,34 +179,32 @@ tVFS_Node *Ext2_FindDir(tVFS_Node *Node, const char *Filename)
  */
 int Ext2_MkNod(tVFS_Node *Parent, const char *Name, Uint Flags)
 {
-	#if 0
-	tVFS_Node	*child;
-	Uint64	inodeNum;
-	tExt2_Inode	inode;
-	inodeNum = Ext2_int_AllocateInode(Parent->ImplPtr, Parent->Inode);
+	ENTER("pParent sName xFlags", Parent, Name, Flags);
 	
-	memset(&inode, 0, sizeof(tExt2_Inode));
-	
-	// File type
-	inode.i_mode = 0664;
-	if( Flags & VFS_FFLAG_READONLY )
-		inode.i_mode &= ~0222;
-	if( Flags & VFS_FFLAG_SYMLINK )
-		inode.i_mode |= EXT2_S_IFLNK;
-	else if( Flags & VFS_FFLAG_DIRECTORY )
-		inode.i_mode |= EXT2_S_IFDIR | 0111;
-	
-	inode.i_uid = Threads_GetUID();
-	inode.i_gid = Threads_GetGID();
-	inode.i_ctime =
-		inode.i_mtime =
-		inode.i_atime = now() / 1000;
-	
-	child = Ext2_int_CreateNode(Parent->ImplPtr, inodeNum);
-	return Ext2_Link(Parent, child, Name);
-	#else
-	return 1;
-	#endif
+	Uint64 inodeNum = Ext2_int_AllocateInode(Parent->ImplPtr, Parent->Inode);
+	if( inodeNum == 0 ) {
+		return -1;
+	}
+	tVFS_Node *child = Ext2_int_CreateNode(Parent->ImplPtr, inodeNum);
+	if( !child ) {
+		Ext2_int_DereferenceInode(Parent->ImplPtr, inodeNum);
+		return -1;
+	}
+
+	child->Flags = Flags & (VFS_FFLAG_DIRECTORY|VFS_FFLAG_SYMLINK|VFS_FFLAG_READONLY);
+	child->UID = Threads_GetUID();
+	child->GID = Threads_GetGID();
+	child->CTime =
+		child->MTime =
+		child->ATime =
+		now();
+	child->ImplInt = 0;	// ImplInt is the link count
+	// TODO: Set up ACLs
+
+	int rv = Ext2_Link(Parent, Name, child);
+	child->Type->Close(child);
+	LEAVE('i', rv);
+	return rv;
 }
 
 /**
@@ -344,7 +349,8 @@ tVFS_Node *Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeID)
 	
 	if( (tmpNode = Inode_GetCache(Disk->CacheID, InodeID)) )
 		return tmpNode;
-	
+
+	memset(&retNode, 0, sizeof(retNode));	
 	
 	// Set identifiers
 	retNode.Inode = InodeID;
@@ -352,7 +358,6 @@ tVFS_Node *Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeID)
 	
 	// Set file length
 	retNode.Size = inode.i_size;
-	retNode.Data = NULL;
 	
 	// Set Access Permissions
 	retNode.UID = inode.i_uid;

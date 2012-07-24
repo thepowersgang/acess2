@@ -50,7 +50,7 @@ void *VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD,
 		LOG("%i pages anonymous to %p", npages, mapping_dest);
 		for( ; npages --; mapping_dest += PAGE_SIZE, ofs += PAGE_SIZE )
 		{
-			if( MM_GetPhysAddr(mapping_dest) ) {
+			if( MM_GetPhysAddr((void*)mapping_dest) ) {
 				// TODO: Set flags to COW if needed (well, if shared)
 				MM_SetFlags(mapping_dest, MM_PFLAG_COW, MM_PFLAG_COW);
 				LOG("clear from %p, %i bytes", (void*)(mapping_base + ofs),
@@ -109,7 +109,7 @@ void *VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD,
 	// - Map (and allocate) pages
 	while( npages -- )
 	{
-		if( MM_GetPhysAddr(mapping_dest) == 0 )
+		if( MM_GetPhysAddr( (void*)mapping_dest ) == 0 )
 		{
 			if( pb->PhysAddrs[pagenum - pb->BaseOffset] == 0 )
 			{
@@ -132,11 +132,12 @@ void *VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD,
 					}
 					// TODO: Clip read length
 					read_len = nt->Read(h->Node, pagenum*PAGE_SIZE, PAGE_SIZE, (void*)mapping_dest);
-//					if( read_len != PAGE_SIZE ) {
-//						memset( (void*)(mapping_dest+read_len), 0, PAGE_SIZE-read_len );
-//					}
+					// TODO: This was commented out, why?
+					if( read_len != PAGE_SIZE ) {
+						memset( (void*)(mapping_dest+read_len), 0, PAGE_SIZE-read_len );
+					}
 				}
-				pb->PhysAddrs[pagenum - pb->BaseOffset] = MM_GetPhysAddr( mapping_dest );
+				pb->PhysAddrs[pagenum - pb->BaseOffset] = MM_GetPhysAddr( (void*)mapping_dest );
 				MM_SetPageNode( pb->PhysAddrs[pagenum - pb->BaseOffset], h->Node );
 				MM_RefPhys( pb->PhysAddrs[pagenum - pb->BaseOffset] );
 				LOG("Read and map %X to %p (%P)", pagenum*PAGE_SIZE, mapping_dest,

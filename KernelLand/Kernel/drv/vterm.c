@@ -196,7 +196,6 @@ int VT_Install(char **Arguments)
 //		Semaphore_Init(&gVT_Terminals[i].InputSemaphore, 0, MAX_INPUT_CHARS8, "VTerm", gVT_Terminals[i].Name);
 	}
 	
-	Log_Debug("VTerm", "Registering with DevFS");
 	// Add to DevFS
 	DevFS_AddDevice( &gVT_DrvInfo );
 	

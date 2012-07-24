@@ -164,6 +164,15 @@ void Keyboard_HandleKey(tKeyboard *Source, Uint32 HIDKeySym)
 	Uint32	flag;
 	Uint8	layer;
 	
+	if( !Source ) {
+		Log_Error("Keyboard", "Passed NULL handle");
+		return ;
+	}
+	if( !Source->Node ) {
+		Log_Error("Keyboard", "Passed handle with NULL node");
+		return ;
+	}
+	
 	bPressed = !(HIDKeySym & (1 << 31));
 	HIDKeySym &= 0x7FFFFFFF;
 

@@ -191,7 +191,7 @@ int UHCI_int_InitHost(tUHCI_Controller *Host)
 		1,17,9,25,5,21,13,29,3,19,11,27,7,23,15,31
 		};
 	for( int i = 0; i < 1024; i ++ ) {
-		Uint32	addr = MM_GetPhysAddr( (tVAddr)&Host->TDQHPage->ControlQH );
+		Uint32	addr = MM_GetPhysAddr( &Host->TDQHPage->ControlQH );
 		Host->FrameList[i] = addr | 2;
 	}
 	for( int i = 0; i < 64; i ++ ) {
@@ -220,12 +220,12 @@ int UHCI_int_InitHost(tUHCI_Controller *Host)
 			dest +=	_count; destphys += _count * sizeof(tUHCI_QH);
 		}
 		// Skip padding, and move to control QH
-		dest->Next = MM_GetPhysAddr( (tVAddr)&Host->TDQHPage->BulkQH ) | 2;
+		dest->Next = MM_GetPhysAddr( &Host->TDQHPage->BulkQH ) | 2;
 		dest->Child = 1;
 	}
 
 	// Set up control and bulk queues
-	Host->TDQHPage->ControlQH.Next = MM_GetPhysAddr( (tVAddr)&Host->TDQHPage->BulkQH ) | 2;
+	Host->TDQHPage->ControlQH.Next = MM_GetPhysAddr( &Host->TDQHPage->BulkQH ) | 2;
 	Host->TDQHPage->ControlQH.Child = 1;
 	Host->TDQHPage->BulkQH.Next = 1;
 	Host->TDQHPage->BulkQH.Child = 1;
@@ -297,11 +297,11 @@ void UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_QH *QH, tUHCI_TD *TD)
 	// Add
 	TD->Link = 1;
 	if( QH->Child & 1 ) {
-		QH->Child = MM_GetPhysAddr( (tVAddr)TD );
+		QH->Child = MM_GetPhysAddr( TD );
 	}
 	else {
 		// Depth first
-		QH->_LastItem->Link = MM_GetPhysAddr( (tVAddr)TD ) | 4;
+		QH->_LastItem->Link = MM_GetPhysAddr( TD ) | 4;
 	}
 	QH->_LastItem = TD;
 
@@ -360,7 +360,7 @@ tUHCI_TD *UHCI_int_CreateTD(
 	if(
 		((tVAddr)Data & (PAGE_SIZE-1)) + Length > PAGE_SIZE
 	#if PHYS_BITS > 32
-		|| MM_GetPhysAddr( (tVAddr)Data ) >> 32
+		|| MM_GetPhysAddr( Data ) >> 32
 	#endif
 		)
 	{
@@ -373,8 +373,8 @@ tUHCI_TD *UHCI_int_CreateTD(
 			LOG("Relocated IN");
 			info = calloc( sizeof(tUHCI_ExtraTDInfo), 1 );
 			info->Offset = ((tVAddr)Data & (PAGE_SIZE-1));
-			info->FirstPage = MM_GetPhysAddr( (tVAddr)Data );
-			info->SecondPage = MM_GetPhysAddr( (tVAddr)Data + Length - 1 );
+			info->FirstPage = MM_GetPhysAddr( Data );
+			info->SecondPage = MM_GetPhysAddr( (const char *)Data + Length - 1 );
 		}
 		else
 		{
@@ -388,7 +388,7 @@ tUHCI_TD *UHCI_int_CreateTD(
 	}
 	else
 	{
-		td->BufferPointer = MM_GetPhysAddr( (tVAddr)Data );
+		td->BufferPointer = MM_GetPhysAddr( Data );
 		td->_info.bFreePointer = 0;
 	}
 
@@ -661,7 +661,7 @@ tUHCI_TD *UHCI_int_GetTDFromPhys(tUHCI_Controller *Controller, Uint32 PAddr)
 	}
 
 	
-	tPAddr	global_pool = MM_GetPhysAddr( (tVAddr)gaUHCI_TDPool );
+	tPAddr	global_pool = MM_GetPhysAddr( gaUHCI_TDPool );
 	
 	if( PAddr < global_pool || PAddr >= global_pool + PAGE_SIZE )	return NULL;
 	

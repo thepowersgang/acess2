@@ -109,12 +109,8 @@ tSysFS_Ent	*gSysFS_FileList;
  */
 int SysFS_Install(char **Options)
 {
-	{
-		const char	*fmt = "Acess2 "EXPAND_STR(KERNEL_VERSION)" "EXPAND_STR(ARCHDIR)" build %i, hash %s";
-		gSysFS_Version_Kernel.Node.Size = snprintf(NULL, 0, fmt, BUILD_NUM, gsGitHash);
-		gSysFS_Version_Kernel.Node.ImplPtr = malloc( gSysFS_Version_Kernel.Node.Size + 1 );
-		sprintf(gSysFS_Version_Kernel.Node.ImplPtr, fmt, BUILD_NUM, gsGitHash);
-	}
+	gSysFS_Version_Kernel.Node.Size = strlen(gsBuildInfo);
+	gSysFS_Version_Kernel.Node.ImplPtr = (void*)gsBuildInfo;
 
 	DevFS_AddDevice( &gSysFS_DriverInfo );
 	return MODULE_ERR_OK;

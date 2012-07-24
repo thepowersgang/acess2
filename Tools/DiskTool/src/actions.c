@@ -95,6 +95,11 @@ int DiskTool_MountImage(const char *Identifier, const char *Path)
 	return VFS_Mount(tpath, mountpoint, "", "");
 }
 
+int DiskTool_MkDir(const char *Directory)
+{
+	return -1;
+}
+
 int DiskTool_Copy(const char *Source, const char *Destination)
 {
 	int src = DiskTool_int_TranslateOpen(Source, VFS_OPENFLAG_READ);

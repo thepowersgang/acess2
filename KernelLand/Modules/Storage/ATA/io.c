@@ -148,16 +148,16 @@ int ATA_SetupIO(void)
 	IRQ_AddHandler( gATA_IRQPri, ATA_IRQHandlerPri, NULL );
 	IRQ_AddHandler( gATA_IRQSec, ATA_IRQHandlerSec, NULL );
 
-	gATA_PRDTs[0].PBufAddr = MM_GetPhysAddr( (tVAddr)&gATA_Buffers[0] );
-	gATA_PRDTs[1].PBufAddr = MM_GetPhysAddr( (tVAddr)&gATA_Buffers[1] );
+	gATA_PRDTs[0].PBufAddr = MM_GetPhysAddr( &gATA_Buffers[0] );
+	gATA_PRDTs[1].PBufAddr = MM_GetPhysAddr( &gATA_Buffers[1] );
 
 	LOG("gATA_PRDTs = {PBufAddr: 0x%x, PBufAddr: 0x%x}", gATA_PRDTs[0].PBufAddr, gATA_PRDTs[1].PBufAddr);
 
-	gaATA_PRDT_PAddrs[0] = MM_GetPhysAddr( (tVAddr)&gATA_PRDTs[0] );
+	gaATA_PRDT_PAddrs[0] = MM_GetPhysAddr( &gATA_PRDTs[0] );
 	LOG("gaATA_PRDT_PAddrs[0] = 0x%x", gaATA_PRDT_PAddrs[0]);
 	ATA_int_BusMasterWriteDWord(4, gaATA_PRDT_PAddrs[0]);
 	
-	gaATA_PRDT_PAddrs[1] = MM_GetPhysAddr( (tVAddr)&gATA_PRDTs[1] );
+	gaATA_PRDT_PAddrs[1] = MM_GetPhysAddr( &gATA_PRDTs[1] );
 	LOG("gaATA_PRDT_PAddrs[1] = 0x%x", gaATA_PRDT_PAddrs[1]);
 	ATA_int_BusMasterWriteDWord(12, gaATA_PRDT_PAddrs[1]);
 

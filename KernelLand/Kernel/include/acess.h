@@ -60,7 +60,8 @@ typedef Uint64	off_t;	//!< VFS Offset
 
 extern char	__buildnum[];
 #define BUILD_NUM	((int)(Uint)&__buildnum)
-extern const char gsGitHash[];
+extern const char	gsGitHash[];
+extern const char	gsBuildInfo[];
 
 #define VER2(major,minor)	((((major)&0xFF)<<8)|((minor)&0xFF))
 /**
@@ -252,7 +253,7 @@ extern int	MM_Map(tVAddr VAddr, tPAddr PAddr);
  * \param Addr	Address of the page to get the physical address of
  * \return Physical page mapped at \a Addr
  */
-extern tPAddr	MM_GetPhysAddr(tVAddr Addr);
+extern tPAddr	MM_GetPhysAddr(const void *Addr);
 /**
  * \brief Set the access flags on a page
  * \param VAddr	Virtual address of the page

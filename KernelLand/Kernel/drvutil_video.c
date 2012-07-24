@@ -137,12 +137,18 @@ int DrvUtil_Video_WriteLFB(tDrvUtil_Video_BufInfo *FBInfo, size_t Offset, size_t
 	 int	csr_x, csr_y;
 	 int	x, y;
 	 int	bytes_per_px = (FBInfo->Depth + 7) / 8;
+	size_t	ofs;
 	ENTER("pFBInfo xOffset xLength pBuffer",
 		FBInfo, Offset, Length, Buffer);
 
 	csr_x = FBInfo->CursorX;
 	csr_y = FBInfo->CursorY;
 
+	if( FBInfo->BackBuffer )
+		dest = FBInfo->BackBuffer;
+	else
+		dest = FBInfo->Framebuffer;
+	
 	DrvUtil_Video_RemoveCursor(FBInfo);
 
 	switch( FBInfo->BufferFormat )
@@ -171,10 +177,9 @@ int DrvUtil_Video_WriteLFB(tDrvUtil_Video_BufInfo *FBInfo, size_t Offset, size_t
 			Length = heightInChars*widthInChars - Offset;
 		}
 		
-		dest = FBInfo->Framebuffer;
 		LOG("dest = %p", dest);
-		dest += y * giVT_CharHeight * FBInfo->Pitch;
-		LOG("dest = %p", dest);
+		ofs = y * giVT_CharHeight * FBInfo->Pitch;
+		dest += ofs;
 		
 		for( i = 0; i < Length; i++ )
 		{
@@ -201,9 +206,11 @@ int DrvUtil_Video_WriteLFB(tDrvUtil_Video_BufInfo *FBInfo, size_t Offset, size_t
 				LOG("dest = %p", dest);
 			}
 		}
+		if( x > 0 ) 
+			dest += FBInfo->Pitch*giVT_CharHeight;
 		Length = i * sizeof(tVT_Char);
-		}
-		break;
+		
+		break; }
 	
 	case VIDEO_BUFFMT_FRAMEBUFFER:
 		if(FBInfo->Width*FBInfo->Height*4 < Offset+Length)
@@ -217,11 +224,13 @@ int DrvUtil_Video_WriteLFB(tDrvUtil_Video_BufInfo *FBInfo, size_t Offset, size_t
 		case 15:
 		case 16:
 			Log_Warning("DrvUtil", "TODO: Support 15/16 bpp modes in LFB write");
+			dest = NULL;
 			break;
 		case 24:
 			x = Offset % FBInfo->Width;
 			y = Offset / FBInfo->Width;
-			dest = (Uint8*)FBInfo->Framebuffer + y*FBInfo->Pitch;
+			ofs = y*FBInfo->Pitch;
+			dest += ofs;
 			for( ; Length >= 4; Length -= 4 )
 			{
 				dest[x*3+0] = *src & 0xFF;
@@ -243,25 +252,30 @@ int DrvUtil_Video_WriteLFB(tDrvUtil_Video_BufInfo *FBInfo, size_t Offset, size_t
 				x = Offset % FBInfo->Width;
 				y = Offset / FBInfo->Height;
 				
-				px = (Uint32*)FBInfo->Framebuffer + y*FBInfo->Pitch/4;
+				ofs = y*FBInfo->Pitch;
+				dest += ofs;
+				px = (void*)dest;
 
-				for( ; Length >= 4; Length -= 4, x )
+				for( ; Length >= 4; Length -= 4 )
 				{
 					px[x++] = *src ++;
 					if( x == FBInfo->Width ) {
 						x = 0;
-						px += FBInfo->Pitch;
+						dest += FBInfo->Pitch;
+						px = (void*)dest;
 					}
 				}
 			}
 			else
 			{
-				dest = (Uint8 *)FBInfo->Framebuffer + Offset;
+				ofs = Offset;
+				dest += ofs;
 				memcpy(dest, Buffer, Length);
 			}
 			break;
 		default:
-			Log_Warning("DrvUtil", "DrvUtil_Video_WriteLFB - Unknown bit depthn %i", FBInfo->Depth);
+			Log_Warning("DrvUtil", "DrvUtil_Video_WriteLFB - Unknown bit depth %i", FBInfo->Depth);
+			dest = NULL;
 			break;
 		}
 		break;
@@ -271,11 +285,17 @@ int DrvUtil_Video_WriteLFB(tDrvUtil_Video_BufInfo *FBInfo, size_t Offset, size_t
 			FBInfo, Buffer, Length,
 			&gDrvUtil_Stub_2DFunctions, sizeof(gDrvUtil_Stub_2DFunctions)
 			);
+		dest = NULL;
 		break;
 	
 	default:
 		LEAVE('i', -1);
 		return -1;
+	}
+	if( FBInfo->BackBuffer && dest ) {
+		memcpy((char*)FBInfo->Framebuffer + ofs, (char*)FBInfo->BackBuffer + ofs,
+			((tVAddr)dest - (tVAddr)FBInfo->BackBuffer) - ofs
+			);
 	}
 
 	DrvUtil_Video_DrawCursor(FBInfo, csr_x, csr_y);
@@ -520,18 +540,35 @@ void DrvUtil_Video_2D_Fill(void *Ent, Uint16 X, Uint16 Y, Uint16 W, Uint16 H, Ui
 {
 	tDrvUtil_Video_BufInfo	*FBInfo = Ent;
 
-	// TODO: Handle non-32bit modes
-	if( FBInfo->Depth != 32 )	return;
-
-	// TODO: Be less hacky
-	 int	pitch = FBInfo->Pitch/4;
-	Uint32	*buf = (Uint32*)FBInfo->Framebuffer + Y*pitch + X;
-	while( H -- ) {
-		Uint32 *tmp;
-		 int	i;
-		tmp = buf;
-		for(i=W;i--;tmp++)	*tmp = Colour;
-		buf += pitch;
+	switch( FBInfo->Depth )
+	{
+	case 32: {
+		// TODO: Be less hacky
+		size_t	pitch = FBInfo->Pitch/4;
+		size_t	ofs = Y*pitch + X;
+		Uint32	*buf = (Uint32*)FBInfo->Framebuffer + ofs;
+		Uint32	*cbuf = NULL;
+		if( FBInfo->BackBuffer )
+			cbuf = (Uint32*)FBInfo->BackBuffer + ofs;
+		while( H -- )
+		{
+			Uint32 *line;
+			line = buf;
+			for(int i = W; i--; line++)
+				*line = Colour;
+			buf += pitch;
+			if( cbuf ) {
+				line = cbuf;
+				for(int i = W; i--; line++ )
+					*line = Colour;
+				cbuf += pitch;
+			}
+		}
+		break; }
+	default:
+		// TODO: Handle non-32bit modes
+		Log_Warning("DrvUtil", "TODO: <32bpp _Fill");
+		break;
 	}
 }
 
@@ -543,6 +580,9 @@ void DrvUtil_Video_2D_Blit(void *Ent, Uint16 DstX, Uint16 DstY, Uint16 SrcX, Uin
 	 int	dst = DstY*scrnpitch + DstX;
 	 int	src = SrcY*scrnpitch + SrcX;
 	 int	tmp;
+	Uint8	*framebuffer = FBInfo->Framebuffer;
+	Uint8	*backbuffer = FBInfo->BackBuffer;
+	Uint8	*sourcebuffer = (FBInfo->BackBuffer ? FBInfo->BackBuffer : FBInfo->Framebuffer);
 	
 	//Log("Vesa_2D_Blit: (Ent=%p, DstX=%i, DstY=%i, SrcX=%i, SrcY=%i, W=%i, H=%i)",
 	//	Ent, DstX, DstY, SrcX, SrcY, W, H);
@@ -554,26 +594,39 @@ void DrvUtil_Video_2D_Blit(void *Ent, Uint16 DstX, Uint16 DstY, Uint16 SrcX, Uin
 	
 	//Debug("W = %i, H = %i", W, H);
 	
-	if( dst > src ) {
+	if(W == FBInfo->Width && FBInfo->Pitch == FBInfo->Width*bytes_per_px)
+	{
+		memmove(framebuffer + dst, sourcebuffer + src, H*FBInfo->Pitch);
+		if( backbuffer )
+			memmove(backbuffer + dst, sourcebuffer + src, H*FBInfo->Pitch);
+	}
+	else if( dst > src )
+	{
 		// Reverse copy
 		dst += H*scrnpitch;
 		src += H*scrnpitch;
-		while( H -- ) {
+		while( H -- )
+		{
 			dst -= scrnpitch;
 			src -= scrnpitch;
 			tmp = W*bytes_per_px;
-			for( tmp = W; tmp --; ) {
-				*((Uint8*)FBInfo->Framebuffer + dst + tmp) = *((Uint8*)FBInfo->Framebuffer + src + tmp);
+			for( tmp = W; tmp --; )
+			{
+				size_t	src_o = src + tmp;
+				size_t	dst_o = src + tmp;
+				framebuffer[dst_o] = sourcebuffer[src_o];
+				if( backbuffer )
+					backbuffer[dst_o] = sourcebuffer[src_o];
 			}
 		}
 	}
-	else if(W == FBInfo->Width && FBInfo->Pitch == FBInfo->Width*bytes_per_px) {
-		memmove((Uint8*)FBInfo->Framebuffer + dst, (Uint8*)FBInfo->Framebuffer + src, H*FBInfo->Pitch);
-	}
 	else {
 		// Normal copy is OK
-		while( H -- ) {
-			memcpy((Uint8*)FBInfo->Framebuffer + dst, (Uint8*)FBInfo->Framebuffer + src, W*bytes_per_px);
+		while( H -- )
+		{
+			memcpy(framebuffer + dst, sourcebuffer + src, W*bytes_per_px);
+			if( backbuffer )
+				memcpy(backbuffer + dst, sourcebuffer + src, W*bytes_per_px);
 			dst += scrnpitch;
 			src += scrnpitch;
 		}

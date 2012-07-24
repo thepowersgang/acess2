@@ -43,8 +43,6 @@ tDevFS_Driver	gUSB_DrvInfo = {
  */
 int USB_Install(char **Arguments)
 {
-	Log_Warning("USB", "Not Complete - Devel Only");
-	
 	Proc_SpawnWorker(USB_PollThread, NULL);
 	Proc_SpawnWorker(USB_AsyncThread, NULL);
 	
