@@ -1,0 +1,27 @@
+TODO:
+- E1000 Driver (stubbed)
+ > Find specs
+   http://download.intel.com/design/network/manuals/8254x_GBe_SDM.pdf
+ > Use bochs/qemu only as a backup
+- Cirrus 64-bit VisualMedia Accelerator
+   PCI 1013:00B8 (Cirrus CLGD5446)
+ > Specs avail?
+   Qemu Suggests http://home.worldonline.dk/~finth/
+ > Bochs/Qemu
+- UniChrome Driver
+- Init Scripts
+ > With an argument to init passed from the kernel?
+- #!
+ > Pass as argument? or pass pointer like ld-acess?
+ > argc/argv - Definitely
+- Network Debugging + IPv6 Autoconf
+ > Should IPv6 RAs be done in kernel mode, or usermode?
+ > Wait until something like linux's net.conf.ipv6.accept_ra is set?
+ > Have a custom suffix for stateless IPs?
+- Signals
+ > Add return value to mutexs and semaphores, and add warn_unused_ret
+- Virtual PCI bus for system configuration
+- VFS Path caching
+ > Use a trie of path elements
+ > Maintain backwards cache of elements
+ > Support symlink caching too
