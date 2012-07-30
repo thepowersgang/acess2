@@ -134,14 +134,14 @@ void Error_Backtrace(Uint IP, Uint BP)
 		LogF("Backtrace: %p", IP);
 	//else
 	//	LogF("Backtrace: %s+0x%x", str, delta);
-	if( !MM_GetPhysAddr(BP) )
+	if( !MM_GetPhysAddr( (void*)BP ) )
 	{
 		LogF("\nBacktrace: Invalid BP, stopping\n");
 		return;
 	}
 	
 	
-	while( MM_GetPhysAddr(BP) && MM_GetPhysAddr(BP+8+7) && i < MAX_BACKTRACE )
+	while( MM_GetPhysAddr( (void*)BP) && MM_GetPhysAddr((void*)(BP+8+7)) && i < MAX_BACKTRACE )
 	{
 		//str = Debug_GetSymbol(*(Uint*)(ebp+4), &delta);
 		//if(str == NULL)

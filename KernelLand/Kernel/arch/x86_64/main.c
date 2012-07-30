@@ -9,9 +9,7 @@
 extern void	Desctab_Init(void);
 extern void	MM_InitVirt(void);
 extern void	Heap_Install(void);
-extern void	Threads_Init(void);
 extern int	Time_Setup(void);
-extern void	System_Init(char *Commandline);
 
 extern void	MM_InitPhys_Multiboot(tMBoot_Info *MBoot);
 

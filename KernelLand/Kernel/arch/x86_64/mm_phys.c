@@ -440,7 +440,7 @@ tPAddr MM_AllocPhysRange(int Pages, int MaxBits)
 	for( i = 0; i < Pages; i++, addr++ )
 	{
 		gaMainBitmap[addr >> 6] |= 1LL << (addr & 63);
-		if( MM_GetPhysAddr( (tVAddr)&gaiPageReferences[addr] ) )
+		if( MM_GetPhysAddr( &gaiPageReferences[addr] ) )
 			gaiPageReferences[addr] = 1;
 //		Log("page %P refcount = %i", MM_GetRefCount(addr<<12)); 
 		rangeID = MM_int_GetRangeID(addr << 12);
@@ -504,7 +504,7 @@ void MM_RefPhys(tPAddr PAddr)
 	{
 		tVAddr	ref_base = ((tVAddr)&gaiPageReferences[ page ]) & ~0xFFF;
 		// Allocate reference page
-		if( !MM_GetPhysAddr(ref_base) )
+		if( !MM_GetPhysAddr(&gaiPageReferences[page]) )
 		{
 			const int	pages_per_refpage = PAGE_SIZE/sizeof(gaiPageReferences[0]);
 			 int	i;
@@ -528,7 +528,7 @@ void MM_RefPhys(tPAddr PAddr)
 		PAGE_ALLOC_SET(page);
 		if( gaMainBitmap[page >> 6] + 1 == 0 )
 			gaSuperBitmap[page>> 12] |= 1LL << ((page >> 6) & 63);
-		if( MM_GetPhysAddr( (tVAddr)&gaiPageReferences[page] ) )
+		if( MM_GetPhysAddr( &gaiPageReferences[page] ) )
 			gaiPageReferences[page] = 1;
 	}
 
@@ -546,7 +546,7 @@ void MM_DerefPhys(tPAddr PAddr)
 	
 	if( PAddr >> 12 > giMaxPhysPage )	return ;
 	
-	if( MM_GetPhysAddr( (tVAddr) &gaiPageReferences[page] ) )
+	if( MM_GetPhysAddr( &gaiPageReferences[page] ) )
 	{
 		gaiPageReferences[ page ] --;
 		if( gaiPageReferences[ page ] == 0 )
@@ -583,7 +583,7 @@ int MM_GetRefCount( tPAddr PAddr )
 	
 	if( PAddr > giMaxPhysPage )	return 0;
 
-	if( MM_GetPhysAddr( (tVAddr)&gaiPageReferences[PAddr] ) ) {
+	if( MM_GetPhysAddr( &gaiPageReferences[PAddr] ) ) {
 		return gaiPageReferences[PAddr];
 	}
 
@@ -620,7 +620,7 @@ int MM_SetPageNode(tPAddr PAddr, void *Node)
 
 //	if( !MM_GetRefCount(PAddr) )	return 1;
 	
-	if( !MM_GetPhysAddr(node_page) ) {
+	if( !MM_GetPhysAddr((void*)node_page) ) {
 		if( !MM_Allocate(node_page) )
 			return -1;
 		memset( (void*)node_page, 0, PAGE_SIZE );
@@ -635,7 +635,7 @@ int MM_GetPageNode(tPAddr PAddr, void **Node)
 //	if( !MM_GetRefCount(PAddr) )	return 1;
 	PAddr >>= 12;
 	
-	if( !MM_GetPhysAddr( (tVAddr)&gapPageNodes[PAddr] ) ) {
+	if( !MM_GetPhysAddr( &gapPageNodes[PAddr] ) ) {
 		*Node = NULL;
 		return 0;
 	}
