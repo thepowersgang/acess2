@@ -40,6 +40,11 @@ void WM_Hotkey_Register(int nKeys, uint32_t *Keys, const char *ActionName)
 	h->Target = (void*)( h->Keys + nKeys );
 	strcpy((char*)h->Target, ActionName);
 	memcpy(h->Keys, Keys, nKeys * sizeof(uint32_t));
+	
+	h->Next = NULL;
+	if( gpWM_Hotkeys )
+		gpWM_Hotkeys->Next = h;
+	gpWM_Hotkeys = h;
 }
 
 void WM_Hotkey_RegisterAction(const char *ActionName, tWindow *Target, uint16_t Index)
@@ -82,6 +87,8 @@ void WM_Hotkey_KeyUp(uint32_t Scancode)
 {
 	_UnsetKey(Scancode);
 
+	// Ensure that hotkeys are triggered on the longest sequence
+	// (so Win-Shift-R doesn't trigger Win-R if shift is released)
 	if( !gbWM_HasBeenKeyDown )
 		return ;
 
@@ -94,7 +101,8 @@ void WM_Hotkey_KeyUp(uint32_t Scancode)
 			if( _IsKeySet(hk->Keys[i]) )	continue ;
 			break;
 		}
-		if( i == hk->nKeys )
+		_SysDebug("%i/%i satisfied for %s", i, hk->nKeys, hk->Target);
+		if( i != hk->nKeys )
 			continue ;
 		
 		// Fire shortcut
@@ -108,6 +116,7 @@ void WM_Hotkey_KeyUp(uint32_t Scancode)
 
 void WM_Hotkey_FireEvent(const char *Target)
 {
+	_SysDebug("WM_Hotkey_FireEvent: (%s)", Target);
 	// - Internal events (Alt-Tab, Close, Maximize, etc...)
 	// TODO: Internal event handling
 	
@@ -133,11 +142,13 @@ void WM_Hotkey_FireEvent(const char *Target)
 
 static void _SetKey(uint32_t sc)
 {
+	_SysDebug("_SetKey: (%x)", sc);
 	if( sc >= MAX_STATE_SCANCODE )	return;
 	gWM_KeyStates[sc/8] |= 1 << (sc % 8);
 }
 static void _UnsetKey(uint32_t sc)
 {
+	_SysDebug("_UnsetKey: (%x)", sc);
 	if( sc >= MAX_STATE_SCANCODE )	return;
 	gWM_KeyStates[sc/8] &= ~(1 << (sc % 8));
 }

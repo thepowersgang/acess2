@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <wm.h>
 #include <wm_internals.h>
+#include <wm_hotkeys.h>
 
 #define AXWIN_PORT	4101
 
@@ -495,7 +496,26 @@ int IPC_Msg_SetWinPos(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
 
 int IPC_Msg_RegisterAction(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
 {
+	tIPCMsg_RegAction	*info = (void*)Msg->Data;
+	tWindow	*win;
+	
 	ASSERT(Msg->ID == IPCMSG_REGACTION);
+
+	if( Msg->Size < sizeof(*info) + 1 )
+		return -1;
+	
+	win = IPC_int_GetWindow(Client, Msg->Window);
+	if(!win)	return 1;
+
+	if( strnlen(info->Action, Msg->Size - sizeof(*info)) == Msg->Size - sizeof(*info) )
+		return 1;
+
+	_SysDebug("RegisterAction %p:%i [%i]\"%s\"",
+		Client, Msg->Window, info->Index, info->Action
+		);
+
+	WM_Hotkey_RegisterAction(info->Action, win, info->Index);
+
 	return 0;
 }
 

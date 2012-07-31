@@ -19,6 +19,7 @@
 void	create_sidebar(void);
 void	create_mainmenu(void);
 void	create_run_dialog(void);
+void	mainmenu_run_dialog(void *unused);
 
 // === GLOBALS ===
 tHWND	gSidebar;
@@ -49,6 +50,10 @@ int main(int argc, char *argv[])
 	create_mainmenu();
 	create_run_dialog();
 	
+	AxWin3_RegisterAction(gSidebar, "Interface>Run", (tAxWin3_HotkeyCallback)mainmenu_run_dialog);
+//	AxWin3_RegisterAction(gSidebar, "Interface>Terminal", mainmenu_app_terminal);
+//	AxWin3_RegisterAction(gSidebar, "Interface>TextEdit", mainmenu_app_textedit);
+
 	// Idle loop
 	AxWin3_MainLoop();
 	
@@ -130,6 +135,7 @@ void create_mainmenu(void)
 // --------------------------------------------------------------------
 int run_dorun(tAxWin3_Widget *unused)
 {
+	_SysDebug("DoRun pressed");
 	char *cmd = AxWin3_Widget_GetText(gRunInput);
 	_SysDebug("Command string '%s'", cmd);
 	AxWin3_ShowWindow(gRunDialog, 0);

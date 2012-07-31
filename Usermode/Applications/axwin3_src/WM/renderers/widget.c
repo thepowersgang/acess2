@@ -552,6 +552,34 @@ void Widget_SetText(tWidgetWin *Info, int Len, const tWidgetMsg_SetText *Msg)
 //	}
 }
 
+int Widget_GetText(tWidgetWin *Info, int Len, const tWidgetMsg_SetText *Msg)
+{
+	if( Len < sizeof(*Msg) )
+		return 0;
+	if( Len > sizeof(*Msg) )
+		return 1;	// Pass to user
+	
+	const char	*text = NULL;
+	tElement *ele = Widget_GetElementById(Info, Msg->WidgetID);
+	if(ele)
+		text = ele->Text;
+	
+	char	buf[sizeof(tWidgetMsg_SetText) + strlen(text?text:"") + 1];
+	tWidgetMsg_SetText	*omsg = (void*)buf;
+	
+	if( text ) {
+		omsg->WidgetID = Msg->WidgetID;
+		strcpy(omsg->Text, text);
+	}
+	else {
+		omsg->WidgetID = -1;
+		omsg->Text[0] = 0;
+	}
+	
+	WM_SendMessage(Info->RootElement.Window, Info->RootElement.Window, MSG_WIDGET_GETTEXT, sizeof(buf), buf);
+	return 0;
+}
+
 int Renderer_Widget_HandleMessage(tWindow *Target, int Msg, int Len, const void *Data)
 {
 	tWidgetWin	*info = Target->RendererInfo;
@@ -691,6 +719,8 @@ int Renderer_Widget_HandleMessage(tWindow *Target, int Msg, int Len, const void 
 	case MSG_WIDGET_SETTEXT:
 		Widget_SetText(info, Len, Data);
 		return 0;
+	case MSG_WIDGET_GETTEXT:
+		return Widget_GetText(info, Len, Data);
 	
 	// 
 	default:
