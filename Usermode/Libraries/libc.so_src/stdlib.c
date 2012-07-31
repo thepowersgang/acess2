@@ -73,7 +73,7 @@ EXPORT void qsort(void *base, size_t nmemb, size_t size, int(*compar)(const void
 
 EXPORT long long strtoll(const char *str, char **end, int base)
 {
-	 int	neg;
+	 int	neg = 0;
 	long long	ret = 0;
 	
 	if( !str || base < 0 || base > 36 || base == 1 ) {
