@@ -112,6 +112,7 @@ uint64_t __divmod64(uint64_t Num, uint64_t Den, uint64_t *Rem)
 	return ret;
 }
 
+#if 0
 uint32_t __divmod32(uint32_t Num, uint32_t Den, uint32_t *Rem)
 {
 	uint32_t	ret = 0, add = 1;
@@ -198,4 +199,5 @@ uint32_t __umodsi3(uint32_t Num, uint32_t Den)
 	__divmod32(Num, Den, &ret);
 	return ret;
 }
+#endif
 
