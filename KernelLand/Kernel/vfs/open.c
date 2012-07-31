@@ -702,7 +702,7 @@ int VFS_ChDir(const char *Dest)
 		*cwdptr = buf;
 	}
 	
-	Log("Updated CWD to '%s'", buf);
+	Log_Debug("VFS", "Updated CWD to '%s'", buf);
 	
 	return 1;
 }
