@@ -116,7 +116,7 @@ void WM_Hotkey_KeyUp(uint32_t Scancode)
 
 void WM_Hotkey_FireEvent(const char *Target)
 {
-	_SysDebug("WM_Hotkey_FireEvent: (%s)", Target);
+//	_SysDebug("WM_Hotkey_FireEvent: (%s)", Target);
 	// - Internal events (Alt-Tab, Close, Maximize, etc...)
 	// TODO: Internal event handling
 	
@@ -142,13 +142,13 @@ void WM_Hotkey_FireEvent(const char *Target)
 
 static void _SetKey(uint32_t sc)
 {
-	_SysDebug("_SetKey: (%x)", sc);
+//	_SysDebug("_SetKey: (%x)", sc);
 	if( sc >= MAX_STATE_SCANCODE )	return;
 	gWM_KeyStates[sc/8] |= 1 << (sc % 8);
 }
 static void _UnsetKey(uint32_t sc)
 {
-	_SysDebug("_UnsetKey: (%x)", sc);
+//	_SysDebug("_UnsetKey: (%x)", sc);
 	if( sc >= MAX_STATE_SCANCODE )	return;
 	gWM_KeyStates[sc/8] &= ~(1 << (sc % 8));
 }
