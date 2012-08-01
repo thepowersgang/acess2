@@ -45,6 +45,7 @@ EXPORT void	*sbrk(int increment);
 LOCAL void	*extendHeap(int bytes);
 static void	*FindHeapBase();
 LOCAL uint	brk(uintptr_t newpos);
+LOCAL void	Heap_Dump(void);
 
 //Code
 
@@ -91,6 +92,7 @@ EXPORT void *malloc(size_t bytes)
 		else if(curBlock->magic != MAGIC)
 		{
 			//Corrupt Heap
+			Heap_Dump();
 			_SysDebug("malloc: Corrupt Heap\n");
 			return NULL;
 		}
@@ -442,3 +444,25 @@ LOCAL uint brk(uintptr_t newpos)
 	
 	return ret;	// Return old curpos
 }
+
+void Heap_Dump(void)
+{
+	heap_head *cur = _heap_start;
+	while( cur < _heap_end )
+	{
+		switch( cur->magic )
+		{
+		case MAGIC:
+			_SysDebug("Used block %p[0x%x] - ptr=%p", cur, cur->size, cur->data);
+			break;
+		case MAGIC_FREE:
+			_SysDebug("Free block %p[0x%x] - ptr=%p", cur, cur->size, cur->data);
+			break;
+		default:
+			_SysDebug("Block %p bad magic (0x%x)", cur, cur->magic);
+			return ;
+		}
+		cur = (void*)( (char*)cur + cur->size );
+	}
+}
+
