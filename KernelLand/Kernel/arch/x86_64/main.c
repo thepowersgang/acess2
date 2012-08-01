@@ -5,6 +5,9 @@
 #include <mboot.h>
 #include <init.h>
 
+// === CONSTANTS ===
+#define MAX_PMEMMAP_ENTS	16
+
 // === IMPORTS ===
 extern void	Desctab_Init(void);
 extern void	MM_InitVirt(void);
@@ -24,8 +27,7 @@ void kmain(Uint MbMagic, void *MbInfoPtr)
 {
 	tMBoot_Info	*mbInfo;
 
-	LogF("Acess2 x86_64 v"EXPAND_STR(KERNEL_VERSION)"\n");
-	LogF(" Build %i, Git Hash %s\n", BUILD_NUM, gsGitHash);
+	LogF("%s\r\n", gsBuildInfo);
 	
 	Desctab_Init();
 
