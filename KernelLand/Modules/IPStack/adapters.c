@@ -344,7 +344,9 @@ void IPStack_SendDebugText(const char *Text)
 	if( CPU_HAS_LOCK(&lLock) )
 		return ;	// Nested!
 	SHORTLOCK(&lLock);
+	#if ARCHDIR_is_x86
 	__asm__ __volatile__ ("sti");	// Start interrupts (x86 specific)
+	#endif
 
 	// Cache packets until a newline
 	static char	cache[1500 - (sizeof(pkt_hdr) + 4)];
