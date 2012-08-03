@@ -25,4 +25,5 @@ uint32_t __umodsi3(uint32_t Num, uint32_t Den){return 0;}
 #endif
 
 void	*_crt0_exit_handler;
+void	abort(void){}
 

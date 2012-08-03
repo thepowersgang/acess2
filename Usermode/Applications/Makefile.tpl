@@ -35,9 +35,9 @@ $(_BIN): $(OUTPUTDIR)Libs/acess.ld $(OUTPUTDIR)Libs/crt0.o $(_LIBS) $(OBJ)
 	@mkdir -p $(dir $(_BIN))
 	@echo [LD] -o $@
 ifneq ($(_DBGMAKEFILE),)
-	$(LD) -g $(LDFLAGS) -o $@ $(OBJ) -Map $(_OBJPREFIX)Map.txt
+	$(LD) -g $(LDFLAGS) -o $@ $(OBJ) -Map $(_OBJPREFIX)Map.txt $(LIBGCC_PATH)
 else
-	@$(LD) -g $(LDFLAGS) -o $@ $(OBJ) -Map $(_OBJPREFIX)Map.txt
+	@$(LD) -g $(LDFLAGS) -o $@ $(OBJ) -Map $(_OBJPREFIX)Map.txt $(LIBGCC_PATH)
 endif
 	@$(DISASM) $(_BIN) > $(_OBJPREFIX)$(BIN).dsm
 
