@@ -118,6 +118,7 @@ void mainmenu_app_terminal(void *unused)
 void mainmenu_run_dialog(void *unused)
 {
 	AxWin3_ShowWindow(gRunDialog, 1);
+	AxWin3_FocusWindow(gRunDialog);
 }
 
 void create_mainmenu(void)
