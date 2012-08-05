@@ -116,15 +116,26 @@ int Tegra2Vid_Install(char **Arguments)
 		);
 	memset(gpTegra2Vid_Framebuffer, 0xFF, 0x1000);
 
-//	gpTegra2Vid_IOMem[DC_WIN_A_WIN_OPTIONS_0] = (1 << 30);
-//	gpTegra2Vid_IOMem[DC_WIN_A_COLOR_DEPTH_0] = 12;	// Could be 13 (BGR/RGB)
-//	gpTegra2Vid_IOMem[DC_WIN_A_PRESCALED_SIZE_0] = gpTegra2Vid_IOMem[DC_WIN_A_SIZE_0];
-	gpTegra2Vid_IOMem[DC_WIN_A_LINE_STRIDE_0] = 1024*2;
+#if 0
+	gpTegra2Vid_IOMem[DC_WIN_A_WIN_OPTIONS_0] = (1 << 30);
+	gpTegra2Vid_IOMem[DC_WIN_A_COLOR_DEPTH_0] = 12;	// Could be 13 (BGR/RGB)
+	gpTegra2Vid_IOMem[DC_WIN_A_PRESCALED_SIZE_0] = gpTegra2Vid_IOMem[DC_WIN_A_SIZE_0];
+	gpTegra2Vid_IOMem[DC_WIN_A_LINE_STRIDE_0] =
+		gTegra2Vid_DrvUtil_BufInfo.Pitch =
+		1680*4;
+	gTegra2Vid_DrvUtil_BufInfo.Depth = 32;
+	gTegra2Vid_DrvUtil_BufInfo.Width = 1680;
+	gTegra2Vid_DrvUtil_BufInfo.Height = 1050;
+#else
+	gpTegra2Vid_IOMem[DC_WIN_A_COLOR_DEPTH_0] = 13;	// Could be 13 (BGR/RGB)
+	gpTegra2Vid_IOMem[DC_WIN_A_LINE_STRIDE_0] =
+		gTegra2Vid_DrvUtil_BufInfo.Pitch = 1024*4;
+	gTegra2Vid_DrvUtil_BufInfo.Depth = 32;
 	gTegra2Vid_DrvUtil_BufInfo.Width = 1024;
 	gTegra2Vid_DrvUtil_BufInfo.Height = 768;
-	gTegra2Vid_DrvUtil_BufInfo.Pitch = 1024*2;
-	gTegra2Vid_DrvUtil_BufInfo.Depth = 16;
 	gTegra2Vid_DrvUtil_BufInfo.Framebuffer = gpTegra2Vid_Framebuffer;
+#endif
+	gpTegra2Vid_IOMem[DC_CMD_STATE_CONTROL_0] = WIN_A_ACT_REQ;
 
 
 //	Tegra2Vid_int_SetMode(4);
@@ -307,16 +318,16 @@ int Tegra2Vid_int_SetMode(int Mode)
 {
 	const struct sTegra2_Disp_Mode	*mode = &caTegra2Vid_Modes[Mode];
 	 int	w = mode->W, h = mode->H;	// Horizontal/Vertical Active
-	*(Uint32*)(gpTegra2Vid_IOMem + DC_DISP_FRONT_PORCH_0) = (mode->VFP << 16) | mode->HFP; 
-	*(Uint32*)(gpTegra2Vid_IOMem + DC_DISP_SYNC_WIDTH_0)  = (mode->HS << 16)  | mode->HS;
-	*(Uint32*)(gpTegra2Vid_IOMem + DC_DISP_BACK_PORCH_0)  = (mode->VBP << 16) | mode->HBP;
-	*(Uint32*)(gpTegra2Vid_IOMem + DC_DISP_DISP_ACTIVE_0) = (mode->H << 16)   | mode->W;
+	gpTegra2Vid_IOMem[DC_DISP_FRONT_PORCH_0] = (mode->VFP << 16) | mode->HFP; 
+	gpTegra2Vid_IOMem[DC_DISP_SYNC_WIDTH_0]  = (mode->HS << 16)  | mode->HS;
+	gpTegra2Vid_IOMem[DC_DISP_BACK_PORCH_0]  = (mode->VBP << 16) | mode->HBP;
+	gpTegra2Vid_IOMem[DC_DISP_DISP_ACTIVE_0] = (mode->H << 16)   | mode->W;
 
-	*(Uint32*)(gpTegra2Vid_IOMem + DC_WIN_A_POSITION_0) = 0;
-	*(Uint32*)(gpTegra2Vid_IOMem + DC_WIN_A_SIZE_0) = (h << 16) | w;
-	*(Uint32*)(gpTegra2Vid_IOMem + DC_DISP_DISP_COLOR_CONTROL_0) = 0x8;	// BASE888
-	*(Uint32*)(gpTegra2Vid_IOMem + DC_WIN_A_COLOR_DEPTH_0) = 12;	// Could be 13 (BGR/RGB)
-	*(Uint32*)(gpTegra2Vid_IOMem + DC_WIN_A_PRESCALED_SIZE_0) = (h << 16) | w;
+	gpTegra2Vid_IOMem[DC_WIN_A_POSITION_0] = 0;
+	gpTegra2Vid_IOMem[DC_WIN_A_SIZE_0] = (h << 16) | w;
+	gpTegra2Vid_IOMem[DC_DISP_DISP_COLOR_CONTROL_0] = 0x8;	// BASE888
+	gpTegra2Vid_IOMem[DC_WIN_A_COLOR_DEPTH_0] = 12;	// Could be 13 (BGR/RGB)
+	gpTegra2Vid_IOMem[DC_WIN_A_PRESCALED_SIZE_0] = (h << 16) | w;
 
 	Log_Debug("Tegra2Vid", "Mode %i (%ix%i) selected", Mode, w, h);
 
@@ -329,6 +340,7 @@ int Tegra2Vid_int_SetMode(int Mode)
 
 		giTegra2Vid_FramebufferSize = w*h*4;		
 
+		// TODO: Does this need RAM or unmapped space?
 		gpTegra2Vid_Framebuffer = (void*)MM_AllocDMA(
 			(giTegra2Vid_FramebufferSize + PAGE_SIZE-1) / PAGE_SIZE,
 			32,
@@ -342,10 +354,12 @@ int Tegra2Vid_int_SetMode(int Mode)
 				);
 		
 		// Tell hardware
-		*(Uint32*)(gpTegra2Vid_IOMem + DC_WINBUF_A_START_ADDR_0) = gTegra2Vid_FramebufferPhys;
-		*(Uint32*)(gpTegra2Vid_IOMem + DC_WINBUF_A_ADDR_V_OFFSET_0) = 0;	// Y offset
-		*(Uint32*)(gpTegra2Vid_IOMem + DC_WINBUF_A_ADDR_H_OFFSET_0) = 0;	// X offset
+		gpTegra2Vid_IOMem[DC_WINBUF_A_START_ADDR_0] = gTegra2Vid_FramebufferPhys;
+		gpTegra2Vid_IOMem[DC_WINBUF_A_ADDR_V_OFFSET_0] = 0;	// Y offset
+		gpTegra2Vid_IOMem[DC_WINBUF_A_ADDR_H_OFFSET_0] = 0;	// X offset
 	}
 
+	gpTegra2Vid_IOMem[DC_CMD_STATE_CONTROL_0] = WIN_A_ACT_REQ;
+	
 	return 0;
 }

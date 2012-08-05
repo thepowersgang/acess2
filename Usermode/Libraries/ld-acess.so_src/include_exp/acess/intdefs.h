@@ -22,7 +22,7 @@ typedef __uint32_t	__uintptr_t;
 #elif defined(ARCHDIR_is_x86_64)
 typedef __int64_t 	__intptr_t;
 typedef __uint64_t	__uintptr_t;
-#elif defined(ARCHDIR_is_armv7)
+#elif defined(ARCHDIR_is_armv7) | defined(ARCHDIR_is_armv6)
 typedef __int32_t 	__intptr_t;
 typedef __uint32_t 	__uintptr_t;
 #else

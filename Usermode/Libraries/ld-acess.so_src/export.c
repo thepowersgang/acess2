@@ -23,6 +23,7 @@ const struct {
 }	caLocalExports[] = {
 	EXP(gLoadedLibraries),
 	EXP(_exit),
+	EXP(_errno),
 	EXP(clone),
 	EXP(kill),
 	EXP(yield),
@@ -75,12 +76,14 @@ const struct {
 	EXP(_SysAllocate),
 	EXP(_SysDebug),
 
+#if 0
 	EXP(__umoddi3),
 	EXP(__udivdi3),
 	EXP(__divsi3),
 	EXP(__modsi3),
 	EXP(__udivsi3),
 	EXP(__umodsi3)
+#endif
 };
 
 const int	ciNumLocalExports = sizeof(caLocalExports)/sizeof(caLocalExports[0]);

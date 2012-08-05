@@ -34,8 +34,8 @@ tWindow *WM_int_GetWindowAtPos(int X, int Y)
 		for(win = ret->FirstChild; win; win = win->NextSibling)
 		{
 			if( !(win->Flags & WINFLAG_SHOW) )	continue ;
-			if( X < win->X || X >= win->X + win->W )	continue;
-			if( Y < win->Y || Y >= win->Y + win->H )	continue;
+			if( X < win->X || X >= win->X + win->RealW )	continue;
+			if( Y < win->Y || Y >= win->Y + win->RealH )	continue;
 			next_win = win;	// Overwrite as we want the final rendered window
 		}
 	}

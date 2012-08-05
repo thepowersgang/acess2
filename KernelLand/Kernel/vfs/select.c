@@ -402,6 +402,7 @@ int VFS_int_Select_AddThread(tVFS_SelectList *List, tThread *Thread, int MaxAllo
 			}
 			count ++;
 			if( MaxAllowed && count >= MaxAllowed ) {
+				Mutex_Release(&List->Lock);
 				LEAVE('i', 1);
 				return 1;
 			}

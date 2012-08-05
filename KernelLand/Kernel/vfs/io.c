@@ -38,6 +38,12 @@ Uint64 VFS_Read(int FD, Uint64 Length, void *Buffer)
 		LOG("No read method");
 		LEAVE_RET('i', -1);
 	}
+
+	if( !MM_GetPhysAddr(h->Node->Type->Read) ) {
+		Log_Error("VFS", "Node type %p(%s) read method is junk %p", h->Node->Type, h->Node, h->Node->Type->TypeName,
+			h->Node->Type->Read);
+		LEAVE_RET('i', -1);
+	}
 	
 	ret = h->Node->Type->Read(h->Node, h->Position, Length, Buffer);
 	if(ret == -1)	LEAVE_RET('i', -1);
@@ -66,6 +72,13 @@ Uint64 VFS_ReadAt(int FD, Uint64 Offset, Uint64 Length, void *Buffer)
 		Warning("VFS_ReadAt - Node %p, does not have a read method", h->Node);
 		return 0;
 	}
+
+	if( !MM_GetPhysAddr(h->Node->Type->Read) ) {
+		Log_Error("VFS", "Node type %p(%s) read method is junk %p", h->Node->Type, h->Node, h->Node->Type->TypeName,
+			h->Node->Type->Read);
+		LEAVE_RET('i', -1);
+	}
+	
 	ret = h->Node->Type->Read(h->Node, Offset, Length, Buffer);
 	if(ret == -1)	return -1;
 	return ret;
@@ -87,6 +100,12 @@ Uint64 VFS_Write(int FD, Uint64 Length, const void *Buffer)
 	if( h->Node->Flags & VFS_FFLAG_DIRECTORY )	return -1;
 
 	if( !h->Node->Type || !h->Node->Type->Write )	return 0;
+
+	if( !MM_GetPhysAddr(h->Node->Type->Write) ) {
+		Log_Error("VFS", "Node type %p(%s) write method is junk %p", h->Node->Type, h->Node, h->Node->Type->TypeName,
+			h->Node->Type->Write);
+		return -1;
+	}
 	
 	ret = h->Node->Type->Write(h->Node, h->Position, Length, Buffer);
 	if(ret == -1)	return -1;
@@ -111,8 +130,13 @@ Uint64 VFS_WriteAt(int FD, Uint64 Offset, Uint64 Length, const void *Buffer)
 	if( h->Node->Flags & VFS_FFLAG_DIRECTORY )	return -1;
 
 	if(!h->Node->Type || !h->Node->Type->Write)	return 0;
-	ret = h->Node->Type->Write(h->Node, Offset, Length, Buffer);
 
+	if( !MM_GetPhysAddr(h->Node->Type->Write) ) {
+		Log_Error("VFS", "Node type %p(%s) write method is junk %p", h->Node->Type, h->Node, h->Node->Type->TypeName,
+			h->Node->Type->Write);
+		return -1;
+	}
+	ret = h->Node->Type->Write(h->Node, Offset, Length, Buffer);
 	if(ret == -1)	return -1;
 	return ret;
 }

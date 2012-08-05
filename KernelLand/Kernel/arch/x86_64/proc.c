@@ -579,7 +579,7 @@ Uint Proc_MakeUserStack(void)
 	// Check Prospective Space
 	for( i = USER_STACK_SZ >> 12; i--; )
 	{
-		if( MM_GetPhysAddr( base + (i<<12) ) != 0 )
+		if( MM_GetPhysAddr( (void*)(base + (i<<12)) ) != 0 )
 			break;
 	}
 	

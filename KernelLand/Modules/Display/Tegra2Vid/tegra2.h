@@ -356,5 +356,14 @@ const char * const csaTegra2Vid_RegisterNames[] = {
 };
 #endif
 
+// Bit definitions
+/// \name DC_CMD_STATE_CONTROL_0
+/// \{
+#define GEN_ACT_REQ	0x0001
+#define WIN_A_ACT_REQ	0x0002
+#define WIN_B_ACT_REQ	0x0004
+#define WIN_C_ACT_REQ	0x0008
+/// \}
+
 #endif
 
