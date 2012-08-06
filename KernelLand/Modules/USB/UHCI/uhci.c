@@ -550,8 +550,14 @@ void *UHCI_SendControl(void *Ptr, void *Endpt, tUSBHostCb Cb, void *CbData,
 	 int	Dest = (int)Endpt-1;
 	 int	Tgl = 0;
 
+	if( Endpt == NULL ) {
+		Log_Error("UHCI", "Passed a NULL Endpoint handle");
+		LEAVE('n');
+		return NULL;
+	}
+
 	// Sanity check Endpt
-	if( (tVAddr)Endpt > 0x7FF ) {
+	if( (tVAddr)Endpt > 0x800 ) {
 		LEAVE('n');
 		return NULL;
 	}
@@ -617,6 +623,13 @@ void *UHCI_SendBulk(void *Ptr, void *Endpt, tUSBHostCb Cb, void *CbData, int bOu
 
 	ENTER("pPtr pEndpt pCb pCbData bOutbound pData iLength", Ptr, Dest, Cb, CbData, bOutbound, Data, Length);
 
+	if( Endpt == NULL ) {
+		Log_Error("UHCI", "Passed a NULL Endpoint handle");
+		LEAVE('n');
+		return NULL;
+	}
+
+	// Sanity check Endpt
 	// TODO: Validation
 	// TODO: Data toggle
 

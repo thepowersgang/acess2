@@ -50,7 +50,11 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 	}
 	USB_int_SendSetupSetAddress(dev->Host, dev->Address);
 	LOG("Assigned address %i", dev->Address);
-	
+
+	dev->EndpointHandles[0] = dev->Host->HostDef->InitControl(dev->Host->Ptr, dev->Address << 4);
+	for( int i = 1; i < 16; i ++ )
+		dev->EndpointHandles[i] = 0;
+
 	// 2. Get device information
 	{
 		struct sDescriptor_Device	desc;
@@ -262,6 +266,8 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 				dev_if->Endpoints[k].Type = endpt->Attributes | (endpt->Address & 0x80);
 				dev_if->Endpoints[k].PollingAtoms = 0;
 				dev_if->Endpoints[k].InputData = NULL;
+				
+				// TODO: Register endpoint early
 			}
 			
 			// Initialise driver

@@ -45,7 +45,7 @@ void USB_Request(tUSBInterface *Iface, int Endpoint, int Type, int Req, int Valu
 	else
 		endpt = 0;
 	
-	USB_int_Request(Iface->Dev->Host, Iface->Dev->Address, endpt, Type, Req, Value, Index, Len, Data);
+	USB_int_Request(Iface->Dev, endpt, Type, Req, Value, Index, Len, Data);
 }
 
 
@@ -53,11 +53,18 @@ void USB_SendData(tUSBInterface *Dev, int Endpoint, size_t Length, const void *D
 {
 	tUSBHost *host;
 	tUSBEndpoint	*ep;
-	void	*dest_hdl = (void*)(Dev->Dev->Address*16 + Dev->Endpoints[Endpoint-1].EndpointNum + 1);
+	void	*dest_hdl;
 	ENTER("pDev iEndpoint iLength pData", Dev, Endpoint, Length, Data);
 
-	ep = &Dev->Endpoints[Endpoint-1];
 	host = Dev->Dev->Host;
+	ep = &Dev->Endpoints[Endpoint-1];
+	dest_hdl = Dev->Dev->EndpointHandles[ep->EndpointNum];
+	LOG("dest_hdl = %p", dest_hdl);
+	if( !dest_hdl ) {
+		dest_hdl = host->HostDef->InitControl(host->Ptr, Dev->Dev->Address*16 + ep->EndpointNum);
+		Dev->Dev->EndpointHandles[ep->EndpointNum] = dest_hdl;
+		LOG("dest_hdl = %p (allocated)", dest_hdl);
+	}
 
 	Threads_ClearEvent(THREAD_EVENT_SHORTWAIT);
 	host->HostDef->SendBulk(host->Ptr, dest_hdl, USB_WakeCallback, Proc_GetCurThread(), 1, (void*)Data, Length);
@@ -70,11 +77,18 @@ void USB_RecvData(tUSBInterface *Dev, int Endpoint, size_t Length, void *Data)
 {
 	tUSBHost *host;
 	tUSBEndpoint	*ep;
-	void	*dest_hdl = (void*)(Dev->Dev->Address*16 + Dev->Endpoints[Endpoint-1].EndpointNum + 1);
+	void	*dest_hdl;
 	ENTER("pDev iEndpoint iLength pData", Dev, Endpoint, Length, Data);
 
-	ep = &Dev->Endpoints[Endpoint-1];
 	host = Dev->Dev->Host;
+	ep = &Dev->Endpoints[Endpoint-1];
+	dest_hdl = Dev->Dev->EndpointHandles[ep->EndpointNum];
+	LOG("dest_hdl = %p", dest_hdl);
+	if( !dest_hdl ) {
+		dest_hdl = host->HostDef->InitControl(host->Ptr, Dev->Dev->Address*16 + ep->EndpointNum);
+		Dev->Dev->EndpointHandles[ep->EndpointNum] = dest_hdl;
+		LOG("dest_hdl = %p (allocated)", dest_hdl);
+	}
 
 	Threads_ClearEvent(THREAD_EVENT_SHORTWAIT);
 	host->HostDef->SendBulk(host->Ptr, dest_hdl, USB_WakeCallback, Proc_GetCurThread(), 0, Data, Length);
@@ -83,11 +97,11 @@ void USB_RecvData(tUSBInterface *Dev, int Endpoint, size_t Length, void *Data)
 	LEAVE('-');
 }
 
-void USB_RecvDataA(tUSBInterface *Dev, int Endpoint, size_t Length, void *DataBuf, tUSB_DataCallback Callback)
+void USB_RecvDataA(tUSBInterface *Dev, int Endpoint, size_t Length, void *DataBuf)
 {
 	tAsyncOp *op;
 	tUSBHost *host;
-	void	*dest_hdl = (void*)(Dev->Dev->Address*16 + Dev->Endpoints[Endpoint-1].EndpointNum + 1);
+	void	*dest_hdl;
 
 	ENTER("pDev iEndpoint iLength pDataBuf", Dev, Endpoint, Length, DataBuf); 
 
@@ -97,10 +111,13 @@ void USB_RecvDataA(tUSBInterface *Dev, int Endpoint, size_t Length, void *DataBu
 	op->Length = Length;
 	op->Data = DataBuf;
 
-	// TODO: Handle transfers that are larger than one packet
-	// TODO: Data toggle
-
 	host = Dev->Dev->Host;
+	dest_hdl = Dev->Dev->EndpointHandles[op->Endpt->EndpointNum];
+	if( !dest_hdl ) {
+		dest_hdl = host->HostDef->InitControl(host->Ptr, Dev->Dev->Address*16 + op->Endpt->EndpointNum);
+		Dev->Dev->EndpointHandles[op->Endpt->EndpointNum] = dest_hdl;
+		LOG("dest_hdl = %p (allocated)", dest_hdl);
+	}
 	
 	LOG("IN from %p %i:%i", host->Ptr, Dev->Dev->Address, op->Endpt->EndpointNum);
 	host->HostDef->SendBulk(host->Ptr, dest_hdl, USB_AsyncCallback, op, 0, DataBuf, Length);

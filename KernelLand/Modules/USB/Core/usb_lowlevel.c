@@ -14,7 +14,7 @@
 #include <events.h>
 
 // === PROTOTYPES ===
-void	*USB_int_Request(tUSBHost *Host, int Addr, int EndPt, int Type, int Req, int Val, int Indx, int Len, void *Data);
+void	*USB_int_Request(tUSBDevice *Dev, int EndPt, int Type, int Req, int Val, int Indx, int Len, void *Data);
 void	USB_int_WakeThread(void *Thread, void *Data, size_t Length);
  int	USB_int_SendSetupSetAddress(tUSBHost *Host, int Address);
  int	USB_int_ReadDescriptor(tUSBDevice *Dev, int Endpoint, int Type, int Index, int Length, void *Dest);
@@ -22,17 +22,28 @@ char	*USB_int_GetDeviceString(tUSBDevice *Dev, int Endpoint, int Index);
  int	_UTF16to8(Uint16 *Input, int InputLen, char *Dest);
 
 // === CODE ===
-void *USB_int_Request(tUSBHost *Host, int Addr, int EndPt, int Type, int Req, int Val, int Indx, int Len, void *Data)
+void *USB_int_Request(tUSBDevice *Device, int EndPt, int Type, int Req, int Val, int Indx, int Len, void *Data)
 {
+	tUSBHost	*Host = Device->Host;
 	void	*hdl;
 	// TODO: Sanity check (and check that Type is valid)
 	struct sDeviceRequest	req;
-	 int	dest = Addr * 16 + EndPt;	// TODO: Validate
-	void	*dest_hdl = (void*)(dest+1);	// TODO: Get registered handle instead
 	tThread	*thisthread = Proc_GetCurThread();
+	void *dest_hdl;
+
+	ENTER("pDevice xEndPt iType iReq iVal iIndx iLen pData",
+		Device, EndPt, Type, Req, Val, Indx, Len, Data);
 	
-	ENTER("pHost xdest iType iReq iVal iIndx iLen pData",
-		Host, dest, Type, Req, Val, Indx, Len, Data);
+	if( EndPt < 0 || EndPt >= 16 ) {
+		LEAVE('n');
+		return NULL;
+	}
+
+	dest_hdl = Device->EndpointHandles[EndPt];
+	if( !dest_hdl ) {
+		dest_hdl = Host->HostDef->InitControl(Host->Ptr, Device->Address*16 + EndPt);
+		Device->EndpointHandles[EndPt] = dest_hdl;
+	}
 	
 	req.ReqType = Type;
 	req.Request = Req;
@@ -73,18 +84,23 @@ void USB_int_WakeThread(void *Thread, void *Data, size_t Length)
 
 int USB_int_SendSetupSetAddress(tUSBHost *Host, int Address)
 {
-	USB_int_Request(Host, 0, 0, 0x00, 5, Address & 0x7F, 0, 0, NULL);
+	USB_int_Request(&Host->RootHubDev, 0, 0x00, 5, Address & 0x7F, 0, 0, NULL);
 	return 0;
 }
 
 int USB_int_ReadDescriptor(tUSBDevice *Dev, int Endpoint, int Type, int Index, int Length, void *Dest)
 {
 	struct sDeviceRequest	req;
-	 int	dest = Dev->Address*16 + Endpoint;
-	void	*dest_hdl = (void*)(dest+1);	// TODO: Get correct handle
+	void	*dest_hdl;
+	
+	dest_hdl = Dev->EndpointHandles[Endpoint];
+	if( !dest_hdl ) {
+		dest_hdl = Dev->Host->HostDef->InitControl(Dev->Host->Ptr, Dev->Address*16 + Endpoint);
+		Dev->EndpointHandles[Endpoint] = dest_hdl;
+	}
 
-	ENTER("pDev xdest iType iIndex iLength pDest",
-		Dev, dest, Type, Index, Length, Dest);
+	ENTER("pDev xEndpoint iType iIndex iLength pDest",
+		Dev, Endpoint, Type, Index, Length, Dest);
 
 	req.ReqType = 0x80;
 	req.ReqType |= ((Type >> 8) & 0x3) << 5;	// Bits 5/6

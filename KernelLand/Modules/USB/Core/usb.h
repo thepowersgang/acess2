@@ -35,6 +35,7 @@ struct sUSBEndpoint
 	tUSBInterface	*Interface;
 	 int	EndpointIdx;	// Interface endpoint index
 	 int	EndpointNum;	// Device endpoint num
+	void	*EndpointHandle;
 	
 	 int	PollingPeriod;	// In 1ms intervals
 	 int	MaxPacketSize;	// In bytes
@@ -73,6 +74,8 @@ struct sUSBDevice
 	 */
 	tUSBHost	*Host;
 	 int	Address;
+
+	void	*EndpointHandles[16];
 
 	struct sDescriptor_Device	DevDesc;
 
