@@ -292,14 +292,35 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 		
 		free(full_buf);
 	}
-
+	
+	Hub->Devices[Port] = dev;
+	
 	// Done.
 	LEAVE('-');
 }
 
 void USB_DeviceDisconnected(tUSBHub *Hub, int Port)
 {
-	
+	tUSBDevice	*dev;
+	if( !Hub->Devices[Port] ) {
+		Log_Error("USB", "Non-registered device disconnected");
+		return;
+	}
+	dev = Hub->Devices[Port];
+
+	// TODO: Free related resources
+	// - Endpoint registrations
+	for( int i = 0; i < 16; i ++ )
+	{
+		if(dev->EndpointHandles[i])
+			dev->Host->HostDef->RemEndpoint(dev->Host->Ptr, dev->EndpointHandles[i]);
+	}
+
+	// - Bus Address
+	USB_int_DeallocateAddress(dev->Host, dev->Address);
+	// - Inform handler
+	// - Allocate memory
+	free(dev);
 }
 
 void *USB_GetDeviceDataPtr(tUSBInterface *Dev) { return Dev->Data; }
