@@ -21,6 +21,7 @@ void	USB_DeviceDisconnected(tUSBHub *Hub, int Port);
 void	*USB_GetDeviceDataPtr(tUSBInterface *Dev);
 void	USB_SetDeviceDataPtr(tUSBInterface *Dev, void *Ptr);
  int	USB_int_AllocateAddress(tUSBHost *Host);
+void	USB_int_DeallocateAddress(tUSBHost *Host, int Address);
 
 // === CODE ===
 void USB_DeviceConnected(tUSBHub *Hub, int Port)
@@ -53,9 +54,23 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 	// 2. Get device information
 	{
 		struct sDescriptor_Device	desc;
+		desc.Length = 0;
 		LOG("Getting device descriptor");
 		// Endpoint 0, Desc Type 1, Index 0
 		USB_int_ReadDescriptor(dev, 0, 1, 0, sizeof(desc), &desc);
+
+		if( desc.Length < sizeof(desc) ) {
+			Log_Error("USB", "Device descriptor undersized (%i<%i)", desc.Length, sizeof(desc));
+			USB_int_DeallocateAddress(dev->Host, dev->Address);
+			LEAVE('-');
+			return;
+		}
+		if( desc.Type != 1 ) {
+			Log_Error("USB", "Device descriptor type invalid (%i!=1)", desc.Type);
+			USB_int_DeallocateAddress(dev->Host, dev->Address);
+			LEAVE('-');
+			return;
+		}
 
 		#if DUMP_DESCRIPTORS		
 		LOG("Device Descriptor = {");
@@ -75,7 +90,7 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 		LOG(" .NumConfigurations = %i", desc.NumConfigurations);
 		LOG("}");
 	
-		#if DEBUG	
+		#if DEBUG
 		if( desc.ManufacturerStr )
 		{
 			char	*tmp = USB_int_GetDeviceString(dev, 0, desc.ManufacturerStr);
@@ -106,9 +121,8 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 		memcpy(&dev->DevDesc, &desc, sizeof(desc));
 	}
 
-	// TODO: Support alternate configurations
-	
 	// 3. Get configurations
+	// TODO: Support alternate configurations
 	for( int i = 0; i < 1; i ++ )
 	{
 		struct sDescriptor_Configuration	desc;
@@ -117,6 +131,12 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 		size_t	total_length;
 	
 		USB_int_ReadDescriptor(dev, 0, 2, i, sizeof(desc), &desc);
+		if( desc.Length < sizeof(desc) ) {
+			// ERROR: 
+		}
+		if( desc.Type != 2 ) {
+			// ERROR: 
+		}
 		// TODO: Check return length? (Do we get a length?)
 		#if DUMP_DESCRIPTORS
 		LOG("Configuration Descriptor %i = {", i);

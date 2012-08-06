@@ -28,6 +28,7 @@ void *USB_int_Request(tUSBHost *Host, int Addr, int EndPt, int Type, int Req, in
 	// TODO: Sanity check (and check that Type is valid)
 	struct sDeviceRequest	req;
 	 int	dest = Addr * 16 + EndPt;	// TODO: Validate
+	void	*dest_hdl = (void*)(dest+1);	// TODO: Get registered handle instead
 	tThread	*thisthread = Proc_GetCurThread();
 	
 	ENTER("pHost xdest iType iReq iVal iIndx iLen pData",
@@ -41,36 +42,22 @@ void *USB_int_Request(tUSBHost *Host, int Addr, int EndPt, int Type, int Req, in
 
 	Threads_ClearEvent(THREAD_EVENT_SHORTWAIT);
 
-	LOG("SETUP");	
-	hdl = Host->HostDef->ControlSETUP(Host->Ptr, dest, 0, &req, sizeof(req));
-
-	// TODO: Data toggle?
-	// TODO: Multi-packet transfers
-	if( Len > 0 )
-	{
-		if( Type & 0x80 )
-		{
-			LOG("IN");
-			hdl = Host->HostDef->ControlIN(Host->Ptr, dest, 1, NULL, NULL, Data, Len);
-	
-			LOG("OUT (Status)");
-			hdl = Host->HostDef->ControlOUT(Host->Ptr, dest, 1, USB_int_WakeThread, thisthread, NULL, 0);
-		}
-		else
-		{
-			LOG("OUT");
-			Host->HostDef->ControlOUT(Host->Ptr, dest, 1, NULL, NULL, Data, Len);
-			
-			// Status phase (DataToggle=1)
-			LOG("IN (Status)");
-			hdl = Host->HostDef->ControlIN(Host->Ptr, dest, 1, USB_int_WakeThread, thisthread, NULL, 0);
-		}
+	LOG("Send");
+	if( Type & 0x80 ) {
+		// Inbound data
+		hdl = Host->HostDef->SendControl(Host->Ptr, dest_hdl, USB_int_WakeThread, thisthread, 0,
+			&req, sizeof(req),
+			NULL, 0,
+			Data, Len
+			);
 	}
-	else
-	{
-		// Zero length, IN status
-		LOG("IN (Status)");
-		hdl = Host->HostDef->ControlIN(Host->Ptr, dest, 1, USB_int_WakeThread, thisthread, NULL, 0);
+	else {
+		// Outbound data
+		hdl = Host->HostDef->SendControl(Host->Ptr, dest_hdl, USB_int_WakeThread, thisthread, 1,
+			&req, sizeof(req),
+			Data, Len,
+			NULL, 0
+			);
 	}
 	LOG("Wait...");
 	Threads_WaitEvents(THREAD_EVENT_SHORTWAIT);
@@ -92,10 +79,9 @@ int USB_int_SendSetupSetAddress(tUSBHost *Host, int Address)
 
 int USB_int_ReadDescriptor(tUSBDevice *Dev, int Endpoint, int Type, int Index, int Length, void *Dest)
 {
-	const int	ciMaxPacketSize = 0x400;
 	struct sDeviceRequest	req;
-	 int	bToggle = 0;
 	 int	dest = Dev->Address*16 + Endpoint;
+	void	*dest_hdl = (void*)(dest+1);	// TODO: Get correct handle
 
 	ENTER("pDev xdest iType iIndex iLength pDest",
 		Dev, dest, Type, Index, Length, Dest);
@@ -109,36 +95,19 @@ int USB_int_ReadDescriptor(tUSBDevice *Dev, int Endpoint, int Type, int Index, i
 	req.Index = LittleEndian16( 0 );	// TODO: Language ID / Interface
 	req.Length = LittleEndian16( Length );
 
-	LOG("SETUP");	
-	Dev->Host->HostDef->ControlSETUP(Dev->Host->Ptr, dest, 0, &req, sizeof(req));
-	
-	bToggle = 1;
-	while( Length > ciMaxPacketSize )
-	{
-		LOG("IN (%i rem)", Length - ciMaxPacketSize);
-		Dev->Host->HostDef->ControlIN(
-			Dev->Host->Ptr, dest,
-			bToggle, NULL, NULL,
-			Dest, ciMaxPacketSize
-			);
-		bToggle = !bToggle;
-		Length -= ciMaxPacketSize;
-	}
-
-	LOG("IN (final)");
-	Dev->Host->HostDef->ControlIN( Dev->Host->Ptr, dest, bToggle, NULL, NULL, Dest, Length );
-
 	Threads_ClearEvent(THREAD_EVENT_SHORTWAIT);
-	LOG("OUT (Status)");
-	Dev->Host->HostDef->ControlOUT(
-		Dev->Host->Ptr, dest, 1,
-		USB_int_WakeThread, Proc_GetCurThread(),
-		NULL, 0
+	
+	LOG("Send");
+	Dev->Host->HostDef->SendControl(Dev->Host->Ptr, dest_hdl, USB_int_WakeThread, Proc_GetCurThread(), 0,
+		&req, sizeof(req),
+		NULL, 0,
+		Dest, Length
 		);
 
 	LOG("Waiting");
+	// TODO: Detect errors?
 	Threads_WaitEvents(THREAD_EVENT_SHORTWAIT);
-
+	
 	LEAVE('i', 0);
 	return 0;
 }

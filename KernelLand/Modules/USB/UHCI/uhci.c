@@ -35,14 +35,19 @@ tUHCI_TD	*UHCI_int_AllocateTD(tUHCI_Controller *Cont);
 void	UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_QH *QH, tUHCI_TD *TD);
 tUHCI_TD	*UHCI_int_CreateTD(tUHCI_Controller *Cont, int Addr, Uint8 Type, int bTgl, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length);
 // --- API
-void	*UHCI_InterruptIN(void *Ptr, int Dest, int Period, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length);
-void	*UHCI_InterruptOUT(void *Ptr, int Dest, int Period, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length);
-void	UHCI_StopInterrupt(void *Ptr, void *Handle);
-void	*UHCI_ControlSETUP(void *Ptr, int Dest, int Tgl, void *Data, size_t Length);
-void	*UHCI_ControlOUT(void *Ptr, int Dest, int Tgl, tUSBHostCb Cb, void *CbData, void *Data, size_t Length);
-void	*UHCI_ControlIN(void *Ptr, int Dest, int Tgl, tUSBHostCb Cb, void *CbData, void *Data, size_t Length);
-void	*UHCI_BulkOUT(void *Ptr, int Dest, int bToggle, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length);
-void	*UHCI_BulkIN(void *Ptr, int Dest, int bToggle, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length);
+void	*UHCI_InitInterrupt(void *Ptr, int Endpt, int bOutbound, int Period, tUSBHostCb Cb, void *CbData, void *Buf, size_t Len);
+void	*UHCI_InitIsoch(void *Ptr, int Endpt);
+void	*UHCI_InitControl(void *Ptr, int Endpt);
+void	*UHCI_InitBulk(void *Ptr, int Endpt);
+void	UHCI_RemoveEndpoint(void *Ptr, void *EndptHandle);
+void	*UHCI_SendIsoch(void *Ptr, void *Dest, tUSBHostCb Cb, void *CbData, int Dir, void *Data, size_t Length, int When);
+void	*UHCI_SendControl(void *Ptr, void *Dest, tUSBHostCb Cb, void *CbData,
+	int isOutbound,
+	const void *SetupData, size_t SetupLength,
+	const void *OutData, size_t OutLength,
+	void *InData, size_t InLength
+	);
+void	*UHCI_SendBulk(void *Ptr, void *Dest, tUSBHostCb Cb, void *CbData, int Dir, void *Data, size_t Length);
 
 void	UHCI_CheckPortUpdate(void *Ptr);
 void	UHCI_int_InterruptThread(void *Unused);
@@ -58,18 +63,22 @@ MODULE_DEFINE(0, VERSION, USB_UHCI, UHCI_Initialise, NULL, "USB_Core", NULL);
 tUHCI_TD	*gaUHCI_TDPool;
 tUHCI_Controller	gUHCI_Controllers[MAX_CONTROLLERS];
 tUSBHostDef	gUHCI_HostDef = {
-	.InterruptIN   = UHCI_InterruptIN,
-	.InterruptOUT  = UHCI_InterruptOUT,
-	.StopInterrupt = UHCI_StopInterrupt,
+	.InitInterrupt = UHCI_InitInterrupt,
+//	.InitIsoch     = UHCI_InitIsoch,
+	.InitControl   = UHCI_InitControl,
+	.InitBulk      = UHCI_InitBulk,
+	.RemEndpoint   = UHCI_RemoveEndpoint,
 	
-	.ControlSETUP = UHCI_ControlSETUP,
-	.ControlIN    = UHCI_ControlIN,
-	.ControlOUT   = UHCI_ControlOUT,
-
-	.BulkOUT = UHCI_BulkOUT,
-	.BulkIN = UHCI_BulkIN,
+//	.SendIsoch   = UHCI_SendIsoch,
+	.SendControl = UHCI_SendControl,
+	.SendBulk    = UHCI_SendBulk,
+	.FreeOp      = NULL,
 	
-	.CheckPorts = UHCI_CheckPortUpdate
+	.CheckPorts = UHCI_CheckPortUpdate,
+//	.ClearPortFeature = NULL,
+//	.GetBusState      = NULL,
+//	.GetPortStatus    = NULL,
+//	.SetPortFeature   = NULL
 	};
 tSemaphore	gUHCI_InterruptSempahore;
 
@@ -481,135 +490,158 @@ void UHCI_int_SetInterruptPoll(tUHCI_Controller *Cont, tUHCI_TD *TD, int Period)
 	UHCI_int_AppendTD(Cont, qh, TD);
 }
 
-void *UHCI_InterruptIN(void *Ptr, int Dest, int Period, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length)
+// --------------------------------------------------------------------
+// API
+// --------------------------------------------------------------------
+void *UHCI_InitInterrupt(void *Ptr, int Endpt, int bOutbound,
+	int Period, tUSBHostCb Cb, void *CbData, void *Buf, size_t Len)
 {
 	tUHCI_TD	*td;
-
-	if( Period < 0 )	return NULL;
-
-	ENTER("pPtr xDest iPeriod pCb pCbData pBuf iLength",
-		Ptr, Dest, Period, Cb, CbData, Buf, Length);
+	if( Period <= 0 )	return NULL;
+	
+	ENTER("pPtr xEndpt bbOutbound iPeriod pCb pCbData pBuf iLen",
+		Ptr, Endpt, bOutbound, Period, Cb, CbData, Buf, Len);
 
 	// TODO: Data toggle?
-	td = UHCI_int_CreateTD(Ptr, Dest, PID_IN, 0, Cb, CbData, Buf, Length);
-	if( !td )	return NULL;
-	
-	UHCI_int_SetInterruptPoll(Ptr, td, Period);
-	
-	LEAVE('p', td);	
-	return td;
-}
-// TODO: Does interrupt OUT make sense?
-void *UHCI_InterruptOUT(void *Ptr, int Dest, int Period, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length)
-{
-	tUHCI_TD	*td;
-
-	if( Period < 0 )	return NULL;
-
-	ENTER("pPtr xDest iPeriod pCb pCbData pBuf, iLength",
-		Ptr, Dest, Period, Cb, CbData, Buf, Length);
-
-	// TODO: Data toggle?
-	td = UHCI_int_CreateTD(Ptr, Dest, PID_OUT, 0, Cb, CbData, Buf, Length);
+	td = UHCI_int_CreateTD(Ptr, Endpt, (bOutbound ? PID_OUT : PID_IN), 0, Cb, CbData, Buf, Len);
 	if( !td )	return NULL;
 	
 	UHCI_int_SetInterruptPoll(Ptr, td, Period);
 
+	LEAVE('p', td);
+	return td;
+}
+
+void *UHCI_InitControl(void *Ptr, int Endpt)
+{
+	// TODO: Bitmap of tgl values
+	return (void*)(Endpt+1);
+}
+
+void *UHCI_InitBulk(void *Ptr, int Endpt)
+{
+	// TODO: Bitmap of tgl values
+	return (void*)(Endpt+1);
+}
+
+void UHCI_RemoveEndpoint(void *Ptr, void *Handle)
+{
+	if( (int)Handle < 0x7FF ) {
+		
+	}
+	else {
+		// TODO: Stop interrupt transaction
+		Log_Error("UHCI", "TODO: Implement stopping interrupt polling");
+	}
+}
+
+void *UHCI_SendControl(void *Ptr, void *Endpt, tUSBHostCb Cb, void *CbData,
+	int bOutbound,	// (1) SETUP, OUT, IN vs (0) SETUP, IN, OUT
+	const void *SetupData, size_t SetupLength,
+	const void *OutData, size_t OutLength,
+	void *InData, size_t InLength
+	)
+{
+	ENTER("pPtr pEndpt ibOutbound", Ptr, Endpt, bOutbound);
+	
+	tUHCI_Controller	*Cont = Ptr;
+	tUHCI_QH	*qh = &Cont->TDQHPage->ControlQH;
+	tUHCI_TD	*td;
+	 int	Dest = (int)Endpt-1;
+	 int	Tgl = 0;
+
+	// Sanity check Endpt
+	if( (tVAddr)Endpt > 0x7FF ) {
+		LEAVE('n');
+		return NULL;
+	}
+	// if( Cont->Devs[Dest/16] == NULL )	LEAVE_RET('n', NULL);
+	// if( Cont->Devs[Dest/16].EndPt[Dest%16].Type != 1 )	LEAVE_RET('n', NULL);
+	// MAX_PACKET_SIZE = Cont->Devs[Dest/16].EndPt[Dest%16].MPS;
+	// Tgl = Cont->Devs[Dest/16].EndPt[Dest%16].Tgl;
+
+	// TODO: Build up list and then append to QH in one operation
+
+	char	*data_ptr, *status_ptr;
+	size_t 	data_len,   status_len;
+	Uint8	data_pid,   status_pid;
+	
+	if( bOutbound ) {
+		data_pid   = PID_OUT; data_ptr   = (void*)OutData; data_len   = OutLength;
+		status_pid = PID_IN;  status_ptr = InData;  status_len = InLength;
+	}
+	else {
+		data_pid   = PID_IN;  data_ptr   = InData;  data_len   = InLength;
+		status_pid = PID_OUT; status_ptr = (void*)OutData; status_len = OutLength;
+	}
+
+	// Sanity check data lengths
+	if( SetupLength > MAX_PACKET_SIZE )	LEAVE_RET('n', NULL);
+	if( status_len > MAX_PACKET_SIZE )	LEAVE_RET('n', NULL);
+
+	// Create and append SETUP packet
+	td = UHCI_int_CreateTD(Cont, Dest, PID_SETUP, Tgl, NULL, NULL, (void*)SetupData, SetupLength);
+	UHCI_int_AppendTD(Cont, qh, td);
+	Tgl = !Tgl;
+
+	// Data packets
+	while( data_len > 0 )
+	{
+		size_t len = MIN(data_len, MAX_PACKET_SIZE);
+		td = UHCI_int_CreateTD(Cont, Dest, data_pid, Tgl, NULL, NULL, data_ptr, len);
+		UHCI_int_AppendTD(Cont, qh, td);
+		Tgl = !Tgl;
+		
+		data_ptr += len;
+		data_len -= len;
+		// TODO: Handle multi-packet
+	}
+	
+	td = UHCI_int_CreateTD(Cont, Dest, status_pid, Tgl, Cb, CbData, status_ptr, status_len);
+	UHCI_int_AppendTD(Cont, qh, td);
+	Tgl = !Tgl;
+	
+	// Cont->Devs[Dest/16].EndPt[Dest%16].Tgl = !Tgl;
+	
 	LEAVE('p', td);	
 	return td;
 }
 
-void UHCI_StopInterrupt(void *Ptr, void *Handle)
-{
-	// TODO: Stop interrupt transaction
-	Log_Error("UHCI", "TODO: Implement UHCI_StopInterrupt");
-}
-
-void *UHCI_ControlSETUP(void *Ptr, int Dest, int Tgl, void *Data, size_t Length)
-{
-	tUHCI_Controller	*Cont = Ptr;
-	tUHCI_QH	*qh = &Cont->TDQHPage->ControlQH;
-	tUHCI_TD	*td;
-
-	ENTER("pPtr xDest iTgl pData iLength", Ptr, Dest, Tgl, Data, Length);
-	
-	td = UHCI_int_CreateTD(Cont, Dest, PID_SETUP, Tgl, NULL, NULL, Data, Length);
-	UHCI_int_AppendTD(Cont, qh, td);
-
-	LEAVE('p', td);	
-
-	return td;
-}
-void *UHCI_ControlOUT(void *Ptr, int Dest, int Tgl, tUSBHostCb Cb, void *CbData, void *Data, size_t Length)
-{
-	tUHCI_Controller	*Cont = Ptr;
-	tUHCI_QH	*qh = &Cont->TDQHPage->ControlQH;
-	tUHCI_TD	*td;
-
-	ENTER("pPtr xDest iTgl pCb pCbData pData iLength", Ptr, Dest, Tgl, Cb, CbData, Data, Length);
-
-	td = UHCI_int_CreateTD(Cont, Dest, PID_OUT, Tgl, Cb, CbData, Data, Length);
-	UHCI_int_AppendTD(Cont, qh, td);
-
-	LEAVE('p', td);
-	return td;
-}
-void *UHCI_ControlIN(void *Ptr, int Dest, int Tgl, tUSBHostCb Cb, void *CbData, void *Data, size_t Length)
-{
-	tUHCI_Controller	*Cont = Ptr;
-	tUHCI_QH	*qh = &Cont->TDQHPage->ControlQH;
-	tUHCI_TD	*td;
-
-	ENTER("pPtr xDest iTgl pCb pCbData pData iLength", Ptr, Dest, Tgl, Cb, CbData, Data, Length);
-	
-	td = UHCI_int_CreateTD(Cont, Dest, PID_IN, !!Tgl, Cb, CbData, Data, Length);
-	UHCI_int_AppendTD(Cont, qh, td);
-
-	LEAVE('p', td);
-	return td;
-}
-
-void *UHCI_BulkOUT(void *Ptr, int Dest, int bToggle, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length)
+void *UHCI_SendBulk(void *Ptr, void *Endpt, tUSBHostCb Cb, void *CbData, int bOutbound, void *Data, size_t Length)
 {
 	tUHCI_Controller	*Cont = Ptr;
 	tUHCI_QH	*qh = &Cont->TDQHPage->BulkQH;
-	tUHCI_TD	*td;
-	char	*src = Buf;
+	tUHCI_TD	*td = NULL;
+	 int	Dest = (int)Endpt - 1;
+	 int	Tgl = 0;
 
-	ENTER("pPtr xDest ibToggle pCb pCbData pData iLength", Ptr, Dest, bToggle, Cb, CbData, Buf, Length);
+	ENTER("pPtr pEndpt pCb pCbData bOutbound pData iLength", Ptr, Dest, Cb, CbData, bOutbound, Data, Length);
 
-	if( Length > MAX_PACKET_SIZE ) {
-		Log_Error("UHCI", "Passed an oversized packet by the USB code (%i > %i)", Length, MAX_PACKET_SIZE);
-		LEAVE('n');
+	// TODO: Validation
+	// TODO: Data toggle
+
+	Uint8	pid = (bOutbound ? PID_OUT : PID_IN);
+
+	char *pos = Data;
+	while( Length > 0 )
+	{
+		size_t len = MIN(MAX_PACKET_SIZE, Length);
+
+		td = UHCI_int_CreateTD(Cont, Dest, pid, Tgl, Cb, (len == Length ? CbData : NULL), pos, len);
+		UHCI_int_AppendTD(Cont, qh, td);
+		
+		pos += len;
+		Length -= len;
+		Tgl = !Tgl;
 	}
-	
-	td = UHCI_int_CreateTD(Cont, Dest, PID_OUT, bToggle, Cb, CbData, src, Length);
-	UHCI_int_AppendTD(Cont, qh, td);
-
-	LEAVE('p', td);
-	return td;
-}
-void *UHCI_BulkIN(void *Ptr, int Dest, int bToggle, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length)
-{
-	tUHCI_Controller	*Cont = Ptr;
-	tUHCI_QH	*qh = &Cont->TDQHPage->BulkQH;
-	tUHCI_TD	*td;
-	char	*dst = Buf;
-
-	ENTER("pPtr xDest ibToggle pCb pCbData pData iLength", Ptr, Dest, bToggle, Cb, CbData, Buf, Length);
-	if( Length > MAX_PACKET_SIZE ) {
-		Log_Error("UHCI", "Passed an oversized packet by the USB code (%i > %i)", Length, MAX_PACKET_SIZE);
-		LEAVE('n');
-	}
-
-	td = UHCI_int_CreateTD(Cont, Dest, PID_IN, bToggle, Cb, CbData, dst, Length);
-	UHCI_int_AppendTD(Cont, qh, td);
 
 	LEAVE('p', td);
 	return td;
 }
 
+// ==========================
 // === INTERNAL FUNCTIONS ===
+// ==========================
 void UHCI_CheckPortUpdate(void *Ptr)
 {
 	tUHCI_Controller	*Host = Ptr;

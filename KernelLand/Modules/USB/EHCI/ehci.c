@@ -26,14 +26,28 @@ void	*EHCI_InitInterrupt(void *Ptr, int Endpoint, int bInput, int Period, tUSBHo
 void	*EHCI_InitIsoch  (void *Ptr, int Endpoint);
 void	*EHCI_InitControl(void *Ptr, int Endpoint);
 void	*EHCI_InitBulk   (void *Ptr, int Endpoint);
-void	*EHCI_RemEndpoint(void *Ptr, void *Handle);
-void	*EHCI_SETUP(void *Ptr, void *Dest, tUSBHostCb Cb, void *CbData, void *Data, size_t Length);
-void	*EHCI_IN   (void *Ptr, void *Dest, tUSBHostCb Cb, void *CbData, void *Data, size_t Length);
-void	*EHCI_OUT  (void *Ptr, void *Dest, tUSBHostCb Cb, void *CbData, void *Data, size_t Length);
+void	EHCI_RemEndpoint(void *Ptr, void *Handle);
+void	*EHCI_SendControl(void *Ptr, void *Dest, tUSBHostCb Cb, void *CbData,
+	int isOutbound,
+	const void *SetupData, size_t SetupLength,
+	const void *OutData, size_t OutLength,
+	void *InData, size_t InLength
+	);
+void	*EHCI_SendBulk(void *Ptr, void *Dest, tUSBHostCb Cb, void *CbData, int Dir, void *Data, size_t Length);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, USB_EHCI, EHCI_Initialise, NULL, "USB_Core", NULL);
 tEHCI_Controller	gaEHCI_Controllers[EHCI_MAX_CONTROLLERS];
+tUSBHostDef	gEHCI_HostDef = {
+	.InitInterrupt = EHCI_InitInterrupt,
+	.InitIsoch     = EHCI_InitIsoch,
+	.InitBulk      = EHCI_InitBulk,
+	.RemEndpoint   = EHCI_RemEndpoint,
+	.SendIsoch   = NULL,
+	.SendControl = EHCI_SendControl,
+	.SendBulk    = EHCI_SendBulk,
+	.FreeOp      = NULL
+	};
 
 // === CODE ===
 int EHCI_Initialise(char **Arguments)
@@ -98,7 +112,7 @@ int EHCI_InitController(tPAddr BaseAddress, Uint8 InterruptNum)
 	// - Set USBINTR
 	cont->OpRegs->USBIntr = USBINTR_IOC|USBINTR_PortChange|USBINTR_FrameRollover;
 	// - Set PERIODICLIST BASE
-	cont->OpRegs->PeridocListBase = MM_GetPhysAddr( (tVAddr) cont->PeriodicQueue );
+	cont->OpRegs->PeridocListBase = MM_GetPhysAddr( cont->PeriodicQueue );
 	// - Enable controller
 	cont->OpRegs->USBCmd = (0x40 << 16) | USBCMD_PeriodicEnable | USBCMD_Run;
 	// - Route all ports
@@ -109,5 +123,61 @@ int EHCI_InitController(tPAddr BaseAddress, Uint8 InterruptNum)
 
 void EHCI_InterruptHandler(int IRQ, void *Ptr)
 {
+	tEHCI_Controller *cont = Ptr;
+	Uint32	sts = cont->OpRegs->USBSts;
+	
+	// Clear interrupts
+	cont->OpRegs->USBSts = sts;	
 
+	if( sts & USBINTR_IOC ) {
+		// IOC
+		sts &= ~USBINTR_IOC;
+	}
+
+	if( sts & USBINTR_PortChange ) {
+		// Port change, determine what port and poke helper thread
+		sts &= ~USBINTR_PortChange;
+	}
+	
+	if( sts & USBINTR_FrameRollover ) {
+		// Frame rollover, used to aid timing (trigger per-second operations)
+		sts &= ~USBINTR_FrameRollover;
+	}
+
+	if( sts ) {
+		// Unhandled interupt bits
+		// TODO: Warn
+	}
 }
+
+// --------------------------------------------------------------------
+// USB API
+// --------------------------------------------------------------------
+void *EHCI_InitInterrupt(void *Ptr, int Endpoint, int bInput, int Period,
+	tUSBHostCb Cb, void *CbData, void *Buf, size_t Length)
+{
+	
+}
+
+void *EHCI_InitIsoch(void *Ptr, int Endpoint)
+{
+	return NULL;
+}
+void *EHCI_InitControl(void *Ptr, int Endpoint)
+{
+	return NULL;
+}
+void *EHCI_InitBulk(void *Ptr, int Endpoint)
+{
+	return NULL;
+}
+void	EHCI_RemEndpoint(void *Ptr, void *Handle);
+void	*EHCI_SendControl(void *Ptr, void *Dest, tUSBHostCb Cb, void *CbData,
+	int isOutbound,
+	const void *SetupData, size_t SetupLength,
+	const void *OutData, size_t OutLength,
+	void *InData, size_t InLength
+	);
+void	*EHCI_SendBulk(void *Ptr, void *Dest, tUSBHostCb Cb, void *CbData, int Dir, void *Data, size_t Length);
+
+
