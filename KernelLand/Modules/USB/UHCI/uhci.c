@@ -36,9 +36,9 @@ void	UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_QH *QH, tUHCI_TD *TD);
 tUHCI_TD	*UHCI_int_CreateTD(tUHCI_Controller *Cont, int Addr, Uint8 Type, int bTgl, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length);
 // --- API
 void	*UHCI_InitInterrupt(void *Ptr, int Endpt, int bOutbound, int Period, tUSBHostCb Cb, void *CbData, void *Buf, size_t Len);
-void	*UHCI_InitIsoch(void *Ptr, int Endpt);
-void	*UHCI_InitControl(void *Ptr, int Endpt);
-void	*UHCI_InitBulk(void *Ptr, int Endpt);
+void	*UHCI_InitIsoch(void *Ptr, int Endpt, size_t MaxPacketSize);
+void	*UHCI_InitControl(void *Ptr, int Endpt, size_t MaxPacketSize);
+void	*UHCI_InitBulk(void *Ptr, int Endpt, size_t MaxPacketSize);
 void	UHCI_RemoveEndpoint(void *Ptr, void *EndptHandle);
 void	*UHCI_SendIsoch(void *Ptr, void *Dest, tUSBHostCb Cb, void *CbData, int Dir, void *Data, size_t Length, int When);
 void	*UHCI_SendControl(void *Ptr, void *Dest, tUSBHostCb Cb, void *CbData,
@@ -512,22 +512,54 @@ void *UHCI_InitInterrupt(void *Ptr, int Endpt, int bOutbound,
 	return td;
 }
 
-void *UHCI_InitControl(void *Ptr, int Endpt)
+void *UHCI_int_InitEndpt(tUHCI_Controller *Cont, int Type, int Endpt, size_t MaxPacketSize)
 {
-	// TODO: Bitmap of tgl values
+	if( Endpt >= 256*16 )
+		return NULL;	
+
+	if( MaxPacketSize > MAX_PACKET_SIZE) {
+		Log_Warning("UHCI", "MaxPacketSize for %x greater than controller max (%i > %i)",
+			Endpt, MaxPacketSize, MAX_PACKET_SIZE);
+		return NULL;
+	}
+
+	if( Cont->DevInfo[Endpt / 16] == NULL ) {
+		Cont->DevInfo[Endpt / 16] = calloc( 1, sizeof(*Cont->DevInfo[0]) );
+	}
+	tUHCI_EndpointInfo *epi = &Cont->DevInfo[Endpt/16]->EndpointInfo[Endpt%16];
+	if( epi->Type ) {
+		// oops, in use
+		Log_Warning("UHCI", "Endpoint %x reused?", Endpt);
+		return NULL;
+	}
+
+	epi->MaxPacketSize = MaxPacketSize;
+	epi->Type = Type;
+	epi->Tgl = 0;
+
 	return (void*)(Endpt+1);
+
 }
 
-void *UHCI_InitBulk(void *Ptr, int Endpt)
+void *UHCI_InitControl(void *Ptr, int Endpt, size_t MaxPacketSize)
 {
-	// TODO: Bitmap of tgl values
-	return (void*)(Endpt+1);
+	return UHCI_int_InitEndpt(Ptr, 1, Endpt, MaxPacketSize);
+}
+
+void *UHCI_InitBulk(void *Ptr, int Endpt, size_t MaxPacketSize)
+{
+	return UHCI_int_InitEndpt(Ptr, 2, Endpt, MaxPacketSize);
 }
 
 void UHCI_RemoveEndpoint(void *Ptr, void *Handle)
 {
-	if( (int)Handle < 0x7FF ) {
-		
+	tUHCI_Controller *Cont = Ptr;
+	if( Handle == NULL )
+		return ;
+	
+	if( (tVAddr)Handle <= 256*16 ) {
+		 int	addr = (tVAddr)Handle;
+		Cont->DevInfo[addr/16]->EndpointInfo[addr%16].Type = 0;
 	}
 	else {
 		// TODO: Stop interrupt transaction
@@ -547,8 +579,9 @@ void *UHCI_SendControl(void *Ptr, void *Endpt, tUSBHostCb Cb, void *CbData,
 	tUHCI_Controller	*Cont = Ptr;
 	tUHCI_QH	*qh = &Cont->TDQHPage->ControlQH;
 	tUHCI_TD	*td;
-	 int	Dest = (int)Endpt-1;
-	 int	Tgl = 0;
+	tUHCI_EndpointInfo *epi;
+	 int	dest, tgl;
+	size_t	mps;
 
 	if( Endpt == NULL ) {
 		Log_Error("UHCI", "Passed a NULL Endpoint handle");
@@ -561,10 +594,12 @@ void *UHCI_SendControl(void *Ptr, void *Endpt, tUSBHostCb Cb, void *CbData,
 		LEAVE('n');
 		return NULL;
 	}
-	// if( Cont->Devs[Dest/16] == NULL )	LEAVE_RET('n', NULL);
-	// if( Cont->Devs[Dest/16].EndPt[Dest%16].Type != 1 )	LEAVE_RET('n', NULL);
-	// MAX_PACKET_SIZE = Cont->Devs[Dest/16].EndPt[Dest%16].MPS;
-	// Tgl = Cont->Devs[Dest/16].EndPt[Dest%16].Tgl;
+	dest = (tVAddr)Endpt - 1;
+	if( Cont->DevInfo[dest/16] == NULL )	LEAVE_RET('n', NULL);
+	epi = &Cont->DevInfo[dest/16]->EndpointInfo[dest%16];
+	if( epi->Type != 1 )	LEAVE_RET('n', NULL);
+	mps = epi->MaxPacketSize;
+	tgl = epi->Tgl;
 
 	// TODO: Build up list and then append to QH in one operation
 
@@ -582,32 +617,33 @@ void *UHCI_SendControl(void *Ptr, void *Endpt, tUSBHostCb Cb, void *CbData,
 	}
 
 	// Sanity check data lengths
-	if( SetupLength > MAX_PACKET_SIZE )	LEAVE_RET('n', NULL);
-	if( status_len > MAX_PACKET_SIZE )	LEAVE_RET('n', NULL);
+	if( SetupLength > mps )	LEAVE_RET('n', NULL);
+	if( status_len > mps )	LEAVE_RET('n', NULL);
 
 	// Create and append SETUP packet
-	td = UHCI_int_CreateTD(Cont, Dest, PID_SETUP, Tgl, NULL, NULL, (void*)SetupData, SetupLength);
+	td = UHCI_int_CreateTD(Cont, dest, PID_SETUP, tgl, NULL, NULL, (void*)SetupData, SetupLength);
 	UHCI_int_AppendTD(Cont, qh, td);
-	Tgl = !Tgl;
+	tgl = !tgl;
 
-	// Data packets
+	// Send data packets
 	while( data_len > 0 )
 	{
-		size_t len = MIN(data_len, MAX_PACKET_SIZE);
-		td = UHCI_int_CreateTD(Cont, Dest, data_pid, Tgl, NULL, NULL, data_ptr, len);
+		size_t len = MIN(data_len, mps);
+		td = UHCI_int_CreateTD(Cont, dest, data_pid, tgl, NULL, NULL, data_ptr, len);
 		UHCI_int_AppendTD(Cont, qh, td);
-		Tgl = !Tgl;
+		tgl = !tgl;
 		
 		data_ptr += len;
 		data_len -= len;
-		// TODO: Handle multi-packet
 	}
 	
-	td = UHCI_int_CreateTD(Cont, Dest, status_pid, Tgl, Cb, CbData, status_ptr, status_len);
+	// Send status
+	td = UHCI_int_CreateTD(Cont, dest, status_pid, tgl, Cb, CbData, status_ptr, status_len);
 	UHCI_int_AppendTD(Cont, qh, td);
-	Tgl = !Tgl;
+	tgl = !tgl;
 	
-	// Cont->Devs[Dest/16].EndPt[Dest%16].Tgl = !Tgl;
+	// Update toggle value
+	epi->Tgl = tgl;
 	
 	LEAVE('p', td);	
 	return td;
@@ -618,35 +654,55 @@ void *UHCI_SendBulk(void *Ptr, void *Endpt, tUSBHostCb Cb, void *CbData, int bOu
 	tUHCI_Controller	*Cont = Ptr;
 	tUHCI_QH	*qh = &Cont->TDQHPage->BulkQH;
 	tUHCI_TD	*td = NULL;
-	 int	Dest = (int)Endpt - 1;
-	 int	Tgl = 0;
+	tUHCI_EndpointInfo *epi;
+	 int	dest, tgl;
+	size_t	mps;
 
 	ENTER("pPtr pEndpt pCb pCbData bOutbound pData iLength", Ptr, Dest, Cb, CbData, bOutbound, Data, Length);
 
 	if( Endpt == NULL ) {
-		Log_Error("UHCI", "Passed a NULL Endpoint handle");
+		Log_Error("UHCI", "_SendBulk passed a NULL endpoint handle");
 		LEAVE('n');
 		return NULL;
 	}
 
 	// Sanity check Endpt
-	// TODO: Validation
-	// TODO: Data toggle
+	if( (tVAddr)Endpt > 256*16 ) {
+		Log_Error("UHCI", "_SendBulk passed an interrupt endpoint handle");
+		LEAVE('n');
+		return NULL;
+	}
+	dest = (tVAddr)Endpt - 1;
+	if( Cont->DevInfo[dest/16] == NULL ) {
+		Log_Error("UHCI", "_SendBulk passed an uninitialised handle");
+		LEAVE('n');
+		return NULL;
+	}
+	epi = &Cont->DevInfo[dest/16]->EndpointInfo[dest%16];
+	if( epi->Type != 2 ) {
+		Log_Error("UHCI", "_SendBulk passed an invalid endpoint type (%i!=2)", epi->Type);
+		LEAVE('n');
+		return NULL;
+	}
+	tgl = epi->Tgl;
+	mps = epi->MaxPacketSize;
 
 	Uint8	pid = (bOutbound ? PID_OUT : PID_IN);
 
 	char *pos = Data;
 	while( Length > 0 )
 	{
-		size_t len = MIN(MAX_PACKET_SIZE, Length);
+		size_t len = MIN(mps, Length);
 
-		td = UHCI_int_CreateTD(Cont, Dest, pid, Tgl, Cb, (len == Length ? CbData : NULL), pos, len);
+		td = UHCI_int_CreateTD(Cont, dest, pid, tgl, Cb, (len == Length ? CbData : NULL), pos, len);
 		UHCI_int_AppendTD(Cont, qh, td);
 		
 		pos += len;
 		Length -= len;
-		Tgl = !Tgl;
+		tgl = !tgl;
 	}
+	
+	epi->Tgl = tgl;
 
 	LEAVE('p', td);
 	return td;

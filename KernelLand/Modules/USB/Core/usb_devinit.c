@@ -51,7 +51,7 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 	USB_int_SendSetupSetAddress(dev->Host, dev->Address);
 	LOG("Assigned address %i", dev->Address);
 
-	dev->EndpointHandles[0] = dev->Host->HostDef->InitControl(dev->Host->Ptr, dev->Address << 4);
+	dev->EndpointHandles[0] = dev->Host->HostDef->InitControl(dev->Host->Ptr, dev->Address << 4, 64);
 	for( int i = 1; i < 16; i ++ )
 		dev->EndpointHandles[i] = 0;
 
@@ -256,7 +256,14 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 				LOG(" .MaxPacketSize = %i", LittleEndian16(endpt->MaxPacketSize));
 				LOG(" .PollingInterval = %i", endpt->PollingInterval);
 				LOG("}");
-				
+	
+				// Make sure things don't break
+				if( !((endpt->Address & 0x7F) < 15) ) {
+					Log_Error("USB", "Endpoint number %i>16", endpt->Address & 0x7F);
+					k --;
+					continue ;
+				}
+
 				dev_if->Endpoints[k].Next = NULL;
 				dev_if->Endpoints[k].Interface = dev_if;
 				dev_if->Endpoints[k].EndpointIdx = k;
@@ -268,6 +275,31 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 				dev_if->Endpoints[k].InputData = NULL;
 				
 				// TODO: Register endpoint early
+				 int	ep_num = endpt->Address & 15;
+				if( dev->EndpointHandles[ep_num] ) {
+					Log_Notice("USB", "Device %p:%i ep %i reused", dev->Host->Ptr, dev->Address, ep_num);
+				}
+				else {
+					 int	addr = dev->Address*16+ep_num;
+					 int	mps = dev_if->Endpoints[k].MaxPacketSize;
+					void *handle = NULL;
+					switch( endpt->Attributes & 3)
+					{
+					case 0: // Control
+						handle = dev->Host->HostDef->InitControl(dev->Host->Ptr, addr, mps);
+						break;
+					case 1: // Isochronous
+					//	handle = dev->Host->HostDef->InitIsoch(dev->Host->Ptr, addr, mps);
+						break;
+					case 2: // Bulk
+						handle = dev->Host->HostDef->InitBulk(dev->Host->Ptr, addr, mps);
+						break;
+					case 3: // Interrupt
+					//	handle = dev->Host->HostDef->InitInterrupt(dev->Host->Ptr, addr, ...);
+						break;
+					}
+					dev->EndpointHandles[ep_num] = handle;
+				}
 			}
 			
 			// Initialise driver

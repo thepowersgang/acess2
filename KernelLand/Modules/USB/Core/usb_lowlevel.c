@@ -41,8 +41,8 @@ void *USB_int_Request(tUSBDevice *Device, int EndPt, int Type, int Req, int Val,
 
 	dest_hdl = Device->EndpointHandles[EndPt];
 	if( !dest_hdl ) {
-		dest_hdl = Host->HostDef->InitControl(Host->Ptr, Device->Address*16 + EndPt);
-		Device->EndpointHandles[EndPt] = dest_hdl;
+		LEAVE('n');
+		return NULL;
 	}
 	
 	req.ReqType = Type;
@@ -95,8 +95,7 @@ int USB_int_ReadDescriptor(tUSBDevice *Dev, int Endpoint, int Type, int Index, i
 	
 	dest_hdl = Dev->EndpointHandles[Endpoint];
 	if( !dest_hdl ) {
-		dest_hdl = Dev->Host->HostDef->InitControl(Dev->Host->Ptr, Dev->Address*16 + Endpoint);
-		Dev->EndpointHandles[Endpoint] = dest_hdl;
+		return -1;
 	}
 
 	ENTER("pDev xEndpoint iType iIndex iLength pDest",

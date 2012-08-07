@@ -12,6 +12,7 @@
 #include <usb_host.h>
 #include "ehci.h"
 #include <drv_pci.h>
+#include <limits.h>
 
 // === CONSTANTS ===
 #define EHCI_MAX_CONTROLLERS	4
@@ -23,9 +24,9 @@
 void 	EHCI_InterruptHandler(int IRQ, void *Ptr);
 // -- API ---
 void	*EHCI_InitInterrupt(void *Ptr, int Endpoint, int bInput, int Period, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length);
-void	*EHCI_InitIsoch  (void *Ptr, int Endpoint);
-void	*EHCI_InitControl(void *Ptr, int Endpoint);
-void	*EHCI_InitBulk   (void *Ptr, int Endpoint);
+void	*EHCI_InitIsoch  (void *Ptr, int Endpoint, size_t MaxPacketSize);
+void	*EHCI_InitControl(void *Ptr, int Endpoint, size_t MaxPacketSize);
+void	*EHCI_InitBulk   (void *Ptr, int Endpoint, size_t MaxPacketSize);
 void	EHCI_RemEndpoint(void *Ptr, void *Handle);
 void	*EHCI_SendControl(void *Ptr, void *Dest, tUSBHostCb Cb, void *CbData,
 	int isOutbound,
@@ -34,6 +35,13 @@ void	*EHCI_SendControl(void *Ptr, void *Dest, tUSBHostCb Cb, void *CbData,
 	void *InData, size_t InLength
 	);
 void	*EHCI_SendBulk(void *Ptr, void *Dest, tUSBHostCb Cb, void *CbData, int Dir, void *Data, size_t Length);
+void	EHCI_FreeOp(void *Ptr, void *Handle);
+// --- Internals ---
+tEHCI_qTD	*EHCI_int_AllocateTD(tEHCI_Controller *Cont, int PID, void *Data, size_t Length, tUSBHostCb Cb, void *CbData);
+void	EHCI_int_DeallocateTD(tEHCI_Controller *Cont, tEHCI_qTD *TD);
+void	EHCI_int_AppendTD(tEHCI_QH *QH, tEHCI_qTD *TD);
+tEHCI_QH	*EHCI_int_AllocateQH(tEHCI_Controller *Cont, int Endpoint, size_t MaxPacketSize);
+void	EHCI_int_DeallocateQH(tEHCI_Controller *Cont, tEHCI_QH *QH);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, USB_EHCI, EHCI_Initialise, NULL, "USB_Core", NULL);
@@ -46,7 +54,7 @@ tUSBHostDef	gEHCI_HostDef = {
 	.SendIsoch   = NULL,
 	.SendControl = EHCI_SendControl,
 	.SendBulk    = EHCI_SendBulk,
-	.FreeOp      = NULL
+	.FreeOp      = EHCI_FreeOp
 	};
 
 // === CODE ===
@@ -101,6 +109,7 @@ int EHCI_InitController(tPAddr BaseAddress, Uint8 InterruptNum)
 	// - Allocate periodic queue
 	cont->PeriodicQueue = (void*)MM_AllocDMA(1, 32, NULL);
 	// TODO: Error check
+	//  > Populate queue
 
 	// -- Bind IRQ --
 	IRQ_AddHandler(InterruptNum, EHCI_InterruptHandler, cont);
@@ -153,31 +162,190 @@ void EHCI_InterruptHandler(int IRQ, void *Ptr)
 // --------------------------------------------------------------------
 // USB API
 // --------------------------------------------------------------------
-void *EHCI_InitInterrupt(void *Ptr, int Endpoint, int bInput, int Period,
+void *EHCI_InitInterrupt(void *Ptr, int Endpoint, int bOutbound, int Period,
 	tUSBHostCb Cb, void *CbData, void *Buf, size_t Length)
 {
+	tEHCI_Controller	*Cont = Ptr;
+	 int	pow2period, period_pow;
 	
+	if( Endpoint >= 256*16 )
+		return NULL;
+	if( Period <= 0 )
+		return NULL;
+	if( Period > 256 )
+		Period = 256;
+
+	// Round the period to the closest power of two
+	pow2period = 1;
+	period_pow = 0;
+	// - Find the first power above the period
+	while( pow2period < Period )
+	{
+		pow2period *= 2;
+		period_pow ++;
+	}
+	// - Check which is closest
+	if( Period - pow2period / 2 > pow2period - Period )
+		Period = pow2period;
+	else {
+		Period = pow2period/2;
+		period_pow --;
+	}
+	
+	// Allocate a QH
+	tEHCI_QH *qh = EHCI_int_AllocateQH(Cont, Endpoint, Length);
+	qh->Impl.IntPeriodPow = period_pow;
+
+	// Choose an interrupt slot to use	
+	int minslot = 0, minslot_load = INT_MAX;
+	for( int slot = 0; slot < Period; slot ++ )
+	{
+		 int	load = 0;
+		for( int i = 0; i < PERIODIC_SIZE; i += Period )
+			load += Cont->InterruptLoad[i+slot];
+		if( load == 0 )	break;
+		if( load < minslot_load ) {
+			minslot = slot;
+			minslot_load = load;
+		}
+	}
+	// Increase loading on the selected slot
+	for( int i = 0; i < PERIODIC_SIZE; i += Period )
+		Cont->InterruptLoad[i+minslot] += Length;
+	qh->Impl.IntOfs = minslot;
+
+	// Allocate TD for the data
+	tEHCI_qTD *td = EHCI_int_AllocateTD(Cont, (bOutbound ? PID_OUT : PID_IN), Buf, Length, Cb, CbData);
+	EHCI_int_AppendTD(qh, td);
+
+	// Insert into the periodic list
+
+	return qh;
 }
 
-void *EHCI_InitIsoch(void *Ptr, int Endpoint)
+void *EHCI_InitIsoch(void *Ptr, int Endpoint, size_t MaxPacketSize)
 {
-	return NULL;
+	return (void*)(Endpoint + 1);
 }
-void *EHCI_InitControl(void *Ptr, int Endpoint)
+void *EHCI_InitControl(void *Ptr, int Endpoint, size_t MaxPacketSize)
 {
-	return NULL;
+	tEHCI_Controller *Cont = Ptr;
+	
+	// Allocate a QH
+	tEHCI_QH *qh = EHCI_int_AllocateQH(Cont, Endpoint, MaxPacketSize);
+
+	// Append to async list	
+	if( Cont->LastAsyncHead ) {
+		Cont->LastAsyncHead->HLink = MM_GetPhysAddr(qh)|2;
+		Cont->LastAsyncHead->Impl.Next = qh;
+	}
+	else
+		Cont->OpRegs->AsyncListAddr = MM_GetPhysAddr(qh)|2;
+	Cont->LastAsyncHead = qh;
+
+	return qh;
 }
-void *EHCI_InitBulk(void *Ptr, int Endpoint)
+void *EHCI_InitBulk(void *Ptr, int Endpoint, size_t MaxPacketSize)
 {
-	return NULL;
+	return EHCI_InitControl(Ptr, Endpoint, MaxPacketSize);
 }
-void	EHCI_RemEndpoint(void *Ptr, void *Handle);
-void	*EHCI_SendControl(void *Ptr, void *Dest, tUSBHostCb Cb, void *CbData,
+void EHCI_RemEndpoint(void *Ptr, void *Handle)
+{
+	if( Handle == NULL )
+		return ;
+	else if( (tVAddr)Handle <= 256*16 )
+		return ;	// Isoch
+	else {
+		// Remove QH from list
+		// - If it's a polling endpoint, need to remove from all periodic lists
+		
+		// Deallocate QH
+		EHCI_int_DeallocateQH(Ptr, Handle);
+	}
+}
+
+void *EHCI_SendControl(void *Ptr, void *Dest, tUSBHostCb Cb, void *CbData,
 	int isOutbound,
 	const void *SetupData, size_t SetupLength,
 	const void *OutData, size_t OutLength,
 	void *InData, size_t InLength
-	);
-void	*EHCI_SendBulk(void *Ptr, void *Dest, tUSBHostCb Cb, void *CbData, int Dir, void *Data, size_t Length);
+	)
+{
+	tEHCI_Controller *Cont = Ptr;
+	tEHCI_qTD	*td_setup, *td_data, *td_status;
 
+	// Sanity checks
+	if( (tVAddr)Dest <= 256*16 )
+		return NULL;
+
+	// Check size of SETUP and status
+	
+	// Allocate TDs
+	td_setup = EHCI_int_AllocateTD(Cont, PID_SETUP, (void*)SetupData, SetupLength, NULL, NULL);
+	if( isOutbound )
+	{
+		td_data = EHCI_int_AllocateTD(Cont, PID_OUT, (void*)OutData, OutLength, NULL, NULL);
+		td_status = EHCI_int_AllocateTD(Cont, PID_IN, InData, InLength, Cb, CbData);
+	}
+	else
+	{
+		td_data = EHCI_int_AllocateTD(Cont, PID_IN, InData, InLength, NULL, NULL);
+		td_status = EHCI_int_AllocateTD(Cont, PID_OUT, (void*)OutData, OutLength, Cb, CbData);
+	}
+
+	// Append TDs
+	EHCI_int_AppendTD(Dest, td_setup);
+	EHCI_int_AppendTD(Dest, td_data);
+	EHCI_int_AppendTD(Dest, td_status);
+
+	return td_status;
+}
+
+void *EHCI_SendBulk(void *Ptr, void *Dest, tUSBHostCb Cb, void *CbData, int Dir, void *Data, size_t Length)
+{
+	tEHCI_Controller	*Cont = Ptr;
+	
+	// Sanity check the pointer
+	// - Can't be NULL or an isoch
+	if( (tVAddr)Dest <= 256*16 )
+		return NULL;
+	
+	// Allocate single TD
+	tEHCI_qTD	*td = EHCI_int_AllocateTD(Cont, (Dir ? PID_OUT : PID_IN), Data, Length, Cb, CbData);
+	EHCI_int_AppendTD(Dest, td);	
+
+	return td;
+}
+
+void EHCI_FreeOp(void *Ptr, void *Handle)
+{
+	tEHCI_Controller	*Cont = Ptr;
+
+	EHCI_int_DeallocateTD(Cont, Handle);
+}
+
+// --------------------------------------------------------------------
+// Internals
+// --------------------------------------------------------------------
+tEHCI_qTD *EHCI_int_AllocateTD(tEHCI_Controller *Cont, int PID, void *Data, size_t Length, tUSBHostCb Cb, void *CbData)
+{
+	return NULL;
+}
+
+void EHCI_int_DeallocateTD(tEHCI_Controller *Cont, tEHCI_qTD *TD)
+{
+}
+
+void EHCI_int_AppendTD(tEHCI_QH *QH, tEHCI_qTD *TD)
+{
+}
+
+tEHCI_QH *EHCI_int_AllocateQH(tEHCI_Controller *Cont, int Endpoint, size_t MaxPacketSize)
+{
+	return NULL;
+}
+
+void EHCI_int_DeallocateQH(tEHCI_Controller *Cont, tEHCI_QH *QH)
+{
+}
 

@@ -16,7 +16,7 @@ typedef struct sUSBHostDef	tUSBHostDef;
 typedef void	(*tUSBHostCb)(void *DataPtr, void *Data, size_t Length);
 
 typedef void	*(*tUSBInitInt)(void *Ptr, int Endpt, int bOutbound, int Period, tUSBHostCb Cb, void *CbData, void *Buf, size_t Len);
-typedef void	*(*tUSBInit)(void *Ptr, int Endpt);
+typedef void	*(*tUSBInit)(void *Ptr, int Endpt, size_t MaxPacketSize);
 typedef void	*(*tUSBDataOp)(void *Dest, tUSBHostCb Cb, void *CbData, void *Data, size_t Length);
 
 typedef void	*(*tUSBControlOp)(void *Ptr, void *Endpt, tUSBHostCb Cb, void *CbData,

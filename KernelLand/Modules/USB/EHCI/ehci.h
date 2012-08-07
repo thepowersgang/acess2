@@ -8,6 +8,8 @@
 #ifndef _EHCI_H_
 #define _EHCI_H_
 
+#define PERIODIC_SIZE	1024
+
 typedef struct sEHCI_CapRegs	tEHCI_CapRegs;
 typedef struct sEHCI_OpRegs	tEHCI_OpRegs;
 typedef struct sEHCI_iTD	tEHCI_iTD;
@@ -172,6 +174,7 @@ struct sEHCI_OpRegs
 #define USBINTR_HostSystemError	0x0010
 #define USBINTR_AsyncAdvance	0x0020
 
+// Isochronous (High-Speed) Transfer Descriptor
 struct sEHCI_iTD
 {
 	Uint32	Link;
@@ -189,6 +192,7 @@ struct sEHCI_iTD
 	Uint32	BufferPointers[8];	// Page aligned, low 12 bits are overloaded
 };
 
+// Split Transaction Isochronous Transfer Descriptor
 struct sEHCI_siTD
 {
 	Uint32	Link;
@@ -200,14 +204,22 @@ struct sEHCI_siTD
 	Uint32	BackLink;
 };
 
+// Queue Element Transfer Descriptor
 struct sEHCI_qTD
 {
 	Uint32	Link;
 	Uint32	Link2;	// Used when there's a short packet
 	Uint32	Token;
 	Uint32	Pages[5];	//First has offset in low 12 bits
-};
+	
+	// Internals (32 bytes = 4x 64-bit pointers)
+	tUSBHostCb	*Callback;
+	void	*CallbackData;
+	tEHCI_qTD	*Next;
+} __attribute__((aligned(32)));
+// sizeof = 64
 
+// Queue Head
 struct sEHCI_QH
 {
 	Uint32	HLink;	// Horizontal link
@@ -215,7 +227,17 @@ struct sEHCI_QH
 	Uint32	EndpointExt;
 	Uint32	CurrentTD;
 	tEHCI_qTD	Overlay;
-};
+	struct {
+		Uint8	IntOfs;
+		Uint8	IntPeriodPow;
+		tEHCI_QH	*Next;
+	} Impl;
+} __attribute__((aligned(32)));
+// sizeof = 48 (64)
+
+#define PID_OUT 	0
+#define PID_IN  	1
+#define PID_SETUP	2
 
 struct sEHCI_Controller
 {
@@ -223,7 +245,14 @@ struct sEHCI_Controller
 	tEHCI_CapRegs	*CapRegs;
 	tEHCI_OpRegs	*OpRegs;
 
+	 int	InterruptLoad[PERIODIC_SIZE];
+	tEHCI_QH	*LastAsyncHead;
+	
 	Uint32	*PeriodicQueue;
+	tEHCI_QH PeriodicQueueV[PERIODIC_SIZE];
+	
+	tEHCI_QH	*QHPools[(256*16)*sizeof(tEHCI_QH)/PAGE_SIZE];	// [PAGE_SIZE/64]
+	tEHCI_qTD	*TDPool[PAGE_SIZE/sizeof(tEHCI_qTD)];
 };
 
 #endif

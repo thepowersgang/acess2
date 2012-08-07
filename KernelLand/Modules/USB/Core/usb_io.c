@@ -61,9 +61,9 @@ void USB_SendData(tUSBInterface *Dev, int Endpoint, size_t Length, const void *D
 	dest_hdl = Dev->Dev->EndpointHandles[ep->EndpointNum];
 	LOG("dest_hdl = %p", dest_hdl);
 	if( !dest_hdl ) {
-		dest_hdl = host->HostDef->InitControl(host->Ptr, Dev->Dev->Address*16 + ep->EndpointNum);
-		Dev->Dev->EndpointHandles[ep->EndpointNum] = dest_hdl;
-		LOG("dest_hdl = %p (allocated)", dest_hdl);
+		Log_Notice("USB", "_SendData on uninitialised enpoint (%p#%i)", Dev->Dev, ep->EndpointNum);
+		LEAVE('-');
+		return;
 	}
 
 	Threads_ClearEvent(THREAD_EVENT_SHORTWAIT);
@@ -85,9 +85,9 @@ void USB_RecvData(tUSBInterface *Dev, int Endpoint, size_t Length, void *Data)
 	dest_hdl = Dev->Dev->EndpointHandles[ep->EndpointNum];
 	LOG("dest_hdl = %p", dest_hdl);
 	if( !dest_hdl ) {
-		dest_hdl = host->HostDef->InitControl(host->Ptr, Dev->Dev->Address*16 + ep->EndpointNum);
-		Dev->Dev->EndpointHandles[ep->EndpointNum] = dest_hdl;
-		LOG("dest_hdl = %p (allocated)", dest_hdl);
+		Log_Notice("USB", "_RecvData on uninitialised enpoint (%p#%i)", Dev->Dev, ep->EndpointNum);
+		LEAVE('-');
+		return;
 	}
 
 	Threads_ClearEvent(THREAD_EVENT_SHORTWAIT);
@@ -114,9 +114,9 @@ void USB_RecvDataA(tUSBInterface *Dev, int Endpoint, size_t Length, void *DataBu
 	host = Dev->Dev->Host;
 	dest_hdl = Dev->Dev->EndpointHandles[op->Endpt->EndpointNum];
 	if( !dest_hdl ) {
-		dest_hdl = host->HostDef->InitControl(host->Ptr, Dev->Dev->Address*16 + op->Endpt->EndpointNum);
-		Dev->Dev->EndpointHandles[op->Endpt->EndpointNum] = dest_hdl;
-		LOG("dest_hdl = %p (allocated)", dest_hdl);
+		Log_Notice("USB", "_SendData on uninitialised enpoint (%p#%i)", Dev->Dev, op->Endpt->EndpointNum);
+		LEAVE('-');
+		return;
 	}
 	
 	LOG("IN from %p %i:%i", host->Ptr, Dev->Dev->Address, op->Endpt->EndpointNum);

@@ -43,7 +43,7 @@ tUSBHub *USB_RegisterHost(tUSBHostDef *HostDef, void *ControllerPtr, int nPorts)
 	host->RootHubDev.ParentHub = NULL;
 	host->RootHubDev.Host = host;
 	host->RootHubDev.Address = 0;
-	host->RootHubDev.EndpointHandles[0] = HostDef->InitControl(ControllerPtr, 0);
+	host->RootHubDev.EndpointHandles[0] = HostDef->InitControl(ControllerPtr, 0, 64);
 
 //	host->RootHubIf.Next = NULL;
 	host->RootHubIf.Dev = &host->RootHubDev;
