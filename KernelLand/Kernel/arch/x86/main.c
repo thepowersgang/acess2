@@ -193,7 +193,9 @@ void Arch_LoadBootModules(void)
 	{
 		Log_Log("Arch", "Loading '%s'", gaArch_BootModules[i].ArgString);
 		
-		if( !Module_LoadMem( gaArch_BootModules[i].Base, gaArch_BootModules[i].Size, gaArch_BootModules[i].ArgString ) )
+		if( !Module_LoadMem( gaArch_BootModules[i].Base,
+			gaArch_BootModules[i].Size, gaArch_BootModules[i].ArgString
+			) )
 		{
 			Log_Warning("Arch", "Unable to load module");
 		}
@@ -209,5 +211,6 @@ void Arch_LoadBootModules(void)
 			MM_UnmapHWPages( (tVAddr)gaArch_BootModules[i].ArgString, 2 );
 	}
 	Log_Log("Arch", "Boot modules loaded");
-	free( gaArch_BootModules );
+	if( gaArch_BootModules )
+		free( gaArch_BootModules );
 }
