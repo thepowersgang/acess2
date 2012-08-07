@@ -30,6 +30,12 @@ int LVM_AddVolume(const tLVM_VolType *Type, const char *Name, void *Ptr, size_t 
 	tLVM_Format	*fmt;
 	void	*first_block;
 
+	if( BlockCount == 0 || BlockSize == 0 ) {
+		Log_Error("LVM", "BlockSize(0x%x)/BlockCount(0x%x) invalid in LVM_AddVolume",
+			BlockSize, BlockCount);
+		return 1;
+	}
+
 	dummy_vol.Type = Type;
 	dummy_vol.Ptr = Ptr;
 	dummy_vol.BlockCount = BlockCount;
@@ -37,6 +43,10 @@ int LVM_AddVolume(const tLVM_VolType *Type, const char *Name, void *Ptr, size_t 
 
 	// Read the first block of the volume	
 	first_block = malloc(BlockSize);
+	if( !first_block ) {
+		Log_Error("VLM", "LVM_AddVolume - malloc error on %i bytes", BlockSize);
+		return -1;
+	}
 	Type->Read(Ptr, 0, 1, first_block);
 	
 	// Determine Format
