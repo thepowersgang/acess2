@@ -14,7 +14,7 @@ all:
 install:
 	@$(xMKDIR) $(DISTROOT)/Apps ; true
 	@$(xMKDIR) $(DISTROOT)/Apps/AxWin ; true
-	@$(xMKDIR) $(DISTROOT)/Apps/3.0 ; true
+	@$(xMKDIR) $(DISTROOT)/Apps/AxWin/3.0 ; true
 	@$(foreach DIR,$(DIRS), echo --- $(NAME)/$(DIR) && $(SUBMAKE) -C $(DIR) $@ &&) true
 	@$(foreach FILE,$(FILES), $(xCP) $(FILE:-%=%) $(DISTROOT)/Apps/AxWin/3.0/$(FILE:-%=%) &&) true
 
