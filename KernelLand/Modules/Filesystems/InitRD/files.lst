@@ -8,6 +8,7 @@ Dir "Bin" {
 	File "ls" "__BIN__/Bin/ls"
 	File "cat" "__BIN__/Bin/cat"
 	File "mount" "__BIN__/Bin/mount"
+	File "lspci" "__BIN__/Bin/lspci"
 	File "ip" "__BIN__/Bin/ip"
 	File "ping" "__BIN__/Bin/ping"
 	File "telnet" "__BIN__/Bin/telnet"
