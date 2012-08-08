@@ -37,7 +37,7 @@ Dir "Apps" {
 		}
 	}
 }
-#$Dir "Keen5" {
+#Dir "Keen5" {
 #	File "keen5e" "/home/tpg/Projects/AcessPorts/omnispeak/bin/keen5e"
 #	File "EGADICT.CK5"  "/home/tpg/Projects/AcessPorts/omnispeak/bin/original/EGADICT.CK5"
 #	File "EGAGRAPH.CK5" "/home/tpg/Projects/AcessPorts/omnispeak/bin/original/EGAGRAPH.CK5"
@@ -46,4 +46,5 @@ Dir "Apps" {
 #	File "GFXINFOE.CK5" "/home/tpg/Projects/AcessPorts/omnispeak/bin/original/GFXINFOE.CK5"
 #	File "MAPHEAD.CK5"  "/home/tpg/Projects/AcessPorts/omnispeak/bin/original/MAPHEAD.CK5"
 #	File "TILEINFO.CK5" "/home/tpg/Projects/AcessPorts/omnispeak/bin/original/TILEINFO.CK5"
+#	File "ACTION.CK5" "/home/tpg/Projects/AcessPorts/omnispeak/bin/ACTION.CK5"
 #}
