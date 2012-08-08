@@ -16,66 +16,25 @@ extern uint32_t	__umodsi3(uint32_t Num, uint32_t Den);
 #define STR(x)	_STR(x)
 #define EXP(sym)	{&sym, STR(sym)}
 
+#define SYSCALL0(name,num)	EXP(name),
+#define SYSCALL1(name,num)	EXP(name),
+#define SYSCALL2(name,num)	EXP(name),
+#define SYSCALL3(name,num)	EXP(name),
+#define SYSCALL4(name,num)	EXP(name),
+#define SYSCALL5(name,num)	EXP(name),
+#define SYSCALL6(name,num)	EXP(name),
+
 // === CONSTANTS ===
 const struct {
 	void	*Value;
 	char	*Name;
 }	caLocalExports[] = {
 	EXP(gLoadedLibraries),
-	EXP(_exit),
 	EXP(_errno),
-	EXP(clone),
-	EXP(kill),
-	EXP(yield),
-	EXP(sleep),
-	EXP(_SysWaitEvent),
-	EXP(waittid),
-	EXP(gettid),
-	EXP(getpid),
-	EXP(getuid),
-	EXP(getgid),
-
-	EXP(setuid),
-	EXP(setgid),
-
-	EXP(SysSetName),
-	//EXP(SysGetName),
-
-	EXP(_SysTimestamp),
-
-	//EXP(SysSetPri),
-
-	EXP(SysSendMessage),
-	EXP(SysGetMessage),
-
-	EXP(_SysSpawn),
-	EXP(execve),
-	EXP(SysLoadBin),
-	EXP(SysUnloadBin),
-
-	EXP(_SysSetFaultHandler),
 	
-	EXP(open),
-	EXP(reopen),
-	EXP(close),
-	EXP(read),
-	EXP(write),
-	EXP(seek),
-	EXP(tell),
-	EXP(finfo),
-	EXP(readdir),
-	EXP(_SysGetACL),
-	EXP(chdir),
-	EXP(ioctl),
-	EXP(_SysMount),
-	EXP(_SysSelect),
-
-	EXP(_SysOpenChild),
-	
-	EXP(_SysGetPhys),
-	EXP(_SysAllocate),
-	EXP(_SysDebug),
-
+	#define __ASSEMBLER__
+	#include "arch/syscalls.s.h"
+	#undef __ASSEMBLER__
 #if 0
 	EXP(__umoddi3),
 	EXP(__udivdi3),

@@ -352,7 +352,7 @@ void Command_Dir(int argc, char **argv)
 	
 	fileName = (char*)(tmpPath+dirLen);
 	// Read Directory Content
-	while( (fp = readdir(dp, fileName)) )
+	while( (fp = SysReadDir(dp, fileName)) )
 	{
 		if(fp < 0)
 		{

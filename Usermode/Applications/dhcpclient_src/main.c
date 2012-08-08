@@ -171,7 +171,7 @@ void Scan_Dir(tInterface **IfaceList, const char *Directory)
 		fprintf(stderr, "Unable to open directory '%s'\n", Directory);
 	}
 
-	while( readdir(dp, filename) )
+	while( SysReadDir(dp, filename) )
 	{
 		if( filename[0] == '.' )	continue ;		
 		if( strcmp(filename, "lo") == 0 )	continue ;

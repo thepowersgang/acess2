@@ -448,7 +448,7 @@ LOCAL uint brk(uintptr_t newpos)
 void Heap_Dump(void)
 {
 	heap_head *cur = _heap_start;
-	while( cur < _heap_end )
+	while( cur < (heap_head*)_heap_end )
 	{
 		switch( cur->magic )
 		{
