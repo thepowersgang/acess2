@@ -537,7 +537,7 @@ void *UHCI_int_InitEndpt(tUHCI_Controller *Cont, int Type, int Endpt, size_t Max
 	epi->Type = Type;
 	epi->Tgl = 0;
 
-	return (void*)(Endpt+1);
+	return (void*)(tVAddr)(Endpt+1);
 
 }
 

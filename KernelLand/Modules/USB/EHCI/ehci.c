@@ -225,7 +225,7 @@ void *EHCI_InitInterrupt(void *Ptr, int Endpoint, int bOutbound, int Period,
 
 void *EHCI_InitIsoch(void *Ptr, int Endpoint, size_t MaxPacketSize)
 {
-	return (void*)(Endpoint + 1);
+	return (void*)(tVAddr)(Endpoint + 1);
 }
 void *EHCI_InitControl(void *Ptr, int Endpoint, size_t MaxPacketSize)
 {
