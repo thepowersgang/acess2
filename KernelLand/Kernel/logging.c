@@ -69,14 +69,16 @@ EXPORT(Log_Debug);
 
 // === GLOBALS ===
 tShortSpinlock	glLogOutput;
-#if USE_RING_BUFFER
+#if CACHE_MESSAGES
+# if USE_RING_BUFFER
 Uint8	gaLog_RingBufferData[sizeof(tRingBuffer)+RING_BUFFER_SIZE];
 tRingBuffer	*gpLog_RingBuffer = (void*)gaLog_RingBufferData;
-#else
+# else
 tMutex	glLog;
 tLogList	gLog;
 tLogList	gLog_Levels[NUM_LOG_LEVELS];
-#endif
+# endif	// USE_RING_BUFFER
+#endif // CACHE_MESSAGES
 
 // === CODE ===
 /**
