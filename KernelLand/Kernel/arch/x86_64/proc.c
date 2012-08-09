@@ -86,7 +86,9 @@ tMPInfo	*gMPFloatPtr = NULL;
 tAPIC	*gpMP_LocalAPIC = NULL;
 Uint8	gaAPIC_to_CPU[256] = {0};
 #endif
-tCPU	gaCPUs[MAX_CPUS];
+tCPU	gaCPUs[MAX_CPUS] = {
+	{.Current = &gThreadZero}
+	};
 tTSS	*gTSSs = NULL;
 tTSS	gTSS0 = {0};
 // --- Error Recovery ---
