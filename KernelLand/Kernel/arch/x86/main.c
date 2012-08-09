@@ -30,18 +30,12 @@ extern int	Time_Setup(void);
 
 // === GLOBALS ===
 char	*gsBootCmdLine = NULL;
-struct {
-	Uint32	PBase;
-	void	*Base;
-	Uint	Size;
-	char	*ArgString;
-}	*gaArch_BootModules;
+tBootModule	*gaArch_BootModules;
  int	giArch_NumBootModules = 0;
 
 // === CODE ===
 int kmain(Uint MbMagic, void *MbInfoPtr)
 {
-	tMBoot_Module	*mods;
 	tMBoot_Info	*mbInfo;
 	tPMemMapEnt	pmemmap[MAX_PMEMMAP_ENTS];
 	 int	nPMemMapEnts;
@@ -58,61 +52,13 @@ int kmain(Uint MbMagic, void *MbInfoPtr)
 	case MULTIBOOT_MAGIC: {
 		// TODO: Handle when this isn't in the mapped area
 		gsBootCmdLine = (char*)(mbInfo->CommandLine + KERNEL_BASE);
-		
-		tMBoot_MMapEnt	*ent = (void*)mbInfo->MMapAddr;
-		tMBoot_MMapEnt	*last = (void*)(mbInfo->MMapAddr + mbInfo->MMapLength);
-		
-		// Build up memory map
-		nPMemMapEnts = 0;
-		while( ent < last && nPMemMapEnts < MAX_PMEMMAP_ENTS )
-		{
-			tPMemMapEnt	*nent = &pmemmap[nPMemMapEnts];
-			nent->Start = ent->Base;
-			nent->Length = ent->Length;
-			switch(ent->Type)
-			{
-			case 1:
-				nent->Type = PMEMTYPE_FREE;
-				break;
-			default:
-				nent->Type = PMEMTYPE_RESERVED;
-				break;
-			}
-			nent->NUMADomain = 0;
-			
-			nPMemMapEnts ++;
-			ent = (void*)( (tVAddr)ent + ent->Size + 4 );
-		}
-
-		// Ensure it's valid
-		nPMemMapEnts = PMemMap_ValidateMap(pmemmap, nPMemMapEnts, MAX_PMEMMAP_ENTS);
-		// TODO: Error handling
-
-		// Replace kernel with PMEMTYPE_USED
-		nPMemMapEnts = PMemMap_MarkRangeUsed(
-			pmemmap, nPMemMapEnts, MAX_PMEMMAP_ENTS,
-			KERNEL_LOAD, (tVAddr)&gKernelEnd - KERNEL_LOAD - KERNEL_BASE
-			);
-
-		// Replace modules with PMEMTYPE_USED
-		nPMemMapEnts = PMemMap_MarkRangeUsed(pmemmap, nPMemMapEnts, MAX_PMEMMAP_ENTS,
-			mbInfo->Modules, mbInfo->ModuleCount*sizeof(*mods)
-			);
-		mods = (void*)mbInfo->Modules;
-		for( int i = 0; i < mbInfo->ModuleCount; i ++ )
-		{
-			nPMemMapEnts = PMemMap_MarkRangeUsed(
-				pmemmap, nPMemMapEnts, MAX_PMEMMAP_ENTS,
-				mods->Start, mods->End - mods->Start
-				);
-		}
-		
-		// Debug - Output map
-		PMemMap_DumpBlocks(pmemmap, nPMemMapEnts);
 
 		// Adjust Multiboot structure address
 		mbInfo = (void*)( (Uint)MbInfoPtr + KERNEL_BASE );
-		
+
+		nPMemMapEnts = Multiboot_LoadMemoryMap(mbInfo, KERNEL_BASE, pmemmap, MAX_PMEMMAP_ENTS,
+			KERNEL_LOAD, (tVAddr)&gKernelEnd - KERNEL_BASE);
+
 		break; }
 	
 	// Multiboot 2
@@ -145,36 +91,7 @@ int kmain(Uint MbMagic, void *MbInfoPtr)
 	VFS_Init();
 	
 	// Load initial modules
-	mods = (void*)( mbInfo->Modules + KERNEL_BASE );
-	giArch_NumBootModules = mbInfo->ModuleCount;
-	gaArch_BootModules = malloc( giArch_NumBootModules * sizeof(*gaArch_BootModules) );
-	for( int i = 0; i < mbInfo->ModuleCount; i ++ )
-	{
-		 int	ofs;
-	
-		Log_Log("Arch", "Multiboot Module at 0x%08x, 0x%08x bytes (String at 0x%08x)",
-			mods[i].Start, mods[i].End-mods[i].Start, mods[i].String);
-	
-		gaArch_BootModules[i].PBase = mods[i].Start;
-		gaArch_BootModules[i].Size = mods[i].End - mods[i].Start;
-	
-		// Always HW map the module data	
-		ofs = mods[i].Start&0xFFF;
-		gaArch_BootModules[i].Base = (void*)( MM_MapHWPages(mods[i].Start,
-			(gaArch_BootModules[i].Size+ofs+0xFFF) / 0x1000
-			) + ofs );
-		
-		// Only map the string if needed
-		if( (tVAddr)mods[i].String > MAX_ARGSTR_POS )
-		{
-			// Assumes the string is < 4096 bytes long)
-			gaArch_BootModules[i].ArgString = (void*)(
-				MM_MapHWPages(mods[i].String, 2) + (mods[i].String&0xFFF)
-				);
-		}
-		else
-			gaArch_BootModules[i].ArgString = (char *)mods[i].String + KERNEL_BASE;
-	}
+	gaArch_BootModules = Multiboot_LoadModules(mbInfo, KERNEL_BASE, &giArch_NumBootModules);
 	
 	// Pass on to Independent Loader
 	Log_Log("Arch", "Starting system");

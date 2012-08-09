@@ -1,11 +1,18 @@
 /*
- * Acess2 x86_64 Project
+ * Acess2 Kernel x86_64
+ * - By John Hodge (thePowersGang)
+ *
+ * main.c
+ * - Kernel C entrypoint
  */
 #include <acess.h>
 #include <mboot.h>
 #include <init.h>
+#include <archinit.h>
+#include <pmemmap.h>
 
 // === CONSTANTS ===
+#define KERNEL_LOAD	0x100000
 #define MAX_PMEMMAP_ENTS	16
 
 // === IMPORTS ===
@@ -14,7 +21,7 @@ extern void	MM_InitVirt(void);
 extern void	Heap_Install(void);
 extern int	Time_Setup(void);
 
-extern void	MM_InitPhys_Multiboot(tMBoot_Info *MBoot);
+extern char	gKernelEnd[];
 
 // === PROTOTYPES ===
 void	kmain(Uint MbMagic, void *MbInfoPtr);
@@ -26,6 +33,8 @@ char	*gsBootCmdLine = NULL;
 void kmain(Uint MbMagic, void *MbInfoPtr)
 {
 	tMBoot_Info	*mbInfo;
+	tPMemMapEnt	pmemmap[MAX_PMEMMAP_ENTS];
+	 int	nPMemMapEnts;
 
 	LogF("%s\r\n", gsBuildInfo);
 	
@@ -41,7 +50,9 @@ void kmain(Uint MbMagic, void *MbInfoPtr)
 		// Adjust Multiboot structure address
 		mbInfo = (void*)( (Uint)MbInfoPtr + KERNEL_BASE );
 		gsBootCmdLine = (char*)( (Uint)mbInfo->CommandLine + KERNEL_BASE);
-		MM_InitPhys_Multiboot( mbInfo );	// Set up physical memory manager
+		nPMemMapEnts = Multiboot_LoadMemoryMap(mbInfo, KERNEL_BASE, pmemmap, MAX_PMEMMAP_ENTS,
+			KERNEL_LOAD, (tVAddr)&gKernelEnd - KERNEL_BASE
+			);
 		break;
 	default:
 		Panic("Multiboot magic invalid %08x, expected %08x\n",
@@ -49,6 +60,7 @@ void kmain(Uint MbMagic, void *MbInfoPtr)
 		return ;
 	}
 	
+	MM_InitPhys( nPMemMapEnts, pmemmap );	// Set up physical memory manager
 	Log("gsBootCmdLine = '%s'", gsBootCmdLine);
 	
 	*(Uint16*)(KERNEL_BASE|0xB8000) = 0x1F00|'D';
