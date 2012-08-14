@@ -118,7 +118,7 @@ void DumpRoutes(void)
 	
 	printf("Type\tNetwork \tGateway \tMetric\tIFace\n");
 	
-	while( readdir(dp, filename) )
+	while( SysReadDir(dp, filename) )
 	{
 		if(filename[0] == '.')	continue;
 		DumpRoute(filename);

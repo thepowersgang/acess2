@@ -153,8 +153,8 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 	size_t	Bytes;
 
 	if( __Bytes == 0 ) {
-		//return NULL;	// TODO: Return a known un-mapped range.
-		return INVLPTR;
+		return NULL;	// TODO: Return a known un-mapped range.
+//		return INVLPTR;
 	}
 	
 	// Get required size

@@ -3,8 +3,9 @@
 
 QEMU=qemu-system-x86_64
 USE_GDB=
+BOOTOPT="-fda DiskImage.img -boot a"
 
-QEMU_PARAMS="-fda DiskImage.img -boot a"
+QEMU_PARAMS=""
 QEMU_PARAMS=$QEMU_PARAMS" -hda AcessHDD.img"
 QEMU_PARAMS=$QEMU_PARAMS" -vga std"
 QEMU_PARAMS=$QEMU_PARAMS" -smp 2"
@@ -16,6 +17,18 @@ while [ $# -ne 0 ]; do
 	case $1 in
 	-gdb)
 		QEMU_PARAMS=$QEMU_PARAMS" -s -S"
+		;;
+	-dbin)
+		shift
+		if [ "x$2" = "xdefault" ] || [ "x$2" = "x" ]; then
+			_kfile="KernelLand/Acess2.$1.bin"
+		else
+			_kfile="KernelLand/Acess2.$1-$2.bin"
+		fi
+		BOOTOPT="-kernel $_kfile"
+		BOOTOPT=$BOOTOPT" -initrd KernelLand/Modules/Filesystems/FS_InitRD.kmd.$1 -append $3"
+		shift
+		shift
 		;;
 	-dbgbin)
 		QEMU=/home/tpg/apps/bin/qemu-system-x86_64
@@ -54,8 +67,9 @@ fi
 
 #	/home/tpg/apps/bin/qemu-system-x86_64 $QEMU_PARAMS -serial stdio -serial file:QemuLog.txt
 #	qemu-system-x86_64 $QEMU_PARAMS -serial stdio | tee QemuLog.txt
+#echo $QEMU $BOOTOPT $QEMU_PARAMS
 if [ "x$_NOTEE" != "xyes" ] ; then
-	$QEMU $QEMU_PARAMS -serial stdio | tee QemuLog.txt
+	$QEMU $BOOTOPT $QEMU_PARAMS -serial stdio | tee QemuLog.txt
 else
-	$QEMU $QEMU_PARAMS -serial stdio
+	$QEMU $BOOTOPT $QEMU_PARAMS -serial stdio
 fi

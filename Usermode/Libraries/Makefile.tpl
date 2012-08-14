@@ -37,7 +37,7 @@ endif
 $(_BIN): $(OBJ) $(_LIBS)
 	@mkdir -p $(dir $(_BIN))
 	@echo [LD] -o $(BIN) $(OBJ)
-	@$(LD) $(LDFLAGS) -o $(_BIN) $(OBJ)
+	@$(LD) $(LDFLAGS) -o $(_BIN) $(OBJ) $(shell $(CC) -print-libgcc-file-name)
 	@$(DISASM) -S $(_BIN) > $(_OBJPREFIX)$(BIN).dsm
 
 $(_OBJPREFIX)%.o: %.c

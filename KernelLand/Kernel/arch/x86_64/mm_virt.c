@@ -269,9 +269,9 @@ void MM_int_DumpTablesEnt(tVAddr RangeStart, size_t Length, tPAddr Expected)
 	#define CANOICAL(addr)	((addr)&0x800000000000?(addr)|0xFFFF000000000000:(addr))
 	LogF("%016llx => ", CANOICAL(RangeStart));
 //	LogF("%6llx %6llx %6llx %016llx => ",
-//		MM_GetPhysAddr( (tVAddr)&PAGEDIRPTR(RangeStart>>30) ),
-//		MM_GetPhysAddr( (tVAddr)&PAGEDIR(RangeStart>>21) ),
-//		MM_GetPhysAddr( (tVAddr)&PAGETABLE(RangeStart>>12) ),
+//		MM_GetPhysAddr( &PAGEDIRPTR(RangeStart>>30) ),
+//		MM_GetPhysAddr( &PAGEDIR(RangeStart>>21) ),
+//		MM_GetPhysAddr( &PAGETABLE(RangeStart>>12) ),
 //		CANOICAL(RangeStart)
 //		);
 	if( gMM_ZeroPage && (PAGETABLE(RangeStart>>12) & PADDR_MASK) == gMM_ZeroPage )
@@ -576,7 +576,7 @@ void MM_Deallocate(tVAddr VAddr)
 {
 	tPAddr	phys;
 	
-	phys = MM_GetPhysAddr(VAddr);
+	phys = MM_GetPhysAddr( (void*)VAddr );
 	if(!phys)	return ;
 	
 	MM_Unmap(VAddr);
@@ -609,8 +609,9 @@ int MM_GetPageEntry(tVAddr Addr, tPAddr *Phys, Uint *Flags)
 /**
  * \brief Get the physical address of a virtual location
  */
-tPAddr MM_GetPhysAddr(tVAddr Addr)
+tPAddr MM_GetPhysAddr(const void *Ptr)
 {
+	tVAddr	Addr = (tVAddr)Ptr;
 	tPAddr	*ptr;
 	 int	ret;
 	
@@ -776,7 +777,8 @@ tVAddr MM_MapHWPages(tPAddr PAddr, Uint Number)
 	{
 		for( num = Number; num -- && ret < MM_HWMAP_TOP; ret += 0x1000 )
 		{
-			if( MM_GetPhysAddr(ret) != 0 )	break;
+			if( MM_GetPhysAddr( (void*)ret ) != 0 )
+				break;
 		}
 		if( num >= 0 )	continue;
 		
@@ -807,7 +809,7 @@ void MM_UnmapHWPages(tVAddr VAddr, Uint Number)
 //	Log_KernelPanic("MM", "TODO: Implement MM_UnmapHWPages");
 	while( Number -- )
 	{
-		MM_DerefPhys( MM_GetPhysAddr(VAddr) );
+		MM_DerefPhys( MM_GetPhysAddr((void*)VAddr) );
 		MM_Unmap(VAddr);
 		VAddr += 0x1000;
 	}
@@ -970,7 +972,7 @@ tPAddr MM_Clone(void)
 		MM_MapEx(kstackbase+i*0x1000, phys, 1, 0);
 		
 		tmpmapping = MM_MapTemp(phys);
-		if( MM_GetPhysAddr( kstackbase+i*0x1000 ) )
+		if( MM_GetPhysAddr( (void*)(kstackbase+i*0x1000) ) )
 			memcpy(tmpmapping, (void*)(kstackbase+i*0x1000), 0x1000);
 		else
 			memset(tmpmapping, 0, 0x1000);
@@ -1088,7 +1090,7 @@ tVAddr MM_NewKStack(void)
 	Uint	i;
 	for( ; base < MM_KSTACK_TOP; base += KERNEL_STACK_SIZE )
 	{
-		if(MM_GetPhysAddr(base+KERNEL_STACK_SIZE-0x1000) != 0)
+		if(MM_GetPhysAddr( (void*)(base+KERNEL_STACK_SIZE-0x1000) ) != 0)
 			continue;
 		
 		//Log("MM_NewKStack: Found one at %p", base + KERNEL_STACK_SIZE);

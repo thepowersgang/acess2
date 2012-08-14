@@ -183,6 +183,6 @@ gInitialKernelStack:
 
 [section .rodata]
 csNot64BitCapable:
-	db "Not 64-bit Capable",0
+	db "CPU does not support long-mode, please use the x86 build",0
 
 ; vim: ft=nasm

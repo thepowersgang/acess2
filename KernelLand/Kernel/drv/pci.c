@@ -173,8 +173,9 @@ int PCI_ScanBus(int BusID, int bFill)
 			{
 				#if LIST_DEVICES
 				if( !bFill )
-					Log_Log("PCI", "Device %i,%i:%i %06x => 0x%04x:0x%04x",
-						BusID, dev, fcn, devInfo.class, devInfo.vendor, devInfo.device);
+					Log_Log("PCI", "Device %i,%i:%i %06x => 0x%04x:0x%04x Rev %i",
+						BusID, dev, fcn, devInfo.class,
+						devInfo.vendor, devInfo.device, devInfo.revision);
 				#endif
 			}
 			
@@ -494,7 +495,7 @@ int PCI_int_EnumDevice(Uint16 bus, Uint16 slot, Uint16 fcn, tPCIDevice *info)
 	info->Node.NumACLs = 1;
 	info->Node.ACLs = &gVFS_ACL_EveryoneRO;
 	
-	info->Node.Type = &gPCI_RootNodeType;
+	info->Node.Type = &gPCI_DevNodeType;
 	
 	return 1;
 }

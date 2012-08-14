@@ -8,7 +8,6 @@
 #include <axwin3/axwin.h>
 #include <axwin3/widget.h>
 #include "include/internal.h"
-#include "include/ipc.h"
 #include <stdlib.h>
 #include <widget_messages.h>
 #include <string.h>
@@ -232,23 +231,20 @@ char *AxWin3_Widget_GetText(tAxWin3_Widget *Widget)
 {
 	char	buf[sizeof(tWidgetMsg_SetText)];
 	tWidgetMsg_SetText	*msg = (void*)buf;
-	tAxWin_IPCMessage	*retmsg;
-	char	*ret;
+	size_t	retmsg_size;
 	
 	msg->WidgetID = Widget->ID;
 
 	AxWin3_SendMessage(Widget->Window, Widget->Window, MSG_WIDGET_GETTEXT, sizeof(buf), buf);
 
-	retmsg = AxWin3_int_WaitIPCMessage(MSG_WIDGET_GETTEXT);
-	msg = (void*)retmsg->Data;
-
-	if( retmsg->Size < sizeof(*msg) ) {
-		free(retmsg);
+	msg = AxWin3_WaitMessage(Widget->Window, MSG_WIDGET_GETTEXT, &retmsg_size);
+	if( retmsg_size < sizeof(*msg) ) {
+		free(msg);
 		return NULL;
 	}
 
-	ret = strndup(msg->Text, retmsg->Size - sizeof(*msg));
-	free(retmsg);
+	char	*ret = strndup(msg->Text, retmsg_size - sizeof(*msg));
+	free(msg);
 	return ret;
 }
 

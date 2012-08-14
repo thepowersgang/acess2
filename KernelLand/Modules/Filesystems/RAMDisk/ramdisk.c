@@ -16,7 +16,7 @@
 
 // === PROTOTYPES ===
  int	RAMFS_Install(char **Arguments);
-void	RAMFS_Cleanup(void);
+ int	RAMFS_Cleanup(void);
 // --- Mount/Unmount ---
 tVFS_Node	*RAMFS_InitDevice(const char *Device, const char **Options);
 void	RAMFS_Unmount(tVFS_Node *Node);
@@ -65,9 +65,9 @@ int RAMFS_Install(char **Arguments)
 	return 0;
 }
 
-void RAMFS_Cleanup(void)
+int RAMFS_Cleanup(void)
 {
-	
+	return 0;
 }
 
 

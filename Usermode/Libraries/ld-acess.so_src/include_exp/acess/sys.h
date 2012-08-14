@@ -52,7 +52,8 @@ extern int	gettid(void);
 extern int	getpid(void);
 extern int	_SysSetFaultHandler(int (*Handler)(int));
 extern void	SysSetName(const char *Name);
-//extern int	SysGetName(const char *Name);
+extern int	SysGetName(char *NameDest);
+extern int	SysSetPri(int Priority);
 extern int64_t	_SysTimestamp(void);
 
 // --- Permissions ---
@@ -72,8 +73,8 @@ extern int	seek(int fd, int64_t offset, int whence);
 extern uint64_t	tell(int fd);
 extern int	ioctl(int fd, int id, void *data);
 extern int	finfo(int fd, t_sysFInfo *info, int maxacls);
-extern int	readdir(int fd, char *dest);
-extern int	_SysOpenChild(int fd, char *name, int flags);
+extern int	SysReadDir(int fd, char *dest);
+extern int	_SysOpenChild(int fd, const char *name, int flags);
 extern int	_SysGetACL(int fd, t_sysACL *dest);
 extern int	_SysMount(const char *Device, const char *Directory, const char *Type, const char *Options);
 extern int	_SysSelect(int nfds, fd_set *read, fd_set *write, fd_set *err, int64_t *timeout, unsigned int extraevents);

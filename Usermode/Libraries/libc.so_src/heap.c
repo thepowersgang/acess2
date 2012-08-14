@@ -7,6 +7,12 @@ heap.c - Heap Manager
 #include <string.h>
 #include "lib.h"
 
+#if 0
+# define DEBUGS(s...)	_SysDebug(s)
+#else
+# define DEBUGS(s...)	do{}while(0)
+#endif
+
 // === Constants ===
 #define MAGIC	0xACE55051	//AcessOS1
 #define MAGIC_FREE	(~MAGIC)
@@ -19,6 +25,7 @@ typedef unsigned int Uint;
 typedef struct {
 	uint32_t	magic;
 	size_t	size;
+	char	data[];
 }	heap_head;
 typedef struct {
 	heap_head	*header;
@@ -38,6 +45,7 @@ EXPORT void	*sbrk(int increment);
 LOCAL void	*extendHeap(int bytes);
 static void	*FindHeapBase();
 LOCAL uint	brk(uintptr_t newpos);
+LOCAL void	Heap_Dump(void);
 
 //Code
 
@@ -53,7 +61,7 @@ EXPORT void *malloc(size_t bytes)
 	size_t	closestMatch = 0;
 	void	*bestMatchAddr = 0;
 	heap_head	*curBlock;
-	
+
 //	_SysDebug("&_heap_start = %p, _heap_start = %p", &_heap_start, _heap_start);
 	// Initialise Heap
 	if(_heap_start == NULL)
@@ -84,6 +92,7 @@ EXPORT void *malloc(size_t bytes)
 		else if(curBlock->magic != MAGIC)
 		{
 			//Corrupt Heap
+			Heap_Dump();
 			_SysDebug("malloc: Corrupt Heap\n");
 			return NULL;
 		}
@@ -109,8 +118,11 @@ EXPORT void *malloc(size_t bytes)
 			return NULL;
 		}
 		curBlock->magic = MAGIC;
-		return (void*)((uintptr_t)curBlock + sizeof(heap_head));
+		DEBUGS("malloc(0x%x) = %p (extend) 0x%x", bytes, curBlock->data, bestSize);
+		return curBlock->data;
 	}
+	
+	heap_head *besthead = (void*)bestMatchAddr;
 	
 	//Split Block?
 	if(closestMatch - bestSize > BLOCK_SIZE) {
@@ -129,13 +141,15 @@ EXPORT void *malloc(size_t bytes)
 		foot = (heap_foot*)(bestMatchAddr + closestMatch - sizeof(heap_foot));
 		foot->header = curBlock;
 		
-		((heap_head*)bestMatchAddr)->magic = MAGIC;	//mark as used
-		return (void*)(bestMatchAddr + sizeof(heap_head));
+		besthead->magic = MAGIC;	//mark as used
+		DEBUGS("malloc(0x%x) = %p (split) 0x%x", bytes, besthead->data, bestSize);
+		return besthead->data;
 	}
 	
 	//Don't Split the block
-	((heap_head*)bestMatchAddr)->magic = MAGIC;
-	return (void*)(bestMatchAddr+sizeof(heap_head));
+	besthead->magic = MAGIC;
+	DEBUGS("malloc(0x%x) = %p (reuse) 0x%x", bytes, besthead->data, besthead->size);
+	return besthead->data;
 }
 
 /**
@@ -168,6 +182,7 @@ EXPORT void free(void *mem)
 		return;
 	
 	head->magic = MAGIC_FREE;
+	DEBUGS("free(%p) : 0x%x bytes", mem, head->size);
 	
 	//Unify Right
 	if((intptr_t)head + head->size < (intptr_t)_heap_end)
@@ -429,3 +444,25 @@ LOCAL uint brk(uintptr_t newpos)
 	
 	return ret;	// Return old curpos
 }
+
+void Heap_Dump(void)
+{
+	heap_head *cur = _heap_start;
+	while( cur < (heap_head*)_heap_end )
+	{
+		switch( cur->magic )
+		{
+		case MAGIC:
+			_SysDebug("Used block %p[0x%x] - ptr=%p", cur, cur->size, cur->data);
+			break;
+		case MAGIC_FREE:
+			_SysDebug("Free block %p[0x%x] - ptr=%p", cur, cur->size, cur->data);
+			break;
+		default:
+			_SysDebug("Block %p bad magic (0x%x)", cur, cur->magic);
+			return ;
+		}
+		cur = (void*)( (char*)cur + cur->size );
+	}
+}
+

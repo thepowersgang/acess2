@@ -47,9 +47,11 @@ TODO:
  > Text editor (with a GP formatted text field?)
  > Maybe a basic web browser using the surface support?
  > Port freetype for nice font support
+ > Configuration (via lib/server)
 
 - Omnispeak
  > Debug speed issues (tracing agian)
  > Port to AxWin3
+ > Trace memory corruption
 
 - Port dropbear!

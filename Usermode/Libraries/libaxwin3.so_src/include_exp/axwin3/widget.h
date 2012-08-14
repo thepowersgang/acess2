@@ -46,6 +46,8 @@ enum eElementTypes
 {
 	ELETYPE_NONE,
 
+	ELETYPE_SUBWIN,
+
 	ELETYPE_BOX,	//!< Content box (invisible in itself)
 	ELETYPE_TEXT,	//!< Text
 	ELETYPE_IMAGE,	//!< Image

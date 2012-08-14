@@ -86,7 +86,9 @@ tMPInfo	*gMPFloatPtr = NULL;
 tAPIC	*gpMP_LocalAPIC = NULL;
 Uint8	gaAPIC_to_CPU[256] = {0};
 #endif
-tCPU	gaCPUs[MAX_CPUS];
+tCPU	gaCPUs[MAX_CPUS] = {
+	{.Current = &gThreadZero}
+	};
 tTSS	*gTSSs = NULL;
 tTSS	gTSS0 = {0};
 // --- Error Recovery ---
@@ -579,7 +581,7 @@ Uint Proc_MakeUserStack(void)
 	// Check Prospective Space
 	for( i = USER_STACK_SZ >> 12; i--; )
 	{
-		if( MM_GetPhysAddr( base + (i<<12) ) != 0 )
+		if( MM_GetPhysAddr( (void*)(base + (i<<12)) ) != 0 )
 			break;
 	}
 	

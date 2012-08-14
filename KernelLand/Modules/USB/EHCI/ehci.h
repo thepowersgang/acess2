@@ -8,6 +8,16 @@
 #ifndef _EHCI_H_
 #define _EHCI_H_
 
+#define PERIODIC_SIZE	1024
+
+typedef struct sEHCI_CapRegs	tEHCI_CapRegs;
+typedef struct sEHCI_OpRegs	tEHCI_OpRegs;
+typedef struct sEHCI_iTD	tEHCI_iTD;
+typedef struct sEHCI_siTD	tEHCI_siTD;
+typedef struct sEHCI_qTD	tEHCI_qTD;
+typedef struct sEHCI_QH 	tEHCI_QH;
+typedef struct sEHCI_Controller	tEHCI_Controller;
+
 struct sEHCI_CapRegs
 {
 	Uint8	CapLength;	// Byte offset of Operational registers
@@ -150,6 +160,99 @@ struct sEHCI_OpRegs
 	 * 23:31 = Reserved (ZERO)
 	 */
 	Uint32	PortSC[15];
+};
+
+#define USBCMD_Run	0x0001
+#define USBCMD_HCReset	0x0002
+#define USBCMD_PeriodicEnable	0x0010
+#define USBCMD_AsyncEnable	0x0020
+
+#define USBINTR_IOC	0x0001
+#define USBINTR_Error	0x0002
+#define USBINTR_PortChange	0x0004
+#define USBINTR_FrameRollover	0x0008
+#define USBINTR_HostSystemError	0x0010
+#define USBINTR_AsyncAdvance	0x0020
+
+// Isochronous (High-Speed) Transfer Descriptor
+struct sEHCI_iTD
+{
+	Uint32	Link;
+	struct {
+		Uint16	Offset;
+		Uint16	LengthSts;
+	} Transactions[8];
+	// -- 0 --
+	// 0:6  - Device
+	// 7    - Reserved
+	// 8:11 - Endpoint
+	// -- 1 --
+	// 0:10 - Max packet size
+	// 11   - IN/OUT
+	Uint32	BufferPointers[8];	// Page aligned, low 12 bits are overloaded
+};
+
+// Split Transaction Isochronous Transfer Descriptor
+struct sEHCI_siTD
+{
+	Uint32	Link;
+	Uint32	Dest;
+	Uint32	uFrame;
+	Uint32	StatusLength;
+	Uint32	Page0;
+	Uint32	Page1;
+	Uint32	BackLink;
+};
+
+// Queue Element Transfer Descriptor
+struct sEHCI_qTD
+{
+	Uint32	Link;
+	Uint32	Link2;	// Used when there's a short packet
+	Uint32	Token;
+	Uint32	Pages[5];	//First has offset in low 12 bits
+	
+	// Internals (32 bytes = 4x 64-bit pointers)
+	tUSBHostCb	*Callback;
+	void	*CallbackData;
+	tEHCI_qTD	*Next;
+} __attribute__((aligned(32)));
+// sizeof = 64
+
+// Queue Head
+struct sEHCI_QH
+{
+	Uint32	HLink;	// Horizontal link
+	Uint32	Endpoint;
+	Uint32	EndpointExt;
+	Uint32	CurrentTD;
+	tEHCI_qTD	Overlay;
+	struct {
+		Uint8	IntOfs;
+		Uint8	IntPeriodPow;
+		tEHCI_QH	*Next;
+	} Impl;
+} __attribute__((aligned(32)));
+// sizeof = 48 (64)
+
+#define PID_OUT 	0
+#define PID_IN  	1
+#define PID_SETUP	2
+
+struct sEHCI_Controller
+{
+	tPAddr	PhysBase;
+	tEHCI_CapRegs	*CapRegs;
+	tEHCI_OpRegs	*OpRegs;
+
+	 int	InterruptLoad[PERIODIC_SIZE];
+	tEHCI_QH	*LastAsyncHead;
+	
+	Uint32	*PeriodicQueue;
+	tEHCI_QH PeriodicQueueV[PERIODIC_SIZE];
+	
+	tEHCI_QH	*QHPools[(256*16)*sizeof(tEHCI_QH)/PAGE_SIZE];	// [PAGE_SIZE/64]
+	tEHCI_qTD	*TDPool[PAGE_SIZE/sizeof(tEHCI_qTD)];
 };
 
 #endif

@@ -149,7 +149,7 @@ void HID_DeviceConnected(tUSBInterface *Dev, void *Descriptors, size_t Descripto
 	
 	// --- Read and parse report descriptor ---
 	// NOTE: Also does sub-driver selection and initialisation
-	Uint8	*report_data = alloca(report_len);
+	Uint8	report_data[report_len];
 	USB_ReadDescriptor(Dev, 0x1022, 0, report_len, report_data);
 	HID_int_ParseReport(Dev, report_data, report_len, &gHID_RootCallbacks);
 	

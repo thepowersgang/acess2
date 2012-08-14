@@ -152,7 +152,6 @@ void MM_DumpStatistics(void)
  */
 tPAddr MM_AllocPhys(void)
 {
-	// int	a, b, c;
 	 int	indx = -1;
 	tPAddr	ret;
 	
@@ -161,7 +160,6 @@ tPAddr MM_AllocPhys(void)
 	Mutex_Acquire( &glPhysAlloc );
 	
 	// Classful scan
-	#if 1
 	{
 	 int	i;
 	 int	first, last;
@@ -202,52 +200,6 @@ tPAddr MM_AllocPhys(void)
 	// Out of memory?
 	if( i <= 1 )	indx = -1;
 	}
-	#elif 0
-	// Find free page
-	// Scan downwards
-	LOG("giLastPossibleFree = %i", giLastPossibleFree);
-	for( indx = giLastPossibleFree; indx >= 0; )
-	{
-		if( gaSuperBitmap[indx>>10] == -1 ) {
-			indx -= 1024;
-			continue;
-		}
-		
-		if( gaPageBitmap[indx>>5] == -1 ) {
-			indx -= 32;
-			continue;
-		}
-		
-		if( gaPageBitmap[indx>>5] & (1 << (indx&31)) ) {
-			indx --;
-			continue;
-		}
-		break;
-	}
-	if( indx >= 0 )
-		giLastPossibleFree = indx;
-	LOG("indx = %i", indx);
-	#else
-	c = giLastPossibleFree % 32;
-	b = (giLastPossibleFree / 32) % 32;
-	a = giLastPossibleFree / 1024;
-	
-	LOG("a=%i,b=%i,c=%i", a, b, c);
-	for( ; gaSuperBitmap[a] == -1 && a >= 0; a-- );
-	if(a < 0) {
-		Mutex_Release( &glPhysAlloc );
-		Warning("MM_AllocPhys - OUT OF MEMORY (Called by %p) - %lli/%lli used",
-			__builtin_return_address(0), giPhysAlloc, giPageCount);
-		LEAVE('i', 0);
-		return 0;
-	}
-	for( ; gaSuperBitmap[a] & (1<<b); b-- );
-	for( ; gaPageBitmap[a*32+b] & (1<<c); c-- );
-	LOG("a=%i,b=%i,c=%i", a, b, c);
-	indx = (a << 10) | (b << 5) | c;
-	if( indx >= 0 )
-		giLastPossibleFree = indx;
-	#endif
 	
 	if( indx < 0 ) {
 		Mutex_Release( &glPhysAlloc );
@@ -329,29 +281,6 @@ tPAddr MM_AllocPhysRange(int Pages, int MaxBits)
 	}
 	idx = sidx / 32;
 	sidx %= 32;
-	
-	#if 0
-	LOG("a=%i, b=%i, idx=%i, sidx=%i", a, b, idx, sidx);
-	
-	// Find free page
-	for( ; gaSuperBitmap[a] == -1 && a --; )	b = 31;
-	if(a < 0) {
-		Mutex_Release( &glPhysAlloc );
-		Warning("MM_AllocPhysRange - OUT OF MEMORY (Called by %p)", __builtin_return_address(0));
-		LEAVE('i', 0);
-		return 0;
-	}
-	LOG("a = %i", a);
-	for( ; gaSuperBitmap[a] & (1 << b); b-- )	sidx = 31;
-	LOG("b = %i", b);
-	idx = a * 32 + b;
-	for( ; gaPageBitmap[idx] & (1 << sidx); sidx-- )
-		LOG("gaPageBitmap[%i] = 0x%08x", idx, gaPageBitmap[idx]);
-	
-	LOG("idx = %i, sidx = %i", idx, sidx);
-	#else
-	
-	#endif
 	
 	// Check if the gap is large enough
 	while( idx >= 0 )

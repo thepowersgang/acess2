@@ -33,6 +33,7 @@ struct sHotkeyTarget
 
 
 extern void	WM_Hotkey_Register(int nKeys, uint32_t *Keys, const char *ActionName);
+extern void	WM_Hotkey_RegisterAction(const char *ActionName, tWindow *Target, uint16_t Index);
 extern void	WM_Hotkey_KeyDown(uint32_t Scancode);
 extern void	WM_Hotkey_KeyUp(uint32_t Scancode);
 

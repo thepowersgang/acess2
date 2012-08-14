@@ -132,5 +132,7 @@ static inline void SHORTLOCK(tShortSpinlock *Lock) {
 }
 static inline void SHORTREL(tShortSpinlock *m) { *m = 0; }
 
+static inline intptr_t MM_GetPhysAddr(void *Ptr) { return 1; }
+
 #endif
 

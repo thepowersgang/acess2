@@ -2,12 +2,12 @@
  * AcessOS Basic C Library
  * stdlib.c
  */
-/**
- * \todo Move half of these to stdio
- */
 #include <acess/sys.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <errno.h>
+#include <ctype.h>
+#include <limits.h>
 #include "lib.h"
 
 #define _stdout	1
@@ -71,68 +71,94 @@ EXPORT void qsort(void *base, size_t nmemb, size_t size, int(*compar)(const void
 	}
 }
 
+EXPORT long long strtoll(const char *str, char **end, int base)
+{
+	 int	neg = 0;
+	long long	ret = 0;
+	
+	if( !str || base < 0 || base > 36 || base == 1 ) {
+		if(end)
+			*end = (char*)str;
+		errno = EINVAL;
+		return 0;
+	}
+
+	while( isspace(*str) )
+		str++;
+	
+	// Check for negative (or positive) sign
+	if(*str == '-' || *str == '+') {
+		neg = (*str == '-');
+		str++;
+	}
+	
+	if( base == 0 || base == 16 ) {
+		if( *str == '0' && str[1] == 'x' ) {
+			str += 2;
+			base = 16;
+		}
+	}
+	
+	if( base == 0 && *str == '0' ) {
+		str ++;
+		base = 8;
+	}
+
+	if( base == 0 )
+		base = 10;
+
+	while( *str )
+	{
+		 int	next = -1;
+		if( base <= 10 ) {
+			if( '0' <= *str && *str <= '0'+base-1 )
+				next = *str - '0';
+		}
+		else {
+			if( '0' <= *str && *str <= '9' )
+				next = *str - '0';
+			if( 'A' <= *str && *str <= 'A'+base-10-1 )
+				next = *str - 'A';
+			if( 'a' <= *str && *str <= 'a'+base-10-1 )
+				next = *str - 'a';
+		}
+		if( next < 0 )
+			break;
+		ret *= base;
+		ret += next;
+		str ++;
+	}
+
+	if( neg )
+		ret = -ret;	
+
+	if(end)
+		*end = (char*)str;
+	return ret;
+}
+
+EXPORT long strtol(const char *str, char **end, int base)
+{
+	long long tmp = strtoll(str, end, base);
+	if( tmp > LONG_MAX || tmp < LONG_MIN ) {
+		errno = ERANGE;
+		return (tmp > LONG_MAX) ? LONG_MAX : LONG_MIN;
+	}
+	return tmp;
+}
+
 /**
  * \fn EXPORT int atoi(const char *str)
  * \brief Convert a string to an integer
  */
 EXPORT int atoi(const char *str)
 {
-	 int	neg = 0;
-	 int	ret = 0;
-	
-	// NULL Check
-	if(!str)	return 0;
-	
-	while(*str == ' ' || *str == '\t')	str++;
-	
-	// Check for negative
-	if(*str == '-') {
-		neg = 1;
-		str++;
+	long long	tmp = strtoll(str, NULL, 0);
+	if( tmp > INT_MAX || tmp < INT_MIN ) {
+		errno = ERANGE;
+		return (tmp > INT_MAX) ? INT_MAX : INT_MIN;
 	}
-	
-	if(*str == '0') {
-		str ++;
-		if(*str == 'x') {
-			str++;
-			// Hex
-			while( ('0' <= *str && *str <= '9')
-				|| ('A' <= *str && *str <= 'F' )
-				|| ('a' <= *str && *str <= 'f' )
-				)
-			{
-				ret *= 16;
-				if(*str <= '9') {
-					ret += *str - '0';
-				} else if (*str <= 'F') {
-					ret += *str - 'A' + 10;
-				} else {
-					ret += *str - 'a' + 10;
-				}
-				str++;
-			}
-		} else {
-			// Octal
-			while( '0' <= *str && *str <= '7' )
-			{
-				ret *= 8;
-				ret += *str - '0';
-				str++;
-			}
-		}
-	} else {
-		// Decimal
-		while( '0' <= *str && *str <= '9' )
-		{
-			ret *= 10;
-			ret += *str - '0';
-			str++;
-		}
-	}
-	
-	// Negate if needed
-	if(neg)	ret = -ret;
-	return ret;
+	return tmp;
 }
 
 int abs(int j) { return j < 0 ? -j : j; }

@@ -20,7 +20,7 @@ endif
 ASFLAGS += -D USE_MP=$(USE_MP)
 CPPFLAGS += -DUSE_MP=$(USE_MP)
 
-A_OBJ  = start.ao main.o lib.o desctab.ao errors.o irq.o
+A_OBJ  = start.ao main.o mboot.o lib.o desctab.ao errors.o irq.o
 A_OBJ += mm_phys.o mm_virt.o
 A_OBJ += proc.o proc.ao time.o vm8086.o
 A_OBJ += kpanic.o pci.o

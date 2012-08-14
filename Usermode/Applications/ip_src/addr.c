@@ -131,7 +131,7 @@ void DumpInterfaces(void)
 	
 	dp = open(IPSTACK_ROOT, OPENFLAG_READ);
 	
-	while( readdir(dp, filename) )
+	while( SysReadDir(dp, filename) )
 	{
 		if(filename[0] == '.')	continue;
 		DumpInterface(filename);

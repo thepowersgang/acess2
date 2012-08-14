@@ -265,12 +265,16 @@ int DrvUtil_Video_WriteLFB(tDrvUtil_Video_BufInfo *FBInfo, size_t Offset, size_t
 						px = (void*)dest;
 					}
 				}
+				if( x > 0 ) {
+					dest += FBInfo->Pitch;
+				}
 			}
 			else
 			{
 				ofs = Offset;
 				dest += ofs;
 				memcpy(dest, Buffer, Length);
+				dest += Length;
 			}
 			break;
 		default:
@@ -293,9 +297,11 @@ int DrvUtil_Video_WriteLFB(tDrvUtil_Video_BufInfo *FBInfo, size_t Offset, size_t
 		return -1;
 	}
 	if( FBInfo->BackBuffer && dest ) {
-		memcpy((char*)FBInfo->Framebuffer + ofs, (char*)FBInfo->BackBuffer + ofs,
-			((tVAddr)dest - (tVAddr)FBInfo->BackBuffer) - ofs
-			);
+		void	*_dst = (char*)FBInfo->Framebuffer + ofs;
+		void	*_src = (char*)FBInfo->BackBuffer + ofs;
+		size_t	len = ((tVAddr)dest - (tVAddr)FBInfo->BackBuffer) - ofs;
+	//	Log_Debug("DrvUtil", "Copy from BB %p to FB %p 0x%x bytes", _src, _dst, len);
+		memcpy(_dst, _src, len);
 	}
 
 	DrvUtil_Video_DrawCursor(FBInfo, csr_x, csr_y);
