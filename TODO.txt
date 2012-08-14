@@ -46,6 +46,7 @@ TODO:
 - AxWin3
  > Text editor (with a GP formatted text field?)
  > Maybe a basic web browser using the surface support?
+ > Port freetype for nice font support
 
 - Omnispeak
  > Debug speed issues (tracing agian)
