@@ -355,6 +355,7 @@ tVFS_Node *Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeID)
 	// Set identifiers
 	retNode.Inode = InodeID;
 	retNode.ImplPtr = Disk;
+	retNode.ImplInt = inode.i_links_count;
 	
 	// Set file length
 	retNode.Size = inode.i_size;

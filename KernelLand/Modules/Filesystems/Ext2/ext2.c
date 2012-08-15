@@ -231,7 +231,7 @@ void Ext2_CloseFile(tVFS_Node *Node)
 		{
 			LOG("Removng inode");
 			// Remove inode
-			Log_Warning("Ext2", "TODO: Remove inode when not deleted");
+			Log_Warning("Ext2", "TODO: Remove inode when not referenced");
 		}
 		if( acls != &gVFS_ACL_EveryoneRW ) {
 			free(acls);
