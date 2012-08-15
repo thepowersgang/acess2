@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
 			continue ;
 		}
 		
-		if( strcmp("mountlvm", argv[i]) == 0 ) {
+		if( strcmp("mountlvm", argv[i]) == 0 || strcmp("lvm", argv[i]) == 0 ) {
 			
 			if( argc - i < 3 ) {
 				fprintf(stderr, "mountlvm takes 2 arguments (iamge and ident)\n");
