@@ -6,7 +6,7 @@
 #include <stdio.h>
 
 #define	MOUNTABLE_FILE	"/Acess/Conf/Mountable"
-#define	MOUNTED_FILE	"/Devices/System/VFS/Mounts"
+#define	MOUNTED_FILE	"/Devices/system/VFS/Mounts"
 
 // === PROTOTYPES ===
 void	ShowUsage(char *ProgName);
@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
 	// - This is cheating, isn't it?
 	if(argc == 1) {
 		// Dump the contents of /Devices/system/VFS/Mounts
-		FILE	*fp = fopen("/Devices/system/VFS/Mounts", "r");
+		FILE	*fp = fopen(MOUNTED_FILE, "r");
 		char	buf[1024];
 		 int	len;
 		while( (len = fread(buf, 1024, 1, fp)) )
@@ -114,10 +114,10 @@ int main(int argc, char *argv[])
 	else
 	{
 		// Check that we were passed a filesystem type
-		if(sType == NULL) {
-			fprintf(stderr, "Please pass a filesystem type\n");
-			return EXIT_FAILURE;
-		}
+//		if(sType == NULL) {
+//			fprintf(stderr, "Please pass a filesystem type\n");
+//			return EXIT_FAILURE;
+//		}
 	}
 	
 	// Check Device
@@ -140,7 +140,10 @@ int main(int argc, char *argv[])
 	if(sOptions == NULL)	sOptions = "";
 
 	// Let's Mount!
-	_SysMount(sDevice, sDir, sType, sOptions);
+	if( _SysMount(sDevice, sDir, sType, sOptions) ) {
+		if( !sType )
+			fprintf(stderr, "Filesystem autodetection failed, please pass a type\n");
+	}
 
 	return 0;
 }
