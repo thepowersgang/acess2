@@ -209,29 +209,40 @@ void Ext2_Unmount(tVFS_Node *Node)
 void Ext2_CloseFile(tVFS_Node *Node)
 {
 	tExt2_Disk	*disk = Node->ImplPtr;
+	ENTER("pNode", Node);
 
 	if( Mutex_Acquire(&Node->Lock) != 0 )
 	{
+		LEAVE('-');
 		return ;
 	}
 
 	if( Node->Flags & VFS_FFLAG_DIRTY )
 	{
 		// Commit changes
+		Log_Warning("Ext2", "TODO: Commit node changes");
 	}
 
 	int was_not_referenced = (Node->ImplInt == 0);
 	tVFS_ACL	*acls = Node->ACLs;
-	if( Inode_UncacheNode(disk->CacheID, Node->Inode) )
+	if( Inode_UncacheNode(disk->CacheID, Node->Inode) == 1 )
 	{
 		if( was_not_referenced )
 		{
+			LOG("Removng inode");
 			// Remove inode
+			Log_Warning("Ext2", "TODO: Remove inode when not deleted");
 		}
 		if( acls != &gVFS_ACL_EveryoneRW ) {
 			free(acls);
 		}
+		LOG("Node cleaned");
 	}
+	else {
+		LOG("Still referenced, releasing lock");
+		Mutex_Release(&Node->Lock);
+	}
+	LEAVE('-');
 	return ;
 }
 
