@@ -292,7 +292,7 @@ restart_parse:
 		}
 		if( !curNode->Type->FindDir )
 		{
-			LOG("Finddir failure on '%s' - No FindDir method in %s", Path, curNode->Type->Name);
+			LOG("Finddir failure on '%s' - No FindDir method in %s", Path, curNode->Type->TypeName);
 			goto _error;
 		}
 		LOG("FindDir{=%p}(%p, '%s')", curNode->Type->FindDir, curNode, pathEle);
@@ -391,7 +391,7 @@ restart_parse:
 	LOG("tmpNode = %p", tmpNode);
 	// Check if file was found
 	if(!tmpNode) {
-		LOG("Node '%s' not found in dir '%s'", &Path[ofs], Path);
+		LOG("Node '%s' not found in dir '%.*s'", &Path[ofs], ofs, Path);
 		goto _error;
 	}
 	_CloseNode( curNode );
