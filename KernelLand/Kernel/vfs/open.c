@@ -338,6 +338,7 @@ restart_parse:
 				path_buffer[ curNode->Size ] = '\0';
 				LOG("path_buffer = '%s'", path_buffer);
 				strcat(path_buffer, Path + ofs+nextSlash);
+				// TODO: Pass to VFS_GetAbsPath to handle ../. in the symlink
 				
 				Path = path_buffer;
 //				Log_Debug("VFS", "VFS_ParsePath: Symlink translated to '%s'", Path);
