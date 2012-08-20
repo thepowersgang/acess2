@@ -10,16 +10,16 @@
 #include <api_drv_disk.h>
 
 // --- Disk Driver Helpers ---
-Uint64 DrvUtil_ReadBlock(Uint64 Start, Uint64 Length, void *Buffer,
-	tDrvUtil_Read_Callback ReadBlocks, Uint64 BlockSize, void *Argument)
+size_t DrvUtil_ReadBlock(Uint64 Start, size_t Length, void *Buffer,
+	tDrvUtil_Read_Callback ReadBlocks, size_t BlockSize, void *Argument)
 {
 	Uint8	tmp[BlockSize];	// C99
 	Uint64	block = Start / BlockSize;
 	 int	offset = Start - block * BlockSize;
-	 int	leading = BlockSize - offset;
+	size_t	leading = BlockSize - offset;
 	Uint64	num;
 	 int	tailings;
-	Uint64	ret;
+	size_t	ret;
 	
 	ENTER("XStart XLength pBuffer pReadBlocks XBlockSize pArgument",
 		Start, Length, Buffer, ReadBlocks, BlockSize, Argument);
@@ -82,17 +82,17 @@ Uint64 DrvUtil_ReadBlock(Uint64 Start, Uint64 Length, void *Buffer,
 	return Length;
 }
 
-Uint64 DrvUtil_WriteBlock(Uint64 Start, Uint64 Length, const void *Buffer,
+size_t DrvUtil_WriteBlock(Uint64 Start, size_t Length, const void *Buffer,
 	tDrvUtil_Read_Callback ReadBlocks, tDrvUtil_Write_Callback WriteBlocks,
-	Uint64 BlockSize, void *Argument)
+	size_t BlockSize, void *Argument)
 {
 	Uint8	tmp[BlockSize];	// C99
 	Uint64	block = Start / BlockSize;
-	 int	offset = Start - block * BlockSize;
-	 int	leading = BlockSize - offset;
+	size_t	offset = Start - block * BlockSize;
+	size_t	leading = BlockSize - offset;
 	Uint64	num;
 	 int	tailings;
-	Uint64	ret;
+	size_t	ret;
 	
 	ENTER("XStart XLength pBuffer pReadBlocks pWriteBlocks XBlockSize pArgument",
 		Start, Length, Buffer, ReadBlocks, WriteBlocks, BlockSize, Argument);

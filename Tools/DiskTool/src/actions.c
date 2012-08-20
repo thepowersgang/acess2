@@ -84,8 +84,6 @@ int DiskTool_MountImage(const char *Identifier, const char *Path)
 	
 	// Translate path	
 	size_t tpath_len = DiskTool_int_TranslatePath(NULL, Path);
-	if(tpath_len == -1)
-		return -1;
 	char tpath[tpath_len-1];
 	DiskTool_int_TranslatePath(tpath, Path);
 	
@@ -191,7 +189,7 @@ void DiskTool_LVM_Cleanup(void *Handle)
 int DiskTool_int_TranslateOpen(const char *File, int Flags)
 {
 	size_t tpath_len = DiskTool_int_TranslatePath(NULL, File);
-	if(tpath_len == -1)
+	if(tpath_len == 0)
 		return -1;
 	char tpath[tpath_len-1];
 	DiskTool_int_TranslatePath(tpath, File);

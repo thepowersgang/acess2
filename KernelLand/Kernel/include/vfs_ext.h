@@ -276,7 +276,7 @@ extern Uint64	VFS_Tell(int FD);
  * \param Buffer	Destination of read data
  * \return Number of read bytes
  */
-extern Uint64	VFS_Read(int FD, Uint64 Length, void *Buffer);
+extern size_t	VFS_Read(int FD, size_t Length, void *Buffer);
 /**
  * \brief Writes data to a file
  * \param FD	File handle returned by ::VFS_Open
@@ -284,7 +284,7 @@ extern Uint64	VFS_Read(int FD, Uint64 Length, void *Buffer);
  * \param Buffer	Source of written data
  * \return Number of bytes written
  */
-extern Uint64	VFS_Write(int FD, Uint64 Length, const void *Buffer);
+extern size_t	VFS_Write(int FD, size_t Length, const void *Buffer);
 
 /**
  * \brief Reads from a specific offset in the file
@@ -294,7 +294,7 @@ extern Uint64	VFS_Write(int FD, Uint64 Length, const void *Buffer);
  * \param Buffer	Source of read data
  * \return Number of bytes read
  */
-extern Uint64	VFS_ReadAt(int FD, Uint64 Offset, Uint64 Length, void *Buffer);
+extern size_t	VFS_ReadAt(int FD, Uint64 Offset, size_t Length, void *Buffer);
 /**
  * \brief Writes to a specific offset in the file
  * \param FD	File handle returned by ::VFS_Open
@@ -303,7 +303,7 @@ extern Uint64	VFS_ReadAt(int FD, Uint64 Offset, Uint64 Length, void *Buffer);
  * \param Buffer	Source of written data
  * \return Number of bytes written
  */
-extern Uint64	VFS_WriteAt(int FD, Uint64 Offset, Uint64 Length, const void *Buffer);
+extern size_t	VFS_WriteAt(int FD, Uint64 Offset, size_t Length, const void *Buffer);
 
 /**
  * \brief Sends an IOCtl request to the driver

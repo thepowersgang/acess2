@@ -76,7 +76,8 @@ int LVM_MBR_CountSubvolumes(tLVM_Vol *Volume, void *FirstSector)
 	while(extendedLBA != 0)
 	{
 		extendedLBA = LVM_MBR_int_ReadExt(Volume, extendedLBA, &base, &len);
-		if( extendedLBA == -1 )	break;
+		if( extendedLBA == (Uint64)-1 )
+			break;
 		numPartitions ++;
 	}
 	LOG("numPartitions = %i", numPartitions);
@@ -127,7 +128,8 @@ void LVM_MBR_PopulateSubvolumes(tLVM_Vol *Volume, void *FirstSector)
 	while(extendedLBA != 0)
 	{
 		extendedLBA = LVM_MBR_int_ReadExt(Volume, extendedLBA, &base, &len);
-		if(extendedLBA == -1)	break;
+		if(extendedLBA == (Uint64)-1)
+			break;
 		LVM_int_SetSubvolume_Anon( Volume, j, base, len );
 		j ++ ;
 	}

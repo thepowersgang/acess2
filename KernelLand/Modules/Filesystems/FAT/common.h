@@ -46,7 +46,7 @@ struct sFAT_VolInfo
 	Uint32	ClusterCount;	//!< Total Cluster Count
 	fat_bootsect	bootsect;	//!< Boot Sector
 	tVFS_Node	rootNode;	//!< Root Node
-	 int	BytesPerCluster;
+	size_t	BytesPerCluster;
 	
 	tMutex	lNodeCache;
 	tFAT_CachedNode	*NodeCache;
