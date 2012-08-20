@@ -10,7 +10,7 @@
 #include "ext2_common.h"
 
 // === MACROS ===
-#define BLOCK_DIR_OFS(_data, _block)	((Uint16*)(_data)[(_block)])
+#define BLOCK_DIR_OFS(_data, _block)	(((Uint16*)(_data))[(_block)])
 
 // === PROTOTYPES ===
 char	*Ext2_ReadDir(tVFS_Node *Node, int Pos);
@@ -183,11 +183,15 @@ int Ext2_MkNod(tVFS_Node *Parent, const char *Name, Uint Flags)
 	
 	Uint64 inodeNum = Ext2_int_AllocateInode(Parent->ImplPtr, Parent->Inode);
 	if( inodeNum == 0 ) {
+		LOG("Inode allocation failed");
+		LEAVE('i', -1);
 		return -1;
 	}
 	tVFS_Node *child = Ext2_int_CreateNode(Parent->ImplPtr, inodeNum);
 	if( !child ) {
 		Ext2_int_DereferenceInode(Parent->ImplPtr, inodeNum);
+		Log_Warning("Ext2", "Ext2_MkNod - Node creation failed");
+		LEAVE('i', -1);
 		return -1;
 	}
 
@@ -216,6 +220,7 @@ int Ext2_MkNod(tVFS_Node *Parent, const char *Name, Uint Flags)
  */
 int Ext2_Unlink(tVFS_Node *Node, const char *OldName)
 {
+	Log_Warning("Ext2", "TODO: Impliment Ext2_Unlink");
 	return 1;
 }
 
@@ -228,17 +233,20 @@ int Ext2_Unlink(tVFS_Node *Node, const char *OldName)
  */
 int Ext2_Link(tVFS_Node *Node, const char *Name, tVFS_Node *Child)
 {	
-	#if 0
+	#if 1
 	tExt2_Disk	*disk = Node->ImplPtr;
 	tExt2_Inode	inode;
-	tExt2_DirEnt	dirent;
+	tExt2_DirEnt	*dirent;
 	tExt2_DirEnt	newEntry;
-	Uint64	Base;	// Block's Base Address
+	Uint64	base;	// Block's Base Address
 	 int	block = 0, ofs = 0;
 	Uint	size;
 	void	*blockData;
-	 int	bestMatch = -1, bestSize, bestBlock, bestOfs;
+	 int	bestMatch = -1, bestSize, bestBlock, bestOfs, bestNeedsSplit;
 	 int	nEntries;
+
+	ENTER("pNode sName pChild",
+		Node, Name, Child);
 	
 	blockData = malloc(disk->BlockSize);
 	
@@ -248,7 +256,7 @@ int Ext2_Link(tVFS_Node *Node, const char *Name, tVFS_Node *Child)
 	// Create a stub entry
 	newEntry.inode = Child->Inode;
 	newEntry.name_len = strlen(Name);
-	newEntry.rec_len = (newEntry.name_len+3+8)&~3;
+	newEntry.rec_len = ((newEntry.name_len+3)&~3) + EXT2_DIRENT_SIZE;
 	newEntry.type = inode.i_mode >> 12;
 	memcpy(newEntry.name, Name, newEntry.name_len);
 	
@@ -257,8 +265,12 @@ int Ext2_Link(tVFS_Node *Node, const char *Name, tVFS_Node *Child)
 	size = inode.i_size;
 	
 	// Get a lock on the inode
-	Ext2_int_LockInode(disk, Node->Inode);
-	
+	//Ext2_int_LockInode(disk, Node->Inode);
+	Mutex_Acquire(&Node->Lock);
+
+//	if( !Node->Data ) {
+//	}
+
 	// Get First Block
 	// - Do this ourselves as it is a simple operation
 	base = inode.i_block[0] * disk->BlockSize;
@@ -274,10 +286,12 @@ int Ext2_Link(tVFS_Node *Node, const char *Name, tVFS_Node *Child)
 				"Directory entry %i of inode 0x%x extends over a block boundary",
 				nEntries, (Uint)Node->Inode);
 		}
-		else {
-		
+		else
+		{
+			LOG("Entry %i: %x %i bytes", nEntries, dirent->type, dirent->rec_len);
 			// Free entry
-			if(dirent->type == 0) {
+			if(dirent->type == 0)
+			{
 				if( dirent->rec_len >= newEntry.rec_len
 				 && (bestMatch == -1 || bestSize > dirent->rec_len) )
 				{
@@ -285,13 +299,29 @@ int Ext2_Link(tVFS_Node *Node, const char *Name, tVFS_Node *Child)
 					bestSize = dirent->rec_len;
 					bestBlock = block;
 					bestOfs = ofs;
+					bestNeedsSplit = 0;
 				}
 			}
 			// Non free - check name to avoid duplicates
-			else {
+			else
+			{
+				LOG(" name='%.*s'", dirent->name_len, dirent->name);
 				if(strncmp(Name, dirent->name, dirent->name_len) == 0) {
-					Ext2_int_UnlockInode(disk, Node->Inode);
+					//Ext2_int_UnlockInode(disk, Node->Inode);
+					Mutex_Release(&Node->Lock);
+					LEAVE('i', 1);
 					return 1;	// ERR_???
+				}
+				
+				 int	spare_space = dirent->rec_len - (dirent->name_len + EXT2_DIRENT_SIZE);
+				if( spare_space > newEntry.rec_len
+				 && (bestMatch == -1 || bestSize > spare_space) )
+				{
+					bestMatch = nEntries;
+					bestSize = spare_space;
+					bestBlock = block;
+					bestOfs = ofs;
+					bestNeedsSplit = 1;
 				}
 			}
 		}
@@ -299,9 +329,10 @@ int Ext2_Link(tVFS_Node *Node, const char *Name, tVFS_Node *Child)
 		// Increment the pointer
 		nEntries ++;
 		ofs += dirent->rec_len;
-		if( ofs >= disk->BlockSize ) {
+		size -= dirent->rec_len;
+		if( size > 0 && ofs >= disk->BlockSize ) {
 			// Read the next block if needed
-			BLOCK_DIR_OFS(Node->Data, block) = nEntries;
+		//	BLOCK_DIR_OFS(Node->Data, block) = nEntries;
 			block ++;
 			ofs = 0;
 			base = Ext2_int_GetBlockAddr(disk, inode.i_block, block);
@@ -309,26 +340,66 @@ int Ext2_Link(tVFS_Node *Node, const char *Name, tVFS_Node *Child)
 		}
 	}
 	
+	LOG("bestMatch = %i", bestMatch);
+	// If EOF was reached with no space, check if we can fit one on the end
+	if( bestMatch < 0 && ofs + newEntry.rec_len < disk->BlockSize ) {
+		Node->Size += newEntry.rec_len;
+		Node->Flags |= VFS_FFLAG_DIRTY;
+		bestBlock = block;
+		bestOfs = ofs;
+		bestSize = newEntry.rec_len;
+		bestNeedsSplit = 0;
+	}
 	// Check if a free slot was found
-	if( bestMatch >= 0 ) {
+	if( bestMatch >= 0 )
+	{
 		// Read-Modify-Write
-		bestBlock = Ext2_int_GetBlockAddr(disk, inode.i_block, bestBlock);
-		if( block > 0 )
-			bestMatch = BLOCK_DIR_OFS(Node->Data, bestBlock);
+		base = Ext2_int_GetBlockAddr(disk, inode.i_block, bestBlock);
 		VFS_ReadAt( disk->FD, base, disk->BlockSize, blockData );
 		dirent = blockData + bestOfs;
-		memcpy(dirent, newEntry, newEntry.rec_len);
+		// Shorten a pre-existing entry
+		if(bestNeedsSplit)
+		{
+			dirent->rec_len = EXT2_DIRENT_SIZE + dirent->name_len;
+			bestOfs += dirent->rec_len;
+			//bestSize -= dirent->rec_len; // (not needed, bestSize is the spare space after)
+			dirent = blockData + bestOfs;
+		}
+		// Insert new file entry
+		memcpy(dirent, &newEntry, newEntry.rec_len);
+		// Create a new blank entry
+		if( bestSize != newEntry.rec_len )
+		{
+			bestOfs += newEntry.rec_len;
+			dirent = blockData + bestOfs;
+
+			dirent->rec_len = bestSize - newEntry.rec_len;			
+			dirent->type = 0;
+		}
+		// Save changes
 		VFS_WriteAt( disk->FD, base, disk->BlockSize, blockData );
 	}
 	else {
 		// Allocate block, Write
-		block = Ext2_int_AllocateBlock(Disk, block);
-		Log_Warning("EXT2", "");
+		Uint32 newblock = Ext2_int_AllocateBlock(disk, base / disk->BlockSize);
+		Ext2_int_AppendBlock(disk, &inode, newblock);
+		base = newblock * disk->BlockSize;
+		Node->Size += newEntry.rec_len;
+		Node->Flags |= VFS_FFLAG_DIRTY;
+		memcpy(blockData, &newEntry, newEntry.rec_len);
+		memset(blockData + newEntry.rec_len, 0, disk->BlockSize - newEntry.rec_len);
+		VFS_WriteAt( disk->FD, base, disk->BlockSize, blockData );
 	}
 
-	Ext2_int_UnlockInode(disk, Node->Inode);
+	Child->ImplInt ++;
+	Child->Flags |= VFS_FFLAG_DIRTY;
+
+	//Ext2_int_UnlockInode(disk, Node->Inode);
+	Mutex_Release(&Node->Lock);
+	LEAVE('i', 0);
 	return 0;
 	#else
+	Log_Warning("Ext2", "TODO: Impliment Ext2_Link");
 	return 1;
 	#endif
 }
@@ -400,3 +471,10 @@ tVFS_Node *Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeID)
 	// Save in node cache and return saved node
 	return Inode_CacheNode(Disk->CacheID, &retNode);
 }
+
+int Ext2_int_WritebackNode(tExt2_Disk *Disk, tVFS_Node *Node)
+{
+	Log_Warning("Ext2","TODO: Impliment Ext2_int_WritebackNode");
+	return 0;
+}
+

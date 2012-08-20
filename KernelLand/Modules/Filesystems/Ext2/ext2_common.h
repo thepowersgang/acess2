@@ -2,10 +2,6 @@
  * Acess OS
  * Ext2 Driver Version 1
  */
-/**
- * \file ext2_common.h
- * \brief Second Extended Filesystem Driver
- */
 #ifndef _EXT2_COMMON_H
 #define _EXT2_COMMON_H
 #include <acess.h>
@@ -45,5 +41,8 @@ extern int	Ext2_Link(tVFS_Node *Parent, const char *Name, tVFS_Node *Node);
 extern size_t	Ext2_Read(tVFS_Node *node, off_t offset, size_t length, void *buffer);
 // --- Write ---
 extern size_t	Ext2_Write(tVFS_Node *node, off_t offset, size_t length, const void *buffer);
+extern Uint32	Ext2_int_AllocateBlock(tExt2_Disk *Disk, Uint32 LastBlock);
+extern void	Ext2_int_DeallocateBlock(tExt2_Disk *Disk, Uint32 Block);
+extern int	Ext2_int_AppendBlock(tExt2_Disk *Disk, tExt2_Inode *Inode, Uint32 Block);
 
 #endif

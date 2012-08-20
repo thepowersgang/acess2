@@ -10,6 +10,9 @@
 #include "ext2_common.h"
 #include <modules.h>
 
+#define MIN_BLOCKS_PER_GROUP	2
+#define MAX_BLOCK_LOG_SIZE	10	// 1024 << 10 = 1MiB
+
 // === IMPORTS ===
 extern tVFS_NodeType	gExt2_DirType;
 
@@ -119,7 +122,13 @@ tVFS_Node *Ext2_InitDevice(const char *Device, const char **Options)
 		LEAVE('n');
 		return NULL;
 	}
-	
+
+	if( sb.s_blocks_per_group < MIN_BLOCKS_PER_GROUP ) {
+		Log_Warning("Ext2", "Blocks per group is too small (%i < %i)",
+			sb.s_blocks_per_group, MIN_BLOCKS_PER_GROUP);
+		goto _error;
+	}	
+
 	// Get Group count
 	groupCount = DivUp(sb.s_blocks_count, sb.s_blocks_per_group);
 	LOG("groupCount = %i", groupCount);
@@ -140,6 +149,11 @@ tVFS_Node *Ext2_InitDevice(const char *Device, const char **Options)
 	disk->CacheID = Inode_GetHandle();
 	
 	// Get Block Size
+	if( sb.s_log_block_size > MAX_BLOCK_LOG_SIZE ) {
+		Log_Warning("Ext2", "Block size (log2) too large (%i > %i)",
+			sb.s_log_block_size, MAX_BLOCK_LOG_SIZE);
+		goto _error;
+	}
 	disk->BlockSize = 1024 << sb.s_log_block_size;
 	LOG("Disk->BlockSie = 0x%x (1024 << %i)", disk->BlockSize, sb.s_log_block_size);
 	
@@ -186,6 +200,11 @@ tVFS_Node *Ext2_InitDevice(const char *Device, const char **Options)
 	
 	LEAVE('p', &disk->RootNode);
 	return &disk->RootNode;
+_error:
+	free(disk);
+	VFS_Close(fd);
+	LEAVE('n');
+	return NULL;
 }
 
 /**
@@ -366,8 +385,67 @@ Uint64 Ext2_int_GetBlockAddr(tExt2_Disk *Disk, Uint32 *Blocks, int BlockNum)
  */
 Uint32 Ext2_int_AllocateInode(tExt2_Disk *Disk, Uint32 Parent)
 {
-//	Uint	block = (Parent - 1) / Disk->SuperBlock.s_inodes_per_group;
-	Log_Warning("EXT2", "Ext2_int_AllocateInode is unimplemented");
+	Uint	start_group = (Parent - 1) / Disk->SuperBlock.s_inodes_per_group;
+	Uint	group = start_group;
+
+	if( Disk->SuperBlock.s_free_inodes_count == 0 ) 
+	{
+		Log_Notice("Ext2", "Ext2_int_AllocateInode - Out of inodes on %p", Disk);
+		return 0;
+	}
+
+	while( group < Disk->GroupCount && Disk->Groups[group].bg_free_inodes_count == 0 )
+		group ++;
+	if( group == Disk->GroupCount )
+	{
+		group = 0;
+		while( group < start_group && Disk->Groups[group].bg_free_inodes_count == 0 )
+			group ++;
+	}
+	
+	if( Disk->Groups[group].bg_free_inodes_count == 0 )
+	{
+		Log_Notice("Ext2", "Ext2_int_AllocateInode - Out of inodes on %p, but superblock says some free", Disk);
+		return 0;
+	}
+
+	// Load bitmap for group
+	//  (s_inodes_per_group / 8) bytes worth
+	// - Allocate a buffer the size of a sector/block
+	// - Read in part of the bitmap
+	// - Search for a free inode
+	tExt2_Group	*bg = &Disk->Groups[group];
+	 int	ofs = 0;
+	do {
+		const int sector_size = 512;
+		Uint8 buf[sector_size];
+		VFS_ReadAt(Disk->FD, Disk->BlockSize*bg->bg_inode_bitmap+ofs, sector_size, buf);
+
+		int byte, bit;
+		for( byte = 0; byte < sector_size && buf[byte] != 0xFF; byte ++ )
+			;
+		if( byte < sector_size )
+		{
+			for( bit = 0; bit < 8 && buf[byte] & (1 << bit); bit ++)
+				;
+			ASSERT(bit != 8);
+			buf[byte] |= 1 << bit;
+			VFS_WriteAt(Disk->FD, Disk->BlockSize*bg->bg_inode_bitmap+ofs, sector_size, buf);
+
+			bg->bg_free_inodes_count --;
+			Disk->SuperBlock.s_free_inodes_count --;
+
+			Uint32	ret = group * Disk->SuperBlock.s_inodes_per_group + byte * 8 + bit + 1;
+			Log_Debug("Ext2", "Ext2_int_AllocateInode - Allocated 0x%x", ret);
+			return ret;
+		}
+
+		ofs += sector_size;
+	} while(ofs < Disk->SuperBlock.s_inodes_per_group / 8);
+
+	Log_Notice("Ext2", "Ext2_int_AllocateInode - Out of inodes in group %p:%i but header reported free",
+		Disk, group);
+
 	return 0;
 }
 
@@ -376,7 +454,7 @@ Uint32 Ext2_int_AllocateInode(tExt2_Disk *Disk, Uint32 Parent)
  */
 void Ext2_int_DereferenceInode(tExt2_Disk *Disk, Uint32 Inode)
 {
-	
+	Log_Warning("Ext2", "TODO: Impliment Ext2_int_DereferenceInode");
 }
 
 /**
