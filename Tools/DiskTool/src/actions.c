@@ -151,6 +151,29 @@ int DiskTool_ListDirectory(const char *Directory)
 	return 0;
 }
 
+int DiskTool_Cat(const char *File)
+{
+	int src = DiskTool_int_TranslateOpen(File, VFS_OPENFLAG_READ);
+	if( src == -1 ) {
+		Log_Error("DiskTool", "Unable to open %s for reading", File);
+		return -1;
+	}
+	
+	char	buf[1024];
+	size_t	len, total = 0;
+	while( (len = VFS_Read(src, sizeof(buf), buf)) == sizeof(buf) ) {
+		_fwrite_stdout(len, buf);
+		total += len;
+	}
+	_fwrite_stdout(len, buf);
+	total += len;
+
+	Log_Notice("DiskTool", "%i bytes from %s", total, File);
+
+	VFS_Close(src);
+	return 0;
+}
+
 int DiskTool_LVM_Read(void *Handle, Uint64 Block, size_t BlockCount, void *Dest)
 {
 	return VFS_ReadAt( (int)(tVAddr)Handle, Block*512, BlockCount*512, Dest) / 512;
