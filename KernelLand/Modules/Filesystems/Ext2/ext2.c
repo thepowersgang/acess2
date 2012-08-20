@@ -95,7 +95,7 @@ int Ext2_Detect(int FD)
 */
 tVFS_Node *Ext2_InitDevice(const char *Device, const char **Options)
 {
-	tExt2_Disk	*disk;
+	tExt2_Disk	*disk = NULL;
 	 int	fd;
 	 int	groupCount;
 	tExt2_SuperBlock	sb;
@@ -118,9 +118,7 @@ tVFS_Node *Ext2_InitDevice(const char *Device, const char **Options)
 	if(sb.s_magic != 0xEF53) {
 		Log_Warning("EXT2", "Volume '%s' is not an EXT2 volume (0x%x != 0xEF53)",
 			Device, sb.s_magic);
-		VFS_Close(fd);
-		LEAVE('n');
-		return NULL;
+		goto _error;
 	}
 
 	if( sb.s_blocks_per_group < MIN_BLOCKS_PER_GROUP ) {
@@ -137,9 +135,7 @@ tVFS_Node *Ext2_InitDevice(const char *Device, const char **Options)
 	disk = malloc(sizeof(tExt2_Disk) + sizeof(tExt2_Group)*groupCount);
 	if(!disk) {
 		Log_Warning("EXT2", "Unable to allocate disk structure");
-		VFS_Close(fd);
-		LEAVE('n');
-		return NULL;
+		goto _error;
 	}
 	disk->FD = fd;
 	memcpy(&disk->SuperBlock, &sb, 1024);
@@ -201,7 +197,8 @@ tVFS_Node *Ext2_InitDevice(const char *Device, const char **Options)
 	LEAVE('p', &disk->RootNode);
 	return &disk->RootNode;
 _error:
-	free(disk);
+	if( disk )
+		free(disk);
 	VFS_Close(fd);
 	LEAVE('n');
 	return NULL;

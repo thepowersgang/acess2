@@ -242,7 +242,8 @@ int Ext2_Link(tVFS_Node *Node, const char *Name, tVFS_Node *Child)
 	 int	block = 0, ofs = 0;
 	Uint	size;
 	void	*blockData;
-	 int	bestMatch = -1, bestSize, bestBlock, bestOfs, bestNeedsSplit;
+	 int	bestMatch = -1;
+	 int	bestSize=0, bestBlock=0, bestOfs=0, bestNeedsSplit=0;
 	 int	nEntries;
 
 	ENTER("pNode sName pChild",
@@ -276,6 +277,7 @@ int Ext2_Link(tVFS_Node *Node, const char *Name, tVFS_Node *Child)
 	base = inode.i_block[0] * disk->BlockSize;
 	VFS_ReadAt( disk->FD, base, disk->BlockSize, blockData );
 	block = 0;
+	nEntries = 0;
 	// Find File
 	while(size > 0)
 	{
