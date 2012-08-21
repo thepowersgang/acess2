@@ -34,7 +34,7 @@ extern void	Debug_SetKTerminal(const char *File);
 
 // === PROTOTYPES ===
  int	VT_Install(char **Arguments);
-char	*VT_ReadDir(tVFS_Node *Node, int Pos);
+ int	VT_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX]);
 tVFS_Node	*VT_FindDir(tVFS_Node *Node, const char *Name);
  int	VT_Root_IOCtl(tVFS_Node *Node, int Id, void *Data);
 size_t	VT_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
@@ -268,11 +268,12 @@ void VT_SetResolution(int Width, int Height)
  * \fn char *VT_ReadDir(tVFS_Node *Node, int Pos)
  * \brief Read from the VTerm Directory
  */
-char *VT_ReadDir(tVFS_Node *Node, int Pos)
+int VT_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 {
-	if(Pos < 0)	return NULL;
-	if(Pos >= NUM_VTS)	return NULL;
-	return strdup( gVT_Terminals[Pos].Name );
+	if(Pos < 0)	return -EINVAL;
+	if(Pos >= NUM_VTS)	return -EINVAL;
+	strncpy(Dest, gVT_Terminals[Pos].Name, FILENAME_MAX);
+	return 0;
 }
 
 /**

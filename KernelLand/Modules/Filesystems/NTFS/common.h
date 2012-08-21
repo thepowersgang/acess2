@@ -150,4 +150,7 @@ typedef struct sNTFS_FILE_Attrib
 	};
 } PACKED	tNTFS_FILE_Attrib;
 
+extern int	NTFS_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX]);
+extern tVFS_Node	*NTFS_FindDir(tVFS_Node *Node, const char *Name);
+
 #endif

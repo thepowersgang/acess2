@@ -17,7 +17,7 @@
  int	Mouse_Install(char **Arguments);
  int	Mouse_Cleanup(void);
 // - "User" side
-char	*Mouse_Root_ReadDir(tVFS_Node *Node, int Pos);
+ int	Mouse_Root_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX]);
 tVFS_Node	*Mouse_Root_FindDir(tVFS_Node *Node, const char *Name);
  int	Mouse_Dev_IOCtl(tVFS_Node *Node, int ID, void *Data);
 size_t	Mouse_Dev_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Data);
@@ -68,10 +68,12 @@ int Mouse_Cleanup(void)
 }
 
 // --- VFS Interface ---
-char *Mouse_Root_ReadDir(tVFS_Node *Node, int Pos)
+int Mouse_Root_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 {
-	if( Pos != 0 )	return NULL;
-	return strdup("system");
+	if( Pos != 0 )
+		return -EINVAL;
+	strcpy(Dest, "system");
+	return 0;
 }
 
 tVFS_Node *Mouse_Root_FindDir(tVFS_Node *Node, const char *Name)

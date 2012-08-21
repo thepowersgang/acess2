@@ -21,6 +21,7 @@ enum eErrorNums
 	EEXIST,	// Already exists
 	ENFILE,	// Too many open files
 	ENOTDIR,	// Not a directory
+	EIO,	// IO Error
 	
 	EALREADY,	// Operation was a NOP
 	EINTERNAL,	// Internal Error

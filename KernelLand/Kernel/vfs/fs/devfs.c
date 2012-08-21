@@ -15,7 +15,7 @@ void	DevFS_DelDevice(tDevFS_Driver *Device);
 #endif
 tVFS_Node	*DevFS_InitDevice(const char *Device, const char **Options);
 void	DevFS_Unmount(tVFS_Node *RootNode);
-char	*DevFS_ReadDir(tVFS_Node *Node, int Pos);
+ int	DevFS_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX]);
 tVFS_Node	*DevFS_FindDir(tVFS_Node *Node, const char *Name);
 
 // === GLOBALS ===
@@ -128,21 +128,24 @@ void DevFS_Unmount(tVFS_Node *RootNode)
 /**
  * \fn char *DevFS_ReadDir(tVFS_Node *Node, int Pos)
  */
-char *DevFS_ReadDir(tVFS_Node *Node, int Pos)
+int DevFS_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 {
 	tDevFS_Driver	*dev;
 	
-	if(Pos < 0)	return NULL;
+	if(Pos < 0)	return -EINVAL;
 	
 	for(dev = gDevFS_Drivers;
 		dev && Pos--;
 		dev = dev->Next
 		);
 	
-	if(dev)
-		return strdup(dev->Name);
-	else
-		return NULL;
+	if(dev) {
+		strncpy(Dest, dev->Name, FILENAME_MAX);
+		return 0;
+	}
+	else {
+		return -ENOENT;
+	}
 }
 
 /**

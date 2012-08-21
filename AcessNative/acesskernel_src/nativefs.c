@@ -31,7 +31,7 @@ typedef struct
 tVFS_Node	*NativeFS_Mount(const char *Device, const char **Arguments);
 void	NativeFS_Unmount(tVFS_Node *Node);
 tVFS_Node	*NativeFS_FindDir(tVFS_Node *Node, const char *Name);
-char	*NativeFS_ReadDir(tVFS_Node *Node, int Position);
+ int	NativeFS_ReadDir(tVFS_Node *Node, int Position, char Dest[FILENAME_MAX]);
 size_t	NativeFS_Read(tVFS_Node *Node, _acess_off_t Offset, size_t Length, void *Buffer);
 size_t	NativeFS_Write(tVFS_Node *Node, _acess_off_t Offset, size_t Length, const void *Buffer);
 void	NativeFS_Close(tVFS_Node *Node);
@@ -168,11 +168,10 @@ tVFS_Node *NativeFS_FindDir(tVFS_Node *Node, const char *Name)
 	return Inode_CacheNode(info->InodeHandle, &baseRet);
 }
 
-char *NativeFS_ReadDir(tVFS_Node *Node, int Position)
+int NativeFS_ReadDir(tVFS_Node *Node, int Position, char Dest[FILENAME_MAX])
 {
 	struct dirent	*ent;
 	DIR	*dp = (void*)(tVAddr)Node->Inode;
-	char	*ret;
 
 	ENTER("pNode iPosition", Node, Position);
 
@@ -184,16 +183,16 @@ char *NativeFS_ReadDir(tVFS_Node *Node, int Position)
 	} while(Position-- && ent);
 
 	if( !ent ) {
-		LEAVE('n');
-		return NULL;
+		LEAVE('i', -ENOENT);
+		return -ENOENT;
 	}
 	
-	ret = strdup(ent->d_name);
+	strncpy(Dest, ent->d_name, FILENAME_MAX);
 
 	// TODO: Unlock node	
 
-	LEAVE('s', ret);
-	return ret;
+	LEAVE('i', 0);
+	return 0;
 }
 
 size_t NativeFS_Read(tVFS_Node *Node, _acess_off_t Offset, size_t Length, void *Buffer)

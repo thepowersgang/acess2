@@ -17,9 +17,9 @@
  int	LVM_Initialise(char **Arguments);
  int	LVM_Cleanup(void);
 // ---
-char	*LVM_Root_ReadDir(tVFS_Node *Node, int ID);
+ int	LVM_Root_ReadDir(tVFS_Node *Node, int ID, char Dest[FILENAME_MAX]);
 tVFS_Node	*LVM_Root_FindDir(tVFS_Node *Node, const char *Name);
-char	*LVM_Vol_ReadDir(tVFS_Node *Node, int ID);
+ int	LVM_Vol_ReadDir(tVFS_Node *Node, int ID, char Dest[FILENAME_MAX]);
 tVFS_Node	*LVM_Vol_FindDir(tVFS_Node *Node, const char *Name);
 size_t	LVM_Vol_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
 size_t	LVM_Vol_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
@@ -124,18 +124,20 @@ int LVM_Cleanup(void)
 // --------------------------------------------------------------------
 // VFS Inteface
 // --------------------------------------------------------------------
-char *LVM_Root_ReadDir(tVFS_Node *Node, int ID)
+int LVM_Root_ReadDir(tVFS_Node *Node, int ID, char Dest[FILENAME_MAX])
 {
 	tLVM_Vol	*vol;
 	
-	if( ID < 0 )	return NULL;	
+	if( ID < 0 )	return -EINVAL;
 
 	for( vol = gpLVM_FirstVolume; vol && ID --; vol = vol->Next );
 	
-	if(vol)
-		return strdup(vol->Name);
+	if(vol) {
+		strncpy(Dest, vol->Name, FILENAME_MAX);
+		return 0;
+	}
 	else
-		return NULL;
+		return -ENOENT;
 }
 tVFS_Node *LVM_Root_FindDir(tVFS_Node *Node, const char *Name)
 {
@@ -151,17 +153,22 @@ tVFS_Node *LVM_Root_FindDir(tVFS_Node *Node, const char *Name)
 	return NULL;
 }
 
-char *LVM_Vol_ReadDir(tVFS_Node *Node, int ID)
+int LVM_Vol_ReadDir(tVFS_Node *Node, int ID, char Dest[FILENAME_MAX])
 {
 	tLVM_Vol	*vol = Node->ImplPtr;
+	const char *src;
 	
 	if( ID < 0 || ID >= vol->nSubVolumes+1 )
-		return NULL;
+		return -EINVAL;
 
-	if( ID == 0 )
-		return strdup("ROOT");
-	else
-		return strdup( vol->SubVolumes[ID-1]->Name );
+	if( ID == 0 ) {
+		src = "ROOT";
+	}
+	else {
+		src = vol->SubVolumes[ID-1]->Name;
+	}
+	strncpy(Dest, src, FILENAME_MAX);
+	return 0;
 }
 tVFS_Node *LVM_Vol_FindDir(tVFS_Node *Node, const char *Name)
 {

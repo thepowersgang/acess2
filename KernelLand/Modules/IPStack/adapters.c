@@ -20,7 +20,7 @@
 void	*IPStack_Adapter_Add(const tIPStack_AdapterType *Type, void *Ptr, const void *HWAddr);
 void	IPStack_Adapter_Del(void *Handle);
 // --- VFS API ---
-char	*Adapter_ReadDir(tVFS_Node *Node, int Pos);
+ int	Adapter_ReadDir(tVFS_Node *Node, int Pos, char Name[FILENAME_MAX]);
 tVFS_Node	*Adapter_FindDir(tVFS_Node *Node, const char *Name);
  int	Adapter_DirIOCtl(tVFS_Node *Node, int Num, void *Data);
  int	Adapter_IOCtl(tVFS_Node *Node, int Num, void *Data);
@@ -130,13 +130,14 @@ void IPStack_Adapter_Del(void *Handle)
 }
 
 // --- VFS API ---
-char *Adapter_ReadDir(tVFS_Node *Node, int Pos)
+int Adapter_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 {
-	if( Pos < 0 )	return NULL;
+	if( Pos < 0 )	return -EINVAL;
 
 	// Loopback
 	if( Pos == 0 ) {
-		return strdup("lo");
+		strcpy(Dest, "lo");
+		return 0;
 	}
 	Pos --;
 	
@@ -144,7 +145,8 @@ char *Adapter_ReadDir(tVFS_Node *Node, int Pos)
 		tAdapter *a;  int i;\
 		for(i=0,a=list; i < Pos && a; i ++, a = a->Next ); \
 		if( a ) { \
-			return Adapter_GetName(a);\
+			strncpy(Dest, Adapter_GetName(a), FILENAME_MAX);\
+			return 0;\
 		} \
 		Pos -= i; \
 	} while(0);
@@ -152,7 +154,7 @@ char *Adapter_ReadDir(tVFS_Node *Node, int Pos)
 	CHECK_LIST(gpIP_AdapterList, "eth");
 	// TODO: Support other types of adapters (wifi, tap, ...)
 
-	return NULL;
+	return -EINVAL;
 }
 
 tVFS_Node *Adapter_FindDir(tVFS_Node *Node, const char *Name)

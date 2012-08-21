@@ -12,7 +12,7 @@
 
 // === PROTOTYPES ===
 void	FAT_int_ProperFilename(char *dest, const char *src);
-char	*FAT_int_CreateName(fat_filetable *ft, const Uint16 *LongFileName);
+ int	FAT_int_CreateName(fat_filetable *ft, const Uint16 *LongFileName, char *Dest);
  int	FAT_int_ConvertUTF16_to_UTF8(Uint8 *Dest, const Uint16 *Source);
  int	FAT_int_ConvertUTF8_to_UTF16(Uint16 *Dest, const Uint8 *Source);
 
@@ -26,11 +26,11 @@ char	*FAT_int_CreateName(fat_filetable *ft, const Uint16 *LongFileName);
 Uint16	*FAT_int_GetLFN(tVFS_Node *Node, int ID);
 void	FAT_int_DelLFN(tVFS_Node *Node, int ID);
 #endif
-char	*FAT_ReadDir(tVFS_Node *Node, int ID);
+ int	FAT_ReadDir(tVFS_Node *Node, int ID, char Dest[FILENAME_MAX]);
 tVFS_Node	*FAT_FindDir(tVFS_Node *Node, const char *Name);
 tVFS_Node	*FAT_GetNodeFromINode(tVFS_Node *Root, Uint64 Inode);
 #if SUPPORT_WRITE
- int	FAT_Mknod(tVFS_Node *Node, const char *Name, Uint Flags);
+tVFS_Node	*FAT_Mknod(tVFS_Node *Node, const char *Name, Uint Flags);
  int	FAT_int_IsValid83Filename(const char *Name);
  int	FAT_Link(tVFS_Node *DirNode, const char *NewName, tVFS_Node *Node);
  int	FAT_Relink(tVFS_Node *node, const char *OldName, const char *NewName);
@@ -75,32 +75,26 @@ void FAT_int_ProperFilename(char *dest, const char *src)
  * \param LongFileName	Long file name pointer
  * \return Filename as a heap string
  */
-char *FAT_int_CreateName(fat_filetable *ft, const Uint16 *LongFileName)
+int FAT_int_CreateName(fat_filetable *ft, const Uint16 *LongFileName, char *Dest)
 {
-	char	*ret;
 	ENTER("pft sLongFileName", ft, LongFileName);
-	//Log_Debug("FAT", "FAT_int_CreateName(ft=%p, LongFileName=%p'%s')", ft, LongFileName);
 	#if USE_LFN
 	if(LongFileName && LongFileName[0] != 0)
 	{
 		 int	len = FAT_int_ConvertUTF16_to_UTF8(NULL, LongFileName);
-		ret = malloc( len + 1 );
-		FAT_int_ConvertUTF16_to_UTF8((Uint8*)ret, LongFileName);
+		if( len > FILENAME_MAX ) {
+			return -1;
+		}
+		FAT_int_ConvertUTF16_to_UTF8((Uint8*)Dest, LongFileName);
 	}
 	else
 	{
 	#endif
-		ret = (char*) malloc(13);
-		if( !ret ) {
-			Log_Warning("FAT", "FAT_int_CreateName: malloc(13) failed");
-			return NULL;
-		}
-		FAT_int_ProperFilename(ret, ft->name);
+		FAT_int_ProperFilename(Dest, ft->name);
 	#if USE_LFN
 	}
 	#endif
-	LEAVE('s', ret);
-	return ret;
+	return 0;
 }
 
 #if USE_LFN
@@ -537,11 +531,10 @@ void FAT_int_DelLFN(tVFS_Node *Node, int ID)
  * \param ID	Directory position
  * \return Filename as a heap string, NULL or VFS_SKIP
  */
-char *FAT_ReadDir(tVFS_Node *Node, int ID)
+int FAT_ReadDir(tVFS_Node *Node, int ID, char Dest[FILENAME_MAX])
 {
 	fat_filetable	fileinfo[16];	// sizeof(fat_filetable)=32, so 16 per sector
 	 int	a;
-	char	*ret;
 	#if USE_LFN
 	Uint16	*lfn = NULL;
 	#endif
@@ -551,8 +544,8 @@ char *FAT_ReadDir(tVFS_Node *Node, int ID)
 	if(FAT_int_ReadDirSector(Node, ID/16, fileinfo))
 	{
 		LOG("End of chain, end of dir");
-		LEAVE('n');
-		return NULL;
+		LEAVE('i', -EIO);
+		return -EIO;
 	}
 	
 	// Offset in sector
@@ -564,20 +557,14 @@ char *FAT_ReadDir(tVFS_Node *Node, int ID)
 	if( fileinfo[a].name[0] == '\0' ) {
 		Node->Size = ID;
 		LOG("End of list");
-		LEAVE('n');
-		return NULL;	// break
+		LEAVE('i', -ENOENT);
+		return -ENOENT;	// break
 	}
 	
 	// Check for empty entry
 	if( (Uint8)fileinfo[a].name[0] == 0xE5 ) {
 		LOG("Empty Entry");
-		#if 0	// Stop on empty entry?
-		LEAVE('n');
-		return NULL;	// Stop
-		#else
-		LEAVE('p', VFS_SKIP);
-		return VFS_SKIP;	// Skip
-		#endif
+		LEAVE_RET('i', 1);	// Skip
 	}
 	
 	#if USE_LFN
@@ -595,31 +582,24 @@ char *FAT_ReadDir(tVFS_Node *Node, int ID)
 		a = FAT_int_ParseLFN(&fileinfo[a], lfn);
 		if( a < 0 ) {
 			LOG("Invalid LFN, error");
-			LEAVE('n');
-			return NULL;
+			LEAVE_RET('i', -EIO);
 		}
 
-//		LOG("lfn = '%s'", lfn);
-		//Log_Debug("FAT", "lfn = '%s'", lfn);
-		LEAVE('p', VFS_SKIP);
-		return VFS_SKIP;
+		LEAVE_RET('i', 1);	// Skip
 	}
 	#endif
 	
 	// Check if it is a volume entry
 	if(fileinfo[a].attrib & 0x08) {
-		LEAVE('p', VFS_SKIP);
-		return VFS_SKIP;
+		LEAVE_RET('i', 1);	// Skip
 	}
 	// Ignore .
 	if(fileinfo[a].name[0] == '.' && fileinfo[a].name[1] == ' ') {
-		LEAVE('p', VFS_SKIP);
-		return VFS_SKIP;
+		LEAVE_RET('i', 1);	// Skip
 	}
 	// and ..
 	if(fileinfo[a].name[0] == '.' && fileinfo[a].name[1] == '.' && fileinfo[a].name[2] == ' ') {
-		LEAVE('p', VFS_SKIP);
-		return VFS_SKIP;
+		LEAVE_RET('i', 1);	// Skip
 	}
 	
 	LOG("name='%c%c%c%c%c%c%c%c.%c%c%c'",
@@ -630,13 +610,13 @@ char *FAT_ReadDir(tVFS_Node *Node, int ID)
 	#if USE_LFN
 	lfn = FAT_int_GetLFN(Node, ID);
 	//Log_Debug("FAT", "lfn = %p'%s'", lfn, lfn);
-	ret = FAT_int_CreateName(&fileinfo[a], lfn);
+	FAT_int_CreateName(&fileinfo[a], lfn, Dest);
 	#else
-	ret = FAT_int_CreateName(&fileinfo[a], NULL);
+	FAT_int_CreateName(&fileinfo[a], NULL, Dest);
 	#endif
 	
-	LEAVE('s', ret);
-	return ret;
+	LEAVE('i', 0);
+	return 0;
 }
 
 /**
@@ -705,7 +685,7 @@ tVFS_Node *FAT_GetNodeFromINode(tVFS_Node *Root, Uint64 Inode)
 /**
  * \brief Create a new node
  */
-int FAT_Mknod(tVFS_Node *DirNode, const char *Name, Uint Flags)
+tVFS_Node *FAT_Mknod(tVFS_Node *DirNode, const char *Name, Uint Flags)
 {
 	tFAT_VolInfo	*disk = DirNode->ImplPtr;
 	 int	rv;
@@ -729,7 +709,8 @@ int FAT_Mknod(tVFS_Node *DirNode, const char *Name, Uint Flags)
 	
 	tVFS_Node *newnode = FAT_int_CreateNode(DirNode, &ft);
 	if( !newnode ) {
-		return -1;
+		errno = -EINTERNAL;
+		return NULL;
 	}
 	LOG("newnode = %p", newnode);
 
@@ -737,9 +718,8 @@ int FAT_Mknod(tVFS_Node *DirNode, const char *Name, Uint Flags)
 	if( (rv = FAT_Link(DirNode, Name, newnode)) ) {
 		newnode->ImplInt |= FAT_FLAG_DELETE;
 	}
-	FAT_CloseFile(newnode);
-	LEAVE('i', rv);
-	return rv;
+	LEAVE('p', newnode);
+	return newnode;
 }
 
 /**

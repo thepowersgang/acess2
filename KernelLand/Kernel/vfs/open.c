@@ -504,12 +504,44 @@ int VFS_OpenEx(const char *Path, Uint Flags, Uint Mode)
 	if( !node && (Flags & VFS_OPENFLAG_CREATE) )
 	{
 		// TODO: Translate `Mode` into ACL and node flags
-		// Get parent, create node
-		if( VFS_MkNod(absPath, 0) ) {
+		Uint	new_flags = 0;
+		
+		// Split path at final separator
+		char *file = strrchr(absPath, '/');
+		*file = '\0';
+		file ++;
+
+		// Get parent node
+		tVFS_Mount	*pmnt;
+		tVFS_Node *pnode = VFS_ParsePath(absPath, NULL, &pmnt);
+		if(!pnode) {
+			LOG("Unable to open parent '%s'", absPath);
 			free(absPath);
+			errno = ENOENT;
+			LEAVE_RET('i', -1);
+		}
+
+		// TODO: Check ACLs on the parent
+		if( !VFS_CheckACL(pnode, VFS_PERM_EXECUTE|VFS_PERM_WRITE) ) {
+			_CloseNode(pnode);
+			pmnt->OpenHandleCount --;
+			free(absPath);
+			LEAVE('i', -1);
 			return -1;
 		}
-		node = VFS_ParsePath(absPath, NULL, &mnt);
+
+		// Check that there's a MkNod method
+		if( !pnode->Type || !pnode->Type->MkNod ) {
+			Log_Warning("VFS", "VFS_Open - Directory has no MkNod method");
+			errno = EINVAL;
+			LEAVE_RET('i', -1);
+		}
+		
+		node = pnode->Type->MkNod(pnode, file, new_flags);
+		// Fall through on error check
+		
+		_CloseNode(pnode);
+		pmnt->OpenHandleCount --;
 	}
 	
 	// Free generated path

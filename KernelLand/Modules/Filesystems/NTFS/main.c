@@ -11,10 +11,6 @@
 #include "common.h"
 #include <modules.h>
 
-// === IMPORTS ===
-extern char	*NTFS_ReadDir(tVFS_Node *Node, int Pos);
-extern tVFS_Node	*NTFS_FindDir(tVFS_Node *Node, const char *Name);
-
 // === PROTOTYPES ===
  int	NTFS_Install(char **Arguments);
 tVFS_Node	*NTFS_InitDevice(const char *Devices, const char **Options);

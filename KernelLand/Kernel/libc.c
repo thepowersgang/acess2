@@ -49,6 +49,7 @@ EXPORT(tolower);
 
 EXPORT(strucmp);
 EXPORT(strchr);
+EXPORT(strrchr);
 EXPORT(strpos);
 EXPORT(strlen);
 EXPORT(strcpy);
@@ -526,6 +527,15 @@ char *strchr(const char *__s, int __c)
 	{
 		if( *__s == __c )	return (char*)__s;
 	}
+	return NULL;
+}
+
+char *strrchr(const char *__s, int __c)
+{
+	size_t ofs = strlen(__s);
+	while(--ofs && __s[ofs] != __c);
+	if( __s[ofs] == __c )
+		return (char*)__s + ofs;
 	return NULL;
 }
 

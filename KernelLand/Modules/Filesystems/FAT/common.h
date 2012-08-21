@@ -106,13 +106,13 @@ extern void	FAT_int_ReadCluster(tFAT_VolInfo *Disk, Uint32 Cluster, int Length, 
 extern void	FAT_int_WriteCluster(tFAT_VolInfo *Disk, Uint32 Cluster, const void *Buffer);
 
 // --- Directory Access ---
-extern char	*FAT_ReadDir(tVFS_Node *Node, int ID);
+extern int	FAT_ReadDir(tVFS_Node *Node, int ID, char Dest[FILENAME_MAX]);
 extern tVFS_Node	*FAT_FindDir(tVFS_Node *Node, const char *Name);
 extern tVFS_Node	*FAT_GetNodeFromINode(tVFS_Node *Root, Uint64 Inode);
 extern int	FAT_int_GetEntryByCluster(tVFS_Node *DirNode, Uint32 Cluster, fat_filetable *Entry);
 #if SUPPORT_WRITE
 extern int	FAT_int_WriteDirEntry(tVFS_Node *Node, int ID, fat_filetable *Entry);
-extern int	FAT_Mknod(tVFS_Node *Node, const char *Name, Uint Flags);
+extern tVFS_Node	*FAT_Mknod(tVFS_Node *Node, const char *Name, Uint Flags);
 extern int	FAT_Link(tVFS_Node *DirNode, const char *NewName, tVFS_Node *Node);
 extern int	FAT_Unlink(tVFS_Node *DirNode, const char *OldName);
 #endif

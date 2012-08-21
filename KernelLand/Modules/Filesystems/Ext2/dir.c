@@ -5,7 +5,7 @@
  * dir.c
  * - Directory Handling
  */
-#define DEBUG	0
+#define DEBUG	1
 #define VERBOSE	0
 #include "ext2_common.h"
 
@@ -13,9 +13,9 @@
 #define BLOCK_DIR_OFS(_data, _block)	(((Uint16*)(_data))[(_block)])
 
 // === PROTOTYPES ===
-char	*Ext2_ReadDir(tVFS_Node *Node, int Pos);
+ int	Ext2_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX]);
 tVFS_Node	*Ext2_FindDir(tVFS_Node *Node, const char *FileName);
- int	Ext2_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
+tVFS_Node	*Ext2_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
  int	Ext2_Unlink(tVFS_Node *Node, const char *OldName);
  int	Ext2_Link(tVFS_Node *Parent, const char *Name, tVFS_Node *Node);
 // --- Helpers ---
@@ -44,7 +44,7 @@ tVFS_NodeType	gExt2_FileType = {
  * \param Node	Directory node
  * \param Pos	Position of desired element
  */
-char *Ext2_ReadDir(tVFS_Node *Node, int Pos)
+int Ext2_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 {
 	tExt2_Inode	inode;
 	tExt2_DirEnt	dirent;
@@ -92,8 +92,8 @@ char *Ext2_ReadDir(tVFS_Node *Node, int Pos)
 	
 	// Check for the end of the list
 	if(size <= 0 || size > inode.i_size) {
-		LEAVE('n');
-		return NULL;
+		LEAVE('i', -ENOENT);
+		return -ENOENT;
 	}
 	
 	// Read Entry
@@ -103,20 +103,21 @@ char *Ext2_ReadDir(tVFS_Node *Node, int Pos)
 	dirent.name[ dirent.name_len ] = '\0';	// Cap off string
 	
 	if( dirent.name_len == 0 ) {
-		LEAVE('p', VFS_SKIP);
-		return VFS_SKIP;
+		LEAVE('i', 1);
+		return 1;
 	}
 	
 	// Ignore . and .. (these are done in the VFS)
 	if( (dirent.name[0] == '.' && dirent.name[1] == '\0')
 	||  (dirent.name[0] == '.' && dirent.name[1] == '.' && dirent.name[2]=='\0')) {
-		LEAVE('p', VFS_SKIP);
-		return VFS_SKIP;	// Skip
+		LEAVE('i', 1);
+		return 1;	// Skip
 	}
 	
-	LEAVE('s', dirent.name);
-	// Create new node
-	return strdup(dirent.name);
+	LOG("Name '%s'", dirent.name);
+	strncpy(Dest, dirent.name, FILENAME_MAX);
+	LEAVE('i', 0);
+	return 0;
 }
 
 /**
@@ -177,22 +178,20 @@ tVFS_Node *Ext2_FindDir(tVFS_Node *Node, const char *Filename)
  * \fn int Ext2_MkNod(tVFS_Node *Parent, const char *Name, Uint Flags)
  * \brief Create a new node
  */
-int Ext2_MkNod(tVFS_Node *Parent, const char *Name, Uint Flags)
+tVFS_Node *Ext2_MkNod(tVFS_Node *Parent, const char *Name, Uint Flags)
 {
 	ENTER("pParent sName xFlags", Parent, Name, Flags);
 	
 	Uint64 inodeNum = Ext2_int_AllocateInode(Parent->ImplPtr, Parent->Inode);
 	if( inodeNum == 0 ) {
 		LOG("Inode allocation failed");
-		LEAVE('i', -1);
-		return -1;
+		LEAVE_RET('n', NULL);
 	}
 	tVFS_Node *child = Ext2_int_CreateNode(Parent->ImplPtr, inodeNum);
 	if( !child ) {
 		Ext2_int_DereferenceInode(Parent->ImplPtr, inodeNum);
 		Log_Warning("Ext2", "Ext2_MkNod - Node creation failed");
-		LEAVE('i', -1);
-		return -1;
+		LEAVE_RET('n', NULL);
 	}
 
 	child->Flags = Flags & (VFS_FFLAG_DIRECTORY|VFS_FFLAG_SYMLINK|VFS_FFLAG_READONLY);
@@ -206,9 +205,11 @@ int Ext2_MkNod(tVFS_Node *Parent, const char *Name, Uint Flags)
 	// TODO: Set up ACLs
 
 	int rv = Ext2_Link(Parent, Name, child);
-	child->Type->Close(child);
-	LEAVE('i', rv);
-	return rv;
+	if( rv ) {
+		Ext2_CloseFile(child);
+		return NULL;
+	}
+	LEAVE_RET('p', child);
 }
 
 /**

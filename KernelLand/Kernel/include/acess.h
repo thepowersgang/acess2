@@ -426,6 +426,7 @@ extern int	strucmp(const char *Str1, const char *Str2);
 extern char	*_strdup(const char *File, int Line, const char *Str);
 extern char	**str_split(const char *__str, char __ch);
 extern char	*strchr(const char *__s, int __c);
+extern char	*strrchr(const char *__s, int __c);
 extern int	strpos(const char *Str, char Ch);
 extern int	strpos8(const char *str, Uint32 search);
 extern void	itoa(char *buf, Uint64 num, int base, int minLength, char pad);

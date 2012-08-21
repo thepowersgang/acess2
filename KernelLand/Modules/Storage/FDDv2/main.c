@@ -21,7 +21,7 @@
  int	FDD_Install(char **Arguments);
  int	FDD_RegisterFS(void);
 // --- VFS
-char	*FDD_ReadDir(tVFS_Node *Node, int pos);
+ int	FDD_ReadDir(tVFS_Node *Node, int pos, char dest[FILENAME_MAX]);
 tVFS_Node	*FDD_FindDir(tVFS_Node *dirNode, const char *Name);
  int	FDD_IOCtl(tVFS_Node *Node, int ID, void *Data);
 size_t	FDD_ReadFS(tVFS_Node *node, off_t Offset, size_t Len, void *buffer);
@@ -111,17 +111,16 @@ int FDD_RegisterFS(void)
  * \param Pos	Position
  * \return Heap string of node name
  */
-char *FDD_ReadDir(tVFS_Node *Node, int Pos)
+int FDD_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 {
-	char	ret_tpl[2];
 	if(Pos < 0 || Pos > MAX_DISKS )
-		return NULL;
+		return -ENOENT;
 	if(gaFDD_Disks[Pos].bValid)
-		return VFS_SKIP;
+		return 1;
 	
-	ret_tpl[0] = '0' + Pos;
-	ret_tpl[1] = '\0';
-	return strdup(ret_tpl);
+	Dest[0] = '0' + Pos;
+	Dest[1] = '\0';
+	return 0;
 }
 
 /**

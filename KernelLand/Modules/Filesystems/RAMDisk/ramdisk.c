@@ -21,9 +21,9 @@
 tVFS_Node	*RAMFS_InitDevice(const char *Device, const char **Options);
 void	RAMFS_Unmount(tVFS_Node *Node);
 // --- Directories ---
-char	*RAMFS_ReadDir(tVFS_Node *Node, int Index);
+ int	RAMFS_ReadDir(tVFS_Node *Node, int Index, char Dest[256]);
 tVFS_Node	*RAMFS_FindDir(tVFS_Node *Node, const char *Name);
- int	RAMFS_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
+tVFS_Node	*RAMFS_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
  int	RAMFS_Link(tVFS_Node *DirNode, const char *Name, tVFS_Node *Node);
  int	RAMFS_Unlink(tVFS_Node *Node, const char *Name);
 // --- Files ---
@@ -136,18 +136,19 @@ void RAMFS_Unmount(tVFS_Node *Node)
 }
 
 // --- Directories ---
-char *RAMFS_ReadDir(tVFS_Node *Node, int Index)
+int RAMFS_ReadDir(tVFS_Node *Node, int Index, char Dest[FILENAME_MAX])
 {
 	tRAMFS_Dir	*dir = Node->ImplPtr;
 	for( tRAMFS_DirEnt *d = dir->FirstEnt; d; d = d->Next )
 	{
 		if( Index -- == 0 ) {
 			LOG("Return %s", d->Name);
-			return strdup(d->Name);
+			strncpy(Dest, d->Name, FILENAME_MAX);
+			return 0;
 		}
 	}
-	LOG("Return NULL");
-	return NULL;
+	LOG("Return -ENOENT");
+	return -ENOENT;
 }
 
 tVFS_Node *RAMFS_FindDir(tVFS_Node *Node, const char *Name)
@@ -166,11 +167,11 @@ tVFS_Node *RAMFS_FindDir(tVFS_Node *Node, const char *Name)
 	return NULL;
 }
 
-int RAMFS_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
+tVFS_Node *RAMFS_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
 {
 	tRAMFS_Dir	*dir = Node->ImplPtr;
 	if( RAMFS_FindDir(Node, Name) != NULL )
-		return -1;
+		return NULL;
 	
 	tRAMFS_DirEnt	*de = malloc( sizeof(tRAMFS_DirEnt) + strlen(Name) + 1 );
 	de->Next = NULL;
@@ -200,7 +201,7 @@ int RAMFS_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
 		dir->FirstEnt = de;
 	dir->LastEnt = de;
 
-	return 0;
+	return &de->Inode->Node;
 }
 
 int RAMFS_Link(tVFS_Node *DirNode, const char *Name, tVFS_Node *FileNode)

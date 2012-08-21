@@ -295,22 +295,19 @@ struct sVFS_NodeType
 	 * \brief Read from a directory
 	 * \param Node	Pointer to this node
 	 * \param Pos	Offset in the directory
-	 * \return Pointer to the name of the item on the heap (will be freed
-	 *         by the caller). If the directory end has been reached, NULL
-	 *         will be returned.
-	 *         If an item is required to be skipped either &::NULLNode,
-	 *         ::VFS_SKIP or ::VFS_SKIPN(0...1023) will be returned.
+	 * \param Dest	Destination for filename
+	 * \return Zero on success, negative on error or +ve for ignore entry
 	 */
-	char	*(*ReadDir)(struct sVFS_Node *Node, int Pos);
+	 int	(*ReadDir)(struct sVFS_Node *Node, int Pos, char Dest[FILENAME_MAX]);
 	
 	/**
 	 * \brief Create a node in a directory
 	 * \param Node	Pointer to this node
 	 * \param Name	Name of the new child
 	 * \param Flags	Flags to apply to the new child (directory or symlink)
-	 * \return Zero on Success, non-zero on error (see errno.h)
+	 * \return Created node or NULL on error
 	 */
-	 int	(*MkNod)(struct sVFS_Node *Node, const char *Name, Uint Flags);
+	tVFS_Node	*(*MkNod)(struct sVFS_Node *Node, const char *Name, Uint Flags);
 	
 	/**
 	 * \brief Relink (Rename/Remove) a file/directory
