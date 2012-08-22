@@ -9,19 +9,10 @@
 #include <modules.h>
 #include <fs_devfs.h>
 #include "include/adapters.h"
+#include "interface.h"
+#include "init.h"
 
 // === IMPORTS ===
-extern int	ARP_Initialise();
-extern void	UDP_Initialise();
-extern void	TCP_Initialise();
-extern int	IPv4_Initialise();
-extern int	IPv6_Initialise();
-
-extern char	*IPStack_Root_ReadDir(tVFS_Node *Node, int Pos);
-extern tVFS_Node	*IPStack_Root_FindDir(tVFS_Node *Node, const char *Name);
-extern int	IPStack_Root_IOCtl(tVFS_Node *Node, int ID, void *Data);
-extern tInterface	gIP_LoopInterface;
-extern tInterface	*IPStack_AddInterface(const char *Device, const char *Name);
 extern tRoute	*IPStack_AddRoute(const char *Interface, void *Network, int SubnetBits, void *NextHop, int Metric);
 
 // === PROTOTYPES ===
@@ -30,11 +21,6 @@ extern tRoute	*IPStack_AddRoute(const char *Interface, void *Network, int Subnet
 
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, IPStack, IPStack_Install, NULL, NULL);
-tVFS_NodeType	gIP_RootNodeType = {
-	.ReadDir = IPStack_Root_ReadDir,
-	.FindDir = IPStack_Root_FindDir,
-	.IOCtl = IPStack_Root_IOCtl
-};
 tDevFS_Driver	gIP_DriverInfo = {
 	NULL, "ip",
 	{

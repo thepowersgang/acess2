@@ -124,7 +124,7 @@ int strpos8(const char *str, Uint32 Search)
 	{
 		// ASCII Range
 		if(Search < 128) {
-			if(str[pos] == Search)	return pos;
+			if(str[pos] == (char)Search)	return pos;
 			continue;
 		}
 		if(*(Uint8*)(str+pos) < 128)	continue;
@@ -387,7 +387,7 @@ int ModUtil_SetIdent(char *Dest, const char *Value)
 
 int Hex(char *Dest, size_t Size, const Uint8 *SourceData)
 {
-	 int	i;
+	size_t	i;
 	for( i = 0; i < Size; i ++ )
 	{
 		sprintf(Dest + i*2, "%02x", SourceData[i]);
@@ -400,8 +400,7 @@ int Hex(char *Dest, size_t Size, const Uint8 *SourceData)
  */
 int UnHex(Uint8 *Dest, size_t DestSize, const char *SourceString)
 {
-	 int	i;
-	
+	size_t	i;
 	for( i = 0; i < DestSize*2; i += 2 )
 	{
 		Uint8	val = 0;

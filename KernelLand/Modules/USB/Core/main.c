@@ -17,7 +17,7 @@ extern void	USB_AsyncThread(void *Unused);
 // === PROTOTYPES ===
  int	USB_Install(char **Arguments);
 void	USB_Cleanup(void);
-char	*USB_ReadDir(tVFS_Node *Node, int Pos);
+ int	USB_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX]);
 tVFS_Node	*USB_FindDir(tVFS_Node *Node, const char *Name);
  int	USB_IOCtl(tVFS_Node *Node, int Id, void *Data);
 
@@ -60,9 +60,9 @@ void USB_Cleanup()
  * \fn char *USB_ReadDir(tVFS_Node *Node, int Pos)
  * \brief Read from the USB root
  */
-char *USB_ReadDir(tVFS_Node *Node, int Pos)
+int USB_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 {
-	return NULL;
+	return -ENOTIMPL;
 }
 
 /**

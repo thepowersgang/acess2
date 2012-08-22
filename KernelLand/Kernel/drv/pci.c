@@ -33,7 +33,7 @@ typedef struct sPCIDevice
  int	PCI_Install(char **Arguments);
  int	PCI_ScanBus(int ID, int bFill);
  
-char	*PCI_int_ReadDirRoot(tVFS_Node *node, int pos);
+ int	PCI_int_ReadDirRoot(tVFS_Node *node, int pos, char Dest[FILENAME_MAX]);
 tVFS_Node	*PCI_int_FindDirRoot(tVFS_Node *node, const char *filename);
 Uint32	PCI_int_GetBusAddr(Uint16 Bus, Uint16 Slot, Uint16 Fcn, Uint8 Offset);
 size_t	PCI_int_ReadDevice(tVFS_Node *node, off_t Offset, size_t Length, void *buffer);
@@ -197,16 +197,16 @@ int PCI_ScanBus(int BusID, int bFill)
 /**
  * \brief Read from Root of PCI Driver
 */
-char *PCI_int_ReadDirRoot(tVFS_Node *Node, int Pos)
+int PCI_int_ReadDirRoot(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 {
 	ENTER("pNode iPos", Node, Pos);
 	if(Pos < 0 || Pos >= giPCI_DeviceCount) {
-		LEAVE('n');
-		return NULL;
+		LEAVE_RET('i', -EINVAL);
 	}
 	
-	LEAVE('s', gPCI_Devices[Pos].Name);
-	return strdup( gPCI_Devices[Pos].Name );
+	LOG("Name = %s", gPCI_Devices[Pos].Name);
+	strncpy(Dest, gPCI_Devices[Pos].Name, FILENAME_MAX);
+	LEAVE_RET('i', 0);
 }
 /**
  */

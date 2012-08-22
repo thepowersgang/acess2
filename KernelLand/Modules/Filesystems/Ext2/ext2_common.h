@@ -2,10 +2,6 @@
  * Acess OS
  * Ext2 Driver Version 1
  */
-/**
- * \file ext2_common.h
- * \brief Second Extended Filesystem Driver
- */
 #ifndef _EXT2_COMMON_H
 #define _EXT2_COMMON_H
 #include <acess.h>
@@ -37,13 +33,16 @@ extern void	Ext2_int_DereferenceInode(tExt2_Disk *Disk, Uint32 Inode);
 extern int	Ext2_int_ReadInode(tExt2_Disk *Disk, Uint32 InodeId, tExt2_Inode *Inode);
 extern int	Ext2_int_WriteInode(tExt2_Disk *Disk, Uint32 InodeId, tExt2_Inode *Inode);
 // --- Dir ---
-extern char	*Ext2_ReadDir(tVFS_Node *Node, int Pos);
+extern int	Ext2_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX]);
 extern tVFS_Node	*Ext2_FindDir(tVFS_Node *Node, const char *FileName);
-extern int	Ext2_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
+extern tVFS_Node	*Ext2_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
 extern int	Ext2_Link(tVFS_Node *Parent, const char *Name, tVFS_Node *Node);
 // --- Read ---
 extern size_t	Ext2_Read(tVFS_Node *node, off_t offset, size_t length, void *buffer);
 // --- Write ---
 extern size_t	Ext2_Write(tVFS_Node *node, off_t offset, size_t length, const void *buffer);
+extern Uint32	Ext2_int_AllocateBlock(tExt2_Disk *Disk, Uint32 LastBlock);
+extern void	Ext2_int_DeallocateBlock(tExt2_Disk *Disk, Uint32 Block);
+extern int	Ext2_int_AppendBlock(tExt2_Disk *Disk, tExt2_Inode *Inode, Uint32 Block);
 
 #endif

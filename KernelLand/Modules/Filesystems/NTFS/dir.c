@@ -10,7 +10,7 @@
 #include "index.h"
 
 // === PROTOTYPES ===
-char	*NTFS_ReadDir(tVFS_Node *Node, int Pos);
+ int	NTFS_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX]);
 tVFS_Node	*NTFS_FindDir(tVFS_Node *Node, const char *Name);
 Uint64	NTFS_int_IndexLookup(Uint64 Inode, const char *IndexName, const char *Str);
 
@@ -18,9 +18,9 @@ Uint64	NTFS_int_IndexLookup(Uint64 Inode, const char *IndexName, const char *Str
 /**
  * \brief Get the name of an indexed directory entry
  */
-char *NTFS_ReadDir(tVFS_Node *Node, int Pos)
+int NTFS_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 {
-	return NULL;
+	return -ENOTIMPL;
 }
 
 /**

@@ -84,8 +84,6 @@ int DiskTool_MountImage(const char *Identifier, const char *Path)
 	
 	// Translate path	
 	size_t tpath_len = DiskTool_int_TranslatePath(NULL, Path);
-	if(tpath_len == -1)
-		return -1;
 	char tpath[tpath_len-1];
 	DiskTool_int_TranslatePath(tpath, Path);
 	
@@ -151,6 +149,29 @@ int DiskTool_ListDirectory(const char *Directory)
 	return 0;
 }
 
+int DiskTool_Cat(const char *File)
+{
+	int src = DiskTool_int_TranslateOpen(File, VFS_OPENFLAG_READ);
+	if( src == -1 ) {
+		Log_Error("DiskTool", "Unable to open %s for reading", File);
+		return -1;
+	}
+	
+	char	buf[1024];
+	size_t	len, total = 0;
+	while( (len = VFS_Read(src, sizeof(buf), buf)) == sizeof(buf) ) {
+		_fwrite_stdout(len, buf);
+		total += len;
+	}
+	_fwrite_stdout(len, buf);
+	total += len;
+
+	Log_Notice("DiskTool", "%i bytes from %s", total, File);
+
+	VFS_Close(src);
+	return 0;
+}
+
 int DiskTool_LVM_Read(void *Handle, Uint64 Block, size_t BlockCount, void *Dest)
 {
 	return VFS_ReadAt( (int)(tVAddr)Handle, Block*512, BlockCount*512, Dest) / 512;
@@ -168,7 +189,7 @@ void DiskTool_LVM_Cleanup(void *Handle)
 int DiskTool_int_TranslateOpen(const char *File, int Flags)
 {
 	size_t tpath_len = DiskTool_int_TranslatePath(NULL, File);
-	if(tpath_len == -1)
+	if(tpath_len == 0)
 		return -1;
 	char tpath[tpath_len-1];
 	DiskTool_int_TranslatePath(tpath, File);

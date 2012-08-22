@@ -17,9 +17,9 @@ extern tVFS_Node	*IPStack_Root_FindDir(tVFS_Node *Node, const char *Filename);
 
 // === PROTOTYPES ===
 // - Routes directory
-char	*IPStack_RouteDir_ReadDir(tVFS_Node *Node, int Pos);
+ int	IPStack_RouteDir_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX]);
 tVFS_Node	*IPStack_RouteDir_FindDir(tVFS_Node *Node, const char *Name);
- int	IPStack_RouteDir_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
+tVFS_Node	*IPStack_RouteDir_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
  int	IPStack_RouteDir_Unlink(tVFS_Node *Node, const char *OldName);
 tRoute	*_Route_FindExactRoute(int Type, void *Network, int Subnet, int Metric);
  int	_Route_ParseRouteName(const char *Name, void *Addr, int *SubnetBits, int *Metric);
@@ -58,22 +58,20 @@ tVFS_Node	gIP_RouteNode = {
 /**
  * \brief ReadDir for the /Devices/ip/routes/ directory
  */
-char *IPStack_RouteDir_ReadDir(tVFS_Node *Node, int Pos)
+int IPStack_RouteDir_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 {
 	tRoute	*rt;
 	
 	for(rt = gIP_Routes; rt && Pos --; rt = rt->Next);
-	if( !rt )	return NULL;
+	if( !rt )	return -EINVAL;
 	
 	{
 		 int	addrlen = IPStack_GetAddressSize(rt->AddressType);
-		 int	len = sprintf(NULL, "%i::%i:%i", rt->AddressType, rt->SubnetBits, rt->Metric) + addrlen*2;
-		char	buf[len+1];
 		 int	ofs;
-		ofs = sprintf(buf, "%i:", rt->AddressType);
-		ofs += Hex(buf+ofs, addrlen, rt->Network);
-		sprintf(buf+ofs, ":%i:%i", rt->SubnetBits, rt->Metric);
-		return strdup(buf);
+		ofs = sprintf(Dest, "%i:", rt->AddressType);
+		ofs += Hex(Dest+ofs, addrlen, rt->Network);
+		sprintf(Dest+ofs, ":%i:%i", rt->SubnetBits, rt->Metric);
+		return 0;
 	}
 }
 
@@ -169,13 +167,22 @@ tVFS_Node *IPStack_RouteDir_FindDir(tVFS_Node *Node, const char *Name)
 /**
  * \brief Create a new route node
  */
-int IPStack_RouteDir_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
+tVFS_Node *IPStack_RouteDir_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
 {
-	if( Flags )	return -EINVAL;	
-	if( Threads_GetUID() != 0 )	return -EACCES;
+	if( Flags ) {
+		errno = EINVAL;
+		return NULL;
+	}
+	if( Threads_GetUID() != 0 ) {
+		errno = EACCES;
+		return NULL;
+	}
 
 	 int	type = _Route_ParseRouteName(Name, NULL, NULL, NULL);
-	if( type <= 0 )	return -EINVAL;
+	if( type <= 0 ) {
+		errno = EINVAL;
+		return NULL;
+	}
 
 	 int	size = IPStack_GetAddressSize(type);
 	Uint8	addrdata[size];	
@@ -184,12 +191,15 @@ int IPStack_RouteDir_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
 	_Route_ParseRouteName(Name, addrdata, &subnet, &metric);
 
 	// Check for duplicates
-	if( _Route_FindExactRoute(type, addrdata, subnet, metric) )
-		return -EEXIST;
+	if( _Route_FindExactRoute(type, addrdata, subnet, metric) ) {
+		errno = EEXIST;
+		return NULL;
+	}
 
-	IPStack_Route_Create(type, addrdata, subnet, metric);
+	tRoute *rt = IPStack_Route_Create(type, addrdata, subnet, metric);
+	rt->Node.ReferenceCount ++;
 
-	return 0;
+	return &rt->Node;
 }
 
 /**

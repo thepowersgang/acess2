@@ -13,9 +13,9 @@
 
 // === PROTOTYPES ===
 tVFS_Node	*Root_InitDevice(const char *Device, const char **Options);
- int	Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
+tVFS_Node	*Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
 tVFS_Node	*Root_FindDir(tVFS_Node *Node, const char *Name);
-char	*Root_ReadDir(tVFS_Node *Node, int Pos);
+ int	Root_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX]);
 size_t	Root_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
 size_t	Root_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
 tRamFS_File	*Root_int_AllocFile(void);
@@ -82,7 +82,7 @@ tVFS_Node *Root_InitDevice(const char *Device, const char **Options)
  * \fn int Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
  * \brief Create an entry in the root directory
  */
-int Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
+tVFS_Node *Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
 {
 	tRamFS_File	*parent = Node->ImplPtr;
 	tRamFS_File	*child;
@@ -91,16 +91,18 @@ int Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
 	ENTER("pNode sName xFlags", Node, Name, Flags);
 	
 	LOG("Sanity check name length - %i > %i", strlen(Name)+1, sizeof(child->Name));
-	if(strlen(Name) + 1 > sizeof(child->Name))
-		LEAVE_RET('i', EINVAL);
+	if(strlen(Name) + 1 > sizeof(child->Name)) {
+		errno = EINVAL;
+		LEAVE_RET('n', NULL);
+	}
 	
 	// Find last child, while we're at it, check for duplication
 	for( child = parent->Data.FirstChild; child; prev = child, child = child->Next )
 	{
 		if(strcmp(child->Name, Name) == 0) {
 			LOG("Duplicate");
-			LEAVE('i', EEXIST);
-			return EEXIST;
+			errno = EEXIST;
+			LEAVE_RET('n', NULL);
 		}
 	}
 	
@@ -139,8 +141,8 @@ int Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
 	
 	parent->Node.Size ++;
 	
-	LEAVE('i', EOK);
-	return EOK;
+	LEAVE('n', &child->Node);
+	return &child->Node;
 }
 
 /**
@@ -172,16 +174,19 @@ tVFS_Node *Root_FindDir(tVFS_Node *Node, const char *Name)
  * \fn char *Root_ReadDir(tVFS_Node *Node, int Pos)
  * \brief Get an entry from the filesystem
  */
-char *Root_ReadDir(tVFS_Node *Node, int Pos)
+int Root_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 {
 	tRamFS_File	*parent = Node->ImplPtr;
 	tRamFS_File	*child = parent->Data.FirstChild;
 	
 	for( ; child && Pos--; child = child->Next ) ;
 	
-	if(child)	return strdup(child->Name);
+	if(child) {
+		strncpy(Dest, child->Name, FILENAME_MAX);
+		return 0;
+	}
 	
-	return NULL;
+	return -ENOENT;
 }
 
 /**

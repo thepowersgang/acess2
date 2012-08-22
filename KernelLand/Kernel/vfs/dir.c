@@ -41,7 +41,7 @@ int VFS_MkNod(const char *Path, Uint Flags)
 	 int	pos = 0, oldpos = 0;
 	 int	next = 0;
 	tVFS_Node	*parent;
-	 int	ret;
+	tVFS_Node	*ret;
 	
 	ENTER("sPath xFlags", Path, Flags);
 	
@@ -92,6 +92,7 @@ int VFS_MkNod(const char *Path, Uint Flags)
 	
 	// Create node
 	ret = parent->Type->MkNod(parent, name, Flags);
+	_CloseNode(ret);
 	
 	// Free allocated string
 	free(absPath);
@@ -101,8 +102,8 @@ int VFS_MkNod(const char *Path, Uint Flags)
 	_CloseNode(parent);
 
 	// Return whatever the driver said	
-	LEAVE('i', ret);
-	return ret;
+	LEAVE('i', ret==NULL);
+	return ret==NULL;
 }
 
 /**
@@ -154,7 +155,7 @@ int VFS_Symlink(const char *Name, const char *Link)
 int VFS_ReadDir(int FD, char *Dest)
 {
 	tVFS_Handle	*h = VFS_GetHandle(FD);
-	char	*tmp;
+	 int	rv;
 	
 	//ENTER("ph pDest", h, Dest);
 	
@@ -163,28 +164,23 @@ int VFS_ReadDir(int FD, char *Dest)
 		return 0;
 	}
 	
-	if(h->Node->Size != -1 && h->Position >= h->Node->Size) {
+	if(h->Node->Size != (Uint64)-1 && h->Position >= h->Node->Size) {
 		//LEAVE('i', 0);
 		return 0;
 	}
 	
 	do {
-		tmp = h->Node->Type->ReadDir(h->Node, h->Position);
-		if((Uint)tmp < (Uint)VFS_MAXSKIP)
-			h->Position += (Uint)tmp;
+		rv = h->Node->Type->ReadDir(h->Node, h->Position, Dest);
+		if(rv > 0)
+			h->Position += rv;
 		else
 			h->Position ++;
-	} while(tmp != NULL && (Uint)tmp < (Uint)VFS_MAXSKIP);
+	} while(rv > 0);
 	
-	//LOG("tmp = '%s'", tmp);
-	
-	if(!tmp) {
+	if(rv < 0) {
 		//LEAVE('i', 0);
 		return 0;
 	}
-	
-	strcpy(Dest, tmp);
-	free(tmp);
 	
 	//LEAVE('i', 1);
 	return 1;

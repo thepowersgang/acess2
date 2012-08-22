@@ -29,10 +29,10 @@ int main(int argc, char *argv[])
 			continue ;
 		}
 		
-		if( strcmp("mountlvm", argv[i]) == 0 ) {
+		if( strcmp("mountlvm", argv[i]) == 0 || strcmp("lvm", argv[i]) == 0 ) {
 			
 			if( argc - i < 3 ) {
-				fprintf(stderr, "mountlvm takes 2 arguments (iamge and ident)\n");
+				fprintf(stderr, "lvm takes 2 arguments (iamge and ident)\n");
 				exit(-1);
 			}
 
@@ -47,7 +47,7 @@ int main(int argc, char *argv[])
 		
 		if( strcmp("ls", argv[i]) == 0 ) {
 			if( argc - i < 2 ) {
-				fprintf(stderr, "ls 1 argument (path)\n");
+				fprintf(stderr, "ls takes 1 argument (path)\n");
 				break;
 			}
 
@@ -67,6 +67,19 @@ int main(int argc, char *argv[])
 
 			i += 2;
 			continue ;
+		}
+
+		if( strcmp("cat", argv[i]) == 0 ) {
+
+			if( argc - 1 < 2 ) {
+				fprintf(stderr, "cat takes 1 argument (path)\n");
+				break;
+			}
+
+			DiskTool_Cat(argv[i+1]);
+
+			i += 1;
+			continue;
 		}
 	
 		fprintf(stderr, "Unknown command '%s'\n", argv[i]);
@@ -121,3 +134,7 @@ uint64_t DivMod64U(uint64_t value, uint64_t divisor, uint64_t *remainder)
 	return value / divisor;
 }
 
+size_t _fwrite_stdout(size_t bytes, const void *data)
+{
+	return fwrite(data, bytes, 1, stdout);
+}

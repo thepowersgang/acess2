@@ -18,7 +18,7 @@ tVFS_Node	*InitRD_InitDevice(const char *Device, const char **Arguments);
 void	InitRD_Unmount(tVFS_Node *Node);
 tVFS_Node	*InitRD_GetNodeFromINode(tVFS_Node *Root, Uint64 Inode);
 size_t	InitRD_ReadFile(tVFS_Node *Node, off_t Offset, size_t Size, void *Buffer);
-char	*InitRD_ReadDir(tVFS_Node *Node, int ID);
+ int	InitRD_ReadDir(tVFS_Node *Node, int ID, char Dest[FILENAME_MAX]);
 tVFS_Node	*InitRD_FindDir(tVFS_Node *Node, const char *Name);
 void	InitRD_DumpDir(tVFS_Node *Node, int Indent);
 
@@ -92,14 +92,15 @@ size_t InitRD_ReadFile(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffe
 /**
  * \brief Read from a directory
  */
-char *InitRD_ReadDir(tVFS_Node *Node, int ID)
+int InitRD_ReadDir(tVFS_Node *Node, int ID, char Dest[FILENAME_MAX])
 {
 	tInitRD_File	*dir = Node->ImplPtr;
 	
 	if(ID >= Node->Size)
-		return NULL;
+		return -EINVAL;
 	
-	return strdup(dir[ID].Name);
+	strncpy(Dest, dir[ID].Name, FILENAME_MAX);
+	return 0;
 }
 
 /**

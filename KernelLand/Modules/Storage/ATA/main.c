@@ -21,7 +21,6 @@
 void	ATA_SetupPartitions(void);
  int	ATA_ScanDisk(int Disk);
 void	ATA_ParseGPT(int Disk);
-void	ATA_int_MakePartition(tATA_Partition *Part, int Disk, int Num, Uint64 Start, Uint64 Length);
 Uint16	ATA_GetBasePort(int Disk);
 // Read/Write Interface/Quantiser
 int	ATA_ReadRaw(void *Ptr, Uint64 Address, size_t Count, void *Buffer);

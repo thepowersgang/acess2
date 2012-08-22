@@ -31,7 +31,7 @@ typedef struct sSysFS_Ent
  int	SysFS_RemoveFile(int ID);
 #endif
 
-char	*SysFS_Comm_ReadDir(tVFS_Node *Node, int Id);
+ int	SysFS_Comm_ReadDir(tVFS_Node *Node, int Id, char Dest[FILENAME_MAX]);
 tVFS_Node	*SysFS_Comm_FindDir(tVFS_Node *Node, const char *Filename);
 size_t	SysFS_Comm_ReadFile(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
 void	SysFS_Comm_CloseFile(tVFS_Node *Node);
@@ -250,8 +250,9 @@ int SysFS_UpdateFile(int ID, const char *Data, int Length)
 	for( ent = gSysFS_FileList; ent; ent = ent->Next )
 	{
 		// It's a reverse sorted list
-		if(ent->Node.Inode < ID)	return 0;
-		if(ent->Node.Inode == ID)
+		if(ent->Node.Inode < (Uint64)ID)
+			return 0;
+		if(ent->Node.Inode == (Uint64)ID)
 		{
 			ent->Node.ImplPtr = (void*)Data;
 			ent->Node.Size = Length;
@@ -278,8 +279,8 @@ int SysFS_RemoveFile(int ID)
 	for( ent = gSysFS_FileList; ent; prev = ent, ent = ent->Next )
 	{
 		// It's a reverse sorted list
-		if(ent->Node.Inode < ID)	return 0;
-		if(ent->Node.Inode == ID)	break;
+		if(ent->Node.Inode < (Uint64)ID)	return 0;
+		if(ent->Node.Inode == (Uint64)ID)	break;
 	}
 	
 	if(!ent)	return 0;
@@ -323,16 +324,20 @@ int SysFS_RemoveFile(int ID)
  * \fn char *SysFS_Comm_ReadDir(tVFS_Node *Node, int Pos)
  * \brief Reads from a SysFS directory
  */
-char *SysFS_Comm_ReadDir(tVFS_Node *Node, int Pos)
+int SysFS_Comm_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 {
 	tSysFS_Ent	*child = (tSysFS_Ent*)Node->ImplPtr;
-	if(Pos < 0 || Pos >= Node->Size)	return NULL;
+	if(Pos < 0 || (Uint64)Pos >= Node->Size)
+		return -EINVAL;
 	
 	for( ; child; child = child->Next, Pos-- )
 	{
-		if( Pos == 0 )	return strdup(child->Name);
+		if( Pos == 0 ) {
+			strncpy(Dest, child->Name, FILENAME_MAX);
+			return 0;
+		}
 	}
-	return NULL;
+	return -ENOENT;
 }
 
 /**
