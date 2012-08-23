@@ -659,6 +659,7 @@ tVFS_Node *FAT_GetNodeFromINode(tVFS_Node *Root, Uint64 Inode)
 	if( ret ) {
 		if( (ret->Inode >> 32) != 0 ) {
 			LOG("Node in cache, quick return");
+			LEAVE('p', ret);
 			return ret;
 		}
 		else {
