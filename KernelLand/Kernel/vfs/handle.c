@@ -2,6 +2,7 @@
  * Acess2 VFS
  * - AllocHandle, GetHandle
  */
+#define SANITY	1
 #define DEBUG	0
 #include <acess.h>
 #include <mm_virt.h>
@@ -25,6 +26,19 @@ tVFS_Handle	*gaUserHandles = (void*)MM_PPD_HANDLES;
 tVFS_Handle	*gaKernelHandles = (void*)MM_KERNEL_VFS;
 
 // === CODE ===
+inline void _ReferenceNode(tVFS_Node *Node)
+{
+	if( !MM_GetPhysAddr(Node->Type) ) {
+		Log_Error("VFS", "Node %p's type is invalid (%p bad pointer) - %P corrupted",
+			Node, Node->Type, MM_GetPhysAddr(&Node->Type));
+		return ;
+	}
+	if( Node->Type && Node->Type->Reference )
+		Node->Type->Reference( Node );
+	else
+		Node->ReferenceCount ++;
+}
+
 /**
  * \fn tVFS_Handle *VFS_GetHandle(int FD)
  * \brief Gets a pointer to the handle information structure
@@ -130,8 +144,8 @@ void VFS_ReferenceUserHandles(void)
 		h = &gaUserHandles[i];
 		if( !h->Node )
 			continue ;
-		if( h->Node->Type && h->Node->Type->Reference )
-			h->Node->Type->Reference( h->Node );
+		_ReferenceNode(h->Node);
+		h->Mount->OpenHandleCount ++;
 	}
 }
 
@@ -150,8 +164,7 @@ void VFS_CloseAllUserHandles(void)
 		h = &gaUserHandles[i];
 		if( !h->Node )
 			continue ;
-		if( h->Node->Type && h->Node->Type->Close )
-			h->Node->Type->Close( h->Node );
+		_CloseNode(h->Node);
 	}
 }
 
@@ -196,8 +209,7 @@ void *VFS_SaveHandles(int NumFDs, int *FDs)
 		// Reference node
 		if( !h->Node )
 			continue ;
-		if( h->Node->Type && h->Node->Type->Reference )
-			h->Node->Type->Reference( h->Node );
+		_ReferenceNode(h->Node);
 		h->Mount->OpenHandleCount ++;
 	}	
 
@@ -243,8 +255,7 @@ void VFS_RestoreHandles(int NumFDs, void *Handles)
 	
 		if( !h->Node )
 			continue ;
-		if( h->Node->Type && h->Node->Type->Reference )
-			h->Node->Type->Reference( h->Node );
+		_ReferenceNode(h->Node);
 		h->Mount->OpenHandleCount ++;
 	}
 }
@@ -265,8 +276,10 @@ void VFS_FreeSavedHandles(int NumFDs, void *Handles)
 	
 		if( !h->Node )
 			continue ;
-		if( h->Node->Type && h->Node->Type->Close )
-			h->Node->Type->Close( h->Node );
+		_CloseNode(h->Node);
+		
+		ASSERT(h->Mount->OpenHandleCount > 0);
+		LOG("dec. mntpt '%s' to %i", h->Mount->MountPoint, h->Mount->OpenHandleCount-1);
 		h->Mount->OpenHandleCount --;
 	}
 	free( Handles );

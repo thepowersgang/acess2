@@ -2,6 +2,7 @@
  * Acess2 VFS
  * - Open, Close and ChDir
  */
+#define SANITY	1
 #define DEBUG	0
 #include <acess.h>
 #include "vfs.h"
@@ -21,9 +22,22 @@ extern int	VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode);
 extern tVFS_Node	*VFS_MemFile_Create(const char *Path);
 
 // === PROTOTYPES ===
+void	_ReferenceMount(tVFS_Mount *Mount, const char *DebugTag);
+void	_DereferenceMount(tVFS_Mount *Mount, const char *DebugTag);
  int	VFS_int_CreateHandle( tVFS_Node *Node, tVFS_Mount *Mount, int Mode );
 
 // === CODE ===
+void _ReferenceMount(tVFS_Mount *Mount, const char *DebugTag)
+{
+//	Log_Debug("VFS", "%s: inc. mntpt '%s' to %i", DebugTag, Mount->MountPoint, Mount->OpenHandleCount+1);
+	Mount->OpenHandleCount ++;
+}
+void _DereferenceMount(tVFS_Mount *Mount, const char *DebugTag)
+{
+//	Log_Debug("VFS", "%s: dec. mntpt '%s' to %i", DebugTag, Mount->MountPoint, Mount->OpenHandleCount-1);
+	ASSERT(Mount->OpenHandleCount > 0);
+	Mount->OpenHandleCount --;
+}
 /**
  * \fn char *VFS_GetAbsPath(const char *Path)
  * \brief Create an absolute path from a relative one
@@ -201,7 +215,7 @@ restart_parse:
 			*TruePath = malloc( gVFS_RootMount->MountPointLen+1 );
 			strcpy(*TruePath, gVFS_RootMount->MountPoint);
 		}
-		gVFS_RootMount->OpenHandleCount ++;
+		_ReferenceMount(gVFS_RootMount, "ParsePath - Fast Tree Root");
 		if(MountPoint)	*MountPoint = gVFS_RootMount;
 		LEAVE('p', gVFS_RootMount->RootNode);
 		return gVFS_RootMount->RootNode;
@@ -239,13 +253,19 @@ restart_parse:
 				*MountPoint = mnt;
 			RWLock_Release( &glVFS_MountList );
 			LOG("Mount %p root", mnt);
+			_ReferenceMount(mnt, "ParsePath - Mount Root");
 			LEAVE('p', mnt->RootNode);
 			return mnt->RootNode;
 		}
 		#endif
 		longestMount = mnt;
 	}
-	longestMount->OpenHandleCount ++;	// Increment assuimg it worked
+	if(!longestMount) {
+		Log_Panic("VFS", "VFS_ParsePath - No mount for '%s'", Path);
+		return NULL;
+	}
+	
+	_ReferenceMount(longestMount, "ParsePath");
 	RWLock_Release( &glVFS_MountList );
 	
 	// Save to shorter variable
@@ -347,7 +367,7 @@ restart_parse:
 
 			// EVIL: Goto :)
 			LOG("Symlink -> '%s', restart", Path);
-			mnt->OpenHandleCount --;	// Not in this mountpoint
+			_DereferenceMount(mnt, "ParsePath - sym");
 			goto restart_parse;
 		}
 		
@@ -430,7 +450,7 @@ _error:
 		*TruePath = NULL;
 	}
 	// Open failed, so decrement the open handle count
-	mnt->OpenHandleCount --;
+	_DereferenceMount(mnt, "ParsePath - error");
 	
 	LEAVE('n');
 	return NULL;
@@ -457,6 +477,13 @@ int VFS_int_CreateHandle( tVFS_Node *Node, tVFS_Mount *Mount, int Mode )
 		_CloseNode( Node );
 		Log_Log("VFS", "VFS_int_CreateHandle: Permissions Failed");
 		errno = EACCES;
+		LEAVE_RET('i', -1);
+	}
+
+	if( MM_GetPhysAddr(Node->Type) == 0 ) {
+		Log_Error("VFS", "Node %p from mount '%s' (%s) has a bad type (%p)",
+			Node, Mount->MountPoint, Mount->Filesystem->Name, Node->Type);
+		errno = EINTERNAL;
 		LEAVE_RET('i', -1);
 	}
 	
@@ -521,28 +548,44 @@ int VFS_OpenEx(const char *Path, Uint Flags, Uint Mode)
 			LEAVE_RET('i', -1);
 		}
 
-		// TODO: Check ACLs on the parent
+		// Check ACLs on the parent
 		if( !VFS_CheckACL(pnode, VFS_PERM_EXECUTE|VFS_PERM_WRITE) ) {
-			_CloseNode(pnode);
-			pmnt->OpenHandleCount --;
-			free(absPath);
-			LEAVE('i', -1);
-			return -1;
+			errno = EACCES;
+			goto _pnode_err;
 		}
 
 		// Check that there's a MkNod method
 		if( !pnode->Type || !pnode->Type->MkNod ) {
 			Log_Warning("VFS", "VFS_Open - Directory has no MkNod method");
 			errno = EINVAL;
-			LEAVE_RET('i', -1);
+			goto _pnode_err;
 		}
 		
 		node = pnode->Type->MkNod(pnode, file, new_flags);
+		if( !node ) {
+			LOG("Cannot create node '%s' in '%s'", file, absPath);
+			errno = ENOENT;
+			goto _pnode_err;
+		}
+		// Set mountpoint (and increment open handle count)
+		mnt = pmnt;
+		_ReferenceMount(mnt, "Open - create");
 		// Fall through on error check
 		
 		_CloseNode(pnode);
-		pmnt->OpenHandleCount --;
+		_DereferenceMount(pmnt, "Open - create");
+		goto _pnode_ok;
+
+	_pnode_err:
+		if( pnode ) {
+			_CloseNode(pnode);
+			_DereferenceMount(pmnt, "Open - create,fail");
+			free(absPath);
+		}
+		LEAVE('i', -1);
+		return -1;
 	}
+	_pnode_ok:
 	
 	// Free generated path
 	free(absPath);
@@ -552,7 +595,7 @@ int VFS_OpenEx(const char *Path, Uint Flags, Uint Mode)
 	{
 		LOG("Cannot find node");
 		errno = ENOENT;
-		LEAVE_RET('i', -1);
+		goto _error;
 	}
 	
 	// Check for symlinks
@@ -561,26 +604,35 @@ int VFS_OpenEx(const char *Path, Uint Flags, Uint Mode)
 		char	tmppath[node->Size+1];
 		if( node->Size > MAX_PATH_LEN ) {
 			Log_Warning("VFS", "VFS_Open - Symlink is too long (%i)", node->Size);
-			LEAVE_RET('i', -1);
+			goto _error;
 		}
 		if( !node->Type || !node->Type->Read ) {
 			Log_Warning("VFS", "VFS_Open - No read method on symlink");
-			LEAVE_RET('i', -1);
+			goto _error;
 		}
 		// Read symlink's path
 		node->Type->Read( node, 0, node->Size, tmppath );
 		tmppath[ node->Size ] = '\0';
 		_CloseNode( node );
+		_DereferenceMount(mnt, "Open - symlink");
 		// Open the target
 		node = VFS_ParsePath(tmppath, NULL, &mnt);
 		if(!node) {
 			LOG("Cannot find symlink target node (%s)", tmppath);
 			errno = ENOENT;
-			LEAVE_RET('i', -1);
+			goto _error;
 		}
 	}
 
-	LEAVE_RET('x', VFS_int_CreateHandle(node, mnt, Flags));
+	 int	ret = VFS_int_CreateHandle(node, mnt, Flags);
+	LEAVE_RET('x', ret);
+_error:
+	if( node )
+	{
+		_DereferenceMount(mnt, "Open - error");
+		_CloseNode(node);
+	}
+	LEAVE_RET('i', -1);
 }
 
 
@@ -624,7 +676,7 @@ int VFS_OpenChild(int FD, const char *Name, Uint Mode)
 	}
 
 	// Increment open handle count, no problems with the mount going away as `h` is already open on it
-	h->Mount->OpenHandleCount ++;
+	_ReferenceMount(h->Mount, "OpenChild");
 
 	LEAVE_RET('x', VFS_int_CreateHandle(node, h->Mount, Mode));
 }
@@ -676,7 +728,12 @@ void VFS_Close(int FD)
 		Log_Warning("VFS", "Invalid file handle passed to VFS_Close, 0x%x", FD);
 		return;
 	}
-	
+
+	if( h->Node == NULL ) {
+		Log_Warning("VFS", "Non-open handle passed to VFS_Close, 0x%x", FD);
+		return ;
+	}	
+
 	#if VALIDATE_VFS_FUNCTIPONS
 	if(h->Node->Close && !MM_GetPhysAddr(h->Node->Close)) {
 		Log_Warning("VFS", "Node %p's ->Close method is invalid (%p)",
@@ -685,10 +742,12 @@ void VFS_Close(int FD)
 	}
 	#endif
 	
+	LOG("Handle %x", FD);
 	_CloseNode(h->Node);
 
-	if( h->Mount )
-		h->Mount->OpenHandleCount --;	
+	if( h->Mount ) {
+		_DereferenceMount(h->Mount, "Close");
+	}
 
 	h->Node = NULL;
 }

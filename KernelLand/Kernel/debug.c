@@ -221,6 +221,7 @@ void Panic(const char *Fmt, ...)
 	Debug_Putchar('\n');
 
 	Threads_Dump();
+	Heap_Dump();
 
 	for(;;)	;
 }

@@ -1,6 +1,7 @@
 /* 
  * Acess Micro - VFS Server version 1
  */
+#define SANITY	1
 #define DEBUG	0
 #include <acess.h>
 #include <vfs.h>
@@ -104,6 +105,7 @@ int VFS_Mount(const char *Device, const char *MountPoint, const char *Filesystem
 	// Create mount information
 	mnt = malloc( sizeof(tVFS_Mount)+deviceLen+1+mountLen+1+argLen+1 );
 	if(!mnt) {
+		ASSERT(parent_mnt->OpenHandleCount > 0);
 		parent_mnt->OpenHandleCount --;
 		return -2;
 	}
@@ -148,6 +150,7 @@ int VFS_Mount(const char *Device, const char *MountPoint, const char *Filesystem
 	mnt->RootNode = fs->InitDevice(Device, (const char **)args);
 	if(!mnt->RootNode) {
 		free(mnt);
+		ASSERT(parent_mnt->OpenHandleCount>0);
 		parent_mnt->OpenHandleCount --;
 		return -2;
 	}
@@ -204,7 +207,8 @@ void VFS_int_Unmount(tVFS_Mount *Mount)
 			break;
 		}
 		if(mpmnt) {
-			mpmnt->OpenHandleCount -= 1;
+			ASSERT(mpmnt->OpenHandleCount>0);
+			mpmnt->OpenHandleCount --;
 		}
 		else {
 			Log_Notice("VFS", "Mountpoint '%s' has no parent", Mount->MountPoint);
@@ -227,6 +231,8 @@ int VFS_Unmount(const char *Mountpoint)
 			if( mount->OpenHandleCount ) {
 				LOG("Mountpoint busy");
 				RWLock_Release(&glVFS_MountList);
+				Log_Log("VFS", "Unmount of '%s' deferred, still busy (%i open handles)",
+					Mountpoint, mount->OpenHandleCount);
 				return EBUSY;
 			}
 			if(prev)
@@ -258,12 +264,18 @@ int VFS_UnmountAll(void)
 	// If we've unmounted the final filesystem, all good
 	if( gVFS_Mounts == NULL) {
 		RWLock_Release( &glVFS_MountList );
+		
+		// Final unmount means VFS completely deinited
+		VFS_Deinit();
 		return -1;
 	}
 
 	for( mount = gVFS_Mounts; mount; prev = mount, mount = next )
 	{
 		next = mount->Next;
+		
+		ASSERT(mount->OpenHandleCount >= 0);		
+
 		// Can't unmount stuff with open handles
 		if( mount->OpenHandleCount > 0 ) {
 			LOG("%p (%s) has open handles (%i of them)",

@@ -2,6 +2,7 @@
  * Acess2 VFS
  * - Directory Management Functions
  */
+#define SANITY	1
 #define DEBUG	0
 #include <acess.h>
 #include <vfs.h>
@@ -68,26 +69,22 @@ int VFS_MkNod(const char *Path, Uint Flags)
 	LOG("parent = %p", parent);
 	
 	if(!parent) {
-		LEAVE('i', -1);
-		return -1;	// Error Check
+		errno = ENOENT;
+		goto _error;
 	}
 
 	// Permissions Check
 	if( !VFS_CheckACL(parent, VFS_PERM_EXECUTE|VFS_PERM_WRITE) ) {
-		_CloseNode(parent);
-		mountpt->OpenHandleCount --;
-		free(absPath);
-		LEAVE('i', -1);
-		return -1;
+		errno = EACCES;
+		goto _error;
 	}
 	
 	LOG("parent = %p", parent);
 	
 	if(!parent->Type || !parent->Type->MkNod) {
 		Log_Warning("VFS", "VFS_MkNod - Directory has no MkNod method");
-		mountpt->OpenHandleCount --;
-		LEAVE('i', -1);
-		return -1;
+		errno = ENOTDIR;
+		goto _error;
 	}
 	
 	// Create node
@@ -98,12 +95,21 @@ int VFS_MkNod(const char *Path, Uint Flags)
 	free(absPath);
 	
 	// Free Parent
+	ASSERT(mountpt->OpenHandleCount>0);
 	mountpt->OpenHandleCount --;
 	_CloseNode(parent);
 
 	// Return whatever the driver said	
 	LEAVE('i', ret==NULL);
 	return ret==NULL;
+
+_error:
+	_CloseNode(parent);
+	ASSERT(mountpt->OpenHandleCount>0);
+	mountpt->OpenHandleCount --;
+	free(absPath);
+	LEAVE('i', -1);
+	return -1;
 }
 
 /**
@@ -123,6 +129,7 @@ int VFS_Symlink(const char *Name, const char *Link)
 	realLink = VFS_GetAbsPath( Link );
 	if(!realLink) {
 		Log_Warning("VFS", "Path '%s' is badly formed", Link);
+		errno = EINVAL;
 		LEAVE('i', -1);
 		return -1;
 	}
@@ -133,12 +140,19 @@ int VFS_Symlink(const char *Name, const char *Link)
 	if( VFS_MkNod(Name, VFS_FFLAG_SYMLINK) != 0 ) {
 		Log_Warning("VFS", "Unable to create link node '%s'", Name);
 		free(realLink);
+		// errno is set by VFS_MkNod
 		LEAVE('i', -2);
 		return -2;	// Make link node
 	}
 	
 	// Write link address
 	fp = VFS_Open(Name, VFS_OPENFLAG_WRITE|VFS_OPENFLAG_NOLINK);
+	if( fp == -1 ) {
+		Log_Warning("VFS", "Unable to open newly created symlink '%s'", Name);
+		free(realLink);
+		LEAVE('i', -3);
+		return -3;
+	}
 	VFS_Write(fp, strlen(realLink), realLink);
 	VFS_Close(fp);
 	

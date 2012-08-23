@@ -65,6 +65,14 @@ int VFS_Init(void)
 	return 0;
 }
 
+void VFS_Deinit(void)
+{
+	SysFS_RemoveFile(giVFS_MountFileID);
+	free(gsVFS_MountFile);
+	SysFS_RemoveFile(giVFS_DriverFileID);
+	free(gsVFS_DriverFile);
+}
+
 /**
  * \fn char *VFS_GetTruePath(const char *Path)
  * \brief Gets the true path (non-symlink) of a file
