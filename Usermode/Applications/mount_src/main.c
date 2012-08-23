@@ -22,10 +22,12 @@ int main(int argc, char *argv[])
 	 int	fd;
 	 int	i;
 	char	*arg;
+	
 	char	*sType = NULL;
 	char	*sDevice = NULL;
 	char	*sDir = NULL;
 	char	*sOptions = NULL;
+	 int	bUnmount = 0;
 
 	// List mounted filesystems
 	// - This is cheating, isn't it?
@@ -56,7 +58,10 @@ int main(int argc, char *argv[])
 			{
 			// -t <driver> :: Filesystem driver to use
 			case 't':	sType = argv[++i];	break;
+			// -o option_list :: Options to pass the driver
 			case 'o':	sOptions = argv[++i];	break;
+			// -u :: Unmount
+			case 'u':	bUnmount = 1;	break;
 			case '-':
 				//TODO: Long Arguments
 			default:
@@ -80,6 +85,22 @@ int main(int argc, char *argv[])
 		
 		ShowUsage(argv[0]);
 		return EXIT_FAILURE;
+	}
+
+	if( bUnmount )
+	{
+		// TODO: Check for a match in the fstab
+		
+		if( sDir ) {
+			fprintf(stderr, "`mount -u` takes one argument\n");
+		}
+		
+		sDir = sDevice;
+		if( _SysMount(NULL, sDir, NULL, NULL) )	// Unmount (Dev=NULL means unmount)
+		{
+			fprintf(stderr, "Unmount failed\n");
+		}
+		return EXIT_SUCCESS;
 	}
 
 	// Check if we even got a device/mountpoint
@@ -141,8 +162,12 @@ int main(int argc, char *argv[])
 
 	// Let's Mount!
 	if( _SysMount(sDevice, sDir, sType, sOptions) ) {
+//		perror("_SysMount");
 		if( !sType )
 			fprintf(stderr, "Filesystem autodetection failed, please pass a type\n");
+		else {
+			fprintf(stderr, "Mount %s:'%s'=>'%s' failed\n", sType, sDevice, sDir);
+		}
 	}
 
 	return 0;
