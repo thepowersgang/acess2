@@ -223,6 +223,7 @@ int FAT_int_DerefNode(tVFS_Node *Node)
 		// Already out of the list :)
 		if(cnode->Node.Data)
 			free(cnode->Node.Data);
+		VFS_CleanupNode(&cnode->Node);
 		free(cnode);
 		bFreed = 1;
 	}

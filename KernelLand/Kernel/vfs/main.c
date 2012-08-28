@@ -172,3 +172,9 @@ void VFS_UpdateDriverFile(void)
 	if(gsVFS_DriverFile)	free(gsVFS_DriverFile);
 	gsVFS_DriverFile = buf;
 }
+
+void VFS_CleanupNode(tVFS_Node *Node)
+{
+	
+}
+

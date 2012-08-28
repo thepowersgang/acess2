@@ -13,9 +13,6 @@
 #define MIN_BLOCKS_PER_GROUP	2
 #define MAX_BLOCK_LOG_SIZE	10	// 1024 << 10 = 1MiB
 
-// === IMPORTS ===
-extern tVFS_NodeType	gExt2_DirType;
-
 // === PROTOTYPES ===
  int	Ext2_Install(char **Arguments);
  int	Ext2_Cleanup(void);
@@ -236,7 +233,8 @@ void Ext2_CloseFile(tVFS_Node *Node)
 	if( Node->Flags & VFS_FFLAG_DIRTY )
 	{
 		// Commit changes
-		Log_Warning("Ext2", "TODO: Commit node changes");
+		Ext2_int_WritebackNode(disk, Node);
+		Node->Flags &= ~VFS_FFLAG_DIRTY;
 	}
 
 	int was_not_referenced = (Node->ImplInt == 0);
@@ -247,7 +245,7 @@ void Ext2_CloseFile(tVFS_Node *Node)
 		{
 			LOG("Removng inode");
 			// Remove inode
-			Log_Warning("Ext2", "TODO: Remove inode when not referenced");
+			Log_Warning("Ext2", "TODO: Remove inode when not referenced (%x)", (Uint32)Node->Inode);
 		}
 		if( acls != &gVFS_ACL_EveryoneRW ) {
 			free(acls);
@@ -323,6 +321,118 @@ int Ext2_int_WriteInode(tExt2_Disk *Disk, Uint32 InodeId, tExt2_Inode *Inode)
 	
 	LEAVE('i', 1);
 	return 1;
+}
+
+/**
+ * \fn vfs_node *Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeID)
+ * \brief Create a new VFS Node
+ */
+tVFS_Node *Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeID)
+{
+	tExt2_Inode	inode;
+	tVFS_Node	retNode;
+	tVFS_Node	*tmpNode;
+	
+	if( !Ext2_int_ReadInode(Disk, InodeID, &inode) )
+		return NULL;
+	
+	if( (tmpNode = Inode_GetCache(Disk->CacheID, InodeID)) )
+		return tmpNode;
+
+	memset(&retNode, 0, sizeof(retNode));	
+	
+	// Set identifiers
+	retNode.Inode = InodeID;
+	retNode.ImplPtr = Disk;
+	retNode.ImplInt = inode.i_links_count;
+	if( inode.i_links_count == 0 ) {
+		Log_Notice("Ext2", "Inode %p:%x is not referenced, bug?", Disk, InodeID);
+	}
+	
+	// Set file length
+	retNode.Size = inode.i_size;
+	
+	// Set Access Permissions
+	retNode.UID = inode.i_uid;
+	retNode.GID = inode.i_gid;
+	retNode.NumACLs = 3;
+	retNode.ACLs = VFS_UnixToAcessACL(inode.i_mode & 0777, inode.i_uid, inode.i_gid);
+	
+	//  Set Function Pointers
+	retNode.Type = &gExt2_FileType;
+	
+	switch(inode.i_mode & EXT2_S_IFMT)
+	{
+	// Symbolic Link
+	case EXT2_S_IFLNK:
+		retNode.Flags = VFS_FFLAG_SYMLINK;
+		break;
+	// Regular File
+	case EXT2_S_IFREG:
+		retNode.Flags = 0;
+		retNode.Size |= (Uint64)inode.i_dir_acl << 32;
+		break;
+	// Directory
+	case EXT2_S_IFDIR:
+		retNode.Type = &gExt2_DirType;
+		retNode.Flags = VFS_FFLAG_DIRECTORY;
+		retNode.Data = calloc( sizeof(Uint16), DivUp(retNode.Size, Disk->BlockSize) );
+		break;
+	// Unknown, Write protect it to be safe 
+	default:
+		retNode.Flags = VFS_FFLAG_READONLY;
+		break;
+	}
+	
+	// Set Timestamps
+	retNode.ATime = inode.i_atime * 1000;
+	retNode.MTime = inode.i_mtime * 1000;
+	retNode.CTime = inode.i_ctime * 1000;
+	
+	// Save in node cache and return saved node
+	return Inode_CacheNode(Disk->CacheID, &retNode);
+}
+
+int Ext2_int_WritebackNode(tExt2_Disk *Disk, tVFS_Node *Node)
+{
+	tExt2_Inode	inode;
+
+	if( Disk != Node->ImplPtr ) {
+		Log_Error("Ext2", "Ext2_int_WritebackNode - Disk != Node->ImplPtr");
+		return -1;
+	}
+	
+	if( Node->Flags & VFS_FFLAG_SYMLINK ) {
+		inode.i_mode = EXT2_S_IFLNK;
+	}
+	else if( Node->Flags & VFS_FFLAG_DIRECTORY ) {
+		inode.i_mode = EXT2_S_IFDIR;
+	}
+	else if( Node->Flags & VFS_FFLAG_READONLY ) {
+		Log_Notice("Ext2", "Not writing back readonly inode %p:%x", Disk, Node->Inode);
+		return 1;
+	}
+	else {
+		inode.i_mode = EXT2_S_IFREG;
+		inode.i_dir_acl = Node->Size >> 32;
+	}
+
+	inode.i_size = Node->Size & 0xFFFFFFFF;
+	inode.i_links_count = Node->ImplInt;
+
+	inode.i_uid = Node->UID;
+	inode.i_gid = Node->GID;
+
+	inode.i_atime = Node->ATime / 1000;
+	inode.i_mtime = Node->MTime / 1000;
+	inode.i_ctime = Node->CTime / 1000;
+
+	// TODO: Compact ACLs into unix mode
+	Log_Warning("Ext2", "TODO: Support converting Acess ACLs into unix modes");
+
+	Ext2_int_WriteInode(Disk, Node->Inode, &inode);
+
+	return 0;
 }
 
 /**
