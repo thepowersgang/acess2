@@ -67,7 +67,7 @@ void Debug_HexDump(const char *Prefix, const void *Data, size_t Length)
 	fprintf(stderr, "[HexDump ]d %s:", Prefix);
 	for( ; ofs < Length; ofs ++ )
 	{
-		if( ofs % 16 == 8 )	fprintf(stderr, " ");
+		if( ofs % 8 == 0 )	fprintf(stderr, " ");
 		fprintf(stderr, " %02x", data[ofs%16]);
 	}
 	fprintf(stderr, "\n");
