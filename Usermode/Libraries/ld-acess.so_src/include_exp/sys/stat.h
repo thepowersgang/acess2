@@ -6,7 +6,7 @@
 #define _SYS_STAT_H_
 
 #include "../acess/intdefs.h"	/* Evil */
-#include "../stddef.h"
+//#include "../stddef.h"
 
 ;
 typedef void	*dev_t;	/* TODO: How to identify a device with Acess */
