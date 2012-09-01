@@ -24,6 +24,9 @@ _compile=0
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
+	-E)
+		_preproc=1
+		;;
 	-c)
 		_compile=1
 		;;
@@ -48,7 +51,7 @@ while [[ $# -gt 0 ]]; do
 		shift
 		_libs=$_libs" -l$1"
 		;;
-	-l*)
+	-l*|-L*)
 		_libs=$_libs" $1"
 		;;
 	*)
@@ -58,15 +61,26 @@ while [[ $# -gt 0 ]]; do
 	shift
 done
 
+run() {
+#	echo $*
+	$*
+}
+
+if [[ $_preproc -eq 1 ]]; then
+	run $_CC -E $CFLAGS $_cflags $_outfile
+	exit $?
+fi
 if [[ $_compile -eq 1 ]]; then
-#	echo $_CC $CFLAGS $*
-	$_CC $CFLAGS $_miscargs -c $_outfile
-else if echo " $_miscargs" | grep '\.c' >/dev/null; then
+	run $_CC $CFLAGS $_cflags $_miscargs -c $_outfile
+	exit $?
+fi
+
+if echo " $_miscargs" | grep '\.c' >/dev/null; then
 	tmpout=`mktemp acess_gccproxy.XXXXXXXXXX.o --tmpdir`
-	$_CC $CFLAGS $_miscargs -c -o $tmpout
-	$_LD $LDFLAGS $_ldflags $_libs $tmpout $_outfile
+	run $_CC $CFLAGS $_miscargs -c -o $tmpout
+	run $_LD $LDFLAGS $_ldflags $_libs $tmpout $_outfile
 	rm $tmpout
 else
-	$_LD $LDFLAGS $_ldflags $_miscargs $_outfile $LIBGCC_PATH
-fi; fi
+	run $_LD $LDFLAGS $_ldflags $_miscargs $_outfile $LIBGCC_PATH
+fi
 
