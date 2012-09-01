@@ -1,10 +1,9 @@
 /*
- * Acess2 C Library
+ * Acess2 POSIX Sockets Emulation
+ * - By John Hodge (thePowersGang)
  *
  * sys/sockets.h
  * - POSIX Sockets
- *
- * By John Hodge (thePowersGang)
  */
 #ifndef _SYS_SOCKETS_H_
 #define _SYS_SOCKETS_H_
@@ -12,7 +11,7 @@
 #include <sys/types.h>
 #include <stddef.h>	// size_t
 
-typedef int	socklen_t;
+typedef uint32_t	socklen_t;
 
 typedef enum
 {
@@ -28,6 +27,45 @@ struct sockaddr
 	char       	sa_data[16];
 };
 
+struct msghdr
+{
+	void	*msg_name;
+	socklen_t	msg_namelen;
+	struct iovec	*msg_iov;
+	int	msg_iovlen;
+	void	*msg_control;
+	socklen_t	msg_controllen;
+	int	msg_flags;
+};
+
+struct cmsghdr
+{
+	socklen_t	cmsg_len;
+	int	cmsg_level;
+	int	cmsg_type;
+};
+
+#define SCM_RIGHTS	0x1
+
+#define CMSG_DATA(cmsg)	((unsigned char*)(cmsg + 1))
+#define CMSG_NXTHDR(mhdr, cmsg)	0
+#define CMSG_FIRSTHDR(mhdr)	0
+
+struct linger
+{
+	int	l_onoff;
+	int	l_linger;
+};
+
+enum eSocketTypes
+{
+	SOCK_STREAM,	//!< Stream (TCP)
+	SOCK_DGRAM,	//!< Datagram (UDP)
+	SOCK_SEQPACKET,	//!< 
+	SOCK_RAW,	//!< Raw packet access
+	SOCK_RDM	//!< Reliable non-ordered datagrams
+};
+
 /**
  * \brief Values for \a domain of socket()
  */
@@ -39,15 +77,6 @@ enum eSocketDomains
 	PF_PACKET	//!< Low level packet interface
 };
 #define PF_UNIX	PF_LOCAL
-
-enum eSocketTypes
-{
-	SOCK_STREAM,	//!< Stream (TCP)
-	SOCK_DGRAM,	//!< Datagram (UDP)
-	SOCK_SEQPACKET,	//!< 
-	SOCK_RAW,	//!< Raw packet access
-	SOCK_RDM	//!< Reliable non-ordered datagrams
-};
 
 /**
  * \brief Create a new socket descriptor
@@ -79,6 +108,9 @@ extern int	recvfrom(int sockfd, void *buffer, size_t length, int flags, struct s
 extern int	recv(int sockfd, void *buffer, size_t length, int flags);
 extern int	sendto(int sockfd, const void *buffer, size_t length, int flags, const struct sockaddr *clientaddr, socklen_t addrlen);
 extern int	send(int sockfd, void *buffer, size_t length, int flags);
+
+extern int	setsockopt(int socket, int level, int option_name, const void *option_value, socklen_t option_len);
+extern int	getsockopt(int socket, int level, int option_name, void *option_value, socklen_t *option_len);
 
 #endif
 
