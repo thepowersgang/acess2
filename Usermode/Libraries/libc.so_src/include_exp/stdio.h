@@ -21,6 +21,7 @@ extern int	vsnprintf(char *buf, size_t __maxlen, const char *format, va_list arg
 extern int	vsprintf(char *buf, const char *format, va_list args);
 extern int	sprintf(char *buf, const char *format, ...);
 extern int	snprintf(char *buf, size_t maxlen, const char *format, ...);
+extern void	perror(const char *s);
 
 extern FILE	*fopen(const char *file, const char *mode);
 extern FILE	*freopen(const char *file, const char *mode, FILE *fp);
@@ -29,6 +30,10 @@ extern int	fclose(FILE *fp);
 extern void	fflush(FILE *fp);
 extern off_t	ftell(FILE *fp);
 extern int	fseek(FILE *fp, long int amt, int whence);
+extern void	clearerr(FILE *stream);
+extern int	feof(FILE *stream);
+extern int	ferror(FILE *stream);
+extern int	fileno(FILE *stream);
 
 extern size_t	fread(void *buf, size_t size, size_t n, FILE *fp);
 extern size_t	fwrite(void *buf, size_t size, size_t n, FILE *fp);

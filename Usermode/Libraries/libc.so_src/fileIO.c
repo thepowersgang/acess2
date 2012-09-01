@@ -131,6 +131,25 @@ EXPORT void fflush(FILE *fp)
 	///\todo Implement
 }
 
+EXPORT void clearerr(FILE *stream)
+{
+	/// \todo Impliment
+}
+
+EXPORT int feof(FILE *stream)
+{
+	return 0;	//stream->;	// ?
+}
+
+EXPORT int ferror(FILE *stream)
+{
+	return 0;
+}
+EXPORT int fileno(FILE *stream)
+{
+	return stream->FD;
+}
+
 EXPORT off_t ftell(FILE *fp)
 {
 	if(!fp || !fp->FD)	return -1;
