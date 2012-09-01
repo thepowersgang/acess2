@@ -54,10 +54,6 @@ extern void	FD_CLR(int fd, fd_set *fdsetp);
 extern void	FD_SET(int fd, fd_set *fdsetp);
 extern int	FD_ISSET(int fd, fd_set *fdsetp);
 
-typedef __uint8_t	u_int8_t;
-typedef __uint16_t	u_int16_t;
-typedef __uint32_t	u_int32_t;
-
 #include "../sys/stat.h"
 
 #endif

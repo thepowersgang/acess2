@@ -10,6 +10,7 @@
 #define _SYS_SOCKETS_H_
 
 #include <sys/types.h>
+#include <stddef.h>	// size_t
 
 typedef int	socklen_t;
 

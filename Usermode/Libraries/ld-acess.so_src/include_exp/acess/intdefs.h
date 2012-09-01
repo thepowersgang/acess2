@@ -3,6 +3,10 @@
 #ifndef _ACESS_INTDEFS_H_
 #define _ACESS_INTDEFS_H_
 
+#include <stdint.h>
+#include <limits.h>
+
+#if 0
 #define INT_MIN	-0x80000000
 #define INT_MAX	0x7FFFFFFF
 
@@ -29,7 +33,7 @@ typedef __uint32_t 	__uintptr_t;
 # error "Unknown pointer size"
 #endif
 
-//typedef uint64_t	off_t;
+#endif
 
 #endif
 

@@ -8,6 +8,7 @@
 #include <common.h>
 #include <acess/sys.h>
 #include <wm_input.h>
+#include <stddef.h>
 
 // TODO: Move out to a common header
 typedef struct

@@ -79,6 +79,7 @@ extern int	_SysGetACL(int fd, t_sysACL *dest);
 extern int	_SysMount(const char *Device, const char *Directory, const char *Type, const char *Options);
 extern int	_SysSelect(int nfds, fd_set *read, fd_set *write, fd_set *err, int64_t *timeout, unsigned int extraevents);
 #define select(nfs, rdfds, wrfds, erfds, timeout)	_SysSelect(nfs, rdfds, wrfds, erfds, timeout, 0)
+extern int	unlink(const char *pathname);
 
 // --- IPC ---
 extern int	SysSendMessage(pid_t dest, uint length, const void *Data);
