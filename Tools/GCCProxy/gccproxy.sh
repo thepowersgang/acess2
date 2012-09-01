@@ -67,7 +67,7 @@ run() {
 }
 
 if [[ $_preproc -eq 1 ]]; then
-	run $_CC -E $CFLAGS $_cflags $_outfile
+	run $_CC -E $CFLAGS $_cflags $_miscargs $_outfile
 	exit $?
 fi
 if [[ $_compile -eq 1 ]]; then
