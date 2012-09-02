@@ -97,6 +97,7 @@ extern int	FAT_int_DerefNode(tVFS_Node *Node);
 extern void	FAT_int_ClearNodeCache(tFAT_VolInfo *Disk);
 
 // --- FAT Access ---
+#define GETFATVALUE_EOC	0xFFFFFFFF
 extern Uint32	FAT_int_GetFatValue(tFAT_VolInfo *Disk, Uint32 Cluster);
 #if SUPPORT_WRITE
 extern Uint32	FAT_int_AllocateCluster(tFAT_VolInfo *Disk, Uint32 Previous);

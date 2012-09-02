@@ -334,7 +334,7 @@ int FAT_int_GetAddress(tVFS_Node *Node, Uint64 Offset, Uint64 *Addr, Uint32 *Clu
 			if(Cluster)	*Cluster = cluster;
 			cluster = FAT_int_GetFatValue(disk, cluster);
 			// Check for end of cluster chain
-			if(cluster == 0xFFFFFFFF) {	LEAVE('i', 1);	return 1;}
+			if(cluster == GETFATVALUE_EOC) { LEAVE('i', 1); return 1; }
 		}
 		if(Cluster)	*Cluster = cluster;
 	}
@@ -417,7 +417,7 @@ size_t FAT_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 	for(i = preSkip; i--; )
 	{
 		cluster = FAT_int_GetFatValue(disk, cluster);
-		if(cluster == -1) {
+		if(cluster == GETFATVALUE_EOC) {
 			Log_Warning("FAT", "Offset is past end of cluster chain mark");
 			LEAVE('i', 0);
 			return 0;
@@ -443,7 +443,7 @@ size_t FAT_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 		LOG("pos = %i, Reading the rest of the clusters");
 		// Get next cluster in the chain
 		cluster = FAT_int_GetFatValue(disk, cluster);
-		if(cluster == -1) {
+		if(cluster == GETFATVALUE_EOC) {
 			Log_Warning("FAT", "Read past End of Cluster Chain (Align)");
 			LEAVE('X', pos);
 			return pos;
@@ -461,7 +461,7 @@ size_t FAT_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 	// Read the rest of the cluster data
 	for( ; count; count -- )
 	{
-		if(cluster == -1) {
+		if(cluster == GETFATVALUE_EOC) {
 			Log_Warning("FAT", "Read past End of Cluster Chain (Bulk)");
 			LEAVE('X', pos);
 			return pos;
@@ -519,7 +519,7 @@ size_t FAT_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffe
 	while( Offset > disk->BytesPerCluster )
 	{
 		cluster = FAT_int_GetFatValue( disk, cluster );
-		if(cluster == -1) {
+		if(cluster == GETFATVALUE_EOC) {
 			Log_Warning("FAT", "EOC Unexpectedly Reached");
 			LEAVE('i', 0);
 			return 0;
@@ -565,7 +565,7 @@ size_t FAT_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffe
 		
 		// Get next cluster (allocating if needed)
 		tmpCluster = FAT_int_GetFatValue(disk, cluster);
-		if(tmpCluster == -1) {
+		if(tmpCluster == GETFATVALUE_EOC) {
 			tmpCluster = FAT_int_AllocateCluster(disk, cluster);
 			if( tmpCluster == 0 )
 				goto ret_incomplete;
@@ -581,7 +581,7 @@ size_t FAT_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffe
 		
 		// Get next cluster (allocating if needed)
 		tmpCluster = FAT_int_GetFatValue(disk, cluster);
-		if(tmpCluster == -1) {
+		if(tmpCluster == GETFATVALUE_EOC) {
 			bNewCluster = 1;
 			tmpCluster = FAT_int_AllocateCluster(disk, cluster);
 			if( tmpCluster == 0 )

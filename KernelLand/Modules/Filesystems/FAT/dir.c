@@ -278,7 +278,10 @@ int FAT_int_GetEntryByCluster(tVFS_Node *DirNode, Uint32 Cluster, fat_filetable 
 	fat_filetable	fileinfo[ents_per_sector];
 	 int	i, sector;
 
-	Mutex_Acquire(&DirNode->Lock);
+	if( Mutex_Acquire(&DirNode->Lock) ) {
+		return -EINTR;
+	}
+	
 	sector = 0;
 	for( i = 0; ; i ++ )
 	{
@@ -318,7 +321,7 @@ int FAT_int_GetEntryByCluster(tVFS_Node *DirNode, Uint32 Cluster, fat_filetable 
 	}
 	
 	Mutex_Release(&DirNode->Lock);
-	return -1;
+	return -ENOENT;
 }
 
 /* 
@@ -445,7 +448,9 @@ Uint16 *FAT_int_GetLFN(tVFS_Node *Node, int ID)
 	tFAT_LFNCache	*cache;
 	 int	i, firstFree;
 	
-	Mutex_Acquire( &Node->Lock );
+	if( Mutex_Acquire( &Node->Lock ) ) {
+		return NULL;
+	}
 	
 	// TODO: Thread Safety (Lock things)
 	cache = Node->Data;
@@ -813,7 +818,9 @@ int FAT_Link(tVFS_Node *DirNode, const char *NewName, tVFS_Node *NewNode)
 	const int eps = 512 / sizeof(fat_filetable);
 	fat_filetable	fileinfo[eps];
 	
-	Mutex_Acquire( &DirNode->Lock );
+	if( Mutex_Acquire( &DirNode->Lock ) ) {
+		return EINTR;
+	}
 
 	// -- Ensure duplicates aren't created --
 	if( FAT_int_GetEntryByName(DirNode, NewName, &ft) >= 0 ) {
@@ -1097,7 +1104,9 @@ int FAT_Unlink(tVFS_Node *Node, const char *OldName)
 	tVFS_Node	*child;
 	fat_filetable	ft;
 	
-	Mutex_Acquire(&Node->Lock);
+	if( Mutex_Acquire(&Node->Lock) ) {
+		return EINTR;
+	}
 
 	int id = FAT_int_GetEntryByName(Node, OldName, &ft);
 	if(id == -1) {
