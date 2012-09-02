@@ -29,6 +29,7 @@ CFLAGS  	+= -Wall -fno-stack-protector -Wstrict-prototypes -std=gnu99 -g
 CFLAGS  	+= -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings -Wmissing-prototypes -Wmissing-declarations -Wredundant-decls -Wnested-externs -Winline -Wuninitialized
 CFLAGS          += -O3
 LDFLAGS		+= -T arch/$(ARCHDIR)/link.ld -g
+LIBGCC_PATH     := $(shell $(CC) -print-libgcc-file-name)
 
 ifeq ($(PLATFORM),default)
 	OBJDIR := obj-$(ARCH)/

@@ -102,7 +102,7 @@ struct sThread
 };
 
 
-enum {
+enum eThreadStatus {
 	THREAD_STAT_NULL,	// Invalid process
 	THREAD_STAT_ACTIVE,	// Running and schedulable process
 	THREAD_STAT_SLEEPING,	// Message Sleep

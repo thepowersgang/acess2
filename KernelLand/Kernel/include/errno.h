@@ -22,6 +22,7 @@ enum eErrorNums
 	ENFILE,	// Too many open files
 	ENOTDIR,	// Not a directory
 	EIO,	// IO Error
+	EINTR,	// Operation interrupted (signal)
 	
 	EALREADY,	// Operation was a NOP
 	EINTERNAL,	// Internal Error

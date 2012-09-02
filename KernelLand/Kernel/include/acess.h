@@ -15,6 +15,8 @@
 #define PACKED	__attribute__((packed))
 //! Mark a function as not returning
 #define NORETURN	__attribute__((noreturn))
+//! Mark a function that its return value should be used
+#define WARN_UNUSED_RET	__attribute__((warn_unused_result))
 //! Mark a function (or variable) as deprecated
 #define DEPRECATED	__attribute__((deprecated))
 //! Mark a parameter as unused
