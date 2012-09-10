@@ -27,9 +27,19 @@ SECTIONS
 		*(.usertext)
 	}
 	. += gUsertextPhysStart + _kernel_base - _usertext_vbase;
-	
+
+	/DISCARD/           : { *(.ARM.extab.init .ARM.exidx.init)      }
+	.ARM.extab          : { *(.ARM.extab* .gnu.linkonce.armextab.*) }
+	PROVIDE_HIDDEN ( __exidx_start = . );
+	.ARM.exidx          : { *(.ARM.exidx* .gnu.linkonce.armexidx.*) }
+	PROVIDE_HIDDEN ( __exidx_end = . );
+	.eh_frame_hdr       : { *(.eh_frame_hdr) }
+	.eh_frame           : ONLY_IF_RO { KEEP (*(.eh_frame)) }
+	.gcc_except_table   : ONLY_IF_RO { *(.gcc_except_table .gcc_except_table.*) }
+
 	/* 0x4000 (4 pages) alignment needed for root table */
-	.data ALIGN(0x4000) : AT( ADDR(.data) - _kernel_base )
+	. = ALIGN(0x4000);
+	.data : AT( ADDR(.data) - _kernel_base )
 	{
 		*(.padata)
 		*(.data*)
@@ -42,7 +52,7 @@ SECTIONS
 		*(KMODULES)
 		gKernelModulesEnd = .;
 	}
-	.bss : AT( ADDR(.bss) - _kernel_base )
+	.bss ALIGN(0x1000) : AT( ADDR(.bss) - _kernel_base )
 	{
 		bss_start = .;
 		*(.bss*)
