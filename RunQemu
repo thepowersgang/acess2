@@ -33,6 +33,13 @@ while [ $# -ne 0 ]; do
 	-dbgbin)
 		QEMU=/home/tpg/apps/bin/qemu-system-x86_64
 		;;
+	-bin)
+		shift
+		QEMU=$1
+		;;
+	-dbgscript)
+		QEMU="echo $QEMU"
+		;;
 	-extramem)
 		QEMU_PARAMS=$QEMU_PARAMS" -m 768"
 		;;
@@ -52,6 +59,9 @@ while [ $# -ne 0 ]; do
 	-notee)
 		_NOTEE="yes"
 		;;
+	-nographic)
+		_NOGRAPHIC="yes"
+		;;
 	esac
 	shift
 done
@@ -59,6 +69,7 @@ QEMU_PARAMS=$QEMU_PARAMS" -net "$_NETTYPE
 
 if [ "x$_NOUSB" != "xyes" ] ; then
 	QEMU_PARAMS=$QEMU_PARAMS" -usb"
+	QEMU_PARAMS=$QEMU_PARAMS" -device usb-ehci"
 	QEMU_PARAMS=$QEMU_PARAMS" -drive id=test_usb_image,file=USB_Test_Image.img,if=none"
 	QEMU_PARAMS=$QEMU_PARAMS" -device usb-storage,drive=test_usb_image"
 	QEMU_PARAMS=$QEMU_PARAMS" -usbdevice mouse"
@@ -68,8 +79,14 @@ fi
 #	/home/tpg/apps/bin/qemu-system-x86_64 $QEMU_PARAMS -serial stdio -serial file:QemuLog.txt
 #	qemu-system-x86_64 $QEMU_PARAMS -serial stdio | tee QemuLog.txt
 #echo $QEMU $BOOTOPT $QEMU_PARAMS
-if [ "x$_NOTEE" != "xyes" ] ; then
-	$QEMU $BOOTOPT $QEMU_PARAMS -serial stdio | tee QemuLog.txt
-else
-	$QEMU $BOOTOPT $QEMU_PARAMS -serial stdio
+if [ "x$_NOGRAPHIC" = "xyes" ] ; then
+	$QEMU $BOOTOPT $QEMU_PARAMS -nographic
+	exit
 fi
+
+if [ "x$_NOTEE" = "xyes" ] ; then
+	$QEMU $BOOTOPT $QEMU_PARAMS -serial stdio
+	exit
+fi
+
+$QEMU $BOOTOPT $QEMU_PARAMS -serial stdio | tee QemuLog.txt
