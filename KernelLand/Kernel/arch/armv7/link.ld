@@ -29,13 +29,27 @@ SECTIONS
 	. += gUsertextPhysStart + _kernel_base - _usertext_vbase;
 
 	/DISCARD/           : { *(.ARM.extab.init .ARM.exidx.init)      }
-	.ARM.extab          : { *(.ARM.extab* .gnu.linkonce.armextab.*) }
+	.ARM.extab          : AT( ADDR(.ARM.extab) - _kernel_base)
+	{
+		*(.ARM.extab* .gnu.linkonce.armextab.*)
+	}
 	PROVIDE_HIDDEN ( __exidx_start = . );
-	.ARM.exidx          : { *(.ARM.exidx* .gnu.linkonce.armexidx.*) }
+	.ARM.exidx          : AT( ADDR(.ARM.exidx) - _kernel_base)
+	{
+		*(.ARM.exidx* .gnu.linkonce.armexidx.*)
+	}
 	PROVIDE_HIDDEN ( __exidx_end = . );
-	.eh_frame_hdr       : { *(.eh_frame_hdr) }
-	.eh_frame           : ONLY_IF_RO { KEEP (*(.eh_frame)) }
-	.gcc_except_table   : ONLY_IF_RO { *(.gcc_except_table .gcc_except_table.*) }
+	.eh_frame_hdr       : AT( ADDR(.eh_frame_hdr) - _kernel_base) {
+		*(.eh_frame_hdr)
+	}
+	.eh_frame           : AT( ADDR(.eh_frame) - _kernel_base) ONLY_IF_RO
+	{
+		KEEP (*(.eh_frame))
+	}
+	.gcc_except_table   : AT( ADDR(.gcc_except_table) - _kernel_base) ONLY_IF_RO
+	{
+		*(.gcc_except_table .gcc_except_table.*)
+	}
 
 	/* 0x4000 (4 pages) alignment needed for root table */
 	. = ALIGN(0x4000);
