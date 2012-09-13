@@ -92,7 +92,7 @@ struct sEHCI_OpRegs
 	 * 15    = Asynchronous Schedule Status
 	 * 16:31 = Reserved ?(Zero)
 	 */
-	Uint32	USBSts;
+	volatile Uint32	USBSts;
 	/**
 	 * USB Interrupt Enable Register
 	 *
@@ -110,7 +110,7 @@ struct sEHCI_OpRegs
 	 * 
 	 * Bits 14:3 are used as n index into PeridocListBase
 	 */
-	Uint32	FrIndex;
+	volatile Uint32	FrIndex;
 	/**
 	 * Control Data Structure Segment Register
 	 *

@@ -71,10 +71,16 @@ int EHCI_Initialise(char **Arguments)
 			// TODO: The same
 		}
 
-		if( EHCI_InitController(addr, irq) ) {
+		Log_Log("ECHI", "Controller at PCI %i 0x%x IRQ 0x%x",
+			id, addr, irq);
+
+		if( EHCI_InitController(addr, irq) )
+		{
 			// TODO: Detect other forms of failure than "out of slots"
 			break ;
 		}
+
+		// TODO: Register with the USB stack
 	}
 	return 0;
 }
@@ -99,6 +105,7 @@ int EHCI_InitController(tPAddr BaseAddress, Uint8 InterruptNum)
 	}
 
 	if(!cont) {
+		Log_Notice("EHCI", "Too many controllers (EHCI_MAX_CONTROLLERS=%i)", EHCI_MAX_CONTROLLERS);
 		return 1;
 	}
 
@@ -138,6 +145,14 @@ void EHCI_InterruptHandler(int IRQ, void *Ptr)
 	// Clear interrupts
 	cont->OpRegs->USBSts = sts;	
 
+	if( sts & 0xFFFF0FC0 ) {
+		LOG("Oops, reserved bits set (%08x), funny hardware?", sts);
+		sts &= ~0xFFFF0FFC0;
+	}
+
+	// Unmask read-only bits
+	sts &= ~(0xF000);
+
 	if( sts & USBINTR_IOC ) {
 		// IOC
 		sts &= ~USBINTR_IOC;
@@ -145,18 +160,23 @@ void EHCI_InterruptHandler(int IRQ, void *Ptr)
 
 	if( sts & USBINTR_PortChange ) {
 		// Port change, determine what port and poke helper thread
+		LOG("Port status change");
 		sts &= ~USBINTR_PortChange;
 	}
 	
 	if( sts & USBINTR_FrameRollover ) {
 		// Frame rollover, used to aid timing (trigger per-second operations)
+		LOG("Frame rollover");
 		sts &= ~USBINTR_FrameRollover;
 	}
 
 	if( sts ) {
 		// Unhandled interupt bits
 		// TODO: Warn
+		LOG("WARN - Bitmask %x unhandled", sts);
 	}
+
+
 }
 
 // --------------------------------------------------------------------
