@@ -130,7 +130,7 @@ tTID Proc_Clone(Uint Flags)
 	return new->TID;
 }
 
-int Proc_SpawnWorker( void (*Fnc)(void*), void *Ptr )
+tThread *Proc_SpawnWorker( void (*Fnc)(void*), void *Ptr )
 {
 	tThread	*new;
 	Uint32	sp;
@@ -144,7 +144,7 @@ int Proc_SpawnWorker( void (*Fnc)(void*), void *Ptr )
 	if(!new->KernelStack) {
 		// TODO: Delete thread
 		Log_Error("Proc", "Unable to allocate kernel stack");
-		return -1;
+		return NULL;
 	}	
 
 	sp = new->KernelStack;
@@ -158,7 +158,7 @@ int Proc_SpawnWorker( void (*Fnc)(void*), void *Ptr )
 
 	Threads_AddActive(new);
 
-	return new->TID;
+	return new;
 }
 
 tTID Proc_NewKThread( void (*Fnc)(void*), void *Ptr )

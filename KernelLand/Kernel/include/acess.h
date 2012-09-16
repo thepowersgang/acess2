@@ -509,7 +509,7 @@ extern Sint64	now(void);
  * \name Threads and Processes
  * \{
  */
-extern int	Proc_SpawnWorker(void (*Fcn)(void*), void *Data);
+extern struct sThread	*Proc_SpawnWorker(void (*Fcn)(void*), void *Data);
 extern int	Proc_Spawn(const char *Path);
 extern int	Proc_SysSpawn(const char *Binary, const char **ArgV, const char **EnvP, int nFD, int *FDs);
 extern int	Proc_Execve(const char *File, const char **ArgV, const char **EnvP, int DataSize);
