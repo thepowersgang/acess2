@@ -8,6 +8,8 @@
 #ifndef _EHCI_H_
 #define _EHCI_H_
 
+#include <threads.h>
+
 #define PERIODIC_SIZE	1024
 
 typedef struct sEHCI_CapRegs	tEHCI_CapRegs;
@@ -159,7 +161,7 @@ struct sEHCI_OpRegs
 	 * 22    = Wake on Over-current Enable
 	 * 23:31 = Reserved (ZERO)
 	 */
-	Uint32	PortSC[15];
+	volatile Uint32	PortSC[15];
 };
 
 #define USBCMD_Run	0x0001
@@ -173,6 +175,28 @@ struct sEHCI_OpRegs
 #define USBINTR_FrameRollover	0x0008
 #define USBINTR_HostSystemError	0x0010
 #define USBINTR_AsyncAdvance	0x0020
+
+#define PORTSC_CurrentConnectStatus	0x0001
+#define PORTSC_ConnectStatusChange	0x0002
+#define PORTSC_PortEnabled	0x0004
+#define PORTSC_PortEnableChange	0x0008
+#define PORTSC_OvercurrentActive	0x0010
+#define PORTSC_OvercurrentChange	0x0020
+#define PORTSC_ForcePortResume	0x0040
+#define PORTSC_Suspend  	0x0080
+#define PORTSC_PortReset	0x0100
+#define PORTSC_Reserved1	0x0200
+#define PORTSC_LineStatus_MASK	0x0C00
+#define PORTSC_LineStatus_SE0   	0x0000
+#define PORTSC_LineStatus_Jstate	0x0400
+#define PORTSC_LineStatus_Kstate	0x0800
+#define PORTSC_LineStatus_Undef 	0x0C00
+#define PORTSC_PortPower	0x1000
+#define PORTSC_PortOwner	0x2000
+#define PORTSC_PortIndicator_MASK	0xC000
+#define PORTSC_PortIndicator_Off	0x0000
+#define PORTSC_PortIndicator_Amber	0x4000
+#define PORTSC_PortIndicator_Green	0x800
 
 // Isochronous (High-Speed) Transfer Descriptor
 struct sEHCI_iTD
@@ -241,6 +265,10 @@ struct sEHCI_QH
 
 struct sEHCI_Controller
 {
+	tUSBHub	*RootHub;
+	tThread	*InterruptThread;
+	 int	nPorts;
+
 	tPAddr	PhysBase;
 	tEHCI_CapRegs	*CapRegs;
 	tEHCI_OpRegs	*OpRegs;
@@ -248,8 +276,9 @@ struct sEHCI_Controller
 	 int	InterruptLoad[PERIODIC_SIZE];
 	tEHCI_QH	*LastAsyncHead;
 	
-	Uint32	*PeriodicQueue;
-	tEHCI_QH PeriodicQueueV[PERIODIC_SIZE];
+	tMutex  	PeriodicListLock;
+	Uint32  	*PeriodicQueue;
+	tEHCI_QH	*PeriodicQueueV[PERIODIC_SIZE];
 	
 	tEHCI_QH	*QHPools[(256*16)*sizeof(tEHCI_QH)/PAGE_SIZE];	// [PAGE_SIZE/64]
 	tEHCI_qTD	*TDPool[PAGE_SIZE/sizeof(tEHCI_qTD)];

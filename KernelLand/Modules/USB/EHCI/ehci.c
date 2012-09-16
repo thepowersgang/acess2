@@ -13,9 +13,13 @@
 #include "ehci.h"
 #include <drv_pci.h>
 #include <limits.h>
+#include <events.h>
+#include <timers.h>
 
 // === CONSTANTS ===
 #define EHCI_MAX_CONTROLLERS	4
+#define EHCI_THREADEVENT_IOC	THREAD_EVENT_USER1
+#define EHCI_THREADEVENT_PORTSC	THREAD_EVENT_USER2
 
 // === PROTOTYPES ===
  int	EHCI_Initialise(char **Arguments);
@@ -36,12 +40,17 @@ void	*EHCI_SendControl(void *Ptr, void *Dest, tUSBHostCb Cb, void *CbData,
 	);
 void	*EHCI_SendBulk(void *Ptr, void *Dest, tUSBHostCb Cb, void *CbData, int Dir, void *Data, size_t Length);
 void	EHCI_FreeOp(void *Ptr, void *Handle);
+Uint32	EHCI_int_RootHub_FeatToMask(int Feat);
+void	EHCI_RootHub_SetPortFeature(void *Ptr, int Port, int Feat);
+void	EHCI_RootHub_ClearPortFeature(void *Ptr, int Port, int Feat);
+ int	EHCI_RootHub_GetPortStatus(void *Ptr, int Port, int Flag);
 // --- Internals ---
 tEHCI_qTD	*EHCI_int_AllocateTD(tEHCI_Controller *Cont, int PID, void *Data, size_t Length, tUSBHostCb Cb, void *CbData);
 void	EHCI_int_DeallocateTD(tEHCI_Controller *Cont, tEHCI_qTD *TD);
 void	EHCI_int_AppendTD(tEHCI_QH *QH, tEHCI_qTD *TD);
 tEHCI_QH	*EHCI_int_AllocateQH(tEHCI_Controller *Cont, int Endpoint, size_t MaxPacketSize);
 void	EHCI_int_DeallocateQH(tEHCI_Controller *Cont, tEHCI_QH *QH);
+void	EHCI_int_InterruptThread(void *ControllerPtr);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, USB_EHCI, EHCI_Initialise, NULL, "USB_Core", NULL);
@@ -49,12 +58,18 @@ tEHCI_Controller	gaEHCI_Controllers[EHCI_MAX_CONTROLLERS];
 tUSBHostDef	gEHCI_HostDef = {
 	.InitInterrupt = EHCI_InitInterrupt,
 	.InitIsoch     = EHCI_InitIsoch,
+	.InitControl   = EHCI_InitControl,
 	.InitBulk      = EHCI_InitBulk,
 	.RemEndpoint   = EHCI_RemEndpoint,
 	.SendIsoch   = NULL,
 	.SendControl = EHCI_SendControl,
 	.SendBulk    = EHCI_SendBulk,
-	.FreeOp      = EHCI_FreeOp
+	.FreeOp      = EHCI_FreeOp,
+	
+	.CheckPorts = NULL,	// No need
+	.SetPortFeature   = EHCI_RootHub_SetPortFeature,
+	.ClearPortFeature = EHCI_RootHub_ClearPortFeature,
+	.GetPortStatus    = EHCI_RootHub_GetPortStatus,
 	};
 
 // === CODE ===
@@ -103,23 +118,50 @@ int EHCI_InitController(tPAddr BaseAddress, Uint8 InterruptNum)
 			break;
 		}
 	}
-
 	if(!cont) {
-		Log_Notice("EHCI", "Too many controllers (EHCI_MAX_CONTROLLERS=%i)", EHCI_MAX_CONTROLLERS);
+		Log_Notice("EHCI", "Too many controllers (EHCI_MAX_CONTROLLERS=%i)",
+			EHCI_MAX_CONTROLLERS);
 		return 1;
 	}
 
+	// - Nuke a couple of fields so error handling code doesn't derp
+	cont->CapRegs = NULL;
+	cont->PeriodicQueue = NULL;
+
 	// -- Build up structure --
 	cont->CapRegs = (void*)MM_MapHWPages(BaseAddress, 1);
+	if( !cont->CapRegs ) {
+		Log_Warning("EHCI", "Can't map 1 page at %P into kernel space", BaseAddress);
+		goto _error;
+	}
 	// TODO: Error check
+	if( (cont->CapRegs->CapLength & 3) ) {
+		Log_Warning("EHCI", "Controller at %P non-aligned op regs", BaseAddress);
+		goto _error;
+	}
 	cont->OpRegs = (void*)( (Uint32*)cont->CapRegs + cont->CapRegs->CapLength / 4 );
 	// - Allocate periodic queue
-	cont->PeriodicQueue = (void*)MM_AllocDMA(1, 32, NULL);
+	tPAddr	unused;
+	cont->PeriodicQueue = (void*)MM_AllocDMA(1, 32, &unused);
+	if( !cont->PeriodicQueue ) {
+		Log_Warning("ECHI", "Can't allocate 1 32-bit page for periodic queue");
+		goto _error;
+	}
 	// TODO: Error check
 	//  > Populate queue
 
+	// Get port count
+	cont->nPorts = cont->CapRegs->HCSParams & 0xF;
+
+
 	// -- Bind IRQ --
 	IRQ_AddHandler(InterruptNum, EHCI_InterruptHandler, cont);
+	cont->InterruptThread = Proc_SpawnWorker(EHCI_int_InterruptThread, cont);
+	if( !cont->InterruptThread ) {
+		Log_Warning("EHCI", "Can't spawn interrupt worker thread");
+		goto _error;
+	}
+	LOG("cont->InterruptThread = %p", cont->InterruptThread);
 
 	// -- Initialisation procedure (from ehci-r10) --
 	// - Reset controller
@@ -133,17 +175,27 @@ int EHCI_InitController(tPAddr BaseAddress, Uint8 InterruptNum)
 	cont->OpRegs->USBCmd = (0x40 << 16) | USBCMD_PeriodicEnable | USBCMD_Run;
 	// - Route all ports
 	cont->OpRegs->ConfigFlag = 1;
-	
+
+	// -- Register with USB Core --
+	cont->RootHub = USB_RegisterHost(&gEHCI_HostDef, cont, cont->nPorts);
+
 	return 0;
+_error:
+	cont->PhysBase = 0;
+	if( cont->CapRegs )
+		MM_Deallocate( (tVAddr)cont->CapRegs );
+	if( cont->PeriodicQueue )
+		MM_Deallocate( (tVAddr)cont->PeriodicQueue );
+	return 2;
 }
 
 void EHCI_InterruptHandler(int IRQ, void *Ptr)
 {
-	tEHCI_Controller *cont = Ptr;
-	Uint32	sts = cont->OpRegs->USBSts;
+	tEHCI_Controller *Cont = Ptr;
+	Uint32	sts = Cont->OpRegs->USBSts;
 	
 	// Clear interrupts
-	cont->OpRegs->USBSts = sts;	
+	Cont->OpRegs->USBSts = sts;	
 
 	if( sts & 0xFFFF0FC0 ) {
 		LOG("Oops, reserved bits set (%08x), funny hardware?", sts);
@@ -155,12 +207,14 @@ void EHCI_InterruptHandler(int IRQ, void *Ptr)
 
 	if( sts & USBINTR_IOC ) {
 		// IOC
+		Threads_PostEvent(Cont->InterruptThread, EHCI_THREADEVENT_IOC);
 		sts &= ~USBINTR_IOC;
 	}
 
 	if( sts & USBINTR_PortChange ) {
 		// Port change, determine what port and poke helper thread
 		LOG("Port status change");
+		Threads_PostEvent(Cont->InterruptThread, EHCI_THREADEVENT_PORTSC);
 		sts &= ~USBINTR_PortChange;
 	}
 	
@@ -216,6 +270,8 @@ void *EHCI_InitInterrupt(void *Ptr, int Endpoint, int bOutbound, int Period,
 	tEHCI_QH *qh = EHCI_int_AllocateQH(Cont, Endpoint, Length);
 	qh->Impl.IntPeriodPow = period_pow;
 
+	Mutex_Acquire(&Cont->PeriodicListLock);
+
 	// Choose an interrupt slot to use	
 	int minslot = 0, minslot_load = INT_MAX;
 	for( int slot = 0; slot < Period; slot ++ )
@@ -230,8 +286,8 @@ void *EHCI_InitInterrupt(void *Ptr, int Endpoint, int bOutbound, int Period,
 		}
 	}
 	// Increase loading on the selected slot
-	for( int i = 0; i < PERIODIC_SIZE; i += Period )
-		Cont->InterruptLoad[i+minslot] += Length;
+	for( int i = minslot; i < PERIODIC_SIZE; i += Period )
+		Cont->InterruptLoad[i] += Length;
 	qh->Impl.IntOfs = minslot;
 
 	// Allocate TD for the data
@@ -239,6 +295,51 @@ void *EHCI_InitInterrupt(void *Ptr, int Endpoint, int bOutbound, int Period,
 	EHCI_int_AppendTD(qh, td);
 
 	// Insert into the periodic list
+	for( int i = 0; i < PERIODIC_SIZE; i += Period )
+	{
+		// Walk list until
+		// - the end is reached
+		// - this QH is found
+		// - A QH with a lower period is encountered
+		tEHCI_QH	*pqh = NULL;
+		tEHCI_QH	*nqh;
+		for( nqh = Cont->PeriodicQueueV[i]; nqh; pqh = nqh, nqh = nqh->Impl.Next )
+		{
+			if( nqh == qh )
+				break;
+			if( nqh->Impl.IntPeriodPow < period_pow )
+				break;
+		}
+
+		// Somehow, we've already been added to this queue.
+		if( nqh && nqh == qh )
+			continue ;
+
+		if( qh->Impl.Next && qh->Impl.Next != nqh ) {
+			Log_Warning("EHCI", "Suspected bookkeeping error on %p - int list %i+%i overlap",
+				Cont, period_pow, minslot);
+			break;
+		}
+
+		if( nqh ) {
+			qh->Impl.Next = nqh;
+			qh->HLink = MM_GetPhysAddr(nqh) | 2;
+		}
+		else {
+			qh->Impl.Next = NULL;
+			qh->HLink = 2|1;	// QH, Terminate
+		}
+
+		if( pqh ) {
+			pqh->Impl.Next = qh;
+			pqh->HLink = MM_GetPhysAddr(qh) | 2;
+		}
+		else {
+			Cont->PeriodicQueueV[i] = qh;
+			Cont->PeriodicQueue[i] = MM_GetPhysAddr(qh) | 2;
+		}
+	}
+	Mutex_Release(&Cont->PeriodicListLock);
 
 	return qh;
 }
@@ -263,6 +364,8 @@ void *EHCI_InitControl(void *Ptr, int Endpoint, size_t MaxPacketSize)
 		Cont->OpRegs->AsyncListAddr = MM_GetPhysAddr(qh)|2;
 	Cont->LastAsyncHead = qh;
 
+	LOG("Created %p for %p Ep 0x%x - %i bytes MPS", qh, Ptr, Endpoint, MaxPacketSize);
+
 	return qh;
 }
 void *EHCI_InitBulk(void *Ptr, int Endpoint, size_t MaxPacketSize)
@@ -276,8 +379,16 @@ void EHCI_RemEndpoint(void *Ptr, void *Handle)
 	else if( (tVAddr)Handle <= 256*16 )
 		return ;	// Isoch
 	else {
+		tEHCI_QH	*qh = Ptr;
+
 		// Remove QH from list
 		// - If it's a polling endpoint, need to remove from all periodic lists
+		if( qh->Impl.IntPeriodPow != 0xFF) {
+			// Poll
+		}
+		else {
+			// GP
+		}
 		
 		// Deallocate QH
 		EHCI_int_DeallocateQH(Ptr, Handle);
@@ -304,18 +415,19 @@ void *EHCI_SendControl(void *Ptr, void *Dest, tUSBHostCb Cb, void *CbData,
 	td_setup = EHCI_int_AllocateTD(Cont, PID_SETUP, (void*)SetupData, SetupLength, NULL, NULL);
 	if( isOutbound )
 	{
-		td_data = EHCI_int_AllocateTD(Cont, PID_OUT, (void*)OutData, OutLength, NULL, NULL);
+		td_data = OutData ? EHCI_int_AllocateTD(Cont, PID_OUT, (void*)OutData, OutLength, NULL, NULL) : NULL;
 		td_status = EHCI_int_AllocateTD(Cont, PID_IN, InData, InLength, Cb, CbData);
 	}
 	else
 	{
-		td_data = EHCI_int_AllocateTD(Cont, PID_IN, InData, InLength, NULL, NULL);
+		td_data = InData ? EHCI_int_AllocateTD(Cont, PID_IN, InData, InLength, NULL, NULL) : NULL;
 		td_status = EHCI_int_AllocateTD(Cont, PID_OUT, (void*)OutData, OutLength, Cb, CbData);
 	}
 
 	// Append TDs
 	EHCI_int_AppendTD(Dest, td_setup);
-	EHCI_int_AppendTD(Dest, td_data);
+	if( td_data )
+		EHCI_int_AppendTD(Dest, td_data);
 	EHCI_int_AppendTD(Dest, td_status);
 
 	return td_status;
@@ -344,28 +456,148 @@ void EHCI_FreeOp(void *Ptr, void *Handle)
 	EHCI_int_DeallocateTD(Cont, Handle);
 }
 
+Uint32 EHCI_int_RootHub_FeatToMask(int Feat)
+{
+	switch(Feat)
+	{
+	case PORT_RESET:	return PORTSC_PortReset;
+	case PORT_ENABLE:	return PORTSC_PortEnabled;
+	default:
+		Log_Warning("EHCI", "Unknown root hub port feature %i", Feat);
+		return 0;
+	}
+}
+
+void EHCI_RootHub_SetPortFeature(void *Ptr, int Port, int Feat)
+{
+	tEHCI_Controller	*Cont = Ptr;
+	if(Port >= Cont->nPorts)	return;
+
+	Cont->OpRegs->PortSC[Port] |= EHCI_int_RootHub_FeatToMask(Feat);
+}
+
+void EHCI_RootHub_ClearPortFeature(void *Ptr, int Port, int Feat)
+{
+	tEHCI_Controller	*Cont = Ptr;
+	if(Port >= Cont->nPorts)	return;
+
+	Cont->OpRegs->PortSC[Port] &= ~EHCI_int_RootHub_FeatToMask(Feat);
+}
+
+int EHCI_RootHub_GetPortStatus(void *Ptr, int Port, int Flag)
+{
+	tEHCI_Controller	*Cont = Ptr;
+	if(Port >= Cont->nPorts)	return 0;
+
+	return !!(Cont->OpRegs->PortSC[Port] & EHCI_int_RootHub_FeatToMask(Flag));
+}
+
 // --------------------------------------------------------------------
 // Internals
 // --------------------------------------------------------------------
 tEHCI_qTD *EHCI_int_AllocateTD(tEHCI_Controller *Cont, int PID, void *Data, size_t Length, tUSBHostCb Cb, void *CbData)
 {
+	UNIMPLEMENTED();
 	return NULL;
 }
 
 void EHCI_int_DeallocateTD(tEHCI_Controller *Cont, tEHCI_qTD *TD)
 {
+	UNIMPLEMENTED();
 }
 
 void EHCI_int_AppendTD(tEHCI_QH *QH, tEHCI_qTD *TD)
 {
+	UNIMPLEMENTED();
 }
 
 tEHCI_QH *EHCI_int_AllocateQH(tEHCI_Controller *Cont, int Endpoint, size_t MaxPacketSize)
 {
+	UNIMPLEMENTED();
 	return NULL;
 }
 
 void EHCI_int_DeallocateQH(tEHCI_Controller *Cont, tEHCI_QH *QH)
 {
+	UNIMPLEMENTED();
 }
 
+void EHCI_int_HandlePortConnectChange(tEHCI_Controller *Cont, int Port)
+{
+	// Connect Event
+	if( Cont->OpRegs->PortSC[Port] & PORTSC_CurrentConnectStatus )
+	{
+		// Is the device low-speed?
+		if( (Cont->OpRegs->PortSC[Port] & PORTSC_LineStatus_MASK) == PORTSC_LineStatus_Kstate )
+		{
+			LOG("Low speed device on %p Port %i, giving to companion", Cont, Port);
+			Cont->OpRegs->PortSC[Port] |= PORTSC_PortOwner;
+		}
+		// not a low-speed device, EHCI reset
+		else
+		{
+			LOG("Device connected on %p #%i", Cont, Port);
+			// Reset procedure.
+			USB_PortCtl_BeginReset(Cont->RootHub, Port);
+		}
+	}
+	// Disconnect Event
+	else
+	{
+		if( Cont->OpRegs->PortSC[Port] & PORTSC_PortOwner ) {
+			LOG("Companion port %i disconnected, taking it back", Port);
+			Cont->OpRegs->PortSC[Port] &= ~PORTSC_PortOwner;
+		}
+		else {
+			LOG("Port %i disconnected", Port);
+			USB_DeviceDisconnected(Cont->RootHub, Port);
+		}
+	}
+}
+
+void EHCI_int_InterruptThread(void *ControllerPtr)
+{
+	tEHCI_Controller	*Cont = ControllerPtr;
+	while(Cont->OpRegs)
+	{
+		Uint32	events;
+		
+		LOG("sleeping for events");
+		events = Threads_WaitEvents(EHCI_THREADEVENT_IOC|EHCI_THREADEVENT_PORTSC);
+		if( !events ) {
+			// TODO: Should this cause a termination?
+		}
+		LOG("events = 0x%x", events);
+
+		if( events & EHCI_THREADEVENT_IOC )
+		{
+			// IOC, Do whatever it is you do
+		}
+
+		// Port status change interrupt
+		if( events & EHCI_THREADEVENT_PORTSC )
+		{
+			// Check for port status changes
+			for(int i = 0; i < Cont->nPorts; i ++ )
+			{
+				Uint32	sts = Cont->OpRegs->PortSC[i];
+				LOG("Port %i: sts = %x", i, sts);
+				Cont->OpRegs->PortSC[i] = sts;
+				if( sts & PORTSC_ConnectStatusChange )
+					EHCI_int_HandlePortConnectChange(Cont, i);
+
+				if( sts & PORTSC_PortEnableChange )
+				{
+					// Handle enable/disable
+				}
+
+				if( sts & PORTSC_OvercurrentChange )
+				{
+					// Handle over-current change
+				}
+			}
+		}
+
+		LOG("Going back to sleep");
+	}
+}
