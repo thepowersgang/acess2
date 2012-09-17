@@ -54,7 +54,7 @@ int kmain(Uint MbMagic, void *MbInfoPtr)
 		gsBootCmdLine = (char*)(mbInfo->CommandLine + KERNEL_BASE);
 
 		// Adjust Multiboot structure address
-		mbInfo = (void*)( (Uint)MbInfoPtr + KERNEL_BASE );
+		mbInfo = (void*)( (tVAddr)MbInfoPtr + KERNEL_BASE );
 
 		nPMemMapEnts = Multiboot_LoadMemoryMap(mbInfo, KERNEL_BASE, pmemmap, MAX_PMEMMAP_ENTS,
 			KERNEL_LOAD, (tVAddr)&gKernelEnd - KERNEL_BASE);

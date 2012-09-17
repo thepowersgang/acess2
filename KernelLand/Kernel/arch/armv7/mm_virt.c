@@ -320,12 +320,12 @@ int MM_int_GetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 }
 
 // --- Exports ---
-tPAddr MM_GetPhysAddr(tVAddr VAddr)
+tPAddr MM_GetPhysAddr(const void *Ptr)
 {
 	tMM_PageInfo	pi;
-	if( MM_int_GetPageInfo(VAddr, &pi) )
+	if( MM_int_GetPageInfo((tVAddr)Ptr, &pi) )
 		return 0;
-	return pi.PhysAddr | (VAddr & ((1 << pi.Size)-1));
+	return pi.PhysAddr | ((tVAddr)Ptr & ((1 << pi.Size)-1));
 }
 
 Uint MM_GetFlags(tVAddr VAddr)

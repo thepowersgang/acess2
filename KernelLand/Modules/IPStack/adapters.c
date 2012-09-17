@@ -85,8 +85,8 @@ void *IPStack_Adapter_Add(const tIPStack_AdapterType *Type, void *Ptr, const voi
 	Mutex_Release( &glIP_Adapters );
 	
 	// Watch the adapter for incoming packets
-	tTID tid = Proc_SpawnWorker(Adapter_int_WatchThread, ret);
-	if(tid < 0) {
+	void *worker = Proc_SpawnWorker(Adapter_int_WatchThread, ret);
+	if(!worker) {
 		Log_Warning("IPStack", "Unable to create watcher thread for %p", ret);
 	}
 	

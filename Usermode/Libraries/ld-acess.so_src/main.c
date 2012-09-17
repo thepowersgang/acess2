@@ -101,3 +101,8 @@ int CallUser(void *entry, void *sp)
 	#endif
 	for(;;);
 }
+
+void abort(void)
+{
+	_exit(-4);
+}

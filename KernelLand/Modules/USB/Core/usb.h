@@ -13,11 +13,20 @@
 #include <usb_host.h>
 #include "usb_proto.h"
 
+typedef struct sUSBHubPort	tUSBHubPort;
 typedef struct sUSBHost	tUSBHost;
 typedef struct sUSBDevice	tUSBDevice;
 typedef struct sUSBEndpoint	tUSBEndpoint;
 
 // === STRUCTURES ===
+struct sUSBHubPort
+{
+	void	*ListNext;
+	char	Status;
+	char	PortNum;
+	tUSBDevice	*Dev;
+};
+
 /**
  * \brief USB Hub data
  */
@@ -26,7 +35,7 @@ struct sUSBHub
 	tUSBInterface	*Interface;
 	
 	 int	nPorts;
-	tUSBDevice	*Devices[];
+	struct sUSBHubPort	Ports[];
 };
 
 struct sUSBEndpoint

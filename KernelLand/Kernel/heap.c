@@ -512,7 +512,12 @@ void Heap_Dump(void)
 {
 	tHeapHead	*head, *badHead;
 	tHeapFoot	*foot = NULL;
+	static int	in_heap_dump;
 	
+	if( in_heap_dump )	return;
+
+	in_heap_dump = 1;
+
 	head = gHeapStart;
 	while( (Uint)head < (Uint)gHeapEnd )
 	{		
@@ -560,12 +565,16 @@ void Heap_Dump(void)
 	}
 	
 	// If the heap is valid, ok!
-	if( (tVAddr)head == (tVAddr)gHeapEnd )
+	if( (tVAddr)head == (tVAddr)gHeapEnd ) {
+		in_heap_dump = 0;
 		return ;
+	}
 	
 	// Check for a bad return
-	if( (tVAddr)head >= (tVAddr)gHeapEnd )
+	if( (tVAddr)head >= (tVAddr)gHeapEnd ) {
+		in_heap_dump = 0;
 		return ;
+	}
 
 	#if !VERBOSE_DUMP
 	Log_Log("Heap", "%p (%P): 0x%08lx %i %4C",

@@ -31,7 +31,7 @@ tUSBHub *USB_RegisterHost(tUSBHostDef *HostDef, void *ControllerPtr, int nPorts)
 {
 	tUSBHost	*host;
 	
-	host = malloc(sizeof(tUSBHost) + nPorts*sizeof(void*));
+	host = malloc(sizeof(tUSBHost) + nPorts*sizeof(tUSBHubPort));
 	if(!host) {
 		// Oh, bugger.
 		return NULL;
@@ -43,6 +43,7 @@ tUSBHub *USB_RegisterHost(tUSBHostDef *HostDef, void *ControllerPtr, int nPorts)
 	host->RootHubDev.ParentHub = NULL;
 	host->RootHubDev.Host = host;
 	host->RootHubDev.Address = 0;
+	ASSERT(HostDef->InitControl);
 	host->RootHubDev.EndpointHandles[0] = HostDef->InitControl(ControllerPtr, 0, 64);
 
 //	host->RootHubIf.Next = NULL;
@@ -53,7 +54,7 @@ tUSBHub *USB_RegisterHost(tUSBHostDef *HostDef, void *ControllerPtr, int nPorts)
 
 	host->RootHub.Interface = &host->RootHubIf;
 	host->RootHub.nPorts = nPorts;
-	memset(host->RootHub.Devices, 0, sizeof(void*)*nPorts);
+	memset(host->RootHub.Ports, 0, sizeof(tUSBHubPort)*nPorts);
 
 	// Append to list
 	Mutex_Acquire( &glUSB_Hosts );
@@ -98,10 +99,10 @@ tUSBHub *USB_RegisterHub(tUSBInterface *Device, int PortCount)
 {
 	tUSBHub	*ret;
 	
-	ret = malloc(sizeof(tUSBHub) + sizeof(ret->Devices[0])*PortCount);
+	ret = malloc(sizeof(tUSBHub) + sizeof(ret->Ports[0])*PortCount);
 	ret->Interface = Device;
 	ret->nPorts = PortCount;
-	memset(ret->Devices, 0, sizeof(ret->Devices[0])*PortCount);
+	memset(ret->Ports, 0, sizeof(ret->Ports[0])*PortCount);
 	return ret;
 }
 
@@ -109,7 +110,7 @@ void USB_RemoveHub(tUSBHub *Hub)
 {
 	for( int i = 0; i < Hub->nPorts; i ++ )
 	{
-		if( Hub->Devices[i] )
+		if( Hub->Ports[i].Dev )
 		{
 			USB_DeviceDisconnected( Hub, i );
 		}

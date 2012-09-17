@@ -13,6 +13,7 @@
 // === IMPORTS ===
 extern void	USB_PollThread(void *unused);
 extern void	USB_AsyncThread(void *Unused);
+extern void	USB_PortCtl_Init(void);
 
 // === PROTOTYPES ===
  int	USB_Install(char **Arguments);
@@ -43,6 +44,7 @@ tDevFS_Driver	gUSB_DrvInfo = {
  */
 int USB_Install(char **Arguments)
 {
+	USB_PortCtl_Init();
 	Proc_SpawnWorker(USB_PollThread, NULL);
 	Proc_SpawnWorker(USB_AsyncThread, NULL);
 	

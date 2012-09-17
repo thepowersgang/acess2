@@ -663,7 +663,7 @@ tPID Proc_Clone(Uint Flags)
  * \fn int Proc_SpawnWorker(void)
  * \brief Spawns a new worker thread
  */
-int Proc_SpawnWorker(void (*Fcn)(void*), void *Data)
+tThread *Proc_SpawnWorker(void (*Fcn)(void*), void *Data)
 {
 	tThread	*new;
 	Uint	stack_contents[4];
@@ -672,7 +672,7 @@ int Proc_SpawnWorker(void (*Fcn)(void*), void *Data)
 	new = Threads_CloneThreadZero();
 	if(!new) {
 		Warning("Proc_SpawnWorker - Out of heap space!\n");
-		return -1;
+		return NULL;
 	}
 
 	// Create the stack contents
@@ -694,7 +694,7 @@ int Proc_SpawnWorker(void (*Fcn)(void*), void *Data)
 	new->Status = THREAD_STAT_PREINIT;
 	Threads_AddActive( new );
 	
-	return new->TID;
+	return new;
 }
 
 /**

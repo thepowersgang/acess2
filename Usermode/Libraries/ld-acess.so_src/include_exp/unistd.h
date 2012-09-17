@@ -10,7 +10,7 @@
 #define O_TRUNC	OPENFLAG_TRUNCATE
 #define O_APPEND	OPENFLAG_APPEND
 
-typedef intptr_t	ssize_t;
+//typedef intptr_t	ssize_t;
 
 #include "acess/sys.h"
 
