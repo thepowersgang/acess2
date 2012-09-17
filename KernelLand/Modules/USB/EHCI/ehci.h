@@ -250,18 +250,29 @@ struct sEHCI_QH
 	Uint32	Endpoint;
 	Uint32	EndpointExt;
 	Uint32	CurrentTD;
-	tEHCI_qTD	Overlay;
+	struct {
+		Uint32	Link;
+		Uint32	Link2;
+		Uint32	Token;
+		Uint32	Pages[5];
+	}	Overlay;
 	struct {
 		Uint8	IntOfs;
 		Uint8	IntPeriodPow;
 		tEHCI_QH	*Next;
 	} Impl;
 } __attribute__((aligned(32)));
-// sizeof = 48 (64)
+// sizeof = 48 (round up to 64)
 
 #define PID_OUT 	0
 #define PID_IN  	1
 #define PID_SETUP	2
+
+#define TD_POOL_SIZE	(PAGE_SIZE/sizeof(tEHCI_qTD))
+// - 256 addresses * 16 endpoints
+#define QH_POOL_SIZE	(256*16)
+#define QH_POOL_PAGES	(QH_POOL_SIZE*sizeof(tEHCI_QH)/PAGE_SIZE)
+#define QH_POOL_NPERPAGE	(PAGE_SIZE/sizeof(tEHCI_QH))
 
 struct sEHCI_Controller
 {
@@ -280,8 +291,10 @@ struct sEHCI_Controller
 	Uint32  	*PeriodicQueue;
 	tEHCI_QH	*PeriodicQueueV[PERIODIC_SIZE];
 	
-	tEHCI_QH	*QHPools[(256*16)*sizeof(tEHCI_QH)/PAGE_SIZE];	// [PAGE_SIZE/64]
-	tEHCI_qTD	*TDPool[PAGE_SIZE/sizeof(tEHCI_qTD)];
+	tMutex	QHPoolMutex;
+	tEHCI_QH	*QHPools[QH_POOL_PAGES];	// [PAGE_SIZE/64]
+	tMutex	TDPoolMutex;
+	tEHCI_qTD	*TDPool;	// [TD_POOL_SIZE]
 };
 
 #endif

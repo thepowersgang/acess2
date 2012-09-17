@@ -47,7 +47,7 @@ void	EHCI_RootHub_ClearPortFeature(void *Ptr, int Port, int Feat);
 // --- Internals ---
 tEHCI_qTD	*EHCI_int_AllocateTD(tEHCI_Controller *Cont, int PID, void *Data, size_t Length, tUSBHostCb Cb, void *CbData);
 void	EHCI_int_DeallocateTD(tEHCI_Controller *Cont, tEHCI_qTD *TD);
-void	EHCI_int_AppendTD(tEHCI_QH *QH, tEHCI_qTD *TD);
+void	EHCI_int_AppendTD(tEHCI_Controller *Cont, tEHCI_QH *QH, tEHCI_qTD *TD);
 tEHCI_QH	*EHCI_int_AllocateQH(tEHCI_Controller *Cont, int Endpoint, size_t MaxPacketSize);
 void	EHCI_int_DeallocateQH(tEHCI_Controller *Cont, tEHCI_QH *QH);
 void	EHCI_int_InterruptThread(void *ControllerPtr);
@@ -127,6 +127,7 @@ int EHCI_InitController(tPAddr BaseAddress, Uint8 InterruptNum)
 	// - Nuke a couple of fields so error handling code doesn't derp
 	cont->CapRegs = NULL;
 	cont->PeriodicQueue = NULL;
+	cont->TDPool = NULL;
 
 	// -- Build up structure --
 	cont->CapRegs = (void*)MM_MapHWPages(BaseAddress, 1);
@@ -150,9 +151,18 @@ int EHCI_InitController(tPAddr BaseAddress, Uint8 InterruptNum)
 	// TODO: Error check
 	//  > Populate queue
 
+	// - Allocate TD pool
+	cont->TDPool = (void*)MM_AllocDMA(1, 32, &unused);
+	if( !cont->TDPool ) {
+		Log_Warning("ECHI", "Can't allocate 1 32-bit page for qTD pool");
+		goto _error;
+	}
+	for( int i = 0; i < TD_POOL_SIZE; i ++ ) {
+		cont->TDPool[i].Token = 3 << 8;
+	}
+
 	// Get port count
 	cont->nPorts = cont->CapRegs->HCSParams & 0xF;
-
 
 	// -- Bind IRQ --
 	IRQ_AddHandler(InterruptNum, EHCI_InterruptHandler, cont);
@@ -186,6 +196,8 @@ _error:
 		MM_Deallocate( (tVAddr)cont->CapRegs );
 	if( cont->PeriodicQueue )
 		MM_Deallocate( (tVAddr)cont->PeriodicQueue );
+	if( cont->TDPool )
+		MM_Deallocate( (tVAddr)cont->TDPool );
 	return 2;
 }
 
@@ -292,7 +304,7 @@ void *EHCI_InitInterrupt(void *Ptr, int Endpoint, int bOutbound, int Period,
 
 	// Allocate TD for the data
 	tEHCI_qTD *td = EHCI_int_AllocateTD(Cont, (bOutbound ? PID_OUT : PID_IN), Buf, Length, Cb, CbData);
-	EHCI_int_AppendTD(qh, td);
+	EHCI_int_AppendTD(Cont, qh, td);
 
 	// Insert into the periodic list
 	for( int i = 0; i < PERIODIC_SIZE; i += Period )
@@ -422,13 +434,18 @@ void *EHCI_SendControl(void *Ptr, void *Dest, tUSBHostCb Cb, void *CbData,
 	{
 		td_data = InData ? EHCI_int_AllocateTD(Cont, PID_IN, InData, InLength, NULL, NULL) : NULL;
 		td_status = EHCI_int_AllocateTD(Cont, PID_OUT, (void*)OutData, OutLength, Cb, CbData);
+		td_status->Token |= (1 << 15);
 	}
 
 	// Append TDs
-	EHCI_int_AppendTD(Dest, td_setup);
-	if( td_data )
-		EHCI_int_AppendTD(Dest, td_data);
-	EHCI_int_AppendTD(Dest, td_status);
+	if( td_data ) {
+		td_setup->Link = MM_GetPhysAddr(td_data);
+		td_data->Link = MM_GetPhysAddr(td_status) | 1;
+	}
+	else {
+		td_setup->Link = MM_GetPhysAddr(td_status) | 1;
+	}
+	EHCI_int_AppendTD(Cont, Dest, td_setup);
 
 	return td_status;
 }
@@ -444,7 +461,7 @@ void *EHCI_SendBulk(void *Ptr, void *Dest, tUSBHostCb Cb, void *CbData, int Dir,
 	
 	// Allocate single TD
 	tEHCI_qTD	*td = EHCI_int_AllocateTD(Cont, (Dir ? PID_OUT : PID_IN), Data, Length, Cb, CbData);
-	EHCI_int_AppendTD(Dest, td);	
+	EHCI_int_AppendTD(Cont, Dest, td);	
 
 	return td;
 }
@@ -495,9 +512,32 @@ int EHCI_RootHub_GetPortStatus(void *Ptr, int Port, int Flag)
 // --------------------------------------------------------------------
 // Internals
 // --------------------------------------------------------------------
+tEHCI_qTD *EHCI_int_GetTDFromPhys(tEHCI_Controller *Cont, Uint32 Addr)
+{
+	if( Addr == 0 )	return NULL;
+	LOG("%p + (%x - %x)", Cont->TDPool, Addr, MM_GetPhysAddr(Cont->TDPool));
+	return Cont->TDPool + (Addr - MM_GetPhysAddr(Cont->TDPool))/sizeof(tEHCI_qTD);
+}
+
 tEHCI_qTD *EHCI_int_AllocateTD(tEHCI_Controller *Cont, int PID, void *Data, size_t Length, tUSBHostCb Cb, void *CbData)
 {
-	UNIMPLEMENTED();
+//	Semaphore_Wait(&Cont->TDSemaphore, 1);
+	Mutex_Acquire(&Cont->TDPoolMutex);
+	for( int i = 0; i < TD_POOL_SIZE; i ++ )
+	{
+		if( ((Cont->TDPool[i].Token >> 8) & 3) != 3 )
+			continue ;
+		Cont->TDPool[i].Token = (PID << 8) | (Length << 16);
+		// NOTE: Assumes that `Length` is <= PAGE_SIZE
+		Cont->TDPool[i].Pages[0] = MM_GetPhysAddr(Data);
+		if( (Cont->TDPool[i].Pages[0] & (PAGE_SIZE-1)) + Length - 1 > PAGE_SIZE )
+			Cont->TDPool[i].Pages[1] = MM_GetPhysAddr((char*)Data + Length - 1) & ~(PAGE_SIZE-1);
+		Mutex_Release(&Cont->TDPoolMutex);
+		LOG("Allocated %p for PID %i on %p", &Cont->TDPool[i], PID, Cont);
+		return &Cont->TDPool[i];
+	}
+
+	Mutex_Release(&Cont->TDPoolMutex);
 	return NULL;
 }
 
@@ -506,20 +546,58 @@ void EHCI_int_DeallocateTD(tEHCI_Controller *Cont, tEHCI_qTD *TD)
 	UNIMPLEMENTED();
 }
 
-void EHCI_int_AppendTD(tEHCI_QH *QH, tEHCI_qTD *TD)
+void EHCI_int_AppendTD(tEHCI_Controller *Cont, tEHCI_QH *QH, tEHCI_qTD *TD)
 {
-	UNIMPLEMENTED();
+	tEHCI_qTD	*ptd = NULL;
+	Uint32	link = QH->CurrentTD;
+
+	// TODO: Need locking and validation here
+	while( link && !(link & 1) )
+	{
+		ptd = EHCI_int_GetTDFromPhys(Cont, link);
+		link = ptd->Link;
+	}
+	// TODO: Figure out how to follow this properly
+	if( !ptd ) {
+		QH->CurrentTD = MM_GetPhysAddr(TD);
+	}
+	else
+		ptd->Link = MM_GetPhysAddr(TD);
 }
 
 tEHCI_QH *EHCI_int_AllocateQH(tEHCI_Controller *Cont, int Endpoint, size_t MaxPacketSize)
 {
-	UNIMPLEMENTED();
+	tEHCI_QH	*ret;
+	Mutex_Acquire(&Cont->QHPoolMutex);
+	for( int i = 0; i < QH_POOL_SIZE; i ++ )
+	{
+		if( !MM_GetPhysAddr( Cont->QHPools[i/QH_POOL_NPERPAGE] ) ) {
+			tPAddr	tmp;
+			Cont->QHPools[i/QH_POOL_NPERPAGE] = (void*)MM_AllocDMA(1, 32, &tmp);
+			memset(Cont->QHPools[i/QH_POOL_NPERPAGE], 0, PAGE_SIZE);
+		}
+
+		ret = &Cont->QHPools[i/QH_POOL_NPERPAGE][i%QH_POOL_NPERPAGE];
+		if( ret->HLink == 0 ) {
+			ret->HLink = 1;
+			ret->CurrentTD = 0;
+			ret->Overlay.Link = 1;
+			ret->Endpoint = (Endpoint >> 4) | ((Endpoint & 0xF) << 8)
+				| (MaxPacketSize << 16);
+			// TODO: Endpoint speed (13:12) 0:Full, 1:Low, 2:High
+			// TODO: Control Endpoint Flag (27) 0:*, 1:Full/Low Control
+			Mutex_Release(&Cont->QHPoolMutex);
+			return ret;
+		}
+	}
+	Mutex_Release(&Cont->QHPoolMutex);
 	return NULL;
 }
 
 void EHCI_int_DeallocateQH(tEHCI_Controller *Cont, tEHCI_QH *QH)
 {
-	UNIMPLEMENTED();
+	// TODO: Ensure it's unused (somehow)
+	QH->HLink = 0;
 }
 
 void EHCI_int_HandlePortConnectChange(tEHCI_Controller *Cont, int Port)
