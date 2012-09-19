@@ -284,6 +284,8 @@ struct sEHCI_Controller
 	tEHCI_CapRegs	*CapRegs;
 	tEHCI_OpRegs	*OpRegs;
 
+	tEHCI_qTD	*DeadTD;
+
 	 int	InterruptLoad[PERIODIC_SIZE];
 	tEHCI_QH	*LastAsyncHead;
 	

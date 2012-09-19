@@ -148,6 +148,8 @@ int EHCI_InitController(tPAddr BaseAddress, Uint8 InterruptNum)
 		Log_Warning("ECHI", "Can't allocate 1 32-bit page for periodic queue");
 		goto _error;
 	}
+	for( int i = 0; i < 1024; i ++ )
+		cont->PeriodicQueue[i] = 1;
 	// TODO: Error check
 	//  > Populate queue
 
@@ -185,6 +187,11 @@ int EHCI_InitController(tPAddr BaseAddress, Uint8 InterruptNum)
 	cont->OpRegs->USBCmd = (0x40 << 16) | USBCMD_PeriodicEnable | USBCMD_Run;
 	// - Route all ports
 	cont->OpRegs->ConfigFlag = 1;
+
+	cont->DeadTD = EHCI_int_AllocateTD(cont, 0, NULL, 0, NULL, NULL);
+	cont->DeadTD->Link = 1;
+	cont->DeadTD->Link2 = 1;
+	cont->DeadTD->Token = 0;
 
 	// -- Register with USB Core --
 	cont->RootHub = USB_RegisterHost(&gEHCI_HostDef, cont, cont->nPorts);
@@ -366,14 +373,19 @@ void *EHCI_InitControl(void *Ptr, int Endpoint, size_t MaxPacketSize)
 	
 	// Allocate a QH
 	tEHCI_QH *qh = EHCI_int_AllocateQH(Cont, Endpoint, MaxPacketSize);
+	qh->CurrentTD = MM_GetPhysAddr(Cont->DeadTD);
 
 	// Append to async list	
 	if( Cont->LastAsyncHead ) {
 		Cont->LastAsyncHead->HLink = MM_GetPhysAddr(qh)|2;
 		Cont->LastAsyncHead->Impl.Next = qh;
+		LOG("- Placed after %p", Cont->LastAsyncHead);
 	}
-	else
+	else {
 		Cont->OpRegs->AsyncListAddr = MM_GetPhysAddr(qh)|2;
+	}
+	qh->HLink = Cont->OpRegs->AsyncListAddr;
+	Cont->OpRegs->USBCmd |= USBCMD_AsyncEnable;
 	Cont->LastAsyncHead = qh;
 
 	LOG("Created %p for %p Ep 0x%x - %i bytes MPS", qh, Ptr, Endpoint, MaxPacketSize);
@@ -434,17 +446,20 @@ void *EHCI_SendControl(void *Ptr, void *Dest, tUSBHostCb Cb, void *CbData,
 	{
 		td_data = InData ? EHCI_int_AllocateTD(Cont, PID_IN, InData, InLength, NULL, NULL) : NULL;
 		td_status = EHCI_int_AllocateTD(Cont, PID_OUT, (void*)OutData, OutLength, Cb, CbData);
-		td_status->Token |= (1 << 15);
+		td_status->Token |= (1 << 15);	// IOC
 	}
 
 	// Append TDs
 	if( td_data ) {
 		td_setup->Link = MM_GetPhysAddr(td_data);
 		td_data->Link = MM_GetPhysAddr(td_status) | 1;
+		td_data->Token |= (1 << 8);	// Active
 	}
 	else {
 		td_setup->Link = MM_GetPhysAddr(td_status) | 1;
 	}
+	td_setup->Token |= (1 << 8);	// Active
+	td_status->Token |= (1 << 8);
 	EHCI_int_AppendTD(Cont, Dest, td_setup);
 
 	return td_status;
@@ -560,9 +575,12 @@ void EHCI_int_AppendTD(tEHCI_Controller *Cont, tEHCI_QH *QH, tEHCI_qTD *TD)
 	// TODO: Figure out how to follow this properly
 	if( !ptd ) {
 		QH->CurrentTD = MM_GetPhysAddr(TD);
+		LOG("Appended %p to beginning of %p", TD, QH);
 	}
-	else
+	else {
 		ptd->Link = MM_GetPhysAddr(TD);
+		LOG("Appended %p to end of %p", TD, QH);
+	}
 }
 
 tEHCI_QH *EHCI_int_AllocateQH(tEHCI_Controller *Cont, int Endpoint, size_t MaxPacketSize)
@@ -580,9 +598,8 @@ tEHCI_QH *EHCI_int_AllocateQH(tEHCI_Controller *Cont, int Endpoint, size_t MaxPa
 		ret = &Cont->QHPools[i/QH_POOL_NPERPAGE][i%QH_POOL_NPERPAGE];
 		if( ret->HLink == 0 ) {
 			ret->HLink = 1;
-			ret->CurrentTD = 0;
 			ret->Overlay.Link = 1;
-			ret->Endpoint = (Endpoint >> 4) | ((Endpoint & 0xF) << 8)
+			ret->Endpoint = (Endpoint >> 4) | 0x80 | ((Endpoint & 0xF) << 8)
 				| (MaxPacketSize << 16);
 			// TODO: Endpoint speed (13:12) 0:Full, 1:Low, 2:High
 			// TODO: Control Endpoint Flag (27) 0:*, 1:Full/Low Control
