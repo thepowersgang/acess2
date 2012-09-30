@@ -5,6 +5,7 @@
 [BITS 64]
 
 [extern Log]
+[extern Log_Debug]
 [extern gGDTPtr]
 [extern gGDT]
 
@@ -167,11 +168,11 @@ IRQ_AddHandler:
 	push rax
 	push rdx
 	sub rsp, 8
-	mov rcx, rdi	; IRQ Number
-	mov rdx, rsi	; Callback
-	mov rsi, rax	; Pointer
-	mov rdi, csIRQ_Assigned
-	call Log
+	mov rcx, rsi	; IRQ Number
+	mov rdx, rdi	; Callback
+	mov rsi, csIRQ_Assigned
+	mov rdi, csIRQ_Tag
+	call Log_Debug
 	add rsp, 8
 	pop rdx
 	pop rax
@@ -189,9 +190,11 @@ IRQ_AddHandler:
 	
 [section .rodata]
 csIRQ_Assigned:
-	db	"IRQ %p := %p (IRQ %i)",0
+	db	"IRQ %i .= %p",0
 csIRQ_Fired:
 	db	"IRQ %i fired",0
+csIRQ_Tag:
+	db	"IRQ",0
 [section .text]
 
 %macro ISR_NOERRNO	1

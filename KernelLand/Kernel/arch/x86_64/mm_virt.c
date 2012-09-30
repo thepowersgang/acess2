@@ -340,8 +340,8 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 				expected |= expected_pml4 & PF_NX;
 				expected |= expected_pdp  & PF_NX;
 				expected |= expected_pd   & PF_NX;
-				Log("expected (pml4 = %x, pdp = %x, pd = %x)",
-					expected_pml4, expected_pdp, expected_pd);
+//				Log("expected (pml4 = %x, pdp = %x, pd = %x)",
+//					expected_pml4, expected_pdp, expected_pd);
 				// Dump
 				MM_int_DumpTablesEnt( rangeStart, curPos - rangeStart, expected );
 				expected = CHANGEABLE_BITS;
@@ -1070,8 +1070,6 @@ tVAddr MM_NewWorkerStack(void *StackData, size_t StackSize)
 		tmp_addr = MM_MapTemp(phys);
 		dest = (char*)tmp_addr + (0x1000 - StackSize);
 		memcpy( dest, StackData, StackSize );
-		Log_Debug("MM", "MM_NewWorkerStack: %p->%p %i bytes (i=%i)", StackData, dest, StackSize, i);
-		Log_Debug("MM", "MM_NewWorkerStack: ret = %p", ret);
 		MM_FreeTemp(tmp_addr);
 	}
 

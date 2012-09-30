@@ -373,3 +373,6 @@ Uint64 DivMod64U(Uint64 Num, Uint64 Den, Uint64 *Rem)
 	return ret;
 }
 
+EXPORT(memcpy);
+EXPORT(memset);
+

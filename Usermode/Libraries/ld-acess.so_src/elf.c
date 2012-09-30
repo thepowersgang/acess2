@@ -528,7 +528,7 @@ void *Elf64Relocate(void *Base, char **envp, const char *Filename)
 	 int	i;
 	Elf64_Ehdr	*hdr = Base;
 	Elf64_Phdr	*phtab;
-	Elf64_Dyn	*dyntab;
+	Elf64_Dyn	*dyntab = NULL;
 	Elf64_Addr	compiledBase = -1, baseDiff;
 	Elf64_Sym	*symtab = NULL;
 	char	*strtab = NULL;
@@ -554,7 +554,7 @@ void *Elf64Relocate(void *Base, char **envp, const char *Filename)
 	DEBUGS("Elf64Relocate:  e_phnum = %i", hdr->e_phnum);
 
 	// Scan for the dynamic table (and find the compiled base)
-	phtab = Base + hdr->e_phoff;
+	phtab = (void*)((uintptr_t)Base + hdr->e_phoff);
 	for( i = 0; i < hdr->e_phnum; i ++ )
 	{
 		if(phtab[i].p_type == PT_DYNAMIC)
@@ -677,8 +677,8 @@ void *Elf64Relocate(void *Base, char **envp, const char *Filename)
 			break;
 		case R_X86_64_COPY: {
 			size_t	size;
-			void	*sym = GetSymbol(symname, &size);
-			memcpy(ptr, sym, size);
+			void	*symptr = GetSymbol(symname, &size);
+			memcpy(ptr, symptr, size);
 			} break;
 		case R_X86_64_GLOB_DAT:
 			*(uint64_t*)ptr = (uintptr_t)GetSymbol(symname, NULL);

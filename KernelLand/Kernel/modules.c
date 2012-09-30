@@ -366,7 +366,7 @@ int Module_LoadFile(const char *Path, const char *ArgString)
 	// TODO: I need a way of relocating the dependencies before everything else, so
 	// they can be resolved before any other link errors
 	if( !Binary_Relocate(base) ) {
-		Log_Warning("Relocation of module %s failed", Path);
+		Log_Warning("Module", "Relocation of module %s failed", Path);
 		Binary_Unload(base);
 		return 0;
 	}
@@ -389,7 +389,7 @@ int Module_LoadFile(const char *Path, const char *ArgString)
 	}
 
 	if( !Module_int_ResolveDeps(info) ) {
-		Log_Warning("Dependencies not met for '%s'", Path);
+		Log_Warning("Module", "Dependencies not met for '%s'", Path);
 		Binary_Unload(base);
 		return 0;
 	}

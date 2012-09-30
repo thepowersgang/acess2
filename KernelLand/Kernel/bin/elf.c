@@ -8,7 +8,9 @@
 
 #define _COMMON_H
 #define SysDebug(v...)	LOG(v)
-#define DISABLE_ELF64
+#if BITS <= 32
+# define DISABLE_ELF64
+#endif
 void	*GetSymbol(const char *Name, size_t *Size);
 void	*GetSymbol(const char *Name, size_t *Size) { Uint val; Binary_GetSymbol(Name, &val); if(Size)*Size=0; return (void*)val; };
 #define AddLoaded(a,b)	do{}while(0)
@@ -291,7 +293,7 @@ tBinary *Elf_Load32(int FD, Elf32_Ehdr *Header)
 
 int Elf_Relocate(void *Base)
 {
-	return  ElfRelocate(Base, (char**){NULL}, "") != NULL;
+	return ElfRelocate(Base, (char**){NULL}, "") != NULL;
 }
 int Elf_GetSymbol(void *Base, const char *Name, Uint *ret)
 {
