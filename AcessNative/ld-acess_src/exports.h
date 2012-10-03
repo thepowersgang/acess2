@@ -8,6 +8,8 @@
 #ifndef _EXPORTS_H_
 #define _EXPORTS_H_
 
+#include <stddef.h>
+
 // Syscall request (used by acess_*)
 extern uint64_t	_Syscall(int SyscallID, const char *ArgTypes, ...);
 

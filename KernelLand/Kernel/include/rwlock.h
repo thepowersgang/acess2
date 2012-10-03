@@ -37,7 +37,7 @@ struct sRWLock
  */
 extern int	RWLock_AcquireRead(tRWLock *Lock);
 
-extern int	RWLock_AcquireWrite(tRWLock *LOck);
+extern int	RWLock_AcquireWrite(tRWLock *Lock);
 
 /**
  * \brief Release a held mutex

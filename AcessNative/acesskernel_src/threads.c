@@ -15,6 +15,7 @@
 #include <acess.h>
 #include <mutex.h>
 #include <semaphore.h>
+#include <rwlock.h>
 #include <events.h>
 #include <threads_int.h>
 
@@ -332,6 +333,33 @@ int Semaphore_Signal(tSemaphore *Sem, int AmmountToAdd)
 		SDL_SemPost( *(void**)(&Sem->Protector) );
 	return AmmountToAdd;
 }
+
+// --------------------------------------------------------------------
+// Event handling
+// --------------------------------------------------------------------
+int RWLock_AcquireRead(tRWLock *Lock)
+{
+	if( !Lock->ReaderWaiting ) {
+		Lock->ReaderWaiting = malloc(sizeof(pthread_rwlock_t));
+		pthread_rwlock_init( (void*)Lock->ReaderWaiting, 0 );
+	}
+	pthread_rwlock_rdlock( (void*)Lock->ReaderWaiting );
+	return 0;
+}
+int RWLock_AcquireWrite(tRWLock *Lock)
+{
+	if( !Lock->ReaderWaiting ) {
+		Lock->ReaderWaiting = malloc(sizeof(pthread_rwlock_t));
+		pthread_rwlock_init( (void*)Lock->ReaderWaiting, 0 );
+	}
+	pthread_rwlock_wrlock( (void*)Lock->ReaderWaiting );
+	return 0;
+}
+void RWLock_Release(tRWLock *Lock)
+{
+	pthread_rwlock_unlock( (void*)Lock->ReaderWaiting );
+}
+
 
 // --------------------------------------------------------------------
 // Event handling

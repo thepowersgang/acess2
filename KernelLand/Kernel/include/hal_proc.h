@@ -13,6 +13,7 @@
  * \brief Achitecture defined thread/process management functions
  */
 
+#include <threads.h>
 #include <threads_int.h>
 
 /**

@@ -13,7 +13,7 @@ endif
 
 KERNEL_SRC = ../../KernelLand/Kernel/
 
-KERNEL_OBJ := logging.o adt.o lib.o drvutil.o debug.o messages.o
+KERNEL_OBJ := logging.o adt.o lib.o libc.o debug.o messages.o drvutil_disk.o drvutil_video.o
 KERNEL_OBJ += vfs/main.o vfs/open.o vfs/acls.o vfs/io.o vfs/dir.o
 KERNEL_OBJ += vfs/nodecache.o vfs/mount.o vfs/memfile.o vfs/select.o
 KERNEL_OBJ += vfs/fs/root.o vfs/fs/devfs.o
@@ -35,7 +35,7 @@ DEPFILES  = $(filter %.o,$(OBJ) $(N_OBJ) $(K_OBJ))
 DEPFILES := $(DEPFILES:%=%.dep)
 
 CPPFLAGS += -I include/ -I $(KERNEL_SRC)include/
-CFLAGS += -Wall -g
+CFLAGS += -Wall -g -std=gnu99
 LDFLAGS += -lSDL -lSDLmain -g -Wl,--defsym,__buildnum=$(BUILD_NUM)
 
 ifeq ($(PLATFORM),win)
@@ -79,8 +79,12 @@ $(N_OBJ): obj-$(PLATFORM)/%.o: %.c
 
 $(BUILDINFO_SRC): $(filter-out $(BUILDINFO_OBJ), $(OBJ)) Makefile
 	@echo "" > $@
+	$(eval _GITHASH=$(shell git log -n 1 | head -n 1 | awk '{print $$2}'))
+	$(eval _GITCHANGED=$(shell git status --porcelain | grep -c '^ M '))
 	@echo "const char gsKernelVersion[] = \"$(ACESS_VERSION)\";" >> $@
-	@echo "const char gsGitHash[] = \""`git log -n 1 | head -n 1 | awk '{print $$2}'`"\";" >> $@
+	@echo "const char gsGitHash[] = \"$(_GITHASH)\";" >> $@
+	@echo "const char gsBuildInfo[] = \"Acess2 v$(KERNEL_VERSION) $(ARCH)-$(PLATFORM)\\\\r\\\\n\"" >> $@
+	@echo "                           \"Build $(shell hostname --fqdn):$(BUILD_NUM) Git $(_GITHASH) - $(_GITCHANGED) modified\";" >> $@
 	@echo "const int giBuildNumber = $(BUILD_NUM);" >> $@
 $(BUILDINFO_OBJ): $(BUILDINFO_SRC)
 	@echo [CC] -o $@

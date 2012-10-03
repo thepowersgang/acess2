@@ -15,11 +15,12 @@
 # include <unistd.h>
 # include <sys/socket.h>
 # include <netinet/in.h>
+# include <arpa/inet.h>	// inet_ntop
 #endif
 #include "../syscalls.h"
 //#include <debug.h>
 
-#define	USE_TCP	0
+#define	USE_TCP	1
 #define MAX_CLIENTS	16
 
 // === TYPES ===
@@ -27,6 +28,7 @@ typedef struct {
 	 int	ClientID;
 	SDL_Thread	*WorkerThread;
 	#if USE_TCP
+	 int	Socket;
 	#else
 	tRequestHeader	*CurrentRequest;
 	struct sockaddr_in	ClientAddr;
@@ -42,6 +44,7 @@ extern void	Threads_SetThread(int TID);
 // HACK: Should have these in a header
 extern void	Log_Debug(const char *Subsys, const char *Message, ...);
 extern void	Log_Notice(const char *Subsys, const char *Message, ...);
+extern void	Log_Warning(const char *Subsys, const char *Message, ...);
 
 // === PROTOTYPES ===
 tClient	*Server_GetClient(int ClientID);
@@ -102,12 +105,19 @@ tClient *Server_GetClient(int ClientID)
 	
 	// Allocate a thread for the process
 	ret->ClientID = ClientID;
+	#if USE_TCP
+	ret->Socket = 0;
+	#else
 	ret->CurrentRequest = NULL;
+	#endif
 		
 	if( !ret->WorkerThread ) {
+		#if USE_TCP
+		#else
 		ret->WaitFlag = SDL_CreateCond();
 		ret->Mutex = SDL_CreateMutex();
 		SDL_mutexP( ret->Mutex );
+		#endif
 		ret->WorkerThread = SDL_CreateThread( Server_WorkerThread, ret );
 	}
 	
@@ -117,14 +127,76 @@ tClient *Server_GetClient(int ClientID)
 int Server_WorkerThread(void *ClientPtr)
 {
 	tClient	*Client = ClientPtr;
+	
+	#if USE_TCP
+	for( ;; )
+	{
+		fd_set	fds;
+		 int	nfd = Client->Socket;
+		FD_ZERO(&fds);
+		FD_SET(Client->Socket, &fds);
+		
+		select(nfd, &fds, NULL, NULL, NULL);	// TODO: Timeouts?
+		
+		if( FD_ISSET(Client->Socket, &fds) )
+		{
+			const int	ciMaxParamCount = 6;
+			char	lbuf[sizeof(tRequestHeader) + ciMaxParamCount*sizeof(tRequestValue)];
+			tRequestHeader	*hdr = (void*)lbuf;
+			size_t	len = recv(Client->Socket, hdr, sizeof(*hdr), 0);
+			if( len != sizeof(hdr) ) {
+				// Oops?
+			}
+
+			if( hdr->NParams > ciMaxParamCount ) {
+				// Oops.
+			}
+
+			len = recv(Client->Socket, hdr->Params, hdr->NParams*sizeof(tRequestValue), 0);
+			if( len != hdr->NParams*sizeof(tRequestValue) ) {
+				// Oops.
+			}
+
+			// Get buffer size
+			size_t	hdrsize = sizeof(tRequestHeader) + hdr->NParams*sizeof(tRequestValue);
+			size_t	bufsize = hdrsize;
+			 int	i;
+			for( i = 0; i < hdr->NParams; i ++ )
+			{
+				if( hdr->Params[i].Flags & ARG_FLAG_ZEROED )
+					;
+				else {
+					bufsize += hdr->Params[i].Length;
+				}
+			}
+
+			// Allocate full buffer
+			hdr = malloc(bufsize);
+			memcpy(hdr, lbuf, hdrsize);
+			len = recv(Client->Socket, hdr->Params + hdr->NParams, bufsize - hdrsize, 0);
+			if( len != bufsize - hdrsize ) {
+				// Oops?
+			}
+
+			 int	retlen;
+			tRequestHeader	*retHeader;
+			retHeader = SyscallRecieve(hdr, &retlen);
+			if( !retHeader ) {
+				// Some sort of error
+			}
+			
+			send(Client->Socket, retHeader, retlen, 0); 
+
+			// Clean up
+			free(hdr);
+		}
+	}
+	#else
 	tRequestHeader	*retHeader;
 	tRequestHeader	errorHeader;
 	 int	retSize = 0;
 	 int	sentSize;
 	 int	cur_client_id = 0;
-	
-	#if USE_TCP
-	#else
 	for( ;; )
 	{
 		// Wait for something to do
@@ -253,18 +325,55 @@ int Server_ListenThread(void *Unused)
 	for( ;; )
 	{
 		#if USE_TCP
-		struct sockaddr_in	client;
-		uint	clientSize = sizeof(client);
-		 int	clientSock = accept(gSocket, (struct sockaddr*)&client, &clientSize);
+		struct sockaddr_in	clientaddr;
+		socklen_t	clientSize = sizeof(clientaddr);
+		 int	clientSock = accept(gSocket, (struct sockaddr*)&clientaddr, &clientSize);
 		if( clientSock < 0 ) {
 			perror("SyscallServer - accept");
 			break ;
 		}
+
+		char	addrstr[4*8+8+1];
+		inet_ntop(clientaddr.sin_family, &clientaddr.sin_addr, addrstr, sizeof(addrstr));
+		Log_Debug("Server", "Client connection %s:%i\n", addrstr, ntohs(clientaddr.sin_port));
 		
-		Log("Client connection %x:%i\n",
-			ntohl(client.sin_addr), ntohs(client.sin_port)
-			);
+		// Perform auth
+		size_t	len;
+		tRequestAuthHdr	authhdr;
+		len = recv(clientSock, &authhdr, sizeof(authhdr), 0);
+		if( len != sizeof(authhdr) ) {
+			// Some form of error?
+		}
 		
+		tClient	*client;
+		if( authhdr.pid == 0 ) {
+			// Allocate PID and client structure/thread
+			client = Server_GetClient(0);
+			client->Socket = clientSock;
+			authhdr.pid = client->ClientID;
+		}
+		else {
+			// Get client structure and make sure it's unused
+			// - Auth token / verifcation?
+			client = Server_GetClient(authhdr.pid);
+			if( client->Socket != 0 ) {
+				Log_Warning("Server", "Client (%i)%p owned by FD%i but %s:%i tried to use it",
+					authhdr.pid, client, addrstr, clientaddr.sin_port);
+				authhdr.pid = 0;
+			}
+			else {
+				client->Socket = clientSock;
+			}
+		}
+		
+		len = send(clientSock, &authhdr, sizeof(authhdr), 0);
+		if( len != sizeof(authhdr) ) {
+			// Ok, this is an error
+			perror("Sending auth reply");
+		}
+
+		// All done, client thread should be watching now		
+
 		#else
 		char	data[BUFSIZ];
 		tRequestHeader	*req = (void*)data;
