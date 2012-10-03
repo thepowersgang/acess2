@@ -1,6 +1,9 @@
 /*
- * AcessOS/AcessBasic v0.1
- * PCI Bus Driver
+ * Acess2 Kernel
+ * - By John Hodge (thePowersGang)
+ * 
+ * drv/pci.c
+ * - PCI Enumeration and Arbitration
  */
 #define DEBUG	0
 #include <acess.h>
@@ -9,8 +12,11 @@
 #include <fs_devfs.h>
 #include <drv_pci.h>
 #include <drv_pci_int.h>
+#include <virtual_pci.h>
 
+#define USE_PORT_BITMAP	0
 #define	LIST_DEVICES	1
+#define PCI_MAX_BUSSES	8
 
 // === STRUCTURES ===
 typedef struct sPCIDevice
@@ -32,7 +38,7 @@ typedef struct sPCIDevice
  int	PCI_Install(char **Arguments);
  int	PCI_ScanBus(int ID, int bFill);
  
-char	*PCI_int_ReadDirRoot(tVFS_Node *node, int pos);
+ int	PCI_int_ReadDirRoot(tVFS_Node *node, int pos, char Dest[FILENAME_MAX]);
 tVFS_Node	*PCI_int_FindDirRoot(tVFS_Node *node, const char *filename);
 Uint32	PCI_int_GetBusAddr(Uint16 Bus, Uint16 Slot, Uint16 Fcn, Uint8 Offset);
 size_t	PCI_int_ReadDevice(tVFS_Node *node, off_t Offset, size_t Length, void *buffer);
@@ -41,6 +47,7 @@ size_t	PCI_int_ReadDevice(tVFS_Node *node, off_t Offset, size_t Length, void *bu
 // === GLOBALS ===
 MODULE_DEFINE(0, 0x0100, PCI, PCI_Install, NULL, NULL);
  int	giPCI_BusCount = 1;
+Uint8	gaPCI_BusNumbers[PCI_MAX_BUSSES];
  int	giPCI_InodeHandle = -1;
  int	giPCI_DeviceCount = 0;
 tPCIDevice	*gPCI_Devices = NULL;
@@ -63,7 +70,9 @@ tDevFS_Driver	gPCI_DriverStruct = {
 	.Type = &gPCI_RootNodeType
 	}
 };
+#if USE_PORT_BITMAP
 Uint32	*gaPCI_PortBitmap = NULL;
+#endif
 Uint32	gaPCI_BusBitmap[256/32];
  
 // === CODE ===
@@ -73,9 +82,10 @@ Uint32	gaPCI_BusBitmap[256/32];
  */
 int PCI_Install(char **Arguments)
 {
-	 int	i, ret, bus;
+	 int	ret, bus;
 	void	*tmpPtr;
 	
+	#if USE_PORT_BITMAP
 	// Build Portmap
 	gaPCI_PortBitmap = malloc( 1 << 13 );
 	if( !gaPCI_PortBitmap ) {
@@ -83,18 +93,26 @@ int PCI_Install(char **Arguments)
 		return MODULE_ERR_MALLOC;
 	}
 	memset( gaPCI_PortBitmap, 0, 1 << 13 );
+	 int	i;
 	for( i = 0; i < MAX_RESERVED_PORT / 32; i ++ )
 		gaPCI_PortBitmap[i] = -1;
 	for( i = 0; i < MAX_RESERVED_PORT % 32; i ++ )
 		gaPCI_PortBitmap[MAX_RESERVED_PORT / 32] = 1 << i;
-	
+	#endif	
+
 	// Scan Bus (Bus 0, Don't fill gPCI_Devices)
+	giPCI_DeviceCount = 0;
+	giPCI_BusCount = 1;
+	gaPCI_BusNumbers[0] = 0;
 	for( bus = 0; bus < giPCI_BusCount; bus ++ )
 	{
-		ret = PCI_ScanBus(bus, 0);
-		if(ret != MODULE_ERR_OK)	return i;
+		ret = PCI_ScanBus(gaPCI_BusNumbers[bus], 0);
+		if(ret != MODULE_ERR_OK)	return ret;
 	}
-		
+	// TODO: PCIe
+	// - Add VPCI Devices
+	giPCI_DeviceCount += giVPCI_DeviceCount;
+	
 	if(giPCI_DeviceCount == 0) {
 		Log_Notice("PCI", "No devices were found");
 		return MODULE_ERR_NOTNEEDED;
@@ -117,7 +135,33 @@ int PCI_Install(char **Arguments)
 	// Rescan, filling the PCI device array
 	for( bus = 0; bus < giPCI_BusCount; bus ++ )
 	{
-		PCI_ScanBus(bus, 1);
+		PCI_ScanBus(gaPCI_BusNumbers[bus], 1);
+	}
+	// Insert VPCI Devices
+	for( int i = 0; i < giVPCI_DeviceCount; i ++ )
+	{
+		tPCIDevice	*devinfo = &gPCI_Devices[giPCI_DeviceCount];
+		
+		devinfo->bus = -1;
+		devinfo->slot = i;
+		devinfo->fcn = 0;
+		devinfo->vendor = gaVPCI_Devices[i].Vendor;
+		devinfo->device = gaVPCI_Devices[i].Device;
+		devinfo->revision = gaVPCI_Devices[i].Class & 0xFF;
+		devinfo->class = gaVPCI_Devices[i].Class >> 8;
+		snprintf(devinfo->Name, sizeof(devinfo->Name), "%02x.%02x:%x", 0xFF, i, 0);
+
+		for(int j = 0; j < 256/4; j ++ )
+			devinfo->ConfigCache[i] = VPCI_Read(&gaVPCI_Devices[i], j*4, 4);
+
+		memset(&devinfo->Node, 0, sizeof(devinfo->Node));
+		devinfo->Node.Inode = giPCI_DeviceCount;
+		devinfo->Node.Size = 256;
+		devinfo->Node.NumACLs = 1;
+		devinfo->Node.ACLs = &gVFS_ACL_EveryoneRO;
+		devinfo->Node.Type = &gPCI_DevNodeType;
+
+		giPCI_DeviceCount ++;
 	}
 	
 	// Complete Driver Structure
@@ -152,25 +196,12 @@ int PCI_ScanBus(int BusID, int bFill)
 			if(!PCI_int_EnumDevice(BusID, dev, fcn, &devInfo))
 				continue;
 			
-			if(devInfo.class == PCI_OC_PCIBRIDGE)
-			{
-				#if LIST_DEVICES
-				if( !bFill )
-					Log_Log("PCI", "Bridge @ %i,%i:%i (0x%x:0x%x)",
-						BusID, dev, fcn, devInfo.vendor, devInfo.device);
-				#endif
-				//TODO: Handle PCI-PCI Bridges
-				//PCI_ScanBus(devInfo.???, bFill);
-				giPCI_BusCount ++;
-			}
-			else
-			{
-				#if LIST_DEVICES
-				if( !bFill )
-					Log_Log("PCI", "Device %i,%i:%i %06x => 0x%04x:0x%04x",
-						BusID, dev, fcn, devInfo.class, devInfo.vendor, devInfo.device);
-				#endif
-			}
+			#if LIST_DEVICES
+			if( !bFill )
+				Log_Log("PCI", "Device %i,%i:%i %06x => 0x%04x:0x%04x Rev %i",
+					BusID, dev, fcn, devInfo.class,
+					devInfo.vendor, devInfo.device, devInfo.revision);
+			#endif
 			
 			if( bFill ) {
 				devInfo.Node.Inode = giPCI_DeviceCount;
@@ -178,7 +209,28 @@ int PCI_ScanBus(int BusID, int bFill)
 			}
 			giPCI_DeviceCount ++;
 			
-			// If bit 23 of (soemthing) is set, there are sub-functions
+			switch(devInfo.ConfigCache[3] & 0x007F0000)
+			{
+			case 0x00:	// Normal device
+				break;
+			case 0x01:	// PCI-PCI Bridge
+				{
+				// TODO: Add to list of busses?
+				Uint8	sec = (devInfo.ConfigCache[6] & 0x0000FF00) >> 8;
+				#if LIST_DEVICES
+				if( !bFill ) {
+					Uint8	pri = (devInfo.ConfigCache[6] & 0x000000FF) >> 0;
+					Log_Log("PCI", "- PCI-PCI Bridge %02x=>%02x", pri, sec);
+				}
+				#endif
+				gaPCI_BusNumbers[giPCI_BusCount++] = sec;
+				}
+				break;
+			case 0x02:	// PCI-CardBus Bridge
+				break;
+			}
+
+			// If bit 8 of the Header Type register is set, there are sub-functions
 			if(fcn == 0 && !(devInfo.ConfigCache[3] & 0x00800000) )
 				break;
 		}
@@ -190,50 +242,31 @@ int PCI_ScanBus(int BusID, int bFill)
 /**
  * \brief Read from Root of PCI Driver
 */
-char *PCI_int_ReadDirRoot(tVFS_Node *Node, int Pos)
+int PCI_int_ReadDirRoot(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 {
 	ENTER("pNode iPos", Node, Pos);
 	if(Pos < 0 || Pos >= giPCI_DeviceCount) {
-		LEAVE('n');
-		return NULL;
+		LEAVE_RET('i', -EINVAL);
 	}
 	
-	LEAVE('s', gPCI_Devices[Pos].Name);
-	return strdup( gPCI_Devices[Pos].Name );
+	LOG("Name = %s", gPCI_Devices[Pos].Name);
+	strncpy(Dest, gPCI_Devices[Pos].Name, FILENAME_MAX);
+	LEAVE_RET('i', 0);
 }
 /**
  */
 tVFS_Node *PCI_int_FindDirRoot(tVFS_Node *node, const char *filename)
 {
-	 int	bus,slot,fcn;
 	 int	i;
-	// Validate Filename (Pointer and length)
-	if(!filename || strlen(filename) != 7)
-		return NULL;
-	// Check for spacers
-	if(filename[2] != '.' || filename[5] != ':')
-		return NULL;
-	
-	// Get Information
-	if(filename[0] < '0' || filename[0] > '9')	return NULL;
-	bus = (filename[0] - '0')*10;
-	if(filename[1] < '0' || filename[1] > '9')	return NULL;
-	bus += filename[1] - '0';
-	if(filename[3] < '0' || filename[3] > '9')	return NULL;
-	slot = (filename[3] - '0')*10;
-	if(filename[4] < '0' || filename[4] > '9')	return NULL;
-	slot += filename[4] - '0';
-	if(filename[6] < '0' || filename[6] > '9')	return NULL;
-	fcn = filename[6] - '0';
 	
 	// Find Match
 	for(i=0;i<giPCI_DeviceCount;i++)
 	{
-		if(gPCI_Devices[i].bus != bus)		continue;
-		if(gPCI_Devices[i].slot != slot)	continue;
-		if(gPCI_Devices[i].fcn != fcn)	continue;
-		
-		return &gPCI_Devices[i].Node;
+		int cmp = strcmp(gPCI_Devices[i].Name, filename);
+		if( cmp > 0 )	// Sorted list
+			break;
+		if( cmp == 0 )
+			return &gPCI_Devices[i].Node;
 	}
 	
 	// Error Return
@@ -365,6 +398,11 @@ Uint32 PCI_ConfigRead(tPCIDev ID, int Offset, int Size)
 	if( Offset & (Size - 1) )	return 0;
 
 	dev = &gPCI_Devices[ID];
+	// Detect VPCI devices
+	if( dev->bus == -1 ) {
+		return VPCI_Read(&gaVPCI_Devices[dev->slot], Offset, Size);
+	}
+
 	addr = PCI_int_GetBusAddr(dev->bus, dev->slot, dev->fcn, Offset);
 
 	dword = PCI_CfgReadDWord(addr);
@@ -384,10 +422,18 @@ void PCI_ConfigWrite(tPCIDev ID, int Offset, int Size, Uint32 Value)
 	tPCIDevice	*dev;
 	Uint32	dword, addr;
 	 int	shift;
+
 	if( ID < 0 || ID >= giPCI_DeviceCount )	return ;
 	if( Offset < 0 || Offset > 256 )	return ;
-	
+
 	dev = &gPCI_Devices[ID];
+
+	// Detect VPCI devices
+	if( dev->bus == -1 ) {
+		VPCI_Write(&gaVPCI_Devices[dev->slot], Offset, Size, Value);
+		return ;
+	}
+
 	addr = PCI_int_GetBusAddr(dev->bus, dev->slot, dev->fcn, Offset);
 
 	if(Size != 4)
@@ -449,16 +495,18 @@ int PCI_int_EnumDevice(Uint16 bus, Uint16 slot, Uint16 fcn, tPCIDevice *info)
 	vendor_dev = PCI_CfgReadDWord( addr );
 	if((vendor_dev & 0xFFFF) == 0xFFFF)	// Invalid Device
 		return 0;
+	
+	info->bus = bus;
+	info->slot = slot;
+	info->fcn = fcn;
 
+	// Read configuration
 	info->ConfigCache[0] = vendor_dev;
 	for( i = 1, addr += 4; i < 256/4; i ++, addr += 4 )
 	{
 		info->ConfigCache[i] = PCI_CfgReadDWord(addr);
 	}	
 
-	info->bus = bus;
-	info->slot = slot;
-	info->fcn = fcn;
 	info->vendor = vendor_dev & 0xFFFF;
 	info->device = vendor_dev >> 16;
 	tmp = info->ConfigCache[2];
@@ -472,14 +520,7 @@ int PCI_int_EnumDevice(Uint16 bus, Uint16 slot, Uint16 fcn, tPCIDevice *info)
 //	#endif
 	
 	// Make node name
-	info->Name[0] = '0' + bus/10;
-	info->Name[1] = '0' + bus%10;
-	info->Name[2] = '.';
-	info->Name[3] = '0' + slot/10;
-	info->Name[4] = '0' + slot%10;
-	info->Name[5] = ':';
-	info->Name[6] = '0' + fcn;
-	info->Name[7] = '\0';
+	snprintf(info->Name, 8, "%02x.%02x:%x", bus, slot, fcn);
 	
 	// Create VFS Node
 	memset( &info->Node, 0, sizeof(tVFS_Node) );
@@ -488,7 +529,7 @@ int PCI_int_EnumDevice(Uint16 bus, Uint16 slot, Uint16 fcn, tPCIDevice *info)
 	info->Node.NumACLs = 1;
 	info->Node.ACLs = &gVFS_ACL_EveryoneRO;
 	
-	info->Node.Type = &gPCI_RootNodeType;
+	info->Node.Type = &gPCI_DevNodeType;
 	
 	return 1;
 }

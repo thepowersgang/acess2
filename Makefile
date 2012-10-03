@@ -11,12 +11,12 @@
 SUBMAKE = $(MAKE) --no-print-directory
 
 USRLIBS := crt0.o acess.ld ld-acess.so libgcc.so libc.so
-USRLIBS += libreadline.so libnet.so liburi.so
+USRLIBS += libreadline.so libnet.so liburi.so libpsocket.so
 USRLIBS += libimage_sif.so
 
 USRAPPS := init login CLIShell cat ls mount
-USRAPPS += bomb dhcpclient
-USRAPPS += ip ping telnet irc
+USRAPPS += bomb lspci
+USRAPPS += ip dhcpclient ping telnet irc wget telnetd
 USRAPPS += axwin3
 
 ALL_DYNMODS = $(addprefix all-,$(DYNMODS))
@@ -98,6 +98,10 @@ $(CLEAN_USRAPPS): clean-%:
 	+@$(SUBMAKE) clean -C Usermode/Applications/$*_src
 
 # Install
+ifeq ($(ARCH),host)
+install-%:
+	
+else
 $(INSTALL_DYNMODS): install-%:
 	@$(_build_dynmod)$* install
 $(INSTALL_MODULES): install-%:
@@ -110,3 +114,4 @@ $(INSTALL_USRLIBS): install-%:
 	@$(SUBMAKE) install -C Usermode/Libraries/$*_src
 $(INSTALL_USRAPPS): install-%:
 	@$(SUBMAKE) install -C Usermode/Applications/$*_src
+endif

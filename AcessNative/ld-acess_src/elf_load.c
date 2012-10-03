@@ -3,7 +3,7 @@
  *
  * ELF Executable Loader Code
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -190,9 +190,9 @@ void *Elf64Load(int FD, Elf64_Ehdr *hdr)
 	
 	ENTER("iFD", FD);
 	
-	#if BITS <= 32
-	Warning("ELF64 being loaded in 32-bit env, this may not work");
-	#endif
+	if( sizeof(void*) == 4) {
+		Warning("ELF64 being loaded in 32-bit env, this may not work");
+	}
 
 	// Check for a program header
 	if(hdr->e_phoff == 0) {

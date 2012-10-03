@@ -13,7 +13,7 @@ CPPFLAGS := -I$(ACESSDIR)/KernelLand/Kernel/include -I$(ACESSDIR)/KernelLand/Ker
 CPPFLAGS += -I$(ACESSDIR)/KernelLand/Modules
 CPPFLAGS += -DARCH=$(ARCH) -DARCH_is_$(ARCH) -DARCHDIR_is_$(ARCHDIR)
 CPPFLAGS += $(_CPPFLAGS)
-CPPFLAGS += $(LIBINCLUDES)
+CPPFLAGS += $(LIBINCLUDES) -ffreestanding
 CFLAGS := -std=gnu99 -Wall -fno-stack-protector -g -O3
 CFLAGS += -Werror
 
@@ -51,9 +51,11 @@ clean:
 
 install: $(BIN)
 ifneq ($(BUILDTYPE),static)
-	@$(xMKDIR) $(DISTROOT)/Modules/$(ARCH); true
-	$(xCP) $(BIN) $(DISTROOT)/Modules/$(ARCH)/$(NAME).kmd
+	@$(xMKDIR) $(DISTROOT)/$(ARCH)/Modules; true
+	@gzip -c $(BIN) > $(BIN).gz
+	$(xCP) $(BIN).gz $(DISTROOT)/$(ARCH)/Modules/$(NAME).kmd.gz
 else
+	@true
 endif
 
 

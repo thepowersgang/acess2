@@ -5,7 +5,7 @@
  * - Exported functions
  */
 #define DONT_INCLUDE_SYSCALL_NAMES 1
-#include "../../Usermode/include/acess/sys.h"
+#include "../../Usermode/Libraries/ld-acess.so_src/include_exp/acess/sys.h"
 #include "../syscalls.h"
 #include "exports.h"
 #include <stdarg.h>
@@ -68,14 +68,16 @@ int acess_reopen(int FD, const char *Path, int Flags) {
 size_t acess_read(int FD, void *Dest, size_t Bytes) {
 	if(FD & NATIVE_FILE_MASK)
 		return native_read(FD & (NATIVE_FILE_MASK-1), Dest, Bytes);
-	DEBUG("read(0x%x, 0x%x, *%p)", FD, Bytes, Dest);
+//	if( FD > 2 )
+		DEBUG("read(0x%x, 0x%x, *%p)", FD, Bytes, Dest);
 	return _Syscall(SYS_READ, ">i >i <d", FD, Bytes, Bytes, Dest);
 }
 
 size_t acess_write(int FD, const void *Src, size_t Bytes) {
 	if(FD & NATIVE_FILE_MASK)
 		return native_write(FD & (NATIVE_FILE_MASK-1), Src, Bytes);
-	DEBUG("write(0x%x, 0x%x, %p\"%.*s\")", FD, Bytes, Src, Bytes, (char*)Src);
+//	if( FD > 2 )
+		DEBUG("write(0x%x, 0x%x, %p\"%.*s\")", FD, Bytes, Src, Bytes, (char*)Src);
 	return _Syscall(SYS_WRITE, ">i >i >d", FD, Bytes, Bytes, Src);
 }
 
@@ -95,8 +97,8 @@ uint64_t acess_tell(int FD) {
 
 int acess_ioctl(int fd, int id, void *data) {
 	 int	len;
-	// NOTE: 1024 byte size is a hack
 	DEBUG("ioctl(%i, %i, %p)", fd, id, data);
+	// NOTE: The length here is hacky and could break
 	if( data == NULL )
 		len = 0;
 	else
@@ -267,7 +269,7 @@ int acess_SysGetMessage(int *SourceTID, void *Data)
 	int lastlen;
 
 	lastlen = _Syscall(SYS_GETMSG, "<d <d",
-		SourceTID ? sizeof(int) : 0, SourceTID,
+		SourceTID ? sizeof(uint32_t) : 0, SourceTID,
 		Data ? 1024 : 0, Data
 		);
 	return lastlen;
@@ -285,7 +287,7 @@ void acess__SysDebug(const char *Format, ...)
 	
 	va_start(args, Format);
 	
-	printf("[_SysDebug %i]", giSyscall_ClientID);
+	printf("[_SysDebug %i] ", giSyscall_ClientID);
 	vprintf(Format, args);
 	printf("\n");
 	

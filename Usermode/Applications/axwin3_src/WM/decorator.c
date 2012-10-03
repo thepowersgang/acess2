@@ -64,14 +64,17 @@ void Decorator_Redraw(tWindow *Window)
 	}
 
 	// Draw title bar
+	// - Body
 	WM_Render_FillRect(Window,
 		0, -ciTitlebarHeight, Window->W, ciTitlebarHeight,
 		(bActive ? cColourActive_Titlebar : cColourInactive_Titlebar)
 		);
+	// - Top Border
 	WM_Render_FillRect(Window,
 		0, -ciTitlebarHeight, Window->W, 1,
 		cColour_TitleTopBorder
 		);
+	// - Sides
 	WM_Render_FillRect(Window,
 		0, -ciTitlebarHeight, 1, ciTitlebarHeight,
 		cColour_SideBorder
@@ -81,11 +84,13 @@ void Decorator_Redraw(tWindow *Window)
 		cColour_SideBorder
 		);
 
+	// Get the font height
 	WM_Render_GetTextDims(
 		NULL,	// TODO: Select font
 		Window->Title ? Window->Title : "jI", -1,
 		&text_width, &text_height
 		);
+	// - Use that to draw the window title on the left of the window
 	WM_Render_DrawText(Window,
 		ciTitlebarHeight + 4, -(ciTitlebarHeight - (ciTitlebarHeight/2 - text_height/2)),
 		Window->W - ciTitlebarHeight - 4, text_height,
@@ -93,29 +98,32 @@ void Decorator_Redraw(tWindow *Window)
 		(bActive ? cColourActive_TitleText : cColourInactive_TitleText),
 		Window->Title ? Window->Title : "--", -1
 		);
-	
+
+	// TODO: Minimise, Maximise and Close	
+
 	// Maximized windows don't have any other borders
 	if( Window->Flags & WINFLAG_MAXIMIZED )
 		return ;
 	
-	// Left
+	// Left Border
 	WM_Render_FillRect(Window,
 		-ciSideBorderWidth, -ciTitlebarHeight,
 		ciSideBorderWidth, Window->H + ciTitlebarHeight + ciBottomBorderWidth,
 		cColour_SideBorder
 		);
-	// Right
+	// Right Border
 	WM_Render_FillRect(Window,
 		Window->W, -ciTitlebarHeight,
 		ciSideBorderWidth, Window->H + ciTitlebarHeight + ciBottomBorderWidth,
 		cColour_SideBorder
 		);
-	// Bottom
+	// Bottom Border (hard line)
 	WM_Render_FillRect(Window,
 		-ciSideBorderWidth, Window->H,
 		ciSideBorderWidth*2+Window->W, 1,
 		0x000000
 		);
+	// Bottom Border
 	WM_Render_FillRect(Window,
 		-ciSideBorderWidth, Window->H+1,
 		ciSideBorderWidth*2+Window->W, ciBottomBorderWidth-1,

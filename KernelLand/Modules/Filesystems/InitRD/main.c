@@ -18,14 +18,17 @@ tVFS_Node	*InitRD_InitDevice(const char *Device, const char **Arguments);
 void	InitRD_Unmount(tVFS_Node *Node);
 tVFS_Node	*InitRD_GetNodeFromINode(tVFS_Node *Root, Uint64 Inode);
 size_t	InitRD_ReadFile(tVFS_Node *Node, off_t Offset, size_t Size, void *Buffer);
-char	*InitRD_ReadDir(tVFS_Node *Node, int ID);
+ int	InitRD_ReadDir(tVFS_Node *Node, int ID, char Dest[FILENAME_MAX]);
 tVFS_Node	*InitRD_FindDir(tVFS_Node *Node, const char *Name);
 void	InitRD_DumpDir(tVFS_Node *Node, int Indent);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, 0x0A, FS_InitRD, InitRD_Install, NULL);
 tVFS_Driver	gInitRD_FSInfo = {
-	"initrd", 0, InitRD_InitDevice, InitRD_Unmount, InitRD_GetNodeFromINode
+	.Name = "initrd",
+	.InitDevice = InitRD_InitDevice,
+	.Unmount = InitRD_Unmount,
+	.GetNodeFromINode = InitRD_GetNodeFromINode
 	};
 tVFS_NodeType	gInitRD_DirType = {
 	.ReadDir = InitRD_ReadDir,
@@ -40,7 +43,6 @@ tVFS_NodeType	gInitRD_FileType = {
  */
 int InitRD_Install(char **Arguments)
 {
-	Log_Notice("InitRD", "Installed");
 	VFS_AddDriver( &gInitRD_FSInfo );
 	
 	return MODULE_ERR_OK;
@@ -54,7 +56,6 @@ tVFS_Node *InitRD_InitDevice(const char *Device, const char **Arguments)
 	#if DUMP_ON_MOUNT
 	InitRD_DumpDir( &gInitRD_RootNode, 0 );
 	#endif
-	Log_Notice("InitRD", "Mounted (%i files)", giInitRD_NumFiles);
 	return &gInitRD_RootNode;
 }
 
@@ -91,14 +92,15 @@ size_t InitRD_ReadFile(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffe
 /**
  * \brief Read from a directory
  */
-char *InitRD_ReadDir(tVFS_Node *Node, int ID)
+int InitRD_ReadDir(tVFS_Node *Node, int ID, char Dest[FILENAME_MAX])
 {
 	tInitRD_File	*dir = Node->ImplPtr;
 	
 	if(ID >= Node->Size)
-		return NULL;
+		return -EINVAL;
 	
-	return strdup(dir[ID].Name);
+	strncpy(Dest, dir[ID].Name, FILENAME_MAX);
+	return 0;
 }
 
 /**

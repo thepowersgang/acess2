@@ -5,7 +5,7 @@
  * usb_devinit.c
  * - USB Device Initialisation
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include <vfs.h>
 #include <drv_pci.h>
@@ -13,7 +13,7 @@
 #include "usb_proto.h"
 #include "usb_lowlevel.h"
 
-#define DUMP_DESCRIPTORS	0
+#define DUMP_DESCRIPTORS	1
 
 // === PROTOTYPES ===
 void	USB_DeviceConnected(tUSBHub *Hub, int Port);
@@ -21,6 +21,7 @@ void	USB_DeviceDisconnected(tUSBHub *Hub, int Port);
 void	*USB_GetDeviceDataPtr(tUSBInterface *Dev);
 void	USB_SetDeviceDataPtr(tUSBInterface *Dev, void *Ptr);
  int	USB_int_AllocateAddress(tUSBHost *Host);
+void	USB_int_DeallocateAddress(tUSBHost *Host, int Address);
 
 // === CODE ===
 void USB_DeviceConnected(tUSBHub *Hub, int Port)
@@ -28,7 +29,7 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 	tUSBDevice	tmpdev;
 	tUSBDevice	*dev = &tmpdev;
 	if( Port >= Hub->nPorts )	return ;
-	if( Hub->Devices[Port] )	return ;
+	if( Hub->Ports[Port].Dev )	return ;
 
 	ENTER("pHub iPort", Hub, Port);
 
@@ -49,33 +50,51 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 	}
 	USB_int_SendSetupSetAddress(dev->Host, dev->Address);
 	LOG("Assigned address %i", dev->Address);
-	
+
+	dev->EndpointHandles[0] = dev->Host->HostDef->InitControl(dev->Host->Ptr, dev->Address << 4, 64);
+	for( int i = 1; i < 16; i ++ )
+		dev->EndpointHandles[i] = 0;
+
 	// 2. Get device information
 	{
 		struct sDescriptor_Device	desc;
+		desc.Length = 0;
 		LOG("Getting device descriptor");
 		// Endpoint 0, Desc Type 1, Index 0
 		USB_int_ReadDescriptor(dev, 0, 1, 0, sizeof(desc), &desc);
+
+		if( desc.Length < sizeof(desc) ) {
+			Log_Error("USB", "Device descriptor undersized (%i<%i)", desc.Length, sizeof(desc));
+			USB_int_DeallocateAddress(dev->Host, dev->Address);
+			LEAVE('-');
+			return;
+		}
+		if( desc.Type != 1 ) {
+			Log_Error("USB", "Device descriptor type invalid (%i!=1)", desc.Type);
+			USB_int_DeallocateAddress(dev->Host, dev->Address);
+			LEAVE('-');
+			return;
+		}
 
 		#if DUMP_DESCRIPTORS		
 		LOG("Device Descriptor = {");
 		LOG(" .Length = %i", desc.Length);
 		LOG(" .Type = %i", desc.Type);
-		LOG(" .USBVersion = 0x%04x", desc.USBVersion);
+		LOG(" .USBVersion = 0x%04x", LittleEndian16(desc.USBVersion));
 		LOG(" .DeviceClass = 0x%02x", desc.DeviceClass);
 		LOG(" .DeviceSubClass = 0x%02x", desc.DeviceSubClass);
 		LOG(" .DeviceProtocol = 0x%02x", desc.DeviceProtocol);
 		LOG(" .MaxPacketSize = 0x%02x", desc.MaxPacketSize);
-		LOG(" .VendorID = 0x%04x", desc.VendorID);
-		LOG(" .ProductID = 0x%04x", desc.ProductID);
-		LOG(" .DeviceID = 0x%04x", desc.DeviceID);
+		LOG(" .VendorID = 0x%04x",  LittleEndian16(desc.VendorID));
+		LOG(" .ProductID = 0x%04x", LittleEndian16(desc.ProductID));
+		LOG(" .DeviceID = 0x%04x",  LittleEndian16(desc.DeviceID));
 		LOG(" .ManufacturerStr = Str %i", desc.ManufacturerStr);
 		LOG(" .ProductStr = Str %i", desc.ProductStr);
 		LOG(" .SerialNumberStr = Str %i", desc.SerialNumberStr);
-		LOG(" .NumConfigurations = %i", desc.SerialNumberStr);
+		LOG(" .NumConfigurations = %i", desc.NumConfigurations);
 		LOG("}");
 	
-		#if DEBUG	
+		#if DEBUG
 		if( desc.ManufacturerStr )
 		{
 			char	*tmp = USB_int_GetDeviceString(dev, 0, desc.ManufacturerStr);
@@ -102,11 +121,12 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 		}
 		#endif
 		#endif
+		
+		memcpy(&dev->DevDesc, &desc, sizeof(desc));
 	}
 
-	// TODO: Support alternate configurations
-	
 	// 3. Get configurations
+	// TODO: Support alternate configurations
 	for( int i = 0; i < 1; i ++ )
 	{
 		struct sDescriptor_Configuration	desc;
@@ -115,6 +135,13 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 		size_t	total_length;
 	
 		USB_int_ReadDescriptor(dev, 0, 2, i, sizeof(desc), &desc);
+		if( desc.Length < sizeof(desc) ) {
+			// ERROR: 
+		}
+		if( desc.Type != 2 ) {
+			// ERROR: 
+		}
+		// TODO: Check return length? (Do we get a length?)
 		#if DUMP_DESCRIPTORS
 		LOG("Configuration Descriptor %i = {", i);
 		LOG(" .Length = %i", desc.Length);
@@ -133,6 +160,11 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 		}
 		#endif
 
+		if( desc.NumInterfaces == 0 ) {
+			Log_Notice("USB", "Device does not have any interfaces");
+			continue ;
+		}
+
 		// TODO: Split here and allow some method of selection
 
 		// Allocate device now that we have the configuration
@@ -144,10 +176,10 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 		total_length = LittleEndian16(desc.TotalLength);
 		full_buf = malloc( total_length );
 		USB_int_ReadDescriptor(dev, 0, 2, i, total_length, full_buf);
-
 		ptr_ofs += desc.Length;
 
-		// TODO: Interfaces
+
+		// Interfaces!
 		for( int j = 0; ptr_ofs < total_length && j < desc.NumInterfaces; j ++ )
 		{
 			struct sDescriptor_Interface *iface;
@@ -179,21 +211,23 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 			LOG(" .InterfaceClass = 0x%x", iface->InterfaceClass);
 			LOG(" .InterfaceSubClass = 0x%x", iface->InterfaceSubClass);
 			LOG(" .InterfaceProcol = 0x%x", iface->InterfaceProtocol);
-			# if DEBUG	
 			if( iface->InterfaceStr ) {
 				char	*tmp = USB_int_GetDeviceString(dev, 0, iface->InterfaceStr);
 				LOG(" .InterfaceStr = %i '%s'", iface->InterfaceStr, tmp);
 				free(tmp);
 			}
-			# endif
 			LOG("}");
 			#endif
 
-			dev_if = malloc(sizeof(tUSBInterface) + iface->NumEndpoints*sizeof(dev_if->Endpoints[0]));
+			dev_if = malloc(
+				sizeof(tUSBInterface)
+				+ iface->NumEndpoints*sizeof(dev_if->Endpoints[0])
+				);
 			dev_if->Dev = dev;
 			dev_if->Driver = NULL;
 			dev_if->Data = NULL;
 			dev_if->nEndpoints = iface->NumEndpoints;
+			memcpy(&dev_if->IfaceDesc, iface, sizeof(*iface));
 			dev->Interfaces[j] = dev_if;
 
 			// Copy interface data
@@ -222,7 +256,14 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 				LOG(" .MaxPacketSize = %i", LittleEndian16(endpt->MaxPacketSize));
 				LOG(" .PollingInterval = %i", endpt->PollingInterval);
 				LOG("}");
-				
+	
+				// Make sure things don't break
+				if( !((endpt->Address & 0x7F) < 15) ) {
+					Log_Error("USB", "Endpoint number %i>16", endpt->Address & 0x7F);
+					k --;
+					continue ;
+				}
+
 				dev_if->Endpoints[k].Next = NULL;
 				dev_if->Endpoints[k].Interface = dev_if;
 				dev_if->Endpoints[k].EndpointIdx = k;
@@ -232,6 +273,33 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 				dev_if->Endpoints[k].Type = endpt->Attributes | (endpt->Address & 0x80);
 				dev_if->Endpoints[k].PollingAtoms = 0;
 				dev_if->Endpoints[k].InputData = NULL;
+				
+				// TODO: Register endpoint early
+				 int	ep_num = endpt->Address & 15;
+				if( dev->EndpointHandles[ep_num] ) {
+					Log_Notice("USB", "Device %p:%i ep %i reused", dev->Host->Ptr, dev->Address, ep_num);
+				}
+				else {
+					 int	addr = dev->Address*16+ep_num;
+					 int	mps = dev_if->Endpoints[k].MaxPacketSize;
+					void *handle = NULL;
+					switch( endpt->Attributes & 3)
+					{
+					case 0: // Control
+						handle = dev->Host->HostDef->InitControl(dev->Host->Ptr, addr, mps);
+						break;
+					case 1: // Isochronous
+					//	handle = dev->Host->HostDef->InitIsoch(dev->Host->Ptr, addr, mps);
+						break;
+					case 2: // Bulk
+						handle = dev->Host->HostDef->InitBulk(dev->Host->Ptr, addr, mps);
+						break;
+					case 3: // Interrupt
+					//	handle = dev->Host->HostDef->InitInterrupt(dev->Host->Ptr, addr, ...);
+						break;
+					}
+					dev->EndpointHandles[ep_num] = handle;
+				}
 			}
 			
 			// Initialise driver
@@ -246,24 +314,46 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 					);
 			}
 			else {
+				LOG("Driver '%s' in use", dev_if->Driver->Name);
 				dev_if->Driver->Connected(
 					dev_if,
 					full_buf + iface_base_ofs, ptr_ofs - iface_base_ofs
 					);
-			//	dev_if->Driver->Connected( dev_if );
 			}
 		}
 		
 		free(full_buf);
 	}
-
+	
+	Hub->Ports[Port].Dev = dev;
+	
 	// Done.
 	LEAVE('-');
 }
 
 void USB_DeviceDisconnected(tUSBHub *Hub, int Port)
 {
-	
+	tUSBDevice	*dev;
+	if( !Hub->Ports[Port].Dev ) {
+		Log_Error("USB", "Non-registered device disconnected");
+		return;
+	}
+	dev = Hub->Ports[Port].Dev;
+
+	// TODO: Free related resources
+	// - Endpoint registrations
+	for( int i = 0; i < 16; i ++ )
+	{
+		if(dev->EndpointHandles[i])
+			dev->Host->HostDef->RemEndpoint(dev->Host->Ptr, dev->EndpointHandles[i]);
+	}
+
+	// - Bus Address
+	USB_int_DeallocateAddress(dev->Host, dev->Address);
+	// - Inform handler
+	// - Release memory
+	free(dev);
+	Hub->Ports[Port].Dev = NULL;
 }
 
 void *USB_GetDeviceDataPtr(tUSBInterface *Dev) { return Dev->Data; }

@@ -4,8 +4,12 @@
  */
 #ifndef _MBOOT_H
 #define _MBOOT_H
+#include <acess.h>
 
 #define MULTIBOOT_MAGIC	0x2BADB002
+
+#include <pmemmap.h>
+#include <bootmod.h>
 
 // === TYPES ===
 typedef struct {
@@ -34,5 +38,8 @@ typedef struct {
 	Uint64	Length;
 	Uint32	Type;	//1:RAM,Else Reserved
 } __attribute__ ((packed)) tMBoot_MMapEnt;
+
+extern int	Multiboot_LoadMemoryMap(tMBoot_Info *MBInfo, tVAddr MapOffset, tPMemMapEnt *Map, const int MapSize, tPAddr KStart, tPAddr KEnd);
+extern tBootModule	*Multiboot_LoadModules(tMBoot_Info *MBInfo, tVAddr MapOffset, int *ModuleCount);
 
 #endif

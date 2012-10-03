@@ -31,7 +31,7 @@ typedef struct sSysFS_Ent
  int	SysFS_RemoveFile(int ID);
 #endif
 
-char	*SysFS_Comm_ReadDir(tVFS_Node *Node, int Id);
+ int	SysFS_Comm_ReadDir(tVFS_Node *Node, int Id, char Dest[FILENAME_MAX]);
 tVFS_Node	*SysFS_Comm_FindDir(tVFS_Node *Node, const char *Filename);
 size_t	SysFS_Comm_ReadFile(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
 void	SysFS_Comm_CloseFile(tVFS_Node *Node);
@@ -109,12 +109,8 @@ tSysFS_Ent	*gSysFS_FileList;
  */
 int SysFS_Install(char **Options)
 {
-	{
-		const char	*fmt = "Acess2 "EXPAND_STR(KERNEL_VERSION)" "EXPAND_STR(ARCHDIR)" build %i, hash %s";
-		gSysFS_Version_Kernel.Node.Size = sprintf(NULL, fmt, BUILD_NUM, gsGitHash);
-		gSysFS_Version_Kernel.Node.ImplPtr = malloc( gSysFS_Version_Kernel.Node.Size + 1 );
-		sprintf(gSysFS_Version_Kernel.Node.ImplPtr, fmt, BUILD_NUM, gsGitHash);
-	}
+	gSysFS_Version_Kernel.Node.Size = strlen(gsBuildInfo);
+	gSysFS_Version_Kernel.Node.ImplPtr = (void*)gsBuildInfo;
 
 	DevFS_AddDevice( &gSysFS_DriverInfo );
 	return MODULE_ERR_OK;
@@ -254,8 +250,9 @@ int SysFS_UpdateFile(int ID, const char *Data, int Length)
 	for( ent = gSysFS_FileList; ent; ent = ent->Next )
 	{
 		// It's a reverse sorted list
-		if(ent->Node.Inode < ID)	return 0;
-		if(ent->Node.Inode == ID)
+		if(ent->Node.Inode < (Uint64)ID)
+			return 0;
+		if(ent->Node.Inode == (Uint64)ID)
 		{
 			ent->Node.ImplPtr = (void*)Data;
 			ent->Node.Size = Length;
@@ -279,14 +276,15 @@ int SysFS_RemoveFile(int ID)
 	tSysFS_Ent	*ent, *parent, *prev;
 	
 	prev = NULL;
-	for( ent = gSysFS_FileList; ent; prev = ent, ent = ent->Next )
+	for( ent = gSysFS_FileList; ent; prev = ent, ent = ent->ListNext )
 	{
 		// It's a reverse sorted list
-		if(ent->Node.Inode < ID)	return 0;
-		if(ent->Node.Inode == ID)	break;
+		if(ent->Node.Inode <= (Uint64)ID)	break;
 	}
-	
-	if(!ent)	return 0;
+	if( !ent || ent->Node.Inode != (Uint64)ID) {
+		Log_Notice("SysFS", "ID %i not present", ID);
+		return 0;
+	}
 	
 	// Set up for next part
 	file = ent;
@@ -300,25 +298,36 @@ int SysFS_RemoveFile(int ID)
 	file->Node.Size = 0;
 	file->Node.ImplPtr = NULL;
 	
-	// Search parent directory
-	for( ent = parent->Node.ImplPtr; ent; prev = ent, ent = ent->Next )
+	// Clean out of parent directory
+	while(parent)
 	{
-		if( ent == file )	break;
+		for( ent = parent->Node.ImplPtr; ent; prev = ent, ent = ent->Next )
+		{
+			if( ent == file )	break;
+		}
+		if(!ent) {
+			Log_Warning("SysFS", "Bookkeeping Error: File in list, but not in directory");
+			return 0;
+		}
+		
+		// Remove from parent directory
+		if(prev)
+			prev->Next = ent->Next;
+		else
+			parent->Node.ImplPtr = ent->Next;
+
+		// Free if not in use
+		if(file->Node.ReferenceCount == 0) {
+			free(file);
+		}
+
+		if( parent->Node.ImplPtr )
+			break;
+
+		// Remove parent from the tree
+		file = parent;
+		parent = parent->Parent;
 	}
-	if(!ent) {
-		Log_Warning("SysFS", "Bookkeeping Error: File in list, but not in directory");
-		return 0;
-	}
-	
-	// Remove from parent directory
-	if(prev)
-		prev->Next = ent->Next;
-	else
-		parent->Node.ImplPtr = ent->Next;
-	
-	// Free if not in use
-	if(file->Node.ReferenceCount == 0)
-		free(file);
 	
 	return 1;
 }
@@ -327,16 +336,20 @@ int SysFS_RemoveFile(int ID)
  * \fn char *SysFS_Comm_ReadDir(tVFS_Node *Node, int Pos)
  * \brief Reads from a SysFS directory
  */
-char *SysFS_Comm_ReadDir(tVFS_Node *Node, int Pos)
+int SysFS_Comm_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 {
 	tSysFS_Ent	*child = (tSysFS_Ent*)Node->ImplPtr;
-	if(Pos < 0 || Pos >= Node->Size)	return NULL;
+	if(Pos < 0 || (Uint64)Pos >= Node->Size)
+		return -EINVAL;
 	
 	for( ; child; child = child->Next, Pos-- )
 	{
-		if( Pos == 0 )	return strdup(child->Name);
+		if( Pos == 0 ) {
+			strncpy(Dest, child->Name, FILENAME_MAX);
+			return 0;
+		}
 	}
-	return NULL;
+	return -ENOENT;
 }
 
 /**

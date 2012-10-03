@@ -111,7 +111,7 @@ static inline void PL050_WriteKeyboardData(Uint8 Data)
 		return ;
 	}
 
-	while( --timeout && gpPL050_KeyboardBase[1] & PL050_TXBUSY );
+	while( --timeout && (gpPL050_KeyboardBase[1] & PL050_TXBUSY) );
 	if(timeout)
 		gpPL050_KeyboardBase[2] = Data;
 	else

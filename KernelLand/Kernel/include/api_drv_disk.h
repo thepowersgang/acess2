@@ -161,8 +161,8 @@ typedef Uint	(*tDrvUtil_Write_Callback)(Uint64 Address, Uint Count, const void *
  * \param Argument	An argument to pass to \a ReadBlocks
  * \return Number of bytes read
  */
-extern Uint64 DrvUtil_ReadBlock(Uint64 Start, Uint64 Length, void *Buffer,
-	tDrvUtil_Read_Callback ReadBlocks, Uint64 BlockSize, void *Argument);
+extern size_t DrvUtil_ReadBlock(Uint64 Start, size_t Length, void *Buffer,
+	tDrvUtil_Read_Callback ReadBlocks, size_t BlockSize, void *Argument);
 /**
  * \brief Writes a range to a block device using aligned writes
  * \param Start	Base byte offset
@@ -174,9 +174,9 @@ extern Uint64 DrvUtil_ReadBlock(Uint64 Start, Uint64 Length, void *Buffer,
  * \param Argument	An argument to pass to \a ReadBlocks and \a WriteBlocks
  * \return Number of bytes written
  */
-extern Uint64 DrvUtil_WriteBlock(Uint64 Start, Uint64 Length, const void *Buffer,
+extern size_t DrvUtil_WriteBlock(Uint64 Start, size_t Length, const void *Buffer,
 	tDrvUtil_Read_Callback ReadBlocks, tDrvUtil_Write_Callback WriteBlocks,
-	Uint64 BlockSize, void *Argument);
+	size_t BlockSize, void *Argument);
 
 /**
  * \}

@@ -34,7 +34,7 @@ extern void	Debug_SetKTerminal(const char *File);
 
 // === PROTOTYPES ===
  int	VT_Install(char **Arguments);
-char	*VT_ReadDir(tVFS_Node *Node, int Pos);
+ int	VT_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX]);
 tVFS_Node	*VT_FindDir(tVFS_Node *Node, const char *Name);
  int	VT_Root_IOCtl(tVFS_Node *Node, int Id, void *Data);
 size_t	VT_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
@@ -196,7 +196,6 @@ int VT_Install(char **Arguments)
 //		Semaphore_Init(&gVT_Terminals[i].InputSemaphore, 0, MAX_INPUT_CHARS8, "VTerm", gVT_Terminals[i].Name);
 	}
 	
-	Log_Debug("VTerm", "Registering with DevFS");
 	// Add to DevFS
 	DevFS_AddDevice( &gVT_DrvInfo );
 	
@@ -269,11 +268,12 @@ void VT_SetResolution(int Width, int Height)
  * \fn char *VT_ReadDir(tVFS_Node *Node, int Pos)
  * \brief Read from the VTerm Directory
  */
-char *VT_ReadDir(tVFS_Node *Node, int Pos)
+int VT_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 {
-	if(Pos < 0)	return NULL;
-	if(Pos >= NUM_VTS)	return NULL;
-	return strdup( gVT_Terminals[Pos].Name );
+	if(Pos < 0)	return -EINVAL;
+	if(Pos >= NUM_VTS)	return -EINVAL;
+	strncpy(Dest, gVT_Terminals[Pos].Name, FILENAME_MAX);
+	return 0;
 }
 
 /**
@@ -353,8 +353,7 @@ int VT_Root_IOCtl(tVFS_Node *Node, int Id, void *Data)
  */
 size_t VT_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 {
-	 int	pos = 0;
-	 int	avail;
+	 int	pos, avail;
 	tVTerm	*term = &gVT_Terminals[ Node->Inode ];
 	Uint32	*codepoint_buf = Buffer;
 	Uint32	*codepoint_in;
@@ -373,9 +372,10 @@ size_t VT_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 		avail = term->InputWrite - term->InputRead;
 		if(avail < 0)
 			avail += MAX_INPUT_CHARS8;
-		if(avail > Length - pos)
-			avail = Length - pos;
+		if(avail > Length)
+			avail = Length;
 		
+		pos = 0;
 		while( avail -- )
 		{
 			((char*)Buffer)[pos] = term->InputBuffer[term->InputRead];
@@ -395,12 +395,13 @@ size_t VT_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 		if(avail < 0)
 			avail += MAX_INPUT_CHARS32;
 		Length /= 4;
-		if(avail > Length - pos)
-			avail = Length - pos;
+		if(avail > Length)
+			avail = Length;
 		
 		codepoint_in = (void*)term->InputBuffer;
 		codepoint_buf = Buffer;
 		
+		pos = 0;
 		while( avail -- )
 		{
 			codepoint_buf[pos] = codepoint_in[term->InputRead];

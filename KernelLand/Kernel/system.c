@@ -4,8 +4,9 @@
  * system.c
  * - Architecture Independent System Init
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <acess.h>
+#include <hal_proc.h>
 
 // === IMPORTS ===
 extern void	Arch_LoadBootModules(void);
@@ -44,7 +45,12 @@ void System_Init(char *CommandLine)
 	
 	// - Execute the Config Script
 	Log_Log("Config", "Spawning init '%s'", gsInitBinary);
-	Proc_Spawn(gsInitBinary);
+	if(Proc_Clone(CLONE_VM|CLONE_NOUSER) == 0)
+	{
+		const char	*args[] = {gsInitBinary, 0};
+		Proc_Execve(gsInitBinary, args, &args[1], 0);
+		Log_KernelPanic("System", "Unable to spawn init '%s'", gsInitBinary);
+	}
 	
 	// Set the debug to be echoed to the terminal
 	Log_Log("Config", "Kernel now echoes to VT7 (Ctrl-Alt-F8)");
@@ -156,7 +162,7 @@ void System_ParseVFS(char *Arg)
 	// - Symbolic Link <link>=<destination>
 	if(value[0] == '/')
 	{
-		Log_Log("Config", "Symbolic link '%s' pointing to '%s'", Arg, value);
+//		Log_Log("Config", "Symbolic link '%s' pointing to '%s'", Arg, value);
 		VFS_Symlink(Arg, value);
 	}
 	// - Mount <mountpoint>=<fs>:<device>
@@ -171,13 +177,13 @@ void System_ParseVFS(char *Arg)
 		}
 		// Create Mountpoint
 		if( (fd = VFS_Open(Arg, 0)) == -1 ) {
-			Log_Log("Config", "Creating directory '%s'", Arg, value);
+//			Log_Log("Config", "Creating directory '%s'", Arg, value);
 			VFS_MkDir( Arg );
 		} else {
 			VFS_Close(fd);
 		}
 		// Mount
-		Log_Log("Config", "Mounting '%s' to '%s' ('%s')", dev, Arg, value);
+//		Log_Log("Config", "Mounting '%s' to '%s' ('%s')", dev, Arg, value);
 		VFS_Mount(dev, Arg, value, "");
 	}
 }

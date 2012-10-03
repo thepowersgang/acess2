@@ -13,6 +13,7 @@
  * \brief Achitecture defined thread/process management functions
  */
 
+#include <threads.h>
 #include <threads_int.h>
 
 /**
@@ -83,6 +84,11 @@ extern void	MM_ClearUser(void);
  * \param End	Last address
  */
 extern void	MM_DumpTables(tVAddr Start, tVAddr End);
+
+/**
+ * \brief Dump physical memory usage statistics to the debug channel
+ */
+extern void	MM_DumpStatistics(void);
 
 /**
  * \brief Check if a buffer is valid (and all user if originally user)

@@ -102,7 +102,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 	
 	// -- Get the physical address of a page
 	case SYS_GETPHYS:
-		ret = MM_GetPhysAddr(Regs->Arg1);
+		ret = MM_GetPhysAddr( (void*)Regs->Arg1 );
 		break;
 	
 	// -- Map an address
@@ -275,21 +275,35 @@ void SyscallHandler(tSyscallRegs *Regs)
 			ret = -1;
 			break;
 		}
-		// Sanity check the paths
-		if(!Syscall_ValidString((char*)Regs->Arg1)
-		|| !Syscall_ValidString((char*)Regs->Arg2)
-		|| !Syscall_ValidString((char*)Regs->Arg3)
-		|| !Syscall_ValidString((char*)Regs->Arg4) ) {
-			err = -EINVAL;
-			ret = -1;
-			break;
+		
+		if( !Regs->Arg1 )
+		{
+			if( !Syscall_ValidString((char*)Regs->Arg2) ) {
+				err = -EINVAL;
+				ret = -1;
+				break;
+			}
+			
+			ret = VFS_Unmount((char*)Regs->Arg2);
 		}
-		ret = VFS_Mount(
-			(char*)Regs->Arg1,	// Device
-			(char*)Regs->Arg2,	// Mount point
-			(char*)Regs->Arg3,	// Filesystem
-			(char*)Regs->Arg4	// Options
-			);
+		else
+		{
+			// Sanity check the paths
+			if(!Syscall_ValidString((char*)Regs->Arg1)
+			|| !Syscall_ValidString((char*)Regs->Arg2)
+			|| (Regs->Arg3 && !Syscall_ValidString((char*)Regs->Arg3))
+			|| !Syscall_ValidString((char*)Regs->Arg4) ) {
+				err = -EINVAL;
+				ret = -1;
+				break;
+			}
+			ret = VFS_Mount(
+				(char*)Regs->Arg1,	// Device
+				(char*)Regs->Arg2,	// Mount point
+				(char*)Regs->Arg3,	// Filesystem
+				(char*)Regs->Arg4	// Options
+				);
+		}
 		break;
 		
 	// Wait on a set of handles

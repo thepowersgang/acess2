@@ -361,6 +361,7 @@ void VT_int_ChangeMode(tVTerm *Term, int NewMode, int NewWidth, int NewHeight)
 	}
 	
 	// Debug
+	#if 0
 	switch(NewMode)
 	{
 	case TERM_MODE_TEXT:
@@ -375,6 +376,7 @@ void VT_int_ChangeMode(tVTerm *Term, int NewMode, int NewWidth, int NewHeight)
 	//case TERM_MODE_3DACCEL:
 	//	return;
 	}
+	#endif
 }
 
 

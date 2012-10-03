@@ -20,6 +20,7 @@
 #define _VFS_H
 
 #include <acess.h>
+#include <mutex.h>
 
 /**
  * \brief Thread list datatype for VFS_Select
@@ -77,7 +78,15 @@ typedef struct sVFS_NodeType	tVFS_NodeType;
  * is unmapped. Nice for read-only files and memory-only files (or 
  * pseudo-readonly filesystems)
  */
-#define VFS_FFLAG_NOWRITEBACK
+#define VFS_FFLAG_NOWRITEBACK	0x1000
+
+/**
+ * \brief "Dirty Metadata" Flag
+ *
+ * Indicates that the node's metadata has been altered since the flag was last
+ * cleared. Tells the driver that it should update the inode at the next flush.
+ */
+#define VFS_FFLAG_DIRTY 	0x8000
 /**
  * \}
  */
@@ -90,6 +99,11 @@ typedef struct sVFS_NodeType	tVFS_NodeType;
  */
 typedef struct sVFS_Node
 {
+	/**
+	 * \brief Functions associated with the node
+	 */
+	tVFS_NodeType	*Type;
+	
 	/**
 	 * \name Identifiers
 	 * \brief Fields used by the driver to identify what data this node
@@ -178,11 +192,6 @@ typedef struct sVFS_Node
 	/**
 	 * \}
 	 */
-	
-	/**
-	 * \brief Functions associated with the node
-	 */
-	tVFS_NodeType	*Type;
 } tVFS_Node;
 
 /**
@@ -286,40 +295,36 @@ struct sVFS_NodeType
 	 * \brief Read from a directory
 	 * \param Node	Pointer to this node
 	 * \param Pos	Offset in the directory
-	 * \return Pointer to the name of the item on the heap (will be freed
-	 *         by the caller). If the directory end has been reached, NULL
-	 *         will be returned.
-	 *         If an item is required to be skipped either &::NULLNode,
-	 *         ::VFS_SKIP or ::VFS_SKIPN(0...1023) will be returned.
+	 * \param Dest	Destination for filename
+	 * \return Zero on success, negative on error or +ve for ignore entry
 	 */
-	char	*(*ReadDir)(struct sVFS_Node *Node, int Pos);
+	 int	(*ReadDir)(struct sVFS_Node *Node, int Pos, char Dest[FILENAME_MAX]);
 	
 	/**
 	 * \brief Create a node in a directory
 	 * \param Node	Pointer to this node
 	 * \param Name	Name of the new child
 	 * \param Flags	Flags to apply to the new child (directory or symlink)
-	 * \return Zero on Success, non-zero on error (see errno.h)
+	 * \return Created node or NULL on error
 	 */
-	 int	(*MkNod)(struct sVFS_Node *Node, const char *Name, Uint Flags);
+	tVFS_Node	*(*MkNod)(struct sVFS_Node *Node, const char *Name, Uint Flags);
 	
 	/**
 	 * \brief Relink (Rename/Remove) a file/directory
 	 * \param Node	Pointer to this node
 	 * \param OldName	Name of the item to move/delete
-	 * \param NewName	New name (or NULL if unlinking is wanted)
 	 * \return Zero on Success, non-zero on error (see errno.h)
 	 */
-	 int	(*Relink)(struct sVFS_Node *Node, const char *OldName, const char *NewName);
+	 int	(*Unlink)(struct sVFS_Node *Node, const char *OldName);
 	
 	/**
 	 * \brief Link a node to a name
 	 * \param Node	Pointer to this node (directory)
-	 * \param Child	Node to create a new link to
 	 * \param NewName	Name for the new link
+	 * \param Child	Node to create a new link to
 	 * \retur Zeron on success, non-zero on error (see errno.h)
 	 */
-	 int	(*Link)(struct sVFS_Node *Node, struct sVFS_Node *Child, const char *NewName);
+	 int	(*Link)(struct sVFS_Node *Node, const char *NewName, struct sVFS_Node *Child);
 	 
 	 /**
 	  * \}
@@ -340,6 +345,15 @@ typedef struct sVFS_Driver
 	 */
 	Uint	Flags;
 	
+	/**
+	 * \brief Detect if a volume is accessible using this driver
+	 * \return Boolean success (with higher numbers being higher priority)
+	 *
+	 * E.g. FAT would return 1 as it's the lowest common denominator while ext2 might return 2,
+	 * because it can be embedded in a FAT volume (and is a more fully featured filesystem).
+	 */
+	 int	(*Detect)(int FD);
+
 	/**
 	 * \brief Callback to mount a device
 	 */
@@ -487,8 +501,9 @@ extern tVFS_Node	*Inode_CacheNode(int Handle, tVFS_Node *Node);
  * \brief Dereferences (and removes if needed) a node from the cache
  * \param Handle	A handle returned by Inode_GetHandle()
  * \param Inode	Value of the Inode field of the ::tVFS_Node you want to remove
+ * \return -1: Error (not present), 0: Not freed, 1: Freed
  */
-extern void	Inode_UncacheNode(int Handle, Uint64 Inode);
+extern int	Inode_UncacheNode(int Handle, Uint64 Inode);
 /**
  * \fn void Inode_ClearCache(int Handle)
  * \brief Clears the cache for a handle

@@ -504,15 +504,13 @@ tThread *Threads_GetThread(Uint TID)
 	tThread *thread;
 	
 	// Search global list
-	for(thread = gAllThreads;
-		thread;
-		thread = thread->GlobalNext)
+	for( thread = gAllThreads; thread; thread = thread->GlobalNext )
 	{
 		if(thread->TID == TID)
 			return thread;
 	}
 
-	Log("Unable to find TID %i on main list\n", TID);
+	Log_Notice("Threads", "Unable to find TID %i on main list\n", TID);
 	
 	return NULL;
 }

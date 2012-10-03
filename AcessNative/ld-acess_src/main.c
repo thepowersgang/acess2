@@ -15,6 +15,9 @@ extern void	Request_Preinit(void);
 // === PROTOTYPES ===
 void	CallUser(void *Entry, int argc, char *argv[], char **envp) __attribute__((noreturn));
 
+// === GLOBALS ===
+char	**gEnvP;
+
 // === CODE ===
 int main(int argc, char *argv[], char **envp)
 {
@@ -25,6 +28,8 @@ int main(int argc, char *argv[], char **envp)
 	 int	(*appMain)(int, char *[], char **);
 	void	*base;
 	 int	rv;
+
+	gEnvP = envp;
 	
 	Request_Preinit();
 

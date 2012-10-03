@@ -8,10 +8,11 @@
 #include "link.h"
 #include <api_drv_common.h>
 #include "include/adapters.h"
+#include "interface.h"
 
 // === CONSTANTS ===
-//! Default timeout value, 30 seconds
-#define DEFAULT_TIMEOUT	(30*1000)
+//! Default timeout value, 5 seconds
+#define DEFAULT_TIMEOUT	(5*1000)
 
 // === IMPORTS ===
 extern int	IPv4_Ping(tInterface *Iface, tIPv4 Addr);
@@ -20,18 +21,23 @@ extern tVFS_Node	gIP_RouteNode;
 extern tVFS_Node	gIP_AdaptersNode;
 
 // === PROTOTYPES ===
-char	*IPStack_Root_ReadDir(tVFS_Node *Node, int Pos);
+ int	IPStack_Root_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX]);
 tVFS_Node	*IPStack_Root_FindDir(tVFS_Node *Node, const char *Name);
  int	IPStack_Root_IOCtl(tVFS_Node *Node, int ID, void *Data);
 
  int	IPStack_AddFile(tSocketFile *File);
 tInterface	*IPStack_AddInterface(const char *Device, const char *Name);
 
-char	*IPStack_Iface_ReadDir(tVFS_Node *Node, int Pos);
+ int	IPStack_Iface_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX]);
 tVFS_Node	*IPStack_Iface_FindDir(tVFS_Node *Node, const char *Name);
  int	IPStack_Iface_IOCtl(tVFS_Node *Node, int ID, void *Data);
 
 // === GLOBALS ===
+tVFS_NodeType	gIP_RootNodeType = {
+	.ReadDir = IPStack_Root_ReadDir,
+	.FindDir = IPStack_Root_FindDir,
+	.IOCtl = IPStack_Root_IOCtl
+};
 tVFS_NodeType	gIP_InterfaceNodeType = {
 		.ReadDir = IPStack_Iface_ReadDir,
 		.FindDir = IPStack_Iface_FindDir,
@@ -62,27 +68,26 @@ tSocketFile	*gIP_FileTemplates;
 /**
  * \brief Read from the IP Stack's Device Directory
  */
-char *IPStack_Root_ReadDir(tVFS_Node *Node, int Pos)
+int IPStack_Root_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 {
 	tInterface	*iface;
-	char	*name;
 	ENTER("pNode iPos", Node, Pos);
 	
 
 	// Routing Subdir
 	if( Pos == 0 ) {
-		LEAVE('s', "routes");
-		return strdup("routes");
+		strcpy(Dest, "routes");
+		return 0;
 	}
 	// Adapters
 	if( Pos == 1 ) {
-		LEAVE('s', "adapters");
-		return strdup("adapters");
+		strcpy(Dest, "adapters");
+		return 0;
 	}
 	// Pseudo Interfaces
 	if( Pos == 2 ) {
-		LEAVE('s', "lo");
-		return strdup("lo");
+		strcpy(Dest, "lo");
+		return 0;
 	}
 	Pos -= 3;
 	
@@ -91,38 +96,16 @@ char *IPStack_Root_ReadDir(tVFS_Node *Node, int Pos)
 	
 	// Did we run off the end?
 	if(!iface) {
-		LEAVE('n');
-		return NULL;
-	}
-	
-	name = malloc(4);
-	if(!name) {
-		Log_Warning("IPStack", "IPStack_Root_ReadDir - malloc error");
-		LEAVE('n');
-		return NULL;
+		LEAVE('i', -EINTERNAL);
+		return -EINVAL;
 	}
 	
 	// Create the name
 	Pos = iface->Node.ImplInt;
-	if(Pos < 10) {
-		name[0] = '0' + Pos;
-		name[1] = '\0';
-	}
-	else if(Pos < 100) {
-		name[0] = '0' + Pos/10;
-		name[1] = '0' + Pos%10;
-		name[2] = '\0';
-	}
-	else {
-		name[0] = '0' + Pos/100;
-		name[1] = '0' + (Pos/10)%10;
-		name[2] = '0' + Pos%10;
-		name[3] = '\0';
-	}
+	snprintf(Dest, FILENAME_MAX, "%i", Pos);
 	
-	LEAVE('s', name);
-	// Return the pre-generated name
-	return name;
+	LEAVE('i', 0);
+	return 0;
 }
 
 /**
@@ -237,6 +220,7 @@ tInterface *IPStack_AddInterface(const char *Device, const char *Name)
 	iface->Next = NULL;
 	iface->Type = 0;	// Unset type
 	iface->Address = iface->Name + nameLen + 1;	// Address
+	memset(&iface->Route, 0, sizeof(iface->Route));
 	iface->Route.Network = iface->Address + IPStack_GetAddressSize(-1);
 	iface->Route.NextHop = iface->Route.Network + IPStack_GetAddressSize(-1);
 	
@@ -295,16 +279,18 @@ int IPStack_AddFile(tSocketFile *File)
 /**
  * \brief Read from an interface's directory
  */
-char *IPStack_Iface_ReadDir(tVFS_Node *Node, int Pos)
+int IPStack_Iface_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 {
 	tSocketFile	*file = gIP_FileTemplates;
 	while(Pos-- && file) {
 		file = file->Next;
 	}
 	
-	if(!file)	return NULL;
+	if(!file)
+		return -EINVAL;
 	
-	return strdup(file->Name);
+	strncpy(Dest, file->Name, FILENAME_MAX);
+	return 0;
 }
 
 /**

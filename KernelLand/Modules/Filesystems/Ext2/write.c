@@ -98,7 +98,9 @@ addBlocks:
 		block = Ext2_int_AllocateBlock(disk, base/disk->BlockSize);
 		if(!block)	return Length - retLen;
 		// Add it to this inode
-		if( !Ext2_int_AppendBlock(disk, &inode, block) ) {
+		if( Ext2_int_AppendBlock(disk, &inode, block) ) {
+			Log_Warning("Ext2", "Appending %x to inode %p:%X failed",
+				block, disk, Node->Inode);
 			Ext2_int_DeallocateBlock(disk, block);
 			goto ret;
 		}
@@ -113,13 +115,20 @@ addBlocks:
 	// Last block :D
 	block = Ext2_int_AllocateBlock(disk, base/disk->BlockSize);
 	if(!block)	goto ret;
-	if( !Ext2_int_AppendBlock(disk, &inode, block) ) {
+	if( Ext2_int_AppendBlock(disk, &inode, block) ) {
+		Log_Warning("Ext2", "Appending %x to inode %p:%X failed",
+			block, disk, Node->Inode);
 		Ext2_int_DeallocateBlock(disk, block);
 		goto ret;
 	}
 	base = block * disk->BlockSize;
 	VFS_WriteAt(disk->FD, base, retLen, Buffer);
+	
+	// TODO: When should the size update be committed?
 	inode.i_size += retLen;
+	Node->Size += retLen;
+	Node->Flags |= VFS_FFLAG_DIRTY;
+	
 	retLen = 0;
 
 ret:	// Makes sure the changes to the inode are committed
@@ -136,80 +145,96 @@ ret:	// Makes sure the changes to the inode are committed
 Uint32 Ext2_int_AllocateBlock(tExt2_Disk *Disk, Uint32 PrevBlock)
 {
 	 int	bpg = Disk->SuperBlock.s_blocks_per_group;
-	Uint	blockgroup = PrevBlock / bpg;
-	Uint	bitmap[Disk->BlockSize/sizeof(Uint)];
-	Uint	bitsperblock = 8*Disk->BlockSize;
-	 int	i, j = 0;
-	Uint	block;
-	
+	Uint	firstgroup = PrevBlock / bpg;
+	Uint	blockgroup = firstgroup;
+	tExt2_Group	*bg;
+
+	// TODO: Need to do locking on the bitmaps	
+
 	// Are there any free blocks?
-	if(Disk->SuperBlock.s_free_blocks_count == 0)	return 0;
-	
-	if(Disk->Groups[blockgroup].bg_free_blocks_count > 0)
+	if(Disk->SuperBlock.s_free_blocks_count == 0)
+		return 0;
+
+	// First: Check the next block after \a PrevBlock
+	if( (PrevBlock + 1) % Disk->SuperBlock.s_blocks_per_group != 0
+	 && Disk->Groups[blockgroup].bg_free_blocks_count > 0 )
 	{
-		// Search block group's bitmap
-		for(i = 0; i < bpg; i++)
-		{
-			// Get the block in the bitmap block
-			j = i & (bitsperblock-1);
-			
-			// Read in if needed
-			if(j == 0) {
-				VFS_ReadAt(
-					Disk->FD,
-					(Uint64)Disk->Groups[blockgroup].bg_block_bitmap + i / bitsperblock,
-					Disk->BlockSize,
-					bitmap
-					);
-			}
-			
-			// Fast Check
-			if( bitmap[j/32] == 0xFFFFFFFF ) {
-				j = (j + 31) & ~31;
-				continue;
-			}
-			
-			// Is the bit set?
-			if( bitmap[j/32] & (1 << (j%32)) )
-				continue;
-			
-			// Ooh! We found one
-			break;
-		}
-		if( i < bpg ) {
-			Warning("[EXT2 ] Inconsistency detected, Group Free Block count is non-zero when no free blocks exist");
-			goto	checkAll;	// Search the entire filesystem for a free block
-			// Goto needed for neatness
-		}
+		bg = &Disk->Groups[blockgroup];
+		const int sector_size = 512;
+		Uint8 buf[sector_size];
+		 int	iblock = (PrevBlock + 1) % Disk->SuperBlock.s_blocks_per_group;
+		 int	byte = iblock / 8;
+		 int	ofs = byte / sector_size * sector_size;
+		byte %= sector_size;
+		VFS_ReadAt(Disk->FD, Disk->BlockSize*bg->bg_block_bitmap+ofs, sector_size, buf);
 		
-		// Mark as used
-		bitmap[j/32] |= (1 << (j%32));
-		VFS_WriteAt(
-			Disk->FD,
-			(Uint64)Disk->Groups[blockgroup].bg_block_bitmap + i / bitsperblock,
-			Disk->BlockSize,
-			bitmap
-			);
-		block = i;
-		Disk->Groups[blockgroup].bg_free_blocks_count --;
-		#if EXT2_UPDATE_WRITEBACK
-		//Ext2_int_UpdateBlockGroup(Disk, blockgroup);
-		#endif
+		if( (buf[byte] & (1 << (iblock%8))) == 0 )
+		{
+			// Free block - nice and contig allocation
+			buf[byte] |= (1 << (iblock%8));
+			VFS_WriteAt(Disk->FD, Disk->BlockSize*bg->bg_block_bitmap+ofs, sector_size, buf);
+
+			bg->bg_free_blocks_count --;
+			Disk->SuperBlock.s_free_blocks_count --;
+			#if EXT2_UPDATE_WRITEBACK
+			Ext2_int_UpdateSuperblock(Disk);
+			#endif
+			return PrevBlock + 1;
+		}
+		// Used... darnit
+		// Fall through and search further
 	}
-	else
+
+	// Second: Search for a group with free blocks
+	while( blockgroup < Disk->GroupCount && Disk->Groups[blockgroup].bg_free_blocks_count == 0 )
+		blockgroup ++;
+	if( Disk->Groups[blockgroup].bg_free_blocks_count == 0 )
 	{
-	checkAll:
-		Log_Warning("EXT2", "TODO - Implement using blocks outside the current block group");
+		blockgroup = 0;
+		while( blockgroup < firstgroup && Disk->Groups[blockgroup].bg_free_blocks_count == 0 )
+			blockgroup ++;
+	}
+	if( Disk->Groups[blockgroup].bg_free_blocks_count == 0 ) {
+		Log_Notice("Ext2", "Ext2_int_AllocateBlock - Out of blockss on %p, but superblock says some free",
+			Disk);
 		return 0;
 	}
+
+	// Search the bitmap for a free block
+	bg = &Disk->Groups[blockgroup];	
+	 int	ofs = 0;
+	do {
+		const int sector_size = 512;
+		Uint8 buf[sector_size];
+		VFS_ReadAt(Disk->FD, Disk->BlockSize*bg->bg_block_bitmap+ofs, sector_size, buf);
+
+		int byte, bit;
+		for( byte = 0; byte < sector_size && buf[byte] != 0xFF; byte ++ )
+			;
+		if( byte < sector_size )
+		{
+			for( bit = 0; bit < 8 && buf[byte] & (1 << bit); bit ++)
+				;
+			ASSERT(bit != 8);
+			buf[byte] |= 1 << bit;
+			VFS_WriteAt(Disk->FD, Disk->BlockSize*bg->bg_block_bitmap+ofs, sector_size, buf);
+
+			bg->bg_free_blocks_count --;
+			Disk->SuperBlock.s_free_blocks_count --;
+
+			#if EXT2_UPDATE_WRITEBACK
+			Ext2_int_UpdateSuperblock(Disk);
+			#endif
+
+			Uint32	ret = blockgroup * Disk->SuperBlock.s_blocks_per_group + byte * 8 + bit;
+			Log_Debug("Ext2", "Ext2_int_AllocateBlock - Allocated 0x%x", ret);
+			return ret;
+		}
+	} while(ofs < Disk->SuperBlock.s_blocks_per_group / 8);
 	
-	// Reduce global count
-	Disk->SuperBlock.s_free_blocks_count --;
-	#if EXT2_UPDATE_WRITEBACK
-	Ext2_int_UpdateSuperblock(Disk);
-	#endif
-	
-	return block;
+	Log_Notice("Ext2", "Ext2_int_AllocateBlock - Out of block in group %p:%i but header reported free",
+		Disk, blockgroup);
+	return 0;
 }
 
 /**
@@ -217,6 +242,7 @@ Uint32 Ext2_int_AllocateBlock(tExt2_Disk *Disk, Uint32 PrevBlock)
  */
 void Ext2_int_DeallocateBlock(tExt2_Disk *Disk, Uint32 Block)
 {
+	Log_Warning("Ext2", "TODO: Impliment Ext2_int_DeallocateBlock");
 }
 
 /**
@@ -248,6 +274,7 @@ int Ext2_int_AppendBlock(tExt2_Disk *Disk, tExt2_Inode *Inode, Uint32 Block)
 		if( nBlocks == 0 ) {
 			Inode->i_block[12] = Ext2_int_AllocateBlock(Disk, Inode->i_block[0]);
 			if( !Inode->i_block[12] ) {
+				Log_Warning("Ext2", "Allocating indirect block failed");
 				free(blocks);
 				return 1;
 			}
@@ -271,6 +298,7 @@ int Ext2_int_AppendBlock(tExt2_Disk *Disk, tExt2_Inode *Inode, Uint32 Block)
 		if( nBlocks == 0 ) {
 			Inode->i_block[13] = Ext2_int_AllocateBlock(Disk, Inode->i_block[0]);
 			if( !Inode->i_block[13] ) {
+				Log_Warning("Ext2", "Allocating double indirect block failed");
 				free(blocks);
 				return 1;
 			}
@@ -284,6 +312,7 @@ int Ext2_int_AppendBlock(tExt2_Disk *Disk, tExt2_Inode *Inode, Uint32 Block)
 			id1 = Ext2_int_AllocateBlock(Disk, Inode->i_block[0]);
 			if( !id1 ) {
 				free(blocks);
+				Log_Warning("Ext2", "Allocating double indirect block (l2) failed");
 				return 1;
 			}
 			blocks[nBlocks/dwPerBlock] = id1;
@@ -311,6 +340,7 @@ int Ext2_int_AppendBlock(tExt2_Disk *Disk, tExt2_Inode *Inode, Uint32 Block)
 		if( nBlocks == 0 ) {
 			Inode->i_block[14] = Ext2_int_AllocateBlock(Disk, Inode->i_block[0]);
 			if( !Inode->i_block[14] ) {
+				Log_Warning("Ext2", "Allocating triple indirect block failed");
 				free(blocks);
 				return 1;
 			}
@@ -324,6 +354,7 @@ int Ext2_int_AppendBlock(tExt2_Disk *Disk, tExt2_Inode *Inode, Uint32 Block)
 		{
 			id1 = Ext2_int_AllocateBlock(Disk, Inode->i_block[0]);
 			if( !id1 ) {
+				Log_Warning("Ext2", "Allocating triple indirect block (l2) failed");
 				free(blocks);
 				return 1;
 			}
@@ -341,6 +372,7 @@ int Ext2_int_AppendBlock(tExt2_Disk *Disk, tExt2_Inode *Inode, Uint32 Block)
 		if( nBlocks % dwPerBlock == 0 ) {
 			id2 = Ext2_int_AllocateBlock(Disk, id1);
 			if( !id2 ) {
+				Log_Warning("Ext2", "Allocating triple indirect block (l3) failed");
 				free(blocks);
 				return 1;
 			}
@@ -361,7 +393,7 @@ int Ext2_int_AppendBlock(tExt2_Disk *Disk, tExt2_Inode *Inode, Uint32 Block)
 		return 0;
 	}
 	
-	Warning("[EXT2 ] Inode %i cannot have a block appended to it, all indirects used");
+	Log_Warning("Ext2", "Inode ?? cannot have a block appended to it, all indirects used");
 	free(blocks);
 	return 1;
 }

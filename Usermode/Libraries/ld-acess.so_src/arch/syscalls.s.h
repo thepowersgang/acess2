@@ -20,6 +20,7 @@ SYSCALL1(setgid, SYS_SETGID)
 
 SYSCALL1(SysSetName, SYS_SETNAME)
 SYSCALL2(SysGetName, SYS_GETNAME)
+SYSCALL0(_SysTimestamp, SYS_GETTIME)
 
 SYSCALL1(SysSetPri, SYS_SETPRI)
 
@@ -45,11 +46,12 @@ SYSCALL3(write, SYS_WRITE)	// int, uint, void*
 SYSCALL4(seek, SYS_SEEK)	// int, uint64_t, int
 SYSCALL1(tell, SYS_TELL)	// int
 SYSCALL3(finfo, SYS_FINFO)	// int, void*, int
-SYSCALL2(readdir, SYS_READDIR)	// int, char*
+SYSCALL2(SysReadDir, SYS_READDIR)	// int, char*
 SYSCALL2(_SysGetACL,SYS_GETACL)	// int, void*
 SYSCALL1(chdir, SYS_CHDIR)	// char*
 SYSCALL3(ioctl, SYS_IOCTL)	// int, int, void*
 SYSCALL4(_SysMount, SYS_MOUNT)	// char*, char*, char*, char*
 SYSCALL6(_SysSelect, SYS_SELECT)	// int, fd_set*, fd_set*, fd_set*, tTime*, uint32_t
+SYSCALL1(unlink, SYS_UNLINK)	// const char*
 
 SYSCALL3(_SysOpenChild, SYS_OPENCHILD)

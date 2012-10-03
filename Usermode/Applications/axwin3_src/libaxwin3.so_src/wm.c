@@ -10,8 +10,10 @@
 #include <string.h>
 #include "include/internal.h"
 #include "include/ipc.h"
+#include <wm_messages.h>
 
-#define WINDOWS_PER_ALLOC	(63)
+#define WINDOWS_PER_ALLOC	(64-1)	// -1 to make it 64 pointers (+ Next)
+#define MAX_HOTKEYS	32
 
 typedef struct sWindowBlock	tWindowBlock;
 
@@ -28,6 +30,7 @@ struct sWindowBlock
  int	giAxWin3_LowestFreeWinID;
  int	giAxWin3_HighestUsedWinID;
 tWindowBlock	gAxWin3_WindowList;
+tAxWin3_HotkeyCallback	gAxWin3_Hotkeys[MAX_HOTKEYS];
 
 // === CODE ===
 tWindow *AxWin3_int_CreateWindowStruct(uint32_t ServerID, int ExtraBytes)
@@ -188,11 +191,40 @@ void AxWin3_int_HandleMessage(tAxWin_IPCMessage *Msg)
 	{
 	case IPCMSG_SENDMSG: {
 		tIPCMsg_SendMsg	*info = (void*)Msg->Data;
-		if(Msg->Size < sizeof(*info))	return ;
-		if(Msg->Size < sizeof(*info) + info->Length)	return ;
-		if(!dest || !dest->Handler)	return ;
-		dest->Handler(dest, info->ID, info->Length, info->Data);
+		if(Msg->Size < sizeof(*info) || Msg->Size < sizeof(*info) + info->Length) {
+			_SysDebug("Message is undersized (%i < %i + %i)",
+				Msg->Size < sizeof(*info), info->Length);
+			return ;
+		}
+		if(!dest || !dest->Handler) {
+			_SysDebug("No handler for destination %p", dest);
+			return ;
+		}
+		_SysDebug("IPC Message 0x%x - %i bytes", info->ID, info->Length);
+
+		if( dest->Handler(dest, info->ID, info->Length, info->Data) )
+			;
+		else {
+			switch( info->ID )
+			{
+			case WNDMSG_HOTKEY: {
+				const struct sWndMsg_Hotkey *mi = (void*)info->Data;
+				if( mi->ID >= MAX_HOTKEYS ) 
+					;	// TODO: Error when hotkey is out of range
+				else if( gAxWin3_Hotkeys[mi->ID] == 0 )
+					_SysDebug("--- Unmapped hotkey ID %i fired", mi->ID);
+				else
+					gAxWin3_Hotkeys[mi->ID]();
+				}break;
+			default:
+				_SysDebug("--- Unhandled SENDMSG %i", info->ID);
+				break;
+			}
+		}
 		break; }
+	default:
+		_SysDebug("Unknow message ID %i", Msg->ID);
+		break;
 	}
 }
 
@@ -223,6 +255,32 @@ void AxWin3_SendMessage(tHWND Window, tHWND Destination, int Message, int Length
 	
 	AxWin3_int_SendIPCMessage(msg);
 	free(msg);
+}
+
+void *AxWin3_WaitMessage(tHWND Window, int MessageID, size_t *Length)
+{
+	tAxWin_IPCMessage	*msg;
+	
+	for( ;; )
+	{
+		msg = AxWin3_int_WaitIPCMessage(IPCMSG_SENDMSG);
+		if( msg->Window != AxWin3_int_GetWindowID(Window) ) {
+			AxWin3_int_HandleMessage(msg);
+			continue ;
+		}
+		tIPCMsg_SendMsg	*info = (void*)msg->Data;
+		if( info->ID != MessageID ) {
+			AxWin3_int_HandleMessage(msg);
+			continue ;
+		}
+
+		*Length = info->Length;
+		void	*ret = malloc(info->Length);	
+		memcpy(ret, info->Data, info->Length);
+		free(msg);
+	
+		return ret;
+	}
 }
 
 void AxWin3_FocusWindow(tHWND Window)
@@ -314,5 +372,30 @@ void AxWin3_ResizeWindow(tHWND Window, short W, short H)
 	AxWin3_int_SendIPCMessage(msg);
 	
 	free(msg);
+}
+
+int AxWin3_RegisterAction(tHWND Window, const char *Action, tAxWin3_HotkeyCallback cb)
+{
+	 int	i;
+	for( i = 0; i < MAX_HOTKEYS; i ++ )
+	{
+		if( gAxWin3_Hotkeys[i] == NULL )
+		{
+			tAxWin_IPCMessage	*msg;
+			struct sIPCMsg_RegAction	*info;
+			gAxWin3_Hotkeys[i] = cb;
+			
+			msg = AxWin3_int_AllocateIPCMessage(Window, IPCMSG_REGACTION, 0, sizeof(*info)+strlen(Action)+1);
+			info = (void*)msg->Data;
+		
+			info->Index = i;
+			strcpy(info->Action, Action);
+			
+			AxWin3_int_SendIPCMessage(msg);
+			free(msg);
+			return i;
+		}
+	}
+	return -1;
 }
 

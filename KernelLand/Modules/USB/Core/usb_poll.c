@@ -61,10 +61,9 @@ void USB_StartPollingEndpoint(tUSBInterface *Iface, int Endpoint)
 
 	endpt->InputData = malloc(endpt->MaxPacketSize);
 	LOG("Polling 0x%x at %i ms", Iface->Dev->Address * 16 + endpt->EndpointNum, endpt->PollingPeriod);
-	Iface->Dev->Host->HostDef->InterruptIN(
-		Iface->Dev->Host->Ptr,
-		Iface->Dev->Address * 16 + endpt->EndpointNum,
-		endpt->PollingPeriod,
+	Iface->Dev->Host->HostDef->InitInterrupt(
+		Iface->Dev->Host->Ptr, Iface->Dev->Address * 16 + endpt->EndpointNum,
+		0, endpt->PollingPeriod,
 		USB_int_PollCallback, endpt,
 		endpt->InputData, endpt->MaxPacketSize
 		);
@@ -82,7 +81,8 @@ int USB_PollThread(void *unused)
 		// Check hosts
 		for( tUSBHost *host = gUSB_Hosts; host; host = host->Next )
 		{
-			host->HostDef->CheckPorts(host->Ptr);
+			if( host->HostDef->CheckPorts )
+				host->HostDef->CheckPorts(host->Ptr);
 		}
 
 		Time_Delay(100);

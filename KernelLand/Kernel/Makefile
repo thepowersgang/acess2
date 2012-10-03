@@ -25,10 +25,11 @@ ASFLAGS         += -D ARCHDIR_IS_$(ARCHDIR)=1 -D PLATFORM_is_$(PLATFORM)=1
 CPPFLAGS	+= -I./include -I./arch/$(ARCHDIR)/include -D_MODULE_NAME_=\"Kernel\"
 CPPFLAGS	+= -D ARCH=$(ARCH) -D ARCHDIR=$(ARCHDIR) -D PLATFORM=\"$(PLATFORM)\" -D ARCHDIR_IS_$(ARCHDIR)=1 -D PLATFORM_is_$(PLATFORM)=1
 CPPFLAGS	+= -D KERNEL_VERSION=$(KERNEL_VERSION) -ffreestanding
-CFLAGS  	+= -Wall -fno-stack-protector -Wstrict-prototypes -g
+CFLAGS  	+= -Wall -fno-stack-protector -Wstrict-prototypes -std=gnu99 -g
 CFLAGS  	+= -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings -Wmissing-prototypes -Wmissing-declarations -Wredundant-decls -Wnested-externs -Winline -Wuninitialized
 CFLAGS          += -O3
 LDFLAGS		+= -T arch/$(ARCHDIR)/link.ld -g
+LIBGCC_PATH     := $(shell $(CC) -print-libgcc-file-name)
 
 ifeq ($(PLATFORM),default)
 	OBJDIR := obj-$(ARCH)/
@@ -51,10 +52,12 @@ BUILDINFO_OBJ := $(OBJDIR)buildinfo.o$(OBJSUFFIX)
 BUILDINFO_SRC := $(OBJDIR)buildinfo.c$(OBJSUFFIX)
 
 OBJ := $(addprefix arch/$(ARCHDIR)/,$(A_OBJ))
-OBJ += heap.o drvutil.o logging.o debug.o lib.o adt.o time.o
+OBJ += pmemmap.o
+OBJ += heap.o logging.o debug.o lib.o libc.o adt.o time.o
+OBJ += drvutil_video.o drvutil_disk.o
 OBJ += messages.o modules.o syscalls.o system.o
-OBJ += threads.o mutex.o semaphore.o workqueue.o events.o
-OBJ += drv/proc.o drv/fifo.o drv/iocache.o drv/pci.o
+OBJ += threads.o mutex.o semaphore.o workqueue.o events.o rwlock.o
+OBJ += drv/zero-one.o drv/proc.o drv/fifo.o drv/iocache.o drv/pci.o drv/vpci.o
 OBJ += drv/vterm.o drv/vterm_font.o drv/vterm_vt100.o drv/vterm_output.o drv/vterm_input.o drv/vterm_termbuf.o
 OBJ += binary.o bin/elf.o bin/pe.o
 OBJ += vfs/main.o vfs/open.o vfs/acls.o vfs/dir.o vfs/io.o vfs/mount.o
@@ -85,10 +88,6 @@ clean:
 # Creates a stripped and compressed copy of the kernel
 # and installs it to the target
 install: $(BIN) 
-	@cp $(BIN) $(BIN)_
-	@$(STRIP) $(BIN)_
-	@gzip -c $(BIN)_ > $(GZBIN)
-	@$(RM) $(BIN)_
 	$(xCP) $(GZBIN) $(DISTROOT)
 
 # Compile API documentation
@@ -98,16 +97,18 @@ apidoc:
 # Output binary
 # - Links kernel
 # - Disassembles it
-# - Gets a line count
 # - Increments the build count
 # - Does whatever architecture defined rules
 $(BIN): $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile ../../BuildConf/$(ARCH)/Makefile.cfg ../../BuildConf/$(ARCH)/$(PLATFORM).mk
 	@echo --- LD -o $(BIN)
-	@$(LD) $(LDFLAGS) -o $(BIN) $(OBJ) $(MODS) --defsym __buildnum=$$(( $(BUILD_NUM) + 1 )) -Map ../Map.$(ARCH).txt
+	@$(LD) $(LDFLAGS) -o $(BIN) $(OBJ) $(MODS) $(LIBGCC_PATH) --defsym __buildnum=$$(( $(BUILD_NUM) + 1 )) -Map ../Map.$(ARCH).txt
 	@$(DISASM) -S $(BIN) > $(BIN).dsm
-	@wc -l $(SRCFILES) include/*.h > LineCounts.$(ARCH).txt
 	@echo BUILD_NUM = $$(( $(BUILD_NUM) + 1 )) > Makefile.BuildNum.$(ARCH)
 	$(POSTBUILD)
+	@cp $(BIN) $(BIN)_
+	@$(STRIP) $(BIN)_ || true
+	@gzip -c $(BIN)_ > $(GZBIN)
+	@$(RM) $(BIN)_
 
 # Assembly Sources
 $(OBJDIR)%.ao$(OBJSUFFIX): %.$(AS_SUFFIX) Makefile
@@ -115,7 +116,7 @@ $(OBJDIR)%.ao$(OBJSUFFIX): %.$(AS_SUFFIX) Makefile
 	@mkdir -p $(dir $@)
 	@$(AS) $(ASFLAGS) $< -o $@
 ifeq ($(AS_SUFFIX),S)
-	@$(MAKEDEP) $(CPPFLAGS) -MT $@ -o $(OBJDIR)$*.ao.dep$(OBJSUFFIX) $<
+	@$(MAKEDEP) $(CPPFLAGS) -MT $@ -MP -o $(OBJDIR)$*.ao.dep$(OBJSUFFIX) $<
 endif
 
 # C Sources
@@ -123,7 +124,7 @@ $(OBJDIR)%.o$(OBJSUFFIX): %.c Makefile
 	@echo --- CC -o $@
 	@mkdir -p $(dir $@)
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $<
-	@$(MAKEDEP) $(CPPFLAGS) -MT $@ -o $(OBJDIR)$*.o.dep$(OBJSUFFIX) $<
+	@$(MAKEDEP) $(CPPFLAGS) -MT $@ -MP -o $(OBJDIR)$*.o.dep$(OBJSUFFIX) $<
 
 # Build-time linked modules
 %.xo.$(ARCH):
@@ -133,14 +134,18 @@ $(OBJDIR)%.o$(OBJSUFFIX): %.c Makefile
 include/syscalls.h include/syscalls.inc.asm:	syscalls.lst Makefile GenSyscalls.pl
 	perl GenSyscalls.pl
 
-# Rules based on the makefile
-Makefile:	../../Makefile.cfg arch/$(ARCHDIR)/Makefile
+# Differences for the makefile
+Makefile:	../../Makefile.cfg ../../BuildConf/$(ARCH)/Makefile.cfg ../../BuildConf/$(ARCH)/$(PLATFORM).mk arch/$(ARCHDIR)/Makefile
 
 # Build-time information (git hash and build number)
 $(BUILDINFO_SRC): $(filter-out $(BUILDINFO_OBJ), $(OBJ)) $(MODS) arch/$(ARCHDIR)/link.ld Makefile
+	$(eval _GITHASH=$(shell git log -n 1 | head -n 1 | awk '{print $$2}'))
+	$(eval _GITCHANGED=$(shell git status --porcelain | grep -c '^ M '))
 	@echo "#include <acess.h>" > $@
-	@echo "const char gsGitHash[] = \""`git log -n 1 | head -n 1 | awk '{print $$2}'`"\";" >> $@
+	@echo "const char gsGitHash[] = \"$(_GITHASH)\";" >> $@
 	@echo "const int giBuildNumber = $(BUILD_NUM);" >> $@
+	@echo "const char gsBuildInfo[] = \"Acess2 v$(KERNEL_VERSION) $(ARCH)-$(PLATFORM)\\\\r\\\\n\"" >> $@
+	@echo "                           \"Build $(shell hostname --fqdn):$(BUILD_NUM) Git $(_GITHASH) - $(_GITCHANGED) modified\";" >> $@
 # Compile rule for buildinfo (needs a special one because it's not a general source file)
 $(BUILDINFO_OBJ): $(BUILDINFO_SRC)
 	@echo --- CC -o $@
@@ -148,3 +153,4 @@ $(BUILDINFO_OBJ): $(BUILDINFO_SRC)
 
 # Dependency Files
 -include $(DEPFILES)
+

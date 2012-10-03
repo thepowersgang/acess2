@@ -69,14 +69,16 @@ EXPORT(Log_Debug);
 
 // === GLOBALS ===
 tShortSpinlock	glLogOutput;
-#if USE_RING_BUFFER
+#if CACHE_MESSAGES
+# if USE_RING_BUFFER
 Uint8	gaLog_RingBufferData[sizeof(tRingBuffer)+RING_BUFFER_SIZE];
 tRingBuffer	*gpLog_RingBuffer = (void*)gaLog_RingBufferData;
-#else
+# else
 tMutex	glLog;
 tLogList	gLog;
 tLogList	gLog_Levels[NUM_LOG_LEVELS];
-#endif
+# endif	// USE_RING_BUFFER
+#endif // CACHE_MESSAGES
 
 // === CODE ===
 /**
@@ -156,6 +158,8 @@ void Log_AddEvent(const char *Ident, int Level, const char *Format, va_list Args
  */
 void Log_Int_PrintMessage(tLogEntry *Entry)
 {
+	if( CPU_HAS_LOCK(&glLogOutput) )
+		return ;	// TODO: Error?
 	SHORTLOCK( &glLogOutput );
 	LogF("%s%014lli%s [%-8s] %i - %s",
 		csaLevelColours[Entry->Level],

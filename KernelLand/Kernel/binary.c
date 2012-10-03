@@ -768,17 +768,7 @@ void *Binary_LoadKernel(const char *File)
 	pKBinary->Next = glLoadedKernelLibs;
 	glLoadedKernelLibs = pKBinary;
 	SHORTREL( &glKBinListLock );
-	
-	// Relocate Library
-	if( !Binary_Relocate( (void*)base ) )
-	{
-		Log_Warning("Binary", "Relocation of '%s' failed, unloading", File);
-		Binary_Unload( (void*)base );
-		Binary_Dereference( pBinary );
-		LEAVE('n');
-		return 0;
-	}
-	
+
 	LEAVE('p', base);
 	return (void*)base;
 }
@@ -832,9 +822,12 @@ Uint Binary_GetSymbolEx(const char *Name, Uint *Value)
 	tKernelBin	*pKBin;
 	 int	numKSyms = ((Uint)&gKernelSymbolsEnd-(Uint)&gKernelSymbols)/sizeof(tKernelSymbol);
 	
+	LOG("numKSyms = %i", numKSyms);
+
 	// Scan Kernel
 	for( i = 0; i < numKSyms; i++ )
 	{
+		LOG("KSym %s = %p", gKernelSymbols[i].Name, gKernelSymbols[i].Value);
 		if(strcmp(Name, gKernelSymbols[i].Name) == 0) {
 			*Value = gKernelSymbols[i].Value;
 			return 1;
@@ -891,12 +884,12 @@ int Binary_int_CheckMemFree( tVAddr _start, size_t _len )
 	_start &= ~(PAGE_SIZE-1);
 	LOG("_start = %p, _len = 0x%x", _start, _len);
 	for( ; _len > PAGE_SIZE; _len -= PAGE_SIZE, _start += PAGE_SIZE ) {
-		if( MM_GetPhysAddr(_start) != 0 ) {
+		if( MM_GetPhysAddr( (void*)_start ) != 0 ) {
 			LEAVE('i', 1);
 			return 1;
 		}
 	}
-	if( _len == PAGE_SIZE && MM_GetPhysAddr(_start) != 0 ) {
+	if( _len == PAGE_SIZE && MM_GetPhysAddr( (void*)_start ) != 0 ) {
 		LEAVE('i', 1);
 		return 1;
 	}

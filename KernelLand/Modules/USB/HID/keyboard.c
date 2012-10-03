@@ -137,7 +137,7 @@ void HID_Kb_Report_Input(tUSBInterface *Dev, tHID_ReportGlobalState *Global, tHI
 		info->Info = NULL;
 		info->CollectionDepth = 1;
 		info->bIsBoot = 1;	// TODO: Detect non-boot keyboards and parse descriptor
-		Log_Warning("USB HID", "TODO: Handle non-boot keyboards!");
+		Log_Warning("USB HID", "TODO: Detect and handle non-boot keyboards!");
 		info->Info = Keyboard_CreateInstance(0, "USBKeyboard");
 	}
 }

@@ -86,7 +86,9 @@ tMPInfo	*gMPFloatPtr = NULL;
 tAPIC	*gpMP_LocalAPIC = NULL;
 Uint8	gaAPIC_to_CPU[256] = {0};
 #endif
-tCPU	gaCPUs[MAX_CPUS];
+tCPU	gaCPUs[MAX_CPUS] = {
+	{.Current = &gThreadZero}
+	};
 tTSS	*gTSSs = NULL;
 tTSS	gTSS0 = {0};
 // --- Error Recovery ---
@@ -532,7 +534,7 @@ tTID Proc_Clone(Uint Flags)
  * \fn int Proc_SpawnWorker(void)
  * \brief Spawns a new worker thread
  */
-int Proc_SpawnWorker(void (*Fcn)(void*), void *Data)
+tThread *Proc_SpawnWorker(void (*Fcn)(void*), void *Data)
 {
 	tThread	*new, *cur;
 	Uint	stack_contents[3];
@@ -543,7 +545,7 @@ int Proc_SpawnWorker(void (*Fcn)(void*), void *Data)
 	new = Threads_CloneThreadZero();
 	if(!new) {
 		Warning("Proc_SpawnWorker - Out of heap space!\n");
-		return -1;
+		return NULL;
 	}
 
 	// Create the stack contents
@@ -565,7 +567,7 @@ int Proc_SpawnWorker(void (*Fcn)(void*), void *Data)
 	new->Status = THREAD_STAT_PREINIT;
 	Threads_AddActive( new );
 	
-	return new->TID;
+	return new;
 }
 
 /**
@@ -579,7 +581,7 @@ Uint Proc_MakeUserStack(void)
 	// Check Prospective Space
 	for( i = USER_STACK_SZ >> 12; i--; )
 	{
-		if( MM_GetPhysAddr( base + (i<<12) ) != 0 )
+		if( MM_GetPhysAddr( (void*)(base + (i<<12)) ) != 0 )
 			break;
 	}
 	

@@ -69,7 +69,7 @@ void IPv6_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 {
 	tInterface	*iface;
 	tIPv6Header	*hdr = Buffer;
-	 int	ret, dataLength;
+	 int	ret;
 	char	*dataPtr;
 	Uint8	nextHeader;
 	
@@ -105,7 +105,6 @@ void IPv6_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	// Process Options
 	nextHeader = hdr->NextHeader;
 	dataPtr = hdr->Data;
-	dataLength = hdr->PayloadLength;
 	for( ;; )
 	{
 		struct {

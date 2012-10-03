@@ -37,8 +37,12 @@ struct sShortSpinlock
 
 #define SHORTLOCK(...)
 #define SHORTREL(...)
+#define CPU_HAS_LOCK(...)	0
 
 //#define	NUM_CFG_ENTRIES	10
+
+extern void	Debug_PutCharDebug(char ch);
+extern void	Debug_PutStringDebug(const char *str);
 
 #endif
 

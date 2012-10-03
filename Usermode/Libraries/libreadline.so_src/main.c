@@ -260,6 +260,10 @@ int Readline_int_ParseCharacter(tReadline *Info, char *Input)
 				write(STDOUT_FD, "\x1B[C", 3);
 				break;
 			}
+			break;
+		case '\0':
+			ofs --;
+			break;
 		}
 		break;
 	

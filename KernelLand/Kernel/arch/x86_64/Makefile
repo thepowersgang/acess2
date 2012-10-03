@@ -26,7 +26,8 @@ endif
 A_OBJ := start32.ao start64.ao desctab.ao proc.ao
 A_OBJ += main.o lib.o proc.o mm_virt.o mm_phys.o
 A_OBJ += kernelpanic.o errors.o time.o pci.o
-A_OBJ += vm8086.o
+A_OBJ += vm8086.o vpci.o
+A_OBJ += ../x86/mboot.o
 # rme.o
 
 POSTBUILD = objcopy $(BIN) -F elf32-i386 $(BIN)

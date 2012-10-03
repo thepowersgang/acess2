@@ -8,6 +8,7 @@
 #include <common.h>
 #include <wm_internals.h>
 #include <wm_messages.h>
+#include <wm_hotkeys.h>
 
 #define MAX_BUTTONS	3
 
@@ -33,8 +34,8 @@ tWindow *WM_int_GetWindowAtPos(int X, int Y)
 		for(win = ret->FirstChild; win; win = win->NextSibling)
 		{
 			if( !(win->Flags & WINFLAG_SHOW) )	continue ;
-			if( X < win->X || X >= win->X + win->W )	continue;
-			if( Y < win->Y || Y >= win->Y + win->H )	continue;
+			if( X < win->X || X >= win->X + win->RealW )	continue;
+			if( Y < win->Y || Y >= win->Y + win->RealH )	continue;
 			next_win = win;	// Overwrite as we want the final rendered window
 		}
 	}
@@ -70,7 +71,7 @@ void WM_Input_MouseMoved(int OldX, int OldY, int NewX, int NewY)
 	WM_SendMessage(NULL, win, WNDMSG_MOUSEMOVE, sizeof(msg), &msg);
 }
 
-inline void WM_Input_int_SendBtnMsg(tWindow *Win, int X, int Y, int Index, int Pressed)
+void WM_Input_int_SendBtnMsg(tWindow *Win, int X, int Y, int Index, int Pressed)
 {
 	struct sWndMsg_MouseButton	msg;	
 
@@ -114,6 +115,9 @@ void WM_Input_MouseButton(int X, int Y, int ButtonIndex, int Pressed)
 void WM_Input_KeyDown(uint32_t Character, uint32_t Scancode)
 {
 	struct sWndMsg_KeyAction	msg;
+
+	WM_Hotkey_KeyDown(Scancode);
+
 	msg.KeySym = Scancode;
 	msg.UCS32 = Character;
 	WM_SendMessage(NULL, gpWM_FocusedWindow, WNDMSG_KEYDOWN, sizeof(msg), &msg);
@@ -133,6 +137,9 @@ void WM_Input_KeyFire(uint32_t Character, uint32_t Scancode)
 void WM_Input_KeyUp(uint32_t Character, uint32_t Scancode)
 {
 	struct sWndMsg_KeyAction	msg;
+
+	WM_Hotkey_KeyUp(Scancode);
+
 	msg.KeySym = Scancode;
 	msg.UCS32 = Character;
 	WM_SendMessage(NULL, gpWM_FocusedWindow, WNDMSG_KEYUP, sizeof(msg), &msg);

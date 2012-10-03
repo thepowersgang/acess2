@@ -42,3 +42,7 @@ obj-*/
 Makefile.user.cfg
 QemuLog.txt
 Screenshots/
+
+Tools/*/src/obj/
+Tools/*/src/Makefile.BuildNum
+Tools/DiskTool/DiskTool

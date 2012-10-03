@@ -131,6 +131,25 @@ EXPORT void fflush(FILE *fp)
 	///\todo Implement
 }
 
+EXPORT void clearerr(FILE *stream)
+{
+	/// \todo Impliment
+}
+
+EXPORT int feof(FILE *stream)
+{
+	return 0;	//stream->;	// ?
+}
+
+EXPORT int ferror(FILE *stream)
+{
+	return 0;
+}
+EXPORT int fileno(FILE *stream)
+{
+	return stream->FD;
+}
+
 EXPORT off_t ftell(FILE *fp)
 {
 	if(!fp || !fp->FD)	return -1;
@@ -154,27 +173,14 @@ EXPORT int vfprintf(FILE *fp, const char *format, va_list args)
 {
 	va_list	tmpList;
 	 int	size;
-	char	sbuf[1024];
-	char	*buf = sbuf;
 
 	if(!fp || !format)	return -1;
 
 	va_copy(tmpList, args);
 	
-	size = vsnprintf(sbuf, sizeof(sbuf), (char*)format, tmpList);
-	
-	if( size >= sizeof(sbuf) )
-	{
-		buf = (char*)malloc(size+1);
-		if(!buf) {
-			WRITE_STR(_stdout, "vfprintf ERROR: malloc() failed");
-			return 0;
-		}
-		buf[size] = '\0';
-	
-		// Print
-		vsnprintf(buf, size+1, (char*)format, args);
-	}
+	size = vsnprintf(NULL, 0, (char*)format, tmpList);
+	char	buf[size+1];
+	vsnprintf(buf, size+1, (char*)format, args);
 	
 	// Write to stream
 	write(fp->FD, buf, size);
@@ -543,29 +549,17 @@ EXPORT int printf(const char *format, ...)
 {
 	#if 1
 	 int	size;
-	char	sbuf[1024];
-	char	*buf = sbuf;
 	va_list	args;
 	
 	// Get final size
 	va_start(args, format);
-	size = vsnprintf(sbuf, 1024, (char*)format, args);
+	size = vsnprintf(NULL, 0, (char*)format, args);
 	va_end(args);
-	
-	if( size >= 1024 ) {
-		// Allocate buffer
-		buf = (char*)malloc(size+1);
-		if(buf) {
-			WRITE_STR(_stdout, "PRINTF ERROR: malloc() failed\n");
-			return 0;
-		}
-		buf[size] = '\0';
-	
-		// Fill Buffer
-		va_start(args, format);
-		vsnprintf(buf, size+1, (char*)format, args);
-		va_end(args);
-	}
+	char buf[size+1];
+	// Fill Buffer
+	va_start(args, format);
+	vsnprintf(buf, size+1, (char*)format, args);
+	va_end(args);
 	
 	// Send to stdout
 	write(_stdout, buf, size+1);

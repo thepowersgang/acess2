@@ -36,11 +36,7 @@ void KBC8042_Init(void)
 
 void KBC8042_KeyboardHandler(int IRQ, void *Ptr)
 {
-	Uint8	scancode;
-
-//	Log("KBC8042_KeyboardHandler: (IRQ=%i, Ptr=%p)", IRQ, Ptr);
-
-	scancode = inb(0x60);
+	Uint8	scancode = inb(0x60);
 	KB_HandleScancode( scancode );
 }
 

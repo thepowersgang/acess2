@@ -153,8 +153,8 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 	size_t	Bytes;
 
 	if( __Bytes == 0 ) {
-		//return NULL;	// TODO: Return a known un-mapped range.
-		return INVLPTR;
+		return NULL;	// TODO: Return a known un-mapped range.
+//		return INVLPTR;
 	}
 	
 	// Get required size
@@ -182,7 +182,8 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 		#endif
 			Mutex_Release(&glHeap);	// Release spinlock
 			#if WARNINGS
-			Log_Warning("Heap", "Size of heap address %p is invalid not aligned (0x%x)", head, head->Size);
+			Log_Warning("Heap", "Size of heap address %p is invalid - not aligned (0x%x) [at paddr 0x%x]",
+				head, head->Size, MM_GetPhysAddr(&head->Size));
 			Heap_Dump();
 			#endif
 			return NULL;
@@ -307,7 +308,7 @@ void Heap_Deallocate(void *Ptr)
 	// Sanity check
 	if((Uint)Ptr < (Uint)gHeapStart || (Uint)Ptr > (Uint)gHeapEnd)
 	{
-		Log_Warning("Heap", "free - Passed a non-heap address by %p (%p < %p < %p)\n",
+		Log_Warning("Heap", "free - Passed a non-heap address by %p (%p < %p < %p)",
 			__builtin_return_address(0), gHeapStart, Ptr, gHeapEnd);
 		return;
 	}
@@ -511,14 +512,19 @@ void Heap_Dump(void)
 {
 	tHeapHead	*head, *badHead;
 	tHeapFoot	*foot = NULL;
+	static int	in_heap_dump;
 	
+	if( in_heap_dump )	return;
+
+	in_heap_dump = 1;
+
 	head = gHeapStart;
 	while( (Uint)head < (Uint)gHeapEnd )
 	{		
 		foot = (void*)( (Uint)head + head->Size - sizeof(tHeapFoot) );
 		#if VERBOSE_DUMP
 		Log_Log("Heap", "%p (0x%P): 0x%08x (%i) %4C",
-			head, MM_GetPhysAddr((tVAddr)head), head->Size, head->ValidSize, &head->Magic);
+			head, MM_GetPhysAddr(head), head->Size, head->ValidSize, &head->Magic);
 		Log_Log("Heap", "%p %4C", foot->Head, &foot->Magic);
 		if(head->File) {
 			Log_Log("Heap", "%sowned by %s:%i",
@@ -559,16 +565,20 @@ void Heap_Dump(void)
 	}
 	
 	// If the heap is valid, ok!
-	if( (tVAddr)head == (tVAddr)gHeapEnd )
+	if( (tVAddr)head == (tVAddr)gHeapEnd ) {
+		in_heap_dump = 0;
 		return ;
+	}
 	
 	// Check for a bad return
-	if( (tVAddr)head >= (tVAddr)gHeapEnd )
+	if( (tVAddr)head >= (tVAddr)gHeapEnd ) {
+		in_heap_dump = 0;
 		return ;
+	}
 
 	#if !VERBOSE_DUMP
 	Log_Log("Heap", "%p (%P): 0x%08lx %i %4C",
-		head, MM_GetPhysAddr((Uint)head), head->Size, head->ValidSize, &head->Magic);
+		head, MM_GetPhysAddr(head), head->Size, head->ValidSize, &head->Magic);
 	if(foot)
 		Log_Log("Heap", "Foot %p = {Head:%p,Magic:%4C}", foot, foot->Head, &foot->Magic);
 	if(head->File) {
@@ -588,7 +598,7 @@ void Heap_Dump(void)
 	while( (tVAddr)head >= (tVAddr)badHead )
 	{
 		Log_Log("Heap", "%p (%P): 0x%08lx %i %4C",
-			head, MM_GetPhysAddr((Uint)head), head->Size, head->ValidSize, &head->Magic);
+			head, MM_GetPhysAddr(head), head->Size, head->ValidSize, &head->Magic);
 		Log_Log("Heap", "%p %4C", foot->Head, &foot->Magic);
 		if(head->File)
 			Log_Log("Heap", "%sowned by %s:%i",
@@ -668,10 +678,10 @@ void Heap_Stats(void)
 		#if 1
 		if( head->Magic == MAGIC_FREE )
 			Log_Debug("Heap", "%p (%P) - 0x%x free",
-				head->Data, MM_GetPhysAddr((tVAddr)&head->Data), head->Size);
+				head->Data, MM_GetPhysAddr(&head->Data), head->Size);
 		else
 			Log_Debug("Heap", "%p (%P) - 0x%x (%i) Owned by %s:%i (%lli ms old)",
-				head->Data, MM_GetPhysAddr((tVAddr)&head->Data), head->Size, head->ValidSize, head->File, head->Line,
+				head->Data, MM_GetPhysAddr(&head->Data), head->Size, head->ValidSize, head->File, head->Line,
 				now() - head->AllocateTime
 				);
 		#endif

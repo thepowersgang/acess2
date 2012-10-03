@@ -7,18 +7,14 @@
 #include <binary.h>
 
 #define _COMMON_H
-#define SysDebug(...)	LOG(v)
-#define DISABLE_ELF64
+#define SysDebug(v...)	LOG(v)
+#if BITS <= 32
+# define DISABLE_ELF64
+#endif
 void	*GetSymbol(const char *Name, size_t *Size);
 void	*GetSymbol(const char *Name, size_t *Size) { Uint val; Binary_GetSymbol(Name, &val); if(Size)*Size=0; return (void*)val; };
 #define AddLoaded(a,b)	do{}while(0)
-#define LoadLibrary(a,b,c)	0
-#if __STDC_HOSTED__
-#warning "Hosted? why!"
-#else
-#warning "freestanding - outstanding!"
-#endif
-
+#define LoadLibrary(a,b,c)	(Log_Debug("ELF", "Module requested lib '%s'",a),0)
 #include "../../../Usermode/Libraries/ld-acess.so_src/elf.c"
 
 #define DEBUG_WARN	1
@@ -56,7 +52,7 @@ tBinary *Elf_Load(int fp)
 	switch(hdr.e_ident[4])	// EI_CLASS
 	{
 	case ELFCLASS32:
-		return Elf_Load32(fp, (Elf32_Ehdr*)&hdr);
+		return Elf_Load32(fp, (void*)&hdr);
 	case ELFCLASS64:
 		return Elf_Load64(fp, &hdr);
 	default:
@@ -297,7 +293,7 @@ tBinary *Elf_Load32(int FD, Elf32_Ehdr *Header)
 
 int Elf_Relocate(void *Base)
 {
-	return  ElfRelocate(Base, (char**){NULL}, "") != NULL;
+	return ElfRelocate(Base, (char**){NULL}, "") != NULL;
 }
 int Elf_GetSymbol(void *Base, const char *Name, Uint *ret)
 {

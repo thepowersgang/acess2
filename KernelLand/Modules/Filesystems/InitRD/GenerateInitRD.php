@@ -28,6 +28,7 @@ $lStack = array( array("",array()) );
 foreach($lines as $line)
 {
 	$line = trim($line);
+	if($line[0] == "#")	continue;
 	// Directory
 	if(preg_match('/^Dir\s+"([^"]+)"\s+{$/', $line, $matches))
 	{
@@ -122,36 +123,9 @@ EOF;
 			}
 			$size = filesize($path);
 	
-/*		
-			$_sym = $prefix."_".$i."_data";
-			$fp = fopen($path, "rb");
-			
-			$gOutput .= "Uint8 $_sym[] = {\n";
-			for( $j = 0; $j + 16 < $size; $j += 16 ) {
-				$gOutput .= "\t";
-				$gOutput .= hd8($fp).",".hd8($fp).",";
-				$gOutput .= hd8($fp).",".hd8($fp).",";
-				$gOutput .= hd8($fp).",".hd8($fp).",";
-				$gOutput .= hd8($fp).",".hd8($fp).",";
-				$gOutput .= hd8($fp).",".hd8($fp).",";
-				$gOutput .= hd8($fp).",".hd8($fp).",";
-				$gOutput .= hd8($fp).",".hd8($fp).",";
-				$gOutput .= hd8($fp).",".hd8($fp).",\n";
-			}
-			$gOutput .= "\t";
-			for( ; $j < $size; $j ++ ) {
-				if( $j & 15 )	$gOutput .= ",";
-				$gOutput .= hd8($fp);
-			}
-			fclose($fp);
-			$gOutput .= "\n};\n";
-*/
-			
-//*
 			$_sym = "_binary_".str_replace(array("/","-","."), "_", $path)."_start";
 			$gOutput .= "extern Uint8 {$_sym}[];";
 			$gSymFiles[] = $path;
-//*/
 			$gOutput .= <<<EOF
 tVFS_Node {$prefix}_{$i} = {
 	.NumACLs = 1,

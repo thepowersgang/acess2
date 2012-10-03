@@ -15,7 +15,7 @@ int main(int argc, char *argv[])
 {
 	 int	fd;
 	 int	num;
-	char	buf[BUF_SIZE+1];
+	char	buf[BUF_SIZE];
 
 	if(argc < 2) {
 		printf("Usage: cat <file>\n");
@@ -31,8 +31,7 @@ int main(int argc, char *argv[])
 	do {
 		num = read(fd, buf, BUF_SIZE);
 		if(num < 0)	break;
-		buf[num] = '\0';
-		printf("%s", buf);
+		write(1, buf, num);
 	} while(num == BUF_SIZE);
 
 	close(fd);

@@ -10,6 +10,20 @@
 
 #include "buffer.h"
 
+enum eIPStack_AdapterTypes
+{
+	ADAPTERTYPE_ETHERNET_10M,
+	ADAPTERTYPE_ETHERNET_100M,
+	ADAPTERTYPE_ETHERNET_1G
+};
+
+// Checksum offloading
+#define ADAPTERFLAG_OFFLOAD_MAC	(1 <<  0)
+#define ADAPTERFLAG_OFFLOAD_IP4	(1 <<  1)
+#define ADAPTERFLAG_OFFLOAD_IP6	(1 <<  2)
+#define ADAPTERFLAG_OFFLOAD_TCP	(1 <<  3)
+#define ADAPTERFLAG_OFFLOAD_UDP	(1 <<  4)
+
 typedef struct sIPStack_AdapterType tIPStack_AdapterType;
 
 struct sIPStack_AdapterType

@@ -341,6 +341,10 @@ typedef struct sDrvUtil_Video_BufInfo
 	 * \brief Bit depth of the framebuffer
 	 */
 	short	Depth;
+	/**
+	 * \brief Cached copy of the screens state (only used if not NULL)
+	 */
+	void	*BackBuffer;
 	/*
 	 * \}
 	 */

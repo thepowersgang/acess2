@@ -114,8 +114,6 @@ int Link_HandlePacket(tAdapter *Adapter, tIPStackBuffer *Buffer)
 	void	*data = IPStack_Buffer_CompactBuffer(Buffer, &len);
 	
 	tEthernetHeader	*hdr = (void*)data;
-	 int	i;
-	Uint32	checksum;
 
 	if(len < sizeof(tEthernetHeader)) {
 		Log_Log("Net Link", "Recieved an undersized packet (%i < %i)",
@@ -133,11 +131,12 @@ int Link_HandlePacket(tAdapter *Adapter, tIPStackBuffer *Buffer)
 		hdr->Dest.B[3], hdr->Dest.B[4], hdr->Dest.B[5],
 		ntohs(hdr->Type)
 		);
-	checksum = *(Uint32*)&hdr->Data[len-sizeof(tEthernetHeader)-4];
+//	Uint32 checksum = *(Uint32*)(data + len + 4);
 	//Log_Log("NET", "Checksum 0x%08x", checksum);
 	// TODO: Check checksum
 	
 	// Check if there is a registered callback for this packet type
+	 int	i;
 	for( i = giRegisteredTypes; i--; )
 	{
 		if(gaRegisteredTypes[i].Type == ntohs(hdr->Type))	break;

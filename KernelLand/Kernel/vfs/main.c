@@ -27,7 +27,7 @@ void	VFS_UpdateDriverFile(void);
 EXPORT(VFS_AddDriver);
 
 // === GLOBALS ===
-tVFS_Node	NULLNode = {0};
+tVFS_Node	NULLNode = {.Type=NULL};
 tShortSpinlock	slDriverListLock;
 tVFS_Driver	*gVFS_Drivers = NULL;
 char	*gsVFS_DriverFile = NULL;
@@ -63,6 +63,14 @@ int VFS_Init(void)
 	Log_Debug("VFS", "Setting max files");
 	*Threads_GetMaxFD() = 32;
 	return 0;
+}
+
+void VFS_Deinit(void)
+{
+	SysFS_RemoveFile(giVFS_MountFileID);
+	free(gsVFS_MountFile);
+	SysFS_RemoveFile(giVFS_DriverFileID);
+	free(gsVFS_DriverFile);
 }
 
 /**
@@ -164,3 +172,9 @@ void VFS_UpdateDriverFile(void)
 	if(gsVFS_DriverFile)	free(gsVFS_DriverFile);
 	gsVFS_DriverFile = buf;
 }
+
+void VFS_CleanupNode(tVFS_Node *Node)
+{
+	
+}
+

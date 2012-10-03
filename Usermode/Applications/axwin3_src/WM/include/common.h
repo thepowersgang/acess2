@@ -12,6 +12,8 @@
 
 #define TODO(str)	
 
+#define ASSERT(expr)	do{if(!(expr)){_SysDebug("%s:%i - ASSERTION FAILED: "#expr, __FILE__, __LINE__);exit(-1);}}while(0)
+
 #define UNIMPLEMENTED()	do{_SysDebug("TODO: Implement %s", __func__); for(;;);}while(0)
 
 #define	AXWIN_VERSION	0x300

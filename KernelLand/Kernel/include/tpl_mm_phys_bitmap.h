@@ -27,6 +27,7 @@
  int	MM_int_GetRangeID( tPAddr Addr );
  int	MM_int_GetMapEntry( void *Data, int Index, tPAddr *Start, tPAddr *Length );
 void	MM_Tpl_InitPhys(int MaxRAMPage, void *MemoryMap);
+void	MM_DumpStatistics(void);
 
 // === GLOBALS ===
 tMutex	glPhysicalPages;
@@ -82,7 +83,7 @@ void MM_Tpl_InitPhys(int MaxRAMPage, void *MemoryMap)
 		bitmap_page &= ~(PAGE_SIZE-1);
 
 		// Only need to allocate bitmaps
-		if( !MM_GetPhysAddr( bitmap_page ) ) {
+		if( !MM_GetPhysAddr( (void*)bitmap_page ) ) {
 			if( !MM_Allocate( bitmap_page ) ) {
 				Log_KernelPanic("PMM", "Out of memory during init, this is bad");
 				return ;
@@ -110,6 +111,11 @@ void MM_Tpl_InitPhys(int MaxRAMPage, void *MemoryMap)
 
 	LOG("giPhysFirstFree = 0x%x, giPhysLastFree = 0x%x", giPhysFirstFree, giPhysLastFree);
 	LEAVE('-');
+}
+
+void MM_DumpStatistics(void)
+{
+	// TODO: PM Statistics for tpl_mm_phys_bitmap
 }
 
 /**
@@ -214,7 +220,7 @@ tPAddr MM_AllocPhysRange(int Pages, int MaxBits)
 	
 		LOG("if( MM_GetPhysAddr( %p ) )", &gaiPageReferences[addr]);
 		// Mark as referenced if the reference count page is valid	
-		if( MM_GetPhysAddr( (tVAddr)&gaiPageReferences[addr] ) ) {
+		if( MM_GetPhysAddr( &gaiPageReferences[addr] ) ) {
 			gaiPageReferences[addr] = 1;
 		}
 	}
@@ -270,7 +276,7 @@ tPAddr MM_AllocPhys(void)
 		tPAddr	ret = 0;
 		for( ret = 0; ret < giMaxPhysPage; ret ++ )
 		{
-			if( !MM_GetPhysAddr( (tVAddr)&gaPageBitmaps[ret/32] ) ) {
+			if( !MM_GetPhysAddr( &gaPageBitmaps[ret/32] ) ) {
 				ret += PAGE_SIZE*8;
 				continue ;
 			}
@@ -311,13 +317,13 @@ void MM_RefPhys(tPAddr PAddr)
 		if( gaPageBitmaps[page / 32] == 0 )
 			gaSuperBitmap[page / (32*32)] &= ~(1LL << ((page / 32) & 31));
 		#endif
-		if( MM_GetPhysAddr( refpage ) )
+		if( MM_GetPhysAddr( (void*)refpage ) )
 			gaiPageReferences[page] = 1;
 	}
 	else
 	{
 		// Reference again
-		if( !MM_GetPhysAddr( refpage ) )
+		if( !MM_GetPhysAddr( (void*)refpage ) )
 		{
 			 int	pages_per_page, basepage, i;
 			if( MM_Allocate(refpage) == 0 ) {
@@ -344,7 +350,7 @@ void MM_RefPhys(tPAddr PAddr)
 int MM_GetRefCount(tPAddr PAddr)
 {
 	PAddr >>= 12;
-	if( MM_GetPhysAddr( (tVAddr)&gaiPageReferences[PAddr] ) ) {
+	if( MM_GetPhysAddr( &gaiPageReferences[PAddr] ) ) {
 		return gaiPageReferences[PAddr];
 	}
 	
@@ -366,7 +372,7 @@ void MM_DerefPhys(tPAddr PAddr)
 
 	ENTER("PPAddr", PAddr);
 	
-	if( MM_GetPhysAddr( (tVAddr)&gaiPageReferences[page] ) )
+	if( MM_GetPhysAddr( &gaiPageReferences[page] ) )
 	{
 		if( gaiPageReferences[page] > 0 )
 			gaiPageReferences[ page ] --;
@@ -378,7 +384,7 @@ void MM_DerefPhys(tPAddr PAddr)
 	else
 		gaPageBitmaps[ page / 32 ] |= 1 << (page&31);
 	// Clear node if needed
-	if( MM_GetPhysAddr( (tVAddr)&gapPageNodes[page] ) ) {
+	if( MM_GetPhysAddr( &gapPageNodes[page] ) ) {
 		gapPageNodes[page] = NULL;
 		// TODO: Catch when all pages in this range are not using nodes
 	}
@@ -409,7 +415,7 @@ int MM_SetPageNode(tPAddr PAddr, void *Node)
 
 	if( !MM_GetRefCount(PAddr) )	return 1;
 	
-	if( !MM_GetPhysAddr(node_page) ) {
+	if( !MM_GetPhysAddr( (void*)node_page ) ) {
 		if( !MM_Allocate(node_page) )
 			return -1;
 		memset( (void*)node_page, 0, PAGE_SIZE );
@@ -424,7 +430,7 @@ int MM_GetPageNode(tPAddr PAddr, void **Node)
 	if( !MM_GetRefCount(PAddr) )	return 1;
 	PAddr >>= 12;
 	
-	if( !MM_GetPhysAddr( (tVAddr)&gapPageNodes[PAddr] ) ) {
+	if( !MM_GetPhysAddr( &gapPageNodes[PAddr] ) ) {
 		*Node = NULL;
 		return 0;
 	}

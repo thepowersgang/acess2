@@ -9,6 +9,8 @@
 #include <modules.h>	// Needed for error codes
 #include <drv_pci.h>
 #include "common.h"
+#include <events.h>
+#include <timers.h>
 
 // === MACROS ===
 #define IO_DELAY()	do{inb(0x80); inb(0x80); inb(0x80); inb(0x80);}while(0)
@@ -95,10 +97,11 @@ Uint8	*gATA_BusMasterBasePtr;	//!< Paging Mapped MMIO (If needed)
  int	gATA_IRQPri = 14;
  int	gATA_IRQSec = 15;
 volatile int	gaATA_IRQs[2] = {0};
+tThread	*gATA_WaitingThreads[2];
 // - Locks to avoid tripping
 tMutex	glaATA_ControllerLock[2];
 // - Buffers!
-Uint8	gATA_Buffers[2][(MAX_DMA_SECTORS+0xFFF)&~0xFFF] __attribute__ ((section(".padata")));
+void	*gATA_Buffers[2];
 // - PRDTs
 tPRDT_Ent	gATA_PRDTs[2] = {
 	{0, 512, IDE_PRDT_LAST},
@@ -148,17 +151,27 @@ int ATA_SetupIO(void)
 	IRQ_AddHandler( gATA_IRQPri, ATA_IRQHandlerPri, NULL );
 	IRQ_AddHandler( gATA_IRQSec, ATA_IRQHandlerSec, NULL );
 
-	gATA_PRDTs[0].PBufAddr = MM_GetPhysAddr( (tVAddr)&gATA_Buffers[0] );
-	gATA_PRDTs[1].PBufAddr = MM_GetPhysAddr( (tVAddr)&gATA_Buffers[1] );
+	tPAddr	paddr;
+	gATA_Buffers[0] = (void*)MM_AllocDMA(1, 32, &paddr);
+	gATA_PRDTs[0].PBufAddr = paddr;
+	gATA_Buffers[1] = (void*)MM_AllocDMA(1, 32, &paddr);
+	gATA_PRDTs[1].PBufAddr = paddr;
 
 	LOG("gATA_PRDTs = {PBufAddr: 0x%x, PBufAddr: 0x%x}", gATA_PRDTs[0].PBufAddr, gATA_PRDTs[1].PBufAddr);
 
-	gaATA_PRDT_PAddrs[0] = MM_GetPhysAddr( (tVAddr)&gATA_PRDTs[0] );
-	LOG("gaATA_PRDT_PAddrs[0] = 0x%x", gaATA_PRDT_PAddrs[0]);
+	// TODO: Ensure that this is within 32-bits
+	gaATA_PRDT_PAddrs[0] = MM_GetPhysAddr( &gATA_PRDTs[0] );
+	gaATA_PRDT_PAddrs[1] = MM_GetPhysAddr( &gATA_PRDTs[1] );
+	LOG("gaATA_PRDT_PAddrs = {0x%P, 0x%P}", gaATA_PRDT_PAddrs[0], gaATA_PRDT_PAddrs[1]);
+	#if PHYS_BITS > 32
+	if( gaATA_PRDT_PAddrs[0] >> 32 || gaATA_PRDT_PAddrs[1] >> 32 ) {
+		Log_Error("ATA", "Physical addresses of PRDTs are not in 32-bits (%P and %P)",
+			gaATA_PRDT_PAddrs[0], gaATA_PRDT_PAddrs[1]);
+		LEAVE('i', MODULE_ERR_MISC);
+		return MODULE_ERR_MISC;
+	}
+	#endif
 	ATA_int_BusMasterWriteDWord(4, gaATA_PRDT_PAddrs[0]);
-	
-	gaATA_PRDT_PAddrs[1] = MM_GetPhysAddr( (tVAddr)&gATA_PRDTs[1] );
-	LOG("gaATA_PRDT_PAddrs[1] = 0x%x", gaATA_PRDT_PAddrs[1]);
 	ATA_int_BusMasterWriteDWord(12, gaATA_PRDT_PAddrs[1]);
 
 	// Enable controllers
@@ -275,22 +288,18 @@ Uint16 ATA_GetBasePort(int Disk)
 	return 0;
 }
 
-/**
- * \fn int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
- * \return Boolean Failure
- */
-int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
+int ATA_DoDMA(Uint8 Disk, Uint64 Address, Uint Count, int bWrite, void *Buffer)
 {
 	 int	cont = (Disk>>1)&1;	// Controller ID
 	 int	disk = Disk & 1;
 	Uint16	base;
-	Sint64	timeoutTime;
+	 int	bUseBounceBuffer;
 
-	ENTER("iDisk XAddress iCount pBuffer", Disk, Address, Count, Buffer);
+	ENTER("iDisk XAddress iCount bbWrite pBuffer", Disk, Address, Count, bWrite, Buffer);
 
 	// Check if the count is small enough
 	if(Count > MAX_DMA_SECTORS) {
-		Log_Warning("ATA", "Passed too many sectors for a bulk DMA read (%i > %i)",
+		Log_Warning("ATA", "Passed too many sectors for a bulk DMA (%i > %i)",
 			Count, MAX_DMA_SECTORS);
 		LEAVE('i');
 		return 1;
@@ -306,6 +315,35 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 
 	// Set Size
 	gATA_PRDTs[ cont ].Bytes = Count * SECTOR_SIZE;
+	
+	// Detemine if the transfer can be done directly
+	tPAddr	buf_ps = MM_GetPhysAddr(Buffer);
+	tPAddr	buf_pe = MM_GetPhysAddr((char*)Buffer + Count * SECTOR_SIZE - 1);
+	if( buf_pe == buf_ps + Count * SECTOR_SIZE - 1 ) {
+		// Contiguous, nice
+		#if PHYS_BITS > 32
+		if( buf_pe >> 32 ) {
+			// Over 32-bits, need to copy anyway
+			bUseBounceBuffer = 1;
+			LOG("%P over 32-bit, using bounce buffer", buf_pe);
+		}
+		#endif
+	}
+	else {
+		// TODO: Handle splitting the read into two?
+		bUseBounceBuffer = 1;
+		LOG("%P + 0x%x != %P, using bounce buffer", buf_ps, Count * SECTOR_SIZE, buf_pe);
+	}
+
+	// Set up destination / source buffers
+	if( bUseBounceBuffer ) {
+		gATA_PRDTs[cont].PBufAddr = MM_GetPhysAddr(gATA_Buffers[cont]);
+		if( bWrite )
+			memcpy(gATA_Buffers[cont], Buffer, Count * SECTOR_SIZE);
+	}
+	else {
+		gATA_PRDTs[cont].PBufAddr = MM_GetPhysAddr(Buffer);
+	}
 
 	// Get Port Base
 	base = ATA_GetBasePort(Disk);
@@ -313,6 +351,8 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	// Reset IRQ Flag
 	gaATA_IRQs[cont] = 0;
 
+	
+	// TODO: What the ____ does this do?
 	#if 1
 	if( cont == 0 ) {
 		outb(IDE_PRI_CTRL, 4);
@@ -358,22 +398,29 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 	
 	LOG("gATA_PRDTs[%i].Bytes = %i", cont, gATA_PRDTs[cont].Bytes);
 	if( Address > 0x0FFFFFFF )
-		outb(base+0x07, HDD_DMA_R48);	// Read Command (LBA48)
+		outb(base+0x07, bWrite ? HDD_DMA_W48 : HDD_DMA_R48);	// Command (LBA48)
 	else
-		outb(base+0x07, HDD_DMA_R28);	// Read Command (LBA28)
+		outb(base+0x07, bWrite ? HDD_DMA_W28 : HDD_DMA_R28);	// Command (LBA28)
 
+	// Intialise timeout timer
+	Threads_ClearEvent(THREAD_EVENT_SHORTWAIT|THREAD_EVENT_TIMER);
+	tTimer *timeout = Time_AllocateTimer(NULL, NULL);
+	Time_ScheduleTimer(timeout, ATA_TIMEOUT);
+	gATA_WaitingThreads[cont] = Proc_GetCurThread();
+	
 	// Start transfer
-	ATA_int_BusMasterWriteByte( cont * 8, 9 );	// Read and start
+	ATA_int_BusMasterWriteByte( cont * 8, (bWrite ? 0 : 8) | 1 );	// Write(0)/Read(8) and start
 
 	// Wait for transfer to complete
-	timeoutTime = now() + ATA_TIMEOUT;
-	while( gaATA_IRQs[cont] == 0 && now() < timeoutTime)
-	{
-		HALT();
+	Uint32 ev = Threads_WaitEvents(THREAD_EVENT_SHORTWAIT|THREAD_EVENT_TIMER);
+	Time_FreeTimer(timeout);
+
+	if( ev & THREAD_EVENT_TIMER ) {
+		Log_Notice("ATA", "Timeout of %i ms exceeded", ATA_TIMEOUT);
 	}
 
 	// Complete Transfer
-	ATA_int_BusMasterWriteByte( cont * 8, 8 );	// Read and stop
+	ATA_int_BusMasterWriteByte( cont * 8, (bWrite ? 0 : 8) );	// Write/Read and stop
 
 	#if DEBUG
 	{
@@ -390,10 +437,7 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 		if( ATA_int_BusMasterReadByte(cont * 8 + 2) & 0x4 ) {
 			Log_Error("ATA", "BM Status reports an interrupt, but none recieved");
 			ATA_int_BusMasterWriteByte(cont*8 + 2, 4);	// Clear interrupt
-			memcpy( Buffer, gATA_Buffers[cont], Count*SECTOR_SIZE );
-			Mutex_Release( &glaATA_ControllerLock[ cont ] );
-			LEAVE('i', 0);
-			return 0;
+			goto _success;
 		}
 
 		#if 1
@@ -403,23 +447,34 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
 		// Release controller lock
 		Mutex_Release( &glaATA_ControllerLock[ cont ] );
 		Log_Warning("ATA",
-			"Read timeout on disk %i (Reading sector 0x%llx)",
-			Disk, Address);
+			"Timeout on disk %i (%s sector 0x%llx)",
+			Disk, bWrite ? "Writing" : "Reading", Address);
 		// Return error
 		LEAVE('i', 1);
 		return 1;
 	}
-	else {
-		LOG("Transfer Completed & Acknowledged");
-		// Copy to destination buffer
+	
+	LOG("Transfer Completed & Acknowledged");
+_success:
+	// Copy to destination buffer (if bounce was used and it was a read)
+	if( bUseBounceBuffer && !bWrite )
 		memcpy( Buffer, gATA_Buffers[cont], Count*SECTOR_SIZE );
-		// Release controller lock
-		Mutex_Release( &glaATA_ControllerLock[ cont ] );
+	// Release controller lock
+	Mutex_Release( &glaATA_ControllerLock[ cont ] );
 
-		LEAVE('i', 0);
-		return 0;
-	}
+	LEAVE('i', 0);
+	return 0;
 }
+
+/**
+ * \fn int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
+ * \return Boolean Failure
+ */
+int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
+{
+	return ATA_DoDMA(Disk, Address, Count, 0, Buffer);
+}
+
 
 /**
  * \fn int ATA_WriteDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
@@ -432,77 +487,7 @@ int ATA_ReadDMA(Uint8 Disk, Uint64 Address, Uint Count, void *Buffer)
  */
 int ATA_WriteDMA(Uint8 Disk, Uint64 Address, Uint Count, const void *Buffer)
 {
-	 int	cont = (Disk>>1)&1;	// Controller ID
-	 int	disk = Disk & 1;
-	Uint16	base;
-	Sint64	timeoutTime;
-
-	// Check if the count is small enough
-	if(Count > MAX_DMA_SECTORS)	return 1;
-
-	// Get exclusive access to the disk controller
-	Mutex_Acquire( &glaATA_ControllerLock[ cont ] );
-
-	// Set Size
-	gATA_PRDTs[ cont ].Bytes = Count * SECTOR_SIZE;
-
-	// Get Port Base
-	base = ATA_GetBasePort(Disk);
-
-	// Reset IRQ Flag
-	gaATA_IRQs[cont] = 0;
-	
-	// Set up transfer
-	outb(base+0x01, 0x00);
-	if( Address > 0x0FFFFFFF )	// Use LBA48
-	{
-		outb(base+0x6, 0x40 | (disk << 4));
-		outb(base+0x2, 0 >> 8);	// Upper Sector Count
-		outb(base+0x3, Address >> 24);	// Low 2 Addr
-		outb(base+0x3, Address >> 28);	// Mid 2 Addr
-		outb(base+0x3, Address >> 32);	// High 2 Addr
-	}
-	else
-	{
-		// Magic, Disk, High Address nibble
-		outb(base+0x06, 0xE0 | (disk << 4) | ((Address >> 24) & 0x0F));
-	}
-
-	outb(base+0x02, (Uint8) Count);		// Sector Count
-	outb(base+0x03, (Uint8) Address);		// Low Addr
-	outb(base+0x04, (Uint8) (Address >> 8));	// Middle Addr
-	outb(base+0x05, (Uint8) (Address >> 16));	// High Addr
-	if( Address > 0x0FFFFFFF )
-		outb(base+0x07, HDD_DMA_W48);	// Write Command (LBA48)
-	else
-		outb(base+0x07, HDD_DMA_W28);	// Write Command (LBA28)
-
-	// Copy to output buffer
-	memcpy( gATA_Buffers[cont], Buffer, Count*SECTOR_SIZE );
-
-	// Start transfer
-	ATA_int_BusMasterWriteByte( cont << 3, 1 );	// Write and start
-
-	// Wait for transfer to complete
-	timeoutTime = now() + ATA_TIMEOUT;
-	while( gaATA_IRQs[cont] == 0 && now() < timeoutTime)
-	{
-		HALT();
-	}
-
-	// Complete Transfer
-	ATA_int_BusMasterWriteByte( cont << 3, 0 );	// Write and stop
-
-	// If the IRQ is unset, return error
-	if( gaATA_IRQs[cont] == 0 ) {
-		// Release controller lock
-		Mutex_Release( &glaATA_ControllerLock[ cont ] );
-		return 1;	// Error
-	}
-	else {
-		Mutex_Release( &glaATA_ControllerLock[ cont ] );
-		return 0;
-	}
+	return ATA_DoDMA(Disk, Address, Count, 1, (void*)Buffer);
 }
 
 /**
@@ -515,10 +500,12 @@ void ATA_IRQHandlerPri(int UNUSED(IRQ), void *UNUSED(Ptr))
 	// IRQ bit set for Primary Controller
 	val = ATA_int_BusMasterReadByte( 0x2 );
 	LOG("IRQ val = 0x%x", val);
-	if(val & 4) {
+	if(val & 4)
+	{
 		LOG("IRQ hit (val = 0x%x)", val);
 		ATA_int_BusMasterWriteByte( 0x2, 4 );
 		gaATA_IRQs[0] = 1;
+		Threads_PostEvent(gATA_WaitingThreads[0], THREAD_EVENT_SHORTWAIT);
 		return ;
 	}
 }
@@ -536,6 +523,7 @@ void ATA_IRQHandlerSec(int UNUSED(IRQ), void *UNUSED(Ptr))
 		LOG("IRQ hit (val = 0x%x)", val);
 		ATA_int_BusMasterWriteByte( 0xA, 4 );
 		gaATA_IRQs[1] = 1;
+		Threads_PostEvent(gATA_WaitingThreads[1], THREAD_EVENT_SHORTWAIT);
 		return ;
 	}
 }

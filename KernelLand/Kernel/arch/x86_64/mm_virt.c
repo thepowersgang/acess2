@@ -128,9 +128,9 @@ void MM_int_ClonePageEnt( Uint64 *Ent, void *NextLevel, tVAddr Addr, int bTable 
 
 		ASSERT(paddr != curpage);
 			
-		tmp = (void*)MM_MapTemp(paddr);
+		tmp = MM_MapTemp(paddr);
 		memcpy( tmp, NextLevel, 0x1000 );
-		MM_FreeTemp( (tVAddr)tmp );
+		MM_FreeTemp( tmp );
 		
 		#if TRACE_COW
 		Log_Debug("MMVirt", "COW ent at %p (%p) from %P to %P", Ent, NextLevel, curpage, paddr);
@@ -269,9 +269,9 @@ void MM_int_DumpTablesEnt(tVAddr RangeStart, size_t Length, tPAddr Expected)
 	#define CANOICAL(addr)	((addr)&0x800000000000?(addr)|0xFFFF000000000000:(addr))
 	LogF("%016llx => ", CANOICAL(RangeStart));
 //	LogF("%6llx %6llx %6llx %016llx => ",
-//		MM_GetPhysAddr( (tVAddr)&PAGEDIRPTR(RangeStart>>30) ),
-//		MM_GetPhysAddr( (tVAddr)&PAGEDIR(RangeStart>>21) ),
-//		MM_GetPhysAddr( (tVAddr)&PAGETABLE(RangeStart>>12) ),
+//		MM_GetPhysAddr( &PAGEDIRPTR(RangeStart>>30) ),
+//		MM_GetPhysAddr( &PAGEDIR(RangeStart>>21) ),
+//		MM_GetPhysAddr( &PAGETABLE(RangeStart>>12) ),
 //		CANOICAL(RangeStart)
 //		);
 	if( gMM_ZeroPage && (PAGETABLE(RangeStart>>12) & PADDR_MASK) == gMM_ZeroPage )
@@ -340,8 +340,8 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 				expected |= expected_pml4 & PF_NX;
 				expected |= expected_pdp  & PF_NX;
 				expected |= expected_pd   & PF_NX;
-				Log("expected (pml4 = %x, pdp = %x, pd = %x)",
-					expected_pml4, expected_pdp, expected_pd);
+//				Log("expected (pml4 = %x, pdp = %x, pd = %x)",
+//					expected_pml4, expected_pdp, expected_pd);
 				// Dump
 				MM_int_DumpTablesEnt( rangeStart, curPos - rangeStart, expected );
 				expected = CHANGEABLE_BITS;
@@ -576,7 +576,7 @@ void MM_Deallocate(tVAddr VAddr)
 {
 	tPAddr	phys;
 	
-	phys = MM_GetPhysAddr(VAddr);
+	phys = MM_GetPhysAddr( (void*)VAddr );
 	if(!phys)	return ;
 	
 	MM_Unmap(VAddr);
@@ -609,8 +609,9 @@ int MM_GetPageEntry(tVAddr Addr, tPAddr *Phys, Uint *Flags)
 /**
  * \brief Get the physical address of a virtual location
  */
-tPAddr MM_GetPhysAddr(tVAddr Addr)
+tPAddr MM_GetPhysAddr(const void *Ptr)
 {
+	tVAddr	Addr = (tVAddr)Ptr;
 	tPAddr	*ptr;
 	 int	ret;
 	
@@ -776,7 +777,8 @@ tVAddr MM_MapHWPages(tPAddr PAddr, Uint Number)
 	{
 		for( num = Number; num -- && ret < MM_HWMAP_TOP; ret += 0x1000 )
 		{
-			if( MM_GetPhysAddr(ret) != 0 )	break;
+			if( MM_GetPhysAddr( (void*)ret ) != 0 )
+				break;
 		}
 		if( num >= 0 )	continue;
 		
@@ -807,7 +809,7 @@ void MM_UnmapHWPages(tVAddr VAddr, Uint Number)
 //	Log_KernelPanic("MM", "TODO: Implement MM_UnmapHWPages");
 	while( Number -- )
 	{
-		MM_DerefPhys( MM_GetPhysAddr(VAddr) );
+		MM_DerefPhys( MM_GetPhysAddr((void*)VAddr) );
 		MM_Unmap(VAddr);
 		VAddr += 0x1000;
 	}
@@ -860,7 +862,7 @@ tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 }
 
 // --- Tempory Mappings ---
-tVAddr MM_MapTemp(tPAddr PAddr)
+void *MM_MapTemp(tPAddr PAddr)
 {
 	const int max_slots = (MM_TMPMAP_END - MM_TMPMAP_BASE) / PAGE_SIZE;
 	tVAddr	ret = MM_TMPMAP_BASE;
@@ -879,14 +881,14 @@ tVAddr MM_MapTemp(tPAddr PAddr)
 		*ent = PAddr | 3;
 		MM_RefPhys(PAddr);
 		INVLPG(ret);
-		return ret;
+		return (void*)ret;
 	}
 	return 0;
 }
 
-void MM_FreeTemp(tVAddr VAddr)
+void MM_FreeTemp(void *Ptr)
 {
-	MM_Deallocate(VAddr);
+	MM_Deallocate((tVAddr)Ptr);
 	return ;
 }
 
@@ -966,14 +968,14 @@ tPAddr MM_Clone(void)
 	for( i = 1; i < KERNEL_STACK_SIZE/0x1000; i ++ )
 	{
 		tPAddr	phys = MM_AllocPhys();
-		tVAddr	tmpmapping;
+		void	*tmpmapping;
 		MM_MapEx(kstackbase+i*0x1000, phys, 1, 0);
 		
 		tmpmapping = MM_MapTemp(phys);
-		if( MM_GetPhysAddr( kstackbase+i*0x1000 ) )
-			memcpy((void*)tmpmapping, (void*)(kstackbase+i*0x1000), 0x1000);
+		if( MM_GetPhysAddr( (void*)(kstackbase+i*0x1000) ) )
+			memcpy(tmpmapping, (void*)(kstackbase+i*0x1000), 0x1000);
 		else
-			memset((void*)tmpmapping, 0, 0x1000);
+			memset(tmpmapping, 0, 0x1000);
 //		if( i == 0xF )
 //			Debug_HexDump("MM_Clone: *tmpmapping = ", (void*)tmpmapping, 0x1000);
 		MM_FreeTemp(tmpmapping);
@@ -1064,12 +1066,10 @@ tVAddr MM_NewWorkerStack(void *StackData, size_t StackSize)
 		Log_Error("MM", "MM_NewWorkerStack: StackSize(0x%x) > 0x1000, cbf handling", StackSize);
 	}
 	else {
-		tVAddr	tmp_addr, dest;
+		void	*tmp_addr, *dest;
 		tmp_addr = MM_MapTemp(phys);
-		dest = tmp_addr + (0x1000 - StackSize);
-		memcpy( (void*)dest, StackData, StackSize );
-		Log_Debug("MM", "MM_NewWorkerStack: %p->%p %i bytes (i=%i)", StackData, dest, StackSize, i);
-		Log_Debug("MM", "MM_NewWorkerStack: ret = %p", ret);
+		dest = (char*)tmp_addr + (0x1000 - StackSize);
+		memcpy( dest, StackData, StackSize );
 		MM_FreeTemp(tmp_addr);
 	}
 
@@ -1088,7 +1088,7 @@ tVAddr MM_NewKStack(void)
 	Uint	i;
 	for( ; base < MM_KSTACK_TOP; base += KERNEL_STACK_SIZE )
 	{
-		if(MM_GetPhysAddr(base+KERNEL_STACK_SIZE-0x1000) != 0)
+		if(MM_GetPhysAddr( (void*)(base+KERNEL_STACK_SIZE-0x1000) ) != 0)
 			continue;
 		
 		//Log("MM_NewKStack: Found one at %p", base + KERNEL_STACK_SIZE);

@@ -9,6 +9,7 @@ OBJ += arch/$(ARCHDIR).ao_
 BIN = ld-acess.so
 EXTRABIN := libld-acess.so
 EXTRACLEAN := $(_OBJPREFIX)_stublib.o
+INCFILES := sys/sys.h
 
 CFLAGS   = -g -Wall -fno-builtin -fno-leading-underscore -fno-stack-protector -fPIC
 CFLAGS  += $(CPPFLAGS)
@@ -19,7 +20,7 @@ include ../Makefile.tpl
 # create libld-acess.so
 $(_XBIN): $(_OBJPREFIX)_stublib.o
 	@echo [LD] -o -shared libld-acess.so
-	$(LD) -shared -o $@ $<
+	$(LD) -shared -o $@ $< $(LDFLAGS)
 #	@$(LD) $(LDFLAGS) -o $@ $(OBJ)
 
 

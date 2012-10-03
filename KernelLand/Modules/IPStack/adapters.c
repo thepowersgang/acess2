@@ -20,7 +20,7 @@
 void	*IPStack_Adapter_Add(const tIPStack_AdapterType *Type, void *Ptr, const void *HWAddr);
 void	IPStack_Adapter_Del(void *Handle);
 // --- VFS API ---
-char	*Adapter_ReadDir(tVFS_Node *Node, int Pos);
+ int	Adapter_ReadDir(tVFS_Node *Node, int Pos, char Name[FILENAME_MAX]);
 tVFS_Node	*Adapter_FindDir(tVFS_Node *Node, const char *Name);
  int	Adapter_DirIOCtl(tVFS_Node *Node, int Num, void *Data);
  int	Adapter_IOCtl(tVFS_Node *Node, int Num, void *Data);
@@ -79,13 +79,14 @@ void *IPStack_Adapter_Add(const tIPStack_AdapterType *Type, void *Ptr, const voi
 	ret->Node.Type = &gIP_AdapterType;
 	ret->Node.ImplPtr = ret;
 
-	// TODO: Locking
+	Mutex_Acquire( &glIP_Adapters );
 	gpIP_AdapterList_Last->Next = ret;
 	gpIP_AdapterList_Last = ret;
+	Mutex_Release( &glIP_Adapters );
 	
 	// Watch the adapter for incoming packets
-	tTID tid = Proc_SpawnWorker(Adapter_int_WatchThread, ret);
-	if(tid < 0) {
+	void *worker = Proc_SpawnWorker(Adapter_int_WatchThread, ret);
+	if(!worker) {
 		Log_Warning("IPStack", "Unable to create watcher thread for %p", ret);
 	}
 	
@@ -119,7 +120,7 @@ void *IPStack_Adapter_AddVFS(const char *Path)
 	// Get MAC Address
 	VFS_IOCtl(fd, NET_IOCTL_GETMAC, mac);
 
-	return IPStack_Adapter_Add(NULL, (void*)fd, mac);
+	return IPStack_Adapter_Add(NULL, (void*)(tVAddr)fd, mac);
 }
 
 void IPStack_Adapter_Del(void *Handle)
@@ -129,13 +130,14 @@ void IPStack_Adapter_Del(void *Handle)
 }
 
 // --- VFS API ---
-char *Adapter_ReadDir(tVFS_Node *Node, int Pos)
+int Adapter_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 {
-	if( Pos < 0 )	return NULL;
+	if( Pos < 0 )	return -EINVAL;
 
 	// Loopback
 	if( Pos == 0 ) {
-		return strdup("lo");
+		strcpy(Dest, "lo");
+		return 0;
 	}
 	Pos --;
 	
@@ -143,7 +145,8 @@ char *Adapter_ReadDir(tVFS_Node *Node, int Pos)
 		tAdapter *a;  int i;\
 		for(i=0,a=list; i < Pos && a; i ++, a = a->Next ); \
 		if( a ) { \
-			return Adapter_GetName(a);\
+			strncpy(Dest, Adapter_GetName(a), FILENAME_MAX);\
+			return 0;\
 		} \
 		Pos -= i; \
 	} while(0);
@@ -151,7 +154,7 @@ char *Adapter_ReadDir(tVFS_Node *Node, int Pos)
 	CHECK_LIST(gpIP_AdapterList, "eth");
 	// TODO: Support other types of adapters (wifi, tap, ...)
 
-	return NULL;
+	return -EINVAL;
 }
 
 tVFS_Node *Adapter_FindDir(tVFS_Node *Node, const char *Name)
@@ -312,5 +315,87 @@ int Adapter_int_LoopbackSendPacket(void *Unused, tIPStackBuffer *Buffer)
 	// This is a little hacky :)
 	Link_HandlePacket(&gIP_LoopAdapter, Buffer);
 	return 0;
+}
+
+// --- Broadcast Debugging ---
+extern Uint16	IPv4_Checksum(const void *Buf, size_t Length);
+void IPStack_SendDebugText(const char *Text)
+{
+	const Uint8	pkt_hdr[] = {
+		0xFF,0xFF, 0xFF,0xFF, 0xFF,0xFF,
+		0x00,0x00, 0x00,0x00, 0x00,0x00,
+		0x08,0x00,
+		
+		0x45,0x00,	// Version/Length, DiffServices
+		0xFF,0xFF,	// Total Length
+		0x00,0x00,	// Identifcation
+		0x00,0x00, 0xFF,0x11,	// Flags,Fragment, TTL=255,proto=UDP
+		0x00,0x00,	// Header checksum
+		0x00,0x00,0x00,0x00,	// Source
+		0xFF,0xFF,0xFF,0xFF,	// Destination
+		
+		0x80,0x00, 0x80,0x00,
+		0xFF,0xFF, 0xFF,0xFF,
+	};
+	static tShortSpinlock	lLock;
+
+	// Fast return if there's no avaliable adapters
+	if( !gpIP_AdapterList )
+		return ;
+
+	if( CPU_HAS_LOCK(&lLock) )
+		return ;	// Nested!
+	SHORTLOCK(&lLock);
+	#if ARCHDIR_is_x86
+	__asm__ __volatile__ ("sti");	// Start interrupts (x86 specific)
+	#endif
+
+	// Cache packets until a newline
+	static char	cache[1500 - (sizeof(pkt_hdr) + 4)];
+	static int	cache_len;
+	
+	 int	len = strlen(Text);
+
+	// Append to cache
+	strncpy(cache + cache_len, Text, sizeof(cache) - cache_len);
+	cache_len += len;
+	// TODO: Detect overflows.
+	
+	// If there's no newline, only buffer
+	if( strpos(Text, '\n') == -1 ) {
+		SHORTREL(&lLock);
+		return ;
+	}
+
+	// Build packet
+	 int	link_checksum_ofs = sizeof(pkt_hdr) + cache_len;
+	char	buffer[sizeof(pkt_hdr) + cache_len + 4];
+
+	memcpy(buffer, pkt_hdr, sizeof(pkt_hdr));
+	memcpy(buffer + sizeof(pkt_hdr), cache, cache_len);
+	
+	((Uint16*)buffer)[(14+2)/2] = BigEndian16( sizeof(pkt_hdr)-14 + cache_len );	// IP Size
+	((Uint16*)buffer)[(14+10)/2] = BigEndian16( 0 );	// IP Header
+	((Uint16*)buffer)[(14+20+4)/2] = BigEndian16( 8+cache_len );	// UDP Size
+	((Uint16*)buffer)[(14+20+6)/2] = BigEndian16( 0 );	// UDP Checksum
+//	*(Uint32*)&buffer[link_checksum_ofs] = BigEndian32( 0 );	// 802.3 checksum?
+	// TODO: Calculate checksums
+	((Uint16*)buffer)[(14+10)/2] = BigEndian16( IPv4_Checksum(buffer+14,20) );	// IP Header
+	
+	// Create buffer
+	tIPStackBuffer	*buf = IPStack_Buffer_CreateBuffer(1);
+	IPStack_Buffer_AppendSubBuffer(buf, link_checksum_ofs+4, 0, buffer, NULL, NULL);
+
+	// Send 'er off
+	for( tAdapter *a = gpIP_AdapterList; a; a = a->Next )
+	{
+		a->Type->SendPacket( a->CardHandle, buf );
+	}
+
+	IPStack_Buffer_DestroyBuffer(buf);
+
+	cache_len = 0;
+
+	SHORTREL(&lLock);
 }
 

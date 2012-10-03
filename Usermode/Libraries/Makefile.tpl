@@ -30,11 +30,14 @@ install: all
 ifneq ($(_XBIN),)
 	$(xCP) $(_XBIN) $(DISTROOT)/Libs/
 endif
+#ifneq ($(INCFILES),)
+#	for f in $(INCFILES); do ln -s $f $(ACESSDIR)/include/$f; done
+#endif
 
 $(_BIN): $(OBJ) $(_LIBS)
 	@mkdir -p $(dir $(_BIN))
 	@echo [LD] -o $(BIN) $(OBJ)
-	@$(LD) $(LDFLAGS) -o $(_BIN) $(OBJ)
+	@$(LD) $(LDFLAGS) -o $(_BIN) $(OBJ) $(shell $(CC) -print-libgcc-file-name)
 	@$(DISASM) -S $(_BIN) > $(_OBJPREFIX)$(BIN).dsm
 
 $(_OBJPREFIX)%.o: %.c

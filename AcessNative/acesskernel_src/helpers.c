@@ -93,6 +93,10 @@ void Heap_Deallocate(void *Ptr)
 	free(Ptr);
 }
 
+void Heap_Dump(void)
+{
+}
+
 tPAddr MM_GetPhysAddr(tVAddr VAddr)
 {
 	return VAddr;	// HACK!
@@ -119,5 +123,10 @@ Sint64 now(void)
 	struct timezone tz;
 	gettimeofday(&tv, &tz);
 	return tv.tv_sec * 1000 + tv.tv_usec/1000;
+}
+
+void IPStack_SendDebugText(const char *str)
+{
+	// nop
 }
 

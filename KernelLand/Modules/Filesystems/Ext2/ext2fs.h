@@ -157,6 +157,6 @@ struct ext2_dir_entry_s {
 	Uint8	type;		//!< File Type (Duplicate of ext2_inode_s.i_mode)
 	char	name[EXT2_NAME_LEN+1];		//!< File name
 };
-#define EXT2_DIRENT_SIZE	(sizeof(struct ext2_dir_entry_s)-EXT2_NAME_LEN+1)
+#define EXT2_DIRENT_SIZE	(sizeof(struct ext2_dir_entry_s)-(EXT2_NAME_LEN+1))
 
 #endif

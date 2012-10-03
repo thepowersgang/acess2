@@ -1,5 +1,6 @@
 /*
  * Taken from http://cvs.savannah.gnu.org/viewvc/vgabios/vgafonts.h?root=vgabios&view=markup
+ * Font is public domain
  * Altered for Acess2
  */
 #define FONT_WIDTH	8

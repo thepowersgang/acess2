@@ -116,6 +116,8 @@ void ErrorHandler(tRegs *Regs)
 			csaERROR_NAMES[Regs->int_num], Regs->err_code);
 		Log_Warning("Arch", "at CS:EIP %04x:%08x",
 			Regs->cs, Regs->eip);
+		Error_Backtrace(Regs->eip, Regs->ebp);
+		
 		MM_DumpTables(0, KERNEL_BASE);
 		switch( Regs->int_num )
 		{
@@ -226,14 +228,14 @@ void Error_Backtrace(Uint eip, Uint ebp)
 		LogF("Backtrace: 0x%x", eip);
 //	else
 //		LogF("Backtrace: %s+0x%x", str, delta);
-	if(!MM_GetPhysAddr(ebp))
+	if(!MM_GetPhysAddr((void*)ebp))
 	{
-		LogF("\nBacktrace: Invalid EBP, stopping\n");
+		LogF("\nBacktrace: Invalid EBP %p, stopping\n", ebp);
 		return;
 	}
 	
 	
-	while( MM_GetPhysAddr(ebp) && i < MAX_BACKTRACE )
+	while( MM_GetPhysAddr((void*)ebp) && i < MAX_BACKTRACE )
 	{
 		if( ebp >= MM_KERNEL_STACKS_END )	break;
 		//str = Debug_GetSymbol(*(Uint*)(ebp+4), &delta);
@@ -244,7 +246,7 @@ void Error_Backtrace(Uint eip, Uint ebp)
 		ebp = *(Uint*)ebp;
 		i++;
 	}
-	LogF("\n");
+	LogF("\r\n");
 }
 
 /**

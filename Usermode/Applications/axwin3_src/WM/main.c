@@ -9,6 +9,7 @@
 #include <acess/sys.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <axwin3/keysyms.h>
 
 // === IMPORTS ===
 extern void	Video_Setup(void);
@@ -16,7 +17,9 @@ extern void	WM_Initialise(void);
 extern int	Renderer_Menu_Init(void);
 extern int	Renderer_Widget_Init(void);
 extern int	Renderer_Background_Init(void);
+extern int	Renderer_Framebuffer_Init(void);
 extern void	WM_Update(void);
+extern void	WM_Hotkey_Register(int nKeys, uint32_t *Keys, const char *ActionName);
 
 // === PROTOTYPES ===
 void	ParseCommandline(int argc, char **argv);
@@ -29,6 +32,7 @@ const char	*gsMouseDevice = NULL;
  int	giScreenHeight = 480;
 
  int	giTerminalFD = -1;
+ int	giTerminalFD_Input = 0;
  int	giMouseFD = -1;
 
 #define __INSTALL_ROOT	"/Acess/Apps/AxWin/3.0"
@@ -59,7 +63,13 @@ int main(int argc, char *argv[])
 	Renderer_Menu_Init();
 	Renderer_Widget_Init();
 	Renderer_Background_Init();
+	Renderer_Framebuffer_Init();
 	WM_Initialise();
+
+	// TODO: Config
+	uint32_t	keys[4];
+	keys[0] = KEYSYM_LEFTGUI;	keys[1] = KEYSYM_r;
+	WM_Hotkey_Register(2, keys, "Interface>Run");
 	
 	// Spawn interface root
 	if( clone(CLONE_VM, 0) == 0 )

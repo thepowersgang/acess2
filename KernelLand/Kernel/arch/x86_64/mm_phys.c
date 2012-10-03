@@ -5,7 +5,8 @@
  */
 #define DEBUG	0
 #include <acess.h>
-#include <mboot.h>
+#include <archinit.h>
+#include <pmemmap.h>
 #include <mm_virt.h>
 
 #define TRACE_REF	0
@@ -25,7 +26,7 @@ extern char	gKernelBase[];
 extern char	gKernelEnd[];
 
 // === PROTOTYPES ===
-void	MM_InitPhys_Multiboot(tMBoot_Info *MBoot);
+//void	MM_InitPhys(int NPMemRanges, tPMemMapEnt *PMemRanges);
 //tPAddr	MM_AllocPhysRange(int Num, int Bits);
 //tPAddr	MM_AllocPhys(void);
 //void	MM_RefPhys(tPAddr PAddr);
@@ -52,6 +53,7 @@ Uint64	giPhysRangeFree[NUM_MM_PHYS_RANGES];	// Number of free pages in each rang
 Uint64	giPhysRangeFirst[NUM_MM_PHYS_RANGES];	// First free page in each range
 Uint64	giPhysRangeLast[NUM_MM_PHYS_RANGES];	// Last free page in each range
 Uint64	giMaxPhysPage = 0;	// Maximum Physical page
+Uint64	giTotalMemorySize = 0;
 // Only used in init, allows the init code to provide pages for use by
 // the allocator before the bitmaps exist.
 // 3 entries because the are three calls to MM_AllocPhys in MM_Map
@@ -62,10 +64,8 @@ tPAddr	gaiStaticAllocPages[NUM_STATIC_ALLOC] = {0};
 /**
  * \brief Initialise the physical memory map using a Multiboot 1 map
  */
-void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
+void MM_InitPhys(int NPMemRanges, tPMemMapEnt *PMemRanges)
 {
-	tMBoot_MMapEnt	*mmapStart;
-	tMBoot_MMapEnt	*ent;
 	Uint64	maxAddr = 0;
 	 int	numPages, superPages;
 	 int	i;
@@ -73,226 +73,165 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 	tVAddr	vaddr;
 	tPAddr	paddr, firstFreePage;
 	
-	ENTER("pMBoot=%p", MBoot);
+	ENTER("iNPMemRanges pPMemRanges",
+		NPMemRanges, PMemRanges);
 	
 	// Scan the physical memory map
 	// Looking for the top of physical memory
-	mmapStart = (void *)( KERNEL_BASE | MBoot->MMapAddr );
-	LOG("mmapStart = %p", mmapStart);
-	ent = mmapStart;
-	while( (Uint)ent < (Uint)mmapStart + MBoot->MMapLength )
+	for( i = 0; i < NPMemRanges; i ++ )
 	{
+		tPMemMapEnt	*ent = &PMemRanges[i];
 		// Adjust for the size of the entry
-		ent->Size += 4;
-		LOG("ent={Type:%i,Base:0x%x,Length:%x",
-			ent->Type, ent->Base, ent->Length);
+		LOG("%i: ent={Type:%i,Base:0x%x,Length:%x}", i, ent->Type, ent->Start, ent->Length);
 		
 		// If entry is RAM and is above `maxAddr`, change `maxAddr`
-		if(ent->Type == 1 && ent->Base + ent->Length > maxAddr)
-			maxAddr = ent->Base + ent->Length;
-		
-		// Go to next entry
-		ent = (tMBoot_MMapEnt *)( (Uint)ent + ent->Size );
-	}
-	
-	// Did we find a valid end?
-	if(maxAddr == 0) {
-		// No, darn, let's just use the HighMem hack
-		giMaxPhysPage = (MBoot->HighMem >> 2) + 256;	// HighMem is a kByte value
-	}
-	else {
-		// Goodie, goodie gumdrops
-		giMaxPhysPage = maxAddr >> 12;
-	}
-	LOG("giMaxPhysPage = 0x%x", giMaxPhysPage);
-	
-	// Find a contigous section of memory to hold it in
-	// - Starting from the end of the kernel
-	// - We also need a region for the super bitmap
-	superPages = ((giMaxPhysPage+64*8-1)/(64*8) + 0xFFF) >> 12;
-	numPages = (giMaxPhysPage + 7) / 8;
-	numPages = (numPages + 0xFFF) >> 12;
-	LOG("numPages = %i, superPages = %i", numPages, superPages);
-	if(maxAddr == 0)
-	{
-		 int	todo = numPages*2 + superPages;
-		// Ok, naieve allocation, just put it after the kernel
-		// - Allocated Bitmap
-		vaddr = MM_PAGE_BITMAP;
-		paddr = (tPAddr)&gKernelEnd - KERNEL_BASE;
-		while(todo )
+		if(ent->Type == PMEMTYPE_FREE || ent->Type == PMEMTYPE_USED )
 		{
-			// Allocate statics
-			for( i = 0; i < NUM_STATIC_ALLOC; i++) {
-				if(gaiStaticAllocPages[i] != 0)	continue;
+			if( ent->Start + ent->Length > maxAddr)
+				maxAddr = ent->Start + ent->Length;
+			giTotalMemorySize += ent->Length >> 12;
+		}
+	}
+	
+	giMaxPhysPage = maxAddr >> 12;
+	LOG("giMaxPhysPage = 0x%x", giMaxPhysPage);
+
+	// Get counts of pages needed for basic structures
+	superPages = ((giMaxPhysPage+64*8-1)/(64*8) + 0xFFF) >> 12;
+	numPages = ((giMaxPhysPage+7)/8 + 0xFFF) >> 12;	// bytes to hold bitmap, divided up to nearest page
+	LOG("numPages = %i, superPages = %i", numPages, superPages);
+	
+	// --- Allocate Bitmaps ---
+	 int	todo = numPages*2 + superPages;
+	 int	mapent = NPMemRanges-1;
+	vaddr = MM_PAGE_BITMAP;
+	paddr = -1;
+	while( todo )
+	{
+		while(PMemRanges[mapent].Type != PMEMTYPE_FREE && mapent != -1)
+			mapent --;
+		if( paddr + 1 == 0 )
+			paddr = PMemRanges[mapent].Start;
+		if( mapent == -1 ) {
+			// OOM During init, bad thing
+			Log_KernelPanic("PMem", "Out of memory during init");
+			for(;;);
+		}
+		
+		// Ensure that the static allocation pool has pages
+		for( i = 0; i < NUM_STATIC_ALLOC; i++)
+		{
+			if(gaiStaticAllocPages[i] == 0)
+			{
 				gaiStaticAllocPages[i] = paddr;
-				paddr += 0x1000;
+				// break to ensure we update the address correctly
+				break;
 			}
-			
+		}
+		
+		if( i == NUM_STATIC_ALLOC )
+		{
+			// Map
 			MM_Map(vaddr, paddr);
-			vaddr += 0x1000;
-			paddr += 0x1000;
-			
 			todo --;
 			
+			// Update virtual pointer
+			vaddr += 0x1000;
 			if( todo == numPages + superPages )
 				vaddr = MM_PAGE_DBLBMP;
 			if( todo == superPages )
 				vaddr = MM_PAGE_SUPBMP;
+		}		
+
+		// Update physical pointer
+		// (underflows are detected at the top of the loop)
+		paddr += 0x1000;
+		if( paddr - PMemRanges[mapent].Start > PMemRanges[mapent].Length )
+			mapent --;
+		else {
+			// NOTE: This hides some actually valid memory, but since the pmm
+			// structures have an "infinite" lifetime, this is of no concequence.
+			PMemRanges[mapent].Start += 0x1000;
+			PMemRanges[mapent].Length -= 0x1000;
 		}
 	}
-	// Scan for a nice range
-	else
-	{
-		 int	todo = numPages*2 + superPages;
-		paddr = 0;
-		vaddr = MM_PAGE_BITMAP;
-		// Scan!
-		for(
-			ent = mmapStart;
-			(Uint)ent < (Uint)mmapStart + MBoot->MMapLength;
-			ent = (tMBoot_MMapEnt *)( (Uint)ent + ent->Size )
-			)
-		{
-			 int	avail;
-			
-			// RAM only please
-			if( ent->Type != 1 )
-				continue;
-			
-			// Let's not put it below the kernel, shall we?
-			if( ent->Base + ent->Size < (tPAddr)&gKernelBase )
-				continue;
-			
-			LOG("%x <= %x && %x > %x",
-				ent->Base, (tPAddr)&gKernelBase,
-				ent->Base + ent->Size, (tPAddr)&gKernelEnd - KERNEL_BASE
-				);
-			// Check if the kernel is in this range
-			if( ent->Base <= (tPAddr)&gKernelBase
-			&& ent->Base + ent->Length > (tPAddr)&gKernelEnd - KERNEL_BASE )
-			{
-				avail = ent->Length >> 12;
-				avail -= ((tPAddr)&gKernelEnd - KERNEL_BASE - ent->Base) >> 12;
-				paddr = (tPAddr)&gKernelEnd - KERNEL_BASE;
-			}
-			// No? then we can use all of the block
-			else
-			{
-				avail = ent->Length >> 12;
-				paddr = ent->Base;
-			}
-			
-			Log("MM_InitPhys_Multiboot: paddr=0x%x, avail=0x%x pg", paddr, avail);
-			
-			// Map
-			while( todo && avail --)
-			{
-				// Static Allocations
-				for( i = 0; i < NUM_STATIC_ALLOC && avail; i++) {
-					if(gaiStaticAllocPages[i] != 0)	continue;
-					gaiStaticAllocPages[i] = paddr;
-					paddr += 0x1000;
-					avail --;
-				}
-				if(!avail)	break;
-				
-				// Map
-				MM_Map(vaddr, paddr);
-				todo --;
-				vaddr += 0x1000;
-				paddr += 0x1000;
-				
-				// Alter the destination address when needed
-				if(todo == superPages+numPages)
-					vaddr = MM_PAGE_DBLBMP;
-				if(todo == superPages)
-					vaddr = MM_PAGE_SUPBMP;
-			}
-			
-			// Fast quit if there's nothing left to allocate
-			if( !todo )		break;
-		}
-	}
+
+	PMemMap_DumpBlocks(PMemRanges, NPMemRanges);
+
 	// Save the current value of paddr to simplify the allocation later
 	firstFreePage = paddr;
 	
 	LOG("Clearing multi bitmap");
-	// Fill the bitmaps
-	memset(gaMultiBitmap, 0, (numPages<<12)/8);
-	// - initialise to one, then clear the avaliable areas
-	memset(gaMainBitmap, -1, (numPages<<12)/8);
-	memset(gaSuperBitmap, -1, (numPages<<12)/(8*64));
-	LOG("Setting main bitmap");
+	// Fill the bitmaps (set most to "allocated")
+	memset(gaMultiBitmap, 0, numPages<<12);
+	memset(gaMainBitmap,  255, numPages<<12);
 	// - Clear all Type=1 areas
 	LOG("Clearing valid regions");
-	for(
-		ent = mmapStart;
-		(Uint)ent < (Uint)mmapStart + MBoot->MMapLength;
-		ent = (tMBoot_MMapEnt *)( (Uint)ent + ent->Size )
-		)
+	for( i = 0; i < NPMemRanges; i ++ )
 	{
+		tPMemMapEnt *ent = &PMemRanges[i];
 		// Check if the type is RAM
-		if(ent->Type != 1)	continue;
+		if(ent->Type != PMEMTYPE_FREE)	continue;
 		
 		// Main bitmap
-		base = ent->Base >> 12;
-		size = ent->Size >> 12;
-		
-		if(base & 63) {
-			Uint64	val = -1LL << (base & 63);
-			gaMainBitmap[base / 64] &= ~val;
-			size -= (base & 63);
-			base += 64 - (base & 63);
+		base = ent->Start >> 12;
+		size = ent->Length >> 12;
+
+		LOG("%i: base=%x, size=%x", i, base, size);
+		if( base % 64 + size < 64 )
+		{
+			Uint64	bits = (1ULL << size) - 1;
+			bits <<= base % 64;
+			gaMainBitmap[base / 64] &= ~bits;
 		}
-		memset( &gaMainBitmap[base / 64], 0, size/8 );
-		if( size & 7 ) {
-			Uint64	val = -1LL << (size & 7);
-			val <<= (size/8)&7;
-			gaMainBitmap[base / 64] &= ~val;
+		else
+		{
+			if(base & 63)
+			{
+				// Keep lower bits
+				Uint64	bits = (1ULL << (base & 63)) - 1;
+				gaMainBitmap[base / 64] &= bits;
+				
+				size -= 64 - base % 64;
+				base += 64 - base % 64;
+			}
+			LOG("%i: base=%x, size=%x", i, base, size);
+			memset( &gaMainBitmap[base / 64], 0, (size/64)*8 );
+			base += size & ~(64-1);
+			size -= size & ~(64-1);
+			LOG("%i: base=%x, size=%x", i, base, size);
+			if( size & 63 )
+			{
+				// Unset lower bits (hence the bitwise not)
+				Uint64	val = (1ULL << (size & 63)) - 1;
+				gaMainBitmap[base / 64] &= ~val;
+			}
 		}
-		
-		// Super Bitmap
-		base = ent->Base >> 12;
-		size = ent->Size >> 12;
-		size = (size + (base & 63) + 63) >> 6;
-		base = base >> 6;
-		if(base & 63) {
-			Uint64	val = -1LL << (base & 63);
-			gaSuperBitmap[base / 64] &= ~val;
-//			size -= (base & 63);
-//			base += 64 - (base & 63);
-		}
-	}
-	
-	// Reference the used pages
-	base = (tPAddr)&gKernelBase >> 12;
-	size = firstFreePage >> 12;
-	memset( &gaMainBitmap[base / 64], -1, size/8 );
-	if( size & 7 ) {
-		Uint64	val = -1LL << (size & 7);
-		val <<= (size/8)&7;
-		gaMainBitmap[base / 64] |= val;
 	}
 	
 	// Free the unused static allocs
-	for( i = 0; i < NUM_STATIC_ALLOC; i++) {
-		if(gaiStaticAllocPages[i] != 0)
-			continue;
-		gaMainBitmap[ gaiStaticAllocPages[i] >> (12+6) ]
-			&= ~(1LL << ((gaiStaticAllocPages[i]>>12)&63));
+	LOG("Freeing unused static allocations");
+	for( i = 0; i < NUM_STATIC_ALLOC; i++)
+	{
+		if(gaiStaticAllocPages[i] == 0)
+		{
+			gaMainBitmap[ gaiStaticAllocPages[i] >> (12+6) ]
+				&= ~(1LL << ((gaiStaticAllocPages[i]>>12)&63));
+			gaiStaticAllocPages[i] = 0;
+		}
 	}
 	
 	// Fill the super bitmap
 	LOG("Filling super bitmap");
 	memset(gaSuperBitmap, 0, superPages<<12);
-	for( base = 0; base < (size+63)/64; base ++)
+	int nsuperbits = giMaxPhysPage / 64;	// 64 pages per bit
+	for( i = 0; i < (nsuperbits+63)/64; i ++)
 	{
-		if( gaMainBitmap[ base ] + 1 == 0 )
-			gaSuperBitmap[ base/64 ] |= 1LL << (base&63);
+		if( gaMainBitmap[ i ] + 1 == 0 )
+			gaSuperBitmap[ i/64 ] |= 1ULL << (i % 64);
 	}
 	
-	// Set free page counts
+	// Set free page counts for each address class
 	for( base = 1; base < giMaxPhysPage; base ++ )
 	{
 		 int	rangeID;
@@ -311,9 +250,14 @@ void MM_InitPhys_Multiboot(tMBoot_Info *MBoot)
 		// Set last (when the last free page is reached, this won't be
 		// updated anymore, hence will be correct)
 		giPhysRangeLast[ rangeID ] = base;
-	}
-	
+	}	
+
 	LEAVE('-');
+}
+
+void MM_DumpStatistics(void)
+{
+	// TODO: Statistics for x86_64 PMM
 }
 
 /**
@@ -435,7 +379,7 @@ tPAddr MM_AllocPhysRange(int Pages, int MaxBits)
 	for( i = 0; i < Pages; i++, addr++ )
 	{
 		gaMainBitmap[addr >> 6] |= 1LL << (addr & 63);
-		if( MM_GetPhysAddr( (tVAddr)&gaiPageReferences[addr] ) )
+		if( MM_GetPhysAddr( &gaiPageReferences[addr] ) )
 			gaiPageReferences[addr] = 1;
 //		Log("page %P refcount = %i", MM_GetRefCount(addr<<12)); 
 		rangeID = MM_int_GetRangeID(addr << 12);
@@ -499,7 +443,7 @@ void MM_RefPhys(tPAddr PAddr)
 	{
 		tVAddr	ref_base = ((tVAddr)&gaiPageReferences[ page ]) & ~0xFFF;
 		// Allocate reference page
-		if( !MM_GetPhysAddr(ref_base) )
+		if( !MM_GetPhysAddr(&gaiPageReferences[page]) )
 		{
 			const int	pages_per_refpage = PAGE_SIZE/sizeof(gaiPageReferences[0]);
 			 int	i;
@@ -523,7 +467,7 @@ void MM_RefPhys(tPAddr PAddr)
 		PAGE_ALLOC_SET(page);
 		if( gaMainBitmap[page >> 6] + 1 == 0 )
 			gaSuperBitmap[page>> 12] |= 1LL << ((page >> 6) & 63);
-		if( MM_GetPhysAddr( (tVAddr)&gaiPageReferences[page] ) )
+		if( MM_GetPhysAddr( &gaiPageReferences[page] ) )
 			gaiPageReferences[page] = 1;
 	}
 
@@ -541,7 +485,7 @@ void MM_DerefPhys(tPAddr PAddr)
 	
 	if( PAddr >> 12 > giMaxPhysPage )	return ;
 	
-	if( MM_GetPhysAddr( (tVAddr) &gaiPageReferences[page] ) )
+	if( MM_GetPhysAddr( &gaiPageReferences[page] ) )
 	{
 		gaiPageReferences[ page ] --;
 		if( gaiPageReferences[ page ] == 0 )
@@ -578,7 +522,7 @@ int MM_GetRefCount( tPAddr PAddr )
 	
 	if( PAddr > giMaxPhysPage )	return 0;
 
-	if( MM_GetPhysAddr( (tVAddr)&gaiPageReferences[PAddr] ) ) {
+	if( MM_GetPhysAddr( &gaiPageReferences[PAddr] ) ) {
 		return gaiPageReferences[PAddr];
 	}
 
@@ -615,7 +559,7 @@ int MM_SetPageNode(tPAddr PAddr, void *Node)
 
 //	if( !MM_GetRefCount(PAddr) )	return 1;
 	
-	if( !MM_GetPhysAddr(node_page) ) {
+	if( !MM_GetPhysAddr((void*)node_page) ) {
 		if( !MM_Allocate(node_page) )
 			return -1;
 		memset( (void*)node_page, 0, PAGE_SIZE );
@@ -630,7 +574,7 @@ int MM_GetPageNode(tPAddr PAddr, void **Node)
 //	if( !MM_GetRefCount(PAddr) )	return 1;
 	PAddr >>= 12;
 	
-	if( !MM_GetPhysAddr( (tVAddr)&gapPageNodes[PAddr] ) ) {
+	if( !MM_GetPhysAddr( &gapPageNodes[PAddr] ) ) {
 		*Node = NULL;
 		return 0;
 	}

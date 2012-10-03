@@ -16,6 +16,7 @@
 #include <semaphore.h>
 #include <threads.h>
 #include <events.h>
+#include <timers.h>
 
 // === CONSTANTS ===
 #define	NUM_THREADS_PER_ALLOC	4
@@ -83,15 +84,24 @@ int VFS_SelectNode(tVFS_Node *Node, int TypeFlags, tTime *Timeout, const char *N
 		}
 	}
 
-	// - Fast return for polling
-	if( Timeout && *Timeout == 0 )	return 0;
-
 	// Wait for things	
-	if( !Timeout || *Timeout > 0 )
+	if( !Timeout )
 	{
 		LOG("Semaphore_Wait()");
 		// TODO: Actual timeout
 		Threads_WaitEvents( THREAD_EVENT_VFS );
+	}
+	else if( *Timeout > 0 )
+	{
+		tTimer *t = Time_AllocateTimer(NULL, NULL);
+		// Clear timer event
+		Threads_ClearEvent( THREAD_EVENT_TIMER );
+		// TODO: Convert *Timeout?
+		LOG("Timeout %lli ms", *Timeout);
+		Time_ScheduleTimer( t, *Timeout );
+		// Wait for the timer or a VFS event
+		Threads_WaitEvents( THREAD_EVENT_VFS|THREAD_EVENT_TIMER );
+		Time_FreeTimer(t);
 	}
 	
 	// Get return value
@@ -106,6 +116,9 @@ int VFS_SelectNode(tVFS_Node *Node, int TypeFlags, tTime *Timeout, const char *N
 		VFS_int_Select_RemThread(*list, thisthread);
 		ret = ret || *flag == wanted;
 	}
+
+	Threads_ClearEvent( THREAD_EVENT_VFS );
+	Threads_ClearEvent( THREAD_EVENT_TIMER );
 	
 	LEAVE('i', ret);
 	return ret;
@@ -142,23 +155,35 @@ int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set 
 		LEAVE('i', ret);
 		return ret;
 	}
-	
-	// TODO: Implement timeout
-	LOG("Timeout = %p", Timeout);
-	
-	// Wait (only if there is no timeout, or it is greater than zero
-	if( !Timeout || *Timeout > 0 )
+
+	// Wait for things	
+	if( !Timeout )
 	{
-		// TODO: Timeout
-		// TODO: Allow extra events to be waited upon
+		LOG("Semaphore_Wait()");
+		// TODO: Actual timeout
 		Threads_WaitEvents( THREAD_EVENT_VFS|ExtraEvents );
 	}
-	
+	else if( *Timeout > 0 )
+	{
+		tTimer *t = Time_AllocateTimer(NULL, NULL);
+		// Clear timer event
+		Threads_ClearEvent( THREAD_EVENT_TIMER );
+		// TODO: Convert *Timeout?
+		LOG("Timeout %lli ms", *Timeout);
+		Time_ScheduleTimer( t, *Timeout );
+		// Wait for the timer or a VFS event
+		Threads_WaitEvents( THREAD_EVENT_VFS|THREAD_EVENT_TIMER|ExtraEvents );
+		Time_FreeTimer(t);
+	}
 	// Fill output (modify *Handles)
 	// - Also, de-register
 	ret  = VFS_int_Select_Deregister(thisthread, MaxHandle, ReadHandles, 0, IsKernel);
 	ret += VFS_int_Select_Deregister(thisthread, MaxHandle, WriteHandles, 1, IsKernel);
 	ret += VFS_int_Select_Deregister(thisthread, MaxHandle, ErrHandles, 2, IsKernel);
+	
+	Threads_ClearEvent( THREAD_EVENT_VFS );
+	Threads_ClearEvent( THREAD_EVENT_TIMER );
+	
 	LEAVE('i', ret);
 	return ret;
 }
@@ -377,6 +402,7 @@ int VFS_int_Select_AddThread(tVFS_SelectList *List, tThread *Thread, int MaxAllo
 			}
 			count ++;
 			if( MaxAllowed && count >= MaxAllowed ) {
+				Mutex_Release(&List->Lock);
 				LEAVE('i', 1);
 				return 1;
 			}

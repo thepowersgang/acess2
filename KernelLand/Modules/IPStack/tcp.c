@@ -33,7 +33,7 @@ Uint16	TCP_GetUnusedPort();
  int	TCP_DeallocatePort(Uint16 Port);
 // --- Server
 tVFS_Node	*TCP_Server_Init(tInterface *Interface);
-char	*TCP_Server_ReadDir(tVFS_Node *Node, int Pos);
+ int	TCP_Server_ReadDir(tVFS_Node *Node, int Pos, char Name[FILENAME_MAX]);
 tVFS_Node	*TCP_Server_FindDir(tVFS_Node *Node, const char *Name);
  int	TCP_Server_IOCtl(tVFS_Node *Node, int ID, void *Data);
 void	TCP_Server_Close(tVFS_Node *Node);
@@ -878,11 +878,10 @@ tVFS_Node *TCP_Server_Init(tInterface *Interface)
  * \param Node	Server node
  * \param Pos	Position (ignored)
  */
-char *TCP_Server_ReadDir(tVFS_Node *Node, int Pos)
+int TCP_Server_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 {
 	tTCPListener	*srv = Node->ImplPtr;
 	tTCPConnection	*conn;
-	char	*ret;
 	
 	ENTER("pNode iPos", Node, Pos);
 
@@ -911,11 +910,10 @@ char *TCP_Server_ReadDir(tVFS_Node *Node, int Pos)
 	LOG("srv->NewConnections = %p", srv->NewConnections);
 	LOG("srv->ConnectionsTail = %p", srv->ConnectionsTail);
 
-	ret = malloc(9);
-	itoa(ret, conn->Node.ImplInt, 16, 8, '0');
-	Log_Log("TCP", "Thread %i got '%s'", Threads_GetTID(), ret);
-	LEAVE('s', ret);
-	return ret;
+	itoa(Dest, conn->Node.ImplInt, 16, 8, '0');
+	Log_Log("TCP", "Thread %i got connection '%s'", Threads_GetTID(), Dest);
+	LEAVE('i', 0);
+	return 0;
 }
 
 /**

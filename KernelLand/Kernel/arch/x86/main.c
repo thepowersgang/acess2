@@ -9,61 +9,57 @@
 #include <init.h>
 #include <mm_virt.h>
 #include <mp.h>
+#include <pmemmap.h>
 
 #define	VGA_ERRORS	0
 
+#define KERNEL_LOAD	0x100000	// 1MiB
 #define MAX_ARGSTR_POS	(0x400000-0x2000)
+#define MAX_PMEMMAP_ENTS	16
 
 // === IMPORTS ===
+extern char	gKernelEnd[];
 extern void	Heap_Install(void);
-extern void	Desctab_Install(void);
 extern void	MM_PreinitVirtual(void);
-extern void	MM_Install(tMBoot_Info *MBoot);
+extern void	MM_Install(int NPMemRanges, tPMemMapEnt *PMemRanges);
 extern void	MM_InstallVirtual(void);
-extern void	Threads_Init(void);
 extern int	Time_Setup(void);
-// --- Core ---
-extern void	System_Init(char *Commandline);
 
 // === PROTOTYPES ===
  int	kmain(Uint MbMagic, void *MbInfoPtr);
 
 // === GLOBALS ===
 char	*gsBootCmdLine = NULL;
-struct {
-	Uint32	PBase;
-	void	*Base;
-	Uint	Size;
-	char	*ArgString;
-}	*gaArch_BootModules;
+tBootModule	*gaArch_BootModules;
  int	giArch_NumBootModules = 0;
 
 // === CODE ===
 int kmain(Uint MbMagic, void *MbInfoPtr)
 {
-	 int	i;
-	tMBoot_Module	*mods;
 	tMBoot_Info	*mbInfo;
+	tPMemMapEnt	pmemmap[MAX_PMEMMAP_ENTS];
+	 int	nPMemMapEnts;
 
-	LogF("Acess2 x86-"PLATFORM" v"EXPAND_STR(KERNEL_VERSION)"\n");
-	LogF(" Build %i, Git Hash %s\n", BUILD_NUM, gsGitHash);
+	LogF("%s\r\n", gsBuildInfo);
 	
-	Log("MbMagic = %08x, MbInfoPtr = %p", MbMagic, MbInfoPtr);
-	
-	// Set up non-boot info dependent stuff
-	Desctab_Install();	// Set up GDT and IDT
 	MM_PreinitVirtual();	// Initialise virtual mappings
-	
+
+	mbInfo = MbInfoPtr;	
+
 	switch(MbMagic)
 	{
 	// Multiboot 1
-	case MULTIBOOT_MAGIC:
-		// Adjust Multiboot structure address
-		mbInfo = (void*)( (Uint)MbInfoPtr + KERNEL_BASE );
+	case MULTIBOOT_MAGIC: {
+		// TODO: Handle when this isn't in the mapped area
 		gsBootCmdLine = (char*)(mbInfo->CommandLine + KERNEL_BASE);
-		
-		MM_Install( mbInfo );	// Set up physical memory manager
-		break;
+
+		// Adjust Multiboot structure address
+		mbInfo = (void*)( (tVAddr)MbInfoPtr + KERNEL_BASE );
+
+		nPMemMapEnts = Multiboot_LoadMemoryMap(mbInfo, KERNEL_BASE, pmemmap, MAX_PMEMMAP_ENTS,
+			KERNEL_LOAD, (tVAddr)&gKernelEnd - KERNEL_BASE);
+
+		break; }
 	
 	// Multiboot 2
 	case MULTIBOOT2_MAGIC:
@@ -77,6 +73,9 @@ int kmain(Uint MbMagic, void *MbInfoPtr)
 			MbMagic, MULTIBOOT_MAGIC, MULTIBOOT2_MAGIC);
 		return 0;
 	}
+	
+	// Set up physical memory manager
+	MM_Install(nPMemMapEnts, pmemmap);
 	
 	MM_InstallVirtual();	// Clean up virtual address space
 	Heap_Install();		// Create initial heap
@@ -92,36 +91,7 @@ int kmain(Uint MbMagic, void *MbInfoPtr)
 	VFS_Init();
 	
 	// Load initial modules
-	mods = (void*)( mbInfo->Modules + KERNEL_BASE );
-	giArch_NumBootModules = mbInfo->ModuleCount;
-	gaArch_BootModules = malloc( giArch_NumBootModules * sizeof(*gaArch_BootModules) );
-	for( i = 0; i < mbInfo->ModuleCount; i ++ )
-	{
-		 int	ofs;
-	
-		Log_Log("Arch", "Multiboot Module at 0x%08x, 0x%08x bytes (String at 0x%08x)",
-			mods[i].Start, mods[i].End-mods[i].Start, mods[i].String);
-	
-		gaArch_BootModules[i].PBase = mods[i].Start;
-		gaArch_BootModules[i].Size = mods[i].End - mods[i].Start;
-	
-		// Always HW map the module data	
-		ofs = mods[i].Start&0xFFF;
-		gaArch_BootModules[i].Base = (void*)( MM_MapHWPages(mods[i].Start,
-			(gaArch_BootModules[i].Size+ofs+0xFFF) / 0x1000
-			) + ofs );
-		
-		// Only map the string if needed
-		if( (tVAddr)mods[i].String > MAX_ARGSTR_POS )
-		{
-			// Assumes the string is < 4096 bytes long)
-			gaArch_BootModules[i].ArgString = (void*)(
-				MM_MapHWPages(mods[i].String, 2) + (mods[i].String&0xFFF)
-				);
-		}
-		else
-			gaArch_BootModules[i].ArgString = (char *)mods[i].String + KERNEL_BASE;
-	}
+	gaArch_BootModules = Multiboot_LoadModules(mbInfo, KERNEL_BASE, &giArch_NumBootModules);
 	
 	// Pass on to Independent Loader
 	Log_Log("Arch", "Starting system");
@@ -140,7 +110,9 @@ void Arch_LoadBootModules(void)
 	{
 		Log_Log("Arch", "Loading '%s'", gaArch_BootModules[i].ArgString);
 		
-		if( !Module_LoadMem( gaArch_BootModules[i].Base, gaArch_BootModules[i].Size, gaArch_BootModules[i].ArgString ) )
+		if( !Module_LoadMem( gaArch_BootModules[i].Base,
+			gaArch_BootModules[i].Size, gaArch_BootModules[i].ArgString
+			) )
 		{
 			Log_Warning("Arch", "Unable to load module");
 		}
@@ -156,5 +128,6 @@ void Arch_LoadBootModules(void)
 			MM_UnmapHWPages( (tVAddr)gaArch_BootModules[i].ArgString, 2 );
 	}
 	Log_Log("Arch", "Boot modules loaded");
-	free( gaArch_BootModules );
+	if( gaArch_BootModules )
+		free( gaArch_BootModules );
 }

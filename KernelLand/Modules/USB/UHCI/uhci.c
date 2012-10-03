@@ -35,14 +35,19 @@ tUHCI_TD	*UHCI_int_AllocateTD(tUHCI_Controller *Cont);
 void	UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_QH *QH, tUHCI_TD *TD);
 tUHCI_TD	*UHCI_int_CreateTD(tUHCI_Controller *Cont, int Addr, Uint8 Type, int bTgl, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length);
 // --- API
-void	*UHCI_InterruptIN(void *Ptr, int Dest, int Period, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length);
-void	*UHCI_InterruptOUT(void *Ptr, int Dest, int Period, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length);
-void	UHCI_StopInterrupt(void *Ptr, void *Handle);
-void	*UHCI_ControlSETUP(void *Ptr, int Dest, int Tgl, void *Data, size_t Length);
-void	*UHCI_ControlOUT(void *Ptr, int Dest, int Tgl, tUSBHostCb Cb, void *CbData, void *Data, size_t Length);
-void	*UHCI_ControlIN(void *Ptr, int Dest, int Tgl, tUSBHostCb Cb, void *CbData, void *Data, size_t Length);
-void	*UHCI_BulkOUT(void *Ptr, int Dest, int bToggle, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length);
-void	*UHCI_BulkIN(void *Ptr, int Dest, int bToggle, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length);
+void	*UHCI_InitInterrupt(void *Ptr, int Endpt, int bOutbound, int Period, tUSBHostCb Cb, void *CbData, void *Buf, size_t Len);
+void	*UHCI_InitIsoch(void *Ptr, int Endpt, size_t MaxPacketSize);
+void	*UHCI_InitControl(void *Ptr, int Endpt, size_t MaxPacketSize);
+void	*UHCI_InitBulk(void *Ptr, int Endpt, size_t MaxPacketSize);
+void	UHCI_RemoveEndpoint(void *Ptr, void *EndptHandle);
+void	*UHCI_SendIsoch(void *Ptr, void *Dest, tUSBHostCb Cb, void *CbData, int Dir, void *Data, size_t Length, int When);
+void	*UHCI_SendControl(void *Ptr, void *Dest, tUSBHostCb Cb, void *CbData,
+	int isOutbound,
+	const void *SetupData, size_t SetupLength,
+	const void *OutData, size_t OutLength,
+	void *InData, size_t InLength
+	);
+void	*UHCI_SendBulk(void *Ptr, void *Dest, tUSBHostCb Cb, void *CbData, int Dir, void *Data, size_t Length);
 
 void	UHCI_CheckPortUpdate(void *Ptr);
 void	UHCI_int_InterruptThread(void *Unused);
@@ -58,18 +63,22 @@ MODULE_DEFINE(0, VERSION, USB_UHCI, UHCI_Initialise, NULL, "USB_Core", NULL);
 tUHCI_TD	*gaUHCI_TDPool;
 tUHCI_Controller	gUHCI_Controllers[MAX_CONTROLLERS];
 tUSBHostDef	gUHCI_HostDef = {
-	.InterruptIN   = UHCI_InterruptIN,
-	.InterruptOUT  = UHCI_InterruptOUT,
-	.StopInterrupt = UHCI_StopInterrupt,
+	.InitInterrupt = UHCI_InitInterrupt,
+//	.InitIsoch     = UHCI_InitIsoch,
+	.InitControl   = UHCI_InitControl,
+	.InitBulk      = UHCI_InitBulk,
+	.RemEndpoint   = UHCI_RemoveEndpoint,
 	
-	.ControlSETUP = UHCI_ControlSETUP,
-	.ControlIN    = UHCI_ControlIN,
-	.ControlOUT   = UHCI_ControlOUT,
-
-	.BulkOUT = UHCI_BulkOUT,
-	.BulkIN = UHCI_BulkIN,
+//	.SendIsoch   = UHCI_SendIsoch,
+	.SendControl = UHCI_SendControl,
+	.SendBulk    = UHCI_SendBulk,
+	.FreeOp      = NULL,
 	
-	.CheckPorts = UHCI_CheckPortUpdate
+	.CheckPorts = UHCI_CheckPortUpdate,
+//	.ClearPortFeature = NULL,
+//	.GetBusState      = NULL,
+//	.GetPortStatus    = NULL,
+//	.SetPortFeature   = NULL
 	};
 tSemaphore	gUHCI_InterruptSempahore;
 
@@ -191,7 +200,7 @@ int UHCI_int_InitHost(tUHCI_Controller *Host)
 		1,17,9,25,5,21,13,29,3,19,11,27,7,23,15,31
 		};
 	for( int i = 0; i < 1024; i ++ ) {
-		Uint32	addr = MM_GetPhysAddr( (tVAddr)&Host->TDQHPage->ControlQH );
+		Uint32	addr = MM_GetPhysAddr( &Host->TDQHPage->ControlQH );
 		Host->FrameList[i] = addr | 2;
 	}
 	for( int i = 0; i < 64; i ++ ) {
@@ -220,12 +229,12 @@ int UHCI_int_InitHost(tUHCI_Controller *Host)
 			dest +=	_count; destphys += _count * sizeof(tUHCI_QH);
 		}
 		// Skip padding, and move to control QH
-		dest->Next = MM_GetPhysAddr( (tVAddr)&Host->TDQHPage->BulkQH ) | 2;
+		dest->Next = MM_GetPhysAddr( &Host->TDQHPage->BulkQH ) | 2;
 		dest->Child = 1;
 	}
 
 	// Set up control and bulk queues
-	Host->TDQHPage->ControlQH.Next = MM_GetPhysAddr( (tVAddr)&Host->TDQHPage->BulkQH ) | 2;
+	Host->TDQHPage->ControlQH.Next = MM_GetPhysAddr( &Host->TDQHPage->BulkQH ) | 2;
 	Host->TDQHPage->ControlQH.Child = 1;
 	Host->TDQHPage->BulkQH.Next = 1;
 	Host->TDQHPage->BulkQH.Child = 1;
@@ -297,11 +306,11 @@ void UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_QH *QH, tUHCI_TD *TD)
 	// Add
 	TD->Link = 1;
 	if( QH->Child & 1 ) {
-		QH->Child = MM_GetPhysAddr( (tVAddr)TD );
+		QH->Child = MM_GetPhysAddr( TD );
 	}
 	else {
 		// Depth first
-		QH->_LastItem->Link = MM_GetPhysAddr( (tVAddr)TD ) | 4;
+		QH->_LastItem->Link = MM_GetPhysAddr( TD ) | 4;
 	}
 	QH->_LastItem = TD;
 
@@ -360,7 +369,7 @@ tUHCI_TD *UHCI_int_CreateTD(
 	if(
 		((tVAddr)Data & (PAGE_SIZE-1)) + Length > PAGE_SIZE
 	#if PHYS_BITS > 32
-		|| MM_GetPhysAddr( (tVAddr)Data ) >> 32
+		|| MM_GetPhysAddr( Data ) >> 32
 	#endif
 		)
 	{
@@ -373,14 +382,14 @@ tUHCI_TD *UHCI_int_CreateTD(
 			LOG("Relocated IN");
 			info = calloc( sizeof(tUHCI_ExtraTDInfo), 1 );
 			info->Offset = ((tVAddr)Data & (PAGE_SIZE-1));
-			info->FirstPage = MM_GetPhysAddr( (tVAddr)Data );
-			info->SecondPage = MM_GetPhysAddr( (tVAddr)Data + Length - 1 );
+			info->FirstPage = MM_GetPhysAddr( Data );
+			info->SecondPage = MM_GetPhysAddr( (const char *)Data + Length - 1 );
 		}
 		else
 		{
 			LOG("Relocated OUT/SETUP");
-			tVAddr	ptr = MM_MapTemp(td->BufferPointer);
-			memcpy( (void*)ptr, Data, Length );
+			void *ptr = MM_MapTemp(td->BufferPointer);
+			memcpy( ptr, Data, Length );
 			MM_FreeTemp(ptr);
 			td->Control |= TD_CTL_IOC;
 		}
@@ -388,7 +397,7 @@ tUHCI_TD *UHCI_int_CreateTD(
 	}
 	else
 	{
-		td->BufferPointer = MM_GetPhysAddr( (tVAddr)Data );
+		td->BufferPointer = MM_GetPhysAddr( Data );
 		td->_info.bFreePointer = 0;
 	}
 
@@ -481,149 +490,227 @@ void UHCI_int_SetInterruptPoll(tUHCI_Controller *Cont, tUHCI_TD *TD, int Period)
 	UHCI_int_AppendTD(Cont, qh, TD);
 }
 
-void *UHCI_InterruptIN(void *Ptr, int Dest, int Period, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length)
+// --------------------------------------------------------------------
+// API
+// --------------------------------------------------------------------
+void *UHCI_InitInterrupt(void *Ptr, int Endpt, int bOutbound,
+	int Period, tUSBHostCb Cb, void *CbData, void *Buf, size_t Len)
 {
 	tUHCI_TD	*td;
-
-	if( Period < 0 )	return NULL;
-
-	ENTER("pPtr xDest iPeriod pCb pCbData pBuf iLength",
-		Ptr, Dest, Period, Cb, CbData, Buf, Length);
+	if( Period <= 0 )	return NULL;
+	
+	ENTER("pPtr xEndpt bbOutbound iPeriod pCb pCbData pBuf iLen",
+		Ptr, Endpt, bOutbound, Period, Cb, CbData, Buf, Len);
 
 	// TODO: Data toggle?
-	td = UHCI_int_CreateTD(Ptr, Dest, PID_IN, 0, Cb, CbData, Buf, Length);
-	if( !td )	return NULL;
-	
-	UHCI_int_SetInterruptPoll(Ptr, td, Period);
-	
-	LEAVE('p', td);	
-	return td;
-}
-// TODO: Does interrupt OUT make sense?
-void *UHCI_InterruptOUT(void *Ptr, int Dest, int Period, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length)
-{
-	tUHCI_TD	*td;
-
-	if( Period < 0 )	return NULL;
-
-	ENTER("pPtr xDest iPeriod pCb pCbData pBuf, iLength",
-		Ptr, Dest, Period, Cb, CbData, Buf, Length);
-
-	// TODO: Data toggle?
-	td = UHCI_int_CreateTD(Ptr, Dest, PID_OUT, 0, Cb, CbData, Buf, Length);
+	td = UHCI_int_CreateTD(Ptr, Endpt, (bOutbound ? PID_OUT : PID_IN), 0, Cb, CbData, Buf, Len);
 	if( !td )	return NULL;
 	
 	UHCI_int_SetInterruptPoll(Ptr, td, Period);
 
+	LEAVE('p', td);
+	return td;
+}
+
+void *UHCI_int_InitEndpt(tUHCI_Controller *Cont, int Type, int Endpt, size_t MaxPacketSize)
+{
+	if( Endpt >= 256*16 )
+		return NULL;	
+
+	if( MaxPacketSize > MAX_PACKET_SIZE) {
+		Log_Warning("UHCI", "MaxPacketSize for %x greater than controller max (%i > %i)",
+			Endpt, MaxPacketSize, MAX_PACKET_SIZE);
+		return NULL;
+	}
+
+	if( Cont->DevInfo[Endpt / 16] == NULL ) {
+		Cont->DevInfo[Endpt / 16] = calloc( 1, sizeof(*Cont->DevInfo[0]) );
+	}
+	tUHCI_EndpointInfo *epi = &Cont->DevInfo[Endpt/16]->EndpointInfo[Endpt%16];
+	if( epi->Type ) {
+		// oops, in use
+		Log_Warning("UHCI", "Endpoint %x reused?", Endpt);
+		return NULL;
+	}
+
+	epi->MaxPacketSize = MaxPacketSize;
+	epi->Type = Type;
+	epi->Tgl = 0;
+
+	return (void*)(tVAddr)(Endpt+1);
+
+}
+
+void *UHCI_InitControl(void *Ptr, int Endpt, size_t MaxPacketSize)
+{
+	return UHCI_int_InitEndpt(Ptr, 1, Endpt, MaxPacketSize);
+}
+
+void *UHCI_InitBulk(void *Ptr, int Endpt, size_t MaxPacketSize)
+{
+	return UHCI_int_InitEndpt(Ptr, 2, Endpt, MaxPacketSize);
+}
+
+void UHCI_RemoveEndpoint(void *Ptr, void *Handle)
+{
+	tUHCI_Controller *Cont = Ptr;
+	if( Handle == NULL )
+		return ;
+	
+	if( (tVAddr)Handle <= 256*16 ) {
+		 int	addr = (tVAddr)Handle;
+		Cont->DevInfo[addr/16]->EndpointInfo[addr%16].Type = 0;
+	}
+	else {
+		// TODO: Stop interrupt transaction
+		Log_Error("UHCI", "TODO: Implement stopping interrupt polling");
+	}
+}
+
+void *UHCI_SendControl(void *Ptr, void *Endpt, tUSBHostCb Cb, void *CbData,
+	int bOutbound,	// (1) SETUP, OUT, IN vs (0) SETUP, IN, OUT
+	const void *SetupData, size_t SetupLength,
+	const void *OutData, size_t OutLength,
+	void *InData, size_t InLength
+	)
+{
+	ENTER("pPtr pEndpt ibOutbound", Ptr, Endpt, bOutbound);
+	
+	tUHCI_Controller	*Cont = Ptr;
+	tUHCI_QH	*qh = &Cont->TDQHPage->ControlQH;
+	tUHCI_TD	*td;
+	tUHCI_EndpointInfo *epi;
+	 int	dest, tgl;
+	size_t	mps;
+
+	if( Endpt == NULL ) {
+		Log_Error("UHCI", "Passed a NULL Endpoint handle");
+		LEAVE('n');
+		return NULL;
+	}
+
+	// Sanity check Endpt
+	if( (tVAddr)Endpt > 0x800 ) {
+		LEAVE('n');
+		return NULL;
+	}
+	dest = (tVAddr)Endpt - 1;
+	if( Cont->DevInfo[dest/16] == NULL )	LEAVE_RET('n', NULL);
+	epi = &Cont->DevInfo[dest/16]->EndpointInfo[dest%16];
+	if( epi->Type != 1 )	LEAVE_RET('n', NULL);
+	mps = epi->MaxPacketSize;
+	tgl = epi->Tgl;
+
+	// TODO: Build up list and then append to QH in one operation
+
+	char	*data_ptr, *status_ptr;
+	size_t 	data_len,   status_len;
+	Uint8	data_pid,   status_pid;
+	
+	if( bOutbound ) {
+		data_pid   = PID_OUT; data_ptr   = (void*)OutData; data_len   = OutLength;
+		status_pid = PID_IN;  status_ptr = InData;  status_len = InLength;
+	}
+	else {
+		data_pid   = PID_IN;  data_ptr   = InData;  data_len   = InLength;
+		status_pid = PID_OUT; status_ptr = (void*)OutData; status_len = OutLength;
+	}
+
+	// Sanity check data lengths
+	if( SetupLength > mps )	LEAVE_RET('n', NULL);
+	if( status_len > mps )	LEAVE_RET('n', NULL);
+
+	// Create and append SETUP packet
+	td = UHCI_int_CreateTD(Cont, dest, PID_SETUP, tgl, NULL, NULL, (void*)SetupData, SetupLength);
+	UHCI_int_AppendTD(Cont, qh, td);
+	tgl = !tgl;
+
+	// Send data packets
+	while( data_len > 0 )
+	{
+		size_t len = MIN(data_len, mps);
+		td = UHCI_int_CreateTD(Cont, dest, data_pid, tgl, NULL, NULL, data_ptr, len);
+		UHCI_int_AppendTD(Cont, qh, td);
+		tgl = !tgl;
+		
+		data_ptr += len;
+		data_len -= len;
+	}
+	
+	// Send status
+	td = UHCI_int_CreateTD(Cont, dest, status_pid, tgl, Cb, CbData, status_ptr, status_len);
+	UHCI_int_AppendTD(Cont, qh, td);
+	tgl = !tgl;
+	
+	// Update toggle value
+	epi->Tgl = tgl;
+	
 	LEAVE('p', td);	
 	return td;
 }
 
-void UHCI_StopInterrupt(void *Ptr, void *Handle)
-{
-	// TODO: Stop interrupt transaction
-	Log_Error("UHCI", "TODO: Implement UHCI_StopInterrupt");
-}
-
-void *UHCI_ControlSETUP(void *Ptr, int Dest, int Tgl, void *Data, size_t Length)
-{
-	tUHCI_Controller	*Cont = Ptr;
-	tUHCI_QH	*qh = &Cont->TDQHPage->ControlQH;
-	tUHCI_TD	*td;
-
-	ENTER("pPtr xDest iTgl pData iLength", Ptr, Dest, Tgl, Data, Length);
-	
-	td = UHCI_int_CreateTD(Cont, Dest, PID_SETUP, Tgl, NULL, NULL, Data, Length);
-	UHCI_int_AppendTD(Cont, qh, td);
-
-	LEAVE('p', td);	
-
-	return td;
-}
-void *UHCI_ControlOUT(void *Ptr, int Dest, int Tgl, tUSBHostCb Cb, void *CbData, void *Data, size_t Length)
-{
-	tUHCI_Controller	*Cont = Ptr;
-	tUHCI_QH	*qh = &Cont->TDQHPage->ControlQH;
-	tUHCI_TD	*td;
-
-	ENTER("pPtr xDest iTgl pCb pCbData pData iLength", Ptr, Dest, Tgl, Cb, CbData, Data, Length);
-
-	td = UHCI_int_CreateTD(Cont, Dest, PID_OUT, Tgl, Cb, CbData, Data, Length);
-	UHCI_int_AppendTD(Cont, qh, td);
-
-	LEAVE('p', td);
-	return td;
-}
-void *UHCI_ControlIN(void *Ptr, int Dest, int Tgl, tUSBHostCb Cb, void *CbData, void *Data, size_t Length)
-{
-	tUHCI_Controller	*Cont = Ptr;
-	tUHCI_QH	*qh = &Cont->TDQHPage->ControlQH;
-	tUHCI_TD	*td;
-
-	ENTER("pPtr xDest iTgl pCb pCbData pData iLength", Ptr, Dest, Tgl, Cb, CbData, Data, Length);
-	
-	td = UHCI_int_CreateTD(Cont, Dest, PID_IN, !!Tgl, Cb, CbData, Data, Length);
-	UHCI_int_AppendTD(Cont, qh, td);
-
-	LEAVE('p', td);
-	return td;
-}
-
-void *UHCI_BulkOUT(void *Ptr, int Dest, int bToggle, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length)
+void *UHCI_SendBulk(void *Ptr, void *Endpt, tUSBHostCb Cb, void *CbData, int bOutbound, void *Data, size_t Length)
 {
 	tUHCI_Controller	*Cont = Ptr;
 	tUHCI_QH	*qh = &Cont->TDQHPage->BulkQH;
-	tUHCI_TD	*td;
-	char	*src = Buf;
+	tUHCI_TD	*td = NULL;
+	tUHCI_EndpointInfo *epi;
+	 int	dest, tgl;
+	size_t	mps;
 
-	ENTER("pPtr xDest ibToggle pCb pCbData pData iLength", Ptr, Dest, bToggle, Cb, CbData, Buf, Length);
+	ENTER("pPtr pEndpt pCb pCbData bOutbound pData iLength", Ptr, Dest, Cb, CbData, bOutbound, Data, Length);
 
-	while( Length > MAX_PACKET_SIZE )
-	{
-		LOG("MaxPacket (rem = %i)", Length);
-		td = UHCI_int_CreateTD(Cont, Dest, PID_OUT, bToggle, NULL, NULL, src, MAX_PACKET_SIZE);
-		UHCI_int_AppendTD(Cont, qh, td);
-		
-		bToggle = !bToggle;
-		Length -= MAX_PACKET_SIZE;
-		src += MAX_PACKET_SIZE;
+	if( Endpt == NULL ) {
+		Log_Error("UHCI", "_SendBulk passed a NULL endpoint handle");
+		LEAVE('n');
+		return NULL;
 	}
 
-	LOG("Final");
-	td = UHCI_int_CreateTD(Cont, Dest, PID_OUT, bToggle, NULL, NULL, src, Length);
-	UHCI_int_AppendTD(Cont, qh, td);
+	// Sanity check Endpt
+	if( (tVAddr)Endpt > 256*16 ) {
+		Log_Error("UHCI", "_SendBulk passed an interrupt endpoint handle");
+		LEAVE('n');
+		return NULL;
+	}
+	dest = (tVAddr)Endpt - 1;
+	if( Cont->DevInfo[dest/16] == NULL ) {
+		Log_Error("UHCI", "_SendBulk passed an uninitialised handle");
+		LEAVE('n');
+		return NULL;
+	}
+	epi = &Cont->DevInfo[dest/16]->EndpointInfo[dest%16];
+	if( epi->Type != 2 ) {
+		Log_Error("UHCI", "_SendBulk passed an invalid endpoint type (%i!=2)", epi->Type);
+		LEAVE('n');
+		return NULL;
+	}
+	tgl = epi->Tgl;
+	mps = epi->MaxPacketSize;
+
+	Uint8	pid = (bOutbound ? PID_OUT : PID_IN);
+
+	char *pos = Data;
+	while( Length > 0 )
+	{
+		size_t len = MIN(mps, Length);
+
+		td = UHCI_int_CreateTD(Cont, dest, pid, tgl, Cb, (len == Length ? CbData : NULL), pos, len);
+		UHCI_int_AppendTD(Cont, qh, td);
+		
+		pos += len;
+		Length -= len;
+		tgl = !tgl;
+	}
+	
+	epi->Tgl = tgl;
 
 	LEAVE('p', td);
 	return td;
 }
-void *UHCI_BulkIN(void *Ptr, int Dest, int bToggle, tUSBHostCb Cb, void *CbData, void *Buf, size_t Length)
-{
-	tUHCI_Controller	*Cont = Ptr;
-	tUHCI_QH	*qh = &Cont->TDQHPage->BulkQH;
-	tUHCI_TD	*td;
-	char	*dst = Buf;
 
-	ENTER("pPtr xDest ibToggle pCb pCbData pData iLength", Ptr, Dest, bToggle, Cb, CbData, Buf, Length);
-	while( Length > MAX_PACKET_SIZE )
-	{
-		LOG("MaxPacket (rem = %i)", Length);
-		td = UHCI_int_CreateTD(Cont, Dest, PID_IN, bToggle, NULL, NULL, dst, MAX_PACKET_SIZE);
-		UHCI_int_AppendTD(Cont, qh, td);
-		
-		bToggle = !bToggle;
-		Length -= MAX_PACKET_SIZE;
-		dst += MAX_PACKET_SIZE;
-	}
-
-	LOG("Final");
-	td = UHCI_int_CreateTD(Cont, Dest, PID_IN, bToggle, NULL, NULL, dst, Length);
-	UHCI_int_AppendTD(Cont, qh, td);
-
-	LEAVE('p', td);
-	return td;
-}
-
+// ==========================
 // === INTERNAL FUNCTIONS ===
+// ==========================
 void UHCI_CheckPortUpdate(void *Ptr)
 {
 	tUHCI_Controller	*Host = Ptr;
@@ -675,7 +762,7 @@ tUHCI_TD *UHCI_int_GetTDFromPhys(tUHCI_Controller *Controller, Uint32 PAddr)
 	}
 
 	
-	tPAddr	global_pool = MM_GetPhysAddr( (tVAddr)gaUHCI_TDPool );
+	tPAddr	global_pool = MM_GetPhysAddr( gaUHCI_TDPool );
 	
 	if( PAddr < global_pool || PAddr >= global_pool + PAGE_SIZE )	return NULL;
 	
@@ -742,8 +829,8 @@ void UHCI_int_HandleTDComplete(tUHCI_Controller *Cont, tUHCI_TD *TD)
 	{
 		char	*src, *dest;
 		 int	src_ofs = TD->BufferPointer & (PAGE_SIZE-1);
-		src = (void *) MM_MapTemp(TD->BufferPointer);
-		dest = (void *) MM_MapTemp(info->FirstPage);
+		src = MM_MapTemp(TD->BufferPointer);
+		dest = MM_MapTemp(info->FirstPage);
 		// Check for a single page transfer
 		if( byte_count + info->Offset <= PAGE_SIZE )
 		{
@@ -758,21 +845,21 @@ void UHCI_int_HandleTDComplete(tUHCI_Controller *Cont, tUHCI_TD *TD)
 				TD->BufferPointer, info->FirstPage, info->SecondPage, TD);
 			 int	part_len = PAGE_SIZE - info->Offset;
 			memcpy(dest + info->Offset, src + src_ofs, part_len);
-			MM_FreeTemp( (tVAddr)dest );
-			dest = (void *) MM_MapTemp(info->SecondPage);
+			MM_FreeTemp( dest );
+			dest = MM_MapTemp(info->SecondPage);
 			memcpy(dest, src + src_ofs + part_len, byte_count - part_len);
 		}
-		MM_FreeTemp( (tVAddr)src );
-		MM_FreeTemp( (tVAddr)dest );
+		MM_FreeTemp( src );
+		MM_FreeTemp( dest );
 	}
 
 	// Callback
 	if( info->Callback != NULL )
 	{
 		LOG("Calling cb %p (%i bytes)", info->Callback, byte_count);
-		void	*ptr = (void *) MM_MapTemp( TD->BufferPointer );
+		void	*ptr = MM_MapTemp( TD->BufferPointer );
 		info->Callback( info->CallbackPtr, ptr, byte_count );
-		MM_FreeTemp( (tVAddr)ptr );
+		MM_FreeTemp( ptr );
 	}
 	
 	// Clean up info
@@ -870,11 +957,37 @@ void UHCI_InterruptHandler(int IRQ, void *Ptr)
 	Uint16	status = _InWord(Host, USBSTS);
 	
 	LOG("%p: status = 0x%04x", Ptr, status);
+	
 	// Interrupt-on-completion
 	if( status & 1 )
 	{
 		// TODO: Support isochronous transfers (will need updating the frame pointer)
 		Semaphore_Signal(&gUHCI_InterruptSempahore, 1);
+	}
+
+	// USB Error Interrupt
+	if( status & 2 )
+	{
+		
+	}
+
+	// Resume Detect
+	// - Fired if in suspend state and a USB device sends the RESUME signal
+	if( status & 4 )
+	{
+		
+	}
+
+	// Host System Error
+	if( status & 8 )
+	{
+		
+	}
+
+	// Host Controller Process Error
+	if( status & 0x10 )
+	{
+		Log_Error("UHCI", "Host controller process error on controller %p", Ptr);
 	}
 
 	_OutWord(Host, USBSTS, status);

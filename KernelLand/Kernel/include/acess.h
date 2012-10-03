@@ -15,6 +15,8 @@
 #define PACKED	__attribute__((packed))
 //! Mark a function as not returning
 #define NORETURN	__attribute__((noreturn))
+//! Mark a function that its return value should be used
+#define WARN_UNUSED_RET	__attribute__((warn_unused_result))
 //! Mark a function (or variable) as deprecated
 #define DEPRECATED	__attribute__((deprecated))
 //! Mark a parameter as unused
@@ -60,7 +62,8 @@ typedef Uint64	off_t;	//!< VFS Offset
 
 extern char	__buildnum[];
 #define BUILD_NUM	((int)(Uint)&__buildnum)
-extern const char gsGitHash[];
+extern const char	gsGitHash[];
+extern const char	gsBuildInfo[];
 
 #define VER2(major,minor)	((((major)&0xFF)<<8)|((minor)&0xFF))
 /**
@@ -252,7 +255,7 @@ extern int	MM_Map(tVAddr VAddr, tPAddr PAddr);
  * \param Addr	Address of the page to get the physical address of
  * \return Physical page mapped at \a Addr
  */
-extern tPAddr	MM_GetPhysAddr(tVAddr Addr);
+extern tPAddr	MM_GetPhysAddr(const void *Addr);
 /**
  * \brief Set the access flags on a page
  * \param VAddr	Virtual address of the page
@@ -278,12 +281,12 @@ extern Uint	MM_GetFlags(tVAddr VAddr);
  * \return Virtual address of page in memory
  * \note There is only a limited ammount of slots avaliable
  */
-extern tVAddr	MM_MapTemp(tPAddr PAddr);
+extern void	*MM_MapTemp(tPAddr PAddr);
 /**
  * \brief Free a temporarily mapped page
  * \param VAddr	Allocate virtual addres of page
  */
-extern void	MM_FreeTemp(tVAddr VAddr);
+extern void	MM_FreeTemp(void *Ptr);
 /**
  * \brief Map a physcal address range into the virtual address space
  * \param PAddr	Physical address to map in
@@ -386,16 +389,21 @@ extern int	CheckMem(const void *Mem, int Num);
 #ifdef __BIG_ENDIAN__
 #define	LittleEndian16(_val)	SwapEndian16(_val)
 #define	LittleEndian32(_val)	SwapEndian32(_val)
+#define	LittleEndian64(_val)	SwapEndian32(_val)
 #define	BigEndian16(_val)	(_val)
 #define	BigEndian32(_val)	(_val)
+#define	BigEndian64(_val)	(_val)
 #else
 #define	LittleEndian16(_val)	(_val)
 #define	LittleEndian32(_val)	(_val)
+#define	LittleEndian64(_val)	(_val)
 #define	BigEndian16(_val)	SwapEndian16(_val)
 #define	BigEndian32(_val)	SwapEndian32(_val)
+#define	BigEndian64(_val)	SwapEndian64(_val)
 #endif
 extern Uint16	SwapEndian16(Uint16 Val);
 extern Uint32	SwapEndian32(Uint32 Val);
+extern Uint64	SwapEndian64(Uint64 Val);
 /**
  * \}
  */
@@ -420,6 +428,7 @@ extern int	strucmp(const char *Str1, const char *Str2);
 extern char	*_strdup(const char *File, int Line, const char *Str);
 extern char	**str_split(const char *__str, char __ch);
 extern char	*strchr(const char *__s, int __c);
+extern char	*strrchr(const char *__s, int __c);
 extern int	strpos(const char *Str, char Ch);
 extern int	strpos8(const char *str, Uint32 search);
 extern void	itoa(char *buf, Uint64 num, int base, int minLength, char pad);
@@ -436,6 +445,8 @@ extern int	UnHex(Uint8 *Dest, size_t DestSize, const char *SourceString);
 /**
  * \}
  */
+
+#include <ctype.h>
 
 /**
  * \brief Get a random number
@@ -477,10 +488,12 @@ extern int	Module_LoadFile(const char *Path, const char *ArgStr);
  */
 /**
  * \brief Create a timestamp from a time
+ * \note Days/Months are zero-based (e.g. December is 11, and has a day range of 0-30)
  */
 extern tTime	timestamp(int sec, int mins, int hrs, int day, int month, int year);
 /**
  * \brief Extract the date/time from a timestamp
+ * \note Days/Months are zero-based (e.g. December is 11, and has a day range of 0-30)
  */
 extern void	format_date(tTime TS, int *year, int *month, int *day, int *hrs, int *mins, int *sec, int *ms);
 /**
@@ -496,7 +509,7 @@ extern Sint64	now(void);
  * \name Threads and Processes
  * \{
  */
-extern int	Proc_SpawnWorker(void (*Fcn)(void*), void *Data);
+extern struct sThread	*Proc_SpawnWorker(void (*Fcn)(void*), void *Data);
 extern int	Proc_Spawn(const char *Path);
 extern int	Proc_SysSpawn(const char *Binary, const char **ArgV, const char **EnvP, int nFD, int *FDs);
 extern int	Proc_Execve(const char *File, const char **ArgV, const char **EnvP, int DataSize);

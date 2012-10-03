@@ -10,10 +10,19 @@
 
 #include <acess.h>
 
-typedef int (*tLVM_ReadFcn)(void *, Uint64, size_t, void *);
-typedef int (*tLVM_WriteFcn)(void *, Uint64, size_t, const void *);
+typedef struct sLVM_VolType	tLVM_VolType;
 
-extern int	LVM_AddVolume(const char *Name, void *Ptr, tLVM_ReadFcn Read, tLVM_WriteFcn Write);
+struct sLVM_VolType
+{
+	const char *Name;
+
+	 int	(*Read)(void *, Uint64, size_t, void *);
+	 int	(*Write)(void *, Uint64, size_t, const void *);
+	void	(*Cleanup)(void *);
+};
+
+
+extern int	LVM_AddVolume(const tLVM_VolType *Type, const char *Name, void *Ptr, size_t BlockSize, size_t BlockCount);
 
 #endif
 

@@ -1,7 +1,11 @@
 /*
- * AcessNative
+ * AcessNative Dynamic Linker
+ * - By John Hodge (thePowersGang)
+ * 
+ * binary.c
+ * - Provides binary loading and type abstraction
  */
-#define DEBUG	1
+#define DEBUG	0
 #include "common.h"
 #include <stdint.h>
 #include <stdio.h>
@@ -24,6 +28,7 @@ extern uintptr_t	ElfRelocate(void *Base);
 extern int	ElfGetSymbol(void *Base, char *Name, uintptr_t *ret, size_t *size);
 extern int	ciNumBuiltinSymbols;
 extern tSym	caBuiltinSymbols[];
+extern char	**gEnvP;
 
 // === PROTOTYPES ===
 void	Binary_AddToList(const char *Filename, void *Base, tBinFmt *Format);
@@ -109,7 +114,8 @@ void *Binary_LoadLibrary(const char *Name)
 	}
 
 	ret = Binary_Load(path, (uintptr_t*)&entry);
-	printf("LOADED '%s' to %p (Entry=%p)\n", path, ret, entry);
+	if( ret != (void*)-1 )
+		Debug("LOADED '%s' to %p (Entry=%p)", path, ret, entry);
 	free(path);
 	
 	#if DEBUG
@@ -120,7 +126,7 @@ void *Binary_LoadLibrary(const char *Name)
 		#if DEBUG
 		printf("Calling '%s' entry point %p\n", Name, entry);
 		#endif
-		entry(ret, 0, argv, NULL);
+		entry(ret, 0, argv, gEnvP);
 	}
 
 	return ret;

@@ -2,6 +2,7 @@
  * Acess2 VFS
  * - Directory Management Functions
  */
+#define SANITY	1
 #define DEBUG	0
 #include <acess.h>
 #include <vfs.h>
@@ -36,11 +37,12 @@ int VFS_MkDir(const char *Path)
  */
 int VFS_MkNod(const char *Path, Uint Flags)
 {
+	tVFS_Mount	*mountpt;
 	char	*absPath, *name;
 	 int	pos = 0, oldpos = 0;
 	 int	next = 0;
 	tVFS_Node	*parent;
-	 int	ret;
+	tVFS_Node	*ret;
 	
 	ENTER("sPath xFlags", Path, Flags);
 	
@@ -60,50 +62,54 @@ int VFS_MkNod(const char *Path, Uint Flags)
 	
 	// Check for root
 	if(absPath[0] == '\0')
-		parent = VFS_ParsePath("/", NULL, NULL);
+		parent = VFS_ParsePath("/", NULL, &mountpt);
 	else
-		parent = VFS_ParsePath(absPath, NULL, NULL);
+		parent = VFS_ParsePath(absPath, NULL, &mountpt);
 	
 	LOG("parent = %p", parent);
 	
 	if(!parent) {
-		LEAVE('i', -1);
-		return -1;	// Error Check
+		errno = ENOENT;
+		goto _error;
 	}
-	
+
 	// Permissions Check
 	if( !VFS_CheckACL(parent, VFS_PERM_EXECUTE|VFS_PERM_WRITE) ) {
-		_CloseNode(parent);
-		free(absPath);
-		LEAVE('i', -1);
-		return -1;
+		errno = EACCES;
+		goto _error;
 	}
 	
 	LOG("parent = %p", parent);
 	
 	if(!parent->Type || !parent->Type->MkNod) {
-		Warning("VFS_MkNod - Directory has no MkNod method");
-		LEAVE('i', -1);
-		return -1;
+		Log_Warning("VFS", "VFS_MkNod - Directory has no MkNod method");
+		errno = ENOTDIR;
+		goto _error;
 	}
 	
 	// Create node
 	ret = parent->Type->MkNod(parent, name, Flags);
+	_CloseNode(ret);
 	
 	// Free allocated string
 	free(absPath);
 	
 	// Free Parent
+	ASSERT(mountpt->OpenHandleCount>0);
+	mountpt->OpenHandleCount --;
 	_CloseNode(parent);
-	
-	// Error Check
-	if(ret == 0) {
-		LEAVE('i', -1);
-		return -1;
-	}
-	
-	LEAVE('i', 0);
-	return 0;
+
+	// Return whatever the driver said	
+	LEAVE('i', ret==NULL);
+	return ret==NULL;
+
+_error:
+	_CloseNode(parent);
+	ASSERT(mountpt->OpenHandleCount>0);
+	mountpt->OpenHandleCount --;
+	free(absPath);
+	LEAVE('i', -1);
+	return -1;
 }
 
 /**
@@ -123,6 +129,7 @@ int VFS_Symlink(const char *Name, const char *Link)
 	realLink = VFS_GetAbsPath( Link );
 	if(!realLink) {
 		Log_Warning("VFS", "Path '%s' is badly formed", Link);
+		errno = EINVAL;
 		LEAVE('i', -1);
 		return -1;
 	}
@@ -133,12 +140,19 @@ int VFS_Symlink(const char *Name, const char *Link)
 	if( VFS_MkNod(Name, VFS_FFLAG_SYMLINK) != 0 ) {
 		Log_Warning("VFS", "Unable to create link node '%s'", Name);
 		free(realLink);
+		// errno is set by VFS_MkNod
 		LEAVE('i', -2);
 		return -2;	// Make link node
 	}
 	
 	// Write link address
 	fp = VFS_Open(Name, VFS_OPENFLAG_WRITE|VFS_OPENFLAG_NOLINK);
+	if( fp == -1 ) {
+		Log_Warning("VFS", "Unable to open newly created symlink '%s'", Name);
+		free(realLink);
+		LEAVE('i', -3);
+		return -3;
+	}
 	VFS_Write(fp, strlen(realLink), realLink);
 	VFS_Close(fp);
 	
@@ -155,7 +169,7 @@ int VFS_Symlink(const char *Name, const char *Link)
 int VFS_ReadDir(int FD, char *Dest)
 {
 	tVFS_Handle	*h = VFS_GetHandle(FD);
-	char	*tmp;
+	 int	rv;
 	
 	//ENTER("ph pDest", h, Dest);
 	
@@ -164,28 +178,23 @@ int VFS_ReadDir(int FD, char *Dest)
 		return 0;
 	}
 	
-	if(h->Node->Size != -1 && h->Position >= h->Node->Size) {
+	if(h->Node->Size != (Uint64)-1 && h->Position >= h->Node->Size) {
 		//LEAVE('i', 0);
 		return 0;
 	}
 	
 	do {
-		tmp = h->Node->Type->ReadDir(h->Node, h->Position);
-		if((Uint)tmp < (Uint)VFS_MAXSKIP)
-			h->Position += (Uint)tmp;
+		rv = h->Node->Type->ReadDir(h->Node, h->Position, Dest);
+		if(rv > 0)
+			h->Position += rv;
 		else
 			h->Position ++;
-	} while(tmp != NULL && (Uint)tmp < (Uint)VFS_MAXSKIP);
+	} while(rv > 0);
 	
-	//LOG("tmp = '%s'", tmp);
-	
-	if(!tmp) {
+	if(rv < 0) {
 		//LEAVE('i', 0);
 		return 0;
 	}
-	
-	strcpy(Dest, tmp);
-	free(tmp);
 	
 	//LEAVE('i', 1);
 	return 1;

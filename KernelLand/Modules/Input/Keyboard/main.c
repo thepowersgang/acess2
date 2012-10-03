@@ -16,6 +16,7 @@
 #include <Input/Keyboard/include/keyboard.h>
 #include "keymap_int.h"
 #include "layout_kbdus.h"
+#include <hal_proc.h>
 
 #define USE_KERNEL_MAGIC	1
 
@@ -28,7 +29,7 @@ extern void	Heap_Stats(void);
 
 // === PROTOTYPES ===
  int	Keyboard_Install(char **Arguments);
-void	Keyboard_Cleanup(void);
+ int	Keyboard_Cleanup(void);
 // - Internal
 tKeymap	*Keyboard_LoadMap(const char *Name);
 void	Keyboard_FreeMap(tKeymap *Keymap);
@@ -67,9 +68,10 @@ int Keyboard_Install(char **Arguments)
 /**
  * \brief Pre-unload cleanup function
  */
-void Keyboard_Cleanup(void)
+int Keyboard_Cleanup(void)
 {
 	// TODO: Do I need this?
+	return 0;
 }
 
 // --- Map Management ---
@@ -161,6 +163,15 @@ void Keyboard_HandleKey(tKeyboard *Source, Uint32 HIDKeySym)
 	Uint32	trans;
 	Uint32	flag;
 	Uint8	layer;
+	
+	if( !Source ) {
+		Log_Error("Keyboard", "Passed NULL handle");
+		return ;
+	}
+	if( !Source->Node ) {
+		Log_Error("Keyboard", "Passed handle with NULL node");
+		return ;
+	}
 	
 	bPressed = !(HIDKeySym & (1 << 31));
 	HIDKeySym &= 0x7FFFFFFF;
@@ -279,6 +290,8 @@ void Keyboard_HandleKey(tKeyboard *Source, Uint32 HIDKeySym)
 		case 'p':	Threads_Dump();	return;
 		// Heap Statistics
 		case 'h':	Heap_Stats();	return;
+		// PMem Statistics
+		case 'm':	MM_DumpStatistics();	return;
 		// Dump Structure
 		case 's':	return;
 		}

@@ -6,7 +6,7 @@
 #include <stdio.h>
 
 #define	MOUNTABLE_FILE	"/Acess/Conf/Mountable"
-#define	MOUNTED_FILE	"/Devices/System/VFS/Mounts"
+#define	MOUNTED_FILE	"/Devices/system/VFS/Mounts"
 
 // === PROTOTYPES ===
 void	ShowUsage(char *ProgName);
@@ -22,16 +22,18 @@ int main(int argc, char *argv[])
 	 int	fd;
 	 int	i;
 	char	*arg;
+	
 	char	*sType = NULL;
 	char	*sDevice = NULL;
 	char	*sDir = NULL;
 	char	*sOptions = NULL;
+	 int	bUnmount = 0;
 
 	// List mounted filesystems
 	// - This is cheating, isn't it?
 	if(argc == 1) {
 		// Dump the contents of /Devices/system/VFS/Mounts
-		FILE	*fp = fopen("/Devices/system/VFS/Mounts", "r");
+		FILE	*fp = fopen(MOUNTED_FILE, "r");
 		char	buf[1024];
 		 int	len;
 		while( (len = fread(buf, 1024, 1, fp)) )
@@ -56,6 +58,10 @@ int main(int argc, char *argv[])
 			{
 			// -t <driver> :: Filesystem driver to use
 			case 't':	sType = argv[++i];	break;
+			// -o option_list :: Options to pass the driver
+			case 'o':	sOptions = argv[++i];	break;
+			// -u :: Unmount
+			case 'u':	bUnmount = 1;	break;
 			case '-':
 				//TODO: Long Arguments
 			default:
@@ -79,6 +85,22 @@ int main(int argc, char *argv[])
 		
 		ShowUsage(argv[0]);
 		return EXIT_FAILURE;
+	}
+
+	if( bUnmount )
+	{
+		// TODO: Check for a match in the fstab
+		
+		if( sDir ) {
+			fprintf(stderr, "`mount -u` takes one argument\n");
+		}
+		
+		sDir = sDevice;
+		if( _SysMount(NULL, sDir, NULL, NULL) )	// Unmount (Dev=NULL means unmount)
+		{
+			fprintf(stderr, "Unmount failed\n");
+		}
+		return EXIT_SUCCESS;
 	}
 
 	// Check if we even got a device/mountpoint
@@ -113,10 +135,10 @@ int main(int argc, char *argv[])
 	else
 	{
 		// Check that we were passed a filesystem type
-		if(sType == NULL) {
-			fprintf(stderr, "Please pass a filesystem type\n");
-			return EXIT_FAILURE;
-		}
+//		if(sType == NULL) {
+//			fprintf(stderr, "Please pass a filesystem type\n");
+//			return EXIT_FAILURE;
+//		}
 	}
 	
 	// Check Device
@@ -139,7 +161,14 @@ int main(int argc, char *argv[])
 	if(sOptions == NULL)	sOptions = "";
 
 	// Let's Mount!
-	_SysMount(sDevice, sDir, sType, sOptions);
+	if( _SysMount(sDevice, sDir, sType, sOptions) ) {
+//		perror("_SysMount");
+		if( !sType )
+			fprintf(stderr, "Filesystem autodetection failed, please pass a type\n");
+		else {
+			fprintf(stderr, "Mount %s:'%s'=>'%s' failed\n", sType, sDevice, sDir);
+		}
+	}
 
 	return 0;
 }
@@ -147,7 +176,7 @@ int main(int argc, char *argv[])
 void ShowUsage(char *ProgName)
 {
 	fprintf(stderr, "Usage:\n");
-	fprintf(stderr, "    %s [-t <type>] <device> <directory>\n", ProgName);
+	fprintf(stderr, "    %s [-t <type>] <device> <directory> [-o <options>]\n", ProgName);
 	fprintf(stderr, "or  %s <device>\n", ProgName);
 	fprintf(stderr, "or  %s <directory>\n", ProgName);
 	fprintf(stderr, "or  %s\n", ProgName);

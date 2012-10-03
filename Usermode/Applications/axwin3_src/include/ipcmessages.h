@@ -17,6 +17,7 @@ typedef struct sIPCMsg_CreateWin	tIPCMsg_CreateWin;
 typedef struct sIPCMsg_Boolean	tIPCMsg_Boolean;
 typedef struct sIPCMsg_SetWindowPos	tIPCMsg_SetWindowPos;
 typedef struct sIPCMsg_SendMsg	tIPCMsg_SendMsg;
+typedef struct sIPCMsg_RegAction	tIPCMsg_RegAction;
 
 typedef struct sIPCMsg_GetDisplayDims	tIPCMsg_GetDisplayDims;
 typedef struct sIPCMsg_RetDisplayDims	tIPCMsg_RetDisplayDims;
@@ -73,6 +74,12 @@ struct sIPCMsg_SetWindowPos
 	uint8_t 	bSetDims;
 };
 
+struct sIPCMsg_RegAction
+{
+	uint16_t	Index;
+	char	Action[];
+};
+
 struct sIPCMsg_GetDisplayDims
 {
 	uint16_t	DisplayID;
@@ -100,6 +107,7 @@ enum eAxWin_IPCMessageTypes
 	IPCMSG_DECORATEWINDOW,	//!< Enable/Disable decorations
 	IPCMSG_FOCUSWINDOW,	//!< Give a window focus (no data)
 	IPCMSG_SETWINPOS,	//!< Set a window position
+	IPCMSG_REGACTION	//!< Register an action name
 };
 
 #endif

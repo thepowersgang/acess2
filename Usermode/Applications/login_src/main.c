@@ -47,8 +47,6 @@ int main(int argc, char *argv[])
 			return -1;
 		}
 		
-		printf("pid = %i\n", pid);
-		
 		// Spawn shell in a child process
 		if(pid == 0)
 		{

@@ -11,12 +11,22 @@
 #include <usb_core.h>
 #include <usb_hub.h>
 #include <usb_host.h>
+#include "usb_proto.h"
 
+typedef struct sUSBHubPort	tUSBHubPort;
 typedef struct sUSBHost	tUSBHost;
 typedef struct sUSBDevice	tUSBDevice;
 typedef struct sUSBEndpoint	tUSBEndpoint;
 
 // === STRUCTURES ===
+struct sUSBHubPort
+{
+	void	*ListNext;
+	char	Status;
+	char	PortNum;
+	tUSBDevice	*Dev;
+};
+
 /**
  * \brief USB Hub data
  */
@@ -25,7 +35,7 @@ struct sUSBHub
 	tUSBInterface	*Interface;
 	
 	 int	nPorts;
-	tUSBDevice	*Devices[];
+	struct sUSBHubPort	Ports[];
 };
 
 struct sUSBEndpoint
@@ -34,6 +44,7 @@ struct sUSBEndpoint
 	tUSBInterface	*Interface;
 	 int	EndpointIdx;	// Interface endpoint index
 	 int	EndpointNum;	// Device endpoint num
+	void	*EndpointHandle;
 	
 	 int	PollingPeriod;	// In 1ms intervals
 	 int	MaxPacketSize;	// In bytes
@@ -53,6 +64,8 @@ struct sUSBInterface
 
 	tUSBDriver	*Driver;
 	void	*Data;
+
+	struct sDescriptor_Interface	IfaceDesc;
 	
 	 int	nEndpoints;
 	tUSBEndpoint	Endpoints[];
@@ -70,6 +83,10 @@ struct sUSBDevice
 	 */
 	tUSBHost	*Host;
 	 int	Address;
+
+	void	*EndpointHandles[16];
+
+	struct sDescriptor_Device	DevDesc;
 
 	 int	nInterfaces;
 	tUSBInterface	*Interfaces[];

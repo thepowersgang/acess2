@@ -15,6 +15,9 @@
 #include <wm.h>
 #include <string.h>
 
+// === IMPORTS ===
+extern int	giTerminalFD_Input;
+
 // === PROTOTYPES ===
 void	Video_Setup(void);
 void	Video_SetCursorPos(short X, short Y);
@@ -34,13 +37,25 @@ void Video_Setup(void)
 	 int	tmpInt;
 	
 	// Open terminal
+	#if 0
 	giTerminalFD = open(gsTerminalDevice, OPENFLAG_READ|OPENFLAG_WRITE);
 	if( giTerminalFD == -1 )
 	{
 		fprintf(stderr, "ERROR: Unable to open '%s' (%i)\n", gsTerminalDevice, _errno);
 		exit(-1);
 	}
-	
+	#else
+	giTerminalFD = 1;
+	giTerminalFD_Input = 0;
+	// Check that the console is a VT
+	// - ioctl(..., 0, NULL) returns the type, which should be 2
+	if( ioctl(1, 0, NULL) != 2 )
+	{
+		fprintf(stderr, "stdout is not an Acess VT, can't start");
+		_SysDebug("stdout is not an Acess VT, can't start");
+		exit(-1);
+	}
+	#endif
 	
 	// Set mode to video
 	tmpInt = TERM_MODE_FB;
@@ -73,6 +88,7 @@ void Video_Update(void)
 	_SysDebug("Video_Update - Updating lines %i to %i (0x%x+0x%x px)",
 		giVideo_FirstDirtyLine, giVideo_LastDirtyLine, ofs, size);
 	seek(giTerminalFD, ofs*4, 1);
+	_SysDebug("Video_Update - Sending");
 	write(giTerminalFD, gpScreenBuffer+ofs, size*4);
 	_SysDebug("Video_Update - Done");
 	giVideo_FirstDirtyLine = 0;

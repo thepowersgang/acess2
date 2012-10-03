@@ -13,16 +13,17 @@
 
 // === PROTOTYPES ===
 tVFS_Node	*Root_InitDevice(const char *Device, const char **Options);
- int	Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
+tVFS_Node	*Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
 tVFS_Node	*Root_FindDir(tVFS_Node *Node, const char *Name);
-char	*Root_ReadDir(tVFS_Node *Node, int Pos);
+ int	Root_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX]);
 size_t	Root_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
 size_t	Root_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
 tRamFS_File	*Root_int_AllocFile(void);
 
 // === GLOBALS ===
 tVFS_Driver	gRootFS_Info = {
-	"rootfs", 0, Root_InitDevice, NULL, NULL
+	.Name = "rootfs", 
+	.InitDevice = Root_InitDevice
 	};
 tRamFS_File	RootFS_Files[MAX_FILES];
 tVFS_ACL	RootFS_DirACLs[3] = {
@@ -60,7 +61,9 @@ tVFS_Node *Root_InitDevice(const char *Device, const char **Options)
 	
 	// Create Root Node
 	root = &RootFS_Files[0];
-	
+
+	root->Name[0] = '/';
+	root->Name[1] = '\0';
 	root->Node.ImplPtr = root;
 	
 	root->Node.CTime
@@ -69,6 +72,7 @@ tVFS_Node *Root_InitDevice(const char *Device, const char **Options)
 	root->Node.NumACLs = 3;
 	root->Node.ACLs = RootFS_DirACLs;
 
+	root->Node.Flags = VFS_FFLAG_DIRECTORY;
 	root->Node.Type = &gRootFS_DirType;
 	
 	return &root->Node;
@@ -78,24 +82,27 @@ tVFS_Node *Root_InitDevice(const char *Device, const char **Options)
  * \fn int Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
  * \brief Create an entry in the root directory
  */
-int Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
+tVFS_Node *Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
 {
 	tRamFS_File	*parent = Node->ImplPtr;
 	tRamFS_File	*child;
-	tRamFS_File	*prev = (tRamFS_File *) &parent->Data.FirstChild;
+	tRamFS_File	*prev = NULL;
 	
 	ENTER("pNode sName xFlags", Node, Name, Flags);
 	
-	LOG("%i > %i", strlen(Name)+1, sizeof(child->Name));
-	if(strlen(Name) + 1 > sizeof(child->Name))
-		LEAVE_RET('i', 0);
+	LOG("Sanity check name length - %i > %i", strlen(Name)+1, sizeof(child->Name));
+	if(strlen(Name) + 1 > sizeof(child->Name)) {
+		errno = EINVAL;
+		LEAVE_RET('n', NULL);
+	}
 	
 	// Find last child, while we're at it, check for duplication
 	for( child = parent->Data.FirstChild; child; prev = child, child = child->Next )
 	{
 		if(strcmp(child->Name, Name) == 0) {
-			LEAVE('i', 0);
-			return 0;
+			LOG("Duplicate");
+			errno = EEXIST;
+			LEAVE_RET('n', NULL);
 		}
 	}
 	
@@ -103,6 +110,7 @@ int Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
 	memset(child, 0, sizeof(tRamFS_File));
 	
 	strcpy(child->Name, Name);
+	LOG("Name = '%s'", child->Name);
 	
 	child->Parent = parent;
 	child->Next = NULL;
@@ -125,12 +133,16 @@ int Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
 		child->Node.Type = &gRootFS_FileType;
 	}
 	
-	prev->Next = child;
+	// Append!
+	if( prev )
+		prev->Next = child;
+	else
+		parent->Data.FirstChild = child;
 	
 	parent->Node.Size ++;
 	
-	LEAVE('i', 1);
-	return 1;
+	LEAVE('n', &child->Node);
+	return &child->Node;
 }
 
 /**
@@ -143,13 +155,12 @@ tVFS_Node *Root_FindDir(tVFS_Node *Node, const char *Name)
 	tRamFS_File	*child = parent->Data.FirstChild;
 	
 	ENTER("pNode sName", Node, Name);
-	//Log("Root_FindDir: (Node=%p, Name='%s')", Node, Name);
 	
-	for(;child;child = child->Next)
+	for( child = parent->Data.FirstChild; child; child = child->Next )
 	{
-		//Log(" Root_FindDir: strcmp('%s', '%s')", child->Node.Name, Name);
 		LOG("child->Name = '%s'", child->Name);
-		if(strcmp(child->Name, Name) == 0) {
+		if(strcmp(child->Name, Name) == 0)
+		{
 			LEAVE('p', &child->Node);
 			return &child->Node;
 		}
@@ -163,16 +174,19 @@ tVFS_Node *Root_FindDir(tVFS_Node *Node, const char *Name)
  * \fn char *Root_ReadDir(tVFS_Node *Node, int Pos)
  * \brief Get an entry from the filesystem
  */
-char *Root_ReadDir(tVFS_Node *Node, int Pos)
+int Root_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 {
 	tRamFS_File	*parent = Node->ImplPtr;
 	tRamFS_File	*child = parent->Data.FirstChild;
 	
 	for( ; child && Pos--; child = child->Next ) ;
 	
-	if(child)	return strdup(child->Name);
+	if(child) {
+		strncpy(Dest, child->Name, FILENAME_MAX);
+		return 0;
+	}
 	
-	return NULL;
+	return -ENOENT;
 }
 
 /**

@@ -4,31 +4,50 @@
  */
 #define DEBUG	0
 #include <acess.h>
-#include "vfs.h"
-#include "vfs_int.h"
+#include <vfs.h>
+#include <vfs_ext.h>
+#include <vfs_int.h>
 
 // === CODE ===
 /**
  * \fn Uint64 VFS_Read(int FD, Uint64 Length, void *Buffer)
  * \brief Read data from a node (file)
  */
-Uint64 VFS_Read(int FD, Uint64 Length, void *Buffer)
+size_t VFS_Read(int FD, size_t Length, void *Buffer)
 {
 	tVFS_Handle	*h;
-	Uint64	ret;
+	size_t	ret;
 	
 	ENTER("iFD XLength pBuffer", FD, Length, Buffer);
 	
 	h = VFS_GetHandle(FD);
-	if(!h)	LEAVE_RET('i', -1);
-	
-	if( !(h->Mode & VFS_OPENFLAG_READ) || h->Node->Flags & VFS_FFLAG_DIRECTORY )
+	if(!h) {
+		LOG("Bad Handle");
 		LEAVE_RET('i', -1);
+	}
+	
+	if( !(h->Mode & VFS_OPENFLAG_READ) ) {
+		LOG("Bad mode");
+		LEAVE_RET('i', -1);
+	}
+	if( (h->Node->Flags & VFS_FFLAG_DIRECTORY) ) {
+		LOG("Reading directory");
+		LEAVE_RET('i', -1);
+	}
 
-	if(!h->Node->Type || !h->Node->Type->Read)	LEAVE_RET('i', 0);
+	if(!h->Node->Type || !h->Node->Type->Read) {
+		LOG("No read method");
+		LEAVE_RET('i', -1);
+	}
+
+	if( !MM_GetPhysAddr(h->Node->Type->Read) ) {
+		Log_Error("VFS", "Node type %p(%s) read method is junk %p", h->Node->Type, h->Node, h->Node->Type->TypeName,
+			h->Node->Type->Read);
+		LEAVE_RET('i', -1);
+	}
 	
 	ret = h->Node->Type->Read(h->Node, h->Position, Length, Buffer);
-	if(ret == -1)	LEAVE_RET('i', -1);
+	if(ret == (size_t)-1)	LEAVE_RET('i', -1);
 	
 	h->Position += ret;
 	LEAVE('X', ret);
@@ -39,10 +58,10 @@ Uint64 VFS_Read(int FD, Uint64 Length, void *Buffer)
  * \fn Uint64 VFS_ReadAt(int FD, Uint64 Offset, Uint64 Length, void *Buffer)
  * \brief Read data from a given offset (atomic)
  */
-Uint64 VFS_ReadAt(int FD, Uint64 Offset, Uint64 Length, void *Buffer)
+size_t VFS_ReadAt(int FD, Uint64 Offset, size_t Length, void *Buffer)
 {
 	tVFS_Handle	*h;
-	Uint64	ret;
+	size_t	ret;
 	
 	h = VFS_GetHandle(FD);
 	if(!h)	return -1;
@@ -54,8 +73,15 @@ Uint64 VFS_ReadAt(int FD, Uint64 Offset, Uint64 Length, void *Buffer)
 		Warning("VFS_ReadAt - Node %p, does not have a read method", h->Node);
 		return 0;
 	}
+
+	if( !MM_GetPhysAddr(h->Node->Type->Read) ) {
+		Log_Error("VFS", "Node type %p(%s) read method is junk %p", h->Node->Type, h->Node, h->Node->Type->TypeName,
+			h->Node->Type->Read);
+		LEAVE_RET('i', -1);
+	}
+	
 	ret = h->Node->Type->Read(h->Node, Offset, Length, Buffer);
-	if(ret == -1)	return -1;
+	if(ret == (size_t)-1)	return -1;
 	return ret;
 }
 
@@ -63,10 +89,10 @@ Uint64 VFS_ReadAt(int FD, Uint64 Offset, Uint64 Length, void *Buffer)
  * \fn Uint64 VFS_Write(int FD, Uint64 Length, const void *Buffer)
  * \brief Read data from a node (file)
  */
-Uint64 VFS_Write(int FD, Uint64 Length, const void *Buffer)
+size_t VFS_Write(int FD, size_t Length, const void *Buffer)
 {
 	tVFS_Handle	*h;
-	Uint64	ret;
+	size_t	ret;
 	
 	h = VFS_GetHandle(FD);
 	if(!h)	return -1;
@@ -75,9 +101,15 @@ Uint64 VFS_Write(int FD, Uint64 Length, const void *Buffer)
 	if( h->Node->Flags & VFS_FFLAG_DIRECTORY )	return -1;
 
 	if( !h->Node->Type || !h->Node->Type->Write )	return 0;
+
+	if( !MM_GetPhysAddr(h->Node->Type->Write) ) {
+		Log_Error("VFS", "Node type %p(%s) write method is junk %p", h->Node->Type, h->Node, h->Node->Type->TypeName,
+			h->Node->Type->Write);
+		return -1;
+	}
 	
 	ret = h->Node->Type->Write(h->Node, h->Position, Length, Buffer);
-	if(ret == -1)	return -1;
+	if(ret == (size_t)-1)	return -1;
 
 	h->Position += ret;
 	return ret;
@@ -87,10 +119,10 @@ Uint64 VFS_Write(int FD, Uint64 Length, const void *Buffer)
  * \fn Uint64 VFS_WriteAt(int FD, Uint64 Offset, Uint64 Length, const void *Buffer)
  * \brief Write data to a file at a given offset
  */
-Uint64 VFS_WriteAt(int FD, Uint64 Offset, Uint64 Length, const void *Buffer)
+size_t VFS_WriteAt(int FD, Uint64 Offset, size_t Length, const void *Buffer)
 {
 	tVFS_Handle	*h;
-	Uint64	ret;
+	size_t	ret;
 	
 	h = VFS_GetHandle(FD);
 	if(!h)	return -1;
@@ -99,9 +131,14 @@ Uint64 VFS_WriteAt(int FD, Uint64 Offset, Uint64 Length, const void *Buffer)
 	if( h->Node->Flags & VFS_FFLAG_DIRECTORY )	return -1;
 
 	if(!h->Node->Type || !h->Node->Type->Write)	return 0;
-	ret = h->Node->Type->Write(h->Node, Offset, Length, Buffer);
 
-	if(ret == -1)	return -1;
+	if( !MM_GetPhysAddr(h->Node->Type->Write) ) {
+		Log_Error("VFS", "Node type %p(%s) write method is junk %p", h->Node->Type, h->Node, h->Node->Type->TypeName,
+			h->Node->Type->Write);
+		return -1;
+	}
+	ret = h->Node->Type->Write(h->Node, Offset, Length, Buffer);
+	if(ret == (size_t)-1)	return -1;
 	return ret;
 }
 
@@ -144,7 +181,7 @@ int VFS_Seek(int FD, Sint64 Offset, int Whence)
 	
 	// Set relative to end of file
 	if(Whence < 0) {
-		if( h->Node->Size == -1 )	return -1;
+		if( h->Node->Size == (Uint64)-1 )	return -1;
 
 		h->Position = h->Node->Size - Offset;
 		return 0;

@@ -78,6 +78,11 @@ void MM_Tpl_InitPhys(int MaxRAMPage)
 	LEAVE('-');
 }
 
+void MM_DumpStatistics(void)
+{
+	// TODO: PM Statistics for tpl_mm_phys_bitmap
+}
+
 /**
  * \brief Allocate a contiguous range of physical pages with a maximum
  *        bit size of \a MaxBits

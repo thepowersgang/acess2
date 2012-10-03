@@ -414,13 +414,14 @@ void MM_Deallocate(tVAddr VAddr)
  * \fn tPAddr MM_GetPhysAddr(tVAddr Addr)
  * \brief Checks if the passed address is accesable
  */
-tPAddr MM_GetPhysAddr(tVAddr Addr)
+tPAddr MM_GetPhysAddr(const void *Addr)
 {
-	if( !(gaPageDir[Addr >> 22] & 1) )
+	tVAddr	addr = (tVAddr)Addr;
+	if( !(gaPageDir[addr >> 22] & 1) )
 		return 0;
-	if( !(gaPageTable[Addr >> 12] & 1) )
+	if( !(gaPageTable[addr >> 12] & 1) )
 		return 0;
-	return (gaPageTable[Addr >> 12] & ~0xFFF) | (Addr & 0xFFF);
+	return (gaPageTable[addr >> 12] & ~0xFFF) | (addr & 0xFFF);
 }
 
 /**
@@ -694,9 +695,9 @@ tPAddr MM_Clone(int bNoUserCopy)
 			
 			MM_RefPhys( gaTmpTable[i*1024+j] & ~0xFFF );
 			
-			tmp = (void *) MM_MapTemp( gaTmpTable[i*1024+j] & ~0xFFF );
+			tmp = MM_MapTemp( gaTmpTable[i*1024+j] & ~0xFFF );
 			memcpy( tmp, (void *)( (i*1024+j)*0x1000 ), 0x1000 );
-			MM_FreeTemp( (Uint)tmp );
+			MM_FreeTemp( tmp );
 		}
 	}
 	
@@ -717,7 +718,8 @@ tVAddr MM_NewKStack(void)
 	for(base = MM_KERNEL_STACKS; base < MM_KERNEL_STACKS_END; base += MM_KERNEL_STACK_SIZE)
 	{
 		// Check if space is free
-		if(MM_GetPhysAddr(base) != 0)	continue;
+		if(MM_GetPhysAddr( (void*) base) != 0)
+			continue;
 		// Allocate
 		//for(i = MM_KERNEL_STACK_SIZE; i -= 0x1000 ; )
 		for(i = 0; i < MM_KERNEL_STACK_SIZE; i += 0x1000 )
@@ -804,9 +806,9 @@ tVAddr MM_NewWorkerStack(Uint *StackContents, size_t ContentsSize)
 
 	// NOTE: Max of 1 page
 	// `page` is the last allocated page from the previious for loop
-	tmpPage = MM_MapTemp( page );
+	tmpPage = (tVAddr)MM_MapTemp( page );
 	memcpy( (void*)( tmpPage + (0x1000 - ContentsSize) ), StackContents, ContentsSize);
-	MM_FreeTemp(tmpPage);	
+	MM_FreeTemp( (void*)tmpPage );
 	
 	//Log("MM_NewWorkerStack: RETURN 0x%x", base);
 	return base + WORKER_STACK_SIZE;
@@ -935,7 +937,7 @@ int MM_IsValidBuffer(tVAddr Addr, size_t Size)
 tPAddr MM_DuplicatePage(tVAddr VAddr)
 {
 	tPAddr	ret;
-	Uint	temp;
+	void	*temp;
 	 int	wasRO = 0;
 	
 	//ENTER("xVAddr", VAddr);
@@ -960,7 +962,7 @@ tPAddr MM_DuplicatePage(tVAddr VAddr)
 	
 	// Copy Data
 	temp = MM_MapTemp(ret);
-	memcpy( (void*)temp, (void*)VAddr, 0x1000 );
+	memcpy( temp, (void*)VAddr, 0x1000 );
 	MM_FreeTemp(temp);
 	
 	// Restore Writeable status
@@ -976,7 +978,7 @@ tPAddr MM_DuplicatePage(tVAddr VAddr)
  * \brief Create a temporary memory mapping
  * \todo Show Luigi Barone (C Lecturer) and see what he thinks
  */
-tVAddr MM_MapTemp(tPAddr PAddr)
+void * MM_MapTemp(tPAddr PAddr)
 {
 	 int	i;
 	
@@ -999,7 +1001,7 @@ tVAddr MM_MapTemp(tPAddr PAddr)
 			INVLPG( TEMP_MAP_ADDR + (i << 12) );
 			//LEAVE('p', TEMP_MAP_ADDR + (i << 12));
 			Mutex_Release( &glTempMappings );
-			return TEMP_MAP_ADDR + (i << 12);
+			return (void*)( TEMP_MAP_ADDR + (i << 12) );
 		}
 		Mutex_Release( &glTempMappings );
 		Threads_Yield();	// TODO: Use a sleep queue here instead
@@ -1010,9 +1012,9 @@ tVAddr MM_MapTemp(tPAddr PAddr)
  * \fn void MM_FreeTemp(tVAddr PAddr)
  * \brief Free's a temp mapping
  */
-void MM_FreeTemp(tVAddr VAddr)
+void MM_FreeTemp(void *VAddr)
 {
-	 int	i = VAddr >> 12;
+	 int	i = (tVAddr)VAddr >> 12;
 	//ENTER("xVAddr", VAddr);
 	
 	if(i >= (TEMP_MAP_ADDR >> 12))
@@ -1069,7 +1071,6 @@ tVAddr MM_MapHWPages(tPAddr PAddr, Uint Number)
  */
 tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 {
-	tPAddr	maxCheck = (1 << MaxBits);
 	tPAddr	phys;
 	tVAddr	ret;
 	
@@ -1083,9 +1084,6 @@ tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 		LEAVE('i', 0);
 		return 0;
 	}
-	
-	// Bound
-	if(MaxBits >= PHYS_BITS)	maxCheck = -1;
 	
 	// Fast Allocate
 	if(Pages == 1 && MaxBits >= PHYS_BITS)

@@ -4,7 +4,7 @@
  *
  * Syscall Distribution
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include <threads.h>
 #include <events.h>
@@ -194,10 +194,21 @@ SYSCALL2(Syscall_SendMessage, "id", int, void *,
 	return Proc_SendMessage(a0, Sizes[1], a1);
 );
 
-SYSCALL2(Syscall_GetMessage, "dd", Uint *, void *,
-	if( Sizes[0] < sizeof(*a0) )
+SYSCALL2(Syscall_GetMessage, "dd", uint32_t *, void *,
+	if( a0 && Sizes[0] < sizeof(*a0) ) {
+		Log_Notice("Syscalls", "Syscall_GetMessage - Arg 1 Undersize (%i < %i)",
+			Sizes[0], sizeof(*a0));
 		return -1;
-	return Proc_GetMessage(a0, a1);
+	}
+	Uint	tmp;
+	 int	rv;
+	if( a0 ) {
+		rv = Proc_GetMessage(&tmp, a1);
+		*a0 = tmp;
+	}
+	else
+		rv = Proc_GetMessage(NULL, a1);
+	return rv;
 );
 
 SYSCALL1(Syscall_WaitEvent, "i", int,
@@ -298,7 +309,7 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 	}
 	formatString[i] = '\0';
 	
-	//LOG("Request %i(%s) '%s'", Request->CallID, casSYSCALL_NAMES[Request->CallID], formatString);
+	LOG("Request %i(%s) '%s'", Request->CallID, casSYSCALL_NAMES[Request->CallID], formatString);
 	
 	{
 		char	argListData[argListLen];
@@ -341,7 +352,13 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 				}
 				
 				// Check for non-resident data
-				if( Request->Params[i].Flags & ARG_FLAG_ZEROED )
+				if( Request->Params[i].Length == 0 )
+				{
+					returnData[i] = NULL;
+					*(void**)&argListData[argListLen] = NULL;
+					argListLen += sizeof(void*);
+				}
+				else if( Request->Params[i].Flags & ARG_FLAG_ZEROED )
 				{
 					// Allocate and zero the buffer
 					returnData[i] = calloc(1, Request->Params[i].Length);

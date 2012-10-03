@@ -252,6 +252,7 @@ void VGA_2D_Fill(void *Ent, Uint16 X, Uint16 Y, Uint16 W, Uint16 H, Uint32 Colou
 	ch.BGCol  = (Colour & 0x0F0000) >> (16-8);
 	ch.BGCol |= (Colour & 0x000F00) >> (8-4);
 	ch.BGCol |= (Colour & 0x00000F);
+	ch.FGCol = 0;
 	word = VGA_int_GetWord(&ch);
 
 	Log("Fill (%i,%i) %ix%i with 0x%x", X, Y, W, H, word);

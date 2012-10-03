@@ -14,6 +14,11 @@
  * uint8_t	paramData[SUM(params[].Lengh)];
  */
 
+typedef struct {
+	uint32_t	pid;
+	uint32_t	key;
+} tRequestAuthHdr;
+
 typedef struct sRequestValue {
 	/// \see eArgumentTypes
 	uint16_t	Type;

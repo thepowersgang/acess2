@@ -8,6 +8,7 @@
 
 // === TYPES ===
 typedef struct sUHCI_Controller	tUHCI_Controller;
+typedef struct sUHCI_EndpointInfo	tUHCI_EndpointInfo;
 typedef struct sUHCI_ExtraTDInfo	tUHCI_ExtraTDInfo;
 
 typedef struct sUHCI_TD	tUHCI_TD;
@@ -24,8 +25,14 @@ struct sUHCI_ExtraTDInfo
 	void	*CallbackPtr;
 };
 
-#define TD_CTL_IOC	(1 << 24)
+struct sUHCI_EndpointInfo
+{
+	unsigned MaxPacketSize : 12;
+	unsigned Type : 3;
+	unsigned Tgl : 1;
+};
 
+#define TD_CTL_IOC	(1 << 24)
 #define TD_CTL_ACTIVE	(1 << 23)
 #define TD_CTL_STALLED	(1 << 22)
 #define TD_CTL_DATABUFERR	(1 << 21)
@@ -113,7 +120,6 @@ struct sUHCI_QH
 	 */
 	Uint32	Next;
 
-	
 	/**
 	 * \brief Next Entry in list
 	 * 
@@ -200,6 +206,10 @@ struct sUHCI_Controller
 		
 		tUHCI_TD	LocalTDPool[ (4096-(128+2)*sizeof(tUHCI_QH)) / sizeof(tUHCI_TD) ];
 	}	*TDQHPage;
+	
+	struct {
+		tUHCI_EndpointInfo EndpointInfo[16];
+	} *DevInfo[256];
 };
 
 // === ENUMERATIONS ===

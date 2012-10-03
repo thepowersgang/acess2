@@ -181,7 +181,6 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	
 	// TODO: Handle packet fragmentation
 	
-	
 	Log_Debug("IPv4", " From %i.%i.%i.%i to %i.%i.%i.%i",
 		hdr->Source.B[0], hdr->Source.B[1], hdr->Source.B[2], hdr->Source.B[3],
 		hdr->Destination.B[0], hdr->Destination.B[1], hdr->Destination.B[2], hdr->Destination.B[3]
@@ -234,9 +233,12 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	// Routing
 	if(!iface)
 	{
+		#if 0
 		tMacAddr	to;
 		tRoute	*rt;
-		
+	
+
+		// TODO: Put this in another thread to avoid delays in the RX thread	
 		Log_Debug("IPv4", "Route the packet");
 		// Drop the packet if the TTL is zero
 		if( hdr->TTL == 0 ) {
@@ -261,6 +263,7 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 			((tIPv4*)rt->NextHop)->B[2], ((tIPv4*)rt->NextHop)->B[3]);
 		Log_Warning("IPv4", "TODO: Implement forwarding with tIPStackBuffer");
 //		Link_SendPacket(rt->Interface->Adapter, IPV4_ETHERNET_ID, to, Length, Buffer);
+		#endif
 		
 		return ;
 	}
@@ -283,7 +286,7 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
  */
 tInterface *IPv4_GetInterface(tAdapter *Adapter, tIPv4 Address, int Broadcast)
 {
-	tInterface	*iface = NULL;
+	tInterface	*iface = NULL, *zero_iface = NULL;
 	Uint32	netmask;
 	Uint32	addr, this;
 
@@ -301,7 +304,20 @@ tInterface *IPv4_GetInterface(tAdapter *Adapter, tIPv4 Address, int Broadcast)
 			LEAVE('p', iface);
 			return iface;
 		}
-		
+
+		LOG("iface->Address = 0x%x", *(Uint32*)iface->Address);
+
+		if( *(Uint32*)iface->Address == 0 ) {
+			if( zero_iface ) {
+				Log_Notice("IPv4", "Multiple 0.0.0.0 interfaces on the same adapter, ignoring");
+			}
+			else {
+				zero_iface = iface;
+				LOG("Zero IF %p", iface);
+			}
+			continue ;
+		}		
+
 		if( !Broadcast )	continue;
 		
 		// Check for broadcast
@@ -316,6 +332,17 @@ tInterface *IPv4_GetInterface(tAdapter *Adapter, tIPv4 Address, int Broadcast)
 			return iface;
 		}
 	}
+
+	// Special case for intefaces that are being DHCP configured
+	// - If the interface address is 0.0.0.0, then if there is no match for the
+	//   destination the packet is treated as if it was addressed to 0.0.0.0
+	if( zero_iface && Broadcast )
+	{
+		LOG("Using 0.0.0.0 interface with magic!");
+		LEAVE('p', zero_iface);
+		return zero_iface;
+	}
+
 	LEAVE('n');
 	return NULL;
 }

@@ -26,12 +26,12 @@ typedef struct sPipe {
 // === PROTOTYPES ===
  int	FIFO_Install(char **Arguments);
  int	FIFO_IOCtl(tVFS_Node *Node, int Id, void *Data);
-char	*FIFO_ReadDir(tVFS_Node *Node, int Id);
+ int	FIFO_ReadDir(tVFS_Node *Node, int Id, char Dest[FILENAME_MAX]);
 tVFS_Node	*FIFO_FindDir(tVFS_Node *Node, const char *Filename);
- int	FIFO_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
+tVFS_Node	*FIFO_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
 void	FIFO_Reference(tVFS_Node *Node);
 void	FIFO_Close(tVFS_Node *Node);
- int	FIFO_Relink(tVFS_Node *Node, const char *OldName, const char *NewName);
+ int	FIFO_Unlink(tVFS_Node *Node, const char *OldName);
 size_t	FIFO_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
 size_t	FIFO_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
 tPipe	*FIFO_Int_NewPipe(int Size, const char *Name);
@@ -43,7 +43,7 @@ tVFS_NodeType	gFIFO_DirNodeType = {
 	.ReadDir = FIFO_ReadDir,
 	.FindDir = FIFO_FindDir,
 	.MkNod = FIFO_MkNod,
-	.Relink = FIFO_Relink,
+	.Unlink = FIFO_Unlink,
 	.IOCtl = FIFO_IOCtl
 };
 tVFS_NodeType	gFIFO_PipeNodeType = {
@@ -92,19 +92,24 @@ int FIFO_IOCtl(tVFS_Node *Node, int Id, void *Data)
  * \fn char *FIFO_ReadDir(tVFS_Node *Node, int Id)
  * \brief Reads from the FIFO root
  */
-char *FIFO_ReadDir(tVFS_Node *Node, int Id)
+int FIFO_ReadDir(tVFS_Node *Node, int Id, char Dest[FILENAME_MAX])
 {
 	tPipe	*tmp = gFIFO_NamedPipes;
 	
 	// Entry 0 is Anon Pipes
-	if(Id == 0)	return strdup("anon");
+	if(Id == 0) {
+		strcpy(Dest, "anon");
+		return 0;
+	}
 	
 	// Find the id'th node
 	while(--Id && tmp)	tmp = tmp->Next;
-	// If node found, return it
-	if(tmp)	return strdup(tmp->Name);
-	// else error return
-	return NULL;
+	// If the list ended, error return
+	if(!tmp)
+		return -EINVAL;
+	// Return good
+	strncpy(Dest, tmp->Name, FILENAME_MAX);
+	return 0;
 }
 
 /**
@@ -142,7 +147,7 @@ tVFS_Node *FIFO_FindDir(tVFS_Node *Node, const char *Filename)
 /**
  * \fn int FIFO_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
  */
-int FIFO_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
+tVFS_Node *FIFO_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
 {
 	return 0;
 }
@@ -178,12 +183,11 @@ void FIFO_Close(tVFS_Node *Node)
 }
 
 /**
- * \fn int FIFO_Relink(tVFS_Node *Node, const char *OldName, const char *NewName)
- * \brief Relink a file (Deletes named pipes)
+ * \brief Delete a pipe
  */
-int FIFO_Relink(tVFS_Node *Node, const char *OldName, const char *NewName)
+int FIFO_Unlink(tVFS_Node *Node, const char *OldName)
 {
-	tPipe	*pipe, *tmp;
+	tPipe	*pipe;
 	
 	if(Node != &gFIFO_DriverInfo.RootNode)	return 0;
 	
@@ -199,22 +203,6 @@ int FIFO_Relink(tVFS_Node *Node, const char *OldName, const char *NewName)
 			break;
 	}
 	if(!pipe)	return 0;
-	
-	// Relink a named pipe
-	if(NewName) {
-		// Check new name
-		for(tmp = gFIFO_NamedPipes;
-			tmp;
-			tmp = tmp->Next)
-		{
-			if(strcmp(tmp->Name, NewName) == 0)	return 0;
-		}
-		// Create new name
-		free(pipe->Name);
-		pipe->Name = malloc(strlen(NewName)+1);
-		strcpy(pipe->Name, NewName);
-		return 1;
-	}
 	
 	// Unlink the pipe
 	if(Node->ImplPtr) {
