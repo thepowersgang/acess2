@@ -120,6 +120,9 @@ tThread *Threads_CloneTCB(tThread *TemplateThread)
 	
 	ret->ThreadName = strdup(TemplateThread->ThreadName);
 	ret->EventSem = SDL_CreateSemaphore(0);
+	if( !ret->EventSem ) {
+		Log_Warning("Threads", "Semaphore creation failed - %s", SDL_GetError());
+	}
 	
 	ret->WaitingThreads = NULL;
 	ret->WaitingThreadsEnd = NULL;
@@ -373,12 +376,22 @@ Uint32 Threads_WaitEvents(Uint32 Mask)
 	gpCurrentThread->WaitMask = Mask;
 	if( !(gpCurrentThread->Events & Mask) )
 	{
-		SDL_SemWait( gpCurrentThread->EventSem );
+		do {
+			if( SDL_SemWait( gpCurrentThread->EventSem ) == -1 ) {
+				Log_Warning("Threads", "Wait on eventsem of %p, %p failed",
+					gpCurrentThread, gpCurrentThread->EventSem);
+				break;
+			}
+		} while(SDL_SemValue(gpCurrentThread->EventSem));
+		// NOTE: While loop catches multiple event occurances
+		Log_Debug("Threads", "Woken from nap (%i here)", SDL_SemValue(gpCurrentThread->EventSem));
 	}
 	rv = gpCurrentThread->Events & Mask;
 	gpCurrentThread->Events &= ~Mask;
 	gpCurrentThread->WaitMask = -1;
-	
+
+	Log_Debug("Threads", "- rv = %x", rv);
+
 	return rv;
 }
 

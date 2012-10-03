@@ -35,6 +35,9 @@ extern int	AllocateMemory(uintptr_t VirtAddr, size_t ByteCount);
 // === CONSTANTS ===
 #define NATIVE_FILE_MASK	0x40000000
 
+// === GLOBALS ===
+int	acess__errno;
+
 // === CODE ===
 // --- VFS Calls
 int acess_chdir(const char *Path)
@@ -303,7 +306,7 @@ void acess__exit(int Status)
 
 
 // === Symbol List ===
-#define DEFSYM(name)	{#name, acess_##name}
+#define DEFSYM(name)	{#name, &acess_##name}
 const tSym	caBuiltinSymbols[] = {
 	DEFSYM(_exit),
 	
@@ -339,7 +342,9 @@ const tSym	caBuiltinSymbols[] = {
 	DEFSYM(_SysAllocate),
 	DEFSYM(_SysDebug),
 	DEFSYM(_SysSetFaultHandler),
-	DEFSYM(_SysWaitEvent)
+	DEFSYM(_SysWaitEvent),
+	
+	DEFSYM(_errno)
 };
 
 const int	ciNumBuiltinSymbols = sizeof(caBuiltinSymbols)/sizeof(caBuiltinSymbols[0]);

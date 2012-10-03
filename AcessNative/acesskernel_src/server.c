@@ -127,8 +127,15 @@ tClient *Server_GetClient(int ClientID)
 int Server_WorkerThread(void *ClientPtr)
 {
 	tClient	*Client = ClientPtr;
-	
+
+	Log_Debug("Server", "Worker %p", ClientPtr);	
+
 	#if USE_TCP
+
+	while( *((volatile typeof(Client->Socket)*)&Client->Socket) == 0 )
+		SDL_Delay(10);
+	Threads_SetThread( Client->ClientID );
+	
 	for( ;; )
 	{
 		fd_set	fds;
@@ -137,11 +144,12 @@ int Server_WorkerThread(void *ClientPtr)
 		FD_SET(Client->Socket, &fds);
 		
 		int rv = select(nfd, &fds, NULL, NULL, NULL);	// TODO: Timeouts?
-		if(rv <= 0) {
+		if(rv < 0) {
 			perror("select");
 			continue ;
 		}
-		
+		Log_Debug("Server", "%p: rv=%i", Client, rv);		
+
 		if( FD_ISSET(Client->Socket, &fds) )
 		{
 			const int	ciMaxParamCount = 6;
@@ -275,6 +283,8 @@ int Server_WorkerThread(void *ClientPtr)
 			free( retHeader );
 	}
 	#endif
+	Log_Notice("Server", "Terminated Worker %p", ClientPtr);	
+	return 0;
 }
 
 int SyscallServer(void)
@@ -386,7 +396,7 @@ int Server_ListenThread(void *Unused)
 				client->Socket = clientSock;
 			}
 		}
-		Log_Debug("Server", "Client given PID %i", authhdr.pid);
+		Log_Debug("Server", "Client given PID %i - info %p", authhdr.pid, client);
 		
 		len = send(clientSock, &authhdr, sizeof(authhdr), 0);
 		if( len != sizeof(authhdr) ) {
