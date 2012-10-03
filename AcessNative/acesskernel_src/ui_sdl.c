@@ -102,6 +102,8 @@ Uint32 UI_GetAcessKeyFromSDL(SDLKey Sym, Uint16 Unicode)
 		case SDLK_F11:	ret = KEY_F11;	break;
 		case SDLK_F12:	ret = KEY_F12;	break;
 		case SDLK_RETURN:	ret = '\n';	break;
+		case SDLK_LALT:	ret = KEY_LALT;	break;
+		case SDLK_RALT:	ret = KEY_RALT;	break;
 		default:
 			printf("Unhandled key code %i\n", Sym);
 			break;

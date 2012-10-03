@@ -132,11 +132,15 @@ int Server_WorkerThread(void *ClientPtr)
 	for( ;; )
 	{
 		fd_set	fds;
-		 int	nfd = Client->Socket;
+		 int	nfd = Client->Socket+1;
 		FD_ZERO(&fds);
 		FD_SET(Client->Socket, &fds);
 		
-		select(nfd, &fds, NULL, NULL, NULL);	// TODO: Timeouts?
+		int rv = select(nfd, &fds, NULL, NULL, NULL);	// TODO: Timeouts?
+		if(rv <= 0) {
+			perror("select");
+			continue ;
+		}
 		
 		if( FD_ISSET(Client->Socket, &fds) )
 		{
@@ -144,15 +148,24 @@ int Server_WorkerThread(void *ClientPtr)
 			char	lbuf[sizeof(tRequestHeader) + ciMaxParamCount*sizeof(tRequestValue)];
 			tRequestHeader	*hdr = (void*)lbuf;
 			size_t	len = recv(Client->Socket, hdr, sizeof(*hdr), 0);
-			if( len != sizeof(hdr) ) {
+			Log_Debug("Server", "%i bytes of header", len);
+			if( len == 0 )	break;
+			if( len != sizeof(*hdr) ) {
 				// Oops?
+				Log_Warning("Server", "FD%i bad sized (%i != exp %i)",
+					Client->Socket, len, sizeof(*hdr));
+				continue ;
 			}
 
 			if( hdr->NParams > ciMaxParamCount ) {
 				// Oops.
+				Log_Warning("Server", "FD%i too many params (%i > max %i)",
+					Client->Socket, hdr->NParams, ciMaxParamCount);
+				continue ;
 			}
 
 			len = recv(Client->Socket, hdr->Params, hdr->NParams*sizeof(tRequestValue), 0);
+			Log_Debug("Server", "%i bytes of params", len);
 			if( len != hdr->NParams*sizeof(tRequestValue) ) {
 				// Oops.
 			}
@@ -174,6 +187,7 @@ int Server_WorkerThread(void *ClientPtr)
 			hdr = malloc(bufsize);
 			memcpy(hdr, lbuf, hdrsize);
 			len = recv(Client->Socket, hdr->Params + hdr->NParams, bufsize - hdrsize, 0);
+			Log_Debug("Server", "%i bytes of data", len);
 			if( len != bufsize - hdrsize ) {
 				// Oops?
 			}
@@ -183,6 +197,8 @@ int Server_WorkerThread(void *ClientPtr)
 			retHeader = SyscallRecieve(hdr, &retlen);
 			if( !retHeader ) {
 				// Some sort of error
+				Log_Warning("Server", "SyscallRecieve failed?");
+				continue ;
 			}
 			
 			send(Client->Socket, retHeader, retlen, 0); 
@@ -343,8 +359,13 @@ int Server_ListenThread(void *Unused)
 		len = recv(clientSock, &authhdr, sizeof(authhdr), 0);
 		if( len != sizeof(authhdr) ) {
 			// Some form of error?
+			Log_Warning("Server", "Client auth block bad size (%i != exp %i)",
+				len, sizeof(authhdr));
+			continue ;
 		}
 		
+		Log_Debug("Server", "Client assumed PID %i", authhdr.pid);
+
 		tClient	*client;
 		if( authhdr.pid == 0 ) {
 			// Allocate PID and client structure/thread
@@ -365,6 +386,7 @@ int Server_ListenThread(void *Unused)
 				client->Socket = clientSock;
 			}
 		}
+		Log_Debug("Server", "Client given PID %i", authhdr.pid);
 		
 		len = send(clientSock, &authhdr, sizeof(authhdr), 0);
 		if( len != sizeof(authhdr) ) {

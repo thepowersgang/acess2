@@ -1,6 +1,6 @@
 /*
  */
-#define DEBUG	0
+#define DEBUG	1
 
 
 #if DEBUG
@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <inttypes.h>
 #ifdef __WIN32__
 # include <windows.h>
 # include <winsock.h>
@@ -24,7 +25,7 @@
 #include "request.h"
 #include "../syscalls.h"
 
-#define USE_TCP	0
+#define USE_TCP	1
 
 // === PROTOTYPES ===
 void	SendData(void *Data, int Length);
@@ -91,7 +92,6 @@ int _InitSyscalls(void)
 	if( connect(gSocket, (struct sockaddr *)&gSyscall_ServerAddr, sizeof(struct sockaddr_in)) < 0 )
 	{
 		fprintf(stderr, "[ERROR -] Cannot connect to server (localhost:%i)\n", SERVER_PORT);
-		fprintf(stderr, "[ERROR -] ", giSyscall_ClientID);
 		perror("_InitSyscalls");
 		#if __WIN32__
 		closesocket(gSocket);
@@ -118,7 +118,19 @@ int _InitSyscalls(void)
 	}
 	#endif
 	
-	#if !USE_TCP
+	#if USE_TCP
+	{
+		tRequestAuthHdr auth;
+		auth.pid = giSyscall_ClientID;
+		SendData(&auth, sizeof(auth));
+		int len = ReadData(&auth, sizeof(auth), 5);
+		if( len == 0 ) { 
+			fprintf(stderr, "Timeout waiting for auth response\n");
+			exit(-1);
+		}
+		giSyscall_ClientID = auth.pid;
+	}
+	#else
 	// Ask server for a client ID
 	if( !giSyscall_ClientID )
 	{
@@ -190,7 +202,7 @@ int SendRequest(tRequestHeader *Request, int RequestSize, int ResponseSize)
 				data += sizeof(uint32_t);
 				break;
 			case ARG_TYPE_INT64:
-				DEBUG_S(" 0x%016llx", *(uint64_t*)data);
+				DEBUG_S(" 0x%016"PRIx64"", *(uint64_t*)data);
 				data += sizeof(uint64_t);
 				break;
 			case ARG_TYPE_STRING:
@@ -221,7 +233,7 @@ void SendData(void *Data, int Length)
 	 int	len;
 	
 	#if USE_TCP
-	len = send(Data, Length, 0);
+	len = send(gSocket, Data, Length, 0);
 	#else
 	len = sendto(gSocket, Data, Length, 0,
 		(struct sockaddr*)&gSyscall_ServerAddr, sizeof(gSyscall_ServerAddr));
