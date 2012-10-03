@@ -118,6 +118,7 @@ tClient *Server_GetClient(int ClientID)
 		ret->Mutex = SDL_CreateMutex();
 		SDL_mutexP( ret->Mutex );
 		#endif
+		Log_Debug("Server", "Creating worker for %p", ret);
 		ret->WorkerThread = SDL_CreateThread( Server_WorkerThread, ret );
 	}
 	
@@ -133,7 +134,7 @@ int Server_WorkerThread(void *ClientPtr)
 	#if USE_TCP
 
 	while( *((volatile typeof(Client->Socket)*)&Client->Socket) == 0 )
-		SDL_Delay(10);
+		;
 	Threads_SetThread( Client->ClientID );
 	
 	for( ;; )
@@ -194,11 +195,16 @@ int Server_WorkerThread(void *ClientPtr)
 			// Allocate full buffer
 			hdr = malloc(bufsize);
 			memcpy(hdr, lbuf, hdrsize);
-			len = recv(Client->Socket, hdr->Params + hdr->NParams, bufsize - hdrsize, 0);
-			Log_Debug("Server", "%i bytes of data", len);
-			if( len != bufsize - hdrsize ) {
-				// Oops?
+			if( bufsize > hdrsize )
+			{
+				len = recv(Client->Socket, hdr->Params + hdr->NParams, bufsize - hdrsize, 0);
+				Log_Debug("Server", "%i bytes of data", len);
+				if( len != bufsize - hdrsize ) {
+					// Oops?
+				}
 			}
+			else
+				Log_Debug("Server", "no data");
 
 			 int	retlen;
 			tRequestHeader	*retHeader;
@@ -361,7 +367,7 @@ int Server_ListenThread(void *Unused)
 
 		char	addrstr[4*8+8+1];
 		inet_ntop(clientaddr.sin_family, &clientaddr.sin_addr, addrstr, sizeof(addrstr));
-		Log_Debug("Server", "Client connection %s:%i\n", addrstr, ntohs(clientaddr.sin_port));
+		Log_Debug("Server", "Client connection %s:%i", addrstr, ntohs(clientaddr.sin_port));
 		
 		// Perform auth
 		size_t	len;
@@ -371,6 +377,7 @@ int Server_ListenThread(void *Unused)
 			// Some form of error?
 			Log_Warning("Server", "Client auth block bad size (%i != exp %i)",
 				len, sizeof(authhdr));
+			close(clientSock);
 			continue ;
 		}
 		
@@ -387,10 +394,17 @@ int Server_ListenThread(void *Unused)
 			// Get client structure and make sure it's unused
 			// - Auth token / verifcation?
 			client = Server_GetClient(authhdr.pid);
+			if( !client ) {
+				Log_Warning("Server", "Can't allocate a client struct for %s:%i",
+					addrstr, clientaddr.sin_port);
+				close(clientSock);
+				continue ;
+			}
 			if( client->Socket != 0 ) {
 				Log_Warning("Server", "Client (%i)%p owned by FD%i but %s:%i tried to use it",
 					authhdr.pid, client, addrstr, clientaddr.sin_port);
-				authhdr.pid = 0;
+				close(clientSock);
+				continue;
 			}
 			else {
 				client->Socket = clientSock;

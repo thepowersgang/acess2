@@ -118,8 +118,8 @@ int acess_finfo(int fd, t_sysFInfo *info, int maxacls) {
 		);
 }
 
-int acess_readdir(int fd, char *dest) {
-	DEBUG("readdir(%i, %p)", fd, dest);
+int acess_SysReadDir(int fd, char *dest) {
+	DEBUG("SysReadDir(%i, %p)", fd, dest);
 	return _Syscall(SYS_READDIR, ">i <d", fd, 256, dest);
 }
 
@@ -186,8 +186,8 @@ int acess_clone(int flags, void *stack)
 		if(ret == 0)
 		{
 			_CloseSyscalls();
-			_InitSyscalls();
 			giSyscall_ClientID = newID;
+			_InitSyscalls();
 			return 0;
 		}
 		
@@ -320,7 +320,7 @@ const tSym	caBuiltinSymbols[] = {
 	DEFSYM(tell),
 	DEFSYM(ioctl),
 	DEFSYM(finfo),
-	DEFSYM(readdir),
+	DEFSYM(SysReadDir),
 	DEFSYM(select),
 	DEFSYM(_SysOpenChild),
 	DEFSYM(_SysGetACL),

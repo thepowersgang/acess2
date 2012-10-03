@@ -4,7 +4,7 @@
  *
  * Syscall Distribution
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <acess.h>
 #include <threads.h>
 #include <events.h>
