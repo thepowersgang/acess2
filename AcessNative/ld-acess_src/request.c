@@ -275,7 +275,7 @@ int ReadData(void *Dest, int MaxLength, int Timeout)
 	
 	if( !ret ) {
 		printf("[ERROR %i] Timeout reading from socket\n", giSyscall_ClientID);
-		return 0;	// Timeout
+		return -2;	// Timeout
 	}
 	
 	#if USE_TCP
@@ -288,6 +288,10 @@ int ReadData(void *Dest, int MaxLength, int Timeout)
 		fprintf(stderr, "[ERROR %i] ", giSyscall_ClientID);
 		perror("ReadData");
 		exit(-1);
+	}
+	if( ret == 0 ) {
+		fprintf(stderr, "[ERROR %i] Connection closed.\n", giSyscall_ClientID);
+		exit(0);
 	}
 	
 	DEBUG_S("%i bytes read from socket\n", ret);
