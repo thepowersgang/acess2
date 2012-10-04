@@ -14,7 +14,7 @@ ifeq ($(PLATFORM),win)
 endif
 ifeq ($(PLATFORM),lin)
 	BIN := ../ld-acess
-	LINKADDR := 0x200000
+	LINKADDR := 0x70000000
 #	LD += -m elf_i386
 endif
 
@@ -22,8 +22,7 @@ CFLAGS   += -Wall
 CFLAGS   += -Werror
 CFLAGS   += -g
 CPPFLAGS += -DARCHDIR_is_x86_64=1
-LDFLAGS  += -g
-# -Wl,-T,obj-$(PLATFORM)/link.ld
+LDFLAGS  += -g -Wl,-T,obj-$(PLATFORM)/link.ld
 
 DEPFILES  = $(filter %.o,$(OBJ))
 DEPFILES := $(DEPFILES:%=%.dep)
@@ -46,7 +45,7 @@ obj-$(PLATFORM)/%.o: %.c
 	@$(CC) -M $(CPPFLAGS) -MT $@ -o $@.dep $<
 
 # Modify the default makefile to put the executable at 1MB instead
-obj-lin/link.ld:
+obj-lin/link.ld: Makefile
 	@mkdir -p $(dir $@)
 	@echo "Making Linker Script ($@)"
 	$(LD) -g --verbose | awk '{ if( substr($$1,0,5) == "====="){ bPrint = !bPrint; } else { if(bPrint){ print $$0;} } }' | sed 's/\b0x[048][0-9]*\b/$(LINKADDR)/g' | sed 's/CONSTANT (MAXPAGESIZE)/0x1000/g' > $@

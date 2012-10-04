@@ -28,6 +28,7 @@ extern int	VT_Install(char **Arguments);
 extern int	VFS_Mount(const char *Device, const char *MountPoint, const char *Filesystem, const char *Options);
 extern int	VFS_MkDir(const char *Path);
 extern int	SyscallServer(void);
+extern int	Server_Shutdown(void);
 extern const char	gsKernelVersion[];
 extern const char	gsGitHash[];
 extern int	giBuildNumber;
@@ -140,6 +141,7 @@ int main(int argc, char *argv[])
 void AcessNative_Exit(void)
 {
 	// TODO: Close client applications too
+	Server_Shutdown();
 	exit(0);
 }
 

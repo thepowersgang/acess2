@@ -138,7 +138,7 @@ int Server_WorkerThread(void *ClientPtr)
 		;
 	Threads_SetThread( Client->ClientID );
 	
-	for( ;; )
+	while( Client->ClientID != -1 )
 	{
 		fd_set	fds;
 		 int	nfd = Client->Socket+1;
@@ -176,7 +176,7 @@ int Server_WorkerThread(void *ClientPtr)
 				// Oops.
 				Log_Warning("Server", "FD%i too many params (%i > max %i)",
 					Client->Socket, hdr->NParams, ciMaxParamCount);
-				continue ;
+				break ;
 			}
 
 			if( hdr->NParams > 0 )
@@ -185,6 +185,9 @@ int Server_WorkerThread(void *ClientPtr)
 				Log_Debug("Server", "%i bytes of params", len);
 				if( len != hdr->NParams*sizeof(tRequestValue) ) {
 					// Oops.
+					perror("recv params");
+					Log_Warning("Sever", "Recieving params failed");
+					break ;
 				}
 			}
 			else
@@ -210,10 +213,23 @@ int Server_WorkerThread(void *ClientPtr)
 			memcpy(hdr, lbuf, hdrsize);
 			if( bufsize > hdrsize )
 			{
-				len = recv(Client->Socket, hdr->Params + hdr->NParams, bufsize - hdrsize, 0);
-				Log_Debug("Server", "%i bytes of data", len);
-				if( len != bufsize - hdrsize ) {
-					// Oops?
+				size_t	rem = bufsize - hdrsize;
+				char	*ptr = (void*)( hdr->Params + hdr->NParams );
+				while( rem )
+				{
+					len = recv(Client->Socket, ptr, rem, 0);
+					Log_Debug("Server", "%i bytes of data", len);
+					if( len == -1 ) {
+						// Oops?
+						perror("recv data");
+						Log_Warning("Sever", "Recieving data failed");
+						break ;
+					}
+					rem -= len;
+					ptr += len;
+				}
+				if( rem ) {
+					break;
 				}
 			}
 			else
@@ -240,11 +256,13 @@ int Server_WorkerThread(void *ClientPtr)
 	 int	retSize = 0;
 	 int	sentSize;
 	 int	cur_client_id = 0;
-	for( ;; )
+	while( Client->ClientID != -1 )
 	{
 		// Wait for something to do
-		while( Client->CurrentRequest == NULL )
+		if( Client->CurrentRequest == NULL )
 			SDL_CondWait(Client->WaitFlag, Client->Mutex);
+		if( Client->CurrentRequest == NULL )
+			continue ;
 		
 //		Log_Debug("AcessSrv", "Worker got message %p", Client->CurrentRequest);
 		
@@ -361,6 +379,24 @@ int SyscallServer(void)
 	
 	Log_Notice("AcessSrv", "Listening on 0.0.0.0:%i", SERVER_PORT);
 	gpServer_ListenThread = SDL_CreateThread( Server_ListenThread, NULL );
+	return 0;
+}
+
+int Server_Shutdown(void)
+{
+	close(gSocket);
+	for( int i = 0; i < MAX_CLIENTS; i ++ )
+	{
+		if( gaServer_Clients[i].ClientID == 0 )
+			continue ;
+		Threads_PostEvent( Threads_GetThread(gaServer_Clients[i].ClientID), 0 );
+		gaServer_Clients[i].ClientID = -1;
+		#if USE_TCP
+		close(gaServer_Clients[i].Socket);
+		#else
+		SDL_CondSignal(gaServer_Clients[i].WaitFlag);
+		#endif
+	}
 	return 0;
 }
 

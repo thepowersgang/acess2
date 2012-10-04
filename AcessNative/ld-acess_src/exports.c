@@ -95,6 +95,7 @@ int acess_seek(int FD, int64_t Ofs, int Dir) {
 uint64_t acess_tell(int FD) {
 	if(FD & NATIVE_FILE_MASK)
 		return native_tell( FD & (NATIVE_FILE_MASK-1) );
+	DEBUG("tell(0x%x)", FD);
 	return _Syscall(SYS_TELL, ">i", FD);
 }
 
@@ -142,14 +143,17 @@ int acess_select(int nfds, fd_set *read, fd_set *write, fd_set *error, time_t *t
 
 
 int acess__SysOpenChild(int fd, char *name, int flags) {
+	DEBUG("_SysOpenChild(0x%x, '%s', 0x%x)", fd, name, flags);
 	return _Syscall(SYS_OPENCHILD, ">i >s >i", fd, name, flags);
 }
 
 int acess__SysGetACL(int fd, t_sysACL *dest) {
+	DEBUG("%s(0x%x, %p)", __func__, fd, dest);
 	return _Syscall(SYS_GETACL, ">i <d", fd, sizeof(t_sysACL), dest);
 }
 
 int acess__SysMount(const char *Device, const char *Directory, const char *Type, const char *Options) {
+	DEBUG("%s('%s', '%s', '%s', '%s')", __func__, Device, Directory, Type, Options);
 	return _Syscall(SYS_MOUNT, ">s >s >s >s", Device, Directory, Type, Options);
 }
 
@@ -175,7 +179,7 @@ int acess_clone(int flags, void *stack)
 	extern int fork(void);
 	if(flags & CLONE_VM) {
 		 int	ret, newID, kernel_tid=0;
-		printf("USERSIDE fork()\n");
+		Debug("USERSIDE fork()");
 		
 		newID = _Syscall(SYS_AN_FORK, "<d", sizeof(int), &kernel_tid);
 		ret = fork();
@@ -246,11 +250,13 @@ int acess_execve(char *path, char **argv, char **envp)
 
 void acess_sleep(void)
 {
+	DEBUG("%s()", __func__);
 	_Syscall(SYS_SLEEP, "");
 }
 
 int acess_waittid(int TID, int *ExitStatus)
 {
+	DEBUG("%s(%i, %p)", __func__, TID, ExitStatus);
 	return _Syscall(SYS_WAITTID, ">i <d", TID, sizeof(int), &ExitStatus);
 }
 
@@ -263,23 +269,22 @@ int acess_getgid(void) { return _Syscall(SYS_GETGID, ""); }
 
 int acess_SysSendMessage(int DestTID, int Length, void *Data)
 {
+	DEBUG("%s(%i, 0x%x, %p)", __func__, DestTID, Length, Data);
 	return _Syscall(SYS_SENDMSG, ">i >d", DestTID, Length, Data);
 }
 
-int acess_SysGetMessage(int *SourceTID, void *Data)
+int acess_SysGetMessage(int *SourceTID, int BufLen, void *Data)
 {
-//	static __thread int lastlen = 1024;
-	int lastlen;
-
-	lastlen = _Syscall(SYS_GETMSG, "<d <d",
+	DEBUG("%s(%p, %p)", __func__, SourceTID, Data);
+	return _Syscall(SYS_GETMSG, "<d <d",
 		SourceTID ? sizeof(uint32_t) : 0, SourceTID,
-		Data ? 1024 : 0, Data
+		BufLen, Data
 		);
-	return lastlen;
 }
 
 int acess__SysWaitEvent(int Mask)
 {
+	DEBUG("%s(%x)", __func__, Mask);
 	return _Syscall(SYS_WAITEVENT, ">i", Mask);
 }
 

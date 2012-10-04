@@ -23,7 +23,7 @@ typedef struct sRequestValue {
 	/// \see eArgumentTypes
 	uint16_t	Type;
 	uint16_t	Flags;
-	uint16_t	Length;
+	uint32_t	Length;
 }	tRequestValue;
 
 typedef struct sRequestHeader {

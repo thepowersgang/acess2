@@ -203,11 +203,11 @@ SYSCALL2(Syscall_GetMessage, "dd", uint32_t *, void *,
 	Uint	tmp;
 	 int	rv;
 	if( a0 ) {
-		rv = Proc_GetMessage(&tmp, a1);
+		rv = Proc_GetMessage(&tmp, Sizes[1], a1);
 		*a0 = tmp;
 	}
 	else
-		rv = Proc_GetMessage(NULL, a1);
+		rv = Proc_GetMessage(NULL, Sizes[1], a1);
 	return rv;
 );
 

@@ -108,7 +108,7 @@ const char *ReadEntry(tRequestValue *Dest, void *DataDest, void **PtrDest, const
 		break;
 	// Data (special handling)
 	case 'd':
-		len = va_arg(*Args, int);
+		len = va_arg(*Args, size_t);
 		str = va_arg(*Args, char*);
 		
 		// Save the pointer for later
@@ -116,7 +116,7 @@ const char *ReadEntry(tRequestValue *Dest, void *DataDest, void **PtrDest, const
 		
 		// Create parameter block
 		Dest->Type = ARG_TYPE_DATA;
-		Dest->Length = len;
+		Dest->Length = str ? len : 0;
 		Dest->Flags = 0;
 		if( direction & 2 )
 			Dest->Flags |= ARG_FLAG_RETURN;
@@ -124,7 +124,7 @@ const char *ReadEntry(tRequestValue *Dest, void *DataDest, void **PtrDest, const
 		// Has data?
 		if( direction & 1 )
 		{
-			if( DataDest )
+			if( DataDest && str )
 				memcpy(DataDest, str, len);
 		}
 		else
@@ -270,7 +270,7 @@ uint64_t _Syscall(int SyscallID, const char *ArgTypes, ...)
 	free( req );
 	free( retPtrs );
 	
-	DEBUG(": %llx", retValue);
+	DEBUG(": %i 0x%llx", SyscallID, retValue);
 	
 	return retValue;
 }

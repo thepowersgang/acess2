@@ -400,7 +400,7 @@ void Threads_PostEvent(tThread *Thread, Uint32 Events)
 	Thread->Events |= Events;
 	Log_Debug("Threads", "Trigger event %x (->Events = %p)", Events, Thread->Events);
 	
-	if( Thread->WaitMask & Events ) {
+	if( Events == 0 || Thread->WaitMask & Events ) {
 		SDL_SemPost( Thread->EventSem );
 //		Log_Debug("Threads", "Waking %p(%i %s)", Thread, Thread->TID, Thread->ThreadName);
 	}
