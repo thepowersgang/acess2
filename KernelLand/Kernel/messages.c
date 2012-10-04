@@ -78,10 +78,11 @@ int Proc_SendMessage(Uint Dest, int Length, void *Data)
  * \fn int Proc_GetMessage(Uint *Source, void *Buffer)
  * \brief Gets a message
  * \param Source	Where to put the source TID
+ * \param BufSize	Size of \a Buffer, only this many bytes will be copied
  * \param Buffer	Buffer to place the message data (set to NULL to just get message length)
  * \return Message length
  */
-int Proc_GetMessage(Uint *Source, void *Buffer)
+int Proc_GetMessage(Uint *Source, Uint BufSize, void *Buffer)
 {
 	 int	ret;
 	void	*tmp;
@@ -113,7 +114,7 @@ int Proc_GetMessage(Uint *Source, void *Buffer)
 	// Get message
 	if(Buffer != GETMSG_IGNORE)
 	{
-		if( !CheckMem( Buffer, cur->Messages->Length ) )
+		if( !CheckMem( Buffer, BufSize ) )
 		{
 			LOG("Invalid buffer");
 			errno = -EINVAL;
@@ -121,8 +122,15 @@ int Proc_GetMessage(Uint *Source, void *Buffer)
 			LEAVE('i', -1);
 			return -1;
 		}
+		if( BufSize < cur->Messages->Length )
+			Log_Notice("Threads", "Buffer of 0x%x passed, but 0x%x long message, truncated",
+				BufSize, cur->Messages->Length);
+		else if( BufSize < cur->Messages->Length )
+			BufSize = cur->Messages->Length;
+		else
+			;	// equal
 		LOG("Copied to buffer");
-		memcpy(Buffer, cur->Messages->Data, cur->Messages->Length);
+		memcpy(Buffer, cur->Messages->Data, BufSize);
 	}
 	ret = cur->Messages->Length;
 	

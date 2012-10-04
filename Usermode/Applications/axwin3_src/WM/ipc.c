@@ -112,12 +112,12 @@ void IPC_HandleSelect(fd_set *set)
 		}
 	}
 
-	while(SysGetMessage(NULL, NULL))
+	size_t	len;
+	pid_t	tid;
+	while( (len = SysGetMessage(&tid, 0, NULL)) )
 	{
-		pid_t	tid;
-		 int	len = SysGetMessage(&tid, NULL);
 		char	data[len];
-		SysGetMessage(NULL, data);
+		SysGetMessage(NULL, len, data);
 
 		IPC_Handle(&gIPC_Type_SysMessage, &tid, len, (void*)data);
 //		_SysDebug("IPC_HandleSelect: Message handled");

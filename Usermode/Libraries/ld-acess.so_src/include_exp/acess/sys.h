@@ -85,7 +85,7 @@ extern int	unlink(const char *pathname);
 
 // --- IPC ---
 extern int	SysSendMessage(pid_t dest, uint length, const void *Data);
-extern int	SysGetMessage(pid_t *src, void *Data);
+extern int	SysGetMessage(pid_t *src, uint buflen, void *Data);
 
 // --- MEMORY ---
 uint64_t	_SysGetPhys(uint vaddr);

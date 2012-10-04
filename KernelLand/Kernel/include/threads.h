@@ -37,6 +37,6 @@ extern char	**Threads_GetCWD(void);
 extern char	**Threads_GetChroot(void);
 
 extern int	Proc_SendMessage(Uint Dest, int Length, void *Data);
-extern int	Proc_GetMessage(Uint *Source, void *Buffer);
+extern int	Proc_GetMessage(Uint *Source, Uint BufSize, void *Buffer);
 
 #endif

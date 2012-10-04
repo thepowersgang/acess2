@@ -135,13 +135,10 @@ void SyscallHandler(tSyscallRegs *Regs)
 	// -- Check for messages
 	case SYS_GETMSG:
 		CHECK_NUM_NULLOK( (Uint*)Regs->Arg1, sizeof(Uint) );
-		// NOTE: Can't do range checking as we don't know the size
-		// - Should be done by Proc_GetMessage
-		if( Regs->Arg2 && Regs->Arg2 != -1 && !MM_IsUser(Regs->Arg2) ) {
-			err = -EINVAL;	ret = -1;	break;
-		}
+		if( Regs->Arg3 != -1 )
+			CHECK_NUM_NULLOK((void*)Regs->Arg3, Regs->Arg2);
 		// *Source, *Data
-		ret = Proc_GetMessage((Uint*)Regs->Arg1, (void*)Regs->Arg2);
+		ret = Proc_GetMessage((Uint*)Regs->Arg1, Regs->Arg2, (void*)Regs->Arg3);
 		break;
 	
 	// -- Get the current timestamp

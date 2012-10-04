@@ -127,7 +127,7 @@ tAxWin_IPCMessage *AxWin3_int_GetIPCMessage(void)
 			pid_t	tid;
 		
 			// Wait for a message to arrive	
-			while( !(len = SysGetMessage(&tid, NULL)) )
+			while( !(len = SysGetMessage(&tid, 0, NULL)) )
 			{
 				_SysWaitEvent(THREAD_EVENT_IPCMSG);
 			}
@@ -140,7 +140,7 @@ tAxWin_IPCMessage *AxWin3_int_GetIPCMessage(void)
 				if( gAxWin3_MessageCallback )
 					gAxWin3_MessageCallback(tid, len);
 				else
-					SysGetMessage(NULL, GETMSG_IGNORE);
+					SysGetMessage(NULL, 0, GETMSG_IGNORE);
 				continue ;
 			}
 			
@@ -148,10 +148,10 @@ tAxWin_IPCMessage *AxWin3_int_GetIPCMessage(void)
 			ret = malloc(len);
 			if(ret == NULL) {
 				_SysDebug("malloc() failed, ignoring message");
-				SysGetMessage(NULL, GETMSG_IGNORE);
+				SysGetMessage(NULL, 0, GETMSG_IGNORE);
 				return NULL;
 			}
-			SysGetMessage(NULL, ret);
+			SysGetMessage(NULL, len, ret);
 			break;
 		}
 		break;
