@@ -14,6 +14,8 @@
 #include <unistd.h>
 #include <string.h>
 
+#define VALGRIND_CLIENT	0
+
 // === IMPORTS ===
 extern int	UI_Initialise(int Width, int Height);
 extern void	UI_MainLoop(void);
@@ -97,15 +99,19 @@ int main(int argc, char *argv[])
 	if( rootapp )
 	{
 		 int	pid;
-		char	*args[7+rootapp_argc+1];
-		
-		args[0] = "ld-acess";
-		args[1] = "--open";	args[2] = "/Devices/VTerm/0";
-		args[3] = "--open";	args[4] = "/Devices/VTerm/0";
-		args[5] = "--open";	args[6] = "/Devices/VTerm/0";
+		 int	argcount = 0;
+		char	*args[7+rootapp_argc+1+1];
+
+		#if VALGRIND_CLIENT
+		args[argcount++] = "valgrind";
+		#endif
+		args[argcount++] = "./ld-acess";
+		args[argcount++] = "--open";	args[argcount++] = "/Devices/VTerm/0";
+		args[argcount++] = "--open";	args[argcount++] = "/Devices/VTerm/0";
+		args[argcount++] = "--open";	args[argcount++] = "/Devices/VTerm/0";
 		for( i = 0; i < rootapp_argc; i ++ )
-			args[7+i] = rootapp[i];
-		args[7+rootapp_argc] = NULL;
+			args[argcount+i] = rootapp[i];
+		args[argcount+rootapp_argc] = NULL;
 		
 		pid = fork();
 		if(pid < 0) {
@@ -117,7 +123,11 @@ int main(int argc, char *argv[])
 			#ifdef __LINUX__
 			prctl(PR_SET_PDEATHSIG, SIGHUP);	// LINUX ONLY!
 			#endif
+			#if VALGRIND_CLIENT
+			execv("valgrind", args);
+			#else
 			execv("./ld-acess", args);
+			#endif
 		}
 		printf("Root application running as PID %i\n", pid);
 	}

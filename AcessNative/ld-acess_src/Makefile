@@ -20,7 +20,7 @@ endif
 
 CFLAGS   += -Wall
 CFLAGS   += -Werror
-CFLAGS   += -g
+CFLAGS   += -g -O2
 CPPFLAGS += -DARCHDIR_is_x86_64=1
 LDFLAGS  += -g -Wl,-T,obj-$(PLATFORM)/link.ld
 
@@ -36,6 +36,7 @@ clean:
 
 $(BIN): obj-$(PLATFORM)/link.ld $(OBJ)
 	$(CC) $(LDFLAGS) -o $@ $(OBJ)
+	objdump -S $@ > $@.dsm
 
 obj-$(PLATFORM)/%.o: %.c
 	@mkdir -p $(dir $@)
@@ -47,7 +48,7 @@ obj-$(PLATFORM)/%.o: %.c
 obj-lin/link.ld:
 	@mkdir -p $(dir $@)
 	@echo "Making Linker Script ($@)"
-	$(LD) --verbose | awk '{ if( substr($$0,0,5) == "====="){ bPrint = !bPrint; } else { if(bPrint){ print $$0;} } }' | sed 's/\b0x[048][0-9]*\b/$(LINKADDR)/g' | sed 's/CONSTANT (MAXPAGESIZE)/0x1000/g' > $@
+	$(LD) -g --verbose | awk '{ if( substr($$1,0,5) == "====="){ bPrint = !bPrint; } else { if(bPrint){ print $$0;} } }' | sed 's/\b0x[048][0-9]*\b/$(LINKADDR)/g' | sed 's/CONSTANT (MAXPAGESIZE)/0x1000/g' > $@
 
 -include $(DEPFILES)
 

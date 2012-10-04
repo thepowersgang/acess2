@@ -122,6 +122,7 @@ int _InitSyscalls(void)
 	{
 		tRequestAuthHdr auth;
 		auth.pid = giSyscall_ClientID;
+		auth.key = 0;
 		SendData(&auth, sizeof(auth));
 		int len = ReadData(&auth, sizeof(auth), 5);
 		if( len == 0 ) { 

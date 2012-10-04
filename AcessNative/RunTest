@@ -1,6 +1,6 @@
 #!/bin/sh
 trap '' 2
-$1 ./AcessKernel --rootapp /Acess/SBin/login
-#$1 ./AcessKernel --rootapp /Acess/Apps/AxWin/3.0/AxWinWM
+#$1 ./AcessKernel --rootapp /Acess/SBin/login
+$1 ./AcessKernel --rootapp /Acess/Apps/AxWin/3.0/AxWinWM
 trap 2
 killall ld-acess

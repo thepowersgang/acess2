@@ -19,6 +19,7 @@
 #endif
 #include "../syscalls.h"
 //#include <debug.h>
+#include <errno.h>
 
 #define	USE_TCP	1
 #define MAX_CLIENTS	16
@@ -159,6 +160,11 @@ int Server_WorkerThread(void *ClientPtr)
 			size_t	len = recv(Client->Socket, hdr, sizeof(*hdr), 0);
 			Log_Debug("Server", "%i bytes of header", len);
 			if( len == 0 )	break;
+			if( len == -1 ) {
+				perror("recv header");
+//				Log_Warning("Server", "recv() error - %s", strerror(errno));
+				break;
+			}
 			if( len != sizeof(*hdr) ) {
 				// Oops?
 				Log_Warning("Server", "FD%i bad sized (%i != exp %i)",
@@ -173,10 +179,17 @@ int Server_WorkerThread(void *ClientPtr)
 				continue ;
 			}
 
-			len = recv(Client->Socket, hdr->Params, hdr->NParams*sizeof(tRequestValue), 0);
-			Log_Debug("Server", "%i bytes of params", len);
-			if( len != hdr->NParams*sizeof(tRequestValue) ) {
-				// Oops.
+			if( hdr->NParams > 0 )
+			{
+				len = recv(Client->Socket, hdr->Params, hdr->NParams*sizeof(tRequestValue), 0);
+				Log_Debug("Server", "%i bytes of params", len);
+				if( len != hdr->NParams*sizeof(tRequestValue) ) {
+					// Oops.
+				}
+			}
+			else
+			{
+				Log_Debug("Server", "No params?");
 			}
 
 			// Get buffer size
