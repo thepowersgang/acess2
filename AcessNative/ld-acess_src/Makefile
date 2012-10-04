@@ -20,9 +20,10 @@ endif
 
 CFLAGS   += -Wall
 CFLAGS   += -Werror
-CFLAGS   += -g -O2
+CFLAGS   += -g
 CPPFLAGS += -DARCHDIR_is_x86_64=1
-LDFLAGS  += -g -Wl,-T,obj-$(PLATFORM)/link.ld
+LDFLAGS  += -g
+# -Wl,-T,obj-$(PLATFORM)/link.ld
 
 DEPFILES  = $(filter %.o,$(OBJ))
 DEPFILES := $(DEPFILES:%=%.dep)
