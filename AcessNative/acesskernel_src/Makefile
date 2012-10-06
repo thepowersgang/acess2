@@ -34,7 +34,7 @@ K_OBJ := $(addprefix $(KERNEL_SRC)obj-native-$(PLATFORM)/,$(KERNEL_OBJ))
 DEPFILES  = $(filter %.o,$(OBJ) $(N_OBJ) $(K_OBJ))
 DEPFILES := $(DEPFILES:%=%.dep)
 
-CPPFLAGS += -I include/ -I $(KERNEL_SRC)include/
+KCPPFLAGS = -I include/ -I $(KERNEL_SRC)include/
 CFLAGS += -Wall -g -std=gnu99
 LDFLAGS += -lSDL -lSDLmain -g -Wl,--defsym,__buildnum=$(BUILD_NUM)
 
@@ -62,26 +62,26 @@ $(BIN): $(OBJ) $(N_OBJ) $(K_OBJ) $(BUILDINFO_OBJ)
 $(OBJ): obj-$(PLATFORM)/%.o: %.c
 	@mkdir -p $(dir $@)
 	@echo [CC] -o $@
-	@$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
-	@$(CC) -M $(CPPFLAGS) -MT $@ -o $@.dep $<
+	@$(CC) -c $< -o $@ $(CFLAGS) $(KCPPFLAGS) $(CPPFLAGS)
+	@$(CC) -M $(CPPFLAGS) $(KCPPFLAGS) -MT $@ -o $@.dep $<
 
 $(K_OBJ): $(KERNEL_SRC)obj-native-$(PLATFORM)/%.o: $(KERNEL_SRC)%.c
 	@mkdir -p $(dir $@)
 	@echo [CC] -o $@
-	@$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
-	@$(CC) -M $(CPPFLAGS) -MT $@ -o $@.dep $<
+	$(CC) -ffreestanding -c $< -o $@ $(CFLAGS) $(KCPPFLAGS) $(CPPFLAGS)
+	@$(CC) -ffreestanding -M $(KCPPFLAGS) $(CPPFLAGS) -MT $@ -o $@.dep $<
 
 
 $(N_OBJ): obj-$(PLATFORM)/%.o: %.c
 	@mkdir -p $(dir $@)
 	@echo [CC] -o $@
-	@$(CC) -c $< -o $@ $(CFLAGS)
+	@$(CC) -c $< -o $@ $(CPPFLAGS) $(CFLAGS)
 	@$(CC) -M -MT $@ -o $@.dep $<
 
 $(BUILDINFO_SRC): $(filter-out $(BUILDINFO_OBJ), $(OBJ)) Makefile
 	@echo "" > $@
-	$(eval _GITHASH=$(shell git log -n 1 | head -n 1 | awk '{print $$2}'))
-	$(eval _GITCHANGED=$(shell git status --porcelain | grep -c '^ M '))
+	$(eval _GITHASH=$(shell (git log -n 1 | head -n 1 | awk '{print $$2}') || echo UNK))
+	$(eval _GITCHANGED=$(shell (git status --porcelain | grep -c '^ M ') || echo UNK))
 	@echo "const char gsKernelVersion[] = \"$(ACESS_VERSION)\";" >> $@
 	@echo "const char gsGitHash[] = \"$(_GITHASH)\";" >> $@
 	@echo "const char gsBuildInfo[] = \"Acess2 v$(KERNEL_VERSION) $(ARCH)-$(PLATFORM)\\\\r\\\\n\"" >> $@

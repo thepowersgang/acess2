@@ -20,7 +20,6 @@ typedef int	socklen_t;
 # include <sys/socket.h>
 # include <netinet/in.h>
 # include <arpa/inet.h>	// inet_ntop
-# include "include/windows_helpers.h"
 #endif
 #define DONT_INCLUDE_SYSCALL_NAMES
 #include "../syscalls.h"
