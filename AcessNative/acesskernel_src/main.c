@@ -38,6 +38,19 @@ extern int	giBuildNumber;
 const char	*gsAcessDir = "../Usermode/Output/x86_64";
 
 // === CODE ===
+#ifndef __WIN32__
+#define P_NOWAIT	0
+int spawnv(int flags, const char *execuable, char * const argv[])
+{
+	int pid = fork();
+	if( pid != 0 )	return pid;
+
+	execv(execuable, argv);
+	perror("spawnv - execve");
+	for(;;);
+}
+#endif
+
 int main(int argc, char *argv[])
 {
 	char	**rootapp = NULL;

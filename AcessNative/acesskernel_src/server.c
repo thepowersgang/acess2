@@ -19,7 +19,7 @@ typedef int	socklen_t;
 # include <unistd.h>
 # include <sys/socket.h>
 # include <netinet/in.h>
-# include <arpa/inet.h>	// inet_ntop
+# include <netdb.h>	// getaddrinfo
 #endif
 #define DONT_INCLUDE_SYSCALL_NAMES
 #include "../syscalls.h"

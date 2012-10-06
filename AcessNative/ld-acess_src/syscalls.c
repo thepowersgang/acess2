@@ -321,7 +321,7 @@ uint64_t native_tell(int FD)
 int native_execve(const char *filename, const char *const argv[], const char *const envp[])
 {
 	int ret;
-	ret = execve(filename, argv, envp);
+	ret = execve(filename, (void*)argv, (void*)envp);
 	perror("native_execve");
 	return ret;
 }
