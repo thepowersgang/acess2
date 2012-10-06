@@ -137,7 +137,7 @@ SYSCALL2(Syscall_ReadDir, "id", int, char *,
 		return -1;
 	return VFS_ReadDir(a0, a1);
 );
-SYSCALL6(Syscall_select, "iddddi", int, fd_set *, fd_set *, fd_set *, time_t *, unsigned int,
+SYSCALL6(Syscall_select, "iddddi", int, fd_set *, fd_set *, fd_set *, tTime *, unsigned int,
 	return VFS_Select(a0, a1, a2, a3, a4, a5, 0);
 );
 SYSCALL3(Syscall_OpenChild, "isi", int, const char *, int,

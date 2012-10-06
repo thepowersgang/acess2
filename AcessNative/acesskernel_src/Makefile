@@ -25,7 +25,7 @@ N_OBJ := main.o
 BUILDINFO_OBJ := obj-$(PLATFORM)/buildinfo.o
 BUILDINFO_SRC := $(BUILDINFO_OBJ:%.o=%.c)
 
-OBJ := helpers.o threads.o server.o syscalls.o time.o
+OBJ := helpers.o threads.o threads_glue.o server.o syscalls.o time.o
 OBJ += video.o keyboard.o mouse.o nativefs.o vfs_handle.o ui_sdl.o
 OBJ := $(addprefix obj-$(PLATFORM)/,$(OBJ))
 N_OBJ := $(addprefix obj-$(PLATFORM)/,$(N_OBJ))
@@ -40,6 +40,7 @@ LDFLAGS += -lSDL -lSDLmain -g -Wl,--defsym,__buildnum=$(BUILD_NUM)
 
 ifeq ($(PLATFORM),win)
 	BIN := ../AcessKernel.exe
+	LDFLAGS += -lws2_32 -lpthread
 endif
 ifeq ($(PLATFORM),lin)
 	BIN := ../AcessKernel

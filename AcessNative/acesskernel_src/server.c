@@ -9,16 +9,22 @@
 #include <string.h>
 #include <SDL/SDL.h>
 #ifdef __WIN32__
+# define _WIN32_WINNT 0x0501
 # include <windows.h>
-# include <winsock.h>
+# include <winsock2.h>
+# include <ws2tcpip.h>
+# define close(fd)	closesocket(fd)
+typedef int	socklen_t;
 #else
 # include <unistd.h>
 # include <sys/socket.h>
 # include <netinet/in.h>
 # include <arpa/inet.h>	// inet_ntop
+# include "include/windows_helpers.h"
 #endif
+#define DONT_INCLUDE_SYSCALL_NAMES
 #include "../syscalls.h"
-//#include <debug.h>
+#include <logdebug.h>	// acess but std
 #include <errno.h>
 
 #define	USE_TCP	1
@@ -42,10 +48,8 @@ typedef struct {
 extern tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength);
 extern int	Threads_CreateRootProcess(void);
 extern void	Threads_SetThread(int TID);
-// HACK: Should have these in a header
-extern void	Log_Debug(const char *Subsys, const char *Message, ...);
-extern void	Log_Notice(const char *Subsys, const char *Message, ...);
-extern void	Log_Warning(const char *Subsys, const char *Message, ...);
+extern void	*Threads_GetThread(int TID);
+extern void	Threads_PostEvent(void *Thread, uint32_t Event);
 
 // === PROTOTYPES ===
 tClient	*Server_GetClient(int ClientID);
@@ -157,7 +161,7 @@ int Server_WorkerThread(void *ClientPtr)
 			const int	ciMaxParamCount = 6;
 			char	lbuf[sizeof(tRequestHeader) + ciMaxParamCount*sizeof(tRequestValue)];
 			tRequestHeader	*hdr = (void*)lbuf;
-			size_t	len = recv(Client->Socket, hdr, sizeof(*hdr), 0);
+			size_t	len = recv(Client->Socket, (void*)hdr, sizeof(*hdr), 0);
 			Log_Debug("Server", "%i bytes of header", len);
 			if( len == 0 )	break;
 			if( len == -1 ) {
@@ -181,7 +185,7 @@ int Server_WorkerThread(void *ClientPtr)
 
 			if( hdr->NParams > 0 )
 			{
-				len = recv(Client->Socket, hdr->Params, hdr->NParams*sizeof(tRequestValue), 0);
+				len = recv(Client->Socket, (void*)hdr->Params, hdr->NParams*sizeof(tRequestValue), 0);
 				Log_Debug("Server", "%i bytes of params", len);
 				if( len != hdr->NParams*sizeof(tRequestValue) ) {
 					// Oops.
@@ -244,7 +248,7 @@ int Server_WorkerThread(void *ClientPtr)
 				continue ;
 			}
 			
-			send(Client->Socket, retHeader, retlen, 0); 
+			send(Client->Socket, (void*)retHeader, retlen, 0); 
 
 			// Clean up
 			free(hdr);
@@ -415,13 +419,14 @@ int Server_ListenThread(void *Unused)
 		}
 
 		char	addrstr[4*8+8+1];
-		inet_ntop(clientaddr.sin_family, &clientaddr.sin_addr, addrstr, sizeof(addrstr));
+		getnameinfo((struct sockaddr*)&clientaddr, sizeof(clientaddr),
+			addrstr, sizeof(addrstr), NULL, 0, NI_NUMERICHOST);
 		Log_Debug("Server", "Client connection %s:%i", addrstr, ntohs(clientaddr.sin_port));
 		
 		// Perform auth
 		size_t	len;
 		tRequestAuthHdr	authhdr;
-		len = recv(clientSock, &authhdr, sizeof(authhdr), 0);
+		len = recv(clientSock, (void*)&authhdr, sizeof(authhdr), 0);
 		if( len != sizeof(authhdr) ) {
 			// Some form of error?
 			Log_Warning("Server", "Client auth block bad size (%i != exp %i)",
@@ -461,7 +466,7 @@ int Server_ListenThread(void *Unused)
 		}
 		Log_Debug("Server", "Client given PID %i - info %p", authhdr.pid, client);
 		
-		len = send(clientSock, &authhdr, sizeof(authhdr), 0);
+		len = send(clientSock, (void*)&authhdr, sizeof(authhdr), 0);
 		if( len != sizeof(authhdr) ) {
 			// Ok, this is an error
 			perror("Sending auth reply");
