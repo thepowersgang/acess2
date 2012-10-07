@@ -70,7 +70,6 @@ Uint32 UI_GetAcessKeyFromSDL(SDLKey Sym)
 	if( gUI_Keymap[shiftState][Sym] )
 		return gUI_Keymap[shiftState][Sym];
 
-	// Enter key on acess returns \n, but SDL returns \r
 	switch(Sym)
 	{
 	case SDLK_a ... SDLK_z:
@@ -79,11 +78,12 @@ Uint32 UI_GetAcessKeyFromSDL(SDLKey Sym)
 	case SDLK_0 ... SDLK_9:
 		ret = Sym - SDLK_0 + KEYSYM_0;
 		break;
+	case SDLK_CAPSLOCK:	ret = KEYSYM_CAPS;	break;
+	case SDLK_TAB:	ret = KEYSYM_TAB;	break;
 	case SDLK_UP:	ret = KEYSYM_UPARROW;	break;
 	case SDLK_DOWN:	ret = KEYSYM_DOWNARROW;	break;
 	case SDLK_LEFT:	ret = KEYSYM_LEFTARROW;	break;
 	case SDLK_RIGHT:ret = KEYSYM_RIGHTARROW;break;
-	case SDLK_CAPSLOCK:	ret = KEYSYM_CAPS;	break;
 	case SDLK_F1:	ret = KEYSYM_F1;	break;
 	case SDLK_F2:	ret = KEYSYM_F2;	break;
 	case SDLK_F3:	ret = KEYSYM_F3;	break;
@@ -97,9 +97,14 @@ Uint32 UI_GetAcessKeyFromSDL(SDLKey Sym)
 	case SDLK_F11:	ret = KEYSYM_F11;	break;
 	case SDLK_F12:	ret = KEYSYM_F12;	break;
 	case SDLK_RETURN:	ret = KEYSYM_RETURN;	break;
-	case SDLK_LALT:	ret = KEYSYM_LEFTALT;	break;
-	case SDLK_RALT:	ret = KEYSYM_RIGHTALT;	break;
+	case SDLK_LALT: 	ret = KEYSYM_LEFTALT;	break;
+	case SDLK_LCTRL: 	ret = KEYSYM_LEFTCTRL;	break;
+	case SDLK_LSHIFT:	ret = KEYSYM_LEFTSHIFT;	break;
 	case SDLK_LSUPER:	ret = KEYSYM_LEFTGUI;	break;
+	case SDLK_RALT: 	ret = KEYSYM_RIGHTALT;	break;
+	case SDLK_RCTRL: 	ret = KEYSYM_RIGHTCTRL;	break;
+	case SDLK_RSHIFT: 	ret = KEYSYM_RIGHTSHIFT;	break;
+	case SDLK_RSUPER:	ret = KEYSYM_RIGHTGUI;	break;
 	default:
 		printf("Unhandled key code %i\n", Sym);
 		break;
@@ -107,6 +112,17 @@ Uint32 UI_GetAcessKeyFromSDL(SDLKey Sym)
 	
 	gUI_Keymap[shiftState][Sym] = ret;
 	return ret;
+}
+
+Uint32 UI_GetButtonBits(Uint8 sdlstate)
+{
+	Uint32	rv = 0;
+	rv |= sdlstate & SDL_BUTTON(SDL_BUTTON_LEFT)	? (1 << 0) : 0;
+	rv |= sdlstate & SDL_BUTTON(SDL_BUTTON_RIGHT)	? (1 << 1) : 0;
+	rv |= sdlstate & SDL_BUTTON(SDL_BUTTON_MIDDLE)	? (1 << 2) : 0;
+	rv |= sdlstate & SDL_BUTTON(SDL_BUTTON_X1)	? (1 << 3) : 0;
+	rv |= sdlstate & SDL_BUTTON(SDL_BUTTON_X2)	? (1 << 4) : 0;
+	return rv;
 }
 
 void UI_MainLoop(void)
@@ -126,7 +142,10 @@ void UI_MainLoop(void)
 				
 			case SDL_KEYDOWN:
 				acess_sym = UI_GetAcessKeyFromSDL(event.key.keysym.sym);
-				
+				// Enter key on acess returns \n, but SDL returns \r
+				if(event.key.keysym.sym == SDLK_RETURN)
+					event.key.keysym.unicode = '\n';				
+
 				if( gUI_KeyboardCallback ) {
 					gUI_KeyboardCallback(KEY_ACTION_RAWSYM|acess_sym);
 					gUI_KeyboardCallback(KEY_ACTION_PRESS|event.key.keysym.unicode);
@@ -145,7 +164,18 @@ void UI_MainLoop(void)
 			case SDL_USEREVENT:
 				SDL_UpdateRect(gScreen, 0, 0, giUI_Width, giUI_Height);
 				SDL_Flip(gScreen);
-				break;		
+				break;
+			
+			case SDL_MOUSEMOTION: {
+				int abs[] = {event.motion.x, event.motion.y};
+				int delta[] = {event.motion.xrel, event.motion.yrel};
+				Mouse_HandleEvent(UI_GetButtonBits(SDL_GetMouseState(NULL, NULL)), delta, abs);
+				break; }
+			case SDL_MOUSEBUTTONUP:
+			case SDL_MOUSEBUTTONDOWN: {
+				int abs[] = {event.button.x, event.button.y};
+				Mouse_HandleEvent(UI_GetButtonBits(SDL_GetMouseState(NULL, NULL)), NULL, abs);
+				break; }
 	
 			default:
 				break;

@@ -136,7 +136,6 @@ int Server_WorkerThread(void *ClientPtr)
 	Log_Debug("Server", "Worker %p", ClientPtr);	
 
 	#if USE_TCP
-
 	while( *((volatile typeof(Client->Socket)*)&Client->Socket) == 0 )
 		;
 	Threads_SetThread( Client->ClientID );
@@ -161,7 +160,7 @@ int Server_WorkerThread(void *ClientPtr)
 			char	lbuf[sizeof(tRequestHeader) + ciMaxParamCount*sizeof(tRequestValue)];
 			tRequestHeader	*hdr = (void*)lbuf;
 			size_t	len = recv(Client->Socket, (void*)hdr, sizeof(*hdr), 0);
-			Log_Debug("Server", "%i bytes of header", len);
+//			Log_Debug("Server", "%i bytes of header", len);
 			if( len == 0 )	break;
 			if( len == -1 ) {
 				perror("recv header");
@@ -185,7 +184,7 @@ int Server_WorkerThread(void *ClientPtr)
 			if( hdr->NParams > 0 )
 			{
 				len = recv(Client->Socket, (void*)hdr->Params, hdr->NParams*sizeof(tRequestValue), 0);
-				Log_Debug("Server", "%i bytes of params", len);
+//				Log_Debug("Server", "%i bytes of params", len);
 				if( len != hdr->NParams*sizeof(tRequestValue) ) {
 					// Oops.
 					perror("recv params");
@@ -195,7 +194,7 @@ int Server_WorkerThread(void *ClientPtr)
 			}
 			else
 			{
-				Log_Debug("Server", "No params?");
+//				Log_Debug("Server", "No params?");
 			}
 
 			// Get buffer size
@@ -221,7 +220,7 @@ int Server_WorkerThread(void *ClientPtr)
 				while( rem )
 				{
 					len = recv(Client->Socket, ptr, rem, 0);
-					Log_Debug("Server", "%i bytes of data", len);
+//					Log_Debug("Server", "%i bytes of data", len);
 					if( len == -1 ) {
 						// Oops?
 						perror("recv data");
@@ -235,8 +234,8 @@ int Server_WorkerThread(void *ClientPtr)
 					break;
 				}
 			}
-			else
-				Log_Debug("Server", "no data");
+//			else
+//				Log_Debug("Server", "no data");
 
 			 int	retlen;
 			tRequestHeader	*retHeader;
