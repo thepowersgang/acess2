@@ -384,11 +384,12 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 	}
 	
 	// Allocate the return
-	ret = malloc(sizeof(tRequestHeader) + retValueCount * sizeof(tRequestValue)
-		+ retDataLen);
+	size_t	msglen = sizeof(tRequestHeader) + retValueCount * sizeof(tRequestValue) + retDataLen;
+	ret = malloc(msglen);
 	ret->ClientID = Request->ClientID;
 	ret->CallID = Request->CallID;
 	ret->NParams = retValueCount;
+	ret->MessageLength = msglen;
 	inData = (char*)&ret->Params[ ret->NParams ];
 	
 	// Static Uint64 return value

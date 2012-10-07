@@ -206,6 +206,7 @@ uint64_t _Syscall(int SyscallID, const char *ArgTypes, ...)
 	req->ClientID = 0;	//< Filled later
 	req->CallID = SyscallID;
 	req->NParams = paramCount;
+	req->MessageLength = dataLength;
 	dataPtr = &req->Params[paramCount];
 	
 	// Fill `output` and `input`
@@ -253,6 +254,11 @@ uint64_t _Syscall(int SyscallID, const char *ArgTypes, ...)
 	}
 	
 	// Write changes to buffers
+	if( req->NParams - 1 != retCount ) {
+		fprintf(stderr, "syscalls.c: Return count inbalance (%i - 1 != exp %i) [Call %i]\n",
+			req->NParams, retCount, SyscallID);
+		exit(127);
+	}
 	retCount = 0;
 	for( i = 1; i < req->NParams; i ++ )
 	{

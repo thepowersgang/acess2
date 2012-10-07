@@ -190,6 +190,7 @@ int SendRequest(tRequestHeader *Request, int RequestSize, int ResponseSize)
 		printf("\n");
 	}
 	#endif
+	#if DEBUG
 	{
 		 int	i;
 		char	*data = (char*)&Request->Params[Request->NParams];
@@ -219,6 +220,7 @@ int SendRequest(tRequestHeader *Request, int RequestSize, int ResponseSize)
 		}
 		DEBUG_S("\n");
 	}
+	#endif
 	
 	// Send it off
 	SendData(Request, RequestSize);
@@ -226,7 +228,23 @@ int SendRequest(tRequestHeader *Request, int RequestSize, int ResponseSize)
 	if( Request->CallID == SYS_EXIT )	return 0;
 
 	// Wait for a response (no timeout)
-	return ReadData(Request, ResponseSize, 0);
+	ReadData(Request, sizeof(*Request), 0);
+	// TODO: Sanity
+	size_t	recvbytes = sizeof(*Request), expbytes = Request->MessageLength;
+	char	*ptr = (void*)Request->Params;
+	while( recvbytes < expbytes )
+	{
+		size_t	len = ReadData(ptr, expbytes - recvbytes, 1000);
+		if( len == -1 ) {
+			return -1;
+		}
+		recvbytes += len;
+		ptr += len;
+	}
+	if( recvbytes > expbytes ) {
+		// TODO: Warning
+	}
+	return recvbytes;
 }
 
 void SendData(void *Data, int Length)
