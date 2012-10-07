@@ -21,9 +21,9 @@ int AllocateMemory(uintptr_t VirtAddr, size_t ByteCount)
 	size_t	size = (VirtAddr & 0xFFF) + ByteCount;
 	void	*tmp;
 	#if __WIN32__
-	tmp = VirtualAlloc(base, size, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+	tmp = VirtualAlloc((void*)base, size, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 	if( tmp == NULL ) {
-		printf("ERROR: Unable to allocate memory (%i)\n", GetLastError());
+		printf("ERROR: Unable to allocate memory (0x%x)\n", (int)GetLastError());
 		return -1;
 	}
 	#else
@@ -41,9 +41,6 @@ int AllocateMemory(uintptr_t VirtAddr, size_t ByteCount)
 
 uintptr_t FindFreeRange(size_t ByteCount, int MaxBits)
 {
-	#if __WIN32__
-	# error "Windows FindFreeRange() unimplemented"
-	#else
 	uintptr_t	base, ofs, size;
 	uintptr_t	end = -1;
 	static const int	PAGE_SIZE = 0x1000;
@@ -59,15 +56,21 @@ uintptr_t FindFreeRange(size_t ByteCount, int MaxBits)
 	for( base = end - size + 1; base > 0; base -= PAGE_SIZE )
 	{
 		for( ofs = 0; ofs < size; ofs += PAGE_SIZE ) {
+			#if __WIN32__
+			MEMORY_BASIC_INFORMATION	info;
+			VirtualQuery( (void*)(base + ofs), &info, sizeof(info) );
+			if( info.State != MEM_FREE )
+				break;
+			#else
 			if( msync( (void*)(base+ofs), 1, 0) == 0 )
 				break;
 			if( errno != ENOMEM )
 				perror("FindFreeRange, msync");
+			#endif
 		}
 		if( ofs >= size ) {
 			return base;
 		}
 	}
 	return 0;
-	#endif
 }

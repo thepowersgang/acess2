@@ -16,7 +16,6 @@
 
 typedef struct sFILE	FILE;
 
-extern FILE	*stderr;
 extern void	exit(int) __attribute__ ((noreturn));
 extern int	printf(const char *, ...);
 extern int	fprintf(FILE *,const char *, ...);
@@ -29,6 +28,7 @@ extern int	giSyscall_ClientID;	// Needed for execve
 extern void	_InitSyscalls(void);
 extern void	_CloseSyscalls(void);
 
+extern void	Warning(const char *Format, ...);
 extern void	Debug(const char *Format, ...);
 extern int	AllocateMemory(uintptr_t VirtAddr, size_t ByteCount);
 
@@ -176,6 +176,10 @@ uint64_t acess__SysAllocate(uint vaddr)
 // --- Process Management ---
 int acess_clone(int flags, void *stack)
 {
+	#ifdef __WIN32__
+	Warning("Win32 does not support anything like fork(2), cannot emulate");
+	exit(-1);
+	#else
 	extern int fork(void);
 	if(flags & CLONE_VM) {
 		 int	ret, newID, kernel_tid=0;
@@ -200,12 +204,13 @@ int acess_clone(int flags, void *stack)
 	}
 	else
 	{
-		fprintf(stderr, "ERROR: Threads currently unsupported\n");
+		Warning("ERROR: Threads currently unsupported\n");
 		exit(-1);
 	}
+	#endif
 }
 
-int acess_execve(char *path, char **argv, char **envp)
+int acess_execve(char *path, char **argv, const char **envp)
 {
 	 int	i, argc;
 	
@@ -215,7 +220,7 @@ int acess_execve(char *path, char **argv, char **envp)
 	for( argc = 0; argv[argc]; argc ++ ) ;
 	DEBUG(" acess_execve: argc = %i", argc);
 
-	char	*new_argv[7+argc+1];
+	const char	*new_argv[7+argc+1];
 	char	client_id_str[11];
 	char	socket_fd_str[11];
 	sprintf(client_id_str, "%i", giSyscall_ClientID);

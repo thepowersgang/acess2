@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <inttypes.h>	// PRIx64
 #include "common.h"
 #include "elf32.h"
 #include "elf64.h"
@@ -288,8 +289,8 @@ void *Elf64Load(int FD, Elf64_Ehdr *hdr)
 		addr = phtab[i].p_vaddr + baseDiff;
 
 		if( AllocateMemory( addr, phtab[i].p_memsz ) ) {
-			fprintf(stderr, "Elf_Load: Unable to map memory at %llx (0x%llx bytes)\n",
-				(long long)addr, (long long)phtab[i].p_memsz);
+			fprintf(stderr, "Elf_Load: Unable to map memory at %"PRIx64" (0x%"PRIx64" bytes)\n",
+				(uint64_t)addr, (uint64_t)phtab[i].p_memsz);
 			free( phtab );
 			return NULL;
 		}

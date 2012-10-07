@@ -385,7 +385,7 @@ void Debug_Leave(const char *FuncName, char RetType, ...)
 	#endif
 }
 
-void Debug_HexDump(const char *Header, const void *Data, Uint Length)
+void Debug_HexDump(const char *Header, const void *Data, size_t Length)
 {
 	const Uint8	*cdat = Data;
 	Uint	pos = 0;

@@ -318,7 +318,7 @@ uint64_t native_tell(int FD)
 	return ftell( gaSyscall_LocalFPs[FD] );
 }
 
-int native_execve(const char *filename, char *const argv[], char *const envp[])
+int native_execve(const char *filename, const char *const argv[], const char *const envp[])
 {
 	int ret;
 	ret = execve(filename, argv, envp);

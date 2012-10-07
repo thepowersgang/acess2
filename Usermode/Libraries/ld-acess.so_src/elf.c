@@ -554,7 +554,7 @@ void *Elf64Relocate(void *Base, char **envp, const char *Filename)
 	DEBUGS("Elf64Relocate:  e_phnum = %i", hdr->e_phnum);
 
 	// Scan for the dynamic table (and find the compiled base)
-	phtab = (void*)((uintptr_t)Base + hdr->e_phoff);
+	phtab = (void*)((uintptr_t)Base + (uintptr_t)hdr->e_phoff);
 	for( i = 0; i < hdr->e_phnum; i ++ )
 	{
 		if(phtab[i].p_type == PT_DYNAMIC)
@@ -771,7 +771,7 @@ int Elf64GetSymbol(void *Base, const char *Name, void **Ret, size_t *Size)
 		 int	j;
 		
 		// Locate the tables
-		phtab = (void*)( (intptr_t)Base + hdr->e_phoff );
+		phtab = (void*)( (intptr_t)Base + (uintptr_t)hdr->e_phoff );
 		for( i = 0; i < hdr->e_phnum; i ++ )
 		{
 			if(phtab[i].p_type == PT_LOAD && iBaseDiff > phtab[i].p_vaddr)

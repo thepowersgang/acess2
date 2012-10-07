@@ -13,6 +13,7 @@
 #endif
 #include <unistd.h>
 #include <string.h>
+#include "../../KernelLand/Kernel/include/logdebug.h"
 
 #define VALGRIND_CLIENT	0
 
@@ -66,7 +67,9 @@ int main(int argc, char *argv[])
 	UI_Initialise(800, 480);
 	
 	// - Ignore SIGUSR1 (used to wake threads)
+	#ifdef SIGUSR1
 	signal(SIGUSR1, SIG_IGN);
+	#endif
 		
 	// Initialise VFS
 	VFS_Init();
@@ -101,7 +104,7 @@ int main(int argc, char *argv[])
 	{
 		 int	pid;
 		 int	argcount = 0;
-		char	*args[7+rootapp_argc+1+1];
+		const char	*args[7+rootapp_argc+1+1];
 
 		#if VALGRIND_CLIENT
 		args[argcount++] = "valgrind";
@@ -113,22 +116,10 @@ int main(int argc, char *argv[])
 		for( i = 0; i < rootapp_argc; i ++ )
 			args[argcount+i] = rootapp[i];
 		args[argcount+rootapp_argc] = NULL;
-		
-		pid = fork();
+		pid = spawnv(P_NOWAIT, "./ld-acess", args);
 		if(pid < 0) {
 			perror("Starting root application [fork(2)]");
 			return 1;
-		}
-		if(pid == 0)
-		{
-			#ifdef __LINUX__
-			prctl(PR_SET_PDEATHSIG, SIGHUP);	// LINUX ONLY!
-			#endif
-			#if VALGRIND_CLIENT
-			execv("valgrind", args);
-			#else
-			execv("./ld-acess", args);
-			#endif
 		}
 		printf("Root application running as PID %i\n", pid);
 	}

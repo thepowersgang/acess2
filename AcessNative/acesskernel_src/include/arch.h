@@ -5,7 +5,6 @@
 
 #include <stdint.h>
 //#include <stdlib.h>
-#include <pthread.h>
 #undef CLONE_VM
 #define	_MODULE_NAME_	"NativeKernel"
 
@@ -29,10 +28,13 @@ typedef intptr_t	tPAddr;
 
 typedef	int	BOOL;
 
+#include <stddef.h>
+#undef NULL
+#undef offsetof
+
 struct sShortSpinlock
 {
-	 int	IsValid;
-	pthread_mutex_t	Mutex;
+	void	*Mutex;
 };
 
 #define SHORTLOCK(...)
