@@ -312,7 +312,7 @@ Uint32 Threads_WaitEvents(Uint32 Mask)
 {
 	Uint32	rv;
 
-	Log_Debug("Threads", "Mask = %x, ->Events = %x", Mask, gpCurrentThread->Events);	
+	//Log_Debug("Threads", "Mask = %x, ->Events = %x", Mask, gpCurrentThread->Events);	
 
 	gpCurrentThread->WaitMask = Mask;
 	if( !(gpCurrentThread->Events & Mask) )
@@ -321,13 +321,13 @@ Uint32 Threads_WaitEvents(Uint32 Mask)
 			Log_Warning("Threads", "Wait on eventsem of %p, %p failed",
 				gpCurrentThread, gpCurrentThread->EventSem);
 		}
-		Log_Debug("Threads", "Woken from nap (%i here)", SDL_SemValue(gpCurrentThread->EventSem));
+		//Log_Debug("Threads", "Woken from nap (%i here)", SDL_SemValue(gpCurrentThread->EventSem));
 	}
 	rv = gpCurrentThread->Events & Mask;
 	gpCurrentThread->Events &= ~Mask;
 	gpCurrentThread->WaitMask = -1;
 
-	Log_Debug("Threads", "- rv = %x", rv);
+	//Log_Debug("Threads", "- rv = %x", rv);
 
 	return rv;
 }
@@ -335,7 +335,7 @@ Uint32 Threads_WaitEvents(Uint32 Mask)
 void Threads_PostEvent(tThread *Thread, Uint32 Events)
 {
 	Thread->Events |= Events;
-	Log_Debug("Threads", "Trigger event %x (->Events = %p)", Events, Thread->Events);
+	Log_Debug("Threads", "Trigger event %x (->Events = %p) on %p", Events, Thread->Events, Thread);
 	
 	if( Events == 0 || Thread->WaitMask & Events ) {
 		Threads_Glue_SemSignal( Thread->EventSem, 1 );

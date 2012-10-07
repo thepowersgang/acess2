@@ -11,7 +11,7 @@
 #include <stdarg.h>
 #include <stddef.h>
 
-#define DEBUG(v...)	Debug(v)
+#define DEBUG(v...)	do{}while(0)//Debug(v)
 #define PAGE_SIZE	4096
 
 typedef struct sFILE	FILE;

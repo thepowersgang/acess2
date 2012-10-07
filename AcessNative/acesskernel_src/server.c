@@ -152,7 +152,7 @@ int Server_WorkerThread(void *ClientPtr)
 			perror("select");
 			continue ;
 		}
-		Log_Debug("Server", "%p: rv=%i", Client, rv);		
+//		Log_Debug("Server", "%p: rv=%i", Client, rv);		
 
 		if( FD_ISSET(Client->Socket, &fds) )
 		{

@@ -8,6 +8,9 @@
 #include <acess.h>
 #include <threads.h>
 #include <events.h>
+#if DEBUG == 0
+# define DONT_INCLUDE_SYSCALL_NAMES
+#endif
 #include "../syscalls.h"
 
 // === IMPORTS ===
@@ -399,7 +402,7 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 	*(Uint64*)inData = retVal;
 	inData += sizeof(Uint64);
 	
-	Log_Debug("Syscalls", "Return 0x%llx", retVal);
+	//Log_Debug("Syscalls", "Return 0x%llx", retVal);
 	
 	retValueCount = 1;
 	for( i = 0; i < Request->NParams; i ++ )

@@ -11,7 +11,11 @@
 #include <unistd.h>
 #include "request.h"
 
+#if SYSCALL_TRACE
 #define DEBUG(str, x...)	Debug(str, x)
+#else
+#define DEBUG(...)	do{}while(0)
+#endif
 
 #define	MAX_FPS	16
 
