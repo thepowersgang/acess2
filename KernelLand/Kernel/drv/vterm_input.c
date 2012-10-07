@@ -133,9 +133,6 @@ void VT_KBCallBack(Uint32 Codepoint)
 	
 		Codepoint &= KEY_CODEPOINT_MASK;
 
-		// Ignore Modifer Keys
-		if(Codepoint > KEY_MODIFIERS)	return;
-		
 		// Get UTF-8/ANSI Encoding
 		if( Codepoint == 0 )
 		{

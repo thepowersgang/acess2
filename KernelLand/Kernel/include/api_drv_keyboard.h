@@ -87,56 +87,6 @@ typedef void (*tKeybardCallback)(Uint32 Key);
  * \}
  */
 
-/**
- * \brief Symbolic key codes
- * 
- * These key codes represent non-pritable characters and are placed above
- * the Unicode character space.
- * If the using driver recieves a key code with the 31st bit set, it means
- * that that key has been released.
- */
-enum eTplKeyboard_KeyCodes {
-	KEY_ESC = 0x1B,	//!< Escape Character
-	
-	KEY_NP_MASK = 0x20000000,	//! Mask for non-printable characters
-	
-	/**
-	 * \name Special Keys
-	 * \brief These keys are usually used on their own
-	 * \{
-	 */
-	KEY_CAPSLOCK,
-	KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT,
-	KEY_F1, KEY_F2, KEY_F3, KEY_F4, KEY_F5, KEY_F6, 
-	KEY_F7, KEY_F8, KEY_F9, KEY_F10, KEY_F11, KEY_F12,
-	KEY_NUMLOCK, KEY_SCROLLLOCK,
-	KEY_HOME, KEY_END, KEY_INS, KEY_DEL,
-	KEY_PAUSE, KEY_BREAK,
-	KEY_PGUP, KEY_PGDOWN,
-	KEY_KPENTER, KEY_KPSLASH, KEY_KPMINUS, KEY_KPPLUS, KEY_KPSTAR,
-	KEY_KPHOME, KEY_KPUP, KEY_KPPGUP, KEY_KPLEFT, KEY_KP5, KEY_KPRIGHT,
-	KEY_KPEND, KEY_KPDOWN, KEY_KPPGDN, KEY_KPINS, KEY_KPDEL,
-	KEY_LWIN, KEY_RWIN,
-	KEY_MENU,
-	/**
-	 * \}
-	 */
-	
-	// Modifiers
-	/**
-	 * \name Modifiers
-	 * \brief These keye usually alter the character stream sent to the user
-	 * \{
-	 */
-	KEY_MODIFIERS = 0x30000000,
-	KEY_LCTRL, KEY_RCTRL,
-	KEY_LALT, KEY_RALT,
-	KEY_LSHIFT, KEY_RSHIFT,
-	/**
-	 * \}
-	 */
-};
-
 #include "keysyms.h"
 
 #endif
