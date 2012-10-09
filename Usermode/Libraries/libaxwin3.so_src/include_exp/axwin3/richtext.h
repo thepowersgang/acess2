@@ -12,8 +12,10 @@
 
 typedef	int	(*tAxWin3_RichText_KeyHandler)(tHWND Window, int bPress, uint32_t Sym, uint32_t Unicode);
 typedef int	(*tAxWin3_RichText_MouseHandler)(tHWND Window, int bPress, int Button, int Row, int Col);
+typedef int	(*tAxWin3_RichText_LineHandler)(tHWND Window, int Row);
 
-#define AXWIN3_RICHTEXT_NOSCROLL	0x0001
+#define AXWIN3_RICHTEXT_NOSCROLL	0x0001	// Disables server-side scrolling
+#define AXWIN3_RICHTEXT_READONLY	0x0002	// Disables automatic insertion of translated characters
 enum eAxWin3_RichText_CursorType {
 	AXWIN3_RICHTEXT_CURSOR_NONE,
 	AXWIN3_RICHTEXT_CURSOR_VLINE,	// Vertical line
@@ -24,6 +26,10 @@ enum eAxWin3_RichText_CursorType {
 extern tHWND	AxWin3_RichText_CreateWindow(tHWND Parent, int Flags);
 extern void	AxWin3_RichText_SetKeyHandler(tHWND Window, tAxWin3_RichText_KeyHandler Handler);
 extern void	AxWin3_RichText_SetMouseHandler(tHWND Window, tAxWin3_RichText_MouseHandler Handler);
+/**
+ * \brief Sets the function called when the server requests an update on a line's contents
+ */
+extern void	AxWin3_RichText_SetLineHandler(tHWND Window, tAxWin3_RichText_LineHandler Handler);
 extern void	AxWin3_RichText_EnableScroll(tHWND Window, int bEnable);
 extern void	AxWin3_RichText_SetLineCount(tHWND Window, int Lines);
 extern void	AxWin3_RichText_SetColCount(tHWND Window, int Cols);

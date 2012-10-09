@@ -18,6 +18,7 @@ extern int	Renderer_Menu_Init(void);
 extern int	Renderer_Widget_Init(void);
 extern int	Renderer_Background_Init(void);
 extern int	Renderer_Framebuffer_Init(void);
+extern int	Renderer_RichText_Init(void);
 extern void	WM_Update(void);
 extern void	WM_Hotkey_Register(int nKeys, uint32_t *Keys, const char *ActionName);
 
@@ -64,6 +65,7 @@ int main(int argc, char *argv[])
 	Renderer_Widget_Init();
 	Renderer_Background_Init();
 	Renderer_Framebuffer_Init();
+	Renderer_RichText_Init();
 	WM_Initialise();
 
 	// TODO: Config

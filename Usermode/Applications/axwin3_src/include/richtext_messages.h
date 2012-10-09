@@ -28,9 +28,15 @@ enum
 	MSG_RICHTEXT_ADDLINE,
 	
 	// Events
-	
-	MSG_RICHTEXT_SENDLINE,	// Bi-directional
-	MSG_RICHTEXT_REQLINE	// Bi-directional
+	MSG_RICHTEXT_KEYPRESS,
+	MSG_RICHTEXT_MOUSEBTN,
+
+	// Bi-directional messages
+	// - Sent by server to get a line that is not cached
+	// - Sent by client to read line contents
+	MSG_RICHTEXT_REQLINE,
+	// - Response to _REQLINE
+	MSG_RICHTEXT_SENDLINE,
 };
 
 struct sRichTextMsg_SetAttr
