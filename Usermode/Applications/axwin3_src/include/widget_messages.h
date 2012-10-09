@@ -12,6 +12,7 @@ enum
 {
 	// Control (Client->Server) messages
 	MSG_WIDGET_CREATE = 0x1000,
+	MSG_WIDGET_CREATESUBWIN,
 	MSG_WIDGET_DELETE,
 	MSG_WIDGET_SETFOCUS,
 	MSG_WIDGET_SETFLAGS,
@@ -38,6 +39,16 @@ typedef struct
 	uint32_t	Flags;
 	char	DebugName[];
 } tWidgetMsg_Create;
+
+typedef struct
+{
+	uint32_t	Parent;
+	uint32_t	NewID;
+	uint32_t	Type;
+	uint32_t	Flags;
+	uint32_t	WindowHandle;
+	char	DebugName[];
+} tWidgetMsg_CreateSubWin;
 
 typedef struct
 {

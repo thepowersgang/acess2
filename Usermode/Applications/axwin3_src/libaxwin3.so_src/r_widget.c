@@ -46,6 +46,33 @@ tAxWin3_Widget *AxWin3_Widget_int_GetElementByID(tHWND Window, uint32_t ID)
 	return info->Elements[ID];
 }
 
+uint32_t AxWin3_Widget_int_AllocateID(tWidgetWindowInfo *Info)
+{
+	uint32_t	newID;
+	// BUG BUG BUG - Double Allocations! (citation needed)
+	// TODO: Atomicity
+	for( newID = Info->FirstFreeID; newID < Info->nElements; newID ++ )
+	{
+		if( Info->Elements[newID] == NULL )
+			break;
+	}
+	if( newID == Info->nElements )
+	{
+		const int size_step = 4;
+		Info->nElements += 4;
+		Info->Elements = realloc(Info->Elements, sizeof(*Info->Elements)*Info->nElements);
+		newID = Info->nElements - 4;
+		memset( &Info->Elements[newID+1], 0, (size_step-1)*sizeof(Info->Elements));
+		_SysDebug("Expanded to %i and allocated %i", Info->nElements, newID);
+	}
+	else
+		_SysDebug("Allocated %i", newID);
+	Info->Elements[newID] = (void*)-1;
+	
+	return newID;
+	
+}
+
 int AxWin3_Widget_MessageHandler(tHWND Window, int MessageID, int Size, void *Data)
 {
 	tAxWin3_Widget	*widget;
@@ -108,26 +135,7 @@ tAxWin3_Widget *AxWin3_Widget_AddWidget(tAxWin3_Widget *Parent, int Type, int Fl
 
 	info = AxWin3_int_GetDataPtr(Parent->Window);
 	
-	// Assign ID
-	// BUG BUG BUG - Double Allocations!
-	// TODO: Atomicity
-	for( newID = info->FirstFreeID; newID < info->nElements; newID ++ )
-	{
-		if( info->Elements[newID] == NULL )
-			break;
-	}
-	if( newID == info->nElements )
-	{
-		const int size_step = 4;
-		info->nElements += 4;
-		info->Elements = realloc(info->Elements, sizeof(*info->Elements)*info->nElements);
-		newID = info->nElements - 4;
-		memset( &info->Elements[newID+1], 0, (size_step-1)*sizeof(info->Elements));
-		_SysDebug("Expanded to %i and allocated %i", info->nElements, newID);
-	}
-	else
-		_SysDebug("Allocated %i", newID);
-	info->Elements[newID] = (void*)-1;
+	newID = AxWin3_Widget_int_AllocateID(info);
 	
 	// Create new widget structure
 	ret = calloc(sizeof(tAxWin3_Widget), 1);
@@ -150,6 +158,33 @@ tAxWin3_Widget *AxWin3_Widget_AddWidget(tAxWin3_Widget *Parent, int Type, int Fl
 
 	return ret;
 }
+
+tAxWin3_Widget *AxWin3_Widget_AddWidget_SubWindow(tAxWin3_Widget *Parent, tHWND Window, const char *DebugName)
+{
+	tWidgetWindowInfo	*info = AxWin3_int_GetDataPtr(Parent->Window);
+	int newID = AxWin3_Widget_int_AllocateID(info);
+	
+	tAxWin3_Widget	*ret = calloc(sizeof(tAxWin3_Widget), 1);
+	ret->Window = Parent->Window;
+	ret->ID = newID;
+	info->Elements[newID] = ret;
+
+	// Send message
+	{
+		char	tmp[sizeof(tWidgetMsg_CreateSubWin)+1];
+		tWidgetMsg_CreateSubWin	*msg = (void*)tmp;
+		msg->Parent = Parent->ID;
+		msg->NewID = newID;
+		msg->Type = ELETYPE_SUBWIN;
+		msg->Flags = 0;	// TODO: Flags
+		msg->WindowHandle = AxWin3_int_GetWindowID(Window);
+		msg->DebugName[0] = '\0';
+		AxWin3_SendMessage(ret->Window, ret->Window, MSG_WIDGET_CREATESUBWIN, sizeof(tmp), tmp);
+	}
+
+	return ret;
+}
+
 
 void AxWin3_Widget_DelWidget(tAxWin3_Widget *Widget)
 {

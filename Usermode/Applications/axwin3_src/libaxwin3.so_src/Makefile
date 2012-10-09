@@ -8,6 +8,7 @@ CFLAGS   += -Wall
 LDFLAGS  += -lc -soname libaxwin3.so
 
 OBJ = main.o msg.o wm.o r_widget.o r_menu.o
+OBJ += r_richtext.o
 BIN = libaxwin3.so
 
 include ../../../Libraries/Makefile.tpl

@@ -342,9 +342,11 @@ const tSym	caBuiltinSymbols[] = {
 	DEFSYM(sleep),
 	
 	DEFSYM(waittid),
+	DEFSYM(gettid),
 	DEFSYM(setuid),
 	DEFSYM(setgid),
-	DEFSYM(gettid),
+	DEFSYM(getuid),
+	DEFSYM(getgid),
 
 	DEFSYM(SysSendMessage),
 	DEFSYM(SysGetMessage),
