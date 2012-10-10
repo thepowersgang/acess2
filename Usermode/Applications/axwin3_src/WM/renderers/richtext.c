@@ -8,6 +8,7 @@
 #include <common.h>
 #include <wm_renderer.h>
 #include <richtext_messages.h>
+#include <stdio.h>	// sscanf
 
 #define LINES_PER_BLOCK	30
 
@@ -63,7 +64,7 @@ tWindow *Renderer_RichText_Create(int Flags)
 	return ret;
 }
 
-inline int Renderer_RichText_RenderText_Act(tWindow *Window, tRichText_Window *info, int X, int Row, const char *Text, int Bytes, tColour FG, tColour BG)
+static inline int Renderer_RichText_RenderText_Act(tWindow *Window, tRichText_Window *info, int X, int Row, const char *Text, int Bytes, tColour FG, tColour BG)
 {
 	 int	rwidth;
 	// TODO: Fill only what is needed

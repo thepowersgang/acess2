@@ -51,8 +51,8 @@ int main(int argc, char *argv[])
 	create_run_dialog();
 	
 	AxWin3_RegisterAction(gSidebar, "Interface>Run", (tAxWin3_HotkeyCallback)mainmenu_run_dialog);
-//	AxWin3_RegisterAction(gSidebar, "Interface>Terminal", mainmenu_app_terminal);
-//	AxWin3_RegisterAction(gSidebar, "Interface>TextEdit", mainmenu_app_textedit);
+	AxWin3_RegisterAction(gSidebar, "Interface>Terminal", (tAxWin3_HotkeyCallback)mainmenu_app_terminal);
+	AxWin3_RegisterAction(gSidebar, "Interface>TextEdit", (tAxWin3_HotkeyCallback)mainmenu_app_textedit);
 
 	// Idle loop
 	AxWin3_MainLoop();
@@ -108,6 +108,7 @@ void create_sidebar(void)
 void mainmenu_app_textedit(void *unused)
 {
 	_SysDebug("TODO: Launch text editor");
+//	spawn("/Acess/Apps/AxWin/3.0/ate");
 }
 
 void mainmenu_app_terminal(void *unused)
