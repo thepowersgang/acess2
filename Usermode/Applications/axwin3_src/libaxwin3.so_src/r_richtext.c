@@ -15,7 +15,7 @@ typedef struct sRichText_Window
 {
 	tAxWin3_RichText_KeyHandler	KeyCallback;
 	tAxWin3_RichText_MouseHandler	MouseCallback;
-//	tAxWin3_RichText_LineHandler	LineHandler;
+	tAxWin3_RichText_LineHandler	LineHandler;
 } tRichText_Window;
 
 // === CODE ===
