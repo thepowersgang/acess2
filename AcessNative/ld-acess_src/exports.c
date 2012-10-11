@@ -37,6 +37,7 @@ extern int	AllocateMemory(uintptr_t VirtAddr, size_t ByteCount);
 
 // === GLOBALS ===
 int	acess__errno;
+char	*gsExecutablePath = "./ld-acess";
 
 // === CODE ===
 // --- VFS Calls
@@ -253,6 +254,37 @@ int acess_execve(char *path, char **argv, const char **envp)
 	return native_execve("./ld-acess", new_argv, envp);
 }
 
+int acess__SysSpawn(const char *binary, const char **argv, const char **envp, int nfd, int fds[], struct s_sys_spawninfo *info)
+{
+	 int	kernel_tid;
+	 int	newID;
+	newID = _Syscall(SYS_AN_SPAWN, "<d>d>d", sizeof(int), &kernel_tid,
+		nfd*sizeof(int), fds,
+		info ? sizeof(*info) : 0, info);
+
+	 int	argc = 0;
+	while( argv[argc++] );
+
+	const char	*new_argv[5+argc+1];
+	 int	new_argc = 0, i;
+	char	client_id_str[11];
+	sprintf(client_id_str, "%i", newID);
+	new_argv[new_argc++] = gsExecutablePath;       // TODO: Get path to ld-acess executable
+	new_argv[new_argc++] = "--key";
+	new_argv[new_argc++] = client_id_str;
+	new_argv[new_argc++] = "--binary";
+	new_argv[new_argc++] = binary;
+	for( i = 0; argv[i]; i ++)
+		new_argv[new_argc++] = argv[i];
+	new_argv[new_argc++] = NULL;
+	
+	// TODO: Debug output?
+	
+	native_spawn(gsExecutablePath, new_argv, envp);
+
+	return kernel_tid;
+}
+
 void acess_sleep(void)
 {
 	DEBUG("%s()", __func__);
@@ -339,6 +371,7 @@ const tSym	caBuiltinSymbols[] = {
 	
 	DEFSYM(clone),
 	DEFSYM(execve),
+	DEFSYM(_SysSpawn),
 	DEFSYM(sleep),
 	
 	DEFSYM(waittid),

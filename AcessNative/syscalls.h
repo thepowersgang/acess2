@@ -67,6 +67,7 @@ enum eSyscalls {
 	// IPC
 	SYS_SLEEP,
 	SYS_AN_FORK,
+	SYS_AN_SPAWN,
 	SYS_SENDMSG,
 	SYS_GETMSG,
 	SYS_SELECT,

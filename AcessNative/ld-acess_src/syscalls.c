@@ -9,6 +9,7 @@
 #include <string.h>
 #include <stddef.h>
 #include <unistd.h>
+#include <spawn.h>	// posix_spawn
 #include "request.h"
 
 #if SYSCALL_TRACE
@@ -334,4 +335,13 @@ int native_execve(const char *filename, const char *const argv[], const char *co
 	ret = execve(filename, (void*)argv, (void*)envp);
 	perror("native_execve");
 	return ret;
+}
+
+int native_spawn(const char *filename, const char *const argv[], const char *const envp[])
+{
+	int rv;
+	
+	rv = posix_spawn(NULL, filename, NULL, NULL, (void*)argv, (void*)envp);
+	
+	return rv;
 }

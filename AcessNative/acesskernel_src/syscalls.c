@@ -247,6 +247,7 @@ const tSyscallHandler	caSyscalls[] = {
 
 	Syscall_Sleep,
 	Syscall_AN_Fork,
+	NULL,
 
 	Syscall_SendMessage,
 	Syscall_GetMessage,
