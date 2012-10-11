@@ -50,6 +50,13 @@ struct s_sysFInfo {
 typedef struct s_sysFInfo	t_sysFInfo;
 typedef struct s_sysACL	t_sysACL;
 
+struct s_sys_spawninfo
+{
+	unsigned int	flags;
+	unsigned int	uid;
+	unsigned int	gid;
+};
+
 extern void	FD_ZERO(fd_set *fdsetp);
 extern void	FD_CLR(int fd, fd_set *fdsetp);
 extern void	FD_SET(int fd, fd_set *fdsetp);

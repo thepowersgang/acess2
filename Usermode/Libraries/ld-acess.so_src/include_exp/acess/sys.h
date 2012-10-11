@@ -49,7 +49,7 @@ extern int	_SysWaitEvent(int EventMask);
 extern int	waittid(int id, int *status);
 extern int	clone(int flags, void *stack);
 extern int	execve(char *path, char **argv, char **envp);
-extern int	_SysSpawn(const char *Path, const char **argv, const char **envp, int nFDs, int *FDs);
+extern int	_SysSpawn(const char *Path, const char **argv, const char **envp, int nFDs, int *FDs, struct s_sys_spawninfo *info);
 extern int	gettid(void);
 extern int	getpid(void);
 extern int	_SysSetFaultHandler(int (*Handler)(int));
