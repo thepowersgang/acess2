@@ -113,7 +113,7 @@ void mainmenu_app_textedit(void *unused)
 {
 	const char	*args[] = {"ate",NULL};
 //	_SysDebug("TODO: Launch text editor");
-	_SysSpawn("/Acess/Apps/AxWin/3.0/ate", args, (const char **)gEnvion, 0, NULL);
+	_SysSpawn("/Acess/Apps/AxWin/3.0/ate", args, (const char **)gEnvion, 0, NULL, NULL);
 }
 
 void mainmenu_app_terminal(void *unused)

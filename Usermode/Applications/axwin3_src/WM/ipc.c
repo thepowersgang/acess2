@@ -244,7 +244,6 @@ tWindow *IPC_int_GetWindow(tIPC_Client *Client, uint32_t WindowID)
 		return NULL;
 
 	if( WindowID >= Client->nWindows ) {
-//		_SysDebug("Window %i out of range for %p (%i)", WindowID, Client, Client->nWindows);
 		return NULL;
 	}
 

@@ -30,32 +30,7 @@ typedef struct
 	fd_set_ent_t	flags[FD_SETSIZE/16];
 }	fd_set;
 
-struct s_sysACL {
-	unsigned long	object;	/*!< Group or user (bit 31 determines) */
-	unsigned long	perms;	/*!< Inverted by bit 31 */
-};
-struct s_sysFInfo {
-	unsigned int	mount;
-	unsigned long long	inode;
-	unsigned int	uid;
-	unsigned int	gid;
-	unsigned int	flags;
-	unsigned long long	size;
-	time_t	atime;
-	time_t	mtime;
-	time_t	ctime;
-	 int	numacls;
-	struct s_sysACL	acls[];
-} __attribute__((packed));
-typedef struct s_sysFInfo	t_sysFInfo;
-typedef struct s_sysACL	t_sysACL;
-
-struct s_sys_spawninfo
-{
-	unsigned int	flags;
-	unsigned int	uid;
-	unsigned int	gid;
-};
+#include "../acess/syscall_types.h"
 
 extern void	FD_ZERO(fd_set *fdsetp);
 extern void	FD_CLR(int fd, fd_set *fdsetp);

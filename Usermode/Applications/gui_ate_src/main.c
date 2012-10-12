@@ -33,7 +33,8 @@ int main(int argc, char *argv[])
 	AxWin3_Connect(NULL);
 	
 	// --- Build up window
-	gMainWindow = AxWin3_Widget_CreateWindow(NULL, 320, 200, ELEFLAG_VERTICAL);
+	gMainWindow = AxWin3_Widget_CreateWindow(NULL, 400, 600, ELEFLAG_VERTICAL);
+	AxWin3_SetWindowTitle(gMainWindow, "Acess Text Editor");	// TODO: Update title with other info
 	gMainWindow_Root = AxWin3_Widget_GetRoot(gMainWindow);
 
 	//gMainWindow_MenuBar = AxWin3_Menu_Create(gMainWindow);
@@ -41,10 +42,10 @@ int main(int argc, char *argv[])
 	// TODO: Populate menu	
 
 	// Create toolbar
-	gMainWindow_Toolbar = AxWin3_Widget_AddWidget(gMainWindow_Root, ELETYPE_TOOLBAR, 0, "Toolbar");
+	gMainWindow_Toolbar = AxWin3_Widget_AddWidget(gMainWindow_Root, ELETYPE_TOOLBAR, ELEFLAG_NOSTRETCH, "Toolbar");
 	add_toolbar_button(gMainWindow_Toolbar, "BtnNew", Toolbar_New);
 	add_toolbar_button(gMainWindow_Toolbar, "BtnOpen", Toolbar_Open);
-	add_toolbar_button(gMainWindow_Toolbar, "BtnOpen", Toolbar_Save);
+	add_toolbar_button(gMainWindow_Toolbar, "BtnSave", Toolbar_Save);
 	AxWin3_Widget_AddWidget(gMainWindow_Toolbar, ELETYPE_SPACER, 0, "");
 	add_toolbar_button(gMainWindow_Toolbar, "BtnUndo", NULL);
 	add_toolbar_button(gMainWindow_Toolbar, "BtnRedo", NULL);
@@ -59,7 +60,7 @@ int main(int argc, char *argv[])
 	// TODO: Tab control?	
 
 	gMainWindow_TextArea = AxWin3_RichText_CreateWindow(gMainWindow, 0);
-	AxWin3_Widget_AddWidget_SubWindow(gMainWindow_Root, gMainWindow_TextArea, "TextArea");
+	AxWin3_Widget_AddWidget_SubWindow(gMainWindow_Root, gMainWindow_TextArea, 0, "TextArea");
 	AxWin3_RichText_SetKeyHandler	(gMainWindow_TextArea, TextArea_KeyHandler);
 	AxWin3_RichText_SetMouseHandler	(gMainWindow_TextArea, TextArea_MouseHandler);
 	AxWin3_RichText_SetBackground	(gMainWindow_TextArea, 0xFFFFFF);
@@ -90,9 +91,10 @@ int TextArea_MouseHandler(tHWND Window, int bPress, int Button, int Row, int Col
 
 void add_toolbar_button(tAxWin3_Widget *Toolbar, const char *Ident, tAxWin3_Widget_FireCb Callback)
 {
-	tAxWin3_Widget *btn = AxWin3_Widget_AddWidget(Toolbar, ELETYPE_BUTTON, 0, Ident);
+	tAxWin3_Widget *btn = AxWin3_Widget_AddWidget(Toolbar, ELETYPE_BUTTON, ELEFLAG_NOSTRETCH, Ident);
+	tAxWin3_Widget *txt = AxWin3_Widget_AddWidget(btn, ELETYPE_TEXT, 0, Ident);
 	// TODO: Get image / text using `Ident` as a lookup key
-	AxWin3_Widget_SetText(btn, Ident);
+	AxWin3_Widget_SetText(txt, Ident);
 	AxWin3_Widget_SetFireHandler(btn, Callback);
 }
 

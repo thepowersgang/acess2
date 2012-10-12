@@ -159,7 +159,7 @@ tAxWin3_Widget *AxWin3_Widget_AddWidget(tAxWin3_Widget *Parent, int Type, int Fl
 	return ret;
 }
 
-tAxWin3_Widget *AxWin3_Widget_AddWidget_SubWindow(tAxWin3_Widget *Parent, tHWND Window, const char *DebugName)
+tAxWin3_Widget *AxWin3_Widget_AddWidget_SubWindow(tAxWin3_Widget *Parent, tHWND Window, int Flags, const char *DbgName)
 {
 	tWidgetWindowInfo	*info = AxWin3_int_GetDataPtr(Parent->Window);
 	int newID = AxWin3_Widget_int_AllocateID(info);
@@ -176,7 +176,7 @@ tAxWin3_Widget *AxWin3_Widget_AddWidget_SubWindow(tAxWin3_Widget *Parent, tHWND 
 		msg->Parent = Parent->ID;
 		msg->NewID = newID;
 		msg->Type = ELETYPE_SUBWIN;
-		msg->Flags = 0;	// TODO: Flags
+		msg->Flags = Flags;	// TODO: Flags
 		msg->WindowHandle = AxWin3_int_GetWindowID(Window);
 		msg->DebugName[0] = '\0';
 		AxWin3_SendMessage(ret->Window, ret->Window, MSG_WIDGET_CREATESUBWIN, sizeof(tmp), tmp);

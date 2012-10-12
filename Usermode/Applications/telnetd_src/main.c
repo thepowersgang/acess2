@@ -132,7 +132,7 @@ void Server_NewClient(int FD)
 	{
 		int fds[3] = {clt->stdin, clt->stdout, clt->stdout};
 		const char	*argv[] = {NULL};
-		_SysSpawn("/Acess/SBin/login", argv, argv, 3, fds);
+		_SysSpawn("/Acess/SBin/login", argv, argv, 3, fds, NULL);
 	}
 }
 

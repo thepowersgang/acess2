@@ -15,6 +15,7 @@
 
 // === IMPORTS ===
 extern void	IPC_SendWMMessage(tIPC_Client *Client, uint32_t Src, uint32_t Dst, int Msg, int Len, const void *Data);
+extern tWindow	*IPC_int_GetWindow(tIPC_Client *Client, uint32_t ID);
 
 // === GLOBALS ===
 tWMRenderer	*gpWM_Renderers;
@@ -90,6 +91,11 @@ tWindow *WM_CreateWindow(tWindow *Parent, tIPC_Client *Client, uint32_t ID, int 
 	
 	// - Return!
 	return ret;
+}
+
+tWindow *WM_GetWindowByID(tWindow *Requester, uint32_t ID)
+{
+	return IPC_int_GetWindow(Requester->Client, ID);
 }
 
 tWindow *WM_CreateWindowStruct(size_t ExtraSize)

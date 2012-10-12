@@ -423,11 +423,52 @@ tElement *Widget_GetElementById(tWidgetWin *Info, uint32_t ID)
 	return ele;
 }
 
+tElement *Widget_int_Create(tWidgetWin *Info, tElement *Parent, int ID, int Type, int Flags)
+{
+	if( Widget_GetElementById(Info, ID) )
+		return NULL;
+
+	// Create new element
+	tElement *new = calloc(sizeof(tElement), 1);
+	new->Window = Parent->Window;
+	new->ID = ID;
+	new->Type = Type;
+	new->Parent = Parent;
+	new->Flags = Flags;
+	new->PaddingT = 2;
+	new->PaddingB = 2;
+	new->PaddingL = 2;
+	new->PaddingR = 2;
+	new->CachedX = -1;
+	
+	if( gaWM_WidgetTypes[Type]->Init )
+		gaWM_WidgetTypes[Type]->Init(new);
+	
+	// Add to parent's list
+	if(Parent->LastChild)
+		Parent->LastChild->NextSibling = new;
+	else
+		Parent->FirstChild = new;
+	Parent->LastChild = new;
+
+	// Add to info
+	{
+		tElement	*ele, *prev = NULL;
+		for(ele = Info->ElementTable[new->ID % Info->TableSize]; ele; prev = ele, ele = ele->ListNext);
+		if(prev)
+			prev->ListNext = new;
+		else
+			Info->ElementTable[new->ID % Info->TableSize] = new;
+	}
+	
+	return new;
+}
+
 // --- Message Handlers ---
 void Widget_NewWidget(tWidgetWin *Info, size_t Len, const tWidgetMsg_Create *Msg)
 {
 	const int	max_debugname_len = Len - sizeof(tWidgetMsg_Create);
-	tElement	*parent, *new;
+	tElement	*parent;
 
 	// Sanity check
 	if( Len < sizeof(*Msg) )
@@ -452,43 +493,28 @@ void Widget_NewWidget(tWidgetWin *Info, size_t Len, const tWidgetMsg_Create *Msg
 		return ;
 	}
 
-	// Check if the ID is already in use
-	if( Widget_GetElementById(Info, Msg->NewID) )
+	Widget_int_Create(Info, parent, Msg->NewID, Msg->Type, Msg->Flags);
+
+	Widget_UpdateMinDims(parent);
+}
+
+void Widget_NewWidgetSubwin(tWidgetWin *Info, size_t Len, const tWidgetMsg_CreateSubWin *Msg)
+{
+	const int	max_debugname_len = Len - sizeof(tWidgetMsg_CreateSubWin);
+	tElement	*parent, *new;
+
+	// Sanity check
+	if( Len < sizeof(*Msg) )
 		return ;
-
-	// Create new element
-	new = calloc(sizeof(tElement), 1);
-	new->Window = parent->Window;
-	new->ID = Msg->NewID;
-	new->Type = Msg->Type;
-	new->Parent = parent;
-	new->Flags = Msg->Flags;
-	new->PaddingT = 2;
-	new->PaddingB = 2;
-	new->PaddingL = 2;
-	new->PaddingR = 2;
-	new->CachedX = -1;
+	if( strnlen(Msg->DebugName, max_debugname_len) == max_debugname_len )
+		return ;
 	
-	if( gaWM_WidgetTypes[new->Type]->Init )
-		gaWM_WidgetTypes[new->Type]->Init(new);
+	parent = Widget_GetElementById(Info, Msg->Parent);
+	if(!parent)	return;
+	if( Widget_GetElementById(Info, Msg->NewID) )	return ;
 	
-	// Add to parent's list
-	if(parent->LastChild)
-		parent->LastChild->NextSibling = new;
-	else
-		parent->FirstChild = new;
-	parent->LastChild = new;
-
-	// Add to info
-	{
-		tElement	*ele, *prev = NULL;
-		for(ele = Info->ElementTable[new->ID % Info->TableSize]; ele; prev = ele, ele = ele->ListNext);
-		if(prev)
-			prev->ListNext = new;
-		else
-			Info->ElementTable[new->ID % Info->TableSize] = new;
-	}
-
+	new = Widget_int_Create(Info, parent, Msg->NewID, Msg->Type, Msg->Flags);
+	new->Data = WM_GetWindowByID(parent->Window, Msg->WindowHandle);
 	Widget_UpdateMinDims(parent);
 }
 
@@ -688,6 +714,9 @@ int Renderer_Widget_HandleMessage(tWindow *Target, int Msg, int Len, const void 
 	// New Widget
 	case MSG_WIDGET_CREATE:
 		Widget_NewWidget(info, Len, Data);
+		return 0;
+	case MSG_WIDGET_CREATESUBWIN:
+		Widget_NewWidgetSubwin(info, Len, Data);
 		return 0;
 
 	// Delete a widget

@@ -105,7 +105,8 @@ void Renderer_RichText_RenderText(tWindow *Window, int Line, const char *Text)
 		if( ch == 0 )	break;
 		if( ch <=3 && bRender ) {
 			// Render previous characters
-			curx += Renderer_RichText_RenderText_Act(Window, info, curx, Line, oldtext, Text - oldtext, fg, bg);
+			curx += Renderer_RichText_RenderText_Act(Window, info, curx, Line,
+				oldtext, Text - oldtext, fg, bg);
 			oldtext = Text;
 		}
 		switch(ch)
