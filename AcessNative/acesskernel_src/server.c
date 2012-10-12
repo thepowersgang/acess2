@@ -161,7 +161,10 @@ int Server_WorkerThread(void *ClientPtr)
 			tRequestHeader	*hdr = (void*)lbuf;
 			size_t	len = recv(Client->Socket, (void*)hdr, sizeof(*hdr), 0);
 //			Log_Debug("Server", "%i bytes of header", len);
-			if( len == 0 )	break;
+			if( len == 0 ) {
+				Log_Notice("Server", "Zero RX on %i (worker %p)", Client->Socket, Client);
+				break;
+			}
 			if( len == -1 ) {
 				perror("recv header");
 //				Log_Warning("Server", "recv() error - %s", strerror(errno));

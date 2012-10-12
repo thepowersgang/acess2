@@ -309,6 +309,7 @@ int ReadData(void *Dest, int MaxLength, int Timeout)
 	}
 	if( ret == 0 ) {
 		fprintf(stderr, "[ERROR %i] Connection closed.\n", giSyscall_ClientID);
+		close(gSocket);
 		exit(0);
 	}
 	

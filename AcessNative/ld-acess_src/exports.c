@@ -256,14 +256,17 @@ int acess_execve(char *path, char **argv, const char **envp)
 
 int acess__SysSpawn(const char *binary, const char **argv, const char **envp, int nfd, int fds[], struct s_sys_spawninfo *info)
 {
-	 int	kernel_tid;
-	 int	newID;
-	newID = _Syscall(SYS_AN_SPAWN, "<d>d>d", sizeof(int), &kernel_tid,
-		nfd*sizeof(int), fds,
-		info ? sizeof(*info) : 0, info);
-
 	 int	argc = 0;
 	while( argv[argc++] );
+
+	Debug("_SysSpawn('%s', %p (%i), %p, %i, %p, %p)",
+		binary, argv, argc, envp, nfd, fds, info);
+
+	 int	kernel_tid;
+	 int	newID;
+	newID = _Syscall(SYS_AN_SPAWN, "<d >d >d", sizeof(int), &kernel_tid,
+		nfd*sizeof(int), fds,
+		info ? sizeof(*info) : 0, info);
 
 	const char	*new_argv[5+argc+1];
 	 int	new_argc = 0, i;
