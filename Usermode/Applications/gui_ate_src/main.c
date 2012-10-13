@@ -69,6 +69,7 @@ int main(int argc, char *argv[])
 	AxWin3_RichText_SetCursorPos	(gMainWindow_TextArea, 0, 0);
 	AxWin3_RichText_SetCursorType	(gMainWindow_TextArea, AXWIN3_RICHTEXT_CURSOR_VLINE);
 	AxWin3_RichText_SetCursorBlink	(gMainWindow_TextArea, 1);
+	AxWin3_ShowWindow(gMainWindow_TextArea, 1);
 	// TODO: Status Bar?
 
 	AxWin3_ShowWindow(gMainWindow, 1);

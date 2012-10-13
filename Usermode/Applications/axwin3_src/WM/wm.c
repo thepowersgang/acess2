@@ -237,6 +237,9 @@ int WM_ResizeWindow(tWindow *Window, int W, int H)
 	if(Window->X + W < 0)	Window->X = -W + 1;
 	if(Window->Y + H < 0)	Window->Y = -H + 1;
 
+	if( Window->W == W && Window->H == H )
+		return 0;
+
 	Window->W = W;	Window->H = H;
 
 	if(Window->RenderBuffer) {
@@ -368,7 +371,8 @@ void WM_int_BlitWindow(tWindow *Window)
 	if( !(Window->Flags & WINFLAG_SHOW) )
 		return ;
 
-//	_SysDebug("Blit %p to (%i,%i) %ix%i", Window, Window->X, Window->Y, Window->RealW, Window->RealH);
+	_SysDebug("Blit %p (%p) to (%i,%i) %ix%i", Window, Window->RenderBuffer,
+		Window->X, Window->Y, Window->RealW, Window->RealH);
 	Video_Blit(Window->RenderBuffer, Window->X, Window->Y, Window->RealW, Window->RealH);
 	
 	if( Window == gpWM_FocusedWindow && Window->CursorW )
@@ -379,7 +383,6 @@ void WM_int_BlitWindow(tWindow *Window)
 			Window->CursorW, Window->CursorH,
 			0x000000
 			);
-			
 	}
 
 	for( child = Window->FirstChild; child; child = child->NextSibling )

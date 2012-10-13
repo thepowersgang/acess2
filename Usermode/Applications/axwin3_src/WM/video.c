@@ -133,6 +133,8 @@ void Video_Blit(uint32_t *Source, short DstX, short DstY, short W, short H)
 {
 	uint32_t	*buf;
 
+	_SysDebug("Video_Blit: (%p, %i, %i, %i, %i)", Source, DstX, DstY, W, H);
+
 	if( DstX >= giScreenWidth)	return ;
 	if( DstY >= giScreenHeight)	return ;
 	// TODO: Handle -ve X/Y by clipping
@@ -140,9 +142,11 @@ void Video_Blit(uint32_t *Source, short DstX, short DstY, short W, short H)
 	// TODO: Handle out of bounds by clipping too
 	if( DstX + W > giScreenWidth )	return;
 	if( DstY + H > giScreenHeight )
-		H = giScreenWidth - DstY;
+		H = giScreenHeight - DstY;
 
 	if( W <= 0 || H <= 0 )	return;
+
+	_SysDebug(" - Resolved to (%p, %i, %i, %i, %i)", Source, DstX, DstY, W, H);
 
 	if( DstX < giVideo_FirstDirtyLine )
 		giVideo_FirstDirtyLine = DstY;
