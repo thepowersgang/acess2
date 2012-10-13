@@ -39,6 +39,7 @@ extern void	AxWin3_RichText_SetFont(tHWND Window, const char *FontName, int Poin
 extern void	AxWin3_RichText_SetCursorType(tHWND Window, int Type);
 extern void	AxWin3_RichText_SetCursorBlink(tHWND Window, int bBlink);
 extern void	AxWin3_RichText_SetCursorPos(tHWND Window, int Row, int Column);
+extern void	AxWin3_RichText_SendLine(tHWND Window, int Line, const char *Text);
 
 #endif
 

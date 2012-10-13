@@ -87,7 +87,7 @@ tWindow	*Renderer_Widget_Create(int Flags)
 	tWidgetWin	*info;
 	 int	eletable_size = DEFAULT_ELETABLE_SIZE;
 
-	_SysDebug("Renderer_Widget_Create: (Flags = 0x%x)", Flags);
+	//_SysDebug("Renderer_Widget_Create: (Flags = 0x%x)", Flags);
 
 	// TODO: Use `Flags` as default element count?
 	// - Actaully, it's taken by the root ele flags
@@ -214,14 +214,14 @@ void Widget_UpdateDimensions(tElement *Element)
 	else
 		fullCross = Element->CachedH - Element->PaddingT - Element->PaddingB;
 
-	_SysDebug("%i (p=%i) - WxH=%ix%i",
-		Element->ID, (Element->Parent ? Element->Parent->ID : -1),
-		Element->CachedW, Element->CachedH
-		);
-	_SysDebug("  %s dynWith = %i, fullCross = %i",
-		(Element->Flags & ELEFLAG_VERTICAL ? "Vert" : "Horiz"),
-		dynWith, fullCross
-		);
+	//_SysDebug("%i (p=%i) - WxH=%ix%i",
+	//	Element->ID, (Element->Parent ? Element->Parent->ID : -1),
+	//	Element->CachedW, Element->CachedH
+	//	);
+	//_SysDebug("  %s dynWith = %i, fullCross = %i",
+	//	(Element->Flags & ELEFLAG_VERTICAL ? "Vert" : "Horiz"),
+	//	dynWith, fullCross
+	//	);
 	
 	// Pass 2 - Set sizes and recurse
 	for( child = Element->FirstChild; child; child = child->NextSibling )

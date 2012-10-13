@@ -216,16 +216,49 @@ void WM_DecorateWindow(tWindow *Window, int bDecorate)
 	WM_Invalidate(Window);
 }
 
+void WM_SetRelative(tWindow *Window, int bRelativeToParent)
+{
+//	_SysDebug("WM_SetRelative: (%p{Parent=%p},%i)", Window, Window->Parent, bRelativeToParent);
+	// No meaning if no parent
+	if( !Window->Parent )
+		return ;
+
+	// Check that the flag is changing
+	if( !!bRelativeToParent == !!(Window->Flags & WINFLAG_RELATIVE) )
+		return ;
+
+	if( bRelativeToParent ) {
+		// Set
+		Window->Flags |= WINFLAG_RELATIVE;
+		WM_MoveWindow(Window, Window->X, Window->Y);
+	}
+	else {
+		// Clear
+		Window->Flags &= ~WINFLAG_RELATIVE;
+		WM_MoveWindow(Window, Window->X - Window->Parent->X, Window->Y - Window->Parent->Y);
+	}
+}
+
 int WM_MoveWindow(tWindow *Window, int X, int Y)
 {
+//	_SysDebug("Move %p to (%i,%i)", Window, X, Y);
 	// Clip coordinates
 	if(X + Window->W < 0)	X = -Window->W + 1;
 	if(Y + Window->H < 0)	Y = -Window->H + 1;
 	if(X >= giScreenWidth)	X = giScreenWidth - 1;
 	if(Y >= giScreenHeight)	Y = giScreenHeight - 1;
 	
+	// If relative to the parent, extra checks
+	if( (Window->Flags & WINFLAG_RELATIVE) && Window->Parent )
+	{
+		if( X > Window->Parent->W )	return 1;
+		if( Y > Window->Parent->H )	return 1;
+	}
+	// TODO: Re-sanitise
+
 	Window->X = X;	Window->Y = Y;
 
+	// TODO: Why invalidate buffer?
 	WM_Invalidate(Window);
 
 	return 0;
@@ -301,7 +334,7 @@ int WM_SendMessage(tWindow *Source, tWindow *Dest, int Message, int Length, cons
 void WM_Invalidate(tWindow *Window)
 {
 	if(!Window)	return ;
-	_SysDebug("Invalidating %p", Window);
+//	_SysDebug("Invalidating %p", Window);
 	// Don't invalidate twice (speedup)
 //	if( !(Window->Flags & WINFLAG_CLEAN) )	return;
 
@@ -328,7 +361,7 @@ void WM_int_UpdateWindow(tWindow *Window)
 		// Calculate RealW/RealH
 		if( !(Window->Flags & WINFLAG_NODECORATE) )
 		{
-			_SysDebug("Applying decorations to %p", Window);
+			//_SysDebug("Applying decorations to %p", Window);
 			Decorator_UpdateBorderSize(Window);
 			Window->RealW = Window->BorderL + Window->W + Window->BorderR;
 			Window->RealH = Window->BorderT + Window->H + Window->BorderB;
@@ -344,6 +377,17 @@ void WM_int_UpdateWindow(tWindow *Window)
 			Window->RealH = Window->H;
 		}
 		
+		if( (Window->Flags & WINFLAG_RELATIVE) && Window->Parent )
+		{
+			Window->RealX = Window->Parent->X + Window->Parent->BorderL + Window->X;
+			Window->RealY = Window->Parent->Y + Window->Parent->BorderT + Window->Y;
+		}
+		else
+		{
+			Window->RealX = Window->X;
+			Window->RealY = Window->Y;
+		}
+
 		Window->Renderer->Redraw(Window);
 		Window->Flags |= WINFLAG_CLEAN;
 	}
@@ -371,15 +415,15 @@ void WM_int_BlitWindow(tWindow *Window)
 	if( !(Window->Flags & WINFLAG_SHOW) )
 		return ;
 
-	_SysDebug("Blit %p (%p) to (%i,%i) %ix%i", Window, Window->RenderBuffer,
-		Window->X, Window->Y, Window->RealW, Window->RealH);
-	Video_Blit(Window->RenderBuffer, Window->X, Window->Y, Window->RealW, Window->RealH);
+//	_SysDebug("Blit %p (%p) to (%i,%i) %ix%i", Window, Window->RenderBuffer,
+//		Window->RealX, Window->RealY, Window->RealW, Window->RealH);
+	Video_Blit(Window->RenderBuffer, Window->RealX, Window->RealY, Window->RealW, Window->RealH);
 	
 	if( Window == gpWM_FocusedWindow && Window->CursorW )
 	{
 		Video_FillRect(
-			Window->X + Window->BorderL + Window->CursorX,
-			Window->Y + Window->BorderT + Window->CursorY,
+			Window->RealX + Window->BorderL + Window->CursorX,
+			Window->RealY + Window->BorderT + Window->CursorY,
 			Window->CursorW, Window->CursorH,
 			0x000000
 			);

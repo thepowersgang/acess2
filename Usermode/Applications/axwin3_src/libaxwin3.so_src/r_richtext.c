@@ -9,6 +9,8 @@
 #include <axwin3/richtext.h>
 #include "include/internal.h"
 #include <richtext_messages.h>
+#include <string.h>
+//#include <alloca.h>
 
 // === TYPES ===
 typedef struct sRichText_Window
@@ -89,3 +91,16 @@ void AxWin3_RichText_SetCursorPos(tHWND Window, int Row, int Column)
 		return ;
 	_SendAttrib(Window, _ATTR_CURSORPOS, ((Row & 0xFFFFF) << 12) | (Column & 0xFFF));
 }
+
+void AxWin3_RichText_SendLine(tHWND Window, int Line, const char *Text)
+{
+	// TODO: Local sanity check on `Line`?
+	struct sRichTextMsg_SendLine	*msg;
+	size_t	len = sizeof(*msg) + strlen(Text) + 1;
+	char	buffer[len];
+       	msg = (void*)buffer;
+	msg->Line = Line;
+	strcpy(msg->LineData, Text);
+	AxWin3_SendMessage(Window, Window, MSG_RICHTEXT_SENDLINE, len, msg);
+}
+

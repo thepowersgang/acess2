@@ -33,7 +33,7 @@ int main(int argc, char *argv[])
 	AxWin3_Connect(NULL);
 	
 	// --- Build up window
-	gMainWindow = AxWin3_Widget_CreateWindow(NULL, 400, 600, ELEFLAG_VERTICAL);
+	gMainWindow = AxWin3_Widget_CreateWindow(NULL, 600, 400, ELEFLAG_VERTICAL);
 	AxWin3_SetWindowTitle(gMainWindow, "Acess Text Editor");	// TODO: Update title with other info
 	gMainWindow_Root = AxWin3_Widget_GetRoot(gMainWindow);
 
@@ -69,6 +69,13 @@ int main(int argc, char *argv[])
 	AxWin3_RichText_SetCursorPos	(gMainWindow_TextArea, 0, 0);
 	AxWin3_RichText_SetCursorType	(gMainWindow_TextArea, AXWIN3_RICHTEXT_CURSOR_VLINE);
 	AxWin3_RichText_SetCursorBlink	(gMainWindow_TextArea, 1);
+
+	// <testing>
+	AxWin3_RichText_SetLineCount(gMainWindow_TextArea, 3);
+	AxWin3_RichText_SendLine(gMainWindow_TextArea, 0, "First line!");
+	AxWin3_RichText_SendLine(gMainWindow_TextArea, 2, "Third line!, should be a nice gap above");
+	// </testing>
+
 	AxWin3_ShowWindow(gMainWindow_TextArea, 1);
 	// TODO: Status Bar?
 
