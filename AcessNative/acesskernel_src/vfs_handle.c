@@ -38,8 +38,8 @@ tUserHandles *VFS_int_GetUserHandles(int PID, int bCreate)
 	tUserHandles	*ent, *prev = NULL;
 	for( ent = gpUserHandles; ent; prev = ent, ent = ent->Next ) {
 		if( ent->PID == PID ) {
-			if( bCreate )
-				Log_Warning("VFS", "Process %i already has a handle list", PID);
+			//if( bCreate )
+			//	Log_Warning("VFS", "Process %i already has a handle list", PID);
 			return ent;
 		}
 		if( ent->PID > PID )	break;
