@@ -68,7 +68,7 @@ tWindow *Renderer_RichText_Create(int Flags)
 	if(!ret)	return NULL;
 	info = ret->RendererInfo;
 	
-	// Initialise font.
+	// Initialise font (get an idea of dimensions)
 	int h;
 	WM_Render_GetTextDims(NULL, "yY!", 3, NULL, &h);
 	info->LineHeight = h;
@@ -79,7 +79,7 @@ tWindow *Renderer_RichText_Create(int Flags)
 static inline int Renderer_RichText_RenderText_Act(tWindow *Window, tRichText_Window *info, int X, int Row, const char *Text, int Bytes, tColour FG, tColour BG, int Flags)
 {
 	 int	rwidth;
-	// TODO: Fill only what is needed
+	// TODO: Fill only what is needed? What about the rest of the line?
 	WM_Render_DrawRect(Window, X, Row*info->LineHeight,
 		Window->W - X, info->LineHeight,
 		BG
