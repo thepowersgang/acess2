@@ -4,7 +4,7 @@
 -include ../Makefile.cfg
 
 CPPFLAGS += 
-CFLAGS   += 
+CFLAGS   += -Werror -Wextra
 ASFLAGS  +=
 LDFLAGS  += -soname libc.so -Map map.txt -lgcc
 
