@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
 	// <testing>
 	AxWin3_RichText_SetLineCount(gMainWindow_TextArea, 3);
 	AxWin3_RichText_SendLine(gMainWindow_TextArea, 0, "First line!");
-	AxWin3_RichText_SendLine(gMainWindow_TextArea, 2, "Third line!, should be a nice gap above");
+	AxWin3_RichText_SendLine(gMainWindow_TextArea, 2, "Third line! \x01""ff0000A red");
 	// </testing>
 
 	AxWin3_ShowWindow(gMainWindow_TextArea, 1);

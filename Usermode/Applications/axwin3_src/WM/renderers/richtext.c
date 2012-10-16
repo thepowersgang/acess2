@@ -104,7 +104,7 @@ void Renderer_RichText_RenderText(tWindow *Window, int Line, const char *Text)
 	 int	curx = 0;
 	const char	*oldtext = Text;
 	
-	for( int i = 0; i < info->FirstVisCol + info->DispCols; i ++ )
+	for( int i = 0; curx < Window->W; i ++ )
 	{
 		char	ch, flags;
 		 int	len;
@@ -114,45 +114,60 @@ void Renderer_RichText_RenderText(tWindow *Window, int Line, const char *Text)
 
 		ch = *Text++;
 		if( ch == 0 )	break;
-		if( ch <=3 && bRender ) {
+
+		// Not an escape - move along
+		if( ch > 4 )
+			continue ;		
+
+		if( bRender ) {
 			// Render previous characters
 			curx += Renderer_RichText_RenderText_Act(Window, info, curx, Line,
-				oldtext, Text - oldtext, fg, bg, flagset);
-			oldtext = Text;
+				oldtext, Text - oldtext - 1, fg, bg, flagset);
+			if( curx >= Window->W )
+				break;
 		}
+		oldtext = Text;
 		switch(ch)
 		{
 		case 1:	// FG Select (\1 RRGGBB)
-			len = sscanf(Text, "%6x", &fg);
-			if( len != 6 ) {
+			if( sscanf(Text, "%6x%n", &fg, &len) != 1 || len != 6 ) {
 				// Bad client
+				_SysDebug("foreground scanf failed - len=%i", len);
+				len = 0;
 			}
 			Text += len;
+			oldtext = Text;
+			_SysDebug("FG update to %x", fg);
 			break ;
 		case 2:	// BG Select (\2 RRGGBB)
-			len = sscanf(Text, "%6x", &bg);
-			if( len != 6 ) {
+			if( sscanf(Text, "%6x%n", &bg, &len) != 1 || len != 6 ) {
 				// Bad client
+				_SysDebug("background scanf failed - len=%i", len);
+				len = 0;
 			}
 			Text += len;
+			oldtext = Text;
+			_SysDebug("BG update to %x", bg);
 			break ;
 		case 3:	// Flagset (0,it,uline,bold)
-			len = sscanf(Text, "%1x", &flags);
-			if( len != 1 ) {
+			if( sscanf(Text, "%1hhx%n", &flags, &len) != 1 || len != 1 ) {
 				// Bad client
+				_SysDebug("Flagset scanf failed - len=%i", len);
 			}
-			Text += len;
-			//bItalic = !!(flags & (1 << 2));
-			//bULine = !!(flags & (1 << 1));
-			//bBold = !!(flags & (1 << 0));
 			flagset = flags & 7;
+			Text += len;
+			oldtext = Text;
 			break ;
-		default: // Any char, nop
+		case 4:	// Escape (do nothing)
+			Text ++;
+			// NOTE: No update to oldtext
+			break;
+		default: // Error.
 			break;
 		}
 	}
 	curx += Renderer_RichText_RenderText_Act(Window, info, curx,
-		Line, oldtext, Text - oldtext, fg, bg, flagset);
+		Line, oldtext, Text - oldtext + 1, fg, bg, flagset);
 	WM_Render_DrawRect(Window, curx, Line * info->LineHeight,
 		Window->W - curx, info->LineHeight, info->DefaultBG);
 }
@@ -187,14 +202,8 @@ void Renderer_RichText_Redraw(tWindow *Window)
 		// TODO: Horizontal scrolling?
 		// TODO: Formatting
 		
-		// NOTE: uses scanf() so commented out for now
-		//Renderer_RichText_RenderText(Window, i, line->Text);
-		WM_Render_DrawText(Window,
-			0, i*info->LineHeight,
-			Window->W, info->LineHeight,
-			info->Font, info->DefaultFG,
-			line->Data,
-			-1);
+		// Formatted text out
+		Renderer_RichText_RenderText(Window, i, line->Data);
 		_SysDebug("RichText: %p - Render %i '%.*s'", Window,
 			line->Num, line->ByteLength, line->Data);
 
