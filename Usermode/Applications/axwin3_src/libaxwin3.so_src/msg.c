@@ -115,57 +115,43 @@ void AxWin3_int_SendIPCMessage(tAxWin_IPCMessage *Msg)
 	}
 }
 
-tAxWin_IPCMessage *AxWin3_int_GetIPCMessage(void)
+tAxWin_IPCMessage *AxWin3_int_GetIPCMessage(int nFD, fd_set *fds)
 {
 	 int	len;
 	tAxWin_IPCMessage	*ret = NULL;
-	switch(giConnectionType)
+	pid_t	tid;
+
+	_SysSelect(nFD, fds, NULL, NULL, NULL, THREAD_EVENT_IPCMSG);
+	
+	// Clear out IPC messages
+	while( (len = SysGetMessage(&tid, 0, NULL)) )
 	{
-	case CONNTYPE_SENDMESSAGE:
-		for( ;; )
+		if( giConnectionType != CONNTYPE_SENDMESSAGE || tid != giConnectionNum )
 		{
-			pid_t	tid;
-		
-			// Wait for a message to arrive	
-			while( !(len = SysGetMessage(&tid, 0, NULL)) )
-			{
-				_SysWaitEvent(THREAD_EVENT_IPCMSG);
-			}
-			
-			// Check if the message came from the server
-			if(tid != giConnectionNum)
-			{
-				_SysDebug("%i byte message from %i", len, tid);
-				// If not, pass the buck (or ignore)
-				if( gAxWin3_MessageCallback )
-					gAxWin3_MessageCallback(tid, len);
-				else
-					SysGetMessage(NULL, 0, GETMSG_IGNORE);
-				continue ;
-			}
-			
-			// If it's from the server, allocate a buffer and return it
-			ret = malloc(len);
-			if(ret == NULL) {
-				_SysDebug("malloc() failed, ignoring message");
+			_SysDebug("%i byte message from %i", len, tid);
+			// If not, pass the buck (or ignore)
+			if( gAxWin3_MessageCallback )
+				gAxWin3_MessageCallback(tid, len);
+			else
 				SysGetMessage(NULL, 0, GETMSG_IGNORE);
-				return NULL;
-			}
-			SysGetMessage(NULL, len, ret);
-			break;
+			continue ;
 		}
-		break;
-	default:
-		// TODO: Implement
-		_SysDebug("TODO: Implement AxWin3_int_GetIPCMessage for TCP/UDP");
+		
+		// Using CONNTYPE_SENDMESSAGE and server message has arrived
+		ret = malloc(len);
+		if(ret == NULL) {
+			_SysDebug("malloc() failed, ignoring message");
+			SysGetMessage(NULL, 0, GETMSG_IGNORE);
+			return NULL;
+		}
+		SysGetMessage(NULL, len, ret);
 		break;
 	}
 
-	// No message?
-	if( ret == NULL )
-		return NULL;
-
-	// TODO: Sanity checks, so a stupid server can't crash us
+	if( giConnectionType == CONNTYPE_TCP || giConnectionType == CONNTYPE_UDP )
+	{
+		// Check fds
+	}
 
 	return ret;
 }
@@ -175,10 +161,9 @@ tAxWin_IPCMessage *AxWin3_int_WaitIPCMessage(int WantedID)
 	tAxWin_IPCMessage	*msg;
 	for(;;)
 	{
-		msg = AxWin3_int_GetIPCMessage();
+		msg = AxWin3_int_GetIPCMessage(0, NULL);
 		if(msg->ID == WantedID)	return msg;
 		AxWin3_int_HandleMessage( msg );
-		free(msg);
 	}
 }
 

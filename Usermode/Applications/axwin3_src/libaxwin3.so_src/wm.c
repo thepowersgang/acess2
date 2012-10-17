@@ -226,6 +226,8 @@ void AxWin3_int_HandleMessage(tAxWin_IPCMessage *Msg)
 		_SysDebug("Unknow message ID %i", Msg->ID);
 		break;
 	}
+	
+	free(Msg);
 }
 
 void AxWin3_SetWindowTitle(tHWND Window, const char *Title)
