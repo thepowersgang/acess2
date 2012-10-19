@@ -10,11 +10,12 @@
 #include <axwin3/richtext.h>
 #include <stdio.h>
 #include "include/display.h"
+#include "include/vt100.h"
 
 // === PROTOTYPES ===
- int	main(int argc, char *argv[]);
+ int	main(int argc, char *argv[], const char **envp);
  int	Term_KeyHandler(tHWND Window, int bPress, uint32_t KeySym, uint32_t Translated);
- int	Term_MouseHandler(tHWND Window, int bPress, uint32_t KeySym, uint32_t Translated);
+ int	Term_MouseHandler(tHWND Window, int bPress, int Button, int Row, int Col);
 
 // === GLOBALS ===
 tHWND	gMainWindow;
@@ -23,7 +24,7 @@ tHWND	gMenuWindow;
  int	giChildStdout;
 
 // === CODE ===
-int main(int argc, char *argv[])
+int main(int argc, char *argv[], const char **envp)
 {
 	AxWin3_Connect(NULL);
 	
@@ -32,8 +33,8 @@ int main(int argc, char *argv[])
 	AxWin3_SetWindowTitle(gMainWindow, "Terminal");	// TODO: Update title with other info
 
 	gMenuWindow = AxWin3_Menu_Create(gMainWindow);
-	AxWin3_Menu_AddItem(gMenuWindow, "Copy\tWin+C", NULL, NULL, NULL, 0);
-	AxWin3_Menu_AddItem(gMenuWindow, "Paste\tWin+V", NULL, NULL, NULL, 0);
+	AxWin3_Menu_AddItem(gMenuWindow, "Copy\tWin+C", NULL, NULL, 0, NULL);
+	AxWin3_Menu_AddItem(gMenuWindow, "Paste\tWin+V", NULL, NULL, 0, NULL);
 	// TODO: Populate menu	
 
 
@@ -75,14 +76,14 @@ int main(int argc, char *argv[])
 		fd_set	fds;
 		
 		FD_ZERO(&fds);
-		FD_SET(&fds, giChildStdout);
+		FD_SET(giChildStdout, &fds);
 		AxWin3_MessageSelect(giChildStdout + 1, &fds);
 		
-		if( FD_ISSET(&fds, giChildStdout) )
+		if( FD_ISSET(giChildStdout, &fds) )
 		{
 			// Read and update screen
 			char	buf[32];
-			len = read(giChildStdout, sizeof(buf), buf);
+			int len = read(giChildStdout, buf, sizeof(buf));
 			if( len <= 0 )	break;
 			
 			//Term_HandleOutput(len, buf);
@@ -127,7 +128,7 @@ int Term_KeyHandler(tHWND Window, int bPress, uint32_t KeySym, uint32_t Translat
 	switch(KeySym)
 	{
 	case KEY_LEFTARROW:
-		str = "\x1b[D";
+	//	str = "\x1b[D";
 		break;
 	}
 	return 0;
