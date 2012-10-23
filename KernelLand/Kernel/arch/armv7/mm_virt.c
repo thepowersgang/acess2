@@ -902,7 +902,7 @@ tVAddr MM_NewUserStack(void)
 	tVAddr	addr, ofs;
 
 	addr = USER_STACK_TOP - USER_STACK_SIZE;
-	if( MM_GetPhysAddr(addr + PAGE_SIZE) ) {
+	if( MM_GetPhysAddr( (void*)(addr + PAGE_SIZE) ) ) {
 		Log_Error("MMVirt", "Unable to create initial user stack, addr %p taken",
 			addr + PAGE_SIZE
 			);
