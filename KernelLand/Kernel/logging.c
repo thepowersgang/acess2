@@ -161,9 +161,11 @@ void Log_Int_PrintMessage(tLogEntry *Entry)
 	if( CPU_HAS_LOCK(&glLogOutput) )
 		return ;	// TODO: Error?
 	SHORTLOCK( &glLogOutput );
-	LogF("%s%014lli%s [%-8s] %i - %s",
+	LogF("%s%014lli",
 		csaLevelColours[Entry->Level],
-		Entry->Time,
+		Entry->Time
+		);
+	LogF("%s [%-8s] %i - %s",
 		csaLevelCodes[Entry->Level],
 		Entry->Ident,
 		Threads_GetTID(),

@@ -38,6 +38,7 @@ extern Uint	Binary_Load(const char *file, Uint *entryPoint);
 void	SyscallHandler(tSyscallRegs *Regs);
  int	Syscall_ValidString(const char *Addr);
  int	Syscall_Valid(int Size, const void *Addr);
+ int	Syscall_MM_SetFlags(const void *Addr, Uint Flags, Uint Mask);
 
 // === CODE ===
 // TODO: Do sanity checking on arguments, ATM the user can really fuck with the kernel
@@ -114,6 +115,11 @@ void SyscallHandler(tSyscallRegs *Regs)
 	// -- Unmap an address
 	case SYS_UNMAP:		MM_Deallocate(Regs->Arg1);	break;
 	
+	// -- Change the protection on an address
+	case SYS_SETFLAGS:
+		ret = Syscall_MM_SetFlags((void*)Regs->Arg1, Regs->Arg2, Regs->Arg3);
+		break;
+
 	// -- Get Thread/Process IDs
 	case SYS_GETTID:	ret = Threads_GetTID();	break;
 	case SYS_GETPID:	ret = Threads_GetPID();	break;
@@ -397,4 +403,22 @@ int Syscall_Valid(int Size, const void *Addr)
 	if(!MM_IsUser( (tVAddr)Addr ))	return 0;
 	
 	return CheckMem( Addr, Size );
+}
+
+int Syscall_MM_SetFlags(const void *Addr, Uint Flags, Uint Mask)
+{
+	tPAddr	paddr = MM_GetPhysAddr(Addr);
+	Flags &= MM_PFLAG_RO|MM_PFLAG_EXEC;
+	Mask &= MM_PFLAG_RO|MM_PFLAG_EXEC;
+	// Enable write?
+	if( (Mask & MM_PFLAG_RO) && !(Flags & MM_PFLAG_RO) ) {
+		void	*node;
+		// HACK - Assume that RO mmap'd files are immutable
+		if( MM_GetPageNode(paddr, &node) == 0 && node ) {
+			Flags |= MM_PFLAG_COW;
+			Mask |= MM_PFLAG_COW;
+		}
+	}
+	MM_SetFlags((tVAddr)Addr, Flags, Mask);
+	return 0;
 }

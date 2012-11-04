@@ -5,7 +5,7 @@
  * mmap.c
  * - VFS_MMap support
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <acess.h>
 #include <vfs.h>
 #include <vfs_ext.h>
@@ -57,6 +57,7 @@ void *VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD,
 					PAGE_SIZE - (mapping_base & (PAGE_SIZE-1))
 					);
 				memset( (void*)(mapping_base + ofs), 0, PAGE_SIZE - (mapping_base & (PAGE_SIZE-1)));
+				LOG("dune");
 			}
 			else {
 				LOG("New empty page");

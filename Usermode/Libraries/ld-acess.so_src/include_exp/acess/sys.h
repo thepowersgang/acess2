@@ -90,5 +90,6 @@ extern int	SysGetMessage(pid_t *src, uint buflen, void *Data);
 // --- MEMORY ---
 uint64_t	_SysGetPhys(uint vaddr);
 uint64_t	_SysAllocate(uint vaddr);
+uint32_t	SysSetMemFlags(uint vaddr, uint32_t flags, uint32_t mask);
 
 #endif

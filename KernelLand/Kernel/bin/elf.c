@@ -11,10 +11,19 @@
 #if BITS <= 32
 # define DISABLE_ELF64
 #endif
-void	*GetSymbol(const char *Name, size_t *Size);
-void	*GetSymbol(const char *Name, size_t *Size) { Uint val; Binary_GetSymbol(Name, &val); if(Size)*Size=0; return (void*)val; };
+static int	GetSymbol(const char *Name, void **Value, size_t *Size);
+static int	GetSymbol(const char *Name, void **Value, size_t *Size) {
+	Uint val;
+	if(Binary_GetSymbol(Name, &val))
+		return 0;
+	if(Size)
+		*Size=0;
+	*Value = (void*)val;
+	return 1;
+}
 #define AddLoaded(a,b)	do{}while(0)
 #define LoadLibrary(a,b,c)	(Log_Debug("ELF", "Module requested lib '%s'",a),0)
+#define SysSetMemFlags(ad,f,m)	do{}while(0)
 #include "../../../Usermode/Libraries/ld-acess.so_src/elf.c"
 
 #define DEBUG_WARN	1

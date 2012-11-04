@@ -39,29 +39,19 @@ __clear_cache:
 	svc #0x1001
 	mov pc, lr
 
-@ DEST
-@ SRC
-@_memcpy:
-@	push rbp
-@	mov rbp, rsp
-@	
-@	; RDI - First Param
-@	; RSI - Second Param
-@	mov rcx, rdx	; RDX - Third
-@	rep movsb
-@	
-@	pop rbp
-@	ret
-@
+.section .data
 .globl _errno
 _errno:	.long	0	@ Placed in .text, to allow use of relative addressing
+.section .text
 
 .macro syscall0 _name, _num	
 .globl \_name
 \_name:
 	push {lr}
 	svc #\_num
-	str r2, _errno
+	@mrc p15, 0, r3, c13, c0, 2
+	ldr r3, =_errno
+	str r2, [r3]
 	pop {pc}
 .endm
 
@@ -71,7 +61,8 @@ _errno:	.long	0	@ Placed in .text, to allow use of relative addressing
 	push {r4, lr}
 	ldr r4, [sp,#8]
 	svc #\_num
-	str r2, _errno
+	ldr r3, =_errno
+	str r2, [r3]
 	pop {r4, pc}
 .endm
 
@@ -82,7 +73,8 @@ _errno:	.long	0	@ Placed in .text, to allow use of relative addressing
 	ldr r4, [sp,#12]
 	ldr r5, [sp,#16]
 	svc #\_num
-	str r2, _errno
+	ldr r3, =_errno
+	str r2, [r3]
 	pop {r4,r5,pc}
 .endm
 
@@ -107,7 +99,8 @@ _clone:
 	push {r4}
 	mov r4, r1
 	svc #SYS_CLONE
-	str r2, _errno
+	ldr r3, =_errno
+	str r2, [r3]
 	tst r4, r4
 	beq _clone_ret
 	@ If in child, set SP

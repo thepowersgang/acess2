@@ -39,7 +39,7 @@ extern void	*DoRelocate(void *Base, char **envp, const char *Filename);
 // === Library/Symbol Manipulation ==
 extern void	*LoadLibrary(const char *Filename, const char *SearchDir, char **envp);
 extern void	AddLoaded(const char *File, void *base);
-extern void	*GetSymbol(const char *name, size_t *size);
+extern int	GetSymbol(const char *Name, void **Value, size_t *size);
 extern int	GetSymbolFromBase(void *base, const char *name, void **ret, size_t *size);
 
 // === Library Functions ===

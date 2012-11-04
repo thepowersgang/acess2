@@ -10,6 +10,7 @@
 #include <hal_proc.h>
 
 #define TRACE_MAPS	0
+#define TRACE_COW	1
 
 #define AP_KRW_ONLY	1	// Kernel page
 #define AP_KRO_ONLY	5	// Kernel RO page
@@ -17,6 +18,13 @@
 #define AP_RO_BOTH	7	// COW Page
 #define AP_RO_USER	2	// User RO Page
 #define PADDR_MASK_LVL1	0xFFFFFC00
+
+const char * const caAPValueNames[] = {
+	"AP_NOACCESS", "AP_KRW_ONLY",
+	"AP_RO_USER", "AP_RW_BOTH",
+	"AP_???_4", "AP_KRO_ONLY",
+	"AP_???_6", "AP_RO_BOTH"
+};
 
 // === IMPORTS ===
 extern Uint32	kernel_table0[];
@@ -53,7 +61,7 @@ tPAddr	MM_Clone(void);
 tVAddr	MM_NewKStack(int bGlobal);
 void	MM_int_DumpTableEnt(tVAddr Start, size_t Len, tMM_PageInfo *Info);
 //void	MM_DumpTables(tVAddr Start, tVAddr End);
-void	MM_PageFault(Uint32 PC, Uint32 Addr, Uint32 DFSR, int bPrefetch);
+void	MM_PageFault(Uint32 PC, Uint32 Addr, Uint32 DFSR, int bPrefetch, Uint32 UserLR);
 
 // === GLOBALS ===
 tPAddr	giMM_ZeroPage;
@@ -938,18 +946,20 @@ void MM_int_DumpTableEnt(tVAddr Start, size_t Len, tMM_PageInfo *Info)
 {
 	if( giMM_ZeroPage && Info->PhysAddr == giMM_ZeroPage )
 	{
-		Debug("%p => %8s - 0x%7x %i %x %s",
+		Debug("%p => %8s - 0x%7x D%i %x %s %s",
 			Start, "ZERO", Len,
 			Info->Domain, Info->AP,
-			Info->bGlobal ? "G" : "nG"
+			Info->bExecutable ? " X" : "nX",
+			Info->bGlobal ? " G" : "nG"
 			);
 	}
 	else
 	{
-		Debug("%p => %8x - 0x%7x %i %x %s",
+		Debug("%p => %8x - 0x%7x D%i %x %s %s",
 			Start, Info->PhysAddr-Len, Len,
 			Info->Domain, Info->AP,
-			Info->bGlobal ? "G" : "nG"
+			Info->bExecutable ? " X" : "nX",
+			Info->bGlobal ? " G" : "nG"
 			);
 	}
 }
@@ -996,7 +1006,7 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 }
 
 // NOTE: Runs in abort context, not much difference, just a smaller stack
-void MM_PageFault(Uint32 PC, Uint32 Addr, Uint32 DFSR, int bPrefetch)
+void MM_PageFault(Uint32 PC, Uint32 Addr, Uint32 DFSR, int bPrefetch, Uint32 UserLR)
 {
 	 int	rv;
 	tMM_PageInfo	pi;
@@ -1070,6 +1080,33 @@ void MM_PageFault(Uint32 PC, Uint32 Addr, Uint32 DFSR, int bPrefetch)
 	Log_Error("MMVirt", "Code at %p accessed %p (DFSR = 0x%x)%s", PC, Addr, DFSR,
 		(bPrefetch ? " - Prefetch" : "")
 		);
+	Log_Error("MMVirt", "- User LR = 0x%x", UserLR);
+	const char * const dfsr_errors[] = {
+		/* 00000 */ "-", "Alignment Fault",
+		/* 00010 */ "Debug event", "Access Flag (Section)",
+		/* 00100 */ "Instr Cache Maint", "Translation (Section)",
+		/* 00110 */ "Access Flag (Page)", "Translation (Page)",
+		/* 01000 */ "Sync. External abort", "Domain (Section)",
+		/* 01010 */ "-", "Domain (Page)",
+		/* 01100 */ "Table Walk sync ext (lvl 1)", "Permission (Section)",
+		/* 01110 */ "Table Walk sync ext (lvl 2)", "Permission (Page)",
+		// 0b10000
+		/* 10000 */ "-", "-",
+		/* 10010 */ "-", "-",
+		/* 10100 */ "IMPL (Lockdown)", "-",
+		/* 10110 */ "Async. Extern. Abort", "-",
+		/* 11000 */ "Mem. access async pairity error", "Mem. access async pairity error",
+		/* 11010 */ "IMPL (Coprocessor abort)", "-",
+		/* 11100 */ "Table Walk Sync parity (lvl 1)", "-",
+		/* 11110 */ "Table Walk Sync parity (lvl 2)", "-"
+		};
+	 int	errcode = (DFSR & 0xF) | (((DFSR >> 10) & 1) << 4);
+	Log_Error("MMVirt", "- Errcode 0b%05b", errcode);
+	Log_Error("MMVirt", "- Dom %i %s %s",
+		(DFSR >> 4) & 0xF, (DFSR & 0x800 ? "Write": "Read"),
+		dfsr_errors[errcode]
+		);
+	Log_Error("MMVirt", "- AP=%i(%s) %s", pi.AP, caAPValueNames[pi.AP], pi.bExecutable ? " Executable":"");
 	if( Addr < 0x80000000 )
 		MM_DumpTables(0, 0x80000000);
 	else
