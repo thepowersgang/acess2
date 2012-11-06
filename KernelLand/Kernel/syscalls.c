@@ -410,6 +410,9 @@ int Syscall_MM_SetFlags(const void *Addr, Uint Flags, Uint Mask)
 	tPAddr	paddr = MM_GetPhysAddr(Addr);
 	Flags &= MM_PFLAG_RO|MM_PFLAG_EXEC;
 	Mask &= MM_PFLAG_RO|MM_PFLAG_EXEC;
+
+	//Log_Debug("Syscalls", "SYS_SETFLAGS: %p %x %x", Addr, Flags, Mask);	
+
 	// Enable write?
 	if( (Mask & MM_PFLAG_RO) && !(Flags & MM_PFLAG_RO) ) {
 		void	*node;

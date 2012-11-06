@@ -5,7 +5,7 @@
  * mmap.c
  * - VFS_MMap support
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include <vfs.h>
 #include <vfs_ext.h>
