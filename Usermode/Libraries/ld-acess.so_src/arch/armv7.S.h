@@ -39,6 +39,16 @@ __clear_cache:
 	svc #0x1001
 	mov pc, lr
 
+
+@ >r0: PC
+@ >r1: Pointer to item count
+@ <r0: Address
+@ STUBBED
+__gnu_Unwind_Find_exidx:
+	mov r0, #0
+	str r0, [r1]
+	mov pc, lr
+
 .section .data
 .globl _errno
 _errno:	.long	0	@ Placed in .text, to allow use of relative addressing

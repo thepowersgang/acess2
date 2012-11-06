@@ -260,7 +260,7 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 	// - Will be reversed at the end of the function
 	for( i = 0; i < iSegmentCount; i ++ )
 	{
-		if(phtab[i].Type == PT_LOAD && phtab[i].Flags & PF_R ) {
+		if(phtab[i].Type == PT_LOAD && !(phtab[i].Flags & PF_W) ) {
 			uintptr_t	addr = phtab[i].VAddr + iBaseDiff;
 			uintptr_t	end = addr + phtab[i].MemSize;
 			for( ; addr < end; addr += PAGE_SIZE )
@@ -447,7 +447,8 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 	// Re-set readonly
 	for( i = 0; i < iSegmentCount; i ++ )
 	{
-		if(phtab[i].Type == PT_LOAD && phtab[i].Flags & PF_R ) {
+		// If load and not writable
+		if(phtab[i].Type == PT_LOAD && !(phtab[i].Flags & PF_W) ) {
 			uintptr_t	addr = phtab[i].VAddr + iBaseDiff;
 			uintptr_t	end = addr + phtab[i].MemSize;
 			for( ; addr < end; addr += PAGE_SIZE )
@@ -705,12 +706,14 @@ void *Elf64Relocate(void *Base, char **envp, const char *Filename)
 	}
 
 	// Relocation function
+	auto int _Elf64DoReloc(Elf64_Xword r_info, void *ptr, Elf64_Sxword addend);
 	int _Elf64DoReloc(Elf64_Xword r_info, void *ptr, Elf64_Sxword addend)
 	{
 		 int	sym = ELF64_R_SYM(r_info);
 		 int	type = ELF64_R_TYPE(r_info);
 		const char	*symname = strtab + symtab[sym].st_name;
 		void	*symval;
+		//DEBUGS("_Elf64DoReloc: %s", symname);
 		switch( type )
 		{
 		case R_X86_64_NONE:
@@ -739,6 +742,7 @@ void *Elf64Relocate(void *Base, char **envp, const char *Filename)
 			SysDebug("ld-acess - _Elf64DoReloc: Unknown relocation type %i", type);
 			return 2;
 		}
+		//DEBUGS("_Elf64DoReloc: - Good");
 		return 0;
 	}
 

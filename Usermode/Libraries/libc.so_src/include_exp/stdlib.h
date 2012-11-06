@@ -24,6 +24,7 @@ extern long long	strtoll(const char *ptr, char **end, int base);
 extern long	strtol(const char *ptr, char **end, int base);
 extern int	atoi(const char *ptr);
 extern void	exit(int status) __attribute__((noreturn));
+extern void	abort(void);
 extern void	atexit(void (*__func)(void));
 extern void	qsort(void *base, size_t nmemb, size_t size, int(*compar)(const void *, const void *));
 extern int	abs(int j);
