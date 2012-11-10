@@ -26,7 +26,7 @@ while [ $# -ne 0 ]; do
 			_kfile="KernelLand/Acess2.$1-$2.bin"
 		fi
 		BOOTOPT="-kernel $_kfile"
-		BOOTOPT=$BOOTOPT" -initrd KernelLand/Modules/Filesystems/FS_InitRD.kmd.$1 -append $3"
+		BOOTOPT=$BOOTOPT" -initrd KernelLand/Modules/Filesystems/FS_InitRD.kmd.$1 -append \"$3\""
 		shift
 		shift
 		;;
@@ -89,4 +89,4 @@ if [ "x$_NOTEE" = "xyes" ] ; then
 	exit
 fi
 
-$QEMU $BOOTOPT $QEMU_PARAMS -serial stdio | tee QemuLog.txt
+eval $QEMU $BOOTOPT $QEMU_PARAMS -serial stdio | tee QemuLog.txt
