@@ -46,8 +46,6 @@ const char	*gsInstallRoot = __INSTALL_ROOT;
  */
 int main(int argc, char *argv[])
 {
-	 int	server_tid = gettid();
-	
 	ParseCommandline(argc, argv);
 	
 	if( gsTerminalDevice == NULL ) {
@@ -74,16 +72,20 @@ int main(int argc, char *argv[])
 	WM_Hotkey_Register(2, keys, "Interface>Run");
 	
 	// Spawn interface root
-	if( clone(CLONE_VM, 0) == 0 )
 	{
+	 	int	server_tid = gettid();
+		_SysDebug("server_tid = %i", server_tid);
 		static char csInterfaceApp[] = __INSTALL_ROOT"/AxWinUI";
 		char	server_info[] = "AXWIN3_SERVER=00000";
-		char	*envp[] = {server_info, NULL};
-		char	*argv[] = {csInterfaceApp, NULL};
+		const char	*envp[] = {server_info, NULL};
+		const char	*argv[] = {csInterfaceApp, NULL};
 		_SysDebug("server_tid = %i, &server_tid = %p", server_tid, &server_tid);
 		sprintf(server_info, "AXWIN3_SERVER=%i", server_tid);
-		execve(csInterfaceApp, argv, envp);
-		exit(1);
+		// TODO: Does the client need FDs?
+		 int	rv = _SysSpawn(csInterfaceApp, argv, envp, 0, NULL, NULL);
+		if( rv ) {
+			_SysDebug("_SysSpawn chucked a sad, rv=%i, errno=%i", rv, _errno);
+		}
 	}
 
 	// Main Loop

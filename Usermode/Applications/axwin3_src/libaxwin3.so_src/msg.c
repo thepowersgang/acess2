@@ -33,9 +33,8 @@ tAxWin3_MessageCallback	gAxWin3_MessageCallback;
 // === CODE ===
 void AxWin3_Connect(const char *ServerDesc)
 {
-	_SysDebug("ServerDesc = %s", ServerDesc);
-	if( !ServerDesc )
-	{
+	_SysDebug("ServerDesc (argument) = %s", ServerDesc);
+	if( !ServerDesc ) {
 		ServerDesc = gsAxWin3_int_ServerDesc;
 	}
 	_SysDebug("ServerDesc = %s", ServerDesc);
@@ -50,6 +49,10 @@ void AxWin3_Connect(const char *ServerDesc)
 	case '6': case '7': case '8': case '9': case '0':
 		giConnectionType = CONNTYPE_SENDMESSAGE;
 		giConnectionNum = atoi(ServerDesc);
+		if( giConnectionNum == 0 ) {
+			_SysDebug("Invalid server PID");
+			exit(-1);
+		}
 		break;
 	case 'u':
 		while(*ServerDesc && *ServerDesc != ':')	ServerDesc ++;
