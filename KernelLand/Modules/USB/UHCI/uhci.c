@@ -4,7 +4,7 @@
  *
  * Universal Host Controller Interface
  */
-#define DEBUG	0
+#define DEBUG	1
 #define VERSION	VER2(0,5)
 #include <acess.h>
 #include <vfs.h>
@@ -93,7 +93,14 @@ int UHCI_Initialise(char **Arguments)
 	 int	ret;
 	
 	ENTER("");
-	
+
+	if( Arguments && *Arguments && strcmp(*Arguments, "0") == 0 )
+	{
+		LOG("Disabled by argument");
+		LEAVE('i', MODULE_ERR_NOTNEEDED);
+		return MODULE_ERR_NOTNEEDED;
+	}
+
 	// Initialise with no maximum value
 	Semaphore_Init( &gUHCI_InterruptSempahore, 0, 0, "UHCI", "Interrupt Queue");
 
@@ -199,6 +206,7 @@ int UHCI_int_InitHost(tUHCI_Controller *Host)
 		0,16,8,24,4,20,12,28,2,18,10,26,6,22,14,30,
 		1,17,9,25,5,21,13,29,3,19,11,27,7,23,15,31
 		};
+	// Fill all slots (but every 4th will be changed below
 	for( int i = 0; i < 1024; i ++ ) {
 		Uint32	addr = MM_GetPhysAddr( &Host->TDQHPage->ControlQH );
 		Host->FrameList[i] = addr | 2;
@@ -574,7 +582,7 @@ void *UHCI_SendControl(void *Ptr, void *Endpt, tUSBHostCb Cb, void *CbData,
 	void *InData, size_t InLength
 	)
 {
-	ENTER("pPtr pEndpt ibOutbound", Ptr, Endpt, bOutbound);
+	ENTER("pPtr pEndpt bOutbound", Ptr, Endpt, bOutbound);
 	
 	tUHCI_Controller	*Cont = Ptr;
 	tUHCI_QH	*qh = &Cont->TDQHPage->ControlQH;
@@ -644,7 +652,14 @@ void *UHCI_SendControl(void *Ptr, void *Endpt, tUSBHostCb Cb, void *CbData,
 	
 	// Update toggle value
 	epi->Tgl = tgl;
-	
+
+	// --- HACK!!!
+//	for( int i = 0; i < 1024; i ++ )
+//	{
+//		LOG("- FrameList[%i] = %x", i, Cont->FrameList[i]);
+//	}
+	// --- /HACK	
+
 	LEAVE('p', td);	
 	return td;
 }
@@ -658,7 +673,7 @@ void *UHCI_SendBulk(void *Ptr, void *Endpt, tUSBHostCb Cb, void *CbData, int bOu
 	 int	dest, tgl;
 	size_t	mps;
 
-	ENTER("pPtr pEndpt pCb pCbData bOutbound pData iLength", Ptr, Dest, Cb, CbData, bOutbound, Data, Length);
+	ENTER("pPtr pEndpt pCb pCbData bOutbound pData iLength", Ptr, Endpt, Cb, CbData, bOutbound, Data, Length);
 
 	if( Endpt == NULL ) {
 		Log_Error("UHCI", "_SendBulk passed a NULL endpoint handle");
