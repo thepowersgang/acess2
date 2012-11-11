@@ -166,7 +166,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 		CHECK_STR_NONULL((const char*)Regs->Arg1);
 		CHECK_STR_ARRAY((const char**)Regs->Arg2);
 		CHECK_STR_ARRAY((const char**)Regs->Arg3);
-		CHECK_NUM_NONULL((void*)Regs->Arg5, Regs->Arg4*sizeof(int));
+		CHECK_NUM_NULLOK((void*)Regs->Arg5, Regs->Arg4*sizeof(int));
 		ret = Proc_SysSpawn(
 			(const char*)Regs->Arg1, (const char**)Regs->Arg2, (const char**)Regs->Arg3,
 			Regs->Arg4, (int*)Regs->Arg5
