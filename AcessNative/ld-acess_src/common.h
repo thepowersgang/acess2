@@ -14,12 +14,13 @@ extern void	*Binary_Load(const char *Path, uintptr_t *EntryPoint);
 extern void	Binary_SetReadyToUse(void *Base);
 
 // HACKS - So this can share the usermode elf.c
-static inline void *GetSymbol(const char*sym, size_t*sz)
+static inline int GetSymbol(const char *sym, void **val, size_t *sz)
 {
 	uintptr_t rv;
 	if( !Binary_GetSymbol(sym, &rv, sz) )
-		return NULL;
-	return (void*)rv;
+		return 0;
+	*val = (void*)rv;
+	return 1;
 }
 static inline void *LoadLibrary(const char *Name, const char *SearchPath, char **envp)
 {
@@ -28,6 +29,11 @@ static inline void *LoadLibrary(const char *Name, const char *SearchPath, char *
 static inline void AddLoaded(const char *Path, void *Base)
 {
 	Binary_SetReadyToUse(Base);
+}
+
+static inline int SysSetMemFlags(uintptr_t Addr, unsigned int flags, unsigned int mask)
+{
+	return 0;
 }
 
 extern int	AllocateMemory(uintptr_t VirtAddr, size_t ByteCount);
