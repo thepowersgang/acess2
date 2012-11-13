@@ -91,11 +91,9 @@ void Log_AddEvent(const char *Ident, int Level, const char *Format, va_list Args
 	va_list	args_tmp;
 	
 	if( Level >= NUM_LOG_LEVELS )	return;
-	
+
 	va_copy(args_tmp, Args);
 	len = vsnprintf(NULL, 256, Format, args_tmp);
-	
-	//Log("len = %i", len);
 	
 	#if USE_RING_BUFFER || !CACHE_MESSAGES
 	{

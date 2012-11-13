@@ -31,7 +31,7 @@ tUSBHub *USB_RegisterHost(tUSBHostDef *HostDef, void *ControllerPtr, int nPorts)
 {
 	tUSBHost	*host;
 	
-	host = malloc(sizeof(tUSBHost) + sizeof(tUSBDevice) + sizeof(tUSBInterface) + nPorts*sizeof(tUSBHubPort));
+	host = malloc(sizeof(tUSBHost) + nPorts*sizeof(tUSBHubPort) + sizeof(tUSBDevice) + sizeof(tUSBInterface));
 	if(!host) {
 		// Oh, bugger.
 		return NULL;
@@ -40,15 +40,15 @@ tUSBHub *USB_RegisterHost(tUSBHostDef *HostDef, void *ControllerPtr, int nPorts)
 	host->Ptr = ControllerPtr;
 	memset(host->AddressBitmap, 0, sizeof(host->AddressBitmap));
 
-	host->RootHubDev = (void*)(host + 1);
+	host->RootHubDev = (void*)(host->RootHub.Ports + nPorts);
 	host->RootHubDev->ParentHub = NULL;
 	host->RootHubDev->Host = host;
 	host->RootHubDev->Address = 0;
 	ASSERT(HostDef->InitControl);
 	host->RootHubDev->EndpointHandles[0] = HostDef->InitControl(ControllerPtr, 0, 64);
+	host->RootHubDev->nInterfaces = 0;
 
 	host->RootHubIf = (void*)(host->RootHubDev + 1);
-//	host->RootHubIf->Next = NULL;
 	host->RootHubIf->Dev = host->RootHubDev;
 	host->RootHubIf->Driver = NULL;
 	host->RootHubIf->Data = NULL;

@@ -187,6 +187,8 @@ void itoa(char *buf, Uint64 num, int base, int minLength, char pad)
 #define PUTCH(ch)	do { \
 		if(pos < __maxlen) { \
 			if(__s) __s[pos] = ch; \
+		} else { \
+			(void)ch;\
 		} \
 		pos ++; \
 	} while(0)
