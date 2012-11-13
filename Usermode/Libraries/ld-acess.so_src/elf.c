@@ -41,6 +41,7 @@ void	*Elf32Relocate(void *Base, char **envp, const char *Filename);
  int	Elf32GetSymbol(void *Base, const char *Name, void **Ret, size_t *Size);
  int	elf_doRelocate_386(uint32_t r_info, uint32_t *ptr, Elf32_Addr addend, int type, int bRela, const char *Sym, intptr_t iBaseDiff);
  int	elf_doRelocate_arm(uint32_t r_info, uint32_t *ptr, Elf32_Addr addend, int type, int bRela, const char *Sym, intptr_t iBaseDiff);
+ int	elf_doRelocate_unk(uint32_t , uint32_t *, Elf32_Addr , int , int , const char *, intptr_t);
 #ifdef SUPPORT_ELF64
 void	*Elf64Relocate(void *Base, char **envp, const char *Filename);
  int	Elf64GetSymbol(void *Base, const char *Name, void **Ret, size_t *Size);
@@ -194,6 +195,11 @@ int elf_doRelocate_arm(uint32_t r_info, uint32_t *ptr, Elf32_Addr addend, int ty
 	return 0;
 }
 
+int elf_doRelocate_unk(uint32_t r_info, uint32_t *ptr, Elf32_Addr addend, int type, int bRela, const char *Sym, intptr_t iBaseDiff)
+{
+	return 1;
+}
+
 void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 {
 	Elf32_Ehdr	*hdr = Base;
@@ -271,6 +277,7 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 	dynamicTab = (void *)( (intptr_t)dynamicTab + iBaseDiff );
 	
 	// === Get Symbol table and String Table ===
+	dynsymtab = NULL;
 	for( j = 0; dynamicTab[j].d_tag != DT_NULL; j++)
 	{
 		switch(dynamicTab[j].d_tag)
@@ -362,6 +369,8 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 	
 	DEBUGS(" elf_relocate: Beginning Relocation");
 
+	 int	fail = 0;
+
 	switch(hdr->machine)
 	{
 	case EM_386:
@@ -372,13 +381,12 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 		break;
 	default:
 		SysDebug("Elf32Relocate: Unknown machine type %i", hdr->machine);
-		// TODO: Chuck sad
+		do_relocate = elf_doRelocate_unk;
+		fail = 1;
 		break;
 	}
 	
 	DEBUGS("do_relocate = %p (%p or %p)", do_relocate, &elf_doRelocate_386, &elf_doRelocate_arm);
-
-	 int	fail = 0;
 
 	#define _doRelocate(r_info, ptr, bRela, addend)	\
 		do_relocate(r_info, ptr, addend, ELF32_R_TYPE(r_info), bRela, \
