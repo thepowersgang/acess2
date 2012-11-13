@@ -184,7 +184,12 @@ void itoa(char *buf, Uint64 num, int base, int minLength, char pad)
 /**
  * \brief Append a character the the vsnprintf output
  */
-#define PUTCH(c)	_putch(c)
+#define PUTCH(ch)	do { \
+		if(pos < __maxlen) { \
+			if(__s) __s[pos] = ch; \
+		} \
+		pos ++; \
+	} while(0)
 #define GETVAL()	do {\
 	if(isLongLong)	val = va_arg(args, Uint64);\
 	else	val = va_arg(args, unsigned int);\
@@ -203,17 +208,6 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 	size_t	pos = 0;
 	// Flags
 	 int	bPadLeft = 0;
-	
-	auto void _putch(char ch);
-
-	void _putch(char ch)
-	{
-		if(pos < __maxlen)
-		{
-			if(__s) __s[pos] = ch;
-		}
-		pos ++;
-	}
 
 	while((c = *__format++) != 0)
 	{

@@ -84,7 +84,7 @@ void USB_int_WakeThread(void *Thread, void *Data, size_t Length)
 
 int USB_int_SendSetupSetAddress(tUSBHost *Host, int Address)
 {
-	USB_int_Request(&Host->RootHubDev, 0, 0x00, 5, Address & 0x7F, 0, 0, NULL);
+	USB_int_Request(Host->RootHubDev, 0, 0x00, 5, Address & 0x7F, 0, 0, NULL);
 	return 0;
 }
 

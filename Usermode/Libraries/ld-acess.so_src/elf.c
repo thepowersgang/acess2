@@ -214,7 +214,6 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 	char	*dynstrtab = NULL;	// .dynamic String Table
 	Elf32_Sym	*dynsymtab;
 	int	(*do_relocate)(uint32_t t_info, uint32_t *ptr, Elf32_Addr addend, int Type, int bRela, const char *Sym, intptr_t iBaseDiff);
-	auto int _doRelocate(uint32_t r_info, uint32_t *ptr, int bRela, Elf32_Addr addend);
 	
 	DEBUGS("ElfRelocate: (Base=0x%x)", Base);
 	
@@ -363,14 +362,6 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 	
 	DEBUGS(" elf_relocate: Beginning Relocation");
 
-	int _doRelocate(uint32_t r_info, uint32_t *ptr, int bRela, Elf32_Addr addend)
-	{
-		 int	type = ELF32_R_TYPE(r_info);
-		 int	sym = ELF32_R_SYM(r_info);
-		const char	*symname = dynstrtab + dynsymtab[sym].nameOfs;
-		return do_relocate(r_info, ptr, addend, type, bRela, symname, iBaseDiff);
-	}
-
 	switch(hdr->machine)
 	{
 	case EM_386:
@@ -388,6 +379,10 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 	DEBUGS("do_relocate = %p (%p or %p)", do_relocate, &elf_doRelocate_386, &elf_doRelocate_arm);
 
 	 int	fail = 0;
+
+	#define _doRelocate(r_info, ptr, bRela, addend)	\
+		do_relocate(r_info, ptr, addend, ELF32_R_TYPE(r_info), bRela, \
+			dynstrtab + dynsymtab[ELF32_R_SYM(r_info)].nameOfs, iBaseDiff);
 
 	// Parse Relocation Entries
 	if(rel && relSz)
@@ -460,6 +455,8 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 		DEBUGS("ElfRelocate: Failure");
 		return NULL;
 	}	
+
+	#undef _doRelocate
 
 	DEBUGS("ElfRelocate: RETURN 0x%x to %p", hdr->entrypoint + iBaseDiff, __builtin_return_address(0));
 	return (void*)(intptr_t)( hdr->entrypoint + iBaseDiff );

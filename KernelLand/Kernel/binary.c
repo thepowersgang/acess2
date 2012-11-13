@@ -194,7 +194,7 @@ int Proc_SysSpawn(const char *Binary, const char **ArgV, const char **EnvP, int 
 		Proc_Execve(Binary, ArgV, EnvP, size);
 		for(;;);
 	}
-	if( ret < 0 )
+	if( ret == -1 )
 	{
 		VFS_FreeSavedHandles(nFD, handles);
 		free(cachebuf);

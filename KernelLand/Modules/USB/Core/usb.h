@@ -101,8 +101,8 @@ struct sUSBHost
 	
 	Uint8	AddressBitmap[128/8];
 	
-	tUSBDevice	RootHubDev;
-	tUSBInterface	RootHubIf;
+	tUSBDevice	*RootHubDev;
+	tUSBInterface	*RootHubIf;
 	tUSBHub	RootHub;
 };
 
