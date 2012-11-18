@@ -758,7 +758,7 @@ void Proc_Reschedule(void)
 
 	// Update CPU state
 	gaCPUs[cpu].Current = nextthread;
-	gTSSs[cpu].RSP0 = nextthread->KernelStack-4;
+	gTSSs[cpu].RSP0 = nextthread->KernelStack-sizeof(void*);
 	__asm__ __volatile__ ("mov %0, %%db0" : : "r" (nextthread));
 
 	if( curthread )

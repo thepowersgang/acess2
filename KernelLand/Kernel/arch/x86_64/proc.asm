@@ -21,7 +21,7 @@ NewTaskHeader:
 	mov rdi, [rsp+0x10]
 	mov rax, [rsp+0x8]
 	add rsp, 0x10	; Reclaim stack space (thread/fcn)
-	xchg bx, bx
+	;xchg bx, bx
 	call rax
 	
 	; Quit thread with RAX as the return code
