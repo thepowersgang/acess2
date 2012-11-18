@@ -983,26 +983,38 @@ void UHCI_InterruptHandler(int IRQ, void *Ptr)
 	// USB Error Interrupt
 	if( status & 2 )
 	{
-		
+		Log_Notice("UHCI", "USB Error");
 	}
 
 	// Resume Detect
 	// - Fired if in suspend state and a USB device sends the RESUME signal
 	if( status & 4 )
 	{
-		
+		Log_Notice("UHCI", "Resume Detect");
 	}
 
 	// Host System Error
 	if( status & 8 )
 	{
-		
+		Log_Notice("UHCI", "Host System Error");
 	}
 
 	// Host Controller Process Error
 	if( status & 0x10 )
 	{
 		Log_Error("UHCI", "Host controller process error on controller %p", Ptr);
+		// Spam Tree
+		//for( int i = 0; i < 1024; i += 4 ) {
+		//	LOG("%4i: %x", i, Host->FrameList[i]);
+		//}
+		
+		tPAddr	phys = Host->TDQHPage->ControlQH.Child;
+		while( !(phys & 1) && MM_GetRefCount(phys & ~15))
+		{
+			tUHCI_TD *td = UHCI_int_GetTDFromPhys(Host, phys);
+			LOG("%08P: %08x %08x %08x", phys, td->Control, td->Token, td->BufferPointer);
+			phys = td->Link;
+		}
 	}
 
 	_OutWord(Host, USBSTS, status);
