@@ -98,7 +98,11 @@ int FAT_Detect(int FD)
 
 	if(bs.bps == 0 || bs.spc == 0)
 		return 0;
-	
+
+	Log_Debug("FAT", "_Detect: Media type = %02x", bs.mediaDesc);
+	if( bs.mediaDesc < 0xF0 )
+		return 0;
+
 	return 1;
 }
 /**
