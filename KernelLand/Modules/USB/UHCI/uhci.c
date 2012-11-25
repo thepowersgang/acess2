@@ -4,7 +4,7 @@
  *
  * Universal Host Controller Interface
  */
-#define DEBUG	1
+#define DEBUG	0
 #define VERSION	VER2(0,5)
 #include <acess.h>
 #include <vfs.h>
@@ -114,14 +114,15 @@ int UHCI_Initialise(char **Arguments)
 		tPAddr	tmp;	
 		gaUHCI_TDPool = (void *) MM_AllocDMA(1, 32, &tmp);
 		memset(gaUHCI_TDPool, 0, PAGE_SIZE);
+		LOG("gaUHCI_TDPool = %p (%P)", gaUHCI_TDPool, tmp);
 	}
 
 	// Enumerate PCI Bus, getting a maximum of `MAX_CONTROLLERS` devices
+	// Class:SubClass:Protocol = 0xC (Serial) : 0x3 (USB) : 0x00 (UHCI)
 	while( (id = PCI_GetDeviceByClass(0x0C0300, 0xFFFFFF, id)) >= 0 && i < MAX_CONTROLLERS )
 	{
 		tUHCI_Controller	*cinfo = &gUHCI_Controllers[i];
 		Uint32	base_addr;
-		// NOTE: Check "protocol" from PCI?
 		
 		cinfo->PciId = id;
 		base_addr = PCI_GetBAR(id, 4);
@@ -191,6 +192,7 @@ int UHCI_int_InitHost(tUHCI_Controller *Host)
 		LEAVE('i', -1);
 		return -1;
 	}
+	LOG("->FrameList = %p (%P)", Host->FrameList, Host->PhysFrameList);
 
 	Host->TDQHPage = (void *) MM_AllocDMA(1, 32, &Host->PhysTDQHPage);
 	if( !Host->TDQHPage ) {
@@ -199,6 +201,7 @@ int UHCI_int_InitHost(tUHCI_Controller *Host)
 		LEAVE('i', -1);
 		return -1;
 	}
+	LOG("->TDQHPage = %p (%P)", Host->TDQHPage, Host->PhysTDQHPage);
 
 	// Fill frame list
 	// - The numbers 0...31, but bit reversed (16 (0b1000) = 1 (0b00001)
@@ -222,7 +225,7 @@ int UHCI_int_InitHost(tUHCI_Controller *Host)
 		Host->FrameList[768 + i*4] = addr | 2;
 	}
 
-	// Build up interrupt binary tree	
+	// Build up interrupt binary tree
 	{
 		tUHCI_QH	*dest = Host->TDQHPage->InterruptQHs;
 		Uint32	destphys = Host->PhysTDQHPage;
@@ -230,7 +233,9 @@ int UHCI_int_InitHost(tUHCI_Controller *Host)
 		// Set up next pointer to index to i/2 in the next step
 		for( int _count = 64; _count > 1; _count /= 2 )
 		{
+			LOG("count=%i, dest=%p, destphys=%P", _count, dest, destphys);
 			for( int i = 0; i < _count; i ++ ) {
+				LOG(" %i-%i: %P==%P", _count, i, MM_GetPhysAddr(dest+i), destphys+i*sizeof(tUHCI_QH));
 				dest[i].Next = destphys + (_count + i/2) * sizeof(tUHCI_QH) + 2;
 				dest[i].Child = 1;
 			}
@@ -265,6 +270,7 @@ int UHCI_int_InitHost(tUHCI_Controller *Host)
 	PCI_ConfigWrite( Host->PciId, 0xC0, 2, 0x2000 );
 
 	// Enable processing
+	LOG("Processing enabling");
 	_OutWord( Host, USBCMD, 0x0001 );
 
 	LEAVE('i', 0);
@@ -309,16 +315,18 @@ void UHCI_int_AppendTD(tUHCI_Controller *Cont, tUHCI_QH *QH, tUHCI_TD *TD)
 	TD->Control |= (TD->Token >> 21) & 0x7FF;
 
 	// Stop controller
+	tPAddr	tdaddr = MM_GetPhysAddr( TD );
+	ASSERT(tdaddr);
 	_OutWord( Cont, USBCMD, 0x0000 );
 	
 	// Add
 	TD->Link = 1;
 	if( QH->Child & 1 ) {
-		QH->Child = MM_GetPhysAddr( TD );
+		QH->Child = tdaddr;
 	}
 	else {
 		// Depth first
-		QH->_LastItem->Link = MM_GetPhysAddr( TD ) | 4;
+		QH->_LastItem->Link = tdaddr | 4;
 	}
 	QH->_LastItem = TD;
 
@@ -815,7 +823,8 @@ void UHCI_int_CleanQH(tUHCI_Controller *Cont, tUHCI_QH *QH)
 			continue ;
 		}
 
-		LOG("Removed %p from QH %p", td, QH);		
+		LOG("Removed %p from QH %p", td, QH);
+		ASSERT(td->Link);
 
 		if( !prev )
 			QH->Child = td->Link;
