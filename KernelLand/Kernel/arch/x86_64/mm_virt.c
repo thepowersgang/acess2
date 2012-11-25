@@ -849,6 +849,7 @@ tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 	
 	// Allocated successfully, now map
 	ret = MM_MapHWPages(phys, Pages);
+	*PhysAddr = phys;
 	// MapHWPages references the pages, so deref them back down to 1
 	for(;Pages--;phys+=0x1000)
 		MM_DerefPhys(phys);
@@ -857,7 +858,6 @@ tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 		return 0;
 	}
 	
-	*PhysAddr = phys;
 	return ret;
 }
 
