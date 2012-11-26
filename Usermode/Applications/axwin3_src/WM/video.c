@@ -88,7 +88,7 @@ void Video_Update(void)
 	_SysDebug("Video_Update - Updating lines %i to %i (0x%x+0x%x px)",
 		giVideo_FirstDirtyLine, giVideo_LastDirtyLine, ofs, size);
 	seek(giTerminalFD, ofs*4, 1);
-	_SysDebug("Video_Update - Sending");
+	_SysDebug("Video_Update - Sending FD %i %p 0x%x", giTerminalFD, gpScreenBuffer+ofs, size*4);
 	write(giTerminalFD, gpScreenBuffer+ofs, size*4);
 	_SysDebug("Video_Update - Done");
 	giVideo_FirstDirtyLine = 0;
