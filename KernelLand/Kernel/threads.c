@@ -1079,7 +1079,7 @@ void Threads_int_DumpThread(tThread *thread)
 	default:	break;
 	}
 	Log("  Priority %i, Quantum %i", thread->Priority, thread->Quantum);
-	Log("  KStack 0x%x", thread->KernelStack);
+	Log("  KStack %p", thread->KernelStack);
 	if( thread->bInstrTrace )
 		Log("  Tracing Enabled");
 	Proc_DumpThreadCPUState(thread);

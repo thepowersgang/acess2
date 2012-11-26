@@ -13,13 +13,13 @@
 #include <events.h>
 
 #define CHECK_NUM_NULLOK(v,size)	\
-	if((v)&&!Syscall_Valid((size),(v))){ret=-1;err=-EINVAL;break;}
+	if((v)&&!Syscall_Valid((size),(v))){LOG("CHECK_NUM_NULLOK: %p(%x) FAIL",v,size);ret=-1;err=-EINVAL;break;}
 #define CHECK_STR_NULLOK(v)	\
-	if((v)&&!Syscall_ValidString((v))){ret=-1;err=-EINVAL;break;}
+	if((v)&&!Syscall_ValidString((v))){LOG("CHECK_STR_NULLOK: %p FAIL",v);ret=-1;err=-EINVAL;break;}
 #define CHECK_NUM_NONULL(v,size)	\
-	if(!(v)||!Syscall_Valid((size),(v))){ret=-1;err=-EINVAL;break;}
+	if(!(v)||!Syscall_Valid((size),(v))){LOG("CHECK_NUM_NONULL: %p(%x) FAIL",v,size);ret=-1;err=-EINVAL;break;}
 #define CHECK_STR_NONULL(v)	\
-	if(!(v)||!Syscall_ValidString((v))){ret=-1;err=-EINVAL;break;}
+	if(!(v)||!Syscall_ValidString((v))){LOG("CHECK_STR_NONULL: %p FAIL",v);ret=-1;err=-EINVAL;break;}
 #define CHECK_STR_ARRAY(arr)	do {\
 	 int	i;\
 	char	**tmp = (char**)arr; \
@@ -400,7 +400,10 @@ int Syscall_ValidString(const char *Addr)
  */
 int Syscall_Valid(int Size, const void *Addr)
 {
-	if(!MM_IsUser( (tVAddr)Addr ))	return 0;
+	if(!MM_IsUser( (tVAddr)Addr )) {
+		Log_Debug("Syscalls", "Syscall_Valid - %p not user", Addr);
+		return 0;
+	}
 	
 	return CheckMem( Addr, Size );
 }

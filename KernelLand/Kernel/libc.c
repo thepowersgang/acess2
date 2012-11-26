@@ -226,7 +226,9 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		if(c == 'p') {
 			Uint	ptr = va_arg(args, Uint);
 			PUTCH('*');	PUTCH('0');	PUTCH('x');
-			for( len = BITS/4; len --; )
+			for( len = BITS/4; len -- && ((ptr>>(len*4))&15) == 0; )
+				;
+			for( len ++; len --; )
 				PUTCH( cUCDIGITS[ (ptr>>(len*4))&15 ] );
 			continue ;
 		}
@@ -738,7 +740,8 @@ void *memmove(void *__dest, const void *__src, size_t len)
 	
 }
 
-// NOTE: Strictly not libc, but lib.c is used by userland code too
+// NOTE: Strictly not libc, but lib.c is used by userland code too and hence these two
+// can't be in it.
 /**
  * \name Memory Validation
  * \{

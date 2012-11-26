@@ -39,6 +39,8 @@ Proc_CloneInt:
 	PUSH_GPR
 	; Save RSP
 	mov [rdi], rsp
+	; Call MM_Clone (with bNoUserCopy flag)
+	mov rdi, rdx
 	call MM_Clone
 	; Save CR3
 	mov rsi, [rsp+0x30]	; Saved version of RSI
