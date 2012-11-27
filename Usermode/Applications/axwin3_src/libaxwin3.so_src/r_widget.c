@@ -63,10 +63,10 @@ uint32_t AxWin3_Widget_int_AllocateID(tWidgetWindowInfo *Info)
 		Info->Elements = realloc(Info->Elements, sizeof(*Info->Elements)*Info->nElements);
 		newID = Info->nElements - 4;
 		memset( &Info->Elements[newID+1], 0, (size_step-1)*sizeof(Info->Elements));
-		_SysDebug("Expanded to %i and allocated %i", Info->nElements, newID);
+		_SysDebug("Widget: Expanded to %i and allocated %i", Info->nElements, newID);
 	}
 	else
-		_SysDebug("Allocated %i", newID);
+		_SysDebug("Widget: Allocated %i", newID);
 	Info->Elements[newID] = (void*)-1;
 	
 	return newID;
@@ -85,7 +85,7 @@ int AxWin3_Widget_MessageHandler(tHWND Window, int MessageID, int Size, void *Da
 		widget = AxWin3_Widget_int_GetElementByID(Window, msg->WidgetID);
 		if(widget->Fire)	widget->Fire(widget);
 		
-		return 0; }
+		return 1; }
 	default:
 		return 0;
 	}
@@ -146,14 +146,14 @@ tAxWin3_Widget *AxWin3_Widget_AddWidget(tAxWin3_Widget *Parent, int Type, int Fl
 
 	// Send create widget message
 	{
-		char	tmp[sizeof(tWidgetMsg_Create)+1];
-		tWidgetMsg_Create	*msg = (void*)tmp;
+		char	tmp[sizeof(tWidgetIPC_Create)+1];
+		tWidgetIPC_Create	*msg = (void*)tmp;
 		msg->Parent = Parent->ID;
 		msg->NewID = newID;
 		msg->Type = Type;
 		msg->Flags = Flags;
 		msg->DebugName[0] = '\0';
-		AxWin3_SendMessage(ret->Window, ret->Window, MSG_WIDGET_CREATE, sizeof(tmp), tmp);
+		AxWin3_SendIPC(ret->Window, IPC_WIDGET_CREATE, sizeof(tmp), tmp);
 	}
 
 	return ret;
@@ -171,15 +171,15 @@ tAxWin3_Widget *AxWin3_Widget_AddWidget_SubWindow(tAxWin3_Widget *Parent, tHWND 
 
 	// Send message
 	{
-		char	tmp[sizeof(tWidgetMsg_CreateSubWin)+1];
-		tWidgetMsg_CreateSubWin	*msg = (void*)tmp;
+		char	tmp[sizeof(tWidgetIPC_CreateSubWin)+1];
+		tWidgetIPC_CreateSubWin	*msg = (void*)tmp;
 		msg->Parent = Parent->ID;
 		msg->NewID = newID;
 		msg->Type = ELETYPE_SUBWIN;
 		msg->Flags = Flags;	// TODO: Flags
 		msg->WindowHandle = AxWin3_int_GetWindowID(Window);
 		msg->DebugName[0] = '\0';
-		AxWin3_SendMessage(ret->Window, ret->Window, MSG_WIDGET_CREATESUBWIN, sizeof(tmp), tmp);
+		AxWin3_SendIPC(ret->Window, IPC_WIDGET_CREATESUBWIN, sizeof(tmp), tmp);
 	}
 
 	return ret;
@@ -188,11 +188,11 @@ tAxWin3_Widget *AxWin3_Widget_AddWidget_SubWindow(tAxWin3_Widget *Parent, tHWND 
 
 void AxWin3_Widget_DelWidget(tAxWin3_Widget *Widget)
 {
-	tWidgetMsg_Delete	msg;
+	tWidgetIPC_Delete	msg;
 	tWidgetWindowInfo	*info = AxWin3_int_GetDataPtr(Widget->Window);
 	
 	msg.WidgetID = Widget->ID;
-	AxWin3_SendMessage(Widget->Window, Widget->Window, MSG_WIDGET_DELETE, sizeof(msg), &msg);
+	AxWin3_SendIPC(Widget->Window, IPC_WIDGET_DELETE, sizeof(msg), &msg);
 	
 	info->Elements[Widget->ID] = NULL;
 	if(Widget->ID < info->FirstFreeID)
@@ -234,45 +234,45 @@ void AxWin3_Widget_SetMouseButtonHandler(tAxWin3_Widget *Widget, tAxWin3_Widget_
 // --- Manipulation
 void AxWin3_Widget_SetFlags(tAxWin3_Widget *Widget, int FlagSet, int FlagMask)
 {
-	tWidgetMsg_SetFlags	msg;
+	tWidgetIPC_SetFlags	msg;
 	msg.WidgetID = Widget->ID;
 	msg.Value = FlagSet;
 	msg.Mask = FlagMask;
 	
-	AxWin3_SendMessage(Widget->Window, Widget->Window, MSG_WIDGET_SETFLAGS, sizeof(msg), &msg);
+	AxWin3_SendIPC(Widget->Window, IPC_WIDGET_SETFLAGS, sizeof(msg), &msg);
 }
 
 void AxWin3_Widget_SetSize(tAxWin3_Widget *Widget, int Size)
 {
-	tWidgetMsg_SetSize	msg;
+	tWidgetIPC_SetSize	msg;
 	
 	msg.WidgetID = Widget->ID;
 	msg.Value = Size;
-	AxWin3_SendMessage(Widget->Window, Widget->Window, MSG_WIDGET_SETSIZE, sizeof(msg), &msg);
+	AxWin3_SendIPC(Widget->Window, IPC_WIDGET_SETSIZE, sizeof(msg), &msg);
 }
 
 void AxWin3_Widget_SetText(tAxWin3_Widget *Widget, const char *Text)
 {
-	char	buf[sizeof(tWidgetMsg_SetText) + strlen(Text) + 1];
-	tWidgetMsg_SetText	*msg = (void*)buf;
+	char	buf[sizeof(tWidgetIPC_SetText) + strlen(Text) + 1];
+	tWidgetIPC_SetText	*msg = (void*)buf;
 	
 	msg->WidgetID = Widget->ID;
 	strcpy(msg->Text, Text);
 	
-	AxWin3_SendMessage(Widget->Window, Widget->Window, MSG_WIDGET_SETTEXT, sizeof(buf), buf);
+	AxWin3_SendIPC(Widget->Window, IPC_WIDGET_SETTEXT, sizeof(buf), buf);
 }
 
 char *AxWin3_Widget_GetText(tAxWin3_Widget *Widget)
 {
-	char	buf[sizeof(tWidgetMsg_SetText)];
-	tWidgetMsg_SetText	*msg = (void*)buf;
+	char	buf[sizeof(tWidgetIPC_SetText)];
+	tWidgetIPC_SetText	*msg = (void*)buf;
 	size_t	retmsg_size;
 	
 	msg->WidgetID = Widget->ID;
 
-	AxWin3_SendMessage(Widget->Window, Widget->Window, MSG_WIDGET_GETTEXT, sizeof(buf), buf);
+	AxWin3_SendIPC(Widget->Window, IPC_WIDGET_GETTEXT, sizeof(buf), buf);
 
-	msg = AxWin3_WaitMessage(Widget->Window, MSG_WIDGET_GETTEXT, &retmsg_size);
+	msg = AxWin3_WaitIPCMessage(Widget->Window, IPC_WIDGET_GETTEXT, &retmsg_size);
 	if( retmsg_size < sizeof(*msg) ) {
 		free(msg);
 		return NULL;
@@ -285,10 +285,10 @@ char *AxWin3_Widget_GetText(tAxWin3_Widget *Widget)
 
 void AxWin3_Widget_SetColour(tAxWin3_Widget *Widget, int Index, tAxWin3_Colour Colour)
 {
-	tWidgetMsg_SetColour	msg;
+	tWidgetIPC_SetColour	msg;
 	
 	msg.WidgetID = Widget->ID;
 	msg.Index = Index;
 	msg.Colour = Colour;
-	AxWin3_SendMessage(Widget->Window, Widget->Window, MSG_WIDGET_SETCOLOUR, sizeof(msg), &msg);
+	AxWin3_SendIPC(Widget->Window, IPC_WIDGET_SETCOLOUR, sizeof(msg), &msg);
 }

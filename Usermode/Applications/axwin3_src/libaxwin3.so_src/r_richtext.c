@@ -28,10 +28,10 @@ int AxWin3_RichText_MessageHandler(tHWND Window, int MessageID, int Size, void *
 
 static void _SendAttrib(tHWND Window, int Attr, uint32_t Value)
 {
-	struct sRichTextMsg_SetAttr	msg;
+	struct sRichTextIPC_SetAttr	msg;
 	msg.Attr = Attr;
 	msg.Value = Value;
-	AxWin3_SendMessage(Window, Window, MSG_RICHTEXT_SETATTR, sizeof(msg), &msg);
+	AxWin3_SendIPC(Window, IPC_RICHTEXT_SETATTR, sizeof(msg), &msg);
 }
 
 tHWND AxWin3_RichText_CreateWindow(tHWND Parent, int Flags)
@@ -95,12 +95,12 @@ void AxWin3_RichText_SetCursorPos(tHWND Window, int Row, int Column)
 void AxWin3_RichText_SendLine(tHWND Window, int Line, const char *Text)
 {
 	// TODO: Local sanity check on `Line`?
-	struct sRichTextMsg_SendLine	*msg;
+	struct sRichTextIPC_WriteLine	*msg;
 	size_t	len = sizeof(*msg) + strlen(Text) + 1;
 	char	buffer[len];
        	msg = (void*)buffer;
 	msg->Line = Line;
 	strcpy(msg->LineData, Text);
-	AxWin3_SendMessage(Window, Window, MSG_RICHTEXT_SENDLINE, len, msg);
+	AxWin3_SendIPC(Window, IPC_RICHTEXT_WRITELINE, len, msg);
 }
 

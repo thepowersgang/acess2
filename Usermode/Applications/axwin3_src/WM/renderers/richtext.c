@@ -44,6 +44,8 @@ typedef struct sRichText_Window
  int	Renderer_RichText_Init(void);
 tWindow	*Renderer_RichText_Create(int Flags);
 void	Renderer_RichText_Redraw(tWindow *Window);
+ int	Renderer_RichText_HandleIPC_SetAttr(tWindow *Window, size_t Len, const void *Data);
+ int	Renderer_RichText_HandleIPC_WriteLine(tWindow *Window, size_t Len, const void *Data);
  int	Renderer_RichText_HandleMessage(tWindow *Target, int Msg, int Len, const void *Data);
 
 // === GLOBALS ===
@@ -51,7 +53,12 @@ tWMRenderer	gRenderer_RichText = {
 	.Name = "RichText",
 	.CreateWindow	= Renderer_RichText_Create,
 	.Redraw 	= Renderer_RichText_Redraw,
-	.HandleMessage	= Renderer_RichText_HandleMessage
+	.HandleMessage	= Renderer_RichText_HandleMessage,
+	.nIPCHandlers = N_IPC_RICHTEXT,
+	.IPCHandlers = {
+		[IPC_RICHTEXT_SETATTR] = Renderer_RichText_HandleIPC_SetAttr,
+		[IPC_RICHTEXT_WRITELINE] = Renderer_RichText_HandleIPC_WriteLine
+	}
 };
 
 // === CODE ===
@@ -219,6 +226,82 @@ void Renderer_RichText_Redraw(tWindow *Window)
 		);
 }
 
+int Renderer_RichText_HandleIPC_SetAttr(tWindow *Window, size_t Len, const void *Data)
+{
+	tRichText_Window	*info = Window->RendererInfo;
+	const struct sRichTextIPC_SetAttr *msg = Data;
+	if(Len < sizeof(*msg))	return -1;
+
+	_SysDebug("RichText Attr %i set to %x", msg->Attr, msg->Value);
+	switch(msg->Attr)
+	{
+	case _ATTR_DEFBG:
+		info->DefaultBG = msg->Value;
+		break;
+	case _ATTR_DEFFG:
+		info->DefaultFG = msg->Value;
+		break;
+	case _ATTR_SCROLL:
+		// TODO: Set scroll flag
+		break;
+	case _ATTR_LINECOUNT:
+		info->nLines = msg->Value;
+		break;
+	}
+	
+	return 0;
+}
+
+int Renderer_RichText_HandleIPC_WriteLine(tWindow *Window, size_t Len, const void *Data)
+{
+	tRichText_Window	*info = Window->RendererInfo;
+	const struct sRichTextIPC_WriteLine	*msg = Data;
+	if( Len < sizeof(*msg) )	return -1;
+	if( msg->Line >= info->nLines )	return 1;	// Bad count
+
+	tRichText_Line	*line = info->FirstLine;
+	tRichText_Line	*prev = NULL;
+	while(line && line->Num < msg->Line)
+		prev = line, line = line->Next;
+	if( !line || line->Num > msg->Line )
+	{
+		// New line!
+		// Round up to 32
+		 int	space = ((Len - sizeof(*msg)) + 32-1) & ~(32-1);
+		tRichText_Line	*new = malloc(sizeof(*line) + space);
+		// TODO: Bookkeeping on how much memory each window uses
+		new->Next = line;
+		new->Prev = prev;
+		new->Num = msg->Line;
+		new->Space = space;
+		if(new->Prev)	new->Prev->Next = new;
+		else	info->FirstLine = new;
+		if(new->Next)	new->Next->Prev = new;
+		line = new;
+	}
+	else if( line->Space < Len - sizeof(*msg) )
+	{
+		// Need to allocate more space
+		 int	space = ((Len - sizeof(*msg)) + 32-1) & ~(32-1);
+		tRichText_Line *new = realloc(line, space);
+		// TODO: Bookkeeping on how much memory each window uses
+		new->Space = space;
+
+		if(new->Prev)	new->Prev->Next = new;
+		else	info->FirstLine = new;
+		if(new->Next)	new->Next->Prev = new;
+		line = new;
+	}
+	else
+	{
+		// It fits :)
+	}
+	line->ByteLength = Len - sizeof(*msg);
+	memcpy(line->Data, msg->LineData, Len - sizeof(*msg));
+	
+	return  0;
+}
+
 int Renderer_RichText_HandleMessage(tWindow *Target, int Msg, int Len, const void *Data)
 {
 	tRichText_Window	*info = Target->RendererInfo;
@@ -228,73 +311,6 @@ int Renderer_RichText_HandleMessage(tWindow *Target, int Msg, int Len, const voi
 		const struct sWndMsg_Resize *msg = Data;
 		if(Len < sizeof(*msg))	return -1;
 		info->DispLines = msg->H / info->LineHeight;
-		return 1; }
-	case MSG_RICHTEXT_SETATTR: {
-		const struct sRichTextMsg_SetAttr *msg = Data;
-		if(Len < sizeof(*msg))	return -1;
-		_SysDebug("RichText Attr %i set to %x", msg->Attr, msg->Value);
-		switch(msg->Attr)
-		{
-		case _ATTR_DEFBG:
-			info->DefaultBG = msg->Value;
-			break;
-		case _ATTR_DEFFG:
-			info->DefaultFG = msg->Value;
-			break;
-		case _ATTR_SCROLL:
-			// TODO: Set scroll flag
-			break;
-		case _ATTR_LINECOUNT:
-			info->nLines = msg->Value;
-			break;
-		}
-		return 1; }
-	// Update a line
-	case MSG_RICHTEXT_SENDLINE: {
-		const struct sRichTextMsg_SendLine	*msg = Data;
-		if(Len < sizeof(*msg))	return -1;
-		_SysDebug("RichText Line %i = '%.*s'", msg->Line, Len - sizeof(*msg), msg->LineData);
-		if( msg->Line >= info->nLines )	return 1;	// Bad count
-		
-		tRichText_Line	*line = info->FirstLine;
-		tRichText_Line	*prev = NULL;
-		while(line && line->Num < msg->Line)
-			prev = line, line = line->Next;
-		if( !line || line->Num > msg->Line )
-		{
-			// New line!
-			// Round up to 32
-			 int	space = ((Len - sizeof(*msg)) + 32-1) & ~(32-1);
-			tRichText_Line	*new = malloc(sizeof(*line) + space);
-			// TODO: Bookkeeping on how much memory each window uses
-			new->Next = line;
-			new->Prev = prev;
-			new->Num = msg->Line;
-			new->Space = space;
-			if(new->Prev)	new->Prev->Next = new;
-			else	info->FirstLine = new;
-			if(new->Next)	new->Next->Prev = new;
-			line = new;
-		}
-		else if( line->Space < Len - sizeof(*msg) )
-		{
-			// Need to allocate more space
-			 int	space = ((Len - sizeof(*msg)) + 32-1) & ~(32-1);
-			tRichText_Line *new = realloc(line, space);
-			// TODO: Bookkeeping on how much memory each window uses
-			new->Space = space;
-
-			if(new->Prev)	new->Prev->Next = new;
-			else	info->FirstLine = new;
-			if(new->Next)	new->Next->Prev = new;
-			line = new;
-		}
-		else
-		{
-			// It fits :)
-		}
-		line->ByteLength = Len - sizeof(*msg);
-		memcpy(line->Data, msg->LineData, Len - sizeof(*msg));
 		return 1; }
 	}
 	return 0;

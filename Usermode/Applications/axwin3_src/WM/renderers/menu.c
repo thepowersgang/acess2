@@ -47,6 +47,8 @@ typedef struct sMenuWindowInfo
 void	Renderer_Menu_Init(void);
 tWindow	*Renderer_Menu_Create(int Argument);
 void	Renderer_Menu_Redraw(tWindow *Window);
+ int	Renderer_Menu_HandleIPC_AddItem(tWindow *Window, size_t Length, const void *Data);
+ int	Renderer_Menu_HandleIPC_SetFlags(tWindow *Window, size_t Length, const void *Data);
  int	Renderer_Menu_HandleMessage(tWindow *Window, int Msg, int Length, const void *Data);
 
 // === CONSTANTS ===
@@ -70,7 +72,12 @@ tWMRenderer	gRenderer_Menu = {
 	.Name = "Menu",
 	.CreateWindow = Renderer_Menu_Create,
 	.Redraw = Renderer_Menu_Redraw,
-	.HandleMessage = Renderer_Menu_HandleMessage
+	.HandleMessage = Renderer_Menu_HandleMessage,
+	.nIPCHandlers = 2,
+	.IPCHandlers = {
+		Renderer_Menu_HandleIPC_AddItem,
+//		Renderer_Menu_HandleIPC_SetFlags
+	}
 };
 tFont	*gMenu_Font = NULL;	// System monospace
 
@@ -196,8 +203,9 @@ void Renderer_Menu_Redraw(tWindow *Window)
 	}
 }
 
-int Renderer_Menu_int_AddItem(tWindow *Window, int Length, const tMenuMsg_AddItem *Msg)
+int Renderer_Menu_HandleIPC_AddItem(tWindow *Window, size_t Length, const void *Data)
 {
+	const tMenuIPC_AddItem	*Msg = Data;
 	tMenuWindowInfo	*info = Window->RendererInfo;
 	tMenuItem	*item;
 	
@@ -418,11 +426,6 @@ int Renderer_Menu_HandleMessage(tWindow *Window, int Msg, int Length, const void
 
 		return 0; }
 
-	// Manipulation messages
-	case MSG_MENU_ADDITEM:
-//		_SysDebug("MSG_MENU_ADDITEM");
-		return Renderer_Menu_int_AddItem(Window, Length, Data);
-	
 	// Only message to pass to client
 	case MSG_MENU_SELECT:
 		return 1;

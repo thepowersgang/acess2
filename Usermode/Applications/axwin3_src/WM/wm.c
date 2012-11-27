@@ -15,6 +15,7 @@
 
 // === IMPORTS ===
 extern void	IPC_SendWMMessage(tIPC_Client *Client, uint32_t Src, uint32_t Dst, int Msg, int Len, const void *Data);
+extern void	IPC_SendReply(tIPC_Client *Client, uint32_t WinID, int MsgID, size_t Len, const void *Data);
 extern tWindow	*IPC_int_GetWindow(tIPC_Client *Client, uint32_t ID);
 
 // === GLOBALS ===
@@ -329,6 +330,12 @@ int WM_SendMessage(tWindow *Source, tWindow *Dest, int Message, int Length, cons
 	}	
 
 	return 1;
+}
+
+int WM_SendIPCReply(tWindow *Window, int Message, size_t Length, const void *Data)
+{
+	IPC_SendReply(Window->Client, Window->ID, Message, Length, Data);
+	return 0;
 }
 
 void WM_Invalidate(tWindow *Window)

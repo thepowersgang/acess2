@@ -28,6 +28,8 @@ typedef struct
 // === PROTOTYPES ===
 tWindow	*Renderer_Framebuffer_Create(int Flags);
 void	Renderer_Framebuffer_Redraw(tWindow *Window);
+ int	_Handle_Commit(tWindow *Target, size_t Len, const void *Data);
+ int	_Handle_CreateBuf(tWindow *Target, size_t Len, const void *Data);
  int	Renderer_Framebuffer_HandleMessage(tWindow *Target, int Msg, int Len, const void *Data);
 
 // === GLOBALS ===
@@ -35,7 +37,12 @@ tWMRenderer	gRenderer_Framebuffer = {
 	.Name = "FrameBuffer",
 	.CreateWindow = Renderer_Framebuffer_Create,
 	.Redraw = Renderer_Framebuffer_Redraw,
-	.HandleMessage = Renderer_Framebuffer_HandleMessage
+	.HandleMessage = Renderer_Framebuffer_HandleMessage,
+	.nIPCHandlers = N_IPC_FB,
+	.IPCHandlers = {
+		[IPC_FB_COMMIT] = _Handle_Commit,
+		[IPC_FB_NEWBUF] = _Handle_CreateBuf,
+	}
 };
 
 // === CODE ===
@@ -128,22 +135,23 @@ void _Fill(tFBBuffer *Buf, uint16_t X, uint16_t Y, uint16_t W, uint16_t H, uint3
 }
 
 // --- ---
-void _Handle_Commit(tWindow *Target, size_t Len, const void *Data)
+int _Handle_Commit(tWindow *Target, size_t Len, const void *Data)
 {
 	// Do a window invalidate
+	return 0;
 }
 
-void _Handle_CreateBuf(tWindow *Target, size_t Len, const void *Data)
+int _Handle_CreateBuf(tWindow *Target, size_t Len, const void *Data)
 {
-	const tFBMsg_NewBuf	*msg = Data;
+	const tFBIPC_NewBuf	*msg = Data;
 	tFBBuffer	*buf;
 	tFBWin	*info = Target->RendererInfo;
 	
-	if( Len < sizeof(*msg) )	return ;
+	if( Len < sizeof(*msg) )	return -1;
 	
 	if( msg->Buffer == -1 || msg->Buffer >= info->MaxBufferCount ) {
 		// Can't reallocate -1
-		return ;
+		return 1;
 	}
 	
 	if( info->Buffers[msg->Buffer] ) {
@@ -157,15 +165,17 @@ void _Handle_CreateBuf(tWindow *Target, size_t Len, const void *Data)
 	buf->Data = buf->_data;
 	
 	info->Buffers[msg->Buffer] = buf;
+	
+	return 0;
 }
 
-void _Handle_Upload(tWindow *Target, size_t Len, const void *Data)
+int _Handle_Upload(tWindow *Target, size_t Len, const void *Data)
 {
-	const tFBMsg_Transfer	*msg = Data;
+	const tFBIPC_Transfer	*msg = Data;
 	tFBBuffer	*dest, src;
 	
-	if( Len < sizeof(*msg) )	return ;
-	if( Len < sizeof(*msg) + msg->W * msg->H * 4 )	return ;
+	if( Len < sizeof(*msg) )	return -1;
+	if( Len < sizeof(*msg) + msg->W * msg->H * 4 )	return -1;
 	
 	dest = _GetBuffer(Target, msg->Buffer);
 
@@ -174,50 +184,60 @@ void _Handle_Upload(tWindow *Target, size_t Len, const void *Data)
 	src.Data = (void*)msg->ImageData;
 
 	_Blit( dest, msg->X, msg->Y,  &src, 0, 0,  msg->W, msg->H );
+	return 0;
 }
 
-void _Handle_Download(tWindow *Target, size_t Len, const void *Data)
+int _Handle_Download(tWindow *Target, size_t Len, const void *Data)
 {
-	#if 0
-	const tFBMsg_Transfer	*msg = Data;
+	const tFBIPC_Transfer	*msg = Data;
 	tFBBuffer	dest, *src;
 	
-	if( Len < sizeof(*msg) )	return ;
-	if( Len < sizeof(*msg) + msg->W * msg->H * 4 )	return ;
+	if( Len < sizeof(*msg) )	return -1;
 	
 	src = _GetBuffer(Target, msg->Buffer);
 
-	dest.W = msg->W;	
-	dest.H = msg->H;	
-	dest.Data = msg->ImageData;
+	tFBIPC_Transfer	*ret;
+	 int	retlen = sizeof(*ret) + msg->W*msg->H*4;
+	ret = malloc( retlen );
+
+	dest.W = ret->W = msg->W;
+	dest.H = ret->H = msg->H;
+	dest.Data = ret->ImageData;
 	
 	_Blit( &dest, 0, 0,  src, msg->X, msg->Y,  msg->W, msg->H );
-	#endif
+
+	WM_SendIPCReply(Target, IPC_FB_DOWNLOAD, retlen, ret);
+
+	free(ret);
+
+	return 0;
 }
 
-void _Handle_LocalBlit(tWindow *Target, size_t Len, const void *Data)
+int _Handle_LocalBlit(tWindow *Target, size_t Len, const void *Data)
 {
-	const tFBMsg_Blit	*msg = Data;
+	const tFBIPC_Blit	*msg = Data;
 	tFBBuffer	*dest, *src;
 	
-	if( Len < sizeof(*msg) )	return ;
+	if( Len < sizeof(*msg) )	return -1;
 	
 	src = _GetBuffer(Target, msg->Source);
 	dest = _GetBuffer(Target, msg->Dest);
 
 	_Blit( dest, msg->DstX, msg->DstY,  src, msg->SrcX, msg->SrcY,  msg->W, msg->H );
+	return 0;
 }
 
-void _Handle_FillRect(tWindow *Target, size_t Len, const void *Data)
+int _Handle_FillRect(tWindow *Target, size_t Len, const void *Data)
 {
-	const tFBMsg_Fill	*msg = Data;
+	const tFBIPC_Fill	*msg = Data;
 	tFBBuffer	*dest;
 	
-	if( Len < sizeof(*msg) )	return ;
+	if( Len < sizeof(*msg) )	return -1;
 	
 	dest = _GetBuffer(Target, msg->Buffer);
 	
 	_Fill( dest, msg->X, msg->Y, msg->W, msg->H, msg->Colour );
+	return 0;
 }
 
 int Renderer_Framebuffer_HandleMessage(tWindow *Target, int Msg, int Len, const void *Data)
@@ -231,32 +251,6 @@ int Renderer_Framebuffer_HandleMessage(tWindow *Target, int Msg, int Len, const 
 	// Messages that get passed on
 	case WNDMSG_MOUSEBTN:
 		return 1;
-	
-	// --- Local messages ---
-	// - Drawing completed, do an update
-	case MSG_FB_COMMIT:
-		_Handle_Commit(Target, Len, Data);
-		return 0;
-	// - New Buffer (create a new server-side buffer)
-	case MSG_FB_NEWBUF:
-		_Handle_CreateBuf(Target, Len, Data);
-		return 0;
-	// - Upload (Transfer data from client to server)
-	case MSG_FB_UPLOAD:
-		_Handle_Upload(Target, Len, Data);
-		return 0;
-	// - Download (Transfer image data from server to client)
-	case MSG_FB_DOWNLOAD:
-		_Handle_Download(Target, Len, Data);
-		return 0;
-	// - Local Blit (Transfer from server to server)
-	case MSG_FB_BLIT:
-		_Handle_LocalBlit(Target, Len, Data);
-		return 0;
-	// - Fill a rectangle
-	case MSG_FB_FILL:
-		_Handle_FillRect(Target, Len, Data);
-		return 0;
 	}
 	return 1;
 }

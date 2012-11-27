@@ -8,21 +8,22 @@
 #ifndef _AXWIN3__FRAMEBUFFER_MESSAGES_H_
 #define _AXWIN3__FRAMEBUFFER_MESSAGES_H_
 
-enum
+enum eFrameBuffer_IPCCalls
 {
-	MSG_FB_COMMIT = 0x1000,
-	MSG_FB_NEWBUF,
-	MSG_FB_UPLOAD,
-	MSG_FB_DOWNLOAD,
-	MSG_FB_BLIT,
-	MSG_FB_FILL
+	IPC_FB_COMMIT,
+	IPC_FB_NEWBUF,
+	IPC_FB_UPLOAD,
+	IPC_FB_DOWNLOAD,	// Replies with requested data
+	IPC_FB_BLIT,
+	IPC_FB_FILL,
+	N_IPC_FB
 };
 
 typedef struct
 {
 	uint16_t	Buffer;
 	uint16_t	W, H;
-} tFBMsg_NewBuf;
+} tFBIPC_NewBuf;
 
 typedef struct
 {
@@ -30,7 +31,7 @@ typedef struct
 	uint16_t	W, H;
 	uint16_t	X, Y;
 	uint32_t	ImageData[];
-} tFBMsg_Transfer;
+} tFBIPC_Transfer;
 
 typedef struct
 {
@@ -39,7 +40,7 @@ typedef struct
 	uint16_t	SrcX, SrcY;
 	uint16_t	DstX, DstY;
 	uint16_t	W, H;
-} tFBMsg_Blit;
+} tFBIPC_Blit;
 
 typedef struct
 {
@@ -47,7 +48,7 @@ typedef struct
 	uint16_t	X, Y;
 	uint16_t	W, H;
 	uint32_t	Colour;
-} tFBMsg_Fill;
+} tFBIPC_Fill;
 
 #endif
 

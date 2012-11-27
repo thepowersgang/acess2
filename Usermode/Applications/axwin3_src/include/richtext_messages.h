@@ -19,41 +19,55 @@ enum eRichText_Attrs {
 	_ATTR_CURSORPOS,
 };
 
-enum
+enum eRichText_IPCCalls
 {
-	// Calls
-	MSG_RICHTEXT_SETATTR,
-	MSG_RICHTEXT_SETFONT,
-	MSG_RICHTEXT_DELLINE,
-	MSG_RICHTEXT_ADDLINE,
-	
-	// Events
-	MSG_RICHTEXT_KEYPRESS,
-	MSG_RICHTEXT_MOUSEBTN,
-
-	// Bi-directional messages
-	// - Sent by server to get a line that is not cached
-	// - Sent by client to read line contents
-	MSG_RICHTEXT_REQLINE,
-	// - Response to _REQLINE
-	MSG_RICHTEXT_SENDLINE,
+	IPC_RICHTEXT_SETATTR,
+	IPC_RICHTEXT_SETFONT,
+	IPC_RICHTEXT_DELLINE,
+	IPC_RICHTEXT_ADDLINE,
+	IPC_RICHTEXT_WRITELINE,	// Set line contents
+	IPC_RICHTEXT_READLINE,	// Request line contents
+	N_IPC_RICHTEXT
 };
 
-struct sRichTextMsg_SetAttr
+struct sRichTextIPC_SetAttr
 {
 	uint32_t	Attr;
 	uint32_t	Value;
 };
 
-struct sRichTextMsg_SetFont
+struct sRichTextIPC_SetFont
 {
 	uint16_t	Size;
 	char	Name[];
 };
 
-struct sRichTextMsg_AddDelLine
+struct sRichTextIPC_AddDelLine
 {
 	uint32_t	Line;
+};
+
+struct sRichTextIPC_ReadLine
+{
+	uint32_t	Line;
+};
+
+struct sRichTextIPC_WriteLine
+{
+	uint32_t	Line;
+	char	LineData[];
+};
+
+enum
+{
+	// Events
+	MSG_RICHTEXT_KEYPRESS = 0x1000,
+	MSG_RICHTEXT_MOUSEBTN,
+
+	// Sent by server to get a line that is not cached (expects IPC WRITELINE)
+	MSG_RICHTEXT_REQLINE,
+	// Response to IPC READLINE
+	MSG_RICHTEXT_LINEDATA,
 };
 
 struct sRichTextMsg_ReqLine
@@ -61,7 +75,7 @@ struct sRichTextMsg_ReqLine
 	uint32_t	Line;
 };
 
-struct sRichTextMsg_SendLine
+struct sRichTextMsg_LineData
 {
 	uint32_t	Line;
 	char	LineData[];
