@@ -571,7 +571,8 @@ void IPC_Handle(const tIPC_Type *IPCType, const void *Ident, size_t MsgLen, tAxW
 		}
 		_SysDebug("IPC_Handle: Call %s-%i", renderer->Name, Msg->ID);
 		rv = renderer->IPCHandlers[Msg->ID](win, Msg->Size, Msg->Data);
-		_SysDebug("IPC_Handle: rv = %i", rv);
+		if( rv )
+			_SysDebug("IPC_Handle: rv != 0 (%i)", rv);
 	}
 	else
 	{
@@ -589,11 +590,12 @@ void IPC_Handle(const tIPC_Type *IPCType, const void *Ident, size_t MsgLen, tAxW
 	
 		_SysDebug("IPC_Handle: Call WM-%i", Msg->ID);
 		rv = gIPC_MessageHandlers[Msg->ID](client, Msg);
-		_SysDebug("IPC_Handle: rv = %i", rv);
+		if( rv )
+			_SysDebug("IPC_Handle: rv != 0 (%i)", rv);
 	}
 }
 
-// --- Server->Client replies
+// Dispatch a message to the client
 void IPC_SendWMMessage(tIPC_Client *Client, uint32_t Src, uint32_t Dst, int MsgID, int Len, void *Data)
 {
 	tAxWin_IPCMessage	*hdr;
@@ -616,6 +618,7 @@ void IPC_SendWMMessage(tIPC_Client *Client, uint32_t Src, uint32_t Dst, int MsgI
 	Client->IPCType->SendMessage(Client->Ident, sizeof(buf), buf);
 }
 
+// --- Server->Client replies
 void IPC_SendReply(tIPC_Client *Client, uint32_t WinID, int MsgID, size_t Len, const void *Data)
 {
 	tAxWin_IPCMessage	*hdr;

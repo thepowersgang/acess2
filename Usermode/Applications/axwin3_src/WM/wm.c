@@ -151,11 +151,17 @@ void WM_FocusWindow(tWindow *Destination)
 	if( Destination && !(Destination->Flags & WINFLAG_SHOW) )
 		return ;
 	
-	_msg.Val = 0;
-	WM_SendMessage(NULL, gpWM_FocusedWindow, WNDMSG_FOCUS, sizeof(_msg), &_msg);
-	_msg.Val = 1;
-	WM_SendMessage(NULL, Destination, WNDMSG_FOCUS, sizeof(_msg), &_msg);
-	
+	if( gpWM_FocusedWindow )
+	{
+		_msg.Val = 0;
+		WM_SendMessage(NULL, gpWM_FocusedWindow, WNDMSG_FOCUS, sizeof(_msg), &_msg);
+	}
+	if( Destination )
+	{
+		_msg.Val = 1;
+		WM_SendMessage(NULL, Destination, WNDMSG_FOCUS, sizeof(_msg), &_msg);
+	}
+		
 	WM_Invalidate(gpWM_FocusedWindow);
 	WM_Invalidate(Destination);
 	gpWM_FocusedWindow = Destination;
@@ -294,12 +300,20 @@ int WM_ResizeWindow(tWindow *Window, int W, int H)
 
 int WM_SendMessage(tWindow *Source, tWindow *Dest, int Message, int Length, const void *Data)
 {
-	if(Dest == NULL)	return -2;
-	if(Length > 0 && Data == NULL)	return -1;
+//	_SysDebug("WM_SendMessage: (%p, %p, %i, %i, %p)", Source, Dest, Message, Length, Data);
+	if(Dest == NULL) {
+		_SysDebug("WM_SendMessage: NULL destination from %p", __builtin_return_address(0));
+		return -2;
+	}
+	if(Length > 0 && Data == NULL) {
+		_SysDebug("WM_SendMessage: non-zero length and NULL data");
+		return -1;
+	}
 
 	if( Decorator_HandleMessage(Dest, Message, Length, Data) != 1 )
 	{
 		// TODO: Catch errors from ->HandleMessage
+//		_SysDebug("WM_SendMessage: Decorator grabbed message?");
 		return 0;
 	}
 	
@@ -307,11 +321,13 @@ int WM_SendMessage(tWindow *Source, tWindow *Dest, int Message, int Length, cons
 	if( Dest->Renderer->HandleMessage(Dest, Message, Length, Data) != 1 )
 	{
 		// TODO: Catch errors from ->HandleMessage
+//		_SysDebug("WM_SendMessage: Renderer grabbed message?");
 		return 0;
 	}
 
 	// TODO: Implement message masking
 
+	// Dispatch to client
 	if(Dest->Client)
 	{
 		uint32_t	src_id;
@@ -326,6 +342,7 @@ int WM_SendMessage(tWindow *Source, tWindow *Dest, int Message, int Length, cons
 			src_id = Source->ID;
 		}
 		
+//		_SysDebug("WM_SendMessage: IPC Dispatch");
 		IPC_SendWMMessage(Dest->Client, src_id, Dest->ID, Message, Length, Data);
 	}	
 

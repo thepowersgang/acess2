@@ -766,6 +766,7 @@ void Widget_Fire(tElement *Element)
 {
 	tWidgetMsg_Fire	msg;
 	msg.WidgetID = Element->ID;
+	_SysDebug("Widget_Fire: Fire on %p %i", Element->Window, Element->ID);
 	WM_SendMessage(Element->Window, Element->Window, MSG_WIDGET_FIRE, sizeof(msg), &msg);
 }
 
