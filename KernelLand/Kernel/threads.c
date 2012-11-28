@@ -835,7 +835,7 @@ int Threads_Wake(tThread *Thread)
 		return -ENOTIMPL;
 	
 	default:
-		Warning("Threads_Wake - Unknown process status (%i)\n", Thread->Status);
+		Log_Warning("Threads", "Threads_Wake - Unknown process status (%i)", Thread->Status);
 		return -EINTERNAL;
 	}
 }
