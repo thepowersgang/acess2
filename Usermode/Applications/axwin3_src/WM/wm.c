@@ -140,6 +140,8 @@ void WM_RaiseWindow(tWindow *Window)
 	Window->PrevSibling = parent->LastChild;
 	Window->NextSibling = NULL;
 	parent->LastChild = Window;
+	
+	_SysDebug("Raised %p", Window);
 }
 
 /*
@@ -190,8 +192,6 @@ void WM_FocusWindow(tWindow *Destination)
 	WM_Invalidate(gpWM_FocusedWindow);
 	WM_Invalidate(Destination);
 
-	WM_RaiseWindow(Destination);	
-
 	gpWM_FocusedWindow = Destination;
 }
 
@@ -208,8 +208,10 @@ void WM_ShowWindow(tWindow *Window, int bShow)
 	WM_SendMessage(NULL, Window, WNDMSG_SHOW, sizeof(_msg), &_msg);
 
 	// Update the flag
-	if(bShow)
+	if(bShow) {
 		Window->Flags |= WINFLAG_SHOW;
+		_SysDebug("Window %p shown", Window);
+	}
 	else
 	{
 		Window->Flags &= ~WINFLAG_SHOW;
@@ -222,6 +224,7 @@ void WM_ShowWindow(tWindow *Window, int bShow)
 			free(Window->RenderBuffer);
 			Window->RenderBuffer = NULL;
 		}
+		_SysDebug("Window %p hidden", Window);
 	}
 	
 	WM_Invalidate(Window);
@@ -428,8 +431,8 @@ void WM_int_UpdateWindow(tWindow *Window)
 		
 		if( (Window->Flags & WINFLAG_RELATIVE) && Window->Parent )
 		{
-			Window->RealX = Window->Parent->X + Window->Parent->BorderL + Window->X;
-			Window->RealY = Window->Parent->Y + Window->Parent->BorderT + Window->Y;
+			Window->RealX = Window->Parent->RealX + Window->Parent->BorderL + Window->X;
+			Window->RealY = Window->Parent->RealY + Window->Parent->BorderT + Window->Y;
 		}
 		else
 		{

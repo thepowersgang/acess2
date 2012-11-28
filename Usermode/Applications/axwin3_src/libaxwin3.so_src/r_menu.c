@@ -43,9 +43,9 @@ int AxWin3_Menu_int_Callback(tHWND Window, int Message, int Length, void *Data)
 		if(msg->ID >= info->nItems)	return -1;
 		item = &info->Items[msg->ID];
 		if(item->Callback)	item->Callback(item->CbPtr);
-		return 0; }
+		return 1; }
 	}
-	return 1;
+	return 0;
 }
 
 tHWND AxWin3_Menu_Create(tHWND Parent)
