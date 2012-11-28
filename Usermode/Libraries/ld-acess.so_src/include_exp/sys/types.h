@@ -5,6 +5,11 @@
 
 #include "../acess/intdefs.h"
 
+typedef signed int	ssize_t;
+//#ifdef  __USE_BSD
+typedef unsigned int	u_int;
+//#endif
+
 typedef struct stat	t_fstat;
 
 #define FD_SETSIZE	128

@@ -29,6 +29,15 @@ struct rlimit
 	rlim_t	rlim_max;
 };
 
+enum
+{
+	RLIMIT_AS,	// Address space size
+	RLIMIT_CORE,	// Max core file size
+	RLIMIT_CPU,	// CPU time limit in s (SIGXCPU when reached)
+	RLIMIT_DATA,
+	// TODO: More?
+};
+
 struct rusage
 {
 	struct timeval	ru_time;

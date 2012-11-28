@@ -22,5 +22,12 @@
 // Acess doesn't implement lseek
 #define lseek(_1,_2,_3)	(seek(_1,_2,_3),tell(_1))
 
+enum e_fcntl_cmds
+{
+	F_SETFL
+};
+
+int fcntl(int fd, int cmd, ...) { return -1; }
+
 #endif
 

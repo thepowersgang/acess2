@@ -9,11 +9,16 @@
 #define O_WRONLY	OPENFLAG_WRITE
 #define O_TRUNC	OPENFLAG_TRUNCATE
 #define O_APPEND	OPENFLAG_APPEND
-
-//typedef intptr_t	ssize_t;
+#define O_NONBLOCK	0	// TODO: 
 
 #include "acess/sys.h"
 
+#define STDIN_FILENO	0
+#define STDOUT_FILENO	1
+#define STDERR_FILENO	2
+
+static inline int fork(void) { return clone(CLONE_VM, 0); }
+static inline int execv(const char *b,char *v[]) { return execve(b,v,NULL); }
 
 #endif
 

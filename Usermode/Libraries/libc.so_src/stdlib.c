@@ -71,9 +71,8 @@ EXPORT void qsort(void *base, size_t nmemb, size_t size, int(*compar)(const void
 	}
 }
 
-EXPORT long long strtoll(const char *str, char **end, int base)
+EXPORT unsigned long long strtoull(const char *str, char **end, int base)
 {
-	 int	neg = 0;
 	long long	ret = 0;
 	
 	if( !str || base < 0 || base > 36 || base == 1 ) {
@@ -85,12 +84,6 @@ EXPORT long long strtoll(const char *str, char **end, int base)
 
 	while( isspace(*str) )
 		str++;
-	
-	// Check for negative (or positive) sign
-	if(*str == '-' || *str == '+') {
-		neg = (*str == '-');
-		str++;
-	}
 	
 	if( base == 0 || base == 16 ) {
 		if( *str == '0' && str[1] == 'x' ) {
@@ -129,12 +122,48 @@ EXPORT long long strtoll(const char *str, char **end, int base)
 		str ++;
 	}
 
-	if( neg )
-		ret = -ret;	
-
 	if(end)
 		*end = (char*)str;
 	return ret;
+}
+
+EXPORT unsigned long strtoul(const char *ptr, char **end, int base)
+{
+	unsigned long long tmp = strtoull(ptr, end, base);
+	
+	if( tmp > ULONG_MAX ) {
+		errno = ERANGE;
+		return ULONG_MAX;
+	}
+	
+	return tmp;
+}
+
+EXPORT long long strtoll(const char *str, char **end, int base)
+{
+	 int	neg = 0;
+	unsigned long long	ret;
+
+	if( !str ) {
+		errno = EINVAL;
+		return 0;
+	}
+	
+	while( isspace(*str) )
+		str++;
+	
+	// Check for negative (or positive) sign
+	if(*str == '-' || *str == '+') {
+		neg = (*str == '-');
+		str++;
+	}
+
+	ret = strtoull(str, end, base);	
+
+	if( neg )
+		return -ret;
+	else
+		return ret;
 }
 
 EXPORT long strtol(const char *str, char **end, int base)
