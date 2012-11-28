@@ -137,10 +137,13 @@ int Proc_GetMessage(Uint *Source, Uint BufSize, void *Buffer)
 	// Remove from list
 	tmp = cur->Messages;
 	cur->Messages = cur->Messages->Next;
+	// - Removed last message? Clear the end-of-list pointer
 	if(cur->Messages == NULL)	cur->LastMessage = NULL;
+	//  > Otherwise, re-mark the IPCMSG event flag
+	else	cur->EventState |= THREAD_EVENT_IPCMSG;
 	
 	SHORTREL( &cur->IsLocked );
-	
+
 	free(tmp);	// Free outside of lock
 
 	LEAVE('i', ret);

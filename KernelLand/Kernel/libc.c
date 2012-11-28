@@ -228,8 +228,12 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 			PUTCH('*');	PUTCH('0');	PUTCH('x');
 			for( len = BITS/4; len -- && ((ptr>>(len*4))&15) == 0; )
 				;
-			for( len ++; len --; )
-				PUTCH( cUCDIGITS[ (ptr>>(len*4))&15 ] );
+			len ++;
+			if( len == 0 )
+				PUTCH( '0' );
+			else
+				while( len -- )
+					PUTCH( cUCDIGITS[ (ptr>>(len*4))&15 ] );
 			continue ;
 		}
 		
