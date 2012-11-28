@@ -18,6 +18,8 @@
 #define	LOCAL
 #endif
 
+#define UNUSED(type, param)	__attribute__((unused)) type UNUSED__##param
+
 extern void *memcpy(void *dest, const void *src, size_t n);
 
 typedef struct sCPUID	tCPUID;

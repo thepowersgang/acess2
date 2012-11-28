@@ -11,7 +11,6 @@ extern int32_t	__modsi3(int32_t Num, int32_t Den);
 extern uint32_t	__udivsi3(uint32_t Num, uint32_t Den);
 extern uint32_t	__umodsi3(uint32_t Num, uint32_t Den);
 
-
 #define _STR(x)	#x
 #define STR(x)	_STR(x)
 #define EXP(sym)	{&sym, STR(sym)}
@@ -35,6 +34,13 @@ const struct {
 	#define __ASSEMBLER__
 	#include "arch/syscalls.s.h"
 	#undef __ASSEMBLER__
+	
+	#ifdef ARCHDIR_is_armv7
+	{0, "__gnu_Unwind_Find_exidx"},
+	{0, "__cxa_call_unexpected"},
+	{0, "__cxa_type_match"},
+	{0, "__cxa_begin_cleanup"},
+	#endif
 #if 0
 	EXP(__umoddi3),
 	EXP(__udivdi3),

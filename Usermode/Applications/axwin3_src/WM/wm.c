@@ -15,6 +15,8 @@
 
 // === IMPORTS ===
 extern void	IPC_SendWMMessage(tIPC_Client *Client, uint32_t Src, uint32_t Dst, int Msg, int Len, const void *Data);
+extern void	IPC_SendReply(tIPC_Client *Client, uint32_t WinID, int MsgID, size_t Len, const void *Data);
+extern tWindow	*IPC_int_GetWindow(tIPC_Client *Client, uint32_t ID);
 
 // === GLOBALS ===
 tWMRenderer	*gpWM_Renderers;
@@ -92,6 +94,11 @@ tWindow *WM_CreateWindow(tWindow *Parent, tIPC_Client *Client, uint32_t ID, int 
 	return ret;
 }
 
+tWindow *WM_GetWindowByID(tWindow *Requester, uint32_t ID)
+{
+	return IPC_int_GetWindow(Requester->Client, ID);
+}
+
 tWindow *WM_CreateWindowStruct(size_t ExtraSize)
 {
 	tWindow	*ret;
@@ -144,11 +151,17 @@ void WM_FocusWindow(tWindow *Destination)
 	if( Destination && !(Destination->Flags & WINFLAG_SHOW) )
 		return ;
 	
-	_msg.Val = 0;
-	WM_SendMessage(NULL, gpWM_FocusedWindow, WNDMSG_FOCUS, sizeof(_msg), &_msg);
-	_msg.Val = 1;
-	WM_SendMessage(NULL, Destination, WNDMSG_FOCUS, sizeof(_msg), &_msg);
-	
+	if( gpWM_FocusedWindow )
+	{
+		_msg.Val = 0;
+		WM_SendMessage(NULL, gpWM_FocusedWindow, WNDMSG_FOCUS, sizeof(_msg), &_msg);
+	}
+	if( Destination )
+	{
+		_msg.Val = 1;
+		WM_SendMessage(NULL, Destination, WNDMSG_FOCUS, sizeof(_msg), &_msg);
+	}
+		
 	WM_Invalidate(gpWM_FocusedWindow);
 	WM_Invalidate(Destination);
 	gpWM_FocusedWindow = Destination;
@@ -210,16 +223,49 @@ void WM_DecorateWindow(tWindow *Window, int bDecorate)
 	WM_Invalidate(Window);
 }
 
+void WM_SetRelative(tWindow *Window, int bRelativeToParent)
+{
+//	_SysDebug("WM_SetRelative: (%p{Parent=%p},%i)", Window, Window->Parent, bRelativeToParent);
+	// No meaning if no parent
+	if( !Window->Parent )
+		return ;
+
+	// Check that the flag is changing
+	if( !!bRelativeToParent == !!(Window->Flags & WINFLAG_RELATIVE) )
+		return ;
+
+	if( bRelativeToParent ) {
+		// Set
+		Window->Flags |= WINFLAG_RELATIVE;
+		WM_MoveWindow(Window, Window->X, Window->Y);
+	}
+	else {
+		// Clear
+		Window->Flags &= ~WINFLAG_RELATIVE;
+		WM_MoveWindow(Window, Window->X - Window->Parent->X, Window->Y - Window->Parent->Y);
+	}
+}
+
 int WM_MoveWindow(tWindow *Window, int X, int Y)
 {
+//	_SysDebug("Move %p to (%i,%i)", Window, X, Y);
 	// Clip coordinates
 	if(X + Window->W < 0)	X = -Window->W + 1;
 	if(Y + Window->H < 0)	Y = -Window->H + 1;
 	if(X >= giScreenWidth)	X = giScreenWidth - 1;
 	if(Y >= giScreenHeight)	Y = giScreenHeight - 1;
 	
+	// If relative to the parent, extra checks
+	if( (Window->Flags & WINFLAG_RELATIVE) && Window->Parent )
+	{
+		if( X > Window->Parent->W )	return 1;
+		if( Y > Window->Parent->H )	return 1;
+	}
+	// TODO: Re-sanitise
+
 	Window->X = X;	Window->Y = Y;
 
+	// TODO: Why invalidate buffer?
 	WM_Invalidate(Window);
 
 	return 0;
@@ -230,6 +276,9 @@ int WM_ResizeWindow(tWindow *Window, int W, int H)
 	if(W <= 0 || H <= 0 )	return 1;
 	if(Window->X + W < 0)	Window->X = -W + 1;
 	if(Window->Y + H < 0)	Window->Y = -H + 1;
+
+	if( Window->W == W && Window->H == H )
+		return 0;
 
 	Window->W = W;	Window->H = H;
 
@@ -251,12 +300,20 @@ int WM_ResizeWindow(tWindow *Window, int W, int H)
 
 int WM_SendMessage(tWindow *Source, tWindow *Dest, int Message, int Length, const void *Data)
 {
-	if(Dest == NULL)	return -2;
-	if(Length > 0 && Data == NULL)	return -1;
+//	_SysDebug("WM_SendMessage: (%p, %p, %i, %i, %p)", Source, Dest, Message, Length, Data);
+	if(Dest == NULL) {
+		_SysDebug("WM_SendMessage: NULL destination from %p", __builtin_return_address(0));
+		return -2;
+	}
+	if(Length > 0 && Data == NULL) {
+		_SysDebug("WM_SendMessage: non-zero length and NULL data");
+		return -1;
+	}
 
 	if( Decorator_HandleMessage(Dest, Message, Length, Data) != 1 )
 	{
 		// TODO: Catch errors from ->HandleMessage
+//		_SysDebug("WM_SendMessage: Decorator grabbed message?");
 		return 0;
 	}
 	
@@ -264,11 +321,13 @@ int WM_SendMessage(tWindow *Source, tWindow *Dest, int Message, int Length, cons
 	if( Dest->Renderer->HandleMessage(Dest, Message, Length, Data) != 1 )
 	{
 		// TODO: Catch errors from ->HandleMessage
+//		_SysDebug("WM_SendMessage: Renderer grabbed message?");
 		return 0;
 	}
 
 	// TODO: Implement message masking
 
+	// Dispatch to client
 	if(Dest->Client)
 	{
 		uint32_t	src_id;
@@ -283,16 +342,23 @@ int WM_SendMessage(tWindow *Source, tWindow *Dest, int Message, int Length, cons
 			src_id = Source->ID;
 		}
 		
+//		_SysDebug("WM_SendMessage: IPC Dispatch");
 		IPC_SendWMMessage(Dest->Client, src_id, Dest->ID, Message, Length, Data);
 	}	
 
 	return 1;
 }
 
+int WM_SendIPCReply(tWindow *Window, int Message, size_t Length, const void *Data)
+{
+	IPC_SendReply(Window->Client, Window->ID, Message, Length, Data);
+	return 0;
+}
+
 void WM_Invalidate(tWindow *Window)
 {
 	if(!Window)	return ;
-	_SysDebug("Invalidating %p", Window);
+//	_SysDebug("Invalidating %p", Window);
 	// Don't invalidate twice (speedup)
 //	if( !(Window->Flags & WINFLAG_CLEAN) )	return;
 
@@ -319,7 +385,7 @@ void WM_int_UpdateWindow(tWindow *Window)
 		// Calculate RealW/RealH
 		if( !(Window->Flags & WINFLAG_NODECORATE) )
 		{
-			_SysDebug("Applying decorations to %p", Window);
+			//_SysDebug("Applying decorations to %p", Window);
 			Decorator_UpdateBorderSize(Window);
 			Window->RealW = Window->BorderL + Window->W + Window->BorderR;
 			Window->RealH = Window->BorderT + Window->H + Window->BorderB;
@@ -335,6 +401,17 @@ void WM_int_UpdateWindow(tWindow *Window)
 			Window->RealH = Window->H;
 		}
 		
+		if( (Window->Flags & WINFLAG_RELATIVE) && Window->Parent )
+		{
+			Window->RealX = Window->Parent->X + Window->Parent->BorderL + Window->X;
+			Window->RealY = Window->Parent->Y + Window->Parent->BorderT + Window->Y;
+		}
+		else
+		{
+			Window->RealX = Window->X;
+			Window->RealY = Window->Y;
+		}
+
 		Window->Renderer->Redraw(Window);
 		Window->Flags |= WINFLAG_CLEAN;
 	}
@@ -362,18 +439,18 @@ void WM_int_BlitWindow(tWindow *Window)
 	if( !(Window->Flags & WINFLAG_SHOW) )
 		return ;
 
-//	_SysDebug("Blit %p to (%i,%i) %ix%i", Window, Window->X, Window->Y, Window->RealW, Window->RealH);
-	Video_Blit(Window->RenderBuffer, Window->X, Window->Y, Window->RealW, Window->RealH);
+//	_SysDebug("Blit %p (%p) to (%i,%i) %ix%i", Window, Window->RenderBuffer,
+//		Window->RealX, Window->RealY, Window->RealW, Window->RealH);
+	Video_Blit(Window->RenderBuffer, Window->RealX, Window->RealY, Window->RealW, Window->RealH);
 	
 	if( Window == gpWM_FocusedWindow && Window->CursorW )
 	{
 		Video_FillRect(
-			Window->X + Window->BorderL + Window->CursorX,
-			Window->Y + Window->BorderT + Window->CursorY,
+			Window->RealX + Window->BorderL + Window->CursorX,
+			Window->RealY + Window->BorderT + Window->CursorY,
 			Window->CursorW, Window->CursorH,
 			0x000000
 			);
-			
 	}
 
 	for( child = Window->FirstChild; child; child = child->NextSibling )

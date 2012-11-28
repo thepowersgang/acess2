@@ -37,6 +37,7 @@ SYSCALL1(_SysSetFaultHandler, SYS_SETFAULTHANDLER)
 SYSCALL6(_SysDebug, 0x100)
 SYSCALL1(_SysGetPhys, SYS_GETPHYS)	// uint64_t _SysGetPhys(uint addr)
 SYSCALL1(_SysAllocate, SYS_ALLOCATE)	// uint64_t _SysAllocate(uint addr)
+SYSCALL3(SysSetMemFlags, SYS_SETFLAGS)	// uint32_t SysSetMemFlags(uint addr, uint flags, uint mask)
 // VFS System calls
 SYSCALL2(open, SYS_OPEN)	// char*, int
 SYSCALL3(reopen, SYS_REOPEN)	// int, char*, int

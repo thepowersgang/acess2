@@ -85,7 +85,7 @@ tVFS_Node *Inode_GetCache(int Handle, Uint64 Inode)
 tVFS_Node *Inode_CacheNode(int Handle, tVFS_Node *Node)
 {
 	tInodeCache	*cache;
-	tCachedInode	*newEnt, *ent, *prev;
+	tCachedInode	*newEnt, *ent, *prev = NULL;
 	
 	cache = Inode_int_GetFSCache(Handle);
 	if(!cache)	return NULL;
@@ -95,7 +95,6 @@ tVFS_Node *Inode_CacheNode(int Handle, tVFS_Node *Node)
 	
 	// Search Cache
 	ent = cache->FirstNode;
-	prev = (tCachedInode*) &cache->FirstNode;
 	for( ; ent; prev = ent, ent = ent->Next )
 	{
 		if(ent->Node.Inode < Node->Inode)	continue;
@@ -110,7 +109,10 @@ tVFS_Node *Inode_CacheNode(int Handle, tVFS_Node *Node)
 	newEnt = malloc(sizeof(tCachedInode));
 	newEnt->Next = ent;
 	memcpy(&newEnt->Node, Node, sizeof(tVFS_Node));
-	prev->Next = newEnt;
+	if( prev )
+		prev->Next = newEnt;
+	else
+		cache->FirstNode = newEnt;
 	newEnt->Node.ReferenceCount = 1;
 
 	LOG("Cached %llx as %p", Node->Inode, &newEnt->Node);

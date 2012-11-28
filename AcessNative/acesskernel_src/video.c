@@ -166,16 +166,27 @@ Uint64 Video_Write(tVFS_Node *Node, Uint64 Offset, Uint64 Length, const void *Bu
 		
 		LOG("buffer = %p", Buffer);
 		
+		Offset /= 4;
 		startX = Offset % giUI_Width;
 		startY = Offset / giUI_Width;
-		
-		if( Length + startX < giUI_Width )
+		Length /= 4;
+
+		if( startX + Length < giUI_Width )
 		{
 			// Single line
 			UI_BlitBitmap(
 				startX, startY,
 				Length, 1,
 				Buffer);
+		}
+		else if( startX == 0 )
+		{
+			int	lines = Length / giUI_Width;
+			int	rem = Length % giUI_Width;
+			UI_BlitBitmap(0, startY, giUI_Width, lines, Buffer);
+			if( rem ) {
+				UI_BlitBitmap(0, startY + lines, rem, 1, (Uint32*)Buffer + lines*giUI_Width);
+			}
 		}
 		else
 		{

@@ -48,7 +48,7 @@ EXPORT void exit(int status)
  */
 EXPORT void qsort(void *base, size_t nmemb, size_t size, int(*compar)(const void *, const void *))
 {
-	 int	i, j, min;
+	size_t	i, j, min;
 	// With 0 items, there's nothing to do and with 1 its already sorted
 	if(nmemb == 0 || nmemb == 1)	return;
 	

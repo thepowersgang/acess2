@@ -29,6 +29,7 @@ typedef struct sRequestValue {
 typedef struct sRequestHeader {
 	uint16_t	ClientID;
 	uint16_t	CallID;	//!< \see eSyscalls
+	uint32_t	MessageLength;
 	uint16_t	NParams;
 	
 	tRequestValue	Params[];
@@ -66,6 +67,7 @@ enum eSyscalls {
 	// IPC
 	SYS_SLEEP,
 	SYS_AN_FORK,
+	SYS_AN_SPAWN,
 	SYS_SENDMSG,
 	SYS_GETMSG,
 	SYS_SELECT,

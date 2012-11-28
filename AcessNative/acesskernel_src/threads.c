@@ -10,6 +10,8 @@
 #include <acess.h>
 #include <mutex.h>
 #include "../../KernelLand/Kernel/include/semaphore.h"
+typedef signed long long int	time_t;
+#include "../../Usermode/Libraries/ld-acess.so_src/include_exp/acess/syscall_types.h"
 #include <rwlock.h>
 #include <events.h>
 #include <threads_int.h>
@@ -19,7 +21,8 @@
 #define THREAD_EVENT_WAKEUP	0x80000000
 
 // === IMPORTS ===
-void	VFS_CloneHandleList(int PID);
+extern void	VFS_CloneHandleList(int PID);
+extern void	VFS_CloneHandlesFromList(int PID, int nFD, int FDs[]);
 
 // === STRUCTURES ===
 // === PROTOTYPES ===
@@ -264,10 +267,31 @@ int Threads_Fork(void)
 {
 	tThread	*thread = Threads_CloneTCB(gpCurrentThread);
 	thread->PID = thread->TID;
+
 	// Duplicate the VFS handles (and nodes) from vfs_handle.c
-	
 	VFS_CloneHandleList(thread->PID);
 	
+	return thread->PID;
+}
+
+int Threads_Spawn(int nFD, int FDs[], struct s_sys_spawninfo *info)
+{
+	tThread	*thread = Threads_CloneTCB(gpCurrentThread);
+	thread->PID = thread->TID;
+	if( info )
+	{
+		// TODO: PGID?
+		//if( info->flags & SPAWNFLAG_NEWPGID )
+		//	thread->PGID = thread->PID;
+		if( info->gid && thread->UID == 0 )
+			thread->GID = info->gid;
+		if( info->uid && thread->UID == 0 )	// last because ->UID is used above
+			thread->UID = info->uid;
+	}
+	
+	VFS_CloneHandlesFromList(thread->PID, nFD, FDs);
+
+	Log_Debug("Threads", "_spawn: %i", thread->PID);
 	return thread->PID;
 }
 
@@ -312,7 +336,7 @@ Uint32 Threads_WaitEvents(Uint32 Mask)
 {
 	Uint32	rv;
 
-	Log_Debug("Threads", "Mask = %x, ->Events = %x", Mask, gpCurrentThread->Events);	
+	//Log_Debug("Threads", "Mask = %x, ->Events = %x", Mask, gpCurrentThread->Events);	
 
 	gpCurrentThread->WaitMask = Mask;
 	if( !(gpCurrentThread->Events & Mask) )
@@ -321,13 +345,13 @@ Uint32 Threads_WaitEvents(Uint32 Mask)
 			Log_Warning("Threads", "Wait on eventsem of %p, %p failed",
 				gpCurrentThread, gpCurrentThread->EventSem);
 		}
-		Log_Debug("Threads", "Woken from nap (%i here)", SDL_SemValue(gpCurrentThread->EventSem));
+		//Log_Debug("Threads", "Woken from nap (%i here)", SDL_SemValue(gpCurrentThread->EventSem));
 	}
 	rv = gpCurrentThread->Events & Mask;
 	gpCurrentThread->Events &= ~Mask;
 	gpCurrentThread->WaitMask = -1;
 
-	Log_Debug("Threads", "- rv = %x", rv);
+	//Log_Debug("Threads", "- rv = %x", rv);
 
 	return rv;
 }
@@ -335,8 +359,8 @@ Uint32 Threads_WaitEvents(Uint32 Mask)
 void Threads_PostEvent(tThread *Thread, Uint32 Events)
 {
 	Thread->Events |= Events;
-	Log_Debug("Threads", "Trigger event %x (->Events = %p)", Events, Thread->Events);
-	
+//	Log_Debug("Threads", "Trigger event %x (->Events = %p) on %p", Events, Thread->Events, Thread);
+
 	if( Events == 0 || Thread->WaitMask & Events ) {
 		Threads_Glue_SemSignal( Thread->EventSem, 1 );
 //		Log_Debug("Threads", "Waking %p(%i %s)", Thread, Thread->TID, Thread->ThreadName);

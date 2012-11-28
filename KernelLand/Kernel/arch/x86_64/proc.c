@@ -37,7 +37,7 @@ extern void	APStartup(void);	// 16-bit AP startup code
 
 extern Uint	GetRIP(void);	// start.asm
 extern Uint	SaveState(Uint *RSP, Uint *Regs);
-extern Uint	Proc_CloneInt(Uint *RSP, Uint *CR3);
+extern Uint	Proc_CloneInt(Uint *RSP, Uint *CR3, int bCopyUserVM);
 extern void	NewTaskHeader(void);	// Actually takes cdecl args
 extern void	Proc_InitialiseSSE(void);
 extern void	Proc_SaveSSE(Uint DestPtr);
@@ -75,6 +75,7 @@ void	Proc_StartProcess(Uint16 SS, Uint Stack, Uint Flags, Uint16 CS, Uint IP) NO
 //void	Proc_DumpThreadCPUState(tThread *Thread);
 //void	Proc_Reschedule(void);
 void	Proc_Scheduler(int CPU, Uint RSP, Uint RIP);
+Uint	Proc_int_SetIRQIP(Uint RIP);
 
 // === GLOBALS ===
 //!\brief Used by desctab.asm in SyscallStub
@@ -506,7 +507,7 @@ tTID Proc_Clone(Uint Flags)
 	if(!newThread)	return -1;
 	
 	// Save core machine state
-	rip = Proc_CloneInt(&newThread->SavedState.RSP, &newThread->Process->MemState.CR3);
+	rip = Proc_CloneInt(&newThread->SavedState.RSP, &newThread->Process->MemState.CR3, !!(Flags & CLONE_NOUSER));
 	if(rip == 0)	return 0;	// Child
 	newThread->KernelStack = cur->KernelStack;
 	newThread->SavedState.RIP = rip;
@@ -722,7 +723,14 @@ void Proc_CallFaultHandler(tThread *Thread)
 
 void Proc_DumpThreadCPUState(tThread *Thread)
 {
-	Log("  At %04x:%016llx", Thread->SavedState.UserCS, Thread->SavedState.UserRIP);
+	if( Thread->CurCPU == GetCPUNum() ) {
+		// TODO: Backtrace to IRQ
+		Log("  IRQ %016llx", Thread->SavedState.UserRIP);
+	}
+	else {
+		Log("  At %016llx, SP=%016llx", Thread->SavedState.RIP, Thread->SavedState.RSP);
+		Log("  User %04x:%016llx", Thread->SavedState.UserCS, Thread->SavedState.UserRIP);
+	}
 }
 
 void Proc_Reschedule(void)
@@ -755,7 +763,7 @@ void Proc_Reschedule(void)
 
 	// Update CPU state
 	gaCPUs[cpu].Current = nextthread;
-	gTSSs[cpu].RSP0 = nextthread->KernelStack-4;
+	gTSSs[cpu].RSP0 = nextthread->KernelStack-sizeof(void*);
 	__asm__ __volatile__ ("mov %0, %%db0" : : "r" (nextthread));
 
 	if( curthread )
@@ -820,6 +828,15 @@ void Proc_Scheduler(int CPU, Uint RSP, Uint RIP)
 
 	Proc_Reschedule();
 #endif
+}
+
+Uint Proc_int_SetIRQIP(Uint RIP)
+{
+	 int	cpu = GetCPUNum();
+	tThread	*thread = gaCPUs[cpu].Current;
+	Uint	rv = thread->SavedState.UserRIP;
+	thread->SavedState.UserRIP = RIP;
+	return rv;
 }
 
 // === EXPORTS ===

@@ -44,7 +44,8 @@ ifeq ($(PLATFORM),win)
 endif
 ifeq ($(PLATFORM),lin)
 	BIN := ../AcessKernel
-	CFLAGS +=
+	CFLAGS += 
+	LDFLAGS += -lpthread
 endif
 
 .PHONY: all clean

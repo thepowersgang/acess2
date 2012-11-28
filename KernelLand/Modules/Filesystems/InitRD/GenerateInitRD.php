@@ -1,4 +1,6 @@
 <?php
+date_default_timezone_set("UTC");
+
 $lGenDate = date("Y-m-d H:i");
 $gOutput = <<<EOF
 /*

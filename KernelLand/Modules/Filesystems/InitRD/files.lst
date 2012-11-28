@@ -19,7 +19,6 @@ Dir "Libs" {
 	File "ld-acess.so" "__BIN__/Libs/ld-acess.so"
 	File "libld-acess.so" "__BIN__/Libs/libld-acess.so"
 	File "libc.so" "__BIN__/Libs/libc.so"
-	File "libgcc.so" "__BIN__/Libs/libgcc.so"
 	File "libreadline.so" "__BIN__/Libs/libreadline.so"
 	File "libnet.so" "__BIN__/Libs/libnet.so"
 	File "liburi.so" "__BIN__/Libs/liburi.so"

@@ -20,5 +20,6 @@ extern void	UI_Redraw(void);
 
 typedef void (*tUI_KeybardCallback)(Uint32 Key);
 extern tUI_KeybardCallback	gUI_KeyboardCallback;
+extern void	Mouse_HandleEvent(Uint32 ButtonState, int *AxisDeltas, int *AxisValues);
 
 #endif

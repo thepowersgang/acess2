@@ -21,6 +21,7 @@ extern int	native_seek(int FD, int64_t Offset, int Dir);
 extern uint64_t	native_tell(int FD);
 
 extern int	native_execve(const char *filename, const char *const argv[], const char *const envp[]);
+extern int	native_spawn(const char *filename, const char *const argv[], const char *const envp[]);
 
 // Syscalls used by the linker
 extern int	acess_open(const char *Path, int Flags);

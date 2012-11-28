@@ -10,14 +10,14 @@
 
 SUBMAKE = $(MAKE) --no-print-directory
 
-USRLIBS := crt0.o acess.ld ld-acess.so libgcc.so libc.so
+USRLIBS := crt0.o acess.ld ld-acess.so libc.so
 USRLIBS += libreadline.so libnet.so liburi.so libpsocket.so
 USRLIBS += libimage_sif.so
 
 USRAPPS := init login CLIShell cat ls mount
 USRAPPS += bomb lspci
 USRAPPS += ip dhcpclient ping telnet irc wget telnetd
-USRAPPS += axwin3
+USRAPPS += axwin3 gui_ate
 
 ALL_DYNMODS = $(addprefix all-,$(DYNMODS))
 ALL_MODULES := $(addprefix all-,$(MODULES))
@@ -37,6 +37,8 @@ AI_USRLIBS := $(addprefix allinstall-,$(USRLIBS))
 AI_USRAPPS := $(addprefix allinstall-,$(USRAPPS))
 
 .PHONY: all clean install \
+	kmode all-kmode clean-kmode \
+	all-user clean-user \
 	$(ALL_MODULES) all-Kernel $(ALL_USRLIBS) $(ALL_USRAPPS) \
 	$(AI_MODULES) allinstall-Kernel $(AI_USRLIBS) $(AI_USRAPPS) \
 	$(CLEAN_MODULES) clean-Kernel $(CLEAN_USRLIBS) $(CLEAN_USRAPPS) \
@@ -44,6 +46,7 @@ AI_USRAPPS := $(addprefix allinstall-,$(USRAPPS))
 
 kmode:	$(AI_MODULES) $(AI_DYNMODS) allinstall-Kernel
 all-kmode:	$(ALL_MODULES) $(ALL_DYNMODS) all-Kernel
+clean-kmode:	$(CLEAN_MODULES) $(CLEAN_DYNMODS) clean-Kernel
 
 all-user: $(ALL_USRLIBS) $(ALL_USRAPPS)
 clean-user: $(CLEAN_USRLIBS) $(CLEAN_USRAPPS)

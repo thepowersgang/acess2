@@ -9,9 +9,14 @@
 #include <string.h>
 #include <stddef.h>
 #include <unistd.h>
+#include <spawn.h>	// posix_spawn
 #include "request.h"
 
+#if SYSCALL_TRACE
 #define DEBUG(str, x...)	Debug(str, x)
+#else
+#define DEBUG(...)	do{}while(0)
+#endif
 
 #define	MAX_FPS	16
 
@@ -206,6 +211,7 @@ uint64_t _Syscall(int SyscallID, const char *ArgTypes, ...)
 	req->ClientID = 0;	//< Filled later
 	req->CallID = SyscallID;
 	req->NParams = paramCount;
+	req->MessageLength = dataLength;
 	dataPtr = &req->Params[paramCount];
 	
 	// Fill `output` and `input`
@@ -253,6 +259,11 @@ uint64_t _Syscall(int SyscallID, const char *ArgTypes, ...)
 	}
 	
 	// Write changes to buffers
+	if( req->NParams - 1 != retCount ) {
+		fprintf(stderr, "syscalls.c: Return count inbalance (%i - 1 != exp %i) [Call %i]\n",
+			req->NParams, retCount, SyscallID);
+		exit(127);
+	}
 	retCount = 0;
 	for( i = 1; i < req->NParams; i ++ )
 	{
@@ -321,7 +332,16 @@ uint64_t native_tell(int FD)
 int native_execve(const char *filename, const char *const argv[], const char *const envp[])
 {
 	int ret;
-	ret = execve(filename, argv, envp);
+	ret = execve(filename, (void*)argv, (void*)envp);
 	perror("native_execve");
 	return ret;
+}
+
+int native_spawn(const char *filename, const char *const argv[], const char *const envp[])
+{
+	int rv;
+	
+	rv = posix_spawn(NULL, filename, NULL, NULL, (void*)argv, (void*)envp);
+	
+	return rv;
 }

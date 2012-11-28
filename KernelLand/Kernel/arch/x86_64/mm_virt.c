@@ -722,43 +722,73 @@ int MM_IsValidBuffer(tVAddr Addr, size_t Size)
 
 	Size += Addr & (PAGE_SIZE-1);
 	Addr &= ~(PAGE_SIZE-1);
-	Addr &= ((1UL << 48)-1);	// Clap to address space
+	// NC addr
+	if( ((Addr >> 47) & 1) != ((Addr>>48) == 0xFFFF))
+		return 0;
+	Addr &= ((1UL << 48)-1);	// Clamp to address space
 
 	pml4 = Addr >> 39;
 	pdp = Addr >> 30;
 	dir = Addr >> 21;
 	tab = Addr >> 12;
 
-	if( !(PAGEMAPLVL4(pml4) & 1) )	return 0;
-	if( !(PAGEDIRPTR(pdp) & 1) )	return 0;
-	if( !(PAGEDIR(dir) & 1) )	return 0;
-	if( !(PAGETABLE(tab) & 1) )	return 0;
+	if( !(PAGEMAPLVL4(pml4) & 1) ) {
+		Log_Debug("MMVirt", "PML4E %i NP", pml4);
+		return 0;
+	}
+	if( !(PAGEDIRPTR(pdp) & 1) ) {
+		Log_Debug("MMVirt", "PDPE %i NP", pdp);
+		return 0;
+	}
+	if( !(PAGEDIR(dir) & 1) ) {
+		Log_Debug("MMVirt", "PDE %i NP", dir);
+		return 0;
+	}
+	if( !(PAGETABLE(tab) & 1) ) {
+		Log_Debug("MMVirt", "PTE %i NP", tab);
+		return 0;
+	}
 	
 	bIsUser = !!(PAGETABLE(tab) & PF_USER);
 
 	while( Size >= PAGE_SIZE )
 	{
+		tab ++;
+		Size -= PAGE_SIZE;
+		
 		if( (tab & 511) == 0 )
 		{
 			dir ++;
-			if( ((dir >> 9) & 511) == 0 )
+			if( (dir & 511) == 0 )
 			{
 				pdp ++;
-				if( ((pdp >> 18) & 511) == 0 )
+				if( (pdp & 511) == 0 )
 				{
 					pml4 ++;
-					if( !(PAGEMAPLVL4(pml4) & 1) )	return 0;
+					if( !(PAGEMAPLVL4(pml4) & 1) ) {
+						Log_Debug("MMVirt", "IsValidBuffer - PML4E %x NP, Size=%x", pml4, Size);
+						return 0;
+					}
 				}
-				if( !(PAGEDIRPTR(pdp) & 1) )	return 0;
+				if( !(PAGEDIRPTR(pdp) & 1) ) {
+					Log_Debug("MMVirt", "IsValidBuffer - PDPE %x NP", pdp);
+					return 0;
+				}
 			}
-			if( !(PAGEDIR(dir) & 1) )	return 0;
+			if( !(PAGEDIR(dir) & 1) ) {
+				Log_Debug("MMVirt", "IsValidBuffer - PDE %x NP", dir);
+				return 0;
+			}
 		}
 		
-		if( !(PAGETABLE(tab) & 1) )   return 0;
-		if( bIsUser && !(PAGETABLE(tab) & PF_USER) )	return 0;
-
-		tab ++;
-		Size -= PAGE_SIZE;
+		if( !(PAGETABLE(tab) & 1) ) {
+			Log_Debug("MMVirt", "IsValidBuffer - PTE %x NP", tab);
+			return 0;
+		}
+		if( bIsUser && !(PAGETABLE(tab) & PF_USER) ) {
+			Log_Debug("MMVirt", "IsValidBuffer - PTE %x Not user", tab);
+			return 0;
+		}
 	}
 	return 1;
 }
@@ -849,6 +879,7 @@ tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 	
 	// Allocated successfully, now map
 	ret = MM_MapHWPages(phys, Pages);
+	*PhysAddr = phys;
 	// MapHWPages references the pages, so deref them back down to 1
 	for(;Pages--;phys+=0x1000)
 		MM_DerefPhys(phys);
@@ -857,7 +888,6 @@ tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 		return 0;
 	}
 	
-	*PhysAddr = phys;
 	return ret;
 }
 
@@ -894,7 +924,7 @@ void MM_FreeTemp(void *Ptr)
 
 
 // --- Address Space Clone --
-tPAddr MM_Clone(void)
+tPAddr MM_Clone(int bNoUserCopy)
 {
 	tPAddr	ret;
 	 int	i;
@@ -910,7 +940,7 @@ tPAddr MM_Clone(void)
 	INVLPG_ALL();
 	
 	// #3 Set Copy-On-Write to all user pages
-	if( Threads_GetPID() != 0 )
+	if( Threads_GetPID() != 0 && !bNoUserCopy )
 	{
 		for( i = 0; i < 256; i ++)
 		{

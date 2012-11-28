@@ -184,7 +184,14 @@ void itoa(char *buf, Uint64 num, int base, int minLength, char pad)
 /**
  * \brief Append a character the the vsnprintf output
  */
-#define PUTCH(c)	_putch(c)
+#define PUTCH(ch)	do { \
+		if(pos < __maxlen) { \
+			if(__s) __s[pos] = ch; \
+		} else { \
+			(void)ch;\
+		} \
+		pos ++; \
+	} while(0)
 #define GETVAL()	do {\
 	if(isLongLong)	val = va_arg(args, Uint64);\
 	else	val = va_arg(args, unsigned int);\
@@ -203,17 +210,6 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 	size_t	pos = 0;
 	// Flags
 	 int	bPadLeft = 0;
-	
-	auto void _putch(char ch);
-
-	void _putch(char ch)
-	{
-		if(pos < __maxlen)
-		{
-			if(__s) __s[pos] = ch;
-		}
-		pos ++;
-	}
 
 	while((c = *__format++) != 0)
 	{
@@ -230,8 +226,14 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		if(c == 'p') {
 			Uint	ptr = va_arg(args, Uint);
 			PUTCH('*');	PUTCH('0');	PUTCH('x');
-			for( len = BITS/4; len --; )
-				PUTCH( cUCDIGITS[ (ptr>>(len*4))&15 ] );
+			for( len = BITS/4; len -- && ((ptr>>(len*4))&15) == 0; )
+				;
+			len ++;
+			if( len == 0 )
+				PUTCH( '0' );
+			else
+				while( len -- )
+					PUTCH( cUCDIGITS[ (ptr>>(len*4))&15 ] );
 			continue ;
 		}
 		
@@ -742,7 +744,8 @@ void *memmove(void *__dest, const void *__src, size_t len)
 	
 }
 
-// NOTE: Strictly not libc, but lib.c is used by userland code too
+// NOTE: Strictly not libc, but lib.c is used by userland code too and hence these two
+// can't be in it.
 /**
  * \name Memory Validation
  * \{

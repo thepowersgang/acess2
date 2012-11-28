@@ -362,6 +362,7 @@ void USB_SetDeviceDataPtr(tUSBInterface *Dev, void *Ptr) { Dev->Data = Ptr; }
 int USB_int_AllocateAddress(tUSBHost *Host)
 {
 	 int	i;
+	ASSERT(Host);
 	for( i = 1; i < 128; i ++ )
 	{
 		if(Host->AddressBitmap[i/8] & (1 << (i%8)))

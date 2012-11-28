@@ -136,7 +136,7 @@ tThread *Proc_SpawnWorker( void (*Fnc)(void*), void *Ptr )
 	Uint32	sp;
 
 	new = Threads_CloneThreadZero();
-	if(!new)	return -1;
+	if(!new)	return NULL;
 	if(new->ThreadName)	free(new->ThreadName);
 	new->ThreadName = NULL;
 

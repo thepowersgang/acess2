@@ -91,11 +91,9 @@ void Log_AddEvent(const char *Ident, int Level, const char *Format, va_list Args
 	va_list	args_tmp;
 	
 	if( Level >= NUM_LOG_LEVELS )	return;
-	
+
 	va_copy(args_tmp, Args);
 	len = vsnprintf(NULL, 256, Format, args_tmp);
-	
-	//Log("len = %i", len);
 	
 	#if USE_RING_BUFFER || !CACHE_MESSAGES
 	{
@@ -161,9 +159,11 @@ void Log_Int_PrintMessage(tLogEntry *Entry)
 	if( CPU_HAS_LOCK(&glLogOutput) )
 		return ;	// TODO: Error?
 	SHORTLOCK( &glLogOutput );
-	LogF("%s%014lli%s [%-8s] %i - %s",
+	LogF("%s%014lli",
 		csaLevelColours[Entry->Level],
-		Entry->Time,
+		Entry->Time
+		);
+	LogF("%s [%-8s] %i - %s",
 		csaLevelCodes[Entry->Level],
 		Entry->Ident,
 		Threads_GetTID(),

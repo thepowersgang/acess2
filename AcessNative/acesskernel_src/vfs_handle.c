@@ -38,8 +38,8 @@ tUserHandles *VFS_int_GetUserHandles(int PID, int bCreate)
 	tUserHandles	*ent, *prev = NULL;
 	for( ent = gpUserHandles; ent; prev = ent, ent = ent->Next ) {
 		if( ent->PID == PID ) {
-			if( bCreate )
-				Log_Warning("VFS", "Process %i already has a handle list", PID);
+			//if( bCreate )
+			//	Log_Warning("VFS", "Process %i already has a handle list", PID);
 			return ent;
 		}
 		if( ent->PID > PID )	break;
@@ -78,6 +78,40 @@ void VFS_CloneHandleList(int PID)
 	
 	maxhandles = *Threads_GetMaxFD();
 	memcpy(ent->Handles, cur->Handles, maxhandles*sizeof(tVFS_Handle));
+	
+	for( i = 0; i < maxhandles; i ++ )
+	{
+		if(!cur->Handles[i].Node)	continue;
+		
+		if(ent->Handles[i].Node->Type->Reference)
+			ent->Handles[i].Node->Type->Reference(ent->Handles[i].Node);
+	}
+}
+
+void VFS_CloneHandlesFromList(int PID, int nFD, int FDs[])
+{
+	tUserHandles	*ent;
+	tUserHandles	*cur;
+	 int	i, maxhandles;
+	
+	cur = VFS_int_GetUserHandles(Threads_GetPID(), 0);
+	if(!cur)	return ;	// Don't need to do anything if the current list is empty
+	
+	ent = VFS_int_GetUserHandles(PID, 1);
+	
+	maxhandles = *Threads_GetMaxFD();
+	if( nFD > maxhandles )
+		nFD = maxhandles;
+	for( i = 0; i < nFD; i ++ )
+	{
+		if( FDs[i] >= maxhandles ) {
+			ent->Handles[i].Node = NULL;
+			continue ;
+		}
+		memcpy(&ent->Handles[i], &cur->Handles[ FDs[i] ], sizeof(tVFS_Handle));
+	}
+	for( ; i < maxhandles; i ++ )
+		cur->Handles[i].Node = NULL;
 	
 	for( i = 0; i < maxhandles; i ++ )
 	{

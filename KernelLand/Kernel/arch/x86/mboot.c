@@ -30,6 +30,7 @@ int Multiboot_LoadMemoryMap(tMBoot_Info *MBInfo, tVAddr MapOffset, tPMemMapEnt *
 			if( !MM_GetPhysAddr(ent) )
 				Log_KernelPanic("MBoot", "MBoot Map entry %i addres bad (%p)",
 					nPMemMapEnts, ent);
+			LOG("%llx+%llx", ent->Base, ent->Length);
 	
 			nent->Start = ent->Base;
 			nent->Length = ent->Length;
@@ -68,15 +69,18 @@ int Multiboot_LoadMemoryMap(tMBoot_Info *MBInfo, tVAddr MapOffset, tPMemMapEnt *
 	}
 
 	// Ensure it's valid
+	LOG("Validating");
 	nPMemMapEnts = PMemMap_ValidateMap(Map, nPMemMapEnts, MapSize);
 	// TODO: Error handling
 
 	// Replace kernel with PMEMTYPE_USED
+	LOG("Marking kernel");
 	nPMemMapEnts = PMemMap_MarkRangeUsed(
 		Map, nPMemMapEnts, MapSize,
 		KStart, KEnd - KStart
 		);
 
+	LOG("Dumping");
 	PMemMap_DumpBlocks(Map, nPMemMapEnts);
 
 	// Check if boot modules were passed

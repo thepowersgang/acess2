@@ -25,15 +25,21 @@ void AxWin3_MainLoop(void)
 
 	while(!bExit)
 	{
-		msg = AxWin3_int_GetIPCMessage();
+		msg = AxWin3_int_GetIPCMessage(0, NULL);
 		if(!msg)	continue;	
 
-		_SysDebug("oh look, a message (Type=%i, Window=%i, Len=%i)",
+		_SysDebug("AxWin3_MainLoop - Message (Type=%i, Window=%i, Len=%i)",
 			msg->ID, msg->Window, msg->Size);
 
 		AxWin3_int_HandleMessage( msg );
-		
-		free(msg);
 	}
+}
+
+void AxWin3_MessageSelect(int nFD, fd_set *FDs)
+{
+	tAxWin_IPCMessage *msg;
+	msg = AxWin3_int_GetIPCMessage(nFD, FDs);
+	if( msg )
+		AxWin3_int_HandleMessage( msg );
 }
 

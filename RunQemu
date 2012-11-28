@@ -26,7 +26,7 @@ while [ $# -ne 0 ]; do
 			_kfile="KernelLand/Acess2.$1-$2.bin"
 		fi
 		BOOTOPT="-kernel $_kfile"
-		BOOTOPT=$BOOTOPT" -initrd KernelLand/Modules/Filesystems/FS_InitRD.kmd.$1 -append $3"
+		BOOTOPT=$BOOTOPT" -initrd KernelLand/Modules/Filesystems/FS_InitRD.kmd.$1 -append \"$3\""
 		shift
 		shift
 		;;
@@ -69,7 +69,7 @@ QEMU_PARAMS=$QEMU_PARAMS" -net "$_NETTYPE
 
 if [ "x$_NOUSB" != "xyes" ] ; then
 	QEMU_PARAMS=$QEMU_PARAMS" -usb"
-	QEMU_PARAMS=$QEMU_PARAMS" -device usb-ehci"
+#	QEMU_PARAMS=$QEMU_PARAMS" -device usb-ehci"
 	QEMU_PARAMS=$QEMU_PARAMS" -drive id=test_usb_image,file=USB_Test_Image.img,if=none"
 	QEMU_PARAMS=$QEMU_PARAMS" -device usb-storage,drive=test_usb_image"
 	QEMU_PARAMS=$QEMU_PARAMS" -usbdevice mouse"
@@ -89,4 +89,4 @@ if [ "x$_NOTEE" = "xyes" ] ; then
 	exit
 fi
 
-$QEMU $BOOTOPT $QEMU_PARAMS -serial stdio | tee QemuLog.txt
+eval $QEMU $BOOTOPT $QEMU_PARAMS -serial stdio | tee QemuLog.txt

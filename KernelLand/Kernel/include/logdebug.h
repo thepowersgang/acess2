@@ -56,7 +56,7 @@ extern void	Debug_HexDump(const char *Header, const void *Data, size_t Length);
 # define LEAVE_RET(_t,_v...)	return (_v)
 # define LEAVE_RET0()	return
 #endif
-#if SANITY
+#if !DISABLE_ASSERTS
 # define ASSERT(expr) do{if(!(expr))Panic("%s:%i - %s: Assertion '"#expr"' failed",__FILE__,__LINE__,(char*)__func__);}while(0)
 #else
 # define ASSERT(expr)

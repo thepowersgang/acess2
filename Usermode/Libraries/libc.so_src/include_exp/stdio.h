@@ -45,6 +45,14 @@ extern int	putchar(int ch);
 extern int	fprintf(FILE *fp, const char *format, ...);
 extern int	vfprintf(FILE *fp, const char *format, va_list args);
 
+// scanf
+extern int	scanf(const char *format, ...);
+extern int	fscanf(FILE *stream, const char *format, ...);
+extern int	sscanf(const char *str, const char *format, ...);
+extern int	vscanf(const char *format, va_list ap);
+extern int	vsscanf(const char *str, const char *format, va_list ap);
+extern int	vfscanf(FILE *stream, const char *format, va_list ap);
+
 extern FILE	*stdin;
 extern FILE	*stdout;
 extern FILE	*stderr;

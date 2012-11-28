@@ -35,5 +35,11 @@ static inline int isspace(int ch) {
 	if(ch == '\n')	return 1;
 	return 0;
 }
+// C99
+static inline int isblank(int ch) {
+	if(ch == ' ')	return 1;
+	if(ch == '\t')	return 1;
+	return 0;
+}
 
 #endif

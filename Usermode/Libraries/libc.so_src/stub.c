@@ -44,7 +44,7 @@ tCPUID	gCPU_Features;
  * \param argv	Unused - Arguments (NULL for current version of ld-acess)
  * \param envp	Environment Pointer
  */
-int SoMain(unsigned int BaseAddress, int argc, char **argv, char **envp)
+int SoMain(UNUSED(uintptr_t, BaseAddress), UNUSED(int, argc), UNUSED(char **, argv), char **envp)
 {
 	// Init for env.c
 	_envp = envp;

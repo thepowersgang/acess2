@@ -103,7 +103,7 @@ void *memset(void *_dest, int _value, size_t _length)
 	val32 |= val32 << 16;
 	
 	// Force alignment
-	while( (tVAddr)dst8 & 3 ) *dst8 ++ = _value;
+	while( (tVAddr)dst8 & 3 ) *dst8 ++ = _value, _length --;
 	dst = (void *)dst8;
 
 	// DWORD copies

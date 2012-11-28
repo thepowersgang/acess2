@@ -9,6 +9,7 @@
 #define _AXWIN3_AXWIN_H_
 
 #include <stddef.h>	// size_t
+#include <unistd.h>
 
 // === CONSTANTS ===
 
@@ -25,6 +26,7 @@ typedef int	(*tAxWin3_WindowMessageHandler)(tHWND Window, int Message, int Lengt
 extern void	AxWin3_Connect(const char *ServerDesc);
 extern tAxWin3_MessageCallback	AxWin3_SetMessageCallback(tAxWin3_MessageCallback Callback);
 extern void	AxWin3_MainLoop(void);
+extern void	AxWin3_MessageSelect(int nFD, fd_set *FDs);
 
 // --- Non-Window based functions
 extern int	AxWin3_GetDisplayCount(void);

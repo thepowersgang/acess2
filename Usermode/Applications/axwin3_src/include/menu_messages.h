@@ -10,12 +10,11 @@
 
 #include "ipcmessages.h"
 
-enum eMenuMessages
+// Client->Server IPC methods
+enum eMenuIPCCalls
 {
-	MSG_MENU_ADDITEM = 0x1000,
-	MSG_MENU_SETFLAGS,
-	
-	MSG_MENU_SELECT
+	IPC_MENU_ADDITEM,
+	IPC_MENU_SETFLAGS
 };
 
 typedef struct
@@ -24,14 +23,20 @@ typedef struct
 	uint16_t	Flags;
 	uint32_t	SubMenuID;
 	char	Label[];
-} tMenuMsg_AddItem;
+} tMenuIPC_AddItem;
 
 typedef struct
 {
 	uint16_t	ID;
 	uint16_t	Value;
 	uint16_t	Mask;
-} tMenuMsg_SetFlags;
+} tMenuIPC_SetFlags;
+
+// Server->Client messages
+enum eMenuMessages
+{
+	MSG_MENU_SELECT = 0x1000
+};
 
 typedef struct
 {

@@ -47,8 +47,6 @@ enum {
 	VBE_DISPI_INDEX_Y_OFFSET
 };
 
-extern void MM_DumpTables(tVAddr Start, tVAddr End);
-
 // === PROTOTYPES ===
 // Driver
  int	BGA_Install(char **Arguments);

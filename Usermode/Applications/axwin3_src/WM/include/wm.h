@@ -24,6 +24,8 @@
 #define WINFLAG_NODECORATE	0x00000002
 //! Window takes up all of screen
 #define WINFLAG_MAXIMIZED	0x00000004
+//! Window is contained within the parent
+#define WINFLAG_RELATIVE	0x00000008
 //! Window contents are valid
 #define WINFLAG_CLEAN    	0x00000040
 //! All child windows are un-changed
@@ -45,12 +47,14 @@ typedef struct sIPC_Client	tIPC_Client;
 // === FUNCTIONS ===
 // --- Management
 extern tWindow	*WM_CreateWindow(tWindow *Parent, tIPC_Client *Client, uint32_t ID, int Flags, const char *Renderer);
+extern tWindow	*WM_GetWindowByID(tWindow *Requester, uint32_t ID);
 extern void	WM_Invalidate(tWindow *Window);
 extern void	WM_SetWindowTitle(tWindow *Window, const char *Title);
 extern void	WM_FocusWindow(tWindow *Destination);
 extern void	WM_RaiseWindow(tWindow *Window);
 extern void	WM_ShowWindow(tWindow *Window, int bShow);
 extern void	WM_DecorateWindow(tWindow *Window, int bDecorate);
+extern void	WM_SetRelative(tWindow *Window, int bRelativeToParent);
 extern int	WM_ResizeWindow(tWindow *Window, int W, int H);
 extern int	WM_MoveWindow(tWindow *Window, int X, int Y);
 extern int	WM_SendMessage(tWindow *Source, tWindow *Dest, int MessageID, int Length, const void *Data);
