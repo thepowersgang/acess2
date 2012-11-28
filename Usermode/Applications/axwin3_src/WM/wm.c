@@ -142,6 +142,31 @@ void WM_RaiseWindow(tWindow *Window)
 	parent->LastChild = Window;
 }
 
+/*
+void WM_RaiseWindow(tWindow *Window)
+{
+	// Move to the last render position (move to top)
+	while(Window && Window->Parent)
+	{
+		if( Window->NextSibling )
+		{
+			// remove
+			if( Window->PrevSibling )
+				Window->PrevSibling->NextSibling = Window->NextSibling;
+			Window->NextSibling->PrevSibling = Window->PrevSibling;
+			// Mutate self
+			Window->PrevSibling = Window->Parent->LastChild;
+			Window->NextSibling = NULL;
+			// re-add
+			Window->PrevSibling->NextSibling = Window;
+			Window->Parent->LastChild = Window;
+		}
+		_SysDebug("WM_RaiseWindow: Raised %p", Window);
+		Window = Window->Parent;
+	}
+}
+*/
+
 void WM_FocusWindow(tWindow *Destination)
 {
 	struct sWndMsg_Bool	_msg;
@@ -164,12 +189,10 @@ void WM_FocusWindow(tWindow *Destination)
 		
 	WM_Invalidate(gpWM_FocusedWindow);
 	WM_Invalidate(Destination);
+
+	WM_RaiseWindow(Destination);	
+
 	gpWM_FocusedWindow = Destination;
-
-
-	// Get the owner of the focused window	
-//	while(Destination && Destination->Owner)	Destination = Destination->Owner;
-//	gpWM_HilightedWindow = Destination;
 }
 
 
@@ -263,6 +286,7 @@ int WM_MoveWindow(tWindow *Window, int X, int Y)
 	}
 	// TODO: Re-sanitise
 
+	_SysDebug("WM_MoveWindow: (%i,%i)", X, Y);
 	Window->X = X;	Window->Y = Y;
 
 	// TODO: Why invalidate buffer?
@@ -280,6 +304,7 @@ int WM_ResizeWindow(tWindow *Window, int W, int H)
 	if( Window->W == W && Window->H == H )
 		return 0;
 
+	_SysDebug("WM_Resizeindow: %ix%i", W, H);
 	Window->W = W;	Window->H = H;
 
 	if(Window->RenderBuffer) {

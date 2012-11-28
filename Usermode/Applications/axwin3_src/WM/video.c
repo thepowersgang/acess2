@@ -132,29 +132,34 @@ void Video_FillRect(int X, int Y, int W, int H, uint32_t Colour)
 void Video_Blit(uint32_t *Source, short DstX, short DstY, short W, short H)
 {
 	uint32_t	*buf;
+	short	drawW = W;
 
 	if( DstX >= giScreenWidth)	return ;
 	if( DstY >= giScreenHeight)	return ;
 	// TODO: Handle -ve X/Y by clipping
 	if( DstX < 0 || DstY < 0 )	return ;
 	// TODO: Handle out of bounds by clipping too
-	if( DstX + W > giScreenWidth )	return;
+	if( DstX + drawW > giScreenWidth ) {
+		int oldw = drawW;
+		drawW = giScreenWidth - DstX;
+		_SysDebug("Video_Blit: Clipped width from %i to %i", oldw, drawW);
+	}
 	if( DstY + H > giScreenHeight )
 		H = giScreenHeight - DstY;
 
 	if( W <= 0 || H <= 0 )	return;
 
-	if( DstX < giVideo_FirstDirtyLine )
+	if( DstY < giVideo_FirstDirtyLine )
 		giVideo_FirstDirtyLine = DstY;
 	if( DstY + H > giVideo_LastDirtyLine )
 		giVideo_LastDirtyLine = DstY + H;
 	
 	buf = gpScreenBuffer + DstY*giScreenWidth + DstX;
-	if(W != giScreenWidth)
+	if(drawW != giScreenWidth)
 	{
 		while( H -- )
 		{
-			memcpy(buf, Source, W*4);
+			memcpy(buf, Source, drawW*4);
 			Source += W;
 			buf += giScreenWidth;
 		}
