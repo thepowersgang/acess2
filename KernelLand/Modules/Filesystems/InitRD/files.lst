@@ -33,6 +33,7 @@ Dir "Apps" {
 		Dir "3.0" {
 			File "AxWinWM" "__BIN__/Apps/AxWin/3.0/AxWinWM"
 			File "AxWinUI" "__BIN__/Apps/AxWin/3.0/AxWinUI"
+			File "ate" "__BIN__/Apps/AxWin/3.0/ate"
 			File "AcessLogoSmall.sif" "__SRC__/Usermode/Applications/axwin3_src/AcessLogoSmall.sif"
 		}
 	}
