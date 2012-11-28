@@ -52,7 +52,7 @@ int ReadUTF8(const char *Input, uint32_t *Val)
 	}
 	
 	// Four Byte
-	if( (*str & 0xF1) == 0xF0 ) {
+	if( (*str & 0xF8) == 0xF0 ) {
 		*Val = (*str & 0x07) << 18;	// Upper 3 Bits
 		str ++;
 		if( (*str & 0xC0) != 0x80)	return -1;	// Validity check
