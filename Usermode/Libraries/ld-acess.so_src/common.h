@@ -10,6 +10,7 @@
 #include <stddef.h>
 #include <stdarg.h>
 #include <stdint.h>
+#include <acess/sys.h>
 
 typedef	uintptr_t	Uint;
 typedef uint8_t 	Uint8;
@@ -51,14 +52,11 @@ extern int	file_exists(const char *filename);
 extern void	*memcpy(void *dest, const void *src, size_t len);
 
 // === System Calls ===
-extern void	_exit(int retval);
 extern void	SysDebug(const char *fmt, ...);	//!< Now implemented in main.c
 extern void	SysDebugV(const char *fmt, ...);
 extern void	*SysLoadBin(const char *path, void **entry);
 extern int	SysUnloadBin(void *Base);
 extern void	SysSetFaultHandler(int (*Hanlder)(int));
-extern int	open(const char *filename, int flags, ...);
-extern int	close(int fd);
 
 // === ELF Loader ===
 extern void	*ElfRelocate(void *Base, char **envp, const char *Filename);

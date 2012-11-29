@@ -76,11 +76,11 @@ void IPC_Init(void)
 {
 	 int	tmp;
 	// TODO: Check this
-	giNetworkFileHandle = open("/Devices/ip/loop/udp", OPENFLAG_READ);
+	giNetworkFileHandle = _SysOpen("/Devices/ip/loop/udp", OPENFLAG_READ);
 	if( giNetworkFileHandle != -1 )
 	{
 		tmp = AXWIN_PORT;
-		ioctl(giNetworkFileHandle, 4, &tmp);	// TODO: Don't hard-code IOCtl number
+		_SysIOCtl(giNetworkFileHandle, 4, &tmp);	// TODO: Don't hard-code IOCtl number
 	}
 }
 
@@ -103,7 +103,7 @@ void IPC_HandleSelect(fd_set *set)
 			 int	readlen, identlen;
 			char	*msg;
 	
-			readlen = read(giNetworkFileHandle, staticBuf, sizeof(staticBuf));
+			readlen = _SysRead(giNetworkFileHandle, staticBuf, sizeof(staticBuf));
 			
 			identlen = 4 + Net_GetAddressSize( ((uint16_t*)staticBuf)[1] );
 			msg = staticBuf + identlen;
@@ -114,7 +114,7 @@ void IPC_HandleSelect(fd_set *set)
 	}
 
 	size_t	len;
-	pid_t	tid;
+	int	tid;
 	while( (len = SysGetMessage(&tid, 0, NULL)) )
 	{
 		char	data[len];
@@ -145,7 +145,7 @@ void IPC_Type_Datagram_Send(const void *Ident, size_t Length, const void *Data)
 	memcpy(tmpbuf, Ident, identlen);	// Header
 	memcpy(tmpbuf + identlen, Data, Length);	// Data
 	// TODO: Handle fragmented packets
-	write(giNetworkFileHandle, tmpbuf, sizeof(tmpbuf));
+	_SysWrite(giNetworkFileHandle, tmpbuf, sizeof(tmpbuf));
 }
 
 int IPC_Type_Sys_GetSize(const void *Ident)

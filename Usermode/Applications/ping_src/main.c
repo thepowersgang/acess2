@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
 		free(iface);	// TODO: Handle when this is not heap
 		iface = _iface;
 		printf("iface = '%s'\n", iface);
-		fd = open(iface, OPENFLAG_EXEC);
+		fd = _SysOpen(iface, OPENFLAG_EXEC);
 		if(fd == -1) {
 			fprintf(stderr, "ERROR: Unable to open interface '%s'\n", iface);
 			return 1;
@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
 		}
 	}
 	
-	call = ioctl(fd, 3, "ping");
+	call = _SysIOCtl(fd, 3, "ping");
 	if(call == 0) {
 		fprintf(stderr, "ERROR: '%s' does not have a 'ping' call\n", iface);
 		return 1;
@@ -114,11 +114,11 @@ int main(int argc, char *argv[])
 	
 	for( i = 0; i < giNumberOfPings; i ++ )
 	{
-		ping = ioctl(fd, call, addr);
+		ping = _SysIOCtl(fd, call, addr);
 		printf("ping = %i\n", ping);
 	}
 		
-	close(fd);
+	_SysClose(fd);
 	
 	return 0;
 }

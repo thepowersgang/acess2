@@ -109,16 +109,16 @@ EXPORT FILE *freopen(const char *file, const char *mode, FILE *fp)
 
 	//Open File
 	if(fp->FD != -1)
-		fp->FD = reopen(fp->FD, file, openFlags);
+		fp->FD = _SysReopen(fp->FD, file, openFlags);
 	else
-		fp->FD = open(file, openFlags);
+		fp->FD = _SysOpen(file, openFlags);
 	if(fp->FD == -1) {
 		fp->Flags = 0;
 		return NULL;
 	}
 	
 	if( (fp->Flags & FILE_FLAG_MODE_MASK) == FILE_FLAG_MODE_APPEND ) {
-		seek(fp->FD, 0, SEEK_END);	//SEEK_END
+		_SysSeek(fp->FD, 0, SEEK_END);	//SEEK_END
 	}
 	
 	return fp;
@@ -168,7 +168,7 @@ EXPORT int fclose(FILE *fp)
 {
 	fflush(fp);
 	if( fp->FD != -1 ) {
-		close(fp->FD);
+		_SysClose(fp->FD);
 	}
 	fp->Flags = 0;
 	fp->FD = -1;
@@ -221,7 +221,7 @@ EXPORT off_t ftell(FILE *fp)
 	if( fp->FD == -2 )
 		return fp->Pos;	
 	else
-		return tell(fp->FD);
+		return _SysTell(fp->FD);
 }
 
 EXPORT int fseek(FILE *fp, long int amt, int whence)
@@ -251,7 +251,7 @@ EXPORT int fseek(FILE *fp, long int amt, int whence)
 		return 0;
 	}
 	else
-		return seek(fp->FD, amt, whence);
+		return _SysSeek(fp->FD, amt, whence);
 }
 
 
@@ -318,7 +318,7 @@ EXPORT size_t fwrite(void *ptr, size_t size, size_t num, FILE *fp)
 		ret = num;
 	}
 	else {	
-		ret = write(fp->FD, ptr, size*num);
+		ret = _SysWrite(fp->FD, ptr, size*num);
 		ret /= size;
 	}
 	
@@ -347,7 +347,7 @@ EXPORT size_t fread(void *ptr, size_t size, size_t num, FILE *fp)
 		ret = num;
 	}
 	else {
-		ret = read(fp->FD, ptr, size*num);
+		ret = _SysRead(fp->FD, ptr, size*num);
 		ret /= size;
 	}
 		
@@ -366,7 +366,7 @@ EXPORT int fputc(int c, FILE *fp)
 EXPORT int putchar(int c)
 {
 	c &= 0xFF;
-	return write(_stdout, &c, 1);
+	return _SysWrite(_stdout, &c, 1);
 }
 
 /**
@@ -384,7 +384,7 @@ EXPORT int fgetc(FILE *fp)
 EXPORT int getchar(void)
 {
 	char	ret = 0;
-	if(read(_stdin, &ret, 1) != 1)	return -1;
+	if(_SysRead(_stdin, &ret, 1) != 1)	return -1;
 	return ret;
 }
 
@@ -415,8 +415,8 @@ EXPORT int puts(const char *str)
 	if(!str)	return 0;
 	len = strlen(str);
 	
-	len = write(_stdout, str, len);
-	write(_stdout, "\n", 1);
+	len = _SysWrite(_stdout, str, len);
+	_SysWrite(_stdout, "\n", 1);
 	return len;
 }
 
@@ -681,7 +681,7 @@ EXPORT int printf(const char *format, ...)
 	va_end(args);
 	
 	// Send to stdout
-	write(_stdout, buf, size+1);
+	_SysWrite(_stdout, buf, size+1);
 	
 	// Free buffer
 	free(buf);

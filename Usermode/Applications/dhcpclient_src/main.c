@@ -8,6 +8,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <net.h>
+#include <acess/sys.h>
 
 #define FILENAME_MAX	255
 // --- Translation functions ---
@@ -145,8 +146,8 @@ int main(int argc, char *argv[])
 			{
 				if( Handle_Packet( i ) )
 				{
-					close(i->SocketFD);
-					close(i->IfaceFD);
+					_SysClose(i->SocketFD);
+					_SysClose(i->IfaceFD);
 					p->Next = i->Next;
 					free(i);
 					i = p;
@@ -164,14 +165,15 @@ int main(int argc, char *argv[])
 
 void Scan_Dir(tInterface **IfaceList, const char *Directory)
 {
-	int dp = open(Directory, OPENFLAG_READ);
+	int dp = _SysOpen(Directory, OPENFLAG_READ);
 	char filename[FILENAME_MAX];
 
 	if( dp == -1 ) {
 		fprintf(stderr, "Unable to open directory '%s'\n", Directory);
+		return ;
 	}
 
-	while( SysReadDir(dp, filename) )
+	while( _SysReadDir(dp, filename) )
 	{
 		if( filename[0] == '.' )	continue ;		
 		if( strcmp(filename, "lo") == 0 )	continue ;
@@ -182,7 +184,7 @@ void Scan_Dir(tInterface **IfaceList, const char *Directory)
 		new->Next = *IfaceList;
 		*IfaceList = new;
 	}
-	close(dp);
+	_SysClose(dp);
 }
 
 // RETURN: Client FD
@@ -198,52 +200,52 @@ int Start_Interface(tInterface *Iface)
 	{
 		char	path[] = "/Devices/ip/adapters/ethXXXX";
 		sprintf(path, "/Devices/ip/adapters/%s", Iface->Adapter);
-		fd = open(path, 0);
+		fd = _SysOpen(path, 0);
 		if(fd == -1) {
 			_SysDebug("Unable to open adapter %s", path);
 			return -1;
 		}
-		ioctl(fd, 4, Iface->HWAddr);
+		_SysIOCtl(fd, 4, Iface->HWAddr);
 		// TODO: Check if ioctl() failed
-		close(fd);
+		_SysClose(fd);
 	}
 	
 	// Initialise an interface, with a dummy IP address (zero)
-	fd = open("/Devices/ip", 0);
+	fd = _SysOpen("/Devices/ip", 0);
 	if( fd == -1 ) {
 		fprintf(stderr, "ERROR: Unable to open '/Devices/ip'\n"); 
 		return -1;
 	}
-	Iface->Num = ioctl(fd, 4, (void*)Iface->Adapter);	// Create interface
+	Iface->Num = _SysIOCtl(fd, 4, (void*)Iface->Adapter);	// Create interface
 	if( Iface->Num == -1 ) {
 		fprintf(stderr, "ERROR: Unable to create new interface\n");
 		return -1;
 	}
-	close(fd);
+	_SysClose(fd);
 	
 	// Open new interface
 	snprintf(path, sizeof(path), "/Devices/ip/%i", Iface->Num);
-	Iface->IfaceFD = fd = open(path, 0);
+	Iface->IfaceFD = fd = _SysOpen(path, 0);
 	if( fd == -1 ) {
 		fprintf(stderr, "ERROR: Unable to open '%s'\n", path); 
 		return -1;
 	}
-	tmp = 4; ioctl(fd, 4, &tmp);	// Set to IPv4
-	ioctl(fd, 6, addr);	// Set address to 0.0.0.0
-	tmp = 0; ioctl(fd, 7, &tmp);	// Set subnet mask to 0
+	tmp = 4; _SysIOCtl(fd, 4, &tmp);	// Set to IPv4
+	_SysIOCtl(fd, 6, addr);	// Set address to 0.0.0.0
+	tmp = 0; _SysIOCtl(fd, 7, &tmp);	// Set subnet mask to 0
 
 	// Open UDP Client
 	snprintf(path, sizeof(path), "/Devices/ip/%i/udp", Iface->Num);
-	Iface->SocketFD = fd = open(path, O_RDWR);
+	Iface->SocketFD = fd = _SysOpen(path, O_RDWR);
 	if( fd == -1 ) {
 		fprintf(stderr, "ERROR: Unable to open '%s'\n", path); 
 		return -1;
 	}
-	tmp = 68; ioctl(fd, 4, &tmp);	// Local port
-	tmp = 67; ioctl(fd, 5, &tmp);	// Remote port
-	tmp = 0;	ioctl(fd, 7, &tmp);	// Remote addr mask bits - we don't care where the reply comes from
+	tmp = 68; _SysIOCtl(fd, 4, &tmp);	// Local port
+	tmp = 67; _SysIOCtl(fd, 5, &tmp);	// Remote port
+	tmp = 0;	_SysIOCtl(fd, 7, &tmp);	// Remote addr mask bits - we don't care where the reply comes from
 	addr[0] = addr[1] = addr[2] = addr[3] = 255;	// 255.255.255.255
-	ioctl(fd, 8, addr);	// Remote address
+	_SysIOCtl(fd, 8, addr);	// Remote address
 	
 	return 0;
 }
@@ -292,7 +294,7 @@ void Send_DHCPDISCOVER(tInterface *Iface)
 	data[2] = 4;	data[3] = 0;	// AddrType
 	data[4] = 255;	data[5] = 255;	data[6] = 255;	data[7] = 255;
 
-	write(Iface->SocketFD, data, sizeof(data));
+	_SysWrite(Iface->SocketFD, data, sizeof(data));
 	Update_State(Iface, STATE_DISCOVER_SENT);
 }
 
@@ -338,7 +340,7 @@ void Send_DHCPREQUEST(tInterface *Iface, void *OfferPacket, int TypeOffset)
 	((uint8_t*)OfferPacket)[6] = 255;
 	((uint8_t*)OfferPacket)[7] = 255;
 	
-	write(Iface->SocketFD, OfferPacket, 8 + sizeof(*msg) + i);
+	_SysWrite(Iface->SocketFD, OfferPacket, 8 + sizeof(*msg) + i);
 	Update_State(Iface, STATE_REQUEST_SENT);
 }
 
@@ -353,7 +355,7 @@ int Handle_Packet(tInterface *Iface)
 	void	*subnet_mask = NULL;
 	
 	_SysDebug("Doing read on %i", Iface->SocketFD);
-	len = read(Iface->SocketFD, data, sizeof(data));
+	len = _SysRead(Iface->SocketFD, data, sizeof(data));
 	_SysDebug("len = %i", len);
 
 	_SysDebug("*msg = {");
@@ -510,8 +512,8 @@ void SetAddress(tInterface *Iface, void *Addr, void *Mask, void *Router)
 			);
 	}
 
-	ioctl(Iface->IfaceFD, 6, Addr);
-	ioctl(Iface->IfaceFD, 7, &mask_bits);
+	_SysIOCtl(Iface->IfaceFD, 6, Addr);
+	_SysIOCtl(Iface->IfaceFD, 7, &mask_bits);
 
 	if( Router );
 	{
@@ -520,16 +522,16 @@ void SetAddress(tInterface *Iface, void *Addr, void *Mask, void *Router)
 		
 		// Set default route
 		 int	fd;
-		fd = open("/Devices/ip/routes/4:00000000:0:0", OPENFLAG_CREATE);
+		fd = _SysOpen("/Devices/ip/routes/4:00000000:0:0", OPENFLAG_CREATE);
 		if(fd == -1) {
 			fprintf(stderr, "ERROR: Unable to open default route\n");
 		}
 		else {
 			char ifname[snprintf(NULL,0,"%i",Iface->Num)+1];
 			sprintf(ifname, "%i", Iface->Num);
-			ioctl(fd, ioctl(fd, 3, "set_nexthop"), Router);
-			ioctl(fd, ioctl(fd, 3, "set_interface"), ifname);
-			close(fd);
+			_SysIOCtl(fd, _SysIOCtl(fd, 3, "set_nexthop"), Router);
+			_SysIOCtl(fd, _SysIOCtl(fd, 3, "set_interface"), ifname);
+			_SysClose(fd);
 		}
 	}
 }

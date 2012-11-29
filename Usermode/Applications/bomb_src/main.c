@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
 			if( tid == 0 )
 			{
 				// Sleep forever (TODO: Fix up the stack so it can nuke)
-				for(;;) sleep();
+				for(;;) _SysWaitEvent(THREAD_EVENT_SIGNAL);
 			}
 			if( tid < 0 ) {
 				printf("Clone failed\n");

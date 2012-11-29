@@ -12,7 +12,7 @@
 // === PROTOTYPES ===
  int	Routes_main(int argc, char *argv[]);
 void	DumpRoutes(void);
-void	DumpRoute(const char *Name);
+void	DumpRoute(int PFD, const char *Name);
 void	AddRoute(const char *Interface, int AddressType, void *Dest, int MaskBits, int Metric, void *NextHop);
 
 // === CODE ===
@@ -114,33 +114,30 @@ void DumpRoutes(void)
 	 int	dp;
 	char	filename[FILENAME_MAX+1];
 	
-	dp = open(IPSTACK_ROOT"/routes", OPENFLAG_READ);
+	dp = _SysOpen(IPSTACK_ROOT"/routes", OPENFLAG_READ);
 	
 	printf("Type\tNetwork \tGateway \tMetric\tIFace\n");
 	
-	while( SysReadDir(dp, filename) )
+	while( _SysReadDir(dp, filename) )
 	{
 		if(filename[0] == '.')	continue;
-		DumpRoute(filename);
+		DumpRoute(dp, filename);
 	}
 	
-	close(dp);
+	_SysClose(dp);
 }
 
 /**
  * \brief Dump a route
  */
-void DumpRoute(const char *Name)
+void DumpRoute(int PFD, const char *Name)
 {
 	 int	fd;
 	 int	type;
-	char	path[sizeof(IPSTACK_ROOT)+8+FILENAME_MAX+1] = IPSTACK_ROOT"/routes/";
 	
-	strcat(path, Name);
-	
-	fd = open(path, OPENFLAG_READ);
+	fd = _SysOpenChild(PFD, Name, OPENFLAG_READ);
 	if(fd == -1) {
-		printf("%s:\tUnable to open ('%s')\n", Name, path);
+		printf("%s:\tUnable to open\n", Name);
 		return ;
 	}
 	
@@ -161,7 +158,7 @@ void DumpRoute(const char *Name)
 	subnet = atoi(Name+ofs);
 	ofs ++;
 	metric = atoi(Name+ofs);
-	ioctl(fd, ioctl(fd, 3, "get_nexthop"), gw);	// Get Gateway/NextHop
+	_SysIOCtl(fd, _SysIOCtl(fd, 3, "get_nexthop"), gw);	// Get Gateway/NextHop
 	
 	// Get the address type
 	switch(type)
@@ -185,17 +182,17 @@ void DumpRoute(const char *Name)
 	
 	// Interface
 	{
-		 int	call_num = ioctl(fd, 3, "get_interface");
-		 int	len = ioctl(fd, call_num, NULL);
+		 int	call_num = _SysIOCtl(fd, 3, "get_interface");
+		 int	len = _SysIOCtl(fd, call_num, NULL);
 		char	*buf = malloc(len+1);
-		ioctl(fd, call_num, buf);
+		_SysIOCtl(fd, call_num, buf);
 		printf("'%s'\t", buf);
 		free(buf);
 	}
 	
 	printf("\n");
 			
-	close(fd);
+	_SysClose(fd);
 }
 
 void AddRoute(const char *Interface, int AddressType, void *Dest, int MaskBits, int Metric, void *NextHop)
@@ -227,20 +224,20 @@ void AddRoute(const char *Interface, int AddressType, void *Dest, int MaskBits, 
 		// Open interface
 		strcpy(ifacePath, IPSTACK_ROOT"/");
 		strcat(ifacePath, Interface);
-		fd = open(ifacePath, 0);
+		fd = _SysOpen(ifacePath, 0);
 		if( fd == -1 ) {
 			fprintf(stderr, "Error: Interface '%s' does not exist\n", Interface);
 			return ;
 		}
 		// Get and check type
-		num = ioctl(fd, ioctl(fd, 3, "getset_type"), NULL);
+		num = _SysIOCtl(fd, _SysIOCtl(fd, 3, "getset_type"), NULL);
 		if( num != AddressType ) {
 			fprintf(stderr, "Error: Passed type does not match interface type (%i != %i)\n",
 				AddressType, num);
 			return ;
 		}
 		
-		close(fd);
+		_SysClose(fd);
 	}
 	
 	// Create route
@@ -256,23 +253,23 @@ void AddRoute(const char *Interface, int AddressType, void *Dest, int MaskBits, 
 		sprintf(path+ofs, ":%i:%i", MaskBits, Metric);
 	}
 
-	fd = open(path, 0);
+	fd = _SysOpen(path, 0);
 	if( fd != -1 ) {
-		close(fd);
+		_SysClose(fd);
 		fprintf(stderr, "Unable to create route '%s', already exists\n", path);
 		return ;
 	}
-	fd = open(path, OPENFLAG_CREATE, 0);
+	fd = _SysOpen(path, OPENFLAG_CREATE, 0);
 	if( fd == -1 ) {
 		fprintf(stderr, "Unable to create '%s'\n", path);
 		return ;
 	}
 	
 	if( NextHop )
-		ioctl(fd, ioctl(fd, 3, "set_nexthop"), NextHop);
-	ioctl(fd, ioctl(fd, 3, "set_interface"), (void*)Interface);
+		_SysIOCtl(fd, _SysIOCtl(fd, 3, "set_nexthop"), NextHop);
+	_SysIOCtl(fd, _SysIOCtl(fd, 3, "set_interface"), (void*)Interface);
 	
-	close(fd);
+	_SysClose(fd);
 	
 	// Check if the interface name was allocated by us
 	if( ifaceToFree )

@@ -165,15 +165,15 @@ void CallCommand(char **Args)
 	{
 		GeneratePath(exefile, gsCurrentDirectory, sTmpBuffer);
 		// Check file existence
-		fd = open(sTmpBuffer, OPENFLAG_EXEC);
+		fd = _SysOpen(sTmpBuffer, OPENFLAG_EXEC);
 		if(fd == -1) {
 			printf("Unknown Command: `%s'\n", Args[0]);	// Error Message
 			return ;
 		}
 		
 		// Get File info and close file
-		finfo( fd, &info, 0 );
-		close( fd );
+		_SysFInfo( fd, &info, 0 );
+		_SysClose( fd );
 		
 		// Check if the file is a directory
 		if(info.flags & FILEFLAG_DIRECTORY) {
@@ -189,10 +189,10 @@ void CallCommand(char **Args)
 		for( i = 0; i < giNumPathDirs; i++ )
 		{
 			GeneratePath(exefile, gasPathDirs[i], sTmpBuffer);
-			fd = open(sTmpBuffer, OPENFLAG_EXEC);
+			fd = _SysOpen(sTmpBuffer, OPENFLAG_EXEC);
 			if(fd == -1)	continue;
-			finfo( fd, &info, 0 );
-			close( fd );
+			_SysFInfo( fd, &info, 0 );
+			_SysClose( fd );
 			if(info.flags & FILEFLAG_DIRECTORY)	continue;
 			// Woohoo! We found a valid command
 			break;
@@ -256,7 +256,7 @@ void Command_Help(int argc, char **argv)
  */
 void Command_Clear(int argc, char **argv)
 {
-	write(_stdout, "\x1B[2J", 4);	//Clear Screen
+	_SysWrite(_stdout, "\x1B[2J", 4);	//Clear Screen
 }
 
 /**
@@ -277,13 +277,13 @@ void Command_Cd(int argc, char **argv)
 	
 	GeneratePath(argv[1], gsCurrentDirectory, tmpPath);
 	
-	fp = open(tmpPath, 0);
+	fp = _SysOpen(tmpPath, 0);
 	if(fp == -1) {
 		printf("Directory does not exist\n");
 		return;
 	}
-	finfo(fp, &stats, 0);
-	close(fp);
+	_SysFInfo(fp, &stats, 0);
+	_SysClose(fp);
 	
 	if( !(stats.flags & FILEFLAG_DIRECTORY) ) {
 		printf("Not a Directory\n");
@@ -295,7 +295,7 @@ void Command_Cd(int argc, char **argv)
 	strcpy(gsCurrentDirectory, tmpPath);
 	
 	// Register change with kernel
-	chdir( gsCurrentDirectory );
+	_SysChdir( gsCurrentDirectory );
 }
 
 /**
@@ -321,7 +321,7 @@ void Command_Dir(int argc, char **argv)
 	dirLen = strlen(tmpPath);
 	
 	// Open Directory
-	dp = open(tmpPath, OPENFLAG_READ);
+	dp = _SysOpen(tmpPath, OPENFLAG_READ);
 	// Check if file opened
 	if(dp == -1)
 	{
@@ -329,16 +329,16 @@ void Command_Dir(int argc, char **argv)
 		return;
 	}
 	// Get File Stats
-	if( finfo(dp, &info, 0) == -1 )
+	if( _SysFInfo(dp, &info, 0) == -1 )
 	{
-		close(dp);
+		_SysClose(dp);
 		printf("stat Failed, Bad File Descriptor\n");
 		return;
 	}
 	// Check if it's a directory
 	if(!(info.flags & FILEFLAG_DIRECTORY))
 	{
-		close(dp);
+		_SysClose(dp);
 		printf("Unable to open directory `%s', Not a directory\n", tmpPath);
 		return;
 	}
@@ -352,7 +352,7 @@ void Command_Dir(int argc, char **argv)
 	
 	fileName = (char*)(tmpPath+dirLen);
 	// Read Directory Content
-	while( (fp = SysReadDir(dp, fileName)) )
+	while( (fp = _SysReadDir(dp, fileName)) )
 	{
 		if(fp < 0)
 		{
@@ -361,10 +361,10 @@ void Command_Dir(int argc, char **argv)
 			break;
 		}
 		// Open File
-		fp = open(tmpPath, 0);
+		fp = _SysOpen(tmpPath, 0);
 		if(fp == -1)	continue;
 		// Get File Stats
-		finfo(fp, &info, 0);
+		_SysFInfo(fp, &info, 0);
 		
 		if(info.flags & FILEFLAG_DIRECTORY)
 			printf("d");
@@ -391,7 +391,7 @@ void Command_Dir(int argc, char **argv)
 		if(acl.perms & 2)	modeStr[7] = 'w';	else	modeStr[7] = '-';
 		if(acl.perms & 8)	modeStr[8] = 'x';	else	modeStr[8] = '-';
 		printf(modeStr);
-		close(fp);
+		_SysClose(fp);
 		
 		// Colour Code
 		if(info.flags & FILEFLAG_DIRECTORY)	// Directory: Green
@@ -412,5 +412,5 @@ void Command_Dir(int argc, char **argv)
 		printf("\n");
 	}
 	// Close Directory
-	close(dp);
+	_SysClose(dp);
 }

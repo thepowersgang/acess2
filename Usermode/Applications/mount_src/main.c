@@ -142,20 +142,20 @@ int main(int argc, char *argv[])
 	}
 	
 	// Check Device
-	fd = open(sDevice, OPENFLAG_READ);
+	fd = _SysOpen(sDevice, OPENFLAG_READ);
 	if(fd == -1) {
 		printf("Device '%s' cannot be opened for reading\n", sDevice);
 		return EXIT_FAILURE;
 	}
-	close(fd);
+	_SysClose(fd);
 	
 	// Check Mount Point
-	fd = open(sDir, OPENFLAG_EXEC);
+	fd = _SysOpen(sDir, OPENFLAG_EXEC);
 	if(fd == -1) {
 		printf("Directory '%s' does not exist\n", sDir);
 		return EXIT_FAILURE;
 	}
-	close(fd);
+	_SysClose(fd);
 
 	// Replace sOptions with an empty string if it is still NULL
 	if(sOptions == NULL)	sOptions = "";

@@ -32,7 +32,7 @@ void	URI_Close(tURIFile *File);
 size_t	URI_file_Read(int Handle, size_t Bytes, void *Buffer);
 size_t	URI_file_Write(int Handle, size_t Bytes, void *Buffer);
 void	URI_file_Close(int Handle);
-size_t	URI_file_GetSize(int Handle);
+off_t	URI_file_GetSize(int Handle);
 
 // === CONSTANTS ===
 // Builtin URI protocol handlers
@@ -319,7 +319,7 @@ int URI_file_Open(char *Host, int Port, char *Path, int Mode)
 //	printf("URI_file_Open: open('%s', 0x%x)\n", Path, smode);
 	{
 		 int	ret;
-		ret = open(Path, smode);
+		ret = _SysOpen(Path, smode);
 		return ret;
 	}
 }
@@ -327,22 +327,22 @@ size_t URI_file_Read(int Handle, size_t Bytes, void *Buffer)
 {
 //	printf("URI_file_Read: (Handle=%i, Buffer=%p, Bytes=%i)\n",
 //		Handle, Buffer, (int)Bytes);
-	return read(Handle, Buffer, Bytes);
+	return _SysRead(Handle, Buffer, Bytes);
 }
 size_t URI_file_Write(int Handle, size_t Bytes, void *Buffer)
 {
-	return write(Handle, Buffer, Bytes);
+	return _SysWrite(Handle, Buffer, Bytes);
 }
 void URI_file_Close(int Handle)
 {
-	close(Handle);
+	_SysClose(Handle);
 }
-size_t URI_file_GetSize(int Handle)
+off_t URI_file_GetSize(int Handle)
 {
-	uint64_t curpos = tell(Handle);
-	size_t ret;
-	seek(Handle, 0, SEEK_END);
-	ret = tell(Handle);
-	seek(Handle, curpos, SEEK_SET);
+	uint64_t curpos = _SysTell(Handle);
+	off_t ret;
+	_SysSeek(Handle, 0, SEEK_END);
+	ret = _SysTell(Handle);
+	_SysSeek(Handle, curpos, SEEK_SET);
 	return ret;
 }

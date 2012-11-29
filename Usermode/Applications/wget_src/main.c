@@ -11,6 +11,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <netdb.h>
+#include <acess/sys.h>	// _SysDebug
 
 enum eProcols
 {
@@ -164,7 +165,7 @@ int main(int argc, char *argv[])
 			if( state == 2 )
 			{
 				_SysDebug("RXing %i bytes to '%s'", bytes_wanted, outfile);
-				 int	outfd = open(outfile, O_WR|O_CREAT, 0666);
+				 int	outfd = open(outfile, O_WRONLY|O_CREAT, 0666);
 				if( outfd == -1 ) {
 					fprintf(stderr, "Unable to open '%s' for writing\n", outfile);
 				}

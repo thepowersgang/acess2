@@ -37,16 +37,17 @@ int main(int argc, char *argv[])
 		{
 			termpath[sizeof(DEFAULT_TERMINAL)-2] = '0' + i;
 			
-			open(termpath, OPENFLAG_READ);	// Stdin
-			open(termpath, OPENFLAG_WRITE);	// Stdout
-			open(termpath, OPENFLAG_WRITE);	// Stderr
+			_SysOpen(termpath, OPENFLAG_READ);	// Stdin
+			_SysOpen(termpath, OPENFLAG_WRITE);	// Stdout
+			_SysOpen(termpath, OPENFLAG_WRITE);	// Stderr
 			execve(DEFAULT_SHELL, child_argv, NULL);
-			for(;;)	sleep();
+			for(;;)	;
 		}
 	}
 	
 	// TODO: Implement message watching
-	for(;;)	sleep();
+	for(;;)
+		_SysWaitEvent(THREAD_EVENT_IPCMSG);
 	
 	return 42;
 }
