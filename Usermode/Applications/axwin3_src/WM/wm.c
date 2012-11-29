@@ -292,8 +292,9 @@ int WM_MoveWindow(tWindow *Window, int X, int Y)
 	_SysDebug("WM_MoveWindow: (%i,%i)", X, Y);
 	Window->X = X;	Window->Y = Y;
 
-	// TODO: Why invalidate buffer?
-	WM_Invalidate(Window);
+	// Mark up the tree that a child window has changed	
+	while( (Window = Window->Parent) )
+		Window->Flags &= ~WINFLAG_CHILDCLEAN;
 
 	return 0;
 }
@@ -407,6 +408,17 @@ void WM_int_UpdateWindow(tWindow *Window)
 	if( !(Window->Flags & WINFLAG_SHOW) )
 		return ;
 	
+	if( (Window->Flags & WINFLAG_RELATIVE) && Window->Parent )
+	{
+		Window->RealX = Window->Parent->RealX + Window->Parent->BorderL + Window->X;
+		Window->RealY = Window->Parent->RealY + Window->Parent->BorderT + Window->Y;
+	}
+	else
+	{
+		Window->RealX = Window->X;
+		Window->RealY = Window->Y;
+	}
+	
 	// Render
 	if( !(Window->Flags & WINFLAG_CLEAN) )
 	{
@@ -427,17 +439,6 @@ void WM_int_UpdateWindow(tWindow *Window)
 			Window->BorderB = 0;
 			Window->RealW = Window->W;
 			Window->RealH = Window->H;
-		}
-		
-		if( (Window->Flags & WINFLAG_RELATIVE) && Window->Parent )
-		{
-			Window->RealX = Window->Parent->RealX + Window->Parent->BorderL + Window->X;
-			Window->RealY = Window->Parent->RealY + Window->Parent->BorderT + Window->Y;
-		}
-		else
-		{
-			Window->RealX = Window->X;
-			Window->RealY = Window->Y;
 		}
 
 		Window->Renderer->Redraw(Window);
@@ -466,6 +467,18 @@ void WM_int_BlitWindow(tWindow *Window)
 	// Ignore hidden windows
 	if( !(Window->Flags & WINFLAG_SHOW) )
 		return ;
+	
+	// Duplicated position update to handle window moving
+	if( (Window->Flags & WINFLAG_RELATIVE) && Window->Parent )
+	{
+		Window->RealX = Window->Parent->RealX + Window->Parent->BorderL + Window->X;
+		Window->RealY = Window->Parent->RealY + Window->Parent->BorderT + Window->Y;
+	}
+	else
+	{
+		Window->RealX = Window->X;
+		Window->RealY = Window->Y;
+	}
 
 //	_SysDebug("Blit %p (%p) to (%i,%i) %ix%i", Window, Window->RenderBuffer,
 //		Window->RealX, Window->RealY, Window->RealW, Window->RealH);
