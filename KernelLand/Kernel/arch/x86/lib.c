@@ -85,7 +85,11 @@ void SHORTLOCK(struct sShortSpinlock *Lock)
 	__ASM__ ("pushf;\n\tpop %0" : "=r"(IF));
 	IF &= 0x200;	// AND out all but the interrupt flag
 	
-	ASSERT( !CPU_HAS_LOCK(Lock) );
+	if( CPU_HAS_LOCK(Lock) )
+	{
+		Panic("Double lock of %p, %p req, %p has", Lock, __builtin_return_address(0), Lock->LockedBy);
+		for(;;);
+	}
 
 	#if TRACE_LOCKS
 	if( TRACE_LOCK_COND )
@@ -100,6 +104,7 @@ void SHORTLOCK(struct sShortSpinlock *Lock)
 	// Wait for another CPU to release
 	__AtomicTestSetLoop( (Uint*)&Lock->Lock, cpu );
 	Lock->IF = IF;
+	Lock->LockedBy = __builtin_return_address(0);
 	
 	#if TRACE_LOCKS
 	if( TRACE_LOCK_COND )

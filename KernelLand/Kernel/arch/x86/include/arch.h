@@ -45,6 +45,7 @@ struct sShortSpinlock {
 	#if LOCK_DISABLE_INTS
 	 int	IF;	//!< Interrupt state on call to SHORTLOCK
 	#endif
+	void	*LockedBy;
 };
 
 // === MACROS ===
