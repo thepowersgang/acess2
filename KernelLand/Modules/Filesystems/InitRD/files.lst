@@ -25,6 +25,7 @@ Dir "Libs" {
 	File "libimage_sif.so" "__BIN__/Libs/libimage_sif.so"
 	File "libaxwin3.so" "__BIN__/Libs/libaxwin3.so"
 	File "libposix.so" "__BIN__/Libs/libposix.so"
+	File "libpsocket.so" "__BIN__/Libs/libpsocket.so"
 }
 Dir "Conf" {
 	File "BootConf.cfg" "__FS__/Conf/BootConf.cfg"
