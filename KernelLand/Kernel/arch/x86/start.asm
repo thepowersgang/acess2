@@ -137,7 +137,7 @@ APStartup:
 	; Load initial GDT
 	mov ax, 0xFFFF
 	mov ds, ax
-	lgdt [DWORD ds:lGDTPtr-KERNEL_BASE-0xFFFF0]
+	lgdt [DWORD ds:lGDTPtr-0xFFFF0]
 	; Enable PMode in CR0
 	mov eax, cr0
 	or al, 1
