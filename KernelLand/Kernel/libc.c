@@ -363,7 +363,7 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 			if(!p)		p = "(null)";
 			len = strlen(p);
 			if( !bPadLeft )	while(len++ < minSize)	PUTCH(pad);
-			while(*p && precision--)	PUTCH(*p++);
+			while(*p && precision--) { PUTCH(*p); p++;} 
 			if( bPadLeft )	while(len++ < minSize)	PUTCH(pad);
 			break;
 		
@@ -371,7 +371,10 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 			p = va_arg(args, char*);
 			if( !CheckMem(p, minSize) )	continue;	// No #PFs please
 			if(!p)	goto printString;
-			while(minSize--)	PUTCH(*p++);
+			while(minSize--) {
+				PUTCH(*p);
+				p ++;
+			}
 			break;
 		
 		// Single Character
