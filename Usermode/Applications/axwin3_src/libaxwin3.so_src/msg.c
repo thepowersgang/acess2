@@ -100,7 +100,7 @@ void AxWin3_int_SendIPCMessage(tAxWin_IPCMessage *Msg)
 	switch(giConnectionType)
 	{
 	case CONNTYPE_SENDMESSAGE:
-		SysSendMessage(giConnectionNum, size, Msg);
+		_SysSendMessage(giConnectionNum, size, Msg);
 		break;
 	case CONNTYPE_UDP: {
 		// Create UDP header
@@ -127,7 +127,7 @@ tAxWin_IPCMessage *AxWin3_int_GetIPCMessage(int nFD, fd_set *fds)
 	_SysSelect(nFD, fds, NULL, NULL, NULL, THREAD_EVENT_IPCMSG);
 	
 	// Clear out IPC messages
-	while( (len = SysGetMessage(&tid, 0, NULL)) )
+	while( (len = _SysGetMessage(&tid, 0, NULL)) )
 	{
 		if( giConnectionType != CONNTYPE_SENDMESSAGE || tid != giConnectionNum )
 		{
@@ -136,7 +136,7 @@ tAxWin_IPCMessage *AxWin3_int_GetIPCMessage(int nFD, fd_set *fds)
 			if( gAxWin3_MessageCallback )
 				gAxWin3_MessageCallback(tid, len);
 			else
-				SysGetMessage(NULL, 0, GETMSG_IGNORE);
+				_SysGetMessage(NULL, 0, GETMSG_IGNORE);
 			continue ;
 		}
 		
@@ -144,10 +144,10 @@ tAxWin_IPCMessage *AxWin3_int_GetIPCMessage(int nFD, fd_set *fds)
 		ret = malloc(len);
 		if(ret == NULL) {
 			_SysDebug("malloc() failed, ignoring message");
-			SysGetMessage(NULL, 0, GETMSG_IGNORE);
+			_SysGetMessage(NULL, 0, GETMSG_IGNORE);
 			return NULL;
 		}
-		SysGetMessage(NULL, len, ret);
+		_SysGetMessage(NULL, len, ret);
 		break;
 	}
 

@@ -43,21 +43,19 @@ extern int	_errno;
 extern void	_SysDebug(const char *format, ...);
 // --- Proc ---
 extern void	_exit(int status)	__attribute__((noreturn));
-//extern void	sleep(void);
-//extern void	yield(void);
-extern int	kill(int pid, int sig);
-//extern void	wait(int miliseconds);
+extern int	_SysKill(int pid, int sig);
 extern int	_SysWaitEvent(int EventMask);
-extern int	waittid(int id, int *status);
-extern int	clone(int flags, void *stack);
-extern int	execve(const char *path, char **argv, char **envp);
+extern int	_SysWaitTID(int id, int *status);
+extern int	_SysClone(int flags, void *stack);
+extern int	_SysExecVE(const char *path, char **argv, char **envp);
 extern int	_SysSpawn(const char *Path, const char **argv, const char **envp, int nFDs, int *FDs, struct s_sys_spawninfo *info);
 extern int	gettid(void);
 extern int	getpid(void);
 extern int	_SysSetFaultHandler(int (*Handler)(int));
-extern void	SysSetName(const char *Name);
-extern int	SysGetName(char *NameDest);
-extern int	SysSetPri(int Priority);
+extern void	_SysSetName(const char *Name);
+extern int	_SysGetName(char *NameDest);
+extern int	_SysSetPri(int Priority);
+// --- Timekeeping ---
 extern int64_t	_SysTimestamp(void);
 
 // --- Permissions ---
@@ -68,15 +66,16 @@ extern void	setgid(int id);
 
 // --- VFS ---
 extern int	_SysChdir(const char *dir);
-extern int	_SysRoot(const char *dir);
+extern int	_SysChroot(const char *dir);
 
 extern int	_SysOpen(const char *path, int flags, ...);
 extern int	_SysOpenChild(int fd, const char *name, int flags);
 extern int	_SysOpenPipe(int *read, int *write, int flags);
 extern int	_SysReopen(int fd, const char *path, int flags);
 extern int	_SysCopyFD(int srcfd, int dstfd);
-extern int	_SysClose(int fd);
 extern size_t	_SysRead(int fd, void *buffer, size_t length);
+extern int	_SysClose(int fd);
+extern int	_SysFDCtl(int fd, int option, ...);
 extern size_t	_SysWrite(int fd, const void *buffer, size_t length);
 extern int	_SysSeek(int fd, int64_t offset, int whence);
 extern uint64_t	_SysTell(int fd);
@@ -90,12 +89,15 @@ extern int	_SysSelect(int nfds, fd_set *read, fd_set *write, fd_set *err, int64_
 extern int	_SysUnlink(const char *pathname);
 
 // --- IPC ---
-extern int	SysSendMessage(int dest, size_t length, const void *Data);
-extern int	SysGetMessage(int *src, size_t buflen, void *Data);
+extern int	_SysSendMessage(int dest, size_t length, const void *Data);
+extern int	_SysGetMessage(int *src, size_t buflen, void *Data);
 
 // --- MEMORY ---
-uint64_t	_SysGetPhys(uintptr_t vaddr);
-uint64_t	_SysAllocate(uintptr_t vaddr);
-uint32_t	SysSetMemFlags(uintptr_t vaddr, uint32_t flags, uint32_t mask);
+extern uint64_t	_SysGetPhys(uintptr_t vaddr);
+extern uint64_t	_SysAllocate(uintptr_t vaddr);
+extern uint32_t	_SysSetMemFlags(uintptr_t vaddr, uint32_t flags, uint32_t mask);
+extern void	*_SysLoadBin(const char *path, void **entry);
+extern int	_SysUnloadBin(void *base);
+extern void	SysSetFaultHandler(int (*Hanlder)(int));
 
 #endif

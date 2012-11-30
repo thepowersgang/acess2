@@ -62,10 +62,10 @@ ssize_t	read(int fd, void *buf, size_t count)
 
 int fork(void)
 {
-	return clone(CLONE_VM, 0);
+	return _SysClone(CLONE_VM, 0);
 }
 
 int execv(const char *b, char *v[])
 {
-	return execve(b, v, NULL);
+	return _SysExecVE(b, v, NULL);
 }

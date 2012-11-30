@@ -4,6 +4,7 @@
 */
 #include "common.h"
 #include <stdint.h>
+#include <acess/sys.h>
 
 #define DEBUG	0
 
@@ -77,7 +78,7 @@ void *LoadLibrary(const char *SoName, const char *SearchDir, char **envp)
 
 	DEBUGS(" LoadLibrary: SysLoadBin()");	
 	// Load Library
-	base = SysLoadBin(filename, (void**)&fEntry);
+	base = _SysLoadBin(filename, (void**)&fEntry);
 	if(!base) {
 		DEBUGS("LoadLibrary: RETURN 0");
 		return 0;
@@ -172,7 +173,7 @@ void Unload(void *Base)
 	if(id == MAX_LOADED_LIBRARIES)	return;
 	
 	// Unload Binary
-	SysUnloadBin( Base );
+	_SysUnloadBin( Base );
 	// Save String Pointer
 	str = gLoadedLibraries[id].Name;
 	

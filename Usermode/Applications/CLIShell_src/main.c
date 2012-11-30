@@ -206,19 +206,14 @@ void CallCommand(char **Args)
 	}
 	
 	// Create new process
-	pid = clone(CLONE_VM, 0);
-	// Start Task
-	if(pid == 0) {
-		execve(sTmpBuffer, Args, gasEnvironment);
-		printf("Execve returned, ... oops\n");
-		exit(-1);
-	}
+	int fds[] = {0, 1, 2};
+	pid = _SysSpawn(sTmpBuffer, (const char **)Args, (const char **)gasEnvironment, 3, fds, NULL);
 	if(pid <= 0) {
 		printf("Unable to create process: `%s'\n", sTmpBuffer);	// Error Message
 	}
 	else {
 		 int	status;
-		waittid(pid, &status);
+		_SysWaitTID(pid, &status);
 	}
 }
 

@@ -52,11 +52,6 @@ extern int	file_exists(const char *filename);
 extern void	*memcpy(void *dest, const void *src, size_t len);
 
 // === System Calls ===
-extern void	SysDebug(const char *fmt, ...);	//!< Now implemented in main.c
-extern void	SysDebugV(const char *fmt, ...);
-extern void	*SysLoadBin(const char *path, void **entry);
-extern int	SysUnloadBin(void *Base);
-extern void	SysSetFaultHandler(int (*Hanlder)(int));
 
 // === ELF Loader ===
 extern void	*ElfRelocate(void *Base, char **envp, const char *Filename);

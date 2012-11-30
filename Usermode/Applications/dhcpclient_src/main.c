@@ -34,7 +34,7 @@ enum eStates
 	STATE_PREINIT,
 	STATE_DISCOVER_SENT,
 	STATE_REQUEST_SENT,
-	STATE_COMPLETE
+	STATE_COMPLETE,
 };
 
 // === STRUCTURES ===
@@ -72,6 +72,7 @@ typedef struct sInterface
 	char	HWAddr[6];
 	
 	int64_t	Timeout;
+	 int	nTimeouts;
 } tInterface;
 
 // === PROTOTYPES ===
@@ -80,8 +81,8 @@ void	Scan_Dir(tInterface **IfaceList, const char *Directory);
 int	Start_Interface(tInterface *Iface);
 void	Send_DHCPDISCOVER(tInterface *Iface);
 void	Send_DHCPREQUEST(tInterface *Iface, void *OfferBuffer, int TypeOffset);
-int	Handle_Packet(tInterface *Iface);
-void	Handle_Timeout(tInterface *Iface);
+ int	Handle_Packet(tInterface *Iface);
+ int	Handle_Timeout(tInterface *Iface);
 void	Update_State(tInterface *Iface, int newState);
 void	SetAddress(tInterface *Iface, void *Addr, void *Mask, void *Router);
 
@@ -145,19 +146,24 @@ int main(int argc, char *argv[])
 			if( FD_ISSET(i->SocketFD, &fds) )
 			{
 				if( Handle_Packet( i ) )
-				{
-					_SysClose(i->SocketFD);
-					_SysClose(i->IfaceFD);
-					p->Next = i->Next;
-					free(i);
-					i = p;
-				}
+					goto _remove;
 			}
 			
 			if( _SysTimestamp() > i->Timeout )
 			{
-				Handle_Timeout(i);
+				if( Handle_Timeout(i) )
+				{
+					fprintf(stderr, "%s timed out\n", i->Adapter);
+					goto _remove;
+				}
 			}
+			continue ;
+		_remove:
+			_SysClose(i->SocketFD);
+			_SysClose(i->IfaceFD);
+			p->Next = i->Next;
+			free(i);
+			i = p;
 		}
 	}
 	return 0;
@@ -439,8 +445,10 @@ int Handle_Packet(tInterface *Iface)
 	return 0;
 }
 
-void Handle_Timeout(tInterface *Iface)
+int Handle_Timeout(tInterface *Iface)
 {
+	if( Iface->nTimeouts == 3 )
+		return 1;
 	switch(Iface->State)
 	{
 	case STATE_DISCOVER_SENT:
@@ -450,6 +458,7 @@ void Handle_Timeout(tInterface *Iface)
 		_SysDebug("Timeout with state = %i", Iface->State);
 		break;
 	}
+	return 0;
 }
 
 void Update_State(tInterface *Iface, int newState)
@@ -458,11 +467,13 @@ void Update_State(tInterface *Iface, int newState)
 	{
 		Iface->Timeout = _SysTimestamp() + 500;
 		Iface->State = newState;
+		Iface->nTimeouts = 0;
 	}
 	else
 	{
 		// TODO: Exponential backoff
 		Iface->Timeout = _SysTimestamp() + 3000;
+		Iface->nTimeouts ++;
 		_SysDebug("State %i repeated, timeout is 3000ms now", newState);
 	}
 }

@@ -115,10 +115,10 @@ void IPC_HandleSelect(fd_set *set)
 
 	size_t	len;
 	int	tid;
-	while( (len = SysGetMessage(&tid, 0, NULL)) )
+	while( (len = _SysGetMessage(&tid, 0, NULL)) )
 	{
 		char	data[len];
-		SysGetMessage(NULL, len, data);
+		_SysGetMessage(NULL, len, data);
 
 		IPC_Handle(&gIPC_Type_SysMessage, &tid, len, (void*)data);
 //		_SysDebug("IPC_HandleSelect: Message handled");
@@ -160,7 +160,7 @@ int IPC_Type_Sys_Compare(const void *Ident1, const void *Ident2)
 
 void IPC_Type_Sys_Send(const void *Ident, size_t Length, const void *Data)
 {
-	SysSendMessage( *(const tid_t*)Ident, Length, Data );
+	_SysSendMessage( *(const tid_t*)Ident, Length, Data );
 }
 
 // --- Client -> Window Mappings

@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
 	// - Start virtual terminals
 	for( i = 0; i < NUM_TERMS; i++ )
 	{		
-		tid = clone(CLONE_VM, 0);
+		tid = _SysClone(CLONE_VM, 0);
 		if(tid == 0)
 		{
 			termpath[sizeof(DEFAULT_TERMINAL)-2] = '0' + i;
@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
 			_SysOpen(termpath, OPENFLAG_READ);	// Stdin
 			_SysOpen(termpath, OPENFLAG_WRITE);	// Stdout
 			_SysOpen(termpath, OPENFLAG_WRITE);	// Stderr
-			execve(DEFAULT_SHELL, child_argv, NULL);
+			_SysExecVE(DEFAULT_SHELL, child_argv, NULL);
 			for(;;)	;
 		}
 	}

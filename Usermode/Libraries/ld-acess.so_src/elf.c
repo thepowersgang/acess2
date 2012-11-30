@@ -269,7 +269,7 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 			uintptr_t	addr = phtab[i].VAddr + iBaseDiff;
 			uintptr_t	end = addr + phtab[i].MemSize;
 			for( ; addr < end; addr += PAGE_SIZE )
-				SysSetMemFlags(addr, 0, 1);	// Unset RO
+				_SysSetMemFlags(addr, 0, 1);	// Unset RO
 		}
 	}
 
@@ -455,7 +455,7 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 			uintptr_t	addr = phtab[i].VAddr + iBaseDiff;
 			uintptr_t	end = addr + phtab[i].MemSize;
 			for( ; addr < end; addr += PAGE_SIZE )
-				SysSetMemFlags(addr, 1, 1);	// Unset RO
+				_SysSetMemFlags(addr, 1, 1);	// Unset RO
 		}
 	}
 
