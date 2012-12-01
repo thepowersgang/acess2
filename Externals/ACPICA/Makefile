@@ -2,7 +2,6 @@
 
 include $(dir $(lastword $(MAKEFILE_LIST)))../../Makefile.cfg
 
-COMPONENTS = utilities tables
 BIN := ../bin-$(ARCH)/libacpica.a
 
 _VERS := $(patsubst acpica-unix-%.tar.gz,%,$(wildcard acpica-unix-*.tar.gz))
@@ -33,7 +32,7 @@ CPPFLAGS	+= -D ARCH=$(ARCH) -D ARCHDIR=$(ARCHDIR) -D PLATFORM=\"$(PLATFORM)\" -D
 CPPFLAGS	+= -D KERNEL_VERSION=$(KERNEL_VERSION) -ffreestanding
 CFLAGS  	+= -Wall -fno-stack-protector -Wstrict-prototypes -std=gnu99 -g
 
-SRCS := $(foreach comp,$(COMPONENTS),$(wildcard $(COMPDIR)$(comp)/*.c))
+SRCS := $(wildcard $(COMPDIR)*/*.c)
 OBJS := $(SRCS:$(COMPDIR)%.c=obj-$(ARCH)/%.o)
 
 ACENV_H := $(ACPICAROOT)source/include/platform/acenv.h
@@ -46,10 +45,11 @@ extract: $(ACPICAROOT)
 	@echo Re-run make to compile
 endif
 
-all: $(BIN)
+all: $(BIN) include
 
 clean:
-	$(RM) -r obj-$(ARCH)/
+	$(RM) -r obj-$(ARCH)/ include
+
 purge: clean
 	$(RM) -r $(ACPICAROOT)
 
@@ -57,6 +57,9 @@ $(BIN): $(OBJS)
 	@mkdir -p $(dir $@)
 	@echo [AR] $@
 	@ar rcu $@ $(OBJS)
+
+include:
+	ln -s $(ACPICAROOT)source/include
 
 $(ACPICAROOT): $(ACPICA_ARCHIVE)
 	tar -xf $(ACPICA_ARCHIVE)

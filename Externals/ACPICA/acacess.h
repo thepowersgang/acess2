@@ -9,7 +9,7 @@
 
 #define ACPI_USE_SYSTEM_CLIBRARY
 #define ACPI_USE_DO_WHILE_0
-#define ACPI_MUTEX_TYPE             ACPI_BINARY_SEMAPHORE
+#define ACPI_MUTEX_TYPE             ACPI_OSL_MUTEX
 
 
 #ifdef __KERNEL__
@@ -20,14 +20,20 @@
 
 #define ACPI_MACHINE_WIDTH          BITS
 
-#define ACPI_SPINLOCK               tShortSpinlock
+#define ACPI_SPINLOCK               tShortSpinlock*
 #define ACPI_CPU_FLAGS              unsigned long
 
 #define COMPILER_DEPENDENT_UINT64	Uint64
 #define COMPILER_DEPENDENT_INT64	Sint64
 
 #define ACPI_DIV_64_BY_32(n_hi, n_lo, d32, q32, r32) do { \
-	q32 = DivMod64( ((Sint64)n_hi<<32)|n_lo, d32, &r32 ); \
+	Uint64	rem; \
+	Sint64	num = ((Sint64)n_hi<<32)|n_lo; \
+	 int	sgn = 1; \
+	if(num < 0) {num = -num; sgn = -sgn; } \
+	if(d32 < 0) {d32 = -d32; sgn = -sgn; } \
+	q32 = sgn * DivMod64U( num, d32, &rem ); \
+	r32 = rem; \
 	}while(0)
 #define ACPI_SHIFT_RIGHT_64(n_hi, n_lo) do { \
 	n_lo >>= 1; \
