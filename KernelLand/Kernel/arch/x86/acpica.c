@@ -12,6 +12,7 @@
 
 // === PROTOTYPES ===
 int	ACPICA_Initialise(void);
+void	ACPI_int_InterruptProxy(int IRQ, void *data);
 
 
 // === CODE ===
@@ -20,11 +21,33 @@ int ACPICA_Initialise(void)
 	ACPI_STATUS	rv;
 
 	rv = AcpiInitializeSubsystem();
+	if( ACPI_FAILURE(rv) )
+	{
+		Log_Error("ACPI", "AcpiInitializeSubsystem: %i", rv);
+		return -1;
+	}
 	
+	rv = AcpiInitializeTables(NULL, 16, FALSE);
+	if( ACPI_FAILURE(rv) )
+	{
+		Log_Error("ACPI", "AcpiInitializeTables: %i", rv);
+		return -1;
+	}
+
 	// AcpiInitializeTables?
 	rv = AcpiLoadTables();
+	if( ACPI_FAILURE(rv) )
+	{
+		Log_Error("ACPI", "AcpiLoadTables: %i", rv);
+		return -1;
+	}
 	
 	rv = AcpiEnableSubsystem(ACPI_FULL_INITIALIZATION);
+	if( ACPI_FAILURE(rv) )
+	{
+		Log_Error("ACPI", "AcpiEnableSubsystem: %i", rv);
+		return -1;
+	}
 
 	return 0;
 }
@@ -57,22 +80,26 @@ ACPI_PHYSICAL_ADDRESS AcpiOsGetRootPointer(void)
 
 ACPI_STATUS AcpiOsPredefinedOverride(const ACPI_PREDEFINED_NAMES *PredefinedObject, ACPI_STRING *NewValue)
 {
+	UNIMPLEMENTED();
 	return AE_NOT_IMPLEMENTED;
 }
 
 ACPI_STATUS AcpiOsTableOverride(ACPI_TABLE_HEADER *ExisitingTable, ACPI_TABLE_HEADER **NewTable)
 {
+	UNIMPLEMENTED();
 	return AE_NOT_IMPLEMENTED;
 }
 
 ACPI_STATUS AcpiOsPhysicalTableOverride(ACPI_TABLE_HEADER *ExisitingTable, ACPI_PHYSICAL_ADDRESS *NewAddress, UINT32 *NewTableLength)
 {
+	UNIMPLEMENTED();
 	return AE_NOT_IMPLEMENTED;
 }
 
 // -- Memory Management ---
 ACPI_STATUS AcpiOsCreateCache(char *CacheName, UINT16 ObjectSize, UINT16 MaxDepth, ACPI_CACHE_T **ReturnCache)
 {
+	UNIMPLEMENTED();
 	return AE_NOT_IMPLEMENTED;
 }
 
@@ -81,6 +108,7 @@ ACPI_STATUS AcpiOsDeleteCache(ACPI_CACHE_T *Cache)
 	if( Cache == NULL )
 		return AE_BAD_PARAMETER;
 	
+	UNIMPLEMENTED();
 	return AE_NOT_IMPLEMENTED;
 }
 
@@ -89,6 +117,7 @@ ACPI_STATUS AcpiOsPurgeCache(ACPI_CACHE_T *Cache)
 	if( Cache == NULL )
 		return AE_BAD_PARAMETER;
 	
+	UNIMPLEMENTED();
 	return AE_NOT_IMPLEMENTED;
 }
 
@@ -102,6 +131,7 @@ ACPI_STATUS AcpiOsReleaseObject(ACPI_CACHE_T *Cache, void *Object)
 {
 	if( Cache == NULL || Object == NULL )
 		return AE_BAD_PARAMETER;
+	UNIMPLEMENTED();
 	return AE_NOT_IMPLEMENTED;
 }
 
@@ -440,11 +470,13 @@ ACPI_STATUS AcpiOsWritePort(ACPI_IO_ADDRESS Address, UINT32 Value, UINT32 Width)
 // --- PCI Configuration Space Access ---
 ACPI_STATUS AcpiOsReadPciConfiguration(ACPI_PCI_ID *PciId, UINT32 Register, UINT64 *Value, UINT32 Width)
 {
+	UNIMPLEMENTED();
 	return AE_NOT_IMPLEMENTED;
 }
 
 ACPI_STATUS AcpiOsWritePciConfiguration(ACPI_PCI_ID *PciId, UINT32 Register, UINT64 Value, UINT32 Width)
 {
+	UNIMPLEMENTED();
 	return AE_NOT_IMPLEMENTED;
 }
 
@@ -492,6 +524,7 @@ ACPI_STATUS AcpiOsSignal(UINT32 Function, void *Info)
 
 ACPI_STATUS AcpiOsGetLine(char *Buffer, UINT32 BufferLength, UINT32 *BytesRead)
 {
+	UNIMPLEMENTED();
 	return AE_NOT_IMPLEMENTED;
 }
 

@@ -24,6 +24,7 @@ extern void	MM_PreinitVirtual(void);
 extern void	MM_Install(int NPMemRanges, tPMemMapEnt *PMemRanges);
 extern void	MM_InstallVirtual(void);
 extern int	Time_Setup(void);
+extern int	ACPICA_Initialise(void);
 
 // === PROTOTYPES ===
  int	kmain(Uint MbMagic, void *MbInfoPtr);
@@ -83,7 +84,10 @@ int kmain(Uint MbMagic, void *MbInfoPtr)
 	
 	// Start Multitasking
 	Threads_Init();
-	
+
+	// Poke ACPICA
+	ACPICA_Initialise();	
+
 	Log_Log("Arch", "Starting VFS...");
 	// Load Virtual Filesystem
 	VFS_Init();
