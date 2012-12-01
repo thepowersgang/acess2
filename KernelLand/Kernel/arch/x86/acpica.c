@@ -5,6 +5,7 @@
  * acpica.c
  * - ACPICA Interface
  */
+#define DEBUG	1
 #include <acpi.h>
 #include <timers.h>
 #include <mutex.h>
@@ -31,6 +32,7 @@ int ACPICA_Initialise(void)
 	if( ACPI_FAILURE(rv) )
 	{
 		Log_Error("ACPI", "AcpiInitializeTables: %i", rv);
+		AcpiTerminate();
 		return -1;
 	}
 
@@ -39,6 +41,7 @@ int ACPICA_Initialise(void)
 	if( ACPI_FAILURE(rv) )
 	{
 		Log_Error("ACPI", "AcpiLoadTables: %i", rv);
+		AcpiTerminate();
 		return -1;
 	}
 	
@@ -46,6 +49,7 @@ int ACPICA_Initialise(void)
 	if( ACPI_FAILURE(rv) )
 	{
 		Log_Error("ACPI", "AcpiEnableSubsystem: %i", rv);
+		AcpiTerminate();
 		return -1;
 	}
 
@@ -80,49 +84,87 @@ ACPI_PHYSICAL_ADDRESS AcpiOsGetRootPointer(void)
 
 ACPI_STATUS AcpiOsPredefinedOverride(const ACPI_PREDEFINED_NAMES *PredefinedObject, ACPI_STRING *NewValue)
 {
-	UNIMPLEMENTED();
-	return AE_NOT_IMPLEMENTED;
+	*NewValue = NULL;
+	return AE_OK;
 }
 
 ACPI_STATUS AcpiOsTableOverride(ACPI_TABLE_HEADER *ExisitingTable, ACPI_TABLE_HEADER **NewTable)
 {
-	UNIMPLEMENTED();
-	return AE_NOT_IMPLEMENTED;
+	*NewTable = NULL;
+	return AE_OK;
 }
 
 ACPI_STATUS AcpiOsPhysicalTableOverride(ACPI_TABLE_HEADER *ExisitingTable, ACPI_PHYSICAL_ADDRESS *NewAddress, UINT32 *NewTableLength)
 {
-	UNIMPLEMENTED();
-	return AE_NOT_IMPLEMENTED;
+	*NewAddress = 0;
+	return AE_OK;
 }
 
 // -- Memory Management ---
+struct sACPICache
+{
+	Uint16	nObj;
+	Uint16	ObjectSize;
+	char	*Name;
+	void	*First;
+	char	ObjectStates[];
+};
+
 ACPI_STATUS AcpiOsCreateCache(char *CacheName, UINT16 ObjectSize, UINT16 MaxDepth, ACPI_CACHE_T **ReturnCache)
 {
-	UNIMPLEMENTED();
-	return AE_NOT_IMPLEMENTED;
+	tACPICache	*ret;
+	 int	namelen = (CacheName ? strlen(CacheName) : 0) + 1;
+	LOG("CacheName=%s, ObjSize=%x, MaxDepth=%x", CacheName, ObjectSize, MaxDepth);
+
+	ret = malloc(sizeof(*ret) + MaxDepth*sizeof(char) + namelen + MaxDepth*ObjectSize);
+	if( !ret )	return AE_NO_MEMORY;
+
+	ret->nObj = MaxDepth;
+	ret->ObjectSize = ObjectSize;
+	ret->Name = (char*)(ret->ObjectStates + MaxDepth);
+	ret->First = ret->Name + namelen;
+	if( CacheName )
+		strcpy(ret->Name, CacheName);
+	else
+		ret->Name[0] = 0;
+	memset(ret->ObjectStates, 0, sizeof(char)*MaxDepth);
+
+	LOG("Allocated cache '%s' (%i x 0x%x)", CacheName, MaxDepth, ObjectSize);
+	
+	*ReturnCache = ret;
+	
+	return AE_OK;
 }
 
 ACPI_STATUS AcpiOsDeleteCache(ACPI_CACHE_T *Cache)
 {
 	if( Cache == NULL )
 		return AE_BAD_PARAMETER;
-	
-	UNIMPLEMENTED();
-	return AE_NOT_IMPLEMENTED;
+
+	free(Cache);
+	return AE_OK;
 }
 
 ACPI_STATUS AcpiOsPurgeCache(ACPI_CACHE_T *Cache)
 {
 	if( Cache == NULL )
 		return AE_BAD_PARAMETER;
-	
-	UNIMPLEMENTED();
-	return AE_NOT_IMPLEMENTED;
+
+	memset(Cache->ObjectStates, 0, sizeof(char)*Cache->nObj);
+
+	return AE_OK;
 }
 
 void *AcpiOsAcquireObject(ACPI_CACHE_T *Cache)
 {
+	LOG("(Cache=%p)", Cache);
+	for(int i = 0; i < Cache->nObj; i ++ )
+	{
+		if( !Cache->ObjectStates[i] ) {
+			Cache->ObjectStates[i] = 1;
+			return (char*)Cache->First + i*Cache->ObjectSize;
+		}
+	}
 	// TODO
 	return NULL;
 }
@@ -131,8 +173,16 @@ ACPI_STATUS AcpiOsReleaseObject(ACPI_CACHE_T *Cache, void *Object)
 {
 	if( Cache == NULL || Object == NULL )
 		return AE_BAD_PARAMETER;
-	UNIMPLEMENTED();
-	return AE_NOT_IMPLEMENTED;
+
+	tVAddr delta = (tVAddr)Object - (tVAddr)Cache->First;
+	delta /= Cache->ObjectSize;
+	
+	if( delta > Cache->nObj )
+		return AE_BAD_PARAMETER;
+	
+	Cache->ObjectStates[delta] = 0;
+
+	return AE_OK;
 }
 
 void *AcpiOsMapMemory(ACPI_PHYSICAL_ADDRESS PhysicalAddress, ACPI_SIZE Length)
@@ -220,6 +270,7 @@ void AcpiOsWaitEventsComplete(void)
 // --- Mutexes etc ---
 ACPI_STATUS AcpiOsCreateMutex(ACPI_MUTEX *OutHandle)
 {
+	LOG("()");
 	if( !OutHandle )
 		return AE_BAD_PARAMETER;
 	tMutex	*ret = calloc( sizeof(tMutex), 1 );
@@ -254,6 +305,7 @@ void AcpiOsReleaseMutex(ACPI_MUTEX Handle)
 
 ACPI_STATUS AcpiOsCreateSemaphore(UINT32 MaxUnits, UINT32 InitialUnits, ACPI_SEMAPHORE *OutHandle)
 {
+	LOG("(MaxUnits=%i,InitialUnits=%i)", MaxUnits, InitialUnits);
 	if( !OutHandle )
 		return AE_BAD_PARAMETER;
 	tSemaphore	*ret = calloc( sizeof(tSemaphore), 1 );
@@ -323,6 +375,7 @@ ACPI_STATUS AcpiOsSignalSemaphore(ACPI_SEMAPHORE Handle, UINT32 Units)
 
 ACPI_STATUS AcpiOsCreateLock(ACPI_SPINLOCK *OutHandle)
 {
+	LOG("()");
 	if( !OutHandle )
 		return AE_BAD_PARAMETER;
 	tShortSpinlock	*lock = calloc(sizeof(tShortSpinlock), 1);

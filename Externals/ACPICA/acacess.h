@@ -11,6 +11,7 @@
 #define ACPI_USE_DO_WHILE_0
 #define ACPI_MUTEX_TYPE             ACPI_OSL_MUTEX
 
+//#define ACPI_DEBUG_OUTPUT	1
 
 #ifdef __KERNEL__
 
@@ -20,6 +21,9 @@
 
 #define ACPI_MACHINE_WIDTH          BITS
 
+typedef struct sACPICache	tACPICache;
+
+#define ACPI_CACHE_T	tACPICache
 #define ACPI_SPINLOCK               tShortSpinlock*
 #define ACPI_CPU_FLAGS              unsigned long
 

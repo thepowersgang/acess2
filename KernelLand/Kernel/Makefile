@@ -103,7 +103,7 @@ apidoc:
 # - Disassembles it
 # - Increments the build count
 # - Does whatever architecture defined rules
-$(BIN): $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile ../../BuildConf/$(ARCH)/Makefile.cfg ../../BuildConf/$(ARCH)/$(PLATFORM).mk
+$(BIN): $(EXTERN_OBJS) $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile ../../BuildConf/$(ARCH)/Makefile.cfg ../../BuildConf/$(ARCH)/$(PLATFORM).mk
 	@echo --- LD -o $(BIN)
 	@$(LD) $(LDFLAGS) -o $(BIN) $(OBJ) $(MODS) $(EXTERN_OBJS) $(LIBGCC_PATH) --defsym __buildnum=$$(( $(BUILD_NUM) + 1 )) -Map ../Map.$(ARCH).txt
 	@$(DISASM) -S $(BIN) > $(BIN).dsm
