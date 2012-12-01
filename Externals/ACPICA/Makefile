@@ -5,8 +5,23 @@ include $(dir $(lastword $(MAKEFILE_LIST)))../../Makefile.cfg
 COMPONENTS = utilities tables
 BIN := ../bin-$(ARCH)/libacpica.a
 
-ACPICAVER = 20121114
+_VERS := $(patsubst acpica-unix-%.tar.gz,%,$(wildcard acpica-unix-*.tar.gz))
+_VERS := $(sort $(_VERS))
+_LATEST := $(lastword $(_VERS))
+
+ifeq ($(ACPICAVER),)
+ ifeq ($(_LATEST),)
+  $(error No ACPICA archive found (acpica-unix-%.tar.gz))
+ endif
+ 
+ ifneq ($(_LATEST),$(_VERS))
+  $(warning Multiple archvies found, picked $(_LATEST))
+ endif
+ ACPICAVER := $(_LATEST)
+endif
+
 ACPICAROOT := acpica-unix-$(ACPICAVER)/
+ACPICA_ARCHIVE := acpica-unix-$(ACPICAVER).tar.gz
 COMPDIR := $(ACPICAROOT)source/components/
 KERNELDIR := ../../KernelLand/Kernel/
 
@@ -24,25 +39,31 @@ ACACESS_H := $(ACPICAROOT)source/include/platform/acacess.h
 
 .PHONY: all clean
 
+ifeq ($(words $(SRCS)),0)
+extract: $(ACPICAROOT)
+	@echo Re-run make to compile
+endif
+
 all: $(BIN)
 
 clean:
-	$(RM) obj-$(ARCH)/
+	$(RM) -r obj-$(ARCH)/
+purge: clean
+	$(RM) -r $(ACPICAROOT)
 
 $(BIN): $(OBJS)
 	@mkdir -p $(dir $@)
 	@echo [AR] $@
 	@ar rcu $@ $(OBJS)
 
-#include_exp/acpi: $(ACPICAROOT)source/include
-#	@mkdir -p $(dir $@)
-#	ln -s ../$< $@
+$(ACPICAROOT): $(ACPICA_ARCHIVE)
+	tar -xf $(ACPICA_ARCHIVE)
 
 $(ACACESS_H): acacess.h
 	cp $< $@
 
-$(ACENV_H): acpica-unix-$(ACPICAVER).tar.gz Makefile
-	tar -x -O -f acpica-unix-$(ACPICAVER).tar.gz $(ACENV_H) | sed 's/aclinux/acacess/' | sed 's/_LINUX/_ACESS/' > $@
+$(ACENV_H): $(ACPICA_ARCHIVE) Makefile
+	tar -x -O -f $(ACPICA_ARCHIVE) $(ACENV_H) | sed 's/aclinux/acacess/' | sed 's/_LINUX/_ACESS/' > $@
 
 obj-$(ARCH)/%.o: $(COMPDIR)%.c $(ACENV_H) $(ACACESS_H)
 	@mkdir -p $(dir $@)
