@@ -11,7 +11,9 @@ _LATEST := $(lastword $(_VERS))
 
 ifeq ($(ACPICAVER),)
  ifeq ($(_LATEST),)
-  $(error No ACPICA archive found (acpica-unix-%.tar.gz))
+  $(warning Unable to find an archive matching acpica-unix-%.tar.gz)
+  $(warning Go to https://www.acpica.org/downloads/ to get it)
+  $(error No ACPICA archive found)
  endif
  
  ifneq ($(_LATEST),$(_VERS))
