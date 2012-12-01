@@ -15,6 +15,10 @@
 #define	RANDOM_SPRUCE	0xf12b039
 
 // === PROTOTYPES ===
+unsigned long long	strtoull(const char *str, char **end, int base);
+unsigned long	strtoul(const char *str, char **end, int base);
+signed long long	strtoll(const char *str, char **end, int base);
+signed long	strtol(const char *str, char **end, int base);
 #if 0
  int	atoi(const char *string);
  int	ParseInt(const char *string, int *Val);
