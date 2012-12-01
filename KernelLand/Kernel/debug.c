@@ -162,27 +162,33 @@ void Debug(const char *Fmt, ...)
 	SHORTREL(&glDebug_Lock);
 	#endif
 }
-/**
- * \fn void Log(const char *Msg, ...)
- */
-void Log(const char *Fmt, ...)
+
+void LogV(const char *Fmt, va_list args)
 {
-	va_list	args;
-	
 	#if LOCK_DEBUG_OUTPUT
 	SHORTLOCK(&glDebug_Lock);
 	#endif
 
 	Debug_Puts(1, "Log: ");
-	va_start(args, Fmt);
 	Debug_Fmt(1, Fmt, args);
-	va_end(args);
 	Debug_Puts(1, "\r\n");
 	
 	#if LOCK_DEBUG_OUTPUT
 	SHORTREL(&glDebug_Lock);
 	#endif
 }
+
+/**
+ * \fn void Log(const char *Msg, ...)
+ */
+void Log(const char *Fmt, ...)
+{
+	va_list	args;
+	va_start(args, Fmt);
+	LogV(Fmt, args);
+	va_end(args);
+}
+
 void Warning(const char *Fmt, ...)
 {
 	va_list	args;
