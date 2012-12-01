@@ -6,10 +6,18 @@
  * - ACPICA Interface
  */
 #define DEBUG	1
+#define _AcpiModuleName "Shim"
+#define _COMPONENT	"Acess"
 #include <acpi.h>
 #include <timers.h>
 #include <mutex.h>
 #include <semaphore.h>
+
+#define ONEMEG	(1024*1024)
+
+// === GLOBALS ===
+// - RSDP Address from uEFI
+tPAddr	gACPI_RSDPOverride = 0;
 
 // === PROTOTYPES ===
 int	ACPICA_Initialise(void);
@@ -20,6 +28,10 @@ void	ACPI_int_InterruptProxy(int IRQ, void *data);
 int ACPICA_Initialise(void)
 {
 	ACPI_STATUS	rv;
+
+	#ifdef ACPI_DEBUG_OUTPUT
+	AcpiDbgLevel = ACPI_DB_ALL;
+	#endif
 
 	rv = AcpiInitializeSubsystem();
 	if( ACPI_FAILURE(rv) )
@@ -73,11 +85,16 @@ ACPI_PHYSICAL_ADDRESS AcpiOsGetRootPointer(void)
 {
 	ACPI_SIZE	val;
 	ACPI_STATUS	rv;
-	
+
+	if( gACPI_RSDPOverride )
+		return gACPI_RSDPOverride;	
+
 	rv = AcpiFindRootPointer(&val);
 	if( ACPI_FAILURE(rv) )
 		return 0;
 
+	LOG("val=%x", val);
+	
 	return val;
 	// (Or use EFI)
 }
@@ -187,13 +204,23 @@ ACPI_STATUS AcpiOsReleaseObject(ACPI_CACHE_T *Cache, void *Object)
 
 void *AcpiOsMapMemory(ACPI_PHYSICAL_ADDRESS PhysicalAddress, ACPI_SIZE Length)
 {
+	if( PhysicalAddress < ONEMEG )
+		return (void*)(KERNEL_BASE | PhysicalAddress);
+	
 	Uint	ofs = PhysicalAddress & (PAGE_SIZE-1);
 	int npages = (ofs + Length + (PAGE_SIZE-1)) / PAGE_SIZE;
-	return (char*)MM_MapHWPages(PhysicalAddress, npages) + ofs;
+	void *rv = ((char*)MM_MapHWPages(PhysicalAddress, npages)) + ofs;
+	LOG("Map (%P+%i pg) to %p", PhysicalAddress, npages, rv);
+	return rv;
 }
 
 void AcpiOsUnmapMemory(void *LogicalAddress, ACPI_SIZE Length)
 {
+	if( (tVAddr)LogicalAddress - KERNEL_BASE < ONEMEG )
+		return ;
+
+	LOG("%p", LogicalAddress);
+
 	Uint	ofs = (tVAddr)LogicalAddress & (PAGE_SIZE-1);
 	int npages = (ofs + Length + (PAGE_SIZE-1)) / PAGE_SIZE;
 	// TODO: Validate `Length` is the same as was passed to AcpiOsMapMemory
@@ -237,7 +264,7 @@ BOOLEAN AcpiOsWritable(void *Memory, ACPI_SIZE Length)
 // --- Threads ---
 ACPI_THREAD_ID AcpiOsGetThreadId(void)
 {
-	return Threads_GetTID();
+	return Threads_GetTID() + 1;
 }
 
 ACPI_STATUS AcpiOsExecute(ACPI_EXECUTE_TYPE Type, ACPI_OSD_EXEC_CALLBACK Function, void *Context)
@@ -444,7 +471,7 @@ ACPI_STATUS AcpiOsRemoveInterruptHandler(UINT32 InterruptLevel, ACPI_OSD_HANDLER
 ACPI_STATUS AcpiOsReadMemory(ACPI_PHYSICAL_ADDRESS Address, UINT64 *Value, UINT32 Width)
 {
 	void *ptr;
-	if( Address < 1024*1024 ) {
+	if( Address < ONEMEG ) {
 		ptr = (void*)(KERNEL_BASE | Address);
 	}
 	else {
@@ -459,7 +486,7 @@ ACPI_STATUS AcpiOsReadMemory(ACPI_PHYSICAL_ADDRESS Address, UINT64 *Value, UINT3
 	case 64:	*Value = *(Uint64*)ptr;	break;
 	}
 
-	if( Address >= 1024*1024 ) {
+	if( Address >= ONEMEG ) {
 		MM_FreeTemp(ptr);
 	}
 
@@ -469,7 +496,7 @@ ACPI_STATUS AcpiOsReadMemory(ACPI_PHYSICAL_ADDRESS Address, UINT64 *Value, UINT3
 ACPI_STATUS AcpiOsWriteMemory(ACPI_PHYSICAL_ADDRESS Address, UINT64 Value, UINT32 Width)
 {
 	void *ptr;
-	if( Address < 1024*1024 ) {
+	if( Address < ONEMEG ) {
 		ptr = (void*)(KERNEL_BASE | Address);
 	}
 	else {
@@ -539,19 +566,19 @@ void AcpiOsPrintf(const char *Format, ...)
 	va_list	args;
 	va_start(args, Format);
 
-	LogV(Format, args);
+	LogFV(Format, args);
 
 	va_end(args);
 }
 
 void AcpiOsVprintf(const char *Format, va_list Args)
 {
-	LogV(Format, Args);
+	LogFV(Format, Args);
 }
 
 void AcpiOsRedirectOutput(void *Destination)
 {
-	// TODO: is this needed?
+	// TODO: Do I even need to impliment this?
 }
 
 // --- Miscellaneous ---

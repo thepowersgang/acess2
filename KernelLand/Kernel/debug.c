@@ -163,6 +163,20 @@ void Debug(const char *Fmt, ...)
 	#endif
 }
 
+
+void LogFV(const char *Fmt, va_list args)
+{
+	#if LOCK_DEBUG_OUTPUT
+	SHORTLOCK(&glDebug_Lock);
+	#endif
+
+	Debug_Fmt(1, Fmt, args);
+	
+	#if LOCK_DEBUG_OUTPUT
+	SHORTREL(&glDebug_Lock);
+	#endif
+}
+
 void LogV(const char *Fmt, va_list args)
 {
 	#if LOCK_DEBUG_OUTPUT

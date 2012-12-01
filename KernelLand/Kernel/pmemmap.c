@@ -14,9 +14,10 @@ void PMemMap_DumpBlocks(tPMemMapEnt *map, int NEnts)
 {
 	for( int i = 0; i < NEnts; i ++ )
 	{
-		Log_Debug("PMemMap", "%i: %i 0x%02x %08llx+%llx",
+		Log_Debug("PMemMap", "%i: %i 0x%02x %08llx+%llx (end %llx)",
 			i, map[i].Type, map[i].NUMADomain,
-			map[i].Start, map[i].Length
+			map[i].Start, map[i].Length,
+			map[i].Start + map[i].Length
 			);
 	}
 }
