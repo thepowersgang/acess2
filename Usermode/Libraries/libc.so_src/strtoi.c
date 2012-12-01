@@ -5,13 +5,12 @@
  * strtoi.c
  * - strto[u][l]l/atoi implimentation
  */
-#include <stdio.h>
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
-#include "lib.h"
+#include <stddef.h>
 
-EXPORT unsigned long long strtoull(const char *str, char **end, int base)
+unsigned long long strtoull(const char *str, char **end, int base)
 {
 	long long	ret = 0;
 	
@@ -71,7 +70,7 @@ EXPORT unsigned long long strtoull(const char *str, char **end, int base)
 	return ret;
 }
 
-EXPORT unsigned long strtoul(const char *ptr, char **end, int base)
+unsigned long strtoul(const char *ptr, char **end, int base)
 {
 	unsigned long long tmp = strtoull(ptr, end, base);
 	
@@ -83,7 +82,7 @@ EXPORT unsigned long strtoul(const char *ptr, char **end, int base)
 	return tmp;
 }
 
-EXPORT long long strtoll(const char *str, char **end, int base)
+long long strtoll(const char *str, char **end, int base)
 {
 	 int	neg = 0;
 	unsigned long long	ret;
@@ -110,7 +109,7 @@ EXPORT long long strtoll(const char *str, char **end, int base)
 		return ret;
 }
 
-EXPORT long strtol(const char *str, char **end, int base)
+long strtol(const char *str, char **end, int base)
 {
 	long long tmp = strtoll(str, end, base);
 	if( tmp > LONG_MAX || tmp < LONG_MIN ) {
@@ -121,10 +120,10 @@ EXPORT long strtol(const char *str, char **end, int base)
 }
 
 /**
- * \fn EXPORT int atoi(const char *str)
+ * \fn int atoi(const char *str)
  * \brief Convert a string to an integer
  */
-EXPORT int atoi(const char *str)
+int atoi(const char *str)
 {
 	long long	tmp = strtoll(str, NULL, 0);
 	if( tmp > INT_MAX || tmp < INT_MIN ) {

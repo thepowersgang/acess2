@@ -67,15 +67,10 @@ EXPORT(CheckString);
 EXPORT(CheckMem);
 
 // === CODE ===
-/**
- * \brief Convert a string into an integer
- */
-int atoi(const char *string)
-{
-	int ret = 0;
-	ParseInt(string, &ret);
-	return ret;
-}
+// - Import userland stroi.c file
+#define _LIB_H_
+#include "../../Usermode/Libraries/libc.so_src/strtoi.c"
+
 int ParseInt(const char *string, int *Val)
 {
 	 int	ret = 0;

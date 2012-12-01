@@ -50,15 +50,15 @@ int Routes_main(int argc, char *argv[])
 		}
 		
 		// Destination IP
-		addrType = ParseIPAddress(argv[3], dest, &subnetBits);
+		addrType = ParseIPAddress(argv[2], dest, &subnetBits);
 		if( subnetBits == -1 ) {
 			subnetBits = Net_GetAddressSize(addrType)*8;
 		}
 		// Interface Name / Next Hop
-		if( (nextHopType = ParseIPAddress(argv[4], nextHop, &nextHopBits)) == 0 )
+		if( (nextHopType = ParseIPAddress(argv[3], nextHop, &nextHopBits)) == 0 )
 		{
 			// Interface name
-			ifaceName = argv[4];
+			ifaceName = argv[3];
 		}
 		else
 		{
@@ -78,8 +78,8 @@ int Routes_main(int argc, char *argv[])
 		// Metric
 		if( argc - 3 >= 3 )
 		{
-			metric = atoi(argv[5]);
-			if( metric == 0 && argv[5][0] != '0' ) {
+			metric = atoi(argv[4]);
+			if( metric == 0 && argv[4][0] != '0' ) {
 				fprintf(stderr, "ERROR: Metric should be a number\n");
 				return -1;
 			}

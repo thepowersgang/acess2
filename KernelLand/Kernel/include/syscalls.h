@@ -69,7 +69,6 @@
 #define SYS_DEBUG	0x100
 
 #ifndef __ASSEMBLER__
-#ifndef NO_SYSCALL_STRS
 static const char *cSYSCALL_NAMES[] = {
 	"SYS_EXIT",
 	"SYS_CLONE",
@@ -162,7 +161,6 @@ static const char *cSYSCALL_NAMES[] = {
 
 	""
 };
-#endif
 #endif
 
 #endif
