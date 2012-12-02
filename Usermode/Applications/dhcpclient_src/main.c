@@ -2,7 +2,6 @@
  * 
  * http://www.ietf.org/rfc/rfc2131.txt
  */
-#include <unistd.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -242,7 +241,7 @@ int Start_Interface(tInterface *Iface)
 
 	// Open UDP Client
 	snprintf(path, sizeof(path), "/Devices/ip/%i/udp", Iface->Num);
-	Iface->SocketFD = fd = _SysOpen(path, O_RDWR);
+	Iface->SocketFD = fd = _SysOpen(path, OPENFLAG_READ|OPENFLAG_WRITE);
 	if( fd == -1 ) {
 		fprintf(stderr, "ERROR: Unable to open '%s'\n", path); 
 		return -1;
@@ -300,7 +299,10 @@ void Send_DHCPDISCOVER(tInterface *Iface)
 	data[2] = 4;	data[3] = 0;	// AddrType
 	data[4] = 255;	data[5] = 255;	data[6] = 255;	data[7] = 255;
 
-	_SysWrite(Iface->SocketFD, data, sizeof(data));
+	i = _SysWrite(Iface->SocketFD, data, sizeof(data));
+	if( i != sizeof(data) ) {
+		_SysDebug("_SysWrite failed (%i != %i)", i, sizeof(data));
+	}
 	Update_State(Iface, STATE_DISCOVER_SENT);
 }
 
