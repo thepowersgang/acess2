@@ -23,7 +23,7 @@ typedef signed short	Sint16;
 typedef signed long	Sint32;
 typedef signed long long	Sint64;
 
-typedef int	size_t;
+//typedef int	size_t;
 typedef char	BOOL;
 
 typedef Uint32	tVAddr;
