@@ -69,7 +69,7 @@ QEMU_PARAMS=$QEMU_PARAMS" -net "$_NETTYPE
 
 if [ "x$_NOUSB" != "xyes" ] ; then
 	QEMU_PARAMS=$QEMU_PARAMS" -usb"
-#	QEMU_PARAMS=$QEMU_PARAMS" -device usb-ehci"
+	QEMU_PARAMS=$QEMU_PARAMS" -device usb-ehci"
 	QEMU_PARAMS=$QEMU_PARAMS" -drive id=test_usb_image,file=USB_Test_Image.img,if=none"
 	QEMU_PARAMS=$QEMU_PARAMS" -device usb-storage,drive=test_usb_image"
 	QEMU_PARAMS=$QEMU_PARAMS" -usbdevice mouse"
@@ -80,12 +80,12 @@ fi
 #	qemu-system-x86_64 $QEMU_PARAMS -serial stdio | tee QemuLog.txt
 #echo $QEMU $BOOTOPT $QEMU_PARAMS
 if [ "x$_NOGRAPHIC" = "xyes" ] ; then
-	$QEMU $BOOTOPT $QEMU_PARAMS -nographic
+	eval $QEMU $BOOTOPT $QEMU_PARAMS -nographic
 	exit
 fi
 
 if [ "x$_NOTEE" = "xyes" ] ; then
-	$QEMU $BOOTOPT $QEMU_PARAMS -serial stdio
+	eval $QEMU $BOOTOPT $QEMU_PARAMS -serial stdio
 	exit
 fi
 
