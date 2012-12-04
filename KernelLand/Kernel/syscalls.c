@@ -12,14 +12,20 @@
 #include <threads.h>
 #include <events.h>
 
+#if 1
+# define MERR(f,v...) Log_Debug("Syscalls", "0x%x "f, callNum ,## v)
+#else
+# define MERR(v...) do{}while(0)
+#endif
+
 #define CHECK_NUM_NULLOK(v,size)	\
-	if((v)&&!Syscall_Valid((size),(v))){LOG("CHECK_NUM_NULLOK: %p(%x) FAIL",v,size);ret=-1;err=-EINVAL;break;}
+	if((v)&&!Syscall_Valid((size),(v))){MERR("CHECK_NUM_NULLOK: %p(%x) FAIL",v,size);ret=-1;err=-EINVAL;break;}
 #define CHECK_STR_NULLOK(v)	\
-	if((v)&&!Syscall_ValidString((v))){LOG("CHECK_STR_NULLOK: %p FAIL",v);ret=-1;err=-EINVAL;break;}
+	if((v)&&!Syscall_ValidString((v))){MERR("CHECK_STR_NULLOK: %p FAIL",v);ret=-1;err=-EINVAL;break;}
 #define CHECK_NUM_NONULL(v,size)	\
-	if(!(v)||!Syscall_Valid((size),(v))){LOG("CHECK_NUM_NONULL: %p(%x) FAIL",v,size);ret=-1;err=-EINVAL;break;}
+	if(!(v)||!Syscall_Valid((size),(v))){MERR("CHECK_NUM_NONULL: %p(%x) FAIL",v,size);ret=-1;err=-EINVAL;break;}
 #define CHECK_STR_NONULL(v)	\
-	if(!(v)||!Syscall_ValidString((v))){LOG("CHECK_STR_NONULL: %p FAIL",v);ret=-1;err=-EINVAL;break;}
+	if(!(v)||!Syscall_ValidString((v))){MERR("CHECK_STR_NONULL: %p FAIL",v);ret=-1;err=-EINVAL;break;}
 #define CHECK_STR_ARRAY(arr)	do {\
 	 int	i;\
 	char	**tmp = (char**)arr; \
@@ -265,6 +271,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 	case SYS_IOCTL:
 		// All sanity checking should be done by the driver
 		if( Regs->Arg3 && !MM_IsUser(Regs->Arg3) ) {
+			MERR("IOCtl Invalid arg %p", Regs->Arg3);
 			err = -EINVAL;	ret = -1;	break;
 		}
 		ret = VFS_IOCtl( Regs->Arg1, Regs->Arg2, (void*)Regs->Arg3 );

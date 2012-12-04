@@ -5,9 +5,10 @@
  * acess/syscall_types.h
  * - Structures used for syscalls
  */
-
 #ifndef _ACESS__SYSCALL_TYPES_H_
 #define _ACESS__SYSCALL_TYPES_H_
+
+#include "fd_set.h"
 
 struct s_sysACL {
 	unsigned long	object;	/*!< Group or user (bit 31 determines) */
@@ -20,9 +21,9 @@ struct s_sysFInfo {
 	unsigned int	gid;
 	unsigned int	flags;
 	unsigned long long	size;
-	time_t	atime;
-	time_t	mtime;
-	time_t	ctime;
+	int64_t	atime;
+	int64_t	mtime;
+	int64_t	ctime;
 	 int	numacls;
 	struct s_sysACL	acls[];
 } __attribute__((packed));

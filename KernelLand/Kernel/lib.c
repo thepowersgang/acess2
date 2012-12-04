@@ -180,7 +180,7 @@ int ReadUTF8(const Uint8 *str, Uint32 *Val)
 	}
 	
 	// Four Byte
-	if( (*str & 0xF1) == 0xF0 ) {
+	if( (*str & 0xF8) == 0xF0 ) {
 		outval = (*str & 0x07) << 18;	// Upper 3 Bits
 		str ++;
 		if( (*str & 0xC0) != 0x80)	return 2;	// Validity check

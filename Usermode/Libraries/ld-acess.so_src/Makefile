@@ -12,7 +12,7 @@ EXTRACLEAN := $(_OBJPREFIX)_stublib.o
 INCFILES := sys/sys.h
 
 CFLAGS   = -g -Wall -fno-builtin -fno-leading-underscore -fno-stack-protector -fPIC
-CFLAGS  += $(CPPFLAGS)
+CFLAGS  += $(CPPFLAGS) -Werror
 LDFLAGS  = -g -T arch/$(ARCHDIR).ld -Map map.txt --export-dynamic
 
 include ../Makefile.tpl

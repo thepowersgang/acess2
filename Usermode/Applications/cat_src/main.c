@@ -1,7 +1,6 @@
 /*
  * Acess2 CAT command
  */
-#include <acess/sys.h>
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -13,7 +12,6 @@
  */
 int main(int argc, char *argv[])
 {
-	 int	fd;
 	 int	num;
 	char	buf[BUF_SIZE];
 
@@ -22,19 +20,19 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	fd = open(argv[1], OPENFLAG_READ);
-	if(fd == -1) {
+	FILE *fp = fopen(argv[1], "r");
+	if(!fp) {
 		printf("Unable to open '%s' for reading\n", argv[1]);
 		return -1;
 	}
 
 	do {
-		num = read(fd, buf, BUF_SIZE);
+		num = fread(buf, BUF_SIZE, 1, fp);
 		if(num < 0)	break;
-		write(1, buf, num);
+		fwrite(buf, num, 1, stdout);
 	} while(num == BUF_SIZE);
 
-	close(fd);
+	fclose(fp);
 	printf("\n");
 
 	return 0;

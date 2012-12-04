@@ -37,21 +37,21 @@ int Input_Init(void)
 	tNumValue	num_value;
 
 	// Open mouse for RW
-	giMouseFD = open(gsMouseDevice, 3);
+	giMouseFD = _SysOpen(gsMouseDevice, 3);
 
 	// Set mouse limits
 	// TODO: Update these if the screen resolution changes
 	num_value.Num = 0;	num_value.Value = giScreenWidth;
-	ioctl(giMouseFD, JOY_IOCTL_GETSETAXISLIMIT, &num_value);
+	_SysIOCtl(giMouseFD, JOY_IOCTL_GETSETAXISLIMIT, &num_value);
 	num_value.Value = giScreenWidth/2;
 	giInput_MouseX = giScreenWidth/2;
-	ioctl(giMouseFD, JOY_IOCTL_GETSETAXISPOSITION, &num_value);
+	_SysIOCtl(giMouseFD, JOY_IOCTL_GETSETAXISPOSITION, &num_value);
 
 	num_value.Num = 1;	num_value.Value = giScreenHeight;
-	ioctl(giMouseFD, JOY_IOCTL_GETSETAXISLIMIT, &num_value);
+	_SysIOCtl(giMouseFD, JOY_IOCTL_GETSETAXISLIMIT, &num_value);
 	num_value.Value = giScreenHeight/2;
 	giInput_MouseY = giScreenHeight/2;
-	ioctl(giMouseFD, JOY_IOCTL_GETSETAXISPOSITION, &num_value);
+	_SysIOCtl(giMouseFD, JOY_IOCTL_GETSETAXISPOSITION, &num_value);
 
 	return 0;
 }
@@ -72,7 +72,7 @@ void Input_HandleSelect(fd_set *set)
 		static uint32_t	scancode;
 		#define KEY_CODEPOINT_MASK	0x3FFFFFFF
 		
-		size_t readlen = read(giTerminalFD_Input, &codepoint, sizeof(codepoint));
+		size_t readlen = _SysRead(giTerminalFD_Input, &codepoint, sizeof(codepoint));
 		if( readlen != sizeof(codepoint) )
 		{
 			// oops, error
@@ -119,8 +119,8 @@ void Input_HandleSelect(fd_set *set)
 
 		mouseinfo = (void*)data;
 
-		seek(giMouseFD, 0, SEEK_SET);
-		i = read(giMouseFD, data, sizeof(data));
+		_SysSeek(giMouseFD, 0, SEEK_SET);
+		i = _SysRead(giMouseFD, data, sizeof(data));
 		i -= sizeof(*mouseinfo);
 		if( i < 0 ) {
 			_SysDebug("Mouse data undersized (no header)");

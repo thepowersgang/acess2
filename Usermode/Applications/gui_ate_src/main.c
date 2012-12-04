@@ -10,6 +10,7 @@
 #include <axwin3/menu.h>
 #include <axwin3/richtext.h>
 #include <stdio.h>
+#include "strings.h"
 
 // === PROTOTYPES ===
  int	main(int argc, char *argv[]);

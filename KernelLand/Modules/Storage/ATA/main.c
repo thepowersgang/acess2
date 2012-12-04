@@ -122,7 +122,7 @@ int ATA_ScanDisk(int Disk)
 /**
  * \fn Uint ATA_ReadRaw(Uint64 Address, Uint Count, void *Buffer, Uint Disk)
  */
-int ATA_ReadRaw(void *Ptr, Uint64 Address, Uint Count, void *Buffer)
+int ATA_ReadRaw(void *Ptr, Uint64 Address, size_t Count, void *Buffer)
 {
 	 int	Disk = (tVAddr)Ptr;
 	 int	ret;
@@ -160,7 +160,7 @@ int ATA_ReadRaw(void *Ptr, Uint64 Address, Uint Count, void *Buffer)
 /**
  * \fn Uint ATA_WriteRaw(Uint64 Address, Uint Count, const void *Buffer, Uint Disk)
  */
-int ATA_WriteRaw(void *Ptr, Uint64 Address, Uint Count, const void *Buffer)
+int ATA_WriteRaw(void *Ptr, Uint64 Address, size_t Count, const void *Buffer)
 {
 	 int	Disk = (tVAddr)Ptr;
 	 int	ret;

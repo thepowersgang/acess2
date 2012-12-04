@@ -86,7 +86,7 @@ int main(int argc, char *argv[], const char **envp)
 			int len = read(giChildStdout, buf, sizeof(buf));
 			if( len <= 0 )	break;
 			
-			//Term_HandleOutput(len, buf);
+			Term_HandleOutput(len, buf);
 		}
 	}
 

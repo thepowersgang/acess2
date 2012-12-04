@@ -140,7 +140,34 @@ void WM_RaiseWindow(tWindow *Window)
 	Window->PrevSibling = parent->LastChild;
 	Window->NextSibling = NULL;
 	parent->LastChild = Window;
+	
+	_SysDebug("Raised %p", Window);
 }
+
+/*
+void WM_RaiseWindow(tWindow *Window)
+{
+	// Move to the last render position (move to top)
+	while(Window && Window->Parent)
+	{
+		if( Window->NextSibling )
+		{
+			// remove
+			if( Window->PrevSibling )
+				Window->PrevSibling->NextSibling = Window->NextSibling;
+			Window->NextSibling->PrevSibling = Window->PrevSibling;
+			// Mutate self
+			Window->PrevSibling = Window->Parent->LastChild;
+			Window->NextSibling = NULL;
+			// re-add
+			Window->PrevSibling->NextSibling = Window;
+			Window->Parent->LastChild = Window;
+		}
+		_SysDebug("WM_RaiseWindow: Raised %p", Window);
+		Window = Window->Parent;
+	}
+}
+*/
 
 void WM_FocusWindow(tWindow *Destination)
 {
@@ -164,12 +191,8 @@ void WM_FocusWindow(tWindow *Destination)
 		
 	WM_Invalidate(gpWM_FocusedWindow);
 	WM_Invalidate(Destination);
+
 	gpWM_FocusedWindow = Destination;
-
-
-	// Get the owner of the focused window	
-//	while(Destination && Destination->Owner)	Destination = Destination->Owner;
-//	gpWM_HilightedWindow = Destination;
 }
 
 
@@ -185,8 +208,10 @@ void WM_ShowWindow(tWindow *Window, int bShow)
 	WM_SendMessage(NULL, Window, WNDMSG_SHOW, sizeof(_msg), &_msg);
 
 	// Update the flag
-	if(bShow)
+	if(bShow) {
 		Window->Flags |= WINFLAG_SHOW;
+		_SysDebug("Window %p shown", Window);
+	}
 	else
 	{
 		Window->Flags &= ~WINFLAG_SHOW;
@@ -199,6 +224,7 @@ void WM_ShowWindow(tWindow *Window, int bShow)
 			free(Window->RenderBuffer);
 			Window->RenderBuffer = NULL;
 		}
+		_SysDebug("Window %p hidden", Window);
 	}
 	
 	WM_Invalidate(Window);
@@ -263,10 +289,12 @@ int WM_MoveWindow(tWindow *Window, int X, int Y)
 	}
 	// TODO: Re-sanitise
 
+	_SysDebug("WM_MoveWindow: (%i,%i)", X, Y);
 	Window->X = X;	Window->Y = Y;
 
-	// TODO: Why invalidate buffer?
-	WM_Invalidate(Window);
+	// Mark up the tree that a child window has changed	
+	while( (Window = Window->Parent) )
+		Window->Flags &= ~WINFLAG_CHILDCLEAN;
 
 	return 0;
 }
@@ -280,6 +308,7 @@ int WM_ResizeWindow(tWindow *Window, int W, int H)
 	if( Window->W == W && Window->H == H )
 		return 0;
 
+	_SysDebug("WM_Resizeindow: %ix%i", W, H);
 	Window->W = W;	Window->H = H;
 
 	if(Window->RenderBuffer) {
@@ -379,6 +408,17 @@ void WM_int_UpdateWindow(tWindow *Window)
 	if( !(Window->Flags & WINFLAG_SHOW) )
 		return ;
 	
+	if( (Window->Flags & WINFLAG_RELATIVE) && Window->Parent )
+	{
+		Window->RealX = Window->Parent->RealX + Window->Parent->BorderL + Window->X;
+		Window->RealY = Window->Parent->RealY + Window->Parent->BorderT + Window->Y;
+	}
+	else
+	{
+		Window->RealX = Window->X;
+		Window->RealY = Window->Y;
+	}
+	
 	// Render
 	if( !(Window->Flags & WINFLAG_CLEAN) )
 	{
@@ -399,17 +439,6 @@ void WM_int_UpdateWindow(tWindow *Window)
 			Window->BorderB = 0;
 			Window->RealW = Window->W;
 			Window->RealH = Window->H;
-		}
-		
-		if( (Window->Flags & WINFLAG_RELATIVE) && Window->Parent )
-		{
-			Window->RealX = Window->Parent->X + Window->Parent->BorderL + Window->X;
-			Window->RealY = Window->Parent->Y + Window->Parent->BorderT + Window->Y;
-		}
-		else
-		{
-			Window->RealX = Window->X;
-			Window->RealY = Window->Y;
 		}
 
 		Window->Renderer->Redraw(Window);
@@ -438,6 +467,18 @@ void WM_int_BlitWindow(tWindow *Window)
 	// Ignore hidden windows
 	if( !(Window->Flags & WINFLAG_SHOW) )
 		return ;
+	
+	// Duplicated position update to handle window moving
+	if( (Window->Flags & WINFLAG_RELATIVE) && Window->Parent )
+	{
+		Window->RealX = Window->Parent->RealX + Window->Parent->BorderL + Window->X;
+		Window->RealY = Window->Parent->RealY + Window->Parent->BorderT + Window->Y;
+	}
+	else
+	{
+		Window->RealX = Window->X;
+		Window->RealY = Window->Y;
+	}
 
 //	_SysDebug("Blit %p (%p) to (%i,%i) %ix%i", Window, Window->RenderBuffer,
 //		Window->RealX, Window->RealY, Window->RealW, Window->RealH);

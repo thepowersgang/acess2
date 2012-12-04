@@ -102,8 +102,8 @@ int main(int argc, const char *argv[], const char *envp[])
 	
 	atexit(ExitHandler);
 	
-	giTerminal_Width = ioctl(1, 5, NULL);	// getset_width
-	giTerminal_Height = ioctl(1, 6, NULL);	// getset_height
+	giTerminal_Width = _SysIOCtl(1, 5, NULL);	// getset_width
+	giTerminal_Height = _SysIOCtl(1, 6, NULL);	// getset_height
 	
 	printf("\x1B[?1047h");
 	printf("\x1B[%i;%ir", 0, giTerminal_Height-1);
@@ -194,7 +194,7 @@ int main(int argc, const char *argv[], const char *envp[])
 	{
 		tServer *srv;
 		for( srv = gpServers; srv; srv = srv->Next )
-			close(srv->FD);
+			_SysClose(srv->FD);
 	}
 	return 0;
 }
@@ -659,11 +659,11 @@ int ProcessIncoming(tServer *Server)
 	// ioctl#8 on a TCP client gets the number of bytes in the recieve buffer
 	// - Used to avoid blocking
 	#if NON_BLOCK_READ
-	while( (len = ioctl(Server->FD, 8, NULL)) > 0 )
+	while( (len = _SysIOCtl(Server->FD, 8, NULL)) > 0 )
 	{
 	#endif
 		// Read data
-		len = read(Server->FD, &Server->InBuf[Server->ReadPos], BUFSIZ - Server->ReadPos);
+		len = _SysRead(Server->FD, &Server->InBuf[Server->ReadPos], BUFSIZ - Server->ReadPos);
 		if( len == -1 ) {
 			return -1;
 		}
@@ -717,7 +717,7 @@ int writef(int FD, const char *Format, ...)
 		vsnprintf(buf, len+1, Format, args);
 		va_end(args);
 		
-		return write(FD, buf, len);
+		return _SysWrite(FD, buf, len);
 	}
 }
 
@@ -747,12 +747,12 @@ int OpenTCP(const char *AddressString, short PortNumber)
 	
 	// Set remote port and address
 //	printf("Setting port and remote address\n");
-	ioctl(fd, 5, &PortNumber);
-	ioctl(fd, 6, addrBuffer);
+	_SysIOCtl(fd, 5, &PortNumber);
+	_SysIOCtl(fd, 6, addrBuffer);
 	
 	// Connect
 //	printf("Initiating connection\n");
-	if( ioctl(fd, 7, NULL) == 0 ) {
+	if( _SysIOCtl(fd, 7, NULL) == 0 ) {
 		// Shouldn't happen :(
 		fprintf(stderr, "Unable to start connection\n");
 		return -1;
@@ -797,7 +797,7 @@ int SetCursorPos(int Row, int Col)
 		Row = Col / giTerminal_Width;
 		Col = Col % giTerminal_Width;
 	}
-	rv = ioctl(1, 9, NULL);	// Ugh, constants
+	rv = _SysIOCtl(1, 9, NULL);	// Ugh, constants
 	printf("\x1B[%i;%iH", Col, Row);
 	return rv;
 }

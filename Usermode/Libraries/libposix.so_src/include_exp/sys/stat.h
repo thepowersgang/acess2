@@ -8,6 +8,7 @@
 //#include "../acess/intdefs.h"	/* Evil */
 //#include "../stddef.h"
 #include <stdint.h>
+#include "sys/types.h"	// off_t
 
 typedef void	*dev_t;	/* TODO: How to identify a device with Acess */
 typedef uint64_t	ino_t;

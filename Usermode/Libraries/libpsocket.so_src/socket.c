@@ -6,10 +6,11 @@
  * - sys/socket.h calls
  */
 #include <sys/socket.h>
-#include <unistd.h>
+#include <acess/sys.h>
 #include <stdlib.h>	// malloc/free
 #include <string.h>
 #include <netinet/in.h>
+#include "common.h"
 
 #define MAXFD	32
 
@@ -55,7 +56,7 @@ int socket(int domain, int type, int protocol)
 	si = _GetInfo(0);
 	if( !si )	return -1;
 
-	int fd = open("/Devices/null", O_RDWR);
+	int fd = _SysOpen("/Devices/null", OPENFLAG_RDWR);
 	if( fd == -1 )	return -1;
 
 	giNumPreinit ++;
@@ -167,7 +168,7 @@ void _CommitServer(int sockfd)
 	else
 		path = mkstr("/Devices/ip/*%i/%s", si->local->sa_family, file);
 
-	reopen(si->fd, path, O_RDWR);
+	_SysReopen(si->fd, path, OPENFLAG_RDWR);
 	// TODO: Error-check
 	
 	free(path);
@@ -191,10 +192,11 @@ int accept(int sockfd, struct sockaddr *clientaddr, socklen_t addrlen)
 	 int	child;
 
 
-	child = _SysOpenChild(sockfd, "", O_RDWR);
+	child = _SysOpenChild(sockfd, "", OPENFLAG_RDWR);
 	if( child == -1 )	return -1;
 	
-	ioctl(child, 8, clientaddr);
+	_SysIOCtl(child, 8, clientaddr);
+
 	
 	return child;
 }
@@ -203,25 +205,25 @@ int recvfrom(int sockfd, void *buffer, size_t length, int flags, struct sockaddr
 {
 	_CommitClient(sockfd);
 	// TODO: Determine socket type (TCP/UDP) and use a bounce-buffer for UDP
-	return read(sockfd, buffer, length);
+	return _SysRead(sockfd, buffer, length);
 }
 
 int recv(int sockfd, void *buffer, size_t length, int flags)
 {
 	_CommitClient(sockfd);
-	return read(sockfd, buffer, length);
+	return _SysRead(sockfd, buffer, length);
 }
 
 int sendto(int sockfd, const void *buffer, size_t length, int flags, const struct sockaddr *clientaddr, socklen_t addrlen)
 {
 	_CommitClient(sockfd);
 	// TODO: Determine socket type (TCP/UDP) and use a bounce-buffer for UDP
-	return write(sockfd, buffer, length);
+	return _SysWrite(sockfd, buffer, length);
 }
 
 int send(int sockfd, void *buffer, size_t length, int flags)
 {
 	_CommitClient(sockfd);
-	return write(sockfd, buffer, length);
+	return _SysWrite(sockfd, buffer, length);
 }
 

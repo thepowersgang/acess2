@@ -1,9 +1,14 @@
 /*
+ * Acess2 Telnet Server (TCP server test case)
+ * - By John Hodge (thePowersGang)
+ *
+ * main.c
+ * - All
  */
 #include <stddef.h>
 #include <net.h>
-#include <unistd.h>
 #include <stdio.h>
+#include <acess/sys.h>
 
 // === TYPES ===
 typedef struct sClient
@@ -41,7 +46,7 @@ int main(int argc, char *argv[])
 		 int	addrtype = Net_ParseAddress("10.0.2.10", data);
 		 int	port = 23;
 		giServerFD = Net_OpenSocket(addrtype, data, "tcps");
-		ioctl(giServerFD, 4, &port);	// Set port and start listening
+		_SysIOCtl(giServerFD, 4, &port);	// Set port and start listening
 	}
 
 	// Event loop
@@ -77,7 +82,7 @@ void EventLoop(void)
 		}
 		
 		// Select!
-		select( maxfd+1, &fds, NULL, NULL, NULL );
+		_SysSelect( maxfd+1, &fds, NULL, NULL, NULL, 0 );
 		
 		// Check events
 		if( FD_ISSET(giServerFD, &fds) )
@@ -108,7 +113,7 @@ void Server_NewClient(int FD)
 	if( giNumClients == giConfig_MaxClients )
 	{
 		// Open, reject
-		close( _SysOpenChild(FD, "", O_RDWR) );
+		_SysClose( _SysOpenChild(FD, "", OPENFLAG_READ) );
 		return ;
 	}
 	
@@ -121,12 +126,12 @@ void Server_NewClient(int FD)
 		}
 	}
 	// Accept the connection
-	clt->Socket = _SysOpenChild(FD, "", O_RDWR);
+	clt->Socket = _SysOpenChild(FD, "", OPENFLAG_READ|OPENFLAG_WRITE);
 	giNumClients ++;
 	
 	// Create stdin/stdout
-	clt->stdin = open("/Devices/fifo/anon", O_RDWR);
-	clt->stdout = open("/Devices/fifo/anon", O_RDWR);
+	clt->stdin = _SysOpen("/Devices/fifo/anon", OPENFLAG_READ|OPENFLAG_WRITE);
+	clt->stdout = _SysOpen("/Devices/fifo/anon", OPENFLAG_READ|OPENFLAG_WRITE);
 	
 	// TODO: Arguments and envp
 	{
@@ -141,9 +146,9 @@ void HandleServerBoundData(tClient *Client)
 	char	buf[BUFSIZ];
 	 int	len;
 	
-	len = read(Client->Socket, buf, BUFSIZ);
+	len = _SysRead(Client->Socket, buf, BUFSIZ);
 	if( len <= 0 )	return ;
-	write(Client->stdin, buf, len);
+	_SysWrite(Client->stdin, buf, len);
 }
 
 void HandleClientBoundData(tClient *Client)
@@ -151,8 +156,8 @@ void HandleClientBoundData(tClient *Client)
 	char	buf[BUFSIZ];
 	 int	len;
 	
-	len = read(Client->stdout, buf, BUFSIZ);
+	len = _SysRead(Client->stdout, buf, BUFSIZ);
 	if( len <= 0 )	return ;
-	write(Client->Socket, buf, len);
+	_SysWrite(Client->Socket, buf, len);
 }
 

@@ -9,10 +9,9 @@
  * \brief Acess2 Kernel API Core
  */
 
+#include <stddef.h>
 #include <arch.h>
 
-//! NULL Pointer
-#define NULL	((void*)0)
 //! Pack a structure
 #define PACKED	__attribute__((packed))
 //! Mark a function as not returning
@@ -23,8 +22,6 @@
 #define DEPRECATED	__attribute__((deprecated))
 //! Mark a parameter as unused
 #define UNUSED(x)	UNUSED_##x __attribute__((unused))
-//! Get the offset of a member in a structure
-#define offsetof(st, m) ((Uint)((char *)&((st *)(0))->m - (char *)0 ))
 
 /**
  * \name Boolean constants

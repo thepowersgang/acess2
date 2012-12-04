@@ -6,7 +6,6 @@
  */
 #include <stdlib.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <acess/sys.h>
 
 #define PCI_BASE	"/Devices/pci"
@@ -17,16 +16,18 @@ void	show_device(int PFD, const char *File, int bVerbose);
 // === CODE ===
 int main(int argc, char *argv[])
 {
-	int fd = open(PCI_BASE, OPENFLAG_READ);
+	int fd = _SysOpen(PCI_BASE, OPENFLAG_READ);
 
 	char name[256];	
 
-	while( SysReadDir(fd, name) )
+	while( _SysReadDir(fd, name) )
 	{
 		if(name[0] == '.')	continue ;
 		
 		show_device(fd, name, 0);
 	}
+
+	_SysClose(fd);
 
 	return 0;
 }
@@ -48,10 +49,10 @@ void show_device(int PFD, const char *File, int bVerbose)
 		printf("%s - ERR (open failure)\n", File);
 		return ;
 	}
-	rv = read(fd, &pciinfo, sizeof(pciinfo));
+	rv = _SysRead(fd, &pciinfo, sizeof(pciinfo));
 	if( rv != sizeof(pciinfo) ) {
 		printf("%s - ERR (read %i < %i)\n", File, rv, sizeof(pciinfo));
-		close(fd);
+		_SysClose(fd);
 		return ;
 	}
 	uint32_t	class_if = pciinfo.revclass >> 8;
@@ -67,6 +68,6 @@ void show_device(int PFD, const char *File, int bVerbose)
 		printf("\n");
 	}
 
-	close(fd);
+	_SysClose(fd);
 }
 

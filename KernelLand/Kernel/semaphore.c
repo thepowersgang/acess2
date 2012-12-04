@@ -127,10 +127,8 @@ int Semaphore_Wait(tSemaphore *Sem, int MaxToTake)
 		toWake->RetStatus = given;
 		
 		// Wake the sleeper
-		SHORTLOCK( &glThreadListLock );
 		if( toWake->Status != THREAD_STAT_ACTIVE )
 			Threads_AddActive(toWake);
-		SHORTREL( &glThreadListLock );
 	}
 	SHORTREL( &Sem->Protector );
 	

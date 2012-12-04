@@ -38,36 +38,24 @@ int main(int argc, char *argv[])
 				break;
 		}
 		printf("\n");
-		
-		// Create child process
-		pid = clone(CLONE_VM, 0);
+
+		uinfo = GetUserInfo(uid);
+		struct s_sys_spawninfo	spawninfo;
+		spawninfo.flags = 0;
+		spawninfo.gid = uinfo->GID;
+		spawninfo.uid = uinfo->UID;
+		const char	*child_argv[2] = {"-", 0};
+		const char	**child_envp = NULL;
+		 int	fds[] = {0, 1, 2};
+		pid = _SysSpawn(uinfo->Shell, child_argv, child_envp, 3, fds, &spawninfo);
 		// Error check
 		if(pid == -1) {
 			fprintf(stderr, "Unable to fork the login process!\n");
 			return -1;
 		}
 		
-		// Spawn shell in a child process
-		if(pid == 0)
-		{
-			char	*child_argv[2] = {NULL, 0};
-			char	**child_envp = NULL;
-			
-			// Get user information
-			uinfo = GetUserInfo(uid);
-			
-			child_argv[0] = uinfo->Shell;
-			// Set Environment
-			setgid(uinfo->GID);
-			//setuid(uid);
-			setuid(uinfo->UID);
-			
-			execve(uinfo->Shell, child_argv, child_envp);
-			exit(-1);
-		}
-		
 		// Wait for child to terminate
-		waittid(pid, &status);
+		_SysWaitTID(pid, &status);
 	}
 	
 	return 0;

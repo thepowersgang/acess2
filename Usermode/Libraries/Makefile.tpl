@@ -44,7 +44,7 @@ $(_OBJPREFIX)%.o: %.c
 	@echo [CC] -o $@
 	@mkdir -p $(dir $@)
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $<
-	@$(CC) -M -MT $@ $(CPPFLAGS) $< -o $@.dep
+	@$(CC) -M -MP -MT $@ $(CPPFLAGS) $< -o $@.dep
 
 $(_OBJPREFIX)%.ao: %.$(ASSUFFIX)
 	@echo [AS] -o $@

@@ -34,8 +34,8 @@ tWindow *WM_int_GetWindowAtPos(int X, int Y)
 		for(win = ret->FirstChild; win; win = win->NextSibling)
 		{
 			if( !(win->Flags & WINFLAG_SHOW) )	continue ;
-			if( X < win->X || X >= win->X + win->RealW )	continue;
-			if( Y < win->Y || Y >= win->Y + win->RealH )	continue;
+			if( X < win->RealX || X >= win->RealX + win->RealW )	continue;
+			if( Y < win->RealY || Y >= win->RealY + win->RealH )	continue;
 			next_win = win;	// Overwrite as we want the final rendered window
 		}
 	}
@@ -49,8 +49,8 @@ void WM_Input_MouseMoved(int OldX, int OldY, int NewX, int NewY)
 	struct sWndMsg_MouseMove	msg;
 	
 	win = WM_int_GetWindowAtPos(OldX, OldY);
-	msg.X = NewX - win->X - win->BorderL;
-	msg.Y = NewY - win->Y - win->BorderT;
+	msg.X = NewX - win->RealX - win->BorderL;
+	msg.Y = NewY - win->RealY - win->BorderT;
 	msg.dX = NewX - OldX;
 	msg.dY = NewY - OldY;
 	WM_SendMessage(NULL, win, WNDMSG_MOUSEMOVE, sizeof(msg), &msg);
@@ -64,8 +64,8 @@ void WM_Input_MouseMoved(int OldX, int OldY, int NewX, int NewY)
 	// TODO: Send mouseup to match mousedown if the cursor moves out of a window?
 
 	win = newWin;
-	msg.X = NewX - win->X - win->BorderL;
-	msg.Y = NewY - win->Y - win->BorderT;
+	msg.X = NewX - win->RealX - win->BorderL;
+	msg.Y = NewY - win->RealY - win->BorderT;
 	msg.dX = NewX - OldX;
 	msg.dY = NewY - OldY;
 	WM_SendMessage(NULL, win, WNDMSG_MOUSEMOVE, sizeof(msg), &msg);
@@ -75,8 +75,8 @@ void WM_Input_int_SendBtnMsg(tWindow *Win, int X, int Y, int Index, int Pressed)
 {
 	struct sWndMsg_MouseButton	msg;	
 
-	msg.X = X - Win->X - Win->BorderL;
-	msg.Y = Y - Win->Y - Win->BorderT;
+	msg.X = X - Win->RealX - Win->BorderL;
+	msg.Y = Y - Win->RealY - Win->BorderT;
 	msg.Button = Index;
 	msg.bPressed = !!Pressed;
 	
@@ -94,7 +94,12 @@ void WM_Input_MouseButton(int X, int Y, int ButtonIndex, int Pressed)
 	{
 //		_SysDebug("Gave focus to %p", win);
 		WM_FocusWindow(win);
-		WM_RaiseWindow(win);
+		tWindow	*tmpwin = win;
+		while( tmpwin )
+		{
+			WM_RaiseWindow(tmpwin);
+			tmpwin = tmpwin->Parent;
+		}
 	}
 
 	// Make sure that even if the mouse has moved out of the original window,

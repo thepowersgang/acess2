@@ -62,8 +62,8 @@ int main(int argc, char *argv[], char *envp[])
 			// Read from server, and write to stdout
 			do
 			{
-				len = read(server_fd, buffer, BUFSIZ);
-				write(1, buffer, len);
+				len = _SysRead(server_fd, buffer, BUFSIZ);
+				_SysWrite(1, buffer, len);
 			} while( len == BUFSIZ );
 		}
 		
@@ -76,17 +76,17 @@ int main(int argc, char *argv[], char *envp[])
 				char	*line = Readline_NonBlock(readline_info);
 				if( line )
 				{
-					write(server_fd, line, strlen(line));
-					write(server_fd, "\n", 1);
+					_SysWrite(server_fd, line, strlen(line));
+					_SysWrite(server_fd, "\n", 1);
 				}
 			}
 			else
 			{
 				do
 				{
-					len = read(0, buffer, BUFSIZ);
-					write(server_fd, buffer, len);
-					write(1, buffer, len);
+					len = _SysRead(0, buffer, BUFSIZ);
+					_SysWrite(server_fd, buffer, len);
+					_SysWrite(1, buffer, len);
 				} while( len == BUFSIZ );
 			}
 		}
@@ -99,7 +99,7 @@ int main(int argc, char *argv[], char *envp[])
 		}
 	}
 	
-	close(server_fd);
+	_SysClose(server_fd);
 	return 0;
 }
 
@@ -127,11 +127,11 @@ int OpenTCP(const char *AddressString, short PortNumber)
 	}
 	
 	// Set remote port and address
-	ioctl(fd, 5, &PortNumber);
-	ioctl(fd, 6, addrBuffer);
+	_SysIOCtl(fd, 5, &PortNumber);
+	_SysIOCtl(fd, 6, addrBuffer);
 	
 	// Connect
-	if( ioctl(fd, 7, NULL) == 0 ) {
+	if( _SysIOCtl(fd, 7, NULL) == 0 ) {
 		fprintf(stderr, "Unable to start connection\n");
 		return -1;
 	}

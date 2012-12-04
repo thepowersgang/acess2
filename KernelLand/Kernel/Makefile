@@ -85,6 +85,10 @@ clean:
 	@$(RM) $(BIN) ../Acess2.$(ARCH).gz $(BIN).dsm ../Map.$(ARCH).txt LineCounts.$(ARCH).txt
 	@$(RM) -r $(OBJDIR) $(OBJ) $(DEPFILES) $(BUILDINFO_SRC)
 
+# Lower to avoid taking default target from 'all'
+-include $(addprefix ../../Externals/,$(addsuffix /Makefile.kinc, $(EXTERNS)))
+
+
 # Creates a stripped and compressed copy of the kernel
 # and installs it to the target
 install: $(BIN) 
@@ -99,9 +103,9 @@ apidoc:
 # - Disassembles it
 # - Increments the build count
 # - Does whatever architecture defined rules
-$(BIN): $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile ../../BuildConf/$(ARCH)/Makefile.cfg ../../BuildConf/$(ARCH)/$(PLATFORM).mk
+$(BIN): $(EXTERN_OBJS) $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile ../../BuildConf/$(ARCH)/Makefile.cfg ../../BuildConf/$(ARCH)/$(PLATFORM).mk
 	@echo --- LD -o $(BIN)
-	@$(LD) $(LDFLAGS) -o $(BIN) $(OBJ) $(MODS) $(LIBGCC_PATH) --defsym __buildnum=$$(( $(BUILD_NUM) + 1 )) -Map ../Map.$(ARCH).txt
+	@$(LD) $(LDFLAGS) -o $(BIN) $(OBJ) $(MODS) $(EXTERN_OBJS) $(LIBGCC_PATH) --defsym __buildnum=$$(( $(BUILD_NUM) + 1 )) -Map ../Map.$(ARCH).txt
 	@$(DISASM) -S $(BIN) > $(BIN).dsm
 	@echo BUILD_NUM = $$(( $(BUILD_NUM) + 1 )) > Makefile.BuildNum.$(ARCH)
 	$(POSTBUILD)

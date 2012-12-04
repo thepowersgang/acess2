@@ -22,7 +22,7 @@ struct sockaddr_in
 
 // getsockopt/setsockopt(level)
 enum {
-	IPPROTO_IP,
+	IPPROTO_IP = 1,
 	IPPROTO_ICMP,
 	IPPROTO_TCP,
 	IPPROTO_UDP

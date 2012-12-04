@@ -17,9 +17,11 @@ typedef enum
 {
 	AF_UNSPEC	= 0,
 	AF_PACKET	= 1,
+	AF_LOCAL 	= 2,
 	AF_INET 	= 4,
 	AF_INET6	= 6,
 } sa_family_t;
+#define AF_UNIX	AF_LOCAL
 
 struct sockaddr
 {
@@ -71,12 +73,27 @@ enum eSocketTypes
  */
 enum eSocketDomains
 {
+	PF_UNSPEC,
 	PF_LOCAL,	//!< Machine-local comms
 	PF_INET,	//!< IPv4
 	PF_INET6,	//!< IPv6
 	PF_PACKET	//!< Low level packet interface
 };
 #define PF_UNIX	PF_LOCAL
+
+// getsockopt/setsockopt level
+enum
+{
+	SOL_SOCKET
+};
+
+
+// SOL_SOCKET getsockopt/setsockopt names
+enum
+{
+	SO_REUSEADDR,
+	SO_LINGER
+};
 
 /**
  * \brief Create a new socket descriptor
@@ -111,6 +128,9 @@ extern int	send(int sockfd, void *buffer, size_t length, int flags);
 
 extern int	setsockopt(int socket, int level, int option_name, const void *option_value, socklen_t option_len);
 extern int	getsockopt(int socket, int level, int option_name, void *option_value, socklen_t *option_len);
+
+extern int	getsockname(int socket, struct sockaddr *addr, socklen_t *addrlen);
+extern int	getpeername(int socket, struct sockaddr *addr, socklen_t *addrlen);
 
 #endif
 

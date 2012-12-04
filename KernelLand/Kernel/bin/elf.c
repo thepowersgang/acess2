@@ -29,7 +29,7 @@ static int	GetSymbol(const char *Name, void **Value, size_t *Size) {
 }
 #define AddLoaded(a,b)	do{}while(0)
 #define LoadLibrary(a,b,c)	(Log_Debug("ELF", "Module requested lib '%s'",a),0)
-#define SysSetMemFlags(ad,f,m)	do{}while(0)
+#define _SysSetMemFlags(ad,f,m)	do{}while(0)
 #include "../../../Usermode/Libraries/ld-acess.so_src/elf.c"
 // ---- / ----
 

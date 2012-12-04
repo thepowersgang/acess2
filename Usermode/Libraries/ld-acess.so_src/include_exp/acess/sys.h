@@ -5,7 +5,8 @@
 #define _ACESS_SYS_H_
 
 #include <stdint.h>
-#include "../sys/types.h"
+#include <stddef.h>	// size_t
+#include "syscall_types.h"
 
 // === CONSTANTS ===
 #ifndef NULL
@@ -19,6 +20,7 @@
 #define OPENFLAG_EXEC	0x01
 #define OPENFLAG_READ	0x02
 #define OPENFLAG_WRITE	0x04
+#define OPENFLAG_RDWR	(OPENFLAG_READ|OPENFLAG_WRITE)
 #define OPENFLAG_TRUNCATE	0x10
 #define OPENFLAG_APPEND	0x20
 #define	OPENFLAG_NOLINK	0x40
@@ -41,21 +43,19 @@ extern int	_errno;
 extern void	_SysDebug(const char *format, ...);
 // --- Proc ---
 extern void	_exit(int status)	__attribute__((noreturn));
-extern void	sleep(void);
-extern void	yield(void);
-extern int	kill(int pid, int sig);
-//extern void	wait(int miliseconds);
+extern int	_SysKill(int pid, int sig);
 extern int	_SysWaitEvent(int EventMask);
-extern int	waittid(int id, int *status);
-extern int	clone(int flags, void *stack);
-extern int	execve(char *path, char **argv, char **envp);
+extern int	_SysWaitTID(int id, int *status);
+extern int	_SysClone(int flags, void *stack);
+extern int	_SysExecVE(const char *path, char **argv, char **envp);
 extern int	_SysSpawn(const char *Path, const char **argv, const char **envp, int nFDs, int *FDs, struct s_sys_spawninfo *info);
 extern int	gettid(void);
 extern int	getpid(void);
 extern int	_SysSetFaultHandler(int (*Handler)(int));
-extern void	SysSetName(const char *Name);
-extern int	SysGetName(char *NameDest);
-extern int	SysSetPri(int Priority);
+extern void	_SysSetName(const char *Name);
+extern int	_SysGetName(char *NameDest);
+extern int	_SysSetPri(int Priority);
+// --- Timekeeping ---
 extern int64_t	_SysTimestamp(void);
 
 // --- Permissions ---
@@ -65,31 +65,39 @@ extern void	setuid(int id);
 extern void	setgid(int id);
 
 // --- VFS ---
-extern int	chdir(const char *dir);
-extern int	open(const char *path, int flags, ...);
-extern int	reopen(int fd, const char *path, int flags);
-extern int	close(int fd);
-extern uint	read(int fd, void *buffer, uint length);
-extern uint	write(int fd, const void *buffer, uint length);
-extern int	seek(int fd, int64_t offset, int whence);
-extern uint64_t	tell(int fd);
-extern int	ioctl(int fd, int id, void *data);
-extern int	finfo(int fd, t_sysFInfo *info, int maxacls);
-extern int	SysReadDir(int fd, char *dest);
+extern int	_SysChdir(const char *dir);
+extern int	_SysChroot(const char *dir);
+
+extern int	_SysOpen(const char *path, int flags, ...);
 extern int	_SysOpenChild(int fd, const char *name, int flags);
+extern int	_SysOpenPipe(int *read, int *write, int flags);
+extern int	_SysReopen(int fd, const char *path, int flags);
+extern int	_SysCopyFD(int srcfd, int dstfd);
+extern size_t	_SysRead(int fd, void *buffer, size_t length);
+extern int	_SysClose(int fd);
+extern int	_SysFDCtl(int fd, int option, ...);
+extern size_t	_SysWrite(int fd, const void *buffer, size_t length);
+extern int	_SysSeek(int fd, int64_t offset, int whence);
+extern uint64_t	_SysTell(int fd);
+extern int	_SysIOCtl(int fd, int id, void *data);
+extern int	_SysFInfo(int fd, t_sysFInfo *info, int maxacls);
+extern int	_SysReadDir(int fd, char *dest);
 extern int	_SysGetACL(int fd, t_sysACL *dest);
 extern int	_SysMount(const char *Device, const char *Directory, const char *Type, const char *Options);
 extern int	_SysSelect(int nfds, fd_set *read, fd_set *write, fd_set *err, int64_t *timeout, unsigned int extraevents);
 #define select(nfs, rdfds, wrfds, erfds, timeout)	_SysSelect(nfs, rdfds, wrfds, erfds, timeout, 0)
-extern int	unlink(const char *pathname);
+extern int	_SysUnlink(const char *pathname);
 
 // --- IPC ---
-extern int	SysSendMessage(pid_t dest, uint length, const void *Data);
-extern int	SysGetMessage(pid_t *src, uint buflen, void *Data);
+extern int	_SysSendMessage(int dest, size_t length, const void *Data);
+extern int	_SysGetMessage(int *src, size_t buflen, void *Data);
 
 // --- MEMORY ---
-uint64_t	_SysGetPhys(uint vaddr);
-uint64_t	_SysAllocate(uint vaddr);
-uint32_t	SysSetMemFlags(uint vaddr, uint32_t flags, uint32_t mask);
+extern uint64_t	_SysGetPhys(uintptr_t vaddr);
+extern uint64_t	_SysAllocate(uintptr_t vaddr);
+extern uint32_t	_SysSetMemFlags(uintptr_t vaddr, uint32_t flags, uint32_t mask);
+extern void	*_SysLoadBin(const char *path, void **entry);
+extern int	_SysUnloadBin(void *base);
+extern void	SysSetFaultHandler(int (*Hanlder)(int));
 
 #endif

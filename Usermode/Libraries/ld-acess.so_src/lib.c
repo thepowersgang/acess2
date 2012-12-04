@@ -73,10 +73,9 @@ void *memcpy(void *dest, const void *src, size_t len)
 int file_exists(const char *filename)
 {
 	 int	fd;
-	//fd = open(filename, OPENFLAG_READ);
-	fd = open(filename, 0);
+	fd = _SysOpen(filename, 0);
 	if(fd == -1)	return 0;
-	close(fd);
+	_SysClose(fd);
 	return 1;
 }
 

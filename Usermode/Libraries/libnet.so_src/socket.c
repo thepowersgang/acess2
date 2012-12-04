@@ -26,14 +26,14 @@ int Net_OpenSocket(int AddrType, void *Addr, const char *Filename)
 		char	path[len+1];
 		snprintf(path, 100, "/Devices/ip/routes/@%i:%s/%s", AddrType, hexAddr, Filename);
 		_SysDebug("%s", path);
-		return open(path, OPENFLAG_READ|OPENFLAG_WRITE);
+		return _SysOpen(path, OPENFLAG_READ|OPENFLAG_WRITE);
 	}
 	else
 	{
 		 int	len = snprintf(NULL, 100, "/Devices/ip/routes/@%i:%s", AddrType, hexAddr);
 		char	path[len+1];
 		snprintf(path, 100, "/Devices/ip/routes/@%i:%s", AddrType, hexAddr);
-		return open(path, OPENFLAG_READ);
+		return _SysOpen(path, OPENFLAG_READ);
 	}
 }
 
@@ -42,9 +42,9 @@ int Net_OpenSocket_TCPC(int AddrType, void *Addr, int Port)
 	int fd = Net_OpenSocket(AddrType, Addr, "tcpc");
 	if( fd == -1 )	return -1;
 	
-	ioctl(fd, 5, &Port);	// Remote Port
-        ioctl(fd, 6, Addr);	// Remote address
-	ioctl(fd, 7, NULL);	// connect
+	_SysIOCtl(fd, 5, &Port);	// Remote Port
+        _SysIOCtl(fd, 6, Addr);	// Remote address
+	_SysIOCtl(fd, 7, NULL);	// connect
 	return fd;
 }
 

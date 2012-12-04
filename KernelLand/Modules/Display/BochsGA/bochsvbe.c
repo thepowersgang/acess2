@@ -219,6 +219,10 @@ int BGA_IOCtl(tVFS_Node *Node, int ID, void *Data)
 				gBGA_CursorPos.x, gBGA_CursorPos.y
 				);
 		break;
+
+	case VIDEO_IOCTL_SETCURSORBITMAP:
+		DrvUtil_Video_SetCursor( &gBGA_DrvUtil_BufInfo, Data );
+		return 0;
 	
 	default:
 		LEAVE('i', -2);

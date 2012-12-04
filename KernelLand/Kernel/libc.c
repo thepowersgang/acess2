@@ -15,6 +15,10 @@
 #define	RANDOM_SPRUCE	0xf12b039
 
 // === PROTOTYPES ===
+unsigned long long	strtoull(const char *str, char **end, int base);
+unsigned long	strtoul(const char *str, char **end, int base);
+signed long long	strtoll(const char *str, char **end, int base);
+signed long	strtol(const char *str, char **end, int base);
 #if 0
  int	atoi(const char *string);
  int	ParseInt(const char *string, int *Val);
@@ -67,15 +71,10 @@ EXPORT(CheckString);
 EXPORT(CheckMem);
 
 // === CODE ===
-/**
- * \brief Convert a string into an integer
- */
-int atoi(const char *string)
-{
-	int ret = 0;
-	ParseInt(string, &ret);
-	return ret;
-}
+// - Import userland stroi.c file
+#define _LIB_H_
+#include "../../Usermode/Libraries/libc.so_src/strtoi.c"
+
 int ParseInt(const char *string, int *Val)
 {
 	 int	ret = 0;
@@ -363,7 +362,7 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 			if(!p)		p = "(null)";
 			len = strlen(p);
 			if( !bPadLeft )	while(len++ < minSize)	PUTCH(pad);
-			while(*p && precision--)	PUTCH(*p++);
+			while(*p && precision--) { PUTCH(*p); p++;} 
 			if( bPadLeft )	while(len++ < minSize)	PUTCH(pad);
 			break;
 		
@@ -371,7 +370,10 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 			p = va_arg(args, char*);
 			if( !CheckMem(p, minSize) )	continue;	// No #PFs please
 			if(!p)	goto printString;
-			while(minSize--)	PUTCH(*p++);
+			while(minSize--) {
+				PUTCH(*p);
+				p ++;
+			}
 			break;
 		
 		// Single Character

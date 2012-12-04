@@ -133,18 +133,31 @@ void Decorator_Redraw(tWindow *Window)
 
 int Decorator_HandleMessage(tWindow *Window, int Message, int Length, const void *Data)
 {
+	static tWindow	*btn1_down;
 	switch(Message)
 	{
 	case WNDMSG_MOUSEMOVE: {
 		const struct sWndMsg_MouseMove	*msg = Data;
+
+		if( btn1_down == Window ) {
+			WM_MoveWindow(Window, Window->X + msg->dX, Window->Y + msg->dY);
+			return 0;
+		}
+
 		if(msg->Y >= 0)	return 1;	// Pass
-		
+
 		// TODO: Handle
 		return 0; }
 	case WNDMSG_MOUSEBTN: {
 		const struct sWndMsg_MouseButton	*msg = Data;
+		if( msg->Button == 0 && !msg->bPressed )
+			btn1_down = 0;		
+
 		if(msg->Y >= 0)	return 1;	// Pass
-		
+	
+		if( msg->Button == 0 && msg->bPressed )
+			btn1_down = Window;
+
 		// TODO: Handle
 		return 0; }
 	default:	// Anything unhandled is passed on
