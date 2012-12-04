@@ -8,21 +8,6 @@ extern int	_errno;
 
 #define strerror(_x)	"Unimplemented"
 
-enum
-{
-	EOK,
-	EINVAL,
-	ERANGE,
-	ENODEV,
-	EBADF,
-	EINTR,
-	EAGAIN,
-	ENOMEM,
-
-	EADDRNOTAVAIL,
-	EINPROGRESS,
-
-	E_LAST
-};
+#include "errno.enum.h"
 
 #endif

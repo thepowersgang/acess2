@@ -47,7 +47,7 @@ ifneq ($(_OBJPREFIX),)
 	@mkdir -p $(dir $@)
 endif
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
-	@$(CC) -M -MT $@ $(CPPFLAGS) $< -o $(_OBJPREFIX)$*.dep
+	@$(CC) -M -MP -MT $@ $(CPPFLAGS) $< -o $(_OBJPREFIX)$*.dep
 
 $(OUTPUTDIR)Libs/libld-acess.so:
 	@make -C $(ACESSDIR)/Usermode/Libraries/ld-acess.so_src/

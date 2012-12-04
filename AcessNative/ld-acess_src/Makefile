@@ -11,10 +11,11 @@ OBJ := $(addprefix obj-$(PLATFORM)/,$(OBJ))
 
 ifeq ($(PLATFORM),win)
 	BIN := ../ld-acess.exe
+	LDFLAGS += -lws2_32
 endif
 ifeq ($(PLATFORM),lin)
 	BIN := ../ld-acess
-	LINKADDR := 0x200000
+	LINKADDR := 0x70000000
 #	LD += -m elf_i386
 endif
 
@@ -35,7 +36,8 @@ clean:
 	$(RM) $(BIN) $(OBJ) $(DEPFILES) obj-$(PLATFORM)/link.ld
 
 $(BIN): obj-$(PLATFORM)/link.ld $(OBJ)
-	$(CC) $(LDFLAGS) -o $@ $(OBJ)
+	$(CC) -o $@ $(OBJ) $(LDFLAGS)
+	objdump -S $@ > $@.dsm
 
 obj-$(PLATFORM)/%.o: %.c
 	@mkdir -p $(dir $@)
@@ -44,10 +46,16 @@ obj-$(PLATFORM)/%.o: %.c
 	@$(CC) -M $(CPPFLAGS) -MT $@ -o $@.dep $<
 
 # Modify the default makefile to put the executable at 1MB instead
-obj-lin/link.ld:
+obj-lin/link.ld: Makefile
 	@mkdir -p $(dir $@)
 	@echo "Making Linker Script ($@)"
-	$(LD) --verbose | awk '{ if( substr($$0,0,5) == "====="){ bPrint = !bPrint; } else { if(bPrint){ print $$0;} } }' | sed 's/\b0x[048][0-9]*\b/$(LINKADDR)/g' | sed 's/CONSTANT (MAXPAGESIZE)/0x1000/g' > $@
+	$(LD) -g --verbose | awk '{ if( substr($$1,0,5) == "====="){ bPrint = !bPrint; } else { if(bPrint){ print $$0;} } }' | sed 's/\b0x[048][0-9]*\b/$(LINKADDR)/g' | sed 's/CONSTANT (MAXPAGESIZE)/0x1000/g' > $@
+
+# Modify the default makefile to put the executable at 1MB instead
+obj-win/link.ld: Makefile
+	@mkdir -p $(dir $@)
+	@echo "Making Linker Script ($@)"
+	$(LD) -g --verbose | awk '{ if( substr($$1,0,5) == "====="){ bPrint = !bPrint; } else { if(bPrint){ print $$0;} } }' | sed 's/\b0x[048][0-9]*\b/$(LINKADDR)/g' | sed 's/CONSTANT (MAXPAGESIZE)/0x1000/g' > $@
 
 -include $(DEPFILES)
 

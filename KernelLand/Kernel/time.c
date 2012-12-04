@@ -8,19 +8,11 @@
 #define DEBUG	0
 #include <acess.h>
 #include <timers.h>
+#include <timers_int.h>
 #include <events.h>
 #include <hal_proc.h>	// Proc_GetCurThread
 #include <workqueue.h>
-
-// === TYPEDEFS ===
-struct sTimer {
-	tTimer	*Next;
-	Sint64	FiresAfter;
-	void	(*Callback)(void*);
-	void	*Argument;
-//	tMutex	Lock;
-	BOOL	bActive;
-};
+#include <threads_int.h>	// Used to get thread timer
 
 // === PROTOTYPES ===
 void	Timer_CallbackThread(void *Unused);
@@ -240,11 +232,10 @@ void Time_FreeTimer(tTimer *Timer)
  */
 void Time_Delay(int Delay)
 {
-	tTimer	*t;
-	t = Time_AllocateTimer(NULL, NULL);
+	tTimer	*t = &Proc_GetCurThread()->ThreadTimer;
+	Time_InitTimer(t, NULL, NULL);
 	Time_ScheduleTimer(t, Delay);
 	Threads_WaitEvents(THREAD_EVENT_TIMER);
-	Time_FreeTimer(t);
 }
 
 // === EXPORTS ===

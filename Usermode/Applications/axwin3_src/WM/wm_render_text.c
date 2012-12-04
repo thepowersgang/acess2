@@ -9,6 +9,7 @@
 #include <wm_internals.h>
 #include <stdlib.h>
 #include <utf8.h>
+#include <limits.h>	// INT_MAX
 
 // === TYPES ===
 typedef struct sGlyph	tGlyph;

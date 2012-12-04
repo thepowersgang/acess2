@@ -11,6 +11,7 @@ int _errno;
 #define SYSCALL5(name,num)	void name(void){}
 #define SYSCALL6(name,num)	void name(void){}
 
+#define NO_SYSCALL_STRS
 #include "arch/syscalls.s.h"
 
 // libgcc functions

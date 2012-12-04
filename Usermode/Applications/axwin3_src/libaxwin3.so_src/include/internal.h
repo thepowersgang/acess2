@@ -22,6 +22,8 @@ struct sAxWin3_Window
 
 extern void	*AxWin3_int_GetDataPtr(tHWND Window);
 extern uint32_t	AxWin3_int_GetWindowID(tHWND Window);
+extern void	AxWin3_SendIPC(tHWND Window, int Message, size_t Length, const void *Data);
+extern void	*AxWin3_WaitIPCMessage(tHWND Window, int Message, size_t *Length);
 
 #endif
 

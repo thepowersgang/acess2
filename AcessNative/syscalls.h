@@ -14,16 +14,22 @@
  * uint8_t	paramData[SUM(params[].Lengh)];
  */
 
+typedef struct {
+	uint32_t	pid;
+	uint32_t	key;
+} tRequestAuthHdr;
+
 typedef struct sRequestValue {
 	/// \see eArgumentTypes
 	uint16_t	Type;
 	uint16_t	Flags;
-	uint16_t	Length;
+	uint32_t	Length;
 }	tRequestValue;
 
 typedef struct sRequestHeader {
 	uint16_t	ClientID;
 	uint16_t	CallID;	//!< \see eSyscalls
+	uint32_t	MessageLength;
 	uint16_t	NParams;
 	
 	tRequestValue	Params[];
@@ -61,6 +67,7 @@ enum eSyscalls {
 	// IPC
 	SYS_SLEEP,
 	SYS_AN_FORK,
+	SYS_AN_SPAWN,
 	SYS_SENDMSG,
 	SYS_GETMSG,
 	SYS_SELECT,

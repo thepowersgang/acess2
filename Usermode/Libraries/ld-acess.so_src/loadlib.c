@@ -4,6 +4,7 @@
 */
 #include "common.h"
 #include <stdint.h>
+#include <acess/sys.h>
 
 #define DEBUG	0
 
@@ -15,7 +16,6 @@
 
 // === PROTOTYPES ===
 void	*IsFileLoaded(const char *file);
- int	GetSymbolFromBase(void *base, const char *name, void **ret, size_t *size);
 
 // === IMPORTS ===
 extern const struct {
@@ -78,7 +78,7 @@ void *LoadLibrary(const char *SoName, const char *SearchDir, char **envp)
 
 	DEBUGS(" LoadLibrary: SysLoadBin()");	
 	// Load Library
-	base = SysLoadBin(filename, (void**)&fEntry);
+	base = _SysLoadBin(filename, (void**)&fEntry);
 	if(!base) {
 		DEBUGS("LoadLibrary: RETURN 0");
 		return 0;
@@ -88,6 +88,9 @@ void *LoadLibrary(const char *SoName, const char *SearchDir, char **envp)
 	
 	// Load Symbols
 	fEntry = DoRelocate( base, envp, filename );
+	if( !fEntry ) {
+		return 0;
+	}
 	
 	// Call Entrypoint
 	DEBUGS(" LoadLibrary: '%s' Entry %p", SoName, fEntry);
@@ -170,7 +173,7 @@ void Unload(void *Base)
 	if(id == MAX_LOADED_LIBRARIES)	return;
 	
 	// Unload Binary
-	SysUnloadBin( Base );
+	_SysUnloadBin( Base );
 	// Save String Pointer
 	str = gLoadedLibraries[id].Name;
 	
@@ -198,26 +201,31 @@ void Unload(void *Base)
  \fn Uint GetSymbol(const char *name)
  \brief Gets a symbol value from a loaded library
 */
-void *GetSymbol(const char *name, size_t *Size)
+int GetSymbol(const char *name, void **Value, size_t *Size)
 {
 	 int	i;
-	void	*ret;
 	
 	//SysDebug("ciNumLocalExports = %i", ciNumLocalExports);
 	for(i=0;i<ciNumLocalExports;i++)
 	{
-		if( strcmp(caLocalExports[i].Name, name) == 0 )
-			return caLocalExports[i].Value;
+		if( strcmp(caLocalExports[i].Name, name) == 0 ) {
+			*Value = caLocalExports[i].Value;
+			if(Size)
+				*Size = 0;
+			return 1;
+		}
 	}
 	
 	// Entry 0 is ld-acess, ignore it
 	for(i = 1; i < MAX_LOADED_LIBRARIES; i ++)
 	{
-		if(gLoadedLibraries[i].Base == 0)	break;
+		if(gLoadedLibraries[i].Base == 0)
+			break;
 		
 		//SysDebug(" GetSymbol: Trying 0x%x, '%s'",
 		//	gLoadedLibraries[i].Base, gLoadedLibraries[i].Name);
-		if(GetSymbolFromBase(gLoadedLibraries[i].Base, name, &ret, Size))	return ret;
+		if(GetSymbolFromBase(gLoadedLibraries[i].Base, name, Value, Size))
+			return 1;
 	}
 	SysDebug("GetSymbol: === Symbol '%s' not found ===", name);
 	return 0;

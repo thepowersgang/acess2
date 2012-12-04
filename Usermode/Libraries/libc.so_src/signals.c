@@ -2,7 +2,7 @@
  * AcessOS Basic C Library
  * signals.c
 */
-#include <syscalls.h>
+//#include <acess/sys.h>
 #include <stdlib.h>
 #include <signal.h>
 #include "lib.h"
@@ -21,4 +21,23 @@ sighandler_t signal(int num, sighandler_t handler)
 	prev = sighandlers[num];
 	sighandlers[num] = handler;
 	return prev;
+}
+
+int raise(int signal)
+{
+	if( signal < 0 || signal > NUM_SIGNALS )
+		return 1;
+	switch(signal)
+	{
+	case SIGABRT:
+		abort();
+		break;
+	}
+	return 0;
+}
+
+void abort(void)
+{
+	// raise(SIGABRT);
+	_exit(-1);
 }

@@ -255,7 +255,11 @@ size_t UDP_Channel_Write(tVFS_Node *Node, off_t Offset, size_t Length, const voi
 	const tUDPEndpoint	*ep;
 	const void	*data;
 	 int	ofs;
-	if(chan->LocalPort == 0)	return 0;
+	
+	if(chan->LocalPort == 0) {
+		Log_Notice("UDP", "Write to channel %p with zero local port", chan);
+		return 0;
+	}
 	
 	ep = Buffer;	
 	ofs = 2 + 2 + IPStack_GetAddressSize( ep->AddrType );

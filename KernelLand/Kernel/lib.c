@@ -180,7 +180,7 @@ int ReadUTF8(const Uint8 *str, Uint32 *Val)
 	}
 	
 	// Four Byte
-	if( (*str & 0xF1) == 0xF0 ) {
+	if( (*str & 0xF8) == 0xF0 ) {
 		outval = (*str & 0x07) << 18;	// Upper 3 Bits
 		str ++;
 		if( (*str & 0xC0) != 0x80)	return 2;	// Validity check
@@ -287,22 +287,22 @@ Sint64 timestamp(int sec, int min, int hrs, int day, int month, int year)
 	return stamp * 1000;
 }
 
+static Sint64 DivMod64(Sint64 N, Sint64 D, Sint64 *R);
+	
+static Sint64 DivMod64(Sint64 N, Sint64 D, Sint64 *R)
+{
+	int sign = (N < 0) != (D < 0);
+	if(N < 0)	N = -N;
+	if(D < 0)	D = -D;
+	if(sign)
+		return -DivMod64U(N, D, (Uint64*)R);
+	else
+		return DivMod64U(N, D, (Uint64*)R);
+}
+
 void format_date(tTime TS, int *year, int *month, int *day, int *hrs, int *mins, int *sec, int *ms)
 {
 	 int	is_leap = 0, i;
-
-	auto Sint64 DivMod64(Sint64 N, Sint64 D, Sint64 *R);
-	
-	Sint64 DivMod64(Sint64 N, Sint64 D, Sint64 *R)
-	{
-		int sign = (N < 0) != (D < 0);
-		if(N < 0)	N = -N;
-		if(D < 0)	D = -D;
-		if(sign)
-			return -DivMod64U(N, D, (Uint64*)R);
-		else
-			return DivMod64U(N, D, (Uint64*)R);
-	}
 
 	// Get time
 	// TODO: Leap-seconds?

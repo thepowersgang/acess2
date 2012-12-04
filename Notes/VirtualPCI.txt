@@ -1,0 +1,5 @@
+Rationale:
+- Provides a method for ARM SoCs to use existing device drivers (e.g. USB ECHI) with minimal modifcation.
+
+Method possibilities
+# Hook in Kernel/drv/pci.c that enumerates the virtual bus using a fixed format.

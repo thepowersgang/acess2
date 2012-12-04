@@ -13,7 +13,8 @@
 #include <stdio.h>
 #include <wm.h>
 #include <wm_internals.h>
-#include <wm_hotkeys.h>
+#include <wm_hotkeys.h>	// Hotkey registration
+#include <wm_renderer.h>	// Renderer IPC messages
 
 #define AXWIN_PORT	4101
 
@@ -75,11 +76,11 @@ void IPC_Init(void)
 {
 	 int	tmp;
 	// TODO: Check this
-	giNetworkFileHandle = open("/Devices/ip/loop/udp", OPENFLAG_READ);
+	giNetworkFileHandle = _SysOpen("/Devices/ip/loop/udp", OPENFLAG_READ);
 	if( giNetworkFileHandle != -1 )
 	{
 		tmp = AXWIN_PORT;
-		ioctl(giNetworkFileHandle, 4, &tmp);	// TODO: Don't hard-code IOCtl number
+		_SysIOCtl(giNetworkFileHandle, 4, &tmp);	// TODO: Don't hard-code IOCtl number
 	}
 }
 
@@ -102,7 +103,7 @@ void IPC_HandleSelect(fd_set *set)
 			 int	readlen, identlen;
 			char	*msg;
 	
-			readlen = read(giNetworkFileHandle, staticBuf, sizeof(staticBuf));
+			readlen = _SysRead(giNetworkFileHandle, staticBuf, sizeof(staticBuf));
 			
 			identlen = 4 + Net_GetAddressSize( ((uint16_t*)staticBuf)[1] );
 			msg = staticBuf + identlen;
@@ -112,12 +113,12 @@ void IPC_HandleSelect(fd_set *set)
 		}
 	}
 
-	while(SysGetMessage(NULL, NULL))
+	size_t	len;
+	int	tid;
+	while( (len = _SysGetMessage(&tid, 0, NULL)) )
 	{
-		pid_t	tid;
-		 int	len = SysGetMessage(&tid, NULL);
 		char	data[len];
-		SysGetMessage(NULL, data);
+		_SysGetMessage(NULL, len, data);
 
 		IPC_Handle(&gIPC_Type_SysMessage, &tid, len, (void*)data);
 //		_SysDebug("IPC_HandleSelect: Message handled");
@@ -144,7 +145,7 @@ void IPC_Type_Datagram_Send(const void *Ident, size_t Length, const void *Data)
 	memcpy(tmpbuf, Ident, identlen);	// Header
 	memcpy(tmpbuf + identlen, Data, Length);	// Data
 	// TODO: Handle fragmented packets
-	write(giNetworkFileHandle, tmpbuf, sizeof(tmpbuf));
+	_SysWrite(giNetworkFileHandle, tmpbuf, sizeof(tmpbuf));
 }
 
 int IPC_Type_Sys_GetSize(const void *Ident)
@@ -159,7 +160,7 @@ int IPC_Type_Sys_Compare(const void *Ident1, const void *Ident2)
 
 void IPC_Type_Sys_Send(const void *Ident, size_t Length, const void *Data)
 {
-	SysSendMessage( *(const tid_t*)Ident, Length, Data );
+	_SysSendMessage( *(const tid_t*)Ident, Length, Data );
 }
 
 // --- Client -> Window Mappings
@@ -244,7 +245,6 @@ tWindow *IPC_int_GetWindow(tIPC_Client *Client, uint32_t WindowID)
 		return NULL;
 
 	if( WindowID >= Client->nWindows ) {
-//		_SysDebug("Window %i out of range for %p (%i)", WindowID, Client, Client->nWindows);
 		return NULL;
 	}
 
@@ -540,8 +540,8 @@ void IPC_Handle(const tIPC_Type *IPCType, const void *Ident, size_t MsgLen, tAxW
 	tIPC_Client	*client;
 	 int	rv = 0;
 	
-	_SysDebug("IPC_Handle: (IPCType=%p, Ident=%p, MsgLen=%i, Msg=%p)",
-		IPCType, Ident, MsgLen, Msg);
+//	_SysDebug("IPC_Handle: (IPCType=%p, Ident=%p, MsgLen=%i, Msg=%p)",
+//		IPCType, Ident, MsgLen, Msg);
 	
 	if( MsgLen < sizeof(tAxWin_IPCMessage) )
 		return ;
@@ -549,25 +549,53 @@ void IPC_Handle(const tIPC_Type *IPCType, const void *Ident, size_t MsgLen, tAxW
 		return ;
 	
 	client = IPC_int_GetClient(IPCType, Ident);
-
-	if( Msg->ID >= giIPC_NumMessageHandlers ) {
-		fprintf(stderr, "WARNING: Unknown message %i (%p)\n", Msg->ID, IPCType);
-		_SysDebug("WARNING: Unknown message %i (%p)", Msg->ID, IPCType);
-		return ;
+	if( !client ) {
+		// Oops?
 	}
 	
-	if( !gIPC_MessageHandlers[ Msg->ID ] ) {
-		fprintf(stderr, "WARNING: Message %i does not have a handler\n", Msg->ID);
-		_SysDebug("WARNING: Message %i does not have a handler", Msg->ID);
-		return ;
+	if( Msg->Flags & IPCMSG_FLAG_RENDERER )
+	{
+		tWindow *win = IPC_int_GetWindow(client, Msg->Window);
+		if( !win ) {
+			_SysDebug("WARNING: NULL window in message %i", Msg->ID);
+			return ;
+		}
+		tWMRenderer	*renderer = win->Renderer;
+		if( Msg->ID >= renderer->nIPCHandlers ) {
+			_SysDebug("WARNING: Message %i out of range in %s", Msg->ID, renderer->Name);
+			return ;
+		}
+		if( !renderer->IPCHandlers[Msg->ID] ) {
+			_SysDebug("WARNING: Message %i has no handler in %s", Msg->ID, renderer->Name);
+			return ;
+		}
+		_SysDebug("IPC_Handle: Call %s-%i", renderer->Name, Msg->ID);
+		rv = renderer->IPCHandlers[Msg->ID](win, Msg->Size, Msg->Data);
+		if( rv )
+			_SysDebug("IPC_Handle: rv != 0 (%i)", rv);
 	}
-
-	_SysDebug("IPC_Handle: Msg->ID = %i", Msg->ID);
-	rv = gIPC_MessageHandlers[Msg->ID](client, Msg);
-	_SysDebug("IPC_Handle: rv = %i", rv);
+	else
+	{
+		if( Msg->ID >= giIPC_NumMessageHandlers ) {
+			fprintf(stderr, "WARNING: Unknown message %i (%p)\n", Msg->ID, IPCType);
+			_SysDebug("WARNING: Unknown message %i (%p)", Msg->ID, IPCType);
+			return ;
+		}
+		
+		if( !gIPC_MessageHandlers[ Msg->ID ] ) {
+			fprintf(stderr, "WARNING: Message %i does not have a handler\n", Msg->ID);
+			_SysDebug("WARNING: Message %i does not have a handler", Msg->ID);
+			return ;
+		}
+	
+		_SysDebug("IPC_Handle: Call WM-%i", Msg->ID);
+		rv = gIPC_MessageHandlers[Msg->ID](client, Msg);
+		if( rv )
+			_SysDebug("IPC_Handle: rv != 0 (%i)", rv);
+	}
 }
 
-// --- Server->Client replies
+// Dispatch a message to the client
 void IPC_SendWMMessage(tIPC_Client *Client, uint32_t Src, uint32_t Dst, int MsgID, int Len, void *Data)
 {
 	tAxWin_IPCMessage	*hdr;
@@ -587,6 +615,23 @@ void IPC_SendWMMessage(tIPC_Client *Client, uint32_t Src, uint32_t Dst, int MsgI
 	msg->Length = Len;
 	memcpy(msg->Data, Data, Len);
 	
+	Client->IPCType->SendMessage(Client->Ident, sizeof(buf), buf);
+}
+
+// --- Server->Client replies
+void IPC_SendReply(tIPC_Client *Client, uint32_t WinID, int MsgID, size_t Len, const void *Data)
+{
+	tAxWin_IPCMessage	*hdr;
+	char	buf[sizeof(*hdr)+Len];
+	
+	hdr = (void*)buf;
+	
+	hdr->ID = MsgID;
+	hdr->Flags = IPCMSG_FLAG_RENDERER;
+	hdr->Size = Len;
+	hdr->Window = WinID;
+	
+	memcpy(hdr->Data, Data, Len);
 	Client->IPCType->SendMessage(Client->Ident, sizeof(buf), buf);
 }
 

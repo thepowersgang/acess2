@@ -194,12 +194,21 @@ DataAbort:
 @	cpsid ifa, #19
 	PUSH_GPRS
 
+	@ Get the user's LR value (and push to stack)
+	cps #31	@ Go to system mode
+	mov r1, lr
+	cps #19	@ Go to supervisor
+	mov r0, lr
+	cps #23	@ back to exception
+	push {r0,r1}
+	
 	mov r3, #0	@ not a prefetch abort
 	mrc p15, 0, r2, c5, c0, 0	@ Read DFSR (Data Fault Status Register) to R2
 	mrc p15, 0, r1, c6, c0, 0	@ Read DFAR (Data Fault Address Register) into R1
 	mov r0, lr	@ PC
 	ldr r4, =MM_PageFault
 	blx r4
+	add sp, #8	@ Undo push of the user/system LR
 
 	POP_GPRS
 	rfeia sp!	@ Pop state (actually RFEFD)
@@ -211,17 +220,24 @@ PrefetchAbort:
 @	cpsid ifa, #19
 	PUSH_GPRS
 
-	ldr r0, =csAbort_Tag
-	ldr r1, =csPrefetchAbort_Fmt
-#	mov r2, lr
-	mrc p15, 0, r2, c6, c0, 2	@ Read IFAR (Instruction Fault Address Register) into R3
-	mrc p15, 0, r3, c5, c0, 1	@ Read IFSR (Instruction Fault Status Register) into R3
-	ldr r5, =Log_Error
-	blx r5
 
-.loop:
-	wfi
-	b .loop
+	@ Get the user's LR value (and push to stack)
+	cps #31	@ Go to system mode
+	mov r0, lr
+	cps #23	@ back to supervisor
+	push {r0}
+	
+	mrc p15, 0, r2, c5, c0, 1	@ Read IFSR (Instruction Fault Status Register) into R3
+	mrc p15, 0, r1, c6, c0, 2	@ Read IFAR (Instruction Fault Address Register) into R3
+	mov r0, r1
+	mov r3, #1	@ IS a prefetch abort
+	ldr r4, =MM_PageFault
+	blx r4
+	add sp, #4	@ Undo push of the user LR
+
+	POP_GPRS
+	rfeia sp!	@ Pop state (actually RFEFD)
+
 .globl Undef_Handler
 Undef_Handler:
 	wfi
@@ -238,7 +254,7 @@ csIRQ_Fmt:
 csDataAbort_Fmt:
 	.asciz "Data Abort - %p accessed %p, DFSR=%x Unk:%x Unk:%x"
 csPrefetchAbort_Fmt:
-	.asciz "Prefetch Abort at %p, IFSR=%x"
+	.asciz "Prefetch Abort at %p, IFSR=%x, UserLR:0x%x"
 csSyscallPrintRetAddr:
 	.asciz "Syscall ret to %p"
 

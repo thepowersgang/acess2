@@ -15,6 +15,10 @@
 #define	RANDOM_SPRUCE	0xf12b039
 
 // === PROTOTYPES ===
+unsigned long long	strtoull(const char *str, char **end, int base);
+unsigned long	strtoul(const char *str, char **end, int base);
+signed long long	strtoll(const char *str, char **end, int base);
+signed long	strtol(const char *str, char **end, int base);
 #if 0
  int	atoi(const char *string);
  int	ParseInt(const char *string, int *Val);
@@ -67,15 +71,10 @@ EXPORT(CheckString);
 EXPORT(CheckMem);
 
 // === CODE ===
-/**
- * \brief Convert a string into an integer
- */
-int atoi(const char *string)
-{
-	int ret = 0;
-	ParseInt(string, &ret);
-	return ret;
-}
+// - Import userland stroi.c file
+#define _LIB_H_
+#include "../../Usermode/Libraries/libc.so_src/strtoi.c"
+
 int ParseInt(const char *string, int *Val)
 {
 	 int	ret = 0;
@@ -184,7 +183,14 @@ void itoa(char *buf, Uint64 num, int base, int minLength, char pad)
 /**
  * \brief Append a character the the vsnprintf output
  */
-#define PUTCH(c)	_putch(c)
+#define PUTCH(ch)	do { \
+		if(pos < __maxlen) { \
+			if(__s) __s[pos] = ch; \
+		} else { \
+			(void)ch;\
+		} \
+		pos ++; \
+	} while(0)
 #define GETVAL()	do {\
 	if(isLongLong)	val = va_arg(args, Uint64);\
 	else	val = va_arg(args, unsigned int);\
@@ -203,17 +209,6 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 	size_t	pos = 0;
 	// Flags
 	 int	bPadLeft = 0;
-	
-	auto void _putch(char ch);
-
-	void _putch(char ch)
-	{
-		if(pos < __maxlen)
-		{
-			if(__s) __s[pos] = ch;
-		}
-		pos ++;
-	}
 
 	while((c = *__format++) != 0)
 	{
@@ -230,8 +225,14 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		if(c == 'p') {
 			Uint	ptr = va_arg(args, Uint);
 			PUTCH('*');	PUTCH('0');	PUTCH('x');
-			for( len = BITS/4; len --; )
-				PUTCH( cUCDIGITS[ (ptr>>(len*4))&15 ] );
+			for( len = BITS/4; len -- && ((ptr>>(len*4))&15) == 0; )
+				;
+			len ++;
+			if( len == 0 )
+				PUTCH( '0' );
+			else
+				while( len -- )
+					PUTCH( cUCDIGITS[ (ptr>>(len*4))&15 ] );
 			continue ;
 		}
 		
@@ -361,7 +362,7 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 			if(!p)		p = "(null)";
 			len = strlen(p);
 			if( !bPadLeft )	while(len++ < minSize)	PUTCH(pad);
-			while(*p && precision--)	PUTCH(*p++);
+			while(*p && precision--) { PUTCH(*p); p++;} 
 			if( bPadLeft )	while(len++ < minSize)	PUTCH(pad);
 			break;
 		
@@ -369,7 +370,10 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 			p = va_arg(args, char*);
 			if( !CheckMem(p, minSize) )	continue;	// No #PFs please
 			if(!p)	goto printString;
-			while(minSize--)	PUTCH(*p++);
+			while(minSize--) {
+				PUTCH(*p);
+				p ++;
+			}
 			break;
 		
 		// Single Character
@@ -742,7 +746,8 @@ void *memmove(void *__dest, const void *__src, size_t len)
 	
 }
 
-// NOTE: Strictly not libc, but lib.c is used by userland code too
+// NOTE: Strictly not libc, but lib.c is used by userland code too and hence these two
+// can't be in it.
 /**
  * \name Memory Validation
  * \{

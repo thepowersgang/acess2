@@ -8,27 +8,22 @@
 #ifndef _WIDGET_MESSAGES_H_
 #define _WIDGET_MESSAGES_H_
 
-enum
+enum eWidgetIPCCalls
 {
 	// Control (Client->Server) messages
-	MSG_WIDGET_CREATE = 0x1000,
-	MSG_WIDGET_DELETE,
-	MSG_WIDGET_SETFOCUS,
-	MSG_WIDGET_SETFLAGS,
-	MSG_WIDGET_SETSIZE,
-	MSG_WIDGET_SETTEXT,
-	MSG_WIDGET_SETCOLOUR,
+	IPC_WIDGET_CREATE,
+	IPC_WIDGET_CREATESUBWIN,
+	IPC_WIDGET_DELETE,
+	IPC_WIDGET_SETFOCUS,
+	IPC_WIDGET_SETFLAGS,
+	IPC_WIDGET_SETSIZE,
+	IPC_WIDGET_SETTEXT,
+	IPC_WIDGET_SETCOLOUR,
 	
-
-	// Request (Client->Server->Client) messages
-	MSG_WIDGET_GETTEXT,
-
-	// Event (Server->Client) messages
-	MSG_WIDGET_FIRE,
-	MSG_WIDGET_KEYPRESS,
-	MSG_WIDGET_MOUSEBTN,
+	IPC_WIDGET_GETTEXT,
+	
+	N_IPC_WIDGET
 };
-
 
 typedef struct
 {
@@ -37,43 +32,63 @@ typedef struct
 	uint32_t	Type;
 	uint32_t	Flags;
 	char	DebugName[];
-} tWidgetMsg_Create;
+} tWidgetIPC_Create;
+
+typedef struct
+{
+	uint32_t	Parent;
+	uint32_t	NewID;
+	uint32_t	Type;
+	uint32_t	Flags;
+	uint32_t	WindowHandle;
+	char	DebugName[];
+} tWidgetIPC_CreateSubWin;
 
 typedef struct
 {
 	uint32_t	WidgetID;
-} tWidgetMsg_Delete;
+} tWidgetIPC_Delete;
 
 typedef struct
 {
 	uint32_t	WidgetID;
-} tWidgetMsg_SetFocus;
+} tWidgetIPC_SetFocus;
 
 typedef struct
 {
 	uint32_t	WidgetID;
 	uint32_t	Value;
 	uint32_t	Mask;
-} tWidgetMsg_SetFlags;
+} tWidgetIPC_SetFlags;
 
 typedef struct
 {
 	uint32_t	WidgetID;
 	uint32_t	Value;
-} tWidgetMsg_SetSize;
+} tWidgetIPC_SetSize;
 
 typedef struct
 {
 	uint32_t	WidgetID;
 	char	Text[];
-} tWidgetMsg_SetText;
+} tWidgetIPC_SetText;
 
 typedef struct
 {
 	uint32_t	WidgetID;
 	uint32_t	Index;
 	uint32_t	Colour;
-} tWidgetMsg_SetColour;
+} tWidgetIPC_SetColour;
+
+enum eWidgetMessages
+{
+	// Event (Server->Client) messages
+	MSG_WIDGET_FIRE = 0x1000,
+	MSG_WIDGET_KEYPRESS,
+	MSG_WIDGET_MOUSEBTN,
+};
+
+
 
 typedef struct
 {

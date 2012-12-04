@@ -42,27 +42,30 @@
 #define SYS_SETGID	42	// Set current Group ID
 #define SYS_OPEN	64	// Open a file
 #define SYS_REOPEN	65	// Close a file and reuse its handle
-#define SYS_CLOSE	66	// Close a file
-#define SYS_READ	67	// Read from an open file
-#define SYS_WRITE	68	// Write to an open file
-#define SYS_IOCTL	69	// Perform an IOCtl Call
-#define SYS_SEEK	70	// Seek to a new position in the file
-#define SYS_READDIR	71	// Read from an open directory
-#define SYS_OPENCHILD	72	// Open a child entry in a directory
-#define SYS_GETACL	73	// Get an ACL Value
-#define SYS_SETACL	74	// Set an ACL Value
-#define SYS_FINFO	75	// Get file information
-#define SYS_MKDIR	76	// Create a new directory
-#define SYS_LINK	77	// Create a new link to a file
-#define SYS_SYMLINK	78	// Create a symbolic link
-#define SYS_UNLINK	79	// Delete a file
-#define SYS_TELL	80	// Return the current file position
-#define SYS_CHDIR	81	// Change current directory
-#define SYS_GETCWD	82	// Get current directory
-#define SYS_MOUNT	83	// Mount a filesystem
-#define SYS_SELECT	84	// Wait for file handles
+#define SYS_OPENCHILD	66	// Open a child entry in a directory
+#define SYS_OPENPIPE	67	// Open a FIFO pipe pair
+#define SYS_CLOSE	68	// Close a file
+#define SYS_COPYFD	69	// Create a copy of a file handle
+#define SYS_FDCTL	70	// Modify properties of a file descriptor
+#define SYS_READ	71	// Read from an open file
+#define SYS_WRITE	72	// Write to an open file
+#define SYS_IOCTL	73	// Perform an IOCtl Call
+#define SYS_SEEK	74	// Seek to a new position in the file
+#define SYS_READDIR	75	// Read from an open directory
+#define SYS_GETACL	76	// Get an ACL Value
+#define SYS_SETACL	77	// Set an ACL Value
+#define SYS_FINFO	78	// Get file information
+#define SYS_MKDIR	79	// Create a new directory
+#define SYS_LINK	80	// Create a new link to a file
+#define SYS_SYMLINK	81	// Create a symbolic link
+#define SYS_UNLINK	82	// Delete a file
+#define SYS_TELL	83	// Return the current file position
+#define SYS_CHDIR	84	// Change current directory
+#define SYS_GETCWD	85	// Get current directory
+#define SYS_MOUNT	86	// Mount a filesystem
+#define SYS_SELECT	87	// Wait for file handles
 
-#define NUM_SYSCALLS	85
+#define NUM_SYSCALLS	88
 #define SYS_DEBUG	0x100
 
 #ifndef __ASSEMBLER__
@@ -133,13 +136,16 @@ static const char *cSYSCALL_NAMES[] = {
 	"",
 	"SYS_OPEN",
 	"SYS_REOPEN",
+	"SYS_OPENCHILD",
+	"SYS_OPENPIPE",
 	"SYS_CLOSE",
+	"SYS_COPYFD",
+	"SYS_FDCTL",
 	"SYS_READ",
 	"SYS_WRITE",
 	"SYS_IOCTL",
 	"SYS_SEEK",
 	"SYS_READDIR",
-	"SYS_OPENCHILD",
 	"SYS_GETACL",
 	"SYS_SETACL",
 	"SYS_FINFO",

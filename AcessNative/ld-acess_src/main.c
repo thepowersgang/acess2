@@ -137,7 +137,8 @@ void Notice(const char *Format, ...)
 void Debug(const char *Format, ...)
 {
 	va_list	args;
-	printf("[DEBUG  %i] ", giSyscall_ClientID);
+	printf("[DEBUG ");
+	printf("%2i] ", giSyscall_ClientID);
 	va_start(args, Format);
 	vprintf(Format, args);
 	va_end(args);

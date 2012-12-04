@@ -14,12 +14,15 @@ extern Uint32	__divmod32_asm(Uint32 Num, Uint32 Den, Uint32 *Rem);
 // === PROTOTYPES ===
 Uint64	__divmod64(Uint64 Num, Uint64 Den, Uint64 *Rem);
 Uint32	__divmod32(Uint32 Num, Uint32 Den, Uint32 *Rem);
+#if 0
 Uint64	__udivdi3(Uint64 Num, Uint64 Den);
 Uint64	__umoddi3(Uint64 Num, Uint64 Den);
 Uint32	__udivsi3(Uint32 Num, Uint32 Den);
 Uint32	__umodsi3(Uint32 Num, Uint32 Den);
 Sint32	__divsi3(Sint32 Num, Sint32 Den);
 Sint32	__modsi3(Sint32 Num, Sint32 Den);
+#endif
+void	abort(void);
 
 // === CODE ===
 void *memcpy(void *_dest, const void *_src, size_t _length)
@@ -100,7 +103,7 @@ void *memset(void *_dest, int _value, size_t _length)
 	val32 |= val32 << 16;
 	
 	// Force alignment
-	while( (tVAddr)dst8 & 3 ) *dst8 ++ = _value;
+	while( (tVAddr)dst8 & 3 ) *dst8 ++ = _value, _length --;
 	dst = (void *)dst8;
 
 	// DWORD copies
@@ -160,6 +163,7 @@ Uint64 DivMod64U(Uint64 Num, Uint64 Den, Uint64 *Rem)
 	return ret;
 }
 
+#if 0
 // Unsigned Divide 64-bit Integer
 Uint64 __udivdi3(Uint64 Num, Uint64 Den)
 {
@@ -214,4 +218,10 @@ Sint32 __modsi3(Sint32 Num, Sint32 Den)
 	Sint32	rem;
 	DivMod32S(Num, Den, &rem);
 	return rem;
+}
+#endif
+
+void abort(void)
+{
+	for(;;);
 }

@@ -9,18 +9,19 @@
  * \brief Acess2 Kernel API Core
  */
 
-//! NULL Pointer
-#define NULL	((void*)0)
+#include <stddef.h>
+#include <arch.h>
+
 //! Pack a structure
 #define PACKED	__attribute__((packed))
 //! Mark a function as not returning
 #define NORETURN	__attribute__((noreturn))
+//! Mark a function that its return value should be used
+#define WARN_UNUSED_RET	__attribute__((warn_unused_result))
 //! Mark a function (or variable) as deprecated
 #define DEPRECATED	__attribute__((deprecated))
 //! Mark a parameter as unused
 #define UNUSED(x)	UNUSED_##x __attribute__((unused))
-//! Get the offset of a member in a structure
-#define offsetof(st, m) ((Uint)((char *)&((st *)(0))->m - (char *)0 ))
 
 /**
  * \name Boolean constants
@@ -32,7 +33,6 @@
  * \}
  */
 
-#include <arch.h>
 #include <stdarg.h>
 #include "errno.h"
 
@@ -142,60 +142,7 @@ extern void	IRQ_RemHandler(int Handle);
  * \}
  */
 
-// --- Logging ---
-/**
- * \name Logging to kernel ring buffer
- * \{
- */
-extern void	Log_KernelPanic(const char *Ident, const char *Message, ...);
-extern void	Log_Panic(const char *Ident, const char *Message, ...);
-extern void	Log_Error(const char *Ident, const char *Message, ...);
-extern void	Log_Warning(const char *Ident, const char *Message, ...);
-extern void	Log_Notice(const char *Ident, const char *Message, ...);
-extern void	Log_Log(const char *Ident, const char *Message, ...);
-extern void	Log_Debug(const char *Ident, const char *Message, ...);
-/**
- * \}
- */
-
-// --- Debug ---
-/**
- * \name Debugging and Errors
- * \{
- */
-extern void	Debug_KernelPanic(void);	//!< Initiate a kernel panic
-extern void	Panic(const char *Msg, ...);	//!< Print a panic message (initiates a kernel panic)
-extern void	Warning(const char *Msg, ...);	//!< Print a warning message
-extern void	LogF(const char *Fmt, ...);	//!< Print a log message without a trailing newline
-extern void	Log(const char *Fmt, ...);	//!< Print a log message
-extern void	Debug(const char *Fmt, ...);	//!< Print a debug message (doesn't go to KTerm)
-extern void	LogV(const char *Fmt, va_list Args);	//!< va_list Log message
-extern void	Debug_Enter(const char *FuncName, const char *ArgTypes, ...);
-extern void	Debug_Log(const char *FuncName, const char *Fmt, ...);
-extern void	Debug_Leave(const char *FuncName, char RetType, ...);
-extern void	Debug_HexDump(const char *Header, const void *Data, Uint Length);
-#define UNIMPLEMENTED()	Warning("'%s' unimplemented", __func__)
-#if DEBUG
-# define ENTER(_types...)	Debug_Enter((char*)__func__, _types)
-# define LOG(_fmt...)	Debug_Log((char*)__func__, _fmt)
-# define LEAVE(_t...)	Debug_Leave((char*)__func__, _t)
-# define LEAVE_RET(_t,_v...)	do{LEAVE(_t,_v);return _v;}while(0)
-# define LEAVE_RET0()	do{LEAVE('-');return;}while(0)
-#else
-# define ENTER(...)
-# define LOG(...)
-# define LEAVE(...)
-# define LEAVE_RET(_t,_v...)	return (_v)
-# define LEAVE_RET0()	return
-#endif
-#if SANITY
-# define ASSERT(expr) do{if(!(expr))Panic("%s:%i - %s: Assertion '"#expr"' failed",__FILE__,__LINE__,(char*)__func__);}while(0)
-#else
-# define ASSERT(expr)
-#endif
-/**
- * \}
- */
+#include "logdebug.h"
 
 // --- IO ---
 #if NO_IO_BUS
@@ -507,7 +454,7 @@ extern Sint64	now(void);
  * \name Threads and Processes
  * \{
  */
-extern int	Proc_SpawnWorker(void (*Fcn)(void*), void *Data);
+extern struct sThread	*Proc_SpawnWorker(void (*Fcn)(void*), void *Data);
 extern int	Proc_Spawn(const char *Path);
 extern int	Proc_SysSpawn(const char *Binary, const char **ArgV, const char **EnvP, int nFD, int *FDs);
 extern int	Proc_Execve(const char *File, const char **ArgV, const char **EnvP, int DataSize);

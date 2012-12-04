@@ -5,43 +5,26 @@
  * threads.c
  * - Thread and process handling
  */
-#define _SIGNAL_H_	// Stop the acess signal.h being used
-#define _HEAP_H_	// Stop heap.h being imported (collides with stdlib heap)
-#define _VFS_EXT_H	// Stop vfs_ext.h being imported (collides with fd_set)
 
-#define off_t	_acess_off_t
 #include <arch.h>
-#undef NULL	// Remove acess definition
 #include <acess.h>
 #include <mutex.h>
-#include <semaphore.h>
+#include "../../KernelLand/Kernel/include/semaphore.h"
+typedef signed long long int	time_t;
+#include "../../Usermode/Libraries/ld-acess.so_src/include_exp/acess/syscall_types.h"
+#include <rwlock.h>
 #include <events.h>
 #include <threads_int.h>
-
-#undef CLONE_VM	// Such a hack
-#undef off_t	
-
-// - Native headers
-#include <unistd.h>
-#include <sys/types.h>
-#include <stdint.h>
-#include "/usr/include/signal.h"
-#include <SDL/SDL.h>
+#include <limits.h>
+#include "include/threads_glue.h"
 
 #define THREAD_EVENT_WAKEUP	0x80000000
 
 // === IMPORTS ===
-void	VFS_CloneHandleList(int PID);
+extern void	VFS_CloneHandleList(int PID);
+extern void	VFS_CloneHandlesFromList(int PID, int nFD, int FDs[]);
 
 // === STRUCTURES ===
-#if 0
-typedef struct sState
-{
-	void	*CurState;
-	Uint	SP, BP, IP;
-}	tState;
-#endif
-
 // === PROTOTYPES ===
  int	Threads_Wake(tThread *Thread);
 
@@ -118,7 +101,7 @@ tThread *Threads_CloneTCB(tThread *TemplateThread)
 	ret->TID = giThreads_NextThreadID ++;
 	
 	ret->ThreadName = strdup(TemplateThread->ThreadName);
-	ret->EventSem = SDL_CreateSemaphore(0);
+	Threads_Glue_SemInit( &ret->EventSem, 0 );
 	
 	ret->WaitingThreads = NULL;
 	ret->WaitingThreadsEnd = NULL;
@@ -219,7 +202,7 @@ tTID Threads_WaitTID(int TID, int *Status)
 void Threads_Sleep(void)
 {
 	// TODO: Add to a sleeping queue
-	pause();
+	//pause();
 }
 
 void Threads_Yield(void)
@@ -240,7 +223,7 @@ void Threads_Exit(int TID, int Status)
 	{
 		// Wait for the thread to be waited upon
 		while( gpCurrentThread->WaitingThreads == NULL )
-			SDL_Delay(10);
+			Threads_Glue_Yield();
 	}
 	#endif
 	
@@ -251,7 +234,7 @@ void Threads_Exit(int TID, int Status)
 		Threads_Wake(toWake);
 		
 		while(gpCurrentThread->WaitingThreads == toWake)
-			SDL_Delay(10);
+			Threads_Glue_Yield();
 	}
 }
 
@@ -284,10 +267,31 @@ int Threads_Fork(void)
 {
 	tThread	*thread = Threads_CloneTCB(gpCurrentThread);
 	thread->PID = thread->TID;
+
 	// Duplicate the VFS handles (and nodes) from vfs_handle.c
-	
 	VFS_CloneHandleList(thread->PID);
 	
+	return thread->PID;
+}
+
+int Threads_Spawn(int nFD, int FDs[], struct s_sys_spawninfo *info)
+{
+	tThread	*thread = Threads_CloneTCB(gpCurrentThread);
+	thread->PID = thread->TID;
+	if( info )
+	{
+		// TODO: PGID?
+		//if( info->flags & SPAWNFLAG_NEWPGID )
+		//	thread->PGID = thread->PID;
+		if( info->gid && thread->UID == 0 )
+			thread->GID = info->gid;
+		if( info->uid && thread->UID == 0 )	// last because ->UID is used above
+			thread->UID = info->uid;
+	}
+	
+	VFS_CloneHandlesFromList(thread->PID, nFD, FDs);
+
+	Log_Debug("Threads", "_spawn: %i", thread->PID);
 	return thread->PID;
 }
 
@@ -296,17 +300,13 @@ int Threads_Fork(void)
 // --------------------------------------------------------------------
 int Mutex_Acquire(tMutex *Mutex)
 {
-	if(!Mutex->Protector.IsValid) {
-		pthread_mutex_init( &Mutex->Protector.Mutex, NULL );
-		Mutex->Protector.IsValid = 1;
-	}
-	pthread_mutex_lock( &Mutex->Protector.Mutex );
+	Threads_Glue_AcquireMutex(&Mutex->Protector.Mutex);
 	return 0;
 }
 
 void Mutex_Release(tMutex *Mutex)
 {
-	pthread_mutex_unlock( &Mutex->Protector.Mutex );
+	Threads_Glue_ReleaseMutex(&Mutex->Protector.Mutex);
 }
 
 // --------------------------------------------------------------------
@@ -316,21 +316,17 @@ void Semaphore_Init(tSemaphore *Sem, int InitValue, int MaxValue, const char *Mo
 {
 	memset(Sem, 0, sizeof(tSemaphore));
 	// HACK: Use `Sem->Protector` as space for the semaphore pointer
-	*(void**)(&Sem->Protector) = SDL_CreateSemaphore(InitValue);
+	Threads_Glue_SemInit( &Sem->Protector.Mutex, InitValue );
 }
 
 int Semaphore_Wait(tSemaphore *Sem, int MaxToTake)
 {
-	SDL_SemWait( *(void**)(&Sem->Protector) );
-	return 1;
+	return Threads_Glue_SemWait( Sem->Protector.Mutex, MaxToTake );
 }
 
 int Semaphore_Signal(tSemaphore *Sem, int AmmountToAdd)
 {
-	 int	i;
-	for( i = 0; i < AmmountToAdd; i ++ )
-		SDL_SemPost( *(void**)(&Sem->Protector) );
-	return AmmountToAdd;
+	return Threads_Glue_SemSignal( Sem->Protector.Mutex, AmmountToAdd );
 }
 
 // --------------------------------------------------------------------
@@ -340,27 +336,33 @@ Uint32 Threads_WaitEvents(Uint32 Mask)
 {
 	Uint32	rv;
 
-	Log_Debug("Threads", "Mask = %x, ->Events = %x", Mask, gpCurrentThread->Events);	
+	//Log_Debug("Threads", "Mask = %x, ->Events = %x", Mask, gpCurrentThread->Events);	
 
 	gpCurrentThread->WaitMask = Mask;
 	if( !(gpCurrentThread->Events & Mask) )
 	{
-		SDL_SemWait( gpCurrentThread->EventSem );
+		if( Threads_Glue_SemWait(gpCurrentThread->EventSem, INT_MAX) == -1 ) {
+			Log_Warning("Threads", "Wait on eventsem of %p, %p failed",
+				gpCurrentThread, gpCurrentThread->EventSem);
+		}
+		//Log_Debug("Threads", "Woken from nap (%i here)", SDL_SemValue(gpCurrentThread->EventSem));
 	}
 	rv = gpCurrentThread->Events & Mask;
 	gpCurrentThread->Events &= ~Mask;
 	gpCurrentThread->WaitMask = -1;
-	
+
+	//Log_Debug("Threads", "- rv = %x", rv);
+
 	return rv;
 }
 
 void Threads_PostEvent(tThread *Thread, Uint32 Events)
 {
 	Thread->Events |= Events;
-	Log_Debug("Threads", "Trigger event %x (->Events = %p)", Events, Thread->Events);
-	
-	if( Thread->WaitMask & Events ) {
-		SDL_SemPost( Thread->EventSem );
+//	Log_Debug("Threads", "Trigger event %x (->Events = %p) on %p", Events, Thread->Events, Thread);
+
+	if( Events == 0 || Thread->WaitMask & Events ) {
+		Threads_Glue_SemSignal( Thread->EventSem, 1 );
 //		Log_Debug("Threads", "Waking %p(%i %s)", Thread, Thread->TID, Thread->ThreadName);
 	}
 }

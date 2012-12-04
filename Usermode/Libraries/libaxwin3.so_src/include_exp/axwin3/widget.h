@@ -26,6 +26,7 @@ extern tAxWin3_Widget	*AxWin3_Widget_GetRoot(tHWND Window);
 
 // --- Element Creation
 extern tAxWin3_Widget	*AxWin3_Widget_AddWidget(tAxWin3_Widget *Parent, int Type, int Flags, const char *DebugName);
+extern tAxWin3_Widget	*AxWin3_Widget_AddWidget_SubWindow(tAxWin3_Widget *Parent, tHWND Window, int Flags, const char *DebugName);
 extern void	AxWin3_Widget_DelWidget(tAxWin3_Widget *Widget);
 
 // --- Callbacks

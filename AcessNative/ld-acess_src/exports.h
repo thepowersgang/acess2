@@ -8,6 +8,8 @@
 #ifndef _EXPORTS_H_
 #define _EXPORTS_H_
 
+#include <stddef.h>
+
 // Syscall request (used by acess_*)
 extern uint64_t	_Syscall(int SyscallID, const char *ArgTypes, ...);
 
@@ -18,7 +20,8 @@ extern size_t	native_write(int FD, const void *Src, size_t Bytes);
 extern int	native_seek(int FD, int64_t Offset, int Dir);
 extern uint64_t	native_tell(int FD);
 
-extern int	native_execve(const char *filename, char *const argv[], char *const envp[]);
+extern int	native_execve(const char *filename, const char *const argv[], const char *const envp[]);
+extern int	native_spawn(const char *filename, const char *const argv[], const char *const envp[]);
 
 // Syscalls used by the linker
 extern int	acess_open(const char *Path, int Flags);

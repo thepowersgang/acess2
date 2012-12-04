@@ -52,9 +52,17 @@ struct sWMRenderer
 	 * \return Boolean failure (0: Handled, 1: Unhandled)
 	 */
 	 int	(*HandleMessage)(tWindow *Window, int MessageID, int Length, const void *Data);
+	
+	 int	nIPCHandlers;
+	
+	/**
+	 * \brief IPC Message handler
+	 */
+	 int	(*IPCHandlers[])(tWindow *Window, size_t Length, const void *Data);
 };
 
 extern void	WM_RegisterRenderer(tWMRenderer *Renderer);
 extern tWindow	*WM_CreateWindowStruct(size_t ExtraBytes);
+extern int	WM_SendIPCReply(tWindow *Window, int Message, size_t Length, const void *Data);
 
 #endif

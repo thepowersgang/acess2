@@ -1,5 +1,9 @@
 /*
- * Internal Threading header
+ * Acess2 Kernel
+ * - By John Hodge (thePowersGang)
+ *
+ * include/threads_int.h
+ * - Internal Threading header
  * - Only for use by stuff that needs access to the thread type.
  */
 #ifndef _THREADS_INT_H_
@@ -7,6 +11,7 @@
 
 #include <threads.h>
 #include <proc.h>
+#include <timers_int.h>
 
 typedef struct sProcess	tProcess;
 
@@ -92,10 +97,12 @@ struct sThread
 	
 	// --- event.c
 	Uint32	EventState;
+	// --- timer.c
+	tTimer	ThreadTimer;
 };
 
 
-enum {
+enum eThreadStatus {
 	THREAD_STAT_NULL,	// Invalid process
 	THREAD_STAT_ACTIVE,	// Running and schedulable process
 	THREAD_STAT_SLEEPING,	// Message Sleep

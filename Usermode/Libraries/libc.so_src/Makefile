@@ -4,13 +4,14 @@
 -include ../Makefile.cfg
 
 CPPFLAGS += 
-CFLAGS   += 
+CFLAGS   += -Werror -Wextra
 ASFLAGS  +=
-LDFLAGS  += -soname libc.so -Map map.txt -lgcc
+LDFLAGS  += -soname libc.so -Map map.txt
 
 INCFILES := stdio.h stdlib.h
 
-OBJ  = stub.o heap.o stdlib.o env.o fileIO.o string.o select.o rand.o
+OBJ  = stub.o heap.o stdlib.o env.o stdio.o string.o select.o rand.o
+OBJ += perror.o scanf.o signals.o strtoi.o
 OBJ += arch/$(ARCHDIR).ao
 # signals.o
 DEPFILES := $(OBJ:%.o=%.d)

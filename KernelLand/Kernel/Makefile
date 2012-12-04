@@ -29,6 +29,7 @@ CFLAGS  	+= -Wall -fno-stack-protector -Wstrict-prototypes -std=gnu99 -g
 CFLAGS  	+= -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings -Wmissing-prototypes -Wmissing-declarations -Wredundant-decls -Wnested-externs -Winline -Wuninitialized
 CFLAGS          += -O3
 LDFLAGS		+= -T arch/$(ARCHDIR)/link.ld -g
+LIBGCC_PATH     := $(shell $(CC) -print-libgcc-file-name)
 
 ifeq ($(PLATFORM),default)
 	OBJDIR := obj-$(ARCH)/
@@ -56,7 +57,7 @@ OBJ += heap.o logging.o debug.o lib.o libc.o adt.o time.o
 OBJ += drvutil_video.o drvutil_disk.o
 OBJ += messages.o modules.o syscalls.o system.o
 OBJ += threads.o mutex.o semaphore.o workqueue.o events.o rwlock.o
-OBJ += drv/zero-one.o drv/proc.o drv/fifo.o drv/iocache.o drv/pci.o
+OBJ += drv/zero-one.o drv/proc.o drv/fifo.o drv/iocache.o drv/pci.o drv/vpci.o
 OBJ += drv/vterm.o drv/vterm_font.o drv/vterm_vt100.o drv/vterm_output.o drv/vterm_input.o drv/vterm_termbuf.o
 OBJ += binary.o bin/elf.o bin/pe.o
 OBJ += vfs/main.o vfs/open.o vfs/acls.o vfs/dir.o vfs/io.o vfs/mount.o
@@ -84,6 +85,10 @@ clean:
 	@$(RM) $(BIN) ../Acess2.$(ARCH).gz $(BIN).dsm ../Map.$(ARCH).txt LineCounts.$(ARCH).txt
 	@$(RM) -r $(OBJDIR) $(OBJ) $(DEPFILES) $(BUILDINFO_SRC)
 
+# Lower to avoid taking default target from 'all'
+-include $(addprefix ../../Externals/,$(addsuffix /Makefile.kinc, $(EXTERNS)))
+
+
 # Creates a stripped and compressed copy of the kernel
 # and installs it to the target
 install: $(BIN) 
@@ -98,14 +103,14 @@ apidoc:
 # - Disassembles it
 # - Increments the build count
 # - Does whatever architecture defined rules
-$(BIN): $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile ../../BuildConf/$(ARCH)/Makefile.cfg ../../BuildConf/$(ARCH)/$(PLATFORM).mk
+$(BIN): $(EXTERN_OBJS) $(OBJ) $(MODS) arch/$(ARCHDIR)/link.ld Makefile ../../BuildConf/$(ARCH)/Makefile.cfg ../../BuildConf/$(ARCH)/$(PLATFORM).mk
 	@echo --- LD -o $(BIN)
-	@$(LD) $(LDFLAGS) -o $(BIN) $(OBJ) $(MODS) $(LIBGCC_PATH) --defsym __buildnum=$$(( $(BUILD_NUM) + 1 )) -Map ../Map.$(ARCH).txt
+	@$(LD) $(LDFLAGS) -o $(BIN) $(OBJ) $(MODS) $(EXTERN_OBJS) $(LIBGCC_PATH) --defsym __buildnum=$$(( $(BUILD_NUM) + 1 )) -Map ../Map.$(ARCH).txt
 	@$(DISASM) -S $(BIN) > $(BIN).dsm
 	@echo BUILD_NUM = $$(( $(BUILD_NUM) + 1 )) > Makefile.BuildNum.$(ARCH)
 	$(POSTBUILD)
 	@cp $(BIN) $(BIN)_
-	@-$(STRIP) $(BIN)_
+	@$(STRIP) $(BIN)_ || true
 	@gzip -c $(BIN)_ > $(GZBIN)
 	@$(RM) $(BIN)_
 

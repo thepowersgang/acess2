@@ -50,7 +50,11 @@ struct sUSBHostDef
 	tUSBBulkOp	SendBulk;
 	void	(*FreeOp)(void *Ptr, void *Handle);
 
+	// Root hub stuff
 	void	(*CheckPorts)(void *Ptr);
+	void	(*SetPortFeature)(void *Ptr, int PortNum, int Feat);
+	void	(*ClearPortFeature)(void *Ptr, int PortNum, int Feat);
+	 int	(*GetPortStatus)(void *Ptr, int PortNum, int Flag);
 };
 
 extern tUSBHub	*USB_RegisterHost(tUSBHostDef *HostDef, void *ControllerPtr, int nPorts);

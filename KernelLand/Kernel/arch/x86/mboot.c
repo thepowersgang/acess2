@@ -5,7 +5,7 @@
  * mboot.c
  * - Multiboot Support
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <acess.h>
 #include <mboot.h>
 
@@ -19,51 +19,90 @@ int Multiboot_LoadMemoryMap(tMBoot_Info *MBInfo, tVAddr MapOffset, tPMemMapEnt *
 	ENTER("pMBInfo pMapOffset pMap iMapSize PKStart PKEnd",
 		MBInfo, MapOffset, Map, MapSize, KStart, KEnd);
 
-	// Build up memory map
-	nPMemMapEnts = 0;
-	while( ent < last && nPMemMapEnts < MapSize )
+	// Check that the memory map is present
+	if( MBInfo->Flags & (1 << 6) )
 	{
-		tPMemMapEnt	*nent = &Map[nPMemMapEnts];
-		nent->Start = ent->Base;
-		nent->Length = ent->Length;
-		switch(ent->Type)
+		// Build up memory map
+		nPMemMapEnts = 0;
+		while( ent < last && nPMemMapEnts < MapSize )
 		{
-		case 1:
-			nent->Type = PMEMTYPE_FREE;
-			break;
-		default:
-			nent->Type = PMEMTYPE_RESERVED;
-			break;
+			tPMemMapEnt	*nent = &Map[nPMemMapEnts];
+			if( !MM_GetPhysAddr(ent) )
+				Log_KernelPanic("MBoot", "MBoot Map entry %i addres bad (%p)",
+					nPMemMapEnts, ent);
+			LOG("%llx+%llx", ent->Base, ent->Length);
+	
+			nent->Start = ent->Base;
+			nent->Length = ent->Length;
+			switch(ent->Type)
+			{
+			case 1:
+				nent->Type = PMEMTYPE_FREE;
+				break;
+			default:
+				nent->Type = PMEMTYPE_RESERVED;
+				break;
+			}
+			nent->NUMADomain = 0;
+			
+			nPMemMapEnts ++;
+			ent = (void*)( (tVAddr)ent + ent->Size + 4 );
 		}
-		nent->NUMADomain = 0;
-		
-		nPMemMapEnts ++;
-		ent = (void*)( (tVAddr)ent + ent->Size + 4 );
+	}
+	else if( MBInfo->Flags & (1 << 0) )
+	{
+		Log_Warning("MBoot", "No memory map passed, using mem_lower and mem_upper");
+		nPMemMapEnts = 2;
+		Map[0].Start = 0;
+		Map[0].Length = MBInfo->LowMem * 1024;
+		Map[0].Type = PMEMTYPE_FREE;
+		Map[0].NUMADomain = 0;
+
+		Map[1].Start = 0x100000;
+		Map[1].Length = MBInfo->HighMem * 1024;
+		Map[1].Type = PMEMTYPE_FREE;
+		Map[1].NUMADomain = 0;
+	}
+	else
+	{
+		Log_KernelPanic("MBoot", "Multiboot didn't pass memory information");
 	}
 
 	// Ensure it's valid
+	LOG("Validating");
 	nPMemMapEnts = PMemMap_ValidateMap(Map, nPMemMapEnts, MapSize);
 	// TODO: Error handling
 
 	// Replace kernel with PMEMTYPE_USED
+	LOG("Marking kernel");
 	nPMemMapEnts = PMemMap_MarkRangeUsed(
 		Map, nPMemMapEnts, MapSize,
 		KStart, KEnd - KStart
 		);
 
-	// Replace modules with PMEMTYPE_USED
-	nPMemMapEnts = PMemMap_MarkRangeUsed(Map, nPMemMapEnts, MapSize,
-		MBInfo->Modules, MBInfo->ModuleCount*sizeof(tMBoot_Module)
-		);
-	tMBoot_Module *mods = (void*)( (tVAddr)MBInfo->Modules + MapOffset);
-	for( int i = 0; i < MBInfo->ModuleCount; i ++ )
+	LOG("Dumping");
+	PMemMap_DumpBlocks(Map, nPMemMapEnts);
+
+	// Check if boot modules were passed
+	if( MBInfo->Flags & (1 << 3) )
 	{
-		nPMemMapEnts = PMemMap_MarkRangeUsed(
-			Map, nPMemMapEnts, MapSize,
-			mods->Start, mods->End - mods->Start
+		// Replace modules with PMEMTYPE_USED
+		nPMemMapEnts = PMemMap_MarkRangeUsed(Map, nPMemMapEnts, MapSize,
+			MBInfo->Modules, MBInfo->ModuleCount*sizeof(tMBoot_Module)
 			);
+		LOG("MBInfo->Modules = %x", MBInfo->Modules);
+		tMBoot_Module *mods = (void*)( (tVAddr)MBInfo->Modules + MapOffset);
+		for( int i = 0; i < MBInfo->ModuleCount; i ++ )
+		{
+			LOG("&mods[%i] = %p", i, &mods[i]);
+			LOG("mods[i] = {0x%x -> 0x%x}", mods[i].Start, mods[i].End);
+			nPMemMapEnts = PMemMap_MarkRangeUsed(
+				Map, nPMemMapEnts, MapSize,
+				mods[i].Start, mods[i].End - mods[i].Start
+				);
+		}
 	}
-	
+		
 	// Debug - Output map
 	PMemMap_DumpBlocks(Map, nPMemMapEnts);
 
@@ -73,6 +112,12 @@ int Multiboot_LoadMemoryMap(tMBoot_Info *MBInfo, tVAddr MapOffset, tPMemMapEnt *
 
 tBootModule *Multiboot_LoadModules(tMBoot_Info *MBInfo, tVAddr MapOffset, int *ModuleCount)
 {
+	if( !(MBInfo->Flags & (1 << 3)) ) {
+		*ModuleCount = 0;
+		Log_Log("Arch", "No multiboot module information passed");
+		return NULL;
+	}
+
 	tMBoot_Module	*mods = (void*)( MBInfo->Modules + MapOffset );
 	*ModuleCount = MBInfo->ModuleCount;
 	tBootModule *ret = malloc( MBInfo->ModuleCount * sizeof(*ret) );

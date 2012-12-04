@@ -101,6 +101,7 @@ void MM_Install(int NPMemRanges, tPMemMapEnt *PMemRanges)
 	
 	gaPageReferences = (void*)MM_REFCOUNT_BASE;
 
+	Log_Debug("PMem", "maxAddr = %P", maxAddr);
 	Log_Log("PMem", "Physical memory set up (%lli pages of ~%lli MiB used)",
 		giPhysAlloc, (giTotalMemorySize*PAGE_SIZE)/(1024*1024)
 		);
@@ -240,6 +241,8 @@ tPAddr MM_AllocPhys(void)
 	Mutex_Release( &glPhysAlloc );
 	
 	LEAVE('X', ret);
+	if( ret == 0x17FFE000 )
+		LogF("TRIP!\n");
 	#if TRACE_ALLOCS
 	if( now() > 4000 ) {
 	Log_Debug("PMem", "MM_AllocPhys: RETURN %P (%i free)", ret, giPageCount-giPhysAlloc);

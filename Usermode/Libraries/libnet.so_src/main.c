@@ -47,7 +47,7 @@ char *Net_GetInterface(int AddressType, void *Address)
 		uint32_t	*type = (void*)buf;
 		
 		// Open
-		fd = open("/Devices/ip/routes", 0);
+		fd = _SysOpen("/Devices/ip/routes", 0);
 		if( !fd ) {
 			fprintf(stderr, "ERROR: Unable to open '/Devices/ip/routes'\n");
 			return NULL;
@@ -56,10 +56,10 @@ char *Net_GetInterface(int AddressType, void *Address)
 		// Make structure and ask
 		*type = AddressType;
 		memcpy(type+1, Address, size);
-		routeNum = ioctl(fd, ioctl(fd, 3, "locate_route"), buf);
+		routeNum = _SysIOCtl(fd, _SysIOCtl(fd, 3, "locate_route"), buf);
 		
 		// Close
-		close(fd);
+		_SysClose(fd);
 	}
 	
 	// Check answer validity
@@ -71,24 +71,24 @@ char *Net_GetInterface(int AddressType, void *Address)
 		sprintf(buf, "/Devices/ip/routes/#%i", routeNum);
 		
 		// Open route
-		fd = open(buf, 0);
+		fd = _SysOpen(buf, 0);
 		if( fd == -1 ) {
 			fprintf(stderr, "Net_GetInterface - ERROR: Unable to open %s\n", buf);
 			return NULL;	// Shouldn't happen :/
 		}
 		
 		// Allocate space for name
-		ret = malloc( ioctl(fd, ioctl(fd, 3, "get_interface"), NULL) + 1 );
+		ret = malloc( _SysIOCtl(fd, _SysIOCtl(fd, 3, "get_interface"), NULL) + 1 );
 		if( !ret ) {
 			fprintf(stderr, "malloc() failure - Allocating space for interface name\n");
 			return NULL;
 		}
 		
 		// Get name
-		ioctl(fd, ioctl(fd, 3, "get_interface"), ret);
+		_SysIOCtl(fd, _SysIOCtl(fd, 3, "get_interface"), ret);
 		
 		// Close and return
-		close(fd);
+		_SysClose(fd);
 		
 		return ret;
 	}

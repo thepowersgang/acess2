@@ -20,14 +20,15 @@ Uint32 FAT_int_GetFatValue(tFAT_VolInfo *Disk, Uint32 cluster)
 	Uint32	val = 0;
 	Uint32	ofs;
 	ENTER("pDisk xCluster", Disk, cluster);
+	
 	Mutex_Acquire( &Disk->lFAT );
 	#if CACHE_FAT
 	if( Disk->ClusterCount <= giFAT_MaxCachedClusters )
 	{
 		val = Disk->FATCache[cluster];
-		if(Disk->type == FAT12 && val == EOC_FAT12)	val = -1;
-		if(Disk->type == FAT16 && val == EOC_FAT16)	val = -1;
-		if(Disk->type == FAT32 && val == EOC_FAT32)	val = -1;
+		if(Disk->type == FAT12 && val == EOC_FAT12)	val = GETFATVALUE_EOC;
+		if(Disk->type == FAT16 && val == EOC_FAT16)	val = GETFATVALUE_EOC;
+		if(Disk->type == FAT32 && val == EOC_FAT32)	val = GETFATVALUE_EOC;
 	}
 	else
 	{
@@ -37,13 +38,13 @@ Uint32 FAT_int_GetFatValue(tFAT_VolInfo *Disk, Uint32 cluster)
 			VFS_ReadAt(Disk->fileHandle, ofs+(cluster/2)*3, 3, &val);
 			LOG("3 bytes at 0x%x are (Uint32)0x%x", ofs+(cluster/2)*3, val);
 			val = (cluster & 1) ? (val>>12) : (val & 0xFFF);
-			if(val == EOC_FAT12)	val = -1;
+			if(val == EOC_FAT12)	val = GETFATVALUE_EOC;
 		} else if(Disk->type == FAT16) {
 			VFS_ReadAt(Disk->fileHandle, ofs+cluster*2, 2, &val);
-			if(val == EOC_FAT16)	val = -1;
+			if(val == EOC_FAT16)	val = GETFATVALUE_EOC;
 		} else {
 			VFS_ReadAt(Disk->fileHandle, ofs+cluster*4, 4, &val);
-			if(val == EOC_FAT32)	val = -1;
+			if(val == EOC_FAT32)	val = GETFATVALUE_EOC;
 		}
 	#if CACHE_FAT
 	}

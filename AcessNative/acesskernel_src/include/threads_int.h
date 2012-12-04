@@ -72,7 +72,7 @@ enum {
 	THREAD_STAT_DEAD,	// Awaiting burial (free)
 	THREAD_STAT_BURIED	// If it's still on the list here, something's wrong
 };
-extern tThread	*Threads_GetThread(Uint TID);
+extern struct sThread	*Threads_GetThread(Uint TID);
 
 #endif
 

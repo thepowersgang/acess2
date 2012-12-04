@@ -23,6 +23,10 @@ typedef struct {
 	tExt2_Group		Groups[];
 } tExt2_Disk;
 
+// === GLOBALS ===
+extern tVFS_NodeType	gExt2_FileType;
+extern tVFS_NodeType	gExt2_DirType;
+
 // === FUNCTIONS ===
 // --- Common ---
 extern void	Ext2_CloseFile(tVFS_Node *Node);
@@ -37,6 +41,8 @@ extern int	Ext2_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX]);
 extern tVFS_Node	*Ext2_FindDir(tVFS_Node *Node, const char *FileName);
 extern tVFS_Node	*Ext2_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
 extern int	Ext2_Link(tVFS_Node *Parent, const char *Name, tVFS_Node *Node);
+extern tVFS_Node	*Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeId);
+extern int	Ext2_int_WritebackNode(tExt2_Disk *Disk, tVFS_Node *Node);
 // --- Read ---
 extern size_t	Ext2_Read(tVFS_Node *node, off_t offset, size_t length, void *buffer);
 // --- Write ---

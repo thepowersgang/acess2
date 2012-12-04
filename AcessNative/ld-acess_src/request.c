@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <inttypes.h>
 #ifdef __WIN32__
 # include <windows.h>
 # include <winsock.h>
@@ -24,7 +25,7 @@
 #include "request.h"
 #include "../syscalls.h"
 
-#define USE_TCP	0
+#define USE_TCP	1
 
 // === PROTOTYPES ===
 void	SendData(void *Data, int Length);
@@ -91,7 +92,6 @@ int _InitSyscalls(void)
 	if( connect(gSocket, (struct sockaddr *)&gSyscall_ServerAddr, sizeof(struct sockaddr_in)) < 0 )
 	{
 		fprintf(stderr, "[ERROR -] Cannot connect to server (localhost:%i)\n", SERVER_PORT);
-		fprintf(stderr, "[ERROR -] ", giSyscall_ClientID);
 		perror("_InitSyscalls");
 		#if __WIN32__
 		closesocket(gSocket);
@@ -118,7 +118,20 @@ int _InitSyscalls(void)
 	}
 	#endif
 	
-	#if !USE_TCP
+	#if USE_TCP
+	{
+		tRequestAuthHdr auth;
+		auth.pid = giSyscall_ClientID;
+		auth.key = 0;
+		SendData(&auth, sizeof(auth));
+		int len = ReadData(&auth, sizeof(auth), 5);
+		if( len == 0 ) { 
+			fprintf(stderr, "Timeout waiting for auth response\n");
+			exit(-1);
+		}
+		giSyscall_ClientID = auth.pid;
+	}
+	#else
 	// Ask server for a client ID
 	if( !giSyscall_ClientID )
 	{
@@ -177,6 +190,7 @@ int SendRequest(tRequestHeader *Request, int RequestSize, int ResponseSize)
 		printf("\n");
 	}
 	#endif
+	#if DEBUG
 	{
 		 int	i;
 		char	*data = (char*)&Request->Params[Request->NParams];
@@ -190,7 +204,7 @@ int SendRequest(tRequestHeader *Request, int RequestSize, int ResponseSize)
 				data += sizeof(uint32_t);
 				break;
 			case ARG_TYPE_INT64:
-				DEBUG_S(" 0x%016llx", *(uint64_t*)data);
+				DEBUG_S(" 0x%016"PRIx64"", *(uint64_t*)data);
 				data += sizeof(uint64_t);
 				break;
 			case ARG_TYPE_STRING:
@@ -206,6 +220,7 @@ int SendRequest(tRequestHeader *Request, int RequestSize, int ResponseSize)
 		}
 		DEBUG_S("\n");
 	}
+	#endif
 	
 	// Send it off
 	SendData(Request, RequestSize);
@@ -213,7 +228,23 @@ int SendRequest(tRequestHeader *Request, int RequestSize, int ResponseSize)
 	if( Request->CallID == SYS_EXIT )	return 0;
 
 	// Wait for a response (no timeout)
-	return ReadData(Request, ResponseSize, 0);
+	ReadData(Request, sizeof(*Request), 0);
+	// TODO: Sanity
+	size_t	recvbytes = sizeof(*Request), expbytes = Request->MessageLength;
+	char	*ptr = (void*)Request->Params;
+	while( recvbytes < expbytes )
+	{
+		size_t	len = ReadData(ptr, expbytes - recvbytes, 1000);
+		if( len == -1 ) {
+			return -1;
+		}
+		recvbytes += len;
+		ptr += len;
+	}
+	if( recvbytes > expbytes ) {
+		// TODO: Warning
+	}
+	return recvbytes;
 }
 
 void SendData(void *Data, int Length)
@@ -221,7 +252,7 @@ void SendData(void *Data, int Length)
 	 int	len;
 	
 	#if USE_TCP
-	len = send(Data, Length, 0);
+	len = send(gSocket, Data, Length, 0);
 	#else
 	len = sendto(gSocket, Data, Length, 0,
 		(struct sockaddr*)&gSyscall_ServerAddr, sizeof(gSyscall_ServerAddr));
@@ -262,7 +293,7 @@ int ReadData(void *Dest, int MaxLength, int Timeout)
 	
 	if( !ret ) {
 		printf("[ERROR %i] Timeout reading from socket\n", giSyscall_ClientID);
-		return 0;	// Timeout
+		return -2;	// Timeout
 	}
 	
 	#if USE_TCP
@@ -275,6 +306,11 @@ int ReadData(void *Dest, int MaxLength, int Timeout)
 		fprintf(stderr, "[ERROR %i] ", giSyscall_ClientID);
 		perror("ReadData");
 		exit(-1);
+	}
+	if( ret == 0 ) {
+		fprintf(stderr, "[ERROR %i] Connection closed.\n", giSyscall_ClientID);
+		close(gSocket);
+		exit(0);
 	}
 	
 	DEBUG_S("%i bytes read from socket\n", ret);

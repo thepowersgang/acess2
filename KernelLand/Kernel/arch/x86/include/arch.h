@@ -45,6 +45,7 @@ struct sShortSpinlock {
 	#if LOCK_DISABLE_INTS
 	 int	IF;	//!< Interrupt state on call to SHORTLOCK
 	#endif
+	void	*LockedBy;
 };
 
 // === MACROS ===
@@ -77,7 +78,6 @@ typedef signed char		Sint8;
 typedef signed short	Sint16;
 typedef signed long		Sint32;
 typedef signed long long	Sint64;
-typedef Uint	size_t;
 typedef char	BOOL;
 
 typedef Uint32	tPAddr;

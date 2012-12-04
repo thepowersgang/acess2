@@ -26,10 +26,15 @@ void	Widget_UpdateDimensions(tElement *Element);
 void	Widget_UpdatePosition(tElement *Element);
 // --- Messages
 tElement	*Widget_GetElementById(tWidgetWin *Info, uint32_t ID);
-void	Widget_NewWidget(tWidgetWin *Info, size_t Len, const tWidgetMsg_Create *Msg);
-void	Widget_SetFlags(tWidgetWin *Info, int Len, const tWidgetMsg_SetFlags *Msg);
-void	Widget_SetSize(tWidgetWin *Info, int Len, const tWidgetMsg_SetSize *Msg);
-void	Widget_SetText(tWidgetWin *Info, int Len, const tWidgetMsg_SetText *Msg);
+ int	Widget_IPC_Create(tWindow *Win, size_t Len, const void *Data);
+ int	Widget_IPC_NewWidgetSubwin(tWindow *Win, size_t Len, const void *Data);
+// int	Widget_IPC_Delete(tWindow *Win, size_t Len, const void *Data);
+ int	Widget_IPC_SetFocus(tWindow *Win, size_t Len, const void *Data);
+ int	Widget_IPC_SetFlags(tWindow *Win, size_t Len, const void *Data);
+ int	Widget_IPC_SetSize(tWindow *Win, size_t Len, const void *Data);
+ int	Widget_IPC_SetText(tWindow *Win, size_t Len, const void *Data);
+ int	Widget_IPC_GetText(tWindow *Win, size_t Len, const void *Data);
+// int	Widget_IPC_SetColour(tWindow *Win, size_t Len, const void *Data);
  int	Renderer_Widget_HandleMessage(tWindow *Target, int Msg, int Len, const void *Data);
 
 // === GLOBALS ===
@@ -37,7 +42,17 @@ tWMRenderer	gRenderer_Widget = {
 	.Name = "Widget",
 	.CreateWindow = Renderer_Widget_Create,
 	.Redraw = Renderer_Widget_Redraw,
-	.HandleMessage = Renderer_Widget_HandleMessage
+	.HandleMessage = Renderer_Widget_HandleMessage,
+	.nIPCHandlers = N_IPC_WIDGET,
+	.IPCHandlers = {
+		[IPC_WIDGET_CREATE] = Widget_IPC_Create,
+		[IPC_WIDGET_CREATESUBWIN] = Widget_IPC_NewWidgetSubwin,
+		[IPC_WIDGET_SETFOCUS] = Widget_IPC_SetFocus,
+		[IPC_WIDGET_SETFLAGS] = Widget_IPC_SetFlags,
+		[IPC_WIDGET_SETSIZE] = Widget_IPC_SetSize,
+		[IPC_WIDGET_SETTEXT] = Widget_IPC_SetText,
+		[IPC_WIDGET_GETTEXT] = Widget_IPC_GetText,
+	}
 };
 	
 // --- Element callbacks
@@ -87,7 +102,7 @@ tWindow	*Renderer_Widget_Create(int Flags)
 	tWidgetWin	*info;
 	 int	eletable_size = DEFAULT_ELETABLE_SIZE;
 
-	_SysDebug("Renderer_Widget_Create: (Flags = 0x%x)", Flags);
+	//_SysDebug("Renderer_Widget_Create: (Flags = 0x%x)", Flags);
 
 	// TODO: Use `Flags` as default element count?
 	// - Actaully, it's taken by the root ele flags
@@ -214,14 +229,14 @@ void Widget_UpdateDimensions(tElement *Element)
 	else
 		fullCross = Element->CachedH - Element->PaddingT - Element->PaddingB;
 
-	_SysDebug("%i (p=%i) - WxH=%ix%i",
-		Element->ID, (Element->Parent ? Element->Parent->ID : -1),
-		Element->CachedW, Element->CachedH
-		);
-	_SysDebug("  %s dynWith = %i, fullCross = %i",
-		(Element->Flags & ELEFLAG_VERTICAL ? "Vert" : "Horiz"),
-		dynWith, fullCross
-		);
+	//_SysDebug("%i (p=%i) - WxH=%ix%i",
+	//	Element->ID, (Element->Parent ? Element->Parent->ID : -1),
+	//	Element->CachedW, Element->CachedH
+	//	);
+	//_SysDebug("  %s dynWith = %i, fullCross = %i",
+	//	(Element->Flags & ELEFLAG_VERTICAL ? "Vert" : "Horiz"),
+	//	dynWith, fullCross
+	//	);
 	
 	// Pass 2 - Set sizes and recurse
 	for( child = Element->FirstChild; child; child = child->NextSibling )
@@ -423,61 +438,33 @@ tElement *Widget_GetElementById(tWidgetWin *Info, uint32_t ID)
 	return ele;
 }
 
-// --- Message Handlers ---
-void Widget_NewWidget(tWidgetWin *Info, size_t Len, const tWidgetMsg_Create *Msg)
+tElement *Widget_int_Create(tWidgetWin *Info, tElement *Parent, int ID, int Type, int Flags)
 {
-	const int	max_debugname_len = Len - sizeof(tWidgetMsg_Create);
-	tElement	*parent, *new;
-
-	// Sanity check
-	if( Len < sizeof(*Msg) )
-		return ;
-	if( strnlen(Msg->DebugName, max_debugname_len) == max_debugname_len )
-		return ;
-	
-	_SysDebug("Widget_NewWidget (%i %i Type %i Flags 0x%x)",
-		Msg->Parent, Msg->NewID, Msg->Type, Msg->Flags);
-	
-	if(Msg->Type >= ciWM_NumWidgetTypes)
-	{
-		_SysDebug("Widget_NewWidget - Bad widget type %i", Msg->Type);
-		return ;
-	}
-
-	// Create
-	parent = Widget_GetElementById(Info, Msg->Parent);
-	if(!parent)
-	{
-		_SysDebug("Widget_NewWidget - Bad parent ID %i", Msg->Parent);
-		return ;
-	}
-
-	// Check if the ID is already in use
-	if( Widget_GetElementById(Info, Msg->NewID) )
-		return ;
+	if( Widget_GetElementById(Info, ID) )
+		return NULL;
 
 	// Create new element
-	new = calloc(sizeof(tElement), 1);
-	new->Window = parent->Window;
-	new->ID = Msg->NewID;
-	new->Type = Msg->Type;
-	new->Parent = parent;
-	new->Flags = Msg->Flags;
+	tElement *new = calloc(sizeof(tElement), 1);
+	new->Window = Parent->Window;
+	new->ID = ID;
+	new->Type = Type;
+	new->Parent = Parent;
+	new->Flags = Flags;
 	new->PaddingT = 2;
 	new->PaddingB = 2;
 	new->PaddingL = 2;
 	new->PaddingR = 2;
 	new->CachedX = -1;
 	
-	if( gaWM_WidgetTypes[new->Type]->Init )
-		gaWM_WidgetTypes[new->Type]->Init(new);
+	if( gaWM_WidgetTypes[Type]->Init )
+		gaWM_WidgetTypes[Type]->Init(new);
 	
 	// Add to parent's list
-	if(parent->LastChild)
-		parent->LastChild->NextSibling = new;
+	if(Parent->LastChild)
+		Parent->LastChild->NextSibling = new;
 	else
-		parent->FirstChild = new;
-	parent->LastChild = new;
+		Parent->FirstChild = new;
+	Parent->LastChild = new;
 
 	// Add to info
 	{
@@ -488,8 +475,8 @@ void Widget_NewWidget(tWidgetWin *Info, size_t Len, const tWidgetMsg_Create *Msg
 		else
 			Info->ElementTable[new->ID % Info->TableSize] = new;
 	}
-
-	Widget_UpdateMinDims(parent);
+	
+	return new;
 }
 
 void Widget_SetFocus(tWidgetWin *Info, tElement *Ele)
@@ -499,47 +486,130 @@ void Widget_SetFocus(tWidgetWin *Info, tElement *Ele)
 	Info->FocusedElement = Ele;
 }
 
-void Widget_SetFlags(tWidgetWin *Info, int Len, const tWidgetMsg_SetFlags *Msg)
+
+// --- Message Handlers ---
+int Widget_IPC_Create(tWindow *Win, size_t Len, const void *Data)
 {
+	tWidgetWin	*Info = Win->RendererInfo;
+	const tWidgetIPC_Create	*Msg = Data;
+	const int	max_debugname_len = Len - sizeof(*Msg);
+	tElement	*parent;
+
+	// Sanity check
+	if( Len < sizeof(*Msg) )
+		return -1;
+	if( strnlen(Msg->DebugName, max_debugname_len) == max_debugname_len )
+		return -1;
+	
+	_SysDebug("Widget_NewWidget (%i %i Type %i Flags 0x%x)",
+		Msg->Parent, Msg->NewID, Msg->Type, Msg->Flags);
+	
+	if(Msg->Type >= ciWM_NumWidgetTypes)
+	{
+		_SysDebug("Widget_NewWidget - Bad widget type %i", Msg->Type);
+		return 1;
+	}
+
+	// Create
+	parent = Widget_GetElementById(Info, Msg->Parent);
+	if(!parent)
+	{
+		_SysDebug("Widget_NewWidget - Bad parent ID %i", Msg->Parent);
+		return 1;
+	}
+
+	Widget_int_Create(Info, parent, Msg->NewID, Msg->Type, Msg->Flags);
+
+	Widget_UpdateMinDims(parent);
+	return 0;
+}
+
+int Widget_IPC_NewWidgetSubwin(tWindow *Win, size_t Len, const void *Data)
+{
+	tWidgetWin	*Info = Win->RendererInfo;
+	const tWidgetIPC_CreateSubWin	*Msg = Data;
+	const int	max_debugname_len = Len - sizeof(*Msg);
+	tElement	*parent, *new;
+
+	// Sanity check
+	if( Len < sizeof(*Msg) )
+		return -1;
+	if( strnlen(Msg->DebugName, max_debugname_len) == max_debugname_len )
+		return -1;
+	
+	parent = Widget_GetElementById(Info, Msg->Parent);
+	if(!parent)	return 1;
+	if( Widget_GetElementById(Info, Msg->NewID) )	return 1;
+	
+	new = Widget_int_Create(Info, parent, Msg->NewID, Msg->Type, Msg->Flags);
+	new->Data = WM_GetWindowByID(parent->Window, Msg->WindowHandle);
+	Widget_UpdateMinDims(parent);
+	return 0;
+}
+
+// TODO: Widget_IPC_Delete
+
+int Widget_IPC_SetFocus(tWindow *Win, size_t Len, const void *Data)
+{
+	tWidgetWin	*info = Win->RendererInfo;
+	tElement	*ele;
+	const tWidgetIPC_SetFocus	*msg = Data;
+	if(Len < sizeof(*msg))	return -1;
+	
+	ele = Widget_GetElementById(info, msg->WidgetID);
+	Widget_SetFocus(info, ele);
+	return 0;
+}
+
+int Widget_IPC_SetFlags(tWindow *Win, size_t Len, const void *Data)
+{
+	tWidgetWin *Info = Win->RendererInfo;
+	const tWidgetIPC_SetFlags	*Msg = Data;
 	tElement	*ele;
 	
 	if( Len < sizeof(*Msg) )
-		return ;
+		return -1;
 
 	_SysDebug("Widget_SetFlags: (%i 0x%x 0x%x)", Msg->WidgetID, Msg->Value, Msg->Mask);
 	
 	ele = Widget_GetElementById(Info, Msg->WidgetID);
-	if(!ele)	return;
+	if(!ele)	return 1;
 
 	ele->Flags &= ~Msg->Mask;
 	ele->Flags |= Msg->Value & Msg->Mask;
+	
+	return 0;
 }
 
-void Widget_SetSize(tWidgetWin *Info, int Len, const tWidgetMsg_SetSize *Msg)
+int Widget_IPC_SetSize(tWindow *Win, size_t Len, const void *Data)
 {
+	tWidgetWin	*Info = Win->RendererInfo;
+	const tWidgetIPC_SetSize	*Msg = Data;
 	tElement	*ele;
 	
 	if( Len < sizeof(*Msg) )
-		return ;
+		return -1;
 	
 	ele = Widget_GetElementById(Info, Msg->WidgetID);
-	if(!ele)	return ;
+	if(!ele)	return 1;
 	
 	ele->FixedWith = Msg->Value;
+	return 0;
 }
 
-void Widget_SetText(tWidgetWin *Info, int Len, const tWidgetMsg_SetText *Msg)
+int Widget_IPC_SetText(tWindow *Win, size_t Len, const void *Data)
 {
+	tWidgetWin	*Info = Win->RendererInfo;
+	const tWidgetIPC_SetText	*Msg = Data;
 	tElement	*ele;
 	
 	if( Len < sizeof(*Msg) + 1 )
-		return ;
+		return -1;
 	if( Msg->Text[Len - sizeof(*Msg) - 1] != '\0' )
-		return ;
+		return -1;
 
 	ele = Widget_GetElementById(Info, Msg->WidgetID);
-	if(!ele)	return ;
-
+	if(!ele)	return 1;
 
 	if( gaWM_WidgetTypes[ele->Type]->UpdateText )
 	{
@@ -550,22 +620,23 @@ void Widget_SetText(tWidgetWin *Info, int Len, const tWidgetMsg_SetText *Msg)
 //		if(ele->Text)	free(ele->Text);
 //		ele->Text = strdup(Msg->Text);
 //	}
+	return 0;
 }
 
-int Widget_GetText(tWidgetWin *Info, int Len, const tWidgetMsg_SetText *Msg)
+int Widget_IPC_GetText(tWindow *Win, size_t Len, const void *Data)
 {
+	tWidgetWin	*Info = Win->RendererInfo;
+	const tWidgetIPC_SetText	*Msg = Data;
 	if( Len < sizeof(*Msg) )
-		return 0;
-	if( Len > sizeof(*Msg) )
-		return 1;	// Pass to user
+		return -1;
 	
 	const char	*text = NULL;
 	tElement *ele = Widget_GetElementById(Info, Msg->WidgetID);
 	if(ele)
 		text = ele->Text;
 	
-	char	buf[sizeof(tWidgetMsg_SetText) + strlen(text?text:"") + 1];
-	tWidgetMsg_SetText	*omsg = (void*)buf;
+	char	buf[sizeof(tWidgetIPC_SetText) + strlen(text?text:"") + 1];
+	tWidgetIPC_SetText	*omsg = (void*)buf;
 	
 	if( text ) {
 		omsg->WidgetID = Msg->WidgetID;
@@ -576,7 +647,7 @@ int Widget_GetText(tWidgetWin *Info, int Len, const tWidgetMsg_SetText *Msg)
 		omsg->Text[0] = 0;
 	}
 	
-	WM_SendMessage(Info->RootElement.Window, Info->RootElement.Window, MSG_WIDGET_GETTEXT, sizeof(buf), buf);
+	WM_SendIPCReply(Win, IPC_WIDGET_GETTEXT, sizeof(buf), buf);
 	return 0;
 }
 
@@ -685,43 +756,6 @@ int Renderer_Widget_HandleMessage(tWindow *Target, int Msg, int Len, const void 
 		}
 		return 0; }
 
-	// New Widget
-	case MSG_WIDGET_CREATE:
-		Widget_NewWidget(info, Len, Data);
-		return 0;
-
-	// Delete a widget
-	case MSG_WIDGET_DELETE:
-		_SysDebug("TODO: Implement MSG_WIDGET_DELETE");
-		return 0;
-
-	// Set focused widget
-	case MSG_WIDGET_SETFOCUS: {
-		tElement	*ele;
-		const tWidgetMsg_SetFocus	*msg = Data;
-		if(Len < sizeof(*msg))	return -1;
-		
-		ele = Widget_GetElementById(info, msg->WidgetID);
-		Widget_SetFocus(info, ele);
-		return 0; }
-
-	// Set Flags
-	case MSG_WIDGET_SETFLAGS:
-		Widget_SetFlags(info, Len, Data);
-		return 0;
-	
-	// Set length
-	case MSG_WIDGET_SETSIZE:
-		Widget_SetSize(info, Len, Data);
-		return 0;
-	
-	// Set text
-	case MSG_WIDGET_SETTEXT:
-		Widget_SetText(info, Len, Data);
-		return 0;
-	case MSG_WIDGET_GETTEXT:
-		return Widget_GetText(info, Len, Data);
-	
 	// 
 	default:
 		return 1;	// Unhandled, pass to user
@@ -732,6 +766,7 @@ void Widget_Fire(tElement *Element)
 {
 	tWidgetMsg_Fire	msg;
 	msg.WidgetID = Element->ID;
+	_SysDebug("Widget_Fire: Fire on %p %i", Element->Window, Element->ID);
 	WM_SendMessage(Element->Window, Element->Window, MSG_WIDGET_FIRE, sizeof(msg), &msg);
 }
 

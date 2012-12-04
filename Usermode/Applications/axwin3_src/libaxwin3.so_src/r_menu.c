@@ -43,9 +43,9 @@ int AxWin3_Menu_int_Callback(tHWND Window, int Message, int Length, void *Data)
 		if(msg->ID >= info->nItems)	return -1;
 		item = &info->Items[msg->ID];
 		if(item->Callback)	item->Callback(item->CbPtr);
-		return 0; }
+		return 1; }
 	}
-	return 1;
+	return 0;
 }
 
 tHWND AxWin3_Menu_Create(tHWND Parent)
@@ -96,7 +96,7 @@ tAxWin3_MenuItem *AxWin3_Menu_AddItem(
 	ret->SubMenu = SubMenu;	
 
 	{
-		tMenuMsg_AddItem	*req;
+		tMenuIPC_AddItem	*req;
 		 int	data_size;
 		if(!Label)	Label = "";
 		data_size = sizeof(*req)+strlen(Label)+1;
@@ -105,7 +105,7 @@ tAxWin3_MenuItem *AxWin3_Menu_AddItem(
 		req->Flags = Flags;
 		req->SubMenuID = AxWin3_int_GetWindowID(SubMenu);
 		strcpy(req->Label, Label);
-		AxWin3_SendMessage(Menu, Menu, MSG_MENU_ADDITEM, data_size, req);
+		AxWin3_SendIPC(Menu, IPC_MENU_ADDITEM, data_size, req);
 		free(req);
 	}
 	

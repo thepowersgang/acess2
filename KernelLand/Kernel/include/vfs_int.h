@@ -51,6 +51,7 @@ extern tVFS_Mount	*gVFS_Mounts;
 extern tVFS_Driver	*gVFS_Drivers;
 
 // === PROTOTYPES ===
+extern void	VFS_Deinit(void);
 // --- open.c ---
 extern char	*VFS_GetAbsPath(const char *Path);
 extern tVFS_Node	*VFS_ParsePath(const char *Path, char **TruePath, tVFS_Mount **MountPoint);

@@ -8,10 +8,14 @@
 #include <acess.h>
 #include <threads.h>
 #include <events.h>
+#if DEBUG == 0
+# define DONT_INCLUDE_SYSCALL_NAMES
+#endif
 #include "../syscalls.h"
 
 // === IMPORTS ===
 extern int	Threads_Fork(void);	// AcessNative only function
+extern int	Threads_Spawn(int nFD, int FDs[], const void *info);
 
 // === TYPES ===
 typedef int	(*tSyscallHandler)(Uint *Errno, const char *Format, void *Args, int *Sizes);
@@ -137,7 +141,7 @@ SYSCALL2(Syscall_ReadDir, "id", int, char *,
 		return -1;
 	return VFS_ReadDir(a0, a1);
 );
-SYSCALL6(Syscall_select, "iddddi", int, fd_set *, fd_set *, fd_set *, time_t *, unsigned int,
+SYSCALL6(Syscall_select, "iddddi", int, fd_set *, fd_set *, fd_set *, tTime *, unsigned int,
 	return VFS_Select(a0, a1, a2, a3, a4, a5, 0);
 );
 SYSCALL3(Syscall_OpenChild, "isi", int, const char *, int,
@@ -190,6 +194,13 @@ SYSCALL1(Syscall_AN_Fork, "d", int *,
 	return *a0;
 );
 
+SYSCALL3(Syscall_AN_Spawn, "ddd", int *, int *, void *,
+	if(Sizes[0] < sizeof(int))
+		return -1;
+	*a0 = Threads_Spawn(Sizes[1] / sizeof(int), a1, a2);
+	return *a0;
+);
+
 SYSCALL2(Syscall_SendMessage, "id", int, void *,
 	return Proc_SendMessage(a0, Sizes[1], a1);
 );
@@ -203,11 +214,11 @@ SYSCALL2(Syscall_GetMessage, "dd", uint32_t *, void *,
 	Uint	tmp;
 	 int	rv;
 	if( a0 ) {
-		rv = Proc_GetMessage(&tmp, a1);
+		rv = Proc_GetMessage(&tmp, Sizes[1], a1);
 		*a0 = tmp;
 	}
 	else
-		rv = Proc_GetMessage(NULL, a1);
+		rv = Proc_GetMessage(NULL, Sizes[1], a1);
 	return rv;
 );
 
@@ -244,6 +255,7 @@ const tSyscallHandler	caSyscalls[] = {
 
 	Syscall_Sleep,
 	Syscall_AN_Fork,
+	Syscall_AN_Spawn,
 
 	Syscall_SendMessage,
 	Syscall_GetMessage,
@@ -384,11 +396,12 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 	}
 	
 	// Allocate the return
-	ret = malloc(sizeof(tRequestHeader) + retValueCount * sizeof(tRequestValue)
-		+ retDataLen);
+	size_t	msglen = sizeof(tRequestHeader) + retValueCount * sizeof(tRequestValue) + retDataLen;
+	ret = malloc(msglen);
 	ret->ClientID = Request->ClientID;
 	ret->CallID = Request->CallID;
 	ret->NParams = retValueCount;
+	ret->MessageLength = msglen;
 	inData = (char*)&ret->Params[ ret->NParams ];
 	
 	// Static Uint64 return value
@@ -398,7 +411,7 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 	*(Uint64*)inData = retVal;
 	inData += sizeof(Uint64);
 	
-	Log_Debug("Syscalls", "Return 0x%llx", retVal);
+	//Log_Debug("Syscalls", "Return 0x%llx", retVal);
 	
 	retValueCount = 1;
 	for( i = 0; i < Request->NParams; i ++ )

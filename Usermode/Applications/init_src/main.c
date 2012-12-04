@@ -32,21 +32,22 @@ int main(int argc, char *argv[])
 	// - Start virtual terminals
 	for( i = 0; i < NUM_TERMS; i++ )
 	{		
-		tid = clone(CLONE_VM, 0);
+		tid = _SysClone(CLONE_VM, 0);
 		if(tid == 0)
 		{
 			termpath[sizeof(DEFAULT_TERMINAL)-2] = '0' + i;
 			
-			open(termpath, OPENFLAG_READ);	// Stdin
-			open(termpath, OPENFLAG_WRITE);	// Stdout
-			open(termpath, OPENFLAG_WRITE);	// Stderr
-			execve(DEFAULT_SHELL, child_argv, NULL);
-			for(;;)	sleep();
+			_SysOpen(termpath, OPENFLAG_READ);	// Stdin
+			_SysOpen(termpath, OPENFLAG_WRITE);	// Stdout
+			_SysOpen(termpath, OPENFLAG_WRITE);	// Stderr
+			_SysExecVE(DEFAULT_SHELL, child_argv, NULL);
+			for(;;)	;
 		}
 	}
 	
 	// TODO: Implement message watching
-	for(;;)	sleep();
+	for(;;)
+		_SysWaitEvent(THREAD_EVENT_IPCMSG);
 	
 	return 42;
 }

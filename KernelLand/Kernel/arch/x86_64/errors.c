@@ -13,6 +13,7 @@
 extern int	MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs);
 extern void	Error_Backtrace(Uint IP, Uint BP);
 extern void	Proc_EnableSSE(void);
+extern void	Threads_Dump(void);
 extern void	Proc_RestoreSSE(Uint32 Data);
 
 // === PROTOTYPES ===
@@ -97,6 +98,9 @@ void Error_Handler(tRegs *Regs)
 			*(Uint8*)(Regs->RIP+0), *(Uint8*)(Regs->RIP+1),
 			*(Uint8*)(Regs->RIP+2), *(Uint8*)(Regs->RIP+3)
 			);
+		break;
+	case 2: // NMI
+		Threads_Dump();
 		break;
 	}
 	

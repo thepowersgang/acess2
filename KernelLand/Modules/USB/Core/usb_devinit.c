@@ -29,7 +29,7 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 	tUSBDevice	tmpdev;
 	tUSBDevice	*dev = &tmpdev;
 	if( Port >= Hub->nPorts )	return ;
-	if( Hub->Devices[Port] )	return ;
+	if( Hub->Ports[Port].Dev )	return ;
 
 	ENTER("pHub iPort", Hub, Port);
 
@@ -325,7 +325,7 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 		free(full_buf);
 	}
 	
-	Hub->Devices[Port] = dev;
+	Hub->Ports[Port].Dev = dev;
 	
 	// Done.
 	LEAVE('-');
@@ -334,11 +334,11 @@ void USB_DeviceConnected(tUSBHub *Hub, int Port)
 void USB_DeviceDisconnected(tUSBHub *Hub, int Port)
 {
 	tUSBDevice	*dev;
-	if( !Hub->Devices[Port] ) {
+	if( !Hub->Ports[Port].Dev ) {
 		Log_Error("USB", "Non-registered device disconnected");
 		return;
 	}
-	dev = Hub->Devices[Port];
+	dev = Hub->Ports[Port].Dev;
 
 	// TODO: Free related resources
 	// - Endpoint registrations
@@ -351,8 +351,9 @@ void USB_DeviceDisconnected(tUSBHub *Hub, int Port)
 	// - Bus Address
 	USB_int_DeallocateAddress(dev->Host, dev->Address);
 	// - Inform handler
-	// - Allocate memory
+	// - Release memory
 	free(dev);
+	Hub->Ports[Port].Dev = NULL;
 }
 
 void *USB_GetDeviceDataPtr(tUSBInterface *Dev) { return Dev->Data; }
@@ -361,6 +362,7 @@ void USB_SetDeviceDataPtr(tUSBInterface *Dev, void *Ptr) { Dev->Data = Ptr; }
 int USB_int_AllocateAddress(tUSBHost *Host)
 {
 	 int	i;
+	ASSERT(Host);
 	for( i = 1; i < 128; i ++ )
 	{
 		if(Host->AddressBitmap[i/8] & (1 << (i%8)))

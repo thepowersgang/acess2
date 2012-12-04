@@ -127,7 +127,7 @@ int AxWin3_GetDisplayDims(int Display, int *X, int *Y, int *Width, int *Height)
 	ret = (void*)msg->Data;
 	
 	if(X)	*X = ret->X;
-	if(X)	*X = ret->Y;
+	if(Y)	*Y = ret->Y;
 	if(Width)	*Width = ret->W;
 	if(Height)	*Height = ret->H;
 	
@@ -160,6 +160,8 @@ tHWND AxWin3_CreateWindow(
 	// Send and clean up
 	AxWin3_int_SendIPCMessage(msg);
 	free(msg);
+
+	_SysDebug("AxWin3_CreateWindow: %i :: '%s'", newWinID, Renderer);
 
 	// TODO: Detect and handle possible errors
 
@@ -217,7 +219,7 @@ void AxWin3_int_HandleMessage(tAxWin_IPCMessage *Msg)
 					gAxWin3_Hotkeys[mi->ID]();
 				}break;
 			default:
-				_SysDebug("--- Unhandled SENDMSG %i", info->ID);
+				_SysDebug("--- Unhandled SENDMSG 0x%x win %i", info->ID, Msg->Window);
 				break;
 			}
 		}
@@ -226,6 +228,8 @@ void AxWin3_int_HandleMessage(tAxWin_IPCMessage *Msg)
 		_SysDebug("Unknow message ID %i", Msg->ID);
 		break;
 	}
+	
+	free(Msg);
 }
 
 void AxWin3_SetWindowTitle(tHWND Window, const char *Title)
@@ -277,6 +281,36 @@ void *AxWin3_WaitMessage(tHWND Window, int MessageID, size_t *Length)
 		*Length = info->Length;
 		void	*ret = malloc(info->Length);	
 		memcpy(ret, info->Data, info->Length);
+		free(msg);
+	
+		return ret;
+	}
+}
+
+void AxWin3_SendIPC(tHWND Window, int Message, size_t Length, const void *Data)
+{
+	tAxWin_IPCMessage	*msg;
+	
+	msg = AxWin3_int_AllocateIPCMessage(Window, Message, IPCMSG_FLAG_RENDERER, Length);
+	memcpy(msg->Data, Data, Length);
+	AxWin3_int_SendIPCMessage(msg);
+	free(msg);
+}
+
+void *AxWin3_WaitIPCMessage(tHWND Window, int MessageID, size_t *Length)
+{
+	tAxWin_IPCMessage	*msg;
+	for( ;; )
+	{
+		msg = AxWin3_int_WaitIPCMessage(MessageID);
+		if( !(msg->Flags & IPCMSG_FLAG_RENDERER) || msg->Window != AxWin3_int_GetWindowID(Window) ) {
+			AxWin3_int_HandleMessage(msg);
+			continue ;
+		}
+
+		*Length = msg->Size;
+		void	*ret = malloc(msg->Size);
+		memcpy(ret, msg->Data, msg->Size);
 		free(msg);
 	
 		return ret;

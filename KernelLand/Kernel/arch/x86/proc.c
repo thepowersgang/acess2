@@ -404,21 +404,42 @@ void MP_StartAP(int CPU)
 	*(Uint16*)(KERNEL_BASE|0x469) = 0xFFFF;
 	outb(0x70, 0x0F);	outb(0x71, 0x0A);	// Set warm reset flag
 	MP_SendIPI(gaCPUs[CPU].APICID, 0, 5);	// Init IPI
-	
-	// Delay
-	inb(0x80); inb(0x80); inb(0x80); inb(0x80);
-	
+
+	// Take a quick nap (20ms)
+	Time_Delay(20);
+
 	// TODO: Use a better address, preferably registered with the MM
 	// - MM_AllocDMA mabye?
 	// Create a far jump
 	*(Uint8*)(KERNEL_BASE|0x11000) = 0xEA;	// Far JMP
-	*(Uint16*)(KERNEL_BASE|0x11001) = (Uint)&APStartup - (KERNEL_BASE|0xFFFF0);	// IP
+	*(Uint16*)(KERNEL_BASE|0x11001) = (Uint16)&APStartup + 0x10;	// IP
 	*(Uint16*)(KERNEL_BASE|0x11003) = 0xFFFF;	// CS
+	
+	giNumInitingCPUs ++;
+	
 	// Send a Startup-IPI to make the CPU execute at 0x11000 (which we
 	// just filled)
 	MP_SendIPI(gaCPUs[CPU].APICID, 0x11, 6);	// StartupIPI
 	
-	giNumInitingCPUs ++;
+	tTime	timeout = now() + 2;
+	while( giNumInitingCPUs && now() > timeout )
+		HALT();
+	
+	if( giNumInitingCPUs == 0 )
+		return ;
+	
+	// First S-IPI failed, send again
+	MP_SendIPI(gaCPUs[CPU].APICID, 0x11, 6);
+	timeout = now() + 2;
+	while( giNumInitingCPUs && now() > timeout )
+		HALT();
+	if( giNumInitingCPUs == 0 )
+		return ;
+
+	Log_Notice("Proc", "CPU %i (APIC %x) didn't come up", CPU, gaCPUs[CPU].APICID);	
+
+	// Oh dammit.
+	giNumInitingCPUs = 0;
 }
 
 void MP_SendIPIVector(int CPU, Uint8 Vector)
@@ -439,11 +460,9 @@ void MP_SendIPI(Uint8 APICID, int Vector, int DeliveryMode)
 	
 	// Hi
 	val = (Uint)APICID << 24;
-//	Log("%p = 0x%08x", &gpMP_LocalAPIC->ICR[1], val);
 	gpMP_LocalAPIC->ICR[1].Val = val;
 	// Low (and send)
 	val = ((DeliveryMode & 7) << 8) | (Vector & 0xFF);
-//	Log("%p = 0x%08x", &gpMP_LocalAPIC->ICR[0], val);
 	gpMP_LocalAPIC->ICR[0].Val = val;
 }
 #endif
@@ -468,15 +487,17 @@ void Proc_IdleThread(void *Ptr)
 void Proc_Start(void)
 {
 	#if USE_MP
-	 int	i;
-	#endif
+	// BSP still should run the current task
+	gaCPUs[giProc_BootProcessorID].Current = &gThreadZero;
 	
-	#if USE_MP
+	__asm__ __volatile__ ("sti");
+	
 	// Start APs
-	for( i = 0; i < giNumCPUs; i ++ )
+	for( int i = 0; i < giNumCPUs; i ++ )
 	{
-		if(i)	gaCPUs[i].Current = NULL;
-		
+		if(i != giProc_BootProcessorID)
+			gaCPUs[i].Current = NULL;
+
 		// Create Idle Task
 		Proc_NewKThread(Proc_IdleThread, &gaCPUs[i]);
 		
@@ -485,14 +506,6 @@ void Proc_Start(void)
 			MP_StartAP( i );
 		}
 	}
-	
-	// BSP still should run the current task
-	gaCPUs[0].Current = &gThreadZero;
-	
-	// Start interrupts and wait for APs to come up
-	Log_Debug("Proc", "Waiting for APs to come up");
-	__asm__ __volatile__ ("sti");
-	while( giNumInitingCPUs )	__asm__ __volatile__ ("hlt");
 	#else
 	// Create Idle Task
 	Proc_NewKThread(Proc_IdleThread, &gaCPUs[0]);
@@ -663,7 +676,7 @@ tPID Proc_Clone(Uint Flags)
  * \fn int Proc_SpawnWorker(void)
  * \brief Spawns a new worker thread
  */
-int Proc_SpawnWorker(void (*Fcn)(void*), void *Data)
+tThread *Proc_SpawnWorker(void (*Fcn)(void*), void *Data)
 {
 	tThread	*new;
 	Uint	stack_contents[4];
@@ -672,7 +685,7 @@ int Proc_SpawnWorker(void (*Fcn)(void*), void *Data)
 	new = Threads_CloneThreadZero();
 	if(!new) {
 		Warning("Proc_SpawnWorker - Out of heap space!\n");
-		return -1;
+		return NULL;
 	}
 
 	// Create the stack contents
@@ -694,7 +707,7 @@ int Proc_SpawnWorker(void (*Fcn)(void*), void *Data)
 	new->Status = THREAD_STAT_PREINIT;
 	Threads_AddActive( new );
 	
-	return new->TID;
+	return new;
 }
 
 /**

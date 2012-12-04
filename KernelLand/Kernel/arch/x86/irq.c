@@ -66,10 +66,17 @@ int IRQ_AddHandler( int Num, void (*Callback)(int, void*), void *Ptr )
 			Log_Log("IRQ", "Added IRQ%i Cb#%i %p", Num, i, Callback);
 			gIRQ_Handlers[Num][i] = Callback;
 			gaIRQ_DataPointers[Num][i] = Ptr;
-			return 1;
+			return Num * MAX_CALLBACKS_PER_IRQ + i;
 		}
 	}
 
 	Log_Warning("IRQ", "No free callbacks on IRQ%i", Num);
-	return 0;
+	return -1;
+}
+
+void IRQ_RemHandler(int Handle)
+{
+	 int	Num = Handle / MAX_CALLBACKS_PER_IRQ;
+	 int	id = Handle % MAX_CALLBACKS_PER_IRQ;
+	gIRQ_Handlers[Num][id] = NULL;
 }

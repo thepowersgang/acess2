@@ -51,17 +51,17 @@ int main(int argc, char *argv[])
 	ParseArguments(argc, argv);
 
 	// Open Directory
-	fd = open(gsDirectory, OPENFLAG_READ|OPENFLAG_EXEC);
+	fd = _SysOpen(gsDirectory, OPENFLAG_READ|OPENFLAG_EXEC);
 	if(fd == -1) {
 		printf("Unable to open '%s' for reading\n", gsDirectory);
 		return EXIT_FAILURE;
 	}
 
 	// Check that it is a directory
-	finfo(fd, &info, 0);
+	_SysFInfo(fd, &info, 0);
 	if( !(info.flags & FILEFLAG_DIRECTORY) ) {
 		fprintf(stderr, "'%s' is not a directory\n", gsDirectory);
-		close(fd);
+		_SysClose(fd);
 		return EXIT_FAILURE;
 	}
 
@@ -75,11 +75,11 @@ int main(int argc, char *argv[])
 	}
 
 	// Traverse Directory
-	while( (tmp = SysReadDir(fd, buf)) > 0 )
+	while( (tmp = _SysReadDir(fd, buf)) > 0 )
 	{
 		// Error check
 		if(tmp < 0) {
-			close(fd);
+			_SysClose(fd);
 			return EXIT_FAILURE;
 		}
 		
@@ -89,7 +89,7 @@ int main(int argc, char *argv[])
 			space += 16;
 			gFileList = realloc(gFileList, space*sizeof(char*));
 			if(gFileList == NULL) {
-				close(fd);
+				_SysClose(fd);
 				return EXIT_FAILURE;
 			}
 		}
@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
 		DisplayFile( gFileList[i] );
 	}
 
-	close(fd);
+	_SysClose(fd);
 	printf("\n");
 
 	return EXIT_SUCCESS;
@@ -218,13 +218,13 @@ void DisplayFile(char *Filename)
 	strcpy(&path[dirLen+1], Filename);
 	
 	// Get file type
-	fd = open(path, 0);
+	fd = _SysOpen(path, 0);
 	if(fd == -1) {
 		fprintf(stderr, "Unable to open '%s'\n", path);
 	}
 	else {
 		// Get Info
-		finfo(fd, &info, 0);
+		_SysFInfo(fd, &info, 0);
 		// Get Type
 		if(info.flags & FILEFLAG_DIRECTORY) {
 			type = FTYPE_DIR;
@@ -262,7 +262,7 @@ void DisplayFile(char *Filename)
 		if(acl.perms & 8)	perms |= 0001;	// X
 		
 		// Close file
-		close(fd);
+		_SysClose(fd);
 	}
 	free(path);	// We're finished with it
 	

@@ -81,7 +81,8 @@ int USB_PollThread(void *unused)
 		// Check hosts
 		for( tUSBHost *host = gUSB_Hosts; host; host = host->Next )
 		{
-			host->HostDef->CheckPorts(host->Ptr);
+			if( host->HostDef->CheckPorts )
+				host->HostDef->CheckPorts(host->Ptr);
 		}
 
 		Time_Delay(100);

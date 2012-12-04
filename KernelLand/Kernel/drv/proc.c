@@ -276,14 +276,15 @@ int SysFS_RemoveFile(int ID)
 	tSysFS_Ent	*ent, *parent, *prev;
 	
 	prev = NULL;
-	for( ent = gSysFS_FileList; ent; prev = ent, ent = ent->Next )
+	for( ent = gSysFS_FileList; ent; prev = ent, ent = ent->ListNext )
 	{
 		// It's a reverse sorted list
-		if(ent->Node.Inode < (Uint64)ID)	return 0;
-		if(ent->Node.Inode == (Uint64)ID)	break;
+		if(ent->Node.Inode <= (Uint64)ID)	break;
 	}
-	
-	if(!ent)	return 0;
+	if( !ent || ent->Node.Inode != (Uint64)ID) {
+		Log_Notice("SysFS", "ID %i not present", ID);
+		return 0;
+	}
 	
 	// Set up for next part
 	file = ent;
@@ -297,25 +298,36 @@ int SysFS_RemoveFile(int ID)
 	file->Node.Size = 0;
 	file->Node.ImplPtr = NULL;
 	
-	// Search parent directory
-	for( ent = parent->Node.ImplPtr; ent; prev = ent, ent = ent->Next )
+	// Clean out of parent directory
+	while(parent)
 	{
-		if( ent == file )	break;
+		for( ent = parent->Node.ImplPtr; ent; prev = ent, ent = ent->Next )
+		{
+			if( ent == file )	break;
+		}
+		if(!ent) {
+			Log_Warning("SysFS", "Bookkeeping Error: File in list, but not in directory");
+			return 0;
+		}
+		
+		// Remove from parent directory
+		if(prev)
+			prev->Next = ent->Next;
+		else
+			parent->Node.ImplPtr = ent->Next;
+
+		// Free if not in use
+		if(file->Node.ReferenceCount == 0) {
+			free(file);
+		}
+
+		if( parent->Node.ImplPtr )
+			break;
+
+		// Remove parent from the tree
+		file = parent;
+		parent = parent->Parent;
 	}
-	if(!ent) {
-		Log_Warning("SysFS", "Bookkeeping Error: File in list, but not in directory");
-		return 0;
-	}
-	
-	// Remove from parent directory
-	if(prev)
-		prev->Next = ent->Next;
-	else
-		parent->Node.ImplPtr = ent->Next;
-	
-	// Free if not in use
-	if(file->Node.ReferenceCount == 0)
-		free(file);
 	
 	return 1;
 }

@@ -5,6 +5,7 @@
 [BITS 64]
 
 [extern Log]
+[extern Log_Debug]
 [extern gGDTPtr]
 [extern gGDT]
 
@@ -167,11 +168,11 @@ IRQ_AddHandler:
 	push rax
 	push rdx
 	sub rsp, 8
-	mov rcx, rdi	; IRQ Number
-	mov rdx, rsi	; Callback
-	mov rsi, rax	; Pointer
-	mov rdi, csIRQ_Assigned
-	call Log
+	mov rcx, rsi	; IRQ Number
+	mov rdx, rdi	; Callback
+	mov rsi, csIRQ_Assigned
+	mov rdi, csIRQ_Tag
+	call Log_Debug
 	add rsp, 8
 	pop rdx
 	pop rax
@@ -189,9 +190,11 @@ IRQ_AddHandler:
 	
 [section .rodata]
 csIRQ_Assigned:
-	db	"IRQ %p := %p (IRQ %i)",0
+	db	"IRQ %i .= %p",0
 csIRQ_Fired:
 	db	"IRQ %i fired",0
+csIRQ_Tag:
+	db	"IRQ",0
 [section .text]
 
 %macro ISR_NOERRNO	1
@@ -273,17 +276,23 @@ DEFIRQ	i
 %assign i i+1
 %endrep
 
+[extern Proc_int_SetIRQIP]
+
 [global IrqCommon]
 IrqCommon:
 	PUSH_GPR
 	push gs
 	push fs
-
+	
+	mov rdi, [rsp+(16+2+2)*8]	; 2SReg + GPRs + Int/Errcode = RIP
+	call Proc_int_SetIRQIP
+	push rax
+	
 ;	mov rdi, csIRQ_Fired
 ;	mov rsi, [rsp+(16+2)*8]
 ;	call Log
 	
-	mov ebx, [rsp+(16+2)*8]	; Get interrupt number (16 GPRS + 2 SRs)
+	mov ebx, [rsp+(1+2+16)*8]	; Get interrupt number (16 GPRS + 2 SRs)
 	shl ebx, 2	; *4
 	mov rax, gaIRQ_Handlers
 	lea rbx, [rax+rbx*8]
@@ -297,7 +306,7 @@ IrqCommon:
 	test rax, rax	; Check if it exists
 	jz .skip.%[i]
 	; Set RDI to IRQ number
-	mov rdi, [rsp+(16+2+1)*8]	; Get IRQ number
+	mov rdi, [rsp+(16+2+1+1)*8]	; Get IRQ number
 	mov rsi, [rbx-gaIRQ_Handlers+gaIRQ_DataPtrs]
 	call rax	; Call
 .skip.%[i]:
@@ -308,12 +317,15 @@ IrqCommon:
 	
 	; ACK
 	mov al, 0x20
-	mov rdi, [rsp+(16+2)*8]	; Get IRQ number
+	mov rdi, [rsp+(16+2+1)*8]	; Get IRQ number
 	cmp rdi, 8
 	jb .skipAckSecondary
 	out 0xA0, al
 .skipAckSecondary:
 	out 0x20, al
+
+	pop rdi
+	call Proc_int_SetIRQIP
 	
 	pop fs
 	pop gs
@@ -395,7 +407,10 @@ SyscallStub:
 	mov [rsp+0x28], r10	; Arg4
 	mov [rsp+0x30], r8	; Arg5
 	mov [rsp+0x38], r9	; Arg6
-	
+
+	mov rdi, rcx	
+	call Proc_int_SetIRQIP
+
 	mov rdi, rsp
 	sub rsp, 8
 	call SyscallHandler

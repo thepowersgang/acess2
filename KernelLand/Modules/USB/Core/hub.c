@@ -17,21 +17,6 @@
 // resvd
 #define SET_FEATURE	3
 
-#define PORT_CONNECTION	0
-#define PORT_ENABLE	1
-#define PORT_SUSPEND	2
-#define PORT_OVER_CURRENT	3
-#define PORT_RESET	4
-#define PORT_POWER	8
-#define PORT_LOW_SPEED	9
-#define C_PORT_CONNECTION	16
-#define C_PORT_ENABLE	17
-#define C_PORT_SUSPEND	18
-#define C_PORT_OVER_CURRENT	19
-#define C_PORT_RESET	20
-#define PORT_TEST	21
-#define PORT_INDICATOR	21
-
 struct sHubDescriptor
 {
 	Uint8	DescLength;
@@ -56,6 +41,9 @@ void	Hub_Connected(tUSBInterface *Dev, void *Descriptors, size_t Length);
 void	Hub_Disconnected(tUSBInterface *Dev);
 void	Hub_PortStatusChange(tUSBInterface *Dev, int Endpoint, int Length, void *Data);
 void	Hub_int_HandleChange(tUSBInterface *Dev, int Port);
+void	Hub_SetPortFeature(tUSBInterface *Dev, int Port, int Feat);
+void	Hub_ClearPortFeature(tUSBInterface *HubDev, int Port, int Feat);
+int	Hub_GetPortStatus(tUSBInterface *HubDev, int Port, int Flag);
 
 // === GLOBALS ===
 tUSBDriver	gUSBHub_Driver = {
@@ -150,13 +138,8 @@ void Hub_int_HandleChange(tUSBInterface *Dev, int Port)
 			// - Power on port
 			USB_Request(Dev, 0, 0x23, SET_FEATURE, PORT_POWER, Port, 0, NULL);
 			Time_Delay(info->PowerOnDelay);
-			// - Reset
-			USB_Request(Dev, 0, 0x23, SET_FEATURE, PORT_RESET, Port, 0, NULL);
-			Time_Delay(20);	// Spec says 10ms after reset, but how long is reset?
-			// - Enable
-			USB_Request(Dev, 0, 0x23, SET_FEATURE, PORT_ENABLE, Port, 0, NULL);
-			// - Poke USB Stack
-			USB_DeviceConnected(info->HubPtr, Port);
+			// - Start reset process
+			USB_PortCtl_BeginReset(info->HubPtr, Port);
 		}
 		else {
 			// Disconnected
@@ -178,4 +161,21 @@ void Hub_int_HandleChange(tUSBInterface *Dev, int Port)
 		// ACK
 		USB_Request(Dev, 0, 0x23, CLEAR_FEATURE, C_PORT_RESET, Port, 0, NULL);
 	}
+}
+
+void Hub_SetPortFeature(tUSBInterface *Dev, int Port, int Feat)
+{
+	USB_Request(Dev, 0, 0x23, SET_FEATURE, Feat, Port, 0, NULL);
+}
+
+void Hub_ClearPortFeature(tUSBInterface *Dev, int Port, int Feat)
+{
+	USB_Request(Dev, 0, 0x23, CLEAR_FEATURE, Feat, Port, 0, NULL);
+}
+
+int Hub_GetPortStatus(tUSBInterface *Dev, int Port, int Flag)
+{
+	Uint16	status[2];	// Status, Change
+	USB_Request(Dev, 0, 0xA3, GET_STATUS, 0, Port, 4, status);
+	return !!(status[0] & (1 << Flag));
 }

@@ -12,14 +12,20 @@
 #include <threads.h>
 #include <events.h>
 
+#if 1
+# define MERR(f,v...) Log_Debug("Syscalls", "0x%x "f, callNum ,## v)
+#else
+# define MERR(v...) do{}while(0)
+#endif
+
 #define CHECK_NUM_NULLOK(v,size)	\
-	if((v)&&!Syscall_Valid((size),(v))){ret=-1;err=-EINVAL;break;}
+	if((v)&&!Syscall_Valid((size),(v))){MERR("CHECK_NUM_NULLOK: %p(%x) FAIL",v,size);ret=-1;err=-EINVAL;break;}
 #define CHECK_STR_NULLOK(v)	\
-	if((v)&&!Syscall_ValidString((v))){ret=-1;err=-EINVAL;break;}
+	if((v)&&!Syscall_ValidString((v))){MERR("CHECK_STR_NULLOK: %p FAIL",v);ret=-1;err=-EINVAL;break;}
 #define CHECK_NUM_NONULL(v,size)	\
-	if(!(v)||!Syscall_Valid((size),(v))){ret=-1;err=-EINVAL;break;}
+	if(!(v)||!Syscall_Valid((size),(v))){MERR("CHECK_NUM_NONULL: %p(%x) FAIL",v,size);ret=-1;err=-EINVAL;break;}
 #define CHECK_STR_NONULL(v)	\
-	if(!(v)||!Syscall_ValidString((v))){ret=-1;err=-EINVAL;break;}
+	if(!(v)||!Syscall_ValidString((v))){MERR("CHECK_STR_NONULL: %p FAIL",v);ret=-1;err=-EINVAL;break;}
 #define CHECK_STR_ARRAY(arr)	do {\
 	 int	i;\
 	char	**tmp = (char**)arr; \
@@ -38,6 +44,7 @@ extern Uint	Binary_Load(const char *file, Uint *entryPoint);
 void	SyscallHandler(tSyscallRegs *Regs);
  int	Syscall_ValidString(const char *Addr);
  int	Syscall_Valid(int Size, const void *Addr);
+ int	Syscall_MM_SetFlags(const void *Addr, Uint Flags, Uint Mask);
 
 // === CODE ===
 // TODO: Do sanity checking on arguments, ATM the user can really fuck with the kernel
@@ -114,6 +121,11 @@ void SyscallHandler(tSyscallRegs *Regs)
 	// -- Unmap an address
 	case SYS_UNMAP:		MM_Deallocate(Regs->Arg1);	break;
 	
+	// -- Change the protection on an address
+	case SYS_SETFLAGS:
+		ret = Syscall_MM_SetFlags((void*)Regs->Arg1, Regs->Arg2, Regs->Arg3);
+		break;
+
 	// -- Get Thread/Process IDs
 	case SYS_GETTID:	ret = Threads_GetTID();	break;
 	case SYS_GETPID:	ret = Threads_GetPID();	break;
@@ -135,13 +147,10 @@ void SyscallHandler(tSyscallRegs *Regs)
 	// -- Check for messages
 	case SYS_GETMSG:
 		CHECK_NUM_NULLOK( (Uint*)Regs->Arg1, sizeof(Uint) );
-		// NOTE: Can't do range checking as we don't know the size
-		// - Should be done by Proc_GetMessage
-		if( Regs->Arg2 && Regs->Arg2 != -1 && !MM_IsUser(Regs->Arg2) ) {
-			err = -EINVAL;	ret = -1;	break;
-		}
+		if( Regs->Arg3 != -1 )
+			CHECK_NUM_NULLOK((void*)Regs->Arg3, Regs->Arg2);
 		// *Source, *Data
-		ret = Proc_GetMessage((Uint*)Regs->Arg1, (void*)Regs->Arg2);
+		ret = Proc_GetMessage((Uint*)Regs->Arg1, Regs->Arg2, (void*)Regs->Arg3);
 		break;
 	
 	// -- Get the current timestamp
@@ -163,7 +172,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 		CHECK_STR_NONULL((const char*)Regs->Arg1);
 		CHECK_STR_ARRAY((const char**)Regs->Arg2);
 		CHECK_STR_ARRAY((const char**)Regs->Arg3);
-		CHECK_NUM_NONULL((void*)Regs->Arg5, Regs->Arg4*sizeof(int));
+		CHECK_NUM_NULLOK((void*)Regs->Arg5, Regs->Arg4*sizeof(int));
 		ret = Proc_SysSpawn(
 			(const char*)Regs->Arg1, (const char**)Regs->Arg2, (const char**)Regs->Arg3,
 			Regs->Arg4, (int*)Regs->Arg5
@@ -262,6 +271,7 @@ void SyscallHandler(tSyscallRegs *Regs)
 	case SYS_IOCTL:
 		// All sanity checking should be done by the driver
 		if( Regs->Arg3 && !MM_IsUser(Regs->Arg3) ) {
+			MERR("IOCtl Invalid arg %p", Regs->Arg3);
 			err = -EINVAL;	ret = -1;	break;
 		}
 		ret = VFS_IOCtl( Regs->Arg1, Regs->Arg2, (void*)Regs->Arg3 );
@@ -275,21 +285,35 @@ void SyscallHandler(tSyscallRegs *Regs)
 			ret = -1;
 			break;
 		}
-		// Sanity check the paths
-		if(!Syscall_ValidString((char*)Regs->Arg1)
-		|| !Syscall_ValidString((char*)Regs->Arg2)
-		|| !Syscall_ValidString((char*)Regs->Arg3)
-		|| !Syscall_ValidString((char*)Regs->Arg4) ) {
-			err = -EINVAL;
-			ret = -1;
-			break;
+		
+		if( !Regs->Arg1 )
+		{
+			if( !Syscall_ValidString((char*)Regs->Arg2) ) {
+				err = -EINVAL;
+				ret = -1;
+				break;
+			}
+			
+			ret = VFS_Unmount((char*)Regs->Arg2);
 		}
-		ret = VFS_Mount(
-			(char*)Regs->Arg1,	// Device
-			(char*)Regs->Arg2,	// Mount point
-			(char*)Regs->Arg3,	// Filesystem
-			(char*)Regs->Arg4	// Options
-			);
+		else
+		{
+			// Sanity check the paths
+			if(!Syscall_ValidString((char*)Regs->Arg1)
+			|| !Syscall_ValidString((char*)Regs->Arg2)
+			|| (Regs->Arg3 && !Syscall_ValidString((char*)Regs->Arg3))
+			|| !Syscall_ValidString((char*)Regs->Arg4) ) {
+				err = -EINVAL;
+				ret = -1;
+				break;
+			}
+			ret = VFS_Mount(
+				(char*)Regs->Arg1,	// Device
+				(char*)Regs->Arg2,	// Mount point
+				(char*)Regs->Arg3,	// Filesystem
+				(char*)Regs->Arg4	// Options
+				);
+		}
 		break;
 		
 	// Wait on a set of handles
@@ -383,7 +407,31 @@ int Syscall_ValidString(const char *Addr)
  */
 int Syscall_Valid(int Size, const void *Addr)
 {
-	if(!MM_IsUser( (tVAddr)Addr ))	return 0;
+	if(!MM_IsUser( (tVAddr)Addr )) {
+		Log_Debug("Syscalls", "Syscall_Valid - %p not user", Addr);
+		return 0;
+	}
 	
 	return CheckMem( Addr, Size );
+}
+
+int Syscall_MM_SetFlags(const void *Addr, Uint Flags, Uint Mask)
+{
+	tPAddr	paddr = MM_GetPhysAddr(Addr);
+	Flags &= MM_PFLAG_RO|MM_PFLAG_EXEC;
+	Mask &= MM_PFLAG_RO|MM_PFLAG_EXEC;
+
+	//Log_Debug("Syscalls", "SYS_SETFLAGS: %p %x %x", Addr, Flags, Mask);	
+
+	// Enable write?
+	if( (Mask & MM_PFLAG_RO) && !(Flags & MM_PFLAG_RO) ) {
+		void	*node;
+		// HACK - Assume that RO mmap'd files are immutable
+		if( MM_GetPageNode(paddr, &node) == 0 && node ) {
+			Flags |= MM_PFLAG_COW;
+			Mask |= MM_PFLAG_COW;
+		}
+	}
+	MM_SetFlags((tVAddr)Addr, Flags, Mask);
+	return 0;
 }

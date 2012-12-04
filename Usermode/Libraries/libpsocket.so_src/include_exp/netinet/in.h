@@ -3,9 +3,11 @@
 
 #include <stdint.h>
 
+typedef uint32_t	in_addr_t;
+
 struct in_addr
 {
-	unsigned long s_addr;
+	in_addr_t s_addr;
 };
 
 struct sockaddr_in
@@ -13,6 +15,17 @@ struct sockaddr_in
 	uint16_t	sin_family;
 	uint16_t	sin_port;
 	struct in_addr	sin_addr;
+};
+
+#define INADDR_ANY	0x00000000
+#define INADDR_BROADCAST	0xFFFFFFFF
+
+// getsockopt/setsockopt(level)
+enum {
+	IPPROTO_IP = 1,
+	IPPROTO_ICMP,
+	IPPROTO_TCP,
+	IPPROTO_UDP
 };
 
 struct in6_addr

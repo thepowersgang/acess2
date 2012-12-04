@@ -28,6 +28,8 @@ typedef struct sIPCMsg_RetDisplayDims	tIPCMsg_RetDisplayDims;
  */
 //! Request a return value
 #define IPCMSG_FLAG_RETURN	0x01
+//! IPC Message for renderer
+#define IPCMSG_FLAG_RENDERER	0x80
 /**
  * \}
  */

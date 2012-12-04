@@ -20,6 +20,8 @@ void	create_sidebar(void);
 void	create_mainmenu(void);
 void	create_run_dialog(void);
 void	mainmenu_run_dialog(void *unused);
+void	mainmenu_app_terminal(void *unused);
+void	mainmenu_app_textedit(void *unused);
 
 // === GLOBALS ===
 tHWND	gSidebar;
@@ -29,6 +31,7 @@ tHWND	gRunDialog;
 tAxWin3_Widget	*gRunInput;
  int	giScreenWidth;
  int	giScreenHeight;
+char	**gEnvion;
 
 // === CODE ===
 int systembutton_fire(tAxWin3_Widget *Widget)
@@ -38,8 +41,9 @@ int systembutton_fire(tAxWin3_Widget *Widget)
 	return 0;
 }
 
-int main(int argc, char *argv[])
+int main(int argc, char *argv[], char **envp)
 {
+	gEnvion = envp;
 	// Connect to AxWin3 Server
 	AxWin3_Connect(NULL);
 
@@ -51,8 +55,8 @@ int main(int argc, char *argv[])
 	create_run_dialog();
 	
 	AxWin3_RegisterAction(gSidebar, "Interface>Run", (tAxWin3_HotkeyCallback)mainmenu_run_dialog);
-//	AxWin3_RegisterAction(gSidebar, "Interface>Terminal", mainmenu_app_terminal);
-//	AxWin3_RegisterAction(gSidebar, "Interface>TextEdit", mainmenu_app_textedit);
+	AxWin3_RegisterAction(gSidebar, "Interface>Terminal", (tAxWin3_HotkeyCallback)mainmenu_app_terminal);
+	AxWin3_RegisterAction(gSidebar, "Interface>TextEdit", (tAxWin3_HotkeyCallback)mainmenu_app_textedit);
 
 	// Idle loop
 	AxWin3_MainLoop();
@@ -107,7 +111,9 @@ void create_sidebar(void)
 
 void mainmenu_app_textedit(void *unused)
 {
-	_SysDebug("TODO: Launch text editor");
+	const char	*args[] = {"ate",NULL};
+//	_SysDebug("TODO: Launch text editor");
+	_SysSpawn("/Acess/Apps/AxWin/3.0/ate", args, (const char **)gEnvion, 0, NULL, NULL);
 }
 
 void mainmenu_app_terminal(void *unused)

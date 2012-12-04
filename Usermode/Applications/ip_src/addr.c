@@ -61,9 +61,9 @@ int AddInterface(const char *Device)
 {
 	 int	dp, ret;
 	
-	dp = open(IPSTACK_ROOT, OPENFLAG_READ);
-	ret = ioctl(dp, 4, (void*)Device);
-	close(dp);
+	dp = _SysOpen(IPSTACK_ROOT, OPENFLAG_READ);
+	ret = _SysIOCtl(dp, 4, (void*)Device);
+	_SysClose(dp);
 	
 	if( ret < 0 ) {
 		fprintf(stderr, "Unable to add '%s' as a network interface\n", Device);
@@ -94,26 +94,26 @@ int SetAddress(int IFNum, const char *Address)
 	
 	// Open file
 	sprintf(path, IPSTACK_ROOT"/%i", IFNum);
-	fd = open(path, OPENFLAG_READ);
+	fd = _SysOpen(path, OPENFLAG_READ);
 	if( fd == -1 ) {
 		fprintf(stderr, "Unable to open '%s'\n", path);
 		return -1;
 	}
 	
 	tmp = type;
-	tmp = ioctl(fd, ioctl(fd, 3, "getset_type"), &tmp);
+	tmp = _SysIOCtl(fd, _SysIOCtl(fd, 3, "getset_type"), &tmp);
 	if( tmp != type ) {
 		fprintf(stderr, "Error in setting address type (got %i, expected %i)\n", tmp, type);
-		close(fd);
+		_SysClose(fd);
 		return -1;
 	}
 	// Set Address
-	ioctl(fd, ioctl(fd, 3, "set_address"), addr);
+	_SysIOCtl(fd, _SysIOCtl(fd, 3, "set_address"), addr);
 	
 	// Set Subnet
-	ioctl(fd, ioctl(fd, 3, "getset_subnet"), &subnet);
+	_SysIOCtl(fd, _SysIOCtl(fd, 3, "getset_subnet"), &subnet);
 	
-	close(fd);
+	_SysClose(fd);
 	
 	// Dump!
 	//DumpInterface( path+sizeof(IPSTACK_ROOT)+1 );
@@ -129,15 +129,15 @@ void DumpInterfaces(void)
 	 int	dp;
 	char	filename[FILENAME_MAX+1];
 	
-	dp = open(IPSTACK_ROOT, OPENFLAG_READ);
+	dp = _SysOpen(IPSTACK_ROOT, OPENFLAG_READ);
 	
-	while( SysReadDir(dp, filename) )
+	while( _SysReadDir(dp, filename) )
 	{
 		if(filename[0] == '.')	continue;
 		DumpInterface(filename);
 	}
 	
-	close(dp);
+	_SysClose(dp);
 }
 
 /**
@@ -151,13 +151,13 @@ void DumpInterface(const char *Name)
 	
 	strcat(path, Name);
 	
-	fd = open(path, OPENFLAG_READ);
+	fd = _SysOpen(path, OPENFLAG_READ);
 	if(fd == -1) {
 		fprintf(stderr, "Bad interface name '%s' (%s does not exist)\t", Name, path);
 		return ;
 	}
 	
-	type = ioctl(fd, 4, NULL);
+	type = _SysIOCtl(fd, 4, NULL);
 	
 	// Ignore -1 values
 	if( type == -1 ) {
@@ -166,10 +166,10 @@ void DumpInterface(const char *Name)
 	
 	printf("%s:\t", Name);
 	{
-		 int	call_num = ioctl(fd, 3, "get_device");
-		 int	len = ioctl(fd, call_num, NULL);
+		 int	call_num = _SysIOCtl(fd, 3, "get_device");
+		 int	len = _SysIOCtl(fd, call_num, NULL);
 		char	*buf = malloc(len+1);
-		ioctl(fd, call_num, buf);
+		_SysIOCtl(fd, call_num, buf);
 		printf("'%s'\n", buf);
 		free(buf);
 	}
@@ -185,8 +185,8 @@ void DumpInterface(const char *Name)
 		uint8_t	ip[4];
 		 int	subnet;
 		printf("IPv4\t");
-		ioctl(fd, 5, ip);	// Get IP Address
-		subnet = ioctl(fd, 7, NULL);	// Get Subnet Bits
+		_SysIOCtl(fd, 5, ip);	// Get IP Address
+		subnet = _SysIOCtl(fd, 7, NULL);	// Get Subnet Bits
 		printf("%i.%i.%i.%i/%i\n", ip[0], ip[1], ip[2], ip[3], subnet);
 		}
 		break;
@@ -195,8 +195,8 @@ void DumpInterface(const char *Name)
 		uint16_t	ip[8];
 		 int	subnet;
 		printf("IPv6\t");
-		ioctl(fd, 5, ip);	// Get IP Address
-		subnet = ioctl(fd, 7, NULL);	// Get Subnet Bits
+		_SysIOCtl(fd, 5, ip);	// Get IP Address
+		subnet = _SysIOCtl(fd, 7, NULL);	// Get Subnet Bits
 		printf("%x:%x:%x:%x:%x:%x:%x:%x/%i\n",
 			ntohs(ip[0]), ntohs(ip[1]), ntohs(ip[2]), ntohs(ip[3]),
 			ntohs(ip[4]), ntohs(ip[5]), ntohs(ip[6]), ntohs(ip[7]),
@@ -208,6 +208,6 @@ void DumpInterface(const char *Name)
 		break;
 	}
 			
-	close(fd);
+	_SysClose(fd);
 }
 

@@ -5,7 +5,7 @@
  * dir.c
  * - Directory Handling
  */
-#define DEBUG	1
+#define DEBUG	0
 #define VERBOSE	0
 #include "ext2_common.h"
 
@@ -18,8 +18,6 @@ tVFS_Node	*Ext2_FindDir(tVFS_Node *Node, const char *FileName);
 tVFS_Node	*Ext2_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
  int	Ext2_Unlink(tVFS_Node *Node, const char *OldName);
  int	Ext2_Link(tVFS_Node *Parent, const char *Name, tVFS_Node *Node);
-// --- Helpers ---
-tVFS_Node	*Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeId);
 
 // === GLOBALS ===
 tVFS_NodeType	gExt2_DirType = {
@@ -234,7 +232,6 @@ int Ext2_Unlink(tVFS_Node *Node, const char *OldName)
  */
 int Ext2_Link(tVFS_Node *Node, const char *Name, tVFS_Node *Child)
 {	
-	#if 1
 	tExt2_Disk	*disk = Node->ImplPtr;
 	tExt2_Inode	inode;
 	tExt2_DirEnt	*dirent;
@@ -400,84 +397,6 @@ int Ext2_Link(tVFS_Node *Node, const char *Name, tVFS_Node *Child)
 	//Ext2_int_UnlockInode(disk, Node->Inode);
 	Mutex_Release(&Node->Lock);
 	LEAVE('i', 0);
-	return 0;
-	#else
-	Log_Warning("Ext2", "TODO: Impliment Ext2_Link");
-	return 1;
-	#endif
-}
-
-// ---- INTERNAL FUNCTIONS ----
-/**
- * \fn vfs_node *Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeID)
- * \brief Create a new VFS Node
- */
-tVFS_Node *Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeID)
-{
-	tExt2_Inode	inode;
-	tVFS_Node	retNode;
-	tVFS_Node	*tmpNode;
-	
-	if( !Ext2_int_ReadInode(Disk, InodeID, &inode) )
-		return NULL;
-	
-	if( (tmpNode = Inode_GetCache(Disk->CacheID, InodeID)) )
-		return tmpNode;
-
-	memset(&retNode, 0, sizeof(retNode));	
-	
-	// Set identifiers
-	retNode.Inode = InodeID;
-	retNode.ImplPtr = Disk;
-	retNode.ImplInt = inode.i_links_count;
-	
-	// Set file length
-	retNode.Size = inode.i_size;
-	
-	// Set Access Permissions
-	retNode.UID = inode.i_uid;
-	retNode.GID = inode.i_gid;
-	retNode.NumACLs = 3;
-	retNode.ACLs = VFS_UnixToAcessACL(inode.i_mode & 0777, inode.i_uid, inode.i_gid);
-	
-	//  Set Function Pointers
-	retNode.Type = &gExt2_FileType;
-	
-	switch(inode.i_mode & EXT2_S_IFMT)
-	{
-	// Symbolic Link
-	case EXT2_S_IFLNK:
-		retNode.Flags = VFS_FFLAG_SYMLINK;
-		break;
-	// Regular File
-	case EXT2_S_IFREG:
-		retNode.Flags = 0;
-		retNode.Size |= (Uint64)inode.i_dir_acl << 32;
-		break;
-	// Directory
-	case EXT2_S_IFDIR:
-		retNode.Type = &gExt2_DirType;
-		retNode.Flags = VFS_FFLAG_DIRECTORY;
-		retNode.Data = calloc( sizeof(Uint16), DivUp(retNode.Size, Disk->BlockSize) );
-		break;
-	// Unknown, Write protect it to be safe 
-	default:
-		retNode.Flags = VFS_FFLAG_READONLY;
-		break;
-	}
-	
-	// Set Timestamps
-	retNode.ATime = inode.i_atime * 1000;
-	retNode.MTime = inode.i_mtime * 1000;
-	retNode.CTime = inode.i_ctime * 1000;
-	
-	// Save in node cache and return saved node
-	return Inode_CacheNode(Disk->CacheID, &retNode);
-}
-
-int Ext2_int_WritebackNode(tExt2_Disk *Disk, tVFS_Node *Node)
-{
-	Log_Warning("Ext2","TODO: Impliment Ext2_int_WritebackNode");
 	return 0;
 }
 

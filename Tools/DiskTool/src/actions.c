@@ -141,7 +141,14 @@ int DiskTool_ListDirectory(const char *Directory)
 	char	name[256];
 	while( VFS_ReadDir(fd, name) )
 	{
-		Log("- %s", name);
+		tFInfo	fi;
+		int child = VFS_OpenChild(fd, name, 0);
+		if( child != -1 )
+		{
+			VFS_FInfo(child, &fi, 0);
+			VFS_Close(child);
+		}
+		Log("- %02x %6lli %s", fi.flags, fi.size, name);
 	}
 	
 	VFS_Close(fd);

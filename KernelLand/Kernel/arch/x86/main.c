@@ -24,6 +24,7 @@ extern void	MM_PreinitVirtual(void);
 extern void	MM_Install(int NPMemRanges, tPMemMapEnt *PMemRanges);
 extern void	MM_InstallVirtual(void);
 extern int	Time_Setup(void);
+//extern int	ACPICA_Initialise(void);
 
 // === PROTOTYPES ===
  int	kmain(Uint MbMagic, void *MbInfoPtr);
@@ -54,7 +55,7 @@ int kmain(Uint MbMagic, void *MbInfoPtr)
 		gsBootCmdLine = (char*)(mbInfo->CommandLine + KERNEL_BASE);
 
 		// Adjust Multiboot structure address
-		mbInfo = (void*)( (Uint)MbInfoPtr + KERNEL_BASE );
+		mbInfo = (void*)( (tVAddr)MbInfoPtr + KERNEL_BASE );
 
 		nPMemMapEnts = Multiboot_LoadMemoryMap(mbInfo, KERNEL_BASE, pmemmap, MAX_PMEMMAP_ENTS,
 			KERNEL_LOAD, (tVAddr)&gKernelEnd - KERNEL_BASE);
@@ -79,13 +80,14 @@ int kmain(Uint MbMagic, void *MbInfoPtr)
 	
 	MM_InstallVirtual();	// Clean up virtual address space
 	Heap_Install();		// Create initial heap
+	Time_Setup();	// Initialise timing
 	
 	// Start Multitasking
 	Threads_Init();
-	
-	// Start Timers
-	Time_Setup();
-	
+
+	// Poke ACPICA
+//	ACPICA_Initialise();	
+
 	Log_Log("Arch", "Starting VFS...");
 	// Load Virtual Filesystem
 	VFS_Init();

@@ -38,7 +38,7 @@ void Video_Setup(void)
 	
 	// Open terminal
 	#if 0
-	giTerminalFD = open(gsTerminalDevice, OPENFLAG_READ|OPENFLAG_WRITE);
+	giTerminalFD = _SysOpen(gsTerminalDevice, OPENFLAG_READ|OPENFLAG_WRITE);
 	if( giTerminalFD == -1 )
 	{
 		fprintf(stderr, "ERROR: Unable to open '%s' (%i)\n", gsTerminalDevice, _errno);
@@ -48,8 +48,8 @@ void Video_Setup(void)
 	giTerminalFD = 1;
 	giTerminalFD_Input = 0;
 	// Check that the console is a VT
-	// - ioctl(..., 0, NULL) returns the type, which should be 2
-	if( ioctl(1, 0, NULL) != 2 )
+	// - _SysIOCtl(..., 0, NULL) returns the type, which should be 2
+	if( _SysIOCtl(1, 0, NULL) != 2 )
 	{
 		fprintf(stderr, "stdout is not an Acess VT, can't start");
 		_SysDebug("stdout is not an Acess VT, can't start");
@@ -59,22 +59,22 @@ void Video_Setup(void)
 	
 	// Set mode to video
 	tmpInt = TERM_MODE_FB;
-	ioctl( giTerminalFD, TERM_IOCTL_MODETYPE, &tmpInt );
+	_SysIOCtl( giTerminalFD, TERM_IOCTL_MODETYPE, &tmpInt );
 	
 	// Get dimensions
-	giScreenWidth = ioctl( giTerminalFD, TERM_IOCTL_WIDTH, NULL );
-	giScreenHeight = ioctl( giTerminalFD, TERM_IOCTL_HEIGHT, NULL );
+	giScreenWidth = _SysIOCtl( giTerminalFD, TERM_IOCTL_WIDTH, NULL );
+	giScreenHeight = _SysIOCtl( giTerminalFD, TERM_IOCTL_HEIGHT, NULL );
 
 	giVideo_LastDirtyLine = giScreenHeight;
 	
 	// Force VT to be shown
-	ioctl( giTerminalFD, TERM_IOCTL_FORCESHOW, NULL );
+	_SysIOCtl( giTerminalFD, TERM_IOCTL_FORCESHOW, NULL );
 	
 	// Create local framebuffer (back buffer)
 	gpScreenBuffer = malloc( giScreenWidth*giScreenHeight*4 );
 
 	// Set cursor position and bitmap
-	ioctl(giTerminalFD, TERM_IOCTL_SETCURSORBITMAP, &cCursorBitmap);
+	_SysIOCtl(giTerminalFD, TERM_IOCTL_SETCURSORBITMAP, &cCursorBitmap);
 	Video_SetCursorPos( giScreenWidth/2, giScreenHeight/2 );
 }
 
@@ -87,9 +87,9 @@ void Video_Update(void)
 
 	_SysDebug("Video_Update - Updating lines %i to %i (0x%x+0x%x px)",
 		giVideo_FirstDirtyLine, giVideo_LastDirtyLine, ofs, size);
-	seek(giTerminalFD, ofs*4, 1);
-	_SysDebug("Video_Update - Sending");
-	write(giTerminalFD, gpScreenBuffer+ofs, size*4);
+	_SysSeek(giTerminalFD, ofs*4, 1);
+	_SysDebug("Video_Update - Sending FD %i %p 0x%x", giTerminalFD, gpScreenBuffer+ofs, size*4);
+	_SysWrite(giTerminalFD, gpScreenBuffer+ofs, size*4);
 	_SysDebug("Video_Update - Done");
 	giVideo_FirstDirtyLine = 0;
 	giVideo_LastDirtyLine = 0;
@@ -103,7 +103,7 @@ void Video_SetCursorPos(short X, short Y)
 	} pos;
 	pos.x = giVideo_CursorX = X;
 	pos.y = giVideo_CursorY = Y;
-	ioctl(giTerminalFD, TERM_IOCTL_GETSETCURSOR, &pos);
+	_SysIOCtl(giTerminalFD, TERM_IOCTL_GETSETCURSOR, &pos);
 }
 
 void Video_FillRect(int X, int Y, int W, int H, uint32_t Colour)
@@ -132,35 +132,50 @@ void Video_FillRect(int X, int Y, int W, int H, uint32_t Colour)
 void Video_Blit(uint32_t *Source, short DstX, short DstY, short W, short H)
 {
 	uint32_t	*buf;
+	short	drawW = W;
 
 	if( DstX >= giScreenWidth)	return ;
 	if( DstY >= giScreenHeight)	return ;
-	// TODO: Handle -ve X/Y by clipping
-	if( DstX < 0 || DstY < 0 )	return ;
-	// TODO: Handle out of bounds by clipping too
-	if( DstX + W > giScreenWidth )	return;
+	// Drawing oob to left/top, clip
+	if( DstX < 0 ) {
+		Source += -DstX;
+		drawW -= -DstX;
+		DstX = 0;
+	}
+	if( DstY < 0 ) {
+		Source += (-DstY)*W;
+		H -= -DstY;
+		DstY = 0;
+	}
+	if( drawW < 0 )	return ;
+	// Drawing oob to the right, clip
+	if( DstX + drawW > giScreenWidth ) {
+		//int oldw = drawW;
+		drawW = giScreenWidth - DstX;
+	}
 	if( DstY + H > giScreenHeight )
-		H = giScreenWidth - DstY;
+		H = giScreenHeight - DstY;
 
 	if( W <= 0 || H <= 0 )	return;
 
-	if( DstX < giVideo_FirstDirtyLine )
+	if( DstY < giVideo_FirstDirtyLine )
 		giVideo_FirstDirtyLine = DstY;
 	if( DstY + H > giVideo_LastDirtyLine )
 		giVideo_LastDirtyLine = DstY + H;
 	
 	buf = gpScreenBuffer + DstY*giScreenWidth + DstX;
-	if(W != giScreenWidth)
+	if(drawW != giScreenWidth || W != giScreenWidth)
 	{
 		while( H -- )
 		{
-			memcpy(buf, Source, W*4);
+			memcpy(buf, Source, drawW*4);
 			Source += W;
 			buf += giScreenWidth;
 		}
 	}
 	else
 	{
+		// Only valid if copying full scanlines on both ends
 		memcpy(buf, Source, giScreenWidth*H*4);
 	}
 }

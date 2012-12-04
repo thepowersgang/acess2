@@ -11,12 +11,11 @@
 #include <stdarg.h>
 #include <stddef.h>
 
-#define DEBUG(v...)	Debug(v)
+#define DEBUG(v...)	do{}while(0)//Debug(v)
 #define PAGE_SIZE	4096
 
 typedef struct sFILE	FILE;
 
-extern FILE	*stderr;
 extern void	exit(int) __attribute__ ((noreturn));
 extern int	printf(const char *, ...);
 extern int	fprintf(FILE *,const char *, ...);
@@ -29,11 +28,16 @@ extern int	giSyscall_ClientID;	// Needed for execve
 extern void	_InitSyscalls(void);
 extern void	_CloseSyscalls(void);
 
+extern void	Warning(const char *Format, ...);
 extern void	Debug(const char *Format, ...);
 extern int	AllocateMemory(uintptr_t VirtAddr, size_t ByteCount);
 
 // === CONSTANTS ===
 #define NATIVE_FILE_MASK	0x40000000
+
+// === GLOBALS ===
+int	acess__errno;
+char	*gsExecutablePath = "./ld-acess";
 
 // === CODE ===
 // --- VFS Calls
@@ -92,6 +96,7 @@ int acess_seek(int FD, int64_t Ofs, int Dir) {
 uint64_t acess_tell(int FD) {
 	if(FD & NATIVE_FILE_MASK)
 		return native_tell( FD & (NATIVE_FILE_MASK-1) );
+	DEBUG("tell(0x%x)", FD);
 	return _Syscall(SYS_TELL, ">i", FD);
 }
 
@@ -115,8 +120,8 @@ int acess_finfo(int fd, t_sysFInfo *info, int maxacls) {
 		);
 }
 
-int acess_readdir(int fd, char *dest) {
-	DEBUG("readdir(%i, %p)", fd, dest);
+int acess_SysReadDir(int fd, char *dest) {
+	DEBUG("SysReadDir(%i, %p)", fd, dest);
 	return _Syscall(SYS_READDIR, ">i <d", fd, 256, dest);
 }
 
@@ -139,14 +144,17 @@ int acess_select(int nfds, fd_set *read, fd_set *write, fd_set *error, time_t *t
 
 
 int acess__SysOpenChild(int fd, char *name, int flags) {
+	DEBUG("_SysOpenChild(0x%x, '%s', 0x%x)", fd, name, flags);
 	return _Syscall(SYS_OPENCHILD, ">i >s >i", fd, name, flags);
 }
 
 int acess__SysGetACL(int fd, t_sysACL *dest) {
+	DEBUG("%s(0x%x, %p)", __func__, fd, dest);
 	return _Syscall(SYS_GETACL, ">i <d", fd, sizeof(t_sysACL), dest);
 }
 
 int acess__SysMount(const char *Device, const char *Directory, const char *Type, const char *Options) {
+	DEBUG("%s('%s', '%s', '%s', '%s')", __func__, Device, Directory, Type, Options);
 	return _Syscall(SYS_MOUNT, ">s >s >s >s", Device, Directory, Type, Options);
 }
 
@@ -169,10 +177,14 @@ uint64_t acess__SysAllocate(uint vaddr)
 // --- Process Management ---
 int acess_clone(int flags, void *stack)
 {
+	#ifdef __WIN32__
+	Warning("Win32 does not support anything like fork(2), cannot emulate");
+	exit(-1);
+	#else
 	extern int fork(void);
 	if(flags & CLONE_VM) {
 		 int	ret, newID, kernel_tid=0;
-		printf("USERSIDE fork()\n");
+		Debug("USERSIDE fork()");
 		
 		newID = _Syscall(SYS_AN_FORK, "<d", sizeof(int), &kernel_tid);
 		ret = fork();
@@ -183,8 +195,8 @@ int acess_clone(int flags, void *stack)
 		if(ret == 0)
 		{
 			_CloseSyscalls();
-			_InitSyscalls();
 			giSyscall_ClientID = newID;
+			_InitSyscalls();
 			return 0;
 		}
 		
@@ -193,12 +205,13 @@ int acess_clone(int flags, void *stack)
 	}
 	else
 	{
-		fprintf(stderr, "ERROR: Threads currently unsupported\n");
+		Warning("ERROR: Threads currently unsupported\n");
 		exit(-1);
 	}
+	#endif
 }
 
-int acess_execve(char *path, char **argv, char **envp)
+int acess_execve(char *path, char **argv, const char **envp)
 {
 	 int	i, argc;
 	
@@ -208,7 +221,7 @@ int acess_execve(char *path, char **argv, char **envp)
 	for( argc = 0; argv[argc]; argc ++ ) ;
 	DEBUG(" acess_execve: argc = %i", argc);
 
-	char	*new_argv[7+argc+1];
+	const char	*new_argv[7+argc+1];
 	char	client_id_str[11];
 	char	socket_fd_str[11];
 	sprintf(client_id_str, "%i", giSyscall_ClientID);
@@ -241,13 +254,49 @@ int acess_execve(char *path, char **argv, char **envp)
 	return native_execve("./ld-acess", new_argv, envp);
 }
 
+int acess__SysSpawn(const char *binary, const char **argv, const char **envp, int nfd, int fds[], struct s_sys_spawninfo *info)
+{
+	 int	argc = 0;
+	while( argv[argc++] );
+
+	Debug("_SysSpawn('%s', %p (%i), %p, %i, %p, %p)",
+		binary, argv, argc, envp, nfd, fds, info);
+
+	 int	kernel_tid;
+	 int	newID;
+	newID = _Syscall(SYS_AN_SPAWN, "<d >d >d", sizeof(int), &kernel_tid,
+		nfd*sizeof(int), fds,
+		info ? sizeof(*info) : 0, info);
+
+	const char	*new_argv[5+argc+1];
+	 int	new_argc = 0, i;
+	char	client_id_str[11];
+	sprintf(client_id_str, "%i", newID);
+	new_argv[new_argc++] = gsExecutablePath;       // TODO: Get path to ld-acess executable
+	new_argv[new_argc++] = "--key";
+	new_argv[new_argc++] = client_id_str;
+	new_argv[new_argc++] = "--binary";
+	new_argv[new_argc++] = binary;
+	for( i = 0; argv[i]; i ++)
+		new_argv[new_argc++] = argv[i];
+	new_argv[new_argc++] = NULL;
+	
+	// TODO: Debug output?
+	
+	native_spawn(gsExecutablePath, new_argv, envp);
+
+	return kernel_tid;
+}
+
 void acess_sleep(void)
 {
+	DEBUG("%s()", __func__);
 	_Syscall(SYS_SLEEP, "");
 }
 
 int acess_waittid(int TID, int *ExitStatus)
 {
+	DEBUG("%s(%i, %p)", __func__, TID, ExitStatus);
 	return _Syscall(SYS_WAITTID, ">i <d", TID, sizeof(int), &ExitStatus);
 }
 
@@ -260,23 +309,22 @@ int acess_getgid(void) { return _Syscall(SYS_GETGID, ""); }
 
 int acess_SysSendMessage(int DestTID, int Length, void *Data)
 {
+	DEBUG("%s(%i, 0x%x, %p)", __func__, DestTID, Length, Data);
 	return _Syscall(SYS_SENDMSG, ">i >d", DestTID, Length, Data);
 }
 
-int acess_SysGetMessage(int *SourceTID, void *Data)
+int acess_SysGetMessage(int *SourceTID, int BufLen, void *Data)
 {
-//	static __thread int lastlen = 1024;
-	int lastlen;
-
-	lastlen = _Syscall(SYS_GETMSG, "<d <d",
+	DEBUG("%s(%p, %p)", __func__, SourceTID, Data);
+	return _Syscall(SYS_GETMSG, "<d <d",
 		SourceTID ? sizeof(uint32_t) : 0, SourceTID,
-		Data ? 1024 : 0, Data
+		BufLen, Data
 		);
-	return lastlen;
 }
 
 int acess__SysWaitEvent(int Mask)
 {
+	DEBUG("%s(%x)", __func__, Mask);
 	return _Syscall(SYS_WAITEVENT, ">i", Mask);
 }
 
@@ -303,7 +351,7 @@ void acess__exit(int Status)
 
 
 // === Symbol List ===
-#define DEFSYM(name)	{#name, acess_##name}
+#define DEFSYM(name)	{#name, &acess_##name}
 const tSym	caBuiltinSymbols[] = {
 	DEFSYM(_exit),
 	
@@ -317,7 +365,7 @@ const tSym	caBuiltinSymbols[] = {
 	DEFSYM(tell),
 	DEFSYM(ioctl),
 	DEFSYM(finfo),
-	DEFSYM(readdir),
+	DEFSYM(SysReadDir),
 	DEFSYM(select),
 	DEFSYM(_SysOpenChild),
 	DEFSYM(_SysGetACL),
@@ -326,12 +374,15 @@ const tSym	caBuiltinSymbols[] = {
 	
 	DEFSYM(clone),
 	DEFSYM(execve),
+	DEFSYM(_SysSpawn),
 	DEFSYM(sleep),
 	
 	DEFSYM(waittid),
+	DEFSYM(gettid),
 	DEFSYM(setuid),
 	DEFSYM(setgid),
-	DEFSYM(gettid),
+	DEFSYM(getuid),
+	DEFSYM(getgid),
 
 	DEFSYM(SysSendMessage),
 	DEFSYM(SysGetMessage),
@@ -339,7 +390,9 @@ const tSym	caBuiltinSymbols[] = {
 	DEFSYM(_SysAllocate),
 	DEFSYM(_SysDebug),
 	DEFSYM(_SysSetFaultHandler),
-	DEFSYM(_SysWaitEvent)
+	DEFSYM(_SysWaitEvent),
+	
+	DEFSYM(_errno)
 };
 
 const int	ciNumBuiltinSymbols = sizeof(caBuiltinSymbols)/sizeof(caBuiltinSymbols[0]);

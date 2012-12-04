@@ -185,7 +185,7 @@ EXPORT void free(void *mem)
 	DEBUGS("free(%p) : 0x%x bytes", mem, head->size);
 	
 	//Unify Right
-	if((intptr_t)head + head->size < (intptr_t)_heap_end)
+	if((uintptr_t)head + head->size < (uintptr_t)_heap_end)
 	{
 		heap_head	*nextHead = (heap_head*)((intptr_t)head + head->size);
 		if(nextHead->magic == MAGIC_FREE) {	//Is the next block free
@@ -194,7 +194,7 @@ EXPORT void free(void *mem)
 		}
 	}
 	//Unify Left
-	if((intptr_t)head - sizeof(heap_foot) > (intptr_t)_heap_start)
+	if((uintptr_t)head - sizeof(heap_foot) > (uintptr_t)_heap_start)
 	{
 		heap_head	*prevHead;
 		heap_foot	*prevFoot = (heap_foot *)((intptr_t)head - sizeof(heap_foot));

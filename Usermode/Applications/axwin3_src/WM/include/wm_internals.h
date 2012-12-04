@@ -41,8 +41,9 @@ struct sWindow
 
 	// Position and dimensions
 	 int	X, Y;
-	 int	RealW, RealH;
 	 int	W, H;
+	 int	RealX, RealY;
+	 int	RealW, RealH;
 
 	void	*RenderBuffer;	//!< Cached copy of the rendered window
 };

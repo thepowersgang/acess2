@@ -765,11 +765,11 @@ int Threads_Wake(tThread *Thread)
 		return -EALREADY;
 	
 	case THREAD_STAT_SLEEPING:
-		SHORTLOCK( &glThreadListLock );
 		// Remove from sleeping queue
+		SHORTLOCK( &glThreadListLock );
 		Threads_int_DelFromQueue(&gSleepingThreads, Thread);
-		
 		SHORTREL( &glThreadListLock );
+		
 		Threads_AddActive( Thread );
 		
 		#if DEBUG_TRACE_STATE
@@ -835,7 +835,7 @@ int Threads_Wake(tThread *Thread)
 		return -ENOTIMPL;
 	
 	default:
-		Warning("Threads_Wake - Unknown process status (%i)\n", Thread->Status);
+		Log_Warning("Threads", "Threads_Wake - Unknown process status (%i)", Thread->Status);
 		return -EINTERNAL;
 	}
 }
@@ -1079,7 +1079,7 @@ void Threads_int_DumpThread(tThread *thread)
 	default:	break;
 	}
 	Log("  Priority %i, Quantum %i", thread->Priority, thread->Quantum);
-	Log("  KStack 0x%x", thread->KernelStack);
+	Log("  KStack %p", thread->KernelStack);
 	if( thread->bInstrTrace )
 		Log("  Tracing Enabled");
 	Proc_DumpThreadCPUState(thread);

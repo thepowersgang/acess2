@@ -4,7 +4,7 @@
  * system.c
  * - Architecture Independent System Init
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <acess.h>
 #include <hal_proc.h>
 

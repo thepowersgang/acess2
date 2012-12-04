@@ -38,13 +38,13 @@ $(_BIN): $(OBJ) $(_LIBS)
 	@mkdir -p $(dir $(_BIN))
 	@echo [LD] -o $(BIN) $(OBJ)
 	@$(LD) $(LDFLAGS) -o $(_BIN) $(OBJ) $(shell $(CC) -print-libgcc-file-name)
-	@$(DISASM) -S $(_BIN) > $(_OBJPREFIX)$(BIN).dsm
+	@$(DISASM) -D -S $(_BIN) > $(_OBJPREFIX)$(BIN).dsm
 
 $(_OBJPREFIX)%.o: %.c
 	@echo [CC] -o $@
 	@mkdir -p $(dir $@)
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $<
-	@$(CC) -M -MT $@ $(CPPFLAGS) $< -o $@.dep
+	@$(CC) -M -MP -MT $@ $(CPPFLAGS) $< -o $@.dep
 
 $(_OBJPREFIX)%.ao: %.$(ASSUFFIX)
 	@echo [AS] -o $@

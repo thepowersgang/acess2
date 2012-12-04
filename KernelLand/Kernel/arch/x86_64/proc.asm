@@ -21,7 +21,7 @@ NewTaskHeader:
 	mov rdi, [rsp+0x10]
 	mov rax, [rsp+0x8]
 	add rsp, 0x10	; Reclaim stack space (thread/fcn)
-	xchg bx, bx
+	;xchg bx, bx
 	call rax
 	
 	; Quit thread with RAX as the return code
@@ -39,6 +39,8 @@ Proc_CloneInt:
 	PUSH_GPR
 	; Save RSP
 	mov [rdi], rsp
+	; Call MM_Clone (with bNoUserCopy flag)
+	mov rdi, rdx
 	call MM_Clone
 	; Save CR3
 	mov rsi, [rsp+0x30]	; Saved version of RSI

@@ -55,7 +55,7 @@ mboot:
 ;	dd	8
 ;mboot2_end:
 	
-[section .text]
+[section .inittext]
 [extern kmain]
 [extern Desctab_Install]
 [global start]
@@ -137,13 +137,13 @@ APStartup:
 	; Load initial GDT
 	mov ax, 0xFFFF
 	mov ds, ax
-	lgdt [DWORD ds:lGDTPtr-KERNEL_BASE-0xFFFF0]
+	lgdt [DWORD ds:lGDTPtr-0xFFFF0]
 	; Enable PMode in CR0
 	mov eax, cr0
 	or al, 1
 	mov cr0, eax
 	; Jump into PMode
-	jmp 08h:DWORD .ProtectedMode-KERNEL_BASE
+	jmp 08h:DWORD .ProtectedMode
 [bits 32]
 .ProtectedMode:
 	; Load segment registers
@@ -218,6 +218,10 @@ APStartup:
 	jmp .hlt
 %endif
 
+;
+;
+;
+[section .text]
 [global GetEIP]
 GetEIP:
 	mov eax, [esp]

@@ -44,11 +44,13 @@ SECTIONS {
 		*(.rela.bss .rela.bss.* .rela.gnu.linkonce.b.*)
 	}
 
+	__exidx_start = .;
 	.text : AT(ADDR(.text)) {
 		code = .;
 		*(.text)
 		*(.rodata*)
 	}
+	__exidx_end = .;
 
 	.data ALIGN (0x1000) : AT(ADDR(.data)) {
 		data = .;

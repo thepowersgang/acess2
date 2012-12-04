@@ -194,9 +194,10 @@ int Proc_SysSpawn(const char *Binary, const char **ArgV, const char **EnvP, int 
 		Proc_Execve(Binary, ArgV, EnvP, size);
 		for(;;);
 	}
-	if( ret < 0 )
+	if( ret == -1 )
 	{
 		VFS_FreeSavedHandles(nFD, handles);
+		free(cachebuf);
 	}
 	
 	return ret;
@@ -822,9 +823,12 @@ Uint Binary_GetSymbolEx(const char *Name, Uint *Value)
 	tKernelBin	*pKBin;
 	 int	numKSyms = ((Uint)&gKernelSymbolsEnd-(Uint)&gKernelSymbols)/sizeof(tKernelSymbol);
 	
+	LOG("numKSyms = %i", numKSyms);
+
 	// Scan Kernel
 	for( i = 0; i < numKSyms; i++ )
 	{
+		LOG("KSym %s = %p", gKernelSymbols[i].Name, gKernelSymbols[i].Value);
 		if(strcmp(Name, gKernelSymbols[i].Name) == 0) {
 			*Value = gKernelSymbols[i].Value;
 			return 1;

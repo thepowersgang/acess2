@@ -1,4 +1,6 @@
 TODO:
+
+=== Hardware ===
 - E1000 Driver (stubbed)
  > Find specs
    http://download.intel.com/design/network/manuals/8254x_GBe_SDM.pdf
@@ -15,6 +17,8 @@ TODO:
 - Sound Stack
  > Intel 82801AA AC97 Audio (qemu)
 
+
+=== General Features ===
 - Init Scripts
  > With an argument to init passed from the kernel?
 
@@ -30,6 +34,8 @@ TODO:
 - Signals
  > Add return value to mutexs and semaphores, and add warn_unused_ret
 
+
+=== Kernel Core ===
 - Virtual PCI bus for system configuration
  > Hook in drv_pci.c, with an arch-defined array of devices
  > Allow hooks on PCI config accesses (to emulate power management etc)
@@ -50,6 +56,7 @@ TODO:
 - LVM Usablity
  > /Devices/LVM/by-id/ and /Devices/LVM/by-label
 
+=== Userland ===
 - AxWin3
  > Text editor (with a GP formatted text field?)
  > Maybe a basic web browser using the surface support?
