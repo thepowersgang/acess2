@@ -63,7 +63,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 run() {
-	echo --- $*
+#	echo --- $*
 	$*
 	return $?
 }
