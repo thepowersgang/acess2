@@ -26,6 +26,11 @@ extern long	strtol(const char *ptr, char **end, int base);
 extern unsigned long long	strtoull(const char *ptr, char **end, int base);
 extern unsigned long	strtoul(const char *ptr, char **end, int base);
 extern int	atoi(const char *ptr);
+
+extern double	strtod(const char *ptr, char **end);
+extern float	strtof(const char *ptr, char **end);
+extern float	atof(const char *ptr);
+
 extern void	exit(int status) __attribute__((noreturn));
 extern void	abort(void);
 extern void	atexit(void (*__func)(void));

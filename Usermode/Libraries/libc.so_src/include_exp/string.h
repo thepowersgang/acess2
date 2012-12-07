@@ -17,6 +17,7 @@ extern int	strncasecmp(const char *s1, const char *s2, size_t maxlen);
 extern char	*strcpy(char *dst, const char *src);
 extern char	*strncpy(char *dst, const char *src, size_t num);
 extern char	*strcat(char *dst, const char *src);
+extern char	*strncat(char *dest, const char *src, size_t n);
 extern char	*strdup(const char *src);
 extern char	*strndup(const char *src, size_t length);
 extern char	*strchr(const char *str, int character);
