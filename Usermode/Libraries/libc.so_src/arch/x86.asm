@@ -7,7 +7,7 @@
 [bits 32]
 [section .text]
 
-[global setjmp]
+[global setjmp:function]
 setjmp:
 	mov eax, [esp+4]	; Get base of buffer
 	
@@ -25,7 +25,7 @@ setjmp:
 setjmp.restore:
 	ret
 
-[global longjmp]
+[global longjmp:function]
 longjmp:
 	mov ebp, [esp+4]	; jmp_buf
 	mov eax, [esp+8]	; value

@@ -1,5 +1,7 @@
 /*
- * Acess2
+ * Acess2 Kernel
+ * - By John Hodge (thePowersGang)
+ *
  * syscalls.h
  * - System Call List
  *
@@ -68,7 +70,7 @@
 #define NUM_SYSCALLS	88
 #define SYS_DEBUG	0x100
 
-#ifndef __ASSEMBLER__
+#if !defined(__ASSEMBLER__) && !defined(NO_SYSCALL_STRS)
 static const char *cSYSCALL_NAMES[] = {
 	"SYS_EXIT",
 	"SYS_CLONE",

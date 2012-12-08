@@ -100,6 +100,18 @@ EXPORT char *strcat(char *dst, const char *src)
 	return dst;
 }
 
+EXPORT char *strncat(char *dst, const char *src, size_t n)
+{
+	char	*to = dst;
+	// Find the end
+	while(*to)	to++;
+	// Copy
+	while(*src && n--)	*to++ = *src++;
+	// End string
+	*to = '\0';
+	return dst;
+}
+
 /**
  * \brief Get the length of a string
  */
