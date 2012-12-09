@@ -1148,6 +1148,7 @@ void MM_UnmapHWPages(tVAddr VAddr, Uint Number)
 	{
 		MM_DerefPhys( gaPageTable[ i + j ] & ~0xFFF );
 		gaPageTable[ i + j ] = 0;
+		INVLPG( (tVAddr)(i+j) << 12 );
 	}
 	
 	Mutex_Release( &glTempMappings );
