@@ -43,7 +43,6 @@ typedef Uint64	Uint;
 typedef Uint64	tPAddr;
 typedef Uint64	tVAddr;
 
-typedef Uint64	size_t;
 typedef char	BOOL;
 
 #define __ASM__	__asm__ __volatile__
