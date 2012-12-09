@@ -1,4 +1,4 @@
-include $(dir $(lastword $(MAKEFILE_LIST)))../../Usermode/Applications/Makefile.cfg
+include $(dir $(lastword $(MAKEFILE_LIST)))../../Usermode/$(TYPE)/Makefile.cfg
 
 .PHONY: shellvars
 

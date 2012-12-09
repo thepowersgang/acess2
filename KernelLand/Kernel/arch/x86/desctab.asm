@@ -215,7 +215,7 @@ Isr240.jmp:
 	%endif
 ; - Assignable
 %assign i	0xF1
-%rep 16
+%rep 15
 	DEF_IRQ	i
 %assign i i+1
 %endrep

@@ -1,12 +1,13 @@
 /*
- * Acess2 C Library
+ * Acess2 POSIX Emulation Lib
  * - By John Hodge (thePowersGang)
+ *
+ * sys/stat.h
+ * - stat(2)
  */
 #ifndef _SYS_STAT_H_
 #define _SYS_STAT_H_
 
-//#include "../acess/intdefs.h"	/* Evil */
-//#include "../stddef.h"
 #include <stdint.h>
 #include "sys/types.h"	// off_t
 
@@ -48,6 +49,7 @@ struct stat
 };
 
 extern int stat(const char *path, struct stat *buf);
+extern int lstat(const char *path, struct stat *buf);
 extern int fstat(int fd, struct stat *buf);
 
 #endif

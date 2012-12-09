@@ -5,6 +5,7 @@
  * acpica.c
  * - ACPICA Interface
  */
+#define ACPI_DEBUG_OUTPUT	1
 #define DEBUG	1
 #define _AcpiModuleName "Shim"
 #define _COMPONENT	"Acess"
@@ -133,6 +134,8 @@ ACPI_STATUS AcpiOsCreateCache(char *CacheName, UINT16 ObjectSize, UINT16 MaxDept
 	 int	namelen = (CacheName ? strlen(CacheName) : 0) + 1;
 	LOG("CacheName=%s, ObjSize=%x, MaxDepth=%x", CacheName, ObjectSize, MaxDepth);
 
+	namelen = (namelen + 3) & ~3;
+
 	ret = malloc(sizeof(*ret) + MaxDepth*sizeof(char) + namelen + MaxDepth*ObjectSize);
 	if( !ret )	return AE_NO_MEMORY;
 
@@ -174,15 +177,18 @@ ACPI_STATUS AcpiOsPurgeCache(ACPI_CACHE_T *Cache)
 
 void *AcpiOsAcquireObject(ACPI_CACHE_T *Cache)
 {
-	LOG("(Cache=%p)", Cache);
+	ENTER("pCache", Cache);
 	for(int i = 0; i < Cache->nObj; i ++ )
 	{
 		if( !Cache->ObjectStates[i] ) {
 			Cache->ObjectStates[i] = 1;
-			return (char*)Cache->First + i*Cache->ObjectSize;
+			void *rv = (char*)Cache->First + i*Cache->ObjectSize;
+			LEAVE('p', rv);
+			return rv;
 		}
 	}
-	// TODO
+	
+	LEAVE('n');
 	return NULL;
 }
 
@@ -193,6 +199,7 @@ ACPI_STATUS AcpiOsReleaseObject(ACPI_CACHE_T *Cache, void *Object)
 
 	tVAddr delta = (tVAddr)Object - (tVAddr)Cache->First;
 	delta /= Cache->ObjectSize;
+	LOG("delta = %i, (limit %i)", delta, Cache->nObj);
 	
 	if( delta > Cache->nObj )
 		return AE_BAD_PARAMETER;
@@ -210,6 +217,7 @@ void *AcpiOsMapMemory(ACPI_PHYSICAL_ADDRESS PhysicalAddress, ACPI_SIZE Length)
 	Uint	ofs = PhysicalAddress & (PAGE_SIZE-1);
 	int npages = (ofs + Length + (PAGE_SIZE-1)) / PAGE_SIZE;
 	void *rv = ((char*)MM_MapHWPages(PhysicalAddress, npages)) + ofs;
+//	MM_DumpTables(0, -1);
 	LOG("Map (%P+%i pg) to %p", PhysicalAddress, npages, rv);
 	return rv;
 }

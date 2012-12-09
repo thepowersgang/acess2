@@ -12,20 +12,17 @@ fullpath=`readlink -f "$fullpath"`
 # Get base directory
 BASEDIR=`dirname "$fullpath"`
 
-cfgfile=`mktemp`
-make --no-print-directory -f $BASEDIR/getconfig.mk ARCH=x86 > $cfgfile
-#echo $cfgfile
-#cat $cfgfile
-. $cfgfile
-rm $cfgfile
-
 _miscargs=""
 _compile=0
+_linktype=Applications
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 	-E)
 		_preproc=1
+		;;
+	-M)
+		_makedep=1
 		;;
 	-c)
 		_compile=1
@@ -34,9 +31,13 @@ while [[ $# -gt 0 ]]; do
 		shift
 		_outfile="-o $1"
 		;;
-	-I)
+	-shared)
+		_ldflags=$_ldflags" -shared -lc -lgcc"
+		_linktype=Libraries
+		;;
+	-I|-D|-O)
+		_cflags=$_cflags" $1 $2"
 		shift
-		_cflags=$_cflags" -I$1"
 		;;
 	-I*|-D*|-O*)
 		_cflags=$_cflags" $1"
@@ -47,9 +48,9 @@ while [[ $# -gt 0 ]]; do
 		arg=${arg/,/ }
 		_ldflags=$_ldflags" ${arg}"
 		;;
-	-l)
+	-l|-L)
+		_libs=$_libs" $1$2"
 		shift
-		_libs=$_libs" -l$1"
 		;;
 	-l*|-L*)
 		_libs=$_libs" $1"
@@ -62,25 +63,30 @@ while [[ $# -gt 0 ]]; do
 done
 
 run() {
-#	echo $*
+#	echo --- $*
 	$*
+	return $?
 }
+
+cfgfile=`mktemp`
+make --no-print-directory -f $BASEDIR/getconfig.mk ARCH=x86 TYPE=$_linktype > $cfgfile
+. $cfgfile
+rm $cfgfile
+
+#echo "_compile = $_compile, _preproc = $_preproc"
 
 if [[ $_preproc -eq 1 ]]; then
 	run $_CC -E $CFLAGS $_cflags $_miscargs $_outfile
-	exit $?
-fi
-if [[ $_compile -eq 1 ]]; then
+elif [[ $_makedep -eq 1 ]]; then
+	run $_CC -M $CFLAGS $_cflags $_miscargs $_outfile
+elif [[ $_compile -eq 1 ]]; then
 	run $_CC $CFLAGS $_cflags $_miscargs -c $_outfile
-	exit $?
-fi
-
-if echo " $_miscargs" | grep '\.c' >/dev/null; then
+elif echo " $_miscargs" | grep '\.c' >/dev/null; then
 	tmpout=`mktemp acess_gccproxy.XXXXXXXXXX.o --tmpdir`
-	run $_CC $CFLAGS $_miscargs -c -o $tmpout
-	run $_LD $LDFLAGS $_ldflags $_libs $tmpout $_outfile
+	run $_CC $CFLAGS $_cflags $_miscargs -c -o $tmpout
+	run $_LD $LDFLAGS $_ldflags $_libs $tmpout $_outfile -lgcc $_libs
 	rm $tmpout
 else
-	run $_LD $LDFLAGS $_ldflags $_miscargs $_outfile $LIBGCC_PATH
+	run $_LD$_ldflags $_miscargs $_outfile $LDFLAGS  $_libs
 fi
 

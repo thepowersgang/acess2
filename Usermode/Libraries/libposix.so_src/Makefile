@@ -8,7 +8,7 @@ CFLAGS   += -Werror -Wextra
 ASFLAGS  +=
 LDFLAGS  += -soname libposix.so -Map map.txt
 
-OBJ  = main.o unistd.o
+OBJ  = main.o unistd.o dirent.o stat.o
 DEPFILES := $(OBJ:%.o=%.d)
 BIN = libposix.so
 

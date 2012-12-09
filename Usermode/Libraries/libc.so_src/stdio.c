@@ -300,7 +300,7 @@ EXPORT int fprintf(FILE *fp, const char *format, ...)
  * \fn EXPORT size_t fwrite(void *ptr, size_t size, size_t num, FILE *fp)
  * \brief Write to a stream
  */
-EXPORT size_t fwrite(void *ptr, size_t size, size_t num, FILE *fp)
+EXPORT size_t fwrite(const void *ptr, size_t size, size_t num, FILE *fp)
 {
 	size_t	ret;
 	
@@ -352,6 +352,33 @@ EXPORT size_t fread(void *ptr, size_t size, size_t num, FILE *fp)
 	}
 		
 	return ret;
+}
+
+/**
+ * \brief Write a string to a stream (without trailing \n)
+ */
+EXPORT int fputs(const char *s, FILE *fp)
+{
+	int len = strlen(s);
+	return fwrite(s, 1, len, fp);
+}
+
+/**
+ * \brief Read a line (and possible trailing \n into a buffer)
+ */
+EXPORT char *fgets(char *s, int size, FILE *fp)
+{
+	int ofs = 0;
+	char	ch = '\0';
+	while( ofs < size && ch != '\n' )
+	{
+		if( fread(&ch, 1, 1, fp) != 1 )
+			break;
+		s[ofs ++] = ch;
+	}
+	if( ofs < size )
+		s[ofs] = '\0';
+	return s;
 }
 
 /**

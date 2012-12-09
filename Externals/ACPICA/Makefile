@@ -2,6 +2,8 @@
 
 include $(dir $(lastword $(MAKEFILE_LIST)))../../Makefile.cfg
 
+ACPI_DEBUG ?= no
+
 BIN := ../bin-$(ARCH)/libacpica.a
 
 _VERS := $(patsubst acpica-unix-%.tar.gz,%,$(wildcard acpica-unix-*.tar.gz))
@@ -30,6 +32,9 @@ CPPFLAGS	+= -I $(KERNELDIR)include -I$(KERNELDIR)arch/$(ARCHDIR)/include -D_MODU
 CPPFLAGS        += -I $(ACPICAROOT)source/include -D _ACESS -D __KERNEL__
 CPPFLAGS	+= -D ARCH=$(ARCH) -D ARCHDIR=$(ARCHDIR) -D PLATFORM=\"$(PLATFORM)\" -D ARCHDIR_IS_$(ARCHDIR)=1 -D PLATFORM_is_$(PLATFORM)=1
 CPPFLAGS	+= -D KERNEL_VERSION=$(KERNEL_VERSION) -ffreestanding
+ifneq ($(ACPI_DEBUG),no)
+  CPPFLAGS += -D ACPI_DEBUG_OUTPUT=1 -D ACPI_DISASSEMBLER=1
+endif
 CFLAGS  	+= -Wall -fno-stack-protector -Wstrict-prototypes -std=gnu99 -g
 
 SRCS := $(wildcard $(COMPDIR)*/*.c)

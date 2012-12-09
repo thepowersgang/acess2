@@ -148,7 +148,8 @@ int _vcscanf(int (*__getc)(void*), void (*__rewind)(void*), void *h, const char 
 		}	ptr;
 		long long	ival;
 		//long double	rval;
-		 int	maxlen = 0, offset = -1;
+		 int	maxlen = 0;
+		// int	offset = -1;
 		enum e_vcscanf_sizes	size = _VCSCANF_UNDEF;
 		enum e_vcscanf_types	valtype;
 
@@ -185,12 +186,14 @@ int _vcscanf(int (*__getc)(void*), void (*__rewind)(void*), void *h, const char 
 		}		
 
 		// %n$ - Direct offset selection, shouldn't be mixed with just %
+		#if 0
 		for( ; isdigit(fch); fch = *format++ )
 			maxlen = maxlen * 10 + (fch - '0');
 		if( fch == '$' ) {
 			offset = maxlen;
 			maxlen = 0;
 		}
+		#endif
 		
 		// Supress assignemnt?
 		if( fch == '*' )

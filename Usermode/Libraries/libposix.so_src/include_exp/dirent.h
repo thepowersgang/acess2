@@ -8,6 +8,8 @@
 #ifndef _LIBPOSIX__SYS__DIRENT_H_
 #define _LIBPOSIX__SYS__DIRENT_H_
 
+#include "sys/stat.h"
+
 #define NAME_MAX	255
 
 struct dirent
@@ -18,8 +20,8 @@ struct dirent
 
 typedef struct DIR_s	DIR;
 
-extern int	closedir(DIR *);
 extern DIR	*opendir(const char *);
+extern int	closedir(DIR *);
 extern struct dirent	*readdir(DIR *);
 extern int	readdir_r(DIR *, struct dirent *, struct dirent **);
 extern void	rewinddir(DIR *);
