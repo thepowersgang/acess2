@@ -268,6 +268,8 @@ void *EHCI_InitInterrupt(void *Ptr, int Endpoint, int bOutbound, int Period,
 	if( Period > 256 )
 		Period = 256;
 
+	LOG("Endpoint=%x, bOutbound=%i, Period=%i, Length=%i", Endpoint, bOutbound, Period, Length);
+
 	// Round the period to the closest power of two
 	pow2period = 1;
 	period_pow = 0;
@@ -432,6 +434,8 @@ void *EHCI_SendControl(void *Ptr, void *Dest, tUSBHostCb Cb, void *CbData,
 	// Sanity checks
 	if( (tVAddr)Dest <= 256*16 )
 		return NULL;
+
+	LOG("Dest=%p, isOutbound=%i, Lengths(Setup:%i,Out:%i,In:%i)", Dest, isOutbound, SetupLength, OutLength, InLength);
 
 	// Check size of SETUP and status
 	
