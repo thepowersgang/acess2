@@ -80,7 +80,7 @@ fi
 #	qemu-system-x86_64 $QEMU_PARAMS -serial stdio | tee QemuLog.txt
 #echo $QEMU $BOOTOPT $QEMU_PARAMS
 if [ "x$_NOGRAPHIC" = "xyes" ] ; then
-	eval $QEMU $BOOTOPT $QEMU_PARAMS -nographic
+	eval $QEMU $BOOTOPT $QEMU_PARAMS -nographic | tee QemuLog.txt
 	exit
 fi
 
