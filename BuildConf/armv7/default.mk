@@ -5,5 +5,4 @@ endif
 
 # Core ARMv7 modules
 
-MODULES += armv7/GIC
 MODULES += Filesystems/InitRD
