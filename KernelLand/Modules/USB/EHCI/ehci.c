@@ -94,9 +94,32 @@ int EHCI_Initialise(char **Arguments)
 			// TODO: Detect other forms of failure than "out of slots"
 			break ;
 		}
-
-		// TODO: Register with the USB stack
 	}
+
+	for( int i = 0; Arguments[i]; i ++ )
+	{
+		char *pos = Arguments[i], *next;
+		LOG("pos = '%s'", pos);
+		tPAddr base = strtoull(pos, &next, 16);
+		if( base == 0 )
+			continue;
+		pos = next;
+		LOG("pos = '%s'", pos);
+		if( *pos++ != '-' )
+			continue;
+		LOG("pos = '%s'", pos);
+		int irq = strtol(pos, &next, 16);
+		if( irq == 0 )
+			continue ;
+		if( *next != 0 )
+			continue;
+		LOG("base=%x, irq=%i", base, irq);
+		if( EHCI_InitController(base, irq) )
+		{
+			continue ;
+		}
+	}
+
 	return 0;
 }
 
@@ -137,7 +160,8 @@ int EHCI_InitController(tPAddr BaseAddress, Uint8 InterruptNum)
 	}
 	// TODO: Error check
 	if( (cont->CapRegs->CapLength & 3) ) {
-		Log_Warning("EHCI", "Controller at %P non-aligned op regs", BaseAddress);
+		Log_Warning("EHCI", "Controller at %P non-aligned op regs (%x)",
+			BaseAddress, cont->CapRegs->CapLength);
 		goto _error;
 	}
 	cont->OpRegs = (void*)( (Uint32*)cont->CapRegs + cont->CapRegs->CapLength / 4 );
