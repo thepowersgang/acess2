@@ -6,7 +6,7 @@
  * - ACPICA Interface
  */
 #define ACPI_DEBUG_OUTPUT	1
-#define DEBUG	1
+#define DEBUG	0
 #define _AcpiModuleName "Shim"
 #define _COMPONENT	"Acess"
 #include <acpi.h>
@@ -137,7 +137,10 @@ ACPI_STATUS AcpiOsCreateCache(char *CacheName, UINT16 ObjectSize, UINT16 MaxDept
 	namelen = (namelen + 3) & ~3;
 
 	ret = malloc(sizeof(*ret) + MaxDepth*sizeof(char) + namelen + MaxDepth*ObjectSize);
-	if( !ret )	return AE_NO_MEMORY;
+	if( !ret ) {
+		Log_Notice("ACPICA", "%s: malloc() fail", __func__);
+		return AE_NO_MEMORY;
+	}
 
 	ret->nObj = MaxDepth;
 	ret->ObjectSize = ObjectSize;
@@ -149,7 +152,7 @@ ACPI_STATUS AcpiOsCreateCache(char *CacheName, UINT16 ObjectSize, UINT16 MaxDept
 		ret->Name[0] = 0;
 	memset(ret->ObjectStates, 0, sizeof(char)*MaxDepth);
 
-	LOG("Allocated cache '%s' (%i x 0x%x)", CacheName, MaxDepth, ObjectSize);
+	LOG("Allocated cache %p '%s' (%i x 0x%x)", ret, CacheName, MaxDepth, ObjectSize);
 	
 	*ReturnCache = ret;
 	
@@ -183,11 +186,14 @@ void *AcpiOsAcquireObject(ACPI_CACHE_T *Cache)
 		if( !Cache->ObjectStates[i] ) {
 			Cache->ObjectStates[i] = 1;
 			void *rv = (char*)Cache->First + i*Cache->ObjectSize;
+			memset(rv, 0, Cache->ObjectSize);
 			LEAVE('p', rv);
 			return rv;
 		}
 	}
-	
+
+	Log_Debug("ACPICA", "AcpiOsAcquireObject: %i objects used", Cache->nObj);	
+
 	LEAVE('n');
 	return NULL;
 }
@@ -199,9 +205,9 @@ ACPI_STATUS AcpiOsReleaseObject(ACPI_CACHE_T *Cache, void *Object)
 
 	tVAddr delta = (tVAddr)Object - (tVAddr)Cache->First;
 	delta /= Cache->ObjectSize;
-	LOG("delta = %i, (limit %i)", delta, Cache->nObj);
+	LOG("Cache=%p, delta = %i, (limit %i)", Cache, delta, Cache->nObj);
 	
-	if( delta > Cache->nObj )
+	if( delta >= Cache->nObj )
 		return AE_BAD_PARAMETER;
 	
 	Cache->ObjectStates[delta] = 0;
@@ -309,8 +315,10 @@ ACPI_STATUS AcpiOsCreateMutex(ACPI_MUTEX *OutHandle)
 	if( !OutHandle )
 		return AE_BAD_PARAMETER;
 	tMutex	*ret = calloc( sizeof(tMutex), 1 );
-	if( !ret )
+	if( !ret ) {
+		Log_Notice("ACPICA", "%s: malloc() fail", __func__);
 		return AE_NO_MEMORY;
+	}
 	ret->Name = "AcpiOsCreateMutex";
 	*OutHandle = ret;
 	
@@ -344,8 +352,10 @@ ACPI_STATUS AcpiOsCreateSemaphore(UINT32 MaxUnits, UINT32 InitialUnits, ACPI_SEM
 	if( !OutHandle )
 		return AE_BAD_PARAMETER;
 	tSemaphore	*ret = calloc( sizeof(tSemaphore), 1 );
-	if( !ret )
+	if( !ret ) {
+		Log_Notice("ACPICA", "%s: malloc() fail", __func__);
 		return AE_NO_MEMORY;
+	}
 	
 	Semaphore_Init(ret, InitialUnits, MaxUnits, "AcpiOsCreateSemaphore", "");
 	*OutHandle = ret;
