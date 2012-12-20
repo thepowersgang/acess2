@@ -19,6 +19,7 @@ const struct sTegra2_Disp_Mode
 }	caTegra2Vid_Modes[] = {
 	// TODO: VESA timings
 	{1024, 768,  58, 4,   58,  4,   58,   4},	// 1024x768 (reset), RtS=11,4
+	{1680,1050, 104, 1,  184,  3 , 288,  33},	// 1680x1050 @ 60Hz
 	// TV Timings
 	{720,  487,  16,33,   63, 33,   59, 133},	// NTSC 2
 	{720,  576,  12,33,   63, 33,   69, 193},	// PAL 2 (VFP shown as 2/33, used 33)
@@ -160,6 +161,7 @@ enum eTegra2_Disp_Regs
 	DC_WIN_A_DDA_INCREMENT_0,
 	DC_WIN_A_LINE_STRIDE_0,
 	DC_WIN_A_BUF_STRIDE_0,
+	_DC_WIN_A_70C,
 	DC_WIN_A_BUFFER_ADDR_MODE_0,
 	DC_WIN_A_DV_CONTROL_0,
 	DC_WIN_A_BLEND_NOKEY_0,
@@ -337,6 +339,7 @@ const char * const csaTegra2Vid_RegisterNames[] = {
 	"DC_WIN_A_DDA_INCREMENT_0",
 	"DC_WIN_A_LINE_STRIDE_0",
 	"DC_WIN_A_BUF_STRIDE_0",
+	"-",
 	"DC_WIN_A_BUFFER_ADDR_MODE_0",
 	"DC_WIN_A_DV_CONTROL_0",
 	"DC_WIN_A_BLEND_NOKEY_0",
