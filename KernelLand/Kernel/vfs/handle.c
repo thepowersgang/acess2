@@ -19,6 +19,7 @@
 #if 0
 tVFS_Handle	*VFS_GetHandle(int FD);
 #endif
+inline void	_ReferenceNode(tVFS_Node *Node);
  int	VFS_AllocHandle(int FD, tVFS_Node *Node, int Mode);
 
 // === GLOBALS ===
