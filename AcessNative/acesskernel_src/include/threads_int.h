@@ -50,7 +50,7 @@ struct sThread
 
 	tProcess	*Process;	
 
-	Uint32	Events, WaitMask;
+	Uint32	EventState, WaitMask;
 	void	*EventSem;	// Should be SDL_sem, but I don't want SDL in this header
 
 	// Message queue

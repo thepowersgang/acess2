@@ -21,9 +21,26 @@ int AllocateMemory(uintptr_t VirtAddr, size_t ByteCount)
 	size_t	size = (VirtAddr & 0xFFF) + ByteCount;
 	void	*tmp;
 	#if __WIN32__
-	tmp = VirtualAlloc((void*)base, size, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
+	do
+	{
+		MEMORY_BASIC_INFORMATION	info;
+		VirtualQuery( (void*)base, &info, sizeof(info) );
+		if( info.State != MEM_FREE ) {
+			printf("ERROR: Unable to allocate memory %p+0x%x, already allocated\n",
+				(void*)base, size);
+			base += 0x1000;
+			if( size < 0x1000 )
+				return 0;
+			size -= 0x1000;
+		}
+		else
+			break;
+	} while( size >= 0x1000 );
+	tmp = VirtualAlloc((void*)base, size, MEM_RESERVE|MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 	if( tmp == NULL ) {
-		printf("ERROR: Unable to allocate memory (0x%x)\n", (int)GetLastError());
+		printf("ERROR: Unable to allocate memory %p+%x (0x%x)\n",
+			(void*)base, size,
+			(int)GetLastError());
 		return -1;
 	}
 	#else

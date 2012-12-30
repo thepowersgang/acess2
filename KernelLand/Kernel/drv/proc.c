@@ -150,6 +150,10 @@ int SysFS_RegisterFile(const char *Path, const char *Data, int Length)
 		if( !child )
 		{
 			child = calloc( 1, sizeof(tSysFS_Ent)+tmp+1 );
+			if( !child ) {
+				Log_Error("SysFS", "calloc(%i) failure", sizeof(tSysFS_Ent)+tmp+1);
+				return -1;
+			}
 			child->Next = NULL;
 			memcpy(child->Name, &Path[start], tmp);
 			child->Name[tmp] = '\0';
@@ -174,7 +178,8 @@ int SysFS_RegisterFile(const char *Path, const char *Data, int Length)
 				ent->Node.Size ++;
 			else
 				gSysFS_DriverInfo.RootNode.Size ++;
-			Log_Log("SysFS", "Added directory '%s'", child->Name);
+			Log_Log("SysFS", "Added directory '%.*s'", tmp, &Path[start]);
+			Log_Log("SysFS", "Added directory '%.*s'", tmp, child->Name);
 		}
 		
 		ent = child;

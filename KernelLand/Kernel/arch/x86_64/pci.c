@@ -1,1 +1,1 @@
-../x86/pci.c
+#include "../x86/pci.c"

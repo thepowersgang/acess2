@@ -5,11 +5,13 @@
  * nativefs.c
  * - Host filesystem access
  */
-#define DEBUG	0
+#define DEBUG	1
 #define off_t	_acess_off_t
+#define sprintf _acess_sprintf
 #include <acess.h>	// Acess
 #include <vfs.h>	// Acess
 #undef off_t
+#undef sprintf
 #include <dirent.h>	// Posix
 #include <sys/stat.h>	// Posix
 #include <stdio.h>	// Posix

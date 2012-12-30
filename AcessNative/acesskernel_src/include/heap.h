@@ -11,6 +11,7 @@ extern void	*Heap_Reallocate(const char *File, int Line, void *Ptr, size_t Bytes
 extern void	Heap_Deallocate(void *Ptr);
 extern int	Heap_IsHeapAddr(void *Ptr);
 extern void	Heap_Validate(void);
+extern char	*Heap_StringDup(const char *File, int Line, const char *Str);
 
 #define malloc(size)	Heap_Allocate(_MODULE_NAME_"/"__FILE__, __LINE__, (size))
 #define calloc(num,size)	Heap_AllocateZero(_MODULE_NAME_"/"__FILE__, __LINE__, (num)*(size))
@@ -18,6 +19,6 @@ extern void	Heap_Validate(void);
 #define	free(ptr)	Heap_Deallocate((ptr))
 #define IsHeap(ptr)	Heap_IsHeapAddr((ptr))
 
-#define strdup(Str)	_strdup(_MODULE_NAME_"/"__FILE__, __LINE__, (Str))
+#define strdup(Str)	Heap_StringDup(_MODULE_NAME_"/"__FILE__, __LINE__, (Str))
 
 #endif

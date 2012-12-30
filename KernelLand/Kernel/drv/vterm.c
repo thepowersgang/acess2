@@ -114,11 +114,11 @@ int VT_Install(char **Arguments)
 			
 			if( strcmp(opt, "Video") == 0 ) {
 				if( !gsVT_OutputDevice )
-					gsVT_OutputDevice = strdup(val);
+					gsVT_OutputDevice = val;
 			}
 			else if( strcmp(opt, "Input") == 0 ) {
 				if( !gsVT_InputDevice )
-					gsVT_InputDevice = strdup(val);
+					gsVT_InputDevice = val;
 			}
 			else if( strcmp(opt, "Width") == 0 ) {
 				giVT_RealWidth = atoi( val );
