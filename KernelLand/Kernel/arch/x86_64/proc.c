@@ -458,9 +458,8 @@ void Proc_ClearThread(tThread *Thread)
 tTID Proc_NewKThread(void (*Fcn)(void*), void *Data)
 {
 	Uint	rsp;
-	tThread	*newThread, *cur;
+	tThread	*newThread;
 	
-	cur = Proc_GetCurThread();
 	newThread = Threads_CloneTCB(0);
 	if(!newThread)	return -1;
 	
@@ -537,11 +536,9 @@ tTID Proc_Clone(Uint Flags)
  */
 tThread *Proc_SpawnWorker(void (*Fcn)(void*), void *Data)
 {
-	tThread	*new, *cur;
+	tThread	*new;
 	Uint	stack_contents[3];
 
-	cur = Proc_GetCurThread();
-	
 	// Create new thread
 	new = Threads_CloneThreadZero();
 	if(!new) {

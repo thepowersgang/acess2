@@ -15,6 +15,7 @@ extern void	Arch_LoadBootModules(void);
 extern void	Heap_Install(void);
 extern void	Threads_Init(void);
 extern void	System_Init(const char *Commandline);
+extern void	Time_Setup(void);
 
 // === PROTOTYPES ===
  int	kmain(void);
@@ -44,7 +45,7 @@ int kmain(void)
 	//
 	LogF("Moving to arch-independent init\n");
 	#if PLATFORM_is_tegra2
-	System_Init("Acess2.armv7.bin /Acess=initrd: -VTerm:Video=Tegra2Vid");
+	System_Init("Acess2.armv7.bin /Acess=initrd: -VTerm:Video=Tegra2Vid -USB_EHCI:C5000000-14,C5004000-15");
 	#else
 	System_Init("Acess2.armv7.bin /Acess=initrd: -VTerm:Video=PL110");
 	#endif

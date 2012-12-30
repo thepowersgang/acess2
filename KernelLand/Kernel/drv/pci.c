@@ -150,9 +150,15 @@ int PCI_Install(char **Arguments)
 		devinfo->revision = gaVPCI_Devices[i].Class & 0xFF;
 		devinfo->class = gaVPCI_Devices[i].Class >> 8;
 		snprintf(devinfo->Name, sizeof(devinfo->Name), "%02x.%02x:%x", 0xFF, i, 0);
+		
+		#if LIST_DEVICES
+		Log_Log("PCI", "Device %i,%i:%i %06x => 0x%04x:0x%04x Rev %i",
+			0xFF, i, 0, devinfo->class,
+			devinfo->vendor, devinfo->device, devinfo->revision);
+		#endif
 
 		for(int j = 0; j < 256/4; j ++ )
-			devinfo->ConfigCache[i] = VPCI_Read(&gaVPCI_Devices[i], j*4, 4);
+			devinfo->ConfigCache[j] = VPCI_Read(&gaVPCI_Devices[i], j*4, 4);
 
 		memset(&devinfo->Node, 0, sizeof(devinfo->Node));
 		devinfo->Node.Inode = giPCI_DeviceCount;

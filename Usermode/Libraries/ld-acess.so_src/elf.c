@@ -571,6 +571,47 @@ int Elf32GetSymbol(void *Base, const char *Name, void **ret, size_t *Size)
 }
 
 #ifdef SUPPORT_ELF64
+typedef int (*t_elf64_doreloc)(void *Base, const char *strtab, Elf64_Sym *symtab, Elf64_Xword r_info, void *ptr, Elf64_Sxword addend);
+
+int _Elf64DoReloc_X86_64(void *Base, const char *strtab, Elf64_Sym *symtab, Elf64_Xword r_info, void *ptr, Elf64_Sxword addend)
+{
+	 int	sym = ELF64_R_SYM(r_info);
+	 int	type = ELF64_R_TYPE(r_info);
+	const char	*symname = strtab + symtab[sym].st_name;
+	void	*symval;
+	//DEBUGS("_Elf64DoReloc: %s", symname);
+	switch( type )
+	{
+	case R_X86_64_NONE:
+		break;
+	case R_X86_64_64:
+		if( !GetSymbol(symname, &symval, NULL)  )	return 1;
+		*(uint64_t*)ptr = (uintptr_t)symval + addend;
+		break;
+	case R_X86_64_COPY: {
+		size_t	size;
+		if( !GetSymbol(symname, &symval, &size)  )	return 1;
+		memcpy(ptr, symval, size);
+		} break;
+	case R_X86_64_GLOB_DAT:
+		if( !GetSymbol(symname, &symval, NULL)  )	return 1;
+		*(uint64_t*)ptr = (uintptr_t)symval;
+		break;
+	case R_X86_64_JUMP_SLOT:
+		if( !GetSymbol(symname, &symval, NULL)  )	return 1;
+		*(uint64_t*)ptr = (uintptr_t)symval;
+		break;
+	case R_X86_64_RELATIVE:
+		*(uint64_t*)ptr = (uintptr_t)Base + addend;
+		break;
+	default:
+		SysDebug("ld-acess - _Elf64DoReloc: Unknown relocation type %i", type);
+		return 2;
+	}
+	//DEBUGS("_Elf64DoReloc: - Good");
+	return 0;
+}
+
 void *Elf64Relocate(void *Base, char **envp, const char *Filename)
 {
 	 int	i;
@@ -711,45 +752,8 @@ void *Elf64Relocate(void *Base, char **envp, const char *Filename)
 	}
 
 	// Relocation function
-	auto int _Elf64DoReloc(Elf64_Xword r_info, void *ptr, Elf64_Sxword addend);
-	int _Elf64DoReloc(Elf64_Xword r_info, void *ptr, Elf64_Sxword addend)
-	{
-		 int	sym = ELF64_R_SYM(r_info);
-		 int	type = ELF64_R_TYPE(r_info);
-		const char	*symname = strtab + symtab[sym].st_name;
-		void	*symval;
-		//DEBUGS("_Elf64DoReloc: %s", symname);
-		switch( type )
-		{
-		case R_X86_64_NONE:
-			break;
-		case R_X86_64_64:
-			if( !GetSymbol(symname, &symval, NULL)  )	return 1;
-			*(uint64_t*)ptr = (uintptr_t)symval + addend;
-			break;
-		case R_X86_64_COPY: {
-			size_t	size;
-			if( !GetSymbol(symname, &symval, &size)  )	return 1;
-			memcpy(ptr, symval, size);
-			} break;
-		case R_X86_64_GLOB_DAT:
-			if( !GetSymbol(symname, &symval, NULL)  )	return 1;
-			*(uint64_t*)ptr = (uintptr_t)symval;
-			break;
-		case R_X86_64_JUMP_SLOT:
-			if( !GetSymbol(symname, &symval, NULL)  )	return 1;
-			*(uint64_t*)ptr = (uintptr_t)symval;
-			break;
-		case R_X86_64_RELATIVE:
-			*(uint64_t*)ptr = (uintptr_t)Base + addend;
-			break;
-		default:
-			SysDebug("ld-acess - _Elf64DoReloc: Unknown relocation type %i", type);
-			return 2;
-		}
-		//DEBUGS("_Elf64DoReloc: - Good");
-		return 0;
-	}
+	t_elf64_doreloc fpElf64DoReloc = &_Elf64DoReloc_X86_64;
+	#define _Elf64DoReloc(info, ptr, addend)	fpElf64DoReloc(Base, strtab, symtab, info, ptr, addend)
 
 	int fail = 0;
 	if( rel )

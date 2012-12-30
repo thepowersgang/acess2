@@ -10,7 +10,7 @@
 #include <hal_proc.h>
 
 #define TRACE_MAPS	0
-#define TRACE_COW	1
+#define TRACE_COW	0
 
 #define AP_KRW_ONLY	1	// Kernel page
 #define AP_KRO_ONLY	5	// Kernel RO page

@@ -12,7 +12,7 @@ LDFLAGS += `$(CC) --print-libgcc-file-name`
 
 A_OBJ  = start.ao main.o lib.o lib.ao time.o pci.o debug.o
 A_OBJ += mm_phys.o mm_virt.o proc.o proc.ao
-A_OBJ += vpci_$(PLATFORM).o
+A_OBJ += vpci_$(PLATFORM).o platform_$(PLATFORM).o
 
 #main.c: Makefile.BuildNum.$(ARCH)
 

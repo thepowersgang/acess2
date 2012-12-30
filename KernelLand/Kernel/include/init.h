@@ -9,5 +9,6 @@ extern void	Arch_LoadBootModules(void);
 extern void	StartupPrint(const char *String);
 extern void	System_Init(char *Commandline);
 extern void	Threads_Init(void);
+extern void	Heap_Install(void);
 
 #endif

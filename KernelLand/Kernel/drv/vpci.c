@@ -22,12 +22,14 @@ Uint32 VPCI_Read(tVPCI_Device *Dev, Uint8 Offset, Uint8 Size)
 	case 0:	// Vendor[0:15], Device[16:31]
 		tmp_dword = (Dev->Vendor) | (Dev->Device << 16);
 		break;
+	// 1: Command[0:15], Status[16:31]
 	case 2:	// Class Code
 		tmp_dword = Dev->Class;
 		break;
-	// 1: Command[0:15], Status[16:31]
 	// 3: Cache Line Size, Latency Timer, Header Type, BIST
-	// 4-9: BARs
+	case 4 ... 9:	// 4-9: BARs
+		tmp_dword = Dev->BARs[ (Offset>>2) - 4 ];
+		break;
 	// 10: Unused (Cardbus CIS Pointer)
 	// 11: Subsystem Vendor ID, Subsystem ID
 	// 12: Expansion ROM Address
@@ -35,7 +37,8 @@ Uint32 VPCI_Read(tVPCI_Device *Dev, Uint8 Offset, Uint8 Size)
 	// 14: Reserved
 	// 15: Interrupt Line, Interrupt Pin, Min Grant, Max Latency
 	default:
-		tmp_dword = Dev->Read(Dev->Ptr, Offset >> 2);
+		if( Dev->Read )
+			tmp_dword = Dev->Read(Dev->Ptr, Offset >> 2);
 		break;
 	}
 
@@ -66,7 +69,10 @@ void VPCI_Write(tVPCI_Device *Dev, Uint8 Offset, Uint8 Size, Uint32 Data)
 		return ;
 	}
 
-	tmp_dword = Dev->Read(Dev->Ptr, Offset>>2);
+	if( Size != 4 && Dev->Read )
+		tmp_dword = Dev->Read(Dev->Ptr, Offset>>2);
+	else
+		tmp_dword = 0;
 	switch(Size)
 	{
 	case 4:	tmp_dword = 0;	break;
@@ -80,5 +86,6 @@ void VPCI_Write(tVPCI_Device *Dev, Uint8 Offset, Uint8 Size, Uint32 Data)
 		break;
 	}
 	tmp_dword |= Data << ((Offset&3)*8);
-	Dev->Write(Dev->Ptr, Offset>>2, tmp_dword);
+	if( Dev->Write )
+		Dev->Write(Dev->Ptr, Offset>>2, tmp_dword);
 }
