@@ -4,7 +4,7 @@
  *
  * Syscall Distribution
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <acess.h>
 #include <threads.h>
 #include <events.h>
@@ -89,7 +89,7 @@ typedef int	(*tSyscallHandler)(Uint *Errno, const char *Format, void *Args, int 
 }
 
 // === CODE ===
-int Syscall_Null(Uint*Errno, const char *Format, void *Args, int *Sizes)
+int Syscall_Null(Uint *Errno, const char *Format, void *Args, int *Sizes)
 {
 	return 0;
 }
@@ -100,7 +100,9 @@ SYSCALL1(Syscall_Exit, "i", int,
 );
 
 SYSCALL2(Syscall_Open, "si", const char *, int,
-	return VFS_Open(a0, a1|VFS_OPENFLAG_USER);
+	int rv = VFS_Open(a0, a1|VFS_OPENFLAG_USER);
+	if(rv == -1)	*Errno = errno;
+	return rv;
 );
 SYSCALL1(Syscall_Close, "i", int,
 	VFS_Close(a0);
@@ -111,12 +113,18 @@ SYSCALL3(Syscall_Read, "iid", int, int, void *,
 		Log_Warning("Syscalls", "Read - %i < %i", Sizes[2], a1);
 		return -1;
 	}
-	return VFS_Read(a0, a1, a2);
+	size_t rv = VFS_Read(a0, a1, a2);
+	if(rv == -1)	*Errno = errno;
+	return rv;
 );
 SYSCALL3(Syscall_Write, "iid", int, int, const void *,
-	if( Sizes[2] < a1 )
+	if( Sizes[2] < a1 ) {
+		*Errno = EINVAL;
 		return -1;
-	return VFS_Write(a0, a1, a2);
+	}
+	size_t rv = VFS_Write(a0, a1, a2);
+	if(rv == -1)	*Errno = errno;
+	return rv;
 );
 SYSCALL3(Syscall_Seek, "iIi", int, int64_t, int,
 	return VFS_Seek(a0, a1, a2);
@@ -129,7 +137,7 @@ SYSCALL3(Syscall_IOCtl, "iid", int, int, void *,
 );
 SYSCALL3(Syscall_FInfo, "idi", int, void *, int,
 	if( Sizes[1] < sizeof(tFInfo)+a2*sizeof(tVFS_ACL)) {
-		LOG("offsetof(size) = %i", offsetof(tFInfo, size));
+		//LOG("offsetof(size) = %i", offsetof(tFInfo, size));
 		LOG("Bad size %i < %i", Sizes[1], sizeof(tFInfo)+a2*sizeof(tVFS_ACL));
 		*Errno = -EINVAL;
 		return -1;
@@ -392,7 +400,15 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 			}
 		}
 		
+		// --- Perform request
 		retVal = caSyscalls[Request->CallID](&ret_errno, formatString, argListData, argSizes);
+	}
+	
+	// ---------- Return
+	
+	if( ret_errno == 0 ) {
+		perror("Syscall?");
+		ret_errno = errno;
 	}
 	
 	// Allocate the return

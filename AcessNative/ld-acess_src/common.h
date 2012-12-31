@@ -31,7 +31,7 @@ static inline void AddLoaded(const char *Path, void *Base)
 	Binary_SetReadyToUse(Base);
 }
 
-static inline int SysSetMemFlags(uintptr_t Addr, unsigned int flags, unsigned int mask)
+static inline int _SysSetMemFlags(uintptr_t Addr, unsigned int flags, unsigned int mask)
 {
 	return 0;
 }

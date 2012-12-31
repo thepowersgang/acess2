@@ -9,7 +9,9 @@
 #include <string.h>
 #include <stddef.h>
 #include <unistd.h>
-#include <spawn.h>	// posix_spawn
+#ifndef __WIN32__
+# include <spawn.h>	// posix_spawn
+#endif
 #include "request.h"
 
 #if SYSCALL_TRACE
@@ -341,7 +343,11 @@ int native_spawn(const char *filename, const char *const argv[], const char *con
 {
 	int rv;
 	
+	#if __WIN32__
+	rv = _spawnve(_P_NOWAIT, filename, argv, envp);
+	#else
 	rv = posix_spawn(NULL, filename, NULL, NULL, (void*)argv, (void*)envp);
+	#endif
 	
 	return rv;
 }

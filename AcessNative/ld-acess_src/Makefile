@@ -11,7 +11,8 @@ OBJ := $(addprefix obj-$(PLATFORM)/,$(OBJ))
 
 ifeq ($(PLATFORM),win)
 	BIN := ../ld-acess.exe
-	LDFLAGS += -lws2_32
+	LINKADDR := 0x70000000
+	LDFLAGS += -lws2_32 -Wl,--image-base,$(LINKADDR)
 endif
 ifeq ($(PLATFORM),lin)
 	BIN := ../ld-acess

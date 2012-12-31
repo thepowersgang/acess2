@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <sys/time.h>
+#include <string.h>
 
 #if 0
 void LogF(const char *Fmt, ...)
@@ -67,10 +68,14 @@ void KernelPanic_PutChar(char ch)
 void Debug_PutCharDebug(char ch)
 {
 	printf("%c", ch);
+	if( ch == '\n' )
+		fflush(stdout);
 }
 void Debug_PutStringDebug(const char *String)
 {
 	printf("%s", String);
+	if( strchr(String, '\n') )
+		fflush(stdout);
 }
 
 void *Heap_Allocate(const char *File, int Line, int ByteCount)
@@ -91,6 +96,11 @@ void *Heap_Reallocate(const char *File, int Line, void *Ptr, int Bytes)
 void Heap_Deallocate(void *Ptr)
 {
 	free(Ptr);
+}
+
+char *Heap_StringDup(const char *File, int Line, const char *Str)
+{
+	return strdup(Str);
 }
 
 void Heap_Dump(void)
@@ -128,5 +138,28 @@ Sint64 now(void)
 void IPStack_SendDebugText(const char *str)
 {
 	// nop
+}
+
+int strpos(const char *str, char ch)
+{
+	const char *retptr = strchr(str, ch);
+	int rv = retptr ? retptr - str : -1;
+	fprintf(stderr, "strpos: str = %p'%s', retptr = %p, rv = %i\n", str, str, retptr, rv);
+	return rv;
+}
+
+int CheckString(const char *string)
+{
+	if( (intptr_t)string < 0x1000 )
+		return 0;
+	strlen(string);
+	return 1;
+}
+
+int CheckMem(const void *buf, size_t len)
+{
+	if( (intptr_t)buf < 0x1000 )
+		return 0;
+	return 1;
 }
 

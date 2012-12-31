@@ -11,7 +11,8 @@
 #include <stdarg.h>
 #include <stddef.h>
 
-#define DEBUG(v...)	do{}while(0)//Debug(v)
+#define DEBUG(v...)	Debug(v)
+//#define DEBUG(v...)	do{}while(0)//Debug(v)
 #define PAGE_SIZE	4096
 
 typedef struct sFILE	FILE;
@@ -125,7 +126,7 @@ int acess_SysReadDir(int fd, char *dest) {
 	return _Syscall(SYS_READDIR, ">i <d", fd, 256, dest);
 }
 
-int acess__SysSelect(int nfds, fd_set *read, fd_set *write, fd_set *error, time_t *timeout, uint32_t events)
+int acess__SysSelect(int nfds, fd_set *read, fd_set *write, fd_set *error, int64_t *timeout, uint32_t events)
 {
 	DEBUG("_SysSelect(%i, %p, %p, %p, %p, 0x%x)", nfds, read, write, error, timeout, events);
 	return _Syscall(SYS_SELECT, ">i ?d ?d ?d >d >i", nfds,
@@ -137,7 +138,7 @@ int acess__SysSelect(int nfds, fd_set *read, fd_set *write, fd_set *error, time_
 		);
 }
 
-int acess_select(int nfds, fd_set *read, fd_set *write, fd_set *error, time_t *timeout)
+int acess_select(int nfds, fd_set *read, fd_set *write, fd_set *error, int64_t *timeout)
 {
 	return acess__SysSelect(nfds, read, write, error, timeout, 0);
 }
@@ -166,7 +167,7 @@ int acess__SysSetFaultHandler(int (*Handler)(int)) {
 }
 
 // --- Memory Management ---
-uint64_t acess__SysAllocate(uint vaddr)
+uint64_t acess__SysAllocate(uintptr_t vaddr)
 {
 	if( AllocateMemory(vaddr, 0x1000) == -1 )	// Allocate a page
 		return 0;
@@ -349,6 +350,12 @@ void acess__exit(int Status)
 	exit(Status);
 }
 
+uint32_t acess__SysSetMemFlags(uintptr_t vaddr, uint32_t flags, uint32_t mask)
+{
+	// TODO: Impliment acess__SysSetMemFlags?
+	return 0;
+}
+
 
 // === Symbol List ===
 #define DEFSYM(name)	{#name, &acess_##name}
@@ -388,6 +395,7 @@ const tSym	caBuiltinSymbols[] = {
 	DEFSYM(SysGetMessage),
 	
 	DEFSYM(_SysAllocate),
+	DEFSYM(_SysSetMemFlags),
 	DEFSYM(_SysDebug),
 	DEFSYM(_SysSetFaultHandler),
 	DEFSYM(_SysWaitEvent),
