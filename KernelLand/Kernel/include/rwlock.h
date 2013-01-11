@@ -25,24 +25,27 @@ struct sRWLock
 };
 
 /**
- * \brief Acquire a heavy mutex
- * \param Mutex	Mutex to acquire
+ * \brief Acquire a read-write lock for reading
+ * \param Lock Lock to acquire
  * \return zero on success, -1 if terminated
  * 
- * This type of mutex checks if the mutex is avaliable, and acquires it
- * if it is. Otherwise, the current thread is added to the mutex's wait
- * queue and the thread suspends. When the holder of the mutex completes,
- * the oldest thread (top thread) on the queue is given the lock and
- * restarted.
+ * Waits until the lock is readable and the increments the reader count
  */
 extern int	RWLock_AcquireRead(tRWLock *Lock);
 
+/**
+ * \brief Acquire a read-write lock for writing
+ * \param Lock Lock to acquire
+ * \return zero on success, -1 if terminated
+ *
+ * Waits until there are no writers, flags all readers to wait, then acquires the lock.
+ */
 extern int	RWLock_AcquireWrite(tRWLock *Lock);
 
 /**
- * \brief Release a held mutex
- * \param Mutex	Mutex to release
- * \note Releasing a non-held mutex has no effect
+ * \brief Release a held rw lock
+ * \param Lock	Lock to release
+ * \note Releasing a non-held lock has no effect
  */
 extern void	RWLock_Release(tRWLock *Lock);
 

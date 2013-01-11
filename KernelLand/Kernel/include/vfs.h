@@ -322,7 +322,7 @@ struct sVFS_NodeType
 	 * \param Node	Pointer to this node (directory)
 	 * \param NewName	Name for the new link
 	 * \param Child	Node to create a new link to
-	 * \retur Zeron on success, non-zero on error (see errno.h)
+	 * \return Zero on success, non-zero on error (see errno.h)
 	 */
 	 int	(*Link)(struct sVFS_Node *Node, const char *NewName, struct sVFS_Node *Child);
 	 
