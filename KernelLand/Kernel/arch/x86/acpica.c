@@ -5,7 +5,7 @@
  * acpica.c
  * - ACPICA Interface
  */
-#define ACPI_DEBUG_OUTPUT	1
+#define ACPI_DEBUG_OUTPUT	0
 #define DEBUG	0
 #define _AcpiModuleName "Shim"
 #define _COMPONENT	"Acess"
