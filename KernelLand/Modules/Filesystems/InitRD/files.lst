@@ -29,7 +29,7 @@ Dir "Libs" {
 	File "libpsocket.so" "__BIN__/Libs/libpsocket.so"
 }
 Dir "Conf" {
-	File "BootConf.cfg" "__FS__/Conf/BootConf.cfg"
+	File "inittab" "__FS__/Conf/inittab"
 }
 Dir "Apps" {
 	Dir "AxWin" {
