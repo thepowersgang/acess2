@@ -10,7 +10,7 @@
 
 // === CONSTANTS ===
 #define DEFAULT_SHELL	"/Acess/SBin/login"
-#define INITTAB_FILE	"/Acess/Config/inittab"
+#define INITTAB_FILE	"/Acess/Conf/inittab"
 
 #define ARRAY_SIZE(x)	((sizeof(x))/(sizeof((x)[0])))
 
@@ -54,19 +54,23 @@ int main(int argc, char *argv[])
 		// No inittab file found, default to:
 		_SysDebug("inittab '%s' is invalid, falling back to one VT", gsInittabPath);
 		
+		#if 0
 		for( ;; )
 		{
 			int pid = SpawnCommand(0, 1, 1, (char *[]){DEFAULT_SHELL, NULL});
+			// TODO: Detect errors
 			_SysWaitTID(pid, NULL);
 		}
-		// TODO: Detect errors
+		#else
+		return 41;
+		#endif
 	}
 
 	// TODO: Implement message watching
 	for(;;)
 	{
 		 int	pid, status;
-		pid = _SysWaitTID(0, &status);
+		pid = _SysWaitTID(-1, &status);
 		_SysDebug("PID %i died, looking for respawn entry", pid);
 	}
 	
@@ -76,11 +80,13 @@ int main(int argc, char *argv[])
 char *ReadQuotedString(FILE *FP)
 {
 	char	ch;
+	
 	while( isblank(ch = fgetc(FP)) )
 		;
 
-	if( ch == '\n' )
-		return NULL;	
+	if( ch == '\n' ) {
+		return NULL;
+	}
 
 	char	*retstr = NULL;
 	 int	mode = 0;
@@ -96,8 +102,10 @@ char *ReadQuotedString(FILE *FP)
 		}
 		else if( mode == 0 )
 		{
-			if( isspace(ch) )
+			if( isspace(ch) ) {
+				fseek(FP, -1, SEEK_CUR);
 				break;
+			}
 			else if( ch == '\\' )
 				mode |= 4;
 			else if( ch == '"' )
@@ -140,6 +148,7 @@ char *ReadQuotedString(FILE *FP)
 				space += 32;
 				void *tmp = realloc(retstr, space+1);
 				if( !tmp ) {
+					_SysDebug("ReadQuotedString - realloc(%i) failure", space+1);
 					free(retstr);
 					return NULL;
 				}
@@ -160,7 +169,10 @@ char **ReadCommand(FILE *FP)
 	char	*arg;
 	do {
 		arg = ReadQuotedString(FP);
+		if(arg == NULL)
+			break;
 		if( pos == space - 1 ) {
+			_SysDebug("Too many arguments %i", pos);
 			ret[pos] = NULL;
 			FreeCommand(ret);
 			return NULL;
@@ -192,8 +204,12 @@ int ProcessInittab(const char *Path)
 	while(!feof(fp))
 	{
 		char cmdbuf[64+1];
-		if( fscanf(fp, "%64s%*[ \t]", &cmdbuf) != 1 )
+		
+		 int	rv;
+		if( (rv = fscanf(fp, "%64s%*[ \t]", &cmdbuf)) != 1 ) {
+			_SysDebug("fscanf rv %i != exp 1", rv);
 			break;
+		}
 		
 		// Clear comments
 		if( cmdbuf[0] == '#' ) {
@@ -202,23 +218,29 @@ int ProcessInittab(const char *Path)
 			continue ;
 		}
 		if( cmdbuf[0] == '\0' ) {
-			if( fgetc(fp) != '\n' ) {
+			char	ch = fgetc(fp);
+			if( ch != '\n' && ch != -1 ) {
 				fclose(fp);
+				_SysDebug("Unexpected char 0x%x, expecting EOL", ch);
 				return 2;	// Unexpected character?
 			}
 			continue ;
 		}
-		
+
 		// Check commands
 		if( strcmp(cmdbuf, "ktty") == 0 ) {
 			// ktty <ID> <command...>
 			// - Spins off a console on the specified kernel TTY
 			 int	id = 0;
-			if( fscanf(fp, "%d ", &id) != 1 )
+			if( fscanf(fp, "%d ", &id) != 1 ) {
+				_SysDebug("init[ktty] - TTY ID read failed");
 				goto lineError;
+			}
 			char	**command = ReadCommand(fp);
-			if( !command )
+			if( !command ) {
+				_SysDebug("init[ktty] - Command read failure");
 				goto lineError;
+			}
 			AddKTerminal(id, command);
 			free(command);
 		}
@@ -254,15 +276,21 @@ int ProcessInittab(const char *Path)
 
 			int handles[] = {0, 1, 2};
 			int pid = _SysSpawn(command[0], (const char **)command, NULL, 3, handles, NULL);
-			_SysWaitTID(pid, NULL);
+			int retstatus;
+			_SysWaitTID(pid, &retstatus);
+			_SysDebug("Command '%s' returned %i", command[0], retstatus);
 
 			FreeCommand(command);
 		}
 		else {
 			// Unknown command.
+			_SysDebug("Unknown command '%s'", cmdbuf);
+			goto lineError;
 		}
+		fscanf(fp, " ");
 		continue;
 	lineError:
+		_SysDebug("label lineError: goto'd");
 		while( !feof(fp) && fgetc(fp) != '\n' )
 			;
 		continue ;
@@ -370,7 +398,7 @@ int SpawnCommand(int c_stdin, int c_stdout, int c_stderr, char **ArgV)
 	_SysClose(c_stdin);
 	if( c_stdout != c_stdin )
 		_SysClose(c_stdout);
-	if( c_stderr != c_stdin && c_stderr != c_stdin )
+	if( c_stderr != c_stdin && c_stderr != c_stdout )
 		_SysClose(c_stderr);
 
 	return rv;
