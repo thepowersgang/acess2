@@ -33,6 +33,8 @@
 #define GETMSG_IGNORE	((void*)-1)
 #define FILEFLAG_DIRECTORY	0x10
 #define FILEFLAG_SYMLINK	0x20
+#define CLONE_VM	0x10
+
 
 // === TYPES ===
 

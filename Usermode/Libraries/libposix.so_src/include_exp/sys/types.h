@@ -13,8 +13,6 @@ typedef unsigned int	u_int;
 typedef struct stat	t_fstat;
 
 
-#define CLONE_VM	0x10
-
 typedef unsigned int	id_t;
 typedef unsigned long	pid_t;
 typedef unsigned long	tid_t;
