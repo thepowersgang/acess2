@@ -71,7 +71,10 @@ struct sThread
 	struct sProcess	*Process;	//!< Thread Group / Process
 	struct sThread	*Parent;	//!< Parent Thread
 	char	*ThreadName;	//!< Name of thread
-	
+
+	struct sThread	*LastDeadChild;	//!< Last child to die (will have the \a DeadChildren lock)
+	tMutex	DeadChildLock;	//!< Lock to prevent clobbering of \a LastDeadChild, acquired by child, released by parent
+
 	// --- arch/proc.c's responsibility
 	//! Kernel Stack Base
 	tVAddr	KernelStack;
