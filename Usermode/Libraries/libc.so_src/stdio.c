@@ -458,7 +458,7 @@ EXPORT int vsprintf(char * __s, const char *__format, va_list __args)
 	return vsnprintf(__s, 0x7FFFFFFF, __format, __args);
 }
 
-//sprintfv
+
 /**
  * \fn EXPORT void vsnprintf(char *buf, const char *format, va_list args)
  * \brief Prints a formatted string to a buffer
@@ -476,11 +476,11 @@ EXPORT int vsnprintf(char *buf, size_t __maxlen, const char *format, va_list arg
 	uint64_t	arg;
 	 int	bLongLong, bPadLeft;
 
-	void _addchar(char ch)
-	{
-		if(buf && pos < __maxlen)	buf[pos] = ch;
-		pos ++;
-	}
+	#define _addchar(ch) do { \
+		if(buf && pos < __maxlen)	buf[pos] = (ch); \
+		else (void)(ch); \
+		pos ++; \
+	} while(0)
 
 	tmp[32] = '\0';
 	
@@ -643,6 +643,7 @@ EXPORT int vsnprintf(char *buf, size_t __maxlen, const char *format, va_list arg
 	}
 	_addchar('\0');
 	pos --;
+	#undef _addchar
 	
 	//_SysDebug("vsnprintf: buf = '%s'", buf);
 	

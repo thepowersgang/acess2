@@ -55,16 +55,16 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
+static void FD_SET_MAX(fd_set *set, int fd, int *maxfd)
+{
+	FD_SET(fd, set);
+	if(*maxfd < fd)	*maxfd = fd;
+}
+
 void EventLoop(void)
 {
 	fd_set	fds;
 	 int	maxfd;
-
-	void FD_SET_MAX(fd_set *set, int fd, int *maxfd)
-	{
-		FD_SET(fd, set);
-		if(*maxfd < fd)	*maxfd = fd;
-	}
 
 	for( ;; )
 	{
