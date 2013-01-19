@@ -100,9 +100,23 @@ _errno:	.long	0	@ Placed in .text, to allow use of relative addressing
 // Override the clone syscall
 #define _exit	_exit_raw
 #define _clone	_clone_raw
+#define _SysSeek	_SysSeek_borken
 #include "syscalls.s.h"
 #undef _exit
 #undef _clone
+#undef _SysSeek 
+
+// NOTE: _SysSeek needs special handling for alignment
+.globl _SysSeek
+_SysSeek:
+	push {lr}
+	mov r1,r2
+	mov r2,r3
+	ldr r3, [sp,#4]
+	svc #SYS_SEEK
+	ldr r3, =_errno
+	str r2, [r3]
+	pop {pc}
 
 .globl _clone
 _clone:
@@ -119,6 +133,7 @@ _clone:
 _clone_ret:
 	pop {r4}
 	mov pc, lr
+
 
 .globl _exit
 _exit:
