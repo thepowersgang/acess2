@@ -485,6 +485,7 @@ tTID Threads_WaitTID(int TID, int *Status)
 	if(TID > 0)
 	{
 		tTID	ret;
+		// NOTE: Race condition - Other child dies, desired child dies, first death is 'lost'
 		while( (ret = Threads_WaitTID(-1, Status)) != TID )
 		{
 			if( ret == -1 )
