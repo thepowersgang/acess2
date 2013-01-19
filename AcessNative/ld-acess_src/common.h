@@ -36,6 +36,7 @@ static inline int _SysSetMemFlags(uintptr_t Addr, unsigned int flags, unsigned i
 	return 0;
 }
 
+
 extern int	AllocateMemory(uintptr_t VirtAddr, size_t ByteCount);
 extern uintptr_t	FindFreeRange(size_t ByteCount, int MaxBits);
 

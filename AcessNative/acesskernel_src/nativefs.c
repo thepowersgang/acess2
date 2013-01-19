@@ -205,8 +205,9 @@ size_t NativeFS_Read(tVFS_Node *Node, _acess_off_t Offset, size_t Length, void *
 		LEAVE('i', 0);
 		return 0;
 	}
-	LEAVE('-');
-	return fread( Buffer, 1, Length, (FILE *)(tVAddr)Node->Inode );
+	size_t ret = fread( Buffer, 1, Length, (FILE *)(tVAddr)Node->Inode );
+	LEAVE('x', ret);
+	return ret;
 }
 
 size_t NativeFS_Write(tVFS_Node *Node, _acess_off_t Offset, size_t Length, const void *Buffer)

@@ -42,7 +42,7 @@ void *Elf_Load(int FD)
 	Elf64_Ehdr	hdr;
 	
 	// Read ELF Header
-	acess_read(FD, &hdr, sizeof(hdr));
+	acess__SysRead(FD, &hdr, sizeof(hdr));
 	
 	// Check the file type
 	if(hdr.e_ident[0] != 0x7F || hdr.e_ident[1] != 'E' || hdr.e_ident[2] != 'L' || hdr.e_ident[3] != 'F') {
@@ -89,8 +89,8 @@ void *Elf32Load(int FD, Elf32_Ehdr *hdr)
 		return NULL;
 	}
 	LOG("hdr.phoff = 0x%08x\n", hdr->phoff);
-	acess_seek(FD, hdr->phoff, ACESS_SEEK_SET);
-	acess_read(FD, phtab, sizeof(Elf32_Phdr) * hdr->phentcount);
+	acess__SysSeek(FD, hdr->phoff, ACESS_SEEK_SET);
+	acess__SysRead(FD, phtab, sizeof(Elf32_Phdr) * hdr->phentcount);
 	
 	// Count Pages
 	iPageCount = 0;
@@ -146,8 +146,8 @@ void *Elf32Load(int FD, Elf32_Ehdr *hdr)
 			char *tmp;
 			//if(ret->Interpreter)	continue;
 			tmp = malloc(phtab[i].FileSize);
-			acess_seek(FD, phtab[i].Offset, ACESS_SEEK_SET);
-			acess_read(FD, tmp, phtab[i].FileSize);
+			acess__SysSeek(FD, phtab[i].Offset, ACESS_SEEK_SET);
+			acess__SysRead(FD, tmp, phtab[i].FileSize);
 			//ret->Interpreter = Binary_RegInterp(tmp);
 			LOG("Interpreter '%s'\n", tmp);
 			free(tmp);
@@ -168,8 +168,8 @@ void *Elf32Load(int FD, Elf32_Ehdr *hdr)
 			return NULL;
 		}
 		
-		acess_seek(FD, phtab[i].Offset, ACESS_SEEK_SET);
-		acess_read(FD, PTRMK(void, addr), phtab[i].FileSize);
+		acess__SysSeek(FD, phtab[i].Offset, ACESS_SEEK_SET);
+		acess__SysRead(FD, PTRMK(void, addr), phtab[i].FileSize);
 		memset( PTRMK(char, addr) + phtab[i].FileSize, 0, phtab[i].MemSize - phtab[i].FileSize );
 	}
 	
@@ -211,8 +211,8 @@ void *Elf64Load(int FD, Elf64_Ehdr *hdr)
 		return NULL;
 	}
 	LOG("hdr.phoff = 0x%08llx\n", (long long)hdr->e_phoff);
-	acess_seek(FD, hdr->e_phoff, ACESS_SEEK_SET);
-	acess_read(FD, phtab, sizeof(Elf64_Phdr) * hdr->e_phnum);
+	acess__SysSeek(FD, hdr->e_phoff, ACESS_SEEK_SET);
+	acess__SysRead(FD, phtab, sizeof(Elf64_Phdr) * hdr->e_phnum);
 	
 	// Count Pages
 	iPageCount = 0;
@@ -270,8 +270,8 @@ void *Elf64Load(int FD, Elf64_Ehdr *hdr)
 			//if(ret->Interpreter)	continue;
 			tmp = malloc(phtab[i].p_filesz+1);
 			tmp[ phtab[i].p_filesz ] = 0;
-			acess_seek(FD, phtab[i].p_offset, ACESS_SEEK_SET);
-			acess_read(FD, tmp, phtab[i].p_filesz);
+			acess__SysSeek(FD, phtab[i].p_offset, ACESS_SEEK_SET);
+			acess__SysRead(FD, tmp, phtab[i].p_filesz);
 			//ret->Interpreter = Binary_RegInterp(tmp);
 			LOG("Interpreter '%s'\n", tmp);
 			free(tmp);
@@ -295,8 +295,8 @@ void *Elf64Load(int FD, Elf64_Ehdr *hdr)
 			return NULL;
 		}
 		
-		acess_seek(FD, phtab[i].p_offset, ACESS_SEEK_SET);
-		acess_read(FD, PTRMK(void, addr), phtab[i].p_filesz);
+		acess__SysSeek(FD, phtab[i].p_offset, ACESS_SEEK_SET);
+		acess__SysRead(FD, PTRMK(void, addr), phtab[i].p_filesz);
 		memset( PTRMK(char, addr) + phtab[i].p_filesz, 0, phtab[i].p_memsz - phtab[i].p_filesz );
 	}
 	

@@ -13,6 +13,8 @@
 // Syscall request (used by acess_*)
 extern uint64_t	_Syscall(int SyscallID, const char *ArgTypes, ...);
 
+extern int	acess__errno;
+
 extern int	native_open(const char *Path, int Flags);
 extern void	native_close(int FD);
 extern size_t	native_read(int FD, void *Dest, size_t Bytes);
@@ -24,10 +26,10 @@ extern int	native_execve(const char *filename, const char *const argv[], const c
 extern int	native_spawn(const char *filename, const char *const argv[], const char *const envp[]);
 
 // Syscalls used by the linker
-extern int	acess_open(const char *Path, int Flags);
-extern void	acess_close(int FD);
-extern size_t	acess_read(int FD, void *Dest, size_t Bytes);
-extern int	acess_seek(int FD, int64_t Offset, int Dir);
+extern int	acess__SysOpen(const char *Path, int Flags);
+extern void	acess__SysClose(int FD);
+extern size_t	acess__SysRead(int FD, void *Dest, size_t Bytes);
+extern int	acess__SysSeek(int FD, int64_t Offset, int Dir);
 
 // Symbol type
 typedef struct {

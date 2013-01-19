@@ -65,9 +65,9 @@ char *Binary_LocateLibrary(const char *Name)
 		strcat(tmp, "/");
 		strcat(tmp, Name);
 		
-		fd = acess_open(tmp, 4);	// OPENFLAG_EXEC
+		fd = acess__SysOpen(tmp, 4);	// OPENFLAG_EXEC
 		if(fd != -1) {
-			acess_close(fd);
+			acess__SysClose(fd);
 			return strdup(tmp);
 		}
 	}		
@@ -84,9 +84,9 @@ char *Binary_LocateLibrary(const char *Name)
 		printf("Binary_LocateLibrary: tmp = '%s'\n", tmp);
 		#endif
 
-		fd = acess_open(tmp, 4);	// OPENFLAG_EXEC
+		fd = acess__SysOpen(tmp, 4);	// OPENFLAG_EXEC
 		if(fd != -1) {
-			acess_close(fd);
+			acess__SysClose(fd);
 			return strdup(tmp);
 		}
 	}		
@@ -156,22 +156,22 @@ void *Binary_Load(const char *Filename, uintptr_t *EntryPoint)
 		}
 	}
 
-	fd = acess_open(Filename, 2|1);	// Execute and Read
+	fd = acess__SysOpen(Filename, 2|1);	// Execute and Read
 	if( fd == -1 ) {
 		// TODO: Handle libary directories
 		perror("Opening binary");
 		return NULL;
 	}
 
-	acess_read(fd, &dword, 4);
-	acess_seek(fd, 0, ACESS_SEEK_SET);
+	acess__SysRead(fd, &dword, 4);
+	acess__SysSeek(fd, 0, ACESS_SEEK_SET);
 	
 	if( memcmp(&dword, "\x7F""ELF", 4) == 0 ) {
 		fmt = &gElf_FormatDef;
 	}
 	else {
 		fprintf(stderr, "Unknown executable format (0x%08x)\n", dword);
-		acess_close(fd);
+		acess__SysClose(fd);
 		return NULL;
 	}
 	
@@ -179,7 +179,7 @@ void *Binary_Load(const char *Filename, uintptr_t *EntryPoint)
 	printf("fmt->Load(0x%x)...\n", fd);
 	#endif
 	ret = fmt->Load(fd);
-	acess_close(fd);
+	acess__SysClose(fd);
 	#if DEBUG
 	printf("fmt->Load(0x%x): %p\n", fd, ret);
 	#endif
