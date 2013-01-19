@@ -48,6 +48,8 @@ void System_Init(char *CommandLine)
 	if(Proc_Clone(CLONE_VM|CLONE_NOUSER) == 0)
 	{
 		const char	*args[] = {gsInitBinary, 0};
+		VFS_Open("/Devices/VTerm/0", VFS_OPENFLAG_READ|VFS_OPENFLAG_USER);	// 0: stdin
+		VFS_Open("/Devices/VTerm/0", VFS_OPENFLAG_WRITE|VFS_OPENFLAG_USER);	// 1: stdout
 		Proc_Execve(gsInitBinary, args, &args[1], 0);
 		Log_KernelPanic("System", "Unable to spawn init '%s'", gsInitBinary);
 	}
