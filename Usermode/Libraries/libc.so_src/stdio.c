@@ -348,6 +348,12 @@ EXPORT size_t fread(void *ptr, size_t size, size_t num, FILE *fp)
 	}
 	else {
 		ret = _SysRead(fp->FD, ptr, size*num);
+		if( ret == (size_t)-1)
+			return -1;
+		if( ret == 0 && size*num > 0 ) {
+			fp->Flags |= FILE_FLAG_EOF;
+			return 0;
+		}
 		ret /= size;
 	}
 		
@@ -403,7 +409,7 @@ EXPORT int putchar(int c)
 EXPORT int fgetc(FILE *fp)
 {
 	char	ret = 0;
-	if( fread(&ret, 1, 1, fp) == (size_t)-1 )
+	if( fread(&ret, 1, 1, fp) != 1 )
 		return -1;
 	return ret;
 }
