@@ -13,6 +13,7 @@ Dir "Bin" {
 	File "ping" "__BIN__/Bin/ping"
 	File "telnet" "__BIN__/Bin/telnet"
 	File "irc" "__BIN__/Bin/irc"
+	File "bomb" "__BIN__/Bin/bomb"
 	File "dhcpc" "__BIN__/SBin/dhcpc"
 }
 Dir "Libs" {
