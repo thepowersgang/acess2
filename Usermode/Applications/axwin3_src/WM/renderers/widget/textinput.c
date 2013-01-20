@@ -10,7 +10,7 @@
 #include <common.h>
 #include "./common.h"
 #include "./colours.h"
-#include <utf8.h>
+#include <unicode.h>
 #include <string.h>
 
 // TODO: Include a proper keysym header
