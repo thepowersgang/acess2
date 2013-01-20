@@ -24,5 +24,8 @@ extern int	ReadUTF8Rev(const char *Base, int Offset, uint32_t *Val);
  */
 extern int	WriteUTF8(char *buf, uint32_t Val);
 
+
+static inline int	Unicode_IsPrinting(uint32_t Codepoint) { return 1; }
+
 #endif
 
