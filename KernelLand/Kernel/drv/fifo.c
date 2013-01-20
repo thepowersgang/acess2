@@ -353,11 +353,14 @@ size_t FIFO_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buff
 		if(len > pipe->BufSize - pipe->WritePos)
 		{
 			int ofs = pipe->BufSize - pipe->WritePos;
+			LOG("pipe->Buffer = %p, pipe->WritePos = %i, ofs=%i, len=%i",
+				pipe->Buffer, pipe->WritePos, ofs, len);
 			memcpy(&pipe->Buffer[pipe->WritePos], Buffer, ofs);
-			memcpy(&pipe->Buffer, (Uint8*)Buffer + ofs, len-ofs);
+			memcpy(&pipe->Buffer[0], (Uint8*)Buffer + ofs, len-ofs);
 		}
 		else
 		{
+			LOG("pipe->Buffer = %p, pipe->WritePos = %i", pipe->Buffer, pipe->WritePos);
 			memcpy(&pipe->Buffer[pipe->WritePos], Buffer, len);
 		}
 		
