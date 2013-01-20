@@ -12,6 +12,13 @@
 #include <ctype.h>	// isalpha
 #include <acess/sys.h>	// _SysDebug
 
+const uint32_t	caVT100Colours[] = {
+	// Black, Red, Green, Yellow, Blue, Purple, Cyan, Gray
+	// Same again, but bright
+	0x000000, 0x770000, 0x007700, 0x777700, 0x000077, 0x770077, 0x007777, 0xAAAAAAA,
+	0xCCCCCC, 0xFF0000, 0x00FF00, 0xFFFF00, 0x0000FF, 0xFF00FF, 0x00FFFF, 0xFFFFFFF
+};
+
  int	Term_HandleVT100_Long(int Len, const char *Buf);
 
 static inline int min(int a, int b)
@@ -147,6 +154,33 @@ int Term_HandleVT100_Long(int Len, const char *Buffer)
 				Display_ClearLines(0);	// Entire screen!
 			else
 				_SysDebug("TODO: VT100 %i J", args[0]);
+			break;
+		case 'm':
+			if( argc == 0 )
+			{
+				// Reset
+			}
+			else
+			{
+				int i;
+				for( i = 0; i < argc; i ++ )
+				{
+					if( args[i] < 8 )
+					{
+						// Flags?
+					}
+					else if( 30 <= args[i] && args[i] <= 37 )
+					{
+						// TODO: Bold/bright
+						Display_SetForeground( caVT100Colours[ args[i]-30 ] );
+					} 
+					else if( 40 <= args[i] && args[i] <= 47 )
+					{
+						// TODO: Bold/bright
+						Display_SetBackground( caVT100Colours[ args[i]-30 ] );
+					} 
+				}
+			}
 			break;
 		default:
 			_SysDebug("Unknown VT100 escape char 0x%x", c);

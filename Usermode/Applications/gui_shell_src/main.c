@@ -116,10 +116,10 @@ int Term_KeyHandler(tHWND Window, int bPress, uint32_t KeySym, uint32_t Translat
 	switch(KeySym)
 	{
 	case KEYSYM_LEFTCTRL:
-		_bitset(ctrl_state, 0, bPress);
+		_bitset(ctrl_state, 0, bPress!=0);
 		return 0;
 	case KEYSYM_RIGHTCTRL:
-		_bitset(ctrl_state, 0, bPress);
+		_bitset(ctrl_state, 1, bPress!=0);
 		return 0;
 	}
 	#undef _bitset
@@ -131,30 +131,35 @@ int Term_KeyHandler(tHWND Window, int bPress, uint32_t KeySym, uint32_t Translat
 		Translated = KeySym - KEYSYM_a + 1;
 	}
 
-	if( Translated )
+	// == 2 :: FIRE
+	if( bPress == 2 )
 	{
-		char	buf[6];
-		 int	len;
+		if( Translated )
+		{
+			char	buf[6];
+			 int	len;
+			
+			// Encode and send
+			len = WriteUTF8(buf, Translated);
+			
+			_SysDebug("Keystroke translated to '%.*s'", len, buf);
+			_SysWrite(giChildStdin, buf, len);
+			
+			return 0;
+		}
 		
-		// Encode and send
-		len = WriteUTF8(buf, Translated);
-		
-		_SysWrite(giChildStdin, buf, len);
-		
-		return 0;
-	}
-	
-	// No translation, look for escape sequences to send
-	const char *str = NULL;
-	switch(KeySym)
-	{
-	case KEYSYM_LEFTARROW:
-		str = "\x1b[D";
-		break;
-	}
-	if( str )
-	{
-		_SysWrite(giChildStdin, str, strlen(str));
+		// No translation, look for escape sequences to send
+		const char *str = NULL;
+		switch(KeySym)
+		{
+		case KEYSYM_LEFTARROW:
+			str = "\x1b[D";
+			break;
+		}
+		if( str )
+		{
+			_SysWrite(giChildStdin, str, strlen(str));
+		}
 	}
 	return 0;
 }

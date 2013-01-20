@@ -42,6 +42,9 @@ void Display_Init(int Cols, int Lines, int ExtraScrollbackLines)
 	gasDisplayLines = calloc( sizeof(char*), (Lines + ExtraScrollbackLines) );
 	gaiDisplayLineSizes = calloc( sizeof(int), (Lines + ExtraScrollbackLines) );
 	gabDisplayLinesDirty = calloc( sizeof(char), (Lines + ExtraScrollbackLines) );
+	
+	AxWin3_RichText_SetLineCount(gMainWindow, Lines+ExtraScrollbackLines);
+	AxWin3_RichText_SetCursorType(gMainWindow, 1);	// TODO: enum
 }
 
 void Display_int_PushString(int Length, const char *Text)
@@ -59,6 +62,7 @@ void Display_int_PushString(int Length, const char *Text)
 	memcpy(gasDisplayLines[giCurrentLine]+giCurrentLinePos, Text, Length);
 	gabDisplayLinesDirty[giCurrentLine] = 1;
 	gasDisplayLines[giCurrentLine][giCurrentLinePos+Length] = 0;
+	giCurrentLinePos += Length;
 	
 }
 
@@ -192,12 +196,16 @@ void Display_ClearLines(int Dir)	// 0: All, 1: Forward, -1: Reverse
 
 void Display_SetForeground(uint32_t RGB)
 {
-	UNIMPLIMENTED();
+	char	buf[7+1];
+	sprintf(buf, "\1%06x", RGB&0xFFFFFF);
+	Display_int_PushString(7, buf);
 }
 
 void Display_SetBackground(uint32_t RGB)
 {
-	UNIMPLIMENTED();
+	char	buf[7+1];
+	sprintf(buf, "\2%06x", RGB&0xFFFFFF);
+	Display_int_PushString(7, buf);
 }
 
 void Display_Flush(void)
@@ -214,7 +222,7 @@ void Display_Flush(void)
 	}
 	
 	// force redraw?
-	AxWin3_FocusWindow(gMainWindow);
+	AxWin3_RichText_SetCursorPos(gMainWindow, giCurrentLine, giCurrentCol);
 }
 
 void Display_ShowAltBuffer(int AltBufEnabled)
