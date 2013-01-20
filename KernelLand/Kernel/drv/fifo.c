@@ -280,6 +280,7 @@ size_t FIFO_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 		
 		// Mark some flags
 		if( pipe->ReadPos == pipe->WritePos ) {
+			LOG("%i == %i, marking none to read", pipe->ReadPos, pipe->WritePos);
 			VFS_MarkAvaliable(Node, 0);
 		}
 		VFS_MarkFull(Node, 0);	// Buffer can't still be full
@@ -315,9 +316,12 @@ size_t FIFO_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buff
 	while(remaining)
 	{
 		// Wait for buffer to empty
-		if(pipe->Flags & PF_BLOCKING) {
-			if( pipe->ReadPos == (pipe->WritePos+1)%pipe->BufSize )
+		if(pipe->Flags & PF_BLOCKING)
+		{
+			if( pipe->ReadPos == (pipe->WritePos+1)%pipe->BufSize ) {
+				LOG("Blocking write on FIFO");
 				VFS_SelectNode(Node, VFS_SELECT_WRITE, NULL, "FIFO_Write");
+			}
 
 			len = remaining;
 			if( pipe->ReadPos > pipe->WritePos )
@@ -363,6 +367,7 @@ size_t FIFO_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buff
 		
 		// Mark some flags
 		if( pipe->ReadPos == pipe->WritePos ) {
+			LOG("Buffer is full");
 			VFS_MarkFull(Node, 1);	// Buffer full
 		}
 		VFS_MarkAvaliable(Node, 1);
@@ -393,7 +398,7 @@ tPipe *FIFO_Int_NewPipe(int Size, const char *Name)
 	ret = calloc(1, allocsize);
 	if(!ret)	LEAVE_RET('n', NULL);
 	
-	// Clear Return
+	// Set default flags
 	ret->Flags = PF_BLOCKING;
 	
 	// Allocate Buffer
