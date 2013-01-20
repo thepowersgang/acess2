@@ -298,7 +298,9 @@ int Renderer_RichText_HandleIPC_WriteLine(tWindow *Window, size_t Len, const voi
 	}
 	line->ByteLength = Len - sizeof(*msg);
 	memcpy(line->Data, msg->LineData, Len - sizeof(*msg));
-	
+
+	WM_Invalidate( Window );
+
 	return  0;
 }
 
