@@ -715,7 +715,7 @@ EXPORT int printf(const char *format, ...)
 	va_end(args);
 	
 	// Send to stdout
-	_SysWrite(_stdout, buf, size+1);
+	_SysWrite(_stdout, buf, size);
 	
 	// Free buffer
 	free(buf);
