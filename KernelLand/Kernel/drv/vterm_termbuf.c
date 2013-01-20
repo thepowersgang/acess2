@@ -15,24 +15,27 @@
  */
 void VT_int_PutString(tVTerm *Term, const Uint8 *Buffer, Uint Count)
 {
-	Uint32	val;
 	 int	i;
 	
 	// Iterate
 	for( i = 0; i < Count; i++ )
 	{
 		// Handle escape sequences
-		if( Buffer[i] == 0x1B )
+		if( Buffer[i] == 0x1B && Count - i > 1 )
 		{
-			i ++;
-			i += VT_int_ParseEscape(Term, (const char*)&Buffer[i]) - 1;
-			continue;
+			int ret = VT_int_ParseEscape(Term, (const char*)&Buffer[i+1], Count-(i+1));
+			if( ret > 0 )
+			{
+				i += ret;
+				continue;
+			}
 		}
 		
 		// Fast check for non UTF-8
 		if( Buffer[i] < 128 )	// Plain ASCII
 			VT_int_PutChar(Term, Buffer[i]);
 		else {	// UTF-8
+			Uint32	val;
 			i += ReadUTF8(&Buffer[i], &val) - 1;
 			VT_int_PutChar(Term, val);
 		}

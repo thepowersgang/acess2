@@ -112,7 +112,7 @@ extern void	VT_InitInput(void);
 extern void	VT_KBCallBack(Uint32 Codepoint);
 // --- VT100 Emulation ---
 extern void	VT_int_ParseEscape_StandardLarge(tVTerm *Term, char CmdChar, int argc, int *args);
-extern int	VT_int_ParseEscape(tVTerm *Term, const char *Buffer);
+extern int	VT_int_ParseEscape(tVTerm *Term, const char *Buffer, size_t Bytes);
 // --- Terminal Buffer ---
 extern void	VT_int_PutString(tVTerm *Term, const Uint8 *Buffer, Uint Count);
 extern void	VT_int_PutChar(tVTerm *Term, Uint32 Ch);
