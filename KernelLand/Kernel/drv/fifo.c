@@ -1,5 +1,9 @@
-/* AcessOS
- * FIFO Pipe Driver
+/* 
+ * Acess2 Kernel
+ * - By John Hodge (thePowersGang)
+ *
+ * drv/fifo.c
+ * - FIFO Pipe Driver
  */
 #define DEBUG	0
 #include <acess.h>
@@ -126,9 +130,8 @@ tVFS_Node *FIFO_FindDir(tVFS_Node *Node, const char *Filename)
 	if(Filename[0] == '\0')	return NULL;
 	
 	// Anon Pipe
-	if(Filename[0] == 'a' && Filename[1] == 'n'
-	&& Filename[2] == 'o' && Filename[3] == 'n'
-	&& Filename[4] == '\0') {
+	if( strcmp(Filename, "anon") == 0 )
+	{
 		tmp = FIFO_Int_NewPipe(DEFAULT_RING_SIZE, "anon");
 		return &tmp->Node;
 	}
@@ -384,9 +387,11 @@ tPipe *FIFO_Int_NewPipe(int Size, const char *Name)
 	tPipe	*ret;
 	 int	namelen = strlen(Name) + 1;
 	 int	allocsize = sizeof(tPipe) + sizeof(tVFS_ACL) + Size + namelen;
-	
+
+	ENTER("iSize sName", Size, Name);	
+
 	ret = calloc(1, allocsize);
-	if(!ret)	return NULL;
+	if(!ret)	LEAVE_RET('n', NULL);
 	
 	// Clear Return
 	ret->Flags = PF_BLOCKING;
@@ -417,6 +422,8 @@ tPipe *FIFO_Int_NewPipe(int Size, const char *Name)
 		= ret->Node.MTime
 		= ret->Node.ATime = now();
 	ret->Node.Type = &gFIFO_PipeNodeType;
+
+	LEAVE('p', ret);
 	
 	return ret;
 }
