@@ -129,6 +129,9 @@ int VT_Install(char **Arguments)
 			else if( strcmp(opt, "Scrollback") == 0 ) {
 				giVT_Scrollback = atoi( val );
 			}
+			else {
+				Log_Notice("VTerm", "Unknown option '%s'", opt);
+			}
 		}
 	}
 	
