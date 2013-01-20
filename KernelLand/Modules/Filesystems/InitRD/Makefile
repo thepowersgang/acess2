@@ -13,4 +13,8 @@ LDFLAGS += @files.$(ARCH).c.ldopts
 files.$(ARCH).c: GenerateInitRD.php files.lst
 	ARCH=$(ARCH) ACESSDIR=$(ACESSDIR) php GenerateInitRD.php files.lst $@ $@.ldopts $@.dep
 
+# Override default install method, because the floppy is small :)
+install:
+	true
+
 -include files.$(ARCH).c.dep
