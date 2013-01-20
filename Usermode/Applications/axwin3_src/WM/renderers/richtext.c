@@ -224,8 +224,13 @@ void Renderer_RichText_Redraw(tWindow *Window)
 		Window->W, (info->DispLines-i)*info->LineHeight,
 		info->DefaultBG
 		);
-	
+
+	// HACK!
+	info->DispCols = Window->W / 8;	
+
 	// TODO: Text cursor
+	_SysDebug("Cursor at %i,%i", info->CursorCol, info->CursorRow);
+	_SysDebug(" Range [%i+%i],[%i+%i]", info->FirstVisRow, info->DispLines, info->FirstVisCol, info->DispCols);
 	if( info->CursorRow >= info->FirstVisRow && info->CursorRow < info->FirstVisRow + info->DispLines )
 	{
 		if( info->CursorCol >= info->FirstVisCol && info->CursorCol < info->FirstVisCol + info->DispCols )
