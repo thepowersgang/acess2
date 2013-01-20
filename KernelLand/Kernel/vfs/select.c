@@ -129,8 +129,8 @@ int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set 
 	tThread	*thisthread = Proc_GetCurThread();
 	 int	ret;
 	
-	ENTER("iMaxHandle pReadHandles pWriteHandles pErrHandles pTimeout bIsKernel",
-		MaxHandle, ReadHandles, WriteHandles, ErrHandles, Timeout, IsKernel);
+	ENTER("iMaxHandle pReadHandles pWriteHandles pErrHandles pTimeout xExtraEvents bIsKernel",
+		MaxHandle, ReadHandles, WriteHandles, ErrHandles, Timeout, ExtraEvents, IsKernel);
 	
 	// Notes: The idea is to make sure we only enter wait (Threads_WaitEvents)
 	// if we are going to be woken up (either by an event at a later time,
@@ -140,6 +140,8 @@ int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set 
 	// or the semaphore is incremeneted (or both, but never none)
 	
 	// Register with nodes
+	if( ReadHandles )
+		LOG(" - ReadHandles[0] = %x", ReadHandles->flags[0]);
 	ret  = VFS_int_Select_Register(thisthread, MaxHandle, ReadHandles, 0, IsKernel);
 	ret += VFS_int_Select_Register(thisthread, MaxHandle, WriteHandles, 1, IsKernel);
 	ret += VFS_int_Select_Register(thisthread, MaxHandle, ErrHandles, 2, IsKernel);
@@ -149,9 +151,11 @@ int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set 
 	// If there were events waiting, de-register and return
 	if( ret > 0 )
 	{
+		LOG(" - ReadHandles[0] = %x", ReadHandles->flags[0]);
 		ret  = VFS_int_Select_Deregister(thisthread, MaxHandle, ReadHandles, 0, IsKernel);
 		ret += VFS_int_Select_Deregister(thisthread, MaxHandle, WriteHandles, 1, IsKernel);
 		ret += VFS_int_Select_Deregister(thisthread, MaxHandle, ErrHandles, 2, IsKernel);
+		LOG(" - ReadHandles[0] = %x", ReadHandles->flags[0]);
 		LEAVE('i', ret);
 		return ret;
 	}
@@ -306,8 +310,10 @@ int VFS_int_Select_Register(tThread *Thread, int MaxHandle, fd_set *Handles, int
 		}
 		
 		// Check for the flag
-		if( !!*flag == !!wantedFlagValue )
+		if( !!*flag == !!wantedFlagValue ) {
+			LOG(" %i == want %i", !!*flag, !!wantedFlagValue);
 			numFlagged ++;
+		}
 	}
 	
 	LEAVE('i', numFlagged);
@@ -349,8 +355,6 @@ int VFS_int_Select_Deregister(tThread *Thread, int MaxHandle, fd_set *Handles, i
 		}
 	
 		// Get the type of the listen
-	
-		// Get the type of the listen
 		if( VFS_int_Select_GetType(Type, handle->Node, &list, &flag, &wantedFlagValue, NULL) ) {
 			LEAVE('i', 0);
 			return 0;
@@ -362,6 +366,8 @@ int VFS_int_Select_Deregister(tThread *Thread, int MaxHandle, fd_set *Handles, i
 		// Check for the flag
 		if( !!*flag == !!wantedFlagValue ) {
 			numFlagged ++;
+			LOG(" %i == want %i", !!*flag, !!wantedFlagValue);
+			FD_SET(i, Handles);
 		}
 		else {
 			FD_CLR(i, Handles);

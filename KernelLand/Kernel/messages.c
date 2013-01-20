@@ -88,10 +88,11 @@ int Proc_GetMessage(Uint *Source, Uint BufSize, void *Buffer)
 	void	*tmp;
 	tThread	*cur = Proc_GetCurThread();
 
-	ENTER("pSource pBuffer", Source, Buffer);
+	ENTER("pSource xBufSize pBuffer", Source, BufSize, Buffer);
 	
 	// Check if queue has any items
 	if(!cur->Messages) {
+		LOG("empty queue");
 		LEAVE('i', 0);
 		return 0;
 	}
