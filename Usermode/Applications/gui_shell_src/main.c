@@ -57,9 +57,10 @@ int main(int argc, char *argv[], const char **envp)
 	// <testing>
 	AxWin3_RichText_SetLineCount(gMainWindow, 3);
 	AxWin3_RichText_SendLine(gMainWindow, 0, "First line!");
-	AxWin3_RichText_SendLine(gMainWindow, 2, "Third line! \x01""ff0000A red");
+	AxWin3_RichText_SendLine(gMainWindow, 2, "Third line! \1ff0000A red");
 	// </testing>
 
+	Display_Init(80, 25, 100);
 	AxWin3_ResizeWindow(gMainWindow, 80*8, 25*16);
 	AxWin3_MoveWindow(gMainWindow, 20, 50);
 	AxWin3_ShowWindow(gMainWindow, 1);
@@ -177,8 +178,8 @@ void Term_HandleOutput(int Len, const char *Buf)
 			Display_AddText(-esc_len, Buf + ofs);
 			esc_len = -esc_len;
 		}
-		Len -= esc_len;
 		ofs += esc_len;
+		_SysDebug("Len = %i, ofs = %i", Len, ofs);
 	}
 	
 	Display_Flush();

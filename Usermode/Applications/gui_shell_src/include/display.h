@@ -3,12 +3,14 @@
  * - By John Hodge (thePowersGang)
  *
  * display.h
- * - RichText Termianl Translation
+ * - RichText terminal translation
  */
 #ifndef _DISPLAY_H_
 #define _DISPLAY_H_
 
 #include <stdint.h>
+
+extern void	Display_Init(int Cols, int Lines, int ExtraScrollbackLines);
 
 extern void	Display_AddText(int Length, const char *UTF8Text);
 extern void	Display_Newline(int bCarriageReturn);
@@ -23,6 +25,11 @@ extern void	Display_SetBackground(uint32_t RGB);
  * \note Called at the end of an "input" buffer
  */
 extern void	Display_Flush(void);
+
+/**
+ * \brief Switch the display to the alternate buffer (no scrollback)
+ */
+extern void	Display_ShowAltBuffer(int AltBufEnabled);
 
 #endif
 
