@@ -224,6 +224,22 @@ void Renderer_RichText_Redraw(tWindow *Window)
 		Window->W, (info->DispLines-i)*info->LineHeight,
 		info->DefaultBG
 		);
+	
+	// TODO: Text cursor
+	if( info->CursorRow >= info->FirstVisRow && info->CursorRow < info->FirstVisRow + info->DispLines )
+	{
+		if( info->CursorCol >= info->FirstVisCol && info->CursorCol < info->FirstVisCol + info->DispCols )
+		{
+			// TODO: Kill hardcoded 8 with cached text distance
+			WM_Render_FillRect(Window,
+				(info->CursorCol - info->FirstVisCol) * 8,
+				(info->CursorRow - info->FirstVisRow) * info->LineHeight,
+				1,
+				info->LineHeight,
+				info->DefaultFG
+				);
+		}
+	}
 }
 
 int Renderer_RichText_HandleIPC_SetAttr(tWindow *Window, size_t Len, const void *Data)
@@ -240,6 +256,10 @@ int Renderer_RichText_HandleIPC_SetAttr(tWindow *Window, size_t Len, const void 
 		break;
 	case _ATTR_DEFFG:
 		info->DefaultFG = msg->Value;
+		break;
+	case _ATTR_CURSORPOS:
+		info->CursorRow = msg->Value >> 12;
+		info->CursorCol = msg->Value & 0xFFF;
 		break;
 	case _ATTR_SCROLL:
 		// TODO: Set scroll flag
@@ -314,6 +334,10 @@ int Renderer_RichText_HandleMessage(tWindow *Target, int Msg, int Len, const voi
 		if(Len < sizeof(*msg))	return -1;
 		info->DispLines = msg->H / info->LineHeight;
 		return 1; }
+	case WNDMSG_KEYDOWN:
+	case WNDMSG_KEYUP:
+	case WNDMSG_KEYFIRE:
+		return 1;
 	}
 	return 0;
 }
