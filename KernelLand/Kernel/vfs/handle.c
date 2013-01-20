@@ -196,7 +196,14 @@ void *VFS_SaveHandles(int NumFDs, int *FDs)
 		tVFS_Handle	*h;
 		if( FDs == NULL )
 			h = &gaUserHandles[i];
-		else {
+		else if( FDs[i] == -1 )
+		{
+			Log_Warning("VFS", "VFS_SaveHandles - Slot %i error FD (-1), ignorning", i);
+			memset(&ret[i], 0, sizeof(tVFS_Handle));
+			continue ;
+		}
+		else
+		{
 			h = VFS_GetHandle(FDs[i] & (VFS_KERNEL_FLAG - 1));
 			if(!h) {
 				Log_Warning("VFS", "VFS_SaveHandles - Invalid FD %i",
