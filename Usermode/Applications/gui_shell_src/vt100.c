@@ -34,13 +34,12 @@ int Term_HandleVT100(int Len, const char *Buf)
 
 	if( inc_len > 0	|| *Buf == '\x1b' )
 	{
-		 int	new_bytes = min(MAX_VT100_ESCAPE_LEN - inc_len, Len);
-		 int	ret = 0;
-		memcpy(inc_buf + inc_len, Buf, new_bytes);
-		inc_len += new_bytes;
 		// Handle VT100 (like) escape sequence
+		 int	new_bytes = min(MAX_VT100_ESCAPE_LEN - inc_len, Len);
+		 int	ret = 0, old_inc_len = inc_len;
+		memcpy(inc_buf + inc_len, Buf, new_bytes);
 
-		_SysDebug("inc_len = %i, new_bytes = %i", inc_len, new_bytes);
+		inc_len += new_bytes;
 
 		if( inc_len <= 1 )
 			return 1;	// Skip 1 character (the '\x1b')
@@ -49,16 +48,19 @@ int Term_HandleVT100(int Len, const char *Buf)
 		{
 		case '[':	// Multibyte, funtime starts	
 			ret = Term_HandleVT100_Long(inc_len-2, inc_buf+2);
-			if( ret > 0 )
+			if( ret > 0 ) {
 				ret += 2;
+			}
 			break;
 		default:
 			ret = 2;
 			break;
 		}	
 
-		if( ret != 0 )
+		if( ret != 0 ) {
 			inc_len = 0;
+			ret -= old_inc_len;	// counter cached bytes
+		}
 		return ret;
 	}
 
@@ -66,6 +68,8 @@ int Term_HandleVT100(int Len, const char *Buf)
 	{
 	case '\b':
 		// TODO: Backspace
+		Display_MoveCursor(-1, 0);
+		Display_AddText(1, " ");
 		Display_MoveCursor(-1, 0);
 		return 1;
 	case '\t':
@@ -129,7 +133,7 @@ int Term_HandleVT100_Long(int Len, const char *Buffer)
 	if( !isalpha(c) ) {
 		// Bother.
 		_SysDebug("Unexpected char 0x%x in VT100 escape code", c);
-		return -1;
+		return 1;
 	}
 
 	if( bQuestionMark )

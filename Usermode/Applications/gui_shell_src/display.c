@@ -79,8 +79,10 @@ void Display_AddText(int Length, const char *UTF8Text)
 		{
 			uint32_t	cp;
 			bytes += ReadUTF8(UTF8Text+bytes, &cp);
-			if( Unicode_IsPrinting(cp) )
+			if( Unicode_IsPrinting(cp) ) {
 				space --;
+				giCurrentCol ++;
+			}
 		}
 	
 		Display_int_PushString(bytes, UTF8Text);
@@ -146,7 +148,23 @@ void Display_SetCursor(int Row, int Col)
 
 void Display_MoveCursor(int RelRow, int RelCol)
 {
-	UNIMPLIMENTED();
+	if( RelRow < 0 )
+	{
+		for( ; RelRow < 0; RelRow ++ )
+		{
+			uint32_t	cp;
+			int delta = ReadUTF8Rev(gasDisplayLines[giCurrentLine], giCurrentLinePos, &cp);
+			if( !Unicode_IsPrinting(cp) )
+				RelRow --;
+			else
+				giCurrentCol --;
+			giCurrentLinePos -= delta;
+		}
+	}
+	else
+	{
+		UNIMPLIMENTED();
+	}
 }
 
 void Display_ClearLine(int Dir)	// 0: All, 1: Forward, -1: Reverse
