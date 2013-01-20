@@ -111,14 +111,16 @@ void create_sidebar(void)
 
 void mainmenu_app_textedit(void *unused)
 {
-	const char	*args[] = {"ate",NULL};
 //	_SysDebug("TODO: Launch text editor");
+	const char	*args[] = {"ate",NULL};
 	_SysSpawn("/Acess/Apps/AxWin/3.0/ate", args, (const char **)gEnvion, 0, NULL, NULL);
 }
 
 void mainmenu_app_terminal(void *unused)
 {
-	_SysDebug("TODO: Launch terminal emulator");
+	_SysDebug("Launch terminal emulator");
+	const char	*args[] = {"terminal",NULL};
+	_SysSpawn("/Acess/Apps/AxWin/3.0/terminal", args, (const char **)gEnvion, 0, NULL, NULL);
 }
 
 void mainmenu_run_dialog(void *unused)
