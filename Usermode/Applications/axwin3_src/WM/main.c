@@ -83,7 +83,7 @@ int main(int argc, char *argv[])
 		sprintf(server_info, "AXWIN3_SERVER=%i", server_tid);
 		// TODO: Does the client need FDs?
 		 int	rv = _SysSpawn(csInterfaceApp, argv, envp, 0, NULL, NULL);
-		if( rv ) {
+		if( rv < 0 ) {
 			_SysDebug("_SysSpawn chucked a sad, rv=%i, errno=%i", rv, _errno);
 		}
 	}
