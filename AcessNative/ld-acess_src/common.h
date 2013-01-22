@@ -31,10 +31,11 @@ static inline void AddLoaded(const char *Path, void *Base)
 	Binary_SetReadyToUse(Base);
 }
 
-static inline int SysSetMemFlags(uintptr_t Addr, unsigned int flags, unsigned int mask)
+static inline int _SysSetMemFlags(uintptr_t Addr, unsigned int flags, unsigned int mask)
 {
 	return 0;
 }
+
 
 extern int	AllocateMemory(uintptr_t VirtAddr, size_t ByteCount);
 extern uintptr_t	FindFreeRange(size_t ByteCount, int MaxBits);

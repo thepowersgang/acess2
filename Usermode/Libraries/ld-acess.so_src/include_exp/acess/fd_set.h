@@ -21,9 +21,29 @@ typedef struct
 }	fd_set;
 
 
-extern void	FD_ZERO(fd_set *fdsetp);
-extern void	FD_CLR(int fd, fd_set *fdsetp);
-extern void	FD_SET(int fd, fd_set *fdsetp);
-extern int	FD_ISSET(int fd, fd_set *fdsetp);
+static inline void	FD_ZERO(fd_set *fdsetp)
+{
+	int i = FD_SETSIZE/16;
+	while( i-- )
+		fdsetp->flags[i] = 0;
+}
+static inline  void	FD_CLR(int fd, fd_set *fdsetp)
+{
+	if(fd < 0 || fd > FD_SETSIZE)	return;
+	fd_set_ent_t	mask = 1 << (fd % 16);
+	fdsetp->flags[fd/16] &= ~mask;
+}
+static inline  void	FD_SET(int fd, fd_set *fdsetp)
+{
+	if(fd < 0 || fd > FD_SETSIZE)	return;
+	fd_set_ent_t	mask = 1 << (fd % 16);
+	fdsetp->flags[fd/16] |= mask;
+}
+static inline  int	FD_ISSET(int fd, fd_set *fdsetp)
+{
+	if(fd < 0 || fd > FD_SETSIZE)	return 0;
+	fd_set_ent_t	mask = 1 << (fd % 16);
+	return !!( fdsetp->flags[fd/16] & mask );
+}
 
 #endif

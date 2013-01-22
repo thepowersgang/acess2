@@ -1,0 +1,8 @@
+GL control channel:
+  App -> GUI -> VTerm -> Driver
+- App creates 3D window
+- GUI passes X,Y WxH to VTerm (and can issue resize notices upwards)
+- VTerm passes to driver (and can disable display of local regions when VT switch)
+
+Allocates command ring buffer for libgl
+

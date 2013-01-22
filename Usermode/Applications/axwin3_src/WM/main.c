@@ -66,10 +66,12 @@ int main(int argc, char *argv[])
 	Renderer_RichText_Init();
 	WM_Initialise();
 
-	// TODO: Config
+	// TODO: Move these to config
 	uint32_t	keys[4];
 	keys[0] = KEYSYM_LEFTGUI;	keys[1] = KEYSYM_r;
 	WM_Hotkey_Register(2, keys, "Interface>Run");
+	keys[0] = KEYSYM_LEFTGUI;	keys[1] = KEYSYM_t;
+	WM_Hotkey_Register(2, keys, "Interface>Terminal");
 	
 	// Spawn interface root
 	{
@@ -83,7 +85,7 @@ int main(int argc, char *argv[])
 		sprintf(server_info, "AXWIN3_SERVER=%i", server_tid);
 		// TODO: Does the client need FDs?
 		 int	rv = _SysSpawn(csInterfaceApp, argv, envp, 0, NULL, NULL);
-		if( rv ) {
+		if( rv < 0 ) {
 			_SysDebug("_SysSpawn chucked a sad, rv=%i, errno=%i", rv, _errno);
 		}
 	}

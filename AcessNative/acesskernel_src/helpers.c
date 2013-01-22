@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <sys/time.h>
+#include <string.h>
 
 #if 0
 void LogF(const char *Fmt, ...)
@@ -67,10 +68,14 @@ void KernelPanic_PutChar(char ch)
 void Debug_PutCharDebug(char ch)
 {
 	printf("%c", ch);
+	if( ch == '\n' )
+		fflush(stdout);
 }
 void Debug_PutStringDebug(const char *String)
 {
 	printf("%s", String);
+	if( strchr(String, '\n') )
+		fflush(stdout);
 }
 
 void *Heap_Allocate(const char *File, int Line, int ByteCount)
@@ -91,6 +96,11 @@ void *Heap_Reallocate(const char *File, int Line, void *Ptr, int Bytes)
 void Heap_Deallocate(void *Ptr)
 {
 	free(Ptr);
+}
+
+char *Heap_StringDup(const char *File, int Line, const char *Str)
+{
+	return strdup(Str);
 }
 
 void Heap_Dump(void)
@@ -128,5 +138,61 @@ Sint64 now(void)
 void IPStack_SendDebugText(const char *str)
 {
 	// nop
+}
+
+int strpos(const char *str, char ch)
+{
+	const char *retptr = strchr(str, ch);
+	int rv = retptr ? retptr - str : -1;
+	return rv;
+}
+
+int CheckString(const char *string)
+{
+	if( (intptr_t)string < 0x1000 )
+		return 0;
+	return 1;
+}
+
+int CheckMem(const void *buf, size_t len)
+{
+	if( (intptr_t)buf < 0x1000 )
+		return 0;
+	return 1;
+}
+
+void itoa(char *buf, Uint64 num, int base, int minLength, char pad)
+{
+	static const char cUCDIGITS[] = "0123456789ABCDEF";
+	char	tmpBuf[64+1];
+	 int	pos=0, i;
+	Uint64	rem;
+
+	// Sanity check
+	if(!buf)	return;
+	
+	// Sanity Check
+	if(base > 16 || base < 2) {
+		buf[0] = 0;
+		return;
+	}
+	
+	// Convert 
+	while(num > base-1) {
+		rem = num % base;
+		num = num / base;	// Shift `num` and get remainder
+		tmpBuf[pos] = cUCDIGITS[ rem ];
+		pos++;
+	}
+	tmpBuf[pos++] = cUCDIGITS[ num ];		// Last digit of `num`
+	
+	// Put in reverse
+	i = 0;
+	minLength -= pos;
+	while(minLength-- > 0)
+		buf[i++] = pad;
+	while(pos-- > 0)
+		buf[i++] = tmpBuf[pos];	// Reverse the order of characters
+	buf[i] = 0;
 }
 

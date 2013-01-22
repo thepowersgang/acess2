@@ -173,6 +173,8 @@ void WM_FocusWindow(tWindow *Destination)
 {
 	struct sWndMsg_Bool	_msg;
 	
+	_SysDebug("WM_FocusWindow(%p)", Destination);
+
 	if( gpWM_FocusedWindow == Destination )
 		return ;
 	if( Destination && !(Destination->Flags & WINFLAG_SHOW) )

@@ -53,7 +53,7 @@ int main(int argc, char *argv[], char **envp)
 		}
 		
 		if(strcmp(argv[i], "--open") == 0) {
-			if( acess_open(argv[++i], 6) == -1 ) {	// Read/Write
+			if( acess__SysOpen(argv[++i], 6) == -1 ) {	// Read/Write
 				fprintf(stderr, "Unable to open '%s'\n", argv[i]);
 				exit(1);
 			}
@@ -85,7 +85,10 @@ int main(int argc, char *argv[], char **envp)
 
 	base = Binary_Load(appPath, (uintptr_t*)&appMain);
 	printf("[DEBUG %i] base = %p\n", giSyscall_ClientID, base);
-	if( !base )	return 127;
+	if( !base )	{
+		*((char*)NULL) = 0;
+		return 127;
+	}
 	
 	printf("==============================\n");
 	printf("[DEBUG %i] %i ", giSyscall_ClientID, appArgc);

@@ -55,6 +55,16 @@ while [[ $# -gt 0 ]]; do
 	-l*|-L*)
 		_libs=$_libs" $1"
 		;;
+	-v|--version|-V)
+		_verarg=$_verarg" $1"
+		;;
+	--inv=ld)
+		_actas=ld
+		;;
+	-print-prog-name=ld)
+		echo $0 --inv=ld
+		exit 0
+		;;
 	*)
 		_miscargs=$_miscargs" $1"
 		;;
@@ -63,7 +73,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 run() {
-#	echo --- $*
+	#echo --- $*
 	$*
 	return $?
 }
@@ -75,6 +85,11 @@ rm $cfgfile
 
 #echo "_compile = $_compile, _preproc = $_preproc"
 
+if [[ "x$_actas" == "xld" ]]; then
+	run $_LD $LDFLAGS $_ldflags $_outfile $_miscargs $LIBGCC_PATH $_libs
+	exit $?
+fi
+
 if [[ $_preproc -eq 1 ]]; then
 	run $_CC -E $CFLAGS $_cflags $_miscargs $_outfile
 elif [[ $_makedep -eq 1 ]]; then
@@ -84,8 +99,10 @@ elif [[ $_compile -eq 1 ]]; then
 elif echo " $_miscargs" | grep '\.c' >/dev/null; then
 	tmpout=`mktemp acess_gccproxy.XXXXXXXXXX.o --tmpdir`
 	run $_CC $CFLAGS $_cflags $_miscargs -c -o $tmpout
-	run $_LD $LDFLAGS $_ldflags $_libs $tmpout $_outfile -lgcc $_libs
+	run $_LD $LDFLAGS $_ldflags $_libs $tmpout $_outfile $LIBGCC_PATH $_libs
+	_rv=$?
 	rm $tmpout
+	exit $_rv
 else
 	run $_LD$_ldflags $_miscargs $_outfile $LDFLAGS  $_libs
 fi

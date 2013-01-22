@@ -1,6 +1,6 @@
 /*
  */
-#define DEBUG	0
+#define DEBUG	1
 
 
 #if DEBUG
@@ -51,6 +51,7 @@ void Request_Preinit(void)
 	memset((void *)&gSyscall_ServerAddr, '\0', sizeof(struct sockaddr_in));
 	gSyscall_ServerAddr.sin_family = AF_INET;
 	gSyscall_ServerAddr.sin_port = htons(SERVER_PORT);
+	gSyscall_ServerAddr.sin_addr.s_addr = htonl(0x7F000001);
 }
 
 int _InitSyscalls(void)
@@ -80,20 +81,13 @@ int _InitSyscalls(void)
 		exit(0);
 	}
 	
-	#if 0
-	// Set client address
-	memset((void *)&client, '\0', sizeof(struct sockaddr_in));
-	client.sin_family = AF_INET;
-	client.sin_port = htons(0);
-	client.sin_addr.s_addr = htonl(0x7F000001);
-	#endif
-	
 	#if USE_TCP
 	if( connect(gSocket, (struct sockaddr *)&gSyscall_ServerAddr, sizeof(struct sockaddr_in)) < 0 )
 	{
 		fprintf(stderr, "[ERROR -] Cannot connect to server (localhost:%i)\n", SERVER_PORT);
 		perror("_InitSyscalls");
 		#if __WIN32__
+		fprintf(stderr, "[ERROR -] - WSAGetLastError said %i", WSAGetLastError());
 		closesocket(gSocket);
 		WSACleanup();
 		#else
@@ -104,6 +98,11 @@ int _InitSyscalls(void)
 	#endif
 	
 	#if 0
+	// Set client address
+	memset((void *)&client, '\0', sizeof(struct sockaddr_in));
+	client.sin_family = AF_INET;
+	client.sin_port = htons(0);
+	client.sin_addr.s_addr = htonl(0x7F000001);
 	// Bind
 	if( bind(gSocket, (struct sockaddr *)&client, sizeof(struct sockaddr_in)) == -1 )
 	{
@@ -309,7 +308,11 @@ int ReadData(void *Dest, int MaxLength, int Timeout)
 	}
 	if( ret == 0 ) {
 		fprintf(stderr, "[ERROR %i] Connection closed.\n", giSyscall_ClientID);
+		#if __WIN32__
+		closesocket(gSocket);
+		#else
 		close(gSocket);
+		#endif
 		exit(0);
 	}
 	

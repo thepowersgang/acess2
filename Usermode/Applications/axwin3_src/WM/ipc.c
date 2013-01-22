@@ -461,8 +461,8 @@ int IPC_Msg_FocusWindow(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
 	ASSERT(Msg->ID == IPCMSG_FOCUSWINDOW);
 	
 	// Don't allow the focus to be changed unless the client has the focus
-	if(!gpWM_FocusedWindow)	return 1;
-	if(gpWM_FocusedWindow->Client != Client)	return 1;
+//	if(!gpWM_FocusedWindow)	return 1;
+//	if(gpWM_FocusedWindow->Client != Client)	return 1;
 
 	win = IPC_int_GetWindow(Client, Msg->Window);
 	if(!win)	return 1;

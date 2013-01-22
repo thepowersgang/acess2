@@ -150,7 +150,7 @@ void Debug(const char *Fmt, ...)
 	va_list	args;
 	
 	#if LOCK_DEBUG_OUTPUT
-	SHORTLOCK(&glDebug_Lock);
+	if(!CPU_HAS_LOCK(&glDebug_Lock)) SHORTLOCK(&glDebug_Lock);
 	#endif
 
 	Debug_Puts(0, "Debug: ");
@@ -228,7 +228,8 @@ void Panic(const char *Fmt, ...)
 	va_list	args;
 	
 	#if LOCK_DEBUG_OUTPUT
-	SHORTLOCK(&glDebug_Lock);
+	if( !CPU_HAS_LOCK(&glDebug_Lock) )
+		SHORTLOCK(&glDebug_Lock);
 	#endif
 	// And never SHORTREL
 	

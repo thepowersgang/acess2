@@ -7,7 +7,7 @@ CFLAGS += -std=gnu99
 
 DIR := Apps/AxWin/3.0
 BIN := AxWinWM
-OBJ := main.o input.o video.o ipc.o image.o utf-8.o
+OBJ := main.o input.o video.o ipc.o image.o
 OBJ += wm.o wm_input.o wm_render.o wm_render_text.o wm_hotkeys.o
 OBJ += decorator.o
 OBJ += renderers/framebuffer.o
@@ -23,7 +23,7 @@ OBJ += renderers/widget/textinput.o
 OBJ += renderers/widget/spacer.o
 OBJ += renderers/widget/subwin.o
 
-LDFLAGS += -limage_sif -luri -lnet
+LDFLAGS += -limage_sif -luri -lnet -lunicode
 
 -include ../../Makefile.tpl
 

@@ -143,6 +143,10 @@ typedef struct sFInfo
 	tVFS_ACL	acls[];	//!< ACL buffer (size is passed in the \a MaxACLs argument to VFS_FInfo)
 } PACKED tFInfo;
 
+// --- fd_set --
+#include "../../../Usermode/Libraries/ld-acess.so_src/include_exp/acess/fd_set.h"
+
+#if 0
 /**
  * \brief fd_set for select()
  */
@@ -170,6 +174,7 @@ typedef struct
  * \param fdsetp	Set to modify
  */
 #define FD_ISSET(fd, fdsetp) ((fdsetp)->flags[(fd)/16]&(1<<((fd)%16)))
+#endif
 
 // === FUNCTIONS ===
 /**

@@ -115,7 +115,7 @@ int FDD_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 {
 	if(Pos < 0 || Pos > MAX_DISKS )
 		return -ENOENT;
-	if(gaFDD_Disks[Pos].bValid)
+	if(!gaFDD_Disks[Pos].bValid)
 		return 1;
 	
 	Dest[0] = '0' + Pos;

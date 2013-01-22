@@ -77,7 +77,7 @@ int VM8086_Install(char **Arguments)
 	
 	// Create BIOS Call process
 	pid = Proc_Clone(CLONE_VM);
-	Log_Debug("VM8086", "pid = %i", pid);
+	//Log_Debug("VM8086", "pid = %i", pid);
 	if(pid == -1)
 	{
 		Log_Error("VM8086", "Unable to clone kernel into VM8086 worker");
@@ -89,7 +89,7 @@ int VM8086_Install(char **Arguments)
 		Uint16	* volatile rmstack;	// Real Mode Stack
 		 int	i;
 
-		Log_Debug("VM8086", "Initialising worker");	
+		//Log_Debug("VM8086", "Initialising worker");	
 	
 		// Set Image Name
 		Threads_SetName("VM8086");

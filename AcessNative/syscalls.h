@@ -35,84 +35,20 @@ typedef struct sRequestHeader {
 	tRequestValue	Params[];
 }	tRequestHeader;
 
+
 enum eSyscalls {
-	SYS_NULL,
-	
-	SYS_EXIT,
-	
-	SYS_OPEN,
-	SYS_CLOSE,
-	SYS_READ,
-	SYS_WRITE,
-	SYS_SEEK,
-	SYS_TELL,
-	SYS_IOCTL,
-	SYS_FINFO,
-	SYS_READDIR,
-	SYS_OPENCHILD,
-	SYS_GETACL,
-	SYS_MOUNT,
-	SYS_REOPEN,
-	SYS_CHDIR,
-	
-	SYS_WAITTID,
-	SYS_SETUID,
-	SYS_SETGID,
-
-	SYS_GETTID,
-	SYS_GETPID,
-	SYS_GETUID,
-	SYS_GETGID,
-
-	// IPC
-	SYS_SLEEP,
-	SYS_AN_FORK,
-	SYS_AN_SPAWN,
-	SYS_SENDMSG,
-	SYS_GETMSG,
-	SYS_SELECT,
-	SYS_WAITEVENT,
-	
+	#define _(n) n
+	#include "syscalls_list.h"
+	#undef _
 	N_SYSCALLS
 };
 
 #ifndef DONT_INCLUDE_SYSCALL_NAMES
 static const char * casSYSCALL_NAMES[] = {
-	"SYS_NULL",
-	
-	"SYS_EXIT",
-	
-	"SYS_OPEN",
-	"SYS_CLOSE",
-	"SYS_READ",
-	"SYS_WRITE",
-	"SYS_SEEK",
-	"SYS_TELL",
-	"SYS_IOCTL",
-	"SYS_FINFO",
-	"SYS_READDIR",
-	"SYS_OPENCHILD",
-	"SYS_GETACL",
-	"SYS_MOUNT",
-	"SYS_REOPEN",
-	"SYS_CHDIR",
-	
-	"SYS_WAITTID",
-	"SYS_SETUID",
-	"SYS_SETGID",
-	
-	"SYS_GETTID",
-	"SYS_GETPID",
-	"SYS_GETUID",
-	"SYS_GETGID",
-	
-	// IPC
-	"SYS_SLEEP",
-	"SYS_AN_FORK",
-	"SYS_SENDMSG",
-	"SYS_GETMSG",
-	"SYS_SELECT",
-	"SYS_WAITEVENT"
+	#define _(n) #n
+	#include "syscalls_list.h"
+	#undef _
+	"-"
 };
 #endif
 

@@ -78,7 +78,7 @@ char	*gsNickname = "acess";
 tServer	*gpServers;
 tWindow	gWindow_Status = {
 	NULL, NULL, NULL,	// No next, empty list, no server
-	0, ""	// No activity, empty name (rendered as status)
+	0, {""}	// No activity, empty name (rendered as status)
 };
 tWindow	*gpWindows = &gWindow_Status;
 tWindow	*gpCurrentWindow = &gWindow_Status;

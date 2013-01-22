@@ -9,7 +9,9 @@
 #include <string.h>
 #include <stddef.h>
 #include <unistd.h>
-#include <spawn.h>	// posix_spawn
+#ifndef __WIN32__
+# include <spawn.h>	// posix_spawn
+#endif
 #include "request.h"
 
 #if SYSCALL_TRACE
@@ -17,6 +19,13 @@
 #else
 #define DEBUG(...)	do{}while(0)
 #endif
+
+#define assert(cnd) do{ \
+	if( !(cnd) ) { \
+		fprintf(stderr, "%s:%i - assert failed - " #cnd, __FILE__, __LINE__);\
+		exit(-1); \
+	} \
+}while(0)
 
 #define	MAX_FPS	16
 
@@ -161,7 +170,7 @@ uint64_t _Syscall(int SyscallID, const char *ArgTypes, ...)
 {
 	va_list	args;
 	 int	paramCount, dataLength;
-	 int	retCount = 1, retLength = sizeof(uint64_t);
+	 int	retCount = 2, retLength = sizeof(uint64_t) + sizeof(uint32_t);
 	void	**retPtrs;	// Pointers to return buffers
 	const char	*str;
 	tRequestHeader	*req;
@@ -234,38 +243,33 @@ uint64_t _Syscall(int SyscallID, const char *ArgTypes, ...)
 	}
 	va_end(args);
 	
-	// Send syscall request
+	// --- Send syscall request
 	if( SendRequest(req, dataLength, retLength) < 0 ) {
 		fprintf(stderr, "syscalls.c: SendRequest failed (SyscallID = %i)\n", SyscallID);
 		exit(127);
 	}
 	
-	// Parse return value
-	dataPtr = &req->Params[req->NParams];
-	retValue = 0;
-	if( req->NParams >= 1 )
-	{
-		switch(req->Params[0].Type)
-		{
-		case ARG_TYPE_INT64:
-			retValue = *(uint64_t*)dataPtr;
-			dataPtr += req->Params[0].Length;
-			break;
-		case ARG_TYPE_INT32:
-			retValue = *(uint32_t*)dataPtr;
-			dataPtr += req->Params[0].Length;
-			break;
-		}	
-	}
+	Debug("req->NParams = %i", req->NParams);
+	assert(req->NParams >= 2);
+	// return
+	assert(req->Params[0].Type == ARG_TYPE_INT64);
+	assert(req->Params[0].Length == sizeof(uint64_t));
+	retValue = *(uint64_t*)dataPtr;
+	dataPtr += sizeof(uint64_t);
+	// errno
+	assert(req->Params[1].Type == ARG_TYPE_INT32);
+	assert(req->Params[1].Length == sizeof(uint32_t));
+	acess__errno = *(uint32_t*)dataPtr;
+	dataPtr += sizeof(uint32_t);
 	
 	// Write changes to buffers
-	if( req->NParams - 1 != retCount ) {
+	if( req->NParams - 2 != retCount ) {
 		fprintf(stderr, "syscalls.c: Return count inbalance (%i - 1 != exp %i) [Call %i]\n",
 			req->NParams, retCount, SyscallID);
 		exit(127);
 	}
 	retCount = 0;
-	for( i = 1; i < req->NParams; i ++ )
+	for( i = 2; i < req->NParams; i ++ )
 	{
 		#if 0
 		 int	 j;
@@ -274,6 +278,7 @@ uint64_t _Syscall(int SyscallID, const char *ArgTypes, ...)
 			printf(" %02x", ((uint8_t*)dataPtr)[j]);
 		printf("\n");
 		#endif
+		assert( req->Params[i].Type == ARG_TYPE_DATA );
 		memcpy( retPtrs[retCount++], dataPtr, req->Params[i].Length );
 		dataPtr += req->Params[i].Length;
 	}
@@ -341,7 +346,11 @@ int native_spawn(const char *filename, const char *const argv[], const char *con
 {
 	int rv;
 	
+	#if __WIN32__
+	rv = _spawnve(_P_NOWAIT, filename, argv, envp);
+	#else
 	rv = posix_spawn(NULL, filename, NULL, NULL, (void*)argv, (void*)envp);
+	#endif
 	
 	return rv;
 }

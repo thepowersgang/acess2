@@ -348,6 +348,12 @@ EXPORT size_t fread(void *ptr, size_t size, size_t num, FILE *fp)
 	}
 	else {
 		ret = _SysRead(fp->FD, ptr, size*num);
+		if( ret == (size_t)-1)
+			return -1;
+		if( ret == 0 && size*num > 0 ) {
+			fp->Flags |= FILE_FLAG_EOF;
+			return 0;
+		}
 		ret /= size;
 	}
 		
@@ -403,7 +409,7 @@ EXPORT int putchar(int c)
 EXPORT int fgetc(FILE *fp)
 {
 	char	ret = 0;
-	if( fread(&ret, 1, 1, fp) == (size_t)-1 )
+	if( fread(&ret, 1, 1, fp) != 1 )
 		return -1;
 	return ret;
 }
@@ -452,7 +458,7 @@ EXPORT int vsprintf(char * __s, const char *__format, va_list __args)
 	return vsnprintf(__s, 0x7FFFFFFF, __format, __args);
 }
 
-//sprintfv
+
 /**
  * \fn EXPORT void vsnprintf(char *buf, const char *format, va_list args)
  * \brief Prints a formatted string to a buffer
@@ -470,11 +476,11 @@ EXPORT int vsnprintf(char *buf, size_t __maxlen, const char *format, va_list arg
 	uint64_t	arg;
 	 int	bLongLong, bPadLeft;
 
-	void _addchar(char ch)
-	{
-		if(buf && pos < __maxlen)	buf[pos] = ch;
-		pos ++;
-	}
+	#define _addchar(ch) do { \
+		if(buf && pos < __maxlen)	buf[pos] = (ch); \
+		else (void)(ch); \
+		pos ++; \
+	} while(0)
 
 	tmp[32] = '\0';
 	
@@ -637,6 +643,7 @@ EXPORT int vsnprintf(char *buf, size_t __maxlen, const char *format, va_list arg
 	}
 	_addchar('\0');
 	pos --;
+	#undef _addchar
 	
 	//_SysDebug("vsnprintf: buf = '%s'", buf);
 	
@@ -708,7 +715,7 @@ EXPORT int printf(const char *format, ...)
 	va_end(args);
 	
 	// Send to stdout
-	_SysWrite(_stdout, buf, size+1);
+	_SysWrite(_stdout, buf, size);
 	
 	// Free buffer
 	free(buf);

@@ -1,0 +1,8 @@
+exec /Acess/Bin/dhcpc
+
+ktty 0 /Acess/SBin/login
+ktty 1 /Acess/SBin/login
+stty serial/0 /Acess/SBin/login
+
+
+#vim: ft=text
