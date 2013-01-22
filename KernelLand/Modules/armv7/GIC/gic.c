@@ -16,6 +16,8 @@
 
 // === IMPORTS ===
 extern void	*gpIRQHandler;
+extern tPAddr	gGIC_DistributorAddr;
+extern tPAddr	gGIC_InterfaceAddr;
 
 // === TYPES ===
 typedef void (*tIRQ_Handler)(int, void*);
@@ -28,18 +30,12 @@ void	GIC_IRQHandler(void);
 MODULE_DEFINE(0, 0x100, armv7_GIC, GIC_Install, NULL, NULL);
 Uint32	*gpGIC_DistributorBase;
 Uint32	*gpGIC_InterfaceBase;
-tPAddr	gGIC_DistributorAddr;
-tPAddr	gGIC_InterfaceAddr;
 tIRQ_Handler	gaIRQ_Handlers[N_IRQS];
 void	*gaIRQ_HandlerData[N_IRQS];
 
 // === CODE ===
 int GIC_Install(char **Arguments)
 {
-	// Realview PB
-	gGIC_InterfaceAddr   = 0x1e000000;
-	gGIC_DistributorAddr = 0x1e001000;
-
 	// Initialise
 	gpGIC_InterfaceBase = (void*)MM_MapHWPages(gGIC_InterfaceAddr, 1);
 	LOG("gpGIC_InterfaceBase = %p", gpGIC_InterfaceBase);

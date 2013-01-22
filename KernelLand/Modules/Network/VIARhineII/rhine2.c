@@ -80,11 +80,9 @@ int Rhine2_Install(char **Options)
 {
 	 int	id = -1;
 	 int	i = 0;
-//	Uint16	base;
 	tCard	*card;
 	
 	giRhine2_CardCount = PCI_CountDevices(VENDOR_ID, DEVICE_ID);
-	Log_Debug("Rhine2", "giRhine2_CardCount = %i", giRhine2_CardCount);
 	if( giRhine2_CardCount == 0 )	return MODULE_ERR_NOTNEEDED;
 	
 	gaRhine2_Cards = calloc( giRhine2_CardCount, sizeof(tCard) );

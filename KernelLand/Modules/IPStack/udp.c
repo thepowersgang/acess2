@@ -268,7 +268,7 @@ size_t UDP_Channel_Write(tVFS_Node *Node, off_t Offset, size_t Length, const voi
 
 	UDP_SendPacketTo(chan, ep->AddrType, &ep->Addr, ep->Port, data, (size_t)Length - ofs);
 	
-	return 0;
+	return Length;
 }
 
 /**

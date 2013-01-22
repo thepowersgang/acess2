@@ -30,17 +30,20 @@ static inline void	FD_ZERO(fd_set *fdsetp)
 static inline  void	FD_CLR(int fd, fd_set *fdsetp)
 {
 	if(fd < 0 || fd > FD_SETSIZE)	return;
-	fdsetp->flags[fd/16] &= (fd_set_ent_t) ((~1 << (fd%16))) & 0xFFFF;
+	fd_set_ent_t	mask = 1 << (fd % 16);
+	fdsetp->flags[fd/16] &= ~mask;
 }
 static inline  void	FD_SET(int fd, fd_set *fdsetp)
 {
 	if(fd < 0 || fd > FD_SETSIZE)	return;
-	fdsetp->flags[fd/16] |= (fd_set_ent_t) (1 << (fd%16));
+	fd_set_ent_t	mask = 1 << (fd % 16);
+	fdsetp->flags[fd/16] |= mask;
 }
 static inline  int	FD_ISSET(int fd, fd_set *fdsetp)
 {
 	if(fd < 0 || fd > FD_SETSIZE)	return 0;
-	return !!( fdsetp->flags[fd/16] & (1<<(fd%16)) );
+	fd_set_ent_t	mask = 1 << (fd % 16);
+	return !!( fdsetp->flags[fd/16] & mask );
 }
 
 #endif

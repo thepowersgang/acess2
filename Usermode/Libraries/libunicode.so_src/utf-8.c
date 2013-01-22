@@ -1,12 +1,12 @@
 /*
- * Acess2 GUI (AxWin) Version 3
+ * Acess2 "libunicode" UTF Parser
  * - By John Hodge (thePowersGang)
  *
  * utf-8.c
  * - UTF-8 Parsing code
  */
 #include <stdint.h>
-#include <utf8.h>
+#include <unicode.h>
 
 /**
  * \brief Read a UTF-8 character from a string

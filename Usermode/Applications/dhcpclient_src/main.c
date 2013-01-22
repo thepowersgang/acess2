@@ -528,7 +528,7 @@ void SetAddress(tInterface *Iface, void *Addr, void *Mask, void *Router)
 	_SysIOCtl(Iface->IfaceFD, 6, Addr);
 	_SysIOCtl(Iface->IfaceFD, 7, &mask_bits);
 
-	if( Router );
+	if( Router )
 	{
 		uint8_t	*addr = Router;
 		_SysDebug("Router %i.%i.%i.%i", addr[0], addr[1], addr[2], addr[3]);

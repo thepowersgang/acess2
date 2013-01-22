@@ -30,7 +30,7 @@ typedef int	(*tSyscallHandler)(Uint *Errno, const char *Format, void *Args, int 
 	a3 = *(_t3*)Args;Args+=sizeof(_t3);\
 	a4 = *(_t4*)Args;Args+=sizeof(_t4);\
 	a5 = *(_t5*)Args;Args+=sizeof(_t5);\
-	LOG("SYSCALL5 '%s' %p %p %p %p %p %p", Fmt, (intptr_t)a0,(intptr_t)a1,(intptr_t)a2,(intptr_t)a3,(intptr_t)a4,(intptr_t)a5);\
+	LOG("SYSCALL6 '%s' %p %p %p %p %p %p", Fmt, (intptr_t)a0,(intptr_t)a1,(intptr_t)a2,(intptr_t)a3,(intptr_t)a4,(intptr_t)a5);\
 	_call\
 }
 #define SYSCALL5(_name, _fmtstr, _t0, _t1, _t2, _t3, _t4, _call) int _name(Uint*Errno,const char*Fmt,void*Args,int*Sizes){\
@@ -281,11 +281,14 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 	 int	argListLen = 0;
 	 int	i, retVal;
 	tRequestHeader	*ret;
-	 int	retValueCount = 1;
-	 int	retDataLen = sizeof(Uint64);
+	 int	retValueCount;
+	 int	retDataLen;
 	void	*returnData[Request->NParams];
 	 int	argSizes[Request->NParams];
 	Uint	ret_errno = 0;
+	
+	// Clear errno (Acess verson) at the start of the request
+	errno = 0;
 	
 	// Sanity check
 	if( Request->CallID >= ciNumSyscalls ) {
@@ -297,7 +300,11 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 		Log_Notice("Syscalls", "Unimplemented syscall %i", Request->CallID);
 		return NULL;
 	}
-	
+
+	// Init return count/size
+	retValueCount = 2;
+	retDataLen = sizeof(Uint64) + sizeof(Uint32);	
+
 	// Get size of argument list
 	for( i = 0; i < Request->NParams; i ++ )
 	{
@@ -318,12 +325,19 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 		case ARG_TYPE_DATA:
 			formatString[i] = 'd';
 			argListLen += sizeof(void*);
+			// Prepare the return values
+			if( Request->Params[i].Flags & ARG_FLAG_RETURN )
+			{
+				retDataLen += Request->Params[i].Length;
+				retValueCount ++;
+			}
 			break;
 		case ARG_TYPE_STRING:
 			formatString[i] = 's';
 			argListLen += sizeof(char*);
 			break;
 		default:
+			Log_Error("Syscalls", "Unknown param type %i", Request->Params[i].Type);
 			return NULL;	// ERROR!
 		}
 	}
@@ -364,13 +378,6 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 			// Data gets special handling, because only it can be returned to the user
 			// (ARG_TYPE_DATA is a pointer)
 			case ARG_TYPE_DATA:
-				// Prepare the return values
-				if( Request->Params[i].Flags & ARG_FLAG_RETURN )
-				{
-					retDataLen += Request->Params[i].Length;
-					retValueCount ++;
-				}
-				
 				// Check for non-resident data
 				if( Request->Params[i].Length == 0 )
 				{
@@ -406,9 +413,9 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 	
 	// ---------- Return
 	
-	if( ret_errno == 0 ) {
-		perror("Syscall?");
+	if( ret_errno == 0 && errno != 0 ) {
 		ret_errno = errno;
+		LOG("errno = %i", errno);
 	}
 	
 	// Allocate the return
@@ -427,9 +434,18 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 	*(Uint64*)inData = retVal;
 	inData += sizeof(Uint64);
 	
+	// Static Uint32 errno value
+	ret->Params[1].Type = ARG_TYPE_INT32;
+	ret->Params[1].Flags = 0;
+	ret->Params[1].Length = sizeof(Uint32);
+	*(Uint32*)inData = ret_errno;
+	inData += sizeof(Uint32);
+
+	LOG("Ret: %llx, errno=%i", retVal, ret_errno);	
+
 	//Log_Debug("Syscalls", "Return 0x%llx", retVal);
 	
-	retValueCount = 1;
+	retValueCount = 2;
 	for( i = 0; i < Request->NParams; i ++ )
 	{
 		if( Request->Params[i].Type != ARG_TYPE_DATA )	continue;
@@ -450,9 +466,7 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 		retValueCount ++;
 	}
 	
-	*ReturnLength = sizeof(tRequestHeader)
-		+ retValueCount * sizeof(tRequestValue)
-		+ retDataLen;
+	*ReturnLength = ret->MessageLength;
 	
 	return ret;
 }

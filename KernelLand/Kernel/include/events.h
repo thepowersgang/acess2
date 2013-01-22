@@ -25,6 +25,8 @@
 //! General purpose event for short waits
 //! e.g. waiting for an IRQ in a Read() call
 #define THREAD_EVENT_SHORTWAIT	0x00000010
+//! Fired when a child process quits
+#define THREAD_EVENT_DEADCHILD	0x00000020
 
 #define THREAD_EVENT_USER1	0x10000000
 #define THREAD_EVENT_USER2	0x20000000

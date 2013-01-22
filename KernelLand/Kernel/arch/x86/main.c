@@ -19,7 +19,6 @@
 
 // === IMPORTS ===
 extern char	gKernelEnd[];
-extern void	Heap_Install(void);
 extern void	MM_PreinitVirtual(void);
 extern void	MM_Install(int NPMemRanges, tPMemMapEnt *PMemRanges);
 extern void	MM_InstallVirtual(void);

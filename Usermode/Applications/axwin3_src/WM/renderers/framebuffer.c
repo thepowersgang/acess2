@@ -16,7 +16,6 @@ typedef struct
 {
 	short	W, H;
 	void	*Data;
-	char	_data[];
 } tFBBuffer;
 typedef struct
 {
@@ -162,7 +161,7 @@ int _Handle_CreateBuf(tWindow *Target, size_t Len, const void *Data)
 	buf = malloc(sizeof(tFBBuffer) + msg->W * msg->H * 4);
 	buf->W = msg->W;
 	buf->H = msg->H;
-	buf->Data = buf->_data;
+	buf->Data = buf + 1;
 	
 	info->Buffers[msg->Buffer] = buf;
 	

@@ -11,9 +11,11 @@
 
 // === GLOBALS ===
 tVPCI_Device	gaVPCI_Devices[] = {
+	// NOTE: USB Controllers moved to command line arguments
+	#if 0
 	{
 	.Vendor=0x0ACE,.Device=0x1100,
-	.Class = 0x0C032000,	// Serial, USB, ECHI
+	.Class = 0x0C032100,	// Serial, USB, ECHI
 	.BARs = {0xC5000000,0,0,0,0,0},
 	.IRQ = 0*32+20,
 	},
@@ -29,6 +31,7 @@ tVPCI_Device	gaVPCI_Devices[] = {
 	.BARs = {0xC5008000,0,0,0,0,0},
 	.IRQ = 4*32+1,
 	}
+	#endif
 };
 int giVPCI_DeviceCount = sizeof(gaVPCI_Devices)/sizeof(gaVPCI_Devices[0]);
 

@@ -1,5 +1,9 @@
-/* AcessOS
- * FIFO Pipe Driver
+/* 
+ * Acess2 Kernel
+ * - By John Hodge (thePowersGang)
+ *
+ * drv/fifo.c
+ * - FIFO Pipe Driver
  */
 #define DEBUG	0
 #include <acess.h>
@@ -126,9 +130,8 @@ tVFS_Node *FIFO_FindDir(tVFS_Node *Node, const char *Filename)
 	if(Filename[0] == '\0')	return NULL;
 	
 	// Anon Pipe
-	if(Filename[0] == 'a' && Filename[1] == 'n'
-	&& Filename[2] == 'o' && Filename[3] == 'n'
-	&& Filename[4] == '\0') {
+	if( strcmp(Filename, "anon") == 0 )
+	{
 		tmp = FIFO_Int_NewPipe(DEFAULT_RING_SIZE, "anon");
 		return &tmp->Node;
 	}
@@ -277,6 +280,7 @@ size_t FIFO_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 		
 		// Mark some flags
 		if( pipe->ReadPos == pipe->WritePos ) {
+			LOG("%i == %i, marking none to read", pipe->ReadPos, pipe->WritePos);
 			VFS_MarkAvaliable(Node, 0);
 		}
 		VFS_MarkFull(Node, 0);	// Buffer can't still be full
@@ -312,9 +316,12 @@ size_t FIFO_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buff
 	while(remaining)
 	{
 		// Wait for buffer to empty
-		if(pipe->Flags & PF_BLOCKING) {
-			if( pipe->ReadPos == (pipe->WritePos+1)%pipe->BufSize )
+		if(pipe->Flags & PF_BLOCKING)
+		{
+			if( pipe->ReadPos == (pipe->WritePos+1)%pipe->BufSize ) {
+				LOG("Blocking write on FIFO");
 				VFS_SelectNode(Node, VFS_SELECT_WRITE, NULL, "FIFO_Write");
+			}
 
 			len = remaining;
 			if( pipe->ReadPos > pipe->WritePos )
@@ -346,11 +353,14 @@ size_t FIFO_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buff
 		if(len > pipe->BufSize - pipe->WritePos)
 		{
 			int ofs = pipe->BufSize - pipe->WritePos;
+			LOG("pipe->Buffer = %p, pipe->WritePos = %i, ofs=%i, len=%i",
+				pipe->Buffer, pipe->WritePos, ofs, len);
 			memcpy(&pipe->Buffer[pipe->WritePos], Buffer, ofs);
-			memcpy(&pipe->Buffer, (Uint8*)Buffer + ofs, len-ofs);
+			memcpy(&pipe->Buffer[0], (Uint8*)Buffer + ofs, len-ofs);
 		}
 		else
 		{
+			LOG("pipe->Buffer = %p, pipe->WritePos = %i", pipe->Buffer, pipe->WritePos);
 			memcpy(&pipe->Buffer[pipe->WritePos], Buffer, len);
 		}
 		
@@ -360,6 +370,7 @@ size_t FIFO_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buff
 		
 		// Mark some flags
 		if( pipe->ReadPos == pipe->WritePos ) {
+			LOG("Buffer is full");
 			VFS_MarkFull(Node, 1);	// Buffer full
 		}
 		VFS_MarkAvaliable(Node, 1);
@@ -384,11 +395,13 @@ tPipe *FIFO_Int_NewPipe(int Size, const char *Name)
 	tPipe	*ret;
 	 int	namelen = strlen(Name) + 1;
 	 int	allocsize = sizeof(tPipe) + sizeof(tVFS_ACL) + Size + namelen;
-	
+
+	ENTER("iSize sName", Size, Name);	
+
 	ret = calloc(1, allocsize);
-	if(!ret)	return NULL;
+	if(!ret)	LEAVE_RET('n', NULL);
 	
-	// Clear Return
+	// Set default flags
 	ret->Flags = PF_BLOCKING;
 	
 	// Allocate Buffer
@@ -417,6 +430,8 @@ tPipe *FIFO_Int_NewPipe(int Size, const char *Name)
 		= ret->Node.MTime
 		= ret->Node.ATime = now();
 	ret->Node.Type = &gFIFO_PipeNodeType;
+
+	LEAVE('p', ret);
 	
 	return ret;
 }

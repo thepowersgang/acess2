@@ -129,6 +129,9 @@ int VT_Install(char **Arguments)
 			else if( strcmp(opt, "Scrollback") == 0 ) {
 				giVT_Scrollback = atoi( val );
 			}
+			else {
+				Log_Notice("VTerm", "Unknown option '%s'", opt);
+			}
 		}
 	}
 	
@@ -448,8 +451,8 @@ size_t VT_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer
 		// - Sanity Checking
 		size = term->Width*term->Height*4;
 		if( Offset > size ) {
-			Log_Notice("VTerm", "VT_Write: Offset (0x%llx) > FBSize (0x%x)",
-				Offset, size);
+			Log_Notice("VTerm", "VT_Write: %i Offset (0x%llx) > FBSize (0x%x)",
+				(int)Node->Inode, Offset, size);
 			return 0;
 		}
 		if( Offset + Length > size ) {

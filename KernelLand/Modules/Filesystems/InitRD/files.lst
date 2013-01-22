@@ -13,6 +13,7 @@ Dir "Bin" {
 	File "ping" "__BIN__/Bin/ping"
 	File "telnet" "__BIN__/Bin/telnet"
 	File "irc" "__BIN__/Bin/irc"
+	File "bomb" "__BIN__/Bin/bomb"
 	File "dhcpc" "__BIN__/SBin/dhcpc"
 }
 Dir "Libs" {
@@ -26,9 +27,10 @@ Dir "Libs" {
 	File "libaxwin3.so" "__BIN__/Libs/libaxwin3.so"
 	File "libposix.so" "__BIN__/Libs/libposix.so"
 	File "libpsocket.so" "__BIN__/Libs/libpsocket.so"
+	File "libunicode.so" "__BIN__/Libs/libunicode.so"
 }
 Dir "Conf" {
-	File "BootConf.cfg" "__FS__/Conf/BootConf.cfg"
+	File "inittab" "__FS__/Conf/inittab"
 }
 Dir "Apps" {
 	Dir "AxWin" {
@@ -36,6 +38,7 @@ Dir "Apps" {
 			File "AxWinWM" "__BIN__/Apps/AxWin/3.0/AxWinWM"
 			File "AxWinUI" "__BIN__/Apps/AxWin/3.0/AxWinUI"
 			File "ate" "__BIN__/Apps/AxWin/3.0/ate"
+			File "terminal" "__BIN__/Apps/AxWin/3.0/terminal"
 			File "AcessLogoSmall.sif" "__SRC__/Usermode/Applications/axwin3_src/AcessLogoSmall.sif"
 		}
 	}

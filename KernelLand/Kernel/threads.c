@@ -11,6 +11,7 @@
 #include <hal_proc.h>
 #include <semaphore.h>
 #include <vfs_threads.h>	// VFS Handle maintainence
+#include <events.h>
 
 // Configuration
 #define DEBUG_TRACE_TICKETS	0	// Trace ticket counts
@@ -442,9 +443,30 @@ tThread *Threads_CloneThreadZero(void)
 tTID Threads_WaitTID(int TID, int *Status)
 {	
 	// Any Child
-	if(TID == -1) {
-		Log_Error("Threads", "TODO: Threads_WaitTID(TID=-1) - Any Child");
-		return -1;
+	if(TID == -1)
+	{
+		Uint32 ev = Threads_WaitEvents(THREAD_EVENT_DEADCHILD);
+		tTID	ret = -1;
+		if( ev & THREAD_EVENT_DEADCHILD )
+		{
+			// A child died, get the TID
+			tThread	*us = Proc_GetCurThread();
+			ASSERT(us->LastDeadChild);
+			ret = us->LastDeadChild->TID;
+			// - Mark as dead (as opposed to undead)
+			ASSERT(us->LastDeadChild->Status == THREAD_STAT_ZOMBIE);
+			us->LastDeadChild->Status = THREAD_STAT_DEAD;
+			// - Set return status
+			if(Status)
+				*Status = us->LastDeadChild->RetStatus;
+			us->LastDeadChild = NULL;
+			Mutex_Release(&us->DeadChildLock);
+		}
+		else
+		{
+			Log_Error("Threads", "TODO: Threads_WaitTID(TID=-1) - Any Child");
+		}
+		return ret;
 	}
 	
 	// Any peer/child thread
@@ -460,33 +482,14 @@ tTID Threads_WaitTID(int TID, int *Status)
 	}
 	
 	// Specific Thread
-	if(TID > 0) {
-		tThread	*t = Threads_GetThread(TID);
+	if(TID > 0)
+	{
 		tTID	ret;
-		
-		// Wait for the thread to die!
-		// TODO: Handle child also being suspended if wanted
-		while(t->Status != THREAD_STAT_ZOMBIE) {
-			Threads_Sleep();
-			Log_Debug("Threads", "%i waiting for %i, t->Status = %i",
-				Threads_GetTID(), t->TID, t->Status);
-		}
-		
-		// Set return status
-		ret = t->TID;
-		switch(t->Status)
+		// NOTE: Race condition - Other child dies, desired child dies, first death is 'lost'
+		while( (ret = Threads_WaitTID(-1, Status)) != TID )
 		{
-		case THREAD_STAT_ZOMBIE:
-			// Kill the thread
-			t->Status = THREAD_STAT_DEAD;
-			// TODO: Child return value?
-			if(Status)	*Status = t->RetStatus;
-			// add to delete queue
-			Threads_Delete( t );
-			break;
-		default:
-			if(Status)	*Status = -1;
-			break;
+			if( ret == -1 )
+				break;
 		}
 		return ret;
 	}
@@ -685,8 +688,10 @@ void Threads_Kill(tThread *Thread, int Status)
 
 	Thread->Status = THREAD_STAT_ZOMBIE;
 	SHORTREL( &glThreadListLock );
-	// TODO: Send something like SIGCHLD
-	Threads_Wake( Thread->Parent );
+	// TODO: It's possible that we could be timer-preempted here, should disable that... somehow
+	Mutex_Acquire( &Thread->Parent->DeadChildLock );	// released by parent
+	Thread->Parent->LastDeadChild = Thread;
+	Threads_PostEvent( Thread->Parent, THREAD_EVENT_DEADCHILD );
 	
 	Log("Thread %i went *hurk* (%i)", Thread->TID, Status);
 	

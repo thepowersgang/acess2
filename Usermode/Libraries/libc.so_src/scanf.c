@@ -152,6 +152,8 @@ int _vcscanf(int (*__getc)(void*), void (*__rewind)(void*), void *h, const char 
 		// int	offset = -1;
 		enum e_vcscanf_sizes	size = _VCSCANF_UNDEF;
 		enum e_vcscanf_types	valtype;
+		 int	fail = 0;
+		 int	nnewch;
 
 		const char	*set_start;
 		 int	set_len;		
@@ -161,6 +163,7 @@ int _vcscanf(int (*__getc)(void*), void (*__rewind)(void*), void *h, const char 
 		{
 			while( (ich = __getc(h)) && isspace(ich) )
 				nch ++;
+			if(ich)	__rewind(h);
 			continue ;
 		}
 		
@@ -262,22 +265,30 @@ int _vcscanf(int (*__getc)(void*), void (*__rewind)(void*), void *h, const char 
 		{
 		// Decimal integer
 		case 'd':
-			nch += _vcscanf_int(__getc, __rewind, h, 10, maxlen, &ival);
+			nnewch = _vcscanf_int(__getc, __rewind, h, 10, maxlen, &ival);
+			if(nnewch==0)	fail=1;
+			nch += nnewch;
 			valtype = _VCSCANF_INT;
 			break;
 		// variable-base integer
 		case 'i':
-			nch += _vcscanf_int(__getc, __rewind, h, 0, maxlen, &ival);
+			nnewch = _vcscanf_int(__getc, __rewind, h, 0, maxlen, &ival);
+			if(nnewch==0)	fail=1;
+			nch += nnewch;
 			valtype = _VCSCANF_INT;
 			break;
 		// Octal integer
 		case 'o':
-			nch += _vcscanf_int(__getc, __rewind, h, 8, maxlen, &ival);
+			nnewch = _vcscanf_int(__getc, __rewind, h, 8, maxlen, &ival);
+			if(nnewch==0)	fail=1;
+			nch += nnewch;
 			valtype = _VCSCANF_INT;
 			break;
 		// Hexadecimal integer
 		case 'x': case 'X':
-			nch += _vcscanf_int(__getc, __rewind, h, 16, maxlen, &ival);
+			nnewch = _vcscanf_int(__getc, __rewind, h, 16, maxlen, &ival);
+			if(nnewch==0)	fail=1;
+			nch += nnewch;
 			valtype = _VCSCANF_INT;
 			break;
 		// strtod format float
@@ -304,13 +315,14 @@ int _vcscanf(int (*__getc)(void*), void (*__rewind)(void*), void *h, const char 
 				maxlen = -1;
 
 			ich = 0;
-			while( maxlen -- && (ich = __getc(h)) && !isblank(ich) )
+			while( maxlen -- && (ich = __getc(h)) && !isspace(ich) )
 			{
 				if(ptr._char)	*ptr._char++ = ich;
 				nch ++;
 			}
 			if( maxlen >= 0 && ich )
 				__rewind(h);
+			if(ptr._char)	*ptr._char++ = 0;
 			valtype = _VCSCANF_NOTYPE;
 			break;
 		// match a set of characters
@@ -329,6 +341,8 @@ int _vcscanf(int (*__getc)(void*), void (*__rewind)(void*), void *h, const char 
 				fch = *format++;
 			} while( fch && fch != ']' );
 
+			if( maxlen == 0 )
+				maxlen = -1;
 			ich = 0;
 			while( maxlen -- && (ich = __getc(h)) && memchr(set_start, set_len, ich) )
 			{
@@ -337,6 +351,7 @@ int _vcscanf(int (*__getc)(void*), void (*__rewind)(void*), void *h, const char 
 			}
 			if( maxlen >= 0 && ich )
 				__rewind(h);
+			if(ptr._char)	*ptr._char++ = 0;
 			valtype = _VCSCANF_NOTYPE;
 			break;
 		case 'p': // read back printf("%p")
@@ -354,7 +369,10 @@ int _vcscanf(int (*__getc)(void*), void (*__rewind)(void*), void *h, const char 
 			valtype = _VCSCANF_NOTYPE;
 			break;
 		}
-		
+
+		if(fail)
+			break;		
+
 		switch(valtype)
 		{
 		case _VCSCANF_NOTYPE:
@@ -406,7 +424,8 @@ int vsscanf(const char *str, const char *format, va_list ap)
 
 int _vfscanf_getc(void *h)
 {
-	return fgetc(h);	// TODO: Handle -1 -> 0
+	int ch = fgetc(h);
+	return ch == -1 ? 0 : ch;
 }
 void _vfscanf_rewind(void *h)
 {

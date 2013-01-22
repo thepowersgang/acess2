@@ -10,6 +10,7 @@
 #include "include/internal.h"
 #include <richtext_messages.h>
 #include <string.h>
+#include <wm_messages.h>
 //#include <alloca.h>
 
 // === TYPES ===
@@ -23,6 +24,16 @@ typedef struct sRichText_Window
 // === CODE ===
 int AxWin3_RichText_MessageHandler(tHWND Window, int MessageID, int Size, void *Data)
 {
+	tRichText_Window	*info = AxWin3_int_GetDataPtr(Window);
+	struct sWndMsg_KeyAction	*keyaction = Data;
+	_SysDebug("MessageID = %i", MessageID);
+	switch(MessageID)
+	{
+	case WNDMSG_KEYFIRE:
+		if(Size < sizeof(*keyaction))	return -1;
+		info->KeyCallback(Window, 2, keyaction->KeySym, keyaction->UCS32);
+		return 1;
+	}
 	return 0;
 }
 

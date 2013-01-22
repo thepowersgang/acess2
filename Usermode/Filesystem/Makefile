@@ -5,7 +5,7 @@
 
 DIRS  = Bin SBin Libs Modules Apps
 DIRS += Conf Conf/Auth
-FILES = Conf/BootConf.cfg
+FILES = Conf/inittab
 # Conf/Auth/Users Conf/Auth/Passwords Conf/Auth/Groups
 
 #DIRS  := $(addprefix $(DISTROOT)/,$(DIRS))

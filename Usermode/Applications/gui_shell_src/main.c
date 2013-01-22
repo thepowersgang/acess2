@@ -8,14 +8,19 @@
 #include <axwin3/axwin.h>
 #include <axwin3/menu.h>
 #include <axwin3/richtext.h>
+#include <axwin3/keysyms.h>
 #include <stdio.h>
+#include <acess/sys.h>
 #include "include/display.h"
 #include "include/vt100.h"
+#include <string.h>
+#include <unicode.h>
 
 // === PROTOTYPES ===
  int	main(int argc, char *argv[], const char **envp);
  int	Term_KeyHandler(tHWND Window, int bPress, uint32_t KeySym, uint32_t Translated);
  int	Term_MouseHandler(tHWND Window, int bPress, int Button, int Row, int Col);
+void	Term_HandleOutput(int Len, const char *Buf);
 
 // === GLOBALS ===
 tHWND	gMainWindow;
@@ -52,22 +57,30 @@ int main(int argc, char *argv[], const char **envp)
 	// <testing>
 	AxWin3_RichText_SetLineCount(gMainWindow, 3);
 	AxWin3_RichText_SendLine(gMainWindow, 0, "First line!");
-	AxWin3_RichText_SendLine(gMainWindow, 2, "Third line! \x01""ff0000A red");
+	AxWin3_RichText_SendLine(gMainWindow, 2, "Third line! \1ff0000A red");
 	// </testing>
 
-	AxWin3_ResizeWindow(gMainWindow, 600, 400);
-	AxWin3_MoveWindow(gMainWindow, 50, 50);
+	Display_Init(80, 25, 100);
+	AxWin3_ResizeWindow(gMainWindow, 80*8, 25*16);
+	AxWin3_MoveWindow(gMainWindow, 20, 50);
 	AxWin3_ShowWindow(gMainWindow, 1);
 	AxWin3_FocusWindow(gMainWindow);
 
 	// Spawn shell
-	giChildStdout = open("/Devices/FIFO/anon", O_RDWR);
-	giChildStdin = open("/Devices/FIFO/anon", O_RDWR);
+	giChildStdin = _SysOpen("/Devices/fifo/anon", OPENFLAG_READ|OPENFLAG_WRITE);
+	giChildStdout = _SysOpen("/Devices/fifo/anon", OPENFLAG_READ|OPENFLAG_WRITE);
+	if( giChildStdout == -1 || giChildStdin == -1 ) {
+		perror("Oh, fsck");
+		_SysDebug("out,in = %i,%i", giChildStdout, giChildStdin);
+		return -1;
+	}
 
 	{
 		 int	fds[] = {giChildStdin, giChildStdout, giChildStdout};
 		const char	*argv[] = {"CLIShell", NULL};
-		_SysSpawn("/Acess/Bin/CLIShell", argv, envp, 3, fds, NULL);
+		int pid = _SysSpawn("/Acess/Bin/CLIShell", argv, envp, 3, fds, NULL);
+		if( pid < 0 )
+			_SysDebug("ERROR: Shell spawn failed");
 	}
 
 	// Main loop
@@ -81,9 +94,10 @@ int main(int argc, char *argv[], const char **envp)
 		
 		if( FD_ISSET(giChildStdout, &fds) )
 		{
+			_SysDebug("Activity on child stdout");
 			// Read and update screen
 			char	buf[32];
-			int len = read(giChildStdout, buf, sizeof(buf));
+			int len = _SysRead(giChildStdout, buf, sizeof(buf));
 			if( len <= 0 )	break;
 			
 			Term_HandleOutput(len, buf);
@@ -101,35 +115,51 @@ int Term_KeyHandler(tHWND Window, int bPress, uint32_t KeySym, uint32_t Translat
 	#define _bitset(var,bit,set) do{if(set)var|=1<<(bit);else var&=1<<(bit);}while(0)
 	switch(KeySym)
 	{
-	case KEY_LCTRL:
-		_bitset(ctrl_state, 0, bPress);
+	case KEYSYM_LEFTCTRL:
+		_bitset(ctrl_state, 0, bPress!=0);
 		return 0;
-	case KEY_RCTRL:
-		_bitset(ctrl_state, 0, bPress);
+	case KEYSYM_RIGHTCTRL:
+		_bitset(ctrl_state, 1, bPress!=0);
 		return 0;
 	}
 	#undef _bitset
 
 	// Handle shortcuts
 	// - Ctrl-A -- Ctrl-Z
-	if( ctrl_state && KeySym >= KEY_a && KeySym <= KEY_z )
+	if( ctrl_state && KeySym >= KEYSYM_a && KeySym <= KEYSYM_z )
 	{
-		Translated = KeySym - KEY_a + 1;
+		Translated = KeySym - KEYSYM_a + 1;
 	}
 
-	if( Translated )
+	// == 2 :: FIRE
+	if( bPress == 2 )
 	{
-		// Encode and send
+		if( Translated )
+		{
+			char	buf[6];
+			 int	len;
+			
+			// Encode and send
+			len = WriteUTF8(buf, Translated);
+			
+			_SysDebug("Keystroke translated to '%.*s'", len, buf);
+			_SysWrite(giChildStdin, buf, len);
+			
+			return 0;
+		}
 		
-		return 0;
-	}
-	
-	// No translation, look for escape sequences to send
-	switch(KeySym)
-	{
-	case KEY_LEFTARROW:
-	//	str = "\x1b[D";
-		break;
+		// No translation, look for escape sequences to send
+		const char *str = NULL;
+		switch(KeySym)
+		{
+		case KEYSYM_LEFTARROW:
+			str = "\x1b[D";
+			break;
+		}
+		if( str )
+		{
+			_SysWrite(giChildStdin, str, strlen(str));
+		}
 	}
 	return 0;
 }
@@ -153,8 +183,10 @@ void Term_HandleOutput(int Len, const char *Buf)
 			Display_AddText(-esc_len, Buf + ofs);
 			esc_len = -esc_len;
 		}
-		Len -= esc_len;
 		ofs += esc_len;
+		_SysDebug("Len = %i, ofs = %i", Len, ofs);
 	}
+	
+	Display_Flush();
 }
 

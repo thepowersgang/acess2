@@ -53,7 +53,7 @@ int main(int argc, char *argv[], char **envp)
 		}
 		
 		if(strcmp(argv[i], "--open") == 0) {
-			if( acess_open(argv[++i], 6) == -1 ) {	// Read/Write
+			if( acess__SysOpen(argv[++i], 6) == -1 ) {	// Read/Write
 				fprintf(stderr, "Unable to open '%s'\n", argv[i]);
 				exit(1);
 			}

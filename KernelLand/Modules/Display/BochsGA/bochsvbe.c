@@ -82,6 +82,7 @@ Uint	*gBGA_Framebuffer;
 const tBGA_Mode	*gpBGA_CurrentMode;
 const tBGA_Mode	gBGA_Modes[] = {
 	{640,480,32, 640*480*4},
+	{800,480,32, 800*480*4},	// Nice mode for VM testing
 	{800,600,32, 800*600*4},
 	{1024,768,32, 1024*768*4}
 };

@@ -53,7 +53,6 @@ void kmain(Uint MbMagic, void *MbInfoPtr)
 		// Adjust Multiboot structure address
 		mbInfo = (void*)( (Uint)MbInfoPtr + KERNEL_BASE );
 		gsBootCmdLine = (char*)( (Uint)mbInfo->CommandLine + KERNEL_BASE);
-		// TODO: ref above?
 		nPMemMapEnts = Multiboot_LoadMemoryMap(mbInfo, KERNEL_BASE, pmemmap, MAX_PMEMMAP_ENTS,
 			KERNEL_LOAD, (tVAddr)&gKernelEnd - KERNEL_BASE
 			);
@@ -87,6 +86,8 @@ void kmain(Uint MbMagic, void *MbInfoPtr)
 	Log_Log("Arch", "Starting VFS...");
 	VFS_Init();
 	
+	// Multiboot_InitFramebuffer(mbInfo);
+
 	gaArch_BootModules = Multiboot_LoadModules(mbInfo, KERNEL_BASE, &giArch_NumBootModules);
 	
 	*(Uint16*)(KERNEL_BASE|0xB8000) = 0x1F00|'Z';

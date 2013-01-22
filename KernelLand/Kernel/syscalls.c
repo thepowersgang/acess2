@@ -29,8 +29,8 @@
 #define CHECK_STR_ARRAY(arr)	do {\
 	 int	i;\
 	char	**tmp = (char**)arr; \
-	CHECK_NUM_NONULL( tmp, sizeof(char**) ); \
-	for(i=0;tmp[i];i++) { \
+	CHECK_NUM_NULLOK( tmp, sizeof(char**) ); \
+	for(i=0;tmp&&tmp[i];i++) { \
 		CHECK_STR_NONULL( tmp[i] ); \
 		CHECK_NUM_NONULL( &tmp[i+1], sizeof(char*) ); \
 	}\
@@ -172,7 +172,8 @@ void SyscallHandler(tSyscallRegs *Regs)
 		CHECK_STR_NONULL((const char*)Regs->Arg1);
 		CHECK_STR_ARRAY((const char**)Regs->Arg2);
 		CHECK_STR_ARRAY((const char**)Regs->Arg3);
-		CHECK_NUM_NULLOK((void*)Regs->Arg5, Regs->Arg4*sizeof(int));
+		if( Regs->Arg4 > 0 )
+			CHECK_NUM_NONULL((void*)Regs->Arg5, Regs->Arg4*sizeof(int));
 		ret = Proc_SysSpawn(
 			(const char*)Regs->Arg1, (const char**)Regs->Arg2, (const char**)Regs->Arg3,
 			Regs->Arg4, (int*)Regs->Arg5

@@ -211,30 +211,39 @@ void VT_int_ParseEscape_StandardLarge(tVTerm *Term, char CmdChar, int argc, int 
  * \fn int VT_int_ParseEscape(tVTerm *Term, const char *Buffer)
  * \brief Parses a VT100 Escape code
  */
-int VT_int_ParseEscape(tVTerm *Term, const char *Buffer)
+int VT_int_ParseEscape(tVTerm *Term, const char *Buffer, size_t Bytes)
 {
 	char	c;
-	 int	argc = 0, j = 1;
+	 int	argc = 0, j = 0;
 	 int	args[6] = {0,0,0,0};
 	 int	bQuestionMark = 0;
-	
-	switch(Buffer[0])
+
+	if( Bytes == j )	return j;
+	c = Buffer[j++];
+
+	switch(c)
 	{
 	//Large Code
 	case '[':
 		// Get Arguments
+		if(Bytes == j)	return j;
 		c = Buffer[j++];
 		if(c == '?') {
 			bQuestionMark = 1;
+			if(Bytes == j)	return j;
 			c = Buffer[j++];
 		}
 		if( '0' <= c && c <= '9' )
 		{
 			do {
-				if(c == ';')	c = Buffer[j++];
+				if(c == ';') {
+					if(Bytes == j)	return j;
+					c = Buffer[j++];
+				}
 				while('0' <= c && c <= '9') {
 					args[argc] *= 10;
 					args[argc] += c-'0';
+					if(Bytes == j)	return j;
 					c = Buffer[j++];
 				}
 				argc ++;
@@ -242,51 +251,64 @@ int VT_int_ParseEscape(tVTerm *Term, const char *Buffer)
 		}
 		
 		// Get Command
-		if( ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z'))
+		if( !('a' <= c && c <= 'z') && !('A' <= c && c <= 'Z') )
 		{
-			if( bQuestionMark )
+			// Error
+			return j;
+		}
+		
+		if( bQuestionMark )
+		{
+			switch(c)
 			{
-				switch(c)
+			// DEC Private Mode Set
+			case 'h':
+				if(argc != 1)	break;
+				switch(args[0])
 				{
-				// DEC Private Mode Set
-				case 'h':
-					if(argc != 1)	break;
-					switch(args[0])
-					{
-					case 25:
-						Term->Flags &= ~VT_FLAG_HIDECSR;
-						break;
-					case 1047:
-						VT_int_ToggleAltBuffer(Term, 1);
-						break;
-					}
+				case 25:
+					Term->Flags &= ~VT_FLAG_HIDECSR;
 					break;
-				case 'l':
-					if(argc != 1)	break;
-					switch(args[0])
-					{
-					case 25:
-						Term->Flags |= VT_FLAG_HIDECSR;
-						break;
-					case 1047:
-						VT_int_ToggleAltBuffer(Term, 0);
-						break;
-					}
-					break;
-				default:
-					Log_Warning("VTerm", "Unknown control sequence '\\x1B[?%c'", c);
+				case 1047:
+					VT_int_ToggleAltBuffer(Term, 1);
 					break;
 				}
-			}
-			else
-			{
-				VT_int_ParseEscape_StandardLarge(Term, c, argc, args);
+				break;
+			case 'l':
+				if(argc != 1)	break;
+				switch(args[0])
+				{
+				case 25:
+					Term->Flags |= VT_FLAG_HIDECSR;
+					break;
+				case 1047:
+					VT_int_ToggleAltBuffer(Term, 0);
+					break;
+				}
+				break;
+			default:
+				Log_Warning("VTerm", "Unknown control sequence '\\x1B[?%c'", c);
+				break;
 			}
 		}
+		else
+		{
+			VT_int_ParseEscape_StandardLarge(Term, c, argc, args);
+		}
 		break;
-		
+	case '\0':
+		// Ignore \0
+		break;
 	default:
-		Log_Notice("VTerm", "TODO: Handle short escape codes");
+		//Log_Notice("VTerm", "TODO: Handle short escape codes");
+		{
+			static volatile int tmp = 0;
+			if(tmp == 0) {
+				tmp = 1;
+				Debug("VTerm: Unknown short 0x%x", c);
+				tmp = 0;
+			}
+		}
 		break;
 	}
 	
