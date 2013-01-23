@@ -367,6 +367,7 @@ int Renderer_Menu_HandleMessage(tWindow *Window, int Msg, int Length, const void
 			// TODO: This shouldn't really be done, instead focus should be given
 			//       when the menu is shown.
 //			WM_FocusWindow(Window);
+			WM_RaiseWindow(Window);	// If it's shown, raise it to the heavens!
 		}
 		else
 		{
