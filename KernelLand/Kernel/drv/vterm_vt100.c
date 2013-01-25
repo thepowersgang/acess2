@@ -196,7 +196,7 @@ void VT_int_ParseEscape_StandardLarge(tVTerm *Term, char CmdChar, int argc, int 
 			}
 			// Background Colour - bright
 			else if(100 <= args[argc] && args[argc] <= 107 ) {
-				colour_idx = args[argc]-10 + 8;
+				colour_idx = args[argc]-100 + 8;
 				Term->CurColour &= 0xFFFF8000;
 				Term->CurColour |= (Uint32)caVT100Colours[ colour_idx ];
 			}
