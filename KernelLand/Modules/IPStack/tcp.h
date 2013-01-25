@@ -7,6 +7,7 @@
 
 #include "ipstack.h"
 #include <adt.h>	// tRingBuffer
+#include <timers.h>	// tTimer
 
 typedef struct sTCPHeader	tTCPHeader;
 typedef struct sTCPListener	tTCPListener;
@@ -113,7 +114,11 @@ struct sTCPConnection
 	
 	Uint32	NextSequenceSend;	//!< Next sequence value for outbound packets
 	Uint32	NextSequenceRcv;	//!< Next expected sequence value for inbound
-	
+
+	// Deferred ACK handling
+	Uint32	LastACKSequence;
+	tTimer	*DeferredACKTimer;	
+
 	#if 0
 	/**
 	 * \brief Non-ACKed packets
