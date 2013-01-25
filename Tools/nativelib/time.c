@@ -19,6 +19,11 @@ void Time_ScheduleTimer(tTimer *Timer, int Delta)
 	
 }
 
+void Time_RemoveTimer(tTimer *Timer)
+{
+	
+}
+
 void Time_FreeTimer(tTimer *Timer)
 {
 	
