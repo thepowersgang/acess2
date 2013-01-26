@@ -14,7 +14,8 @@ MODULE_SRC = ../../KernelLand/Modules/
 BIN = ../nettest
 # Kernel Sources (compiled with -ffreestanding)
 K_OBJ := lib.o adt.o
-#K_OBJ += vfs/main.o vfs/open.o vfs/acls.o vfs/io.o vfs/dir.o
+K_OBJ += vfs/acls.o vfs/io.o vfs/fs/devfs.o
+#K_OBJ += vfs/main.o vfs/open.o vfs/io.o vfs/dir.o
 #K_OBJ += vfs/nodecache.o vfs/mount.o vfs/memfile.o # vfs/select.o
 #K_OBJ += vfs/fs/root.o vfs/fs/devfs.o
 #K_OBJ += drvutil_disk.o drv/proc.o

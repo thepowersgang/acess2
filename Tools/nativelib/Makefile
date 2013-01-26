@@ -3,6 +3,9 @@ KERNEL_DIR := ../../KernelLand/Kernel
 
 NOBJ := logging.o misc.o
 KOBJ := threads.o time.o mutex.o
+
+NOBJ := $(NOBJ:%.o=obj/%.o)
+KOBJ := $(KOBJ:%.o=obj/%.o)
 OBJ := $(NOBJ) $(KOBJ)
 BIN := ../libnativelib.a
 
@@ -20,8 +23,12 @@ clean:
 $(BIN): $(OBJ)
 	ar cru $(BIN) $(OBJ)
 
-$(NOBJ): %.o: %.c
-	$(CC) -o $@ -c $< $(CFLAGS) $(CPPFLAGS)
-$(KOBJ): %.o: %.c
-	$(CC) -o $@ -c $< $(CFLAGS) $(CPPFLAGS) -I $(KERNEL_DIR)/include
+$(NOBJ): obj/%.o: %.c
+	@echo [CC Native] $@
+	@mkdir -p $(dir $@)
+	@$(CC) -o $@ -c $< $(CFLAGS) $(CPPFLAGS)
+$(KOBJ): obj/%.o: %.c
+	@echo [CC Kernel] $@
+	@mkdir -p $(dir $@)
+	@$(CC) -o $@ -c $< $(CFLAGS) $(CPPFLAGS) -I $(KERNEL_DIR)/include
 

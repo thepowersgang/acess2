@@ -63,3 +63,9 @@ int *Threads_GetErrno(void)// __attribute__ ((weak))
 	return &a_errno;
 }
 
+struct sThread *Proc_SpawnWorker(void (*Fcn)(void*), void *Data)
+{
+	Log_Error("Threads", "TODO - Use pthreads to impliment Proc_SpawnWorker");
+	return NULL;
+}
+
