@@ -1,35 +1,36 @@
 
 TARGET := $(shell gcc -v 2>&1 | grep Targ | awk '{print $$2}')
 
-include ../../../Makefile.Version.cfg
+include ../../Makefile.Version.cfg
 -include Makefile.BuildNum
 ifeq ($(BUILD_NUM),)
 BUILD_NUM = 1
 endif
 
 
-KERNEL_SRC = ../../../KernelLand/Kernel/
-MODULE_SRC = ../../../KernelLand/Modules/
+KERNEL_SRC = ../../KernelLand/Kernel/
+MODULE_SRC = ../../KernelLand/Modules/
 
-BIN = ../DiskTool
+BIN = ../nettest
 # Kernel Sources (compiled with -ffreestanding)
-K_OBJ := lib.o
-K_OBJ += vfs/main.o vfs/open.o vfs/acls.o vfs/io.o vfs/dir.o
-K_OBJ += vfs/nodecache.o vfs/mount.o vfs/memfile.o # vfs/select.o
-K_OBJ += vfs/fs/root.o vfs/fs/devfs.o
-K_OBJ += drvutil_disk.o drv/proc.o
+K_OBJ := lib.o adt.o
+K_OBJ += vfs/acls.o vfs/io.o vfs/fs/devfs.o
+#K_OBJ += vfs/main.o vfs/open.o vfs/io.o vfs/dir.o
+#K_OBJ += vfs/nodecache.o vfs/mount.o vfs/memfile.o # vfs/select.o
+#K_OBJ += vfs/fs/root.o vfs/fs/devfs.o
+#K_OBJ += drvutil_disk.o drv/proc.o
 # Modules
-MODULES := Storage/LVM Filesystems/FAT Filesystems/Ext2 Filesystems/NTFS
+MODULES := IPStack
 # Local kernel soruces (same as above, but located in same directory as Makefile)
-L_OBJ = vfs_handles.o threads.o nativefs.o time.o actions.o
+L_OBJ = vfs_shim.o nic.o tcpclient.o tcpserver.o
 # Native Sources (compiled as usual)
-N_OBJ = main.o script.o logging.o helpers.o
+N_OBJ = main.o tap.o
 
 # Compilation Options
 CFLAGS := -Wall -std=gnu99 -g -Werror
-CPPFLAGS := -I include/
+CPPFLAGS := -I include/ -I ../nativelib/include
 K_CPPFLAGS := -I $(KERNEL_SRC)include -I $(MODULE_SRC)
-LDFLAGS += -Wl,--defsym,__buildnum=$(BUILD_NUM) -g
+LDFLAGS += -Wl,--defsym,__buildnum=$(BUILD_NUM) -g -L .. -lnativelib
 
 BUILDINFO_OBJ := obj/$(TARGET)/buildinfo.o
 BUILDINFO_SRC := $(BUILDINFO_OBJ:%.o=%.c)
