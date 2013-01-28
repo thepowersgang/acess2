@@ -422,10 +422,10 @@ tPipe *FIFO_Int_NewPipe(int Size, const char *Name)
 	ret->Node.GID = Threads_GetGID();
 	ret->Node.NumACLs = 1;
 	ret->Node.ACLs = (void*)( (Uint)ret + sizeof(tPipe) );
-		ret->Node.ACLs->Group = 0;
-		ret->Node.ACLs->ID = ret->Node.UID;
-		ret->Node.ACLs->Inv = 0;
-		ret->Node.ACLs->Perms = -1;
+		ret->Node.ACLs->Ent.Group = 0;
+		ret->Node.ACLs->Ent.ID = ret->Node.UID;
+		ret->Node.ACLs->Perm.Inv = 0;
+		ret->Node.ACLs->Perm.Perms = -1;
 	ret->Node.CTime
 		= ret->Node.MTime
 		= ret->Node.ATime = now();
