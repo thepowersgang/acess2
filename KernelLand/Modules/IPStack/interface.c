@@ -231,7 +231,7 @@ tInterface *IPStack_AddInterface(const char *Device, int Type, const char *Name)
 	}
 	else
 	{
-		nameLen = sprintf(NULL, "%i", giIP_NextIfaceId);
+		nameLen = snprintf(NULL, 0, "%i", giIP_NextIfaceId);
 	}
 
 	iface = malloc(
