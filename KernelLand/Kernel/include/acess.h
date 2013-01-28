@@ -219,7 +219,7 @@ extern Uint	MM_GetFlags(tVAddr VAddr);
  * \param VAddr	Base address to check
  * \return 1 if the memory is all user-accessable, 0 otherwise
  */
-#define MM_IsUser(VAddr)	(!(MM_GetFlags((VAddr))&MM_PFLAG_KERNEL))
+#define MM_IsUser(VAddr)	(!(MM_GetFlags((tVAddr)(VAddr))&MM_PFLAG_KERNEL))
 /**
  * \brief Temporarily map a page into the address space
  * \param PAddr	Physical addres to map
