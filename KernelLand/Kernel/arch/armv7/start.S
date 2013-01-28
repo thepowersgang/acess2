@@ -67,13 +67,17 @@ _start:
 	@
 	mrc p15, 0, r0, c0, c1, 1
 	and r0, #0xF0
+	beq .no_sec_ext
 	@ - Present
-	ldrne r0,=KERNEL_BASE
-	mcrne p15, 0, r0, c12, c0, 0	@ Set the VBAR (brings exceptions into high memory)
+	ldr r0,=KERNEL_BASE
+	mcr p15, 0, r0, c12, c0, 0	@ Set the VBAR (brings exceptions into high memory)
+	b .exceptions_vectored
+.no_sec_ext:
 	@ - Absent
-	mrceq p15, 0, r0, c1, c0, 0	@ Set SCTLR.V
-	orreq r0, #0x2000
-	mcreq p15, 0, r0, c1, c0, 0
+	mrc p15, 0, r0, c1, c0, 0	@ Set SCTLR.V
+	orr r0, #0x2000
+	mcr p15, 0, r0, c1, c0, 0
+.exceptions_vectored:
 
 	mov r1, #'-'
 	str r1, [r2]	

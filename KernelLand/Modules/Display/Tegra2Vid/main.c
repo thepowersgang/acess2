@@ -98,7 +98,7 @@ int Tegra2Vid_Install(char **Arguments)
 	gpTegra2Vid_IOMem = (void*)MM_MapHWPages(gTegra2Vid_PhysBase, 256/4);
 
 	#if DUMP_REGISTERS
-	Tegra2Vid_int_DumpRegisters();
+//	Tegra2Vid_int_DumpRegisters();
 	#endif
 
 	// HACK!!!
@@ -148,6 +148,7 @@ int Tegra2Vid_Install(char **Arguments)
 #endif
 
 	gpTegra2Vid_Cursor = (void*)MM_AllocDMA(1, 26, NULL);
+	Log_Debug("Tegra2Vid", "gpTegra2Vid_Cursor = %p", gpTegra2Vid_Cursor);
 
 	Tegra2Vid_int_SetMode(0);
 
