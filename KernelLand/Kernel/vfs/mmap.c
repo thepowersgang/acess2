@@ -86,7 +86,8 @@ void *VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD,
 		pb = h->Node->MMapInfo, prev = NULL;
 		pb && pb->BaseOffset + MMAP_PAGES_PER_BLOCK < pagenum;
 		prev = pb, pb = pb->Next
-		);
+		)
+		;
 
 	LOG("pb = %p, pb->BaseOffset = %X", pb, pb ? pb->BaseOffset : 0);
 
