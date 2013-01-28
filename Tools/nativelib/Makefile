@@ -1,7 +1,7 @@
 
 KERNEL_DIR := ../../KernelLand/Kernel
 
-NOBJ := logging.o misc.o
+NOBJ := logging.o misc.o threads_int.o
 KOBJ := threads.o time.o mutex.o
 
 NOBJ := $(NOBJ:%.o=obj/%.o)
