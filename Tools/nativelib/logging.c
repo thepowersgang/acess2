@@ -1,5 +1,9 @@
 /*
- * 
+ * Acess2 libnative (Kernel Simulation Library)
+ * - By John Hodge (thePowersGang)
+ *
+ * logging.c
+ * - Logging functions
  */
 #include <stdio.h>
 #include <stdarg.h>
@@ -8,22 +12,33 @@
 #include <acess_logging.h>
 #include <ctype.h>
 #include <inttypes.h>
+#include <shortlock.h>
 
-#define LOGHDR(col,type)	fprintf(stderr, "\e["col"m[%-8.8s]"type" ", Ident)
+extern int	Threads_GetTID();
+
+#define LOGHDR(col,type)	fprintf(stderr, "\e["col"m[%-8.8s]"type"%2i ", Ident, Threads_GetTID())
 #define LOGTAIL()	fprintf(stderr, "\e[0m\n")
 
 #define PUTERR(col,type)	{\
+	if(!gbThreadInLog) 	SHORTLOCK(&glDebugLock); \
+	gbThreadInLog ++; \
 	LOGHDR(col,type);\
 	va_list	args; va_start(args, Message);\
 	vfprintf(stderr, Message, args);\
 	va_end(args);\
 	LOGTAIL();\
+	gbThreadInLog --; \
+	if(!gbThreadInLog)	SHORTREL(&glDebugLock); \
 }
+
+// === GLOBALS ===
+int __thread	gbThreadInLog;
+tShortSpinlock	glDebugLock;
 
 // === CODE ===
 void Log_KernelPanic(const char *Ident, const char *Message, ...) {
 	PUTERR("35", "k")
-	abort();
+	exit(-1);
 }
 void Log_Panic(const char *Ident, const char *Message, ...)
 	PUTERR("34", "p")

@@ -55,6 +55,7 @@ int main(int argc, char *argv[])
 				if( argc-i != 3 ) {
 					Log_Error("NetTest", "'netcat' <addr> <port>");
 					PrintUsage(argv[0]);
+					return -1;
 				}
 
 				NetTest_Suite_Netcat(argv[i+1], strtol(argv[i+2], NULL, 0));

@@ -12,8 +12,44 @@
 // === CODE ===
 int VFS_SelectNode(tVFS_Node *Node, int Type, tTime *Timeout, const char *Name)
 {
+	tThread	*us = Proc_GetCurThread();
+
+	 int	ret = 0;
+
+	Threads_ClearEvent(THREAD_EVENT_VFS);
+
+	if( Type & VFS_SELECT_READ ) {
+		Node->ReadThreads = (void*)us;
+		if(Node->DataAvaliable)	ret |= VFS_SELECT_READ;
+	}
+	if( Type & VFS_SELECT_WRITE ) {
+		Node->WriteThreads = (void*)us;
+		if(!Node->BufferFull)	ret |= VFS_SELECT_WRITE;
+	}
+	if( Type & VFS_SELECT_ERROR ) {
+		Node->ErrorThreads = (void*)us;
+		if(Node->ErrorOccurred)	ret |= VFS_SELECT_ERROR;
+	}
 	
-	return 0;
+	if( !ret )
+	{
+		// TODO: Timeout
+		Threads_WaitEvents(THREAD_EVENT_VFS);
+	}
+
+	if( Type & VFS_SELECT_READ ) {
+		Node->ReadThreads = NULL;
+		if(Node->DataAvaliable)	ret |= VFS_SELECT_READ;
+	}
+	if( Type & VFS_SELECT_WRITE ) {
+		Node->WriteThreads = NULL;
+		if(!Node->BufferFull)	ret |= VFS_SELECT_WRITE;
+	}
+	if( Type & VFS_SELECT_ERROR ) {
+		Node->ErrorThreads = NULL;
+		if(Node->ErrorOccurred)	ret |= VFS_SELECT_ERROR;
+	}
+	return ret;
 }
 
 int VFS_MarkAvaliable(tVFS_Node *Node, BOOL bAvail)
@@ -31,6 +67,15 @@ int VFS_MarkError(tVFS_Node *Node, BOOL bError)
 		Threads_PostEvent( (void*)Node->ErrorThreads, THREAD_EVENT_VFS );
 	return 0;
 }
+
+int VFS_MarkFull(tVFS_Node *Node, BOOL bError)
+{
+	Node->BufferFull = bError;
+	if( !Node->BufferFull && Node->WriteThreads )
+		Threads_PostEvent( (void*)Node->WriteThreads, THREAD_EVENT_VFS );
+	return 0;
+}
+
 
 #if 0
 int VFS_Open(const char *Path, Uint Flags)

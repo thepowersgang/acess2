@@ -16,6 +16,7 @@ tThread	*Threads_int_CreateTCB(tThread *Parent);
 // === GLOBALS ===
 tThread	*gThreads_List;
 tThread __thread	*lpThreads_This;
+ int	giThreads_NextTID = 1;
 
 // === CODE ===
 void Threads_int_Init(void)
@@ -43,7 +44,7 @@ void Threads_PostEvent(tThread *Thread, Uint32 Events)
 
 Uint32 Threads_WaitEvents(Uint32 Events)
 {
-	if( Threads_int_ThreadingEnabled() ) {
+	if( !Threads_int_ThreadingEnabled() ) {
 		Log_Notice("Threads", "_WaitEvents: Threading disabled");
 		return 0;
 	}
@@ -56,7 +57,7 @@ Uint32 Threads_WaitEvents(Uint32 Events)
 
 void Threads_ClearEvent(Uint32 Mask)
 {
-	if( Threads_int_ThreadingEnabled() ) {
+	if( !Threads_int_ThreadingEnabled() ) {
 		Log_Notice("Threads", "_ClearEvent: Threading disabled");
 		return ;
 	}
@@ -68,7 +69,7 @@ void Threads_ClearEvent(Uint32 Mask)
 tUID Threads_GetUID(void) { return 0; }
 tGID Threads_GetGID(void) { return 0; }
 
-tTID Threads_GetTID(void) { return 0; }
+tTID Threads_GetTID(void) { return lpThreads_This->TID; }
 
 int *Threads_GetMaxFD(void)        { return &lpThreads_This->Process->MaxFDs;  }
 char **Threads_GetCWD(void)        { return &lpThreads_This->Process->CWD;     }
@@ -118,6 +119,7 @@ struct sProcess *Threads_int_CreateProcess(void)
 tThread *Threads_int_CreateTCB(tThread *Parent)
 {
 	tThread	*ret = calloc( sizeof(tThread), 1 );
+	ret->TID = giThreads_NextTID ++;
 	ret->WaitSemaphore = Threads_int_SemCreate();
 	ret->Protector = Threads_int_MutexCreate();
 
