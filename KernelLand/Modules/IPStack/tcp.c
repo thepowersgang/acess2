@@ -276,6 +276,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 			srv->NewConnections = conn;
 		VFS_MarkAvaliable( &srv->Node, 1 );
 		SHORTREL(&srv->lConnections);
+		Semaphore_Signal(&srv->WaitingConnections, 1);
 
 		// Send the SYN ACK
 		hdr->Flags |= TCP_FLAG_ACK;
@@ -380,6 +381,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 			{	
 				Log_Log("TCP", "ACKing SYN-ACK");
 				Connection->State = TCP_ST_OPEN;
+				VFS_MarkFull(&Connection->Node, 0);
 			}
 			else
 			{
@@ -394,8 +396,9 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 		if( Header->Flags & TCP_FLAG_ACK )
 		{
 			// TODO: Handle max half-open limit
-			Connection->State = TCP_ST_OPEN;
 			Log_Log("TCP", "Connection fully opened");
+			Connection->State = TCP_ST_OPEN;
+			VFS_MarkFull(&Connection->Node, 0);
 		}
 		break;
 		
@@ -915,15 +918,9 @@ int TCP_Server_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 	ENTER("pNode iPos", Node, Pos);
 
 	Log_Log("TCP", "Thread %i waiting for a connection", Threads_GetTID());
-	for(;;)
-	{
-		SHORTLOCK( &srv->lConnections );
-		if( srv->NewConnections != NULL )	break;
-		SHORTREL( &srv->lConnections );
-		Threads_Yield();	// TODO: Sleep until poked
-	}
+	Semaphore_Wait( &srv->WaitingConnections, 1 );
 	
-
+	SHORTLOCK(&srv->lConnections);
 	// Increment the new list (the current connection is still on the 
 	// normal list)
 	conn = srv->NewConnections;
@@ -1076,6 +1073,7 @@ tVFS_Node *TCP_Client_Init(tInterface *Interface)
 	conn->Node.NumACLs = 1;
 	conn->Node.ACLs = &gVFS_ACL_EveryoneRW;
 	conn->Node.Type = &gTCP_ClientNodeType;
+	conn->Node.BufferFull = 1;	// Cleared when connection opens
 
 	conn->RecievedBuffer = RingBuffer_Create( TCP_RECIEVE_BUFFER_SIZE );
 	#if 0
@@ -1112,14 +1110,9 @@ size_t TCP_Client_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffe
 	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
 	LOG("conn = %p {State:%i}", conn, conn->State);
 	
-	// Check if connection is estabilishing
-	// - TODO: Sleep instead (maybe using VFS_SelectNode to wait for the
-	//   data to be availiable
-	while( conn->State == TCP_ST_SYN_RCVD || conn->State == TCP_ST_SYN_SENT )
-		Threads_Yield();
-	
-	// If the conneciton is not open, then clean out the recieved buffer
-	if( conn->State != TCP_ST_OPEN )
+	// If the connection has been closed (state > ST_OPEN) then clear
+	// any stale data in the buffer (until it is empty (until it is empty))
+	if( conn->State > TCP_ST_OPEN )
 	{
 		Mutex_Acquire( &conn->lRecievedPackets );
 		len = RingBuffer_Read( Buffer, conn->RecievedBuffer, Length );
@@ -1198,15 +1191,15 @@ size_t TCP_Client_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void
 //		Buffer, Length);
 //	#endif
 	
-	// Check if connection is open
-	while( conn->State == TCP_ST_SYN_RCVD || conn->State == TCP_ST_SYN_SENT )
-		Threads_Yield();
-	
-	if( conn->State != TCP_ST_OPEN ) {
+	// Don't allow a write to a closed connection
+	if( conn->State > TCP_ST_OPEN ) {
 		VFS_MarkError(Node, 1);
 		LEAVE('i', -1);
 		return -1;
 	}
+	
+	// Wait
+	VFS_SelectNode(Node, VFS_SELECT_WRITE|VFS_SELECT_ERROR, NULL, "TCP_Client_Write");
 	
 	do
 	{
@@ -1312,13 +1305,10 @@ int TCP_Client_IOCtl(tVFS_Node *Node, int ID, void *Data)
 			LEAVE_RET('i', 0);
 
 		{
-			tTime	timeout_end = now() + conn->Interface->TimeoutDelay;
+			tTime	timeout = conn->Interface->TimeoutDelay;
 	
 			TCP_StartConnection(conn);
-			// TODO: Wait for connection to open
-			while( conn->State == TCP_ST_SYN_SENT && timeout_end > now() ) {
-				Threads_Yield();
-			}
+			VFS_SelectNode(&conn->Node, VFS_SELECT_WRITE, &timeout, "TCP Connection");
 			if( conn->State == TCP_ST_SYN_SENT )
 				LEAVE_RET('i', 0);
 		}

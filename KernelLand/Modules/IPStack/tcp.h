@@ -8,6 +8,7 @@
 #include "ipstack.h"
 #include <adt.h>	// tRingBuffer
 #include <timers.h>	// tTimer
+#include <semaphore.h>	// tSemaphore
 
 typedef struct sTCPHeader	tTCPHeader;
 typedef struct sTCPListener	tTCPListener;
@@ -69,6 +70,7 @@ struct sTCPListener
 	tInterface	*Interface;	//!< Listening Interface
 	tVFS_Node	Node;	//!< Server Directory node
 	 int	NextID;		//!< Name of the next connection
+	tSemaphore	WaitingConnections;
 	tShortSpinlock	lConnections;	//!< Spinlock for connections
 	tTCPConnection	*Connections;	//!< Connections (linked list)
 	tTCPConnection	*volatile NewConnections;
