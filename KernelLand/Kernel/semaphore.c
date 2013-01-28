@@ -78,6 +78,7 @@ int Semaphore_Wait(tSemaphore *Sem, int MaxToTake)
 		
 		SHORTREL( &Sem->Protector );	// Release first to make sure it is released
 		SHORTREL( &glThreadListLock );
+		// Sleep until woken (either by getting what we need, or a timer event)
 		while( us->Status == THREAD_STAT_SEMAPHORESLEEP )
 		{
 			Threads_Yield();
@@ -244,11 +245,42 @@ int Semaphore_Signal(tSemaphore *Sem, int AmmountToAdd)
 		if( toWake->Status != THREAD_STAT_ACTIVE )
 			Threads_AddActive(toWake);
 		else
-			Warning("Thread %p (%i %s) is already awake", toWake, toWake->TID, toWake->ThreadName);
+			Warning("Thread %p (%i %s) is already awake",
+				toWake, toWake->TID, toWake->ThreadName);
 	}
 	SHORTREL( &Sem->Protector );
 	
 	return added;
+}
+
+void Semaphore_ForceWake(tThread *Thread)
+{
+	if( !CPU_HAS_LOCK(&Thread->IsLocked) ) {
+		Log_Error("Semaphore", "Force wake should be called with the thread lock held");
+		return ;
+	}
+	if( Thread->Status != THREAD_STAT_SEMAPHORESLEEP ) {
+		Log_Error("Semaphore", "_ForceWake called on non-semaphore thread");
+		return ;
+	}
+
+	tSemaphore *sem = Thread->WaitPointer;
+	SHORTLOCK( &sem->Protector );
+	tThread *prev = NULL;
+	if( sem->Waiting == Thread )
+		sem->Waiting = sem->Waiting->Next;
+	else
+	{
+		for( prev = sem->Waiting; prev && prev->Next != Thread; prev = prev->Next )
+			;
+		if( prev )
+			prev->Next = Thread->Next;
+	}
+	if( sem->LastWaiting == Thread )
+		sem->LastWaiting = prev;
+	SHORTREL( &sem->Protector );
+	Thread->RetStatus = 0;
+	Threads_AddActive(Thread);
 }
 
 //

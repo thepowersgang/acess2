@@ -152,4 +152,6 @@ extern tThread	*Threads_GetNextToRun(int CPU, tThread *Last);
 extern tThread	*Threads_CloneTCB(Uint Flags);
 extern tThread	*Threads_CloneThreadZero(void);
 
+extern void	Semaphore_ForceWake(tThread *Thread);
+
 #endif
