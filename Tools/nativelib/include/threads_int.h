@@ -8,6 +8,9 @@
 #ifndef _THREADS_INT_H_
 #define _THREADS_INT_H_
 
+typedef struct sThreadIntMutex	tThreadIntMutex;	// actually pthreads
+typedef struct sThreadIntSem	tThreadIntSem;
+
 struct sProcess
 {
 	struct sProcess	*Next;
@@ -24,10 +27,12 @@ struct sThread
 {
 	struct sThread	*Next;
 	 int	TID;
-	
+
+	tThreadIntMutex	*Protector;
+
 	uint32_t	PendingEvents;
 	uint32_t	WaitingEvents;
-	void	*WaitSemaphore;	// pthreads
+	tThreadIntSem	*WaitSemaphore;	// pthreads
 	
 	// Init Only
 	void	(*SpawnFcn)(void*);
@@ -35,6 +40,17 @@ struct sThread
 };
 
 extern int	Threads_int_CreateThread(struct sThread *Thread);
+
+extern tThreadIntMutex	*Threads_int_MutexCreate(void);
+extern void	Threads_int_MutexDestroy(tThreadIntMutex *Mutex);
+extern void	Threads_int_MutexLock(tThreadIntMutex *Mutex);
+extern void	Threads_int_MutexRelease(tThreadIntMutex *Mutex);
+
+extern tThreadIntSem	*Threads_int_SemCreate(void);
+extern void	Threads_int_SemDestroy(tThreadIntSem *Sem);
+extern void	Threads_int_SemSignal(tThreadIntSem *Sem);
+extern void	Threads_int_SemWait(tThreadIntSem *Sem);
+extern void	Threads_int_SemWaitAll(tThreadIntSem *Sem);
 
 #endif
 

@@ -10,7 +10,6 @@
 #include <threads_int.h>
 
 // === GLOBALS ===
- int	gbThreads_MultithreadingEnabled;
 tThread __thread	*lpThreads_This;
 
 // === CODE ===
@@ -21,27 +20,39 @@ tThread *Proc_GetCurThread(void)
 
 void Threads_PostEvent(tThread *Thread, Uint32 Events)
 {
-	Threads_int_LockMutex(Thread->Protector);
+	if( !Thread ) {
+		// nope.avi
+		return ;
+	}
+	Threads_int_MutexLock(Thread->Protector);
 	Thread->PendingEvents |= Events;
 	if( Thread->WaitingEvents & Events )
-		Threads_int_SemaphoreSignal(Thread->WaitSemaphore);
-	Threads_int_ReleaseMutex(Thread->Protector);
+		Threads_int_SemSignal(Thread->WaitSemaphore);
+	Threads_int_MutexRelease(Thread->Protector);
 }
 
 Uint32 Threads_WaitEvents(Uint32 Events)
 {
-	Thread->WaitingEvents = Events;
-	Threads_int_SemaphoreWaitAll(Thread->WaitSemaphore);
-	Thread->WaitingEvents = 0;
-	Uint32	rv = Thread->PendingEvents;
+	if( !lpThreads_This ) {
+		Log_Notice("Threads", "_WaitEvents: Threading disabled");
+		return 0;
+	}
+	lpThreads_This->WaitingEvents = Events;
+	Threads_int_SemWaitAll(lpThreads_This->WaitSemaphore);
+	lpThreads_This->WaitingEvents = 0;
+	Uint32	rv = lpThreads_This->PendingEvents;
 	return rv;
 }
 
 void Threads_ClearEvent(Uint32 Mask)
 {
-	Threads_int_LockMutex(Thread->Protector);
+	if( !lpThreads_This ) {
+		Log_Notice("Threads", "_ClearEvent: Threading disabled");
+		return ;
+	}
+	Threads_int_MutexLock(lpThreads_This->Protector);
 	lpThreads_This->PendingEvents &= ~Mask;
-	Threads_int_ReleaseMutex(Thread->Protector);
+	Threads_int_MutexRelease(lpThreads_This->Protector);
 }
 
 tUID Threads_GetUID(void) { return 0; }
@@ -79,7 +90,7 @@ int *Threads_GetErrno(void)// __attribute__ ((weak))
 
 struct sThread *Proc_SpawnWorker(void (*Fcn)(void*), void *Data)
 {
-	if( !gbThreads_MultithreadingEnabled )
+	if( !lpThreads_This )
 	{
 		Log_Error("Threads", "Multithreading is disabled in this build");
 		return NULL;
@@ -90,8 +101,7 @@ struct sThread *Proc_SpawnWorker(void (*Fcn)(void*), void *Data)
 		ret->SpawnFcn = Fcn;
 		ret->SpawnData = Data;
 		Threads_int_CreateThread(ret);
-		Log_Error("Threads", "TODO - Use pthreads to impliment Proc_SpawnWorker");
-		return NULL;
+		return ret;
 	}
 }
 

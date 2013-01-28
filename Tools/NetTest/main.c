@@ -46,6 +46,11 @@ int main(int argc, char *argv[])
 			if( ++i == argc ) { PrintUsage(argv[0]); return 1; }
 			NativeNic_AddDev(argv[i]);
 		}
+		else if( strcmp(argv[i], "-ip") == 0 )
+		{
+			if( ++i == argc ) { PrintUsage(argv[0]); return 1; }
+			// TODO: parse argument and poke ipstack
+		}
 	}
 
 	// Run suite
