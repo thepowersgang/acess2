@@ -33,7 +33,6 @@ int NativeNic_AddDev(char *DevDesc)
 	char *colonpos = strchr(DevDesc, ':');
 	if( !colonpos )
 		return -1;
-	*colonpos = 0;
 	if( UnHex(macaddr, 6, DevDesc) != 6 )
 		return -1;
 	void *ptr = NetTest_OpenTap(colonpos+1);

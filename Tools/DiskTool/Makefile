@@ -14,9 +14,6 @@ MODULE_SRC = ../../KernelLand/Modules/
 BIN = ../disktool
 # Kernel Sources (compiled with -ffreestanding)
 K_OBJ := lib.o
-K_OBJ += vfs/main.o vfs/open.o vfs/acls.o vfs/io.o vfs/dir.o
-K_OBJ += vfs/nodecache.o vfs/mount.o vfs/memfile.o # vfs/select.o
-K_OBJ += vfs/fs/root.o vfs/fs/devfs.o
 K_OBJ += drvutil_disk.o drv/proc.o
 # Modules
 MODULES := Storage/LVM Filesystems/FAT Filesystems/Ext2 Filesystems/NTFS
@@ -62,7 +59,7 @@ all: $(BIN)
 clean:
 	$(RM) -f $(OBJ) $(DEPFILES) $(BIN)
 
-$(BIN): $(OBJ)
+$(BIN): $(OBJ) ../libnativelib.a
 	@echo [CC Link] -o $(BIN)
 	@$(CC) -o $(BIN) $(OBJ) $(LDFLAGS)
 	@echo BUILD_NUM = $$(( $(BUILD_NUM) + 1 )) > Makefile.BuildNum

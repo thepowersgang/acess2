@@ -32,6 +32,7 @@ int VFS_MarkError(tVFS_Node *Node, BOOL bError)
 	return 0;
 }
 
+#if 0
 int VFS_Open(const char *Path, Uint Flags)
 {
 	return -1;
@@ -40,9 +41,39 @@ int VFS_Open(const char *Path, Uint Flags)
 void VFS_Close(int FD)
 {
 }
+#endif
+
+int VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode)
+{
+	const int maxfd = *Threads_GetMaxFD();
+	tVFS_Handle	*handles = *Threads_GetHandlesPtr();
+	if( !handles ) {
+		handles = calloc( maxfd, sizeof(tVFS_Handle) );
+		*Threads_GetHandlesPtr() = handles;
+	}
+
+	// TODO: Global handles
+
+	for( int i = 0; i < maxfd; i ++ )
+	{
+		if( handles[i].Node == NULL ) {
+			handles[i].Node = Node;
+			handles[i].Mode = Mode;
+			return i;
+		}
+	}
+	return -1;
+}
 
 tVFS_Handle *VFS_GetHandle(int FD)
 {
-	return NULL;
-}
+	const int maxfd = *Threads_GetMaxFD();
+	tVFS_Handle	*handles = *Threads_GetHandlesPtr();
+	if( !handles )
+		return NULL;
 
+	if( FD < 0 || FD >= maxfd )
+		return NULL;
+
+	return &handles[FD];
+}

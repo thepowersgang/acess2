@@ -8,24 +8,34 @@
 #ifndef _THREADS_INT_H_
 #define _THREADS_INT_H_
 
+#define THREAD_EVENT_RWLOCK	(1 << 8)
+
 typedef struct sThreadIntMutex	tThreadIntMutex;	// actually pthreads
 typedef struct sThreadIntSem	tThreadIntSem;
 
 struct sProcess
 {
 	struct sProcess	*Next;
+	struct sThread	*Threads;
 
 	 int	PID;
 	 int	UID, GID;
 	
 	char	*CWD;
 	char	*Chroot;
+
 	 int	MaxFDs;
+	void	*Handles;
 };
 
 struct sThread
 {
 	struct sThread	*Next;
+	struct sThread	*ListNext;
+
+	struct sProcess	*Process;
+	struct sThread	*ProcNext;
+
 	void	*ThreadHandle;
 	 int	TID;
 
@@ -34,13 +44,18 @@ struct sThread
 	uint32_t	PendingEvents;
 	uint32_t	WaitingEvents;
 	tThreadIntSem	*WaitSemaphore;	// pthreads
-	
+
+	char	*Name;
+
 	// Init Only
 	void	(*SpawnFcn)(void*);
 	void	*SpawnData;
 };
 
+extern struct sThread __thread	*lpThreads_This;
+
 extern int	Threads_int_CreateThread(struct sThread *Thread);
+extern int	Threads_int_ThreadingEnabled(void);
 
 extern tThreadIntMutex	*Threads_int_MutexCreate(void);
 extern void	Threads_int_MutexDestroy(tThreadIntMutex *Mutex);

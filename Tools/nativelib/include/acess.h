@@ -70,11 +70,13 @@ extern void	*malloc(size_t bytes);
 extern void	*calloc(size_t nmemb, size_t size);
 extern void	*realloc(void *oldptr, size_t bytes);
 extern void	free(void *buffer);
+extern char	*strdup(const char *str);
 
 #include <errno.h>
 #include <acess_logging.h>
 
 // Threads
+extern void	**Threads_GetHandlesPtr(void);
 extern int	*Threads_GetErrno(void);
 //extern tPGID	Threads_GetPGID(void);
 //extern tPID	Threads_GetPID(void);
