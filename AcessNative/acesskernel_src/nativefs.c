@@ -5,7 +5,7 @@
  * nativefs.c
  * - Host filesystem access
  */
-#define DEBUG	1
+#define DEBUG	0
 #define off_t	_acess_off_t
 #define sprintf _acess_sprintf
 #include <acess.h>	// Acess
