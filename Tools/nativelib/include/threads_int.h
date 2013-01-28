@@ -26,6 +26,7 @@ struct sProcess
 struct sThread
 {
 	struct sThread	*Next;
+	void	*ThreadHandle;
 	 int	TID;
 
 	tThreadIntMutex	*Protector;

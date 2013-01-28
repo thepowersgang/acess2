@@ -157,6 +157,7 @@ static inline int  CPU_HAS_LOCK(tShortSpinlock *m) { return *m; }
 #endif
 
 static inline intptr_t MM_GetPhysAddr(void *Ptr) { return 1; }
+static inline int	MM_IsUser(const void *Ptr) { return 1; }
 
 #endif
 
