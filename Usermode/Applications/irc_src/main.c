@@ -578,6 +578,7 @@ void ParseServerLine(tServer *Server, char *Line)
 				Message_Append(Server, MSG_TYPE_SERVER, user, user, message);
 				break;
 			case 372:	// MOTD Data
+			case 375:	// MOTD Start
 			case 376:	// MOTD End
 				
 			default:
