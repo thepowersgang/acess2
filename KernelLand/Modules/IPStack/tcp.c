@@ -1354,7 +1354,8 @@ void TCP_Client_Close(tVFS_Node *Node)
 		while( conn->State == TCP_ST_FIN_WAIT1 )	Threads_Yield();
 		break;
 	default:
-		Log_Warning("TCP", "Unhandled connection state in TCP_Client_Close");
+		Log_Warning("TCP", "Unhandled connection state %i in TCP_Client_Close",
+			conn->State);
 		break;
 	}
 	
