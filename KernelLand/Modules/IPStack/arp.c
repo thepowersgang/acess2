@@ -9,9 +9,11 @@
 #include "link.h"
 #include "ipv4.h"	// For IPv4_Netmask
 #include "include/adapters_int.h"	// for MAC addr
+#include <semaphore.h>
+#include <timers.h>
 
 #define ARPv6	0
-#define	ARP_CACHE_SIZE	64
+#define	ARP_CACHE_SIZE	128
 #define	ARP_MAX_AGE		(60*60*1000)	// 1Hr
 
 // === IMPORTS ===
@@ -34,6 +36,8 @@ struct sARP_Cache4 {
 }	*gaARP_Cache4;
  int	giARP_Cache4Space;
 tMutex	glARP_Cache4;
+tSemaphore	gARP_Cache4Semaphore;
+ int	giARP_WaitingThreads;
 #if ARPv6
 struct sARP_Cache6 {
 	tIPv6	IP;
@@ -44,7 +48,6 @@ struct sARP_Cache6 {
  int	giARP_Cache6Space;
 tMutex	glARP_Cache6;
 #endif
-volatile int	giARP_LastUpdateID = 0;
 
 // === CODE ===
 /**
@@ -72,10 +75,8 @@ int ARP_Initialise()
  */
 tMacAddr ARP_Resolve4(tInterface *Interface, tIPv4 Address)
 {
-	 int	lastID;
 	 int	i;
 	struct sArpRequest4	req;
-	Sint64	timeout;
 	
 	ENTER("pInterface xAddress", Interface, Address);
 	
@@ -133,9 +134,8 @@ tMacAddr ARP_Resolve4(tInterface *Interface, tIPv4 Address)
 		LEAVE('-');
 		return gaARP_Cache4[i].MAC;
 	}
+	giARP_WaitingThreads ++;
 	Mutex_Release( &glARP_Cache4 );
-	
-	lastID = giARP_LastUpdateID;
 	
 	// Create request
 	Log_Log("ARP4", "Asking for address %i.%i.%i.%i",
@@ -151,35 +151,33 @@ tMacAddr ARP_Resolve4(tInterface *Interface, tIPv4 Address)
 	req.DestMac = cMAC_BROADCAST;
 	req.DestIP = Address;
 
-	tIPStackBuffer	*buffer = IPStack_Buffer_CreateBuffer(3);	// Assumes only a header and footer at link layer
+	// Assumes only a header and footer at link layer
+	tIPStackBuffer	*buffer = IPStack_Buffer_CreateBuffer(3);
 	IPStack_Buffer_AppendSubBuffer(buffer, sizeof(struct sArpRequest4), 0, &req, NULL, NULL);
 
 	// Send Request
 	Link_SendPacket(Interface->Adapter, 0x0806, req.DestMac, buffer);
 
+	// Clean up
 	IPStack_Buffer_DestroyBuffer(buffer);
 	
-	timeout = now() + Interface->TimeoutDelay;
-	
 	// Wait for a reply
+	Time_ScheduleTimer(NULL, Interface->TimeoutDelay);
 	for(;;)
 	{
-		while(lastID == giARP_LastUpdateID && now() < timeout) {
-			Threads_Yield();
-		}
-		
-		if( now() >= timeout ) {
+		if( Semaphore_Wait(&gARP_Cache4Semaphore, 1) != 1 )
+		{
+			giARP_WaitingThreads --;
 			Log_Log("ARP4", "Timeout");
-			break;	// Timeout
+			break;
 		}
-		
-		lastID = giARP_LastUpdateID;
 		
 		Mutex_Acquire( &glARP_Cache4 );
 		for( i = 0; i < giARP_Cache4Space; i++ )
 		{
 			if(gaARP_Cache4[i].IP.L != Address.L)	continue;
 			
+			giARP_WaitingThreads --;
 			Mutex_Release( &glARP_Cache4 );
 			Log_Debug("ARP4", "Return %02x:%02x:%02x:%02x:%02x:%02x",
 				gaARP_Cache4[i].MAC.B[0], gaARP_Cache4[i].MAC.B[1], 
@@ -231,7 +229,7 @@ void ARP_UpdateCache4(tIPv4 SWAddr, tMacAddr HWAddr)
 	gaARP_Cache4[i].IP = SWAddr;
 	gaARP_Cache4[i].MAC = HWAddr;
 	gaARP_Cache4[i].LastUpdate = now();
-	giARP_LastUpdateID ++;
+	Semaphore_Signal(&gARP_Cache4Semaphore, giARP_WaitingThreads);
 	Mutex_Release(&glARP_Cache4);
 }
 

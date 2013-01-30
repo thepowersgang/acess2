@@ -221,7 +221,15 @@ int Start_Interface(tInterface *Iface)
 		fprintf(stderr, "ERROR: Unable to open '/Devices/ip'\n"); 
 		return -1;
 	}
-	Iface->Num = _SysIOCtl(fd, 4, (void*)Iface->Adapter);	// Create interface
+	struct {
+		const char *Device;
+		const char *Name;
+		 int	Type;
+	} ifinfo;
+	ifinfo.Device = Iface->Adapter;
+	ifinfo.Name = "";
+	ifinfo.Type = 4;
+	Iface->Num = _SysIOCtl(fd, 4, &ifinfo);	// Create interface
 	if( Iface->Num == -1 ) {
 		fprintf(stderr, "ERROR: Unable to create new interface\n");
 		return -1;
@@ -235,7 +243,6 @@ int Start_Interface(tInterface *Iface)
 		fprintf(stderr, "ERROR: Unable to open '%s'\n", path); 
 		return -1;
 	}
-	tmp = 4; _SysIOCtl(fd, 4, &tmp);	// Set to IPv4
 	_SysIOCtl(fd, 6, addr);	// Set address to 0.0.0.0
 	tmp = 0; _SysIOCtl(fd, 7, &tmp);	// Set subnet mask to 0
 
@@ -248,7 +255,7 @@ int Start_Interface(tInterface *Iface)
 	}
 	tmp = 68; _SysIOCtl(fd, 4, &tmp);	// Local port
 	tmp = 67; _SysIOCtl(fd, 5, &tmp);	// Remote port
-	tmp = 0;	_SysIOCtl(fd, 7, &tmp);	// Remote addr mask bits - we don't care where the reply comes from
+	tmp = 0;  _SysIOCtl(fd, 7, &tmp);	// Remote addr mask bits - we don't care where the reply comes from
 	addr[0] = addr[1] = addr[2] = addr[3] = 255;	// 255.255.255.255
 	_SysIOCtl(fd, 8, addr);	// Remote address
 	

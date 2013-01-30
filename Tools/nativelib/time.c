@@ -16,6 +16,18 @@ tTimer *Time_AllocateTimer(tTimerCallback *Callback, void *Argument)
 
 void Time_ScheduleTimer(tTimer *Timer, int Delta)
 {
+	if( !Timer )
+	{
+		// SIGALRM
+	}
+	else
+	{
+
+	}
+}
+
+void Time_RemoveTimer(tTimer *Timer)
+{
 	
 }
 

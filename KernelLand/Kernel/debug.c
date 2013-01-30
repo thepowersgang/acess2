@@ -11,6 +11,8 @@
 
 // === IMPORTS ===
 extern void	Threads_Dump(void);
+extern void	Heap_Dump(void)
+		;
 extern void	KernelPanic_SetMode(void);
 extern void	KernelPanic_PutChar(char Ch);
 extern void	IPStack_SendDebugText(const char *Text);
@@ -22,6 +24,7 @@ void	Debug_DbgOnlyFmt(const char *format, va_list args);
 void	Debug_FmtS(int bUseKTerm, const char *format, ...);
 void	Debug_Fmt(int bUseKTerm, const char *format, va_list args);
 void	Debug_SetKTerminal(const char *File);
+void	LogFV(const char *Fmt, va_list args);
 
 // === GLOBALS ===
  int	gDebug_Level = 0;
@@ -39,7 +42,10 @@ static void Debug_Putchar(char ch)
 {
 	Debug_PutCharDebug(ch);
 	
-	if( !gbDebug_IsKPanic )
+	if( gbDebug_IsKPanic )
+		KernelPanic_PutChar(ch);
+
+	if( gbDebug_IsKPanic < 2 )
 	{
 		if(gbInPutChar)	return ;
 		gbInPutChar = 1;
@@ -47,8 +53,6 @@ static void Debug_Putchar(char ch)
 			VFS_Write(giDebug_KTerm, 1, &ch);
 		gbInPutChar = 0;
 	}
-	else
-		KernelPanic_PutChar(ch);
 	
 	if( gbSendNetworkDebug )
 	{
@@ -75,7 +79,7 @@ static void Debug_Puts(int UseKTerm, const char *Str)
 		IPStack_SendDebugText(Str);
 
 	// Output to the kernel terminal
-	if( UseKTerm && !gbDebug_IsKPanic && giDebug_KTerm != -1)
+	if( UseKTerm && gbDebug_IsKPanic < 2 && giDebug_KTerm != -1)
 	{
 		if(gbInPutChar)	return ;
 		gbInPutChar = 1;
@@ -114,7 +118,7 @@ void Debug_KernelPanic(void)
 	#if LOCK_DEBUG_OUTPUT
 	SHORTREL(&glDebug_Lock);
 	#endif
-	gbDebug_IsKPanic = 1;
+	gbDebug_IsKPanic ++;
 	KernelPanic_SetMode();
 }
 

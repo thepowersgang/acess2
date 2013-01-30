@@ -12,13 +12,45 @@ tVFS_ACL	gVFS_ACL_EveryoneRX = { {1,-1}, {0,VFS_PERM_READ|VFS_PERM_EXECUTE} };
 tVFS_ACL	gVFS_ACL_EveryoneRO = { {1,-1}, {0,VFS_PERM_READ} };
 
 // === CODE ===
+Uint VFS_int_CheckACLs(tVFS_ACL *ACLs, int Num, int bDeny, Uint Perms, tUID UID, tGID GID)
+{
+	 int	i;
+	for(i = 0; i < Num; i ++ )
+	{
+		if(ACLs[i].Perm.Inv)
+			continue;	// Ignore ALLOWs
+		// Check if the entry applies to this case
+		if(ACLs[i].Ent.ID != 0x7FFFFFFF)
+		{
+			if(!ACLs[i].Ent.Group) {
+				if(ACLs[i].Ent.ID != UID)	continue;
+			}
+			else {
+				if(ACLs[i].Ent.ID != GID)	continue;
+			}
+		}
+		
+		//Log("Deny %x", Node->ACLs[i].Perms);
+		
+		if(bDeny && (ACLs[i].Perm.Perms & Perms) != 0 )
+		{
+			return ACLs[i].Perm.Perms & Perms;
+		}
+		if(!bDeny && (ACLs[i].Perm.Perms & Perms) == Perms)
+		{
+			return 0;	//(~ACLs[i].Perm.Perms) & Perms;
+		}
+	}
+	return bDeny ? 0 : Perms;
+}
+
 /**
  * \fn int VFS_CheckACL(tVFS_Node *Node, Uint Permissions)
  * \brief Checks the permissions on a file
  */
 int VFS_CheckACL(tVFS_Node *Node, Uint Permissions)
 {
-	 int	i;
+	Uint	rv;
 	 int	uid = Threads_GetUID();
 	 int	gid = Threads_GetGID();
 	
@@ -32,41 +64,17 @@ int VFS_CheckACL(tVFS_Node *Node, Uint Permissions)
 	}
 	
 	// Check Deny Permissions
-	for(i=0;i<Node->NumACLs;i++)
-	{
-		if(!Node->ACLs[i].Inv)	continue;	// Ignore ALLOWs
-		if(Node->ACLs[i].ID != 0x7FFFFFFF)
-		{
-			if(!Node->ACLs[i].Group && Node->ACLs[i].ID != uid)	continue;
-			if(Node->ACLs[i].Group && Node->ACLs[i].ID != gid)	continue;
-		}
-		
-		//Log("Deny %x", Node->ACLs[i].Perms);
-		
-		if(Node->ACLs[i].Perms & Permissions) {
-			Log("VFS_CheckACL - %p inaccesable, %x denied",
-				Node, Node->ACLs[i].Perms & Permissions);
-			return 0;
-		}
+	rv = VFS_int_CheckACLs(Node->ACLs, Node->NumACLs, 1, Permissions, uid, gid);
+	if( !rv )
+		Log("VFS_CheckACL - %p inaccesable, %x denied", Node, rv);
+		return 0;
+	rv = VFS_int_CheckACLs(Node->ACLs, Node->NumACLs, 0, Permissions, uid, gid);
+	if( !rv ) {
+		Log("VFS_CheckACL - %p inaccesable, %x not allowed", Node, rv);
+		return 0;
 	}
-	
-	// Check for allow permissions
-	for(i=0;i<Node->NumACLs;i++)
-	{
-		if(Node->ACLs[i].Inv)	continue;	// Ignore DENYs
-		if(Node->ACLs[i].ID != 0x7FFFFFFF)
-		{
-			if(!Node->ACLs[i].Group && Node->ACLs[i].ID != uid)	continue;
-			if(Node->ACLs[i].Group && Node->ACLs[i].ID != gid)	continue;
-		}
-		
-		//Log("Allow %x", Node->ACLs[i].Perms);
-		
-		if((Node->ACLs[i].Perms & Permissions) == Permissions)	return 1;
-	}
-	
-	Log("VFS_CheckACL - %p inaccesable, %x not allowed", Node, Permissions);
-	return 0;
+
+	return 1;
 }
 /**
  * \fn int VFS_GetACL(int FD, tVFS_ACL *Dest)
@@ -82,33 +90,33 @@ int VFS_GetACL(int FD, tVFS_ACL *Dest)
 	}
 	
 	// Root can do anything
-	if(Dest->Group == 0 && Dest->ID == 0) {
-		Dest->Inv = 0;
-		Dest->Perms = -1;
+	if(Dest->Ent.Group == 0 && Dest->Ent.ID == 0) {
+		Dest->Perm.Inv = 0;
+		Dest->Perm.Perms = -1;
 		return 1;
 	}
 	
 	// Root only file?, fast return
 	if( h->Node->NumACLs == 0 ) {
-		Dest->Inv = 0;
-		Dest->Perms = 0;
+		Dest->Perm.Inv = 0;
+		Dest->Perm.Perms = 0;
 		return 0;
 	}
 	
 	// Check Deny Permissions
 	for(i=0;i<h->Node->NumACLs;i++)
 	{
-		if(h->Node->ACLs[i].Group != Dest->Group)	continue;
-		if(h->Node->ACLs[i].ID != Dest->ID)	continue;
+		if(h->Node->ACLs[i].Ent.Group != Dest->Ent.Group)	continue;
+		if(h->Node->ACLs[i].Ent.ID != Dest->Ent.ID)	continue;
 		
-		Dest->Inv = h->Node->ACLs[i].Inv;
-		Dest->Perms = h->Node->ACLs[i].Perms;
+		Dest->Perm.Inv = h->Node->ACLs[i].Perm.Inv;
+		Dest->Perm.Perms = h->Node->ACLs[i].Perm.Perms;
 		return 1;
 	}
 	
 	
-	Dest->Inv = 0;
-	Dest->Perms = 0;
+	Dest->Perm.Inv = 0;
+	Dest->Perm.Perms = 0;
 	return 0;
 }
 
@@ -124,25 +132,25 @@ tVFS_ACL *VFS_UnixToAcessACL(Uint Mode, Uint Owner, Uint Group)
 	if(!ret)	return NULL;
 	
 	// Owner
-	ret[0].Group = 0;	ret[0].ID = Owner;
-	ret[0].Inv = 0;		ret[0].Perms = 0;
-	if(Mode & 0400)	ret[0].Perms |= VFS_PERM_READ;
-	if(Mode & 0200)	ret[0].Perms |= VFS_PERM_WRITE;
-	if(Mode & 0100)	ret[0].Perms |= VFS_PERM_EXECUTE;
+	ret[0].Ent.Group = 0; ret[0].Ent.ID = Owner;
+	ret[0].Perm.Inv = 0;  ret[0].Perm.Perms = 0;
+	if(Mode & 0400)	ret[0].Perm.Perms |= VFS_PERM_READ;
+	if(Mode & 0200)	ret[0].Perm.Perms |= VFS_PERM_WRITE;
+	if(Mode & 0100)	ret[0].Perm.Perms |= VFS_PERM_EXECUTE;
 	
 	// Group
-	ret[1].Group = 1;	ret[1].ID = Group;
-	ret[1].Inv = 0;		ret[1].Perms = 0;
-	if(Mode & 0040)	ret[1].Perms |= VFS_PERM_READ;
-	if(Mode & 0020)	ret[1].Perms |= VFS_PERM_WRITE;
-	if(Mode & 0010)	ret[1].Perms |= VFS_PERM_EXECUTE;
+	ret[1].Ent.Group = 1; ret[1].Ent.ID = Group;
+	ret[1].Perm.Inv = 0;  ret[1].Perm.Perms = 0;
+	if(Mode & 0040)	ret[1].Perm.Perms |= VFS_PERM_READ;
+	if(Mode & 0020)	ret[1].Perm.Perms |= VFS_PERM_WRITE;
+	if(Mode & 0010)	ret[1].Perm.Perms |= VFS_PERM_EXECUTE;
 	
 	// Global
-	ret[2].Group = 1;	ret[2].ID = -1;
-	ret[2].Inv = 0;		ret[2].Perms = 0;
-	if(Mode & 0004)	ret[2].Perms |= VFS_PERM_READ;
-	if(Mode & 0002)	ret[2].Perms |= VFS_PERM_WRITE;
-	if(Mode & 0001)	ret[2].Perms |= VFS_PERM_EXECUTE;
+	ret[2].Ent.Group = 1; ret[2].Ent.ID = -1;
+	ret[2].Perm.Inv = 0;  ret[2].Perm.Perms = 0;
+	if(Mode & 0004)	ret[2].Perm.Perms |= VFS_PERM_READ;
+	if(Mode & 0002)	ret[2].Perm.Perms |= VFS_PERM_WRITE;
+	if(Mode & 0001)	ret[2].Perm.Perms |= VFS_PERM_EXECUTE;
 	
 	// Return buffer
 	return ret;

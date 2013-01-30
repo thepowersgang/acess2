@@ -79,11 +79,16 @@ int EHCI_Initialise(char **Arguments)
 	{
 		Uint32	addr = PCI_GetBAR(id, 0);
 		if( addr == 0 ) {
-			// Oops, PCI BIOS emulation time
+			// TODO: PCI BIOS emulation time
 		}
+		if( addr & 1 ) {
+			// TODO: Error
+			continue ;
+		}
+		addr &= ~0xF;
 		Uint8	irq = PCI_GetIRQ(id);
 		if( irq == 0 ) {
-			// TODO: The same
+			// TODO: Error?
 		}
 
 		Log_Log("ECHI", "Controller at PCI %i 0x%x IRQ 0x%x",
@@ -96,7 +101,7 @@ int EHCI_Initialise(char **Arguments)
 		}
 	}
 
-	for( int i = 0; Arguments[i]; i ++ )
+	for( int i = 0; Arguments && Arguments[i]; i ++ )
 	{
 		char *pos = Arguments[i], *next;
 		LOG("pos = '%s'", pos);
@@ -153,7 +158,7 @@ int EHCI_InitController(tPAddr BaseAddress, Uint8 InterruptNum)
 	cont->TDPool = NULL;
 
 	// -- Build up structure --
-	cont->CapRegs = (void*)MM_MapHWPages(BaseAddress, 1);
+	cont->CapRegs = (void*)( MM_MapHWPages(BaseAddress, 1) + (BaseAddress % PAGE_SIZE) );
 	if( !cont->CapRegs ) {
 		Log_Warning("EHCI", "Can't map 1 page at %P into kernel space", BaseAddress);
 		goto _error;
@@ -162,6 +167,12 @@ int EHCI_InitController(tPAddr BaseAddress, Uint8 InterruptNum)
 	if( (cont->CapRegs->CapLength & 3) ) {
 		Log_Warning("EHCI", "Controller at %P non-aligned op regs (%x)",
 			BaseAddress, cont->CapRegs->CapLength);
+		goto _error;
+	}
+	if( BaseAddress % PAGE_SIZE + cont->CapRegs->CapLength + sizeof(tEHCI_CapRegs) > PAGE_SIZE ) {
+		Log_Warning("EHCI", "%P: Cap regs over page boundary (+0x%x bytes)",
+			 BaseAddress % PAGE_SIZE + cont->CapRegs->CapLength + sizeof(tEHCI_CapRegs)
+			 );
 		goto _error;
 	}
 	cont->OpRegs = (void*)( (Uint32*)cont->CapRegs + cont->CapRegs->CapLength / 4 );

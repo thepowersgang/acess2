@@ -13,15 +13,29 @@ struct sTimerRegs
 	Uint32	PTV_0;	// Control / Target value
 	Uint32	PCR_0;	// Current value / IRQ clear
 };
+struct sTimerUSRegs
+{
+	Uint32	CNTR_1US;	// 16:16 microsecond counter
+	Uint32	USEC_CFG;	// 8:8 num/den (n+1)/(den+1) us per clock
+	Uint32	_padding[0x3c-0x8];
+	Uint32	CNTR_Freeze;	// Freeze timers when in debug?
+};
 struct sTimersMap
 {
-	struct sTimerRegs	TMR0;
 	struct sTimerRegs	TMR1;
-	// TMRUS
-	char _padding[ 0x50-0x10 ];
-
 	struct sTimerRegs	TMR2;
+
+	struct sTimerUSRegs	TIMERUS;
+
 	struct sTimerRegs	TMR3;
+	struct sTimerRegs	TMR4;
+};
+
+struct sClockResetMap
+{
+	Uint32	RST_Source;
+	Uint32	RST_Devices;
+	// ...
 };
 
 #if 0

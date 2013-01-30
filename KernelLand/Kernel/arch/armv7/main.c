@@ -40,12 +40,15 @@ int kmain(void)
 	VFS_Init();
 
 	// Boot modules?
+	// - most ARMv7 configs use a GIC
 	Module_EnsureLoaded("armv7_GIC");
+	
+	Time_Setup();
 
 	//
 	LogF("Moving to arch-independent init\n");
 	#if PLATFORM_is_tegra2
-	System_Init("Acess2.armv7.bin /Acess=initrd: -VTerm:Video=Tegra2Vid -USB_EHCI:C5000000-14,C5004000-15");
+	System_Init("Acess2.armv7.bin /Acess=initrd: -VTerm:Video=Tegra2Vid");
 	#else
 	System_Init("Acess2.armv7.bin /Acess=initrd: -VTerm:Video=PL110");
 	#endif

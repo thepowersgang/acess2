@@ -11,11 +11,10 @@
 
 // === GLOBALS ===
 tVPCI_Device	gaVPCI_Devices[] = {
-	// NOTE: USB Controllers moved to command line arguments
 	#if 0
 	{
 	.Vendor=0x0ACE,.Device=0x1100,
-	.Class = 0x0C032100,	// Serial, USB, ECHI
+	.Class = 0x0C032000,	// Serial, USB, ECHI
 	.BARs = {0xC5000000,0,0,0,0,0},
 	.IRQ = 0*32+20,
 	},

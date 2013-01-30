@@ -29,7 +29,8 @@ void	Time_Setup(void);
 tPAddr	gGIC_InterfaceAddr = 0x50040000;
 tPAddr	gGIC_DistributorAddr = 0x50041000;
 // - Map of timer registers
-struct sTimersMap *gpTimersMap;
+volatile struct sTimersMap *gpTimersMap;
+volatile struct sClockResetMap *gpClockResetMap;
 // - Interrupt controller code commented out, because the Tegra2 also has a GIC
 #if 0
 struct sIRQMap	gpIRQMap;
@@ -41,15 +42,40 @@ struct sIRQMap	gpIRQMap;
 void Timer_IRQHandler_SysClock(int IRQ, void *_unused)
 {
 	giTimestamp += 100;
-	gpTimersMap->TMR0.PCR_0 = (1<<31);
+	gpTimersMap->TMR1.PCR_0 = (1<<30);
 }
 
 void Time_Setup(void)
 {
 	gpTimersMap = (void*)MM_MapHWPages(0x60005000, 1);
+	gpClockResetMap = (void*)MM_MapHWPages(0x60006000, 1);
 	// Timer 1 (used for system timekeeping)
 	IRQ_AddHandler(0*32+0, Timer_IRQHandler_SysClock, NULL);
-	gpTimersMap->TMR0.PTV_0 = (1<31)|(1<30)|(100*1000);	// enable, periodic, 100 ms
+	gpTimersMap->TMR1.PTV_0 = (1<<31)|(1<<30)|(100*1000-1);	// enable, periodic, 100 ms
+	gpTimersMap->TMR1.PCR_0 = (1<<30);
+	Log_Debug("Tegra2Tme", "TMR0.PCR = 0x%x", gpTimersMap->TMR1.PCR_0);
+
+	// Disabled until IRQs work
+	//gpClockResetMap->RST_Source = (1 << 5)|(0<<4)|(7);	// Full reset on watchdog timeout
+
+	Log_Debug("Tegra2Tme", "TIMERUS_USEC_CFG = 0x%x", gpTimersMap->TIMERUS.USEC_CFG);
+	Log_Debug("Tegra2Tme", "TIMERUS_CNTR_1US = 0x%x", gpTimersMap->TIMERUS.CNTR_1US);
+	Log_Debug("Tegra2Tme", "TMR0.PCR = 0x%x", gpTimersMap->TMR1.PCR_0);
+	Log_Debug("Tegra2Tme", "TMR0.PTV = 0x%x", gpTimersMap->TMR1.PTV_0);
+	for( int i = 0; i < 5; i ++ ) {
+		for( int j = 0; j < 1000*1000; j ++ )
+		{
+			__asm__ __volatile__ ("mov r0, r0");
+			__asm__ __volatile__ ("mov r0, r0");
+			__asm__ __volatile__ ("mov r0, r0");
+		}
+		Log_Debug("Tegra2Tme", "TMR0.PCR = 0x%x", gpTimersMap->TMR1.PCR_0);
+	}
+	Log_Debug("Tegra2Tme", "TMR0.PCR = 0x%x", gpTimersMap->TMR1.PCR_0);
+	Log_Debug("Tegra2Tme", "GICC_HPPIR = 0x%x", *(Uint32*)(0xF0000000 + 0x18));
+	Log_Debug("Tegra2Tme", "GICC_IAR = 0x%x", *(Uint32*)(0xF0000000 + 0xC));
+	Log_Debug("Tegra2Tme", "GICD_ISPENDR0 = 0x%x", *(Uint32*)(0xF0001000 + 0x200 + 0*4));
+	Log_Debug("Tegra2Tme", "GICD_ISPENDR1 = 0x%x", *(Uint32*)(0xF0001000 + 0x200 + 1*4));
 }
 
 #if 0

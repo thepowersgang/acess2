@@ -9,6 +9,7 @@ typedef	void	(*constructor_t)(void);
 exithandler_t	_crt0_exit_handler;
 extern constructor_t	_crtbegin_ctors[];
 extern void	_exit(int status) __attribute__((noreturn));
+extern int	main(int argc, char *argv[], char **envp);
 
 void start(int argc, char *argv[], char **envp)
 {

@@ -26,7 +26,7 @@ tVFS_Node	*IPStack_Root_FindDir(tVFS_Node *Node, const char *Name);
  int	IPStack_Root_IOCtl(tVFS_Node *Node, int ID, void *Data);
 
  int	IPStack_AddFile(tSocketFile *File);
-tInterface	*IPStack_AddInterface(const char *Device, const char *Name);
+tInterface	*IPStack_AddInterface(const char *Device, int Type, const char *Name);
 
  int	IPStack_Iface_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX]);
 tVFS_Node	*IPStack_Iface_FindDir(tVFS_Node *Node, const char *Name);
@@ -101,8 +101,7 @@ int IPStack_Root_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 	}
 	
 	// Create the name
-	Pos = iface->Node.ImplInt;
-	snprintf(Dest, FILENAME_MAX, "%i", Pos);
+	strncpy(Dest, iface->Name, FILENAME_MAX);
 	
 	LEAVE('i', 0);
 	return 0;
@@ -167,19 +166,32 @@ int IPStack_Root_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		
 	/*
 	 * add_interface
-	 * - Adds a new IP interface and binds it to a device
+	 * - Adds a new interface and binds it to a device
 	 */
-	case 4:
-		if( Threads_GetUID() != 0 )	LEAVE_RET('i', -1);
-		if( !CheckString( Data ) )	LEAVE_RET('i', -1);
-		LOG("New interface for '%s'", Data);
-		{
-			char	name[4] = "";
-			tInterface	*iface = IPStack_AddInterface(Data, name);
-			if(iface == NULL)	LEAVE_RET('i', -1);
-			tmp = iface->Node.ImplInt;
-		}
+	case 4: {
+		const struct {
+			const char *Device;
+			const char *Name;
+			 int	Type;
+		} *ifinfo = Data;
+		
+		if( Threads_GetUID() != 0 )
+			LEAVE_RET('i', -1);
+		if( !CheckMem(ifinfo, sizeof(*ifinfo)) )
+			LEAVE_RET('i', -1);
+		if( !MM_IsUser(ifinfo->Device) || !CheckString( ifinfo->Device ) )
+			LEAVE_RET('i', -1);
+		if( !MM_IsUser(ifinfo->Name) || !CheckString( ifinfo->Name ) )
+			LEAVE_RET('i', -1);
+
+		LOG("New interface of type %i for '%s' named '%s'",
+			ifinfo->Type, ifinfo->Device, ifinfo->Name);
+		tInterface *iface = IPStack_AddInterface(ifinfo->Device, ifinfo->Type, ifinfo->Name);
+		if(iface == NULL)	LEAVE_RET('i', -1);
+
+		tmp = iface->Node.ImplInt;
 		LEAVE_RET('i', tmp);
+		}
 	}
 	LEAVE('i', 0);
 	return 0;
@@ -189,40 +201,60 @@ int IPStack_Root_IOCtl(tVFS_Node *Node, int ID, void *Data)
  * \fn tInterface *IPStack_AddInterface(char *Device)
  * \brief Adds an interface to the list
  */
-tInterface *IPStack_AddInterface(const char *Device, const char *Name)
+tInterface *IPStack_AddInterface(const char *Device, int Type, const char *Name)
 {
 	tInterface	*iface;
 	tAdapter	*card;
-	 int	nameLen;
+	 int	nameLen, addrsize;
 	
 	ENTER("sDevice", Device);
 	
+	// Check address type
+	addrsize = IPStack_GetAddressSize(Type);
+	if( addrsize == -1 ) {
+		Log_Debug("IPStack", "Bad address type %i", Type);
+		return NULL;
+	}
+
+	// Open card
 	card = Adapter_GetByName(Device);
 	if( !card ) {
 		Log_Debug("IPStack", "Unable to open card '%s'", Device);
 		LEAVE('n');
 		return NULL;	// ERR_YOURBAD
 	}
-	
-	nameLen = sprintf(NULL, "%i", giIP_NextIfaceId);
-	
+
+	// Get name length	
+	if( Name[0] )
+	{
+		nameLen = strlen(Name);
+	}
+	else
+	{
+		nameLen = snprintf(NULL, 0, "%i", giIP_NextIfaceId);
+	}
+
 	iface = malloc(
 		sizeof(tInterface)
 		+ nameLen + 1
-		+ IPStack_GetAddressSize(-1)*3	// Address, Route->Network, Route->NextHop
+		+ addrsize*3	// Address, Route->Network, Route->NextHop
 		);
 	if(!iface) {
 		Log_Warning("IPStack", "AddInterface - malloc() failed");
+		// TODO: Close card
 		LEAVE('n');
 		return NULL;	// Return ERR_MYBAD
 	}
 	
 	iface->Next = NULL;
-	iface->Type = 0;	// Unset type
+	iface->Type = Type;	// Unset type
 	iface->Address = iface->Name + nameLen + 1;	// Address
+	memset(iface->Address, 0, addrsize);
 	memset(&iface->Route, 0, sizeof(iface->Route));
-	iface->Route.Network = iface->Address + IPStack_GetAddressSize(-1);
-	iface->Route.NextHop = iface->Route.Network + IPStack_GetAddressSize(-1);
+	iface->Route.Network = iface->Address + addrsize;
+	memset(iface->Route.Network, 0, addrsize);
+	iface->Route.NextHop = iface->Route.Network + addrsize;
+	memset(iface->Route.NextHop, 0, addrsize);
 	
 	// Create Node
 	iface->Node.ImplPtr = iface;
@@ -238,10 +270,17 @@ tInterface *IPStack_AddInterface(const char *Device, const char *Name)
 	// Get adapter handle
 	iface->Adapter = card;
 	
-	// Delay setting ImplInt until after the adapter is opened
-	// Keeps things simple
-	iface->Node.ImplInt = giIP_NextIfaceId++;
-	sprintf(iface->Name, "%i", (int)iface->Node.ImplInt);
+	// Set name
+	if( Name[0] )
+	{
+		iface->Node.ImplInt = 0;
+		strcpy(iface->Name, Name);
+	}
+	else
+	{
+		iface->Node.ImplInt = giIP_NextIfaceId++;
+		sprintf(iface->Name, "%i", (int)iface->Node.ImplInt);
+	}
 	
 	// Append to list
 	SHORTLOCK( &glIP_Interfaces );
@@ -255,8 +294,6 @@ tInterface *IPStack_AddInterface(const char *Device, const char *Name)
 	}
 	SHORTREL( &glIP_Interfaces );
 
-//	gIP_DriverInfo.RootNode.Size ++;
-	
 	// Success!
 	LEAVE('p', iface);
 	return iface;
@@ -345,6 +382,7 @@ int IPStack_Iface_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		// Set Type?
 		if( Data )
 		{
+#if 0
 			// Ok, it's set type
 			if( Threads_GetUID() != 0 ) {
 				LOG("Attempt by non-root to alter an interface (%i)", Threads_GetUID());
@@ -370,6 +408,8 @@ int IPStack_Iface_IOCtl(tVFS_Node *Node, int ID, void *Data)
 			
 			// Clear address
 			memset(iface->Address, 0, size);
+#endif
+			Log_Notice("IPStack", "Interface ioctl(settype) no longer usable");
 		}
 		LEAVE('i', iface->Type);
 		return iface->Type;

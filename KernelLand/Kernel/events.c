@@ -26,15 +26,25 @@ void Threads_PostEvent(tThread *Thread, Uint32 EventMask)
 	LOG("Thread->EventState = 0x%x", Thread->EventState);
 	
 	// Currently sleeping on an event?
-	if( Thread->Status == THREAD_STAT_EVENTSLEEP )
+	switch(Thread->Status)
 	{
-		// Waiting on this event?
+	// Waiting on this event?
+	case THREAD_STAT_EVENTSLEEP:
 		if( (Uint32)Thread->RetStatus & EventMask )
 		{
 			// Wake up
 			LOG("Waking thread %p(%i %s)", Thread, Thread->TID, Thread->ThreadName);
 			Threads_AddActive(Thread);
 		}
+		break;
+	case THREAD_STAT_SEMAPHORESLEEP:
+		if( EventMask & THREAD_EVENT_TIMER )
+		{
+			LOG("Waking %p(%i %s) from semaphore on timer",
+				Thread, Thread->TID, Thread->ThreadName);
+			Semaphore_ForceWake(Thread);
+		}
+		break;
 	}
 	
 	SHORTREL( &Thread->IsLocked );

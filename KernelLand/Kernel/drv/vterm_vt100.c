@@ -188,6 +188,18 @@ void VT_int_ParseEscape_StandardLarge(tVTerm *Term, char CmdChar, int argc, int 
 				Term->CurColour &= 0xFFFF8000;
 				Term->CurColour |= caVT100Colours[ colour_idx ];
 			}
+			// Foreground Colour - bright
+			else if(90 <= args[argc] && args[argc] <= 97 ) {
+				colour_idx = args[argc]-90 + 8;
+				Term->CurColour &= 0x8000FFFF;
+				Term->CurColour |= (Uint32)caVT100Colours[ colour_idx ] << 16;
+			}
+			// Background Colour - bright
+			else if(100 <= args[argc] && args[argc] <= 107 ) {
+				colour_idx = args[argc]-100 + 8;
+				Term->CurColour &= 0xFFFF8000;
+				Term->CurColour |= (Uint32)caVT100Colours[ colour_idx ];
+			}
 			else {
 				Log_Warning("VTerm", "Unknown font flag %i", args[argc]);
 			}

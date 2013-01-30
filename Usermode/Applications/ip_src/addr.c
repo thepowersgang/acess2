@@ -9,8 +9,8 @@
 
 // === PROTOTYPES ===
  int	Addr_main(int argc, char *argv[]);
- int	AddInterface(const char *Device);
- int	SetAddress(int IFNum, const char *Address);
+ int	AddInterface(const char *Device, int Type);
+ int	SetAddress(int IFNum, const void *Address, int SubnetSize);
 void	DumpInterfaces(void);
 void	DumpInterface(const char *Name);
 void	DumpRoute(const char *Name);
@@ -26,14 +26,28 @@ int Addr_main(int argc, char *argv[])
 	}
 	else if( strcmp(argv[1], "add") == 0 )
 	{
+		uint8_t	addr[16];
+		 int	type, subnet_size;
+
+		// Check argument counts
 		if( argc - 2 < 2 ) {
-			fprintf(stderr, "ERROR: '%s add' requires two arguments, %i passed\n", argv[0], argc-2);
+			fprintf(stderr, "ERROR: '%s add' requires two arguments, %i passed\n",
+				argv[0], argc-2);
 			PrintUsage(argv[0]);
 			return -1;
 		}
-		ret = AddInterface( argv[2] );
+
+		// Parse IP Address
+		type = ParseIPAddress(argv[3], addr, &subnet_size);
+		if(type == 0) {
+			fprintf(stderr, "'%s' cannot be parsed as an IP address\n", argv[3]);
+			return -1;
+		}
+	
+		// Fun
+		ret = AddInterface( argv[2], type );
 		if(ret < 0)	return ret;
-		ret = SetAddress( ret, argv[3] );
+		ret = SetAddress( ret, addr, subnet_size );
 		return ret;
 	}
 	// Delete an interface
@@ -57,12 +71,20 @@ int Addr_main(int argc, char *argv[])
  * \brief Create a new interface using the passed device
  * \param Device	Network device to bind to
  */
-int AddInterface(const char *Device)
+int AddInterface(const char *Device, int Type)
 {
 	 int	dp, ret;
 	
 	dp = _SysOpen(IPSTACK_ROOT, OPENFLAG_READ);
-	ret = _SysIOCtl(dp, 4, (void*)Device);
+	struct {
+		const char *Dev;
+		const char *Name;
+		 int	Type;
+	} ifinfo;
+	ifinfo.Dev = Device;
+	ifinfo.Name = "";
+	ifinfo.Type = Type;
+	ret = _SysIOCtl(dp, 4, &ifinfo);
 	_SysClose(dp);
 	
 	if( ret < 0 ) {
@@ -78,19 +100,10 @@ int AddInterface(const char *Device)
 /**
  * \brief Set the address on an interface from a textual IP address
  */
-int SetAddress(int IFNum, const char *Address)
+int SetAddress(int IFNum, const void *Address, int SubnetSize)
 {
-	uint8_t	addr[16];
-	 int	type;
 	char	path[sizeof(IPSTACK_ROOT)+1+5+1];	// ip000
-	 int	tmp, fd, subnet;
-	
-	// Parse IP Address
-	type = ParseIPAddress(Address, addr, &subnet);
-	if(type == 0) {
-		fprintf(stderr, "'%s' cannot be parsed as an IP address\n", Address);
-		return -1;
-	}
+	 int	fd;
 	
 	// Open file
 	sprintf(path, IPSTACK_ROOT"/%i", IFNum);
@@ -100,18 +113,11 @@ int SetAddress(int IFNum, const char *Address)
 		return -1;
 	}
 	
-	tmp = type;
-	tmp = _SysIOCtl(fd, _SysIOCtl(fd, 3, "getset_type"), &tmp);
-	if( tmp != type ) {
-		fprintf(stderr, "Error in setting address type (got %i, expected %i)\n", tmp, type);
-		_SysClose(fd);
-		return -1;
-	}
 	// Set Address
-	_SysIOCtl(fd, _SysIOCtl(fd, 3, "set_address"), addr);
+	_SysIOCtl(fd, _SysIOCtl(fd, 3, "set_address"), (void*)Address);
 	
 	// Set Subnet
-	_SysIOCtl(fd, _SysIOCtl(fd, 3, "getset_subnet"), &subnet);
+	_SysIOCtl(fd, _SysIOCtl(fd, 3, "getset_subnet"), &SubnetSize);
 	
 	_SysClose(fd);
 	
