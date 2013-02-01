@@ -66,7 +66,7 @@ int Mutex_Acquire(tMutex *Mutex)
 		
 		SHORTREL( &glThreadListLock );
 		SHORTREL( &Mutex->Protector );
-		while(us->Status == THREAD_STAT_MUTEXSLEEP)	Threads_Yield();
+		Threads_int_WaitForStatusEnd(THREAD_STAT_MUTEXSLEEP);
 		// We're only woken when we get the lock
 		us->WaitPointer = NULL;
 	}

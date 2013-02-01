@@ -125,6 +125,7 @@ static const char * const casTHREAD_STAT[] = {
 	"THREAD_STAT_ACTIVE",
 	"THREAD_STAT_SLEEPING",
 	"THREAD_STAT_MUTEXSLEEP",
+	"THREAD_STAT_RWLOCKSLEEP",
 	"THREAD_STAT_SEMAPHORESLEEP",
 	"THREAD_STAT_QUEUESLEEP",
 	"THREAD_STAT_EVENTSLEEP",
@@ -152,6 +153,7 @@ extern tThread	*Threads_GetNextToRun(int CPU, tThread *Last);
 extern tThread	*Threads_CloneTCB(Uint Flags);
 extern tThread	*Threads_CloneThreadZero(void);
 
+extern void	Threads_int_WaitForStatusEnd(enum eThreadStatus Status);
 extern void	Semaphore_ForceWake(tThread *Thread);
 
 #endif
