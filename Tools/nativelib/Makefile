@@ -3,12 +3,14 @@ KERNEL_DIR := ../../KernelLand/Kernel
 
 NOBJ := logging.o misc.o threads_int.o
 
-LOBJ := threads.o time.o mutex.o rwlock.o semaphore.o
+LOBJ := threads.o time.o
+# mutex.o rwlock.o semaphore.o
 
 KOBJ += vfs/main.o vfs/open.o vfs/acls.o vfs/io.o vfs/dir.o
 KOBJ += vfs/nodecache.o vfs/mount.o vfs/memfile.o # vfs/select.o
 KOBJ += vfs/fs/root.o vfs/fs/devfs.o
 KOBJ += drv/proc.o
+KOBJ += mutex.o rwlock.o semaphore.o
 
 NOBJ := $(NOBJ:%.o=obj/%.o)
 LOBJ := $(LOBJ:%.o=obj/%.o)
@@ -28,18 +30,20 @@ clean:
 	$(RM) $(BIN) $(OBJ)
 
 $(BIN): $(OBJ)
-	ar cru $(BIN) $(OBJ)
+	ar cr $(BIN) $(OBJ)
 
-$(NOBJ): obj/%.o: %.c
+$(NOBJ): obj/%.o: %.c Makefile
 	@echo [CC Native] $@
 	@mkdir -p $(dir $@)
-	@$(CC) -o $@ -c $< $(CFLAGS) $(CPPFLAGS)
-$(LOBJ): obj/%.o: %.c
+	@$(CC) -o $@ -c $< -MMD -MF $@.dep -MT $@ -MP $(CFLAGS) $(CPPFLAGS)
+$(LOBJ): obj/%.o: %.c Makefile
 	@echo [CC Local] $@
 	@mkdir -p $(dir $@)
-	@$(CC) -o $@ -c $< $(CFLAGS) $(CPPFLAGS) -I $(KERNEL_DIR)/include
+	@$(CC) -o $@ -c $< -MMD -MF $@.dep -MT $@ -MP $(CFLAGS) $(CPPFLAGS) -I $(KERNEL_DIR)/include
 
-$(KOBJ): obj/_Kernel/%.o: $(KERNEL_DIR)/%.c
+$(KOBJ): obj/_Kernel/%.o: $(KERNEL_DIR)/%.c Makefile
 	@echo [CC Kernel] $@
 	@mkdir -p $(dir $@)
-	@$(CC) -o $@ -c $< $(CFLAGS) $(CPPFLAGS) -I $(KERNEL_DIR)/include
+	@$(CC) -o $@ -c $< -MMD -MF $@.dep -MT $@ -MP $(CFLAGS) $(CPPFLAGS) -I $(KERNEL_DIR)/include
+
+-include $(OBJ:%=%.dep)
