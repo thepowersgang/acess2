@@ -91,7 +91,7 @@ Uint32 Threads_WaitEvents(Uint32 EventMask)
 		// Note stored anywhere because we're woken using other means
 		SHORTREL( &glThreadListLock );
 		SHORTREL( &us->IsLocked );
-		while(us->Status == THREAD_STAT_EVENTSLEEP)	Threads_Yield();
+		Threads_int_WaitForStatusEnd(THREAD_STAT_EVENTSLEEP);
 		// Woken when lock is acquired
 		SHORTLOCK( &us->IsLocked );
 	}
