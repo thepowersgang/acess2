@@ -14,7 +14,6 @@
 #include <shortlock.h>
 
 // === TYPES ===
-typedef struct sThread	tThread;
 struct sThreadIntMutex { int lock; };
 struct sThreadIntSem { int val; };
 

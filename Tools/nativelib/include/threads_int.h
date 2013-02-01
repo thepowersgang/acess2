@@ -10,7 +10,9 @@
 
 #include <shortlock.h>
 
+#ifndef _THREADS_H_
 typedef struct sThread	tThread;
+#endif
 
 #define THREAD_EVENT_RWLOCK	(1 << 8)
 
