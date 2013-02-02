@@ -8,6 +8,31 @@
 #include <disktool_common.h>
 
 // === CODE ===
+void PrintUsage(void)
+{
+	fprintf(stderr,
+		"Usage:\n"
+	       	" disktool <commands...>\n"
+		"\n"
+		"Commands:\n"
+		" lvm <image> <ident>\n"
+		" - Register an image with LVM\n"
+		"  e.g.\n"
+		"   `lvm ../AcessHDD.img HDD`\n"
+		" mount <image> <mountname>\n"
+		" - Bind an image to a name.\n"
+		"  e.g.\n"
+	       	"   `mount ../AcessFDD.img FDD`\n"
+		"   `mount :HDD/0 hda1`\n"
+		" ls <dir>\n"
+		" - List a directory\n"
+		"  e.g.\n"
+		"   `ls ../`\n"
+		"   `ls FDD:/`\n"
+		"\n"
+		);
+}
+
 int main(int argc, char *argv[])
 {
 	// Parse arguments
@@ -17,6 +42,7 @@ int main(int argc, char *argv[])
 			// Mount an image
 			if( argc - i < 3 ) {
 				fprintf(stderr, "mount takes 2 arguments (image and mountpoint)\n");
+				PrintUsage();
 				exit(-1);
 			}
 
@@ -33,6 +59,7 @@ int main(int argc, char *argv[])
 			
 			if( argc - i < 3 ) {
 				fprintf(stderr, "lvm takes 2 arguments (iamge and ident)\n");
+				PrintUsage();
 				exit(-1);
 			}
 
@@ -48,6 +75,7 @@ int main(int argc, char *argv[])
 		if( strcmp("ls", argv[i]) == 0 ) {
 			if( argc - i < 2 ) {
 				fprintf(stderr, "ls takes 1 argument (path)\n");
+				PrintUsage();
 				break;
 			}
 
@@ -60,6 +88,7 @@ int main(int argc, char *argv[])
 			
 			if( argc - i < 3 ) {
 				fprintf(stderr, "cp takes 2 arguments (source and destination)\n");
+				PrintUsage();
 				break;
 			}
 
@@ -73,6 +102,7 @@ int main(int argc, char *argv[])
 
 			if( argc - 1 < 2 ) {
 				fprintf(stderr, "cat takes 1 argument (path)\n");
+				PrintUsage();
 				break;
 			}
 
@@ -83,6 +113,7 @@ int main(int argc, char *argv[])
 		}
 	
 		fprintf(stderr, "Unknown command '%s'\n", argv[i]);
+		PrintUsage();
 	}
 	
 	DiskTool_Cleanup();
