@@ -9,7 +9,6 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
-#include <acess/sys.h>	// debug!
 
 // === TYPES ===
 typedef void	(*printf_putch_t)(void *h, char ch);
@@ -34,8 +33,6 @@ EXPORT int _vcprintf_int(printf_putch_t putch_cb, void *putch_h, const char *for
 	char	pad;
 	uint64_t	arg;
 	 int	bLongLong, bPadLeft;
-
-	_SysDebug("format=%s", format);
 
 	#define _addchar(ch) do { \
 		putch_cb(putch_h, ch); \
