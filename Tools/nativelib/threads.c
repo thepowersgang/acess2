@@ -70,7 +70,7 @@ void Threads_ClearEvent(Uint32 Mask)
 tUID Threads_GetUID(void) { return 0; }
 tGID Threads_GetGID(void) { return 0; }
 
-tTID Threads_GetTID(void) { return lpThreads_This->TID; }
+tTID Threads_GetTID(void) { return lpThreads_This ? lpThreads_This->TID : 0; }
 
 int *Threads_GetMaxFD(void)        { return &lpThreads_This->Process->MaxFDs;  }
 char **Threads_GetCWD(void)        { return &lpThreads_This->Process->CWD;     }
