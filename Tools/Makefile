@@ -1,13 +1,15 @@
 
-.PHONY: all clean nativelib DiskTool NetTest
+.PHONY: all clean
+.PHONY: nativelib DiskTool NetTest
+#.PHONY: nativelib-clean DiskTool-clean NetTest-clean
 
-all: DiskTool NetTest
+all clean: DiskTool NetTest
 
 img2sif: img2sif.c
 	$(CC) -o $@ $< `sdl-config --libs --cflags` -lSDL_image -Wall
 
 nativelib:
-	$(MAKE) -C $@
+	$(MAKE) -C $@ $(MAKECMDGOALS)
 
 DiskTool NetTest: nativelib
-	$(MAKE) -C $@
+	$(MAKE) -C $@ $(MAKECMDGOALS)

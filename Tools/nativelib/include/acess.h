@@ -50,9 +50,6 @@ typedef uint32_t	tUID;
 typedef uint32_t	tGID;
 typedef uint32_t	tTID;
 
-// NOTE: Since this is single-threaded (for now) mutexes can be implimented as simple locks
-typedef char	tShortSpinlock;
-
 typedef int64_t	tTime;
 extern tTime	now(void);
 extern int64_t	timestamp(int sec, int min, int hr, int day, int month, int year);
@@ -147,16 +144,7 @@ extern uint64_t	DivMod64U(uint64_t Num, uint64_t Den, uint64_t *Rem);
 static inline int MIN(int a, int b) { return a < b ? a : b; }
 static inline int MAX(int a, int b) { return a > b ? a : b; }
 
-#if USE_MULTITHREADING
-#error "TODO: Impliment multithreaded SHORTLOCK"
-#else
-static inline void SHORTLOCK(tShortSpinlock *Lock) {
-	if(*Lock)	Log_KernelPanic("---", "Double short lock");
-	*Lock = 1;
-}
-static inline void SHORTREL(tShortSpinlock *m) { *m = 0; }
-static inline int  CPU_HAS_LOCK(tShortSpinlock *m) { return *m; }
-#endif
+#include <shortlock.h>
 
 static inline intptr_t MM_GetPhysAddr(void *Ptr) { return 1; }
 static inline int	MM_IsUser(const void *Ptr) { return 1; }

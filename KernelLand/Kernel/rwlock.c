@@ -48,7 +48,7 @@ int RWLock_AcquireRead(tRWLock *Lock)
 		
 		SHORTREL( &glThreadListLock );
 		SHORTREL( &Lock->Protector );
-		while(us->Status == THREAD_STAT_RWLOCKSLEEP)	Threads_Yield();
+		Threads_int_WaitForStatusEnd(THREAD_STAT_RWLOCKSLEEP);
 		// We're only woken when we get the lock
 		// TODO: Handle when this isn't the case
 		us->WaitPointer = NULL;
@@ -90,7 +90,7 @@ int RWLock_AcquireWrite(tRWLock *Lock)
 		SHORTREL( &glThreadListLock );
 		SHORTREL( &Lock->Protector );
 		
-		while(us->Status == THREAD_STAT_RWLOCKSLEEP)	Threads_Yield();
+		Threads_int_WaitForStatusEnd(THREAD_STAT_RWLOCKSLEEP);
 		us->WaitPointer = NULL;
 	}
 	else

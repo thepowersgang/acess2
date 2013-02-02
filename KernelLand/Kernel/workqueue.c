@@ -46,10 +46,7 @@ void *Workqueue_GetWork(tWorkqueue *Queue)
 		SHORTREL(&glThreadListLock);
 		
 		// Yield and sleep
-		Threads_Yield();
-		if(us->Status == THREAD_STAT_QUEUESLEEP) {
-			// Why are we awake?!
-		}
+		Threads_int_WaitForStatusEnd(THREAD_STAT_QUEUESLEEP);
 
 		us->WaitPointer = NULL;
 	}

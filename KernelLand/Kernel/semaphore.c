@@ -79,17 +79,11 @@ int Semaphore_Wait(tSemaphore *Sem, int MaxToTake)
 		SHORTREL( &Sem->Protector );	// Release first to make sure it is released
 		SHORTREL( &glThreadListLock );
 		// Sleep until woken (either by getting what we need, or a timer event)
-		while( us->Status == THREAD_STAT_SEMAPHORESLEEP )
-		{
-			Threads_Yield();
-			if(us->Status == THREAD_STAT_SEMAPHORESLEEP)
-				Log_Warning("Threads", "Semaphore %p %s:%s re-schedulued while asleep",
-					Sem, Sem->ModName, Sem->Name);
-		}
+		Threads_int_WaitForStatusEnd( THREAD_STAT_SEMAPHORESLEEP );
+		// We're only woken when there's something avaliable (or a signal arrives)
 		#if DEBUG_TRACE_STATE || SEMAPHORE_DEBUG
 		Log("Semaphore %p %s:%s woken", Sem, Sem->ModName, Sem->Name);
 		#endif
-		// We're only woken when there's something avaliable (or a signal arrives)
 		us->WaitPointer = NULL;
 		
 		taken = us->RetStatus;
@@ -191,7 +185,7 @@ int Semaphore_Signal(tSemaphore *Sem, int AmmountToAdd)
 		
 		SHORTREL( &glThreadListLock );	
 		SHORTREL( &Sem->Protector );
-		while(us->Status == THREAD_STAT_SEMAPHORESLEEP)	Threads_Yield();
+		Threads_int_WaitForStatusEnd(THREAD_STAT_SEMAPHORESLEEP);
 		// We're only woken when there's something avaliable
 		us->WaitPointer = NULL;
 		

@@ -8,6 +8,11 @@
 #include <acess.h>
 #include <semaphore.h>
 
+#if 0
+TODO:: Rework kernel-land semaphore code to use events
+- Allows it to be used here and be tested easier
+#endif
+
 // === CODE ===
 void Semaphore_Init(tSemaphore *Sem, int InitValue, int MaxValue, const char *Module, const char *Name)
 {

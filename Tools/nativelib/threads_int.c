@@ -11,6 +11,7 @@
 #include <acess_logging.h>
 #include <threads_int.h>
 #include <pthread_weak.h>
+#include <shortlock.h>
 
 // === TYPES ===
 typedef struct sThread	tThread;
@@ -22,7 +23,6 @@ struct sThreadIntSem { int val; };
 // === CODE ===
 int Threads_int_ThreadingEnabled(void)
 {
-	Log_Debug("Threads", "pthread_create = %p", pthread_create);
 	return !!pthread_create;
 }
 
@@ -137,5 +137,40 @@ int Threads_int_CreateThread(tThread *Thread)
 		Log_KernelPanic("Threads", "Link with pthreads to use threading");
 		return -1;
 	}
+}
+
+void SHORTLOCK(tShortSpinlock *Lock)
+{
+	if( !pthread_mutex_init )
+	{
+		if(*Lock)	Log_KernelPanic("---", "Double short lock");
+		*Lock = (void*)1;
+	}
+	else
+	{
+		if( !*Lock ) {
+			*Lock = malloc(sizeof(pthread_mutex_t));
+			pthread_mutex_init(*Lock, NULL);
+		}
+		pthread_mutex_lock(*Lock);
+	}
+}
+
+void SHORTREL(tShortSpinlock *Lock)
+{
+	if( !pthread_mutex_init )
+	{
+		if(!*Lock)	Log_Notice("---", "Short release when not held");
+		*Lock = NULL;
+	}
+	else
+	{
+		pthread_mutex_unlock(*Lock);
+	}
+}
+
+int CPU_HAS_LOCK(tShortSpinlock *Lock)
+{
+	return 0;
 }
 

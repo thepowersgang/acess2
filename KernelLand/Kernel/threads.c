@@ -713,6 +713,22 @@ void Threads_Yield(void)
 }
 
 /**
+ * \breif Wait for the thread status to not be a specified value
+ */
+void Threads_int_WaitForStatusEnd(enum eThreadStatus Status)
+{
+	tThread	*us = Proc_GetCurThread();
+	ASSERT(Status != THREAD_STAT_ACTIVE);
+	ASSERT(Status != THREAD_STAT_DEAD);
+	while( us->Status == Status )
+	{
+		Proc_Reschedule();
+		if( us->Status == Status )
+			Debug("Thread %p(%i %s) rescheduled while in %s state", casTHREAD_STAT[Status]);
+	}
+}
+
+/**
  * \fn void Threads_Sleep(void)
  * \brief Take the current process off the run queue
  */
@@ -743,12 +759,7 @@ void Threads_Sleep(void)
 	
 	// Release Spinlock
 	SHORTREL( &glThreadListLock );
-
-	while(cur->Status != THREAD_STAT_ACTIVE) {
-		Proc_Reschedule();
-		if( cur->Status != THREAD_STAT_ACTIVE )
-			Log("%i - Huh? why am I up? zzzz...", cur->TID);
-	}
+	Threads_int_WaitForStatusEnd(THREAD_STAT_SLEEPING);
 }
 
 

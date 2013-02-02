@@ -115,12 +115,13 @@ tVFS_Node *IPStack_RouteDir_FindDir(tVFS_Node *Node, const char *Name)
 		{	
 			LOG("Why does this route not have a node? trying to find an iface for the next hop");
 
-			rt = _Route_FindInterfaceRoute(type, rt->NextHop);
-			if(!rt) {
+			void *nextrt = _Route_FindInterfaceRoute(type, rt->NextHop);
+			if(!nextrt) {
 				Log_Notice("Cannot find route to next hop '%s'",
 					IPStack_PrintAddress(type, rt->NextHop));
 				return NULL;
 			}
+			rt = nextrt;
 		}
 		if( !rt->Interface ) {
 			Log_Notice("Routes", "No interface for route %p, what the?", rt);
