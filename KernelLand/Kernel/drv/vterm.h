@@ -64,6 +64,9 @@ struct sVTerm
 	short	ScrollTop;	//!< Top of scrolling region (smallest)
 	short	ScrollHeight;	//!< Length of scrolling region
 
+	char	EscapeCodeCache[16];
+	size_t	EscapeCodeLen;
+
 	 int	VideoCursorX;
 	 int	VideoCursorY;
 	

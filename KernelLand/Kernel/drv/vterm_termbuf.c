@@ -21,14 +21,11 @@ void VT_int_PutString(tVTerm *Term, const Uint8 *Buffer, Uint Count)
 	for( i = 0; i < Count; i++ )
 	{
 		// Handle escape sequences
-		if( Buffer[i] == 0x1B && Count - i > 1 )
+		int ret = VT_int_ParseEscape(Term, (const char*)&Buffer[i], Count-i);
+		if( ret > 0 )
 		{
-			int ret = VT_int_ParseEscape(Term, (const char*)&Buffer[i+1], Count-(i+1));
-			if( ret > 0 )
-			{
-				i += ret;
-				continue;
-			}
+			i += ret;
+			continue;
 		}
 		
 		// Fast check for non UTF-8

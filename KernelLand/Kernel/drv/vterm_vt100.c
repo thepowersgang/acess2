@@ -229,8 +229,24 @@ int VT_int_ParseEscape(tVTerm *Term, const char *Buffer, size_t Bytes)
 	 int	argc = 0, j = 0;
 	 int	args[6] = {0,0,0,0};
 	 int	bQuestionMark = 0;
+	const int	ofs = Term->EscapeCodeLen;
+	const int	sparespace = sizeof(Term->EscapeCodeCache)-Term->EscapeCodeLen;
+	const int	copysize = MIN(Bytes, sparespace);
 
-	if( Bytes == j )	return j;
+	memcpy( Term->EscapeCodeCache + Term->EscapeCodeLen, Buffer, copysize );
+	Term->EscapeCodeLen += copysize;
+	
+	Bytes = Term->EscapeCodeLen;
+	Buffer = Term->EscapeCodeCache;
+
+	if( Bytes == j )	return j-ofs;
+	c = Buffer[j++];
+	if(c != '\x1b') {
+		Term->EscapeCodeLen = 0;
+		return 0;
+	}
+
+	if( Bytes == j )	return j-ofs;
 	c = Buffer[j++];
 
 	switch(c)
@@ -238,24 +254,24 @@ int VT_int_ParseEscape(tVTerm *Term, const char *Buffer, size_t Bytes)
 	//Large Code
 	case '[':
 		// Get Arguments
-		if(Bytes == j)	return j;
+		if(Bytes == j)	return j-ofs;
 		c = Buffer[j++];
 		if(c == '?') {
 			bQuestionMark = 1;
-			if(Bytes == j)	return j;
+			if(Bytes == j)	return j-ofs;
 			c = Buffer[j++];
 		}
 		if( '0' <= c && c <= '9' )
 		{
 			do {
 				if(c == ';') {
-					if(Bytes == j)	return j;
+					if(Bytes == j)	return j-ofs;
 					c = Buffer[j++];
 				}
 				while('0' <= c && c <= '9') {
 					args[argc] *= 10;
 					args[argc] += c-'0';
-					if(Bytes == j)	return j;
+					if(Bytes == j)	return j-ofs;
 					c = Buffer[j++];
 				}
 				argc ++;
@@ -265,8 +281,10 @@ int VT_int_ParseEscape(tVTerm *Term, const char *Buffer, size_t Bytes)
 		// Get Command
 		if( !('a' <= c && c <= 'z') && !('A' <= c && c <= 'Z') )
 		{
-			// Error
-			return j;
+			// Error - eat ESC only?
+			// > j : Entire code skipped
+			Term->EscapeCodeLen = 0;
+			return j-ofs;
 		}
 		
 		if( bQuestionMark )
@@ -325,5 +343,6 @@ int VT_int_ParseEscape(tVTerm *Term, const char *Buffer, size_t Bytes)
 	}
 	
 	//Log_Debug("VTerm", "j = %i, Buffer = '%s'", j, Buffer);
-	return j;
+	Term->EscapeCodeLen = 0;
+	return j-ofs;
 }
