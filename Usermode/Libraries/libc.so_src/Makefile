@@ -20,3 +20,9 @@ BIN = libc.so
 
 include ../Makefile.tpl
 
+%.no: %.c
+	$(NCC) -c $< -o $@
+
+TEST_%: TEST_%.no %.no
+	$(NCC) -o $@ TEST_$*.no $*.no
+
