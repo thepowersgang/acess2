@@ -82,7 +82,7 @@ int Semaphore_Wait(tSemaphore *Sem, int MaxToTake)
 		Threads_int_WaitForStatusEnd( THREAD_STAT_SEMAPHORESLEEP );
 		// We're only woken when there's something avaliable (or a signal arrives)
 		#if DEBUG_TRACE_STATE || SEMAPHORE_DEBUG
-		Log("Semaphore %p %s:%s woken", Sem, Sem->ModName, Sem->Name);
+		Log("Semaphore %p %s:%s woken from wait", Sem, Sem->ModName, Sem->Name);
 		#endif
 		us->WaitPointer = NULL;
 		
