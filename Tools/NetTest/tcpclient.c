@@ -21,6 +21,7 @@ void NetTest_Suite_Netcat(const char *Address, int Port)
 		Log_Error("Netcat", "herpaderp tcpc");
 		return ;
 	}
+	Log_Notice("Netcat", "Connection open");
 
 	char	buffer[1024];
 	size_t	len;
@@ -28,6 +29,8 @@ void NetTest_Suite_Netcat(const char *Address, int Port)
 	{
 		NetTest_WriteStdout(buffer, len);
 	}
+	
+	Log_Notice("Netcat", "Closing connection");
 
 	VFS_Close(fd);
 }

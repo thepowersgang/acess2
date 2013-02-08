@@ -10,6 +10,7 @@
 #include <nettest.h>
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
 
 extern int	VFS_Init(void);
 extern int	IPStack_Install(char **Args);
@@ -38,7 +39,9 @@ int main(int argc, char *argv[])
 		PrintUsage(argv[0]);
 		return 1;
 	}
-	
+
+	srand(time(NULL));	
+
 	// Startup
 	VFS_Init();
 	{
