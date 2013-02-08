@@ -350,7 +350,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 	// Get length of data
 	dataLen = Length - (Header->DataOffset>>4)*4;
 	LOG("dataLen = %i", dataLen);
-//	Log_Debug("TCP", "State %i, dataLen = %x", Connection->State, dataLen);
+	Log_Debug("TCP", "State %i, dataLen = %x", Connection->State, dataLen);
 	
 	// 
 	// State Machine
@@ -368,14 +368,6 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 		if( Header->Flags & TCP_FLAG_SYN )
 		{
 			Connection->NextSequenceRcv ++;
-			Header->DestPort = Header->SourcePort;
-			Header->SourcePort = htons(Connection->LocalPort);
-			Header->AcknowlegementNumber = htonl(Connection->NextSequenceRcv);
-			Header->SequenceNumber = htonl(Connection->NextSequenceSend);
-			Header->WindowSize = htons(TCP_WINDOW_SIZE);
-			Header->Flags = TCP_FLAG_ACK;
-			Header->DataOffset = (sizeof(tTCPHeader)/4) << 4;
-			TCP_SendPacket( Connection, Header, 0, NULL );
 			
 			if( Header->Flags & TCP_FLAG_ACK )
 			{	
@@ -388,6 +380,14 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 				Log_Log("TCP", "ACKing SYN");
 				Connection->State = TCP_ST_SYN_RCVD;
 			}
+			Header->DestPort = Header->SourcePort;
+			Header->SourcePort = htons(Connection->LocalPort);
+			Header->AcknowlegementNumber = htonl(Connection->NextSequenceRcv);
+			Header->SequenceNumber = htonl(Connection->NextSequenceSend);
+			Header->WindowSize = htons(TCP_WINDOW_SIZE);
+			Header->Flags = TCP_FLAG_ACK;
+			Header->DataOffset = (sizeof(tTCPHeader)/4) << 4;
+			TCP_SendPacket( Connection, Header, 0, NULL );
 		}
 		break;
 	
@@ -426,12 +426,15 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 			}
 			Connection->NextSequenceRcv ++;	// TODO: Is this right? (empty packet counts as one byte)
 			Log_Log("TCP", "Empty Packet, inc and ACK the current sequence number");
+			TCP_INT_SendACK(Connection);
+			#if 0
 			Header->DestPort = Header->SourcePort;
 			Header->SourcePort = htons(Connection->LocalPort);
 			Header->AcknowlegementNumber = htonl(Connection->NextSequenceRcv);
 			Header->SequenceNumber = htonl(Connection->NextSequenceSend);
 			Header->Flags |= TCP_FLAG_ACK;
 			TCP_SendPacket( Connection, Header, 0, NULL );
+			#endif
 			return ;
 		}
 		
@@ -442,7 +445,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 		
 		sequence_num = ntohl(Header->SequenceNumber);
 		
-		LOG("TCP", "0x%08x <= 0x%08x < 0x%08x",
+		LOG("0x%08x <= 0x%08x < 0x%08x",
 			Connection->NextSequenceRcv,
 			ntohl(Header->SequenceNumber),
 			Connection->NextSequenceRcv + TCP_WINDOW_SIZE

@@ -67,6 +67,7 @@ int ARP_Initialise()
 	#endif
 	
 	Link_RegisterType(0x0806, ARP_int_GetPacket);
+	Semaphore_Init(&gARP_Cache4Semaphore, 0, 0, "ARP4", "Cache Changes");
 	return 1;
 }
 
@@ -171,6 +172,7 @@ tMacAddr ARP_Resolve4(tInterface *Interface, tIPv4 Address)
 			Log_Log("ARP4", "Timeout");
 			break;
 		}
+		Log_Debug("ARP4", "Cache change");
 		
 		Mutex_Acquire( &glARP_Cache4 );
 		for( i = 0; i < giARP_Cache4Space; i++ )
