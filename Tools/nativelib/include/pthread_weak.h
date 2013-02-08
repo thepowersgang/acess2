@@ -18,6 +18,7 @@ extern int pthread_mutex_destroy (pthread_mutex_t*) __attribute__ ((weak));
 
 extern int sem_init(sem_t *sem, int pshared, unsigned int value) __attribute__ ((weak));
 extern int sem_wait(sem_t *sem) __attribute__ ((weak));
+extern int sem_trywait(sem_t *sem) __attribute__ ((weak));
 extern int sem_post(sem_t *sem) __attribute__ ((weak));
 extern int sem_getvalue(sem_t *sem, int *sval) __attribute__ ((weak));
 

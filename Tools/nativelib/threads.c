@@ -23,6 +23,7 @@ tShortSpinlock	glThreadListLock;
 void Threads_int_Init(void)
 {
 	lpThreads_This = Threads_int_CreateTCB(NULL);
+	Threads_SetName("ThreadZero");
 }
 
 tThread *Proc_GetCurThread(void)

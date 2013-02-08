@@ -8,6 +8,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdio.h>	// printf debugging
 #include <acess_logging.h>
 #include <threads_int.h>
 #include <pthread_weak.h>
@@ -90,9 +91,9 @@ tThreadIntSem *Threads_int_SemCreate(void)
 
 void Threads_int_SemSignal(tThreadIntSem *Sem)
 {
-	if( sem_wait )
+	if( sem_post )
 	{
-		sem_wait( (void*)Sem );
+		sem_post( (void*)Sem );
 	}
 	else
 	{
@@ -102,9 +103,12 @@ void Threads_int_SemSignal(tThreadIntSem *Sem)
 
 void Threads_int_SemWaitAll(tThreadIntSem *Sem)
 {
-	if( sem_post )
+	if( sem_wait )
 	{
-		sem_post( (void*)Sem );
+		// TODO: Handle multiples
+		sem_wait( (void*)Sem );
+		while( sem_trywait((void*)Sem) )
+			;
 	}
 	else
 	{
@@ -151,7 +155,9 @@ void SHORTLOCK(tShortSpinlock *Lock)
 			*Lock = malloc(sizeof(pthread_mutex_t));
 			pthread_mutex_init(*Lock, NULL);
 		}
+//		printf("%p: SHORTLOCK wait\n", lpThreads_This);
 		pthread_mutex_lock(*Lock);
+//		printf("%p: SHORTLOCK held %p\n", lpThreads_This, __builtin_return_address(0));
 	}
 }
 
@@ -165,6 +171,7 @@ void SHORTREL(tShortSpinlock *Lock)
 	else
 	{
 		pthread_mutex_unlock(*Lock);
+//		printf("%p: SHORTLOCK rel\n", lpThreads_This);
 	}
 }
 

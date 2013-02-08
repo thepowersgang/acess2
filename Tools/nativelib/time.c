@@ -19,6 +19,7 @@ void Time_ScheduleTimer(tTimer *Timer, int Delta)
 	if( !Timer )
 	{
 		// SIGALRM
+		Log_Warning("Time", "TODO: Alarm event in %i ms", Delta);
 	}
 	else
 	{
