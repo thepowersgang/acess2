@@ -62,7 +62,7 @@ include/syscalls.h: KernelLand/Kernel/Makefile KernelLand/Kernel/syscalls.lst
 
 _build_dynmod := BUILDTYPE=dynamic $(SUBMAKE) -C KernelLand/Modules/
 _build_stmod  := BUILDTYPE=static $(SUBMAKE) -C KernelLand/Modules/
-_build_kernel := $(SUBMAKE) $1 -C KernelLand/Kernel
+_build_kernel := $(SUBMAKE) -C KernelLand/Kernel
 
 # Compile Only
 $(ALL_DYNMODS): all-%:
