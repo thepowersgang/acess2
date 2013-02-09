@@ -239,10 +239,8 @@ tPAddr MM_AllocPhys(void)
 
 	// Release Spinlock
 	Mutex_Release( &glPhysAlloc );
-	
 	LEAVE('X', ret);
-	if( ret == 0x17FFE000 )
-		LogF("TRIP!\n");
+
 	#if TRACE_ALLOCS
 	if( now() > 4000 ) {
 	Log_Debug("PMem", "MM_AllocPhys: RETURN %P (%i free)", ret, giPageCount-giPhysAlloc);
