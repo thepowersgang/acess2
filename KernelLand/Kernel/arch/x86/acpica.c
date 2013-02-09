@@ -94,7 +94,7 @@ ACPI_PHYSICAL_ADDRESS AcpiOsGetRootPointer(void)
 	if( ACPI_FAILURE(rv) )
 		return 0;
 
-	LOG("val=%x", val);
+	LOG("val=0x%x", val);
 	
 	return val;
 	// (Or use EFI)
@@ -222,8 +222,13 @@ void *AcpiOsMapMemory(ACPI_PHYSICAL_ADDRESS PhysicalAddress, ACPI_SIZE Length)
 	
 	Uint	ofs = PhysicalAddress & (PAGE_SIZE-1);
 	int npages = (ofs + Length + (PAGE_SIZE-1)) / PAGE_SIZE;
-	void *rv = ((char*)MM_MapHWPages(PhysicalAddress, npages)) + ofs;
+	char *maploc = (void*)MM_MapHWPages(PhysicalAddress, npages);
+	if(!maploc) {
+		LOG("Mapping %P+0x%x failed", PhysicalAddress, Length);
+		return NULL;
+	}
 //	MM_DumpTables(0, -1);
+	void *rv = maploc + ofs;
 	LOG("Map (%P+%i pg) to %p", PhysicalAddress, npages, rv);
 	return rv;
 }
