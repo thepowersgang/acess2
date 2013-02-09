@@ -8,11 +8,12 @@
 #include <desctab.h>
 #include <mm_virt.h>
 #include <errno.h>
-#if USE_MP
-# include <mp.h>
-#endif
 #include <hal_proc.h>
 #include <arch_int.h>
+#include <proc_int.h>
+#if USE_MP
+# include <apic.h>
+#endif
 
 // === FLAGS ===
 #define DEBUG_TRACE_SWITCH	0
@@ -30,28 +31,17 @@
 #endif
 
 // === TYPES ===
-typedef struct sCPU
-{
-	Uint8	APICID;
-	Uint8	State;	// 0: Unavaliable, 1: Idle, 2: Active
-	Uint16	Resvd;
-	tThread	*Current;
-	tThread	*LastTimerThread;	// Used to do preeemption
-}	tCPU;
 
 // === IMPORTS ===
 extern tGDT	gGDT[];
 extern tIDT	gIDT[];
 extern void	APWait(void);	// 16-bit AP pause code
 extern void	APStartup(void);	// 16-bit AP startup code
-extern Uint	GetEIP(void);	// start.asm
-extern Uint	GetEIP_Sched(void);	// proc.asm
 extern void	NewTaskHeader(tThread *Thread, void *Fcn, int nArgs, ...);	// Actually takes cdecl args
 extern Uint	Proc_CloneInt(Uint *ESP, Uint32 *CR3, int bNoUserClone);
 extern Uint32	gaInitPageDir[1024];	// start.asm
 extern char	Kernel_Stack_Top[];
 extern int	giNumCPUs;
-extern int	giNextTID;
 extern tThread	gThreadZero;
 extern tProcess	gProcessZero;
 extern void	Isr8(void);	// Double Fault
@@ -60,10 +50,6 @@ extern char	scheduler_return[];	// Return address in SchedulerBase
 extern char	IRQCommon[];	// Common IRQ handler code
 extern char	IRQCommon_handled[];	// IRQCommon call return location
 extern char	GetEIP_Sched_ret[];	// GetEIP call return location
-extern void	SwitchTasks(Uint NewSP, Uint *OldSP, Uint NewIP, Uint *OldIO, Uint CR3);
-extern void	Proc_InitialiseSSE(void);
-extern void	Proc_SaveSSE(Uint DestPtr);
-extern void	Proc_DisableSSE(void);
 
 // === PROTOTYPES ===
 //void	ArchThreads_Init(void);
@@ -81,7 +67,6 @@ void	Proc_ChangeStack(void);
 Uint	Proc_MakeUserStack(void);
 //void	Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **EnvP, int DataSize);
 void	Proc_StartProcess(Uint16 SS, Uint Stack, Uint Flags, Uint16 CS, Uint IP) NORETURN;
- int	Proc_Demote(Uint *Err, int Dest, tRegs *Regs);
 //void	Proc_CallFaultHandler(tThread *Thread);
 //void	Proc_DumpThreadCPUState(tThread *Thread);
 void	Proc_Scheduler(int CPU);
@@ -90,7 +75,6 @@ void	Proc_Scheduler(int CPU);
 // --- Multiprocessing ---
 #if USE_MP
 volatile int	giNumInitingCPUs = 0;
-tMPInfo	*gMPFloatPtr = NULL;
 volatile Uint32	giMP_TimerCount;	// Start Count for Local APIC Timer
 tAPIC	*gpMP_LocalAPIC = NULL;
 Uint8	gaAPIC_to_CPU[256] = {0};
@@ -122,184 +106,25 @@ tTSS	gDoubleFault_TSS = {
  */
 void ArchThreads_Init(void)
 {
-	Uint	pos = 0;
-	
-	#if USE_MP
-	tMPTable	*mptable;
-	
 	// Mark BSP as active
 	gaCPUs[0].State = 2;
 	
+	#if USE_MP
 	// -- Initialise Multiprocessing
-	// Find MP Floating Table
-	// - EBDA/Last 1Kib (640KiB)
-	for(pos = KERNEL_BASE|0x9F000; pos < (KERNEL_BASE|0xA0000); pos += 16) {
-		if( *(Uint*)(pos) == MPPTR_IDENT ) {
-			Log("Possible %p", pos);
-			if( ByteSum((void*)pos, sizeof(tMPInfo)) != 0 )	continue;
-			gMPFloatPtr = (void*)pos;
-			break;
-		}
-	}
-	// - Last KiB (512KiB base mem)
-	if(!gMPFloatPtr) {
-		for(pos = KERNEL_BASE|0x7F000; pos < (KERNEL_BASE|0x80000); pos += 16) {
-			if( *(Uint*)(pos) == MPPTR_IDENT ) {
-				Log("Possible %p", pos);
-				if( ByteSum((void*)pos, sizeof(tMPInfo)) != 0 )	continue;
-				gMPFloatPtr = (void*)pos;
-				break;
-			}
-		}
-	}
-	// - BIOS ROM
-	if(!gMPFloatPtr) {
-		for(pos = KERNEL_BASE|0xE0000; pos < (KERNEL_BASE|0x100000); pos += 16) {
-			if( *(Uint*)(pos) == MPPTR_IDENT ) {
-				Log("Possible %p", pos);
-				if( ByteSum((void*)pos, sizeof(tMPInfo)) != 0 )	continue;
-				gMPFloatPtr = (void*)pos;
-				break;
-			}
-		}
-	}
-	
-	// If the MP Table Exists, parse it
-	if(gMPFloatPtr)
+	const void *mpfloatptr = MPTable_LocateFloatPtr();
+	if( mpfloatptr )
 	{
-		 int	i;
-	 	tMPTable_Ent	*ents;
-		#if DUMP_MP_TABLE
-		Log("gMPFloatPtr = %p", gMPFloatPtr);
-		Log("*gMPFloatPtr = {");
-		Log("\t.Sig = 0x%08x", gMPFloatPtr->Sig);
-		Log("\t.MPConfig = 0x%08x", gMPFloatPtr->MPConfig);
-		Log("\t.Length = 0x%02x", gMPFloatPtr->Length);
-		Log("\t.Version = 0x%02x", gMPFloatPtr->Version);
-		Log("\t.Checksum = 0x%02x", gMPFloatPtr->Checksum);
-		Log("\t.Features = [0x%02x,0x%02x,0x%02x,0x%02x,0x%02x]",
-			gMPFloatPtr->Features[0],	gMPFloatPtr->Features[1],
-			gMPFloatPtr->Features[2],	gMPFloatPtr->Features[3],
-			gMPFloatPtr->Features[4]
-			);
-		Log("}");
-		#endif		
-
-		mptable = (void*)( KERNEL_BASE|gMPFloatPtr->MPConfig );
-		#if DUMP_MP_TABLE
-		Log("mptable = %p", mptable);
-		Log("*mptable = {");
-		Log("\t.Sig = 0x%08x", mptable->Sig);
-		Log("\t.BaseTableLength = 0x%04x", mptable->BaseTableLength);
-		Log("\t.SpecRev = 0x%02x", mptable->SpecRev);
-		Log("\t.Checksum = 0x%02x", mptable->Checksum);
-		Log("\t.OEMID = '%8c'", mptable->OemID);
-		Log("\t.ProductID = '%8c'", mptable->ProductID);
-		Log("\t.OEMTablePtr = %p'", mptable->OEMTablePtr);
-		Log("\t.OEMTableSize = 0x%04x", mptable->OEMTableSize);
-		Log("\t.EntryCount = 0x%04x", mptable->EntryCount);
-		Log("\t.LocalAPICMemMap = 0x%08x", mptable->LocalAPICMemMap);
-		Log("\t.ExtendedTableLen = 0x%04x", mptable->ExtendedTableLen);
-		Log("\t.ExtendedTableChecksum = 0x%02x", mptable->ExtendedTableChecksum);
-		Log("}");
-		#endif
-		
-		gpMP_LocalAPIC = (void*)MM_MapHWPages(mptable->LocalAPICMemMap, 1);
-		
-		ents = mptable->Entries;
-		giNumCPUs = 0;
-		
-		for( i = 0; i < mptable->EntryCount; i ++ )
+		giNumCPUs = MPTable_FillCPUs(mpfloatptr, gaCPUs, MAX_CPUS, &giProc_BootProcessorID);
+		for( int i = 0; i < giNumCPUs; i ++ )
 		{
-			 int	entSize = 0;
-			switch( ents->Type )
-			{
-			case 0:	// Processor
-				entSize = 20;
-				#if DUMP_MP_TABLE
-				Log("%i: Processor", i);
-				Log("\t.APICID = %i", ents->Proc.APICID);
-				Log("\t.APICVer = 0x%02x", ents->Proc.APICVer);
-				Log("\t.CPUFlags = 0x%02x", ents->Proc.CPUFlags);
-				Log("\t.CPUSignature = 0x%08x", ents->Proc.CPUSignature);
-				Log("\t.FeatureFlags = 0x%08x", ents->Proc.FeatureFlags);
-				#endif
-				
-				if( !(ents->Proc.CPUFlags & 1) ) {
-					Log("DISABLED");
-					break;
-				}
-				
-				// Check if there is too many processors
-				if(giNumCPUs >= MAX_CPUS) {
-					giNumCPUs ++;	// If `giNumCPUs` > MAX_CPUS later, it will be clipped
-					break;
-				}
-				
-				// Initialise CPU Info
-				gaAPIC_to_CPU[ents->Proc.APICID] = giNumCPUs;
-				gaCPUs[giNumCPUs].APICID = ents->Proc.APICID;
-				gaCPUs[giNumCPUs].State = 0;
-				giNumCPUs ++;
-				
-				// Set BSP Variable
-				if( ents->Proc.CPUFlags & 2 ) {
-					giProc_BootProcessorID = giNumCPUs-1;
-				}
-				
-				break;
-			
-			#if DUMP_MP_TABLE >= 2
-			case 1:	// Bus
-				entSize = 8;
-				Log("%i: Bus", i);
-				Log("\t.ID = %i", ents->Bus.ID);
-				Log("\t.TypeString = '%6C'", ents->Bus.TypeString);
-				break;
-			case 2:	// I/O APIC
-				entSize = 8;
-				Log("%i: I/O APIC", i);
-				Log("\t.ID = %i", ents->IOAPIC.ID);
-				Log("\t.Version = 0x%02x", ents->IOAPIC.Version);
-				Log("\t.Flags = 0x%02x", ents->IOAPIC.Flags);
-				Log("\t.Addr = 0x%08x", ents->IOAPIC.Addr);
-				break;
-			case 3:	// I/O Interrupt Assignment
-				entSize = 8;
-				Log("%i: I/O Interrupt Assignment", i);
-				Log("\t.IntType = %i", ents->IOInt.IntType);
-				Log("\t.Flags = 0x%04x", ents->IOInt.Flags);
-				Log("\t.SourceBusID = 0x%02x", ents->IOInt.SourceBusID);
-				Log("\t.SourceBusIRQ = 0x%02x", ents->IOInt.SourceBusIRQ);
-				Log("\t.DestAPICID = 0x%02x", ents->IOInt.DestAPICID);
-				Log("\t.DestAPICIRQ = 0x%02x", ents->IOInt.DestAPICIRQ);
-				break;
-			case 4:	// Local Interrupt Assignment
-				entSize = 8;
-				Log("%i: Local Interrupt Assignment", i);
-				Log("\t.IntType = %i", ents->LocalInt.IntType);
-				Log("\t.Flags = 0x%04x", ents->LocalInt.Flags);
-				Log("\t.SourceBusID = 0x%02x", ents->LocalInt.SourceBusID);
-				Log("\t.SourceBusIRQ = 0x%02x", ents->LocalInt.SourceBusIRQ);
-				Log("\t.DestLocalAPICID = 0x%02x", ents->LocalInt.DestLocalAPICID);
-				Log("\t.DestLocalAPICIRQ = 0x%02x", ents->LocalInt.DestLocalAPICIRQ);
-				break;
-			default:
-				Log("%i: Unknown (%i)", i, ents->Type);
-				break;
-			#endif
-			}
-			ents = (void*)( (Uint)ents + entSize );
-		}
-		
-		if( giNumCPUs > MAX_CPUS ) {
-			Warning("Too many CPUs detected (%i), only using %i of them", giNumCPUs, MAX_CPUS);
-			giNumCPUs = MAX_CPUS;
+			// TODO: Determine if there's an overlap
+			gaAPIC_to_CPU[gaCPUs[i].APICID] = i;
 		}
 		gTSSs = gaTSSs;
 	}
-	else {
-		Log("No MP Table was found, assuming uniprocessor\n");
+	else
+	{
+		Log("No MP Table was found, assuming uniprocessor");
 		giNumCPUs = 1;
 		gTSSs = &gTSS0;
 	}
@@ -353,10 +178,10 @@ void ArchThreads_Init(void)
 	}
 	
 	// Initialise Normal TSS(s)
-	for(pos=0;pos<giNumCPUs;pos++)
+	for(int pos=0;pos<giNumCPUs;pos++)
 	{
 	#else
-	pos = 0;
+	const int pos = 0;
 	#endif
 		gTSSs[pos].SS0 = 0x10;
 		gTSSs[pos].ESP0 = 0;	// Set properly by scheduler
@@ -412,7 +237,7 @@ void MP_StartAP(int CPU)
 	// - MM_AllocDMA mabye?
 	// Create a far jump
 	*(Uint8*)(KERNEL_BASE|0x11000) = 0xEA;	// Far JMP
-	*(Uint16*)(KERNEL_BASE|0x11001) = (Uint16)&APStartup + 0x10;	// IP
+	*(Uint16*)(KERNEL_BASE|0x11001) = (Uint16)(tVAddr)&APStartup + 0x10;	// IP
 	*(Uint16*)(KERNEL_BASE|0x11003) = 0xFFFF;	// CS
 	
 	giNumInitingCPUs ++;
@@ -475,7 +300,7 @@ void Proc_IdleThread(void *Ptr)
 	cpu->Current->Quantum = 1;	// 1 slice quantum
 	for(;;) {
 		__asm__ __volatile__ ("sti");	// Make sure interrupts are enabled
-		__asm__ __volatile__ ("hlt");	// Make sure interrupts are enabled
+		__asm__ __volatile__ ("hlt");
 		Proc_Reschedule();
 	}
 }
@@ -806,40 +631,6 @@ void Proc_StartProcess(Uint16 SS, Uint Stack, Uint Flags, Uint16 CS, Uint IP)
 	"popa;\n\t"
 	"iret;\n\t" : : "a" (stack));
 	for(;;);
-}
-
-/**
- * \fn int Proc_Demote(Uint *Err, int Dest, tRegs *Regs)
- * \brief Demotes a process to a lower permission level
- * \param Err	Pointer to user's errno
- * \param Dest	New Permission Level
- * \param Regs	Pointer to user's register structure
- */
-int Proc_Demote(Uint *Err, int Dest, tRegs *Regs)
-{
-	 int	cpl = Regs->cs & 3;
-	// Sanity Check
-	if(Dest > 3 || Dest < 0) {
-		*Err = -EINVAL;
-		return -1;
-	}
-	
-	// Permission Check
-	if(cpl > Dest) {
-		*Err = -EACCES;
-		return -1;
-	}
-	
-	// Change the Segment Registers
-	Regs->cs = (((Dest+1)<<4) | Dest) - 8;
-	Regs->ss = ((Dest+1)<<4) | Dest;
-	// Check if the GP Segs are GDT, then change them
-	if(!(Regs->ds & 4))	Regs->ds = ((Dest+1)<<4) | Dest;
-	if(!(Regs->es & 4))	Regs->es = ((Dest+1)<<4) | Dest;
-	if(!(Regs->fs & 4))	Regs->fs = ((Dest+1)<<4) | Dest;
-	if(!(Regs->gs & 4))	Regs->gs = ((Dest+1)<<4) | Dest;
-	
-	return 0;
 }
 
 /**

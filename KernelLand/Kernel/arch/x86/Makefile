@@ -24,6 +24,9 @@ CPPFLAGS += -DUSE_MP=$(USE_MP) -DUSE_ACPICA=$(USE_ACPICA)
 A_OBJ  = start.ao main.o mboot.o lib.o desctab.ao errors.o irq.o
 A_OBJ += mm_phys.o mm_virt.o
 A_OBJ += proc.o proc.ao time.o vm8086.o
+ifeq ($(USE_MP),1)
+A_OBJ += mptable.o
+endif
 A_OBJ += kpanic.o pci.o vpci.o
 
 ifeq ($(USE_ACPICA),1)

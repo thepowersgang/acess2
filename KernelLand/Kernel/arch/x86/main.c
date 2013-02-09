@@ -8,7 +8,6 @@
 #include <multiboot2.h>
 #include <init.h>
 #include <mm_virt.h>
-#include <mp.h>
 #include <pmemmap.h>
 
 #define	VGA_ERRORS	0
