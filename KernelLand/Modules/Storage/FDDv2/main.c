@@ -113,7 +113,7 @@ int FDD_RegisterFS(void)
  */
 int FDD_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 {
-	if(Pos < 0 || Pos > MAX_DISKS )
+	if(Pos < 0 || Pos >= MAX_DISKS )
 		return -ENOENT;
 	if(!gaFDD_Disks[Pos].bValid)
 		return 1;
@@ -136,6 +136,7 @@ tVFS_Node *FDD_FindDir(tVFS_Node *Node, const char *Name)
 	if( Name[1] != '\0' )	return NULL;
 	
 	pos = Name[0] - '0';
+	if( pos >= MAX_DISKS )	return NULL;
 	
 	return &gaFDD_DiskNodes[pos];
 }
