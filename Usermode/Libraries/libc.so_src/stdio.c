@@ -264,6 +264,8 @@ EXPORT size_t fwrite(const void *ptr, size_t size, size_t num, FILE *fp)
 	
 	if(!fp || fp->FD == -1)
 		return -1;
+	if( size == 0 || num == 0 )
+		return 0;
 
 	if( fp->FD == -2 ) {
 		size_t	avail = (fp->BufferSize - fp->Pos) / size;
@@ -293,6 +295,8 @@ EXPORT size_t fread(void *ptr, size_t size, size_t num, FILE *fp)
 	
 	if(!fp || fp->FD == -1)
 		return -1;
+	if( size == 0 || num == 0 )
+		return 0;
 
 	if( fp->FD == -2 ) {
 		size_t	avail = (fp->BufferSize - fp->Pos) / size;
