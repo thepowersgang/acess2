@@ -130,6 +130,8 @@ int LVM_Root_ReadDir(tVFS_Node *Node, int ID, char Dest[FILENAME_MAX])
 	
 	if( ID < 0 )	return -EINVAL;
 
+	// TODO: Sub-dirs for 'by-uuid', 'by-label' etc
+
 	for( vol = gpLVM_FirstVolume; vol && ID --; vol = vol->Next );
 	
 	if(vol) {
