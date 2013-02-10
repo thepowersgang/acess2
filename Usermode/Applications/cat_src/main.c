@@ -12,7 +12,7 @@
  */
 int main(int argc, char *argv[])
 {
-	 int	num;
+	size_t	num;
 	char	buf[BUF_SIZE];
 
 	if(argc < 2) {
@@ -27,9 +27,9 @@ int main(int argc, char *argv[])
 	}
 
 	do {
-		num = fread(buf, BUF_SIZE, 1, fp);
-		if(num < 0)	break;
-		fwrite(buf, num, 1, stdout);
+		num = fread(buf, 1, BUF_SIZE, fp);
+		if(num <= 0)	break;
+		fwrite(buf, 1, num, stdout);
 	} while(num == BUF_SIZE);
 
 	fclose(fp);
