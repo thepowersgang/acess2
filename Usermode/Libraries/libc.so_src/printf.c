@@ -12,6 +12,11 @@
 #include <ctype.h>	// toupper
 #include <assert.h>	// assert() 
 
+// Quick booleans
+typedef char	BOOL;
+#define TRUE	1
+#define FALSE	0
+
 // === TYPES ===
 typedef void	(*printf_putch_t)(void *h, char ch);
 enum eFPN {
@@ -22,7 +27,11 @@ enum eFPN {
 
 // === PROTOTYPES ===
 void	itoa(char *buf, uint64_t num, size_t base, int minLength, char pad, int bSigned);
-size_t	_printf_itoa(printf_putch_t putch_cb, void *putch_h, uint64_t num, size_t base, int minLength, char pad, int bSigned);
+size_t	_printf_itoa(printf_putch_t putch_cb, void *putch_h, uint64_t num,
+	size_t base, int bUpper,
+	int bSigned, char SignChar, int Precision,
+	int PadLength, char PadChar, int bPadRight);
+size_t	_printf_ftoa_hex(printf_putch_t putch_cb, void *putch_h, long double num, int Precision, int bForcePoint, int bForceSign, int bCapitals);
 size_t	_printf_ftoa(printf_putch_t putch_cb, void *putch_h, long double num, size_t Base, enum eFPN Notation, int Precision, int bForcePoint, int bForceSign, int bCapitals);
 
 // === CODE ===
@@ -39,11 +48,11 @@ EXPORT int _vcprintf_int(printf_putch_t putch_cb, void *putch_h, const char *for
 	 int	c, minSize, precision, len;
 	size_t	pos = 0;
 	char	*p;
-	char	pad;
 	uint64_t	arg;
 	long double	arg_f;
 //	char	cPositiveChar;
-	 int	bLongLong, bPadLeft, bLong;
+	BOOL	bLongLong, bLong, bJustifyLeft, bAltForm;
+	char	cNumPad, cPlus;
 
 	#define _addchar(ch) do { \
 		putch_cb(putch_h, ch); \
@@ -67,41 +76,42 @@ EXPORT int _vcprintf_int(printf_putch_t putch_cb, void *putch_h, const char *for
 			continue;
 		}
 		
-		bPadLeft = 0;
+		bAltForm = 0;
+		cNumPad = ' ';
+		bJustifyLeft = 0;
+		cPlus = '\0';
 		bLong = 0;
 		bLongLong = 0;
 		minSize = 0;
 		precision = -1;
-//		cPositiveChar = '\0';
-		pad = ' ';
 		
 		// - Flags
-		// Alternate form (0<oct>, 0x<hex>, 123.)
-		if(c == '#') {
-			// TODO:
-			c = *format++;
+		do
+		{
+			// Alternate form (0<oct>, 0x<hex>, 123.)
+			if(c == '#') {
+				bAltForm = 1;
+			}
+			// Padding with '0'
+			else if(c == '0') {
+				cNumPad = '0';
+			}
+			// Pad on left
+			else if(c == '-') {
+				bJustifyLeft = 1;
+			}
+			// Include space for positive sign
+			else if(c == ' ') {
+				cPlus = ' ';
+			}
+			// Always include sign
+			else if(c == '+') {
+				cPlus = '+';
+			}
+			else
+				break;
 		}
-		// Padding with '0'
-		if(c == '0') {
-			pad = '0';
-			c = *format++;
-		}
-		// Pad on left
-		if(c == '-') {
-			bPadLeft = 1;
-			c = *format++;
-		}
-		// Include space for positive sign
-		if(c == ' ') {
-			// TODO:
-//			cPositiveChar = ' ';
-			c = *format++;
-		}
-		// Always include sign
-		if(c == '+') {
-//			cPositiveChar = '+';
-			c = *format++;
-		}
+		while( c = *format++ );
 		
 		// Padding length
 		if( c == '*' ) {
@@ -157,22 +167,22 @@ EXPORT int _vcprintf_int(printf_putch_t putch_cb, void *putch_h, const char *for
 		switch( c )
 		{
 		// Signed Integer
-		case 'd':	case 'i':
+		case 'd':
+		case 'i':
 			// Get Argument
-			if(bLongLong)	arg = va_arg(args, int64_t);
-			else			arg = va_arg(args, int32_t);
-			itoa(tmp, arg, 10, minSize, pad, 1);
-			precision = -1;
-			goto sprintf_puts;
+			arg = bLongLong ? va_arg(args, int64_t) : va_arg(args, int32_t);
+			if( arg == 0 && precision == 0 )
+				break;
+			pos += _printf_itoa(putch_cb, putch_h, arg, 10, FALSE,
+				TRUE, cPlus, precision, minSize, cNumPad, bJustifyLeft);
+			break;
 		
 		// Unsigned Integer
 		case 'u':
-			// Get Argument
-			if(bLongLong)	arg = va_arg(args, uint64_t);
-			else			arg = va_arg(args, uint32_t);
-			itoa(tmp, arg, 10, minSize, pad, 0);
-			precision = -1;
-			goto sprintf_puts;
+			arg = bLongLong ? va_arg(args, int64_t) : va_arg(args, int32_t);
+			pos += _printf_itoa(putch_cb, putch_h, arg, 10, FALSE,
+				FALSE, '\0', precision, minSize, cNumPad, bJustifyLeft);
+			break;
 		
 		// Pointer
 		case 'p':
@@ -180,54 +190,61 @@ EXPORT int _vcprintf_int(printf_putch_t putch_cb, void *putch_h, const char *for
 			_addchar('0');
 			_addchar('x');
 			arg = va_arg(args, intptr_t);
-			itoa(tmp, arg, 16, minSize, pad, 0);
-			precision = -1;
-			goto sprintf_puts;
+			pos += _printf_itoa(putch_cb, putch_h, arg, 16, FALSE,
+				FALSE, '\0', sizeof(intptr_t)*2, 0,'\0',FALSE);
+			break;
 		// Unsigned Hexadecimal
+		case 'X':
 		case 'x':
-			if(bLongLong)	arg = va_arg(args, uint64_t);
-			else			arg = va_arg(args, uint32_t);
-			itoa(tmp, arg, 16, minSize, pad, 0);
-			precision = -1;
-			goto sprintf_puts;
+			if(bAltForm) {
+				_addchar('0');
+				_addchar(c);
+			}
+			arg = bLongLong ? va_arg(args, int64_t) : va_arg(args, int32_t);
+			pos += _printf_itoa(putch_cb, putch_h, arg, 16, c=='X',
+				FALSE, '\0', precision, minSize,cNumPad,bJustifyLeft);
+			break;
 		
 		// Unsigned Octal
 		case 'o':
-			if(bLongLong)	arg = va_arg(args, uint64_t);
-			else			arg = va_arg(args, uint32_t);
-			itoa(tmp, arg, 8, minSize, pad, 0);
-			precision = -1;
-			goto sprintf_puts;
+			if(bAltForm) {
+				_addchar('0');
+			}
+			arg = bLongLong ? va_arg(args, int64_t) : va_arg(args, int32_t);
+			pos += _printf_itoa(putch_cb, putch_h, arg, 8, FALSE,
+				FALSE, '\0', precision, minSize,cNumPad,bJustifyLeft);
+			break;
 		
 		// Unsigned binary
 		case 'b':
-			if(bLongLong)	arg = va_arg(args, uint64_t);
-			else			arg = va_arg(args, uint32_t);
-			itoa(tmp, arg, 2, minSize, pad, 0);
-			precision = -1;
-			goto sprintf_puts;
+			if(bAltForm) {
+				_addchar('0');
+				_addchar('b');
+			}
+			arg = bLongLong ? va_arg(args, int64_t) : va_arg(args, int32_t);
+			pos += _printf_itoa(putch_cb, putch_h, arg, 2, FALSE,
+				FALSE, '\0', precision, minSize,cNumPad,bJustifyLeft);
+			break;
 
 		// Standard float
 		case 'f':
-			if(bLong)	arg_f = va_arg(args, long double);
-			else	arg_f = va_arg(args, double);
-			pos += _printf_ftoa(putch_cb, putch_h, arg_f, 10, FPN_STD, precision, 0, bPadLeft, 0);
-			break;
 		case 'F':
-			if(bLong)	arg_f = va_arg(args, long double);
-			else	arg_f = va_arg(args, double);
-			pos += _printf_ftoa(putch_cb, putch_h, arg_f, 10, FPN_STD, precision, 0, bPadLeft, 1);
+			arg_f = bLong ? va_arg(args, long double) : va_arg(args, double);
+			pos += _printf_ftoa(putch_cb, putch_h, arg_f, 10, FPN_STD,
+				precision, 0, bJustifyLeft, c == 'F');
 			break;
 		// Scientific Float
 		case 'e':
-			if(bLong)	arg_f = va_arg(args, long double);
-			else	arg_f = va_arg(args, double);
-			pos += _printf_ftoa(putch_cb, putch_h, arg_f, 10, FPN_SCI, precision, 0, bPadLeft, 0);
-			break;
 		case 'E':
-			if(bLong)	arg_f = va_arg(args, long double);
-			else	arg_f = va_arg(args, double);
-			pos += _printf_ftoa(putch_cb, putch_h, arg_f, 10, FPN_SCI, precision, 0, bPadLeft, 1);
+			arg_f = bLong ? va_arg(args, long double) : va_arg(args, double);
+			pos += _printf_ftoa(putch_cb, putch_h, arg_f, 10, FPN_SCI,
+				precision, 0, bJustifyLeft, c == 'E');
+			break;
+		// Hexadecimal Scientific
+		case 'a':
+		case 'A':
+			arg_f = bLong ? va_arg(args, long double) : va_arg(args, double);
+			pos += _printf_ftoa_hex(putch_cb, putch_h, arg_f, precision, 0, bJustifyLeft, c == 'A');
 			break;
 
 		// String
@@ -240,13 +257,15 @@ EXPORT int _vcprintf_int(printf_putch_t putch_cb, void *putch_h, const char *for
 				len = strnlen(p, precision);
 			else
 				len = strlen(p);
-			if(bPadLeft)	while(minSize > len++)	_addchar(pad);
+			if(!bJustifyLeft)
+				while(minSize > len++)	_addchar(' ');
 			while( *p ) {
 				if(precision >= 0 && precision -- == 0)
 					break;
 				_addchar(*p++);
 			}
-			if(!bPadLeft)	while(minSize > len++)	_addchar(pad);
+			if(bJustifyLeft)
+				while(minSize > len++)	_addchar(' ');
 			break;
 
 		// Unknown, just treat it as a character
@@ -354,11 +373,12 @@ void itoa(char *buf, uint64_t num, size_t base, int minLength, char pad, int bSi
 {
 	struct s_sprintf_info	info = {buf, 0, 1024};
 	if(!buf)	return;
-	_printf_itoa(_vsnprintf_putch, &info, num, base, minLength, pad, bSigned);
+	_printf_itoa(_vsnprintf_putch, &info, num, base, FALSE, bSigned, '\0', 0, minLength, pad, FALSE);
 	buf[info.ofs] = '\0';
 }
 
 const char cDIGITS[] = "0123456789abcdef";
+const char cUDIGITS[] = "0123456789ABCDEF";
 /**
  * \brief Convert an integer into a character string
  * \param buf	Destination Buffer
@@ -368,11 +388,16 @@ const char cDIGITS[] = "0123456789abcdef";
  * \param pad	Padding used to ensure minLength
  * \param bSigned	Signed number output?
  */
-size_t _printf_itoa(printf_putch_t putch_cb, void *putch_h, uint64_t num, size_t base, int minLength, char pad, int bSigned)
+size_t _printf_itoa(printf_putch_t putch_cb, void *putch_h, uint64_t num,
+	size_t base, int bUpper,
+	int bSigned, char SignChar, int Precision,
+	int PadLength, char PadChar, int bPadRight)
 {
 	char	tmpBuf[64];
-	 int	pos=0;
-	size_t ret = 0;
+	 int	pos = 0;
+	size_t	ret = 0;
+	 int	sign_is_neg = 0;
+	const char *map = bUpper ? cUDIGITS : cDIGITS;
 
 	if(base > 16 || base < 2) {
 		return 0;
@@ -380,28 +405,42 @@ size_t _printf_itoa(printf_putch_t putch_cb, void *putch_h, uint64_t num, size_t
 	
 	if(bSigned && (int64_t)num < 0)
 	{
-		num = -num;
-		bSigned = 1;
-	} else
-		bSigned = 0;
+		num = -(int64_t)num;
+		sign_is_neg = 1;
+	}
 	
 	// Encode into reversed string
 	while(num > base-1) {
-		tmpBuf[pos++] = cDIGITS[ num % base ];
+		tmpBuf[pos++] = map[ num % base ];
 		num = (uint64_t) num / (uint64_t)base;		// Shift {number} right 1 digit
 	}
 
-	tmpBuf[pos++] = cDIGITS[ num % base ];		// Last digit of {number}
-	if(bSigned)	tmpBuf[pos++] = '-';	// Append sign symbol if needed
+	tmpBuf[pos++] = map[ num % base ];		// Last digit of {number}
 	
-	minLength -= pos;
-	while(minLength-- > 0) {
-		putch_cb(putch_h, pad);
-		ret ++;
+	// length of number, minus the sign character
+	PadLength -= pos - sign_is_neg - (SignChar != '\0');
+	if( !bPadRight )
+	{
+		while(PadLength-- > 0)
+			putch_cb(putch_h, PadChar), ret ++;
 	}
-	while(pos-- > 0) {
-		putch_cb(putch_h, tmpBuf[pos]);	// Reverse the order of characters
-		ret ++;
+	
+	if(sign_is_neg)
+		putch_cb(putch_h, '-'), ret++;	// Negative sign character
+	else if(SignChar)
+		putch_cb(putch_h, SignChar), ret++;	// positive sign character
+	else {
+	}
+	
+	while( Precision-- > 0 )
+		putch_cb(putch_h, '0'), ret++;
+	while(pos--)
+		putch_cb(putch_h, tmpBuf[pos]), ret++;	// Reverse the order of characters
+
+	if( bPadRight )
+	{
+		while(PadLength-- > 0)
+			putch_cb(putch_h, PadChar), ret ++;
 	}
 	
 	return ret;
@@ -459,6 +498,80 @@ double _longdiv(double num, double den, int *quot)
 	}
 //	printf(" %i\n", *quot);
 	return num;
+}
+
+size_t _printf_ftoa_hex(printf_putch_t putch_cb, void *putch_h, long double num, int Precision, int bForcePoint, int bForceSign, int bCapitals)
+{
+	uint64_t	significand;
+	int16_t	exponent;
+	 int	signisneg;
+	 int	rv;
+	size_t	ret = 0;
+
+	#define _putch(_ch) do{\
+		if(bCapitals)\
+			putch_cb(putch_h, toupper(_ch));\
+		else\
+			putch_cb(putch_h, _ch);\
+		ret ++;\
+	}while(0)
+
+	if( Precision == -1 )
+		Precision = (64-4)/4;
+
+	rv = expand_double(num, &significand, &exponent, &signisneg);
+	switch(rv)
+	{
+	// 0: No errors, nothing special
+	case 0:
+		break;
+	// 1: Subnormals
+	case 1:
+		// TODO: Subnormal = 0?
+		break;
+	// 2: Infinity
+	case 2:
+		_putch('i');
+		_putch('n');
+		_putch('f');
+		return 3;
+	case 3:
+		_putch('N');
+		_putch('a');
+		_putch('N');
+		return 3;
+	}
+	
+	// int	exp_ofs = exponent % 4;
+	// int	exp_16 = exponent - exp_ofs;
+	//uint8_t	whole = (1 << exp_ofs) | ((significand >> (64-3)) >> exp_ofs);
+	//significand <<= 3 - exp_ofs;
+	uint8_t	whole = (rv != 1) ? 1 : 0;
+	
+	if( signisneg )
+		_putch('-');
+	else if( bForceSign )
+		_putch('+');
+	else {
+	}
+	_putch('0');
+	_putch('x');
+	_putch(cDIGITS[whole]);
+	if( significand || bForcePoint )
+		_putch('.');
+	// Fractional
+	while( significand && Precision -- )
+	{
+		uint8_t	val = significand >> (64-4);
+		_putch(cDIGITS[val]);
+		significand <<= 4;
+	}
+	_putch('p');
+	//ret += _printf_itoa(putch_cb, putch_h, exp_16, 16, bCapitals, TRUE, '+', 0, 0, '\0', 0);
+	ret += _printf_itoa(putch_cb, putch_h, exponent, 10, bCapitals, TRUE, '+', 0, 0, '\0', 0);
+	
+	#undef _putch
+	return ret;
 }
 
 size_t _printf_ftoa(printf_putch_t putch_cb, void *putch_h, long double num, size_t Base, enum eFPN Notation, int Precision, int bForcePoint, int bForceSign, int bCapitals)
@@ -595,14 +708,7 @@ size_t _printf_ftoa(printf_putch_t putch_cb, void *putch_h, long double num, siz
 			_putch('p');
 		else
 			_putch('e');
-		if(sci_exponent < 0)
-		{
-			_putch('-');
-			sci_exponent = -sci_exponent;
-		}
-		else
-			_putch('+');
-		_printf_itoa(putch_cb, putch_h, sci_exponent, Base, 0, 0, 0);
+		ret += _printf_itoa(putch_cb, putch_h, sci_exponent, Base, FALSE, TRUE, '+', 0, 0, '\0', FALSE);
 	}	
 
 	#undef _putch

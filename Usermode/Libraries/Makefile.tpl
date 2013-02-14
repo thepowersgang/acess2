@@ -12,11 +12,23 @@ _LIBS := $(patsubst -l%,$(OUTPUTDIR)Libs/lib%.so,$(_LIBS))
 
 OBJ := $(addprefix $(_OBJPREFIX),$(OBJ))
 
+UTESTS := $(patsubst TEST_%.c,%,$(wildcard TEST_*.c))
 DEPFILES := $(addsuffix .dep,$(OBJ))
 
 .PHONY: all clean install postbuild
 
 all: $(_BIN) $(_XBIN)
+
+.PHONY: utest utest-build utest-run $(UTESTS:%=runtest-%)
+
+utest: utest-build utest-run
+
+utest-build: $(UTESTS:%=TEST_%)
+
+utest-run: $(UTESTS:%=runtest-%)
+
+$(UTESTS:%=runtest-%): runtest-%: TEST_%
+	./TEST_$* | diff EXP_$*.txt -
 
 clean:
 	$(RM) $(_BIN) $(_XBIN) $(OBJ) $(_BIN).dsm $(DEPFILES) $(EXTRACLEAN)
@@ -61,4 +73,17 @@ endif
 $(OUTPUTDIR)Libs/%:
 	@make -C $(ACESSDIR)/Usermode/Libraries/$*_src/
 
+
+obj-native/%.no: %.c
+	@mkdir -p $(dir $@)
+	$(NCC) -c $< -o $@ -MD -MP -MF $@.dep
+
+TEST_%: obj-native/TEST_%.no obj-native/%.no
+	$(NCC) -o $@ $^
+
+-include $(UTESTS:%=obj-native/TEST_%.no.dep)
+-include $(UTESTS:%=obj-native/%.no.dep)
+
 -include $(DEPFILES)
+
+# vim: ft=make

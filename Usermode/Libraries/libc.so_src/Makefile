@@ -20,9 +20,15 @@ BIN = libc.so
 
 include ../Makefile.tpl
 
-%.no: %.c
-	$(NCC) -c $< -o $@
+.PHONY: generate_exp
 
-TEST_%: TEST_%.no %.no
-	$(NCC) -o $@ TEST_$*.no $*.no
+utest-run: generate_exp
 
+generate_exp: EXP_printf.txt
+
+EXP_%.txt: TEST_%.native
+	./TEST_printf.native > EXP_printf.txt
+	rm TEST_printf.native
+
+%.native: %.c
+	$(NCC) $< -o $@ -Wall -Werror
