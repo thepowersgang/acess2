@@ -6,7 +6,7 @@
 
 BIN = $(OUTPUTDIR)Libs/crt0.o $(OUTPUTDIR)Libs/crtbegin.o $(OUTPUTDIR)Libs/crtend.o
 
-.PHONY: all clean install
+.PHONY: all clean install utest generate_exp
 
 all: $(BIN)
 
@@ -14,6 +14,8 @@ install: $(BIN)
 
 clean:
 	$(RM) $(BIN)
+
+utest generate_exp:
 
 $(OUTPUTDIR)Libs/%.o: %.c
 	@mkdir -p $(dir $@)

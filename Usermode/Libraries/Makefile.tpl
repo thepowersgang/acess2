@@ -23,6 +23,8 @@ all: $(_BIN) $(_XBIN)
 
 utest: utest-build utest-run
 
+generate_exp: $(UTESTS:%=EXP_%.txt)
+
 utest-build: $(UTESTS:%=TEST_%)
 
 utest-run: $(UTESTS:%=runtest-%)

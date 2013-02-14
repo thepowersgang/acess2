@@ -20,12 +20,6 @@ BIN = libc.so
 
 include ../Makefile.tpl
 
-.PHONY: generate_exp
-
-utest-run: generate_exp
-
-generate_exp: EXP_printf.txt
-
 EXP_%.txt: TEST_%.native
 	./TEST_printf.native > EXP_printf.txt
 	rm TEST_printf.native

@@ -8,7 +8,7 @@
 
 BIN = $(OUTPUTDIR)Libs/acess.ld
 
-.PHONY: all clean install
+.PHONY: all clean install utest generate_exp
 
 all: $(BIN)
 
@@ -16,6 +16,8 @@ clean:
 	$(RM) $(BIN)
 
 install: $(BIN)
+
+utest generate_exp:
 
 $(BIN):	acess_$(ARCHDIR).ld.h
 	@mkdir -p $(dir $(BIN))
