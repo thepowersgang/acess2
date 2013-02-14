@@ -60,8 +60,8 @@ install:	install-Filesystem SyscallList $(INSTALL_USRLIBS) $(INSTALL_USRAPPS) $(
 utest: $(USRLIBS:%=utest-%)
 
 $(USRLIBS:%=utest-%): utest-%:
-	@$(SUBMAKE) -C Usermode/Libraries/$*_src generate_exp
-	@$(SUBMAKE) -C Usermode/Libraries/$*_src utest -k
+	@CC=$(NCC) $(SUBMAKE) -C Usermode/Libraries/$*_src generate_exp
+	@CC=$(NCC) $(SUBMAKE) -C Usermode/Libraries/$*_src utest -k
 
 mtest:
 	;
