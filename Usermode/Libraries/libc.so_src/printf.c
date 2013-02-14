@@ -111,7 +111,7 @@ EXPORT int _vcprintf_int(printf_putch_t putch_cb, void *putch_h, const char *for
 			else
 				break;
 		}
-		while( c = *format++ );
+		while( (c = *format++) );
 		
 		// Padding length
 		if( c == '*' ) {
@@ -250,7 +250,6 @@ EXPORT int _vcprintf_int(printf_putch_t putch_cb, void *putch_h, const char *for
 		// String
 		case 's':
 			p = va_arg(args, char*);
-		sprintf_puts:
 			if(!p)	p = "(null)";
 			//_SysDebug("vsnprintf: p = '%s'", p);
 			if(precision >= 0)
