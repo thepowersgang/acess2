@@ -78,7 +78,7 @@ $(OUTPUTDIR)Libs/%:
 
 obj-native/%.no: %.c
 	@mkdir -p $(dir $@)
-	$(NCC) -c $< -o $@ -MD -MP -MF $@.dep
+	$(NCC) -c $< -o $@ -Wall -std=gnu99 -MD -MP -MF $@.dep
 
 TEST_%: obj-native/TEST_%.no obj-native/%.no
 	$(NCC) -o $@ $^

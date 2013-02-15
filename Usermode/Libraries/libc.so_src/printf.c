@@ -240,6 +240,13 @@ EXPORT int _vcprintf_int(printf_putch_t putch_cb, void *putch_h, const char *for
 			pos += _printf_ftoa(putch_cb, putch_h, arg_f, 10, FPN_SCI,
 				precision, 0, bJustifyLeft, c == 'E');
 			break;
+		// Scientific Float
+		case 'g':
+		case 'G':
+			arg_f = bLong ? va_arg(args, long double) : va_arg(args, double);
+			pos += _printf_ftoa(putch_cb, putch_h, arg_f, 10, FPN_SHORTEST,
+				precision, 0, bJustifyLeft, c == 'G');
+			break;
 		// Hexadecimal Scientific
 		case 'a':
 		case 'A':
@@ -632,12 +639,24 @@ size_t _printf_ftoa(printf_putch_t putch_cb, void *putch_h, long double num, siz
 	{
 		//TODO:
 		//int	first_set_sig = BSL(significand);
-	//	TODO: if( num > pos(Base, 2+Precision+2+log_base(exponent) )
-		Notation = FPN_SCI;
+		// bSign+log10(num)+1+precision vs. bSign+1+1+precision+1+1+log10(exponent)
+		 int	log10_num = exponent * 301 / 1000;	// log_10(2) = 0.30102999566...
+		 int	log10_exp10 = 2;
+		 int	sci_len = (signisneg || bForceSign) + 2 + (Precision-1) + 2 + log10_exp10;
+		 int	std_whole_len = (log10_num > 0 ? log10_num : 1);
+		 int	std_len = (signisneg || bForceSign) + std_whole_len + 1 + (Precision-std_whole_len);
+		if( sci_len > std_len ) {
+			Precision -= std_whole_len;
+			Notation = FPN_STD;
+		}
+		else {
+			Precision -= 1;
+			Notation = FPN_SCI;
+		}
 	}
 
 	double precision_max = 1;
-	while(Precision--)
+	for(int i = Precision; i--; )
 		precision_max /= Base;
 
 	// Determine scientific's exponent and starting denominator
@@ -669,7 +688,7 @@ size_t _printf_ftoa(printf_putch_t putch_cb, void *putch_h, long double num, siz
 	}
 	else
 	{
-		while( den < num )
+		while( den <= num )
 			den *= Base;
 		den /= Base;
 	}
@@ -694,10 +713,10 @@ size_t _printf_ftoa(printf_putch_t putch_cb, void *putch_h, long double num, siz
 	} while( den >= 1 );
 
 	// Decimal point (if needed/forced)	
-	if( den >= precision_max || bForcePoint )
+	if( Precision > 0 || bForcePoint )
 		_putch('.');
 	// Decimal section
-	while( den >= precision_max )
+	for(int i = Precision; i--; )
 	{
 		num = _longdiv(num, den, &value);
 		_putch(cDIGITS[value]);

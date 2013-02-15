@@ -25,4 +25,4 @@ EXP_%.txt: TEST_%.native
 	rm TEST_printf.native
 
 %.native: %.c
-	$(NCC) $< -o $@ -Wall -Werror
+	$(NCC) $< -o $@ -Wall -std=gnu99
