@@ -17,7 +17,9 @@ clean:
 
 install: $(BIN)
 
+# How does one unit test a linker script?
 utest generate_exp:
+	@echo > /dev/null
 
 $(BIN):	acess_$(ARCHDIR).ld.h
 	@mkdir -p $(dir $(BIN))

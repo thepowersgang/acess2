@@ -24,10 +24,12 @@ all: $(_BIN) $(_XBIN)
 utest: utest-build utest-run
 
 generate_exp: $(UTESTS:%=EXP_%.txt)
+	@echo > /dev/null
 
 utest-build: $(UTESTS:%=TEST_%)
 
 utest-run: $(UTESTS:%=runtest-%)
+	@echo > /dev/null
 
 $(UTESTS:%=runtest-%): runtest-%: TEST_%
 	./TEST_$* | diff EXP_$*.txt -

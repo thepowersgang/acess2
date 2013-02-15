@@ -63,8 +63,9 @@ $(USRLIBS:%=utest-%): utest-%:
 	@CC=$(NCC) $(SUBMAKE) -C Usermode/Libraries/$*_src generate_exp
 	@CC=$(NCC) $(SUBMAKE) -C Usermode/Libraries/$*_src utest -k
 
+# TODO: Module tests using DiskTool and NetTest
 mtest:
-	;
+	@echo > /dev/null
 
 SyscallList: include/syscalls.h
 include/syscalls.h: KernelLand/Kernel/Makefile KernelLand/Kernel/syscalls.lst

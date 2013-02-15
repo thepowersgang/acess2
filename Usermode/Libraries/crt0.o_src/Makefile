@@ -15,7 +15,9 @@ install: $(BIN)
 clean:
 	$(RM) $(BIN)
 
+# Disabled unit tests
 utest generate_exp:
+	@echo > /dev/null
 
 $(OUTPUTDIR)Libs/%.o: %.c
 	@mkdir -p $(dir $@)
