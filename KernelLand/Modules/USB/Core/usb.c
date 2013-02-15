@@ -5,7 +5,7 @@
  * usb.c
  * - USB Structure
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include <vfs.h>
 #include <drv_pci.h>
