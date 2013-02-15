@@ -417,7 +417,8 @@ size_t _printf_itoa(printf_putch_t putch_cb, void *putch_h, uint64_t num,
 	tmpBuf[pos++] = map[ num % base ];		// Last digit of {number}
 	
 	// length of number, minus the sign character
-	PadLength -= pos - sign_is_neg - (SignChar != '\0');
+	PadLength -= pos + (sign_is_neg || SignChar != '\0');
+	Precision -= pos + (sign_is_neg || SignChar != '\0');
 	if( !bPadRight )
 	{
 		while(PadLength-- > 0)
@@ -680,6 +681,8 @@ size_t _printf_ftoa(printf_putch_t putch_cb, void *putch_h, long double num, siz
 		_putch('+');
 	else {
 	}
+	
+	num += precision_max/10 * 5;
 
 	 int	value;
 	// Whole section
@@ -707,7 +710,7 @@ size_t _printf_ftoa(printf_putch_t putch_cb, void *putch_h, long double num, siz
 			_putch('p');
 		else
 			_putch('e');
-		ret += _printf_itoa(putch_cb, putch_h, sci_exponent, Base, FALSE, TRUE, '+', 0, 0, '\0', FALSE);
+		ret += _printf_itoa(putch_cb, putch_h, sci_exponent, Base, FALSE, TRUE, '+', 3, 0, '\0', FALSE);
 	}	
 
 	#undef _putch
