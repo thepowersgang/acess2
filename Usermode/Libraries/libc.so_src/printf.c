@@ -686,7 +686,7 @@ size_t _printf_ftoa(printf_putch_t putch_cb, void *putch_h, long double num, siz
 		}
 		den = 1;
 	}
-	else
+	else if( num != 0.0 )
 	{
 		while( den <= num )
 			den *= Base;
@@ -701,7 +701,7 @@ size_t _printf_ftoa(printf_putch_t putch_cb, void *putch_h, long double num, siz
 	else {
 	}
 	
-	num += precision_max/10 * 5;
+	num += precision_max/10 * 4.999;
 
 	 int	value;
 	// Whole section

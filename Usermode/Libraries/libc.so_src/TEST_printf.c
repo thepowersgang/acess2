@@ -24,6 +24,7 @@ int main(int argc, char *argv[])
 	
 	TST("Float", "%f", 3.1414926535);
 	TST("Float", "%f", 10.0);
+	TST("Float", "%f", -0.0);
 	TST("Float", "%.10f", 3.1414926535);
 	TST("Float", "%e", 3.1415926535);
 	TST("Float", "%g", 3.1415926535);
