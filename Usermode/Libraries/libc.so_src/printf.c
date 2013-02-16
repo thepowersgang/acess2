@@ -581,12 +581,111 @@ size_t _printf_ftoa_hex(printf_putch_t putch_cb, void *putch_h, long double num,
 	return ret;
 }
 
+#if 0
+size_t _printf_itoa_fixed(printf_putch_t putch_cb, void *putch_h, uint64_t num, size_t Base)
+{
+	uint64_t	den;
+	size_t	ret = 0;
+
+	den = 1ULL << (64-1);
+	
+	while( den )
+	{
+		putch_cb(putch_h, cDIGITS[num / den]);
+		ret ++;
+		num %= den;
+		den /= Base;
+	}
+
+	return ret;
+}
+
+size_t _printf_ftoa_dec(printf_putch_t putch_cb, void *putch_h, long double num, enum eFPN Notation, int Precision, int bForcePoint, int bForceSign, int bCapitals)
+{
+	size_t	ret = 0;
+	 int	i;
+
+	#define _putch(_ch) do{\
+		putch_cb(putch_h, bCapitals ? toupper(_ch) : _ch), ret++;\
+	}while(0)
+	
+	uint64_t	significand;
+	 int16_t	exponent;
+	 int	signisneg;
+	 int	rv = expand_double(num, &significand, &exponent, &signisneg);
+	switch(rv)
+	{
+	// 0: No errors, nothing special
+	case 0:
+		break;
+	// 1: Subnormals
+	case 1:
+		// TODO: Subnormal = 0?
+		break;
+	// 2: Infinity
+	case 2:
+		_putch('i');
+		_putch('n');
+		_putch('f');
+		return 3;
+	case 3:
+		_putch('N');
+		_putch('a');
+		_putch('N');
+		return 3;
+	}
+
+	uint64_t	whole, part;
+	 int	pre_zeros, post_zeros;
+
+	#define XXX	0
+	if( Notation == FPN_SCI )
+	{
+	}
+	else if( exponent < 0 )
+	{
+		whole = 0;
+		part = XXX;
+		pre_zeros = 0;
+		post_zeros = XXX;
+	}
+	else if( exponent >= 64 )
+	{
+		part = 0;
+		whole = XXX;
+		pre_zeros = XXX;
+		post_zeros = 0;
+	}
+	else
+	{
+		// Split into fixed point
+		whole = (1 << exponent) | (significand >> (64-exponent));
+		part = significand << exponent;
+		pre_zeros = 0;
+		post_zeros = 0;
+	}
+
+	
+	// Whole portion
+	ret += _printf_itoa(putch_cb, putch_h, whole, 10, FALSE, FALSE, '\0', 0, 0, '\0', FALSE);
+	for(i = pre_zeros; i --; )	_putch('0');
+	// TODO: Conditional point
+	_putch('-');
+	for(i = post_zeros; i--; )	_putch('0');
+	ret += _printf_itoa_fixed(putch_cb, putch_h, part, 10);
+	
+	#undef _putch
+
+	return 0;
+}
+#endif
+
 size_t _printf_ftoa(printf_putch_t putch_cb, void *putch_h, long double num, size_t Base, enum eFPN Notation, int Precision, int bForcePoint, int bForceSign, int bCapitals)
 {
 	uint64_t	significand;
 	int16_t	exponent;
 	 int	signisneg;
-	 int	rv;
+	 int	rv, i;
 	size_t	ret = 0;
 
 	#define _putch(_ch) do{\
@@ -656,7 +755,7 @@ size_t _printf_ftoa(printf_putch_t putch_cb, void *putch_h, long double num, siz
 	}
 
 	double precision_max = 1;
-	for(int i = Precision; i--; )
+	for(i = Precision; i--; )
 		precision_max /= Base;
 
 	// Determine scientific's exponent and starting denominator
@@ -716,7 +815,7 @@ size_t _printf_ftoa(printf_putch_t putch_cb, void *putch_h, long double num, siz
 	if( Precision > 0 || bForcePoint )
 		_putch('.');
 	// Decimal section
-	for(int i = Precision; i--; )
+	for(i = Precision; i--; )
 	{
 		num = _longdiv(num, den, &value);
 		_putch(cDIGITS[value]);
