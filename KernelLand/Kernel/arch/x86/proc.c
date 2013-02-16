@@ -50,6 +50,7 @@ extern char	scheduler_return[];	// Return address in SchedulerBase
 extern char	IRQCommon[];	// Common IRQ handler code
 extern char	IRQCommon_handled[];	// IRQCommon call return location
 extern char	GetEIP_Sched_ret[];	// GetEIP call return location
+extern void	Timer_CallTimers(void);
 
 // === PROTOTYPES ===
 //void	ArchThreads_Init(void);
@@ -67,6 +68,7 @@ void	Proc_ChangeStack(void);
 Uint	Proc_MakeUserStack(void);
 //void	Proc_StartUser(Uint Entrypoint, Uint *Bases, int ArgC, char **ArgV, char **EnvP, int DataSize);
 void	Proc_StartProcess(Uint16 SS, Uint Stack, Uint Flags, Uint16 CS, Uint IP) NORETURN;
+void	Proc_CallUser(Uint32 UserIP, Uint32 UserSP, const void *StackData, size_t StackDataLen);
 //void	Proc_CallFaultHandler(tThread *Thread);
 //void	Proc_DumpThreadCPUState(tThread *Thread);
 void	Proc_Scheduler(int CPU);
@@ -631,6 +633,34 @@ void Proc_StartProcess(Uint16 SS, Uint Stack, Uint Flags, Uint16 CS, Uint IP)
 	"popa;\n\t"
 	"iret;\n\t" : : "a" (stack));
 	for(;;);
+}
+
+void Proc_CallUser(Uint32 UserIP, Uint32 UserSP, const void *StackData, size_t StackDataLen)
+{
+	if( UserSP < StackDataLen )
+		return ;
+	if( !CheckMem( (void*)(UserSP - StackDataLen), StackDataLen ) )
+		return ;
+	memcpy( (void*)(UserSP - StackDataLen), StackData, StackDataLen );
+	
+	__asm__ __volatile__ (
+		"mov $0x23,%%ax;\n\t"
+		"mov %%ax, %%ds;\n\t"
+		"mov %%ax, %%es;\n\t"
+		"mov %%ax, %%fs;\n\t"
+		"mov %%ax, %%gs;\n\t"
+		"push $0x23;\n\t"
+		"push %1;\n\t"
+		"push $0x202;\n\t"
+		"push $0x1B;\n\t"
+		"push %0;\n\t"
+		"iret;\n\t"
+		:
+		: "r" (UserIP), "r" (UserSP - StackDataLen)
+		: "eax"
+		);
+	for(;;)
+		;
 }
 
 /**

@@ -12,6 +12,7 @@
 #include <threads.h>
 #include <proc.h>
 #include <timers_int.h>
+#include <signal.h>
 
 typedef struct sProcess	tProcess;
 
@@ -45,6 +46,8 @@ struct sProcess
 	 int	MaxFD;
 	char	*CurrentWorkingDir;
 	char	*RootDir;
+	
+	void	*SignalHandlers[NSIGNALS];
 };
 
 /**
@@ -85,6 +88,10 @@ struct sThread
 	// --- threads.c's
 	 int	CurFaultNum;	//!< Current fault number, 0: none
 	tVAddr	FaultHandler;	//!< Fault Handler
+	
+	
+	 int	PendingSignal;	//!< Pending signal ID (0 = none)
+	
 	
 	tMsg * volatile	Messages;	//!< Message Queue
 	tMsg	*LastMessage;	//!< Last Message (speeds up insertion)

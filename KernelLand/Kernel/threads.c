@@ -66,6 +66,10 @@ tThread	*Threads_RemActive(void);
 void	Threads_ToggleTrace(int TID);
 void	Threads_Fault(int Num);
 void	Threads_SegFault(tVAddr Addr);
+void	Threads_PostSignal(int SignalNum);
+ int	Threads_GetPendingSignal(void);
+void	Threads_SetSignalHandler(int SignalNum, void *Handler);
+void	*Threads_GetSignalHandler(int SignalNum);
 #if 0
  int	Threads_GetPID(void);
  int	Threads_GetTID(void);
@@ -1002,6 +1006,62 @@ void Threads_SegFault(tVAddr Addr)
 	MM_DumpTables(0, USER_MAX);
 	Threads_Fault( 1 );
 	//Threads_Exit( 0, -1 );
+}
+
+
+void Threads_PostSignal(int SignalNum)
+{
+	tThread *cur = Proc_GetCurThread();
+	cur->PendingSignal = SignalNum;
+	Threads_PostEvent(cur, THREAD_EVENT_SIGNAL);
+}
+
+/**
+ */
+int Threads_GetPendingSignal(void)
+{
+	tThread *cur = Proc_GetCurThread();
+	
+	// Atomic AND with 0 fetches and clears in one operation
+	return __sync_fetch_and_and( &cur->PendingSignal, 0 );
+}
+
+/*
+ * \brief Update the current thread's signal handler
+ */
+void Threads_SetSignalHandler(int SignalNum, void *Handler)
+{
+	if( SignalNum <= 0 || SignalNum >= NSIGNALS )
+		return ;
+	if( !MM_IsUser(Handler) )
+		return ;
+	Proc_GetCurThread()->Process->SignalHandlers[SignalNum] = Handler;
+}
+
+/**
+ * \return 0  Ignore
+ */
+void *Threads_GetSignalHandler(int SignalNum)
+{
+	if( SignalNum <= 0 || SignalNum >= NSIGNALS )
+		return NULL;
+	void *ret = Proc_GetCurThread()->Process->SignalHandlers[SignalNum];
+	if( !ret )
+	{
+		// Defaults
+		switch(SignalNum)
+		{
+		case SIGINT:
+		case SIGKILL:
+		case SIGSEGV:
+//			ret = User_Signal_Kill;
+			break;
+		default:
+			ret = NULL;
+			break;
+		}
+	}
+	return ret;
 }
 
 // --- Process Structure Access Functions ---

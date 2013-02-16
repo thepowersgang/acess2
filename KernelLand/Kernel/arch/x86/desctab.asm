@@ -220,13 +220,12 @@ Isr240.jmp:
 %assign i i+1
 %endrep
 
+[extern ReturnFromInterrupt]
 ; ---------------------
 ; Common error handling
 ; ---------------------
 [extern ErrorHandler]
 ErrorCommon:
-	;xchg bx, bx	; MAGIC BREAK
-	
 	pusha
 	push ds
 	push es
@@ -248,13 +247,7 @@ ErrorCommon:
 	call ErrorHandler
 	add esp, 4
 	
-	pop gs
-	pop fs
-	pop es
-	pop ds
-	popa
-	add esp, 8	; Error Code and ID
-	iret
+	jmp ReturnFromInterrupt
 
 ; --------------------------
 ; Common System Call Handler
@@ -282,14 +275,8 @@ SyscallCommon:
 	and eax, 0x100	; 0x100 = Trace Flag
 	and WORD [esp+(4+8+2+2)*4], ~0x100	; Clear
 	or DWORD [esp+(4+8+2+2)*4], eax	; Set for user
-	
-	pop gs
-	pop fs
-	pop es
-	pop ds
-	popa
-	add esp, 8	; Error Code and ID
-	iret
+
+	jmp ReturnFromInterrupt	
 
 ; ------------
 ; IRQ Handling

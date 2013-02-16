@@ -215,9 +215,9 @@ scheduler_return:	; Used by some hackery in Proc_DumpThreadCPUState
 	
 	mov al, 0x20
 	out 0x20, al		; ACK IRQ
+
 	%if USE_MP
 	jmp .ret
-	
 .sendEOI:
 	mov eax, DWORD [gpMP_LocalAPIC]
 	mov DWORD [eax+0x0B0], 0
@@ -225,15 +225,60 @@ scheduler_return:	; Used by some hackery in Proc_DumpThreadCPUState
 .ret:
 	pop eax	; Debug Register 0, Current Thread
 	mov dr0, eax
+	
+	jmp ReturnFromInterrupt
 
+;
+; Returns after an interrupt, restoring the user state
+; - Also handles signal handlers
+;
+[global ReturnFromInterrupt]
+[extern Threads_GetPendingSignal]
+[extern Threads_GetSignalHandler]
+[extern Proc_CallUser]
+ReturnFromInterrupt:
+	; Check that we're returning to userland
+	test DWORD [esp+(4+8+2+1)*4], 0x07
+	jz .ret	; Kernel interrupted, return
+
+	call Threads_GetPendingSignal
+	; eax: signal number
+	test eax, eax
+	jz .ret
+	
+	; There's a signal pending, funtime
+	push eax
+	call Threads_GetSignalHandler
+	; eax: signal handler
+	pop ecx
+	test eax, eax
+	jz .ret
+	cmp eax, -1
+	jz .default
+	
+	; (some stack abuse)
+	push User_RestoreState
+	push ecx
+	mov ecx, esp
+	
+	push (2+4+8+2+2)*4	; Up to and incl. CS
+	push ecx	; User stack data base
+	push DWORD [ecx+(2+4+8+2+3)*4]	; User SP
+	push eax	; handler
+	call Proc_CallUser
+	; Oh, ... it failed. Default time?
+	add esp, (4+2)*4
+.default:
+	
+
+	; Fall through to return
+.ret:
 	pop gs
 	pop fs
 	pop es
 	pop ds
-	
 	popa
-	add esp, 4*2	; CPU ID + Dummy error code
-	; No Error code / int num
+	add esp, 2*4	; IRQ Num / CPU ID + error code
 	iret
 
 [extern Proc_Clone]
@@ -286,52 +331,17 @@ Proc_ReturnToUser:
 	; Good thing this can only be called on a user fault.
 	;
 	
-	; Validate user ESP
-	; - Page Table
-	mov edx, [eax+KSTACK_USERSTATE_SIZE-12]	; User ESP is at top of kstack - 3*4
-	mov ecx, edx
-	shr ecx, 22
-	test BYTE [0xFC3F0000+ecx*4], 1
-	jnz .justKillIt
-	; - Page
-	mov ecx, edx
-	shr ecx, 12
-	test BYTE [0xFC000000+ecx*4], 1
-	jnz .justKillIt
-	; Adjust
-	sub edx, 8
-	; - Page Table
-	mov ecx, edx
-	shr ecx, 22
-	test BYTE [0xFC3F0000+ecx*4], 1
-	jnz .justKillIt
-	; - Page
-	mov ecx, edx
-	shr ecx, 12
-	test BYTE [0xFC000000+ecx*4], 1
-	jnz .justKillIt
-	
-	; Get and alter User SP
-	mov edi, edx
-	mov edx, [ebp+12]	; Get parameter
-	mov [edi+4], edx	; save to user stack
-	mov [edi], DWORD User_Syscall_RetAndExit	; Return Address
-	
-	; Restore Segment Registers
-	mov ax, 0x23
-	mov ds, ax
-	mov es, ax
-	mov fs, ax
-	mov gs, ax
-	
-	push 0x23	; SS
-	push edi	; ESP
-	push 0x202	; EFLAGS (IP and Rsvd)
-	push 0x1B	; CS
-	mov eax, [ebp+8]	; Method to call
-	push eax	; EIP
-	
-	iret
+	; Create data to add to user stack
+	push DWORD [ebp+12]
+	push User_Syscall_RetAndExit
+	mov ecx, esp
+
+	; Call user method	
+	push 2*4
+	push ecx
+	push DWORD [eax+KSTACK_USERSTATE_SIZE-12]	; User ESP is at top of kstack - 3*4
+	push DWORD [ebp+8]
+	call Proc_CallUser	
 	
 	; Just kill the bleeding thing
 	; (I know it calls int 0xAC in kernel mode, but meh)
@@ -362,6 +372,16 @@ GetEIP_Sched.ret:
 User_Syscall:
 	xchg bx, bx	; MAGIC BREAKPOINT
 	int 0xAC
+
+User_RestoreState:
+	pop gs
+	pop fs
+	pop es
+	pop ds
+	popa
+	add esp, 2*4	; Kernel's error code and interrupt number
+	retf	; EFLAGS/SS/ESP were not included in the state
+	
 
 ; A place to return to and exit
 User_Syscall_RetAndExit:
