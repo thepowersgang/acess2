@@ -183,6 +183,37 @@ void *AxWin3_int_GetDataPtr(tHWND Window)
 	return Window->Data;
 }
 
+int AxWin3_int_DefaultMessageHandler(tWindow *Win, int ID, size_t Len, const void *Data)
+{
+	switch(ID)
+	{
+	case WNDMSG_HOTKEY: {
+		const struct sWndMsg_Hotkey *mi = Data;
+		if( Len < sizeof(*mi) )
+			return -1;
+
+		if( mi->ID >= MAX_HOTKEYS ) 
+			_SysDebug("--- Out of range hotkey %i fired", mi->ID);
+		else if( gAxWin3_Hotkeys[mi->ID] == 0 )
+			_SysDebug("--- Unmapped hotkey ID %i fired", mi->ID);
+		else
+			gAxWin3_Hotkeys[mi->ID]();
+		}
+		return 1;
+	// Honour a close message by default
+	case WNDMSG_CLOSE:
+		AxWin3_DestroyWindow(Win);
+		return 1;
+	// Zero fucks given?
+	case WNDMSG_DESTROY:
+		_SysDebug("TODO: Check that WNDMSG_DESTROY was from us calling _DestroyWindow");
+		// TODO: Finalise cleanup of window, this will be the last message sent to this window
+		return 1;
+	default:
+		return 0;
+	}
+}
+
 void AxWin3_int_HandleMessage(tAxWin_IPCMessage *Msg)
 {
 	tWindow	*dest;
@@ -206,23 +237,10 @@ void AxWin3_int_HandleMessage(tAxWin_IPCMessage *Msg)
 
 		if( dest->Handler(dest, info->ID, info->Length, info->Data) )
 			;
-		else {
-			switch( info->ID )
-			{
-			case WNDMSG_HOTKEY: {
-				const struct sWndMsg_Hotkey *mi = (void*)info->Data;
-				if( mi->ID >= MAX_HOTKEYS ) 
-					;	// TODO: Error when hotkey is out of range
-				else if( gAxWin3_Hotkeys[mi->ID] == 0 )
-					_SysDebug("--- Unmapped hotkey ID %i fired", mi->ID);
-				else
-					gAxWin3_Hotkeys[mi->ID]();
-				}break;
-			default:
-				_SysDebug("--- Unhandled SENDMSG 0x%x win %i", info->ID, Msg->Window);
-				break;
-			}
-		}
+		else if( AxWin3_int_DefaultMessageHandler(dest, info->ID, info->Length, info->Data) )
+			;
+		else
+			_SysDebug("--- Unhandled SENDMSG 0x%x win %i", info->ID, Msg->Window);
 		break; }
 	case IPCMSG_DESTROYWIN:
 		// Clean up resources associated with this window

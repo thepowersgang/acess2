@@ -17,6 +17,7 @@ enum eWM_WindowMessages
 	
 	WNDMSG_CREATE,
 	WNDMSG_DESTROY,
+	WNDMSG_CLOSE,
 	WNDMSG_FOCUS,	// Called on change
 	WNDMSG_SHOW,	// Called on change
 
