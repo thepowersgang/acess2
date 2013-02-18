@@ -35,7 +35,7 @@ tImage *Image_SIF_Parse(void *Buffer, size_t Size)
 	 int	bRevOrder;
 	 int	fileOfs = 0;
 	 int	comp, fmt;
-	 int	sampleSize = 4;
+	 int	sampleSize;
 	struct sHeader	*hdr = Buffer;
 	 
 	_SysDebug("Image_SIF_Parse: (Buffer=%p, Size=0x%x)", Buffer, Size);
@@ -86,6 +86,8 @@ tImage *Image_SIF_Parse(void *Buffer, size_t Size)
 	ret->Width = w;
 	ret->Height = h;
 	ret->Format = fmt;
+	for( ofs = 0; ofs < w*h*sampleSize; ofs ++ )
+		ret->Data[ofs] = 255;
 	
 	switch(comp)
 	{
@@ -103,39 +105,38 @@ tImage *Image_SIF_Parse(void *Buffer, size_t Size)
 	// (1 Flag, 7-bit size, 32-bit value)
 	case 1:
 		ofs = 0;
-		while( ofs < w*h )
+		while( ofs < w*h*sampleSize )
 		{
 			uint8_t	len;
-			if( fileOfs + 1 > Size )	return ret;
-			len = *(uint8_t*)Buffer+fileOfs;	fileOfs += 1;
+			if( fileOfs + 1 > Size )
+				return ret;
+			len = ((uint8_t*)Buffer)[fileOfs++];
 			// Verbatim
 			if(len & 0x80) {
 				len &= 0x7F;
-				if( fileOfs + len*sampleSize > Size ) {
-					memcpy(ret->Data + ofs*sampleSize, Buffer+fileOfs, Size-fileOfs);
-					return ret;
+				while( len -- )
+				{
+					if( fileOfs + sampleSize > Size )
+						return ret;
+					memcpy(ret->Data+ofs, Buffer+fileOfs, sampleSize);
+					ofs += sampleSize;
+					fileOfs += sampleSize;
 				}
-				else {
-					memcpy(ret->Data + ofs*sampleSize, Buffer+fileOfs, len*sampleSize);
-				}
-				ofs += len;
 			}
 			// RLE
 			else {
-				uint8_t	tmp[sampleSize];
+				if( fileOfs + sampleSize > Size )
+					return ret;
 				
-				if( fileOfs + sampleSize > Size )	return ret;
-				
-				for(i=0;i<sampleSize;i++)
-					tmp[i] = *(uint8_t*)Buffer+fileOfs;	fileOfs += 1;
-				
-				i = 0;
-				while(len--) {
-					for(i=0;i<sampleSize;i++)
-						ret->Data[ofs++] = tmp[i];
+				while( len -- )
+				{
+					memcpy(ret->Data+ofs, Buffer+fileOfs, sampleSize);
+					ofs += sampleSize;
 				}
+				fileOfs += sampleSize;
 			}
 		}
+		_SysDebug("Image_SIF_Parse: Complete at %i bytes", fileOfs);
 		return ret;
 	
 	// Channel 1.7.8 RLE
@@ -167,12 +168,14 @@ tImage *Image_SIF_Parse(void *Buffer, size_t Size)
 					val = *(uint8_t*)Buffer+fileOfs;	fileOfs += 1;
 					if(i == 0) {
 						while(len--) {
-							ret->Data[ofs] = val;		ofs += sampleSize;
+							ret->Data[ofs] = val;
+							ofs += sampleSize;
 						}
 					}
 					else {
 						while(len--) {
-							ret->Data[ofs] |= val;	ofs += sampleSize;
+							ret->Data[ofs] |= val;
+							ofs += sampleSize;
 						}
 					}
 				}
