@@ -176,8 +176,6 @@ void AxWin3_DestroyWindow(tHWND Window)
 	msg = AxWin3_int_AllocateIPCMessage(Window, IPCMSG_DESTROYWIN, 0, 0);
 	AxWin3_int_SendIPCMessage(msg);
 	free(msg);
-	
-	free(ret);
 }
 
 void *AxWin3_int_GetDataPtr(tHWND Window)
