@@ -6,7 +6,7 @@
 all clean: DiskTool NetTest
 
 img2sif: img2sif.c
-	$(CC) -o $@ $< `sdl-config --libs --cflags` -lSDL_image -Wall
+	$(CC) -g -std=c99 -o $@ $< `sdl-config --libs --cflags` -lSDL_image -Wall
 
 nativelib:
 	$(MAKE) -C $@ $(MAKECMDGOALS)

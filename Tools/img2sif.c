@@ -13,70 +13,79 @@ uint32_t	GetARGB(SDL_Surface *srf, int x, int y);
 int main(int argc, char *argv[])
 {
 	FILE	*fp;
-	SDL_Surface	*img;
-	uint16_t	word;
-	uint32_t	val;
-	 int	y, x, i;
-	 int	rle32length, rle4x8length;
+	size_t	rle32length, rle4x8length;
 	 int	bufLen;
+	 int	comp;
+	 int	w, h;
+	 int	pixel_count;
 	uint32_t	*buffer, *buffer2;
-	
-	img = IMG_Load(argv[1]);
-	if( !img )	return -1;
-	
-	buffer = malloc( img->w * img->h * 4 );
-	
-	i = 0;
-	for( y = 0; y < img->h; y++ )
-	{
-		for( x = 0; x < img->w; x ++ )
-		{
-			val = GetARGB(img, x, y);
-			buffer[i++] = val;
-		}
+
+	if( argc != 3 ) {
+		fprintf(stderr, "Usage: %s <input> <output>\n", argv[0]);
+		return 1;
 	}
 	
-	SDL_FreeSurface(img);
+	// Read image
+	{
+		SDL_Surface *img = IMG_Load(argv[1]);
+		if( !img )	return -1;
+		
+		w = img->w;
+		h = img->h;
+		pixel_count = w * h;
+		buffer = malloc( pixel_count * 4 );
+		
+		for( int y = 0, i = 0; y < img->h; y++ )
+		{
+			for( int x = 0; x < img->w; x ++ )
+			{
+				buffer[i++] = GetARGB(img, x, y);
+			}
+		}
+		SDL_FreeSurface(img);
+	}
 	
 	// Try encoding using a single RLE stream
-	rle32length = RLE1_7(NULL, buffer, img->w * img->h, 4, 4, 3);
+	rle32length = RLE1_7(NULL, buffer, pixel_count, 4, 4, 3);
 	
 	// Try encoding using separate RLE streams for each channel
-	rle4x8length  = RLE1_7(NULL, buffer, img->w * img->h, 1, 4, 2);
-	rle4x8length += RLE1_7(NULL, ((uint8_t*)buffer)+1, img->w * img->h, 1, 4, 2);
-	rle4x8length += RLE1_7(NULL, ((uint8_t*)buffer)+2, img->w * img->h, 1, 4, 2);
-	rle4x8length += RLE1_7(NULL, ((uint8_t*)buffer)+3, img->w * img->h, 1, 4, 2);
+	rle4x8length  = RLE1_7(NULL, buffer, pixel_count, 1, 4, 2);
+	rle4x8length += RLE1_7(NULL, ((uint8_t*)buffer)+1, pixel_count, 1, 4, 2);
+	rle4x8length += RLE1_7(NULL, ((uint8_t*)buffer)+2, pixel_count, 1, 4, 2);
+	rle4x8length += RLE1_7(NULL, ((uint8_t*)buffer)+3, pixel_count, 1, 4, 2);
 	
-	printf("raw length = %i\n", img->w * img->h * 4);
-	printf("rle32length = %i\n", rle32length);
-	printf("rle4x8length = %i\n", rle4x8length);
+//	printf("raw length = %i\n", pixel_count * 4);
+//	printf("rle32length = %u\n", (unsigned int)rle32length);
+//	printf("rle4x8length = %u\n", (unsigned int)rle4x8length);
 	
 	if( rle32length < rle4x8length ) {
 		comp = 1;	// 32-bit RLE
 		buffer2 = malloc( rle32length );
-		bufLen = RLE1_7(buffer2, buffer, img->w * img->h, 4, 4, 2);
+		bufLen = RLE1_7(buffer2, buffer, pixel_count, 4, 4, 2);
 	}
 	else {
 		comp = 3;	// 4x8 bit RLE
 		buffer2 = malloc( rle4x8length );
-		rle4x8length  = RLE1_7(buffer2, buffer, img->w * img->h, 1, 4, 3);
-		rle4x8length += RLE1_7(buffer2+rle4x8length, ((uint8_t*)buffer)+1, img->w * img->h, 1, 4, 3);
-		rle4x8length += RLE1_7(buffer2+rle4x8length, ((uint8_t*)buffer)+2, img->w * img->h, 1, 4, 3);
-		rle4x8length += RLE1_7(buffer2+rle4x8length, ((uint8_t*)buffer)+3, img->w * img->h, 1, 4, 3);
+		rle4x8length  = RLE1_7(buffer2, buffer, pixel_count, 1, 4, 3);
+		rle4x8length += RLE1_7(buffer2+rle4x8length, ((uint8_t*)buffer)+1, pixel_count, 1, 4, 3);
+		rle4x8length += RLE1_7(buffer2+rle4x8length, ((uint8_t*)buffer)+2, pixel_count, 1, 4, 3);
+		rle4x8length += RLE1_7(buffer2+rle4x8length, ((uint8_t*)buffer)+3, pixel_count, 1, 4, 3);
 		bufLen = rle4x8length;
 	}
+	free(buffer);
 	
 	// Open and write
 	fp = fopen(argv[2], "w");
 	if( !fp )	return -1;
 	
+	uint16_t	word;
 	word = 0x51F0;	fwrite(&word, 2, 1, fp);
 	word = comp&7;	fwrite(&word, 2, 1, fp);
-	word = img->w;	fwrite(&word, 2, 1, fp);
-	word = img->h;	fwrite(&word, 2, 1, fp);
+	word = w;	fwrite(&word, 2, 1, fp);
+	word = h;	fwrite(&word, 2, 1, fp);
 	
 	fwrite(buffer2, bufLen, 1, fp);
-	
+	free(buffer2);
 	fclose(fp);
 	
 	return 0;
@@ -107,7 +116,6 @@ size_t RLE1_7(void *Dest, void *Src, size_t Size, int BlockSize, int BlockStep, 
 	uint8_t	*src = Src;
 	uint8_t	*dest = Dest;
 	 int	ret = 0;
-	 int	i, j, k;
 	 int	nVerb = 0, nRLE = 0;	// Debugging
 	
 	//printf("RLE1_7: (Dest=%p, Src=%p, Size=%lu, BlockSize=%i, BlockStep=%i, MinRunLength=%i)\n",
@@ -120,50 +128,54 @@ size_t RLE1_7(void *Dest, void *Src, size_t Size, int BlockSize, int BlockStep, 
 	if( MinRunLength < 1 )	return -1;
 	
 	// Scan through the data stream
-	for( i = 0; i < Size; i ++ )
+	for( int i = 0; i < Size; i ++ )
 	{
 		//printf("i = %i, ", i);
+		 int	runlen;
 		// Check forward for and get the "run length"
-		for( j = i + 1; j < i + 127 && j < Size; j ++ )
+		for( runlen = 1; runlen < 127 && i+runlen < Size; runlen ++ )
 		{
 			// Check for equality
-			for( k = 0; k < BlockSize; k ++ ) {
-				if( src[j*BlockStep+k] != src[i*BlockStep+k] )	break;
-			}
-			// If not, break
-			if( k < BlockSize )	break;
+			if( memcmp(&src[i*BlockStep], &src[(i+runlen)*BlockStep], BlockSize) != 0 )
+				break;
 		}
 		
 		#if USE_VERBATIM
 		// Check for a verbatim range (runlength of `MinRunLength` or less)
-		if( j - i <= MinRunLength ) {
+		if( runlen <= MinRunLength )
+		{
 			 int	nSame = 0;
 			// Get the length of the verbatim run
-			for( j = i + 1; j < i + 127 && j < Size; j ++ )
+			for( runlen = 1; runlen < 127 && i+runlen < Size; runlen ++ )
 			{
 				// Check for equality
-				for( k = 0; k < BlockSize; k ++ ) {
-					if( src[j*BlockStep+k] != src[i*BlockStep+k] )	break;
-				}
-				if( k == BlockSize ) {
-					nSame ++;
-					if( nSame > MinRunLength )
-						break;
-				}
-				else {
+				if( memcmp(&src[i*BlockStep], &src[(i+runlen)*BlockStep], BlockSize) != 0 )
+				{
 					nSame = 0;
+				}
+				else
+				{
+					nSame ++;
+					if( nSame > MinRunLength ) {
+						runlen -= nSame-1;
+						break;
+					}
 				}
 			}
 			
 			// Save data
-			if( dest ) {
-				dest[ret++] = (j - i) | 0x80;	// Length (with high bit set)
+			if( dest )
+			{
+				dest[ret++] = runlen | 0x80;	// Length (with high bit set)
 				// Data
-				for( k = 0; k < (j - i)*BlockSize; k ++ )
-					dest[ret++] = src[i*BlockStep+k];
+				for( int k = 0; k < runlen; k ++ )
+				{
+					memcpy( &dest[ret], &src[(i+k)*BlockStep], BlockSize );
+					ret += BlockSize;
+				}
 			}
 			else {
-				ret += 1 + BlockSize*(j - i);
+				ret += 1 + runlen*BlockSize;
 			}
 			
 			nVerb ++;
@@ -171,12 +183,10 @@ size_t RLE1_7(void *Dest, void *Src, size_t Size, int BlockSize, int BlockStep, 
 		// RLE Range
 		else {
 		#endif	// USE_VERBATIM
-			// length = j - i (maxes out at 127)
 			if( dest ) {
-				dest[ret++] = j - i;	// Length (with high bit unset)
-				for( k = 0; k < BlockSize; k ++ ) {
-					dest[ret++] = src[i*BlockStep+k];
-				}
+				dest[ret++] = runlen;	// Length (with high bit unset)
+				memcpy(&dest[ret], &src[i*BlockStep], BlockSize);
+				ret += BlockSize;
 			}
 			else {
 				ret += 1 + BlockSize;
@@ -187,7 +197,7 @@ size_t RLE1_7(void *Dest, void *Src, size_t Size, int BlockSize, int BlockStep, 
 		}
 		#endif
 		
-		i = j;
+		i += runlen-1;
 	}
 	
 	//printf("nVerb = %i, nRLE = %i\n", nVerb, nRLE);
