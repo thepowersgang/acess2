@@ -47,6 +47,7 @@ typedef struct sIPC_Client	tIPC_Client;
 // === FUNCTIONS ===
 // --- Management
 extern tWindow	*WM_CreateWindow(tWindow *Parent, tIPC_Client *Client, uint32_t ID, int Flags, const char *Renderer);
+extern void	WM_DestroyWindow(tWindow *Window);
 extern tWindow	*WM_GetWindowByID(tWindow *Requester, uint32_t ID);
 extern void	WM_Invalidate(tWindow *Window);
 extern void	WM_SetWindowTitle(tWindow *Window, const char *Title);

@@ -94,6 +94,52 @@ tWindow *WM_CreateWindow(tWindow *Parent, tIPC_Client *Client, uint32_t ID, int 
 	return ret;
 }
 
+void WM_DestroyWindow(tWindow *Window)
+{
+	// TODO: Lock window and flag as invalid
+	
+	// - Remove from render tree
+	{
+		// TODO: Lock render tree?
+		tWindow *prev = Window->PrevSibling;
+		tWindow *next = Window->NextSibling;
+		if(prev)
+			prev->NextSibling = next;
+		else
+			Window->Parent->FirstChild = next;
+		if(next)
+			next->PrevSibling = prev;
+		else
+			Window->Parent->LastChild = prev;
+	}
+	WM_Invalidate(Window->Parent);
+	
+	// - Remove from inheritance tree?
+	
+	// - Clean up render children
+	// Lock should not be needed
+	tWindow *win, *next;
+	for( win = Window->FirstChild; win; win = next )
+	{
+		next = win->NextSibling;
+		ASSERT(Window->FirstChild->Parent == Window);
+		WM_DestroyWindow(win);
+	}
+	
+	// - Clean up inheriting children?
+
+	// - Tell renderer to clean up
+	if( Window->Renderer->DestroyWindow )
+		Window->Renderer->DestroyWindow(Window);
+	else
+		_SysDebug("WARN: Renderer %s does not have a destroy function", Window->Renderer->Name);
+	
+	// - Clean up render cache and window structure
+	free(Window->Title);
+	free(Window->RenderBuffer);
+	free(Window);
+}
+
 tWindow *WM_GetWindowByID(tWindow *Requester, uint32_t ID)
 {
 	return IPC_int_GetWindow(Requester->Client, ID);

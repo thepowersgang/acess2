@@ -406,6 +406,20 @@ int IPC_Msg_CreateWin(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
 	return 0;
 }
 
+int IPC_Msg_DestroyWin(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
+{
+	tWindow	*win;
+	
+	ASSERT(Msg->ID == IPCMSG_DESTROYWIN);
+
+	win = IPC_int_GetWindow(Client, Msg->Window);
+	if( !win )
+		return 0;
+	
+	WM_DestroyWindow(win);
+	return 0;
+}
+
 int IPC_Msg_SetWindowTitle(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
 {
 	tWindow	*win;
@@ -525,7 +539,7 @@ int (*gIPC_MessageHandlers[])(tIPC_Client *Client, tAxWin_IPCMessage *Msg) = {
 	IPC_Msg_GetDisplayDims,
 	IPC_Msg_SendMsg,
 	IPC_Msg_CreateWin,
-	NULL,	// Destroy window
+	IPC_Msg_DestroyWin,	// Destroy window
 	IPC_Msg_SetWindowTitle,
 	IPC_Msg_ShowWindow,
 	IPC_Msg_DecorateWindow,

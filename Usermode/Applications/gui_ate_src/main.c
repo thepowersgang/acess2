@@ -20,6 +20,7 @@ void	add_toolbar_button(tAxWin3_Widget *Toolbar, const char *Ident, tAxWin3_Widg
  int	Toolbar_New(tAxWin3_Widget *Widget);
  int	Toolbar_Open(tAxWin3_Widget *Widget);
  int	Toolbar_Save(tAxWin3_Widget *Widget);
+ int	Toolbar_Close(tAxWin3_Widget *Widget);
 
 // === GLOBALS ===
 tHWND	gMainWindow;
@@ -43,18 +44,20 @@ int main(int argc, char *argv[])
 	// TODO: Populate menu	
 
 	// Create toolbar
-	gMainWindow_Toolbar = AxWin3_Widget_AddWidget(gMainWindow_Root, ELETYPE_TOOLBAR, ELEFLAG_NOSTRETCH, "Toolbar");
+	gMainWindow_Toolbar = AxWin3_Widget_AddWidget(gMainWindow_Root,
+		ELETYPE_TOOLBAR, ELEFLAG_NOSTRETCH, "Toolbar");
 	add_toolbar_button(gMainWindow_Toolbar, "BtnNew", Toolbar_New);
 	add_toolbar_button(gMainWindow_Toolbar, "BtnOpen", Toolbar_Open);
 	add_toolbar_button(gMainWindow_Toolbar, "BtnSave", Toolbar_Save);
-	AxWin3_Widget_AddWidget(gMainWindow_Toolbar, ELETYPE_SPACER, 0, "");
+	add_toolbar_button(gMainWindow_Toolbar, "BtnClose", Toolbar_Close);
+	AxWin3_Widget_AddWidget(gMainWindow_Toolbar, ELETYPE_SPACER, ELEFLAG_NOSTRETCH, "");
 	add_toolbar_button(gMainWindow_Toolbar, "BtnUndo", NULL);
 	add_toolbar_button(gMainWindow_Toolbar, "BtnRedo", NULL);
-	AxWin3_Widget_AddWidget(gMainWindow_Toolbar, ELETYPE_SPACER, 0, "");
+	AxWin3_Widget_AddWidget(gMainWindow_Toolbar, ELETYPE_SPACER, ELEFLAG_NOSTRETCH, "");
 	add_toolbar_button(gMainWindow_Toolbar, "BtnCut", NULL);
 	add_toolbar_button(gMainWindow_Toolbar, "BtnCopy", NULL);
 	add_toolbar_button(gMainWindow_Toolbar, "BtnPaste", NULL);
-	AxWin3_Widget_AddWidget(gMainWindow_Toolbar, ELETYPE_SPACER, 0, "");
+	AxWin3_Widget_AddWidget(gMainWindow_Toolbar, ELETYPE_SPACER, ELEFLAG_NOSTRETCH, "");
 	add_toolbar_button(gMainWindow_Toolbar, "BtnSearch", NULL);
 	add_toolbar_button(gMainWindow_Toolbar, "BtnReplace", NULL);
 
@@ -87,6 +90,8 @@ int main(int argc, char *argv[])
 	// Main loop
 	AxWin3_MainLoop();
 
+	AxWin3_DestroyWindow(gMainWindow);
+
 	return 0;
 }
 
@@ -105,7 +110,7 @@ void add_toolbar_button(tAxWin3_Widget *Toolbar, const char *Ident, tAxWin3_Widg
 	tAxWin3_Widget *btn = AxWin3_Widget_AddWidget(Toolbar, ELETYPE_BUTTON, ELEFLAG_NOSTRETCH, Ident);
 	tAxWin3_Widget *txt = AxWin3_Widget_AddWidget(btn, ELETYPE_TEXT, 0, Ident);
 	// TODO: Get image / text using `Ident` as a lookup key
-	AxWin3_Widget_SetText(txt, Ident);
+	AxWin3_Widget_SetText(txt, getstr(Ident));
 	AxWin3_Widget_SetFireHandler(btn, Callback);
 }
 
@@ -119,6 +124,11 @@ int Toolbar_Open(tAxWin3_Widget *Widget)
 }
 int Toolbar_Save(tAxWin3_Widget *Widget)
 {
+	return 0;
+}
+int Toolbar_Close(tAxWin3_Widget *Widget)
+{
+	AxWin3_StopMainLoop(1);
 	return 0;
 }
 

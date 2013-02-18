@@ -31,6 +31,12 @@ struct sWMRenderer
 	 *       set the copy in the window structure.
 	 */
 	tWindow	*(*CreateWindow)(int Arg);
+	
+	/**
+	 * \brief Clean up any stored info
+	 * \param Window	Window being destroyed
+	 */
+	void	(*DestroyWindow)(tWindow *Window);
 
 	/**
 	 * \brief Redraw a window on the screen

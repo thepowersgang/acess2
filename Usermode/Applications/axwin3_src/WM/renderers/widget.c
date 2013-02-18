@@ -249,7 +249,7 @@ void Widget_UpdateDimensions(tElement *Element)
 		if( child->Flags & ELEFLAG_ABSOLUTEPOS )	continue ;
 		
 		// --- Width ---
-		if( child->Flags & ELEFLAG_NOEXPAND )
+		if( child->Flags & (bVertical ? ELEFLAG_NOEXPAND : ELEFLAG_NOSTRETCH) )
 			w = child->MinW;
 		else if( bVertical )
 			w = child->FixedCross ? child->FixedCross : fullCross;
@@ -257,7 +257,7 @@ void Widget_UpdateDimensions(tElement *Element)
 			w = child->FixedWith ? child->FixedWith : dynWith;
 	
 		// --- Height ---
-		if( child->Flags & ELEFLAG_NOSTRETCH )
+		if( child->Flags & (bVertical ? ELEFLAG_NOSTRETCH : ELEFLAG_NOEXPAND) )
 			h = child->MinH;
 		else if( bVertical )
 			h = child->FixedWith ? child->FixedWith : dynWith;

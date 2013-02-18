@@ -4,7 +4,7 @@
 
 LDFLAGS += -laxwin3
 
-OBJ = main.o
+OBJ = main.o strings.o
 BIN = ate
 DIR := Apps/AxWin/3.0
 

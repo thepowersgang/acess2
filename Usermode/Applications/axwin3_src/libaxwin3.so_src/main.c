@@ -10,6 +10,9 @@
 #include "include/ipc.h"
 #include <stdlib.h>
 
+// === GLOBALS ===
+int	giAxWin3_MainLoopExit;
+
 // === CODE ===
 int SoMain(void *Base, int argc, const char *argv[], const char **envp)
 {
@@ -18,12 +21,13 @@ int SoMain(void *Base, int argc, const char *argv[], const char **envp)
 	return 0;
 }
 
-void AxWin3_MainLoop(void)
+int AxWin3_MainLoop(void)
 {
 	tAxWin_IPCMessage	*msg;
-	 int	bExit = 0;	
 
-	while(!bExit)
+	giAxWin3_MainLoopExit = 0;	
+
+	while(!giAxWin3_MainLoopExit)
 	{
 		msg = AxWin3_int_GetIPCMessage(0, NULL);
 		if(!msg)	continue;	
@@ -33,6 +37,12 @@ void AxWin3_MainLoop(void)
 
 		AxWin3_int_HandleMessage( msg );
 	}
+	return giAxWin3_MainLoopExit;
+}
+
+void AxWin3_StopMainLoop(int Reason)
+{
+	giAxWin3_MainLoopExit = Reason;
 }
 
 void AxWin3_MessageSelect(int nFD, fd_set *FDs)

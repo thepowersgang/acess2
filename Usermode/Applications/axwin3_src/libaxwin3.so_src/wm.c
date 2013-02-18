@@ -176,6 +176,8 @@ void AxWin3_DestroyWindow(tHWND Window)
 	msg = AxWin3_int_AllocateIPCMessage(Window, IPCMSG_DESTROYWIN, 0, 0);
 	AxWin3_int_SendIPCMessage(msg);
 	free(msg);
+	
+	free(ret);
 }
 
 void *AxWin3_int_GetDataPtr(tHWND Window)
@@ -224,6 +226,9 @@ void AxWin3_int_HandleMessage(tAxWin_IPCMessage *Msg)
 			}
 		}
 		break; }
+	case IPCMSG_DESTROYWIN:
+		// Clean up resources associated with this window
+		break;
 	default:
 		_SysDebug("Unknow message ID %i", Msg->ID);
 		break;

@@ -129,6 +129,9 @@ void Decorator_Redraw(tWindow *Window)
 		ciSideBorderWidth*2+Window->W, ciBottomBorderWidth-1,
 		cColour_BottomBorder
 		);
+	
+	// Buttons
+	// TODO: Conditional for each
 }
 
 int Decorator_HandleMessage(tWindow *Window, int Message, int Length, const void *Data)

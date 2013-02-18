@@ -72,6 +72,8 @@ int main(int argc, char *argv[])
 	WM_Hotkey_Register(2, keys, "Interface>Run");
 	keys[0] = KEYSYM_LEFTGUI;	keys[1] = KEYSYM_t;
 	WM_Hotkey_Register(2, keys, "Interface>Terminal");
+	keys[0] = KEYSYM_LEFTGUI;	keys[1] = KEYSYM_e;
+	WM_Hotkey_Register(2, keys, "Interface>TextEdit");
 	
 	// Spawn interface root
 	{

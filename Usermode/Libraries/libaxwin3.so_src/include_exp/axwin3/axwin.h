@@ -25,7 +25,8 @@ typedef int	(*tAxWin3_WindowMessageHandler)(tHWND Window, int Message, int Lengt
 // --- Connection management
 extern void	AxWin3_Connect(const char *ServerDesc);
 extern tAxWin3_MessageCallback	AxWin3_SetMessageCallback(tAxWin3_MessageCallback Callback);
-extern void	AxWin3_MainLoop(void);
+extern int	AxWin3_MainLoop(void);
+extern void	AxWin3_StopMainLoop(int Reason);
 extern void	AxWin3_MessageSelect(int nFD, fd_set *FDs);
 
 // --- Non-Window based functions
