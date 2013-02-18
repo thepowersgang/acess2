@@ -19,6 +19,8 @@ void	Decorator_Redraw(tWindow *Window);
  int	Decorator_HandleMessage(tWindow *Window, int Message, int Length, const void *Data);
 
 // === CONSTANTS ===
+#define BTN_CLOSE(win)	win->W-16, -16, 14, 14
+#define BTN_MIN(win)	win->W-32, -16, 14, 14
 tColour	cColourActive_Titlebar   = 0x00CC44;
 tColour	cColourActive_TitleText  = 0x000000;
 tColour	cColourInactive_Titlebar = 0xD0D0D0;
@@ -26,6 +28,7 @@ tColour	cColourInactive_TitleText= 0x000000;
 tColour	cColour_TitleTopBorder   = 0xFFFFFF;
 tColour	cColour_SideBorder       = 0x008000;
 tColour	cColour_BottomBorder     = 0x008000;
+tColour	cColour_CloseBtn         = 0xFF1100;
  int	ciTitlebarHeight	= 18;
  int	ciSideBorderWidth	= 2;
  int	ciBottomBorderWidth	= 4;
@@ -131,21 +134,65 @@ void Decorator_Redraw(tWindow *Window)
 		);
 	
 	// Buttons
+	WM_Render_FillRect(Window, BTN_CLOSE(Window), cColour_CloseBtn);
 	// TODO: Conditional for each
+}
+
+static inline int Decorator_INT_CoordInRange(int X, int Y, int SX, int SY, int EX, int EY)
+{
+	_SysDebug("(%i<=%i<%i, %i<=%i<%i", SX, X, EX, SY, Y, EY);
+	return (X >= SX && X < EX && Y >= SY && Y < EY);
+}
+static inline int Decorator_INT_CoordInRangeR(int X, int Y, int SX, int SY, int W, int H)
+{
+	return Decorator_INT_CoordInRange(X, Y, SX, SY, SX+W, SY+H);
 }
 
 int Decorator_HandleMessage(tWindow *Window, int Message, int Length, const void *Data)
 {
 	static tWindow	*btn1_down;
+	static enum {
+		BTN1_MOVE,
+		BTN1_RLEFT,
+		BTN1_RRIGHT,
+		BTN1_RBOTTOM,
+	} btn1_mode;
 	switch(Message)
 	{
 	case WNDMSG_MOUSEMOVE: {
 		const struct sWndMsg_MouseMove	*msg = Data;
 
-		if( btn1_down == Window ) {
-			WM_MoveWindow(Window, Window->X + msg->dX, Window->Y + msg->dY);
+		if( btn1_down == Window )
+		{
+			switch(btn1_mode)
+			{
+			case BTN1_MOVE:	// Move
+				WM_MoveWindow(Window, Window->X + msg->dX, Window->Y + msg->dY);
+				break;
+			case BTN1_RLEFT:	// Resize left
+				if( Window->W + msg->dX > 50 )
+				{
+					WM_MoveWindow(Window, Window->X + msg->dX, Window->Y);
+					WM_ResizeWindow(Window, Window->W - msg->dX, Window->H);
+				}
+				break;
+			case BTN1_RRIGHT:	// Resize right
+				if( Window->W + msg->dX > 50 )
+				{
+					WM_ResizeWindow(Window, Window->W + msg->dX, Window->H);
+				}
+				break;
+			case BTN1_RBOTTOM:	// Resize bottom
+				if( Window->H + msg->dY > 50 )
+				{
+					WM_ResizeWindow(Window, Window->W, Window->H + msg->dY);
+				}
+				break;
+			}
 			return 0;
 		}
+
+		// TODO: Change cursor when hovering over edges
 
 		if(msg->Y >= 0)	return 1;	// Pass
 
@@ -153,16 +200,58 @@ int Decorator_HandleMessage(tWindow *Window, int Message, int Length, const void
 		return 0; }
 	case WNDMSG_MOUSEBTN: {
 		const struct sWndMsg_MouseButton	*msg = Data;
-		if( msg->Button == 0 && !msg->bPressed )
+		
+		// TODO: Do something with other buttons
+		// - Window menu for example
+		if( msg->Button != 0 )
+			return 1;	// pass on
+
+		if( !msg->bPressed )
 			btn1_down = 0;		
 
-		if(msg->Y >= 0)	return 1;	// Pass
-	
-		if( msg->Button == 0 && msg->bPressed )
+		#define HOTSPOTR(x,y,w,h) Decorator_INT_CoordInRangeR(msg->X, msg->Y, x, y, w, h)
+		#define HOTSPOTA(sx,sy,ex,ey) Decorator_INT_CoordInRange(msg->X, msg->Y, sx, sy, ew, eh)
+		// Left resize border
+		if( msg->bPressed && HOTSPOTR(-ciSideBorderWidth, -ciTitlebarHeight,
+				ciSideBorderWidth, ciTitlebarHeight+Window->H+ciBottomBorderWidth) )
+		{
 			btn1_down = Window;
+			btn1_mode = BTN1_RLEFT;
+			return 0;
+		}
+		// Right resize border
+		if( msg->bPressed && HOTSPOTR(Window->W, -ciTitlebarHeight,
+			ciSideBorderWidth, ciTitlebarHeight+Window->H+ciBottomBorderWidth) )
+		{
+			btn1_down = Window;
+			btn1_mode = BTN1_RRIGHT;
+			return 0;
+		}
+		// Bottom resize border
+		if( msg->bPressed && HOTSPOTR(0, Window->H,
+			Window->W, ciTitlebarHeight) )
+		{
+			btn1_down = Window;
+			btn1_mode = BTN1_RBOTTOM;
+			return 0;
+		}
+		// Titlebar buttons
+		if( msg->bPressed && Decorator_INT_CoordInRangeR(msg->X, msg->Y, BTN_CLOSE(Window)) )
+		{
+			WM_SendMessage(NULL, Window, WNDMSG_CLOSE, 0, NULL);
+			return 0;
+		}
+		// Titlebar - Move
+		if( msg->bPressed && msg->Y < 0 )
+		{
+			btn1_down = Window;
+			btn1_mode = BTN1_MOVE;
+			return 0;
+		}
+		#undef HOTSPOTR
+		#undef HOTSPOTA
 
-		// TODO: Handle
-		return 0; }
+		return 1; }
 	default:	// Anything unhandled is passed on
 		return 1;
 	}

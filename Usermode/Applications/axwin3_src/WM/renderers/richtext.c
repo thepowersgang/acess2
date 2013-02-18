@@ -43,6 +43,7 @@ typedef struct sRichText_Window
 // === PROTOTYPES ===
  int	Renderer_RichText_Init(void);
 tWindow	*Renderer_RichText_Create(int Flags);
+void	Renderer_RichText_Destroy(tWindow *Window);
 void	Renderer_RichText_Redraw(tWindow *Window);
  int	Renderer_RichText_HandleIPC_SetAttr(tWindow *Window, size_t Len, const void *Data);
  int	Renderer_RichText_HandleIPC_WriteLine(tWindow *Window, size_t Len, const void *Data);
@@ -52,6 +53,7 @@ void	Renderer_RichText_Redraw(tWindow *Window);
 tWMRenderer	gRenderer_RichText = {
 	.Name = "RichText",
 	.CreateWindow	= Renderer_RichText_Create,
+	.DestroyWindow  = Renderer_RichText_Destroy,
 	.Redraw 	= Renderer_RichText_Redraw,
 	.HandleMessage	= Renderer_RichText_HandleMessage,
 	.nIPCHandlers = N_IPC_RICHTEXT,
@@ -81,6 +83,23 @@ tWindow *Renderer_RichText_Create(int Flags)
 	info->LineHeight = h;
 	
 	return ret;
+}
+
+void Renderer_RichText_Destroy(tWindow *Window)
+{
+	tRichText_Window	*info = ret->RendererInfo;
+
+	// TODO: Is locking needed? WM_Destroy should have taken us off the render tree
+	while( info->FirstLine )
+	{
+		tRichText_Line *line = info->FirstLine;
+		info->FirstLine = line->Next;
+
+		free(line);
+	}
+
+	if( info->Font )
+		_SysDebug("RichText_Destroy - TODO: Free font");
 }
 
 static inline int Renderer_RichText_RenderText_Act(tWindow *Window, tRichText_Window *info, int X, int Row, const char *Text, int Bytes, tColour FG, tColour BG, int Flags)

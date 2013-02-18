@@ -168,7 +168,10 @@ int _CompareClientPtrs(const void *_a, const void *_b)
 {
 	tIPC_Client	*a = *(tIPC_Client**)_a;
 	tIPC_Client	*b = *(tIPC_Client**)_b;
-	
+
+	ASSERT(a);
+	ASSERT(b);
+
 	if(a->IPCType < b->IPCType)	return -1;
 	if(a->IPCType > b->IPCType)	return 1;
 	

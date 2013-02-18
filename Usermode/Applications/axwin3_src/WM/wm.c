@@ -117,13 +117,15 @@ void WM_DestroyWindow(tWindow *Window)
 	// - Remove from inheritance tree?
 	
 	// - Clean up render children
-	// Lock should not be needed
-	tWindow *win, *next;
-	for( win = Window->FirstChild; win; win = next )
 	{
-		next = win->NextSibling;
-		ASSERT(Window->FirstChild->Parent == Window);
-		WM_DestroyWindow(win);
+		// Lock should not be needed
+		tWindow *win, *next;
+		for( win = Window->FirstChild; win; win = next )
+		{
+			next = win->NextSibling;
+			ASSERT(Window->FirstChild->Parent == Window);
+			WM_DestroyWindow(win);
+		}
 	}
 	
 	// - Clean up inheriting children?
@@ -133,7 +135,10 @@ void WM_DestroyWindow(tWindow *Window)
 		Window->Renderer->DestroyWindow(Window);
 	else
 		_SysDebug("WARN: Renderer %s does not have a destroy function", Window->Renderer->Name);
-	
+
+	// - Tell client to clean up
+	WM_SendMessage(NULL, Window, WNDMSG_DESTROY, 0, NULL);
+
 	// - Clean up render cache and window structure
 	free(Window->Title);
 	free(Window->RenderBuffer);
@@ -356,7 +361,7 @@ int WM_ResizeWindow(tWindow *Window, int W, int H)
 	if( Window->W == W && Window->H == H )
 		return 0;
 
-	_SysDebug("WM_Resizeindow: %ix%i", W, H);
+	_SysDebug("WM_ResizeWindow: %ix%i", W, H);
 	Window->W = W;	Window->H = H;
 
 	if(Window->RenderBuffer) {
