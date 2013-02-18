@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
 	AxWin3_Connect(NULL);
 	
 	// --- Build up window
-	gMainWindow = AxWin3_Widget_CreateWindow(NULL, 700, 400, ELEFLAG_VERTICAL);
+	gMainWindow = AxWin3_Widget_CreateWindow(NULL, 500, 400, ELEFLAG_VERTICAL);
 	AxWin3_SetWindowTitle(gMainWindow, "Acess Text Editor");	// TODO: Update title with other info
 	gMainWindow_Root = AxWin3_Widget_GetRoot(gMainWindow);
 
