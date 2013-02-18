@@ -108,9 +108,18 @@ int TextArea_MouseHandler(tHWND Window, int bPress, int Button, int Row, int Col
 void add_toolbar_button(tAxWin3_Widget *Toolbar, const char *Ident, tAxWin3_Widget_FireCb Callback)
 {
 	tAxWin3_Widget *btn = AxWin3_Widget_AddWidget(Toolbar, ELETYPE_BUTTON, ELEFLAG_NOSTRETCH, Ident);
-	tAxWin3_Widget *txt = AxWin3_Widget_AddWidget(btn, ELETYPE_TEXT, 0, Ident);
-	// TODO: Get image / text using `Ident` as a lookup key
-	AxWin3_Widget_SetText(txt, getstr(Ident));
+	const char *img = getimg(Ident);
+	if( img )
+	{
+		tAxWin3_Widget *txt = AxWin3_Widget_AddWidget(btn, ELETYPE_IMAGE, 0, Ident);
+		AxWin3_Widget_SetText(txt, img);
+		// TODO: tooltip?
+	}
+	else
+	{
+		tAxWin3_Widget *txt = AxWin3_Widget_AddWidget(btn, ELETYPE_TEXT, 0, Ident);
+		AxWin3_Widget_SetText(txt, getstr(Ident));
+	}
 	AxWin3_Widget_SetFireHandler(btn, Callback);
 }
 

@@ -23,9 +23,17 @@ OBJ += renderers/widget/textinput.o
 OBJ += renderers/widget/spacer.o
 OBJ += renderers/widget/subwin.o
 
+PNGIMAGES := toolbar_new.png
+
 LDFLAGS += -limage_sif -luri -lnet -lunicode
 
+IMG2SIF = ../../../../Tools/img2sif
+
 -include ../../Makefile.tpl
+
+.PHONY: install_resources
+
+install: install_resources
 
 #all: resources/LogoSmall.sif.res.h
 
@@ -33,3 +41,13 @@ LDFLAGS += -limage_sif -luri -lnet -lunicode
 	echo "#define RESOURCE_$(notdir $<) \\"| sed -e 's/\./_/g' > $@
 	base64 $< | sed -e 's/.*/"&"\\/' >> $@
 	echo "" >> $@
+
+$(IMG2SIF):
+	$(MAKE) -C $(dir $(IMG2SIF)) img2sif
+
+install_%.sif: resources/%.png
+	@echo img2sif resources/$*.png
+	@$(IMG2SIF) resources/$*.png resources/.$*.sif
+	@$(xCP) resources/.$*.sif $(DISTROOT)/$(DIR)/$*.sif
+
+install_resources: $(IMG2SIF) $(addprefix install_,$(PNGIMAGES:%.png=%.sif))

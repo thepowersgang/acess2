@@ -28,6 +28,10 @@ const struct keyval_str	gaDisplayStrings[] = {
 	{"BtnReplace", "Replace"},
 	};
 const int	ciNumDisplayStrings = sizeof(gaDisplayStrings)/sizeof(gaDisplayStrings[0]);
+const struct keyval_str	gaImageStrings[] = {
+	{"BtnNew", "file:///Acess/Apps/AxWin/3.0/toolbar_new.sif"}
+	};
+const int	ciNumImageStrings = sizeof(gaImageStrings)/sizeof(gaImageStrings[0]);
 
 const char *getstr(const char *key)
 {
@@ -42,5 +46,11 @@ const char *getstr(const char *key)
 
 const char *getimg(const char *key)
 {
-	return "";
+	 int	i;
+	for(i = 0; i < ciNumImageStrings; i ++)
+	{
+		if( strcmp(key, gaImageStrings[i].key) == 0 )
+			return gaImageStrings[i].val;
+	}
+	return NULL;
 }

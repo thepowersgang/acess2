@@ -87,7 +87,7 @@ tWindow *Renderer_RichText_Create(int Flags)
 
 void Renderer_RichText_Destroy(tWindow *Window)
 {
-	tRichText_Window	*info = ret->RendererInfo;
+	tRichText_Window	*info = Window->RendererInfo;
 
 	// TODO: Is locking needed? WM_Destroy should have taken us off the render tree
 	while( info->FirstLine )
