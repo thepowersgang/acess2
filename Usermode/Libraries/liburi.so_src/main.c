@@ -63,7 +63,7 @@ tURI *URI_Parse(const char *String)
 	{
 		 int	hostlen, portlen, pathlen;
 		tmp += 3;	// Eat '://'
-		ret = malloc(sizeof(tURI) + strlen(String) - 2);
+		ret = malloc(sizeof(tURI) + protolen + 1 + strlen(tmp) + 1);
 		
 		ret->Proto = (char*)ret + sizeof(tURI);
 		memcpy(ret->Proto, String, protolen);
@@ -140,14 +140,8 @@ tURI *URI_Parse(const char *String)
 		else
 			ret->Path = ret->Host + hostlen + 1;
 		
-		tmp ++;
 		pathlen = 0;
-		while(*tmp)
-		{
-			ret->Path[pathlen] = *tmp;
-			tmp ++;
-			pathlen ++;
-		}
+		strcpy(ret->Path, tmp);
 		
 		return ret;
 	}
