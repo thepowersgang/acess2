@@ -23,7 +23,7 @@ OBJ += renderers/widget/textinput.o
 OBJ += renderers/widget/spacer.o
 OBJ += renderers/widget/subwin.o
 
-PNGIMAGES := toolbar_new.png
+PNGIMAGES := toolbar_new.png toolbar_save.png toolbar_open.png
 
 LDFLAGS += -limage_sif -luri -lnet -lunicode
 
@@ -45,9 +45,14 @@ install: install_resources
 $(IMG2SIF):
 	$(MAKE) -C $(dir $(IMG2SIF)) img2sif
 
-install_%.sif: resources/%.png
+all: $(addprefix resources/,$(PNGIMAGES:%.png=.%.sif))
+
+resources/.%.sif: $(IMG2SIF) Makefile resources/%.png
 	@echo img2sif resources/$*.png
-	@$(IMG2SIF) resources/$*.png resources/.$*.sif
-	@$(xCP) resources/.$*.sif $(DISTROOT)/$(DIR)/$*.sif
+	@$(IMG2SIF) --rle1x32 resources/$*.png resources/.$*.sif
+
+install_%.sif: resources/.%.sif ;
+	@echo [xCP] $(DISTROOT)/$(DIR)/$*.sif
+	@$(xCP) $< $(DISTROOT)/$(DIR)/$*.sif
 
 install_resources: $(IMG2SIF) $(addprefix install_,$(PNGIMAGES:%.png=%.sif))

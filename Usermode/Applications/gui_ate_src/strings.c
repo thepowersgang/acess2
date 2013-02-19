@@ -29,7 +29,9 @@ const struct keyval_str	gaDisplayStrings[] = {
 	};
 const int	ciNumDisplayStrings = sizeof(gaDisplayStrings)/sizeof(gaDisplayStrings[0]);
 const struct keyval_str	gaImageStrings[] = {
-	{"BtnNew", "file:///Acess/Apps/AxWin/3.0/toolbar_new.sif"}
+	{"BtnNew", "file:///Acess/Apps/AxWin/3.0/toolbar_new.sif"},
+	{"BtnOpen", "file:///Acess/Apps/AxWin/3.0/toolbar_open.sif"},
+	{"BtnSave", "file:///Acess/Apps/AxWin/3.0/toolbar_save.sif"}
 	};
 const int	ciNumImageStrings = sizeof(gaImageStrings)/sizeof(gaImageStrings[0]);
 

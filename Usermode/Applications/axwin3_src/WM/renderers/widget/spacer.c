@@ -40,8 +40,8 @@ void Widget_Spacer_Render(tWindow *Window, tElement *Element)
 
 void Widget_Spacer_Init(tElement *Element)
 {
-	Element->MinH = SPACER_RULE_SIZE+1;
-	Element->MinW = SPACER_RULE_SIZE+1;
+	Element->MinH = SPACER_RULE_SIZE+2;
+	Element->MinW = SPACER_RULE_SIZE+2;
 }
 
 DEFWIDGETTYPE(ELETYPE_SPACER,

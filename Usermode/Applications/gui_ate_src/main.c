@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
 	// <testing>
 	AxWin3_RichText_SetLineCount(gMainWindow_TextArea, 3);
 	AxWin3_RichText_SendLine(gMainWindow_TextArea, 0, "First line!");
-	AxWin3_RichText_SendLine(gMainWindow_TextArea, 2, "Third line! \x01""ff0000A red");
+	AxWin3_RichText_SendLine(gMainWindow_TextArea, 2, "Third line! \x01""ff0000red\x01""00ff00green");
 	// </testing>
 
 	AxWin3_ShowWindow(gMainWindow_TextArea, 1);
