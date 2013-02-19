@@ -150,33 +150,22 @@ tImage *Image_SIF_Parse(void *Buffer, size_t Size)
 			{
 				uint8_t	len, val;
 				if( fileOfs + 1 > Size )	return ret;
-				len = *(uint8_t*)Buffer+fileOfs;	fileOfs += 1;
+				len = ((uint8_t*)Buffer)[fileOfs++];
 				if(len & 0x80) {
 					len &= 0x7F;
 					while(len--) {
 						if( fileOfs + 1 > Size )	return ret;
-						val = *(uint8_t*)Buffer+fileOfs;	fileOfs += 1;
-						if(i == 0)
-							ret->Data[ofs] = val;
-						else
-							ret->Data[ofs] |= val;
+						val = ((uint8_t*)Buffer)[fileOfs++];
+						ret->Data[ofs] = val;
 						ofs += sampleSize;
 					}
 				}
 				else {
 					if( fileOfs + 1 > Size )	return ret;
-					val = *(uint8_t*)Buffer+fileOfs;	fileOfs += 1;
-					if(i == 0) {
-						while(len--) {
-							ret->Data[ofs] = val;
-							ofs += sampleSize;
-						}
-					}
-					else {
-						while(len--) {
-							ret->Data[ofs] |= val;
-							ofs += sampleSize;
-						}
+					val = ((uint8_t*)Buffer)[fileOfs++];
+					while(len--) {
+						ret->Data[ofs] = val;
+						ofs += sampleSize;
 					}
 				}
 			}
