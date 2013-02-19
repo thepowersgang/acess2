@@ -4,30 +4,72 @@
 #include <SDL/SDL.h>
 #include <SDL/SDL_image.h>
 
+enum eCompressionModes {
+	COMP_NONE,
+	COMP_RLE1x32,
+	COMP_ZLIB,
+	COMP_RLE4x8,
+	COMP_AUTO = 8
+};
+
 // === PROTOTYPES ===
  int	main(int argc, char *argv[]);
-size_t	RLE1_7(void *Dest, void *Src, size_t Size, int BlockSize, int BlockStep, int MinRunLength);
+size_t	CompressRLE1x32(void *Dest, const void *Src, size_t Size);
+size_t	CompressRLE4x8(void *Dest, const void *Src, size_t Size);
+size_t	RLE1_7(void *Dest, const void *Src, size_t Size, int BlockSize, int BlockStep, int MinRunLength);
 uint32_t	GetARGB(SDL_Surface *srf, int x, int y);
 
 // === CODE ===
 int main(int argc, char *argv[])
 {
 	FILE	*fp;
-	size_t	rle32length, rle4x8length;
 	 int	bufLen;
-	 int	comp;
+	enum eCompressionModes	comp = COMP_AUTO;
 	 int	w, h;
 	 int	pixel_count;
 	uint32_t	*buffer, *buffer2;
+	
+	const char	*input_file = NULL, *output_file = NULL;
 
-	if( argc != 3 ) {
-		fprintf(stderr, "Usage: %s <input> <output>\n", argv[0]);
+	for( int i = 1; i < argc; i ++ )
+	{
+		if( argv[i][0] != '-' ) {
+			if( !input_file )
+				input_file = argv[i];
+			else if( !output_file )
+				output_file = argv[i];
+			else {
+				// Error
+			}
+		}
+		else if( argv[i][1] != '-' ) {
+			// Single char args
+		}
+		else {
+			// Long args
+			if( strcmp(argv[i], "--uncompressed") == 0 ) {
+				// Force compression mode to '0'
+				comp = COMP_NONE;
+			}
+			else if( strcmp(argv[i], "--rle4x8") == 0 ) {
+				comp = COMP_RLE4x8;
+			}
+			else if( strcmp(argv[i], "--rle1x32") == 0 ) {
+				comp = COMP_RLE1x32;
+			}
+			else {
+				// Error
+			}
+		}
+	}
+	if( !input_file || !output_file ) {
+		fprintf(stderr, "Usage: %s <infile> <outfile>\n", argv[0]);
 		return 1;
 	}
 	
 	// Read image
 	{
-		SDL_Surface *img = IMG_Load(argv[1]);
+		SDL_Surface *img = IMG_Load(input_file);
 		if( !img )	return -1;
 		
 		w = img->w;
@@ -45,37 +87,51 @@ int main(int argc, char *argv[])
 		SDL_FreeSurface(img);
 	}
 	
-	// Try encoding using a single RLE stream
-	rle32length = RLE1_7(NULL, buffer, pixel_count, 4, 4, 3);
-	
-	// Try encoding using separate RLE streams for each channel
-	rle4x8length  = RLE1_7(NULL, buffer, pixel_count, 1, 4, 2);
-	rle4x8length += RLE1_7(NULL, ((uint8_t*)buffer)+1, pixel_count, 1, 4, 2);
-	rle4x8length += RLE1_7(NULL, ((uint8_t*)buffer)+2, pixel_count, 1, 4, 2);
-	rle4x8length += RLE1_7(NULL, ((uint8_t*)buffer)+3, pixel_count, 1, 4, 2);
-	
-//	printf("raw length = %i\n", pixel_count * 4);
-//	printf("rle32length = %u\n", (unsigned int)rle32length);
-//	printf("rle4x8length = %u\n", (unsigned int)rle4x8length);
-	
-	if( rle32length < rle4x8length ) {
-		comp = 1;	// 32-bit RLE
-		buffer2 = malloc( rle32length );
-		bufLen = RLE1_7(buffer2, buffer, pixel_count, 4, 4, 2);
+	if( comp == COMP_AUTO ) 
+	{
+		// Try encoding using a single RLE stream
+		size_t	rle32length = CompressRLE1x32(NULL, buffer, pixel_count);
+		// Try encoding using separate RLE streams for each channel
+		size_t	rle4x8length = CompressRLE4x8(NULL, buffer, pixel_count);
+		
+	//	printf("raw length = %i\n", pixel_count * 4);
+	//	printf("rle32length = %u\n", (unsigned int)rle32length);
+	//	printf("rle4x8length = %u\n", (unsigned int)rle4x8length);
+		
+		if( rle32length <= rle4x8length ) {
+			comp = COMP_RLE1x32;	// 32-bit RLE
+		}
+		else {
+			comp = COMP_RLE4x8;	// 4x8 bit RLE
+		}
 	}
-	else {
-		comp = 3;	// 4x8 bit RLE
-		buffer2 = malloc( rle4x8length );
-		rle4x8length  = RLE1_7(buffer2, buffer, pixel_count, 1, 4, 3);
-		rle4x8length += RLE1_7(buffer2+rle4x8length, ((uint8_t*)buffer)+1, pixel_count, 1, 4, 3);
-		rle4x8length += RLE1_7(buffer2+rle4x8length, ((uint8_t*)buffer)+2, pixel_count, 1, 4, 3);
-		rle4x8length += RLE1_7(buffer2+rle4x8length, ((uint8_t*)buffer)+3, pixel_count, 1, 4, 3);
-		bufLen = rle4x8length;
+
+	switch(comp)
+	{
+	case COMP_NONE:
+		bufLen = pixel_count*4;
+		buffer2 = buffer;
+		buffer = NULL;
+		break;
+	case COMP_RLE1x32:
+		bufLen = CompressRLE1x32(NULL, buffer, pixel_count);
+		buffer2 = malloc(bufLen);
+		bufLen = CompressRLE1x32(buffer2, buffer, pixel_count);
+		break;
+	case COMP_RLE4x8:
+		bufLen = CompressRLE4x8(NULL, buffer, pixel_count);
+		buffer2 = malloc(bufLen);
+		bufLen = CompressRLE4x8(buffer2, buffer, pixel_count);
+		break;
+	default:
+		fprintf(stderr, "Unknown compresion %i\n", comp);
+		return 2;
 	}
+
 	free(buffer);
 	
 	// Open and write
-	fp = fopen(argv[2], "w");
+	fp = fopen(output_file, "w");
 	if( !fp )	return -1;
 	
 	uint16_t	word;
@@ -89,6 +145,20 @@ int main(int argc, char *argv[])
 	fclose(fp);
 	
 	return 0;
+}
+
+size_t CompressRLE1x32(void *Dest, const void *Src, size_t Size)
+{
+	return RLE1_7(Dest, Src, Size, 4, 4, 2);
+}
+size_t CompressRLE4x8(void *Dest, const void *Src, size_t Size)
+{
+	size_t	ret = 0;
+	ret += RLE1_7(Dest ? Dest + ret : NULL, Src+0, Size, 1, 4, 3);
+	ret += RLE1_7(Dest ? Dest + ret : NULL, Src+1, Size, 1, 4, 3);
+	ret += RLE1_7(Dest ? Dest + ret : NULL, Src+2, Size, 1, 4, 3);
+	ret += RLE1_7(Dest ? Dest + ret : NULL, Src+3, Size, 1, 4, 3);
+	return ret;
 }
 
 #define USE_VERBATIM	1
@@ -111,9 +181,9 @@ int main(int argc, char *argv[])
  * other data that you may not want to RLE together (for example, different
  * colour channels in an image).
  */
-size_t RLE1_7(void *Dest, void *Src, size_t Size, int BlockSize, int BlockStep, int MinRunLength)
+size_t RLE1_7(void *Dest, const void *Src, size_t Size, int BlockSize, int BlockStep, int MinRunLength)
 {
-	uint8_t	*src = Src;
+	const uint8_t	*src = Src;
 	uint8_t	*dest = Dest;
 	 int	ret = 0;
 	 int	nVerb = 0, nRLE = 0;	// Debugging
