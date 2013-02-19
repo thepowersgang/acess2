@@ -47,8 +47,12 @@ foreach($lines as $line)
 		continue;
 	}
 	// File
-	if(preg_match('/^File\s+"([^"]+)"\s+"([^"]+)"$/', $line, $matches))
+	if(preg_match('/^File\s+"([^"]+)"(?:\s+"([^"]+)")?$/', $line, $matches))
 	{
+		if( !isset($matches[2]) ) {
+			$matches[2] = $matches[1];
+			$matches[1] = basename($matches[2]);
+		}
 		$lStack[$lDepth][1][] = array($matches[1], $matches[2]);
 		continue;
 	}
