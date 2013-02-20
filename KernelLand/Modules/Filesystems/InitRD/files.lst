@@ -41,6 +41,8 @@ Dir "Apps" {
 			File "__BIN__/Apps/AxWin/3.0/terminal"
 			File "__SRC__/Usermode/Applications/axwin3_src/AcessLogoSmall.sif"
 			File "toolbar_new.sif" "__SRC__/Usermode/Applications/axwin3_src/WM/resources/.toolbar_new.sif"
+			File "toolbar_open.sif" "__SRC__/Usermode/Applications/axwin3_src/WM/resources/.toolbar_open.sif"
+			File "toolbar_save.sif" "__SRC__/Usermode/Applications/axwin3_src/WM/resources/.toolbar_save.sif"
 		}
 	}
 }
