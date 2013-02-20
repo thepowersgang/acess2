@@ -8,13 +8,22 @@ OBJ := main.o lib.o loadlib.o export.o elf.o pe.o
 OBJ += arch/$(ARCHDIR).ao_
 BIN = ld-acess.so
 EXTRABIN := libld-acess.so
-EXTRACLEAN := $(_OBJPREFIX)_stublib.o
+EXTRACLEAN = $(_OBJPREFIX)_stublib.o
 INCFILES := sys/sys.h
 
 CFLAGS   = -g -Wall -fno-builtin -fno-stack-protector -fPIC
 # -fno-leading-underscore
 CFLAGS  += $(CPPFLAGS) -Werror
 LDFLAGS  = -g -T arch/$(ARCHDIR).ld -Map map.txt --export-dynamic
+
+ifeq ($(ARCH),native)
+XBIN := $(addprefix $(OUTPUTDIR)Libs/,$(EXTRABIN)) 
+$(XBIN): obj-$(ARCH)/_stublib.o
+all: $(XBIN)
+LDFLAGS := 
+BIN := 
+OBJ :=
+endif
 
 include ../Makefile.tpl
 

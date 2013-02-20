@@ -3,7 +3,7 @@
 #
 
 
-_BIN := $(OUTPUTDIR)Libs/$(BIN)
+_BIN := $(addprefix $(OUTPUTDIR)Libs/,$(BIN))
 _XBIN := $(addprefix $(OUTPUTDIR)Libs/,$(EXTRABIN))
 _OBJPREFIX := obj-$(ARCH)/
 
