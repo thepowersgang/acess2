@@ -17,7 +17,8 @@ int	giAxWin3_MainLoopExit;
 int SoMain(void *Base, int argc, const char *argv[], const char **envp)
 {
 	// TODO: Parse the environment for the AXWIN3_SERVER variable
-	gsAxWin3_int_ServerDesc = getenv("AXWIN3_SERVER");
+	//gsAxWin3_int_ServerDesc = getenv("AXWIN3_SERVER");
+	gsAxWin3_int_ServerDesc = "pipe:/Devices/ipcpipe/axwin";
 	return 0;
 }
 

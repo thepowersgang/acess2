@@ -13,11 +13,16 @@
 #include "include/internal.h"
 #include "include/ipc.h"
 
+#define assert(cnd)	do{if(!(cnd)){_SysDebug("Assertion failed: %s", #cnd);}}while(0)
+
+#define STATICBUF_SIZE	0x1000
+
 // === CONSTANTS ===
 enum eConnectionType
 {
 	CONNTYPE_NONE,
 	CONNTYPE_SENDMESSAGE,
+	CONNTYPE_IPCPIPE,
 	CONNTYPE_UDP,
 	CONNTYPE_TCP
 };
@@ -33,7 +38,6 @@ tAxWin3_MessageCallback	gAxWin3_MessageCallback;
 // === CODE ===
 void AxWin3_Connect(const char *ServerDesc)
 {
-	_SysDebug("ServerDesc (argument) = %s", ServerDesc);
 	if( !ServerDesc ) {
 		ServerDesc = gsAxWin3_int_ServerDesc;
 	}
@@ -63,6 +67,20 @@ void AxWin3_Connect(const char *ServerDesc)
 		while(*ServerDesc && *ServerDesc != ':')	ServerDesc ++;
 		ServerDesc ++;
 		// TODO: Open socket
+		break;
+	case 'p':
+		assert( strncmp(ServerDesc, "pipe:", 5) == 0 );
+		ServerDesc += 5;
+		giConnectionType = CONNTYPE_IPCPIPE;
+		giConnectionNum = _SysOpen(ServerDesc, OPENFLAG_READ|OPENFLAG_WRITE);
+		if( giConnectionNum == -1 ) {
+			_SysDebug("Cannot open IPC Pipe '%s'", ServerDesc);
+			exit(-1);
+		}
+		break;
+	default:
+		_SysDebug("Unknown server desc format '%s'", ServerDesc);
+		exit(-1);
 		break;
 	}
 }
@@ -110,6 +128,7 @@ void AxWin3_int_SendIPCMessage(tAxWin_IPCMessage *Msg)
 		_SysWrite(giConnectionNum, tmpbuf, sizeof(tmpbuf));
 		}
 		break;
+	case CONNTYPE_IPCPIPE:
 	case CONNTYPE_TCP:
 		_SysWrite(giConnectionNum, Msg, size);
 		break;
@@ -123,6 +142,17 @@ tAxWin_IPCMessage *AxWin3_int_GetIPCMessage(int nFD, fd_set *fds)
 	 int	len;
 	tAxWin_IPCMessage	*ret = NULL;
 	 int	tid;
+	fd_set	local_set;
+	
+	if(!fds)
+		fds = &local_set;
+
+	if( giConnectionType != CONNTYPE_SENDMESSAGE )
+	{
+		if(nFD <= giConnectionNum)
+			nFD = giConnectionNum+1;
+		FD_SET(giConnectionNum, fds);
+	}
 
 	_SysSelect(nFD, fds, NULL, NULL, NULL, THREAD_EVENT_IPCMSG);
 	
@@ -151,9 +181,24 @@ tAxWin_IPCMessage *AxWin3_int_GetIPCMessage(int nFD, fd_set *fds)
 		break;
 	}
 
-	if( giConnectionType == CONNTYPE_TCP || giConnectionType == CONNTYPE_UDP )
+	if( giConnectionType != CONNTYPE_SENDMESSAGE )
 	{
-		// Check fds
+		if( FD_ISSET(giConnectionNum, fds) )
+		{
+			char	tmpbuf[STATICBUF_SIZE];
+			char	*data = tmpbuf;
+			size_t len = _SysRead(giConnectionNum, tmpbuf, sizeof(tmpbuf));
+			
+			if( giConnectionType == CONNTYPE_UDP )
+			{
+				assert(len > giAxWin3_int_UDPHeaderLen);
+				len -= giAxWin3_int_UDPHeaderLen;
+				data += giAxWin3_int_UDPHeaderLen;
+			}
+			assert(len >= sizeof(tAxWin_IPCMessage));
+			ret = malloc(len);
+			memcpy(ret, data, len);
+		}
 	}
 
 	return ret;
