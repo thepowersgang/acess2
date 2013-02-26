@@ -290,7 +290,6 @@ char *FDD_ReadDir(tVFS_Node *UNUSED(Node), int Pos)
 }
 
 /**
- * \fn tVFS_Node *FDD_FindDir(tVFS_Node *Node, const char *filename);
  * \brief Find File Routine (for vfs_node)
  */
 tVFS_Node *FDD_FindDir(tVFS_Node *UNUSED(Node), const char *Filename)
