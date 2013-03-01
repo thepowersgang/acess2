@@ -1,0 +1,6 @@
+--- gas/configure.tgt 2011-07-29 00:00:00.000000 +0000
++++ gas/configure.tgt 2013-03-01 10:45:00.000000 +0800
+@@ -173,2 +173,3 @@
+   i386-sequent-bsd*)			fmt=aout em=dynix ;;
++  i386-*-acess2*)    fmt=elf ;;
+   i386-*-beospe*)			fmt=coff em=pe ;;

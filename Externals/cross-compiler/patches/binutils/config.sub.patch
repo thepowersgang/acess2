@@ -1,0 +1,6 @@
+--- config.sub
++++ config.sub
+@@ -1325,1 +1325,2 @@
++	      | -acess2 \
+ 	      | -aos* | -aros* \
+
