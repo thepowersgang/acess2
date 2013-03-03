@@ -4,6 +4,7 @@
 #include "stdio_int.h"
 #include "lib.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <acess/sys.h>
 
 #define USE_CPUID	0

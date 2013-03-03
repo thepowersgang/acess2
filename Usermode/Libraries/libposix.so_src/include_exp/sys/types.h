@@ -3,8 +3,6 @@
 #ifndef _SYS_TYPES_H
 #define _SYS_TYPES_H
 
-#include <stdint.h>
-
 //typedef signed int	ssize_t;
 //#ifdef  __USE_BSD
 typedef unsigned int	u_int;
@@ -21,7 +19,7 @@ typedef long long int	off_t;
 
 typedef unsigned int	uint;
 
-#include "stat.h"
+//#include "stat.h"
 #include <acess/fd_set.h>
 
 #endif

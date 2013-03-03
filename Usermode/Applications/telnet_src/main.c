@@ -3,6 +3,7 @@
 */
 #include <acess/sys.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <net.h>
 #include <readline.h>
 #include <string.h>

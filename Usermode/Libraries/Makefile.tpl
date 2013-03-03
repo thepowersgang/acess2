@@ -17,7 +17,17 @@ DEPFILES := $(addsuffix .dep,$(OBJ))
 
 .PHONY: all clean install postbuild
 
-all: $(_BIN) $(_XBIN)
+all: _libs $(_BIN) $(_XBIN)
+
+.PHONY: _libs
+
+
+HEADERS := $(patsubst include_exp/%,../../include/%,$(shell find include_exp/ -name \*.h))
+_libs: $(HEADERS)
+
+../../include/%: include_exp/%
+	@mkdir -p $(dir $@)
+	@ln -s $(shell pwd)/$< $@
 
 .PHONY: utest utest-build utest-run $(UTESTS:%=runtest-%)
 

@@ -8,6 +8,8 @@
 #ifndef _LIBC__ASSERT_H_
 #define _LIBC__ASSERT_H_
 
+extern void exit(int status);
+
 #ifdef NDEBUG
 # define assert(expr)	do{}while(0)
 #else

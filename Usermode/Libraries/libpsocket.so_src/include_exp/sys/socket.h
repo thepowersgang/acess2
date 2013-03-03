@@ -10,6 +10,7 @@
 
 #include <sys/types.h>
 #include <stddef.h>	// size_t
+#include <stdint.h>	// uint32_t
 
 typedef uint32_t	socklen_t;
 

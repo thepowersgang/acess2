@@ -9,10 +9,17 @@ BINUTILS_DIR:=$(BINUTILS_ARCHIVE:%.tar.bz2=%)
 BINUTILS_CHANGES := config.sub bfd/config.bfd gas/configure.tgt ld/configure.tgt ld/emulparams/acess2_i386.sh ld/Makefile.in
 GCC_CHANGES := config.sub gcc/config.gcc gcc/config/acess2.h libgcc/config.host 
 
-ARCH?=i586
-PARLEVEL ?= 3
+ifeq ($(ARCH),x86)
+ BFDARCH:=i586
+else ifeq ($(ARCH),x86_64)
+ BFDARCH:=x86_64
+else
+ $(error Arch $(ARCH) is not supported by magic gcc makfile)
+endif
 
-TARGET=$(ARCH)-pc-acess2
+PARLEVEL ?= 1
+
+TARGET=$(BFDARCH)-pc-acess2
 PREFIX=$(shell pwd)/cross
 
 .PHONY: all clean binutils gcc include
@@ -23,13 +30,14 @@ include:
 	mkdir -p $(PREFIX)
 	rm -r $(PREFIX)/include
 	ln -s $(ACESSDIR)/Usermode/include $(PREFIX)/include
+	cd $(PREFIX) && (test \! -e usr && ln -s . usr); true
 
 gcc: $(GCC_DIR) $(PREFIX)/bin/$(TARGET)-gcc
 
 binutils: $(BINUTILS_DIR) $(PREFIX)/bin/$(TARGET)-ld
 
 clean:
-	$(RM) -rf $(BINUTILS_DIR) build-*-$(ARCH)
+	$(RM) -rf $(BINUTILS_DIR) $(GCC_DIR) build-$(ARCH)
 
 $(BINUTILS_DIR) $(GCC_DIR): %: %.tar.bz2
 	tar -xf $<
@@ -51,14 +59,21 @@ $(BINUTILS_DIR)/%: patches/binutils/%
 	@echo [CP] $@
 	@cp $< $@
 
-$(PREFIX)/bin/$(TARGET)-ld: $(addprefix $(BINUTILS_DIR)/,$(BINUTILS_CHANGES))
-	@mkdir -p build-binutils-$(ARCH)
-	@cd build-binutils-$(ARCH) && ../$(BINUTILS_DIR)/configure --target=$(TARGET) --prefix=$(PREFIX) --disable-nls
-	@cd build-binutils-$(ARCH) && make all install -j $(PARLEVEL)
+BDIR_GCC := build-$(ARCH)/gcc
+BDIR_BINUTILS := build-$(ARCH)/binutils
 
-$(PREFIX)/bin/$(TARGET)-gcc:  $(addprefix $(GCC_DIR)/,$(GCC_CHANGES))
-	@mkdir -p build-gcc-$(ARCH)
-	cd build-gcc-$(ARCH) && PATH=$(PREFIX)/bin:$$PATH ../$(GCC_DIR)/configure --target=$(TARGET) --prefix=$(PREFIX) --disable-nls --enable-langs=c,c++ --includedir=$(ACESSDIR)/Usermode/include --libdir=$(ACESSDIR)/Usermode/Output/$(ARCH)/Lib
-	@cd build-gcc-$(ARCH) && PATH=$(PREFIX)/bin:$$PATH make all-gcc all-target-libgcc install-gcc install-target-libgcc -j $(PARLEVEL)
+$(BDIR_BINUTILS)/Makefile: $(addprefix $(BINUTILS_DIR)/,$(BINUTILS_CHANGES))
+	@mkdir -p $(BDIR_BINUTILS)
+	@cd $(BDIR_BINUTILS) && ../../$(BINUTILS_DIR)/configure --target=$(TARGET) --prefix=$(PREFIX) --disable-nls
+
+$(PREFIX)/bin/$(TARGET)-ld: $(BDIR_BINUTILS)/Makefile
+	@cd $(BDIR_BINUTILS) && make all install -j $(PARLEVEL)
+
+$(BDIR_GCC)/Makefile: Makefile $(addprefix $(GCC_DIR)/,$(GCC_CHANGES))
+	@mkdir -p $(BDIR_GCC)
+	@cd $(BDIR_GCC) && PATH=$(PREFIX)/bin:$$PATH ../../$(GCC_DIR)/configure --target=$(TARGET) --prefix=$(PREFIX) --disable-nls --enable-langs=c,c++ --includedir=$(ACESSDIR)/Usermode/include --libdir=$(ACESSDIR)/Usermode/Output/$(ARCH)/Lib "--with-sysroot=$(PREFIX)"
+
+$(PREFIX)/bin/$(TARGET)-gcc: $(BDIR_GCC)/Makefile
+	@cd $(BDIR_GCC) && PATH=$(PREFIX)/bin:$$PATH make all-gcc all-target-libgcc install-gcc install-target-libgcc -j $(PARLEVEL)
 
 

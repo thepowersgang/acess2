@@ -8,6 +8,7 @@
 #include <stddef.h>
 #include <net.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <acess/sys.h>
 
 // === TYPES ===

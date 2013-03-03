@@ -5,8 +5,9 @@
 #ifndef __STDIO_H
 #define __STDIO_H
 
-#include <stdlib.h>
+#include <sys/types.h>
 #include <stdarg.h>
+#include <stddef.h>	// size_t
 
 /* === Types === */
 typedef struct sFILE	FILE;
@@ -14,6 +15,12 @@ typedef struct sFILE	FILE;
 /* === CONSTANTS === */
 #define EOF	(-1)
 #define BUFSIZ	1024
+
+#ifndef SEEK_CUR
+#define SEEK_CUR	1
+#define SEEK_SET	0
+#define SEEK_END	(-1)
+#endif
 
 /* --- Standard IO --- */
 extern int	printf(const char *format, ...);
