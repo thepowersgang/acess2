@@ -71,9 +71,10 @@ $(PREFIX)/bin/$(TARGET)-ld: $(BDIR_BINUTILS)/Makefile
 
 $(BDIR_GCC)/Makefile: Makefile $(addprefix $(GCC_DIR)/,$(GCC_CHANGES))
 	@mkdir -p $(BDIR_GCC)
-	@cd $(BDIR_GCC) && PATH=$(PREFIX)/bin:$$PATH ../../$(GCC_DIR)/configure --target=$(TARGET) --prefix=$(PREFIX) --disable-nls --enable-langs=c,c++ --includedir=$(ACESSDIR)/Usermode/include --libdir=$(ACESSDIR)/Usermode/Output/$(ARCH)/Lib "--with-sysroot=$(PREFIX)"
+	@cd $(BDIR_GCC) && PATH=$(PREFIX)/bin:$$PATH ../../$(GCC_DIR)/configure --target=$(TARGET) --prefix=$(PREFIX) --disable-nls --enable-langs=c,c++ --includedir=$(ACESSDIR)/Usermode/include "--with-sysroot=$(PREFIX)"
 
 $(PREFIX)/bin/$(TARGET)-gcc: $(BDIR_GCC)/Makefile
-	@cd $(BDIR_GCC) && PATH=$(PREFIX)/bin:$$PATH make all-gcc all-target-libgcc install-gcc install-target-libgcc -j $(PARLEVEL)
+	@PATH=$(PREFIX)/bin:$$PATH make -C $(BDIR_GCC) all-gcc all-target-libgcc -j $(PARLEVEL)
+	@make -C $(BDIR_GCC) install-gcc install-target-libgcc -j $(PARLEVEL)
 
 
