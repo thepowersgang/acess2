@@ -21,6 +21,7 @@ PARLEVEL ?= 1
 
 TARGET=$(BFDARCH)-pc-acess2
 PREFIX=$(shell pwd)/cross
+SYSROOT=$(shell pwd)/sysroot
 
 .PHONY: all clean binutils gcc include
 
@@ -28,9 +29,8 @@ all: include binutils gcc
 
 include:
 	mkdir -p $(PREFIX)
-	rm -r $(PREFIX)/include
-	ln -s $(ACESSDIR)/Usermode/include $(PREFIX)/include
-	cd $(PREFIX) && (test \! -e usr && ln -s . usr); true
+	mkdir -p $(SYSROOT)/usr
+	-ln -s $(ACESSDIR)/Usermode/include $(SYSROOT)/usr/include
 
 gcc: $(GCC_DIR) $(PREFIX)/bin/$(TARGET)-gcc
 
@@ -64,14 +64,14 @@ BDIR_BINUTILS := build-$(ARCH)/binutils
 
 $(BDIR_BINUTILS)/Makefile: $(addprefix $(BINUTILS_DIR)/,$(BINUTILS_CHANGES))
 	@mkdir -p $(BDIR_BINUTILS)
-	@cd $(BDIR_BINUTILS) && ../../$(BINUTILS_DIR)/configure --target=$(TARGET) --prefix=$(PREFIX) --disable-nls
+	@cd $(BDIR_BINUTILS) && ../../$(BINUTILS_DIR)/configure --target=$(TARGET) --prefix=$(PREFIX) --disable-nls "--with-sysroot=$(SYSROOT)"
 
 $(PREFIX)/bin/$(TARGET)-ld: $(BDIR_BINUTILS)/Makefile
 	@cd $(BDIR_BINUTILS) && make all install -j $(PARLEVEL)
 
 $(BDIR_GCC)/Makefile: Makefile $(addprefix $(GCC_DIR)/,$(GCC_CHANGES))
 	@mkdir -p $(BDIR_GCC)
-	@cd $(BDIR_GCC) && PATH=$(PREFIX)/bin:$$PATH ../../$(GCC_DIR)/configure --target=$(TARGET) --prefix=$(PREFIX) --disable-nls --enable-langs=c,c++ --includedir=$(ACESSDIR)/Usermode/include "--with-sysroot=$(PREFIX)"
+	@cd $(BDIR_GCC) && PATH=$(PREFIX)/bin:$$PATH ../../$(GCC_DIR)/configure --target=$(TARGET) --prefix=$(PREFIX) --disable-nls --enable-langs=c,c++ --includedir=$(ACESSDIR)/Usermode/include "--with-sysroot=$(SYSROOT)"
 
 $(PREFIX)/bin/$(TARGET)-gcc: $(BDIR_GCC)/Makefile
 	@PATH=$(PREFIX)/bin:$$PATH make -C $(BDIR_GCC) all-gcc all-target-libgcc -j $(PARLEVEL)
