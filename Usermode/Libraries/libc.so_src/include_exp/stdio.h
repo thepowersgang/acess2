@@ -17,8 +17,8 @@ typedef struct sFILE	FILE;
 #define BUFSIZ	1024
 
 #ifndef SEEK_CUR
-#define SEEK_CUR	1
-#define SEEK_SET	0
+#define SEEK_CUR	0
+#define SEEK_SET	1
 #define SEEK_END	(-1)
 #endif
 

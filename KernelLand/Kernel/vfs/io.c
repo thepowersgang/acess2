@@ -18,7 +18,7 @@ size_t VFS_Read(int FD, size_t Length, void *Buffer)
 	tVFS_Handle	*h;
 	size_t	ret;
 	
-	ENTER("iFD XLength pBuffer", FD, Length, Buffer);
+	ENTER("xFD xLength pBuffer", FD, Length, Buffer);
 	
 	h = VFS_GetHandle(FD);
 	if(!h) {
@@ -46,11 +46,12 @@ size_t VFS_Read(int FD, size_t Length, void *Buffer)
 		LEAVE_RET('i', -1);
 	}
 	
+	LOG("Position=%llx", h->Position);
 	ret = h->Node->Type->Read(h->Node, h->Position, Length, Buffer);
 	if(ret == (size_t)-1)	LEAVE_RET('i', -1);
 	
 	h->Position += ret;
-	LEAVE('X', ret);
+	LEAVE('x', ret);
 	return ret;
 }
 
@@ -170,11 +171,9 @@ int VFS_Seek(int FD, Sint64 Offset, int Whence)
 	h = VFS_GetHandle(FD);
 	if(!h)	return -1;
 	
-	//Log_Debug("VFS", "VFS_Seek: (fd=0x%x, Offset=0x%llx, Whence=%i)",
-	//	FD, Offset, Whence);
-	
 	// Set relative to current position
 	if(Whence == 0) {
+		LOG("(FD%x)->Position += %lli", FD, Offset);
 		h->Position += Offset;
 		return 0;
 	}
@@ -183,11 +182,13 @@ int VFS_Seek(int FD, Sint64 Offset, int Whence)
 	if(Whence < 0) {
 		if( h->Node->Size == (Uint64)-1 )	return -1;
 
+		LOG("(FD%x)->Position = %llx - %llx", FD, h->Node->Size, Offset);
 		h->Position = h->Node->Size - Offset;
 		return 0;
 	}
 	
 	// Set relative to start of file
+	LOG("(FD%x)->Position = %llx", FD, Offset);
 	h->Position = Offset;
 	return 0;
 }
