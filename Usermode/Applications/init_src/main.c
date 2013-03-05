@@ -54,7 +54,7 @@ int main(int argc, char *argv[])
 		// No inittab file found, default to:
 		_SysDebug("inittab '%s' is invalid, falling back to one VT", gsInittabPath);
 		
-		#if 0
+		#if 1
 		for( ;; )
 		{
 			int pid = SpawnCommand(0, 1, 1, (char *[]){DEFAULT_SHELL, NULL});
@@ -157,7 +157,8 @@ char *ReadQuotedString(FILE *FP)
 			retstr[pos++] = ch;
 		}
 	}
-	retstr[pos] = '\0';
+	if( retstr )
+		retstr[pos] = '\0';
 	return retstr;
 }
 
@@ -179,6 +180,12 @@ char **ReadCommand(FILE *FP)
 		}
 		ret[pos++] = arg;
 	} while(arg != NULL);
+	
+	if( pos == 0 )
+	{
+		free(ret);
+		return NULL;
+	}
 	ret[pos] = NULL;
 	return ret;
 }
@@ -196,6 +203,7 @@ void FreeCommand(char **Command)
 
 int ProcessInittab(const char *Path)
 {
+	 int	line_num = 0;
 	FILE	*fp = fopen(Path, "r");
 
 	if( !fp )
@@ -205,6 +213,8 @@ int ProcessInittab(const char *Path)
 	{
 		char cmdbuf[64+1];
 		
+		line_num ++;
+
 		 int	rv;
 		if( (rv = fscanf(fp, "%64s%*[ \t]", &cmdbuf)) != 1 ) {
 			_SysDebug("fscanf rv %i != exp 1", rv);
@@ -290,13 +300,17 @@ int ProcessInittab(const char *Path)
 		fscanf(fp, " ");
 		continue;
 	lineError:
-		_SysDebug("label lineError: goto'd");
+		_SysDebug("label lineError: goto'd - line %i, cmdbuf='%s'", line_num, cmdbuf);
 		while( !feof(fp) && fgetc(fp) != '\n' )
 			;
 		continue ;
 	}
 
 	fclose(fp);
+
+	if( gpInitPrograms == NULL )
+		return 2;
+
 	return 0;
 }
 
