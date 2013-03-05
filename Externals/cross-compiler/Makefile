@@ -45,7 +45,7 @@ $(warning $(BINUTILS_DIR) $(GCC_DIR))
 
 $(GCC_DIR)/%: patches/gcc/%.patch
 	@echo [PATCH] $@
-	@tar -xf $(GCC_ARCHIVE) $@
+	#@tar -xf $(GCC_ARCHIVE) $@
 	@patch $@ $<
 $(GCC_DIR)/%: patches/gcc/%
 	@echo [CP] $@
@@ -53,7 +53,7 @@ $(GCC_DIR)/%: patches/gcc/%
 
 $(BINUTILS_DIR)/%: patches/binutils/%.patch
 	@echo [PATCH] $@
-	@tar -xf $(BINUTILS_ARCHIVE) $@
+	#@tar -xf $(BINUTILS_ARCHIVE) $@
 	@patch $@ $<
 $(BINUTILS_DIR)/%: patches/binutils/%
 	@echo [CP] $@
@@ -64,17 +64,19 @@ BDIR_BINUTILS := build-$(ARCH)/binutils
 
 $(BDIR_BINUTILS)/Makefile: $(addprefix $(BINUTILS_DIR)/,$(BINUTILS_CHANGES))
 	@mkdir -p $(BDIR_BINUTILS)
-	@cd $(BDIR_BINUTILS) && ../../$(BINUTILS_DIR)/configure --target=$(TARGET) --prefix=$(PREFIX) --disable-nls "--with-sysroot=$(SYSROOT)"
+	@cd $(BDIR_BINUTILS) && ../../$(BINUTILS_DIR)/configure --target=$(TARGET) --prefix=$(PREFIX) --disable-nls "--with-sysroot=$(SYSROOT)" --enable-shared
 
 $(PREFIX)/bin/$(TARGET)-ld: $(BDIR_BINUTILS)/Makefile
-	@cd $(BDIR_BINUTILS) && make all install -j $(PARLEVEL)
+	@make -C $(BDIR_BINUTILS) all -j $(PARLEVEL)
+	@make -C $(BDIR_BINUTILS) install
 
 $(BDIR_GCC)/Makefile: Makefile $(addprefix $(GCC_DIR)/,$(GCC_CHANGES))
 	@mkdir -p $(BDIR_GCC)
 	@cd $(BDIR_GCC) && PATH=$(PREFIX)/bin:$$PATH ../../$(GCC_DIR)/configure --target=$(TARGET) --prefix=$(PREFIX) --disable-nls --enable-langs=c,c++ --includedir=$(ACESSDIR)/Usermode/include "--with-sysroot=$(SYSROOT)"
 
 $(PREFIX)/bin/$(TARGET)-gcc: $(BDIR_GCC)/Makefile
-	@PATH=$(PREFIX)/bin:$$PATH make -C $(BDIR_GCC) all-gcc all-target-libgcc -j $(PARLEVEL)
-	@make -C $(BDIR_GCC) install-gcc install-target-libgcc -j $(PARLEVEL)
+	@PATH=$(PREFIX)/bin:$$PATH make -C $(BDIR_GCC) all-gcc -j $(PARLEVEL)
+	@PATH=$(PREFIX)/bin:$$PATH make -C $(BDIR_GCC) all-target-libgcc -j $(PARLEVEL)
+	@make -C $(BDIR_GCC) install-gcc install-target-libgcc
 
 
