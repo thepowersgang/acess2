@@ -21,7 +21,7 @@ PARLEVEL ?= 1
 
 TARGET=$(BFDARCH)-pc-acess2
 PREFIX=$(shell pwd)/cross
-SYSROOT=$(shell pwd)/sysroot
+SYSROOT=$(shell pwd)/sysroot-$(ARCH)
 
 .PHONY: all clean binutils gcc include
 
@@ -31,6 +31,7 @@ include:
 	mkdir -p $(PREFIX)
 	mkdir -p $(SYSROOT)/usr
 	-ln -s $(ACESSDIR)/Usermode/include $(SYSROOT)/usr/include
+	-ln -s $(ACESSDIR)/Usermode/Output/$(ARCH)/Libs $(SYSROOT)/usr/lib
 
 gcc: $(GCC_DIR) $(PREFIX)/bin/$(TARGET)-gcc
 
