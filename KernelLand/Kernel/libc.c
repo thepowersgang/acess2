@@ -489,7 +489,7 @@ int isspace(int c)
 }
 int isupper(int c)
 {
-	return ('a' <= c && c <= 'z');
+	return ('A' <= c && c <= 'Z');
 }
 int isxdigit(int c)
 {
