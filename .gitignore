@@ -39,6 +39,8 @@ obj-*/
 *.x86_64
 *.bin
 
+*.a
+
 Makefile.user.cfg
 QemuLog.txt
 Screenshots/

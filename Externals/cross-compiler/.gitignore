@@ -1,0 +1,6 @@
+*.tar.*
+gcc-*/
+binutils-*/
+cross/
+sysroot/
+build-*/
