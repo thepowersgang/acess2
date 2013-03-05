@@ -8,9 +8,9 @@
 #ifndef _LIBC_SETJMP_H_
 #define _LIBC_SETJMP_H_
 
-#if ARCHDIR_is_x86
+#if defined(__i386__)
 typedef void	*jmp_buf[8];
-#elif ARCHDIR_is_x86_64
+#elif defined(__amd64__)
 typedef void	*jmp_buf[16];
 #else
 # error "Unknown Architecture"
