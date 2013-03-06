@@ -216,7 +216,7 @@ int ProcessInittab(const char *Path)
 		line_num ++;
 
 		 int	rv;
-		if( (rv = fscanf(fp, "%64s%*[ \t]", &cmdbuf)) != 1 ) {
+		if( (rv = fscanf(fp, "%64s%*[ \t]", cmdbuf)) != 1 ) {
 			_SysDebug("fscanf rv %i != exp 1", rv);
 			break;
 		}
@@ -258,7 +258,7 @@ int ProcessInittab(const char *Path)
 			// stty <devpath> [78][NOE][012][bB]<baud> <command...>
 			char	path_seg[32+1];
 			char	modespec[4+6+1];
-			if( fscanf(fp, "%32s %6s ", &path_seg, &modespec) != 2 ) {
+			if( fscanf(fp, "%32s %6s ", path_seg, modespec) != 2 ) {
 				goto lineError;
 			}
 			char **command = ReadCommand(fp);
