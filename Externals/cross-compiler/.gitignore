@@ -3,4 +3,5 @@ gcc-*/
 binutils-*/
 cross/
 sysroot/
+sysroot-*/
 build-*/
