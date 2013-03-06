@@ -9,11 +9,11 @@ OBJ := main.o syscalls.o request.o memory.o exports.o
 OBJ := $(addprefix obj-$(PLATFORM)/,$(OBJ))
 
 ifeq ($(PLATFORM),win)
-	BIN := ../ld-acess.dll
+	BIN := ../libacess-native.dll
 	LDFLAGS += -lws2_32
 endif
 ifeq ($(PLATFORM),lin)
-	BIN := ../ld-acess.so
+	BIN := ../libacess-native.so
 endif
 
 CFLAGS   += -Wall

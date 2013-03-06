@@ -140,6 +140,11 @@ int acess__SysSelect(int nfds, fd_set *read, fd_set *write, fd_set *error, int64
 		events
 		);
 }
+int acess__SysUnlink(const char *pathname)
+{
+	// TODO:
+	return 0;
+}
 
 int acess__SysOpenChild(int fd, char *name, int flags) {
 	DEBUG("_SysOpenChild(0x%x, '%s', 0x%x)", fd, name, flags);
@@ -163,7 +168,51 @@ int acess__SysSetFaultHandler(int (*Handler)(int)) {
 	return 0;
 }
 
+void acess__SysSetName(const char *Name)
+{
+	// TODO:
+}
+
+int acess__SysGetName(char *NameDest)
+{
+	// TODO: 
+	return 0;
+}
+
+int acess__SysSetPri(int Priority)
+{
+	// TODO:
+	return 0;
+}
+
+// --- Binaries? ---
+void *acess_SysLoadBin(const char *path, void **entry)
+{
+	// ERROR!
+	return NULL;
+}
+
+int acess__SysUnloadBin(void *base)
+{
+	// ERROR!
+	return -1;
+}
+
+// --- Timekeeping ---
+int64_t acess_SysTimestamp(void)
+{
+	// TODO: Better impl
+//	return now()*1000;
+	return 0;
+}
+
 // --- Memory Management ---
+uint64_t acess__SysGetPhys(uintptr_t vaddr)
+{
+	// TODO:
+	return 0;
+}
+
 uint64_t acess__SysAllocate(uintptr_t vaddr)
 {
 	if( AllocateMemory(vaddr, 0x1000) == -1 )	// Allocate a page
@@ -207,6 +256,12 @@ int acess__SysClone(int flags, void *stack)
 		exit(-1);
 	}
 	#endif
+}
+
+int acess__SysKill(int pid, int sig)
+{
+	// TODO: Impliment SysKill
+	return -1;
 }
 
 int acess__SysExecVE(char *path, char **argv, const char **envp)
@@ -355,7 +410,9 @@ uint32_t acess__SysSetMemFlags(uintptr_t vaddr, uint32_t flags, uint32_t mask)
 
 
 // === Symbol List ===
-#define DEFSYM(name)	{#name, &acess_##name}
+#ifndef DEFSYM
+# define DEFSYM(name)	{#name, &acess_##name}
+#endif
 const tSym	caBuiltinSymbols[] = {
 	DEFSYM(_exit),
 	
