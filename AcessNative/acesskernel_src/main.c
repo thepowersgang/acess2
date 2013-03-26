@@ -27,6 +27,7 @@ extern int	NativeFS_Install(char **Arguments);
 extern void	Debug_SetKTerminal(char *Path);
 extern int	VT_Install(char **Arguments);
 extern int	Mouse_Install(char **Arguments);
+extern int	IPCPipe_Install(char **Arguments);
 extern int	VFS_Mount(const char *Device, const char *MountPoint, const char *Filesystem, const char *Options);
 extern int	VFS_MkDir(const char *Path);
 extern int	SyscallServer(void);
@@ -96,6 +97,7 @@ int main(int argc, char *argv[])
 	}
 	NativeFS_Install(NULL);
 	Mouse_Install(NULL);
+	IPCPipe_Install(NULL);
 	// - Start VTerm
 	{
 		char	*args[] = {
