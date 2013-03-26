@@ -119,6 +119,7 @@ SYSCALL3(Syscall_Read, "iid", int, int, void *,
 );
 SYSCALL3(Syscall_Write, "iid", int, int, const void *,
 	if( Sizes[2] < a1 ) {
+		Log_Warning("Syscalls", "Write - %i < %i", Sizes[2], a1);
 		*Errno = EINVAL;
 		return -1;
 	}

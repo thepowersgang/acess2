@@ -2,6 +2,14 @@
 # - Library Common Makefile
 #
 
+comma=,
+
+ifneq ($(lastword $(subst -, ,$(basename $(LD)))),ld)
+  LDFLAGS := $(subst -soname ,-Wl$(comma)-soname$(comma),$(LDFLAGS))
+  LDFLAGS := $(subst -Map ,-Wl$(comma)-Map$(comma),$(LDFLAGS))
+  LDFLAGS := $(LDFLAGS:-x=-Wl,-x)
+  LDFLAGS := $(LDFLAGS:--%=-Wl,--%)
+endif
 
 _BIN := $(addprefix $(OUTPUTDIR)Libs/,$(BIN))
 _XBIN := $(addprefix $(OUTPUTDIR)Libs/,$(EXTRABIN))

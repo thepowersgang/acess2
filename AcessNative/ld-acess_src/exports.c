@@ -199,7 +199,7 @@ int acess__SysUnloadBin(void *base)
 }
 
 // --- Timekeeping ---
-int64_t acess_SysTimestamp(void)
+int64_t acess__SysTimestamp(void)
 {
 	// TODO: Better impl
 //	return now()*1000;

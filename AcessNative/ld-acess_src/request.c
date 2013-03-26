@@ -243,6 +243,38 @@ int SendRequest(tRequestHeader *Request, int RequestSize, int ResponseSize)
 	if( recvbytes > expbytes ) {
 		// TODO: Warning
 	}
+	
+	#if DEBUG
+	{
+		 int	i;
+		char	*data = (char*)&Request->Params[Request->NParams];
+		DEBUG_S(" Reply:");
+		for( i = 0; i < Request->NParams; i ++ )
+		{
+			switch(Request->Params[i].Type)
+			{
+			case ARG_TYPE_INT32:
+				DEBUG_S(" 0x%08x", *(uint32_t*)data);
+				data += sizeof(uint32_t);
+				break;
+			case ARG_TYPE_INT64:
+				DEBUG_S(" 0x%016"PRIx64"", *(uint64_t*)data);
+				data += sizeof(uint64_t);
+				break;
+			case ARG_TYPE_STRING:
+				DEBUG_S(" '%s'", (char*)data);
+				data += Request->Params[i].Length;
+				break;
+			case ARG_TYPE_DATA:
+				DEBUG_S(" %p:0x%x", (char*)data, Request->Params[i].Length);
+				if( !(Request->Params[i].Flags & ARG_FLAG_ZEROED) )
+					data += Request->Params[i].Length;
+				break;
+			}
+		}
+		DEBUG_S("\n");
+	}
+	#endif
 	return recvbytes;
 }
 

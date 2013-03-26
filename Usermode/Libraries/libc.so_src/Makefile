@@ -17,6 +17,9 @@ OBJ += arch/$(ARCHDIR).ao
 # signals.o
 DEPFILES := $(OBJ:%.o=%.d)
 BIN = libc.so
+ifeq ($(ARCHDIR),native)
+ BIN = libc_acess.so
+endif
 
 include ../Makefile.tpl
 

@@ -249,7 +249,7 @@ uint64_t _Syscall(int SyscallID, const char *ArgTypes, ...)
 		exit(127);
 	}
 	
-	Debug("req->NParams = %i", req->NParams);
+	dataPtr = (void*)&req->Params[req->NParams];
 	assert(req->NParams >= 2);
 	// return
 	assert(req->Params[0].Type == ARG_TYPE_INT64);

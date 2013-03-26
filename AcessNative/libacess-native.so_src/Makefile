@@ -20,7 +20,7 @@ CFLAGS   += -Wall
 CFLAGS   += -Werror
 CFLAGS   += -g -shared -fPIC
 CPPFLAGS += -DARCHDIR_is_x86_64=1
-LDFLAGS  += -g -shared -Wl,--no-undefined
+LDFLAGS  += -g -shared -Wl,--no-undefined -lc
 
 DEPFILES  = $(filter %.o,$(OBJ))
 DEPFILES := $(DEPFILES:%=%.dep)

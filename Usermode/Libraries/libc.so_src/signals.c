@@ -2,7 +2,7 @@
  * AcessOS Basic C Library
  * signals.c
 */
-//#include <acess/sys.h>
+#include <acess/sys.h>
 #include <stdlib.h>
 #include <signal.h>
 #include "lib.h"
