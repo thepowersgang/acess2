@@ -340,7 +340,7 @@ tMessage *Message_AppendF(tServer *Server, int Type, const char *Source, const c
 	va_list	args;
 	 int	len;
 	va_start(args, Message);
-	len = vsnprintf(NULL, 1000, Message, args);
+	len = vsnprintf(NULL, 0, Message, args);
 	{
 		char	buf[len+1];
 		vsnprintf(buf, len+1, Message, args);
@@ -602,6 +602,10 @@ void ParseServerLine(tServer *Server, char *Line)
 			}
 			
 			//printf("[%s] NOTICE %s: %s\n", Server->Name, ident, message);
+			char *ident_bang = strchr(ident, '!');
+			if( ident_bang ) {
+				*ident_bang = '\0';
+			}
 			Message_Append(Server, MSG_TYPE_NOTICE, ident, "", message);
 		}
 		else if( strcmp(cmd, "PRIVMSG") == 0 )
@@ -619,7 +623,10 @@ void ParseServerLine(tServer *Server, char *Line)
 			// TODO: Catch when the privmsg is addressed to the user
 
 //			Cmd_PRIVMSG(Server, dest, ident, message);
-			*strchr(ident, '!') = '\0';	// Hello SIGSEGV
+			char *ident_bang = strchr(ident, '!');
+			if( ident_bang ) {
+				*ident_bang = '\0';
+			}
 			Message_Append(Server, MSG_TYPE_STANDARD, ident, dest, message);
 		}
 		else if( strcmp(cmd, "JOIN" ) == 0 )
@@ -709,7 +716,7 @@ int writef(int FD, const char *Format, ...)
 	 int	len;
 	
 	va_start(args, Format);
-	len = vsnprintf(NULL, 1000, Format, args);
+	len = vsnprintf(NULL, 0, Format, args);
 	va_end(args);
 	
 	{

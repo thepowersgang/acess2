@@ -22,17 +22,17 @@ int Net_OpenSocket(int AddrType, void *Addr, const char *Filename)
 	
 	if(Filename)
 	{
-		 int	len = snprintf(NULL, 100, "/Devices/ip/routes/@%i:%s/%s", AddrType, hexAddr, Filename);
+		 int	len = snprintf(NULL, 0, "/Devices/ip/routes/@%i:%s/%s", AddrType, hexAddr, Filename);
 		char	path[len+1];
-		snprintf(path, 100, "/Devices/ip/routes/@%i:%s/%s", AddrType, hexAddr, Filename);
+		snprintf(path, len+1, "/Devices/ip/routes/@%i:%s/%s", AddrType, hexAddr, Filename);
 		_SysDebug("%s", path);
 		return _SysOpen(path, OPENFLAG_READ|OPENFLAG_WRITE);
 	}
 	else
 	{
-		 int	len = snprintf(NULL, 100, "/Devices/ip/routes/@%i:%s", AddrType, hexAddr);
+		 int	len = snprintf(NULL, 0, "/Devices/ip/routes/@%i:%s", AddrType, hexAddr);
 		char	path[len+1];
-		snprintf(path, 100, "/Devices/ip/routes/@%i:%s", AddrType, hexAddr);
+		snprintf(path, len+1, "/Devices/ip/routes/@%i:%s", AddrType, hexAddr);
 		return _SysOpen(path, OPENFLAG_READ);
 	}
 }
