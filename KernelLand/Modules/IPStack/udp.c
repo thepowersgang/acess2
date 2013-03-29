@@ -117,10 +117,8 @@ void UDP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 {
 	tUDPHeader	*hdr = Buffer;
 	
-	Log_Debug("UDP", "hdr->SourcePort = %i", ntohs(hdr->SourcePort));
-	Log_Debug("UDP", "hdr->DestPort = %i", ntohs(hdr->DestPort));
-	Log_Debug("UDP", "hdr->Length = %i", ntohs(hdr->Length));
-	Log_Debug("UDP", "hdr->Checksum = 0x%x", ntohs(hdr->Checksum));
+	Log_Debug("UDP", "%i bytes :%i->:%i (Cksum 0x%04x)",
+		ntohs(hdr->Length), ntohs(hdr->SourcePort), ntohs(hdr->Length), ntohs(hdr->Checksum));
 	
 	// Check registered connections
 	Mutex_Acquire(&glUDP_Channels);
