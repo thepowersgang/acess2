@@ -64,6 +64,7 @@ void WM_Hotkey_RegisterAction(const char *ActionName, tWindow *Target, uint16_t 
 	strcpy((char*)t->Name, ActionName);
 	t->Window = Target;
 	t->Index = Index;
+	t->Next = NULL;
 
 	// TODO: Register to be informed when the window dies/closes?
 

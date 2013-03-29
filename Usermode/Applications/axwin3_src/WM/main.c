@@ -39,6 +39,8 @@ const char	*gsMouseDevice = NULL;
 #define __INSTALL_ROOT	"/Acess/Apps/AxWin/3.0"
 
 const char	*gsInstallRoot = __INSTALL_ROOT;
+const char	*gsInterfaceApp = __INSTALL_ROOT"/AxWinUI";
+ int	gbNoSpawnUI = 0;
 
 // === CODE ===
 /**
@@ -76,17 +78,17 @@ int main(int argc, char *argv[])
 	WM_Hotkey_Register(2, keys, "Interface>TextEdit");
 	
 	// Spawn interface root
+	if( !gbNoSpawnUI )
 	{
 	 	int	server_tid = gettid();
 		_SysDebug("server_tid = %i", server_tid);
-		static char csInterfaceApp[] = __INSTALL_ROOT"/AxWinUI";
 		char	server_info[] = "AXWIN3_SERVER=00000";
 		const char	*envp[] = {server_info, NULL};
-		const char	*argv[] = {csInterfaceApp, NULL};
+		const char	*argv[] = {gsInterfaceApp, NULL};
 		_SysDebug("server_tid = %i, &server_tid = %p", server_tid, &server_tid);
 		sprintf(server_info, "AXWIN3_SERVER=%i", server_tid);
 		// TODO: Does the client need FDs?
-		 int	rv = _SysSpawn(csInterfaceApp, argv, envp, 0, NULL, NULL);
+		 int	rv = _SysSpawn(gsInterfaceApp, argv, envp, 0, NULL, NULL);
 		if( rv < 0 ) {
 			_SysDebug("_SysSpawn chucked a sad, rv=%i, errno=%i", rv, _errno);
 		}
@@ -116,8 +118,37 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
+void PrintUsage(void)
+{
+	fprintf(stderr, "Arguments:\n");
+	fprintf(stderr, "  --no-ui  : Don't spawn the UI process\n");
+}
+
 void ParseCommandline(int argc, char **argv)
 {
-	
+	for( int i = 1; i < argc; i ++ )
+	{
+		if( argv[i][0] != '-' ) {
+			// Error?
+			PrintUsage();
+			exit(-1);
+		}
+		else if( argv[i][1] != '-' ) {
+			// Short
+			PrintUsage();
+			exit(-1);
+		}
+		else {
+			// Long
+			if( strcmp(argv[i], "--no-ui") == 0 ) {
+				gbNoSpawnUI = 1;
+			}
+			else {
+				// Error.
+				PrintUsage();
+				exit(-1);
+			}
+		}
+	}
 }
 

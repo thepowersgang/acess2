@@ -6,7 +6,7 @@
 CPPFLAGS += 
 CFLAGS   += -Werror -Wextra
 ASFLAGS  +=
-LDFLAGS  += -soname libposix.so -Map map.txt
+LDFLAGS  += -soname libposix.so -Map map.txt -lc
 
 OBJ  = main.o unistd.o dirent.o stat.o
 DEPFILES := $(OBJ:%.o=%.d)

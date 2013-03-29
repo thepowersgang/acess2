@@ -35,6 +35,9 @@
 #define FILEFLAG_SYMLINK	0x20
 #define CLONE_VM	0x10
 
+#ifdef ARCHDIR_is_native
+# include "_native_syscallmod.h"
+#endif
 
 // === TYPES ===
 

@@ -10,7 +10,7 @@
 
 #include <stdint.h>
 
-extern void	_SysDebug(const char *Fmt, ...);
+#include <acess/sys.h>	// _SysDebug
 
 struct sAxWin3_Window
 {

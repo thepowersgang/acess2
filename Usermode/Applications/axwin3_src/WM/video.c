@@ -49,9 +49,10 @@ void Video_Setup(void)
 	giTerminalFD_Input = 0;
 	// Check that the console is a VT
 	// - _SysIOCtl(..., 0, NULL) returns the type, which should be 2
-	if( _SysIOCtl(1, 0, NULL) != 2 )
+	tmpInt = _SysIOCtl(1, 0, NULL);
+	if( tmpInt != 2 )
 	{
-		fprintf(stderr, "stdout is not an Acess VT, can't start");
+		fprintf(stderr, "stdout is not an Acess VT, can't start (2 exp, %i got)\n", tmpInt);
 		_SysDebug("stdout is not an Acess VT, can't start");
 		exit(-1);
 	}

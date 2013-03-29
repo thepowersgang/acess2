@@ -41,7 +41,8 @@ size_t VFS_Read(int FD, size_t Length, void *Buffer)
 	}
 
 	if( !MM_GetPhysAddr(h->Node->Type->Read) ) {
-		Log_Error("VFS", "Node type %p(%s) read method is junk %p", h->Node->Type, h->Node, h->Node->Type->TypeName,
+		Log_Error("VFS", "Node type %p(%s) read method is junk %p",
+			h->Node->Type, h->Node, h->Node->Type->TypeName,
 			h->Node->Type->Read);
 		LEAVE_RET('i', -1);
 	}
@@ -98,10 +99,19 @@ size_t VFS_Write(int FD, size_t Length, const void *Buffer)
 	h = VFS_GetHandle(FD);
 	if(!h)	return -1;
 	
-	if( !(h->Mode & VFS_OPENFLAG_WRITE) )	return -1;
-	if( h->Node->Flags & VFS_FFLAG_DIRECTORY )	return -1;
+	if( !(h->Mode & VFS_OPENFLAG_WRITE) ) {
+		LOG("FD%i not opened for writing", FD);
+		return -1;
+	}
+	if( h->Node->Flags & VFS_FFLAG_DIRECTORY ) {
+		LOG("FD%i is a director", FD);
+		return -1;
+	}
 
-	if( !h->Node->Type || !h->Node->Type->Write )	return 0;
+	if( !h->Node->Type || !h->Node->Type->Write ) {
+		LOG("FD%i has no write method", FD);
+		return 0;
+	}
 
 	if( !MM_GetPhysAddr(h->Node->Type->Write) ) {
 		Log_Error("VFS", "Node type %p(%s) write method is junk %p", h->Node->Type, h->Node, h->Node->Type->TypeName,

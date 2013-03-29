@@ -3,8 +3,8 @@
 
 // TODO: Fully implement errno.h, make sure it matches the kernel one
 
-extern int	_errno;
-#define	errno	_errno
+extern int	*libc_geterrno();
+#define	errno	(*libc_geterrno())
 
 #define strerror(_x)	"Unimplemented"
 

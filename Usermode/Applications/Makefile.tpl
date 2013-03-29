@@ -6,6 +6,13 @@
 CFLAGS  += -g
 LDFLAGS += -g
 
+LDFLAGS += -Map $(_OBJPREFIX)Map.txt
+
+ifneq ($(lastword $(subst -, ,$(basename $(LD)))),ld)
+  LDFLAGS := $(subst -rpath-link ,-Wl$(comma)-rpath-link$(comma),$(LDFLAGS))
+  LDFLAGS := $(subst -Map ,-Wl$(comma)-Map$(comma),$(LDFLAGS))
+endif
+
 _BIN := $(OUTPUTDIR)$(DIR)/$(BIN)
 _OBJPREFIX := obj-$(ARCH)/
 
@@ -40,12 +47,7 @@ install: $(_BIN)
 $(_BIN): $(OUTPUTDIR)Libs/acess.ld $(OUTPUTDIR)Libs/crt0.o $(_LIBS) $(OBJ)
 	@mkdir -p $(dir $(_BIN))
 	@echo [LD] -o $@
-#ifeq ($(ARCHDIR),native)
-#	$V$(LD) -g -o $@.tmp.o -r $(OBJ) $(LIBGCC_PATH)
-#	$V$(LD) -g $(LDFLAGS) -o $@ $@.tmp.o -Map $(_OBJPREFIX)Map.txt
-#else
-	$V$(LD) -g $(LDFLAGS) -o $@ $(OBJ) -Map $(_OBJPREFIX)Map.txt $(LIBGCC_PATH)
-#endif
+	$V$(LD) -g $(LDFLAGS) -o $@ $(OBJ) $(LIBGCC_PATH)
 	$V$(DISASM) $(_BIN) > $(_OBJPREFIX)$(BIN).dsm
 
 $(OBJ): $(_OBJPREFIX)%.o: %.c
