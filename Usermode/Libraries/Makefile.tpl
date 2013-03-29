@@ -4,6 +4,12 @@
 
 comma=,
 
+LDFLAGS += -soname $(BIN)
+
+ifeq ($(ARCH),native)
+ LDFLAGS := $(LDFLAGS:-lc=-lc_acess)
+endif
+
 ifneq ($(lastword $(subst -, ,$(basename $(LD)))),ld)
   LDFLAGS := $(subst -soname ,-Wl$(comma)-soname$(comma),$(LDFLAGS))
   LDFLAGS := $(subst -Map ,-Wl$(comma)-Map$(comma),$(LDFLAGS))
