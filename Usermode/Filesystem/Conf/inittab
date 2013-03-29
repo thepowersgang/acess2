@@ -1,4 +1,4 @@
-exec /Acess/Bin/dhcpc
+exec /Acess/SBin/dhcpc
 
 ktty 0 /Acess/SBin/login
 ktty 1 /Acess/SBin/login

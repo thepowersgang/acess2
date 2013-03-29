@@ -2,6 +2,7 @@ Dir "SBin" {
 	File "__BIN__/SBin/init"
 	File "__BIN__/SBin/login"
 	File "__BIN__/SBin/telnetd"
+	File "__BIN__/SBin/dhcpc"
 }
 Dir "Bin" {
 	File "__BIN__/Bin/CLIShell"
@@ -14,7 +15,6 @@ Dir "Bin" {
 	File "__BIN__/Bin/telnet"
 	File "__BIN__/Bin/irc"
 	File "__BIN__/Bin/bomb"
-	File "__BIN__/SBin/dhcpc"
 }
 Dir "Libs" {
 	File "__BIN__/Libs/ld-acess.so"
