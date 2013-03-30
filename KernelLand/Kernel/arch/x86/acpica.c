@@ -192,7 +192,7 @@ void *AcpiOsAcquireObject(ACPI_CACHE_T *Cache)
 		}
 	}
 
-	Log_Debug("ACPICA", "AcpiOsAcquireObject: %i objects used", Cache->nObj);	
+	Log_Debug("ACPICA", "AcpiOsAcquireObject: %i objects used in cache '%s'", Cache->nObj, Cache->Name);
 
 	LEAVE('n');
 	return NULL;
