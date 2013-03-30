@@ -286,7 +286,7 @@ struct sVFS_NodeType
 	 * \param Node	Pointer to this node
 	 * \param Name	Name of the file wanted
 	 * \return Pointer to the requested node or NULL if it cannot be found
-	 * \note The node returned must be accessable until ::tVFS_Node.Close
+	 * \note The node returned must be accessable until tVFS_NodeType::Close
 	 *       is called and ReferenceCount reaches zero.
 	 */
 	struct sVFS_Node	*(*FindDir)(struct sVFS_Node *Node, const char *Name);

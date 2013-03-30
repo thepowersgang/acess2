@@ -229,7 +229,7 @@ extern Uint	MM_GetFlags(tVAddr VAddr);
 extern void	*MM_MapTemp(tPAddr PAddr);
 /**
  * \brief Free a temporarily mapped page
- * \param VAddr	Allocate virtual addres of page
+ * \param Ptr	Pointer to page base
  */
 extern void	MM_FreeTemp(void *Ptr);
 /**
