@@ -22,6 +22,10 @@ typedef struct sFILE	FILE;
 #define SEEK_END	(-1)
 #endif
 
+#define _IOFBF	2
+#define _IOLBF	1
+#define _IONBF	0
+
 #ifdef ARCHDIR_is_native
 #define printf	acess_printf
 #define vsprintf	acess_vsprintf

@@ -23,14 +23,12 @@ static void	cpuid(uint32_t Num, uint32_t *EAX, uint32_t *EBX, uint32_t *EDX, uin
 
 // === IMPORTS ===
 extern tLoadedLib	gLoadedLibraries[64];
-extern int	_SysSetFaultHandler(int (*Handler)(int));
+extern void	*_crt0_exit_handler;
+extern void	_stdio_init(void);
+extern void	_call_atexit_handlers(void);
 
 // === GLOBALS ===
 extern char **_envp;
-extern struct sFILE	_iob[];
-extern struct sFILE	*stdin;
-extern struct sFILE	*stdout;
-extern struct sFILE	*stderr;
 // --- CPU Features ---
 #if USE_CPUID
 tCPUID	gCPU_Features;
@@ -61,14 +59,8 @@ int SoMain(UNUSED(uintptr_t, BaseAddress), UNUSED(int, argc), UNUSED(char **, ar
 		}
 	}
 	#endif
-	
-	// Init FileIO Pointers
-	stdin = &_iob[0];
-	stdin->FD = 0;	stdin->Flags = FILE_FLAG_MODE_READ;
-	stdout = &_iob[1];
-	stdout->FD = 1;	stdout->Flags = FILE_FLAG_MODE_WRITE;
-	stderr = &_iob[2];
-	stderr->FD = 2;	stderr->Flags = FILE_FLAG_MODE_WRITE;
+
+	_stdio_init();	
 	
 	#if USE_CPUID
 	{
@@ -79,6 +71,8 @@ int SoMain(UNUSED(uintptr_t, BaseAddress), UNUSED(int, argc), UNUSED(char **, ar
 	}
 	#endif
 	
+	_crt0_exit_handler = _call_atexit_handlers;
+
 	// Set Error handler
 	_SysSetFaultHandler(ErrorHandler);
 	
