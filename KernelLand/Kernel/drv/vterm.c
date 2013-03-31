@@ -516,7 +516,7 @@ size_t VT_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer
 		break;
 	}
 	
-	return 0;
+	return Length;
 }
 
 /**

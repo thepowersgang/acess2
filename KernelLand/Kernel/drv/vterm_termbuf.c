@@ -24,7 +24,7 @@ void VT_int_PutString(tVTerm *Term, const Uint8 *Buffer, Uint Count)
 		int ret = VT_int_ParseEscape(Term, (const char*)&Buffer[i], Count-i);
 		if( ret > 0 )
 		{
-			i += ret;
+			i += ret-1;
 			continue;
 		}
 		
