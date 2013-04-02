@@ -158,7 +158,23 @@ void VT_int_ParseEscape_StandardLarge(tVTerm *Term, char CmdChar, int argc, int 
 			Term->ViewPos += Term->TextWidth*tmp;
 		}
 		break;
-	
+	// Set Mode (?)
+	case 'h':
+		if( argc >= 1 )
+		{
+			switch(args[0])
+			{
+			case 2:	// Keyboard action mode
+			case 4:	// Insert mode
+			case 12:	// Send/receive
+			case 20:	// Automatic newline
+				break;
+			default:	// ?
+				break;
+			}
+		}
+		break;
+		
 	// Set Font flags
 	case 'm':
 		for( ; argc--; )
