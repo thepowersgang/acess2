@@ -289,7 +289,7 @@ int _fflush_int(FILE *fp)
 		
 	// Write - Write buffer
 	case FILE_FLAG_MODE_WRITE:
-		_SysDebug("Flushing to %i '%.*s'", fp->FD, fp->BufferPos, fp->Buffer);
+		//_SysDebug("Flushing to %i '%.*s'", fp->FD, fp->BufferPos, fp->Buffer);
 		len = _SysWrite(fp->FD, fp->Buffer, fp->BufferPos);
 		if( len != fp->BufferPos )
 			ret = 1;
