@@ -14,6 +14,8 @@ struct sIPStackBuffer
 	 int	MaxSubBufffers;
 	 int	nSubBuffers;
 	size_t	TotalLength;
+	tMutex	lBufferLock;
+
 	struct _subbuffer
 	{
 		const void	*Data;
@@ -34,12 +36,14 @@ tIPStackBuffer *IPStack_Buffer_CreateBuffer(int MaxBuffers)
 	ret->MaxSubBufffers = MaxBuffers;
 	ret->nSubBuffers = 0;
 	ret->TotalLength = 0;
+	memset(&ret->lBufferLock, 0, sizeof(ret->lBufferLock));
 	memset(ret->SubBuffers, 0, MaxBuffers * sizeof(ret->SubBuffers[0]));
 	return ret;
 }
 
 void IPStack_Buffer_ClearBuffer(tIPStackBuffer *Buffer)
 {
+	IPStack_Buffer_LockBuffer(Buffer);
 	for( int i = 0; i < Buffer->nSubBuffers; i ++ )
 	{
 		if( Buffer->SubBuffers[i].Cb == NULL )
@@ -51,8 +55,8 @@ void IPStack_Buffer_ClearBuffer(tIPStackBuffer *Buffer)
 			Buffer->SubBuffers[i].Data
 			);
 	}
-	// TODO: Fire callbacks?
 	Buffer->nSubBuffers = 0;
+	IPStack_Buffer_UnlockBuffer(Buffer);
 }
 
 void IPStack_Buffer_DestroyBuffer(tIPStackBuffer *Buffer)
@@ -60,6 +64,15 @@ void IPStack_Buffer_DestroyBuffer(tIPStackBuffer *Buffer)
 	IPStack_Buffer_ClearBuffer(Buffer);
 	Buffer->MaxSubBufffers = 0;
 	free(Buffer);
+}
+
+void IPStack_Buffer_LockBuffer(tIPStackBuffer *Buffer)
+{
+	Mutex_Acquire(&Buffer->lBufferLock);
+}
+void IPStack_Buffer_UnlockBuffer(tIPStackBuffer *Buffer)
+{
+	Mutex_Release(&Buffer->lBufferLock);
 }
 
 void IPStack_Buffer_AppendSubBuffer(tIPStackBuffer *Buffer,

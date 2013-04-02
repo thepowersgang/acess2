@@ -72,6 +72,7 @@ char *GetUsername()
 	
 	// Prompt the user
 	printf("Username: ");
+	fflush(stdout);
 	
 	// Read in text
 	while( (ch = fgetc(stdin)) != -1 && ch != '\n' )
@@ -86,6 +87,7 @@ char *GetUsername()
 		
 		// Echo out to the screen
 		fputc(ch, stdout);
+		fflush(stdout);
 		
 		if(pos == BUFLEN-1)	break;
 	}
@@ -108,6 +110,7 @@ char *GetPassword()
 	
 	// Prompt the user
 	printf("Password: ");
+	fflush(stdout);
 	
 	// Read in text
 	while( (ch = fgetc(stdin)) != -1 && ch != '\n' )

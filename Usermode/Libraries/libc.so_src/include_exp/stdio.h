@@ -22,6 +22,30 @@ typedef struct sFILE	FILE;
 #define SEEK_END	(-1)
 #endif
 
+#define _IOFBF	2
+#define _IOLBF	1
+#define _IONBF	0
+
+#ifdef ARCHDIR_is_native
+#define printf	acess_printf
+#define vsprintf	acess_vsprintf
+#define vsnprintf	acess_vsnprintf
+#define sprintf	acess_sprintf
+#define snprintf	acess_snprintf
+#define vprintf	acess_vprintf
+#define vfprintf	acess_vfprintf
+#define fopen	acess_fopen
+#define fdopen	acess_fdopen
+#define freopen	acess_freopen
+#define fclose	acess_fclose
+
+#define putchar	acess_putchar
+#define getchar	acess_getchar
+
+#define stdin	acess_stdin
+#define stdout	acess_stdout
+#endif
+
 /* --- Standard IO --- */
 extern int	printf(const char *format, ...);
 extern int	vsnprintf(char *buf, size_t __maxlen, const char *format, va_list args);

@@ -6,7 +6,7 @@
 CPPFLAGS += 
 CFLAGS   += -Werror -Wextra
 ASFLAGS  +=
-LDFLAGS  += -soname libc.so -Map map.txt
+LDFLAGS  += -Map map.txt
 
 INCFILES := stdio.h stdlib.h
 

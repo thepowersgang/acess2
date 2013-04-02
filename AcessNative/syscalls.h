@@ -27,13 +27,13 @@ typedef struct sRequestValue {
 }	tRequestValue;
 
 typedef struct sRequestHeader {
-	uint16_t	ClientID;
-	uint16_t	CallID;	//!< \see eSyscalls
+	uint32_t	ClientID;
 	uint32_t	MessageLength;
+	uint16_t	CallID;	//!< \see eSyscalls
 	uint16_t	NParams;
 	
 	tRequestValue	Params[];
-}	tRequestHeader;
+} __attribute__((packed))	tRequestHeader;
 
 
 enum eSyscalls {

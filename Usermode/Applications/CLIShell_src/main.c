@@ -75,6 +75,7 @@ int main(int argc, char *argv[], char **envp)
 		if(saArgs[0])	free(saArgs[0]);
 		
 		printf("%s$ ", gsCurrentDirectory);
+		fflush(stdout);
 		
 		// Read Command line
 		sCommandStr = Readline( readline_state );

@@ -9,8 +9,8 @@
 #include <string.h>
 #include "lib.h"
 #include "stdio_int.h"
-
-#define WRITE_STR(_fd, _str)	write(_fd, _str, sizeof(_str))
+#include <errno.h>
+#include <assert.h>
 
 #define DEBUG_BUILD	0
 
@@ -19,7 +19,6 @@
 #define	_stdout	1
 
 // === PROTOTYPES ===
-EXPORT void	itoa(char *buf, uint64_t num, size_t base, int minLength, char pad, int bSigned);
 struct sFILE	*get_file_struct();
 
 // === GLOBALS ===
@@ -28,8 +27,39 @@ struct sFILE	*stdin;	// Standard Input
 struct sFILE	*stdout;	// Standard Output
 struct sFILE	*stderr;	// Standard Error
 ///\note Initialised in SoMain
+static const int STDIN_BUFSIZ = 512;
+static const int STDOUT_BUFSIZ = 512;
 
 // === CODE ===
+void _stdio_init(void)
+{
+	// Init FileIO Pointers
+	stdin = &_iob[0];
+	stdin->FD = 0;
+	stdin->Flags = FILE_FLAG_ALLOC|FILE_FLAG_MODE_READ|FILE_FLAG_LINEBUFFERED;
+	stdin->Buffer = malloc(STDIN_BUFSIZ);
+	stdin->BufferSpace = STDIN_BUFSIZ;
+
+	stdout = &_iob[1];
+	stdout->FD = 1;
+	stdout->Flags = FILE_FLAG_ALLOC|FILE_FLAG_MODE_WRITE|FILE_FLAG_LINEBUFFERED;
+	stdout->Buffer = malloc(STDOUT_BUFSIZ);
+	stdout->BufferSpace = STDOUT_BUFSIZ;
+	
+	stderr = &_iob[2];
+	stderr->FD = 2;
+	stderr->Flags = FILE_FLAG_ALLOC|FILE_FLAG_MODE_WRITE;
+}
+
+void _stdio_cleanup(void)
+{
+	 int	i;
+	for( i = 0; i < STDIO_MAX_STREAMS; i ++ )
+	{
+		fclose( &_iob[i] );
+	}
+}
+
 int _fopen_modetoflags(const char *mode)
 {
 	int flags = 0;
@@ -158,16 +188,18 @@ EXPORT FILE *fmemopen(void *buffer, size_t length, const char *mode)
 	}
 	
 	ret->Buffer = buffer;
-	ret->BufferStart = 0;
-	ret->BufferSize = length;
+	ret->BufferPos = 0;
+	ret->BufferSpace = length;
 	
 	return ret;
 }
 
 EXPORT int fclose(FILE *fp)
 {
+	if( !(fp->Flags & FILE_FLAG_ALLOC) )
+		return 0;
 	fflush(fp);
-	if( fp->FD != -1 ) {
+	if( fp->FD >= 0 ) {
 		_SysClose(fp->FD);
 	}
 	fp->Flags = 0;
@@ -175,17 +207,110 @@ EXPORT int fclose(FILE *fp)
 	return 0;
 }
 
+EXPORT int setvbuf(FILE *fp, char *buffer, int mode, size_t size)
+{
+	if( !fp ) {
+		errno = EINVAL;
+		return 1;
+	}
+
+	// Check for memory files
+	if( fp->FD == -2 ) {
+		errno = EINVAL;
+		return 2;
+	}	
+
+	// Not strictly needed, as this should only be called before any IO
+	fflush(fp);
+
+	// Eliminate any pre-existing buffer
+	if( fp->Buffer ) {
+		free( fp->Buffer );
+		fp->Buffer = NULL;
+		fp->BufferSpace = 0;
+		fp->BufferPos = 0;
+	}
+
+	if( mode == _IONBF ) {
+		// Do nothing, buffering was disabled above
+	}
+	else
+	{
+		// Sanity check buffering mode before allocating
+		if( mode != _IOLBF && mode != _IOFBF ) {
+			errno = EINVAL;
+			return 1;
+		}
+		// Allocate a buffer if one was not provided
+		if( !buffer ) {
+			buffer = malloc(size);
+			assert(buffer);
+		}
+		
+		// Set buffer pointer and size
+		fp->Buffer = buffer;
+		fp->BufferSpace = size;
+		
+		// Set mode flag
+		if( mode == _IOLBF )
+			fp->Flags |= FILE_FLAG_LINEBUFFERED;
+		else
+			fp->Flags &= ~FILE_FLAG_LINEBUFFERED;
+	}
+	
+	return 0;
+}
+
+int _fflush_int(FILE *fp)
+{
+	 int	ret = 0;
+	size_t	len;
+	
+	// Check the buffer contains data
+	if( fp->BufferPos == 0 )
+		return 0;
+	
+	switch(fp->Flags & FILE_FLAG_MODE_MASK)
+	{
+	// Read - Flush input buffer
+	case FILE_FLAG_MODE_READ:
+		fp->BufferPos = 0;
+		break;
+	
+	// Append - Seek to end and write
+	case FILE_FLAG_MODE_APPEND:
+		_SysSeek(fp->FD, fp->BufferOfs, SEEK_SET);
+		len = _SysWrite(fp->FD, fp->Buffer, fp->BufferPos);
+		if( len < fp->BufferPos )
+			ret = 1;
+		fp->BufferPos -= len;
+		fp->BufferOfs = _SysTell(fp->FD);
+		break;
+		
+	// Write - Write buffer
+	case FILE_FLAG_MODE_WRITE:
+		//_SysDebug("Flushing to %i '%.*s'", fp->FD, fp->BufferPos, fp->Buffer);
+		len = _SysWrite(fp->FD, fp->Buffer, fp->BufferPos);
+		if( len != fp->BufferPos )
+			ret = 1;
+		fp->BufferPos -= len;
+		break;
+	default:
+		break;
+	}
+	return ret;
+}
+
 EXPORT void fflush(FILE *fp)
 {
 	if( !fp || fp->FD == -1 )
 		return ;
 	
-	if( !(fp->Flags & FILE_FLAG_DIRTY) )
-		return ;
-	
 	// Nothing to do for memory files
 	if( fp->FD == -2 )
 		return ;
+	
+	_fflush_int(fp);
 }
 
 EXPORT void clearerr(FILE *fp)
@@ -238,20 +363,41 @@ EXPORT int fseek(FILE *fp, long int amt, int whence)
 			fp->Pos = amt;
 			break;
 		case SEEK_END:
-			if( fp->BufferSize < (size_t)amt )
+			if( fp->BufferSpace < (size_t)amt )
 				fp->Pos = 0;
 			else
-				fp->Pos = fp->BufferSize - amt;
+				fp->Pos = fp->BufferSpace - amt;
 			break;
 		}
-		if(fp->Pos > (off_t)fp->BufferSize) {
-			fp->Pos = fp->BufferSize;
+		if(fp->Pos > (off_t)fp->BufferSpace) {
+			fp->Pos = fp->BufferSpace;
 			fp->Flags |= FILE_FLAG_EOF;
 		}
 		return 0;
 	}
-	else
-		return _SysSeek(fp->FD, amt, whence);
+	else {
+		fflush(fp);
+		_SysSeek(fp->FD, amt, whence);
+		fp->Pos = _SysTell(fp->FD);
+		return 0;
+	}
+}
+
+size_t _fwrite_unbuffered(FILE *fp, size_t size, size_t num, const void *data)
+{
+	size_t	ret = 0, bytes;
+	while( num -- )
+	{
+		bytes = _SysWrite(fp->FD, data, size);
+		if( bytes != size ) {
+			_SysDebug("_fwrite_unbuffered: Oops, rollback %i/%i bytes!", bytes, size);
+			_SysSeek(fp->FD, -bytes, SEEK_CUR);
+			break;
+		}
+		data = (char*)data + size;
+	}
+	fp->Pos += ret * size;
+	return ret;
 }
 
 /**
@@ -267,19 +413,57 @@ EXPORT size_t fwrite(const void *ptr, size_t size, size_t num, FILE *fp)
 	if( size == 0 || num == 0 )
 		return 0;
 
+	// Handle memory files first
 	if( fp->FD == -2 ) {
-		size_t	avail = (fp->BufferSize - fp->Pos) / size;
+		size_t	avail = (fp->BufferSpace - fp->Pos) / size;
 		if( avail == 0 )
 			fp->Flags |= FILE_FLAG_EOF;
-		if( num > avail )	num = avail;
+		if( num > avail )
+			num = avail;
 		size_t	bytes = num * size;
-		memcpy((char*)fp->Buffer + fp->Pos, ptr, bytes);
+		memcpy(fp->Buffer + fp->Pos, ptr, bytes);
 		fp->Pos += bytes;
-		ret = num;
+		return num;
 	}
-	else {	
-		ret = _SysWrite(fp->FD, ptr, size*num);
-		ret /= size;
+
+	switch( _GetFileMode(fp) )
+	{
+	case FILE_FLAG_MODE_READ:
+	case FILE_FLAG_MODE_EXEC:
+		return 0;
+	case FILE_FLAG_MODE_APPEND:
+		fseek(fp, 0, SEEK_END);
+	case FILE_FLAG_MODE_WRITE:
+		if( fp->BufferSpace )
+		{
+			// Buffering enabled
+			if( fp->BufferSpace - fp->BufferPos < size*num )
+			{
+				// If there's not enough space, flush and write-through
+				_fflush_int(fp);	// TODO: check ret
+				ret = _fwrite_unbuffered(fp, size, num, ptr);
+			}
+			else if( (fp->Flags & FILE_FLAG_LINEBUFFERED) && memchr(ptr,'\n',size*num) )
+			{
+				// Newline present? Flush though
+				_fflush_int(fp);	// TODO: check ret
+				ret = _fwrite_unbuffered(fp, size, num, ptr);
+			}
+			else
+			{
+				// Copy to buffer
+				memcpy( fp->Buffer + fp->BufferPos, ptr, size*num );
+				fp->BufferPos += size*num;
+				ret = num;
+			}
+		}
+		else
+		{
+			// Bufering disabled, write-though
+			ret = _fwrite_unbuffered(fp, size, num, ptr);
+		}
+		// errno should be set earlier
+		break;
 	}
 	
 	return ret;
@@ -299,26 +483,26 @@ EXPORT size_t fread(void *ptr, size_t size, size_t num, FILE *fp)
 		return 0;
 
 	if( fp->FD == -2 ) {
-		size_t	avail = (fp->BufferSize - fp->Pos) / size;
+		size_t	avail = (fp->BufferSpace - fp->Pos) / size;
 		if( avail == 0 )
 			fp->Flags |= FILE_FLAG_EOF;
 		if( num > avail )	num = avail;
 		size_t	bytes = num * size;
-		memcpy(ptr, (char*)fp->Buffer + fp->Pos, bytes);
+		memcpy(ptr, fp->Buffer + fp->Pos, bytes);
 		fp->Pos += bytes;
-		ret = num;
+		return num;
 	}
-	else {
-		ret = _SysRead(fp->FD, ptr, size*num);
-		if( ret == (size_t)-1)
-			return -1;
-		if( ret == 0 && size*num > 0 ) {
-			fp->Flags |= FILE_FLAG_EOF;
-			return 0;
-		}
-		ret /= size;
+	
+	// Standard file
+	ret = _SysRead(fp->FD, ptr, size*num);
+	if( ret == (size_t)-1)
+		return -1;
+	if( ret == 0 && size*num > 0 ) {
+		fp->Flags |= FILE_FLAG_EOF;
+		return 0;
 	}
-		
+	ret /= size;
+	
 	return ret;
 }
 

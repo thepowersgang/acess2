@@ -7,21 +7,34 @@
 #include <stdio.h>
 #include "lib.h"
 
-extern void	*_crt0_exit_handler;
+extern void	_stdio_cleanup(void);
+
+#define MAX_ATEXIT_HANDLERS	64	// Standard defines >=32
 
 // === PROTOTYPES ===
 EXPORT int	atoi(const char *str);
 EXPORT void	exit(int status);
 
 // === GLOBALS ===
-void	(*g_stdlib_exithandler)(void);
+typedef void (*stdlib_exithandler_t)(void);
+stdlib_exithandler_t	g_stdlib_exithandlers[MAX_ATEXIT_HANDLERS];
+ int	g_stdlib_num_exithandlers;
 
 // === CODE ===
-void atexit(void (*__func)(void))
+void _call_atexit_handlers(void)
 {
-	g_stdlib_exithandler = __func;
-	// TODO: Replace with meta-function to allow multiple atexit() handlers
-	_crt0_exit_handler = __func;	
+	 int	i;
+	for( i = g_stdlib_num_exithandlers; i --; )
+		g_stdlib_exithandlers[i]();
+	_stdio_cleanup();
+}
+
+EXPORT void atexit(void (*__func)(void))
+{
+	if( g_stdlib_num_exithandlers < MAX_ATEXIT_HANDLERS )
+	{
+		g_stdlib_exithandlers[g_stdlib_num_exithandlers++] = __func;
+	}
 }
 
 /**
@@ -30,8 +43,7 @@ void atexit(void (*__func)(void))
  */
 EXPORT void exit(int status)
 {
-	if( g_stdlib_exithandler )
-		g_stdlib_exithandler();
+	_call_atexit_handlers();
 	_exit(status);
 }
 
