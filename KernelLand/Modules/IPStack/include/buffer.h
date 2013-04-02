@@ -67,5 +67,8 @@ extern int	IPStack_Buffer_GetBuffer(tIPStackBuffer *Buffer, int PrevID, size_t *
  */
 extern void	*IPStack_Buffer_CompactBuffer(tIPStackBuffer *Buffer, size_t *Length);
 
+extern void	IPStack_Buffer_LockBuffer(tIPStackBuffer *Buffer);
+extern void	IPStack_Buffer_UnlockBuffer(tIPStackBuffer *Buffer);
+
 #endif
 
