@@ -126,6 +126,45 @@ void freeaddrinfo(struct addrinfo *res)
 	
 }
 
+int getnameinfo(const struct sockaddr *sa, socklen_t salen, char *host, size_t hostlen, char *serv, size_t servlen, int flags)
+{
+	// Determine hostname
+	if( host )
+	{
+		if( hostlen == 0 )
+			return EAI_OVERFLOW;
+		host[0] = '\0';
+		if( !(flags & NI_NUMERICHOST) )
+		{
+			// Handle NI_NOFQDN
+		}
+		// Numeric hostname or the hostname was unresolvable
+		if( host[0] == '\0' )
+		{
+			if( (flags & NI_NAMEREQD) )
+				return EAI_NONAME;
+		}
+	}
+	
+	// Determine service name
+	if( serv )
+	{
+		if( servlen == 0 )
+			return EAI_OVERFLOW;
+		serv[0] = '\0';
+		if( !(flags & NI_NUMERICSERV) )
+		{
+			// Handle NI_DGRAM
+		}
+		if( serv[0] == '\0' )
+		{
+			
+		}
+	}
+	return EAI_SUCCESS;
+}
+
+
 const char *gai_strerror(int errnum)
 {
 	switch(errnum)

@@ -1,3 +1,10 @@
+/*
+ * Acess2 POSIX Sockets Emulation
+ * - By John Hodge (thePowersGang)
+ *
+ * netinet/in.h
+ * - ?Addressing?
+ */
 #ifndef _LIBPSOCKET__NETINET__IN_H_
 #define _LIBPSOCKET__NETINET__IN_H_
 
