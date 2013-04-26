@@ -258,7 +258,7 @@ int ProcessInittab(const char *Path)
 			// stty <devpath> [78][NOE][012][bB]<baud> <command...>
 			char	path_seg[32+1];
 			char	modespec[4+6+1];
-			if( fscanf(fp, "%32s %6s ", path_seg, modespec) != 2 ) {
+			if( fscanf(fp, "%32s %10s ", path_seg, modespec) != 2 ) {
 				goto lineError;
 			}
 			char **command = ReadCommand(fp);
@@ -271,8 +271,14 @@ int ProcessInittab(const char *Path)
 			// - Runs a daemon (respawning) that logs to the specified files
 			// - Will append a header whenever the daemon starts
 			char	*stdout_path = ReadQuotedString(fp);
+			if( !stdout_path )
+				goto lineError;
 			char	*stderr_path = ReadQuotedString(fp);
+			if( !stderr_path )
+				goto lineError;
 			char	**command = ReadCommand(fp);
+			if( !command )
+				goto lineError;
 			
 			AddDaemon(stdout_path, stderr_path, command);
 		}
@@ -368,8 +374,9 @@ int AddSerialTerminal(const char *DevPathSegment, const char *ModeStr, char **Co
 	 int	baud;
 
 	// Parse mode string
-	if( sscanf(ModeStr, "%1[78]%1[NOE]%1[012]%*1[bB]%d", &dbit, &parity, &sbit, &baud) != 5 ) {
+	if( sscanf(ModeStr, "%1[78]%1[NOE]%1[012]%*1[bB]%d", &dbit, &parity, &sbit, &baud) != 4 ) {
 		// Oops?
+		_SysDebug("Serial mode string is invalid ('%s')", ModeStr);
 		return -1;
 	}
 	
@@ -436,6 +443,11 @@ int SpawnSTerm(tInitProgram *Program)
 	 int	in = _SysOpen(Program->TypeInfo.STerm.Path, OPENFLAG_READ);
 	 int	out = _SysOpen(Program->TypeInfo.STerm.Path, OPENFLAG_WRITE);
 
+	if(in == -1 || out == -1 ) {
+		_SysDebug("Unable to open serial '%s' for '%s'", Program->TypeInfo.STerm.Path, Program->Command);
+		return -1;
+	}
+
 	#if 0
 	if( _SysIOCtl(in, 0, NULL) != DRV_TYPE_SERIAL )
 	{
@@ -460,6 +472,13 @@ int SpawnDaemon(tInitProgram *Program)
 		_SysClose(out);
 		_SysClose(err);
 		return -2;
+	}
+	
+	// Log spawn header
+	{
+		char	buffer[101];
+		size_t len = snprintf(buffer, 100, "[%i] init spawning '%s'\n", _SysTimestamp(), Program->Command);
+		_SysWrite(out, buffer, len);
 	}
 	
 	return SpawnCommand(in, out, err, Program->Command);
