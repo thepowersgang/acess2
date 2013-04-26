@@ -1080,7 +1080,7 @@ tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 		MaxBits = PHYS_BITS;
 	
 	// Sanity Check
-	if(MaxBits < 12 || !PhysAddr) {
+	if(MaxBits < 12) {
 		LEAVE('i', 0);
 		return 0;
 	}
@@ -1089,11 +1089,11 @@ tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 	if(Pages == 1 && MaxBits >= PHYS_BITS)
 	{
 		phys = MM_AllocPhys();
+		if( PhysAddr )
+			*PhysAddr = phys;
 		if( !phys ) {
-			*PhysAddr = 0;
 			LEAVE_RET('i', 0);
 		}
-		*PhysAddr = phys;
 		ret = MM_MapHWPages(phys, 1);
 		if(ret == 0) {
 			MM_DerefPhys(phys);
@@ -1122,7 +1122,8 @@ tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 		return 0;
 	}
 	
-	*PhysAddr = phys;
+	if( PhysAddr )
+		*PhysAddr = phys;
 	LEAVE('x', ret);
 	return ret;
 }
