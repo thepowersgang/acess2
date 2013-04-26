@@ -82,11 +82,10 @@ void Link_RegisterType(Uint16 Type, tPacketCallback Callback)
 void Link_SendPacket(tAdapter *Adapter, Uint16 Type, tMacAddr To, tIPStackBuffer *Buffer)
 {
 	 int	length = IPStack_Buffer_GetLength(Buffer);
-	 int	ofs = 4 - (length & 3);
+	 int	ofs = (4 - (length & 3)) & 3;
 	Uint8	buf[sizeof(tEthernetHeader) + ofs + 4];
+	Uint32	*checksum = (void*)(buf + sizeof(tEthernetHeader) + ofs);
 	tEthernetHeader	*hdr = (void*)buf;
-
-	if( ofs == 4 )	ofs = 0;	
 
 	Log_Log("Net Link", "Sending %i bytes to %02x:%02x:%02x:%02x:%02x:%02x (Type 0x%x)",
 		length, To.B[0], To.B[1], To.B[2], To.B[3], To.B[4], To.B[5], Type);
@@ -94,11 +93,16 @@ void Link_SendPacket(tAdapter *Adapter, Uint16 Type, tMacAddr To, tIPStackBuffer
 	hdr->Dest = To;
 	memcpy(&hdr->Src, Adapter->HWAddr, 6);	// TODO: Remove hard coded 6
 	hdr->Type = htons(Type);
-	*(Uint32*)(buf + sizeof(tEthernetHeader) + ofs) = 0;
+	memset(hdr, 0, ofs+4);	// zero padding and checksum
 
-	IPStack_Buffer_AppendSubBuffer(Buffer, sizeof(tEthernetHeader), ofs + 4, hdr, NULL, NULL);
-	
-	*(Uint32*)(buf + sizeof(tEthernetHeader) + ofs) = htonl( Link_CalculateCRC(Buffer) );
+	if( (Adapter->Type->Flags & ADAPTERFLAG_OFFLOAD_MAC) )
+		IPStack_Buffer_AppendSubBuffer(Buffer, sizeof(tEthernetHeader), ofs, hdr, NULL, NULL);
+	else
+	{
+		IPStack_Buffer_AppendSubBuffer(Buffer, sizeof(tEthernetHeader), ofs + 4, hdr, NULL, NULL);
+		*checksum = htonl( Link_CalculateCRC(Buffer) );
+		Log_Debug("Net Link", "Non-Offloaded: 0x%x, 0x%x", *checksum, ntohl(*checksum));
+	}
 
 	Log_Log("Net Link", " from %02x:%02x:%02x:%02x:%02x:%02x",
 		hdr->Src.B[0], hdr->Src.B[1], hdr->Src.B[2],
