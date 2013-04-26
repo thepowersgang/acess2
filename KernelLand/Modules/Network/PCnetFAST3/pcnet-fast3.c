@@ -70,8 +70,9 @@ static void	_WriteBCR(tCard *Card, Uint8 Reg, Uint16 Value);
 MODULE_DEFINE(0, VERSION, Network_PCnetFAST3, PCnet3_Install, PCnet3_Cleanup, "IPStack", NULL);
 tIPStack_AdapterType	gPCnet3_AdapterType = {
 	.Name = "PCnet-FAST III",
-	.Type = 0,	// TODO: Differentiate differnet wire protos and speeds
-	.Flags = 0,	// TODO: IP checksum offloading, MAC checksum offloading etc
+	.Type = ADAPTERTYPE_ETHERNET_100M,
+	//.Flags = ADAPTERFLAG_OFFLOAD_MAC,
+	.Flags = 0,
 	.SendPacket = PCnet3_SendPacket,
 	.WaitForPacket = PCnet3_WaitForPacket
 };
@@ -134,18 +135,6 @@ int PCnet3_Install(char **Options)
 		outd(card->IOBase + REG_RDP, 0);
 
 		// Get MAC address
-		#if 0
-		Uint16	macword;
-		//macword = _ReadCSR(card, CSR_MAC0);
-		card->MacAddr[0] = macword & 0xFF;
-		card->MacAddr[1] = macword >> 8;
-		//macword = _ReadCSR(card, CSR_MAC1);
-		card->MacAddr[2] = macword & 0xFF;
-		card->MacAddr[3] = macword >> 8;
-		//macword = _ReadCSR(card, CSR_MAC2);
-		card->MacAddr[4] = macword & 0xFF;
-		card->MacAddr[5] = macword >> 8;
-		#else
 		Uint32	macword;
 		macword = ind(card->IOBase + REG_APROM0);
 		card->MacAddr[0] = macword & 0xFF;
@@ -155,17 +144,13 @@ int PCnet3_Install(char **Options)
 		macword = ind(card->IOBase + REG_APROM4);
 		card->MacAddr[4] = macword & 0xFF;
 		card->MacAddr[5] = macword >> 8;
-		#endif
 
 		// Install IRQ Handler
 		IRQ_AddHandler(card->IRQ, PCnet3_IRQHandler, card);
 		
-		// Soft reset (read from RESET)
+		// Initialise the card state
 		PCnet3_int_InitCard(card);
 
-		
-		Semaphore_Init(&card->ReadSemaphore, 0, 0, "PCnet3", "CardRead");
-		
 		// Register
 		card->IPStackHandle = IPStack_Adapter_Add(&gPCnet3_AdapterType, card, card->MacAddr);
 		
@@ -235,6 +220,15 @@ tIPStackBuffer *PCnet3_WaitForPacket(void *Ptr)
 	return ret;
 }
 
+int PCnet3_int_FillTD(tTxDesc_3 *td, Uint32 BufAddr, Uint32 Len, int bBounced)
+{
+	td->Flags0 = 0;
+	td->Flags1 = 0xF000 | (4096 - (Len & 0xFFF));
+	td->Buffer = BufAddr;
+	td->_avail = bBounced;
+	return 0;
+}
+
 int PCnet3_SendPacket(void *Ptr, tIPStackBuffer *Buffer)
 {
 	tCard	*card = Ptr;
@@ -259,7 +253,7 @@ int PCnet3_SendPacket(void *Ptr, tIPStackBuffer *Buffer)
 			;	// will be bounce-buffered
 		else
 		#endif
-		if( MM_GetPhysAddr(sbuf_ptr)+sbuf_len != MM_GetPhysAddr(sbuf_ptr+sbuf_len) )
+		if( MM_GetPhysAddr(sbuf_ptr)+sbuf_len-1 != MM_GetPhysAddr(sbuf_ptr+sbuf_len-1) )
 		{
 			// Split
 			nDesc ++;
@@ -298,10 +292,7 @@ int PCnet3_SendPacket(void *Ptr, tIPStackBuffer *Buffer)
 			void *bounce_virt = MM_AllocDMA(1, 32, &bounce_phys);
 			memcpy(bounce_virt, sbuf_ptr, sbuf_len);
 			// Copy to bounce buffer
-			td->Flags0 = 0;
-			td->Flags1 = 0xF000 | sbuf_len;
-			td->Buffer = bounce_phys;
-			td->_avail = 1;
+			PCnet3_int_FillTD(td, bounce_phys, sbuf_len, 1);
 			LOG("%i: Bounce buffer %P+%i (orig %P,%P) - %p",
 				idx, bounce_phys, sbuf_len, start_phys, end_phys, td);
 		}
@@ -314,15 +305,11 @@ int PCnet3_SendPacket(void *Ptr, tIPStackBuffer *Buffer)
 			assert( !(td2->Flags1 & TXDESC_FLG1_OWN) );
 			td_idx = (td_idx + 1) % TLEN;
 			
-			td->Flags0 = 0;
-			td->Flags1 = 0xF000 | page1_maxsize;
-			td->Buffer = start_phys;
-			td->_avail = 0;
+			PCnet3_int_FillTD(td, start_phys, page1_maxsize, 0);
 			
-			td2->Flags0 = 0;
-			td2->Flags1 = 0xF000 | (sbuf_len - page1_maxsize);
-			td2->Buffer = end_phys - (sbuf_len-page1_maxsize-1);
-			td2->_avail = 0;
+			size_t	page2_size = sbuf_len - page1_maxsize;
+			PCnet3_int_FillTD(td2, end_phys - (page2_size-1), page2_size, 0);
+			// - Explicitly set OWN on td2 because it's never the first, and `td` gets set below
 			td2->Flags1 |= TXDESC_FLG1_OWN;
 			
 			LOG("%i: Split (%P,%P)+%i - %p,%p",
@@ -330,16 +317,13 @@ int PCnet3_SendPacket(void *Ptr, tIPStackBuffer *Buffer)
 		}
 		else
 		{
-			td->Flags0 = 0;
-			td->Flags1 = 0xF000 | sbuf_len;
-			td->Buffer = start_phys;
-			td->_avail = 0;
+			PCnet3_int_FillTD(td, start_phys, sbuf_len, 0);
 			LOG("%i: Straight %P+%i - %p",
 				idx, td->Buffer, sbuf_len, td);
 		}
 		// On every descriptor except the first, set OWN
 		// - OWN set later once all are filled
-		if( (td_idx+TLEN-1)%TLEN != first_desc )
+		if( td != &card->TxQueue[first_desc] )
 			td->Flags1 |= TXDESC_FLG1_OWN;
 	}
 
@@ -476,7 +460,8 @@ void PCnet3_IRQHandler(int Num, void *Ptr)
 	if( status & CSR_STATUS_IDON )
 	{
 		Log_Debug("PCnet3", "Card %p initialisation done", card);
-	}	
+		LOG("CSR15 reads as 0x%x", _ReadCSR(card, 15));
+	}
 
 	// ERR set?
 	if( status & 0xBC00 )
