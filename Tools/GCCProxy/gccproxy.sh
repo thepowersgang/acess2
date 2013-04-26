@@ -78,6 +78,8 @@ run() {
 	return $?
 }
 
+_ldflags="-lposix -lpsocket "$_ldflags
+
 cfgfile=`mktemp`
 make --no-print-directory -f $BASEDIR/getconfig.mk ARCH=x86 TYPE=$_linktype > $cfgfile
 . $cfgfile
@@ -104,6 +106,6 @@ elif echo " $_miscargs" | grep '\.c' >/dev/null; then
 	rm $tmpout
 	exit $_rv
 else
-	run $_LD$_ldflags $_miscargs $_outfile $LDFLAGS  $_libs
+	run $_LD $_ldflags $_miscargs $_outfile $LDFLAGS $LIBGCC_PATH $_libs
 fi
 
