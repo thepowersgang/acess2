@@ -9,15 +9,15 @@
 #ifndef _FCNTL_H_
 #define _FCNTL_H_
 
-#include <sys/sys.h>
+//#include <sys/sys.h>
 
 // Hacks to handle different behaviors in Acess
 
 // Open doesn't take a chmod
-#define open(_1,_2,...)	open(_1, _2)
+//#define open(_1,_2,...)	open(_1, _2)
 
 // Close returns void
-#define close(_1)	(close(_1),0)
+//#define close(_1)	(close(_1),0)
 
 // Acess doesn't implement lseek
 #define lseek(_1,_2,_3)	(seek(_1,_2,_3),tell(_1))
@@ -27,7 +27,7 @@ enum e_fcntl_cmds
 	F_SETFL
 };
 
-int fcntl(int fd, int cmd, ...) { return -1; }
+static inline int fcntl(int fd __attribute__((unused)), int cmd __attribute__((unused)), ...) { return -1; }
 
 #endif
 
