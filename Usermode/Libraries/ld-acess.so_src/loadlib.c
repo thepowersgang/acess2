@@ -24,6 +24,7 @@ extern const struct {
 }	caLocalExports[];
 extern const int	ciNumLocalExports;
 extern char	**gEnvP;
+extern char	gLinkedBase[];
 
 // === GLOABLS ===
 tLoadedLib	gLoadedLibraries[MAX_LOADED_LIBRARIES];
@@ -108,6 +109,15 @@ void *IsFileLoaded(const char *file)
 {
 	 int	i;
 	DEBUGS("IsFileLoaded: (file='%s')", file);
+
+	// Applications link against either libld-acess.so or ld-acess.so
+	if( strcmp(file, "/Acess/Libs/libld-acess.so") == 0
+	 || strcmp(file, "/Acess/Libs/ld-acess.so") == 0 )
+	{
+		DEBUGS("IsFileLoaded: Found local (%p)", &gLinkedBase);
+		return &gLinkedBase;
+	}
+
 	for( i = 0; i < MAX_LOADED_LIBRARIES; i++ )
 	{
 		if(gLoadedLibraries[i].Base == 0)	break;	// Last entry has Base set to NULL
@@ -217,7 +227,7 @@ int GetSymbol(const char *name, void **Value, size_t *Size)
 	}
 	
 	// Entry 0 is ld-acess, ignore it
-	for(i = 1; i < MAX_LOADED_LIBRARIES; i ++)
+	for(i = 0; i < MAX_LOADED_LIBRARIES; i ++)
 	{
 		if(gLoadedLibraries[i].Base == 0)
 			break;

@@ -42,6 +42,7 @@ SYSCALL3(_SysSetMemFlags, SYS_SETFLAGS)	// uint32_t SysSetMemFlags(uint addr, ui
 SYSCALL2(_SysOpen, SYS_OPEN)	// char*, int
 SYSCALL3(_SysOpenChild, SYS_OPENCHILD)	// int, char*, int
 SYSCALL3(_SysReopen, SYS_REOPEN)	// int, char*, int
+SYSCALL2(_SysCopyFD, SYS_COPYFD)	// int, int
 SYSCALL1(_SysClose, SYS_CLOSE)	// int
 SYSCALL3(_SysRead, SYS_READ)	// int, uint, void*
 SYSCALL3(_SysWrite, SYS_WRITE)	// int, uint, void*

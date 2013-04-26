@@ -12,7 +12,6 @@ void	*DoRelocate(void *base, char **envp, const char *Filename);
 
 // === Imports ===
 extern char	gLinkedBase[];
-extern tLoadedLib	gLoadedLibraries[];
 char	**gEnvP;
 extern int	memcmp(const void *m1, const void *m2, size_t size);
  
@@ -41,10 +40,6 @@ void *SoMain(void *base, int argc, char **argv, char **envp)
 		for(;;);
 	}
 
-	gLoadedLibraries[0].Base = &gLinkedBase;
-	// 'libld-acess.so' because that is what applications link against
-	gLoadedLibraries[0].Name = "/Acess/Libs/libld-acess.so";
-	
 	// Otherwise do relocations
 	//ret = DoRelocate( base, envp, "Executable" );
 	ret = DoRelocate( base, NULL, "Executable" );
