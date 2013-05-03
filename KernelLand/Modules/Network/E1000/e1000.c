@@ -231,9 +231,11 @@ int E1000_SendPacket(void *Ptr, tIPStackBuffer *Buffer)
 		else
 		{
 			// Single
-			Card->TXDescs[txd].Buffer = MM_GetPhysAddr(ptr);
-			Card->TXDescs[txd].Length = len;
-			Card->TXDescs[txd].CMD = TXD_CMD_RS;
+			volatile tTXDesc *txdp = &Card->TXDescs[txd];
+			txdp->Buffer = MM_GetPhysAddr(ptr);
+			txdp->Length = len;
+			txdp->CMD = TXD_CMD_RS;
+			LOG("%P: %llx %x %x", MM_GetPhysAddr((void*)txdp), txdp->Buffer, txdp->Length, txdp->CMD);
 		}
 		txd = (txd + 1) % NUM_TX_DESC;
 	}
@@ -242,9 +244,18 @@ int E1000_SendPacket(void *Ptr, tIPStackBuffer *Buffer)
 
 	// Trigger TX
 	IPStack_Buffer_LockBuffer(Buffer);
+	LOG("Triggering TX - Buffers[%i]=%p", last_txd, Buffer);
 	REG32(Card, REG_TDT) = Card->FirstFreeTXD;
 	Mutex_Release(&Card->lTXDescs);
-	LOG("Waiting for TX");
+	{
+		volatile tTXDesc *txdp = Card->TXDescs + last_txd;
+		LOG("%p %P: %llx %x %x", txdp, MM_GetPhysAddr((void*)txdp), txdp->Buffer, txdp->Length, txdp->CMD);
+		volatile tTXDesc *txdp_base = MM_MapTemp(MM_GetPhysAddr((void*)Card->TXDescs));
+		txdp = txdp_base + last_txd;
+		LOG("%p %P: %llx %x %x", txdp, MM_GetPhysAddr((void*)txdp), txdp->Buffer, txdp->Length, txdp->CMD);
+		MM_FreeTemp( (void*)txdp_base);
+	}
+	LOG("Waiting for TX to complete");
 	
 	// Wait for completion (lock will block, then release straight away)
 	IPStack_Buffer_LockBuffer(Buffer);
@@ -269,21 +280,47 @@ void E1000_IRQHandler(int Num, void *Ptr)
 	if( (icr & ICR_TXDW) || (icr & ICR_TXQE) )
 	{
 		 int	nReleased = 0;
+		 int	txd = Card->LastFreeTXD;
+		 int	nReleasedAtLastDD = 0;
+		 int	idxOfLastDD = txd;
 		// Walk descriptors looking for the first non-complete descriptor
 		LOG("TX %i:%i", Card->LastFreeTXD, Card->FirstFreeTXD);
-		while( Card->LastFreeTXD != Card->FirstFreeTXD && (Card->TXDescs[Card->LastFreeTXD].Status & TXD_STS_DD) )
+		while( txd != Card->FirstFreeTXD )
 		{
 			nReleased ++;
-			if( Card->TXSrcBuffers[Card->LastFreeTXD] ) {
-				IPStack_Buffer_UnlockBuffer( Card->TXSrcBuffers[Card->LastFreeTXD] );
-				Card->TXSrcBuffers[Card->LastFreeTXD] = NULL;
+			if(Card->TXDescs[txd].Status & TXD_STS_DD) {
+				nReleasedAtLastDD = nReleased;
+				idxOfLastDD = txd;
 			}
-			Card->LastFreeTXD ++;
-			if(Card->LastFreeTXD == NUM_TX_DESC)
-				Card->LastFreeTXD = 0;
+			txd ++;
+			if(txd == NUM_TX_DESC)
+				txd = 0;
 		}
-		Semaphore_Signal(&Card->FreeTxDescs, nReleased);
-		LOG("nReleased = %i", nReleased);
+		if( nReleasedAtLastDD )
+		{
+			// Unlock buffers
+			txd = Card->LastFreeTXD;
+			LOG("TX unlocking range %i-%i", txd, idxOfLastDD);
+			while( txd != (idxOfLastDD+1)%NUM_TX_DESC )
+			{
+				if( Card->TXSrcBuffers[txd] ) {
+					LOG("- Unlocking %i:%p", txd, Card->TXSrcBuffers[txd]);
+					IPStack_Buffer_UnlockBuffer( Card->TXSrcBuffers[txd] );
+					Card->TXSrcBuffers[txd] = NULL;
+				}
+				txd ++;
+				if(txd == NUM_TX_DESC)
+					txd = 0;
+			}
+			// Update last free
+			Card->LastFreeTXD = txd;
+			Semaphore_Signal(&Card->FreeTxDescs, nReleasedAtLastDD);
+			LOG("nReleased = %i", nReleasedAtLastDD);
+		}
+		else
+		{
+			LOG("No completed TXDs");
+		}
 	}
 	
 	if( icr & ICR_LSC )
@@ -291,6 +328,11 @@ void E1000_IRQHandler(int Num, void *Ptr)
 		// Link status change
 		LOG("LSC");
 		// TODO: Detect link drop/raise and poke IPStack
+	}
+
+	if( icr & ICR_RXO )
+	{
+		LOG("RX Overrun");
 	}
 	
 	// Pending packet (s)
@@ -422,6 +464,7 @@ int E1000_int_InitialiseCard(tCard *Card)
 		LEAVE('i', 4);
 		return 4;
 	}
+	LOG("Card->RXDescs = %p [%P]", Card->TXDescs, MM_GetPhysAddr((void*)Card->TXDescs));
 	for( int i = 0; i < NUM_TX_DESC; i ++ )
 	{
 		Card->TXDescs[i].Buffer = 0;

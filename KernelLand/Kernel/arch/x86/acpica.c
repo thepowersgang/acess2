@@ -6,7 +6,7 @@
  * - ACPICA Interface
  */
 #define ACPI_DEBUG_OUTPUT	0
-#define DEBUG	0
+#define DEBUG	1
 #define _AcpiModuleName "Shim"
 #define _COMPONENT	"Acess"
 #include <acpi.h>
@@ -49,7 +49,6 @@ int ACPICA_Initialise(void)
 		return -1;
 	}
 
-	// AcpiInitializeTables?
 	rv = AcpiLoadTables();
 	if( ACPI_FAILURE(rv) )
 	{
@@ -134,6 +133,10 @@ ACPI_STATUS AcpiOsCreateCache(char *CacheName, UINT16 ObjectSize, UINT16 MaxDept
 	 int	namelen = (CacheName ? strlen(CacheName) : 0) + 1;
 	LOG("CacheName=%s, ObjSize=%x, MaxDepth=%x", CacheName, ObjectSize, MaxDepth);
 
+	if( ReturnCache == NULL || ObjectSize < 16) {
+		return AE_BAD_PARAMETER;
+	}
+
 	namelen = (namelen + 3) & ~3;
 
 	ret = malloc(sizeof(*ret) + MaxDepth*sizeof(char) + namelen + MaxDepth*ObjectSize);
@@ -151,7 +154,7 @@ ACPI_STATUS AcpiOsCreateCache(char *CacheName, UINT16 ObjectSize, UINT16 MaxDept
 	else
 		ret->Name[0] = 0;
 	memset(ret->ObjectStates, 0, sizeof(char)*MaxDepth);
-
+	
 	LOG("Allocated cache %p '%s' (%i x 0x%x)", ret, CacheName, MaxDepth, ObjectSize);
 	
 	*ReturnCache = ret;
@@ -185,11 +188,16 @@ ACPI_STATUS AcpiOsPurgeCache(ACPI_CACHE_T *Cache)
 void *AcpiOsAcquireObject(ACPI_CACHE_T *Cache)
 {
 	ENTER("pCache", Cache);
+	LOG("Called by %p", __builtin_return_address(0));
 	for(int i = 0; i < Cache->nObj; i ++ )
 	{
 		if( !Cache->ObjectStates[i] ) {
 			Cache->ObjectStates[i] = 1;
 			void *rv = (char*)Cache->First + i*Cache->ObjectSize;
+			if(!rv) {
+				LEAVE('n');
+				return NULL;
+			}
 			memset(rv, 0, Cache->ObjectSize);
 			LEAVE('p', rv);
 			return rv;
@@ -213,8 +221,10 @@ ACPI_STATUS AcpiOsReleaseObject(ACPI_CACHE_T *Cache, void *Object)
 	delta /= Cache->ObjectSize;
 	LOG("Cache=%p, delta = %i, (limit %i)", Cache, delta, Cache->nObj);
 	
-	if( delta >= Cache->nObj )
+	if( delta >= Cache->nObj ) {
+		LEAVE('i', AE_BAD_PARAMETER);
 		return AE_BAD_PARAMETER;
+	}
 	
 	Cache->ObjectStates[delta] = 0;
 
@@ -339,6 +349,7 @@ ACPI_STATUS AcpiOsCreateMutex(ACPI_MUTEX *OutHandle)
 
 void AcpiOsDeleteMutex(ACPI_MUTEX Handle)
 {
+	//  TODO: Need `Mutex_Destroy`
 	Mutex_Acquire(Handle);
 	free(Handle);
 }

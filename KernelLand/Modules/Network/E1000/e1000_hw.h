@@ -178,7 +178,7 @@ enum eRegs
 #define ICR_LSC 	(1 << 2)	// Link Status Change
 #define ICR_RXSEQ	(1 << 3)	// Receive Sequence Error (Framing Error)
 #define ICR_RXDMT0	(1 << 4)	// Receive Descriptor Minimum Threshold Reached (need more RX descs)
-#define ICR_XRO 	(1 << 6)	// Receiver overrun
+#define ICR_RXO 	(1 << 6)	// Receiver overrun
 #define ICR_RXT0	(1 << 7)	// Receiver Timer Interrupt
 #define ICR_MDAC	(1 << 9)	// MDI/O Access Complete
 #define ICR_RXCFG	(1 << 10)	// Receiving /C/ ordered sets
