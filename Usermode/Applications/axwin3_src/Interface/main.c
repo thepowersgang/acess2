@@ -22,6 +22,7 @@ void	create_run_dialog(void);
 void	mainmenu_run_dialog(void *unused);
 void	mainmenu_app_terminal(void *unused);
 void	mainmenu_app_textedit(void *unused);
+void	update_time(void);
 
 // === GLOBALS ===
 tHWND	gSidebar;
@@ -29,6 +30,7 @@ tAxWin3_Widget	*gSidebarRoot;
 tHWND	gSystemMenu;
 tHWND	gRunDialog;
 tAxWin3_Widget	*gRunInput;
+tAxWin3_Widget	*gTimeDisplay;
  int	giScreenWidth;
  int	giScreenHeight;
 char	**gEnvion;
@@ -97,9 +99,10 @@ void create_sidebar(void)
 		ELEFLAG_VERTICAL|ELEFLAG_ALIGN_CENTER|ELEFLAG_NOSTRETCH,
 		"Version/Time"
 		);
-	txt = AxWin3_Widget_AddWidget(ele, ELETYPE_TEXT, ELEFLAG_NOSTRETCH, "Version String");
-	AxWin3_Widget_SetSize(txt, 20);
-	AxWin3_Widget_SetText(txt, "3.0");
+	gTimeDisplay = AxWin3_Widget_AddWidget(ele, ELETYPE_TEXT, ELEFLAG_NOSTRETCH, "Time");
+	AxWin3_Widget_SetSize(gTimeDisplay, 20);
+	//AxWin3_Widget_SetText(gTimeDisplay, "--:--");
+	update_time();
 
 	// Turn off decorations
 	AxWin3_DecorateWindow(gSidebar, 0);
@@ -107,6 +110,13 @@ void create_sidebar(void)
 	// Show!
 	AxWin3_ShowWindow(gSidebar, 1);	
 	
+}
+
+void update_time(void)
+{
+	char	tmpbuf[2+1+2+1] = "--:--";
+	//strftime(tmpbuf, sizeof(tmpbuf), "%H:%M", NULL);
+	AxWin3_Widget_SetText(gTimeDisplay, tmpbuf);
 }
 
 void mainmenu_app_textedit(void *unused)

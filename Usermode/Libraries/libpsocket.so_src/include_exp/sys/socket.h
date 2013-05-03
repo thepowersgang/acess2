@@ -9,7 +9,9 @@
 #define _SYS_SOCKETS_H_
 
 #include <sys/types.h>
+#ifndef size_t
 #include <stddef.h>	// size_t
+#endif
 #include <stdint.h>	// uint32_t
 
 typedef uint32_t	socklen_t;
@@ -93,7 +95,16 @@ enum
 enum
 {
 	SO_REUSEADDR,
-	SO_LINGER
+	SO_LINGER,
+	SO_ERROR
+};
+
+// shutdown how
+enum
+{
+	SHUT_RD,
+	SHUT_WR,
+	SHUT_RDWR
 };
 
 /**
@@ -101,6 +112,11 @@ enum
  * \param domain	Address family
  */
 extern int	socket(int domain, int type, int protocol);
+
+/**
+ * 
+ */
+extern int	shutdown(int socket, int how);
 
 /**
  * \brief Bind a socket to an address
@@ -132,6 +148,13 @@ extern int	getsockopt(int socket, int level, int option_name, void *option_value
 
 extern int	getsockname(int socket, struct sockaddr *addr, socklen_t *addrlen);
 extern int	getpeername(int socket, struct sockaddr *addr, socklen_t *addrlen);
+
+extern struct hostent *gethostbyaddr(const void *addr, socklen_t len, int type);
+extern void	sethostent(int stayopen);
+extern void	endhostent(void);
+extern void	herror(const char *s);
+extern const char	*hstrerror(int err);
+extern struct hostent *gethostent(void);
 
 #endif
 

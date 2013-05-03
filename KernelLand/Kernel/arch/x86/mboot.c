@@ -13,8 +13,6 @@
 int Multiboot_LoadMemoryMap(tMBoot_Info *MBInfo, tVAddr MapOffset, tPMemMapEnt *Map, const int MapSize, tPAddr KStart, tPAddr KEnd)
 {
 	 int	nPMemMapEnts = 0;
-	tMBoot_MMapEnt	*ent = (void*)((tVAddr)MBInfo->MMapAddr + MapOffset);
-	tMBoot_MMapEnt	*last = (void*)((tVAddr)ent + MBInfo->MMapLength);
 	
 	ENTER("pMBInfo pMapOffset pMap iMapSize PKStart PKEnd",
 		MBInfo, MapOffset, Map, MapSize, KStart, KEnd);
@@ -22,6 +20,8 @@ int Multiboot_LoadMemoryMap(tMBoot_Info *MBInfo, tVAddr MapOffset, tPMemMapEnt *
 	// Check that the memory map is present
 	if( MBInfo->Flags & (1 << 6) )
 	{
+		tMBoot_MMapEnt	*ent = (void*)((tVAddr)MBInfo->MMapAddr + MapOffset);
+		tMBoot_MMapEnt	*last = (void*)((tVAddr)ent + MBInfo->MMapLength);
 		// Build up memory map
 		nPMemMapEnts = 0;
 		while( ent < last && nPMemMapEnts < MapSize )
@@ -48,10 +48,16 @@ int Multiboot_LoadMemoryMap(tMBoot_Info *MBInfo, tVAddr MapOffset, tPMemMapEnt *
 			nPMemMapEnts ++;
 			ent = (void*)( (tVAddr)ent + ent->Size + 4 );
 		}
+		if( ent < last )
+		{
+			Log_Warning("MBoot", "Memory map has >%i entries, internal version is truncated",
+				MapSize);
+		}
 	}
 	else if( MBInfo->Flags & (1 << 0) )
 	{
 		Log_Warning("MBoot", "No memory map passed, using mem_lower and mem_upper");
+		ASSERT(MapSize >= 2);
 		nPMemMapEnts = 2;
 		Map[0].Start = 0;
 		Map[0].Length = MBInfo->LowMem * 1024;

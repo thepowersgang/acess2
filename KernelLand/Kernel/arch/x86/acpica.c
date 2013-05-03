@@ -170,11 +170,15 @@ ACPI_STATUS AcpiOsDeleteCache(ACPI_CACHE_T *Cache)
 
 ACPI_STATUS AcpiOsPurgeCache(ACPI_CACHE_T *Cache)
 {
-	if( Cache == NULL )
+	ENTER("pCache", Cache);
+	if( Cache == NULL ) {
+		LEAVE('i', AE_BAD_PARAMETER);
 		return AE_BAD_PARAMETER;
+	}
 
 	memset(Cache->ObjectStates, 0, sizeof(char)*Cache->nObj);
 
+	LEAVE('i', AE_OK);
 	return AE_OK;
 }
 
@@ -192,7 +196,8 @@ void *AcpiOsAcquireObject(ACPI_CACHE_T *Cache)
 		}
 	}
 
-	Log_Debug("ACPICA", "AcpiOsAcquireObject: %i objects used in cache '%s'", Cache->nObj, Cache->Name);
+	Log_Debug("ACPICA", "AcpiOsAcquireObject: All %i objects used in '%s'",
+		Cache->nObj, Cache->Name);
 
 	LEAVE('n');
 	return NULL;
@@ -202,6 +207,7 @@ ACPI_STATUS AcpiOsReleaseObject(ACPI_CACHE_T *Cache, void *Object)
 {
 	if( Cache == NULL || Object == NULL )
 		return AE_BAD_PARAMETER;
+	ENTER("pCache pObject", Cache, Object);
 
 	tVAddr delta = (tVAddr)Object - (tVAddr)Cache->First;
 	delta /= Cache->ObjectSize;
@@ -212,6 +218,7 @@ ACPI_STATUS AcpiOsReleaseObject(ACPI_CACHE_T *Cache, void *Object)
 	
 	Cache->ObjectStates[delta] = 0;
 
+	LEAVE('i', AE_OK);
 	return AE_OK;
 }
 

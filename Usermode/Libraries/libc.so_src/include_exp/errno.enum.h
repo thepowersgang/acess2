@@ -3,6 +3,7 @@ enum {
 	EOK,
 	ENOSYS,	// Invalid Instruction
 	EINVAL,	// Invalid Paramater
+	EBADF,	// Bad FD
 	ENOMEM,	// No free memory
 	EACCES,	// Not permitted
 	EBUSY,	// Resource is busy
@@ -16,6 +17,11 @@ enum {
 	ENOTDIR,	// Not a directory
 	EIO,	// IO Error
 	EINTR,	// Operation interrupted (signal)
+	ENODEV,	// ???
+	EADDRNOTAVAIL,	// ?
+	EINPROGRESS,	// ?
+
+	EAGAIN,	// Try again
 	
 	EALREADY,	// Operation was a NOP
 	EINTERNAL,	// Internal Error

@@ -8,6 +8,8 @@
 #ifndef _LIBPOSIX__SYS__WAIT_H_
 #define _LIBPOSIX__SYS__WAIT_H_
 
+#include <sys/types.h>
+
 // POSIX, waitpid()
 #define	WNOHANG	0x01
 #define WUNTRACED	0x02

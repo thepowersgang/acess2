@@ -20,7 +20,7 @@ enum eIPStack_AdapterTypes
 // Checksum offloading
 #define ADAPTERFLAG_OFFLOAD_MAC	(1 <<  0)
 #define ADAPTERFLAG_OFFLOAD_IP4	(1 <<  1)
-#define ADAPTERFLAG_OFFLOAD_IP6	(1 <<  2)
+#define ADAPTERFLAG_OFFLOAD_80211q	(1 <<  2)
 #define ADAPTERFLAG_OFFLOAD_TCP	(1 <<  3)
 #define ADAPTERFLAG_OFFLOAD_UDP	(1 <<  4)
 

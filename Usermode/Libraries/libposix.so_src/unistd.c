@@ -10,6 +10,11 @@
 #include <stdarg.h>
 
 // === CODE ===
+int unlink(const char *pathname)
+{
+	return _SysUnlink(pathname);
+}
+
 int open(const char *path, int openmode, ...)
 {
 	mode_t	create_mode = 0;
@@ -60,6 +65,16 @@ ssize_t	read(int fd, void *buf, size_t count)
 	return _SysRead(fd, buf, count);
 }
 
+int seek(int fd, int whence, off_t dest)
+{
+	return _SysSeek(fd, whence, dest);
+}
+
+off_t tell(int fd)
+{
+	return _SysTell(fd);
+}
+
 int fork(void)
 {
 	return _SysClone(CLONE_VM, 0);
@@ -69,3 +84,10 @@ int execv(const char *b, char *v[])
 {
 	return _SysExecVE(b, v, NULL);
 }
+
+int dup2(int oldfd, int newfd)
+{
+	// NOTE: Acess's CopyFD doesn't cause offset sharing
+	return _SysCopyFD(oldfd, newfd);
+}
+

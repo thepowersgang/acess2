@@ -13,6 +13,8 @@ QEMU_PARAMS=$QEMU_PARAMS" -net nic"
 
 _NETTYPE="user"
 
+_EVAL=eval
+
 while [ $# -ne 0 ]; do
 	case $1 in
 	-gdb)
@@ -47,6 +49,9 @@ while [ $# -ne 0 ]; do
 		shift
 		QEMU_PARAMS=$QEMU_PARAMS" "$1
 		;;
+	-n)
+		_EVAL=echo
+		;;
 	-fwd)
 		_NETTYPE=$_NETTYPE",hostfwd=tcp::10023-10.0.2.10:23"
 		;;
@@ -80,13 +85,13 @@ fi
 #	qemu-system-x86_64 $QEMU_PARAMS -serial stdio | tee QemuLog.txt
 #echo $QEMU $BOOTOPT $QEMU_PARAMS
 if [ "x$_NOGRAPHIC" = "xyes" ] ; then
-	eval $QEMU $BOOTOPT $QEMU_PARAMS -nographic | tee QemuLog.txt
+	$_EVAL $QEMU $BOOTOPT $QEMU_PARAMS -nographic | tee QemuLog.txt
 	exit
 fi
 
 if [ "x$_NOTEE" = "xyes" ] ; then
-	eval $QEMU $BOOTOPT $QEMU_PARAMS -serial stdio
+	$_EVAL $QEMU $BOOTOPT $QEMU_PARAMS -serial stdio
 	exit
 fi
 
-eval $QEMU $BOOTOPT $QEMU_PARAMS -serial stdio | tee QemuLog.txt
+$_EVAL $QEMU $BOOTOPT $QEMU_PARAMS -serial stdio | tee QemuLog.txt

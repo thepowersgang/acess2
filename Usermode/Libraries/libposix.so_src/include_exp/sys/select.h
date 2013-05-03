@@ -9,6 +9,7 @@
 #define _SYS__SELECT_H_
 
 #include <acess/fd_set.h>
+#include <sys/time.h>
 
 extern int select(int nfds, fd_set *readfds, fd_set *writefds, struct timeval *timeout);
 // TODO: pselect?

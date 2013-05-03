@@ -43,5 +43,7 @@ extern ssize_t	read(int fd, void *buf, size_t count);
 extern int	fork(void);
 extern int	execv(const char *b, char *v[]);
 
+extern int	dup2(int oldfd, int newfd);
+
 #endif
 

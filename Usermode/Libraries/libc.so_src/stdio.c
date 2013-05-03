@@ -389,6 +389,11 @@ size_t _fwrite_unbuffered(FILE *fp, size_t size, size_t num, const void *data)
 	while( num -- )
 	{
 		bytes = _SysWrite(fp->FD, data, size);
+		if( bytes == (size_t)-1 ) {
+			// Oops.
+			// TODO: Set error flag
+			break;
+		}
 		if( bytes != size ) {
 			_SysDebug("_fwrite_unbuffered: Oops, rollback %i/%i bytes!", bytes, size);
 			_SysSeek(fp->FD, -bytes, SEEK_CUR);
