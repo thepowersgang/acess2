@@ -92,7 +92,7 @@ void Video_Update(void)
 	_SysDebug("Video_Update - Sending FD %i %p 0x%x", giTerminalFD, gpScreenBuffer+ofs, size*4);
 	_SysWrite(giTerminalFD, gpScreenBuffer+ofs, size*4);
 	_SysDebug("Video_Update - Done");
-	giVideo_FirstDirtyLine = 0;
+	giVideo_FirstDirtyLine = giScreenHeight;
 	giVideo_LastDirtyLine = 0;
 }
 
@@ -159,10 +159,8 @@ void Video_Blit(uint32_t *Source, short DstX, short DstY, short W, short H)
 
 	if( W <= 0 || H <= 0 )	return;
 
-	if( DstY < giVideo_FirstDirtyLine )
-		giVideo_FirstDirtyLine = DstY;
-	if( DstY + H > giVideo_LastDirtyLine )
-		giVideo_LastDirtyLine = DstY + H;
+	giVideo_FirstDirtyLine = MIN(DstY, giVideo_FirstDirtyLine);
+	giVideo_LastDirtyLine  = MAX(DstY+H, giVideo_LastDirtyLine);
 	
 	buf = gpScreenBuffer + DstY*giScreenWidth + DstX;
 	if(drawW != giScreenWidth || W != giScreenWidth)

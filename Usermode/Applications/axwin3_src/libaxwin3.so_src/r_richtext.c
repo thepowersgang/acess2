@@ -26,12 +26,19 @@ int AxWin3_RichText_MessageHandler(tHWND Window, int MessageID, int Size, void *
 {
 	tRichText_Window	*info = AxWin3_int_GetDataPtr(Window);
 	struct sWndMsg_KeyAction	*keyaction = Data;
-	_SysDebug("MessageID = %i", MessageID);
 	switch(MessageID)
 	{
 	case WNDMSG_KEYFIRE:
 		if(Size < sizeof(*keyaction))	return -1;
 		info->KeyCallback(Window, 2, keyaction->KeySym, keyaction->UCS32);
+		return 1;
+	case WNDMSG_KEYDOWN:
+		if(Size < sizeof(*keyaction)) 	return -1;
+		info->KeyCallback(Window, 1, keyaction->KeySym, keyaction->UCS32);
+		return 1;
+	case WNDMSG_KEYUP:
+		if(Size < sizeof(*keyaction)) 	return -1;
+		info->KeyCallback(Window, 0, keyaction->KeySym, 0);
 		return 1;
 	}
 	return 0;

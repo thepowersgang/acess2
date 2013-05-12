@@ -57,6 +57,7 @@ void	IPC_Type_Sys_Send(const void *Ident, size_t Length, const void *Data);
  int	IPC_Type_IPCPipe_Compare(const void *Ident1, const void *Ident2);
 void	IPC_Type_IPCPipe_Send(const void *Ident, size_t Length, const void *Data);
 tIPC_Client	*IPC_int_GetClient(const tIPC_Type *IPCType, const void *Ident);
+void	IPC_int_DropClient(tIPC_Client *Client);
 void	IPC_Handle(tIPC_Client *Client, size_t MsgLen, tAxWin_IPCMessage *Msg);
 
 // === GLOBALS ===
@@ -138,7 +139,7 @@ void IPC_HandleSelect(fd_set *set)
 	if( giIPCPipeHandle != -1 && FD_ISSET(giIPCPipeHandle, set) )
 	{
 		int newfd = _SysOpenChild(giIPCPipeHandle, "newclient", OPENFLAG_READ|OPENFLAG_WRITE);
-		_SysDebug("newfd = %i");
+		_SysDebug("newfd = %i", newfd);
 		IPC_int_GetClient(&gIPC_Type_IPCPipe, &newfd);
 	}
 	
@@ -152,6 +153,11 @@ void IPC_HandleSelect(fd_set *set)
 				char	staticBuf[STATICBUF_SIZE];
 				size_t	len;
 				len = _SysRead(fd, staticBuf, sizeof(staticBuf));
+				if( len == (size_t)-1 ) {
+					// TODO: Check errno for EINTR
+					IPC_int_DropClient(gIPC_Clients[i]);
+					break;
+				}
 				IPC_Handle( gIPC_Clients[i], len, (void*)staticBuf );
 			}
 		}
@@ -238,6 +244,38 @@ int _CompareClientPtrs(const void *_a, const void *_b)
 	return a->IPCType->CompareIdent(a->Ident, b->Ident);
 }
 
+int IPC_int_BSearchClients(const tIPC_Client *TargetClient, int *Pos)
+{
+	 int	div;
+	 int	cmp = -1;
+	 int	pos = 0;
+
+	div = giIPC_ClientCount;
+	pos = div/2;
+	while(div > 0)
+	{
+		div /= 2;
+		cmp = _CompareClientPtrs(&TargetClient, &gIPC_Clients[pos]);
+//		_SysDebug("Checking against %i gives %i", pos, cmp);
+		if(cmp == 0)	break;
+		if(cmp < 0)
+			pos -= div;
+		else
+			pos += div;
+	}
+	
+	// - Return if found	
+	if(cmp == 0) {
+		*Pos = pos;
+		return 1;
+	}
+
+	// Adjust pos to be the index where the new client will be placed
+	if(cmp > 0)	pos ++;
+	*Pos = pos;
+	return 0;
+}
+
 tIPC_Client *IPC_int_GetClient(const tIPC_Type *IPCType, const void *Ident)
 {
 	 int	pos = 0;	// Position where the new client will be inserted
@@ -248,33 +286,10 @@ tIPC_Client *IPC_int_GetClient(const tIPC_Type *IPCType, const void *Ident)
 	if(giIPC_ClientCount > 0)
 	{
 		tIPC_Client	target;
-		 int	div;
-		 int	cmp = -1;
-	
 		target.IPCType = IPCType;
 		target.Ident = Ident;
-		ret = &target;	// Abuse ret to get a pointer
-		
-		div = giIPC_ClientCount;
-		pos = div/2;
-		while(div > 0)
-		{
-			div /= 2;
-			cmp = _CompareClientPtrs(&ret, &gIPC_Clients[pos]);
-//			_SysDebug("Checking against %i gives %i", pos, cmp);
-			if(cmp == 0)	break;
-			if(cmp < 0)
-				pos -= div;
-			else
-				pos += div;
-		}
-		
-		// - Return if found	
-		if(cmp == 0)
+		if( IPC_int_BSearchClients(&target, &pos) )
 			return gIPC_Clients[pos];
-	
-		// Adjust pos to be the index where the new client will be placed
-		if(cmp > 0)	pos ++;
 	}
 
 
@@ -300,6 +315,40 @@ tIPC_Client *IPC_int_GetClient(const tIPC_Type *IPCType, const void *Ident)
 	gIPC_Clients[pos] = ret;
 
 	return ret;
+}
+
+void IPC_int_DropClient(tIPC_Client *Client)
+{
+	// Remove from client list
+	 int	pos;
+	if( !IPC_int_BSearchClients(Client, &pos) ) {
+		_SysDebug("IPC_int_DropClient: Can't find client %p", Client);
+		return ;
+	}
+
+	giIPC_ClientCount --;
+	memmove(&gIPC_Clients[pos], &gIPC_Clients[pos+1], (giIPC_ClientCount-pos)*sizeof(tIPC_Client*));
+
+	// Terminate client's windows
+	// - If there were active windows, show an error?
+	 int	nWindowsDestroyed = 0;
+	for(int i = 0; i < Client->nWindows; i ++)
+	{
+		if( Client->Windows[i] )
+		{
+			_SysDebug("Window %p:%i %p still exists", Client, i, Client->Windows[i]);
+			WM_DestroyWindow(Client->Windows[i]);
+			nWindowsDestroyed ++;
+		}
+	}
+	if( nWindowsDestroyed )
+	{
+		_SysDebug("TODO: Show notice that application exited without destroying windows");
+	}
+	
+	// Free client structure
+	free(Client);
+	_SysDebug("Dropped client %p", Client);
 }
 
 tWindow *IPC_int_GetWindow(tIPC_Client *Client, uint32_t WindowID)
@@ -480,6 +529,7 @@ int IPC_Msg_DestroyWin(tIPC_Client *Client, tAxWin_IPCMessage *Msg)
 		return 0;
 	
 	WM_DestroyWindow(win);
+	IPC_int_SetWindow(Client, Msg->Window, NULL);
 	return 0;
 }
 
@@ -628,7 +678,7 @@ void IPC_Handle(tIPC_Client *Client, size_t MsgLen, tAxWin_IPCMessage *Msg)
 	{
 		tWindow *win = IPC_int_GetWindow(Client, Msg->Window);
 		if( !win ) {
-			_SysDebug("WARNING: NULL window in message %i", Msg->ID);
+			_SysDebug("WARNING: NULL window in message %i (%x)", Msg->ID, Msg->Window);
 			return ;
 		}
 		tWMRenderer	*renderer = win->Renderer;

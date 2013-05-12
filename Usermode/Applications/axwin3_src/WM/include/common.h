@@ -18,6 +18,9 @@
 
 #define	AXWIN_VERSION	0x300
 
+static inline int MIN(int a, int b)	{ return (a < b) ? a : b; }
+static inline int MAX(int a, int b)	{ return (a > b) ? a : b; }
+
 // === GLOBALS ===
 extern int 	giTerminalFD;
 extern const char	*gsTerminalDevice;

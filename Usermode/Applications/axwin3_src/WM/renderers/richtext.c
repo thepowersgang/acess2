@@ -20,6 +20,7 @@ typedef struct sRichText_Line
 	struct sRichText_Line	*Next;
 	struct sRichText_Line	*Prev;
 	 int	Num;
+	char	bIsClean;
 	// TODO: Pre-rendered cache?
 	short	ByteLength;
 	short	Space;
@@ -36,6 +37,7 @@ typedef struct sRichText_Window
 	tColour	DefaultFG;
 	tColour	DefaultBG;
 	tFont	*Font;
+	char	bNeedsFullRedraw;
 	
 	short	LineHeight;
 } tRichText_Window;
@@ -201,7 +203,6 @@ void Renderer_RichText_RenderText(tWindow *Window, int Line, const char *Text)
 void Renderer_RichText_Redraw(tWindow *Window)
 {
 	tRichText_Window	*info = Window->RendererInfo;
-	 int	i;
 	tRichText_Line	*line = info->FirstVisLine;
 	
 	if( !line ) {
@@ -213,41 +214,66 @@ void Renderer_RichText_Redraw(tWindow *Window)
 	while( line && line->Prev && line->Prev->Num > info->FirstVisRow )
 		line = line->Prev;
 
+	 int	i;
 	for( i = 0; i < info->DispLines && line; i ++ )
 	{
 		if( i >= info->nLines - info->FirstVisRow )
 			break;
-		// TODO: Dirty rectangles?
-		WM_Render_FillRect(Window,
-			0, i*info->LineHeight,
-			Window->W, info->LineHeight,
-			info->DefaultBG
-			);
-		if( line->Num > info->FirstVisRow + i )
+		// Empty line is noted by a discontinuity
+		if( line->Num > info->FirstVisRow + i ) {
+			// Clear line if window needs full redraw
+			if( info->bNeedsFullRedraw ) {
+				WM_Render_FillRect(Window,
+					0, i*info->LineHeight,
+					Window->W, info->LineHeight,
+					info->DefaultBG
+					);
+			}
+			else {
+				// Hack to clear cursor on NULL lines
+				WM_Render_FillRect(Window,
+					0, i*info->LineHeight,
+					1, info->LineHeight,
+					info->DefaultBG
+					);
+			}
 			continue ;
-		// TODO: Horizontal scrolling?
-		// TODO: Formatting
-		
-		// Formatted text out
-		Renderer_RichText_RenderText(Window, i, line->Data);
-		_SysDebug("RichText: %p - Render %i '%.*s'", Window,
-			line->Num, line->ByteLength, line->Data);
+		}
+
+		if( info->bNeedsFullRedraw || !line->bIsClean )
+		{
+			WM_Render_FillRect(Window,
+				0, i*info->LineHeight,
+				Window->W, info->LineHeight,
+				info->DefaultBG
+				);
+			
+			// Formatted text out
+			Renderer_RichText_RenderText(Window, i, line->Data);
+			_SysDebug("RichText: %p - Render %i '%.*s'", Window,
+				line->Num, line->ByteLength, line->Data);
+			line->bIsClean = 1;
+		}
 
 		line = line->Next;
 	}
-	// Clear out i -- info->DispLines
-	_SysDebug("RichText: %p - Clear %i px lines with %06x starting at %i",
-		Window, (info->DispLines-i)*info->LineHeight, info->DefaultBG, i*info->LineHeight);
-	WM_Render_FillRect(Window,
-		0, i*info->LineHeight,
-		Window->W, (info->DispLines-i)*info->LineHeight,
-		info->DefaultBG
-		);
+	// Clear out lines i to info->DispLines-1
+	if( info->bNeedsFullRedraw )
+	{
+		_SysDebug("RichText: %p - Clear %i px lines with %06x starting at %i",
+			Window, (info->DispLines-i)*info->LineHeight, info->DefaultBG, i*info->LineHeight);
+		WM_Render_FillRect(Window,
+			0, i*info->LineHeight,
+			Window->W, (info->DispLines-i)*info->LineHeight,
+			info->DefaultBG
+			);
+	}
+	info->bNeedsFullRedraw = 0;
 
-	// HACK!
+	// HACK: Hardcoded text width of 8
 	info->DispCols = Window->W / 8;	
 
-	// TODO: Text cursor
+	// Text cursor
 	_SysDebug("Cursor at %i,%i", info->CursorCol, info->CursorRow);
 	_SysDebug(" Range [%i+%i],[%i+%i]", info->FirstVisRow, info->DispLines, info->FirstVisCol, info->DispCols);
 	if( info->CursorRow >= info->FirstVisRow && info->CursorRow < info->FirstVisRow + info->DispLines )
@@ -266,6 +292,22 @@ void Renderer_RichText_Redraw(tWindow *Window)
 	}
 }
 
+tRichText_Line *Renderer_RichText_int_GetLine(tWindow *Window, int LineNum, tRichText_Line **Prev)
+{
+	tRichText_Window	*info = Window->RendererInfo;
+	tRichText_Line	*line = info->FirstLine;
+	tRichText_Line	*prev = NULL;
+	while(line && line->Num < LineNum)
+		prev = line, line = line->Next;
+	
+	if( Prev )
+		*Prev = prev;
+	
+	if( !line || line->Num > LineNum )
+		return NULL;
+	return line;
+}
+
 int Renderer_RichText_HandleIPC_SetAttr(tWindow *Window, size_t Len, const void *Data)
 {
 	tRichText_Window	*info = Window->RendererInfo;
@@ -281,10 +323,22 @@ int Renderer_RichText_HandleIPC_SetAttr(tWindow *Window, size_t Len, const void 
 	case _ATTR_DEFFG:
 		info->DefaultFG = msg->Value;
 		break;
-	case _ATTR_CURSORPOS:
-		info->CursorRow = msg->Value >> 12;
-		info->CursorCol = msg->Value & 0xFFF;
-		break;
+	case _ATTR_CURSORPOS: {
+		 int	newRow = msg->Value >> 12;
+		 int	newCol = msg->Value & 0xFFF;
+		// Force redraw of old and new row
+		tRichText_Line	*line = Renderer_RichText_int_GetLine(Window, info->CursorRow, NULL);
+		if( line )
+			line->bIsClean = 0;
+		if( newRow != info->CursorRow ) {
+			line = Renderer_RichText_int_GetLine(Window, newRow, NULL);
+			if(line)
+				line->bIsClean = 0;
+		}
+		info->CursorRow = newRow;
+		info->CursorCol = newCol;
+		WM_Invalidate(Window, 1);
+		break; }
 	case _ATTR_SCROLL:
 		// TODO: Set scroll flag
 		break;
@@ -303,18 +357,16 @@ int Renderer_RichText_HandleIPC_WriteLine(tWindow *Window, size_t Len, const voi
 	if( Len < sizeof(*msg) )	return -1;
 	if( msg->Line >= info->nLines )	return 1;	// Bad count
 
-	tRichText_Line	*line = info->FirstLine;
 	tRichText_Line	*prev = NULL;
-	while(line && line->Num < msg->Line)
-		prev = line, line = line->Next;
-	if( !line || line->Num > msg->Line )
+	tRichText_Line	*line = Renderer_RichText_int_GetLine(Window, msg->Line, &prev);
+	if( !line )
 	{
 		// New line!
 		// Round up to 32
 		 int	space = ((Len - sizeof(*msg)) + 32-1) & ~(32-1);
 		tRichText_Line	*new = malloc(sizeof(*line) + space);
 		// TODO: Bookkeeping on how much memory each window uses
-		new->Next = line;
+		new->Next = (prev ? prev->Next : NULL);
 		new->Prev = prev;
 		new->Num = msg->Line;
 		new->Space = space;
@@ -342,10 +394,11 @@ int Renderer_RichText_HandleIPC_WriteLine(tWindow *Window, size_t Len, const voi
 	}
 	line->ByteLength = Len - sizeof(*msg);
 	memcpy(line->Data, msg->LineData, Len - sizeof(*msg));
+	line->bIsClean = 0;
 
-	WM_Invalidate( Window );
+//	WM_Invalidate(Window, 1);
 
-	return  0;
+	return 0;
 }
 
 int Renderer_RichText_HandleMessage(tWindow *Target, int Msg, int Len, const void *Data)
@@ -357,6 +410,7 @@ int Renderer_RichText_HandleMessage(tWindow *Target, int Msg, int Len, const voi
 		const struct sWndMsg_Resize *msg = Data;
 		if(Len < sizeof(*msg))	return -1;
 		info->DispLines = msg->H / info->LineHeight;
+		info->bNeedsFullRedraw = 1;	// force full rerender
 		return 1; }
 	case WNDMSG_KEYDOWN:
 	case WNDMSG_KEYUP:

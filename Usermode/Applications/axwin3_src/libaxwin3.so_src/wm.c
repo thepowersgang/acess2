@@ -54,6 +54,20 @@ tWindow *AxWin3_int_GetWindowFromID(uint32_t ServerID)
 	return block->Windows[ServerID];
 }
 
+void AxWin3_int_DelWindowByID(uint32_t ServerID)
+{
+	 int	orig_id = ServerID;
+	tWindowBlock	*block = &gAxWin3_WindowList;
+	while(block && ServerID > WINDOWS_PER_ALLOC) {
+		block = block->Next;
+		ServerID -= WINDOWS_PER_ALLOC;
+	}
+	if( !block || !block->Windows[ServerID] )
+		_SysDebug("AxWin3_int_DelWindowByID - Id %i out of range", orig_id);
+	else
+		block->Windows[ServerID] = NULL;
+}
+
 tWindow *AxWin3_int_AllocateWindowInfo(int DataBytes, int *WinID)
 {
 	 int	idx, newWinID;
@@ -208,6 +222,7 @@ int AxWin3_int_DefaultMessageHandler(tWindow *Win, int ID, size_t Len, const voi
 	case WNDMSG_DESTROY:
 		_SysDebug("TODO: Check that WNDMSG_DESTROY was from us calling _DestroyWindow");
 		// TODO: Finalise cleanup of window, this will be the last message sent to this window
+		AxWin3_int_DelWindowByID(Win->ServerID);
 		return 1;
 	default:
 		return 0;

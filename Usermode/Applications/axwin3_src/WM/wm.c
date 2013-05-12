@@ -112,7 +112,8 @@ void WM_DestroyWindow(tWindow *Window)
 		else
 			Window->Parent->LastChild = prev;
 	}
-	WM_Invalidate(Window->Parent);
+	// - Full invalidate
+	WM_Invalidate(Window, 1);
 	
 	// - Remove from inheritance tree?
 	
@@ -134,7 +135,7 @@ void WM_DestroyWindow(tWindow *Window)
 	if( Window->Renderer->DestroyWindow )
 		Window->Renderer->DestroyWindow(Window);
 	else
-		_SysDebug("WARN: Renderer %s does not have a destroy function", Window->Renderer->Name);
+		_SysDebug("WARN: Renderer '%s' does not have a destroy function", Window->Renderer->Name);
 
 	// - Tell client to clean up
 	WM_SendMessage(NULL, Window, WNDMSG_DESTROY, 0, NULL);
@@ -241,9 +242,10 @@ void WM_FocusWindow(tWindow *Destination)
 		_msg.Val = 1;
 		WM_SendMessage(NULL, Destination, WNDMSG_FOCUS, sizeof(_msg), &_msg);
 	}
-		
-	WM_Invalidate(gpWM_FocusedWindow);
-	WM_Invalidate(Destination);
+	
+	// TODO: Leave it up to the renderer to decide to invalidate
+	WM_Invalidate(gpWM_FocusedWindow, 1);
+	WM_Invalidate(Destination, 1);
 
 	gpWM_FocusedWindow = Destination;
 }
@@ -255,6 +257,10 @@ void WM_ShowWindow(tWindow *Window, int bShow)
 	
 	if( !!(Window->Flags & WINFLAG_SHOW) == bShow )
 		return ;
+	
+	// Window is being hidden, invalidate parents
+	if( !bShow )
+		WM_Invalidate(Window, 0);
 
 	// Message window
 	_msg.Val = !!bShow;
@@ -280,7 +286,9 @@ void WM_ShowWindow(tWindow *Window, int bShow)
 		_SysDebug("Window %p hidden", Window);
 	}
 	
-	WM_Invalidate(Window);
+	// Window has been shown, invalidate everything
+	if( bShow )
+		WM_Invalidate(Window, 1);
 }
 
 void WM_DecorateWindow(tWindow *Window, int bDecorate)
@@ -299,7 +307,7 @@ void WM_DecorateWindow(tWindow *Window, int bDecorate)
 		Window->RenderBuffer = NULL;
 	}
 	
-	WM_Invalidate(Window);
+	WM_Invalidate(Window, 1);
 }
 
 void WM_SetRelative(tWindow *Window, int bRelativeToParent)
@@ -342,12 +350,19 @@ int WM_MoveWindow(tWindow *Window, int X, int Y)
 	}
 	// TODO: Re-sanitise
 
+	if( Window->X == X && Window->Y == Y ) {
+		_SysDebug("WM_MoveWindow: Equal (%i,%i)", X, Y);
+		return 0;
+	}
+
+	if( Window->Parent )
+		Window->Parent->Flags |= WINFLAG_NEEDREBLIT;
+
 	_SysDebug("WM_MoveWindow: (%i,%i)", X, Y);
 	Window->X = X;	Window->Y = Y;
 
 	// Mark up the tree that a child window has changed	
-	while( (Window = Window->Parent) )
-		Window->Flags &= ~WINFLAG_CHILDCLEAN;
+	WM_Invalidate(Window, 0);
 
 	return 0;
 }
@@ -360,15 +375,19 @@ int WM_ResizeWindow(tWindow *Window, int W, int H)
 
 	if( Window->W == W && Window->H == H )
 		return 0;
+	
+	// If the window size has decreased, force the parent to reblit
+	if( Window->Parent && (Window->W > W || Window->H > H) )
+		Window->Parent->Flags |= WINFLAG_NEEDREBLIT;
 
-	_SysDebug("WM_ResizeWindow: %ix%i", W, H);
+	_SysDebug("WM_ResizeWindow: %p:%i %ix%i", Window->Client, Window->ID, W, H);
 	Window->W = W;	Window->H = H;
 
 	if(Window->RenderBuffer) {
 		free(Window->RenderBuffer);
 		Window->RenderBuffer = NULL;
 	}
-	WM_Invalidate(Window);
+	WM_Invalidate(Window, 1);
 
 	{
 		struct sWndMsg_Resize	msg;
@@ -437,18 +456,20 @@ int WM_SendIPCReply(tWindow *Window, int Message, size_t Length, const void *Dat
 	return 0;
 }
 
-void WM_Invalidate(tWindow *Window)
+void WM_Invalidate(tWindow *Window, int bClearClean)
 {
 	if(!Window)	return ;
-//	_SysDebug("Invalidating %p", Window);
-	// Don't invalidate twice (speedup)
-//	if( !(Window->Flags & WINFLAG_CLEAN) )	return;
-
+	
+	// Don't bother invalidating if the window isn't shown
+	if( !(Window->Flags & WINFLAG_SHOW) )
+		return ;
+	
 	// Mark for re-render
-	Window->Flags &= ~WINFLAG_CLEAN;
+	if( bClearClean )
+		Window->Flags &= ~WINFLAG_CLEAN;
 
 	// Mark up the tree that a child window has changed	
-	while( (Window = Window->Parent) )
+	while( (Window = Window->Parent) && (Window->Flags & WINFLAG_SHOW) )
 		Window->Flags &= ~WINFLAG_CHILDCLEAN;
 }
 
@@ -495,7 +516,7 @@ void WM_int_UpdateWindow(tWindow *Window)
 		}
 
 		Window->Renderer->Redraw(Window);
-		Window->Flags |= WINFLAG_CLEAN;
+		Window->Flags |= WINFLAG_CLEAN|WINFLAG_NEEDREBLIT;
 	}
 	
 	// Process children
@@ -513,7 +534,7 @@ void WM_int_UpdateWindow(tWindow *Window)
 		Decorator_Redraw(Window);
 }
 
-void WM_int_BlitWindow(tWindow *Window)
+void WM_int_BlitWindow(tWindow *Window, int bForceReblit)
 {
 	tWindow	*child;
 
@@ -535,7 +556,15 @@ void WM_int_BlitWindow(tWindow *Window)
 
 //	_SysDebug("Blit %p (%p) to (%i,%i) %ix%i", Window, Window->RenderBuffer,
 //		Window->RealX, Window->RealY, Window->RealW, Window->RealH);
-	Video_Blit(Window->RenderBuffer, Window->RealX, Window->RealY, Window->RealW, Window->RealH);
+	// TODO Don't blit unless:
+	// a) A parent has been reblitted (thus clobbering the existing content)
+	// b) A child has moved (exposing a previously hidden area)
+	if( bForceReblit || (Window->Flags & WINFLAG_NEEDREBLIT) )
+	{
+		Video_Blit(Window->RenderBuffer, Window->RealX, Window->RealY, Window->RealW, Window->RealH);
+		Window->Flags &= ~WINFLAG_NEEDREBLIT;
+		bForceReblit = 1;
+	}
 	
 	if( Window == gpWM_FocusedWindow && Window->CursorW )
 	{
@@ -549,7 +578,7 @@ void WM_int_BlitWindow(tWindow *Window)
 
 	for( child = Window->FirstChild; child; child = child->NextSibling )
 	{
-		WM_int_BlitWindow(child);
+		WM_int_BlitWindow(child, bForceReblit);
 	}
 }
 
@@ -563,7 +592,7 @@ void WM_Update(void)
 	WM_int_UpdateWindow(gpWM_RootWindow);
 	
 	// - Draw windows from back to front to the render buffer
-	WM_int_BlitWindow(gpWM_RootWindow);
+	WM_int_BlitWindow(gpWM_RootWindow, 0);
 
 	Video_Update();
 }

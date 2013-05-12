@@ -12,6 +12,9 @@
 #include <widget_messages.h>
 #include <string.h>
 
+//static const int	ciBaseElementCount = 16;
+static const int	ciStepElementCount = 16;
+
 // === STRUCTURES ===
 struct sAxWin3_Widget
 {
@@ -58,11 +61,10 @@ uint32_t AxWin3_Widget_int_AllocateID(tWidgetWindowInfo *Info)
 	}
 	if( newID == Info->nElements )
 	{
-		const int size_step = 4;
-		Info->nElements += 4;
+		Info->nElements += ciStepElementCount;
 		Info->Elements = realloc(Info->Elements, sizeof(*Info->Elements)*Info->nElements);
-		newID = Info->nElements - 4;
-		memset( &Info->Elements[newID+1], 0, (size_step-1)*sizeof(Info->Elements));
+		newID = Info->nElements - ciStepElementCount;
+		memset( &Info->Elements[newID+1], 0, (ciStepElementCount-1)*sizeof(Info->Elements));
 		_SysDebug("Widget: Expanded to %i and allocated %i", Info->nElements, newID);
 	}
 	else
@@ -79,12 +81,19 @@ int AxWin3_Widget_MessageHandler(tHWND Window, int MessageID, int Size, void *Da
 
 	switch(MessageID)
 	{
+//	case WNDMSG_DESTROY: {
+//		return 0; }
 	case MSG_WIDGET_FIRE: {
 		tWidgetMsg_Fire	*msg = Data;
 		if(Size < sizeof(*msg))	return -1;
 		widget = AxWin3_Widget_int_GetElementByID(Window, msg->WidgetID);
 		if(widget->Fire)	widget->Fire(widget);
 		
+		return 1; }
+	case MSG_WIDGET_KEYPRESS: {
+		return 0; }
+	case MSG_WIDGET_MOUSEBTN: {
+		// TODO: Do something
 		return 1; }
 	default:
 		return 0;

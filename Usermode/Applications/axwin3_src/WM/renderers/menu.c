@@ -422,7 +422,7 @@ int Renderer_Menu_HandleMessage(tWindow *Window, int Msg, int Length, const void
 		{
 			info->HilightedItem = new_hilight;
 			// TODO: Change sub-menu
-			WM_Invalidate(Window);
+			WM_Invalidate(Window, 1);
 		}
 
 		return 0; }

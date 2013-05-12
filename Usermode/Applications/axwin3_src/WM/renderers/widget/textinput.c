@@ -213,7 +213,7 @@ int Widget_TextInput_KeyFire(tElement *Element, int KeySym, int Character)
 	}
 
 	// TODO: Have a Widget_ function to do this instead
-	WM_Invalidate(Element->Window);
+	WM_Invalidate(Element->Window, 1);
 	
 	return 0;
 }

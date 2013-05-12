@@ -26,6 +26,8 @@
 #define WINFLAG_MAXIMIZED	0x00000004
 //! Window is contained within the parent
 #define WINFLAG_RELATIVE	0x00000008
+//! Window needs to be reblitted (child moved or contents changed)
+#define WINFLAG_NEEDREBLIT	0x00000020
 //! Window contents are valid
 #define WINFLAG_CLEAN    	0x00000040
 //! All child windows are un-changed
@@ -49,7 +51,7 @@ typedef struct sIPC_Client	tIPC_Client;
 extern tWindow	*WM_CreateWindow(tWindow *Parent, tIPC_Client *Client, uint32_t ID, int Flags, const char *Renderer);
 extern void	WM_DestroyWindow(tWindow *Window);
 extern tWindow	*WM_GetWindowByID(tWindow *Requester, uint32_t ID);
-extern void	WM_Invalidate(tWindow *Window);
+extern void	WM_Invalidate(tWindow *Window, int bClearClean);
 extern void	WM_SetWindowTitle(tWindow *Window, const char *Title);
 extern void	WM_FocusWindow(tWindow *Destination);
 extern void	WM_RaiseWindow(tWindow *Window);

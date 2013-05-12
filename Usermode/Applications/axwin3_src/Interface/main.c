@@ -147,6 +147,10 @@ int run_dorun(tAxWin3_Widget *unused)
 	_SysDebug("DoRun pressed");
 	char *cmd = AxWin3_Widget_GetText(gRunInput);
 	_SysDebug("Command string '%s'", cmd);
+	
+	// TODO: Parse the command string into components
+	// TODO: Call _SysSpawn
+	
 	AxWin3_ShowWindow(gRunDialog, 0);
 	return 0;
 }
