@@ -9,9 +9,10 @@ QEMU_PARAMS=""
 QEMU_PARAMS=$QEMU_PARAMS" -hda AcessHDD.img"
 QEMU_PARAMS=$QEMU_PARAMS" -vga std"
 QEMU_PARAMS=$QEMU_PARAMS" -smp 2"
-QEMU_PARAMS=$QEMU_PARAMS" -net nic"
+QEMU_PARAMS=$QEMU_PARAMS" -net nic,model=e1000"
+#QEMU_PARAMS=$QEMU_PARAMS" -net nic,model=rtl8139"
 
-_NETTYPE="user"
+_NETTYPE="user,hostfwd=tcp::5555-:23"
 
 while [ $# -ne 0 ]; do
 	case $1 in
