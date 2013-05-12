@@ -252,7 +252,6 @@ int ProcessInittab(const char *Path)
 				goto lineError;
 			}
 			AddKTerminal(id, command);
-			free(command);
 		}
 		else if(strcmp(cmdbuf, "stty") == 0 ) {
 			// stty <devpath> [78][NOE][012][bB]<baud> <command...>
@@ -444,7 +443,7 @@ int SpawnSTerm(tInitProgram *Program)
 	 int	out = _SysOpen(Program->TypeInfo.STerm.Path, OPENFLAG_WRITE);
 
 	if(in == -1 || out == -1 ) {
-		_SysDebug("Unable to open serial '%s' for '%s'", Program->TypeInfo.STerm.Path, Program->Command);
+		_SysDebug("Unable to open serial port '%s'", Program->TypeInfo.STerm.Path);
 		return -1;
 	}
 

@@ -15,6 +15,7 @@
 #define TIMER_FREQ	(0x8000>>TIMER_RATE)	//Hz
 #define MS_PER_TICK_WHOLE	(1000/(TIMER_FREQ))
 #define MS_PER_TICK_FRACT	((0x80000000*(1000%TIMER_FREQ))/TIMER_FREQ)
+#define US_PER_TICK	(1000*1000/(TIMER_FREQ))
 
 // === IMPORTS ===
 extern volatile Sint64	giTimestamp;
@@ -117,6 +118,21 @@ void Time_Interrupt(int IRQ, void *Ptr)
 	// Make sure the RTC Fires again
 	outb(0x70, 0x0C); // Select register C
 	inb(0x71);	// Just throw away contents.
+}
+
+void Time_MicroSleep(Uint16 Microsecs)	// max 64 ms
+{
+	Uint64	cur_tsc = Time_ReadTSC();
+	// tsc_per_us * Microsec
+	Uint64	delta_tsc = (Uint64)Microsecs * giTime_TSCPerTick / US_PER_TICK;
+	Uint64	tgt_tsc = cur_tsc + delta_tsc;
+
+	if( tgt_tsc < cur_tsc )
+		while(Time_ReadTSC() > cur_tsc)
+			;	
+
+	while( Time_ReadTSC() < tgt_tsc )
+		;
 }
 
 Uint64 Time_ReadTSC(void)

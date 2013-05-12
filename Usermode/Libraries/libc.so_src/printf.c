@@ -473,13 +473,13 @@ int expand_double(double num, uint64_t *Significand, int16_t *Exponent, int *Sig
 //	printf("%llx %i %i %llx\n", *bit_rep, (int)*SignIsNeg, (int)*Exponent, *Significand);
 
 	// Subnormals
-	if( *Exponent == -1023 && *Significand != 0 )
+	if( *Exponent == -0x3FF && *Significand != 0 )
 		return 1;
 	// Infinity
-	if( *Exponent == 0x800 && *Significand == 0)
+	if( *Exponent == 0x400 && *Significand == 0)
 		return 2;
 	// NaNs
-	if( *Exponent == 0x800 && *Significand != 0)
+	if( *Exponent == 0x400 && *Significand != 0)
 		return 3;
 
 	return 0;

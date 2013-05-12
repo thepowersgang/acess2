@@ -30,6 +30,7 @@
  * - \ref drvintro	"Introduction"
  * - \ref drv_misc "Miscelanious Devices"
  * - \ref drv_video	"Video Drivers"
+ * - \ref drv_disk	"Storage Devices"
  * 
  * \section drvintro	Introduction
  * All Acess2 device drivers communicate with user-level (and other parts

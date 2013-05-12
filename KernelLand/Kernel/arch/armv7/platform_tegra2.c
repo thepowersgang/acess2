@@ -45,12 +45,40 @@ void Timer_IRQHandler_SysClock(int IRQ, void *_unused)
 	gpTimersMap->TMR1.PCR_0 = (1<<30);
 }
 
+void Timer_IRQHandler_Timer2(int IRQ, void *_unused)
+{
+	Log_Debug("Tegra2Tme", "Timer 2");
+}
+void Timer_IRQHandler_Timer3(int IRQ, void *_unused)
+{
+	Log_Debug("Tegra2Tme", "Timer 3");
+}
+void Timer_IRQHandler_Timer4(int IRQ, void *_unused)
+{
+	Log_Debug("Tegra2Tme", "Timer 4");
+}
+
+void Time_MicroSleep(Uint16 Microsecs)
+{
+	Uint32	cur_ts = gpTimersMap->TIMERUS.CNTR_1US;
+	Uint32	tgt_ts = cur_ts + Microsecs;
+	if( tgt_ts < cur_ts )
+		while( gpTimersMap->TIMERUS.CNTR_1US > cur_ts )
+			;
+	while( gpTimersMap->TIMERUS.CNTR_1US < tgt_ts )
+		;
+}
+
 void Time_Setup(void)
 {
 	gpTimersMap = (void*)MM_MapHWPages(0x60005000, 1);
 	gpClockResetMap = (void*)MM_MapHWPages(0x60006000, 1);
+	
 	// Timer 1 (used for system timekeeping)
 	IRQ_AddHandler(0*32+0, Timer_IRQHandler_SysClock, NULL);
+	IRQ_AddHandler(0*32+1, Timer_IRQHandler_Timer2, NULL);
+	IRQ_AddHandler(1*32+9, Timer_IRQHandler_Timer3, NULL);
+	IRQ_AddHandler(1*32+10, Timer_IRQHandler_Timer4, NULL);
 	gpTimersMap->TMR1.PTV_0 = (1<<31)|(1<<30)|(100*1000-1);	// enable, periodic, 100 ms
 	gpTimersMap->TMR1.PCR_0 = (1<<30);
 	Log_Debug("Tegra2Tme", "TMR0.PCR = 0x%x", gpTimersMap->TMR1.PCR_0);

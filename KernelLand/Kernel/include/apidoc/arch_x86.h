@@ -27,7 +27,7 @@
 extern Uint8	inb(Uint16 Port);	//!< Read 1 byte from the IO Bus
 extern Uint16	inw(Uint16 Port);	//!< Read 2 bytes from the IO Bus
 extern Uint32	inl(Uint16 Port);	//!< Read 4 bytes from the IO Bus
-extern Uint64	inq(Uint16 Port);	//!< Read 8 bytes from the IO Bus\
+extern Uint64	inq(Uint16 Port);	//!< Read 8 bytes from the IO Bus
 
 extern void	outb(Uint16 Port, Uint8 Value);	//!< Write 1 byte to the IO Bus
 extern void	outw(Uint16 Port, Uint16 Value);	//!< Write 2 bytes to the IO Bus

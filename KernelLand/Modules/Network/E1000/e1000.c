@@ -386,7 +386,7 @@ int DrvUtil_AllocBuffers(void **Buffers, int NumBufs, int PhysBits, size_t BufSi
 		size_t	ofs = 0;
 		const int 	bufs_per_page = PAGE_SIZE / BufSize;
 		ASSERT(bufs_per_page * BufSize == PAGE_SIZE);
-		void	*page;
+		void	*page = NULL;
 		for( int i = 0; i < NumBufs; i ++ )
 		{
 			if( ofs == 0 ) {
