@@ -118,8 +118,11 @@ void E1000_int_ReleaseRXD(void *Arg, size_t HeadLen, size_t FootLen, const void 
 {
 	tCard	**cardptr = Arg;
 	tCard	*Card = *cardptr;
-	 int	rxd = (Arg - (void*)Card->RXDescs) / sizeof(tRXDesc);
-	
+	 int	rxd = (Arg - (void*)Card->RXBackHandles) / sizeof(void*);
+
+	LOG("RXD %p %i being released", Card, rxd);
+	ASSERT(rxd >= 0 && rxd < NUM_RX_DESC);
+
 	Card->RXDescs[rxd].Status = 0;
 	Mutex_Acquire(&Card->lRXDescs);
 	if( rxd == REG32(Card, REG_RDT) ) {
