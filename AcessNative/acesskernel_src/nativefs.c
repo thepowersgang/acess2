@@ -154,11 +154,18 @@ tVFS_Node *NativeFS_FindDir(tVFS_Node *Node, const char *Name)
 	else
 	{
 		LOG("File");
-		baseRet.Inode = (Uint64)(tVAddr) fopen(path, "r+");
+		FILE	*fp = fopen(path, "r+");
+		if( !fp ) {
+			Log_Error("NativeFS", "fopen of '%s' failed: %s", path, strerror(errno));
+			free(path);
+			LEAVE('n');
+			return NULL;
+		}
+		baseRet.Inode = (Uint64)(tVAddr) fp;
 		baseRet.Type = &gNativeFS_FileNodeType;
 		
-		fseek( (FILE*)(tVAddr)baseRet.Inode, 0, SEEK_END );
-		baseRet.Size = ftell( (FILE*)(tVAddr)baseRet.Inode );
+		fseek( fp, 0, SEEK_END );
+		baseRet.Size = ftell( fp );
 	}
 	
 	// Create new node
