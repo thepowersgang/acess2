@@ -43,6 +43,7 @@ struct sFAT_VolInfo
 	char	name[12];	//!< Volume Name (With NULL Terminator)
 	Uint32	firstDataSect;	//!< First data sector
 	Uint32	rootOffset;	//!< Root Offset (clusters)
+	Uint32	RootSector;	//!< Root Offset (sectors)
 	Uint32	ClusterCount;	//!< Total Cluster Count
 	fat_bootsect	bootsect;	//!< Boot Sector
 	tVFS_Node	rootNode;	//!< Root Node

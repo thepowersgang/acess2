@@ -200,8 +200,10 @@ tVFS_Node *FAT_InitDevice(const char *Device, const char **Options)
 	// Compute Root directory offset
 	if(diskInfo->type == FAT32)
 		diskInfo->rootOffset = bs->spec.fat32.rootClust;
-	else
+	else {
+		diskInfo->RootSector = FATSz * bs->fatCount;
 		diskInfo->rootOffset = (FATSz * bs->fatCount) / bs->spc;
+	}
 	
 	diskInfo->firstDataSect = bs->resvSectCount + (bs->fatCount * FATSz) + RootDirSectors;
 	
@@ -325,31 +327,43 @@ int FAT_int_GetAddress(tVFS_Node *Node, Uint64 Offset, Uint64 *Addr, Uint32 *Clu
 	
 	cluster = base_cluster = Node->Inode & 0xFFFFFFF;	// Cluster ID
 //	LOG("base cluster = 0x%07x", cluster);
-	
-	// Do Cluster Skip
+
+	// Handle root directory
 	// - Pre FAT32 had a reserved area for the root.
-	if( disk->type == FAT32 || cluster != disk->rootOffset )
+	if( disk->type != FAT32 && Node == &disk->rootNode )
 	{
-		skip = Offset / disk->BytesPerCluster;
-		LOG("skip = %i", skip);
-		// Skip previous clusters
-		for(; skip-- ; )
-		{
-			if(Cluster)	*Cluster = cluster;
-			cluster = FAT_int_GetFatValue(disk, cluster);
-			// Check for end of cluster chain
-			if(cluster == GETFATVALUE_EOC) { LEAVE('i', 1); return 1; }
+		Uint32	root_byte_count = disk->bootsect.files_in_root * 32 ;
+		if( Offset >= root_byte_count ) {
+			LOG("FAT12/16 root out of range (%i >= %i)", Offset, root_byte_count);
+			LEAVE('i', 1);
+			return 1;
 		}
+		LOG("FAT12/16 root");
+		
+		// Calculate address
+		addr = (disk->bootsect.resvSectCount + disk->RootSector) * disk->bootsect.bps;
+		addr += Offset;
+
+		LOG("addr = %llx", addr);
+		*Addr = addr;
+		LEAVE('i', 0);
+		return 0;
+	}
+
+	// Do Cluster Skip
+	skip = Offset / disk->BytesPerCluster;
+	LOG("skip = %i", skip);
+	// Skip previous clusters
+	for(; skip-- ; )
+	{
 		if(Cluster)	*Cluster = cluster;
+		cluster = FAT_int_GetFatValue(disk, cluster);
+		// Check for end of cluster chain
+		if(cluster == GETFATVALUE_EOC) { LEAVE('i', 1); return 1; }
 	}
-	else {
-		// TODO: Bounds checking on root
-//		LOG("Root cluster count %i", disk->bootsect.files_in_root*32/disk->BytesPerCluster);
-		// Increment by clusters in offset
-		cluster += Offset / disk->BytesPerCluster;
-	}
+	if(Cluster)	*Cluster = cluster;
 	
-//	LOG("cluster = 0x%07x", cluster);
+	LOG("cluster = 0x%07x", cluster);
 	
 	// Bounds Checking (Used to spot corruption)
 	if(cluster > disk->ClusterCount + 2)
@@ -361,15 +375,8 @@ int FAT_int_GetAddress(tVFS_Node *Node, Uint64 Offset, Uint64 *Addr, Uint32 *Clu
 	}
 	
 	// Compute Offsets
-	// - Pre FAT32 cluster base (in sectors)
-	if( base_cluster == disk->rootOffset && disk->type != FAT32 ) {
-		addr = disk->bootsect.resvSectCount * disk->bootsect.bps;
-		addr += cluster * disk->BytesPerCluster;
-	}
-	else {
-		addr = disk->firstDataSect * disk->bootsect.bps;
-		addr += (cluster - 2) * disk->BytesPerCluster;
-	}
+	addr = disk->firstDataSect * disk->bootsect.bps;
+	addr += (cluster - 2) * disk->BytesPerCluster;
 	// In-cluster offset
 	addr += Offset % disk->BytesPerCluster;
 	
