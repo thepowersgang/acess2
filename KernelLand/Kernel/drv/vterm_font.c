@@ -167,7 +167,7 @@ Uint16 VT_Colour12to15(Uint16 Col12)
 /**
  * \brief Converts a 12-bit colour into any other depth
  * \param Col12	12-bit source colour
- * \param Depth	Desired bit deptj
+ * \param Depth	Desired bit depth
  * \note Green then blue get the extra avaliable bits (16:5-6-5, 14:4-5-5)
  */
 Uint32 VT_Colour12toN(Uint16 Col12, int Depth)
