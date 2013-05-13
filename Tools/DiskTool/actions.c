@@ -15,7 +15,7 @@ extern int	NativeFS_Install(char **Arguments);
 extern int	LVM_Cleanup(void);
 
 // === PROTOTYPES ===
-void	DiskTool_Initialise(void)	__attribute__((constructor(101)));
+void	DiskTool_Initialise(void)	__attribute__((constructor(102)));
 void	DiskTool_Cleanup(void);
  int	DiskTool_int_TranslateOpen(const char *File, int Mode);
  int	DiskTool_LVM_Read(void *Handle, Uint64 Block, size_t BlockCount, void *Dest);

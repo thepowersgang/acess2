@@ -61,12 +61,15 @@ size_t DiskTool_int_TranslatePath(char *Buffer, const char *Path)
 		}
 	
 		len = strlen("/Native");
-		len += strlen( gsWorkingDirectory ) + 1;
+		if( Path[0] != '/' )
+			len += strlen( gsWorkingDirectory ) + 1;
 		len += strlen(Path);
 		if( Buffer ) {
 			strcpy(Buffer, "/Native");
-			strcat(Buffer, gsWorkingDirectory);
-			strcat(Buffer, "/");
+			if( Path[0] != '/' ) {
+				strcat(Buffer, gsWorkingDirectory);
+				strcat(Buffer, "/");
+			}
 			strcat(Buffer, Path);
 		}
 	}
