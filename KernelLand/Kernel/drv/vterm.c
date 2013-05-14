@@ -737,11 +737,10 @@ void VT_SetTerminal(int ID)
 			gpVT_CurTerm->Buffer = malloc( gpVT_CurTerm->Width*gpVT_CurTerm->Height*4 );
 		if( gpVT_CurTerm->Width < giVT_RealWidth )
 		{
-			 int	line;
 			Uint	ofs = 0;
 			Uint32	*dest = gpVT_CurTerm->Buffer;
 			// Slower scanline copy
-			for( line = 0; line < gpVT_CurTerm->Height; line ++ )
+			for( int line = 0; line < gpVT_CurTerm->Height; line ++ )
 			{
 				VFS_ReadAt(giVT_OutputDevHandle, ofs, gpVT_CurTerm->Width*4, dest);
 				ofs += giVT_RealWidth * 4;
@@ -755,6 +754,7 @@ void VT_SetTerminal(int ID)
 				gpVT_CurTerm->Buffer
 				);
 		}
+		LOG("Cached screen contents");
 	}
 
 	// Update current terminal ID
