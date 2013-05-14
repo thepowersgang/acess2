@@ -27,10 +27,13 @@ int main(int argc, char *argv[])
 		for(;;)
 		{
 			sUsername = GetUsername();
+			if(!sUsername)	continue;
 			sPassword = GetPassword();
+			if(!sPassword)	continue;
 			if( (uid = ValidateUser(sUsername, sPassword)) == -1 )
 			{
 				printf("\nInvalid username or password\n");
+				_SysDebug("Auth failure: '%s':'%s'", sUsername, sPassword);
 				free(sUsername);
 				free(sPassword);
 			}
@@ -61,6 +64,48 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
+char *_GetString(int bEcho)
+{
+	char	ret[BUFLEN];
+	 int	pos = 0;
+	char	ch;
+	
+	// Read in text
+	while( (ch = fgetc(stdin)) != -1 && ch != '\n' )
+	{
+		// Handle backspace
+		if(ch == '\b') {
+			if( pos <= 0 )	continue;
+			pos --;
+			ret[pos] = '\0';
+		}
+		// Ctrl-C : Cancel
+		else if( ch == 'c'-'a'+1)
+			pos = 0;
+		// Ctrl-U : Clear
+		else if( ch == 'u'-'a'+1)
+			pos = 0;
+		// Ignore \r
+		else if( ch == '\r' )
+			continue;
+		else
+			ret[pos++] = ch;
+		
+		// Don't echo out to the screen
+		if( bEcho ) {
+			fputc(ch, stdout);
+			fflush(stdout);
+		}
+		
+		if(pos == BUFLEN-1)	break;
+	}
+	
+	ret[pos] = '\0';
+	
+	printf("\n");
+	return strdup(ret);
+}
+
 /**
  * \fn char *GetUsername()
  */
@@ -74,29 +119,7 @@ char *GetUsername()
 	printf("Username: ");
 	fflush(stdout);
 	
-	// Read in text
-	while( (ch = fgetc(stdin)) != -1 && ch != '\n' )
-	{
-		if(ch == '\b') {
-			if( pos <= 0 )	continue;
-			pos --;
-			ret[pos] = '\0';
-		}
-		else
-			ret[pos++] = ch;
-		
-		// Echo out to the screen
-		fputc(ch, stdout);
-		fflush(stdout);
-		
-		if(pos == BUFLEN-1)	break;
-	}
-	
-	// Finish String
-	ret[pos] = '\0';
-	
-	printf("\n");
-	return strdup(ret);
+	return _GetString(1);
 }
 
 /**
@@ -104,33 +127,9 @@ char *GetUsername()
  */
 char *GetPassword()
 {
-	char	ret[BUFLEN];
-	 int	pos = 0;
-	char	ch;
-	
 	// Prompt the user
 	printf("Password: ");
 	fflush(stdout);
 	
-	// Read in text
-	while( (ch = fgetc(stdin)) != -1 && ch != '\n' )
-	{
-		if(ch == '\b') {
-			if( pos <= 0 )	continue;
-			pos --;
-			ret[pos] = '\0';
-		}
-		else
-			ret[pos++] = ch;
-		
-		// Don't echo out to the screen
-		//fputc(stdout, ch);
-		
-		if(pos == BUFLEN-1)	break;
-	}
-	
-	ret[pos] = '\0';
-	
-	printf("\n");
-	return strdup(ret);
+	return _GetString(0);
 }
