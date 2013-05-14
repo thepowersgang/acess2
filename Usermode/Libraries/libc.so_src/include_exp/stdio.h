@@ -69,6 +69,7 @@ extern int	fileno(FILE *stream);
 extern size_t	fread(void *buf, size_t size, size_t n, FILE *fp);
 extern size_t	fwrite(const void *buf, size_t size, size_t n, FILE *fp);
 extern int	fgetc(FILE *fp);
+#define getc(fp)	fgetc(fp)
 extern char	*fgets(char *s, int size, FILE *fp);
 extern int	fputc(int ch, FILE *fp);
 extern int	fputs(const char *s, FILE *fp);

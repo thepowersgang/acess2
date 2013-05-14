@@ -112,7 +112,7 @@ int main(int argc, char *argv[])
 	// If no directory was passed (we want to use the mount list)
 	// or we are not root (we need to use the mount list)
 	// Check the mount list
-	if(sDir == NULL || getuid() != 0)
+	if(sDir == NULL || _SysGetUID() != 0)
 	{
 		// Check if it is defined in the mounts file
 		// - At this point sDevice could be a device name or a mount point

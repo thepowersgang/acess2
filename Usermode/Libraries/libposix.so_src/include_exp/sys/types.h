@@ -11,6 +11,8 @@ typedef unsigned int	u_int;
 typedef struct stat	t_fstat;
 
 
+typedef unsigned long	uid_t;
+typedef unsigned long	gid_t;
 typedef unsigned int	id_t;
 typedef unsigned long	pid_t;
 typedef unsigned long	tid_t;

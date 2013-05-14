@@ -8,6 +8,8 @@
 #ifndef _LIBPOSIX__SYS__TIME_H_
 #define _LIBPOSIX__SYS__TIME_H_
 
+#include <time.h>
+
 typedef unsigned long	suseconds_t;
 
 struct timeval

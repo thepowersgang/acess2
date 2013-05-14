@@ -28,7 +28,9 @@ struct tm
 
 typedef signed long long	clock_t;
 
-extern clock_t	clock();
+extern clock_t	clock(void);
+
+extern time_t	time(time_t *t);
 
 #endif
 

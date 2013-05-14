@@ -55,7 +55,7 @@ extern int	_SysClone(int flags, void *stack);
 extern int	_SysExecVE(const char *path, char **argv, char **envp);
 extern int	_SysSpawn(const char *Path, const char **argv, const char **envp, int nFDs, int *FDs, struct s_sys_spawninfo *info);
 extern int	gettid(void);
-extern int	getpid(void);
+extern int	_SysGetPID(void);
 extern int	_SysSetFaultHandler(int (*Handler)(int));
 extern void	_SysSetName(const char *Name);
 extern int	_SysGetName(char *NameDest);
@@ -64,8 +64,8 @@ extern int	_SysSetPri(int Priority);
 extern int64_t	_SysTimestamp(void);
 
 // --- Permissions ---
-extern int	getuid(void);
-extern int	getgid(void);
+extern int	_SysGetUID(void);
+extern int	_SysGetGID(void);
 extern void	setuid(int id);
 extern void	setgid(int id);
 
@@ -78,6 +78,7 @@ extern int	_SysOpenChild(int fd, const char *name, int flags);
 extern int	_SysOpenPipe(int *read, int *write, int flags);
 extern int	_SysReopen(int fd, const char *path, int flags);
 extern int	_SysCopyFD(int srcfd, int dstfd);
+extern int	_SysFDFlags(int fd, int mask, int newflags);
 extern size_t	_SysRead(int fd, void *buffer, size_t length);
 extern int	_SysClose(int fd);
 extern int	_SysFDCtl(int fd, int option, ...);
@@ -90,7 +91,7 @@ extern int	_SysReadDir(int fd, char *dest);
 extern int	_SysGetACL(int fd, t_sysACL *dest);
 extern int	_SysMount(const char *Device, const char *Directory, const char *Type, const char *Options);
 extern int	_SysSelect(int nfds, fd_set *read, fd_set *write, fd_set *err, int64_t *timeout, unsigned int extraevents);
-#define select(nfs, rdfds, wrfds, erfds, timeout)	_SysSelect(nfs, rdfds, wrfds, erfds, timeout, 0)
+//#define select(nfs, rdfds, wrfds, erfds, timeout)	_SysSelect(nfs, rdfds, wrfds, erfds, timeout, 0)
 extern int	_SysUnlink(const char *pathname);
 
 // --- IPC ---

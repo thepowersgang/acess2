@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <acess/sys.h>
 #include <stdarg.h>
+#include <sys/select.h>
 
 // === CODE ===
 int unlink(const char *pathname)
@@ -85,9 +86,56 @@ int execv(const char *b, char *v[])
 	return _SysExecVE(b, v, NULL);
 }
 
+int dup(int oldfd)
+{
+	// NOTE: Acess's CopyFD doesn't cause offset sharing
+	// TODO: Check that -1 does cause a new allocation
+	return _SysCopyFD(oldfd, -1);
+}
+
 int dup2(int oldfd, int newfd)
 {
 	// NOTE: Acess's CopyFD doesn't cause offset sharing
 	return _SysCopyFD(oldfd, newfd);
+}
+
+pid_t getpid(void)
+{
+	return _SysGetPID();
+}
+
+uid_t getuid(void)
+{
+	return _SysGetUID();
+}
+
+int kill(pid_t pid, int signal)
+{
+	// TODO: Need special handling?
+	return _SysKill(pid, signal);
+}
+
+int select(int nfd, fd_set *rfd, fd_set *wfd, fd_set *efd, struct timeval *timeout)
+{
+	
+	if( timeout )
+	{
+		long long int ltimeout = 0;
+		ltimeout = timeout->tv_sec*1000 + timeout->tv_usec / 1000;
+		int ret = _SysSelect(nfd, rfd, wfd, efd, &ltimeout, 0);
+		return ret;
+	}
+	else
+	{
+		return _SysSelect(nfd, rfd, wfd, efd, NULL, 0);
+	}
+}
+
+int pipe(int pipefd[2])
+{
+	pipefd[0] = _SysOpen("/Devices/fifo/anon", OPENFLAG_READ|OPENFLAG_WRITE);
+	pipefd[1] = _SysCopyFD(pipefd[0], -1);
+	_SysFDFlags(pipefd[1], OPENFLAG_READ|OPENFLAG_WRITE, OPENFLAG_WRITE);
+	return 0;
 }
 

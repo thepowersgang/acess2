@@ -131,5 +131,27 @@ struct termios
 	cc_t	c_cc[NCCS];
 };
 
+extern int tcgetattr(int fd, struct termios *termios_p);
+
+#define TCSANOW 	0x01
+#define TCSADRAIN	0x02
+#define TCSAFLUSH	0x04
+extern int tcsetattr(int fd, int optional_actions, const struct termios *termios_p);
+
+// ioctl() calls for terminals
+enum
+{
+	TIOCGWINSZ,
+	TIOCSWINSZ
+};
+
+struct winsize {
+	unsigned short ws_row;
+	unsigned short ws_col;
+	unsigned short ws_xpixel;   /* unused */
+	unsigned short ws_ypixel;   /* unused */
+};
+
+
 #endif
 

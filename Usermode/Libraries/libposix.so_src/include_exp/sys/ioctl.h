@@ -8,7 +8,7 @@
 #ifndef _LIBPOSIX__IOCTL_H_
 #define _LIBPOSIX__IOCTL_H_
 
-
+extern int ioctl(int d, int request, ...);
 
 #endif
 

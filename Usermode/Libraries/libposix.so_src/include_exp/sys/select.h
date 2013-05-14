@@ -11,7 +11,7 @@
 #include <acess/fd_set.h>
 #include <sys/time.h>
 
-extern int select(int nfds, fd_set *readfds, fd_set *writefds, struct timeval *timeout);
+extern int select(int nfds, fd_set *readfds, fd_set *writefds, fd_set *execptfds, struct timeval *timeout);
 // TODO: pselect?
 
 #endif

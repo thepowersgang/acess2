@@ -73,7 +73,9 @@ while [[ $# -gt 0 ]]; do
 done
 
 run() {
-	#echo --- $*
+	if [[ "x$GCCPROXY_DEBUG" != "x" ]]; then
+		echo --- $*
+	fi
 	$*
 	return $?
 }
@@ -101,7 +103,7 @@ elif [[ $_compile -eq 1 ]]; then
 elif echo " $_miscargs" | grep '\.c' >/dev/null; then
 	tmpout=`mktemp acess_gccproxy.XXXXXXXXXX.o --tmpdir`
 	run $_CC $CFLAGS $_cflags $_miscargs -c -o $tmpout
-	run $_LD $LDFLAGS $_ldflags $_libs $tmpout $_outfile $LIBGCC_PATH $_libs
+	run $_LD $LDFLAGS $_ldflags $_libs $tmpout $_outfile $_libs $LIBGCC_PATH
 	_rv=$?
 	rm $tmpout
 	exit $_rv

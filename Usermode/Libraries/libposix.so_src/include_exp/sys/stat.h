@@ -55,5 +55,6 @@ struct stat
 extern int stat(const char *path, struct stat *buf);
 extern int lstat(const char *path, struct stat *buf);
 extern int fstat(int fd, struct stat *buf);
+extern int mkdir(const char *pathname, mode_t mode);
 
 #endif

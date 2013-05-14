@@ -11,9 +11,9 @@ SYSCALL1(_SysWaitEvent, SYS_WAITEVENT)
 SYSCALL2(_SysWaitTID, SYS_WAITTID)
 
 SYSCALL0(gettid, SYS_GETTID)
-SYSCALL0(getpid, SYS_GETPID)
-SYSCALL0(getuid, SYS_GETUID)
-SYSCALL0(getgid, SYS_GETGID)
+SYSCALL0(_SysGetPID, SYS_GETPID)
+SYSCALL0(_SysGetUID, SYS_GETUID)
+SYSCALL0(_SysGetGID, SYS_GETGID)
 
 SYSCALL1(setuid, SYS_SETUID)
 SYSCALL1(setgid, SYS_SETGID)
@@ -43,6 +43,7 @@ SYSCALL2(_SysOpen, SYS_OPEN)	// char*, int
 SYSCALL3(_SysOpenChild, SYS_OPENCHILD)	// int, char*, int
 SYSCALL3(_SysReopen, SYS_REOPEN)	// int, char*, int
 SYSCALL2(_SysCopyFD, SYS_COPYFD)	// int, int
+SYSCALL3(_SysFDFlags, SYS_FDCTL)	// int, int, int
 SYSCALL1(_SysClose, SYS_CLOSE)	// int
 SYSCALL3(_SysRead, SYS_READ)	// int, uint, void*
 SYSCALL3(_SysWrite, SYS_WRITE)	// int, uint, void*

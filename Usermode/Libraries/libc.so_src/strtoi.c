@@ -132,3 +132,19 @@ int atoi(const char *str)
 	}
 	return tmp;
 }
+
+long atol(const char *str)
+{
+	long long	tmp = strtoll(str, NULL, 0);
+	if( tmp > LONG_MAX || tmp < LONG_MIN ) {
+		errno = ERANGE;
+		return (tmp > LONG_MAX) ? LONG_MAX : LONG_MIN;
+	}
+	return tmp;
+}
+
+long atoll(const char *str)
+{
+	long long	tmp = strtoll(str, NULL, 0);
+	return tmp;
+}

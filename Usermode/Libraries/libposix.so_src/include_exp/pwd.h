@@ -8,6 +8,7 @@
 #ifndef _LIBPOSIX__PWD_H_
 #define _LIBPOSIX__PWD_H_
 
+#include <stddef.h>	// size_t
 #include <sys/types.h>	// gid_t/uid_t
 
 struct passwd

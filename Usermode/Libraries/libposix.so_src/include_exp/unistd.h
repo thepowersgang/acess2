@@ -45,5 +45,34 @@ extern int	execv(const char *b, char *v[]);
 
 extern int	dup2(int oldfd, int newfd);
 
+extern int	chown(const char *path, uid_t owner, gid_t group);
+
+#define S_ISUID	04000
+#define S_ISGID	02000
+#define S_ISVTX	01000
+#define S_IRWXU	00700
+#define S_IRUSR	00400
+#define S_IWUSR	00300
+#define S_IXUSR	00100
+#define S_IRWXG	00070
+#define S_IRGRP	00040
+#define S_IWGRP	00020
+#define S_IXGRP	00010
+#define S_IRWXO	0007
+#define S_IROTH	00004
+#define S_IWOTH	00002
+#define S_IXOTH	00001
+extern int	chmod(const char *path, mode_t mode);
+
+extern uid_t	getuid(void);
+extern uid_t	geteuid(void);
+extern pid_t	getpid(void);
+
+// signal.h / sys/types.h
+#define SIGWINCH	101
+#define SIGTSTP 	102
+extern int kill(pid_t pid, int sig);
+
+
 #endif
 

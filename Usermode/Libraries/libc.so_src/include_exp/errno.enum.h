@@ -20,6 +20,7 @@ enum {
 	ENODEV,	// ???
 	EADDRNOTAVAIL,	// ?
 	EINPROGRESS,	// ?
+	EROFS,
 
 	EAGAIN,	// Try again
 	

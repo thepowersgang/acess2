@@ -227,3 +227,24 @@ int send(int sockfd, void *buffer, size_t length, int flags)
 	return _SysWrite(sockfd, buffer, length);
 }
 
+
+int setsockopt(int socket, int level, int option_name, const void *option_value, socklen_t option_len)
+{
+	return 0;
+}
+
+int getsockopt(int socket, int level, int option_name, void *option_value, socklen_t *option_len)
+{
+	return 0;
+}
+
+int getsockname(int socket, struct sockaddr *addr, socklen_t *addrlen)
+{
+	return 0;
+}
+
+int getpeername(int socket, struct sockaddr *addr, socklen_t *addrlen)
+{
+	return 0;
+}
+
