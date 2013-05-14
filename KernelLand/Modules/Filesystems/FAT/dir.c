@@ -83,6 +83,7 @@ int FAT_int_CreateName(fat_filetable *ft, const Uint16 *LongFileName, char *Dest
 	{
 		 int	len = FAT_int_ConvertUTF16_to_UTF8(NULL, LongFileName);
 		if( len > FILENAME_MAX ) {
+			LEAVE('i', -1);
 			return -1;
 		}
 		FAT_int_ConvertUTF16_to_UTF8((Uint8*)Dest, LongFileName);
@@ -94,6 +95,7 @@ int FAT_int_CreateName(fat_filetable *ft, const Uint16 *LongFileName, char *Dest
 	#if USE_LFN
 	}
 	#endif
+	LEAVE('i', 0);
 	return 0;
 }
 
