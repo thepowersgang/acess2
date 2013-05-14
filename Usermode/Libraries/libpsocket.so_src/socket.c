@@ -248,3 +248,8 @@ int getpeername(int socket, struct sockaddr *addr, socklen_t *addrlen)
 	return 0;
 }
 
+int shutdown(int socket, int how)
+{
+	return 0;
+}
+

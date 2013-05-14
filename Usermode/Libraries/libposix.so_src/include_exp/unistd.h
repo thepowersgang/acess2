@@ -64,6 +64,8 @@ extern int	chown(const char *path, uid_t owner, gid_t group);
 #define S_IXOTH	00001
 extern int	chmod(const char *path, mode_t mode);
 
+extern pid_t	setsid(void);
+
 extern uid_t	getuid(void);
 extern uid_t	geteuid(void);
 extern pid_t	getpid(void);
@@ -73,6 +75,11 @@ extern pid_t	getpid(void);
 #define SIGTSTP 	102
 extern int kill(pid_t pid, int sig);
 
+extern int chdir(const char *dir);
+
+// Deprecated POSIX.1-2001
+#define PASS_MAX	63
+extern char *getpass(void);
 
 #endif
 

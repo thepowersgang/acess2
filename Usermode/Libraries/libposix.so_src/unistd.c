@@ -9,6 +9,7 @@
 #include <acess/sys.h>
 #include <stdarg.h>
 #include <sys/select.h>
+#include <stdio.h>
 
 // === CODE ===
 int unlink(const char *pathname)
@@ -99,6 +100,16 @@ int dup2(int oldfd, int newfd)
 	return _SysCopyFD(oldfd, newfd);
 }
 
+
+/*
+ * Set session ID to PID
+ */
+pid_t setsid(void)
+{
+	// TODO: actual syscall for this
+	return _SysGetPID();
+}
+
 pid_t getpid(void)
 {
 	return _SysGetPID();
@@ -106,6 +117,12 @@ pid_t getpid(void)
 
 uid_t getuid(void)
 {
+	return _SysGetUID();
+}
+
+uid_t geteuid(void)
+{
+	// TODO: Impliment EUIDs in-kernel?
 	return _SysGetUID();
 }
 
@@ -137,5 +154,25 @@ int pipe(int pipefd[2])
 	pipefd[1] = _SysCopyFD(pipefd[0], -1);
 	_SysFDFlags(pipefd[1], OPENFLAG_READ|OPENFLAG_WRITE, OPENFLAG_WRITE);
 	return 0;
+}
+
+int chdir(const char *dir)
+{
+	return _SysChdir(dir);
+}
+
+int mkdir(const char *pathname, mode_t mode)
+{
+	_SysDebug("TODO: POSIX mkdir(%i, 0%o)", pathname, mode);
+	return -1;
+}
+
+char *getpass(void)
+{
+	static char passbuf[PASS_MAX+1];
+	fprintf(stderr, "Password: ");
+	fgets(passbuf, PASS_MAX+1, stdin);
+	fprintf(stderr, "\n");
+	return passbuf;
 }
 

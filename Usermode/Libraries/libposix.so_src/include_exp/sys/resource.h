@@ -29,6 +29,7 @@ struct rlimit
 	rlim_t	rlim_max;
 };
 
+// (get|set)r(limit|usage) resource values
 enum
 {
 	RLIMIT_AS,	// Address space size
@@ -45,10 +46,10 @@ struct rusage
 };
 
 extern int	getpriority(int, id_t);
-extern int	getrlimit(int, struct rlimit *);
-extern int	getrusage(int, struct rusage *);
+extern int	getrlimit(int resource, struct rlimit *rlim);
+extern int	getrusage(int resource, struct rusage *rusage);
 extern int	setpriority(int, id_t, int);
-extern int	setrlimit(int, const struct rlimit *);
+extern int	setrlimit(int resource, const struct rlimit *rlim);
 
 #endif
 

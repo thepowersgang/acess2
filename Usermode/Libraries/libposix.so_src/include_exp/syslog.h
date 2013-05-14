@@ -3,7 +3,7 @@
  * - By John Hodge (thePowersGang)
  *
  * syslog.h
- * - Centra Loggin
+ * - Central Logging
  */
 #ifndef _LIBPOSIX__SYSLOG_H_
 #define _LIBPOSIX__SYSLOG_H_
