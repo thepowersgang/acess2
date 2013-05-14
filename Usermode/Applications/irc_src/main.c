@@ -207,6 +207,79 @@ int ParseArguments(int argc, const char *argv[])
 	return 0;
 }
 
+
+void Cmd_join(char *ArgString)
+{
+	 int	pos=0;
+	char	*channel_name = GetValue(ArgString, &pos);
+	
+	if( gpCurrentWindow->Server )
+	{
+		writef(gpCurrentWindow->Server->FD, "JOIN :%s\n", channel_name);
+	}
+}
+
+void Cmd_quit(char *ArgString)
+{
+	const char *quit_message = ArgString;
+	if( quit_message == NULL || quit_message[0] == '\0' )
+		quit_message = "/quit - Acess2 IRC Client";
+	
+	for( tServer *srv = gpServers; srv; srv = srv->Next )
+	{
+		writef(srv->FD, "QUIT :%s\n", quit_message);
+	}
+	
+	exit(0);
+}
+
+void Cmd_window(char *ArgString)
+{
+	 int	pos = 0;
+	char	*window_id = GetValue(ArgString, &pos);
+	 int	window_num = atoi(window_id);
+	
+	if( window_num > 0 )
+	{
+		tWindow	*win;
+		window_num --;	// Move to base 0
+		// Get `window_num`th window
+		for( win = gpWindows; win && window_num--; win = win->Next );
+		if( win ) {
+			gpCurrentWindow = win;
+			Redraw_Screen();
+		}
+		// Otherwise, silently ignore
+	}
+	else
+	{
+		window_num = 1;
+		for( tWindow *win = gpWindows; win; win = win->Next, window_num ++ )
+		{
+			if( win->Name[0] ) {
+				Message_AppendF(NULL, MSG_TYPE_SERVER, "client", "",
+					"%i: %s/%s", window_num, win->Server->Name, win->Name);
+			}
+			else {
+				Message_AppendF(NULL, MSG_TYPE_SERVER, "client", "",
+					"%i: (status)", window_num);
+			}
+		}
+	}
+}
+
+const struct {
+	const char *Name;
+	void	(*Fcn)(char *ArgString);
+} caCommands[] = {
+	{"join", Cmd_join},
+	{"quit", Cmd_quit},
+	{"window", Cmd_window},
+	{"win",    Cmd_window},
+	{"w",      Cmd_window},
+};
+const int ciNumCommands = sizeof(caCommands)/sizeof(caCommands[0]);
+
 /**
  * \brief Handle a line from the prompt
  */
@@ -217,65 +290,19 @@ int ParseUserCommand(char *String)
 		char	*command;
 		 int	pos = 0;
 		
-		command = GetValue(String, &pos);
-		
-		if( strcmp(command, "/join") == 0 )
+		command = GetValue(String, &pos)+1;
+
+		// TODO: Prefix matches
+		 int	cmdIdx = -1;
+		for( int i = 0; i < ciNumCommands; i ++ )
 		{
-			char	*channel_name = GetValue(String, &pos);
-			
-			if( gpCurrentWindow->Server )
-			{
-				writef(gpCurrentWindow->Server->FD, "JOIN :%s\n",  channel_name);
+			if( strcmp(command, caCommands[i].Name) == 0 ) {
+				cmdIdx = i;
+				break;
 			}
 		}
-		else if( strcmp(command, "/quit") == 0 )
-		{
-			char	*quit_message = String + pos;
-			tServer	*srv;
-			
-			if( quit_message == NULL || quit_message[0] == '\0' )
-				quit_message = "/quit - Acess2 IRC Client";
-			
-			for( srv = gpServers; srv; srv = srv->Next )
-			{
-				writef(srv->FD, "QUIT :%s\n", quit_message);
-			}
-			
-			exit(0);
-		}
-		else if( strcmp(command, "/window") == 0 || strcmp(command, "/win") == 0 || strcmp(command, "/w") == 0 )
-		{
-			char	*window_id = GetValue(String, &pos);
-			 int	window_num = atoi(window_id);
-			
-			if( window_num > 0 )
-			{
-				tWindow	*win;
-				window_num --;	// Move to base 0
-				// Get `window_num`th window
-				for( win = gpWindows; win && window_num--; win = win->Next );
-				if( win ) {
-					gpCurrentWindow = win;
-					Redraw_Screen();
-				}
-				// Otherwise, silently ignore
-			}
-			else
-			{
-				tWindow	*win;
-				window_num = 1;
-				for( win = gpWindows; win; win = win->Next, window_num ++ )
-				{
-					if( win->Name[0] ) {
-						Message_AppendF(NULL, MSG_TYPE_SERVER, "client", "",
-							"%i: %s/%s", window_num, win->Server->Name, win->Name);
-					}
-					else {
-						Message_AppendF(NULL, MSG_TYPE_SERVER, "client", "",
-							"%i: (status)", window_num);
-					}
-				}
-			}
+		if( cmdIdx != -1 ) {
+			caCommands[cmdIdx].Fcn(String+pos);
 		}
 		else
 		{
