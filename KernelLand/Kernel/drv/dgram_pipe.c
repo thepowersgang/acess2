@@ -5,7 +5,7 @@
  * drv/dgram_pipe.c
  * - Connection+Datagram based local IPC
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <vfs.h>
 #include <fs_devfs.h>
 #include <modules.h>
