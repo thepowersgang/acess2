@@ -108,6 +108,6 @@ elif echo " $_miscargs" | grep '\.c' >/dev/null; then
 	rm $tmpout
 	exit $_rv
 else
-	run $_LD $_ldflags $_miscargs $_outfile $LDFLAGS $LIBGCC_PATH $_libs
+	run $_LD $_ldflags $_miscargs $_outfile $LDFLAGS $_libs $LIBGCC_PATH
 fi
 
