@@ -1,0 +1,9 @@
+PTYs
+
+Need support for toggling echo and line buffering
+- This needs to be communicated to pty owner somehow
+ > Second FD? Nominated data structure? Out of band data?
+- API for the pty control?
+ > "_SysSetFileFlag"/"_SysGetFileFlag"?
+   Provides arbitary flags for each node
+   E.g. Terminal graphics mode, echo and buffering
