@@ -304,7 +304,7 @@ tInterface *IPStack_AddInterface(const char *Device, int Type, const char *Name)
  */
 int IPStack_AddFile(tSocketFile *File)
 {
-	Log_Log("IPStack", "Added file '%s'", File->Name);
+//	Log_Log("IPStack", "Added file '%s'", File->Name);
 	File->Next = gIP_FileTemplates;
 	gIP_FileTemplates = File;
 	return 0;
