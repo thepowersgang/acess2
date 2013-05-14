@@ -79,7 +79,7 @@ extern int chdir(const char *dir);
 
 // Deprecated POSIX.1-2001
 #define PASS_MAX	63
-extern char *getpass(void);
+extern char *getpass(const char *prompt);
 
 #endif
 

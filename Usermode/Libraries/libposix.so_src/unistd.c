@@ -167,10 +167,10 @@ int mkdir(const char *pathname, mode_t mode)
 	return -1;
 }
 
-char *getpass(void)
+char *getpass(const char *prompt)
 {
 	static char passbuf[PASS_MAX+1];
-	fprintf(stderr, "Password: ");
+	fprintf(stderr, "%s", prompt);
 	fgets(passbuf, PASS_MAX+1, stdin);
 	fprintf(stderr, "\n");
 	return passbuf;
