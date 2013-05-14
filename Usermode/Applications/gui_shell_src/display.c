@@ -88,7 +88,6 @@ void Display_AddText(int Length, const char *UTF8Text)
 		Display_int_PushString(bytes, UTF8Text);
 
 		UTF8Text += bytes;
-		_SysDebug("Length(%i) -= bytes(%i)", Length, bytes);
 		Length -= bytes;
 		if( Length != 0 )
 		{
@@ -102,7 +101,7 @@ void Display_AddText(int Length, const char *UTF8Text)
 
 void Display_Newline(int bCarriageReturn)
 {
-	Display_Flush();
+//	Display_Flush();
 
 	// Going down!
 	giCurrentLine ++;
@@ -238,8 +237,6 @@ void Display_Flush(void)
 		AxWin3_RichText_SendLine(gMainWindow, giFirstLine + i, gasDisplayLines[line] );
 		gabDisplayLinesDirty[line] = 0;
 	}
-	
-	// force redraw?
 	AxWin3_RichText_SetCursorPos(gMainWindow, giCurrentLine, giCurrentCol);
 }
 

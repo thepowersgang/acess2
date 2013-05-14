@@ -96,7 +96,7 @@ int main(int argc, char *argv[], const char **envp)
 		{
 			_SysDebug("Activity on child stdout");
 			// Read and update screen
-			char	buf[32];
+			char	buf[128];
 			int len = _SysRead(giChildStdout, buf, sizeof(buf));
 			if( len <= 0 )	break;
 			
@@ -112,7 +112,7 @@ int Term_KeyHandler(tHWND Window, int bPress, uint32_t KeySym, uint32_t Translat
 	static int	ctrl_state = 0;
 
 	// Handle modifiers
-	#define _bitset(var,bit,set) do{if(set)var|=1<<(bit);else var&=1<<(bit);}while(0)
+	#define _bitset(var,bit,set) do{if(set)var|=1<<(bit);else var&=~(1<<(bit));}while(0)
 	switch(KeySym)
 	{
 	case KEYSYM_LEFTCTRL:
@@ -129,6 +129,7 @@ int Term_KeyHandler(tHWND Window, int bPress, uint32_t KeySym, uint32_t Translat
 	if( ctrl_state && KeySym >= KEYSYM_a && KeySym <= KEYSYM_z )
 	{
 		Translated = KeySym - KEYSYM_a + 1;
+		_SysDebug("Ctrl-%c: KS %x => Trans %x", 'A'+(KeySym-KEYSYM_a), KeySym, Translated);
 	}
 
 	// == 2 :: FIRE
@@ -142,7 +143,7 @@ int Term_KeyHandler(tHWND Window, int bPress, uint32_t KeySym, uint32_t Translat
 			// Encode and send
 			len = WriteUTF8(buf, Translated);
 			
-			_SysDebug("Keystroke translated to '%.*s'", len, buf);
+			_SysDebug("Keystroke %x:%x translated to '%.*s'", KeySym, Translated, len, buf);
 			_SysWrite(giChildStdin, buf, len);
 			
 			return 0;
@@ -184,7 +185,7 @@ void Term_HandleOutput(int Len, const char *Buf)
 			esc_len = -esc_len;
 		}
 		ofs += esc_len;
-		_SysDebug("Len = %i, ofs = %i", Len, ofs);
+		//_SysDebug("Len = %i, ofs = %i", Len, ofs);
 	}
 	
 	Display_Flush();
