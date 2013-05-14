@@ -47,7 +47,7 @@ SYS_OPENCHILD	Open a child entry in a directory
 SYS_OPENPIPE	Open a FIFO pipe pair
 SYS_CLOSE	Close a file
 SYS_COPYFD	Create a copy of a file handle
-SYS_FDCTL	Modify properties of a file descriptor
+SYS_FDCTL	Modify flags of a file descriptor
 SYS_READ	Read from an open file
 SYS_WRITE	Write to an open file
 SYS_IOCTL	Perform an IOCtl Call

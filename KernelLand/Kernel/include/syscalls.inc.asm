@@ -40,7 +40,7 @@
 %define SYS_OPENPIPE	67	 ;Open a FIFO pipe pair
 %define SYS_CLOSE	68	 ;Close a file
 %define SYS_COPYFD	69	 ;Create a copy of a file handle
-%define SYS_FDCTL	70	 ;Modify properties of a file descriptor
+%define SYS_FDCTL	70	 ;Modify flags of a file descriptor
 %define SYS_READ	71	 ;Read from an open file
 %define SYS_WRITE	72	 ;Write to an open file
 %define SYS_IOCTL	73	 ;Perform an IOCtl Call
