@@ -39,6 +39,9 @@ int open(const char *path, int openmode, ...)
 		va_end(args);
 	}
 	
+	if( openmode & O_NONBLOCK )
+		openflags |= OPENFLAG_NONBLOCK;
+	
 	return _SysOpen(path, openflags, create_mode);
 }
 

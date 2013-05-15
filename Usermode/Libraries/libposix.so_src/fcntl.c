@@ -43,6 +43,7 @@ int fcntl(int fd, int cmd, ...)
 			a_flags |= OPENFLAG_APPEND;
 		// TODO: Extra flags for F_SETFL
 
+		_SysDebug("fcntl(%i, F_SETFL, %i)", fd, p_flags);
 		ret = _SysFDFlags(fd, mask, a_flags);
 		if(ret != -1)
 			ret = 0;
