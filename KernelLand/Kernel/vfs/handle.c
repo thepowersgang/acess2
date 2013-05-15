@@ -16,11 +16,7 @@
 #define MAX_KERNEL_FILES	128
 
 // === PROTOTYPES ===
-#if 0
-tVFS_Handle	*VFS_GetHandle(int FD);
-#endif
 inline void	_ReferenceNode(tVFS_Node *Node);
- int	VFS_AllocHandle(int FD, tVFS_Node *Node, int Mode);
 
 // === GLOBALS ===
 tVFS_Handle	*gaUserHandles = (void*)MM_PPD_HANDLES;
@@ -66,10 +62,27 @@ tVFS_Handle *VFS_GetHandle(int FD)
 	return h;
 }
 
+int VFS_SetHandle(int FD, tVFS_Node *Node, int Mode)
+{
+	tVFS_Handle	*h;
+	if(FD < 0)	return -1;
+	
+	if( FD & VFS_KERNEL_FLAG ) {
+		FD &= (VFS_KERNEL_FLAG -1);
+		if( FD >= MAX_KERNEL_FILES )	return -1;
+		h = &gaKernelHandles[FD];
+	}
+	else {
+		if( FD >= *Threads_GetMaxFD())	return -1;
+		h = &gaUserHandles[FD];
+	}
+	h->Node = Node;
+	h->Mode = Mode;
+	return FD;
+}
+
 int VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode)
 {
-	 int	i;
-	
 	// Check for a user open
 	if(bIsUser)
 	{
@@ -90,7 +103,7 @@ int VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode)
 			memset( gaUserHandles, 0, size );
 		}
 		// Get a handle
-		for( i = 0; i < max_handles; i ++ )
+		for( int i = 0; i < max_handles; i ++ )
 		{
 			if(gaUserHandles[i].Node)	continue;
 			gaUserHandles[i].Node = Node;
@@ -117,7 +130,7 @@ int VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode)
 			memset( gaKernelHandles, 0, size );
 		}
 		// Get a handle
-		for(i=0;i<MAX_KERNEL_FILES;i++)
+		for(int i=0;i<MAX_KERNEL_FILES;i++)
 		{
 			if(gaKernelHandles[i].Node)	continue;
 			gaKernelHandles[i].Node = Node;

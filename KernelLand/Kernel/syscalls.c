@@ -214,6 +214,11 @@ void SyscallHandler(tSyscallRegs *Regs)
 		VFS_Close( Regs->Arg1 );
 		break;
 	
+	case SYS_COPYFD:
+		LOG("VFS_DuplicateFD(%i,%i)", Regs->Arg1, Regs->Arg2);
+		ret = VFS_DuplicateFD(Regs->Arg1, Regs->Arg2);
+		break;
+	
 	case SYS_SEEK:
 		#if BITS == 64
 		ret = VFS_Seek( Regs->Arg1, Regs->Arg2, Regs->Arg3 );
