@@ -23,7 +23,7 @@ extern tVFS_Node	*VFS_MemFile_Create(const char *Path);
 // === PROTOTYPES ===
 void	_ReferenceMount(tVFS_Mount *Mount, const char *DebugTag);
 void	_DereferenceMount(tVFS_Mount *Mount, const char *DebugTag);
- int	VFS_int_CreateHandle( tVFS_Node *Node, tVFS_Mount *Mount, int Mode );
+ int	VFS_int_CreateHandle(tVFS_Node *Node, tVFS_Mount *Mount, int Mode);
 
 // === CODE ===
 void _ReferenceMount(tVFS_Mount *Mount, const char *DebugTag)
@@ -767,6 +767,21 @@ int VFS_DuplicateFD(int SrcFD, int DstFD)
 	}
 	memcpy(VFS_GetHandle(DstFD), src, sizeof(tVFS_Handle));
 	return DstFD;
+}
+
+/*
+ * Update flags on a FD
+ */
+int VFS_SetFDFlags(int FD, int Mask, int Value)
+{
+	tVFS_Handle	*h = VFS_GetHandle(FD);
+	if(!FD)	return -1;
+	 int	ret = h->Mode;
+	
+	Value &= Mask;
+	h->Mode &= ~Mask;
+	h->Mode |= Value;
+	return ret;
 }
 
 /**

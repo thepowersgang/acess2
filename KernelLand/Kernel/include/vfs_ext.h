@@ -32,7 +32,7 @@ typedef Uint32	tMount;
 //! Create the file if it doesn't exist
 #define VFS_OPENFLAG_CREATE	0x80
 //! Treat as a directory
-#define VFS_OPENFLAG_DIRECTORY	0x100
+#define VFS_OPENFLAG_DIRECTORY	0x1000
 //! Open as a user
 #define	VFS_OPENFLAG_USER	0x8000
 /**
@@ -232,6 +232,11 @@ extern void	VFS_Close(int FD);
  * \param DstFD	Destination file descriptor (-1 means allocate new)
  */
 extern int	VFS_DuplicateFD(int SrcFD, int DstFD);
+
+/**
+ * \brief Update the flags on a FD
+ */
+extern int	VFS_SetFDFlags(int FD, int Mask, int Value);
 
 /**
  * \brief Get file information from an open file
