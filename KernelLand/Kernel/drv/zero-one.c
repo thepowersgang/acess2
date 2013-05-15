@@ -75,7 +75,8 @@ tDevFS_Driver	gCoreDevs_FRandom = {
 	{
 	.Size = 0, .NumACLs = 1,
 	.ACLs = &gVFS_ACL_EveryoneRW,
-	.Type = &gCoreDevs_NT_FRandom
+	.Type = &gCoreDevs_NT_FRandom,
+	.DataAvaliable = 1
 	}
 };
 tDevFS_Driver	gCoreDevs_GRandom = {
@@ -83,7 +84,8 @@ tDevFS_Driver	gCoreDevs_GRandom = {
 	{
 	.Size = 0, .NumACLs = 1,
 	.ACLs = &gVFS_ACL_EveryoneRW,
-	.Type = &gCoreDevs_NT_GRandom
+	.Type = &gCoreDevs_NT_GRandom,
+	.DataAvaliable = 1
 	}
 };
 
