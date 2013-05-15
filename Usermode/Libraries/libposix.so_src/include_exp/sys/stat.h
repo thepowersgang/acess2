@@ -18,13 +18,6 @@ typedef uint64_t	blkcnt_t;
 typedef unsigned int	nlink_t;
 typedef uint32_t	mode_t;
 
-#ifndef uid_t
-typedef uint32_t	uid_t;
-#endif
-#ifndef gid_t
-typedef uint32_t	gid_t;
-#endif
-
 #define	S_IFMT		0170000	/* type of file */
 #define		S_IFDIR	0040000	/* directory */
 #define		S_IFCHR	0020000	/* character special */
