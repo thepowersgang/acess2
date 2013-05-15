@@ -18,7 +18,6 @@
 
 // === IMPORTS ===
 extern tVFS_Mount	*gVFS_RootMount;
-extern int	VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode);
 extern tVFS_Node	*VFS_MemFile_Create(const char *Path);
 
 // === PROTOTYPES ===
@@ -750,6 +749,24 @@ void VFS_Close(int FD)
 	}
 
 	h->Node = NULL;
+}
+
+int VFS_DuplicateFD(int SrcFD, int DstFD)
+{
+	 int	isUser = !(SrcFD & VFS_KERNEL_FLAG);
+	tVFS_Handle	*src = VFS_GetHandle(SrcFD);
+	if( !src )	return -1;
+	if( DstFD == -1 ) {
+		DstFD = VFS_AllocHandle(isUser, src->Node, src->Mode);
+	}
+	else {
+		// Can't overwrite
+		if( VFS_GetHandle(DstFD) )
+			return -1;
+		VFS_SetHandle(DstFD, src->Node, src->Mode);
+	}
+	memcpy(VFS_GetHandle(DstFD), src, sizeof(tVFS_Handle));
+	return DstFD;
 }
 
 /**

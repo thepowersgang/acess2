@@ -1,9 +1,9 @@
 /*
- * Acess2 C Library (UNIX Emulation)
+ * Acess2 POSIX Emulation Library
  * - By John Hodge (thePowersGang)
  *
  * fcntl.h
- * - ??
+ * - File descriptor control?
  */
 
 #ifndef _FCNTL_H_
@@ -32,7 +32,7 @@ enum e_fcntl_cmds
 	F_GETLK,	// (struct flock *)
 };
 
-static inline int fcntl(int fd __attribute__((unused)), int cmd __attribute__((unused)), ...) { return -1; }
+extern int fcntl(int fd, int cmd, ...);
 
 #endif
 

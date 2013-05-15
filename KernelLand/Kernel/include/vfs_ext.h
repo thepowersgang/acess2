@@ -227,6 +227,13 @@ extern int	VFS_OpenInode(Uint32 Mount, Uint64 Inode, int Mode);
 extern void	VFS_Close(int FD);
 
 /**
+ * \brief Copy one FD to another
+ * \param SrcFD	Source file descriptor
+ * \param DstFD	Destination file descriptor (-1 means allocate new)
+ */
+extern int	VFS_DuplicateFD(int SrcFD, int DstFD);
+
+/**
  * \brief Get file information from an open file
  * \param FD	File handle returned by ::VFS_Open
  * \param Dest	Destination for the read information

@@ -25,6 +25,7 @@
 #define OPENFLAG_APPEND	0x20
 #define	OPENFLAG_NOLINK	0x40
 #define	OPENFLAG_CREATE	0x80
+#define OPENFLAG_NONBLOCK	0x100	// How would this work?
 #ifndef SEEK_CUR
 # define SEEK_SET	1
 # define SEEK_CUR	0
