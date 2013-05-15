@@ -89,6 +89,7 @@ int execv(const char *b, char *v[])
 
 int dup(int oldfd)
 {
+	_SysDebug("libposix: dup() does not share offsets/flags");
 	// NOTE: Acess's CopyFD doesn't cause offset sharing
 	// TODO: Check that -1 does cause a new allocation
 	return _SysCopyFD(oldfd, -1);
@@ -96,6 +97,7 @@ int dup(int oldfd)
 
 int dup2(int oldfd, int newfd)
 {
+	_SysDebug("libposix: dup2() does not share offsets/flags");
 	// NOTE: Acess's CopyFD doesn't cause offset sharing
 	return _SysCopyFD(oldfd, newfd);
 }
