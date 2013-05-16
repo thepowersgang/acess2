@@ -10,13 +10,19 @@
 #include <net.h>	// Net_ParseAddress
 #include <stdlib.h>	// malloc
 #include <string.h>	// memcpy
+#include <stdlib.h>	// strtol
 #include <acess/sys.h>
 
 // === CODE ===
 int getaddrinfo(const char *node, const char *service, const struct addrinfo *hints, struct addrinfo **res)
 {
-	static const struct addrinfo	defhints = {.ai_flags = AI_V4MAPPED | AI_ADDRCONFIG};
+	static const struct addrinfo	defhints = {
+		.ai_family = AF_UNSPEC,
+		.ai_flags = AI_V4MAPPED | AI_ADDRCONFIG
+		};
 	struct addrinfo	*ret = NULL;
+
+	_SysDebug("getaddrinfo('%s','%s',%p,%p)", node, service, hints, res);
 
 	// Error checks
 	if( !node && !service )	return EAI_NONAME;
@@ -66,6 +72,7 @@ int getaddrinfo(const char *node, const char *service, const struct addrinfo *hi
 		// - No luck with above, and hints->ai_flags doesn't have AI_NUMERICHOST set
 		if( !ret && !(hints->ai_flags & AI_NUMERICHOST) )
 		{
+			_SysDebug("getaddrinfo: TODO DNS Lookups");
 			// TODO: DNS Lookups
 			// ? /Acess/Conf/Nameservers
 			// ? /Acess/Conf/Hosts
@@ -78,14 +85,37 @@ int getaddrinfo(const char *node, const char *service, const struct addrinfo *hi
 		}
 	}
 
-	int default_socktype = 0;
-	int default_protocol = 0;
+	int default_socktype = hints->ai_socktype;
+	int default_protocol = hints->ai_protocol;
 	int default_port = 0;
+	
+	#if 0
+	if( default_protocol == 0 )
+	{
+		switch(default_socktype)
+		{
+		case SOCK_DGRAM:
+			default_protocol = 
+		}
+	}
+	#endif
 	
 	// Convert `node` into types
 	if( service )
 	{
-		// TODO: Read something like /Acess/Conf/services
+		char *end;
+		
+		default_port = strtol(service, &end, 0);
+		if( *end != '\0' && !(hints->ai_flags & AI_NUMERICSERV) )
+		{
+			// TODO: Read something like /Acess/Conf/services
+			_SysDebug("getaddrinfo: TODO Service translation");
+		}
+		
+		if( *end != '\0' )
+		{
+			return EAI_NONAME;
+		}
 	}
 
 	struct addrinfo	*ai;
@@ -106,10 +136,16 @@ int getaddrinfo(const char *node, const char *service, const struct addrinfo *hi
 		case AF_INET:
 			if( in->sin_port == 0 )
 				in->sin_port = default_port;
+			_SysDebug("%p: IPv4 [%s]:%i %i,%i",
+				ai, Net_PrintAddress(4, &in->sin_addr),
+				in->sin_port, ai->ai_socktype, ai->ai_protocol);
 			break;
 		case AF_INET6:
 			if( in6->sin6_port == 0 )
 				in6->sin6_port = default_port;
+			_SysDebug("%p: IPv6 [%s]:%i %i,%i",
+				ai, Net_PrintAddress(6, &in6->sin6_addr),
+				in6->sin6_port, ai->ai_socktype, ai->ai_protocol);
 			break;
 		default:
 			_SysDebug("getaddrinfo: Unknown address family %i (setting port)", ai->ai_family);

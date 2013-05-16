@@ -9,7 +9,7 @@ enum {
 	EBUSY,	// Resource is busy
 	ERANGE,	// Value out of range
 	ENOTFOUND,	// Item not found
-	EREADONLY,	// Read only
+	EREADONLY,	// Read only (duplicate with EROFS?)
 	ENOTIMPL,	// Not implemented
 	ENOENT,	// No entry?
 	EEXIST,	// Already exists
@@ -17,10 +17,12 @@ enum {
 	ENOTDIR,	// Not a directory
 	EIO,	// IO Error
 	EINTR,	// Operation interrupted (signal)
+	EWOULDBLOCK,	// Operation would have blocked
 	ENODEV,	// ???
 	EADDRNOTAVAIL,	// ?
 	EINPROGRESS,	// ?
 	EROFS,
+	EPERM,	// Permissions error
 
 	EAGAIN,	// Try again
 	

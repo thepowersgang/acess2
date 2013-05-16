@@ -1,3 +1,10 @@
+/**
+ * Acess2 C Library
+ * - By John Hodge (thePowersGang)
+ *
+ * errno.h
+ * - Error values and related functions
+ */
 #ifndef _ERRNO_H_
 #define _ERRNO_H_
 
@@ -6,7 +13,7 @@
 extern int	*libc_geterrno();
 #define	errno	(*libc_geterrno())
 
-#define strerror(_x)	"Unimplemented"
+extern const char	*strerr(int errnum);
 
 #include "errno.enum.h"
 

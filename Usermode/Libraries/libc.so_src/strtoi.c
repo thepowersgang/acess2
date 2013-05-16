@@ -143,7 +143,7 @@ long atol(const char *str)
 	return tmp;
 }
 
-long atoll(const char *str)
+long long atoll(const char *str)
 {
 	long long	tmp = strtoll(str, NULL, 0);
 	return tmp;

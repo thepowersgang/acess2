@@ -7,6 +7,7 @@
 #define AI_V4MAPPED	0x002
 #define AI_ADDRCONFIG	0x004
 #define AI_NUMERICHOST	0x008
+#define AI_NUMERICSERV	0x010
 
 #define NI_NAMEREQD	(1<<0)
 #define NI_DGRAM	(1<<1)

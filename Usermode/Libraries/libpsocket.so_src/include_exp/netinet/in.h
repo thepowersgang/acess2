@@ -8,6 +8,7 @@
 #ifndef _LIBPSOCKET__NETINET__IN_H_
 #define _LIBPSOCKET__NETINET__IN_H_
 
+#include <sys/socket.h>	// sa_family_t
 #include <stdint.h>
 
 typedef uint32_t	in_addr_t;
@@ -19,7 +20,7 @@ struct in_addr
 
 struct sockaddr_in
 {
-	uint16_t	sin_family;
+	sa_family_t	sin_family;
 	uint16_t	sin_port;
 	struct in_addr	sin_addr;
 };
@@ -42,7 +43,7 @@ struct in6_addr
 
 struct sockaddr_in6
 {
-	uint16_t	sin6_family;
+	sa_family_t	sin6_family;
 	uint16_t	sin6_port;
 	uint32_t	sin6_flowinfo;
 	struct in6_addr	sin6_addr;

@@ -94,11 +94,6 @@ int ErrorHandler(int Fault)
 	return -1;
 }
 
-EXPORT int *libc_geterrno()
-{
-	return &_errno;
-}
-
 #if USE_CPUID
 /**
  * \brief Call the CPUID opcode

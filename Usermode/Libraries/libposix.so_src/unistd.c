@@ -42,7 +42,9 @@ int open(const char *path, int openmode, ...)
 	if( openmode & O_NONBLOCK )
 		openflags |= OPENFLAG_NONBLOCK;
 	
-	return _SysOpen(path, openflags, create_mode);
+	int ret = _SysOpen(path, openflags, create_mode);
+	_SysDebug("open('%s', 0%o, 0%o) = %i", path, openmode, create_mode, ret);
+	return ret;
 }
 
 int creat(const char *path, mode_t mode)
@@ -94,14 +96,16 @@ int dup(int oldfd)
 {
 	_SysDebug("libposix: dup() does not share offsets/flags");
 	// NOTE: Acess's CopyFD doesn't cause offset sharing
-	// TODO: Check that -1 does cause a new allocation
-	return _SysCopyFD(oldfd, -1);
+	int ret = _SysCopyFD(oldfd, -1);
+	_SysDebug("dup(%i) = %i", oldfd, ret);
+	return ret;
 }
 
 int dup2(int oldfd, int newfd)
 {
 	_SysDebug("libposix: dup2() does not share offsets/flags");
 	// NOTE: Acess's CopyFD doesn't cause offset sharing
+	_SysDebug("dup2(%i,%i)", oldfd, newfd);
 	return _SysCopyFD(oldfd, newfd);
 }
 
@@ -139,18 +143,17 @@ int kill(pid_t pid, int signal)
 
 int select(int nfd, fd_set *rfd, fd_set *wfd, fd_set *efd, struct timeval *timeout)
 {
-	
+	long long int	ltimeout = 0, *ltimeoutp = NULL;
 	if( timeout )
 	{
-		long long int ltimeout = 0;
 		ltimeout = timeout->tv_sec*1000 + timeout->tv_usec / 1000;
-		int ret = _SysSelect(nfd, rfd, wfd, efd, &ltimeout, 0);
-		return ret;
+		ltimeoutp = &ltimeout;
 	}
-	else
-	{
-		return _SysSelect(nfd, rfd, wfd, efd, NULL, 0);
-	}
+	_SysDebug("select(%i,{0x%x},{0x%x},{0x%x},%lli)",
+		nfd, (rfd?rfd->flags[0]:0), (wfd?wfd->flags[0]:0), (efd?efd->flags[0]:0),
+		(ltimeoutp ? *ltimeoutp : -1)
+		);
+	return _SysSelect(nfd, rfd, wfd, efd, ltimeoutp, 0);
 }
 
 int pipe(int pipefd[2])
@@ -158,6 +161,7 @@ int pipe(int pipefd[2])
 	pipefd[0] = _SysOpen("/Devices/fifo/anon", OPENFLAG_READ|OPENFLAG_WRITE);
 	pipefd[1] = _SysCopyFD(pipefd[0], -1);
 	_SysFDFlags(pipefd[1], OPENFLAG_READ|OPENFLAG_WRITE, OPENFLAG_WRITE);
+	_SysDebug("pipe({%i,%i})", pipefd[0], pipefd[1]);
 	return 0;
 }
 

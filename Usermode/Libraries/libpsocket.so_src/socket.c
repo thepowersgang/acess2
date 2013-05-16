@@ -10,9 +10,15 @@
 #include <stdlib.h>	// malloc/free
 #include <string.h>
 #include <netinet/in.h>
+#include <errno.h>
 #include "common.h"
 
 #define MAXFD	32
+
+#define IOCTL_TCPC_PORT	5
+#define IOCTL_TCPC_HOST	6
+#define IOCTL_TCPC_CONNECT	7
+#define IOCTL_TCPS_PORT	5
 
 typedef struct s_sockinfo
 {
@@ -23,6 +29,9 @@ typedef struct s_sockinfo
 	struct sockaddr	*local;
 	struct sockaddr	*remote;
 } t_sockinfo;
+
+// === PROTOTYPES ===
+void	_CommitClient(int sockfd);
 
 struct s_sockinfo	gSockInfo[MAXFD];
 static int	giNumPreinit = 0;
@@ -49,12 +58,23 @@ int socket(int domain, int type, int protocol)
 {
 	t_sockinfo	*si = NULL;
 	
-	if( domain < 0 || domain > AF_INET6 )	return -1;
-	if( type < 0 || type > SOCK_RDM )	return -1;
+	if( domain < 0 || domain > AF_INET6 ) {
+		_SysDebug("socket: Domain %i invalid", domain);
+		errno = EINVAL;
+		return -1;
+	}
+	if( type < 0 || type > SOCK_RDM ) {
+		_SysDebug("socket: Type %i invalid", type);
+		errno = EINVAL;
+		return -1;
+	}
 
 	// Allocate an info struct
 	si = _GetInfo(0);
-	if( !si )	return -1;
+	if( !si ) {
+		errno = ENOMEM;
+		return -1;
+	}
 
 	int fd = _SysOpen("/Devices/null", OPENFLAG_RDWR);
 	if( fd == -1 )	return -1;
@@ -66,7 +86,8 @@ int socket(int domain, int type, int protocol)
 	si->protocol = protocol;
 	si->local = NULL;
 	si->remote = NULL;
-
+	
+	_SysDebug("socket(%i,%i,%i) = %i", domain, type, protocol, fd);
 	return fd;
 } 
 
@@ -86,20 +107,106 @@ int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	return 0;
 }
 
+size_t _getAddrData(const struct sockaddr *addr, const void **dataptr, int *port)
+{
+	size_t	addrLen = 0;
+	const struct sockaddr_in	*in4 = (void*)addr;
+	const struct sockaddr_in6	*in6 = (void*)addr;
+	switch( addr->sa_family )
+	{
+	case AF_INET:
+		*dataptr = &in4->sin_addr;
+		addrLen = 4;
+		*port = in4->sin_port;
+		break;
+	case AF_INET6:
+		*dataptr = &in6->sin6_addr;
+		addrLen = 16;
+		*port = in6->sin6_port;
+		break;
+	default:
+		_SysDebug("libpsocket _getAddrData: Unkown sa_family %i", addr->sa_family);
+		return 0;
+	}
+	return addrLen;
+}
+
+int _OpenIf(int DestFD, const struct sockaddr *addr, const char *file, int *port)
+{
+	const uint8_t	*addrBuffer = NULL;
+	size_t addrLen = 0;
+
+	addrLen = _getAddrData(addr, (const void **)&addrBuffer, port);
+	if( addrLen == 0 ) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	char	hexAddr[addrLen*2+1];
+	 int	bNonZero = 0;
+	for( int i = 0; i < addrLen; i ++ ) {
+		hexAddr[i*2+0] = "0123456789ABCDEF"[addrBuffer[i] >> 4];
+		hexAddr[i*2+1] = "0123456789ABCDEF"[addrBuffer[i] & 15];
+		if(addrBuffer[i]) bNonZero = 1;
+	}
+	hexAddr[addrLen*2] = 0;
+	
+	char	*path;
+	if( bNonZero )
+		path = mkstr("/Devices/ip/routes/@%i:%s/%s", addr->sa_family, hexAddr, file);
+	else
+		path = mkstr("/Devices/ip/*%i/%s", addr->sa_family, file);
+
+	int ret = _SysReopen(DestFD, path, OPENFLAG_RDWR);
+	_SysDebug("libpsocket: _SysReopen(%i, '%s') = %i", DestFD, path, ret);
+	free(path);
+	// TODO: Error-check?
+	return ret;
+}
+
 int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 {
-	t_sockinfo	*si = _GetInfo(sockfd);;
-	if( !si )	return -1;
-
-	if( si->remote ) {
-		// Oops?
+	t_sockinfo	*si = _GetInfo(sockfd);
+	if( !si ||  si->remote ) {
+		_SysDebug("connect: FD %i already connected", sockfd);
+		errno = EALREADY;
 		return -1;
 	}
 
 	si->remote = malloc( addrlen );
 	memcpy(si->remote, addr, addrlen);
 
-	return 0;
+	 int	ret = 0;
+	if( si->type == SOCK_STREAM )
+	{
+		int lport = 0;
+		const struct sockaddr	*bindaddr = (si->local ? si->local : addr);
+		ret = _OpenIf(sockfd, bindaddr, "tcpc", &lport);
+		if(ret == -1)
+			return ret;
+
+		if( si->local ) {
+			//_SysIOCtl(sockfd, IOCTL_TCPC_LPORT, &lport);
+			_SysDebug("connect: TODO - Bind to local port");
+		}		
+
+		int port;
+		const void *addrdata;
+		_getAddrData(addr, &addrdata, &port);
+		
+		_SysIOCtl(sockfd, IOCTL_TCPC_PORT, &port);
+		_SysIOCtl(sockfd, IOCTL_TCPC_HOST, (void*)addrdata);
+		ret = _SysIOCtl(sockfd, IOCTL_TCPC_CONNECT, NULL);
+		_SysDebug("connect: :%i = %i", port, ret);
+	}
+	else
+	{
+		_SysDebug("connect: TODO - non-TCP clients (%i)", si->type);
+	}
+		
+	_CommitClient(sockfd);
+
+	return ret;
 }
 
 int listen(int sockfd, int backlog)
@@ -129,51 +236,26 @@ void _CommitServer(int sockfd)
 	t_sockinfo	*si = _GetInfo(sockfd);
 	if( !si )	return ;
 
-	const char	*file;
-	
-	file = "tcps";
-
 	if( !si->local ) {
 		// Um... oops?
 		return ;
 	}	
 
-	uint8_t	*addrBuffer = NULL;
-	size_t addrLen = 0;
-	switch( si->local->sa_family )
-	{
-	case AF_INET:
-		addrBuffer = (void*)&((struct sockaddr_in*)si->local)->sin_addr;
-		addrLen = 4;
-		break;
-	case AF_INET6:
-		addrBuffer = (void*)&((struct sockaddr_in6*)si->local)->sin6_addr;
-		addrLen = 16;
-		break;
-	default:
+	if( si->type != SOCK_STREAM ) {
+		_SysDebug("TODO: Non-tcp servers");
+		return ;
+	}
+
+	// Bind to the local address
+	int	port;
+	int ret = _OpenIf(sockfd, si->local, "tcps", &port);
+	if( ret == -1 ) {
 		return ;
 	}
 	
-	char	hexAddr[addrLen*2+1];
-	 int	bNonZero = 0, i;
-	for( i = 0; i < addrLen; i ++ ) {
-		hexAddr[i*2+0] = "0123456789ABCDEF"[addrBuffer[i] >> 4];
-		hexAddr[i*2+1] = "0123456789ABCDEF"[addrBuffer[i] & 15];
-		if(addrBuffer[i]) bNonZero = 1;
-	}
-	
-	char	*path;
-	if( bNonZero )
-		path = mkstr("/Devices/ip/routes/@%i:%s/%s", si->local->sa_family, file);
-	else
-		path = mkstr("/Devices/ip/*%i/%s", si->local->sa_family, file);
-
-	_SysReopen(si->fd, path, OPENFLAG_RDWR);
-	// TODO: Error-check
-	
-	free(path);
-
+	// Bind to port
 	// TODO: Set up socket
+	_SysIOCtl(sockfd, IOCTL_TCPS_PORT, &port);
 
 	_ClearInfo(si);
 }
