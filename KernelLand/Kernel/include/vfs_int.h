@@ -73,6 +73,18 @@ static inline void _CloseNode(tVFS_Node *Node)
 	if(Node && Node->Type && Node->Type->Close)
 		Node->Type->Close( Node );
 }
+static inline void _ReferenceNode(tVFS_Node *Node)
+{
+	if( !MM_GetPhysAddr(Node->Type) ) {
+		Log_Error("VFS", "Node %p's type is invalid (%p bad pointer) - %P corrupted",
+			Node, Node->Type, MM_GetPhysAddr(&Node->Type));
+		return ;
+	}
+	if( Node->Type && Node->Type->Reference )
+		Node->Type->Reference( Node );
+	else
+		Node->ReferenceCount ++;
+}
 
 
 #endif

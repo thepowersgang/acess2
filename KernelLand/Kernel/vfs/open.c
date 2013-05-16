@@ -722,6 +722,30 @@ int VFS_OpenInode(Uint32 Mount, Uint64 Inode, int Mode)
 	LEAVE_RET('x', VFS_int_CreateHandle(node, mnt, Mode));
 }
 
+int VFS_Reopen(int FD, const char *Path, int Flags)
+{
+	tVFS_Handle	*h = VFS_GetHandle(FD);
+	if(!h) {
+		errno = EBADF;
+		return -1;
+	}
+
+	int newf = VFS_Open(Path, Flags);
+	if( newf == -1 ) {
+		return -1;
+	}
+	
+	_CloseNode(h->Node);
+	_DereferenceMount(h->Mount, "Reopen");
+	memcpy(h, VFS_GetHandle(newf), sizeof(*h));
+	_ReferenceNode(h->Node);
+	_ReferenceMount(h->Mount, "Reopen");
+	
+	VFS_Close(newf);	
+
+	return FD;
+}
+
 /**
  * \fn void VFS_Close(int FD)
  * \brief Closes an open file handle
@@ -774,6 +798,8 @@ int VFS_DuplicateFD(int SrcFD, int DstFD)
 			return -1;
 		VFS_SetHandle(DstFD, src->Node, src->Mode);
 	}
+	_ReferenceMount(src->Mount, "DuplicateFD");
+	_ReferenceNode(src->Node);
 	memcpy(VFS_GetHandle(DstFD), src, sizeof(tVFS_Handle));
 	return DstFD;
 }

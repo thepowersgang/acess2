@@ -16,26 +16,12 @@
 #define MAX_KERNEL_FILES	128
 
 // === PROTOTYPES ===
-inline void	_ReferenceNode(tVFS_Node *Node);
 
 // === GLOBALS ===
 tVFS_Handle	*gaUserHandles = (void*)MM_PPD_HANDLES;
 tVFS_Handle	*gaKernelHandles = (void*)MM_KERNEL_VFS;
 
 // === CODE ===
-inline void _ReferenceNode(tVFS_Node *Node)
-{
-	if( !MM_GetPhysAddr(Node->Type) ) {
-		Log_Error("VFS", "Node %p's type is invalid (%p bad pointer) - %P corrupted",
-			Node, Node->Type, MM_GetPhysAddr(&Node->Type));
-		return ;
-	}
-	if( Node->Type && Node->Type->Reference )
-		Node->Type->Reference( Node );
-	else
-		Node->ReferenceCount ++;
-}
-
 /**
  * \fn tVFS_Handle *VFS_GetHandle(int FD)
  * \brief Gets a pointer to the handle information structure

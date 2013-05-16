@@ -223,6 +223,11 @@ extern int	VFS_OpenChild(int FD, const char *Name, Uint Mode);
 extern int	VFS_OpenInode(Uint32 Mount, Uint64 Inode, int Mode);
 
 /**
+ * \brief Open a file reusing an old FD
+ */
+extern int	VFS_Reopen(int FD, const char *Path, int Flags);
+
+/**
  * \brief Close a currently open file
  * \param FD	Handle returned by ::VFS_Open
  */

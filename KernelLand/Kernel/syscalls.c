@@ -208,6 +208,11 @@ void SyscallHandler(tSyscallRegs *Regs)
 		LOG("VFS_Open(\"%s\", 0x%x)", (char*)Regs->Arg1, Regs->Arg2 | VFS_OPENFLAG_USER);
 		ret = VFS_Open((char*)Regs->Arg1, Regs->Arg2 | VFS_OPENFLAG_USER);
 		break;
+	case SYS_REOPEN:
+		CHECK_STR_NONULL( (char*)Regs->Arg2 );
+		LOG("VFS_Reopen(%i, \"%s\", 0x%x)", Regs->Arg1, (char*)Regs->Arg2, Regs->Arg3 | VFS_OPENFLAG_USER);
+		ret = VFS_Reopen(Regs->Arg1, (char*)Regs->Arg2, Regs->Arg3 | VFS_OPENFLAG_USER);
+		break;
 	
 	case SYS_CLOSE:
 		LOG("VFS_Close(%i)", Regs->Arg1);
