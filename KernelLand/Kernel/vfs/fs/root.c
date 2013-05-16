@@ -1,6 +1,11 @@
 /* 
- * AcessMicro VFS
+ * Acess2 Kernel
+ * - By John Hodge (thePowersGang)
+ *
+ * vfs/fs/root.c
  * - Root Filesystem Driver
+ *
+ * TODO: Restrict to directories only
  */
 #define DEBUG	0
 #include <acess.h>
@@ -14,10 +19,10 @@
 // === PROTOTYPES ===
 tVFS_Node	*Root_InitDevice(const char *Device, const char **Options);
 tVFS_Node	*Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
-tVFS_Node	*Root_FindDir(tVFS_Node *Node, const char *Name);
+tVFS_Node	*Root_FindDir(tVFS_Node *Node, const char *Name, Uint Flags);
  int	Root_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX]);
-size_t	Root_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
-size_t	Root_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
+size_t	Root_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags);
+size_t	Root_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags);
 tRamFS_File	*Root_int_AllocFile(void);
 
 // === GLOBALS ===
@@ -149,7 +154,7 @@ tVFS_Node *Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
  * \fn tVFS_Node *Root_FindDir(tVFS_Node *Node, const char *Name)
  * \brief Find an entry in the filesystem
  */
-tVFS_Node *Root_FindDir(tVFS_Node *Node, const char *Name)
+tVFS_Node *Root_FindDir(tVFS_Node *Node, const char *Name, Uint Flags)
 {
 	tRamFS_File	*parent = Node->ImplPtr;
 	tRamFS_File	*child = parent->Data.FirstChild;
@@ -192,7 +197,7 @@ int Root_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 /**
  * \brief Read from a file in the root directory
  */
-size_t Root_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
+size_t Root_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags)
 {
 	tRamFS_File	*file = Node->ImplPtr;
 	
@@ -211,7 +216,7 @@ size_t Root_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 /**
  * \brief Write to a file in the root directory
  */
-size_t Root_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer)
+size_t Root_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags)
 {
 	tRamFS_File	*file = Node->ImplPtr;
 

@@ -39,9 +39,9 @@ typedef struct sPCIDevice
  int	PCI_ScanBus(int ID, int bFill);
  
  int	PCI_int_ReadDirRoot(tVFS_Node *node, int pos, char Dest[FILENAME_MAX]);
-tVFS_Node	*PCI_int_FindDirRoot(tVFS_Node *node, const char *filename);
+tVFS_Node	*PCI_int_FindDirRoot(tVFS_Node *node, const char *filename, Uint Flags);
 Uint32	PCI_int_GetBusAddr(Uint16 Bus, Uint16 Slot, Uint16 Fcn, Uint8 Offset);
-size_t	PCI_int_ReadDevice(tVFS_Node *node, off_t Offset, size_t Length, void *buffer);
+size_t	PCI_int_ReadDevice(tVFS_Node *node, off_t Offset, size_t Length, void *buffer, Uint Flags);
  int	PCI_int_EnumDevice(Uint16 bus, Uint16 dev, Uint16 fcn, tPCIDevice *info);
 
 // === GLOBALS ===
@@ -261,12 +261,10 @@ int PCI_int_ReadDirRoot(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 }
 /**
  */
-tVFS_Node *PCI_int_FindDirRoot(tVFS_Node *node, const char *filename)
+tVFS_Node *PCI_int_FindDirRoot(tVFS_Node *node, const char *filename, Uint Flags)
 {
-	 int	i;
-	
 	// Find Match
-	for(i=0;i<giPCI_DeviceCount;i++)
+	for( int i = 0; i < giPCI_DeviceCount; i ++ )
 	{
 		int cmp = strcmp(gPCI_Devices[i].Name, filename);
 		if( cmp > 0 )	// Sorted list
@@ -282,7 +280,7 @@ tVFS_Node *PCI_int_FindDirRoot(tVFS_Node *node, const char *filename)
 /**
  * \brief Read the PCI configuration space of a device
  */
-size_t PCI_int_ReadDevice(tVFS_Node *node, off_t pos, size_t length, void *buffer)
+size_t PCI_int_ReadDevice(tVFS_Node *node, off_t pos, size_t length, void *buffer, Uint Flags)
 {	
 	if( pos + length > 256 )	return 0;
 	

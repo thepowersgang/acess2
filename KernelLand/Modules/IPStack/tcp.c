@@ -37,13 +37,13 @@ Uint16	TCP_GetUnusedPort();
 // --- Server
 tVFS_Node	*TCP_Server_Init(tInterface *Interface);
  int	TCP_Server_ReadDir(tVFS_Node *Node, int Pos, char Name[FILENAME_MAX]);
-tVFS_Node	*TCP_Server_FindDir(tVFS_Node *Node, const char *Name);
+tVFS_Node	*TCP_Server_FindDir(tVFS_Node *Node, const char *Name, Uint Flags);
  int	TCP_Server_IOCtl(tVFS_Node *Node, int ID, void *Data);
 void	TCP_Server_Close(tVFS_Node *Node);
 // --- Client
 tVFS_Node	*TCP_Client_Init(tInterface *Interface);
-size_t	TCP_Client_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
-size_t	TCP_Client_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
+size_t	TCP_Client_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags);
+size_t	TCP_Client_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags);
  int	TCP_Client_IOCtl(tVFS_Node *Node, int ID, void *Data);
 void	TCP_Client_Close(tVFS_Node *Node);
 // --- Helpers
@@ -950,7 +950,7 @@ int TCP_Server_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
  * \param Node	Server node
  * \param Name	Hexadecimal ID of the node
  */
-tVFS_Node *TCP_Server_FindDir(tVFS_Node *Node, const char *Name)
+tVFS_Node *TCP_Server_FindDir(tVFS_Node *Node, const char *Name, Uint Flags)
 {
 	tTCPConnection	*conn;
 	tTCPListener	*srv = Node->ImplPtr;
@@ -1105,7 +1105,7 @@ tVFS_Node *TCP_Client_Init(tInterface *Interface)
  * \note If \a Length is smaller than the size of the packet, the rest
  *       of the packet's data will be discarded.
  */
-size_t TCP_Client_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
+size_t TCP_Client_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags)
 {
 	tTCPConnection	*conn = Node->ImplPtr;
 	size_t	len;
@@ -1123,6 +1123,7 @@ size_t TCP_Client_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffe
 		
 		if( len == 0 ) {
 			VFS_MarkAvaliable(Node, 0);
+			errno = 0;
 			LEAVE('i', -1);
 			return -1;
 		}
@@ -1132,7 +1133,17 @@ size_t TCP_Client_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffe
 	}
 	
 	// Wait
-	VFS_SelectNode(Node, VFS_SELECT_READ|VFS_SELECT_ERROR, NULL, "TCP_Client_Read");
+	{
+		tTime	*timeout = NULL;
+		tTime	timeout_zero = 0;
+		if( Flags & VFS_IOFLAG_NOBLOCK )
+			timeout = &timeout_zero;
+		if( !VFS_SelectNode(Node, VFS_SELECT_READ|VFS_SELECT_ERROR, timeout, "TCP_Client_Read") ) {
+			errno = EWOULDBLOCK;
+			LEAVE('i', -1);
+			return -1;
+		}
+	}
 	
 	// Lock list and read as much as possible (up to `Length`)
 	Mutex_Acquire( &conn->lRecievedPackets );
@@ -1182,7 +1193,7 @@ void TCP_INT_SendDataPacket(tTCPConnection *Connection, size_t Length, const voi
 /**
  * \brief Send some bytes on a connection
  */
-size_t TCP_Client_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer)
+size_t TCP_Client_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags)
 {
 	tTCPConnection	*conn = Node->ImplPtr;
 	size_t	rem = Length;
@@ -1197,12 +1208,23 @@ size_t TCP_Client_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void
 	// Don't allow a write to a closed connection
 	if( conn->State > TCP_ST_OPEN ) {
 		VFS_MarkError(Node, 1);
+		errno = 0;
 		LEAVE('i', -1);
 		return -1;
 	}
 	
 	// Wait
-	VFS_SelectNode(Node, VFS_SELECT_WRITE|VFS_SELECT_ERROR, NULL, "TCP_Client_Write");
+	{
+		tTime	*timeout = NULL;
+		tTime	timeout_zero = 0;
+		if( Flags & VFS_IOFLAG_NOBLOCK )
+			timeout = &timeout_zero;
+		if( !VFS_SelectNode(Node, VFS_SELECT_WRITE|VFS_SELECT_ERROR, timeout, "TCP_Client_Write") ) {
+			errno = EWOULDBLOCK;
+			LEAVE('i', -1);
+			return -1;
+		}
+	}
 	
 	do
 	{

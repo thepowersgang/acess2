@@ -1,6 +1,11 @@
 /*
- * AcessMicro VFS
- * - File IO Passthru's
+ * Acess2 Kernel
+ * - By John Hodge (thePowersGang)
+ *
+ * vfs/io.c
+ * - VFS IO Handling (Read/Write)
+ *
+ * TODO: VFS-level caching to support non-blocking IO?
  */
 #define DEBUG	0
 #include <acess.h>
@@ -48,7 +53,9 @@ size_t VFS_Read(int FD, size_t Length, void *Buffer)
 	}
 	
 	LOG("Position=%llx", h->Position);
-	ret = h->Node->Type->Read(h->Node, h->Position, Length, Buffer);
+	Uint	flags = 0;
+	flags |= (h->Mode & VFS_OPENFLAG_NONBLOCK) ? VFS_IOFLAG_NOBLOCK : 0;
+	ret = h->Node->Type->Read(h->Node, h->Position, Length, Buffer, flags);
 	if(ret == (size_t)-1)	LEAVE_RET('i', -1);
 	
 	h->Position += ret;
@@ -77,12 +84,15 @@ size_t VFS_ReadAt(int FD, Uint64 Offset, size_t Length, void *Buffer)
 	}
 
 	if( !MM_GetPhysAddr(h->Node->Type->Read) ) {
-		Log_Error("VFS", "Node type %p(%s) read method is junk %p", h->Node->Type, h->Node, h->Node->Type->TypeName,
+		Log_Error("VFS", "Node type %p(%s) read method is junk %p",
+			h->Node->Type, h->Node->Type->TypeName,
 			h->Node->Type->Read);
 		LEAVE_RET('i', -1);
 	}
 	
-	ret = h->Node->Type->Read(h->Node, Offset, Length, Buffer);
+	Uint	flags = 0;
+	flags |= (h->Mode & VFS_OPENFLAG_NONBLOCK) ? VFS_IOFLAG_NOBLOCK : 0;
+	ret = h->Node->Type->Read(h->Node, Offset, Length, Buffer, flags);
 	if(ret == (size_t)-1)	return -1;
 	return ret;
 }
@@ -114,12 +124,15 @@ size_t VFS_Write(int FD, size_t Length, const void *Buffer)
 	}
 
 	if( !MM_GetPhysAddr(h->Node->Type->Write) ) {
-		Log_Error("VFS", "Node type %p(%s) write method is junk %p", h->Node->Type, h->Node, h->Node->Type->TypeName,
+		Log_Error("VFS", "Node type %p(%s) write method is junk %p",
+			h->Node->Type, h->Node->Type->TypeName,
 			h->Node->Type->Write);
 		return -1;
 	}
 	
-	ret = h->Node->Type->Write(h->Node, h->Position, Length, Buffer);
+	Uint flags = 0;
+	flags |= (h->Mode & VFS_OPENFLAG_NONBLOCK) ? VFS_IOFLAG_NOBLOCK : 0;
+	ret = h->Node->Type->Write(h->Node, h->Position, Length, Buffer, flags);
 	if(ret == (size_t)-1)	return -1;
 
 	h->Position += ret;
@@ -144,11 +157,14 @@ size_t VFS_WriteAt(int FD, Uint64 Offset, size_t Length, const void *Buffer)
 	if(!h->Node->Type || !h->Node->Type->Write)	return 0;
 
 	if( !MM_GetPhysAddr(h->Node->Type->Write) ) {
-		Log_Error("VFS", "Node type %p(%s) write method is junk %p", h->Node->Type, h->Node, h->Node->Type->TypeName,
+		Log_Error("VFS", "Node type %p(%s) write method is junk %p",
+			h->Node->Type, h->Node->Type->TypeName,
 			h->Node->Type->Write);
 		return -1;
 	}
-	ret = h->Node->Type->Write(h->Node, Offset, Length, Buffer);
+	Uint flags = 0;
+	flags |= (h->Mode & VFS_OPENFLAG_NONBLOCK) ? VFS_IOFLAG_NOBLOCK : 0;
+	ret = h->Node->Type->Write(h->Node, Offset, Length, Buffer, flags);
 	if(ret == (size_t)-1)	return -1;
 	return ret;
 }

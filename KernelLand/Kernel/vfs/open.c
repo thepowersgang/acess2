@@ -298,6 +298,7 @@ restart_parse:
 		// Check permissions on root of filesystem
 		if( !VFS_CheckACL(curNode, VFS_PERM_EXECUTE) ) {
 			LOG("Permissions failure on '%s'", Path);
+			errno = EPERM;
 			goto _error;
 		}
 		
@@ -316,7 +317,7 @@ restart_parse:
 		}
 		LOG("FindDir{=%p}(%p, '%s')", curNode->Type->FindDir, curNode, pathEle);
 		// Get Child Node
-		tmpNode = curNode->Type->FindDir(curNode, pathEle);
+		tmpNode = curNode->Type->FindDir(curNode, pathEle, 0);
 		LOG("tmpNode = %p", tmpNode);
 		_CloseNode( curNode );
 		curNode = tmpNode;
@@ -324,6 +325,7 @@ restart_parse:
 		// Error Check
 		if(!curNode) {
 			LOG("Node '%s' not found in dir '%s'", pathEle, Path);
+			errno = ENOENT;
 			goto _error;
 		}
 		
@@ -336,11 +338,13 @@ restart_parse:
 			if(!curNode->Type || !curNode->Type->Read) {
 				Log_Warning("VFS", "VFS_ParsePath - Read of symlink node %p'%s' is NULL",
 					curNode, Path);
+				errno = EINTERNAL;
 				goto _error;
 			}
 			
 			if(iNestedLinks > MAX_NESTED_LINKS) {
 				Log_Notice("VFS", "VFS_ParsePath - Nested link limit exceeded");
+				errno = ENOENT;
 				goto _error;
 			}
 			
@@ -351,9 +355,10 @@ restart_parse:
 				 int	remlen = strlen(Path) - (ofs + nextSlash);
 				if( curNode->Size + remlen > MAX_PATH_LEN ) {
 					Log_Warning("VFS", "VFS_ParsePath - Symlinked path too long");
+					errno = ENOENT;
 					goto _error;
 				}
-				curNode->Type->Read( curNode, 0, curNode->Size, path_buffer );
+				curNode->Type->Read( curNode, 0, curNode->Size, path_buffer, 0 );
 				path_buffer[ curNode->Size ] = '\0';
 				LOG("path_buffer = '%s'", path_buffer);
 				strcat(path_buffer, Path + ofs+nextSlash);
@@ -374,6 +379,7 @@ restart_parse:
 		if( !(curNode->Flags & VFS_FFLAG_DIRECTORY) )
 		{
 			Log_Warning("VFS", "VFS_ParsePath - Path segment is not a directory");
+			errno = ENOTDIR;
 			goto _error;
 		}
 		
@@ -385,6 +391,7 @@ restart_parse:
 		// Check if allocation succeeded
 		if(!tmp) {
 			Log_Warning("VFS", "VFS_ParsePath - Unable to reallocate true path buffer");
+			errno = ENOMEM;
 			goto _error;
 		}
 		*TruePath = tmp;
@@ -401,16 +408,18 @@ restart_parse:
 	// Check final finddir call	
 	if( !curNode->Type || !curNode->Type->FindDir ) {
 		Log_Warning("VFS", "VFS_ParsePath - FindDir doesn't exist for element of '%s'", Path);
+		errno = ENOENT;
 		goto _error;
 	}
 	
 	// Get last node
 	LOG("FindDir(%p, '%s')", curNode, &Path[ofs]);
-	tmpNode = curNode->Type->FindDir(curNode, &Path[ofs]);
+	tmpNode = curNode->Type->FindDir(curNode, &Path[ofs], 0);
 	LOG("tmpNode = %p", tmpNode);
 	// Check if file was found
 	if(!tmpNode) {
 		LOG("Node '%s' not found in dir '%.*s'", &Path[ofs], ofs, Path);
+		errno = ENOENT;
 		goto _error;
 	}
 	_CloseNode( curNode );
@@ -422,6 +431,7 @@ restart_parse:
 		// Check if allocation succeeded
 		if(!tmp) {
 			Log_Warning("VFS", "VFS_ParsePath -  Unable to reallocate true path buffer");
+			errno = ENOMEM;
 			goto _error;
 		}
 		*TruePath = tmp;
@@ -450,7 +460,6 @@ _error:
 	}
 	// Open failed, so decrement the open handle count
 	_DereferenceMount(mnt, "ParsePath - error");
-	
 	LEAVE('n');
 	return NULL;
 }
@@ -610,7 +619,7 @@ int VFS_OpenEx(const char *Path, Uint Flags, Uint Mode)
 			goto _error;
 		}
 		// Read symlink's path
-		node->Type->Read( node, 0, node->Size, tmppath );
+		node->Type->Read( node, 0, node->Size, tmppath, 0 );
 		tmppath[ node->Size ] = '\0';
 		_CloseNode( node );
 		_DereferenceMount(mnt, "Open - symlink");
@@ -668,7 +677,7 @@ int VFS_OpenChild(int FD, const char *Name, Uint Mode)
 	}
 	
 	// Find Child
-	node = h->Node->Type->FindDir(h->Node, Name);
+	node = h->Node->Type->FindDir(h->Node, Name, 0);
 	if(!node) {
 		errno = ENOENT;
 		LEAVE_RET('i', -1);

@@ -22,14 +22,14 @@ extern tVFS_Node	gIP_AdaptersNode;
 
 // === PROTOTYPES ===
  int	IPStack_Root_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX]);
-tVFS_Node	*IPStack_Root_FindDir(tVFS_Node *Node, const char *Name);
+tVFS_Node	*IPStack_Root_FindDir(tVFS_Node *Node, const char *Name, Uint Flags);
  int	IPStack_Root_IOCtl(tVFS_Node *Node, int ID, void *Data);
 
  int	IPStack_AddFile(tSocketFile *File);
 tInterface	*IPStack_AddInterface(const char *Device, int Type, const char *Name);
 
  int	IPStack_Iface_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX]);
-tVFS_Node	*IPStack_Iface_FindDir(tVFS_Node *Node, const char *Name);
+tVFS_Node	*IPStack_Iface_FindDir(tVFS_Node *Node, const char *Name, Uint Flags);
  int	IPStack_Iface_IOCtl(tVFS_Node *Node, int ID, void *Data);
 
 // === GLOBALS ===
@@ -110,11 +110,8 @@ int IPStack_Root_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 /**
  * \brief Get the node of an interface
  */
-tVFS_Node *IPStack_Root_FindDir(tVFS_Node *Node, const char *Name)
+tVFS_Node *IPStack_Root_FindDir(tVFS_Node *Node, const char *Name, Uint Flags)
 {
-	#if 0
-	 int	i, num;
-	#endif
 	tInterface	*iface;
 	
 	ENTER("pNode sName", Node, Name);
@@ -333,7 +330,7 @@ int IPStack_Iface_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 /**
  * \brief Gets a named node from an interface directory
  */
-tVFS_Node *IPStack_Iface_FindDir(tVFS_Node *Node, const char *Name)
+tVFS_Node *IPStack_Iface_FindDir(tVFS_Node *Node, const char *Name, Uint Flags)
 {
 	tSocketFile	*file = gIP_FileTemplates;
 	

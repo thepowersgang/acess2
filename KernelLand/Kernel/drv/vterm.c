@@ -35,10 +35,10 @@ extern void	Debug_SetKTerminal(const char *File);
 // === PROTOTYPES ===
  int	VT_Install(char **Arguments);
  int	VT_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX]);
-tVFS_Node	*VT_FindDir(tVFS_Node *Node, const char *Name);
+tVFS_Node	*VT_FindDir(tVFS_Node *Node, const char *Name, Uint Flags);
  int	VT_Root_IOCtl(tVFS_Node *Node, int Id, void *Data);
-size_t	VT_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
-size_t	VT_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
+size_t	VT_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags);
+size_t	VT_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags);
  int	VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data);
 void	VT_Terminal_Reference(tVFS_Node *Node);
 void	VT_Terminal_Close(tVFS_Node *Node);
@@ -285,7 +285,7 @@ int VT_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
  * \param Node	Root node
  * \param Name	Name (number) of the terminal
  */
-tVFS_Node *VT_FindDir(tVFS_Node *Node, const char *Name)
+tVFS_Node *VT_FindDir(tVFS_Node *Node, const char *Name, Uint Flags)
 {
 	 int	num;
 	
@@ -354,12 +354,13 @@ int VT_Root_IOCtl(tVFS_Node *Node, int Id, void *Data)
 /**
  * \brief Read from a virtual terminal
  */
-size_t VT_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
+size_t VT_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags)
 {
-	 int	pos, avail;
+	 int	pos, avail, rv;
 	tVTerm	*term = &gVT_Terminals[ Node->Inode ];
 	Uint32	*codepoint_buf = Buffer;
 	Uint32	*codepoint_in;
+	tTime	timeout_zero = 0;
 	
 	Mutex_Acquire( &term->ReadingLock );
 	
@@ -370,7 +371,12 @@ size_t VT_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 	case TERM_MODE_TEXT:
 		VT_int_UpdateCursor(term, 1);
 	
-		VFS_SelectNode(Node, VFS_SELECT_READ, NULL, "VT_Read (UTF-8)");
+		rv = VFS_SelectNode(Node, VFS_SELECT_READ,
+			(Flags & VFS_IOFLAG_NOBLOCK ? &timeout_zero : NULL), "VT_Read (UTF-8)");
+		if(!rv) {
+			errno = (Flags & VFS_IOFLAG_NOBLOCK) ? EWOULDBLOCK : EINTR;
+			return -1;
+		}
 		
 		avail = term->InputWrite - term->InputRead;
 		if(avail < 0)
@@ -392,7 +398,12 @@ size_t VT_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 	//case TERM_MODE_FB:
 	// Other - UCS-4
 	default:
-		VFS_SelectNode(Node, VFS_SELECT_READ, NULL, "VT_Read (UCS-4)");
+		rv = VFS_SelectNode(Node, VFS_SELECT_READ,
+			(Flags & VFS_IOFLAG_NOBLOCK ? &timeout_zero : NULL), "VT_Read (UCS-4)");
+		if(!rv) {
+			errno = (Flags & VFS_IOFLAG_NOBLOCK) ? EWOULDBLOCK : EINTR;
+			return -1;
+		}
 		
 		avail = term->InputWrite - term->InputRead;
 		if(avail < 0)
@@ -433,7 +444,7 @@ size_t VT_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 /**
  * \brief Write to a virtual terminal
  */
-size_t VT_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer)
+size_t VT_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags)
 {
 	tVTerm	*term = &gVT_Terminals[ Node->Inode ];
 	 int	size;

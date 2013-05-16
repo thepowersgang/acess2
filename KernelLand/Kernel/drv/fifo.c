@@ -31,13 +31,13 @@ typedef struct sPipe {
  int	FIFO_Install(char **Arguments);
  int	FIFO_IOCtl(tVFS_Node *Node, int Id, void *Data);
  int	FIFO_ReadDir(tVFS_Node *Node, int Id, char Dest[FILENAME_MAX]);
-tVFS_Node	*FIFO_FindDir(tVFS_Node *Node, const char *Filename);
+tVFS_Node	*FIFO_FindDir(tVFS_Node *Node, const char *Filename, Uint Flags);
 tVFS_Node	*FIFO_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
 void	FIFO_Reference(tVFS_Node *Node);
 void	FIFO_Close(tVFS_Node *Node);
  int	FIFO_Unlink(tVFS_Node *Node, const char *OldName);
-size_t	FIFO_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
-size_t	FIFO_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
+size_t	FIFO_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags);
+size_t	FIFO_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags);
 tPipe	*FIFO_Int_NewPipe(int Size, const char *Name);
 
 // === GLOBALS ===
@@ -121,7 +121,7 @@ int FIFO_ReadDir(tVFS_Node *Node, int Id, char Dest[FILENAME_MAX])
  * \brief Find a file in the FIFO root
  * \note Creates an anon pipe if anon is requested
  */
-tVFS_Node *FIFO_FindDir(tVFS_Node *Node, const char *Filename)
+tVFS_Node *FIFO_FindDir(tVFS_Node *Node, const char *Filename, Uint Flags)
 {
 	tPipe	*tmp;
 	if(!Filename)	return NULL;
@@ -132,6 +132,9 @@ tVFS_Node *FIFO_FindDir(tVFS_Node *Node, const char *Filename)
 	// Anon Pipe
 	if( strcmp(Filename, "anon") == 0 )
 	{
+		if( Flags & VFS_FDIRFLAG_STAT ) {
+			//return &gFIFI_TemplateAnonNode;
+		}
 		tmp = FIFO_Int_NewPipe(DEFAULT_RING_SIZE, "anon");
 		return &tmp->Node;
 	}
@@ -219,7 +222,7 @@ int FIFO_Unlink(tVFS_Node *Node, const char *OldName)
 /**
  * \brief Read from a fifo pipe
  */
-size_t FIFO_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
+size_t FIFO_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags)
 {
 	tPipe	*pipe = Node->ImplPtr;
 	Uint	len;
@@ -232,7 +235,7 @@ size_t FIFO_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 	while(remaining)
 	{
 		// Wait for buffer to fill
-		if(pipe->Flags & PF_BLOCKING)
+		if( (pipe->Flags & PF_BLOCKING) && !(Flags & VFS_IOFLAG_NOBLOCK) )
 		{
 			if( pipe->ReadPos == pipe->WritePos )
 				VFS_SelectNode(Node, VFS_SELECT_READ, NULL, "FIFO_Read");
@@ -303,7 +306,7 @@ size_t FIFO_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 /**
  * \brief Write to a fifo pipe
  */
-size_t FIFO_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer)
+size_t FIFO_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags)
 {
 	tPipe	*pipe = Node->ImplPtr;
 	Uint	len;
@@ -316,7 +319,7 @@ size_t FIFO_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buff
 	while(remaining)
 	{
 		// Wait for buffer to empty
-		if(pipe->Flags & PF_BLOCKING)
+		if( (pipe->Flags & PF_BLOCKING) && !(Flags & VFS_IOFLAG_NOBLOCK) )
 		{
 			if( pipe->ReadPos == (pipe->WritePos+1)%pipe->BufSize ) {
 				LOG("Blocking write on FIFO");
@@ -385,7 +388,7 @@ size_t FIFO_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buff
 	return Length;
 }
 
-// --- HELPERS ---
+// --- HeLPERS ---
 /**
  * \fn tPipe *FIFO_Int_NewPipe(int Size, const char *Name)
  * \brief Create a new pipe

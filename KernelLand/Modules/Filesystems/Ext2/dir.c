@@ -14,7 +14,7 @@
 
 // === PROTOTYPES ===
  int	Ext2_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX]);
-tVFS_Node	*Ext2_FindDir(tVFS_Node *Node, const char *FileName);
+tVFS_Node	*Ext2_FindDir(tVFS_Node *Node, const char *FileName, Uint Flags);
 tVFS_Node	*Ext2_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
  int	Ext2_Unlink(tVFS_Node *Node, const char *OldName);
  int	Ext2_Link(tVFS_Node *Parent, const char *Name, tVFS_Node *Node);
@@ -124,7 +124,7 @@ int Ext2_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
  * \param Filename	Name of wanted file
  * \return VFS Node of file
  */
-tVFS_Node *Ext2_FindDir(tVFS_Node *Node, const char *Filename)
+tVFS_Node *Ext2_FindDir(tVFS_Node *Node, const char *Filename, Uint Flags)
 {
 	tExt2_Disk	*disk = Node->ImplPtr;
 	tExt2_Inode	inode;
@@ -147,10 +147,8 @@ tVFS_Node *Ext2_FindDir(tVFS_Node *Node, const char *Filename)
 	while(size > 0)
 	{
 		VFS_ReadAt( disk->FD, Base+ofs, sizeof(tExt2_DirEnt), &dirent);
-		// TODO: Possible overrun if name_len == 255?
-		dirent.name[ dirent.name_len ] = '\0';	// Cap off string
 		// If it matches, create a node and return it
-		if(dirent.name_len == filenameLen && strcmp(dirent.name, Filename) == 0)
+		if(dirent.name_len == filenameLen && strncmp(dirent.name, Filename, filenameLen) == 0)
 			return Ext2_int_CreateNode( disk, dirent.inode );
 		// Increment pointers
 		ofs += dirent.rec_len;

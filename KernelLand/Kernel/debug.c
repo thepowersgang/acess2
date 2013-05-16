@@ -11,8 +11,7 @@
 
 // === IMPORTS ===
 extern void	Threads_Dump(void);
-extern void	Heap_Dump(void)
-		;
+extern void	Heap_Dump(void);
 extern void	KernelPanic_SetMode(void);
 extern void	KernelPanic_PutChar(char Ch);
 extern void	IPStack_SendDebugText(const char *Text);
@@ -24,7 +23,6 @@ void	Debug_DbgOnlyFmt(const char *format, va_list args);
 void	Debug_FmtS(int bUseKTerm, const char *format, ...);
 void	Debug_Fmt(int bUseKTerm, const char *format, va_list args);
 void	Debug_SetKTerminal(const char *File);
-void	LogFV(const char *Fmt, va_list args);
 
 // === GLOBALS ===
  int	gDebug_Level = 0;

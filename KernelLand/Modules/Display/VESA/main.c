@@ -27,7 +27,7 @@
 // === PROTOTYPES ===
  int	Vesa_Install(char **Arguments);
  int	VBE_int_GetModeList(void);
-size_t	Vesa_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
+size_t	Vesa_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags);
  int	Vesa_IOCtl(tVFS_Node *Node, int ID, void *Data);
  int	Vesa_Int_SetMode(int Mode);
  int	Vesa_Int_FindMode(tVideo_IOCtl_Mode *data);
@@ -265,7 +265,7 @@ void Vesa_int_FillModeList(void)
 /**
  * \brief Write to the framebuffer
  */
-size_t Vesa_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer)
+size_t Vesa_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags)
 {
 	if( gVesa_Modes[giVesaCurrentMode].framebuffer == 0 ) {
 		Log_Warning("VESA", "Vesa_Write - Non-LFB Modes not yet supported.");

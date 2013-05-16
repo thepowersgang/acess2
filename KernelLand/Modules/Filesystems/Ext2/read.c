@@ -15,7 +15,7 @@
 /**
  * \brief Read from a file
  */
-size_t Ext2_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
+size_t Ext2_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags)
 {
 	tExt2_Disk	*disk = Node->ImplPtr;
 	tExt2_Inode	inode;
@@ -54,6 +54,7 @@ size_t Ext2_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 	}
 	
 	// Read first block
+	// TODO: If (Flags & VFS_IOFLAG_NOBLOCK) trigger read and return EWOULDBLOCK?
 	remLen = Length;
 	VFS_ReadAt( disk->FD, base + Offset, disk->BlockSize - Offset, Buffer);
 	remLen -= disk->BlockSize - Offset;
@@ -65,7 +66,7 @@ size_t Ext2_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 	{
 		base = Ext2_int_GetBlockAddr(disk, inode.i_block, block);
 		if(base == 0) {
-			Warning("[EXT2 ] NULL Block Detected in INode 0x%llx", Node->Inode);
+			Log_Warning("EXT2", "NULL Block Detected in INode 0x%llx", Node->Inode);
 			LEAVE('i', 0);
 			return 0;
 		}

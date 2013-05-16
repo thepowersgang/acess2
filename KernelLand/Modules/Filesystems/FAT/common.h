@@ -109,7 +109,7 @@ extern void	FAT_int_WriteCluster(tFAT_VolInfo *Disk, Uint32 Cluster, const void 
 
 // --- Directory Access ---
 extern int	FAT_ReadDir(tVFS_Node *Node, int ID, char Dest[FILENAME_MAX]);
-extern tVFS_Node	*FAT_FindDir(tVFS_Node *Node, const char *Name);
+extern tVFS_Node	*FAT_FindDir(tVFS_Node *Node, const char *Name, Uint Flags);
 extern tVFS_Node	*FAT_GetNodeFromINode(tVFS_Node *Root, Uint64 Inode);
 extern int	FAT_int_GetEntryByCluster(tVFS_Node *DirNode, Uint32 Cluster, fat_filetable *Entry);
 #if SUPPORT_WRITE

@@ -133,7 +133,8 @@ void *VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD,
 						return NULL;
 					}
 					// TODO: Clip read length
-					read_len = nt->Read(h->Node, pagenum*PAGE_SIZE, PAGE_SIZE, (void*)mapping_dest);
+					read_len = nt->Read(h->Node, pagenum*PAGE_SIZE, PAGE_SIZE,
+						(void*)mapping_dest, 0);
 					// TODO: This was commented out, why?
 					if( read_len != PAGE_SIZE ) {
 						memset( (void*)(mapping_dest+read_len), 0, PAGE_SIZE-read_len );

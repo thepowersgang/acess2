@@ -22,13 +22,13 @@ tVFS_Node	*RAMFS_InitDevice(const char *Device, const char **Options);
 void	RAMFS_Unmount(tVFS_Node *Node);
 // --- Directories ---
  int	RAMFS_ReadDir(tVFS_Node *Node, int Index, char Dest[256]);
-tVFS_Node	*RAMFS_FindDir(tVFS_Node *Node, const char *Name);
+tVFS_Node	*RAMFS_FindDir(tVFS_Node *Node, const char *Name, Uint Flags);
 tVFS_Node	*RAMFS_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
  int	RAMFS_Link(tVFS_Node *DirNode, const char *Name, tVFS_Node *Node);
  int	RAMFS_Unlink(tVFS_Node *Node, const char *Name);
 // --- Files ---
-size_t	RAMFS_Read(tVFS_Node *Node, off_t Offset, size_t Size, void *Buffer);
-size_t	RAMFS_Write(tVFS_Node *Node, off_t Offset, size_t Size, const void *Buffer);
+size_t	RAMFS_Read(tVFS_Node *Node, off_t Offset, size_t Size, void *Buffer, Uint Flags);
+size_t	RAMFS_Write(tVFS_Node *Node, off_t Offset, size_t Size, const void *Buffer, Uint Flags);
 // --- Internals --
 void	RAMFS_int_RefFile(tRAMFS_Inode *Inode);
 void	RAMFS_int_DerefFile(tRAMFS_Inode *Inode);
@@ -151,7 +151,7 @@ int RAMFS_ReadDir(tVFS_Node *Node, int Index, char Dest[FILENAME_MAX])
 	return -ENOENT;
 }
 
-tVFS_Node *RAMFS_FindDir(tVFS_Node *Node, const char *Name)
+tVFS_Node *RAMFS_FindDir(tVFS_Node *Node, const char *Name, Uint Flags)
 {
 	tRAMFS_Dir	*dir = Node->ImplPtr;
 
@@ -170,7 +170,7 @@ tVFS_Node *RAMFS_FindDir(tVFS_Node *Node, const char *Name)
 tVFS_Node *RAMFS_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
 {
 	tRAMFS_Dir	*dir = Node->ImplPtr;
-	if( RAMFS_FindDir(Node, Name) != NULL )
+	if( RAMFS_FindDir(Node, Name, 0) != NULL )
 		return NULL;
 	
 	tRAMFS_DirEnt	*de = malloc( sizeof(tRAMFS_DirEnt) + strlen(Name) + 1 );
@@ -327,14 +327,14 @@ size_t RAMFS_int_DoIO(tRAMFS_File *File, off_t Offset, size_t Size, void *Buffer
 	return Size;
 }
 
-size_t RAMFS_Read(tVFS_Node *Node, off_t Offset, size_t Size, void *Buffer)
+size_t RAMFS_Read(tVFS_Node *Node, off_t Offset, size_t Size, void *Buffer, Uint Flags)
 {
 	tRAMFS_File	*file = Node->ImplPtr;
 	
 	return RAMFS_int_DoIO(file, Offset, Size, Buffer, 1);
 }
 
-size_t RAMFS_Write(tVFS_Node *Node, off_t Offset, size_t Size, const void *Buffer)
+size_t RAMFS_Write(tVFS_Node *Node, off_t Offset, size_t Size, const void *Buffer, Uint Flags)
 {
 	tRAMFS_File	*file = Node->ImplPtr;
 	

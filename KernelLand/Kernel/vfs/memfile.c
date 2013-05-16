@@ -9,8 +9,8 @@
 // === PROTOTYPES ===
 tVFS_Node	*VFS_MemFile_Create(const char *Path);
 void	VFS_MemFile_Close(tVFS_Node *Node);
-size_t	VFS_MemFile_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
-size_t	VFS_MemFile_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
+size_t	VFS_MemFile_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags);
+size_t	VFS_MemFile_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags);
 
 // === GLOBALS ===
 tVFS_NodeType	gVFS_MemFileType = {
@@ -93,7 +93,7 @@ void VFS_MemFile_Close(tVFS_Node *Node)
 /**
  * \brief Read from a memory file
  */
-size_t VFS_MemFile_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
+size_t VFS_MemFile_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags)
 {
 	// Check for use of free'd file
 	if(Node->ImplPtr == NULL)	return 0;
@@ -116,7 +116,7 @@ size_t VFS_MemFile_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buff
 /**
  * \brief Write to a memory file
  */
-size_t VFS_MemFile_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer)
+size_t VFS_MemFile_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags)
 {
 	// Check for use of free'd file
 	if(Node->ImplPtr == NULL)	return 0;

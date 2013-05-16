@@ -4,6 +4,7 @@
  * arch/x86/time.c
  */
 #include <acess.h>
+#include <timers.h>
 
 // === MACROS ===
 #define	TIMER_QUANTUM	100

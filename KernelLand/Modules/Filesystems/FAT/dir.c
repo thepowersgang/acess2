@@ -27,7 +27,7 @@ Uint16	*FAT_int_GetLFN(tVFS_Node *Node, int ID);
 void	FAT_int_DelLFN(tVFS_Node *Node, int ID);
 #endif
  int	FAT_ReadDir(tVFS_Node *Node, int ID, char Dest[FILENAME_MAX]);
-tVFS_Node	*FAT_FindDir(tVFS_Node *Node, const char *Name);
+tVFS_Node	*FAT_FindDir(tVFS_Node *Node, const char *Name, Uint Flags);
 tVFS_Node	*FAT_GetNodeFromINode(tVFS_Node *Root, Uint64 Inode);
 #if SUPPORT_WRITE
 tVFS_Node	*FAT_Mknod(tVFS_Node *Node, const char *Name, Uint Flags);
@@ -630,7 +630,7 @@ int FAT_ReadDir(tVFS_Node *Node, int ID, char Dest[FILENAME_MAX])
  * \fn tVFS_Node *FAT_FindDir(tVFS_Node *node, char *name)
  * \brief Finds an entry in the current directory
  */
-tVFS_Node *FAT_FindDir(tVFS_Node *Node, const char *Name)
+tVFS_Node *FAT_FindDir(tVFS_Node *Node, const char *Name, Uint Flags)
 {
 	fat_filetable	fileent;
 	

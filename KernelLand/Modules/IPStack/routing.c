@@ -18,7 +18,7 @@ extern tVFS_Node	*IPStack_Root_FindDir(tVFS_Node *Node, const char *Filename);
 // === PROTOTYPES ===
 // - Routes directory
  int	IPStack_RouteDir_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX]);
-tVFS_Node	*IPStack_RouteDir_FindDir(tVFS_Node *Node, const char *Name);
+tVFS_Node	*IPStack_RouteDir_FindDir(tVFS_Node *Node, const char *Name, Uint Flags);
 tVFS_Node	*IPStack_RouteDir_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
  int	IPStack_RouteDir_Unlink(tVFS_Node *Node, const char *OldName);
 tRoute	*_Route_FindExactRoute(int Type, void *Network, int Subnet, int Metric);
@@ -78,7 +78,7 @@ int IPStack_RouteDir_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 /**
  * \brief FindDir for the /Devices/ip/routes/ directory
  */
-tVFS_Node *IPStack_RouteDir_FindDir(tVFS_Node *Node, const char *Name)
+tVFS_Node *IPStack_RouteDir_FindDir(tVFS_Node *Node, const char *Name, Uint Flags)
 {
 	// Interpret the name as <type>:<addr>, returning the interface for
 	// needed to access that address.

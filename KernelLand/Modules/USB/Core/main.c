@@ -19,7 +19,7 @@ extern void	USB_PortCtl_Init(void);
  int	USB_Install(char **Arguments);
 void	USB_Cleanup(void);
  int	USB_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX]);
-tVFS_Node	*USB_FindDir(tVFS_Node *Node, const char *Name);
+tVFS_Node	*USB_FindDir(tVFS_Node *Node, const char *Name, Uint Flags);
  int	USB_IOCtl(tVFS_Node *Node, int Id, void *Data);
 
 // === GLOBALS ===
@@ -71,7 +71,7 @@ int USB_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
  * \fn tVFS_Node *USB_FindDir(tVFS_Node *Node, const char *Name)
  * \brief Locate an entry in the USB root
  */
-tVFS_Node *USB_FindDir(tVFS_Node *Node, const char *Name)
+tVFS_Node *USB_FindDir(tVFS_Node *Node, const char *Name, Uint Flags)
 {
 	return NULL;
 }

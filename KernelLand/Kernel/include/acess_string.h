@@ -31,6 +31,8 @@ extern char	*strchr(const char *__s, int __c);
 extern char	*strrchr(const char *__s, int __c);
 extern void	itoa(char *buf, Uint64 num, int base, int minLength, char pad);
 extern int	atoi(const char *string);
+extern long	atol(const char *string);
+extern long long	atoll(const char *string);
 extern unsigned long long	strtoull(const char *str, char **end, int base);
 extern unsigned long	strtoul(const char *str, char **end, int base);
 extern signed long long	strtoll(const char *str, char **end, int base);

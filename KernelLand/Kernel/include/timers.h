@@ -58,5 +58,10 @@ extern void	Time_RemoveTimer(tTimer *Timer);
  */
 extern void	Time_Delay(int Delay);
 
+/**
+ * \brief Busy wait for a period of milliseconds
+ */
+extern void	Time_MicroSleep(Uint16 Delay);
+
 #endif
 

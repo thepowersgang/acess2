@@ -32,8 +32,8 @@ typedef struct sSysFS_Ent
 #endif
 
  int	SysFS_Comm_ReadDir(tVFS_Node *Node, int Id, char Dest[FILENAME_MAX]);
-tVFS_Node	*SysFS_Comm_FindDir(tVFS_Node *Node, const char *Filename);
-size_t	SysFS_Comm_ReadFile(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
+tVFS_Node	*SysFS_Comm_FindDir(tVFS_Node *Node, const char *Filename, Uint Flags);
+size_t	SysFS_Comm_ReadFile(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags);
 void	SysFS_Comm_CloseFile(tVFS_Node *Node);
 
 // === GLOBALS ===
@@ -361,7 +361,7 @@ int SysFS_Comm_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
  * \fn tVFS_Node *SysFS_Comm_FindDir(tVFS_Node *Node, const char *Filename)
  * \brief Find a file in a SysFS directory
  */
-tVFS_Node *SysFS_Comm_FindDir(tVFS_Node *Node, const char *Filename)
+tVFS_Node *SysFS_Comm_FindDir(tVFS_Node *Node, const char *Filename, Uint Flags)
 {
 	tSysFS_Ent	*child = (tSysFS_Ent*)Node->ImplPtr;
 	
@@ -377,7 +377,7 @@ tVFS_Node *SysFS_Comm_FindDir(tVFS_Node *Node, const char *Filename)
 /**
  * \brief Read from an exposed buffer
  */
-size_t SysFS_Comm_ReadFile(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
+size_t SysFS_Comm_ReadFile(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags)
 {
 	if( Offset > Node->Size )	return -1;
 	if( Length > Node->Size )	Length = Node->Size;

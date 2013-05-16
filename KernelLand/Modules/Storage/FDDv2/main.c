@@ -22,9 +22,9 @@
  int	FDD_RegisterFS(void);
 // --- VFS
  int	FDD_ReadDir(tVFS_Node *Node, int pos, char dest[FILENAME_MAX]);
-tVFS_Node	*FDD_FindDir(tVFS_Node *dirNode, const char *Name);
+tVFS_Node	*FDD_FindDir(tVFS_Node *dirNode, const char *Name, Uint Flags);
  int	FDD_IOCtl(tVFS_Node *Node, int ID, void *Data);
-size_t	FDD_ReadFS(tVFS_Node *node, off_t Offset, size_t Len, void *buffer);
+size_t	FDD_ReadFS(tVFS_Node *node, off_t Offset, size_t Len, void *buffer, Uint Flags);
 // --- Helpers
  int	FDD_int_ReadWriteWithinTrack(int Disk, int Track, int bWrite, size_t Offset, size_t Length, void *Buffer);
 
@@ -129,7 +129,7 @@ int FDD_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
  * \param Name	Drive name
  * \return Pointer to node structure
  */
-tVFS_Node *FDD_FindDir(tVFS_Node *Node, const char *Name)
+tVFS_Node *FDD_FindDir(tVFS_Node *Node, const char *Name, Uint Flags)
 {
 	 int	pos;
 	if( '0' > Name[0] || Name[0] > '9' )	return NULL;
@@ -169,7 +169,7 @@ int FDD_IOCtl(tVFS_Node *Node, int ID, void *Data)
  * \param Buffer	Destination buffer
  * \return Number of bytes read
  */
-size_t FDD_ReadFS(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
+size_t FDD_ReadFS(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags)
 {
 	 int	disk = Node->Inode;
 	 int	track;
@@ -187,7 +187,9 @@ size_t FDD_ReadFS(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 	rem_len = Length;
 
 	track = Offset / BYTES_PER_TRACK;
-	Offset %= BYTES_PER_TRACK;	
+	Offset %= BYTES_PER_TRACK;
+
+	// TODO: Handle (Flags & VFS_IOFLAG_NOBLOCK)
 
 	if( Offset )
 	{

@@ -195,6 +195,28 @@ typedef struct sVFS_Node
 } tVFS_Node;
 
 /**
+ * \name tVFS_NodeType.FindDir Flags
+ * \brief 
+ * \{
+ */
+//\! Attempt non-blocking IO
+#define VFS_IOFLAG_NOBLOCK	0x001
+/**
+ * \}
+ */
+
+/**
+ * \name tVFS_NodeType.FindDir Flags
+ * \brief 
+ * \{
+ */
+//\! Call was triggered by VFS_Stat (as opposed to open)
+#define VFS_FDIRFLAG_STAT	0x001
+/**
+ * \}
+ */
+
+/**
  * \brief Functions for a specific node type
  */
 struct sVFS_NodeType
@@ -251,7 +273,7 @@ struct sVFS_NodeType
 	 * \param Buffer	Destination for read data
 	 * \return Number of bytes read
 	 */
-	size_t	(*Read)(struct sVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
+	size_t	(*Read)(struct sVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags);
 	/**
 	 * \brief Write to the file
 	 * \param Node	Pointer to this node
@@ -260,7 +282,7 @@ struct sVFS_NodeType
 	 * \param Buffer	Source of written data
 	 * \return Number of bytes read
 	 */
-	size_t	(*Write)(struct sVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
+	size_t	(*Write)(struct sVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags);
 
 	/**
 	 * \brief Map a region of a file into memory
@@ -289,7 +311,7 @@ struct sVFS_NodeType
 	 * \note The node returned must be accessable until tVFS_NodeType::Close
 	 *       is called and ReferenceCount reaches zero.
 	 */
-	struct sVFS_Node	*(*FindDir)(struct sVFS_Node *Node, const char *Name);
+	struct sVFS_Node	*(*FindDir)(struct sVFS_Node *Node, const char *Name, Uint Flags);
 	
 	/**
 	 * \brief Read from a directory
@@ -307,7 +329,7 @@ struct sVFS_NodeType
 	 * \param Flags	Flags to apply to the new child (directory or symlink)
 	 * \return Created node or NULL on error
 	 */
-	tVFS_Node	*(*MkNod)(struct sVFS_Node *Node, const char *Name, Uint Flags);
+	tVFS_Node	*(*MkNod)(struct sVFS_Node *Node, const char *Name, Uint Mode);
 	
 	/**
 	 * \brief Relink (Rename/Remove) a file/directory

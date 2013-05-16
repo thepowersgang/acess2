@@ -20,7 +20,7 @@ void	Ext2_int_DeallocateBlock(tExt2_Disk *Disk, Uint32 Block);
 /**
  * \brief Write to a file
  */
-size_t Ext2_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer)
+size_t Ext2_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags)
 {
 	tExt2_Disk	*disk = Node->ImplPtr;
 	tExt2_Inode	inode;
@@ -31,7 +31,9 @@ size_t Ext2_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buff
 	 int	bNewBlocks = 0;
 	
 	Debug_HexDump("Ext2_Write", Buffer, Length);
-	
+
+	// TODO: Handle (Flags & VFS_IOFLAG_NOBLOCK)	
+
 	Ext2_int_ReadInode(disk, Node->Inode, &inode);
 	
 	// Get the ammount of space already allocated

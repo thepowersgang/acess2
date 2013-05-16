@@ -12,12 +12,12 @@
 
 // === PROTOTYPES ===
  int	CoreDevs_Install(char **Arguments);
-size_t	CoreDevs_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
-size_t	CoreDevs_Read_Zero(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
-size_t	CoreDevs_Read_One (tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
-size_t	CoreDevs_Read_Null(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
-size_t	CoreDevs_Read_FRandom(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
-size_t	CoreDevs_Read_GRandom(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
+size_t	CoreDevs_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags);
+size_t	CoreDevs_Read_Zero(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags);
+size_t	CoreDevs_Read_One (tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags);
+size_t	CoreDevs_Read_Null(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags);
+size_t	CoreDevs_Read_FRandom(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags);
+size_t	CoreDevs_Read_GRandom(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, 0x0100, CoreDevs, CoreDevs_Install, NULL, NULL);
@@ -103,18 +103,18 @@ int CoreDevs_Install(char **Options)
 	return MODULE_ERR_OK;
 }
 
-size_t CoreDevs_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer)
+size_t CoreDevs_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags)
 {
 	return Length;	// Ignore
 }
 
-size_t CoreDevs_Read_Zero(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
+size_t CoreDevs_Read_Zero(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags)
 {
 	memset(Buffer, 0, Length);
 	return Length;
 }
 
-size_t CoreDevs_Read_One (tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
+size_t CoreDevs_Read_One (tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags)
 {
 	Uint8	*ptr = Buffer;
 	size_t	rem;
@@ -123,13 +123,13 @@ size_t CoreDevs_Read_One (tVFS_Node *Node, off_t Offset, size_t Length, void *Bu
 	return Length;
 }
 
-size_t CoreDevs_Read_Null(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
+size_t CoreDevs_Read_Null(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags)
 {
 	return 0;
 }
 
 //! Fast random number generator
-size_t CoreDevs_Read_FRandom(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
+size_t CoreDevs_Read_FRandom(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags)
 {
 	Uint8	*cbuf = Buffer;
 	for( int i = 0; i < Length; i ++ )
@@ -137,8 +137,9 @@ size_t CoreDevs_Read_FRandom(tVFS_Node *Node, off_t Offset, size_t Length, void 
 	return Length;
 }
 
-size_t CoreDevs_Read_GRandom(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
+size_t CoreDevs_Read_GRandom(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags)
 {
+	// TODO: VFS_IOFLAG_NOBLOCK
 	Log_Error("CoreDevs", "GRandom is unimplimented");
 	return -1;
 }

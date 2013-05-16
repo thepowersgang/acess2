@@ -18,13 +18,13 @@
  int	LVM_Cleanup(void);
 // ---
  int	LVM_Root_ReadDir(tVFS_Node *Node, int ID, char Dest[FILENAME_MAX]);
-tVFS_Node	*LVM_Root_FindDir(tVFS_Node *Node, const char *Name);
+tVFS_Node	*LVM_Root_FindDir(tVFS_Node *Node, const char *Name, Uint Flags);
  int	LVM_Vol_ReadDir(tVFS_Node *Node, int ID, char Dest[FILENAME_MAX]);
-tVFS_Node	*LVM_Vol_FindDir(tVFS_Node *Node, const char *Name);
-size_t	LVM_Vol_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
-size_t	LVM_Vol_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
-size_t	LVM_SubVol_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
-size_t	LVM_SubVol_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
+tVFS_Node	*LVM_Vol_FindDir(tVFS_Node *Node, const char *Name, Uint Flags);
+size_t	LVM_Vol_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags);
+size_t	LVM_Vol_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags);
+size_t	LVM_SubVol_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags);
+size_t	LVM_SubVol_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags);
 void	LVM_CloseNode(tVFS_Node *Node);
 
 Uint	LVM_int_DrvUtil_ReadBlock(Uint64 Address, Uint Count, void *Buffer, void *Argument);
@@ -141,7 +141,7 @@ int LVM_Root_ReadDir(tVFS_Node *Node, int ID, char Dest[FILENAME_MAX])
 	else
 		return -ENOENT;
 }
-tVFS_Node *LVM_Root_FindDir(tVFS_Node *Node, const char *Name)
+tVFS_Node *LVM_Root_FindDir(tVFS_Node *Node, const char *Name, Uint Flags)
 {
 	tLVM_Vol	*vol;
 	for( vol = gpLVM_FirstVolume; vol; vol = vol->Next )
@@ -172,7 +172,7 @@ int LVM_Vol_ReadDir(tVFS_Node *Node, int ID, char Dest[FILENAME_MAX])
 	strncpy(Dest, src, FILENAME_MAX);
 	return 0;
 }
-tVFS_Node *LVM_Vol_FindDir(tVFS_Node *Node, const char *Name)
+tVFS_Node *LVM_Vol_FindDir(tVFS_Node *Node, const char *Name, Uint Flags)
 {
 	tLVM_Vol	*vol = Node->ImplPtr;
 
@@ -191,7 +191,7 @@ tVFS_Node *LVM_Vol_FindDir(tVFS_Node *Node, const char *Name)
 	return NULL;
 }
 
-size_t LVM_Vol_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
+size_t LVM_Vol_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags)
 {
 	tLVM_Vol	*vol = Node->ImplPtr;
 	Uint64	byte_size = vol->BlockCount * vol->BlockSize;	
@@ -209,12 +209,12 @@ size_t LVM_Vol_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 		);
 }
 
-size_t LVM_Vol_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer)
+size_t LVM_Vol_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags)
 {
 	return 0;
 }
 
-size_t LVM_SubVol_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
+size_t LVM_SubVol_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags)
 {
 	tLVM_SubVolume	*sv = Node->ImplPtr;
 	Uint64	byte_size = sv->BlockCount * sv->Vol->BlockSize;
@@ -238,7 +238,7 @@ size_t LVM_SubVol_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffe
 		LVM_int_DrvUtil_ReadBlock, sv->Vol->BlockSize, sv->Vol
 		);
 }
-size_t LVM_SubVol_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer)
+size_t LVM_SubVol_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags)
 {
 	tLVM_SubVolume	*sv = Node->ImplPtr;
 	Uint64	byte_size = sv->BlockCount * sv->Vol->BlockSize;

@@ -33,9 +33,9 @@ void	FAT_Unmount(tVFS_Node *Node);
 // --- Helpers
  int	FAT_int_GetAddress(tVFS_Node *Node, Uint64 Offset, Uint64 *Addr, Uint32 *Cluster);
 // --- File IO
-size_t	FAT_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
+size_t	FAT_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags);
 #if SUPPORT_WRITE
-size_t	FAT_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
+size_t	FAT_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags);
 #endif
 void	FAT_CloseFile(tVFS_Node *node);
 
@@ -393,7 +393,7 @@ int FAT_int_GetAddress(tVFS_Node *Node, Uint64 Offset, Uint64 *Addr, Uint32 *Clu
 /**
  * \brief Reads data from a specified file
  */
-size_t FAT_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
+size_t FAT_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags)
 {
 	 int	preSkip, count;
 	Uint64	final_bytes;
@@ -434,6 +434,8 @@ size_t FAT_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
 			return 0;
 		}
 	}
+
+	// TODO: Handle (Flags & VFS_IOFLAG_NOBLOCK)
 
 	// Reading from within one cluster
 	if((int)Offset + (int)Length <= bpc)
@@ -512,7 +514,7 @@ size_t FAT_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
  * \param Length	Size of data to write
  * \param Buffer	Data source
  */
-size_t FAT_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer)
+size_t FAT_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags)
 {
 	tFAT_VolInfo	*disk = Node->ImplPtr;
 	char	tmpBuf[disk->BytesPerCluster];
@@ -522,6 +524,7 @@ size_t FAT_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffe
 	off_t	original_offset = Offset;
 	
 	if(Offset > Node->Size)	return 0;
+	// TODO: Handle (Flags & VFS_IOFLAG_NOBLOCK)
 	
 	ENTER("pNode Xoffset xlength pbuffer", Node, Offset, Length, Buffer);
 	

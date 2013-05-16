@@ -64,15 +64,15 @@ struct sIPCPipe_Server
 // - Root
 tVFS_Node	*IPCPipe_Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
  int	IPCPipe_Root_ReadDir(tVFS_Node *Node, int ID, char Name[FILENAME_MAX]);
-tVFS_Node	*IPCPipe_Root_FindDir(tVFS_Node *Node, const char *Name);
+tVFS_Node	*IPCPipe_Root_FindDir(tVFS_Node *Node, const char *Name, Uint Flags);
 // - Server
  int	IPCPipe_Server_ReadDir(tVFS_Node *Node, int ID, char Name[FILENAME_MAX]);
-tVFS_Node	*IPCPipe_Server_FindDir(tVFS_Node *Node, const char *Name);
+tVFS_Node	*IPCPipe_Server_FindDir(tVFS_Node *Node, const char *Name, Uint Flags);
 void	IPCPipe_Server_Close(tVFS_Node *Node);
 // - Socket
 tIPCPipe_Channel	*IPCPipe_int_GetEPs(tVFS_Node *Node, tIPCPipe_Endpoint **lep, tIPCPipe_Endpoint **rep);
-size_t	IPCPipe_Client_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Dest);
-size_t	IPCPipe_Client_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Src);
+size_t	IPCPipe_Client_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Dest, Uint Flags);
+size_t	IPCPipe_Client_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Src, Uint Flags);
 void	IPCPipe_Client_Close(tVFS_Node *Node);
 
 // === GLOBALS ===
@@ -179,7 +179,7 @@ int IPCPipe_Root_ReadDir(tVFS_Node *Node, int ID, char Name[FILENAME_MAX])
 /**
  * \return New client pointer
  */
-tVFS_Node *IPCPipe_Root_FindDir(tVFS_Node *Node, const char *Name)
+tVFS_Node *IPCPipe_Root_FindDir(tVFS_Node *Node, const char *Name, Uint Flags)
 {
 	tIPCPipe_Server	*srv;
 	ENTER("pNode sName", Node, Name);
@@ -198,9 +198,14 @@ tVFS_Node *IPCPipe_Root_FindDir(tVFS_Node *Node, const char *Name)
 		return NULL;
 	}
 
+	if( Flags & VFS_FDIRFLAG_STAT ) {
+		// LEAVE('p', srv->TplClientNode);
+		// return &srv->TplClientNode;
+	}
+
 	// Create new client
-	tIPCPipe_Channel *new_client;
-	
+	tIPCPipe_Channel *new_client;	
+
 	new_client = calloc(1, sizeof(tIPCPipe_Channel));
 	new_client->Server = srv;
 	new_client->ClientEP.Node.Type = &gIPCPipe_ChannelNodeType;
@@ -230,7 +235,7 @@ int IPCPipe_Server_ReadDir(tVFS_Node *Node, int ID, char Name[FILENAME_MAX])
 	// 'next' is a valid entry, but readdir should never be called on this node
 	return -1;
 }
-tVFS_Node *IPCPipe_Server_FindDir(tVFS_Node *Node, const char *Name)
+tVFS_Node *IPCPipe_Server_FindDir(tVFS_Node *Node, const char *Name, Uint Flags)
 {
 	tIPCPipe_Server	*srv = Node->ImplPtr;
 
@@ -241,6 +246,7 @@ tVFS_Node *IPCPipe_Server_FindDir(tVFS_Node *Node, const char *Name)
 		return NULL;
 	}
 	
+	// TODO: Need VFS_FDIRFLAG_NOBLOCK?
 	VFS_SelectNode(Node, VFS_SELECT_READ, 0, "IPCPipe Server");
 
 	tIPCPipe_Channel *conn;
@@ -303,7 +309,7 @@ tIPCPipe_Channel *IPCPipe_int_GetEPs(tVFS_Node *Node, tIPCPipe_Endpoint **lep, t
 	}
 	return ch;
 }
-size_t IPCPipe_Client_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Dest)
+size_t IPCPipe_Client_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Dest, Uint Flags)
 {
 	tIPCPipe_Endpoint	*lep, *rep;
 	tIPCPipe_Channel	*channel = IPCPipe_int_GetEPs(Node, &lep, &rep);
@@ -317,8 +323,15 @@ size_t IPCPipe_Client_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *D
 	}
 	
 	// Wait for a packet to be ready
-	VFS_SelectNode(Node, VFS_SELECT_READ, 0, "IPCPipe Endpoint");
+	tTime	timeout_z = 0, *timeout = ((Flags & VFS_IOFLAG_NOBLOCK) ? &timeout_z : NULL);
+	int rv = VFS_SelectNode(Node, VFS_SELECT_READ, timeout, "IPCPipe Endpoint");
+	if( !rv ) {
+		errno = (Flags & VFS_IOFLAG_NOBLOCK) ? EWOULDBLOCK : EINTR;
+		LEAVE('i', -1);
+		return -1;
+	}
 	if( channel->Server == NULL ) {
+		//errno = EIO;
 		LEAVE('i', -1);
 		return -1;
 	}
@@ -328,6 +341,7 @@ size_t IPCPipe_Client_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *D
 	if( !rep->Node.ImplPtr )
 	{
 		Mutex_Release(&rep->lList);
+		//errno = EIO;
 		LEAVE('i', -1);
 		return -1;
 	}
@@ -356,7 +370,7 @@ size_t IPCPipe_Client_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *D
 	return ret;
 }
 
-size_t IPCPipe_Client_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Src)
+size_t IPCPipe_Client_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Src, Uint Flags)
 {
 	tIPCPipe_Endpoint	*lep, *rep;
 	tIPCPipe_Channel	*channel = IPCPipe_int_GetEPs(Node, &lep, &rep);
@@ -374,7 +388,9 @@ size_t IPCPipe_Client_Write(tVFS_Node *Node, off_t Offset, size_t Length, const 
 		return 0;
 	}
 
-	// Create packet structure	
+	// TODO: Ensure that no more than DEF_MAX_BYTE_LIMIT bytes are in flight at one time
+
+	// Create packet structure
 	tIPCPipe_Packet	*pkt = malloc(sizeof(tIPCPipe_Packet)+Length);
 	pkt->Next = NULL;
 	pkt->Offset = 0;

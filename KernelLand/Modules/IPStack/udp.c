@@ -15,8 +15,8 @@ void	UDP_Unreachable(tInterface *Interface, int Code, void *Address, int Length,
 void	UDP_SendPacketTo(tUDPChannel *Channel, int AddrType, const void *Address, Uint16 Port, const void *Data, size_t Length);
 // --- Client Channels
 tVFS_Node	*UDP_Channel_Init(tInterface *Interface);
-size_t	UDP_Channel_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer);
-size_t	UDP_Channel_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer);
+size_t	UDP_Channel_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags);
+size_t	UDP_Channel_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags);
  int	UDP_Channel_IOCtl(tVFS_Node *Node, int ID, void *Data);
 void	UDP_Channel_Close(tVFS_Node *Node);
 // --- Helpers
@@ -187,7 +187,7 @@ tVFS_Node *UDP_Channel_Init(tInterface *Interface)
 /**
  * \brief Read from the channel file (wait for a packet)
  */
-size_t UDP_Channel_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
+size_t UDP_Channel_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags)
 {
 	tUDPChannel	*chan = Node->ImplPtr;
 	tUDPPacket	*pack;
@@ -203,7 +203,11 @@ size_t UDP_Channel_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buff
 	
 	for(;;)
 	{
-		VFS_SelectNode(Node, VFS_SELECT_READ, NULL, "UDP_Channel_Read");
+		tTime	timeout_z = 0, *timeout = (Flags & VFS_IOFLAG_NOBLOCK) ? &timeout_z : NULL;
+		int rv = VFS_SelectNode(Node, VFS_SELECT_READ, timeout, "UDP_Channel_Read");
+		if( rv ) {
+			errno = (Flags & VFS_IOFLAG_NOBLOCK) ? EWOULDBLOCK : EINTR;
+		}
 		SHORTLOCK(&chan->lQueue);
 		if(chan->Queue == NULL) {
 			SHORTREL(&chan->lQueue);
@@ -247,7 +251,7 @@ size_t UDP_Channel_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buff
 /**
  * \brief Write to the channel file (send a packet)
  */
-size_t UDP_Channel_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer)
+size_t UDP_Channel_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags)
 {
 	tUDPChannel	*chan = Node->ImplPtr;
 	const tUDPEndpoint	*ep;

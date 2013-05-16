@@ -38,15 +38,15 @@ extern int	Ext2_int_ReadInode(tExt2_Disk *Disk, Uint32 InodeId, tExt2_Inode *Ino
 extern int	Ext2_int_WriteInode(tExt2_Disk *Disk, Uint32 InodeId, tExt2_Inode *Inode);
 // --- Dir ---
 extern int	Ext2_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX]);
-extern tVFS_Node	*Ext2_FindDir(tVFS_Node *Node, const char *FileName);
-extern tVFS_Node	*Ext2_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
+extern tVFS_Node	*Ext2_FindDir(tVFS_Node *Node, const char *FileName, Uint Flags);
+extern tVFS_Node	*Ext2_MkNod(tVFS_Node *Node, const char *Name, Uint Mode);
 extern int	Ext2_Link(tVFS_Node *Parent, const char *Name, tVFS_Node *Node);
 extern tVFS_Node	*Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeId);
 extern int	Ext2_int_WritebackNode(tExt2_Disk *Disk, tVFS_Node *Node);
 // --- Read ---
-extern size_t	Ext2_Read(tVFS_Node *node, off_t offset, size_t length, void *buffer);
+extern size_t	Ext2_Read(tVFS_Node *node, off_t offset, size_t length, void *buffer, Uint Flags);
 // --- Write ---
-extern size_t	Ext2_Write(tVFS_Node *node, off_t offset, size_t length, const void *buffer);
+extern size_t	Ext2_Write(tVFS_Node *node, off_t offset, size_t length, const void *buffer, Uint Flags);
 extern Uint32	Ext2_int_AllocateBlock(tExt2_Disk *Disk, Uint32 LastBlock);
 extern void	Ext2_int_DeallocateBlock(tExt2_Disk *Disk, Uint32 Block);
 extern int	Ext2_int_AppendBlock(tExt2_Disk *Disk, tExt2_Inode *Inode, Uint32 Block);

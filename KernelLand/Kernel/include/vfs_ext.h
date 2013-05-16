@@ -22,15 +22,17 @@ typedef Uint32	tMount;
  * \{
  */
 //! Open for execution
-#define VFS_OPENFLAG_EXEC	0x01
+#define VFS_OPENFLAG_EXEC	0x001
 //! Open for reading
-#define VFS_OPENFLAG_READ	0x02
+#define VFS_OPENFLAG_READ	0x002
 //! Open for writing
-#define VFS_OPENFLAG_WRITE	0x04
+#define VFS_OPENFLAG_WRITE	0x004
 //! Do not resolve the final symbolic link
-#define	VFS_OPENFLAG_NOLINK	0x40
+#define	VFS_OPENFLAG_NOLINK	0x040
 //! Create the file if it doesn't exist
-#define VFS_OPENFLAG_CREATE	0x80
+#define VFS_OPENFLAG_CREATE	0x080
+//! Open file as non-blocking
+#define VFS_OPENFLAG_NONBLOCK	0x100
 //! Treat as a directory
 #define VFS_OPENFLAG_DIRECTORY	0x1000
 //! Open as a user

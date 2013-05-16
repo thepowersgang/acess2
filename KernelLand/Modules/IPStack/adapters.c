@@ -21,7 +21,7 @@ void	*IPStack_Adapter_Add(const tIPStack_AdapterType *Type, void *Ptr, const voi
 void	IPStack_Adapter_Del(void *Handle);
 // --- VFS API ---
  int	Adapter_ReadDir(tVFS_Node *Node, int Pos, char Name[FILENAME_MAX]);
-tVFS_Node	*Adapter_FindDir(tVFS_Node *Node, const char *Name);
+tVFS_Node	*Adapter_FindDir(tVFS_Node *Node, const char *Name, Uint Flags);
  int	Adapter_DirIOCtl(tVFS_Node *Node, int Num, void *Data);
  int	Adapter_IOCtl(tVFS_Node *Node, int Num, void *Data);
 // --- "Internal" (IPStack) API ---
@@ -157,7 +157,7 @@ int Adapter_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 	return -EINVAL;
 }
 
-tVFS_Node *Adapter_FindDir(tVFS_Node *Node, const char *Name)
+tVFS_Node *Adapter_FindDir(tVFS_Node *Node, const char *Name, Uint Flags)
 {
 	tAdapter *a = Adapter_GetByName(Name);
 	if(!a)

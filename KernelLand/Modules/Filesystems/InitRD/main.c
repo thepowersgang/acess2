@@ -17,9 +17,9 @@ extern tVFS_Node * const	gInitRD_FileList[];
 tVFS_Node	*InitRD_InitDevice(const char *Device, const char **Arguments);
 void	InitRD_Unmount(tVFS_Node *Node);
 tVFS_Node	*InitRD_GetNodeFromINode(tVFS_Node *Root, Uint64 Inode);
-size_t	InitRD_ReadFile(tVFS_Node *Node, off_t Offset, size_t Size, void *Buffer);
+size_t	InitRD_ReadFile(tVFS_Node *Node, off_t Offset, size_t Size, void *Buffer, Uint Flags);
  int	InitRD_ReadDir(tVFS_Node *Node, int ID, char Dest[FILENAME_MAX]);
-tVFS_Node	*InitRD_FindDir(tVFS_Node *Node, const char *Name);
+tVFS_Node	*InitRD_FindDir(tVFS_Node *Node, const char *Name, Uint Flags);
 void	InitRD_DumpDir(tVFS_Node *Node, int Indent);
 
 // === GLOBALS ===
@@ -77,7 +77,7 @@ tVFS_Node *InitRD_GetNodeFromINode(tVFS_Node *Root, Uint64 Inode)
 /**
  * \brief Read from a file
  */
-size_t InitRD_ReadFile(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer)
+size_t InitRD_ReadFile(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags)
 {
 	if(Offset > Node->Size)
 		return 0;
@@ -106,7 +106,7 @@ int InitRD_ReadDir(tVFS_Node *Node, int ID, char Dest[FILENAME_MAX])
 /**
  * \brief Find an element in a directory
  */
-tVFS_Node *InitRD_FindDir(tVFS_Node *Node, const char *Name)
+tVFS_Node *InitRD_FindDir(tVFS_Node *Node, const char *Name, Uint Flags)
 {
 	 int	i;
 	tInitRD_File	*dir = Node->ImplPtr;

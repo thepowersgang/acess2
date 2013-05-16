@@ -5,6 +5,9 @@
 #include "vfs.h"
 #include "vfs_int.h"
 
+// === PROTOTYPES ===
+Uint	VFS_int_CheckACLs(tVFS_ACL *ACLs, int Num, int bDeny, Uint Perms, tUID UID, tGID GID);
+
 // === GLOBALS ===
 tVFS_ACL	gVFS_ACL_EveryoneRWX = { {1,-1}, {0,VFS_PERM_ALL} };
 tVFS_ACL	gVFS_ACL_EveryoneRW = { {1,-1}, {0,VFS_PERM_ALL^VFS_PERM_EXECUTE} };
