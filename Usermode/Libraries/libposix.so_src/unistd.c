@@ -10,6 +10,7 @@
 #include <stdarg.h>
 #include <sys/select.h>
 #include <stdio.h>
+#include <string.h>
 
 // === CODE ===
 int unlink(const char *pathname)
@@ -182,6 +183,8 @@ char *getpass(const char *prompt)
 	fprintf(stderr, "%s", prompt);
 	fgets(passbuf, PASS_MAX+1, stdin);
 	fprintf(stderr, "\n");
+	for( int i = strlen(passbuf); i > 0 && (passbuf[i-1] == '\r' || passbuf[i-1] == '\n'); i -- )
+		passbuf[i-1] = 0;
 	return passbuf;
 }
 
