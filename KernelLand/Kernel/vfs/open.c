@@ -810,7 +810,10 @@ int VFS_DuplicateFD(int SrcFD, int DstFD)
 int VFS_SetFDFlags(int FD, int Mask, int Value)
 {
 	tVFS_Handle	*h = VFS_GetHandle(FD);
-	if(!FD)	return -1;
+	if(!h) {
+		errno = EBADF;
+		return -1;
+	}
 	 int	ret = h->Mode;
 	
 	Value &= Mask;
