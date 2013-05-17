@@ -25,8 +25,10 @@ struct sPTY
 	
 	char	*Name;
 	 int	NumericName;
+	
 	void	*OutputHandle;
 	tPTY_OutputFcn	OutputFcn;
+	tPTY_ReqResize	ReqResize;
 
 	struct ptymode	Mode;
 	struct ptydims	Dims;
@@ -56,6 +58,7 @@ struct sPTY
  int	PTY_Install(char **Arguments);
  int	PTY_ReadDir(tVFS_Node *Node, int Pos, char Name[FILENAME_MAX]);
 tVFS_Node	*PTY_FindDir(tVFS_Node *Node, const char *Name, Uint Flags);
+tVFS_Node	*PTY_MkNod(tVFS_Node *Node, const char *Name, Uint Mode);
 
 size_t	_rb_write(void *buf, size_t buflen, int *rd, int *wr, const void *data, size_t len);
 size_t	_rb_read(void *buf, size_t buflen, int *rd, int *wr, void *data, size_t len);
@@ -77,7 +80,8 @@ MODULE_DEFINE(0, 0x100, PTY, PTY_Install, NULL, NULL);
 tVFS_NodeType	gPTY_NodeType_Root = {
 	.TypeName = "PTY-Root",
 	.ReadDir = PTY_ReadDir,
-	.FindDir = PTY_FindDir
+	.FindDir = PTY_FindDir,
+	.MkNod = PTY_MkNod
 };
 tVFS_NodeType	gPTY_NodeType_Client = {
 	.TypeName = "PTY-Client",
@@ -94,6 +98,13 @@ tVFS_NodeType	gPTY_NodeType_Server = {
 	.IOCtl = PTY_IOCtlServer,
 	.Close = PTY_CloseServer
 };
+tDevFS_Driver	gPTY_Driver = {
+	.Name = "pts",
+	.RootNode = {
+		.Flags = VFS_FFLAG_DIRECTORY,
+		.Type = &gPTY_NodeType_Root
+	}
+};
  int	giPTY_NumCount;
 tRWLock	glPTY_NumPTYs;
 tPTY	*gpPTY_FirstNumPTY;
@@ -108,7 +119,7 @@ int PTY_Install(char **Arguments)
 }
 
 // --- Management ---
-tPTY *PTY_Create(const char *Name, void *Handle, tPTY_OutputFcn Output)
+tPTY *PTY_Create(const char *Name, void *Handle, tPTY_OutputFcn Output, tPTY_ReqResize ReqResize)
 {
 	tPTY	**prev_np = NULL;
 	size_t	namelen;
@@ -156,6 +167,10 @@ tPTY *PTY_Create(const char *Name, void *Handle, tPTY_OutputFcn Output)
 	}
 	
 	tPTY *ret = calloc(sizeof(tPTY) + namelen + 1, 1);
+	if(!ret) {
+		errno = ENOMEM;
+		return NULL;
+	}
 	
 	// - List maintainance
 	ret->Next = *prev_np;
@@ -170,6 +185,7 @@ tPTY *PTY_Create(const char *Name, void *Handle, tPTY_OutputFcn Output)
 	// - Output function and handle (same again)
 	ret->OutputHandle = Handle;
 	ret->OutputFcn = Output;
+	ret->ReqResize = ReqResize;
 	// - Server node
 	ret->ServerNode.ImplPtr = ret;
 	ret->ServerNode.Type = &gPTY_NodeType_Server;
@@ -177,7 +193,7 @@ tPTY *PTY_Create(const char *Name, void *Handle, tPTY_OutputFcn Output)
 	ret->ServerNode.GID = Threads_GetGID();
 	ret->ServerNode.NumACLs = 1;
 	ret->ServerNode.ACLs = &ret->OwnerRW;
-	ret->ServerNode.ReferenceCount = (Output ? 1 : 0);	// Prevents a userland open/close killing a kernel pty
+	ret->ServerNode.ReferenceCount = (Output ? 1 : 0);	// Prevent a userland close killing a kernel pty
 	// - Client node
 	ret->ClientNode.ImplPtr = ret;
 	ret->ClientNode.Type = &gPTY_NodeType_Client;
@@ -201,9 +217,15 @@ tPTY *PTY_Create(const char *Name, void *Handle, tPTY_OutputFcn Output)
 	return ret;
 }
 
-void PTY_SetAttrib(tPTY *PTY, const struct ptydims *Dims, const struct ptymode *Mode, int WasClient)
+int PTY_SetAttrib(tPTY *PTY, const struct ptydims *Dims, const struct ptymode *Mode, int WasClient)
 {
-	if( Mode ) {
+	if( Mode )
+	{
+		// (for now) userland terminals can't be put into framebuffer mode
+		if( !PTY->OutputFcn && (Mode->OutputMode & PTYOMODE_BUFFMT) == PTYBUFFMT_FB ) {
+			errno = EINVAL;
+			return -1;
+		}
 		PTY->Mode = *Mode;
 		if( !WasClient && !PTY->OutputFcn )
 		{
@@ -212,15 +234,26 @@ void PTY_SetAttrib(tPTY *PTY, const struct ptydims *Dims, const struct ptymode *
 			// ACK by server doing GETMODE
 		}
 	}
-	if( Dims ) {
-		PTY->Dims = *Dims;
+	if( Dims )
+	{
 		if( WasClient ) {
 			// Poke the server?
+			if( PTY->ReqResize && PTY->ReqResize(PTY->OutputHandle, Dims) )
+			{
+				errno = EINVAL;
+				return -1;
+			}
+			else if( !PTY->OutputFcn )
+			{
+				// Inform server process... somehow
+			}
 		}
 		else {
 			// SIGWINSZ to client
 		}
+		PTY->Dims = *Dims;
 	}
+	return 0;
 }
 
 void PTY_Close(tPTY *PTY)
@@ -297,6 +330,7 @@ size_t PTY_int_SendInput(tPTY *PTY, const char *Input, size_t Length)
 		{
 		case 3:	// INTR - ^C
 			// TODO: Send SIGINT
+			// Threads_PostSignalExt(PTY->ClientThreads, SIGINT);
 			print = 0;
 			break;
 		case 4:	// EOF - ^D
@@ -461,6 +495,26 @@ tVFS_Node *PTY_FindDir(tVFS_Node *Node, const char *Name, Uint Flags)
 		return NULL;
 }
 
+tVFS_Node *PTY_MkNod(tVFS_Node *Node, const char *Name, Uint Mode)
+{
+	// zero-length name means a numbered pty has been requested
+	if( Name[0] == '\0' )
+	{
+		tPTY	*ret = PTY_Create(NULL, NULL, NULL, NULL);
+		if( !ret )
+			return NULL;
+		return &ret->ServerNode;
+	}
+	
+	// Otherwise return a named PTY
+	// TODO: Should the request be for '<name>s' or just '<name>'	
+
+	tPTY	*ret = PTY_Create(Name, NULL, NULL, NULL);
+	if(!ret)
+		return NULL;
+	return &ret->ServerNode;
+}
+
 //\! Read from the client's input
 size_t PTY_ReadClient(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags)
 {
@@ -470,6 +524,13 @@ size_t PTY_ReadClient(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer
 	tTime	timeout_z = 0, *timeout = (Flags & VFS_IOFLAG_NOBLOCK) ? &timeout_z : NULL;
 	 int	rv;
 _select:
+	// If server has disconnected, return EIO
+	if( pty->ServerNode.ReferenceCount == 0 ) {
+		//Threads_PostSignal(SIGPIPE);
+		errno = EIO;
+		return -1;
+	}
+	// Wait for data to be ready
 	rv = VFS_SelectNode(Node, VFS_SELECT_READ, timeout, "PTY_ReadClient");
 	if(!rv) {
 		errno = (timeout ? EWOULDBLOCK : EINTR);
@@ -480,6 +541,9 @@ _select:
 	Length = _rb_read(pty->InputData, INPUT_RINGBUFFER_LEN, &pty->InputReadPos, &pty->InputWritePos,
 		Buffer, Length);
 	Mutex_Release(&pty->InputMutex);
+
+	if(pty->InputReadPos == pty->InputWritePos)
+		VFS_MarkAvaliable(Node, 0);
 
 	if(Length == 0 && !pty->HasHitEOF) {
 		goto _select;
@@ -493,11 +557,19 @@ _select:
 size_t PTY_WriteClient(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags)
 {
 	tPTY *pty = Node->ImplPtr;
-	
+
+	// If the server has terminated, send SIGPIPE
+	if( pty->ServerNode.ReferenceCount == 0 )
+	{
+		//Threads_PostSignal(SIGPIPE);
+		errno = EIO;
+		return -1;
+	}	
+
 	// Write to either FIFO or directly to output function
 	if( pty->OutputFcn )
 	{
-		pty->OutputFcn(pty->OutputHandle, Buffer, Length, &pty->Dims);
+		pty->OutputFcn(pty->OutputHandle, Buffer, Length, pty->Mode.OutputMode);
 	}
 	else
 	{
@@ -529,17 +601,14 @@ int PTY_IOCtlClient(tVFS_Node *Node, int ID, void *Data)
 		return 0;
 	case PTY_IOCTL_SETMODE:
 		if( !CheckMem(Data, sizeof(*mode)) ) { errno = EINVAL; return -1; }
-		PTY_SetAttrib(pty, NULL, mode, 1);
-		return 0;
+		return PTY_SetAttrib(pty, NULL, mode, 1);
 	case PTY_IOCTL_GETDIMS:
 		if( !CheckMem(Data, sizeof(*dims)) ) { errno = EINVAL; return -1; }
 		*dims = pty->Dims;
 		return 0;
 	case PTY_IOCTL_SETDIMS:
 		if( !CheckMem(Data, sizeof(*dims)) ) { errno = EINVAL; return -1; }
-		PTY_SetAttrib(pty, dims, NULL, 1);
-		// Inform the server?
-		return 0;
+		return PTY_SetAttrib(pty, dims, NULL, 1);
 	}
 	errno = ENOSYS;
 	return -1;
@@ -643,8 +712,48 @@ int PTY_IOCtlServer(tVFS_Node *Node, int ID, void *Data)
 
 void PTY_CloseServer(tVFS_Node *Node)
 {
+	tPTY	*pty = Node->ImplPtr;
 	// Dereference node
 	Node->ReferenceCount --;
-	// If reference count == 0, remove from main list and SIGPIPE all clients when they write
+	// If reference count == 0, remove from main list
+	if( Node->ReferenceCount > 0 )
+		return ;
+	
+	// Locate on list and remove
+	tPTY	**prev_np;
+	if( pty->Name[0] ) {
+		RWLock_AcquireWrite(&glPTY_NamedPTYs);
+		prev_np = &gpPTY_FirstNamedPTY;
+	}
+	else {
+		RWLock_AcquireWrite(&glPTY_NumPTYs);
+		prev_np = &gpPTY_FirstNumPTY;
+	}
+
+	// Search list until *prev_np is equal to pty	
+	for( tPTY *tmp = *prev_np; *prev_np != pty && tmp; prev_np = &tmp->Next, tmp = tmp->Next )
+		;
+	
+	// Remove
+	if( *prev_np != pty ) {
+		Log_Error("PTY", "PTY %p(%i/%s) not on list at deletion time", pty, pty->NumericName, pty->Name);
+	}
+	else {
+		*prev_np = pty->Next;
+	}
+	
+	// Clean up lock
+	if( pty->Name[0] ) {
+		RWLock_Release(&glPTY_NamedPTYs);
+		giPTY_NamedCount --;
+	}
+	else {
+		RWLock_Release(&glPTY_NumPTYs);
+		giPTY_NumCount --;
+	}
+
+	// If there are no open children, we can safely free this PTY
+	if( pty->ClientNode.ReferenceCount == 0 )
+		free(pty);
 }
 
