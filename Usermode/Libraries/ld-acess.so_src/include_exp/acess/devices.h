@@ -6,10 +6,10 @@
 
 // === COMMON ===
 enum eDrv_Common {
-	DRV_IOCTL_NULL,
 	DRV_IOCTL_TYPE,
 	DRV_IOCTL_IDENT,
-	DRV_IOCTL_VER
+	DRV_IOCTL_VER,
+	DRV_IOCTL_LOOKUP,
 };
 
 enum eDrv_Types {

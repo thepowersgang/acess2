@@ -59,6 +59,7 @@ OBJ += messages.o modules.o syscalls.o system.o
 OBJ += threads.o mutex.o semaphore.o workqueue.o events.o rwlock.o
 OBJ += drv/zero-one.o drv/proc.o drv/fifo.o drv/dgram_pipe.o drv/iocache.o drv/pci.o drv/vpci.o
 OBJ += drv/vterm.o drv/vterm_font.o drv/vterm_vt100.o drv/vterm_output.o drv/vterm_input.o drv/vterm_termbuf.o
+OBJ += drv/pty.o
 OBJ += binary.o bin/elf.o bin/pe.o
 OBJ += vfs/main.o vfs/open.o vfs/acls.o vfs/dir.o vfs/io.o vfs/mount.o
 OBJ += vfs/memfile.o vfs/nodecache.o vfs/handle.o vfs/select.o vfs/mmap.o
