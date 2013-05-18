@@ -8,6 +8,8 @@
 #ifndef _ACESS_DEVICES_PTY_CMDS_H_
 #define _ACESS_DEVICES_PTY_CMDS_H_
 
+#include <stdint.h>
+
 enum
 {
 	PTY2D_CMD_NOP,
@@ -18,7 +20,14 @@ enum
 	PTY2D_CMD_BLIT,
 	PTY2D_CMD_SEND,
 	PTY2D_CMD_RECV,
-}
+};
+
+struct ptycmd_setcursorpos
+{
+	uint16_t	cmd;
+	uint16_t	x;
+	uint16_t	y;
+};
 
 #endif
 

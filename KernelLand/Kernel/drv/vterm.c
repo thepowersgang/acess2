@@ -5,7 +5,7 @@
  * drv/vterm.c
  * - Virtual Terminal - Initialisation and VFS Interface
  */
-#define DEBUG	0
+#define DEBUG	1
 #include "vterm.h"
 #include <fs_devfs.h>
 #include <modules.h>
@@ -182,7 +182,13 @@ int VT_Install(char **Arguments)
 			.OutputMode = PTYBUFFMT_TEXT,
 			.InputMode = PTYIMODE_CANON|PTYIMODE_ECHO
 		};
-		PTY_SetAttrib(gVT_Terminals[i].PTY, NULL, &mode, 0);
+		struct ptydims dims = {
+			.W = giVT_RealWidth / giVT_CharWidth,
+			.H = giVT_RealHeight / giVT_CharHeight,
+			.PW = giVT_RealWidth,
+			.PH = giVT_RealHeight
+		};
+		PTY_SetAttrib(gVT_Terminals[i].PTY, &dims, &mode, 0);
 	}
 	
 	// Add to DevFS
@@ -298,17 +304,24 @@ void VT_int_PutFBData(tVTerm *Term, size_t Offset, size_t Length, const void *Bu
 {
 	size_t	maxlen = Term->Width * Term->Height * 4;
 
-	if( Offset >= maxlen )
-		return ;
+	ENTER("pTerm xOffset xLength pBuffer", Term, Offset, Length, Buffer);
 
+	if( Offset >= maxlen ) {
+		LEAVE('-');
+		return ;
+	}
+
+	LOG("maxlen = 0x%x", maxlen);
 	Length = MIN(Length, maxlen - Offset);
 	
 	// If the terminal is currently shown, write directly to the screen
 	if( Term == gpVT_CurTerm )
 	{
 		// Center the terminal vertically
-		if( giVT_RealHeight > Term->Height )
+		if( giVT_RealHeight > Term->Height ) {
 			Offset += (giVT_RealHeight - Term->Height) / 2 * Term->Width * 4;
+			LOG("Altered offset 0x%x", Offset);
+		}
 		
 		// If the terminal is not native width, center it horizontally
 		if( giVT_RealWidth > Term->Width )
@@ -319,7 +332,9 @@ void VT_int_PutFBData(tVTerm *Term, size_t Offset, size_t Length, const void *Bu
 			// TODO: Fix to handle the final line correctly?
 			x = Offset/4;	y = x / Term->Width;	x %= Term->Width;
 			w = Length/4+x;	h = w / Term->Width;	w %= Term->Width;
-			
+
+			LOG("(%i,%i) %ix%i", x, y, w, h);		
+	
 			// Center
 			x += (giVT_RealWidth - Term->Width) / 2;
 			dst_ofs = (x + y * giVT_RealWidth) * 4;
@@ -345,9 +360,11 @@ void VT_int_PutFBData(tVTerm *Term, size_t Offset, size_t Length, const void *Bu
 	{
 		if( !Term->Buffer )
 			Term->Buffer = malloc( Term->Width * Term->Height * 4 );
+		LOG("Direct to cache");
 		// Copy to the local cache
 		memcpy( (char*)Term->Buffer + Offset, Buffer, Length );
 	}
+	LEAVE('-');
 }
 
 void VT_PTYOutput(void *Handle, size_t Length, const void *Data)
@@ -386,6 +403,19 @@ int VT_PTYModeset(void *Handle, const struct ptymode *Mode)
 {
 	tVTerm	*term = Handle;
 	term->Mode = (Mode->OutputMode & PTYOMODE_BUFFMT);
+
+	if( term == gpVT_CurTerm ) {
+		switch(term->Mode)
+		{
+		case PTYBUFFMT_TEXT:
+			VT_SetMode(VIDEO_BUFFMT_TEXT);
+			break;
+		default:
+			VT_SetMode(VIDEO_BUFFMT_FRAMEBUFFER);
+			break;
+		}
+	}	
+
 	return 0;
 }
 
@@ -636,7 +666,7 @@ void VT_SetTerminal(int ID)
 	
 	LOG("Attempting VT_SetMode");
 	
-	if( gpVT_CurTerm->Mode == TERM_MODE_TEXT )
+	if( gpVT_CurTerm->Mode == PTYBUFFMT_TEXT )
 	{
 		VT_SetMode( VIDEO_BUFFMT_TEXT );
 	}

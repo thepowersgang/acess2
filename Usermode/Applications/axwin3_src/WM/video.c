@@ -7,7 +7,8 @@
  */
 #include <common.h>
 #include <acess/sys.h>
-#include <acess/devices/terminal.h>
+#include <acess/devices/pty.h>
+#include <acess/devices/pty_cmds.h>
 #include <image.h>
 #include "resources/cursor.h"
 #include <stdio.h>
@@ -20,6 +21,7 @@ extern int	giTerminalFD_Input;
 
 // === PROTOTYPES ===
 void	Video_Setup(void);
+void	Video_int_SetBufFmt(int NewFmt);
 void	Video_SetCursorPos(short X, short Y);
 void	Video_Update(void);
 void	Video_FillRect(int X, int Y, int W, int H, uint32_t Color);
@@ -34,7 +36,7 @@ uint32_t	*gpScreenBuffer;
 // === CODE ===
 void Video_Setup(void)
 {
-	 int	tmpInt;
+	 int	rv;
 	
 	// Open terminal
 	#if 0
@@ -47,40 +49,49 @@ void Video_Setup(void)
 	#else
 	giTerminalFD = 1;
 	giTerminalFD_Input = 0;
-	// Check that the console is a VT
+	// Check that the console is a PTY
 	// - _SysIOCtl(..., 0, NULL) returns the type, which should be 2
-	tmpInt = _SysIOCtl(1, 0, NULL);
-	if( tmpInt != 2 )
+	rv = _SysIOCtl(1, DRV_IOCTL_TYPE, NULL);
+	if( rv != DRV_TYPE_TERMINAL )
 	{
-		fprintf(stderr, "stdout is not an Acess VT, can't start (2 exp, %i got)\n", tmpInt);
-		_SysDebug("stdout is not an Acess VT, can't start");
+		fprintf(stderr, "stdout is not a PTY, can't start (%i exp, %i got)\n",
+			DRV_TYPE_TERMINAL, rv);
+		_SysDebug("stdout is not an PTY, can't start");
 		exit(-1);
 	}
 	#endif
-	
+
+	// TODO: Check terminal echoback that it does support graphical modes
+	// And/or have terminal flags fetchable by the client
+
 	// Set mode to video
-	tmpInt = TERM_MODE_FB;
-	_SysIOCtl( giTerminalFD, TERM_IOCTL_MODETYPE, &tmpInt );
-	
+	Video_int_SetBufFmt(PTYBUFFMT_FB);	
+
 	// Get dimensions
-	giScreenWidth = _SysIOCtl( giTerminalFD, TERM_IOCTL_WIDTH, NULL );
-	giScreenHeight = _SysIOCtl( giTerminalFD, TERM_IOCTL_HEIGHT, NULL );
+	struct ptydims dims;
+	rv = _SysIOCtl( giTerminalFD, PTY_IOCTL_GETDIMS, &dims );
+	if( rv ) {
+		perror("Can't get terminal dimensions (WTF?)");
+		exit(-1);
+	}
+	giScreenWidth = dims.PW;
+	giScreenHeight = dims.PH;
+	_SysDebug("AxWin3 running at %ix%i", dims.PW, dims.PH);
 
 	giVideo_LastDirtyLine = giScreenHeight;
-	
-	// Force VT to be shown
-	_SysIOCtl( giTerminalFD, TERM_IOCTL_FORCESHOW, NULL );
 	
 	// Create local framebuffer (back buffer)
 	gpScreenBuffer = malloc( giScreenWidth*giScreenHeight*4 );
 
 	// Set cursor position and bitmap
-	_SysIOCtl(giTerminalFD, TERM_IOCTL_SETCURSORBITMAP, &cCursorBitmap);
+	// TODO: This will require using the 2DCMD buffer format
+	//_SysIOCtl(giTerminalFD, TERM_IOCTL_SETCURSORBITMAP, &cCursorBitmap);
 	Video_SetCursorPos( giScreenWidth/2, giScreenHeight/2 );
 }
 
 void Video_Update(void)
 {
+	#if 0
 	 int	ofs = giVideo_FirstDirtyLine*giScreenWidth;
 	 int	size = (giVideo_LastDirtyLine-giVideo_FirstDirtyLine)*giScreenWidth;
 	
@@ -94,17 +105,39 @@ void Video_Update(void)
 	_SysDebug("Video_Update - Done");
 	giVideo_FirstDirtyLine = giScreenHeight;
 	giVideo_LastDirtyLine = 0;
+	#else
+	size_t	size = giScreenHeight * giScreenWidth;
+	Video_int_SetBufFmt(PTYBUFFMT_FB);
+	_SysWrite(giTerminalFD, gpScreenBuffer, size*4);
+	#endif
+}
+
+void Video_int_SetBufFmt(int NewFmt)
+{
+	static int current_fmt;
+	
+	if( current_fmt == NewFmt )
+		return ;
+	
+	struct ptymode mode = {.InputMode = 0, .OutputMode = NewFmt};
+	int rv = _SysIOCtl( giTerminalFD, PTY_IOCTL_SETMODE, &mode );
+	if( rv ) {
+		perror("Can't set PTY to framebuffer mode");
+		exit(-1);
+	}
+	
+	current_fmt = NewFmt;
 }
 
 void Video_SetCursorPos(short X, short Y)
 {
-	struct {
-		uint16_t	x;
-		uint16_t	y;
-	} pos;
-	pos.x = giVideo_CursorX = X;
-	pos.y = giVideo_CursorY = Y;
-	_SysIOCtl(giTerminalFD, TERM_IOCTL_GETSETCURSOR, &pos);
+	struct ptycmd_setcursorpos	cmd;
+	cmd.cmd = PTY2D_CMD_SETCURSORPOS;
+	cmd.x = giVideo_CursorX = X;
+	cmd.y = giVideo_CursorY = Y;
+
+	Video_int_SetBufFmt(PTYBUFFMT_2DCMD);	
+	_SysWrite(giTerminalFD, &cmd, sizeof(cmd));
 }
 
 void Video_FillRect(int X, int Y, int W, int H, uint32_t Colour)

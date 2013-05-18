@@ -20,10 +20,16 @@
 #define PTYBUFFMT_2DCMD	 0x002
 #define PTYBUFFMT_3DCMD	 0x003
 
+/*
+ * Note: When setting dimensions from a client, it is up to the server what fields are used.
+ * This is usually dependent on the current output mode.
+ */
 struct ptydims
 {
 	short	W;
 	short	H;
+	short	PW;
+	short	PH;
 };
 struct ptymode
 {

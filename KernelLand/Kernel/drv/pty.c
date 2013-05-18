@@ -5,7 +5,7 @@
  * drv/pty.c
  * - Pseudo Terminals
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <acess.h>
 #include <vfs.h>
 #include <fs_devfs.h>
@@ -230,8 +230,7 @@ int PTY_SetAttrib(tPTY *PTY, const struct ptydims *Dims, const struct ptymode *M
 			errno = EINVAL;
 			return -1;
 		}
-		PTY->Mode = *Mode;
-		if( !WasClient )
+		if( WasClient )
 		{
 			if( PTY->ModeSet && PTY->ModeSet(PTY->OutputHandle, Mode) )
 			{
@@ -245,10 +244,17 @@ int PTY_SetAttrib(tPTY *PTY, const struct ptydims *Dims, const struct ptymode *M
 				// ACK by server doing GETMODE
 			}
 		}
+		else
+		{
+			// Should the client be informed that the server just twiddled the modes?
+		}
+		LOG("PTY %p mode set to {0%o, 0%o}", PTY, Mode->InputMode, Mode->OutputMode);
+		PTY->Mode = *Mode;
 	}
 	if( Dims )
 	{
-		if( WasClient ) {
+		if( WasClient )
+		{
 			// Poke the server?
 			if( PTY->ReqResize && PTY->ReqResize(PTY->OutputHandle, Dims) )
 			{
@@ -260,9 +266,11 @@ int PTY_SetAttrib(tPTY *PTY, const struct ptydims *Dims, const struct ptymode *M
 				// Inform server process... somehow
 			}
 		}
-		else {
+		else
+		{
 			// SIGWINSZ to client
 		}
+		LOG("PTY %p dims set to %ix%i", PTY, Dims->W, Dims->H);
 		PTY->Dims = *Dims;
 	}
 	return 0;
