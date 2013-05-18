@@ -5,6 +5,7 @@
  * drv/pty.c
  * - Pseudo Terminals
  */
+#define DEBUG	1
 #include <acess.h>
 #include <vfs.h>
 #include <fs_devfs.h>
@@ -115,6 +116,7 @@ tPTY	*gpPTY_FirstNamedPTY;
 // === CODE ===
 int PTY_Install(char **Arguments)
 {
+	DevFS_AddDevice(&gPTY_Driver);
 	return MODULE_ERR_OK;
 }
 
@@ -263,8 +265,10 @@ void PTY_Close(tPTY *PTY)
 
 size_t _rb_write(void *buf, size_t buflen, int *rd, int *wr, const void *data, size_t len)
 {
-	size_t space = (*rd - *wr + buflen) % buflen - 1;
+	size_t space = (*rd - *wr + buflen - 1) % buflen;
+	ENTER("pbuf ibuflen prd pwr pdata ilen", buf, buflen, rd, wr, data, len);
 	len = MIN(space, len);
+	LOG("space = %i, *rd = %i, *wr = %i", space, *rd, *wr);
 	if(*wr + len >= buflen) {
 		size_t prelen = buflen - *wr;
 		memcpy((char*)buf + *wr, data, prelen);
@@ -275,6 +279,7 @@ size_t _rb_write(void *buf, size_t buflen, int *rd, int *wr, const void *data, s
 		memcpy((char*)buf + *wr, data, len);
 		*wr += len;
 	}
+	LEAVE('i', len);
 	return len;
 }
 size_t _rb_read(void *buf, size_t buflen, int *rd, int *wr, void *data, size_t len)
@@ -316,8 +321,9 @@ size_t PTY_int_SendInput(tPTY *PTY, const char *Input, size_t Length)
 {
 	size_t	ret = 1, print = 1;
 	
-	// Only counts for text input modes
-	if( (PTY->Mode.OutputMode & PTYOMODE_BUFFMT) == PTYBUFFMT_TEXT )
+	// Input mode stuff only counts for text output mode
+	// - Any other is Uint32 keypresses
+	if( (PTY->Mode.OutputMode & PTYOMODE_BUFFMT) != PTYBUFFMT_TEXT )
 		return PTY_int_WriteInput(PTY, Input, Length);
 	// If in raw mode, flush directlr
 	if( (PTY->Mode.InputMode & PTYIMODE_RAW) )
@@ -438,9 +444,9 @@ int PTY_ReadDir(tVFS_Node *Node, int Pos, char Name[FILENAME_MAX])
 		return -1;
 	
 	if( pty->Name[0] )
-		snprintf(Name, 255, "%s%c", pty->Name, (Pos == 0 ? 'c' : 's'));
+		snprintf(Name, FILENAME_MAX, "%s%c", pty->Name, (Pos == 0 ? 'c' : 's'));
 	else
-		snprintf(Name, 255, "%i%c", pty->NumericName, (Pos == 0 ? 'c' : 's'));
+		snprintf(Name, FILENAME_MAX, "%i%c", pty->NumericName, (Pos == 0 ? 'c' : 's'));
 	return 0;
 }
 
@@ -669,11 +675,7 @@ size_t PTY_ReadServer(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer
 //\! Write to the client's input
 size_t PTY_WriteServer(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags)
 {
-	// Write to current line buffer, flushing on unknown character or newline
-	// - or line wrap?
-	// Echo back if instructed
-	PTY_SendInput(Node->ImplPtr, Buffer, Length);
-	return -1;
+	return PTY_SendInput(Node->ImplPtr, Buffer, Length);
 }
 
 int PTY_IOCtlServer(tVFS_Node *Node, int ID, void *Data)
@@ -705,6 +707,8 @@ int PTY_IOCtlServer(tVFS_Node *Node, int ID, void *Data)
 		if( !CheckMem(Data, sizeof(*dims)) ) { errno = EINVAL; return -1; }
 		PTY_SetAttrib(pty, dims, NULL, 0);
 		break;
+	case PTY_IOCTL_GETID:
+		return pty->NumericName;
 	}
 	errno = ENOSYS;
 	return -1;
