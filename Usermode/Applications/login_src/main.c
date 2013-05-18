@@ -1,7 +1,9 @@
 /*
  * Acess 2 Login
+ * - By John Hodge (thePowersGang)
  */
 #include "header.h"
+#include <acess/devices/pty.h>	// Enable/disable echo
 
 // === CONSTANTS ===
 #define BUFLEN	1024
@@ -70,6 +72,16 @@ char *_GetString(int bEcho)
 	 int	pos = 0;
 	char	ch;
 	
+	struct ptymode	mode;
+	const int	is_pty = (_SysIOCtl(0, DRV_IOCTL_TYPE, NULL) == DRV_TYPE_TERMINAL);
+
+	// Clear PTY echo
+	if( !bEcho && is_pty ) {
+		_SysIOCtl(0, PTY_IOCTL_GETMODE, &mode);
+		mode.InputMode &= ~PTYIMODE_ECHO;
+		_SysIOCtl(0, PTY_IOCTL_SETMODE, &mode);
+	}
+	
 	// Read in text
 	while( (ch = fgetc(stdin)) != -1 && ch != '\n' )
 	{
@@ -91,18 +103,17 @@ char *_GetString(int bEcho)
 		else
 			ret[pos++] = ch;
 		
-		// Don't echo out to the screen
-		if( bEcho ) {
-			fputc(ch, stdout);
-			fflush(stdout);
-		}
-		
 		if(pos == BUFLEN-1)	break;
 	}
 	
 	ret[pos] = '\0';
+
+	// Re-set echo
+	if( !bEcho && is_pty ) {
+		mode.InputMode |= PTYIMODE_ECHO;
+		_SysIOCtl(0, PTY_IOCTL_SETMODE, &mode);
+	}
 	
-	printf("\n");
 	return strdup(ret);
 }
 
