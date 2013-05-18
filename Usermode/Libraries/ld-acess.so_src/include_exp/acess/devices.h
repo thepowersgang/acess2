@@ -31,9 +31,9 @@ enum eDrv_Video {
 };
 struct sVideo_IOCtl_Mode {
 	short	id;
-	Uint16	width;
-	Uint16	height;
-	Uint16	bpp;
+	unsigned short	width;
+	unsigned short	height;
+	unsigned short	bpp;
 };
 typedef struct sVideo_IOCtl_Mode	tVideo_IOCtl_Mode;	//!< Mode Type
 
