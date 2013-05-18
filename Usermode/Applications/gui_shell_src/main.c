@@ -15,6 +15,8 @@
 #include "include/vt100.h"
 #include <string.h>
 #include <unicode.h>
+#include <errno.h>
+#include <acess/devices/pty.h>
 
 // === PROTOTYPES ===
  int	main(int argc, char *argv[], const char **envp);
@@ -25,8 +27,7 @@ void	Term_HandleOutput(int Len, const char *Buf);
 // === GLOBALS ===
 tHWND	gMainWindow;
 tHWND	gMenuWindow;
- int	giChildStdin;
- int	giChildStdout;
+ int	giPTYHandle;
 
 // === CODE ===
 int main(int argc, char *argv[], const char **envp)
@@ -54,33 +55,36 @@ int main(int argc, char *argv[], const char **envp)
 	AxWin3_RichText_SetCursorType	(gMainWindow, AXWIN3_RICHTEXT_CURSOR_INV);
 	AxWin3_RichText_SetCursorBlink	(gMainWindow, 1);
 
-	// <testing>
-	AxWin3_RichText_SetLineCount(gMainWindow, 3);
-	AxWin3_RichText_SendLine(gMainWindow, 0, "First line!");
-	AxWin3_RichText_SendLine(gMainWindow, 2, "Third line! \1ff0000A red");
-	// </testing>
-
 	Display_Init(80, 25, 100);
 	AxWin3_ResizeWindow(gMainWindow, 80*8, 25*16);
 	AxWin3_MoveWindow(gMainWindow, 20, 50);
 	AxWin3_ShowWindow(gMainWindow, 1);
 	AxWin3_FocusWindow(gMainWindow);
 
-	// Spawn shell
-	giChildStdin = _SysOpen("/Devices/fifo/anon", OPENFLAG_READ|OPENFLAG_WRITE);
-	giChildStdout = _SysOpen("/Devices/fifo/anon", OPENFLAG_READ|OPENFLAG_WRITE);
-	if( giChildStdout == -1 || giChildStdin == -1 ) {
-		perror("Oh, fsck");
-		_SysDebug("out,in = %i,%i", giChildStdout, giChildStdin);
+	// Create PTY
+	giPTYHandle = _SysOpen("/Devices/pts/gui0", OPENFLAG_READ|OPENFLAG_WRITE|OPENFLAG_CREATE);
+	if( giPTYHandle < 0 ) {
+		perror("Unable to create/open PTY");
+		_SysDebug("Unable to create/open PTY: %s", strerror(errno));
 		return -1;
 	}
-
+	// - Initialise
 	{
-		 int	fds[] = {giChildStdin, giChildStdout, giChildStdout};
+		struct ptymode	mode = {.InputMode = PTYIMODE_CANON|PTYIMODE_ECHO, .OutputMode=0};
+		struct ptydims	dims = {.W = 80, .H = 25};
+		_SysIOCtl(giPTYHandle, PTY_IOCTL_SETMODE, &mode);
+		_SysIOCtl(giPTYHandle, PTY_IOCTL_SETDIMS, &dims);
+	}
+
+	// Spawn shell
+	{
+		 int	fd = _SysOpen("/Devices/pts/gui0c", OPENFLAG_READ|OPENFLAG_WRITE);
+		 int	fds[] = {fd, fd, fd};
 		const char	*argv[] = {"CLIShell", NULL};
 		int pid = _SysSpawn("/Acess/Bin/CLIShell", argv, envp, 3, fds, NULL);
 		if( pid < 0 )
-			_SysDebug("ERROR: Shell spawn failed");
+			_SysDebug("ERROR: Shell spawn failed: %s", strerror(errno));
+		_SysClose(fd);
 	}
 
 	// Main loop
@@ -89,15 +93,15 @@ int main(int argc, char *argv[], const char **envp)
 		fd_set	fds;
 		
 		FD_ZERO(&fds);
-		FD_SET(giChildStdout, &fds);
-		AxWin3_MessageSelect(giChildStdout + 1, &fds);
+		FD_SET(giPTYHandle, &fds);
+		AxWin3_MessageSelect(giPTYHandle + 1, &fds);
 		
-		if( FD_ISSET(giChildStdout, &fds) )
+		if( FD_ISSET(giPTYHandle, &fds) )
 		{
 			_SysDebug("Activity on child stdout");
 			// Read and update screen
 			char	buf[128];
-			int len = _SysRead(giChildStdout, buf, sizeof(buf));
+			int len = _SysRead(giPTYHandle, buf, sizeof(buf));
 			if( len <= 0 )	break;
 			
 			Term_HandleOutput(len, buf);
@@ -144,7 +148,7 @@ int Term_KeyHandler(tHWND Window, int bPress, uint32_t KeySym, uint32_t Translat
 			len = WriteUTF8(buf, Translated);
 			
 			_SysDebug("Keystroke %x:%x translated to '%.*s'", KeySym, Translated, len, buf);
-			_SysWrite(giChildStdin, buf, len);
+			_SysWrite(giPTYHandle, buf, len);
 			
 			return 0;
 		}
@@ -156,10 +160,19 @@ int Term_KeyHandler(tHWND Window, int bPress, uint32_t KeySym, uint32_t Translat
 		case KEYSYM_LEFTARROW:
 			str = "\x1b[D";
 			break;
+		case KEYSYM_RIGHTARROW:
+			str = "\x1b[C";
+			break;
+		case KEYSYM_UPARROW:
+			str = "\x1b[A";
+			break;
+		case KEYSYM_DOWNARROW:
+			str = "\x1b[B";
+			break;
 		}
 		if( str )
 		{
-			_SysWrite(giChildStdin, str, strlen(str));
+			_SysWrite(giPTYHandle, str, strlen(str));
 		}
 	}
 	return 0;
