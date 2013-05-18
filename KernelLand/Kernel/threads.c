@@ -1133,9 +1133,20 @@ char **Threads_GetCWD(void)
 
 void Threads_int_DumpThread(tThread *thread)
 {
+	if( !thread ) {
+		Log(" %p NULL", thread);
+		return ;
+	}
+	if( !CheckMem(thread, sizeof(tThread)) ) {
+		Log(" %p INVAL", thread);
+		return ;
+	}
+	tPID	pid = (thread->Process ? thread->Process->PID : -1);
+	const char	*statstr = (thread->Status < sizeof(casTHREAD_STAT)/sizeof(casTHREAD_STAT[0])
+		? casTHREAD_STAT[thread->Status] : "");
 	Log(" %p %i (%i) - %s (CPU %i) - %i (%s)",
-		thread, thread->TID, thread->Process->PID, thread->ThreadName, thread->CurCPU,
-		thread->Status, casTHREAD_STAT[thread->Status]
+		thread, thread->TID, pid, thread->ThreadName, thread->CurCPU,
+		thread->Status, statstr
 		);
 	switch(thread->Status)
 	{
@@ -1148,6 +1159,9 @@ void Threads_int_DumpThread(tThread *thread)
 			((tSemaphore*)thread->WaitPointer)->ModName,
 			((tSemaphore*)thread->WaitPointer)->Name
 			);
+		break;
+	case THREAD_STAT_EVENTSLEEP:
+		// TODO: Event mask
 		break;
 	case THREAD_STAT_ZOMBIE:
 		Log("  Return Status: %i", thread->RetStatus);
@@ -1200,13 +1214,11 @@ void Threads_DumpActive(void)
  */
 void Threads_Dump(void)
 {
-	tThread	*thread;
-	
 	Log("--- Thread Dump ---");
 	Threads_DumpActive();
 	
 	Log("All Threads:");
-	for(thread=gAllThreads;thread;thread=thread->GlobalNext)
+	for(tThread *thread = gAllThreads; thread; thread = thread->GlobalNext)
 	{
 		Threads_int_DumpThread(thread);
 	}
