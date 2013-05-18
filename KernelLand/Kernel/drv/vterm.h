@@ -12,6 +12,7 @@
 #include <api_drv_video.h>	// tVT_Char
 #include <api_drv_terminal.h>
 #include <vfs.h>
+#include <drv_pty.h>
 
 // === CONSTANTS ===
 #define MAX_INPUT_CHARS32	64
@@ -46,8 +47,6 @@ struct sVTerm
 	 int	Mode;	//!< Current Mode (see ::eTplTerminal_Modes)
 	 int	Flags;	//!< Flags (see VT_FLAG_*)
 	
-	short	NewWidth;	//!< Un-applied dimensions (Width)
-	short	NewHeight;	//!< Un-applied dimensions (Height)
 	short	Width;	//!< Virtual Width
 	short	Height;	//!< Virtual Height
 	short	TextWidth;	//!< Text Virtual Width
@@ -70,25 +69,16 @@ struct sVTerm
 	 int	VideoCursorX;
 	 int	VideoCursorY;
 	
-	tMutex	ReadingLock;	//!< Lock the VTerm when a process is reading from it
-	tTID	ReadingThread;	//!< Owner of the lock
-	 int	InputRead;	//!< Input buffer read position
-	 int	InputWrite;	//!< Input buffer write position
-	char	InputBuffer[MAX_INPUT_CHARS8];
 	Uint32	RawScancode;	//!< last raw scancode recieved
-//	tSemaphore	InputSemaphore;
 	
-	tPGID	OwningProcessGroup;	//!< The process group that owns the terminal
-
 	Uint32		*Buffer;
 
 	// TODO: Do I need to keep this about?
 	// When should it be deallocated? on move to text mode, or some other time
 	// Call set again, it's freed, and if NULL it doesn't get reallocated.
 	tVideo_IOCtl_Bitmap	*VideoCursor;
-	
-	char	Name[2];	//!< Name of the terminal
-	tVFS_Node	Node;
+
+	tPTY	*PTY;
 };
 
 // === GOBALS ===
@@ -121,7 +111,7 @@ extern void	VT_int_PutString(tVTerm *Term, const Uint8 *Buffer, Uint Count);
 extern void	VT_int_PutChar(tVTerm *Term, Uint32 Ch);
 extern void	VT_int_ScrollText(tVTerm *Term, int Count);
 extern void	VT_int_ClearLine(tVTerm *Term, int Num);
-extern void	VT_int_ChangeMode(tVTerm *Term, int NewMode, int NewWidth, int NewHeight);
+extern void	VT_int_Resize(tVTerm *Term, int NewWidth, int NewHeight);
 extern void	VT_int_ToggleAltBuffer(tVTerm *Term, int Enabled);
 
 #endif

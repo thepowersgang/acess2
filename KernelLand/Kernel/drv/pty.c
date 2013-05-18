@@ -5,7 +5,7 @@
  * drv/pty.c
  * - Pseudo Terminals
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include <vfs.h>
 #include <fs_devfs.h>
@@ -30,6 +30,7 @@ struct sPTY
 	void	*OutputHandle;
 	tPTY_OutputFcn	OutputFcn;
 	tPTY_ReqResize	ReqResize;
+	tPTY_ModeSet	ModeSet;
 
 	struct ptymode	Mode;
 	struct ptydims	Dims;
@@ -121,7 +122,7 @@ int PTY_Install(char **Arguments)
 }
 
 // --- Management ---
-tPTY *PTY_Create(const char *Name, void *Handle, tPTY_OutputFcn Output, tPTY_ReqResize ReqResize)
+tPTY *PTY_Create(const char *Name, void *Handle, tPTY_OutputFcn Output, tPTY_ReqResize ReqResize, tPTY_ModeSet ModeSet)
 {
 	tPTY	**prev_np = NULL;
 	size_t	namelen;
@@ -188,6 +189,7 @@ tPTY *PTY_Create(const char *Name, void *Handle, tPTY_OutputFcn Output, tPTY_Req
 	ret->OutputHandle = Handle;
 	ret->OutputFcn = Output;
 	ret->ReqResize = ReqResize;
+	ret->ModeSet = ModeSet;
 	// - Server node
 	ret->ServerNode.ImplPtr = ret;
 	ret->ServerNode.Type = &gPTY_NodeType_Server;
@@ -229,11 +231,19 @@ int PTY_SetAttrib(tPTY *PTY, const struct ptydims *Dims, const struct ptymode *M
 			return -1;
 		}
 		PTY->Mode = *Mode;
-		if( !WasClient && !PTY->OutputFcn )
+		if( !WasClient )
 		{
-			Log_Warning("PTY", "TODO: Need to stop client output until modeset has been ACKed");
-			// Block write until acked
-			// ACK by server doing GETMODE
+			if( PTY->ModeSet && PTY->ModeSet(PTY->OutputHandle, Mode) )
+			{
+				errno = EINVAL;
+				return -1;
+			}
+			else if( !PTY->OutputFcn )
+			{
+				Log_Warning("PTY", "TODO: Need to stop client output until modeset has been ACKed");
+				// Block write until acked
+				// ACK by server doing GETMODE
+			}
 		}
 	}
 	if( Dims )
@@ -504,9 +514,9 @@ tVFS_Node *PTY_FindDir(tVFS_Node *Node, const char *Name, Uint Flags)
 tVFS_Node *PTY_MkNod(tVFS_Node *Node, const char *Name, Uint Mode)
 {
 	// zero-length name means a numbered pty has been requested
-	if( Name[0] == '\0' )
+	if( Name[0] == '\0' || (Name[0] == '#' && Name[1] == '\0') )
 	{
-		tPTY	*ret = PTY_Create(NULL, NULL, NULL, NULL);
+		tPTY	*ret = PTY_Create(NULL, NULL, NULL, NULL, NULL);
 		if( !ret )
 			return NULL;
 		return &ret->ServerNode;
@@ -515,7 +525,7 @@ tVFS_Node *PTY_MkNod(tVFS_Node *Node, const char *Name, Uint Mode)
 	// Otherwise return a named PTY
 	// TODO: Should the request be for '<name>s' or just '<name>'	
 
-	tPTY	*ret = PTY_Create(Name, NULL, NULL, NULL);
+	tPTY	*ret = PTY_Create(Name, NULL, NULL, NULL, NULL);
 	if(!ret)
 		return NULL;
 	return &ret->ServerNode;
@@ -575,7 +585,7 @@ size_t PTY_WriteClient(tVFS_Node *Node, off_t Offset, size_t Length, const void 
 	// Write to either FIFO or directly to output function
 	if( pty->OutputFcn )
 	{
-		pty->OutputFcn(pty->OutputHandle, Buffer, Length, pty->Mode.OutputMode);
+		pty->OutputFcn(pty->OutputHandle, Length, Buffer);
 	}
 	else
 	{
@@ -598,7 +608,7 @@ int PTY_IOCtlClient(tVFS_Node *Node, int ID, void *Data)
 	{
 	case DRV_IOCTL_TYPE:	return DRV_TYPE_TERMINAL;
 	case DRV_IOCTL_IDENT:	memcpy(Data, "PTY\0", 4);	return 0;
-	case DRV_IOCTL_VER:	return 0x100;
+	case DRV_IOCTL_VERSION:	return 0x100;
 	case DRV_IOCTL_LOOKUP:	return 0;
 	
 	case PTY_IOCTL_GETMODE:
@@ -624,7 +634,7 @@ void PTY_ReferenceClient(tVFS_Node *Node)
 {
 	Node->ReferenceCount ++;
 	// TODO: Add PID to list of client PIDs
-	Log_Notice("PTY", "TODO: List of client PIDs");
+//	Log_Notice("PTY", "ReferenceClient: TODO - List of client PIDs");
 }
 
 void PTY_CloseClient(tVFS_Node *Node)
@@ -633,6 +643,7 @@ void PTY_CloseClient(tVFS_Node *Node)
 	Node->ReferenceCount --;
 
 	// Remove PID from list
+	// TODO: Maintain list of client processes
 
 	// Free structure if this was the last open handle
 	if( Node->ReferenceCount == 0 && pty->ServerNode.ReferenceCount == 0 )
@@ -687,7 +698,7 @@ int PTY_IOCtlServer(tVFS_Node *Node, int ID, void *Data)
 	{
 	case DRV_IOCTL_TYPE:	return DRV_TYPE_TERMINAL;
 	case DRV_IOCTL_IDENT:	memcpy(Data, "PTY\0", 4);	return 0;
-	case DRV_IOCTL_VER:	return 0x100;
+	case DRV_IOCTL_VERSION:	return 0x100;
 	case DRV_IOCTL_LOOKUP:	return 0;
 	
 	case PTY_IOCTL_GETMODE:

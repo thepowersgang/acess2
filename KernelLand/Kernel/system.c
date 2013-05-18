@@ -48,15 +48,15 @@ void System_Init(char *CommandLine)
 	if(Proc_Clone(CLONE_VM|CLONE_NOUSER) == 0)
 	{
 		const char	*args[] = {gsInitBinary, 0};
-		VFS_Open("/Devices/VTerm/0", VFS_OPENFLAG_READ|VFS_OPENFLAG_USER);	// 0: stdin
-		VFS_Open("/Devices/VTerm/0", VFS_OPENFLAG_WRITE|VFS_OPENFLAG_USER);	// 1: stdout
+		VFS_Open("/Devices/pts/vt0c", VFS_OPENFLAG_READ|VFS_OPENFLAG_USER);	// 0: stdin
+		VFS_Open("/Devices/pts/vt0c", VFS_OPENFLAG_WRITE|VFS_OPENFLAG_USER);	// 1: stdout
 		Proc_Execve(gsInitBinary, args, &args[1], 0);
 		Log_KernelPanic("System", "Unable to spawn init '%s'", gsInitBinary);
 	}
 	
 	// Set the debug to be echoed to the terminal
 	Log_Log("Config", "Kernel now echoes to VT7 (Ctrl-Alt-F8)");
-	Debug_SetKTerminal("/Devices/VTerm/7");
+	Debug_SetKTerminal("/Devices/pts/vt7c");
 }
 
 /**

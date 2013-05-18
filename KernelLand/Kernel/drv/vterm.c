@@ -34,36 +34,24 @@ extern void	Debug_SetKTerminal(const char *File);
 
 // === PROTOTYPES ===
  int	VT_Install(char **Arguments);
- int	VT_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX]);
-tVFS_Node	*VT_FindDir(tVFS_Node *Node, const char *Name, Uint Flags);
  int	VT_Root_IOCtl(tVFS_Node *Node, int Id, void *Data);
-size_t	VT_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags);
-size_t	VT_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags);
- int	VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data);
-void	VT_Terminal_Reference(tVFS_Node *Node);
-void	VT_Terminal_Close(tVFS_Node *Node);
-//void	VT_SetTerminal(int Term);
+void	VT_int_PutFBData(tVTerm *Term, size_t Offset, size_t Length, const void *Data);
+void	VT_PTYOutput(void *Handle, size_t Length, const void *Data);
+ int	VT_PTYResize(void *Handle, const struct ptydims *Dims); 
+ int	VT_PTYModeset(void *Handle, const struct ptymode *Mode);
 
 // === CONSTANTS ===
 
 // === GLOBALS ===
-MODULE_DEFINE(0, VERSION, VTerm, VT_Install, NULL, NULL);
+MODULE_DEFINE(0, VERSION, VTerm, VT_Install, NULL, "PTY", NULL);
 tVFS_NodeType	gVT_RootNodeType = {
 	.TypeName = "VTerm Root",
-	.ReadDir = VT_ReadDir,
-	.FindDir = VT_FindDir,
 	.IOCtl = VT_Root_IOCtl
-	};
-tVFS_NodeType	gVT_TermNodeType = {
-	.TypeName = "VTerm",
-	.Read = VT_Read,
-	.Write = VT_Write,
-	.IOCtl = VT_Terminal_IOCtl
 	};
 tDevFS_Driver	gVT_DrvInfo = {
 	NULL, "VTerm",
 	{
-	.Flags = VFS_FFLAG_DIRECTORY,
+	.Flags = 0,
 	.Size = NUM_VTS,
 	.Inode = -1,
 	.NumACLs = 0,
@@ -182,21 +170,19 @@ int VT_Install(char **Arguments)
 		gVT_Terminals[i].WritePos = 0;
 		gVT_Terminals[i].AltWritePos = 0;
 		gVT_Terminals[i].ViewPos = 0;
-		gVT_Terminals[i].ReadingThread = -1;
 		gVT_Terminals[i].ScrollHeight = 0;
 		
 		// Initialise
-		VT_int_ChangeMode( &gVT_Terminals[i],
-			TERM_MODE_TEXT, giVT_RealWidth, giVT_RealHeight );
-		
-		gVT_Terminals[i].Name[0] = '0'+i;
-		gVT_Terminals[i].Name[1] = '\0';
-		gVT_Terminals[i].Node.Inode = i;
-		gVT_Terminals[i].Node.ImplPtr = &gVT_Terminals[i];
-		gVT_Terminals[i].Node.NumACLs = 0;	// Only root can open virtual terminals
-	
-		gVT_Terminals[i].Node.Type = &gVT_TermNodeType;	
-//		Semaphore_Init(&gVT_Terminals[i].InputSemaphore, 0, MAX_INPUT_CHARS8, "VTerm", gVT_Terminals[i].Name);
+		VT_int_Resize( &gVT_Terminals[i], giVT_RealWidth, giVT_RealHeight );
+		gVT_Terminals[i].Mode = PTYBUFFMT_TEXT;
+		char	name[] = {'v','t','0'+i,'\0'};
+		gVT_Terminals[i].PTY = PTY_Create(name, &gVT_Terminals[i],
+			VT_PTYOutput, VT_PTYResize, VT_PTYModeset);
+		struct ptymode mode = {
+			.OutputMode = PTYBUFFMT_TEXT,
+			.InputMode = PTYIMODE_CANON|PTYIMODE_ECHO
+		};
+		PTY_SetAttrib(gVT_Terminals[i].PTY, NULL, &mode, 0);
 	}
 	
 	// Add to DevFS
@@ -204,7 +190,7 @@ int VT_Install(char **Arguments)
 	
 	// Set kernel output to VT0
 	Log_Debug("VTerm", "Setting kernel output to VT#0");
-	Debug_SetKTerminal("/Devices/VTerm/0");
+	Debug_SetKTerminal("/Devices/pts/vt0c");
 	
 	return MODULE_ERR_OK;
 }
@@ -242,6 +228,7 @@ void VT_SetResolution(int Width, int Height)
 	VFS_IOCtl( giVT_OutputDevHandle, VIDEO_IOCTL_GETSETMODE, &tmp );
 	
 	// Resize text terminals if needed
+	// - VT0 check is for the first resolution set
 	if( gVT_Terminals[0].Text && (giVT_RealWidth != mode.width || giVT_RealHeight != mode.height) )
 	{
 		 int	newBufSize = (giVT_RealWidth/giVT_CharWidth)
@@ -265,50 +252,6 @@ void VT_SetResolution(int Width, int Height)
 				);
 		}
 	}
-}
-
-/**
- * \fn char *VT_ReadDir(tVFS_Node *Node, int Pos)
- * \brief Read from the VTerm Directory
- */
-int VT_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
-{
-	if(Pos < 0)	return -EINVAL;
-	if(Pos >= NUM_VTS)	return -EINVAL;
-	strncpy(Dest, gVT_Terminals[Pos].Name, FILENAME_MAX);
-	return 0;
-}
-
-/**
- * \fn tVFS_Node *VT_FindDir(tVFS_Node *Node, const char *Name)
- * \brief Find an item in the VTerm directory
- * \param Node	Root node
- * \param Name	Name (number) of the terminal
- */
-tVFS_Node *VT_FindDir(tVFS_Node *Node, const char *Name, Uint Flags)
-{
-	 int	num;
-	
-	ENTER("pNode sName", Node, Name);
-	
-	// Open the input and output files if needed
-	if(giVT_OutputDevHandle == -2)	VT_InitOutput();
-	if(giVT_InputDevHandle == -2)	VT_InitInput();
-	
-	// Sanity check name
-	if(Name[0] < '0' || Name[0] > '9' || Name[1] != '\0') {
-		LEAVE('n');
-		return NULL;
-	}
-	// Get index
-	num = Name[0] - '0';
-	if(num >= NUM_VTS) {
-		LEAVE('n');
-		return NULL;
-	}
-	// Return node
-	LEAVE('p', &gVT_Terminals[num].Node);
-	return &gVT_Terminals[num].Node;
 }
 
 /**
@@ -351,185 +294,102 @@ int VT_Root_IOCtl(tVFS_Node *Node, int Id, void *Data)
 	return 0;
 }
 
-/**
- * \brief Read from a virtual terminal
- */
-size_t VT_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags)
+void VT_int_PutFBData(tVTerm *Term, size_t Offset, size_t Length, const void *Buffer)
 {
-	 int	pos, avail, rv;
-	tVTerm	*term = &gVT_Terminals[ Node->Inode ];
-	Uint32	*codepoint_buf = Buffer;
-	Uint32	*codepoint_in;
-	tTime	timeout_zero = 0;
+	size_t	maxlen = Term->Width * Term->Height * 4;
+
+	if( Offset >= maxlen )
+		return ;
+
+	Length = MIN(Length, maxlen - Offset);
 	
-	Mutex_Acquire( &term->ReadingLock );
-	
-	// Check current mode
-	switch(term->Mode)
+	// If the terminal is currently shown, write directly to the screen
+	if( Term == gpVT_CurTerm )
 	{
-	// Text Mode (UTF-8)
-	case TERM_MODE_TEXT:
-		VT_int_UpdateCursor(term, 1);
-	
-		rv = VFS_SelectNode(Node, VFS_SELECT_READ,
-			(Flags & VFS_IOFLAG_NOBLOCK ? &timeout_zero : NULL), "VT_Read (UTF-8)");
-		if(!rv) {
-			errno = (Flags & VFS_IOFLAG_NOBLOCK) ? EWOULDBLOCK : EINTR;
-			return -1;
-		}
+		// Center the terminal vertically
+		if( giVT_RealHeight > Term->Height )
+			Offset += (giVT_RealHeight - Term->Height) / 2 * Term->Width * 4;
 		
-		avail = term->InputWrite - term->InputRead;
-		if(avail < 0)
-			avail += MAX_INPUT_CHARS8;
-		if(avail > Length)
-			avail = Length;
-		
-		pos = 0;
-		while( avail -- )
+		// If the terminal is not native width, center it horizontally
+		if( giVT_RealWidth > Term->Width )
 		{
-			((char*)Buffer)[pos] = term->InputBuffer[term->InputRead];
-			pos ++;
-			term->InputRead ++;
-			while(term->InputRead >= MAX_INPUT_CHARS8)
-				term->InputRead -= MAX_INPUT_CHARS8;
-		}
-		break;
-	
-	//case TERM_MODE_FB:
-	// Other - UCS-4
-	default:
-		rv = VFS_SelectNode(Node, VFS_SELECT_READ,
-			(Flags & VFS_IOFLAG_NOBLOCK ? &timeout_zero : NULL), "VT_Read (UCS-4)");
-		if(!rv) {
-			errno = (Flags & VFS_IOFLAG_NOBLOCK) ? EWOULDBLOCK : EINTR;
-			return -1;
-		}
-		
-		avail = term->InputWrite - term->InputRead;
-		if(avail < 0)
-			avail += MAX_INPUT_CHARS32;
-		Length /= 4;
-		if(avail > Length)
-			avail = Length;
-		
-		codepoint_in = (void*)term->InputBuffer;
-		codepoint_buf = Buffer;
-		
-		pos = 0;
-		while( avail -- )
-		{
-			codepoint_buf[pos] = codepoint_in[term->InputRead];
-			pos ++;
-			term->InputRead ++;
-			while(term->InputRead >= MAX_INPUT_CHARS32)
-				term->InputRead -= MAX_INPUT_CHARS32;
-		}
-		pos *= 4;
-		break;
-	}
-	
-	// Mark none avaliable if buffer empty
-	if( term->InputRead == term->InputWrite )
-		VFS_MarkAvaliable(&term->Node, 0);
-	
-	term->ReadingThread = -1;
-
-//	VT_int_UpdateCursor(term, term->Mode == TERM_MODE_TEXT);
-
-	Mutex_Release( &term->ReadingLock );
-	
-	return pos;
-}
-
-/**
- * \brief Write to a virtual terminal
- */
-size_t VT_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags)
-{
-	tVTerm	*term = &gVT_Terminals[ Node->Inode ];
-	 int	size;
-	
-	// Write
-	switch( term->Mode )
-	{
-	// Print Text
-	case TERM_MODE_TEXT:
-		VT_int_PutString(term, Buffer, Length);
-		break;
-	
-	// Framebuffer :)
-	case TERM_MODE_FB:
-		// - Sanity Checking
-		size = term->Width*term->Height*4;
-		if( Offset > size ) {
-			Log_Notice("VTerm", "VT_Write: %i Offset (0x%llx) > FBSize (0x%x)",
-				(int)Node->Inode, Offset, size);
-			return 0;
-		}
-		if( Offset + Length > size ) {
-			Log_Notice("VTerm", "VT_Write: Offset+Length (0x%llx) > FBSize (0x%x)",
-				Offset+Length, size);
-			Length = size - Offset;
-		}
-		
-		// Update screen if needed
-		if( Node->Inode == giVT_CurrentTerminal )
-		{
-			if( giVT_RealHeight > term->Height )
-				Offset += (giVT_RealHeight - term->Height) / 2 * term->Width * 4;
-			// Handle undersized virtual terminals
-			if( giVT_RealWidth > term->Width )
+			// No? :( Well, just center it
+			 int	x, y, w, h;
+			Uint	dst_ofs;
+			// TODO: Fix to handle the final line correctly?
+			x = Offset/4;	y = x / Term->Width;	x %= Term->Width;
+			w = Length/4+x;	h = w / Term->Width;	w %= Term->Width;
+			
+			// Center
+			x += (giVT_RealWidth - Term->Width) / 2;
+			dst_ofs = (x + y * giVT_RealWidth) * 4;
+			while(h--)
 			{
-				// No? :( Well, just center it
-				 int	x, y, w, h;
-				Uint	dst_ofs;
-				// TODO: Fix to handle the final line correctly?
-				x = Offset/4;	y = x / term->Width;	x %= term->Width;
-				w = Length/4+x;	h = w / term->Width;	w %= term->Width;
-				
-				// Center
-				x += (giVT_RealWidth - term->Width) / 2;
-				dst_ofs = (x + y * giVT_RealWidth) * 4;
-				while(h--)
-				{
-					VFS_WriteAt( giVT_OutputDevHandle,
-						dst_ofs,
-						term->Width * 4,
-						Buffer
-						);
-					Buffer = (void*)( (Uint)Buffer + term->Width*4 );
-					dst_ofs += giVT_RealWidth * 4;
-				}
-				return 0;
-			}
-			else
-			{
-				return VFS_WriteAt( giVT_OutputDevHandle, Offset, Length, Buffer );
+				VFS_WriteAt( giVT_OutputDevHandle,
+					dst_ofs,
+					Term->Width * 4,
+					Buffer
+					);
+				Buffer = (const Uint32*)Buffer + Term->Width;
+				dst_ofs += giVT_RealWidth * 4;
 			}
 		}
+		// otherwise, just go directly to the screen
 		else
 		{
-			if( !term->Buffer )
-				term->Buffer = malloc( term->Width * term->Height * 4 );
-			// Copy to the local cache
-			memcpy( (char*)term->Buffer + (Uint)Offset, Buffer, Length );
+			VFS_WriteAt( giVT_OutputDevHandle, Offset, Length, Buffer );
 		}
-		break;
-	// Just pass on (for now)
-	// TODO: Handle locally too to ensure no information is lost on
-	//       VT Switch (and to isolate terminals from each other)
-	case TERM_MODE_2DACCEL:
-	//case TERM_MODE_3DACCEL:
-		if( Node->Inode == giVT_CurrentTerminal )
-		{
-			VFS_Write( giVT_OutputDevHandle, Length, Buffer );
-		}
-		break;
 	}
-	
-	return Length;
+	// If not active, write to the backbuffer (allocating if needed)
+	else
+	{
+		if( !Term->Buffer )
+			Term->Buffer = malloc( Term->Width * Term->Height * 4 );
+		// Copy to the local cache
+		memcpy( (char*)Term->Buffer + Offset, Buffer, Length );
+	}
 }
 
+void VT_PTYOutput(void *Handle, size_t Length, const void *Data)
+{
+	tVTerm	*term = Handle;
+	switch( term->Mode )
+	{
+	case PTYBUFFMT_TEXT:
+		VT_int_PutString(term, Data, Length);
+		break;
+	case PTYBUFFMT_FB:
+		// TODO: How do offset?
+		VT_int_PutFBData(term, 0, Length, Data);
+		break;
+	case PTYBUFFMT_2DCMD:
+		// TODO: Impliment 2D commands
+		break;
+	case PTYBUFFMT_3DCMD:
+		// TODO: Impliment 3D commands
+		break;
+	}
+}
+
+int VT_PTYResize(void *Handle, const struct ptydims *Dims)
+{
+	tVTerm	*term = Handle;
+	 int	newW = Dims->W * (term->Mode == PTYBUFFMT_TEXT ? giVT_CharWidth : 1);
+	 int	newH = Dims->H * (term->Mode == PTYBUFFMT_TEXT ? giVT_CharHeight : 1);
+	if( newW > giVT_RealWidth || newH > giVT_RealHeight )
+		return 1;
+	VT_int_Resize(term, newW, newH);
+	return 0;
+}
+
+int VT_PTYModeset(void *Handle, const struct ptymode *Mode)
+{
+	tVTerm	*term = Handle;
+	term->Mode = (Mode->OutputMode & PTYOMODE_BUFFMT);
+	return 0;
+}
+
+#if 0
 /**
  * \fn int VT_Terminal_IOCtl(tVFS_Node *Node, int Id, void *Data)
  * \brief Call an IO Control on a virtual terminal
@@ -734,6 +594,7 @@ void VT_Terminal_Close(tVFS_Node *Node)
 {
 	// Remove PID from list
 }
+#endif
 
 /**
  * \fn void VT_SetTerminal(int ID)

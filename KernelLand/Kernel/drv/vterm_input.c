@@ -118,7 +118,7 @@ void VT_KBCallBack(Uint32 Codepoint)
 	}
 	
 	// Encode key
-	if(term->Mode == TERM_MODE_TEXT)
+	if(term->Mode == PTYBUFFMT_TEXT)
 	{
 		Uint8	buf[6] = {0};
 		 int	len = 0;
@@ -231,70 +231,11 @@ void VT_KBCallBack(Uint32 Codepoint)
 			return;
 		}
 
-		// TODO: Implement Ctrl-C etc
-#if 0
-		// Handle meta characters
-		if( !(term->Flags & VT_FLAG_RAWIN) )
-		{
-			// Implementation options for Ctrl-C -> SIGINT
-			// - Kernel-land: here in the VT
-			//  > Pros: No userland change needed
-			//  > Cons: Requires process groups
-			// - User-land, in the shell
-			//  > Pros: Less threading changes
-			//  > Cons: Needs the shell to get all user input before the app, worse latency
-			//  >       Won't work with bash etc
-			switch(buf[0])
-			{
-			case '\3':	// ^C
-				
-				break;
-			}
-		}
-#endif
-		
-		// Write
-		if( MAX_INPUT_CHARS8 - term->InputWrite >= len ) {
-			memcpy( &term->InputBuffer[term->InputWrite], buf, len );
-		}
-		else {
-			memcpy( &term->InputBuffer[term->InputWrite], buf, MAX_INPUT_CHARS8 - term->InputWrite );
-			memcpy( &term->InputBuffer[0], buf, len - (MAX_INPUT_CHARS8 - term->InputWrite) );
-		}
-		// Roll the buffer over
-		term->InputWrite += len;
-		term->InputWrite %= MAX_INPUT_CHARS8;
-		if( (term->InputWrite - term->InputRead + MAX_INPUT_CHARS8)%MAX_INPUT_CHARS8 < len ) {
-			term->InputRead = term->InputWrite + 1;
-			term->InputRead %= MAX_INPUT_CHARS8;
-		}
+		PTY_SendInput(term->PTY, (void*)buf, len);
 	}
 	else
 	{
-		// Encode the raw key event
-		Uint32	*raw_in = (void*)term->InputBuffer;
-	
-		#if 0
-		// Drop new keys
-		if( term->InputWrite == term->InputRead )
-			return ;		
-		#endif
-
-		raw_in[ term->InputWrite ] = Codepoint;
-		term->InputWrite ++;
-		if(term->InputWrite >= MAX_INPUT_CHARS32)
-			term->InputWrite -= MAX_INPUT_CHARS32;
-		
-		#if 1
-		// TODO: Should old or new be dropped?
-		if(term->InputRead == term->InputWrite) {
-			term->InputRead ++;
-			if( term->InputRead >= MAX_INPUT_CHARS32 )
-				term->InputRead -= MAX_INPUT_CHARS32;
-		}
-		#endif
+		PTY_SendInput(term->PTY, (void*)&Codepoint, sizeof(Codepoint));
 	}
-	
-	VFS_MarkAvaliable(&term->Node, 1);
 }
 

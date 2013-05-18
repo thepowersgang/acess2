@@ -288,7 +288,7 @@ void VT_int_ClearLine(tVTerm *Term, int Num)
  * \param NewWidth	New framebuffer width
  * \param NewHeight	New framebuffer height
  */
-void VT_int_ChangeMode(tVTerm *Term, int NewMode, int NewWidth, int NewHeight)
+void VT_int_Resize(tVTerm *Term, int NewWidth, int NewHeight)
 {
 	 int	oldW = Term->Width;
 	 int	oldTW = Term->TextWidth;
@@ -302,8 +302,6 @@ void VT_int_ChangeMode(tVTerm *Term, int NewMode, int NewWidth, int NewHeight)
 	if(NewWidth > giVT_RealWidth)	NewWidth = giVT_RealWidth;
 	if(NewHeight > giVT_RealHeight)	NewHeight = giVT_RealHeight;
 	
-	Term->Mode = NewMode;
-
 	// Fast exit if no resolution change
 	if(NewWidth == Term->Width && NewHeight == Term->Height)
 		return ;
@@ -362,7 +360,7 @@ void VT_int_ChangeMode(tVTerm *Term, int NewMode, int NewWidth, int NewHeight)
 	
 	// Debug
 	#if 0
-	switch(NewMode)
+	switch(Term->Mode)
 	{
 	case TERM_MODE_TEXT:
 		Log_Log("VTerm", "Set VT %p to text mode (%ix%i)",

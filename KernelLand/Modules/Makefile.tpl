@@ -11,6 +11,7 @@ LIBINCLUDES := $(addsuffix /include,$(LIBINCLUDES))
 
 CPPFLAGS := -I$(ACESSDIR)/KernelLand/Kernel/include -I$(ACESSDIR)/KernelLand/Kernel/arch/$(ARCHDIR)/include
 CPPFLAGS += -I$(ACESSDIR)/KernelLand/Modules
+CPPFLAGS += -I$(ACESSDIR)/Usermode/Libraries/ld-acess.so_src/include_exp/
 CPPFLAGS += -DARCH=$(ARCH) -DARCH_is_$(ARCH) -DARCHDIR_is_$(ARCHDIR)
 CPPFLAGS += $(_CPPFLAGS)
 CPPFLAGS += $(LIBINCLUDES) -ffreestanding
