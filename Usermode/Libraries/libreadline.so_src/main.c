@@ -6,6 +6,7 @@
  */
 #include <readline.h>
 #include <acess/sys.h>
+#include <acess/devices/pty.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -110,9 +111,17 @@ char *Readline_NonBlock(tReadline *Info)
 char *Readline(tReadline *Info)
 {
 	char	*ret;
+
+	// stty -echo,canon
+	struct ptymode	mode = {.InputMode = 0, .OutputMode = 0};
+	_SysIOCtl(STDIN_FD, PTY_IOCTL_SETMODE, &mode);
 	
 	while( NULL == (ret = Readline_NonBlock(Info)) );
-	
+
+	// stty +echo,canon
+	mode.InputMode = PTYIMODE_CANON|PTYIMODE_ECHO;
+	_SysIOCtl(STDIN_FD, PTY_IOCTL_SETMODE, &mode);
+
 	return ret;
 }
 
