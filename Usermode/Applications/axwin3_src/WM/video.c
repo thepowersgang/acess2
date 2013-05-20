@@ -76,6 +76,12 @@ void Video_Setup(void)
 	}
 	giScreenWidth = dims.PW;
 	giScreenHeight = dims.PH;
+	if( giScreenWidth < 640 || giScreenHeight < 480 ) {
+		Video_int_SetBufFmt(PTYBUFFMT_TEXT);
+		_SysDebug("Resoltion too small, 640x480 reqd but %ix%i avail",
+			giScreenWidth, giScreenHeight);
+		exit(-1);
+	}
 	_SysDebug("AxWin3 running at %ix%i", dims.PW, dims.PH);
 
 	giVideo_LastDirtyLine = giScreenHeight;
@@ -84,8 +90,16 @@ void Video_Setup(void)
 	gpScreenBuffer = malloc( giScreenWidth*giScreenHeight*4 );
 
 	// Set cursor position and bitmap
-	// TODO: This will require using the 2DCMD buffer format
-	//_SysIOCtl(giTerminalFD, TERM_IOCTL_SETCURSORBITMAP, &cCursorBitmap);
+	{
+	Video_int_SetBufFmt(PTYBUFFMT_2DCMD);
+	struct ptycmd_header	hdr = {PTY2D_CMD_SETCURSORBMP,0,0};
+	size_t size = sizeof(hdr) + sizeof(cCursorBitmap) + cCursorBitmap.W*cCursorBitmap.H*4;
+	hdr.len_low = size / 4;
+	hdr.len_hi = size / (256*4);
+	_SysWrite(giTerminalFD, &hdr, sizeof(hdr));
+	_SysDebug("size = %i (%04x:%02x * 4)", size, hdr.len_hi, hdr.len_low);
+	_SysWrite(giTerminalFD, &cCursorBitmap, size-sizeof(hdr));
+	}
 	Video_SetCursorPos( giScreenWidth/2, giScreenHeight/2 );
 }
 
@@ -132,7 +146,9 @@ void Video_int_SetBufFmt(int NewFmt)
 void Video_SetCursorPos(short X, short Y)
 {
 	struct ptycmd_setcursorpos	cmd;
-	cmd.cmd = PTY2D_CMD_SETCURSORPOS;
+	cmd.hdr.cmd = PTY2D_CMD_SETCURSORPOS;
+	cmd.hdr.len_low = sizeof(cmd)/4;
+	cmd.hdr.len_hi = 0;
 	cmd.x = giVideo_CursorX = X;
 	cmd.y = giVideo_CursorY = Y;
 

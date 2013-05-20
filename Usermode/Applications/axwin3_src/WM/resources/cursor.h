@@ -6,10 +6,10 @@
 #include <stdint.h>
 
 static struct {
-	uint16_t	W, H, OfsX, OfsY;
+	uint16_t	W, H;
 	uint32_t	Data[];
 } cCursorBitmap = {
-	8, 16, 0, 0,
+	8, 16,
 	{
 		0xFF000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,
 		0xFF000000, 0xFF000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,

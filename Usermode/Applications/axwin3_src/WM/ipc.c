@@ -236,7 +236,7 @@ int _CompareClientPtrs(const void *_a, const void *_b)
 	tIPC_Client	*b = *(tIPC_Client**)_b;
 
 	ASSERT(a);
-	ASSERT(b);
+	if(!b)	return -1;
 
 	if(a->IPCType < b->IPCType)	return -1;
 	if(a->IPCType > b->IPCType)	return 1;
@@ -255,6 +255,7 @@ int IPC_int_BSearchClients(const tIPC_Client *TargetClient, int *Pos)
 	while(div > 0)
 	{
 		div /= 2;
+		_SysDebug("Cmp with %i [%i] (%p)", pos, div, gIPC_Clients[pos]);
 		cmp = _CompareClientPtrs(&TargetClient, &gIPC_Clients[pos]);
 //		_SysDebug("Checking against %i gives %i", pos, cmp);
 		if(cmp == 0)	break;
