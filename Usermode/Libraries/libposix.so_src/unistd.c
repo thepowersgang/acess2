@@ -11,6 +11,7 @@
 #include <sys/select.h>
 #include <stdio.h>
 #include <string.h>
+#include <acess/devices/pty.h>
 
 // === CODE ===
 int unlink(const char *pathname)
@@ -76,6 +77,11 @@ ssize_t	read(int fd, void *buf, size_t count)
 int seek(int fd, int whence, off_t dest)
 {
 	return _SysSeek(fd, whence, dest);
+}
+
+off_t lseek(int fd, off_t offset, int whence)
+{
+	return _SysSeek(fd, whence, offset);
 }
 
 off_t tell(int fd)
@@ -180,11 +186,19 @@ int mkdir(const char *pathname, mode_t mode)
 char *getpass(const char *prompt)
 {
 	static char passbuf[PASS_MAX+1];
+	struct ptymode	oldmode, mode;
+	_SysIOCtl(STDIN_FILENO, PTY_IOCTL_GETMODE, &oldmode);
+	mode.InputMode = PTYIMODE_CANON;
+	mode.OutputMode = 0;
+	_SysIOCtl(STDIN_FILENO, PTY_IOCTL_SETMODE, &mode);
 	fprintf(stderr, "%s", prompt);
 	fgets(passbuf, PASS_MAX+1, stdin);
 	fprintf(stderr, "\n");
 	for( int i = strlen(passbuf); i > 0 && (passbuf[i-1] == '\r' || passbuf[i-1] == '\n'); i -- )
 		passbuf[i-1] = 0;
+
+	_SysIOCtl(STDIN_FILENO, PTY_IOCTL_SETMODE, &oldmode);
+
 	return passbuf;
 }
 

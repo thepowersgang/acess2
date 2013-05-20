@@ -39,6 +39,7 @@ extern int	close(int fd);
 
 extern ssize_t	write(int fd, const void *buf, size_t count);
 extern ssize_t	read(int fd, void *buf, size_t count);
+extern off_t	lseek(int fd, off_t offset, int whence);
 
 extern int	fork(void);
 extern int	execv(const char *b, char *v[]);
