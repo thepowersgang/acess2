@@ -61,6 +61,10 @@ int main(int argc, char *argv[])
 		
 		// Wait for child to terminate
 		_SysWaitTID(pid, &status);
+	
+		// Clear graphics mode	
+		struct ptymode	mode = {.InputMode = PTYIMODE_ECHO|PTYIMODE_CANON,.OutputMode=0};
+		_SysIOCtl(0, PTY_IOCTL_SETMODE, &mode);
 	}
 	
 	return 0;
