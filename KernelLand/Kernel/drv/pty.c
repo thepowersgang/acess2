@@ -5,7 +5,7 @@
  * drv/pty.c
  * - Pseudo Terminals
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include <vfs.h>
 #include <fs_devfs.h>
@@ -104,7 +104,8 @@ tDevFS_Driver	gPTY_Driver = {
 	.Name = "pts",
 	.RootNode = {
 		.Flags = VFS_FFLAG_DIRECTORY,
-		.Type = &gPTY_NodeType_Root
+		.Type = &gPTY_NodeType_Root,
+		.Size = -1
 	}
 };
  int	giPTY_NumCount;
@@ -434,37 +435,42 @@ size_t PTY_SendInput(tPTY *PTY, const char *Input, size_t Length)
 int PTY_ReadDir(tVFS_Node *Node, int Pos, char Name[FILENAME_MAX])
 {
 	tPTY	*pty = NULL;
-	if( Pos < giPTY_NumCount * 2 )
+	 int	idx = Pos;
+	if( idx < giPTY_NumCount * 2 )
 	{
 		RWLock_AcquireRead(&glPTY_NumPTYs);
 		for( pty = gpPTY_FirstNumPTY; pty; pty = pty->Next )
 		{
-			if( Pos < 2 )
+			if( idx < 2 )
 				break;
-			Pos -= 2;
+			idx -= 2;
 		}
 		RWLock_Release(&glPTY_NumPTYs);
 	}
-	else if( Pos < (giPTY_NumCount + giPTY_NamedCount) * 2 )
+	else if( idx < (giPTY_NumCount + giPTY_NamedCount) * 2 )
 	{
+		idx -= giPTY_NumCount*2;
 		RWLock_AcquireRead(&glPTY_NamedPTYs);
 		for( pty = gpPTY_FirstNamedPTY; pty; pty = pty->Next )
 		{
-			if( Pos < 2 )
+			if( idx < 2 )
 				break;
-			Pos -= 2;
+			idx -= 2;
 		}
 		RWLock_Release(&glPTY_NamedPTYs);
 	}
 	
 
-	if( !pty )
+	if( !pty ) {
+		LOG("%i out of range", Pos);
 		return -1;
+	}
 	
 	if( pty->Name[0] )
-		snprintf(Name, FILENAME_MAX, "%s%c", pty->Name, (Pos == 0 ? 'c' : 's'));
+		snprintf(Name, FILENAME_MAX, "%s%c", pty->Name, (idx == 0 ? 'c' : 's'));
 	else
-		snprintf(Name, FILENAME_MAX, "%i%c", pty->NumericName, (Pos == 0 ? 'c' : 's'));
+		snprintf(Name, FILENAME_MAX, "%i%c", pty->NumericName, (idx == 0 ? 'c' : 's'));
+	LOG("Return '%s'", Name);
 	return 0;
 }
 

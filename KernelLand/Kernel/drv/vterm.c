@@ -381,6 +381,7 @@ void VT_PTYOutput(void *Handle, size_t Length, const void *Data)
 		break;
 	case PTYBUFFMT_2DCMD:
 		// TODO: Impliment 2D commands
+		VT_int_Handle2DCmd(term, Length, Data);
 		break;
 	case PTYBUFFMT_3DCMD:
 		// TODO: Impliment 3D commands
@@ -403,6 +404,8 @@ int VT_PTYModeset(void *Handle, const struct ptymode *Mode)
 {
 	tVTerm	*term = Handle;
 	term->Mode = (Mode->OutputMode & PTYOMODE_BUFFMT);
+
+	memset(&term->Cmd2D, 0, sizeof(term->Cmd2D));
 
 	if( term == gpVT_CurTerm ) {
 		switch(term->Mode)

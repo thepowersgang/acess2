@@ -78,6 +78,15 @@ struct sVTerm
 	// Call set again, it's freed, and if NULL it doesn't get reallocated.
 	tVideo_IOCtl_Bitmap	*VideoCursor;
 
+	struct {
+		 int	Current;
+		size_t	CurrentSize;
+		size_t	Offset;
+		 int	CachePos;
+		char	Cache[32];
+		size_t	PreEat;
+	} Cmd2D;
+
 	tPTY	*PTY;
 };
 
@@ -94,6 +103,7 @@ extern int	giVT_InputDevHandle;
 // === FUNCTIONS ===
 extern void	VT_SetResolution(int Width, int Height);
 extern void	VT_SetTerminal(int ID);
+extern void	VT_int_Handle2DCmd(void *Handle, size_t Length, const void *Data);
 // --- Output ---
 extern void	VT_InitOutput(void);
 extern void	VT_SetMode(int Mode);
