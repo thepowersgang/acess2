@@ -22,12 +22,27 @@ enum
 	PTY2D_CMD_RECV,
 };
 
+struct ptycmd_header
+{
+	uint8_t 	cmd;
+	uint8_t 	len_low;
+	uint16_t	len_hi;
+} PACKED;
+
 struct ptycmd_setcursorpos
 {
-	uint16_t	cmd;
+	struct ptycmd_header	hdr;
 	uint16_t	x;
 	uint16_t	y;
-};
+} PACKED;
+
+struct ptycmd_setcursorbmp
+{
+	struct ptycmd_header	hdr;
+	uint16_t	w;
+	uint16_t	h;
+	char	data[];
+} PACKED;
 
 #endif
 

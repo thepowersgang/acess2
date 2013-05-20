@@ -8,6 +8,7 @@
 #ifndef _ACESS_DEVICES_PTY_H_
 #define _ACESS_DEVICES_PTY_H_
 
+
 #include "../devices.h"
 
 #define PTYIMODE_CANON	0x001
@@ -30,12 +31,12 @@ struct ptydims
 	short	H;
 	short	PW;
 	short	PH;
-};
+} PACKED;
 struct ptymode
 {
 	unsigned int	OutputMode;
 	unsigned int	InputMode;
-};
+} PACKED;
 
 enum
 {

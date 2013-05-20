@@ -8,6 +8,10 @@
 #ifndef _ACESS_DRIVERS_H
 #define _ACESS_DRIVERS_H
 
+#ifndef PACKED
+#define PACKED	__attribute((packed))
+#endif
+
 // === COMMON ===
 enum eDrv_Common {
 	/**
