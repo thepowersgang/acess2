@@ -90,7 +90,6 @@ int main(int argc, char *argv[])
 {
 	tInterface	*ifaces = NULL, *i;
 
-	// TODO: Scan /Devices and search for network adapters
 	if( argc > 2 ) {
 		fprintf(stderr, "Usage: %s <interface>\n", argv[0]);
 		return -1;
@@ -131,9 +130,9 @@ int main(int argc, char *argv[])
 			if(maxfd < i->SocketFD) maxfd = i->SocketFD;
 		}
 		
-		if( select(maxfd+1, &fds, NULL, NULL, &timeout) < 0 )
+		if( _SysSelect(maxfd+1, &fds, NULL, NULL, &timeout, 0) < 0 )
 		{
-			// TODO: Check error result
+			perror("_SysSelect returned error");
 			return -1;
 		}
 
@@ -207,11 +206,14 @@ int Start_Interface(tInterface *Iface)
 		sprintf(path, "/Devices/ip/adapters/%s", Iface->Adapter);
 		fd = _SysOpen(path, 0);
 		if(fd == -1) {
+			perror("Opening adapter");
 			_SysDebug("Unable to open adapter %s", path);
 			return -1;
 		}
-		_SysIOCtl(fd, 4, Iface->HWAddr);
-		// TODO: Check if ioctl() failed
+		if( _SysIOCtl(fd, 4, Iface->HWAddr) ) {
+			perror("Getting MAC address");
+			return -1;
+		}
 		_SysClose(fd);
 	}
 	

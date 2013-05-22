@@ -67,10 +67,10 @@ int Term_HandleVT100(int Len, const char *Buf)
 	switch( *Buf )
 	{
 	case '\b':
-		// TODO: Backspace
 		Display_MoveCursor(-1, 0);
 		Display_AddText(1, " ");
 		Display_MoveCursor(-1, 0);
+		// TODO: Need to handle \t and ^A-Z
 		return 1;
 	case '\t':
 		// TODO: tab (get current cursor pos, space until multiple of 8)
@@ -79,7 +79,6 @@ int Term_HandleVT100(int Len, const char *Buf)
 		Display_Newline(1);
 		return 1;
 	case '\r':
-		// TODO: Carriage return
 		Display_MoveCursor(INT_MIN, 0);
 		return 1;
 	}
@@ -171,7 +170,7 @@ int Term_HandleVT100_Long(int Len, const char *Buffer)
 				{
 					if( args[i] < 8 )
 					{
-						// Flags?
+						// TODO: Flags?
 					}
 					else if( 30 <= args[i] && args[i] <= 37 )
 					{
