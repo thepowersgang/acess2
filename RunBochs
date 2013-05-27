@@ -1,0 +1,9 @@
+#!/bin/bash
+#umount /mnt/AcessHDD
+#mount /mnt/AcessHDD
+#cd ~/Bochs/OSDev
+#/opt/BochsDbg/bin/bochs -q
+#sudo bochs -q | tee BochsLog.txt
+/home/tpg/apps/bin/bochs -q
+# | tee BochsLog.txt
+
