@@ -62,6 +62,7 @@ struct sVTerm
 	 int	AltWritePos;	//!< Alternate write position
 	short	ScrollTop;	//!< Top of scrolling region (smallest)
 	short	ScrollHeight;	//!< Length of scrolling region
+	 int	SavedWritePos;	//!< Saved cursor position (\e[s and \e[u)
 
 	char	EscapeCodeCache[16];
 	size_t	EscapeCodeLen;

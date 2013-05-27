@@ -228,7 +228,19 @@ void VT_int_ParseEscape_StandardLarge(tVTerm *Term, char CmdChar, int argc, int 
 		Term->ScrollTop = args[0];
 		Term->ScrollHeight = args[1] - args[0];
 		break;
-	
+
+	// Save cursor position
+	case 's':
+		if( argc != 0 )	break;
+		Term->SavedWritePos = (Term->Flags & VT_FLAG_ALTBUF) ? Term->AltWritePos : Term->WritePos;
+		break;
+
+	// Restore saved cursor position
+	case 'u':
+		if( argc != 0 )	break;
+		*((Term->Flags & VT_FLAG_ALTBUF) ? &Term->AltWritePos : &Term->WritePos) = Term->SavedWritePos;
+		break;
+
 	default:
 		Log_Warning("VTerm", "Unknown control sequence '\\x1B[%c'", CmdChar);
 		break;
