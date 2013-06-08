@@ -4,11 +4,13 @@
 #
 
 DEPS := zlib
-TARBALL_PATTERN := dropbear-*.tar.gz
-TARBALL_TO_DIR_L := %.tar.gz
+TARBALL_PATTERN := dropbear-*.tar.bz2
+TARBALL_TO_DIR_L := %.tar.bz2
 TARBALL_TO_DIR_R := %
 PATCHES := options.h
-CONFIGURE_ARGS = --with-zlib=../../Output/$(ARCH) --disable-utmp --disable-wtmp --disable-lastlog
+CONFIGURE_ARGS = --with-zlib=$(PREFIX) --disable-utmp --disable-wtmp --disable-lastlog
+BTARGETS = dbclient
+ITARGETS = inst_dbclient
 
 include ../common.mk
 

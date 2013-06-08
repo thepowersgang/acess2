@@ -1,6 +1,6 @@
 --- options.h
 +++ options.h
-@@ -217,1 +217,1 @@
+@@ -217,2 +217,2 @@
   * rsa/dss key generation */
 -#define DROPBEAR_URANDOM_DEV "/dev/urandom"
 +#define DROPBEAR_URANDOM_DEV "/Devices/frandom"

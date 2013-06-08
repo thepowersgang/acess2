@@ -15,9 +15,11 @@ else
  $(error No BFD translation for $(ARCH) in Externals/common.mk)
 endif
 
-PREFIX=$(ACESSDIR)/Externals/Output/common
-EPREFIX=$(ACESSDIR)/Externals/Output/$(ARCH)
-SYSROOT=$(ACESSDIR)/Externals/Output/sysroot-$(ARCH)
+#PREFIX=$(ACESSDIR)/Externals/Output
+#EPREFIX=$(ACESSDIR)/Externals/Output/$(BFD)
+PREFIX=$(ACESSDIR)/Externals/Output/$(ARCH)
+EPREFIX=$(PREFIX)
+SYSROOT=$(ACESSDIR)/Externals/Output/sysroot-$(BFD)
 HOST=$(BFD)-acess_proxy-elf
 
 #
@@ -61,17 +63,17 @@ else
 endif
 SDIR := ../$(DIR)
 
-CONFIGURE_LINE ?= ./configure --host=$(HOST) --prefx=$(PREFIX) --eprefix=$(EPREFIX) $(CONFIGURE_ARGS)
+CONFIGURE_LINE ?= $(SDIR)/configure --host=$(HOST) --prefix=$(PREFIX) --exec-prefix=$(EPREFIX) $(CONFIGURE_ARGS)
 
 .PHONY: all clean install _patch _build
+
+install: all
+	cd $(BDIR) && make $(ITARGETS)
 
 all: $(DIR) _patch _build
 
 clean:
 	rm -rf $(DIR) $(BDIR)
-
-install: all
-	cd $(BDIR) && make $(ITARGETS)
 
 $(DIR): $(ARCHIVE)
 	tar -xf $(ARCHIVE)
