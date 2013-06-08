@@ -81,6 +81,7 @@ run() {
 }
 
 _ldflags="-lposix -lpsocket "$_ldflags
+_cflags=$_cflags" -fno-omit-frame-pointer"
 
 cfgfile=`mktemp`
 make --no-print-directory -f $BASEDIR/getconfig.mk ARCH=x86 TYPE=$_linktype > $cfgfile
