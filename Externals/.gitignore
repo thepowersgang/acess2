@@ -1,0 +1,5 @@
+bin-*
+*.tar.gz
+*.tar.bz2
+build-*/
+Output/
