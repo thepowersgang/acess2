@@ -90,8 +90,21 @@ rm $cfgfile
 
 #echo "_compile = $_compile, _preproc = $_preproc"
 
+if [[ "x$_verarg" != "x" ]]; then
+	if [[ "x$_actas" == "xld" ]]; then
+		run $_LD $_miscargs $_verarg
+	else
+		run $_CC $_miscargs $_verarg
+	fi
+	exit $?
+fi
+
 if [[ "x$_actas" == "xld" ]]; then
-	run $_LD $LDFLAGS $_ldflags $_outfile $_miscargs $LIBGCC_PATH $_libs
+	if echo "$_miscargs" | grep '\.o\|\.a'; then
+		run $_LD $LDFLAGS $_ldflags $_outfile $_miscargs $LIBGCC_PATH $_libs
+	else
+		run $_LD $_miscargs $_verarg
+	fi
 	exit $?
 fi
 
