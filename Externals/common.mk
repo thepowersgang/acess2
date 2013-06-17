@@ -81,21 +81,28 @@ $(DIR): $(ARCHIVE)
 
 $(DIR)/%: patches/%.patch
 	@echo [PATCH] $@
+	@tar -xf $(ARCHIVE) $@
 	@patch $@ $<
 
 $(DIR)/%: patches/%
 	@echo [CP] $@
+	@mkdir -p $(dir $@)
 	@cp $< $@
 
-_patch: $(DIR) $(addprefix $(DIR)/,$(PATCHES))
+PATCHED_FILES := $(addprefix $(DIR)/,$(PATCHES))
+_patch: $(DIR) $(PATCHED_FILES)
 
-_autoreconf: _patch
+CONFIGSCRIPT := $(BDIR)/$(firstword $(CONFIGURE_LINE))
+PATCHED_ACFILES := $(filter %/configure.in %/config.sub, $(PATCHED_FILES))
+$(warning $(CONFIGSCRIPT): $(PATCHED_ACFILES))
+
+$(CONFIGSCRIPT): $(PATCHED_ACFILES)
 ifeq ($(AUTORECONF),)
 else
 	cd $(DIR) && autoreconf --force --install
 endif
 
-$(BDIR)/Makefile: _autoreconf ../common.mk Makefile 
+$(BDIR)/Makefile: _patch $(CONFIGSCRIPT) ../common.mk Makefile 
 	mkdir -p $(BDIR)
 	cd $(BDIR) && $(CONFIGURE_LINE)
 
