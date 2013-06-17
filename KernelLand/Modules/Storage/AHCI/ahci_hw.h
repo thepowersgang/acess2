@@ -11,11 +11,53 @@
 #define AHCI_CAP_S64A	(1 << 31)	// Supports 64-bit addressing
 #define AHCI_CAP_SNCQ	(1 << 30)	// Supports Native Command Queuing
 #define AHCI_CAP_SXS	(1 << 5)	// Support External SATA
+#define AHCI_CAP_NCS	(31 << 8)	// Number of command slots (mask)
 
 #define AHCI_GHC_AE	(1 << 31)	// AHCI Enable
 #define AHCI_GHC_MRSM	(1 << 2)	// MSI Revert to Single Message
 #define AHCI_GHC_IE	(1 << 1)	// Interrupt Enable
 #define ACHI_GHC_HR	(1 << 0)	// HBA Reset (Clears once complete)
+
+#define AHCI_PxIS_CPDS	(1 << 31)	// Cold Port Detect Status
+#define AHCI_PxIS_TFES	(1 << 30)	// Task File Error Status
+#define AHCI_PxIS_HBFS	(1 << 29)	// Host Bus Fatal error Status
+#define AHCI_PxIS_HBDS	(1 << 28)	// Host Bus Data error Status
+#define AHCI_PxIS_IFS	(1 << 27)	// Interface Fatal error Status
+#define AHCI_PxIS_INFS	(1 << 26)	// Interface Non-Fatal error status
+#define AHCI_PxIS_OFS	(1 << 24)	// OverFlow Status
+#define AHCI_PxIS_IPMS	(1 << 23)	// Incorrect Port Multipier Status
+#define AHCI_PxIS_PRCS	(1 << 22)	// PhyRdy Change Status
+#define AHCI_PxIS_DMPS	(1 << 7)	// Device Mechanical Presence Status
+#define AHCI_PxIS_PCS	(1 << 6)	// Port Connect change Status
+#define AHCI_PxIS_DPS	(1 << 5)	// Descriptor Processed
+#define AHCI_PxIS_UFI	(1 << 4)	// Unknown FIX Interrupt
+#define AHCI_PxIS_SDBS	(1 << 3)	// Set Device Bits Interrupt
+#define AHCI_PxIS_DSS	(1 << 2)	// DMA Setup FIS Interrupt
+#define AHCI_PxIS_PSS	(1 << 1)	// PIO Setup FIX Interrupt
+#define AHCI_PxIS_DHRS	(1 << 0)	// Device to Host Register FIS Interrupt
+
+#define AHCI_PxCMD_ICC	(15 << 28)	// Interface Communication Control (mask)
+#define AHCI_PxCMD_ASP	(1 << 27)	// Agressive Slumber / Partial
+#define AHCI_PxCMD_ALPE	(1 << 26)	// Agressive Link Power Management Enable
+#define AHCI_PxCMD_DLAE	(1 << 25)	// Drive LED on ATAPI Enable
+#define AHCI_PxCMD_ATAPI	(1 << 24)	// Device is ATAPI
+#define AHCI_PxCMD_APSTE	(1 << 23)	// Automatic Partial to Slumber Transitions Enabled
+#define AHCI_PxCMD_FBSCP	(1 << 22)	// FIS-based Switching Capable Port
+#define AHCI_PxCMD_ESP	(1 << 21)	// External SATA Port
+#define AHCI_PxCMD_CPD	(1 << 20)	// Cold Presence Detection
+#define AHCI_PxCMD_MPSP	(1 << 19)	// Mechanical Presence Switch attached to Port
+#define AHCI_PxCMD_HPCP	(1 << 18)	// Hot Plut Capable Port
+#define AHCI_PxCMD_PMA	(1 << 17)	// Port Multiplier Attached
+#define AHCI_PxCMD_CPS	(1 << 16)	// Cold Presence State
+#define AHCI_PxCMD_CR	(1 << 15)	// Command List Running
+#define AHCI_PxCMD_FR	(1 << 14)	// FIS Receive Running
+#define AHCI_PxCMD_MPSS	(1 << 13)	// Mechanical Presence Switch State
+#define AHCI_PxCMD_CCS	(31 << 8)	// Current Command Slot (mask)
+#define AHCI_PxCMD_FRE	(1 << 4)	// FIS Receive Enable
+#define AHCI_PxCMD_CLO	(1 << 3)	// Command List Override
+#define AHCI_PxCMD_POD	(1 << 2)	// Power On Device
+#define AHCI_PxCMD_SUD	(1 << 1)	// Spin-Up Device
+#define AHCI_PxCMD_ST	(1 << 0)	// Start
 
 struct sAHCI_MemSpace
 {

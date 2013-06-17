@@ -81,12 +81,38 @@ int AHCI_InitSys(tAHCI_Ctrlr *Ctrlr)
 	// 1. Set GHC.AE
 	Ctrlr->MMIO->GHC |= AHCI_GHC_AE;
 	// 2. Enumerate ports using PI
-	// 3. (for each port) Ensure that port is not running
-	//  - if PxCMD.(ST|CR|FRE|FR) all are clear, port is idle
-	//  - Idle is set by clearing PxCMD.ST and waiting for .CR to clear (timeout 500ms)
-	//  - AND .FRE = 0, checking .FR (timeout 500ms again)
-	//  > On timeout, port/HBA reset
-	// 4. Read CAP.NCS 
+	tTime	basetime;
+	for( int i = 0; i < 32; i ++ )
+	{
+		if( !(Ctrlr->MMIO->PI & (1 << i)) )
+			continue ;
+		volatile struct s_port	*port = &Ctrlr->MMIO->Ports[i];
+		nPorts ++;
+		// 3. (for each port) Ensure that port is not running
+		//  - if PxCMD.(ST|CR|FRE|FR) all are clear, port is idle
+		if( (port->PxCMD & (AHCI_PxCMD_ST|AHCI_PxCMD_CR|AHCI_PxCMD_FRE|AHCI_PxCMD_FR)) == 0 )
+			continue ;
+		//  - Idle is set by clearing PxCMD.ST and waiting for .CR to clear (timeout 500ms)
+		//  - AND .FRE = 0, checking .FR (timeout 500ms again)
+		port->PxCMD = 0;
+		basetime = now();
+		//  > On timeout, port/HBA reset
+	}
+	for( int i = 0; i < 32; i ++ )
+	{
+		if( !(Ctrlr->MMIO->PI & (1 << i)) )
+			continue ;
+		volatile struct s_port	*port = &Ctrlr->MMIO->Ports[i];
+	
+		while( (port->PxCMD & (AHCI_PxCMD_CR|AHCI_PxCMD_FR)) && now()-basetime < 500 )
+			Time_Delay(10);
+		
+		if( !(port->PxCMD & (AHCI_PxCMD_CR|AHCI_PxCMD_FR)) )
+		{
+			Log_Error("AHCI", "Port %i did not return to idle", i);
+		}
+	}
+	// 4. Read CAP.NCS to get number of command slots
 	// 5. Allocate PxCLB and PxFB for each port (setting PxCMD.FRE once done)
 	// 6. Clear PxSERR with 1 to each implimented bit
 	// > Clear PxIS then IS.IPS before setting PxIE/GHC.IE
