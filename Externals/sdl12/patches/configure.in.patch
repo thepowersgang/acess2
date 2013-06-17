@@ -148,7 +148,7 @@
  dnl Detect the canonical build and host environments
  AC_CONFIG_AUX_DIR([build-scripts])
  dnl AC_CANONICAL_HOST
-@@ -2831,6 +2972,17 @@
+@@ -2831,6 +2972,16 @@
          # The RISC OS platform requires special setup.
          EXTRA_LDFLAGS="$EXTRA_LDFLAGS -ljpeg -ltiff -lpng -lz"
          ;;
@@ -158,7 +158,6 @@
 +        if test x$enable_video = xyes; then
 +            AC_DEFINE(SDL_VIDEO_DRIVER_ACESS)
 +            SOURCES="$SOURCES $srcdir/src/video/acess/*.c"
-+            SOURCES="$SOURCES $srcdir/src/video/acess/*.S"
 +            have_video=yes
 +        fi
 +       # TODO: Joystick

@@ -1,0 +1,15 @@
+--- SDL-1.2.15_orig/src/video/SDL_video.c       2013-06-17 09:54:34.265134457 +0800
++++ SDL-1.2.15/src/video/SDL_video.c    2013-06-17 16:10:04.181159182 +0800
+@@ -126,6 +126,10 @@
+ #if SDL_VIDEO_DRIVER_CACA
+        &CACA_bootstrap,
+ #endif
++#if SDL_VIDEO_DRIVER_ACESS
++       //&AcessAxWin_bootstrap,
++       &AcessPTY_bootstrap,
++#endif
+ #if SDL_VIDEO_DRIVER_DUMMY
+        &DUMMY_bootstrap,
+ #endif
+
+

@@ -1,0 +1,13 @@
+--- SDL-1.2.15_orig/src/video/SDL_sysvideo.h    2013-06-17 09:54:34.237122843 +0800
++++ SDL-1.2.15/src/video/SDL_sysvideo.h 2013-06-17 18:08:46.367186772 +0800
+@@ -410,6 +410,10 @@
+ #if SDL_VIDEO_DRIVER_CACA
+ extern VideoBootStrap CACA_bootstrap;
+ #endif
++#if SDL_VIDEO_DRIVER_ACESS
++extern VideoBootStrap AcessPTY_bootstrap;
++extern VideoBootStrap AcessAxWin_bootstrap;
++#endif
+ #if SDL_VIDEO_DRIVER_DUMMY
+ extern VideoBootStrap DUMMY_bootstrap;
+ #endif
