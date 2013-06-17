@@ -33,6 +33,7 @@ HOST=$(BFD)-acess_proxy-elf
 # [?]ARCHIVE : Optional forced archive (Defaults to latest)
 # [?]CONFIGURE_LINE : Command to create makefile (defaults to autotools configure)
 # [?]NOBDIR : Set to non-empty to disable use of a separate build dir
+# [?]AUTORECONF : Set to non-empty to regenerate ./configure
 
 
 BTARGETS ?= all
@@ -88,7 +89,13 @@ $(DIR)/%: patches/%
 
 _patch: $(DIR) $(addprefix $(DIR)/,$(PATCHES))
 
-$(BDIR)/Makefile: _patch ../common.mk Makefile 
+_autoreconf: _patch
+ifeq ($(AUTORECONF),)
+else
+	cd $(DIR) && autoreconf --force --install
+endif
+
+$(BDIR)/Makefile: _autoreconf ../common.mk Makefile 
 	mkdir -p $(BDIR)
 	cd $(BDIR) && $(CONFIGURE_LINE)
 
