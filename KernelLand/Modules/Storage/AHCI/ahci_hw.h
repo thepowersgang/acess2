@@ -12,6 +12,7 @@
 #define AHCI_CAP_SNCQ	(1 << 30)	// Supports Native Command Queuing
 #define AHCI_CAP_SXS	(1 << 5)	// Support External SATA
 #define AHCI_CAP_NCS	(31 << 8)	// Number of command slots (mask)
+#define AHCI_CAP_NCS_ofs	8	//                         (offset)
 
 #define AHCI_GHC_AE	(1 << 31)	// AHCI Enable
 #define AHCI_GHC_MRSM	(1 << 2)	// MSI Revert to Single Message
@@ -59,6 +60,21 @@
 #define AHCI_PxCMD_SUD	(1 << 1)	// Spin-Up Device
 #define AHCI_PxCMD_ST	(1 << 0)	// Start
 
+#define AHCI_PxTFD_ERR	(255 << 8)
+#define AHCI_PxTFD_STS	(255 << 0)	// Status (latest copy of task file status register)
+#define AHCI_PxTFD_STS_BSY	(1 << 7)	// Interface is busy
+#define AHCI_PxTFD_STS_DRQ	(1 << 3)	// Data transfer requested
+#define AHCI_PxTFD_STS_ERR	(1 << 0)	// Error during transfer
+
+#define AHCI_PxSSTS_IPM	(15 << 8)	// Interface Power Management (0=NP,1=Active,2=Partial,6=Slumber)
+#define AHCI_PxSSTS_IPM_ofs	8
+#define AHCI_PxSSTS_SPD	(15 << 4)	// Current Interface Speed (0=NP,Generation n)
+#define AHCI_PxSSTS_SPD_ofs	4
+#define AHCI_PxSSTS_DET	(15 << 0)	// Device Detection (0: None, 1: Present but no PHY yet, 3: Present and PHY, 4: offline)
+#define AHCI_PxSSTS_DET_ofs	0
+
+typedef volatile struct sAHCI_MemSpace	tAHCI_MemSpace;
+
 struct sAHCI_MemSpace
 {
 	Uint32	CAP;	// Host Capabilities
@@ -97,6 +113,36 @@ struct sAHCI_MemSpace
 		Uint32	_resvd2[(0x70-0x44)/4];
 		Uint32	PxVS[4];
 	}	Ports[32];
+} PACKED;
+
+struct sAHCI_FIS_DMASetup
+{
+	Uint32	unk[7];
+} PACKED;
+struct sAHCI_FIS_PIOSetup
+{
+	Uint32	unk[5];
+} PACKED;
+struct sAHCI_FIS_D2HRegister
+{
+	Uint32	unk[5];
+} PACKED;
+struct sAHCI_FIS_SDB
+{
+	Uint32	unk[2];
+} PACKED;
+
+struct sAHCI_RcvdFIS
+{
+	struct sAHCI_FIS_DMASetup	DSFIS;
+	Uint32	_pad1[1];
+	struct sAHCI_FIS_PIOSetup	PSFIS;
+	Uint32	_pad2[3];
+	struct sAHCI_FIS_D2HRegister	RFIS;
+	Uint32	_pad3[1];
+	struct sAHCI_FIS_SDB	SDBFIS;
+	Uint32	UFIS[64/4];
+	Uint32	_redvd[(0x100 - 0xA0) / 4];
 } PACKED;
 
 struct sAHCI_CmdHdr

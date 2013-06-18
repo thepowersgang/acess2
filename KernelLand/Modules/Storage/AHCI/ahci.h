@@ -9,16 +9,38 @@
 #define _AHCI__AHCI_H_
 
 #include "ahci_hw.h"
+#include <Storage/LVM/include/lvm.h>
+#include <stdbool.h>
+#include <semaphore.h>
 
 typedef struct sAHCI_Ctrlr	tAHCI_Ctrlr;
+typedef struct sAHCI_Port	tAHCI_Port;
 
 struct sAHCI_Ctrlr
 {
-	 int	PortCount;	
-
 	 int	IRQ;
 	tPAddr	PMemBase;
-	struct sAHCI_MemSpace	*MMIO;
+	tAHCI_MemSpace	*MMIO;
+
+	 int	NCS;
+	
+	 int	PortCount;
+	tAHCI_Port	*Ports;
+};
+
+struct sAHCI_Port
+{
+	 int	Idx;	// Hardware index
+	volatile struct s_port	*MMIO;
+	bool	bHotplug;
+	bool	bPresent;
+
+	tSemaphore	CommandListSem;
+	volatile struct sAHCI_CmdHdr	*CmdList;	
+
+	volatile struct sAHCI_RcvdFIS	*RcvdFIS;	
+
+	void	*LVMHandle;
 };
 
 #endif
