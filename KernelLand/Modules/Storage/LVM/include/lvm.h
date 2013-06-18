@@ -22,7 +22,8 @@ struct sLVM_VolType
 };
 
 
-extern int	LVM_AddVolume(const tLVM_VolType *Type, const char *Name, void *Ptr, size_t BlockSize, size_t BlockCount);
+extern void	*LVM_AddVolume(const tLVM_VolType *Type, const char *Name, void *Ptr, size_t BlockSize, size_t BlockCount);
+extern void	LVM_DelVolume(void *Handle);
 
 #endif
 

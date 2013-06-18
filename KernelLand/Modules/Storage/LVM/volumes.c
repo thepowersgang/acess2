@@ -23,17 +23,15 @@ int LVM_AddVolumeVFS(const char *Name, int FD)
 	return 0;
 }
 
-int LVM_AddVolume(const tLVM_VolType *Type, const char *Name, void *Ptr, size_t BlockSize, size_t BlockCount)
+void *LVM_AddVolume(const tLVM_VolType *Type, const char *Name, void *Ptr, size_t BlockSize, size_t BlockCount)
 {
 	tLVM_Vol	dummy_vol;
-	tLVM_Vol	*real_vol;
 	tLVM_Format	*fmt;
-	void	*first_block;
 
 	if( BlockCount == 0 || BlockSize == 0 ) {
 		Log_Error("LVM", "BlockSize(0x%x)/BlockCount(0x%x) invalid in LVM_AddVolume",
 			BlockSize, BlockCount);
-		return 1;
+		return NULL;
 	}
 
 	dummy_vol.Type = Type;
@@ -42,10 +40,10 @@ int LVM_AddVolume(const tLVM_VolType *Type, const char *Name, void *Ptr, size_t 
 	dummy_vol.BlockSize = BlockSize;
 
 	// Read the first block of the volume	
-	first_block = malloc(BlockSize);
+	void *first_block = malloc(BlockSize);
 	if( !first_block ) {
-		Log_Error("VLM", "LVM_AddVolume - malloc error on %i bytes", BlockSize);
-		return -1;
+		Log_Error("LVM", "LVM_AddVolume - malloc error on %i bytes", BlockSize);
+		return NULL;
 	}
 	Type->Read(Ptr, 0, 1, first_block);
 	
@@ -58,7 +56,13 @@ int LVM_AddVolume(const tLVM_VolType *Type, const char *Name, void *Ptr, size_t 
 	
 	// Create real volume descriptor
 	// TODO: If this needs to be rescanned later, having the subvolume list separate might be an idea
-	real_vol = malloc( sizeof(tLVM_Vol) + strlen(Name) + 1 + sizeof(tLVM_SubVolume*) * dummy_vol.nSubVolumes );
+	size_t	allocsize = sizeof(tLVM_Vol) + strlen(Name) + 1 + sizeof(tLVM_SubVolume*) * dummy_vol.nSubVolumes;
+	tLVM_Vol	*real_vol = malloc( allocsize );
+	if( !real_vol ) {
+		Log_Error("LVM", "LVM_AddVolume - malloc error on %i bytes", allocsize);
+		free(first_block);
+		return NULL;
+	}
 	real_vol->Next = NULL;
 	real_vol->Type = Type;
 	real_vol->Ptr = Ptr;
@@ -88,7 +92,7 @@ int LVM_AddVolume(const tLVM_VolType *Type, const char *Name, void *Ptr, size_t 
 	gpLVM_LastVolume->Next = real_vol;
 	gpLVM_LastVolume = real_vol;
 
-	return 0;
+	return real_vol;
 }
 
 void LVM_int_SetSubvolume_Anon(tLVM_Vol *Volume, int Index, Uint64 FirstBlock, Uint64 BlockCount)
