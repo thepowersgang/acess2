@@ -8,6 +8,8 @@
 #ifndef _AHCI__AHCI_HW_H_
 #define _AHCI__AHCI_HW_H_
 
+#include "sata.h"
+
 #define AHCI_CAP_S64A	(1 << 31)	// Supports 64-bit addressing
 #define AHCI_CAP_SNCQ	(1 << 30)	// Supports Native Command Queuing
 #define AHCI_CAP_SXS	(1 << 5)	// Support External SATA
@@ -115,32 +117,15 @@ struct sAHCI_MemSpace
 	}	Ports[32];
 } PACKED;
 
-struct sAHCI_FIS_DMASetup
-{
-	Uint32	unk[7];
-} PACKED;
-struct sAHCI_FIS_PIOSetup
-{
-	Uint32	unk[5];
-} PACKED;
-struct sAHCI_FIS_D2HRegister
-{
-	Uint32	unk[5];
-} PACKED;
-struct sAHCI_FIS_SDB
-{
-	Uint32	unk[2];
-} PACKED;
-
 struct sAHCI_RcvdFIS
 {
-	struct sAHCI_FIS_DMASetup	DSFIS;
+	struct sSATA_FIS_DMASetup	DSFIS;
 	Uint32	_pad1[1];
-	struct sAHCI_FIS_PIOSetup	PSFIS;
+	struct sSATA_FIS_PIOSetup	PSFIS;
 	Uint32	_pad2[3];
-	struct sAHCI_FIS_D2HRegister	RFIS;
+	struct sSATA_FIS_D2HRegister	RFIS;
 	Uint32	_pad3[1];
-	struct sAHCI_FIS_SDB	SDBFIS;
+	struct sSATA_FIS_SDB	SDBFIS;
 	Uint32	UFIS[64/4];
 	Uint32	_redvd[(0x100 - 0xA0) / 4];
 } PACKED;
