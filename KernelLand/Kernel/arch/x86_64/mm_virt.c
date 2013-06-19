@@ -609,7 +609,7 @@ int MM_GetPageEntry(tVAddr Addr, tPAddr *Phys, Uint *Flags)
 /**
  * \brief Get the physical address of a virtual location
  */
-tPAddr MM_GetPhysAddr(const void *Ptr)
+tPAddr MM_GetPhysAddr(volatile const void *Ptr)
 {
 	tVAddr	Addr = (tVAddr)Ptr;
 	tPAddr	*ptr;
@@ -797,7 +797,7 @@ int MM_IsValidBuffer(tVAddr Addr, size_t Size)
 /**
  * \brief Map a range of hardware pages
  */
-tVAddr MM_MapHWPages(tPAddr PAddr, Uint Number)
+void *MM_MapHWPages(tPAddr PAddr, Uint Number)
 {
 	tVAddr	ret;
 	 int	num;
@@ -824,7 +824,7 @@ tVAddr MM_MapHWPages(tPAddr PAddr, Uint Number)
 			MM_RefPhys(PAddr);
 		}
 		
-		return ret;
+		return (void*)ret;
 	}
 	
 	Log_Error("MM", "MM_MapHWPages - No space for %i pages", Number);
@@ -854,10 +854,10 @@ void MM_UnmapHWPages(tVAddr VAddr, Uint Number)
  * \param PhysAddr	Pointer to the location to place the physical address allocated
  * \return Virtual address allocate
  */
-tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
+void *MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 {
 	tPAddr	phys;
-	tVAddr	ret;
+	void	*ret;
 	
 	// Sanity Check
 	if(MaxBits < 12 || !PhysAddr)	return 0;

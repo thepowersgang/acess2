@@ -139,16 +139,15 @@ tBootModule *Multiboot_LoadModules(tMBoot_Info *MBInfo, tVAddr MapOffset, int *M
 	
 		// Always HW map the module data	
 		ofs = mods[i].Start&0xFFF;
-		ret[i].Base = (void*)( MM_MapHWPages(mods[i].Start,
-			(ret[i].Size+ofs+0xFFF) / 0x1000
-			) + ofs );
+		ret[i].Base = (void*)( (tVAddr)MM_MapHWPages(mods[i].Start, (ret[i].Size+ofs+0xFFF) / 0x1000)
+			+ ofs );
 		
 		// Only map the string if needed
 		if( !MM_GetPhysAddr( (void*)(mods[i].String + MapOffset) ) )
 		{
 			// Assumes the string is < 4096 bytes long)
 			ret[i].ArgString = (void*)(
-				MM_MapHWPages(mods[i].String, 2) + (mods[i].String&0xFFF)
+				(tVAddr)MM_MapHWPages(mods[i].String, 2) + (mods[i].String&0xFFF)
 				);
 		}
 		else

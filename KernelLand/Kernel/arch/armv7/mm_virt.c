@@ -328,7 +328,7 @@ int MM_int_GetPageInfo(tVAddr VAddr, tMM_PageInfo *pi)
 }
 
 // --- Exports ---
-tPAddr MM_GetPhysAddr(const void *Ptr)
+tPAddr MM_GetPhysAddr(volatile const void *Ptr)
 {
 	tMM_PageInfo	pi;
 	if( MM_int_GetPageInfo((tVAddr)Ptr, &pi) )
@@ -803,7 +803,7 @@ void MM_FreeTemp(void *Ptr)
 	MM_Deallocate(VAddr);
 }
 
-tVAddr MM_MapHWPages(tPAddr PAddr, Uint NPages)
+void *MM_MapHWPages(tPAddr PAddr, Uint NPages)
 {
 	tVAddr	ret;
 	 int	i;
@@ -833,17 +833,17 @@ tVAddr MM_MapHWPages(tPAddr PAddr, Uint NPages)
 			MM_Map(ret+i*PAGE_SIZE, PAddr+i*PAGE_SIZE);
 		// and return
 		LEAVE('p', ret);
-		return ret;
+		return (void*)ret;
 	}
 	Log_Warning("MMVirt", "MM_MapHWPages: No space for a %i page block", NPages);
 	LEAVE('p', 0);
 	return 0;
 }
 
-tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PAddr)
+void *MM_AllocDMA(int Pages, int MaxBits, tPAddr *PAddr)
 {
 	tPAddr	phys;
-	tVAddr	ret;
+	void	*ret;
 
 	phys = MM_AllocPhysRange(Pages, MaxBits);
 	if(!phys) {
@@ -852,7 +852,12 @@ tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PAddr)
 	}
 	
 	ret = MM_MapHWPages(phys, Pages);
-	*PAddr = phys;
+	if( !ret ) {
+		MM_DerefPhys(phys);
+		return NULL;
+	}
+	if( PAddr )
+		*PAddr = phys;
 
 	return ret;
 }

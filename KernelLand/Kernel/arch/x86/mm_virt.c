@@ -414,7 +414,7 @@ void MM_Deallocate(tVAddr VAddr)
  * \fn tPAddr MM_GetPhysAddr(tVAddr Addr)
  * \brief Checks if the passed address is accesable
  */
-tPAddr MM_GetPhysAddr(const void *Addr)
+tPAddr MM_GetPhysAddr(volatile const void *Addr)
 {
 	tVAddr	addr = (tVAddr)Addr;
 	if( !(gaPageDir[addr >> 22] & 1) )
@@ -1027,7 +1027,7 @@ void MM_FreeTemp(void *VAddr)
  * \fn tVAddr MM_MapHWPages(tPAddr PAddr, Uint Number)
  * \brief Allocates a contigous number of pages
  */
-tVAddr MM_MapHWPages(tPAddr PAddr, Uint Number)
+void *MM_MapHWPages(tPAddr PAddr, Uint Number)
 {
 	 int	i, j;
 	
@@ -1054,7 +1054,7 @@ tVAddr MM_MapHWPages(tPAddr PAddr, Uint Number)
 				MM_RefPhys( PAddr + (j<<12) );
 				gaPageTable[ (HW_MAP_ADDR >> 12) + i + j ] = (PAddr + (j<<12)) | 3;
 			}
-			return HW_MAP_ADDR + (i<<12);
+			return (void*)(HW_MAP_ADDR + (i<<12));
 		}
 	}
 	// If we don't find any, return NULL
@@ -1069,10 +1069,10 @@ tVAddr MM_MapHWPages(tPAddr PAddr, Uint Number)
  * \param PhysAddr	Pointer to the location to place the physical address allocated
  * \return Virtual address allocate
  */
-tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
+void *MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 {
 	tPAddr	phys;
-	tVAddr	ret;
+	void	*ret;
 	
 	ENTER("iPages iMaxBits pPhysAddr", Pages, MaxBits, PhysAddr);
 	
@@ -1101,7 +1101,7 @@ tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 			return 0;
 		}
 		LEAVE('x', ret);
-		return ret;
+		return (void*)ret;
 	}
 	
 	// Slow Allocate
@@ -1125,7 +1125,7 @@ tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 	if( PhysAddr )
 		*PhysAddr = phys;
 	LEAVE('x', ret);
-	return ret;
+	return (void*)ret;
 }
 
 /**

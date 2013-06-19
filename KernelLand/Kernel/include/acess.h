@@ -146,14 +146,14 @@ extern void	IRQ_RemHandler(int Handle);
 
 // --- IO ---
 #if NO_IO_BUS
-#define inb(a)	(Log_Panic("Arch", STR(ARCHDIR)" does not support in*/out* (%s:%i)", __FILE__, __LINE__),0)
+#define inb(a)	(Log_Panic("Arch", STR(ARCHDIR)" does not support in* (%s:%i)", __FILE__, __LINE__),0)
 #define inw(a)	inb(a)
 #define ind(a)	inb(a)
 #define inq(a)	inb(a)
-#define outb(a,b)	inb(a)
-#define outw(a,b)	inb(a)
-#define outd(a,b)	inb(a)
-#define outq(a,b)	inb(a)
+#define outb(a,b)	(Log_Panic("Arch", STR(ARCHDIR)" does not support out* (%s:%i)", __FILE__, __LINE__),(void)(b))
+#define outw(a,b)	outb(a,b)
+#define outd(a,b)	outb(a,b)
+#define outq(a,b)	outb(a,b)
 #else
 /**
  * \name I/O Memory Access
@@ -200,7 +200,7 @@ extern int	MM_Map(tVAddr VAddr, tPAddr PAddr);
  * \param Addr	Address of the page to get the physical address of
  * \return Physical page mapped at \a Addr
  */
-extern tPAddr	MM_GetPhysAddr(const void *Addr);
+extern tPAddr	MM_GetPhysAddr(volatile const void *Addr);
 /**
  * \brief Set the access flags on a page
  * \param VAddr	Virtual address of the page
@@ -237,7 +237,7 @@ extern void	MM_FreeTemp(void *Ptr);
  * \param PAddr	Physical address to map in
  * \param Number	Number of pages to map
  */
-extern tVAddr	MM_MapHWPages(tPAddr PAddr, Uint Number);
+extern void	*MM_MapHWPages(tPAddr PAddr, Uint Number);
 /**
  * \brief Allocates DMA physical memory
  * \param Pages	Number of pages required
@@ -245,7 +245,7 @@ extern tVAddr	MM_MapHWPages(tPAddr PAddr, Uint Number);
  * \param PhysAddr	Pointer to the location to place the physical address allocated
  * \return Virtual address allocate
  */
-extern tVAddr	MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr);
+extern void	*MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr);
 /**
  * \brief Unmaps an allocated hardware range
  * \param VAddr	Virtual address allocate by ::MM_MapHWPages or ::MM_AllocDMA
