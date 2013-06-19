@@ -12,6 +12,7 @@ enum eSATA_FIS_Types
 {
 	SATA_FIS_D2HRegister = 0x34,
 	SATA_FIS_DMASetup = 0x41,
+	SATA_FIS_Data = 0x46,
 	SATA_FIS_PIOSetup = 0x5F,
 };
 
@@ -26,6 +27,12 @@ struct sSATA_FIS_DMASetup
 	Uint32	DMABufOfs;
 	Uint32	DMATransferCount;
 	Uint32	_resvd[1];
+} PACKED;
+struct sSATA_FIS_Data
+{
+	Uint8	Type;	// = 0x46
+	Uint8	_resvd[3];
+	Uint32	Data[1];
 } PACKED;
 struct sSATA_FIS_PIOSetup
 {
@@ -47,6 +54,26 @@ struct sSATA_FIS_PIOSetup
 	Uint8	E_Status;
 	Uint16	TransferCount;
 	Uint8	_resvd3[2];
+} PACKED;
+struct sSATA_FIS_H2DRegister
+{
+	Uint8	Type;	// = 0x27
+	Uint8	Flags;	// [7]: Update to command register
+	Uint8	Command;
+	Uint8	Features;
+	Uint8	SectorNum;
+	Uint8	CylLow;
+	Uint8	CylHigh;
+	Uint8	Dev_Head;
+	Uint8	SectorNumExp;
+	Uint8	CylLowExp;
+	Uint8	CylHighExp;
+	Uint8	FeaturesExp;
+	Uint8	SectorCount;
+	Uint8	SectorCountExp;
+	Uint8	_resvd1;
+	Uint8	Control;
+	Uint8	_resvd2[4];
 } PACKED;
 struct sSATA_FIS_D2HRegister
 {
