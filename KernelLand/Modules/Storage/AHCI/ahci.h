@@ -11,7 +11,9 @@
 #include "ahci_hw.h"
 #include <Storage/LVM/include/lvm.h>
 #include <stdbool.h>
+#include <mutex.h>
 #include <semaphore.h>
+#include <events.h>
 
 typedef struct sAHCI_Ctrlr	tAHCI_Ctrlr;
 typedef struct sAHCI_Port	tAHCI_Port;
@@ -21,6 +23,8 @@ struct sAHCI_Ctrlr
 	 int	IRQ;
 	tPAddr	PMemBase;
 	tAHCI_MemSpace	*MMIO;
+	
+	bool	Supports64Bit;
 
 	 int	NCS;
 	
@@ -31,14 +35,22 @@ struct sAHCI_Ctrlr
 struct sAHCI_Port
 {
 	 int	Idx;	// Hardware index
+	tAHCI_Ctrlr	*Ctrlr;
 	volatile struct s_port	*MMIO;
+
+	tMutex	lCommandSlots;
+	Uint32	IssuedCommands;
+	volatile struct sAHCI_CmdHdr	*CmdList;
+	struct sAHCI_CmdTable	*CommandTables[32];
+	tThread	*CommandThreads[32];
+	volatile struct sAHCI_RcvdFIS	*RcvdFIS;
+
+	tSemaphore	InterruptSem;
+	Uint32	LastIS;
+
 	bool	bHotplug;
 	bool	bPresent;
-
-	tSemaphore	CommandListSem;
-	volatile struct sAHCI_CmdHdr	*CmdList;	
-
-	volatile struct sAHCI_RcvdFIS	*RcvdFIS;	
+	bool	bATAPI;
 
 	void	*LVMHandle;
 };

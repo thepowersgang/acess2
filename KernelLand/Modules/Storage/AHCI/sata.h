@@ -8,8 +8,11 @@
 #ifndef _AHCI__SATA_H_
 #define _AHCI__SATA_H_
 
+#include "ata.h"
+
 enum eSATA_FIS_Types
 {
+	SATA_FIS_H2DRegister = 0x27,
 	SATA_FIS_D2HRegister = 0x34,
 	SATA_FIS_DMASetup = 0x41,
 	SATA_FIS_Data = 0x46,

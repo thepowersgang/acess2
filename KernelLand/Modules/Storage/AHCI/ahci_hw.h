@@ -137,7 +137,13 @@ struct sAHCI_CmdHdr
 	Uint32	PRDBC;
 	Uint32	CTBA;	// 128-byte alignment
 	Uint32	CTBAU;
-	Uint32	resdv[4];
+	union {
+		struct {
+			struct sThread	*Thread;
+			struct sAHCI_CmdTable	*TablePtr;
+		} PACKED Ptrs;
+		Uint32	resdv[4];
+	} Resvd;
 } PACKED;
 
 struct sAHCI_CmdEnt
@@ -146,6 +152,14 @@ struct sAHCI_CmdEnt
 	Uint32	DBAU;	// (upper)
 	Uint32	resvd;
 	Uint32	DBC;	// Data byte count (31: IOC, 21:0 count) 0=1, 1=2, ...
+} PACKED;
+
+struct sAHCI_CmdTable
+{
+	Uint32	CFIS[64/4];
+	Uint32	ACMD[16/4];
+	Uint32	_resvd[0x30/4];
+	struct sAHCI_CmdEnt	PRDT[0x80/16];
 } PACKED;
 
 #endif
