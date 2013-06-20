@@ -1,5 +1,6 @@
 
 MODULES += Storage/ATA
+MODULES += Storage/AHCI
 MODULES += Storage/FDDv2
 MODULES += Network/NE2000 Network/RTL8139
 MODULES += Network/VIARhineII
