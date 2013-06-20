@@ -45,7 +45,11 @@ void *LVM_AddVolume(const tLVM_VolType *Type, const char *Name, void *Ptr, size_
 		Log_Error("LVM", "LVM_AddVolume - malloc error on %i bytes", BlockSize);
 		return NULL;
 	}
-	Type->Read(Ptr, 0, 1, first_block);
+	if( Type->Read(Ptr, 0, 1, first_block) != 1 ) {
+		Log_Error("LVM", "LVM_AddVolume - Failed to read first sector");
+		free(first_block);
+		return NULL;
+	}
 	
 	// Determine Format
 	// TODO: Determine format
