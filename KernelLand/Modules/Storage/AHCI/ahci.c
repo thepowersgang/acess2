@@ -62,6 +62,7 @@ int AHCI_Install(char **Arguments)
 	while( (id = PCI_GetDeviceByClass(0x010601, 0xFFFFFF, id)) >= 0 && i < MAX_CONTROLLERS )
 	{
 		tAHCI_Ctrlr *ctrlr = &gaAHCI_Controllers[i];
+		ctrlr->ID = i;
 		ctrlr->PMemBase = PCI_GetBAR(id, 5);
 		// 
 		if( !ctrlr->PMemBase )
@@ -131,6 +132,8 @@ static inline void AHCI_int_SetAddr(tAHCI_Ctrlr *Ctrlr, volatile Uint32 *Addr, t
 	#if PHYS_BITS > 32
 	if(Ctrlr->Supports64Bit)
 		Addr[1] = PAddr >> 32;
+	else if( PAddr >> 32 )
+		Log_Notice("AHCI", "Bug: 64-bit address used with 32-bit only controller");
 	else
 	#endif
 		Addr[1] = 0;
@@ -297,9 +300,11 @@ void AHCI_QueryDevice(tAHCI_Ctrlr *Ctrlr, int PortNum)
 	tATA_Identify	data;	
 
 	AHCI_SendLBA28Cmd(Port, false, 0, 0, 0, ATA_CMD_IDENTIFY_DEVICE, sizeof(data), &data);
-	AHCI_WaitForInterrupt(Port, 1000);
+	if( AHCI_WaitForInterrupt(Port, 1000) ) {
+		Log_Error("AHCI", "Port %i:%i ATA IDENTIFY_DEVICE timed out", Ctrlr->ID, PortNum);
+		return ;
+	}
 	// TODO: Check status from command
-	
 	// TODO: on error, mark device as bad and return
 
 	_flipChars(data.SerialNum, 20/2);
@@ -309,27 +314,31 @@ void AHCI_QueryDevice(tAHCI_Ctrlr *Ctrlr, int PortNum)
 	LOG("data.FirmwareVer = '%.8s'", data.FirmwareVer);
 	LOG("data.ModelNumber = '%.40s'", data.ModelNumber);
 
-	Uint64	sector_count;
 	if( data.Sectors48 != 0 ) {
 		// Use LBA48 size
 		LOG("Size[48] = 0x%X", (Uint64)data.Sectors48);
-		sector_count = data.Sectors48;
+		Port->SectorCount = data.Sectors48;
 	}
 	else {
 		// Use LBA28 size
 		LOG("Size[28] = 0x%x", data.Sectors28);
-		sector_count = data.Sectors28;
+		Port->SectorCount = data.Sectors28;
 	}
 	
 	// Create LVM name
+	#if AHCI_VOLNAME_SERIAL
 	char lvmname[4+1+20+1];
-	strcpy(lvmname, "AHCI:");
+	strcpy(lvmname, "ahci:");
 	memcpy(lvmname+5, data.SerialNum, 20);
 	for(int i = 20+5; i-- && lvmname[i] == ' '; )
 		lvmname[i] = '\0';
+	#else
+	char lvmname[5+3+4+1];
+	snprintf(lvmname, sizeof(lvmname), "ahci:%i-%i", Ctrlr->ID, PortNum);
+	#endif
 	
 	// Register with LVM
-	Port->LVMHandle = LVM_AddVolume(&gAHCI_VolumeType, lvmname, Port, 512, sector_count);
+	Port->LVMHandle = LVM_AddVolume(&gAHCI_VolumeType, lvmname, Port, 512, Port->SectorCount);
 }
 
 void AHCI_IRQHandler(int UNUSED(IRQ), void *Data)
@@ -361,7 +370,8 @@ void AHCI_int_IRQHandlerPort(tAHCI_Port *Port)
 	LOG("port->MMIO->PxIS = %x", PxIS);
 	Port->LastIS |= PxIS;
 	if( PxIS & AHCI_PxIS_CPDS ) {
-		// Port change detected
+		// Cold port detect change detected
+		// TODO: Handle removal of a device by poking LVM.
 	}
 
 	if( PxIS & AHCI_PxIS_DHRS ) {
@@ -402,8 +412,15 @@ int AHCI_ReadSectors(void *Ptr, Uint64 Address, size_t Count, void *Buffer)
 		AHCI_SendLBA28Cmd(Port, 0, 0, Count, Address, ATA_CMD_READDMA28, Count*512, Buffer);
 	else
 		AHCI_SendLBA48Cmd(Port, 0, 0, Count, Address, ATA_CMD_READDMA48, Count*512, Buffer);
-	if( AHCI_WaitForInterrupt(Port, 1000) )
+	if( AHCI_WaitForInterrupt(Port, 1000) ) {
+		Log_Notice("AHCI", "Timeout reading from disk");
 		return 0;
+	}
+	if( Port->RcvdFIS->RFIS.Status & ATA_STATUS_ERR )
+	{
+		LOG("Error detected = 0x%02x", Port->RcvdFIS->RFIS.Error);
+		return 0;
+	}
 	//Debug_HexDump("AHCI_ReadSectors", Buffer, Count*512);
 	// TODO: Check status from command
 	return Count;

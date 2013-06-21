@@ -20,6 +20,8 @@ typedef struct sAHCI_Port	tAHCI_Port;
 
 struct sAHCI_Ctrlr
 {
+	 int	ID;	// Controller ID
+	
 	 int	IRQ;
 	tPAddr	PMemBase;
 	tAHCI_MemSpace	*MMIO;
@@ -53,6 +55,7 @@ struct sAHCI_Port
 	bool	bATAPI;
 
 	void	*LVMHandle;
+	Uint64	SectorCount;
 };
 
 #endif
