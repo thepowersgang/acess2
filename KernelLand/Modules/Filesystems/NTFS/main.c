@@ -2,7 +2,10 @@
  * Acess2 - NTFS Driver
  * By John Hodge (thePowersGang)
  *
- * main.c - Driver core
+ * main.c
+ * - Driver core
+ *
+ * Reference: ntfsdoc.pdf
  */
 #define DEBUG	1
 #define VERBOSE	0
@@ -10,23 +13,31 @@
 #include <vfs.h>
 #include "common.h"
 #include <modules.h>
+#include <utf16.h>
 
 // === PROTOTYPES ===
  int	NTFS_Install(char **Arguments);
+ int	NTFS_Detect(int FD);
 tVFS_Node	*NTFS_InitDevice(const char *Devices, const char **Options);
 void	NTFS_Unmount(tVFS_Node *Node);
+// - MFT Related Functions
+tNTFS_FILE_Header	*NTFS_GetMFT(tNTFS_Disk *Disk, Uint32 MFTEntry);
+void	NTFS_ReleaseMFT(tNTFS_Disk *Disk, Uint32 MFTEntry, tNTFS_FILE_Header *Entry);
+tNTFS_Attrib	*NTFS_GetAttrib(tNTFS_Disk *Disk, Uint32 MFTEntry, int Type, const char *Name, int DesIdx);
+size_t	NTFS_ReadAttribData(tNTFS_Attrib *Attrib, Uint64 Offset, size_t Length, void *Buffer);
 void	NTFS_DumpEntry(tNTFS_Disk *Disk, Uint32 Entry);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, 0x0A /*v0.1*/, FS_NTFS, NTFS_Install, NULL);
 tVFS_Driver	gNTFS_FSInfo = {
 	.Name = "ntfs",
+	.Detect = NTFS_Detect,
 	.InitDevice = NTFS_InitDevice,
 	.Unmount = NTFS_Unmount,
 	.GetNodeFromINode = NULL
 };
 tVFS_NodeType	gNTFS_DirType = {
-	.TypeName = "NTFS-File",
+	.TypeName = "NTFS-Dir",
 	.ReadDir = NTFS_ReadDir,
 	.FindDir = NTFS_FindDir,
 	.Close = NULL
@@ -45,6 +56,27 @@ int NTFS_Install(char **Arguments)
 }
 
 /**
+ * \brief Detect if a volume is NTFS
+ */
+int NTFS_Detect(int FD)
+{
+	tNTFS_BootSector	bs;
+	VFS_ReadAt(FD, 0, 512, &bs);
+	
+	if( bs.BytesPerSector == 0 || (bs.BytesPerSector & 511) )
+		return 0;
+
+	Uint64	ncluster = bs.TotalSectorCount / bs.SectorsPerCluster;
+	if( bs.MFTStart >= ncluster || bs.MFTMirrorStart >= ncluster )
+		return 0;
+
+	if( memcmp(bs.SystemID, "NTFS    ", 8) != 0 )
+		return 0;
+	
+	return 1;
+}
+
+/**
  * \brief Mount a NTFS volume
  */
 tVFS_Node *NTFS_InitDevice(const char *Device, const char **Options)
@@ -52,7 +84,7 @@ tVFS_Node *NTFS_InitDevice(const char *Device, const char **Options)
 	tNTFS_Disk	*disk;
 	tNTFS_BootSector	bs;
 	
-	disk = malloc( sizeof(tNTFS_Disk) );
+	disk = calloc( sizeof(tNTFS_Disk), 1 );
 	
 	disk->FD = VFS_Open(Device, VFS_OPENFLAG_READ);
 	if(!disk->FD) {
@@ -96,22 +128,34 @@ tVFS_Node *NTFS_InitDevice(const char *Device, const char **Options)
 	else {
 		disk->MFTRecSize = bs.ClustersPerMFTRecord * disk->ClusterSize;
 	}
+	NTFS_DumpEntry(disk, 0);	// $MFT
+	//NTFS_DumpEntry(disk, 3);	// $VOLUME
 	
-	disk->RootNode.Inode = 5;	// MFT Ent #5 is filesystem root
-	disk->RootNode.ImplPtr = disk;
-	
-	disk->RootNode.UID = 0;
-	disk->RootNode.GID = 0;
-	
-	disk->RootNode.NumACLs = 1;
-	disk->RootNode.ACLs = &gVFS_ACL_EveryoneRX;
-	
-	disk->RootNode.Type = &gNTFS_DirType;
+	disk->MFTDataAttr = NULL;
+	disk->MFTDataAttr = NTFS_GetAttrib(disk, 0, NTFS_FileAttrib_Data, "", 0);
+	NTFS_DumpEntry(disk, 5);	// .
 
+	disk->RootDir.I30Root = NTFS_GetAttrib(disk, 5, NTFS_FileAttrib_IndexRoot, "$I30", 0);
+	disk->RootDir.I30Allocation = NTFS_GetAttrib(disk, 5, NTFS_FileAttrib_IndexAllocation, "$I30", 0);
+	disk->RootDir.Node.Inode = 5;	// MFT Ent #5 is filesystem root
+	disk->RootDir.Node.ImplPtr = disk;
+	disk->RootDir.Node.Type = &gNTFS_DirType;
+	disk->RootDir.Node.Flags = VFS_FFLAG_DIRECTORY;
 	
-	NTFS_DumpEntry(disk, 5);
+	disk->RootDir.Node.UID = 0;
+	disk->RootDir.Node.GID = 0;
 	
-	return &disk->RootNode;
+	disk->RootDir.Node.NumACLs = 1;
+	disk->RootDir.Node.ACLs = &gVFS_ACL_EveryoneRX;
+
+	{
+		// Read from allocation
+		char buf[disk->ClusterSize];
+		size_t len = NTFS_ReadAttribData(disk->RootDir.I30Allocation, 0, sizeof(buf), buf);
+		Debug_HexDump("RootDir allocation", buf, len);
+	}
+
+	return &disk->RootDir.Node;
 }
 
 /**
@@ -119,7 +163,258 @@ tVFS_Node *NTFS_InitDevice(const char *Device, const char **Options)
  */
 void NTFS_Unmount(tVFS_Node *Node)
 {
+	tNTFS_Disk	*Disk = Node->ImplPtr;
+	VFS_Close(Disk->FD);
+	free(Disk);
+}
+
+tNTFS_FILE_Header *NTFS_GetMFT(tNTFS_Disk *Disk, Uint32 MFTEntry)
+{
+	void	*ret = malloc( Disk->MFTRecSize );
+	if(!ret) {
+		Log_Warning("FS_NTFS", "malloc() fail!");
+		return NULL;
+	}
 	
+	// NOTE: The MFT is a file, and can get fragmented
+	if( !Disk->MFTDataAttr ) {
+		VFS_ReadAt( Disk->FD,
+			Disk->MFTBase * Disk->ClusterSize + MFTEntry * Disk->MFTRecSize,
+			Disk->MFTRecSize,
+			ret);
+	}
+	else {
+		NTFS_ReadAttribData(Disk->MFTDataAttr, MFTEntry * Disk->MFTRecSize, Disk->MFTRecSize, ret);
+	}
+	
+	return ret;
+}
+
+void NTFS_ReleaseMFT(tNTFS_Disk *Disk, Uint32 MFTEntry, tNTFS_FILE_Header *Entry)
+{
+	free(Entry);
+}
+
+static inline Uint64 _getVariableLengthInt(const void *Ptr, int Length, int bExtend)
+{
+	const Uint8	*data = Ptr;
+	Uint64	bits = 0;
+	for( int i = 0; i < Length; i ++ )
+		bits |= (Uint64)data[i] << (i*8);
+	if( bExtend && Length && data[Length-1] & 0x80 ) {
+		for( int i = Length; i < 8; i ++ )
+			bits |= 0xFF << (i*8);
+	}
+	return bits;	// 
+}
+
+const void *_GetDataRun(const void *ptr, const void *limit, Uint64 LastLCN, Uint64 *Count, Uint64 *LCN)
+{
+	// Clean exit?
+	if( ptr == limit ) {
+		LOG("Clean end of list");
+		return NULL;
+	}
+	
+	const Uint8	*data = ptr;
+	
+	// Offset size
+	Uint8	ofsSize = data[0] >> 4;
+	Uint8	lenSize = data[0] & 0xF;
+	LOG("ofsSize = %i, lenSize = %i", ofsSize, lenSize);
+	if( ofsSize > 8 )
+		return NULL;
+	if( lenSize > 8 || lenSize < 1 )
+		return NULL;
+	if( data + 1 + ofsSize + lenSize > (const Uint8*)limit )
+		return NULL;
+	
+	if( Count ) {
+		*Count = _getVariableLengthInt(data + 1, lenSize, 0);
+	}
+	if( LCN ) {
+		*LCN = LastLCN + (Sint64)_getVariableLengthInt(data + 1 + lenSize, ofsSize, 1);
+	}
+	
+	return data + 1 + ofsSize + lenSize;
+}
+
+tNTFS_Attrib *NTFS_GetAttrib(tNTFS_Disk *Disk, Uint32 MFTEntry, int Type, const char *Name, int DesIdx)
+{
+	ENTER("pDisk xMFTEntry xType sName iDesIdx",
+		Disk, MFTEntry, Type, Name, DesIdx);
+	 int	curIdx = 0;
+	// TODO: Scan cache of attributes
+	
+	// Load MFT entry
+	tNTFS_FILE_Header *hdr = NTFS_GetMFT(Disk, MFTEntry);
+	LOG("hdr = %p", hdr);
+
+	tNTFS_FILE_Attrib	*attr;
+	for( size_t ofs = hdr->FirstAttribOfs; ofs < hdr->RecordSize; ofs += attr->Size )
+	{
+		attr = (void*)( (tVAddr)hdr + ofs );
+		// Sanity #1: Type
+		if( ofs + 4 > hdr->RecordSize )
+			break ;
+		// End-of-list?
+		if( attr->Type == 0xFFFFFFFF )
+			break;
+		// Sanity #2: Type,Size
+		if( ofs + 8 > hdr->RecordSize )
+			break;
+		// Sanity #3: Reported size
+		if( attr->Size < sizeof(attr->Resident) )
+			break;
+		// Sanity #4: Reported size fits
+		if( ofs + attr->Size > hdr->RecordSize )
+			break;
+		
+		// - Chceck if this attribute is the one requested
+		LOG("Type check %x == %x", attr->Type, Type);
+		if( attr->Type != Type )
+			continue;
+		if( Name ) {
+			LOG("Name check = '%s'", Name);
+			const void	*name16 = (char*)attr + attr->NameOffset;
+			if( UTF16_CompareWithUTF8(attr->NameLength, name16, Name) != 0 )
+				continue ;
+		}
+		LOG("Idx check %i", curIdx);
+		if( curIdx++ != DesIdx )
+			continue ;
+
+		// - Construct (and cache) attribute description
+		ASSERT(attr->NameOffset % 1 == 0);
+		Uint16	*name16 = (Uint16*)attr + attr->NameOffset/2;
+		size_t	namelen = UTF16_ConvertToUTF8(0, NULL, attr->NameLength, name16);
+		size_t	edatalen = (attr->NonresidentFlag ? 0 : attr->Resident.AttribLen*4);
+		tNTFS_Attrib *ret = malloc( sizeof(tNTFS_Attrib) + namelen + 1 + edatalen );
+		if(!ret) {
+			LEAVE('n');
+			return NULL;
+		}
+		if( attr->NonresidentFlag )
+			ret->Name = (void*)(ret + 1);
+		else {
+			ret->ResidentData = ret + 1;
+			ret->Name = (char*)ret->ResidentData + edatalen;
+		}
+		
+		ret->Disk = Disk;
+		ret->Type = attr->Type;
+		UTF16_ConvertToUTF8(namelen+1, ret->Name, attr->NameLength, name16);
+		ret->IsResident = !(attr->NonresidentFlag);
+
+		LOG("Creating with %x '%s'", ret->Type, ret->Name);
+
+		if( attr->NonresidentFlag )
+		{
+			ret->DataSize = attr->NonResident.RealSize;
+			ret->NonResident.CompressionUnitL2Size = attr->NonResident.CompressionUnitSize;
+			ret->NonResident.FirstPopulatedCluster = attr->NonResident.StartingVCN;
+			// Count data runs
+			const char *limit = (char*)attr + attr->Size;
+			 int	nruns = 0;
+			const char *datarun = (char*)attr + attr->NonResident.DataRunOfs;
+			while( (datarun = _GetDataRun(datarun, limit, 0, NULL, NULL)) )
+				nruns ++;
+			LOG("nruns = %i", nruns);
+			// Allocate data runs
+			ret->NonResident.nRuns = nruns;
+			ret->NonResident.Runs = malloc( sizeof(tNTFS_AttribDataRun) * nruns );
+			 int	i = 0;
+			datarun = (char*)attr + attr->NonResident.DataRunOfs;
+			Uint64	lastLCN = 0;
+			while( datarun && i < nruns )
+			{
+				tNTFS_AttribDataRun	*run = &ret->NonResident.Runs[i];
+				datarun = _GetDataRun(datarun,limit, lastLCN, &run->Count, &run->LCN);
+				LOG("Run %i: %llx+%llx", i, run->LCN, run->Count);
+				lastLCN = run->LCN;
+				i ++;
+			}
+		}
+		else
+		{
+			memcpy(ret->ResidentData, (char*)attr + attr->Resident.AttribOfs, edatalen);
+		}
+		
+		LEAVE('p', ret);
+		return ret;
+	}
+
+	NTFS_ReleaseMFT(Disk, MFTEntry, hdr);
+	LEAVE('n');
+	return NULL;
+}
+
+size_t NTFS_ReadAttribData(tNTFS_Attrib *Attrib, Uint64 Offset, size_t Length, void *Buffer)
+{
+	if( Offset >= Attrib->DataSize )
+		return 0;
+	if( Length > Attrib->DataSize )
+		Length = Attrib->DataSize;
+	if( Offset + Length > Attrib->DataSize )
+		Length = Attrib->DataSize - Offset;
+		
+	if( Attrib->IsResident )
+	{
+		memcpy(Buffer, Attrib->ResidentData, Length);
+		return Length;
+	}
+	else
+	{
+		size_t	ret = 0;
+		tNTFS_Disk	*Disk = Attrib->Disk;
+		Uint64	first_cluster = Offset / Disk->ClusterSize;
+		size_t	cluster_ofs = Offset % Disk->ClusterSize;
+		if( first_cluster < Attrib->NonResident.FirstPopulatedCluster ) {
+			Log_Warning("NTFS", "TODO: Ofs < FirstVCN");
+		}
+		first_cluster -= Attrib->NonResident.FirstPopulatedCluster;
+		if( Attrib->NonResident.CompressionUnitL2Size )
+		{
+			// TODO: Compression
+			Log_Warning("NTFS", "Compression unsupported");
+			// NOTE: Compressed blocks show up in pairs of runs
+			// - The first contains the compressed data
+			// - The second is a placeholder 'sparse' (LCN=0) to align to the compression unit
+		}
+		else
+		{
+			// Iterate through data runs until the desired run is located
+			for( int i = 0; i < Attrib->NonResident.nRuns && Length; i ++ )
+			{
+				tNTFS_AttribDataRun	*run = &Attrib->NonResident.Runs[i];
+				if( first_cluster > run->Count ) {
+					first_cluster -= run->Count;
+					continue ;
+				}
+				size_t	avail_bytes = (run->Count-first_cluster)*Disk->ClusterSize - cluster_ofs;
+				if( avail_bytes > Length )
+					avail_bytes = Length;
+				// Read from this extent
+				if( run->LCN == 0 ) {
+					memset(Buffer, 0, avail_bytes);
+				}
+				else {
+					VFS_ReadAt(Disk->FD,
+						(run->LCN + first_cluster)*Disk->ClusterSize + cluster_ofs,
+						avail_bytes,
+						Buffer
+						);
+				}
+				Length -= avail_bytes;
+				Buffer += avail_bytes;
+				ret += avail_bytes;
+				first_cluster = 0;
+				cluster_ofs = 0;
+				continue ;
+			}
+		}
+		return ret;
+	}
 }
 
 /**
@@ -127,12 +422,11 @@ void NTFS_Unmount(tVFS_Node *Node)
  */
 void NTFS_DumpEntry(tNTFS_Disk *Disk, Uint32 Entry)
 {
-	void	*buf = malloc( Disk->MFTRecSize );
-	tNTFS_FILE_Header	*hdr = buf;
 	tNTFS_FILE_Attrib	*attr;
 	 int	i;
 	
-	if(!buf) {
+	tNTFS_FILE_Header	*hdr = malloc( Disk->MFTRecSize );
+	if(!hdr) {
 		Log_Warning("FS_NTFS", "malloc() fail!");
 		return ;
 	}
@@ -140,7 +434,7 @@ void NTFS_DumpEntry(tNTFS_Disk *Disk, Uint32 Entry)
 	VFS_ReadAt( Disk->FD,
 		Disk->MFTBase * Disk->ClusterSize + Entry * Disk->MFTRecSize,
 		Disk->MFTRecSize,
-		buf);
+		hdr);
 	
 	Log_Debug("FS_NTFS", "MFT Entry #%i", Entry);
 	Log_Debug("FS_NTFS", "- Magic = 0x%08x (%4C)", hdr->Magic, &hdr->Magic);
@@ -164,16 +458,22 @@ void NTFS_DumpEntry(tNTFS_Disk *Disk, Uint32 Entry)
 		Log_Debug("FS_NTFS", "- Attribute %i", i ++);
 		Log_Debug("FS_NTFS", " > Type = 0x%x", attr->Type);
 		Log_Debug("FS_NTFS", " > Size = 0x%x", attr->Size);
-		Log_Debug("FS_NTFS", " > ResidentFlag = 0x%x", attr->ResidentFlag);
+		Log_Debug("FS_NTFS", " > ResidentFlag = 0x%x", attr->NonresidentFlag);
 		Log_Debug("FS_NTFS", " > NameLength = %i", attr->NameLength);
 		Log_Debug("FS_NTFS", " > NameOffset = 0x%x", attr->NameOffset);
 		Log_Debug("FS_NTFS", " > Flags = 0x%x", attr->Flags);
 		Log_Debug("FS_NTFS", " > AttributeID = 0x%x", attr->AttributeID);
-		if( !attr->ResidentFlag ) {
+		{
+			Uint16	*name16 = (void*)((char*)attr + attr->NameOffset);
+			size_t	len = UTF16_ConvertToUTF8(0, NULL, attr->NameLength, name16);
+			char	name[len+1];
+			UTF16_ConvertToUTF8(len+1, name, attr->NameLength, name16);
+			Log_Debug("FS_NTFS", " > Name = '%s'", name);
+		}
+		if( !attr->NonresidentFlag ) {
 			Log_Debug("FS_NTFS", " > AttribLen = 0x%x", attr->Resident.AttribLen);
 			Log_Debug("FS_NTFS", " > AttribOfs = 0x%x", attr->Resident.AttribOfs);
 			Log_Debug("FS_NTFS", " > IndexedFlag = 0x%x", attr->Resident.IndexedFlag);
-			Log_Debug("FS_NTFS", " > Name = '%*C'", attr->NameLength, attr->Resident.Name);
 			Debug_HexDump("FS_NTFS",
 				(void*)( (tVAddr)attr + attr->Resident.AttribOfs ),
 				attr->Resident.AttribLen
@@ -187,11 +487,14 @@ void NTFS_DumpEntry(tNTFS_Disk *Disk, Uint32 Entry)
 			Log_Debug("FS_NTFS", " > AllocatedSize = 0x%llx", attr->NonResident.AllocatedSize);
 			Log_Debug("FS_NTFS", " > RealSize = 0x%llx", attr->NonResident.RealSize);
 			Log_Debug("FS_NTFS", " > InitiatedSize = 0x%llx", attr->NonResident.InitiatedSize);
-			Log_Debug("FS_NTFS", " > Name = '%*C'", attr->NameLength, attr->NonResident.Name);
+			Debug_HexDump("FS_NTFS",
+				(char*)attr + attr->NonResident.DataRunOfs,
+				attr->Size - attr->NonResident.DataRunOfs
+				);
 		}
 		
 		attr = (void*)( (tVAddr)attr + attr->Size );
 	}
 	
-	free(buf);
+	free(hdr);
 }
