@@ -486,7 +486,7 @@ int AHCI_SendLBA48Cmd(tAHCI_Port *Port, int bWrite,
 	regs.SectorCountExp = 0;
 	regs.Control = 0;
 
-	LOG("Sending command %02x with %p+0x%x", Cmd, Data, Size);
+	LOG("Sending command %02x : 0x%llx with %p+0x%x", Cmd, LBA, Data, Size);
 	AHCI_DoFIS(Port, bWrite, sizeof(regs), &regs, 0, NULL, Size, Data);
 
 	return 0;
@@ -518,7 +518,7 @@ int AHCI_SendLBA28Cmd(tAHCI_Port *Port, int bWrite,
 	regs.SectorCountExp = 0;
 	regs.Control = 0;
 
-	LOG("Sending command %02x with %p+0x%x", Cmd, Data, Size);
+	LOG("Sending command %02x : 0x%llx with %p+0x%x", Cmd, LBA, Data, Size);
 	AHCI_DoFIS(Port, bWrite, sizeof(regs), &regs, 0, NULL, Size, Data);
 
 	return 0;
