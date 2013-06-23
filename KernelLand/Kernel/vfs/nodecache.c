@@ -84,9 +84,16 @@ tVFS_Node *Inode_GetCache(int Handle, Uint64 Inode)
  */
 tVFS_Node *Inode_CacheNode(int Handle, tVFS_Node *Node)
 {
+	return Inode_CacheNodeEx(Handle, Node, sizeof(*Node));
+}
+
+tVFS_Node *Inode_CacheNodeEx(int Handle, tVFS_Node *Node, size_t Size)
+{
 	tInodeCache	*cache;
 	tCachedInode	*newEnt, *ent, *prev = NULL;
-	
+
+	ASSERT(Size >= sizeof(tVFS_Node));	
+
 	cache = Inode_int_GetFSCache(Handle);
 	if(!cache)	return NULL;
 	
@@ -106,9 +113,9 @@ tVFS_Node *Inode_CacheNode(int Handle, tVFS_Node *Node)
 	}
 	
 	// Create new entity
-	newEnt = malloc(sizeof(tCachedInode));
+	newEnt = malloc(sizeof(tCachedInode) + (Size - sizeof(tVFS_Node)));
 	newEnt->Next = ent;
-	memcpy(&newEnt->Node, Node, sizeof(tVFS_Node));
+	memcpy(&newEnt->Node, Node, Size);
 	if( prev )
 		prev->Next = newEnt;
 	else

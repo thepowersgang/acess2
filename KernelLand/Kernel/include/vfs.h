@@ -518,6 +518,7 @@ extern tVFS_Node	*Inode_GetCache(int Handle, Uint64 Inode);
  * \return A pointer to the node in the node cache
  */
 extern tVFS_Node	*Inode_CacheNode(int Handle, tVFS_Node *Node);
+extern tVFS_Node	*Inode_CacheNodeEx(int Handle, tVFS_Node *Node, size_t Size);
 /**
  * \fn int Inode_UncacheNode(int Handle, Uint64 Inode)
  * \brief Dereferences (and removes if needed) a node from the cache
