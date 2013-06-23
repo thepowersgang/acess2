@@ -5,7 +5,7 @@
  * utf16.c
  * - UTF-16 Translation/Manipulation
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include <utf16.h>
 
@@ -48,7 +48,7 @@ size_t UTF16_ConvertToUTF8(size_t DestLen, char *Dest, size_t SrcLen, const Uint
 	return len;
 }
 
-int UTF16_CompareWithUTF8(size_t Str16Len, const Uint16 *Str16, const char *Str8)
+int UTF16_CompareWithUTF8Ex(size_t Str16Len, const Uint16 *Str16, const char *Str8, int bCaseInsensitive)
 {
 	 int	pos16 = 0, pos8 = 0;
 	const Uint8	*str8 = (const Uint8 *)Str8;
@@ -58,6 +58,10 @@ int UTF16_CompareWithUTF8(size_t Str16Len, const Uint16 *Str16, const char *Str8
 		Uint32	cp8, cp16;
 		pos16 += ReadUTF16(Str16+pos16, &cp16);
 		pos8 += ReadUTF8(str8 + pos8, &cp8);
+		if( bCaseInsensitive ) {
+			cp16 = toupper(cp16);
+			cp8 = toupper(cp8);
+		}
 	
 		LOG("cp16 = %x, cp8 = %x", cp16, cp8);
 		if(cp16 == cp8)	continue ;
@@ -75,5 +79,15 @@ int UTF16_CompareWithUTF8(size_t Str16Len, const Uint16 *Str16, const char *Str8
 		return 1;
 	else
 		return -1;
+}
+
+int UTF16_CompareWithUTF8(size_t Str16Len, const Uint16 *Str16, const char *Str8)
+{
+	return UTF16_CompareWithUTF8Ex(Str16Len, Str16, Str8, 0);
+}
+
+int UTF16_CompareWithUTF8CI(size_t Str16Len, const Uint16 *Str16, const char *Str8)
+{
+	return UTF16_CompareWithUTF8Ex(Str16Len, Str16, Str8, 1);
 }
 
