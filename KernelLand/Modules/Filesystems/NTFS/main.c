@@ -42,6 +42,10 @@ tVFS_NodeType	gNTFS_DirType = {
 	.FindDir = NTFS_FindDir,
 	.Close = NULL
 	};
+tVFS_NodeType	gNTFS_FileType = {
+	.TypeName = "NTFS-File",
+	.Close = NULL
+	};
 
 tNTFS_Disk	gNTFS_Disks;
 
@@ -128,8 +132,10 @@ tVFS_Node *NTFS_InitDevice(const char *Device, const char **Options)
 	else {
 		disk->MFTRecSize = bs.ClustersPerMFTRecord * disk->ClusterSize;
 	}
-	NTFS_DumpEntry(disk, 0);	// $MFT
+	//NTFS_DumpEntry(disk, 0);	// $MFT
 	//NTFS_DumpEntry(disk, 3);	// $VOLUME
+
+	disk->InodeCache = Inode_GetHandle();
 	
 	disk->MFTDataAttr = NULL;
 	disk->MFTDataAttr = NTFS_GetAttrib(disk, 0, NTFS_FileAttrib_Data, "", 0);
@@ -148,12 +154,14 @@ tVFS_Node *NTFS_InitDevice(const char *Device, const char **Options)
 	disk->RootDir.Node.NumACLs = 1;
 	disk->RootDir.Node.ACLs = &gVFS_ACL_EveryoneRX;
 
+	#if 0
 	{
 		// Read from allocation
 		char buf[disk->ClusterSize];
 		size_t len = NTFS_ReadAttribData(disk->RootDir.I30Allocation, 0, sizeof(buf), buf);
 		Debug_HexDump("RootDir allocation", buf, len);
 	}
+	#endif
 
 	return &disk->RootDir.Node;
 }

@@ -69,7 +69,7 @@ typedef struct sNTFS_Attrib_Filename
 	} PACKED	Type;
 
 	Uint8	FilenameLength;	
-	Uint8	FilenameNamespac;	//!< Filename namespace (DOS, Windows, Unix)
+	Uint8	FilenameNamespace;	//!< Filename namespace (DOS, Windows, Unix)
 	Uint16	Filename[0];
 } PACKED	tNTFS_Attrib_Filename;
 

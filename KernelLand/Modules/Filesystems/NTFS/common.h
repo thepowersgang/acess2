@@ -49,6 +49,8 @@ struct sNTFS_Disk
 	
 	tNTFS_Attrib	*MFTDataAttr;
 	tNTFS_Attrib	*MFTBitmapAttr;
+
+	 int	InodeCache;
 	
 	tNTFS_Directory	RootDir;
 };
@@ -80,7 +82,12 @@ struct sNTFS_Attrib
 	};
 };
 
+extern tVFS_NodeType	gNTFS_DirType;
+extern tVFS_NodeType	gNTFS_FileType;
+
 // -- MFT Access / Manipulation
+extern tNTFS_FILE_Header	*NTFS_GetMFT(tNTFS_Disk *Disk, Uint32 MFTEntry);
+extern void	NTFS_ReleaseMFT(tNTFS_Disk *Disk, Uint32 MFTEntry, tNTFS_FILE_Header *Entry);
 extern tNTFS_Attrib	*NTFS_GetAttrib(tNTFS_Disk *Disk, Uint32 MFTEntry, int Type, const char *Name, int DesIdx);
 extern size_t	NTFS_ReadAttribData(tNTFS_Attrib *Attrib, Uint64 Offset, size_t Length, void *Buffer);
 // -- dir.c

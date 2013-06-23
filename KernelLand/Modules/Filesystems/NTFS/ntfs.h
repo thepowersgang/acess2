@@ -132,6 +132,9 @@ typedef struct sNTFS_FILE_Attrib
 
 #include "attributes.h"
 
+typedef struct sNTFS_IndexHeader	tNTFS_IndexHeader;
+typedef struct sNTFS_IndexEntry_Filename	tNTFS_IndexEntry_Filename;
+
 struct sNTFS_IndexHeader
 {
 	Uint32	Magic;	// = 'INDX' LE
@@ -153,8 +156,8 @@ struct sNTFS_IndexEntry_Filename
 	Uint64	MFTReference;
 	Uint16	EntrySize;
 	Uint16	FilenameOfs;
-	Uint16	IndexFlags;
-	Uint16	_flags;
+	Uint16	IndexFlags;	// [0]: Points to sub-node, [1]: Last entry in node
+	Uint16	_rsvd;
 
 	#if 1
 	struct sNTFS_Attrib_Filename	Filename;
