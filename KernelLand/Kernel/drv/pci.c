@@ -215,7 +215,7 @@ int PCI_ScanBus(int BusID, int bFill)
 			}
 			giPCI_DeviceCount ++;
 			
-			switch(devInfo.ConfigCache[3] & 0x007F0000)
+			switch( (devInfo.ConfigCache[3] >> 16) & 0x7F )
 			{
 			case 0x00:	// Normal device
 				break;
