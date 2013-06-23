@@ -3,3 +3,4 @@ bin-*
 *.tar.bz2
 build-*/
 Output/
+*/*-*
