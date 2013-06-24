@@ -39,7 +39,7 @@ struct sIOCache
 	 int	SectorSize;
 	tMutex	Lock;
 	 int	Mode;
-	Uint32	ID;
+	void	*ID;
 	tIOCache_WriteCallback	Write;
 	 int	CacheSize;
 	 int	CacheUsed;
@@ -57,7 +57,7 @@ tIOCache_PageInfo	*gIOCache_GlobalPages;
  * \fn tIOCache *IOCache_Create( tIOCache_WriteCallback Write, Uint32 ID, int SectorSize, int CacheSize )
  * \brief Creates a new IO Cache
  */
-tIOCache *IOCache_Create( tIOCache_WriteCallback Write, Uint32 ID, int SectorSize, int CacheSize )
+tIOCache *IOCache_Create( tIOCache_WriteCallback Write, void *ID, int SectorSize, int CacheSize )
 {
 	tIOCache	*ret = calloc( 1, sizeof(tIOCache) );
 	
@@ -145,7 +145,7 @@ int IOCache_Read( tIOCache *Cache, Uint64 Sector, void *Buffer )
  * \fn int IOCache_Add( tIOCache *Cache, Uint64 Sector, void *Buffer )
  * \brief Cache a sector
  */
-int IOCache_Add( tIOCache *Cache, Uint64 Sector, void *Buffer )
+int IOCache_Add( tIOCache *Cache, Uint64 Sector, const void *Buffer )
 {
 	tIOCache_Ent	*ent, *prev;
 	tIOCache_Ent	*new;
@@ -237,7 +237,7 @@ int IOCache_Add( tIOCache *Cache, Uint64 Sector, void *Buffer )
  * \fn int IOCache_Write( tIOCache *Cache, Uint64 Sector, void *Buffer )
  * \brief Read from a cached sector
  */
-int IOCache_Write( tIOCache *Cache, Uint64 Sector, void *Buffer )
+int IOCache_Write( tIOCache *Cache, Uint64 Sector, const void *Buffer )
 {
 	tIOCache_Ent	*ent;
 	

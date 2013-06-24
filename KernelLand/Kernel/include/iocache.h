@@ -26,7 +26,7 @@ typedef struct sIOCache	tIOCache;
  * 
  * Called to write a sector back to the device
  */
-typedef int	(*tIOCache_WriteCallback)(Uint32 ID, Uint64 Sector, void *Buffer);
+typedef int	(*tIOCache_WriteCallback)(void *ID, Uint64 Sector, const void *Buffer);
 
 // === CONSTANTS ===
 /**
@@ -65,7 +65,7 @@ enum eIOCache_Modess {
  * \param SectorSize	Size of a cached sector
  * \param CacheSize	Maximum number of objects that can be in the cache at one time
  */
-tIOCache	*IOCache_Create( tIOCache_WriteCallback Write, Uint32 ID, int SectorSize, int CacheSize );
+extern tIOCache	*IOCache_Create( tIOCache_WriteCallback Write, void *ID, int SectorSize, int CacheSize );
 
 /**
  * \brief Reads from a cached sector
@@ -74,7 +74,7 @@ tIOCache	*IOCache_Create( tIOCache_WriteCallback Write, Uint32 ID, int SectorSiz
  * \param Buffer	Destination for the data read
  * \return	1 if the data was read, 0 if the sector is not cached, -1 on error
  */
- int	IOCache_Read( tIOCache *Cache, Uint64 Sector, void *Buffer );
+extern int	IOCache_Read( tIOCache *Cache, Uint64 Sector, void *Buffer );
 
 /**
  * \brief Adds a sector to the cache
@@ -83,7 +83,7 @@ tIOCache	*IOCache_Create( tIOCache_WriteCallback Write, Uint32 ID, int SectorSiz
  * \param Buffer	Data to cache
  * \return	1 on success, 0 if the sector is already cached, -1 on error
  */
- int	IOCache_Add( tIOCache *Cache, Uint64 Sector, void *Buffer );
+extern int	IOCache_Add( tIOCache *Cache, Uint64 Sector, const void *Buffer );
 
 /**
  * \brief Writes to a cached sector
@@ -96,7 +96,7 @@ tIOCache	*IOCache_Create( tIOCache_WriteCallback Write, Uint32 ID, int SectorSiz
  * Wether the Write callback is called depends on the selected caching
  * behaviour.
  */
- int	IOCache_Write( tIOCache *Cache, Uint64 Sector, void *Buffer );
+extern int	IOCache_Write( tIOCache *Cache, Uint64 Sector, const void *Buffer );
 
 /**
  * \brief Flush altered sectors out to the device
@@ -105,7 +105,7 @@ tIOCache	*IOCache_Create( tIOCache_WriteCallback Write, Uint32 ID, int SectorSiz
  * This will call the cache's write callback on each altered sector
  * to flush the write cache.
  */
-void	IOCache_Flush( tIOCache *Cache );
+extern void	IOCache_Flush( tIOCache *Cache );
 
 /**
  * \brief Flushes the cache and then removes it
@@ -115,6 +115,6 @@ void	IOCache_Flush( tIOCache *Cache );
  * IOCache_Destroy writes all changed sectors to the device and then
  * deallocates the cache for other systems to use.
  */
-void	IOCache_Destroy( tIOCache *Cache );
+extern void	IOCache_Destroy( tIOCache *Cache );
 
 #endif
