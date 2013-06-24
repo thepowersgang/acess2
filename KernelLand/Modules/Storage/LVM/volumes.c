@@ -5,10 +5,12 @@
  * volumes.c
  * - Volume management
  */
-#define DEBUG	1
+#define DEBUG	0
 #include "lvm_int.h"
+#define USE_IOCACHE	1
 
 // === PROTOTYPES ===
+ int	LVM_int_CacheWriteback(void *ID, Uint64 Sector, const void *Buffer);
  int	LVM_int_VFSReadEmul(void *Arg, Uint64 BlockStart, size_t BlockCount, void *Dest);
  int	LVM_int_VFSWriteEmul(void *Arg, Uint64 BlockStart, size_t BlockCount, const void *Source);
 
@@ -38,6 +40,7 @@ void *LVM_AddVolume(const tLVM_VolType *Type, const char *Name, void *Ptr, size_
 	dummy_vol.Ptr = Ptr;
 	dummy_vol.BlockCount = BlockCount;
 	dummy_vol.BlockSize = BlockSize;
+	dummy_vol.CacheHandle = NULL;
 
 	// Read the first block of the volume	
 	void *first_block = malloc(BlockSize);
@@ -87,6 +90,14 @@ void *LVM_AddVolume(const tLVM_VolType *Type, const char *Name, void *Ptr, size_
 	real_vol->VolNode.Type = &gLVM_VolNodeType;
 	real_vol->VolNode.ImplPtr = real_vol;
 	real_vol->VolNode.Size = BlockCount * BlockSize;
+
+	// TODO: Better selection of cache size
+	// TODO: Allow a volume type to disallow caching
+	#if USE_IOCACHE
+	real_vol->CacheHandle = IOCache_Create(LVM_int_CacheWriteback, real_vol, BlockSize, 1024);
+	#else
+	real_vol->CacheHandle = NULL;
+	#endif
 
 	// Type->PopulateSubvolumes
 	fmt->PopulateSubvolumes(real_vol, first_block);
@@ -141,14 +152,65 @@ void LVM_int_SetSubvolume_Anon(tLVM_Vol *Volume, int Index, Uint64 FirstBlock, U
 // --------------------------------------------------------------------
 // IO
 // --------------------------------------------------------------------
+int LVM_int_CacheWriteback(void *ID, Uint64 Sector, const void *Buffer)
+{
+	tLVM_Vol *Volume = ID;
+	return Volume->Type->Write(Volume->Ptr, Sector, 1, Buffer);
+}
+
 size_t LVM_int_ReadVolume(tLVM_Vol *Volume, Uint64 BlockNum, size_t BlockCount, void *Dest)
 {
-	return Volume->Type->Read(Volume->Ptr, BlockNum, BlockCount, Dest);
+	#if USE_IOCACHE
+	if( Volume->CacheHandle )
+	{
+		 int	done = 0;
+		while( done < BlockCount )
+		{
+			while( done < BlockCount && IOCache_Read(Volume->CacheHandle, BlockNum+done, Dest) == 1 )
+				done ++, Dest = (char*)Dest + Volume->BlockSize;
+			size_t first_uncached = done;
+			void *uncache_buf = Dest;
+			LOG("%i/%i: cached", done, BlockCount);
+			while( done < BlockCount && IOCache_Read(Volume->CacheHandle, BlockNum+done, Dest) == 0 )
+				done ++, Dest = (char*)Dest + Volume->BlockSize;
+			LOG("%i/%i: uncached", done, BlockCount);
+			size_t	count = done-first_uncached;
+			if( count ) {
+				Volume->Type->Read(Volume->Ptr, BlockNum+first_uncached, count, uncache_buf);
+				while(count--)
+				{
+					IOCache_Add(Volume->CacheHandle, BlockNum+first_uncached, uncache_buf);
+					first_uncached ++;
+					uncache_buf = (char*)uncache_buf + Volume->BlockSize;
+				}
+			}
+		}
+		return done;
+	}
+	else
+	#endif
+		return Volume->Type->Read(Volume->Ptr, BlockNum, BlockCount, Dest);
 }
 
 size_t LVM_int_WriteVolume(tLVM_Vol *Volume, Uint64 BlockNum, size_t BlockCount, const void *Src)
 {
-	return Volume->Type->Write(Volume->Ptr, BlockNum, BlockCount, Src);	
+	#if USE_IOCACHE
+	if( Volume->CacheHandle )
+	{
+		int done = 0;
+		while( BlockCount )
+		{
+			IOCache_Write(Volume->CacheHandle, BlockNum, Src);
+			Src = (const char*)Src + Volume->BlockSize;
+			BlockNum ++;
+			BlockCount --;
+			done ++;
+		}
+		return done;
+	}
+	else
+	#endif
+		return Volume->Type->Write(Volume->Ptr, BlockNum, BlockCount, Src);
 }
 
 int LVM_int_VFSReadEmul(void *Arg, Uint64 BlockStart, size_t BlockCount, void *Dest)

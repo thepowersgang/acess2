@@ -11,6 +11,7 @@
 #include "include/lvm.h"
 #include "lvm.h"
 #include <vfs.h>
+#include <iocache.h>
 
 typedef struct sLVM_SubVolume	tLVM_SubVolume;
 
@@ -35,6 +36,8 @@ struct sLVM_Vol
 	
 	 int	nSubVolumes;
 	tLVM_SubVolume	**SubVolumes;
+
+	tIOCache	*CacheHandle;
 
 	char	Name[];
 };
