@@ -7,7 +7,7 @@
  *
  * Reference: ntfsdoc.pdf
  */
-#define DEBUG	1
+#define DEBUG	0
 #define VERBOSE	0
 #include <acess.h>
 #include <vfs.h>
@@ -96,9 +96,9 @@ tVFS_Node *NTFS_InitDevice(const char *Device, const char **Options)
 		return NULL;
 	}
 	
-	Log_Debug("FS_NTFS", "&bs = %p", &bs);
 	VFS_ReadAt(disk->FD, 0, 512, &bs);
-	
+
+#if 0	
 	Log_Debug("FS_NTFS", "Jump = %02x%02x%02x",
 		bs.Jump[0],
 		bs.Jump[1],
@@ -119,10 +119,11 @@ tVFS_Node *NTFS_InitDevice(const char *Device, const char **Options)
 	Log_Debug("FS_NTFS", "ClustersPerMFTRecord = %i", bs.ClustersPerMFTRecord);
 	Log_Debug("FS_NTFS", "ClustersPerIndexRecord = %i", bs.ClustersPerIndexRecord);
 	Log_Debug("FS_NTFS", "SerialNumber = 0x%llx", bs.SerialNumber);
+#endif
 	
 	disk->ClusterSize = bs.BytesPerSector * bs.SectorsPerCluster;
-	Log_Debug("NTFS", "Cluster Size = %i KiB", disk->ClusterSize/1024);
 	disk->MFTBase = bs.MFTStart;
+	Log_Debug("NTFS", "Cluster Size = %i KiB", disk->ClusterSize/1024);
 	Log_Debug("NTFS", "MFT Base = %i", disk->MFTBase);
 	Log_Debug("NTFS", "TotalSectorCount = 0x%x", bs.TotalSectorCount);
 	
@@ -139,7 +140,7 @@ tVFS_Node *NTFS_InitDevice(const char *Device, const char **Options)
 	
 	disk->MFTDataAttr = NULL;
 	disk->MFTDataAttr = NTFS_GetAttrib(disk, 0, NTFS_FileAttrib_Data, "", 0);
-	NTFS_DumpEntry(disk, 5);	// .
+	//NTFS_DumpEntry(disk, 5);	// .
 
 	disk->RootDir.I30Root = NTFS_GetAttrib(disk, 5, NTFS_FileAttrib_IndexRoot, "$I30", 0);
 	disk->RootDir.I30Allocation = NTFS_GetAttrib(disk, 5, NTFS_FileAttrib_IndexAllocation, "$I30", 0);
@@ -345,6 +346,7 @@ tNTFS_Attrib *NTFS_GetAttrib(tNTFS_Disk *Disk, Uint32 MFTEntry, int Type, const 
 		}
 		else
 		{
+			ret->DataSize = edatalen;
 			memcpy(ret->ResidentData, (char*)attr + attr->Resident.AttribOfs, edatalen);
 		}
 		
@@ -359,6 +361,8 @@ tNTFS_Attrib *NTFS_GetAttrib(tNTFS_Disk *Disk, Uint32 MFTEntry, int Type, const 
 
 size_t NTFS_ReadAttribData(tNTFS_Attrib *Attrib, Uint64 Offset, size_t Length, void *Buffer)
 {
+	if( !Attrib )
+		return 0;
 	if( Offset >= Attrib->DataSize )
 		return 0;
 	if( Length > Attrib->DataSize )

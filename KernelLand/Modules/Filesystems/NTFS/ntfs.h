@@ -151,6 +151,17 @@ struct sNTFS_IndexHeader
 	Uint16	UpdateSequenceArray[];
 } PACKED;
 
+#define NTFS_IndexFlag_HasSubNode	0x01
+#define NTFS_IndexFlag_IsLast	0x02
+
+struct sNTFS_IndexEntry
+{
+	Uint64	MFTReference;
+	Uint16	EntrySize;
+	Uint16	MessageLen;
+	Uint16	IndexFlags;	// [0]: Points to sub-node, [1]: Last entry in node
+	Uint16	_rsvd;
+} PACKED;
 struct sNTFS_IndexEntry_Filename
 {
 	Uint64	MFTReference;
@@ -175,7 +186,7 @@ struct sNTFS_IndexEntry_Filename
 	Uint8	FilenameNamespace;
 	#endif
 	// Filename
-};
+} PACKED;
 
 #endif
 
