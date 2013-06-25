@@ -348,7 +348,6 @@ void AHCI_IRQHandler(int UNUSED(IRQ), void *Data)
 	
 	Uint32	IS = Ctrlr->MMIO->IS;
 	Uint32	PI = Ctrlr->MMIO->PI;
-	LOG("Ctrlr->MMIO->IS = %x", IS);
 
 	for( int i = 0; i < 32; i ++ )
 	{
@@ -367,7 +366,7 @@ void AHCI_IRQHandler(int UNUSED(IRQ), void *Data)
 void AHCI_int_IRQHandlerPort(tAHCI_Port *Port)
 {
 	Uint32	PxIS = Port->MMIO->PxIS;
-	LOG("port->MMIO->PxIS = %x", PxIS);
+	LOG("port[%i]->MMIO->PxIS = %x", Port->Idx, PxIS);
 	Port->LastIS |= PxIS;
 	if( PxIS & AHCI_PxIS_CPDS ) {
 		// Cold port detect change detected
@@ -375,15 +374,15 @@ void AHCI_int_IRQHandlerPort(tAHCI_Port *Port)
 	}
 
 	if( PxIS & AHCI_PxIS_DHRS ) {
-		LOG("Port->RcvdFIS->RFIS = {");
-		LOG(".Status = 0x%02x", Port->RcvdFIS->RFIS.Status);
-		LOG(".Error = 0x%02x", Port->RcvdFIS->RFIS.Error);
-		LOG("}");
+	//	LOG("Port->RcvdFIS->RFIS = {");
+	//	LOG(".Status = 0x%02x", Port->RcvdFIS->RFIS.Status);
+	//	LOG(".Error = 0x%02x", Port->RcvdFIS->RFIS.Error);
+	//	LOG("}");
 	}	
 
 	// Get bitfield of completed commands (Issued but no activity)
 	Uint32	done_commands = Port->IssuedCommands ^ Port->MMIO->PxSACT;
-	LOG("done_commands = %x", done_commands);
+	//LOG("done_commands = %x", done_commands);
 	for( int i = 0; i < 32; i ++ )
 	{
 		if( !(done_commands & (1 << i)) )
@@ -405,6 +404,9 @@ int AHCI_ReadSectors(void *Ptr, Uint64 Address, size_t Count, void *Buffer)
 {
 	tAHCI_Port	*Port = Ptr;
 
+	ENTER("pPtr XAddress xCount pBuffer",
+		Ptr, Address, Count, Buffer);
+	
 	memset(Buffer, 0xFF, Count*512);
 	
 	ASSERT(Count <= 8096/512);
@@ -414,15 +416,18 @@ int AHCI_ReadSectors(void *Ptr, Uint64 Address, size_t Count, void *Buffer)
 		AHCI_SendLBA48Cmd(Port, 0, 0, Count, Address, ATA_CMD_READDMA48, Count*512, Buffer);
 	if( AHCI_WaitForInterrupt(Port, 1000) ) {
 		Log_Notice("AHCI", "Timeout reading from disk");
+		LEAVE('i', 0);
 		return 0;
 	}
 	if( Port->RcvdFIS->RFIS.Status & ATA_STATUS_ERR )
 	{
 		LOG("Error detected = 0x%02x", Port->RcvdFIS->RFIS.Error);
+		LEAVE('i', 0);
 		return 0;
 	}
 	//Debug_HexDump("AHCI_ReadSectors", Buffer, Count*512);
 	// TODO: Check status from command
+	LEAVE('i', Count);
 	return Count;
 }
 
