@@ -40,11 +40,12 @@ tVFS_NodeType	gNTFS_DirType = {
 	.TypeName = "NTFS-Dir",
 	.ReadDir = NTFS_ReadDir,
 	.FindDir = NTFS_FindDir,
-	.Close = NULL
+	.Close = NTFS_Close
 	};
 tVFS_NodeType	gNTFS_FileType = {
 	.TypeName = "NTFS-File",
-	.Close = NULL
+	.Read = NTFS_ReadFile,
+	.Close = NTFS_Close
 	};
 
 tNTFS_Disk	gNTFS_Disks;
@@ -175,6 +176,25 @@ void NTFS_Unmount(tVFS_Node *Node)
 	tNTFS_Disk	*Disk = Node->ImplPtr;
 	VFS_Close(Disk->FD);
 	free(Disk);
+}
+
+void NTFS_Close(tVFS_Node *Node)
+{
+	tNTFS_Disk	*Disk = Node->ImplPtr;
+	Inode_UncacheNode(Disk->InodeCache, Node->Inode);
+}
+
+void NTFS_FreeNode(tVFS_Node *Node)
+{
+	if( Node->Type == &gNTFS_DirType ) {
+		tNTFS_Directory	*Dir = (void*)Node;
+		NTFS_FreeAttrib(Dir->I30Root);
+		NTFS_FreeAttrib(Dir->I30Allocation);
+	}
+	else {
+		tNTFS_File	*File = (void*)Node;
+		NTFS_FreeAttrib(File->Data);
+	}
 }
 
 int NTFS_int_ApplyUpdateSequence(void *Buffer, size_t BufLen, const Uint16 *Sequence, size_t NumEntries)
@@ -387,6 +407,12 @@ tNTFS_Attrib *NTFS_GetAttrib(tNTFS_Disk *Disk, Uint32 MFTEntry, int Type, const 
 	return NULL;
 }
 
+void NTFS_FreeAttrib(tNTFS_Attrib *Attrib)
+{
+	if( Attrib )
+		free(Attrib);
+}
+
 size_t NTFS_ReadAttribData(tNTFS_Attrib *Attrib, Uint64 Offset, size_t Length, void *Buffer)
 {
 	if( !Attrib )
@@ -465,16 +491,12 @@ void NTFS_DumpEntry(tNTFS_Disk *Disk, Uint32 Entry)
 	tNTFS_FILE_Attrib	*attr;
 	 int	i;
 	
-	tNTFS_FILE_Header	*hdr = malloc( Disk->MFTRecSize );
+
+	tNTFS_FILE_Header	*hdr = NTFS_GetMFT(Disk, Entry);
 	if(!hdr) {
 		Log_Warning("FS_NTFS", "malloc() fail!");
 		return ;
 	}
-	
-	VFS_ReadAt( Disk->FD,
-		Disk->MFTBase * Disk->ClusterSize + Entry * Disk->MFTRecSize,
-		Disk->MFTRecSize,
-		hdr);
 	
 	Log_Debug("FS_NTFS", "MFT Entry #%i", Entry);
 	Log_Debug("FS_NTFS", "- Magic = 0x%08x (%4C)", hdr->Magic, &hdr->Magic);
@@ -536,5 +558,5 @@ void NTFS_DumpEntry(tNTFS_Disk *Disk, Uint32 Entry)
 		attr = (void*)( (tVAddr)attr + attr->Size );
 	}
 	
-	free(hdr);
+	NTFS_ReleaseMFT(Disk, Entry, hdr);
 }

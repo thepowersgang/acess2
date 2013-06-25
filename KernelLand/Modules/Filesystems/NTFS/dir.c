@@ -319,8 +319,19 @@ tVFS_Node *NTFS_FindDir(tVFS_Node *Node, const char *Name, Uint Flags)
 		if( len == 0 )
 			break;
 		tNTFS_IndexHeader	*hdr = (void*)buf;
+		
+		if( memcmp(&hdr->Magic, "INDX", 4) != 0 ) {
+			Log_Notice("NTFS", "FindDir %p:%X:%x index magic bad %08x",
+				disk, Node->Inode, ofs / unit_len, hdr->Magic);
+			break;
+		}
 		// Apply update sequence
-		ASSERT(hdr->UpdateSequenceOfs + 2*hdr->UpdateSequenceSize <= len);
+		if(hdr->UpdateSequenceOfs + 2*hdr->UpdateSequenceSize > len) {
+			Log_Notice("NTFS", "FindDir %p:%X:%x index update sequence out of buffer (%x+%x>%x)",
+				disk, Node->Inode, ofs / unit_len,
+				hdr->UpdateSequenceOfs, 2*hdr->UpdateSequenceSize, len);
+			break;
+		}
 		NTFS_int_ApplyUpdateSequence(buf,len, (void*)(buf+hdr->UpdateSequenceOfs), hdr->UpdateSequenceSize);
 		// Search
 		//mftent = NTFS_BTreeSearch(len, (void*)buf, NTFS_BTreeSearch_CmpI30, name16len*2, name16);
@@ -330,7 +341,7 @@ tVFS_Node *NTFS_FindDir(tVFS_Node *Node, const char *Name, Uint Flags)
 			);
 	}
 	
-	if( !mftent ) {
+	if( !mftent || (mftent & (1ULL << 63)) ) {
 		LEAVE('n');
 		return NULL;
 	}

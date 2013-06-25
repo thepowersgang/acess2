@@ -85,14 +85,19 @@ struct sNTFS_Attrib
 extern tVFS_NodeType	gNTFS_DirType;
 extern tVFS_NodeType	gNTFS_FileType;
 
+extern void	NTFS_Close(tVFS_Node *Node);
+extern void	NTFS_FreeNode(tVFS_Node *Node);
 extern int	NTFS_int_ApplyUpdateSequence(void *Buf, size_t BufLen, const Uint16 *Sequence, size_t NumEntries);
 // -- MFT Access / Manipulation
 extern tNTFS_FILE_Header	*NTFS_GetMFT(tNTFS_Disk *Disk, Uint32 MFTEntry);
 extern void	NTFS_ReleaseMFT(tNTFS_Disk *Disk, Uint32 MFTEntry, tNTFS_FILE_Header *Entry);
 extern tNTFS_Attrib	*NTFS_GetAttrib(tNTFS_Disk *Disk, Uint32 MFTEntry, int Type, const char *Name, int DesIdx);
+extern void	NTFS_FreeAttrib(tNTFS_Attrib *Attrib);
 extern size_t	NTFS_ReadAttribData(tNTFS_Attrib *Attrib, Uint64 Offset, size_t Length, void *Buffer);
 // -- dir.c
 extern int	NTFS_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX]);
 extern tVFS_Node	*NTFS_FindDir(tVFS_Node *Node, const char *Name, Uint Flags);
+// -- io.c
+extern size_t	NTFS_ReadFile(tVFS_Node *Node, Uint64 Offset, size_t Length, void *Buffer, Uint Flags);
 
 #endif
