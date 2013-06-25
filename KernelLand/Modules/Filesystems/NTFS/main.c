@@ -177,9 +177,33 @@ void NTFS_Unmount(tVFS_Node *Node)
 	free(Disk);
 }
 
+int NTFS_int_ApplyUpdateSequence(void *Buffer, size_t BufLen, const Uint16 *Sequence, size_t NumEntries)
+{
+	Uint16	cksum = Sequence[0];
+	LOG("cksum = %04x", cksum);
+	Sequence ++;
+	Uint16	*buf16 = Buffer;
+	for( int i = 0; i < NumEntries-1; i ++ )
+	{
+		size_t	ofs = (i+1)*512 - 2;
+		if( ofs + 2 > BufLen ) {
+			// Oops?
+			Log_Warning("NTFS", "%x > %x", ofs+2, BufLen);
+		}
+		Uint16	*cksum_word = &buf16[ofs/2];
+		LOG("[%i]: %04x => %04x", i, Sequence[i], *cksum_word);
+		if( *cksum_word != cksum ) {
+			Log_Warning("NTFS", "Disk corruption detected");
+			return 1;
+		}
+		*cksum_word = Sequence[i];
+	}
+	return 0;
+}
+
 tNTFS_FILE_Header *NTFS_GetMFT(tNTFS_Disk *Disk, Uint32 MFTEntry)
 {
-	void	*ret = malloc( Disk->MFTRecSize );
+	tNTFS_FILE_Header	*ret = malloc( Disk->MFTRecSize );
 	if(!ret) {
 		Log_Warning("FS_NTFS", "malloc() fail!");
 		return NULL;
@@ -195,7 +219,11 @@ tNTFS_FILE_Header *NTFS_GetMFT(tNTFS_Disk *Disk, Uint32 MFTEntry)
 	else {
 		NTFS_ReadAttribData(Disk->MFTDataAttr, MFTEntry * Disk->MFTRecSize, Disk->MFTRecSize, ret);
 	}
-	
+
+	NTFS_int_ApplyUpdateSequence(ret, Disk->MFTRecSize,
+		(void*)((char*)ret + ret->UpdateSequenceOfs), ret->UpdateSequenceSize
+		);
+
 	return ret;
 }
 

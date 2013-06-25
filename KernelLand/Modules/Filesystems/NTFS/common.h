@@ -85,6 +85,7 @@ struct sNTFS_Attrib
 extern tVFS_NodeType	gNTFS_DirType;
 extern tVFS_NodeType	gNTFS_FileType;
 
+extern int	NTFS_int_ApplyUpdateSequence(void *Buf, size_t BufLen, const Uint16 *Sequence, size_t NumEntries);
 // -- MFT Access / Manipulation
 extern tNTFS_FILE_Header	*NTFS_GetMFT(tNTFS_Disk *Disk, Uint32 MFTEntry);
 extern void	NTFS_ReleaseMFT(tNTFS_Disk *Disk, Uint32 MFTEntry, tNTFS_FILE_Header *Entry);

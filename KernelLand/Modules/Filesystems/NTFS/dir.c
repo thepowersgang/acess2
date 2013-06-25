@@ -76,6 +76,9 @@ int NTFS_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 		// Check allocation
 		struct sNTFS_IndexHeader *hdr = (void*)buf;
 		ASSERT(hdr->EntriesOffset + 0x18 < len);
+		// Apply update sequence
+		ASSERT(hdr->UpdateSequenceOfs + 2*hdr->UpdateSequenceSize <= len);
+		NTFS_int_ApplyUpdateSequence(buf,len, (void*)(buf+hdr->UpdateSequenceOfs), hdr->UpdateSequenceSize);
 		size_t	ofs = hdr->EntriesOffset + 0x18;
 		ent = NTFS_int_IterateIndex(buf + ofs, len - ofs, &Pos);
 		vcn ++;
@@ -163,6 +166,10 @@ void NTFS_int_DumpIndex(tNTFS_Attrib *Allocation, Uint AttribID)
 	while( (len = NTFS_ReadAttribData(Allocation, vcn*block_size, block_size, buf)) )
 	{
 		struct sNTFS_IndexHeader	*hdr = (void*)buf;
+		// Apply update sequence
+		ASSERT(hdr->UpdateSequenceOfs + 2*hdr->UpdateSequenceSize <= len);
+		NTFS_int_ApplyUpdateSequence(buf,len, (void*)(buf+hdr->UpdateSequenceOfs), hdr->UpdateSequenceSize);
+		
 		LOG("VCN %x: Ofs=%x, Size=%x",
 			vcn, hdr->EntriesOffset, hdr->EntriesSize);
 		if( hdr->ThisVCN != vcn ) {
@@ -312,6 +319,10 @@ tVFS_Node *NTFS_FindDir(tVFS_Node *Node, const char *Name, Uint Flags)
 		if( len == 0 )
 			break;
 		tNTFS_IndexHeader	*hdr = (void*)buf;
+		// Apply update sequence
+		ASSERT(hdr->UpdateSequenceOfs + 2*hdr->UpdateSequenceSize <= len);
+		NTFS_int_ApplyUpdateSequence(buf,len, (void*)(buf+hdr->UpdateSequenceOfs), hdr->UpdateSequenceSize);
+		// Search
 		//mftent = NTFS_BTreeSearch(len, (void*)buf, NTFS_BTreeSearch_CmpI30, name16len*2, name16);
 		mftent = NTFS_BTreeSearch(
 			len-(hdr->EntriesOffset+0x18), buf+hdr->EntriesOffset+0x18,
