@@ -1029,12 +1029,17 @@ void MM_FreeTemp(void *VAddr)
  */
 void *MM_MapHWPages(tPAddr PAddr, Uint Number)
 {
-	 int	i, j;
+	 int	j;
 	
 	PAddr &= ~0xFFF;
-	
+
+	if( PAddr < 1024*1024 && (1024*1024-PAddr) >= Number * PAGE_SIZE )
+	{
+		return (void*)(KERNEL_BASE + PAddr);
+	}
+
 	// Scan List
-	for( i = 0; i < NUM_HW_PAGES; i ++ )
+	for( int i = 0; i < NUM_HW_PAGES; i ++ )
 	{		
 		// Check if addr used
 		if( gaPageTable[ (HW_MAP_ADDR >> 12) + i ] & 1 )
@@ -1137,7 +1142,11 @@ void MM_UnmapHWPages(tVAddr VAddr, Uint Number)
 	 int	i, j;
 	
 	//Log_Debug("VirtMem", "MM_UnmapHWPages: (VAddr=0x%08x, Number=%i)", VAddr, Number);
-	
+
+	//
+	if( KERNEL_BASE <= VAddr && VAddr < KERNEL_BASE + 1024*1024 )
+		return ;	
+
 	// Sanity Check
 	if(VAddr < HW_MAP_ADDR || VAddr+Number*0x1000 > HW_MAP_MAX)	return;
 	
