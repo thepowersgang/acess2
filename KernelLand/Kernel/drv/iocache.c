@@ -9,6 +9,7 @@
 #define DEBUG	0
 #include <acess.h>
 #include <iocache.h>
+#define IOCACHE_USE_PAGES	1
 
 // === TYPES ===
 typedef struct sIOCache_Ent	tIOCache_Ent;
@@ -26,11 +27,15 @@ struct sIOCache_Ent
 
 struct sIOCache_PageInfo
 {
-	tIOCache_PageInfo	*GlobalNext;
 	tIOCache_PageInfo	*CacheNext;
+	tIOCache_PageInfo	*GlobalNext;
 	tIOCache	*Owner;
+	Sint64	LastAccess;
+	
 	tPAddr	BasePhys;
 	Uint64	BaseOffset;
+	Uint32	PresentSectors;
+	Uint32	DirtySectors;
 };
 
 struct sIOCache
@@ -43,14 +48,24 @@ struct sIOCache
 	tIOCache_WriteCallback	Write;
 	 int	CacheSize;
 	 int	CacheUsed;
+	#if IOCACHE_USE_PAGES
+	tIOCache_PageInfo	*Pages;
+	#else
 	tIOCache_Ent	*Entries;
+	#endif
 };
+
+#if IOCACHE_USE_PAGES
+tIOCache_PageInfo	*IOCache_int_GetPage(tIOCache *Cache, Uint64 Sector, tIOCache_PageInfo **Prev, size_t *Offset);
+#endif
 
 // === GLOBALS ===
 tShortSpinlock	glIOCache_Caches;
 tIOCache	*gIOCache_Caches = NULL;
  int	giIOCache_NumCaches = 0;
+#if IOCACHE_USE_PAGES
 tIOCache_PageInfo	*gIOCache_GlobalPages;
+#endif
 
 // === CODE ===
 /**
@@ -59,11 +74,18 @@ tIOCache_PageInfo	*gIOCache_GlobalPages;
  */
 tIOCache *IOCache_Create( tIOCache_WriteCallback Write, void *ID, int SectorSize, int CacheSize )
 {
+	if( CacheSize < 1 )
+		return NULL;
+	if( SectorSize < 512 )
+		return NULL;
+	if( SectorSize > PAGE_SIZE )
+		return NULL;
+	
+	// TODO: Check that SectorSize is a power of two	
+
 	tIOCache	*ret = calloc( 1, sizeof(tIOCache) );
-	
-	// Sanity Check
-	if(!ret)	return NULL;
-	
+	if(!ret)	return NULL;	
+
 	// Fill Structure
 	ret->SectorSize = SectorSize;
 	ret->Mode = IOCACHE_WRITEBACK;
@@ -80,6 +102,26 @@ tIOCache *IOCache_Create( tIOCache_WriteCallback Write, void *ID, int SectorSize
 	// Return
 	return ret;
 }
+
+#if IOCACHE_USE_PAGES
+tIOCache_PageInfo *IOCache_int_GetPage(tIOCache *Cache, Uint64 Sector, tIOCache_PageInfo **Prev, size_t *Offset)
+{
+	Uint64	wanted_base = (Sector*Cache->SectorSize) & ~(PAGE_SIZE-1);
+	if( Offset )
+		*Offset = (Sector*Cache->SectorSize) % PAGE_SIZE;
+	
+	tIOCache_PageInfo *prev = (void*)&Cache->Pages;
+	for( tIOCache_PageInfo *page = Cache->Pages; page; prev = page, page = page->CacheNext )
+	{
+		if(page->BaseOffset < wanted_base)	continue;
+		if(page->BaseOffset > wanted_base)	break;
+		return page;
+	}
+	if( Prev )
+		*Prev = prev;
+	return NULL;
+}
+#endif
 
 /**
  * \fn int IOCache_Read( tIOCache *Cache, Uint64 Sector, void *Buffer )
@@ -106,21 +148,21 @@ int IOCache_Read( tIOCache *Cache, Uint64 Sector, void *Buffer )
 
 	#if IOCACHE_USE_PAGES
 	tIOCache_PageInfo	*page;
-	size_t	offset = (Sector*Cache->SectorSize) % PAGE_SIZE;
-	Uint64	wanted_base = (Sector*Cache->SectorSize) & ~(PAGE_SIZE-1);
-	for( page = Cache->Pages; page; page = page->CacheNext )
+	size_t	offset;
+	page = IOCache_int_GetPage(Cache, Sector, NULL, &offset);
+	if( page && (page->PresentSectors & (1 << offset/Cache->SectorSize)) )
 	{
-		void	*tmp;
-		if(page->BaseOffset < WantedBase)	continue;
-		if(page->BaseOffset > WantedBase)	break;
-		tmp = MM_MapTemp( page->BasePhys );
+		page->LastAccess = now();
+		char *tmp = MM_MapTemp( page->BasePhys );
 		memcpy( Buffer, tmp + offset, Cache->SectorSize ); 
 		MM_FreeTemp( tmp );
+		Mutex_Release( &Cache->Lock );
+		LEAVE('i', 1);
+		return 1;
 	}
 	#else	
-	tIOCache_Ent	*ent;
 	// Search the list
-	for( ent = Cache->Entries; ent; ent = ent->Next )
+	for( tIOCache_Ent *ent = Cache->Entries; ent; ent = ent->Next )
 	{
 		// Have we found what we are looking for?
 		if( ent->Num == Sector ) {
@@ -147,9 +189,6 @@ int IOCache_Read( tIOCache *Cache, Uint64 Sector, void *Buffer )
  */
 int IOCache_Add( tIOCache *Cache, Uint64 Sector, const void *Buffer )
 {
-	tIOCache_Ent	*ent, *prev;
-	tIOCache_Ent	*new;
-	tIOCache_Ent	*oldest = NULL, *oldestPrev;
 	
 	// Sanity Check!
 	if(!Cache || !Buffer)
@@ -163,6 +202,74 @@ int IOCache_Add( tIOCache *Cache, Uint64 Sector, const void *Buffer )
 	}
 	
 	// Search the list
+	#if IOCACHE_USE_PAGES
+	char	*page_map;
+	size_t	offset;
+	tIOCache_PageInfo *prev;
+	tIOCache_PageInfo *page = IOCache_int_GetPage(Cache, Sector, &prev, &offset);
+	if( page )
+	{
+		Uint32	mask = (1 << offset/Cache->SectorSize);
+		 int	ret = !(page->PresentSectors & mask);
+		if( ret )
+		{
+			page_map = MM_MapTemp( page->BasePhys );
+			memcpy( page_map + offset, Buffer, Cache->SectorSize ); 
+			MM_FreeTemp( page_map );
+			page->PresentSectors |= mask;
+		}
+		Mutex_Release( &Cache->Lock );
+		return ret;
+	}
+	else if( Cache->CacheUsed <= Cache->CacheSize )
+	{
+		page = malloc( sizeof(tIOCache_PageInfo) );
+		page->BasePhys = MM_AllocPhys();
+		page_map = MM_MapTemp( page->BasePhys );
+		
+		page->GlobalNext = gIOCache_GlobalPages;
+		gIOCache_GlobalPages = page;
+	}
+	else
+	{
+		tIOCache_PageInfo *oldest = Cache->Pages, *oldestPrev = NULL;
+		for( tIOCache_PageInfo *ent = Cache->Pages; ent; prev = ent, ent = ent->CacheNext )
+		{
+			if( ent->LastAccess < oldest->LastAccess ) {
+				oldest = ent;
+				oldestPrev = prev;
+			}
+		}
+		// Remove oldest from list
+		*(oldestPrev ? &oldestPrev->CacheNext : &Cache->Pages) = oldest->CacheNext;
+		page = oldest;
+		page_map = MM_MapTemp( page->BasePhys );
+		// Flush
+		if( page->DirtySectors && Cache->Mode != IOCACHE_VIRTUAL )
+		{
+			for( int i = 0; i < PAGE_SIZE/Cache->SectorSize; i ++ )
+				Cache->Write(Cache->ID, page->BaseOffset/Cache->SectorSize+i,
+					page_map + i * Cache->SectorSize);
+		}
+	}
+
+	// Create a new page
+	page->CacheNext = prev->CacheNext;
+	prev->CacheNext = page;
+	
+	page->Owner = Cache;
+	page->LastAccess = now();
+	
+	page->BaseOffset = (Sector*Cache->SectorSize) & ~(PAGE_SIZE-1);
+	page->PresentSectors = 0;
+	page->DirtySectors = 0;
+	
+	memcpy( page_map + offset, Buffer, Cache->SectorSize ); 
+	
+	#else
+	tIOCache_Ent	*ent, *prev;
+	tIOCache_Ent	*new;
+	tIOCache_Ent	*oldest = NULL, *oldestPrev;
 	prev = (tIOCache_Ent*)&Cache->Entries;
 	for( ent = Cache->Entries; ent; prev = ent, ent = ent->Next )
 	{
@@ -225,6 +332,7 @@ int IOCache_Add( tIOCache *Cache, Uint64 Sector, const void *Buffer )
 	// Append to list
 	prev->Next = new;
 	Cache->CacheUsed ++;
+	#endif
 	
 	// Release Spinlock
 	Mutex_Release( &Cache->Lock );
@@ -239,8 +347,6 @@ int IOCache_Add( tIOCache *Cache, Uint64 Sector, const void *Buffer )
  */
 int IOCache_Write( tIOCache *Cache, Uint64 Sector, const void *Buffer )
 {
-	tIOCache_Ent	*ent;
-	
 	// Sanity Check!
 	if(!Cache || !Buffer)
 		return -1;
@@ -251,8 +357,32 @@ int IOCache_Write( tIOCache *Cache, Uint64 Sector, const void *Buffer )
 		return -1;
 	}
 	
+	#if IOCACHE_USE_PAGES
+	tIOCache_PageInfo	*page;
+	size_t	offset;
+	page = IOCache_int_GetPage(Cache, Sector, NULL, &offset);
+	if( page && (page->PresentSectors & (1 << offset/Cache->SectorSize)) )
+	{
+		
+		page->LastAccess = now();
+		char *tmp = MM_MapTemp( page->BasePhys );
+		memcpy( tmp + offset, Buffer, Cache->SectorSize );
+		MM_FreeTemp( tmp );
+		
+		if(Cache->Mode == IOCACHE_WRITEBACK) {
+			Cache->Write(Cache->ID, Sector, Buffer);
+		}
+		else {
+			page->DirtySectors |= (1 << offset/Cache->SectorSize);
+		}
+		
+		Mutex_Release( &Cache->Lock );
+		LEAVE('i', 1);
+		return 1;
+	}
+	#else	
 	// Search the list
-	for( ent = Cache->Entries; ent; ent = ent->Next )
+	for( tIOCache_Ent &ent = Cache->Entries; ent; ent = ent->Next )
 	{
 		// Have we found what we are looking for?
 		if( ent->Num == Sector ) {
@@ -271,6 +401,7 @@ int IOCache_Write( tIOCache *Cache, Uint64 Sector, const void *Buffer )
 		// it's not there
 		if(ent->Num > Sector)	break;
 	}
+	#endif
 	
 	Mutex_Release( &Cache->Lock );
 	return 0;
@@ -282,8 +413,6 @@ int IOCache_Write( tIOCache *Cache, Uint64 Sector, const void *Buffer )
  */
 void IOCache_Flush( tIOCache *Cache )
 {
-	tIOCache_Ent	*ent;
-	
 	if( Cache->Mode == IOCACHE_VIRTUAL )	return;
 	
 	// Lock
@@ -294,11 +423,26 @@ void IOCache_Flush( tIOCache *Cache )
 	}
 	
 	// Write All
-	for( ent = Cache->Entries; ent; ent = ent->Next )
+	#if IOCACHE_USE_PAGES
+	for( tIOCache_PageInfo *page = Cache->Pages; page; page = page->CacheNext )
+	{
+		// Flush
+		char *page_map = MM_MapTemp( page->BasePhys );
+		if( page->DirtySectors && Cache->Mode != IOCACHE_VIRTUAL )
+		{
+			for( int i = 0; i < PAGE_SIZE/Cache->SectorSize; i ++ )
+				Cache->Write(Cache->ID, page->BaseOffset/Cache->SectorSize+i,
+					page_map + i * Cache->SectorSize);
+		}
+		MM_FreeTemp(page_map);
+	}
+	#else
+	for( tIOCache_Ent *ent = Cache->Entries; ent; ent = ent->Next )
 	{
 		Cache->Write(Cache->ID, ent->Num, ent->Data);
 		ent->LastWrite = 0;
 	}
+	#endif
 	
 	Mutex_Release( &Cache->Lock );
 }
@@ -309,30 +453,7 @@ void IOCache_Flush( tIOCache *Cache )
  */
 void IOCache_Destroy( tIOCache *Cache )
 {
-	tIOCache_Ent	*ent, *prev = NULL;
-	
-	// Lock
-	Mutex_Acquire( &Cache->Lock );
-	if(Cache->CacheSize == 0) {
-		Mutex_Release( &Cache->Lock );
-		return;
-	}
-	
-	// Free All
-	for(ent = Cache->Entries;
-		ent;
-		prev = ent, ent = ent->Next, free(prev) )
-	{
-		if( Cache->Mode != IOCACHE_VIRTUAL )
-		{
-			Cache->Write(Cache->ID, ent->Num, ent->Data);
-			ent->LastWrite = 0;
-		}
-	}
-	
-	Cache->CacheSize = 0;
-	
-	Mutex_Release( &Cache->Lock );
+	IOCache_Flush(Cache);
 	
 	// Remove from list
 	SHORTLOCK( &glIOCache_Caches );
