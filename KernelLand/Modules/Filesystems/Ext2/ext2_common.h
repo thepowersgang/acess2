@@ -13,7 +13,7 @@
 // === STRUCTURES ===
 typedef struct {
 	 int	FD;
-	 int	CacheID;
+	tInodeCache	*CacheID;
 	tVFS_Node	RootNode;
 	
 	tExt2_SuperBlock	SuperBlock;

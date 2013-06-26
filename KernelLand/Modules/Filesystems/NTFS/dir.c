@@ -273,6 +273,7 @@ tVFS_Node *NTFS_int_CreateNode(tNTFS_Disk *Disk, Uint64 MFTEntry)
 		ret = &types.tpl_file.Node;
 		ret->Type = &gNTFS_FileType;
 		types.tpl_file.Data = NTFS_GetAttrib(Disk, MFTEntry, NTFS_FileAttrib_Data, "", 0); 
+		ret->Size = types.tpl_file.Data->DataSize;
 	}
 	ret->Inode = MFTEntry;
 	ret->ImplPtr = Disk;

@@ -14,8 +14,13 @@
 size_t NTFS_ReadFile(tVFS_Node *Node, Uint64 Offset, size_t Length, void *Buffer, Uint Flags)
 {
 	tNTFS_File	*File = (void*)Node;
-	
-	return NTFS_ReadAttribData(File->Data, Offset, Length, Buffer);
+
+	ENTER("XNode->Inode XOffset xLength pBuffer xFlags",
+		Node->Inode, Offset, Length, Buffer, Flags);	
+
+	size_t	ret =  NTFS_ReadAttribData(File->Data, Offset, Length, Buffer);
+	LEAVE('x', ret);
+	return ret;
 }
 
 

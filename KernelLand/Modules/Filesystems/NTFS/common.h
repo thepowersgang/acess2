@@ -40,7 +40,7 @@ struct sNTFS_Directory
 struct sNTFS_Disk
 {
 	 int	FD;
-	 int	CacheHandle;
+	tInodeCache	*InodeCache;
 	 
 	 int	ClusterSize;
 	
@@ -50,8 +50,6 @@ struct sNTFS_Disk
 	tNTFS_Attrib	*MFTDataAttr;
 	tNTFS_Attrib	*MFTBitmapAttr;
 
-	 int	InodeCache;
-	
 	tNTFS_Directory	RootDir;
 };
 

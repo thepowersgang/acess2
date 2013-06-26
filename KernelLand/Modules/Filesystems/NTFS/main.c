@@ -137,7 +137,7 @@ tVFS_Node *NTFS_InitDevice(const char *Device, const char **Options)
 	//NTFS_DumpEntry(disk, 0);	// $MFT
 	//NTFS_DumpEntry(disk, 3);	// $VOLUME
 
-	disk->InodeCache = Inode_GetHandle();
+	disk->InodeCache = Inode_GetHandle(NTFS_FreeNode);
 	
 	disk->MFTDataAttr = NULL;
 	disk->MFTDataAttr = NTFS_GetAttrib(disk, 0, NTFS_FileAttrib_Data, "", 0);
@@ -223,6 +223,9 @@ int NTFS_int_ApplyUpdateSequence(void *Buffer, size_t BufLen, const Uint16 *Sequ
 
 tNTFS_FILE_Header *NTFS_GetMFT(tNTFS_Disk *Disk, Uint32 MFTEntry)
 {
+	// TODO: Cache MFT allocation for short-term	
+
+	// 
 	tNTFS_FILE_Header	*ret = malloc( Disk->MFTRecSize );
 	if(!ret) {
 		Log_Warning("FS_NTFS", "malloc() fail!");
@@ -332,8 +335,12 @@ tNTFS_Attrib *NTFS_GetAttrib(tNTFS_Disk *Disk, Uint32 MFTEntry, int Type, const 
 		if( attr->Type != Type )
 			continue;
 		if( Name ) {
-			LOG("Name check = '%s'", Name);
+			if( attr->NameOffset + attr->NameLength*2 > attr->Size ) {
+				break;
+			}
 			const void	*name16 = (char*)attr + attr->NameOffset;
+			LOG("Name check: '%s' == '%.*ls'",
+				Name, attr->NameLength, name16);
 			if( UTF16_CompareWithUTF8(attr->NameLength, name16, Name) != 0 )
 				continue ;
 		}
@@ -345,11 +352,10 @@ tNTFS_Attrib *NTFS_GetAttrib(tNTFS_Disk *Disk, Uint32 MFTEntry, int Type, const 
 		ASSERT(attr->NameOffset % 1 == 0);
 		Uint16	*name16 = (Uint16*)attr + attr->NameOffset/2;
 		size_t	namelen = UTF16_ConvertToUTF8(0, NULL, attr->NameLength, name16);
-		size_t	edatalen = (attr->NonresidentFlag ? 0 : attr->Resident.AttribLen*4);
+		size_t	edatalen = (attr->NonresidentFlag ? 0 : attr->Resident.AttribLen);
 		tNTFS_Attrib *ret = malloc( sizeof(tNTFS_Attrib) + namelen + 1 + edatalen );
 		if(!ret) {
-			LEAVE('n');
-			return NULL;
+			goto _error;
 		}
 		if( attr->NonresidentFlag )
 			ret->Name = (void*)(ret + 1);
@@ -396,12 +402,15 @@ tNTFS_Attrib *NTFS_GetAttrib(tNTFS_Disk *Disk, Uint32 MFTEntry, int Type, const 
 		{
 			ret->DataSize = edatalen;
 			memcpy(ret->ResidentData, (char*)attr + attr->Resident.AttribOfs, edatalen);
+			Debug_HexDump("GetAttrib Resident", ret->ResidentData, edatalen);
 		}
 		
+		NTFS_ReleaseMFT(Disk, MFTEntry, hdr);
 		LEAVE('p', ret);
 		return ret;
 	}
 
+_error:
 	NTFS_ReleaseMFT(Disk, MFTEntry, hdr);
 	LEAVE('n');
 	return NULL;

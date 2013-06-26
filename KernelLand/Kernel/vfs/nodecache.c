@@ -15,33 +15,30 @@ typedef struct sCachedInode {
 	struct sCachedInode	*Next;
 	tVFS_Node	Node;
 } tCachedInode;
-typedef struct sInodeCache {
+struct sInodeCache
+{
 	struct sInodeCache	*Next;
-	 int	Handle;
+	tInode_CleanUpNode	CleanUpNode;
 	tCachedInode	*FirstNode;	// Sorted List
 	Uint64	MaxCached;		// Speeds up Searching
-} tInodeCache;
-
-// === PROTOTYPES ===
-tInodeCache	*Inode_int_GetFSCache(int Handle);
+};
 
 // === GLOBALS ===
- int	gVFS_NextInodeHandle = 1;
 tShortSpinlock	glVFS_InodeCache;
 tInodeCache	*gVFS_InodeCache = NULL;
 
 // === CODE ===
-/**
- * \fn int Inode_GetHandle()
- */
-int Inode_GetHandle()
+
+// Create a new inode cache
+tInodeCache *Inode_GetHandle(tInode_CleanUpNode CleanUpNode)
 {
 	tInodeCache	*ent;
 	
 	ent = malloc( sizeof(tInodeCache) );
 	ent->MaxCached = 0;
-	ent->Handle = gVFS_NextInodeHandle++;
-	ent->Next = NULL;	ent->FirstNode = NULL;
+	ent->Next = NULL;
+	ent->FirstNode = NULL;
+	ent->CleanUpNode = CleanUpNode;
 	
 	// Add to list
 	SHORTLOCK( &glVFS_InodeCache );
@@ -49,26 +46,21 @@ int Inode_GetHandle()
 	gVFS_InodeCache = ent;
 	SHORTREL( &glVFS_InodeCache );
 	
-	return ent->Handle;
+	return ent;
 }
 
 /**
  * \fn tVFS_Node *Inode_GetCache(int Handle, Uint64 Inode)
  * \brief Gets a node from the cache
  */
-tVFS_Node *Inode_GetCache(int Handle, Uint64 Inode)
+tVFS_Node *Inode_GetCache(tInodeCache *Cache, Uint64 Inode)
 {
-	tInodeCache	*cache;
 	tCachedInode	*ent;
 	
-	cache = Inode_int_GetFSCache(Handle);
-	if(!cache)	return NULL;
-	
-	if(Inode > cache->MaxCached)	return NULL;
+	if(Inode > Cache->MaxCached)	return NULL;
 	
 	// Search Cache
-	ent = cache->FirstNode;
-	for( ; ent; ent = ent->Next )
+	for( ent = Cache->FirstNode; ent; ent = ent->Next )
 	{
 		if(ent->Node.Inode < Inode)	continue;
 		if(ent->Node.Inode > Inode)	return NULL;
@@ -82,27 +74,23 @@ tVFS_Node *Inode_GetCache(int Handle, Uint64 Inode)
 /**
  * \fn tVFS_Node *Inode_CacheNode(int Handle, tVFS_Node *Node)
  */
-tVFS_Node *Inode_CacheNode(int Handle, tVFS_Node *Node)
+tVFS_Node *Inode_CacheNode(tInodeCache *Handle, tVFS_Node *Node)
 {
 	return Inode_CacheNodeEx(Handle, Node, sizeof(*Node));
 }
 
-tVFS_Node *Inode_CacheNodeEx(int Handle, tVFS_Node *Node, size_t Size)
+tVFS_Node *Inode_CacheNodeEx(tInodeCache *Cache, tVFS_Node *Node, size_t Size)
 {
-	tInodeCache	*cache;
-	tCachedInode	*newEnt, *ent, *prev = NULL;
+	tCachedInode	*newEnt, *prev = NULL;
 
 	ASSERT(Size >= sizeof(tVFS_Node));	
-
-	cache = Inode_int_GetFSCache(Handle);
-	if(!cache)	return NULL;
 	
-	if(Node->Inode > cache->MaxCached)
-		cache->MaxCached = Node->Inode;
+	if(Node->Inode > Cache->MaxCached)
+		Cache->MaxCached = Node->Inode;
 	
 	// Search Cache
-	ent = cache->FirstNode;
-	for( ; ent; prev = ent, ent = ent->Next )
+	tCachedInode *ent;
+	for( ent = Cache->FirstNode; ent; prev = ent, ent = ent->Next )
 	{
 		if(ent->Node.Inode < Node->Inode)	continue;
 		if(ent->Node.Inode == Node->Inode) {
@@ -119,7 +107,7 @@ tVFS_Node *Inode_CacheNodeEx(int Handle, tVFS_Node *Node, size_t Size)
 	if( prev )
 		prev->Next = newEnt;
 	else
-		cache->FirstNode = newEnt;
+		Cache->FirstNode = newEnt;
 	newEnt->Node.ReferenceCount = 1;
 
 	LOG("Cached %llx as %p", Node->Inode, &newEnt->Node);
@@ -131,28 +119,20 @@ tVFS_Node *Inode_CacheNodeEx(int Handle, tVFS_Node *Node, size_t Size)
  * \fn void Inode_UncacheNode(int Handle, Uint64 Inode)
  * \brief Dereferences/Removes a cached node
  */
-int Inode_UncacheNode(int Handle, Uint64 Inode)
+int Inode_UncacheNode(tInodeCache *Cache, Uint64 Inode)
 {
-	tInodeCache	*cache;
 	tCachedInode	*ent, *prev;
 	
-	cache = Inode_int_GetFSCache(Handle);
-	if(!cache) {
-		Log_Notice("Inode", "Invalid cache handle %i used", Handle);
-		return -1;
-	}
+	ENTER("pHandle XInode", Cache, Inode);
 
-	ENTER("iHandle XInode", Handle, Inode);
-
-	if(Inode > cache->MaxCached) {
+	if(Inode > Cache->MaxCached) {
 		LEAVE('i', -1);
 		return -1;
 	}
 	
 	// Search Cache
-	ent = cache->FirstNode;
 	prev = NULL;
-	for( ; ent; prev = ent, ent = ent->Next )
+	for( ent = Cache->FirstNode; ent; prev = ent, ent = ent->Next )
 	{
 		if(ent->Node.Inode < Inode)	continue;
 		if(ent->Node.Inode > Inode) {
@@ -176,15 +156,17 @@ int Inode_UncacheNode(int Handle, Uint64 Inode)
 		if( prev )
 			prev->Next = ent->Next;
 		else
-			cache->FirstNode = ent->Next;
-		if(ent->Node.Inode == cache->MaxCached)
+			Cache->FirstNode = ent->Next;
+		if(ent->Node.Inode == Cache->MaxCached)
 		{
-			if(ent != cache->FirstNode && prev)
-				cache->MaxCached = prev->Node.Inode;
+			if(ent != Cache->FirstNode && prev)
+				Cache->MaxCached = prev->Node.Inode;
 			else
-				cache->MaxCached = 0;
+				Cache->MaxCached = 0;
 		}
-		
+	
+		if(Cache->CleanUpNode)
+			Cache->CleanUpNode(&ent->Node);
 		if(ent->Node.Data)
 			free(ent->Node.Data);	
 		free(ent);
@@ -203,63 +185,38 @@ int Inode_UncacheNode(int Handle, Uint64 Inode)
  * \fn void Inode_ClearCache(int Handle)
  * \brief Removes a cache
  */
-void Inode_ClearCache(int Handle)
+void Inode_ClearCache(tInodeCache *Cache)
 {
-	tInodeCache	*cache;
 	tInodeCache	*prev = NULL;
 	tCachedInode	*ent, *next;
 	
 	// Find the cache
-	for(
-		cache = gVFS_InodeCache;
-		cache && cache->Handle < Handle;
-		prev = cache, cache = cache->Next
-		);
-	if(!cache || cache->Handle != Handle)	return;
+	for( prev = (void*)&gVFS_InodeCache; prev && prev->Next != Cache; prev = prev->Next )
+		;
+	if( !prev ) {
+		// Oops?
+		return;
+	}
 	
 	// Search Cache
-	ent = cache->FirstNode;
-	while( ent )
+	for( ent = Cache->FirstNode; ent; ent = next )
 	{
-		ent->Node.ReferenceCount = 1;
 		next = ent->Next;
+		ent->Node.ReferenceCount = 1;
 		
+		// Usually has the side-effect of freeing this node
+		// TODO: Ensure that node is freed
 		if(ent->Node.Type && ent->Node.Type->Close)
 			ent->Node.Type->Close( &ent->Node );
-		free(ent);
-		
-		ent = next;
+		else
+			free(ent);
 	}
 	
 	// Free Cache
 	if(prev == NULL)
-		gVFS_InodeCache = cache->Next;
+		gVFS_InodeCache = Cache->Next;
 	else
-		prev->Next = cache->Next;
-	free(cache);
+		prev->Next = Cache->Next;
+	free(Cache);
 }
 
-/**
- * \fn tInodeCache *Inode_int_GetFSCache(int Handle)
- * \brief Gets a cache given it's handle
- */
-tInodeCache *Inode_int_GetFSCache(int Handle)
-{
-	tInodeCache	*cache = gVFS_InodeCache;
-	// Find Cache
-	for( ; cache; cache = cache->Next )
-	{
-		if(cache->Handle > Handle)	continue;
-		if(cache->Handle < Handle) {
-			Warning("Inode_int_GetFSCache - Handle %i not in cache\n", Handle);
-			return NULL;
-		}
-		break;
-	}
-	if(!cache) {
-		Warning("Inode_int_GetFSCache - Handle %i not in cache [NULL]\n", Handle);
-		return NULL;
-	}
-	
-	return cache;
-}

@@ -139,7 +139,7 @@ tVFS_Node *Ext2_InitDevice(const char *Device, const char **Options)
 	disk->GroupCount = groupCount;
 	
 	// Get an inode cache handle
-	disk->CacheID = Inode_GetHandle();
+	disk->CacheID = Inode_GetHandle(NULL);
 	
 	// Get Block Size
 	if( sb.s_log_block_size > MAX_BLOCK_LOG_SIZE ) {
