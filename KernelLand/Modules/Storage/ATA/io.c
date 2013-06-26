@@ -132,6 +132,31 @@ int ATA_SetupIO(void)
 	
 	LOG("BAR5 = 0x%x", PCI_GetBAR(ent, 5));
 	LOG("IRQ = %i", PCI_GetIRQ(ent));
+
+	// Ensure controllers are present where we think they should be
+	for( int i = 0; i < 2; i ++ )
+	{
+		Uint16	base = ATA_GetBasePort( i*2 );
+		// Send Disk Selector
+		outb(base+6, 0xA0);
+		IO_DELAY();
+		// Check for a floating bus
+		if( 0xFF == inb(base+7) ) {
+			Log_Error("ATA", "Floating bus at address 0x%x", base+7);
+			LEAVE('i', MODULE_ERR_MISC);
+			return MODULE_ERR_MISC;
+		}
+	
+		// Check for the controller
+		// - Write to two RW ports and attempt to read back
+		outb(base+0x02, 0x66);
+		outb(base+0x03, 0xFF);
+		if(inb(base+0x02) != 0x66 || inb(base+0x03) != 0xFF) {
+			Log_Error("ATA", "Unable to write to 0x%x/0x%x", base+2, base+3);
+			LEAVE('i', 0);
+			return 0;
+		}
+	}
 	
 	// Map memory
 	if( gATA_BusMasterBase & 1 )
@@ -203,35 +228,16 @@ Uint64 ATA_GetDiskSize(int Disk)
 	}	data;
 	Uint16	base;
 	Uint8	val;
-	 int	i;
+
 	ENTER("iDisk", Disk);
 
 	base = ATA_GetBasePort( Disk );
 
 	// Send Disk Selector
-	if(Disk & 1)	// Slave
-		outb(base+6, 0xB0);
-	else	// Master
-		outb(base+6, 0xA0);
+	// - Slave / Master
+	outb(base+6, 0xA0 | (Disk & 1) << 4);
 	IO_DELAY();
 	
-	// Check for a floating bus
-	if( 0xFF == inb(base+7) ) {
-		LOG("Floating bus");
-		LEAVE('i', 0);
-		return 0;
-	}
-	
-	// Check for the controller
-	// - Write to two RW ports and attempt to read back
-	outb(base+0x02, 0x66);
-	outb(base+0x03, 0xFF);
-	if(inb(base+0x02) != 0x66 || inb(base+0x03) != 0xFF) {
-		LOG("No controller");
-		LEAVE('i', 0);
-		return 0;
-	}
-
 	// Send ATA IDENTIFY
 	outb(base+7, HDD_IDENTIFY);
 	IO_DELAY();
@@ -259,7 +265,7 @@ Uint64 ATA_GetDiskSize(int Disk)
 	}
 
 	// Read Data
-	for( i = 0; i < 256; i++ )
+	for( int i = 0; i < 256; i++ )
 		data.buf[i] = inw(base);
 
 	// Return the disk size
