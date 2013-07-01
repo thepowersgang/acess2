@@ -3,6 +3,8 @@
 #ifndef _SYS_TYPES_H
 #define _SYS_TYPES_H
 
+#include <stddef.h>
+
 //typedef signed int	ssize_t;
 //#ifdef  __USE_BSD
 typedef unsigned int	u_int;

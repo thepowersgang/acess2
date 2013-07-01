@@ -10,7 +10,7 @@
 
 // TODO: Fully implement errno.h, make sure it matches the kernel one
 
-extern int	*libc_geterrno();
+extern int	*libc_geterrno(void);
 #define	errno	(*libc_geterrno())
 
 extern const char	*strerr(int errnum);
