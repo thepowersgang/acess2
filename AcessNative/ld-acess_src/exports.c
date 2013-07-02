@@ -71,6 +71,14 @@ int acess__SysReopen(int FD, const char *Path, int Flags) {
 	return _Syscall(SYS_REOPEN, ">i >s >i", FD, Path, Flags);
 }
 
+int acess__SysCopyFD(int srcfd, int dstfd) {
+	return _Syscall(SYS_COPYFD, ">i >i", srcfd, dstfd);
+}
+
+int acess__SysFDFlags(int fd, int mask, int newflags) {
+	return _Syscall(SYS_FDFLAGS, ">i >i >i", fd, mask, newflags);
+}
+
 size_t acess__SysRead(int FD, void *Dest, size_t Bytes) {
 	if(FD & NATIVE_FILE_MASK)
 		return native_read(FD & (NATIVE_FILE_MASK-1), Dest, Bytes);
@@ -356,8 +364,8 @@ int acess__SysWaitTID(int TID, int *ExitStatus)
 int acess_setuid(int ID) { return _Syscall(SYS_SETUID, ">i", ID); }
 int acess_setgid(int ID) { return _Syscall(SYS_SETGID, ">i", ID); }
 int acess_gettid(void) { return _Syscall(SYS_GETTID, ""); }
-int acess_getpid(void) { return _Syscall(SYS_GETPID, ""); }
-int acess_getuid(void) { return _Syscall(SYS_GETUID, ""); }
+int acess__SysGetPID(void) { return _Syscall(SYS_GETPID, ""); }
+int acess__SysGetUID(void) { return _Syscall(SYS_GETUID, ""); }
 int acess_getgid(void) { return _Syscall(SYS_GETGID, ""); }
 
 int acess__SysSendMessage(int DestTID, int Length, void *Data)
@@ -439,9 +447,10 @@ const tSym	caBuiltinSymbols[] = {
 	
 	DEFSYM(_SysWaitTID),
 	DEFSYM(gettid),
+	DEFSYM(_SysGetPID),
 	DEFSYM(setuid),
 	DEFSYM(setgid),
-	DEFSYM(getuid),
+	DEFSYM(_SysGetUID),
 	DEFSYM(getgid),
 
 	DEFSYM(_SysSendMessage),
