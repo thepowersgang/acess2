@@ -16,6 +16,8 @@ _miscargs=""
 _compile=0
 _linktype=Applications
 
+echo [GCCProxy] $* >&2
+
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 	-E)
@@ -64,6 +66,14 @@ while [[ $# -gt 0 ]]; do
 	-print-prog-name=ld)
 		echo $0 --inv=ld
 		exit 0
+		;;
+	-dumpspecs)
+		_compile=1
+		_miscargs=$_miscargs" $1"
+		;;
+	-dumpversion)
+		_compile=1
+		_miscargs=$_miscargs" $1"
 		;;
 	*)
 		_miscargs=$_miscargs" $1"
