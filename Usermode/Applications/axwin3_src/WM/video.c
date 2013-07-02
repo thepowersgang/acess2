@@ -15,6 +15,7 @@
 #include <video.h>
 #include <wm.h>
 #include <string.h>
+#include "include/lowlevel.h"
 
 // === IMPORTS ===
 extern int	giTerminalFD_Input;

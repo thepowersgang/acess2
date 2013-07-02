@@ -10,6 +10,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <axwin3/keysyms.h>
+#include <string.h>
+#include "include/lowlevel.h"
 
 // === IMPORTS ===
 extern void	Video_Setup(void);
