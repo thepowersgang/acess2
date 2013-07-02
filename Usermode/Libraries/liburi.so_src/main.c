@@ -2,7 +2,6 @@
  * Acess2 - URI Parser and opener
  * By John Hodge (thePowersGang)
  */
-#include <acess/sys.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -12,7 +11,7 @@
 // === STRUCTURES ===
 struct sURIFile
 {
-	 int	Handle;
+	void	*Handle;
 	 int	Mode;
 	tURIHandler	*Handler;
 	 int	CurBlockOffset;
@@ -22,22 +21,26 @@ struct sURIFile
 // === PROTOTYPES ===
  int	SoMain(void);
 tURI	*URI_Parse(const char *String);
-tURIFile	*URI_MakeHandle(int Mode, int Handle, tURIHandler *Handler);
+tURIFile	*URI_MakeHandle(int Mode, void *Handle, tURIHandler *Handler);
 tURIFile	*URI_Open(int Mode, tURI *URI);
 size_t	URI_Read(tURIFile *File, size_t Bytes, void *Buffer);
 size_t	URI_Write(tURIFile *File, size_t Bytes, void *Buffer);
 void	URI_Close(tURIFile *File);
 // --- file:/// handler
- int	URI_file_Open(char *Host, int Port, char *Path, int Mode);
-size_t	URI_file_Read(int Handle, size_t Bytes, void *Buffer);
-size_t	URI_file_Write(int Handle, size_t Bytes, void *Buffer);
-void	URI_file_Close(int Handle);
-off_t	URI_file_GetSize(int Handle);
+void	*URI_file_Open(const char *Host, int Port, const char *Path, int Mode);
+void	URI_file_Close(void *Handle);
+size_t	URI_file_Read(void *Handle, size_t Bytes, void *Buffer);
+size_t	URI_file_Write(void *Handle, size_t Bytes, const void *Buffer);
+off_t	URI_file_GetSize(void *Handle);
 
 // === CONSTANTS ===
 // Builtin URI protocol handlers
 tURIHandler	caBuiltinHandlers[] = {
-	{"file", 0, URI_file_Open, URI_file_Close, URI_file_Read, URI_file_Write, URI_file_GetSize}
+	{"file", 0,
+		URI_file_Open, URI_file_Close,
+		URI_file_Read, URI_file_Write,
+		URI_file_GetSize
+	}
 };
 #define NUM_BUILTIN_HANDLERS	(sizeof(caBuiltinHandlers)/sizeof(caBuiltinHandlers[0]))
 
@@ -165,7 +168,7 @@ tURI *URI_Parse(const char *String)
 	}
 }
 
-tURIFile *URI_MakeHandle(int Mode, int Handle, tURIHandler *Handler)
+tURIFile *URI_MakeHandle(int Mode, void *Handle, tURIHandler *Handler)
 {
 	tURIFile	*ret;
 	
@@ -184,7 +187,7 @@ tURIFile *URI_Open(int Mode, tURI *URI)
 {
 	tURIHandler	*handler;
 	tURIFile	*ret;
-	 int	handle;
+	void	*handle;
 	 int	i;
 	
 	if(!URI)
@@ -209,7 +212,7 @@ tURIFile *URI_Open(int Mode, tURI *URI)
 	
 	handle = handler->Open(URI->Host, URI->PortNum, URI->Path, Mode);
 	printf("URI_Open: handle = %i\n", handle);
-	if(handle == -1)	return NULL;
+	if(handle == NULL)	return NULL;
 	
 	printf("URI_MakeHandle(Mode=%i, handle=%i, handler=%p)\n",
 		Mode, handle, handler);
@@ -304,39 +307,42 @@ size_t URI_Read(tURIFile *File, size_t Bytes, void *Buffer)
 // ====
 // Builtin Handlers
 // ====
-int URI_file_Open(char *Host, int Port, char *Path, int Mode)
+void *URI_file_Open(const char *Host, int Port, const char *Path, int Mode)
 {
-	 int	smode = 0;
-	if(Mode & URI_MODE_READ)	smode |= OPENFLAG_READ;
-	if(Mode & URI_MODE_WRITE)	smode |= OPENFLAG_WRITE;
+	const char	*smode = NULL;
+	if( (Mode & URI_MODE_READ) && (Mode & URI_MODE_WRITE))
+		smode = "r+";
+	else if( (Mode & URI_MODE_READ) )
+		smode = "r";
+	else if( (Mode & URI_MODE_WRITE) )
+		smode = "w";
+	else
+		smode = "";
 	
 //	printf("URI_file_Open: open('%s', 0x%x)\n", Path, smode);
-	{
-		 int	ret;
-		ret = _SysOpen(Path, smode);
-		return ret;
-	}
+	return fopen(Path, smode);
 }
-size_t URI_file_Read(int Handle, size_t Bytes, void *Buffer)
+size_t URI_file_Read(void *Handle, size_t Bytes, void *Buffer)
 {
 //	printf("URI_file_Read: (Handle=%i, Buffer=%p, Bytes=%i)\n",
 //		Handle, Buffer, (int)Bytes);
-	return _SysRead(Handle, Buffer, Bytes);
+	return fread(Buffer, Bytes, 1, Handle);
 }
-size_t URI_file_Write(int Handle, size_t Bytes, void *Buffer)
+size_t URI_file_Write(void *Handle, size_t Bytes, const void *Buffer)
 {
-	return _SysWrite(Handle, Buffer, Bytes);
+	return fwrite(Buffer, Bytes, 1, Handle);
 }
-void URI_file_Close(int Handle)
+void URI_file_Close(void *Handle)
 {
-	_SysClose(Handle);
+	fclose(Handle);
 }
-off_t URI_file_GetSize(int Handle)
+off_t URI_file_GetSize(void *Handle)
 {
-	uint64_t curpos = _SysTell(Handle);
+	off_t curpos = ftell(Handle);
 	off_t ret;
-	_SysSeek(Handle, 0, SEEK_END);
-	ret = _SysTell(Handle);
-	_SysSeek(Handle, curpos, SEEK_SET);
+	fseek(Handle, 0, SEEK_END);
+	ret = ftell(Handle);
+	fseek(Handle, curpos, SEEK_SET);
 	return ret;
 }
+
