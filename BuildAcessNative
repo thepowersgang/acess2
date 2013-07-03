@@ -1,0 +1,3 @@
+#!/bin/sh
+make -C AcessNative/libacess-native.so_src/ && make -C AcessNative/acesskernel_src/ && ARCH=native make all-user
+

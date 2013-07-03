@@ -14,8 +14,8 @@
 
 // === PROTOTYPES ===
  int	Video_Install(char **Arguments);
-size_t	Video_Read(tVFS_Node *Node, Uint64 Offset, size_t Length, void *Buffer);
-size_t	Video_Write(tVFS_Node *Node, Uint64 Offset, size_t Length, const void *Buffer);
+size_t	Video_Read(tVFS_Node *Node, Uint64 Offset, size_t Length, void *Buffer, Uint Flags);
+size_t	Video_Write(tVFS_Node *Node, Uint64 Offset, size_t Length, const void *Buffer, Uint Flags);
  int	Video_IOCtl(tVFS_Node *Node, int ID, void *Data);
 // --- 2D Acceleration Functions --
 void	Video_2D_Fill(void *Ent, Uint16 X, Uint16 Y, Uint16 W, Uint16 H, Uint32 Colour);
@@ -55,7 +55,7 @@ int Video_Install(char **Arguments)
 /**
  * \brief Read from framebuffer (unimplemented)
  */
-size_t Video_Read(tVFS_Node *Node, Uint64 Offset, size_t Length, void *Buffer)
+size_t Video_Read(tVFS_Node *Node, Uint64 Offset, size_t Length, void *Buffer, Uint Flags)
 {
 	return 0;
 }
@@ -63,7 +63,7 @@ size_t Video_Read(tVFS_Node *Node, Uint64 Offset, size_t Length, void *Buffer)
 /**
  * \brief Write to the framebuffer
  */
-size_t Video_Write(tVFS_Node *Node, Uint64 Offset, size_t Length, const void *Buffer)
+size_t Video_Write(tVFS_Node *Node, Uint64 Offset, size_t Length, const void *Buffer, Uint Flags)
 {
 	 int	i;
 	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);

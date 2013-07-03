@@ -24,7 +24,7 @@
 // === STRUCTURES ===
 typedef struct
 {
-	 int	InodeHandle;
+	void	*InodeHandle;
 	 int	bReadOnly;
 }	tNativeFS;
 
@@ -32,10 +32,10 @@ typedef struct
  int	NativeFS_Install(char **Arguments);
 tVFS_Node	*NativeFS_Mount(const char *Device, const char **Arguments);
 void	NativeFS_Unmount(tVFS_Node *Node);
-tVFS_Node	*NativeFS_FindDir(tVFS_Node *Node, const char *Name);
+tVFS_Node	*NativeFS_FindDir(tVFS_Node *Node, const char *Name, Uint Flags);
  int	NativeFS_ReadDir(tVFS_Node *Node, int Position, char Dest[FILENAME_MAX]);
-size_t	NativeFS_Read(tVFS_Node *Node, _acess_off_t Offset, size_t Length, void *Buffer);
-size_t	NativeFS_Write(tVFS_Node *Node, _acess_off_t Offset, size_t Length, const void *Buffer);
+size_t	NativeFS_Read(tVFS_Node *Node, _acess_off_t Offset, size_t Length, void *Buffer, Uint Flags);
+size_t	NativeFS_Write(tVFS_Node *Node, _acess_off_t Offset, size_t Length, const void *Buffer, Uint Flags);
 void	NativeFS_Close(tVFS_Node *Node);
 
 // === GLOBALS ===
@@ -77,7 +77,7 @@ tVFS_Node *NativeFS_Mount(const char *Device, const char **Arguments)
 	// Check if directory exists
 	// Parse flags from arguments
 	info = malloc(sizeof(tNativeFS));
-	info->InodeHandle = Inode_GetHandle();
+	info->InodeHandle = Inode_GetHandle(NULL);
 	info->bReadOnly = 0;
 	// Create node
 	ret = malloc(sizeof(tVFS_Node));
@@ -115,7 +115,7 @@ void NativeFS_Close(tVFS_Node *Node)
 	}
 }
 
-tVFS_Node *NativeFS_FindDir(tVFS_Node *Node, const char *Name)
+tVFS_Node *NativeFS_FindDir(tVFS_Node *Node, const char *Name, Uint Flags)
 {
 	char	*path;
 	tNativeFS	*info = Node->ImplPtr;
@@ -204,7 +204,7 @@ int NativeFS_ReadDir(tVFS_Node *Node, int Position, char Dest[FILENAME_MAX])
 	return 0;
 }
 
-size_t NativeFS_Read(tVFS_Node *Node, _acess_off_t Offset, size_t Length, void *Buffer)
+size_t NativeFS_Read(tVFS_Node *Node, _acess_off_t Offset, size_t Length, void *Buffer, Uint Flags)
 {
 	ENTER("pNode XOffset xLength pBuffer", Node, Offset, Length, Buffer);
 	if( fseek( (FILE *)(tVAddr)Node->Inode, Offset, SEEK_SET ) != 0 )
@@ -217,7 +217,7 @@ size_t NativeFS_Read(tVFS_Node *Node, _acess_off_t Offset, size_t Length, void *
 	return ret;
 }
 
-size_t NativeFS_Write(tVFS_Node *Node, _acess_off_t Offset, size_t Length, const void *Buffer)
+size_t NativeFS_Write(tVFS_Node *Node, _acess_off_t Offset, size_t Length, const void *Buffer, Uint Flags)
 {
 	FILE	*fp = (FILE *)(tVAddr)Node->Inode;
 	ENTER("pNode XOffset xLength pBuffer", Node, Offset, Length, Buffer);

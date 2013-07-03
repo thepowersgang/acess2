@@ -173,6 +173,39 @@ tVFS_Handle *VFS_GetHandle(int FD)
 	return h;
 }
 
+int VFS_SetHandle(int FD, tVFS_Node *Node, int Mode)
+{
+	tVFS_Handle	*h;
+	if(FD < 0)	return -1;
+	
+	if( FD & VFS_KERNEL_FLAG ) {
+		FD &= (VFS_KERNEL_FLAG -1);
+		if( FD >= MAX_KERNEL_FILES )	return -1;
+		h = &gaKernelHandles[FD];
+	}
+	else {
+		tUserHandles	*ent;
+		 int	pid = Threads_GetPID();
+		 int	maxhandles = *Threads_GetMaxFD();
+		
+		ent = VFS_int_GetUserHandles(pid, 0);
+		if(!ent) {
+			Log_Error("VFS", "Client %i does not have a handle list (>)", pid);
+			return NULL;
+		}
+		
+		if(FD >= maxhandles) {
+			LOG("FD (%i) > Limit (%i), RETURN NULL", FD, maxhandles);
+			return NULL;
+		}
+		h = &ent->Handles[ FD ];
+	}
+	h->Node = Node;
+	h->Mode = Mode;
+	return FD;
+}
+
+
 int VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode)
 {
 	 int	i;

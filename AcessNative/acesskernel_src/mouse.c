@@ -17,9 +17,9 @@
  int	Mouse_Cleanup(void);
 // - "User" side
  int	Mouse_Root_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX]);
-tVFS_Node	*Mouse_Root_FindDir(tVFS_Node *Node, const char *Name);
+tVFS_Node	*Mouse_Root_FindDir(tVFS_Node *Node, const char *Name, Uint Flags);
  int	Mouse_Dev_IOCtl(tVFS_Node *Node, int ID, void *Data);
-size_t	Mouse_Dev_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Data);
+size_t	Mouse_Dev_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Data, Uint Flags);
 // - Device Side
 void	Mouse_HandleEvent(Uint32 ButtonState, int *AxisDeltas, int *AxisValues);
 
@@ -75,7 +75,7 @@ int Mouse_Root_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 	return 0;
 }
 
-tVFS_Node *Mouse_Root_FindDir(tVFS_Node *Node, const char *Name)
+tVFS_Node *Mouse_Root_FindDir(tVFS_Node *Node, const char *Name, Uint Flags)
 {
 	if( strcmp(Name, "system") != 0 )	return NULL;
 	return &gMouse_Pointer.Node;
@@ -118,7 +118,7 @@ int Mouse_Dev_IOCtl(tVFS_Node *Node, int ID, void *Data)
 /**
  * \brief Read from a device
  */
-size_t Mouse_Dev_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Data)
+size_t Mouse_Dev_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Data, Uint Flags)
 {
 	tPointer *ptr = Node->ImplPtr;
 	 int	n_buttons = ptr->FileHeader->NButtons;
