@@ -179,8 +179,9 @@ int chdir(const char *dir)
 
 int mkdir(const char *pathname, mode_t mode)
 {
-	_SysDebug("TODO: POSIX mkdir(%i, 0%o)", pathname, mode);
-	return -1;
+	_SysDebug("TODO: POSIX mkdir('%s', 0%o)", pathname, mode);
+	_SysMkDir(pathname);
+	return 0;
 }
 
 char *getpass(const char *prompt)
