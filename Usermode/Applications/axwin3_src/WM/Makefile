@@ -5,7 +5,7 @@
 
 DIR := Apps/AxWin/3.0
 BIN := AxWinWM
-OBJ := main.o input.o video.o ipc.o
+OBJ := main.o input.o video.o ipc_acess.o
 include common.mk
 
 LDFLAGS += -lnet

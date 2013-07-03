@@ -12,8 +12,15 @@
 #include <video.h>
 #include <wm_messages.h>
 #include <decorator.h>
+#include <axwin3/keysyms.h>
 
 // === IMPORTS ===
+extern int	Renderer_Menu_Init(void);
+extern int	Renderer_Widget_Init(void);
+extern int	Renderer_Background_Init(void);
+extern int	Renderer_Framebuffer_Init(void);
+extern int	Renderer_RichText_Init(void);
+
 extern void	IPC_SendWMMessage(tIPC_Client *Client, uint32_t Src, uint32_t Dst, int Msg, int Len, const void *Data);
 extern void	IPC_SendReply(tIPC_Client *Client, uint32_t WinID, int MsgID, size_t Len, const void *Data);
 extern tWindow	*IPC_int_GetWindow(tIPC_Client *Client, uint32_t ID);
@@ -29,10 +36,26 @@ tWindow	*gpWM_HilightedWindow;
 // === CODE ===
 void WM_Initialise(void)
 {
+	// TODO: Autodetect these
+	Renderer_Menu_Init();
+	Renderer_Widget_Init();
+	Renderer_Background_Init();
+	Renderer_Framebuffer_Init();
+	Renderer_RichText_Init();
+	
 	WM_CreateWindow(NULL, NULL, 0, 0x0088FF, "Background");
 	gpWM_RootWindow->W = giScreenWidth;
 	gpWM_RootWindow->H = giScreenHeight;
 	gpWM_RootWindow->Flags = WINFLAG_SHOW|WINFLAG_NODECORATE;
+
+	// TODO: Move these to config
+	uint32_t	keys[4];
+	keys[0] = KEYSYM_LEFTGUI;	keys[1] = KEYSYM_r;
+	WM_Hotkey_Register(2, keys, "Interface>Run");
+	keys[0] = KEYSYM_LEFTGUI;	keys[1] = KEYSYM_t;
+	WM_Hotkey_Register(2, keys, "Interface>Terminal");
+	keys[0] = KEYSYM_LEFTGUI;	keys[1] = KEYSYM_e;
+	WM_Hotkey_Register(2, keys, "Interface>TextEdit");
 }
 
 void WM_RegisterRenderer(tWMRenderer *Renderer)

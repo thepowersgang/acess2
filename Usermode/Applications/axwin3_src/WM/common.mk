@@ -2,7 +2,8 @@
 CPPFLAGS += -I include/ -I ../include/
 CFLAGS += -std=gnu99
 
-OBJ += image.o wm.o wm_input.o wm_render.o wm_render_text.o wm_hotkeys.o
+OBJ += wm.o ipc.o
+OBJ += image.o wm_input.o wm_render.o wm_render_text.o wm_hotkeys.o
 OBJ += decorator.o
 OBJ += renderers/framebuffer.o
 OBJ += renderers/background.o
