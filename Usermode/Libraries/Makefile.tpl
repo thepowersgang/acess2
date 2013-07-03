@@ -10,7 +10,8 @@ ifeq ($(ARCH),native)
  LDFLAGS := $(LDFLAGS:-lc=-lc_acess)
 endif
 
-ifneq ($(lastword $(subst -, ,$(basename $(LD)))),ld)
+_LD_CMD := $(lastword $(subst -, ,$(firstword $(LD))))
+ifneq ($(_LD_CMD),ld)
   LDFLAGS := $(subst -soname ,-Wl$(comma)-soname$(comma),$(LDFLAGS))
   LDFLAGS := $(subst -Map ,-Wl$(comma)-Map$(comma),$(LDFLAGS))
   LDFLAGS := $(LDFLAGS:-x=-Wl,-x)
@@ -80,7 +81,7 @@ endif
 #	for f in $(INCFILES); do ln -s $f $(ACESSDIR)/include/$f; done
 #endif
 
-$(_BIN): $(OBJ) $(_LIBS)
+$(_BIN): $(OBJ)
 	@mkdir -p $(dir $(_BIN))
 	@echo [LD] -o $(BIN) $(OBJ)
 	$V$(LD) $(LDFLAGS) -o $(_BIN) $(OBJ) $(shell $(CC) -print-libgcc-file-name)

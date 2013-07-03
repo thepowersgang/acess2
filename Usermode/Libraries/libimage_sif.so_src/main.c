@@ -8,6 +8,8 @@
 //#include <image_sif.h>
 #include <acess/sys.h>	// _SysDebug
 
+#define	_SysDebug(...)	do{}while(0)
+
 // === STRUCTURES ===
 struct sHeader
 {
