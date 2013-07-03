@@ -104,9 +104,11 @@ int VFS_MkNod(const char *Path, Uint Flags)
 	return ret==NULL;
 
 _error:
-	_CloseNode(parent);
-	ASSERT(mountpt->OpenHandleCount>0);
-	mountpt->OpenHandleCount --;
+	if( parent ) {
+		_CloseNode(parent);
+		ASSERT(mountpt->OpenHandleCount>0);
+		mountpt->OpenHandleCount --;
+	}
 	free(absPath);
 	LEAVE('i', -1);
 	return -1;
