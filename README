@@ -46,21 +46,18 @@ recompilation.
 Build configuration settings (compiler options, module selection)
 
 === Building ===
-Required Tools: GNU Toolchain (GCC,Gas,binutils), NASM, mtools, PHP
-Compiling Acess is relatively simple (at the moment)
-First edit /Makefile.cfg and set the build programs (making sure they match
-  the architecture you are building for).
-Edit the FILESYSTEMS variable to alter what filesystems are comipled in 
-  (see /Kernel/vfs/fs for what filesystems are included).
-MODULES defines what modules should be statically linked with the kernel
-  (see /Modules for a list)
+Required Tools: GNU cross Toolchain (GCC,Gas,binutils), NASM, mtools, PHP
+ > x86 uses i586-elf
+ > x86_64 uses x86_64-none-elf
+ > armv7 uses arm-eabi
 
-Set the destination install directory (DISTROOT).
+1. Edit Makefile.user.cfg and set options (a few are listed below, see Makefile.cfg for the rest)
+ > DISTROOT : Location to install to (by default this is an existing FAT Floppy image)
+ > xCP/xMKDIR : Commands to call when installing
+2. Either download a copy of ACPICA to Externals/ACPICA or set 'USE_ACPICA=0' before running make
+3. Run `make all install` (default architecture is x86)
 
-Now you can compile the kernel and usermode applications by calling make
- in the source root.
-
-e.g.
+Other make invocations
 `make`
 - Build and install the kernel (x86)
 `PLATFORM=smp make`
