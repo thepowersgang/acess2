@@ -28,10 +28,12 @@ endif
 include ../Makefile.tpl
 
 # create libld-acess.so
+ifneq ($(ARCH),native)
 $(_XBIN): $(_OBJPREFIX)_stublib.o
 	@echo [LD] -o -shared libld-acess.so
 	$(LD) -shared -o $@ $< $(LDFLAGS)
 #	@$(LD) $(LDFLAGS) -o $@ $(OBJ)
+endif
 
 
 # Override .ao to look in the object prefix for the source

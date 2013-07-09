@@ -148,9 +148,15 @@ int acess__SysSelect(int nfds, fd_set *read, fd_set *write, fd_set *error, int64
 		events
 		);
 }
+int acess__SysMkDir(const char *pathname)
+{
+	DEBUG("TODO: _SysMkDir");
+	return 0;
+}
 int acess__SysUnlink(const char *pathname)
 {
 	// TODO:
+	DEBUG("TODO: _Unlink");
 	return 0;
 }
 
@@ -439,6 +445,8 @@ const tSym	caBuiltinSymbols[] = {
 	DEFSYM(_SysGetACL),
 	DEFSYM(_SysMount),
 	DEFSYM(_SysSelect),
+	DEFSYM(_SysMkDir),
+	DEFSYM(_SysUnlink),
 	
 	DEFSYM(_SysClone),
 	DEFSYM(_SysExecVE),

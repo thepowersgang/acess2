@@ -42,6 +42,7 @@
 #define _SysIOCtl	acess__SysIOCtl
 #define _SysMount	acess__SysMount
 #define _SysSelect	acess__SysSelect
+#define _SysMkDir	acess__SysMkDir
 #define _SysUnlink	acess__SysUnlink
 
 #define _errno	acess__errno
