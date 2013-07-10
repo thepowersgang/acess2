@@ -19,4 +19,7 @@ MODULES += USB/UHCI
 MODULES += USB/HID USB/MSC
 #MODULES += Interfaces/UDI
 
+MODULES += Libraries/VirtIO
+MODULES += Network/VirtIONet
+
 DYNMODS += Filesystems/InitRD
