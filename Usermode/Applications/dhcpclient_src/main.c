@@ -151,7 +151,7 @@ int main(int argc, char *argv[])
 			{
 				if( Handle_Timeout(i) )
 				{
-					fprintf(stderr, "%s timed out\n", i->Adapter);
+					fprintf(stderr, "DHCP on %s timed out\n", i->Adapter);
 					goto _remove;
 				}
 			}
