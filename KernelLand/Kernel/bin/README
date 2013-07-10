@@ -1,5 +1,5 @@
-Acess2 Binary File Loader Specifcation
---------------------------------------
+Acess2 Binary File Loader Specification
+---------------------------------------
 
 Binary file loaders are defined by creating a \a tBinaryType variable that
 is registered with the kernel.
