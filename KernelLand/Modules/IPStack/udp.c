@@ -407,7 +407,6 @@ void UDP_Channel_Close(tVFS_Node *Node)
 Uint16 UDP_int_AllocatePort(tUDPChannel *Channel)
 {
 	Mutex_Acquire(&glUDP_Ports);
-	 int	i;
 	// Fast Search
 	for( int base = UDP_ALLOC_BASE; base < 0x10000; base += 32 )
 	{
