@@ -172,8 +172,10 @@ int IPStack_Buffer_GetBuffer(tIPStackBuffer *Buffer, int Index, size_t *Length, 
 				return -1;
 		}
 
-		*DataPtr = (Uint8*)Buffer->SubBuffers[Index].Data + Buffer->SubBuffers[Index].PreLength;
-		*Length = Buffer->SubBuffers[Index].PostLength;
+		if( DataPtr )
+			*DataPtr = (Uint8*)Buffer->SubBuffers[Index].Data + Buffer->SubBuffers[Index].PreLength;
+		if( Length )
+			*Length = Buffer->SubBuffers[Index].PostLength;
 
 		return (Index + 1) + Buffer->nSubBuffers;
 	}
@@ -182,8 +184,10 @@ int IPStack_Buffer_GetBuffer(tIPStackBuffer *Buffer, int Index, size_t *Length, 
 		 int	rv = Index + 1;
 		Index = Buffer->nSubBuffers - Index - 1;
 		// Prepended buffers
-		*DataPtr = Buffer->SubBuffers[Index].Data;
-		*Length = Buffer->SubBuffers[Index].PreLength;
+		if( DataPtr )
+			*DataPtr = Buffer->SubBuffers[Index].Data;
+		if( Length )
+			*Length = Buffer->SubBuffers[Index].PreLength;
 		return rv;
 	}
 }
