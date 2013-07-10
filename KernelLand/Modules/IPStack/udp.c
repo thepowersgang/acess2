@@ -1,7 +1,11 @@
 /*
  * Acess2 IP Stack
- * - UDP Handling
+ * - By John Hodge (thePowersGang)
+ *
+ * udp.c
+ * - UDP Protocol handling
  */
+#define DEBUG	1
 #include "ipstack.h"
 #include <api_drv_common.h>
 #include "udp.h"
@@ -20,8 +24,8 @@ size_t	UDP_Channel_Write(tVFS_Node *Node, off_t Offset, size_t Length, const voi
  int	UDP_Channel_IOCtl(tVFS_Node *Node, int ID, void *Data);
 void	UDP_Channel_Close(tVFS_Node *Node);
 // --- Helpers
-Uint16	UDP_int_AllocatePort();
- int	UDP_int_MarkPortAsUsed(Uint16 Port);
+Uint16	UDP_int_AllocatePort(tUDPChannel *Channel);
+ int	UDP_int_ClaimPort(tUDPChannel *Channel, Uint16 Port);
 void	UDP_int_FreePort(Uint16 Port);
 
 // === GLOBALS ===
@@ -62,9 +66,7 @@ int UDP_int_ScanList(tUDPChannel *List, tInterface *Interface, void *Address, in
 	tUDPPacket	*pack;
 	 int	len;
 	
-	for(chan = List;
-		chan;
-		chan = chan->Next)
+	for(chan = List; chan; chan = chan->Next)
 	{
 		// Match local endpoint
 		if(chan->Interface && chan->Interface != Interface)	continue;
@@ -295,36 +297,31 @@ int UDP_Channel_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	{
 	BASE_IOCTLS(DRV_TYPE_MISC, "UDP Channel", 0x100, casIOCtls_Channel);
 	
-	case 4:	// getset_localport (returns bool success)
+	case 4:	{ // getset_localport (returns bool success)
 		if(!Data)	LEAVE_RET('i', chan->LocalPort);
 		if(!CheckMem( Data, sizeof(Uint16) ) ) {
 			LOG("Invalid pointer %p", Data);
 			LEAVE_RET('i', -1);
 		}
 		// Set port
-		chan->LocalPort = *(Uint16*)Data;
+		int req_port = *(Uint16*)Data;
 		// Permissions check (Ports lower than 1024 are root-only)
-		if(chan->LocalPort != 0 && chan->LocalPort < 1024) {
+		if(req_port != 0 && req_port < 1024) {
 			if( Threads_GetUID() != 0 ) {
-				LOG("Attempt by non-superuser to listen on port %i", chan->LocalPort);
-				chan->LocalPort = 0;
+				LOG("Attempt by non-superuser to listen on port %i", req_port);
 				LEAVE_RET('i', -1);
 			}
 		}
 		// Allocate a random port if requested
-		if( chan->LocalPort == 0 )
-			chan->LocalPort = UDP_int_AllocatePort();
-		else
-		{
-			// Else, mark the requested port as used
-			if( UDP_int_MarkPortAsUsed(chan->LocalPort) == 0 ) {
-				LOG("Port %i us currently in use", chan->LocalPort);
-				chan->LocalPort = 0;
-				LEAVE_RET('i', 0);
-			}
-			LEAVE_RET('i', 1);
+		if( req_port == 0 )
+			UDP_int_AllocatePort(chan);
+		// Else, mark the requested port as used
+		else if( UDP_int_ClaimPort(chan, req_port) ) {
+			LOG("Port %i is currently in use", req_port);
+			LEAVE_RET('i', 0);
 		}
-		LEAVE_RET('i', 1);
+		LEAVE_RET('i', chan->LocalPort);
+		}
 	
 	case 5:	// getset_remoteport (returns bool success)
 		if(!Data)	LEAVE_RET('i', chan->Remote.Port);
@@ -333,7 +330,8 @@ int UDP_Channel_IOCtl(tVFS_Node *Node, int ID, void *Data)
 			LEAVE_RET('i', -1);
 		}
 		chan->Remote.Port = *(Uint16*)Data;
-		return 1;
+		LEAVE('i', chan->Remote.Port);
+		return chan->Remote.Port;
 	
 	case 6:	// getset_remotemask (returns bool success)
 		if(!Data)	LEAVE_RET('i', chan->RemoteMask);
@@ -345,7 +343,8 @@ int UDP_Channel_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		if( *(int*)Data > IPStack_GetAddressSize(chan->Interface->Type) )
 			LEAVE_RET('i', -1);
 		chan->RemoteMask = *(int*)Data;
-		return 1;	
+		LEAVE('i', chan->RemoteMask);
+		return chan->RemoteMask;	
 
 	case 7:	// set_remoteaddr (returns bool success)
 		if( !chan->Interface ) {
@@ -357,6 +356,7 @@ int UDP_Channel_IOCtl(tVFS_Node *Node, int ID, void *Data)
 			LEAVE_RET('i', -1);
 		}
 		memcpy(&chan->Remote.Addr, Data, IPStack_GetAddressSize(chan->Interface->Type));
+		LEAVE('i', 0);
 		return 0;
 	}
 	LEAVE_RET('i', 0);
@@ -404,37 +404,56 @@ void UDP_Channel_Close(tVFS_Node *Node)
 /**
  * \return Port Number on success, or zero on failure
  */
-Uint16 UDP_int_AllocatePort()
+Uint16 UDP_int_AllocatePort(tUDPChannel *Channel)
 {
-	 int	i;
 	Mutex_Acquire(&glUDP_Ports);
+	 int	i;
 	// Fast Search
-	for( i = UDP_ALLOC_BASE; i < 0x10000; i += 32 )
-		if( gUDP_Ports[i/32] != 0xFFFFFFFF )
-			break;
-	if(i == 0x10000)	return 0;
-	for( ;; i++ )
+	for( int base = UDP_ALLOC_BASE; base < 0x10000; base += 32 )
 	{
-		if( !(gUDP_Ports[i/32] & (1 << (i%32))) )
-			return i;
+		if( gUDP_Ports[base/32] == 0xFFFFFFFF )
+			continue ;
+		for( int i = 0; i < 32; i++ )
+		{
+			if( gUDP_Ports[base/32] & (1 << i) )
+				continue ;
+			gUDP_Ports[base/32] |= (1 << i);
+			Mutex_Release(&glUDP_Ports);
+			// If claim succeeds, good
+			if( UDP_int_ClaimPort(Channel, base + i) == 0 )
+				return base + i;
+			// otherwise keep looking
+			Mutex_Acquire(&glUDP_Ports);
+			break;
+		}
 	}
 	Mutex_Release(&glUDP_Ports);
+	return 0;
 }
 
 /**
  * \brief Allocate a specific port
  * \return Boolean Success
  */
-int UDP_int_MarkPortAsUsed(Uint16 Port)
+int UDP_int_ClaimPort(tUDPChannel *Channel, Uint16 Port)
 {
-	Mutex_Acquire(&glUDP_Ports);
-	if( gUDP_Ports[Port/32] & (1 << (Port%32)) ) {
-		return 0;
-		Mutex_Release(&glUDP_Ports);
+	// Search channel list for a connection with same (or wildcard)
+	// interface, and same port
+	Mutex_Acquire(&glUDP_Channels);
+	for( tUDPChannel *ch = gpUDP_Channels; ch; ch = ch->Next)
+	{
+		if( ch == Channel )
+			continue ;
+		if( ch->Interface && ch->Interface != Channel->Interface )
+			continue ;
+		if( ch->LocalPort != Port )
+			continue ;
+		Mutex_Release(&glUDP_Channels);
+		return 1;
 	}
-	gUDP_Ports[Port/32] |= 1 << (Port%32);
-	Mutex_Release(&glUDP_Ports);
-	return 1;
+	Channel->LocalPort = Port;
+	Mutex_Release(&glUDP_Channels);
+	return 0;
 }
 
 /**
