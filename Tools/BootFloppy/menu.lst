@@ -1,0 +1,5 @@
+timeout 1
+
+title Acess2 (x86,FDD)
+	kernel /Acess2/Acess2.x86.gz /System=fat:/Devices/fdd/0 /Acess=/System/Acess2/x86
+
