@@ -88,5 +88,8 @@ void TryMount(const char *Volume, const char *Part)
 	if( _SysMount(devpath, mntpath, NULL, "") ) {
 		fprintf(stderr, "Unable to mount '%s'\n", devpath);
 	}
+	else {
+		printf("Automouted '%s'\n", devpath);
+	}
 }
 
