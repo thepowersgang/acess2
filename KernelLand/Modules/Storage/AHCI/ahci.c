@@ -5,8 +5,8 @@
  * ahci.c
  * - Driver core
  */
-#define DEBUG	1
-#define VERSION	0x0001
+#define DEBUG	0
+#define VERSION	VER2(1,0)
 #include <acess.h>
 #include <timers.h>
 #include <modules.h>
