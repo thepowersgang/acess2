@@ -289,7 +289,7 @@ int ProcessInittab(const char *Path)
 			if(!command)
 				goto lineError;
 
-			int handles[] = {0, 1, 2};
+			int handles[] = {0, 1, 1};
 			int pid = _SysSpawn(command[0], (const char **)command, NULL, 3, handles, NULL);
 			int retstatus;
 			_SysWaitTID(pid, &retstatus);
