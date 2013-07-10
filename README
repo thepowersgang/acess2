@@ -27,10 +27,10 @@ The /KernelLand folder contains the kernel code
 The Usermode folder contains the user-land portion of the Acess OS
   Applications/
     - Usermode applications (Shell, IRC Client, GUI, ...)
- Libraries/
-   - Dynamic linker, and nearly all shared libraries used
- include/
-   - Header files for libraries and the C standard
+  Libraries/
+    - Dynamic linker, and nearly all shared libraries used
+  Filesystem/
+    - Default filesystem contents (config files)
 
 --- AcessNative ---
 This folder contains a rather hacky emulation framework for the Acess Userland
@@ -41,12 +41,19 @@ recompilation.
     - The kernel emulation framework
   ld-acess_src/
     - Replacement ld-acess.so to load programs and translate syscalls into IPC
+  libacess-native.so_src/
+    - Library version of the above (for nativly compiled Acess programs)
 
 --- BuildConf ---
 Build configuration settings (compiler options, module selection)
 
+--- Externals ---
+External programs (e.g. ACPICA, SDL), packaged as makefiles and patches (source archives must
+be downloaded by the user)
+
 === Building ===
-Required Tools: GNU cross Toolchain (GCC,Gas,binutils), NASM, mtools, PHP
+Required Tools: GNU cross toolchain (GCC,Gas,binutils), NASM, mtools, PHP
+Targets used:
  > x86 uses i586-elf
  > x86_64 uses x86_64-none-elf
  > armv7 uses arm-eabi
@@ -54,6 +61,7 @@ Required Tools: GNU cross Toolchain (GCC,Gas,binutils), NASM, mtools, PHP
 1. Edit Makefile.user.cfg and set options (a few are listed below, see Makefile.cfg for the rest)
  > DISTROOT : Location to install to (by default this is an existing FAT Floppy image)
  > xCP/xMKDIR : Commands to call when installing
+  # There is a script in Tools/BootFloppy to create an empty disk image
 2. Either download a copy of ACPICA to Externals/ACPICA or set 'USE_ACPICA=0' before running make
 3. Run `make all install` (default architecture is x86)
 
