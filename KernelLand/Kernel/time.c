@@ -117,7 +117,8 @@ tTimer *Time_CreateTimer(int Delta, tTimerCallback *Callback, void *Argument)
  */
 void Time_ScheduleTimer(tTimer *Timer, int Delta)
 {
-	tTimer	*t, *p;
+	tTimer	*t;
+	tTimer	**prev_next;
 
 	// Sanity checks
 	if( !Timer )	return ;
@@ -134,9 +135,10 @@ void Time_ScheduleTimer(tTimer *Timer, int Delta)
 	// Add into list (sorted)
 	SHORTLOCK(&gTimers_ListLock);
 //	Mutex_Release( &Timer->Lock );	// Prevent deadlocks
-	for( p = (tTimer*)&gTimers, t = gTimers; t; p = t, t = t->Next )
+	for( prev_next = &gTimers, t = gTimers; t; prev_next = &t->Next, t = t->Next )
 	{
-		ASSERT( p != t ); ASSERT( CheckMem(t, sizeof(tTimer)) );
+		ASSERTC( *prev_next, !=, t );
+		ASSERT( CheckMem(t, sizeof(tTimer)) );
 		if( t == Timer )
 		{
 			LOG("Double schedule - increasing delta");
@@ -147,9 +149,9 @@ void Time_ScheduleTimer(tTimer *Timer, int Delta)
 		if( t->FiresAfter > Timer->FiresAfter )	break;
 	}
 	Timer->Next = t;
-	p->Next = Timer;
+	*prev_next = Timer;
 	Timer->bActive = 1;
-	LOG(" %p %p %p", p, Timer, t);
+	LOG(" %p %p %p", prev_next, Timer, t);
 	SHORTREL(&gTimers_ListLock);
 }
 
@@ -158,17 +160,18 @@ void Time_ScheduleTimer(tTimer *Timer, int Delta)
  */
 void Time_RemoveTimer(tTimer *Timer)
 {
-	tTimer	*t, *p;
+	tTimer	*t;
+	tTimer	**prev_next;
 
 	if( !Timer )	return ;
 	
 	SHORTLOCK(&gTimers_ListLock);
-	for( p = (tTimer*)&gTimers, t = gTimers; t; p = t, t = t->Next )
+	for( prev_next = &gTimers, t = gTimers; t; prev_next = &t->Next, t = t->Next )
 	{
-		ASSERT( p != t ); ASSERT( CheckMem(t, sizeof(tTimer)) );
+		ASSERT( *prev_next != t ); ASSERT( CheckMem(t, sizeof(tTimer)) );
 		if( t == Timer )
 		{
-			p->Next = t->Next;
+			*prev_next = t->Next;
 			break ;
 		}
 	}
