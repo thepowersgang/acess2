@@ -1,4 +1,4 @@
-/*
+#include <string.h>/*
  * Acess2 C Library
  * - By John Hodge (thePowersGang)
  *
@@ -200,7 +200,7 @@ EXPORT int _vcprintf_int(printf_putch_t putch_cb, void *putch_h, const char *for
 				_addchar('0');
 				_addchar(c);
 			}
-			arg = bLongLong ? va_arg(args, int64_t) : va_arg(args, int32_t);
+			arg = bLongLong ? va_arg(args, uint64_t) : va_arg(args, uint32_t);
 			pos += _printf_itoa(putch_cb, putch_h, arg, 16, c=='X',
 				FALSE, '\0', precision, minSize,cNumPad,bJustifyLeft);
 			break;
