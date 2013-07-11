@@ -137,7 +137,7 @@ void Time_ScheduleTimer(tTimer *Timer, int Delta)
 //	Mutex_Release( &Timer->Lock );	// Prevent deadlocks
 	for( prev_next = &gTimers, t = gTimers; t; prev_next = &t->Next, t = t->Next )
 	{
-		ASSERTC( *prev_next, !=, t );
+		ASSERT( prev_next != &t->Next );
 		ASSERT( CheckMem(t, sizeof(tTimer)) );
 		if( t == Timer )
 		{
@@ -168,7 +168,8 @@ void Time_RemoveTimer(tTimer *Timer)
 	SHORTLOCK(&gTimers_ListLock);
 	for( prev_next = &gTimers, t = gTimers; t; prev_next = &t->Next, t = t->Next )
 	{
-		ASSERT( *prev_next != t ); ASSERT( CheckMem(t, sizeof(tTimer)) );
+		ASSERT( prev_next != &t->Next );
+		ASSERT( CheckMem(t, sizeof(tTimer)) );
 		if( t == Timer )
 		{
 			*prev_next = t->Next;
