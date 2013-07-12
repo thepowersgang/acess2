@@ -1,11 +1,6 @@
 TODO:
 
 === Hardware ===
-- E1000 Driver (stubbed)
- > Find specs
-   http://download.intel.com/design/network/manuals/8254x_GBe_SDM.pdf
- > Use bochs/qemu only as a backup
-
 - Cirrus 64-bit VisualMedia Accelerator
    PCI 1013:00B8 (Cirrus CLGD5446)
  > Specs avail?
@@ -19,9 +14,6 @@ TODO:
 
 
 === General Features ===
-- Init Scripts
- > With an argument to init passed from the kernel?
-
 - #!
  > Pass as argument? or pass pointer like ld-acess?
  > argc/argv - Definitely
@@ -67,5 +59,3 @@ TODO:
  > Debug speed issues (tracing agian)
  > Port to AxWin3
  > (DONE) Trace memory corruption
-
-- Port dropbear!
