@@ -75,28 +75,16 @@ int E1000_Install(char **Arguments)
 		for( int id = -1, i = 0; (id = PCI_GetDevice(cardtype->Vendor, cardtype->Device, i)) != -1; i ++ )
 		{
 			tCard	*card = &gaE1000_Cards[card_idx++];
-			Uint32	mmiobase = PCI_GetBAR(id, 0);
-			if( mmiobase & (1|8) ) {
+			card->MMIOBasePhys = PCI_GetValidBAR(id, 0, PCI_BARTYPE_MEMNP);
+			if( !card->MMIOBasePhys ) {
 				Log_Warning("E1000", "Dev %i: BAR0 should be non-prefetchable memory", id);
-				continue;
-			}
-			const int addrsize = (mmiobase>>1) & 3;
-			if( addrsize == 0 ) {
-				// Standard 32-bit
-				card->MMIOBasePhys = mmiobase & ~0xF;
-			}
-			else if( addrsize == 2 ) {
-				// 64-bit
-				card->MMIOBasePhys = (mmiobase & ~0xF) | ((Uint64)PCI_GetBAR(id, 1)<<32);
-			}
-			else {
-				Log_Warning("E1000", "Dev %i: Unknown memory address size %i", id, (mmiobase>>1)&3);
 				continue;
 			}
 
 			card->IRQ = PCI_GetIRQ(id);
 			IRQ_AddHandler(card->IRQ, E1000_IRQHandler, card);
-
+			PCI_SetCommand(id, PCI_CMD_MEMENABLE|PCI_CMD_BUSMASTER, 0);
+		
 			Log_Debug("E1000", "Card %i: %P IRQ %i", card_idx, card->MMIOBasePhys, card->IRQ);
 
 			if( E1000_int_InitialiseCard(card) ) {
@@ -245,11 +233,7 @@ int E1000_SendPacket(void *Ptr, tIPStackBuffer *Buffer)
 	Card->TXDescs[last_txd].CMD |= TXD_CMD_EOP|TXD_CMD_IDE|TXD_CMD_IFCS;
 	Card->TXSrcBuffers[last_txd] = Buffer;
 
-	// Trigger TX
-	IPStack_Buffer_LockBuffer(Buffer);
-	LOG("Triggering TX - Buffers[%i]=%p", last_txd, Buffer);
-	REG32(Card, REG_TDT) = Card->FirstFreeTXD;
-	Mutex_Release(&Card->lTXDescs);
+	__sync_synchronize();
 	{
 		volatile tTXDesc *txdp = Card->TXDescs + last_txd;
 		LOG("%p %P: %llx %x %x", txdp, MM_GetPhysAddr((void*)txdp), txdp->Buffer, txdp->Length, txdp->CMD);
@@ -258,6 +242,11 @@ int E1000_SendPacket(void *Ptr, tIPStackBuffer *Buffer)
 		LOG("%p %P: %llx %x %x", txdp, MM_GetPhysAddr((void*)txdp), txdp->Buffer, txdp->Length, txdp->CMD);
 		MM_FreeTemp( (void*)txdp_base);
 	}
+	// Trigger TX
+	IPStack_Buffer_LockBuffer(Buffer);
+	LOG("Triggering TX - Buffers[%i]=%p", last_txd, Buffer);
+	REG32(Card, REG_TDT) = Card->FirstFreeTXD;
+	Mutex_Release(&Card->lTXDescs);
 	LOG("Waiting for TX to complete");
 	
 	// Wait for completion (lock will block, then release straight away)
