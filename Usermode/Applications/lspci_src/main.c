@@ -135,7 +135,8 @@ void show_device(int PFD, const char *File, int bVerbose)
 	struct {
 		uint16_t	vendor;
 		uint16_t	device;
-		uint32_t	_unused;
+		uint16_t	command;
+		uint16_t	status;
 		uint32_t	revclass;
 		uint32_t	_unused2;
 		uint32_t	bar[6];
@@ -163,6 +164,12 @@ void show_device(int PFD, const char *File, int bVerbose)
 
 	if( bVerbose )
 	{
+		printf("Command: ");
+		if(pciinfo.command & (1 <<10))	printf("INTx# Disabled, ");
+		if(pciinfo.command & (1 << 2))	printf("Bus Master, ");
+		if(pciinfo.command & (1 << 1))	printf("MMIO Enabled, ");
+		if(pciinfo.command & (1 << 0))	printf("IO Enabled, ");
+		printf("\n");
 		for( int i = 0; i < 6; i ++ )
 		{
 			uint32_t	bar = pciinfo.bar[i];
