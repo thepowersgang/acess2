@@ -28,22 +28,47 @@ typedef struct sFILE	FILE;
 
 #ifdef ARCHDIR_is_native
 #define printf	acess_printf
-#define vsprintf	acess_vsprintf
 #define vsnprintf	acess_vsnprintf
+#define vsprintf	acess_vsprintf
+#define vprintf 	acess_vprintf
 #define sprintf	acess_sprintf
 #define snprintf	acess_snprintf
-#define vprintf	acess_vprintf
-#define vfprintf	acess_vfprintf
+#define perror	acess_perror
+
 #define fopen	acess_fopen
 #define fdopen	acess_fdopen
 #define freopen	acess_freopen
+#define fdopen	acess_fdopen
 #define fclose	acess_fclose
+#define ftell	acess_ftell
+#define fseek	acess_fseek
+#define clearerr	acess_clearerr
+#define feof	acess_feof
+#define ferr	acess_ferr
+#define fileno	acess_fileno
 
-#define putchar	acess_putchar
+#define fread	acess_fread
+#define fwrite	acess_fwrite
+#define fgetc	acess_fgetc
+#define fgets	acess_fgets
+#define fputc	acess_fputc
+#define fputs	acess_fputs
 #define getchar	acess_getchar
+#define putchar	acess_putchar
+
+#define fprintf 	acess_fprintf
+#define vfprintf	acess_vfprintf
+
+#define scanf	acess_scanf
+#define fscanf	acess_fscanf
+#define sscanf	acess_sscanf
+#define vscanf	acess_vscanf
+#define vsscanf	acess_vsscanf
+#define vfscanf	acess_vfscanf
 
 #define stdin	acess_stdin
 #define stdout	acess_stdout
+#define stderr	acess_stderr
 #endif
 
 /* --- Standard IO --- */

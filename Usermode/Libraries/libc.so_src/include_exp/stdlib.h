@@ -12,6 +12,36 @@
 #define EXIT_FAILURE	1
 #define EXIT_SUCCESS	0
 
+#ifdef ARCHDIR_is_native
+# define _exit	acess__exit
+
+//# define strtoll	acess_strtoll
+//# define strtol	acess_strtol
+//# define strtoul	acess_strtoul
+//# define strtoull	acess_strtoull
+
+# define strtod	acess_strtod
+# define strtof	acess_strtof
+# define atof	acess_atof
+
+# define exit	acess_exit
+# define atexit	acess_atexit
+# define abort	acess_abort
+# define abs	acess_abs
+# define labs	acess_labs
+# define llabs	acess_llabs
+
+# define getenv	acess_getenv
+# define putenv	acess_putenv
+
+# define bsearch	acess_bsearch
+# define qsort	acess_qsort
+
+# define srand	acess_srand
+# define rand	acess_rand
+# define rand_p	acess_rand_p
+#endif
+
 /* --- Spinlock Macros --- */
 /* TODO: Support non-x86 architectures */
 #define DEFLOCK(_name)	static int _spinlock_##_name=0;
