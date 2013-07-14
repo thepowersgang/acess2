@@ -21,6 +21,7 @@
 extern int	UI_Initialise(int Width, int Height);
 extern void	UI_MainLoop(void);
 extern int	VFS_Init(void);
+extern int	PTY_Install(char **Arguments);
 extern int	Video_Install(char **Arguments);
 extern int	NativeKeyboard_Install(char **Arguments);
 extern int	NativeFS_Install(char **Arguments);
@@ -98,6 +99,7 @@ int main(int argc, char *argv[])
 	NativeFS_Install(NULL);
 	Mouse_Install(NULL);
 	IPCPipe_Install(NULL);
+	PTY_Install(NULL);
 	// - Start VTerm
 	{
 		char	*args[] = {
@@ -111,7 +113,7 @@ int main(int argc, char *argv[])
 	VFS_MkDir("/Acess");	
 	VFS_Mount(gsAcessDir, "/Acess", "nativefs", "");
 
-	Debug_SetKTerminal("/Devices/VTerm/8");
+	Debug_SetKTerminal("/Devices/pts/vt7c");
 	
 	// Start syscall server
 	SyscallServer();

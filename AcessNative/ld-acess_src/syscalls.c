@@ -22,7 +22,7 @@
 
 #define assert(cnd) do{ \
 	if( !(cnd) ) { \
-		fprintf(stderr, "%s:%i - assert failed - " #cnd, __FILE__, __LINE__);\
+		fprintf(stderr, "%s:%i - assert failed - " #cnd"\n", __FILE__, __LINE__);\
 		exit(-1); \
 	} \
 }while(0)
