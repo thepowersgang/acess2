@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <net.h>
 #include <acess/sys.h>
+#include <errno.h>
 
 enum {
 	UDP_IOCTL_GETSETLPORT = 4,
@@ -316,7 +317,8 @@ void Send_DHCPDISCOVER(tInterface *Iface)
 
 	i = _SysWrite(Iface->SocketFD, data, sizeof(data));
 	if( i != sizeof(data) ) {
-		_SysDebug("_SysWrite failed (%i != %i)", i, sizeof(data));
+		_SysDebug("_SysWrite failed (%i != %i): %s", i, sizeof(data),
+			strerror(errno));
 	}
 	Update_State(Iface, STATE_DISCOVER_SENT);
 }
