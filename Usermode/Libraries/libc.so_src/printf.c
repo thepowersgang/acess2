@@ -423,6 +423,12 @@ size_t _printf_itoa(printf_puts_t puts_cb, void *puts_h, uint64_t num,
 	}
 	tmpBuf[--pos] = map[ num % base ];		// Most significant digit of {number}
 
+	// TODO: This assertion may not be valid
+	assert(Precision <= (int)sizeof(tmpBuf));
+	Precision -= sizeof(tmpBuf)-pos + (sign_is_neg || SignChar != '\0');
+	while( Precision-- > 0 )
+		tmpBuf[--pos] = '0';
+
 	// Sign	
 	if(sign_is_neg)
 		tmpBuf[--pos] = '-';	// Negative sign character
@@ -434,16 +440,11 @@ size_t _printf_itoa(printf_puts_t puts_cb, void *puts_h, uint64_t num,
 	// length of number, minus the sign character
 	size_t len = sizeof(tmpBuf)-pos;
 	PadLength -= len;
-	Precision -= len;
 	if( !bPadRight )
 	{
 		while(PadLength-- > 0)
 			puts_cb(puts_h, &PadChar, 1), ret ++;
 	}
-
-	// TODO: Will {Precision} ever be > size
-	while( Precision-- > 0 )
-		puts_cb(puts_h, "0", 1), ret++;
 	
 	puts_cb(puts_h, tmpBuf+pos, len);
 	ret += len;
