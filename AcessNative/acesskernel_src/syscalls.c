@@ -119,7 +119,7 @@ SYSCALL3(Syscall_Read, "iid", int, int, void *,
 );
 SYSCALL3(Syscall_Write, "iid", int, int, const void *,
 	if( Sizes[2] < a1 ) {
-		Log_Warning("Syscalls", "Write - %i < %i", Sizes[2], a1);
+		Log_Warning("Syscalls", "Write - %x < %x", (int)Sizes[2], (int)a1);
 		*Errno = EINVAL;
 		return -1;
 	}
@@ -236,26 +236,28 @@ SYSCALL1(Syscall_WaitEvent, "i", int,
 );
 
 const tSyscallHandler	caSyscalls[] = {
-	Syscall_Null,
-	Syscall_Exit,
-	Syscall_Open,
-	Syscall_Close,
-	Syscall_Read,
-	Syscall_Write,
-	Syscall_Seek,
-	Syscall_Tell,
-	Syscall_IOCtl,
-	Syscall_FInfo,
-	Syscall_ReadDir,
-	Syscall_OpenChild,
-	Syscall_GetACL,
-	Syscall_Mount,
-	NULL,	// SYS_REOPEN
-	Syscall_Chdir,
+	[SYS_NULL]	= Syscall_Null,
+	[SYS_EXIT]	= Syscall_Exit,
+	[SYS_OPEN]	= Syscall_Open,
+	[SYS_CLOSE]	= Syscall_Close,
+	[SYS_COPYFD]	= NULL,
+	[SYS_FDFLAGS]	= NULL,
+	[SYS_READ]	= Syscall_Read,
+	[SYS_WRITE]	= Syscall_Write,
+	[SYS_SEEK]	= Syscall_Seek,
+	[SYS_TELL]	= Syscall_Tell,
+	[SYS_IOCTL]	= Syscall_IOCtl,
+	[SYS_FINFO]	= Syscall_FInfo,
+	[SYS_READDIR]	= Syscall_ReadDir,
+	[SYS_OPENCHILD]	= Syscall_OpenChild,
+	[SYS_GETACL]	= Syscall_GetACL,
+	[SYS_MOUNT]	= Syscall_Mount,
+	[SYS_REOPEN]	= NULL,	// SYS_REOPEN
+	[SYS_CHDIR]	= Syscall_Chdir,
 	
-	Syscall_WaitTID,
-	Syscall_SetUID,
-	Syscall_SetGID,
+	[SYS_WAITTID]	= Syscall_WaitTID,
+	[SYS_SETUID]	= Syscall_SetUID,
+	[SYS_SETGID]	= Syscall_SetGID,
 	
 	Syscall_GetTID,
 	Syscall_GetPID,
