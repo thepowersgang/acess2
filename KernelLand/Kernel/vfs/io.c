@@ -23,43 +23,40 @@ size_t VFS_Read(int FD, size_t Length, void *Buffer)
 	tVFS_Handle	*h;
 	size_t	ret;
 	
-	ENTER("xFD xLength pBuffer", FD, Length, Buffer);
-	
 	h = VFS_GetHandle(FD);
 	if(!h) {
-		LOG("Bad Handle");
-		LEAVE_RET('i', -1);
+		LOG("FD%i is a bad Handle", FD);
+		return -1;
 	}
 	
 	if( !(h->Mode & VFS_OPENFLAG_READ) ) {
-		LOG("Bad mode");
-		LEAVE_RET('i', -1);
+		LOG("FD%i not open for reading", FD);
+		return -1;
 	}
 	if( (h->Node->Flags & VFS_FFLAG_DIRECTORY) ) {
-		LOG("Reading directory");
-		LEAVE_RET('i', -1);
+		LOG("FD%i is a directory", FD);
+		return -1;
 	}
 
 	if(!h->Node->Type || !h->Node->Type->Read) {
-		LOG("No read method");
-		LEAVE_RET('i', -1);
+		LOG("FD%i has no read method", FD);
+		return -1;
 	}
 
 	if( !MM_GetPhysAddr(h->Node->Type->Read) ) {
 		Log_Error("VFS", "Node type %p(%s) read method is junk %p",
 			h->Node->Type, h->Node, h->Node->Type->TypeName,
 			h->Node->Type->Read);
-		LEAVE_RET('i', -1);
+		return -1;
 	}
 	
-	LOG("Position=%llx", h->Position);
 	Uint	flags = 0;
 	flags |= (h->Mode & VFS_OPENFLAG_NONBLOCK) ? VFS_IOFLAG_NOBLOCK : 0;
 	ret = h->Node->Type->Read(h->Node, h->Position, Length, Buffer, flags);
-	if(ret == (size_t)-1)	LEAVE_RET('i', -1);
+	if(ret != Length)	LOG("%i/%i read", ret, Length);
+	if(ret == (size_t)-1)	return -1;
 	
 	h->Position += ret;
-	LEAVE('x', ret);
 	return ret;
 }
 
@@ -87,12 +84,12 @@ size_t VFS_ReadAt(int FD, Uint64 Offset, size_t Length, void *Buffer)
 		Log_Error("VFS", "Node type %p(%s) read method is junk %p",
 			h->Node->Type, h->Node->Type->TypeName,
 			h->Node->Type->Read);
-		LEAVE_RET('i', -1);
 	}
 	
 	Uint	flags = 0;
 	flags |= (h->Mode & VFS_OPENFLAG_NONBLOCK) ? VFS_IOFLAG_NOBLOCK : 0;
 	ret = h->Node->Type->Read(h->Node, Offset, Length, Buffer, flags);
+	if(ret != Length)	LOG("%i/%i read", ret, Length);
 	if(ret == (size_t)-1)	return -1;
 	return ret;
 }
@@ -107,19 +104,26 @@ size_t VFS_Write(int FD, size_t Length, const void *Buffer)
 	size_t	ret;
 	
 	h = VFS_GetHandle(FD);
-	if(!h)	return -1;
+	if(!h) {
+		LOG("FD%i is not open", FD);
+		errno = EBADF;
+		return -1;
+	}
 	
 	if( !(h->Mode & VFS_OPENFLAG_WRITE) ) {
 		LOG("FD%i not opened for writing", FD);
+		errno = EBADF;
 		return -1;
 	}
 	if( h->Node->Flags & VFS_FFLAG_DIRECTORY ) {
-		LOG("FD%i is a director", FD);
+		LOG("FD%i is a directory", FD);
+		errno = EISDIR;
 		return -1;
 	}
 
 	if( !h->Node->Type || !h->Node->Type->Write ) {
 		LOG("FD%i has no write method", FD);
+		errno = EINTERNAL;
 		return 0;
 	}
 
@@ -127,12 +131,14 @@ size_t VFS_Write(int FD, size_t Length, const void *Buffer)
 		Log_Error("VFS", "Node type %p(%s) write method is junk %p",
 			h->Node->Type, h->Node->Type->TypeName,
 			h->Node->Type->Write);
+		errno = EINTERNAL;
 		return -1;
 	}
 	
 	Uint flags = 0;
 	flags |= (h->Mode & VFS_OPENFLAG_NONBLOCK) ? VFS_IOFLAG_NOBLOCK : 0;
 	ret = h->Node->Type->Write(h->Node, h->Position, Length, Buffer, flags);
+	if(ret != Length)	LOG("%i/%i written", ret, Length);
 	if(ret == (size_t)-1)	return -1;
 
 	h->Position += ret;
