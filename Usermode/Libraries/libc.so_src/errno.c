@@ -18,6 +18,9 @@ EXPORT const char *strerror(int errnum)
 {
 	switch(errnum)
 	{
+	case EOK:	return "Success";
+	case EISDIR:	return "Is a directory";
+	case ENOTDIR:	return "Not a directory";
 	case ENOSYS:	return "Invalid instruction/syscall";
 	case ENOENT:	return "No such file or directory";
 	case EINVAL:	return "Bad arguments";

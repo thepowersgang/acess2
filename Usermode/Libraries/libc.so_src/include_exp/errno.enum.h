@@ -15,6 +15,7 @@ enum {
 	EEXIST,	// Already exists
 	ENFILE,	// Too many open files
 	ENOTDIR,	// Not a directory
+	EISDIR,	// Is a directory
 	EIO,	// IO Error
 	EINTR,	// Operation interrupted (signal)
 	EWOULDBLOCK,	// Operation would have blocked
