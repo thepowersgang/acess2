@@ -234,9 +234,17 @@ int VFS_IOCtl(int FD, int ID, void *Buffer)
 	tVFS_Handle	*h;
 	
 	h = VFS_GetHandle(FD);
-	if(!h)	return -1;
+	if(!h) {
+		LOG("FD%i is invalid", FD);
+		errno = EINVAL;
+		return -1;
+	}
 
-	if(!h->Node->Type || !h->Node->Type->IOCtl)	return -1;
+	if(!h->Node->Type || !h->Node->Type->IOCtl) {
+		LOG("FD%i does not have an IOCtl method");
+		errno = EINVAL;
+		return -1;
+	}
 	return h->Node->Type->IOCtl(h->Node, ID, Buffer);
 }
 
