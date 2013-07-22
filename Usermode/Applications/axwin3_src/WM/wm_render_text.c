@@ -56,7 +56,7 @@ struct sFont
  int	WM_Render_DrawText(tWindow *Window, int X, int Y, int W, int H, tFont *Font, tColour Color, const char *Text, int MaxLen);
 void	WM_Render_GetTextDims(tFont *Font, const char *Text, int MaxLen, int *W, int *H);
 tGlyph	*_GetGlyph(tFont *Font, uint32_t Codepoint);
-void	_RenderGlyph(tWindow *Window, short X, short Y, tGlyph *Glyph, uint32_t Color);
+void	_RenderGlyph(tWindow *Window, short X, short Y, short ClipW, short ClipH, tGlyph *Glyph, uint32_t Color);
 tGlyph	*_SystemFont_CacheGlyph(tFont *Font, uint32_t Codepoint);
 
 // === GLOBALS ===
@@ -108,11 +108,11 @@ int WM_Render_DrawText(tWindow *Window, int X, int Y, int W, int H, tFont *Font,
 		glyph = _GetGlyph(Font, ch);
 		if( !glyph )	continue ;	// If not found, just don't render it
 		
-		// End render if it will overflow the provided range
-		if( xOfs + glyph->TrueWidth > W )
+		// End render if it will not fit at all
+		if( xOfs >= W )
 			break;
 		
-		_RenderGlyph(Window, X + xOfs, Y, glyph, Colour);
+		_RenderGlyph(Window, X + xOfs, Y, W-xOfs, H, glyph, Colour);
 		xOfs += glyph->Width;
 	}
 	
@@ -235,7 +235,7 @@ tGlyph *_GetGlyph(tFont *Font, uint32_t Codepoint)
 
 /**
  */
-void _RenderGlyph(tWindow *Window, short X, short Y, tGlyph *Glyph, uint32_t Color)
+void _RenderGlyph(tWindow *Window, short X, short Y, short ClipW, short ClipH, tGlyph *Glyph, uint32_t Color)
 {
 	 int	xStart = 0, yStart = 0;
 	 int	x, y, dst_x;
@@ -258,9 +258,9 @@ void _RenderGlyph(tWindow *Window, short X, short Y, tGlyph *Glyph, uint32_t Col
 	outBuf = (uint32_t*)Window->RenderBuffer + Y*Window->RealW + X;
 	inBuf = Glyph->Bitmap + yStart*Glyph->TrueWidth;
 
-	for( y = yStart; y < Glyph->TrueHeight; y ++ )
+	for( y = yStart; y < Glyph->TrueHeight && ClipH--; y ++ )
 	{
-		for( x = xStart, dst_x = 0; x < Glyph->TrueWidth; x ++, dst_x ++ )
+		for( x = xStart, dst_x = 0; x < Glyph->TrueWidth && dst_x < ClipW; x ++, dst_x ++ )
 		{
 			outBuf[dst_x] = Video_AlphaBlend( outBuf[dst_x], Color, inBuf[x] );
 		}
