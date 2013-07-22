@@ -536,6 +536,9 @@ int Widget_IPC_NewWidgetSubwin(tWindow *Win, size_t Len, const void *Data)
 		return -1;
 	if( strnlen(Msg->DebugName, max_debugname_len) == max_debugname_len )
 		return -1;
+
+	_SysDebug("Widget_NewWidgetSubwin(%i %i  Type %i Flags 0x%x Subwin %i)",
+		Msg->Parent, Msg->NewID, Msg->Type, Msg->Flags, Msg->WindowHandle);
 	
 	parent = Widget_GetElementById(Info, Msg->Parent);
 	if(!parent)	return 1;
@@ -555,6 +558,8 @@ int Widget_IPC_SetFocus(tWindow *Win, size_t Len, const void *Data)
 	tElement	*ele;
 	const tWidgetIPC_SetFocus	*msg = Data;
 	if(Len < sizeof(*msg))	return -1;
+
+	_SysDebug("Widget_SetFocus(%i)", msg->WidgetID);
 	
 	ele = Widget_GetElementById(info, msg->WidgetID);
 	Widget_SetFocus(info, ele);
@@ -589,6 +594,8 @@ int Widget_IPC_SetSize(tWindow *Win, size_t Len, const void *Data)
 	
 	if( Len < sizeof(*Msg) )
 		return -1;
+
+	_SysDebug("Widget_SetSize(%i, %i)", Msg->WidgetID, Msg->Value);
 	
 	ele = Widget_GetElementById(Info, Msg->WidgetID);
 	if(!ele)	return 1;
@@ -608,6 +615,7 @@ int Widget_IPC_SetText(tWindow *Win, size_t Len, const void *Data)
 	if( Msg->Text[Len - sizeof(*Msg) - 1] != '\0' )
 		return -1;
 
+	_SysDebug("Widget_SetText(%i, '%.30s')", Msg->WidgetID, Msg->Text);
 	ele = Widget_GetElementById(Info, Msg->WidgetID);
 	if(!ele)	return 1;
 

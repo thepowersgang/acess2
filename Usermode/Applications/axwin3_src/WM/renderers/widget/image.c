@@ -25,6 +25,7 @@ void Widget_Image_UpdateText(tElement *Element, const char *Text)
 	if(Element->Data)	free(Element->Data);
 	Element->Data = Image_Load( Text );
 	if(!Element->Data) {
+		_SysDebug("Widget::Image - Load failed '%s'", Text);
 //		Element->Flags &= ~ELEFLAG_FIXEDSIZE;
 		return ;
 	}
