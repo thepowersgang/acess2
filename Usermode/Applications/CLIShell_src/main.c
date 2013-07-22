@@ -300,27 +300,23 @@ void Command_Cd(int argc, char **argv)
  */
 void Command_Dir(int argc, char **argv)
 {
-	 int	dp, fp, dirLen;
+	 int	dp, fp;
 	char	modeStr[11] = "RWXrwxRWX ";
-	char	tmpPath[1024];
-	char	*fileName;
+	char	fileName[256];
 	t_sysFInfo	info;
 	t_sysACL	acl;
 	
+
+	// -- Generate and open directory --
 	// Generate Directory Path
+	char	tmpPath[1024];
 	if(argc > 1)
-		dirLen = GeneratePath(argv[1], gsCurrentDirectory, tmpPath);
+		GeneratePath(argv[1], gsCurrentDirectory, tmpPath);
 	else
-	{
 		strcpy(tmpPath, gsCurrentDirectory);
-	}
-	dirLen = strlen(tmpPath);
-	
 	// Open Directory
 	dp = _SysOpen(tmpPath, OPENFLAG_READ);
-	// Check if file opened
-	if(dp == -1)
-	{
+	if(dp == -1) {
 		printf("Unable to open directory `%s', File cannot be found\n", tmpPath);
 		return;
 	}
@@ -339,15 +335,7 @@ void Command_Dir(int argc, char **argv)
 		return;
 	}
 	
-	// Append Shash for file paths
-	if(tmpPath[dirLen-1] != '/')
-	{
-		tmpPath[dirLen++] = '/';
-		tmpPath[dirLen] = '\0';
-	}
-	
-	fileName = (char*)(tmpPath+dirLen);
-	// Read Directory Content
+	// -- Read Directory Contents --
 	while( (fp = _SysReadDir(dp, fileName)) )
 	{
 		if(fp < 0)
@@ -357,7 +345,7 @@ void Command_Dir(int argc, char **argv)
 			break;
 		}
 		// Open File
-		fp = _SysOpen(tmpPath, 0);
+		fp = _SysOpenChild(dp, fileName, 0);
 		if(fp == -1)	continue;
 		// Get File Stats
 		_SysFInfo(fp, &info, 0);
