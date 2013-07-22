@@ -308,9 +308,10 @@ void Send_DHCPDISCOVER(tInterface *Iface)
 	msg->options[i++] =  53;	// DHCP Message Type
 	msg->options[i++] =   1;
 	msg->options[i++] =   1;	// - DHCPDISCOVER
-	msg->options[i++] = 255;	// End of list
+	msg->options[i  ] = 255;	// End of list
 	
 
+	// UDP Header
 	data[0] = 67;	data[1] = 0;	// Port
 	data[2] = 4;	data[3] = 0;	// AddrType
 	data[4] = 255;	data[5] = 255;	data[6] = 255;	data[7] = 255;
