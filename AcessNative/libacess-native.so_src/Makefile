@@ -5,7 +5,7 @@ ifeq ($(PLATFORM),)
 	PLATFORM := lin
 endif
 
-OBJ := main.o syscalls.o request.o memory.o exports.o
+OBJ := main.o syscalls.o request.o memory.o exports.o heap.o
 OBJ := $(addprefix obj-$(PLATFORM)/,$(OBJ))
 
 ifeq ($(PLATFORM),win)

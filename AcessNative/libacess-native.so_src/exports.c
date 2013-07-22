@@ -26,11 +26,12 @@ int acess__SysSpawn(const char *binary, const char **argv, const char **envp, in
 		info ? sizeof(*info) : 0, info);
 	
 
+	Warning("TODO: Spawn '%s'", binary);
 	// TODO: Translate internal path to actual path	
 
 	// TODO: set environment variables for libacess-native
 	// > ACESSNATIVE_KEY=`newID`
-	native_spawn(binary, argv, envp);
+	//native_spawn(binary, argv, envp);
 
 	return 0;
 }
