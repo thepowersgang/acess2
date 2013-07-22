@@ -13,13 +13,14 @@ INCFILES := sys/sys.h
 
 CFLAGS   = -g -Wall -fno-builtin -fno-stack-protector -fPIC
 # -fno-leading-underscore
-CFLAGS  += $(CPPFLAGS) -Werror
+CFLAGS  += $(CPPFLAGS)
 LDFLAGS  = -g -T arch/$(ARCHDIR).ld -Map map.txt --export-dynamic
 
 ifeq ($(ARCH),native)
 XBIN := $(addprefix $(OUTPUTDIR)Libs/,$(EXTRABIN)) 
 $(XBIN): obj-$(ARCH)/_stublib.o
 all: $(XBIN)
+CFLAGS += -ffreestanding
 LDFLAGS := 
 BIN := 
 OBJ :=
@@ -28,12 +29,10 @@ endif
 include ../Makefile.tpl
 
 # create libld-acess.so
-ifneq ($(ARCH),native)
 $(_XBIN): $(_OBJPREFIX)_stublib.o
 	@echo [LD] -o -shared libld-acess.so
-	$(LD) -shared -o $@ $< $(LDFLAGS)
+	$(LD) -shared -o $@ $<
 #	@$(LD) $(LDFLAGS) -o $@ $(OBJ)
-endif
 
 
 # Override .ao to look in the object prefix for the source
