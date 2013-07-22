@@ -18,7 +18,7 @@ OBJ += arch/$(ARCHDIR).ao
 DEPFILES := $(OBJ:%.o=%.d)
 BIN = libc.so
 ifeq ($(ARCHDIR),native)
- #OBJ := $(filter-out heap.o,$(OBJ))
+ OBJ := $(filter-out heap.o,$(OBJ))
  #LDFLAGS += -l c
  BIN = libc_acess.so
 endif

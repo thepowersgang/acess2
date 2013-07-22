@@ -8,13 +8,14 @@
 #include "lib.h"
 #include <errno.h>
 #include <acess/sys.h>
+#include <string.h>
 
 EXPORT int *libc_geterrno()
 {
 	return &_errno;
 }
 
-EXPORT const char *strerror(int errnum)
+EXPORT char *strerror(int errnum)
 {
 	switch(errnum)
 	{
@@ -27,7 +28,18 @@ EXPORT const char *strerror(int errnum)
 	case EPERM:	return "Permissions error";
 	default:
 		_SysDebug("strerror: errnum=%i unk", errnum);
+		errno = EINVAL;
 		return "unknown error";
 	}
+}
+
+EXPORT int strerror_r(int errnum, char *buf, size_t bufsiz)
+{
+	const char *str = strerror(errnum);
+	if(!str)
+		return -1;
+	
+	strncpy(buf, str, bufsiz);
+	return 0;
 }
 

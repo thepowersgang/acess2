@@ -37,6 +37,12 @@
 # define bsearch	acess_bsearch
 # define qsort	acess_qsort
 
+# define free	acess_free
+# define malloc	acess_malloc
+# define calloc	acess_calloc
+# define realloc	acess_realloc
+# define IsHeap	acess_IsHeap
+
 # define srand	acess_srand
 # define rand	acess_rand
 # define rand_p	acess_rand_p

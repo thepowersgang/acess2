@@ -8,12 +8,13 @@
 #ifndef _LIBC_ERRNO_H_
 #define _LIBC_ERRNO_H_
 
-// TODO: Fully implement errno.h, make sure it matches the kernel one
+#include <stddef.h>	// size_t
 
 extern int	*libc_geterrno(void);
 #define	errno	(*libc_geterrno())
 
-extern const char	*strerror(int errnum);
+extern int	strerror_r(int errnum, char *buf, size_t buflen);
+extern char	*strerror(int errnum);
 
 #include "errno.enum.h"
 

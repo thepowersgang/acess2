@@ -44,7 +44,6 @@ size_t	_printf_ftoa(printf_puts_t puts_cb, void *puts_h, long double num, size_t
  */
 EXPORT int _vcprintf_int(printf_puts_t puts_cb, void *puts_h, const char *format, va_list args)
 {
-	char	tmp[65];
 	 int	c, minSize, precision, len;
 	size_t	pos = 0;
 	char	*p;
@@ -60,8 +59,6 @@ EXPORT int _vcprintf_int(printf_puts_t puts_cb, void *puts_h, const char *format
 		pos ++; \
 	} while(0)
 
-	tmp[32] = '\0';
-	
 	while((c = *format++) != 0)
 	{
 		// Non-control character
@@ -164,9 +161,6 @@ EXPORT int _vcprintf_int(printf_puts_t puts_cb, void *puts_h, const char *format
 				c = *format++;
 			}
 		}
-		
-		// Just help things along later
-		p = tmp;
 		
 		// Get Type
 		switch( c )

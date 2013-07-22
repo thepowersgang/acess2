@@ -200,13 +200,13 @@ EXPORT char *strrchr(const char *str, int character)
  * \fn EXPORT char *strstr(char *str1, const char *str2)
  * \brief Search a \a str1 for the first occurance of \a str2
  */
-EXPORT char *strstr(char *str1, const char *str2)
+EXPORT char *strstr(const char *str1, const char *str2)
 {
 	const char	*test = str2;
 	
 	for(;*str1;str1++)
 	{
-		if(*test == '\0')	return str1;
+		if(*test == '\0')	return (char*)str1;
 		if(*str1 == *test)	test++;
 		else	test = str2;
 	}
