@@ -9,6 +9,7 @@
 #include <stddef.h>	// NULL
 #include <acess/sys.h>
 #include <errno.h>
+#include <stdlib.h>
 
 struct DIR_s
 {

@@ -143,7 +143,6 @@ tURI *URI_Parse(const char *String)
 		else
 			ret->Path = ret->Host + hostlen + 1;
 		
-		pathlen = 0;
 		strcpy(ret->Path, tmp);
 		
 		return ret;
