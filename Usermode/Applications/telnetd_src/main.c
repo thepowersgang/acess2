@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <acess/sys.h>
+#include <assert.h>
 
 // === TYPES ===
 typedef struct sClient
@@ -108,7 +109,7 @@ void EventLoop(void)
 
 void Server_NewClient(int FD)
 {
-	tClient	*clt;
+	tClient	*clt = NULL;
 	
 	// TODO: Is this done in the IPStack?
 	if( giNumClients == giConfig_MaxClients )
@@ -126,6 +127,7 @@ void Server_NewClient(int FD)
 			break;
 		}
 	}
+	assert(clt);
 	// Accept the connection
 	clt->Socket = _SysOpenChild(FD, "", OPENFLAG_READ|OPENFLAG_WRITE);
 	giNumClients ++;
