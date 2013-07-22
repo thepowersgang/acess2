@@ -26,6 +26,9 @@ TODO:
 - Signals
  > Add return value to mutexs and semaphores, and add warn_unused_ret
 
+- Restructure build system into:
+ "ARCH=armv7-tegra2", "EDITION=smp"
+ > While you're at it, clean up the build system filenames and ARCH=native/ARCH=host-*
 
 === Kernel Core ===
 - Virtual PCI bus for system configuration
