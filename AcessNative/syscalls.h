@@ -5,6 +5,14 @@
 
 #define	SERVER_PORT	0xACE
 
+#define SYSCALL_TRACE	1
+
+#if SYSCALL_TRACE
+#define SYSTRACE(str, x...)	Debug(str, x)
+#else
+#define SYSTRACE(...)	do{}while(0)
+#endif
+
 /*
  * Request format
  * 

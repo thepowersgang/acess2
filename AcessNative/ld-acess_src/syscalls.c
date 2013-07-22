@@ -14,12 +14,6 @@
 #endif
 #include "request.h"
 
-#if SYSCALL_TRACE
-#define DEBUG(str, x...)	Debug(str, x)
-#else
-#define DEBUG(...)	do{}while(0)
-#endif
-
 #define assert(cnd) do{ \
 	if( !(cnd) ) { \
 		fprintf(stderr, "%s:%i - assert failed - " #cnd"\n", __FILE__, __LINE__);\
@@ -286,7 +280,7 @@ uint64_t _Syscall(int SyscallID, const char *ArgTypes, ...)
 	free( req );
 	free( retPtrs );
 	
-	DEBUG(": %i 0x%llx", SyscallID, retValue);
+	SYSTRACE(": %i 0x%llx", SyscallID, retValue);
 	
 	return retValue;
 }

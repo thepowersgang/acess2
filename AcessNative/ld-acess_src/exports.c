@@ -15,6 +15,8 @@
 //#define DEBUG(v...)	do{}while(0)//Debug(v)
 #define PAGE_SIZE	4096
 
+#define TODO()	Warning("TODO: %s", __func__)
+
 typedef struct sFILE	FILE;
 
 extern void	exit(int) __attribute__ ((noreturn));
@@ -53,7 +55,7 @@ int acess__SysOpen(const char *Path, int Flags)
 	{
 		return native_open(Path, Flags) | NATIVE_FILE_MASK;
 	}
-	DEBUG("open(\"%s\", 0x%x)", Path, Flags);
+	SYSTRACE("open(\"%s\", 0x%x)", Path, Flags);
 	return _Syscall(SYS_OPEN, ">s >i", Path, Flags);
 }
 
@@ -62,16 +64,17 @@ void acess__SysClose(int FD)
 	if(FD & NATIVE_FILE_MASK) {
 		return native_close(FD & (NATIVE_FILE_MASK-1));
 	}
-	DEBUG("close(%i)", FD);
+	SYSTRACE("close(%i)", FD);
 	_Syscall(SYS_CLOSE, ">i", FD);
 }
 
 int acess__SysReopen(int FD, const char *Path, int Flags) {
-	DEBUG("reopen(0x%x, \"%s\", 0x%x)", FD, Path, Flags);
+	SYSTRACE("reopen(0x%x, \"%s\", 0x%x)", FD, Path, Flags);
 	return _Syscall(SYS_REOPEN, ">i >s >i", FD, Path, Flags);
 }
 
 int acess__SysCopyFD(int srcfd, int dstfd) {
+	SYSTRACE("_SysCopyFD(%i, %i)", srcfd, dstfd);
 	return _Syscall(SYS_COPYFD, ">i >i", srcfd, dstfd);
 }
 
@@ -82,16 +85,14 @@ int acess__SysFDFlags(int fd, int mask, int newflags) {
 size_t acess__SysRead(int FD, void *Dest, size_t Bytes) {
 	if(FD & NATIVE_FILE_MASK)
 		return native_read(FD & (NATIVE_FILE_MASK-1), Dest, Bytes);
-//	if( FD > 2 )
-		DEBUG("read(0x%x, 0x%x, *%p)", FD, Bytes, Dest);
+	SYSTRACE("_SysRead(0x%x, 0x%x, *%p)", FD, Bytes, Dest);
 	return _Syscall(SYS_READ, ">i >i <d", FD, Bytes, Bytes, Dest);
 }
 
 size_t acess__SysWrite(int FD, const void *Src, size_t Bytes) {
 	if(FD & NATIVE_FILE_MASK)
 		return native_write(FD & (NATIVE_FILE_MASK-1), Src, Bytes);
-//	if( FD > 2 )
-		DEBUG("write(0x%x, 0x%x, %p\"%.*s\")", FD, Bytes, Src, Bytes, (char*)Src);
+	SYSTRACE("_SysWrite(0x%x, 0x%x, %p\"%.*s\")", FD, Bytes, Src, Bytes, (char*)Src);
 	return _Syscall(SYS_WRITE, ">i >i >d", FD, Bytes, Bytes, Src);
 }
 
@@ -100,7 +101,7 @@ int acess__SysSeek(int FD, int64_t Ofs, int Dir)
 	if(FD & NATIVE_FILE_MASK) {
 		return native_seek(FD & (NATIVE_FILE_MASK-1), Ofs, Dir);
 	}
-	DEBUG("seek(0x%x, 0x%llx, %i)", FD, Ofs, Dir);
+	SYSTRACE("_SysSeek(0x%x, 0x%llx, %i)", FD, Ofs, Dir);
 	return _Syscall(SYS_SEEK, ">i >I >i", FD, Ofs, Dir);
 }
 
@@ -108,23 +109,20 @@ uint64_t acess__SysTell(int FD)
 {
 	if(FD & NATIVE_FILE_MASK)
 		return native_tell( FD & (NATIVE_FILE_MASK-1) );
-	DEBUG("tell(0x%x)", FD);
+	SYSTRACE("_SysTell(0x%x)", FD);
 	return _Syscall(SYS_TELL, ">i", FD);
 }
 
 int acess__SysIOCtl(int fd, int id, void *data) {
 	 int	len;
-	DEBUG("ioctl(%i, %i, %p)", fd, id, data);
+	SYSTRACE("_SysIOCtl(%i, %i, %p)", fd, id, data);
 	// NOTE: The length here is hacky and could break
-	if( data == NULL )
-		len = 0;
-	else
-		len = PAGE_SIZE - ((uintptr_t)data % PAGE_SIZE);
+	len = (data == NULL ? 0 : PAGE_SIZE - ((uintptr_t)data % PAGE_SIZE));
 	return _Syscall(SYS_IOCTL, ">i >i ?d", fd, id, len, data);
 }
 int acess__SysFInfo(int fd, t_sysFInfo *info, int maxacls) {
 //	DEBUG("offsetof(size, t_sysFInfo) = %i", offsetof(t_sysFInfo, size));
-	DEBUG("finfo(%i, %p, %i)", fd, info, maxacls);
+	SYSTRACE("_SysFInfo(%i, %p, %i)", fd, info, maxacls);
 	return _Syscall(SYS_FINFO, ">i <d >i",
 		fd,
 		sizeof(t_sysFInfo)+maxacls*sizeof(t_sysACL), info,
@@ -133,13 +131,13 @@ int acess__SysFInfo(int fd, t_sysFInfo *info, int maxacls) {
 }
 
 int acess__SysReadDir(int fd, char *dest) {
-	DEBUG("SysReadDir(%i, %p)", fd, dest);
+	SYSTRACE("_SysReadDir(%i, %p)", fd, dest);
 	return _Syscall(SYS_READDIR, ">i <d", fd, 256, dest);
 }
 
 int acess__SysSelect(int nfds, fd_set *read, fd_set *write, fd_set *error, int64_t *timeout, uint32_t events)
 {
-	DEBUG("_SysSelect(%i, %p, %p, %p, %p, 0x%x)", nfds, read, write, error, timeout, events);
+	SYSTRACE("_SysSelect(%i, %p, %p, %p, %p, 0x%x)", nfds, read, write, error, timeout, events);
 	return _Syscall(SYS_SELECT, ">i ?d ?d ?d >d >i", nfds,
 		read ? (nfds+7)/8 : 0, read,
 		write ? (nfds+7)/8 : 0, write,
@@ -150,28 +148,28 @@ int acess__SysSelect(int nfds, fd_set *read, fd_set *write, fd_set *error, int64
 }
 int acess__SysMkDir(const char *pathname)
 {
-	DEBUG("TODO: _SysMkDir");
+	TODO();
 	return 0;
 }
 int acess__SysUnlink(const char *pathname)
 {
 	// TODO:
-	DEBUG("TODO: _Unlink");
+	TODO();
 	return 0;
 }
 
 int acess__SysOpenChild(int fd, char *name, int flags) {
-	DEBUG("_SysOpenChild(0x%x, '%s', 0x%x)", fd, name, flags);
+	SYSTRACE("_SysOpenChild(0x%x, '%s', 0x%x)", fd, name, flags);
 	return _Syscall(SYS_OPENCHILD, ">i >s >i", fd, name, flags);
 }
 
 int acess__SysGetACL(int fd, t_sysACL *dest) {
-	DEBUG("%s(0x%x, %p)", __func__, fd, dest);
+	SYSTRACE("%s(0x%x, %p)", __func__, fd, dest);
 	return _Syscall(SYS_GETACL, ">i <d", fd, sizeof(t_sysACL), dest);
 }
 
 int acess__SysMount(const char *Device, const char *Directory, const char *Type, const char *Options) {
-	DEBUG("%s('%s', '%s', '%s', '%s')", __func__, Device, Directory, Type, Options);
+	SYSTRACE("_SysMount('%s', '%s', '%s', '%s')", Device, Directory, Type, Options);
 	return _Syscall(SYS_MOUNT, ">s >s >s >s", Device, Directory, Type, Options);
 }
 
@@ -185,17 +183,20 @@ int acess__SysSetFaultHandler(int (*Handler)(int)) {
 void acess__SysSetName(const char *Name)
 {
 	// TODO:
+	TODO();
 }
 
 int acess__SysGetName(char *NameDest)
 {
 	// TODO: 
+	TODO();
 	return 0;
 }
 
 int acess__SysSetPri(int Priority)
 {
 	// TODO:
+	TODO();
 	return 0;
 }
 
@@ -203,12 +204,14 @@ int acess__SysSetPri(int Priority)
 void *acess_SysLoadBin(const char *path, void **entry)
 {
 	// ERROR!
+	TODO();
 	return NULL;
 }
 
 int acess__SysUnloadBin(void *base)
 {
 	// ERROR!
+	TODO();
 	return -1;
 }
 
@@ -216,6 +219,7 @@ int acess__SysUnloadBin(void *base)
 int64_t acess__SysTimestamp(void)
 {
 	// TODO: Better impl
+	TODO();
 //	return now()*1000;
 	return 0;
 }
@@ -224,6 +228,7 @@ int64_t acess__SysTimestamp(void)
 uint64_t acess__SysGetPhys(uintptr_t vaddr)
 {
 	// TODO:
+	TODO();
 	return 0;
 }
 
