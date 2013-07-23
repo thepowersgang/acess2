@@ -11,8 +11,12 @@
 #include <richtext_messages.h>
 #include <stdio.h>	// sscanf
 #include <string.h>	// memcpy
+#include <unicode.h>	// ReadUTF8
+#include <axwin3/keysyms.h>
+#include <axwin3/richtext.h>
 
 #define LINES_PER_BLOCK	30
+#define LINE_SPACE_UNIT	32	// Must be a power of two
 
 // === TYPES ===
 typedef struct sRichText_Line
@@ -34,10 +38,16 @@ typedef struct sRichText_Window
 	 int	CursorRow, CursorCol;
 	tRichText_Line	*FirstLine;
 	tRichText_Line	*FirstVisLine;
+	
 	tColour	DefaultFG;
 	tColour	DefaultBG;
 	tFont	*Font;
+	 int	Flags;
+	
 	char	bNeedsFullRedraw;
+	
+	tRichText_Line	*CursorLine;
+	 int	CursorBytePos;	// Recalculated on cursor update
 	
 	short	LineHeight;
 } tRichText_Window;
@@ -78,6 +88,7 @@ tWindow *Renderer_RichText_Create(int Flags)
 	tWindow *ret = WM_CreateWindowStruct( sizeof(*info) );
 	if(!ret)	return NULL;
 	info = ret->RendererInfo;
+	info->Flags = Flags;
 	
 	// Initialise font (get an idea of dimensions)
 	int h;
@@ -122,8 +133,9 @@ static inline int Renderer_RichText_RenderText_Act(tWindow *Window, tRichText_Wi
 	return rwidth;
 }
 
-void Renderer_RichText_RenderText(tWindow *Window, int Line, const char *Text)
+void Renderer_RichText_RenderText(tWindow *Window, int LineNum, tRichText_Line *Line)
 {
+	const char	*Text = Line->Data;
 	tRichText_Window	*info = Window->RendererInfo;
 	tColour	fg = info->DefaultFG;
 	tColour	bg = info->DefaultBG;
@@ -132,7 +144,7 @@ void Renderer_RichText_RenderText(tWindow *Window, int Line, const char *Text)
 	 int	curx = 0;
 	const char	*oldtext = Text;
 	
-	for( int i = 0; curx < Window->W; i ++ )
+	for( int i = 0; curx < Window->W && Text < oldtext + Line->ByteLength; i ++ )
 	{
 		char	ch, flags;
 		 int	len;
@@ -149,7 +161,7 @@ void Renderer_RichText_RenderText(tWindow *Window, int Line, const char *Text)
 
 		if( bRender ) {
 			// Render previous characters
-			curx += Renderer_RichText_RenderText_Act(Window, info, curx, Line,
+			curx += Renderer_RichText_RenderText_Act(Window, info, curx, LineNum,
 				oldtext, Text - oldtext - 1, fg, bg, flagset);
 			if( curx >= Window->W )
 				break;
@@ -195,8 +207,8 @@ void Renderer_RichText_RenderText(tWindow *Window, int Line, const char *Text)
 		}
 	}
 	curx += Renderer_RichText_RenderText_Act(Window, info, curx,
-		Line, oldtext, Text - oldtext + 1, fg, bg, flagset);
-	WM_Render_DrawRect(Window, curx, Line * info->LineHeight,
+		LineNum, oldtext, Text - oldtext, fg, bg, flagset);
+	WM_Render_DrawRect(Window, curx, LineNum * info->LineHeight,
 		Window->W - curx, info->LineHeight, info->DefaultBG);
 }
 
@@ -249,7 +261,7 @@ void Renderer_RichText_Redraw(tWindow *Window)
 				);
 			
 			// Formatted text out
-			Renderer_RichText_RenderText(Window, i, line->Data);
+			Renderer_RichText_RenderText(Window, i, line);
 			_SysDebug("RichText: %p - Render %i '%.*s'", Window,
 				line->Num, line->ByteLength, line->Data);
 			line->bIsClean = 1;
@@ -276,19 +288,16 @@ void Renderer_RichText_Redraw(tWindow *Window)
 	// Text cursor
 	_SysDebug("Cursor at %i,%i", info->CursorCol, info->CursorRow);
 	_SysDebug(" Range [%i+%i],[%i+%i]", info->FirstVisRow, info->DispLines, info->FirstVisCol, info->DispCols);
-	if( info->CursorRow >= info->FirstVisRow && info->CursorRow < info->FirstVisRow + info->DispLines )
+	if( info->CursorRow >= info->FirstVisRow && info->CursorRow < info->FirstVisRow + info->DispLines
+	 && info->CursorCol >= info->FirstVisCol && info->CursorCol < info->FirstVisCol + info->DispCols )
 	{
-		if( info->CursorCol >= info->FirstVisCol && info->CursorCol < info->FirstVisCol + info->DispCols )
-		{
-			// TODO: Kill hardcoded 8 with cached text distance
-			WM_Render_FillRect(Window,
-				(info->CursorCol - info->FirstVisCol) * 8,
-				(info->CursorRow - info->FirstVisRow) * info->LineHeight,
-				1,
-				info->LineHeight,
-				info->DefaultFG
-				);
-		}
+		// TODO: Kill hardcoded 8 with cached text distance
+		WM_Render_FillRect(Window,
+			(info->CursorCol - info->FirstVisCol) * 8,
+			(info->CursorRow - info->FirstVisRow) * info->LineHeight,
+			1,
+			info->LineHeight, info->DefaultFG
+			);
 	}
 }
 
@@ -306,6 +315,17 @@ tRichText_Line *Renderer_RichText_int_GetLine(tWindow *Window, int LineNum, tRic
 	if( !line || line->Num > LineNum )
 		return NULL;
 	return line;
+}
+
+void Renderer_RichText_int_UpdateCursorOfs(tRichText_Window *Info)
+{
+	tRichText_Line	*line = Info->CursorLine;
+	size_t	ofs = 0;
+	for( int i = 0; i < Info->CursorCol && ofs < line->ByteLength; i ++ )
+	{
+		ofs += ReadUTF8(line->Data + ofs, NULL);
+	}
+	Info->CursorBytePos = ofs;
 }
 
 int Renderer_RichText_HandleIPC_SetAttr(tWindow *Window, size_t Len, const void *Data)
@@ -337,6 +357,8 @@ int Renderer_RichText_HandleIPC_SetAttr(tWindow *Window, size_t Len, const void 
 		}
 		info->CursorRow = newRow;
 		info->CursorCol = newCol;
+		info->CursorLine = line;
+		Renderer_RichText_int_UpdateCursorOfs(info);
 		WM_Invalidate(Window, 1);
 		break; }
 	case _ATTR_SCROLL:
@@ -359,29 +381,26 @@ int Renderer_RichText_HandleIPC_WriteLine(tWindow *Window, size_t Len, const voi
 
 	tRichText_Line	*prev = NULL;
 	tRichText_Line	*line = Renderer_RichText_int_GetLine(Window, msg->Line, &prev);
+	 int	reqspace = ((Len - sizeof(*msg)) + LINE_SPACE_UNIT-1) & ~(LINE_SPACE_UNIT-1);
 	if( !line )
 	{
 		// New line!
-		// Round up to 32
-		 int	space = ((Len - sizeof(*msg)) + 32-1) & ~(32-1);
-		tRichText_Line	*new = malloc(sizeof(*line) + space);
+		tRichText_Line	*new = malloc(sizeof(*line) + reqspace);
 		// TODO: Bookkeeping on how much memory each window uses
 		new->Next = (prev ? prev->Next : NULL);
 		new->Prev = prev;
 		new->Num = msg->Line;
-		new->Space = space;
-		if(new->Prev)	new->Prev->Next = new;
-		else	info->FirstLine = new;
+		new->Space = reqspace;
+		*(prev ? &prev->Next : &info->FirstLine) = new;
 		if(new->Next)	new->Next->Prev = new;
 		line = new;
 	}
-	else if( line->Space < Len - sizeof(*msg) )
+	else if( line->Space < reqspace )
 	{
 		// Need to allocate more space
-		 int	space = ((Len - sizeof(*msg)) + 32-1) & ~(32-1);
-		tRichText_Line *new = realloc(line, space);
+		tRichText_Line *new = realloc(line, sizeof(*line) + reqspace);
 		// TODO: Bookkeeping on how much memory each window uses
-		new->Space = space;
+		new->Space = reqspace;
 
 		if(new->Prev)	new->Prev->Next = new;
 		else	info->FirstLine = new;
@@ -392,13 +411,106 @@ int Renderer_RichText_HandleIPC_WriteLine(tWindow *Window, size_t Len, const voi
 	{
 		// It fits :)
 	}
-	line->ByteLength = Len - sizeof(*msg);
+	line->ByteLength = Len - sizeof(*msg) - 1;
 	memcpy(line->Data, msg->LineData, Len - sizeof(*msg));
 	line->bIsClean = 0;
+
+	if( line->Num == info->CursorRow ) {
+		info->CursorLine = line;
+		info->CursorBytePos = MIN(info->CursorBytePos, line->ByteLength);
+	}
 
 //	WM_Invalidate(Window, 1);
 
 	return 0;
+}
+
+void Renderer_RichText_HandleKeyFire(tWindow *Window, tRichText_Window *Info, const struct sWndMsg_KeyAction *Msg)
+{
+	tRichText_Line	*line = Info->CursorLine;
+	size_t	len = WriteUTF8(NULL, Msg->UCS32);
+	switch(Msg->UCS32)
+	{
+	case 0:
+		switch(Msg->KeySym)
+		{
+		case KEYSYM_RIGHTARROW:
+			if( Info->CursorBytePos == line->ByteLength )
+				break;
+			Info->CursorBytePos += ReadUTF8(line->Data + Info->CursorBytePos, NULL);
+			Info->CursorCol ++;
+			break;
+		case KEYSYM_LEFTARROW:
+			if( Info->CursorBytePos == 0 )
+				break;
+			Info->CursorBytePos -= ReadUTF8Rev(line->Data, Info->CursorBytePos, NULL);
+			Info->CursorCol --;
+			break;
+		case KEYSYM_UPARROW:
+			_SysDebug("TODO: RichText edit up line");
+			break;
+		case KEYSYM_DOWNARROW:
+			_SysDebug("TODO: RichText edit down line");
+			break;
+		default:
+			// No effect
+			return ;
+		}
+		break;
+	case '\n':	// Newline
+		_SysDebug("TODO: RichText edit newline");
+		break;
+	case '\b':	// Backspace
+		if( Info->CursorBytePos == 0 )
+			return ;
+		len = ReadUTF8Rev(line->Data, Info->CursorBytePos, NULL);
+		Info->CursorBytePos -= len;
+		Info->CursorCol --;
+		if(0)
+	case '\x7f':	// Delete
+		len = ReadUTF8(line->Data + Info->CursorBytePos, NULL);
+		if( Info->CursorBytePos == line->ByteLength )
+			return ;
+		memmove(line->Data + Info->CursorBytePos, line->Data + Info->CursorBytePos + len,
+			line->ByteLength - Info->CursorBytePos - len);
+		line->ByteLength -= len;
+		_SysDebug("RichText: %p Backspace/Delete '%.*s'", Window,
+			line->ByteLength, line->Data);
+		break;
+	default:
+		// Increase buffer size
+		if( line->ByteLength + len > line->Space ) {
+			line->Space += LINE_SPACE_UNIT;
+			tRichText_Line *nl = realloc(line, sizeof(*line) + line->Space);
+			if( nl == NULL )
+				return ;
+			if( nl != line ) {
+				*(line->Prev ? &line->Prev->Next : &Info->FirstLine) = nl;
+				if(line->Next)
+					line->Next->Prev = nl;
+				if(Info->FirstVisLine == line)
+					Info->FirstVisLine = nl;
+				Info->CursorLine = nl;
+				line = nl;
+			}
+		}
+		// Shift data
+		memmove(line->Data + Info->CursorBytePos + len, line->Data + Info->CursorBytePos,
+			line->ByteLength - Info->CursorBytePos);
+		// Encode
+		WriteUTF8(line->Data + Info->CursorBytePos, Msg->UCS32);
+		Info->CursorBytePos += len;
+		Info->CursorCol ++;
+		line->ByteLength += len;
+		
+		_SysDebug("RichText: %p Appended %X '%.*s' to line %i", Window,
+			Msg->UCS32, len, line->Data + Info->CursorBytePos - len,
+			line->Num);
+		break;
+	}
+	// Invalidate line
+	line->bIsClean = 0;
+	WM_Invalidate(Window, 1);
 }
 
 int Renderer_RichText_HandleMessage(tWindow *Target, int Msg, int Len, const void *Data)
@@ -412,9 +524,16 @@ int Renderer_RichText_HandleMessage(tWindow *Target, int Msg, int Len, const voi
 		info->DispLines = msg->H / info->LineHeight;
 		info->bNeedsFullRedraw = 1;	// force full rerender
 		return 1; }
+	case WNDMSG_KEYFIRE:
+		if( Len < sizeof(struct sWndMsg_KeyAction) )
+			return -1;
+		if( !(info->Flags & AXWIN3_RICHTEXT_READONLY) )
+		{
+			Renderer_RichText_HandleKeyFire(Target, info, Data);
+		}
+		return 1;
 	case WNDMSG_KEYDOWN:
 	case WNDMSG_KEYUP:
-	case WNDMSG_KEYFIRE:
 		return 1;
 	}
 	return 0;

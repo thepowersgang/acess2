@@ -35,7 +35,7 @@ int main(int argc, char *argv[], const char **envp)
 	AxWin3_Connect(NULL);
 	
 	// --- Build up window
-	gMainWindow = AxWin3_RichText_CreateWindow(NULL, 0);
+	gMainWindow = AxWin3_RichText_CreateWindow(NULL, AXWIN3_RICHTEXT_READONLY);
 	AxWin3_SetWindowTitle(gMainWindow, "Terminal");	// TODO: Update title with other info
 
 	gMenuWindow = AxWin3_Menu_Create(gMainWindow);
