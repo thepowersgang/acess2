@@ -9,8 +9,12 @@
 #define _ATE__FILE_H_
 #include <stdio.h>
 
-typedef struct sFileLine
+typedef struct sFileLine	tFileLine;
+
+struct sFileLine
 {
+	tFileLine	*Next;
+	tFileLine	*Prev;
 	 int	Num;
 
 	// State data for hilighting
@@ -19,17 +23,30 @@ typedef struct sFileLine
 
 	 int	Space;
 	 int	Length;
-	char	Data[];
-} tFileLine;
+	char	*Data;
+};
 
 typedef struct sFile
 {
-	FILE	*Handle;
 	 int	nLines;
-	tFileLine	**Lines;	// TODO: Handle very large files?
+	tFileLine	*FirstLine;
+	tFileLine	*CurrentLine;
+	 int	CursorOfs;
+	
 	 int	NameOfs;
 	const char	Path[];
 } tFile;
+
+enum eFile_DeleteType
+{
+	DELTYPE_BACK,
+	DELTYPE_BACK_WORD,
+	DELTYPE_FORWARD,
+	DELTYPE_FORWARD_WORD,
+	DELTYPE_TO_EOL,
+	DELTYPE_TO_SOL,
+	DELTYPE_LINE
+};
 
 #endif
 
