@@ -14,7 +14,7 @@
 
 // - Base (NO PREFIX)
 tKeymapLayer	gpKBDUS1 = {
-	KEYSYM_SLASH+1,
+	KEYSYM_KPENTER+1,
 	{
 	 0, 0, 0, 0,
 	'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
@@ -24,8 +24,10 @@ tKeymapLayer	gpKBDUS1 = {
 	'\'', '`', ',', '.', '/',
 	0,	// Capslock
 	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,	// F1 -> F12
-	0, 0, 0, 0, 0, 0, 0,	// ?, ScrollLock, Pause, Insert, Home, PgUp, PgDn
+	0, 0, 0,	// PrintScrn, ScrollLock, Pause
+	0, 0, 0, '\x7f', 0, 0, // Insert, Home, PgUp, Delete, End, PgDn
 	0, 0, 0, 0,	// Right, Left, Up, Down
+	// - Keypad
 	0, '/', '*', '-', '+', '\n',	// NumLock, Keypad /, *, -, +, Enter
 //	KEYSYM_KPEND, KEYSYM_KPDOWN, KEYSYM_KPPGDN,
 //	KEYSYM_KPLEFT, KEYSYM_KP5, KEY_KPRIGHT,
