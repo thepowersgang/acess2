@@ -17,57 +17,64 @@
 int ReadUTF8(const char *Input, uint32_t *Val)
 {
 	const uint8_t	*str = (const uint8_t *)Input;
-	*Val = 0xFFFD;	// Assume invalid character
 	
-	// ASCII
-	if( !(*str & 0x80) ) {
-		*Val = *str;
-		return 1;
-	}
+	if(Val)	*Val = 0xFFFD;	// Assume invalid character
+
+	int	len;
+	uint32_t	val;	
 	
 	// Middle of a sequence
 	if( (*str & 0xC0) == 0x80 ) {
 		return 1;
 	}
-	
+
+	// ASCII
+	if( !(*str & 0x80) ) {
+		val = *str;
+		len = 1;
+	}
 	// Two Byte
-	if( (*str & 0xE0) == 0xC0 ) {
-		*Val = (*str & 0x1F) << 6;	// Upper 6 Bits
+	else if( (*str & 0xE0) == 0xC0 ) {
+		val = (*str & 0x1F) << 6;	// Upper 6 Bits
 		str ++;
 		if( (*str & 0xC0) != 0x80)	return -1;	// Validity check
-		*Val |= (*str & 0x3F);	// Lower 6 Bits
-		return 2;
+		val |= (*str & 0x3F);	// Lower 6 Bits
+		len = 2;
 	}
-	
 	// Three Byte
-	if( (*str & 0xF0) == 0xE0 ) {
-		*Val = (*str & 0x0F) << 12;	// Upper 4 Bits
+	else if( (*str & 0xF0) == 0xE0 ) {
+		val = (*str & 0x0F) << 12;	// Upper 4 Bits
 		str ++;
 		if( (*str & 0xC0) != 0x80)	return -1;	// Validity check
-		*Val |= (*str & 0x3F) << 6;	// Middle 6 Bits
+		val |= (*str & 0x3F) << 6;	// Middle 6 Bits
 		str ++;
 		if( (*str & 0xC0) != 0x80)	return -1;	// Validity check
-		*Val |= (*str & 0x3F);	// Lower 6 Bits
-		return 3;
+		val |= (*str & 0x3F);	// Lower 6 Bits
+		len = 3;
 	}
-	
 	// Four Byte
-	if( (*str & 0xF8) == 0xF0 ) {
-		*Val = (*str & 0x07) << 18;	// Upper 3 Bits
+	else if( (*str & 0xF8) == 0xF0 ) {
+		val = (*str & 0x07) << 18;	// Upper 3 Bits
 		str ++;
 		if( (*str & 0xC0) != 0x80)	return -1;	// Validity check
-		*Val |= (*str & 0x3F) << 12;	// Middle-upper 6 Bits
+		val |= (*str & 0x3F) << 12;	// Middle-upper 6 Bits
 		str ++;
 		if( (*str & 0xC0) != 0x80)	return -1;	// Validity check
-		*Val |= (*str & 0x3F) << 6;	// Middle-lower 6 Bits
+		val |= (*str & 0x3F) << 6;	// Middle-lower 6 Bits
 		str ++;
 		if( (*str & 0xC0) != 0x80)	return -1;	// Validity check
-		*Val |= (*str & 0x3F);	// Lower 6 Bits
+		val |= (*str & 0x3F);	// Lower 6 Bits
+		len = 4;
+	}
+	// UTF-8 Doesn't support more than four bytes
+	else {
 		return 4;
 	}
-	
-	// UTF-8 Doesn't support more than four bytes
-	return 4;
+
+	if( Val )
+		*Val = val;	
+
+	return len;
 }
 
 /**
