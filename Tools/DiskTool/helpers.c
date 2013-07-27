@@ -41,7 +41,7 @@ size_t DiskTool_int_TranslatePath(char *Buffer, const char *Path)
 		const char *pos;
 		for(pos = Path; pos < colon; pos ++)
 		{
-			if( !isalpha(*pos) )
+			if( !isalnum(*pos) )
 				goto native_path;
 		}
 		

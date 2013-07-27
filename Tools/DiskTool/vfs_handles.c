@@ -31,3 +31,12 @@ tVFS_Handle *VFS_GetHandle(int ID)
 		return NULL;
 	return &gaKernelHandles[ID];
 }
+
+int VFS_SetHandle(int FD, tVFS_Node *Node, int Mode)
+{
+	if( FD < 0 ||  FD >= MAX_KERNEL_FILES )
+		return -1;
+	gaKernelHandles[FD].Node = Node;
+	gaKernelHandles[FD].Mode = Mode;
+	return 0;
+}

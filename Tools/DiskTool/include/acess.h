@@ -13,7 +13,7 @@
 #define STR(x) #x
 #define EXPAND_STR(x) STR(x)
 
-#define ASSERT(x)	do{}while(0)
+//#define ASSERT(x)	do{}while(0)
 
 extern char	__buildnum[];
 #define BUILD_NUM	((int)(Uint)&__buildnum)
@@ -125,6 +125,8 @@ extern int	WriteUTF8(Uint8 *str, Uint32 Val);
 // TODO: Move out?
 extern int	DivUp(int value, int divisor);
 extern uint64_t	DivMod64U(uint64_t Num, uint64_t Den, uint64_t *Rem);
+static inline int MIN(int a, int b) { return a < b ? a : b; }
+static inline int MAX(int a, int b) { return a > b ? a : b; }
 
 static inline void SHORTLOCK(tShortSpinlock *Lock) {
 	if(*Lock)	Log_KernelPanic("---", "Double short lock");
