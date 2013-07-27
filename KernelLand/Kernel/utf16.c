@@ -8,6 +8,7 @@
 #define DEBUG	0
 #include <acess.h>
 #include <utf16.h>
+#include <ctype.h>
 
 int ReadUTF16(const Uint16 *Str16, Uint32 *Codepoint)
 {
