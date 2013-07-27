@@ -41,9 +41,7 @@ void WM_Hotkey_Register(int nKeys, uint32_t *Keys, const char *ActionName)
 	strcpy((char*)h->Target, ActionName);
 	memcpy(h->Keys, Keys, nKeys * sizeof(uint32_t));
 	
-	h->Next = NULL;
-	if( gpWM_Hotkeys )
-		gpWM_Hotkeys->Next = h;
+	h->Next = gpWM_Hotkeys;
 	gpWM_Hotkeys = h;
 }
 
