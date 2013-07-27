@@ -76,6 +76,7 @@ extern long long int	llabs(long long int j);
 
 /* --- Environment --- */
 extern char	*getenv(const char *name);
+extern int	putenv(char *string);
 
 /* --- Search/Sort --- */
 typedef int (*_stdlib_compar_t)(const void *, const void *);

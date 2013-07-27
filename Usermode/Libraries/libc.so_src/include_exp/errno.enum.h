@@ -1,5 +1,5 @@
 
-enum {
+enum libc_eErrorNumbers {
 	EOK,
 	ENOSYS,	// Invalid Instruction
 	EINVAL,	// Invalid Paramater
@@ -9,7 +9,7 @@ enum {
 	EBUSY,	// Resource is busy
 	ERANGE,	// Value out of range
 	ENOTFOUND,	// Item not found
-	EREADONLY,	// Read only (duplicate with EROFS?)
+	EROFS,	// Read only
 	ENOTIMPL,	// Not implemented
 	ENOENT,	// No entry?
 	EEXIST,	// Already exists
@@ -22,14 +22,14 @@ enum {
 	ENODEV,	// ???
 	EADDRNOTAVAIL,	// ?
 	EINPROGRESS,	// ?
-	EROFS,
 	EPERM,	// Permissions error
 
 	EAGAIN,	// Try again
-	
 	EALREADY,	// Operation was a NOP
-	EINTERNAL,	// Internal Error
 	
-	NUM_ERRNO
+	
+	EINTERNAL	// Internal Error
 };
+	
+#define NUM_ERRNO	(EINTERNAL+1)
 

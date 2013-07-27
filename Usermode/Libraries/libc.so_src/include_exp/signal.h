@@ -36,10 +36,43 @@ extern int	raise(int sig);
 #define SIGUSR1	16
 #define SIGUSR2	17
 
-#define SIGPIPE	1001
-#define SIGCHLD	1002
+#define SIGSTOP	30	// Stop process
+#define SIGTSTP	31	// ? ^Z
+#define SIGTTIN	32	// Background process read TTY
+#define SIGTTOU	33	// Background process write TTY
+#define SIGPIPE	34
+#define SIGCHLD	35
+#define SIGWINCH	36
 
-typedef int	sigset_t;
+typedef long long unsigned int	sigset_t;
+extern int	sigemptyset(sigset_t *set);
+extern int	sigfillset(sigset_t *set);
+
+typedef struct siginfo_s	siginfo_t;
+
+struct siginfo_s
+{
+	int	si_signo;
+	int	si_errno;
+	int	si_code;
+	int	si_trapno;
+	pid_t	si_pid;
+	uid_t	si_uid;
+	int	si_status;
+	// TODO: There's others
+};
+
+struct sigaction
+{
+	sighandler_t	sa_handler;
+	//void	(*sa_sigaction)(int, siginfo_t *, void *);
+	sigset_t	sa_mask;
+	int	sa_flags;
+};
+
+#define SA_NOCLDSTOP	0x001
+
+extern int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact);
 
 #endif
 

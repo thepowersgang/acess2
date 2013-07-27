@@ -7,8 +7,11 @@
  */
 #include <errno.h>
 #include <stdio.h>
+#include <acess/sys.h>
 
 void perror(const char *s)
 {
-	fprintf(stderr, "%s: Error (%i)\n", s, errno);
+	 int	errnum = errno;
+	_SysDebug("perror(): %s: Error (%i) %s", s, errnum, strerror(errnum));
+	fprintf(stderr, "%s: Error (%i) %s\n", s, errnum, strerror(errnum));
 }

@@ -28,7 +28,7 @@ extern void	_stdio_init(void);
 extern void	_call_atexit_handlers(void);
 
 // === GLOBALS ===
-extern char **_envp;
+extern char **environ;
 // --- CPU Features ---
 #if USE_CPUID
 tCPUID	gCPU_Features;
@@ -46,7 +46,7 @@ tCPUID	gCPU_Features;
 int SoMain(UNUSED(uintptr_t, BaseAddress), UNUSED(int, argc), UNUSED(char **, argv), char **envp)
 {
 	// Init for env.c
-	_envp = envp;
+	environ = envp;
 
 	#if 0	
 	{

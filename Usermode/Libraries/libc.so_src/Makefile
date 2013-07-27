@@ -4,7 +4,7 @@
 -include ../Makefile.cfg
 
 CPPFLAGS += 
-CFLAGS   += -Werror -Wextra
+CFLAGS   += -Wall -Werror -Wextra
 ASFLAGS  +=
 LDFLAGS  += -Map map.txt
 
