@@ -1,10 +1,9 @@
 /*
  * Acess2 Kernel
- * - IO Cache
+ * - By thePowersGang (John Hodge)
  * 
- * By thePowersGang (John Hodge)
- * 
- * TODO: Convert to use spare physical pages instead
+ * drv/iocache.c
+ * - Block IO Caching
  */
 #define DEBUG	0
 #include <acess.h>
@@ -265,6 +264,8 @@ int IOCache_Add( tIOCache *Cache, Uint64 Sector, const void *Buffer )
 	page->DirtySectors = 0;
 	
 	memcpy( page_map + offset, Buffer, Cache->SectorSize ); 
+
+	MM_FreeTemp(page_map);
 	
 	#else
 	tIOCache_Ent	*ent, *prev;
