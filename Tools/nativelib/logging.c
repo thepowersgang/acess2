@@ -53,6 +53,11 @@ void Log_Log(const char *Ident, const char *Message, ...)
 void Log_Debug(const char *Ident, const char *Message, ...)
 	PUTERR("37", "d")
 
+void Panic(const char *Message, ...) {
+	const char *Ident = "";
+	PUTERR("35", "k")
+	exit(-1);
+}
 void Warning(const char *Message, ...) {
 	const char *Ident = "";
 	PUTERR("33", "W")
