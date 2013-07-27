@@ -519,8 +519,11 @@ tVFS_Node *PTY_FindDir(tVFS_Node *Node, const char *Name, Uint Flags)
 		}
 		RWLock_Release(&glPTY_NamedPTYs);
 	}
-	if( ret )
-		return (isServer ? &ret->ServerNode : &ret->ClientNode);
+	if( ret ) {
+		tVFS_Node	*retnode = (isServer ? &ret->ServerNode : &ret->ClientNode);
+		retnode->ReferenceCount ++;
+		return retnode;
+	}
 	else
 		return NULL;
 }
