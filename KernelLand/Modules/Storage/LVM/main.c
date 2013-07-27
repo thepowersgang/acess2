@@ -111,6 +111,8 @@ int LVM_Cleanup(void)
 		Mutex_Acquire(&vol->VolNode.Lock);
 		if( vol->Type->Cleanup )
 			vol->Type->Cleanup( vol->Ptr );
+		if( vol->CacheHandle )
+			IOCache_Destroy(vol->CacheHandle);
 		LOG("Removed volume %s", vol->Name);
 		free(vol);
 	}
