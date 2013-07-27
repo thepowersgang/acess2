@@ -8,6 +8,7 @@
 #include <string.h>
 #include "header.h"
 #include <readline.h>
+#include <errno.h>
 
 #define _stdin	0
 #define _stdout	1
@@ -80,6 +81,10 @@ int main(int argc, char *argv[], char **envp)
 		// Read Command line
 		sCommandStr = Readline( readline_state );
 		printf("\n");
+		if( !sCommandStr ) {
+			perror("Readline");
+			return 1;
+		}
 		
 		// Parse Command Line into arguments
 		iArgCount = Parse_Args(sCommandStr, saArgs);

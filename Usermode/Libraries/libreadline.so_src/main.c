@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 
 #define STDIN_FD	0
 #define STDOUT_FD	1
@@ -105,6 +106,7 @@ char *Readline_NonBlock(tReadline *Info)
 	}
 	
 	// Return NULL when command is still being edited
+	errno = EAGAIN;
 	return NULL;
 }
 
@@ -116,7 +118,7 @@ char *Readline(tReadline *Info)
 	struct ptymode	mode = {.InputMode = 0, .OutputMode = 0};
 	_SysIOCtl(STDIN_FD, PTY_IOCTL_SETMODE, &mode);
 	
-	while( NULL == (ret = Readline_NonBlock(Info)) );
+	while( NULL == (ret = Readline_NonBlock(Info)) && errno == EAGAIN );
 
 	// stty +echo,canon
 	mode.InputMode = PTYIMODE_CANON|PTYIMODE_ECHO;
