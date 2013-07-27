@@ -268,7 +268,7 @@ void _CommitClient(int sockfd)
 	_ClearInfo(si);
 }
 
-int accept(int sockfd, struct sockaddr *clientaddr, socklen_t addrlen)
+int accept(int sockfd, struct sockaddr *clientaddr, socklen_t *addrlen)
 {
 	_CommitServer(sockfd);
 	 int	child;
