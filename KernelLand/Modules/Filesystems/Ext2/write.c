@@ -30,7 +30,7 @@ size_t Ext2_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buff
 	Uint64	allocSize;
 	 int	bNewBlocks = 0;
 	
-	Debug_HexDump("Ext2_Write", Buffer, Length);
+	//Debug_HexDump("Ext2_Write", Buffer, Length);
 
 	// TODO: Handle (Flags & VFS_IOFLAG_NOBLOCK)	
 
@@ -157,24 +157,30 @@ Uint32 Ext2_int_AllocateBlock(tExt2_Disk *Disk, Uint32 PrevBlock)
 	if(Disk->SuperBlock.s_free_blocks_count == 0)
 		return 0;
 
-	// First: Check the next block after \a PrevBlock
-	if( (PrevBlock + 1) % Disk->SuperBlock.s_blocks_per_group != 0
-	 && Disk->Groups[blockgroup].bg_free_blocks_count > 0 )
+	// First: Check the next block after `PrevBlock`
+	 int	iblock = (PrevBlock + 1) % Disk->SuperBlock.s_blocks_per_group;
+	if( iblock != 0 && Disk->Groups[blockgroup].bg_free_blocks_count > 0 )
 	{
+		LOG("Checking %i:%i", blockgroup, iblock);
+		
 		bg = &Disk->Groups[blockgroup];
+		
 		const int sector_size = 512;
 		Uint8 buf[sector_size];
-		 int	iblock = (PrevBlock + 1) % Disk->SuperBlock.s_blocks_per_group;
-		 int	byte = iblock / 8;
-		 int	ofs = byte / sector_size * sector_size;
+		 int	byte = (iblock/8) % sector_size;
+		Uint8	bit = 1 << (iblock % 8);
+		 int	ofs = (iblock/8) / sector_size * sector_size;
 		byte %= sector_size;
-		VFS_ReadAt(Disk->FD, Disk->BlockSize*bg->bg_block_bitmap+ofs, sector_size, buf);
-		
-		if( (buf[byte] & (1 << (iblock%8))) == 0 )
+		Uint64	vol_ofs = Disk->BlockSize*bg->bg_block_bitmap+ofs;
+		VFS_ReadAt(Disk->FD, vol_ofs, sector_size, buf);
+
+		LOG("buf@%llx[%i] = %02x (& %02x)", vol_ofs, byte, buf[byte], bit);
+	
+		if( (buf[byte] & bit) == 0 )
 		{
 			// Free block - nice and contig allocation
-			buf[byte] |= (1 << (iblock%8));
-			VFS_WriteAt(Disk->FD, Disk->BlockSize*bg->bg_block_bitmap+ofs, sector_size, buf);
+			buf[byte] |= bit;
+			VFS_WriteAt(Disk->FD, vol_ofs, sector_size, buf);
 
 			bg->bg_free_blocks_count --;
 			Disk->SuperBlock.s_free_blocks_count --;
@@ -192,6 +198,7 @@ Uint32 Ext2_int_AllocateBlock(tExt2_Disk *Disk, Uint32 PrevBlock)
 		blockgroup ++;
 	if( Disk->Groups[blockgroup].bg_free_blocks_count == 0 )
 	{
+		LOG("Roll over");
 		blockgroup = 0;
 		while( blockgroup < firstgroup && Disk->Groups[blockgroup].bg_free_blocks_count == 0 )
 			blockgroup ++;
@@ -201,6 +208,7 @@ Uint32 Ext2_int_AllocateBlock(tExt2_Disk *Disk, Uint32 PrevBlock)
 			Disk);
 		return 0;
 	}
+	LOG("BG%i has free blocks", blockgroup);
 
 	// Search the bitmap for a free block
 	bg = &Disk->Groups[blockgroup];	
@@ -208,18 +216,20 @@ Uint32 Ext2_int_AllocateBlock(tExt2_Disk *Disk, Uint32 PrevBlock)
 	do {
 		const int sector_size = 512;
 		Uint8 buf[sector_size];
-		VFS_ReadAt(Disk->FD, Disk->BlockSize*bg->bg_block_bitmap+ofs, sector_size, buf);
+		Uint64	vol_ofs = Disk->BlockSize*bg->bg_block_bitmap+ofs;
+		VFS_ReadAt(Disk->FD, vol_ofs, sector_size, buf);
 
 		int byte, bit;
-		for( byte = 0; byte < sector_size && buf[byte] != 0xFF; byte ++ )
+		for( byte = 0; byte < sector_size && buf[byte] == 0xFF; byte ++ )
 			;
 		if( byte < sector_size )
 		{
+			LOG("buf@%llx[%i] = %02x", vol_ofs, byte, buf[byte]);
 			for( bit = 0; bit < 8 && buf[byte] & (1 << bit); bit ++)
 				;
 			ASSERT(bit != 8);
 			buf[byte] |= 1 << bit;
-			VFS_WriteAt(Disk->FD, Disk->BlockSize*bg->bg_block_bitmap+ofs, sector_size, buf);
+			VFS_WriteAt(Disk->FD, vol_ofs, sector_size, buf);
 
 			bg->bg_free_blocks_count --;
 			Disk->SuperBlock.s_free_blocks_count --;

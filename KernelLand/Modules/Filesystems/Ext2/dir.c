@@ -237,7 +237,6 @@ int Ext2_Link(tVFS_Node *Node, const char *Name, tVFS_Node *Child)
 	Uint64	base;	// Block's Base Address
 	 int	block = 0, ofs = 0;
 	Uint	size;
-	void	*blockData;
 	 int	bestMatch = -1;
 	 int	bestSize=0, bestBlock=0, bestOfs=0, bestNeedsSplit=0;
 	 int	nEntries;
@@ -245,7 +244,7 @@ int Ext2_Link(tVFS_Node *Node, const char *Name, tVFS_Node *Child)
 	ENTER("pNode sName pChild",
 		Node, Name, Child);
 	
-	blockData = malloc(disk->BlockSize);
+	void *blockData = malloc(disk->BlockSize);
 	
 	// Read child inode (get's the file type)
 	Ext2_int_ReadInode(disk, Child->Inode, &inode);
@@ -306,9 +305,7 @@ int Ext2_Link(tVFS_Node *Node, const char *Name, tVFS_Node *Child)
 				LOG(" name='%.*s'", dirent->name_len, dirent->name);
 				if(strncmp(Name, dirent->name, dirent->name_len) == 0) {
 					//Ext2_int_UnlockInode(disk, Node->Inode);
-					Mutex_Release(&Node->Lock);
-					LEAVE('i', 1);
-					return 1;	// ERR_???
+					goto _err;
 				}
 				
 				 int	spare_space = dirent->rec_len - (dirent->name_len + EXT2_DIRENT_SIZE);
@@ -393,8 +390,14 @@ int Ext2_Link(tVFS_Node *Node, const char *Name, tVFS_Node *Child)
 	Child->Flags |= VFS_FFLAG_DIRTY;
 
 	//Ext2_int_UnlockInode(disk, Node->Inode);
+	free(blockData);
 	Mutex_Release(&Node->Lock);
 	LEAVE('i', 0);
 	return 0;
+_err:
+	free(blockData);
+	Mutex_Release(&Node->Lock);
+	LEAVE('i', 1);
+	return 1;	// ERR_???
 }
 

@@ -395,7 +395,7 @@ tVFS_Node *Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeID)
 
 int Ext2_int_WritebackNode(tExt2_Disk *Disk, tVFS_Node *Node)
 {
-	tExt2_Inode	inode;
+	tExt2_Inode	inode = {0};
 
 	if( Disk != Node->ImplPtr ) {
 		Log_Error("Ext2", "Ext2_int_WritebackNode - Disk != Node->ImplPtr");
@@ -529,7 +529,7 @@ Uint32 Ext2_int_AllocateInode(tExt2_Disk *Disk, Uint32 Parent)
 		VFS_ReadAt(Disk->FD, Disk->BlockSize*bg->bg_inode_bitmap+ofs, sector_size, buf);
 
 		int byte, bit;
-		for( byte = 0; byte < sector_size && buf[byte] != 0xFF; byte ++ )
+		for( byte = 0; byte < sector_size && buf[byte] == 0xFF; byte ++ )
 			;
 		if( byte < sector_size )
 		{
@@ -576,6 +576,14 @@ void Ext2_int_UpdateSuperblock(tExt2_Disk *Disk)
 	 
 	// Update Primary
 	VFS_WriteAt(Disk->FD, 1024, 1024, &Disk->SuperBlock);
+	
+	// - Update block groups while we're at it
+	VFS_WriteAt(
+		Disk->FD,
+		Disk->SuperBlock.s_first_data_block * Disk->BlockSize + 1024,
+		sizeof(tExt2_Group)*Disk->GroupCount,
+		Disk->Groups
+		);
 	
 	// Secondaries
 	// at Block Group 1, 3^n, 5^n, 7^n
