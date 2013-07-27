@@ -17,6 +17,7 @@
 #include <proc.h>
 #include <hal_proc.h>
 #include <arch_int.h>
+#include <semaphore.h>
 
 #define TAB	22
 
@@ -97,6 +98,7 @@ tPAddr	MM_DuplicatePage(tVAddr VAddr);
 #define gaPAE_TmpPDPT	((tTabEnt*)PAE_TMP_PDPT_ADDR)
  int	gbUsePAE = 0;
 tMutex	glTempMappings;
+tSemaphore	gTempMappingsSem;
 tMutex	glTempFractal;
 Uint32	gWorkerStacks[(NUM_WORKER_STACKS+31)/32];
  int	giLastUsedWorker = 0;
@@ -117,6 +119,8 @@ void MM_PreinitVirtual(void)
 {
 	gaInitPageDir[ PAGE_TABLE_ADDR >> 22 ] = ((tTabEnt)&gaInitPageDir - KERNEL_BASE) | 3;
 	INVLPG( PAGE_TABLE_ADDR );
+	
+	Semaphore_Init(&gTempMappingsSem, NUM_TEMP_PAGES, NUM_TEMP_PAGES, "MMVirt", "Temp Mappings");
 }
 
 /**
@@ -980,32 +984,29 @@ tPAddr MM_DuplicatePage(tVAddr VAddr)
  */
 void * MM_MapTemp(tPAddr PAddr)
 {
-	 int	i;
-	
 	//ENTER("XPAddr", PAddr);
 	
 	PAddr &= ~0xFFF;
 	
 	//LOG("glTempMappings = %i", glTempMappings);
 	
-	for(;;)
+	if( Semaphore_Wait(&gTempMappingsSem, 1) != 1 )
+		return NULL;
+	Mutex_Acquire( &glTempMappings );
+	for( int i = 0; i < NUM_TEMP_PAGES; i ++ )
 	{
-		Mutex_Acquire( &glTempMappings );
-		
-		for( i = 0; i < NUM_TEMP_PAGES; i ++ )
-		{
-			// Check if page used
-			if(gaPageTable[ (TEMP_MAP_ADDR >> 12) + i ] & 1)	continue;
-			// Mark as used
-			gaPageTable[ (TEMP_MAP_ADDR >> 12) + i ] = PAddr | 3;
-			INVLPG( TEMP_MAP_ADDR + (i << 12) );
-			//LEAVE('p', TEMP_MAP_ADDR + (i << 12));
-			Mutex_Release( &glTempMappings );
-			return (void*)( TEMP_MAP_ADDR + (i << 12) );
-		}
+		// Check if page used
+		if(gaPageTable[ (TEMP_MAP_ADDR >> 12) + i ] & 1)	continue;
+		// Mark as used
+		gaPageTable[ (TEMP_MAP_ADDR >> 12) + i ] = PAddr | 3;
+		INVLPG( TEMP_MAP_ADDR + (i << 12) );
+		//LEAVE('p', TEMP_MAP_ADDR + (i << 12));
 		Mutex_Release( &glTempMappings );
-		Threads_Yield();	// TODO: Use a sleep queue here instead
+		return (void*)( TEMP_MAP_ADDR + (i << 12) );
 	}
+	Mutex_Release( &glTempMappings );
+	Log_KernelPanic("MMVirt", "Semaphore suplied a mapping, but none are avaliable");
+	return NULL;
 }
 
 /**
@@ -1017,8 +1018,10 @@ void MM_FreeTemp(void *VAddr)
 	 int	i = (tVAddr)VAddr >> 12;
 	//ENTER("xVAddr", VAddr);
 	
-	if(i >= (TEMP_MAP_ADDR >> 12))
+	if(i >= (TEMP_MAP_ADDR >> 12)) {
 		gaPageTable[ i ] = 0;
+		Semaphore_Signal(&gTempMappingsSem, 1);
+	}
 	
 	//LEAVE('-');
 }
