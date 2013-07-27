@@ -12,7 +12,7 @@ ifeq ($(ARCH),x86)
 else ifeq ($(ARCH),x86_64)
  BFD := x86_64
 else
- $(error No BFD translation for $(ARCH) in Externals/common.mk)
+ $(error No BFD translation for $(ARCH) in Externals/core.mk)
 endif
 
 #PREFIX=$(ACESSDIR)/Externals/Output
