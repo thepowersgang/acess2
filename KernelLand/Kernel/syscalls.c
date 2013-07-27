@@ -72,6 +72,10 @@ void SyscallHandler(tSyscallRegs *Regs)
 	
 	// -- Put the current thread to sleep
 	case SYS_SLEEP:	Threads_Sleep();	break;
+
+	case SYS_TIMEDSLEEP:
+		Time_Delay(Regs->Arg1);
+		break;
 	
 	// -- Yield current timeslice
 	case SYS_YIELD:	Threads_Yield();	break;

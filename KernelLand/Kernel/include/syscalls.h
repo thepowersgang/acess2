@@ -16,21 +16,22 @@
 #define SYS_SETFAULTHANDLER	3	// Set signal Handler
 #define SYS_YIELD	4	// Yield remainder of timestamp
 #define SYS_SLEEP	5	// Sleep until messaged or signaled
-#define SYS_WAITEVENT	6	// Wait for an event
-#define SYS_WAITTID	7	// Wait for a thread to do something
-#define SYS_SETNAME	8	// Sets the name of the current thread
-#define SYS_GETNAME	9	// Gets the name of a thread
-#define SYS_GETTID	10	// Get current thread ID
-#define SYS_GETPID	11	// Get current thread group ID
-#define SYS_SETPRI	12	// Set process priority
-#define SYS_SENDMSG	13	// Send an IPC message
-#define SYS_GETMSG	14	// Recieve an IPC message
-#define SYS_GETTIME	15	// Get the current timestamp
-#define SYS_SPAWN	16	// Spawn a new process
-#define SYS_EXECVE	17	// Replace the current process
-#define SYS_LOADBIN	18	// Load a binary into the current address space
-#define SYS_UNLOADBIN	19	// Unload a loaded binary
-#define SYS_LOADMOD	20	// Load a module into the kernel
+#define SYS_TIMEDSLEEP	6	// Sleep until a specified time has elapsed
+#define SYS_WAITEVENT	7	// Wait for an event
+#define SYS_WAITTID	8	// Wait for a thread to do something
+#define SYS_SETNAME	9	// Sets the name of the current thread
+#define SYS_GETNAME	10	// Gets the name of a thread
+#define SYS_GETTID	11	// Get current thread ID
+#define SYS_GETPID	12	// Get current thread group ID
+#define SYS_SETPRI	13	// Set process priority
+#define SYS_SENDMSG	14	// Send an IPC message
+#define SYS_GETMSG	15	// Recieve an IPC message
+#define SYS_GETTIME	16	// Get the current timestamp
+#define SYS_SPAWN	17	// Spawn a new process
+#define SYS_EXECVE	18	// Replace the current process
+#define SYS_LOADBIN	19	// Load a binary into the current address space
+#define SYS_UNLOADBIN	20	// Unload a loaded binary
+#define SYS_LOADMOD	21	// Load a module into the kernel
 #define SYS_GETPHYS	32	// Get the physical address of a page
 #define SYS_MAP	33	// Map a physical address
 #define SYS_ALLOCATE	34	// Allocate a page
@@ -78,6 +79,7 @@ static const char *cSYSCALL_NAMES[] = {
 	"SYS_SETFAULTHANDLER",
 	"SYS_YIELD",
 	"SYS_SLEEP",
+	"SYS_TIMEDSLEEP",
 	"SYS_WAITEVENT",
 	"SYS_WAITTID",
 	"SYS_SETNAME",
@@ -93,7 +95,6 @@ static const char *cSYSCALL_NAMES[] = {
 	"SYS_LOADBIN",
 	"SYS_UNLOADBIN",
 	"SYS_LOADMOD",
-	"",
 	"",
 	"",
 	"",
