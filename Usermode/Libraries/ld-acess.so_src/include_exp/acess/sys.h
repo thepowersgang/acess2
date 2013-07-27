@@ -63,6 +63,7 @@ extern int	_SysGetName(char *NameDest);
 extern int	_SysSetPri(int Priority);
 // --- Timekeeping ---
 extern int64_t	_SysTimestamp(void);
+extern void	_SysTimedSleep(int64_t Delay);
 
 // --- Permissions ---
 extern int	_SysGetUID(void);
