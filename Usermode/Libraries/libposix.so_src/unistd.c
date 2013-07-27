@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <acess/devices/pty.h>
+#include <errno.h>
 
 // === CODE ===
 int unlink(const char *pathname)
@@ -116,6 +117,18 @@ int dup2(int oldfd, int newfd)
 	return _SysCopyFD(oldfd, newfd);
 }
 
+int chown(const char *path, uid_t owner, gid_t group)
+{
+	_SysDebug("TODO: chown(%s, %i, %i)", path, owner, group);
+	errno = ENOTIMPL;
+	return -1;
+}
+int chmod(const char *path, mode_t mode)
+{
+	_SysDebug("TODO: chmod(%s, 0%o)", path, mode);
+	errno = ENOTIMPL;
+	return -1;
+}
 
 /*
  * Set session ID to PID
@@ -135,11 +148,39 @@ uid_t getuid(void)
 {
 	return _SysGetUID();
 }
+gid_t getgid(void)
+{
+	return _SysGetGID();
+}
 
 uid_t geteuid(void)
 {
 	// TODO: Impliment EUIDs in-kernel?
 	return _SysGetUID();
+}
+
+int seteuid(uid_t euid)
+{
+	_SysDebug("TODO: %s", __func__);
+	return 0;
+}
+int setegid(gid_t egid)
+{
+	_SysDebug("TODO: %s", __func__);
+	return 0;
+}
+
+unsigned int sleep(unsigned int seconds)
+{
+	int64_t	start = _SysTimestamp();
+	_SysTimedSleep( seconds*1000 );
+	return (_SysTimestamp() - start) / 1000;
+}
+
+int usleep(useconds_t usec)
+{
+	_SysTimedSleep( (usec+999)/1000 );
+	return 0;
 }
 
 int kill(pid_t pid, int signal)
@@ -175,6 +216,14 @@ int pipe(int pipefd[2])
 int chdir(const char *dir)
 {
 	return _SysChdir(dir);
+}
+
+int rmdir(const char *pathname)
+{
+//	return _SysUnlink(pathname);
+	_SysDebug("TODO: POSIX rmdir('%s')", pathname);
+	errno = ENOTIMPL;
+	return -1;
 }
 
 int mkdir(const char *pathname, mode_t mode)

@@ -68,15 +68,27 @@ extern int	chmod(const char *path, mode_t mode);
 extern pid_t	setsid(void);
 
 extern uid_t	getuid(void);
+//extern int	setuid(uid_t uid);
 extern uid_t	geteuid(void);
 extern pid_t	getpid(void);
+extern int	seteuid(uid_t euid);
+extern int	setegid(gid_t egid);
+//extern int	setgid(gid_t gid);
+
+typedef uint32_t	useconds_t;
+
+extern unsigned int	sleep(unsigned int seconds);
+extern int	usleep(useconds_t usec);
+
+// - crypt.c
+extern char	*crypt(const char *key, const char *salt);
+
 
 // signal.h / sys/types.h
-#define SIGWINCH	101
-#define SIGTSTP 	102
 extern int kill(pid_t pid, int sig);
 
-extern int chdir(const char *dir);
+extern int	chdir(const char *dir);
+extern int	rmdir(const char *pathname);
 
 // Deprecated POSIX.1-2001
 #define PASS_MAX	63
