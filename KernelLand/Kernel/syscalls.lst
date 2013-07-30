@@ -10,6 +10,9 @@ SYS_TIMEDSLEEP	Sleep until a specified time has elapsed
 SYS_WAITEVENT	Wait for an event
 SYS_WAITTID	Wait for a thread to do something
 
+SYS_SETSIGNALHANDLER	Set the POSIX signal handler
+SYS_SETSIGNALMASK	Sets the mask of disabled POSIX signals
+
 SYS_SETNAME	Sets the name of the current thread
 SYS_GETNAME	Gets the name of a thread
 SYS_GETTID	Get current thread ID
