@@ -49,5 +49,7 @@ $(_OBJPREFIX)arch/$(ARCHDIR).$(ASSUFFIX): arch/$(ARCHDIR).$(ASSUFFIX).h arch/sys
 	@mkdir -p $(dir $@)
 	@$(CPP) $(CPPFLAGS) -P -D__ASSEMBLER__ $< -o $@
 
+$(_OBJPREFIX)arch/$(ARCHDIR).$(ASSUFFIX): $(ACESSDIR)/KernelLand/Kernel/include/syscalls.h
+
 $(_OBJPREFIX)_stublib.o: arch/syscalls.s.h
 
