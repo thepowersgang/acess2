@@ -14,7 +14,7 @@
 #undef sprintf
 #include <dirent.h>	// Posix
 #include <sys/stat.h>	// Posix
-#include <stdio.h>	// Posix
+#include <stdio.h>	// C
 
 //NOTES:
 // tVFS_Node->ImplPtr is a pointer to the filesystem flags (tNativeFS)
@@ -34,6 +34,7 @@ tVFS_Node	*NativeFS_Mount(const char *Device, const char **Arguments);
 void	NativeFS_Unmount(tVFS_Node *Node);
 tVFS_Node	*NativeFS_FindDir(tVFS_Node *Node, const char *Name, Uint Flags);
  int	NativeFS_ReadDir(tVFS_Node *Node, int Position, char Dest[FILENAME_MAX]);
+tVFS_Node	*NativeFS_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
 size_t	NativeFS_Read(tVFS_Node *Node, _acess_off_t Offset, size_t Length, void *Buffer, Uint Flags);
 size_t	NativeFS_Write(tVFS_Node *Node, _acess_off_t Offset, size_t Length, const void *Buffer, Uint Flags);
 void	NativeFS_Close(tVFS_Node *Node);
@@ -47,6 +48,7 @@ tVFS_NodeType	gNativeFS_FileNodeType = {
 tVFS_NodeType	gNativeFS_DirNodeType = {
 	.FindDir = NativeFS_FindDir,
 	.ReadDir = NativeFS_ReadDir,
+	.MkNod = NativeFS_MkNod,
 	.Close = NativeFS_Close
 };
 tVFS_Driver	gNativeFS_Driver = {
@@ -202,6 +204,23 @@ int NativeFS_ReadDir(tVFS_Node *Node, int Position, char Dest[FILENAME_MAX])
 
 	LEAVE('i', 0);
 	return 0;
+}
+
+tVFS_Node *NativeFS_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
+{
+	char path[Node->ImplInt+1+strlen(Name)+1];
+	sprintf(path, "%s/%s", Node->Data, Name);
+	if( Flags & VFS_FFLAG_DIRECTORY )
+	{
+		mkdir(path, 0755);
+	}
+	else
+	{
+		FILE *tmp = fopen(path, "w");
+		if(!tmp)	return NULL;
+		fclose(tmp);
+	}
+	return NativeFS_FindDir(Node, Name, 0);
 }
 
 size_t NativeFS_Read(tVFS_Node *Node, _acess_off_t Offset, size_t Length, void *Buffer, Uint Flags)
