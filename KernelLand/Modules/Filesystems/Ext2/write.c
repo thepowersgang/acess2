@@ -7,14 +7,13 @@
  * \brief Second Extended Filesystem Driver
  * \todo Implement file full write support
  */
-#define DEBUG	1
+#define DEBUG	0
 #define VERBOSE	0
 #include "ext2_common.h"
 
 // === PROTOYPES ===
 Uint32		Ext2_int_AllocateBlock(tExt2_Disk *Disk, Uint32 PrevBlock);
 void	Ext2_int_DeallocateBlock(tExt2_Disk *Disk, Uint32 Block);
- int	Ext2_int_AppendBlock(tExt2_Disk *Disk, tExt2_Inode *Inode, Uint32 Block);
 
 // === CODE ===
 /**
@@ -23,7 +22,7 @@ void	Ext2_int_DeallocateBlock(tExt2_Disk *Disk, Uint32 Block);
 size_t Ext2_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags)
 {
 	tExt2_Disk	*disk = Node->ImplPtr;
-	tExt2_Inode	inode;
+	tExt2_Inode	*inode = (void*)(Node+1);
 	Uint64	base;
 	Uint64	retLen;
 	Uint	block;
@@ -33,13 +32,12 @@ size_t Ext2_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buff
 	//Debug_HexDump("Ext2_Write", Buffer, Length);
 
 	// TODO: Handle (Flags & VFS_IOFLAG_NOBLOCK)	
-
-	Ext2_int_ReadInode(disk, Node->Inode, &inode);
 	
 	// Get the ammount of space already allocated
 	// - Round size up to block size
 	// - block size is a power of two, so this will work
-	allocSize = (inode.i_size + disk->BlockSize-1) & ~(disk->BlockSize-1);
+	allocSize = (inode->i_size + disk->BlockSize-1) & ~(disk->BlockSize-1);
+	LOG("allocSize = %llx, Offset=%llx", allocSize, Offset);
 	
 	// Are we writing to inside the allocated space?
 	if( Offset > allocSize )	return 0;
@@ -56,7 +54,7 @@ size_t Ext2_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buff
 		// Within the allocated space
 		block = Offset / disk->BlockSize;
 		Offset %= disk->BlockSize;
-		base = Ext2_int_GetBlockAddr(disk, inode.i_block, block);
+		base = Ext2_int_GetBlockAddr(disk, inode->i_block, block);
 		
 		// Write only block (if only one)
 		if(Offset + retLen <= disk->BlockSize) {
@@ -74,7 +72,7 @@ size_t Ext2_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buff
 		// Write middle blocks
 		while(retLen > disk->BlockSize)
 		{
-			base = Ext2_int_GetBlockAddr(disk, inode.i_block, block);
+			base = Ext2_int_GetBlockAddr(disk, inode->i_block, block);
 			VFS_WriteAt(disk->FD, base, disk->BlockSize, Buffer);
 			Buffer += disk->BlockSize;
 			retLen -= disk->BlockSize;
@@ -82,25 +80,24 @@ size_t Ext2_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buff
 		}
 		
 		// Write last block
-		base = Ext2_int_GetBlockAddr(disk, inode.i_block, block);
+		base = Ext2_int_GetBlockAddr(disk, inode->i_block, block);
 		VFS_WriteAt(disk->FD, base, retLen, Buffer);
 		if(!bNewBlocks)	return Length;	// Writing in only allocated space
 	}
 	else
-		base = Ext2_int_GetBlockAddr(disk, inode.i_block, allocSize/disk->BlockSize-1);
+		base = Ext2_int_GetBlockAddr(disk, inode->i_block, allocSize/disk->BlockSize-1);
 	
 addBlocks:
-	Log_Notice("EXT2", "File extending is untested");
-	
 	// Allocate blocks and copy data to them
 	retLen = Length - (allocSize-Offset);
-	while( retLen > disk->BlockSize )
+	while( retLen > 0  )
 	{
+		size_t	blk_len = (retLen < disk->BlockSize ? retLen : disk->BlockSize);
 		// Allocate a block
 		block = Ext2_int_AllocateBlock(disk, base/disk->BlockSize);
 		if(!block)	return Length - retLen;
 		// Add it to this inode
-		if( Ext2_int_AppendBlock(disk, &inode, block) ) {
+		if( Ext2_int_AppendBlock(Node, inode, block) ) {
 			Log_Warning("Ext2", "Appending %x to inode %p:%X failed",
 				block, disk, Node->Inode);
 			Ext2_int_DeallocateBlock(disk, block);
@@ -108,34 +105,24 @@ addBlocks:
 		}
 		// Copy data to the node
 		base = block * disk->BlockSize;
-		VFS_WriteAt(disk->FD, base, disk->BlockSize, Buffer);
+		VFS_WriteAt(disk->FD, base, blk_len, Buffer);
 		// Update pointer and size remaining
-		inode.i_size += disk->BlockSize;
-		Buffer += disk->BlockSize;
-		retLen -= disk->BlockSize;
+		Buffer += blk_len;
+		retLen -= blk_len;
 	}
-	// Last block :D
-	block = Ext2_int_AllocateBlock(disk, base/disk->BlockSize);
-	if(!block)	goto ret;
-	if( Ext2_int_AppendBlock(disk, &inode, block) ) {
-		Log_Warning("Ext2", "Appending %x to inode %p:%X failed",
-			block, disk, Node->Inode);
-		Ext2_int_DeallocateBlock(disk, block);
-		goto ret;
-	}
-	base = block * disk->BlockSize;
-	VFS_WriteAt(disk->FD, base, retLen, Buffer);
-	
-	// TODO: When should the size update be committed?
-	inode.i_size += retLen;
-	Node->Size += retLen;
-	Node->Flags |= VFS_FFLAG_DIRTY;
-	
-	retLen = 0;
 
-ret:	// Makes sure the changes to the inode are committed
-	Ext2_int_WriteInode(disk, Node->Inode, &inode);
-	return Length - retLen;
+
+ret:
+	retLen = Length - retLen;
+	if( retLen )
+	{
+		// TODO: When should the size update be committed?
+		inode->i_size += retLen;
+		Node->Size += retLen;
+		Node->Flags |= VFS_FFLAG_DIRTY;
+		//Ext2_int_WriteInode(disk, Node->Inode, inode);
+	}
+	return retLen;
 }
 
 /**
@@ -159,9 +146,10 @@ Uint32 Ext2_int_AllocateBlock(tExt2_Disk *Disk, Uint32 PrevBlock)
 
 	// First: Check the next block after `PrevBlock`
 	 int	iblock = (PrevBlock + 1) % Disk->SuperBlock.s_blocks_per_group;
+	//LOG("iblock = %i, Disk=%p, blockgroup=%i", iblock, Disk, blockgroup);
 	if( iblock != 0 && Disk->Groups[blockgroup].bg_free_blocks_count > 0 )
 	{
-		LOG("Checking %i:%i", blockgroup, iblock);
+		//LOG("Checking %i:%i", blockgroup, iblock);
 		
 		bg = &Disk->Groups[blockgroup];
 		
@@ -174,7 +162,7 @@ Uint32 Ext2_int_AllocateBlock(tExt2_Disk *Disk, Uint32 PrevBlock)
 		Uint64	vol_ofs = Disk->BlockSize*bg->bg_block_bitmap+ofs;
 		VFS_ReadAt(Disk->FD, vol_ofs, sector_size, buf);
 
-		LOG("buf@%llx[%i] = %02x (& %02x)", vol_ofs, byte, buf[byte], bit);
+		//LOG("buf@%llx[%i] = %02x (& %02x)", vol_ofs, byte, buf[byte], bit);
 	
 		if( (buf[byte] & bit) == 0 )
 		{
@@ -208,7 +196,7 @@ Uint32 Ext2_int_AllocateBlock(tExt2_Disk *Disk, Uint32 PrevBlock)
 			Disk);
 		return 0;
 	}
-	LOG("BG%i has free blocks", blockgroup);
+	//LOG("BG%i has free blocks", blockgroup);
 
 	// Search the bitmap for a free block
 	bg = &Disk->Groups[blockgroup];	
@@ -224,7 +212,7 @@ Uint32 Ext2_int_AllocateBlock(tExt2_Disk *Disk, Uint32 PrevBlock)
 			;
 		if( byte < sector_size )
 		{
-			LOG("buf@%llx[%i] = %02x", vol_ofs, byte, buf[byte]);
+			//LOG("buf@%llx[%i] = %02x", vol_ofs, byte, buf[byte]);
 			for( bit = 0; bit < 8 && buf[byte] & (1 << bit); bit ++)
 				;
 			ASSERT(bit != 8);
@@ -239,7 +227,7 @@ Uint32 Ext2_int_AllocateBlock(tExt2_Disk *Disk, Uint32 PrevBlock)
 			#endif
 
 			Uint32	ret = blockgroup * Disk->SuperBlock.s_blocks_per_group + byte * 8 + bit;
-			Log_Debug("Ext2", "Ext2_int_AllocateBlock - Allocated 0x%x", ret);
+			LOG("Allocated 0x%x", ret);
 			return ret;
 		}
 	} while(ofs < Disk->SuperBlock.s_blocks_per_group / 8);
@@ -260,14 +248,17 @@ void Ext2_int_DeallocateBlock(tExt2_Disk *Disk, Uint32 Block)
 /**
  * \brief Append a block to an inode
  */
-int Ext2_int_AppendBlock(tExt2_Disk *Disk, tExt2_Inode *Inode, Uint32 Block)
+int Ext2_int_AppendBlock(tVFS_Node *Node, tExt2_Inode *Inode, Uint32 Block)
 {
+	tExt2_Disk	*Disk = Node->ImplPtr;
 	 int	nBlocks;
 	 int	dwPerBlock = Disk->BlockSize / 4;
 	Uint32	*blocks;
 	Uint32	id1, id2;
 	
 	nBlocks = (Inode->i_size + Disk->BlockSize - 1) / Disk->BlockSize;
+
+	LOG("Append 0x%x to inode [%i]", Block, nBlocks);
 	
 	// Direct Blocks
 	if( nBlocks < 12 ) {
@@ -282,6 +273,7 @@ int Ext2_int_AppendBlock(tExt2_Disk *Disk, tExt2_Inode *Inode, Uint32 Block)
 	// Single Indirect
 	if( nBlocks < dwPerBlock)
 	{
+		LOG("Indirect 1 %i", nBlocks);
 		// Allocate/Get Indirect block
 		if( nBlocks == 0 ) {
 			Inode->i_block[12] = Ext2_int_AllocateBlock(Disk, Inode->i_block[0]);
@@ -298,14 +290,16 @@ int Ext2_int_AppendBlock(tExt2_Disk *Disk, tExt2_Inode *Inode, Uint32 Block)
 		blocks[nBlocks] = Block;
 		
 		VFS_WriteAt(Disk->FD, Inode->i_block[12]*Disk->BlockSize, Disk->BlockSize, blocks);
+		Node->Flags |= VFS_FFLAG_DIRTY;
 		free(blocks);
 		return 0;
 	}
 	
-	nBlocks += dwPerBlock;
+	nBlocks -= dwPerBlock;
 	// Double Indirect
 	if( nBlocks < dwPerBlock*dwPerBlock )
 	{
+		LOG("Indirect 2 %i/%i", nBlocks/dwPerBlock, nBlocks%dwPerBlock);
 		// Allocate/Get Indirect block
 		if( nBlocks == 0 ) {
 			Inode->i_block[13] = Ext2_int_AllocateBlock(Disk, Inode->i_block[0]);
@@ -315,6 +309,7 @@ int Ext2_int_AppendBlock(tExt2_Disk *Disk, tExt2_Inode *Inode, Uint32 Block)
 				return 1;
 			}
 			memset(blocks, 0, Disk->BlockSize);
+			Node->Flags |= VFS_FFLAG_DIRTY;
 		}
 		else
 			VFS_ReadAt(Disk->FD, Inode->i_block[13]*Disk->BlockSize, Disk->BlockSize, blocks);
@@ -357,6 +352,7 @@ int Ext2_int_AppendBlock(tExt2_Disk *Disk, tExt2_Inode *Inode, Uint32 Block)
 				return 1;
 			}
 			memset(blocks, 0, Disk->BlockSize);
+			Node->Flags |= VFS_FFLAG_DIRTY;
 		}
 		else
 			VFS_ReadAt(Disk->FD, Inode->i_block[14]*Disk->BlockSize, Disk->BlockSize, blocks);

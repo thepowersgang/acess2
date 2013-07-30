@@ -44,7 +44,7 @@ tVFS_NodeType	gExt2_FileType = {
  */
 int Ext2_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 {
-	tExt2_Inode	inode;
+	tExt2_Inode	*inode = (void*)(Node+1);
 	tExt2_DirEnt	dirent;
 	Uint64	Base;	// Block's Base Address
 	 int	block = 0;
@@ -56,17 +56,16 @@ int Ext2_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 	ENTER("pNode iPos", Node, Pos);
 	
 	// Read directory's inode
-	Ext2_int_ReadInode(disk, Node->Inode, &inode);
-	size = inode.i_size;
+	size = inode->i_size;
 	
-	LOG("inode={.i_block[0]= 0x%x, .i_size=0x%x}", inode.i_block[0], inode.i_size);
+	LOG("inode={.i_block[0]= 0x%x, .i_size=0x%x}", inode->i_block[0], inode->i_size);
 	
 	// Find Entry
 	// Get First Block
 	// - Do this ourselves as it is a simple operation
-	Base = inode.i_block[0] * disk->BlockSize;
+	Base = inode->i_block[0] * disk->BlockSize;
 	// Scan directory
-	while(Pos -- && size > 0 && size <= inode.i_size)
+	while(Pos -- && size > 0 && size <= inode->i_size)
 	{
 		VFS_ReadAt( disk->FD, Base+ofs, sizeof(tExt2_DirEnt), &dirent);
 		ofs += dirent.rec_len;
@@ -80,7 +79,7 @@ int Ext2_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 					entNum-1, Node->Inode);
 			}
 			ofs = 0;
-			Base = Ext2_int_GetBlockAddr( disk, inode.i_block, block );
+			Base = Ext2_int_GetBlockAddr( disk, inode->i_block, block );
 			if( Base == 0 ) {
 				size = 0;
 				break;
@@ -89,7 +88,7 @@ int Ext2_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 	}
 	
 	// Check for the end of the list
-	if(size <= 0 || size > inode.i_size) {
+	if(size <= 0 || size > inode->i_size) {
 		LEAVE('i', -ENOENT);
 		return -ENOENT;
 	}
@@ -127,7 +126,7 @@ int Ext2_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 tVFS_Node *Ext2_FindDir(tVFS_Node *Node, const char *Filename, Uint Flags)
 {
 	tExt2_Disk	*disk = Node->ImplPtr;
-	tExt2_Inode	inode;
+	tExt2_Inode	*inode = (void*)(Node+1);
 	tExt2_DirEnt	dirent;
 	Uint64	Base;	// Block's Base Address
 	 int	block = 0;
@@ -137,12 +136,11 @@ tVFS_Node *Ext2_FindDir(tVFS_Node *Node, const char *Filename, Uint Flags)
 	 int	filenameLen = strlen(Filename);
 	
 	// Read directory's inode
-	Ext2_int_ReadInode(disk, Node->Inode, &inode);
-	size = inode.i_size;
+	size = inode->i_size;
 	
 	// Get First Block
 	// - Do this ourselves as it is a simple operation
-	Base = inode.i_block[0] * disk->BlockSize;
+	Base = inode->i_block[0] * disk->BlockSize;
 	// Find File
 	while(size > 0)
 	{
@@ -163,7 +161,7 @@ tVFS_Node *Ext2_FindDir(tVFS_Node *Node, const char *Filename, Uint Flags)
 					entNum-1, Node->Inode);
 			}
 			ofs = 0;
-			Base = Ext2_int_GetBlockAddr( disk, inode.i_block, block );
+			Base = Ext2_int_GetBlockAddr( disk, inode->i_block, block );
 		}
 	}
 	
@@ -231,7 +229,7 @@ int Ext2_Unlink(tVFS_Node *Node, const char *OldName)
 int Ext2_Link(tVFS_Node *Node, const char *Name, tVFS_Node *Child)
 {	
 	tExt2_Disk	*disk = Node->ImplPtr;
-	tExt2_Inode	inode;
+	tExt2_Inode	*inode = (void*)(Node+1);
 	tExt2_DirEnt	*dirent;
 	tExt2_DirEnt	newEntry;
 	Uint64	base;	// Block's Base Address
@@ -246,19 +244,15 @@ int Ext2_Link(tVFS_Node *Node, const char *Name, tVFS_Node *Child)
 	
 	void *blockData = malloc(disk->BlockSize);
 	
-	// Read child inode (get's the file type)
-	Ext2_int_ReadInode(disk, Child->Inode, &inode);
-	
 	// Create a stub entry
 	newEntry.inode = Child->Inode;
 	newEntry.name_len = strlen(Name);
 	newEntry.rec_len = ((newEntry.name_len+3)&~3) + EXT2_DIRENT_SIZE;
-	newEntry.type = inode.i_mode >> 12;
+	newEntry.type = inode->i_mode >> 12;
 	memcpy(newEntry.name, Name, newEntry.name_len);
 	
 	// Read directory's inode
-	Ext2_int_ReadInode(disk, Node->Inode, &inode);
-	size = inode.i_size;
+	size = inode->i_size;
 	
 	// Get a lock on the inode
 	//Ext2_int_LockInode(disk, Node->Inode);
@@ -269,7 +263,7 @@ int Ext2_Link(tVFS_Node *Node, const char *Name, tVFS_Node *Child)
 
 	// Get First Block
 	// - Do this ourselves as it is a simple operation
-	base = inode.i_block[0] * disk->BlockSize;
+	base = inode->i_block[0] * disk->BlockSize;
 	VFS_ReadAt( disk->FD, base, disk->BlockSize, blockData );
 	block = 0;
 	nEntries = 0;
@@ -330,7 +324,7 @@ int Ext2_Link(tVFS_Node *Node, const char *Name, tVFS_Node *Child)
 		//	BLOCK_DIR_OFS(Node->Data, block) = nEntries;
 			block ++;
 			ofs = 0;
-			base = Ext2_int_GetBlockAddr(disk, inode.i_block, block);
+			base = Ext2_int_GetBlockAddr(disk, inode->i_block, block);
 			VFS_ReadAt( disk->FD, base, disk->BlockSize, blockData );
 		}
 	}
@@ -349,7 +343,7 @@ int Ext2_Link(tVFS_Node *Node, const char *Name, tVFS_Node *Child)
 	if( bestMatch >= 0 )
 	{
 		// Read-Modify-Write
-		base = Ext2_int_GetBlockAddr(disk, inode.i_block, bestBlock);
+		base = Ext2_int_GetBlockAddr(disk, inode->i_block, bestBlock);
 		VFS_ReadAt( disk->FD, base, disk->BlockSize, blockData );
 		dirent = blockData + bestOfs;
 		// Shorten a pre-existing entry
@@ -377,7 +371,7 @@ int Ext2_Link(tVFS_Node *Node, const char *Name, tVFS_Node *Child)
 	else {
 		// Allocate block, Write
 		Uint32 newblock = Ext2_int_AllocateBlock(disk, base / disk->BlockSize);
-		Ext2_int_AppendBlock(disk, &inode, newblock);
+		Ext2_int_AppendBlock(Node, inode, newblock);
 		base = newblock * disk->BlockSize;
 		Node->Size += newEntry.rec_len;
 		Node->Flags |= VFS_FFLAG_DIRTY;
