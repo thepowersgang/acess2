@@ -252,3 +252,23 @@ char *getpass(const char *prompt)
 	return passbuf;
 }
 
+char *ttyname(int fd)
+{
+	static char ttyname_buf[32];
+	errno = ttyname_r(fd, ttyname_buf, sizeof(ttyname_buf));
+	if(errno)	return NULL;
+	
+	return ttyname_buf;
+}
+int ttyname_r(int fd, char *buf, size_t buflen)
+{
+	 int	type = _SysIOCtl(fd, DRV_IOCTL_TYPE, NULL);
+	if( type == -1 )
+		return errno;
+	if( type != DRV_TYPE_TERMINAL )
+		return ENOTTY;
+
+	_SysIOCtl(fd, PTY_IOCTL_GETID, NULL);	
+
+	return ENOTIMPL;
+}

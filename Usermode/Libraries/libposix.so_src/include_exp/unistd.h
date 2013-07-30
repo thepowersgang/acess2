@@ -83,6 +83,9 @@ extern int	usleep(useconds_t usec);
 // - crypt.c
 extern char	*crypt(const char *key, const char *salt);
 
+// - pty.c
+extern char	*ttyname(int fd);
+extern int	ttyname_r(int fd, char *buf, size_t buflen);
 
 // signal.h / sys/types.h
 extern int kill(pid_t pid, int sig);
