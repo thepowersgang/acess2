@@ -23,6 +23,7 @@ enum libc_eErrorNumbers {
 	EADDRNOTAVAIL,	// ?
 	EINPROGRESS,	// ?
 	EPERM,	// Permissions error
+	ENOTTY,	// not a tty
 
 	EAGAIN,	// Try again
 	EALREADY,	// Operation was a NOP

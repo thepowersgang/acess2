@@ -42,6 +42,7 @@ EXPORT char *strerror(int errnum)
 	case EADDRNOTAVAIL:	return "Address not avaliable";
 	case EINPROGRESS:	return "Operation in process";
 	case EPERM:	return "Operation not permitted";
+	case ENOTTY:	return "Not a TTY";
 	case EAGAIN:	return "Try again";
 	case EALREADY:	return "Operation was no-op";
 	case EINTERNAL:	return "Internal error";
