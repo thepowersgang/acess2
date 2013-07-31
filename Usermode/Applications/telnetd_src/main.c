@@ -133,6 +133,7 @@ void Server_NewClient(int FD)
 	giNumClients ++;
 	
 	// Create stdin/stdout
+	// TODO: Use PTYs
 	clt->stdin = _SysOpen("/Devices/fifo/anon", OPENFLAG_READ|OPENFLAG_WRITE);
 	clt->stdout = _SysOpen("/Devices/fifo/anon", OPENFLAG_READ|OPENFLAG_WRITE);
 	

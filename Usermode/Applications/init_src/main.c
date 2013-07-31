@@ -426,7 +426,7 @@ int SpawnCommand(int c_stdin, int c_stdout, int c_stderr, char **ArgV)
 
 int SpawnKTerm(tInitProgram *Program)
 {
-	const char fmt[] = "/Devices/pts/vt%ic";
+	const char fmt[] = "/Devices/pts/vt%i";
 	char	path[sizeof(fmt)];
 	
 	snprintf(path, sizeof(path), fmt, Program->TypeInfo.KTerm.ID);
