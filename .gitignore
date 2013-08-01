@@ -19,7 +19,8 @@ Map*.txt
 map.txt
 Doxylog*.txt
 LineCounts.*.txt
-bochs*.txt
+bochsout.txt
+bochsdbg.txt
 serial.txt
 *.gz
 *.img
