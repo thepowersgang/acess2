@@ -30,6 +30,8 @@ tAxWin3_Widget	*gSidebarRoot;
 tHWND	gSystemMenu;
 tHWND	gRunDialog;
 tAxWin3_Widget	*gRunInput;
+
+tAxWin3_Widget	*gWindowList;
 tAxWin3_Widget	*gTimeDisplay;
  int	giScreenWidth;
  int	giScreenHeight;
@@ -87,7 +89,7 @@ void create_sidebar(void)
 	AxWin3_Widget_SetSize(ele, 4);
 
 	// TODO: Program list
-	ele = AxWin3_Widget_AddWidget(gSidebarRoot, ELETYPE_BOX, ELEFLAG_VERTICAL, "ProgramList");
+	gWindowList = AxWin3_Widget_AddWidget(gSidebarRoot, ELETYPE_BOX, ELEFLAG_VERTICAL, "ProgramList");
 
 	// - Plain <hr/> style spacer
 	ele = AxWin3_Widget_AddWidget(gSidebarRoot, ELETYPE_SPACER, ELEFLAG_NOSTRETCH, "SideBar Spacer Top");

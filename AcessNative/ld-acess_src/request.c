@@ -1,7 +1,11 @@
 /*
+ * AcessNative ld-acess dynamic linker
+ * - By John Hodge (thePowersGang)
+ *
+ * request.c
+ * - IPC interface
  */
-#define DEBUG	1
-
+#define DEBUG	0
 
 #if DEBUG
 # define DEBUG_S	printf

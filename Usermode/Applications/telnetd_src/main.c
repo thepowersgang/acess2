@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <acess/sys.h>
+#include <assert.h>
 
 // === TYPES ===
 enum eTelnetMode
@@ -27,6 +28,8 @@ typedef struct sClient
 	enum eTelnetMode	Mode;
 	 int	Socket;
 	 int	pty;
+	 int	stdin;
+	 int	stdout;
 } tClient;
 
 // === PROTOTYPES ===
@@ -118,7 +121,7 @@ void EventLoop(void)
 
 void Server_NewClient(int FD)
 {
-	tClient	*clt;
+	tClient	*clt = NULL;
 	
 	// TODO: Is this done in the IPStack?
 	if( giNumClients == giConfig_MaxClients )
@@ -136,19 +139,15 @@ void Server_NewClient(int FD)
 			break;
 		}
 	}
+	assert(clt);
 	// Accept the connection
 	clt->Socket = _SysOpenChild(FD, "", OPENFLAG_READ|OPENFLAG_WRITE);
 	giNumClients ++;
 	
 	// Create stdin/stdout
-	// - Current PTY code is strange with mknod
-	clt->pty = _SysOpen("/Devices/pts/telnetd0", OPENFLAG_CREATE|OPENFLAG_READ|OPENFLAG_WRITE);
-	if( clt->pty < 0 ) {
-		perror("Unable to open server PTY");
-		_SysClose(clt->Socket);
-		clt->Socket = 0;
-		return ;
-	}
+	// TODO: Use PTYs
+	clt->stdin = _SysOpen("/Devices/fifo/anon", OPENFLAG_READ|OPENFLAG_WRITE);
+	clt->stdout = _SysOpen("/Devices/fifo/anon", OPENFLAG_READ|OPENFLAG_WRITE);
 	
 	// TODO: Arguments and envp
 	{

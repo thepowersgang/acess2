@@ -6,6 +6,7 @@
  * - Driver core
  *
  * NOTE: Based off the UniChrome driver for X, http://unichrome.sourceforge.net/
+ * - OGPM_UniChrome_ProII_R108a_Part1_Core_2D.pdf
  */
 #define DEBUG	0
 #include <acess.h>
@@ -29,8 +30,11 @@ const struct sVGA_Timings
 	{38, 112, 1280, 248,  1, 3, 1024, 38}	// 1280x1024 @ 60Hz
 };
 const Uint16	caVIAVideo_CardIDs[][2] = {
-	{0x1106, 0x3108},	// minuet (unk chip)
-	{0x1106, 0x3157},	// CX700/VX700 (S3 UniChrome Pro)
+	{0x1106, 0x3108},	// minuet (unk chip, PCIDB says "VIA/S3G UniChrome Pro IGP (Integrated Video Adapter)")
+	{0x1106, 0x3157},	// CX700/VX700 (S3 UniChrome Pro) - serenade
+	//{0x1106, 0x1122},	// VX800
+	//{0x1106, 0x5122},	// VX855
+	//{0x1106, 0x7122},	// VX900
 };
 const int	ciVIAVideo_NumCardIDs = sizeof(caVIAVideo_CardIDs)/sizeof(caVIAVideo_CardIDs[0]);
 
@@ -74,15 +78,16 @@ int VIAVideo_Initialise(char **Arguments)
 
 	for( int i = 0; i < ciVIAVideo_NumCardIDs; i ++ )
 	{
-		for( int id = 0; (id = PCI_GetDevice(caVIAVideo_CardIDs[i][0], caVIAVideo_CardIDs[i][1], id)) != -1; id ++ )
+		const Uint16	*dev_ids = caVIAVideo_CardIDs[i];
+		for( int id = 0; (id = PCI_GetDevice(dev_ids[0], dev_ids[1], id)) != -1; id ++ )
 		{
 			// TODO: Support MMIO
 			Log_Log("VIAVideo", "BAR0 = 0x%x", PCI_GetBAR(id, 0));
 			Log_Log("VIAVideo", "BAR1 = 0x%x", PCI_GetBAR(id, 1));
-			Log_Log("VIAVideo", "BAR2 = 0x%x", PCI_GetBAR(id, 2));
-			Log_Log("VIAVideo", "BAR3 = 0x%x", PCI_GetBAR(id, 3));
-			Log_Log("VIAVideo", "BAR4 = 0x%x", PCI_GetBAR(id, 4));
-			Log_Log("VIAVideo", "BAR5 = 0x%x", PCI_GetBAR(id, 5));
+			//Log_Log("VIAVideo", "BAR2 = 0x%x", PCI_GetBAR(id, 2));
+			//Log_Log("VIAVideo", "BAR3 = 0x%x", PCI_GetBAR(id, 3));
+			//Log_Log("VIAVideo", "BAR4 = 0x%x", PCI_GetBAR(id, 4));
+			//Log_Log("VIAVideo", "BAR5 = 0x%x", PCI_GetBAR(id, 5));
 			
 			// Ignore multiple cards
 			if( gVIAVideo_Info.FramebufferPhys )	continue ;
@@ -182,7 +187,7 @@ void VIAVideo_int_SetMode(const struct sVGA_Timings *Timings, int Depth)
 	// VGASRMask(Crtc, 0x15, {0x00,0x14,0x0C}[Depth=8,16,24/32], 0x1C)
 	switch(Depth) {
 	case 8:  _SRMask(0x15, 0x00, 0x1C);	break;
-	case 16: _SRMask(0x15, 0x14, 0x1C);	break;
+	case 16: _SRMask(0x15, 0x14, 0x1C);	break;	// 565 16-bit
 	case 24: _SRMask(0x15, 0x0C, 0x1C);	break;
 	case 32: _SRMask(0x15, 0x0C, 0x1C);	break;
 	default:	return ;
@@ -197,6 +202,11 @@ void VIAVideo_int_SetMode(const struct sVGA_Timings *Timings, int Depth)
 	// - Set frame origin? (->FrameSet(Crtc, X, Y))
 	// DWORD Offset in memory
 	// Stored in CR0D + CR0C + CR34 + CR48&0x03
+	Uint32	start_addr = 0;	// Video address (29 bits)
+	_CRMask(0x0D, (start_addr >> 0)&0xFF, 0xFF);
+	_CRMask(0x0C, (start_addr >> 8)&0xFF, 0xFF);
+	_CRMask(0x34, (start_addr >>16)&0xFF, 0xFF);
+	_CRMask(0x34, (start_addr >>24)&0x1F, 0xFF);
 
 	// -- Set CRTC Mode --
 	// NOTES:

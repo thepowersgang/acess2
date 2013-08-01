@@ -13,13 +13,14 @@ INCFILES := sys/sys.h
 
 CFLAGS   = -g -Wall -fno-builtin -fno-stack-protector -fPIC
 # -fno-leading-underscore
-CFLAGS  += $(CPPFLAGS) -Werror
+CFLAGS  += $(CPPFLAGS)
 LDFLAGS  = -g -T arch/$(ARCHDIR).ld -Map map.txt --export-dynamic
 
 ifeq ($(ARCH),native)
 XBIN := $(addprefix $(OUTPUTDIR)Libs/,$(EXTRABIN)) 
 $(XBIN): obj-$(ARCH)/_stublib.o
 all: $(XBIN)
+CFLAGS += -ffreestanding
 LDFLAGS := 
 BIN := 
 OBJ :=
@@ -30,7 +31,7 @@ include ../Makefile.tpl
 # create libld-acess.so
 $(_XBIN): $(_OBJPREFIX)_stublib.o
 	@echo [LD] -o -shared libld-acess.so
-	$(LD) -shared -o $@ $< $(LDFLAGS)
+	$(LD) -shared -o $@ $<
 #	@$(LD) $(LDFLAGS) -o $@ $(OBJ)
 
 
@@ -47,6 +48,8 @@ $(_OBJPREFIX)arch/$(ARCHDIR).$(ASSUFFIX): arch/$(ARCHDIR).$(ASSUFFIX).h arch/sys
 	@echo [CPP] -o $@
 	@mkdir -p $(dir $@)
 	@$(CPP) $(CPPFLAGS) -P -D__ASSEMBLER__ $< -o $@
+
+$(_OBJPREFIX)arch/$(ARCHDIR).$(ASSUFFIX): $(ACESSDIR)/KernelLand/Kernel/include/syscalls.h
 
 $(_OBJPREFIX)_stublib.o: arch/syscalls.s.h
 

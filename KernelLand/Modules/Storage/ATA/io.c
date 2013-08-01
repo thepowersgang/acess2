@@ -124,7 +124,7 @@ int ATA_SetupIO(void)
 	LOG("ent = %i", ent);
 	gATA_BusMasterBase = PCI_GetBAR(ent, 4);
 	if( gATA_BusMasterBase == 0 ) {
-		Log_Warning("ATA", "It seems that there is no Bus Master Controller on this machine. Get one");
+		Log_Warning("ATA", "Unable to find a Bus Master DMA controller");
 		// TODO: Use PIO mode instead
 		LEAVE('i', MODULE_ERR_NOTNEEDED);
 		return MODULE_ERR_NOTNEEDED;
@@ -132,19 +132,43 @@ int ATA_SetupIO(void)
 	
 	LOG("BAR5 = 0x%x", PCI_GetBAR(ent, 5));
 	LOG("IRQ = %i", PCI_GetIRQ(ent));
+
+	// Ensure controllers are present where we think they should be
+	for( int i = 0; i < 2; i ++ )
+	{
+		Uint16	base = ATA_GetBasePort( i*2 );
+		// Send Disk Selector
+		outb(base+6, 0xA0);
+		IO_DELAY();
+		// Check for a floating bus
+		if( 0xFF == inb(base+7) ) {
+			Log_Error("ATA", "Floating bus at address 0x%x", base+7);
+			LEAVE('i', MODULE_ERR_MISC);
+			return MODULE_ERR_MISC;
+		}
+	
+		// Check for the controller
+		// - Write to two RW ports and attempt to read back
+		outb(base+0x02, 0x66);
+		outb(base+0x03, 0xFF);
+		if(inb(base+0x02) != 0x66 || inb(base+0x03) != 0xFF) {
+			Log_Error("ATA", "Unable to write to 0x%x/0x%x", base+2, base+3);
+			LEAVE('i', 0);
+			return 0;
+		}
+	}
 	
 	// Map memory
-	if( !(gATA_BusMasterBase & 1) )
+	if( gATA_BusMasterBase & 1 )
 	{
-		if( gATA_BusMasterBase < 0x100000 )
-			gATA_BusMasterBasePtr = (void*)(KERNEL_BASE | (tVAddr)gATA_BusMasterBase);
-		else
-			gATA_BusMasterBasePtr = (void*)( MM_MapHWPages( gATA_BusMasterBase, 1 ) + (gATA_BusMasterBase&0xFFF) );
-		LOG("gATA_BusMasterBasePtr = %p", gATA_BusMasterBasePtr);
+		gATA_BusMasterBase &= ~1;
+		LOG("gATA_BusMasterBase = IO 0x%x", gATA_BusMasterBase);
 	}
-	else {
-		// Bit 0 is left set as a flag to other functions
-		LOG("gATA_BusMasterBase = IO 0x%x", gATA_BusMasterBase & ~1);
+	else
+	{
+		// MMIO
+		gATA_BusMasterBasePtr = MM_MapHWPages( gATA_BusMasterBase, 1 ) + (gATA_BusMasterBase&0xFFF);
+		LOG("gATA_BusMasterBasePtr = %p", gATA_BusMasterBasePtr);
 	}
 
 	// Register IRQs and get Buffers
@@ -204,35 +228,16 @@ Uint64 ATA_GetDiskSize(int Disk)
 	}	data;
 	Uint16	base;
 	Uint8	val;
-	 int	i;
+
 	ENTER("iDisk", Disk);
 
 	base = ATA_GetBasePort( Disk );
 
 	// Send Disk Selector
-	if(Disk & 1)	// Slave
-		outb(base+6, 0xB0);
-	else	// Master
-		outb(base+6, 0xA0);
+	// - Slave / Master
+	outb(base+6, 0xA0 | (Disk & 1) << 4);
 	IO_DELAY();
 	
-	// Check for a floating bus
-	if( 0xFF == inb(base+7) ) {
-		LOG("Floating bus");
-		LEAVE('i', 0);
-		return 0;
-	}
-	
-	// Check for the controller
-	// - Write to two RW ports and attempt to read back
-	outb(base+0x02, 0x66);
-	outb(base+0x03, 0xFF);
-	if(inb(base+0x02) != 0x66 || inb(base+0x03) != 0xFF) {
-		LOG("No controller");
-		LEAVE('i', 0);
-		return 0;
-	}
-
 	// Send ATA IDENTIFY
 	outb(base+7, HDD_IDENTIFY);
 	IO_DELAY();
@@ -260,7 +265,7 @@ Uint64 ATA_GetDiskSize(int Disk)
 	}
 
 	// Read Data
-	for( i = 0; i < 256; i++ )
+	for( int i = 0; i < 256; i++ )
 		data.buf[i] = inw(base);
 
 	// Return the disk size
@@ -534,10 +539,10 @@ void ATA_IRQHandlerSec(int UNUSED(IRQ), void *UNUSED(Ptr))
  */
 Uint8 ATA_int_BusMasterReadByte(int Ofs)
 {
-	if( gATA_BusMasterBase & 1 )
-		return inb( (gATA_BusMasterBase & ~1) + Ofs );
-	else
+	if( gATA_BusMasterBasePtr )
 		return *(Uint8*)(gATA_BusMasterBasePtr + Ofs);
+	else
+		return inb( gATA_BusMasterBase + Ofs );
 }
 
 /**
@@ -546,10 +551,10 @@ Uint8 ATA_int_BusMasterReadByte(int Ofs)
  */
 Uint32 ATA_int_BusMasterReadDWord(int Ofs)
 {
-	if( gATA_BusMasterBase & 1 )
-		return ind( (gATA_BusMasterBase & ~1) + Ofs );
-	else
+	if( gATA_BusMasterBasePtr )
 		return *(Uint32*)(gATA_BusMasterBasePtr + Ofs);
+	else
+		return ind( gATA_BusMasterBase + Ofs );
 }
 
 /**
@@ -559,10 +564,10 @@ Uint32 ATA_int_BusMasterReadDWord(int Ofs)
  */
 void ATA_int_BusMasterWriteByte(int Ofs, Uint8 Value)
 {
-	if( gATA_BusMasterBase & 1 )
-		outb( (gATA_BusMasterBase & ~1) + Ofs, Value );
-	else
+	if( gATA_BusMasterBasePtr )
 		*(Uint8*)(gATA_BusMasterBasePtr + Ofs) = Value;
+	else
+		outb( gATA_BusMasterBase + Ofs, Value );
 }
 
 /**
@@ -572,8 +577,8 @@ void ATA_int_BusMasterWriteByte(int Ofs, Uint8 Value)
  */
 void ATA_int_BusMasterWriteDWord(int Ofs, Uint32 Value)
 {
-	if( gATA_BusMasterBase & 1 )
-		outd( (gATA_BusMasterBase & ~1) + Ofs, Value );
-	else
+	if( gATA_BusMasterBasePtr )
 		*(Uint32*)(gATA_BusMasterBasePtr + Ofs) = Value;
+	else
+		outd( gATA_BusMasterBase + Ofs, Value );
 }

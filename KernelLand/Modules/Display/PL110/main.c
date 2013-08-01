@@ -64,8 +64,8 @@ const int	ciPL110_ModeCount = sizeof(caPL110_Modes)/sizeof(caPL110_Modes[0]);
 void	PL110_Uninstall();
 // Internal
 // Filesystem
-size_t	PL110_Read(tVFS_Node *node, off_t Offset, size_t len, void *buffer);
-size_t	PL110_Write(tVFS_Node *node, off_t offset, size_t len, const void *buffer);
+size_t	PL110_Read(tVFS_Node *node, off_t Offset, size_t len, void *buffer, Uint flags);
+size_t	PL110_Write(tVFS_Node *node, off_t offset, size_t len, const void *buffer, Uint flags);
  int	PL110_IOCtl(tVFS_Node *node, int id, void *data);
 // -- Internals
  int	PL110_int_SetResolution(int W, int H);
@@ -132,7 +132,7 @@ void PL110_Uninstall()
 /**
  * \brief Read from the framebuffer
  */
-size_t PL110_Read(tVFS_Node *node, off_t off, size_t len, void *buffer)
+size_t PL110_Read(tVFS_Node *node, off_t off, size_t len, void *buffer, Uint flags)
 {
 	return 0;
 }
@@ -140,7 +140,7 @@ size_t PL110_Read(tVFS_Node *node, off_t off, size_t len, void *buffer)
 /**
  * \brief Write to the framebuffer
  */
-size_t PL110_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer)
+size_t PL110_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint flags)
 {
 	gPL110_DrvUtil_BufInfo.BufferFormat = giPL110_BufferMode;
 	return DrvUtil_Video_WriteLFB(&gPL110_DrvUtil_BufInfo, Offset, Length, Buffer);

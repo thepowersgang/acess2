@@ -58,10 +58,16 @@ extern void	Debug_HexDump(const char *Header, const void *Data, size_t Length);
 # define LEAVE_RET0()	return
 #endif
 #if !DISABLE_ASSERTS
-# define ASSERT(expr) do{if(!(expr))Panic("%s:%i - %s: Assertion '"#expr"' failed",__FILE__,__LINE__,(char*)__func__);}while(0)
+# define ASSERTV(expr,msg,args...) do{if(!(expr))Panic("%s:%i - %s: Assertion '"#expr"' failed"msg,__FILE__,__LINE__,(char*)__func__,##args);}while(0)
+# define ASSERTRV(expr,rv,msg,args...)	do{if(!(expr)){Warning("%s:%i: Assertion '"#expr"' failed"msg,__FILE__,__LINE__,(char*)__func__ , ##args);return rv;}}while(0)
 #else
-# define ASSERT(expr)
+# define ASSERTV(expr)
+# define ASSERTRV(expr)
 #endif
+#define ASSERT(expr)	ASSERTV(expr, "")
+#define ASSERTR(expr,rv)	ASSERTRV(expr, rv, "")
+#define ASSERTC(l,rel,r)	ASSERTV(l rel r, ": %i"#rel"%i", l, r)
+#define ASSERTCR(l,rel,r,rv)	ASSERTRV(l rel r, rv, ": %i"#rel"%i", l, r)
 /**
  * \}
  */

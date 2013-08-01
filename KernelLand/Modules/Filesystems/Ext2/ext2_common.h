@@ -13,8 +13,9 @@
 // === STRUCTURES ===
 typedef struct {
 	 int	FD;
-	 int	CacheID;
+	tInodeCache	*CacheID;
 	tVFS_Node	RootNode;
+	tExt2_Inode	RootInode;
 	
 	tExt2_SuperBlock	SuperBlock;
 	Uint	BlockSize;
@@ -49,6 +50,6 @@ extern size_t	Ext2_Read(tVFS_Node *node, off_t offset, size_t length, void *buff
 extern size_t	Ext2_Write(tVFS_Node *node, off_t offset, size_t length, const void *buffer, Uint Flags);
 extern Uint32	Ext2_int_AllocateBlock(tExt2_Disk *Disk, Uint32 LastBlock);
 extern void	Ext2_int_DeallocateBlock(tExt2_Disk *Disk, Uint32 Block);
-extern int	Ext2_int_AppendBlock(tExt2_Disk *Disk, tExt2_Inode *Inode, Uint32 Block);
+extern int	Ext2_int_AppendBlock(tVFS_Node *Node, tExt2_Inode *Inode, Uint32 Block);
 
 #endif

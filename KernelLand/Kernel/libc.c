@@ -7,6 +7,7 @@
  */
 #include <acess.h>
 #include <hal_proc.h>	// For MM_*
+#include <utf16.h>
 
 // === CONSTANTS ===
 #define	RANDOM_SEED	0xACE55052
@@ -167,6 +168,8 @@ void itoa(char *buf, Uint64 num, int base, int minLength, char pad)
 	// Convert 
 	while(num > base-1) {
 		num = DivMod64U(num, base, &rem);	// Shift `num` and get remainder
+		ASSERT(rem >= 0);
+		ASSERT(rem < base);
 		tmpBuf[pos] = cUCDIGITS[ rem ];
 		pos++;
 	}
@@ -204,7 +207,7 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 	 int	minSize = 0, precision = -1, len;
 	char	tmpBuf[34];	// For Integers
 	const char	*p = NULL;
-	 int	isLongLong = 0;
+	 int	isLongLong = 0, isLong;
 	Uint64	val;
 	size_t	pos = 0;
 	// Flags
@@ -235,7 +238,10 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 					PUTCH( cUCDIGITS[ (ptr>>(len*4))&15 ] );
 			continue ;
 		}
-		
+
+		isLongLong = 0;
+		isLong = 0;
+	
 		// - Padding Side Flag
 		if(c == '-') {
 			bPadLeft = 1;
@@ -293,6 +299,7 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		isLongLong = 0;
 		if(c == 'l')	// Long is actually the default on x86
 		{
+			isLong = 1;
 			c = *__format++;
 			if(c == 'l') {
 				c = *__format++;
@@ -356,6 +363,18 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		
 		// String - Null Terminated Array
 		case 's':
+			if( isLong ) {
+				Uint16	*p16 = va_arg(args, Uint16*);
+				Uint8	tmp[5];
+				while( *p16 && precision-- ) {
+					Uint32	cp;
+					p16 += ReadUTF16(p16, &cp);
+					tmp[WriteUTF8(tmp, cp)] = 0;
+					for(int i = 0; tmp[i] && i<5; i ++)
+						PUTCH(tmp[i]);
+				}
+				break;
+			}
 			p = va_arg(args, char*);	// Get Argument
 			if( !p || !CheckString(p) )	p = "(inval)";	// Avoid #PFs  
 		printString:

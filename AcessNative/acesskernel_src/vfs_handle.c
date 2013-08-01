@@ -40,13 +40,16 @@ tUserHandles *VFS_int_GetUserHandles(int PID, int bCreate)
 		if( ent->PID == PID ) {
 			//if( bCreate )
 			//	Log_Warning("VFS", "Process %i already has a handle list", PID);
+			LOG("Found list for %i", PID);
 			return ent;
 		}
 		if( ent->PID > PID )	break;
 	}
 	
-	if(!bCreate)
+	if(!bCreate) {
+		LOG("Not creating for %i", PID);
 		return NULL;
+	}
 	
 	ent = calloc( 1, sizeof(tUserHandles) );
 	ent->PID = PID;
@@ -58,7 +61,7 @@ tUserHandles *VFS_int_GetUserHandles(int PID, int bCreate)
 		ent->Next = gpUserHandles;
 		gpUserHandles = ent;
 	}
-	Log_Notice("VFS", "Created handle list for process %i", PID);
+	LOG("Created handle list for process %i", PID);
 	return ent;
 }
 
@@ -68,8 +71,8 @@ tUserHandles *VFS_int_GetUserHandles(int PID, int bCreate)
 void VFS_CloneHandleList(int PID)
 {
 	tUserHandles	*ent;
-	tUserHandles	*cur;
-	 int	i, maxhandles;
+	const tUserHandles	*cur;
+	 int	maxhandles;
 	
 	cur = VFS_int_GetUserHandles(Threads_GetPID(), 0);
 	if(!cur)	return ;	// Don't need to do anything if the current list is empty
@@ -79,9 +82,10 @@ void VFS_CloneHandleList(int PID)
 	maxhandles = *Threads_GetMaxFD();
 	memcpy(ent->Handles, cur->Handles, maxhandles*sizeof(tVFS_Handle));
 	
-	for( i = 0; i < maxhandles; i ++ )
+	// Reference all
+	for( int i = 0; i < maxhandles; i ++ )
 	{
-		if(!cur->Handles[i].Node)	continue;
+		if(!ent->Handles[i].Node)	continue;
 		
 		if(ent->Handles[i].Node->Type->Reference)
 			ent->Handles[i].Node->Type->Reference(ent->Handles[i].Node);
@@ -91,31 +95,35 @@ void VFS_CloneHandleList(int PID)
 void VFS_CloneHandlesFromList(int PID, int nFD, int FDs[])
 {
 	tUserHandles	*ent;
-	tUserHandles	*cur;
-	 int	i, maxhandles;
+	const tUserHandles	*cur;
+	 int	maxhandles;
 	
 	cur = VFS_int_GetUserHandles(Threads_GetPID(), 0);
 	if(!cur)	return ;	// Don't need to do anything if the current list is empty
 	
 	ent = VFS_int_GetUserHandles(PID, 1);
-	
+
+	LOG("Copying %i FDs from %i", nFD, PID);
+
 	maxhandles = *Threads_GetMaxFD();
 	if( nFD > maxhandles )
 		nFD = maxhandles;
-	for( i = 0; i < nFD; i ++ )
+	for( int i = 0; i < nFD; i ++ )
 	{
-		if( FDs[i] >= maxhandles ) {
+		 int	fd = FDs[i];
+		if( fd >= maxhandles ) {
 			ent->Handles[i].Node = NULL;
 			continue ;
 		}
-		memcpy(&ent->Handles[i], &cur->Handles[ FDs[i] ], sizeof(tVFS_Handle));
+		memcpy(&ent->Handles[i], &cur->Handles[fd], sizeof(tVFS_Handle));
 	}
-	for( ; i < maxhandles; i ++ )
-		cur->Handles[i].Node = NULL;
+	for( int i = nFD; i < maxhandles; i ++ )
+		ent->Handles[i].Node = NULL;
 	
-	for( i = 0; i < maxhandles; i ++ )
+	// Reference
+	for( int i = 0; i < maxhandles; i ++ )
 	{
-		if(!cur->Handles[i].Node)	continue;
+		if(!ent->Handles[i].Node)	continue;
 		
 		if(ent->Handles[i].Node->Type->Reference)
 			ent->Handles[i].Node->Type->Reference(ent->Handles[i].Node);
@@ -173,10 +181,41 @@ tVFS_Handle *VFS_GetHandle(int FD)
 	return h;
 }
 
+int VFS_SetHandle(int FD, tVFS_Node *Node, int Mode)
+{
+	tVFS_Handle	*h;
+	if(FD < 0)	return -1;
+	
+	if( FD & VFS_KERNEL_FLAG ) {
+		FD &= (VFS_KERNEL_FLAG -1);
+		if( FD >= MAX_KERNEL_FILES )	return -1;
+		h = &gaKernelHandles[FD];
+	}
+	else {
+		tUserHandles	*ent;
+		 int	pid = Threads_GetPID();
+		 int	maxhandles = *Threads_GetMaxFD();
+		
+		ent = VFS_int_GetUserHandles(pid, 0);
+		if(!ent) {
+			Log_Error("VFS", "Client %i does not have a handle list (>)", pid);
+			return -1;
+		}
+		
+		if(FD >= maxhandles) {
+			LOG("FD (%i) > Limit (%i), RETURN NULL", FD, maxhandles);
+			return -1;
+		}
+		h = &ent->Handles[ FD ];
+	}
+	h->Node = Node;
+	h->Mode = Mode;
+	return FD;
+}
+
+
 int VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode)
 {
-	 int	i;
-	
 	// Check for a user open
 	if(bIsUser)
 	{
@@ -185,7 +224,7 @@ int VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode)
 		// Find the PID's handle list
 		ent = VFS_int_GetUserHandles(Threads_GetPID(), 1);
 		// Get a handle
-		for( i = 0; i < maxhandles; i ++ )
+		for( int i = 0; i < maxhandles; i ++ )
 		{
 			if(ent->Handles[i].Node)	continue;
 			ent->Handles[i].Node = Node;
@@ -197,7 +236,7 @@ int VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode)
 	else
 	{
 		// Get a handle
-		for(i=0;i<MAX_KERNEL_FILES;i++)
+		for(int i = 0; i < MAX_KERNEL_FILES; i ++)
 		{
 			if(gaKernelHandles[i].Node)	continue;
 			gaKernelHandles[i].Node = Node;

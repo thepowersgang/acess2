@@ -28,6 +28,9 @@ struct sockaddr_in
 #define INADDR_ANY	0x00000000
 #define INADDR_BROADCAST	0xFFFFFFFF
 
+#define IPPORT_RESERVED	1024
+#define IPPORT_UNRESERVED	0xC000
+
 // getsockopt/setsockopt(level)
 enum {
 	IPPROTO_IP = 1,

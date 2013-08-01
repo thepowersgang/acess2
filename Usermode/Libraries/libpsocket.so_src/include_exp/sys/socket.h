@@ -136,7 +136,7 @@ extern int	listen(int sockfd, int backlog);
 /**
  * \brief Accept an incoming connection
  */
-extern int	accept(int sockfd, struct sockaddr *clientaddr, socklen_t addrlen);
+extern int	accept(int sockfd, struct sockaddr *clientaddr, socklen_t *addrlen);
 
 extern int	recvfrom(int sockfd, void *buffer, size_t length, int flags, struct sockaddr *clientaddr, socklen_t *addrlen);
 extern int	recv(int sockfd, void *buffer, size_t length, int flags);

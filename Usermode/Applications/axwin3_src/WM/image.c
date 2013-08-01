@@ -99,7 +99,7 @@ tImage *Image_Load(const char *URI)
  */
 int UnBase64(uint8_t *Dest, char *Src, int BufSize)
 {
-	uint32_t	val;
+	uint32_t	val = 0;
 	 int	i, j;
 	char	*start_src = Src;
 	

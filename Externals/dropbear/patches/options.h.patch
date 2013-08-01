@@ -1,0 +1,10 @@
+--- options.h
++++ options.h
+@@ -54,2 +54,2 @@
+ /* Enable X11 Forwarding - server only */
+-#define ENABLE_X11FWD
++//#define ENABLE_X11FWD
+@@ -217,2 +217,2 @@
+  * rsa/dss key generation */
+-#define DROPBEAR_URANDOM_DEV "/dev/urandom"
++#define DROPBEAR_URANDOM_DEV "/Devices/frandom"

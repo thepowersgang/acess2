@@ -289,7 +289,7 @@ int ProcessInittab(const char *Path)
 			if(!command)
 				goto lineError;
 
-			int handles[] = {0, 1, 2};
+			int handles[] = {0, 1, 1};
 			int pid = _SysSpawn(command[0], (const char **)command, NULL, 3, handles, NULL);
 			int retstatus;
 			_SysWaitTID(pid, &retstatus);
@@ -426,7 +426,7 @@ int SpawnCommand(int c_stdin, int c_stdout, int c_stderr, char **ArgV)
 
 int SpawnKTerm(tInitProgram *Program)
 {
-	const char fmt[] = "/Devices/pts/vt%ic";
+	const char fmt[] = "/Devices/pts/vt%i";
 	char	path[sizeof(fmt)];
 	
 	snprintf(path, sizeof(path), fmt, Program->TypeInfo.KTerm.ID);

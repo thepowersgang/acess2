@@ -474,7 +474,7 @@ void *VM8086_Allocate(tVM8086 *State, int Size, Uint16 *Segment, Uint16 *Offset)
 		return NULL;
 	}
 	
-	pages[i].VirtBase = MM_AllocDMA(1, -1, &pages[i].PhysAddr);
+	pages[i].VirtBase = (tVAddr)MM_AllocDMA(1, -1, &pages[i].PhysAddr);
 	if( pages[i].VirtBase == 0 ) {
 		Log_Warning("VM8086", "Unable to allocate data page");
 		return NULL;

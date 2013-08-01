@@ -1,0 +1,16 @@
+#
+# Acess2 GUI (AxWin3) WM
+# - By John Hodge (thePowersGang)
+#
+# Makefile.sdl
+# - SDL-backed edition makefile
+#
+
+OBJ := main_SDL.o video_SDL.o input_SDL.o
+include common.mk
+
+BIN := AxWinWM
+
+include ../sdl.mk
+
+# vim: ft=make

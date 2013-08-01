@@ -9,6 +9,7 @@
 #define _AXWIN3_RICHTEXT_H_
 
 #include <stdint.h>
+#include "axwin.h"
 
 typedef	int	(*tAxWin3_RichText_KeyHandler)(tHWND Window, int bPress, uint32_t Sym, uint32_t Unicode);
 typedef int	(*tAxWin3_RichText_MouseHandler)(tHWND Window, int bPress, int Button, int Row, int Col);

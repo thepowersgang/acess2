@@ -250,7 +250,7 @@ int Proc_Execve(const char *File, const char **ArgV, const char **EnvP, int Data
 	base = Binary_Load(File, &entry);
 	if(base == 0)
 	{
-		Log_Warning("Binary", "Proc_Execve - Unable to load '%s'", File);
+		Log_Warning("Binary", "Proc_Execve - Unable to load '%s' [errno=%i]", File, errno);
 		LEAVE('-');
 		Threads_Exit(0, -10);
 		for(;;);

@@ -350,6 +350,12 @@ int DrvUtil_Video_SetCursor(tDrvUtil_Video_BufInfo *Buf, tVideo_IOCtl_Bitmap *Bi
 		LEAVE('i', -1);
 		return -1;
 	}
+	ASSERTCR(Bitmap->W, >, 0, -1);
+	ASSERTCR(Bitmap->H, >, 0, -1);
+	ASSERTCR(Bitmap->XOfs, <, Bitmap->W, -1);
+	ASSERTCR(Bitmap->XOfs, >, -Bitmap->W, -1);
+	ASSERTCR(Bitmap->YOfs, <, Bitmap->H, -1);
+	ASSERTCR(Bitmap->YOfs, >, -Bitmap->H, -1);
 
 	// Don't take a copy of the DrvUtil provided cursor
 	if( Bitmap == &gDrvUtil_TextModeCursor )
@@ -407,8 +413,18 @@ void DrvUtil_Video_DrawCursor(tDrvUtil_Video_BufInfo *Buf, int X, int Y)
 	Y -= Buf->CursorBitmap->YOfs;
 	
 	// Get the width of the cursor on screen (clipping to right/bottom edges)
-	render_w = X > Buf->Width  - Buf->CursorBitmap->W ? Buf->Width  - X : Buf->CursorBitmap->W;
-	render_h = Y > Buf->Height - Buf->CursorBitmap->H ? Buf->Height - Y : Buf->CursorBitmap->H;
+	ASSERTC(Buf->Width, >, 0);
+	ASSERTC(Buf->Height, >, 0);
+	ASSERTC(Buf->CursorBitmap->W, >, 0);
+	ASSERTC(Buf->CursorBitmap->H, >, 0);
+	
+	render_w = MIN(Buf->Width  - X, Buf->CursorBitmap->W);
+	render_h = MIN(Buf->Height - Y, Buf->CursorBitmap->H);
+	//render_w = X > Buf->Width  - Buf->CursorBitmap->W ? Buf->Width  - X : Buf->CursorBitmap->W;
+	//render_h = Y > Buf->Height - Buf->CursorBitmap->H ? Buf->Height - Y : Buf->CursorBitmap->H;
+
+	ASSERTC(render_w, >=, 0);
+	ASSERTC(render_h, >=, 0);
 
 	// Clipp to left/top edges
 	if(X < 0) {	render_ox = -X;	X = 0;	}
@@ -446,6 +462,9 @@ void DrvUtil_Video_RenderCursor(tDrvUtil_Video_BufInfo *Buf)
 	// Allocate save buffer if not already
 	if( !Buf->CursorSaveBuf )
 		Buf->CursorSaveBuf = malloc( Buf->CursorBitmap->W*Buf->CursorBitmap->H*bytes_per_px );
+
+	ASSERTC(render_w, >=, 0);
+	ASSERTC(render_h, >=, 0);
 
 	LOG("Saving back");
 	// Save behind the cursor

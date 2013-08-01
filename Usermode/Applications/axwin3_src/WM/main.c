@@ -9,18 +9,13 @@
 #include <acess/sys.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <axwin3/keysyms.h>
+#include <string.h>
+#include "include/lowlevel.h"
 
 // === IMPORTS ===
 extern void	Video_Setup(void);
 extern void	WM_Initialise(void);
-extern int	Renderer_Menu_Init(void);
-extern int	Renderer_Widget_Init(void);
-extern int	Renderer_Background_Init(void);
-extern int	Renderer_Framebuffer_Init(void);
-extern int	Renderer_RichText_Init(void);
 extern void	WM_Update(void);
-extern void	WM_Hotkey_Register(int nKeys, uint32_t *Keys, const char *ActionName);
 
 // === PROTOTYPES ===
 void	ParseCommandline(int argc, char **argv);
@@ -61,21 +56,7 @@ int main(int argc, char *argv[])
 	IPC_Init();
 	Input_Init();
 	
-	Renderer_Menu_Init();
-	Renderer_Widget_Init();
-	Renderer_Background_Init();
-	Renderer_Framebuffer_Init();
-	Renderer_RichText_Init();
 	WM_Initialise();
-
-	// TODO: Move these to config
-	uint32_t	keys[4];
-	keys[0] = KEYSYM_LEFTGUI;	keys[1] = KEYSYM_r;
-	WM_Hotkey_Register(2, keys, "Interface>Run");
-	keys[0] = KEYSYM_LEFTGUI;	keys[1] = KEYSYM_t;
-	WM_Hotkey_Register(2, keys, "Interface>Terminal");
-	keys[0] = KEYSYM_LEFTGUI;	keys[1] = KEYSYM_e;
-	WM_Hotkey_Register(2, keys, "Interface>TextEdit");
 	
 	// Spawn interface root
 	if( !gbNoSpawnUI )

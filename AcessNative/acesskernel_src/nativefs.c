@@ -14,7 +14,7 @@
 #undef sprintf
 #include <dirent.h>	// Posix
 #include <sys/stat.h>	// Posix
-#include <stdio.h>	// Posix
+#include <stdio.h>	// C
 
 //NOTES:
 // tVFS_Node->ImplPtr is a pointer to the filesystem flags (tNativeFS)
@@ -24,7 +24,7 @@
 // === STRUCTURES ===
 typedef struct
 {
-	 int	InodeHandle;
+	void	*InodeHandle;
 	 int	bReadOnly;
 }	tNativeFS;
 
@@ -32,10 +32,11 @@ typedef struct
  int	NativeFS_Install(char **Arguments);
 tVFS_Node	*NativeFS_Mount(const char *Device, const char **Arguments);
 void	NativeFS_Unmount(tVFS_Node *Node);
-tVFS_Node	*NativeFS_FindDir(tVFS_Node *Node, const char *Name);
+tVFS_Node	*NativeFS_FindDir(tVFS_Node *Node, const char *Name, Uint Flags);
  int	NativeFS_ReadDir(tVFS_Node *Node, int Position, char Dest[FILENAME_MAX]);
-size_t	NativeFS_Read(tVFS_Node *Node, _acess_off_t Offset, size_t Length, void *Buffer);
-size_t	NativeFS_Write(tVFS_Node *Node, _acess_off_t Offset, size_t Length, const void *Buffer);
+tVFS_Node	*NativeFS_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
+size_t	NativeFS_Read(tVFS_Node *Node, _acess_off_t Offset, size_t Length, void *Buffer, Uint Flags);
+size_t	NativeFS_Write(tVFS_Node *Node, _acess_off_t Offset, size_t Length, const void *Buffer, Uint Flags);
 void	NativeFS_Close(tVFS_Node *Node);
 
 // === GLOBALS ===
@@ -47,6 +48,7 @@ tVFS_NodeType	gNativeFS_FileNodeType = {
 tVFS_NodeType	gNativeFS_DirNodeType = {
 	.FindDir = NativeFS_FindDir,
 	.ReadDir = NativeFS_ReadDir,
+	.MkNod = NativeFS_MkNod,
 	.Close = NativeFS_Close
 };
 tVFS_Driver	gNativeFS_Driver = {
@@ -77,7 +79,7 @@ tVFS_Node *NativeFS_Mount(const char *Device, const char **Arguments)
 	// Check if directory exists
 	// Parse flags from arguments
 	info = malloc(sizeof(tNativeFS));
-	info->InodeHandle = Inode_GetHandle();
+	info->InodeHandle = Inode_GetHandle(NULL);
 	info->bReadOnly = 0;
 	// Create node
 	ret = malloc(sizeof(tVFS_Node));
@@ -115,7 +117,7 @@ void NativeFS_Close(tVFS_Node *Node)
 	}
 }
 
-tVFS_Node *NativeFS_FindDir(tVFS_Node *Node, const char *Name)
+tVFS_Node *NativeFS_FindDir(tVFS_Node *Node, const char *Name, Uint Flags)
 {
 	char	*path;
 	tNativeFS	*info = Node->ImplPtr;
@@ -204,7 +206,24 @@ int NativeFS_ReadDir(tVFS_Node *Node, int Position, char Dest[FILENAME_MAX])
 	return 0;
 }
 
-size_t NativeFS_Read(tVFS_Node *Node, _acess_off_t Offset, size_t Length, void *Buffer)
+tVFS_Node *NativeFS_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
+{
+	char path[Node->ImplInt+1+strlen(Name)+1];
+	sprintf(path, "%s/%s", Node->Data, Name);
+	if( Flags & VFS_FFLAG_DIRECTORY )
+	{
+		mkdir(path, 0755);
+	}
+	else
+	{
+		FILE *tmp = fopen(path, "w");
+		if(!tmp)	return NULL;
+		fclose(tmp);
+	}
+	return NativeFS_FindDir(Node, Name, 0);
+}
+
+size_t NativeFS_Read(tVFS_Node *Node, _acess_off_t Offset, size_t Length, void *Buffer, Uint Flags)
 {
 	ENTER("pNode XOffset xLength pBuffer", Node, Offset, Length, Buffer);
 	if( fseek( (FILE *)(tVAddr)Node->Inode, Offset, SEEK_SET ) != 0 )
@@ -217,7 +236,7 @@ size_t NativeFS_Read(tVFS_Node *Node, _acess_off_t Offset, size_t Length, void *
 	return ret;
 }
 
-size_t NativeFS_Write(tVFS_Node *Node, _acess_off_t Offset, size_t Length, const void *Buffer)
+size_t NativeFS_Write(tVFS_Node *Node, _acess_off_t Offset, size_t Length, const void *Buffer, Uint Flags)
 {
 	FILE	*fp = (FILE *)(tVAddr)Node->Inode;
 	ENTER("pNode XOffset xLength pBuffer", Node, Offset, Length, Buffer);

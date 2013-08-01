@@ -7,6 +7,7 @@ SYSCALL2(_SysClone, SYS_CLONE)
 SYSCALL2(_SysKill, SYS_KILL)
 //SYSCALL0(yield, SYS_YIELD)
 //SYSCALL0(sleep, SYS_SLEEP)
+SYSCALL1(_SysTimedSleep, SYS_TIMEDSLEEP)
 SYSCALL1(_SysWaitEvent, SYS_WAITEVENT)
 SYSCALL2(_SysWaitTID, SYS_WAITTID)
 
@@ -56,5 +57,7 @@ SYSCALL1(_SysChdir, SYS_CHDIR)	// char*
 SYSCALL3(_SysIOCtl, SYS_IOCTL)	// int, int, void*
 SYSCALL4(_SysMount, SYS_MOUNT)	// char*, char*, char*, char*
 SYSCALL6(_SysSelect, SYS_SELECT)	// int, fd_set*, fd_set*, fd_set*, tTime*, uint32_t
+
+SYSCALL1(_SysMkDir, SYS_MKDIR)	// const char*
 SYSCALL1(_SysUnlink, SYS_UNLINK)	// const char*
 

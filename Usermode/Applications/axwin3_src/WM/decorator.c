@@ -162,7 +162,7 @@ int Decorator_HandleMessage(tWindow *Window, int Message, int Length, const void
 	case WNDMSG_MOUSEMOVE: {
 		const struct sWndMsg_MouseMove	*msg = Data;
 
-		if( btn1_down == Window )
+		if( Window && btn1_down == Window )
 		{
 			switch(btn1_mode)
 			{

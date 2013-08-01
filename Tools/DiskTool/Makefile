@@ -25,6 +25,7 @@ N_OBJ = main.o script.o helpers.o
 # Compilation Options
 CFLAGS := -Wall -std=gnu99 -g -Werror
 CPPFLAGS := -I include/ -I ../nativelib
+CPPFLAGS += -I../../Usermode/Libraries/ld-acess.so_src/include_exp/	# Syscalls
 K_CPPFLAGS := -I $(KERNEL_SRC)include -I $(MODULE_SRC)
 LDFLAGS += -Wl,--defsym,__buildnum=$(BUILD_NUM) -g -L ../ -lnativelib
 

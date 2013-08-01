@@ -714,7 +714,8 @@ void Proc_DumpThreadCPUState(tThread *Thread)
 			return ;
 		}
 		
-		Log("  at %04x:%08x", regs->cs, regs->eip);
+		Log("  at %04x:%08x [EAX:%x]", regs->cs, regs->eip, regs->eax);
+		Error_Backtrace(regs->eip, regs->ebp);
 		return ;
 	}
 	

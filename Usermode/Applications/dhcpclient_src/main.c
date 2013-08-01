@@ -8,6 +8,14 @@
 #include <stdlib.h>
 #include <net.h>
 #include <acess/sys.h>
+#include <errno.h>
+
+enum {
+	UDP_IOCTL_GETSETLPORT = 4,
+	UDP_IOCTL_GETSETRPORT,
+	UDP_IOCTL_GETSETRMASK,
+	UDP_IOCTL_SETRADDR,
+};
 
 #define FILENAME_MAX	255
 // --- Translation functions ---
@@ -88,7 +96,7 @@ void	SetAddress(tInterface *Iface, void *Addr, void *Mask, void *Router);
 // === CODE ===
 int main(int argc, char *argv[])
 {
-	tInterface	*ifaces = NULL, *i;
+	tInterface	*ifaces = NULL;
 
 	if( argc > 2 ) {
 		fprintf(stderr, "Usage: %s <interface>\n", argv[0]);
@@ -104,7 +112,7 @@ int main(int argc, char *argv[])
 		Scan_Dir( &ifaces, "/Devices/ip/adapters" );
 	}
 
-	for( i = ifaces; i; i = i->Next )
+	for( tInterface *i = ifaces; i; i = i->Next )
 	{
 		if( Start_Interface(i) < 0 ) {
 			return -1;
@@ -119,12 +127,11 @@ int main(int argc, char *argv[])
 	{
 		 int	maxfd;
 		fd_set	fds;
-		tInterface	*p;
 		int64_t	timeout = 1000;
 	
 		maxfd = 0;
 		FD_ZERO(&fds);
-		for( i = ifaces; i; i = i->Next )
+		for( tInterface *i = ifaces; i; i = i->Next )
 		{
 			FD_SET(i->SocketFD, &fds);
 			if(maxfd < i->SocketFD) maxfd = i->SocketFD;
@@ -139,7 +146,7 @@ int main(int argc, char *argv[])
 		_SysDebug("select() returned");
 
 		// Check for changes (with magic to allow inline deletion)
-		for( p = (void*)&ifaces, i = ifaces; i; p=i,i = i->Next )
+		for( tInterface *p = (void*)&ifaces, *i = ifaces; i; p=i,i = i->Next )
 		{
 			if( FD_ISSET(i->SocketFD, &fds) )
 			{
@@ -151,7 +158,7 @@ int main(int argc, char *argv[])
 			{
 				if( Handle_Timeout(i) )
 				{
-					fprintf(stderr, "%s timed out\n", i->Adapter);
+					fprintf(stderr, "DHCP on %s timed out\n", i->Adapter);
 					goto _remove;
 				}
 			}
@@ -255,11 +262,11 @@ int Start_Interface(tInterface *Iface)
 		fprintf(stderr, "ERROR: Unable to open '%s'\n", path); 
 		return -1;
 	}
-	tmp = 68; _SysIOCtl(fd, 4, &tmp);	// Local port
-	tmp = 67; _SysIOCtl(fd, 5, &tmp);	// Remote port
-	tmp = 0;  _SysIOCtl(fd, 7, &tmp);	// Remote addr mask bits - we don't care where the reply comes from
+	tmp = 68; _SysIOCtl(fd, UDP_IOCTL_GETSETLPORT, &tmp);	// Local port
+	tmp = 67; _SysIOCtl(fd, UDP_IOCTL_GETSETRPORT, &tmp);	// Remote port
+	tmp = 0;  _SysIOCtl(fd, UDP_IOCTL_GETSETRMASK, &tmp);	// Remote addr mask bits - don't care source
 	addr[0] = addr[1] = addr[2] = addr[3] = 255;	// 255.255.255.255
-	_SysIOCtl(fd, 8, addr);	// Remote address
+	_SysIOCtl(fd, UDP_IOCTL_SETRADDR, addr);	// Remote address
 	
 	return 0;
 }
@@ -301,16 +308,18 @@ void Send_DHCPDISCOVER(tInterface *Iface)
 	msg->options[i++] =  53;	// DHCP Message Type
 	msg->options[i++] =   1;
 	msg->options[i++] =   1;	// - DHCPDISCOVER
-	msg->options[i++] = 255;	// End of list
+	msg->options[i  ] = 255;	// End of list
 	
 
+	// UDP Header
 	data[0] = 67;	data[1] = 0;	// Port
 	data[2] = 4;	data[3] = 0;	// AddrType
 	data[4] = 255;	data[5] = 255;	data[6] = 255;	data[7] = 255;
 
 	i = _SysWrite(Iface->SocketFD, data, sizeof(data));
 	if( i != sizeof(data) ) {
-		_SysDebug("_SysWrite failed (%i != %i)", i, sizeof(data));
+		_SysDebug("_SysWrite failed (%i != %i): %s", i, sizeof(data),
+			strerror(errno));
 	}
 	Update_State(Iface, STATE_DISCOVER_SENT);
 }

@@ -7,7 +7,7 @@
  * \brief Second Extended Filesystem Driver
  * \todo Implement file full write support
  */
-#define DEBUG	1
+#define DEBUG	0
 #define VERBOSE	0
 #include "ext2_common.h"
 
@@ -18,29 +18,26 @@
 size_t Ext2_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags)
 {
 	tExt2_Disk	*disk = Node->ImplPtr;
-	tExt2_Inode	inode;
+	tExt2_Inode	*inode = (void*)(Node+1);
 	Uint64	base;
 	Uint	block;
 	Uint64	remLen;
 	
-	ENTER("pNode XOffset XLength pBuffer", Node, Offset, Length, Buffer);
-	
-	// Get Inode
-	Ext2_int_ReadInode(disk, Node->Inode, &inode);
+	ENTER("pNode XOffset xLength pBuffer", Node, Offset, Length, Buffer);
 	
 	// Sanity Checks
-	if(Offset >= inode.i_size) {
+	if(Offset >= inode->i_size) {
 		LEAVE('i', 0);
 		return 0;
 	}
-	if(Offset + Length > inode.i_size)
-		Length = inode.i_size - Offset;
+	if(Offset + Length > inode->i_size)
+		Length = inode->i_size - Offset;
 	
 	block = Offset / disk->BlockSize;
-	Offset = Offset / disk->BlockSize;
-	base = Ext2_int_GetBlockAddr(disk, inode.i_block, block);
+	Offset = Offset % disk->BlockSize;
+	base = Ext2_int_GetBlockAddr(disk, inode->i_block, block);
 	if(base == 0) {
-		Warning("[EXT2 ] NULL Block Detected in INode 0x%llx", Node->Inode);
+		Log_Warning("EXT2", "NULL Block Detected in INode 0x%llx (Block %i)", Node->Inode, block);
 		LEAVE('i', 0);
 		return 0;
 	}
@@ -64,7 +61,7 @@ size_t Ext2_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uin
 	// Read middle blocks
 	while(remLen > disk->BlockSize)
 	{
-		base = Ext2_int_GetBlockAddr(disk, inode.i_block, block);
+		base = Ext2_int_GetBlockAddr(disk, inode->i_block, block);
 		if(base == 0) {
 			Log_Warning("EXT2", "NULL Block Detected in INode 0x%llx", Node->Inode);
 			LEAVE('i', 0);
@@ -77,7 +74,7 @@ size_t Ext2_Read(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uin
 	}
 	
 	// Read last block
-	base = Ext2_int_GetBlockAddr(disk, inode.i_block, block);
+	base = Ext2_int_GetBlockAddr(disk, inode->i_block, block);
 	VFS_ReadAt( disk->FD, base, remLen, Buffer);
 	
 	LEAVE('X', Length);

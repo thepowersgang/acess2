@@ -59,13 +59,15 @@ void AxWin3_Connect(const char *ServerDesc)
 		}
 		break;
 	case 'u':
-		while(*ServerDesc && *ServerDesc != ':')	ServerDesc ++;
-		ServerDesc ++;
+		assert( strncmp(ServerDesc, "udp:", 4) == 0 );
+		ServerDesc += 4;
+		_SysDebug("TODO: UDP connection to '%s'", ServerDesc);
 		// TODO: Open socket and create UDP header
 		break;
 	case 't':
-		while(*ServerDesc && *ServerDesc != ':')	ServerDesc ++;
-		ServerDesc ++;
+		assert( strncmp(ServerDesc, "tcp:", 4) == 0 );
+		ServerDesc += 4;
+		_SysDebug("TODO: TCP connection to '%s'", ServerDesc);
 		// TODO: Open socket
 		break;
 	case 'p':

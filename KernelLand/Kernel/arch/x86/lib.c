@@ -351,6 +351,10 @@ DEF_DIVMOD(64);
 
 Uint64 DivMod64U(Uint64 Num, Uint64 Div, Uint64 *Rem)
 {
+	if( Div == 16 ) {
+		if(Rem)	*Rem = Num & 15;
+		return Num >> 4;
+	}
 	if( Div < 0x100000000ULL && Num < 0xFFFFFFFF * Div ) {
 		Uint32	rem, ret_32;
 		__asm__ __volatile__(

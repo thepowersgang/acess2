@@ -12,6 +12,7 @@ ifeq ($(PLATFORM),)
 endif
 
 KERNEL_SRC = ../../KernelLand/Kernel/
+LDACESS_SRC = ../../Usermode/Libraries/ld-acess.so_src/
 
 KERNEL_OBJ := logging.o adt.o lib.o debug.o messages.o drvutil_disk.o drvutil_video.o
 #KERNEL_OBJ += libc.o
@@ -19,7 +20,9 @@ KERNEL_OBJ += vfs/main.o vfs/open.o vfs/acls.o vfs/io.o vfs/dir.o
 KERNEL_OBJ += vfs/nodecache.o vfs/mount.o vfs/memfile.o vfs/select.o
 KERNEL_OBJ += vfs/fs/root.o vfs/fs/devfs.o
 KERNEL_OBJ += drv/fifo.o drv/proc.o drv/dgram_pipe.o
-KERNEL_OBJ += drv/vterm.o drv/vterm_font.o drv/vterm_vt100.o drv/vterm_output.o drv/vterm_input.o drv/vterm_termbuf.o
+KERNEL_OBJ += drv/vterm.o drv/vterm_font.o drv/vterm_output.o drv/vterm_input.o drv/vterm_termbuf.o
+KERNEL_OBJ += drv/vterm_vt100.o drv/vterm_2d.o
+KERNEL_OBJ += drv/pty.o
 
 N_OBJ := main.o
 
@@ -35,7 +38,7 @@ K_OBJ := $(addprefix $(KERNEL_SRC)obj-native-$(PLATFORM)/,$(KERNEL_OBJ))
 DEPFILES  = $(filter %.o,$(OBJ) $(N_OBJ) $(K_OBJ))
 DEPFILES := $(DEPFILES:%=%.dep)
 
-KCPPFLAGS = -I include/ -I $(KERNEL_SRC)include/
+KCPPFLAGS = -I include/ -I $(KERNEL_SRC)include/ -I$(LDACESS_SRC)include_exp/
 CFLAGS += -Wall -g -std=gnu99
 CPPFLAGS += $(shell sdl-config --cflags) -I /usr/include/
 LDFLAGS += $(shell sdl-config --libs) -g -Wl,--defsym,__buildnum=$(BUILD_NUM)

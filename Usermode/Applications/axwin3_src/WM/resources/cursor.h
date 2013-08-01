@@ -8,7 +8,7 @@
 static struct {
 	uint16_t	W, H;
 	uint32_t	Data[];
-} cCursorBitmap = {
+} __attribute__((packed)) cCursorBitmap = {
 	8, 16,
 	{
 		0xFF000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,

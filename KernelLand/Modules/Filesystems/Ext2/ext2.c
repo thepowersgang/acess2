@@ -21,8 +21,10 @@
 tVFS_Node	*Ext2_InitDevice(const char *Device, const char **Options);
 void	Ext2_Unmount(tVFS_Node *Node);
 void	Ext2_CloseFile(tVFS_Node *Node);
+tVFS_Node	*Ext2_GetNodeFromINode(tVFS_Node *RootNode, Uint64 Inode);
 // - Internal Helpers
  int	Ext2_int_GetInode(tVFS_Node *Node, tExt2_Inode *Inode);
+void	Ext2_int_DumpInode(tExt2_Disk *Disk, Uint32 InodeID, tExt2_Inode *Inode);
 Uint64	Ext2_int_GetBlockAddr(tExt2_Disk *Disk, Uint32 *Blocks, int BlockNum);
 Uint32	Ext2_int_AllocateInode(tExt2_Disk *Disk, Uint32 Parent);
 void	Ext2_int_DereferenceInode(tExt2_Disk *Disk, Uint32 Inode);
@@ -37,7 +39,7 @@ tVFS_Driver	gExt2_FSInfo = {
 	.Detect = Ext2_Detect,
 	.InitDevice = Ext2_InitDevice,
 	.Unmount = Ext2_Unmount,
-	.GetNodeFromINode = NULL
+	.GetNodeFromINode = Ext2_GetNodeFromINode
 	};
 
 // === CODE ===
@@ -96,7 +98,6 @@ tVFS_Node *Ext2_InitDevice(const char *Device, const char **Options)
 	 int	fd;
 	 int	groupCount;
 	tExt2_SuperBlock	sb;
-	tExt2_Inode	inode;
 	
 	ENTER("sDevice pOptions", Device, Options);
 	
@@ -139,7 +140,7 @@ tVFS_Node *Ext2_InitDevice(const char *Device, const char **Options)
 	disk->GroupCount = groupCount;
 	
 	// Get an inode cache handle
-	disk->CacheID = Inode_GetHandle();
+	disk->CacheID = Inode_GetHandle(NULL);
 	
 	// Get Block Size
 	if( sb.s_log_block_size > MAX_BLOCK_LOG_SIZE ) {
@@ -169,7 +170,7 @@ tVFS_Node *Ext2_InitDevice(const char *Device, const char **Options)
 	LOG(".bg_inode_table = 0x%x", disk->Groups[1].bg_inode_table);
 	
 	// Get root Inode
-	Ext2_int_ReadInode(disk, 2, &inode);
+	Ext2_int_ReadInode(disk, 2, &disk->RootInode);
 	
 	// Create Root Node
 	memset(&disk->RootNode, 0, sizeof(tVFS_Node));
@@ -181,14 +182,14 @@ tVFS_Node *Ext2_InitDevice(const char *Device, const char **Options)
 	disk->RootNode.Type = &gExt2_DirType;
 	
 	// Complete root node
-	disk->RootNode.UID = inode.i_uid;
-	disk->RootNode.GID = inode.i_gid;
+	disk->RootNode.UID = disk->RootInode.i_uid;
+	disk->RootNode.GID = disk->RootInode.i_gid;
 	disk->RootNode.NumACLs = 1;
 	disk->RootNode.ACLs = &gVFS_ACL_EveryoneRW;
 	
 	#if DEBUG
-	LOG("inode.i_size = 0x%x", inode.i_size);
-	LOG("inode.i_block[0] = 0x%x", inode.i_block[0]);
+	LOG("inode.i_size = 0x%x", disk->RootInode.i_size);
+	LOG("inode.i_block[0] = 0x%x", disk->RootInode.i_block[0]);
 	#endif
 	
 	LEAVE('p', &disk->RootNode);
@@ -260,6 +261,11 @@ void Ext2_CloseFile(tVFS_Node *Node)
 	return ;
 }
 
+tVFS_Node *Ext2_GetNodeFromINode(tVFS_Node *RootNode, Uint64 Inode)
+{
+	return Ext2_int_CreateNode(RootNode->ImplPtr, Inode);
+}
+
 //==================================
 //=       INTERNAL FUNCTIONS       =
 //==================================
@@ -304,7 +310,9 @@ int Ext2_int_WriteInode(tExt2_Disk *Disk, Uint32 InodeId, tExt2_Inode *Inode)
 		LEAVE('i', 0);
 		return 0;
 	}
-	
+
+	Ext2_int_DumpInode(Disk, InodeId, Inode);	
+
 	InodeId --;	// Inodes are numbered starting at 1
 	
 	group = InodeId / Disk->SuperBlock.s_inodes_per_group;
@@ -329,110 +337,132 @@ int Ext2_int_WriteInode(tExt2_Disk *Disk, Uint32 InodeId, tExt2_Inode *Inode)
  */
 tVFS_Node *Ext2_int_CreateNode(tExt2_Disk *Disk, Uint InodeID)
 {
-	tExt2_Inode	inode;
-	tVFS_Node	retNode;
-	tVFS_Node	*tmpNode;
+	struct {
+		tVFS_Node	retNode;
+		tExt2_Inode	inode;
+	} data;
+	tVFS_Node	*node = &data.retNode;
+	tExt2_Inode	*in = &data.inode;
 	
-	if( !Ext2_int_ReadInode(Disk, InodeID, &inode) )
+	if( !Ext2_int_ReadInode(Disk, InodeID, &data.inode) )
 		return NULL;
 	
-	if( (tmpNode = Inode_GetCache(Disk->CacheID, InodeID)) )
-		return tmpNode;
+	if( (node = Inode_GetCache(Disk->CacheID, InodeID)) )
+		return node;
+	node = &data.retNode;
 
-	memset(&retNode, 0, sizeof(retNode));	
+	memset(node, 0, sizeof(*node));
 	
 	// Set identifiers
-	retNode.Inode = InodeID;
-	retNode.ImplPtr = Disk;
-	retNode.ImplInt = inode.i_links_count;
-	if( inode.i_links_count == 0 ) {
+	node->Inode = InodeID;
+	node->ImplPtr = Disk;
+	node->ImplInt = in->i_links_count;
+	if( in->i_links_count == 0 ) {
 		Log_Notice("Ext2", "Inode %p:%x is not referenced, bug?", Disk, InodeID);
 	}
 	
 	// Set file length
-	retNode.Size = inode.i_size;
+	node->Size = in->i_size;
 	
 	// Set Access Permissions
-	retNode.UID = inode.i_uid;
-	retNode.GID = inode.i_gid;
-	retNode.NumACLs = 3;
-	retNode.ACLs = VFS_UnixToAcessACL(inode.i_mode & 0777, inode.i_uid, inode.i_gid);
+	node->UID = in->i_uid;
+	node->GID = in->i_gid;
+	node->NumACLs = 3;
+	node->ACLs = VFS_UnixToAcessACL(in->i_mode & 0777, in->i_uid, in->i_gid);
 	
 	//  Set Function Pointers
-	retNode.Type = &gExt2_FileType;
+	node->Type = &gExt2_FileType;
 	
-	switch(inode.i_mode & EXT2_S_IFMT)
+	switch(in->i_mode & EXT2_S_IFMT)
 	{
 	// Symbolic Link
 	case EXT2_S_IFLNK:
-		retNode.Flags = VFS_FFLAG_SYMLINK;
+		node->Flags = VFS_FFLAG_SYMLINK;
 		break;
 	// Regular File
 	case EXT2_S_IFREG:
-		retNode.Flags = 0;
-		retNode.Size |= (Uint64)inode.i_dir_acl << 32;
+		node->Flags = 0;
+		node->Size |= (Uint64)in->i_dir_acl << 32;
 		break;
 	// Directory
 	case EXT2_S_IFDIR:
-		retNode.Type = &gExt2_DirType;
-		retNode.Flags = VFS_FFLAG_DIRECTORY;
-		retNode.Data = calloc( sizeof(Uint16), DivUp(retNode.Size, Disk->BlockSize) );
+		node->Type = &gExt2_DirType;
+		node->Flags = VFS_FFLAG_DIRECTORY;
+		node->Data = calloc( sizeof(Uint16), DivUp(node->Size, Disk->BlockSize) );
 		break;
 	// Unknown, Write protect it to be safe 
 	default:
-		retNode.Flags = VFS_FFLAG_READONLY;
+		node->Flags = VFS_FFLAG_READONLY;
 		break;
 	}
 	
 	// Set Timestamps
-	retNode.ATime = inode.i_atime * 1000;
-	retNode.MTime = inode.i_mtime * 1000;
-	retNode.CTime = inode.i_ctime * 1000;
+	node->ATime = in->i_atime * 1000;
+	node->MTime = in->i_mtime * 1000;
+	node->CTime = in->i_ctime * 1000;
 	
 	// Save in node cache and return saved node
-	return Inode_CacheNode(Disk->CacheID, &retNode);
+	return Inode_CacheNodeEx(Disk->CacheID, &data.retNode, sizeof(data));
 }
 
 int Ext2_int_WritebackNode(tExt2_Disk *Disk, tVFS_Node *Node)
 {
-	tExt2_Inode	inode;
+	tExt2_Inode	*inode = (void*)(Node+1);
 
 	if( Disk != Node->ImplPtr ) {
 		Log_Error("Ext2", "Ext2_int_WritebackNode - Disk != Node->ImplPtr");
 		return -1;
 	}
-	
+
 	if( Node->Flags & VFS_FFLAG_SYMLINK ) {
-		inode.i_mode = EXT2_S_IFLNK;
+		inode->i_mode = EXT2_S_IFLNK;
 	}
 	else if( Node->Flags & VFS_FFLAG_DIRECTORY ) {
-		inode.i_mode = EXT2_S_IFDIR;
+		inode->i_mode = EXT2_S_IFDIR;
 	}
 	else if( Node->Flags & VFS_FFLAG_READONLY ) {
 		Log_Notice("Ext2", "Not writing back readonly inode %p:%x", Disk, Node->Inode);
 		return 1;
 	}
 	else {
-		inode.i_mode = EXT2_S_IFREG;
-		inode.i_dir_acl = Node->Size >> 32;
+		inode->i_mode = EXT2_S_IFREG;
+		inode->i_dir_acl = Node->Size >> 32;
 	}
 
-	inode.i_size = Node->Size & 0xFFFFFFFF;
-	inode.i_links_count = Node->ImplInt;
+	inode->i_size = Node->Size & 0xFFFFFFFF;
+	inode->i_links_count = Node->ImplInt;
 
-	inode.i_uid = Node->UID;
-	inode.i_gid = Node->GID;
+	inode->i_uid = Node->UID;
+	inode->i_gid = Node->GID;
 
-	inode.i_atime = Node->ATime / 1000;
-	inode.i_mtime = Node->MTime / 1000;
-	inode.i_ctime = Node->CTime / 1000;
+	inode->i_atime = Node->ATime / 1000;
+	inode->i_mtime = Node->MTime / 1000;
+	inode->i_ctime = Node->CTime / 1000;
 
 	// TODO: Compact ACLs into unix mode
 	Log_Warning("Ext2", "TODO: Support converting Acess ACLs into unix modes");
+	inode->i_mode |= 777;
 
-	Ext2_int_WriteInode(Disk, Node->Inode, &inode);
+	Ext2_int_WriteInode(Disk, Node->Inode, inode);
 
 	return 0;
+}
+
+void Ext2_int_DumpInode(tExt2_Disk *Disk, Uint32 InodeID, tExt2_Inode *Inode)
+{
+	LOG("%p[Inode %i] = {", Disk, InodeID);
+	LOG(" .i_mode = 0%04o", Inode->i_mode);
+	LOG(" .i_uid:i_gid = %i:%i", Inode->i_uid, Inode->i_gid);
+	LOG(" .i_size = 0x%x", Inode->i_size);
+	LOG(" .i_block[0:3] = {0x%x,0x%x,0x%x,0x%x}",
+		Inode->i_block[0], Inode->i_block[1], Inode->i_block[2], Inode->i_block[3]);
+	LOG(" .i_block[4:7] = {0x%x,0x%x,0x%x,0x%x}",
+		Inode->i_block[4], Inode->i_block[5], Inode->i_block[6], Inode->i_block[7]);
+	LOG(" .i_block[8:11] = {0x%x,0x%x,0x%x,0x%x}",
+		Inode->i_block[8], Inode->i_block[6], Inode->i_block[10], Inode->i_block[11]);
+	LOG(" .i_block[12:14] = {0x%x,0x%x,0x%x}",
+		Inode->i_block[12], Inode->i_block[13], Inode->i_block[14]);
+	LOG("}");
 }
 
 /**
@@ -529,7 +559,7 @@ Uint32 Ext2_int_AllocateInode(tExt2_Disk *Disk, Uint32 Parent)
 		VFS_ReadAt(Disk->FD, Disk->BlockSize*bg->bg_inode_bitmap+ofs, sector_size, buf);
 
 		int byte, bit;
-		for( byte = 0; byte < sector_size && buf[byte] != 0xFF; byte ++ )
+		for( byte = 0; byte < sector_size && buf[byte] == 0xFF; byte ++ )
 			;
 		if( byte < sector_size )
 		{
@@ -576,6 +606,14 @@ void Ext2_int_UpdateSuperblock(tExt2_Disk *Disk)
 	 
 	// Update Primary
 	VFS_WriteAt(Disk->FD, 1024, 1024, &Disk->SuperBlock);
+	
+	// - Update block groups while we're at it
+	VFS_WriteAt(
+		Disk->FD,
+		Disk->SuperBlock.s_first_data_block * Disk->BlockSize + 1024,
+		sizeof(tExt2_Group)*Disk->GroupCount,
+		Disk->Groups
+		);
 	
 	// Secondaries
 	// at Block Group 1, 3^n, 5^n, 7^n

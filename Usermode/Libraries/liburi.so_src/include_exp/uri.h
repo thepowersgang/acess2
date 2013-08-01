@@ -29,11 +29,11 @@ struct sURIHandler
 	char	*Name;
 	 int	BlockSize;
 	
-	 int	(*Open)(char *Host, int Port, char *Path, int Flags);
-	void	(*Close)(int Handle);
-	size_t	(*Read)(int Handle, size_t Bytes, void *Buffer);
-	size_t	(*Write)(int Handle, size_t Bytes, void *Buffer);
-	size_t	(*GetSize)(int Handle);
+	void*	(*Open)(const char *Host, int Port, const char *Path, int Flags);
+	void	(*Close)(void *Handle);
+	size_t	(*Read)(void *Handle, size_t Bytes, void *Buffer);
+	size_t	(*Write)(void *Handle, size_t Bytes, const void *Buffer);
+	off_t	(*GetSize)(void *Handle);
 };
 
 // === FUNCTIONS ===

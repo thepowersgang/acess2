@@ -19,7 +19,6 @@
 // === IMPORTS ===
 extern void	Desctab_Init(void);
 extern void	MM_InitVirt(void);
-extern void	Heap_Install(void);
 extern int	Time_Setup(void);
 
 extern char	gKernelEnd[];

@@ -217,12 +217,12 @@ typedef struct sVideo_IOCtl_Pos
  */
 typedef struct sVideo_IOCtl_Bitmap
 {
-	Sint16	W;	//!< Width of image
-	Sint16	H;	//!< Height of image
+	Uint16	W;	//!< Width of image
+	Uint16	H;	//!< Height of image
 	Sint16	XOfs;	//!< X Offset of center
 	Sint16	YOfs;	//!< Y Offset of center
 	Uint32	Data[];	//!< Image data (ARGB array)
-}	tVideo_IOCtl_Bitmap;
+} PACKED	tVideo_IOCtl_Bitmap;
 
 /**
  * \brief Virtual Terminal Representation of a character

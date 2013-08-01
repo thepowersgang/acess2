@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 extern int	giSyscall_ClientID;
 extern void	Request_Preinit(void);
@@ -19,13 +20,28 @@ int DllMain(void)
 #endif
 
 #ifdef __linux__
-int __attribute__ ((constructor)) libacessnative_init(void);
+int __attribute__ ((constructor(102))) libacessnative_init(int argc, char *argv[], char **envp);
 
-int libacessnative_init(void)
+const char *getenv_p(char **envp, const char *name)
+{
+	size_t	namelen = strlen(name);
+	for(; *envp; envp ++)
+	{
+		if( strncmp(*envp, name, namelen) != 0 )
+			continue ;
+		if( (*envp)[namelen] != '=' )
+			continue ;
+		return (*envp)+namelen+1;
+	}
+	return 0;
+}
+
+int libacessnative_init(int argc, char *argv[], char **envp)
 {
 	Request_Preinit();
-
-	const char *preopens = getenv("AN_PREOPEN");
+	
+	const char *preopens = getenv_p(envp, "AN_PREOPEN");
+	printf("preopens = %s\n", preopens);
 	if( preopens )
 	{
 		while( *preopens )

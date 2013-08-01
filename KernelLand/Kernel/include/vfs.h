@@ -496,12 +496,17 @@ extern int	VFS_MarkError(tVFS_Node *Node, BOOL IsErrorState);
  * fast cleanup when a filesystem is unmounted.
  * \{
  */
+
+typedef struct sInodeCache	tInodeCache;
+
+typedef void	(*tInode_CleanUpNode)(tVFS_Node *Node);
+
 /**
  * \fn int Inode_GetHandle(void)
  * \brief Gets a unique handle to the Node Cache
  * \return A unique handle for use for the rest of the Inode_* functions
  */
-extern int	Inode_GetHandle(void);
+extern tInodeCache	*Inode_GetHandle(tInode_CleanUpNode CleanUpNode);
 /**
  * \fn tVFS_Node *Inode_GetCache(int Handle, Uint64 Inode)
  * \brief Gets an inode from the node cache
@@ -509,7 +514,7 @@ extern int	Inode_GetHandle(void);
  * \param Inode	Value of the Inode field of the ::tVFS_Node you want
  * \return A pointer to the cached node
  */
-extern tVFS_Node	*Inode_GetCache(int Handle, Uint64 Inode);
+extern tVFS_Node	*Inode_GetCache(tInodeCache *Handle, Uint64 Inode);
 /**
  * \fn tVFS_Node *Inode_CacheNode(int Handle, tVFS_Node *Node)
  * \brief Caches a node in the Node Cache
@@ -517,7 +522,8 @@ extern tVFS_Node	*Inode_GetCache(int Handle, Uint64 Inode);
  * \param Node	A pointer to the node to be cached (a copy is taken)
  * \return A pointer to the node in the node cache
  */
-extern tVFS_Node	*Inode_CacheNode(int Handle, tVFS_Node *Node);
+extern tVFS_Node	*Inode_CacheNode(tInodeCache *Handle, tVFS_Node *Node);
+extern tVFS_Node	*Inode_CacheNodeEx(tInodeCache *Handle, tVFS_Node *Node, size_t Size);
 /**
  * \fn int Inode_UncacheNode(int Handle, Uint64 Inode)
  * \brief Dereferences (and removes if needed) a node from the cache
@@ -525,13 +531,13 @@ extern tVFS_Node	*Inode_CacheNode(int Handle, tVFS_Node *Node);
  * \param Inode	Value of the Inode field of the ::tVFS_Node you want to remove
  * \return -1: Error (not present), 0: Not freed, 1: Freed
  */
-extern int	Inode_UncacheNode(int Handle, Uint64 Inode);
+extern int	Inode_UncacheNode(tInodeCache *Handle, Uint64 Inode);
 /**
  * \fn void Inode_ClearCache(int Handle)
  * \brief Clears the cache for a handle
  * \param Handle	A handle returned by Inode_GetHandle()
  */
-extern void	Inode_ClearCache(int Handle);
+extern void	Inode_ClearCache(tInodeCache *Handle);
 
 /**
  * \}

@@ -1,0 +1,19 @@
+VirtualBox BochsGA->VGA Translation (From DevVGA.cpp)
+- Assuming non 4bpp mode
+
+GR[0x06].3,2,0 = 0,1,1          	Miscellaneous Graphics Register	Mem Map = 64K@A0000, AlphaNum Disable)
+CR[0x17].1,0 = 1,1			CRTC Mode Control Register	MAP14,MAP13
+CR[0x13] = vbe_line_offset / 8		Offset Register 	(aka Pitch)
+CR[0x01] = virtual_width / 8 - 1	End Horizontal Display Register
+CR[0x12] = height			Virtical Display End Register
+CR[0x07].6,2 = height >> 8		Overflow Register [VDE9,VDE8]
+CR[0x18] = 0xFF				Line Compare Register
+CR[0x07].4 = 1				Overflow Register [LC8]
+CR[0x09].6 = 1				Maximum Scan Line Register [LC9]
+
+SR[4].3 = 1				Sequencer Memory Mode	Chain 4 Enable
+SR[2].3,2,1,0 = 1,1,1,1			Map Mask Register	All planes enabled
+SR[7].0 = 1				NON-VGA
+
+GR[0x05].6-5 = 2			Graphics Mode Register	256 color shift mode
+CR[0x09].7,4-0 = 0,0			Maximum Scan Line Register [SD=0,MSL=0]

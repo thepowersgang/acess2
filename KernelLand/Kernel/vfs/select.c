@@ -113,6 +113,7 @@ int VFS_SelectNode(tVFS_Node *Node, int TypeFlags, tTime *Timeout, const char *N
 		if( !(TypeFlags & (1 << type)) )	continue;
 		VFS_int_Select_GetType(type, Node, &list, &flag, &wanted, &maxAllowed);
 		LOG("VFS_int_Select_RemThread()");
+		ASSERT(*list);
 		VFS_int_Select_RemThread(*list, thisthread);
 		ret = ret || *flag == wanted;
 	}
@@ -446,7 +447,6 @@ int VFS_int_Select_AddThread(tVFS_SelectList *List, tThread *Thread, int MaxAllo
 
 void VFS_int_Select_RemThread(tVFS_SelectList *List, tThread *Thread)
 {
-	 int	i;
 	tVFS_SelectListEnt	*block, *prev = NULL;
 	
 	ENTER("pList pThread", List, Thread);
@@ -459,7 +459,7 @@ void VFS_int_Select_RemThread(tVFS_SelectList *List, tThread *Thread)
 	// Look for the thread
 	do
 	{
-		for( i = 0; i < NUM_THREADS_PER_ALLOC; i ++ )
+		for( int i = 0; i < NUM_THREADS_PER_ALLOC; i ++ )
 		{
 			if( block->Threads[i] == Thread )
 			{

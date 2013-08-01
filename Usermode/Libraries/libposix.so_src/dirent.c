@@ -9,6 +9,7 @@
 #include <stddef.h>	// NULL
 #include <acess/sys.h>
 #include <errno.h>
+#include <stdlib.h>
 
 struct DIR_s
 {
@@ -24,9 +25,10 @@ DIR *fdopendir(int fd)
 	if( _SysFInfo(fd, &info, 0) != 0 )
 		return NULL;
 
-	
-
-	return NULL;
+	DIR	*ret = malloc(sizeof(DIR));
+	ret->fd = fd;
+	ret->pos = 0;
+	return ret;
 }
 
 DIR *opendir(const char *name)
@@ -48,6 +50,8 @@ int closedir(DIR *dp)
 		errno = EINVAL;
 		return -1;
 	}
+	_SysClose(dp->fd);
+	free(dp);
 	return 0;
 }
 

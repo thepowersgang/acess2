@@ -2,8 +2,8 @@
  * Acess2 Logical Volume Manager
  * - By John Hodge (thePowersGang)
  *
- * lvm.h
- * - LVM Core definitions
+ * main.c
+ * - LVM Core Code
  */
 #define DEBUG	0
 #define VERSION	VER2(0,1)
@@ -111,6 +111,8 @@ int LVM_Cleanup(void)
 		Mutex_Acquire(&vol->VolNode.Lock);
 		if( vol->Type->Cleanup )
 			vol->Type->Cleanup( vol->Ptr );
+		if( vol->CacheHandle )
+			IOCache_Destroy(vol->CacheHandle);
 		LOG("Removed volume %s", vol->Name);
 		free(vol);
 	}

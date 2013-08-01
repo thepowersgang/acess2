@@ -35,7 +35,7 @@ int main(int argc, char *argv[], const char **envp)
 	AxWin3_Connect(NULL);
 	
 	// --- Build up window
-	gMainWindow = AxWin3_RichText_CreateWindow(NULL, 0);
+	gMainWindow = AxWin3_RichText_CreateWindow(NULL, AXWIN3_RICHTEXT_READONLY);
 	AxWin3_SetWindowTitle(gMainWindow, "Terminal");	// TODO: Update title with other info
 
 	gMenuWindow = AxWin3_Menu_Create(gMainWindow);
@@ -62,7 +62,7 @@ int main(int argc, char *argv[], const char **envp)
 	AxWin3_FocusWindow(gMainWindow);
 
 	// Create PTY
-	giPTYHandle = _SysOpen("/Devices/pts/gui0", OPENFLAG_READ|OPENFLAG_WRITE|OPENFLAG_CREATE);
+	giPTYHandle = _SysOpen("/Devices/pts/ptmx", OPENFLAG_READ|OPENFLAG_WRITE);
 	if( giPTYHandle < 0 ) {
 		perror("Unable to create/open PTY");
 		_SysDebug("Unable to create/open PTY: %s", strerror(errno));
@@ -70,6 +70,7 @@ int main(int argc, char *argv[], const char **envp)
 	}
 	// - Initialise
 	{
+		_SysIOCtl(giPTYHandle, PTY_IOCTL_SETID, "gui0");
 		struct ptymode	mode = {.InputMode = PTYIMODE_CANON|PTYIMODE_ECHO, .OutputMode=0};
 		struct ptydims	dims = {.W = 80, .H = 25};
 		_SysIOCtl(giPTYHandle, PTY_IOCTL_SETMODE, &mode);
@@ -78,7 +79,7 @@ int main(int argc, char *argv[], const char **envp)
 
 	// Spawn shell
 	{
-		 int	fd = _SysOpen("/Devices/pts/gui0c", OPENFLAG_READ|OPENFLAG_WRITE);
+		 int	fd = _SysOpen("/Devices/pts/gui0", OPENFLAG_READ|OPENFLAG_WRITE);
 		 int	fds[] = {fd, fd, fd};
 		const char	*argv[] = {"CLIShell", NULL};
 		int pid = _SysSpawn("/Acess/Bin/CLIShell", argv, envp, 3, fds, NULL);

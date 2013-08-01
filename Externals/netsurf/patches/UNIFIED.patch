@@ -1,0 +1,110 @@
+diff -ru .orig/netsurf-full-3.0//src/libcss-0.2.0/src/parse/language.c netsurf-full-3.0//src/libcss-0.2.0/src/parse/language.c
+--- .orig/netsurf-full-3.0//src/libcss-0.2.0/src/parse/language.c	2013-04-20 02:40:31.000000000 +0800
++++ netsurf-full-3.0//src/libcss-0.2.0/src/parse/language.c	2013-07-01 22:22:45.238691285 +0800
+@@ -357,7 +357,7 @@
+ 	context_entry entry = { CSS_PARSER_START_ATRULE, NULL };
+ 	const css_token *token = NULL;
+ 	const css_token *atkeyword = NULL;
+-	int32_t ctx = 0;
++	int ctx = 0;
+ 	bool match = false;
+ 	css_rule *rule;
+ 	css_error error;
+diff -ru .orig/netsurf-full-3.0//src/libcss-0.2.0/src/parse/parse.c netsurf-full-3.0//src/libcss-0.2.0/src/parse/parse.c
+--- .orig/netsurf-full-3.0//src/libcss-0.2.0/src/parse/parse.c	2013-04-20 02:40:31.000000000 +0800
++++ netsurf-full-3.0//src/libcss-0.2.0/src/parse/parse.c	2013-07-01 22:22:45.238691285 +0800
+@@ -2597,7 +2597,7 @@
+  */
+ void unref_interned_strings_in_tokens(css_parser *parser)
+ {
+-        int32_t ctx = 0;
++        int ctx = 0;
+         const css_token *tok;
+         
+         while ((tok = parserutils_vector_iterate(
+diff -ru .orig/netsurf-full-3.0//src/libcss-0.2.0/src/parse/properties/utils.c netsurf-full-3.0//src/libcss-0.2.0/src/parse/properties/utils.c
+--- .orig/netsurf-full-3.0//src/libcss-0.2.0/src/parse/properties/utils.c	2013-04-20 02:40:31.000000000 +0800
++++ netsurf-full-3.0//src/libcss-0.2.0/src/parse/properties/utils.c	2013-07-01 22:22:45.242699089 +0800
+@@ -993,7 +993,7 @@
+  * \return CSS_OK      on success,
+  *         CSS_INVALID on encountering an unknown keyword
+  */
+-css_error css__parse_unit_keyword(const char *ptr, size_t len, uint32_t *unit)
++css_error css__parse_unit_keyword(const char *ptr, size_t len, css_unit *unit)
+ {
+ 	if (len == 4) {
+ 		if (strncasecmp(ptr, "grad", 4) == 0)
+diff -ru .orig/netsurf-full-3.0//src/libcss-0.2.0/src/parse/properties/utils.h netsurf-full-3.0//src/libcss-0.2.0/src/parse/properties/utils.h
+--- .orig/netsurf-full-3.0//src/libcss-0.2.0/src/parse/properties/utils.h	2013-04-20 02:40:31.000000000 +0800
++++ netsurf-full-3.0//src/libcss-0.2.0/src/parse/properties/utils.h	2013-07-01 22:22:45.242699089 +0800
+@@ -179,7 +179,7 @@
+ 		css_fixed *length, uint32_t *unit);
+ 
+ css_error css__parse_unit_keyword(const char *ptr, size_t len, 
+-		uint32_t *unit);
++		css_unit *unit);
+ 
+ css_error css__ident_list_or_string_to_string(css_language *c,
+ 		const parserutils_vector *vector, int *ctx,
+diff -ru .orig/netsurf-full-3.0//src/libdom-0.0.1/Makefile netsurf-full-3.0//src/libdom-0.0.1/Makefile
+--- .orig/netsurf-full-3.0//src/libdom-0.0.1/Makefile	2013-04-19 00:18:13.000000000 +0800
++++ netsurf-full-3.0//src/libdom-0.0.1/Makefile	2013-07-01 22:22:45.242699089 +0800
+@@ -15,10 +15,6 @@
+ WARNFLAGS := -Wall -W -Wundef -Wpointer-arith -Wcast-align \
+ 	-Wwrite-strings -Wstrict-prototypes -Wmissing-prototypes \
+ 	-Wmissing-declarations -Wnested-externs
+-# BeOS/Haiku standard library headers generate warnings
+-ifneq ($(TARGET),beos)
+-  WARNFLAGS := $(WARNFLAGS) -Werror
+-endif
+ # AmigaOS needs this to avoid warnings
+ ifeq ($(TARGET),amiga)
+   CFLAGS := -U__STRICT_ANSI__ $(CFLAGS)
+diff -ru .orig/netsurf-full-3.0//src/libdom-0.0.1/Makefile.config netsurf-full-3.0//src/libdom-0.0.1/Makefile.config
+--- .orig/netsurf-full-3.0//src/libdom-0.0.1/Makefile.config	2013-04-19 00:18:13.000000000 +0800
++++ netsurf-full-3.0//src/libdom-0.0.1/Makefile.config	2013-07-01 22:25:00.398701310 +0800
+@@ -3,7 +3,7 @@
+ # Build the libxml2 binding?
+ # yes | no
+ WITH_LIBXML_BINDING := no
+-WITH_EXPAT_BINDING := yes
++WITH_EXPAT_BINDING := no
+ 
+ # Build the hubbub binding?
+ # yes | no
+diff -ru .orig/netsurf-full-3.0//src/libparserutils-0.1.2/include/parserutils/utils/vector.h netsurf-full-3.0//src/libparserutils-0.1.2/include/parserutils/utils/vector.h
+--- .orig/netsurf-full-3.0//src/libparserutils-0.1.2/include/parserutils/utils/vector.h	2013-04-20 02:06:57.000000000 +0800
++++ netsurf-full-3.0//src/libparserutils-0.1.2/include/parserutils/utils/vector.h	2013-07-01 22:22:45.242699089 +0800
+@@ -33,9 +33,9 @@
+ parserutils_error parserutils_vector_get_length(parserutils_vector *vector, size_t *length);
+ 
+ const void *parserutils_vector_iterate(const parserutils_vector *vector, 
+-		int32_t *ctx);
++		int *ctx);
+ const void *parserutils_vector_peek(const parserutils_vector *vector,
+-		int32_t ctx);
++		int ctx);
+ 
+ #ifdef __cplusplus
+ }
+diff -ru .orig/netsurf-full-3.0//src/libparserutils-0.1.2/src/utils/vector.c netsurf-full-3.0//src/libparserutils-0.1.2/src/utils/vector.c
+--- .orig/netsurf-full-3.0//src/libparserutils-0.1.2/src/utils/vector.c	2013-04-20 02:06:57.000000000 +0800
++++ netsurf-full-3.0//src/libparserutils-0.1.2/src/utils/vector.c	2013-07-01 22:22:45.246689992 +0800
+@@ -195,7 +195,7 @@
+  * \note The value pointed to by \a ctx must be zero to begin the iteration.
+  */
+ const void *parserutils_vector_iterate(const parserutils_vector *vector, 
+-		int32_t *ctx)
++		int *ctx)
+ {
+ 	void *item;
+ 
+@@ -220,7 +220,7 @@
+  * \return Pointer to item, or NULL if no more
+  */
+ const void *parserutils_vector_peek(const parserutils_vector *vector, 
+-		int32_t ctx)
++		int ctx)
+ {
+ 	if (vector == NULL || vector->current_item < 0)
+ 		return NULL;

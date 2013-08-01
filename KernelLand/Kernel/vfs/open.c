@@ -706,7 +706,8 @@ int VFS_OpenInode(Uint32 Mount, Uint64 Inode, int Mode)
 	
 	// Does the filesystem support this?
 	if( !mnt->Filesystem->GetNodeFromINode ) {
-		LOG("Filesystem does not support inode accesses");
+		Log_Notice("VFS", "Filesystem '%s' does not support inode accesses",
+			mnt->Filesystem->Name);
 		errno = ENOENT;
 		LEAVE_RET('i', -1);
 	}

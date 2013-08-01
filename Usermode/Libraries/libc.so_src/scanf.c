@@ -326,11 +326,11 @@ int _vcscanf(int (*__getc)(void*), void (*__rewind)(void*), void *h, const char 
 			valtype = _VCSCANF_NOTYPE;
 			break;
 		// match a set of characters
-		case '[':
-			fch = *format++;
-			if( fch == '^' ) {
+		case '[': {
+			int invert = 0;
+			if( *format++ == '^' ) {
 				// Invert
-				fch = *format;
+				invert = 1;
 			}
 			set_start = format;
 			set_len = 0;
@@ -344,7 +344,7 @@ int _vcscanf(int (*__getc)(void*), void (*__rewind)(void*), void *h, const char 
 			if( maxlen == 0 )
 				maxlen = -1;
 			ich = 0;
-			while( maxlen -- && (ich = __getc(h)) && memchr(set_start, set_len, ich) )
+			while( maxlen -- && (ich = __getc(h)) && invert == !memchr(set_start, set_len, ich) )
 			{
 				if(ptr._char)	*ptr._char++ = ich;
 				nch ++;
@@ -354,6 +354,7 @@ int _vcscanf(int (*__getc)(void*), void (*__rewind)(void*), void *h, const char 
 			if(ptr._char)	*ptr._char++ = 0;
 			valtype = _VCSCANF_NOTYPE;
 			break;
+			}
 		case 'p': // read back printf("%p")
 			valtype = _VCSCANF_NOTYPE;
 			break;

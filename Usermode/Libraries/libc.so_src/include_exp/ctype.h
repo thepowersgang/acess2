@@ -27,6 +27,11 @@ static inline int toupper(int ch) {
 		return ch - 'a' + 'A';
 	return ch;
 }
+static inline int tolower(int ch) {
+	if('A'<=ch && ch <='Z')
+		return ch - 'A' + 'a';
+	return ch;
+}
 
 static inline int isspace(int ch) {
 	if(ch == ' ')	return 1;

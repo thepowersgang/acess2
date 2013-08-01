@@ -72,6 +72,10 @@ void SyscallHandler(tSyscallRegs *Regs)
 	
 	// -- Put the current thread to sleep
 	case SYS_SLEEP:	Threads_Sleep();	break;
+
+	case SYS_TIMEDSLEEP:
+		Time_Delay(Regs->Arg1);
+		break;
 	
 	// -- Yield current timeslice
 	case SYS_YIELD:	Threads_Yield();	break;
@@ -315,14 +319,10 @@ void SyscallHandler(tSyscallRegs *Regs)
 		else
 		{
 			// Sanity check the paths
-			if(!Syscall_ValidString((char*)Regs->Arg1)
-			|| !Syscall_ValidString((char*)Regs->Arg2)
-			|| (Regs->Arg3 && !Syscall_ValidString((char*)Regs->Arg3))
-			|| !Syscall_ValidString((char*)Regs->Arg4) ) {
-				err = -EINVAL;
-				ret = -1;
-				break;
-			}
+			CHECK_STR_NONULL((char*)Regs->Arg1);
+			CHECK_STR_NONULL((char*)Regs->Arg2);
+			CHECK_STR_NULLOK((char*)Regs->Arg3);
+			CHECK_STR_NONULL((char*)Regs->Arg4);
 			ret = VFS_Mount(
 				(char*)Regs->Arg1,	// Device
 				(char*)Regs->Arg2,	// Mount point
@@ -355,7 +355,17 @@ void SyscallHandler(tSyscallRegs *Regs)
 			0	// User handles
 			);
 		break;
+
 	
+	// Create a directory
+	case SYS_MKDIR:
+		CHECK_STR_NONULL( (char*)Regs->Arg1 );
+		ret = VFS_MkDir( (char*)Regs->Arg1 );
+		break;
+	
+	case SYS_UNLINK:
+		Log_Error("Syscalls", "TODO: Impliment SYS_UNLINK");
+		// Fall
 	// -- Debug
 	//#if DEBUG_BUILD
 	case SYS_DEBUG:

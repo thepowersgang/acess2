@@ -16,6 +16,8 @@ _miscargs=""
 _compile=0
 _linktype=Applications
 
+echo [GCCProxy] $* >&2
+
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 	-E)
@@ -65,6 +67,14 @@ while [[ $# -gt 0 ]]; do
 		echo $0 --inv=ld
 		exit 0
 		;;
+	-dumpspecs)
+		_compile=1
+		_miscargs=$_miscargs" $1"
+		;;
+	-dumpversion)
+		_compile=1
+		_miscargs=$_miscargs" $1"
+		;;
 	*)
 		_miscargs=$_miscargs" $1"
 		;;
@@ -81,6 +91,7 @@ run() {
 }
 
 _ldflags="-lposix -lpsocket "$_ldflags
+_cflags=$_cflags" -fno-omit-frame-pointer"
 
 cfgfile=`mktemp`
 make --no-print-directory -f $BASEDIR/getconfig.mk ARCH=x86 TYPE=$_linktype > $cfgfile
@@ -89,8 +100,21 @@ rm $cfgfile
 
 #echo "_compile = $_compile, _preproc = $_preproc"
 
+if [[ "x$_verarg" != "x" ]]; then
+	if [[ "x$_actas" == "xld" ]]; then
+		run $_LD $_miscargs $_verarg
+	else
+		run $_CC $_miscargs $_verarg
+	fi
+	exit $?
+fi
+
 if [[ "x$_actas" == "xld" ]]; then
-	run $_LD $LDFLAGS $_ldflags $_outfile $_miscargs $LIBGCC_PATH $_libs
+	if echo "$_miscargs" | grep '\.o\|\.a'; then
+		run $_LD $LDFLAGS $_ldflags $_outfile $_miscargs $LIBGCC_PATH $_libs
+	else
+		run $_LD $_miscargs $_verarg
+	fi
 	exit $?
 fi
 

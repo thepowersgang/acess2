@@ -215,7 +215,7 @@ int PCI_ScanBus(int BusID, int bFill)
 			}
 			giPCI_DeviceCount ++;
 			
-			switch(devInfo.ConfigCache[3] & 0x007F0000)
+			switch( (devInfo.ConfigCache[3] >> 16) & 0x7F )
 			{
 			case 0x00:	// Normal device
 				break;
@@ -463,6 +463,17 @@ void PCI_ConfigWrite(tPCIDev ID, int Offset, int Size, Uint32 Value)
 	PCI_CfgWriteDWord(addr, dword);
 }
 
+Uint16 PCI_SetCommand(tPCIDev id, Uint16 SBits, Uint16 CBits)
+{
+	tPCIDevice	*dev = &gPCI_Devices[id];
+	dev->ConfigCache[1] &= ~CBits;
+	dev->ConfigCache[1] |= SBits;
+	Uint32 addr = PCI_int_GetBusAddr(dev->bus, dev->slot, dev->fcn, 1*4);
+	PCI_CfgWriteDWord(addr, dev->ConfigCache[1]);
+	dev->ConfigCache[1] = PCI_CfgReadDWord(addr);
+	return dev->ConfigCache[1];
+}
+
 /**
  * \brief Get the IRQ assigned to a device
  */
@@ -484,6 +495,57 @@ Uint32 PCI_GetBAR(tPCIDev id, int BARNum)
 	if(BARNum < 0 || BARNum >= 6)
 		return 0;
 	return gPCI_Devices[id].ConfigCache[4+BARNum];
+}
+
+/**
+ */
+Uint64 PCI_GetValidBAR(tPCIDev ID, int BARNum, tPCI_BARType Type)
+{
+	if( ID < 0 || ID >= giPCI_DeviceCount )
+		return 0;
+	if( BARNum < 0 || BARNum >= 6 )
+		return 0;
+	tPCIDevice	*dev = &gPCI_Devices[ID];
+	Uint32	bar_val = dev->ConfigCache[4+BARNum];
+	Uint64	ret = -1;
+	switch( Type )
+	{
+	case PCI_BARTYPE_IO:
+		if( !(bar_val & 1) )
+			return 0;
+		ret = bar_val & ~3;
+		break;
+
+	case PCI_BARTYPE_MEMNP:
+		if( bar_val & 8 )	return 0;
+		if(0)	
+	case PCI_BARTYPE_MEMP:
+		if( !(bar_val & 8) )	return 0;
+	case PCI_BARTYPE_MEM:
+		if( bar_val & 1 )	return 0;
+		if( (bar_val & 6) == 4 ) {
+			ASSERTCR(BARNum, <, 5, 0);
+			ret = (bar_val & ~0xF) | ((Uint64)dev->ConfigCache[4+BARNum+1] << 32);
+		}
+		else {
+			ret = bar_val & ~0xF;
+		}
+		break;
+	case PCI_BARTYPE_MEM32:
+		if( bar_val & 1 )	return 0;
+		if( (bar_val & 6) != 0 )	return 0;
+		ret = bar_val & ~0xF;
+		break;
+	case PCI_BARTYPE_MEM64:
+		if( bar_val & 1 )	return 0;
+		if( (bar_val & 6) != 4 )	return 0;
+		ASSERTCR(BARNum, <, 5, 0);
+		ret = (bar_val & ~0xF) | ((Uint64)dev->ConfigCache[4+BARNum+1] << 32);
+		break;
+	}
+	ASSERT(ret != -1);
+	ASSERT(ret);
+	return ret;
 }
 
 /**

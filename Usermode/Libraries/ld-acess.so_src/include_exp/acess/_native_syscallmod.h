@@ -5,9 +5,9 @@
 #define _SysWaitEvent	acess__SysWaitEvent
 #define _SysWaitTID	acess__SysWaitTID
 #define gettid	acess_gettid
-#define getpid	acess_getpid
-#define getuid	acess_getuid
-#define getgid	acess_getgid
+#define _SysGetPID	acess__SysGetPID
+#define _SysGetUID	acess__SysGetUID
+#define _SysGetGID	acess__SysGetGID
 #define setuid	acess_setuid
 #define setgid	acess_setgid
 #define _SysSetName	acess__SysSetName
@@ -28,6 +28,8 @@
 #define _SysOpen	acess__SysOpen
 #define _SysOpenChild	acess__SysOpenChild
 #define _SysReopen	acess__SysReopen
+#define _SysCopyFD	acess__SysCopyFD
+#define _SysFDFlags	acess__SysFDFlags
 #define _SysClose	acess__SysClose
 #define _SysRead	acess__SysRead
 #define _SysWrite	acess__SysWrite
@@ -40,6 +42,7 @@
 #define _SysIOCtl	acess__SysIOCtl
 #define _SysMount	acess__SysMount
 #define _SysSelect	acess__SysSelect
+#define _SysMkDir	acess__SysMkDir
 #define _SysUnlink	acess__SysUnlink
 
 #define _errno	acess__errno

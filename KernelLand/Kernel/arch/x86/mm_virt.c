@@ -17,6 +17,7 @@
 #include <proc.h>
 #include <hal_proc.h>
 #include <arch_int.h>
+#include <semaphore.h>
 
 #define TAB	22
 
@@ -97,6 +98,7 @@ tPAddr	MM_DuplicatePage(tVAddr VAddr);
 #define gaPAE_TmpPDPT	((tTabEnt*)PAE_TMP_PDPT_ADDR)
  int	gbUsePAE = 0;
 tMutex	glTempMappings;
+tSemaphore	gTempMappingsSem;
 tMutex	glTempFractal;
 Uint32	gWorkerStacks[(NUM_WORKER_STACKS+31)/32];
  int	giLastUsedWorker = 0;
@@ -117,6 +119,8 @@ void MM_PreinitVirtual(void)
 {
 	gaInitPageDir[ PAGE_TABLE_ADDR >> 22 ] = ((tTabEnt)&gaInitPageDir - KERNEL_BASE) | 3;
 	INVLPG( PAGE_TABLE_ADDR );
+	
+	Semaphore_Init(&gTempMappingsSem, NUM_TEMP_PAGES, NUM_TEMP_PAGES, "MMVirt", "Temp Mappings");
 }
 
 /**
@@ -414,7 +418,7 @@ void MM_Deallocate(tVAddr VAddr)
  * \fn tPAddr MM_GetPhysAddr(tVAddr Addr)
  * \brief Checks if the passed address is accesable
  */
-tPAddr MM_GetPhysAddr(const void *Addr)
+tPAddr MM_GetPhysAddr(volatile const void *Addr)
 {
 	tVAddr	addr = (tVAddr)Addr;
 	if( !(gaPageDir[addr >> 22] & 1) )
@@ -980,32 +984,29 @@ tPAddr MM_DuplicatePage(tVAddr VAddr)
  */
 void * MM_MapTemp(tPAddr PAddr)
 {
-	 int	i;
-	
 	//ENTER("XPAddr", PAddr);
 	
 	PAddr &= ~0xFFF;
 	
 	//LOG("glTempMappings = %i", glTempMappings);
 	
-	for(;;)
+	if( Semaphore_Wait(&gTempMappingsSem, 1) != 1 )
+		return NULL;
+	Mutex_Acquire( &glTempMappings );
+	for( int i = 0; i < NUM_TEMP_PAGES; i ++ )
 	{
-		Mutex_Acquire( &glTempMappings );
-		
-		for( i = 0; i < NUM_TEMP_PAGES; i ++ )
-		{
-			// Check if page used
-			if(gaPageTable[ (TEMP_MAP_ADDR >> 12) + i ] & 1)	continue;
-			// Mark as used
-			gaPageTable[ (TEMP_MAP_ADDR >> 12) + i ] = PAddr | 3;
-			INVLPG( TEMP_MAP_ADDR + (i << 12) );
-			//LEAVE('p', TEMP_MAP_ADDR + (i << 12));
-			Mutex_Release( &glTempMappings );
-			return (void*)( TEMP_MAP_ADDR + (i << 12) );
-		}
+		// Check if page used
+		if(gaPageTable[ (TEMP_MAP_ADDR >> 12) + i ] & 1)	continue;
+		// Mark as used
+		gaPageTable[ (TEMP_MAP_ADDR >> 12) + i ] = PAddr | 3;
+		INVLPG( TEMP_MAP_ADDR + (i << 12) );
+		//LEAVE('p', TEMP_MAP_ADDR + (i << 12));
 		Mutex_Release( &glTempMappings );
-		Threads_Yield();	// TODO: Use a sleep queue here instead
+		return (void*)( TEMP_MAP_ADDR + (i << 12) );
 	}
+	Mutex_Release( &glTempMappings );
+	Log_KernelPanic("MMVirt", "Semaphore suplied a mapping, but none are avaliable");
+	return NULL;
 }
 
 /**
@@ -1017,8 +1018,10 @@ void MM_FreeTemp(void *VAddr)
 	 int	i = (tVAddr)VAddr >> 12;
 	//ENTER("xVAddr", VAddr);
 	
-	if(i >= (TEMP_MAP_ADDR >> 12))
+	if(i >= (TEMP_MAP_ADDR >> 12)) {
 		gaPageTable[ i ] = 0;
+		Semaphore_Signal(&gTempMappingsSem, 1);
+	}
 	
 	//LEAVE('-');
 }
@@ -1027,14 +1030,19 @@ void MM_FreeTemp(void *VAddr)
  * \fn tVAddr MM_MapHWPages(tPAddr PAddr, Uint Number)
  * \brief Allocates a contigous number of pages
  */
-tVAddr MM_MapHWPages(tPAddr PAddr, Uint Number)
+void *MM_MapHWPages(tPAddr PAddr, Uint Number)
 {
-	 int	i, j;
+	 int	j;
 	
 	PAddr &= ~0xFFF;
-	
+
+	if( PAddr < 1024*1024 && (1024*1024-PAddr) >= Number * PAGE_SIZE )
+	{
+		return (void*)(KERNEL_BASE + PAddr);
+	}
+
 	// Scan List
-	for( i = 0; i < NUM_HW_PAGES; i ++ )
+	for( int i = 0; i < NUM_HW_PAGES; i ++ )
 	{		
 		// Check if addr used
 		if( gaPageTable[ (HW_MAP_ADDR >> 12) + i ] & 1 )
@@ -1054,7 +1062,7 @@ tVAddr MM_MapHWPages(tPAddr PAddr, Uint Number)
 				MM_RefPhys( PAddr + (j<<12) );
 				gaPageTable[ (HW_MAP_ADDR >> 12) + i + j ] = (PAddr + (j<<12)) | 3;
 			}
-			return HW_MAP_ADDR + (i<<12);
+			return (void*)(HW_MAP_ADDR + (i<<12));
 		}
 	}
 	// If we don't find any, return NULL
@@ -1069,10 +1077,10 @@ tVAddr MM_MapHWPages(tPAddr PAddr, Uint Number)
  * \param PhysAddr	Pointer to the location to place the physical address allocated
  * \return Virtual address allocate
  */
-tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
+void *MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 {
 	tPAddr	phys;
-	tVAddr	ret;
+	void	*ret;
 	
 	ENTER("iPages iMaxBits pPhysAddr", Pages, MaxBits, PhysAddr);
 	
@@ -1101,7 +1109,7 @@ tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 			return 0;
 		}
 		LEAVE('x', ret);
-		return ret;
+		return (void*)ret;
 	}
 	
 	// Slow Allocate
@@ -1125,7 +1133,7 @@ tVAddr MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 	if( PhysAddr )
 		*PhysAddr = phys;
 	LEAVE('x', ret);
-	return ret;
+	return (void*)ret;
 }
 
 /**
@@ -1137,7 +1145,11 @@ void MM_UnmapHWPages(tVAddr VAddr, Uint Number)
 	 int	i, j;
 	
 	//Log_Debug("VirtMem", "MM_UnmapHWPages: (VAddr=0x%08x, Number=%i)", VAddr, Number);
-	
+
+	//
+	if( KERNEL_BASE <= VAddr && VAddr < KERNEL_BASE + 1024*1024 )
+		return ;	
+
 	// Sanity Check
 	if(VAddr < HW_MAP_ADDR || VAddr+Number*0x1000 > HW_MAP_MAX)	return;
 	

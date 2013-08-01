@@ -10,17 +10,13 @@
 #include <axwin3/menu.h>
 #include <axwin3/richtext.h>
 #include <stdio.h>
+#include "include/common.h"
 #include "strings.h"
 
 // === PROTOTYPES ===
  int	main(int argc, char *argv[]);
  int	TextArea_KeyHandler(tHWND Window, int bPress, uint32_t KeySym, uint32_t Translated);
  int	TextArea_MouseHandler(tHWND Window, int bPress, int Button, int Row, int Col);
-void	add_toolbar_button(tAxWin3_Widget *Toolbar, const char *Ident, tAxWin3_Widget_FireCb Callback);
- int	Toolbar_New(tAxWin3_Widget *Widget);
- int	Toolbar_Open(tAxWin3_Widget *Widget);
- int	Toolbar_Save(tAxWin3_Widget *Widget);
- int	Toolbar_Close(tAxWin3_Widget *Widget);
 
 // === GLOBALS ===
 tHWND	gMainWindow;
@@ -46,25 +42,11 @@ int main(int argc, char *argv[])
 	// Create toolbar
 	gMainWindow_Toolbar = AxWin3_Widget_AddWidget(gMainWindow_Root,
 		ELETYPE_TOOLBAR, ELEFLAG_NOSTRETCH, "Toolbar");
-	add_toolbar_button(gMainWindow_Toolbar, "BtnNew", Toolbar_New);
-	add_toolbar_button(gMainWindow_Toolbar, "BtnOpen", Toolbar_Open);
-	add_toolbar_button(gMainWindow_Toolbar, "BtnSave", Toolbar_Save);
-	add_toolbar_button(gMainWindow_Toolbar, "BtnClose", Toolbar_Close);
-	AxWin3_Widget_AddWidget(gMainWindow_Toolbar, ELETYPE_SPACER, ELEFLAG_NOSTRETCH, "");
-	add_toolbar_button(gMainWindow_Toolbar, "BtnUndo", NULL);
-	add_toolbar_button(gMainWindow_Toolbar, "BtnRedo", NULL);
-	AxWin3_Widget_AddWidget(gMainWindow_Toolbar, ELETYPE_SPACER, ELEFLAG_NOSTRETCH, "");
-	add_toolbar_button(gMainWindow_Toolbar, "BtnCut", NULL);
-	add_toolbar_button(gMainWindow_Toolbar, "BtnCopy", NULL);
-	add_toolbar_button(gMainWindow_Toolbar, "BtnPaste", NULL);
-	AxWin3_Widget_AddWidget(gMainWindow_Toolbar, ELETYPE_SPACER, ELEFLAG_NOSTRETCH, "");
-	add_toolbar_button(gMainWindow_Toolbar, "BtnSearch", NULL);
-	add_toolbar_button(gMainWindow_Toolbar, "BtnReplace", NULL);
+	Toolbar_Init(gMainWindow_Toolbar);
 
 	// TODO: Tab control?	
 
 	gMainWindow_TextArea = AxWin3_RichText_CreateWindow(gMainWindow, 0);
-	AxWin3_Widget_AddWidget_SubWindow(gMainWindow_Root, gMainWindow_TextArea, 0, "TextArea");
 	AxWin3_RichText_SetKeyHandler	(gMainWindow_TextArea, TextArea_KeyHandler);
 	AxWin3_RichText_SetMouseHandler	(gMainWindow_TextArea, TextArea_MouseHandler);
 	AxWin3_RichText_SetBackground	(gMainWindow_TextArea, 0xFFFFFF);
@@ -77,15 +59,17 @@ int main(int argc, char *argv[])
 	// <testing>
 	AxWin3_RichText_SetLineCount(gMainWindow_TextArea, 3);
 	AxWin3_RichText_SendLine(gMainWindow_TextArea, 0, "First line!");
-	AxWin3_RichText_SendLine(gMainWindow_TextArea, 2, "Third line! \x01""ff0000red\x01""00ff00green");
+	AxWin3_RichText_SendLine(gMainWindow_TextArea, 2, "Third line! \001ff0000red\00100ff00green");
 	// </testing>
 
+	AxWin3_Widget_AddWidget_SubWindow(gMainWindow_Root, gMainWindow_TextArea, 0, "TextArea");
 	AxWin3_ShowWindow(gMainWindow_TextArea, 1);
 	// TODO: Status Bar?
 
 	AxWin3_MoveWindow(gMainWindow, 50, 50);
 	AxWin3_ShowWindow(gMainWindow, 1);
 	AxWin3_FocusWindow(gMainWindow);
+	AxWin3_FocusWindow(gMainWindow_TextArea);
 	
 	// Main loop
 	AxWin3_MainLoop();
@@ -102,42 +86,6 @@ int TextArea_KeyHandler(tHWND Window, int bPress, uint32_t KeySym, uint32_t Tran
 
 int TextArea_MouseHandler(tHWND Window, int bPress, int Button, int Row, int Col)
 {
-	return 0;
-}
-
-void add_toolbar_button(tAxWin3_Widget *Toolbar, const char *Ident, tAxWin3_Widget_FireCb Callback)
-{
-	tAxWin3_Widget *btn = AxWin3_Widget_AddWidget(Toolbar, ELETYPE_BUTTON, ELEFLAG_NOSTRETCH, Ident);
-	const char *img = getimg(Ident);
-	if( img )
-	{
-		tAxWin3_Widget *txt = AxWin3_Widget_AddWidget(btn, ELETYPE_IMAGE, 0, Ident);
-		AxWin3_Widget_SetText(txt, img);
-		// TODO: tooltip?
-	}
-	else
-	{
-		tAxWin3_Widget *txt = AxWin3_Widget_AddWidget(btn, ELETYPE_TEXT, 0, Ident);
-		AxWin3_Widget_SetText(txt, getstr(Ident));
-	}
-	AxWin3_Widget_SetFireHandler(btn, Callback);
-}
-
-int Toolbar_New(tAxWin3_Widget *Widget)
-{
-	return 0;
-}
-int Toolbar_Open(tAxWin3_Widget *Widget)
-{
-	return 0;
-}
-int Toolbar_Save(tAxWin3_Widget *Widget)
-{
-	return 0;
-}
-int Toolbar_Close(tAxWin3_Widget *Widget)
-{
-	AxWin3_StopMainLoop(1);
 	return 0;
 }
 

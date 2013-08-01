@@ -53,6 +53,8 @@ void VT_int_SetCursorBitmap(tVTerm *Term, int W, int H)
 	}
 	Term->VideoCursor->W = W;
 	Term->VideoCursor->H = H;
+	Term->VideoCursor->XOfs = 0;
+	Term->VideoCursor->YOfs = 0;
 }
 
 size_t VT_int_FillCursorBitmap(tVTerm *Term, size_t DataOfs, size_t Length, const void *Data)

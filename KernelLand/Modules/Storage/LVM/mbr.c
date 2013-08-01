@@ -73,6 +73,14 @@ int LVM_MBR_CountSubvolumes(tLVM_Vol *Volume, void *FirstSector)
 			numPartitions ++;
 		}
 	}
+	// Detect the GPT protector
+	if( extendedLBA == 0 && numPartitions == 1 && MBR->Parts[0].SystemID == 0xEE )
+	{
+		// TODO: Hand off to GPT parsing code
+		Log_Warning("LBA MBR", "TODO: Hand off to GPT");
+	}
+	
+	// Handle extended partions
 	while(extendedLBA != 0)
 	{
 		extendedLBA = LVM_MBR_int_ReadExt(Volume, extendedLBA, &base, &len);
