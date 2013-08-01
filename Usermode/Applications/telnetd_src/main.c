@@ -12,11 +12,21 @@
 #include <acess/sys.h>
 
 // === TYPES ===
+enum eTelnetMode
+{
+	MODE_DATA,
+	MODE_IAC,
+	MODE_WILL,
+	MODE_WONT,
+	MODE_DO,
+	MODE_DONT
+};
+
 typedef struct sClient
 {
+	enum eTelnetMode	Mode;
 	 int	Socket;
-	 int	stdout;
-	 int	stdin;
+	 int	pty;
 } tClient;
 
 // === PROTOTYPES ===
@@ -76,10 +86,10 @@ void EventLoop(void)
 		for( int i = 0; i < giConfig_MaxClients; i ++ )
 		{
 			if( gaClients[i].Socket == 0 )	continue ;
-			_SysDebug("Socket = %i, stdout = %i",
-				gaClients[i].Socket, gaClients[i].stdout);
+			_SysDebug("Socket = %i, pty = %i",
+				gaClients[i].Socket, gaClients[i].pty);
 			FD_SET_MAX(&fds, gaClients[i].Socket, &maxfd);
-			FD_SET_MAX(&fds, gaClients[i].stdout,  &maxfd);
+			FD_SET_MAX(&fds, gaClients[i].pty,  &maxfd);
 		}
 		
 		// Select!
@@ -97,7 +107,7 @@ void EventLoop(void)
 				// Handle client data
 				HandleServerBoundData(&gaClients[i]);
 			}
-			if( FD_ISSET(gaClients[i].stdout, &fds) )
+			if( FD_ISSET(gaClients[i].pty, &fds) )
 			{
 				// Handle output from terminal
 				HandleClientBoundData(&gaClients[i]);
@@ -131,25 +141,108 @@ void Server_NewClient(int FD)
 	giNumClients ++;
 	
 	// Create stdin/stdout
-	clt->stdin = _SysOpen("/Devices/fifo/anon", OPENFLAG_READ|OPENFLAG_WRITE);
-	clt->stdout = _SysOpen("/Devices/fifo/anon", OPENFLAG_READ|OPENFLAG_WRITE);
+	// - Current PTY code is strange with mknod
+	clt->pty = _SysOpen("/Devices/pts/telnetd0", OPENFLAG_CREATE|OPENFLAG_READ|OPENFLAG_WRITE);
+	if( clt->pty < 0 ) {
+		perror("Unable to open server PTY");
+		_SysClose(clt->Socket);
+		clt->Socket = 0;
+		return ;
+	}
 	
 	// TODO: Arguments and envp
 	{
-		int fds[3] = {clt->stdin, clt->stdout, clt->stdout};
-		const char	*argv[] = {NULL};
+		 int	clientfd = _SysOpen("/Devices/pts/telnetd0c", OPENFLAG_READ|OPENFLAG_WRITE);
+		if(clientfd < 0) {
+			perror("Unable to open login PTY");
+			_SysClose(clt->Socket);
+			_SysClose(clt->pty);
+			clt->Socket = 0;
+			return ;
+		}
+		int fds[3] = {clientfd, clientfd, clientfd};
+		const char	*argv[] = {"login", NULL};
 		_SysSpawn("/Acess/SBin/login", argv, argv, 3, fds, NULL);
 	}
 }
 
 void HandleServerBoundData(tClient *Client)
 {
-	char	buf[BUFSIZ];
-	 int	len;
+	uint8_t	buf[BUFSIZ];
+	size_t	len;
 	
 	len = _SysRead(Client->Socket, buf, BUFSIZ);
-	if( len <= 0 )	return ;
-	_SysWrite(Client->stdin, buf, len);
+	if( len == 0 )	return ;
+	if( len == -1 ) {
+		return ;
+	}
+	// handle options
+	 int	last_flush = 0;
+	for( int i = 0; i < len; i ++ )
+	{
+		switch(Client->Mode)
+		{
+		case MODE_IAC:
+			Client->Mode = MODE_DATA;
+			switch(buf[i])
+			{
+			case 240:	// End of subnegotiation parameters
+			case 241:	// Nop
+				break;
+			case 242:	// SYNCH
+			case 243:	// NVT Break
+			case 244:	// Function 'IP' (Ctrl-C)
+				
+				break;
+			case 245:	// Function 'AO'
+			case 246:	// Function 'AYT'
+			case 247:	// Function 'EC'
+			case 248:	// Function 'EL'
+			case 249:	// GA Signal
+			case 250:	// Subnegotation
+				break;
+			case 251:	// WILL
+				Client->Mode = MODE_WILL;
+				break;
+			case 252:	// WONT
+				Client->Mode = MODE_WILL;
+				break;
+			case 253:	// DO
+				Client->Mode = MODE_WILL;
+				break;
+			case 254:	// DONT
+				Client->Mode = MODE_WILL;
+				break;
+			case 255:	// Literal 255
+				Client->Mode = MODE_DATA;
+				i --;	// hacky!
+				break;
+			}
+			break;
+		case MODE_WILL:
+			_SysDebug("Option %i WILL", buf[i]);
+			Client->Mode = MODE_DATA;
+			break;
+		case MODE_WONT:
+			_SysDebug("Option %i WONT", buf[i]);
+			Client->Mode = MODE_DATA;
+			break;
+		case MODE_DO:
+			_SysDebug("Option %i DO", buf[i]);
+			Client->Mode = MODE_DATA;
+			break;
+		case MODE_DONT:
+			_SysDebug("Option %i DONT", buf[i]);
+			Client->Mode = MODE_DATA;
+			break;
+		case MODE_DATA:
+			if( buf[i] == 255 )
+				Client->Mode = MODE_IAC;
+			else
+				_SysWrite(Client->pty, buf+i, 1);
+			break;
+		}
+	}
 }
 
 void HandleClientBoundData(tClient *Client)
@@ -157,7 +250,7 @@ void HandleClientBoundData(tClient *Client)
 	char	buf[BUFSIZ];
 	 int	len;
 	
-	len = _SysRead(Client->stdout, buf, BUFSIZ);
+	len = _SysRead(Client->pty, buf, BUFSIZ);
 	if( len <= 0 )	return ;
 	_SysWrite(Client->Socket, buf, len);
 }
