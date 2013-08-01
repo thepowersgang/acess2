@@ -29,9 +29,12 @@ int main(int argc, char *argv[])
 		for(;;)
 		{
 			sUsername = GetUsername();
-			if(!sUsername)	continue;
+			if(!sUsername || !sUsername[0])	continue;
 			sPassword = GetPassword();
-			if(!sPassword)	continue;
+			if(!sPassword) {
+				free(sUsername);
+				continue;
+			}
 			if( (uid = ValidateUser(sUsername, sPassword)) == -1 )
 			{
 				printf("\nInvalid username or password\n");
@@ -65,6 +68,7 @@ int main(int argc, char *argv[])
 		// Clear graphics mode	
 		struct ptymode	mode = {.InputMode = PTYIMODE_ECHO|PTYIMODE_CANON,.OutputMode=0};
 		_SysIOCtl(0, PTY_IOCTL_SETMODE, &mode);
+		fprintf(stderr, "\x1b[R");
 	}
 	
 	return 0;
@@ -117,7 +121,7 @@ char *_GetString(int bEcho)
 		mode.InputMode |= PTYIMODE_ECHO;
 		_SysIOCtl(0, PTY_IOCTL_SETMODE, &mode);
 	}
-	
+
 	return strdup(ret);
 }
 
