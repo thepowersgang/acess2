@@ -1,0 +1,3 @@
+[submodule "Externals/libspiderscript/source"]
+	path = Externals/libspiderscript/source
+	url = git://git.mutabah.net/spiderscript.git
