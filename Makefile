@@ -14,48 +14,55 @@ USRLIBS := crt0.o acess.ld ld-acess.so libc.so libposix.so
 USRLIBS += libreadline.so libnet.so liburi.so libpsocket.so
 USRLIBS += libimage_sif.so libunicode.so
 
+EXTLIBS := libspiderscript
+# zlib libpng
+
 USRAPPS := init login CLIShell cat ls mount automounter
 USRAPPS += bomb lspci
 USRAPPS += ip dhcpclient ping telnet irc wget telnetd
 USRAPPS += axwin3 gui_ate gui_shell
 
-ALL_DYNMODS = $(addprefix all-,$(DYNMODS))
-ALL_MODULES := $(addprefix all-,$(MODULES))
-ALL_USRLIBS := $(addprefix all-,$(USRLIBS))
-ALL_USRAPPS := $(addprefix all-,$(USRAPPS))
-CLEAN_DYNMODS := $(addprefix clean-,$(DYNMODS))
-CLEAN_MODULES := $(addprefix clean-,$(MODULES))
-CLEAN_USRLIBS := $(addprefix clean-,$(USRLIBS))
-CLEAN_USRAPPS := $(addprefix clean-,$(USRAPPS))
-INSTALL_DYNMODS := $(addprefix install-,$(DYNMODS))
-INSTALL_MODULES := $(addprefix install-,$(MODULES))
-INSTALL_USRLIBS := $(addprefix install-,$(USRLIBS))
-INSTALL_USRAPPS := $(addprefix install-,$(USRAPPS))
-AI_DYNMODS := $(addprefix allinstall-,$(DYNMODS))
-AI_MODULES := $(addprefix allinstall-,$(MODULES))
-AI_USRLIBS := $(addprefix allinstall-,$(USRLIBS))
-AI_USRAPPS := $(addprefix allinstall-,$(USRAPPS))
+define targetclasses
+ AI_$1      := $$(addprefix allinstall-,$$($1))
+ ALL_$1     := $$(addprefix all-,$$($1))
+ CLEAN_$1   := $$(addprefix clean-,$$($1))
+ INSTALL_$1 := $$(addprefix install-,$$($1))
+endef
+
+$(eval $(call targetclasses,DYNMODS))
+$(eval $(call targetclasses,MODULES))
+$(eval $(call targetclasses,USRLIBS))
+$(eval $(call targetclasses,EXTLIBS))
+$(eval $(call targetclasses,USRAPPS))
+
+targetvars := $$(AI_$1) $$(ALL_$1) $$(CLEAN_$1) $$(INSTALL_$1)
 
 .PHONY: all clean install \
-	kmode all-kmode clean-kmode \
-	all-user clean-user \
-	utest mtest \
-	$(ALL_MODULES) all-Kernel $(ALL_USRLIBS) $(ALL_USRAPPS) \
-	$(AI_MODULES) allinstall-Kernel $(AI_USRLIBS) $(AI_USRAPPS) \
-	$(CLEAN_MODULES) clean-Kernel $(CLEAN_USRLIBS) $(CLEAN_USRAPPS) \
-	$(INSTALL_MODULES) install-Kernel $(INSTALL_USRLIBS) $(INSTALL_USRAPPS)
+	ai-kmode all-kmode clean-kmode install-kmode \
+	ai-user all-user clean-user install-user \
+	utest mtest
 
-kmode:	$(AI_MODULES) $(AI_DYNMODS) allinstall-Kernel
-all-kmode:	$(ALL_MODULES) $(ALL_DYNMODS) all-Kernel
+.PHONY: allinstall-Kernel all-Kernel clean-Kernel install-Kernel \
+	$(call targetvars,DYNMODS) \
+	$(call targetvars,MODULES) \
+	$(call targetvars,USRLIBS) \
+	$(call targetvars,EXTLIBS) \
+	$(call targetvars,USRAPPS)
+
+ai-kmode:	$(AI_MODULES) allinstall-Kernel $(AI_DYNMODS)
+all-kmode:	$(ALL_MODULES) all-Kernel $(ALL_DYNMODS)
 clean-kmode:	$(CLEAN_MODULES) $(CLEAN_DYNMODS) clean-Kernel
+install-kmode:	$(INSTALL_MODULES) install-Kernel $(INSTALL_DYNMODS)
 
-all-user: $(ALL_USRLIBS) $(ALL_USRAPPS)
-clean-user: $(CLEAN_USRLIBS) $(CLEAN_USRAPPS)
+ai-user:	$(AI_USRLIBS) $(AI_EXTLIBS) $(AI_USRAPPS)
+all-user:	$(ALL_USRLIBS) $(ALL_EXTLIBS) $(ALL_USRAPPS)
+clean-user:	$(CLEAN_USRLIBS) $(CLEAN_EXTLIBS) $(CLEAN_USRAPPS)
+install-user:	$(INSTALL_USRLIBS) $(INSTALL_EXTLIBS) $(INSTALL_USRAPPS)
 
-all:	SyscallList $(ALL_USRLIBS) $(ALL_USRAPPS) $(ALL_MODULES) all-Kernel $(ALL_DYNMODS)
-all-install:	install-Filesystem SyscallList $(AI_USRLIBS) $(AI_USRAPPS) $(AI_MODULES) allinstall-Kernel $(AI_DYNMODS)
-clean:	$(CLEAN_DYNMODS) $(CLEAN_MODULES) clean-Kernel $(CLEAN_USRLIBS) $(CLEAN_USRAPPS)
-install:	install-Filesystem SyscallList $(INSTALL_USRLIBS) $(INSTALL_USRAPPS) $(INSTALL_DYNMODS) $(INSTALL_MODULES) install-Kernel
+all:	SyscallList all-user all-kmode
+all-install:	install-Filesystem SyscallList ai-user ai-kmode
+clean:	clean-kmode clean-user
+install:	install-Filesystem SyscallList install-user install-kmode
 
 utest: $(USRLIBS:%=utest-%)
 
@@ -75,57 +82,29 @@ _build_dynmod := BUILDTYPE=dynamic $(SUBMAKE) -C KernelLand/Modules/
 _build_stmod  := BUILDTYPE=static $(SUBMAKE) -C KernelLand/Modules/
 _build_kernel := $(SUBMAKE) -C KernelLand/Kernel
 
-# Compile Only
-$(ALL_DYNMODS): all-%:
-	+@echo === Dynamic Module: $* && $(_build_dynmod)$* all
-$(ALL_MODULES): all-%:
-	+@echo === Module: $* && $(_build_stmod)$* all
+define rules
+$$(ALL_$1): all-%:
+	+@echo === $2 && $3 all
+$$(AI_$1): allinstall-%:
+	+@echo === $2 && $3 all install
+$$(CLEAN_$1): clean-%:
+	+@echo === $2 && $3 clean
+$$(INSTALL_$1): install-%:
+	+@$3 install
+endef
+
+$(eval $(call rules,DYNMODS,Dynamic Module: $$*,$(_build_dynmod)$$*))
+$(eval $(call rules,MODULES,Module: $$*,$(_build_stmod)$$*))
+$(eval $(call rules,USRLIBS,User Library: $$*,$(SUBMAKE) -C Usermode/Libraries/$$*_src))
+$(eval $(call rules,EXTLIBS,External Library: $$*,$(SUBMAKE) -C Externals/$$*))
+$(eval $(call rules,USRAPPS,User Application: $$*,$(SUBMAKE) -C Usermode/Applications/$$*_src))
 all-Kernel:
 	+@echo === Kernel && $(_build_kernel) all
-$(ALL_USRLIBS): all-%:
-	+@echo === User Library: $* && $(SUBMAKE) all -C Usermode/Libraries/$*_src
-$(ALL_USRAPPS): all-%:
-	+@echo === User Application: $* && $(SUBMAKE) all -C Usermode/Applications/$*_src
-
-# Compile & Install
-$(AI_DYNMODS): allinstall-%:
-	+@echo === Dynamic Module: $* && $(_build_dynmod)$* all install
-$(AI_MODULES): allinstall-%:
-	+@echo === Module: $* && $(_build_stmod)$* all install
 allinstall-Kernel:
 	+@echo === Kernel && $(_build_kernel) all install
-$(AI_USRLIBS): allinstall-%:
-	+@echo === User Library: $* && $(SUBMAKE) all install -C Usermode/Libraries/$*_src
-$(AI_USRAPPS): allinstall-%:
-	+@echo === User Application: $* && $(SUBMAKE) all install -C Usermode/Applications/$*_src
-
-# Clean up compilation
-$(CLEAN_DYNMODS): clean-%:
-	+@$(_build_dynmod)$* clean
-$(CLEAN_MODULES): clean-%:
-	+@$(_build_stmod)$* clean
 clean-Kernel:
 	+@$(_build_kernel) clean
-$(CLEAN_USRLIBS): clean-%:
-	+@$(SUBMAKE) clean -C Usermode/Libraries/$*_src
-$(CLEAN_USRAPPS): clean-%:
-	+@$(SUBMAKE) clean -C Usermode/Applications/$*_src
-
-# Install
-ifeq ($(ARCH),host)
-install-%:
-	
-else
-$(INSTALL_DYNMODS): install-%:
-	@$(_build_dynmod)$* install
-$(INSTALL_MODULES): install-%:
-	@$(_build_stmod)$* install
-install-Filesystem:
-	@$(SUBMAKE) install -C Usermode/Filesystem
 install-Kernel:
 	@$(_build_kernel) install
-$(INSTALL_USRLIBS): install-%:
-	@$(SUBMAKE) install -C Usermode/Libraries/$*_src
-$(INSTALL_USRAPPS): install-%:
-	@$(SUBMAKE) install -C Usermode/Applications/$*_src
-endif
+install-Filesystem:
+	@$(SUBMAKE) install -C Usermode/Filesystem
