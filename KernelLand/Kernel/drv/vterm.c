@@ -98,7 +98,7 @@ int VT_Install(char **Arguments)
 				data[ val - arg ] = '\0';
 				val ++;
 			}
-			Log_Debug("VTerm", "Argument '%s'", arg);
+			Log_Debug("VTerm", "Argument '%s'='%s'", opt, val);
 			
 			if( strcmp(opt, "Video") == 0 ) {
 				if( !gsVT_OutputDevice )
