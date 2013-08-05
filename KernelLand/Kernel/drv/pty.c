@@ -532,6 +532,8 @@ _select:
 	Mutex_Acquire(&pty->InputMutex);
 	Length = _rb_read(pty->InputData, INPUT_RINGBUFFER_LEN, &pty->InputReadPos, &pty->InputWritePos,
 		Buffer, Length);
+	if( Length && pty->ServerNode )
+		VFS_MarkFull(pty->ServerNode, 0);
 	Mutex_Release(&pty->InputMutex);
 
 	if(pty->InputReadPos == pty->InputWritePos)
@@ -559,18 +561,28 @@ size_t PTY_WriteClient(tVFS_Node *Node, off_t Offset, size_t Length, const void 
 	}	
 
 	// Write to either FIFO or directly to output function
-	if( pty->OutputFcn )
-	{
+	if( pty->OutputFcn ) {
 		pty->OutputFcn(pty->OutputHandle, Length, Buffer);
+		return Length;
 	}
-	else
-	{
-		// Write to output ringbuffer
-		Length = _rb_write(pty->OutputData, OUTPUT_RINGBUFFER_LEN,
-			&pty->OutputReadPos, &pty->OutputWritePos,
-			Buffer, Length);
-		VFS_MarkAvaliable(pty->ServerNode, 1);
+	
+	// FIFO
+	tTime	timeout_z, *timeout = (Flags & VFS_IOFLAG_NOBLOCK) ? &timeout_z : NULL;
+	 int	rv;
+	
+	rv = VFS_SelectNode(Node, VFS_SELECT_WRITE, timeout, "PTY_WriteClient");
+	if(!rv ) {
+		errno = (timeout ? EWOULDBLOCK : EINTR);
+		return -1;
 	}
+	
+	// Write to output ringbuffer
+	Length = _rb_write(pty->OutputData, OUTPUT_RINGBUFFER_LEN,
+		&pty->OutputReadPos, &pty->OutputWritePos,
+		Buffer, Length);
+	VFS_MarkAvaliable(pty->ServerNode, 1);
+	if( (pty->OutputWritePos + 1) % OUTPUT_RINGBUFFER_LEN == pty->OutputReadPos )
+		VFS_MarkFull(Node, 1);
 	
 	return Length;
 }
@@ -605,6 +617,10 @@ void PTY_CloseClient(tVFS_Node *Node)
 size_t PTY_ReadServer(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer, Uint Flags)
 {
 	tPTY *pty = Node->ImplPtr;
+	if( !pty ) {
+		errno = EIO;
+		return -1;
+	}
 
 	// TODO: Prevent two servers fighting over client's output	
 	if( pty->OutputFcn )
@@ -634,7 +650,26 @@ size_t PTY_ReadServer(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer
 //\! Write to the client's input
 size_t PTY_WriteServer(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags)
 {
-	return PTY_SendInput(Node->ImplPtr, Buffer, Length);
+	tPTY	*pty = Node->ImplPtr;
+	if( !pty ) {
+		errno = EIO;
+		return -1;
+	}
+
+	tTime	timeout_z = 0, *timeout = (Flags & VFS_IOFLAG_NOBLOCK) ? &timeout_z : NULL;
+	int rv = VFS_SelectNode(Node, VFS_SELECT_WRITE, timeout, "PTY_WriteServer");
+	if(!rv) {
+		errno = (timeout ? EWOULDBLOCK : EINTR);
+		return -1;
+	}
+	size_t	used = 0;
+	do {
+		used += PTY_SendInput(Node->ImplPtr, Buffer, Length);
+	} while( used < Length && !(Flags & VFS_IOFLAG_NOBLOCK) );
+	
+	if( (pty->InputWritePos+1)%INPUT_RINGBUFFER_LEN == pty->InputReadPos )
+		VFS_MarkFull(Node, 1);
+	return used;
 }
 
 void PTY_CloseServer(tVFS_Node *Node)
