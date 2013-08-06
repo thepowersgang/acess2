@@ -249,14 +249,21 @@ Uint64 ATA_GetDiskSize(int Disk)
 	}
 
 	// Poll until BSY clears or ERR is set
+	tTime	endtime = now() + 2*1000;	// 2 second timeout
 	// TODO: Timeout?
-	while( (val & 0x80) && !(val & 1) )
+	while( (val & 0x80) && !(val & 1) && now() < endtime )
 		val = inb(base+7);
 	LOG("BSY unset (0x%x)", val);
 	// and, wait for DRQ to set
-	while( !(val & 0x08) && !(val & 1))
+	while( !(val & 0x08) && !(val & 1) && now() < endtime )
 		val = inb(base+7);
 	LOG("DRQ set (0x%x)", val);
+
+	if(now() >= endtime) {
+		Log_Warning("ATA", "Timeout on ATA IDENTIFY (Disk %i)", Disk);
+		LEAVE('i', 0);
+		return 0;
+	}
 
 	// Check for an error
 	if(val & 1) {
