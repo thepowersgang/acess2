@@ -6,6 +6,7 @@
  * - errno and strerror
  */
 #include "lib.h"
+#include <stdio.h>
 #include <errno.h>
 #include <acess/sys.h>
 #include <string.h>
@@ -60,5 +61,18 @@ EXPORT int strerror_r(int errnum, char *buf, size_t bufsiz)
 	
 	strncpy(buf, str, bufsiz);
 	return 0;
+}
+
+// stdio.h
+EXPORT void perror(const char *s)
+{
+	int err = errno;
+	if( s && s[0] ) {
+		fprintf(stderr, "%s: (%i) %s\n", s, err, strerror(err));
+	}
+	else {
+		fprintf(stderr, "(%i) %s\n", err, strerror(err));
+	}
+	_SysDebug("perror('%s'): %s (%i)", s, strerror(err), err);
 }
 

@@ -65,7 +65,7 @@ void	Redraw_Screen(void);
 
  int	ProcessIncoming(tServer *Server);
 // --- Helpers
- int	SetCursorPos(int Row, int Col);
+void	SetCursorPos(int Row, int Col);
  int	writef(int FD, const char *Format, ...);
  int	OpenTCP(const char *AddressString, short PortNumber);
 char	*GetValue(char *Str, int *Ofs);
@@ -103,6 +103,7 @@ int main(int argc, const char *argv[], const char *envp[])
 	
 	atexit(ExitHandler);
 	
+<<<<<<< HEAD
 	if( _SysIOCtl(1, DRV_IOCTL_TYPE, NULL) != DRV_TYPE_TERMINAL ) {
 		printf(stderr, "note: assuming 80x25, can't get terminal dimensions\n");
 		giTerminal_Width = 80;
@@ -111,6 +112,15 @@ int main(int argc, const char *argv[], const char *envp[])
 	else {
 		struct ptydims	dims;
 		_SysIOCtl(1, PTY_IOCTL_GETDIMS, &dims);
+=======
+	{
+		struct ptydims	dims;
+		if( _SysIOCtl(1, PTY_IOCTL_GETDIMS, &dims) ) {
+			perror("Can't get terminal dimensions");
+			return 1;
+		}
+		
+>>>>>>> e7a76b0d8a0cc6aa77966509780973a6f8216ef7
 		giTerminal_Width = dims.W;
 		giTerminal_Height = dims.H;
 	}
@@ -135,6 +145,7 @@ int main(int argc, const char *argv[], const char *envp[])
 	
 	SetCursorPos(giTerminal_Height-1, 0);
 	printf("[(status)] ");
+	fflush(stdout);
 	readline_info = Readline_Init(1);
 	
 	for( ;; )
@@ -156,7 +167,7 @@ int main(int argc, const char *argv[], const char *envp[])
 				maxFD = srv->FD;
 		}
 		
-		rv = select(maxFD+1, &readfds, 0, &errorfds, NULL);
+		rv = _SysSelect(maxFD+1, &readfds, 0, &errorfds, NULL, 0);
 		if( rv == -1 )	break;
 		
 		if(FD_ISSET(0, &readfds))
@@ -177,6 +188,7 @@ int main(int argc, const char *argv[], const char *envp[])
 					printf("[%s:%s] ", gpCurrentWindow->Server->Name, gpCurrentWindow->Name);
 				else
 					printf("[(status)] ");
+				fflush(stdout);
 			}
 		}
 		
@@ -387,16 +399,15 @@ tMessage *Message_AppendF(tServer *Server, int Type, const char *Source, const c
 
 tMessage *Message_Append(tServer *Server, int Type, const char *Source, const char *Dest, const char *Message)
 {
-	tMessage	*ret;
 	tWindow	*win = NULL;
 	 int	msgLen = strlen(Message);
 	
-	// NULL servers are internal messages
+	// Server==NULL indicates an internal message
 	if( Server == NULL || Source[0] == '\0' )
 	{
 		win = &gWindow_Status;
 	}
-	// Determine if it's a channel or PM message
+	// Determine if it's a channel or PM
 	else if( Dest[0] == '#' || Dest[0] == '&' )	// TODO: Better determining here
 	{
 		for(win = gpWindows; win; win = win->Next)
@@ -448,7 +459,10 @@ tMessage *Message_Append(tServer *Server, int Type, const char *Source, const ch
 			win = Window_Create(Server, Dest);
 		}
 	}
-	
+
+	// Create message cache	
+	_SysDebug("Win (%s) msg: <%s> %s", win->Name, Source, Message);
+	tMessage	*ret;
 	ret = malloc( sizeof(tMessage) + msgLen + 1 + strlen(Source) + 1 );
 	ret->Source = ret->Data + msgLen + 1;
 	strcpy(ret->Source, Source);
@@ -456,29 +470,28 @@ tMessage *Message_Append(tServer *Server, int Type, const char *Source, const ch
 	ret->Type = Type;
 	ret->Server = Server;
 	
-	// TODO: Append to window message list
+	// Append to window message list
 	ret->Next = win->Messages;
 	win->Messages = ret;
 	
-	//TODO: Set location
-	
+	// Print now if current window
+	if( win == gpCurrentWindow )
 	{
-		int pos = SetCursorPos(giTerminal_Height-2, 0);
-		if( win == gpCurrentWindow ) {
-			 int	prefixlen = strlen(Source) + 3;
-			 int	avail = giTerminal_Width - prefixlen;
-			 int	msglen = strlen(Message);
-			printf("\x1B[T");	// Scroll down 1 (free space below)
-			printf("[%s] %.*s\n", Source, avail, Message);
-			while( msglen > avail ) {
-				msglen -= avail;
-				Message += avail;
-				printf("\x1B[T");
-				SetCursorPos(giTerminal_Height-2, prefixlen);
-				printf("%.*s\n", avail, Message);
-			}
+		printf("\x1b[s");
+		SetCursorPos(giTerminal_Height-2, 0);
+		 int	prefixlen = strlen(Source) + 3;
+		 int	avail = giTerminal_Width - prefixlen;
+		 int	msglen = strlen(Message);
+		printf("\x1B[T");	// Scroll down 1 (free space below)
+		printf("[%s] %.*s\n", Source, avail, Message);
+		while( msglen > avail ) {
+			msglen -= avail;
+			Message += avail;
+			printf("\x1B[T");
+			SetCursorPos(giTerminal_Height-2, prefixlen);
+			printf("%.*s\n", avail, Message);
 		}
-		SetCursorPos(-1, pos);
+		printf("\x1b[u");
 	}
 	
 	return ret;
@@ -561,7 +574,7 @@ void ParseServerLine(tServer *Server, char *Line)
 	 int	pos = 0;
 	char	*ident, *cmd;
 
-	_SysDebug("[%s] %s", Server->Name, Line);	
+//	_SysDebug("[%s] %s", Server->Name, Line);	
 	
 	// Message?
 	if( *Line == ':' )
@@ -835,16 +848,9 @@ char *GetValue(char *Src, int *Ofs)
 	return ret;
 }
 
-int SetCursorPos(int Row, int Col)
+void SetCursorPos(int Row, int Col)
 {
-	 int	rv;
-	if( Row == -1 ) {
-		Row = Col / giTerminal_Width;
-		Col = Col % giTerminal_Width;
-	}
-	rv = _SysIOCtl(1, 9, NULL);	// Ugh, constants
 	printf("\x1B[%i;%iH", Col, Row);
-	return rv;
 }
 
 static inline int isdigit(int ch)

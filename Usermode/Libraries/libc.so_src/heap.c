@@ -94,13 +94,16 @@ EXPORT void *malloc(size_t bytes)
 			//Corrupt Heap
 			Heap_Dump();
 			_SysDebug("malloc: Corrupt Heap\n");
+			exit(128);
 			return NULL;
 		}
 		curBlock = (heap_head*)((uintptr_t)curBlock + curBlock->size);
 	}
 	
 	if((uintptr_t)curBlock < (uintptr_t)_heap_start) {
+		Heap_Dump();
 		_SysDebug("malloc: Heap underrun for some reason\n");
+		exit(128);
 		return NULL;
 	}
 	

@@ -66,7 +66,7 @@ int tcsetattr(int fd, int optional_actions, const struct termios *termios_p)
 		return -1;
 	}
 
-	struct ptymode	mode = {0};
+	struct ptymode	mode = {0,0};
 	
 	if(termios_p->c_lflag & ICANON)
 		mode.InputMode |= PTYIMODE_CANON;

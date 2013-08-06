@@ -11,9 +11,12 @@
 
 #include "../devices.h"
 
-#define PTYIMODE_CANON	0x001
-#define PTYIMODE_ECHO	0x002
-#define PTYIMODE_RAW	0x004
+#define PTYSFLAG_ILOCAL	0x001	//!< Input modes are handled in the server process
+#define PTYSFLAG_SMODE	0x002	//!< Inform server of mode changes by the user
+
+#define PTYIMODE_CANON	0x001	//!< Line-buffered input
+#define PTYIMODE_ECHO	0x002	//!< Echo input characters
+#define PTYIMODE_RAW	0x004	//!< Disable all input processing
 
 #define PTYOMODE_BUFFMT	0x003
 #define PTYBUFFMT_TEXT	 0x000
