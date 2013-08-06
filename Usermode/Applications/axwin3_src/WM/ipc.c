@@ -492,7 +492,7 @@ void IPC_Handle(tIPC_Client *Client, size_t MsgLen, tAxWin_IPCMessage *Msg)
 			_SysDebug("WARNING: Message %i has no handler in %s", Msg->ID, renderer->Name);
 			return ;
 		}
-		_SysDebug("IPC_Handle: Call %s-%i", renderer->Name, Msg->ID);
+		_SysDebug("IPC_Handle: Call %s-%i %ib", renderer->Name, Msg->ID, Msg->Size);
 		rv = renderer->IPCHandlers[Msg->ID](win, Msg->Size, Msg->Data);
 		if( rv )
 			_SysDebug("IPC_Handle: rv != 0 (%i)", rv);
@@ -511,7 +511,7 @@ void IPC_Handle(tIPC_Client *Client, size_t MsgLen, tAxWin_IPCMessage *Msg)
 			return ;
 		}
 	
-		_SysDebug("IPC_Handle: Call WM-%i", Msg->ID);
+		_SysDebug("IPC_Handle: Call WM-%i %ib", Msg->ID, Msg->Size);
 		rv = gIPC_MessageHandlers[Msg->ID](Client, Msg);
 		if( rv )
 			_SysDebug("IPC_Handle: rv != 0 (%i)", rv);

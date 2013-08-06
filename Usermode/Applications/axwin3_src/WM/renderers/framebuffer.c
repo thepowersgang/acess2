@@ -41,6 +41,7 @@ tWMRenderer	gRenderer_Framebuffer = {
 	.IPCHandlers = {
 		[IPC_FB_COMMIT] = _Handle_Commit,
 		[IPC_FB_NEWBUF] = _Handle_CreateBuf,
+		//[IPC_FB_SUBBUF] = _Handle_SubBuf,
 	}
 };
 

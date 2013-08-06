@@ -60,7 +60,16 @@ void WM_Initialise(void)
 
 void WM_RegisterRenderer(tWMRenderer *Renderer)
 {
-	// TODO: Catch out duplicates
+	// Catch out duplicates
+	for(tWMRenderer *r = gpWM_Renderers; r; r = r->Next ) {
+		if( r == Renderer ) {
+			return ;
+		}
+		if( strcmp(r->Name, Renderer->Name) == 0 ) {
+			return ;
+		}
+	}
+	
 	Renderer->Next = gpWM_Renderers;
 	gpWM_Renderers = Renderer;
 }
