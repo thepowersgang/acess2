@@ -7,6 +7,7 @@
 #include <string.h>
 #include <net.h>
 #include <readline.h>
+#include <acess/devices/pty.h>
 
 // === TYPES ===
 typedef struct sServer {
@@ -102,8 +103,17 @@ int main(int argc, const char *argv[], const char *envp[])
 	
 	atexit(ExitHandler);
 	
-	giTerminal_Width = _SysIOCtl(1, 5, NULL);	// getset_width
-	giTerminal_Height = _SysIOCtl(1, 6, NULL);	// getset_height
+	if( _SysIOCtl(1, DRV_IOCTL_TYPE, NULL) != DRV_TYPE_TERMINAL ) {
+		printf(stderr, "note: assuming 80x25, can't get terminal dimensions\n");
+		giTerminal_Width = 80;
+		giTerminal_Height = 25;
+	}
+	else {
+		struct ptydims	dims;
+		_SysIOCtl(1, PTY_IOCTL_GETDIMS, &dims);
+		giTerminal_Width = dims.W;
+		giTerminal_Height = dims.H;
+	}
 	
 	printf("\x1B[?1047h");
 	printf("\x1B[%i;%ir", 0, giTerminal_Height-1);
