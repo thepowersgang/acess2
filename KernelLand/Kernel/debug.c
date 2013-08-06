@@ -113,9 +113,13 @@ void Debug_FmtS(int bUseKTerm, const char *format, ...)
 
 void Debug_KernelPanic(void)
 {
-	#if LOCK_DEBUG_OUTPUT
-	SHORTREL(&glDebug_Lock);
-	#endif
+	if( !gbDebug_IsKPanic )
+	{
+		#if LOCK_DEBUG_OUTPUT
+		SHORTREL(&glDebug_Lock);
+		#endif
+		VT_SetTerminal(7);
+	}
 	gbDebug_IsKPanic ++;
 	KernelPanic_SetMode();
 }
