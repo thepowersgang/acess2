@@ -286,19 +286,19 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 		case DT_SYMTAB:
 			DEBUGS(" elf_relocate: DYNAMIC Symbol Table 0x%x (0x%x)",
 				dynamicTab[j].d_val, dynamicTab[j].d_val + iBaseDiff);
-			if(iBaseDiff != 0)	dynamicTab[j].d_val += iBaseDiff;
-			dynsymtab = (void*)(intptr_t)dynamicTab[j].d_val;
+			dynsymtab = (void*)((intptr_t)dynamicTab[j].d_val + iBaseDiff);
+			//if(iBaseDiff != 0)	dynamicTab[j].d_val += iBaseDiff;
 			break;
 		// --- String Table ---
 		case DT_STRTAB:
 			DEBUGS(" elf_relocate: DYNAMIC String Table 0x%x (0x%x)",
 				dynamicTab[j].d_val, dynamicTab[j].d_val + iBaseDiff);
-			if(iBaseDiff != 0)	dynamicTab[j].d_val += iBaseDiff;
-			dynstrtab = (void*)(intptr_t)dynamicTab[j].d_val;
+			dynstrtab = (void*)((intptr_t)dynamicTab[j].d_val + iBaseDiff);
+			//if(iBaseDiff != 0)	dynamicTab[j].d_val += iBaseDiff;
 			break;
 		// --- Hash Table --
 		case DT_HASH:
-			if(iBaseDiff != 0)	dynamicTab[j].d_val += iBaseDiff;
+			//if(iBaseDiff != 0)	dynamicTab[j].d_val += iBaseDiff;
 //			iSymCount = ((Elf32_Word*)(intptr_t)dynamicTab[j].d_val)[1];
 			break;
 		}
@@ -325,6 +325,7 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 		// --- Needed Library ---
 		case DT_NEEDED:
 			libPath = dynstrtab + dynamicTab[j].d_val;
+			DEBUGS(" dynstrtab = %p, d_val = 0x%x", dynstrtab, dynamicTab[j].d_val);
 			DEBUGS(" Required Library '%s'", libPath);
 			if(LoadLibrary(libPath, NULL, envp) == 0) {
 				#if DEBUG
@@ -506,14 +507,14 @@ int Elf32GetSymbol(void *Base, const char *Name, void **ret, size_t *Size)
 		{
 		// --- Symbol Table ---
 		case DT_SYMTAB:
-			symtab = (void*)(intptr_t) dynTab[i].d_val;	// Rebased in Relocate
+			symtab = (void*)((intptr_t)dynTab[i].d_val + iBaseDiff);	// Rebased in Relocate
 			break;
 		case DT_STRTAB:
-			dynstrtab = (void*)(intptr_t) dynTab[i].d_val;
+			dynstrtab = (void*)((intptr_t)dynTab[i].d_val + iBaseDiff);
 			break;
 		// --- Hash Table --
 		case DT_HASH:
-			pBuckets = (void*)(intptr_t) dynTab[i].d_val;
+			pBuckets = (void*)((intptr_t)dynTab[i].d_val + iBaseDiff);
 			break;
 		}
 	}
