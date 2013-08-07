@@ -103,7 +103,6 @@ int main(int argc, const char *argv[], const char *envp[])
 	
 	atexit(ExitHandler);
 	
-<<<<<<< HEAD
 	if( _SysIOCtl(1, DRV_IOCTL_TYPE, NULL) != DRV_TYPE_TERMINAL ) {
 		printf(stderr, "note: assuming 80x25, can't get terminal dimensions\n");
 		giTerminal_Width = 80;
@@ -112,15 +111,6 @@ int main(int argc, const char *argv[], const char *envp[])
 	else {
 		struct ptydims	dims;
 		_SysIOCtl(1, PTY_IOCTL_GETDIMS, &dims);
-=======
-	{
-		struct ptydims	dims;
-		if( _SysIOCtl(1, PTY_IOCTL_GETDIMS, &dims) ) {
-			perror("Can't get terminal dimensions");
-			return 1;
-		}
-		
->>>>>>> e7a76b0d8a0cc6aa77966509780973a6f8216ef7
 		giTerminal_Width = dims.W;
 		giTerminal_Height = dims.H;
 	}
