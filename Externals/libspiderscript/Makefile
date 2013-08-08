@@ -8,6 +8,8 @@ all: source/libspiderscript.so
 	
 clean:
 	CC=$(CC) make -C source/src clean
+	rm $(PREFIX)/include/spiderscript.h
+	rm $(EPREFIX)/lib/libspiderscript.so
 
 source/:
 	git submodule update source/
