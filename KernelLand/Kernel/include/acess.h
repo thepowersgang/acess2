@@ -22,6 +22,8 @@
 #define DEPRECATED	__attribute__((deprecated))
 //! Mark a parameter as unused
 #define UNUSED(x)	UNUSED_##x __attribute__((unused))
+//! 
+#define ALIGN(x)	__attribute__((aligned(x)))
 
 /**
  * \name Boolean constants
