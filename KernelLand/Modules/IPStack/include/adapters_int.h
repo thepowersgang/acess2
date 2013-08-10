@@ -23,7 +23,7 @@ struct sAdapter
 
 	tVFS_Node	Node;
 
-	char	HWAddr[];
+	Uint8	HWAddr[];
 };
 
 extern void	Adapter_SendPacket(tAdapter *Handle, tIPStackBuffer *Buffer);

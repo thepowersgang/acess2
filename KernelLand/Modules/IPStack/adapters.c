@@ -83,7 +83,13 @@ void *IPStack_Adapter_Add(const tIPStack_AdapterType *Type, void *Ptr, const voi
 	gpIP_AdapterList_Last->Next = ret;
 	gpIP_AdapterList_Last = ret;
 	Mutex_Release( &glIP_Adapters );
-	
+
+	Log_Log("IPStack", "Adapter %i: %s %02x:%02x:%02x:%02x:%02x:%02x",
+		ret->Index, Type->Name,
+		ret->HWAddr[0], ret->HWAddr[1], ret->HWAddr[2],
+		ret->HWAddr[3], ret->HWAddr[4], ret->HWAddr[5]
+		);
+
 	// Watch the adapter for incoming packets
 	void *worker = Proc_SpawnWorker(Adapter_int_WatchThread, ret);
 	if(!worker) {
