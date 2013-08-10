@@ -8,6 +8,13 @@
 #ifndef _PRO100_HW_H_
 #define _PRO100_HW_H_
 
+// Want at least 5 TX Buffer slots (for TCP)
+// - However, bounce buffers are annoying, so double that
+#define MIN_LOCAL_TXBUFS	5*2
+// - 16 bytes per TX header, plus 8 per buffer, want 16 byte alignment
+// - need to round up to multiple of 2
+#define NUM_LOCAL_TXBUFS	((MIN_LOCAL_TXBUFS+1)&~(2-1))
+
 enum ePro100_Regs {
 	REG_Status,
 	REG_Ack,
@@ -40,14 +47,14 @@ struct sCSR
 
 #define STATUS_RUS_MASK	0x003C	// Receive Unit Status
 #define STATUS_CUS_MASK	0x00C0	// Comamnd Unit Status
-#define STATUS_FCP	0x0100	// Flow Control Pause
-#define STATUS_ER	0x0200	// Early Recieve
-#define STATUS_SWI	0x0400	// Software Interrupt
-#define STATUS_MDI	0x0800	// Management Data Interrupt
-#define STATUS_RNR	0x1000	// Receive Not Ready
-#define STATUS_CNA	0x2000	// Command Unit not active
-#define STATUS_FR	0x4000	// Frame Recieved
-#define STATUS_CX	0x8000	// Command Unit executed
+#define ISR_FCP	0x01	// Flow Control Pause
+#define ISR_ER	0x02	// Early Recieve
+#define ISR_SWI	0x04	// Software Interrupt
+#define ISR_MDI	0x08	// Management Data Interrupt
+#define ISR_RNR	0x10	// Receive Not Ready
+#define ISR_CNA	0x20	// Command Unit not active
+#define ISR_FR	0x40	// Frame Recieved
+#define ISR_CX	0x80	// Command Unit executed
 
 #define CMD_RUC	0x0007
 #define CMD_CUC	0x00F0
@@ -95,25 +102,62 @@ enum eCommands {
 	CMD_Tx,
 };
 
-typedef struct sCommandUnit
+#define CMD_IOC	(1 << 13)	// Interrupt on completion
+#define CMD_Suspend	(1 << 14)	// Suspend upon completion
+#define CMD_EL	(1 << 15)	// Stop upon completion
+
+#define CU_Status_Complete	(1 << 15)
+
+typedef struct sCommandUnit	tCommandUnit;
+
+struct sCommandUnit
 {
 	Uint16	Status;
 	Uint16	Command;
-	Uint32	Link;
+	Uint32	Link;	// Relative to base
+} ALIGN(4);
+
+typedef struct sTXDescriptor	tTXDescriptor;
+typedef struct sTXBufDesc	tTXBufDesc;
+typedef struct sTXCommand	tTXCommand;
+
+// - Core TX Descriptor
+struct sTXDescriptor
+{
+	tCommandUnit	CU;
+	
+	Uint32	TBDArrayAddr;
+	Uint16	TCBBytes;
+	Uint8	TXThreshold;
+	Uint8	TBDCount;
+};
+
+// - TX Buffer descriptor (pointed to by TBDArrayAddr, or following sTXDescriptor)
+struct sTXBufDesc
+{
+	Uint32	Addr;
+	Uint16	Len;
+	Uint16	EndOfList;
+};
+
+// - TX Command block (used by static allocation)
+struct sTXCommand
+{
+	tTXDescriptor	Desc;
+	tTXBufDesc	LocalBufs[NUM_LOCAL_TXBUFS];
 };
 
 typedef struct sRXBuffer	tRXBuffer;
-
 struct sRXBuffer
 {
-	Uint16	Status;
-	Uint16	Command;
-	Uint32	Link;	// Base from RX base
+	// Status:
+	// - [1]: ???
+	tCommandUnit	CU;
 
 	Uint32	RXBufAddr;	// Unused according to qemu source
 	Uint16	Count;
 	Uint16	Size;
-} ALIGN(4);
+};
 
 #endif
 

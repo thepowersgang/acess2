@@ -10,6 +10,13 @@
 
 #include "pro100_hw.h"
 
+#include <semaphore.h>
+#include <mutex.h>
+
+#define NUM_RX	4
+#define RX_BUF_SIZE	((PAGE_SIZE/2)-sizeof(tRXBuffer))
+#define NUM_TX	(PAGE_SIZE/sizeof(tTXCommand))
+
 typedef struct sCard	tCard;
 
 struct sCard
@@ -22,7 +29,16 @@ struct sCard
 		Uint16	Words[3];	// Used to read the MAC from EEPROM
 	} MAC;
 
-	//tIPStackBuffer	*TXBuffers[NUM_TX];
+	 int	CurRXIndex;
+	tRXBuffer	*RXBufs[NUM_RX];
+	tSemaphore	RXSemaphore;
+
+	tSemaphore	TXCommandSem;
+	tMutex	lTXCommands;
+	 int	LastTXIndex;
+	 int	CurTXIndex;
+	tTXCommand	*TXCommands;
+	tIPStackBuffer	*TXBuffers[NUM_TX];
 };
 
 #endif
