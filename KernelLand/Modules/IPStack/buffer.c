@@ -33,6 +33,7 @@ tIPStackBuffer *IPStack_Buffer_CreateBuffer(int MaxBuffers)
 	tIPStackBuffer *ret;
 	
 	ret = malloc( sizeof(*ret) + MaxBuffers * sizeof(ret->SubBuffers[0]) );
+	ASSERTR(ret, NULL);
 	ret->MaxSubBufffers = MaxBuffers;
 	ret->nSubBuffers = 0;
 	ret->TotalLength = 0;
@@ -43,6 +44,7 @@ tIPStackBuffer *IPStack_Buffer_CreateBuffer(int MaxBuffers)
 
 void IPStack_Buffer_ClearBuffer(tIPStackBuffer *Buffer)
 {
+	ASSERT(Buffer);
 	IPStack_Buffer_LockBuffer(Buffer);
 	for( int i = 0; i < Buffer->nSubBuffers; i ++ )
 	{
@@ -61,6 +63,7 @@ void IPStack_Buffer_ClearBuffer(tIPStackBuffer *Buffer)
 
 void IPStack_Buffer_DestroyBuffer(tIPStackBuffer *Buffer)
 {
+	ASSERT(Buffer);
 	IPStack_Buffer_ClearBuffer(Buffer);
 	Buffer->MaxSubBufffers = 0;
 	free(Buffer);
@@ -68,10 +71,12 @@ void IPStack_Buffer_DestroyBuffer(tIPStackBuffer *Buffer)
 
 void IPStack_Buffer_LockBuffer(tIPStackBuffer *Buffer)
 {
+	ASSERT(Buffer);
 	Mutex_Acquire(&Buffer->lBufferLock);
 }
 void IPStack_Buffer_UnlockBuffer(tIPStackBuffer *Buffer)
 {
+	ASSERT(Buffer);
 	Mutex_Release(&Buffer->lBufferLock);
 }
 
@@ -80,6 +85,7 @@ void IPStack_Buffer_AppendSubBuffer(tIPStackBuffer *Buffer,
 	tIPStackBufferCb Cb, void *Arg
 	)
 {
+	ASSERT(Buffer);
 	if( Buffer->nSubBuffers == Buffer->MaxSubBufffers ) {
 		// Ah, oops?
 		Log_Error("IPStack", "Buffer %p only had %i sub-buffers allocated, which was not enough",
@@ -99,11 +105,13 @@ void IPStack_Buffer_AppendSubBuffer(tIPStackBuffer *Buffer,
 
 size_t IPStack_Buffer_GetLength(tIPStackBuffer *Buffer)
 {
+	ASSERT(Buffer);
 	return Buffer->TotalLength;
 }
 
 size_t IPStack_Buffer_GetData(tIPStackBuffer *Buffer, void *Dest, size_t MaxBytes)
 {
+	ASSERT(Buffer);
 	Uint8	*dest = Dest;
 	size_t	rem_space = MaxBytes;
 	size_t	len;
@@ -137,9 +145,8 @@ size_t IPStack_Buffer_GetData(tIPStackBuffer *Buffer, void *Dest, size_t MaxByte
 
 void *IPStack_Buffer_CompactBuffer(tIPStackBuffer *Buffer, size_t *Length)
 {
-	void	*ret;
-	
-	ret = malloc(Buffer->TotalLength);
+	ASSERT(Buffer);
+	void	*ret = malloc(Buffer->TotalLength);
 	if(!ret) {
 		*Length = 0;
 		return NULL;
@@ -154,6 +161,7 @@ void *IPStack_Buffer_CompactBuffer(tIPStackBuffer *Buffer, size_t *Length)
 
 int IPStack_Buffer_GetBuffer(tIPStackBuffer *Buffer, int Index, size_t *Length, const void **DataPtr)
 {
+	ASSERT(Buffer);
 	if( Index == -1 )	Index = 0;
 
 	if( Index >= Buffer->nSubBuffers*2 ) {
