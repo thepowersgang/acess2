@@ -93,7 +93,7 @@ void Link_SendPacket(tAdapter *Adapter, Uint16 Type, tMacAddr To, tIPStackBuffer
 	hdr->Dest = To;
 	memcpy(&hdr->Src, Adapter->HWAddr, 6);	// TODO: Remove hard coded 6
 	hdr->Type = htons(Type);
-	memset(hdr, 0, ofs+4);	// zero padding and checksum
+	memset(hdr+1, 0, ofs+4);	// zero padding and checksum
 
 	if( (Adapter->Type->Flags & ADAPTERFLAG_OFFLOAD_MAC) )
 		IPStack_Buffer_AppendSubBuffer(Buffer, sizeof(tEthernetHeader), ofs, hdr, NULL, NULL);
