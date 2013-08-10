@@ -9,10 +9,9 @@ QEMU_PARAMS=""
 QEMU_PARAMS=$QEMU_PARAMS" -hda AcessHDD.img"
 QEMU_PARAMS=$QEMU_PARAMS" -vga std"
 QEMU_PARAMS=$QEMU_PARAMS" -smp 2"
-QEMU_PARAMS=$QEMU_PARAMS" -net nic,model=e1000"
-#QEMU_PARAMS=$QEMU_PARAMS" -net nic,model=rtl8139"
 
 _NETTYPE="user,hostfwd=tcp::5555-:23"
+_NETMODEL=e1000
 
 _EVAL=eval
 
@@ -68,9 +67,15 @@ while [ $# -ne 0 ]; do
 	-nographic)
 		_NOGRAPHIC="yes"
 		;;
+	-netmodel)
+		shift
+		_NETMODEL=$1
+		;;
 	esac
 	shift
 done
+
+QEMU_PARAMS=$QEMU_PARAMS" -net nic,model="$_NETMODEL
 QEMU_PARAMS=$QEMU_PARAMS" -net "$_NETTYPE
 
 if [ "x$_NOUSB" != "xyes" ] ; then
@@ -82,17 +87,18 @@ if [ "x$_NOUSB" != "xyes" ] ; then
 	QEMU_PARAMS=$QEMU_PARAMS" -usbdevice keyboard"
 fi
 
+if [ "x$_NOTEE" = "xyes" ] ; then
+	_TEECMD=
+else
+	_TEECMD=" | tee QemuLog.txt"
+fi
+
 #	/home/tpg/apps/bin/qemu-system-x86_64 $QEMU_PARAMS -serial stdio -serial file:QemuLog.txt
 #	qemu-system-x86_64 $QEMU_PARAMS -serial stdio | tee QemuLog.txt
 #echo $QEMU $BOOTOPT $QEMU_PARAMS
 if [ "x$_NOGRAPHIC" = "xyes" ] ; then
-	$_EVAL $QEMU $BOOTOPT $QEMU_PARAMS -nographic | tee QemuLog.txt
+	$_EVAL $QEMU $BOOTOPT $QEMU_PARAMS -nographic $_TEECMD
 	exit
 fi
 
-if [ "x$_NOTEE" = "xyes" ] ; then
-	$_EVAL $QEMU $BOOTOPT $QEMU_PARAMS -serial stdio
-	exit
-fi
-
-$_EVAL $QEMU $BOOTOPT $QEMU_PARAMS -serial stdio | tee QemuLog.txt
+$_EVAL $QEMU $BOOTOPT $QEMU_PARAMS -serial stdio $_TEECMD
