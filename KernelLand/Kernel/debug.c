@@ -120,6 +120,9 @@ void Debug_KernelPanic(void)
 		#endif
 		VT_SetTerminal(7);
 	}
+	// 5 nested panics? Fuck it
+	if( gbDebug_IsKPanic > 5 )
+		for(;;);
 	gbDebug_IsKPanic ++;
 	KernelPanic_SetMode();
 }
