@@ -11,6 +11,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <netdb.h>
+#include <netinet/in.h>	// struct sockaddr_in
 #include <acess/sys.h>	// _SysDebug
 
 enum eProcols
@@ -24,6 +25,7 @@ const char	**gasURLs;
  int	giNumURLs;
 
  int	main(int argc, char *argv[]);
+void	streamToFile(int Socket, const char *OutputFile, int bAppend, size_t bytes_wanted, char *inbuf, size_t ofs, size_t len);
  int	_ParseHeaderLine(char *Line, int State, size_t *Size);
 void	writef(int fd, const char *format, ...);
 
@@ -102,11 +104,20 @@ int main(int argc, char *argv[])
 			 int	bSkipLine = 0;
 			// TODO: Convert to POSIX/BSD
 			// NOTE: using addr->ai_addr will break for IPv6, as there is more info before the address
-			 int	sock;
+
+			void *addr_data;
+			switch(addr->ai_family)
+			{
+			case AF_INET:	addr_data = &((struct sockaddr_in*)addr->ai_addr)->sin_addr;	break;
+			case AF_INET6:	addr_data = &((struct sockaddr_in6*)addr->ai_addr)->sin6_addr;	break;
+			default:	addr_data = NULL;	break;
+			}
+			if( !addr_data )
+				continue ;
+
+			printf("Attempting [%s]:80\n", Net_PrintAddress(addr->ai_family, addr_data));
 			
-			printf("Attempting [%s]:80\n", Net_PrintAddress(addr->ai_family, addr->ai_addr->sa_data));
-			
-			sock = Net_OpenSocket_TCPC(addr->ai_family, addr->ai_addr->sa_data, 80);
+			int sock = Net_OpenSocket_TCPC(addr->ai_family, addr_data, 80);
 			if( sock == -1 ) {
 				continue ;
 			}
@@ -120,10 +131,9 @@ int main(int argc, char *argv[])
 			writef(sock, "\r\n");
 			
 			// Parse headers
-			char	inbuf[BUFSIZ+1];
+			char	inbuf[16*1024];
 			size_t	offset = 0, len = 0;
 			 int	state = 0;
-			size_t	bytes_seen = 0;
 			size_t	bytes_wanted = -1;	// invalid
 			
 
@@ -165,21 +175,7 @@ int main(int argc, char *argv[])
 			if( state == 2 )
 			{
 				_SysDebug("RXing %i bytes to '%s'", bytes_wanted, outfile);
-				 int	outfd = open(outfile, O_WRONLY|O_CREAT, 0666);
-				if( outfd == -1 ) {
-					fprintf(stderr, "Unable to open '%s' for writing\n", outfile);
-				}
-				else
-				{
-					// Write the remainder of the buffer
-					do
-					{
-						write(outfd, inbuf, len);
-						bytes_seen += len;
-						_SysDebug("%i/%i bytes done", bytes_seen, bytes_wanted);
-					} while( bytes_seen < bytes_wanted && (len = read(sock, inbuf, sizeof(inbuf))) > 0 );
-					close(outfd);
-				}
+				streamToFile(sock, outfile, 0, bytes_wanted, inbuf, len, sizeof(inbuf));
 			}
 			
 			_SysDebug("Closing socket");
@@ -191,6 +187,38 @@ int main(int argc, char *argv[])
 	}
 	
 	return 0;
+}
+
+void streamToFile(int Socket, const char *OutputFile, int bAppend, size_t bytes_wanted, char *inbuf, size_t len, size_t buflen)
+{
+	 int	outfd = open(OutputFile, O_WRONLY|O_CREAT, 0666);
+	if( outfd == -1 ) {
+		fprintf(stderr, "Unable to open '%s' for writing\n", OutputFile);
+		return ;
+	}
+	
+	int64_t	start_time = _SysTimestamp();
+	size_t	bytes_seen = 0;
+	// Write the remainder of the buffer
+	do
+	{
+		write(outfd, inbuf, len);
+		bytes_seen += len;
+		_SysDebug("%i/%i bytes done", bytes_seen, bytes_wanted);
+		printf("%7i/%7i KiB (%iKiB/s)\r",
+			bytes_seen/1024, bytes_wanted/1024,
+			bytes_seen/(_SysTimestamp() - start_time)
+			);
+		fflush(stdout);
+		
+		len = read(Socket, inbuf, buflen);
+	} while( bytes_seen < bytes_wanted && len > 0 );
+	close(outfd);
+	printf("%i KiB done in %is (%i KiB/s)\n",
+		bytes_seen/1024,
+		(_SysTimestamp() - start_time)/1000,
+		bytes_seen/(_SysTimestamp() - start_time)
+		);
 }
 
 int _ParseHeaderLine(char *Line, int State, size_t *Size)
