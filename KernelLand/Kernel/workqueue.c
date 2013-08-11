@@ -36,12 +36,18 @@ void *Workqueue_GetWork(tWorkqueue *Queue)
 			return ret;
 		}
 		
+		#if 0
+		Threads_int_Sleep(THREAD_STAT_QUEUESLEEP,
+			Queue, 0,
+			&Queue->Sleeper, NULL, &Queue->Protector);
+		#endif
 		// Go to sleep
 		SHORTLOCK(&glThreadListLock);
 		us = Threads_RemActive();
 		us->WaitPointer = Queue;
 		us->Status = THREAD_STAT_QUEUESLEEP;
 		Queue->Sleeper = us;
+		
 		SHORTREL(&Queue->Protector);	
 		SHORTREL(&glThreadListLock);
 		

@@ -732,6 +732,39 @@ void Threads_int_WaitForStatusEnd(enum eThreadStatus Status)
 	}
 }
 
+void Threads_int_Sleep(enum eThreadStatus Status, void *Ptr, int Num, tThread **ListHead, tThread **ListTail, tShortSpinlock *Lock)
+{
+	SHORTLOCK( &glThreadListLock );
+	tThread	*us = Threads_RemActive();
+	us->Next = NULL;
+	// - Mark as sleeping
+	us->Status = Status;
+	us->WaitPointer = Ptr;
+	us->RetStatus = Num;	// Use RetStatus as a temp variable
+		
+	// - Add to waiting
+	if( ListTail ) {
+		if(*ListTail) {
+			(*ListTail)->Next = us;
+			*ListTail = us;
+		}
+		else {
+			*ListHead = us;
+			*ListTail = us;
+		}
+	}
+	else {
+		*ListHead = us;
+	}
+	
+	//if( Proc_ThreadSync(us) )
+	//	return ;
+	SHORTREL( &glThreadListLock );
+	if( Lock )
+		SHORTLOCK( Lock );
+	Threads_int_WaitForStatusEnd(Status);
+}
+
 /**
  * \fn void Threads_Sleep(void)
  * \brief Take the current process off the run queue

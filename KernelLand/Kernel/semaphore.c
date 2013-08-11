@@ -50,6 +50,11 @@ int Semaphore_Wait(tSemaphore *Sem, int MaxToTake)
 	}
 	else
 	{
+		#if 0
+		Threads_int_Sleep(THREAD_STAT_SEMAPHORESLEEP,
+			Sem, MaxToTake,
+			&Sem->Waiting, &Sem->LastWaiting, &Sem->Protector);
+		#endif
 		SHORTLOCK( &glThreadListLock );
 		
 		// - Remove from active list
@@ -75,9 +80,9 @@ int Semaphore_Wait(tSemaphore *Sem, int MaxToTake)
 			us, us->TID, us->ThreadName,
 			Sem, Sem->ModName, Sem->Name);
 		#endif
-		
-		SHORTREL( &Sem->Protector );	// Release first to make sure it is released
+		SHORTREL( &Sem->Protector );
 		SHORTREL( &glThreadListLock );
+		// NOTE: This can break in SMP
 		// Sleep until woken (either by getting what we need, or a timer event)
 		Threads_int_WaitForStatusEnd( THREAD_STAT_SEMAPHORESLEEP );
 		// We're only woken when there's something avaliable (or a signal arrives)
