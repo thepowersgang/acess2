@@ -298,5 +298,19 @@ void Keyboard_HandleKey(tKeyboard *Source, Uint32 HIDKeySym)
 	}
 	#endif
 
+	#if defined(ARCHDIR_is_x86) || defined(ARCHDIR_is_x86_64)
+	if(bPressed
+	&& Source->KeyStates[KEYSYM_LEFTCTRL/8] & (1 << (KEYSYM_LEFTCTRL&7))
+	&& Source->KeyStates[KEYSYM_LEFTALT/8]  & (1 << (KEYSYM_LEFTALT &7)) )
+	{
+		if( HIDKeySym == KEYSYM_DELETE )
+		{
+			// Trigger triple fault
+			__asm__ __volatile__ ("lgdt (%esp) ; int $0x0");
+			for(;;);
+		}
+	}
+	#endif
+
 }
 
