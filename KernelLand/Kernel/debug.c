@@ -7,7 +7,7 @@
 
 #define	DEBUG_MAX_LINE_LEN	256
 #define	LOCK_DEBUG_OUTPUT	1	// Avoid interleaving of output lines?
-#define TRACE_TO_KTERM	0	// Send ENTER/DEBUG/LEAVE to debug?
+#define TRACE_TO_KTERM  	1	// Send ENTER/DEBUG/LEAVE to debug?
 
 // === IMPORTS ===
 extern void	Threads_Dump(void);
@@ -250,8 +250,8 @@ void Panic(const char *Fmt, ...)
 	Debug_Putchar('\r');
 	Debug_Putchar('\n');
 
-	Threads_Dump();
-	Heap_Dump();
+	//Threads_Dump();
+	//Heap_Dump();
 
 	for(;;)	;
 }
