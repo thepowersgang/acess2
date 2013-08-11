@@ -319,7 +319,7 @@ size_t PTY_int_WriteInput(tPTY *PTY, const char *Input, size_t Length)
 	Mutex_Release(&PTY->InputMutex);
 
 	VFS_MarkAvaliable(&PTY->ClientNode, 1);
-	if(ret < Length)
+	if(ret < Length && PTY->ServerNode)
 		VFS_MarkFull(PTY->ServerNode, 1);	
 
 	return ret;
