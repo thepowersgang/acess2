@@ -5,8 +5,7 @@
  * main.c
  * - Driver core
  *
- * Built with reference to the linux e100 driver (drivers/net/ethernet/intel/e100.c)
- * 82559-fast-ethernet-multifunciton-pci-datasheet.pdf
+ * 8255x (Intel 8255x 10/100 Mbps Ethernet Controller Family)
  */
 #define DEBUG	1
 #include <acess.h>
@@ -47,7 +46,7 @@ MODULE_DEFINE(0, 0x100, PRO100, PRO100_Install, PRO100_Cleanup, "IPStack", NULL)
 tIPStack_AdapterType	gPRO100_AdapterType = {
 	.Name = "PRO/100",
 	.Type = ADAPTERTYPE_ETHERNET_100M,
-	.Flags = 0,	
+	.Flags = ADAPTERFLAG_OFFLOAD_MAC,	
 	.SendPacket = PRO100_SendPacket,
 	.WaitForPacket = PRO100_WaitForPacket
 };
@@ -122,16 +121,20 @@ int PRO100_InitCard(tCard *Card)
 		tCommandUnit	*cu = &Card->TXCommands[i].Desc.CU;
 		cu->Status = 0;
 		cu->Command = CMD_Nop|CMD_Suspend;
-		cu->Link = MM_GetPhysAddr(&Card->TXCommands[(i+1)%NUM_TX]) - txbase;
+		cu->Link = MM_GetPhysAddr(&Card->TXCommands[(i+1)%NUM_TX]);
 	}
 	
-	_Write32(Card, REG_GenPtr, txbase);
+	_Write32(Card, REG_GenPtr, 0);
+	_FlushWait(Card, 4);
 	_Write16(Card, REG_Command, CU_CMD_BASE);
+	_FlushWait(Card, 4);
 	// Ensure CU is in suspend before we attempt sending
 	Card->LastTXIndex = 1;
 	Card->CurTXIndex = 1;
-	_Write32(Card, REG_GenPtr, 0);
+	_Write32(Card, REG_GenPtr, txbase);
+	_FlushWait(Card, 4);
 	_Write16(Card, REG_Command, CU_CMD_START);
+	_FlushWait(Card, 4);
 
 	// Create RX Descriptors
 	for( int i = 0; i < NUM_RX; i += 2 )
@@ -147,6 +150,7 @@ int PRO100_InitCard(tCard *Card)
 			rx->CU.Command = 0;
 			// Link is populated later
 			rx->Size = RX_BUF_SIZE;
+			rx->Count = 0;	// clears bit 14
 			rx->RXBufAddr = 0;	// unused?
 		}
 	}
@@ -156,17 +160,21 @@ int PRO100_InitCard(tCard *Card)
 	for( int i = 0; i < NUM_RX-1; i ++ )
 	{
 		tRXBuffer	*rx = Card->RXBufs[i];
-		rx->CU.Link = MM_GetPhysAddr(Card->RXBufs[i+1]) - rx_desc_phys;
+		rx->CU.Link = MM_GetPhysAddr(Card->RXBufs[i+1]);
 	}
 	Card->RXBufs[NUM_RX-1]->CU.Command = CMD_Suspend;
 	Card->RXBufs[NUM_RX-1]->CU.Link = 0;	// link = 0, loop back
 	
 	// Set RX Buffer base
-	_Write32(Card, REG_GenPtr, rx_desc_phys);
-	_Write16(Card, REG_Command, RX_CMD_ADDR_LOAD);
-	
 	_Write32(Card, REG_GenPtr, 0);
+	_FlushWait(Card, 4);
+	_Write16(Card, REG_Command, RX_CMD_ADDR_LOAD);
+	_FlushWait(Card, 4);
+	
+	_Write32(Card, REG_GenPtr, rx_desc_phys);
+	_FlushWait(Card, 4);
 	_Write16(Card, REG_Command, RX_CMD_START);
+	_FlushWait(Card, 4);
 
 	return 0;
 }
@@ -189,16 +197,19 @@ void PRO100_ReleaseRXBuf(void *Arg, size_t HeadLen, size_t FootLen, const void *
 	tRXBuffer	*prev = Card->RXBufs[ (idx-1+NUM_RX)%NUM_RX ];
 	buf->CU.Status = 0;
 	buf->CU.Command = 0;
+	buf->Count = 0;
 	prev->CU.Command &= ~CMD_Suspend;
 	
 	// Resume
 	_Write16(Card, REG_Command, RX_CMD_RESUME);
+	_FlushWait(Card, 4);
 }
 
 
 tIPStackBuffer *PRO100_WaitForPacket(void *Ptr)
 {
 	tCard	*Card = Ptr;
+	
 	// Wait for a packet
 	do {
 		Semaphore_Wait(&Card->RXSemaphore, 1);
@@ -210,9 +221,12 @@ tIPStackBuffer *PRO100_WaitForPacket(void *Ptr)
 	
 	// Return packet (freed in PRO100_ReleaseRXBuf);
 	tIPStackBuffer	*ret = IPStack_Buffer_CreateBuffer(1);
+	size_t	bytes = buf->Count & 0x3FFF;
 	// - actual data is just after the descriptor
-	IPStack_Buffer_AppendSubBuffer(ret, buf->Count, 0, buf+1, PRO100_ReleaseRXBuf, Card);
-	
+	IPStack_Buffer_AppendSubBuffer(ret, bytes, 0, buf+1, PRO100_ReleaseRXBuf, Card);
+
+	LOG("RX'd 0x%x bytes", bytes);
+
 	return ret;
 }
 
@@ -278,22 +292,28 @@ int PRO100_SendPacket(void *Ptr, tIPStackBuffer *Buffer)
 	Card->TXBuffers[txc_idx] = Buffer;
 	// Mark as usable
 	txc->Desc.TBDArrayAddr = 0xFFFFFFFF;
-	txc->Desc.TCBBytes = total_size;
-	txc->Desc.TXThreshold = 0;	// TODO: What does this do on RHW?
+	txc->Desc.TCBBytes = total_size | (1 << 15);
+	txc->Desc.TXThreshold = 3;	// Start transmitting after 3*8 bytes
 	txc->Desc.TBDCount = 0;
 	txc->Desc.CU.Command = CMD_Suspend|CMD_Tx;
+	txc->Desc.CU.Status = 0;
+	IPStack_Buffer_LockBuffer(Buffer);
 	// - Mark previous as not suspended
 	Card->TXCommands[ (txc_idx-1+NUM_TX) % NUM_TX ].Desc.CU.Command &= ~CMD_Suspend;
 
-	IPStack_Buffer_LockBuffer(Buffer);
+	LOG("Starting send on txc_idx=%i", txc_idx);
+	LOG("- REG_Status = %x", _Read8(Card, REG_Status));
 
 	// And dispatch
 	// - If currently running or idle, this should not matter
 	// NOTE: Qemu describes this behavior as 'broken'
 	_Write16(Card, REG_Command, CU_CMD_RESUME);
+	_FlushWait(Card, 4);
 
 	IPStack_Buffer_LockBuffer(Buffer);
 	IPStack_Buffer_UnlockBuffer(Buffer);
+
+	LOG("- CU Status = 0x%x", txc->Desc.CU.Status);
 
 	return 0;
 }
@@ -305,17 +325,28 @@ void PRO100_IRQHandler(int Num, void *Ptr)
 	
 	if( !status )
 		return ;
-	
 	_Write8(Card, REG_Ack, status);
 	LOG("status = %x", status);
-	if( status & ISR_FR ) {
-		LOG("FR");
-		Semaphore_Signal(&Card->RXSemaphore, 1);
+
+	if( status & ISR_FCP ) {
+		LOG("FCP - Flow Control Pause");
 	}
-	
-	// CU Idle
+	if( status & ISR_ER ) {
+		LOG("ER - Early Receive");
+	}
+	if( status & ISR_SWI ) {
+		LOG("SWI - Software interrupt");
+	}
+	if( status & ISR_MDI ) {
+		LOG("MDI - Management Data Interface");
+	}
+
+	if( status & ISR_RNR ) {
+		LOG("RNR - Recieve not ready");
+	}
 	if( status & ISR_CNA )
 	{
+		LOG("CNA - Command unit Not Active");
 		// Chase the next command buffer
 		while( Card->LastTXIndex != Card->CurTXIndex )
 		{
@@ -327,6 +358,14 @@ void PRO100_IRQHandler(int Num, void *Ptr)
 			Semaphore_Signal(&Card->TXCommandSem, 1);
 		}
 		LOG("CU Idle (%i / %i)", Card->LastTXIndex, Card->CurTXIndex);
+	}
+	if( status & ISR_FR ) {
+		LOG("FR - Frame recieved");
+		Semaphore_Signal(&Card->RXSemaphore, 1);
+		LOG("- RX signaled");
+	}
+	if( status & ISR_CX ) {
+		LOG("CX - Command executed");
 	}
 }
 

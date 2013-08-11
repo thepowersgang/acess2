@@ -45,8 +45,8 @@ struct sCSR
 	Uint32	RXDMACount;
 };
 
-#define STATUS_RUS_MASK	0x003C	// Receive Unit Status
-#define STATUS_CUS_MASK	0x00C0	// Comamnd Unit Status
+#define STATUS_RUS_MASK	0x3C	// Receive Unit Status
+#define STATUS_CUS_MASK	0xC0	// Comamnd Unit Status
 #define ISR_FCP	0x01	// Flow Control Pause
 #define ISR_ER	0x02	// Early Recieve
 #define ISR_SWI	0x04	// Software Interrupt
@@ -115,7 +115,7 @@ struct sCommandUnit
 	Uint16	Status;
 	Uint16	Command;
 	Uint32	Link;	// Relative to base
-} ALIGN(4);
+} PACKED ALIGN(4);
 
 typedef struct sTXDescriptor	tTXDescriptor;
 typedef struct sTXBufDesc	tTXBufDesc;
@@ -130,7 +130,7 @@ struct sTXDescriptor
 	Uint16	TCBBytes;
 	Uint8	TXThreshold;
 	Uint8	TBDCount;
-};
+} PACKED;
 
 // - TX Buffer descriptor (pointed to by TBDArrayAddr, or following sTXDescriptor)
 struct sTXBufDesc
@@ -138,14 +138,14 @@ struct sTXBufDesc
 	Uint32	Addr;
 	Uint16	Len;
 	Uint16	EndOfList;
-};
+} PACKED;
 
 // - TX Command block (used by static allocation)
 struct sTXCommand
 {
 	tTXDescriptor	Desc;
 	tTXBufDesc	LocalBufs[NUM_LOCAL_TXBUFS];
-};
+} PACKED;
 
 typedef struct sRXBuffer	tRXBuffer;
 struct sRXBuffer
@@ -157,7 +157,7 @@ struct sRXBuffer
 	Uint32	RXBufAddr;	// Unused according to qemu source
 	Uint16	Count;
 	Uint16	Size;
-};
+} PACKED;
 
 #endif
 
