@@ -13,6 +13,17 @@
 #include <stdlib.h>	// strtol
 #include <acess/sys.h>
 
+static const struct {
+	const char *Name;
+	 int	SockType;
+	 int	Protocol;
+	 int	Port;
+} caLocalServices[] = {
+	{"telnet", SOCK_STREAM, 0, 23},
+	{"http", SOCK_STREAM, 0, 80},
+};
+static const int ciNumLocalServices = sizeof(caLocalServices)/sizeof(caLocalServices[0]);
+
 // === CODE ===
 int getaddrinfo(const char *node, const char *service, const struct addrinfo *hints, struct addrinfo **res)
 {
@@ -40,7 +51,6 @@ int getaddrinfo(const char *node, const char *service, const struct addrinfo *hi
 	else
 	{
 		// 1. Check if the node is an IP address
-		// TODO: Break this function out into inet_pton?
 		{
 			 int	type;
 			char	addrdata[16];
@@ -106,15 +116,29 @@ int getaddrinfo(const char *node, const char *service, const struct addrinfo *hi
 		char *end;
 		
 		default_port = strtol(service, &end, 0);
-		if( *end != '\0' && !(hints->ai_flags & AI_NUMERICSERV) )
+		if( *end != '\0' && (hints->ai_flags & AI_NUMERICSERV) )
 		{
-			// TODO: Read something like /Acess/Conf/services
-			_SysDebug("getaddrinfo: TODO Service translation");
+			return EAI_NONAME;
 		}
 		
 		if( *end != '\0' )
 		{
-			return EAI_NONAME;
+			// TODO: Read something like /Acess/Conf/services
+			for( int i = 0; i < ciNumLocalServices; i ++ )
+			{
+				if( strcmp(service, caLocalServices[i].Name) == 0 ) {
+					end = service + strlen(service);
+					default_socktype = caLocalServices[i].SockType;
+					default_protocol = caLocalServices[i].Protocol;
+					default_port = caLocalServices[i].Port;
+					break;
+				}
+			}
+		}
+		
+		if( *end != '\0' )
+		{
+			_SysDebug("getaddrinfo: TODO Service translation");
 		}
 	}
 

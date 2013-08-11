@@ -29,7 +29,7 @@ typedef enum
 struct sockaddr
 {
 	sa_family_t	sa_family;
-	char       	sa_data[16];
+	char       	sa_data[16+2];
 };
 
 struct msghdr
