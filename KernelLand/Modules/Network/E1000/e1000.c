@@ -5,7 +5,7 @@
  * e1000.c
  * - Intel 8254x Network Card Driver (core)
  */
-#define DEBUG	1
+#define DEBUG	0
 #define	VERSION	VER2(0,1)
 #include <acess.h>
 #include "e1000.h"
@@ -234,6 +234,7 @@ int E1000_SendPacket(void *Ptr, tIPStackBuffer *Buffer)
 	Card->TXSrcBuffers[last_txd] = Buffer;
 
 	__sync_synchronize();
+	#if DEBUG
 	{
 		volatile tTXDesc *txdp = Card->TXDescs + last_txd;
 		LOG("%p %P: %llx %x %x", txdp, MM_GetPhysAddr((void*)txdp), txdp->Buffer, txdp->Length, txdp->CMD);
@@ -242,6 +243,7 @@ int E1000_SendPacket(void *Ptr, tIPStackBuffer *Buffer)
 		LOG("%p %P: %llx %x %x", txdp, MM_GetPhysAddr((void*)txdp), txdp->Buffer, txdp->Length, txdp->CMD);
 		MM_FreeTemp( (void*)txdp_base);
 	}
+	#endif
 	// Trigger TX
 	IPStack_Buffer_LockBuffer(Buffer);
 	LOG("Triggering TX - Buffers[%i]=%p", last_txd, Buffer);
