@@ -8,7 +8,9 @@
 #include "ipv4.h"
 #include "firewall.h"
 
+// === CONSTANTS ===
 #define DEFAULT_TTL	32
+#define IPV4_TRACE	0	// set to 1 to enable packet tracing
 
 // === IMPORTS ===
 extern tInterface	*gIP_Interfaces;
@@ -118,8 +120,10 @@ int IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, tIPS
 
 	IPStack_Buffer_AppendSubBuffer(Buffer, sizeof(tIPv4Header), 0, &hdr, NULL, NULL);
 
+	#if IPV4_TRACE
 	Log_Log("IPv4", "Sending packet to %i.%i.%i.%i",
 		Address.B[0], Address.B[1], Address.B[2], Address.B[3]);
+	#endif
 	Link_SendPacket(Iface->Adapter, IPV4_ETHERNET_ID, to, Buffer);
 	return 1;
 }
@@ -181,12 +185,15 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	
 	// TODO: Handle packet fragmentation
 	
+	#if IPV4_TRACE
 	Log_Debug("IPv4", " From %i.%i.%i.%i to %i.%i.%i.%i",
 		hdr->Source.B[0], hdr->Source.B[1], hdr->Source.B[2], hdr->Source.B[3],
 		hdr->Destination.B[0], hdr->Destination.B[1], hdr->Destination.B[2], hdr->Destination.B[3]
 		);
+	#endif
 
-	// TODO: Tell ARP?
+	// TODO: Should ARP sniffing be used?
+	// - If we get a packet, cache the source MAC
 	ARP_UpdateCache4(hdr->Source, From);
 	
 	// Get Data and Data Length

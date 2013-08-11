@@ -22,6 +22,8 @@
 #define TCP_DACK_THRESHOLD	4096
 #define TCP_DACK_TIMEOUT	500
 
+#define TCP_DEBUG	0	// Set to non-0 to enable TCP packet logging
+
 // === PROTOTYPES ===
 void	TCP_Initialise(void);
 void	TCP_StartConnection(tTCPConnection *Conn);
@@ -30,7 +32,8 @@ void	TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 void	TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Header, int Length);
 int	TCP_INT_AppendRecieved(tTCPConnection *Connection, const void *Data, size_t Length);
 void	TCP_INT_UpdateRecievedFromFuture(tTCPConnection *Connection);
-void	TCP_INT_SendACK(tTCPConnection *Connection);
+void	TCP_int_SendDelayedACK(void *ConnPtr);
+void	TCP_INT_SendACK(tTCPConnection *Connection, const char *Reason);
 Uint16	TCP_GetUnusedPort();
  int	TCP_AllocatePort(Uint16 Port);
  int	TCP_DeallocatePort(Uint16 Port);
@@ -164,6 +167,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 	tTCPListener	*srv;
 	tTCPConnection	*conn;
 
+	#if TCP_DEBUG
 	Log_Log("TCP", "TCP_GetPacket: <Local>:%i from [%s]:%i, Flags = %s%s%s%s%s%s%s%s",
 		ntohs(hdr->DestPort),
 		IPStack_PrintAddress(Interface->Type, Address),
@@ -177,6 +181,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 		(hdr->Flags & TCP_FLAG_SYN) ? "SYN " : "",
 		(hdr->Flags & TCP_FLAG_FIN) ? "FIN " : ""
 		);
+	#endif
 
 	if( Length > (hdr->DataOffset >> 4)*4 )
 	{
@@ -336,7 +341,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 	if(Header->Flags & TCP_FLAG_SYN) {
 		// TODO: What if the packet also has data?
 		if( Connection->LastACKSequence != Connection->NextSequenceRcv )
-			TCP_INT_SendACK(Connection);
+			TCP_INT_SendACK(Connection, "SYN");
 		Connection->NextSequenceRcv = ntohl(Header->SequenceNumber);
 		Connection->LastACKSequence = Connection->NextSequenceRcv;
 	}
@@ -350,7 +355,9 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 	// Get length of data
 	dataLen = Length - (Header->DataOffset>>4)*4;
 	LOG("dataLen = %i", dataLen);
+	#if TCP_DEBUG
 	Log_Debug("TCP", "State %i, dataLen = %x", Connection->State, dataLen);
+	#endif
 	
 	// 
 	// State Machine
@@ -426,7 +433,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 			}
 			Connection->NextSequenceRcv ++;	// TODO: Is this right? (empty packet counts as one byte)
 			Log_Log("TCP", "Empty Packet, inc and ACK the current sequence number");
-			TCP_INT_SendACK(Connection);
+			TCP_INT_SendACK(Connection, "Empty");
 			#if 0
 			Header->DestPort = Header->SourcePort;
 			Header->SourcePort = htons(Connection->LocalPort);
@@ -477,14 +484,14 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 			// - Only send an ACK if we've had a burst
 			if( Connection->NextSequenceRcv > (Uint32)(TCP_DACK_THRESHOLD + Connection->LastACKSequence) )
 			{
-				TCP_INT_SendACK(Connection);
+				TCP_INT_SendACK(Connection, "DACK Burst");
 				// - Extend TCP deferred ACK timer
 				Time_RemoveTimer(Connection->DeferredACKTimer);
 			}
 			// - Schedule the deferred ACK timer (if already scheduled, this is a NOP)
 			Time_ScheduleTimer(Connection->DeferredACKTimer, TCP_DACK_TIMEOUT);
 			#else
-			TCP_INT_SendACK(Connection);
+			TCP_INT_SendACK(Connection, "RX");
 			#endif
 		}
 		// Check if the packet is in window
@@ -557,7 +564,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 			Log_Log("TCP", "Fully out of sequence packet (0x%08x not between 0x%08x and 0x%08x), dropped",
 				sequence_num, Connection->NextSequenceRcv, Connection->NextSequenceRcv+TCP_WINDOW_SIZE);
 			// Spec says we should send an empty ACK with the current state
-			TCP_INT_SendACK(Connection);
+			TCP_INT_SendACK(Connection, "Bad Seq");
 		}
 		break;
 	
@@ -797,7 +804,12 @@ void TCP_INT_UpdateRecievedFromFuture(tTCPConnection *Connection)
 	#endif
 }
 
-void TCP_INT_SendACK(tTCPConnection *Connection)
+void TCP_int_SendDelayedACK(void *ConnPtr)
+{
+	TCP_INT_SendACK(ConnPtr, "DACK Timeout");
+}
+
+void TCP_INT_SendACK(tTCPConnection *Connection, const char *Reason)
 {
 	tTCPHeader	hdr;
 	// ACK Packet
@@ -810,7 +822,7 @@ void TCP_INT_SendACK(tTCPConnection *Connection)
 	hdr.Flags = TCP_FLAG_ACK;	// TODO: Determine if SYN is wanted too
 	hdr.Checksum = 0;	// TODO: Checksum
 	hdr.UrgentPointer = 0;
-	Log_Debug("TCP", "Sending ACK for 0x%08x", Connection->NextSequenceRcv);
+	Log_Debug("TCP", "Sending ACK for 0x%08x (%s)", Connection->NextSequenceRcv, Reason);
 	TCP_SendPacket( Connection, &hdr, 0, NULL );
 	//Connection->NextSequenceSend ++;
 	Connection->LastACKSequence = Connection->NextSequenceRcv;
@@ -1090,7 +1102,7 @@ tVFS_Node *TCP_Client_Init(tInterface *Interface)
 	conn->FuturePacketValidBytes = conn->FuturePacketData + TCP_WINDOW_SIZE;
 	#endif
 
-	conn->DeferredACKTimer = Time_AllocateTimer( (void(*)(void*)) TCP_INT_SendACK, conn);
+	conn->DeferredACKTimer = Time_AllocateTimer( TCP_int_SendDelayedACK, conn);
 
 	SHORTLOCK(&glTCP_OutbountCons);
 	conn->Next = gTCP_OutbountCons;

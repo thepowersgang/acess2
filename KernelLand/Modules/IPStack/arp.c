@@ -221,17 +221,20 @@ void ARP_UpdateCache4(tIPv4 SWAddr, tMacAddr HWAddr)
 		else
 			i = oldest;
 	}
-	
-	Log_Log("ARP4", "Caching %i.%i.%i.%i (%02x:%02x:%02x:%02x:%02x:%02x) in %i",
-		SWAddr.B[0], SWAddr.B[1], SWAddr.B[2], SWAddr.B[3],
-		HWAddr.B[0], HWAddr.B[1], HWAddr.B[2], HWAddr.B[3], HWAddr.B[4], HWAddr.B[5],
-		i
-		);
+
+	if( memcmp(&gaARP_Cache4[i].MAC, &HWAddr, sizeof(HWAddr)) != 0 )
+	{
+		Log_Log("ARP4", "Caching %i.%i.%i.%i (%02x:%02x:%02x:%02x:%02x:%02x) in %i",
+			SWAddr.B[0], SWAddr.B[1], SWAddr.B[2], SWAddr.B[3],
+			HWAddr.B[0], HWAddr.B[1], HWAddr.B[2], HWAddr.B[3], HWAddr.B[4], HWAddr.B[5],
+			i
+			);
 		
-	gaARP_Cache4[i].IP = SWAddr;
-	gaARP_Cache4[i].MAC = HWAddr;
-	gaARP_Cache4[i].LastUpdate = now();
-	Semaphore_Signal(&gARP_Cache4Semaphore, giARP_WaitingThreads);
+		gaARP_Cache4[i].IP = SWAddr;
+		gaARP_Cache4[i].MAC = HWAddr;
+		gaARP_Cache4[i].LastUpdate = now();
+		Semaphore_Signal(&gARP_Cache4Semaphore, giARP_WaitingThreads);
+	}
 	Mutex_Release(&glARP_Cache4);
 }
 

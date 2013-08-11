@@ -12,6 +12,8 @@
 #include "include/adapters_int.h"
 
 // === CONSTANTS ===
+#define LINK_LOGPACKETS	0
+#define VALIDATE_CHECKSUM	0
 #define	MAX_PACKET_SIZE	2048
 
 // === PROTOTYPES ===
@@ -84,7 +86,7 @@ void Link_SendPacket(tAdapter *Adapter, Uint16 Type, tMacAddr To, tIPStackBuffer
 	 int	length = IPStack_Buffer_GetLength(Buffer);
 	 int	ofs = (4 - (length & 3)) & 3;
 	Uint8	buf[sizeof(tEthernetHeader) + ofs + 4];
-	Uint32	*checksum = (void*)(buf + sizeof(tEthernetHeader) + ofs);
+	//Uint32	*checksum = (void*)(buf + sizeof(tEthernetHeader) + ofs);
 	tEthernetHeader	*hdr = (void*)buf;
 
 	Log_Log("Net Link", "Sending %i bytes to %02x:%02x:%02x:%02x:%02x:%02x (Type 0x%x)",
@@ -95,14 +97,14 @@ void Link_SendPacket(tAdapter *Adapter, Uint16 Type, tMacAddr To, tIPStackBuffer
 	hdr->Type = htons(Type);
 	memset(hdr+1, 0, ofs+4);	// zero padding and checksum
 
-	if( (Adapter->Type->Flags & ADAPTERFLAG_OFFLOAD_MAC) )
+	//if( (Adapter->Type->Flags & ADAPTERFLAG_OFFLOAD_MAC) )
 		IPStack_Buffer_AppendSubBuffer(Buffer, sizeof(tEthernetHeader), ofs, hdr, NULL, NULL);
-	else
-	{
-		IPStack_Buffer_AppendSubBuffer(Buffer, sizeof(tEthernetHeader), ofs + 4, hdr, NULL, NULL);
-		*checksum = htonl( Link_CalculateCRC(Buffer) );
-		Log_Debug("Net Link", "Non-Offloaded: 0x%x, 0x%x", *checksum, ntohl(*checksum));
-	}
+	//else
+	//{
+	//	IPStack_Buffer_AppendSubBuffer(Buffer, sizeof(tEthernetHeader), ofs + 4, hdr, NULL, NULL);
+	//	*checksum = htonl( Link_CalculateCRC(Buffer) );
+	//	Log_Debug("Net Link", "Non-Offloaded: 0x%x, 0x%x", *checksum, ntohl(*checksum));
+	//}
 
 	Log_Log("Net Link", " from %02x:%02x:%02x:%02x:%02x:%02x",
 		hdr->Src.B[0], hdr->Src.B[1], hdr->Src.B[2],
@@ -125,7 +127,8 @@ int Link_HandlePacket(tAdapter *Adapter, tIPStackBuffer *Buffer)
 		free(data);
 		return 1;
 	}
-		
+	
+	#if LINK_LOGPACKETS
 	Log_Log("Net Link",
 		"Packet from %02x:%02x:%02x:%02x:%02x:%02x"
 		" to %02x:%02x:%02x:%02x:%02x:%02x (Type=%04x)",
@@ -135,9 +138,14 @@ int Link_HandlePacket(tAdapter *Adapter, tIPStackBuffer *Buffer)
 		hdr->Dest.B[3], hdr->Dest.B[4], hdr->Dest.B[5],
 		ntohs(hdr->Type)
 		);
-//	Uint32 checksum = *(Uint32*)(data + len + 4);
-	//Log_Log("NET", "Checksum 0x%08x", checksum);
+	#endif
+	
+	#if VALIDATE_CHECKSUM
+	Uint32 checksum = *(Uint32*)(data + len + 4);
+	Log_Log("NET Link", "Checksum 0x%08x", checksum);
+	Uint32	calculated = Link_CalculateCRC(Buffer);
 	// TODO: Check checksum
+	#endif
 	
 	// Check if there is a registered callback for this packet type
 	 int	i;
@@ -170,15 +178,12 @@ int Link_HandlePacket(tAdapter *Adapter, tIPStackBuffer *Buffer)
 #define	QUOTIENT	0x04c11db7
 void Link_InitCRC(void)
 {
-	 int	i, j;
-	Uint32	crc;
-
-	for (i = 0; i < 256; i++)
+	for( int i = 0; i < 256; i++ )
 	{
-		crc = i << 24;
-		for (j = 0; j < 8; j++)
+		Uint32 crc = i << 24;
+		for( int j = 0; j < 8; j++ )
 		{
-			if (crc & 0x80000000)
+			if( crc >> 31 )
 				crc = (crc << 1) ^ QUOTIENT;
 			else
 				crc = crc << 1;
