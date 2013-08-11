@@ -119,6 +119,13 @@ size_t IPStack_Buffer_GetData(tIPStackBuffer *Buffer, void *Dest, size_t MaxByte
 	for( int i = Buffer->nSubBuffers; i -- && rem_space != 0; )
 	{
 		len = MIN(Buffer->SubBuffers[i].PreLength, rem_space);
+		#if !DISABLE_ASSERTS
+		if( !CheckMem(Buffer->SubBuffers[i].Data, len) ) {
+			Log_Error("IPStack", "Buffer pre %i invalid (%p+0x%x)",
+				i, Buffer->SubBuffers[i].Data, len);
+			return 0;
+		}
+		#endif
 		memcpy(dest,
 			Buffer->SubBuffers[i].Data,
 			len
@@ -132,10 +139,9 @@ size_t IPStack_Buffer_GetData(tIPStackBuffer *Buffer, void *Dest, size_t MaxByte
 			continue ;
 		
 		len = MIN(Buffer->SubBuffers[i].PostLength, rem_space);
-		memcpy(dest,
-			(Uint8*)Buffer->SubBuffers[i].Data + Buffer->SubBuffers[i].PreLength,
-			len
-			);
+		void *ptr = (Uint8*)Buffer->SubBuffers[i].Data + Buffer->SubBuffers[i].PreLength;
+		ASSERT( CheckMem(ptr, len) );
+		memcpy(dest, ptr, len);
 		dest += len;
 		rem_space -= len;
 	}
