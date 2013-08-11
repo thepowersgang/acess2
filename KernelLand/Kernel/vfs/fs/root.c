@@ -5,7 +5,7 @@
  * vfs/fs/root.c
  * - Root Filesystem Driver
  *
- * TODO: Restrict to directories only
+ * TODO: Restrict to directories+symlinks only
  */
 #define DEBUG	0
 #include <acess.h>
@@ -14,7 +14,7 @@
 
 // === CONSTANTS ===
 #define MAX_FILES	64
-#define	MAX_FILE_SIZE	1024
+#define	MAX_FILE_SIZE	10*1024*1024
 
 // === PROTOTYPES ===
 tVFS_Node	*Root_InitDevice(const char *Device, const char **Options);
@@ -230,9 +230,10 @@ size_t Root_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buff
 	if(Offset + Length > MAX_FILE_SIZE)
 	{
 		Length = MAX_FILE_SIZE - Offset;
+		ASSERTC(Length, <=, MAX_FILE_SIZE);
 	}
 
-	LOG("Buffer = '%.*s'", (int)Length, Buffer);
+	LOG("Length = %x", Length);
 	
 	// Check if buffer needs to be expanded
 	if(Offset + Length > Node->Size)
