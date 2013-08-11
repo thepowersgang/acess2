@@ -205,7 +205,8 @@ tIPStackBuffer *PRO100_WaitForPacket(void *Ptr)
 	} while( Card->RXBufs[Card->CurRXIndex]->CU.Status == 0 );
 	// Mark previous buffer as suspend (stops the RX unit running into old packets
 	Card->RXBufs[ (Card->CurRXIndex-1+NUM_RX)%NUM_RX ]->CU.Command |= CMD_Suspend;
-	tRXBuffer *buf = Card->RXBufs[Card->CurRXIndex++];
+	tRXBuffer *buf = Card->RXBufs[Card->CurRXIndex];
+	Card->CurRXIndex = (Card->CurRXIndex+1) % NUM_RX;
 	
 	// Return packet (freed in PRO100_ReleaseRXBuf);
 	tIPStackBuffer	*ret = IPStack_Buffer_CreateBuffer(1);
