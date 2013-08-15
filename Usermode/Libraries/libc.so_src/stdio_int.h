@@ -39,6 +39,10 @@ struct sFILE {
 	char	*Buffer;
 	size_t	BufferPos;	// First unused byte in the buffer (read/write pos essentially)
 	size_t	BufferSpace;	// Number of bytes allocated in \a Buffer
+	
+	// open_memstream
+	char	**BufPtr;
+	size_t	*LenPtr;
 };
 
 #endif

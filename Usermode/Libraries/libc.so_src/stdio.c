@@ -18,6 +18,10 @@
 #define	_stdin	0
 #define	_stdout	1
 
+#define FD_NOTOPEN	-1
+#define FD_MEMFILE	-2
+#define FD_MEMSTREAM	-3
+
 // === PROTOTYPES ===
 struct sFILE	*get_file_struct();
 
@@ -101,7 +105,7 @@ EXPORT FILE *freopen(const char *file, const char *mode, FILE *fp)
 	// Sanity Check Arguments
 	if(!fp || !file || !mode)	return NULL;
 	
-	if(fp->FD != -1) {
+	if(fp->FD != FD_NOTOPEN) {
 		fflush(fp);
 	}
 
@@ -138,7 +142,7 @@ EXPORT FILE *freopen(const char *file, const char *mode, FILE *fp)
 	}
 
 	//Open File
-	if(fp->FD != -1)
+	if(fp->FD != FD_NOTOPEN)
 		fp->FD = _SysReopen(fp->FD, file, openFlags);
 	else
 		fp->FD = _SysOpen(file, openFlags);
@@ -180,7 +184,7 @@ EXPORT FILE *fmemopen(void *buffer, size_t length, const char *mode)
 	
 	ret = get_file_struct();
 	
-	ret->FD = -2;
+	ret->FD = FD_MEMFILE;
 	ret->Flags = _fopen_modetoflags(mode);
 	if(ret->Flags == -1) {
 		ret->Flags = 0;
@@ -194,6 +198,21 @@ EXPORT FILE *fmemopen(void *buffer, size_t length, const char *mode)
 	return ret;
 }
 
+EXPORT FILE *open_memstream(char **bufferptr, size_t *lengthptr)
+{
+	FILE	*ret = get_file_struct();
+	ret->FD = FD_MEMSTREAM;
+	ret->Flags = FILE_FLAG_MODE_WRITE;
+	
+	ret->Buffer = NULL;
+	ret->BufferPos = 0;
+	ret->BufferSpace = 0;
+	ret->BufPtr = bufferptr;
+	ret->LenPtr = lengthptr;
+	
+	return ret;
+}
+
 EXPORT int fclose(FILE *fp)
 {
 	if( !(fp->Flags & FILE_FLAG_ALLOC) )
@@ -203,7 +222,7 @@ EXPORT int fclose(FILE *fp)
 		_SysClose(fp->FD);
 	}
 	fp->Flags = 0;
-	fp->FD = -1;
+	fp->FD = FD_NOTOPEN;
 	return 0;
 }
 
@@ -215,7 +234,7 @@ EXPORT int setvbuf(FILE *fp, char *buffer, int mode, size_t size)
 	}
 
 	// Check for memory files
-	if( fp->FD == -2 ) {
+	if( fp->FD == FD_MEMFILE || fp->FD == FD_MEMSTREAM ) {
 		errno = EINVAL;
 		return 2;
 	}	
@@ -303,19 +322,25 @@ int _fflush_int(FILE *fp)
 
 EXPORT void fflush(FILE *fp)
 {
-	if( !fp || fp->FD == -1 )
+	if( !fp || fp->FD == FD_NOTOPEN )
 		return ;
 	
 	// Nothing to do for memory files
-	if( fp->FD == -2 )
+	if( fp->FD == FD_MEMFILE )
 		return ;
+	// Memory streams, update pointers
+	if( fp->FD == FD_MEMSTREAM ) {
+		*fp->BufPtr = fp->Buffer;
+		*fp->LenPtr = fp->BufferPos;
+		return ;
+	}
 	
 	_fflush_int(fp);
 }
 
 EXPORT void clearerr(FILE *fp)
 {
-	if( !fp || fp->FD == -1 )
+	if( !fp || fp->FD == FD_NOTOPEN )
 		return ;
 	
 	// TODO: Impliment clearerr()
@@ -323,14 +348,14 @@ EXPORT void clearerr(FILE *fp)
 
 EXPORT int feof(FILE *fp)
 {
-	if( !fp || fp->FD == -1 )
+	if( !fp || fp->FD == FD_NOTOPEN )
 		return 0;
 	return !!(fp->Flags & FILE_FLAG_EOF);
 }
 
 EXPORT int ferror(FILE *fp)
 {
-	if( !fp || fp->FD == -1 )
+	if( !fp || fp->FD == FD_NOTOPEN )
 		return 0;
 	return 0;
 }
@@ -341,39 +366,77 @@ EXPORT int fileno(FILE *stream)
 
 EXPORT off_t ftell(FILE *fp)
 {
-	if(!fp || fp->FD == -1)	return -1;
+	if(!fp || fp->FD == FD_NOTOPEN) {
+		errno = EBADF;
+		return -1;
+	}
 
-	if( fp->FD == -2 )
+	if( fp->FD == FD_MEMFILE || fp->FD == FD_MEMSTREAM )
 		return fp->Pos;	
 	else
 		return _SysTell(fp->FD);
 }
 
+int _fseek_memfile(FILE *fp, long int amt, int whence)
+{
+	switch(whence)
+	{
+	case SEEK_CUR:
+		fp->Pos += amt;
+		break;
+	case SEEK_SET:
+		fp->Pos = amt;
+		break;
+	case SEEK_END:
+		if( fp->BufferSpace < (size_t)amt )
+			fp->Pos = 0;
+		else
+			fp->Pos = fp->BufferSpace - amt;
+		break;
+	}
+	if(fp->Pos > (off_t)fp->BufferSpace) {
+		fp->Pos = fp->BufferSpace;
+		fp->Flags |= FILE_FLAG_EOF;
+	}
+	return 0;
+}
+
+int _fseek_memstream(FILE *fp, long int amt, int whence)
+{
+	switch(whence)
+	{
+	case SEEK_CUR:
+		fp->Pos += amt;
+		break;
+	case SEEK_SET:
+		fp->Pos = amt;
+		break;
+	case SEEK_END:
+		if( fp->BufferSpace < (size_t)amt )
+			fp->Pos = 0;
+		else
+			fp->Pos = fp->BufferSpace - amt;
+		break;
+	}
+	if(fp->Pos > (off_t)fp->BufferSpace) {
+		fp->Pos = fp->BufferSpace;
+		fp->Flags |= FILE_FLAG_EOF;
+	}
+	return 0;
+}
+
 EXPORT int fseek(FILE *fp, long int amt, int whence)
 {
-	if(!fp || fp->FD == -1)	return -1;
+	if(!fp || fp->FD == FD_NOTOPEN) {
+		errno = EBADF;
+		return -1;
+	}
 
-	if( fp->FD == -2 ) {
-		switch(whence)
-		{
-		case SEEK_CUR:
-			fp->Pos += amt;
-			break;
-		case SEEK_SET:
-			fp->Pos = amt;
-			break;
-		case SEEK_END:
-			if( fp->BufferSpace < (size_t)amt )
-				fp->Pos = 0;
-			else
-				fp->Pos = fp->BufferSpace - amt;
-			break;
-		}
-		if(fp->Pos > (off_t)fp->BufferSpace) {
-			fp->Pos = fp->BufferSpace;
-			fp->Flags |= FILE_FLAG_EOF;
-		}
-		return 0;
+	if( fp->FD == FD_MEMFILE ) {
+		return _fseek_memfile(fp, amt, whence);
+	}
+	else if( fp->FD == FD_MEMSTREAM ) {
+		return _fseek_memstream(fp, amt, whence);
 	}
 	else {
 		fflush(fp);
@@ -405,6 +468,37 @@ size_t _fwrite_unbuffered(FILE *fp, size_t size, size_t num, const void *data)
 	return ret;
 }
 
+size_t _fwrite_memfile(const void *ptr, size_t size, size_t num, FILE *fp)
+{
+	size_t	avail = (fp->BufferSpace - fp->Pos) / size;
+	if( avail == 0 )
+		fp->Flags |= FILE_FLAG_EOF;
+	if( num > avail )
+		num = avail;
+	size_t	bytes = num * size;
+	memcpy(fp->Buffer + fp->Pos, ptr, bytes);
+	fp->Pos += bytes;
+	return num;
+}
+
+size_t _fwrite_memstream(const void *ptr, size_t size, size_t num, FILE *fp)
+{
+	size_t	bytes = size*num;
+	// #1. Check if we need to expand
+	if( fp->Pos + bytes > fp->BufferSpace )
+	{
+		void *newbuf = realloc(fp->Buffer, fp->BufferSpace + bytes);
+		if( !newbuf ) {
+			errno = ENOMEM;
+			return -1;
+		}
+		fp->Buffer = newbuf;
+		fp->BufferSpace = fp->Pos + bytes;
+	}
+	// #2. Write (use the memfile code for that)
+	return _fwrite_memfile(ptr, size, num, fp);
+}
+
 /**
  * \fn EXPORT size_t fwrite(void *ptr, size_t size, size_t num, FILE *fp)
  * \brief Write to a stream
@@ -418,28 +512,23 @@ EXPORT size_t fwrite(const void *ptr, size_t size, size_t num, FILE *fp)
 	if( size == 0 || num == 0 )
 		return 0;
 
-	// Handle memory files first
-	if( fp->FD == -2 ) {
-		size_t	avail = (fp->BufferSpace - fp->Pos) / size;
-		if( avail == 0 )
-			fp->Flags |= FILE_FLAG_EOF;
-		if( num > avail )
-			num = avail;
-		size_t	bytes = num * size;
-		memcpy(fp->Buffer + fp->Pos, ptr, bytes);
-		fp->Pos += bytes;
-		return num;
-	}
-
 	switch( _GetFileMode(fp) )
 	{
 	case FILE_FLAG_MODE_READ:
 	case FILE_FLAG_MODE_EXEC:
+		errno = EBADF;
 		return 0;
 	case FILE_FLAG_MODE_APPEND:
 		fseek(fp, 0, SEEK_END);
 	case FILE_FLAG_MODE_WRITE:
-		if( fp->BufferSpace )
+		// Handle memory files first
+		if( fp->FD == FD_MEMFILE ) {
+			return _fwrite_memfile(ptr, size, num, fp);
+		}
+		else if( fp->FD == FD_MEMSTREAM ) {
+			return _fwrite_memstream(ptr, size, num, fp);
+		}
+		else if( fp->BufferSpace )
 		{
 			// Buffering enabled
 			if( fp->BufferSpace - fp->BufferPos < size*num )
@@ -474,6 +563,26 @@ EXPORT size_t fwrite(const void *ptr, size_t size, size_t num, FILE *fp)
 	return ret;
 }
 
+size_t _fread_memfile(void *ptr, size_t size, size_t num, FILE *fp)
+{
+	size_t	avail = (fp->BufferSpace - fp->Pos) / size;
+	if( avail == 0 )
+		fp->Flags |= FILE_FLAG_EOF;
+	if( num > avail )	num = avail;
+	size_t	bytes = num * size;
+	memcpy(ptr, fp->Buffer + fp->Pos, bytes);
+	fp->Pos += bytes;
+	return num;
+}
+
+#if 0
+size_t _fread_memstream(void *ptr, size_t size, size_t num, FILE *fp)
+{
+	errno = ENOTIMPL;
+	return -1;
+}
+#endif
+
 /**
  * \fn EXPORT size_t fread(void *ptr, size_t size, size_t num, FILE *fp)
  * \brief Read from a stream
@@ -486,16 +595,19 @@ EXPORT size_t fread(void *ptr, size_t size, size_t num, FILE *fp)
 		return -1;
 	if( size == 0 || num == 0 )
 		return 0;
+	
+	if( _GetFileMode(fp) != FILE_FLAG_MODE_READ ) {
+		errno = 0;
+		return -1;
+	}
 
-	if( fp->FD == -2 ) {
-		size_t	avail = (fp->BufferSpace - fp->Pos) / size;
-		if( avail == 0 )
-			fp->Flags |= FILE_FLAG_EOF;
-		if( num > avail )	num = avail;
-		size_t	bytes = num * size;
-		memcpy(ptr, fp->Buffer + fp->Pos, bytes);
-		fp->Pos += bytes;
-		return num;
+	if( fp->FD == FD_MEMFILE ) {
+		return _fread_memfile(ptr, size, num, fp);
+	}
+	else if( fp->FD == FD_MEMSTREAM ) {
+		//return _fread_memstream(ptr, size, num, fp);
+		errno = EBADF;
+		return 0;
 	}
 	
 	// Standard file
@@ -572,6 +684,18 @@ EXPORT int getchar(void)
 	return ret;
 }
 
+EXPORT int puts(const char *str)
+{
+	 int	len;
+	
+	if(!str)	return 0;
+	len = strlen(str);
+	
+	len = _SysWrite(_stdout, str, len);
+	_SysWrite(_stdout, "\n", 1);
+	return len;
+}
+
 // --- INTERNAL ---
 /**
  * \fn FILE *get_file_struct()
@@ -590,17 +714,5 @@ FILE *get_file_struct()
 		return &_iob[i];
 	}
 	return NULL;
-}
-
-EXPORT int puts(const char *str)
-{
-	 int	len;
-	
-	if(!str)	return 0;
-	len = strlen(str);
-	
-	len = _SysWrite(_stdout, str, len);
-	_SysWrite(_stdout, "\n", 1);
-	return len;
 }
 

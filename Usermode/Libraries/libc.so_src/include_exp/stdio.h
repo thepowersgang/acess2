@@ -38,6 +38,8 @@ typedef struct sFILE	FILE;
 #define fopen	acess_fopen
 #define fdopen	acess_fdopen
 #define freopen	acess_freopen
+#define fmemopen	acess_fmemopen
+#define open_memstream	acess_open_memstream
 #define fdopen	acess_fdopen
 #define fclose	acess_fclose
 #define ftell	acess_ftell
@@ -81,6 +83,8 @@ extern void	perror(const char *s);
 
 extern FILE	*fopen(const char *file, const char *mode);
 extern FILE	*freopen(const char *file, const char *mode, FILE *fp);
+extern FILE	*fmemopen(void *buffer, size_t length, const char *mode);
+extern FILE	*open_memstream(char **bufferptr, size_t *lengthptr);
 extern FILE	*fdopen(int fd, const char *modes);
 extern int	fclose(FILE *fp);
 extern void	fflush(FILE *fp);
