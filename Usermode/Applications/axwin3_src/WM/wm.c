@@ -24,6 +24,7 @@ extern int	Renderer_RichText_Init(void);
 extern void	IPC_SendWMMessage(tIPC_Client *Client, uint32_t Src, uint32_t Dst, int Msg, int Len, const void *Data);
 extern void	IPC_SendReply(tIPC_Client *Client, uint32_t WinID, int MsgID, size_t Len, const void *Data);
 extern tWindow	*IPC_int_GetWindow(tIPC_Client *Client, uint32_t ID);
+extern void	IPC_int_SetWindow(tIPC_Client *Client, uint32_t ID, tWindow *Window);
 
 // === GLOBALS ===
 tWMRenderer	*gpWM_Renderers;
@@ -145,7 +146,8 @@ void WM_DestroyWindow(tWindow *Window)
 			Window->Parent->LastChild = prev;
 	}
 	// - Full invalidate
-	WM_Invalidate(Window, 1);
+	WM_Invalidate(Window, 0);
+	Window->Parent->Flags &= ~WINFLAG_CLEAN;	// Mark parent as unclean, forcing redraw
 	
 	// - Remove from inheritance tree?
 	
@@ -176,6 +178,7 @@ void WM_DestroyWindow(tWindow *Window)
 	free(Window->Title);
 	free(Window->RenderBuffer);
 	free(Window);
+	IPC_int_SetWindow(Window->Client, Window->ID, NULL);
 }
 
 tWindow *WM_GetWindowByID(tWindow *Requester, uint32_t ID)

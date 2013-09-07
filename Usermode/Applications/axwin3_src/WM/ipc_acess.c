@@ -17,8 +17,8 @@
 
 // === PROTOTYPES ===
 void	IPC_Init(void);
-void	IPC_FillSelect(int *nfds, fd_set *set);
-void	IPC_HandleSelect(fd_set *set);
+void	IPC_FillSelect(int *nfds, fd_set *set, fd_set *err_set);
+void	IPC_HandleSelect(fd_set *set, fd_set *err_set);
  int	IPC_Type_Datagram_GetSize(const void *Ident);
  int	IPC_Type_Datagram_Compare(const void *Ident1, const void *Ident2);
 void	IPC_Type_Datagram_Send(const void *Ident, size_t Length, const void *Data);
@@ -75,18 +75,20 @@ void _setfd(int fd, int *nfds, fd_set *set)
 	}
 }
 
-void IPC_FillSelect(int *nfds, fd_set *set)
+void IPC_FillSelect(int *nfds, fd_set *set, fd_set *err_set)
 {
 	_setfd(giNetworkFileHandle, nfds, set);
 	_setfd(giIPCPipeHandle, nfds, set);
 	for( int i = 0; i < giIPC_ClientCount; i ++ )
 	{
-		if( gIPC_Clients[i] && gIPC_Clients[i]->IPCType == &gIPC_Type_IPCPipe )
+		if( gIPC_Clients[i] && gIPC_Clients[i]->IPCType == &gIPC_Type_IPCPipe ) {
 			_setfd( *(int*)(gIPC_Clients[i]->Ident), nfds, set );
+			_setfd( *(int*)(gIPC_Clients[i]->Ident), nfds, err_set );
+		}
 	}
 }
 
-void IPC_HandleSelect(fd_set *set)
+void IPC_HandleSelect(fd_set *set, fd_set *err_set)
 {
 	if( giNetworkFileHandle != -1 && FD_ISSET(giNetworkFileHandle, set) )
 	{
@@ -126,6 +128,12 @@ void IPC_HandleSelect(fd_set *set)
 					break;
 				}
 				IPC_Handle( gIPC_Clients[i], len, (void*)staticBuf );
+			}
+			if( FD_ISSET(fd, err_set) )
+			{
+				// Client disconnected
+				IPC_int_DropClient(gIPC_Clients[i]);
+				_SysClose(fd);
 			}
 		}
 	}

@@ -79,22 +79,24 @@ int main(int argc, char *argv[])
 	for(;;)
 	{
 		fd_set	fds;
+		fd_set	efds;
 		 int	nfds = 0;
 		FD_ZERO(&fds);
+		FD_ZERO(&efds);
 	
 		WM_Update();
 
 		Input_FillSelect(&nfds, &fds);
-		IPC_FillSelect(&nfds, &fds);
+		IPC_FillSelect(&nfds, &fds, &efds);
 		
 		nfds ++;
-		if( _SysSelect(nfds, &fds, NULL, NULL, NULL, THREAD_EVENT_IPCMSG) == -1 ) {
+		if( _SysSelect(nfds, &fds, NULL, &efds, NULL, THREAD_EVENT_IPCMSG) == -1 ) {
 			_SysDebug("ERROR: select() returned -1");
 			return -1;
 		}
 
 		Input_HandleSelect(&fds);
-		IPC_HandleSelect(&fds);
+		IPC_HandleSelect(&fds, &efds);
 	}
 	return 0;
 }

@@ -21,8 +21,8 @@ extern void	Input_FillSelect(int *nfds, fd_set *set);
 extern void	Input_HandleSelect(fd_set *set);
 // --- IPC ---
 extern void	IPC_Init(void);
-extern void	IPC_FillSelect(int *nfds, fd_set *set);
-extern void	IPC_HandleSelect(fd_set *set);
+extern void	IPC_FillSelect(int *nfds, fd_set *set, fd_set *err_set);
+extern void	IPC_HandleSelect(fd_set *set, fd_set *err_set);
 
 #endif
 
