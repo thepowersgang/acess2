@@ -16,6 +16,20 @@
 #define	ARP_CACHE_SIZE	128
 #define	ARP_MAX_AGE		(60*60*1000)	// 1Hr
 
+typedef struct sARP_CacheEnt
+{
+	void	*Layer3Addr;
+	tMacAddr	L2Addr;
+	Sint64	LastUpdate;
+	Sint64	LastUsed;
+} tARP_CacheEnt;
+typedef struct sARP_Cache
+{
+	size_t	AddrSize;
+	 int	nCacheEnts;
+	tARP_CacheEnt	Cache[];
+} tARP_Cache;
+
 // === IMPORTS ===
 extern tInterface	*IPv4_GetInterface(tAdapter *Adapter, tIPv4 Address, int Broadcast);
 #if ARPv6
@@ -28,6 +42,7 @@ tMacAddr	ARP_Resolve4(tInterface *Interface, tIPv4 Address);
 void	ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffer);
 
 // === GLOBALS ===
+ int	giARP_WaitingThreads;
 struct sARP_Cache4 {
 	tIPv4	IP;
 	tMacAddr	MAC;
@@ -37,7 +52,6 @@ struct sARP_Cache4 {
  int	giARP_Cache4Space;
 tMutex	glARP_Cache4;
 tSemaphore	gARP_Cache4Semaphore;
- int	giARP_WaitingThreads;
 #if ARPv6
 struct sARP_Cache6 {
 	tIPv6	IP;
@@ -50,6 +64,24 @@ tMutex	glARP_Cache6;
 #endif
 
 // === CODE ===
+tARP_Cache *ARP_int_CreateCache(unsigned int NumCacheEntries, size_t AddrSize)
+{
+	size_t	len = sizeof(tARP_Cache) + NumCacheEntries * (sizeof(tARP_CacheEnt) + AddrSize);
+	tARP_Cache	*ret = calloc(len, 1);
+	
+	ret->nCacheEnts = NumCacheEntries;
+	ret->AddrSize = AddrSize;
+	
+	char	*addr_storage_pos = (void*)&ret->Cache[NumCacheEntries];
+	
+	for( int i = 0; i < NumCacheEntries; i ++ )
+	{
+		ret->Cache[i].Layer3Addr = addr_storage_pos;
+		addr_storage_pos += AddrSize;
+	}
+	
+	return ret;
+}
 /**
  * \fn int ARP_Initialise()
  * \brief Initalise the ARP section
@@ -69,6 +101,22 @@ int ARP_Initialise()
 	Link_RegisterType(0x0806, ARP_int_GetPacket);
 	Semaphore_Init(&gARP_Cache4Semaphore, 0, 0, "ARP4", "Cache Changes");
 	return 1;
+}
+
+tMacAddr ARP_Resolve(tInterface *Interface, void *Address)
+{
+	switch(Interface->Type)
+	{
+	case AF_INET4:
+		return ARP_Resolve4(Interface, *(tIPv4*)Address);
+//	case AF_INET6:
+//		ret = ARP_int_CacheLookup(Interface, 16, Address);
+//		if(ret == cMAC_ZERO) {
+//			// TODO: Send ICMPv6 ND requests
+//		}
+//		return ret;
+	}
+	return cMAC_ZERO;
 }
 
 /**
