@@ -14,15 +14,26 @@ mboot:
 	; Multiboot macros to make a few lines later more readable
 	MULTIBOOT_PAGE_ALIGN	equ 1<<0
 	MULTIBOOT_MEMORY_INFO	equ 1<<1
+	MULTIBOOT_REQVIDMODE	equ 1<<2
 	MULTIBOOT_HEADER_MAGIC	equ 0x1BADB002
-	MULTIBOOT_HEADER_FLAGS	equ MULTIBOOT_PAGE_ALIGN | MULTIBOOT_MEMORY_INFO
+	MULTIBOOT_HEADER_FLAGS	equ MULTIBOOT_PAGE_ALIGN | MULTIBOOT_MEMORY_INFO | MULTIBOOT_REQVIDMODE
 	MULTIBOOT_CHECKSUM	equ -(MULTIBOOT_HEADER_MAGIC + MULTIBOOT_HEADER_FLAGS)
 	
 	; This is the GRUB Multiboot header. A boot signature
 	dd MULTIBOOT_HEADER_MAGIC
 	dd MULTIBOOT_HEADER_FLAGS
 	dd MULTIBOOT_CHECKSUM
+	
 	dd mboot; - KERNEL_BASE	;Location of Multiboot Header
+	dd 0	; load_addr
+	dd 0	; load_end_addr
+	dd 0	; bss_end_addr
+	dd 0	; entry_addr
+	
+;	dd 0	; Mode type (0: LFB)
+;	dd 1024	; Width
+;	dd 768	; Height
+;	dd 0	; Depth (no preference)
 	
 ; Multiboot 2 Header
 ;mboot2:

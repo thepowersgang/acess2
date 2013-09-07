@@ -14,15 +14,37 @@
 // === TYPES ===
 typedef struct {
 	Uint32	Flags;
+	// flags[0]
 	Uint32	LowMem;
 	Uint32	HighMem;
+	// flags[1]
 	Uint32	BootDevice;
+	// flags[2]
 	Uint32	CommandLine;
+	// flags[3]
 	Uint32	ModuleCount;
 	Uint32	Modules;
+	// flags[4] or flags[5]
 	Uint32	SymbolInfo[4];	// #32 UNUSED
+	// flags[6]
 	Uint32	MMapLength;
 	Uint32	MMapAddr;		// #40
+	// flags[7]
+	Uint32	drives_length;
+	Uint32	drives_addr;
+	// flags[8]
+	Uint32	config_table;
+	// flags[9]
+	Uint32	boot_loader_name;
+	// flags[10]
+	Uint32	apm_table;
+	// flags[11]
+	Uint32	vbe_control_info;
+	Uint32	vbe_mode_info;
+	Uint32	vbe_mode;
+	Uint32	vbe_interface_seg;
+	Uint32	vbe_interface_off;
+	Uint32	vbe_interface_len;
 } tMBoot_Info;
 
 typedef struct {
