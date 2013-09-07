@@ -82,6 +82,10 @@ int SoMain(UNUSED(uintptr_t, BaseAddress), UNUSED(int, argc), UNUSED(char **, ar
 int ErrorHandler(int Fault)
 {
 	 int	i;
+
+	extern void ldacess_DumpLoadedLibraries(void);	
+	ldacess_DumpLoadedLibraries();
+
 	fprintf(stderr, "ErrorHandler: (Fault = %i)\n", Fault);
 	fprintf(stderr, "Loaded Libraries:\n");
 	for( i = 0; i < 64; i ++ )
