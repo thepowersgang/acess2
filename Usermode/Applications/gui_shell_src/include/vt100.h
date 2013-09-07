@@ -8,6 +8,8 @@
 #ifndef _VT100_H_
 #define _VT100_H_
 
+#include "display.h"
+
 /**
  * Returns either a positive or negative byte count.
  * Positive means that many bytes were used as part of the escape sequence
@@ -15,7 +17,7 @@
  * Negative means that there were that many bytes before the next escape
  * sequence (and hence those should be displayed).
  */
-extern int	Term_HandleVT100(int Len, const char *Buf);
+extern int	Term_HandleVT100(tTerminal *Term, int Len, const char *Buf);
 
 
 #endif

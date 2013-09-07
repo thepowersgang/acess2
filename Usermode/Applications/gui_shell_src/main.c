@@ -22,7 +22,7 @@
  int	main(int argc, char *argv[], const char **envp);
  int	Term_KeyHandler(tHWND Window, int bPress, uint32_t KeySym, uint32_t Translated);
  int	Term_MouseHandler(tHWND Window, int bPress, int Button, int Row, int Col);
-void	Term_HandleOutput(int Len, const char *Buf);
+void	Term_HandleOutput(tTerminal *Term, int Len, const char *Buf);
 
 // === GLOBALS ===
 tHWND	gMainWindow;
@@ -55,7 +55,7 @@ int main(int argc, char *argv[], const char **envp)
 	AxWin3_RichText_SetCursorType	(gMainWindow, AXWIN3_RICHTEXT_CURSOR_INV);
 	AxWin3_RichText_SetCursorBlink	(gMainWindow, 1);
 
-	Display_Init(80, 25, 100);
+	tTerminal *term = Display_Init(80, 25, 100);
 	AxWin3_ResizeWindow(gMainWindow, 80*8, 25*16);
 	AxWin3_MoveWindow(gMainWindow, 20, 50);
 	AxWin3_ShowWindow(gMainWindow, 1);
@@ -105,7 +105,7 @@ int main(int argc, char *argv[], const char **envp)
 			int len = _SysRead(giPTYHandle, buf, sizeof(buf));
 			if( len <= 0 )	break;
 			
-			Term_HandleOutput(len, buf);
+			Term_HandleOutput(term, len, buf);
 		}
 	}
 
@@ -184,7 +184,7 @@ int Term_MouseHandler(tHWND Window, int bPress, int Button, int Row, int Col)
 	return 0;
 }
 
-void Term_HandleOutput(int Len, const char *Buf)
+void Term_HandleOutput(tTerminal *Term, int Len, const char *Buf)
 {
 	// TODO: Handle graphical / accelerated modes
 
@@ -193,15 +193,15 @@ void Term_HandleOutput(int Len, const char *Buf)
 
 	while( ofs < Len )
 	{
-		esc_len = Term_HandleVT100(Len - ofs, Buf + ofs);
+		esc_len = Term_HandleVT100(Term, Len - ofs, Buf + ofs);
 		if( esc_len < 0 ) {
-			Display_AddText(-esc_len, Buf + ofs);
+			Display_AddText(Term, -esc_len, Buf + ofs);
 			esc_len = -esc_len;
 		}
 		ofs += esc_len;
 		//_SysDebug("Len = %i, ofs = %i", Len, ofs);
 	}
 	
-	Display_Flush();
+	Display_Flush(Term);
 }
 

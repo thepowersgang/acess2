@@ -19,14 +19,14 @@ const uint32_t	caVT100Colours[] = {
 	0xCCCCCC, 0xFF0000, 0x00FF00, 0xFFFF00, 0x0000FF, 0xFF00FF, 0x00FFFF, 0xFFFFFFF
 };
 
- int	Term_HandleVT100_Long(int Len, const char *Buf);
+ int	Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buf);
 
 static inline int min(int a, int b)
 {
 	return a < b ? a : b;
 }
 
-int Term_HandleVT100(int Len, const char *Buf)
+int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
 {
 	#define	MAX_VT100_ESCAPE_LEN	16
 	static char	inc_buf[MAX_VT100_ESCAPE_LEN];
@@ -47,7 +47,7 @@ int Term_HandleVT100(int Len, const char *Buf)
 		switch(inc_buf[1])
 		{
 		case '[':	// Multibyte, funtime starts	
-			ret = Term_HandleVT100_Long(inc_len-2, inc_buf+2);
+			ret = Term_HandleVT100_Long(Term, inc_len-2, inc_buf+2);
 			if( ret > 0 ) {
 				ret += 2;
 			}
@@ -67,19 +67,19 @@ int Term_HandleVT100(int Len, const char *Buf)
 	switch( *Buf )
 	{
 	case '\b':
-		Display_MoveCursor(-1, 0);
-		Display_AddText(1, " ");
-		Display_MoveCursor(-1, 0);
+		Display_MoveCursor(Term, -1, 0);
+		Display_AddText(Term, 1, " ");
+		Display_MoveCursor(Term, -1, 0);
 		// TODO: Need to handle \t and ^A-Z
 		return 1;
 	case '\t':
 		// TODO: tab (get current cursor pos, space until multiple of 8)
 		return 1;
 	case '\n':
-		Display_Newline(1);
+		Display_Newline(Term, 1);
 		return 1;
 	case '\r':
-		Display_MoveCursor(INT_MIN, 0);
+		Display_MoveCursor(Term, INT_MIN, 0);
 		return 1;
 	}
 
@@ -96,7 +96,7 @@ int Term_HandleVT100(int Len, const char *Buf)
 	return -ret;
 }
 
-int Term_HandleVT100_Long(int Len, const char *Buffer)
+int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 {
 	char	c;
 	 int	argc = 0, j = 0;
@@ -137,9 +137,26 @@ int Term_HandleVT100_Long(int Len, const char *Buffer)
 
 	if( bQuestionMark )
 	{
+		 int	set = 0;
 		// Special commands
 		switch( c )
 		{
+		case 'h':	// set
+			set = 1;
+		case 'l':	// unset
+			switch(args[0])
+			{
+			case 25:	// Hide cursor
+				_SysDebug("TODO: \\e[?25%c Show/Hide cursor", c);
+				break;
+			case 1047:	// Alternate buffer
+				Display_ShowAltBuffer(Term, set);
+				break;
+			default:
+				_SysDebug("TODO: \\e[?%i%c Unknow DEC private mode", args[0], c);
+				break;
+			}
+			break;
 		default:
 			_SysDebug("Unknown VT100 extended escape char 0x%x", c);
 			break;
@@ -150,13 +167,23 @@ int Term_HandleVT100_Long(int Len, const char *Buffer)
 		// Standard commands
 		switch( c )
 		{
+		case 'H':
+			if( argc != 2 ) {
+			}
+			else {
+				Display_SetCursor(Term, args[0], args[1]);
+			}
+			break;
 		case 'J':
 			if( argc == 0 )
-				Display_ClearLine(0);
+				Display_ClearLine(Term, 0);
 			else if( args[0] == 2 )
-				Display_ClearLines(0);	// Entire screen!
+				Display_ClearLines(Term, 0);	// Entire screen!
 			else
 				_SysDebug("TODO: VT100 %i J", args[0]);
+			break;
+		case 'T':	// Scroll down n=1
+			_SysDebug("TODO: \\x1B[nT - Scroll down");
 			break;
 		case 'm':
 			if( argc == 0 )
@@ -175,18 +202,23 @@ int Term_HandleVT100_Long(int Len, const char *Buffer)
 					else if( 30 <= args[i] && args[i] <= 37 )
 					{
 						// TODO: Bold/bright
-						Display_SetForeground( caVT100Colours[ args[i]-30 ] );
+						Display_SetForeground( Term, caVT100Colours[ args[i]-30 ] );
 					} 
 					else if( 40 <= args[i] && args[i] <= 47 )
 					{
 						// TODO: Bold/bright
-						Display_SetBackground( caVT100Colours[ args[i]-30 ] );
+						Display_SetBackground( Term, caVT100Colours[ args[i]-30 ] );
 					} 
 				}
 			}
 			break;
+		// Set scrolling region
+		case 'r':
+			_SysDebug("TODO: \\x1B[%i;%ir - Set Scroll Region",
+				args[0], args[1]);
+			break;
 		default:
-			_SysDebug("Unknown VT100 escape char 0x%x", c);
+			_SysDebug("Unknown VT100 long escape char 0x%x '%c'", c, c);
 			break;
 		}
 	}
