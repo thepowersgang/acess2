@@ -300,9 +300,12 @@ int _fflush_int(FILE *fp)
 	case FILE_FLAG_MODE_APPEND:
 		_SysSeek(fp->FD, fp->BufferOfs, SEEK_SET);
 		len = _SysWrite(fp->FD, fp->Buffer, fp->BufferPos);
-		if( len < fp->BufferPos )
+		if( len != fp->BufferPos )
 			ret = 1;
-		fp->BufferPos -= len;
+		if( len <= fp->BufferPos )
+		{
+			fp->BufferPos -= len;
+		}
 		fp->BufferOfs = _SysTell(fp->FD);
 		break;
 		
@@ -312,7 +315,13 @@ int _fflush_int(FILE *fp)
 		len = _SysWrite(fp->FD, fp->Buffer, fp->BufferPos);
 		if( len != fp->BufferPos )
 			ret = 1;
-		fp->BufferPos -= len;
+		if( len <= fp->BufferPos )
+		{
+			fp->BufferPos -= len;
+		}
+		//else {
+		//	_SysDebug("Flush of %i failed, %s", fp->FD, strerror(errno));
+		//}
 		break;
 	default:
 		break;
