@@ -315,8 +315,8 @@ void E1000_IRQHandler(int Num, void *Ptr)
 		{
 			LOG("No completed TXDs");
 		}
-	}
-	
+	}	
+
 	if( icr & ICR_LSC )
 	{
 		// Link status change
@@ -349,7 +349,13 @@ void E1000_IRQHandler(int Num, void *Ptr)
 		LOG("nPackets = %i", nPackets);
 	}
 	
-	icr &= ~(ICR_RXT0|ICR_LSC|ICR_TXQE|ICR_TXDW);
+	// Transmit Descriptor Low Threshold hit
+	if( icr & ICR_TXD_LOW )
+	{
+		
+	}
+	
+	icr &= ~(ICR_RXT0|ICR_LSC|ICR_TXQE|ICR_TXDW|ICR_TXD_LOW);
 	if( icr )
 		Log_Warning("E1000", "Unhandled ICR bits 0x%x", icr);
 }
