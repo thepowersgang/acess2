@@ -52,10 +52,11 @@ int UDI_LoadDriver(void *Base)
 	 int	i;
 	// int	j;
 	
-	Log_Debug("UDI", "UDI_LoadDriver: (Base=%p)", Base);
+	ENTER("pBase", Base);
 	
 	if( Binary_FindSymbol(Base, "udi_init_info", (Uint*)&info) == 0) {
 		Binary_Unload(Base);
+		LEAVE('i', 0);
 		return 0;
 	}
 	
