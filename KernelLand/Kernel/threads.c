@@ -728,7 +728,10 @@ void Threads_int_WaitForStatusEnd(enum eThreadStatus Status)
 	{
 		Proc_Reschedule();
 		if( us->Status == Status )
-			Debug("Thread %p(%i %s) rescheduled while in %s state", casTHREAD_STAT[Status]);
+			Debug("Thread %p(%i %s) rescheduled while in %s state for %p",
+				us, us->TID, us->ThreadName,
+				casTHREAD_STAT[Status],
+				__builtin_return_address(0));
 	}
 }
 
