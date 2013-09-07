@@ -33,6 +33,18 @@ char	*gsNextAvailString = gsLoadedStrings;
 //tLoadLib	*gpLoadedLibraries = NULL;
 
 // === CODE ===
+void ldacess_DumpLoadedLibraries(void)
+{
+	for( int i = 0; i < MAX_LOADED_LIBRARIES; i ++ )
+	{
+		if(gLoadedLibraries[i].Base == 0)	break;	// Last entry has Base set to NULL
+		_SysDebug("%p: %s",
+			gLoadedLibraries[i].Base,
+			gLoadedLibraries[i].Name
+			);
+	}
+}
+
 const char *FindLibrary(char *DestBuf, const char *SoName, const char *ExtraSearchDir)
 {	
 	// -- #1: Executable Specified

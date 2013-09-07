@@ -27,4 +27,5 @@ uint32_t __umodsi3(uint32_t Num, uint32_t Den){return 0;}
 
 void	*_crt0_exit_handler;
 void	abort(void){}
+void	ldacess_DumpLoadedLibraries(void){}
 

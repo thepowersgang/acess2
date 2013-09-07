@@ -11,7 +11,7 @@ EXTRABIN := libld-acess.so
 EXTRACLEAN = $(_OBJPREFIX)_stublib.o
 INCFILES := sys/sys.h
 
-CFLAGS   = -g -Wall -fno-builtin -fno-stack-protector -fPIC
+CFLAGS   = -g -Wall -fno-builtin -fno-stack-protector -fPIC -std=c99
 # -fno-leading-underscore
 CFLAGS  += $(CPPFLAGS)
 LDFLAGS  = -g -T arch/$(ARCHDIR).ld -Map map.txt --export-dynamic

@@ -10,6 +10,7 @@ extern int32_t	__divsi3(int32_t Num, int32_t Den);
 extern int32_t	__modsi3(int32_t Num, int32_t Den);
 extern uint32_t	__udivsi3(uint32_t Num, uint32_t Den);
 extern uint32_t	__umodsi3(uint32_t Num, uint32_t Den);
+extern void	ldacess_DumpLoadedLibraries(void);
 
 #define _STR(x)	#x
 #define STR(x)	_STR(x)
@@ -30,6 +31,7 @@ const struct {
 }	caLocalExports[] = {
 	EXP(gLoadedLibraries),
 	EXP(_errno),
+	EXP(ldacess_DumpLoadedLibraries),
 	
 	#define __ASSEMBLER__
 	#include "arch/syscalls.s.h"
