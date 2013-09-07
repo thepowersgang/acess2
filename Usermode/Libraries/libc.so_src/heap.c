@@ -453,17 +453,15 @@ void Heap_Dump(void)
 	heap_head *cur = _heap_start;
 	while( cur < (heap_head*)_heap_end )
 	{
-		switch( cur->magic )
-		{
-		case MAGIC:
+		if( cur->magic == MAGIC ) {
 			_SysDebug("Used block %p[0x%x] - ptr=%p", cur, cur->size, cur->data);
-			break;
-		case MAGIC_FREE:
+		}
+		else if( cur->magic == MAGIC_FREE ) {
 			_SysDebug("Free block %p[0x%x] - ptr=%p", cur, cur->size, cur->data);
-			break;
-		default:
+		}
+		else {
 			_SysDebug("Block %p bad magic (0x%x)", cur, cur->magic);
-			return ;
+			break ;
 		}
 		cur = (void*)( (char*)cur + cur->size );
 	}
