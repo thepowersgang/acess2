@@ -84,8 +84,7 @@ int NTFS_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 		vcn ++;
 	}
 	if( !ent ) {
-		LEAVE('i', 1);
-		return -1;
+		LEAVE_RET('i', -1);
 	}
 
 	// TODO: This is not future-proof
