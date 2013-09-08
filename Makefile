@@ -21,7 +21,7 @@ EXTLIBS :=
 USRAPPS := init login CLIShell cat ls mount automounter
 USRAPPS += bomb lspci
 USRAPPS += ip dhcpclient ping telnet irc wget telnetd
-USRAPPS += axwin3 gui_ate gui_shell
+USRAPPS += axwin3 gui_ate gui_terminal
 
 define targetclasses
  AI_$1      := $$(addprefix allinstall-,$$($1))
