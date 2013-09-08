@@ -1116,22 +1116,41 @@ void Threads_SetSignalHandler(int SignalNum, void *Handler)
 }
 
 /**
- * \return 0  Ignore
+ * \brief Gets the registered (or default, if none set) handler for a signal.
+ * \return Handler function pointer, OR NULL if no signal to be ignored
  */
 void *Threads_GetSignalHandler(int SignalNum)
 {
+	// TODO: Core dump
+	void *User_Signal_Core = User_Signal_Kill;
+	
 	if( SignalNum <= 0 || SignalNum >= NSIGNALS )
 		return NULL;
 	void *ret = Proc_GetCurThread()->Process->SignalHandlers[SignalNum];
-	if( !ret )
+	if( !ret || (SignalNum == SIGKILL || SignalNum == SIGSTOP) )
 	{
 		// Defaults
 		switch(SignalNum)
 		{
-		case SIGINT:
-		case SIGKILL:
-		case SIGSEGV:
 		case SIGHUP:
+		case SIGINT:
+			ret = User_Signal_Kill;
+			break;
+		case SIGQUIT:
+		case SIGILL:
+		case SIGABRT:
+		case SIGFPE:
+			ret = User_Signal_Core;
+			break;
+		case SIGKILL:
+			ret = User_Signal_Kill;
+			break;
+		case SIGSEGV:
+			ret = User_Signal_Core;
+			break;
+		case SIGPIPE:
+		case SIGALRM:
+		case SIGTERM:
 			ret = User_Signal_Kill;
 			break;
 		default:
