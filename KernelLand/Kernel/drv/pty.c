@@ -683,7 +683,7 @@ void PTY_CloseServer(tVFS_Node *Node)
 	
 	// Locate on list and remove
 	tPTY	**prev_np;
-	if( pty->NumericName == 0 ) {
+	if( pty->NumericName == -1 ) {
 		RWLock_AcquireWrite(&glPTY_NamedPTYs);
 		prev_np = &gpPTY_FirstNamedPTY;
 	}
@@ -705,7 +705,7 @@ void PTY_CloseServer(tVFS_Node *Node)
 	}
 	
 	// Clean up lock
-	if( pty->NumericName == 0 ) {
+	if( pty->NumericName == -1 ) {
 		RWLock_Release(&glPTY_NamedPTYs);
 		giPTY_NamedCount --;
 	}
@@ -713,6 +713,8 @@ void PTY_CloseServer(tVFS_Node *Node)
 		RWLock_Release(&glPTY_NumPTYs);
 		giPTY_NumCount --;
 	}
+
+	// TODO: Send SIGHUP to controly PGID?
 
 	// If there are no open children, we can safely free this PTY
 	if( pty->ClientNode.ReferenceCount == 0 ) {
