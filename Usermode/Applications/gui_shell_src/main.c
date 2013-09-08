@@ -85,6 +85,7 @@ int main(int argc, char *argv[], const char **envp)
 		int pid = _SysSpawn("/Acess/Bin/CLIShell", argv, envp, 3, fds, NULL);
 		if( pid < 0 )
 			_SysDebug("ERROR: Shell spawn failed: %s", strerror(errno));
+		_SysIOCtl(fd, PTY_IOCTL_SETPGRP, &pid);
 		_SysClose(fd);
 	}
 
