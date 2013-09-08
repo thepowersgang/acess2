@@ -198,8 +198,10 @@ int IPC_Type_IPCPipe_Compare(const void *Ident1, const void *Ident2)
 }
 void IPC_Type_IPCPipe_Send(const void *Ident, size_t Length, const void *Data)
 {
-	size_t rv = _SysWrite( *(const int*)Ident, Data, Length );
+	 int	fd = *(const int*)Ident;
+	size_t rv = _SysWrite( fd, Data, Length );
 	if(rv != Length) {
-		_SysDebug("Sent message oversize %x", Length);
+		_SysDebug("Message send for IPCPipe FD %i %i req, %i sent",
+			fd, Length, rv);
 	}
 }
