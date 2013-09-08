@@ -13,6 +13,7 @@
 #include <modules.h>
 #include <rwlock.h>
 #include <mutex.h>
+#include <signal.h>
 
 // === CONSTANTS ===
 #define OUTPUT_RINGBUFFER_LEN	1024	// Number of bytes in output queue before client blocks
@@ -52,7 +53,8 @@ struct sPTY
 	tVFS_Node	*ServerNode;
 	tVFS_Node	ClientNode;
 	tVFS_ACL	OwnerRW;
-	
+
+	tPGID	ControllingProcGroup;	
 	// TODO: Maintain list of client PIDs
 };
 
@@ -274,9 +276,7 @@ void PTY_Close(tPTY *PTY)
 size_t _rb_write(void *buf, size_t buflen, int *rd, int *wr, const void *data, size_t len)
 {
 	size_t space = (*rd - *wr + buflen - 1) % buflen;
-	ENTER("pbuf ibuflen prd pwr pdata ilen", buf, buflen, rd, wr, data, len);
 	len = MIN(space, len);
-	LOG("space = %i, *rd = %i, *wr = %i", space, *rd, *wr);
 	if(*wr + len >= buflen) {
 		size_t prelen = buflen - *wr;
 		memcpy((char*)buf + *wr, data, prelen);
@@ -287,7 +287,6 @@ size_t _rb_write(void *buf, size_t buflen, int *rd, int *wr, const void *data, s
 		memcpy((char*)buf + *wr, data, len);
 		*wr += len;
 	}
-	LEAVE('i', len);
 	return len;
 }
 size_t _rb_read(void *buf, size_t buflen, int *rd, int *wr, void *data, size_t len)
@@ -442,12 +441,10 @@ int PTY_ReadDir(tVFS_Node *Node, int Pos, char Name[FILENAME_MAX])
 	}
 
 	if( !pty ) {
-		LOG("%i out of range", Pos);
 		return -1;
 	}
 
-	strncpy(Name, pty->Name, FILENAME_MAX)	
-	LOG("Return '%s'", Name);
+	strncpy(Name, pty->Name, FILENAME_MAX);
 	return 0;
 }
 
@@ -555,7 +552,7 @@ size_t PTY_WriteClient(tVFS_Node *Node, off_t Offset, size_t Length, const void 
 	// If the server has terminated, send SIGPIPE
 	if( pty->ServerNode && pty->ServerNode->ReferenceCount == 0 )
 	{
-		//Threads_PostSignal(SIGPIPE);
+		Threads_PostSignal(SIGPIPE);
 		errno = EIO;
 		return -1;
 	}	
@@ -571,7 +568,7 @@ size_t PTY_WriteClient(tVFS_Node *Node, off_t Offset, size_t Length, const void 
 	 int	rv;
 	
 	rv = VFS_SelectNode(Node, VFS_SELECT_WRITE, timeout, "PTY_WriteClient");
-	if(!rv ) {
+	if(!rv) {
 		errno = (timeout ? EWOULDBLOCK : EINTR);
 		return -1;
 	}
@@ -714,7 +711,10 @@ void PTY_CloseServer(tVFS_Node *Node)
 		giPTY_NumCount --;
 	}
 
-	// TODO: Send SIGHUP to controly PGID?
+	// Send SIGHUP to controling PGID
+	if( pty->ControllingProcGroup > 0 ) {
+		Threads_SignalGroup(pty->ControllingProcGroup, SIGHUP);
+	}
 
 	// If there are no open children, we can safely free this PTY
 	if( pty->ClientNode.ReferenceCount == 0 ) {
@@ -780,6 +780,15 @@ int PTY_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		Node->ImplPtr = pty;
 		pty->ServerNode = Node;
 		return 0;
+	case PTY_IOCTL_SETPGRP:
+		// TODO: Should this only be done by client?
+		if( Data )
+		{
+			if( !CheckMem(Data, sizeof(tPGID)) ) { errno = EINVAL; return -1; }
+			pty->ControllingProcGroup = *(tPGID*)Data;
+			Log_Debug("PTY", "Set controlling PGID to %i", pty->ControllingProcGroup);
+		}
+		return pty->ControllingProcGroup;
 	}
 	errno = ENOSYS;
 	return -1;
