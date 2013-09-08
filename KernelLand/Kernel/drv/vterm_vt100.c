@@ -139,7 +139,10 @@ void VT_int_ParseEscape_StandardLarge(tVTerm *Term, char CmdChar, int argc, int 
 			Term->WritePos = args[0] + args[1]*Term->TextWidth;
 		//Log_Debug("VTerm", "args = {%i, %i}", args[0], args[1]);
 		break;
-	
+//	// Reset formatting?
+//	case 'R':
+//		Term->CurColour = DEFAULT_COLOUR;
+//		break;
 	// Scroll up `n` lines
 	case 'S':
 		tmp = -1;
