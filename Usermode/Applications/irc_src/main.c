@@ -840,7 +840,7 @@ char *GetValue(char *Src, int *Ofs)
 
 void SetCursorPos(int Row, int Col)
 {
-	printf("\x1B[%i;%iH", Col, Row);
+	printf("\x1B[%i;%iH", Row, Col);
 }
 
 static inline int isdigit(int ch)
