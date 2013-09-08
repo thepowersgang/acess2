@@ -11,6 +11,7 @@
 #include "include/display.h"
 #include <ctype.h>	// isalpha
 #include <acess/sys.h>	// _SysDebug
+#include <assert.h>
 
 const uint32_t	caVT100Colours[] = {
 	// Black, Red, Green, Yellow, Blue, Purple, Cyan, Gray
@@ -59,6 +60,7 @@ int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
 
 		if( ret != 0 ) {
 			inc_len = 0;
+			assert(ret > old_inc_len);
 			ret -= old_inc_len;	// counter cached bytes
 		}
 		return ret;
@@ -67,9 +69,9 @@ int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
 	switch( *Buf )
 	{
 	case '\b':
-		Display_MoveCursor(Term, -1, 0);
+		Display_MoveCursor(Term, 0, -1);
 		Display_AddText(Term, 1, " ");
-		Display_MoveCursor(Term, -1, 0);
+		Display_MoveCursor(Term, 0, -1);
 		// TODO: Need to handle \t and ^A-Z
 		return 1;
 	case '\t':
@@ -79,7 +81,7 @@ int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
 		Display_Newline(Term, 1);
 		return 1;
 	case '\r':
-		Display_MoveCursor(Term, INT_MIN, 0);
+		Display_MoveCursor(Term, 0, INT_MIN);
 		return 1;
 	}
 
@@ -140,8 +142,9 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 	// Get Command
 	if( !isalpha(c) ) {
 		// Bother.
-		_SysDebug("Unexpected char 0x%x in VT100 escape code", c);
-		return 1;
+		_SysDebug("Unexpected char 0x%x in VT100 escape code '\\e[%.*s'", c,
+			Len, Buffer);
+		return j;
 	}
 
 	if( bQuestionMark )
@@ -192,7 +195,7 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 				_SysDebug("TODO: VT100 %i J", args[0]);
 			break;
 		case 'T':	// Scroll down n=1
-			_SysDebug("TODO: \\x1B[nT - Scroll down");
+			Display_ScrollDown(Term, 1);
 			break;
 		case 'm':
 			if( argc == 0 )
@@ -223,8 +226,14 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 			break;
 		// Set scrolling region
 		case 'r':
-			_SysDebug("TODO: \\x1B[%i;%ir - Set Scroll Region",
-				args[0], args[1]);
+			Display_SetScrollArea(Term, args[0], args[1]);
+			break;
+		
+		case 's':
+			Display_SaveCursor(Term);
+			break;
+		case 'u':
+			Display_RestoreCursor(Term);
 			break;
 		default:
 			_SysDebug("Unknown VT100 long escape char 0x%x '%c'", c, c);

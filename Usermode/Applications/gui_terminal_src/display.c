@@ -18,6 +18,9 @@
 
 #define UNIMPLIMENTED()	do{_SysDebug("UNIMPLIMENTED %s", __func__); exit(-1);}while(0)
 
+static inline int MIN(int a, int b) { return (a < b ? a : b); }
+static inline int MAX(int a, int b) { return (a > b ? a : b); }
+
 // === EXTERN ==
 extern tHWND	gMainWindow;
 
@@ -35,12 +38,19 @@ struct sTerminal {
 	 int	ViewCols;
 	 int	ViewRows;
 
+	 int	ScrollTop;
+	 int	ScrollRows;
+
 	 int	CursorRow;
 	 int	CursorCol;
+
+	 int	SavedRow;
+	 int	SavedCol;
 
 	size_t	CursorByte;
 
 	bool	bUsingAltBuf;
+	bool	bHaveSwappedBuffers;
 
 	size_t	ViewOffset;	
 	size_t	TotalLines;
@@ -97,6 +107,7 @@ size_t _GetCharLength(size_t AvailLength, const char *Text, uint32_t *BaseCodepo
 tLine *Display_int_GetCurLine(tTerminal *Term)
 {
 	 int	lineidx = Term->CursorRow + (Term->bUsingAltBuf ? 0 : Term->ViewOffset);
+	//_SysDebug("lineidx = %i", lineidx);
 	return (Term->bUsingAltBuf ? Term->AltBuf : Term->PriBuf) + lineidx;
 }
 
@@ -110,6 +121,8 @@ size_t Display_int_PushCharacter(tTerminal *Term, size_t AvailLength, const char
 	// Figure out how much we need to shift the stream
 	 int	shift;
 	if( bOverwrite ) {
+		//_SysDebug("GetCharLen(%i-%i, %p+%i, NULL)", lineptr->Len, Term->CursorByte,
+		//	lineptr->Data, Term->CursorByte);
 		size_t nextlen = _GetCharLength(
 			lineptr->Len-Term->CursorByte,
 			lineptr->Data+Term->CursorByte,
@@ -124,10 +137,13 @@ size_t Display_int_PushCharacter(tTerminal *Term, size_t AvailLength, const char
 	if( !lineptr->Data || shift > 0 ) {
 		const size_t	size_step = 64;
 		assert(shift > 0);
-		lineptr->Size = (lineptr->Len+shift+1 + size_step-1) & ~(size_step-1);
-		void *tmp = realloc(lineptr->Data, lineptr->Size);
-		if( !tmp )	perror("Display_int_PushCharacter - realloc");
-		lineptr->Data = tmp;
+		size_t	newsize = (lineptr->Len+shift+1 + size_step-1) & ~(size_step-1);
+		if( newsize > lineptr->Size ) {
+			lineptr->Size = newsize;
+			void *tmp = realloc(lineptr->Data, lineptr->Size);
+			if( !tmp )	perror("Display_int_PushCharacter - realloc");
+			lineptr->Data = tmp;
+		}
 	}
 	
 	// Insert into stream
@@ -160,7 +176,7 @@ size_t Display_int_PushCharacter(tTerminal *Term, size_t AvailLength, const char
 
 void Display_AddText(tTerminal *Term, size_t Length, const char *UTF8Text)
 {
-	//_SysDebug("%i '%.*s'", Length, Length, UTF8Text);
+	_SysDebug("%i '%.*s'", Length, Length, UTF8Text);
 	while( Length > 0 )
 	{
 		size_t used = Display_int_PushCharacter(Term, Length, UTF8Text);
@@ -177,40 +193,159 @@ void Display_AddText(tTerminal *Term, size_t Length, const char *UTF8Text)
 
 void Display_Newline(tTerminal *Term, bool bCarriageReturn)
 {
-//	Display_Flush();
-
 	// Going down!
-	Term->CursorRow ++;
-	if( Term->CursorRow == Term->TotalLines ) {
-		// TODO: Scrolling
+	if( Term->bUsingAltBuf )
+	{
+		if( Term->CursorRow == Term->ScrollTop + Term->ScrollRows-1 ) {
+			Display_ScrollDown(Term, 1);
+		}
+		else if( Term->CursorRow == Term->ViewRows-1 ) {
+			if( Term->ScrollRows == 0 ) {
+				// Scroll entire buffer
+				Display_ScrollDown(Term, 1);
+			}
+			else {
+				// Don't go down a line
+				Term->CursorRow --;
+			}
+		}
+		else {
+			// No scroll needed
+		}
 	}
+	else
+	{
+		if( Term->CursorRow == Term->TotalLines-1 ) {
+			Display_ScrollDown(Term, 1);
+		}
+	}
+	Term->CursorRow ++;
 	
-	if( bCarriageReturn ) {
+	if( bCarriageReturn )
+	{
 		Term->CursorByte = 0;
 		Term->CursorCol = 0;
-		return ;
 	}
+	else
+	{
+		tLine	*line = Display_int_GetCurLine(Term);
+		
+		Term->CursorByte = 0;
+		 int	old_col = Term->CursorCol;
+		Term->CursorCol = 0;
 
-	tLine	*line = Display_int_GetCurLine(Term);
+		size_t	ofs = 0;
+		while( Term->CursorCol < old_col && ofs < line->Len ) {
+			ofs += _GetCharLength(line->Len-ofs, line->Data+ofs, NULL);
+			Term->CursorCol ++;
+		}
+		Term->CursorByte = ofs;
+
+		while( Term->CursorCol < old_col )
+			Display_AddText(Term, 1, " ");
+	}
+}
+
+void Display_SetScrollArea(tTerminal *Term, int Start, int Count)
+{
+	assert(Start >= 0);
+	assert(Count >= 0);
+	Term->ScrollTop = Start;
+	Term->ScrollRows = MIN(Count, Term->ViewRows - Start);
+}
+
+void Display_ScrollDown(tTerminal *Term, int Count)
+{
+	 int	top, max;
+	tLine	*buffer;
 	
-	Term->CursorByte = 0;
-	 int	old_col = Term->CursorCol;
-	Term->CursorCol = 0;
-
-	size_t	ofs = 0;
-	while( Term->CursorCol < old_col && ofs < line->Len ) {
-		ofs += _GetCharLength(line->Len-ofs, line->Data+ofs, NULL);
-		Term->CursorCol ++;
+	if( Term->bUsingAltBuf )
+	{
+		top = (Term->ScrollRows == 0 ? 0 : Term->ScrollTop);
+		max = (Term->ScrollRows == 0 ? Term->ViewRows : Term->ScrollRows);
+		buffer = Term->AltBuf;
 	}
-	Term->CursorByte = ofs;
+	else
+	{
+		top = 0;
+		max = Term->TotalLines;
+		buffer = Term->PriBuf;
+	}
+	
+	assert(Count < max);
+	assert(Count > -max);
 
-	while( Term->CursorCol < old_col )
-		Display_AddText(Term, 1, " ");
+	_SysDebug("Scroll %p %i-%i down by %i", buffer, top, max, Count);
+	
+	buffer += top;
+
+	if( Term->CursorRow >= top && Term->CursorRow < top+max ) {
+		Term->CursorRow -= Count;
+		Term->CursorRow = MAX(Term->CursorRow, top);
+		Term->CursorRow = MIN(Term->CursorRow, top+max);
+	}
+
+	 int	clear_top, clear_max;
+	if( Count < 0 )
+	{
+		// -ve: Scroll up, move buffer contents down
+		Count = -Count;
+		memmove(buffer+Count, buffer, (max-Count)*sizeof(*buffer));
+		
+		clear_top = 0;
+		clear_max = Count;
+	}
+	else
+	{
+		memmove(buffer, buffer+Count, (max-Count)*sizeof(*buffer));
+		clear_top = max-Count;
+		clear_max = max;
+	}
+	// Clear exposed lines
+	for( int i = clear_top; i < clear_max; i ++ )
+	{
+		free(buffer[i].Data);
+		buffer[i].Data = NULL;
+		buffer[i].Len = 0;
+		buffer[i].Size = 0;
+		buffer[i].IsDirty = true;
+		if( Term->CursorRow == i ) {
+			Term->CursorCol = 0;
+			Term->CursorByte = 0;
+		}
+	}
 }
 
 void Display_SetCursor(tTerminal *Term, int Row, int Col)
 {
-	UNIMPLIMENTED();
+	assert(Row >= 0);
+	assert(Col >= 0);
+
+	_SysDebug("Set cursor R%i,C%i", Row, Col);	
+
+	if( !Term->bUsingAltBuf ) {
+		_SysDebug("NOTE: Using \\e[%i;%iH outside of alternat buffer is undefined", Row, Col);
+	}
+	
+	// NOTE: This may be interesting outside of AltBuffer
+	Term->CursorRow = Row;
+	
+	tLine	*line = Display_int_GetCurLine(Term);
+	size_t ofs = 0;
+	for( int i = 0; i < Col; i ++ )
+	{
+	
+		size_t clen = _GetCharLength(line->Len-ofs, line->Data+ofs, NULL);
+		if( clen == 0 ) {
+			// TODO: Should moving the cursor up to an unoccupied cell cause a jump?
+			Col = i;
+			break;
+		}
+		ofs += clen;
+	}
+
+	Term->CursorCol = Col;
+	Term->CursorByte = ofs;
 }
 
 void Display_MoveCursor(tTerminal *Term, int RelRow, int RelCol)
@@ -241,6 +376,16 @@ void Display_MoveCursor(tTerminal *Term, int RelRow, int RelCol)
 		Term->CursorCol = req_col;
 		Term->CursorByte = ofs;
 	}
+}
+
+void Display_SaveCursor(tTerminal *Term)
+{
+	Term->SavedRow = Term->CursorRow;
+	Term->SavedCol = Term->CursorCol;
+}
+void Display_RestoreCursor(tTerminal *Term)
+{
+	Display_SetCursor(Term, Term->SavedRow, Term->SavedCol);
 }
 
 void Display_ClearLine(tTerminal *Term, int Dir)	// 0: All, 1: Forward, -1: Reverse
@@ -305,21 +450,40 @@ void Display_SetBackground(tTerminal *Term, uint32_t RGB)
 
 void Display_Flush(tTerminal *Term)
 {
+	 int	viewOfs = (Term->bUsingAltBuf ? 0 : Term->ViewOffset);
+	tLine	*buffer = (Term->bUsingAltBuf ? Term->AltBuf : Term->PriBuf );
 	for( int i = 0; i < Term->ViewRows; i ++ )
 	{
-		 int	line = (Term->ViewOffset + i) % Term->TotalLines;
-		tLine	*lineptr = &Term->PriBuf[line];
-		if( !lineptr->IsDirty )
+		 int	line = (viewOfs + i) % Term->TotalLines;
+		tLine	*lineptr = &buffer[line];
+		// Swapping buffers should cause a full resend
+		if( !Term->bHaveSwappedBuffers && !lineptr->IsDirty )
 			continue;
-		_SysDebug("Line %i+%i '%.*s'", Term->ViewOffset, i, lineptr->Len, lineptr->Data);
-		AxWin3_RichText_SendLine(gMainWindow, Term->ViewOffset + i, lineptr->Data );
+		_SysDebug("Line %i+%i '%.*s'", viewOfs, i, lineptr->Len, lineptr->Data);
+		AxWin3_RichText_SendLine(gMainWindow, viewOfs + i,
+			lineptr->Data ? lineptr->Data : "" );
 		lineptr->IsDirty = 0;
 	}
 	AxWin3_RichText_SetCursorPos(gMainWindow, Term->CursorRow, Term->CursorCol);
+	Term->bHaveSwappedBuffers = false;
 }
 
 void Display_ShowAltBuffer(tTerminal *Term, bool AltBufEnabled)
 {
-	UNIMPLIMENTED();
+	if( Term->bUsingAltBuf == AltBufEnabled )
+	{
+		// Nothing to do, so do nothing
+		return ;
+	}
+	
+	Term->bUsingAltBuf = AltBufEnabled;
+	Term->bHaveSwappedBuffers = true;
+	if( AltBufEnabled )
+	{
+		if( !Term->AltBuf )
+		{
+			Term->AltBuf = calloc( sizeof(Term->AltBuf[0]), Term->ViewRows );
+		}
+	}
 }
 

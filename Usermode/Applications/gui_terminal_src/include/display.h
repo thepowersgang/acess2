@@ -18,8 +18,12 @@ extern tTerminal	*Display_Init(int Cols, int Lines, int ExtraScrollbackLines);
 
 extern void	Display_AddText(tTerminal *Term, size_t Length, const char *UTF8Text);
 extern void	Display_Newline(tTerminal *Term, bool bCarriageReturn);
+extern void	Display_SetScrollArea(tTerminal *Term, int Start, int Count);	// Only valid in AltBuffer
+extern void	Display_ScrollDown(tTerminal *Term, int Count);
 extern void	Display_SetCursor(tTerminal *Term, int Row, int Col);
 extern void	Display_MoveCursor(tTerminal *Term, int RelRow, int RelCol);
+extern void	Display_SaveCursor(tTerminal *Term);
+extern void	Display_RestoreCursor(tTerminal *Term);
 extern void	Display_ClearLine(tTerminal *Term, int Dir);	// 0: All, 1: Forward, -1: Reverse
 extern void	Display_ClearLines(tTerminal *Term, int Dir);	// 0: All, 1: Forward, -1: Reverse
 extern void	Display_SetForeground(tTerminal *Term, uint32_t RGB);
