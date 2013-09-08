@@ -107,8 +107,6 @@ size_t Display_int_PushCharacter(tTerminal *Term, size_t AvailLength, const char
 	size_t	charlen = _GetCharLength(AvailLength, Text, &cp);
 	bool	bOverwrite = Unicode_IsPrinting(cp);
 	
-	_SysDebug("Line %b:%i += %i '%.*s'", Term->bUsingAltBuf, Term->CursorRow, charlen, charlen, Text);
-
 	// Figure out how much we need to shift the stream
 	 int	shift;
 	if( bOverwrite ) {
@@ -116,14 +114,11 @@ size_t Display_int_PushCharacter(tTerminal *Term, size_t AvailLength, const char
 			lineptr->Len-Term->CursorByte,
 			lineptr->Data+Term->CursorByte,
 			NULL);
-		_SysDebug("Char at +%i is %i long (%.*s)", Term->CursorByte, nextlen,
-				nextlen, lineptr->Data+Term->CursorByte);
 		shift = charlen - nextlen;
 	}
 	else {
 		shift = charlen;
 	}
-	_SysDebug("shift = %i", shift);
 	
 	// Ensure we have space enough
 	if( !lineptr->Data || shift > 0 ) {
@@ -142,13 +137,11 @@ size_t Display_int_PushCharacter(tTerminal *Term, size_t AvailLength, const char
 	}
 	else if( shift >= 0 ) {
 		size_t	bytes = lineptr->Len - (Term->CursorByte+shift);
-		_SysDebug("memmove(base+%i, base, %i)", shift, bytes);
 		memmove(base+shift, base, bytes);
 	}
 	else {
 		shift = -shift;
 		size_t	bytes = lineptr->Len - (Term->CursorByte+shift);
-		_SysDebug("memmove(base, base+%i, %i)", shift, bytes);
 		memmove(base, base+shift, bytes);
 	}
 	memcpy(base, Text, charlen);
@@ -167,7 +160,7 @@ size_t Display_int_PushCharacter(tTerminal *Term, size_t AvailLength, const char
 
 void Display_AddText(tTerminal *Term, size_t Length, const char *UTF8Text)
 {
-	_SysDebug("%i '%.*s'", Length, Length, UTF8Text);
+	//_SysDebug("%i '%.*s'", Length, Length, UTF8Text);
 	while( Length > 0 )
 	{
 		size_t used = Display_int_PushCharacter(Term, Length, UTF8Text);
