@@ -139,10 +139,6 @@ void VT_int_ParseEscape_StandardLarge(tVTerm *Term, char CmdChar, int argc, int 
 			Term->WritePos = args[0] + args[1]*Term->TextWidth;
 		//Log_Debug("VTerm", "args = {%i, %i}", args[0], args[1]);
 		break;
-//	// Reset formatting?
-//	case 'R':
-//		Term->CurColour = DEFAULT_COLOUR;
-//		break;
 	// Scroll up `n` lines
 	case 'S':
 		tmp = -1;
@@ -359,6 +355,12 @@ int VT_int_ParseEscape(tVTerm *Term, const char *Buffer, size_t Bytes)
 		break;
 	case '\0':
 		// Ignore \0
+		break;
+	// Reset all attributes
+	case 'c':
+		Term->CurColour = DEFAULT_COLOUR;
+		Term->Flags = 0;
+		Term->ScrollHeight = 0;
 		break;
 	default:
 		//Log_Notice("VTerm", "TODO: Handle short escape codes");
