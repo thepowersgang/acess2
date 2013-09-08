@@ -134,9 +134,9 @@ void VT_int_ParseEscape_StandardLarge(tVTerm *Term, char CmdChar, int argc, int 
 	// Set cursor position
 	case 'H':
 		if( Term->Flags & VT_FLAG_ALTBUF )
-			Term->AltWritePos = args[0] + args[1]*Term->TextWidth;
+			Term->AltWritePos = args[1] + args[0]*Term->TextWidth;
 		else
-			Term->WritePos = args[0] + args[1]*Term->TextWidth;
+			Term->WritePos = args[1] + args[0]*Term->TextWidth;
 		//Log_Debug("VTerm", "args = {%i, %i}", args[0], args[1]);
 		break;
 	// Scroll up `n` lines
