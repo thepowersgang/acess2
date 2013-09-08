@@ -33,6 +33,7 @@ typedef struct sMessage
 struct sProcess
 {
 	struct sProcess	*Next;
+	struct sProcess	*Prev;
 	tPGID	PGID;
 	tPID	PID;
 

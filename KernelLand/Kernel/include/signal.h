@@ -31,4 +31,7 @@ enum eSignals {
 	NSIGNALS
 };
 
+extern void	Threads_PostSignal(int SigNum);
+extern void	Threads_SignalGroup(tPGID PGID, int SignalNum);
+
 #endif

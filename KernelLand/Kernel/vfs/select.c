@@ -5,7 +5,6 @@
  * select.c
  * - Implements the select() system call (and supporting code)
  *
- * TODO: Implment timeouts (via an alarm event?)
  * TODO: Remove malloc for read/write queues
  */
 #define DEBUG	0
@@ -89,7 +88,7 @@ int VFS_SelectNode(tVFS_Node *Node, int TypeFlags, tTime *Timeout, const char *N
 	{
 		LOG("Semaphore_Wait()");
 		// TODO: Actual timeout
-		Threads_WaitEvents( THREAD_EVENT_VFS );
+		Threads_WaitEvents( THREAD_EVENT_VFS|THREAD_EVENT_SIGNAL );
 	}
 	else if( *Timeout > 0 )
 	{
@@ -100,7 +99,7 @@ int VFS_SelectNode(tVFS_Node *Node, int TypeFlags, tTime *Timeout, const char *N
 		LOG("Timeout %lli ms", *Timeout);
 		Time_ScheduleTimer( t, *Timeout );
 		// Wait for the timer or a VFS event
-		Threads_WaitEvents( THREAD_EVENT_VFS|THREAD_EVENT_TIMER );
+		Threads_WaitEvents( THREAD_EVENT_VFS|THREAD_EVENT_TIMER|THREAD_EVENT_SIGNAL );
 		Time_FreeTimer(t);
 	}
 	
@@ -166,7 +165,7 @@ int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set 
 	{
 		LOG("Semaphore_Wait()");
 		// TODO: Actual timeout
-		Threads_WaitEvents( THREAD_EVENT_VFS|ExtraEvents );
+		Threads_WaitEvents( THREAD_EVENT_VFS|THREAD_EVENT_SIGNAL|ExtraEvents );
 	}
 	else if( *Timeout > 0 )
 	{

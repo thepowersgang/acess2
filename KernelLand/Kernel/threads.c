@@ -31,6 +31,7 @@
 #define MIN_PRIORITY		10
 
 // === IMPORTS ===
+extern void	User_Signal_Kill(int SigNum);
 
 // === TYPE ===
 typedef struct
@@ -58,6 +59,9 @@ void	Threads_int_AddToList(tThreadList *List, tThread *Thread);
 void	Threads_Exit(int TID, int Status);
 void	Threads_Kill(tThread *Thread, int Status);
 void	Threads_Yield(void);
+#endif
+void	Threads_int_Sleep(enum eThreadStatus Status, void *Ptr, int Num, tThread **ListHead, tThread **ListTail, tShortSpinlock *Lock);
+#if 0
 void	Threads_Sleep(void);
  int	Threads_Wake(tThread *Thread);
 void	Threads_AddActive(tThread *Thread);
@@ -66,7 +70,11 @@ tThread	*Threads_RemActive(void);
 void	Threads_ToggleTrace(int TID);
 void	Threads_Fault(int Num);
 void	Threads_SegFault(tVAddr Addr);
+void	Threads_PostSignalTo(tThread *Thread, int SignalNum);
+#if 0
 void	Threads_PostSignal(int SignalNum);
+void	Threads_SignalGroup(tPGID PGID, int SignalNum);
+#endif
  int	Threads_GetPendingSignal(void);
 void	Threads_SetSignalHandler(int SignalNum, void *Handler);
 void	*Threads_GetSignalHandler(int SignalNum);
@@ -84,7 +92,7 @@ void	Threads_DumpActive(void);
 
 // === GLOBALS ===
 // -- Core Thread --
-struct sProcess	gProcessZero = {
+tProcess	gProcessZero = {
 	};
 // Only used for the core kernel
 tThread	gThreadZero = {
@@ -95,6 +103,7 @@ tThread	gThreadZero = {
 	.Priority	= DEFAULT_PRIORITY	// Number of tickets
 	};
 // -- Processes --
+tProcess	*gAllProcesses = &gProcessZero;
 // --- Locks ---
 tShortSpinlock	glThreadListLock;	///\note NEVER use a heap function while locked
 // --- Current State ---
@@ -170,6 +179,16 @@ void Threads_Delete(tThread *Thread)
 	if( Thread->Process->nThreads == 0 )
 	{
 		tProcess	*proc = Thread->Process;
+
+		// Remove from global process list
+		// TODO: RWLock
+		if(proc->Prev)
+			proc->Prev->Next = proc->Next;
+		else
+			gAllProcesses = proc->Next;
+		if(proc->Next)
+			proc->Next->Prev = proc->Prev;
+
 		// VFS Cleanup
 		VFS_CloseAllUserHandles();
 		// Architecture cleanup
@@ -338,17 +357,17 @@ tThread *Threads_CloneTCB(Uint Flags)
 		newproc->UID = oldproc->UID;
 		newproc->GID = oldproc->GID;
 		newproc->MaxFD = oldproc->MaxFD;
-		if( oldproc->CurrentWorkingDir )
-			newproc->CurrentWorkingDir = strdup( oldproc->CurrentWorkingDir );
-		else
-			newproc->CurrentWorkingDir = NULL;
-		if( oldproc->RootDir )
-			newproc->RootDir = strdup( oldproc->RootDir );
-		else
-			newproc->RootDir = NULL;
+		newproc->CurrentWorkingDir = oldproc->CurrentWorkingDir ? strdup( oldproc->CurrentWorkingDir ) : NULL;
+		newproc->RootDir = oldproc->RootDir ? strdup( oldproc->RootDir ) : NULL;
 		newproc->nThreads = 1;
 		// Reference all handles in the VFS
 		VFS_ReferenceUserHandles();
+		
+		// Add to global list
+		newproc->Prev = NULL;
+		// TODO: RWLock
+		newproc->Next = gAllProcesses;
+		gAllProcesses = newproc;
 
 		newproc->FirstThread = new;
 		new->ProcessNext = NULL;
@@ -1045,11 +1064,27 @@ void Threads_SegFault(tVAddr Addr)
 }
 
 
+void Threads_PostSignalTo(tThread *Thread, int SignalNum)
+{
+	ASSERT(Thread);
+	Log_Debug("Threads", "Signalling %i(%s) with %i", Thread->TID, Thread->ThreadName, SignalNum);
+	Thread->PendingSignal = SignalNum;
+	Threads_PostEvent(Thread, THREAD_EVENT_SIGNAL);
+}
 void Threads_PostSignal(int SignalNum)
 {
-	tThread *cur = Proc_GetCurThread();
-	cur->PendingSignal = SignalNum;
-	Threads_PostEvent(cur, THREAD_EVENT_SIGNAL);
+	Threads_PostSignalTo( Proc_GetCurThread(), SignalNum );
+}
+
+void Threads_SignalGroup(tPGID PGID, int Signal)
+{
+	for( tProcess *proc = gAllProcesses; proc; proc = proc->Next )
+	{
+		if(proc->PGID == PGID)
+		{
+			Threads_PostSignalTo(proc->FirstThread, Signal);
+		}
+	}
 }
 
 /**
@@ -1059,7 +1094,13 @@ int Threads_GetPendingSignal(void)
 	tThread *cur = Proc_GetCurThread();
 	
 	// Atomic AND with 0 fetches and clears in one operation
-	return __sync_fetch_and_and( &cur->PendingSignal, 0 );
+	int ret = __sync_fetch_and_and( &cur->PendingSignal, 0 );
+	if( ret )
+	{
+		Log_Debug("Threads", "Thread %i(%s) has signal %i pending",
+			cur->TID, cur->ThreadName, ret);
+	}
+	return ret;
 }
 
 /*
@@ -1090,13 +1131,15 @@ void *Threads_GetSignalHandler(int SignalNum)
 		case SIGINT:
 		case SIGKILL:
 		case SIGSEGV:
-//			ret = User_Signal_Kill;
+		case SIGHUP:
+			ret = User_Signal_Kill;
 			break;
 		default:
 			ret = NULL;
 			break;
 		}
 	}
+	Log_Debug("Threads", "Handler %p for signal %i", ret, SignalNum);
 	return ret;
 }
 

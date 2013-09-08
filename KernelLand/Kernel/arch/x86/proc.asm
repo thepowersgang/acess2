@@ -373,6 +373,14 @@ User_Syscall:
 	xchg bx, bx	; MAGIC BREAKPOINT
 	int 0xAC
 
+[global User_Signal_Kill]
+User_Signal_Kill:
+	xor eax, eax
+	mov bl, [esp+4]
+	mov bh, 0x02
+	int 0xAC
+	jmp $
+
 User_RestoreState:
 	pop gs
 	pop fs
