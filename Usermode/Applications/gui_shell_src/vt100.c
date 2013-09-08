@@ -86,12 +86,21 @@ int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
 	 int	ret = 0;
 	while( ret < Len )
 	{
-		if( *Buf == '\n' )
+		switch(*Buf)
+		{
+		case '\x1b':
+		case '\b':
+		case '\t':
+		case '\n':
+		case '\r':
+			// Force an exit right now
+			Len = ret;
 			break;
-		if( *Buf == '\x1b' )
+		default:
+			ret ++;
+			Buf ++;
 			break;
-		ret ++;
-		Buf ++;
+		}
 	}
 	return -ret;
 }
