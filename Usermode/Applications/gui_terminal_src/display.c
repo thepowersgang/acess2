@@ -179,15 +179,15 @@ void Display_AddText(tTerminal *Term, size_t Length, const char *UTF8Text)
 	_SysDebug("%i '%.*s'", Length, Length, UTF8Text);
 	while( Length > 0 )
 	{
+		if( Term->CursorCol == Term->ViewCols ) {
+			Display_Newline(Term, 1);
+		}
 		size_t used = Display_int_PushCharacter(Term, Length, UTF8Text);
 	
 		Length -= used;
 		UTF8Text += used;
 		
 		Term->CursorCol ++;
-		if( Term->CursorCol == Term->ViewCols ) {
-			Display_Newline(Term, 1);
-		}
 	}
 }
 
