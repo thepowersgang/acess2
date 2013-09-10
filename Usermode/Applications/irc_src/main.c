@@ -104,7 +104,7 @@ int main(int argc, const char *argv[], const char *envp[])
 	atexit(ExitHandler);
 	
 	if( _SysIOCtl(1, DRV_IOCTL_TYPE, NULL) != DRV_TYPE_TERMINAL ) {
-		printf(stderr, "note: assuming 80x25, can't get terminal dimensions\n");
+		fprintf(stderr, "note: assuming 80x25, can't get terminal dimensions\n");
 		giTerminal_Width = 80;
 		giTerminal_Height = 25;
 	}
@@ -468,16 +468,16 @@ tMessage *Message_Append(tServer *Server, int Type, const char *Source, const ch
 	if( win == gpCurrentWindow )
 	{
 		printf("\x1b[s");
+		printf("\x1b""D");	// Scroll down 1 (free space below)
 		SetCursorPos(giTerminal_Height-2, 0);
 		 int	prefixlen = strlen(Source) + 3;
 		 int	avail = giTerminal_Width - prefixlen;
 		 int	msglen = strlen(Message);
-		printf("\x1B[T");	// Scroll down 1 (free space below)
-		printf("[%s] %.*s\n", Source, avail, Message);
+		printf("[%s] %.*s", Source, avail, Message);
 		while( msglen > avail ) {
 			msglen -= avail;
 			Message += avail;
-			printf("\x1B[T");
+			printf("\x1b""D");
 			SetCursorPos(giTerminal_Height-2, prefixlen);
 			printf("%.*s\n", avail, Message);
 		}
