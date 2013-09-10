@@ -59,6 +59,9 @@ struct sTerminal {
 	struct sLine	*AltBuf;
 };
 
+// === PROTOTYPES ===
+void	Display_int_SetCursor(tTerminal *Term, int Row, int Col);
+
 // === GLOBALS ===
 tTerminal	gMainBuffer;
  int	giCurrentLine;
@@ -142,6 +145,8 @@ size_t Display_int_PushCharacter(tTerminal *Term, size_t AvailLength, const char
 			lineptr->Size = newsize;
 			void *tmp = realloc(lineptr->Data, lineptr->Size);
 			if( !tmp )	perror("Display_int_PushCharacter - realloc");
+			//_SysDebug("realloc gave %p from %p for line %i", tmp, lineptr->Data,
+			//	Term->CursorRow);
 			lineptr->Data = tmp;
 		}
 	}
@@ -206,11 +211,11 @@ void Display_Newline(tTerminal *Term, bool bCarriageReturn)
 			}
 			else {
 				// Don't go down a line
-				Term->CursorRow --;
 			}
 		}
 		else {
 			// No scroll needed
+			Term->CursorRow ++;
 		}
 	}
 	else
@@ -218,8 +223,10 @@ void Display_Newline(tTerminal *Term, bool bCarriageReturn)
 		if( Term->CursorRow == Term->TotalLines-1 ) {
 			Display_ScrollDown(Term, 1);
 		}
+		else {
+			Term->CursorRow ++;
+		}
 	}
-	Term->CursorRow ++;
 	
 	if( bCarriageReturn )
 	{
@@ -279,17 +286,13 @@ void Display_ScrollDown(tTerminal *Term, int Count)
 	
 	buffer += top;
 
-	if( Term->CursorRow >= top && Term->CursorRow < top+max ) {
-		Term->CursorRow -= Count;
-		Term->CursorRow = MAX(Term->CursorRow, top);
-		Term->CursorRow = MIN(Term->CursorRow, top+max);
-	}
-
 	 int	clear_top, clear_max;
 	if( Count < 0 )
 	{
 		// -ve: Scroll up, move buffer contents down
 		Count = -Count;
+		for( int i = max-Count; i < max; i ++ )
+			free(buffer[i].Data);
 		memmove(buffer+Count, buffer, (max-Count)*sizeof(*buffer));
 		
 		clear_top = 0;
@@ -297,6 +300,8 @@ void Display_ScrollDown(tTerminal *Term, int Count)
 	}
 	else
 	{
+		for( int i = 0; i < Count; i ++ )
+			free(buffer[i].Data);
 		memmove(buffer, buffer+Count, (max-Count)*sizeof(*buffer));
 		clear_top = max-Count;
 		clear_max = max;
@@ -304,16 +309,14 @@ void Display_ScrollDown(tTerminal *Term, int Count)
 	// Clear exposed lines
 	for( int i = clear_top; i < clear_max; i ++ )
 	{
-		free(buffer[i].Data);
 		buffer[i].Data = NULL;
 		buffer[i].Len = 0;
 		buffer[i].Size = 0;
 		buffer[i].IsDirty = true;
-		if( Term->CursorRow == i ) {
-			Term->CursorCol = 0;
-			Term->CursorByte = 0;
-		}
 	}
+	// TODO: Send scroll command to GUI
+	
+	Display_int_SetCursor(Term, Term->CursorRow, Term->CursorCol);
 }
 
 void Display_SetCursor(tTerminal *Term, int Row, int Col)
@@ -329,23 +332,30 @@ void Display_SetCursor(tTerminal *Term, int Row, int Col)
 	
 	// NOTE: This may be interesting outside of AltBuffer
 	Term->CursorRow = Row;
-	
+
+	Display_int_SetCursor(Term, Row, Col);	
+}
+void Display_int_SetCursor(tTerminal *Term, int Row, int Col)
+{
 	tLine	*line = Display_int_GetCurLine(Term);
 	size_t ofs = 0;
-	for( int i = 0; i < Col; i ++ )
+	 int	i;
+	for( i = 0; i < Col; i ++ )
 	{
 	
 		size_t clen = _GetCharLength(line->Len-ofs, line->Data+ofs, NULL);
 		if( clen == 0 ) {
-			// TODO: Should moving the cursor up to an unoccupied cell cause a jump?
-			Col = i;
 			break;
 		}
 		ofs += clen;
 	}
-
-	Term->CursorCol = Col;
+	Term->CursorCol = i;
 	Term->CursorByte = ofs;
+	// Move to exactly the column specified
+	for( ; i < Col; i ++ ) {
+		Display_int_PushCharacter(Term, 1, " ");
+		Term->CursorCol ++;
+	}
 }
 
 void Display_MoveCursor(tTerminal *Term, int RelRow, int RelCol)
@@ -459,7 +469,7 @@ void Display_Flush(tTerminal *Term)
 		// Swapping buffers should cause a full resend
 		if( !Term->bHaveSwappedBuffers && !lineptr->IsDirty )
 			continue;
-		_SysDebug("Line %i+%i '%.*s'", viewOfs, i, lineptr->Len, lineptr->Data);
+		_SysDebug("Line %i+%i %p '%.*s'", viewOfs, i, lineptr->Data, lineptr->Len, lineptr->Data);
 		AxWin3_RichText_SendLine(gMainWindow, viewOfs + i,
 			lineptr->Data ? lineptr->Data : "" );
 		lineptr->IsDirty = 0;

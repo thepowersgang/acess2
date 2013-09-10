@@ -37,10 +37,17 @@ int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
 	{
 		// Handle VT100 (like) escape sequence
 		 int	new_bytes = min(MAX_VT100_ESCAPE_LEN - inc_len, Len);
-		 int	ret = 0, old_inc_len = inc_len;
+		 int	ret = 0;
+		 int	old_inc_len = inc_len;
 		memcpy(inc_buf + inc_len, Buf, new_bytes);
 
+		if( new_bytes == 0 ) {
+			inc_len = 0;
+			return 0;
+		}
+
 		inc_len += new_bytes;
+		//_SysDebug("inc_buf = %i '%.*s'", inc_len, inc_len, inc_buf);
 
 		if( inc_len <= 1 )
 			return 1;	// Skip 1 character (the '\x1b')
@@ -53,6 +60,14 @@ int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
 				ret += 2;
 			}
 			break;
+		case 'D':
+			Display_ScrollDown(Term, 1);
+			ret = 2;
+			break;
+		case 'M':
+			Display_ScrollDown(Term, -1);
+			ret = 2;
+			break;
 		default:
 			ret = 2;
 			break;
@@ -61,8 +76,12 @@ int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
 		if( ret != 0 ) {
 			inc_len = 0;
 			assert(ret > old_inc_len);
+			//_SysDebug("%i bytes of escape code '%.*s' (return %i)",
+			//	ret, ret, inc_buf, ret-old_inc_len);
 			ret -= old_inc_len;	// counter cached bytes
 		}
+		else
+			ret = new_bytes;
 		return ret;
 	}
 

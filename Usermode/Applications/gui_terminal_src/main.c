@@ -102,7 +102,7 @@ int main(int argc, char *argv[], const char **envp)
 		{
 			_SysDebug("Activity on child stdout");
 			// Read and update screen
-			char	buf[128];
+			char	buf[512];
 			int len = _SysRead(giPTYHandle, buf, sizeof(buf));
 			if( len <= 0 )	break;
 			
@@ -188,6 +188,8 @@ int Term_MouseHandler(tHWND Window, int bPress, int Button, int Row, int Col)
 void Term_HandleOutput(tTerminal *Term, int Len, const char *Buf)
 {
 	// TODO: Handle graphical / accelerated modes
+
+	//_SysDebug("Term_HandleOutput: %i \"%.*s\"", Len, Len, Buf);
 
 	 int	ofs = 0;
 	 int	esc_len = 0;
