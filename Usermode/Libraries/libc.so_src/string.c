@@ -282,14 +282,23 @@ EXPORT void *memcpy(void *__dest, const void *__src, size_t count)
  */
 EXPORT void *memmove(void *dest, const void *src, size_t count)
 {
-	char *sp = (char *)src;
+	const char *sp = (const char *)src;
 	char *dp = (char *)dest;
 	// Check if the areas overlap
-	if( (uintptr_t)src < (uintptr_t)dest && (uintptr_t)dest < (uintptr_t)src+count )
-		for(;count--;)
-			dp[count] = sp[count];
-	else
+	if( sp >= dp+count )
 		memcpy(dest, src, count);
+	else if( dp >= sp+count )
+		memcpy(dest, src, count);
+	else {
+		if( sp < dp ) {
+			while(count--)
+				dp[count] = sp[count];
+		}
+		else {
+			while(count--)
+				*dp++ = *sp++;
+		}
+	}
 	return dest;
 }
 

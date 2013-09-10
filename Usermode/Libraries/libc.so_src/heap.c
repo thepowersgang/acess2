@@ -177,7 +177,7 @@ EXPORT void *calloc(size_t __nmemb, size_t __size)
 EXPORT void free(void *mem)
 {
 	heap_head	*head = (void*)((intptr_t)mem-sizeof(heap_head));
-	
+
 	// Sanity please!
 	if(!mem)	return;
 	
