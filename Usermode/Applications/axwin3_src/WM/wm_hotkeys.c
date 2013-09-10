@@ -100,7 +100,7 @@ void WM_Hotkey_KeyUp(uint32_t Scancode)
 			if( _IsKeySet(hk->Keys[i]) )	continue ;
 			break;
 		}
-		_SysDebug("%i/%i satisfied for %s", i, hk->nKeys, hk->Target);
+		//_SysDebug("%i/%i satisfied for %s", i, hk->nKeys, hk->Target);
 		if( i != hk->nKeys )
 			continue ;
 		
