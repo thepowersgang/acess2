@@ -471,10 +471,16 @@ void IPC_Handle(tIPC_Client *Client, size_t MsgLen, tAxWin_IPCMessage *Msg)
 //	_SysDebug("IPC_Handle: (IPCType=%p, Ident=%p, MsgLen=%i, Msg=%p)",
 //		IPCType, Ident, MsgLen, Msg);
 	
-	if( MsgLen < sizeof(tAxWin_IPCMessage) )
+	if( MsgLen < sizeof(*Msg) ) {
+		_SysDebug("IPC_Handle: %p Dropped full undersize message (%i < %i)",
+			Client, MsgLen, sizeof(*Msg));
 		return ;
-	if( MsgLen < sizeof(tAxWin_IPCMessage) + Msg->Size )
+	}
+	if( MsgLen < sizeof(*Msg) + Msg->Size ) {
+		_SysDebug("IPC_Handle: %p Dropped undersize message (%i < %i+%i)",
+			Client, MsgLen, sizeof(*Msg), Msg->Size);
 		return ;
+	}
 	
 	if( Msg->Flags & IPCMSG_FLAG_RENDERER )
 	{

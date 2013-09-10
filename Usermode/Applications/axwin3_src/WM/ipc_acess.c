@@ -12,7 +12,7 @@
 #include <string.h>
 
 // === CONSTANTS ===
-#define STATICBUF_SIZE	64
+#define STATICBUF_SIZE	256
 #define AXWIN_PORT	4101
 
 // === PROTOTYPES ===
