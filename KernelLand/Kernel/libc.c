@@ -187,8 +187,8 @@ void itoa(char *buf, Uint64 num, int base, int minLength, char pad)
  * \brief Append a character the the vsnprintf output
  */
 #define PUTCH(ch)	do { \
-		if(pos < __maxlen) { \
-			if(__s) __s[pos] = ch; \
+		if(pos < __maxlen && __s) { \
+			__s[pos] = ch; \
 		} else { \
 			(void)ch;\
 		} \
@@ -201,7 +201,7 @@ void itoa(char *buf, Uint64 num, int base, int minLength, char pad)
 /**
  * \brief VArg String Number Print Formatted
  */
-int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
+int vsnprintf(char *__s, const size_t __maxlen, const char *__format, va_list args)
 {
 	char	c, pad = ' ';
 	 int	minSize = 0, precision = -1, len;
@@ -404,7 +404,7 @@ int vsnprintf(char *__s, size_t __maxlen, const char *__format, va_list args)
 		}
 	}
 	
-	if(__s && pos != __maxlen)
+	if(__s && pos < __maxlen)
 		__s[pos] = '\0';
 	
 	return pos;
