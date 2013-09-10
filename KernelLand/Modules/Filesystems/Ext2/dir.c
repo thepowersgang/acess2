@@ -68,6 +68,12 @@ int Ext2_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX])
 	while(Pos -- && size > 0 && size <= inode->i_size)
 	{
 		VFS_ReadAt( disk->FD, Base+ofs, sizeof(tExt2_DirEnt), &dirent);
+		
+		if( dirent.rec_len == 0 ) {
+			size = 0;
+			break;
+		}
+		
 		ofs += dirent.rec_len;
 		size -= dirent.rec_len;
 		entNum ++;
@@ -148,6 +154,8 @@ tVFS_Node *Ext2_FindDir(tVFS_Node *Node, const char *Filename, Uint Flags)
 		// If it matches, create a node and return it
 		if(dirent.name_len == filenameLen && strncmp(dirent.name, Filename, filenameLen) == 0)
 			return Ext2_int_CreateNode( disk, dirent.inode );
+		if( dirent.rec_len == 0 )
+			break;
 		// Increment pointers
 		ofs += dirent.rec_len;
 		size -= dirent.rec_len;
@@ -162,6 +170,8 @@ tVFS_Node *Ext2_FindDir(tVFS_Node *Node, const char *Filename, Uint Flags)
 			}
 			ofs = 0;
 			Base = Ext2_int_GetBlockAddr( disk, inode->i_block, block );
+			if( Base == 0 )
+				break;
 		}
 	}
 	
