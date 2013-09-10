@@ -325,9 +325,7 @@ void *AxWin3_WaitMessage(tHWND Window, int MessageID, size_t *Length)
 
 void AxWin3_SendIPC(tHWND Window, int Message, size_t Length, const void *Data)
 {
-	tAxWin_IPCMessage	*msg;
-	
-	msg = AxWin3_int_AllocateIPCMessage(Window, Message, IPCMSG_FLAG_RENDERER, Length);
+	tAxWin_IPCMessage *msg = AxWin3_int_AllocateIPCMessage(Window, Message, IPCMSG_FLAG_RENDERER, Length);
 	memcpy(msg->Data, Data, Length);
 	AxWin3_int_SendIPCMessage(msg);
 	free(msg);

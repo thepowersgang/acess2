@@ -40,6 +40,14 @@ extern void	AxWin3_RichText_SetFont(tHWND Window, const char *FontName, int Poin
 extern void	AxWin3_RichText_SetCursorType(tHWND Window, int Type);
 extern void	AxWin3_RichText_SetCursorBlink(tHWND Window, int bBlink);
 extern void	AxWin3_RichText_SetCursorPos(tHWND Window, int Row, int Column);
+/*
+ * \brief Scroll the specified range of data down (moving lines up)
+ * \note This is NOT a visual scroll, it scrolls the data
+ *
+ * Top/Bottom `DownCount` lines are discarded (bottom if DownCount is -ve)
+ * UNLESS DownCount is -ve and RangeCount is -1 (indicating insertion of lines)
+ */
+extern void	AxWin3_RichText_ScrollRange(tHWND Window, int FirstRow, int RangeCount, int DownCount);
 extern void	AxWin3_RichText_SendLine(tHWND Window, int Line, const char *Text);
 
 #endif

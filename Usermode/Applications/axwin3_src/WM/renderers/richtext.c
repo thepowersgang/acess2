@@ -59,6 +59,7 @@ void	Renderer_RichText_Destroy(tWindow *Window);
 void	Renderer_RichText_Redraw(tWindow *Window);
  int	Renderer_RichText_HandleIPC_SetAttr(tWindow *Window, size_t Len, const void *Data);
  int	Renderer_RichText_HandleIPC_WriteLine(tWindow *Window, size_t Len, const void *Data);
+ int	Renderer_RichText_HandleIPC_ScrollRange(tWindow *Window, size_t Len, const void *Data);
  int	Renderer_RichText_HandleMessage(tWindow *Target, int Msg, int Len, const void *Data);
 
 // === GLOBALS ===
@@ -71,7 +72,8 @@ tWMRenderer	gRenderer_RichText = {
 	.nIPCHandlers = N_IPC_RICHTEXT,
 	.IPCHandlers = {
 		[IPC_RICHTEXT_SETATTR] = Renderer_RichText_HandleIPC_SetAttr,
-		[IPC_RICHTEXT_WRITELINE] = Renderer_RichText_HandleIPC_WriteLine
+		[IPC_RICHTEXT_WRITELINE] = Renderer_RichText_HandleIPC_WriteLine,
+		[IPC_RICHTEXT_SCROLLRANGE] = Renderer_RichText_HandleIPC_ScrollRange
 	}
 };
 
@@ -321,9 +323,12 @@ void Renderer_RichText_int_UpdateCursorOfs(tRichText_Window *Info)
 {
 	tRichText_Line	*line = Info->CursorLine;
 	size_t	ofs = 0;
-	for( int i = 0; i < Info->CursorCol && ofs < line->ByteLength; i ++ )
+	if( line )
 	{
-		ofs += ReadUTF8(line->Data + ofs, NULL);
+		for( int i = 0; i < Info->CursorCol && ofs < line->ByteLength; i ++ )
+		{
+			ofs += ReadUTF8(line->Data + ofs, NULL);
+		}
 	}
 	Info->CursorBytePos = ofs;
 }
@@ -381,12 +386,13 @@ int Renderer_RichText_HandleIPC_WriteLine(tWindow *Window, size_t Len, const voi
 
 	tRichText_Line	*prev = NULL;
 	tRichText_Line	*line = Renderer_RichText_int_GetLine(Window, msg->Line, &prev);
-	 int	reqspace = ((Len - sizeof(*msg)) + LINE_SPACE_UNIT-1) & ~(LINE_SPACE_UNIT-1);
+	size_t	data_bytes = Len - sizeof(*msg);
+	 int	reqspace = (data_bytes + LINE_SPACE_UNIT-1) & ~(LINE_SPACE_UNIT-1);
 	tRichText_Line	*new = NULL;
 	if( !line )
 	{
 		// New line!
-		tRichText_Line	*new = malloc(sizeof(*line) + reqspace);
+		new = malloc(sizeof(*line) + reqspace);
 		new->Next = (prev ? prev->Next : NULL);
 		new->Prev = prev;
 		new->Num = msg->Line;
@@ -394,7 +400,7 @@ int Renderer_RichText_HandleIPC_WriteLine(tWindow *Window, size_t Len, const voi
 	else if( line->Space < reqspace )
 	{
 		// Need to allocate more space
-		tRichText_Line *new = realloc(line, sizeof(*line) + reqspace);
+		new = realloc(line, sizeof(*line) + reqspace);
 	}
 	else
 	{
@@ -409,9 +415,12 @@ int Renderer_RichText_HandleIPC_WriteLine(tWindow *Window, size_t Len, const voi
 		if(new->Next)	new->Next->Prev = new;
 		line = new;
 	}
-	line->ByteLength = Len - sizeof(*msg) - 1;
-	memcpy(line->Data, msg->LineData, Len - sizeof(*msg));
+	line->ByteLength = data_bytes - 1;
+	memcpy(line->Data, msg->LineData, data_bytes);
 	line->bIsClean = 0;
+
+	_SysDebug("RichText: %p - Write %i %i'%.*s'", Window, line->Num, line->ByteLength,
+		line->ByteLength, line->Data);
 
 	if( line->Num == info->CursorRow ) {
 		info->CursorLine = line;
@@ -419,6 +428,74 @@ int Renderer_RichText_HandleIPC_WriteLine(tWindow *Window, size_t Len, const voi
 	}
 
 //	WM_Invalidate(Window, 1);
+
+	return 0;
+}
+
+int Renderer_RichText_HandleIPC_ScrollRange(tWindow *Window, size_t Len, const void *Data)
+{
+	tRichText_Window	*info = Window->RendererInfo;
+	const struct sRichTextIPC_ScrollRange	*msg = Data;
+	if( Len < sizeof(*msg) )	return -1;
+	
+	if( msg->First >= info->nLines )
+		return 1;	// Bad start
+	if( msg->Count > info->nLines - msg->First )
+		return 1;	// Bad count
+	if( msg->Count == 0 ) {
+		// No-op
+		return 0;
+	}
+
+	// Find the range start
+	tRichText_Line *line = info->FirstLine;
+	tRichText_Line *prev = NULL;
+	while( line && line->Num < msg->First ) {
+		prev = line;
+		line = line->Next;
+	}
+	if( !line ) {
+		_SysDebug("RichText ScrollRange: Search for %i ran off end, nlines=%i",
+			msg->First, info->nLines);
+	}
+		
+	if( msg->Count < 0 )
+	{
+		_SysDebug("TODO: RichText ScrollRange -ve");
+	}
+	else
+	{
+		if( msg->First <= info->FirstVisRow && info->FirstVisRow < msg->First+msg->Range  )
+			info->FirstVisLine = NULL;
+	
+		// Remove 'msg->Count' lines from beginning of the range, ...
+		while( line && line->Num < msg->First + msg->Count )
+		{
+			tRichText_Line *next = line->Next;
+			_SysDebug("- RichText ScrollRange: Remove %i '%.*s'",
+				line->Num, line->ByteLength, line->Data);
+			free(line);
+			line = next;
+		}
+		// Fix up list
+		if( prev )
+			prev->Next = line;
+		else
+			info->FirstLine = line;
+		if(line)
+			line->Prev = prev;
+ 		// ... and shift ->Num down for the rest
+		for( ; line && line->Num < msg->First + msg->Range; line = line->Next )
+		{
+			line->Num -= msg->Count;
+			if( line->Num >= info->FirstVisRow && !info->FirstVisLine )
+				info->FirstVisLine = line;
+		}
+		
+		info->nLines -= msg->Count;
+	}
+
+	info->bNeedsFullRedraw = 1;
 
 	return 0;
 }

@@ -12,6 +12,7 @@
 #include <ipcmessages.h>	// AxWin3 common
 #include "include/internal.h"
 #include "include/ipc.h"
+#include <errno.h>
 
 #define assert(cnd)	do{if(!(cnd)){_SysDebug("Assertion failed: %s", #cnd);}}while(0)
 
@@ -127,12 +128,22 @@ void AxWin3_int_SendIPCMessage(tAxWin_IPCMessage *Msg)
 		char	tmpbuf[giAxWin3_int_UDPHeaderLen + size];
 		memcpy(tmpbuf, gaAxWin3_int_UDPHeader, giAxWin3_int_UDPHeaderLen);
 		memcpy(tmpbuf + giAxWin3_int_UDPHeaderLen, Msg, size);
-		_SysWrite(giConnectionNum, tmpbuf, sizeof(tmpbuf));
+		size_t rv = _SysWrite(giConnectionNum, tmpbuf, sizeof(tmpbuf));
+		if( rv == -1 ) {
+			_SysDebug("AxWin3 SendIPCMessage: UDP Write Failed %s", strerror(errno));
+			exit(1);
+		}
 		}
 		break;
 	case CONNTYPE_IPCPIPE:
-	case CONNTYPE_TCP:
-		_SysWrite(giConnectionNum, Msg, size);
+	case CONNTYPE_TCP: {
+		size_t rv = _SysWrite(giConnectionNum, Msg, size);
+		if( rv != size ) {
+			_SysDebug("AxWin3 SendIPCMessage: Write Failed %s - sent %i want %i",
+				strerror(errno), rv, size);
+			exit(1);
+		}
+		}
 		break;
 	default:
 		break;

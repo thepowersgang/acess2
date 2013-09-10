@@ -87,7 +87,7 @@ tAxWin3_MenuItem *AxWin3_Menu_AddItem(
 		_SysDebug("ERROR: Realloc Failed");
 		return NULL;
 	}
-	
+
 	ret = &info->Items[info->nItems-1];
 	ret->ID = info->nItems - 1;
 	ret->Window = Menu;
@@ -96,11 +96,14 @@ tAxWin3_MenuItem *AxWin3_Menu_AddItem(
 	ret->SubMenu = SubMenu;	
 
 	{
-		tMenuIPC_AddItem	*req;
-		 int	data_size;
 		if(!Label)	Label = "";
-		data_size = sizeof(*req)+strlen(Label)+1;
+		tMenuIPC_AddItem	*req;
+		int data_size = sizeof(*req) + strlen(Label)+1;
 		req = malloc(data_size);
+		if( !req ) {
+			free(ret);
+			return NULL;
+		}
 		req->ID = ret->ID;
 		req->Flags = Flags;
 		req->SubMenuID = AxWin3_int_GetWindowID(SubMenu);

@@ -27,6 +27,7 @@ enum eRichText_IPCCalls
 	IPC_RICHTEXT_ADDLINE,
 	IPC_RICHTEXT_WRITELINE,	// Set line contents
 	IPC_RICHTEXT_READLINE,	// Request line contents
+	IPC_RICHTEXT_SCROLLRANGE,
 	N_IPC_RICHTEXT
 };
 
@@ -56,6 +57,13 @@ struct sRichTextIPC_WriteLine
 {
 	uint32_t	Line;
 	char	LineData[];
+};
+
+struct sRichTextIPC_ScrollRange
+{
+	uint32_t	First;
+	uint16_t	Range;
+	 int16_t	Count;
 };
 
 enum

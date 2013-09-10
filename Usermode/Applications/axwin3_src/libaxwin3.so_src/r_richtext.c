@@ -54,7 +54,8 @@ static void _SendAttrib(tHWND Window, int Attr, uint32_t Value)
 
 tHWND AxWin3_RichText_CreateWindow(tHWND Parent, int Flags)
 {
-	tHWND ret = AxWin3_CreateWindow(Parent, "RichText", Flags, sizeof(tRichText_Window), AxWin3_RichText_MessageHandler);
+	tHWND ret = AxWin3_CreateWindow(Parent, "RichText", Flags,
+		sizeof(tRichText_Window), AxWin3_RichText_MessageHandler);
 //	tRichText_Window *info = AxWin3_int_GetDataPtr(ret);
 	return ret;
 }
@@ -108,6 +109,22 @@ void AxWin3_RichText_SetCursorPos(tHWND Window, int Row, int Column)
 	if(Row < 0 || Row > 0xFFFFF || Column > 0xFFF || Column < 0)
 		return ;
 	_SendAttrib(Window, _ATTR_CURSORPOS, ((Row & 0xFFFFF) << 12) | (Column & 0xFFF));
+}
+
+void AxWin3_RichText_ScrollRange(tHWND Window, int FirstRow, int RangeCount, int DownCount)
+{
+	if( FirstRow < 0 )
+		return ;
+	if( RangeCount < -2 || RangeCount == 0 )
+		return ;
+	if( RangeCount > 0 && DownCount > RangeCount )
+		return ;
+
+	struct sRichTextIPC_ScrollRange	msg;
+	msg.First = FirstRow;
+	msg.Range = RangeCount;
+	msg.Count = DownCount;
+	AxWin3_SendIPC(Window, IPC_RICHTEXT_SCROLLRANGE, sizeof(msg), &msg);
 }
 
 void AxWin3_RichText_SendLine(tHWND Window, int Line, const char *Text)
