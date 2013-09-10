@@ -5,6 +5,7 @@
  * display.c
  * - Abstract display manipulation methods
  */
+#define DEBUG	0
 #include "include/display.h"
 #include <acess/sys.h>	// _SysDebug
 #include <stdlib.h>	// exit
@@ -15,6 +16,12 @@
 #include <axwin3/richtext.h>
 #include <stdbool.h>
 #include <assert.h>
+
+#if DEBUG
+# define DEBUGS(v...)	_SysDebug(v)
+#else
+# define DEBUGS(v...)	do{}while(0)
+#endif
 
 #define UNIMPLIMENTED()	do{_SysDebug("UNIMPLIMENTED %s", __func__); exit(-1);}while(0)
 
@@ -51,6 +58,9 @@ struct sTerminal {
 
 	bool	bUsingAltBuf;
 	bool	bHaveSwappedBuffers;
+	
+	 int	OtherBufRow;
+	 int	OtherBufCol;
 
 	size_t	ViewOffset;	
 	size_t	TotalLines;
@@ -126,6 +136,8 @@ size_t Display_int_PushCharacter(tTerminal *Term, size_t AvailLength, const char
 	if( bOverwrite ) {
 		//_SysDebug("GetCharLen(%i-%i, %p+%i, NULL)", lineptr->Len, Term->CursorByte,
 		//	lineptr->Data, Term->CursorByte);
+		if( Term->CursorByte )
+			assert(lineptr->Data);
 		size_t nextlen = _GetCharLength(
 			lineptr->Len-Term->CursorByte,
 			lineptr->Data+Term->CursorByte,
@@ -181,7 +193,7 @@ size_t Display_int_PushCharacter(tTerminal *Term, size_t AvailLength, const char
 
 void Display_AddText(tTerminal *Term, size_t Length, const char *UTF8Text)
 {
-	_SysDebug("%i '%.*s'", Length, Length, UTF8Text);
+	DEBUGS("%i += %i '%.*s'", Term->CursorRow, Length, Length, UTF8Text);
 	while( Length > 0 )
 	{
 		if( Term->CursorCol == Term->ViewCols ) {
@@ -282,7 +294,7 @@ void Display_ScrollDown(tTerminal *Term, int Count)
 	assert(Count < max);
 	assert(Count > -max);
 
-	_SysDebug("Scroll %p %i-%i down by %i", buffer, top, max, Count);
+	DEBUGS("Scroll %p %i-%i down by %i", buffer, top, max, Count);
 	
 	buffer += top;
 
@@ -314,7 +326,8 @@ void Display_ScrollDown(tTerminal *Term, int Count)
 		buffer[i].Size = 0;
 		buffer[i].IsDirty = true;
 	}
-	// TODO: Send scroll command to GUI
+	// Send scroll command to GUI
+	AxWin3_RichText_ScrollRange(gMainWindow, top, max, Count);
 	
 	Display_int_SetCursor(Term, Term->CursorRow, Term->CursorCol);
 }
@@ -324,19 +337,18 @@ void Display_SetCursor(tTerminal *Term, int Row, int Col)
 	assert(Row >= 0);
 	assert(Col >= 0);
 
-	_SysDebug("Set cursor R%i,C%i", Row, Col);	
+	DEBUGS("Set cursor R%i,C%i", Row, Col);	
 
 	if( !Term->bUsingAltBuf ) {
 		_SysDebug("NOTE: Using \\e[%i;%iH outside of alternat buffer is undefined", Row, Col);
 	}
 	
 	// NOTE: This may be interesting outside of AltBuffer
-	Term->CursorRow = Row;
-
 	Display_int_SetCursor(Term, Row, Col);	
 }
 void Display_int_SetCursor(tTerminal *Term, int Row, int Col)
 {
+	Term->CursorRow = Row;
 	tLine	*line = Display_int_GetCurLine(Term);
 	size_t ofs = 0;
 	 int	i;
@@ -408,6 +420,8 @@ void Display_ClearLine(tTerminal *Term, int Dir)	// 0: All, 1: Forward, -1: Reve
 			free(line->Data);
 		line->Data = NULL;
 		line->IsDirty = true;
+		Term->CursorCol = 0;
+		Term->CursorByte = 0;
 	}
 	else if( Dir == 1 )
 	{
@@ -462,6 +476,7 @@ void Display_Flush(tTerminal *Term)
 {
 	 int	viewOfs = (Term->bUsingAltBuf ? 0 : Term->ViewOffset);
 	tLine	*buffer = (Term->bUsingAltBuf ? Term->AltBuf : Term->PriBuf );
+	AxWin3_RichText_SetLineCount(gMainWindow, (Term->bUsingAltBuf ? Term->ViewRows : Term->TotalLines));
 	for( int i = 0; i < Term->ViewRows; i ++ )
 	{
 		 int	line = (viewOfs + i) % Term->TotalLines;
@@ -469,10 +484,10 @@ void Display_Flush(tTerminal *Term)
 		// Swapping buffers should cause a full resend
 		if( !Term->bHaveSwappedBuffers && !lineptr->IsDirty )
 			continue;
-		_SysDebug("Line %i+%i %p '%.*s'", viewOfs, i, lineptr->Data, lineptr->Len, lineptr->Data);
+		DEBUGS("Line %i+%i %p '%.*s'", viewOfs, i, lineptr->Data, lineptr->Len, lineptr->Data);
 		AxWin3_RichText_SendLine(gMainWindow, viewOfs + i,
 			lineptr->Data ? lineptr->Data : "" );
-		lineptr->IsDirty = 0;
+		lineptr->IsDirty = false;
 	}
 	AxWin3_RichText_SetCursorPos(gMainWindow, Term->CursorRow, Term->CursorCol);
 	Term->bHaveSwappedBuffers = false;
@@ -485,6 +500,11 @@ void Display_ShowAltBuffer(tTerminal *Term, bool AltBufEnabled)
 		// Nothing to do, so do nothing
 		return ;
 	}
+
+	int row = Term->OtherBufRow;
+	int col = Term->OtherBufCol;
+	Term->OtherBufRow = Term->CursorRow;
+	Term->OtherBufCol = Term->CursorCol;
 	
 	Term->bUsingAltBuf = AltBufEnabled;
 	Term->bHaveSwappedBuffers = true;
@@ -494,6 +514,12 @@ void Display_ShowAltBuffer(tTerminal *Term, bool AltBufEnabled)
 		{
 			Term->AltBuf = calloc( sizeof(Term->AltBuf[0]), Term->ViewRows );
 		}
+		AxWin3_RichText_SetLineCount(gMainWindow, Term->ViewRows);
 	}
+	else
+	{
+		AxWin3_RichText_SetLineCount(gMainWindow, Term->TotalLines);
+	}
+	Display_int_SetCursor(Term, row, col);
 }
 

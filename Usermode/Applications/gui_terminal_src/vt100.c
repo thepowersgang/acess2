@@ -206,13 +206,34 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 			}
 			break;
 		case 'J':
-			if( argc == 0 )
-				Display_ClearLine(Term, 0);
-			else if( args[0] == 2 )
-				Display_ClearLines(Term, 0);	// Entire screen!
-			else
+			switch( args[0] )
+			{
+			case 0:
+			case 1:
 				_SysDebug("TODO: VT100 %i J", args[0]);
+				break;
+			case 2:	// Everything
+				Display_ClearLines(Term, 0);
+				break;
+			default:
+				_SysDebug("Unknown VT100 %i J", args[0]);
+				break;
+			}
 			break;
+		case 'K':
+			switch( args[0] )
+			{
+			case 0:	// To EOL
+			case 1:	// To SOL
+				_SysDebug("TODO: VT100 %i K", args[0]);
+				break;
+			case 2:
+				Display_ClearLine(Term, 0);
+				break;
+			default:
+				_SysDebug("Unknown VT100 %i K", args[0]);
+				break;
+			}
 		case 'T':	// Scroll down n=1
 			Display_ScrollDown(Term, 1);
 			break;
