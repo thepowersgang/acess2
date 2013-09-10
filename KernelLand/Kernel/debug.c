@@ -94,12 +94,13 @@ void Debug_DbgOnlyFmt(const char *format, va_list args)
 void Debug_Fmt(int bUseKTerm, const char *format, va_list args)
 {
 	char	buf[DEBUG_MAX_LINE_LEN];
-//	 int	len;
 	buf[DEBUG_MAX_LINE_LEN-1] = 0;
-	/*len = */vsnprintf(buf, DEBUG_MAX_LINE_LEN-1, format, args);
-	//if( len < DEBUG_MAX_LINE )
-		// do something
+	int len = vsnprintf(buf, DEBUG_MAX_LINE_LEN-1, format, args);
 	Debug_Puts(bUseKTerm, buf);
+	if( len > DEBUG_MAX_LINE_LEN-1 ) {
+		// do something
+		Debug_Puts(bUseKTerm, "[...]");
+	}
 	return ;
 }
 
