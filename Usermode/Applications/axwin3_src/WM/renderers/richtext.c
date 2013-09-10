@@ -382,34 +382,32 @@ int Renderer_RichText_HandleIPC_WriteLine(tWindow *Window, size_t Len, const voi
 	tRichText_Line	*prev = NULL;
 	tRichText_Line	*line = Renderer_RichText_int_GetLine(Window, msg->Line, &prev);
 	 int	reqspace = ((Len - sizeof(*msg)) + LINE_SPACE_UNIT-1) & ~(LINE_SPACE_UNIT-1);
+	tRichText_Line	*new = NULL;
 	if( !line )
 	{
 		// New line!
 		tRichText_Line	*new = malloc(sizeof(*line) + reqspace);
-		// TODO: Bookkeeping on how much memory each window uses
 		new->Next = (prev ? prev->Next : NULL);
 		new->Prev = prev;
 		new->Num = msg->Line;
-		new->Space = reqspace;
-		*(prev ? &prev->Next : &info->FirstLine) = new;
-		if(new->Next)	new->Next->Prev = new;
-		line = new;
 	}
 	else if( line->Space < reqspace )
 	{
 		// Need to allocate more space
 		tRichText_Line *new = realloc(line, sizeof(*line) + reqspace);
-		// TODO: Bookkeeping on how much memory each window uses
-		new->Space = reqspace;
-
-		if(new->Prev)	new->Prev->Next = new;
-		else	info->FirstLine = new;
-		if(new->Next)	new->Next->Prev = new;
-		line = new;
 	}
 	else
 	{
 		// It fits :)
+	}
+	if( new ) 
+	{
+		// TODO: Bookkeeping on how much memory each window uses
+		new->Space = reqspace;
+		if(new->Prev)	new->Prev->Next = new;
+		else	info->FirstLine = new;
+		if(new->Next)	new->Next->Prev = new;
+		line = new;
 	}
 	line->ByteLength = Len - sizeof(*msg) - 1;
 	memcpy(line->Data, msg->LineData, Len - sizeof(*msg));
