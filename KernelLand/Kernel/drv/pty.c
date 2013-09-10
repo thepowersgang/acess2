@@ -564,24 +564,32 @@ size_t PTY_WriteClient(tVFS_Node *Node, off_t Offset, size_t Length, const void 
 	}
 	
 	// FIFO
-	tTime	timeout_z, *timeout = (Flags & VFS_IOFLAG_NOBLOCK) ? &timeout_z : NULL;
-	 int	rv;
+	size_t remaining = Length;
+	do
+	{
+		tTime	timeout_z, *timeout = (Flags & VFS_IOFLAG_NOBLOCK) ? &timeout_z : NULL;
+		 int	rv;
+		
+		rv = VFS_SelectNode(Node, VFS_SELECT_WRITE, timeout, "PTY_WriteClient");
+		if(!rv) {
+			errno = (timeout ? EWOULDBLOCK : EINTR);
+			return -1;
+		}
+		
+		// Write to output ringbuffer
+		size_t written = _rb_write(pty->OutputData, OUTPUT_RINGBUFFER_LEN,
+			&pty->OutputReadPos, &pty->OutputWritePos,
+			Buffer, remaining);
+		LOG("Wrote %i of %i : '%.*s'", written, remaining, written, Buffer);
+		VFS_MarkAvaliable(pty->ServerNode, 1);
+		if( (pty->OutputWritePos + 1) % OUTPUT_RINGBUFFER_LEN == pty->OutputReadPos )
+			VFS_MarkFull(Node, 1);
+		
+		remaining -= written;
+		Buffer = (const char*)Buffer + written;
+	} while( remaining > 0 || (Flags & VFS_IOFLAG_NOBLOCK) );
 	
-	rv = VFS_SelectNode(Node, VFS_SELECT_WRITE, timeout, "PTY_WriteClient");
-	if(!rv) {
-		errno = (timeout ? EWOULDBLOCK : EINTR);
-		return -1;
-	}
-	
-	// Write to output ringbuffer
-	Length = _rb_write(pty->OutputData, OUTPUT_RINGBUFFER_LEN,
-		&pty->OutputReadPos, &pty->OutputWritePos,
-		Buffer, Length);
-	VFS_MarkAvaliable(pty->ServerNode, 1);
-	if( (pty->OutputWritePos + 1) % OUTPUT_RINGBUFFER_LEN == pty->OutputReadPos )
-		VFS_MarkFull(Node, 1);
-	
-	return Length;
+	return Length - remaining;
 }
 
 void PTY_ReferenceClient(tVFS_Node *Node)
@@ -637,6 +645,7 @@ size_t PTY_ReadServer(tVFS_Node *Node, off_t Offset, size_t Length, void *Buffer
 	Length = _rb_read(pty->OutputData, OUTPUT_RINGBUFFER_LEN,
 		&pty->OutputReadPos, &pty->OutputWritePos,
 		Buffer, Length);
+	LOG("Read %i '%.*s'", Length, Length, Buffer);
 	if( pty->OutputReadPos == pty->OutputWritePos )
 		VFS_MarkAvaliable(Node, 0);
 	VFS_MarkFull(&pty->ClientNode, 0);
