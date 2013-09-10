@@ -89,6 +89,7 @@ extern void	*malloc(size_t bytes);
 extern void	*calloc(size_t __nmemb, size_t __size);
 extern void	*realloc(void *__ptr, size_t __size);
 extern int	IsHeap(void *ptr);
+extern int	Heap_Validate(int bDump);
 
 /* --- Random --- */
 extern void	srand(unsigned int seed);

@@ -1,7 +1,10 @@
 /*
-AcessOS Basic LibC
-heap.c - Heap Manager
-*/
+ * Acess2 C Library
+ * - By John Hodge (thePowersGang)
+ *
+ * heap.c
+ * - Dynamic Memory (malloc/free)
+ */
 #include <acess/sys.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,6 +21,7 @@ heap.c - Heap Manager
 #define MAGIC_FREE	(~MAGIC)
 #define BLOCK_SIZE	16	//Minimum
 #define HEAP_INIT_SIZE	0x10000
+#define DEBUG_HEAP	1
 
 typedef unsigned int Uint;
 
@@ -25,6 +29,11 @@ typedef unsigned int Uint;
 typedef struct {
 	uint32_t	magic;
 	size_t	size;
+	// - 
+	#if DEBUG_HEAP
+	void	*Caller;
+	size_t	RealSize;
+	#endif
 	char	data[];
 }	heap_head;
 typedef struct {
@@ -32,12 +41,35 @@ typedef struct {
 	uint32_t	magic;
 }	heap_foot;
 
+// === HELPERS ===
+static inline heap_head *NEXT_HEAD(heap_head *ptr)
+{
+	return (void*)((char*)ptr + ptr->size);
+}
+static inline heap_foot *THIS_FOOT(heap_head *ptr)
+{
+	return (void*)((char*)ptr + ptr->size - sizeof(heap_foot));
+}
+static inline heap_foot *PREV_FOOT(heap_head *ptr)
+{
+	return (void*)((char*)ptr - sizeof(heap_foot));
+}
+static inline size_t CALC_BLOCK_SIZE(size_t bytes)
+{
+	size_t ret;
+	ret = bytes + sizeof(heap_head) + sizeof(heap_foot) + BLOCK_SIZE - 1;
+	ret = (ret/BLOCK_SIZE)*BLOCK_SIZE;	//Round up to block size
+	return ret;
+}
+
 // === LOCAL VARIABLES ===
-static void	*_heap_start = NULL;
-static void	*_heap_end = NULL;
+static heap_head	*_heap_start = NULL;
+static heap_head	*_heap_end = NULL;
+static const heap_head	_heap_zero_allocation;
 
 // === PROTOTYPES ===
 EXPORT void	*malloc(size_t bytes);
+void	*_malloc(size_t bytes, void *owner);
 EXPORT void	*calloc(size_t bytes, size_t count);
 EXPORT void	free(void *mem);
 EXPORT void	*realloc(void *mem, size_t bytes);
@@ -45,7 +77,7 @@ EXPORT void	*sbrk(int increment);
 LOCAL void	*extendHeap(int bytes);
 static void	*FindHeapBase();
 LOCAL uint	brk(uintptr_t newpos);
-LOCAL void	Heap_Dump(void);
+EXPORT int	Heap_Validate(int bDump);
 
 //Code
 
@@ -57,12 +89,14 @@ LOCAL void	Heap_Dump(void);
 */
 EXPORT void *malloc(size_t bytes)
 {
-	size_t	bestSize;
+	return _malloc(bytes, __builtin_return_address(0));
+}
+
+void *_malloc(size_t bytes, void *owner)
+{
 	size_t	closestMatch = 0;
 	void	*bestMatchAddr = 0;
-	heap_head	*curBlock;
 
-//	_SysDebug("&_heap_start = %p, _heap_start = %p", &_heap_start, _heap_start);
 	// Initialise Heap
 	if(_heap_start == NULL)
 	{
@@ -70,20 +104,24 @@ EXPORT void *malloc(size_t bytes)
 		_heap_end = _heap_start;
 		extendHeap(HEAP_INIT_SIZE);
 	}
+
+	// Zero bytes, return a random area (in .rodata)
+	if( bytes == 0 )
+		return (void*)_heap_zero_allocation.data;	
+
+	// Calculate the required block size
+	size_t bestSize = CALC_BLOCK_SIZE(bytes);
 	
-	curBlock = _heap_start;
-//	_SysDebug("_heap_start = %p", _heap_start);
-	
-	bestSize = bytes + sizeof(heap_head) + sizeof(heap_foot) + BLOCK_SIZE - 1;
-	bestSize = (bestSize/BLOCK_SIZE)*BLOCK_SIZE;	//Round up to block size
-	
-	while( (uintptr_t)curBlock < (uintptr_t)_heap_end)
+	heap_head	*curBlock;
+	for(curBlock = _heap_start; curBlock < _heap_end; curBlock = NEXT_HEAD(curBlock))
 	{
 		//_SysDebug(" malloc: curBlock = 0x%x, curBlock->magic = 0x%x\n", curBlock, curBlock->magic);
 		if(curBlock->magic == MAGIC_FREE)
 		{
+			// Perfect match, nice
 			if(curBlock->size == bestSize)
 				break;
+			// Check if this is a tighter match than the last free block
 			if(bestSize < curBlock->size && (curBlock->size < closestMatch || closestMatch == 0)) {
 				closestMatch = curBlock->size;
 				bestMatchAddr = curBlock;
@@ -92,25 +130,26 @@ EXPORT void *malloc(size_t bytes)
 		else if(curBlock->magic != MAGIC)
 		{
 			//Corrupt Heap
-			Heap_Dump();
-			_SysDebug("malloc: Corrupt Heap\n");
+			Heap_Validate(1);
+			_SysDebug("malloc: Corrupt Heap when called by %p\n", owner);
 			exit(128);
 			return NULL;
 		}
-		curBlock = (heap_head*)((uintptr_t)curBlock + curBlock->size);
 	}
 	
-	if((uintptr_t)curBlock < (uintptr_t)_heap_start) {
-		Heap_Dump();
+	if(curBlock < _heap_start) {
+		Heap_Validate(1);
 		_SysDebug("malloc: Heap underrun for some reason\n");
 		exit(128);
 		return NULL;
 	}
 	
 	//Found a perfect match
-	if((uintptr_t)curBlock < (uintptr_t)_heap_end) {
+	if(curBlock < _heap_end) {
 		curBlock->magic = MAGIC;
-		return (void*)((uintptr_t)curBlock + sizeof(heap_head));
+		curBlock->RealSize = bytes;
+		curBlock->Caller = owner;
+		return curBlock->data;
 	}
 	
 	//Out of Heap Space
@@ -121,37 +160,44 @@ EXPORT void *malloc(size_t bytes)
 			return NULL;
 		}
 		curBlock->magic = MAGIC;
+		curBlock->RealSize = bytes;
+		curBlock->Caller = owner;
 		DEBUGS("malloc(0x%x) = %p (extend) 0x%x", bytes, curBlock->data, bestSize);
 		return curBlock->data;
 	}
 	
 	heap_head *besthead = (void*)bestMatchAddr;
 	
-	//Split Block?
+	// Do we need to split this block?
 	if(closestMatch - bestSize > BLOCK_SIZE) {
 		heap_foot	*foot;
+		
+		// Block we're going to return
 		curBlock = (heap_head*)bestMatchAddr;
 		curBlock->magic = MAGIC;
 		curBlock->size = bestSize;
-		foot = (heap_foot*)(bestMatchAddr + bestSize - sizeof(heap_foot));
+		foot = THIS_FOOT(curBlock);
 		foot->header = curBlock;
 		foot->magic = MAGIC;
 
+		// Remaining parts of the block
 		curBlock = (heap_head*)(bestMatchAddr + bestSize);
 		curBlock->magic = MAGIC_FREE;
 		curBlock->size = closestMatch - bestSize;
-		
-		foot = (heap_foot*)(bestMatchAddr + closestMatch - sizeof(heap_foot));
+		foot = THIS_FOOT(curBlock);
 		foot->header = curBlock;
-		
-		besthead->magic = MAGIC;	//mark as used
+	
+		// Mark return as used	
 		DEBUGS("malloc(0x%x) = %p (split) 0x%x", bytes, besthead->data, bestSize);
-		return besthead->data;
+	}
+	else {
+		// No need to split
+		DEBUGS("malloc(0x%x) = %p (reuse) 0x%x", bytes, besthead->data, besthead->size);
 	}
 	
-	//Don't Split the block
 	besthead->magic = MAGIC;
-	DEBUGS("malloc(0x%x) = %p (reuse) 0x%x", bytes, besthead->data, besthead->size);
+	besthead->RealSize = bytes;
+	besthead->Caller = owner;
 	return besthead->data;
 }
 
@@ -163,7 +209,7 @@ EXPORT void *malloc(size_t bytes)
  */
 EXPORT void *calloc(size_t __nmemb, size_t __size)
 {
-	void	*ret = malloc(__size*__nmemb);
+	void	*ret = _malloc(__size*__nmemb, __builtin_return_address(0));
 	if(!ret)	return NULL;
 	memset(ret, 0, __size*__nmemb);
 	return ret;
@@ -176,37 +222,63 @@ EXPORT void *calloc(size_t __nmemb, size_t __size)
 */
 EXPORT void free(void *mem)
 {
-	heap_head	*head = (void*)((intptr_t)mem-sizeof(heap_head));
+	heap_head	*head = (heap_head*)mem - 1;
 
-	// Sanity please!
-	if(!mem)	return;
+	// Free of NULL or the zero allocation does nothing
+	if(!mem || mem == _heap_zero_allocation.data)
+		return ;
 	
-	if(head->magic != MAGIC)	//Valid Heap Address
+	// Sanity check the head address
+	if(head->magic != MAGIC) {
+		if( head->magic != MAGIC_FREE ) {
+			_SysDebug("Double free of %p", mem);
+			Heap_Validate(1);
+			exit(0);
+		}
+		else {
+			_SysDebug("Free of invalid pointer %p", mem);
+			Heap_Validate(1);
+			exit(0);
+		}
 		return;
+	}
 	
 	head->magic = MAGIC_FREE;
 	DEBUGS("free(%p) : 0x%x bytes", mem, head->size);
 	
-	//Unify Right
-	if((uintptr_t)head + head->size < (uintptr_t)_heap_end)
+	// Unify Right
+	if( NEXT_HEAD(head) < _heap_end )
 	{
-		heap_head	*nextHead = (heap_head*)((intptr_t)head + head->size);
-		if(nextHead->magic == MAGIC_FREE) {	//Is the next block free
-			head->size += nextHead->size;	//Amalgamate
+		heap_head	*nextHead = NEXT_HEAD(head);
+		// Is the next block free?
+		if(nextHead->magic == MAGIC_FREE)
+		{
+			head->size += nextHead->size;	// Amalgamate
+			THIS_FOOT(head)->header = head;
 			nextHead->magic = 0;	//For Security
 		}
 	}
-	//Unify Left
-	if((uintptr_t)head - sizeof(heap_foot) > (uintptr_t)_heap_start)
+	
+	// Unify Left
+	if( head > _heap_start )
 	{
-		heap_head	*prevHead;
-		heap_foot	*prevFoot = (heap_foot *)((intptr_t)head - sizeof(heap_foot));
-		if(prevFoot->magic == MAGIC) {
-			prevHead = prevFoot->header;
-			if(prevHead->magic == MAGIC_FREE) {
-				prevHead->size += head->size;	//Amalgamate
-				head->magic = 0;	//For Security
-			}
+		heap_foot *prevFoot = PREV_FOOT(head);
+		if( prevFoot->magic != MAGIC )
+		{
+			Heap_Validate(1);
+			exit(1);
+		}
+		
+		heap_head *prevHead = prevFoot->header;
+		if(prevHead->magic == MAGIC_FREE)
+		{
+			// Amalgamate
+			prevHead->size += head->size;
+			THIS_FOOT(prevHead)->header = prevHead;
+			// For Security
+			head->magic = 0;
+			prevFoot->magic = 0;
+			prevFoot->header = NULL;
 		}
 	}
 }
@@ -220,28 +292,58 @@ EXPORT void free(void *mem)
 */
 EXPORT void *realloc(void *oldPos, size_t bytes)
 {
-	void *ret;
-	heap_head	*head;
-	
-	if(oldPos == NULL) {
-		return malloc(bytes);
+	if(oldPos == NULL || oldPos == _heap_zero_allocation.data) {
+		return _malloc(bytes, __builtin_return_address(0));
+	}
+
+	size_t	reqd_size = CALC_BLOCK_SIZE(bytes);	
+
+	// Check for free space within the block
+	// - oldPos points to just after the header, so -1 gives the header
+	heap_head *head = (heap_head*)oldPos - 1;
+	if( head->size >= reqd_size ) {
+		head->RealSize = bytes;
+		return oldPos;
 	}
 	
-	//Check for free space after block
-	head = (heap_head*)((uintptr_t)oldPos-sizeof(heap_head));
+	// Check for free space after the block
+	heap_head *nexthead = NEXT_HEAD(head);
+	if( nexthead && nexthead->magic == MAGIC_FREE && head->size + nexthead->size >= reqd_size )
+	{
+		// Split next block
+		if( head->size + nexthead->size > reqd_size )
+		{
+			size_t newblocksize = nexthead->size - (reqd_size - head->size);
+			head->size = reqd_size;
+			
+			nexthead = NEXT_HEAD(head);
+			nexthead->size = newblocksize;
+			nexthead->magic = MAGIC_FREE;
+			THIS_FOOT(nexthead)->header = nexthead;
+		}
+		else
+		{
+			head->size = reqd_size;
+		}
+		THIS_FOOT(head)->magic = MAGIC;
+		THIS_FOOT(head)->header = head;
+		head->RealSize = bytes;
+		return oldPos;
+	}
 	
-	//Hack to used free's amagamating algorithym and malloc's splitting
-	free(oldPos);
+	// TODO: Should I check for free before too? What about before AND after?
 	
-	//Allocate new memory
-	ret = malloc(bytes);
+	// Allocate new memory
+	void *ret = _malloc(bytes, __builtin_return_address(0));
 	if(ret == NULL)
 		return NULL;
 	
 	//Copy Old Data
-	if(ret != oldPos) {
-		memcpy(ret, oldPos, head->size-sizeof(heap_head)-sizeof(heap_foot));
-	}
+	size_t copy_size = head->size-sizeof(heap_head)-sizeof(heap_foot);
+	if( copy_size > bytes )
+		copy_size = bytes;
+	memcpy(ret, oldPos, bytes);
+	free(oldPos);
 	
 	//Return
 	return ret;
@@ -269,7 +371,7 @@ LOCAL void *extendHeap(int bytes)
 	head->magic = MAGIC_FREE;	//Unallocated
 	head->size = bytes;
 	// Footer
-	foot = _heap_end + bytes - sizeof(heap_foot);
+	foot = THIS_FOOT(head);
 	foot->header = head;
 	foot->magic = MAGIC;
 	
@@ -349,6 +451,8 @@ EXPORT void *sbrk(int increment)
  */
 EXPORT int IsHeap(void *ptr)
 {
+	if( ptr == _heap_zero_allocation.data )
+		return 1;
 	#if 0
 	heap_head	*head;
 	heap_foot	*foot;
@@ -448,22 +552,54 @@ LOCAL uint brk(uintptr_t newpos)
 	return ret;	// Return old curpos
 }
 
-void Heap_Dump(void)
+int Heap_Validate(int bDump)
 {
+	 int	rv = 0;
 	heap_head *cur = _heap_start;
-	while( cur < (heap_head*)_heap_end )
+	while( cur < (heap_head*)_heap_end && rv == 0 )
 	{
 		if( cur->magic == MAGIC ) {
-			_SysDebug("Used block %p[0x%x] - ptr=%p", cur, cur->size, cur->data);
+			if( bDump ) {
+				_SysDebug("Used block %p[0x%x] - ptr=%p,Owner=%p,Size=0x%x",
+					cur, cur->size, cur->data,
+					cur->Caller, cur->RealSize
+					);
+			}
 		}
 		else if( cur->magic == MAGIC_FREE ) {
-			_SysDebug("Free block %p[0x%x] - ptr=%p", cur, cur->size, cur->data);
+			if( bDump ) {
+				_SysDebug("Free block %p[0x%x]", cur, cur->size, cur->data);
+			}
 		}
 		else {
 			_SysDebug("Block %p bad magic (0x%x)", cur, cur->magic);
+			rv = 1;
 			break ;
 		}
-		cur = (void*)( (char*)cur + cur->size );
+		heap_foot *foot = THIS_FOOT(cur);
+		if( foot->magic != MAGIC ) {
+			_SysDebug("- %p: Foot magic clobbered (0x%x!=0x%x)", cur, foot->magic, MAGIC);
+			rv = 1;
+		}
+		if( foot->header != cur ) {
+			_SysDebug("- %p: Head pointer clobbered (%p)", cur, foot->header);
+			rv = 1;
+		}
+	
+		if( rv && !bDump ) {
+			_SysDebug("%s block %p[0x%x] - ptr=%p,Owner=%p,Size=0x%x",
+				(cur->magic == MAGIC ? "Used":"Free"),
+				cur, cur->size, cur->data,
+				cur->Caller, cur->RealSize
+				);
+		}	
+	
+		cur = NEXT_HEAD(cur);
 	}
+	if( rv && !bDump ) {
+		_SysDebug("- Caller: %p", __builtin_return_address(0));
+		exit(1);
+	}
+	return 0;
 }
 
