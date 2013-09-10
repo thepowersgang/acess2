@@ -148,6 +148,8 @@ int main(int argc, const char *argv[], const char *envp[])
 		FD_ZERO(&errorfds);
 		FD_SET(0, &readfds);	// stdin
 		
+		fflush(stdout);
+		
 		// Fill server FDs in fd_set
 		for( srv = gpServers; srv; srv = srv->Next )
 		{
@@ -173,12 +175,11 @@ int main(int argc, const char *argv[], const char *envp[])
 				free(cmd);
 				// Prompt
 				SetCursorPos(giTerminal_Height-1, 0);
-				printf("\x1B[K");	// Clear line
+				printf("\x1B[2K");	// Clear line
 				if( gpCurrentWindow->Name[0] )
 					printf("[%s:%s] ", gpCurrentWindow->Server->Name, gpCurrentWindow->Name);
 				else
 					printf("[(status)] ");
-				fflush(stdout);
 			}
 		}
 		
@@ -434,6 +435,8 @@ tMessage *Message_Append(tServer *Server, int Type, const char *Source, const ch
 			win = &gWindow_Status;
 		}
 		
+		// Set source to the server name (instead of the hostname)
+		Source = Server->Name;
 	}
 	// Private message
 	else
@@ -479,7 +482,7 @@ tMessage *Message_Append(tServer *Server, int Type, const char *Source, const ch
 			Message += avail;
 			printf("\x1b""D");
 			SetCursorPos(giTerminal_Height-2, prefixlen);
-			printf("%.*s\n", avail, Message);
+			printf("%.*s", avail, Message);
 		}
 		printf("\x1b[u");
 	}
@@ -677,7 +680,7 @@ void ParseServerLine(tServer *Server, char *Line)
 		}
 		else
 		{
-			Message_AppendF(Server, MSG_TYPE_SERVER, "", "", "Unknown message %s (%s)\n", cmd, Line+pos);
+			Message_AppendF(Server, MSG_TYPE_SERVER, "", "", "Unknown message %s (%s)", cmd, Line+pos);
 		}
 	}
 	else {		
