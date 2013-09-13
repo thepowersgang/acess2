@@ -11,8 +11,6 @@
 #include <IPStack/include/adapters_api.h>
 #include "hw.h"
 
-#define assert	ASSERT	// because CBF updating code
-
 // === CONSTANTS ===
 #define VENDOR_ID	0x1022
 #define DEVICE_ID	0x2000

@@ -64,6 +64,7 @@ extern void	Debug_HexDump(const char *Header, const void *Data, size_t Length);
 # define ASSERTV(expr)
 # define ASSERTRV(expr)
 #endif
+#define assert(expr)	ASSERTV(expr, "")
 #define ASSERT(expr)	ASSERTV(expr, "")
 #define ASSERTR(expr,rv)	ASSERTRV(expr, rv, "")
 #define ASSERTC(l,rel,r)	ASSERTV(l rel r, ": %i"#rel"%i", l, r)
