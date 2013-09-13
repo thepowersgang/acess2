@@ -156,19 +156,20 @@ void itoa(char *buf, Uint64 num, int base, int minLength, char pad)
 	 int	pos=0, i;
 	Uint64	rem;
 
+	buf[0] = 0;
+	ASSERTR(base >= 2, );
+	ASSERTR(base <= 16, );
+
 	// Sanity check
 	if(!buf)	return;
-	
-	// Sanity Check
-	if(base > 16 || base < 2) {
-		buf[0] = 0;
-		return;
-	}
 	
 	// Convert 
 	while(num > base-1) {
 		num = DivMod64U(num, base, &rem);	// Shift `num` and get remainder
 		ASSERT(rem >= 0);
+		if( rem >= base && base != 16 ) {
+			Debug("rem(%llx) >= base(%x), num=%llx", rem, base, num);
+		}
 		ASSERT(rem < base);
 		tmpBuf[pos] = cUCDIGITS[ rem ];
 		pos++;
@@ -316,11 +317,14 @@ int vsnprintf(char *__s, const size_t __maxlen, const char *__format, va_list ar
 			GETVAL();
 			if( isLongLong && val >> 63 ) {
 				PUTCH('-');
-				val = -val;
+				if( val == LLONG_MIN )
+					val = LLONG_MAX;
+				else
+					val = -val;
 			}
-			else if( !isLongLong && val >> 31 ) {
+			else if( !isLongLong && (val >> 31) ) {
 				PUTCH('-');
-				val = -(Sint32)val;
+				val = (~val & 0xFFFFFFFF)+1;
 			}
 			itoa(tmpBuf, val, 10, minSize, pad);
 			goto printString;
