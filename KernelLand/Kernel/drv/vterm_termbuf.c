@@ -5,7 +5,10 @@
  * drv/vterm_termbuf.c
  * - Virtual Terminal - Terminal buffer manipulation
  */
+#define DEBUG	1
 #include "vterm.h"
+
+extern int	Term_HandleVT100(tVTerm *Term, int Len, const char *Buf);
 
 // === CODE ===
 
@@ -15,30 +18,32 @@
  */
 void VT_int_PutString(tVTerm *Term, const Uint8 *Buffer, Uint Count)
 {
-	 int	i;
-	
 	// Iterate
-	for( i = 0; i < Count; i++ )
+	for( int ofs = 0; ofs < Count; )
 	{
-		// Handle escape sequences
-		int ret = VT_int_ParseEscape(Term, (const char*)&Buffer[i], Count-i);
-		if( ret > 0 )
-		{
-			i += ret-1;
-			continue;
+		int esc_len = Term_HandleVT100(Term, Count - ofs, (const void*)(Buffer + ofs));
+		if( esc_len < 0 ) {
+			esc_len = -esc_len;
+			VT_int_PutRawString(Term, Buffer + ofs, esc_len);
+			//Debug("Raw string '%.*s'", esc_len, Buffer+ofs);
 		}
-		
-		// Fast check for non UTF-8
-		if( Buffer[i] < 128 )	// Plain ASCII
-			VT_int_PutChar(Term, Buffer[i]);
-		else {	// UTF-8
-			Uint32	val;
-			i += ReadUTF8(&Buffer[i], &val) - 1;
-			VT_int_PutChar(Term, val);
+		else {
+			//Debug("Escape code '%.*s'", esc_len, Buffer+ofs);
 		}
+		ASSERTCR(esc_len, >, 0, );
+		ofs += esc_len;
 	}
 	// Update Screen
-	VT_int_UpdateScreen( Term, 0 );
+	VT_int_UpdateScreen( Term, 1 );
+}
+
+void VT_int_PutRawString(tVTerm *Term, const Uint8 *String, size_t Bytes)
+{
+	for( int i = 0; i < Bytes; ) {
+		Uint32	val;
+		i += ReadUTF8(String+i, &val);
+		VT_int_PutChar(Term, val);
+	}
 }
 
 /**
@@ -50,14 +55,17 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 	 int	i;
 	tVT_Char	*buffer;
 	 int	write_pos;
+	 int	limit;
 	
 	if(Term->Flags & VT_FLAG_ALTBUF) {
 		buffer = Term->AltBuf;
 		write_pos = Term->AltWritePos;
+		limit = Term->TextHeight * Term->TextWidth;
 	}
 	else {
 		buffer = Term->Text;
 		write_pos = Term->WritePos;
+		limit = Term->TextHeight*(giVT_Scrollback+1) * Term->TextWidth;
 	}
 	
 	switch(Ch)
@@ -104,6 +112,7 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 		break;
 	
 	default:
+		ASSERTC(write_pos,<,limit);
 		buffer[ write_pos ].Ch = Ch;
 		buffer[ write_pos ].Colour = Term->CurColour;
 		// Update the line before wrapping
@@ -117,19 +126,18 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 	{
 		Term->AltWritePos = write_pos;
 		
-		if(Term->AltWritePos >= Term->TextWidth*Term->TextHeight)
+		if(Term->AltWritePos >= limit)
 		{
 			Term->AltWritePos -= Term->TextWidth;
 			VT_int_ScrollText(Term, 1);
 		}
-		
 	}
 	else
 	{
 		Term->WritePos = write_pos;
 		// Move Screen
 		// - Check if we need to scroll the entire scrollback buffer
-		if(Term->WritePos >= Term->TextWidth*Term->TextHeight*(giVT_Scrollback+1))
+		if(Term->WritePos >= limit)
 		{
 			 int	base;
 			
@@ -266,15 +274,13 @@ void VT_int_ScrollText(tVTerm *Term, int Count)
  */
 void VT_int_ClearLine(tVTerm *Term, int Num)
 {
-	 int	i;
-	tVT_Char	*cell;
+	 int	limit = Term->TextHeight * (Term->Flags & VT_FLAG_ALTBUF ? 1 : giVT_Scrollback + 1);
+	tVT_Char	*buffer = (Term->Flags & VT_FLAG_ALTBUF ? Term->AltBuf : Term->Text);
+	if( Num < 0 || Num >= limit )	return ;
 	
-	if( Num < 0 || Num >= Term->TextHeight * (giVT_Scrollback + 1) )	return ;
+	tVT_Char	*cell = &buffer[ Num*Term->TextWidth ];
 	
-	cell = (Term->Flags & VT_FLAG_ALTBUF) ? Term->AltBuf : Term->Text;
-	cell = &cell[ Num*Term->TextWidth ];
-	
-	for( i = Term->TextWidth; i--; )
+	for( int i = 0; i < Term->TextWidth; i ++ )
 	{
 		cell[ i ].Ch = 0;
 		cell[ i ].Colour = Term->CurColour;

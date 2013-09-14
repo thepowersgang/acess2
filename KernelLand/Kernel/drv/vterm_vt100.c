@@ -5,377 +5,203 @@
  * drv/vterm_vt100.c
  * - Virtual Terminal - VT100 (Kinda) Emulation
  */
+#define DEBUG	0
 #include "vterm.h"
 
-// === CONSTANTS ===
-const Uint16	caVT100Colours[] = {
-		// Black, Red, Green, Yellow, Blue, Purple, Cyan, Gray
-		// Same again, but bright
-		VT_COL_BLACK, 0x700, 0x070, 0x770, 0x007, 0x707, 0x077, 0xAAA,
-		VT_COL_GREY, 0xF00, 0x0F0, 0xFF0, 0x00F, 0xF0F, 0x0FF, VT_COL_WHITE
-	};
+#define sTerminal	sVTerm
+#include "../../../Usermode/Applications/gui_terminal_src/vt100.c"
 
-// === CODE ===
-/**
- * \brief Handle a standard large escape code
- * 
- * Handles any escape code of the form \x1B[n,...A where n is an integer
- * and A is any letter.
- */
-void VT_int_ParseEscape_StandardLarge(tVTerm *Term, char CmdChar, int argc, int *args)
+void Display_AddText(tTerminal *Term, size_t Length, const char *UTF8Text)
 {
-	 int	tmp = 1;
-	switch(CmdChar)
+	VT_int_PutRawString(Term, (const void*)UTF8Text, Length);
+}
+void Display_Newline(tTerminal *Term, bool bCarriageReturn)
+{
+	LOG("");
+	VT_int_PutChar(Term, '\n');
+}
+void Display_SetScrollArea(tTerminal *Term, int Start, int Count)
+{
+	LOG("(%i,+%i)", Start, Count);
+	Term->ScrollTop = Start;
+	Term->ScrollHeight = Count;
+}
+void Display_ScrollDown(tTerminal *Term, int CountDown)
+{
+	LOG("(%i)", CountDown);
+	VT_int_UpdateScreen(Term, 0);
+	if( Term->Flags & VT_FLAG_ALTBUF )
+		VT_int_ScrollText(Term, CountDown);
+	else
 	{
-	// Left
-	case 'D':
-		tmp = -1;
-	// Right
-	case 'C':
-		if(argc == 1)	tmp *= args[0];
-		if( Term->Flags & VT_FLAG_ALTBUF )
-		{
-			if( (Term->AltWritePos + tmp) % Term->TextWidth == 0 ) {
-				Term->AltWritePos -= Term->AltWritePos % Term->TextWidth;
-				Term->AltWritePos += Term->TextWidth - 1;
-			}
-			else
-				Term->AltWritePos += tmp;
-		}
-		else
-		{
-			if( (Term->WritePos + tmp) % Term->TextWidth == 0 ) {
-				Term->WritePos -= Term->WritePos % Term->TextWidth;
-				Term->WritePos += Term->TextWidth - 1;
-			}
-			else
-				Term->WritePos += tmp;
-		}
-		break;
-	
-	// Erase
-	case 'J':
-		switch(args[0])
-		{
-		case 0:	// Erase below
-			break;
-		case 1:	// Erase above
-			break;
-		case 2:	// Erase all
-			if( Term->Flags & VT_FLAG_ALTBUF )
-			{
-				 int	i = Term->TextHeight;
-				while( i-- )	VT_int_ClearLine(Term, i);
-				Term->AltWritePos = 0;
-				VT_int_UpdateScreen(Term, 1);
-			}
-			else
-			{
-				 int	i = Term->TextHeight * (giVT_Scrollback + 1);
-				while( i-- )	VT_int_ClearLine(Term, i);
-				Term->WritePos = 0;
-				Term->ViewPos = 0;
-				VT_int_UpdateScreen(Term, 1);
-			}
-			break;
-		}
-		break;
-	
-	// Erase in line
-	case 'K':
-		switch(args[0])
-		{
-		case 0:	// Erase to right
-			if( Term->Flags & VT_FLAG_ALTBUF )
-			{
-				 int	i, max;
-				max = Term->Width - Term->AltWritePos % Term->Width;
-				for( i = 0; i < max; i ++ )
-					Term->AltBuf[Term->AltWritePos+i].Ch = 0;
-			}
-			else
-			{
-				 int	i, max;
-				max = Term->Width - Term->WritePos % Term->Width;
-				for( i = 0; i < max; i ++ )
-					Term->Text[Term->WritePos+i].Ch = 0;
-			}
-			VT_int_UpdateScreen(Term, 0);
-			break;
-		case 1:	// Erase to left
-			if( Term->Flags & VT_FLAG_ALTBUF )
-			{
-				 int	i = Term->AltWritePos % Term->Width;
-				while( i -- )
-					Term->AltBuf[Term->AltWritePos++].Ch = 0;
-			}
-			else
-			{
-				 int	i = Term->WritePos % Term->Width;
-				while( i -- )
-					Term->Text[Term->WritePos++].Ch = 0;
-			}
-			VT_int_UpdateScreen(Term, 0);
-			break;
-		case 2:	// Erase all
-			if( Term->Flags & VT_FLAG_ALTBUF )
-			{
-				VT_int_ClearLine(Term, Term->AltWritePos / Term->Width);
-			}
-			else
-			{
-				VT_int_ClearLine(Term, Term->WritePos / Term->Width);
-			}
-			VT_int_UpdateScreen(Term, 0);
-			break;
-		}
-		break;
-	
-	// Set cursor position
-	case 'H':
-		if( Term->Flags & VT_FLAG_ALTBUF )
-			Term->AltWritePos = args[1] + args[0]*Term->TextWidth;
-		else
-			Term->WritePos = args[1] + args[0]*Term->TextWidth;
-		//Log_Debug("VTerm", "args = {%i, %i}", args[0], args[1]);
-		break;
-	// Scroll up `n` lines
-	case 'S':
-		tmp = -1;
-	// Scroll down `n` lines
-	case 'T':
-		if(argc == 1)	tmp *= args[0];
-		if( Term->Flags & VT_FLAG_ALTBUF )
-			VT_int_ScrollText(Term, tmp);
-		else
-		{
-			if(Term->ViewPos/Term->TextWidth + tmp < 0)
-				break;
-			if(Term->ViewPos/Term->TextWidth + tmp  > Term->TextHeight * (giVT_Scrollback + 1))
-				break;
-			
-			Term->ViewPos += Term->TextWidth*tmp;
-		}
-		break;
-	// Set Mode (?)
-	case 'h':
-		if( argc >= 1 )
-		{
-			switch(args[0])
-			{
-			case 2:	// Keyboard action mode
-			case 4:	// Insert mode
-			case 12:	// Send/receive
-			case 20:	// Automatic newline
-				break;
-			default:	// ?
-				break;
-			}
-		}
-		break;
+		if(Term->ViewPos/Term->TextWidth + CountDown < 0)
+			return ;
+		if(Term->ViewPos/Term->TextWidth + CountDown  > Term->TextHeight * (giVT_Scrollback + 1))
+			return ;
 		
-	// Set Font flags
-	case 'm':
-		for( ; argc--; )
-		{
-			 int	colour_idx;
-			// Flags
-			if( 0 <= args[argc] && args[argc] <= 8)
-			{
-				switch(args[argc])
-				{
-				case 0:	Term->CurColour = DEFAULT_COLOUR;	break;	// Reset
-				case 1:	Term->CurColour |= 0x80000000;	break;	// Bright
-				case 2:	Term->CurColour &= ~0x80000000;	break;	// Dim
-				}
-			}
-			// Foreground Colour
-			else if(30 <= args[argc] && args[argc] <= 37) {
-				// Get colour index, accounting for bright bit
-				colour_idx = args[argc]-30 + ((Term->CurColour>>28) & 8);
-				Term->CurColour &= 0x8000FFFF;
-				Term->CurColour |= (Uint32)caVT100Colours[ colour_idx ] << 16;
-			}
-			// Background Colour
-			else if(40 <= args[argc] && args[argc] <= 47) {
-				// Get colour index, accounting for bright bit
-				colour_idx = args[argc]-40 + ((Term->CurColour>>12) & 8);
-				Term->CurColour &= 0xFFFF8000;
-				Term->CurColour |= caVT100Colours[ colour_idx ];
-			}
-			// Foreground Colour - bright
-			else if(90 <= args[argc] && args[argc] <= 97 ) {
-				colour_idx = args[argc]-90 + 8;
-				Term->CurColour &= 0x8000FFFF;
-				Term->CurColour |= (Uint32)caVT100Colours[ colour_idx ] << 16;
-			}
-			// Background Colour - bright
-			else if(100 <= args[argc] && args[argc] <= 107 ) {
-				colour_idx = args[argc]-100 + 8;
-				Term->CurColour &= 0xFFFF8000;
-				Term->CurColour |= (Uint32)caVT100Colours[ colour_idx ];
-			}
-			else {
-				Log_Warning("VTerm", "Unknown font flag %i", args[argc]);
-			}
-		}
-		break;
-	
-	// Set scrolling region
-	case 'r':
-		if( argc != 2 )	break;
-		Term->ScrollTop = args[0];
-		Term->ScrollHeight = args[1] - args[0];
-		break;
-
-	// Save cursor position
-	case 's':
-		if( argc != 0 )	break;
-		Term->SavedWritePos = (Term->Flags & VT_FLAG_ALTBUF) ? Term->AltWritePos : Term->WritePos;
-		break;
-
-	// Restore saved cursor position
-	case 'u':
-		if( argc != 0 )	break;
-		*((Term->Flags & VT_FLAG_ALTBUF) ? &Term->AltWritePos : &Term->WritePos) = Term->SavedWritePos;
-		break;
-
-	default:
-		Log_Warning("VTerm", "Unknown control sequence '\\x1B[%c'", CmdChar);
-		break;
+		Term->ViewPos += Term->TextWidth * CountDown;
 	}
 }
-
-/**
- * \fn int VT_int_ParseEscape(tVTerm *Term, const char *Buffer)
- * \brief Parses a VT100 Escape code
- */
-int VT_int_ParseEscape(tVTerm *Term, const char *Buffer, size_t Bytes)
+void Display_SetCursor(tTerminal *Term, int Row, int Col)
 {
-	char	c;
-	 int	argc = 0, j = 0;
-	 int	args[6] = {0,0,0,0};
-	 int	bQuestionMark = 0;
-	const int	ofs = Term->EscapeCodeLen;
-	const int	sparespace = sizeof(Term->EscapeCodeCache)-Term->EscapeCodeLen;
-	const int	copysize = MIN(Bytes, sparespace);
+	LOG("(R%i,C%i)", Row, Col);
+	VT_int_UpdateScreen(Term, 0);
+	 int	maxrows = ((Term->Flags & VT_FLAG_ALTBUF) ? 1 : (giVT_Scrollback+1))*Term->TextHeight;
+	ASSERTCR( Row, >=, 0, );
+	ASSERTCR( Row, <, maxrows, );
+	ASSERTCR( Col, >=, 0, );
+	ASSERTCR( Col, <, Term->TextWidth, );
+	*(Term->Flags & VT_FLAG_ALTBUF ? &Term->AltWritePos : &Term->WritePos) = Row*Term->TextWidth + Col;
+}
+void Display_MoveCursor(tTerminal *Term, int RelRow, int RelCol)
+{
+	LOG("(R+%i,C+%i)", RelRow, RelCol);
+	int	*wrpos = (Term->Flags & VT_FLAG_ALTBUF ? &Term->AltWritePos : &Term->WritePos);
 
-	memcpy( Term->EscapeCodeCache + Term->EscapeCodeLen, Buffer, copysize );
-	Term->EscapeCodeLen += copysize;
-	
-	Bytes = Term->EscapeCodeLen;
-	Buffer = Term->EscapeCodeCache;
-
-	if( Bytes == j )	return j-ofs;
-	c = Buffer[j++];
-	if(c != '\x1b') {
-		Term->EscapeCodeLen = 0;
-		return 0;
-	}
-
-	if( Bytes == j )	return j-ofs;
-	c = Buffer[j++];
-
-	switch(c)
+	if( RelCol != 0 )
 	{
-	//Large Code
-	case '[':
-		// Get Arguments
-		if(Bytes == j)	return j-ofs;
-		c = Buffer[j++];
-		if(c == '?') {
-			bQuestionMark = 1;
-			if(Bytes == j)	return j-ofs;
-			c = Buffer[j++];
-		}
-		if( '0' <= c && c <= '9' )
+		// 
+		if( RelCol < 0 )
 		{
-			do {
-				if(c == ';') {
-					if(Bytes == j)	return j-ofs;
-					c = Buffer[j++];
-				}
-				while('0' <= c && c <= '9') {
-					args[argc] *= 10;
-					args[argc] += c-'0';
-					if(Bytes == j)	return j-ofs;
-					c = Buffer[j++];
-				}
-				argc ++;
-			} while(c == ';');
-		}
-		
-		// Get Command
-		if( !('a' <= c && c <= 'z') && !('A' <= c && c <= 'Z') )
-		{
-			// Error - eat ESC only?
-			// > j : Entire code skipped
-			Term->EscapeCodeLen = 0;
-			return j-ofs;
-		}
-		
-		if( bQuestionMark )
-		{
-			switch(c)
-			{
-			// DEC Private Mode Set
-			case 'h':
-				if(argc != 1)	break;
-				switch(args[0])
-				{
-				case 25:
-					Term->Flags &= ~VT_FLAG_HIDECSR;
-					break;
-				case 1047:
-					VT_int_ToggleAltBuffer(Term, 1);
-					break;
-				}
-				break;
-			case 'l':
-				if(argc != 1)	break;
-				switch(args[0])
-				{
-				case 25:
-					Term->Flags |= VT_FLAG_HIDECSR;
-					break;
-				case 1047:
-					VT_int_ToggleAltBuffer(Term, 0);
-					break;
-				}
-				break;
-			default:
-				Log_Warning("VTerm", "Unknown control sequence '\\x1B[?%c'", c);
-				break;
-			}
+			size_t	avail = *wrpos % Term->TextWidth;
+			if( RelCol < -avail )
+				RelCol = -avail;
 		}
 		else
 		{
-			VT_int_ParseEscape_StandardLarge(Term, c, argc, args);
+			size_t	avail = Term->TextWidth - (*wrpos % Term->TextWidth);
+			if(RelCol > avail)
+				RelCol = avail;
 		}
-		break;
-	case '\0':
-		// Ignore \0
-		break;
-	// Reset all attributes
-	case 'c':
-		Term->CurColour = DEFAULT_COLOUR;
-		Term->Flags = 0;
-		Term->ScrollHeight = 0;
-		break;
-	default:
-		//Log_Notice("VTerm", "TODO: Handle short escape codes");
-		{
-			static volatile int tmp = 0;
-			if(tmp == 0) {
-				tmp = 1;
-				Debug("VTerm: Unknown short 0x%x", c);
-				tmp = 0;
-			}
-		}
-		break;
+		*wrpos += RelCol;
 	}
-	
-	//Log_Debug("VTerm", "j = %i, Buffer = '%s'", j, Buffer);
-	Term->EscapeCodeLen = 0;
-	return j-ofs;
+	if( RelRow != 0 )
+	{
+		 int	currow = *wrpos / Term->TextWidth;
+		 int	maxrows = ((Term->Flags & VT_FLAG_ALTBUF) ? 1 : (giVT_Scrollback+1))*Term->TextHeight;
+		if( RelRow < 0 )
+		{
+			if( currow + RelRow < 0 )
+				RelRow = currow;
+		}
+		else
+		{
+			if( currow + RelRow > maxrows-1 )
+				RelRow = maxrows-1 - currow;
+		}
+		*wrpos += RelRow*Term->TextWidth;
+	}
 }
+void Display_SaveCursor(tTerminal *Term)
+{
+	Term->SavedWritePos = (Term->Flags & VT_FLAG_ALTBUF) ? Term->AltWritePos : Term->WritePos;
+	LOG("Saved = %i", Term->SavedWritePos);
+}
+void Display_RestoreCursor(tTerminal *Term)
+{
+	 int	max = ((Term->Flags & VT_FLAG_ALTBUF) ? 1 : (giVT_Scrollback+1))*Term->TextHeight * Term->TextWidth;
+	 int	*wrpos = ((Term->Flags & VT_FLAG_ALTBUF) ? &Term->AltWritePos : &Term->WritePos);
+	if( Term->SavedWritePos >= max )
+		*wrpos = max-1;
+	else
+		*wrpos = Term->SavedWritePos;
+	LOG("Restored %i", *wrpos);
+}
+// 0: All, 1: Forward, -1: Reverse
+void Display_ClearLine(tTerminal *Term, int Dir)
+{
+	 int	*wrpos = (Term->Flags & VT_FLAG_ALTBUF ? &Term->AltWritePos : &Term->WritePos);
+	tVT_Char	*buffer = (Term->Flags & VT_FLAG_ALTBUF ? Term->AltBuf : Term->Text);
+
+	LOG("(Dir=%i)", Dir);	
+
+	// Erase all
+	if( Dir == 0 ) {
+		VT_int_ClearLine(Term, *wrpos / Term->Width);
+		VT_int_UpdateScreen(Term, 0);
+	}
+	// Erase to right
+	else if( Dir == 1 ) {
+		int max = Term->Width - *wrpos % Term->Width;
+		for( int i = 0; i < max; i ++ )
+			buffer[*wrpos+i].Ch = 0;
+		VT_int_UpdateScreen(Term, 0);
+	}
+	// Erase to left
+	else if( Dir == -1 ) {
+		int start = *wrpos - *wrpos % Term->Width;
+		for( int i = start; i < *wrpos; i ++ )
+			buffer[i].Ch = 0;
+		VT_int_UpdateScreen(Term, 0);
+	}
+	else {
+		// ERROR!
+		ASSERTC(Dir, >=, -1);
+		ASSERTC(Dir, <=, 1);
+	}
+}
+void Display_ClearLines(tTerminal *Term, int Dir)
+{
+	LOG("(Dir=%i)", Dir);	
+	 int	*wrpos = (Term->Flags & VT_FLAG_ALTBUF ? &Term->AltWritePos : &Term->WritePos);
+	tVT_Char	*buffer = (Term->Flags & VT_FLAG_ALTBUF ? Term->AltBuf : Term->Text);
+	
+	// All
+	if( Dir == 0 ) {
+		int count;
+		
+		if( Term->Flags & VT_FLAG_ALTBUF ) {
+			count = Term->TextHeight;
+		}
+		else {
+			count = Term->TextHeight * (giVT_Scrollback + 1);
+			Term->ViewPos = 0;
+		}
+		while( count -- )
+			VT_int_ClearLine(Term, count);
+		*wrpos = 0;
+		VT_int_UpdateScreen(Term, 1);
+	}
+	// Downwards
+	else if( Dir == 1 ) {
+		Log_Warning("VTerm", "TODO: ClearLines Down");
+	}
+	// Upwards
+	else if( Dir == -1 ) {
+		Log_Warning("VTerm", "TODO: ClearLines Up");
+	}
+	else {
+		// ERROR!
+		ASSERTC(Dir, >=, -1);
+		ASSERTC(Dir, <=, 1);
+	}
+}
+void Display_ResetAttributes(tTerminal *Term)
+{
+	LOG("");	
+	Term->CurColour = DEFAULT_COLOUR;
+}
+void Display_SetForeground(tTerminal *Term, uint32_t RGB)
+{
+	LOG("(%06x)", RGB);
+	Term->CurColour &= 0x8000FFFF;
+	Term->CurColour |= (Uint32)VT_Colour24to12(RGB) << 16;
+	
+}
+void Display_SetBackground(tTerminal *Term, uint32_t RGB)
+{
+	LOG("(%06x)", RGB);
+	Term->CurColour &= 0xFFFF8000;
+	Term->CurColour |= (Uint32)VT_Colour24to12(RGB) <<06;
+}
+void Display_Flush(tTerminal *Term)
+{
+	LOG("");
+	VT_int_UpdateScreen(Term, 0);
+}
+void Display_ShowAltBuffer(tTerminal *Term, bool AltBufEnabled)
+{
+	LOG("(%B)", AltBufEnabled);
+	VT_int_ToggleAltBuffer(Term, AltBufEnabled);
+}
+

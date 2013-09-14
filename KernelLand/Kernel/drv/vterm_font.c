@@ -132,6 +132,18 @@ void VT_Font_Render(Uint32 Codepoint, void *Buffer, int Depth, int Pitch, Uint32
 	}
 }
 
+Uint16 VT_Colour24to12(Uint32 Col24)
+{
+	Uint16	ret = 0;
+	
+	for( int i = 0; i < 3; i ++ )
+	{
+		Uint32	comp = (Col24 >> (i*8)) & 0xFF;
+		ret |= ((comp * 15) / 255) << (i*4);
+	}
+	return ret;
+}
+
 /**
  * \fn Uint32 VT_Colour12to24(Uint16 Col12)
  * \brief Converts a 12-bit colour into 24 bits

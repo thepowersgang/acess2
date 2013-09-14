@@ -119,6 +119,7 @@ extern void	VT_int_ParseEscape_StandardLarge(tVTerm *Term, char CmdChar, int arg
 extern int	VT_int_ParseEscape(tVTerm *Term, const char *Buffer, size_t Bytes);
 // --- Terminal Buffer ---
 extern void	VT_int_PutString(tVTerm *Term, const Uint8 *Buffer, Uint Count);
+extern void	VT_int_PutRawString(tVTerm *Term, const Uint8 *String, size_t Bytes);
 extern void	VT_int_PutChar(tVTerm *Term, Uint32 Ch);
 extern void	VT_int_ScrollText(tVTerm *Term, int Count);
 extern void	VT_int_ClearLine(tVTerm *Term, int Num);

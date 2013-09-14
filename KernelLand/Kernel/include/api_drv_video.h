@@ -274,6 +274,10 @@ extern int	giVT_CharHeight;
  */
 extern void	VT_Font_Render(Uint32 Codepoint, void *Buffer, int Depth, int Pitch, Uint32 BGC, Uint32 FGC);
 /**
+ * \brief Convert a colour from 24bpp 8:8:8 to 12bpp 4:4:4
+ */
+extern Uint16	VT_Colour24to12(Uint32 Col24);
+/**
  * \fn Uint32 VT_Colour12to24(Uint16 Col12)
  * \brief Converts a colour from 12bpp to 24bpp
  * \param Col12	12-bpp input colour
