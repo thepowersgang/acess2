@@ -70,7 +70,11 @@ int NTFS_Detect(int FD)
 	
 	if( bs.BytesPerSector == 0 || (bs.BytesPerSector & 511) )
 		return 0;
-
+	if( bs.SectorsPerCluster == 0 )
+		return 0;
+	if( bs.ClustersPerMFTRecord == 0 )
+		return 0;
+	
 	Uint64	ncluster = bs.TotalSectorCount / bs.SectorsPerCluster;
 	if( bs.MFTStart >= ncluster || bs.MFTMirrorStart >= ncluster )
 		return 0;
@@ -123,6 +127,7 @@ tVFS_Node *NTFS_InitDevice(const char *Device, const char **Options)
 #endif
 	
 	disk->ClusterSize = bs.BytesPerSector * bs.SectorsPerCluster;
+	ASSERTR(disk->ClusterSize > 0, NULL);
 	disk->MFTBase = bs.MFTStart;
 	Log_Debug("NTFS", "Cluster Size = %i KiB", disk->ClusterSize/1024);
 	Log_Debug("NTFS", "MFT Base = %i", disk->MFTBase);
@@ -134,6 +139,7 @@ tVFS_Node *NTFS_InitDevice(const char *Device, const char **Options)
 	else {
 		disk->MFTRecSize = bs.ClustersPerMFTRecord * disk->ClusterSize;
 	}
+	ASSERTR(disk->MFTRecSize > 0, NULL);
 	//NTFS_DumpEntry(disk, 0);	// $MFT
 	//NTFS_DumpEntry(disk, 3);	// $VOLUME
 
