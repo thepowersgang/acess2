@@ -458,6 +458,10 @@ void Display_ClearLines(tTerminal *Term, int Dir)	// 0: All, 1: Forward, -1: Rev
 	}
 }
 
+void Display_ResetAttributes(tTerminal *Term)
+{
+	UNIMPLIMENTED();
+}
 void Display_SetForeground(tTerminal *Term, uint32_t RGB)
 {
 	char	buf[7+1];

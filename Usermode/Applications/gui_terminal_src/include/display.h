@@ -26,6 +26,7 @@ extern void	Display_SaveCursor(tTerminal *Term);
 extern void	Display_RestoreCursor(tTerminal *Term);
 extern void	Display_ClearLine(tTerminal *Term, int Dir);	// 0: All, 1: Forward, -1: Reverse
 extern void	Display_ClearLines(tTerminal *Term, int Dir);	// 0: All, 1: Forward, -1: Reverse
+extern void	Display_ResetAttributes(tTerminal *Term);
 extern void	Display_SetForeground(tTerminal *Term, uint32_t RGB);
 extern void	Display_SetBackground(tTerminal *Term, uint32_t RGB);
 /**

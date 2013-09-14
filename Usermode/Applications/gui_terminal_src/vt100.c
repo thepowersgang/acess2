@@ -5,13 +5,17 @@
  * vt100.c
  * - VT100/xterm Emulation
  */
-#include <string.h>
 #include <limits.h>
 #include "include/vt100.h"
 #include "include/display.h"
 #include <ctype.h>	// isalpha
-#include <acess/sys.h>	// _SysDebug
-#include <assert.h>
+#ifdef KERNEL_VERSION
+# define _SysDebug(v...)	Debug("VT100 "v)
+#else
+# include <acess/sys.h>	// _SysDebug
+# include <string.h>
+# include <assert.h>
+#endif
 
 const uint32_t	caVT100Colours[] = {
 	// Black, Red, Green, Yellow, Blue, Purple, Cyan, Gray
@@ -87,21 +91,28 @@ int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
 
 	switch( *Buf )
 	{
+	// TODO: Need to handle \t and ^A-Z
 	case '\b':
 		Display_MoveCursor(Term, 0, -1);
 		Display_AddText(Term, 1, " ");
 		Display_MoveCursor(Term, 0, -1);
-		// TODO: Need to handle \t and ^A-Z
 		return 1;
 	case '\t':
 		// TODO: tab (get current cursor pos, space until multiple of 8)
 		return 1;
 	case '\n':
+		// TODO: Support disabling CR after NL
 		Display_Newline(Term, 1);
 		return 1;
 	case '\r':
-		Display_MoveCursor(Term, 0, INT_MIN);
-		return 1;
+		if( Len >= 2 && Buf[1] == '\n' ) {
+			Display_Newline(Term, 1);
+			return 2;
+		}
+		else {
+			Display_MoveCursor(Term, 0, INT_MIN);
+			return 1;
+		}
 	}
 
 	 int	ret = 0;
@@ -241,32 +252,35 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 			if( argc == 0 )
 			{
 				// Reset
+				Display_ResetAttributes(Term);
 			}
 			else
 			{
-				int i;
-				for( i = 0; i < argc; i ++ )
+				for( int i = 0; i < argc; i ++ )
 				{
-					if( args[i] < 8 )
+					switch(args[i])
 					{
-						// TODO: Flags?
-					}
-					else if( 30 <= args[i] && args[i] <= 37 )
-					{
+					case 0:
+						Display_ResetAttributes(Term);
+						break;
+					case 30 ... 37:
 						// TODO: Bold/bright
 						Display_SetForeground( Term, caVT100Colours[ args[i]-30 ] );
-					} 
-					else if( 40 <= args[i] && args[i] <= 47 )
-					{
+						break;
+					case 40 ... 47:
 						// TODO: Bold/bright
 						Display_SetBackground( Term, caVT100Colours[ args[i]-30 ] );
+						break;
+					default:
+						_SysDebug("TODO: VT100 \\e[%im", args[i]);
+						break;
 					} 
 				}
 			}
 			break;
 		// Set scrolling region
 		case 'r':
-			Display_SetScrollArea(Term, args[0], args[1]);
+			Display_SetScrollArea(Term, args[0], args[1] - args[0]);
 			break;
 		
 		case 's':
