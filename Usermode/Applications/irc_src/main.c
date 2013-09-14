@@ -32,7 +32,7 @@ typedef struct sWindow
 {
 	struct sWindow	*Next;
 	tMessage	*Messages;
-	tServer	*Server;	//!< Canoical server (can be NULL)
+	tServer	*Server;	//!< Canonical server (can be NULL)
 	 int	ActivityLevel;
 	char	Name[];	// Channel name / remote user
 }	tWindow;
@@ -228,6 +228,8 @@ void Cmd_join(char *ArgString)
 	
 	if( gpCurrentWindow->Server )
 	{
+		gpCurrentWindow = Window_Create(gpCurrentWindow->Server, channel_name);
+		Redraw_Screen();
 		writef(gpCurrentWindow->Server->FD, "JOIN :%s\n", channel_name);
 	}
 }
@@ -409,7 +411,8 @@ tMessage *Message_Append(tServer *Server, int Type, const char *Source, const ch
 			}
 		}
 		if( !win ) {
-			win = Window_Create(Server, Dest);
+			//win = Window_Create(Server, Dest);
+			win = &gWindow_Status;	// Stick it in the status window, just in case
 		}
 	}
 	#if 0
@@ -567,7 +570,7 @@ void ParseServerLine(tServer *Server, char *Line)
 	 int	pos = 0;
 	char	*ident, *cmd;
 
-//	_SysDebug("[%s] %s", Server->Name, Line);	
+	_SysDebug("[%s] %s", Server->Name, Line);	
 	
 	// Message?
 	if( *Line == ':' )
@@ -676,14 +679,24 @@ void ParseServerLine(tServer *Server, char *Line)
 		{
 			char	*channel;
 			channel = Line + pos + 1;
-			Window_Create(Server, channel);
+			
+			Message_AppendF(Server, MSG_TYPE_JOIN, "", channel, "%s has joined", ident);
+			//Window_Create(Server, channel);
+		}
+		else if( strcmp(cmd, "PART" ) == 0 )
+		{
+			char	*channel;
+			channel = Line + pos + 1;
+			
+			Message_AppendF(Server, MSG_TYPE_PART, "", channel, "%s has left", ident);
+			//Window_Create(Server, channel);
 		}
 		else
 		{
 			Message_AppendF(Server, MSG_TYPE_SERVER, "", "", "Unknown message %s (%s)", cmd, Line+pos);
 		}
 	}
-	else {		
+	else {
 		cmd = GetValue(Line, &pos);
 		
 		if( strcmp(cmd, "PING") == 0 ) {
