@@ -48,7 +48,7 @@ int UDI_LoadDriver(void *Base)
 {
 	udi_init_t	*info;
 	char	*udiprops = NULL;
-	 int	udiprops_size = 0;
+	Uint	udiprops_size = 0;
 	 int	i;
 	// int	j;
 	
@@ -63,15 +63,13 @@ int UDI_LoadDriver(void *Base)
 	if( Binary_FindSymbol(Base, "_udiprops", (Uint*)&udiprops) == 0 ) {
 		Log_Warning("UDI", "_udiprops is not defined, this is usually bad");
 	}
+	else if( Binary_FindSymbol(Base, "_udiprops_size", &udiprops_size) == 0) {
+		Log_Warning("UDI", "_udiprops_size is not defined");
+	}
 	else {
-		Uint	udiprops_end = 0;
 		 int	i, j, nLines;
 		char	**udipropsptrs;
 		
-		if( Binary_FindSymbol(Base, "_udiprops_end", (Uint*)&udiprops_end) == 0)
-			Log_Warning("UDI", "_udiprops_end is not defined");
-		Log_Debug("UDI", "udiprops_end = %p", udiprops_end);
-		udiprops_size = udiprops_end - (Uint)udiprops;
 		Log_Debug("UDI", "udiprops = %p, udiprops_size = 0x%x", udiprops, udiprops_size);
 		
 		Debug_HexDump("UDI_LoadDriver", udiprops, udiprops_size);

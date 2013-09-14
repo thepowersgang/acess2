@@ -1,0 +1,22 @@
+#!/bin/sh
+
+TMPFILE=/tmp/acess_udisetup.tmp
+
+if echo $0 | grep '/' >/dev/null; then
+ THISFILE=$(which $0)
+ THISDIR=$(dirname ${THISFILE})/
+else
+ _=$PWD; cd $(dirname $0); THISDIR=$PWD/; cd $_
+fi
+ACESSDIR=${THISDIR}../../
+
+ARCH=ia32
+PREFIX=i586-elf
+
+UDI_INSTALL_DIR=${ACESSDIR}UDI/${ARCH}/
+
+mkdir -p ${UDI_INSTALL_DIR}
+for file in $(tar -tf $1 --wildcards */bin/${ARCH}/*); do	
+	tar -xf $1 $file -O > $TMPFILE
+	${PREFIX}-ld -T ${THISDIR}udisetup-${ARCH}.ld $TMPFILE -shared -o ${UDI_INSTALL_DIR}$(basename $file)
+done
