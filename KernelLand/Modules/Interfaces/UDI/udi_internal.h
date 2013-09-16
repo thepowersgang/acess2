@@ -66,6 +66,9 @@ struct sUDI_DriverModule
 	
 	 int	nRegionTypes;
 	tUDI_PropRegion	*RegionTypes;
+
+	 int	nMetaLangs;
+	enum eUDI_MetaLang	*MetaLangs;
 	
 	 int	nSecondaryRegions;
 };
@@ -92,7 +95,7 @@ extern udi_channel_t	UDI_CreateChannel(enum eUDI_MetaLang metalang, udi_index_t 
 	tUDI_DriverInstance *ThisEnd, udi_index_t ThisOpsIndex,
 	tUDI_DriverInstance *OtherEnd, udi_index_t OtherOpsIndex);
 
-extern const void	*UDI_int_ChannelPrepForCall(udi_cb_t *gcb, enum eUDI_MetaLang metalang);
+extern const void	*UDI_int_ChannelPrepForCall(udi_cb_t *gcb, enum eUDI_MetaLang metalang, udi_index_t meta_ops_num);
 
 #endif
 

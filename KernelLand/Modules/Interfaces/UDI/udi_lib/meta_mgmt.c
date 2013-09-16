@@ -22,7 +22,8 @@ EXPORT(udi_final_cleanup_ack);
 void udi_usage_ind(udi_usage_cb_t *cb, udi_ubit8_t resource_level)
 {
 	const udi_mgmt_ops_t *ops;
-	if( !(ops = UDI_int_ChannelPrepForCall( UDI_GCB(cb), METALANG_MGMT )) ) {
+	if( !(ops = UDI_int_ChannelPrepForCall( UDI_GCB(cb), METALANG_MGMT, 0 )) ) {
+		Log_Warning("UDI", "udi_usage_ind on wrong channel type");
 		return ;
 	}
 	
