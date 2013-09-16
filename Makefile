@@ -19,6 +19,7 @@ EXTLIBS :=
 # zlib libpng
 
 USRAPPS := init login CLIShell cat ls mount automounter
+USRAPPS += insmod
 USRAPPS += bomb lspci
 USRAPPS += ip dhcpclient ping telnet irc wget telnetd
 USRAPPS += axwin3 gui_ate gui_terminal
