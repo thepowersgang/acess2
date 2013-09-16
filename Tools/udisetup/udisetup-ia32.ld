@@ -18,7 +18,7 @@ SECTIONS
 		*(.data)
 		_udiprops = .;
 		*(.udiprops)
-		_udiprops_size = . - _udiprops;
+		_udiprops_end = .;
 	}
 
 	.bss : AT(ADDR(.bss)) {
