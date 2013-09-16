@@ -61,6 +61,8 @@ extern int	_SysSetFaultHandler(int (*Handler)(int));
 extern void	_SysSetName(const char *Name);
 extern int	_SysGetName(char *NameDest);
 extern int	_SysSetPri(int Priority);
+// --- System ---
+extern int	_SysLoadModule(const char *Module);
 // --- Timekeeping ---
 extern int64_t	_SysTimestamp(void);
 extern void	_SysTimedSleep(int64_t Delay);

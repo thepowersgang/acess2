@@ -35,6 +35,8 @@ SYSCALL1(_SysUnloadBin, SYS_UNLOADBIN)
 
 SYSCALL1(_SysSetFaultHandler, SYS_SETFAULTHANDLER)
 
+SYSCALL1(_SysLoadModule, SYS_LOADMOD)
+
 SYSCALL6(_SysDebug, 0x100)
 SYSCALL1(_SysGetPhys, SYS_GETPHYS)	// uint64_t _SysGetPhys(uint addr)
 SYSCALL1(_SysAllocate, SYS_ALLOCATE)	// uint64_t _SysAllocate(uint addr)
