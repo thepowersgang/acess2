@@ -29,7 +29,18 @@ static int	GetSymbol(const char *Name, void **Value, size_t *Size) {
 }
 #define AddLoaded(a,b)	do{}while(0)
 #define LoadLibrary(a,b,c)	(Log_Debug("ELF", "Module requested lib '%s'",a),0)
-#define _SysSetMemFlags(ad,f,m)	do{}while(0)
+static int	_SysSetMemFlags(tVAddr addr, int flag, int mask) {
+	if( mask & 1 ) {
+		if( flag ) {
+			// Re-set RO, clear COW
+			MM_SetFlags(addr, MM_PFLAG_RO, MM_PFLAG_RO|MM_PFLAG_COW);
+		}
+		else {
+			MM_SetFlags(addr, MM_PFLAG_RO|MM_PFLAG_COW, MM_PFLAG_RO|MM_PFLAG_COW);
+		}
+	}
+	return 0;
+}
 #include "../../../Usermode/Libraries/ld-acess.so_src/elf.c"
 // ---- / ----
 

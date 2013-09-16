@@ -341,7 +341,7 @@ int Module_LoadMem(void *Buffer, Uint Length, const char *ArgString)
 	
 	VFS_GetMemPath(path, Buffer, Length);
 	
-	return Module_LoadFile( path, ArgString );
+	return Module_LoadFile( path, ArgString ) == EOK;
 }
 
 /**
@@ -360,7 +360,7 @@ int Module_LoadFile(const char *Path, const char *ArgString)
 	// Error check
 	if(base == NULL) {
 		Log_Warning("Module", "Module_LoadFile - Unable to load '%s'", Path);
-		return 0;
+		return ENOENT;
 	}
 
 	// TODO: I need a way of relocating the dependencies before everything else, so
@@ -368,7 +368,7 @@ int Module_LoadFile(const char *Path, const char *ArgString)
 	if( !Binary_Relocate(base) ) {
 		Log_Warning("Module", "Relocation of module %s failed", Path);
 		Binary_Unload(base);
-		return 0;
+		return EINVAL;
 	}
 	
 	// Check for Acess Driver
@@ -384,24 +384,34 @@ int Module_LoadFile(const char *Path, const char *ArgString)
 		if( !loader ) {
 			Binary_Unload(base);
 			Log_Warning("Module", "Module '%s' does not have a Module Info struct", Path);
-			return 0;
+			return EINVAL;
 		}
 	}
 
-	if( !Module_int_ResolveDeps(info) ) {
-		Log_Warning("Module", "Dependencies not met for '%s'", Path);
-		Binary_Unload(base);
-		return 0;
-	}
-
-	// Initialise (and register)
-	if( loader ? loader->Loader(base) : Module_int_Initialise( info, ArgString ) )
+	if( loader )
 	{
-		Binary_Unload(base);
-		return 0;
+		if( loader->Loader(base) )
+		{
+			Binary_Unload(base);
+			return EINVAL;
+		}
+	}
+	else
+	{
+		if( !Module_int_ResolveDeps(info) ) {
+			Log_Warning("Module", "Dependencies not met for '%s'", Path);
+			Binary_Unload(base);
+			return EINVAL;
+		}
+		
+		if( Module_int_Initialise(info, ArgString) )
+		{
+			Binary_Unload(base);
+			return EINVAL;
+		}
 	}
 	
-	return 1;
+	return 0;
 }
 
 /**
