@@ -52,3 +52,5 @@ Tools/*/Makefile.BuildNum
 Tools/disktool
 Tools/nettest
 Tools/img2sif
+
+UDI/ia32/
