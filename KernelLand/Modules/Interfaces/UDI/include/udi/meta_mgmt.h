@@ -22,17 +22,22 @@ typedef void udi_usage_ind_op_t(udi_usage_cb_t *cb, udi_ubit8_t resource_level);
 #define UDI_RESOURCES_PLENTIFUL    4
 /* Proxy */
 extern void	udi_static_usage(udi_usage_cb_t *cb, udi_ubit8_t resource_level);
+
+extern void	udi_usage_ind(udi_usage_cb_t *cb, udi_ubit8_t resource_level);
 /**
  * \}
  */
 
 typedef void udi_usage_res_op_t(udi_usage_cb_t *cb);
 
+extern void	udi_usage_res(udi_usage_cb_t *cb);
+
 /**
  * \name Enumerate this driver
  * \{
  */
 typedef void udi_enumerate_req_op_t(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_level);
+extern void udi_enumerate_req(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_level);
 /* Values for enumeration_level */
 #define UDI_ENUMERATE_START           1
 #define UDI_ENUMERATE_START_RESCAN    2
@@ -60,6 +65,7 @@ typedef void udi_enumerate_ack_op_t(udi_enumerate_cb_t *cb, udi_ubit8_t enumerat
 #define UDI_ENUMERATE_REMOVED_SELF   5
 #define UDI_ENUMERATE_RELEASED       6
 #define UDI_ENUMERATE_FAILED         255
+extern void udi_enumerate_ack(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_result, udi_index_t ops_idx);
 /**
  * \}
  */

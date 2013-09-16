@@ -32,7 +32,7 @@ struct udi_cb_s
 	 */
 	void	*scratch;
 	/**
-	 * \brief ???
+	 * \brief Source-usable value
 	 */
 	void	*initiator_context;
 	/**

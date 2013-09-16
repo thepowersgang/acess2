@@ -74,11 +74,11 @@ struct udi_intr_event_cb_s
 
 extern void udi_intr_attach_req(udi_intr_attach_cb_t *intr_attach_cb);
 extern void udi_intr_attach_ack(udi_intr_attach_cb_t *intr_attach_cb, udi_status_t status);
-extern void udi_intr_attach_ack_unused(udi_intr_attach_cb_t *intr_attach_cb, udi_status_t status);
+//extern void udi_intr_attach_ack_unused(udi_intr_attach_cb_t *intr_attach_cb, udi_status_t status);
 
 extern void udi_intr_detach_req(udi_intr_detach_cb_t *intr_detach_cb);
 extern void udi_intr_detach_ack(udi_intr_detach_cb_t *intr_detach_cb);
-extern void udi_intr_detach_ack_unused(udi_intr_detach_cb_t *intr_detach_cb);
+//extern void udi_intr_detach_ack_unused(udi_intr_detach_cb_t *intr_detach_cb);
 
 
 extern void udi_intr_event_ind(udi_intr_event_cb_t *intr_event_cb, udi_ubit8_t flags);

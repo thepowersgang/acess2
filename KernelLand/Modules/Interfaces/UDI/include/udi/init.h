@@ -4,22 +4,6 @@
 #ifndef _UDI_INIT_H_
 #define _UDI_INIT_H_
 
-typedef struct udi_init_s		udi_init_t;
-typedef struct udi_primary_init_s	udi_primary_init_t;
-typedef struct udi_secondary_init_s	udi_secondary_init_t;
-typedef struct udi_ops_init_s	udi_ops_init_t;
-typedef struct udi_cb_init_s	udi_cb_init_t;
-typedef struct udi_cb_select_s	udi_cb_select_t;
-typedef struct udi_gcb_init_s	udi_gcb_init_t;
-
-typedef struct udi_init_context_s	udi_init_context_t;
-typedef struct udi_limits_s		udi_limits_t;
-typedef struct udi_chan_context_s	udi_chan_context_t;
-typedef struct udi_child_chan_context_s	udi_child_chan_context_t;
-
-typedef void	udi_op_t(void);
-typedef udi_op_t * const	udi_ops_vector_t;
-
 /**
  * \brief UDI Initialisation Structure
  * 

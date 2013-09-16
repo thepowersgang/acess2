@@ -38,6 +38,7 @@ extern udi_ubit32_t udi_strtou32(const char *s, char **endptr, int base);
 
 
 extern udi_size_t udi_snprintf(char *s, udi_size_t max_bytes, const char *format, ...);
+extern udi_size_t udi_vsnprintf(char *s, udi_size_t max_bytes, const char *format, va_list ap);
 
 
 

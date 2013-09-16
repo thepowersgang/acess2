@@ -118,27 +118,10 @@ struct udi_scgth_s
 
 
 // === FUNCTIONS ===
-// --- DMA Constraints Management ---
-extern void udi_dma_constraints_attr_set(
-	udi_dma_constraints_attr_set_call_t	*callback,
-	udi_cb_t	*gcb,
-	udi_dma_constraints_t	src_constraints,
-	const udi_dma_constraints_attr_spec_t	*attr_list,
-	udi_ubit16_t	list_length,
-	udi_ubit8_t	flags
-	);
-/* Constraints Flags */
-#define UDI_DMA_CONSTRAINTS_COPY (1U<<0)
-
-extern void udi_dma_constraints_attr_reset(
-	udi_dma_constraints_t	constraints,
-	udi_dma_constraints_attr_t	attr_type
-	);
-
-extern void udi_dma_constraints_free(udi_dma_constraints_t constraints);
-
+#include <physio/dma_const.h>
+#include <physio/dma.h>
 #include <physio/meta_intr.h>
 #include <physio/meta_bus.h>
-
+#include <physio/pio.h>
 
 #endif
