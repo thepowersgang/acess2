@@ -204,12 +204,10 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 {
 	Elf32_Ehdr	*hdr = Base;
 	Elf32_Phdr	*phtab;
-	 int	i, j;	// Counters
 	char	*libPath;
 	intptr_t	iRealBase = -1;
 	intptr_t	iBaseDiff;
 	 int	iSegmentCount;
-//	 int	iSymCount;
 	Elf32_Rel	*rel = NULL;
 	Elf32_Rela	*rela = NULL;
 	void	*plt = NULL;
@@ -229,20 +227,24 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 	// Parse Program Header to get Dynamic Table
 	phtab = (void*)( (uintptr_t)Base + hdr->phoff );
 	iSegmentCount = hdr->phentcount;
-	for(i=0;i<iSegmentCount;i++)
+	for(int i = 0; i < iSegmentCount; i ++)
 	{
-		// Determine linked base address
-		if(phtab[i].Type == PT_LOAD && iRealBase > phtab[i].VAddr)
-			iRealBase = phtab[i].VAddr;
-		
-		// Find Dynamic Section
-		if(phtab[i].Type == PT_DYNAMIC) {
-			if(dynamicTab) {
-				DEBUGS(" WARNING - elf_relocate: Multiple PT_DYNAMIC segments");
-				continue;
+		switch(phtab[i].Type)
+		{
+		case PT_LOAD:
+			// Determine linked base address
+			if( iRealBase > phtab[i].VAddr)
+				iRealBase = phtab[i].VAddr;
+			break;
+		case PT_DYNAMIC:
+			// Find Dynamic Section
+			if(!dynamicTab) {
+				dynamicTab = (void *) (intptr_t) phtab[i].VAddr;
 			}
-			dynamicTab = (void *) (intptr_t) phtab[i].VAddr;
-			j = i;	// Save Dynamic Table ID
+			else {
+				DEBUGS(" WARNING - elf_relocate: Multiple PT_DYNAMIC segments");
+			}
+			break;
 		}
 	}
 	
@@ -263,7 +265,7 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 
 	// Allow writing to read-only segments, just in case they need to be relocated
 	// - Will be reversed at the end of the function
-	for( i = 0; i < iSegmentCount; i ++ )
+	for( int i = 0; i < iSegmentCount; i ++ )
 	{
 		if(phtab[i].Type == PT_LOAD && !(phtab[i].Flags & PF_W) ) {
 			uintptr_t	addr = phtab[i].VAddr + iBaseDiff;
@@ -278,7 +280,7 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 	
 	// === Get Symbol table and String Table ===
 	dynsymtab = NULL;
-	for( j = 0; dynamicTab[j].d_tag != DT_NULL; j++)
+	for( int j = 0; dynamicTab[j].d_tag != DT_NULL; j++)
 	{
 		switch(dynamicTab[j].d_tag)
 		{
@@ -314,7 +316,7 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 
 	// === Parse Relocation Data ===
 	DEBUGS(" elf_relocate: dynamicTab = 0x%x", dynamicTab);
-	for( j = 0; dynamicTab[j].d_tag != DT_NULL; j++)
+	for( int j = 0; dynamicTab[j].d_tag != DT_NULL; j++)
 	{
 		switch(dynamicTab[j].d_tag)
 		{
@@ -398,8 +400,8 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 	{
 		Elf32_Word	*ptr;
 		DEBUGS(" elf_relocate: rel=0x%x, relSz=0x%x, relEntSz=0x%x", rel, relSz, relEntSz);
-		j = relSz / relEntSz;
-		for( i = 0; i < j; i++ )
+		int max = relSz / relEntSz;
+		for( int i = 0; i < max; i++ )
 		{
 			//DEBUGS("  Rel %i: 0x%x+0x%x", i, iBaseDiff, rel[i].r_offset);
 			ptr = (void*)(iBaseDiff + rel[i].r_offset);
@@ -411,8 +413,8 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 	{
 		Elf32_Word	*ptr;
 		DEBUGS(" elf_relocate: rela=0x%x, relaSz=0x%x, relaEntSz=0x%x", rela, relaSz, relaEntSz);
-		j = relaSz / relaEntSz;
-		for( i = 0; i < j; i++ )
+		int count = relaSz / relaEntSz;
+		for( int i = 0; i < count; i++ )
 		{
 			ptr = (void*)(iBaseDiff + rela[i].r_offset);
 			fail |= _doRelocate(rel[i].r_info, ptr, 1, rela[i].r_addend);
@@ -427,9 +429,9 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 		if(pltType == DT_REL)
 		{
 			Elf32_Rel	*pltRel = plt;
-			j = pltSz / sizeof(Elf32_Rel);
-			DEBUGS(" elf_relocate: PLT Reloc Type = Rel, %i entries", j);
-			for(i=0;i<j;i++)
+			int count = pltSz / sizeof(Elf32_Rel);
+			DEBUGS(" elf_relocate: PLT Reloc Type = Rel, %i entries", count);
+			for(int i = 0; i < count; i ++)
 			{
 				ptr = (void*)(iBaseDiff + pltRel[i].r_offset);
 				fail |= _doRelocate(pltRel[i].r_info, ptr, 0, *ptr);
@@ -438,9 +440,9 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 		else
 		{
 			Elf32_Rela	*pltRela = plt;
-			j = pltSz / sizeof(Elf32_Rela);
-			DEBUGS(" elf_relocate: PLT Reloc Type = Rela, %i entries", j);
-			for(i=0;i<j;i++)
+			int count = pltSz / sizeof(Elf32_Rela);
+			DEBUGS(" elf_relocate: PLT Reloc Type = Rela, %i entries", count);
+			for(int i=0;i<count;i++)
 			{
 				ptr = (void*)(iRealBase + pltRela[i].r_offset);
 				fail |= _doRelocate(pltRela[i].r_info, ptr, 1, pltRela[i].r_addend);
@@ -449,7 +451,7 @@ void *Elf32Relocate(void *Base, char **envp, const char *Filename)
 	}
 
 	// Re-set readonly
-	for( i = 0; i < iSegmentCount; i ++ )
+	for( int i = 0; i < iSegmentCount; i ++ )
 	{
 		// If load and not writable
 		if(phtab[i].Type == PT_LOAD && !(phtab[i].Flags & PF_W) ) {
@@ -483,11 +485,10 @@ int Elf32GetSymbol(void *Base, const char *Name, void **ret, size_t *Size)
 	uintptr_t	iBaseDiff = -1;
 	Elf32_Phdr	*phtab;
 	Elf32_Dyn	*dynTab = NULL;
-	 int	i;
 
 	// Locate the tables
 	phtab = (void*)( (uintptr_t)Base + hdr->phoff );
-	for( i = 0; i < hdr->phentcount; i ++ )
+	for( int i = 0; i < hdr->phentcount; i ++ )
 	{
 		if(phtab[i].Type == PT_LOAD && iBaseDiff > phtab[i].VAddr)
 			iBaseDiff = phtab[i].VAddr;
@@ -501,7 +502,7 @@ int Elf32GetSymbol(void *Base, const char *Name, void **ret, size_t *Size)
 	}
 	iBaseDiff = (intptr_t)Base - iBaseDiff;	// Make iBaseDiff actually the diff
 	dynTab = (void*)( (intptr_t)dynTab + iBaseDiff );
-	for( i = 0; dynTab[i].d_tag != DT_NULL; i++)
+	for( int i = 0; dynTab[i].d_tag != DT_NULL; i++)
 	{
 		switch(dynTab[i].d_tag)
 		{
@@ -545,28 +546,23 @@ int Elf32GetSymbol(void *Base, const char *Name, void **ret, size_t *Size)
 //	iSymCount = pBuckets[1];
 	pBuckets = &pBuckets[2];
 	pChains = &pBuckets[ nbuckets ];
+	assert(pChains);
 
 	// Get hash
 	iNameHash = ElfHashString(Name);
 	iNameHash %= nbuckets;
 
 	// Walk Chain
-	i = pBuckets[ iNameHash ];
-	if(symtab[i].shndx != SHN_UNDEF && strcmp(dynstrtab + symtab[i].nameOfs, Name) == 0) {
-		*ret = (void*)( (uintptr_t) symtab[ i ].value + iBaseDiff );
-		if(Size)	*Size = symtab[i].size;
-		return 1;
-	}
-	
-	while(pChains[i] != STN_UNDEF)
-	{
-		i = pChains[i];
-		if(symtab[i].shndx != SHN_UNDEF && strcmp(dynstrtab + symtab[ i ].nameOfs, Name) == 0) {
-			*ret = (void*)( (uintptr_t)symtab[ i ].value + iBaseDiff );
-			if(Size)	*Size = symtab[i].size;
+	int idx = pBuckets[ iNameHash ];
+	do {
+		Elf32_Sym *sym = &symtab[idx];
+		assert(sym);
+		if(sym->shndx != SHN_UNDEF && strcmp(dynstrtab + sym->nameOfs, Name) == 0) {
+			*ret = (void*)( (uintptr_t)sym->value + iBaseDiff );
+			if(Size)	*Size = sym->size;
 			return 1;
 		}
-	}
+	} while( (idx = pChains[idx]) != STN_UNDEF && idx != pBuckets[iNameHash] );
 	
 	return 0;
 }
