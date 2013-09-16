@@ -203,7 +203,20 @@ void SyscallHandler(tSyscallRegs *Regs)
 		// Path, *Entrypoint
 		ret = Binary_Load((char*)Regs->Arg1, (Uint*)Regs->Arg2);
 		break;
-	
+
+	// -- Load a kernel module
+	case SYS_LOADMOD:
+		CHECK_STR_NONULL( (const char *)Regs->Arg1 );
+		if( Threads_GetUID() != 0 ) {
+			MERR("Not root");
+			ret = EACCES;
+		}
+		else {
+			LOG("Module_LoadFile(\"%s\", NULL)", (const char *)Regs->Arg1);
+			ret = Module_LoadFile( (const char *)Regs->Arg1, NULL );
+		}
+		break;
+
 	// ---
 	// Virtual Filesystem
 	// ---
