@@ -32,11 +32,11 @@ struct	{
 	{"help", Command_Help}, {"clear", Command_Clear},
 	{"cd", Command_Cd}, {"dir", Command_Dir}
 };
-static char	*cDEFAULT_PATH[] = {"/Acess/Bin"};
+static char	*cDEFAULT_PATH[] = {"/Acess/Bin","/Acess/SBin"};
 #define	BUILTIN_COUNT	(sizeof(cBUILTINS)/sizeof(cBUILTINS[0]))
 
 // ==== LOCAL VARIABLES ====
- int	giNumPathDirs = 1;
+ int	giNumPathDirs = 2;
 char	**gasPathDirs = cDEFAULT_PATH;
 char	**gasEnvironment;
 char	gsCommandBuffer[1024];
