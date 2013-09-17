@@ -4,6 +4,7 @@
  *
  * \brief UDI Tracing, Logging and Debug
  */
+#define DEBUG	1
 #include <acess.h>
 #include <udi.h>
 

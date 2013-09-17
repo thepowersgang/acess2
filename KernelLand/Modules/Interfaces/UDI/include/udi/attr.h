@@ -11,6 +11,19 @@ typedef udi_ubit8_t	udi_instance_attr_type_t;
 #define UDI_MAX_ATTR_NAMELEN	32
 #define UDI_MAX_ATTR_SIZE		64
 
+#define UDI_ATTR32_SET(aval, v) \
+	{ udi_ubit32_t vtmp = (v); \
+	(aval)[0] = (vtmp) & 0xff; \
+	(aval)[1] = ((vtmp) >> 8) & 0xff; \
+	(aval)[2] = ((vtmp) >> 16) & 0xff; \
+	(aval)[3] = ((vtmp) >> 24) & 0xff; }
+#define UDI_ATTR32_GET(aval) \
+	((aval)[0] + ((aval)[1] << 8) + \
+	((aval)[2] << 16) + ((aval)[3] << 24))
+#define UDI_ATTR32_INIT(v) \
+	{ (v) & 0xff, ((v) >> 8) & 0xff, \
+	((v) >> 16) & 0xff, ((v) >> 24) & 0xff }
+
 /**
  * \brief Instance Attribute
  */

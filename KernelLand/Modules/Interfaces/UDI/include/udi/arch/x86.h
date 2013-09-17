@@ -14,7 +14,7 @@ typedef udi_ubit8_t	udi_boolean_t;	/* 0=False; 1..28-1=True */
 #define TRUE	1
 
 typedef size_t	udi_size_t;	/* buffer size */
-typedef size_t	udi_index_t;	/* zero-based index type */
+typedef udi_ubit8_t	udi_index_t;	/* zero-based index type */
 
 typedef void	*_udi_handle_t;
 #define	_NULL_HANDLE	NULL

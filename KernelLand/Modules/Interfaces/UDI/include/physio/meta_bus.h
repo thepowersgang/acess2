@@ -41,7 +41,7 @@ struct udi_bus_bridge_ops_s
      udi_intr_detach_req_op_t	*intr_detach_req_op;
 };
 /* Bus Bridge Ops Vector Number */
-#define UDI_BUS_BRIDGE_OPS_NUM
+#define UDI_BUS_BRIDGE_OPS_NUM	2
 
 struct udi_bus_bind_cb_s
 {

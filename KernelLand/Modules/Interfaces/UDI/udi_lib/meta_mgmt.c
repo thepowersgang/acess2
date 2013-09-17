@@ -2,6 +2,7 @@
  * \file meta_mgmt.c
  * \author John Hodge (thePowersGang)
  */
+#define DEBUG	1
 #include <acess.h>
 #include <udi.h>
 #include "../udi_internal.h"
@@ -18,12 +19,19 @@ EXPORT(udi_devmgmt_ack);
 EXPORT(udi_final_cleanup_req);
 EXPORT(udi_final_cleanup_ack);
 
+tUDI_MetaLang	cMetaLang_Management = {
+	"udi_mgmt",
+	1,
+	{NULL}
+};
+
 // === CODE ===
 void udi_usage_ind(udi_usage_cb_t *cb, udi_ubit8_t resource_level)
 {
-	const udi_mgmt_ops_t *ops;
-	if( !(ops = UDI_int_ChannelPrepForCall( UDI_GCB(cb), METALANG_MGMT, 0 )) ) {
-		Log_Warning("UDI", "udi_usage_ind on wrong channel type");
+	LOG("cb=%p{...}, resource_level=%i", cb, resource_level);
+	const udi_mgmt_ops_t *ops = UDI_int_ChannelPrepForCall( UDI_GCB(cb), &cMetaLang_Management, 0 );
+	if(!ops) {
+		Log_Warning("UDI", "%s on wrong channel type", __func__);
 		return ;
 	}
 	
@@ -42,12 +50,19 @@ void udi_usage_res(udi_usage_cb_t *cb)
 
 void udi_enumerate_req(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_level)
 {
-	UNIMPLEMENTED();
+	LOG("cb=%p{...}, enumeration_level=%i", cb, enumeration_level);
+	const udi_mgmt_ops_t *ops = UDI_int_ChannelPrepForCall( UDI_GCB(cb), &cMetaLang_Management, 0 );
+	if(!ops) {
+		Log_Warning("UDI", "%s on wrong channel type", __func__);
+		return ;
+	}
+	
+	ops->enumerate_req_op(cb, enumeration_level);
 }
 
 void udi_enumerate_no_children(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_level)
 {
-	UNIMPLEMENTED();
+	udi_enumerate_ack(cb, UDI_ENUMERATE_LEAF, 0);
 }
 
 void udi_enumerate_ack(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_result, udi_index_t ops_idx)

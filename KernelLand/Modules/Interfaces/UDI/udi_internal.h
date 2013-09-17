@@ -8,11 +8,18 @@
 #ifndef _UDI_INTERNAL_H_
 #define _UDI_INTERNAL_H_
 
+#include <stdbool.h>
+
 #define NEW(type,extra) (type*)calloc(sizeof(type)extra,1)
 #define NEW_wA(type,fld,cnt)	NEW(type,+(sizeof(((type*)NULL)->fld[0])*cnt))
 
 typedef struct sUDI_PropMessage 	tUDI_PropMessage;
 typedef struct sUDI_PropRegion 	tUDI_PropRegion;
+
+typedef const struct sUDI_MetaLang	tUDI_MetaLang;
+
+typedef struct sUDI_MetaLangRef 	tUDI_MetaLangRef;
+typedef struct sUDI_BindOps	tUDI_BindOps;
 
 typedef struct sUDI_DriverModule	tUDI_DriverModule;
 typedef struct sUDI_DriverInstance	tUDI_DriverInstance;
@@ -53,12 +60,41 @@ struct sUDI_PropRegion
 
 };
 
+struct sUDI_MetaLang
+{
+	const char *Name;
+	 int	nOpGroups;
+	struct {
+		void	*OpList;
+	} OpGroups;
+};
+
+struct sUDI_MetaLangRef
+{
+	udi_ubit8_t	meta_idx;
+	const char	*interface_name;
+	tUDI_MetaLang	*metalang;
+	// TODO: pointer to metalanguage structure
+};
+
+struct sUDI_BindOps
+{
+	udi_ubit8_t	meta_idx;
+	udi_ubit8_t	region_idx;
+	udi_ubit8_t	ops_idx;
+	udi_ubit8_t	bind_cb_idx;
+};
+
 struct sUDI_DriverModule
 {
 	tUDI_DriverModule	*Next;
 	void	*Base;
 
 	udi_init_t	*InitInfo;
+
+	// Counts of arrays in InitInfo
+	 int	nCBInit;
+	 int	nOpsInit;
 		
 	const char	*ModuleName;
 	 int	nMessages;
@@ -68,9 +104,11 @@ struct sUDI_DriverModule
 	tUDI_PropRegion	*RegionTypes;
 
 	 int	nMetaLangs;
-	enum eUDI_MetaLang	*MetaLangs;
-	
-	 int	nSecondaryRegions;
+	tUDI_MetaLangRef	*MetaLangs;
+
+	 int	nParents;
+	tUDI_BindOps	*Parents;
+	 int	nRegions;
 };
 
 struct sUDI_DriverInstance
@@ -85,17 +123,39 @@ struct sUDI_DriverRegion
 	udi_init_context_t	*InitContext;
 };
 
-enum eUDI_MetaLang
+
+extern tUDI_MetaLang	cMetaLang_Management;
+
+
+// --- Index to pointer translation ---
+extern udi_ops_init_t	*UDI_int_GetOps(tUDI_DriverInstance *Inst, udi_index_t index);
+extern tUDI_MetaLang *UDI_int_GetMetaLang(tUDI_DriverInstance *Inst, udi_index_t meta_idx);
+
+// --- Channels ---
+extern udi_channel_t	UDI_CreateChannel_Blank(tUDI_MetaLang *metalang);
+extern int	UDI_BindChannel_Raw(udi_channel_t channel, bool other_side, udi_index_t meta_ops_num, void *context, const void *ops);
+extern int	UDI_BindChannel(udi_channel_t channel, bool other_side, tUDI_DriverInstance *inst, udi_index_t ops, udi_index_t region);
+extern const void	*UDI_int_ChannelPrepForCall(udi_cb_t *gcb, tUDI_MetaLang *metalang, udi_index_t meta_ops_num);
+extern void	UDI_int_ChannelReleaseFromCall(udi_cb_t *gcb);
+
+// --- Async Calls ---
+typedef struct sUDI_DeferredCall	tUDI_DeferredCall;
+typedef void	tUDI_DeferredUnmarshal(tUDI_DeferredCall *Call);
+struct sUDI_DeferredCall
 {
-	METALANG_MGMT,
-	METALANG_BUS
+	struct sUDI_DeferredCall	*Next;
+	tUDI_DeferredUnmarshal	*Unmarshal;
+	udi_op_t	*Handler;
+	// ...
 };
+extern void	UDI_int_AddDeferred(tUDI_DeferredCall *Call);
+extern void	UDI_int_MakeDeferredCb(udi_cb_t *cb, udi_op_t *handler);
+extern void	UDI_int_MakeDeferredCbU8(udi_cb_t *cb, udi_op_t *handler, udi_ubit8_t arg1);
+extern void	UDI_int_MakeDeferredCbS(udi_cb_t *cb, udi_op_t *handler, udi_status_t status);
 
-extern udi_channel_t	UDI_CreateChannel(enum eUDI_MetaLang metalang, udi_index_t meta_ops_num,
-	tUDI_DriverInstance *ThisEnd, udi_index_t ThisOpsIndex,
-	tUDI_DriverInstance *OtherEnd, udi_index_t OtherOpsIndex);
+// --- CBs ---
+extern void *udi_cb_alloc_internal(tUDI_DriverInstance *Inst, udi_ubit8_t bind_cb_idx, udi_channel_t channel);
 
-extern const void	*UDI_int_ChannelPrepForCall(udi_cb_t *gcb, enum eUDI_MetaLang metalang, udi_index_t meta_ops_num);
 
 #endif
 

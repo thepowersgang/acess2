@@ -26,6 +26,10 @@ EXPORT(udi_snprintf);
 EXPORT(udi_vsnprintf);
 
 // === CODE ===
+char *udi_strcpy(char *s1, const char *s2)
+{
+	return strcpy(s1, s2);
+}
 char *udi_strncpy_rtrim(char *s1, const char *s2, udi_size_t n)
 {
 	char *dst = s1;

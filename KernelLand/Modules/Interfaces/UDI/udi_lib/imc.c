@@ -2,8 +2,11 @@
  * \file imc.c
  * \author John Hodge (thePowersGang)
  */
+#define DEBUG	1
 #include <acess.h>
 #include <udi.h>
+//#include "internal/channels.h"
+#include "../udi_internal.h"
 
 // === EXPORTS ===
 EXPORT(udi_channel_anchor);
@@ -60,7 +63,19 @@ void udi_channel_close(udi_channel_t channel)
 
 void udi_channel_event_ind(udi_channel_event_cb_t *cb)
 {
-	udi_channel_event_complete(cb, UDI_OK);
+	LOG("cb=%p{...}", cb);
+	const struct {
+		udi_channel_event_ind_op_t *channel_event_ind_op;
+	} *ops = UDI_int_ChannelPrepForCall( UDI_GCB(cb), NULL, 0 );
+	if(!ops) {
+		Log_Warning("UDI", "udi_channel_event_ind on wrong channel type");
+		return ;
+	}
+
+	// UDI_int_MakeDeferredCb( UDI_GCB(cb), ops->channel_event_ind_op );
+
+	UDI_int_ChannelReleaseFromCall( UDI_GCB(cb) );	
+	ops->channel_event_ind_op(cb);
 }
 
 void udi_channel_event_complete(udi_channel_event_cb_t *cb, udi_status_t status)

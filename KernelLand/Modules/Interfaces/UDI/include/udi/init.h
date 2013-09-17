@@ -51,7 +51,7 @@ struct udi_init_s
 	 * gets for a specific ops vector.
 	 */
 	udi_cb_select_t	*cb_select_list;
-};
+} __attribute__((packed));
 
 
 /**
@@ -180,7 +180,7 @@ struct udi_ops_init_s
 	/**
 	 * \brief Flags for each entry in \a ops_vector
 	 */
-	//const udi_ubit8_t	*op_flags;
+	const udi_ubit8_t	*op_flags;
 };
 
 /**
