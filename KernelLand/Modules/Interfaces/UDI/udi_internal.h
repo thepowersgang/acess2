@@ -34,6 +34,7 @@ struct sUDI_PropMessage
 
 struct sUDI_PropRegion
 {
+	udi_index_t	RegionIdx;
 	enum {
 		UDI_REGIONTYPE_NORMAL,
 		UDI_REGIONTYPE_FP,
@@ -57,7 +58,10 @@ struct sUDI_PropRegion
 	}	Latency;
 	udi_ubit32_t	OverrunTime;
 
-
+	udi_index_t	BindMeta;
+	udi_index_t	PriBindOps;
+	udi_index_t	SecBindOps;
+	udi_index_t	BindCb;
 };
 
 struct sUDI_MetaLang
@@ -83,6 +87,11 @@ struct sUDI_BindOps
 	udi_ubit8_t	region_idx;
 	udi_ubit8_t	ops_idx;
 	udi_ubit8_t	bind_cb_idx;
+};
+
+struct sUDI_PropDevSpec
+{
+	
 };
 
 struct sUDI_DriverModule

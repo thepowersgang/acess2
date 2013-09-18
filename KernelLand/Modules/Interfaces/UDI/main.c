@@ -130,6 +130,95 @@ int UDI_LoadDriver(void *Base)
 	return 0;
 }
 
+static udi_index_t _get_token_idx(const char *str, const char **outstr)
+{
+	char	*end;
+	int ret = strtol(str, &end, 10);
+	if( ret < 0 || ret > 255 ) {
+		Log_Notice("UDI", "Value '%.*s' out of range for udi_index_t",
+			end-str, str);
+		*outstr = NULL;
+		return 0;
+	}
+	if( *end && !isspace(*end) ) {
+		Log_Notice("UDI", "No whitespace following '%.*s', got '%c'",
+			end-str, str, *end);
+		*outstr = NULL;
+		return 0;
+	}
+	while( *end && isspace(*end) )
+		end ++;
+	
+	*outstr = end;
+	return ret;
+}
+static udi_ubit16_t _get_token_uint16(const char *str, const char **outstr)
+{
+	char	*end;
+	unsigned long ret = strtoul(str, &end, 10);
+	if( ret > 0xFFFF ) {
+		Log_Notice("UDI", "Value '%.*s' out of range for udi_ubit16_t",
+			end-str, str);
+		*outstr = NULL;
+		return 0;
+	}
+	if( *end && !isspace(*end) ) {
+		Log_Notice("UDI", "No whitespace following '%.*s', got '%c'",
+			end-str, str, *end);
+		*outstr = NULL;
+		return 0;
+	}
+	while( *end && isspace(*end) )
+		end ++;
+	
+	*outstr = end;
+	return ret;
+}
+static udi_ubit32_t _get_token_uint32(const char *str, const char **outstr)
+{
+	char	*end;
+	udi_ubit32_t ret = strtoul(str, &end, 0);
+	if( *end && !isspace(*end) ) {
+		Log_Notice("UDI", "No whitespace following '%.*s', got '%c'",
+			end-str, str, *end);
+		*outstr = NULL;
+		return 0;
+	}
+	while( *end && isspace(*end) )
+		end ++;
+	
+	*outstr = end;
+	return ret;
+}
+static int _get_token_sym(const char *str, const char **outstr, ...)
+{
+	va_list args;
+	va_start(args, outstr);
+	const char *sym;
+	for( int idx = 0; (sym = va_arg(args, const char *)); idx ++ )
+	{
+		size_t len = strlen(sym);
+		if( memcmp(str, sym, len) != 0 )
+			continue ;
+		if( str[len] && !isspace(str[len]) )
+			continue ;
+		
+		// Found it!
+		return idx;
+	}
+	va_end(args);
+
+	const char *end = str;
+	while( !isspace(*end) )
+		end ++;
+	Log_Notice("UDI", "Unknown token '%.*s'",
+		end-str, str);	
+
+	*outstr = NULL;
+	return -1;
+}
+
+
 tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, udi_init_t *info, const char *udiprops, size_t udiprops_size)
 {
 	//UDI_int_DumpInitInfo(info);
@@ -210,6 +299,7 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, udi_init_t *info, const ch
 		 int	msg_index = 0;
 		 int	ml_index = 0;
 		 int	parent_index = 0;
+		 int	next_unpop_region = 1;
 		for( int i = 0; i < nLines; i ++ )
 		{
 			const char *str = udipropsptrs[i];
@@ -218,28 +308,16 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, udi_init_t *info, const ch
 			}
 			else if( strncmp("meta ", str, 5) == 0 ) {
 				tUDI_MetaLangRef *ml = &driver_module->MetaLangs[ml_index++];
-				char	*end;
-				ml->meta_idx = strtoul(str+5, &end, 10);
-				if( *end != ' ' && !end != '\t' ) {
-					// TODO: handle 'meta' error
-					continue ;
-				}
-				while( isspace(*end) )
-					end ++;
-				ml->interface_name = end;
+				ml->meta_idx = _get_token_idx(str+5, &str);
+				if( !str )	continue;
+				ml->interface_name = str;
 			}
 			else if( strncmp("message ", str, 8) == 0 ) {
 				tUDI_PropMessage *msg = &driver_module->Messages[msg_index++];
-				char	*end;
 				msg->locale = cur_locale;
-				msg->index = strtoul(str+8, &end, 10);
-				if( *end != ' ' && *end != '\t' ) {
-					// Oops.
-					continue ;
-				}
-				while( isspace(*end) )
-					end ++;
-				msg->string = end;
+				msg->index = _get_token_uint16(str+8, &str);
+				if( !str )	continue ;
+				msg->string = str;
 				
 				//Log_Debug("UDI", "Message %i/%i: '%s'", msg->locale, msg->index, msg->string);
 			}
@@ -247,25 +325,112 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, udi_init_t *info, const ch
 				// TODO: Set locale
 				cur_locale = 1;
 			}
-			//else if( strncmp("region ", str, 7) == 0 ) {
-			//	nRegionTypes ++;
-			//}
+			else if( strncmp("region ", str, 7) == 0 ) {
+				udi_index_t rgn_idx = _get_token_idx(str+7, &str);
+				if( !str )	continue ;
+				// Search for region index (just in case internal_bind_ops appears earlier)
+				tUDI_PropRegion	*rgn = &driver_module->RegionTypes[0];
+				if( rgn_idx > 0 )
+				{
+					rgn ++;
+					for( int i = 1; i < next_unpop_region; i ++, rgn ++ ) {
+						if( rgn->RegionIdx == rgn_idx )
+							break;
+					}
+					if(i == next_unpop_region) {
+						if( next_unpop_region == nRegionTypes ) {
+							// TODO: warning if reigon types overflow
+							continue ;
+						}
+						next_unpop_region ++;
+						rgn->RegionIdx = rgn_idx;
+					}
+				}
+				// Parse attributes
+				while( *str )
+				{
+					int sym = _get_token_sym(str, &str,
+						"type", "binding", "priority", "latency", "overrun_time", NULL
+						);
+					if( !str )	break ;
+					switch(sym)
+					{
+					case 0:	// type
+						rgn->Type = _get_token_sym(str, &str, "normal", "fp", NULL);
+						break;
+					case 1:	// binding
+						rgn->Binding = _get_token_sym(str, &str, "static", "dynamic", NULL);
+						break;
+					case 2:	// priority
+						rgn->Priority = _get_token_sym(str, &str,
+							"med", "lo", "hi", NULL);
+						break;
+					case 3:	// latency
+						rgn->Latency = _get_token_sym(str, &str,
+							"non_overrunable", "powerfail_warning", "overrunable",
+							"retryable", "non_critical", NULL);
+						break;
+					case 4:	// overrun_time
+						rgn->OverrunTime = _get_token_uint32(str, &str);
+						break;
+					}
+					if( !str )	break ;
+				}
+			}
 			else if( strncmp("parent_bind_ops ", str, 16) == 0 ) {
 				tUDI_BindOps	*bind = &driver_module->Parents[parent_index++];
-				char *end;
-				bind->meta_idx = strtoul(str+16, &end, 10);
-				while(isspace(*end))	end++;
-				bind->region_idx = strtoul(end, &end, 10);
-				while(isspace(*end))	end++;
-				bind->ops_idx = strtoul(end, &end, 10);
-				while(isspace(*end))	end++;
-				bind->bind_cb_idx = strtoul(end, &end, 10);
+				bind->meta_idx = _get_token_idx(str+16, &str);
+				if( !str )	continue ;
+				bind->region_idx = _get_token_idx(str, &str);
+				if( !str )	continue ;
+				bind->ops_idx = _get_token_idx(str, &str);
+				if( !str )	continue ;
+				bind->bind_cb_idx = _get_token_idx(str, &str);
+				if( *str ) {
+					// Expected EOL, didn't get it :(
+				}
 				Log_Debug("UDI", "Parent bind - meta:%i,rgn:%i,ops:%i,bind:%i",
 					bind->meta_idx, bind->region_idx, bind->ops_idx, bind->bind_cb_idx);
 			}
-			//else if( strncmp("internal_bind_ops ", str, 18) == 0 ) {
-			//	// Get region using index
-			//}
+			else if( strncmp("internal_bind_ops ", str, 18) == 0 ) {
+				// Get region using index
+				udi_index_t meta = _get_token_idx(str+18, &str);
+				if( !str )	continue ;
+				udi_index_t rgn_idx = _get_token_idx(str, &str);
+				if( !str )	continue ;
+				
+				// Search for region index (just in case the relevant 'region' comes after)
+				tUDI_PropRegion	*rgn = &driver_module->RegionTypes[0];
+				if( rgn_idx > 0 )
+				{
+					rgn ++;
+					for( int i = 1; i < next_unpop_region; i ++, rgn ++ ) {
+						if( rgn->RegionIdx == rgn_idx )
+							break;
+					}
+					if(i == next_unpop_region) {
+						if( next_unpop_region == nRegionTypes ) {
+							// TODO: warning if reigon types overflow
+							continue ;
+						}
+						next_unpop_region ++;
+						rgn->RegionIdx = rgn_idx;
+					}
+				}
+		
+				// Set properties
+				rgn->BindMeta = meta;
+				
+				rgn->PriBindOps = _get_token_idx(str, &str);
+				if( !str )	continue ;
+				rgn->SecBindOps = _get_token_idx(str, &str);
+				if( !str )	continue ;
+				rgn->BindCb = _get_token_idx(str, &str);
+				if( !str )	continue ;
+				if( *str ) {
+					// TODO: Please sir, I want an EOL
+				}
+			}
 			else {
 				Log_Debug("UDI", "udipropsptrs[%i] = '%s'", i, udipropsptrs[i]);
 			}
@@ -377,12 +542,11 @@ tUDI_DriverInstance *UDI_CreateInstance(tUDI_DriverModule *DriverModule)
 		}
 	}
 
-	//inst->ManagementChannel = UDI_CreateChannel(METALANG_MGMT, 0, NULL, 0, inst, 0);
 	inst->ManagementChannel = UDI_CreateChannel_Blank(&cMetaLang_Management);
 	UDI_BindChannel_Raw(inst->ManagementChannel, true,
 		0, inst->Regions[0]->InitContext, pri_init->mgmt_ops);
 //	UDI_BindChannel_Raw(inst->ManagementChannel, false,
-//		1, inst, NULL);	// TODO: ops list for management
+//		1, inst, &cUDI_ManagementMetaagent_Ops);	// TODO: ops list for management
 
 	for( int i = 0; i < DriverModule->nRegions; i ++ )
 		Log("Rgn %i: %p", i, inst->Regions[i]);
