@@ -97,6 +97,11 @@ int CallUser(void *entry, void *sp)
 	for(;;);
 }
 
+void exit(int val)
+{
+	_exit(val);
+}
+
 void abort(void)
 {
 	_exit(-4);

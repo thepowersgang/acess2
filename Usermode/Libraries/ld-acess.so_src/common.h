@@ -11,6 +11,7 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <acess/sys.h>
+#include <assert.h>
 
 typedef	uintptr_t	Uint;
 typedef uint8_t 	Uint8;
