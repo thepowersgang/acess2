@@ -95,6 +95,15 @@ Proc_int_DropToUser:
 	cps #16
 	mov sp, r1
 	mov pc, r0
+.globl User_Signal_Kill
+@ R0: Signal
+User_Signal_Kill:
+	mov r1, r0
+	and r1, #0x00FF
+	orr r1, #0x0200
+	mov r0, #0
+	swi 0
+	b .
 
 .section .rodata
 csProc_CloneInt_NewTaskMessage:

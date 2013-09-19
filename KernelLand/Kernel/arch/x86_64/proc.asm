@@ -147,4 +147,15 @@ Proc_RestoreSSE:
 	fxrstor [rdi]
 	ret
 
+[section .usertext]
+
+[global User_Signal_Kill]
+User_Signal_Kill:
+	xor rax, rax
+	mov bx, di
+	mov bh, 0x02
+	int 0xAC
+	jmp $
+
+
 ; vim: ft=nasm

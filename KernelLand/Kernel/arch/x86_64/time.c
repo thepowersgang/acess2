@@ -5,12 +5,14 @@
  */
 #include <acess.h>
 #include <arch_config.h>
+#include <timers.h>
 
 // === MACROS ===
 #define	TIMER_QUANTUM	100
 #define TIMER_FREQ	PIT_TIMER_BASE_N/(PIT_TIMER_BASE_D*PIT_TIMER_DIVISOR)
 #define MS_PER_TICK_WHOLE	(1000*(PIT_TIMER_BASE_D*PIT_TIMER_DIVISOR)/PIT_TIMER_BASE_N)
 #define MS_PER_TICK_FRACT	((0x80000000ULL*1000ULL*PIT_TIMER_BASE_D*PIT_TIMER_DIVISOR/PIT_TIMER_BASE_N)&0x7FFFFFFF)
+#define US_PER_TICK	(1000*1000/(TIMER_FREQ))
 
 // === IMPORTS ===
 extern volatile Sint64	giTimestamp;
@@ -102,6 +104,21 @@ void Time_TimerThread(void)
 	}
 }
 #endif
+
+void Time_MicroSleep(Uint16 Microsecs)	// max 64 ms
+{
+	Uint64	cur_tsc = Time_ReadTSC();
+	// tsc_per_us * Microsec
+	Uint64	delta_tsc = (Uint64)Microsecs * giTime_TSCPerTick / US_PER_TICK;
+	Uint64	tgt_tsc = cur_tsc + delta_tsc;
+
+	if( tgt_tsc < cur_tsc )
+		while(Time_ReadTSC() > cur_tsc)
+			;	
+
+	while( Time_ReadTSC() < tgt_tsc )
+		;
+}
 
 Uint64 Time_ReadTSC(void)
 {
