@@ -44,6 +44,8 @@ extern int	raise(int sig);
 #define SIGCHLD	35
 #define SIGWINCH	36
 
+#include <sys/types.h>	// libposix
+
 typedef long long unsigned int	sigset_t;
 extern int	sigemptyset(sigset_t *set);
 extern int	sigfillset(sigset_t *set);
