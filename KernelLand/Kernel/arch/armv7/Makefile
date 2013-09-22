@@ -17,5 +17,5 @@ A_OBJ += vpci_$(PLATFORM).o platform_$(PLATFORM).o
 #main.c: Makefile.BuildNum.$(ARCH)
 
 ifeq ($(PLATFORM),tegra2)
-	POSTBUILD = arm-elf-objcopy $(BIN) -O binary $(BIN)
+	POSTBUILD = arm-eabi-objcopy $(BIN) -O binary $(BIN).flat && gzip -f $(BIN).flat
 endif
