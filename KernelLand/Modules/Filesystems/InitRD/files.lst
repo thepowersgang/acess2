@@ -3,6 +3,8 @@ Dir "SBin" {
 	File "__BIN__/SBin/login"
 	File "__BIN__/SBin/telnetd"
 	File "__BIN__/SBin/dhcpc"
+	File "__BIN__/SBin/insmod"
+	File "__BIN__/SBin/automount"
 }
 Dir "Bin" {
 	File "__BIN__/Bin/CLIShell"
