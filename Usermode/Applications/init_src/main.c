@@ -387,7 +387,7 @@ int AddSerialTerminal(const char *DevPathSegment, const char *ModeStr, char **Co
 	modeword |= (sbit - '0') << 3;
 	
 	// Create info
-	const char DEVPREFIX[] = "/Devices/";
+	const char DEVPREFIX[] = "/Devices/pts/serial";
 	int pathlen = sizeof(DEVPREFIX) + strlen(DevPathSegment);
 	tInitProgram	*ent = AllocateProgram(Command, PT_STERM, sizeof(struct sSTerm)+pathlen);
 	ent->TypeInfo.STerm.FormatBits = modeword;
@@ -412,6 +412,21 @@ int AddDaemon(char *StdoutPath, char *StderrPath, char **Command)
 int SpawnCommand(int c_stdin, int c_stdout, int c_stderr, char **ArgV)
 {
 	 int	handles[] = {c_stdin, c_stdout, c_stderr};
+
+	_SysDebug("Spawning '%s'", ArgV[0]);
+
+	if( c_stdin < 0 ) {
+		_SysDebug("SpawnCommand: stdin is invalid");
+		return 1;
+	}
+	if( c_stdout < 0 ) {
+		_SysDebug("SpawnCommand: stdout is invalid");
+		return 1;
+	}
+	if( c_stderr < 0 ) {
+		_SysDebug("SpawnCommand: stderr is invalid");
+		return 1;
+	}
 
 	int rv = _SysSpawn(ArgV[0], (const char **)ArgV, NULL, 3, handles, NULL);
 
@@ -466,7 +481,8 @@ int SpawnDaemon(tInitProgram *Program)
 	 int	out = _SysOpen(Program->TypeInfo.Daemon.StdoutPath, OPENFLAG_WRITE);
 	 int	err = _SysOpen(Program->TypeInfo.Daemon.StderrPath, OPENFLAG_WRITE);
 	
-	if( in == -1 || out == -1 || err == -1 ) {
+	if( in < 0 || out < 0 || err < 0 ) {
+		perror("SpawnDaemon");
 		_SysClose(in);
 		_SysClose(out);
 		_SysClose(err);
@@ -476,8 +492,17 @@ int SpawnDaemon(tInitProgram *Program)
 	// Log spawn header
 	{
 		char	buffer[101];
-		size_t len = snprintf(buffer, 100, "[%i] init spawning '%s'\n", _SysTimestamp(), Program->Command);
+		size_t len = snprintf(buffer, 100, "[%lli] init spawning ", _SysTimestamp());
 		_SysWrite(out, buffer, len);
+		char ch = '\'';
+		for( int i = 0; Program->Command[i]; i ++ )
+		{
+			_SysWrite(out, &ch, 1);
+			_SysWrite(out, Program->Command[i], strlen(Program->Command[i]));
+			_SysWrite(out, &ch, 1);
+		}
+		ch = '\n';
+		_SysWrite(out, &ch, 1);
 	}
 	
 	return SpawnCommand(in, out, err, Program->Command);

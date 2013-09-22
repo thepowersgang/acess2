@@ -5,6 +5,6 @@ daemon /Devices/null /Devices/null /Acess/SBin/telnetd
 
 ktty 0 /Acess/SBin/login
 ktty 1 /Acess/SBin/login
-stty serial/0 8N1b115200 /Acess/SBin/login
+stty 0 8N1b115200 /Acess/SBin/login
 
 # vim: ft=text
