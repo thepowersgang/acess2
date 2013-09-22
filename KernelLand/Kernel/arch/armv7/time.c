@@ -6,11 +6,14 @@
  */
 #include <acess.h>
 
+// === IMPORTS ===
+extern tTime	Time_GetTickOffset(void);
+
 // === GLOBALS ===
 tTime	giTimestamp;
 
 // === CODE ===
 tTime now(void)
 {
-	return giTimestamp;
+	return giTimestamp + Time_GetTickOffset();
 }
