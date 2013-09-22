@@ -202,7 +202,7 @@ int SysFS_RegisterFile(const char *Path, const char *Data, int Length)
 			break;
 	}
 	if( child ) {
-		Log_Warning("SysFS", "'%s' is taken (in '%s')\n", &Path[start], Path);
+		Log_Warning("SysFS", "'%s' is taken (in '%s')", &Path[start], Path);
 		return 0;
 	}
 	
