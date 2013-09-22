@@ -24,8 +24,8 @@
 void	Tegra2Vid_Uninstall();
 // Internal
 // Filesystem
-size_t	Tegra2Vid_Read(tVFS_Node *node, off_t off, size_t len, void *buffer);
-size_t	Tegra2Vid_Write(tVFS_Node *node, off_t off, size_t len, const void *buffer);
+size_t	Tegra2Vid_Read(tVFS_Node *node, off_t off, size_t len, void *buffer, Uint Flags);
+size_t	Tegra2Vid_Write(tVFS_Node *node, off_t off, size_t len, const void *buffer, Uint Flags);
  int	Tegra2Vid_IOCtl(tVFS_Node *node, int id, void *data);
 // -- Internals
  int	Tegra2Vid_int_SetMode(int Mode);
@@ -167,7 +167,7 @@ void Tegra2Vid_Uninstall()
 /**
  * \brief Read from the framebuffer
  */
-size_t Tegra2Vid_Read(tVFS_Node *node, off_t off, size_t len, void *buffer)
+size_t Tegra2Vid_Read(tVFS_Node *node, off_t off, size_t len, void *buffer, Uint Flags)
 {
 	return 0;
 }
@@ -175,7 +175,7 @@ size_t Tegra2Vid_Read(tVFS_Node *node, off_t off, size_t len, void *buffer)
 /**
  * \brief Write to the framebuffer
  */
-size_t Tegra2Vid_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer)
+size_t Tegra2Vid_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags)
 {
 	gTegra2Vid_DrvUtil_BufInfo.BufferFormat = giTegra2Vid_BufferMode;
 	return DrvUtil_Video_WriteLFB(&gTegra2Vid_DrvUtil_BufInfo, Offset, Length, Buffer);
