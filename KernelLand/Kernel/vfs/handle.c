@@ -174,7 +174,6 @@ void VFS_CloseAllUserHandles(void)
 void *VFS_SaveHandles(int NumFDs, int *FDs)
 {
 	tVFS_Handle	*ret;
-	 int	i;
 	 int	max_handles = *Threads_GetMaxFD();
 	
 	// Check if this process has any handles
@@ -190,32 +189,42 @@ void *VFS_SaveHandles(int NumFDs, int *FDs)
 		NumFDs = max_handles;
 
 	// Take copies of the handles
-	for( i = 0; i < NumFDs; i ++ )
+	if( FDs == NULL ) {
+		memcpy(ret, gaUserHandles, NumFDs * sizeof(tVFS_Handle));
+	}
+	else
 	{
-		tVFS_Handle	*h;
-		if( FDs == NULL )
-			h = &gaUserHandles[i];
-		else if( FDs[i] == -1 )
+		for( int i = 0; i < NumFDs; i ++ )
 		{
-			Log_Warning("VFS", "VFS_SaveHandles - Slot %i error FD (-1), ignorning", i);
-			memset(&ret[i], 0, sizeof(tVFS_Handle));
-			continue ;
-		}
-		else
-		{
-			h = VFS_GetHandle(FDs[i] & (VFS_KERNEL_FLAG - 1));
+			if( FDs[i] < -1 )
+			{
+				Log_Warning("VFS", "VFS_SaveHandles - Slot %i error FD (%i<0), ignorning",
+					i, FDs[i]);
+				memset(&ret[i], 0, sizeof(tVFS_Handle));
+				continue ;
+			}
+			
+			int fd = FDs[i] & (VFS_KERNEL_FLAG - 1);
+			tVFS_Handle *h = VFS_GetHandle(fd);
 			if(!h) {
-				Log_Warning("VFS", "VFS_SaveHandles - Invalid FD %i",
-					FDs[i] & (VFS_KERNEL_FLAG - 1) );
+				Log_Warning("VFS", "VFS_SaveHandles - Invalid FD 0x%x (%i) in slot %i",
+					fd, FDs[i], i );
 				free(ret);
 				return NULL;
 			}
+//			Log("%i: Duplicate FD %i (%p)", i, fd, h->Node);
+			memcpy( &ret[i], h, sizeof(tVFS_Handle) );
 		}
-		memcpy( &ret[i], h, sizeof(tVFS_Handle) );
-		
+	}
+	
+	// Reference nodes/mounts
+	for( int i = 0; i < NumFDs; i ++ )
+	{
+		tVFS_Handle *h = &ret[i];
 		// Reference node
 		if( !h->Node )
 			continue ;
+//		Debug("VFS_SaveHandles: %i %p", i, h->Node);
 		_ReferenceNode(h->Node);
 		h->Mount->OpenHandleCount ++;
 	}	
@@ -226,44 +235,54 @@ void *VFS_SaveHandles(int NumFDs, int *FDs)
 void VFS_RestoreHandles(int NumFDs, void *Handles)
 {
 	tVFS_Handle	*handles = Handles;
-	 int	i;
+	 int	max_handles = *Threads_GetMaxFD();
 
 	// NULL = nothing to do
 	if( !Handles )
 		return ;	
 
-	// Check if there is already a set of handles
-	if( MM_GetPhysAddr( gaUserHandles ) != 0 )
-		return ;
-	
-	
-	// Allocate user handle area
+	// Allocate user handle area (and dereference existing handles)
+	for( int i = 0; i < NumFDs; i ++ )
 	{
-		Uint	addr, size;
-		 int	max_handles = *Threads_GetMaxFD();
-		size = max_handles * sizeof(tVFS_Handle);
-		for(addr = 0; addr < size; addr += 0x1000)
+		tVFS_Handle *h = &gaUserHandles[i];
+		
+		if( !MM_GetPhysAddr(h) )
 		{
-			if( !MM_Allocate( (tVAddr)gaUserHandles + addr ) )
+			if( !MM_Allocate( (tVAddr)h & ~(PAGE_SIZE-1) ) ) 
 			{
-				Warning("OOM - VFS_AllocHandle");
-				Threads_Exit(0, 0xFF);	// Terminate user
+				// OOM?
 			}
 		}
-		memset( gaUserHandles, 0, size );
+		// Safe to dereference, as Threads_CloneTCB references handles
+		#if 1
+		else
+		{
+			if(h->Node)
+			{
+				_CloseNode(h->Node);
+				h->Mount->OpenHandleCount --;
+			}
+		}
+		#endif
 	}
 	
+	// Clean up existing
 	// Restore handles
 	memcpy(	gaUserHandles, handles, NumFDs * sizeof(tVFS_Handle) );
 	// Reference when copied
-	for( i = 0; i < NumFDs; i ++ )
+	for( int i = 0; i < NumFDs; i ++ )
 	{
-		tVFS_Handle	*h = &handles[i];
+		tVFS_Handle	*h = &gaUserHandles[i];
 	
 		if( !h->Node )
 			continue ;
+//		Debug("VFS_RestoreHandles: %i %p", i, h->Node);
 		_ReferenceNode(h->Node);
 		h->Mount->OpenHandleCount ++;
+	}
+	for( int i = NumFDs; i < max_handles; i ++ )
+	{
+		gaUserHandles[i].Node = NULL;
 	}
 }
 
