@@ -17,6 +17,12 @@ while [ $# -ne 0 ]; do
 		QEMU_PARAMS=$QEMU_PARAMS" -cpu arm1176 -m 192 -localtime"
 		_KERNEL=Acess2.armv6-raspberrypi.bin
 		;;
+	-tegra2)
+		# git://repo.or.cz/qemu/afaerber.git BRANCH tegra
+		QEMU=~/apps_exp/bin/qemu-system-arm
+		_SYSTEM="ac100"
+		_KERNEL=Acess2.armv7-tegra2.bin
+		;;
 	-gdb)
 		QEMU_PARAMS=$QEMU_PARAMS" -s -S"
 		;;
