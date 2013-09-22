@@ -32,6 +32,7 @@ extern tBinaryType	gELF_Info;
 
 // === PROTOTYPES ===
  int	Binary_int_CacheArgs(const char **Path, const char ***ArgV, const char ***EnvP, void *DestBuffer);
+ int	Proc_int_Execve(const char *File, const char **ArgV, const char **EnvP, int DataSize, bool bClearUser);
 tVAddr	Binary_Load(const char *Path, tVAddr *EntryPoint);
 tBinary	*Binary_GetInfo(tMount MountID, tInode InodeID);
 tVAddr	Binary_MapIn(tBinary *Binary, const char *Path, tVAddr LoadMin, tVAddr LoadMax);
@@ -191,7 +192,7 @@ int Proc_SysSpawn(const char *Binary, const char **ArgV, const char **EnvP, int 
 		VFS_RestoreHandles(nFD, handles);
 		VFS_FreeSavedHandles(nFD, handles);
 		// Frees cachebuf
-		Proc_Execve(Binary, ArgV, EnvP, size);
+		Proc_int_Execve(Binary, ArgV, EnvP, size, 0);
 		for(;;);
 	}
 	if( ret == -1 )
@@ -211,6 +212,11 @@ int Proc_SysSpawn(const char *Binary, const char **ArgV, const char **EnvP, int 
  * \note Called Proc_ for historical reasons
  */
 int Proc_Execve(const char *File, const char **ArgV, const char **EnvP, int DataSize)
+{
+	return Proc_int_Execve(File, ArgV, EnvP, DataSize, 1);
+}
+
+int Proc_int_Execve(const char *File, const char **ArgV, const char **EnvP, int DataSize, bool bClearUser)
 {
 	void	*cachebuf;
 	tVAddr	entry;
@@ -236,6 +242,7 @@ int Proc_Execve(const char *File, const char **ArgV, const char **EnvP, int Data
 	// --- Clear User Address space
 	// NOTE: This is a little roundabout, maybe telling ClearUser to not touch the
 	//       PPD area would be a better idea.
+	if( bClearUser )
 	{
 		 int	nfd = *Threads_GetMaxFD();
 		void	*handles;
