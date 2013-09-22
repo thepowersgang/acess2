@@ -495,6 +495,7 @@ tVFS_Node *PTY_FindDir(tVFS_Node *Node, const char *Name, Uint Flags)
 		}
 		RWLock_Release(&glPTY_NamedPTYs);
 	}
+//	Debug("PTY_FindDir('%s') returned %p", Name, &ret->ClientNode);
 	if( ret ) {
 		tVFS_Node	*retnode = &ret->ClientNode;
 		retnode->ReferenceCount ++;
@@ -595,8 +596,6 @@ size_t PTY_WriteClient(tVFS_Node *Node, off_t Offset, size_t Length, const void 
 void PTY_ReferenceClient(tVFS_Node *Node)
 {
 	Node->ReferenceCount ++;
-	// TODO: Add PID to list of client PIDs
-//	Log_Notice("PTY", "ReferenceClient: TODO - List of client PIDs");
 }
 
 void PTY_CloseClient(tVFS_Node *Node)
