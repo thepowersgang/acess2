@@ -56,7 +56,7 @@ int main(int argc, char *argv[], char **envp)
 	
 	gasEnvironment = envp;
 	
-	Command_Clear(0, NULL);
+//	Command_Clear(0, NULL);
 	
 	{
 		char	*tmp = getenv("CWD");
