@@ -39,14 +39,11 @@ int GIC_Install(char **Arguments)
 	// Initialise
 	Log_Debug("GIC", "Dist: %P, Interface: %P",
 		gGIC_DistributorAddr, gGIC_InterfaceAddr);
-	gpGIC_InterfaceBase = (void*)MM_MapHWPages(gGIC_InterfaceAddr, 1);
-	LOG("gpGIC_InterfaceBase = %p", gpGIC_InterfaceBase);
+	gpGIC_InterfaceBase = (Uint32*)MM_MapHWPages(gGIC_InterfaceAddr, 1)
+		+ (gGIC_InterfaceAddr & (PAGE_SIZE-1))/4;
 	gpGIC_DistributorBase = (void*)MM_MapHWPages(gGIC_DistributorAddr, 1);
-	LOG("gpGIC_DistributorBase = %p", gpGIC_DistributorBase);
 
 	gpGIC_InterfaceBase[GICC_CTLR] = 0;	// Disable CPU interaface
-	LOG("GICC_IAR = %x (CTLR=0)", gpGIC_InterfaceBase[GICC_IAR]);
-
 	gpGIC_InterfaceBase[GICC_PMR] = 0xFF;	// Effectively disable prioritories
 	gpGIC_InterfaceBase[GICC_CTLR] = 1;	// Enable CPU
 	gpGIC_DistributorBase[GICD_CTLR] = 1;	// Enable Distributor
@@ -100,6 +97,7 @@ int IRQ_AddHandler(int IRQ, tIRQ_Handler Handler, void *Ptr)
 	gpGIC_DistributorBase[GICD_ISENABLER0+IRQ/32] = 1 << (IRQ & (32-1));
 	((Uint8*)&gpGIC_DistributorBase[GICD_ITARGETSR0])[IRQ] = 1;
 	gpGIC_DistributorBase[GICD_ICPENDR0+IRQ/32] = 1 << (IRQ & (32-1));
+	gpGIC_DistributorBase[GICD_ICFGR0+IRQ/16] |= 2 << ((IRQ & 15)*2);
 	
 	// TODO: Does the GIC need to handle IRQ sharing?
 	if( gaIRQ_Handlers[IRQ] ) {
@@ -112,9 +110,6 @@ int IRQ_AddHandler(int IRQ, tIRQ_Handler Handler, void *Ptr)
 	gaIRQ_HandlerData[IRQ] = Ptr;
 	
 	Log_Debug("GIC", "IRQ %i handled by %p(%p)", IRQ, Handler, Ptr);
-
-	// DEBUG! Trip the interrupt	
-	gpGIC_DistributorBase[GICD_ISPENDR0+IRQ/32] = 1 << (IRQ & (32-1));
 	return 0;
 }
 
