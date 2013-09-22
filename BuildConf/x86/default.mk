@@ -18,7 +18,7 @@ MODULES += USB/Core
 MODULES += USB/UHCI
 #USB/OHCI
 MODULES += USB/HID USB/MSC
-MODULES += Interfaces/UDI
+#MODULES += Interfaces/UDI
 
 MODULES += Libraries/VirtIO
 MODULES += Network/VirtIONet
