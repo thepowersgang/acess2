@@ -9,6 +9,7 @@ _KERNEL=Acess2.armv7-realview_pb.bin
 
 QEMU_PARAMS=""
 _NETTYPE="user"
+TEE="| tee QemuLog.txt"
 
 while [ $# -ne 0 ]; do
 	case $1 in
@@ -40,6 +41,10 @@ while [ $# -ne 0 ]; do
 		;;
 	-tuntap)
 		_NETTYPE="tap"
+		;;
+	-notee)
+		TEE=""
+		;;
 	esac
 	shift
 done
@@ -47,4 +52,4 @@ QEMU_PARAMS="-M $_SYSTEM -kernel KernelLand/$_KERNEL -net nic -net $_NETTYPE"$QE
 
 #	/home/tpg/apps/bin/qemu-system-x86_64 $QEMU_PARAMS -serial stdio -serial file:QemuLog.txt
 #	qemu-system-x86_64 $QEMU_PARAMS -serial stdio | tee QemuLog.txt
-$QEMU $QEMU_PARAMS -serial stdio | tee QemuLog.txt
+$QEMU $QEMU_PARAMS -serial stdio $TEE
