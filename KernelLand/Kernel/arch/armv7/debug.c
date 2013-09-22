@@ -27,7 +27,11 @@ void	StartupPrint(const char *str);
 void Debug_int_SerialIRQHandler(int IRQ, void *unused)
 {
 	volatile Uint32 *regs = (void*)UART0_BASE;
+	#if PLATFORM_is_realview_pb
 	if( !(regs[15] & 0x10) ) {
+	#else
+	if( !(regs[5] & 1) ) {
+	#endif
 		// RX Int hadn't fired
 		Debug("No IRQ %x %x", regs[15], regs[0]);
 		return ;
@@ -44,8 +48,13 @@ void Debug_PutCharDebug(char ch)
 	volatile Uint32 *regs = (void*)UART0_BASE;
 	
 	if( !giDebug_SerialInitialised ) {
+		#if PLATFORM_is_tegra2
+		// 16550 (i.e. PC) compatible
+		regs[1] = 5;	// Enable RX interrupt
+		#else
 		regs[14] = 0x10;	// Enable RX interrupt
 		regs[13] = (1<<1);	// Set RX trigger to 1 byte
+		#endif
 		giDebug_SerialInitialised = 1;
 	}
 
@@ -55,7 +64,6 @@ void Debug_PutCharDebug(char ch)
 		;
 	#endif
 	
-//	*(volatile Uint32*)(SERIAL_BASE + SERIAL_REG_DATA) = ch;
 	regs[0] = ch;
 }
 
