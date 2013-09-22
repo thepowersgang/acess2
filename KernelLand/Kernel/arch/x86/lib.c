@@ -8,6 +8,7 @@
 #include <threads_int.h>
 #include <arch_int.h>
 #include <hal_proc.h>	// GetCPUNum
+#include <drv_serial.h>
 
 #define TRACE_LOCKS	0
 
@@ -28,6 +29,7 @@ extern tMutex	glPhysAlloc;
 Uint64	__divmod64(Uint64 Num, Uint64 Den, Uint64 *Rem);
 Uint64	__udivdi3(Uint64 Num, Uint64 Den);
 Uint64	__umoddi3(Uint64 Num, Uint64 Den);
+void	Debug_SerialIRQHandler(int irq, void *unused);
 
 // === GLOBALS ===
  int	gbDebug_SerialSetup = 0;
@@ -189,7 +191,9 @@ void Debug_PutCharDebug(char ch)
 		outb(SERIAL_PORT + 3, 0x03);	// 8 bits, no parity, one stop bit
 		outb(SERIAL_PORT + 2, 0xC7);	// Enable FIFO with 14-byte threshold and clear it
 		outb(SERIAL_PORT + 4, 0x0B);	// IRQs enabled, RTS/DSR set
+		outb(SERIAL_PORT + 1, 0x05);	// Enable ERBFI (Rx Full), ELSI (Line Status)
 		gbDebug_SerialSetup = 1;
+		IRQ_AddHandler(4, Debug_SerialIRQHandler, NULL);
 	}
 	while( (inb(SERIAL_PORT + 5) & 0x20) == 0 );
 	outb(SERIAL_PORT, ch);
@@ -200,6 +204,17 @@ void Debug_PutStringDebug(const char *String)
 {
 	while(*String)
 		Debug_PutCharDebug(*String++);
+}
+
+void Debug_SerialIRQHandler(int irq, void *unused)
+{
+	if( (inb(SERIAL_PORT+5) & 0x01) == 0 ) {
+		Debug("IRQ4, no data");
+		return ;
+	}
+	
+	char ch = inb(SERIAL_PORT);
+	Serial_ByteReceived(gSerial_KernelDebugPort, ch);
 }
 
 // === IO Commands ===
