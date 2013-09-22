@@ -14,6 +14,7 @@
 
 #if PLATFORM_is_realview_pb
 # define UART0_PADDR	0x10009000	// Realview
+# define UART0_IRQ	12	// IRQ 12
 # define GICI_PADDR	0x1e000000
 # define GICD_PADDR	0x1e001000
 # define PL110_BASE	0x10020000	// Integrator
@@ -22,6 +23,7 @@
 
 #if PLATFORM_is_tegra2	// Tegra2
 # define UART0_PADDR	0x70006000
+# define UART0_IRQ	0
 # define GICD_PADDR	0x50041000
 # define GICI_PADDR	0x50040100
 //# define PL110_BASE	0x10020000	// Integrator

@@ -8,6 +8,7 @@
 
 #include <acess.h>
 #include <modules.h>
+#include "include/options.h"
 
 // === IMPORTS ===
 extern void	Interrupts_Setup(void);
@@ -16,6 +17,7 @@ extern void	Heap_Install(void);
 extern void	Threads_Init(void);
 extern void	System_Init(const char *Commandline);
 extern void	Time_Setup(void);
+extern void	Debug_int_SerialIRQHandler(int IRQ, void *unused);
 
 // === PROTOTYPES ===
  int	kmain(void);
@@ -42,6 +44,7 @@ int kmain(void)
 	// Boot modules?
 	// - most ARMv7 configs use a GIC
 	Module_EnsureLoaded("armv7_GIC");
+	IRQ_AddHandler(UART0_IRQ, Debug_int_SerialIRQHandler, NULL);
 	
 	Time_Setup();
 
