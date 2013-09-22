@@ -23,9 +23,9 @@
 
 #if PLATFORM_is_tegra2	// Tegra2
 # define UART0_PADDR	0x70006000
-# define UART0_IRQ	0
-# define GICD_PADDR	0x50041000
+# define UART0_IRQ	36
 # define GICI_PADDR	0x50040100
+# define GICD_PADDR	0x50041000
 //# define PL110_BASE	0x10020000	// Integrator
 #endif
 

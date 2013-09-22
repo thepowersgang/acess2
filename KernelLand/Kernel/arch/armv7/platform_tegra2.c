@@ -6,7 +6,9 @@
  * - Tegra2 Core code
  */
 #include <acess.h>
+#include <timers.h>	// MicroSleep
 #include "platform_tegra2.h"
+#include "include/options.h"
 
 // === CONSTANTS ===
 #define TIMER0_INT	(0*32+0)	// Pri #0
@@ -22,12 +24,16 @@ extern void	Timer_CallTimers(void);
 
 // === PROTORTYPES ===
 void	Timer_IRQHandler_SysClock(int IRQ, void *_unused);
+void	Timer_IRQHandler_Timer2(int IRQ, void *_unused);
+void	Timer_IRQHandler_Timer3(int IRQ, void *_unused);
+void	Timer_IRQHandler_Timer4(int IRQ, void *_unused);
 void	Time_Setup(void);
+tTime	Time_GetTickOffset(void);	// TODO: move to header
 
 // === GLOBALS ===
 // - Addresses for the GIC to use
-tPAddr	gGIC_InterfaceAddr = 0x50040000;
-tPAddr	gGIC_DistributorAddr = 0x50041000;
+tPAddr	gGIC_InterfaceAddr = GICI_PADDR;
+tPAddr	gGIC_DistributorAddr = GICD_PADDR;
 // - Map of timer registers
 volatile struct sTimersMap *gpTimersMap;
 volatile struct sClockResetMap *gpClockResetMap;
@@ -67,6 +73,11 @@ void Time_MicroSleep(Uint16 Microsecs)
 			;
 	while( gpTimersMap->TIMERUS.CNTR_1US < tgt_ts )
 		;
+}
+
+tTime Time_GetTickOffset(void)
+{
+	return (gpTimersMap->TIMERUS.CNTR_1US/1000) % 100;
 }
 
 void Time_Setup(void)
