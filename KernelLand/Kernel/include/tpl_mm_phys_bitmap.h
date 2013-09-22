@@ -354,7 +354,13 @@ int MM_GetRefCount(tPAddr PAddr)
 		return gaiPageReferences[PAddr];
 	}
 	
-	if( gaPageBitmaps[ PAddr / 32 ] & (1LL << (PAddr&31)) ) {
+	Uint32	*bm = &gaPageBitmaps[ PAddr / 32 ];
+	if( !MM_GetPhysAddr(bm) ) {
+		Log_Error("MMPhys", "MM_GetRefCount: bitmap for ppage 0x%x not mapped %p",
+			PAddr, bm);
+		return 0;
+	}
+	if( (*bm) & (1LL << (PAddr&31)) ) {
 		return 1;
 	}
 	
