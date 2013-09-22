@@ -1050,7 +1050,7 @@ void MM_int_ClearTableLevel(tVAddr VAddr, int LevelBits, int MaxEnts)
 
 void MM_ClearUser(void)
 {
-	MM_int_ClearTableLevel(0, 39, 256);	
+	MM_int_ClearTableLevel(0, 39, 256);
 }
 
 tVAddr MM_NewWorkerStack(void *StackData, size_t StackSize)

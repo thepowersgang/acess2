@@ -2,6 +2,7 @@
  */
 #include <acess.h>
 #include <arch.h>
+#include <drv_serial.h>
 
 #define DEBUG_TO_E9	1
 #define DEBUG_TO_SERIAL	1
@@ -146,17 +147,21 @@ void SHORTREL(struct sShortSpinlock *Lock)
 
 // === DEBUG IO ===
 #if USE_GDB_STUB
+void initGdbSerial(void)
+{
+	outb(GDB_SERIAL_PORT + 1, 0x00);    // Disable all interrupts
+	outb(GDB_SERIAL_PORT + 3, 0x80);    // Enable DLAB (set baud rate divisor)
+	outb(GDB_SERIAL_PORT + 0, 0x0C);    // Set divisor to 12 (lo byte) 9600 baud
+	outb(GDB_SERIAL_PORT + 1, 0x00);    //  (base is         (hi byte)
+	outb(GDB_SERIAL_PORT + 3, 0x03);    // 8 bits, no parity, one stop bit (8N1)
+	outb(GDB_SERIAL_PORT + 2, 0xC7);    // Enable FIFO with 14-byte threshold and clear it
+	outb(GDB_SERIAL_PORT + 4, 0x0B);    // IRQs enabled, RTS/DSR set
+	gbDebug_SerialSetup = 1;
+}
 int putDebugChar(char ch)
 {
 	if(!gbGDB_SerialSetup) {
-		outb(GDB_SERIAL_PORT + 1, 0x00);    // Disable all interrupts
-		outb(GDB_SERIAL_PORT + 3, 0x80);    // Enable DLAB (set baud rate divisor)
-		outb(GDB_SERIAL_PORT + 0, 0x0C);    // Set divisor to 12 (lo byte) 9600 baud
-		outb(GDB_SERIAL_PORT + 1, 0x00);    //  (base is         (hi byte)
-		outb(GDB_SERIAL_PORT + 3, 0x03);    // 8 bits, no parity, one stop bit (8N1)
-		outb(GDB_SERIAL_PORT + 2, 0xC7);    // Enable FIFO with 14-byte threshold and clear it
-		outb(GDB_SERIAL_PORT + 4, 0x0B);    // IRQs enabled, RTS/DSR set
-		gbDebug_SerialSetup = 1;
+		initGdbSerial();
 	}
 	while( (inb(GDB_SERIAL_PORT + 5) & 0x20) == 0 );
 	outb(GDB_SERIAL_PORT, ch);
@@ -165,19 +170,24 @@ int putDebugChar(char ch)
 int getDebugChar(void)
 {
 	if(!gbGDB_SerialSetup) {
-		outb(GDB_SERIAL_PORT + 1, 0x00);    // Disable all interrupts
-		outb(GDB_SERIAL_PORT + 3, 0x80);    // Enable DLAB (set baud rate divisor)
-		outb(GDB_SERIAL_PORT + 0, 0x0C);    // Set divisor to 12 (lo byte) 9600 baud
-		outb(GDB_SERIAL_PORT + 1, 0x00);    //                   (hi byte)
-		outb(GDB_SERIAL_PORT + 3, 0x03);    // 8 bits, no parity, one stop bit
-		outb(GDB_SERIAL_PORT + 2, 0xC7);    // Enable FIFO with 14-byte threshold and clear it
-		outb(GDB_SERIAL_PORT + 4, 0x0B);    // IRQs enabled, RTS/DSR set
-		gbDebug_SerialSetup = 1;
+		initGdbSerial();
 	}
 	while( (inb(GDB_SERIAL_PORT + 5) & 1) == 0)	;
 	return inb(GDB_SERIAL_PORT);
 }
 #endif
+
+void Debug_SerialIRQHandler(int irq, void *unused)
+{
+	if( (inb(SERIAL_PORT+5) & 0x01) == 0 ) {
+		Debug("Serial no data");
+		return ;
+	}
+	
+	char ch = inb(SERIAL_PORT);
+	//Debug("Serial RX 0x%x", ch);
+	Serial_ByteReceived(gSerial_KernelDebugPort, ch);
+}
 
 void Debug_PutCharDebug(char ch)
 {
@@ -194,7 +204,9 @@ void Debug_PutCharDebug(char ch)
 		outb(SERIAL_PORT + 3, 0x03);	// 8 bits, no parity, one stop bit
 		outb(SERIAL_PORT + 2, 0xC7);	// Enable FIFO with 14-byte threshold and clear it
 		outb(SERIAL_PORT + 4, 0x0B);	// IRQs enabled, RTS/DSR set
+		outb(SERIAL_PORT + 1, 0x05);	// Enable ERBFI (Rx Full), ELSI (Line Status)
 		gbDebug_SerialSetup = 1;
+		IRQ_AddHandler(4, Debug_SerialIRQHandler, NULL);
 	}
 	while( (inb(SERIAL_PORT + 5) & 0x20) == 0 );
 	outb(SERIAL_PORT, ch);
