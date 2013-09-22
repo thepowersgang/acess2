@@ -57,11 +57,11 @@ tVAddr	MM_NewUserStack(void);
 tPAddr	MM_AllocateZero(tVAddr VAddr);
 tPAddr	MM_AllocateRootTable(void);
 void	MM_int_CloneTable(Uint32 *DestEnt, int Table);
-tPAddr	MM_Clone(void);
+tPAddr	MM_Clone(int ClearUser);
 tVAddr	MM_NewKStack(int bGlobal);
 void	MM_int_DumpTableEnt(tVAddr Start, size_t Len, tMM_PageInfo *Info);
 //void	MM_DumpTables(tVAddr Start, tVAddr End);
-void	MM_PageFault(Uint32 PC, Uint32 Addr, Uint32 DFSR, int bPrefetch, Uint32 UserLR);
+void	MM_PageFault(Uint32 PC, Uint32 Addr, Uint32 DFSR, int bPrefetch, Uint32 SystemLR, Uint32 UserLR);
 
 // === GLOBALS ===
 tPAddr	giMM_ZeroPage;
@@ -591,52 +591,50 @@ void MM_int_CloneTable(Uint32 *DestEnt, int Table)
 	DestEnt[3] = table + 3*0x400 + 1;
 }
 
-tPAddr MM_Clone(void)
+tPAddr MM_Clone(int EmptyUser)
 {
-	tPAddr	ret;
-	Uint32	*new_lvl1_1, *new_lvl1_2, *cur;
 	Uint32	*tmp_map;
-	 int	i;
 
 //	MM_DumpTables(0, KERNEL_BASE);
 	
-	ret = MM_AllocateRootTable();
+	tPAddr	ret = MM_AllocateRootTable();
 
-	cur = (void*)MM_TABLE0USER;
-	new_lvl1_1 = MM_MapTemp(ret);
-	new_lvl1_2 = MM_MapTemp(ret+0x1000);
-	tmp_map = new_lvl1_1;
-	for( i = 0; i < 0x800-4; i ++ )
+	Uint32	*new_lvl1_1 = MM_MapTemp(ret);
+	Uint32	*new_lvl1_2 = MM_MapTemp(ret+0x1000);
+	
+	if( !EmptyUser )
 	{
-		// HACK! Ignore the original identity mapping
-		if( i == 0 && Threads_GetTID() == 0 ) {
-			tmp_map[0] = 0;
-			continue;
-		}
-		if( i == 0x400 )
-			tmp_map = &new_lvl1_2[-0x400];
-		switch( cur[i] & 3 )
+		Uint32 *cur = (void*)MM_TABLE0USER;
+		tmp_map = new_lvl1_1;
+		for( int i = 0; i < 0x800-4; i ++ )
 		{
-		case 0:	tmp_map[i] = 0;	break;
-		case 1:
-			MM_int_CloneTable(&tmp_map[i], i);
-			i += 3;	// Tables are alocated in blocks of 4
-			break;
-		case 2:
-		case 3:
-			Log_Error("MMVirt", "TODO: Support Sections/Supersections in MM_Clone (i=%i)", i);
-			tmp_map[i] = 0;
-			break;
+			// HACK! Ignore the original identity mapping
+			if( i == 0 && Threads_GetTID() == 0 ) {
+				tmp_map[0] = 0;
+				continue;
+			}
+			if( i == 0x400 )
+				tmp_map = &new_lvl1_2[-0x400];
+			switch( cur[i] & 3 )
+			{
+			case 0:	tmp_map[i] = 0;	break;
+			case 1:
+				MM_int_CloneTable(&tmp_map[i], i);
+				i += 3;	// Tables are alocated in blocks of 4
+				break;
+			case 2:
+			case 3:
+				Log_Error("MMVirt", "TODO: Support Sections/Supersections in MM_Clone (i=%i)", i);
+				tmp_map[i] = 0;
+				break;
+			}
 		}
 	}
 
 	// Allocate Fractal table
 	{
-		 int	j, num;
 		tPAddr	tmp = MM_AllocPhys();
 		Uint32	*table = MM_MapTemp(tmp);
-		Uint32	sp;
-		register Uint32 __SP asm("sp");
 
 		// Map table to last 4MiB of user space
 		new_lvl1_2[0x3FC] = tmp + 0*0x400 + 1;
@@ -645,7 +643,8 @@ tPAddr MM_Clone(void)
 		new_lvl1_2[0x3FF] = tmp + 3*0x400 + 1;
 		
 		tmp_map = new_lvl1_1;
-		for( j = 0; j < 512; j ++ )
+		 int	j = 0;
+		for( ; j < 512; j ++ )
 		{
 			if( j == 256 )
 				tmp_map = &new_lvl1_2[-0x400];
@@ -660,19 +659,17 @@ tPAddr MM_Clone(void)
 		// Fractal
 		table[j++] = (ret + 0x0000) | 0x813;
 		table[j++] = (ret + 0x1000) | 0x813;
-		// Nuke the rest
-		for(      ; j < 1024; j ++ )
+		// Clear the rest of the table
+		for( ; j < 1024; j ++ )
 			table[j] = 0;
 		
 		// Get kernel stack bottom
-		sp = __SP & ~(MM_KSTACK_SIZE-1);
+		register Uint32 __SP asm("sp");
+		Uint32	sp = __SP & ~(MM_KSTACK_SIZE-1);
 		j = (sp / 0x1000) % 1024;
-		num = MM_KSTACK_SIZE/0x1000;
 
-//		Log("num = %i, sp = %p, j = %i", num, sp, j);
-		
 		// Copy stack pages
-		for(; num--; j ++, sp += 0x1000)
+		for(int num = MM_KSTACK_SIZE/PAGE_SIZE; num--; j ++, sp += PAGE_SIZE)
 		{
 			tVAddr	page;
 			void	*tmp_page;
@@ -919,6 +916,7 @@ tVAddr MM_NewUserStack(void)
 		Log_Error("MMVirt", "Unable to create initial user stack, addr %p taken",
 			addr + PAGE_SIZE
 			);
+		MM_DumpTables(0,KERNEL_BASE);
 		return 0;
 	}
 
@@ -942,7 +940,7 @@ tVAddr MM_NewUserStack(void)
 		}
 		MM_SetFlags(addr+ofs, 0, MM_PFLAG_KERNEL);
 	}
-//	Log("Return %p", addr + ofs);
+	Log("Return %p", addr + ofs);
 //	MM_DumpTables(0, 0x80000000);
 	return addr + ofs;
 }
@@ -951,7 +949,7 @@ void MM_int_DumpTableEnt(tVAddr Start, size_t Len, tMM_PageInfo *Info)
 {
 	if( giMM_ZeroPage && Info->PhysAddr == giMM_ZeroPage )
 	{
-		Debug("%p => %8s - 0x%7x D%i %x %s %s",
+		Debug("0x%08x => %8s - 0x%7x D%i %x %s %s",
 			Start, "ZERO", Len,
 			Info->Domain, Info->AP,
 			Info->bExecutable ? " X" : "nX",
@@ -960,11 +958,14 @@ void MM_int_DumpTableEnt(tVAddr Start, size_t Len, tMM_PageInfo *Info)
 	}
 	else
 	{
-		Debug("%p => %8x - 0x%7x D%i %x %s %s",
+		void	*node;
+		MM_GetPageNode(Info->PhysAddr, &node);
+		Debug("0x%08x => %8x - 0x%7x D%i %x %s %s %p",
 			Start, Info->PhysAddr-Len, Len,
 			Info->Domain, Info->AP,
 			Info->bExecutable ? " X" : "nX",
-			Info->bGlobal ? " G" : "nG"
+			Info->bGlobal ? " G" : "nG",
+			node
 			);
 	}
 }
@@ -1011,7 +1012,7 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 }
 
 // NOTE: Runs in abort context, not much difference, just a smaller stack
-void MM_PageFault(Uint32 PC, Uint32 Addr, Uint32 DFSR, int bPrefetch, Uint32 UserLR)
+void MM_PageFault(Uint32 PC, Uint32 Addr, Uint32 DFSR, int bPrefetch, Uint32 SystemLR, Uint32 UserLR)
 {
 	 int	rv;
 	tMM_PageInfo	pi;
@@ -1085,7 +1086,7 @@ void MM_PageFault(Uint32 PC, Uint32 Addr, Uint32 DFSR, int bPrefetch, Uint32 Use
 	Log_Error("MMVirt", "Code at %p accessed %p (DFSR = 0x%x)%s", PC, Addr, DFSR,
 		(bPrefetch ? " - Prefetch" : "")
 		);
-	Log_Error("MMVirt", "- User LR = 0x%x", UserLR);
+	Log_Error("MMVirt", "- User LR = 0x%x, System LR = 0x%x", UserLR, SystemLR);
 	const char * const dfsr_errors[] = {
 		/* 00000 */ "-", "Alignment Fault",
 		/* 00010 */ "Debug event", "Access Flag (Section)",

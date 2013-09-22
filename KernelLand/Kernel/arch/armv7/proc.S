@@ -62,10 +62,12 @@ SwitchTask:
 Proc_CloneInt:
 	@ R0: SP Destination
 	@ R1: Mem Destination
+	@ R2: Clear user space
 	push {r4-r12,lr}
 	mov r4, r1	@ Save mem destination
 	str sp, [r0]	@ Save SP to SP dest
 
+	mov r0, r2
 	bl MM_Clone
 	str r0, [r4]	@ Save clone return to Mem Dest
 

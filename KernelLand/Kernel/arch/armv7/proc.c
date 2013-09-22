@@ -16,7 +16,7 @@ extern void	SwitchTask(Uint32 NewSP, Uint32 *OldSP, Uint32 NewIP, Uint32 *OldIP,
 extern void	KernelThreadHeader(void);	// Actually takes args on stack
 extern void	Proc_int_DropToUser(Uint32 IP, Uint32 SP) NORETURN __attribute__((long_call));
 extern Uint32	Proc_int_SwapUserSP(Uint32 NewSP);
-extern Uint32	Proc_CloneInt(Uint32 *SP, Uint32 *MemPtr);
+extern Uint32	Proc_CloneInt(Uint32 *SP, Uint32 *MemPtr, bool ClearUser);
 extern tVAddr	MM_NewKStack(int bGlobal);	// TODO: Move out into a header
 extern tVAddr	MM_NewUserStack(void);
 extern char	kernel_table0[];
@@ -64,7 +64,6 @@ tThread *Proc_GetCurThread(void)
 
 void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, const char **ArgV, int DataSize)
 {
-	Uint32	*usr_sp;
 	 int	i;
 	const char	**envp;
 	tVAddr	delta;
@@ -73,7 +72,10 @@ void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, const char **ArgV, int
 //		Entrypoint, Base, ArgC, ArgV, DataSize);
 
 	// Write data to the user's stack
-	usr_sp = (void*)MM_NewUserStack();
+	Uint32 *usr_sp = (void*)MM_NewUserStack();
+	if( !usr_sp ) {
+		Log_KernelPanic("Proc", "Creation of user stack failed");
+	}
 	usr_sp -= (DataSize+3)/4;
 	memcpy(usr_sp, ArgV, DataSize);
 	free(ArgV);
@@ -113,7 +115,7 @@ tTID Proc_Clone(Uint Flags)
 	if(!new)	return -1;
 
 	// Actual clone magic
-	pc = Proc_CloneInt(&sp, &mem);
+	pc = Proc_CloneInt(&sp, &mem, (Flags & CLONE_NOUSER ? 1 : 0));
 	if(pc == 0) {
 		Log("Proc_Clone: In child");
 		return 0;
@@ -208,13 +210,12 @@ void Proc_Reschedule(void)
 	if(!next)	next = gpIdleThread;
 	if(!next || next == cur)	return;
 
-	Log("Switching to %p (%i %s) IP=%p SP=%p TTBR0=%p UsrSP=%p",
-		next, next->TID, next->ThreadName,
-		next->SavedState.IP, next->SavedState.SP, next->Process->MemState.Base,
-		next->SavedState.UserSP
-		);
-
-	Log("Requested by %p", __builtin_return_address(0));
+//	Log("Switching to %p (%i %s) IP=%p SP=%p TTBR0=%p UsrSP=%p",
+//		next, next->TID, next->ThreadName,
+//		next->SavedState.IP, next->SavedState.SP, next->Process->MemState.Base,
+//		next->SavedState.UserSP
+//		);
+//	Log("Requested by %p", __builtin_return_address(0));
 	
 	gpCurrentThread = next;
 
