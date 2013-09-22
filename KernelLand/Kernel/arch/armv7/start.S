@@ -16,8 +16,17 @@ ivt_unused:	b .     	@ 0x14 Not Used
 ivt_irq:	b IRQHandler	@ 0x18 IRQ
 ivt_fiq:	b .     	@ 0x1C FIQ (Fast interrupt)
 
+init_lock:	.long 0
+
+.extern SHORTLOCK
 .globl _start
 _start:
+	ldr r1, =init_lock
+	mov r0, #1
+	swp r0, r0, [r1]
+	tst r0,r0
+	bne .smp_halt
+	
 	ldr r2, =UART0_PADDR
 	mov r1, #'A'
 	str r1, [r2]	
@@ -116,6 +125,8 @@ _start:
 	ldr r0, =kmain
 	mov pc, r0
 1:	b 1b	@ Infinite loop
+.smp_halt:
+1:	b 1b
 
 .comm irqstack, 0x1000	@ ; 4KiB Stack
 .comm abortstack, 0x1000	@ ; 4KiB Stack
