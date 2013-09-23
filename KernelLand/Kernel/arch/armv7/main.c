@@ -18,6 +18,7 @@ extern void	Threads_Init(void);
 extern void	System_Init(const char *Commandline);
 extern void	Time_Setup(void);
 extern void	Debug_int_SerialIRQHandler(int IRQ, void *unused);
+extern int	EHCI_InitController(tPAddr BaseAddress, Uint8 InterruptNum);
 
 // === PROTOTYPES ===
  int	kmain(void);
@@ -26,7 +27,7 @@ Uint32	ARMv7_int_HandleSyscalls(Uint32 Num, Uint32 *Args);
 // === CODE ===
 int kmain(void)
 {
-	LogF("Acess2 ARMv7 v"EXPAND_STR(KERNEL_VERSION)"\n");
+	LogF("Acess2 ARMv7 "PLATFORM" v"EXPAND_STR(KERNEL_VERSION)"\n");
 	LogF(" Git Hash %s\n", gsGitHash);
 	LogF(" Build %i\n", BUILD_NUM);
 	
@@ -50,7 +51,11 @@ int kmain(void)
 
 	//
 	LogF("Moving to arch-independent init\n");
+	// ARM_PerPlatformInit();	// Calls System_Init
 	#if PLATFORM_is_tegra2
+	EHCI_InitController(0xc5000000+0x100, 20);
+	EHCI_InitController(0xc5004000+0x100, 21);
+	EHCI_InitController(0xc5005000+0x100, 97);
 	System_Init("Acess2.armv7.bin /Acess=initrd: -VTerm:Video=Tegra2Vid");
 	#else
 	System_Init("Acess2.armv7.bin /Acess=initrd: -VTerm:Video=PL110");
