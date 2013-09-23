@@ -531,6 +531,8 @@ ACPI_STATUS AcpiOsReadMemory(ACPI_PHYSICAL_ADDRESS Address, UINT64 *Value, UINT3
 		MM_FreeTemp(ptr);
 	}
 
+	LOG("*%P = [%i]%X", Address, Width, *Value);
+
 	return AE_OK;
 }
 
@@ -554,7 +556,7 @@ ACPI_STATUS AcpiOsWriteMemory(ACPI_PHYSICAL_ADDRESS Address, UINT64 Value, UINT3
 		return AE_BAD_PARAMETER;
 	}
 
-	if( Address >= 1024*1024 ) {
+	if( Address >= ONEMEG ) {
 		MM_FreeTemp(ptr);
 	}
 	
