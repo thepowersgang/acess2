@@ -138,6 +138,9 @@ int EHCI_InitController(tPAddr BaseAddress, Uint8 InterruptNum)
 {
 	tEHCI_Controller	*cont = NULL;
 
+	ENTER("PBaseAddress iInterruptNum",
+		BaseAddress, InterruptNum);
+
 	for( int i = 0; i < EHCI_MAX_CONTROLLERS; i ++ )
 	{
 		if( gaEHCI_Controllers[i].PhysBase == 0 ) {
@@ -149,6 +152,7 @@ int EHCI_InitController(tPAddr BaseAddress, Uint8 InterruptNum)
 	if(!cont) {
 		Log_Notice("EHCI", "Too many controllers (EHCI_MAX_CONTROLLERS=%i)",
 			EHCI_MAX_CONTROLLERS);
+		LEAVE('i', 1);
 		return 1;
 	}
 
@@ -163,6 +167,7 @@ int EHCI_InitController(tPAddr BaseAddress, Uint8 InterruptNum)
 		Log_Warning("EHCI", "Can't map 1 page at %P into kernel space", BaseAddress);
 		goto _error;
 	}
+	LOG("cont->CapRegs = %p", cont->CapRegs);
 	// TODO: Error check
 	if( (cont->CapRegs->CapLength & 3) ) {
 		Log_Warning("EHCI", "Controller at %P non-aligned op regs (%x)",
@@ -176,6 +181,7 @@ int EHCI_InitController(tPAddr BaseAddress, Uint8 InterruptNum)
 		goto _error;
 	}
 	cont->OpRegs = (void*)( (Uint32*)cont->CapRegs + cont->CapRegs->CapLength / 4 );
+	LOG("cont->OpRegs = %p", cont->OpRegs);
 	// - Allocate periodic queue
 	tPAddr	unused;
 	cont->PeriodicQueue = (void*)MM_AllocDMA(1, 32, &unused);
@@ -200,6 +206,7 @@ int EHCI_InitController(tPAddr BaseAddress, Uint8 InterruptNum)
 
 	// Get port count
 	cont->nPorts = cont->CapRegs->HCSParams & 0xF;
+	LOG("cont->nPorts = %i", cont->nPorts);
 
 	// -- Bind IRQ --
 	IRQ_AddHandler(InterruptNum, EHCI_InterruptHandler, cont);
@@ -230,7 +237,9 @@ int EHCI_InitController(tPAddr BaseAddress, Uint8 InterruptNum)
 
 	// -- Register with USB Core --
 	cont->RootHub = USB_RegisterHost(&gEHCI_HostDef, cont, cont->nPorts);
+	LOG("cont->RootHub = %p", cont->RootHub);
 
+	LEAVE('i', 0);
 	return 0;
 _error:
 	cont->PhysBase = 0;
@@ -240,6 +249,7 @@ _error:
 		MM_Deallocate( (tVAddr)cont->PeriodicQueue );
 	if( cont->TDPool )
 		MM_Deallocate( (tVAddr)cont->TDPool );
+	LEAVE('i', 2);
 	return 2;
 }
 
@@ -267,14 +277,14 @@ void EHCI_InterruptHandler(int IRQ, void *Ptr)
 
 	if( sts & USBINTR_PortChange ) {
 		// Port change, determine what port and poke helper thread
-		LOG("Port status change");
+		LOG("%p Port status change", Ptr);
 		Threads_PostEvent(Cont->InterruptThread, EHCI_THREADEVENT_PORTSC);
 		sts &= ~USBINTR_PortChange;
 	}
 	
 	if( sts & USBINTR_FrameRollover ) {
 		// Frame rollover, used to aid timing (trigger per-second operations)
-		LOG("Frame rollover");
+		LOG("%p Frame rollover", Ptr);
 		sts &= ~USBINTR_FrameRollover;
 	}
 
