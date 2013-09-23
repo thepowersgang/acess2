@@ -49,6 +49,7 @@ void Timer_IRQHandler_SysClock(int IRQ, void *_unused)
 {
 	giTimestamp += 100;
 	gpTimersMap->TMR1.PCR_0 = (1<<30);
+	Timer_CallTimers();
 }
 
 void Timer_IRQHandler_Timer2(int IRQ, void *_unused)
