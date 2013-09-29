@@ -1259,7 +1259,7 @@ void Threads_int_DumpThread(tThread *thread)
 			);
 		break;
 	case THREAD_STAT_EVENTSLEEP:
-		// TODO: Event mask
+		Log("  Event Mask: %x", thread->RetStatus);
 		break;
 	case THREAD_STAT_ZOMBIE:
 		Log("  Return Status: %i", thread->RetStatus);
