@@ -55,4 +55,5 @@ Tools/img2sif
 Tools/udibuild/udibuild
 
 UDI/*.udi
+UDI/drivers/*/bin
 UDI/ia32/
