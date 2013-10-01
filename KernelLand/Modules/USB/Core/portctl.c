@@ -61,8 +61,13 @@ void USB_PortCtl_Worker(void *Unused)
 			LOG("Port enabling");
 			USB_PortCtl_SetPortFeature(hub, port->PortNum, PORT_ENABLE);
 			// Begin connect processing
+			LOG("Reset complete, marking connection");
 			port->Status = 2;
 			USB_DeviceConnected(hub, port->PortNum);
+			break;
+		default:
+			Log_Warning("USB", "PortCtl worker: Unknown port state %i",
+				port->Status);
 			break;
 		}
 	}
@@ -76,6 +81,7 @@ void USB_PortCtl_BeginReset(tUSBHub *Hub, int Port)
 	Hub->Ports[Port].PortNum = Port;
 	// Add to the work queue
 	Workqueue_AddWork(&gUSB_PortCtl_WorkQueue, &Hub->Ports[Port]);
+	LOG("Queue added");
 }
 
 void USB_PortCtl_SetPortFeature(tUSBHub *Hub, int Port, int Feat)
