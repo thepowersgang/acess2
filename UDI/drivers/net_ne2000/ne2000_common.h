@@ -9,7 +9,20 @@
 #define _NE2000_COMMON_H_
 
 #include <udi.h>
+#include <udi_physio.h>
 #include <udi_nic.h>
+
+#include "ne2000_hw.h"
+
+#define ARRAY_SIZEOF(arr)	(sizeof(arr)/sizeof(arr[0]))
+
+typedef struct
+{
+	udi_init_context_t	init_context;
+	
+	udi_pio_handle_t	pio_handle;
+	udi_ubit8_t	macaddr[6];
+} ne2k_rdata_t;
 
 // === MACROS ===
 /* Copied from http://projectudi.cvs.sourceforge.net/viewvc/projectudi/udiref/driver/udi_dpt/udi_dpt.h */
@@ -36,6 +49,10 @@
 		(attr)->attr_type = UDI_ATTR_STRING; \
 		(attr)->attr_length = (len); \
 		udi_strncpy_rtrim((char *)(attr)->attr_value, (val), (len))
+#define NE2K_SET_ATTR_STRFMT(attr, name, maxlen, fmt, ...) \
+		udi_strcpy((attr)->attr_name, (name)); \
+		(attr)->attr_type = UDI_ATTR_STRING; \
+		(attr)->attr_length = udi_snprintf((char *)(attr)->attr_value, (maxlen), (fmt) ,## __VA_LIST__ )
 
 extern udi_channel_event_ind_op_t	ne2k_bus_dev_channel_event_ind;
 extern udi_bus_bind_ack_op_t	ne2k_bus_dev_bus_bind_ack;
