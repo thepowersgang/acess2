@@ -60,6 +60,8 @@ tIniFile *IniFile_Load(const char *Path)
 	char buf[512];
 	while( fgets(buf, sizeof(buf)-1, fp) )
 	{
+		if( strchr(buf, '#') )
+			*strchr(buf, '#') = '\0';
 		rtrim(buf);
 		char name[64];
 		size_t ofs = 0;

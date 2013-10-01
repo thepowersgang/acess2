@@ -76,10 +76,12 @@ int Build_LinkObjects(tIniFile *opts, const char *abi, tUdiprops *udiprops)
 	mkdir(abidir, 0755);
 	free(abidir);
 	
-	char *cmd = mkstr("%s %s -o bin/%s/%s -r %s",
+	char *cmd = mkstr("%s -r %s -o bin/%s/%s -s %s",
 		linker, IniFile_Get(opts, abi, "LDFLAGS", ""),
-		abi, udiprops->ModuleName, objfiles_str);
+		abi, udiprops->ModuleName, objfiles_str
+		);
 	printf("--- Linking: bin/%s/%s\n", abi, udiprops->ModuleName);
+	printf("%s\n", cmd);
 	int rv = system(cmd);
 	free(cmd);
 	free(objfiles_str);

@@ -16,10 +16,11 @@
 #include "include/inifile.h"
 #include "include/udiprops.h"
 
+#define CONFIG_FILENAME	"udibuild.ini"
 #ifdef __ACESS__
-#define CONFIG_FILE	"/Acess/Conf/UDI/udibuild.ini"
+#define RUNTIME_DIR	"/Acess/Conf/UDI"
 #else
-#define CONFIG_FILE	"/etc/udi/udibuild.ini"
+#define RUNTIME_DIR	"/etc/udi"
 #endif
 
 // === PROTOTYPES ===
@@ -28,6 +29,7 @@
 void	Usage(const char *progname);
 
 // === GLOBALS ===
+const char *gsRuntimeDir = RUNTIME_DIR;
 const char *gsOpt_ConfigFile;
 const char *gsOpt_WorkingDir;
 const char *gsOpt_UdipropsFile;
@@ -54,8 +56,8 @@ int main(int argc, char *argv[])
 	if( !gsOpt_ConfigFile && (argv[0][0] == '.' || argv[0][0] == '/') ) {
 		char *last_slash = strrchr(argv[0], '/');
 		if( last_slash ) {
-			gsOpt_ConfigFile = mkstr("%.*s/udibuild.ini",
-				last_slash-argv[0], argv[0]);
+			gsOpt_ConfigFile = mkstr("%.*s/%s",
+				last_slash-argv[0], argv[0], CONFIG_FILENAME);
 		}
 		//if( !file_exists(gsOpt_ConfigFile) ) {
 		//	free(gsOpt_ConfigFile);
@@ -63,11 +65,11 @@ int main(int argc, char *argv[])
 		//}
 	}
 	// 3. Check ~/.config/udi/udibuild.ini
-	// 4. Check CONFIGNAME
+	// 4. Check RUNTIME_DIR/udibuild.ini
 
 	// #. Oh well	
 	if( !gsOpt_ConfigFile ) {
-		fprintf(stderr, "Can't locate udibuild.ini file, please specify using '-c'\n");
+		fprintf(stderr, "Can't locate "CONFIG_FILENAME" file, please specify using '-c'\n");
 		exit(2);
 	}
 	
