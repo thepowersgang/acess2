@@ -17,3 +17,9 @@ OBJ += $(LIB_OBJS:%=udi_lib/%) $(TRANS_OBJS:%=trans/%)
 NAME = UDI
 
 -include ../Makefile.tpl
+
+ifeq ($(ARCHDIR),x86)
+ CPPFLAGS += -DUDI_ABI_is_ia32
+else
+ $(error TODO: Support other UDI ABIs [$(ARCHDIR) unsupported])
+endif

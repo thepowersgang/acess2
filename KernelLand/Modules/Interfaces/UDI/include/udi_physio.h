@@ -10,7 +10,7 @@
 // DMA Core
 typedef _udi_handle_t	udi_dma_handle_t;
 #define	UDI_NULL_DMA_HANDLE	_NULL_HANDLE
-typedef Uint64	udi_busaddr64_t;	//!< \note Opaque
+typedef uint64_t	udi_busaddr64_t;	//!< \note Opaque
 typedef struct udi_scgth_element_32_s	udi_scgth_element_32_t;
 typedef struct udi_scgth_element_64_s	udi_scgth_element_64_t;
 typedef struct udi_scgth_s	udi_scgth_t;

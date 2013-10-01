@@ -7,6 +7,7 @@
  */
 #include <udi.h>
 #include <udi_physio.h>
+#include <acess.h>
 #include <drv_pci.h>	// acess
 
 // === MACROS ===
