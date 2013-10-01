@@ -53,6 +53,12 @@ static void rtrim(char *str)
 		*--pos = '\0';
 }
 
+static char *my_strdup(const char *str)
+{
+	char *ret = malloc(strlen(str)+1);
+	return strcpy(ret, str);
+}
+
 tUdiprops *Udiprops_LoadBuild(const char *Filename)
 {
 	FILE *fp = fopen(Filename, "r");
@@ -77,7 +83,9 @@ tUdiprops *Udiprops_LoadBuild(const char *Filename)
 		if( !str[0] )	continue ;
 		
 		int sym = _get_token_sym(str, (const char**)&str,
-			"source_files", "compile_options", "source_requires", NULL);
+			"source_files", "compile_options", "source_requires",
+			"module",
+			NULL);
 		switch(sym)
 		{
 		case 0:	// source_files
@@ -89,20 +97,23 @@ tUdiprops *Udiprops_LoadBuild(const char *Filename)
 				strcpy((char*)srcfile->Filename, file);
 				
 				n_srcfiles ++;
-				ret->SourceFiles = realloc(ret->SourceFiles, (n_srcfiles+1)*sizeof(void*));
+				ret->SourceFiles = realloc(ret->SourceFiles, n_srcfiles*sizeof(void*));
 				ret->SourceFiles[n_srcfiles-1] = srcfile;
-				ret->SourceFiles[n_srcfiles] = NULL;
 			}
 			break;
 		case 1:	// compile_options
-			current_compile_opts = malloc(strlen(str)+1);
-			strcpy(current_compile_opts, str);
+			current_compile_opts = my_strdup(str);
 			break;
 		case 2:	// source_requires
 			// TODO: Use source_requires
 			break;
+		case 3:	// module
+			ret->ModuleName = my_strdup(str);
+			break;
 		}
 	}
+	
+	ret->nSourceFiles = n_srcfiles;
 	
 	// "Intentional" memory leak
 	// - current_compile_opts not freed, and shared between srcfiles

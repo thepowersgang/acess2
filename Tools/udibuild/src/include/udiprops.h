@@ -20,6 +20,8 @@ struct sUdiprops_Srcfile
 
 struct sUdiprops
 {
+	const char	*ModuleName;
+	 int	nSourceFiles;
 	tUdiprops_Srcfile	**SourceFiles;
 };
 

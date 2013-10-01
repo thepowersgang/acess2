@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
 	assert(gpUdipropsBuild->SourceFiles);
 
 	// Do build
-	for( int i = 0; gpUdipropsBuild->SourceFiles[i]; i ++ )
+	for( int i = 0; i < gpUdipropsBuild->nSourceFiles; i ++ )
 	{
 		int rv = Build_CompileFile(gpOptions, gsOpt_ABIName, gpUdipropsBuild,
 			gpUdipropsBuild->SourceFiles[i]);
