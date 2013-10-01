@@ -7,8 +7,8 @@
  */
 #include <stdlib.h>
 #include <stdio.h>
-#include <stdarg.h>
 #include "include/build.h"
+#include "include/common.h"
 
 #ifndef __GNUC__
 # define __attribute__(...)
@@ -16,7 +16,6 @@
 
 // === PROTOTYPES ===
 char	*get_objfile(tIniFile *opts, const char *srcfile);
-char	*mkstr(const char *fmt, ...) __attribute__((format(printf,1,2)));
 
 // === CODE ===
 int Build_CompileFile(tIniFile *opts, const char *abi, tUdiprops *udiprops, tUdiprops_Srcfile *srcfile)
@@ -57,17 +56,3 @@ char *get_objfile(tIniFile *opts, const char *srcfile)
 {
 	return mkstr("%s.o", srcfile);
 }
-
-char *mkstr(const char *fmt, ...)
-{
-	va_list args;
-	va_start(args, fmt);
-	size_t len = vsnprintf(NULL, 0, fmt, args);
-	va_end(args);
-	va_start(args, fmt);
-	char *ret = malloc(len+1);
-	vsnprintf(ret, len+1, fmt, args);
-	va_end(args);
-	return ret;
-}
-

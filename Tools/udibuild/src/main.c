@@ -9,7 +9,9 @@
 #include <stdlib.h>
 #include <unistd.h>	// getopt
 #include <getopt.h>
+#include <string.h>	// strrchr
 #include <assert.h>
+#include "include/common.h"
 #include "include/build.h"
 #include "include/inifile.h"
 #include "include/udiprops.h"
@@ -41,19 +43,35 @@ int main(int argc, char *argv[])
 	}
 
 	// Locate udibuild.ini
-	if( NULL == gsOpt_ConfigFile )
-	{
-		// 1. Check CWD
+	// 1. Check CWD
+	if( !gsOpt_ConfigFile ) {
 		//if( file_exists("./udibuild.ini") )
 		//{
 		//	gsOpt_ConfigFile = "udibuild.ini";
 		//}
-		// 2. Check program dir (if not invoked from PATH)
-		// 3. Check ~/.config/udi/udibuild.ini
-		// 4. Check CONFIGNAME
-		
+	}
+	// 2. Check program dir (if not invoked from PATH)
+	if( !gsOpt_ConfigFile && (argv[0][0] == '.' || argv[0][0] == '/') ) {
+		char *last_slash = strrchr(argv[0], '/');
+		if( last_slash ) {
+			gsOpt_ConfigFile = mkstr("%.*s/udibuild.ini",
+				last_slash-argv[0], argv[0]);
+		}
+		//if( !file_exists(gsOpt_ConfigFile) ) {
+		//	free(gsOpt_ConfigFile);
+		//	gsOpt_ConfigFile = NULL;
+		//}
+	}
+	// 3. Check ~/.config/udi/udibuild.ini
+	// 4. Check CONFIGNAME
+
+	// #. Oh well	
+	if( !gsOpt_ConfigFile ) {
+		fprintf(stderr, "Can't locate udibuild.ini file, please specify using '-c'\n");
 		exit(2);
 	}
+	
+	// Load udibuild.ini
 	gpOptions = IniFile_Load(gsOpt_ConfigFile);
 	assert(gpOptions);
 
@@ -126,5 +144,18 @@ void Usage(const char *progname)
 		"-f udiprops.txt : Override the default udiprops file\n"
 		"-a abiname      : Select a different ABI\n"
 		"\n");
+}
+
+char *mkstr(const char *fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+	size_t len = vsnprintf(NULL, 0, fmt, args);
+	va_end(args);
+	va_start(args, fmt);
+	char *ret = malloc(len+1);
+	vsnprintf(ret, len+1, fmt, args);
+	va_end(args);
+	return ret;
 }
 
