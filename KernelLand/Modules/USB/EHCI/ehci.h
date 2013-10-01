@@ -168,6 +168,7 @@ struct sEHCI_OpRegs
 #define USBCMD_HCReset	0x0002
 #define USBCMD_PeriodicEnable	0x0010
 #define USBCMD_AsyncEnable	0x0020
+#define USBCMD_IAAD	0x0040
 
 #define USBINTR_IOC	0x0001
 #define USBINTR_Error	0x0002
@@ -237,11 +238,17 @@ struct sEHCI_qTD
 	Uint32	Pages[5];	//First has offset in low 12 bits
 	
 	// Internals (32 bytes = 4x 64-bit pointers)
-	tUSBHostCb	*Callback;
+	tUSBHostCb	Callback;
 	void	*CallbackData;
-	tEHCI_qTD	*Next;
+	tEHCI_qTD	*Next;	// Next in list of active TDs
+	size_t	Size;
 } __attribute__((aligned(32)));
 // sizeof = 64
+
+#define QTD_TOKEN_DATATGL	(1<<31)
+#define QTD_TOKEN_IOC   	(1<<15)
+#define QTD_TOKEN_STS_ACTIVE	(1<< 7)
+#define QTD_TOKEN_STS_HALT	(1<< 6)
 
 // Queue Head
 struct sEHCI_QH
@@ -264,6 +271,8 @@ struct sEHCI_QH
 } __attribute__((aligned(32)));
 // sizeof = 48 (round up to 64)
 
+#define QH_ENDPT_H	(1<<15)
+
 #define PID_OUT 	0
 #define PID_IN  	1
 #define PID_SETUP	2
@@ -285,9 +294,14 @@ struct sEHCI_Controller
 	tEHCI_OpRegs	*OpRegs;
 
 	tEHCI_qTD	*DeadTD;
+	tEHCI_QH	*DeadQH;
 
 	 int	InterruptLoad[PERIODIC_SIZE];
 	tEHCI_QH	*LastAsyncHead;
+	
+	tMutex	ActiveTDsLock;
+	tEHCI_qTD	*ActiveTDHead;
+	tEHCI_qTD	*ActiveTDTail;
 	
 	tMutex  	PeriodicListLock;
 	Uint32  	*PeriodicQueue;

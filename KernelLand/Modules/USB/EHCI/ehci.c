@@ -217,6 +217,19 @@ int EHCI_InitController(tPAddr BaseAddress, Uint8 InterruptNum)
 	}
 	LOG("cont->InterruptThread = %p", cont->InterruptThread);
 
+	// Dummy TD
+	cont->DeadTD = EHCI_int_AllocateTD(cont, 0, NULL, 0, NULL, NULL);
+	memset(cont->DeadTD, 0, sizeof(tEHCI_qTD));
+	cont->DeadTD->Link = 1;
+	cont->DeadTD->Link2 = 1;
+	cont->DeadTD->Token = QTD_TOKEN_STS_HALT;
+	
+	// Dummy QH
+	cont->DeadQH = EHCI_int_AllocateQH(cont, 0, 0);
+	memset(cont->DeadQH, 0, sizeof(tEHCI_QH));
+	cont->DeadQH->HLink = MM_GetPhysAddr(cont->DeadQH)|22;
+	cont->DeadQH->Endpoint = (1<<15);	// H - Head of Reclamation List
+
 	// -- Initialisation procedure (from ehci-r10) --
 	// - Reset controller
 	cont->OpRegs->USBCmd = USBCMD_HCReset;
@@ -225,15 +238,12 @@ int EHCI_InitController(tPAddr BaseAddress, Uint8 InterruptNum)
 	cont->OpRegs->USBIntr = USBINTR_IOC|USBINTR_PortChange|USBINTR_FrameRollover;
 	// - Set PERIODICLIST BASE
 	cont->OpRegs->PeridocListBase = MM_GetPhysAddr( cont->PeriodicQueue );
+	// - Set ASYNCLISTADDR
+	cont->OpRegs->AsyncListAddr = MM_GetPhysAddr(cont->DeadQH);
 	// - Enable controller
-	cont->OpRegs->USBCmd = (0x40 << 16) | USBCMD_PeriodicEnable | USBCMD_Run;
+	cont->OpRegs->USBCmd = (0x40 << 16) | USBCMD_PeriodicEnable | USBCMD_AsyncEnable | USBCMD_Run;
 	// - Route all ports
 	cont->OpRegs->ConfigFlag = 1;
-
-	cont->DeadTD = EHCI_int_AllocateTD(cont, 0, NULL, 0, NULL, NULL);
-	cont->DeadTD->Link = 1;
-	cont->DeadTD->Link2 = 1;
-	cont->DeadTD->Token = 0;
 
 	// -- Register with USB Core --
 	cont->RootHub = USB_RegisterHost(&gEHCI_HostDef, cont, cont->nPorts);
@@ -257,9 +267,7 @@ void EHCI_InterruptHandler(int IRQ, void *Ptr)
 {
 	tEHCI_Controller *Cont = Ptr;
 	Uint32	sts = Cont->OpRegs->USBSts;
-	
-	// Clear interrupts
-	Cont->OpRegs->USBSts = sts;	
+	Uint32	orig_sts = sts;
 
 	if( sts & 0xFFFF0FC0 ) {
 		LOG("Oops, reserved bits set (%08x), funny hardware?", sts);
@@ -271,20 +279,31 @@ void EHCI_InterruptHandler(int IRQ, void *Ptr)
 
 	if( sts & USBINTR_IOC ) {
 		// IOC
+		LOG("%P IOC", Cont->PhysBase);
 		Threads_PostEvent(Cont->InterruptThread, EHCI_THREADEVENT_IOC);
 		sts &= ~USBINTR_IOC;
 	}
 
+	if( sts & USBINTR_AsyncAdvance ) {
+		LOG("%P IAAD", Cont->PhysBase);
+		#if 0
+		if( Cont->AsyncQHAddHead )
+		{
+		}
+		#endif
+		sts &= ~USBINTR_AsyncAdvance;
+	}
+
 	if( sts & USBINTR_PortChange ) {
 		// Port change, determine what port and poke helper thread
-		LOG("%p Port status change", Ptr);
+		LOG("%P Port status change", Cont->PhysBase);
 		Threads_PostEvent(Cont->InterruptThread, EHCI_THREADEVENT_PORTSC);
 		sts &= ~USBINTR_PortChange;
 	}
 	
 	if( sts & USBINTR_FrameRollover ) {
 		// Frame rollover, used to aid timing (trigger per-second operations)
-		LOG("%p Frame rollover", Ptr);
+		//LOG("%p Frame rollover", Ptr);
 		sts &= ~USBINTR_FrameRollover;
 	}
 
@@ -295,6 +314,8 @@ void EHCI_InterruptHandler(int IRQ, void *Ptr)
 	}
 
 
+	// Clear interrupts
+	Cont->OpRegs->USBSts = orig_sts;
 }
 
 // --------------------------------------------------------------------
@@ -306,10 +327,8 @@ void *EHCI_InitInterrupt(void *Ptr, int Endpoint, int bOutbound, int Period,
 	tEHCI_Controller	*Cont = Ptr;
 	 int	pow2period, period_pow;
 	
-	if( Endpoint >= 256*16 )
-		return NULL;
-	if( Period <= 0 )
-		return NULL;
+	ASSERTCR(Endpoint, <, 256*16, NULL);
+	ASSERTCR(Period, >, 0, NULL);
 	if( Period > 256 )
 		Period = 256;
 
@@ -331,10 +350,12 @@ void *EHCI_InitInterrupt(void *Ptr, int Endpoint, int bOutbound, int Period,
 		Period = pow2period/2;
 		period_pow --;
 	}
+	LOG("period_pow = %i, Period = %ims", period_pow, Period);
 	
 	// Allocate a QH
 	tEHCI_QH *qh = EHCI_int_AllocateQH(Cont, Endpoint, Length);
 	qh->Impl.IntPeriodPow = period_pow;
+	qh->EndpointExt |= 1;	// TODO: uFrame load balancing (8 entry bitfield)
 
 	Mutex_Acquire(&Cont->PeriodicListLock);
 
@@ -355,6 +376,7 @@ void *EHCI_InitInterrupt(void *Ptr, int Endpoint, int bOutbound, int Period,
 	for( int i = minslot; i < PERIODIC_SIZE; i += Period )
 		Cont->InterruptLoad[i] += Length;
 	qh->Impl.IntOfs = minslot;
+	LOG("Using slot %i", minslot);
 
 	// Allocate TD for the data
 	tEHCI_qTD *td = EHCI_int_AllocateTD(Cont, (bOutbound ? PID_OUT : PID_IN), Buf, Length, Cb, CbData);
@@ -412,31 +434,32 @@ void *EHCI_InitInterrupt(void *Ptr, int Endpoint, int bOutbound, int Period,
 
 void *EHCI_InitIsoch(void *Ptr, int Endpoint, size_t MaxPacketSize)
 {
-	return (void*)(tVAddr)(Endpoint + 1);
+	ENTER("pPtr iEndpoint iMaxPacketSize",
+		Ptr, Endpoint, MaxPacketSize);
+	LEAVE_RET('p', (void*)(tVAddr)(Endpoint + 1));
 }
 void *EHCI_InitControl(void *Ptr, int Endpoint, size_t MaxPacketSize)
 {
 	tEHCI_Controller *Cont = Ptr;
 	
+	ENTER("pPtr iEndpoint iMaxPacketSize",
+		Ptr, Endpoint, MaxPacketSize);
+	
 	// Allocate a QH
 	tEHCI_QH *qh = EHCI_int_AllocateQH(Cont, Endpoint, MaxPacketSize);
 	qh->CurrentTD = MM_GetPhysAddr(Cont->DeadTD);
 
-	// Append to async list	
-	if( Cont->LastAsyncHead ) {
-		Cont->LastAsyncHead->HLink = MM_GetPhysAddr(qh)|2;
-		Cont->LastAsyncHead->Impl.Next = qh;
-		LOG("- Placed after %p", Cont->LastAsyncHead);
-	}
-	else {
-		Cont->OpRegs->AsyncListAddr = MM_GetPhysAddr(qh)|2;
-	}
-	qh->HLink = Cont->OpRegs->AsyncListAddr;
-	Cont->OpRegs->USBCmd |= USBCMD_AsyncEnable;
-	Cont->LastAsyncHead = qh;
+	// Append to async list
+	// TODO: Lock async list
+	qh->Impl.Next = Cont->DeadQH->Impl.Next;
+	Cont->DeadQH->Impl.Next = qh;
+	qh->HLink = Cont->DeadQH->HLink;
+	Cont->DeadQH->HLink = MM_GetPhysAddr(qh)|2;
 
-	LOG("Created %p for %p Ep 0x%x - %i bytes MPS", qh, Ptr, Endpoint, MaxPacketSize);
+	LOG("Created %p(%P) for %P Ep 0x%x - %i bytes MPS",
+		qh, MM_GetPhysAddr(qh), Cont->PhysBase, Endpoint, MaxPacketSize);
 
+	LEAVE('p', qh);
 	return qh;
 }
 void *EHCI_InitBulk(void *Ptr, int Endpoint, size_t MaxPacketSize)
@@ -480,9 +503,10 @@ void *EHCI_SendControl(void *Ptr, void *Dest, tUSBHostCb Cb, void *CbData,
 	if( (tVAddr)Dest <= 256*16 )
 		return NULL;
 
-	LOG("Dest=%p, isOutbound=%i, Lengths(Setup:%i,Out:%i,In:%i)", Dest, isOutbound, SetupLength, OutLength, InLength);
+	LOG("Dest=%p, isOutbound=%i, Lengths(Setup:%i,Out:%i,In:%i)",
+		Dest, isOutbound, SetupLength, OutLength, InLength);
 
-	// Check size of SETUP and status
+	// TODO: Check size of SETUP and status
 	
 	// Allocate TDs
 	td_setup = EHCI_int_AllocateTD(Cont, PID_SETUP, (void*)SetupData, SetupLength, NULL, NULL);
@@ -495,22 +519,28 @@ void *EHCI_SendControl(void *Ptr, void *Dest, tUSBHostCb Cb, void *CbData,
 	{
 		td_data = InData ? EHCI_int_AllocateTD(Cont, PID_IN, InData, InLength, NULL, NULL) : NULL;
 		td_status = EHCI_int_AllocateTD(Cont, PID_OUT, (void*)OutData, OutLength, Cb, CbData);
-		td_status->Token |= (1 << 15);	// IOC
 	}
+	td_status->Token |= QTD_TOKEN_IOC;	// IOC
 
 	// Append TDs
 	if( td_data ) {
 		td_setup->Link = MM_GetPhysAddr(td_data);
-		td_data->Link = MM_GetPhysAddr(td_status) | 1;
-		td_data->Token |= (1 << 8);	// Active
+		td_setup->Next = td_data;
+		td_data->Link = MM_GetPhysAddr(td_status);
+		td_data->Next = td_status;
+		td_data->Token |= QTD_TOKEN_STS_ACTIVE;	// Active
 	}
 	else {
-		td_setup->Link = MM_GetPhysAddr(td_status) | 1;
+		td_setup->Link = MM_GetPhysAddr(td_status);
+		td_setup->Next = td_status;
 	}
-	td_setup->Token |= (1 << 8);	// Active
-	td_status->Token |= (1 << 8);
+	td_setup->Token |= QTD_TOKEN_STS_ACTIVE;	// Active
+	td_status->Token |= QTD_TOKEN_STS_ACTIVE;
+	td_status->Link = 1;
+	td_status->Link2 = 1;
 	EHCI_int_AppendTD(Cont, Dest, td_setup);
 
+	LOG("return td_status=%p", td_status);
 	return td_status;
 }
 
@@ -525,7 +555,7 @@ void *EHCI_SendBulk(void *Ptr, void *Dest, tUSBHostCb Cb, void *CbData, int Dir,
 	
 	// Allocate single TD
 	tEHCI_qTD	*td = EHCI_int_AllocateTD(Cont, (Dir ? PID_OUT : PID_IN), Data, Length, Cb, CbData);
-	EHCI_int_AppendTD(Cont, Dest, td);	
+	EHCI_int_AppendTD(Cont, Dest, td);
 
 	return td;
 }
@@ -592,13 +622,24 @@ tEHCI_qTD *EHCI_int_AllocateTD(tEHCI_Controller *Cont, int PID, void *Data, size
 		if( ((Cont->TDPool[i].Token >> 8) & 3) != 3 )
 			continue ;
 		Cont->TDPool[i].Token = (PID << 8) | (Length << 16);
-		// NOTE: Assumes that `Length` is <= PAGE_SIZE
-		Cont->TDPool[i].Pages[0] = MM_GetPhysAddr(Data);
-		if( (Cont->TDPool[i].Pages[0] & (PAGE_SIZE-1)) + Length - 1 > PAGE_SIZE )
-			Cont->TDPool[i].Pages[1] = MM_GetPhysAddr((char*)Data + Length - 1) & ~(PAGE_SIZE-1);
 		Mutex_Release(&Cont->TDPoolMutex);
-		LOG("Allocated %p for PID %i on %p", &Cont->TDPool[i], PID, Cont);
-		return &Cont->TDPool[i];
+		
+		tEHCI_qTD	*td = &Cont->TDPool[i];
+		td->Size = Length;
+		td->Callback = Cb;
+		td->CallbackData = CbData;
+		// NOTE: Assumes that `Length` is <= PAGE_SIZE
+		ASSERTC(Length, <, PAGE_SIZE);
+		// TODO: Handle bouncing >32-bit pages
+		#if PHYS_BITS > 32
+		ASSERT( MM_GetPhysAddr(Data) >> 32 == 0 );
+		#endif
+		td->Pages[0] = MM_GetPhysAddr(Data);
+		if( (td->Pages[0] & (PAGE_SIZE-1)) + Length - 1 > PAGE_SIZE )
+			td->Pages[1] = MM_GetPhysAddr((char*)Data + Length - 1) & ~(PAGE_SIZE-1);
+		LOG("Allocated %p(%P) for PID %i on %P",
+			td, MM_GetPhysAddr(td), PID, Cont->PhysBase);
+		return td;
 	}
 
 	Mutex_Release(&Cont->TDPoolMutex);
@@ -614,22 +655,40 @@ void EHCI_int_AppendTD(tEHCI_Controller *Cont, tEHCI_QH *QH, tEHCI_qTD *TD)
 {
 	tEHCI_qTD	*ptd = NULL;
 	Uint32	link = QH->CurrentTD;
+	tPAddr	dead_td = MM_GetPhysAddr(Cont->DeadTD);
+	
+	{
+		Mutex_Acquire(&Cont->ActiveTDsLock);
+		if( Cont->ActiveTDTail )
+			Cont->ActiveTDTail->Next = TD;
+		else
+			Cont->ActiveTDHead = TD;
+		tEHCI_qTD	*last;
+		for( last = TD; last->Next; last = last->Next )
+			;
+		Cont->ActiveTDTail = last;
+		Mutex_Release(&Cont->ActiveTDsLock);
+	}
 
 	// TODO: Need locking and validation here
-	while( link && !(link & 1) )
+	while( link && !(link & 1) && link != dead_td )
 	{
 		ptd = EHCI_int_GetTDFromPhys(Cont, link);
 		link = ptd->Link;
 	}
 	// TODO: Figure out how to follow this properly
 	if( !ptd ) {
-		QH->CurrentTD = MM_GetPhysAddr(TD);
+		QH->CurrentTD = MM_GetPhysAddr(TD)|2;
+		QH->Overlay.Link = QH->CurrentTD;
 		LOG("Appended %p to beginning of %p", TD, QH);
 	}
 	else {
 		ptd->Link = MM_GetPhysAddr(TD);
+		ptd->Link2 = MM_GetPhysAddr(TD);
 		LOG("Appended %p to end of %p", TD, QH);
 	}
+	QH->Endpoint |= QH_ENDPT_H;
+	QH->Overlay.Token &= ~QTD_TOKEN_STS_HALT;
 }
 
 tEHCI_QH *EHCI_int_AllocateQH(tEHCI_Controller *Cont, int Endpoint, size_t MaxPacketSize)
@@ -646,10 +705,12 @@ tEHCI_QH *EHCI_int_AllocateQH(tEHCI_Controller *Cont, int Endpoint, size_t MaxPa
 
 		ret = &Cont->QHPools[i/QH_POOL_NPERPAGE][i%QH_POOL_NPERPAGE];
 		if( ret->HLink == 0 ) {
+			memset(ret, 0, sizeof(*ret));
 			ret->HLink = 1;
-			ret->Overlay.Link = 1;
+			ret->Overlay.Link = MM_GetPhysAddr(Cont->DeadTD);
 			ret->Endpoint = (Endpoint >> 4) | 0x80 | ((Endpoint & 0xF) << 8)
 				| (MaxPacketSize << 16);
+			ret->EndpointExt = (1<<30);
 			// TODO: Endpoint speed (13:12) 0:Full, 1:Low, 2:High
 			// TODO: Control Endpoint Flag (27) 0:*, 1:Full/Low Control
 			Mutex_Release(&Cont->QHPoolMutex);
@@ -674,13 +735,13 @@ void EHCI_int_HandlePortConnectChange(tEHCI_Controller *Cont, int Port)
 		// Is the device low-speed?
 		if( (Cont->OpRegs->PortSC[Port] & PORTSC_LineStatus_MASK) == PORTSC_LineStatus_Kstate )
 		{
-			LOG("Low speed device on %p Port %i, giving to companion", Cont, Port);
+			LOG("Low speed device on %P Port %i, giving to companion", Cont->PhysBase, Port);
 			Cont->OpRegs->PortSC[Port] |= PORTSC_PortOwner;
 		}
 		// not a low-speed device, EHCI reset
 		else
 		{
-			LOG("Device connected on %p #%i", Cont, Port);
+			LOG("Device connected on %P Port %i", Cont->PhysBase, Port);
 			// Reset procedure.
 			USB_PortCtl_BeginReset(Cont->RootHub, Port);
 		}
@@ -689,11 +750,12 @@ void EHCI_int_HandlePortConnectChange(tEHCI_Controller *Cont, int Port)
 	else
 	{
 		if( Cont->OpRegs->PortSC[Port] & PORTSC_PortOwner ) {
-			LOG("Companion port %i disconnected, taking it back", Port);
+			LOG("Device disconnected on %P Port %i (companion), taking it back",
+				Cont->PhysBase, Port);
 			Cont->OpRegs->PortSC[Port] &= ~PORTSC_PortOwner;
 		}
 		else {
-			LOG("Port %i disconnected", Port);
+			LOG("Device disconnected on %P Port %i", Cont->PhysBase, Port);
 			USB_DeviceDisconnected(Cont->RootHub, Port);
 		}
 	}
@@ -716,6 +778,39 @@ void EHCI_int_InterruptThread(void *ControllerPtr)
 		if( events & EHCI_THREADEVENT_IOC )
 		{
 			// IOC, Do whatever it is you do
+			Log_Warning("EHCI", "%P IOC - TODO: Call registered callbacks and reclaim",
+				Cont->PhysBase);
+			// Scan active TDs
+			Mutex_Acquire(&Cont->ActiveTDsLock);
+			tEHCI_qTD *prev = NULL;
+			for(tEHCI_qTD *td = Cont->ActiveTDHead; td; td = td->Next)
+			{
+				LOG("td(%p)->Token = %x", td, td->Token);
+				// If active, continue
+				if( td->Token & QTD_TOKEN_STS_ACTIVE ) {
+					prev = td;
+					continue ;
+				}
+				
+				// Inactive
+				LOG("%p Complete", td);
+				// - call the callback
+				if( td->Callback )
+				{
+					void *ptr = NULL;
+					if( td->Pages[0] ) {
+						Log_Warning("EHCI", "TODO: Map %x,%x+%i for callback",
+							td->Pages[0], td->Pages[1], td->Size);
+					}
+					td->Callback(td->CallbackData, ptr, td->Size);
+				}
+			
+				// Remove and release
+				*(prev ? &prev->Next : &Cont->ActiveTDHead) = td->Next;
+				td->Token = 0;
+			}
+			Cont->ActiveTDTail = prev;
+			Mutex_Release(&Cont->ActiveTDsLock);
 		}
 
 		// Port status change interrupt
