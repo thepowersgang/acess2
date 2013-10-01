@@ -19,8 +19,13 @@
 typedef struct
 {
 	udi_init_context_t	init_context;
+
+	struct
+	{
+		udi_index_t	pio_index;
+	} init;
 	
-	udi_pio_handle_t	pio_handle;
+	udi_pio_handle_t	pio_handles[1];
 	udi_ubit8_t	macaddr[6];
 } ne2k_rdata_t;
 
@@ -49,13 +54,14 @@ typedef struct
 		(attr)->attr_type = UDI_ATTR_STRING; \
 		(attr)->attr_length = (len); \
 		udi_strncpy_rtrim((char *)(attr)->attr_value, (val), (len))
-#define NE2K_SET_ATTR_STRFMT(attr, name, maxlen, fmt, ...) \
+#define NE2K_SET_ATTR_STRFMT(attr, name, maxlen, fmt, v...) \
 		udi_strcpy((attr)->attr_name, (name)); \
 		(attr)->attr_type = UDI_ATTR_STRING; \
-		(attr)->attr_length = udi_snprintf((char *)(attr)->attr_value, (maxlen), (fmt) ,## __VA_LIST__ )
+		(attr)->attr_length = udi_snprintf((char *)(attr)->attr_value, (maxlen), (fmt) ,## v )
 
 extern udi_channel_event_ind_op_t	ne2k_bus_dev_channel_event_ind;
 extern udi_bus_bind_ack_op_t	ne2k_bus_dev_bus_bind_ack;
+extern udi_pio_map_call_t	ne2k_bus_dev_bind__pio_map;
 extern udi_bus_unbind_ack_op_t	ne2k_bus_dev_bus_unbind_ack;
 extern udi_intr_attach_ack_op_t	ne2k_bus_dev_intr_attach_ack;
 extern udi_intr_detach_ack_op_t	ne2k_bus_dev_intr_detach_ack;

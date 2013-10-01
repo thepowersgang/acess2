@@ -36,7 +36,7 @@ udi_pio_trans_t	ne2k_pio_reset[] = {
 	PIO_MOV_RI1(R0, 0x40|0x21),
 	PIO_OUT_RI1(R0, NE2K_REG_CMD),
 	// CURR = First RX page
-	PIO_MOV_RI1(R0, NE2K_FIRST_RX_PAGE),
+	PIO_MOV_RI1(R0, NE2K_RX_FIRST_PG),
 	PIO_OUT_RI1(R0, NE2K_REG_CURR),
 	// CMD = 0x21 [Page0, NoDMA, Stop]
 	PIO_MOV_RI1(R0, 0x21),
@@ -59,8 +59,8 @@ udi_pio_trans_t	ne2k_pio_reset[] = {
 	// - Read MAC address from EEPROM (24 bytes from 0)
 	PIO_MOV_RI1(R0, 0),
 	PIO_MOV_RI1(R1, 0),
-	PIO_OUT_RI1(R0, NE2K_REG_RBAR0),
-	PIO_OUT_RI1(R1, NE2K_REG_RBAR1),
+	PIO_OUT_RI1(R0, NE2K_REG_RSAR0),
+	PIO_OUT_RI1(R1, NE2K_REG_RSAR1),
 	PIO_MOV_RI1(R0, 6*4),
 	PIO_MOV_RI1(R1, 0),
 	PIO_OUT_RI1(R0, NE2K_REG_RBCR0),
@@ -76,13 +76,13 @@ udi_pio_trans_t	ne2k_pio_reset[] = {
 		UDI_PIO_REP_ARGS(UDI_PIO_BUF, UDI_PIO_R0, 1, UDI_PIO_R1, 0, UDI_PIO_R2)},
 	// - Setup
 	// PSTART = First RX page [Receive area start]
-	PIO_MOV_RI1(R0, NE2K_FIRST_RX_PAGE),
+	PIO_MOV_RI1(R0, NE2K_RX_FIRST_PG),
 	PIO_OUT_RI1(R0, NE2K_REG_PSTART),
 	// BNRY = Last RX page - 1 [???]
-	PIO_MOV_RI1(R0, NE2K_LAST_RX_PAGE-1),
+	PIO_MOV_RI1(R0, NE2K_RX_LAST_PG-1),
 	PIO_OUT_RI1(R0, NE2K_REG_BNRY),
 	// PSTOP = Last RX page [???]
-	PIO_MOV_RI1(R0, NE2K_LAST_RX_PAGE),
+	PIO_MOV_RI1(R0, NE2K_RX_LAST_PG),
 	PIO_OUT_RI1(R0, NE2K_REG_PSTOP),
 	// > Clear all interrupt and set mask
 	// ISR = 0xFF [ACK all]
@@ -111,7 +111,7 @@ struct {
 	udi_ubit16_t	list_length;
 	udi_ubit16_t	pio_attributes;
 } ne2k_pio_ops[] = {
-	{ne2k_pio_reset, ARRAY_SIZEOF(ne2k_pio_reset), 0}}
+	{ne2k_pio_reset, ARRAY_SIZEOF(ne2k_pio_reset), 0}
 };
 const int NE2K_NUM_PIO_OPS = ARRAY_SIZEOF(ne2k_pio_ops);
 
@@ -132,14 +132,14 @@ void ne2k_enumerate_req(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_level)
 		// Emit the ND binding
 		DPT_SET_ATTR32(attr_list, "if_num", 0);
 		attr_list ++;
-		DPT_SET_ATTR_STRING(attr_list, "if_media", "eth");
+		DPT_SET_ATTR_STRING(attr_list, "if_media", "eth", 3);
 		attr_list ++;
 		NE2K_SET_ATTR_STRFMT(attr_list, "identifier", 2*6+1, "%2X%2X%2X%2X%2X%2X",
 			rdata->macaddr[0], rdata->macaddr[1], rdata->macaddr[2],
 			rdata->macaddr[3], rdata->macaddr[4], rdata->macaddr[5] );
 		attr_list ++;
 		udi_enumerate_ack(cb, UDI_ENUMERATE_OK, 2);
-		break
+		break;
 	case UDI_ENUMERATE_NEXT:
 		udi_enumerate_ack(cb, UDI_ENUMERATE_DONE, 0);
 		break;
@@ -190,7 +190,7 @@ void ne2k_bus_dev_bind__pio_map(udi_cb_t *gcb, udi_pio_handle_t new_pio_handle)
 			UDI_PCI_BAR_0, 0, 0x20,
 			ne2k_pio_ops[rdata->init.pio_index].trans_list,
 			ne2k_pio_ops[rdata->init.pio_index].list_length,
-			UDI_PIO_LITTE_ENDIAN, 0, 0
+			UDI_PIO_LITTLE_ENDIAN, 0, 0
 			);
 	}
 	else
@@ -256,18 +256,18 @@ udi_nd_ctrl_ops_t	ne2k_nd_ctrl_ops = {
 	ne2k_nd_ctrl_info_req
 };
 udi_ubit8_t	ne2k_nd_ctrl_ops_flags[7] = {0};
-udi_nd_tx_ops	ne2k_nd_tx_ops = {
+udi_nd_tx_ops_t	ne2k_nd_tx_ops = {
 	ne2k_nd_tx_channel_event_ind,
 	ne2k_nd_tx_tx_req,
 	ne2k_nd_tx_exp_tx_req
 };
 udi_ubit8_t	ne2k_nd_tx_ops_flags[3] = {0};
-udi_nd_rx_ops	ne2k_nd_rx_ops = {
+udi_nd_rx_ops_t	ne2k_nd_rx_ops = {
 	ne2k_nd_rx_channel_event_ind,
 	ne2k_nd_rx_rx_rdy
 };
 udi_ubit8_t	ne2k_nd_rx_ops_flags[2] = {0};
-const udi_primary_init_t	ne2k_pri_init = {
+udi_primary_init_t	ne2k_pri_init = {
 	.mgmt_ops = &ne2k_mgmt_ops,
 	.mgmt_op_flags = ne2k_mgmt_op_flags,
 	.mgmt_scratch_requirement = 0,
@@ -276,33 +276,33 @@ const udi_primary_init_t	ne2k_pri_init = {
 	.child_data_size = 0,
 	.per_parent_paths = 0
 };
-const udi_ops_init_t	ne2k_ops_list[] = {
+udi_ops_init_t	ne2k_ops_list[] = {
 	{
 		1, NE2K_META_BUS, UDI_BUS_DEVICE_OPS_NUM,
 		0,
-		(udi_ops_vector_t*)ne2k_bus_dev_ops,
+		(udi_ops_vector_t*)&ne2k_bus_dev_ops,
 		ne2k_bus_dev_ops_flags
 	},
 	{
 		2, NE2K_META_NIC, UDI_ND_CTRL_OPS_NUM,
 		0,
-		(udi_ops_vector_t*)ne2k_nd_ctrl_ops,
+		(udi_ops_vector_t*)&ne2k_nd_ctrl_ops,
 		ne2k_nd_ctrl_ops_flags
 	},
 	{
 		3, NE2K_META_NIC, UDI_ND_TX_OPS_NUM,
 		0,
-		(udi_ops_vector_t*)ne2k_nd_tx_ops,
+		(udi_ops_vector_t*)&ne2k_nd_tx_ops,
 		ne2k_nd_tx_ops_flags
 	},
 	{
 		4, NE2K_META_NIC, UDI_ND_RX_OPS_NUM,
 		0,
-		(udi_ops_vector_t*)ne2k_nd_rx_ops,
+		(udi_ops_vector_t*)&ne2k_nd_rx_ops,
 		ne2k_nd_rx_ops_flags
 	},
 	{0}
-}
+};
 const udi_init_t	udi_init_info = {
 	.primary_init_info = &ne2k_pri_init,
 	.ops_init_list = ne2k_ops_list
