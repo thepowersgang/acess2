@@ -36,4 +36,3 @@ region 0
 
 # Source-only udiprops
 source_files ne2000_core.c ne2000_rx.c ne2000_tx.c
-compile_options 
