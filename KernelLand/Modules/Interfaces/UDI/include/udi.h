@@ -14,6 +14,10 @@ typedef uint8_t 	udi_ubit8_t;	/* unsigned 8-bit: 0..28-1 */
 typedef uint16_t	udi_ubit16_t;	/* unsigned 16-bit: 0..216-1 */
 typedef uint32_t	udi_ubit32_t;	/* unsigned 32-bit: 0..232-1 */
 
+#ifndef NULL
+# define NULL	((void*)0)
+#endif
+
 #if UDI_ABI_is_ia32
 #include "udi/arch/x86.h"
 #else
