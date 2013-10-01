@@ -17,7 +17,7 @@ typedef void udi_buf_write_call_t(udi_cb_t *gcb, udi_buf_t *new_dst_buf);
 struct udi_buf_s
 {
 	udi_size_t	buf_size;
-	Uint8	Data[];	//!< ENVIRONMENT ONLY
+	udi_ubit8_t	Data[];	//!< ENVIRONMENT ONLY
 };
 
 /**

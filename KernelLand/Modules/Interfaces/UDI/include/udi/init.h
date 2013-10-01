@@ -259,7 +259,7 @@ struct udi_limits_s
 	 * \see ::udi_timer_start_repeating, ::udi_timer_start
 	 */
 	udi_ubit32_t	min_timer_res;
-} PACKED;
+} __attribute__((packed));
 
 /**
  * \brief Primary Region Context data
@@ -279,7 +279,7 @@ struct udi_chan_context_s
 	 * \brief Pointer to the driver instance's initial region data
 	 */
 	void	*rdata;
-} PACKED;
+} __attribute__((packed));
 
 /**
  * \brief Child Channel context

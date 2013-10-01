@@ -4,10 +4,21 @@
 #ifndef _UDI_H_
 #define _UDI_H_
 
-// Use the core acess file to use the specific size types (plus va_arg)
-#include <acess.h>
+#include <stdint.h>
+#include <stdarg.h>
 
+typedef int8_t	udi_sbit8_t;	/* signed 8-bit: -2^7..2^7-1 */
+typedef int16_t	udi_sbit16_t;	/* signed 16-bit: -2^15..2^15-1 */
+typedef int32_t	udi_sbit32_t;	/* signed 32-bit: -2^31..2^31-1 */
+typedef uint8_t 	udi_ubit8_t;	/* unsigned 8-bit: 0..28-1 */
+typedef uint16_t	udi_ubit16_t;	/* unsigned 16-bit: 0..216-1 */
+typedef uint32_t	udi_ubit32_t;	/* unsigned 32-bit: 0..232-1 */
+
+#if UDI_ABI_is_ia32
 #include "udi/arch/x86.h"
+#else
+#error "Unknown UDI ABI"
+#endif
 
 /**
  * \name Values and Flags for udi_status_t
