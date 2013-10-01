@@ -122,6 +122,8 @@ struct udi_scgth_s
 #include <physio/dma.h>
 #include <physio/meta_intr.h>
 #include <physio/meta_bus.h>
-#include <physio/pio.h>
+#include "physio/pio.h"
+
+#include "physio/pci.h"
 
 #endif

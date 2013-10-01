@@ -10,7 +10,7 @@ typedef uint32_t	udi_size_t;	/* buffer size */
 typedef udi_ubit8_t	udi_index_t;	/* zero-based index type */
 
 typedef void	*_udi_handle_t;
-#define	_NULL_HANDLE	NULL
+#define	_NULL_HANDLE	((void*)0)
 
 /* Channel Handle */
 typedef _udi_handle_t	*udi_channel_t;
