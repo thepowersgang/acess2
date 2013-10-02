@@ -1,0 +1,21 @@
+#!/bin/sh
+
+ABI=ia32
+
+cat udiprops.txt | sed 's/#.*//' | grep -v 'source_files\|source_requires\|compile_options' | tr '\n' '\0' > .udiprops.bin
+
+shortname=`grep 'shortname ' udiprops.txt | head -n 1 | awk '{print $2}'`
+firstmodule=`grep 'module ' udiprops.txt | head -n 1 | awk '{print $2}'`
+
+case $ABI in
+ia32)
+	objcopy bin/$ABI/$firstmodule --add-section .udiprops=.udiprops.bin .primodule
+	;;
+esac
+
+outdir="udi-pkg.1/$shortname/2/$shortname"
+
+tar -cf $shortname.udi bin/$ABI/* --transform 's~.*~'$outdir'/\0~'
+tar --delete -f $shortname.udi $outdir/bin/$ABI/$firstmodule
+tar -uf $shortname.udi .primodule --transform s~.*~$outdir/bin/$ABI/$firstmodule~
+
