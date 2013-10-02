@@ -192,21 +192,22 @@ udi_pio_trans_t	ne2k_pio_irqack[] = {
 	{UDI_PIO_LABEL, 0, 3},
 	{UDI_PIO_END_IMM, UDI_PIO_2BYTE, 0},
 };
+//
+//
+//
+udi_pio_trans_t ne2k_pio_tx[] = {
+	
+};
 
 struct {
 	udi_pio_trans_t	*trans_list;
 	udi_ubit16_t	list_length;
 	udi_ubit16_t	pio_attributes;
 } ne2k_pio_ops[] = {
-	{ne2k_pio_reset, ARRAY_SIZEOF(ne2k_pio_reset), 0},
-	{ne2k_pio_enable, ARRAY_SIZEOF(ne2k_pio_enable), 0},
-	{ne2k_pio_rx, ARRAY_SIZEOF(ne2k_pio_rx), 0},
-	{ne2k_pio_irqack, ARRAY_SIZEOF(ne2k_pio_irqack), 0},
+	[NE2K_PIO_RESET]  = {ne2k_pio_reset, ARRAY_SIZEOF(ne2k_pio_reset), 0},
+	[NE2K_PIO_ENABLE] = {ne2k_pio_enable, ARRAY_SIZEOF(ne2k_pio_enable), 0},
+	[NE2K_PIO_RX]     = {ne2k_pio_rx, ARRAY_SIZEOF(ne2k_pio_rx), 0},
+	[NE2K_PIO_IRQACK] = {ne2k_pio_irqack, ARRAY_SIZEOF(ne2k_pio_irqack), 0},
+	[NE2K_PIO_TX]     = {ne2k_pio_tx, ARRAY_SIZEOF(ne2k_pio_tx), 0},
 };
 const int NE2K_NUM_PIO_OPS = ARRAY_SIZEOF(ne2k_pio_ops);
-enum {
-	NE2K_PIO_RESET,
-	NE2K_PIO_ENABLE,
-	NE2K_PIO_RX,
-	NE2K_PIO_IRQACK,
-};

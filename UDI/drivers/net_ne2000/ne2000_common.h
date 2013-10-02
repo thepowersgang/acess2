@@ -16,6 +16,14 @@
 
 #define ARRAY_SIZEOF(arr)	(sizeof(arr)/sizeof(arr[0]))
 
+enum {
+	NE2K_PIO_RESET,
+	NE2K_PIO_ENABLE,
+	NE2K_PIO_RX,
+	NE2K_PIO_IRQACK,
+	NE2K_PIO_TX,
+};
+
 typedef struct
 {
 	udi_init_context_t	init_context;
@@ -35,6 +43,9 @@ typedef struct
 	udi_channel_t	interrupt_channel;
 	udi_channel_t	rx_channel;
 	udi_channel_t	tx_channel;
+	
+	udi_nic_rx_cb_t	*rx_next_cb;
+	udi_ubit8_t	rx_next_page;
 	
 	udi_ubit8_t	macaddr[6];
 } ne2k_rdata_t;

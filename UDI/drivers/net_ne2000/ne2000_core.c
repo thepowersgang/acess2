@@ -242,6 +242,7 @@ void ne2k_bus_irq_intr_event_ind(udi_intr_event_cb_t *cb, udi_ubit8_t flags)
 	{
 		ne2k_intr__rx_ok( UDI_GCB(cb) );
 	}
+	// TODO: TX IRQs
 	udi_intr_event_rdy(cb);
 }
 
