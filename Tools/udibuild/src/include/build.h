@@ -12,6 +12,7 @@
 #include "udiprops.h"
 
 extern int	Build_CompileFile(tIniFile *opts, const char *abi, tUdiprops *udiprops, tUdiprops_Srcfile *srcfile);
+extern int	Build_CreateUdiprops(tIniFile *opts, const char *abi, tUdiprops *udiprops);
 extern int	Build_LinkObjects(tIniFile *opts, const char *abi, tUdiprops *udiprops);
 
 #endif

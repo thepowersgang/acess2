@@ -98,6 +98,10 @@ int main(int argc, char *argv[])
 			return rv;
 		}
 	}
+	// Create file with `.udiprops` section
+	// - udimkpkg's job
+	//Build_CreateUdiprops(gpOptions, gsOpt_ABIName, gpUdipropsBuild);
+	// Link
 	Build_LinkObjects(gpOptions, gsOpt_ABIName, gpUdipropsBuild);
 
 	return 0;

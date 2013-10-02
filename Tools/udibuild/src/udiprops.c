@@ -82,6 +82,10 @@ tUdiprops *Udiprops_LoadBuild(const char *Filename)
 		rtrim(str);
 		if( !str[0] )	continue ;
 		
+		ret->nLines ++;
+		ret->Lines = realloc(ret->Lines, ret->nLines*sizeof(void*));
+		ret->Lines[ret->nLines-1] = my_strdup(str);
+		
 		int sym = _get_token_sym(str, (const char**)&str,
 			"source_files", "compile_options", "source_requires",
 			"module",

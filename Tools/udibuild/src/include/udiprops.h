@@ -23,6 +23,9 @@ struct sUdiprops
 	const char	*ModuleName;
 	 int	nSourceFiles;
 	tUdiprops_Srcfile	**SourceFiles;
+	
+	 int	nLines;
+	char	**Lines;
 };
 
 extern tUdiprops	*Udiprops_LoadBuild(const char *Filename);

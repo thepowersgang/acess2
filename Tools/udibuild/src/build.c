@@ -9,11 +9,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>	// mkdir
+#include <unistd.h>	// unlink
 #include "include/build.h"
 #include "include/common.h"
 
 // === PROTOTYPES ===
 char	*get_objfile(tIniFile *opts, const char *abi, const char *srcfile);
+char	*get_udipropsfile(tIniFile *opts, const char *abi);
 
 // === CODE ===
 int Build_CompileFile(tIniFile *opts, const char *abi, tUdiprops *udiprops, tUdiprops_Srcfile *srcfile)
@@ -42,6 +44,32 @@ int Build_CompileFile(tIniFile *opts, const char *abi, tUdiprops *udiprops, tUdi
 	free(cmd);
 	free(objfile);
 	
+	return rv;
+}
+
+int Build_CreateUdiprops(tIniFile *opts, const char *abi, tUdiprops *udiprops)
+{
+	const char *cc_prog = IniFile_Get(opts, abi, "CC", NULL);
+	
+	char	*filename = get_udipropsfile(opts, abi);
+	FILE *fp = fopen(filename, "w");
+	fprintf(fp, "char udiprops[] __attribute__((section(\".udiprops\"))) = \n");
+	for( int i = 0; i < udiprops->nLines; i ++ ) {
+		// TODO: Escape " in string
+		fprintf(fp, " \"%s\"\n", udiprops->Lines[i]);
+	}
+	fprintf(fp, " ;\n");
+	fclose(fp);
+
+	char *cmd = mkstr("%s %s -c %s -o %s.o",
+		cc_prog, IniFile_Get(opts, abi, "CFLAGS", ""),
+		filename, filename);
+
+	int rv = system(cmd);
+	free(cmd);
+	unlink(filename);	
+	free(filename);
+
 	return rv;
 }
 
@@ -76,14 +104,16 @@ int Build_LinkObjects(tIniFile *opts, const char *abi, tUdiprops *udiprops)
 	mkdir(abidir, 0755);
 	free(abidir);
 	
-	char *cmd = mkstr("%s -r %s -o bin/%s/%s -s %s",
+	char *udiprops_c = get_udipropsfile(opts, abi);
+	char *cmd = mkstr("%s -r %s -o bin/%s/%s -s %s",// %s.o",
 		linker, IniFile_Get(opts, abi, "LDFLAGS", ""),
-		abi, udiprops->ModuleName, objfiles_str
+		abi, udiprops->ModuleName, objfiles_str, udiprops_c
 		);
 	printf("--- Linking: bin/%s/%s\n", abi, udiprops->ModuleName);
 	printf("%s\n", cmd);
 	int rv = system(cmd);
 	free(cmd);
+	free(udiprops_c);
 	free(objfiles_str);
 
 	return rv;
@@ -92,5 +122,10 @@ int Build_LinkObjects(tIniFile *opts, const char *abi, tUdiprops *udiprops)
 char *get_objfile(tIniFile *opts, const char *abi, const char *srcfile)
 {
 	return mkstr("%s.o", srcfile);
+}
+
+char *get_udipropsfile(tIniFile *opts, const char *abi)
+{
+	return mkstr(".udiprops.c");
 }
 
