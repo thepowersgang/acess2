@@ -6,6 +6,7 @@
 #include <acess.h>
 #include <udi.h>
 #include "../udi_internal.h"
+#include "../udi_ma.h"
 
 // === EXPORTS ===
 EXPORT(udi_usage_ind);
@@ -22,7 +23,12 @@ EXPORT(udi_final_cleanup_ack);
 tUDI_MetaLang	cMetaLang_Management = {
 	"udi_mgmt",
 	1,
-	{NULL}
+	{NULL},
+	
+	1,
+	{
+		{sizeof(udi_enumerate_cb_t)-sizeof(udi_cb_t), NULL}
+	}
 };
 
 // === CODE ===
@@ -35,17 +41,20 @@ void udi_usage_ind(udi_usage_cb_t *cb, udi_ubit8_t resource_level)
 		return ;
 	}
 	
+	UDI_int_ChannelReleaseFromCall( UDI_GCB(cb) );
 	ops->usage_ind_op(cb, resource_level);
 }
 
 void udi_static_usage(udi_usage_cb_t *cb, udi_ubit8_t resource_level)
 {
-	UNIMPLEMENTED();
+	cb->trace_mask = 0;
+	udi_usage_res(cb);
 }
 
 void udi_usage_res(udi_usage_cb_t *cb)
 {
-	UNIMPLEMENTED();
+	// TODO: Update trace mask from cb
+	LOG("cb=%p{cb->trace_mask=%x}", cb, cb->trace_mask);
 }
 
 void udi_enumerate_req(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_level)
@@ -57,7 +66,9 @@ void udi_enumerate_req(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_level)
 		return ;
 	}
 	
-	ops->enumerate_req_op(cb, enumeration_level);
+	UDI_int_MakeDeferredCbU8( UDI_GCB(cb), (udi_op_t*)ops->enumerate_req_op, enumeration_level );
+//	UDI_int_ChannelReleaseFromCall( UDI_GCB(cb) );
+//	ops->enumerate_req_op(cb, enumeration_level);
 }
 
 void udi_enumerate_no_children(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_level)
@@ -67,7 +78,40 @@ void udi_enumerate_no_children(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_l
 
 void udi_enumerate_ack(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_result, udi_index_t ops_idx)
 {
-	UNIMPLEMENTED();
+	UDI_int_ChannelFlip( UDI_GCB(cb) );
+	LOG("cb=%p, enumeration_result=%i, ops_idx=%i", cb, enumeration_result, ops_idx);
+	switch( enumeration_result )
+	{
+	case UDI_ENUMERATE_OK:
+		#if DEBUG
+		for( int i = 0; i < cb->attr_valid_length; i ++ )
+		{
+			udi_instance_attr_list_t	*at = &cb->attr_list[i];
+			switch(at->attr_type)
+			{
+			case UDI_ATTR_STRING:
+				LOG("[%i] String '%.*s'", i, at->attr_length, at->attr_value);
+				break;
+			case UDI_ATTR_UBIT32:
+				LOG("[%i] UBit32 0x%08x", i, UDI_ATTR32_GET(at->attr_value));
+				break;
+			default:
+				LOG("[%i] %i", i, at->attr_type);
+				break;
+			}
+		}
+		#endif
+		// Returned a device
+		UDI_MA_AddChild(cb, ops_idx);
+		udi_enumerate_req(cb, UDI_ENUMERATE_NEXT);
+		return ;
+	case UDI_ENUMERATE_DONE:
+		// All done. Chain terminates
+		return ;
+	default:
+		Log_Notice("UDI", "Unknown enumeration_result %i", enumeration_result);
+		return ;
+	}
 }
 
 void udi_devmgmt_req(udi_mgmt_cb_t *cb, udi_ubit8_t mgmt_op, udi_ubit8_t parent_ID )

@@ -9,10 +9,14 @@
 #include <acess.h>
 #include <udi.h>
 #include "udi_internal.h"
+/*
+ * LOCK_CHANNELS - Prevents 
+ */
 #define LOCK_CHANNELS	1
 
 struct sUDI_ChannelSide {
 	struct sUDI_Channel	*BackPtr;
+	tUDI_DriverInstance	*Instance;
 	udi_index_t	MetaOpsNum;
 	const void	*Ops;
 	void	*Context;
@@ -41,15 +45,20 @@ struct sUDI_ChannelSide *UDI_int_ChannelGetSide(udi_channel_t channel, bool othe
 {
 	tUDI_Channel *ch = *(tUDI_Channel**)channel;
 	if(!ch)	return NULL;
-	
-	int side_idx = (channel == (udi_channel_t)&ch->Side[0].BackPtr) != other_side;
+
+	int side_idx = (channel == (udi_channel_t)&ch->Side[0].BackPtr) ? 0 : 1;
+	if( other_side )
+		side_idx = 1 - side_idx;	
+
+	LOG("side_idx = %i, other_side=%b", side_idx, other_side);
 
 	return &ch->Side[side_idx];
 }
 
-int UDI_BindChannel_Raw(udi_channel_t channel, bool other_side, udi_index_t meta_ops_num,  void *context, const void *ops)
+int UDI_BindChannel_Raw(udi_channel_t channel, bool other_side, tUDI_DriverInstance *inst, udi_index_t meta_ops_num,  void *context, const void *ops)
 {
 	struct sUDI_ChannelSide *side = UDI_int_ChannelGetSide(channel, other_side);
+	side->Instance = inst;
 	side->Context = context;
 	side->MetaOpsNum = meta_ops_num;
 	side->Ops = ops;
@@ -84,8 +93,20 @@ int UDI_BindChannel(udi_channel_t channel, bool other_side, tUDI_DriverInstance 
 		context = rgn->InitContext;
 	}
 	
-	UDI_BindChannel_Raw(channel, other_side, ops->meta_ops_num, context, ops->ops_vector);
+	UDI_BindChannel_Raw(channel, other_side, inst, ops->meta_ops_num, context, ops->ops_vector);
 	return 0;
+}
+
+tUDI_DriverInstance *UDI_int_ChannelGetInstance(udi_cb_t *gcb, bool other_side)
+{
+	ASSERT(gcb);
+	ASSERT(gcb->channel);
+	tUDI_Channel *ch = *(tUDI_Channel**)(gcb->channel);
+	ASSERT(ch);
+	
+	struct sUDI_ChannelSide *side = UDI_int_ChannelGetSide(gcb->channel, other_side);
+	
+	return side->Instance;
 }
 
 /**
@@ -142,12 +163,28 @@ const void *UDI_int_ChannelPrepForCall(udi_cb_t *gcb, tUDI_MetaLang *metalang, u
 	return newside->Ops;
 }
 
+void UDI_int_ChannelFlip(udi_cb_t *gcb)
+{
+	ASSERT(gcb);
+	ASSERT(gcb->channel);
+	tUDI_Channel *ch = *(tUDI_Channel**)(gcb->channel);
+	ASSERT(ch);
+	
+	struct sUDI_ChannelSide	*newside = UDI_int_ChannelGetSide(gcb->channel, true);
+
+	gcb->channel = (udi_channel_t)&newside->BackPtr;
+	gcb->context = newside->Context;
+}
+
 void UDI_int_ChannelReleaseFromCall(udi_cb_t *gcb)
 {
 	#if LOCK_CHANNELS
 	ASSERT(gcb);
 	ASSERT(gcb->channel);
 	tUDI_Channel *ch = *(tUDI_Channel**)(gcb->channel);
+	if( !ch ) {
+		Log_Error("UDI", "Channel pointer of cb %p is NULL", gcb);
+	}
 	ASSERT(ch);
 	
 	ch->Locked = false;

@@ -15,6 +15,7 @@
 
 typedef struct sUDI_PropMessage 	tUDI_PropMessage;
 typedef struct sUDI_PropRegion 	tUDI_PropRegion;
+typedef struct sUDI_PropDevSpec	tUDI_PropDevSpec;
 
 typedef const struct sUDI_MetaLang	tUDI_MetaLang;
 
@@ -24,6 +25,8 @@ typedef struct sUDI_BindOps	tUDI_BindOps;
 typedef struct sUDI_DriverModule	tUDI_DriverModule;
 typedef struct sUDI_DriverInstance	tUDI_DriverInstance;
 typedef struct sUDI_DriverRegion	tUDI_DriverRegion;
+
+typedef struct sUDI_ChildBinding	tUDI_ChildBinding;
 
 struct sUDI_PropMessage
 {
@@ -71,6 +74,11 @@ struct sUDI_MetaLang
 	struct {
 		void	*OpList;
 	} OpGroups;
+	 int	nCbTypes;
+	struct {
+		size_t	Size;
+		udi_layout_t	*Layout;
+	} CbTypes[];
 };
 
 struct sUDI_MetaLangRef
@@ -91,7 +99,11 @@ struct sUDI_BindOps
 
 struct sUDI_PropDevSpec
 {
-	
+	 int	MessageNum;
+	udi_ubit8_t	MetaIdx;
+	tUDI_MetaLang	*Metalang;
+	 int	nAttribs;
+	udi_instance_attr_list_t	Attribs[];
 };
 
 struct sUDI_DriverModule
@@ -117,13 +129,22 @@ struct sUDI_DriverModule
 
 	 int	nParents;
 	tUDI_BindOps	*Parents;
+	
+	 int	nChildBindOps;
+	tUDI_BindOps	*ChildBindOps;
+
+	 int	nDevices;
+	tUDI_PropDevSpec	**Devices;
+
 	 int	nRegions;
 };
 
 struct sUDI_DriverInstance
 {
+	struct sUDI_DriverInstance	*Next;
 	tUDI_DriverModule	*Module;
 	udi_channel_t	ManagementChannel;
+	tUDI_ChildBinding	*FirstChild;
 	tUDI_DriverRegion	*Regions[];
 };
 
@@ -132,7 +153,22 @@ struct sUDI_DriverRegion
 	udi_init_context_t	*InitContext;
 };
 
+struct sUDI_ChildBinding
+{
+	tUDI_ChildBinding	*Next;
+	
+	udi_ubit32_t	ChildID;
+	tUDI_MetaLang	*Metalang;
+	tUDI_BindOps	*BindOps;
+	
+	udi_ops_init_t	*Ops;
+	tUDI_DriverInstance	*BoundInstance;
+	
+	 int	nAttribs;
+	udi_instance_attr_list_t	Attribs[];
+};
 
+// --- Metalanguages ---
 extern tUDI_MetaLang	cMetaLang_Management;
 
 
@@ -142,9 +178,11 @@ extern tUDI_MetaLang *UDI_int_GetMetaLang(tUDI_DriverInstance *Inst, udi_index_t
 
 // --- Channels ---
 extern udi_channel_t	UDI_CreateChannel_Blank(tUDI_MetaLang *metalang);
-extern int	UDI_BindChannel_Raw(udi_channel_t channel, bool other_side, udi_index_t meta_ops_num, void *context, const void *ops);
+extern int	UDI_BindChannel_Raw(udi_channel_t channel, bool other_side, tUDI_DriverInstance *inst, udi_index_t meta_ops_num, void *context, const void *ops);
 extern int	UDI_BindChannel(udi_channel_t channel, bool other_side, tUDI_DriverInstance *inst, udi_index_t ops, udi_index_t region);
+extern tUDI_DriverInstance	*UDI_int_ChannelGetInstance(udi_cb_t *gcb, bool other_side);
 extern const void	*UDI_int_ChannelPrepForCall(udi_cb_t *gcb, tUDI_MetaLang *metalang, udi_index_t meta_ops_num);
+extern void	UDI_int_ChannelFlip(udi_cb_t *gcb);
 extern void	UDI_int_ChannelReleaseFromCall(udi_cb_t *gcb);
 
 // --- Async Calls ---
@@ -154,9 +192,11 @@ struct sUDI_DeferredCall
 {
 	struct sUDI_DeferredCall	*Next;
 	tUDI_DeferredUnmarshal	*Unmarshal;
+	udi_cb_t	*cb;
 	udi_op_t	*Handler;
 	// ...
 };
+extern void	UDI_int_DeferredThread(void *unused);	// Worker started by main.c
 extern void	UDI_int_AddDeferred(tUDI_DeferredCall *Call);
 extern void	UDI_int_MakeDeferredCb(udi_cb_t *cb, udi_op_t *handler);
 extern void	UDI_int_MakeDeferredCbU8(udi_cb_t *cb, udi_op_t *handler, udi_ubit8_t arg1);

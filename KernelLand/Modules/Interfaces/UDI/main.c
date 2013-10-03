@@ -7,6 +7,7 @@
 #include <modules.h>
 #include <udi.h>
 #include "udi_internal.h"
+#include "udi_ma.h"
 
 // === IMPORTS ===
 extern udi_init_t	pci_init;
@@ -17,18 +18,14 @@ extern size_t	pci_udiprops_size;
  int	UDI_Install(char **Arguments);
  int	UDI_DetectDriver(void *Base);
  int	UDI_LoadDriver(void *Base);
-
 tUDI_DriverModule	*UDI_int_LoadDriver(void *LoadBase, udi_init_t *info, const char *udiprops, size_t udiprops_size);
-
-tUDI_DriverInstance	*UDI_CreateInstance(tUDI_DriverModule *DriverModule);
-tUDI_DriverRegion	*UDI_InitRegion(tUDI_DriverInstance *Inst, udi_ubit16_t Index, udi_ubit16_t Type, size_t RDataSize);
-void	UDI_int_BeginEnumeration(tUDI_DriverInstance *Inst);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, UDI, UDI_Install, NULL, NULL);
 tModuleLoader	gUDI_Loader = {
 	NULL, "UDI", UDI_DetectDriver, UDI_LoadDriver, NULL
 };
+tUDI_DriverModule	*gpUDI_LoadedModules;
 
 // === CODE ===
 /**
@@ -38,6 +35,8 @@ tModuleLoader	gUDI_Loader = {
 int UDI_Install(char **Arguments)
 {
 	Module_RegisterLoader( &gUDI_Loader );
+
+	Proc_SpawnWorker(UDI_int_DeferredThread, NULL);
 
 	UDI_int_LoadDriver(NULL, &pci_init, pci_udiprops, pci_udiprops_size);
 
@@ -85,51 +84,32 @@ int UDI_LoadDriver(void *Base)
 	Log_Debug("UDI", "udiprops = %p, udiprops_end = %p", udiprops, udiprops_end);
 
 	UDI_int_LoadDriver(Base, info, udiprops, udiprops_end - udiprops);
-
-	#if 0
-	// Create initial driver instance
-	tUDI_DriverInstance *inst = UDI_CreateInstance(driver_module);
-	
-	// Bind to parent
-	// TODO: This will move to udi_enumerate_ack handling
-	for( int i = 0; i < driver_module->nParents; i ++ )
-	{
-		tUDI_BindOps	*parent = &driver_module->Parents[i];
-		udi_channel_t channel = UDI_CreateChannel_Blank( UDI_int_GetMetaLang(inst, parent->meta_idx) );
-		
-		UDI_BindChannel(channel,true,  inst, parent->ops_idx, parent->region_idx);
-		//UDI_BindChannel(channel,false, parent_inst, parent_chld->ops_idx, parent_chld->region_idx);
-		
-		udi_cb_t *bind_cb = udi_cb_alloc_internal(inst, parent->bind_cb_idx, channel);
-		if( !bind_cb ) {
-			Log_Warning("UDI", "Bind CB index is invalid");
-			continue ;
-		}
-
-		udi_channel_event_cb_t	ev_cb;
-		 int	n_handles = driver_module->InitInfo->primary_init_info->per_parent_paths;
-		udi_buf_path_t	handles[n_handles];
-		memset(&ev_cb, 0, sizeof(ev_cb));
-		ev_cb.gcb.channel = channel;
-		ev_cb.event = UDI_CHANNEL_BOUND;
-		ev_cb.params.parent_bound.bind_cb = bind_cb;
- 		ev_cb.params.parent_bound.parent_ID = i+1;
-		ev_cb.params.parent_bound.path_handles = handles;
-		
-		for( int i = 0; i < n_handles; i ++ ) {
-			//handles[i] = udi_buf_path_alloc_internal(inst);
-			handles[i] = 0;
-		}
-		
-		udi_channel_event_ind(&ev_cb);
-	}
-
-	// Send enumeraton request
-	#endif
 	
 	return 0;
 }
 
+static udi_boolean_t _get_token_bool(const char *str, const char **outstr)
+{
+	udi_boolean_t	ret;
+	switch(*str++)
+	{
+	case 't':
+	case 'T':
+		ret = 1;
+		break;
+	case 'f':
+	case 'F':
+		ret = 0;
+		break;
+	default:
+		*outstr = NULL;
+		return 0;
+	}
+	while( isspace(*str) )
+		str ++;
+	*outstr = str;
+	return ret;
+}
 static udi_index_t _get_token_idx(const char *str, const char **outstr)
 {
 	char	*end;
@@ -190,12 +170,59 @@ static udi_ubit32_t _get_token_uint32(const char *str, const char **outstr)
 	*outstr = end;
 	return ret;
 }
-static int _get_token_sym(const char *str, const char **outstr, ...)
+static size_t _get_token_str(const char *str, const char **outstr, char *output)
 {
-	va_list args;
-	va_start(args, outstr);
+	size_t	ret = 0;
+	const char *pos = str;
+	while( *pos && !isspace(*pos) )
+	{
+		if( *pos == '\\' )
+		{
+			pos ++;
+			switch( *pos )
+			{
+			case '_':	// space
+				if(output)
+					output[ret] = ' ';
+				ret ++;
+				break;
+			case 'H':	// hash
+				if(output)
+					output[ret] = '#';
+				ret ++;
+				break;
+			case '\\':	// backslash
+				if(output)
+					output[ret] = '\\';
+				ret ++;
+				break;
+			// TODO: \p and \m<msgnum> (for message/disaster_message only)
+			default:
+				// Error
+				break;
+			}
+		}
+		else {
+			if(output)
+				output[ret] = *pos;
+			ret ++;
+		}
+		pos ++;
+	}
+
+	while( isspace(*pos) )
+		pos ++;
+	*outstr = pos;	
+
+	if(output)
+		output[ret] = '\0';
+
+	return ret;
+}
+static int _get_token_sym_v(const char *str, const char **outstr, bool printError, const char **syms)
+{
 	const char *sym;
-	for( int idx = 0; (sym = va_arg(args, const char *)); idx ++ )
+	for( int idx = 0; (sym = syms[idx]); idx ++ )
 	{
 		size_t len = strlen(sym);
 		if( memcmp(str, sym, len) != 0 )
@@ -204,20 +231,91 @@ static int _get_token_sym(const char *str, const char **outstr, ...)
 			continue ;
 		
 		// Found it!
+		str += len;
+		while( isspace(*str) )
+			str ++;
+		*outstr = str;
 		return idx;
 	}
-	va_end(args);
 
+	// Unknown symbol, find the end of the symbol and error
 	const char *end = str;
 	while( !isspace(*end) )
 		end ++;
-	Log_Notice("UDI", "Unknown token '%.*s'",
-		end-str, str);	
+	
+	if( printError ) {
+		Log_Notice("UDI", "Unknown token '%.*s'", end-str, str);
+	}
 
 	*outstr = NULL;
 	return -1;
+	
+}
+static int _get_token_sym(const char *str, const char **outstr, bool printError, ...)
+{
+	va_list args;
+	const char *sym;
+	 int	count = 0;
+	va_start(args, printError);
+	for( ; (sym = va_arg(args, const char *)); count ++ )
+		;
+	va_end(args);
+
+	const char	*symlist[count+1];	
+	va_start(args, printError);
+	for( int idx = 0; (sym = va_arg(args, const char *)); idx ++ )
+		symlist[idx] = sym;
+	symlist[count] = NULL;
+	
+	return _get_token_sym_v(str, outstr, printError, symlist);
 }
 
+enum {
+	UDIPROPS__properties_version,
+	UDIPROPS__module,
+	UDIPROPS__meta,
+	UDIPROPS__message,
+	UDIPROPS__locale,
+	UDIPROPS__region,
+	UDIPROPS__parent_bind_ops,
+	UDIPROPS__internal_bind_ops,
+	UDIPROPS__child_bind_ops,
+	UDIPROPS__supplier,
+	UDIPROPS__contact,
+	UDIPROPS__name,
+	UDIPROPS__shortname,
+	UDIPROPS__release,
+	
+	UDIPROPS__requires,
+	UDIPROPS__device,
+	UDIPROPS__enumerates,
+
+	UDIPROPS_last
+};
+#define _defpropname(name)	[ UDIPROPS__##name ] = #name
+const char *caUDI_UdipropsNames[] = {
+	_defpropname(properties_version),
+	_defpropname(module),
+	_defpropname(meta),
+	_defpropname(message),
+	_defpropname(locale),
+	_defpropname(region),
+	_defpropname(parent_bind_ops),
+	_defpropname(internal_bind_ops),
+	_defpropname(child_bind_ops),
+	_defpropname(supplier),
+	_defpropname(contact),
+	_defpropname(name),
+	_defpropname(shortname),
+	_defpropname(release),
+	_defpropname(requires),
+	
+	_defpropname(device),
+	_defpropname(enumerates),
+	
+	[UDIPROPS_last] = NULL
+};
+#undef _defpropname
 
 tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, udi_init_t *info, const char *udiprops, size_t udiprops_size)
 {
@@ -253,80 +351,104 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, udi_init_t *info, const ch
 		if(udipropsptrs[line-1] == &udiprops[udiprops_size])
 			nLines --;
 		
-		for( int i = 0; i < nLines; i ++ )
-		{
-		}
-		
 		// Parse out:
 		// 'message' into driver_module->Messages
 		// 'region' into driver_module->RegionTypes
 		// 'module' into driver_module->ModuleName
 		
 		 int	nLocales = 1;
-		 int	nRegionTypes = 0;
 		for( int i = 0; i < nLines; i ++ )
 		{
 			const char *str = udipropsptrs[i];
-			if( strncmp("module ", str, 7) == 0 ) {
-				driver_module->ModuleName = str + 7;
-			}
-			else if( strncmp("meta ", str, 5) == 0 ) {
+			 int	sym = _get_token_sym_v(str, &str, false, caUDI_UdipropsNames);
+			switch(sym)
+			{
+			case UDIPROPS__module:
+				driver_module->ModuleName = str;
+				break;
+			case UDIPROPS__meta:
 				driver_module->nMetaLangs ++;
-			}
-			else if( strncmp("message ", str, 8) == 0 ) {
+				break;
+			case UDIPROPS__message:
 				driver_module->nMessages ++;
-			}
-			else if( strncmp("locale ", str, 7) == 0 ) {
+				break;
+			case UDIPROPS__locale:
 				nLocales ++;
-			}
-			else if( strncmp("region ", str, 7) == 0 ) {
-				nRegionTypes ++;
-			}
-			else if( strncmp("parent_bind_ops ", str, 16) == 0 ) {
+				break;
+			case UDIPROPS__region:
+				driver_module->nRegionTypes ++;
+				break;
+			case UDIPROPS__device:
+				driver_module->nDevices ++;
+				break;
+			case UDIPROPS__parent_bind_ops:
 				driver_module->nParents ++;
+				break;
+			case UDIPROPS__child_bind_ops:
+				driver_module->nChildBindOps ++;
+				break;
+			default:
+				// quiet ignore
+				break;
 			}
 		}
 
 		// Allocate structures
-		driver_module->Messages    = NEW(tUDI_PropMessage, * driver_module->nMessages);
-		driver_module->nRegionTypes = nRegionTypes;
-		driver_module->RegionTypes = NEW(tUDI_PropRegion,  * driver_module->nRegionTypes);
-		driver_module->MetaLangs   = NEW(tUDI_MetaLangRef, * driver_module->nMetaLangs);
-		driver_module->Parents     = NEW(tUDI_BindOps,     * driver_module->nParents);
+		driver_module->Messages     = NEW(tUDI_PropMessage, * driver_module->nMessages);
+		driver_module->RegionTypes  = NEW(tUDI_PropRegion,  * driver_module->nRegionTypes);
+		driver_module->MetaLangs    = NEW(tUDI_MetaLangRef, * driver_module->nMetaLangs);
+		driver_module->Parents      = NEW(tUDI_BindOps,     * driver_module->nParents);
+		driver_module->ChildBindOps = NEW(tUDI_BindOps,     * driver_module->nChildBindOps);
+		driver_module->Devices      = NEW(tUDI_PropDevSpec*,* driver_module->nDevices);
 
 		// Populate
 		 int	cur_locale = 0;
 		 int	msg_index = 0;
 		 int	ml_index = 0;
 		 int	parent_index = 0;
+		 int	child_bind_index = 0;
 		 int	next_unpop_region = 1;
 		for( int i = 0; i < nLines; i ++ )
 		{
 			const char *str = udipropsptrs[i];
-			if( strncmp("module ", str, 7) == 0 ) {
-				driver_module->ModuleName = str + 7;
-			}
-			else if( strncmp("meta ", str, 5) == 0 ) {
+			if( !*str )
+				continue ;
+			 int	sym = _get_token_sym_v(str, &str, true, caUDI_UdipropsNames);
+			switch(sym)
+			{
+			case UDIPROPS__properties_version:
+				if( _get_token_uint32(str, &str) != 0x101 ) {
+					Log_Warning("UDI", "Properties version mismatch.");
+				}
+				break;
+			case UDIPROPS__module:
+				driver_module->ModuleName = str;
+				break;
+			case UDIPROPS__meta:
+				{
 				tUDI_MetaLangRef *ml = &driver_module->MetaLangs[ml_index++];
-				ml->meta_idx = _get_token_idx(str+5, &str);
+				ml->meta_idx = _get_token_idx(str, &str);
 				if( !str )	continue;
 				ml->interface_name = str;
-			}
-			else if( strncmp("message ", str, 8) == 0 ) {
+				break;
+				}
+			case UDIPROPS__message:
+				{
 				tUDI_PropMessage *msg = &driver_module->Messages[msg_index++];
 				msg->locale = cur_locale;
-				msg->index = _get_token_uint16(str+8, &str);
+				msg->index = _get_token_uint16(str, &str);
 				if( !str )	continue ;
 				msg->string = str;
-				
 				//Log_Debug("UDI", "Message %i/%i: '%s'", msg->locale, msg->index, msg->string);
-			}
-			else if( strncmp("locale ", str, 7) == 0 ) {
+				break;
+				}
+			case UDIPROPS__locale:
 				// TODO: Set locale
 				cur_locale = 1;
-			}
-			else if( strncmp("region ", str, 7) == 0 ) {
-				udi_index_t rgn_idx = _get_token_idx(str+7, &str);
+				break;
+			case UDIPROPS__region:
+				{
+				udi_index_t rgn_idx = _get_token_idx(str, &str);
 				if( !str )	continue ;
 				// Search for region index (just in case internal_bind_ops appears earlier)
 				tUDI_PropRegion	*rgn = &driver_module->RegionTypes[0];
@@ -338,7 +460,7 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, udi_init_t *info, const ch
 							break;
 					}
 					if(i == next_unpop_region) {
-						if( next_unpop_region == nRegionTypes ) {
+						if( next_unpop_region == driver_module->nRegionTypes ) {
 							// TODO: warning if reigon types overflow
 							continue ;
 						}
@@ -349,24 +471,26 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, udi_init_t *info, const ch
 				// Parse attributes
 				while( *str )
 				{
-					int sym = _get_token_sym(str, &str,
+					int sym = _get_token_sym(str, &str, true,
 						"type", "binding", "priority", "latency", "overrun_time", NULL
 						);
 					if( !str )	break ;
 					switch(sym)
 					{
 					case 0:	// type
-						rgn->Type = _get_token_sym(str, &str, "normal", "fp", NULL);
+						rgn->Type = _get_token_sym(str, &str, true,
+							"normal", "fp", NULL);
 						break;
 					case 1:	// binding
-						rgn->Binding = _get_token_sym(str, &str, "static", "dynamic", NULL);
+						rgn->Binding = _get_token_sym(str, &str, true,
+							"static", "dynamic", NULL);
 						break;
 					case 2:	// priority
-						rgn->Priority = _get_token_sym(str, &str,
+						rgn->Priority = _get_token_sym(str, &str, true,
 							"med", "lo", "hi", NULL);
 						break;
 					case 3:	// latency
-						rgn->Latency = _get_token_sym(str, &str,
+						rgn->Latency = _get_token_sym(str, &str, true,
 							"non_overrunable", "powerfail_warning", "overrunable",
 							"retryable", "non_critical", NULL);
 						break;
@@ -376,10 +500,12 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, udi_init_t *info, const ch
 					}
 					if( !str )	break ;
 				}
-			}
-			else if( strncmp("parent_bind_ops ", str, 16) == 0 ) {
+				break;
+				}
+			case UDIPROPS__parent_bind_ops:
+				{
 				tUDI_BindOps	*bind = &driver_module->Parents[parent_index++];
-				bind->meta_idx = _get_token_idx(str+16, &str);
+				bind->meta_idx = _get_token_idx(str, &str);
 				if( !str )	continue ;
 				bind->region_idx = _get_token_idx(str, &str);
 				if( !str )	continue ;
@@ -391,10 +517,12 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, udi_init_t *info, const ch
 				}
 				Log_Debug("UDI", "Parent bind - meta:%i,rgn:%i,ops:%i,bind:%i",
 					bind->meta_idx, bind->region_idx, bind->ops_idx, bind->bind_cb_idx);
-			}
-			else if( strncmp("internal_bind_ops ", str, 18) == 0 ) {
+				break;
+				}
+			case UDIPROPS__internal_bind_ops:
+				{
 				// Get region using index
-				udi_index_t meta = _get_token_idx(str+18, &str);
+				udi_index_t meta = _get_token_idx(str, &str);
 				if( !str )	continue ;
 				udi_index_t rgn_idx = _get_token_idx(str, &str);
 				if( !str )	continue ;
@@ -404,12 +532,13 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, udi_init_t *info, const ch
 				if( rgn_idx > 0 )
 				{
 					rgn ++;
-					for( int i = 1; i < next_unpop_region; i ++, rgn ++ ) {
+					 int	j;
+					for( j = 1; j < next_unpop_region; j ++, rgn ++ ) {
 						if( rgn->RegionIdx == rgn_idx )
 							break;
 					}
-					if(i == next_unpop_region) {
-						if( next_unpop_region == nRegionTypes ) {
+					if( j == next_unpop_region ) {
+						if( next_unpop_region == driver_module->nRegionTypes ) {
 							// TODO: warning if reigon types overflow
 							continue ;
 						}
@@ -430,9 +559,94 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, udi_init_t *info, const ch
 				if( *str ) {
 					// TODO: Please sir, I want an EOL
 				}
-			}
-			else {
+				break;
+				}
+			case UDIPROPS__child_bind_ops:
+				{
+				tUDI_BindOps	*bind = &driver_module->ChildBindOps[child_bind_index++];
+				bind->meta_idx = _get_token_idx(str, &str);
+				if( !str )	continue ;
+				bind->region_idx = _get_token_idx(str, &str);
+				if( !str )	continue ;
+				bind->ops_idx = _get_token_idx(str, &str);
+				if( *str ) {
+					// Expected EOL, didn't get it :(
+				}
+				Log_Debug("UDI", "Child bind - meta:%i,rgn:%i,ops:%i",
+					bind->meta_idx, bind->region_idx, bind->ops_idx);
+				break;
+				}
+			case UDIPROPS__supplier:
+			case UDIPROPS__contact:
+			case UDIPROPS__name:
+			case UDIPROPS__shortname:
+			case UDIPROPS__release:
+				break;
+			//case UDIPROPS__requires:
+			//	// TODO: Requires
+			//	break;
+			case UDIPROPS__device:
+				{
+				 int	n_attr = 0;
+				// Count properties (and validate)
+				_get_token_idx(str, &str);	// message
+				if( !str )	continue;
+				_get_token_idx(str, &str);	// meta
+				if( !str )	continue;
+				while( *str )
+				{
+					_get_token_str(str, &str, NULL);
+					if( !str )	break;
+					_get_token_sym(str, &str, true, "string", "ubit32", "boolean", "array", NULL);
+					if( !str )	break;
+					_get_token_str(str, &str, NULL);
+					if( !str )	break;
+					n_attr ++;
+				}
+				// Rewind and actually parse
+				_get_token_str(udipropsptrs[i], &str, NULL);
+				
+				tUDI_PropDevSpec *dev = NEW_wA(tUDI_PropDevSpec, Attribs, n_attr);
+				dev->MessageNum = _get_token_idx(str, &str);
+				dev->MetaIdx = _get_token_idx(str, &str);
+				dev->nAttribs = n_attr;
+				n_attr = 0;
+				while( *str )
+				{
+					udi_instance_attr_list_t *at = &dev->Attribs[n_attr];
+					_get_token_str(str, &str, at->attr_name);
+					if( !str )	break;
+					at->attr_type = _get_token_sym(str, &str, true,
+						" ", "string", "array", "ubit32", "boolean", NULL);
+					if( !str )	break;
+					switch( dev->Attribs[n_attr].attr_type )
+					{
+					case 1:	// String
+						at->attr_length = _get_token_str(str, &str, (char*)at->attr_value);
+						break;
+					case 2:	// Array
+						// TODO: Array
+						Log_Warning("UDI", "TODO: Parse 'array' attribute in 'device'");
+						_get_token_str(str, &str, NULL);
+						break;
+					case 3:	// ubit32
+						at->attr_length = sizeof(udi_ubit32_t);
+						UDI_ATTR32_SET(at->attr_value, _get_token_uint32(str, &str));
+						break;
+					case 4:	// boolean
+						at->attr_length = sizeof(udi_boolean_t);
+						UDI_ATTR32_SET(at->attr_value, _get_token_bool(str, &str));
+						break;
+					}
+					if( !str )	break;
+					n_attr ++;
+				}
+				
+				break;
+				}
+			default:
 				Log_Debug("UDI", "udipropsptrs[%i] = '%s'", i, udipropsptrs[i]);
+				break;
 			}
 		}
 		
@@ -446,17 +660,22 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, udi_init_t *info, const ch
 	driver_module->nRegions = 1+nSecondaryRgns;
 
 	
+	// -- Add to loaded module list
+	driver_module->Next = gpUDI_LoadedModules;
+	gpUDI_LoadedModules = driver_module;
+	
 	// Check for orphan drivers, and create an instance of them when loaded
 	if( driver_module->nParents == 0 )
 	{
-		tUDI_DriverInstance *inst = UDI_CreateInstance(driver_module);
+		tUDI_DriverInstance *inst = UDI_MA_CreateInstance(driver_module);
 	
 		// Enumerate so any pre-loaded drivers are detected	
-		UDI_int_BeginEnumeration(inst);
+		UDI_MA_BeginEnumeration(inst);
 	}
 	else
 	{
-		// Send rescan requests to all loaded instances that support a parent metalang
+		// Search running instances for unbound children that can be bound to this driver
+		UDI_MA_BindParents(driver_module);
 	}
 
 	return driver_module;
@@ -526,76 +745,6 @@ void UDI_int_DumpInitInfo(udi_init_t *info)
 	}
 }
 
-tUDI_DriverInstance *UDI_CreateInstance(tUDI_DriverModule *DriverModule)
-{
-	tUDI_DriverInstance	*inst = NEW_wA(tUDI_DriverInstance, Regions, DriverModule->nRegions);
-	udi_primary_init_t	*pri_init = DriverModule->InitInfo->primary_init_info;
-	inst->Module = DriverModule;
-	inst->Regions[0] = UDI_InitRegion(inst, 0, 0, pri_init->rdata_size);
-	udi_secondary_init_t	*sec_init = DriverModule->InitInfo->secondary_init_list;
-	if( sec_init )
-	{
-		for( int i = 0; sec_init[i].region_idx; i ++ )
-		{
-			inst->Regions[1+i] = UDI_InitRegion(inst, i,
-				sec_init[i].region_idx, sec_init[i].rdata_size);
-		}
-	}
-
-	inst->ManagementChannel = UDI_CreateChannel_Blank(&cMetaLang_Management);
-	UDI_BindChannel_Raw(inst->ManagementChannel, true,
-		0, inst->Regions[0]->InitContext, pri_init->mgmt_ops);
-//	UDI_BindChannel_Raw(inst->ManagementChannel, false,
-//		1, inst, &cUDI_ManagementMetaagent_Ops);	// TODO: ops list for management
-
-	for( int i = 0; i < DriverModule->nRegions; i ++ )
-		Log("Rgn %i: %p", i, inst->Regions[i]);
-
-	// Send usage indication
-	char scratch[pri_init->mgmt_scratch_requirement];
-	{
-		udi_usage_cb_t ucb;
-		memset(&ucb, 0, sizeof(ucb));
-		ucb.gcb.scratch = scratch;
-		ucb.gcb.channel = inst->ManagementChannel;
-		udi_usage_ind(&ucb, UDI_RESOURCES_NORMAL);
-		// TODO: Ensure that udi_usage_res is called
-	}
-	
-	for( int i = 1; i < DriverModule->nRegions; i ++ )
-	{
-		//inst->Regions[i]->PriChannel = UDI_CreateChannel_Blank(
-		// TODO: Bind secondaries to primary
-	}
-	
-	return inst;
-}
-
-tUDI_DriverRegion *UDI_InitRegion(tUDI_DriverInstance *Inst, udi_ubit16_t Index, udi_ubit16_t Type, size_t RDataSize)
-{
-//	ASSERTCR( RDataSize, <=, UDI_MIN_ALLOC_LIMIT, NULL );
-	ASSERTCR( RDataSize, >=, sizeof(udi_init_context_t), NULL );
-	tUDI_DriverRegion	*rgn = NEW(tUDI_DriverRegion,+RDataSize);
-	rgn->InitContext = (void*)(rgn+1);
-	rgn->InitContext->region_idx = Type;
-//	rgn->InitContext->limits
-	return rgn;
-}
-
-void UDI_int_BeginEnumeration(tUDI_DriverInstance *Inst)
-{
-	udi_primary_init_t *pri_init = Inst->Module->InitInfo->primary_init_info;
-	char scratch[pri_init->mgmt_scratch_requirement];
-	udi_enumerate_cb_t	ecb;
-	memset(&ecb, 0, sizeof(ecb));
-	ecb.gcb.scratch = scratch;
-	ecb.gcb.channel = Inst->ManagementChannel;
-	ecb.child_data = malloc( pri_init->child_data_size);
-	ecb.attr_list = NEW(udi_instance_attr_list_t, *pri_init->enumeration_attr_list_length);
-	ecb.attr_valid_length = 0;
-	udi_enumerate_req(&ecb, UDI_ENUMERATE_START);
-}
-
 // TODO: Move this stuff out
 udi_ops_init_t *UDI_int_GetOps(tUDI_DriverInstance *Inst, udi_index_t index)
 {
@@ -611,6 +760,7 @@ tUDI_MetaLang *UDI_int_GetMetaLang(tUDI_DriverInstance *Inst, udi_index_t index)
 {
 	if( index == 0 )
 		return &cMetaLang_Management;
+	ASSERT(Inst);
 	for( int i = 0; i < Inst->Module->nMetaLangs; i ++ )
 	{
 		if( Inst->Module->MetaLangs[i].meta_idx == index )
@@ -621,12 +771,18 @@ tUDI_MetaLang *UDI_int_GetMetaLang(tUDI_DriverInstance *Inst, udi_index_t index)
 
 void *udi_cb_alloc_internal(tUDI_DriverInstance *Inst, udi_ubit8_t bind_cb_idx, udi_channel_t channel)
 {
-	udi_cb_init_t	*cb_init = NULL;
-	for( cb_init = Inst->Module->InitInfo->cb_init_list; cb_init->cb_idx; cb_init ++ )
+	const udi_cb_init_t	*cb_init;
+	cb_init = Inst ? Inst->Module->InitInfo->cb_init_list : cUDI_MgmtCbInitList;
+	for( ; cb_init->cb_idx; cb_init ++ )
 	{
 		if( cb_init->cb_idx == bind_cb_idx )
 		{
-			udi_cb_t *ret = NEW(udi_cb_t, + cb_init->inline_size + cb_init->scratch_requirement);
+			// TODO: Get base size using meta/cbnum
+			tUDI_MetaLang *metalang = UDI_int_GetMetaLang(Inst, cb_init->meta_idx);
+			ASSERT(metalang);
+			ASSERTC(cb_init->meta_cb_num, <, metalang->nCbTypes);
+			size_t	base = metalang->CbTypes[cb_init->meta_cb_num].Size;
+			udi_cb_t *ret = NEW(udi_cb_t, + base + cb_init->inline_size + cb_init->scratch_requirement);
 			ret->channel = channel;
 			return ret;
 		}

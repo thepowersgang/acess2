@@ -61,7 +61,27 @@ void	pci_intr_detach_req(udi_intr_detach_cb_t *cb);
 // === CODE ===
 void pci_usage_ind(udi_usage_cb_t *cb, udi_ubit8_t resource_level)
 {
-	UNIMPLEMENTED();
+	pci_rdata_t	*rdata = UDI_GCB(cb)->context;
+	
+	switch(cb->meta_idx)
+	{
+	case 1:	// mgmt
+		break;
+	}
+
+	switch(resource_level)
+	{
+	case UDI_RESOURCES_CRITICAL:
+	case UDI_RESOURCES_LOW:
+	case UDI_RESOURCES_NORMAL:
+	case UDI_RESOURCES_PLENTIFUL:
+		break;
+	}
+
+	// TODO: Initialise rdata
+	rdata->cur_iter = -1;
+
+	udi_usage_res(cb);
 }
 void pci_enumerate_req(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_level)
 {
@@ -92,7 +112,8 @@ void pci_enumerate_req(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_level)
 			attr_list ++;
 
 			cb->attr_valid_length = attr_list - cb->attr_list;
-			udi_enumerate_ack(cb, UDI_ENUMERATE_OK, 0);
+			cb->child_ID = rdata->cur_iter;
+			udi_enumerate_ack(cb, UDI_ENUMERATE_OK, 1);
 		}
 		break;
 	}
@@ -178,6 +199,7 @@ const char	pci_udiprops[] =
 	"requires udi 0x101\0"
 	"provides udi_bridge 0x101\0"
 	"meta 1 udi_bridge\0"
+	"enumerates 4 0 100 1 bus_name string pci\0"
 	"region 0\0"
 	"child_bind_ops 1 0 1\0"
 	"";
