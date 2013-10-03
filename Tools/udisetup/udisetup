@@ -1,5 +1,10 @@
 #!/bin/sh
 
+#if [[ ! -e "$1" ]]; then
+#	echo "Pacakge '$1' does not exist"
+#	exit 1
+#fi
+
 TMPFILE=/tmp/acess_udisetup.tmp
 
 if echo $0 | grep '/' >/dev/null; then

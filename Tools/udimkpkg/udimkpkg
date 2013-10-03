@@ -2,7 +2,7 @@
 
 ABI=ia32
 
-cat udiprops.txt | sed 's/#.*//' | grep -v 'source_files\|source_requires\|compile_options' | tr '\n' '\0' > .udiprops.bin
+cat udiprops.txt | sed 's/ *#.*//' | grep -v '^$' | tr '\t' ' ' | grep -v 'source_files\|source_requires\|compile_options' | tr '\n' '\0' > .udiprops.bin
 
 shortname=`grep 'shortname ' udiprops.txt | head -n 1 | awk '{print $2}'`
 firstmodule=`grep 'module ' udiprops.txt | head -n 1 | awk '{print $2}'`
