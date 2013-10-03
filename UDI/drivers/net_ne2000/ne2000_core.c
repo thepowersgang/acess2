@@ -58,6 +58,7 @@ void ne2k_enumerate_req(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_level)
 			rdata->macaddr[0], rdata->macaddr[1], rdata->macaddr[2],
 			rdata->macaddr[3], rdata->macaddr[4], rdata->macaddr[5] );
 		attr_list ++;
+		cb->attr_valid_length = attr_list - cb->attr_list;
 		udi_enumerate_ack(cb, UDI_ENUMERATE_OK, NE2K_OPS_CTRL);
 		break;
 	case UDI_ENUMERATE_NEXT:

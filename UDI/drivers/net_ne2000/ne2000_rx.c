@@ -18,6 +18,7 @@ void ne2k_nd_rx_channel_event_ind(udi_channel_event_cb_t *cb)
 }
 void ne2k_nd_rx_rx_rdy(udi_nic_rx_cb_t *cb)
 {
+	// TODO: Add cb(s) to avaliable list
 }
 void ne2k_intr__rx_ok(udi_cb_t *gcb)
 {
