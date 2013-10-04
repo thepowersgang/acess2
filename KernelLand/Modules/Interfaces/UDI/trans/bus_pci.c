@@ -131,11 +131,12 @@ void pci_bridge_ch_event_ind(udi_channel_event_cb_t *cb)
 {
 	UNIMPLEMENTED();
 }
-void pci_unbind_req(udi_bus_bind_cb_t *cb)
+void pci_bind_req(udi_bus_bind_cb_t *cb)
 {
-	UNIMPLEMENTED();
+	// TODO: DMA constraints
+	udi_bus_bind_ack(cb, 0, UDI_DMA_LITTLE_ENDIAN, UDI_OK);
 }
-void pci_bind_req_op(udi_bus_bind_cb_t *cb)
+void pci_unbind_req(udi_bus_bind_cb_t *cb)
 {
 	UNIMPLEMENTED();
 }
@@ -158,8 +159,8 @@ udi_mgmt_ops_t	pci_mgmt_ops = {
 udi_ubit8_t	pci_mgmt_op_flags[4] = {0,0,0,0};
 udi_bus_bridge_ops_t	pci_bridge_ops = {
 	pci_bridge_ch_event_ind,
+	pci_bind_req,
 	pci_unbind_req,
-	pci_bind_req_op,
 	pci_intr_attach_req,
 	pci_intr_detach_req
 };

@@ -20,7 +20,22 @@ void udi_pio_map(udi_pio_map_call_t *callback, udi_cb_t *gcb,
 	udi_pio_trans_t *trans_list, udi_ubit16_t list_length,
 	udi_ubit16_t pio_attributes, udi_ubit32_t pace, udi_index_t serialization_domain)
 {
-	UNIMPLEMENTED();
+	char bus_type[16];
+	udi_instance_attr_type_t	type;
+	type = udi_instance_attr_get_internal(gcb, "bus_type", 0, bus_type, sizeof(bus_type), NULL);
+	if(type != UDI_ATTR_STRING) {
+		callback(gcb, UDI_NULL_HANDLE);
+		return ;
+	}
+	
+	if( strcmp(bus_type, "pci") == 0 ) {
+		// Ask PCI binding
+	}
+	else {
+		// Oops, unknown
+		callback(gcb, UDI_NULL_HANDLE);
+		return ;
+	}
 }
 
 void udi_pio_unmap(udi_pio_handle_t pio_handle)

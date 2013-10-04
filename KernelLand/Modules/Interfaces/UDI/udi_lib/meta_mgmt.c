@@ -22,12 +22,10 @@ EXPORT(udi_final_cleanup_ack);
 
 tUDI_MetaLang	cMetaLang_Management = {
 	"udi_mgmt",
-	1,
-	{NULL},
 	
 	1,
 	{
-		{sizeof(udi_enumerate_cb_t)-sizeof(udi_cb_t), NULL}
+		{sizeof(udi_enumerate_cb_t), NULL}
 	}
 };
 
@@ -40,7 +38,8 @@ void udi_usage_ind(udi_usage_cb_t *cb, udi_ubit8_t resource_level)
 		Log_Warning("UDI", "%s on wrong channel type", __func__);
 		return ;
 	}
-	
+
+	// Non-deferred because it's usually called with a stack allocated cb	
 	UDI_int_ChannelReleaseFromCall( UDI_GCB(cb) );
 	ops->usage_ind_op(cb, resource_level);
 }
@@ -67,8 +66,6 @@ void udi_enumerate_req(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_level)
 	}
 	
 	UDI_int_MakeDeferredCbU8( UDI_GCB(cb), (udi_op_t*)ops->enumerate_req_op, enumeration_level );
-//	UDI_int_ChannelReleaseFromCall( UDI_GCB(cb) );
-//	ops->enumerate_req_op(cb, enumeration_level);
 }
 
 void udi_enumerate_no_children(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_level)
@@ -83,7 +80,7 @@ void udi_enumerate_ack(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_result, u
 	switch( enumeration_result )
 	{
 	case UDI_ENUMERATE_OK:
-		#if DEBUG
+		#if DEBUG && 0
 		for( int i = 0; i < cb->attr_valid_length; i ++ )
 		{
 			udi_instance_attr_list_t	*at = &cb->attr_list[i];

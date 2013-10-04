@@ -1,7 +1,7 @@
 /*
  * Acess2 UDI Layer
  */
-#define DEBUG	0
+#define DEBUG	1
 #define VERSION	((0<<8)|1)
 #include <acess.h>
 #include <modules.h>
@@ -19,6 +19,7 @@ extern size_t	pci_udiprops_size;
  int	UDI_DetectDriver(void *Base);
  int	UDI_LoadDriver(void *Base);
 tUDI_DriverModule	*UDI_int_LoadDriver(void *LoadBase, udi_init_t *info, const char *udiprops, size_t udiprops_size);
+const tUDI_MetaLang	*UDI_int_GetMetaLangByName(const char *Name);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, UDI, UDI_Install, NULL, NULL);
@@ -326,333 +327,346 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, udi_init_t *info, const ch
 	driver_module->InitInfo = info;
 
 	// - Parse udiprops
+	const char	**udipropsptrs;
+	
+	int nLines = 1;
+	for( int i = 0; i < udiprops_size; i++ )
 	{
-		const char	**udipropsptrs;
-		
-		
-		int nLines = 1;
-		for( int i = 0; i < udiprops_size; i++ )
-		{
-			if( udiprops[i] == '\0' )
-				nLines ++;
-		}
-		
-		Log_Debug("UDI", "nLines = %i", nLines);
-		
-		udipropsptrs = NEW(const char*,*nLines);
-		int line = 0;
-		udipropsptrs[line++] = udiprops;
-		for( int i = 0; i < udiprops_size; i++ )
-		{
-			if( udiprops[i] == '\0' ) {
-				udipropsptrs[line++] = &udiprops[i+1];
-			}
-		}
-		if(udipropsptrs[line-1] == &udiprops[udiprops_size])
-			nLines --;
-		
-		// Parse out:
-		// 'message' into driver_module->Messages
-		// 'region' into driver_module->RegionTypes
-		// 'module' into driver_module->ModuleName
-		
-		 int	nLocales = 1;
-		for( int i = 0; i < nLines; i ++ )
-		{
-			const char *str = udipropsptrs[i];
-			 int	sym = _get_token_sym_v(str, &str, false, caUDI_UdipropsNames);
-			switch(sym)
-			{
-			case UDIPROPS__module:
-				driver_module->ModuleName = str;
-				break;
-			case UDIPROPS__meta:
-				driver_module->nMetaLangs ++;
-				break;
-			case UDIPROPS__message:
-				driver_module->nMessages ++;
-				break;
-			case UDIPROPS__locale:
-				nLocales ++;
-				break;
-			case UDIPROPS__region:
-				driver_module->nRegionTypes ++;
-				break;
-			case UDIPROPS__device:
-				driver_module->nDevices ++;
-				break;
-			case UDIPROPS__parent_bind_ops:
-				driver_module->nParents ++;
-				break;
-			case UDIPROPS__child_bind_ops:
-				driver_module->nChildBindOps ++;
-				break;
-			default:
-				// quiet ignore
-				break;
-			}
-		}
-
-		// Allocate structures
-		driver_module->Messages     = NEW(tUDI_PropMessage, * driver_module->nMessages);
-		driver_module->RegionTypes  = NEW(tUDI_PropRegion,  * driver_module->nRegionTypes);
-		driver_module->MetaLangs    = NEW(tUDI_MetaLangRef, * driver_module->nMetaLangs);
-		driver_module->Parents      = NEW(tUDI_BindOps,     * driver_module->nParents);
-		driver_module->ChildBindOps = NEW(tUDI_BindOps,     * driver_module->nChildBindOps);
-		driver_module->Devices      = NEW(tUDI_PropDevSpec*,* driver_module->nDevices);
-
-		// Populate
-		 int	cur_locale = 0;
-		 int	msg_index = 0;
-		 int	ml_index = 0;
-		 int	parent_index = 0;
-		 int	child_bind_index = 0;
-		 int	next_unpop_region = 1;
-		for( int i = 0; i < nLines; i ++ )
-		{
-			const char *str = udipropsptrs[i];
-			if( !*str )
-				continue ;
-			 int	sym = _get_token_sym_v(str, &str, true, caUDI_UdipropsNames);
-			switch(sym)
-			{
-			case UDIPROPS__properties_version:
-				if( _get_token_uint32(str, &str) != 0x101 ) {
-					Log_Warning("UDI", "Properties version mismatch.");
-				}
-				break;
-			case UDIPROPS__module:
-				driver_module->ModuleName = str;
-				break;
-			case UDIPROPS__meta:
-				{
-				tUDI_MetaLangRef *ml = &driver_module->MetaLangs[ml_index++];
-				ml->meta_idx = _get_token_idx(str, &str);
-				if( !str )	continue;
-				ml->interface_name = str;
-				break;
-				}
-			case UDIPROPS__message:
-				{
-				tUDI_PropMessage *msg = &driver_module->Messages[msg_index++];
-				msg->locale = cur_locale;
-				msg->index = _get_token_uint16(str, &str);
-				if( !str )	continue ;
-				msg->string = str;
-				//Log_Debug("UDI", "Message %i/%i: '%s'", msg->locale, msg->index, msg->string);
-				break;
-				}
-			case UDIPROPS__locale:
-				// TODO: Set locale
-				cur_locale = 1;
-				break;
-			case UDIPROPS__region:
-				{
-				udi_index_t rgn_idx = _get_token_idx(str, &str);
-				if( !str )	continue ;
-				// Search for region index (just in case internal_bind_ops appears earlier)
-				tUDI_PropRegion	*rgn = &driver_module->RegionTypes[0];
-				if( rgn_idx > 0 )
-				{
-					rgn ++;
-					for( int i = 1; i < next_unpop_region; i ++, rgn ++ ) {
-						if( rgn->RegionIdx == rgn_idx )
-							break;
-					}
-					if(i == next_unpop_region) {
-						if( next_unpop_region == driver_module->nRegionTypes ) {
-							// TODO: warning if reigon types overflow
-							continue ;
-						}
-						next_unpop_region ++;
-						rgn->RegionIdx = rgn_idx;
-					}
-				}
-				// Parse attributes
-				while( *str )
-				{
-					int sym = _get_token_sym(str, &str, true,
-						"type", "binding", "priority", "latency", "overrun_time", NULL
-						);
-					if( !str )	break ;
-					switch(sym)
-					{
-					case 0:	// type
-						rgn->Type = _get_token_sym(str, &str, true,
-							"normal", "fp", NULL);
-						break;
-					case 1:	// binding
-						rgn->Binding = _get_token_sym(str, &str, true,
-							"static", "dynamic", NULL);
-						break;
-					case 2:	// priority
-						rgn->Priority = _get_token_sym(str, &str, true,
-							"med", "lo", "hi", NULL);
-						break;
-					case 3:	// latency
-						rgn->Latency = _get_token_sym(str, &str, true,
-							"non_overrunable", "powerfail_warning", "overrunable",
-							"retryable", "non_critical", NULL);
-						break;
-					case 4:	// overrun_time
-						rgn->OverrunTime = _get_token_uint32(str, &str);
-						break;
-					}
-					if( !str )	break ;
-				}
-				break;
-				}
-			case UDIPROPS__parent_bind_ops:
-				{
-				tUDI_BindOps	*bind = &driver_module->Parents[parent_index++];
-				bind->meta_idx = _get_token_idx(str, &str);
-				if( !str )	continue ;
-				bind->region_idx = _get_token_idx(str, &str);
-				if( !str )	continue ;
-				bind->ops_idx = _get_token_idx(str, &str);
-				if( !str )	continue ;
-				bind->bind_cb_idx = _get_token_idx(str, &str);
-				if( *str ) {
-					// Expected EOL, didn't get it :(
-				}
-				Log_Debug("UDI", "Parent bind - meta:%i,rgn:%i,ops:%i,bind:%i",
-					bind->meta_idx, bind->region_idx, bind->ops_idx, bind->bind_cb_idx);
-				break;
-				}
-			case UDIPROPS__internal_bind_ops:
-				{
-				// Get region using index
-				udi_index_t meta = _get_token_idx(str, &str);
-				if( !str )	continue ;
-				udi_index_t rgn_idx = _get_token_idx(str, &str);
-				if( !str )	continue ;
-				
-				// Search for region index (just in case the relevant 'region' comes after)
-				tUDI_PropRegion	*rgn = &driver_module->RegionTypes[0];
-				if( rgn_idx > 0 )
-				{
-					rgn ++;
-					 int	j;
-					for( j = 1; j < next_unpop_region; j ++, rgn ++ ) {
-						if( rgn->RegionIdx == rgn_idx )
-							break;
-					}
-					if( j == next_unpop_region ) {
-						if( next_unpop_region == driver_module->nRegionTypes ) {
-							// TODO: warning if reigon types overflow
-							continue ;
-						}
-						next_unpop_region ++;
-						rgn->RegionIdx = rgn_idx;
-					}
-				}
-		
-				// Set properties
-				rgn->BindMeta = meta;
-				
-				rgn->PriBindOps = _get_token_idx(str, &str);
-				if( !str )	continue ;
-				rgn->SecBindOps = _get_token_idx(str, &str);
-				if( !str )	continue ;
-				rgn->BindCb = _get_token_idx(str, &str);
-				if( !str )	continue ;
-				if( *str ) {
-					// TODO: Please sir, I want an EOL
-				}
-				break;
-				}
-			case UDIPROPS__child_bind_ops:
-				{
-				tUDI_BindOps	*bind = &driver_module->ChildBindOps[child_bind_index++];
-				bind->meta_idx = _get_token_idx(str, &str);
-				if( !str )	continue ;
-				bind->region_idx = _get_token_idx(str, &str);
-				if( !str )	continue ;
-				bind->ops_idx = _get_token_idx(str, &str);
-				if( *str ) {
-					// Expected EOL, didn't get it :(
-				}
-				Log_Debug("UDI", "Child bind - meta:%i,rgn:%i,ops:%i",
-					bind->meta_idx, bind->region_idx, bind->ops_idx);
-				break;
-				}
-			case UDIPROPS__supplier:
-			case UDIPROPS__contact:
-			case UDIPROPS__name:
-			case UDIPROPS__shortname:
-			case UDIPROPS__release:
-				break;
-			//case UDIPROPS__requires:
-			//	// TODO: Requires
-			//	break;
-			case UDIPROPS__device:
-				{
-				 int	n_attr = 0;
-				// Count properties (and validate)
-				_get_token_idx(str, &str);	// message
-				if( !str )	continue;
-				_get_token_idx(str, &str);	// meta
-				if( !str )	continue;
-				while( *str )
-				{
-					_get_token_str(str, &str, NULL);
-					if( !str )	break;
-					_get_token_sym(str, &str, true, "string", "ubit32", "boolean", "array", NULL);
-					if( !str )	break;
-					_get_token_str(str, &str, NULL);
-					if( !str )	break;
-					n_attr ++;
-				}
-				// Rewind and actually parse
-				_get_token_str(udipropsptrs[i], &str, NULL);
-				
-				tUDI_PropDevSpec *dev = NEW_wA(tUDI_PropDevSpec, Attribs, n_attr);
-				dev->MessageNum = _get_token_idx(str, &str);
-				dev->MetaIdx = _get_token_idx(str, &str);
-				dev->nAttribs = n_attr;
-				n_attr = 0;
-				while( *str )
-				{
-					udi_instance_attr_list_t *at = &dev->Attribs[n_attr];
-					_get_token_str(str, &str, at->attr_name);
-					if( !str )	break;
-					at->attr_type = _get_token_sym(str, &str, true,
-						" ", "string", "array", "ubit32", "boolean", NULL);
-					if( !str )	break;
-					switch( dev->Attribs[n_attr].attr_type )
-					{
-					case 1:	// String
-						at->attr_length = _get_token_str(str, &str, (char*)at->attr_value);
-						break;
-					case 2:	// Array
-						// TODO: Array
-						Log_Warning("UDI", "TODO: Parse 'array' attribute in 'device'");
-						_get_token_str(str, &str, NULL);
-						break;
-					case 3:	// ubit32
-						at->attr_length = sizeof(udi_ubit32_t);
-						UDI_ATTR32_SET(at->attr_value, _get_token_uint32(str, &str));
-						break;
-					case 4:	// boolean
-						at->attr_length = sizeof(udi_boolean_t);
-						UDI_ATTR32_SET(at->attr_value, _get_token_bool(str, &str));
-						break;
-					}
-					if( !str )	break;
-					n_attr ++;
-				}
-				
-				break;
-				}
-			default:
-				Log_Debug("UDI", "udipropsptrs[%i] = '%s'", i, udipropsptrs[i]);
-				break;
-			}
-		}
-		
-		// Sort message list
-		// TODO: Sort message list
+		if( udiprops[i] == '\0' )
+			nLines ++;
 	}
+	
+	Log_Debug("UDI", "nLines = %i", nLines);
+	
+	udipropsptrs = NEW(const char*,*nLines);
+	int line = 0;
+	udipropsptrs[line++] = udiprops;
+	for( int i = 0; i < udiprops_size; i++ )
+	{
+		if( udiprops[i] == '\0' ) {
+			udipropsptrs[line++] = &udiprops[i+1];
+		}
+	}
+	if(udipropsptrs[line-1] == &udiprops[udiprops_size])
+		nLines --;
+	
+	// Parse out:
+	// 'message' into driver_module->Messages
+	// 'region' into driver_module->RegionTypes
+	// 'module' into driver_module->ModuleName
+	
+	 int	nLocales = 1;
+	for( int i = 0; i < nLines; i ++ )
+	{
+		const char *str = udipropsptrs[i];
+		 int	sym = _get_token_sym_v(str, &str, false, caUDI_UdipropsNames);
+		switch(sym)
+		{
+		case UDIPROPS__module:
+			driver_module->ModuleName = str;
+			break;
+		case UDIPROPS__meta:
+			driver_module->nMetaLangs ++;
+			break;
+		case UDIPROPS__message:
+			driver_module->nMessages ++;
+			break;
+		case UDIPROPS__locale:
+			nLocales ++;
+			break;
+		case UDIPROPS__region:
+			driver_module->nRegionTypes ++;
+			break;
+		case UDIPROPS__device:
+			driver_module->nDevices ++;
+			break;
+		case UDIPROPS__parent_bind_ops:
+			driver_module->nParents ++;
+			break;
+		case UDIPROPS__child_bind_ops:
+			driver_module->nChildBindOps ++;
+			break;
+		default:
+			// quiet ignore
+			break;
+		}
+	}
+
+	// Allocate structures
+	LOG("nMessages = %i, nMetaLangs = %i",
+		driver_module->nMessages,
+		driver_module->nMetaLangs);
+	driver_module->Messages     = NEW(tUDI_PropMessage, * driver_module->nMessages);
+	driver_module->RegionTypes  = NEW(tUDI_PropRegion,  * driver_module->nRegionTypes);
+	driver_module->MetaLangs    = NEW(tUDI_MetaLangRef, * driver_module->nMetaLangs);
+	driver_module->Parents      = NEW(tUDI_BindOps,     * driver_module->nParents);
+	driver_module->ChildBindOps = NEW(tUDI_BindOps,     * driver_module->nChildBindOps);
+	driver_module->Devices      = NEW(tUDI_PropDevSpec*,* driver_module->nDevices);
+
+	// Populate
+	 int	cur_locale = 0;
+	 int	msg_index = 0;
+	 int	ml_index = 0;
+	 int	parent_index = 0;
+	 int	child_bind_index = 0;
+	 int	device_index = 0;
+	 int	next_unpop_region = 1;
+	for( int i = 0; i < nLines; i ++ )
+	{
+		const char *str = udipropsptrs[i];
+		if( !*str )
+			continue ;
+		 int	sym = _get_token_sym_v(str, &str, true, caUDI_UdipropsNames);
+		switch(sym)
+		{
+		case UDIPROPS__properties_version:
+			if( _get_token_uint32(str, &str) != 0x101 ) {
+				Log_Warning("UDI", "Properties version mismatch.");
+			}
+			break;
+		case UDIPROPS__module:
+			driver_module->ModuleName = str;
+			break;
+		case UDIPROPS__meta:
+			{
+			tUDI_MetaLangRef *ml = &driver_module->MetaLangs[ml_index++];
+			ml->meta_idx = _get_token_idx(str, &str);
+			if( !str )	continue;
+			ml->interface_name = str;
+			// TODO: May need to trim trailing spaces
+			ml->metalang = UDI_int_GetMetaLangByName(ml->interface_name);
+			if( !ml->metalang ) {
+				Log_Error("UDI", "Module %s referenced unsupported metalang %s",
+					driver_module->ModuleName, ml->interface_name);
+			}
+			break;
+			}
+		case UDIPROPS__message:
+			{
+			tUDI_PropMessage *msg = &driver_module->Messages[msg_index++];
+			msg->locale = cur_locale;
+			msg->index = _get_token_uint16(str, &str);
+			if( !str )	continue ;
+			msg->string = str;
+			//Log_Debug("UDI", "Message %i/%i: '%s'", msg->locale, msg->index, msg->string);
+			break;
+			}
+		case UDIPROPS__locale:
+			// TODO: Set locale
+			cur_locale = 1;
+			break;
+		case UDIPROPS__region:
+			{
+			udi_index_t rgn_idx = _get_token_idx(str, &str);
+			if( !str )	continue ;
+			// Search for region index (just in case internal_bind_ops appears earlier)
+			tUDI_PropRegion	*rgn = &driver_module->RegionTypes[0];
+			if( rgn_idx > 0 )
+			{
+				rgn ++;
+				for( int i = 1; i < next_unpop_region; i ++, rgn ++ ) {
+					if( rgn->RegionIdx == rgn_idx )
+						break;
+				}
+				if(i == next_unpop_region) {
+					if( next_unpop_region == driver_module->nRegionTypes ) {
+						// TODO: warning if reigon types overflow
+						continue ;
+					}
+					next_unpop_region ++;
+					rgn->RegionIdx = rgn_idx;
+				}
+			}
+			// Parse attributes
+			while( *str )
+			{
+				int sym = _get_token_sym(str, &str, true,
+					"type", "binding", "priority", "latency", "overrun_time", NULL
+					);
+				if( !str )	break ;
+				switch(sym)
+				{
+				case 0:	// type
+					rgn->Type = _get_token_sym(str, &str, true,
+						"normal", "fp", NULL);
+					break;
+				case 1:	// binding
+					rgn->Binding = _get_token_sym(str, &str, true,
+						"static", "dynamic", NULL);
+					break;
+				case 2:	// priority
+					rgn->Priority = _get_token_sym(str, &str, true,
+						"med", "lo", "hi", NULL);
+					break;
+				case 3:	// latency
+					rgn->Latency = _get_token_sym(str, &str, true,
+						"non_overrunable", "powerfail_warning", "overrunable",
+						"retryable", "non_critical", NULL);
+					break;
+				case 4:	// overrun_time
+					rgn->OverrunTime = _get_token_uint32(str, &str);
+					break;
+				}
+				if( !str )	break ;
+			}
+			break;
+			}
+		case UDIPROPS__parent_bind_ops:
+			{
+			tUDI_BindOps	*bind = &driver_module->Parents[parent_index++];
+			bind->meta_idx = _get_token_idx(str, &str);
+			if( !str )	continue ;
+			bind->region_idx = _get_token_idx(str, &str);
+			if( !str )	continue ;
+			bind->ops_idx = _get_token_idx(str, &str);
+			if( !str )	continue ;
+			bind->bind_cb_idx = _get_token_idx(str, &str);
+			if( *str ) {
+				// Expected EOL, didn't get it :(
+			}
+			Log_Debug("UDI", "Parent bind - meta:%i,rgn:%i,ops:%i,bind:%i",
+				bind->meta_idx, bind->region_idx, bind->ops_idx, bind->bind_cb_idx);
+			break;
+			}
+		case UDIPROPS__internal_bind_ops:
+			{
+			// Get region using index
+			udi_index_t meta = _get_token_idx(str, &str);
+			if( !str )	continue ;
+			udi_index_t rgn_idx = _get_token_idx(str, &str);
+			if( !str )	continue ;
+			
+			// Search for region index (just in case the relevant 'region' comes after)
+			tUDI_PropRegion	*rgn = &driver_module->RegionTypes[0];
+			if( rgn_idx > 0 )
+			{
+				rgn ++;
+				 int	j;
+				for( j = 1; j < next_unpop_region; j ++, rgn ++ ) {
+					if( rgn->RegionIdx == rgn_idx )
+						break;
+				}
+				if( j == next_unpop_region ) {
+					if( next_unpop_region == driver_module->nRegionTypes ) {
+						// TODO: warning if reigon types overflow
+						continue ;
+					}
+					next_unpop_region ++;
+					rgn->RegionIdx = rgn_idx;
+				}
+			}
+	
+			// Set properties
+			rgn->BindMeta = meta;
+			
+			rgn->PriBindOps = _get_token_idx(str, &str);
+			if( !str )	continue ;
+			rgn->SecBindOps = _get_token_idx(str, &str);
+			if( !str )	continue ;
+			rgn->BindCb = _get_token_idx(str, &str);
+			if( !str )	continue ;
+			if( *str ) {
+				// TODO: Please sir, I want an EOL
+			}
+			break;
+			}
+		case UDIPROPS__child_bind_ops:
+			{
+			tUDI_BindOps	*bind = &driver_module->ChildBindOps[child_bind_index++];
+			bind->meta_idx = _get_token_idx(str, &str);
+			if( !str )	continue ;
+			bind->region_idx = _get_token_idx(str, &str);
+			if( !str )	continue ;
+			bind->ops_idx = _get_token_idx(str, &str);
+			if( *str ) {
+				// Expected EOL, didn't get it :(
+			}
+			Log_Debug("UDI", "Child bind - meta:%i,rgn:%i,ops:%i",
+				bind->meta_idx, bind->region_idx, bind->ops_idx);
+			break;
+			}
+		case UDIPROPS__supplier:
+		case UDIPROPS__contact:
+		case UDIPROPS__name:
+		case UDIPROPS__shortname:
+		case UDIPROPS__release:
+			break;
+		//case UDIPROPS__requires:
+		//	// TODO: Requires
+		//	break;
+		case UDIPROPS__device:
+			{
+			 int	n_attr = 0;
+			// Count properties (and validate)
+			_get_token_idx(str, &str);	// message
+			if( !str )	continue;
+			_get_token_idx(str, &str);	// meta
+			if( !str )	continue;
+			while( *str )
+			{
+				_get_token_str(str, &str, NULL);
+				if( !str )	break;
+				_get_token_sym(str, &str, true, "string", "ubit32", "boolean", "array", NULL);
+				if( !str )	break;
+				_get_token_str(str, &str, NULL);
+				if( !str )	break;
+				n_attr ++;
+			}
+			// Rewind and actually parse
+			_get_token_str(udipropsptrs[i], &str, NULL);
+			
+			tUDI_PropDevSpec *dev = NEW_wA(tUDI_PropDevSpec, Attribs, n_attr);
+			driver_module->Devices[device_index++] = dev;;
+			dev->MessageNum = _get_token_idx(str, &str);
+			dev->MetaIdx = _get_token_idx(str, &str);
+			dev->nAttribs = n_attr;
+			n_attr = 0;
+			while( *str )
+			{
+				udi_instance_attr_list_t *at = &dev->Attribs[n_attr];
+				_get_token_str(str, &str, at->attr_name);
+				if( !str )	break;
+				at->attr_type = _get_token_sym(str, &str, true,
+					" ", "string", "array", "ubit32", "boolean", NULL);
+				if( !str )	break;
+				udi_ubit32_t	val;
+				switch( dev->Attribs[n_attr].attr_type )
+				{
+				case 1:	// String
+					at->attr_length = _get_token_str(str, &str, (char*)at->attr_value);
+					break;
+				case 2:	// Array
+					// TODO: Array
+					Log_Warning("UDI", "TODO: Parse 'array' attribute in 'device'");
+					_get_token_str(str, &str, NULL);
+					break;
+				case 3:	// ubit32
+					at->attr_length = sizeof(udi_ubit32_t);
+					val = _get_token_uint32(str, &str);
+					Log_Debug("UDI", "device %i: Value '%s'=%x", device_index,
+						at->attr_name, val);
+					UDI_ATTR32_SET(at->attr_value, val);
+					break;
+				case 4:	// boolean
+					at->attr_length = sizeof(udi_boolean_t);
+					UDI_ATTR32_SET(at->attr_value, _get_token_bool(str, &str));
+					break;
+				}
+				if( !str )	break;
+				n_attr ++;
+			}
+			
+			break;
+			}
+		default:
+			Log_Debug("UDI", "udipropsptrs[%i] = '%s'", i, udipropsptrs[i]);
+			break;
+		}
+	}
+	free(udipropsptrs);
+	
+	// Sort message list
+	// TODO: Sort message list
 
 	 int	nSecondaryRgns = 0;
 	for( int i = 0; info->secondary_init_list && info->secondary_init_list[i].region_idx; i ++ )
@@ -772,6 +786,12 @@ tUDI_MetaLang *UDI_int_GetMetaLang(tUDI_DriverInstance *Inst, udi_index_t index)
 void *udi_cb_alloc_internal(tUDI_DriverInstance *Inst, udi_ubit8_t bind_cb_idx, udi_channel_t channel)
 {
 	const udi_cb_init_t	*cb_init;
+	LOG("Inst=%p, bind_cb_idx=%i, channel=%p", Inst, bind_cb_idx, channel);
+	if(Inst) {
+		ASSERT(Inst->Module);
+		ASSERT(Inst->Module->InitInfo);
+		ASSERT(Inst->Module->InitInfo->cb_init_list);
+	}
 	cb_init = Inst ? Inst->Module->InitInfo->cb_init_list : cUDI_MgmtCbInitList;
 	for( ; cb_init->cb_idx; cb_init ++ )
 	{
@@ -779,10 +799,18 @@ void *udi_cb_alloc_internal(tUDI_DriverInstance *Inst, udi_ubit8_t bind_cb_idx, 
 		{
 			// TODO: Get base size using meta/cbnum
 			tUDI_MetaLang *metalang = UDI_int_GetMetaLang(Inst, cb_init->meta_idx);
-			ASSERT(metalang);
+			if( !metalang ) {
+				Log_Warning("UDI", "Metalang referenced in %s CB %i is invalid (%i)",
+					Inst->Module->ModuleName, bind_cb_idx, cb_init->meta_idx);
+				return NULL;
+			}
 			ASSERTC(cb_init->meta_cb_num, <, metalang->nCbTypes);
 			size_t	base = metalang->CbTypes[cb_init->meta_cb_num].Size;
-			udi_cb_t *ret = NEW(udi_cb_t, + base + cb_init->inline_size + cb_init->scratch_requirement);
+			ASSERTC(base, >=, sizeof(udi_cb_t));
+			base -= sizeof(udi_cb_t);
+			LOG("+ %i + %i + %i", base, cb_init->inline_size, cb_init->scratch_requirement);
+			udi_cb_t *ret = NEW(udi_cb_t, + base
+				+ cb_init->inline_size + cb_init->scratch_requirement);
 			ret->channel = channel;
 			return ret;
 		}
@@ -791,5 +819,21 @@ void *udi_cb_alloc_internal(tUDI_DriverInstance *Inst, udi_ubit8_t bind_cb_idx, 
 		bind_cb_idx, Inst->Module->ModuleName);
 	return NULL;
 	
+}
+
+const tUDI_MetaLang *UDI_int_GetMetaLangByName(const char *Name)
+{
+	//extern tUDI_MetaLang	cMetaLang_Management;
+	extern tUDI_MetaLang	cMetaLang_BusBridge;
+	const tUDI_MetaLang	*langs[] = {
+		&cMetaLang_BusBridge,
+		NULL
+	};
+	for( int i = 0; langs[i]; i ++ )
+	{
+		if( strcmp(Name, langs[i]->Name) == 0 )
+			return langs[i];
+	}
+	return NULL;
 }
 

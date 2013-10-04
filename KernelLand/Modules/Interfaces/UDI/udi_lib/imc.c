@@ -80,5 +80,5 @@ void udi_channel_event_ind(udi_channel_event_cb_t *cb)
 
 void udi_channel_event_complete(udi_channel_event_cb_t *cb, udi_status_t status)
 {
-	Warning("%s Unimplemented", __func__);
+	UNIMPLEMENTED();
 }

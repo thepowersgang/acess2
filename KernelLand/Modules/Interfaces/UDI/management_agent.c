@@ -5,6 +5,7 @@
  * management_agent.c
  * - Managment Agent
  */
+#define DEBUG	1
 #include <acess.h>
 #include <udi.h>
 #include "udi_internal.h"
@@ -124,6 +125,11 @@ int UDI_MA_CheckDeviceMatch(int nDevAttr, udi_instance_attr_list_t *DevAttrs,
 		}
 		if( enum_attr )
 		{
+			//LOG("Match = '%s' (%i %x == %i %x)",
+			//	dev_attr->attr_name,
+			//	dev_attr->attr_length, UDI_ATTR32_GET(dev_attr->attr_value),
+			//	enum_attr->attr_length, UDI_ATTR32_GET(enum_attr->attr_value)
+			//	);
 			if( enum_attr->attr_length != dev_attr->attr_length )
 				return 0;
 			if( memcmp(enum_attr->attr_value, dev_attr->attr_value, dev_attr->attr_length) != 0 )
@@ -133,8 +139,10 @@ int UDI_MA_CheckDeviceMatch(int nDevAttr, udi_instance_attr_list_t *DevAttrs,
 		else
 		{
 			// Attribute desired is missing, error?
+			//LOG("attr '%s' missing", dev_attr->attr_name);
 		}
 	}
+	//LOG("n_matches = %i", n_matches);
 	return n_matches;
 }
 
@@ -142,7 +150,7 @@ void UDI_MA_AddChild(udi_enumerate_cb_t *cb, udi_index_t ops_idx)
 {
 	// Current side is MA, other is instance
 	tUDI_DriverInstance *inst = UDI_int_ChannelGetInstance( UDI_GCB(cb), true );
-	LOG("inst = %p", inst);
+	//LOG("inst = %p", inst);
 	
 	// Search for existing child with same child_ID and ops
 	for( tUDI_ChildBinding *child = inst->FirstChild; child; child = child->Next )
@@ -166,7 +174,6 @@ void UDI_MA_AddChild(udi_enumerate_cb_t *cb, udi_index_t ops_idx)
 	// - Locate child_bind_ops definition
 	for( int i = 0; i < inst->Module->nChildBindOps; i ++ )
 	{
-		LOG(" %i == %i?", inst->Module->ChildBindOps[i].ops_idx, ops_idx);
 		if( inst->Module->ChildBindOps[i].ops_idx == ops_idx ) {
 			child->BindOps = &inst->Module->ChildBindOps[i];
 			break;
@@ -211,7 +218,29 @@ void UDI_MA_AddChild(udi_enumerate_cb_t *cb, udi_index_t ops_idx)
 
 void UDI_MA_BindParents(tUDI_DriverModule *Module)
 {
-	UNIMPLEMENTED();
+	// Scan active instances for enumerated children that can be handled by this module
+	for( int i = 0; i < Module->nDevices; i ++ )
+	{
+		// TODO: Have list of unbound enumerated children
+		for( tUDI_DriverInstance *inst = gpUDI_ActiveInstances; inst; inst = inst->Next )
+		{
+			// Loop children
+			for( tUDI_ChildBinding *child = inst->FirstChild; child; child = child->Next )
+			{
+				if( child->BoundInstance )
+					continue ;
+				// Check for match
+				int level = UDI_MA_CheckDeviceMatch(
+					Module->Devices[i]->nAttribs, Module->Devices[i]->Attribs,
+					child->nAttribs, child->Attribs
+					);
+				// No match: Continue
+				if( level == 0 )
+					continue ;
+				UDI_MA_CreateChildInstance(Module, inst, child);
+			}
+		}
+	}
 }
 
 tUDI_DriverInstance *UDI_MA_CreateChildInstance(tUDI_DriverModule *Module,
@@ -231,20 +260,24 @@ tUDI_DriverInstance *UDI_MA_CreateChildInstance(tUDI_DriverModule *Module,
 	UDI_BindChannel(channel,true,  inst, parent->ops_idx, parent->region_idx);
 	UDI_BindChannel(channel,false,
 		ParentInstance, ChildBinding->Ops->ops_idx, ChildBinding->BindOps->region_idx);
-	
-	udi_cb_t *bind_cb = udi_cb_alloc_internal(inst, parent->bind_cb_idx, channel);
-	if( !bind_cb ) {
-		Log_Warning("UDI", "Bind CB index is invalid");
-		return NULL;
-	}
 
 	udi_channel_event_cb_t	ev_cb;
+	memset(&ev_cb, 0, sizeof(ev_cb));
 	 int	n_handles = Module->InitInfo->primary_init_info->per_parent_paths;
 	udi_buf_path_t	handles[n_handles];
-	memset(&ev_cb, 0, sizeof(ev_cb));
 	ev_cb.gcb.channel = channel;
 	ev_cb.event = UDI_CHANNEL_BOUND;
-	ev_cb.params.parent_bound.bind_cb = bind_cb;
+	if( parent->bind_cb_idx == 0 )
+		ev_cb.params.parent_bound.bind_cb = NULL;
+	else {
+		ev_cb.params.parent_bound.bind_cb = udi_cb_alloc_internal(inst, parent->bind_cb_idx, channel);
+		if( !ev_cb.params.parent_bound.bind_cb ) {
+			Log_Warning("UDI", "Bind CB index is invalid");
+			return NULL;
+		}
+		UDI_int_ChannelFlip( ev_cb.params.parent_bound.bind_cb );
+	}
+
 	ev_cb.params.parent_bound.parent_ID = 1;
 	ev_cb.params.parent_bound.path_handles = handles;
 	

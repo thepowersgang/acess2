@@ -70,10 +70,6 @@ struct sUDI_PropRegion
 struct sUDI_MetaLang
 {
 	const char *Name;
-	 int	nOpGroups;
-	struct {
-		void	*OpList;
-	} OpGroups;
 	 int	nCbTypes;
 	struct {
 		size_t	Size;
