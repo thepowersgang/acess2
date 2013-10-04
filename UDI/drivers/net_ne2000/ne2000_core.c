@@ -21,7 +21,8 @@ enum {
 	NE2K_OPS_IRQ,
 };
 enum {
-	NE2K_CB_INTR = 1,
+	NE2K_CB_BUS_BIND = 1,
+	NE2K_CB_INTR,
 	NE2K_CB_INTR_EVENT,
 };
 
@@ -39,6 +40,7 @@ enum {
 // --- Management
 void ne2k_usage_ind(udi_usage_cb_t *cb, udi_ubit8_t resource_level)
 {
+	udi_usage_res(cb);
 }
 void ne2k_enumerate_req(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_level)
 {
@@ -332,7 +334,14 @@ udi_ops_init_t	ne2k_ops_list[] = {
 	},
 	{0}
 };
+udi_cb_init_t ne2k_cb_init_list[] = {
+	// Parent bind
+	{NE2K_CB_BUS_BIND, NE2K_META_BUS, UDI_BUS_BIND_CB_NUM, 0, 0,NULL},
+	{0}
+};
+// TODO: cb_init_list
 const udi_init_t	udi_init_info = {
 	.primary_init_info = &ne2k_pri_init,
-	.ops_init_list = ne2k_ops_list
+	.ops_init_list = ne2k_ops_list,
+	.cb_init_list = ne2k_cb_init_list,
 };

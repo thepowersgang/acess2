@@ -13,7 +13,7 @@ requires udi_nic 0x101
 meta 1 udi_bridge
 meta 2 udi_nic
 
-parent_bind_ops 1 0 1 0
+parent_bind_ops 1 0 1 1	# bridge, rgn 0, ops 1, cb 1
 child_bind_ops 2 0 1	# Ctrl (TX and RX are set up via this)
 
 # Realtek 8029
