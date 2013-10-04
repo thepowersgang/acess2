@@ -16,7 +16,7 @@ CPPFLAGS += -DARCH=$(ARCH) -DARCH_is_$(ARCH) -DARCHDIR_is_$(ARCHDIR)
 CPPFLAGS += $(_CPPFLAGS)
 CPPFLAGS += $(LIBINCLUDES) -ffreestanding
 CFLAGS := -std=gnu99 -Wall -fno-stack-protector -g -O3
-CFLAGS += -Werror
+CFLAGS += -Werror -fno-omit-frame-pointer
 
 ifneq ($(CATEGORY),)
 	FULLNAME := $(CATEGORY)_$(NAME)
