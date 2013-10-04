@@ -54,9 +54,9 @@ unsigned long long strtoull(const char *str, char **end, int base)
 			if( '0' <= *str && *str <= '9' )
 				next = *str - '0';
 			if( 'A' <= *str && *str <= 'A'+base-10-1 )
-				next = *str - 'A';
+				next = *str - 'A' + 10;
 			if( 'a' <= *str && *str <= 'a'+base-10-1 )
-				next = *str - 'a';
+				next = *str - 'a' + 10;
 		}
 		if( next < 0 )
 			break;
