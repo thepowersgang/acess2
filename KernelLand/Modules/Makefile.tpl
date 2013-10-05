@@ -75,7 +75,7 @@ obj-$(_SUFFIX)/%.o: %.c Makefile $(CFGFILES)
 	@echo --- $(CC) -o $@
 	@mkdir -p $(dir $@)
 	@$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $<
-	@$(CC) -M $(CPPFLAGS) -MT $@ -o obj-$(_SUFFIX)/$*.d $<
+	@$(CC) -M $(CPPFLAGS) -MT $@ -MP -o obj-$(_SUFFIX)/$*.d $<
 
 -include $(DEPFILES)
 # vim: ft=make

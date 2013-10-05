@@ -1,7 +1,7 @@
 #
 #
 
-CPPFLAGS = -I./include
+CPPFLAGS = -I../../../../UDI/include
 
 # - UDI Library Files
 LIB_OBJS := logging.o strmem.o imc.o mem.o buf.o cb.o
