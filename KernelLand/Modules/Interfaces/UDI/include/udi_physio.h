@@ -6,6 +6,10 @@
 
 #include <udi.h>
 
+//#ifndef UDI_PHYSIO_VERSION
+//# error "UDI_PHYSIO_VERSION must be defined"
+//#endif
+
 // === TYPEDEFS ===
 // DMA Core
 typedef _udi_handle_t	udi_dma_handle_t;

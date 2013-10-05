@@ -7,6 +7,7 @@
  */
 #include <udi.h>
 #include <udi_physio.h>
+#include <udi_pci.h>
 #include <acess.h>
 #include <drv_pci.h>	// acess
 
@@ -103,7 +104,16 @@ void pci_enumerate_req(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_level)
 			Uint16	ven, dev;
 			Uint32	class;
 			PCI_GetDeviceInfo(rdata->cur_iter, &ven, &dev, &class);
+			Uint8	revision;
+			PCI_GetDeviceVersion(rdata->cur_iter, &revision);
+			Uint16	sven, sdev;
+			PCI_GetDeviceSubsys(rdata->cur_iter, &sven, &sdev);
 
+			udi_strcpy(attr_list->attr_name, "identifier");
+			attr_list->attr_length = snprintf(attr_list->attr_value,
+				"%04x%04x%02x%04x%04x",
+				ven, dev, revision, sven, sdev);
+			attr_list ++;
 			DPT_SET_ATTR_STRING(attr_list, "bus_type", "pci", 3);
 			attr_list ++;
 			DPT_SET_ATTR32(attr_list, "pci_vendor_id", ven);
@@ -133,6 +143,8 @@ void pci_bridge_ch_event_ind(udi_channel_event_cb_t *cb)
 }
 void pci_bind_req(udi_bus_bind_cb_t *cb)
 {
+	// TODO: "Lock" PCI device
+
 	// TODO: DMA constraints
 	udi_bus_bind_ack(cb, 0, UDI_DMA_LITTLE_ENDIAN, UDI_OK);
 }

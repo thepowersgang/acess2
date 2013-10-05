@@ -24,7 +24,7 @@ void udi_pio_map(udi_pio_map_call_t *callback, udi_cb_t *gcb,
 	udi_instance_attr_type_t	type;
 	type = udi_instance_attr_get_internal(gcb, "bus_type", 0, bus_type, sizeof(bus_type), NULL);
 	if(type != UDI_ATTR_STRING) {
-		callback(gcb, UDI_NULL_HANDLE);
+		callback(gcb, UDI_NULL_PIO_HANDLE);
 		return ;
 	}
 	
@@ -33,7 +33,7 @@ void udi_pio_map(udi_pio_map_call_t *callback, udi_cb_t *gcb,
 	}
 	else {
 		// Oops, unknown
-		callback(gcb, UDI_NULL_HANDLE);
+		callback(gcb, UDI_NULL_PIO_HANDLE);
 		return ;
 	}
 }
