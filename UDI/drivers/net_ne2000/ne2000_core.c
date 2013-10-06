@@ -120,8 +120,10 @@ void ne2k_bus_dev_bind__pio_map(udi_cb_t *gcb, udi_pio_handle_t new_pio_handle)
 	}
 	
 	// Next: Bind interrupt
+	// - spawn_idx = Interrupt number (0)
 	udi_channel_spawn(ne2k_bus_dev_bind__intr_chanel, gcb, gcb->channel,
 		0, NE2K_OPS_IRQ, rdata);
+	// V V V V
 }
 void ne2k_bus_dev_bind__intr_chanel(udi_cb_t *gcb, udi_channel_t new_channel)
 {
@@ -130,10 +132,18 @@ void ne2k_bus_dev_bind__intr_chanel(udi_cb_t *gcb, udi_channel_t new_channel)
 	rdata->interrupt_channel = new_channel;
 	
 	udi_cb_alloc(ne2k_bus_dev_bind__intr_attach, gcb, NE2K_CB_INTR, gcb->channel);
+	// V V V V
 }
 void ne2k_bus_dev_bind__intr_attach(udi_cb_t *gcb, udi_cb_t *new_cb)
 {
 	ne2k_rdata_t	*rdata = gcb->context;
+	if( !new_cb )
+	{
+		// Oh...
+		udi_channel_event_complete( UDI_MCB(rdata->active_cb, udi_channel_event_cb_t),
+			UDI_STAT_RESOURCE_UNAVAIL );
+		return ;
+	}
 	udi_intr_attach_cb_t	*intr_cb = UDI_MCB(new_cb, udi_intr_attach_cb_t);
 	intr_cb->interrupt_idx = 0;
 	intr_cb->min_event_pend = 2;
@@ -335,11 +345,11 @@ udi_ops_init_t	ne2k_ops_list[] = {
 	{0}
 };
 udi_cb_init_t ne2k_cb_init_list[] = {
-	// Parent bind
 	{NE2K_CB_BUS_BIND, NE2K_META_BUS, UDI_BUS_BIND_CB_NUM, 0, 0,NULL},
+	{NE2K_CB_INTR, NE2K_META_BUS, UDI_BUS_INTR_ATTACH_CB_NUM, 0, 0,NULL},
+	{NE2K_CB_INTR_EVENT, NE2K_META_BUS, UDI_BUS_INTR_EVENT_CB_NUM, 0, 0,NULL},
 	{0}
 };
-// TODO: cb_init_list
 const udi_init_t	udi_init_info = {
 	.primary_init_info = &ne2k_pri_init,
 	.ops_init_list = ne2k_ops_list,
