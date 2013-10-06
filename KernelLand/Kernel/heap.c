@@ -188,6 +188,20 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 			#endif
 			return NULL;
 		}
+		if( head->Size < MIN_SIZE ) {
+			Mutex_Release(&glHeap);
+			Log_Warning("Heap", "Size of heap address %p is invalid - Too small (0x%x) [at paddr 0x%x]",
+				head, head->Size, MM_GetPhysAddr(&head->Size));
+			Heap_Dump();
+			return NULL;
+		}
+		if( head->Size > (2<<30) ) {
+			Mutex_Release(&glHeap);
+			Log_Warning("Heap", "Size of heap address %p is invalid - Over 2GiB (0x%x) [at paddr 0x%x]",
+				head, head->Size, MM_GetPhysAddr(&head->Size));
+			Heap_Dump();
+			return NULL;
+		}
 		
 		// Check if allocated
 		if(head->Magic == MAGIC_USED)	continue;
