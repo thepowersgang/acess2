@@ -10,6 +10,7 @@
 #include <udi_pci.h>
 #include <acess.h>
 #include <drv_pci.h>	// acess
+#include "../udi_internal.h"
 
 // === MACROS ===
 /* Copied from http://projectudi.cvs.sourceforge.net/viewvc/projectudi/udiref/driver/udi_dpt/udi_dpt.h */
@@ -58,6 +59,8 @@ void	pci_bind_req_op(udi_bus_bind_cb_t *cb);
 void	pci_intr_attach_req(udi_intr_attach_cb_t *cb);
 void	pci_intr_detach_req(udi_intr_detach_cb_t *cb);
 
+// - Hook to physio (UDI doesn't define these)
+ int	pci_pio_get_regset(udi_cb_t *gcb, udi_ubit32_t regset_idx, void **baseptr, size_t *lenptr);
 
 // === CODE ===
 void pci_usage_ind(udi_usage_cb_t *cb, udi_ubit8_t resource_level)
@@ -110,7 +113,7 @@ void pci_enumerate_req(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_level)
 			PCI_GetDeviceSubsys(rdata->cur_iter, &sven, &sdev);
 
 			udi_strcpy(attr_list->attr_name, "identifier");
-			attr_list->attr_length = snprintf(attr_list->attr_value,
+			attr_list->attr_length = sprintf((char*)attr_list->attr_value,
 				"%04x%04x%02x%04x%04x",
 				ven, dev, revision, sven, sdev);
 			attr_list ++;
@@ -154,11 +157,58 @@ void pci_unbind_req(udi_bus_bind_cb_t *cb)
 }
 void pci_intr_attach_req(udi_intr_attach_cb_t *cb)
 {
+	// Create a channel
+	//udi_channel_spawn(, UCI_GCB(cb), cb->gcb.channel, 0, PCI_OPS_IRQ, NULL);
 	UNIMPLEMENTED();
 }
 void pci_intr_detach_req(udi_intr_detach_cb_t *cb)
 {
 	UNIMPLEMENTED();
+}
+
+// - physio hooks
+udi_status_t pci_pio_do_io(uint32_t child_ID, udi_ubit32_t regset_idx, udi_ubit32_t ofs, udi_ubit8_t len,
+	void *data, bool isOutput)
+{
+	tPCIDev	pciid = child_ID;
+	// TODO: Cache child mappings	
+
+	switch(regset_idx)
+	{
+	case UDI_PCI_CONFIG_SPACE:
+		// TODO:
+		return UDI_STAT_NOT_SUPPORTED;
+	case UDI_PCI_BAR_0 ... UDI_PCI_BAR_5: {
+		Uint64 bar = PCI_GetBAR(pciid, regset_idx);
+		if(bar & 1)
+		{
+			// IO BAR
+			bar &= ~3;
+			#define _IO(fc, type) do {\
+				if( isOutput )	out##fc(bar+ofs, *(type*)data); \
+				else	*(type*)data = in##fc(bar+ofs); \
+				} while(0)
+			switch(len)
+			{
+			case UDI_PIO_1BYTE:	_IO(b, udi_ubit8_t);	return UDI_OK;
+			case UDI_PIO_2BYTE:	_IO(w, udi_ubit16_t);	return UDI_OK;
+			case UDI_PIO_4BYTE:	_IO(d, udi_ubit32_t);	return UDI_OK;
+			//case UDI_PIO_8BYTE:	_IO(q, uint64_t);	return UDI_OK;
+			default:
+				return UDI_STAT_NOT_SUPPORTED;
+			}
+			#undef _IO
+		}
+		else
+		{
+			// Memory BAR
+			bar = PCI_GetValidBAR(pciid, regset_idx, PCI_BARTYPE_MEM);
+			return UDI_STAT_NOT_SUPPORTED;
+		}
+		break; }
+	default:
+		return UDI_STAT_NOT_UNDERSTOOD;
+	}
 }
 
 // === UDI Functions ===
@@ -189,7 +239,7 @@ udi_primary_init_t	pci_pri_init = {
 udi_ops_init_t	pci_ops_list[] = {
 	{
 		1, 1, UDI_BUS_BRIDGE_OPS_NUM,
-		0,
+		sizeof(udi_child_chan_context_t),
 		(udi_ops_vector_t*)&pci_bridge_ops,
 		pci_bridge_op_flags
 	},

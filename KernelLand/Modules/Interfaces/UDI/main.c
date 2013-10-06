@@ -783,44 +783,6 @@ tUDI_MetaLang *UDI_int_GetMetaLang(tUDI_DriverInstance *Inst, udi_index_t index)
 	return NULL;
 }
 
-void *udi_cb_alloc_internal(tUDI_DriverInstance *Inst, udi_ubit8_t bind_cb_idx, udi_channel_t channel)
-{
-	const udi_cb_init_t	*cb_init;
-	LOG("Inst=%p, bind_cb_idx=%i, channel=%p", Inst, bind_cb_idx, channel);
-	if(Inst) {
-		ASSERT(Inst->Module);
-		ASSERT(Inst->Module->InitInfo);
-		ASSERT(Inst->Module->InitInfo->cb_init_list);
-	}
-	cb_init = Inst ? Inst->Module->InitInfo->cb_init_list : cUDI_MgmtCbInitList;
-	for( ; cb_init->cb_idx; cb_init ++ )
-	{
-		if( cb_init->cb_idx == bind_cb_idx )
-		{
-			// TODO: Get base size using meta/cbnum
-			tUDI_MetaLang *metalang = UDI_int_GetMetaLang(Inst, cb_init->meta_idx);
-			if( !metalang ) {
-				Log_Warning("UDI", "Metalang referenced in %s CB %i is invalid (%i)",
-					Inst->Module->ModuleName, bind_cb_idx, cb_init->meta_idx);
-				return NULL;
-			}
-			ASSERTC(cb_init->meta_cb_num, <, metalang->nCbTypes);
-			size_t	base = metalang->CbTypes[cb_init->meta_cb_num].Size;
-			ASSERTC(base, >=, sizeof(udi_cb_t));
-			base -= sizeof(udi_cb_t);
-			LOG("+ %i + %i + %i", base, cb_init->inline_size, cb_init->scratch_requirement);
-			udi_cb_t *ret = NEW(udi_cb_t, + base
-				+ cb_init->inline_size + cb_init->scratch_requirement);
-			ret->channel = channel;
-			return ret;
-		}
-	}
-	Log_Warning("UDI", "Cannot find CB init def %i for '%s'",
-		bind_cb_idx, Inst->Module->ModuleName);
-	return NULL;
-	
-}
-
 const tUDI_MetaLang *UDI_int_GetMetaLangByName(const char *Name)
 {
 	//extern tUDI_MetaLang	cMetaLang_Management;

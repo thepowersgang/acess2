@@ -2,7 +2,7 @@
  * \file meta_mgmt.c
  * \author John Hodge (thePowersGang)
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include <udi.h>
 #include "../udi_internal.h"

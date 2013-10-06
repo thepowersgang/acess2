@@ -5,7 +5,6 @@
 #define DEBUG	1
 #include <acess.h>
 #include <udi.h>
-//#include "internal/channels.h"
 #include "../udi_internal.h"
 
 // === EXPORTS ===
@@ -25,7 +24,7 @@ void udi_channel_anchor(
 	udi_channel_t channel, udi_index_t ops_idx, void *channel_context
 	)
 {
-	Warning("%s Unimplemented", __func__);
+	UNIMPLEMENTED();
 }
 
 /**
@@ -36,7 +35,24 @@ extern void udi_channel_spawn(
 	udi_index_t ops_idx, void *channel_context
 	)
 {
-	Warning("%s Unimplemented", __func__);
+	LOG("gcb=%p,channel=%p", gcb, channel, spawn_idx, ops_idx, channel_context);
+	
+	// Search existing channel for a matching spawn_idx
+	udi_channel_t ret = UDI_CreateChannel_Linked(channel, spawn_idx);
+
+	// Bind local end of channel to ops_idx (with channel_context)
+	if( ops_idx != 0 )
+	{
+		udi_index_t	region_idx;
+		tUDI_DriverInstance	*inst = UDI_int_ChannelGetInstance(gcb, false, &region_idx);
+		UDI_BindChannel(ret, false, inst, ops_idx, region_idx, channel_context, false,0);
+	}
+	else
+	{
+		// leave unbound
+	}
+
+	callback(gcb, ret);
 }
 
 /**
@@ -46,14 +62,19 @@ void udi_channel_set_context(
 	udi_channel_t target_channel, void *channel_context
 	)
 {
-	Warning("%s Unimplemented", __func__);
+	LOG("target_channel=%p,channel_context=%p", target_channel, channel_context);
+	UDI_int_ChannelSetContext(target_channel, channel_context);
 }
 
 void udi_channel_op_abort(
 	udi_channel_t target_channel, udi_cb_t *orig_cb
 	)
 {
-	Warning("%s Unimplemented", __func__);
+	udi_channel_event_cb_t cb;
+	cb.gcb.channel = target_channel;
+	cb.event = UDI_CHANNEL_CLOSED;
+	cb.params.orig_cb = orig_cb;
+	udi_channel_event_ind(&cb);
 }
 
 void udi_channel_close(udi_channel_t channel)

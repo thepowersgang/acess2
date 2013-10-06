@@ -72,7 +72,7 @@ struct sUDI_MetaLang
 	const char *Name;
 	 int	nCbTypes;
 	struct {
-		size_t	Size;
+		udi_size_t	Size;
 		udi_layout_t	*Layout;
 	} CbTypes[];
 };
@@ -140,6 +140,9 @@ struct sUDI_DriverInstance
 	struct sUDI_DriverInstance	*Next;
 	tUDI_DriverModule	*Module;
 	udi_channel_t	ManagementChannel;
+	tUDI_DriverInstance	*Parent;
+	tUDI_ChildBinding	*ParentChildBinding;
+	
 	tUDI_ChildBinding	*FirstChild;
 	tUDI_DriverRegion	*Regions[];
 };
@@ -174,9 +177,11 @@ extern tUDI_MetaLang *UDI_int_GetMetaLang(tUDI_DriverInstance *Inst, udi_index_t
 
 // --- Channels ---
 extern udi_channel_t	UDI_CreateChannel_Blank(tUDI_MetaLang *metalang);
-extern int	UDI_BindChannel_Raw(udi_channel_t channel, bool other_side, tUDI_DriverInstance *inst, udi_index_t meta_ops_num, void *context, const void *ops);
-extern int	UDI_BindChannel(udi_channel_t channel, bool other_side, tUDI_DriverInstance *inst, udi_index_t ops, udi_index_t region);
-extern tUDI_DriverInstance	*UDI_int_ChannelGetInstance(udi_cb_t *gcb, bool other_side);
+extern udi_channel_t	UDI_CreateChannel_Linked(udi_channel_t orig, udi_ubit8_t spawn_idx);
+extern int	UDI_BindChannel_Raw(udi_channel_t channel, bool other_side, tUDI_DriverInstance *inst, udi_index_t region_idx, udi_index_t meta_ops_num,  void *context, const void *ops);
+extern int	UDI_BindChannel(udi_channel_t channel, bool other_side, tUDI_DriverInstance *inst, udi_index_t ops, udi_index_t region, void *context, bool is_child_bind, udi_ubit32_t child_ID);
+extern tUDI_DriverInstance	*UDI_int_ChannelGetInstance(udi_cb_t *gcb, bool other_side, udi_index_t *region_idx);
+extern void	UDI_int_ChannelSetContext(udi_channel_t channel, void *context);
 extern const void	*UDI_int_ChannelPrepForCall(udi_cb_t *gcb, tUDI_MetaLang *metalang, udi_index_t meta_ops_num);
 extern void	UDI_int_ChannelFlip(udi_cb_t *gcb);
 extern void	UDI_int_ChannelReleaseFromCall(udi_cb_t *gcb);
@@ -201,6 +206,8 @@ extern void	UDI_int_MakeDeferredCbS(udi_cb_t *cb, udi_op_t *handler, udi_status_
 // --- CBs ---
 extern void *udi_cb_alloc_internal(tUDI_DriverInstance *Inst, udi_ubit8_t bind_cb_idx, udi_channel_t channel);
 
+// --- Attribute Management ---
+extern udi_instance_attr_type_t udi_instance_attr_get_internal(udi_cb_t *gcb, const char *attr_name, udi_ubit32_t child_ID, void *attr_value, udi_size_t attr_length, udi_size_t *actual_length);
 
 #endif
 

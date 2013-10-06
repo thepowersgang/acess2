@@ -71,6 +71,7 @@ struct marshalled_bus_bind_ack
 
 static void _unmarshal_bus_bind_ack(tUDI_DeferredCall *Call)
 {
+	LOG("Call=%p", Call);
 	struct marshalled_bus_bind_ack *info = (void*)Call;
 	((udi_bus_bind_ack_op_t*)Call->Handler)(
 		UDI_MCB(Call->cb, udi_bus_bind_cb_t),

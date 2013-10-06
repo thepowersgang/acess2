@@ -46,7 +46,7 @@ tUDI_DriverInstance *UDI_MA_CreateInstance(tUDI_DriverModule *DriverModule)
 
 	inst->ManagementChannel = UDI_CreateChannel_Blank(&cMetaLang_Management);
 	UDI_BindChannel_Raw(inst->ManagementChannel, true,
-		inst, 0, inst->Regions[0]->InitContext, pri_init->mgmt_ops);
+		inst, 0, 0, inst->Regions[0]->InitContext, pri_init->mgmt_ops);
 //	UDI_BindChannel_Raw(inst->ManagementChannel, false,
 //		NULL, 1, inst, &cUDI_MgmtOpsList);	// TODO: ops list for management agent?
 
@@ -111,6 +111,7 @@ void UDI_MA_BeginEnumeration(tUDI_DriverInstance *Inst)
 int UDI_MA_CheckDeviceMatch(int nDevAttr, udi_instance_attr_list_t *DevAttrs,
 	int nEnumAttr, udi_instance_attr_list_t *EnumAttrs)
 {
+	// TODO: Ask metalangauge instead
 	int n_matches = 0;
 	for( int i = 0; i < nDevAttr; i ++ )
 	{
@@ -149,7 +150,8 @@ int UDI_MA_CheckDeviceMatch(int nDevAttr, udi_instance_attr_list_t *DevAttrs,
 void UDI_MA_AddChild(udi_enumerate_cb_t *cb, udi_index_t ops_idx)
 {
 	// Current side is MA, other is instance
-	tUDI_DriverInstance *inst = UDI_int_ChannelGetInstance( UDI_GCB(cb), true );
+	// TODO: Get region index too?
+	tUDI_DriverInstance *inst = UDI_int_ChannelGetInstance( UDI_GCB(cb), true, NULL );
 	//LOG("inst = %p", inst);
 	
 	// Search for existing child with same child_ID and ops
@@ -249,6 +251,8 @@ tUDI_DriverInstance *UDI_MA_CreateChildInstance(tUDI_DriverModule *Module,
 	// Found a match, so create an instance and bind it
 	tUDI_DriverInstance *inst = UDI_MA_CreateInstance(Module);
 	ChildBinding->BoundInstance = inst;
+	inst->Parent = ParentInstance;
+	inst->ParentChildBinding = ChildBinding;
 	
 	// TODO: Handle multi-parent drivers
 	ASSERTC(Module->nParents, ==, 1);
@@ -257,9 +261,10 @@ tUDI_DriverInstance *UDI_MA_CreateChildInstance(tUDI_DriverModule *Module,
 	tUDI_BindOps	*parent = &Module->Parents[0];
 	udi_channel_t channel = UDI_CreateChannel_Blank( UDI_int_GetMetaLang(inst, parent->meta_idx) );
 	
-	UDI_BindChannel(channel,true,  inst, parent->ops_idx, parent->region_idx);
+	UDI_BindChannel(channel,true,  inst, parent->ops_idx, parent->region_idx, NULL,false,0);
 	UDI_BindChannel(channel,false,
-		ParentInstance, ChildBinding->Ops->ops_idx, ChildBinding->BindOps->region_idx);
+		ParentInstance, ChildBinding->Ops->ops_idx, ChildBinding->BindOps->region_idx,
+		NULL, true, ChildBinding->ChildID);
 
 	udi_channel_event_cb_t	ev_cb;
 	memset(&ev_cb, 0, sizeof(ev_cb));

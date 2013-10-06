@@ -6,6 +6,11 @@
 #include <udi.h>
 #include <udi_physio.h>
 
+struct udi_dma_handle_s
+{
+	
+};
+
 // === EXPORTS ===
 EXPORT(udi_dma_prepare);
 EXPORT(udi_dma_buf_map);
