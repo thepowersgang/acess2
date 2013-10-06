@@ -12,13 +12,13 @@
 
 // === TYPEDEFS ===
 // DMA Core
-typedef _udi_handle_t	udi_dma_handle_t;
+typedef struct udi_dma_handle_s	*udi_dma_handle_t;
 #define	UDI_NULL_DMA_HANDLE	_NULL_HANDLE
 typedef uint64_t	udi_busaddr64_t;	//!< \note Opaque
 typedef struct udi_scgth_element_32_s	udi_scgth_element_32_t;
 typedef struct udi_scgth_element_64_s	udi_scgth_element_64_t;
 typedef struct udi_scgth_s	udi_scgth_t;
-typedef _udi_handle_t	udi_dma_constraints_t;
+typedef struct udi_dma_constraints_s	*udi_dma_constraints_t;
 #define UDI_NULL_DMA_CONSTRAINTS	_NULL_HANDLE
 /**
  * \name DMA constraints attributes

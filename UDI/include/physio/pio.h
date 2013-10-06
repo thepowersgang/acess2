@@ -6,9 +6,9 @@
 
 #include <udi.h>
 #include <udi_physio.h>
-typedef _udi_handle_t	udi_pio_handle_t;
-/* Null handle value for udi_pio_handle_t */
-#define UDI_NULL_PIO_HANDLE	_NULL_HANDLE
+
+typedef struct udi_pio_handle_s	*udi_pio_handle_t;	// opaque
+#define UDI_NULL_PIO_HANDLE	NULL
 
 typedef void udi_pio_map_call_t(udi_cb_t *gcb, udi_pio_handle_t new_pio_handle);
 

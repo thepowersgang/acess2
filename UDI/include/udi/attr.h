@@ -1,8 +1,12 @@
 /**
- * \file udi_attr.h
+ * Acess2 UDI Layer
+ * - By John Hodge (thePowersGang)
+ *
+ * udi/attr.h
+ * - Instance Attribute Management
  */
-#ifndef _UDI_ATTR_H_
-#define _UDI_ATTR_H_
+#ifndef _UDI__ATTR_H_
+#define _UDI__ATTR_H_
 
 typedef struct udi_instance_attr_list_s	udi_instance_attr_list_t;
 typedef udi_ubit8_t	udi_instance_attr_type_t;
@@ -49,6 +53,23 @@ enum
 	UDI_ATTR_BOOLEAN,
 	UDI_ATTR_FILE
 };
+
+typedef void udi_instance_attr_get_call_t(udi_cb_t *gcb, udi_instance_attr_type_t attr_type, udi_size_t actual_length);
+
+extern void udi_instance_attr_get(udi_instance_attr_get_call_t *callback, udi_cb_t *gcb,
+	const char *attr_name, udi_ubit32_t child_ID,
+	void *attr_value, udi_size_t attr_length
+	);
+
+typedef void udi_instance_attr_set_call_t(udi_cb_t *gcb, udi_status_t status);
+
+extern void udi_instance_attr_set(udi_instance_attr_set_call_t *callback, udi_cb_t *gcb,
+	const char *attr_name, udi_ubit32_t child_ID,
+	const void *attr_value, udi_size_t attr_length, udi_ubit8_t attr_type
+	);
+
+#define UDI_INSTANCE_ATTR_DELETE(callback, gcb, attr_name) \
+	udi_instance_attr_set(callbac, gcb, attr_name, NULL, NULL, 0, UDI_ATTR_NONE)
 
 
 #endif
