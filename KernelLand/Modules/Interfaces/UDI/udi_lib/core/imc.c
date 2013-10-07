@@ -3,9 +3,9 @@
  * \author John Hodge (thePowersGang)
  */
 #define DEBUG	1
-#include <acess.h>
 #include <udi.h>
-#include "../udi_internal.h"
+#include <acess.h>
+#include <udi_internal.h>
 
 // === EXPORTS ===
 EXPORT(udi_channel_anchor);

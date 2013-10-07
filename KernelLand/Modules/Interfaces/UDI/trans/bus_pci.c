@@ -10,7 +10,8 @@
 #include <udi_pci.h>
 #include <acess.h>
 #include <drv_pci.h>	// acess
-#include "../udi_internal.h"
+#include <udi_internal.h>
+#include <trans_pci.h>
 
 // === MACROS ===
 /* Copied from http://projectudi.cvs.sourceforge.net/viewvc/projectudi/udiref/driver/udi_dpt/udi_dpt.h */
@@ -38,6 +39,10 @@
 		(attr)->attr_length = (len); \
 		udi_strncpy_rtrim((char *)(attr)->attr_value, (val), (len))
 
+#define PCI_OPS_BRIDGE	1
+#define PCI_OPS_IRQ	2
+
+#define PCI_MAX_EVENT_CBS	8
 
 // === TYPES ===
 typedef struct
@@ -46,6 +51,25 @@ typedef struct
 	
 	tPCIDev	cur_iter;
 } pci_rdata_t;
+
+typedef struct
+{
+	udi_child_chan_context_t	child_chan_context;
+	
+	udi_channel_t	interrupt_channel;
+	struct {
+		tPAddr	paddr;
+		void	*vaddr;
+		size_t	length;
+	} bars[6];
+
+	 int	interrupt_handle;
+
+	udi_pio_handle_t 	intr_preprocessing;	
+	udi_intr_event_cb_t	*event_cbs[PCI_MAX_EVENT_CBS];
+	 int	event_cb_wr_ofs;
+	 int	event_cb_rd_ofs;
+} pci_child_chan_context_t;
 
 // === PROTOTYPES ===
 void	pci_usage_ind(udi_usage_cb_t *cb, udi_ubit8_t resource_level);
@@ -57,7 +81,13 @@ void	pci_bridge_ch_event_ind(udi_channel_event_cb_t *cb);
 void	pci_unbind_req(udi_bus_bind_cb_t *cb);
 void	pci_bind_req_op(udi_bus_bind_cb_t *cb);
 void	pci_intr_attach_req(udi_intr_attach_cb_t *cb);
+void	pci_intr_attach_req__channel_spawned(udi_cb_t *gcb, udi_channel_t new_channel);
 void	pci_intr_detach_req(udi_intr_detach_cb_t *cb);
+
+void	pci_intr_ch_event_ind(udi_channel_event_cb_t *cb);
+void	pci_intr_event_rdy(udi_intr_event_cb_t *cb);
+void	pci_intr_handler(int irq, void *void_context);
+void	pci_intr_handle__trans_done(udi_cb_t *gcb, udi_buf_t *new_buf, udi_status_t status, udi_ubit16_t result);
 
 // - Hook to physio (UDI doesn't define these)
  int	pci_pio_get_regset(udi_cb_t *gcb, udi_ubit32_t regset_idx, void **baseptr, size_t *lenptr);
@@ -157,13 +187,97 @@ void pci_unbind_req(udi_bus_bind_cb_t *cb)
 }
 void pci_intr_attach_req(udi_intr_attach_cb_t *cb)
 {
+	pci_child_chan_context_t *context = UDI_GCB(cb)->context;
+
+	ASSERT(cb->interrupt_idx == 0);	
+
+	context->intr_preprocessing = cb->preprocessing_handle;
+	// Check if interrupt is already bound
+	if( !UDI_HANDLE_IS_NULL(context->interrupt_channel, udi_channel_t) )
+	{
+		udi_intr_attach_ack(cb, UDI_OK);
+		return ;
+	}
 	// Create a channel
-	//udi_channel_spawn(, UCI_GCB(cb), cb->gcb.channel, 0, PCI_OPS_IRQ, NULL);
-	UNIMPLEMENTED();
+	udi_channel_spawn(pci_intr_attach_req__channel_spawned, UDI_GCB(cb),
+		cb->gcb.channel, cb->interrupt_idx, PCI_OPS_IRQ, context);
+}
+void pci_intr_attach_req__channel_spawned(udi_cb_t *gcb, udi_channel_t new_channel)
+{
+	udi_intr_attach_cb_t *cb = UDI_MCB(gcb, udi_intr_attach_cb_t);
+	pci_child_chan_context_t *context = UDI_GCB(cb)->context;
+
+	if( UDI_HANDLE_IS_NULL(new_channel, udi_channel_t) )
+	{
+		// oops
+		return ;
+	}	
+
+	context->interrupt_channel = new_channel;
+	
+	context->interrupt_handle = IRQ_AddHandler(
+		PCI_GetIRQ(context->child_chan_context.child_ID),
+		pci_intr_handler, new_channel);
+
+	udi_intr_attach_ack(cb, UDI_OK);
 }
 void pci_intr_detach_req(udi_intr_detach_cb_t *cb)
 {
 	UNIMPLEMENTED();
+}
+
+void pci_intr_ch_event_ind(udi_channel_event_cb_t *cb)
+{
+	UNIMPLEMENTED();
+}
+void pci_intr_event_rdy(udi_intr_event_cb_t *cb)
+{
+	pci_child_chan_context_t	*context = UDI_GCB(cb)->context;
+	if( context->event_cbs[context->event_cb_wr_ofs] )
+	{
+		// oops, overrun.
+		return ;
+	}
+	context->event_cbs[context->event_cb_wr_ofs++] = cb;
+	if( context->event_cb_wr_ofs == PCI_MAX_EVENT_CBS )
+		context->event_cb_wr_ofs = 0;
+}
+
+void pci_intr_handler(int irq, void *void_context)
+{
+	pci_child_chan_context_t *context = void_context;
+
+	if( context->event_cb_rd_ofs == context->event_cb_wr_ofs ) {
+		// Dropped
+		return ;
+	}
+
+	udi_intr_event_cb_t *cb = context->event_cbs[context->event_cb_rd_ofs];
+	context->event_cbs[context->event_cb_rd_ofs] = NULL;
+	context->event_cb_rd_ofs ++;
+	if( context->event_cb_rd_ofs == PCI_MAX_EVENT_CBS )
+		context->event_cb_rd_ofs = 0;
+	
+	if( UDI_HANDLE_IS_NULL(context->intr_preprocessing, udi_pio_handle_t) )
+	{
+		udi_intr_event_ind(cb, 0);
+	}
+	else
+	{
+		// Processing
+		// - no event info, so mem_ptr=NULL
+		udi_pio_trans(pci_intr_handle__trans_done, UDI_GCB(cb),
+			context->intr_preprocessing, 1, cb->event_buf, NULL);
+	}
+}
+
+void pci_intr_handle__trans_done(udi_cb_t *gcb, udi_buf_t *new_buf, udi_status_t status, udi_ubit16_t result)
+{
+	udi_intr_event_cb_t *cb = UDI_MCB(gcb, udi_intr_event_cb_t);
+	
+	cb->intr_result = result;
+	
+	udi_intr_event_ind(cb, UDI_INTR_PREPROCESSED);	
 }
 
 // - physio hooks
@@ -227,6 +341,11 @@ udi_bus_bridge_ops_t	pci_bridge_ops = {
 	pci_intr_detach_req
 };
 udi_ubit8_t	pci_bridge_op_flags[5] = {0,0,0,0,0};
+udi_intr_dispatcher_ops_t	pci_irq_ops = {
+	pci_intr_ch_event_ind,
+	pci_intr_event_rdy
+};
+udi_ubit8_t	pci_irq_ops_flags[2] = {0,0};
 udi_primary_init_t	pci_pri_init = {
 	.mgmt_ops = &pci_mgmt_ops,
 	.mgmt_op_flags = pci_mgmt_op_flags,
@@ -238,10 +357,16 @@ udi_primary_init_t	pci_pri_init = {
 };
 udi_ops_init_t	pci_ops_list[] = {
 	{
-		1, 1, UDI_BUS_BRIDGE_OPS_NUM,
-		sizeof(udi_child_chan_context_t),
+		PCI_OPS_BRIDGE, 1, UDI_BUS_BRIDGE_OPS_NUM,
+		sizeof(pci_child_chan_context_t),
 		(udi_ops_vector_t*)&pci_bridge_ops,
 		pci_bridge_op_flags
+	},
+	{
+		PCI_OPS_IRQ, 1, UDI_BUS_INTR_DISPATCH_OPS_NUM,
+		0,
+		(udi_ops_vector_t*)&pci_irq_ops,
+		pci_irq_ops_flags
 	},
 	{0}
 };

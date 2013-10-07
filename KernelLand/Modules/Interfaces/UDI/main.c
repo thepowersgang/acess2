@@ -1,18 +1,18 @@
 /*
  * Acess2 UDI Layer
+ * - By John Hodge (thePowersGang)
+ *
+ * main.c
+ * - UDI Entrypoint and Module loading
  */
 #define DEBUG	1
 #define VERSION	((0<<8)|1)
 #include <acess.h>
 #include <modules.h>
 #include <udi.h>
-#include "udi_internal.h"
-#include "udi_ma.h"
-
-// === IMPORTS ===
-extern udi_init_t	pci_init;
-extern char	pci_udiprops[];
-extern size_t	pci_udiprops_size;
+#include <udi_internal.h>
+#include <udi_internal_ma.h>
+#include <trans_pci.h>
 
 // === PROTOTYPES ===
  int	UDI_Install(char **Arguments);

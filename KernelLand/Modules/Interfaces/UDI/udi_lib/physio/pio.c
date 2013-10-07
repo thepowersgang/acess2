@@ -3,10 +3,10 @@
  * \author John Hodge (thePowersGang)
  */
 #define DEBUG	1
-#include <acess.h>
 #include <udi.h>
 #include <udi_physio.h>
-#include "../../udi_internal.h"
+#include <acess.h>
+#include <udi_internal.h>
 
 typedef void	_udi_pio_do_io_op_t(uint32_t child_ID, udi_ubit32_t regset_idx, udi_ubit32_t ofs, size_t len,
 	void *data, bool isOutput);

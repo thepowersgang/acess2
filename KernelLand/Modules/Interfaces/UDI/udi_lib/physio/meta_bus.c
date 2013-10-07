@@ -6,10 +6,10 @@
  * - Bus Bridge Metalanguage
  */
 #define DEBUG	1
-#include <acess.h>
 #include <udi.h>
 #include <udi_physio.h>
-#include "../../udi_internal.h"
+#include <acess.h>
+#include <udi_internal.h>
 
 #define USE_MEI	0
 
@@ -196,6 +196,9 @@ udi_layout_t	udi_meta_info__bridge__intr_attach_cb[] = {
 };
 udi_layout_t	udi_meta_info__bridge__intr_detach_cb[] = {
 	UDI_DL_INDEX_T,
+	UDI_DL_END
+};
+udi_layout_t	udi_meta_info__bridge__intr_event_cb[] = {
 	UDI_DL_END
 };
 

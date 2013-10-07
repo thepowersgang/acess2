@@ -3,10 +3,10 @@
  * \author John Hodge (thePowersGang)
  */
 #define DEBUG	0
-#include <acess.h>
 #include <udi.h>
-#include "../udi_internal.h"
-#include "../udi_ma.h"
+#include <acess.h>
+#include <udi_internal.h>
+#include <udi_internal_ma.h>
 
 // === EXPORTS ===
 EXPORT(udi_usage_ind);

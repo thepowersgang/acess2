@@ -14,7 +14,7 @@
  * - Prevents multiple non-dispatched operations on one channel
  * TODO: This should actually lock the GCB, not the channel
  */
-#define LOCK_CHANNELS	1
+#define LOCK_CHANNELS	0
 
 #define MAX_SPAWN_IDX	6
 

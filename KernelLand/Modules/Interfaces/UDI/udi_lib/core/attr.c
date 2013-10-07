@@ -5,9 +5,9 @@
  * udi_lib/attr.c
  * - Instance Attribute Management
  */
-#include <acess.h>
 #include <udi.h>
-#include "../udi_internal.h"
+#include <acess.h>
+#include <udi_internal.h>
 
 // Notes:
 // - Prefixes:

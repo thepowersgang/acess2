@@ -6,10 +6,10 @@
  * - Managment Agent
  */
 #define DEBUG	1
-#include <acess.h>
 #include <udi.h>
-#include "udi_internal.h"
-#include "udi_ma.h"
+#include <acess.h>
+#include <udi_internal.h>
+#include <udi_internal_ma.h>
 
 // === CONSTANTS ===
 enum {

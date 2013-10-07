@@ -5,8 +5,8 @@
 #include <acess.h>
 #include <udi.h>
 #include <udi_physio.h>
-#include "../udi_internal.h"
-//#include <udi_internal/physio.h>
+#include <udi_internal.h>
+//#include <udi_internal_physio.h>
 
 struct udi_dma_constraints_s
 {

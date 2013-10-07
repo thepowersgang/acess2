@@ -6,8 +6,8 @@
 #define DEBUG	1
 #include <udi.h>
 #include <acess.h>
-#include "../udi_internal.h"
-#include "../udi_ma.h"	// for cUDI_MgmtCbInitList
+#include <udi_internal.h>
+#include <udi_internal_ma.h>	// for cUDI_MgmtCbInitList
 
 // === CODE ===
 void *udi_cb_alloc_internal(tUDI_DriverInstance *Inst, udi_ubit8_t bind_cb_idx, udi_channel_t channel)
