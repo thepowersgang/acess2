@@ -10,6 +10,9 @@
 //# error "UDI_PHYSIO_VERSION must be defined"
 //#endif
 
+#define UDI_DL_PIO_HANDLE_T	200
+#define UDI_DL_DMA_CONSTRAINTS_T	201
+
 // === TYPEDEFS ===
 // DMA Core
 typedef struct udi_dma_handle_s	*udi_dma_handle_t;

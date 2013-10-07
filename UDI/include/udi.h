@@ -123,5 +123,6 @@ typedef udi_op_t * const	udi_ops_vector_t;
 #include "udi/meta_mgmt.h"	// Management Metalanguage
 #include "udi/meta_gio.h"	// General IO Metalanguage
 #include "udi/init.h"	// Init
+#include "udi/mei.h"	// Init
 
 #endif

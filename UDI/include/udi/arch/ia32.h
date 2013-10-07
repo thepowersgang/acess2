@@ -34,20 +34,20 @@ typedef int64_t	udi_timestamp_t;
  * \name va_arg wrapper
  * \{
  */
-#define UDI_VA_ARG(pvar, type, va_code)	va_arg(pvar,type)
-#define UDI_VA_UBIT8_T
-#define UDI_VA_SBIT8_T
-#define UDI_VA_UBIT16_T
-#define UDI_VA_SBIT16_T
-#define UDI_VA_UBIT32_T
-#define UDI_VA_SBIT32_T
-#define UDI_VA_BOOLEAN_T
-#define UDI_VA_INDEX_T
-#define UDI_VA_SIZE_T
-#define UDI_VA_STATUS_T
-#define UDI_VA_CHANNEL_T
-#define UDI_VA_ORIGIN_T
-#define UDI_VA_POINTER
+#define UDI_VA_ARG(pvar, type, va_code)	va_arg(pvar,va_code)
+#define UDI_VA_UBIT8_T	unsigned int
+#define UDI_VA_SBIT8_T	int
+#define UDI_VA_UBIT16_T	unsigned int
+#define UDI_VA_SBIT16_T	int
+#define UDI_VA_UBIT32_T	uint32_t
+#define UDI_VA_SBIT32_T	int32_t
+#define UDI_VA_BOOLEAN_T	int
+#define UDI_VA_INDEX_T	int
+#define UDI_VA_SIZE_T	unsigned int
+#define UDI_VA_STATUS_T	int
+#define UDI_VA_CHANNEL_T	udi_channel_t
+#define UDI_VA_ORIGIN_T	udi_origin_t
+#define UDI_VA_POINTER	void*
 /**
  * \}
  */

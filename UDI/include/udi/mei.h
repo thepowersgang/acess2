@@ -10,7 +10,7 @@
 
 typedef const struct udi_mei_init_s	udi_mei_init_t;
 typedef const struct udi_mei_ops_vec_template_s	udi_mei_ops_vec_template_t;
-typedef const struct uid_mei_op_template_s	uid_mei_op_template_t;
+typedef const struct uid_mei_op_template_s	udi_mei_op_template_t;
 
 typedef udi_ubit8_t udi_mei_enumeration_rank_func_t(udi_ubit32_t attr_device_match, void **attr_value_list);
 typedef void udi_mei_direct_stub_t(udi_op_t *op, udi_cb_t *gcb, va_list arglist);
@@ -65,24 +65,42 @@ struct uid_mei_op_template_s
 #define UDI_MEI_MAX_VISIBLE_SIZE	2000
 #define UDI_MEI_MAX_MARSHAL_SIZE	4000
 
+
+extern void	udi_mei_call(udi_cb_t *gcb, udi_mei_init_t *meta_info, udi_index_t meta_ops_num, udi_index_t vec_idx, ...);
+
 #define _UDI_MEI_FIRST(lst, ...)	lst
-#define _UDI_MEI_OTHER(lst, ...)	__VA_ARGS__
+#define _UDI_MEI_OTHER(lst, ...)	(__VA_ARGS__)
 #define _UDI_MEI_VARG(type,name,vatype) \
 	type name = UDI_VA_ARG(arglist, type, vatype);
-#define _UDI_MEI_VARGS0()
-#define _UDI_MEI_VARGS1(args,argt,argva) \
-	_UDI_MEI_VARG(_UDI_MEI_FIRST(argt), _UDI_MEI_FIRST(args),_UDI_MEI_FIRST(argva))
-#define _UDI_MEI_VARGS2(args,argt,argva) \
-	_UDI_MEI_VARG(_UDI_MEI_FIRST(argt), _UDI_MEI_FIRST(args),_UDI_MEI_FIRST(argva)) \
-	_UDI_MEI_VARGS1( _UDI_MEI_OTHER(argt), _UDI_MEI_OTHER(args), _UDI_MEI_OTHER(argva) )
+#define _UDI_MEI_VARGS0(argt,args,argva)
+#define _UDI_MEI_VARGS1(argt,args,argva) \
+	_UDI_MEI_VARG(_UDI_MEI_FIRST argt, _UDI_MEI_FIRST args, _UDI_MEI_FIRST argva)
+#define _UDI_MEI_VARGS2(argt,args,argva) \
+	_UDI_MEI_VARG(_UDI_MEI_FIRST argt, _UDI_MEI_FIRST args,_UDI_MEI_FIRST argva ) \
+	_UDI_MEI_VARGS1( _UDI_MEI_OTHER argt, _UDI_MEI_OTHER args, _UDI_MEI_OTHER argva )
+#define _UDI_MEI_VARGS3(argt,args,argva) \
+	_UDI_MEI_VARG(_UDI_MEI_FIRST argt, _UDI_MEI_FIRST args, _UDI_MEI_FIRST argva) \
+	_UDI_MEI_VARGS2( _UDI_MEI_OTHER argt, _UDI_MEI_OTHER args,  _UDI_MEI_OTHER argva )
+
+#define _UDI_MEI_ARG_LIST0(t,a)
+#define _UDI_MEI_ARG_LIST1(t,a)	, _UDI_MEI_FIRST t _UDI_MEI_FIRST a
+#define _UDI_MEI_ARG_LIST2(t,a) , _UDI_MEI_FIRST t _UDI_MEI_FIRST a \
+	 _UDI_MEI_ARG_LIST1(_UDI_MEI_OTHER t, _UDI_MEI_OTHER a)
+#define _UDI_MEI_ARG_LIST3(t,a) , _UDI_MEI_FIRST t _UDI_MEI_FIRST a \
+	 _UDI_MEI_ARG_LIST2(_UDI_MEI_OTHER t, _UDI_MEI_OTHER a)
+
+#define _UDI_ARG_LIST_0()	
+#define _UDI_ARG_LIST_1(a)	,a
+#define _UDI_ARG_LIST_2(a,b)	,a,b
+#define _UDI_ARG_LIST_3(a,b,c)	,a,b,c
 	
 #define UDI_MEI_STUBS(op_name, cb_type, argc, args, arg_types, arg_va_list, meta_ops_num, vec_idx) \
-	void op_name(cb_type *cb, _UDI_ARG_LIST_##argc args ) {\
-		udi_mei_call(UDI_GCB(cb), &udi_mei_info, meta_ops_num, vec_idx, args);\
+	void op_name(cb_type *cb  _UDI_MEI_ARG_LIST##argc(arg_types, args) ) {\
+		udi_mei_call(UDI_GCB(cb), &udi_mei_info, meta_ops_num, vec_idx _UDI_ARG_LIST_##argc args);\
 	}\
-	void op_name##_direct(udi_op_t *op, udi_cb_t *gcb, va_lis arglist) {\
-		_UDI_MEI_VARGS##argc(args ,## arg_types ,## arg_va_list)\
-		(*(op_name##_op_t)op)(UDI_MCB(gcb, cb_type) ,## args);\
+	void op_name##_direct(udi_op_t *op, udi_cb_t *gcb, va_list arglist) {\
+		_UDI_MEI_VARGS##argc(arg_types, args, arg_va_list)\
+		(*(op_name##_op_t*)op)(UDI_MCB(gcb, cb_type) _UDI_ARG_LIST_##argc args);\
 	}\
 	void op_name##_backend(udi_op_t *op, udi_cb_t *gcb, void *marshal_space) {\
 	}

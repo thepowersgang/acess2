@@ -200,6 +200,7 @@ struct sUDI_DeferredCall
 extern void	UDI_int_DeferredThread(void *unused);	// Worker started by main.c
 extern void	UDI_int_AddDeferred(tUDI_DeferredCall *Call);
 extern void	UDI_int_MakeDeferredCb(udi_cb_t *cb, udi_op_t *handler);
+
 extern void	UDI_int_MakeDeferredCbU8(udi_cb_t *cb, udi_op_t *handler, udi_ubit8_t arg1);
 extern void	UDI_int_MakeDeferredCbS(udi_cb_t *cb, udi_op_t *handler, udi_status_t status);
 
