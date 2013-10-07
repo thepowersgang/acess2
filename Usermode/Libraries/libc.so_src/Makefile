@@ -26,8 +26,10 @@ endif
 include ../Makefile.tpl
 
 EXP_%.txt: TEST_%.native
-	./TEST_printf.native > EXP_printf.txt
-	rm TEST_printf.native
+	./$< > $@
+	rm $<
+EXP_strtoi.txt:
+	echo -n "" > $@
 
 %.native: %.c
 	$(NCC) $< -o $@ -Wall -std=gnu99

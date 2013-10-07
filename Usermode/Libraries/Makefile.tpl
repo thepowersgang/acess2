@@ -62,7 +62,7 @@ utest-build: $(UTESTS:%=TEST_%)
 utest-run: $(UTESTS:%=runtest-%)
 	@echo > /dev/null
 
-$(UTESTS:%=runtest-%): runtest-%: TEST_%
+$(UTESTS:%=runtest-%): runtest-%: TEST_% EXP_%.txt
 	./TEST_$* | diff EXP_$*.txt -
 
 clean:
