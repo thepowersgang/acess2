@@ -6,6 +6,7 @@
  * - Tests for strtoi.c
  */
 #include <stdio.h>
+#include <stdlib.h>
 
 #define TST(t, class, base, val, exp, fmt) do {\
 	t ret = strto##class(#val, NULL, base); \
@@ -15,5 +16,6 @@
 
 int main(int argc, char *argv[])
 {
-	TST(unsigned long, ul, 0, 0x10ec, 0x10ec, "%x");
+	TST(unsigned long, ul, 0, 0x10ec, 0x10ec, "%lx");
+	TST(unsigned long long, ull, 0, 0xffeed10ec, 0xffeed10ec, "%llx");
 }
