@@ -29,10 +29,6 @@ enum {
 #define NE2K_NUM_INTR_EVENT_CBS	4
 
 // === GLOBALS ===
-#define PIO_op_RI(op, reg, sz, val)	{UDI_PIO_##op+UDI_PIO_DIRECT+UDI_PIO_##reg, UDI_PIO_##sz##BYTE, val}
-#define PIO_MOV_RI1(reg, val)	PIO_op_RI(LOAD_IMM, reg, 1, val)
-#define PIO_OUT_RI1(reg, ofs)	PIO_op_RI(OUT, reg, 1, ofs)
-#define PIO_IN_RI1(reg, ofs)	PIO_op_RI(IN, reg, 1, ofs)
 // --- Programmed IO ---
 #include "ne2000_pio.h"
 
@@ -77,11 +73,15 @@ void ne2k_final_cleanup_req(udi_mgmt_cb_t *cb)
 // --- Bus
 void ne2k_bus_dev_channel_event_ind(udi_channel_event_cb_t *cb)
 {
+	udi_cb_t	*gcb = UDI_GCB(cb);
+	ne2k_rdata_t	*rdata = gcb->context;
+	
 	switch(cb->event)
 	{
 	case UDI_CHANNEL_CLOSED:
 		break;
 	case UDI_CHANNEL_BOUND: {
+		rdata->active_cb = gcb;
 		udi_bus_bind_cb_t *bus_bind_cb = UDI_MCB(cb->params.parent_bound.bind_cb, udi_bus_bind_cb_t);
 		udi_bus_bind_req( bus_bind_cb );
 		// continue at ne2k_bus_dev_bus_bind_ack
@@ -93,7 +93,6 @@ void ne2k_bus_dev_bus_bind_ack(udi_bus_bind_cb_t *cb,
 {
 	udi_cb_t	*gcb = UDI_GCB(cb);
 	ne2k_rdata_t	*rdata = gcb->context;
-	rdata->active_cb = gcb;
 	
 	// Set up PIO handles
 	rdata->init.pio_index = -1;

@@ -1,3 +1,8 @@
+#define PIO_op_RI(op, reg, sz, val)	{UDI_PIO_##op+UDI_PIO_DIRECT+UDI_PIO_##reg, UDI_PIO_##sz##BYTE, val}
+#define PIO_MOV_RI1(reg, val)	PIO_op_RI(LOAD_IMM, reg, 2, val)
+#define PIO_OUT_RI1(reg, ofs)	PIO_op_RI(OUT, reg, 1, ofs)
+#define PIO_IN_RI1(reg, ofs)	PIO_op_RI(IN, reg, 1, ofs)
+
 //
 // Ne2000 reset operation (reads MAC address too)
 // 
@@ -132,7 +137,7 @@ udi_pio_trans_t ne2k_pio_rx[] = {
 	{UDI_PIO_STORE|UDI_PIO_DIRECT|UDI_PIO_R0, UDI_PIO_1BYTE, UDI_PIO_R7},
 	{UDI_PIO_SUB|UDI_PIO_R0, UDI_PIO_1BYTE, NE2K_RX_LAST_PG+1},
 	{UDI_PIO_CSKIP|UDI_PIO_R0, UDI_PIO_1BYTE, UDI_PIO_NZ},	// if R7-RX_LAST == 0
-	{UDI_PIO_LOAD_IMM|UDI_PIO_R7, UDI_PIO_1BYTE, NE2K_RX_FIRST_PG},	// R7 = RX_FIRST
+	{UDI_PIO_LOAD_IMM|UDI_PIO_R7, UDI_PIO_2BYTE, NE2K_RX_FIRST_PG},	// R7 = RX_FIRST
 	//  > Transaction start
 	PIO_MOV_RI1(R0, 1),
 	PIO_MOV_RI1(R1, 0),
