@@ -52,7 +52,7 @@ void ne2k_enumerate_req(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_level)
 		attr_list ++;
 		DPT_SET_ATTR_STRING(attr_list, "if_media", "eth", 3);
 		attr_list ++;
-		NE2K_SET_ATTR_STRFMT(attr_list, "identifier", 2*6+1, "%2X%2X%2X%2X%2X%2X",
+		NE2K_SET_ATTR_STRFMT(attr_list, "identifier", 2*6+1, "%02X%02X%02X%02X%02X%02X",
 			rdata->macaddr[0], rdata->macaddr[1], rdata->macaddr[2],
 			rdata->macaddr[3], rdata->macaddr[4], rdata->macaddr[5] );
 		attr_list ++;
