@@ -305,7 +305,7 @@ int ATA_DoDMA(Uint8 Disk, Uint64 Address, Uint Count, int bWrite, void *Buffer)
 	 int	cont = (Disk>>1)&1;	// Controller ID
 	 int	disk = Disk & 1;
 	Uint16	base;
-	 int	bUseBounceBuffer;
+	 int	bUseBounceBuffer = 0;
 
 	ENTER("iDisk XAddress iCount bbWrite pBuffer", Disk, Address, Count, bWrite, Buffer);
 
