@@ -107,7 +107,7 @@ struct sUDI_DriverModule
 	tUDI_DriverModule	*Next;
 	void	*Base;
 
-	udi_init_t	*InitInfo;
+	const udi_init_t	*InitInfo;
 
 	// Counts of arrays in InitInfo
 	 int	nCBInit;
@@ -174,7 +174,7 @@ extern tUDI_MetaLang	cMetaLang_Management;
 
 // --- Index to pointer translation ---
 extern udi_ops_init_t	*UDI_int_GetOps(tUDI_DriverInstance *Inst, udi_index_t index);
-extern tUDI_MetaLang *UDI_int_GetMetaLang(tUDI_DriverInstance *Inst, udi_index_t meta_idx);
+extern tUDI_MetaLang *UDI_int_GetMetaLang(tUDI_DriverModule *Inst, udi_index_t meta_idx);
 
 // --- Channels ---
 extern udi_channel_t	UDI_CreateChannel_Blank(tUDI_MetaLang *metalang);

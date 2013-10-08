@@ -103,7 +103,7 @@ int UDI_BindChannel(udi_channel_t channel, bool other_side, tUDI_DriverInstance 
 		return 1;
 	}
 
-	tUDI_MetaLang *ops_ml = UDI_int_GetMetaLang(inst, ops->meta_idx);
+	tUDI_MetaLang *ops_ml = UDI_int_GetMetaLang(inst->Module, ops->meta_idx);
 	if( ops_ml != ch->MetaLang ) {
 		Log_Warning("UDI", "Attempt by %s to bind with mismatched channel '%s' op '%s' channel",
 			inst->Module, ops_ml->Name, ch->MetaLang->Name);

@@ -49,9 +49,11 @@ tUDI_DriverInstance *UDI_MA_CreateInstance(tUDI_DriverModule *DriverModule,
 //	UDI_BindChannel_Raw(inst->ManagementChannel, false,
 //		NULL, 1, inst, &cUDI_MgmtOpsList);	// TODO: ops list for management agent?
 
-	for( int i = 0; i < DriverModule->nRegions; i ++ )
-		Log("Rgn %i: %p", i, inst->Regions[i]);
+//	for( int i = 0; i < DriverModule->nRegions; i ++ )
+//		Log("Rgn %i: %p", i, inst->Regions[i]);
 
+	LOG("Inst %s %p MA state =%i",
+		inst->Module->ModuleName, inst, UDI_MASTATE_USAGEIND);
 	inst->CurState = UDI_MASTATE_USAGEIND;
 	// Next State: _SECBIND
 
@@ -132,7 +134,7 @@ int UDI_MA_CheckDeviceMatch(int nDevAttr, udi_instance_attr_list_t *DevAttrs,
 		else
 		{
 			// Attribute desired is missing, error?
-			//LOG("attr '%s' missing", dev_attr->attr_name);
+			LOG("attr '%s' missing", dev_attr->attr_name);
 		}
 	}
 	//LOG("n_matches = %i", n_matches);
@@ -184,13 +186,16 @@ void UDI_MA_AddChild(udi_enumerate_cb_t *cb, udi_index_t ops_idx)
 	inst->FirstChild = child;
 	
 	// and search for a handler
-	tUDI_MetaLang	*metalang = UDI_int_GetMetaLang(inst, child->Ops->meta_idx);
+	tUDI_MetaLang	*metalang = UDI_int_GetMetaLang(inst->Module, child->Ops->meta_idx);
 	 int	best_level = 0;
 	tUDI_DriverModule *best_module = NULL;
 	for( tUDI_DriverModule *module = gpUDI_LoadedModules; module; module = module->Next )
 	{
 		for( int i = 0; i < module->nDevices; i ++ )
 		{
+			//LOG("%s:%i %p ?== %p",
+			//	module->ModuleName, i,
+			//	module->Devices[i]->Metalang, metalang);
 			if( module->Devices[i]->Metalang != metalang )
 				continue ;
 			
@@ -223,6 +228,7 @@ void UDI_MA_BindParents(tUDI_DriverModule *Module)
 			{
 				if( child->BoundInstance )
 					continue ;
+				// TODO: Check metalangs
 				// Check for match
 				int level = UDI_MA_CheckDeviceMatch(
 					Module->Devices[i]->nAttribs, Module->Devices[i]->Attribs,
@@ -243,6 +249,9 @@ void UDI_MA_TransitionState(tUDI_DriverInstance *Inst, enum eUDI_MAState Src, en
 	ASSERT(Inst);
 	if( Inst->CurState != Src )
 		return ;
+	
+	LOG("Inst %s %p MA state %i->%i",
+		Inst->Module->ModuleName, Inst, Src, Dst);
 	
 	switch(Dst)
 	{
@@ -270,7 +279,7 @@ void UDI_MA_TransitionState(tUDI_DriverInstance *Inst, enum eUDI_MAState Src, en
 			
 			// Bind to parent
 			tUDI_BindOps	*parent = &Module->Parents[0];
-			udi_channel_t channel = UDI_CreateChannel_Blank(UDI_int_GetMetaLang(Inst, parent->meta_idx));
+			udi_channel_t channel = UDI_CreateChannel_Blank(UDI_int_GetMetaLang(Inst->Module, parent->meta_idx));
 			
 			UDI_BindChannel(channel,true,  Inst, parent->ops_idx, parent->region_idx, NULL,false,0);
 			UDI_BindChannel(channel,false,

@@ -285,8 +285,8 @@ void pci_intr_handle__trans_done(udi_cb_t *gcb, udi_buf_t *new_buf, udi_status_t
 udi_status_t pci_pio_do_io(uint32_t child_ID, udi_ubit32_t regset_idx, udi_ubit32_t ofs, udi_ubit8_t len,
 	void *data, bool isOutput)
 {
-	LOG("child_ID=%i, regset_idx=%i,ofs=0x%x,len=%i,data=%p,isOutput=%b",
-		child_ID, regset_idx, ofs, len, data, isOutput);
+//	LOG("child_ID=%i, regset_idx=%i,ofs=0x%x,len=%i,data=%p,isOutput=%b",
+//		child_ID, regset_idx, ofs, len, data, isOutput);
 	tPCIDev	pciid = child_ID;
 	// TODO: Cache child mappings	
 

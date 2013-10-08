@@ -13,12 +13,13 @@
 #include <udi_internal.h>
 #include <udi_internal_ma.h>
 #include <trans_pci.h>
+#include <trans_nsr.h>
 
 // === PROTOTYPES ===
  int	UDI_Install(char **Arguments);
  int	UDI_DetectDriver(void *Base);
  int	UDI_LoadDriver(void *Base);
-tUDI_DriverModule	*UDI_int_LoadDriver(void *LoadBase, udi_init_t *info, const char *udiprops, size_t udiprops_size);
+tUDI_DriverModule	*UDI_int_LoadDriver(void *LoadBase, const udi_init_t *info, const char *udiprops, size_t udiprops_size);
 const tUDI_MetaLang	*UDI_int_GetMetaLangByName(const char *Name);
 
 // === GLOBALS ===
@@ -40,6 +41,7 @@ int UDI_Install(char **Arguments)
 	Proc_SpawnWorker(UDI_int_DeferredThread, NULL);
 
 	UDI_int_LoadDriver(NULL, &pci_init, pci_udiprops, pci_udiprops_size);
+	UDI_int_LoadDriver(NULL, &acessnsr_init, acessnsr_udiprops, acessnsr_udiprops_size);
 
 	return MODULE_ERR_OK;
 }
@@ -318,7 +320,7 @@ const char *caUDI_UdipropsNames[] = {
 };
 #undef _defpropname
 
-tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, udi_init_t *info, const char *udiprops, size_t udiprops_size)
+tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, const udi_init_t *info, const char *udiprops, size_t udiprops_size)
 {
 	//UDI_int_DumpInitInfo(info);
 	
@@ -664,6 +666,10 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, udi_init_t *info, const ch
 		}
 	}
 	free(udipropsptrs);
+
+	for( int i = 0; i < driver_module->nDevices; i ++ )
+		driver_module->Devices[i]->Metalang = UDI_int_GetMetaLang(driver_module,
+			driver_module->Devices[i]->MetaIdx);
 	
 	// Sort message list
 	// TODO: Sort message list
@@ -767,15 +773,15 @@ udi_ops_init_t *UDI_int_GetOps(tUDI_DriverInstance *Inst, udi_index_t index)
 	return ops;
 }
 
-tUDI_MetaLang *UDI_int_GetMetaLang(tUDI_DriverInstance *Inst, udi_index_t index)
+tUDI_MetaLang *UDI_int_GetMetaLang(tUDI_DriverModule *Module, udi_index_t index)
 {
 	if( index == 0 )
 		return &cMetaLang_Management;
-	ASSERT(Inst);
-	for( int i = 0; i < Inst->Module->nMetaLangs; i ++ )
+	ASSERT(Module);
+	for( int i = 0; i < Module->nMetaLangs; i ++ )
 	{
-		if( Inst->Module->MetaLangs[i].meta_idx == index )
-			return Inst->Module->MetaLangs[i].metalang;
+		if( Module->MetaLangs[i].meta_idx == index )
+			return Module->MetaLangs[i].metalang;
 	}
 	return NULL;
 }
@@ -784,8 +790,10 @@ const tUDI_MetaLang *UDI_int_GetMetaLangByName(const char *Name)
 {
 	//extern tUDI_MetaLang	cMetaLang_Management;
 	extern tUDI_MetaLang	cMetaLang_BusBridge;
+	extern tUDI_MetaLang	cMetaLang_NIC;
 	const tUDI_MetaLang	*langs[] = {
 		&cMetaLang_BusBridge,
+		&cMetaLang_NIC,
 		NULL
 	};
 	for( int i = 0; langs[i]; i ++ )

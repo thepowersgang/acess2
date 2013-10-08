@@ -91,13 +91,16 @@ void udi_enumerate_ack(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_result, u
 			switch(at->attr_type)
 			{
 			case UDI_ATTR_STRING:
-				LOG("[%i] String '%.*s'", i, at->attr_length, at->attr_value);
+				LOG("[%i] %s String '%.*s'", i, at->attr_name,
+					at->attr_length, at->attr_value);
 				break;
 			case UDI_ATTR_UBIT32:
-				LOG("[%i] UBit32 0x%08x", i, UDI_ATTR32_GET(at->attr_value));
+				LOG("[%i] %s UBit32 0x%08x", i, at->attr_name,
+					UDI_ATTR32_GET(at->attr_value));
 				break;
 			default:
-				LOG("[%i] %i", i, at->attr_type);
+				LOG("[%i] %s %i", i, at->attr_name,
+					at->attr_type);
 				break;
 			}
 		}

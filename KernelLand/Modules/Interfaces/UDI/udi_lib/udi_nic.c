@@ -2,9 +2,10 @@
  * \file physio.c
  * \author John Hodge (thePowersGang)
  */
-#include <acess.h>
 #include <udi.h>
 #include <udi_nic.h>
+#include <acess.h>	// for EXPORT
+#include <udi_internal.h>
 
 // === EXPORTS ===
 EXPORT(udi_nd_bind_req);
@@ -27,6 +28,29 @@ EXPORT(udi_nd_exp_tx_req);
 EXPORT(udi_nsr_rx_ind);
 EXPORT(udi_nsr_exp_rx_ind);
 EXPORT(udi_nd_rx_rdy);
+
+#define UDI_NIC_STD_CB_NUM	1
+#define UDI_NIC_BIND_CB_NUM	2
+#define UDI_NIC_CTRL_CB_NUM	3
+#define UDI_NIC_STATUS_CB_NUM	4
+#define UDI_NIC_INFO_CB_NUM	5
+#define UDI_NIC_TX_CB_NUM	6
+#define UDI_NIC_RX_CB_NUM	7
+// === GLOBALS ===
+tUDI_MetaLang	cMetaLang_NIC = {
+	"udi_nic",
+	8,
+	{
+		{0},
+		{sizeof(udi_nic_cb_t), NULL},
+		{sizeof(udi_nic_bind_cb_t), NULL},
+		{sizeof(udi_nic_ctrl_cb_t), NULL},
+		{sizeof(udi_nic_status_cb_t), NULL},
+		{sizeof(udi_nic_info_cb_t), NULL},
+		{sizeof(udi_nic_tx_cb_t), NULL},
+		{sizeof(udi_nic_rx_cb_t), NULL},
+	}
+};
 
 // === CODE ===
 // --- Control Ops ---

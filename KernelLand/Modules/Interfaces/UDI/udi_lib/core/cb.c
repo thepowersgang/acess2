@@ -37,7 +37,7 @@ void *udi_cb_alloc_internal(tUDI_DriverInstance *Inst, udi_ubit8_t bind_cb_idx, 
 		if( cb_init->cb_idx == bind_cb_idx )
 		{
 			// TODO: Get base size using meta/cbnum
-			tUDI_MetaLang *metalang = UDI_int_GetMetaLang(Inst, cb_init->meta_idx);
+			tUDI_MetaLang *metalang = UDI_int_GetMetaLang(Inst->Module, cb_init->meta_idx);
 			if( !metalang ) {
 				Log_Warning("UDI", "Metalang referenced in %s CB %i is invalid (%i)",
 					Inst->Module->ModuleName, bind_cb_idx, cb_init->meta_idx);
@@ -103,7 +103,8 @@ void udi_cb_alloc_batch(
 
 void udi_cb_free(udi_cb_t *cb)
 {
-	UNIMPLEMENTED();
+	// TODO: Ensure that cb is inactive
+	free(cb);
 }
 
 void udi_cancel(udi_cancel_call_t *callback, udi_cb_t *gcb)
