@@ -23,9 +23,11 @@ EXPORT(udi_final_cleanup_ack);
 tUDI_MetaLang	cMetaLang_Management = {
 	"udi_mgmt",
 	
-	1,
+	3,
 	{
-		{sizeof(udi_enumerate_cb_t), NULL}
+		{sizeof(udi_enumerate_cb_t), NULL},
+		{sizeof(udi_usage_cb_t), NULL},
+		{sizeof(udi_channel_event_cb_t), NULL},
 	}
 };
 
@@ -54,6 +56,8 @@ void udi_usage_res(udi_usage_cb_t *cb)
 {
 	// TODO: Update trace mask from cb
 	LOG("cb=%p{cb->trace_mask=%x}", cb, cb->trace_mask);
+	UDI_MA_TransitionState(UDI_GCB(cb)->initiator_context, UDI_MASTATE_USAGEIND, UDI_MASTATE_SECBIND);
+	udi_cb_free( UDI_GCB(cb) );
 }
 
 void udi_enumerate_req(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_level)
@@ -102,8 +106,12 @@ void udi_enumerate_ack(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_result, u
 		UDI_MA_AddChild(cb, ops_idx);
 		udi_enumerate_req(cb, UDI_ENUMERATE_NEXT);
 		return ;
+	case UDI_ENUMERATE_LEAF:
 	case UDI_ENUMERATE_DONE:
 		// All done. Chain terminates
+		UDI_MA_TransitionState(UDI_GCB(cb)->initiator_context,
+			UDI_MASTATE_ENUMCHILDREN, UDI_MASTATE_ACTIVE);
+		udi_cb_free( UDI_GCB(cb) );
 		return ;
 	default:
 		Log_Notice("UDI", "Unknown enumeration_result %i", enumeration_result);

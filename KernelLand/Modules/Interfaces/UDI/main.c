@@ -681,10 +681,7 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, udi_init_t *info, const ch
 	// Check for orphan drivers, and create an instance of them when loaded
 	if( driver_module->nParents == 0 )
 	{
-		tUDI_DriverInstance *inst = UDI_MA_CreateInstance(driver_module);
-	
-		// Enumerate so any pre-loaded drivers are detected	
-		UDI_MA_BeginEnumeration(inst);
+		UDI_MA_CreateInstance(driver_module, NULL, NULL);
 	}
 	else
 	{

@@ -6,6 +6,7 @@
 #include <udi.h>
 #include <acess.h>
 #include <udi_internal.h>
+#include <udi_internal_ma.h>
 
 // === EXPORTS ===
 EXPORT(udi_channel_anchor);
@@ -101,5 +102,7 @@ void udi_channel_event_ind(udi_channel_event_cb_t *cb)
 
 void udi_channel_event_complete(udi_channel_event_cb_t *cb, udi_status_t status)
 {
-	UNIMPLEMENTED();
+	LOG("cb=%p,status=%i", cb, status);
+	UDI_MA_TransitionState( UDI_GCB(cb)->initiator_context, UDI_MASTATE_PARENTBIND, UDI_MASTATE_ENUMCHILDREN );
+	udi_cb_free( UDI_GCB(cb) );
 }

@@ -142,6 +142,8 @@ struct sUDI_DriverInstance
 	udi_channel_t	ManagementChannel;
 	tUDI_DriverInstance	*Parent;
 	tUDI_ChildBinding	*ParentChildBinding;
+
+	 int	CurState;	// Current MA state
 	
 	tUDI_ChildBinding	*FirstChild;
 	tUDI_DriverRegion	*Regions[];
@@ -169,7 +171,6 @@ struct sUDI_ChildBinding
 
 // --- Metalanguages ---
 extern tUDI_MetaLang	cMetaLang_Management;
-
 
 // --- Index to pointer translation ---
 extern udi_ops_init_t	*UDI_int_GetOps(tUDI_DriverInstance *Inst, udi_index_t index);
@@ -206,6 +207,7 @@ extern void	UDI_int_MakeDeferredCbS(udi_cb_t *cb, udi_op_t *handler, udi_status_
 
 // --- CBs ---
 extern void *udi_cb_alloc_internal(tUDI_DriverInstance *Inst, udi_ubit8_t bind_cb_idx, udi_channel_t channel);
+extern udi_cb_t	*udi_cb_alloc_internal_v(tUDI_MetaLang *Meta, udi_index_t MetaCBNum, size_t inline_size, size_t scratch_size, udi_channel_t channel);
 
 // --- Attribute Management ---
 extern udi_instance_attr_type_t udi_instance_attr_get_internal(udi_cb_t *gcb, const char *attr_name, udi_ubit32_t child_ID, void *attr_value, udi_size_t attr_length, udi_size_t *actual_length);

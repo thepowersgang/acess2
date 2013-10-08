@@ -12,23 +12,15 @@
 #include <udi_internal_ma.h>
 
 // === CONSTANTS ===
-enum {
-	MGMT_CB_ENUM = 1,
-};
-const udi_cb_init_t cUDI_MgmtCbInitList[] = {
-	{MGMT_CB_ENUM,0,0, 0,0,NULL},
-	{0}
-};
 
 // === PROTOTYPES ===
-tUDI_DriverInstance *UDI_MA_CreateChildInstance(tUDI_DriverModule *Module,
-	tUDI_DriverInstance *ParentInstance, tUDI_ChildBinding *ChildBinding);
 
 // === GLOBALS ===
 tUDI_DriverInstance	*gpUDI_ActiveInstances;
 
 // === CODE ===
-tUDI_DriverInstance *UDI_MA_CreateInstance(tUDI_DriverModule *DriverModule)
+tUDI_DriverInstance *UDI_MA_CreateInstance(tUDI_DriverModule *DriverModule,
+	tUDI_DriverInstance *ParentInstance, tUDI_ChildBinding *ChildBinding)
 {
 	tUDI_DriverInstance	*inst = NEW_wA(tUDI_DriverInstance, Regions, DriverModule->nRegions);
 	udi_primary_init_t	*pri_init = DriverModule->InitInfo->primary_init_info;
@@ -44,6 +36,13 @@ tUDI_DriverInstance *UDI_MA_CreateInstance(tUDI_DriverModule *DriverModule)
 		}
 	}
 
+	if( ParentInstance ) {
+		ASSERT(ChildBinding);
+		ChildBinding->BoundInstance = inst;
+	}
+	inst->Parent = ParentInstance;
+	inst->ParentChildBinding = ChildBinding;
+
 	inst->ManagementChannel = UDI_CreateChannel_Blank(&cMetaLang_Management);
 	UDI_BindChannel_Raw(inst->ManagementChannel, true,
 		inst, 0, 0, inst->Regions[0]->InitContext, pri_init->mgmt_ops);
@@ -53,27 +52,20 @@ tUDI_DriverInstance *UDI_MA_CreateInstance(tUDI_DriverModule *DriverModule)
 	for( int i = 0; i < DriverModule->nRegions; i ++ )
 		Log("Rgn %i: %p", i, inst->Regions[i]);
 
-	// Send usage indication
-	char scratch[pri_init->mgmt_scratch_requirement];
-	{
-		udi_usage_cb_t ucb;
-		memset(&ucb, 0, sizeof(ucb));
-		ucb.gcb.scratch = scratch;
-		ucb.gcb.channel = inst->ManagementChannel;
-		udi_usage_ind(&ucb, UDI_RESOURCES_NORMAL);
-		// TODO: Ensure that udi_usage_res is called
-	}
-	
-	for( int i = 1; i < DriverModule->nRegions; i ++ )
-	{
-		// TODO: Bind secondaries to primary
-		Log_Warning("UDI", "TODO: Bind secondary channels");
-		//inst->Regions[i]->PriChannel = UDI_CreateChannel_Blank(
-	}
+	inst->CurState = UDI_MASTATE_USAGEIND;
+	// Next State: _SECBIND
 
 	// Add to global list of active instances
 	inst->Next = gpUDI_ActiveInstances;
 	gpUDI_ActiveInstances = inst;
+
+	// Send usage indication
+	udi_usage_cb_t *cb = (void*)udi_cb_alloc_internal_v(&cMetaLang_Management, UDI_MGMT_USAGE_CB_NUM,
+		0, pri_init->mgmt_scratch_requirement, inst->ManagementChannel
+		);
+	UDI_GCB(cb)->initiator_context = inst;
+	udi_usage_ind(cb, UDI_RESOURCES_NORMAL);
+	// udi_usage_res causes next state transition
 	
 	return inst;
 }
@@ -93,10 +85,10 @@ tUDI_DriverRegion *UDI_MA_InitRegion(tUDI_DriverInstance *Inst,
 void UDI_MA_BeginEnumeration(tUDI_DriverInstance *Inst)
 {
 	udi_primary_init_t *pri_init = Inst->Module->InitInfo->primary_init_info;
-	udi_enumerate_cb_t	*ecb = udi_cb_alloc_internal(NULL, MGMT_CB_ENUM, Inst->ManagementChannel);
-	memset(ecb, 0, sizeof(ecb));
-	ecb->gcb.scratch = malloc(pri_init->mgmt_scratch_requirement);
-	ecb->gcb.channel = Inst->ManagementChannel;
+	udi_enumerate_cb_t	*ecb = (void*)udi_cb_alloc_internal_v(
+		&cMetaLang_Management, UDI_MGMT_ENUMERATE_CB_NUM,
+		0, pri_init->mgmt_scratch_requirement, Inst->ManagementChannel);
+	UDI_GCB(ecb)->initiator_context = Inst;
 	ecb->child_data = malloc(pri_init->child_data_size);
 	ecb->attr_list = NEW(udi_instance_attr_list_t, *pri_init->enumeration_attr_list_length);
 	ecb->attr_valid_length = 0;
@@ -214,7 +206,7 @@ void UDI_MA_AddChild(udi_enumerate_cb_t *cb, udi_index_t ops_idx)
 	}
 	if( best_module != NULL )
 	{
-		UDI_MA_CreateChildInstance(best_module, inst, child);
+		UDI_MA_CreateInstance(best_module, inst, child);
 	}
 }
 
@@ -239,59 +231,93 @@ void UDI_MA_BindParents(tUDI_DriverModule *Module)
 				// No match: Continue
 				if( level == 0 )
 					continue ;
-				UDI_MA_CreateChildInstance(Module, inst, child);
+				// Found a match, so create an instance (binding happens async)
+				UDI_MA_CreateInstance(Module, inst, child);
 			}
 		}
 	}
 }
 
-tUDI_DriverInstance *UDI_MA_CreateChildInstance(tUDI_DriverModule *Module,
-	tUDI_DriverInstance *ParentInstance, tUDI_ChildBinding *ChildBinding)
+void UDI_MA_TransitionState(tUDI_DriverInstance *Inst, enum eUDI_MAState Src, enum eUDI_MAState Dst)
 {
-	// Found a match, so create an instance and bind it
-	tUDI_DriverInstance *inst = UDI_MA_CreateInstance(Module);
-	ChildBinding->BoundInstance = inst;
-	inst->Parent = ParentInstance;
-	inst->ParentChildBinding = ChildBinding;
+	ASSERT(Inst);
+	if( Inst->CurState != Src )
+		return ;
 	
-	// TODO: Handle multi-parent drivers
-	ASSERTC(Module->nParents, ==, 1);
-	
-	// Bind to parent
-	tUDI_BindOps	*parent = &Module->Parents[0];
-	udi_channel_t channel = UDI_CreateChannel_Blank( UDI_int_GetMetaLang(inst, parent->meta_idx) );
-	
-	UDI_BindChannel(channel,true,  inst, parent->ops_idx, parent->region_idx, NULL,false,0);
-	UDI_BindChannel(channel,false,
-		ParentInstance, ChildBinding->Ops->ops_idx, ChildBinding->BindOps->region_idx,
-		NULL, true, ChildBinding->ChildID);
-
-	udi_channel_event_cb_t	ev_cb;
-	memset(&ev_cb, 0, sizeof(ev_cb));
-	 int	n_handles = Module->InitInfo->primary_init_info->per_parent_paths;
-	udi_buf_path_t	handles[n_handles];
-	ev_cb.gcb.channel = channel;
-	ev_cb.event = UDI_CHANNEL_BOUND;
-	if( parent->bind_cb_idx == 0 )
-		ev_cb.params.parent_bound.bind_cb = NULL;
-	else {
-		ev_cb.params.parent_bound.bind_cb = udi_cb_alloc_internal(inst, parent->bind_cb_idx, channel);
-		if( !ev_cb.params.parent_bound.bind_cb ) {
-			Log_Warning("UDI", "Bind CB index is invalid");
-			return NULL;
+	switch(Dst)
+	{
+	case UDI_MASTATE_USAGEIND:
+		ASSERT(Dst != UDI_MASTATE_USAGEIND);
+		break;
+	case UDI_MASTATE_SECBIND:
+		Inst->CurState = UDI_MASTATE_SECBIND;
+		for( int i = 1; i < Inst->Module->nRegions; i ++ )
+		{
+			// TODO: Bind secondaries to primary
+			Log_Warning("UDI", "TODO: Bind secondary channels");
+			//inst->Regions[i]->PriChannel = UDI_CreateChannel_Blank(
 		}
-		UDI_int_ChannelFlip( ev_cb.params.parent_bound.bind_cb );
-	}
+		//UDI_MA_TransitionState(Inst, UDI_MASTATE_SECBIND, UDI_MASTATE_PARENTBIND);
+		//break;
+	case UDI_MASTATE_PARENTBIND:
+		Inst->CurState = UDI_MASTATE_PARENTBIND;
+		if( Inst->Parent )
+		{
+			tUDI_DriverModule	*Module = Inst->Module;
+			tUDI_ChildBinding	*parent_bind = Inst->ParentChildBinding;
+			// TODO: Handle multi-parent drivers
+			ASSERTC(Module->nParents, ==, 1);
+			
+			// Bind to parent
+			tUDI_BindOps	*parent = &Module->Parents[0];
+			udi_channel_t channel = UDI_CreateChannel_Blank(UDI_int_GetMetaLang(Inst, parent->meta_idx));
+			
+			UDI_BindChannel(channel,true,  Inst, parent->ops_idx, parent->region_idx, NULL,false,0);
+			UDI_BindChannel(channel,false,
+				Inst->Parent, parent_bind->Ops->ops_idx, parent_bind->BindOps->region_idx,
+				NULL, true, parent_bind->ChildID);
 
-	ev_cb.params.parent_bound.parent_ID = 1;
-	ev_cb.params.parent_bound.path_handles = handles;
-	
-	for( int i = 0; i < n_handles; i ++ ) {
-		//handles[i] = udi_buf_path_alloc_internal(inst);
-		handles[i] = 0;
+			udi_cb_t	*bind_cb;
+			if( parent->bind_cb_idx == 0 )
+				bind_cb = NULL;
+			else {
+				bind_cb = udi_cb_alloc_internal(Inst, parent->bind_cb_idx, channel);
+				if( !bind_cb ) {
+					Log_Warning("UDI", "Bind CB index is invalid");
+					break;
+				}
+				UDI_int_ChannelFlip( bind_cb );
+			}
+
+			 int	n_handles = Module->InitInfo->primary_init_info->per_parent_paths;
+			udi_buf_path_t	handles[n_handles];
+			for( int i = 0; i < n_handles; i ++ ) {
+				//handles[i] = udi_buf_path_alloc_internal(Inst);
+				handles[i] = 0;
+			}
+			
+			udi_channel_event_cb_t *ev_cb = (void*)udi_cb_alloc_internal_v(&cMetaLang_Management,
+				UDI_MGMT_CHANNEL_EVENT_CB_NUM, 0, 0, channel);
+			UDI_GCB(ev_cb)->initiator_context = Inst;
+			ev_cb->event = UDI_CHANNEL_BOUND;
+			ev_cb->params.parent_bound.bind_cb = bind_cb;
+			ev_cb->params.parent_bound.parent_ID = 1;
+			ev_cb->params.parent_bound.path_handles = handles;
+			
+			udi_channel_event_ind(ev_cb);
+			break;
+		}
+		//UDI_MA_TransitionState(Inst, UDI_MASTATE_PARENTBIND, UDI_MASTATE_ENUMCHILDREN);
+		//break;
+	case UDI_MASTATE_ENUMCHILDREN:
+		Inst->CurState = UDI_MASTATE_ENUMCHILDREN;
+		UDI_MA_BeginEnumeration(Inst);
+		break;
+	case UDI_MASTATE_ACTIVE:
+		Inst->CurState = UDI_MASTATE_ACTIVE;
+		Log_Log("UDI", "Driver instance %s %p entered active state",
+			Inst->Module->ModuleName, Inst);
+		break;
 	}
-	
-	udi_channel_event_ind(&ev_cb);
-	return inst;
 }
 
