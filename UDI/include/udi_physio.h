@@ -69,9 +69,6 @@ typedef udi_ubit8_t udi_dma_constraints_attr_t;
  */
 // DMA Constraints Management
 typedef struct udi_dma_constraints_attr_spec_s	udi_dma_constraints_attr_spec_t;
-typedef void udi_dma_constraints_attr_set_call_t(
-	udi_cb_t *gcb, udi_dma_constraints_t new_constraints, udi_status_t status
-	);
 typedef	struct udi_dma_limits_s	udi_dma_limits_t;
 
 
