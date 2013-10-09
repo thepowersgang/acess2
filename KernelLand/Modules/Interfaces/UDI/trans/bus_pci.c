@@ -296,14 +296,20 @@ udi_status_t pci_pio_do_io(uint32_t child_ID, udi_ubit32_t regset_idx, udi_ubit3
 		// TODO:
 		return UDI_STAT_NOT_SUPPORTED;
 	case UDI_PCI_BAR_0 ... UDI_PCI_BAR_5: {
-		Uint64 bar = PCI_GetBAR(pciid, regset_idx);
+		Uint32 bar = PCI_GetBAR(pciid, regset_idx);
 		if(bar & 1)
 		{
 			// IO BAR
 			bar &= ~3;
 			#define _IO(fc, type) do {\
-				if( isOutput )	out##fc(bar+ofs, *(type*)data); \
-				else	*(type*)data = in##fc(bar+ofs); \
+				if( isOutput ) { \
+					LOG("out"#fc"(0x%x, 0x%x)",bar+ofs,*(type*)data);\
+					out##fc(bar+ofs, *(type*)data); \
+				} \
+				else { \
+					*(type*)data = in##fc(bar+ofs); \
+					LOG("in"#fc"(0x%x) = 0x%x",bar+ofs,*(type*)data);\
+				}\
 				} while(0)
 			switch(len)
 			{
@@ -319,7 +325,7 @@ udi_status_t pci_pio_do_io(uint32_t child_ID, udi_ubit32_t regset_idx, udi_ubit3
 		else
 		{
 			// Memory BAR
-			bar = PCI_GetValidBAR(pciid, regset_idx, PCI_BARTYPE_MEM);
+			//Uint64 longbar = PCI_GetValidBAR(pciid, regset_idx, PCI_BARTYPE_MEM);
 			return UDI_STAT_NOT_SUPPORTED;
 		}
 		break; }

@@ -134,7 +134,7 @@ int UDI_MA_CheckDeviceMatch(int nDevAttr, udi_instance_attr_list_t *DevAttrs,
 		else
 		{
 			// Attribute desired is missing, error?
-			LOG("attr '%s' missing", dev_attr->attr_name);
+			//LOG("attr '%s' missing", dev_attr->attr_name);
 		}
 	}
 	//LOG("n_matches = %i", n_matches);
@@ -186,7 +186,7 @@ void UDI_MA_AddChild(udi_enumerate_cb_t *cb, udi_index_t ops_idx)
 	inst->FirstChild = child;
 	
 	// and search for a handler
-	tUDI_MetaLang	*metalang = UDI_int_GetMetaLang(inst->Module, child->Ops->meta_idx);
+	child->Metalang = UDI_int_GetMetaLang(inst->Module, child->Ops->meta_idx);
 	 int	best_level = 0;
 	tUDI_DriverModule *best_module = NULL;
 	for( tUDI_DriverModule *module = gpUDI_LoadedModules; module; module = module->Next )
@@ -196,7 +196,7 @@ void UDI_MA_AddChild(udi_enumerate_cb_t *cb, udi_index_t ops_idx)
 			//LOG("%s:%i %p ?== %p",
 			//	module->ModuleName, i,
 			//	module->Devices[i]->Metalang, metalang);
-			if( module->Devices[i]->Metalang != metalang )
+			if( module->Devices[i]->Metalang != child->Metalang )
 				continue ;
 			
 			int level = UDI_MA_CheckDeviceMatch(
@@ -228,7 +228,8 @@ void UDI_MA_BindParents(tUDI_DriverModule *Module)
 			{
 				if( child->BoundInstance )
 					continue ;
-				// TODO: Check metalangs
+				if( Module->Devices[i]->Metalang != child->Metalang )
+					continue ;
 				// Check for match
 				int level = UDI_MA_CheckDeviceMatch(
 					Module->Devices[i]->nAttribs, Module->Devices[i]->Attribs,

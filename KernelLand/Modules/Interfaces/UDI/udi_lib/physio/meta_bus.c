@@ -217,10 +217,18 @@ udi_layout_t	_udi_intr_attach_ack_marshal[] = {
 	UDI_DL_END
 };
 
+#define UDI__OPS_NUM	0
+#define MEI_OPINFO(name,cat,flags,cbtype,rsp_ops,rsp_idx,err_ops,err_idx)	\
+	{#name, UDI_MEI_OPCAT_##cat,flags,UDI_##cbtype##_CB_NUM, \
+		UDI_##rsp_ops##_OPS_NUM,rsp_idx,UDI_##err_ops##_OPS_NUM,err_idx, \
+		name##_direct, name##_backend, _##cbtype##_cb_layout, _##name##_marshal_layout }
+
 udi_mei_op_template_t	udi_meta_info__bridge__bus_ops[] = {
-	{"udi_bus_bind_req", UDI_MEI_OPCAT_REQ, 0, UDI_BUS_BIND_CB_NUM, UDI_BUS_DEVICE_OPS_NUM,1, 0,0,
-		udi_bus_bind_req_direct, udi_bus_bind_req_backend, udi_meta_info__bridge__bus_bind_cb,
-		_noargs_marshal},
+	#define _udi_bus_bind_req_marshal_layout	_noargs_marshal
+	MEI_OPINFO(udi_bus_bind_req, REQ, 0, BUS_BIND, BUS_DEVICE,1, ,0),
+//	{"udi_bus_bind_req", UDI_MEI_OPCAT_REQ, 0, UDI_BUS_BIND_CB_NUM, UDI_BUS_DEVICE_OPS_NUM,1, 0,0,
+//		udi_bus_bind_req_direct, udi_bus_bind_req_backend, udi_meta_info__bridge__bus_bind_cb,
+//		_noargs_marshal},
 	{"udi_bus_unbind_req", UDI_MEI_OPCAT_REQ, 0, UDI_BUS_BIND_CB_NUM, UDI_BUS_DEVICE_OPS_NUM,2, 0,0,
 		udi_bus_unbind_req_direct, udi_bus_unbind_req_backend, udi_meta_info__bridge__bus_bind_cb,
 		_noargs_marshal},

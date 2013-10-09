@@ -9,7 +9,22 @@
 #include <udi_internal.h>
 #include <udi_internal_ma.h>	// for cUDI_MgmtCbInitList
 
+typedef struct sUDI_CBHeader
+{
+	tUDI_MetaLang	*Metalang;
+	udi_index_t	MetaCBNum;
+	udi_cb_t	cb;
+} tUDI_CBHeader;
+
 // === CODE ===
+tUDI_MetaLang *UDI_int_GetCbType(udi_cb_t *cb, udi_index_t *meta_cb_num)
+{
+	tUDI_CBHeader	*hdr = (void*)cb - offsetof(tUDI_CBHeader, cb);
+	if(meta_cb_num)
+		*meta_cb_num = hdr->MetaCBNum;
+	return hdr->Metalang;
+}
+
 udi_cb_t *udi_cb_alloc_internal_v(tUDI_MetaLang *Meta, udi_index_t MetaCBNum,
 	size_t inline_size, size_t scratch_size, udi_channel_t channel)
 {
@@ -18,9 +33,12 @@ udi_cb_t *udi_cb_alloc_internal_v(tUDI_MetaLang *Meta, udi_index_t MetaCBNum,
 	ASSERTC(base, >=, sizeof(udi_cb_t));
 	base -= sizeof(udi_cb_t);
 	LOG("+ %i + %i + %i", base, inline_size, scratch_size);
-	udi_cb_t *ret = NEW(udi_cb_t, + base + inline_size + scratch_size);
+	tUDI_CBHeader	*cbhdr = NEW(tUDI_CBHeader, + base + inline_size + scratch_size);
+	cbhdr->Metalang = Meta;
+	cbhdr->MetaCBNum = MetaCBNum;
+	udi_cb_t *ret = &cbhdr->cb;
 	ret->channel = channel;
-	ret->scratch = (void*)ret + sizeof(udi_cb_t) + base + inline_size;
+	ret->scratch = (void*)(ret + 1) + base + inline_size;
 	return ret;
 }
 void *udi_cb_alloc_internal(tUDI_DriverInstance *Inst, udi_ubit8_t bind_cb_idx, udi_channel_t channel)
@@ -103,8 +121,9 @@ void udi_cb_alloc_batch(
 
 void udi_cb_free(udi_cb_t *cb)
 {
+	tUDI_CBHeader	*hdr = (void*)cb - offsetof(tUDI_CBHeader, cb);
 	// TODO: Ensure that cb is inactive
-	free(cb);
+	free(hdr);
 }
 
 void udi_cancel(udi_cancel_call_t *callback, udi_cb_t *gcb)

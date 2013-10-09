@@ -36,7 +36,8 @@ extern void udi_channel_spawn(
 	udi_index_t ops_idx, void *channel_context
 	)
 {
-	LOG("gcb=%p,channel=%p", gcb, channel, spawn_idx, ops_idx, channel_context);
+	LOG("gcb=%p,channel=%p,spawn_idx=%i,ops_idx=%i,channel_context=%p",
+		gcb, channel, spawn_idx, ops_idx, channel_context);
 	
 	// Search existing channel for a matching spawn_idx
 	udi_channel_t ret = UDI_CreateChannel_Linked(channel, spawn_idx);

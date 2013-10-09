@@ -54,7 +54,7 @@ void udi_pio_map(udi_pio_map_call_t *callback, udi_cb_t *gcb,
 {
 	LOG("gcb=%p,regset_idx=%i,base_offset=0x%x,length=0x%x,trans_list=%p,list_length=%i,...",
 		gcb, regset_idx, base_offset, length, trans_list, list_length);
-	char bus_type[16];
+	char bus_type[16] = {0};
 	udi_instance_attr_type_t	type;
 	type = udi_instance_attr_get_internal(gcb, "bus_type", 0, bus_type, sizeof(bus_type), NULL);
 	if(type != UDI_ATTR_STRING) {
@@ -71,6 +71,7 @@ void udi_pio_map(udi_pio_map_call_t *callback, udi_cb_t *gcb,
 	}
 	else {
 		// Oops, unknown
+		Log_Warning("UDI", "Unknown bus type %s", bus_type);
 		callback(gcb, UDI_NULL_PIO_HANDLE);
 		return ;
 	}
@@ -319,13 +320,16 @@ static inline int _write_mem(udi_cb_t *gcb, udi_buf_t *buf, void *mem_ptr,
 		break;
 	case UDI_PIO_SCRATCH:
 		ASSERTCR( (ofs & (size-1)), ==, 0, 1);
+		LOG("scr %p+%i = %i %x,...", gcb->scratch, ofs, size, val->words[0]);
 		memcpy(gcb->scratch + ofs, val, size);
 		break;
 	case UDI_PIO_BUF:
+		LOG("buf %p+%i = %i %x,...", buf, ofs, size, val->words[0]);
 		udi_buf_write(NULL,NULL, val, size, buf, ofs, size, UDI_NULL_BUF_PATH);
 		break;
 	case UDI_PIO_MEM:
 		ASSERTCR( (ofs & (size-1)), ==, 0, 1);
+		LOG("mem %p+%i = %i %x,...", mem_ptr, ofs, size, val->words[0]);
 		memcpy(mem_ptr + ofs, val, size);
 		break;
 	}
@@ -540,7 +544,7 @@ void udi_pio_trans(udi_pio_trans_call_t *callback, udi_cb_t *gcb,
 					pio_handle->IOFunc(pio_handle->ChildID, pio_handle->RegSet,
 						pio_ofs, tran_size, &tmpval, dir_is_out);
 					if( !dir_is_out )
-						_read_mem(gcb,buf,mem_ptr, mode, tran_size,
+						_write_mem(gcb,buf,mem_ptr, mode, tran_size,
 							mem_reg, &tmpval);
 					pio_ofs += pio_stride;
 					if( mode != UDI_PIO_DIRECT )

@@ -9,6 +9,7 @@
 #define _UDI_INTERNAL_H_
 
 #include <stdbool.h>
+#include <stdarg.h>
 
 #define NEW(type,extra) (type*)calloc(sizeof(type)extra,1)
 #define NEW_wA(type,fld,cnt)	NEW(type,+(sizeof(((type*)NULL)->fld[0])*cnt))
@@ -70,6 +71,7 @@ struct sUDI_PropRegion
 struct sUDI_MetaLang
 {
 	const char *Name;
+	//void	*MeiInfo;
 	 int	nCbTypes;
 	struct {
 		udi_size_t	Size;
@@ -208,9 +210,13 @@ extern void	UDI_int_MakeDeferredCbS(udi_cb_t *cb, udi_op_t *handler, udi_status_
 // --- CBs ---
 extern void *udi_cb_alloc_internal(tUDI_DriverInstance *Inst, udi_ubit8_t bind_cb_idx, udi_channel_t channel);
 extern udi_cb_t	*udi_cb_alloc_internal_v(tUDI_MetaLang *Meta, udi_index_t MetaCBNum, size_t inline_size, size_t scratch_size, udi_channel_t channel);
+extern tUDI_MetaLang	*UDI_int_GetCbType(udi_cb_t *gcb, udi_index_t *meta_cb_num);
 
 // --- Attribute Management ---
 extern udi_instance_attr_type_t udi_instance_attr_get_internal(udi_cb_t *gcb, const char *attr_name, udi_ubit32_t child_ID, void *attr_value, udi_size_t attr_length, udi_size_t *actual_length);
+
+// --- Layout ---
+extern size_t	_udi_marshal_values(void *buf, udi_layout_t *layout, va_list values);
 
 #endif
 

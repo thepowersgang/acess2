@@ -11,6 +11,9 @@
 #include <acess.h>
 #include <trans_nsr.h>
 #include <IPStack/include/adapters_api.h>
+#include <workqueue.h>
+
+#define NUM_RX_BUFFERS	4
 
 enum {
 	ACESSNSR_OPS_CTRL = 1,
@@ -21,13 +24,28 @@ enum {
 	ACESSNSR_META_NIC = 1
 };
 enum {
-	ACESSNSR_CB_CTRL = 1
+	ACESSNSR_CB_CTRL = 1,
+	ACESSNSR_CB_RX,
+	ACESSNSR_CB_TX
 };
 
 // === TYPES ===
 typedef struct
 {
-	udi_init_context_t	init_context;
+	udi_init_context_t	init_context;	
+	udi_cb_t	*active_cb;
+
+	udi_index_t	init_idx;
+	udi_buf_t	*rx_buffers[NUM_RX_BUFFERS];
+	udi_nic_rx_cb_t	*rx_cbs[NUM_RX_BUFFERS];
+
+	tWorkqueue	RXQueue;
+
+	tIPStack_AdapterType	AdapterType;
+	void	*ipstack_handle;
+	
+	udi_channel_t	rx_channel;
+	udi_channel_t	tx_channel;
 } acessnsr_rdata_t;
 
 // === PROTOTYPES ===
@@ -37,7 +55,11 @@ void acessnsr_devmgmt_req(udi_mgmt_cb_t *cb, udi_ubit8_t mgmt_op, udi_ubit8_t pa
 void acessnsr_final_cleanup_req(udi_mgmt_cb_t *cb);
 // --- NSR Control
 void acessnsr_ctrl_channel_event_ind(udi_channel_event_cb_t *cb);
+void acessnsr_ctrl_ch_ev_ind__rx_channel_spawned(udi_cb_t *gcb, udi_channel_t channel);
+void acessnsr_ctrl_ch_ev_ind__tx_channel_spawned(udi_cb_t *gcb, udi_channel_t channel);
 void acessnsr_ctrl_bind_ack(udi_nic_bind_cb_t *cb, udi_status_t status);
+void acessnsr_ctrl_bind_ack__rx_buf_allocated(udi_cb_t *gcb, udi_buf_t *new_buf);
+void acessnsr_ctrl_bind_ack__rx_cb_allocated(udi_cb_t *gcb, udi_cb_t *new_cb);
 void acessnsr_ctrl_unbind_ack(udi_nic_cb_t *cb, udi_status_t status);
 void acessnsr_ctrl_enable_ack(udi_nic_cb_t *cb, udi_status_t status);
 void acessnsr_ctrl_disable_ack(udi_nic_cb_t *cb, udi_status_t status);
@@ -51,64 +73,208 @@ void acessnsr_tx_rdy(udi_nic_tx_cb_t *cb);
 void acessnsr_rx_channel_event_ind(udi_channel_event_cb_t *cb);
 void acessnsr_rx_ind(udi_nic_rx_cb_t *cb);
 void acessnsr_rx_exp_ind(udi_nic_rx_cb_t *cb);
+// --- Acess IPStack
+ int	acessnsr_SendPacket(void *Card, tIPStackBuffer *Buffer);
+tIPStackBuffer	*acessnsr_WaitForPacket(void *Card);
 
 // === CODE ===
 // --- Management metalang
 void acessnsr_usage_ind(udi_usage_cb_t *cb, udi_ubit8_t resource_level)
 {
+	acessnsr_rdata_t *rdata = UDI_GCB(cb)->context;
+	switch(resource_level)
+	{
+	}
+
+	Workqueue_Init(&rdata->RXQueue, "AcessNSR RX", offsetof(udi_nic_rx_cb_t, chain));
+
+	udi_usage_res(cb);
 }
 void acessnsr_devmgmt_req(udi_mgmt_cb_t *cb, udi_ubit8_t mgmt_op, udi_ubit8_t parent_ID)
 {
+	UNIMPLEMENTED();
 }
 void acessnsr_final_cleanup_req(udi_mgmt_cb_t *cb)
 {
+	UNIMPLEMENTED();
 }
 // --- NSR Control
 void acessnsr_ctrl_channel_event_ind(udi_channel_event_cb_t *cb)
 {
-	//acessnsr_rdata_t *rdata = UDI_GCB(cb)->context;
+	acessnsr_rdata_t *rdata = UDI_GCB(cb)->context;
 	switch(cb->event)
 	{
-	
+	case UDI_CHANNEL_CLOSED:
+		break;
+	case UDI_CHANNEL_BOUND: {
+		rdata->active_cb = UDI_GCB(cb);
+		udi_channel_spawn(acessnsr_ctrl_ch_ev_ind__rx_channel_spawned,
+			cb->params.parent_bound.bind_cb, UDI_GCB(cb)->channel,
+			1, ACESSNSR_OPS_RX, rdata);
+		// V V V V
+		break; }
 	}
+}
+void acessnsr_ctrl_ch_ev_ind__rx_channel_spawned(udi_cb_t *gcb, udi_channel_t channel)
+{
+	acessnsr_rdata_t *rdata = gcb->context;
+	rdata->rx_channel = channel;
+	udi_channel_spawn(acessnsr_ctrl_ch_ev_ind__tx_channel_spawned, gcb, gcb->channel,
+		2, ACESSNSR_OPS_TX, rdata);
+	// V V V V
+}
+void acessnsr_ctrl_ch_ev_ind__tx_channel_spawned(udi_cb_t *gcb, udi_channel_t channel)
+{
+	acessnsr_rdata_t *rdata = gcb->context;
+	rdata->tx_channel = channel;
+	udi_nic_bind_cb_t *bind_cb = UDI_MCB(gcb, udi_nic_bind_cb_t);
+	udi_nd_bind_req(bind_cb, 2, 1);
+	// V V V V
 }
 void acessnsr_ctrl_bind_ack(udi_nic_bind_cb_t *cb, udi_status_t status)
 {
+	acessnsr_rdata_t *rdata = UDI_GCB(cb)->context;
+	// TODO: Parse cb and register with IPStack
+	// - Pass on capabilities and media type
+	switch(cb->media_type)
+	{
+	case UDI_NIC_ETHER:	rdata->AdapterType.Type = ADAPTERTYPE_ETHERNET_10M;	break;
+	case UDI_NIC_FASTETHER:	rdata->AdapterType.Type = ADAPTERTYPE_ETHERNET_100M;	break;
+	case UDI_NIC_GIGETHER:	rdata->AdapterType.Type = ADAPTERTYPE_ETHERNET_1G;	break;
+	default:
+		udi_channel_event_complete( UDI_MCB(rdata->active_cb,udi_channel_event_cb_t), UDI_OK );
+		break;
+	}
+
+	if(cb->capabilities & UDI_NIC_CAP_TX_IP_CKSUM)
+		rdata->AdapterType.Flags |= ADAPTERFLAG_OFFLOAD_IP4;
+	if(cb->capabilities & UDI_NIC_CAP_TX_TCP_CKSUM)
+		rdata->AdapterType.Flags |= ADAPTERFLAG_OFFLOAD_TCP;
+	if(cb->capabilities & UDI_NIC_CAP_TX_UDP_CKSUM)
+		rdata->AdapterType.Flags |= ADAPTERFLAG_OFFLOAD_UDP;
+	
+	rdata->AdapterType.Name = "udi";
+	rdata->AdapterType.SendPacket = acessnsr_SendPacket;
+	rdata->AdapterType.WaitForPacket = acessnsr_WaitForPacket;
+
+	rdata->ipstack_handle = IPStack_Adapter_Add(&rdata->AdapterType, rdata, cb->mac_addr);
+
+	// Allocate RX CBs and buffers
+	rdata->init_idx = -1;
+	acessnsr_ctrl_bind_ack__rx_buf_allocated(rdata->active_cb, NULL);
+	// V V V V
+}
+void acessnsr_ctrl_bind_ack__rx_buf_allocated(udi_cb_t *gcb, udi_buf_t *new_buf)
+{
+	acessnsr_rdata_t *rdata = gcb->context;
+	if( rdata->init_idx != (udi_index_t)-1 )
+	{
+		rdata->rx_buffers[rdata->init_idx] = new_buf;
+	}
+	rdata->init_idx ++;
+	if( rdata->init_idx < NUM_RX_BUFFERS )
+	{
+		UDI_BUF_ALLOC(acessnsr_ctrl_bind_ack__rx_buf_allocated, gcb, NULL, 0, NULL);
+		// A A A A
+		return ;
+	}
+	
+	rdata->init_idx = -1;
+	acessnsr_ctrl_bind_ack__rx_cb_allocated(gcb, NULL);
+}
+void acessnsr_ctrl_bind_ack__rx_cb_allocated(udi_cb_t *gcb, udi_cb_t *new_cb)
+{
+	acessnsr_rdata_t *rdata = gcb->context;
+	if( rdata->init_idx != (udi_index_t)-1 )
+	{
+		udi_nic_rx_cb_t	*cb = UDI_MCB(new_cb, udi_nic_rx_cb_t);
+		rdata->rx_cbs[rdata->init_idx] = cb;
+		cb->rx_buf = rdata->rx_buffers[rdata->init_idx];
+		udi_nd_rx_rdy(cb);
+	}
+	rdata->init_idx ++;
+	if( rdata->init_idx < NUM_RX_BUFFERS )
+	{
+		udi_cb_alloc(acessnsr_ctrl_bind_ack__rx_cb_allocated, gcb, ACESSNSR_CB_RX, rdata->rx_channel);
+		// A A A A
+		return ;
+	}
+	udi_channel_event_complete( UDI_MCB(rdata->active_cb,udi_channel_event_cb_t), UDI_OK );
+	// = = = =
 }
 void acessnsr_ctrl_unbind_ack(udi_nic_cb_t *cb, udi_status_t status)
 {
+	UNIMPLEMENTED();
 }
 void acessnsr_ctrl_enable_ack(udi_nic_cb_t *cb, udi_status_t status)
 {
+	UNIMPLEMENTED();
 }
 void acessnsr_ctrl_disable_ack(udi_nic_cb_t *cb, udi_status_t status)
 {
+	UNIMPLEMENTED();
 }
 void acessnsr_ctrl_ctrl_ack(udi_nic_ctrl_cb_t *cb, udi_status_t status)
 {
+	UNIMPLEMENTED();
 }
 void acessnsr_ctrl_status_ind(udi_nic_status_cb_t *cb)
 {
+	UNIMPLEMENTED();
 }
 void acessnsr_ctrl_info_ack(udi_nic_info_cb_t *cb)
 {
+	UNIMPLEMENTED();
 }
 // --- NSR TX
 void acessnsr_tx_channel_event_ind(udi_channel_event_cb_t *cb)
 {
+	UNIMPLEMENTED();
 }
 void acessnsr_tx_rdy(udi_nic_tx_cb_t *cb)
 {
+	UNIMPLEMENTED();
 }
 // --- NSR RX
 void acessnsr_rx_channel_event_ind(udi_channel_event_cb_t *cb)
 {
+	UNIMPLEMENTED();
 }
 void acessnsr_rx_ind(udi_nic_rx_cb_t *cb)
 {
+	acessnsr_rdata_t *rdata = UDI_GCB(cb)->context;
+	udi_nic_rx_cb_t *next;
+	do {
+		next = cb->chain;
+		Workqueue_AddWork(&rdata->RXQueue, cb);
+	} while( (cb = next) );
 }
 void acessnsr_rx_exp_ind(udi_nic_rx_cb_t *cb)
 {
+	UNIMPLEMENTED();
+}
+// --- Acess IPStack
+int acessnsr_SendPacket(void *Card, tIPStackBuffer *Buffer)
+{
+	UNIMPLEMENTED();
+	return 1;
+}
+void _FreeHeapSubBuf(void *Arg, size_t Pre, size_t Post, const void *DataBuf)
+{
+	free(Arg);
+}
+tIPStackBuffer *acessnsr_WaitForPacket(void *Card)
+{
+	acessnsr_rdata_t *rdata = Card;
+	udi_nic_rx_cb_t *cb = Workqueue_GetWork(&rdata->RXQueue);
+
+	tIPStackBuffer	*ret = IPStack_Buffer_CreateBuffer(1);
+	void	*data = malloc( cb->rx_buf->buf_size );
+	udi_buf_read(cb->rx_buf, 0, cb->rx_buf->buf_size, data);
+	IPStack_Buffer_AppendSubBuffer(ret, cb->rx_buf->buf_size, 0, data, _FreeHeapSubBuf, data);
+
+	udi_nd_rx_rdy(cb);
+	return ret;
 }
 
 // === UDI Bindings ===
@@ -171,6 +337,8 @@ udi_ops_init_t	acessnsr_ops_list[] = {
 };
 udi_cb_init_t	acessnsr_cb_init_list[] = {
 	{ACESSNSR_CB_CTRL, ACESSNSR_META_NIC, UDI_NIC_BIND_CB_NUM, 0, 0,NULL},
+	{ACESSNSR_CB_RX, ACESSNSR_META_NIC, UDI_NIC_RX_CB_NUM, 0, 0,NULL},
+	{ACESSNSR_CB_TX, ACESSNSR_META_NIC, UDI_NIC_TX_CB_NUM, 0, 0,NULL},
 	{0}
 };
 const udi_init_t	acessnsr_init = {

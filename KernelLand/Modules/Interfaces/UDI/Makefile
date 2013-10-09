@@ -6,6 +6,7 @@ CPPFLAGS = -I../../../../UDI/include -Iinclude
 # - UDI Library Files
 LIB_OBJS := core/logging.o core/strmem.o core/imc.o core/mem.o core/buf.o
 LIB_OBJS += core/queues.o core/time.o core/attr.o core/mei.o core/cb.o
+LIB_OBJS += core/layout.o
 LIB_OBJS += core/meta_mgmt.o core/meta_gio.o
 LIB_OBJS += physio.o physio/meta_bus.o physio/pio.o physio/dma.o
 LIB_OBJS += scsi.o
