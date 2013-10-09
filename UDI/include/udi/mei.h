@@ -89,11 +89,28 @@ extern void	udi_mei_call(udi_cb_t *gcb, udi_mei_init_t *meta_info, udi_index_t m
 #define _UDI_MEI_ARG_LIST3(t,a) , _UDI_MEI_FIRST t _UDI_MEI_FIRST a \
 	 _UDI_MEI_ARG_LIST2(_UDI_MEI_OTHER t, _UDI_MEI_OTHER a)
 
+#define _UDI_MEI_MARG_LIST0(t,a)
+#define _UDI_MEI_MARG_LIST1(t,a) _UDI_MEI_FIRST t _UDI_MEI_FIRST a;
+#define _UDI_MEI_MARG_LIST2(t,a) _UDI_MEI_FIRST t _UDI_MEI_FIRST a; \
+	 _UDI_MEI_MARG_LIST1(_UDI_MEI_OTHER t, _UDI_MEI_OTHER a)
+#define _UDI_MEI_MARG_LIST3(t,a) _UDI_MEI_FIRST t _UDI_MEI_FIRST a; \
+	 _UDI_MEI_MARG_LIST2(_UDI_MEI_OTHER t, _UDI_MEI_OTHER a)
+
 #define _UDI_ARG_LIST_0()	
 #define _UDI_ARG_LIST_1(a)	,a
 #define _UDI_ARG_LIST_2(a,b)	,a,b
 #define _UDI_ARG_LIST_3(a,b,c)	,a,b,c
-	
+
+#define _UDI_MARG_LIST_0()	
+#define _UDI_MARG_LIST_1(a)	,m->a
+#define _UDI_MARG_LIST_2(a,b)	,m->a,m->b
+#define _UDI_MARG_LIST_3(a,b,c)	,m->a,m->b,m->c
+
+#define _UDI_MEI_NZ_0(...)
+#define _UDI_MEI_NZ_1(...)	__VA_ARGS__
+#define _UDI_MEI_NZ_2(...)	__VA_ARGS__
+#define _UDI_MEI_NZ_3(...)	__VA_ARGS__
+
 #define UDI_MEI_STUBS(op_name, cb_type, argc, args, arg_types, arg_va_list, meta_ops_num, vec_idx) \
 	void op_name(cb_type *cb  _UDI_MEI_ARG_LIST##argc(arg_types, args) ) {\
 		udi_mei_call(UDI_GCB(cb), &udi_mei_info, meta_ops_num, vec_idx _UDI_ARG_LIST_##argc args);\
@@ -103,6 +120,8 @@ extern void	udi_mei_call(udi_cb_t *gcb, udi_mei_init_t *meta_info, udi_index_t m
 		(*(op_name##_op_t*)op)(UDI_MCB(gcb, cb_type) _UDI_ARG_LIST_##argc args);\
 	}\
 	void op_name##_backend(udi_op_t *op, udi_cb_t *gcb, void *marshal_space) {\
+		_UDI_MEI_NZ_##argc( struct { _UDI_MEI_MARG_LIST##argc(arg_types, args) } __attribute__((packed)) *m = marshal_space; )\
+		(*(op_name##_op_t*)op)(UDI_MCB(gcb, cb_type) _UDI_MARG_LIST_##argc args);\
 	}
 
 #endif

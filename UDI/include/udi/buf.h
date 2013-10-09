@@ -6,6 +6,7 @@
 
 
 typedef struct udi_buf_s	udi_buf_t;
+typedef struct udi_buf_tag_s	udi_buf_tag_t;
 typedef struct udi_xfer_constraints_s	udi_xfer_constraints_t;
 typedef void udi_buf_copy_call_t(udi_cb_t *gcb, udi_buf_t *new_dst_buf);
 typedef void udi_buf_write_call_t(udi_cb_t *gcb, udi_buf_t *new_dst_buf);
@@ -17,7 +18,17 @@ typedef void udi_buf_write_call_t(udi_cb_t *gcb, udi_buf_t *new_dst_buf);
 struct udi_buf_s
 {
 	udi_size_t	buf_size;
-	udi_ubit8_t	Data[];	//!< ENVIRONMENT ONLY
+	// ... filled in udi_lib/core/buf.c
+};
+
+typedef udi_ubit32_t	udi_tagtype_t;
+
+struct udi_buf_tag_s
+{
+	udi_tagtype_t	tag_type;
+	udi_ubit32_t	tag_value;
+	udi_size_t	tag_off;
+	udi_size_t	tag_len;
 };
 
 /**
