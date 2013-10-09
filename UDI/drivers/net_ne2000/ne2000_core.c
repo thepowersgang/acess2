@@ -102,9 +102,10 @@ void ne2k_bus_dev_bind__pio_map(udi_cb_t *gcb, udi_pio_handle_t new_pio_handle)
 {
 	ne2k_rdata_t	*rdata = gcb->context;
 	
-	if( rdata->init.pio_index != -1 )
+	if( rdata->init.pio_index != (udi_index_t)-1 )
 	{
 		rdata->pio_handles[rdata->init.pio_index] = new_pio_handle;
+		udi_debug_printf("PIO %i = %p\n", rdata->init.pio_index, new_pio_handle);
 	}
 	rdata->init.pio_index ++;
 	if( rdata->init.pio_index < NE2K_NUM_PIO_OPS )
@@ -221,11 +222,22 @@ void ne2k_nd_ctrl_bind__tx_chan_ok(udi_cb_t *gcb, udi_channel_t new_channel)
 		rdata->init.rx_chan_index, NE2K_OPS_RX, rdata);
 	// V V V V
 }
-void ne2k_nd_ctrl_bind__rx_chan_ok(udi_cb_t *cb, udi_channel_t new_channel)
+void ne2k_nd_ctrl_bind__rx_chan_ok(udi_cb_t *gcb, udi_channel_t new_channel)
 {
-	ne2k_rdata_t	*rdata = cb->context;
+	ne2k_rdata_t	*rdata = gcb->context;
 	rdata->rx_channel = new_channel;
-	udi_nsr_bind_ack( UDI_MCB(cb, udi_nic_bind_cb_t), UDI_OK );
+	
+	udi_nic_bind_cb_t *cb = UDI_MCB(gcb, udi_nic_bind_cb_t);
+	cb->media_type = UDI_NIC_ETHER;
+	cb->min_pdu_size = 0;
+	cb->max_pdu_size = 0;
+	cb->rx_hw_threshold = 2;
+	cb->capabilities = 0;
+	cb->max_perfect_multicast = 0;
+	cb->max_total_multicast = 0;
+	cb->mac_addr_len = 6;
+	memcpy(cb->mac_addr, rdata->macaddr, 6);
+	udi_nsr_bind_ack( cb, UDI_OK );
 	// = = = =
 }
 void ne2k_nd_ctrl_unbind_req(udi_nic_cb_t *cb)
