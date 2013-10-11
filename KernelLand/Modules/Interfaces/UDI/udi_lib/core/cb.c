@@ -32,7 +32,8 @@ udi_cb_t *udi_cb_alloc_internal_v(tUDI_MetaLang *Meta, udi_index_t MetaCBNum,
 	size_t	base = Meta->CbTypes[MetaCBNum].Size;
 	ASSERTC(base, >=, sizeof(udi_cb_t));
 	base -= sizeof(udi_cb_t);
-	LOG("+ %i + %i + %i", base, inline_size, scratch_size);
+	LOG("(%s) udi_cb_t + %i + %i + %i",
+		Meta->Name, base, inline_size, scratch_size);
 	tUDI_CBHeader	*cbhdr = NEW(tUDI_CBHeader, + base + inline_size + scratch_size);
 	cbhdr->Metalang = Meta;
 	cbhdr->MetaCBNum = MetaCBNum;
@@ -44,9 +45,10 @@ udi_cb_t *udi_cb_alloc_internal_v(tUDI_MetaLang *Meta, udi_index_t MetaCBNum,
 void *udi_cb_alloc_internal(tUDI_DriverInstance *Inst, udi_ubit8_t bind_cb_idx, udi_channel_t channel)
 {
 	const udi_cb_init_t	*cb_init;
-	LOG("Inst=%p, bind_cb_idx=%i, channel=%p", Inst, bind_cb_idx, channel);
 	ASSERT(Inst);
 	ASSERT(Inst->Module);
+	LOG("Inst=%p(%s), bind_cb_idx=%i, channel=%p",
+		Inst, Inst->Module->ModuleName, bind_cb_idx, channel);
 	ASSERT(Inst->Module->InitInfo);
 	ASSERT(Inst->Module->InitInfo->cb_init_list);
 	
@@ -63,18 +65,6 @@ void *udi_cb_alloc_internal(tUDI_DriverInstance *Inst, udi_ubit8_t bind_cb_idx, 
 			}
 			return udi_cb_alloc_internal_v(metalang, cb_init->meta_cb_num,
 				cb_init->inline_size, cb_init->scratch_requirement, channel);
-			#if 0
-			ASSERTC(cb_init->meta_cb_num, <, metalang->nCbTypes);
-			size_t	base = metalang->CbTypes[cb_init->meta_cb_num].Size;
-			ASSERTC(base, >=, sizeof(udi_cb_t));
-			base -= sizeof(udi_cb_t);
-			LOG("+ %i + %i + %i", base, cb_init->inline_size, cb_init->scratch_requirement);
-			udi_cb_t *ret = NEW(udi_cb_t, + base
-				+ cb_init->inline_size + cb_init->scratch_requirement);
-			ret->channel = channel;
-			ret->scratch = (void*)ret + sizeof(udi_cb_t) + base + cb_init->inline_size;
-			return ret;
-			#endif
 		}
 	}
 	Log_Warning("UDI", "Cannot find CB init def %i for '%s'",

@@ -14,6 +14,7 @@
 #include <workqueue.h>
 
 #define NUM_RX_BUFFERS	4
+#define NUM_TX_DESCS	4
 
 enum {
 	ACESSNSR_OPS_CTRL = 1,
@@ -30,6 +31,14 @@ enum {
 };
 
 // === TYPES ===
+typedef struct acessnsr_txdesc_s
+{
+	//udi_nic_tx_cb_t	cb;
+	tMutex	CompleteMutex;
+	 int	BufIdx;
+	tIPStackBuffer	*IPBuffer;
+} acessnsr_txdesc_t;
+
 typedef struct
 {
 	udi_init_context_t	init_context;	
@@ -43,6 +52,9 @@ typedef struct
 
 	tIPStack_AdapterType	AdapterType;
 	void	*ipstack_handle;
+
+	tWorkqueue	TXWorkQueue;
+	acessnsr_txdesc_t	TXDescs[NUM_TX_DESCS];
 	
 	udi_channel_t	rx_channel;
 	udi_channel_t	tx_channel;
@@ -60,6 +72,7 @@ void acessnsr_ctrl_ch_ev_ind__tx_channel_spawned(udi_cb_t *gcb, udi_channel_t ch
 void acessnsr_ctrl_bind_ack(udi_nic_bind_cb_t *cb, udi_status_t status);
 void acessnsr_ctrl_bind_ack__rx_buf_allocated(udi_cb_t *gcb, udi_buf_t *new_buf);
 void acessnsr_ctrl_bind_ack__rx_cb_allocated(udi_cb_t *gcb, udi_cb_t *new_cb);
+void acessnsr_ctrl_bind_ack__tx_cb_allocated(udi_cb_t *gcb, udi_cb_t *new_cb);
 void acessnsr_ctrl_unbind_ack(udi_nic_cb_t *cb, udi_status_t status);
 void acessnsr_ctrl_enable_ack(udi_nic_cb_t *cb, udi_status_t status);
 void acessnsr_ctrl_disable_ack(udi_nic_cb_t *cb, udi_status_t status);
@@ -69,12 +82,14 @@ void acessnsr_ctrl_info_ack(udi_nic_info_cb_t *cb);
 // --- NSR TX
 void acessnsr_tx_channel_event_ind(udi_channel_event_cb_t *cb);
 void acessnsr_tx_rdy(udi_nic_tx_cb_t *cb);
+void acessnsr_tx_rdy__buffer_cleared(udi_cb_t *gcb, udi_buf_t *buf);
 // --- NSR RX
 void acessnsr_rx_channel_event_ind(udi_channel_event_cb_t *cb);
 void acessnsr_rx_ind(udi_nic_rx_cb_t *cb);
 void acessnsr_rx_exp_ind(udi_nic_rx_cb_t *cb);
 // --- Acess IPStack
  int	acessnsr_SendPacket(void *Card, tIPStackBuffer *Buffer);
+void	acessnsr_SendPacket__buf_write_complete(udi_cb_t *gcb, udi_buf_t *buf);
 tIPStackBuffer	*acessnsr_WaitForPacket(void *Card);
 
 // === CODE ===
@@ -87,6 +102,7 @@ void acessnsr_usage_ind(udi_usage_cb_t *cb, udi_ubit8_t resource_level)
 	}
 
 	Workqueue_Init(&rdata->RXQueue, "AcessNSR RX", offsetof(udi_nic_rx_cb_t, chain));
+	Workqueue_Init(&rdata->TXWorkQueue, "AcessNSR TX", offsetof(udi_nic_tx_cb_t, chain));
 
 	udi_usage_res(cb);
 }
@@ -199,6 +215,26 @@ void acessnsr_ctrl_bind_ack__rx_cb_allocated(udi_cb_t *gcb, udi_cb_t *new_cb)
 		// A A A A
 		return ;
 	}
+	rdata->init_idx = -1;
+	acessnsr_ctrl_bind_ack__tx_cb_allocated(gcb, NULL);
+	// V V V V
+}
+void acessnsr_ctrl_bind_ack__tx_cb_allocated(udi_cb_t *gcb, udi_cb_t *new_cb)
+{
+	acessnsr_rdata_t *rdata = gcb->context;
+	if( rdata->init_idx != (udi_index_t)-1 )
+	{
+		//udi_assert(new_cb);
+		ASSERT(new_cb);
+		Workqueue_AddWork( &rdata->TXWorkQueue,  UDI_MCB(new_cb, udi_nic_tx_cb_t) );
+	}
+	rdata->init_idx ++;
+	if( rdata->init_idx < NUM_TX_DESCS )
+	{
+		udi_cb_alloc(acessnsr_ctrl_bind_ack__tx_cb_allocated, gcb, ACESSNSR_CB_TX, rdata->tx_channel);
+		// A A A A
+		return ;
+	}
 	udi_channel_event_complete( UDI_MCB(rdata->active_cb,udi_channel_event_cb_t), UDI_OK );
 	// = = = =
 }
@@ -233,7 +269,16 @@ void acessnsr_tx_channel_event_ind(udi_channel_event_cb_t *cb)
 }
 void acessnsr_tx_rdy(udi_nic_tx_cb_t *cb)
 {
-	UNIMPLEMENTED();
+	//acessnsr_txdesc_t *tx = UDI_GCB(cb)->context;
+	// TODO: Can errors be detected here?
+	UDI_BUF_DELETE(acessnsr_tx_rdy__buffer_cleared, UDI_GCB(cb), cb->tx_buf->buf_size, cb->tx_buf, 0);
+}
+void acessnsr_tx_rdy__buffer_cleared(udi_cb_t *gcb, udi_buf_t *buf)
+{
+	acessnsr_txdesc_t *tx = gcb->scratch;
+	udi_nic_tx_cb_t *cb = UDI_MCB(gcb, udi_nic_tx_cb_t);
+	cb->tx_buf = buf;
+	Mutex_Release(&tx->CompleteMutex);	// triggers acessnsr_SendPacket
 }
 // --- NSR RX
 void acessnsr_rx_channel_event_ind(udi_channel_event_cb_t *cb)
@@ -251,13 +296,50 @@ void acessnsr_rx_ind(udi_nic_rx_cb_t *cb)
 }
 void acessnsr_rx_exp_ind(udi_nic_rx_cb_t *cb)
 {
-	UNIMPLEMENTED();
+	acessnsr_rx_ind(cb);
+	//UNIMPLEMENTED();
 }
 // --- Acess IPStack
 int acessnsr_SendPacket(void *Card, tIPStackBuffer *Buffer)
 {
-	UNIMPLEMENTED();
-	return 1;
+	acessnsr_rdata_t *rdata = Card;
+	udi_nic_tx_cb_t	*cb = Workqueue_GetWork(&rdata->TXWorkQueue);
+	ASSERT(cb);
+	acessnsr_txdesc_t *tx = UDI_GCB(cb)->scratch;
+	ASSERT(tx);
+	
+	Mutex_Acquire(&tx->CompleteMutex);
+	tx->IPBuffer = Buffer;
+	tx->BufIdx = -1;
+	acessnsr_SendPacket__buf_write_complete(UDI_GCB(cb), NULL);
+
+	// Double lock is resolved once TX is complete
+	Mutex_Acquire(&tx->CompleteMutex);
+	Mutex_Release(&tx->CompleteMutex);
+	// TODO: TX status
+	
+	Workqueue_AddWork(&rdata->TXWorkQueue, tx);
+	return 0;
+}
+void acessnsr_SendPacket__buf_write_complete(udi_cb_t *gcb, udi_buf_t *buf)
+{
+	acessnsr_txdesc_t *tx = gcb->scratch;
+	udi_nic_tx_cb_t	*cb = UDI_MCB(gcb, udi_nic_tx_cb_t);
+	if( tx->BufIdx >= 0 ) {
+		cb->tx_buf = buf;
+	}
+	size_t	buflen;
+	const void	*bufptr;
+	if( (tx->BufIdx = IPStack_Buffer_GetBuffer(tx->IPBuffer, tx->BufIdx, &buflen, &bufptr )) != -1 )
+	{
+		udi_buf_write(acessnsr_SendPacket__buf_write_complete, gcb,
+			bufptr, buflen, cb->tx_buf, (cb->tx_buf ? cb->tx_buf->buf_size : 0), 0, NULL);
+		// A A A A
+		return ;
+	}
+	
+	udi_nd_tx_req(cb);
+	// continued in acessnsr_tx_rdy
 }
 void _FreeHeapSubBuf(void *Arg, size_t Pre, size_t Post, const void *DataBuf)
 {
@@ -338,7 +420,7 @@ udi_ops_init_t	acessnsr_ops_list[] = {
 udi_cb_init_t	acessnsr_cb_init_list[] = {
 	{ACESSNSR_CB_CTRL, ACESSNSR_META_NIC, UDI_NIC_BIND_CB_NUM, 0, 0,NULL},
 	{ACESSNSR_CB_RX, ACESSNSR_META_NIC, UDI_NIC_RX_CB_NUM, 0, 0,NULL},
-	{ACESSNSR_CB_TX, ACESSNSR_META_NIC, UDI_NIC_TX_CB_NUM, 0, 0,NULL},
+	{ACESSNSR_CB_TX, ACESSNSR_META_NIC, UDI_NIC_TX_CB_NUM, sizeof(acessnsr_txdesc_t), 0,NULL},
 	{0}
 };
 const udi_init_t	acessnsr_init = {

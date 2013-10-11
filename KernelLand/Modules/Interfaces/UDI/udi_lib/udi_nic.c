@@ -118,20 +118,12 @@ void udi_nsr_info_ack(udi_nic_info_cb_t *cb)
 }
 
 // --- TX ---
-void udi_nsr_tx_rdy(udi_nic_tx_cb_t *cb)
-{
-	UNIMPLEMENTED();
-}
-
-void udi_nd_tx_req(udi_nic_tx_cb_t *cb)
-{
-	UNIMPLEMENTED();
-}
-
-void udi_nd_exp_tx_req(udi_nic_tx_cb_t *cb)
-{
-	UNIMPLEMENTED();
-}
+UDI_MEI_STUBS(udi_nsr_tx_rdy,  udi_nic_tx_cb_t, 0, (), (), (), UDI_NSR_TX_OPS_NUM, 1);
+udi_layout_t	_udi_nsr_tx_rdy_marshal_layout[] = { UDI_DL_END };
+UDI_MEI_STUBS(udi_nd_tx_req,  udi_nic_tx_cb_t, 0, (), (), (), UDI_ND_TX_OPS_NUM, 1);
+udi_layout_t	_udi_nd_tx_req_marshal_layout[] = { UDI_DL_END };
+UDI_MEI_STUBS(udi_nd_exp_tx_req,  udi_nic_tx_cb_t, 0, (), (), (), UDI_ND_TX_OPS_NUM, 2);
+udi_layout_t	_udi_nd_exp_tx_req_marshal_layout[] = { UDI_DL_END };
 
 // --- RX ---
 UDI_MEI_STUBS(udi_nsr_rx_ind,     udi_nic_rx_cb_t, 0, (), (), (), UDI_NSR_RX_OPS_NUM, 1)
@@ -170,6 +162,12 @@ udi_layout_t	_NIC_RX_cb_layout[] = {
 	UDI_DL_UBIT8_T,	// rx_valid
 	UDI_DL_END
 };
+udi_layout_t	_NIC_TX_cb_layout[] = {
+	UDI_DL_CB,	// chain
+	UDI_DL_BUF, 0, 0, 0,	// tx_buf
+	UDI_DL_BOOLEAN_T,	// completion_urgent
+	UDI_DL_END
+};
 
 udi_mei_op_template_t	udi_mei_info__nic__nd_ctrl_ops[] = {
 	MEI_OPINFO(udi_nd_bind_req, REQ, 0, NIC_BIND, NSR_CTRL,1, ,0),
@@ -180,9 +178,12 @@ udi_mei_op_template_t	udi_mei_info__nic__nsr_ctrl_ops[] = {
 	{0}
 };
 udi_mei_op_template_t	udi_mei_info__nic__nd_tx_ops[] = {
+	MEI_OPINFO(udi_nd_tx_req, REQ, 0, NIC_TX, NSR_TX,1, ,0),
+	MEI_OPINFO(udi_nd_exp_tx_req, REQ, 0, NIC_TX, NSR_TX,1, ,0),
 	{0}
 };
 udi_mei_op_template_t	udi_mei_info__nic__nsr_tx_ops[] = {
+	MEI_OPINFO(udi_nsr_tx_rdy, RDY, 0, NIC_TX, ,0, ,0),
 	{0}
 };
 udi_mei_op_template_t	udi_mei_info__nic__nd_rx_ops[] = {
