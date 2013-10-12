@@ -826,21 +826,19 @@ int Binary_GetSymbol(const char *Name, Uint *Val)
  */
 Uint Binary_GetSymbolEx(const char *Name, Uint *Value)
 {
-	 int	i;
 	tKernelBin	*pKBin;
 	 int	numKSyms = ((Uint)&gKernelSymbolsEnd-(Uint)&gKernelSymbols)/sizeof(tKernelSymbol);
 	
-	LOG("numKSyms = %i", numKSyms);
-
 	// Scan Kernel
-	for( i = 0; i < numKSyms; i++ )
+	for( int i = 0; i < numKSyms; i++ )
 	{
-		LOG("KSym %s = %p", gKernelSymbols[i].Name, gKernelSymbols[i].Value);
 		if(strcmp(Name, gKernelSymbols[i].Name) == 0) {
+			LOG("KSym %s = %p", gKernelSymbols[i].Name, gKernelSymbols[i].Value);
 			*Value = gKernelSymbols[i].Value;
 			return 1;
 		}
 	}
+	
 	
 	// Scan Loaded Libraries
 	for(pKBin = glLoadedKernelLibs;

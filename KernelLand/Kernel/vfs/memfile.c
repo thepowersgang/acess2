@@ -64,6 +64,7 @@ tVFS_Node *VFS_MemFile_Create(const char *Path)
 	memset(ret, 0, sizeof(tVFS_Node));
 	
 	// State
+	ret->Inode = base;
 	ret->ImplPtr = (void*)base;
 	ret->Size = size;
 	

@@ -107,27 +107,29 @@ int kmain(Uint MbMagic, void *MbInfoPtr)
 
 void Arch_LoadBootModules(void)
 {
-	 int	i, j, numPages;
-	for( i = 0; i < giArch_NumBootModules; i ++ )
+	for( int i = 0; i < giArch_NumBootModules; i ++ )
 	{
-		Log_Log("Arch", "Loading '%s'", gaArch_BootModules[i].ArgString);
+		const tBootModule	*mod = &gaArch_BootModules[i];
+		Log_Log("Arch", "Loading (%p[%P]+%x) '%s'",
+			mod->Base, mod->PBase, mod->Size,
+			mod->ArgString);
 		
-		if( !Module_LoadMem( gaArch_BootModules[i].Base,
-			gaArch_BootModules[i].Size, gaArch_BootModules[i].ArgString
-			) )
-		{
+		if( !Module_LoadMem( mod->Base, mod->Size, mod->ArgString) ) {
 			Log_Warning("Arch", "Unable to load module");
+			continue ;
 		}
 		
+		#if 0
 		// Unmap and free
-		numPages = (gaArch_BootModules[i].Size + ((Uint)gaArch_BootModules[i].Base&0xFFF) + 0xFFF) >> 12;
+		int numPages = (mod->Size + ((tVAddr)mod->Base&0xFFF) + 0xFFF) >> 12;
 		MM_UnmapHWPages( (tVAddr)gaArch_BootModules[i].Base, numPages );
 		
-		for( j = 0; j < numPages; j++ )
-			MM_DerefPhys( gaArch_BootModules[i].PBase + (j << 12) );
+		//for( int j = 0; j < numPages; j++ )
+		//	MM_DerefPhys( mod->PBase + (j << 12) );
 		
-		if( (tVAddr) gaArch_BootModules[i].ArgString > MAX_ARGSTR_POS )
-			MM_UnmapHWPages( (tVAddr)gaArch_BootModules[i].ArgString, 2 );
+		if( (tVAddr) mod->ArgString > MAX_ARGSTR_POS )
+			MM_UnmapHWPages( (tVAddr)mod->ArgString, 2 );
+		#endif
 	}
 	Log_Log("Arch", "Boot modules loaded");
 	if( gaArch_BootModules )

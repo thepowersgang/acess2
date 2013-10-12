@@ -12,6 +12,7 @@
 
 // === PROTOTYPES ===
  int	Module_int_Initialise(tModule *Module, const char *ArgString);
+size_t	Modules_int_PopulateBuiltins(tModule **Array);
 void	Modules_int_GetBuiltinArray(void);
 void	Modules_LoadBuiltins(void);
 void	Modules_SetBuiltinParams(const char *Name, char *ArgString);
@@ -202,59 +203,51 @@ int Module_int_Initialise(tModule *Module, const char *ArgString)
 	LEAVE_RET('i', 0);
 }
 
+size_t Modules_int_PopulateBuiltins(tModule **Array)
+{
+	size_t	count = 0;
+	for( tModule *module = &gKernelModules; module < (tModule*)&gKernelModulesEnd; )
+	{
+		if(module->Magic == MODULE_MAGIC) {
+			if( Array ) {
+				Array[count] = module;
+			}
+			count ++;
+			module ++;
+		}
+		else {
+			module = (void*)( (tVAddr)module + 4 );
+		}
+	}
+	return count;
+}
+
 /**
  * \brief Scans the builtin modules and creates an array of them
  */
 void Modules_int_GetBuiltinArray(void)
 {
-	 int	i;
-	tModule	*module;
-	
-	// Count
-	module = &gKernelModules;
-	i = 0;
-	while( (tVAddr)module < (tVAddr)&gKernelModulesEnd )
+	if( !gapBuiltinModules )
 	{
-		if(module->Magic == MODULE_MAGIC) {
-			i ++;
-			module ++;
-		}
-		else
-			module = (void*)( (tVAddr)module + 4 );
-	}
-	
-	// Create
-	giNumBuiltinModules = i;
-	gasBuiltinModuleArgs = calloc( giNumBuiltinModules, sizeof(char*) );
-	gapBuiltinModules = malloc( giNumBuiltinModules * sizeof(tModule*) );
-	
-	
-	// Fill
-	module = &gKernelModules;
-	i = 0;
-	while( (tVAddr)module < (tVAddr)&gKernelModulesEnd )
-	{
-		if(module->Magic == MODULE_MAGIC) {
-			gapBuiltinModules[i] = module;
-			i ++;
-			module ++;
-		}
-		else
-			module = (void*)( (tVAddr)module + 4 );
+		// Count
+		giNumBuiltinModules = Modules_int_PopulateBuiltins(NULL);
+		
+		// Create
+		gasBuiltinModuleArgs = calloc( giNumBuiltinModules, sizeof(char*) );
+		gapBuiltinModules = malloc( giNumBuiltinModules * sizeof(tModule*) );
+		
+		// Fill
+		Modules_int_PopulateBuiltins(gapBuiltinModules);
 	}
 }
 
 /**
  * \brief Initialises builtin modules
  */
-void Modules_LoadBuiltins()
+void Modules_LoadBuiltins(void)
 {
-	 int	i;
-	
-	if( !gapBuiltinModules )
-		Modules_int_GetBuiltinArray();
-	
-	for( i = 0; i < giNumBuiltinModules; i++ )
+	Modules_int_GetBuiltinArray();
+	for( int i = 0; i < giNumBuiltinModules; i++ )
 	{
 		Module_int_Initialise(
 			gapBuiltinModules[i],
