@@ -245,7 +245,14 @@ void ne2k_nd_ctrl_unbind_req(udi_nic_cb_t *cb)
 }
 void ne2k_nd_ctrl_enable_req(udi_nic_cb_t *cb)
 {
-	// Enable
+	udi_cb_t	*gcb = UDI_GCB(cb);
+	ne2k_rdata_t	*rdata = gcb->context;
+	udi_pio_trans(ne2k_nd_ctrl_enable_req__trans_done, gcb,
+		rdata->pio_handles[NE2K_PIO_ENABLE], 0, NULL, NULL);
+}
+void ne2k_nd_ctrl_enable_req__trans_done(udi_cb_t *gcb, udi_buf_t *new_buf, udi_status_t status, udi_ubit16_t res)
+{
+	udi_nsr_enable_ack( UDI_MCB(gcb, udi_nic_cb_t), status );
 }
 void ne2k_nd_ctrl_disable_req(udi_nic_cb_t *cb)
 {
@@ -262,6 +269,8 @@ void ne2k_bus_irq_channel_event_ind(udi_channel_event_cb_t *cb)
 }
 void ne2k_bus_irq_intr_event_ind(udi_intr_event_cb_t *cb, udi_ubit8_t flags)
 {
+	udi_debug_printf("ne2k_bus_irq_intr_event_ind: flags=%x, intr_result=%x\n",
+		flags, cb->intr_result);
 	if( cb->intr_result & 0x01 )
 	{
 		ne2k_intr__rx_ok( UDI_GCB(cb) );

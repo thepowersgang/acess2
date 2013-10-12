@@ -18,7 +18,21 @@ void ne2k_nd_rx_channel_event_ind(udi_channel_event_cb_t *cb)
 }
 void ne2k_nd_rx_rx_rdy(udi_nic_rx_cb_t *cb)
 {
-	// TODO: Add cb(s) to avaliable list
+	udi_cb_t	*gcb = UDI_GCB(cb);
+	ne2k_rdata_t	*rdata = gcb->context;
+	
+	// Add cb(s) to avaliable list
+	if( rdata->rx_last_cb ) {
+		rdata->rx_last_cb->chain = cb;
+	}
+	else {
+		rdata->rx_next_cb = cb;
+	}
+	rdata->rx_last_cb = cb;
+	// Follow new chain
+	while( rdata->rx_last_cb->chain )
+		rdata->rx_last_cb = rdata->rx_last_cb->chain;
+	
 }
 void ne2k_intr__rx_ok(udi_cb_t *gcb)
 {
@@ -34,6 +48,8 @@ void ne2k_intr__rx_ok(udi_cb_t *gcb)
 	else
 	{
 		// Drop packet due to no free cbs
+		udi_debug_printf("ne2k_intr__rx_ok: Dropped due to no free rx cbs\n");
+		// TODO: Tell hardware to drop packet
 	}
 }
 

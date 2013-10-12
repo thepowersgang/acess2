@@ -22,6 +22,7 @@ enum {
 	NE2K_PIO_RX,
 	NE2K_PIO_IRQACK,
 	NE2K_PIO_TX,
+	N_NE2K_PIO
 };
 
 typedef struct
@@ -39,12 +40,13 @@ typedef struct
 		udi_index_t	rx_chan_index;
 	} init;
 	
-	udi_pio_handle_t	pio_handles[4];
+	udi_pio_handle_t	pio_handles[N_NE2K_PIO];
 	udi_channel_t	interrupt_channel;
 	udi_channel_t	rx_channel;
 	udi_channel_t	tx_channel;
 	
 	udi_nic_rx_cb_t	*rx_next_cb;
+	udi_nic_rx_cb_t	*rx_last_cb;
 	udi_ubit8_t	rx_next_page;
 	
 	udi_ubit8_t	macaddr[6];
@@ -97,6 +99,7 @@ extern udi_channel_spawn_call_t	ne2k_nd_ctrl_bind__tx_chan_ok;
 extern udi_channel_spawn_call_t	ne2k_nd_ctrl_bind__rx_chan_ok;
 extern udi_nd_unbind_req_op_t	ne2k_nd_ctrl_unbind_req;
 extern udi_nd_enable_req_op_t	ne2k_nd_ctrl_enable_req;
+extern udi_pio_trans_call_t	ne2k_nd_ctrl_enable_req__trans_done;
 extern udi_nd_disable_req_op_t	ne2k_nd_ctrl_disable_req;
 extern udi_nd_ctrl_req_op_t	ne2k_nd_ctrl_ctrl_req;
 extern udi_nd_info_req_op_t	ne2k_nd_ctrl_info_req;

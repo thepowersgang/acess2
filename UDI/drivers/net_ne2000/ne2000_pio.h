@@ -203,14 +203,14 @@ udi_pio_trans_t	ne2k_pio_irqack[] = {
 udi_pio_trans_t ne2k_pio_tx[] = {
 	// Switch to page 0
 	// CMD = 0x40|0x21 [Page1, NoDMA, Stop]
-	PIO_MOV_RI1(R0, 0x40|0x21),
+	PIO_MOV_RI1(R0, 0x22),
 	PIO_OUT_RI1(R0, NE2K_REG_CMD),
 	// Clear RDMA
 	PIO_MOV_RI1(R0, 0x40),
 	PIO_OUT_RI1(R0, NE2K_REG_ISR),
 	// Send size (TBCR, RBCR)
 	PIO_MOV_RI1(R1, 0x00),
-	{UDI_PIO_LOAD|UDI_PIO_MEM|UDI_PIO_R0, UDI_PIO_2BYTE, UDI_PIO_R1},
+	{UDI_PIO_LOAD|UDI_PIO_MEM|UDI_PIO_R1, UDI_PIO_2BYTE, UDI_PIO_R0},
 	PIO_OUT_RI1(R0, NE2K_REG_TBCR0),
 	PIO_OUT_RI1(R0, NE2K_REG_RBCR0),
 	{UDI_PIO_SHIFT_RIGHT|UDI_PIO_R0, UDI_PIO_2BYTE, 8},
@@ -225,12 +225,20 @@ udi_pio_trans_t ne2k_pio_tx[] = {
 	PIO_MOV_RI1(R0, 0x12),
 	PIO_OUT_RI1(R0, NE2K_REG_CMD),
 	// Send data
-	PIO_MOV_RI1(R0, 0),	// - Buffer offset (increment by 2)
+	PIO_MOV_RI1(R1, 0x00),
+	{UDI_PIO_LOAD|UDI_PIO_MEM|UDI_PIO_R1, UDI_PIO_2BYTE, UDI_PIO_R0},
+	{UDI_PIO_SHIFT_RIGHT|UDI_PIO_R0, UDI_PIO_2BYTE, 1},	// - Iterations
 	PIO_MOV_RI1(R1, NE2K_REG_MEM),	// - Reg offset (no increment)
-	PIO_MOV_RI1(R2, 256/2),	// - 128 iterations
+	PIO_MOV_RI1(R2, 0),	// - Offset (inc by 2 bytes)
 	{UDI_PIO_REP_OUT_IND, UDI_PIO_2BYTE,
-		UDI_PIO_REP_ARGS(UDI_PIO_BUF, UDI_PIO_R0, 2, UDI_PIO_R1, 0, UDI_PIO_R2)},
+		UDI_PIO_REP_ARGS(UDI_PIO_BUF, UDI_PIO_R2, 1, UDI_PIO_R1, 0, UDI_PIO_R0)},
 	// Wait for completion (TODO: IRQ quit and wait for IRQ)
+	{UDI_PIO_LABEL, 0, 1},
+		PIO_IN_RI1(R0, NE2K_REG_ISR),
+		{UDI_PIO_AND_IMM|UDI_PIO_R0, UDI_PIO_1BYTE, 0x40},
+	{UDI_PIO_CSKIP+UDI_PIO_R0, UDI_PIO_1BYTE, UDI_PIO_NZ},
+	{UDI_PIO_BRANCH, 0, 1},
+	
 	// Request send
 	PIO_MOV_RI1(R0, NE2K_TX_FIRST_PG),
 	PIO_OUT_RI1(R0, NE2K_REG_TPSR),
