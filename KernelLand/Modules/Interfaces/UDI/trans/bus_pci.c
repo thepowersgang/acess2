@@ -66,10 +66,11 @@ typedef struct
 
 	 int	interrupt_handle;
 
-	udi_pio_handle_t 	intr_preprocessing;	
+	udi_pio_handle_t 	intr_preprocessing;
 	udi_intr_event_cb_t	*event_cbs[PCI_MAX_EVENT_CBS];
-	 int	event_cb_wr_ofs;
-	 int	event_cb_rd_ofs;
+	udi_index_t	event_cb_wr_ofs;
+	udi_index_t	event_cb_rd_ofs;
+	 int	bIntrEnabled;
 } pci_child_chan_context_t;
 
 // === PROTOTYPES ===
@@ -87,6 +88,7 @@ void	pci_intr_detach_req(udi_intr_detach_cb_t *cb);
 
 void	pci_intr_ch_event_ind(udi_channel_event_cb_t *cb);
 void	pci_intr_event_rdy(udi_intr_event_cb_t *cb);
+void	pci_intr_event_rdy__irqs_enabled(udi_cb_t *gcb, udi_buf_t *newbuf, udi_status_t status, udi_ubit16_t result);
 void	pci_intr_handler(int irq, void *void_context);
 void	pci_intr_handle__trans_done(udi_cb_t *gcb, udi_buf_t *new_buf, udi_status_t status, udi_ubit16_t result);
 
@@ -218,7 +220,7 @@ void pci_intr_attach_req__channel_spawned(udi_cb_t *gcb, udi_channel_t new_chann
 	
 	context->interrupt_handle = IRQ_AddHandler(
 		PCI_GetIRQ(context->child_chan_context.child_ID),
-		pci_intr_handler, new_channel);
+		pci_intr_handler, context);
 
 	udi_intr_attach_ack(cb, UDI_OK);
 }
@@ -234,6 +236,11 @@ void pci_intr_ch_event_ind(udi_channel_event_cb_t *cb)
 void pci_intr_event_rdy(udi_intr_event_cb_t *cb)
 {
 	pci_child_chan_context_t	*context = UDI_GCB(cb)->context;
+
+	ASSERTC(context->event_cb_rd_ofs, <, PCI_MAX_EVENT_CBS);
+	ASSERTC(context->event_cb_wr_ofs, <, PCI_MAX_EVENT_CBS);
+
+	LOG("Rd %i, Wr %i [WR %p]", context->event_cb_rd_ofs, context->event_cb_wr_ofs, cb);
 	if( context->event_cbs[context->event_cb_wr_ofs] )
 	{
 		// oops, overrun.
@@ -242,22 +249,40 @@ void pci_intr_event_rdy(udi_intr_event_cb_t *cb)
 	context->event_cbs[context->event_cb_wr_ofs++] = cb;
 	if( context->event_cb_wr_ofs == PCI_MAX_EVENT_CBS )
 		context->event_cb_wr_ofs = 0;
+	
+	// TODO: Fire once >= min_event_pend CBs are recieved
+	if( !context->bIntrEnabled )
+	{
+		context->bIntrEnabled = 1;
+		udi_pio_trans(pci_intr_event_rdy__irqs_enabled, NULL, context->intr_preprocessing, 0, NULL, NULL);
+	}
+}
+void pci_intr_event_rdy__irqs_enabled(udi_cb_t *gcb, udi_buf_t *newbuf, udi_status_t status, udi_ubit16_t result)
+{
+	// nothing
 }
 
 void pci_intr_handler(int irq, void *void_context)
 {
 	pci_child_chan_context_t *context = void_context;
 
+	LOG("irq=%i, context=%p", irq, context);
+
 	if( context->event_cb_rd_ofs == context->event_cb_wr_ofs ) {
 		// Dropped
 		return ;
 	}
 
+	ASSERTC(context->event_cb_rd_ofs, <, PCI_MAX_EVENT_CBS);
+	ASSERTC(context->event_cb_wr_ofs, <, PCI_MAX_EVENT_CBS);
+
 	udi_intr_event_cb_t *cb = context->event_cbs[context->event_cb_rd_ofs];
+	LOG("Rd %i, Wr %i [RD %p]", context->event_cb_rd_ofs, context->event_cb_wr_ofs, cb);
 	context->event_cbs[context->event_cb_rd_ofs] = NULL;
 	context->event_cb_rd_ofs ++;
 	if( context->event_cb_rd_ofs == PCI_MAX_EVENT_CBS )
 		context->event_cb_rd_ofs = 0;
+	ASSERT(cb);
 	
 	if( UDI_HANDLE_IS_NULL(context->intr_preprocessing, udi_pio_handle_t) )
 	{
@@ -303,12 +328,12 @@ udi_status_t pci_pio_do_io(uint32_t child_ID, udi_ubit32_t regset_idx, udi_ubit3
 			bar &= ~3;
 			#define _IO(fc, type) do {\
 				if( isOutput ) { \
-					LOG("out"#fc"(0x%x, 0x%x)",bar+ofs,*(type*)data);\
+					/*LOG("out"#fc"(0x%x, 0x%x)",bar+ofs,*(type*)data);*/\
 					out##fc(bar+ofs, *(type*)data); \
 				} \
 				else { \
 					*(type*)data = in##fc(bar+ofs); \
-					LOG("in"#fc"(0x%x) = 0x%x",bar+ofs,*(type*)data);\
+					/*LOG("in"#fc"(0x%x) = 0x%x",bar+ofs,*(type*)data);*/\
 				}\
 				} while(0)
 			switch(len)

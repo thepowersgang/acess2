@@ -2,7 +2,7 @@
  * \file udi_lib/physio/pio.c
  * \author John Hodge (thePowersGang)
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <udi.h>
 #include <udi_physio.h>
 #include <acess.h>
@@ -294,13 +294,16 @@ static inline int _read_mem(udi_cb_t *gcb, udi_buf_t *buf, void *mem_ptr,
 	case UDI_PIO_SCRATCH:
 		ASSERTCR( (ofs & (size-1)), ==, 0, 1);
 		memcpy(val, gcb->scratch + ofs, size);
+		//LOG("scr %p+%i => %i %x,...", gcb->scratch, ofs, size, val->words[0]);
 		break;
 	case UDI_PIO_BUF:
 		udi_buf_read(buf, ofs, size, val);
+		//LOG("buf %p+%i => %i %x,...", buf, ofs, size, val->words[0]);
 		break;
 	case UDI_PIO_MEM:
 		ASSERTCR( (ofs & (size-1)), ==, 0, 1 );
 		memcpy(val, mem_ptr + ofs, size);
+		//LOG("mem %p+%i => %i %x,...", mem_ptr, ofs, size, val->words[0]);
 		break;
 	}
 	return 0;

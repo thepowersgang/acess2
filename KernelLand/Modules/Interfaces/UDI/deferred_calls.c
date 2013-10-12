@@ -44,6 +44,8 @@ void UDI_int_DeferredThread(void *unused)
 
 void UDI_int_AddDeferred(tUDI_DeferredCall *Call)
 {
+	LOG("Added deferred %p{um=%p,cb=%p,handler=%p}",
+		Call, Call->Unmarshal, Call->cb, Call->Handler);
 	Workqueue_AddWork(&gUDI_DeferredWorkQueue, Call);
 }
 

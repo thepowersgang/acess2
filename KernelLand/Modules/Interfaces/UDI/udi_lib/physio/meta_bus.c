@@ -202,6 +202,10 @@ udi_layout_t	udi_meta_info__bridge__intr_event_cb[] = {
 	UDI_DL_END
 };
 
+udi_layout_t	_BUS_BIND_cb_layout[] = {
+	UDI_DL_END
+};
+
 #if USE_MEI
 udi_layout_t	_noargs_marshal[] = {
 	UDI_DL_END
@@ -267,6 +271,11 @@ udi_mei_init_t	udi_meta_info__bridge = {
 #endif
 tUDI_MetaLang	cMetaLang_BusBridge = {
 	"udi_bridge",
+	#if USE_MEI
+	&udi_meta_info__bridge,
+	#else
+	NULL,
+	#endif
 	// CB Types
 	5,
 	{

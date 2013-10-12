@@ -71,7 +71,7 @@ struct sUDI_PropRegion
 struct sUDI_MetaLang
 {
 	const char *Name;
-	//void	*MeiInfo;
+	const void	*MeiInfo;
 	 int	nCbTypes;
 	struct {
 		udi_size_t	Size;
@@ -216,7 +216,11 @@ extern tUDI_MetaLang	*UDI_int_GetCbType(udi_cb_t *gcb, udi_index_t *meta_cb_num)
 extern udi_instance_attr_type_t udi_instance_attr_get_internal(udi_cb_t *gcb, const char *attr_name, udi_ubit32_t child_ID, void *attr_value, udi_size_t attr_length, udi_size_t *actual_length);
 
 // --- Layout ---
+extern size_t	_udi_marshal_step(void *buf, size_t cur_ofs, udi_layout_t **layoutp, va_list *values);
 extern size_t	_udi_marshal_values(void *buf, udi_layout_t *layout, va_list values);
+
+// --- Buffers ---
+extern udi_buf_t	*_udi_buf_allocate(const void *data, udi_size_t length, udi_buf_path_t path_handle);
 
 #endif
 

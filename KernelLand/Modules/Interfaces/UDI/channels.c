@@ -75,8 +75,6 @@ struct sUDI_ChannelSide *UDI_int_ChannelGetSide(udi_channel_t channel, bool othe
 	if( other_side )
 		side_idx = 1 - side_idx;	
 
-	LOG("side_idx = %i, other_side=%b", side_idx, other_side);
-
 	return &ch->Side[side_idx];
 }
 
@@ -112,6 +110,7 @@ int UDI_BindChannel(udi_channel_t channel, bool other_side, tUDI_DriverInstance 
 
 	if( context ) {
 		// Use provided context pointer
+		LOG("context = provided %p", context);
 	}
 	else if( ops->chan_context_size )
 	{
@@ -119,16 +118,18 @@ int UDI_BindChannel(udi_channel_t channel, bool other_side, tUDI_DriverInstance 
 			ASSERTCR( ops->chan_context_size, >=, sizeof(udi_child_chan_context_t), 4 );
 		else
 			ASSERTCR( ops->chan_context_size, >=, sizeof(udi_chan_context_t), 4 );
-		context = malloc( ops->chan_context_size );
+		context = calloc( 1, ops->chan_context_size );
 		((udi_chan_context_t*)context)->rdata = rgn->InitContext;
 		if( is_child_bind )
 			((udi_child_chan_context_t*)context)->child_ID = child_ID;
+		LOG("context = allocated %p", context);
 		
 		// TODO: The driver may change the channel context, but this must be freed by the environment
 		UDI_int_ChannelGetSide(channel, other_side)->AllocatedContext = context;
 	}
 	else {
 		context = rgn->InitContext;
+		LOG("context = region %p", context);
 	}
 	
 	UDI_BindChannel_Raw(channel, other_side, inst, region, ops->meta_ops_num, context, ops->ops_vector);

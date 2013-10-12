@@ -22,7 +22,7 @@ EXPORT(udi_final_cleanup_ack);
 
 tUDI_MetaLang	cMetaLang_Management = {
 	"udi_mgmt",
-	
+	NULL,
 	3,
 	{
 		{sizeof(udi_enumerate_cb_t), NULL},

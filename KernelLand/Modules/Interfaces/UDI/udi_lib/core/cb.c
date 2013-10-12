@@ -32,14 +32,14 @@ udi_cb_t *udi_cb_alloc_internal_v(tUDI_MetaLang *Meta, udi_index_t MetaCBNum,
 	size_t	base = Meta->CbTypes[MetaCBNum].Size;
 	ASSERTC(base, >=, sizeof(udi_cb_t));
 	base -= sizeof(udi_cb_t);
-	LOG("(%s) udi_cb_t + %i + %i + %i",
-		Meta->Name, base, inline_size, scratch_size);
 	tUDI_CBHeader	*cbhdr = NEW(tUDI_CBHeader, + base + inline_size + scratch_size);
 	cbhdr->Metalang = Meta;
 	cbhdr->MetaCBNum = MetaCBNum;
 	udi_cb_t *ret = &cbhdr->cb;
 	ret->channel = channel;
 	ret->scratch = (void*)(ret + 1) + base + inline_size;
+	LOG("(%s) udi_cb_t + %i + %i + %i = %p",
+		Meta->Name, base, inline_size, scratch_size, ret);
 	return ret;
 }
 void *udi_cb_alloc_internal(tUDI_DriverInstance *Inst, udi_ubit8_t bind_cb_idx, udi_channel_t channel)
@@ -106,7 +106,99 @@ void udi_cb_alloc_batch(
 	udi_buf_path_t	path_handle
 	)
 {
-	UNIMPLEMENTED();
+	tUDI_DriverInstance *inst = UDI_int_ChannelGetInstance(gcb, false, NULL);
+	udi_cb_init_t	*cb_init;
+	for( cb_init = inst->Module->InitInfo->cb_init_list; cb_init->cb_idx; cb_init ++ )
+	{
+		if( cb_init->cb_idx == cb_idx )
+			break;
+	}
+	if( cb_init->cb_idx == 0 ) {
+		callback(gcb, NULL);
+		return ;
+	}
+	tUDI_MetaLang *metalang = UDI_int_GetMetaLang(inst->Module, cb_init->meta_idx);
+	if( !metalang ) {
+		Log_Warning("UDI", "Metalang referenced in %s CB %i is invalid (%i)",
+			inst->Module->ModuleName, cb_idx, cb_init->meta_idx);
+		callback(gcb, NULL);
+		return ;
+	}
+
+	if( cb_init->meta_cb_num >= metalang->nCbTypes ) {	
+		Log_Warning("UDI", "Metalang CB referenced in %s CB %i is invalid (%s %i>=%i)",
+			inst->Module->ModuleName, cb_idx,
+			metalang->Name, cb_init->meta_cb_num, metalang->nCbTypes);
+		callback(gcb, NULL);
+		return ;
+	}	
+
+	// Get chain offset and buffer offset
+	size_t	buf_ofs = 0;	// TODO: Multiple buffers are to be supported
+	size_t	chain_ofs = 0;
+	{
+		udi_layout_t	*layout = metalang->CbTypes[cb_init->meta_cb_num].Layout;
+		if( !layout ) {
+			Log_Warning("UDI", "Metalang CB %s:%i does not define a layout. Bulk alloc impossible",
+				metalang->Name, cb_init->meta_cb_num);
+			callback(gcb, NULL);
+			return ;
+		}
+		
+		size_t	cur_ofs = sizeof(udi_cb_t);
+		while( *layout != UDI_DL_END )
+		{
+			if( *layout == UDI_DL_BUF ) {
+				if( buf_ofs ) {
+					Log_Notice("UDI", "TODO Multiple buffers in cb_alloc_batch (%s:%i)",
+						metalang->Name, cb_init->meta_cb_num);
+				}
+				buf_ofs = cur_ofs;
+			}
+			else if( *layout == UDI_DL_CB ) {
+				if( chain_ofs ) {
+					Log_Warning("UDI", "Cb %s:%i has multiple DL_CB entries",
+						metalang->Name, cb_init->meta_cb_num);
+				}
+				chain_ofs = cur_ofs;
+			}
+			else {
+				// No-op	
+			}
+			
+			cur_ofs += _udi_marshal_step(NULL, 0, &layout, NULL);
+			layout ++;
+		}
+	}
+
+	// Use initiator context if there's no chain
+	if( !chain_ofs ) {
+		chain_ofs = offsetof(udi_cb_t, initiator_context);
+		LOG("chain_ofs = %i (initiator_context)", chain_ofs);
+	}
+	else {
+		LOG("chain_ofs = %i", chain_ofs);
+	}
+
+	udi_cb_t *first_cb = NULL, *cur_cb;
+	udi_cb_t **prevptr = &first_cb;
+	for( int i = 0; i < count; i ++ )
+	{
+		cur_cb = udi_cb_alloc_internal_v(metalang, cb_init->meta_cb_num,
+			cb_init->inline_size, cb_init->scratch_requirement, gcb->channel);
+
+		// Allocate buffer
+		if( with_buf && buf_ofs ) {
+			*(void**)((char*)cur_cb + buf_ofs) =_udi_buf_allocate(NULL, buf_size, path_handle);
+		}
+
+		LOG("*%p = %p", prevptr, cur_cb);
+		*prevptr = cur_cb;
+		prevptr = (void*)cur_cb + chain_ofs;
+	}
+	*prevptr = NULL;
+	
+	callback(gcb, first_cb);
 }
 
 void udi_cb_free(udi_cb_t *cb)

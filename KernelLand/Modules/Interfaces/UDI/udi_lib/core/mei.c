@@ -20,13 +20,14 @@ void _udi_mei_call_unmarshal(tUDI_DeferredCall *DCall)
 {
 	tUDI_MeiCall	*Call = (void*)DCall;
 	const udi_mei_op_template_t	*mei_op = Call->mei_op;
+	LOG("%s backend", mei_op->op_name);
 	mei_op->backend_stub(Call->DCall.Handler, Call->DCall.cb, Call+1);
 }
 
 void udi_mei_call(udi_cb_t *gcb, udi_mei_init_t *meta_info, udi_index_t meta_ops_num, udi_index_t vec_idx, ...)
 {
-	ENTER("pgcb pmeta_info imeta_ops_num ivec_idx",
-		gcb, meta_info, meta_ops_num, vec_idx);
+//	ENTER("pgcb pmeta_info imeta_ops_num ivec_idx",
+//		gcb, meta_info, meta_ops_num, vec_idx);
 	const udi_mei_op_template_t	*mei_op;
 
 	{
@@ -40,27 +41,32 @@ void udi_mei_call(udi_cb_t *gcb, udi_mei_init_t *meta_info, udi_index_t meta_ops
 		mei_op = &ops->op_template_list[vec_idx-1];
 	}
 	
-	LOG("%s", mei_op->op_name);
-
 	// Check CB type
 	udi_index_t	cb_type;
 	tUDI_MetaLang	*metalang = UDI_int_GetCbType(gcb, &cb_type);
-	//if( metalang->MeiInfo != meta_info )
-	//	return ;
-	if( mei_op->meta_cb_num != cb_type ) {
-		LEAVE('-');
+	if( meta_info != metalang->MeiInfo && mei_op->meta_cb_num != cb_type ) {
+		Log_Warning("UDI", "%s meta cb mismatch want %p:%i got %p:%i",
+			mei_op->op_name,
+			meta_info, mei_op->meta_cb_num,
+			metalang->MeiInfo, cb_type
+			);
+		ASSERTC(meta_info, ==, metalang->MeiInfo);
+		ASSERTC(mei_op->meta_cb_num, ==, cb_type);
+//		LEAVE('-');
 		return ;
 	}
-	// Check call type
-	udi_op_t	*const*ops = UDI_int_ChannelPrepForCall(gcb, metalang, meta_ops_num);
-	udi_op_t	*op = ops[vec_idx];
 	
-	// Start va_args
 	// Determine if indirect call is needed
 	// > check stack depth?
 	// > Direction?
 	 int indirect_call = (mei_op->op_category == UDI_MEI_OPCAT_REQ)
 		|| (mei_op->op_category == UDI_MEI_OPCAT_IND);
+	
+	LOG("%s %sdirect", mei_op->op_name, (indirect_call ? "in" : ""));
+	
+	// Check call type
+	udi_op_t	*const*ops = UDI_int_ChannelPrepForCall(gcb, metalang, meta_ops_num);
+	udi_op_t	*op = ops[vec_idx];
 	if( indirect_call )
 	{
 		va_list	args;
@@ -87,6 +93,6 @@ void udi_mei_call(udi_cb_t *gcb, udi_mei_init_t *meta_info, udi_index_t meta_ops
 		mei_op->direct_stub( op, gcb, args );
 		va_end(args);
 	}
-	LEAVE('-');
+//	LEAVE('-');
 }
 
