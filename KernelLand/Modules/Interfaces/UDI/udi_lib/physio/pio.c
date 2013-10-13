@@ -297,6 +297,7 @@ static inline int _read_mem(udi_cb_t *gcb, udi_buf_t *buf, void *mem_ptr,
 		//LOG("scr %p+%i => %i %x,...", gcb->scratch, ofs, size, val->words[0]);
 		break;
 	case UDI_PIO_BUF:
+		ASSERT(buf);
 		udi_buf_read(buf, ofs, size, val);
 		//LOG("buf %p+%i => %i %x,...", buf, ofs, size, val->words[0]);
 		break;
@@ -318,21 +319,23 @@ static inline int _write_mem(udi_cb_t *gcb, udi_buf_t *buf, void *mem_ptr,
 	switch(op)
 	{
 	case UDI_PIO_DIRECT:
+		//LOG("reg %p = %i %x,...", reg, size, val->words[0]);
 		memcpy(reg, val, size);
 		_zero_upper(sizelog2, reg);
 		break;
 	case UDI_PIO_SCRATCH:
 		ASSERTCR( (ofs & (size-1)), ==, 0, 1);
-		LOG("scr %p+%i = %i %x,...", gcb->scratch, ofs, size, val->words[0]);
+		//LOG("scr %p+%i = %i %x,...", gcb->scratch, ofs, size, val->words[0]);
 		memcpy(gcb->scratch + ofs, val, size);
 		break;
 	case UDI_PIO_BUF:
-		LOG("buf %p+%i = %i %x,...", buf, ofs, size, val->words[0]);
+		ASSERT(buf);
+		//LOG("buf %p+%i = %i %x,...", buf, ofs, size, val->words[0]);
 		udi_buf_write(NULL,NULL, val, size, buf, ofs, size, UDI_NULL_BUF_PATH);
 		break;
 	case UDI_PIO_MEM:
 		ASSERTCR( (ofs & (size-1)), ==, 0, 1);
-		LOG("mem %p+%i = %i %x,...", mem_ptr, ofs, size, val->words[0]);
+		//LOG("mem %p+%i = %i %x,...", mem_ptr, ofs, size, val->words[0]);
 		memcpy(mem_ptr + ofs, val, size);
 		break;
 	}
@@ -376,6 +379,7 @@ void udi_pio_trans(udi_pio_trans_call_t *callback, udi_cb_t *gcb,
 				break;
 			case UDI_PIO_OUT:
 				_read_mem(gcb, buf, mem_ptr, (pio_op&0x18), tran_size, reg, &tmpval);
+				LOG("OUT %x = %i %x", operand, tran_size, tmpval.words[0]);
 				pio_handle->IOFunc(pio_handle->ChildID, pio_handle->RegSet,
 					operand, tran_size, &tmpval, true);
 				break;
@@ -429,21 +433,22 @@ void udi_pio_trans(udi_pio_trans_call_t *callback, udi_cb_t *gcb,
 				switch(operand)
 				{
 				case UDI_PIO_NZ:
-					LOG("CSKIP NZ R%i", reg_num);
+					LOG("CSKIP NZ R%i (%i %x)", reg_num, tran_size, reg->words[0]);
 					if( !(cnd & 1) )
 						ip ++;
 					break;
 				case UDI_PIO_Z:
-					LOG("CSKIP Z R%i", reg_num);
+					LOG("CSKIP Z R%i (%i %x)", reg_num, tran_size, reg->words[0]);
 					if( cnd & 1 )
 						ip ++;
 					break;
 				case UDI_PIO_NNEG:
-					LOG("CSKIP NNEG R%i", reg_num);
+					LOG("CSKIP NNEG R%i (%i %x)", reg_num, tran_size, reg->words[0]);
 					if( !(cnd & 2) )
 						ip ++;
+					break;
 				case UDI_PIO_NEG:
-					LOG("CSKIP NEG R%i", reg_num);
+					LOG("CSKIP NEG R%i (%i %x)", reg_num, tran_size, reg->words[0]);
 					if( cnd & 2 )
 						ip ++;
 					break;
@@ -484,6 +489,8 @@ void udi_pio_trans(udi_pio_trans_call_t *callback, udi_cb_t *gcb,
 				_operation_xor(tran_size, reg, &registers[operand]);
 				break;
 			case UDI_PIO_ADD:
+				LOG("ADD R%i += R%i", reg_num, operand);
+				ASSERTC(operand, <, 8);
 				_operation_add(tran_size, reg, &registers[operand]);
 				break;
 			case UDI_PIO_ADD_IMM:
@@ -495,9 +502,12 @@ void udi_pio_trans(udi_pio_trans_call_t *callback, udi_cb_t *gcb,
 				else {
 					_zero_upper(UDI_PIO_4BYTE, &tmpval);
 				}
+				LOG("ADD R%i += 0x%x", reg_num, tmpval.words[0]);
 				_operation_add(tran_size, reg, &tmpval);
 				break;
 			case UDI_PIO_SUB:
+				LOG("SUB R%i -= R%i", reg_num, operand);
+				ASSERTC(operand, <, 8);
 				_operation_sub(tran_size, reg, &registers[operand]);
 				break;
 			default:

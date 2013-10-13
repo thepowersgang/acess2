@@ -135,7 +135,7 @@ void udi_cb_alloc_batch(
 
 	// Get chain offset and buffer offset
 	size_t	buf_ofs = 0;	// TODO: Multiple buffers are to be supported
-	size_t	chain_ofs = 0;
+	size_t	chain_ofs = metalang->CbTypes[cb_init->meta_cb_num].ChainOfs;
 	{
 		udi_layout_t	*layout = metalang->CbTypes[cb_init->meta_cb_num].Layout;
 		if( !layout ) {
@@ -155,19 +155,11 @@ void udi_cb_alloc_batch(
 				}
 				buf_ofs = cur_ofs;
 			}
-			else if( *layout == UDI_DL_CB ) {
-				if( chain_ofs ) {
-					Log_Warning("UDI", "Cb %s:%i has multiple DL_CB entries",
-						metalang->Name, cb_init->meta_cb_num);
-				}
-				chain_ofs = cur_ofs;
-			}
 			else {
 				// No-op	
 			}
 			
 			cur_ofs += _udi_marshal_step(NULL, 0, &layout, NULL);
-			layout ++;
 		}
 	}
 
@@ -179,6 +171,7 @@ void udi_cb_alloc_batch(
 	else {
 		LOG("chain_ofs = %i", chain_ofs);
 	}
+	LOG("buf_ofs = %i", buf_ofs);
 
 	udi_cb_t *first_cb = NULL, *cur_cb;
 	udi_cb_t **prevptr = &first_cb;
@@ -189,7 +182,9 @@ void udi_cb_alloc_batch(
 
 		// Allocate buffer
 		if( with_buf && buf_ofs ) {
-			*(void**)((char*)cur_cb + buf_ofs) =_udi_buf_allocate(NULL, buf_size, path_handle);
+			udi_buf_t	*buf = _udi_buf_allocate(NULL, buf_size, path_handle);
+			LOG("buf +%i = %p", buf_ofs, buf);
+			*(void**)((char*)cur_cb + buf_ofs) = buf;
 		}
 
 		LOG("*%p = %p", prevptr, cur_cb);

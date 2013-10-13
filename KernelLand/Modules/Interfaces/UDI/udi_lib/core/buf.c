@@ -66,7 +66,10 @@ tUDI_BufSect *UDI_int_BufAddSect(size_t data_len, size_t relofs, tUDI_BufSect **
 	newsect->Length = data_len;
 	newsect->Space = space_atom;
 	newsect->Data = newsect+1;
-	memcpy(newsect->Data, data, data_len);
+	if( !data )
+		memset(newsect->Data, 0xFF, data_len);
+	else
+		memcpy(newsect->Data, data, data_len);
 	
 	newsect->Next = *prevptr;
 	*prevptr = newsect;
@@ -116,6 +119,7 @@ void udi_buf_write(
 		dst_buf = &dst->buf;
 	}
 
+	// Find dst_off segment
 	tUDI_BufSect	**prevptr = &dst->Sections;
 	tUDI_BufSect	*sect = dst->Sections;
 	for( ; sect; prevptr = &sect->Next, sect = sect->Next )
@@ -127,59 +131,122 @@ void udi_buf_write(
 		dst_off -= sect->RelOfs + sect->Length;
 	}
 
-	// Find dst_off segment (or create one if src_len>0)
-	// Copy in src data
-	// or (if src_len==0) delete dst_len bytes	
-	if( dst_len == 0 )
+	// Overwrite MIN(src_len,dst_len) bytes
+	// then delete/append remainder
+	size_t	len = MIN(src_len,dst_len);
+	src_len -= len;
+	dst_len -= len;
+	while( len > 0 )
 	{
-		// Insert / Initialise
-		if( src_len > 0 )
+		// Create new section
+		if( !sect || sect->RelOfs > dst_off ) {
+			size_t	newsize = MIN(sect->RelOfs - dst_off, len);
+			sect = UDI_int_BufAddSect(len, dst_off, prevptr, src_mem, path_handle);
+			len -= newsize;
+			src_mem += newsize;
+			prevptr = &sect->Next;
+			sect = sect->Next;
+			dst_off = 0;
+		}
+		if( len == 0 )
+			break;
+		
+		// Update existing section
+		size_t	bytes = MIN(len, sect->Length - dst_off);
+		memcpy(sect->Data + dst_off, src_mem, bytes);
+		len -= bytes;
+		src_mem += bytes;
+		
+		prevptr = &sect->Next;
+		sect = sect->Next;
+	}
+
+	if( dst_len > 0 )
+	{
+		ASSERT(src_len == 0);
+		// Delete
+		while( dst_len > 0 )
 		{
-			if( !sect || sect->RelOfs > dst_off ) {
-				// Simple: Just add a new section
-				UDI_int_BufAddSect(src_len, dst_off, prevptr, src_mem, path_handle);
-				dst_buf->buf_size += src_len;
+			if( !sect ) {
+				dst_buf->buf_size = dst_off;
+				dst_len = 0;
 			}
-			else if( sect->RelOfs + sect->Length == dst_off ) {
-				// End of block inserts
-				size_t	avail = sect->Space - sect->Length;
-				if( avail ) {
-					size_t	bytes = MIN(avail, src_len);
-					memcpy(sect->Data + sect->Length, src_mem, bytes);
-					src_mem += bytes;
-					src_len -= bytes;
-				}
-				if( src_len ) {
-					// New block(s)
-					UDI_int_BufAddSect(src_len, 0, prevptr, src_mem, path_handle);
-				}
-				dst_buf->buf_size += src_len;
+			else if( sect->RelOfs > dst_off ) {
+				size_t	bytes = MIN(dst_len, sect->RelOfs - dst_off);
+				dst_len -= bytes;
+				dst_buf->buf_size -= bytes;
+				sect->RelOfs -= bytes;
+			}
+			else if( dst_off == 0 && sect->Length <= dst_len ) {
+				// Remove entire section
+				dst_len -= sect->Length;
+				dst_buf->buf_size -= sect->Length;
+				*prevptr = sect->Next;
+				free(sect);
+				
+				// Next block
+				sect = *prevptr;
+			}
+			else if( dst_off + dst_len >= sect->Length ) {
+				// block truncate
+				size_t	bytes = MIN(dst_len, sect->Length - dst_off);
+				dst_len -= bytes;
+				dst_buf->buf_size -= bytes;
+				sect->Length -= bytes;
+				
+				// Next block
+				prevptr = &sect->Next;
+				sect = sect->Next;
 			}
 			else {
-				// Complex: Need to handle mid-section inserts
-				Log_Warning("UDI", "TODO: udi_buf_write - mid-section inserts");
+				// in-block removal (must be last)
+				ASSERTC(dst_off + dst_len, <, sect->Length);
+				size_t	tail = sect->Length - (dst_off + dst_len);
+				memmove(sect->Data+dst_off, sect->Data+dst_off+dst_len, tail); 
+				dst_buf->buf_size -= dst_len;
+				sect->Length -= dst_len;
+				dst_len = 0;
 			}
 		}
-		// no-op
-		else
-		{
+	}
+	else if( src_len > 0 )
+	{
+		ASSERT(dst_len == 0);
+		// Insert
+		if( !sect || sect->RelOfs > dst_off ) {
+			// Simple: Just add a new section
+			UDI_int_BufAddSect(src_len, dst_off, prevptr, src_mem, path_handle);
+			dst_buf->buf_size += src_len;
+		}
+		else if( sect->RelOfs + sect->Length == dst_off ) {
+			// End of block inserts
+			size_t	avail = sect->Space - sect->Length;
+			if( avail ) {
+				size_t	bytes = MIN(avail, src_len);
+				memcpy(sect->Data + sect->Length, src_mem, bytes);
+				src_mem += bytes;
+				src_len -= bytes;
+			}
+			if( src_len ) {
+				// New block(s)
+				UDI_int_BufAddSect(src_len, 0, prevptr, src_mem, path_handle);
+			}
+			dst_buf->buf_size += src_len;
+		}
+		else {
+			// Complex: Need to handle mid-section inserts
+			Log_Warning("UDI", "TODO: udi_buf_write - mid-section inserts");
 		}
 	}
 	else
 	{
-		// Delete
-		if( src_len == 0 )
-		{
-			Log_Warning("UDI", "TODO: udi_buf_write - delete");
-		}
-		// Overwrite
-		else
-		{
-			Log_Warning("UDI", "TODO: udi_buf_write - overwrite");
-		}
+		// No-op
 	}
 	
-	callback(gcb, &dst->buf);
+	// HACK: udi_pio_trans calls this with a NULL cb, so handle that
+	if( callback ) {
+		callback(gcb, &dst->buf);
+	}
 }
 
 void udi_buf_read(

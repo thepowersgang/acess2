@@ -25,9 +25,9 @@ tUDI_MetaLang	cMetaLang_Management = {
 	NULL,
 	3,
 	{
-		{sizeof(udi_enumerate_cb_t), NULL},
-		{sizeof(udi_usage_cb_t), NULL},
-		{sizeof(udi_channel_event_cb_t), NULL},
+		{sizeof(udi_enumerate_cb_t),     0, NULL},
+		{sizeof(udi_usage_cb_t),         0, NULL},
+		{sizeof(udi_channel_event_cb_t), 0, NULL},
 	}
 };
 

@@ -75,6 +75,7 @@ struct sUDI_MetaLang
 	 int	nCbTypes;
 	struct {
 		udi_size_t	Size;
+		udi_size_t	ChainOfs;
 		udi_layout_t	*Layout;
 	} CbTypes[];
 };

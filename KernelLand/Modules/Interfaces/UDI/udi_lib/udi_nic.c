@@ -248,12 +248,12 @@ tUDI_MetaLang	cMetaLang_NIC = {
 	8,
 	{
 		{0},
-		{sizeof(udi_nic_cb_t), _NIC_STD_cb_layout},
-		{sizeof(udi_nic_bind_cb_t), _NIC_BIND_cb_layout},
-		{sizeof(udi_nic_ctrl_cb_t), _NIC_CTRL_cb_layout},
-		{sizeof(udi_nic_status_cb_t), _NIC_STATUS_cb_layout},
-		{sizeof(udi_nic_info_cb_t), _NIC_INFO_cb_layout},
-		{sizeof(udi_nic_tx_cb_t), _NIC_TX_cb_layout},
-		{sizeof(udi_nic_rx_cb_t), _NIC_RX_cb_layout},
+		{sizeof(udi_nic_cb_t),        0, _NIC_STD_cb_layout},
+		{sizeof(udi_nic_bind_cb_t),   0, _NIC_BIND_cb_layout},
+		{sizeof(udi_nic_ctrl_cb_t),   0, _NIC_CTRL_cb_layout},
+		{sizeof(udi_nic_status_cb_t), 0, _NIC_STATUS_cb_layout},
+		{sizeof(udi_nic_info_cb_t),   0, _NIC_INFO_cb_layout},
+		{sizeof(udi_nic_tx_cb_t),     offsetof(udi_nic_tx_cb_t, chain), _NIC_TX_cb_layout},
+		{sizeof(udi_nic_rx_cb_t),     offsetof(udi_nic_rx_cb_t, chain), _NIC_RX_cb_layout},
 	}
 };

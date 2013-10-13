@@ -67,6 +67,16 @@ void udi_mei_call(udi_cb_t *gcb, udi_mei_init_t *meta_info, udi_index_t meta_ops
 	// Check call type
 	udi_op_t	*const*ops = UDI_int_ChannelPrepForCall(gcb, metalang, meta_ops_num);
 	udi_op_t	*op = ops[vec_idx];
+	
+	// Change ownership of chained cbs
+	size_t	chain_ofs = metalang->CbTypes[cb_type].ChainOfs;
+	if( chain_ofs )
+	{
+		udi_cb_t	*chained_cb = gcb;
+		while( (chained_cb = *(udi_cb_t**)((void*)chained_cb + chain_ofs)) )
+			UDI_int_ChannelFlip(chained_cb);
+	}
+	
 	if( indirect_call )
 	{
 		va_list	args;

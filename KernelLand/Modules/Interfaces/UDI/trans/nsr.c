@@ -345,6 +345,7 @@ tIPStackBuffer *acessnsr_WaitForPacket(void *Card)
 	tIPStackBuffer	*ret = IPStack_Buffer_CreateBuffer(1);
 	void	*data = malloc( cb->rx_buf->buf_size );
 	udi_buf_read(cb->rx_buf, 0, cb->rx_buf->buf_size, data);
+	Debug_HexDump("NSR WaitForPacket", data, cb->rx_buf->buf_size);
 	IPStack_Buffer_AppendSubBuffer(ret, cb->rx_buf->buf_size, 0, data, _FreeHeapSubBuf, data);
 
 	udi_nd_rx_rdy(cb);

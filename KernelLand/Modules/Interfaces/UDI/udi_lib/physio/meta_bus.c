@@ -280,9 +280,9 @@ tUDI_MetaLang	cMetaLang_BusBridge = {
 	5,
 	{
 		{0},	// 0: Empty
-		{sizeof(udi_bus_bind_cb_t), udi_meta_info__bridge__bus_bind_cb},
-		{sizeof(udi_intr_attach_cb_t), udi_meta_info__bridge__intr_attach_cb},
-		{sizeof(udi_intr_detach_cb_t), udi_meta_info__bridge__intr_detach_cb},
-		{sizeof(udi_intr_event_cb_t), NULL}
+		{sizeof(udi_bus_bind_cb_t),    0, udi_meta_info__bridge__bus_bind_cb},
+		{sizeof(udi_intr_attach_cb_t), 0, udi_meta_info__bridge__intr_attach_cb},
+		{sizeof(udi_intr_detach_cb_t), 0, udi_meta_info__bridge__intr_detach_cb},
+		{sizeof(udi_intr_event_cb_t),  0, NULL}
 	}
 };
