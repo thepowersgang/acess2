@@ -24,6 +24,7 @@ bochsdbg.txt
 serial.txt
 *.gz
 *.img
+*.vmdk
 SrcDoc/
 APIDoc/
 Usermode/Output/
@@ -43,6 +44,8 @@ obj-*/
 
 *.a
 
+*.pcap
+
 Makefile.user.cfg
 QemuLog.txt
 Screenshots/
@@ -52,8 +55,8 @@ Tools/*/Makefile.BuildNum
 Tools/disktool
 Tools/nettest
 Tools/img2sif
-Tools/udibuild/udibuild
 
 *.udi
 UDI/drivers/*/bin
 UDI/ia32/
+UDI/Tools/udibuild
