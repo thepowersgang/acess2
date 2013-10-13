@@ -54,6 +54,6 @@ Tools/nettest
 Tools/img2sif
 Tools/udibuild/udibuild
 
-UDI/*.udi
+*.udi
 UDI/drivers/*/bin
 UDI/ia32/
