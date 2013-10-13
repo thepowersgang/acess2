@@ -36,6 +36,10 @@ enum {
 // --- Management
 void ne2k_usage_ind(udi_usage_cb_t *cb, udi_ubit8_t resource_level)
 {
+	ne2k_rdata_t	*rdata = UDI_GCB(cb)->context;
+
+	rdata->rx_next_page = NE2K_RX_FIRST_PG;
+	
 	udi_usage_res(cb);
 }
 void ne2k_enumerate_req(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_level)

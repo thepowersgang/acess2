@@ -107,10 +107,10 @@ udi_pio_trans_t ne2k_pio_rx[] = {
 	// - Clear RDMA flag
 	PIO_MOV_RI1(R0, 0x40),	PIO_OUT_RI1(R0, NE2K_REG_ISR),
 	// - Set up transaction for 1 page from CurRX
-	PIO_MOV_RI1(R0, 1),
-	PIO_MOV_RI1(R1, 0),
-	PIO_OUT_RI1(R7, NE2K_REG_RSAR0),	// Current RX page
-	PIO_OUT_RI1(R1, NE2K_REG_RSAR1),
+	PIO_MOV_RI1(R0, 0),
+	PIO_MOV_RI1(R1, 1),
+	PIO_OUT_RI1(R0, NE2K_REG_RSAR0),
+	PIO_OUT_RI1(R7, NE2K_REG_RSAR1),	// Current RX page
 	PIO_OUT_RI1(R0, NE2K_REG_RBCR0),
 	PIO_OUT_RI1(R1, NE2K_REG_RBCR1),
 	// - Start read
@@ -119,42 +119,45 @@ udi_pio_trans_t ne2k_pio_rx[] = {
 	//  > Header to registers
 	{UDI_PIO_IN|UDI_PIO_DIRECT|UDI_PIO_R6, UDI_PIO_2BYTE, NE2K_REG_MEM},	// Status,NextPacketPage
 	{UDI_PIO_IN|UDI_PIO_DIRECT|UDI_PIO_R5, UDI_PIO_2BYTE, NE2K_REG_MEM},	// Length (bytes)
+	{UDI_PIO_STORE|UDI_PIO_DIRECT|UDI_PIO_R4, UDI_PIO_2BYTE, UDI_PIO_R5},	// save length until return
 	//  > Data to buffer (126 words)
-	PIO_MOV_RI1(R4, 0),	// - Buffer offset (incremented by 1 each iteration)
+	PIO_MOV_RI1(R0, 0),	// - Buffer offset (incremented by 1 each iteration)
 	PIO_MOV_RI1(R1, NE2K_REG_MEM),	// - Reg offset (no increment)
-	PIO_MOV_RI1(R2, 256/2-2),	// - Six iterations
+	PIO_MOV_RI1(R2, 256/2-2),
 	{UDI_PIO_REP_IN_IND, UDI_PIO_2BYTE,
-		UDI_PIO_REP_ARGS(UDI_PIO_BUF, UDI_PIO_R4, 2, UDI_PIO_R1, 0, UDI_PIO_R2)},
+		UDI_PIO_REP_ARGS(UDI_PIO_BUF, UDI_PIO_R0, 1, UDI_PIO_R1, 0, UDI_PIO_R2)},
+	PIO_MOV_RI1(R3, 256-4),
 	// - Subtract 256-4 from length, if <=0 we've grabbed the entire packet
-	{UDI_PIO_SUB|UDI_PIO_R5, UDI_PIO_2BYTE, 256-4},
+	{UDI_PIO_ADD_IMM|UDI_PIO_R5, UDI_PIO_2BYTE, -(256-4)},
 	{UDI_PIO_LABEL, 0, 2},
 	{UDI_PIO_CSKIP|UDI_PIO_R5, UDI_PIO_2BYTE, UDI_PIO_NZ},
 	{UDI_PIO_BRANCH, 0, 1},	// 1: End if ==0
 	{UDI_PIO_CSKIP|UDI_PIO_R5, UDI_PIO_2BYTE, UDI_PIO_NNEG},
 	{UDI_PIO_BRANCH, 0, 1},	// 1: End if <0
 	// - Read pages until all of packet RXd
-	{UDI_PIO_ADD|UDI_PIO_DIRECT|UDI_PIO_R7, UDI_PIO_1BYTE, 1},
+	{UDI_PIO_ADD_IMM|UDI_PIO_DIRECT|UDI_PIO_R7, UDI_PIO_1BYTE, 1},
 	{UDI_PIO_STORE|UDI_PIO_DIRECT|UDI_PIO_R0, UDI_PIO_1BYTE, UDI_PIO_R7},
-	{UDI_PIO_SUB|UDI_PIO_R0, UDI_PIO_1BYTE, NE2K_RX_LAST_PG+1},
+	{UDI_PIO_ADD_IMM|UDI_PIO_R0, UDI_PIO_1BYTE, -(NE2K_RX_LAST_PG+1)},
 	{UDI_PIO_CSKIP|UDI_PIO_R0, UDI_PIO_1BYTE, UDI_PIO_NZ},	// if R7-RX_LAST == 0
 	{UDI_PIO_LOAD_IMM|UDI_PIO_R7, UDI_PIO_2BYTE, NE2K_RX_FIRST_PG},	// R7 = RX_FIRST
 	//  > Transaction start
-	PIO_MOV_RI1(R0, 1),
-	PIO_MOV_RI1(R1, 0),
-	PIO_OUT_RI1(R7, NE2K_REG_RSAR0),	// Current RX page
-	PIO_OUT_RI1(R1, NE2K_REG_RSAR1),
+	PIO_MOV_RI1(R0, 0),
+	PIO_MOV_RI1(R1, 1),
+	PIO_OUT_RI1(R0, NE2K_REG_RSAR0),
+	PIO_OUT_RI1(R7, NE2K_REG_RSAR1),	// Current RX page
 	PIO_OUT_RI1(R0, NE2K_REG_RBCR0),
 	PIO_OUT_RI1(R1, NE2K_REG_RBCR1),
 	PIO_MOV_RI1(R0, 0x0A),	PIO_OUT_RI1(R0, NE2K_REG_CMD),
 	{UDI_PIO_DELAY, 0, 0},
 	//  > Data to buffer (128 words)
-	// buffer offset maintained in R4
+	// buffer offset maintained in R3
 	PIO_MOV_RI1(R1, NE2K_REG_MEM),	// - Reg offset (no increment)
 	PIO_MOV_RI1(R2, 256/2),	// - Six iterations
 	{UDI_PIO_REP_IN_IND, UDI_PIO_2BYTE,
-		UDI_PIO_REP_ARGS(UDI_PIO_BUF, UDI_PIO_R4, 2, UDI_PIO_R1, 0, UDI_PIO_R2)},
+		UDI_PIO_REP_ARGS(UDI_PIO_BUF, UDI_PIO_R3, 1, UDI_PIO_R1, 0, UDI_PIO_R2)},
+	{UDI_PIO_ADD_IMM|UDI_PIO_R3, UDI_PIO_2BYTE, 256},
 	// - Jump to length check
-	{UDI_PIO_SUB|UDI_PIO_R5, UDI_PIO_2BYTE, 256},
+	{UDI_PIO_ADD_IMM|UDI_PIO_R5, UDI_PIO_2BYTE, -256},
 	{UDI_PIO_BRANCH, 0, 2},	// 2: Check against length
 	
 	// Cleanup
@@ -166,7 +169,7 @@ udi_pio_trans_t ne2k_pio_rx[] = {
 	PIO_MOV_RI1(R0, 0),
 	{UDI_PIO_STORE|UDI_PIO_MEM|UDI_PIO_R0, UDI_PIO_1BYTE, UDI_PIO_R7},	// Store to mem[0]
 	
-	{UDI_PIO_END, UDI_PIO_1BYTE, UDI_PIO_R6}	// Status
+	{UDI_PIO_END, UDI_PIO_2BYTE, UDI_PIO_R4}	// Length
 };
 //
 //
