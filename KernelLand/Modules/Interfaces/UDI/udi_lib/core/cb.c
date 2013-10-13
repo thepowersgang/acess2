@@ -150,8 +150,9 @@ void udi_cb_alloc_batch(
 		{
 			if( *layout == UDI_DL_BUF ) {
 				if( buf_ofs ) {
-					Log_Notice("UDI", "TODO Multiple buffers in cb_alloc_batch (%s:%i)",
-						metalang->Name, cb_init->meta_cb_num);
+					Log_Notice("UDI", "TODO Multiple buffers in cb_alloc_batch (%s:%i, %s:%i)",
+						metalang->Name, cb_init->meta_cb_num,
+						inst->Module->ModuleName, cb_idx);
 				}
 				buf_ofs = cur_ofs;
 			}
