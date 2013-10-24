@@ -1,6 +1,7 @@
 /*
  * udibuild - UDI Compilation Utility
  * - By John Hodge (thePowersGang)
+ * Part of the Acess2 OS Project
  *
  * inifile.c
  * - .ini file parsing
@@ -77,6 +78,8 @@ tIniFile *IniFile_Load(const char *Path)
 			curSect = new_sect;
 		}
 		else if( sscanf(buf, "%[^=]=%n", name, &ofs) >= 1 ) {
+			rtrim(name);
+			while( isspace(buf[ofs]) )	ofs ++;
 			//printf("key %s equals %s\n", name, value);
 			const char *value = buf + ofs;
 			tIniFile_Value *val = malloc(sizeof(tIniFile_Value)+strlen(name)+1+strlen(value)+1);
@@ -101,6 +104,9 @@ tIniFile *IniFile_Load(const char *Path)
 
 const char *IniFile_Get(tIniFile *File, const char *Sect, const char *Key, const char *Default)
 {
+	if( !File )
+		return Default;
+	
 	tIniFile_Section	*sect;
 	for( sect = &File->RootSection; sect; sect = sect->Next )
 	{
