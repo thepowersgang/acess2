@@ -16,6 +16,14 @@
 #define DEFAULT_ELETABLE_SIZE	64
 #define BORDER_EVERYTHING	0
 
+// === IMPORTS ===
+extern tWidgetDef	_widget_typedef_ELETYPE_IMAGE;
+extern tWidgetDef	_widget_typedef_ELETYPE_BUTTON;
+extern tWidgetDef	_widget_typedef_ELETYPE_TEXT;
+extern tWidgetDef	_widget_typedef_ELETYPE_TEXTINPUT;
+extern tWidgetDef	_widget_typedef_ELETYPE_SPACER;
+extern tWidgetDef	_widget_typedef_ELETYPE_SUBWIN;
+
 // === PROTOTYPES ===
  int	Renderer_Widget_Init(void);
 tWindow	*Renderer_Widget_Create(int Flags);
@@ -56,17 +64,23 @@ tWMRenderer	gRenderer_Widget = {
 };
 	
 // --- Element callbacks
-tWidgetDef	*gaWM_WidgetTypes[NUM_ELETYPES];
+tWidgetDef	*gaWM_WidgetTypes[NUM_ELETYPES] = {
+	[ELETYPE_IMAGE]     = &_widget_typedef_ELETYPE_IMAGE,
+	[ELETYPE_BUTTON]    = &_widget_typedef_ELETYPE_BUTTON,
+	[ELETYPE_TEXT]      = &_widget_typedef_ELETYPE_TEXT,
+	[ELETYPE_TEXTINPUT] = &_widget_typedef_ELETYPE_TEXTINPUT,
+	[ELETYPE_SPACER]    = &_widget_typedef_ELETYPE_SPACER,
+	[ELETYPE_SUBWIN]    = &_widget_typedef_ELETYPE_SUBWIN,
+	};
 const int	ciWM_NumWidgetTypes = sizeof(gaWM_WidgetTypes)/sizeof(gaWM_WidgetTypes[0]);
 tWidgetDef	gWidget_NullWidgetDef;
 
 // === CODE ===
 int Renderer_Widget_Init(void)
 {
-	 int	i;
 	WM_RegisterRenderer(&gRenderer_Widget);	
 
-	for(i = 0; i < ciWM_NumWidgetTypes; i ++)
+	for(int i = 0; i < ciWM_NumWidgetTypes; i ++)
 	{
 		if(gaWM_WidgetTypes[i] != NULL)	continue;
 		
@@ -94,6 +108,7 @@ void Widget_int_SetTypeDef(int Type, tWidgetDef *Ptr)
 	}
 	
 	gaWM_WidgetTypes[Type] = Ptr;
+	_SysDebug("Registered widget type %i '%s'", Type, Ptr->Name);
 }
 
 tWindow	*Renderer_Widget_Create(int Flags)
@@ -289,7 +304,6 @@ void Widget_UpdateDimensions(tElement *Element)
  */
 void Widget_UpdatePosition(tElement *Element)
 {
-	tElement	*child;
 	 int	x, y;
 	
 	if( Element->Flags & ELEFLAG_NORENDER )	return ;
@@ -306,7 +320,7 @@ void Widget_UpdatePosition(tElement *Element)
 	y = Element->CachedY + Element->PaddingT;
 	
 	// Update each child
-	for(child = Element->FirstChild; child; child = child->NextSibling)
+	for(tElement *child = Element->FirstChild; child; child = child->NextSibling)
 	{
 		 int	newX, newY;
 		// Ignore elements that will not be rendered
@@ -357,7 +371,6 @@ void Widget_UpdatePosition(tElement *Element)
  */
 void Widget_UpdateMinDims(tElement *Element)
 {
-	tElement	*child;
 	 int	minW, minH;
 	 int	nChildren;
 	
@@ -367,7 +380,7 @@ void Widget_UpdateMinDims(tElement *Element)
 	minH = 0;
 	nChildren = 0;
 	
-	for(child = Element->FirstChild; child; child = child->NextSibling)
+	for( tElement *child = Element->FirstChild; child; child = child->NextSibling )
 	{
 		 int	cross;
 		
@@ -404,14 +417,13 @@ void Widget_UpdateMinDims(tElement *Element)
 
 tElement *Widget_GetElementByPos(tWidgetWin *Info, int X, int Y)
 {
-	tElement	*ret, *next, *ele;
-	
-	next = &Info->RootElement;
-	do
-	{
+	tElement *ret;
+	tElement *next = &Info->RootElement;
+	// Scan down tree
+	do {
 		ret = next;
 		next = NULL;
-		for(ele = ret->FirstChild; ele; ele = ele->NextSibling)
+		for(tElement *ele = ret->FirstChild; ele; ele = ele->NextSibling)
 		{
 			if(ele->Flags & ELEFLAG_NORENDER)	continue;
 			if(X < ele->CachedX)	continue;
@@ -442,6 +454,12 @@ tElement *Widget_int_Create(tWidgetWin *Info, tElement *Parent, int ID, int Type
 {
 	if( Widget_GetElementById(Info, ID) )
 		return NULL;
+	if( Type >= NUM_ELETYPES ) {
+		return NULL;
+	}
+	
+	_SysDebug("Widget Create #%i '%s' 0x%x",
+		ID, gaWM_WidgetTypes[Type]->Name, Flags);
 
 	// Create new element
 	tElement *new = calloc(sizeof(tElement), 1);
@@ -455,7 +473,7 @@ tElement *Widget_int_Create(tWidgetWin *Info, tElement *Parent, int ID, int Type
 	new->PaddingL = 2;
 	new->PaddingR = 2;
 	new->CachedX = -1;
-	
+
 	if( gaWM_WidgetTypes[Type]->Init )
 		gaWM_WidgetTypes[Type]->Init(new);
 	
@@ -621,6 +639,7 @@ int Widget_IPC_SetText(tWindow *Win, size_t Len, const void *Data)
 
 	if( gaWM_WidgetTypes[ele->Type]->UpdateText )
 	{
+		_SysDebug(" - calling handler");
 		gaWM_WidgetTypes[ele->Type]->UpdateText( ele, Msg->Text );
 	}
 //	else

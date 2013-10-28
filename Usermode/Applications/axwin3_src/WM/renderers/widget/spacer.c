@@ -44,7 +44,7 @@ void Widget_Spacer_Init(tElement *Element)
 	Element->MinW = SPACER_RULE_SIZE+2;
 }
 
-DEFWIDGETTYPE(ELETYPE_SPACER,
+DEFWIDGETTYPE(ELETYPE_SPACER, "Spacer",
 	WIDGETTYPE_FLAG_NOCHILDREN,
 	.Render = Widget_Spacer_Render,
 	.Init = Widget_Spacer_Init

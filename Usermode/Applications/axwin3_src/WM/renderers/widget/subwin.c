@@ -18,7 +18,7 @@ void Widget_SubWin_Render(tWindow *Window, tElement *Element)
 	WM_ResizeWindow(Element->Data, Element->CachedW, Element->CachedH);
 }
 
-DEFWIDGETTYPE(ELETYPE_SUBWIN,
+DEFWIDGETTYPE(ELETYPE_SUBWIN, "Subwindow",
 	WIDGETTYPE_FLAG_NOCHILDREN,
 	.Render = Widget_SubWin_Render
 	)

@@ -2,8 +2,8 @@
  * Acess2 Window Manager v3
  * - By John Hodge (thePowersGang)
  * 
- * renderer/widget/button.c
- * - Button Widget Type
+ * renderer/widget/disptext.c
+ * - Label Text
  */
 #include <common.h>
 #include "./common.h"
@@ -39,7 +39,7 @@ void Widget_DispText_UpdateText(tElement *Element, const char *Text)
 	Widget_UpdateMinDims(Element->Parent);
 }
 
-DEFWIDGETTYPE(ELETYPE_TEXT,
+DEFWIDGETTYPE(ELETYPE_TEXT, "Text",
 	WIDGETTYPE_FLAG_NOCHILDREN,
 	.Render = Widget_DispText_Render,
 	.UpdateText = Widget_DispText_UpdateText

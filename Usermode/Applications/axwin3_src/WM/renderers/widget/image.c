@@ -41,7 +41,7 @@ void Widget_Image_UpdateText(tElement *Element, const char *Text)
 	// NOTE: Doesn't update Element->Text because it's not really needed here
 }
 
-DEFWIDGETTYPE(ELETYPE_IMAGE,
+DEFWIDGETTYPE(ELETYPE_IMAGE, "Image",
 	WIDGETTYPE_FLAG_NOCHILDREN,
 	.Render = Widget_Image_Render,
 	.UpdateText = Widget_Image_UpdateText

@@ -117,6 +117,8 @@ void Widget_TextInput_Init(tElement *Element)
 	info = Element->Data = malloc(sizeof(*info));
 	info->DrawOfs = 0;
 	info->CursorXOfs = 0;
+	info->CursorByteOfs = 0;
+	info->Length = NULL;
 
 	// No need to explicitly update parent min dims, as the AddElement routine does that	
 }
@@ -218,7 +220,7 @@ int Widget_TextInput_KeyFire(tElement *Element, int KeySym, int Character)
 	return 0;
 }
 
-DEFWIDGETTYPE(ELETYPE_TEXTINPUT,
+DEFWIDGETTYPE(ELETYPE_TEXTINPUT, "TextInput",
 	WIDGETTYPE_FLAG_NOCHILDREN,
 	.Render = Widget_TextInput_Render,
 	.Init = Widget_TextInput_Init,
