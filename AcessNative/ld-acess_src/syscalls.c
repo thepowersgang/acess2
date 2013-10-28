@@ -26,6 +26,7 @@
 // === Types ===
 
 // === IMPORTS ===
+extern int	gbSyscallDebugEnabled;
 
 // === GLOBALS ===
 FILE	*gaSyscall_LocalFPs[MAX_FPS];
@@ -280,7 +281,9 @@ uint64_t _Syscall(int SyscallID, const char *ArgTypes, ...)
 	free( req );
 	free( retPtrs );
 	
-	SYSTRACE(": %i 0x%llx", SyscallID, retValue);
+	if( gbSyscallDebugEnabled ) {
+		SYSTRACE(": %i 0x%llx", SyscallID, retValue);
+	}
 	
 	return retValue;
 }

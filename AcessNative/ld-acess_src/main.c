@@ -9,6 +9,7 @@
 // === IMPORTS ===
 extern int	gSocket;
 extern int	giSyscall_ClientID;
+extern int	gbSyscallDebugEnabled;
 extern void	acess__exit(int Status);
 extern void	Request_Preinit(void);
 
@@ -57,6 +58,10 @@ int main(int argc, char *argv[], char **envp)
 				fprintf(stderr, "Unable to open '%s'\n", argv[i]);
 				exit(1);
 			}
+			continue ;
+		}
+		if( strcmp(argv[i], "--trace") == 0 ) {
+			gbSyscallDebugEnabled = 1;
 			continue ;
 		}
 		

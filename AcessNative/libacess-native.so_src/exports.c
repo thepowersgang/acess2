@@ -36,3 +36,8 @@ int acess__SysSpawn(const char *binary, const char **argv, const char **envp, in
 	return 0;
 }
 
+void ldacess_DumpLoadedLibraries(void)
+{
+	Debug("ldacess_DumpLoadedLibraries");
+}
+

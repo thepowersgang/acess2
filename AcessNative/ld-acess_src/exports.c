@@ -11,8 +11,7 @@
 #include <stdarg.h>
 #include <stddef.h>
 
-#define DEBUG(v...)	Debug(v)
-//#define DEBUG(v...)	do{}while(0)//Debug(v)
+#define DEBUG(v...)	do{if(gbSyscallDebugEnabled)Debug(v);}while(0)
 #define PAGE_SIZE	4096
 
 #define TODO()	Warning("TODO: %s", __func__)
@@ -40,6 +39,7 @@ extern int	AllocateMemory(uintptr_t VirtAddr, size_t ByteCount);
 
 // === GLOBALS ===
 int	acess__errno;
+ int	gbSyscallDebugEnabled = 0;
 char	*gsExecutablePath = "./ld-acess";
 
 // === CODE ===
@@ -121,7 +121,6 @@ int acess__SysIOCtl(int fd, int id, void *data) {
 	return _Syscall(SYS_IOCTL, ">i >i ?d", fd, id, len, data);
 }
 int acess__SysFInfo(int fd, t_sysFInfo *info, int maxacls) {
-//	DEBUG("offsetof(size, t_sysFInfo) = %i", offsetof(t_sysFInfo, size));
 	SYSTRACE("_SysFInfo(%i, %p, %i)", fd, info, maxacls);
 	return _Syscall(SYS_FINFO, ">i <d >i",
 		fd,
@@ -211,6 +210,13 @@ void *acess_SysLoadBin(const char *path, void **entry)
 int acess__SysUnloadBin(void *base)
 {
 	// ERROR!
+	TODO();
+	return -1;
+}
+
+// --- System ---
+int acess__SysLoadModule(const char *Path)
+{
 	TODO();
 	return -1;
 }
@@ -366,6 +372,15 @@ int acess__SysSpawn(const char *binary, const char **argv, const char **envp, in
 //	_Syscall(SYS_SLEEP, "");
 //}
 
+void acess__SysTimedSleep(int64_t Delay)
+{
+	DEBUG("%s(%lli)", __func__, Delay);
+	// Not accurate, but fuck it
+	//if( Delay > 1000 )	sleep(Delay / 1000);
+	//if( Delay % 1000 )	usleep( (Delay % 1000) * 1000 );
+	//_Syscall(SYS_TIMEDSLEEP, ">I", Delay);
+}
+
 int acess__SysWaitTID(int TID, int *ExitStatus)
 {
 	DEBUG("%s(%i, %p)", __func__, TID, ExitStatus);
@@ -377,6 +392,7 @@ int acess_setgid(int ID) { return _Syscall(SYS_SETGID, ">i", ID); }
 int acess_gettid(void) { return _Syscall(SYS_GETTID, ""); }
 int acess__SysGetPID(void) { return _Syscall(SYS_GETPID, ""); }
 int acess__SysGetUID(void) { return _Syscall(SYS_GETUID, ""); }
+int acess__SysGetGID(void) { return _Syscall(SYS_GETGID, ""); }
 int acess_getgid(void) { return _Syscall(SYS_GETGID, ""); }
 
 int acess__SysSendMessage(int DestTID, int Length, void *Data)

@@ -8,7 +8,7 @@
 #define SYSCALL_TRACE	1
 
 #if SYSCALL_TRACE
-#define SYSTRACE(str, x...)	Debug(str, x)
+#define SYSTRACE(str, x...)	do{ if(gbSyscallDebugEnabled)Debug(str, x); }while(0)
 #else
 #define SYSTRACE(...)	do{}while(0)
 #endif

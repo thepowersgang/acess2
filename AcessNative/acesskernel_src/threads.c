@@ -372,3 +372,15 @@ void Threads_ClearEvent(Uint32 EventMask)
 	gpCurrentThread->EventState &= ~EventMask;
 }
 
+// --------------------------------------------------------------------
+// Signals
+// --------------------------------------------------------------------
+void Threads_PostSignal(int SigNum)
+{
+	Log_Error("Threads", "TODO: %s", __func__);
+}
+void Threads_SignalGroup(tPGID PGID, int SignalNum)
+{
+	Log_Error("Threads", "TODO: %s", __func__);
+}
+

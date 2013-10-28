@@ -38,7 +38,7 @@ K_OBJ := $(addprefix $(KERNEL_SRC)obj-native-$(PLATFORM)/,$(KERNEL_OBJ))
 DEPFILES  = $(filter %.o,$(OBJ) $(N_OBJ) $(K_OBJ))
 DEPFILES := $(DEPFILES:%=%.dep)
 
-KCPPFLAGS = -I include/ -I $(KERNEL_SRC)include/ -I$(LDACESS_SRC)include_exp/
+KCPPFLAGS = -I include/ -I $(KERNEL_SRC)include/ -I$(LDACESS_SRC)include_exp/ -D KERNEL_VERSION=${ACESS_VERSION}
 CFLAGS += -Wall -g -std=gnu99
 CPPFLAGS += $(shell sdl-config --cflags) -I /usr/include/
 LDFLAGS += $(shell sdl-config --libs) -g -Wl,--defsym,__buildnum=$(BUILD_NUM)
@@ -68,21 +68,18 @@ $(BIN): $(OBJ) $(N_OBJ) $(K_OBJ) $(BUILDINFO_OBJ)
 $(OBJ): obj-$(PLATFORM)/%.o: %.c
 	@mkdir -p $(dir $@)
 	@echo [CC] -o $@
-	@$(CC) -c $< -o $@ $(CFLAGS) $(KCPPFLAGS) $(CPPFLAGS)
-	@$(CC) -M $(CPPFLAGS) $(KCPPFLAGS) -MT $@ -o $@.dep $<
+	@$(CC) -c $< -o $@ $(CFLAGS) $(KCPPFLAGS) $(CPPFLAGS) -MMD -MP -MF $@.dep
 
 $(K_OBJ): $(KERNEL_SRC)obj-native-$(PLATFORM)/%.o: $(KERNEL_SRC)%.c
 	@mkdir -p $(dir $@)
 	@echo [CC] -o $@
-	@$(CC) -ffreestanding -c $< -o $@ $(CFLAGS) $(KCPPFLAGS) $(CPPFLAGS)
-	@$(CC) -ffreestanding -M $(KCPPFLAGS) $(CPPFLAGS) -MT $@ -o $@.dep $<
+	@$(CC) -ffreestanding -c $< -o $@ $(CFLAGS) $(KCPPFLAGS) $(CPPFLAGS) -MMD -MP -MF $@.dep
 
 
 $(N_OBJ): obj-$(PLATFORM)/%.o: %.c
 	@mkdir -p $(dir $@)
 	@echo [CC] -o $@
-	@$(CC) -c $< -o $@ $(CPPFLAGS) $(CFLAGS)
-	@$(CC) -M -MT $@ -o $@.dep $<
+	@$(CC) -c $< -o $@ $(CPPFLAGS) $(CFLAGS) -MMD -MP -MF $@.dep
 
 $(BUILDINFO_SRC): $(filter-out $(BUILDINFO_OBJ), $(OBJ)) Makefile
 	@echo "" > $@

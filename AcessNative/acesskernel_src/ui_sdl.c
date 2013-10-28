@@ -130,56 +130,53 @@ void UI_MainLoop(void)
 	SDL_Event	event;
 	Uint32	acess_sym;
 
-	for( ;; )
+	while( SDL_WaitEvent(&event) )
 	{
-		while(SDL_PollEvent(&event))
+		switch(event.type)
 		{
-			switch(event.type)
-			{
-			case SDL_QUIT:
-				AcessNative_Exit();
-				return ;
-				
-			case SDL_KEYDOWN:
-				acess_sym = UI_GetAcessKeyFromSDL(event.key.keysym.sym);
-				// Enter key on acess returns \n, but SDL returns \r
-				if(event.key.keysym.sym == SDLK_RETURN)
-					event.key.keysym.unicode = '\n';				
-
-				if( gUI_KeyboardCallback ) {
-					gUI_KeyboardCallback(KEY_ACTION_RAWSYM|acess_sym);
-					gUI_KeyboardCallback(KEY_ACTION_PRESS|event.key.keysym.unicode);
-				}
-				break;
+		case SDL_QUIT:
+			AcessNative_Exit();
+			return ;
 			
-			case SDL_KEYUP:
-				acess_sym = UI_GetAcessKeyFromSDL(event.key.keysym.sym);
-				
-				if( gUI_KeyboardCallback ) {
-					gUI_KeyboardCallback(KEY_ACTION_RAWSYM|acess_sym);
-					gUI_KeyboardCallback(KEY_ACTION_RELEASE|0);
-				}
-				break;
+		case SDL_KEYDOWN:
+			acess_sym = UI_GetAcessKeyFromSDL(event.key.keysym.sym);
+			// Enter key on acess returns \n, but SDL returns \r
+			if(event.key.keysym.sym == SDLK_RETURN)
+				event.key.keysym.unicode = '\n';				
 
-			case SDL_USEREVENT:
-				SDL_UpdateRect(gScreen, 0, 0, giUI_Width, giUI_Height);
-				SDL_Flip(gScreen);
-				break;
-			
-			case SDL_MOUSEMOTION: {
-				int abs[] = {event.motion.x, event.motion.y};
-				int delta[] = {event.motion.xrel, event.motion.yrel};
-				Mouse_HandleEvent(UI_GetButtonBits(SDL_GetMouseState(NULL, NULL)), delta, abs);
-				break; }
-			case SDL_MOUSEBUTTONUP:
-			case SDL_MOUSEBUTTONDOWN: {
-				int abs[] = {event.button.x, event.button.y};
-				Mouse_HandleEvent(UI_GetButtonBits(SDL_GetMouseState(NULL, NULL)), NULL, abs);
-				break; }
-	
-			default:
-				break;
+			if( gUI_KeyboardCallback ) {
+				gUI_KeyboardCallback(KEY_ACTION_RAWSYM|acess_sym);
+				gUI_KeyboardCallback(KEY_ACTION_PRESS|event.key.keysym.unicode);
 			}
+			break;
+		
+		case SDL_KEYUP:
+			acess_sym = UI_GetAcessKeyFromSDL(event.key.keysym.sym);
+			
+			if( gUI_KeyboardCallback ) {
+				gUI_KeyboardCallback(KEY_ACTION_RAWSYM|acess_sym);
+				gUI_KeyboardCallback(KEY_ACTION_RELEASE|0);
+			}
+			break;
+
+		case SDL_USEREVENT:
+			SDL_UpdateRect(gScreen, 0, 0, giUI_Width, giUI_Height);
+			SDL_Flip(gScreen);
+			break;
+		
+		case SDL_MOUSEMOTION: {
+			int abs[] = {event.motion.x, event.motion.y};
+			int delta[] = {event.motion.xrel, event.motion.yrel};
+			Mouse_HandleEvent(UI_GetButtonBits(SDL_GetMouseState(NULL, NULL)), delta, abs);
+			break; }
+		case SDL_MOUSEBUTTONUP:
+		case SDL_MOUSEBUTTONDOWN: {
+			int abs[] = {event.button.x, event.button.y};
+			Mouse_HandleEvent(UI_GetButtonBits(SDL_GetMouseState(NULL, NULL)), NULL, abs);
+			break; }
+
+		default:
+			break;
 		}
 	}
 }
