@@ -12,7 +12,7 @@
 #include <threads.h>
 #include <proc.h>
 #include <timers_int.h>
-#include <signal.h>
+#include <posix_signals.h>
 
 typedef struct sProcess	tProcess;
 

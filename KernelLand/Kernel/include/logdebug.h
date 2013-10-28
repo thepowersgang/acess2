@@ -10,6 +10,10 @@
 
 #include <stdarg.h>
 
+#ifndef NORETURN
+#define NORETURN	__attribute__((noreturn))
+#endif
+
 // --- Logging ---
 /**
  * \name Logging to kernel ring buffer
@@ -43,6 +47,7 @@ extern void	Debug_Enter(const char *FuncName, const char *ArgTypes, ...);
 extern void	Debug_Log(const char *FuncName, const char *Fmt, ...);
 extern void	Debug_Leave(const char *FuncName, char RetType, ...);
 extern void	Debug_HexDump(const char *Header, const void *Data, size_t Length);
+
 #define UNIMPLEMENTED()	Warning("'%s' unimplemented", __func__)
 #if DEBUG
 # define ENTER(_types...)	Debug_Enter((char*)__func__, _types)

@@ -58,8 +58,7 @@ void IRQ_Handler(tRegs *Regs)
  */
 int IRQ_AddHandler( int Num, void (*Callback)(int, void*), void *Ptr )
 {
-	 int	i;
-	for( i = 0; i < MAX_CALLBACKS_PER_IRQ; i++ )
+	for( int i = 0; i < MAX_CALLBACKS_PER_IRQ; i++ )
 	{
 		if( gIRQ_Handlers[Num][i] == NULL )
 		{

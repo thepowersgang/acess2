@@ -13,7 +13,7 @@
 #include <modules.h>
 #include <rwlock.h>
 #include <mutex.h>
-#include <signal.h>
+#include <posix_signals.h>
 
 // === CONSTANTS ===
 #define OUTPUT_RINGBUFFER_LEN	1024	// Number of bytes in output queue before client blocks

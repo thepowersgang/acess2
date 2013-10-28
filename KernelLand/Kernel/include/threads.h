@@ -5,7 +5,7 @@
 #define _THREADS_H_
 
 #include <arch.h>
-#include <signal.h>
+#include <posix_signals.h>
 //#include <proc.h>
 
 enum eFaultNumbers
