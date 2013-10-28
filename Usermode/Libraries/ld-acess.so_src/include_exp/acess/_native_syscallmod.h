@@ -4,6 +4,7 @@
 #define _SysKill	acess__SysKill
 #define _SysWaitEvent	acess__SysWaitEvent
 #define _SysWaitTID	acess__SysWaitTID
+#define _SysTimedSleep	acess__SysTimedSleep
 #define gettid	acess_gettid
 #define _SysGetPID	acess__SysGetPID
 #define _SysGetUID	acess__SysGetUID
@@ -19,6 +20,7 @@
 #define _SysSpawn	acess__SysSpawn
 #define _SysExecVE	acess__SysExecVE
 #define SysLoadBin	acess_SysLoadBin
+#define _SysLoadModule	acess__SysLoadModule
 #define _SysUnloadBin	acess__SysUnloadBin
 #define _SysSetFaultHandler	acess__SysSetFaultHandler
 #define _SysDebug	acess__SysDebug

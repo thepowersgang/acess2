@@ -9,6 +9,7 @@ LDFLAGS += -g
 LDFLAGS += -Map $(_OBJPREFIX)Map.txt
 
 ifneq ($(lastword $(subst -, ,$(basename $(LD)))),ld)
+  comma=,
   LDFLAGS := $(subst -rpath-link ,-Wl$(comma)-rpath-link$(comma),$(LDFLAGS))
   LDFLAGS := $(subst -Map ,-Wl$(comma)-Map$(comma),$(LDFLAGS))
 endif
