@@ -31,47 +31,14 @@ int Mutex_Acquire(tMutex *Mutex)
 	
 	// Check if the lock is already held
 	if( Mutex->Owner ) {
-		SHORTLOCK( &glThreadListLock );
-		// - Remove from active list
-		us = Threads_RemActive();
-		us->Next = NULL;
-		// - Mark as sleeping
-		us->Status = THREAD_STAT_MUTEXSLEEP;
-		us->WaitPointer = Mutex;
-		
-		// - Add to waiting
-		if(Mutex->LastWaiting) {
-			Mutex->LastWaiting->Next = us;
-			Mutex->LastWaiting = us;
-		}
-		else {
-			Mutex->Waiting = us;
-			Mutex->LastWaiting = us;
-		}
-		
-		#if DEBUG_TRACE_STATE
-		Log("%p (%i %s) waiting on mutex %p",
-			us, us->TID, us->ThreadName, Mutex);
-		#endif
-		
-		#if 0
-		{
-			 int	i = 0;
-			tThread	*t;
-			for( t = Mutex->Waiting; t; t = t->Next, i++ )
-				Log("[%i] (tMutex)%p->Waiting[%i] = %p (%i %s)", us->TID, Mutex, i,
-					t, t->TID, t->ThreadName);
-		}
-		#endif
-		
-		SHORTREL( &glThreadListLock );
-		SHORTREL( &Mutex->Protector );
-		Threads_int_WaitForStatusEnd(THREAD_STAT_MUTEXSLEEP);
-		// We're only woken when we get the lock
-		us->WaitPointer = NULL;
+		// Sleep on the lock
+		Threads_int_Sleep(THREAD_STAT_MUTEXSLEEP,
+			Mutex, 0,
+			&Mutex->Waiting, &Mutex->LastWaiting, &Mutex->Protector);
+		// - We're only woken when we get the lock
 	}
-	// Ooh, let's take it!
 	else {
+		// If not, just obtain it
 		Mutex->Owner = us;
 		SHORTREL( &Mutex->Protector );
 	}

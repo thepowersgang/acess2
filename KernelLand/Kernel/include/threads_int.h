@@ -161,6 +161,7 @@ extern tThread	*Threads_GetNextToRun(int CPU, tThread *Last);
 extern tThread	*Threads_CloneTCB(Uint Flags);
 extern tThread	*Threads_CloneThreadZero(void);
 
+extern int	Threads_int_Sleep(enum eThreadStatus Status, void *Ptr, int Num, tThread **ListHead, tThread **ListTail, tShortSpinlock *Lock);
 extern void	Threads_int_WaitForStatusEnd(enum eThreadStatus Status);
 extern void	Semaphore_ForceWake(tThread *Thread);
 

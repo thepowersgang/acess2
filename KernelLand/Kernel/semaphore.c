@@ -28,7 +28,6 @@ void Semaphore_Init(tSemaphore *Sem, int Value, int MaxValue, const char *Module
 //
 int Semaphore_Wait(tSemaphore *Sem, int MaxToTake)
 {
-	tThread	*us;
 	 int	taken;
 	if( MaxToTake < 0 ) {
 		Log_Warning("Threads", "Semaphore_Wait: User bug - MaxToTake(%i) < 0, Sem=%p(%s)",
@@ -50,48 +49,9 @@ int Semaphore_Wait(tSemaphore *Sem, int MaxToTake)
 	}
 	else
 	{
-		#if 0
-		Threads_int_Sleep(THREAD_STAT_SEMAPHORESLEEP,
+		taken = Threads_int_Sleep(THREAD_STAT_SEMAPHORESLEEP,
 			Sem, MaxToTake,
 			&Sem->Waiting, &Sem->LastWaiting, &Sem->Protector);
-		#endif
-		SHORTLOCK( &glThreadListLock );
-		
-		// - Remove from active list
-		us = Threads_RemActive();
-		us->Next = NULL;
-		// - Mark as sleeping
-		us->Status = THREAD_STAT_SEMAPHORESLEEP;
-		us->WaitPointer = Sem;
-		us->RetStatus = MaxToTake;	// Use RetStatus as a temp variable
-		
-		// - Add to waiting
-		if(Sem->LastWaiting) {
-			Sem->LastWaiting->Next = us;
-			Sem->LastWaiting = us;
-		}
-		else {
-			Sem->Waiting = us;
-			Sem->LastWaiting = us;
-		}
-		
-		#if DEBUG_TRACE_STATE || SEMAPHORE_DEBUG
-		Log("%p (%i %s) waiting on semaphore %p %s:%s",
-			us, us->TID, us->ThreadName,
-			Sem, Sem->ModName, Sem->Name);
-		#endif
-		SHORTREL( &Sem->Protector );
-		SHORTREL( &glThreadListLock );
-		// NOTE: This can break in SMP
-		// Sleep until woken (either by getting what we need, or a timer event)
-		Threads_int_WaitForStatusEnd( THREAD_STAT_SEMAPHORESLEEP );
-		// We're only woken when there's something avaliable (or a signal arrives)
-		#if DEBUG_TRACE_STATE || SEMAPHORE_DEBUG
-		Log("Semaphore %p %s:%s woken from wait", Sem, Sem->ModName, Sem->Name);
-		#endif
-		us->WaitPointer = NULL;
-		
-		taken = us->RetStatus;
 		
 		// Get the lock again
 		SHORTLOCK( &Sem->Protector );
@@ -157,44 +117,13 @@ int Semaphore_Signal(tSemaphore *Sem, int AmmountToAdd)
 	// Check if we have to block
 	if( Sem->MaxValue && Sem->Value == Sem->MaxValue )
 	{
-		tThread	*us;
 		#if 0
 		Log_Debug("Threads", "Semaphore_Signal: IDLE Sem = %s:%s", Sem->ModName, Sem->Name);
 		Log_Debug("Threads", "Semaphore_Signal: Sem->Value(%i) == Sem->MaxValue(%i)", Sem->Value, Sem->MaxValue);
 		#endif
-		
-		SHORTLOCK( &glThreadListLock );
-		// - Remove from active list
-		us = Threads_RemActive();
-		us->Next = NULL;
-		// - Mark as sleeping
-		us->Status = THREAD_STAT_SEMAPHORESLEEP;
-		us->WaitPointer = Sem;
-		us->RetStatus = AmmountToAdd;	// Use RetStatus as a temp variable
-		
-		// - Add to waiting
-		if(Sem->LastSignaling) {
-			Sem->LastSignaling->Next = us;
-			Sem->LastSignaling = us;
-		}
-		else {
-			Sem->Signaling = us;
-			Sem->LastSignaling = us;
-		}
-		
-		#if DEBUG_TRACE_STATE || SEMAPHORE_DEBUG
-		Log("%p (%i %s) signaling semaphore %p %s:%s",
-			us, us->TID, us->ThreadName,
-			Sem, Sem->ModName, Sem->Name);
-		#endif
-		
-		SHORTREL( &glThreadListLock );	
-		SHORTREL( &Sem->Protector );
-		Threads_int_WaitForStatusEnd(THREAD_STAT_SEMAPHORESLEEP);
-		// We're only woken when there's something avaliable
-		us->WaitPointer = NULL;
-		
-		added = us->RetStatus;
+		added = Threads_int_Sleep(THREAD_STAT_SEMAPHORESLEEP,
+			Sem, AmmountToAdd,
+			&Sem->Signaling, &Sem->LastSignaling, &Sem->Protector);
 		
 		// Get the lock again
 		SHORTLOCK( &Sem->Protector );

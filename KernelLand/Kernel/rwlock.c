@@ -16,7 +16,6 @@
 //
 int RWLock_AcquireRead(tRWLock *Lock)
 {
-	tThread	*us;
 	LOG("Acquire RWLock Read %p", Lock);
 	// Get protector
 	SHORTLOCK( &Lock->Protector );
@@ -25,33 +24,9 @@ int RWLock_AcquireRead(tRWLock *Lock)
 	if( Lock->Owner )
 	{
 		LOG("Waiting");
-		SHORTLOCK( &glThreadListLock );
-		
-		// - Remove from active list
-		us = Threads_RemActive();
-		us->Next = NULL;
-		// - Mark as sleeping
-		us->Status = THREAD_STAT_RWLOCKSLEEP;
-		us->WaitPointer = Lock;
-		
-		// - Add to waiting
-		if(Lock->ReaderWaiting)
-			Lock->ReaderWaitingLast->Next = us;
-		else
-			Lock->ReaderWaiting = us;
-		Lock->ReaderWaitingLast = us;
-		
-		#if DEBUG_TRACE_STATE
-		Log("%p (%i %s) waiting on rwlock %p",
-			us, us->TID, us->ThreadName, Lock);
-		#endif
-		
-		SHORTREL( &glThreadListLock );
-		SHORTREL( &Lock->Protector );
-		Threads_int_WaitForStatusEnd(THREAD_STAT_RWLOCKSLEEP);
-		// We're only woken when we get the lock
-		// TODO: Handle when this isn't the case
-		us->WaitPointer = NULL;
+		Threads_int_Sleep(THREAD_STAT_RWLOCKSLEEP, Lock, 0,
+			&Lock->ReaderWaiting, &Lock->ReaderWaitingLast,
+			&Lock->Protector);
 	}
 	// Ooh, no problems then!
 	else
@@ -66,32 +41,15 @@ int RWLock_AcquireRead(tRWLock *Lock)
 
 int RWLock_AcquireWrite(tRWLock *Lock)
 {
-	tThread	*us;
-	
 	LOG("Acquire RWLock Write %p", Lock);
 	
 	SHORTLOCK(&Lock->Protector);
 	if( Lock->Owner || Lock->Level != 0 )
 	{
 		LOG("Waiting");
-		SHORTLOCK(&glThreadListLock);
-		
-		us = Threads_RemActive();
-		us->Next = NULL;
-		us->Status = THREAD_STAT_RWLOCKSLEEP;
-		us->WaitPointer = Lock;
-		
-		if( Lock->WriterWaiting )
-			Lock->WriterWaitingLast->Next = us;
-		else
-			Lock->WriterWaiting = us;
-		Lock->WriterWaitingLast = us;
-		
-		SHORTREL( &glThreadListLock );
-		SHORTREL( &Lock->Protector );
-		
-		Threads_int_WaitForStatusEnd(THREAD_STAT_RWLOCKSLEEP);
-		us->WaitPointer = NULL;
+		Threads_int_Sleep(THREAD_STAT_RWLOCKSLEEP, Lock, 0,
+			&Lock->WriterWaiting, &Lock->WriterWaitingLast,
+			&Lock->Protector);
 	}
 	else
 	{

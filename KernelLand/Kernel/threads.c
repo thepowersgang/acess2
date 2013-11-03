@@ -60,7 +60,7 @@ void	Threads_Exit(int TID, int Status);
 void	Threads_Kill(tThread *Thread, int Status);
 void	Threads_Yield(void);
 #endif
-void	Threads_int_Sleep(enum eThreadStatus Status, void *Ptr, int Num, tThread **ListHead, tThread **ListTail, tShortSpinlock *Lock);
+ int	Threads_int_Sleep(enum eThreadStatus Status, void *Ptr, int Num, tThread **ListHead, tThread **ListTail, tShortSpinlock *Lock);
 #if 0
 void	Threads_Sleep(void);
  int	Threads_Wake(tThread *Thread);
@@ -754,7 +754,7 @@ void Threads_int_WaitForStatusEnd(enum eThreadStatus Status)
 	}
 }
 
-void Threads_int_Sleep(enum eThreadStatus Status, void *Ptr, int Num, tThread **ListHead, tThread **ListTail, tShortSpinlock *Lock)
+int Threads_int_Sleep(enum eThreadStatus Status, void *Ptr, int Num, tThread **ListHead, tThread **ListTail, tShortSpinlock *Lock)
 {
 	SHORTLOCK( &glThreadListLock );
 	tThread	*us = Threads_RemActive();
@@ -768,12 +768,11 @@ void Threads_int_Sleep(enum eThreadStatus Status, void *Ptr, int Num, tThread **
 	if( ListTail ) {
 		if(*ListTail) {
 			(*ListTail)->Next = us;
-			*ListTail = us;
 		}
 		else {
 			*ListHead = us;
-			*ListTail = us;
 		}
+		*ListTail = us;
 	}
 	else {
 		*ListHead = us;
@@ -783,8 +782,10 @@ void Threads_int_Sleep(enum eThreadStatus Status, void *Ptr, int Num, tThread **
 	//	return ;
 	SHORTREL( &glThreadListLock );
 	if( Lock )
-		SHORTLOCK( Lock );
+		SHORTREL( Lock );
 	Threads_int_WaitForStatusEnd(Status);
+	us->WaitPointer = NULL;
+	return us->RetStatus;
 }
 
 /**
