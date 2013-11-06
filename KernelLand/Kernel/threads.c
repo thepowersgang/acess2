@@ -49,7 +49,7 @@ void	Threads_Delete(tThread *Thread);
 char	*Threads_GetName(tTID ID);
 #if 0
 void	Threads_SetPriority(tThread *Thread, int Pri);
-tThread	*Threads_CloneTCB(Uint *Err, Uint Flags);
+tThread	*Threads_CloneTCB(Uint Flags);
  int	Threads_WaitTID(int TID, int *status);
 tThread	*Threads_GetThread(Uint TID);
 #endif
@@ -59,9 +59,7 @@ void	Threads_int_AddToList(tThreadList *List, tThread *Thread);
 void	Threads_Exit(int TID, int Status);
 void	Threads_Kill(tThread *Thread, int Status);
 void	Threads_Yield(void);
-#endif
  int	Threads_int_Sleep(enum eThreadStatus Status, void *Ptr, int Num, tThread **ListHead, tThread **ListTail, tShortSpinlock *Lock);
-#if 0
 void	Threads_Sleep(void);
  int	Threads_Wake(tThread *Thread);
 void	Threads_AddActive(tThread *Thread);
