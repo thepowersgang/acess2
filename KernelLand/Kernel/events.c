@@ -45,6 +45,8 @@ void Threads_PostEvent(tThread *Thread, Uint32 EventMask)
 			Semaphore_ForceWake(Thread);
 		}
 		break;
+	default:
+		break;
 	}
 	
 	SHORTREL( &Thread->IsLocked );
@@ -80,21 +82,11 @@ Uint32 Threads_WaitEvents(Uint32 EventMask)
 
 	// Check if a wait is needed
 	SHORTLOCK( &us->IsLocked );
-	while( !(us->EventState & EventMask) )
-	{
-		LOG("Locked and preparing for wait");
-		// Wait
-		us->RetStatus = EventMask;	// HACK: Store EventMask in RetStatus
-		SHORTLOCK( &glThreadListLock );
-		us = Threads_RemActive();
-		us->Status = THREAD_STAT_EVENTSLEEP;
-		// Note stored anywhere because we're woken using other means
-		SHORTREL( &glThreadListLock );
-		SHORTREL( &us->IsLocked );
-		Threads_int_WaitForStatusEnd(THREAD_STAT_EVENTSLEEP);
-		// Woken when lock is acquired
-		SHORTLOCK( &us->IsLocked );
-	}
+	LOG("Locked and preparing for wait");
+	Threads_int_Sleep(THREAD_STAT_EVENTSLEEP, NULL, EventMask,
+		&us, NULL, &us->IsLocked);
+	// Woken when lock is acquired
+	SHORTLOCK( &us->IsLocked );
 	
 	// Get return value and clear changed event bits
 	rv = us->EventState & EventMask;
