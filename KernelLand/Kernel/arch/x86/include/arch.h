@@ -66,6 +66,8 @@ struct sShortSpinlock {
  * \brief Fire a magic breakpoint (bochs)
  */
 #define	MAGIC_BREAK()	__asm__ __volatile__ ("xchg %bx, %bx")
+// TODO: SMP halt request too
+#define HALT_CPU()	for(;;) { __asm__ __volatile__ ("cli; hlt"); }
 
 // === TYPES ===
 typedef unsigned int	Uint;	// Unsigned machine native integer

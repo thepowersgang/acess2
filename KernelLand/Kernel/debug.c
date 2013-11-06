@@ -123,7 +123,7 @@ void Debug_KernelPanic(void)
 	}
 	// 5 nested panics? Fuck it
 	if( gbDebug_IsKPanic > 5 )
-		for(;;);
+		HALT_CPU();
 	gbDebug_IsKPanic ++;
 	KernelPanic_SetMode();
 }
@@ -254,7 +254,7 @@ void Panic(const char *Fmt, ...)
 	//Threads_Dump();
 	//Heap_Dump();
 
-	for(;;)	;
+	HALT_CPU();
 }
 
 void Debug_SetKTerminal(const char *File)

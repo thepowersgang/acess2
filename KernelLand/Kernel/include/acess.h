@@ -12,6 +12,10 @@
 #include <stddef.h>
 #include <arch.h>
 
+#ifndef HALT_CPU
+# define HALT_CPU()	for(;;);
+#endif
+
 //! Pack a structure
 #define PACKED	__attribute__((packed))
 //! Mark a function as not returning
