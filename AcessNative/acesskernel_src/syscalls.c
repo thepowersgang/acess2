@@ -277,12 +277,12 @@ const int	ciNumSyscalls = sizeof(caSyscalls)/sizeof(caSyscalls[0]);
 /**
  * \brief Recieve a syscall structure from the server code
  */
-tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
+tRequestHeader *SyscallRecieve(tRequestHeader *Request, size_t *ReturnLength)
 {
 	char	formatString[Request->NParams+1];
 	char	*inData = (char*)&Request->Params[Request->NParams];
 	 int	argListLen = 0;
-	 int	i, retVal;
+	 int	retVal;
 	tRequestHeader	*ret;
 	 int	retValueCount;
 	 int	retDataLen;
@@ -309,7 +309,7 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 	retDataLen = sizeof(Uint64) + sizeof(Uint32);	
 
 	// Get size of argument list
-	for( i = 0; i < Request->NParams; i ++ )
+	for( int i = 0; i < Request->NParams; i ++ )
 	{
 		argSizes[i] = Request->Params[i].Length;
 		switch(Request->Params[i].Type)
@@ -344,7 +344,7 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 			return NULL;	// ERROR!
 		}
 	}
-	formatString[i] = '\0';
+	formatString[Request->NParams] = '\0';
 	
 	LOG("Request %i(%s) '%s'", Request->CallID, casSYSCALL_NAMES[Request->CallID], formatString);
 	
@@ -352,7 +352,7 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 		char	argListData[argListLen];
 		argListLen = 0;
 		// Build argument list
-		for( i = 0; i < Request->NParams; i ++ )
+		for( int i = 0; i < Request->NParams; i ++ )
 		{
 			returnData[i] = NULL;
 			switch(Request->Params[i].Type)
@@ -449,7 +449,7 @@ tRequestHeader *SyscallRecieve(tRequestHeader *Request, int *ReturnLength)
 	//Log_Debug("Syscalls", "Return 0x%llx", retVal);
 	
 	retValueCount = 2;
-	for( i = 0; i < Request->NParams; i ++ )
+	for( int i = 0; i < Request->NParams; i ++ )
 	{
 		if( Request->Params[i].Type != ARG_TYPE_DATA )	continue;
 		if( !(Request->Params[i].Flags & ARG_FLAG_RETURN) )	continue;

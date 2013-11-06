@@ -5,7 +5,7 @@
  * threads.c
  * - Thread and process handling
  */
-
+#define DEBUG	1
 #include <arch.h>
 #include <acess.h>
 #include <mutex.h>
@@ -17,12 +17,14 @@ typedef signed long long int	time_t;
 #include <threads_int.h>
 #include <limits.h>
 #include "include/threads_glue.h"
+#include <stdbool.h>
 
 #define THREAD_EVENT_WAKEUP	0x80000000
 
 // === IMPORTS ===
 extern void	VFS_CloneHandleList(int PID);
 extern void	VFS_CloneHandlesFromList(int PID, int nFD, int FDs[]);
+extern void	VFS_ClearHandles(int PID);
 
 // === STRUCTURES ===
 // === PROTOTYPES ===
@@ -52,25 +54,24 @@ tThread *Proc_GetCurThread(void)
 
 void Threads_Dump(void)
 {
-	tThread	*thread;
-	for( thread = gpThreads; thread; thread = thread->GlobalNext )
+	for( tThread *thread = gpThreads; thread; thread = thread->GlobalNext )
 	{
 		Log_Log("Threads", "TID %i (%s), PID %i",
-			thread->TID, thread->ThreadName, thread->PID);
+			thread->TID, thread->ThreadName, thread->Process->PID);
 		Log_Log("Threads", "User: %i, Group: %i",
-			thread->UID, thread->GID);
+			thread->Process->UID, thread->Process->GID);
 		Log_Log("Threads", "Kernel Thread ID: %i",
 			thread->KernelTID);
 	}
 }
 
-void Threads_SetThread(int TID)
+void Threads_SetThread(int TID, void *Client)
 {
-	tThread	*thread;
-	for( thread = gpThreads; thread; thread = thread->GlobalNext )
+	for( tThread *thread = gpThreads; thread; thread = thread->GlobalNext )
 	{
 		if( thread->TID == TID ) {
 			gpCurrentThread = thread;
+			thread->ClientPtr = Client;
 			return ;
 		}
 	}
@@ -79,8 +80,7 @@ void Threads_SetThread(int TID)
 
 tThread	*Threads_GetThread(Uint TID)
 {
-	tThread	*thread;
-	for( thread = gpThreads; thread; thread = thread->GlobalNext )
+	for( tThread *thread = gpThreads; thread; thread = thread->GlobalNext )
 	{
 		if( thread->TID == TID ) {
 			return thread;
@@ -92,10 +92,9 @@ tThread	*Threads_GetThread(Uint TID)
 /**
  * \brief Clone a thread control block (with a different TID)
  */
-tThread *Threads_CloneTCB(tThread *TemplateThread)
+tThread *Threads_CloneTCB(tThread *TemplateThread, bool bNewProcess)
 {
 	tThread	*ret = malloc(sizeof(tThread));
-	
 	memcpy(ret, TemplateThread, sizeof(tThread));
 	
 	ret->TID = giThreads_NextThreadID ++;
@@ -105,7 +104,22 @@ tThread *Threads_CloneTCB(tThread *TemplateThread)
 	
 	ret->WaitingThreads = NULL;
 	ret->WaitingThreadsEnd = NULL;
-	
+
+	if( bNewProcess )
+	{
+		tProcess *proc = malloc( sizeof(tProcess) );
+		memcpy(proc, ret->Process, sizeof(tProcess));
+		proc->nThreads = 0;
+		proc->CWD = strdup(proc->CWD);
+		proc->Chroot = strdup(proc->Chroot);
+		
+		proc->PID = ret->TID;
+		
+		ret->Process = proc;
+	}	
+
+	ret->Process->nThreads ++;
+
 	// Add to the end of the queue
 	// TODO: Handle concurrency issues
 	ret->GlobalNext = gpThreads;
@@ -114,10 +128,53 @@ tThread *Threads_CloneTCB(tThread *TemplateThread)
 	return ret;
 }
 
-tUID Threads_GetUID() { return gpCurrentThread->UID; }
-tGID Threads_GetGID() { return gpCurrentThread->GID; }
+void Threads_int_Destroy(tThread *Thread)
+{
+	// Clear WaitingThreads
+	
+	Threads_Glue_SemDestroy(Thread->EventSem);
+	free(Thread->ThreadName);
+	Thread->Process->nThreads --;
+}
+
+void Threads_Terminate(void)
+{
+	tThread	*us = gpCurrentThread;
+	tProcess *proc = us->Process;
+
+	if( us->TID == proc->PID )
+	{
+		// If we're the process leader, then tear down the entire process
+		VFS_ClearHandles(proc->PID);
+		tThread	**next_ptr = &gpThreads;
+		for( tThread *thread = gpThreads; thread; thread = *next_ptr )
+		{
+			if( thread->Process == proc ) {
+				Threads_int_Destroy(thread);
+			}
+			else {
+				next_ptr = &thread->Next;
+			}
+		}
+	}
+	else
+	{
+		// Just a lowly thread, remove from process
+		Threads_int_Destroy(us);
+	}
+	
+	if( proc->nThreads == 0 )
+	{
+		free(proc->Chroot);
+		free(proc->CWD);
+		free(proc);
+	}
+}
+
+tUID Threads_GetUID() { return gpCurrentThread->Process->UID; }
+tGID Threads_GetGID() { return gpCurrentThread->Process->GID; }
 tTID Threads_GetTID() { return gpCurrentThread->TID; }
-tPID Threads_GetPID() { return gpCurrentThread->PID; }
+tPID Threads_GetPID() { return gpCurrentThread->Process->PID; }
 
 int Threads_SetUID(tUID NewUID)
 {
@@ -126,7 +183,7 @@ int Threads_SetUID(tUID NewUID)
 		return -1;
 	}
 	
-	gpCurrentThread->UID = NewUID;
+	gpCurrentThread->Process->UID = NewUID;
 	return 0;
 }
 
@@ -137,7 +194,7 @@ int Threads_SetGID(tGID NewGID)
 		return -1;
 	}
 	
-	gpCurrentThread->GID = NewGID;
+	gpCurrentThread->Process->GID = NewGID;
 	return 0;
 }
 
@@ -167,8 +224,8 @@ tTID Threads_WaitTID(int TID, int *Status)
 	}
 	
 	// Specific Thread
-	if(TID > 0) {
-		
+	if(TID > 0)
+	{
 		tThread	*thread = Threads_GetThread(TID);
 		tThread	*us = gpCurrentThread;
 		if(!thread)	return -1;
@@ -189,7 +246,7 @@ tTID Threads_WaitTID(int TID, int *Status)
 		
 		Threads_WaitEvents( THREAD_EVENT_WAKEUP );
 		
-		if(Status)	*Status = thread->ExitStatus;
+		if(Status)	*Status = thread->RetStatus;
 		thread->WaitingThreads = thread->WaitingThreads->Next;
 		us->Next = NULL;
 		
@@ -199,24 +256,13 @@ tTID Threads_WaitTID(int TID, int *Status)
 	return 0;
 }
 
-void Threads_Sleep(void)
-{
-	// TODO: Add to a sleeping queue
-	//pause();
-}
-
-void Threads_Yield(void)
-{
-//	yield();
-}
-
 void Threads_Exit(int TID, int Status)
 {
 	tThread	*toWake;
 	
 //	VFS_Handles_Cleanup();
 
-	gpCurrentThread->ExitStatus = Status;
+	gpCurrentThread->RetStatus = Status;
 	
 	#if 1
 	if( gpCurrentThread->Parent )
@@ -238,6 +284,12 @@ void Threads_Exit(int TID, int Status)
 	}
 }
 
+void Threads_Sleep()
+{
+	gpCurrentThread->Status = THREAD_STAT_SLEEPING;
+	Threads_int_WaitForStatusEnd(THREAD_STAT_SLEEPING);
+}
+
 int Threads_Wake(tThread *Thread)
 {
 	Thread->Status = THREAD_STAT_ACTIVE;
@@ -255,121 +307,108 @@ int Threads_WakeTID(tTID TID)
 
 int Threads_CreateRootProcess(void)
 {
-	tThread	*thread = Threads_CloneTCB(&gThreadZero);
-	thread->PID = thread->TID;
+	tThread	*thread = Threads_CloneTCB(&gThreadZero, true);
 	
 	// Handle list is created on first open
 	
-	return thread->PID;
+	return thread->Process->PID;
 }
 
 int Threads_Fork(void)
 {
-	tThread	*thread = Threads_CloneTCB(gpCurrentThread);
-	thread->PID = thread->TID;
+	tThread	*thread = Threads_CloneTCB(gpCurrentThread, true);
 
 	// Duplicate the VFS handles (and nodes) from vfs_handle.c
-	VFS_CloneHandleList(thread->PID);
+	VFS_CloneHandleList(thread->Process->PID);
 	
-	return thread->PID;
+	return thread->Process->PID;
 }
 
 int Threads_Spawn(int nFD, int FDs[], struct s_sys_spawninfo *info)
 {
-	tThread	*thread = Threads_CloneTCB(gpCurrentThread);
-	thread->PID = thread->TID;
+	tThread	*thread = Threads_CloneTCB(gpCurrentThread, true);
 	if( info )
 	{
 		// TODO: PGID?
 		//if( info->flags & SPAWNFLAG_NEWPGID )
 		//	thread->PGID = thread->PID;
-		if( info->gid && thread->UID == 0 )
-			thread->GID = info->gid;
-		if( info->uid && thread->UID == 0 )	// last because ->UID is used above
-			thread->UID = info->uid;
+		if( thread->Process->UID == 0 )
+		{
+			if( info->gid )
+				thread->Process->GID = info->gid;
+			if( info->uid )
+				thread->Process->UID = info->uid;
+		}
 	}
 	
-	VFS_CloneHandlesFromList(thread->PID, nFD, FDs);
+	VFS_CloneHandlesFromList(thread->Process->PID, nFD, FDs);
 
-	Log_Debug("Threads", "_spawn: %i", thread->PID);
-	return thread->PID;
+	return thread->Process->PID;
 }
 
-// --------------------------------------------------------------------
-// Mutexes 
-// --------------------------------------------------------------------
-int Mutex_Acquire(tMutex *Mutex)
+// ----
+// ----
+void Threads_int_Terminate(tThread *Thread)
 {
-	Threads_Glue_AcquireMutex(&Mutex->Protector.Mutex);
-	return 0;
+	Thread->RetStatus = -1;
+	Threads_AddActive(Thread);
 }
 
-void Mutex_Release(tMutex *Mutex)
+void Threads_int_WaitForStatusEnd(enum eThreadStatus Status)
 {
-	Threads_Glue_ReleaseMutex(&Mutex->Protector.Mutex);
-}
-
-// --------------------------------------------------------------------
-// Semaphores
-// --------------------------------------------------------------------
-void Semaphore_Init(tSemaphore *Sem, int InitValue, int MaxValue, const char *Module, const char *Name)
-{
-	memset(Sem, 0, sizeof(tSemaphore));
-	// HACK: Use `Sem->Protector` as space for the semaphore pointer
-	Threads_Glue_SemInit( &Sem->Protector.Mutex, InitValue );
-}
-
-int Semaphore_Wait(tSemaphore *Sem, int MaxToTake)
-{
-	return Threads_Glue_SemWait( Sem->Protector.Mutex, MaxToTake );
-}
-
-int Semaphore_Signal(tSemaphore *Sem, int AmmountToAdd)
-{
-	return Threads_Glue_SemSignal( Sem->Protector.Mutex, AmmountToAdd );
-}
-
-// --------------------------------------------------------------------
-// Event handling
-// --------------------------------------------------------------------
-Uint32 Threads_WaitEvents(Uint32 Mask)
-{
-	Uint32	rv;
-
-	//Log_Debug("Threads", "Mask = %x, ->Events = %x", Mask, gpCurrentThread->Events);	
-
-	gpCurrentThread->WaitMask = Mask;
-	if( !(gpCurrentThread->EventState & Mask) )
+	tThread	*us = Proc_GetCurThread();
+	ASSERT(Status != THREAD_STAT_ACTIVE);
+	ASSERT(Status != THREAD_STAT_DEAD);
+	LOG("%i(%s) - %i", us->TID, us->ThreadName, Status);
+	while( us->Status == Status )
 	{
 		if( Threads_Glue_SemWait(gpCurrentThread->EventSem, INT_MAX) == -1 ) {
 			Log_Warning("Threads", "Wait on eventsem of %p, %p failed",
 				gpCurrentThread, gpCurrentThread->EventSem);
+			return ;
 		}
-		//Log_Debug("Threads", "Woken from nap (%i here)", SDL_SemValue(gpCurrentThread->EventSem));
-	}
-	rv = gpCurrentThread->EventState & Mask;
-	gpCurrentThread->EventState &= ~Mask;
-	gpCurrentThread->WaitMask = -1;
-
-	//Log_Debug("Threads", "- rv = %x", rv);
-
-	return rv;
-}
-
-void Threads_PostEvent(tThread *Thread, Uint32 Events)
-{
-	Thread->EventState |= Events;
-//	Log_Debug("Threads", "Trigger event %x (->Events = %p) on %p", Events, Thread->Events, Thread);
-
-	if( Events == 0 || Thread->WaitMask & Events ) {
-		Threads_Glue_SemSignal( Thread->EventSem, 1 );
-//		Log_Debug("Threads", "Waking %p(%i %s)", Thread, Thread->TID, Thread->ThreadName);
+		if( us->Status == Status )
+			Log_Warning("Threads", "Thread %p(%i %s) rescheduled while in %s state",
+				us, us->TID, us->ThreadName, casTHREAD_STAT[Status]);
 	}
 }
 
-void Threads_ClearEvent(Uint32 EventMask)
+int Threads_int_Sleep(enum eThreadStatus Status, void *Ptr, int Num, tThread **ListHead, tThread **ListTail, tShortSpinlock *Lock)
 {
-	gpCurrentThread->EventState &= ~EventMask;
+	tThread	*us = Proc_GetCurThread();
+	us->Next = NULL;
+	// - Mark as sleeping
+	us->Status = Status;
+	us->WaitPointer = Ptr;
+	us->RetStatus = Num;	// Use RetStatus as a temp variable
+		
+	// - Add to waiting
+	if( ListTail ) {
+		if(*ListTail) {
+			(*ListTail)->Next = us;
+		}
+		else {
+			*ListHead = us;
+		}
+		*ListTail = us;
+	}
+	else {
+		*ListHead = us;
+	}
+	
+	if( Lock ) {
+		SHORTREL( Lock );
+	}
+	Threads_int_WaitForStatusEnd(Status);
+	us->WaitPointer = NULL;
+	return us->RetStatus;
+}
+
+void Threads_AddActive(tThread *Thread)
+{
+	LOG("%i(%s)", Thread->TID, Thread->ThreadName);
+	Thread->Status = THREAD_STAT_ACTIVE;
+	Threads_Glue_SemSignal(Thread->EventSem, 1);
 }
 
 // --------------------------------------------------------------------

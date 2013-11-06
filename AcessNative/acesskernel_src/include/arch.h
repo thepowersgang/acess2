@@ -28,6 +28,8 @@ typedef intptr_t	tPAddr;
 
 typedef	int	BOOL;
 
+#define HALT_CPU()	exit(1)
+
 #include <stddef.h>
 #undef offsetof
 
@@ -36,8 +38,11 @@ struct sShortSpinlock
 	void	*Mutex;
 };
 
-#define SHORTLOCK(...)
-#define SHORTREL(...)
+extern void	Threads_int_ShortLock(void **Ptr);
+extern void	Threads_int_ShortRel(void **Ptr);
+
+#define SHORTLOCK(l)	Threads_int_ShortLock(&(l)->Mutex)
+#define SHORTREL(l)	Threads_int_ShortRel(&(l)->Mutex)
 #define CPU_HAS_LOCK(...)	0
 
 //#define	NUM_CFG_ENTRIES	10

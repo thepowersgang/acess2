@@ -1,6 +1,39 @@
 #ifndef _THREADS_INT_H_
 #define _THREADS_INT_H_
 
+#include <threads.h>
+
+enum eThreadStatus {
+	THREAD_STAT_NULL,	// Invalid process
+	THREAD_STAT_ACTIVE,	// Running and schedulable process
+	THREAD_STAT_SLEEPING,	// Message Sleep
+	THREAD_STAT_MUTEXSLEEP,	// Mutex Sleep
+	THREAD_STAT_SEMAPHORESLEEP,	// Semaphore Sleep
+	THREAD_STAT_QUEUESLEEP,	// Queue
+	THREAD_STAT_EVENTSLEEP,	// Event sleep
+	THREAD_STAT_RWLOCKSLEEP,
+	THREAD_STAT_WAITING,	// ??? (Waiting for a thread)
+	THREAD_STAT_PREINIT,	// Being created
+	THREAD_STAT_ZOMBIE,	// Died/Killed, but parent not informed
+	THREAD_STAT_DEAD,	// Awaiting burial (free)
+	THREAD_STAT_BURIED	// If it's still on the list here, something's wrong
+};
+static const char * const casTHREAD_STAT[] = {
+	"THREAD_STAT_NULL",	// Invalid process
+	"THREAD_STAT_ACTIVE",	// Running and schedulable process
+	"THREAD_STAT_SLEEPING",	// Message Sleep
+	"THREAD_STAT_MUTEXSLEEP",	// Mutex Sleep
+	"THREAD_STAT_SEMAPHORESLEEP",	// Semaphore Sleep
+	"THREAD_STAT_QUEUESLEEP",	// Queue
+	"THREAD_STAT_EVENTSLEEP",	// Event sleep
+	"THREAD_STAT_RWLOCKSLEEP",
+	"THREAD_STAT_WAITING",	// ??? (Waiting for a thread)
+	"THREAD_STAT_PREINIT",	// Being created
+	"THREAD_STAT_ZOMBIE",	// Died/Killed, but parent not informed
+	"THREAD_STAT_DEAD",	// Awaiting burial (free)
+	"THREAD_STAT_BURIED"	// If it's still on the list here, something's wrong
+};
+
 /**
  * \brief IPC Message
  */
@@ -14,11 +47,14 @@ typedef struct sMessage
 
 typedef struct sProcess
 {
+	tTID	PID;
 	 int	nThreads;
 	 int	NativePID;
 	char	*CWD;
 	char	*Chroot;
 	 int	MaxFD;
+
+	tUID	UID, GID;
 } tProcess;
 
 struct sThread
@@ -27,16 +63,16 @@ struct sThread
 	struct sThread	*Next;
 
 	 int	KernelTID;
+	tProcess	*Process;	
 
-	tTID	TID, PID;
-	tUID	UID, GID;
+	tTID	TID;
 
 	struct sThread	*Parent;
-
 	char	*ThreadName;
+	 int	bInstrTrace;
 
-	 int	Status;	// 0: Dead, 1: Active, 2: Paused, 3: Asleep
-	 int	ExitStatus;
+	enum eThreadStatus	Status;	// 0: Dead, 1: Active, 2: Paused, 3: Asleep
+	 int	RetStatus;
 	 int	_errno;
 
 	// Threads waiting for this thread to exit.
@@ -48,31 +84,25 @@ struct sThread
 	struct sThread	*WaitingThreads;
 	struct sThread	*WaitingThreadsEnd;
 
-	tProcess	*Process;	
+
+	tShortSpinlock	IsLocked;
+
+	void	*WaitPointer;
 
 	Uint32	EventState, WaitMask;
 	void	*EventSem;	// Should be SDL_sem, but I don't want SDL in this header
+
+	void	*ClientPtr;
 
 	// Message queue
 	tMsg * volatile	Messages;	//!< Message Queue
 	tMsg	*LastMessage;	//!< Last Message (speeds up insertion)
 };
 
-enum {
-	THREAD_STAT_NULL,	// Invalid process
-	THREAD_STAT_ACTIVE,	// Running and schedulable process
-	THREAD_STAT_SLEEPING,	// Message Sleep
-	THREAD_STAT_MUTEXSLEEP,	// Mutex Sleep
-	THREAD_STAT_SEMAPHORESLEEP,	// Semaphore Sleep
-	THREAD_STAT_QUEUESLEEP,	// Queue
-	THREAD_STAT_EVENTSLEEP,	// Event sleep
-	THREAD_STAT_WAITING,	// ??? (Waiting for a thread)
-	THREAD_STAT_PREINIT,	// Being created
-	THREAD_STAT_ZOMBIE,	// Died/Killed, but parent not informed
-	THREAD_STAT_DEAD,	// Awaiting burial (free)
-	THREAD_STAT_BURIED	// If it's still on the list here, something's wrong
-};
 extern struct sThread	*Threads_GetThread(Uint TID);
+extern void	Threads_int_WaitForStatusEnd(enum eThreadStatus Status);
+extern int	Threads_int_Sleep(enum eThreadStatus Status, void *Ptr, int Num, tThread **ListHead, tThread **ListTail, tShortSpinlock *Lock);
+extern void	Threads_AddActive(tThread *Thread);
 
 #endif
 

@@ -10,6 +10,7 @@ extern void	Threads_Glue_ReleaseMutex(void **Lock);
 extern void	Threads_Glue_SemInit(void **Ptr, int Val);
 extern int	Threads_Glue_SemWait(void *Ptr, int Max);
 extern int	Threads_Glue_SemSignal( void *Ptr, int AmmountToAdd );
+extern void	Threads_Glue_SemDestroy( void *Ptr );
 
 #endif
 

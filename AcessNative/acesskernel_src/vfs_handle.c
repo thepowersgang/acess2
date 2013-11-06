@@ -155,11 +155,10 @@ tVFS_Handle *VFS_GetHandle(int FD)
 	}
 	else
 	{
-		tUserHandles	*ent;
 		 int	pid = Threads_GetPID();
 		 int	maxhandles = *Threads_GetMaxFD();
 		
-		ent = VFS_int_GetUserHandles(pid, 0);
+		tUserHandles *ent = VFS_int_GetUserHandles(pid, 0);
 		if(!ent) {
 			Log_Error("VFS", "Client %i does not have a handle list (>)", pid);
 			return NULL;
@@ -247,4 +246,19 @@ int VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode)
 	}
 	
 	return -1;
+}
+
+void VFS_ClearHandles(int PID)
+{
+	// Find the PID's handle list
+	tUserHandles *ent = VFS_int_GetUserHandles(PID, 0);
+	if( !ent )	return;
+	// Get a handle
+	 int	maxhandles = *Threads_GetMaxFD();
+	for( int i = 0; i < maxhandles; i ++ )
+	{
+		if(ent->Handles[i].Node)	continue;
+		_CloseNode(ent->Handles[i].Node);
+		ent->Handles[i].Node = NULL;
+	}
 }

@@ -18,7 +18,6 @@ typedef void	**tShortSpinlock;
 //#include "/usr/include/signal.h"
 #include <SDL/SDL.h>
 #include <pthread.h>
-#include <assert.h>
 
 #define NORETURN	__attribute__((noreturn))
 #include <logdebug.h>	// Kernel land, but uses standards
@@ -66,35 +65,31 @@ int Threads_Glue_SemWait(void *Ptr, int Max)
 
 int Threads_Glue_SemSignal( void *Ptr, int AmmountToAdd )
 {
-	 int	i;
-	for( i = 0; i < AmmountToAdd; i ++ )
+	for( int i = 0; i < AmmountToAdd; i ++ )
 		SDL_SemPost( Ptr );
 	return AmmountToAdd;
 }
 
-// --------------------------------------------------------------------
-// Event handling
-// --------------------------------------------------------------------
-int RWLock_AcquireRead(tRWLock *Lock)
+void Threads_Glue_SemDestroy( void *Ptr )
 {
-	if( !Lock->ReaderWaiting ) {
-		Lock->ReaderWaiting = malloc(sizeof(pthread_rwlock_t));
-		pthread_rwlock_init( (void*)Lock->ReaderWaiting, 0 );
+	SDL_DestroySemaphore(Ptr);
+}
+
+// ---
+// Short Locks
+// ---
+void Threads_int_ShortLock(void **MutexPtr)
+{
+	if( !*MutexPtr ) {
+		*MutexPtr = malloc( sizeof(pthread_mutex_t) );
+		pthread_mutex_init(*MutexPtr, NULL);
 	}
-	pthread_rwlock_rdlock( (void*)Lock->ReaderWaiting );
-	return 0;
+	pthread_mutex_lock(*MutexPtr);
 }
-int RWLock_AcquireWrite(tRWLock *Lock)
+
+void Threads_int_ShortRel(void **MutexPtr)
 {
-	if( !Lock->ReaderWaiting ) {
-		Lock->ReaderWaiting = malloc(sizeof(pthread_rwlock_t));
-		pthread_rwlock_init( (void*)Lock->ReaderWaiting, 0 );
-	}
-	pthread_rwlock_wrlock( (void*)Lock->ReaderWaiting );
-	return 0;
+	pthread_mutex_unlock(*MutexPtr);
 }
-void RWLock_Release(tRWLock *Lock)
-{
-	pthread_rwlock_unlock( (void*)Lock->ReaderWaiting );
-}
+
 
