@@ -18,10 +18,10 @@
 #endif
 
 const uint32_t	caVT100Colours[] = {
-	// Black, Red, Green, Yellow, Blue, Purple, Cyan, Gray
+	// Black,      Red,    Green,   Yellow,     Blue,  Magenta,     Cyan,      Gray
 	// Same again, but bright
-	0x000000, 0x770000, 0x007700, 0x777700, 0x000077, 0x770077, 0x007777, 0xAAAAAAA,
-	0xCCCCCC, 0xFF0000, 0x00FF00, 0xFFFF00, 0x0000FF, 0xFF00FF, 0x00FFFF, 0xFFFFFFF
+	0x000000, 0x770000, 0x007700, 0x777700, 0x000077, 0x770077, 0x007777, 0xAAAAAA,
+	0xCCCCCC, 0xFF0000, 0x00FF00, 0xFFFF00, 0x0000FF, 0xFF00FF, 0x00FFFF, 0xFFFFFF, 
 };
 
  int	Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buf);
@@ -46,6 +46,7 @@ int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
 		memcpy(inc_buf + inc_len, Buf, new_bytes);
 
 		if( new_bytes == 0 ) {
+			_SysDebug("Term_HandleVT100: Hit max? (Len=%i)", Len);
 			inc_len = 0;
 			return 0;
 		}
@@ -188,6 +189,9 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 		case 'l':	// unset
 			switch(args[0])
 			{
+			case  1:	// Aplication cursor keys
+				_SysDebug("TODO: \\e[?1%c Application cursor keys", c);
+				break;
 			case 25:	// Hide cursor
 				_SysDebug("TODO: \\e[?25%c Show/Hide cursor", c);
 				break;
@@ -209,6 +213,18 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 		// Standard commands
 		switch( c )
 		{
+		case 'A':
+			Display_MoveCursor(Term, -(argc >= 1 ? args[0] : 1), 0);
+			break;
+		case 'B':
+			Display_MoveCursor(Term, (argc >= 1 ? args[0] : 1), 0);
+			break;
+		case 'C':
+			Display_MoveCursor(Term, 0, (argc >= 1 ? args[0] : 1));
+			break;
+		case 'D':
+			Display_MoveCursor(Term, 0, -(argc >= 1 ? args[0] : 1));
+			break;
 		case 'H':
 			if( argc != 2 ) {
 			}
@@ -216,15 +232,17 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 				Display_SetCursor(Term, args[0], args[1]);
 			}
 			break;
-		case 'J':
+		case 'J':	// Clear lines
 			switch( args[0] )
 			{
 			case 0:
-			case 1:
-				_SysDebug("TODO: VT100 %i J", args[0]);
+				Display_ClearLines(Term, 1);	// Down
 				break;
-			case 2:	// Everything
-				Display_ClearLines(Term, 0);
+			case 1:
+				Display_ClearLines(Term, -1);	// Up
+				break;
+			case 2:
+				Display_ClearLines(Term, 0);	// All
 				break;
 			default:
 				_SysDebug("Unknown VT100 %i J", args[0]);
@@ -235,8 +253,10 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 			switch( args[0] )
 			{
 			case 0:	// To EOL
+				Display_ClearLine(Term, -1);
+				break;
 			case 1:	// To SOL
-				_SysDebug("TODO: VT100 %i K", args[0]);
+				Display_ClearLine(Term, 1);
 				break;
 			case 2:
 				Display_ClearLine(Term, 0);
@@ -245,8 +265,11 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 				_SysDebug("Unknown VT100 %i K", args[0]);
 				break;
 			}
+		case 'S':	// Scroll down n=1
+			Display_ScrollDown(Term, -(argc >= 1 ? args[0] : 1));
+			break;
 		case 'T':	// Scroll down n=1
-			Display_ScrollDown(Term, 1);
+			Display_ScrollDown(Term, (argc >= 1 ? args[0] : 1));
 			break;
 		case 'm':
 			if( argc == 0 )
@@ -263,13 +286,19 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 					case 0:
 						Display_ResetAttributes(Term);
 						break;
+					case 1:
+						_SysDebug("TODO: VT100 \\e[1m - Bold");
+						break;
+					case 2:
+						_SysDebug("TODO: VT100 \\e[1m - Reverse");
+						break;
 					case 30 ... 37:
 						// TODO: Bold/bright
 						Display_SetForeground( Term, caVT100Colours[ args[i]-30 ] );
 						break;
 					case 40 ... 47:
 						// TODO: Bold/bright
-						Display_SetBackground( Term, caVT100Colours[ args[i]-30 ] );
+						Display_SetBackground( Term, caVT100Colours[ args[i]-40 ] );
 						break;
 					default:
 						_SysDebug("TODO: VT100 \\e[%im", args[i]);
@@ -280,7 +309,7 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 			break;
 		// Set scrolling region
 		case 'r':
-			Display_SetScrollArea(Term, args[0], args[1] - args[0]);
+			Display_SetScrollArea(Term, args[0], (args[1] - args[0]));
 			break;
 		
 		case 's':

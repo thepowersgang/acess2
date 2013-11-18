@@ -5,7 +5,7 @@
  * drv/vterm_vt100.c
  * - Virtual Terminal - VT100 (Kinda) Emulation
  */
-#define DEBUG	0
+#define DEBUG	1
 #include "vterm.h"
 
 #define sTerminal	sVTerm
@@ -13,6 +13,7 @@
 
 void Display_AddText(tTerminal *Term, size_t Length, const char *UTF8Text)
 {
+	LOG("'%.*s'", Length, UTF8Text);
 	VT_int_PutRawString(Term, (const void*)UTF8Text, Length);
 }
 void Display_Newline(tTerminal *Term, bool bCarriageReturn)
@@ -63,7 +64,7 @@ void Display_MoveCursor(tTerminal *Term, int RelRow, int RelCol)
 		// 
 		if( RelCol < 0 )
 		{
-			size_t	avail = *wrpos % Term->TextWidth;
+			 int	avail = *wrpos % Term->TextWidth;
 			if( RelCol < -avail )
 				RelCol = -avail;
 		}
@@ -81,8 +82,8 @@ void Display_MoveCursor(tTerminal *Term, int RelRow, int RelCol)
 		 int	maxrows = ((Term->Flags & VT_FLAG_ALTBUF) ? 1 : (giVT_Scrollback+1))*Term->TextHeight;
 		if( RelRow < 0 )
 		{
-			if( currow + RelRow < 0 )
-				RelRow = currow;
+			if( RelRow < -currow )
+				RelRow = -currow;
 		}
 		else
 		{
@@ -91,6 +92,7 @@ void Display_MoveCursor(tTerminal *Term, int RelRow, int RelCol)
 		}
 		*wrpos += RelRow*Term->TextWidth;
 	}
+	LOG("=(R%i,C%i)", *wrpos / Term->TextWidth, *wrpos % Term->TextWidth);
 }
 void Display_SaveCursor(tTerminal *Term)
 {
@@ -192,7 +194,7 @@ void Display_SetBackground(tTerminal *Term, uint32_t RGB)
 {
 	LOG("(%06x)", RGB);
 	Term->CurColour &= 0xFFFF8000;
-	Term->CurColour |= (Uint32)VT_Colour24to12(RGB) <<06;
+	Term->CurColour |= (Uint32)VT_Colour24to12(RGB) <<  0;
 }
 void Display_Flush(tTerminal *Term)
 {

@@ -24,6 +24,7 @@ void VT_int_PutString(tVTerm *Term, const Uint8 *Buffer, Uint Count)
 		int esc_len = Term_HandleVT100(Term, Count - ofs, (const void*)(Buffer + ofs));
 		if( esc_len < 0 ) {
 			esc_len = -esc_len;
+			LOG("%i '%*c'", esc_len, esc_len, Buffer+ofs);
 			VT_int_PutRawString(Term, Buffer + ofs, esc_len);
 			//Debug("Raw string '%.*s'", esc_len, Buffer+ofs);
 		}
