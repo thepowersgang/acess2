@@ -1084,6 +1084,7 @@ tVFS_Node *TCP_Client_Init(tInterface *Interface)
 	conn->LocalPort = -1;
 	conn->RemotePort = -1;
 
+	conn->Node.ReferenceCount = 1;
 	conn->Node.ImplPtr = conn;
 	conn->Node.NumACLs = 1;
 	conn->Node.ACLs = &gVFS_ACL_EveryoneRW;
@@ -1367,6 +1368,15 @@ void TCP_Client_Close(tVFS_Node *Node)
 	
 	ENTER("pNode", Node);
 	
+	ASSERT(Node->ReferenceCount != 0);
+
+	if( Node->ReferenceCount > 1 ) {
+		Node->ReferenceCount --;
+		LOG("Dereference only");
+		LEAVE('-');
+		return ;
+	}
+	
 	if( conn->State == TCP_ST_CLOSE_WAIT || conn->State == TCP_ST_OPEN )
 	{
 		packet.SourcePort = htons(conn->LocalPort);
@@ -1383,6 +1393,9 @@ void TCP_Client_Close(tVFS_Node *Node)
 	
 	switch( conn->State )
 	{
+	case TCP_ST_CLOSED:
+		Log_Warning("TCP", "Closing connection that was never opened");
+		break;
 	case TCP_ST_CLOSE_WAIT:
 		conn->State = TCP_ST_LAST_ACK;
 		break;
