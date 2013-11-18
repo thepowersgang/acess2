@@ -227,8 +227,10 @@ int EHCI_InitController(tPAddr BaseAddress, Uint8 InterruptNum)
 	// Dummy QH
 	cont->DeadQH = EHCI_int_AllocateQH(cont, 0, 0);
 	memset(cont->DeadQH, 0, sizeof(tEHCI_QH));
-	cont->DeadQH->HLink = MM_GetPhysAddr(cont->DeadQH)|22;
+	cont->DeadQH->HLink = MM_GetPhysAddr(cont->DeadQH)|2;
 	cont->DeadQH->Endpoint = (1<<15);	// H - Head of Reclamation List
+	cont->DeadQH->CurrentTD = MM_GetPhysAddr(cont->DeadTD);
+	cont->DeadQH->Overlay.Link = MM_GetPhysAddr(cont->DeadTD);
 
 	// -- Initialisation procedure (from ehci-r10) --
 	// - Reset controller
