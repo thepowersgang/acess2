@@ -264,6 +264,8 @@ void Adapter_SendPacket(tAdapter *Handle, tIPStackBuffer *Buffer)
 	{
 		Handle->Type->SendPacket( Handle->CardHandle, Buffer );
 	}
+	
+	IPStack_Buffer_DestroyBuffer(Buffer);
 }
 
 // --- Helpers ---
