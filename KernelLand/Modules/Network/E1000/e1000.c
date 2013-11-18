@@ -354,8 +354,15 @@ void E1000_IRQHandler(int Num, void *Ptr)
 	{
 		
 	}
+
+	// Receive Descriptor Minimum Threshold Reached
+	// - We're reading too slow
+	if( icr & ICR_RXDMT0 )
+	{
+		LOG("RX descs running out");
+	}
 	
-	icr &= ~(ICR_RXT0|ICR_LSC|ICR_TXQE|ICR_TXDW|ICR_TXD_LOW);
+	icr &= ~(ICR_RXT0|ICR_LSC|ICR_TXQE|ICR_TXDW|ICR_TXD_LOW|ICR_RXDMT0);
 	if( icr )
 		Log_Warning("E1000", "Unhandled ICR bits 0x%x", icr);
 }
