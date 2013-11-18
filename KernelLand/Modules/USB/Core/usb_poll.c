@@ -85,7 +85,8 @@ int USB_PollThread(void *unused)
 				host->HostDef->CheckPorts(host->Ptr);
 		}
 
-		Time_Delay(100);
+		// 2s delay - fuck those with UHCI only :)
+		Time_Delay(2000);
 	}
 }
 
