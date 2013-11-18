@@ -19,7 +19,7 @@
 #define FLAG_POPULATED	0x2
 #define FLAG_VALID	0x4
 #define VESA_DEFAULT_FRAMEBUFFER	(KERNEL_BASE|0xA0000)
-#define BLINKING_CURSOR	1
+#define BLINKING_CURSOR	0
 #if BLINKING_CURSOR
 # define VESA_CURSOR_PERIOD	1000
 #endif
@@ -331,7 +331,9 @@ int Vesa_Int_SetMode(int mode)
 	
 	Vesa_int_FillModeList();
 
+	#if BLINKING_CURSOR
 	Time_RemoveTimer(gpVesaCursorTimer);
+	#endif
 	
 	Mutex_Acquire( &glVesa_Lock );
 	
