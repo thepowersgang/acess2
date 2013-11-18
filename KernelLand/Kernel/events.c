@@ -83,10 +83,13 @@ Uint32 Threads_WaitEvents(Uint32 EventMask)
 	// Check if a wait is needed
 	SHORTLOCK( &us->IsLocked );
 	LOG("Locked and preparing for wait");
-	Threads_int_Sleep(THREAD_STAT_EVENTSLEEP, NULL, EventMask,
-		&us, NULL, &us->IsLocked);
-	// Woken when lock is acquired
-	SHORTLOCK( &us->IsLocked );
+	if( (us->EventState & EventMask) == 0 )
+	{
+		Threads_int_Sleep(THREAD_STAT_EVENTSLEEP, NULL, EventMask,
+			&us, NULL, &us->IsLocked);
+		// Woken when lock is acquired
+		SHORTLOCK( &us->IsLocked );
+	}
 	
 	// Get return value and clear changed event bits
 	rv = us->EventState & EventMask;
