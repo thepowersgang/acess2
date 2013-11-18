@@ -18,6 +18,7 @@
 
 // === PROTOTYPES ===
 tVFS_Node	*Root_InitDevice(const char *Device, const char **Options);
+tVFS_Node	*Root_GetByINode(tVFS_Node *RootNode, Uint64 Inode);
 tVFS_Node	*Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags);
 tVFS_Node	*Root_FindDir(tVFS_Node *Node, const char *Name, Uint Flags);
  int	Root_ReadDir(tVFS_Node *Node, int Pos, char Dest[FILENAME_MAX]);
@@ -28,7 +29,8 @@ tRamFS_File	*Root_int_AllocFile(void);
 // === GLOBALS ===
 tVFS_Driver	gRootFS_Info = {
 	.Name = "rootfs", 
-	.InitDevice = Root_InitDevice
+	.InitDevice = Root_InitDevice,
+	.GetNodeFromINode = Root_GetByINode
 	};
 tRamFS_File	RootFS_Files[MAX_FILES];
 tVFS_ACL	RootFS_DirACLs[3] = {
@@ -83,6 +85,19 @@ tVFS_Node *Root_InitDevice(const char *Device, const char **Options)
 	return &root->Node;
 }
 
+tVFS_Node *Root_GetByINode(tVFS_Node *RootNode, Uint64 Inode)
+{
+	if( Inode >= MAX_FILES )
+		return NULL;
+	if( RootFS_Files[Inode].Name[0] == '\0' )
+		return NULL;
+	Debug("Root_GetByINode: (%llx) = '%s' %p",
+		Inode,
+		RootFS_Files[Inode].Name, &RootFS_Files[Inode].Node
+		);
+	return &RootFS_Files[Inode].Node;
+}
+
 /**
  * \fn int Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
  * \brief Create an entry in the root directory
@@ -112,7 +127,6 @@ tVFS_Node *Root_MkNod(tVFS_Node *Node, const char *Name, Uint Flags)
 	}
 	
 	child = Root_int_AllocFile();
-	memset(child, 0, sizeof(tRamFS_File));
 	
 	strcpy(child->Name, Name);
 	LOG("Name = '%s'", child->Name);
@@ -238,9 +252,11 @@ size_t Root_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buff
 	// Check if buffer needs to be expanded
 	if(Offset + Length > Node->Size)
 	{
-		void *tmp = realloc( file->Data.Bytes, Offset + Length );
+		size_t	newsize = Offset + Length;
+		void *tmp = realloc( file->Data.Bytes, newsize );
 		if(tmp == NULL)	{
-			Warning("Root_Write - Increasing buffer size failed");
+			Warning("Root_Write - Increasing buffer size failed (0x%x)",
+				newsize);
 			LEAVE('i', -1);
 			return -1;
 		}
@@ -267,6 +283,7 @@ tRamFS_File *Root_int_AllocFile(void)
 	{
 		if( RootFS_Files[i].Name[0] == '\0' )
 		{
+			RootFS_Files[i].Node.Inode = i;
 			return &RootFS_Files[i];
 		}
 	}
