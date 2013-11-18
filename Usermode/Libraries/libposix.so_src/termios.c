@@ -59,6 +59,8 @@ int tcsetattr(int fd, int optional_actions, const struct termios *termios_p)
 		errno = EINVAL;
 		return -1;
 	}
+	_SysDebug("*termios_p = {%x,%x,%x,%x}",
+		termios_p->c_iflag, termios_p->c_oflag, termios_p->c_cflag, termios_p->c_lflag);
 	
 	// Double-check `fd` describes a terminal
 	if( _SysIOCtl(fd, DRV_IOCTL_TYPE, NULL) != DRV_TYPE_TERMINAL ) {
@@ -73,8 +75,7 @@ int tcsetattr(int fd, int optional_actions, const struct termios *termios_p)
 	if(termios_p->c_lflag & ECHO)
 		mode.InputMode |= PTYIMODE_ECHO;
 
-	_SysDebug("*termios_p = {%x,%x,%x,%x}",
-		termios_p->c_iflag, termios_p->c_oflag, termios_p->c_cflag, termios_p->c_lflag);
+	_SysIOCtl(fd, PTY_IOCTL_SETMODE, &mode);
 
 	return 0;
 }

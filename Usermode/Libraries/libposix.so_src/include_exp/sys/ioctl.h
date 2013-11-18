@@ -10,5 +10,7 @@
 
 extern int ioctl(int d, int request, ...);
 
+// ioctl numbers in termios
+
 #endif
 

@@ -44,7 +44,7 @@ int fcntl(int fd, int cmd, ...)
 		// TODO: Extra flags for F_SETFL
 
 		ret = _SysFDFlags(fd, mask, a_flags);
-		_SysDebug("fcntl(%i, F_SETFL, %li) = %i", fd, p_flags, ret);
+		_SysDebug("fcntl(%i, F_SETFL, 0x%lx) = Acess 0x%x", fd, p_flags, ret);
 		if(ret != -1)
 			ret = 0;
 
