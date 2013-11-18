@@ -7,7 +7,7 @@
 
 #define	DEBUG_MAX_LINE_LEN	256
 #define	LOCK_DEBUG_OUTPUT	1	// Avoid interleaving of output lines?
-#define TRACE_TO_KTERM  	1	// Send ENTER/DEBUG/LEAVE to debug?
+#define TRACE_TO_KTERM  	0	// Send ENTER/DEBUG/LEAVE to debug?
 
 // === IMPORTS ===
 extern void	Threads_Dump(void);
@@ -114,7 +114,10 @@ void Debug_FmtS(int bUseKTerm, const char *format, ...)
 
 void Debug_KernelPanic(void)
 {
-	if( !gbDebug_IsKPanic )
+	if( gbDebug_IsKPanic > 5 )
+		HALT_CPU();
+	gbDebug_IsKPanic ++;
+	if( gbDebug_IsKPanic == 1 )
 	{
 		#if LOCK_DEBUG_OUTPUT
 		SHORTREL(&glDebug_Lock);
@@ -122,9 +125,6 @@ void Debug_KernelPanic(void)
 		VT_SetTerminal(7);
 	}
 	// 5 nested panics? Fuck it
-	if( gbDebug_IsKPanic > 5 )
-		HALT_CPU();
-	gbDebug_IsKPanic ++;
 	KernelPanic_SetMode();
 }
 
@@ -137,6 +137,7 @@ void LogF(const char *Fmt, ...)
 	va_list	args;
 
 	#if LOCK_DEBUG_OUTPUT
+	if(CPU_HAS_LOCK(&glDebug_Lock))	return ;
 	SHORTLOCK(&glDebug_Lock);
 	#endif
 	
@@ -159,7 +160,8 @@ void Debug(const char *Fmt, ...)
 	va_list	args;
 	
 	#if LOCK_DEBUG_OUTPUT
-	if(!CPU_HAS_LOCK(&glDebug_Lock)) SHORTLOCK(&glDebug_Lock);
+	if(CPU_HAS_LOCK(&glDebug_Lock))	return ;
+	SHORTLOCK(&glDebug_Lock);
 	#endif
 
 	Debug_Puts(0, "Debug: ");
@@ -177,6 +179,7 @@ void Debug(const char *Fmt, ...)
 void LogFV(const char *Fmt, va_list args)
 {
 	#if LOCK_DEBUG_OUTPUT
+	if(CPU_HAS_LOCK(&glDebug_Lock))	return ;
 	SHORTLOCK(&glDebug_Lock);
 	#endif
 
@@ -190,6 +193,7 @@ void LogFV(const char *Fmt, va_list args)
 void LogV(const char *Fmt, va_list args)
 {
 	#if LOCK_DEBUG_OUTPUT
+	if(CPU_HAS_LOCK(&glDebug_Lock))	return ;
 	SHORTLOCK(&glDebug_Lock);
 	#endif
 
@@ -218,6 +222,7 @@ void Warning(const char *Fmt, ...)
 	va_list	args;
 	
 	#if LOCK_DEBUG_OUTPUT
+	if(CPU_HAS_LOCK(&glDebug_Lock))	return ;
 	SHORTLOCK(&glDebug_Lock);
 	#endif
 	
@@ -251,6 +256,7 @@ void Panic(const char *Fmt, ...)
 	Debug_Putchar('\r');
 	Debug_Putchar('\n');
 
+	Proc_PrintBacktrace();
 	//Threads_Dump();
 	//Heap_Dump();
 
@@ -279,6 +285,7 @@ void Debug_Enter(const char *FuncName, const char *ArgTypes, ...)
 	tTID	tid = Threads_GetTID();
 	 
 	#if LOCK_DEBUG_OUTPUT
+	if(CPU_HAS_LOCK(&glDebug_Lock))	return ;
 	SHORTLOCK(&glDebug_Lock);
 	#endif
 
@@ -339,6 +346,7 @@ void Debug_Log(const char *FuncName, const char *Fmt, ...)
 	tTID	tid = Threads_GetTID();
 
 	#if LOCK_DEBUG_OUTPUT
+	if(CPU_HAS_LOCK(&glDebug_Lock))	return ;
 	SHORTLOCK(&glDebug_Lock);
 	#endif
 
@@ -367,6 +375,7 @@ void Debug_Leave(const char *FuncName, char RetType, ...)
 	tTID	tid = Threads_GetTID();
 
 	#if LOCK_DEBUG_OUTPUT
+	if(CPU_HAS_LOCK(&glDebug_Lock))	return ;
 	SHORTLOCK(&glDebug_Lock);
 	#endif
 	
