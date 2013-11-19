@@ -1,14 +1,17 @@
 /*
- * AcessOS Microkernel Version
+ * Acess2 Kernel
+ * - By John Hodge (thePowersGang)
+ *
  * heap.c
+ * - Dynamic memory allocation
  */
 #include <acess.h>
 #include <mm_virt.h>
 #include <heap_int.h>
 
-#define WARNINGS	1
-#define	DEBUG_TRACE	0
-#define	VERBOSE_DUMP	0
+#define WARNINGS	1	// Warn and dump on heap errors
+#define	DEBUG_TRACE	0	// Enable tracing of allocations
+#define	VERBOSE_DUMP	0	// Set to 1 to enable a verbose dump when heap errors are encountered
 
 // === CONSTANTS ===
 #define	HEAP_INIT_SIZE	0x8000	// 32 KiB
@@ -26,39 +29,38 @@
 
 // === PROTOTYPES ===
 void	Heap_Install(void);
-void	*Heap_Extend(int Bytes);
+void	*Heap_Extend(size_t Bytes);
 void	*Heap_Merge(tHeapHead *Head);
 //void	*Heap_Allocate(const char *File, int Line, size_t Bytes);
 //void	*Heap_AllocateZero(const char *File, int Line, size_t Bytes);
 //void	*Heap_Reallocate(const char *File, int Line, void *Ptr, size_t Bytes);
 //void	Heap_Deallocate(void *Ptr);
-void	Heap_Dump(void);
+void	Heap_Dump(int bVerbose);
 void	Heap_Stats(void);
 
 // === GLOBALS ===
 tMutex	glHeap;
-void	*gHeapStart;
-void	*gHeapEnd;
+tHeapHead	*gHeapStart;
+tHeapHead	*gHeapEnd;
 
 // === CODE ===
 void Heap_Install(void)
 {
-	gHeapStart	= (void*)MM_KHEAP_BASE;
-	gHeapEnd	= (void*)MM_KHEAP_BASE;
+	gHeapStart = (void*)MM_KHEAP_BASE;
+	gHeapEnd   = gHeapStart;
 	Heap_Extend(HEAP_INIT_SIZE);
 }
 
 /**
  * \brief Extend the size of the heap
  */
-void *Heap_Extend(int Bytes)
+void *Heap_Extend(size_t Bytes)
 {
-	Uint	i;
 	tHeapHead	*head = gHeapEnd;
 	tHeapFoot	*foot;
 	
 	// Bounds Check
-	if( (tVAddr)gHeapEnd == MM_KHEAP_MAX )
+	if( gHeapEnd == (tHeapHead*)MM_KHEAP_MAX )
 		return NULL;
 	
 	if( Bytes == 0 ) {
@@ -66,24 +68,28 @@ void *Heap_Extend(int Bytes)
 		return NULL;
 	}
 	
+	const Uint	pages = (Bytes + 0xFFF) >> 12;
+	tHeapHead	*new_end = (void*)( (tVAddr)gHeapEnd + (pages << 12) );
 	// Bounds Check
-	if( (tVAddr)gHeapEnd + ((Bytes+0xFFF)&~0xFFF) > MM_KHEAP_MAX ) {
-//		Bytes = MM_KHEAP_MAX - (tVAddr)gHeapEnd;
+	if( new_end > (tHeapHead*)MM_KHEAP_MAX )
+	{
+		// TODO: Clip allocation to avaliable space, and have caller check returned block
 		return NULL;
 	}
 	
 	// Heap expands in pages
-	for( i = 0; i < (Bytes+0xFFF) >> 12; i ++ )
+	for( Uint i = 0; i < pages; i ++ )
 	{
 		if( !MM_Allocate( (tVAddr)gHeapEnd+(i<<12) ) )
 		{
 			Warning("OOM - Heap_Extend");
+			Heap_Dump(1);
 			return NULL;
 		}
 	}
 	
-	// Increas heap end
-	gHeapEnd = (Uint8*)gHeapEnd + (i << 12);
+	// Increase heap end
+	gHeapEnd = new_end;
 	
 	// Create Block
 	head->Size = (Bytes+0xFFF)&~0xFFF;
@@ -169,10 +175,7 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 	Mutex_Acquire(&glHeap);
 	
 	// Traverse Heap
-	for( head = gHeapStart;
-		(Uint)head < (Uint)gHeapEnd;
-		head = (void*)((Uint)head + head->Size)
-		)
+	for( head = gHeapStart; head < gHeapEnd; head = (void*)((Uint)head + head->Size) )
 	{
 		// Alignment Check
 		#if POW2_SIZES
@@ -184,7 +187,7 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 			#if WARNINGS
 			Log_Warning("Heap", "Size of heap address %p is invalid - not aligned (0x%x) [at paddr 0x%x]",
 				head, head->Size, MM_GetPhysAddr(&head->Size));
-			Heap_Dump();
+			Heap_Dump(VERBOSE_DUMP);
 			#endif
 			return NULL;
 		}
@@ -192,14 +195,14 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 			Mutex_Release(&glHeap);
 			Log_Warning("Heap", "Size of heap address %p is invalid - Too small (0x%x) [at paddr 0x%x]",
 				head, head->Size, MM_GetPhysAddr(&head->Size));
-			Heap_Dump();
+			Heap_Dump(VERBOSE_DUMP);
 			return NULL;
 		}
 		if( head->Size > (2<<30) ) {
 			Mutex_Release(&glHeap);
 			Log_Warning("Heap", "Size of heap address %p is invalid - Over 2GiB (0x%x) [at paddr 0x%x]",
 				head, head->Size, MM_GetPhysAddr(&head->Size));
-			Heap_Dump();
+			Heap_Dump(VERBOSE_DUMP);
 			return NULL;
 		}
 		
@@ -211,7 +214,7 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 			#if WARNINGS
 			Log_Warning("Heap", "Magic of heap address %p is invalid (%p = 0x%x)",
 				head, &head->Magic, head->Magic);
-			Heap_Dump();
+			Heap_Dump(VERBOSE_DUMP);
 			#endif
 			return NULL;
 		}
@@ -463,6 +466,7 @@ void *Heap_Reallocate(const char *File, int Line, void *__ptr, size_t __size)
 	
 	// Well, darn
 	nextHead = Heap_Allocate( File, Line, __size );
+	if(!nextHead)	return NULL;
 	nextHead -= 1;
 	nextHead->File = File;
 	nextHead->Line = Line;
@@ -518,11 +522,12 @@ int Heap_IsHeapAddr(void *Ptr)
  */
 void Heap_Validate(void)
 {
-	Heap_Dump();
+	// Call dump non-verbosely.
+	// - If a heap error is detected, it'll print
+	Heap_Dump(0);
 }
 
-#if WARNINGS
-void Heap_Dump(void)
+void Heap_Dump(int bVerbose)
 {
 	tHeapHead	*head, *badHead;
 	tHeapFoot	*foot = NULL;
@@ -536,15 +541,17 @@ void Heap_Dump(void)
 	while( (Uint)head < (Uint)gHeapEnd )
 	{		
 		foot = (void*)( (Uint)head + head->Size - sizeof(tHeapFoot) );
-		#if VERBOSE_DUMP
-		Log_Log("Heap", "%p (0x%P): 0x%08x (%i) %4C",
-			head, MM_GetPhysAddr(head), head->Size, head->ValidSize, &head->Magic);
-		Log_Log("Heap", "%p %4C", foot->Head, &foot->Magic);
-		if(head->File) {
-			Log_Log("Heap", "%sowned by %s:%i",
-				(head->Magic==MAGIC_FREE?"was ":""), head->File, head->Line);
+		
+		if( bVerbose )
+		{
+			Log_Log("Heap", "%p (0x%P): 0x%08x (%i) %4C",
+				head, MM_GetPhysAddr(head), head->Size, head->ValidSize, &head->Magic);
+			Log_Log("Heap", "%p %4C", foot->Head, &foot->Magic);
+			if(head->File) {
+				Log_Log("Heap", "%sowned by %s:%i",
+					(head->Magic==MAGIC_FREE?"was ":""), head->File, head->Line);
+			}
 		}
-		#endif
 		
 		// Sanity Check Header
 		if(head->Size == 0) {
@@ -570,9 +577,10 @@ void Heap_Dump(void)
 			break;
 		}
 		
-		#if VERBOSE_DUMP
-		Log_Log("Heap", "");
-		#endif
+		if( bVerbose )
+		{
+			Log_Log("Heap", "");
+		}
 		
 		// All OK? Go to next
 		head = foot->NextHead;
@@ -590,17 +598,19 @@ void Heap_Dump(void)
 		return ;
 	}
 
-	#if !VERBOSE_DUMP
-	Log_Log("Heap", "%p (%P): 0x%08lx %i %4C",
-		head, MM_GetPhysAddr(head), head->Size, head->ValidSize, &head->Magic);
-	if(foot)
-		Log_Log("Heap", "Foot %p = {Head:%p,Magic:%4C}", foot, foot->Head, &foot->Magic);
-	if(head->File) {
-		Log_Log("Heap", "%sowned by %s:%i",
-			(head->Magic==MAGIC_FREE?"was ":""), head->File, head->Line);
+	// If not verbose, we need to dump the failing block
+	if( !bVerbose )
+	{
+		Log_Log("Heap", "%p (%P): 0x%08lx %i %4C",
+			head, MM_GetPhysAddr(head), head->Size, head->ValidSize, &head->Magic);
+		if(foot)
+			Log_Log("Heap", "Foot %p = {Head:%p,Magic:%4C}", foot, foot->Head, &foot->Magic);
+		if(head->File) {
+			Log_Log("Heap", "%sowned by %s:%i",
+				(head->Magic==MAGIC_FREE?"was ":""), head->File, head->Line);
+		}
+		Log_Log("Heap", "");
 	}
-	Log_Log("Heap", "");
-	#endif
 	
 	
 	badHead = head;
@@ -653,12 +663,9 @@ void Heap_Dump(void)
 	
 	Panic("Heap_Dump - Heap is corrupted, kernel panic!");
 }
-#endif
 
-#if 1
 void Heap_Stats(void)
 {
-	tHeapHead	*head;
 	 int	nBlocks = 0;
 	 int	nFree = 0;
 	 int	totalBytes = 0;
@@ -666,10 +673,7 @@ void Heap_Stats(void)
 	 int	maxAlloc=0, minAlloc=-1;
 	 int	avgAlloc, frag, overhead;
 	
-	for(head = gHeapStart;
-		(Uint)head < (Uint)gHeapEnd;
-		head = (void*)( (Uint)head + head->Size )
-		)
+	for(tHeapHead *head = gHeapStart; head < gHeapEnd; head = (void*)( (tVAddr)head + head->Size ) )
 	{	
 		nBlocks ++;
 		totalBytes += head->Size;
@@ -695,7 +699,8 @@ void Heap_Stats(void)
 				head->Data, MM_GetPhysAddr(&head->Data), head->Size);
 		else
 			Log_Debug("Heap", "%p (%P) - 0x%x (%i) Owned by %s:%i (%lli ms old)",
-				head->Data, MM_GetPhysAddr(&head->Data), head->Size, head->ValidSize, head->File, head->Line,
+				head->Data, MM_GetPhysAddr(&head->Data), head->Size,
+				head->ValidSize, head->File, head->Line,
 				now() - head->AllocateTime
 				);
 		#endif
@@ -734,10 +739,7 @@ void Heap_Stats(void)
 		
 		memset(sizeCounts, 0, nBlocks*sizeof(sizeCounts[0]));
 		
-		for(head = gHeapStart;
-			(Uint)head < (Uint)gHeapEnd;
-			head = (void*)( (Uint)head + head->Size )
-			)
+		for(tHeapHead *head = gHeapStart; head < gHeapEnd; head = (void*)( (tVAddr)head + head->Size ) )
 		{
 			for( i = 0; i < nBlocks; i ++ ) {
 				if( sizeCounts[i].Size == 0 )
@@ -749,12 +751,12 @@ void Heap_Stats(void)
 			if( i == nBlocks )	continue;
 			sizeCounts[i].Size = head->Size;
 			sizeCounts[i].Count ++;
-			#if 1
-			//Log("Heap_Stats: %i %p - 0x%x bytes (%s) (%i)", nBlocks, head,
-			//	head->Size, (head->Magic==MAGIC_FREE?"FREE":"used"), i
-			//	);
-			//Log("Heap_Stats: sizeCounts[%i] = {Size:0x%x, Count: %i}", i,
-			//	sizeCounts[i].Size, sizeCounts[i].Count);
+			#if 0
+			Log("Heap_Stats: %i %p - 0x%x bytes (%s) (%i)", nBlocks, head,
+				head->Size, (head->Magic==MAGIC_FREE?"FREE":"used"), i
+				);
+			Log("Heap_Stats: sizeCounts[%i] = {Size:0x%x, Count: %i}", i,
+				sizeCounts[i].Size, sizeCounts[i].Count);
 			#endif
 		}
 		
@@ -767,7 +769,6 @@ void Heap_Stats(void)
 	}
 	#endif
 }
-#endif
 
 // === EXPORTS ===
 EXPORT(Heap_Allocate);
