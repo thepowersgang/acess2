@@ -197,7 +197,7 @@ void streamToFile(int Socket, const char *OutputFile, int bAppend, size_t bytes_
 		return ;
 	}
 	
-	int64_t	start_time = _SysTimestamp();
+	int64_t	start_time = _SysTimestamp()-1;
 	size_t	bytes_seen = 0;
 	// Write the remainder of the buffer
 	do
@@ -205,19 +205,21 @@ void streamToFile(int Socket, const char *OutputFile, int bAppend, size_t bytes_
 		write(outfd, inbuf, len);
 		bytes_seen += len;
 		_SysDebug("%i/%i bytes done", bytes_seen, bytes_wanted);
-		printf("%7i/%7i KiB (%iKiB/s)\r",
+		printf("%7i/%7i KiB (%ikB/s)   \r",
 			bytes_seen/1024, bytes_wanted/1024,
 			bytes_seen/(_SysTimestamp() - start_time)
 			);
 		fflush(stdout);
 		
-		len = read(Socket, inbuf, buflen);
+		if( bytes_seen < bytes_wanted )
+			len = read(Socket, inbuf, buflen);
 	} while( bytes_seen < bytes_wanted && len > 0 );
+	int64_t	stop_time = _SysTimestamp();
 	close(outfd);
-	printf("%i KiB done in %is (%i KiB/s)\n",
+	printf("%i KiB done in %is (%i kB/s)\n",
 		bytes_seen/1024,
-		(_SysTimestamp() - start_time)/1000,
-		bytes_seen/(_SysTimestamp() - start_time)
+		(int)(stop_time - start_time)/1000,
+		bytes_seen/(stop_time - start_time)
 		);
 }
 
