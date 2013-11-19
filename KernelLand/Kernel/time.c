@@ -77,17 +77,14 @@ void Timer_CallTimers()
 	SHORTLOCK(&gTimers_ListLock);
 	while( gTimers && gTimers->FiresAfter < now() )
 	{
+		ASSERT( gTimers != gTimers->Next );	
 		// Get timer from list
 		tTimer	*timer = gTimers;
-	
-		ASSERT( gTimers != gTimers->Next );	
 		gTimers = gTimers->Next;
 	
 		// Perform event
 		if( timer->Callback ) {
 			LOG("Callback schedule %p", timer);
-			// PROBLEM! Possibly causes rescheudle during interrupt
-//			Mutex_Acquire( &timer->Lock );	// Released once the callback fires
 			Workqueue_AddWork(&gTimers_CallbackQueue, timer);
 		}
 		else {
@@ -151,7 +148,7 @@ void Time_ScheduleTimer(tTimer *Timer, int Delta)
 	Timer->Next = t;
 	*prev_next = Timer;
 	Timer->bActive = 1;
-	LOG(" %p %p %p", prev_next, Timer, t);
+	LOG(" prev_next=%p Timer=%p next=%p", prev_next, Timer, t);
 	SHORTREL(&gTimers_ListLock);
 }
 
@@ -210,6 +207,7 @@ void Time_InitTimer(tTimer *Timer, tTimerCallback *Callback, void *Argument)
 	Timer->Argument = Argument;
 //	memset( &Timer->Lock, 0, sizeof(Timer->Lock) );
 	Timer->bActive = 0;
+	LOG("Initialised timer %p (cb=%p,arg=%p)", Timer, Callback, Argument);
 }
 
 /**
@@ -236,6 +234,7 @@ void Time_FreeTimer(tTimer *Timer)
  */
 void Time_Delay(int Delay)
 {
+	LOG("(%i)", Delay);
 	tTimer	*t = &Proc_GetCurThread()->ThreadTimer;
 	Time_InitTimer(t, NULL, NULL);
 	Time_ScheduleTimer(t, Delay);
