@@ -21,6 +21,7 @@
 
 #define FILE_FLAG_EOF   	0x0100
 #define FILE_FLAG_LINEBUFFERED	0x1000	// Flush when '\n' encountered
+#define FILE_FLAG_OURBUFFER	0x2000	// Buffer is owned by stdio
 
 #define FILE_FLAG_ALLOC 	0x8000	// Internal 'is used' flag
 

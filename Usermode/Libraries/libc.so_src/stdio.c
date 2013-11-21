@@ -40,13 +40,13 @@ void _stdio_init(void)
 	// Init FileIO Pointers
 	stdin = &_iob[0];
 	stdin->FD = 0;
-	stdin->Flags = FILE_FLAG_ALLOC|FILE_FLAG_MODE_READ|FILE_FLAG_LINEBUFFERED;
+	stdin->Flags = FILE_FLAG_ALLOC|FILE_FLAG_MODE_READ|FILE_FLAG_LINEBUFFERED|FILE_FLAG_OURBUFFER;
 	stdin->Buffer = malloc(STDIN_BUFSIZ);
 	stdin->BufferSpace = STDIN_BUFSIZ;
 
 	stdout = &_iob[1];
 	stdout->FD = 1;
-	stdout->Flags = FILE_FLAG_ALLOC|FILE_FLAG_MODE_WRITE|FILE_FLAG_LINEBUFFERED;
+	stdout->Flags = FILE_FLAG_ALLOC|FILE_FLAG_MODE_WRITE|FILE_FLAG_LINEBUFFERED|FILE_FLAG_OURBUFFER;
 	stdout->Buffer = malloc(STDOUT_BUFSIZ);
 	stdout->BufferSpace = STDOUT_BUFSIZ;
 	
@@ -151,6 +151,16 @@ EXPORT FILE *freopen(const char *file, const char *mode, FILE *fp)
 		return NULL;
 	}
 	
+	// Default to buffered
+	// - Disabled until fseek() is fixed
+	#if 0
+	fp->BufferOfs = 0;
+	fp->BufferPos = 0;
+	fp->BufferSpace = BUFSIZ;
+	fp->Buffer = malloc( fp->BufferSpace );
+	fp->Flags |= FILE_FLAG_OURBUFFER;
+	#endif
+	
 	if( (fp->Flags & FILE_FLAG_MODE_MASK) == FILE_FLAG_MODE_APPEND ) {
 		_SysSeek(fp->FD, 0, SEEK_END);	//SEEK_END
 	}
@@ -220,6 +230,10 @@ EXPORT int fclose(FILE *fp)
 	fflush(fp);
 	if( fp->FD >= 0 ) {
 		_SysClose(fp->FD);
+		if( fp->Buffer && (fp->Flags & FILE_FLAG_OURBUFFER) ) {
+			free(fp->Buffer);
+		}
+		fp->Buffer = NULL;
 	}
 	fp->Flags = 0;
 	fp->FD = FD_NOTOPEN;
@@ -262,8 +276,12 @@ EXPORT int setvbuf(FILE *fp, char *buffer, int mode, size_t size)
 		}
 		// Allocate a buffer if one was not provided
 		if( !buffer ) {
+			fp->Flags |= FILE_FLAG_OURBUFFER;
 			buffer = malloc(size);
 			assert(buffer);
+		}
+		else {
+			fp->Flags &= ~FILE_FLAG_OURBUFFER;
 		}
 		
 		// Set buffer pointer and size
@@ -592,6 +610,37 @@ size_t _fread_memstream(void *ptr, size_t size, size_t num, FILE *fp)
 }
 #endif
 
+size_t _fread_buffered(void *ptr, size_t size, FILE *fp)
+{
+	_SysDebug("%p: %i-%i <= %i", fp,
+		(int)fp->Pos, (int)fp->BufferOfs, (int)fp->BufferPos);
+	if( fp->BufferPos > 0 ) {
+		assert( fp->Pos - fp->BufferOfs <= fp->BufferPos );
+	}
+	if( fp->BufferPos == 0 || fp->Pos - fp->BufferOfs == fp->BufferPos )
+	{
+		int rv = _SysRead(fp->FD, fp->Buffer, fp->BufferSpace);
+		if( rv <= 0 ) {
+			fp->Flags |= FILE_FLAG_EOF;
+			return 0;
+		}
+		
+		fp->BufferPos = rv;
+		fp->BufferOfs = fp->Pos;
+		_SysDebug("%p: Buffered %i at %i", fp, rv, fp->Pos);
+	}
+	
+	size_t	inner_ofs = fp->Pos - fp->BufferOfs;
+	if(size > fp->BufferPos - inner_ofs)
+		size = fp->BufferPos - inner_ofs;
+	
+	_SysDebug("%p: Read %i from %i+%i", fp, size,
+		(int)fp->BufferOfs, inner_ofs);
+	memcpy(ptr, fp->Buffer + inner_ofs, size);
+	fp->Pos += size;
+	return size;
+}
+
 /**
  * \fn EXPORT size_t fread(void *ptr, size_t size, size_t num, FILE *fp)
  * \brief Read from a stream
@@ -610,6 +659,11 @@ EXPORT size_t fread(void *ptr, size_t size, size_t num, FILE *fp)
 		return -1;
 	}
 
+	// Don't read if EOF is set
+	if( fp->Flags & FILE_FLAG_EOF )
+		return 0;
+
+	
 	if( fp->FD == FD_MEMFILE ) {
 		return _fread_memfile(ptr, size, num, fp);
 	}
@@ -618,18 +672,49 @@ EXPORT size_t fread(void *ptr, size_t size, size_t num, FILE *fp)
 		errno = EBADF;
 		return 0;
 	}
-	
+
 	// Standard file
-	ret = _SysRead(fp->FD, ptr, size*num);
-	if( ret == (size_t)-1)
-		return -1;
-	if( ret == 0 && size*num > 0 ) {
-		fp->Flags |= FILE_FLAG_EOF;
-		return 0;
+	const size_t	bytes = size*num;
+
+	// TODO: Buffered reads
+	if( fp->BufferSpace )
+	{
+		size_t	ofs = 0;
+		size_t	rv;
+		// While not done, and buffered read succeeds
+		while( ofs < bytes && (rv = _fread_buffered((char*)ptr + ofs, bytes - ofs, fp)) != 0 )
+		{
+			ofs += rv;
+		}
+		
+		ret = ofs;
 	}
-	ret /= size;
+	else
+	{
+		ret = _SysRead(fp->FD, ptr, bytes);
+		if( ret == (size_t)-1)
+			return -1;
+		if( ret == 0 && bytes > 0 ) {
+			fp->Flags |= FILE_FLAG_EOF;
+			return 0;
+		}
+	}
+
+	// if read was cut short	
+	if( ret != bytes )
+	{
+		size_t	extra = ret - (ret / size) * size;
+		// And it didn't fall short on a member boundary
+		if( extra )
+		{
+			// Need to roll back the file pointer to the end of the last member
+			_SysDebug("fread: TODO Roll back %zi bytes due to incomplete object (sz=%zi,n=%zi)",
+				extra, size, num
+				);
+		}
+	}
 	
-	return ret;
+	return ret / size;
 }
 
 /**
@@ -665,13 +750,14 @@ EXPORT char *fgets(char *s, int size, FILE *fp)
  */
 EXPORT int fputc(int c, FILE *fp)
 {
-	return fwrite(&c, 1, 1, fp);
+	char	ch = c;
+	return fwrite(&ch, 1, 1, fp);
 }
 
 EXPORT int putchar(int c)
 {
 	c &= 0xFF;
-	return _SysWrite(_stdout, &c, 1);
+	return fputc(c, stdout);
 }
 
 /**
@@ -688,20 +774,17 @@ EXPORT int fgetc(FILE *fp)
 
 EXPORT int getchar(void)
 {
-	char	ret = 0;
-	if(_SysRead(_stdin, &ret, 1) != 1)	return -1;
-	return ret;
+	return fgetc(stdin);
 }
 
 EXPORT int puts(const char *str)
 {
-	 int	len;
 	
 	if(!str)	return 0;
-	len = strlen(str);
+	 int	len = strlen(str);
 	
-	len = _SysWrite(_stdout, str, len);
-	_SysWrite(_stdout, "\n", 1);
+	fwrite(str, 1, len, stdout);
+	fwrite("\n", 1, 1, stdout);
 	return len;
 }
 
@@ -712,8 +795,7 @@ EXPORT int puts(const char *str)
  */
 FILE *get_file_struct()
 {
-	 int	i;
-	for(i=0;i<STDIO_MAX_STREAMS;i++)
+	for(int i=0;i<STDIO_MAX_STREAMS;i++)
 	{
 		if(_iob[i].Flags & FILE_FLAG_ALLOC)
 			continue ;
