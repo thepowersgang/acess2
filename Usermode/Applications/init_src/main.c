@@ -27,7 +27,7 @@ void	RespawnProgam(tInitProgram *Program);
  int	AddSerialTerminal(const char *DevPathSegment, const char *ModeStr, char **Command);
  int	AddDaemon(char *StdoutPath, char *StderrPath, char **Command);
 
- int	SpawnCommand(int c_stdin, int c_stdout, int c_stderr, char **ArgV);
+ int	SpawnCommand(int c_stdin, int c_stdout, int c_stderr, char **ArgV, const char **EnvP);
  int	SpawnKTerm(tInitProgram *Program);
  int	SpawnSTerm(tInitProgram *Program);
  int	SpawnDaemon(tInitProgram *Program);
@@ -57,7 +57,9 @@ int main(int argc, char *argv[])
 		#if 1
 		for( ;; )
 		{
-			int pid = SpawnCommand(0, 1, 1, (char *[]){DEFAULT_SHELL, NULL});
+			char *args[] = {DEFAULT_SHELL, NULL};
+			const char *env[] = {"TERM=screen", NULL};
+			int pid = SpawnCommand(0, 1, 1, args, env);
 			// TODO: Detect errors
 			_SysWaitTID(pid, NULL);
 		}
@@ -409,7 +411,7 @@ int AddDaemon(char *StdoutPath, char *StderrPath, char **Command)
 	return 0;
 }
 
-int SpawnCommand(int c_stdin, int c_stdout, int c_stderr, char **ArgV)
+int SpawnCommand(int c_stdin, int c_stdout, int c_stderr, char **ArgV, const char **EnvP)
 {
 	 int	handles[] = {c_stdin, c_stdout, c_stderr};
 
@@ -428,7 +430,7 @@ int SpawnCommand(int c_stdin, int c_stdout, int c_stderr, char **ArgV)
 		return 1;
 	}
 
-	int rv = _SysSpawn(ArgV[0], (const char **)ArgV, NULL, 3, handles, NULL);
+	int rv = _SysSpawn(ArgV[0], (const char **)ArgV, EnvP, 3, handles, NULL);
 
 	_SysClose(c_stdin);
 	if( c_stdout != c_stdin )
@@ -442,6 +444,7 @@ int SpawnCommand(int c_stdin, int c_stdout, int c_stderr, char **ArgV)
 int SpawnKTerm(tInitProgram *Program)
 {
 	const char fmt[] = "/Devices/pts/vt%i";
+	const char *env[] = {"TERM=screen", NULL};
 	char	path[sizeof(fmt)];
 	
 	snprintf(path, sizeof(path), fmt, Program->TypeInfo.KTerm.ID);
@@ -449,7 +452,7 @@ int SpawnKTerm(tInitProgram *Program)
 	 int	in = _SysOpen(path, OPENFLAG_READ);
 	 int	out = _SysOpen(path, OPENFLAG_WRITE);
 	
-	return SpawnCommand(in, out, out, Program->Command);
+	return SpawnCommand(in, out, out, Program->Command, env);
 }
 
 int SpawnSTerm(tInitProgram *Program)
@@ -472,7 +475,7 @@ int SpawnSTerm(tInitProgram *Program)
 	_SysIOCtl(in, SERIAL_IOCTL_GETSETFORMAT, &Program->TypeInfo.STerm.FormatBits);
 	#endif
 
-	return SpawnCommand(in, out, out, Program->Command);
+	return SpawnCommand(in, out, out, Program->Command, NULL);
 }
 
 int SpawnDaemon(tInitProgram *Program)
@@ -505,6 +508,6 @@ int SpawnDaemon(tInitProgram *Program)
 		_SysWrite(out, &ch, 1);
 	}
 	
-	return SpawnCommand(in, out, err, Program->Command);
+	return SpawnCommand(in, out, err, Program->Command, NULL);
 }
 
