@@ -17,6 +17,30 @@
 # include <assert.h>
 #endif
 
+enum eExcapeMode {
+	MODE_NORMAL,
+	MODE_IGNORE,
+	MODE_STRING
+};
+enum eStringType {
+	STRING_IGNORE,
+	STRING_TITLE
+};
+
+#define FLAG_BOLD	0x01
+#define FLAG_REVERSE	0x02
+
+typedef struct {
+	uint32_t	Flags;
+	int	CurFG, CurBG;
+	
+	enum eExcapeMode	Mode;
+	
+	enum eStringType	StringType;
+	size_t	StringLen;
+	char	*StringCache;
+} tVT100State;
+
 const uint32_t	caVT100Colours[] = {
 	// Black,      Red,    Green,   Yellow,     Blue,  Magenta,     Cyan,      Gray
 	// Same again, but bright
@@ -24,11 +48,28 @@ const uint32_t	caVT100Colours[] = {
 	0xCCCCCC, 0xFF0000, 0x00FF00, 0xFFFF00, 0x0000FF, 0xFF00FF, 0x00FFFF, 0xFFFFFF, 
 };
 
+ int	_locate_eos(size_t Len, const char *Buf);
  int	Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buf);
+ int	Term_HandleVT100_Short(tTerminal *Term, int Len, const char *Buf);
 
 static inline int min(int a, int b)
 {
 	return a < b ? a : b;
+}
+
+int _locate_eos(size_t Len, const char *Buf)
+{
+	size_t	ret = 0;
+	while( ret < Len )
+	{
+		if( Buf[ret] == '\007' )
+			return ret;
+		if( Buf[ret] == '\x9c' )
+			return ret;
+		if( ret+1 < Len && Buf[ret] == '\x1b' && Buf[ret+1] == '\\' )
+			return ret;
+	}
+	return -1;
 }
 
 int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
@@ -36,6 +77,54 @@ int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
 	#define	MAX_VT100_ESCAPE_LEN	16
 	static char	inc_buf[MAX_VT100_ESCAPE_LEN];
 	static int	inc_len = 0;
+	tVT100State	*st = Display_GetTermState(Term);
+	
+	if( st == NULL ) {
+		st = malloc( sizeof(*st) );
+		memset(st, 0, sizeof(*st));
+		Display_SetTermState(Term, st);
+	}
+
+	if( st->Mode == MODE_IGNORE ) {
+		st->Mode = MODE_NORMAL;
+		// Used for multi-byte EOS
+		return 1;
+	}
+	if( st->Mode == MODE_STRING )
+	{
+		// We're in a string mode
+		int pos = _locate_eos(Len, Buf);
+		size_t bytes = (pos >= 0 ? pos : Len);
+		char *tmp = realloc(st->StringCache, st->StringLen + bytes+1);
+		if(!tmp)	return bytes;
+		memcpy(tmp+st->StringLen, Buf, bytes);
+		tmp[st->StringLen+bytes] = 0;
+		
+		_SysDebug("pos=%i", pos);
+		_SysDebug("'%.*s'", bytes, Buf);
+		// Only apply when we hit EOS at the start
+		if( pos != 0 )
+			return bytes;
+		switch(st->StringType)
+		{
+		case STRING_TITLE:
+			Display_SetTitle(Term, st->StringCache);
+			break;
+		case STRING_IGNORE:
+			break;
+		}
+		free(st->StringCache);
+		st->StringCache = 0;
+		st->StringLen = 0;
+		
+		if( *Buf == '\x1b' ) {
+			st->Mode = MODE_IGNORE;
+			// skip the '\\'
+		}
+		else
+			st->Mode = MODE_NORMAL;
+		return 1;
+	}
 
 	if( inc_len > 0	|| *Buf == '\x1b' )
 	{
@@ -46,7 +135,7 @@ int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
 		memcpy(inc_buf + inc_len, Buf, new_bytes);
 
 		if( new_bytes == 0 ) {
-			_SysDebug("Term_HandleVT100: Hit max? (Len=%i)", Len);
+			_SysDebug("Term_HandleVT100: Hit max? (Len=%i) Flushing cache", Len);
 			inc_len = 0;
 			return 0;
 		}
@@ -57,26 +146,7 @@ int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
 		if( inc_len <= 1 )
 			return 1;	// Skip 1 character (the '\x1b')
 
-		switch(inc_buf[1])
-		{
-		case '[':	// Multibyte, funtime starts	
-			ret = Term_HandleVT100_Long(Term, inc_len-2, inc_buf+2);
-			if( ret > 0 ) {
-				ret += 2;
-			}
-			break;
-		case 'D':
-			Display_ScrollDown(Term, 1);
-			ret = 2;
-			break;
-		case 'M':
-			Display_ScrollDown(Term, -1);
-			ret = 2;
-			break;
-		default:
-			ret = 2;
-			break;
-		}	
+		ret = Term_HandleVT100_Short(Term, inc_len, inc_buf);
 
 		if( ret != 0 ) {
 			inc_len = 0;
@@ -100,6 +170,7 @@ int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
 		return 1;
 	case '\t':
 		// TODO: tab (get current cursor pos, space until multiple of 8)
+		_SysDebug("TODO: VT100 Support \\t tab");
 		return 1;
 	case '\n':
 		// TODO: Support disabling CR after NL
@@ -107,13 +178,12 @@ int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
 		return 1;
 	case '\r':
 		if( Len >= 2 && Buf[1] == '\n' ) {
+			// Fast case for \r\n
 			Display_Newline(Term, 1);
 			return 2;
 		}
-		else {
-			Display_MoveCursor(Term, 0, INT_MIN);
-			return 1;
-		}
+		Display_MoveCursor(Term, 0, INT_MIN);
+		return 1;
 	}
 
 	 int	ret = 0;
@@ -138,8 +208,68 @@ int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
 	return -ret;
 }
 
+int Term_HandleVT100_Short(tTerminal *Term, int Len, const char *Buf)
+{
+	tVT100State	*st = Display_GetTermState(Term);
+	 int	tmp;
+	switch(Buf[1])
+	{
+	case '[':	// Multibyte, funtime starts	
+		tmp = Term_HandleVT100_Long(Term, Len-2, Buf+2);
+		assert(tmp >= 0);
+		if( tmp == 0 )
+			return 0;
+		return tmp + 2;
+	case ']':
+		st->Mode = MODE_STRING;
+		st->StringType = STRING_IGNORE;
+		_SysDebug("TODO: \\e] Support title changes");
+		return 2;
+	case '=':
+		_SysDebug("TODO: \\e= Application Keypad");
+		return 2;
+	case '>':
+		_SysDebug("TODO: \\e= Normal Keypad");
+		return 2;
+	
+	case '(':	// Update G0 charset
+		tmp = 0; if(0)
+	case ')':	// Update G1 charset
+		tmp = 1; if(0)
+	case '*':
+		tmp = 2; if(0)
+	case '+':
+		tmp = 3;
+		
+		if( Len <= 2 )
+			return 0;	// We need more
+		switch(Buf[2])
+		{
+		case '0':	// DEC Special Character/Linedrawing set
+		case 'A':	// UK
+		case 'B':	// US ASCII
+			break;
+		}
+		return 3;
+	// xterm C1 \eD and \eM are 'Index' and 'Reverse Index'
+	// - Aparently scroll?
+	//case 'D':
+	//	Display_ScrollDown(Term, 1);
+	//	ret = 2;
+	//	break;
+	//case 'M':
+	//	Display_ScrollDown(Term, -1);
+	//	ret = 2;
+	//	break;
+	default:
+		_SysDebug("Unknown VT100 \\e%c", Buf[1]);
+		return 2;
+	}
+}
+
 int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 {
+	tVT100State	*st = Display_GetTermState(Term);
 	char	c;
 	 int	argc = 0, j = 0;
 	 int	args[6] = {0,0,0,0,0,0};
@@ -198,6 +328,13 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 			case 1047:	// Alternate buffer
 				Display_ShowAltBuffer(Term, set);
 				break;
+			case 1048:	// Save/restore cursor in DECSC
+				_SysDebug("TODO: \\e[?1048%c Save/Restore cursor", c);
+				break;
+			case 1049:	// Save/restore cursor in DECSC and use alternate buffer
+				_SysDebug("TODO: \\e[?1049%c Save/Restore cursor", c);
+				Display_ShowAltBuffer(Term, set);
+				break;
 			default:
 				_SysDebug("TODO: \\e[?%i%c Unknow DEC private mode", args[0], c);
 				break;
@@ -253,10 +390,10 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 			switch( args[0] )
 			{
 			case 0:	// To EOL
-				Display_ClearLine(Term, -1);
+				Display_ClearLine(Term, 1);
 				break;
 			case 1:	// To SOL
-				Display_ClearLine(Term, 1);
+				Display_ClearLine(Term, -1);
 				break;
 			case 2:
 				Display_ClearLine(Term, 0);
@@ -265,7 +402,7 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 				_SysDebug("Unknown VT100 %i K", args[0]);
 				break;
 			}
-		case 'S':	// Scroll down n=1
+		case 'S':	// Scroll up n=1
 			Display_ScrollDown(Term, -(argc >= 1 ? args[0] : 1));
 			break;
 		case 'T':	// Scroll down n=1
@@ -284,21 +421,30 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 					switch(args[i])
 					{
 					case 0:
+						st->Flags = 0;
 						Display_ResetAttributes(Term);
 						break;
 					case 1:
-						_SysDebug("TODO: VT100 \\e[1m - Bold");
+						st->Flags |= FLAG_BOLD;
+						Display_SetForeground( Term, caVT100Colours[st->CurFG + 8] );
 						break;
 					case 2:
 						_SysDebug("TODO: VT100 \\e[1m - Reverse");
 						break;
 					case 30 ... 37:
-						// TODO: Bold/bright
-						Display_SetForeground( Term, caVT100Colours[ args[i]-30 ] );
+						st->CurFG = args[i]-30;
+						if(0)
+					case 39:
+						st->CurFG = 7;
+						Display_SetForeground( Term,
+							caVT100Colours[ st->CurFG + (st->Flags&FLAG_BOLD?8:0) ] );
 						break;
 					case 40 ... 47:
-						// TODO: Bold/bright
-						Display_SetBackground( Term, caVT100Colours[ args[i]-40 ] );
+						st->CurBG = args[i]-40;
+						if(0)
+					case 49:
+						st->CurBG = 0;
+						Display_SetBackground( Term, caVT100Colours[ st->CurBG ] );
 						break;
 					default:
 						_SysDebug("TODO: VT100 \\e[%im", args[i]);

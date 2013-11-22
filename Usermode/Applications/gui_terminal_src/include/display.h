@@ -16,6 +16,10 @@ typedef struct sTerminal	tTerminal;
 
 extern tTerminal	*Display_Init(int Cols, int Lines, int ExtraScrollbackLines);
 
+// TermState is a variable used by the terminal emulation code
+extern void	*Display_GetTermState(tTerminal *Term);
+extern void	Display_SetTermState(tTerminal *Term, void *State);
+
 extern void	Display_AddText(tTerminal *Term, size_t Length, const char *UTF8Text);
 extern void	Display_Newline(tTerminal *Term, bool bCarriageReturn);
 extern void	Display_SetScrollArea(tTerminal *Term, int Start, int Count);	// Only valid in AltBuffer
@@ -39,6 +43,8 @@ extern void	Display_Flush(tTerminal *Term);
  * \brief Switch the display to the alternate buffer (no scrollback)
  */
 extern void	Display_ShowAltBuffer(tTerminal *Term, bool AltBufEnabled);
+
+extern void	Display_SetTitle(tTerminal *Term, const char *Title);
 
 #endif
 

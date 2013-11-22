@@ -46,6 +46,8 @@ struct sVTerm
 {
 	 int	Mode;	//!< Current Mode (see ::eTplTerminal_Modes)
 	 int	Flags;	//!< Flags (see VT_FLAG_*)
+
+	void	*VT100Info;
 	
 	short	Width;	//!< Virtual Width
 	short	Height;	//!< Virtual Height

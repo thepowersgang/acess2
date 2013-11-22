@@ -42,6 +42,8 @@ struct sLine {
 };
 
 struct sTerminal {
+	void	*TermState;
+	
 	 int	ViewCols;
 	 int	ViewRows;
 
@@ -95,6 +97,13 @@ tTerminal *Display_Init(int Cols, int Lines, int ExtraScrollbackLines)
 	AxWin3_RichText_SetLineCount(gMainWindow, Lines+ExtraScrollbackLines);
 	AxWin3_RichText_SetCursorType(gMainWindow, 1);	// TODO: enum
 	return term;
+}
+
+void *Display_GetTermState(tTerminal *Term) {
+	return Term->TermState;
+}
+void Display_SetTermState(tTerminal *Term, void *State) {
+	Term->TermState = State;
 }
 
 // Return the byte length of a single on-screen character
@@ -525,5 +534,10 @@ void Display_ShowAltBuffer(tTerminal *Term, bool AltBufEnabled)
 		AxWin3_RichText_SetLineCount(gMainWindow, Term->TotalLines);
 	}
 	Display_int_SetCursor(Term, row, col);
+}
+
+void Display_SetTitle(tTerminal *Term, const char *Title)
+{
+	_SysDebug("TODO: Set window title to '%s'", Title);
 }
 

@@ -5,15 +5,22 @@
  * drv/vterm_vt100.c
  * - Virtual Terminal - VT100 (Kinda) Emulation
  */
-#define DEBUG	1
+#define DEBUG	0
 #include "vterm.h"
 
 #define sTerminal	sVTerm
 #include "../../../Usermode/Applications/gui_terminal_src/vt100.c"
 
+void *Display_GetTermState(tTerminal *Term) {
+	return Term->VT100Info;;
+}
+void Display_SetTermState(tTerminal *Term, void *State) {
+	Term->VT100Info = State;
+}
+
 void Display_AddText(tTerminal *Term, size_t Length, const char *UTF8Text)
 {
-	LOG("'%.*s'", Length, UTF8Text);
+	LOG("'%*C'", Length, UTF8Text);
 	VT_int_PutRawString(Term, (const void*)UTF8Text, Length);
 }
 void Display_Newline(tTerminal *Term, bool bCarriageReturn)
@@ -146,7 +153,6 @@ void Display_ClearLines(tTerminal *Term, int Dir)
 {
 	LOG("(Dir=%i)", Dir);	
 	 int	*wrpos = (Term->Flags & VT_FLAG_ALTBUF ? &Term->AltWritePos : &Term->WritePos);
-	tVT_Char	*buffer = (Term->Flags & VT_FLAG_ALTBUF ? Term->AltBuf : Term->Text);
 	
 	// All
 	if( Dir == 0 ) {
@@ -205,5 +211,9 @@ void Display_ShowAltBuffer(tTerminal *Term, bool AltBufEnabled)
 {
 	LOG("(%B)", AltBufEnabled);
 	VT_int_ToggleAltBuffer(Term, AltBufEnabled);
+}
+void Display_SetTitle(tTerminal *Term, const char *Title)
+{
+	// ignore
 }
 
