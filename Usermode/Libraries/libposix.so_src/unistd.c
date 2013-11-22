@@ -242,6 +242,7 @@ char *getpass(const char *prompt)
 	mode.OutputMode = 0;
 	_SysIOCtl(STDIN_FILENO, PTY_IOCTL_SETMODE, &mode);
 	fprintf(stderr, "%s", prompt);
+	fflush(stdin);	// clear stdin buffer
 	fgets(passbuf, PASS_MAX+1, stdin);
 	fprintf(stderr, "\n");
 	for( int i = strlen(passbuf); i > 0 && (passbuf[i-1] == '\r' || passbuf[i-1] == '\n'); i -- )
@@ -269,6 +270,8 @@ int ttyname_r(int fd, char *buf, size_t buflen)
 		return ENOTTY;
 
 	_SysIOCtl(fd, PTY_IOCTL_GETID, NULL);	
+
+	_SysDebug("TODO: ttyname_r");
 
 	return ENOTIMPL;
 }
