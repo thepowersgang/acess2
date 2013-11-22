@@ -394,7 +394,13 @@ int vsnprintf(char *__s, const size_t __maxlen, const char *__format, va_list ar
 			if( !CheckMem(p, minSize) )	continue;	// No #PFs please
 			if(!p)	goto printString;
 			while(minSize--) {
-				PUTCH(*p);
+				if(*p == '\0') {
+					PUTCH('\\');
+					PUTCH('0');
+				}
+				else {
+					PUTCH(*p);
+				}
 				p ++;
 			}
 			break;
