@@ -29,6 +29,7 @@ extern void	Debug_SetKTerminal(char *Path);
 extern int	VT_Install(char **Arguments);
 extern int	Mouse_Install(char **Arguments);
 extern int	IPCPipe_Install(char **Arguments);
+extern int	Net_Install(char **Arguments);
 extern int	VFS_Mount(const char *Device, const char *MountPoint, const char *Filesystem, const char *Options);
 extern int	VFS_MkDir(const char *Path);
 extern int	SyscallServer(void);
@@ -100,6 +101,7 @@ int main(int argc, char *argv[])
 	Mouse_Install(NULL);
 	IPCPipe_Install(NULL);
 	PTY_Install(NULL);
+	Net_Install(NULL);
 	// - Start VTerm
 	{
 		char	*args[] = {
@@ -129,13 +131,13 @@ int main(int argc, char *argv[])
 		args[argcount++] = "valgrind";
 		#endif
 		args[argcount++] = "./ld-acess";
-		args[argcount++] = "--open";	args[argcount++] = "/Devices/VTerm/0";
-		args[argcount++] = "--open";	args[argcount++] = "/Devices/VTerm/0";
-		args[argcount++] = "--open";	args[argcount++] = "/Devices/VTerm/0";
+		args[argcount++] = "--open";	args[argcount++] = "/Devices/pts/vt0";
+		args[argcount++] = "--open";	args[argcount++] = "/Devices/pts/vt0";
+		args[argcount++] = "--open";	args[argcount++] = "/Devices/pts/vt0";
 		for( i = 0; i < rootapp_argc; i ++ )
 			args[argcount+i] = rootapp[i];
 		args[argcount+rootapp_argc] = NULL;
-		pid = spawnv(P_NOWAIT, "./ld-acess", args);
+		pid = spawnv(P_NOWAIT, "./ld-acess", (char *const*)args);
 		if(pid < 0) {
 			perror("Starting root application [fork(2)]");
 			return 1;
@@ -164,5 +166,10 @@ uint64_t DivMod64U(uint64_t Num, uint64_t Den, uint64_t *Rem)
 int Module_EnsureLoaded(const char *Name)
 {
 	return 0;
+}
+
+void Proc_PrintBacktrace(void)
+{
+	
 }
 

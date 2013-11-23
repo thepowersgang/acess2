@@ -32,6 +32,8 @@ BUILDINFO_SRC := $(BUILDINFO_OBJ:%.o=%.c)
 
 OBJ := helpers.o threads.o threads_glue.o server.o syscalls.o time.o
 OBJ += video.o keyboard.o mouse.o nativefs.o vfs_handle.o ui_sdl.o
+OBJ += net.o net_wrap.o
+
 OBJ := $(addprefix obj-$(PLATFORM)/,$(OBJ))
 N_OBJ := $(addprefix obj-$(PLATFORM)/,$(N_OBJ))
 K_OBJ := $(addprefix $(KERNEL_SRC)obj-native-$(PLATFORM)/,$(KERNEL_OBJ))
