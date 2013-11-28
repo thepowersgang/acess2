@@ -63,6 +63,7 @@ tVFS_Node	gNet_Node_Routes = {
 int Net_Install(char **Arguments)
 {
 	DevFS_AddDevice(&gNet_DevInfo);
+	Net_Wrap_Init();
 	return 0;
 }
 
@@ -154,7 +155,7 @@ int Net_TCPC_IOCtl(tVFS_Node *Node, int IOCtl, void *Data)
 	case 7:	// Connect
 		Node->Data = Net_Wrap_ConnectTcp(Node, tcpc->SrcPort, tcpc->DstPort,
 			tcpc->AddrType, tcpc->DestAddr);
-		return (Node->Data == NULL);
+		return (Node->Data != NULL);
 	case 8:
 		Debug("TODO: TCPC rx buffer length");
 		return -1;

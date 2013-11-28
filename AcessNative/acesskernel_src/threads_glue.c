@@ -21,6 +21,7 @@ typedef void	**tShortSpinlock;
 
 #define NORETURN	__attribute__((noreturn))
 #include <logdebug.h>	// Kernel land, but uses standards
+#include <errno.h>
 
 // === CODE ===
 void Threads_Glue_Yield(void)
@@ -82,9 +83,15 @@ void Threads_int_ShortLock(void **MutexPtr)
 {
 	if( !*MutexPtr ) {
 		*MutexPtr = malloc( sizeof(pthread_mutex_t) );
+		pthread_mutexattr_t	attr;
+		pthread_mutexattr_init(&attr);
+		pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ERRORCHECK);
 		pthread_mutex_init(*MutexPtr, NULL);
 	}
-	pthread_mutex_lock(*MutexPtr);
+	if( pthread_mutex_lock(*MutexPtr) ) {
+		fprintf(stderr, "ERROR: Mutex pointer %p double locked\n", MutexPtr);
+		AcessNative_Exit();
+	}
 }
 
 void Threads_int_ShortRel(void **MutexPtr)
@@ -92,4 +99,18 @@ void Threads_int_ShortRel(void **MutexPtr)
 	pthread_mutex_unlock(*MutexPtr);
 }
 
+int Threads_int_ShortHas(void **Ptr)
+{
+	if( !*Ptr )
+		return 0;
+	int rv = pthread_mutex_trylock(*Ptr);
+	if( rv == 0 ) {
+		pthread_mutex_unlock(*Ptr);
+		return 0;
+	}
+	if( rv == EBUSY ) {
+		return 0;
+	}
+	return 1;
+}
 

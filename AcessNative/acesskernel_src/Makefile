@@ -14,6 +14,7 @@ endif
 KERNEL_SRC = ../../KernelLand/Kernel/
 LDACESS_SRC = ../../Usermode/Libraries/ld-acess.so_src/
 
+# - Kernel objects (from KernelLand/Kernel)
 KERNEL_OBJ := logging.o adt.o lib.o debug.o messages.o drvutil_disk.o drvutil_video.o
 KERNEL_OBJ += mutex.o semaphore.o rwlock.o workqueue.o events.o
 #KERNEL_OBJ += libc.o
@@ -24,15 +25,15 @@ KERNEL_OBJ += drv/fifo.o drv/proc.o drv/dgram_pipe.o
 KERNEL_OBJ += drv/vterm.o drv/vterm_font.o drv/vterm_output.o drv/vterm_input.o drv/vterm_termbuf.o
 KERNEL_OBJ += drv/vterm_vt100.o drv/vterm_2d.o
 KERNEL_OBJ += drv/pty.o
-
-N_OBJ := main.o
+# - Native (unsullied) objects
+N_OBJ := main.o net_wrap.o
+# - Local objects (use the kernel includes)
+OBJ := helpers.o threads.o threads_glue.o server.o syscalls.o time.o
+OBJ += video.o keyboard.o mouse.o nativefs.o vfs_handle.o ui_sdl.o
+OBJ += net.o
 
 BUILDINFO_OBJ := obj-$(PLATFORM)/buildinfo.o
 BUILDINFO_SRC := $(BUILDINFO_OBJ:%.o=%.c)
-
-OBJ := helpers.o threads.o threads_glue.o server.o syscalls.o time.o
-OBJ += video.o keyboard.o mouse.o nativefs.o vfs_handle.o ui_sdl.o
-OBJ += net.o net_wrap.o
 
 OBJ := $(addprefix obj-$(PLATFORM)/,$(OBJ))
 N_OBJ := $(addprefix obj-$(PLATFORM)/,$(N_OBJ))

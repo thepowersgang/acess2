@@ -40,10 +40,11 @@ struct sShortSpinlock
 
 extern void	Threads_int_ShortLock(void **Ptr);
 extern void	Threads_int_ShortRel(void **Ptr);
+extern int	Threads_int_ShortHas(void **Ptr);
 
 #define SHORTLOCK(l)	Threads_int_ShortLock(&(l)->Mutex)
 #define SHORTREL(l)	Threads_int_ShortRel(&(l)->Mutex)
-#define CPU_HAS_LOCK(...)	0
+#define CPU_HAS_LOCK(l)	Threads_int_ShortHas(&(l)->Mutex)
 
 //#define	NUM_CFG_ENTRIES	10
 
