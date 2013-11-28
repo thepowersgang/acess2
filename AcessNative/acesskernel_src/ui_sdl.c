@@ -27,6 +27,7 @@ SDL_Thread	*gInputThread;
  int	giUI_Pitch = 0;
 tUI_KeybardCallback	gUI_KeyboardCallback;
 Uint32	gUI_Keymap[2][SDLK_LAST];	// Upper/Lower case
+ int	gbUpdateTriggered = 0;
 
 // === FUNCTIONS ===
 int UI_Initialise(int MaxWidth, int MaxHeight)
@@ -78,6 +79,7 @@ Uint32 UI_GetAcessKeyFromSDL(SDLKey Sym)
 	case SDLK_0 ... SDLK_9:
 		ret = Sym - SDLK_0 + KEYSYM_0;
 		break;
+	case SDLK_SLASH:	ret = KEYSYM_SLASH;	break;
 	case SDLK_CAPSLOCK:	ret = KEYSYM_CAPS;	break;
 	case SDLK_TAB:	ret = KEYSYM_TAB;	break;
 	case SDLK_UP:	ret = KEYSYM_UPARROW;	break;
@@ -105,6 +107,7 @@ Uint32 UI_GetAcessKeyFromSDL(SDLKey Sym)
 	case SDLK_RCTRL: 	ret = KEYSYM_RIGHTCTRL;	break;
 	case SDLK_RSHIFT: 	ret = KEYSYM_RIGHTSHIFT;	break;
 	case SDLK_RSUPER:	ret = KEYSYM_RIGHTGUI;	break;
+	case SDLK_BACKSPACE:	ret = KEYSYM_BACKSP;	break;
 	default:
 		printf("Unhandled key code %i\n", Sym);
 		break;
@@ -160,8 +163,12 @@ void UI_MainLoop(void)
 			break;
 
 		case SDL_USEREVENT:
-			SDL_UpdateRect(gScreen, 0, 0, giUI_Width, giUI_Height);
-			SDL_Flip(gScreen);
+			if( gbUpdateTriggered )
+			{
+				gbUpdateTriggered = 0;
+				SDL_UpdateRect(gScreen, 0, 0, giUI_Width, giUI_Height);
+				SDL_Flip(gScreen);
+			}
 			break;
 		
 		case SDL_MOUSEMOTION: {
@@ -230,12 +237,16 @@ void UI_Redraw(void)
 {
 	// TODO: Keep track of changed rectangle
 //	SDL_UpdateRect(gScreen, 0, 0, giUI_Width, giUI_Height);
-	SDL_Event	e;
+	if( gbUpdateTriggered == 0 )
+	{
+		gbUpdateTriggered = 1;
+		SDL_Event	e;
 
-	e.type = SDL_USEREVENT;
-	e.user.code = 0;
-	e.user.data1 = 0;
-	e.user.data2 = 0;	
+		e.type = SDL_USEREVENT;
+		e.user.code = 0;
+		e.user.data1 = 0;
+		e.user.data2 = 0;	
 
-	SDL_PushEvent( &e );
+		SDL_PushEvent( &e );
+	}
 }
