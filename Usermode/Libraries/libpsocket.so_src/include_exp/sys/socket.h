@@ -96,7 +96,8 @@ enum
 {
 	SO_REUSEADDR,
 	SO_LINGER,
-	SO_ERROR
+	SO_ERROR,
+	SO_KEEPALIVE,
 };
 
 // shutdown how

@@ -3,6 +3,38 @@
 
 #include <sys/socket.h>
 
+struct hostent
+{
+	char	*h_name;
+	char	**h_aliases;
+	 int	h_addrtype;
+	 int	h_length;
+	char	**h_addr_list;
+};
+
+struct netent
+{
+	char	*n_name;
+	char	**n_aliases;
+	int	n_addrtype;
+	uint32_t	n_net;
+};
+
+struct protoent
+{
+	char	*p_name;
+	char	**p_aliases;
+	 int	p_proto;
+};
+
+struct servent
+{
+	char	*s_name;
+	char	**s_aliases;
+	int	s_port;
+	char	*s_proto;
+};
+
 #define AI_PASSIVE	0x001
 #define AI_V4MAPPED	0x002
 #define AI_ADDRCONFIG	0x004
@@ -14,6 +46,17 @@
 #define NI_NOFQDN	(1<<2)
 #define	NI_NUMERICHOST	(1<<3)
 #define NI_NUMERICSERV	(1<<4)
+
+#define NI_MAXHOST	1024	// may not be posix
+
+// Error values from gethostbyaddr/gethostbyname
+enum
+{
+	HOST_NOT_FOUND = 1,
+	NO_DATA,
+	NO_RECOVERY,
+	TRY_AGAIN,
+};
 
 enum
 {
@@ -50,6 +93,12 @@ extern int	getaddrinfo(const char *node, const char *service, const struct addri
 extern void	freeaddrinfo(struct addrinfo *res);
 const char	*gai_strerror(int errorcode);
 
+extern struct servent	*getservbyname(const char *name, const char *proto);
+extern struct servent	*getservbyport(int port, const char *proto);
+
+extern void	setservent(int stayopen);
+extern struct servent	*getservent(void);
+extern void	enservent(void);
 
 #endif
 

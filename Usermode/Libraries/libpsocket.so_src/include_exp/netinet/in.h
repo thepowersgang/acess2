@@ -39,10 +39,15 @@ enum {
 	IPPROTO_UDP
 };
 
+#define INET_ADDRSTRLEN 	16
+#define INET6_ADDRSTRLEN	48	// linux
+
 struct in6_addr
 {
 	unsigned char	s6_addr[16];
 };
+
+extern struct in6_addr	in6addr_any;
 
 struct sockaddr_in6
 {
