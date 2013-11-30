@@ -50,6 +50,9 @@ while [[ $# -gt 0 ]]; do
 		arg=${arg/,/ }
 		_ldflags=$_ldflags" ${arg}"
 		;;
+	-Wall|-Werror|-Wextra)\
+		_cflags=$_cflags" $1"
+		;;
 	-l|-L)
 		_libs=$_libs" $1$2"
 		shift
@@ -62,6 +65,9 @@ while [[ $# -gt 0 ]]; do
 		;;
 	--inv=ld)
 		_actas=ld
+		;;
+	-pthread)
+		_ldflags=$_ldflags" -lpthread"
 		;;
 	-print-prog-name=ld)
 		echo $0 --inv=ld
