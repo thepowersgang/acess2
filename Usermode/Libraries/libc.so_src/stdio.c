@@ -615,9 +615,9 @@ size_t _fread_buffered(void *ptr, size_t size, FILE *fp)
 	_SysDebug("%p: %i-%i <= %i", fp,
 		(int)fp->Pos, (int)fp->BufferOfs, (int)fp->BufferPos);
 	if( fp->BufferPos > 0 ) {
-		assert( fp->Pos - fp->BufferOfs <= fp->BufferPos );
+		assert( fp->Pos - fp->BufferOfs <= (int)fp->BufferPos );
 	}
-	if( fp->BufferPos == 0 || fp->Pos - fp->BufferOfs == fp->BufferPos )
+	if( fp->BufferPos == 0 || fp->Pos - fp->BufferOfs == (int)fp->BufferPos )
 	{
 		int rv = _SysRead(fp->FD, fp->Buffer, fp->BufferSpace);
 		if( rv <= 0 ) {
