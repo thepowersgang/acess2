@@ -8,6 +8,7 @@
 #include <net.h>
 #include <readline.h>
 #include <acess/devices/pty.h>
+#include <stdarg.h>
 
 // === TYPES ===
 typedef struct sServer {
@@ -54,11 +55,13 @@ enum eMessageTypes
 };
 
 // === PROTOTYPES ===
+ int	main(int argc, const char *argv[], const char *envp[]);
+ int	MainLoop(void);
  int	ParseArguments(int argc, const char *argv[]);
  int	ParseUserCommand(char *String);
 // --- 
 tServer	*Server_Connect(const char *Name, const char *AddressString, short PortNumber);
-tMessage	*Message_AppendF(tServer *Server, int Type, const char *Source, const char *Dest, const char *Message, ...);
+tMessage	*Message_AppendF(tServer *Server, int Type, const char *Source, const char *Dest, const char *Message, ...) __attribute__((format(__printf__,5,6)));
 tMessage	*Message_Append(tServer *Server, int Type, const char *Source, const char *Dest, const char *Message);
 tWindow	*Window_Create(tServer *Server, const char *Name);
 void	Redraw_Screen(void);
@@ -96,7 +99,6 @@ void ExitHandler(void)
 int main(int argc, const char *argv[], const char *envp[])
 {
 	 int	tmp;
-	tReadline	*readline_info;
 	
 	// Parse Command line
 	if( (tmp = ParseArguments(argc, argv)) )	return tmp;
@@ -126,23 +128,33 @@ int main(int argc, const char *argv[], const char *envp[])
 	gWindow_Status.Server = Server_Connect( "UCC", "130.95.13.18", 6667 );
 	// Freenode (#osdev)
 //	gWindow_Status.Server = Server_Connect( "Freenode", "89.16.176.16", 6667 );
-//	gWindow_Status.Server = Server_Connect( "Host", "10.0.2.2", 6667 );
-	// Local server
+	// Local servers
+//	gWindow_Status.Server = Server_Connect( "VMHost", "10.0.2.2", 6667 );
 //	gWindow_Status.Server = Server_Connect( "BitlBee", "192.168.1.39", 6667 );
 	
 	if( !gWindow_Status.Server )
 		return -1;
 	
+	MainLoop();
+	
+	for( tServer *srv = gpServers; srv; srv = srv->Next )
+		_SysClose(srv->FD);
+	
+	return 0;
+}
+
+int MainLoop(void)
+{
 	SetCursorPos(giTerminal_Height-1, 0);
 	printf("[(status)] ");
 	fflush(stdout);
-	readline_info = Readline_Init(1);
+	
+	tReadline *readline_info = Readline_Init(1);
 	
 	for( ;; )
 	{
 		fd_set	readfds, errorfds;
-		 int	rv, maxFD = 0;
-		tServer	*srv;
+		 int	maxFD = 0;
 		
 		FD_ZERO(&readfds);
 		FD_ZERO(&errorfds);
@@ -151,7 +163,7 @@ int main(int argc, const char *argv[], const char *envp[])
 		fflush(stdout);
 		
 		// Fill server FDs in fd_set
-		for( srv = gpServers; srv; srv = srv->Next )
+		for( tServer *srv = gpServers; srv; srv = srv->Next )
 		{
 			FD_SET(srv->FD, &readfds);
 			FD_SET(srv->FD, &errorfds);
@@ -159,7 +171,7 @@ int main(int argc, const char *argv[], const char *envp[])
 				maxFD = srv->FD;
 		}
 		
-		rv = _SysSelect(maxFD+1, &readfds, 0, &errorfds, NULL, 0);
+		int rv = _SysSelect(maxFD+1, &readfds, 0, &errorfds, NULL, 0);
 		if( rv == -1 )	break;
 		
 		if(FD_ISSET(0, &readfds))
@@ -177,37 +189,33 @@ int main(int argc, const char *argv[], const char *envp[])
 				SetCursorPos(giTerminal_Height-1, 0);
 				printf("\x1B[2K");	// Clear line
 				if( gpCurrentWindow->Name[0] )
-					printf("[%s:%s] ", gpCurrentWindow->Server->Name, gpCurrentWindow->Name);
+					printf("[%s:%s] ",
+						gpCurrentWindow->Server->Name, gpCurrentWindow->Name);
 				else
 					printf("[(status)] ");
 			}
 		}
 		
 		// Server response
-		for( srv = gpServers; srv; srv = srv->Next )
+		for( tServer *srv = gpServers; srv; srv = srv->Next )
 		{
 			if(FD_ISSET(srv->FD, &readfds))
 			{
 				if( ProcessIncoming(srv) != 0 ) {
 					// Oops, error
-					break;
+					_SysDebug("ProcessIncoming failed on FD%i (Server %p %s)",
+						srv->FD, srv, srv->Name);
+					return 1;
 				}
 			}
 			
 			if(FD_ISSET(srv->FD, &errorfds))
 			{
-				break;
+				_SysDebug("Error on FD%i (Server %p %s)",
+					srv->FD, srv, srv->Name);
+				return 1;
 			}
 		}
-		
-		// Oops, an error
-		if( srv )	break;
-	}
-	
-	{
-		tServer *srv;
-		for( srv = gpServers; srv; srv = srv->Next )
-			_SysClose(srv->FD);
 	}
 	return 0;
 }
@@ -383,11 +391,14 @@ tMessage *Message_AppendF(tServer *Server, int Type, const char *Source, const c
 	 int	len;
 	va_start(args, Message);
 	len = vsnprintf(NULL, 0, Message, args);
-	{
-		char	buf[len+1];
-		vsnprintf(buf, len+1, Message, args);
-		return Message_Append(Server, Type, Source, Dest, buf);
-	}
+	va_end(args);
+	
+	char	buf[len+1];
+	va_start(args, Message);
+	vsnprintf(buf, len+1, Message, args);
+	va_end(args);
+	
+	return Message_Append(Server, Type, Source, Dest, buf);
 }
 
 tMessage *Message_Append(tServer *Server, int Type, const char *Source, const char *Dest, const char *Message)
@@ -473,8 +484,8 @@ tMessage *Message_Append(tServer *Server, int Type, const char *Source, const ch
 	// Print now if current window
 	if( win == gpCurrentWindow )
 	{
-		printf("\x1b[s");
-		printf("\x1b""D");	// Scroll down 1 (free space below)
+		printf("\33[s");
+		printf("\33[T");	// Scroll down 1 (free space below)
 		SetCursorPos(giTerminal_Height-2, 0);
 		 int	prefixlen = strlen(Source) + 3;
 		 int	avail = giTerminal_Width - prefixlen;
@@ -483,7 +494,7 @@ tMessage *Message_Append(tServer *Server, int Type, const char *Source, const ch
 		while( msglen > avail ) {
 			msglen -= avail;
 			Message += avail;
-			printf("\x1b""D");
+			printf("\33[T");
 			SetCursorPos(giTerminal_Height-2, prefixlen);
 			printf("%.*s", avail, Message);
 		}
@@ -563,12 +574,113 @@ void Cmd_PRIVMSG(tServer *Server, const char *Dest, const char *Src, const char 
 	//printf("<%s:%s:%s> %s\n", Server->Name, Dest, Src, Message);
 }
 
+void ParseServerLine_Numeric(tServer *Server, const char *ident, int Num, char *Line)
+{
+	 int	pos = 0;
+	const char *message;
+	const char *user = GetValue(Line, &pos);
+	
+	if( Line[pos] == ':' ) {
+		message = Line + pos + 1;
+	}
+	else {
+		message = GetValue(Line, &pos);
+	}
+	
+	switch(Num)
+	{
+	case 332:	// Topic
+		user = message;	// Channel
+		message = Line + pos + 1;	// Topic
+		Message_AppendF(Server, MSG_TYPE_SERVER, user, user, "Topic: %s", message);
+		break;
+	case 333:	// Topic set by
+		user = message;	// Channel
+		message = GetValue(Line, &pos);	// User
+		GetValue(Line, &pos);	// Timestamp
+		Message_AppendF(Server, MSG_TYPE_SERVER, user, user, "Set by %s", message);
+		break;
+	case 353:	// /NAMES list
+		// <user> = <channel> :list
+		// '=' was eaten in and set to message
+		user = GetValue(Line, &pos);	// Actually channel
+		message = Line + pos + 1;	// List
+		Message_AppendF(Server, MSG_TYPE_SERVER, user, user, "Names: %s", message);
+		break;
+	case 366:	// end of /NAMES list
+		// <user> <channel> :msg
+		user = message;
+		message = Line + pos + 1;
+		Message_Append(Server, MSG_TYPE_SERVER, user, user, message);
+		break;
+	case 372:	// MOTD Data
+	case 375:	// MOTD Start
+	case 376:	// MOTD End
+		
+	default:
+		//printf("[%s] %i %s\n", Server->Name, num, message);
+		Message_Append(Server, MSG_TYPE_SERVER, ident, user, message);
+		break;
+	}
+}
+
+void ParseServerLine_String(tServer *Server, const char *ident, const char *cmd, char *Line)
+{
+	 int	pos = 0;
+	_SysDebug("ident=%s,cmd=%s,Line=%s", ident, cmd, Line);
+	if( strcmp(cmd, "NOTICE") == 0 )
+	{
+		const char *class = GetValue(Line, &pos);
+		_SysDebug("NOTICE class='%s'", class);
+		
+		const char *message = (Line[pos] == ':') ? Line + pos + 1 : GetValue(Line, &pos);
+		
+		//printf("[%s] NOTICE %s: %s\n", Server->Name, ident, message);
+		char *ident_bang = strchr(ident, '!');
+		if( ident_bang ) {
+			*ident_bang = '\0';
+		}
+		Message_Append(Server, MSG_TYPE_NOTICE, ident, "", message);
+	}
+	else if( strcmp(cmd, "PRIVMSG") == 0 )
+	{
+		const char *dest = GetValue(Line, &pos);
+		const char *message = (Line[pos] == ':') ? Line + pos + 1 : GetValue(Line, &pos);
+
+		// TODO: Catch when the privmsg is addressed to the user
+
+//		Cmd_PRIVMSG(Server, dest, ident, message);
+		char *ident_bang = strchr(ident, '!');
+		if( ident_bang ) {
+			*ident_bang = '\0';
+		}
+		Message_Append(Server, MSG_TYPE_STANDARD, ident, dest, message);
+	}
+	else if( strcmp(cmd, "JOIN" ) == 0 )
+	{
+		const char	*channel = Line + pos + 1;
+		
+		Message_AppendF(Server, MSG_TYPE_JOIN, "", channel, "%s has joined", ident);
+		//Window_Create(Server, channel);
+	}
+	else if( strcmp(cmd, "PART" ) == 0 )
+	{
+		const char	*channel = Line + pos + 1;
+		
+		Message_AppendF(Server, MSG_TYPE_PART, "", channel, "%s has left", ident);
+		//Window_Create(Server, channel);
+	}
+	else
+	{
+		Message_AppendF(Server, MSG_TYPE_SERVER, "", "", "Unknown message %s (%s)", cmd, Line);
+	}
+}
+
 /**
  */
 void ParseServerLine(tServer *Server, char *Line)
 {
 	 int	pos = 0;
-	char	*ident, *cmd;
 
 	_SysDebug("[%s] %s", Server->Name, Line);	
 	
@@ -576,128 +688,26 @@ void ParseServerLine(tServer *Server, char *Line)
 	if( *Line == ':' )
 	{
 		pos ++;
-		ident = GetValue(Line, &pos);	// Ident (user or server)
-		cmd = GetValue(Line, &pos);
+		const char *ident = GetValue(Line, &pos);	// Ident (user or server)
+		const char *cmd = GetValue(Line, &pos);
 		
 		// Numeric command
 		if( isdigit(cmd[0]) && isdigit(cmd[1]) && isdigit(cmd[2]) )
 		{
-			char	*user, *message;
 			 int	num;
 			num  = (cmd[0] - '0') * 100;
 			num += (cmd[1] - '0') * 10;
 			num += (cmd[2] - '0') * 1;
-			
-			user = GetValue(Line, &pos);
-			
-			if( Line[pos] == ':' ) {
-				message = Line + pos + 1;
-			}
-			else {
-				message = GetValue(Line, &pos);
-			}
-			
-			switch(num)
-			{
-			case 332:	// Topic
-				user = message;	// Channel
-				message = Line + pos + 1;	// Topic
-				Message_AppendF(Server, MSG_TYPE_SERVER, user, user, "Topic: %s", message);
-				break;
-			case 333:	// Topic set by
-				user = message;	// Channel
-				message = GetValue(Line, &pos);	// User
-				GetValue(Line, &pos);	// Timestamp
-				Message_AppendF(Server, MSG_TYPE_SERVER, user, user, "Set by %s", message);
-				break;
-			case 353:	// /NAMES list
-				// <user> = <channel> :list
-				// '=' was eaten in and set to message
-				user = GetValue(Line, &pos);	// Actually channel
-				message = Line + pos + 1;	// List
-				Message_AppendF(Server, MSG_TYPE_SERVER, user, user, "Names: %s", message);
-				break;
-			case 366:	// end of /NAMES list
-				// <user> <channel> :msg
-				user = message;
-				message = Line + pos + 1;
-				Message_Append(Server, MSG_TYPE_SERVER, user, user, message);
-				break;
-			case 372:	// MOTD Data
-			case 375:	// MOTD Start
-			case 376:	// MOTD End
-				
-			default:
-				//printf("[%s] %i %s\n", Server->Name, num, message);
-				Message_Append(Server, MSG_TYPE_SERVER, ident, user, message);
-				break;
-			}
-		}
-		else if( strcmp(cmd, "NOTICE") == 0 )
-		{
-			char	*class, *message;
-			
-			class = GetValue(Line, &pos);
-			_SysDebug("NOTICE class='%s'", class);
-			
-			if( Line[pos] == ':' ) {
-				message = Line + pos + 1;
-			}
-			else {
-				message = GetValue(Line, &pos);
-			}
-			
-			//printf("[%s] NOTICE %s: %s\n", Server->Name, ident, message);
-			char *ident_bang = strchr(ident, '!');
-			if( ident_bang ) {
-				*ident_bang = '\0';
-			}
-			Message_Append(Server, MSG_TYPE_NOTICE, ident, "", message);
-		}
-		else if( strcmp(cmd, "PRIVMSG") == 0 )
-		{
-			char	*dest, *message;
-			dest = GetValue(Line, &pos);
-			
-			if( Line[pos] == ':' ) {
-				message = Line + pos + 1;
-			}
-			else {
-				message = GetValue(Line, &pos);
-			}
 
-			// TODO: Catch when the privmsg is addressed to the user
-
-//			Cmd_PRIVMSG(Server, dest, ident, message);
-			char *ident_bang = strchr(ident, '!');
-			if( ident_bang ) {
-				*ident_bang = '\0';
-			}
-			Message_Append(Server, MSG_TYPE_STANDARD, ident, dest, message);
-		}
-		else if( strcmp(cmd, "JOIN" ) == 0 )
-		{
-			char	*channel;
-			channel = Line + pos + 1;
-			
-			Message_AppendF(Server, MSG_TYPE_JOIN, "", channel, "%s has joined", ident);
-			//Window_Create(Server, channel);
-		}
-		else if( strcmp(cmd, "PART" ) == 0 )
-		{
-			char	*channel;
-			channel = Line + pos + 1;
-			
-			Message_AppendF(Server, MSG_TYPE_PART, "", channel, "%s has left", ident);
-			//Window_Create(Server, channel);
+			ParseServerLine_Numeric(Server, ident, num, Line+pos);
 		}
 		else
 		{
-			Message_AppendF(Server, MSG_TYPE_SERVER, "", "", "Unknown message %s (%s)", cmd, Line+pos);
+			ParseServerLine_String(Server, ident, cmd, Line+pos);
 		}
 	}
 	else {
-		cmd = GetValue(Line, &pos);
+		const char *cmd = GetValue(Line, &pos);
 		
 		if( strcmp(cmd, "PING") == 0 ) {
 			writef(Server->FD, "PONG %s\n", gsHostname);
