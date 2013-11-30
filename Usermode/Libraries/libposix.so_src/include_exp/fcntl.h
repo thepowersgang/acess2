@@ -32,6 +32,13 @@ enum e_fcntl_cmds
 	F_GETLK,	// (struct flock *)
 };
 
+enum e_flock_types
+{
+	F_RDLCK,	// read
+	F_WRLCK,	// write
+	F_UNLCK,	// unlock
+};
+
 extern int fcntl(int fd, int cmd, ...);
 
 #endif
