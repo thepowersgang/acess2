@@ -163,7 +163,7 @@ void Log_Int_PrintMessage(tLogEntry *Entry)
 		csaLevelColours[Entry->Level],
 		Entry->Time
 		);
-	LogF("%s [%-8s] %i - %*C",
+	LogF("%s [%-8s] %i - %.*s",
 		csaLevelCodes[Entry->Level],
 		Entry->Ident,
 		Threads_GetTID(),

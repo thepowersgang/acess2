@@ -5,7 +5,7 @@
  * drv/vterm_termbuf.c
  * - Virtual Terminal - Terminal buffer manipulation
  */
-#define DEBUG	0
+#define DEBUG	1
 #include "vterm.h"
 
 extern int	Term_HandleVT100(tVTerm *Term, int Len, const char *Buf);
@@ -24,7 +24,8 @@ void VT_int_PutString(tVTerm *Term, const Uint8 *Buffer, Uint Count)
 		int esc_len = Term_HandleVT100(Term, Count - ofs, (const void*)(Buffer + ofs));
 		if( esc_len < 0 ) {
 			esc_len = -esc_len;
-			LOG("%i '%*C'", esc_len, esc_len, Buffer+ofs);
+			//LOG("%i '%*C'", esc_len, esc_len, Buffer+ofs);
+			LOG("%i '%.*s'", esc_len, esc_len, Buffer+ofs);
 			VT_int_PutRawString(Term, Buffer + ofs, esc_len);
 			//Debug("Raw string '%.*s'", esc_len, Buffer+ofs);
 		}

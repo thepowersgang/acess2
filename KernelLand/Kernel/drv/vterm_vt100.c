@@ -5,7 +5,7 @@
  * drv/vterm_vt100.c
  * - Virtual Terminal - VT100 (Kinda) Emulation
  */
-#define DEBUG	0
+#define DEBUG	1
 #include "vterm.h"
 
 #define sTerminal	sVTerm
