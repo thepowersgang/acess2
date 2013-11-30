@@ -46,6 +46,7 @@ EXPORT char *strerror(int errnum)
 	case ENOTTY:	return "Not a TTY";
 	case EAGAIN:	return "Try again";
 	case EALREADY:	return "Operation was no-op";
+	case EAFNOSUPPORT:	return "Address family not supported";
 	case EINTERNAL:	return "Internal error";
 	}
 	_SysDebug("strerror: errnum=%i unk", errnum);

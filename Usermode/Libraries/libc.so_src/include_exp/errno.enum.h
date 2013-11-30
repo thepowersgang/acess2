@@ -27,7 +27,9 @@ enum libc_eErrorNumbers {
 
 	EAGAIN,	// Try again
 	EALREADY,	// Operation was a NOP
-	
+
+	// psockets
+	EAFNOSUPPORT,	
 	
 	EINTERNAL	// Internal Error
 };
