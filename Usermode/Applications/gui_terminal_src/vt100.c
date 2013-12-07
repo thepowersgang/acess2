@@ -15,6 +15,7 @@
 # include <acess/sys.h>	// _SysDebug
 # include <string.h>
 # include <assert.h>
+# include <stdlib.h>	// malloc/free
 #endif
 
 enum eExcapeMode {
@@ -49,8 +50,9 @@ const uint32_t	caVT100Colours[] = {
 };
 
  int	_locate_eos(size_t Len, const char *Buf);
- int	Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buf);
  int	Term_HandleVT100_Short(tTerminal *Term, int Len, const char *Buf);
+ int	Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buf);
+ int	Term_HandleVT100_OSC(tTerminal *Term, int Len, const char *Buf);
 
 static inline int min(int a, int b)
 {
@@ -59,8 +61,7 @@ static inline int min(int a, int b)
 
 int _locate_eos(size_t Len, const char *Buf)
 {
-	size_t	ret = 0;
-	while( ret < Len )
+	for( size_t ret = 0; ret < Len; ret ++ )
 	{
 		if( Buf[ret] == '\007' )
 			return ret;
@@ -88,20 +89,23 @@ int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
 	if( st->Mode == MODE_IGNORE ) {
 		st->Mode = MODE_NORMAL;
 		// Used for multi-byte EOS
+		_SysDebug("Ignore 1 '%c'", *Buf);
 		return 1;
 	}
-	if( st->Mode == MODE_STRING )
+	else if( st->Mode == MODE_STRING )
 	{
 		// We're in a string mode
 		int pos = _locate_eos(Len, Buf);
 		size_t bytes = (pos >= 0 ? pos : Len);
 		char *tmp = realloc(st->StringCache, st->StringLen + bytes+1);
 		if(!tmp)	return bytes;
+		st->StringCache = tmp;
 		memcpy(tmp+st->StringLen, Buf, bytes);
 		tmp[st->StringLen+bytes] = 0;
+		st->StringLen += bytes;
 		
 		_SysDebug("pos=%i", pos);
-		_SysDebug("'%.*s'", bytes, Buf);
+		_SysDebug("Buf[+%zi] = '%.*s'", bytes, bytes, Buf);
 		// Only apply when we hit EOS at the start
 		if( pos != 0 )
 			return bytes;
@@ -124,6 +128,9 @@ int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
 		else
 			st->Mode = MODE_NORMAL;
 		return 1;
+	}
+	else {
+		// fall through
 	}
 
 	if( inc_len > 0	|| *Buf == '\x1b' )
@@ -210,7 +217,6 @@ int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
 
 int Term_HandleVT100_Short(tTerminal *Term, int Len, const char *Buf)
 {
-	tVT100State	*st = Display_GetTermState(Term);
 	 int	tmp;
 	switch(Buf[1])
 	{
@@ -221,10 +227,11 @@ int Term_HandleVT100_Short(tTerminal *Term, int Len, const char *Buf)
 			return 0;
 		return tmp + 2;
 	case ']':
-		st->Mode = MODE_STRING;
-		st->StringType = STRING_IGNORE;
-		_SysDebug("TODO: \\e] Support title changes");
-		return 2;
+		tmp = Term_HandleVT100_OSC(Term, Len-2, Buf+2);
+		assert(tmp >= 0);
+		if( tmp == 0 )
+			return 0;
+		return tmp + 2;
 	case '=':
 		_SysDebug("TODO: \\e= Application Keypad");
 		return 2;
@@ -471,3 +478,61 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 	}
 	return j;
 }
+
+int Term_HandleVT100_OSC(tTerminal *Term, int Len, const char *Buf)
+{
+	tVT100State	*st = Display_GetTermState(Term);
+
+	 int	ofs = 0;
+	// OSC Ps ; Pt [ST/BEL]
+	if(Len < 2)	return 0;	// Need moar
+
+	 int	Ps = 0;
+	while( ofs < Len && isdigit(Buf[ofs]) ) {
+		Ps = Ps * 10 + (Buf[ofs] - '0');
+		ofs ++;
+	}
+
+	if( ofs == Len )	return 0;
+	if( Buf[ofs] != ';' ) {
+		// Error
+		st->Mode = MODE_STRING;
+		st->StringType = STRING_IGNORE;
+		return ofs;
+	}
+	ofs ++;
+
+	switch(Ps)
+	{
+	case 0:	// Icon Name + Window Title
+	case 1:	// Icon Name
+	case 2:	// Window Title
+		st->Mode = MODE_STRING;
+		st->StringType = STRING_TITLE;
+		break;
+	case 3:	// Set X Property
+		_SysDebug("TODO: \\e]3; Support X properties");
+		st->Mode = MODE_STRING;
+		st->StringType = STRING_IGNORE;
+		break;
+	case 4:	// Change colour number
+	case 5:	// Change special colour number
+		_SysDebug("TODO: \\e]%i;c; Support X properties", Ps);
+		st->Mode = MODE_STRING;
+		st->StringType = STRING_IGNORE;
+		break;	
+	case 10:	// Change foreground to Pt
+	case 11:	// Change background to Pt
+	case 52:
+		// TODO: Can be Pt = [cps01234567]*;<str>
+		// > Clipboard data in base-64, cut/primary/select buffers 0-7
+		// > <str>='?' returns the clipbard in the same format
+	default:
+		_SysDebug("Unknown VT100 OSC \\e]%i;", Ps);
+		st->Mode = MODE_STRING;
+		st->StringType = STRING_IGNORE;
+		break;
+	}
+	return ofs;
+}
+
