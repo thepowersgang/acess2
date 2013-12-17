@@ -55,10 +55,13 @@ struct sEHCI_Controller
 	tEHCI_QH	*QHPools[QH_POOL_PAGES];	// [PAGE_SIZE/64]
 	tMutex	TDPoolMutex;
 	tEHCI_qTD	*TDPool;	// [TD_POOL_SIZE]
+	
+	tEHCI_Endpoint	*FirstInterruptEndpt;	// List of interrupt endpoints
 };
 
 struct sEHCI_Endpoint
 {
+	tEHCI_Endpoint	*Next;
 	bool	NextToggle;
 	Uint16	EndpointID;
 	Sint8	PeriodPow2;

@@ -380,6 +380,8 @@ void *EHCI_InitInterrupt(void *Ptr, int Endpoint, int bOutbound, int Period,
 	int period_pow = _GetClosestPower2(Period);
 
 	tEHCI_Endpoint	*endpt = EHCI_int_AllocateEndpt(Cont, Endpoint, Length, period_pow);
+	endpt->Next = Cont->FirstInterruptEndpt;
+	Cont->FirstInterruptEndpt = endpt;
 
 	// Allocate a QH
 	tEHCI_QH *qh = EHCI_int_AllocateQH(Cont, endpt, Cb, CbData);
@@ -798,6 +800,36 @@ void EHCI_int_HandlePortConnectChange(tEHCI_Controller *Cont, int Port)
 			LOG("Device disconnected on %P Port %i", Cont->PhysBase, Port);
 			USB_DeviceDisconnected(Cont->RootHub, Port);
 		}
+	}
+}
+
+void EHCI_int_CheckInterruptQHs(tEHCI_Controller *Cont)
+{
+	for( tEHCI_Endpoint *endpt = Cont->FirstInterruptEndpt; endpt; endpt = endpt->Next )
+	{
+		tEHCI_QH *qh = endpt->ActiveQHs;
+		// Check if the TD of the first QH is active
+		if( qh->Overlay.Token & QTD_TOKEN_STS_ACTIVE )
+			continue ;
+		// Inactive, fire interrupt and re-trigger
+		if( !qh->Impl.Callback ) {
+			// Umm... ?
+		}
+		else
+		{
+			tEHCI_qTD	*last = qh->Impl.LastTD;
+			size_t	remaining_len = (last->Token >> 16) & 0x7FFF;
+			if( remaining_len > last->Impl.Length )
+				remaining_len = last->Impl.Length;
+			size_t	transferred_len = last->Impl.Length - remaining_len;
+			
+			LOG("Calling %p(%p) for Intr EndPt %x (%p+0x%x)",
+				qh->Impl.Callback, qh->Impl.CallbackData,
+				qh->Impl.Endpt->EndpointID, last->Impl.Ptr, transferred_len);
+			qh->Impl.Callback(qh->Impl.CallbackData, last->Impl.Ptr, transferred_len);
+		}
+		qh->Impl.FirstTD->Token |= QTD_TOKEN_STS_ACTIVE;
+		qh->Overlay.Token |= QTD_TOKEN_STS_ACTIVE;
 	}
 }
 
