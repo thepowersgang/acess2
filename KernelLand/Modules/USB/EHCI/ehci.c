@@ -888,6 +888,8 @@ void EHCI_int_ReclaimQHs(tEHCI_Controller *Cont)
 			LOG("Calling %p(%p) for EndPt %x (%p+0x%x)",
 				qh->Impl.Callback, qh->Impl.CallbackData,
 				qh->Impl.Endpt->EndpointID, last->Impl.Ptr, transferred_len);
+			//if( last->Impl.Ptr )
+			//	Debug_HexDump("EHCI Callback Data", last->Impl.Ptr, transferred_len);
 			qh->Impl.Callback(qh->Impl.CallbackData, last->Impl.Ptr, transferred_len);
 		}
 		
@@ -918,9 +920,8 @@ void EHCI_int_InterruptThread(void *ControllerPtr)
 		if( events & EHCI_THREADEVENT_IOC )
 		{
 			// IOC, handle completed requests
-			Log_Warning("EHCI", "%P IOC - TODO: Call registered callbacks and reclaim",
-				Cont->PhysBase);
 			// Search periodic lists for one that fired
+			EHCI_int_CheckInterruptQHs(Cont);
 			// Retire QHs
 			// - Remove them from the queue and ask the controller to bell when they're removable
 			EHCI_int_RetireQHs(Cont);
