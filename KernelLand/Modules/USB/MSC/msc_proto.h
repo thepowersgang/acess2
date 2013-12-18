@@ -22,12 +22,14 @@ struct sMSC_CBW
 	Uint8	CBWCB[16];
 } PACKED;
 
+#define MSC_CSW_SIGNATURE	0x53425355
+
 struct sMSC_CSW
 {
 	Uint32	dCSWSignature;	// = 0x53425355
 	Uint32	dCSWTag;
 	Uint32	dCSWDataResidue;
-	Uint8	dCSWStatus;
+	Uint8	bCSWStatus;
 } PACKED;
 
 #endif

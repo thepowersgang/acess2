@@ -19,8 +19,8 @@ void	MSC_DeviceConnected(tUSBInterface *Dev, void *Descriptors, size_t Descripto
 void	MSC_DataIn(tUSBInterface *Dev, int EndPt, int Length, void *Data);
 // --- Internal Helpers
  int	MSC_int_CreateCBW(tMSC_CBW *Cbw, int bInput, size_t CmdLen, const void *CmdData, size_t DataLen);
-void	MSC_SendData(tUSBInterface *Dev, size_t CmdLen, const void *CmdData, size_t DataLen, const void *Data);
-void	MSC_RecvData(tUSBInterface *Dev, size_t CmdLen, const void *CmdData, size_t DataLen, void *Data);
+ int	MSC_SendData(tUSBInterface *Dev, size_t CmdLen, const void *CmdData, size_t DataLen, const void *Data);
+ int	MSC_RecvData(tUSBInterface *Dev, size_t CmdLen, const void *CmdData, size_t DataLen, void *Data);
 
 // === GLOBALS ===
 MODULE_DEFINE(0, VERSION, USB_MSC, MSC_Initialise, MSC_Cleanup, "USB_Core", NULL);
@@ -63,11 +63,23 @@ void MSC_DeviceConnected(tUSBInterface *Dev, void *Descriptors, size_t Descripto
 	// SCSI Transparent Command Set
 	case 0x06:
 		info->BlockCount = MSC_SCSI_GetSize(Dev, &info->BlockSize);
+		// HACK! Try twice if needed
+		// Qemu Tegra2 appears to error with Sense=RESET on the first attempt
+		if( !info->BlockCount )
+			info->BlockCount = MSC_SCSI_GetSize(Dev, &info->BlockSize);
 		vt = &gMSC_SCSI_VolType;
 		break;
 	// Unknown, prepare to chuck sad
 	default:
 		Log_Error("USB MSC", "Unknown sub-class 0x%02x", sc);
+		USB_SetDeviceDataPtr(Dev, NULL);
+		free(info);
+		return ;
+	}
+	
+	// Zero size indicates some form of critical error
+	if( !info->BlockCount ) {
+		Log_Error("USB MSC", "Device did not report a valid size");
 		USB_SetDeviceDataPtr(Dev, NULL);
 		free(info);
 		return ;
@@ -124,7 +136,7 @@ int MSC_int_CreateCBW(tMSC_CBW *Cbw, int bInput, size_t CmdLen, const void *CmdD
 	return 0;
 }
 
-void MSC_SendData(tUSBInterface *Dev, size_t CmdLen, const void *CmdData, size_t DataLen, const void *Data)
+int MSC_SendData(tUSBInterface *Dev, size_t CmdLen, const void *CmdData, size_t DataLen, const void *Data)
 {
 	tMSC_CBW	cbw;
 	tMSC_CSW	csw;
@@ -132,7 +144,7 @@ void MSC_SendData(tUSBInterface *Dev, size_t CmdLen, const void *CmdData, size_t
 	const int	endpoint_in = 1;
 	
 	if( MSC_int_CreateCBW(&cbw, 0, CmdLen, CmdData, DataLen) )
-		return ;
+		return 2;
 	
 	// Send CBW
 	USB_SendData(Dev, endpoint_out, sizeof(cbw), &cbw);
@@ -143,9 +155,11 @@ void MSC_SendData(tUSBInterface *Dev, size_t CmdLen, const void *CmdData, size_t
 	// Read CSW
 	USB_RecvData(Dev, endpoint_in, sizeof(csw), &csw);
 	// TODO: Validate CSW
+
+	return (csw.bCSWStatus != 0x00);
 }
 
-void MSC_RecvData(tUSBInterface *Dev, size_t CmdLen, const void *CmdData, size_t DataLen, void *Data)
+int MSC_RecvData(tUSBInterface *Dev, size_t CmdLen, const void *CmdData, size_t DataLen, void *Data)
 {
 	tMSC_CBW	cbw;
 	tMSC_CSW	csw;
@@ -153,7 +167,7 @@ void MSC_RecvData(tUSBInterface *Dev, size_t CmdLen, const void *CmdData, size_t
 	const int	endpoint_in = 1;
 		
 	if( MSC_int_CreateCBW(&cbw, 1, CmdLen, CmdData, DataLen) )
-		return ;
+		return 2;
 	
 	// Send CBW
 	USB_SendData(Dev, endpoint_out, sizeof(cbw), &cbw);
@@ -164,6 +178,29 @@ void MSC_RecvData(tUSBInterface *Dev, size_t CmdLen, const void *CmdData, size_t
 	
 	// Read CSW
 	USB_RecvData(Dev, endpoint_in, sizeof(csw), &csw);
+	
+	Debug_HexDump("MSC RecvData, cbw=", &cbw, sizeof(cbw));
+	Debug_HexDump("MSC RecvData, csw=", &csw, sizeof(csw));
+	Debug_HexDump("MSC RecvData, Data=", Data, DataLen);
+	
 	// TODO: Validate CSW
+	if( LittleEndian32(csw.dCSWSignature) != MSC_CSW_SIGNATURE ) {
+		Log_Warning("MSC", "CSW Signature invalid %x!=exp %x",
+			LittleEndian32(csw.dCSWSignature), MSC_CSW_SIGNATURE);
+	}
+	if( csw.dCSWTag != cbw.dCBWTag ) {
+		Log_Warning("MSC", "Recv - CSW tag (%x) doesn't match CBW tag (%x)",
+			LittleEndian32(csw.dCSWTag), LittleEndian32(cbw.dCBWTag));
+	}
+	if( LittleEndian32(csw.dCSWDataResidue) > DataLen ) {
+		Log_Warning("MSC", "Recv - CSW residue (0x%x) is larger than DatLen (0x%x)",
+			LittleEndian32(csw.dCSWDataResidue), DataLen);
+	}
+	if( csw.bCSWStatus != 0x00 ) {
+		Log_Warning("MWC", "Recv - CSW indicated error (Status=%02x, Residue=0x%x/0x%x)",
+			csw.bCSWStatus, LittleEndian32(csw.dCSWDataResidue), DataLen);
+	}
+	
+	return (csw.bCSWStatus != 0x00);
 }
 
