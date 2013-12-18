@@ -60,6 +60,8 @@ void *LVM_AddVolume(const tLVM_VolType *Type, const char *Name, void *Ptr, size_
 
 	// Type->CountSubvolumes
 	dummy_vol.nSubVolumes = fmt->CountSubvolumes(&dummy_vol, first_block);
+	Log_Debug("LVM", "Volume %s as format %s gives %i sub-volumes",
+		Name, fmt->Name, dummy_vol.nSubVolumes);
 	
 	// Create real volume descriptor
 	// TODO: If this needs to be rescanned later, having the subvolume list separate might be an idea
