@@ -127,8 +127,8 @@ void RTL8169_int_SetupCard(tCard *Card)
 	
 	// Initialise
 //	_WriteB(Card, 0x50, 0xC0);
-	_WriteD(Card, 0x40, 0x03000700);	// TX Config
-	_WriteD(Card, 0x44, 0x0000E70F);	// RX Config
+	_WriteD(Card, REG_TXC, 0x03000700);	// TX Config
+	_WriteD(Card, REG_RXC, 0x0000E70F);	// RX Config
 	_WriteW(Card, 0xDA, RX_BUF_SIZE-1);	// Max RX Size
 	_WriteW(Card, 0xEC, 2048/32);	// Max TX size (in units of 32/128 bytes)
 	
@@ -136,7 +136,7 @@ void RTL8169_int_SetupCard(tCard *Card)
 //	_WriteQ(Card, 0x28, MM_GetPhysAddr( (tVAddr)Card->TXHighDescs ));
 	_WriteQ(Card, 0xE4, MM_GetPhysAddr( (tVAddr)Card->RXDescs ));
 
-	_WriteW(Card, 0x3C, INT_LINKCHANGE|INT_TXOK|INT_RXOK);	// Set interrupt mask
+	_WriteW(Card, REG_INTMASK, INT_LINKCHANGE|INT_TXOK|INT_RXOK);	// Set interrupt mask
 
 	_WriteB(card, 0x37, 0x0C);	// Enable
 }
