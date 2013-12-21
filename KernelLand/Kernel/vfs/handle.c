@@ -248,10 +248,13 @@ void VFS_RestoreHandles(int NumFDs, void *Handles)
 		
 		if( !MM_GetPhysAddr(h) )
 		{
-			if( !MM_Allocate( (tVAddr)h & ~(PAGE_SIZE-1) ) ) 
+			void	*pg = (void*)( (tVAddr)h & ~(PAGE_SIZE-1) );
+			if( !MM_Allocate( (tVAddr)pg ) ) 
 			{
 				// OOM?
+				return ;
 			}
+			memset(pg, 0, PAGE_SIZE);
 		}
 		// Safe to dereference, as Threads_CloneTCB references handles
 		#if 1

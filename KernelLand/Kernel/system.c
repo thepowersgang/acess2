@@ -78,7 +78,10 @@ void System_ParseCommandLine(char *ArgString)
 		// Eat Whitespace
 		while(*str == ' ')	str++;
 		// Check for the end of the string
-		if(*str == '\0') {	argc--;	break;}	
+		if(*str == '\0') {
+			argc--;
+			break;
+		}
 		argv[argc] = str;
 		if(*str == '"') {
 			while(*str && !(*str == '"' && str[-1] != '\\'))

@@ -5,6 +5,7 @@
  * semaphore.c
  * - Semaphores
  */
+#define DEBUG	0
 #include <acess.h>
 #include <semaphore.h>
 #include <threads_int.h>
@@ -17,6 +18,7 @@
 //
 void Semaphore_Init(tSemaphore *Sem, int Value, int MaxValue, const char *Module, const char *Name)
 {
+	LOG("Init %p to %i/%i (%s:%s)", Sem, Value, MaxValue, Module, Name);
 	memset(Sem, 0, sizeof(tSemaphore));
 	Sem->Value = Value;
 	Sem->ModName = Module;
@@ -34,8 +36,11 @@ int Semaphore_Wait(tSemaphore *Sem, int MaxToTake)
 			MaxToTake, Sem, Sem->Name);
 		MaxToTake = 0;
 	}
+	LOG("Waiting on %p for %i (%i/%i used atm) - (%s:%s)",
+		Sem, MaxToTake, Sem->Value, Sem->MaxValue, Sem->ModName, Sem->Name);
 	
 	SHORTLOCK( &Sem->Protector );
+	LOG("Protector grabbed");
 	
 	// Check if there's already items avaliable
 	if( Sem->Value > 0 )

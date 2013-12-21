@@ -31,7 +31,7 @@ extern tKernelSymbol	gKernelSymbolsEnd[];
 extern tBinaryType	gELF_Info;
 
 // === PROTOTYPES ===
- int	Binary_int_CacheArgs(const char **Path, const char ***ArgV, const char ***EnvP, void *DestBuffer);
+size_t	Binary_int_CacheArgs(const char **Path, const char ***ArgV, const char ***EnvP, void *DestBuffer);
  int	Proc_int_Execve(const char *File, const char **ArgV, const char **EnvP, int DataSize, bool bClearUser);
 tVAddr	Binary_Load(const char *Path, tVAddr *EntryPoint);
 tBinary	*Binary_GetInfo(tMount MountID, tInode InodeID);
@@ -95,9 +95,10 @@ int Proc_Spawn(const char *Path)
 /**
  * \todo Document
  */
-int Binary_int_CacheArgs(const char **Path, const char ***ArgV, const char ***EnvP, void *DestBuffer)
+size_t Binary_int_CacheArgs(const char **Path, const char ***ArgV, const char ***EnvP, void *DestBuffer)
 {
-	 int	size, argc=0, envc=0;
+	size_t	size;
+	 int	argc=0, envc=0;
 	 int	i;
 	char	*strbuf;
 	const char	**arrays;
@@ -172,21 +173,17 @@ int Binary_int_CacheArgs(const char **Path, const char ***ArgV, const char ***En
  */
 int Proc_SysSpawn(const char *Binary, const char **ArgV, const char **EnvP, int nFD, int *FDs)
 {
-	void	*handles;
-	void	*cachebuf;
-	 int	size;
-	tPID	ret;
 	
 	// --- Save File, ArgV and EnvP
-	size = Binary_int_CacheArgs( &Binary, &ArgV, &EnvP, NULL );
-	cachebuf = malloc( size );
+	size_t size = Binary_int_CacheArgs( &Binary, &ArgV, &EnvP, NULL );
+	void *cachebuf = malloc( size );
 	Binary_int_CacheArgs( &Binary, &ArgV, &EnvP, cachebuf );
 
 	// Cache the VFS handles	
-	handles = VFS_SaveHandles(nFD, FDs);
+	void *handles = VFS_SaveHandles(nFD, FDs);
 
 	// Create new process	
-	ret = Proc_Clone(CLONE_VM|CLONE_NOUSER);
+	tPID ret = Proc_Clone(CLONE_VM|CLONE_NOUSER);
 	if( ret == 0 )
 	{
 		VFS_RestoreHandles(nFD, handles);
