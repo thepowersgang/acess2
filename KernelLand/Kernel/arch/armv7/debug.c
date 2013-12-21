@@ -86,3 +86,8 @@ void StartupPrint(const char *str)
 {
 }
 
+void Proc_PrintBacktrace(void)
+{
+	// TODO: Print backtrace
+}
+
