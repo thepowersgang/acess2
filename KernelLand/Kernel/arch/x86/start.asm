@@ -30,10 +30,10 @@ mboot:
 	dd 0	; bss_end_addr
 	dd 0	; entry_addr
 	
-;	dd 0	; Mode type (0: LFB)
-;	dd 1024	; Width
-;	dd 768	; Height
-;	dd 0	; Depth (no preference)
+	dd 0	; Mode type (0: LFB)
+	dd 0	; Width (no preference)
+	dd 0	; Height (no preference)
+	dd 32	; Depth (32-bit preferred)
 	
 ; Multiboot 2 Header
 ;mboot2:

@@ -23,6 +23,8 @@ extern void	MM_Install(int NPMemRanges, tPMemMapEnt *PMemRanges);
 extern void	MM_InstallVirtual(void);
 extern int	Time_Setup(void);
 extern int	ACPICA_Initialise(void);
+// - Modules/Display/VESA
+extern void	VBE_int_SetBootMode(Uint16 ModeID, const void *ModeInfo);
 
 // === PROTOTYPES ===
  int	kmain(Uint MbMagic, void *MbInfoPtr);
@@ -50,13 +52,26 @@ int kmain(Uint MbMagic, void *MbInfoPtr)
 	// Multiboot 1
 	case MULTIBOOT_MAGIC: {
 		// TODO: Handle when this isn't in the mapped area
+		ASSERT( mbInfo->CommandLine < 4*1024*1024 );
 		gsBootCmdLine = (char*)(mbInfo->CommandLine + KERNEL_BASE);
 
 		// Adjust Multiboot structure address
 		mbInfo = (void*)( (tVAddr)MbInfoPtr + KERNEL_BASE );
 
+		// Parse memory map
+		// - mbInfo->Flags is checked in this function
 		nPMemMapEnts = Multiboot_LoadMemoryMap(mbInfo, KERNEL_BASE, pmemmap, MAX_PMEMMAP_ENTS,
 			KERNEL_LOAD, (tVAddr)&gKernelEnd - KERNEL_BASE);
+		
+		
+		// Get video mode
+		Debug("mbInfo->Flags = 0x%x", mbInfo->Flags);
+		if( mbInfo->Flags & (1 << 11) )
+		{
+			// TODO: Ensure address is in mapped area
+			ASSERT( mbInfo->vbe_mode_info < 4*1024*1024 );
+			VBE_int_SetBootMode(mbInfo->vbe_mode, (void*)(mbInfo->vbe_mode_info + KERNEL_BASE));
+		}
 
 		break; }
 	
