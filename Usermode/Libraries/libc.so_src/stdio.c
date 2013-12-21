@@ -627,15 +627,15 @@ size_t _fread_buffered(void *ptr, size_t size, FILE *fp)
 		
 		fp->BufferPos = rv;
 		fp->BufferOfs = fp->Pos;
-		_SysDebug("%p: Buffered %i at %i", fp, rv, fp->Pos);
+		//_SysDebug("%p: Buffered %i at %i", fp, rv, fp->Pos);
 	}
 	
 	size_t	inner_ofs = fp->Pos - fp->BufferOfs;
 	if(size > fp->BufferPos - inner_ofs)
 		size = fp->BufferPos - inner_ofs;
 	
-	_SysDebug("%p: Read %i from %i+%i", fp, size,
-		(int)fp->BufferOfs, inner_ofs);
+	//_SysDebug("%p: Read %i from %i+%i", fp, size,
+	//	(int)fp->BufferOfs, inner_ofs);
 	memcpy(ptr, fp->Buffer + inner_ofs, size);
 	fp->Pos += size;
 	return size;
