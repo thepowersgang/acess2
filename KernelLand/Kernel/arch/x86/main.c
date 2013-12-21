@@ -9,6 +9,7 @@
 #include <init.h>
 #include <mm_virt.h>
 #include <pmemmap.h>
+#include <semaphore.h>
 
 #define	VGA_ERRORS	0
 
@@ -87,7 +88,7 @@ int kmain(Uint MbMagic, void *MbInfoPtr)
 			MbMagic, MULTIBOOT_MAGIC, MULTIBOOT2_MAGIC);
 		return 0;
 	}
-	
+
 	// Set up physical memory manager
 	MM_Install(nPMemMapEnts, pmemmap);
 	

@@ -1,7 +1,11 @@
 /*
- * AcessOS Microkernel Version
+ * Acess2 Kernel (x86)
+ * - By John Hodge (thePowersGang)
+ *
  * proc.c
+ * - Low level thread management
  */
+#define DEBUG	0
 #include <acess.h>
 #include <threads.h>
 #include <proc.h>
@@ -505,11 +509,12 @@ tPID Proc_Clone(Uint Flags)
  */
 tThread *Proc_SpawnWorker(void (*Fcn)(void*), void *Data)
 {
-	tThread	*new;
 	Uint	stack_contents[4];
+	LOG("(Fcn=%p,Data=%p)", Fcn, Data);
 	
 	// Create new thread
-	new = Threads_CloneThreadZero();
+	tThread	*new = Threads_CloneThreadZero();
+	LOG("new=%p", new);
 	if(!new) {
 		Warning("Proc_SpawnWorker - Out of heap space!\n");
 		return NULL;
@@ -523,6 +528,7 @@ tThread *Proc_SpawnWorker(void (*Fcn)(void*), void *Data)
 	
 	// Create a new worker stack (in PID0's address space)
 	new->KernelStack = MM_NewWorkerStack(stack_contents, sizeof(stack_contents));
+	LOG("new->KernelStack = %p", new->KernelStack);
 
 	// Save core machine state
 	new->SavedState.ESP = new->KernelStack - sizeof(stack_contents);
@@ -533,6 +539,7 @@ tThread *Proc_SpawnWorker(void (*Fcn)(void*), void *Data)
 	// Mark as active
 	new->Status = THREAD_STAT_PREINIT;
 	Threads_AddActive( new );
+	LOG("Added to active");
 	
 	return new;
 }

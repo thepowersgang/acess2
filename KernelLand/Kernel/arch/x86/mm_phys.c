@@ -7,6 +7,7 @@
 #include <mm_virt.h>
 #include <pmemmap.h>
 #include <hal_proc.h>
+#include <semaphore.h>
 
 //#define USE_STACK	1
 #define TRACE_ALLOCS	0	// Print trace messages on AllocPhys/DerefPhys
@@ -41,11 +42,10 @@ void	**gaPageNodes = (void*)MM_PAGENODE_BASE;
 // === CODE ===
 void MM_Install(int NPMemRanges, tPMemMapEnt *PMemRanges)
 {
-	Uint	i;
 	Uint64	maxAddr = 0;
 	
 	// --- Find largest address
-	for( i = 0; i < NPMemRanges; i ++ )
+	for( Uint i = 0; i < NPMemRanges; i ++ )
 	{
 		tPMemMapEnt	*ent = &PMemRanges[i];
 		// If entry is RAM and is above `maxAddr`, change `maxAddr`
@@ -56,20 +56,33 @@ void MM_Install(int NPMemRanges, tPMemMapEnt *PMemRanges)
 			giTotalMemorySize += ent->Length >> 12;
 		}
 	}
+	LOG("giTotalMemorySize = %lli KiB", giTotalMemorySize*4);
+	LOG("maxAddr = 0x%X", maxAddr);
+	
+	// Clip to 32-bits
+	if( maxAddr > (1ULL << 32) ) {
+		maxAddr = (1ULL << 32);
+	}
 	
 	giPageCount = maxAddr >> 12;
 	giLastPossibleFree = giPageCount - 1;
-	
 	memsetd(gaPageBitmap, 0xFFFFFFFF, giPageCount/32);
 	
 	// Set up allocateable space
-	for( i = 0; i < NPMemRanges; i ++ )
+	for( Uint i = 0; i < NPMemRanges; i ++ )
 	{
 		tPMemMapEnt *ent = &PMemRanges[i];
 		if( ent->Type == PMEMTYPE_FREE )
 		{
 			Uint64	startpg = ent->Start / PAGE_SIZE;
 			Uint64	pgcount = ent->Length / PAGE_SIZE;
+			// Ignore start addresses >32 bits
+			if( startpg > (1 << 20) )
+				continue ;
+			// Clip lengths to 32-bit address space
+			if( startpg + pgcount > (1<<20) )
+				pgcount = (1<<20) - startpg;
+			
 			while( startpg % 32 && pgcount ) {
 				gaPageBitmap[startpg/32] &= ~(1U << (startpg%32));
 				startpg ++;
@@ -86,13 +99,14 @@ void MM_Install(int NPMemRanges, tPMemMapEnt *PMemRanges)
 		}
 		else if( ent->Type == PMEMTYPE_USED )
 		{
+			// TODO: Clip?
 			giPhysAlloc += ent->Length / PAGE_SIZE;
 		}
 	}
 
 	// Fill Superpage bitmap
 	// - A set bit means that there are no free pages in this block of 32
-	for( i = 0; i < (giPageCount+31)/32; i ++ )
+	for( Uint i = 0; i < (giPageCount+31)/32; i ++ )
 	{
 		if( gaPageBitmap[i] + 1 == 0 ) {
 			gaSuperBitmap[i/32] |= (1 << i%32);
@@ -239,7 +253,7 @@ tPAddr MM_AllocPhys(void)
 
 	// Release Spinlock
 	Mutex_Release( &glPhysAlloc );
-	LEAVE('X', ret);
+	LEAVE('P', ret);
 
 	#if TRACE_ALLOCS
 	if( now() > 4000 ) {

@@ -129,10 +129,8 @@ void MM_PreinitVirtual(void)
  */
 void MM_InstallVirtual(void)
 {
-	 int	i;
-	
 	// --- Pre-Allocate kernel tables
-	for( i = KERNEL_BASE>>22; i < 1024; i ++ )
+	for( int i = KERNEL_BASE>>22; i < 1024; i ++ )
 	{
 		if( gaPageDir[ i ] )	continue;
 		// Skip stack tables, they are process unique
@@ -147,7 +145,7 @@ void MM_InstallVirtual(void)
 	}
 	
 	// Unset kernel on the User Text pages
-	for( i = ((tVAddr)&_UsertextEnd-(tVAddr)&_UsertextBase+0xFFF)/4096; i--; ) {
+	for( int i = ((tVAddr)&_UsertextEnd-(tVAddr)&_UsertextBase+0xFFF)/4096; i--; ) {
 		MM_SetFlags( (tVAddr)&_UsertextBase + i*4096, 0, MM_PFLAG_KERNEL );
 	}
 	
@@ -753,10 +751,10 @@ tVAddr MM_NewKStack(void)
  */
 tVAddr MM_NewWorkerStack(Uint *StackContents, size_t ContentsSize)
 {
-	Uint	base, addr;
-	tVAddr	tmpPage;
+	Uint	base;
 	tPAddr	page;
 	
+	LOG("(StackContents=%p,ContentsSize=%i)", StackContents, ContentsSize);
 	// TODO: Thread safety
 	// Find a free worker stack address
 	for(base = giLastUsedWorker; base < NUM_WORKER_STACKS; base++)
@@ -774,9 +772,10 @@ tVAddr MM_NewWorkerStack(Uint *StackContents, size_t ContentsSize)
 		break;
 	}
 	if(base >= NUM_WORKER_STACKS) {
-		Warning("Uh-oh! Out of worker stacks");
+		Log_Error("MMVirt", "Uh-oh! Out of worker stacks");
 		return 0;
 	}
+	LOG("base=0x%x", base);
 	
 	// It's ours now!
 	gWorkerStacks[base/32] |= (1 << base);
@@ -785,6 +784,7 @@ tVAddr MM_NewWorkerStack(Uint *StackContents, size_t ContentsSize)
 	// We have one
 	base = WORKER_STACKS + base * WORKER_STACK_SIZE;
 	//Log(" MM_NewWorkerStack: base = 0x%x", base);
+	LOG("base=%p (top)", base);
 	
 	// Set the temp fractals to TID0's address space
 	GET_TEMP_MAPPING( ((Uint)gaInitPageDir - KERNEL_BASE) );
@@ -792,29 +792,33 @@ tVAddr MM_NewWorkerStack(Uint *StackContents, size_t ContentsSize)
 	
 	// Check if the directory is mapped (we are assuming that the stacks
 	// will fit neatly in a directory)
-	//Log(" MM_NewWorkerStack: gaTmpDir[ 0x%x ] = 0x%x", base>>22, gaTmpDir[ base >> 22 ]);
+	LOG("gaTmpDir[ 0x%x ] = 0x%x", base>>22, gaTmpDir[ base >> 22 ]);
 	if(gaTmpDir[ base >> 22 ] == 0) {
 		gaTmpDir[ base >> 22 ] = MM_AllocPhys() | 3;
 		INVLPG( &gaTmpTable[ (base>>12) & ~0x3FF ] );
 	}
 	
 	// Mapping Time!
-	for( addr = 0; addr < WORKER_STACK_SIZE; addr += 0x1000 )
+	for( Uint addr = 0; addr < WORKER_STACK_SIZE; addr += 0x1000 )
 	{
 		page = MM_AllocPhys();
 		gaTmpTable[ (base + addr) >> 12 ] = page | 3;
 	}
+	LOG("mapped");
 
 	// Release temporary fractal
 	REL_TEMP_MAPPING();
 
 	// NOTE: Max of 1 page
 	// `page` is the last allocated page from the previious for loop
-	tmpPage = (tVAddr)MM_MapTemp( page );
-	memcpy( (void*)( tmpPage + (0x1000 - ContentsSize) ), StackContents, ContentsSize);
-	MM_FreeTemp( (void*)tmpPage );
+	LOG("Mapping first page");
+	char	*tmpPage = MM_MapTemp( page );
+	LOG("tmpPage=%p", tmpPage);
+	memcpy( tmpPage + (0x1000 - ContentsSize), StackContents, ContentsSize);
+	MM_FreeTemp( tmpPage );
 	
 	//Log("MM_NewWorkerStack: RETURN 0x%x", base);
+	LOG("return %p", base+WORKER_STACK_SIZE);
 	return base + WORKER_STACK_SIZE;
 }
 
@@ -982,25 +986,26 @@ tPAddr MM_DuplicatePage(tVAddr VAddr)
  * \brief Create a temporary memory mapping
  * \todo Show Luigi Barone (C Lecturer) and see what he thinks
  */
-void * MM_MapTemp(tPAddr PAddr)
+void *MM_MapTemp(tPAddr PAddr)
 {
-	//ENTER("XPAddr", PAddr);
+	ENTER("PPAddr", PAddr);
 	
 	PAddr &= ~0xFFF;
 	
-	//LOG("glTempMappings = %i", glTempMappings);
-	
 	if( Semaphore_Wait(&gTempMappingsSem, 1) != 1 )
 		return NULL;
+	LOG("Semaphore good");
 	Mutex_Acquire( &glTempMappings );
 	for( int i = 0; i < NUM_TEMP_PAGES; i ++ )
 	{
+		Uint32	*pte = &gaPageTable[ (TEMP_MAP_ADDR >> 12) + i ];
+		LOG("%i: %x", i, *pte);
 		// Check if page used
-		if(gaPageTable[ (TEMP_MAP_ADDR >> 12) + i ] & 1)	continue;
+		if(*pte & 1)	continue;
 		// Mark as used
-		gaPageTable[ (TEMP_MAP_ADDR >> 12) + i ] = PAddr | 3;
+		*pte = PAddr | 3;
 		INVLPG( TEMP_MAP_ADDR + (i << 12) );
-		//LEAVE('p', TEMP_MAP_ADDR + (i << 12));
+		LEAVE('p', TEMP_MAP_ADDR + (i << 12));
 		Mutex_Release( &glTempMappings );
 		return (void*)( TEMP_MAP_ADDR + (i << 12) );
 	}
