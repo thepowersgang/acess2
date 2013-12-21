@@ -153,8 +153,8 @@ int ATA_SetupIO(void)
 		outb(base+0x03, 0xFF);
 		if(inb(base+0x02) != 0x66 || inb(base+0x03) != 0xFF) {
 			Log_Error("ATA", "Unable to write to 0x%x/0x%x", base+2, base+3);
-			LEAVE('i', 0);
-			return 0;
+			LEAVE('i', MODULE_ERR_MISC);
+			return MODULE_ERR_MISC;
 		}
 	}
 	
