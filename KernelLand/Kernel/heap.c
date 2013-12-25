@@ -34,7 +34,7 @@ void	*Heap_Merge(tHeapHead *Head);
 //void	*Heap_Allocate(const char *File, int Line, size_t Bytes);
 //void	*Heap_AllocateZero(const char *File, int Line, size_t Bytes);
 //void	*Heap_Reallocate(const char *File, int Line, void *Ptr, size_t Bytes);
-//void	Heap_Deallocate(void *Ptr);
+//void	Heap_Deallocate(const char *File, int Line, void *Ptr);
 void	Heap_Dump(int bVerbose);
 void	Heap_Stats(void);
 
@@ -60,8 +60,10 @@ void *Heap_Extend(size_t Bytes)
 	tHeapFoot	*foot;
 	
 	// Bounds Check
-	if( gHeapEnd == (tHeapHead*)MM_KHEAP_MAX )
+	if( gHeapEnd == (tHeapHead*)MM_KHEAP_MAX ) {
+		Log_Error("Heap", "Heap limit reached (%p)", (void*)MM_KHEAP_MAX);
 		return NULL;
+	}
 	
 	if( Bytes == 0 ) {
 		Log_Warning("Heap", "Heap_Extend called with Bytes=%i", Bytes);
@@ -73,6 +75,7 @@ void *Heap_Extend(size_t Bytes)
 	// Bounds Check
 	if( new_end > (tHeapHead*)MM_KHEAP_MAX )
 	{
+		Log_Error("Heap", "Heap limit exceeded (%p)", (void*)new_end);
 		// TODO: Clip allocation to avaliable space, and have caller check returned block
 		return NULL;
 	}
@@ -231,8 +234,8 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 			head->AllocateTime = now();
 			Mutex_Release(&glHeap);	// Release spinlock
 			#if DEBUG_TRACE
-			Debug("[Heap   ] Malloc'd %p (%i bytes), returning to %p",
-				head->Data, head->Size,  __builtin_return_address(0));
+			Log_Debug("Heap", "Malloc'd %p (0x%x bytes), returning to %s:%i",
+				head->Data, head->Size, File, Line);
 			#endif
 			return head->Data;
 		}
@@ -269,7 +272,8 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 			best->AllocateTime = now();
 			Mutex_Release(&glHeap);	// Release spinlock
 			#if DEBUG_TRACE
-			Debug("[Heap   ] Malloc'd %p (%i bytes), returning to %s:%i", best->Data, best->Size, File, Line);
+			Log_Debug("Heap", "Malloc'd %p (0x%x bytes), returning to %s:%i",
+				best->Data, best->Size, File, Line);
 			#endif
 			return best->Data;
 		}
@@ -294,7 +298,7 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 	
 	Mutex_Release(&glHeap);	// Release spinlock
 	#if DEBUG_TRACE
-	Debug("[Heap   ] Malloc'd %p (0x%x bytes), returning to %s:%i",
+	Log_Debug("Heap", "Malloc'd %p (0x%x bytes), returning to %s:%i",
 		best->Data, best->Size, File, Line);
 	#endif
 	return best->Data;
@@ -303,7 +307,7 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 /**
  * \brief Free an allocated memory block
  */
-void Heap_Deallocate(void *Ptr)
+void Heap_Deallocate(const char *File, int Line, void *Ptr)
 {
 	tHeapHead	*head = (void*)( (Uint)Ptr - sizeof(tHeapHead) );
 	tHeapFoot	*foot;
@@ -311,10 +315,6 @@ void Heap_Deallocate(void *Ptr)
 	// INVLPTR is returned from Heap_Allocate when the allocation
 	// size is zero.
 	if( Ptr == INVLPTR )	return;
-	
-	#if DEBUG_TRACE
-	Debug("[Heap   ] free: %p freed by %p (%i old)", Ptr, __builtin_return_address(0), now()-head->AllocateTime);
-	#endif
 	
 	// Alignment Check
 	if( (Uint)Ptr & (sizeof(Uint)-1) ) {
@@ -333,7 +333,9 @@ void Heap_Deallocate(void *Ptr)
 	// Check memory block - Header
 	head = (void*)( (Uint)Ptr - sizeof(tHeapHead) );
 	if(head->Magic == MAGIC_FREE) {
-		Log_Warning("Heap", "free - Passed a freed block (%p) by %p", head, __builtin_return_address(0));
+		Log_Warning("Heap", "free - Passed a freed block (%p) by %s:%i (was freed by %s:%i)",
+			head, File, Line,
+			head->File, head->Line);
 		return;
 	}
 	if(head->Magic != MAGIC_USED) {
@@ -355,13 +357,18 @@ void Heap_Deallocate(void *Ptr)
 		return;
 	}
 	
+	#if DEBUG_TRACE
+	Log_Debug("Heap", "free: %p freed by %s:%i (%i old)",
+		Ptr, File, Line, now()-head->AllocateTime);
+	#endif
+	
 	// Lock
 	Mutex_Acquire( &glHeap );
 	
 	// Mark as free
 	head->Magic = MAGIC_FREE;
-	//head->File = NULL;
-	//head->Line = 0;
+	head->File = File;
+	head->Line = Line;
 	head->ValidSize = 0;
 	// Merge blocks
 	Heap_Merge( head );
