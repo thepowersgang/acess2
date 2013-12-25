@@ -77,7 +77,8 @@ typedef struct sInterface
 
 	uint32_t	TransactionID;
 	char	HWAddr[6];
-	
+
+	int64_t	StartTime;	
 	int64_t	Timeout;
 	 int	nTimeouts;
 } tInterface;
@@ -118,6 +119,7 @@ int main(int argc, char *argv[])
 			return -1;
 		}
 		i->State = STATE_PREINIT;
+		i->StartTime = _SysTimestamp();
 		
 		// Send request
 		Send_DHCPDISCOVER(i);
@@ -299,6 +301,7 @@ void Send_DHCPDISCOVER(tInterface *Iface)
 	msg->siaddr = htonl(0);	// siaddr - Zero? maybe -1
 	msg->giaddr = htonl(0);	// giaddr - Zero?
 	memcpy(msg->chaddr, Iface->HWAddr, 6);
+	memset(msg->chaddr+6, 0, sizeof(msg->chaddr)-6);
 
 	memset(msg->sname, 0, sizeof(msg->sname));	// Nuke the rest
 	memset(msg->file, 0, sizeof(msg->file));	// Nuke the rest
@@ -330,14 +333,18 @@ void Send_DHCPREQUEST(tInterface *Iface, void *OfferPacket, int TypeOffset)
 	 int	i;
 	msg = (void*) ((char*)OfferPacket) + 8;
 
+	if( msg->xid != Iface->TransactionID ) {
+		return ;
+	}
+
 	// Reuses old data :)
-	msg->op    = 1;
-	msg->htype = 1;
-	msg->hlen  = 6;
-	msg->hops  = 0;
-	msg->xid   = msg->xid;
-	msg->secs  = htons(0);	// TODO: Maintain times
-	msg->flags = htons(0);
+	msg->op    = htonb(1);
+	msg->htype = htonb(1);
+	msg->hlen  = htonb(6);
+	msg->hops  = htonb(0);
+	msg->xid   = htonl(Iface->TransactionID);
+	msg->secs  = htons( (_SysTimestamp()-Iface->StartTime+499)/1000 );	// TODO: Maintain times
+	msg->flags = htons(0x0000);
 	memcpy(msg->chaddr, Iface->HWAddr, 6);
 	memset(msg->sname, 0, sizeof(msg->sname));	// Nuke the rest
 	memset(msg->file, 0, sizeof(msg->file));	// Nuke the rest
@@ -380,7 +387,7 @@ int Handle_Packet(tInterface *Iface)
 	void	*router = NULL;
 	void	*subnet_mask = NULL;
 	
-	_SysDebug("Doing read on %i", Iface->SocketFD);
+	_SysDebug("Doing read on %s %i", Iface->Adapter, Iface->SocketFD);
 	len = _SysRead(Iface->SocketFD, data, sizeof(data));
 	_SysDebug("len = %i", len);
 
@@ -472,11 +479,15 @@ int Handle_Timeout(tInterface *Iface)
 	switch(Iface->State)
 	{
 	case STATE_DISCOVER_SENT:
+		fprintf(stderr, "DHCPDISCOVER timeout on %s, trying again\n", Iface->Adapter);
 		Send_DHCPDISCOVER(Iface);
 		break;
+	case STATE_REQUEST_SENT:
+		fprintf(stderr, "DHCPREQUEST timeout on %s\n", Iface->Adapter);
+		return 1;
 	default:
-		_SysDebug("Timeout with state = %i", Iface->State);
-		break;
+		_SysDebug("Timeout with state = %i (%s)", Iface->State, Iface->Adapter);
+		return 1;
 	}
 	return 0;
 }
