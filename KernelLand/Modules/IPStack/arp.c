@@ -206,9 +206,6 @@ tMacAddr ARP_Resolve4(tInterface *Interface, tIPv4 Address)
 
 	// Send Request
 	Link_SendPacket(Interface->Adapter, 0x0806, req.DestMac, buffer);
-
-	// Clean up
-	IPStack_Buffer_DestroyBuffer(buffer);
 	
 	// Wait for a reply
 	Time_ScheduleTimer(NULL, Interface->TimeoutDelay);
@@ -367,12 +364,12 @@ void ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffe
 		switch( req4->SWSize )
 		{
 		case 4:
-			Log_Debug("ARP", "ARP Request IPv4 Address %i.%i.%i.%i from %i.%i.%i.%i",
+			Log_Debug("ARP", "ARP Request IPv4 Address %i.%i.%i.%i from %i.%i.%i.%i"
+				" (%02x:%02x:%02x:%02x:%02x:%02x)",
 				req4->DestIP.B[0], req4->DestIP.B[1], req4->DestIP.B[2],
 				req4->DestIP.B[3],
 				req4->SourceIP.B[0], req4->SourceIP.B[1],
-				req4->SourceIP.B[2], req4->SourceIP.B[3]);
-			Log_Debug("ARP", " from MAC %02x:%02x:%02x:%02x:%02x:%02x",
+				req4->SourceIP.B[2], req4->SourceIP.B[3],
 				req4->SourceMac.B[0], req4->SourceMac.B[1],
 				req4->SourceMac.B[2], req4->SourceMac.B[3],
 				req4->SourceMac.B[4], req4->SourceMac.B[5]);
@@ -393,9 +390,10 @@ void ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffe
 				
 				// Assumes only a header and footer at link layer
 				tIPStackBuffer	*buffer = IPStack_Buffer_CreateBuffer(3);
-				IPStack_Buffer_AppendSubBuffer(buffer, sizeof(struct sArpRequest4), 0, req4, NULL, NULL);
+				IPStack_Buffer_AppendSubBuffer(buffer,
+					sizeof(struct sArpRequest4), 0, req4,
+					NULL, NULL);
 				Link_SendPacket(Adapter, 0x0806, req4->DestMac, buffer);
-				IPStack_Buffer_DestroyBuffer(buffer);
 			}
 			break;
 		#if ARPv6

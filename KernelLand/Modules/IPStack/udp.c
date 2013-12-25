@@ -162,7 +162,6 @@ void UDP_SendPacketTo(tUDPChannel *Channel, int AddrType, const void *Address, U
 		IPStack_Buffer_AppendSubBuffer(buffer, sizeof(hdr), 0, &hdr, NULL, NULL);
 		// TODO: What if Channel->Interface is NULL here?
 		IPv4_SendPacket(Channel->Interface, *(tIPv4*)Address, IP4PROT_UDP, 0, buffer);
-		IPStack_Buffer_DestroyBuffer(buffer);
 		break;
 	}
 }

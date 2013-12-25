@@ -5,6 +5,7 @@
  * buffer.c
  * - Scatter-gather handling
  */
+#define DEBUG	0
 #include "ipstack.h"
 #include "include/buffer.h"
 
@@ -23,7 +24,6 @@ struct sIPStackBuffer
 		size_t	PostLength;
 		tIPStackBufferCb	Cb;
 		void	*CbArg;
-		// TODO: Callbacks?
 	} SubBuffers[];
 };
 
@@ -63,6 +63,7 @@ void IPStack_Buffer_ClearBuffer(tIPStackBuffer *Buffer)
 
 void IPStack_Buffer_DestroyBuffer(tIPStackBuffer *Buffer)
 {
+	LOG("Called with %p by %p", Buffer, __builtin_return_address(0));
 	ASSERT(Buffer);
 	IPStack_Buffer_ClearBuffer(Buffer);
 	Buffer->MaxSubBufffers = 0;

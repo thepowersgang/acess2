@@ -16,6 +16,13 @@
 #define VALIDATE_CHECKSUM	0
 #define	MAX_PACKET_SIZE	2048
 
+// === TYPES ===
+typedef struct {
+	Uint16	Type;
+	tPacketCallback	Callback;
+} tLink_PktType;
+
+
 // === PROTOTYPES ===
 void	Link_RegisterType(Uint16 Type, tPacketCallback Callback);
 void	Link_SendPacket(tAdapter *Adapter, Uint16 Type, tMacAddr To, tIPStackBuffer *Buffer);
@@ -28,10 +35,7 @@ Uint32	Link_CalculatePartialCRC(Uint32 CRC, const void *Data, int Length);
 // === GLOBALS ===
  int	giRegisteredTypes = 0;
  int	giRegisteredTypeSpace = 0;
-struct {
-	Uint16	Type;
-	tPacketCallback	Callback;
-}	*gaRegisteredTypes;
+tLink_PktType	*gaRegisteredTypes;
  int	gbLink_CRCTableGenerated = 0;
 Uint32	gaiLink_CRCTable[256];
 
@@ -44,41 +48,45 @@ Uint32	gaiLink_CRCTable[256];
  */
 void Link_RegisterType(Uint16 Type, tPacketCallback Callback)
 {
-	 int	i;
-	void	*tmp;
+	tLink_PktType *typeslot = NULL;
 	
-	for( i = giRegisteredTypes; i -- ; )
+	for( int i = 0; i < giRegisteredTypes; i ++)
 	{
 		if(gaRegisteredTypes[i].Type == Type) {
 			Log_Warning("Net Link", "Attempt to register 0x%x twice", Type);
 			return ;
 		}
 		// Ooh! Free slot!
-		if(gaRegisteredTypes[i].Callback == NULL)	break;
-	}
-	
-	if(i == -1)
-	{
-		giRegisteredTypeSpace += 5;
-		tmp = realloc(gaRegisteredTypes, giRegisteredTypeSpace*sizeof(*gaRegisteredTypes));
-		if(!tmp) {
-			Log_Warning("Net Link",
-				"Out of heap space! (Attempted to allocate %i)",
-				giRegisteredTypeSpace*sizeof(*gaRegisteredTypes)
-				);
-			return ;
+		if(gaRegisteredTypes[i].Callback == NULL)
+		{
+			typeslot = &gaRegisteredTypes[i];
+			break;
 		}
-		gaRegisteredTypes = tmp;
-		i = giRegisteredTypes;
-		giRegisteredTypes ++;
 	}
 	
-	gaRegisteredTypes[i].Callback = Callback;
-	gaRegisteredTypes[i].Type = Type;
+	if(typeslot == NULL)
+	{
+		if( giRegisteredTypes == giRegisteredTypeSpace )
+		{
+			giRegisteredTypeSpace += 5;
+			void *tmp = realloc(gaRegisteredTypes, giRegisteredTypeSpace*sizeof(tLink_PktType));
+			if(!tmp) {
+				Log_Warning("Net Link",
+					"Out of heap space! (Attempted to allocate %i)",
+					giRegisteredTypeSpace*sizeof(tLink_PktType)
+					);
+				return ;
+			}
+			gaRegisteredTypes = tmp;
+		}
+		typeslot = &gaRegisteredTypes[giRegisteredTypes++];
+	}
+	
+	typeslot->Callback = Callback;
+	typeslot->Type = Type;
 }
 
 /**
- * \fn void Link_SendPacket(tAdapter *Adapter, Uint16 Type, tMacAddr To, int Length, void *Buffer)
  * \brief Formats and sends a packet on the specified interface
  */
 void Link_SendPacket(tAdapter *Adapter, Uint16 Type, tMacAddr To, tIPStackBuffer *Buffer)
@@ -152,31 +160,28 @@ int Link_HandlePacket(tAdapter *Adapter, tIPStackBuffer *Buffer)
 	// TODO: Check checksum
 	#endif
 	
+	Uint16	type = ntohs(hdr->Type);
 	// Check if there is a registered callback for this packet type
-	 int	i;
-	for( i = giRegisteredTypes; i--; )
+	for( int i = giRegisteredTypes; i--; )
 	{
-		if(gaRegisteredTypes[i].Type == ntohs(hdr->Type))	break;
+		if(gaRegisteredTypes[i].Type == type)
+		{
+			// Call the callback
+			gaRegisteredTypes[i].Callback(
+				Adapter,
+				hdr->Src,
+				len - sizeof(tEthernetHeader),
+				hdr->Data
+				);
+			free(data);
+			return 0;
+		}
 	}
 	// No? Ignore it
-	if( i == -1 ) {
-		Log_Log("Net Link", "Unregistered type 0x%x", ntohs(hdr->Type));
-		
-		free(data);	
-		return 1;
-	}
+	Log_Log("Net Link", "Unregistered type 0x%04x", type);
 	
-	// Call the callback
-	gaRegisteredTypes[i].Callback(
-		Adapter,
-		hdr->Src,
-		len - sizeof(tEthernetHeader),
-		hdr->Data
-		);
-	
-	free(data);
-	
-	return 0;
+	free(data);	
+	return 1;
 }
 
 // From http://www.cl.cam.ac.uk/research/srg/bluebook/21/crc/node6.html
