@@ -363,7 +363,8 @@ int Vesa_IOCtl(tVFS_Node *Node, int ID, void *Data)
 		return 0;
 	
 	case VIDEO_IOCTL_SETCURSORBITMAP:
-		DrvUtil_Video_SetCursor( &gVesa_BufInfo, Data );
+		if( gpVesaCurMode->flags & FLAG_LFB )
+			DrvUtil_Video_SetCursor( &gVesa_BufInfo, Data );
 		return 0;
 	}
 	return 0;
@@ -551,9 +552,9 @@ int Vesa_Int_ModeInfo(tVideo_IOCtl_Mode *data)
 
 void Vesa_int_HideCursor(void)
 {
+	DrvUtil_Video_RemoveCursor( &gVesa_BufInfo );
 	if( gpVesaCurMode->flags & FLAG_LFB )
 	{
-		DrvUtil_Video_RemoveCursor( &gVesa_BufInfo );
 		#if BLINKING_CURSOR
 		if(gpVesaCursorTimer) {
 			Time_RemoveTimer(gpVesaCursorTimer);
@@ -584,6 +585,10 @@ void Vesa_int_ShowCursor(void)
 				giVesaCursorX,
 				giVesaCursorY
 				);
+	}
+	else
+	{
+		DrvUtil_Video_RemoveCursor( &gVesa_BufInfo );
 	}
 }
 
