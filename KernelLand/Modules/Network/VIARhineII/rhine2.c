@@ -2,7 +2,7 @@
  * Acess2 VIA Rhine II Driver (VT6102)
  * - By John Hodge (thePowersGang)
  */
-#define	DEBUG	1
+#define	DEBUG	0
 #define VERSION	((0<<8)|10)
 #include <acess.h>
 #include <modules.h>
@@ -80,7 +80,6 @@ int Rhine2_Install(char **Options)
 {
 	 int	id = -1;
 	 int	i = 0;
-	tCard	*card;
 	
 	giRhine2_CardCount = PCI_CountDevices(VENDOR_ID, DEVICE_ID);
 	if( giRhine2_CardCount == 0 )	return MODULE_ERR_NOTNEEDED;
@@ -89,7 +88,7 @@ int Rhine2_Install(char **Options)
 	
 	while( (id = PCI_GetDevice(VENDOR_ID, DEVICE_ID, i)) != -1 )
 	{
-		card = &gaRhine2_Cards[i];
+		tCard	*card = &gaRhine2_Cards[i];
 		
 		LOG("BAR0 = 0x%08x", PCI_GetBAR(id, 0));
 		LOG("BAR1 = 0x%08x", PCI_GetBAR(id, 1));
@@ -201,7 +200,6 @@ void Rhine2_int_InitialiseCard(tCard *Card)
 tIPStackBuffer *Rhine2_WaitPacket(void *Ptr)
 {
 	tCard	*card = Ptr;
-	tIPStackBuffer	*ret;
 	struct sRXDesc	*desc;
 	 int	nDesc;
 	
@@ -227,7 +225,7 @@ tIPStackBuffer *Rhine2_WaitPacket(void *Ptr)
 
 	LOG("%i descriptors in packet", nDesc);
 
-	ret = IPStack_Buffer_CreateBuffer(nDesc);
+	tIPStackBuffer	*ret = IPStack_Buffer_CreateBuffer(nDesc);
 	desc = card->NextRX;
 	while( !(desc->Length & (1 << 15)) )
 	{
