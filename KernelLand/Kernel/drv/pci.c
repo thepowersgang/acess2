@@ -544,7 +544,11 @@ Uint64 PCI_GetValidBAR(tPCIDev ID, int BARNum, tPCI_BARType Type)
 		break;
 	}
 	ASSERT(ret != -1);
-	ASSERT(ret);
+	if( ret == 0 ) {
+		Log_Error("PCI", "PCI%i BAR%i correct type, but unallocated (0x%x)",
+			ID, BARNum, bar_val);
+		return 0;
+	}
 	return ret;
 }
 
