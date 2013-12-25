@@ -5,7 +5,7 @@
  * virtio-net.c
  * - Driver Core
  */
-#define DEBUG	1
+#define DEBUG	0
 #define VERSION	VER2(1,0)
 #include <acess.h>
 #include <modules.h>
@@ -101,7 +101,7 @@ void VirtIONet_AddCard(Uint16 IOBase, Uint IRQ)
 		// Oops?
 	}
 	tVirtIONet_Dev	*ndev = VirtIO_GetDataPtr(dev);
-	Semaphore_Init(&ndev->RXPacketSem, 0, 1, "VirtIONet", "RXSem");
+	Semaphore_Init(&ndev->RXPacketSem, 0, NRXBUFS, "VirtIONet", "RXSem");
 	ndev->Features = VirtIO_GetFeatures(dev);
 	
 	Uint8	mac[6];
@@ -133,10 +133,12 @@ void VirtIONet_AddCard(Uint16 IOBase, Uint IRQ)
 	for( int i = 0; i < NRXBUFS; i ++ )
 	{
 		ndev->RXBuffers[i] = MM_AllocDMA(1, -1, NULL);
+		LOG("RxBuf %i/%i: %p", i, NRXBUFS, ndev->RXBuffers[i]);
 		VirtIO_ReceiveBuffer(dev, 0, PAGE_SIZE, ndev->RXBuffers[i], NULL);
 	}
 
 	// Register with IPStack
+	LOG("Register");
 	// TODO: Save the returned pointer to do deregister later	
 	IPStack_Adapter_Add(&gVirtIONet_AdapterType, dev, mac);
 	LEAVE('-');
@@ -145,6 +147,7 @@ void VirtIONet_AddCard(Uint16 IOBase, Uint IRQ)
 int VirtIONet_RXQueueCallback(tVirtIO_Dev *Dev, int ID, size_t UsedBytes, void *Handle)
 {
 	tVirtIONet_Dev	*NDev = VirtIO_GetDataPtr(Dev);
+	LOG("Signalling");
 	Semaphore_Signal(&NDev->RXPacketSem, 1);
 	// 1: Don't pop the qdesc
 	return 1;
