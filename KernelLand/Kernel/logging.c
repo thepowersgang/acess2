@@ -114,9 +114,7 @@ void Log_AddEvent(const char *Ident, int Level, const char *Format, va_list Args
 	{
 		#define LOG_HDR_LEN	(14+1+2+8+2)
 		char	newData[ LOG_HDR_LEN + len + 2 + 1 ];
-		char	_ident[9];
-		strncpy(_ident, Ident, 9);
-		sprintf( newData, "%014lli%s [%-8s] ",
+		sprintf( newData, "%014lli%s [%-8.8s] ",
 			ent->Time, csaLevelCodes[Level], Ident);
 		strcpy( newData + LOG_HDR_LEN, ent->Data );
 		strcpy( newData + LOG_HDR_LEN + len, "\r\n" );
@@ -127,16 +125,14 @@ void Log_AddEvent(const char *Ident, int Level, const char *Format, va_list Args
 	Mutex_Acquire( &glLog );
 	
 	ent->Next = gLog.Tail;
-	if(gLog.Head)
-		gLog.Tail = ent;
-	else
-		gLog.Tail = gLog.Head = ent;
+	tLogEntry	**pnp = (gLog.Tail ? &gLog.Tail->Next : &gLog.Head);
+	*pnp = ent;
+	gLog.Tail = ent;
 	
 	ent->LevelNext = gLog_Levels[Level].Tail;
-	if(gLog_Levels[Level].Head)
-		gLog_Levels[Level].Tail = ent;
-	else
-		gLog_Levels[Level].Tail = gLog_Levels[Level].Head = ent;
+	pnp = (gLog_Levels[Level].Tail ? &gLog_Levels[Level].Tail->LevelNext : &gLog_Levels[Level].Head);
+	*pnp = ent;
+	gLog_Levels[Level].Tail = ent;
 	
 	Mutex_Release( &glLog );
 	# endif
