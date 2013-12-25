@@ -5,7 +5,7 @@
  * virtio.c
  * - Core
  */
-#define DEBUG	1
+#define DEBUG	0
 #define VERSION	0x100
 #include <acess.h>
 #include <modules.h>
@@ -154,8 +154,7 @@ tVirtIO_Dev *VirtIO_InitDev(Uint16 IOBase, Uint IRQ, Uint32 Features, int MaxQue
 
 	// Register IRQ Handler
 	IRQ_AddHandler(IRQ, VirtIO_IRQHandler, ret);
-	Uint8 isr = inb(IOBase + VIRTIO_REG_ISRSTS);
-	LOG("isr = %x", isr);
+	LOG("isr = %x", inb(IOBase + VIRTIO_REG_ISRSTS));
 	
 	// Start
 	outb(IOBase + VIRTIO_REG_DEVSTS, VIRTIO_DEVSTS_DRIVER_OK);
@@ -410,6 +409,7 @@ void VirtIO_int_ProcessUsedList(tVirtIO_Dev *Dev, tVirtIO_Queue *Queue, int Used
 	
 	if( !Queue->NoAutoRel )
 	{
+		LOG("Releasing");
 		// Return the buffer to the avaliable pool
 		VirtIO_ReleaseBuffer(&Queue->Buffers[qent]);
 		if(Queue->NextUsedPop == UsedIdx)
@@ -440,6 +440,7 @@ void VirtIO_IRQHandler(int IRQ, void *Ptr)
 			queue->LastSeenUsed ++;
 			VirtIO_int_ProcessUsedList(Dev, queue, idx);
 		}
+		LOG("- Done");
 	}
 }
 
