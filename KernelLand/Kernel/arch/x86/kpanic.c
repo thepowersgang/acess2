@@ -112,6 +112,7 @@ void KernelPanic_SetMode(void)
 	}
 	#endif
 	
+	#if ENABLE_KPANIC_MODE
 	// Clear Screen
 	for( i = 0; i < 80*25; i++ )
 	{
@@ -124,10 +125,12 @@ void KernelPanic_SetMode(void)
 		__asm__ __volatile__ ("mov %%ebp, %0" : "=r" (ebp));
 		Error_Backtrace(eip, ebp);
 	}
+	#endif
 }
 
 void KernelPanic_PutChar(char Ch)
 {
+	#if ENABLE_KPANIC_MODE
 	if( giKP_Pos > 80*25 )	return ;
 	switch(Ch)
 	{
@@ -159,4 +162,5 @@ void KernelPanic_PutChar(char Ch)
 		VT_int_PutString(gpVT_CurTerm, s);
 	}
 	#endif
+	#endif // ENABLE_KPANIC_MODE
 }
