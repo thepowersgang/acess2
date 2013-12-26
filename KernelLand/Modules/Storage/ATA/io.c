@@ -183,11 +183,11 @@ int ATA_SetupIO(void)
 
 	LOG("gATA_PRDTs = {PBufAddr: 0x%x, PBufAddr: 0x%x}", gATA_PRDTs[0].PBufAddr, gATA_PRDTs[1].PBufAddr);
 
-	// TODO: Ensure that this is within 32-bits
 	gaATA_PRDT_PAddrs[0] = MM_GetPhysAddr( &gATA_PRDTs[0] );
 	gaATA_PRDT_PAddrs[1] = MM_GetPhysAddr( &gATA_PRDTs[1] );
 	LOG("gaATA_PRDT_PAddrs = {0x%P, 0x%P}", gaATA_PRDT_PAddrs[0], gaATA_PRDT_PAddrs[1]);
 	#if PHYS_BITS > 32
+	// Ensure that this is within 32-bits
 	if( gaATA_PRDT_PAddrs[0] >> 32 || gaATA_PRDT_PAddrs[1] >> 32 ) {
 		Log_Error("ATA", "Physical addresses of PRDTs are not in 32-bits (%P and %P)",
 			gaATA_PRDT_PAddrs[0], gaATA_PRDT_PAddrs[1]);
