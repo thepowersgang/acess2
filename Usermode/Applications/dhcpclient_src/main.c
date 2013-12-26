@@ -333,7 +333,8 @@ void Send_DHCPREQUEST(tInterface *Iface, void *OfferPacket, int TypeOffset)
 	 int	i;
 	msg = (void*) ((char*)OfferPacket) + 8;
 
-	if( msg->xid != Iface->TransactionID ) {
+	if( msg->xid != htonl(Iface->TransactionID) ) {
+		_SysDebug("DHCPREQUEST: Transaction ID mismatch");
 		return ;
 	}
 
@@ -505,7 +506,9 @@ void Update_State(tInterface *Iface, int newState)
 		// TODO: Exponential backoff
 		Iface->Timeout = _SysTimestamp() + 3000;
 		Iface->nTimeouts ++;
-		_SysDebug("State %i repeated, timeout is 3000ms now", newState);
+		_SysDebug("%s: State %i repeated, timeout is 3000ms now",
+			Iface->Adapter,
+			newState);
 	}
 }
 
