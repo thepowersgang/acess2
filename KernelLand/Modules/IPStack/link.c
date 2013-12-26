@@ -12,7 +12,7 @@
 #include "include/adapters_int.h"
 
 // === CONSTANTS ===
-#define LINK_LOGPACKETS	1
+#define LINK_LOGPACKETS	0
 #define VALIDATE_CHECKSUM	0
 #define	MAX_PACKET_SIZE	2048
 

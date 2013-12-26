@@ -11,7 +11,6 @@
 #define USE_SELECT	1
 #define HEXDUMP_INCOMING	0
 #define HEXDUMP_OUTGOING	0
-#define	CACHE_FUTURE_PACKETS_IN_BYTES	1	// Use a ring buffer to cache out of order packets
 
 #define TCP_MIN_DYNPORT	0xC000
 #define TCP_MAX_HALFOPEN	1024	// Should be enough
@@ -37,6 +36,7 @@ void	TCP_INT_SendACK(tTCPConnection *Connection, const char *Reason);
 Uint16	TCP_GetUnusedPort();
  int	TCP_AllocatePort(Uint16 Port);
  int	TCP_DeallocatePort(Uint16 Port);
+tTCPConnection	*TCP_int_CreateConnection(tInterface *Interface, enum eTCPConnectionState State);
 // --- Server
 tVFS_Node	*TCP_Server_Init(tInterface *Interface);
  int	TCP_Server_ReadDir(tVFS_Node *Node, int Pos, char Name[FILENAME_MAX]);
@@ -241,11 +241,9 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 		
 		// TODO: Check for halfopen max
 		
-		conn = calloc(1, sizeof(tTCPConnection));
-		conn->State = TCP_ST_SYN_RCVD;
+		conn = TCP_int_CreateConnection(Interface, TCP_ST_SYN_RCVD);
 		conn->LocalPort = srv->Port;
 		conn->RemotePort = ntohs(hdr->SourcePort);
-		conn->Interface = Interface;
 		
 		switch(Interface->Type)
 		{
@@ -253,17 +251,10 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 		case 6:	conn->RemoteIP.v6 = *(tIPv6*)Address;	break;
 		}
 		
-		conn->RecievedBuffer = RingBuffer_Create( TCP_RECIEVE_BUFFER_SIZE );
-		
 		conn->NextSequenceRcv = ntohl( hdr->SequenceNumber ) + 1;
 		conn->NextSequenceSend = rand();
 		
-		// Create node
-		conn->Node.NumACLs = 1;
-		conn->Node.ACLs = &gVFS_ACL_EveryoneRW;
-		conn->Node.ImplPtr = conn;
 		conn->Node.ImplInt = srv->NextID ++;
-		conn->Node.Type = &gTCP_ClientNodeType;	// TODO: Special type for the server end?
 		
 		// Hmm... Theoretically, this lock will never have to wait,
 		// as the interface is locked to the watching thread, and this
@@ -501,10 +492,9 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 			Uint8	*dataptr = (Uint8*)Header + (Header->DataOffset>>4)*4;
 			#if CACHE_FUTURE_PACKETS_IN_BYTES
 			Uint32	index;
-			 int	i;
 			
 			index = sequence_num % TCP_WINDOW_SIZE;
-			for( i = 0; i < dataLen; i ++ )
+			for( int i = 0; i < dataLen; i ++ )
 			{
 				Connection->FuturePacketValidBytes[index/8] |= 1 << (index%8);
 				Connection->FuturePacketData[index] = dataptr[i];
@@ -698,26 +688,29 @@ int TCP_INT_AppendRecieved(tTCPConnection *Connection, const void *Data, size_t 
 void TCP_INT_UpdateRecievedFromFuture(tTCPConnection *Connection)
 {
 	#if CACHE_FUTURE_PACKETS_IN_BYTES
-	 int	i, length = 0;
-	Uint32	index;
-	
 	// Calculate length of contiguous bytes
-	length = Connection->HighestSequenceRcvd - Connection->NextSequenceRcv;
-	index = Connection->NextSequenceRcv % TCP_WINDOW_SIZE;
-	for( i = 0; i < length; i ++ )
+	 int	length = Connection->HighestSequenceRcvd - Connection->NextSequenceRcv;
+	Uint32	index = Connection->NextSequenceRcv % TCP_WINDOW_SIZE;
+	for( int i = 0; i < length; i ++ )
 	{
-		if( Connection->FuturePacketValidBytes[i / 8] == 0xFF ) {
-			i += 7;	index += 7;
-			continue;
-		}
-		else if( !(Connection->FuturePacketValidBytes[i / 8] & (1 << (i%8))) )
+		 int	bit = index % 8;
+		Uint8	bitfield_byte = Connection->FuturePacketValidBytes[index / 8];
+		if( (bitfield_byte & (1 << bit)) == 0 ) {
+			length = i;
 			break;
-		
-		index ++;
+		}
+
+		if( bitfield_byte == 0xFF ) {
+			 int	inc = 8 - bit;
+			i += inc - 1;
+			index += inc;
+		}
+		else {
+			index ++;
+		}
 		if(index > TCP_WINDOW_SIZE)
 			index -= TCP_WINDOW_SIZE;
 	}
-	length = i;
 	
 	index = Connection->NextSequenceRcv % TCP_WINDOW_SIZE;
 	
@@ -797,7 +790,7 @@ void TCP_INT_UpdateRecievedFromFuture(tTCPConnection *Connection)
 		SHORTREL( &Connection->lFuturePackets );
 		
 		// Looks like we found one
-		TCP_INT_AppendRecieved(Connection, pkt);
+		TCP_INT_AppendRecieved(Connection, pkt->Data, pkt->Length);
 		Connection->NextSequenceRcv += pkt->Length;
 		free(pkt);
 	}
@@ -883,6 +876,38 @@ int TCP_DeallocatePort(Uint16 Port)
 	gaTCP_PortBitmap[Port/32] &= ~(1 << (Port%32));
 
 	return 1;
+}
+
+tTCPConnection *TCP_int_CreateConnection(tInterface *Interface, enum eTCPConnectionState State)
+{
+	tTCPConnection	*conn = calloc( sizeof(tTCPConnection) + TCP_WINDOW_SIZE + TCP_WINDOW_SIZE/8, 1 );
+
+	conn->State = State;
+	conn->Interface = Interface;
+	conn->LocalPort = -1;
+	conn->RemotePort = -1;
+
+	conn->Node.ReferenceCount = 1;
+	conn->Node.ImplPtr = conn;
+	conn->Node.NumACLs = 1;
+	conn->Node.ACLs = &gVFS_ACL_EveryoneRW;
+	conn->Node.Type = &gTCP_ClientNodeType;
+	conn->Node.BufferFull = 1;	// Cleared when connection opens
+
+	conn->RecievedBuffer = RingBuffer_Create( TCP_RECIEVE_BUFFER_SIZE );
+	#if 0
+	conn->SentBuffer = RingBuffer_Create( TCP_SEND_BUFFER_SIZE );
+	Semaphore_Init(conn->SentBufferSpace, 0, TCP_SEND_BUFFER_SIZE, "TCP SentBuffer", conn->Name);
+	#endif
+	
+	#if CACHE_FUTURE_PACKETS_IN_BYTES
+	// Future recieved data (ahead of the expected sequence number)
+	conn->FuturePacketData = (Uint8*)conn + sizeof(tTCPConnection);
+	conn->FuturePacketValidBytes = conn->FuturePacketData + TCP_WINDOW_SIZE;
+	#endif
+
+	conn->DeferredACKTimer = Time_AllocateTimer( TCP_int_SendDelayedACK, conn);
+	return conn;
 }
 
 // --- Server
@@ -1077,33 +1102,7 @@ void TCP_Server_Close(tVFS_Node *Node)
  */
 tVFS_Node *TCP_Client_Init(tInterface *Interface)
 {
-	tTCPConnection	*conn = calloc( sizeof(tTCPConnection) + TCP_WINDOW_SIZE + TCP_WINDOW_SIZE/8, 1 );
-
-	conn->State = TCP_ST_CLOSED;
-	conn->Interface = Interface;
-	conn->LocalPort = -1;
-	conn->RemotePort = -1;
-
-	conn->Node.ReferenceCount = 1;
-	conn->Node.ImplPtr = conn;
-	conn->Node.NumACLs = 1;
-	conn->Node.ACLs = &gVFS_ACL_EveryoneRW;
-	conn->Node.Type = &gTCP_ClientNodeType;
-	conn->Node.BufferFull = 1;	// Cleared when connection opens
-
-	conn->RecievedBuffer = RingBuffer_Create( TCP_RECIEVE_BUFFER_SIZE );
-	#if 0
-	conn->SentBuffer = RingBuffer_Create( TCP_SEND_BUFFER_SIZE );
-	Semaphore_Init(conn->SentBufferSpace, 0, TCP_SEND_BUFFER_SIZE, "TCP SentBuffer", conn->Name);
-	#endif
-	
-	#if CACHE_FUTURE_PACKETS_IN_BYTES
-	// Future recieved data (ahead of the expected sequence number)
-	conn->FuturePacketData = (Uint8*)conn + sizeof(tTCPConnection);
-	conn->FuturePacketValidBytes = conn->FuturePacketData + TCP_WINDOW_SIZE;
-	#endif
-
-	conn->DeferredACKTimer = Time_AllocateTimer( TCP_int_SendDelayedACK, conn);
+	tTCPConnection	*conn = TCP_int_CreateConnection(Interface, TCP_ST_CLOSED);
 
 	SHORTLOCK(&glTCP_OutbountCons);
 	conn->Next = gTCP_OutbountCons;
@@ -1181,6 +1180,9 @@ void TCP_INT_SendDataPacket(tTCPConnection *Connection, size_t Length, const voi
 {
 	char	buf[sizeof(tTCPHeader)+Length];
 	tTCPHeader	*packet = (void*)buf;
+
+	// - Stop Delayed ACK timer (as this data packet ACKs)
+	Time_RemoveTimer(Connection->DeferredACKTimer);
 	
 	packet->SourcePort = htons(Connection->LocalPort);
 	packet->DestPort = htons(Connection->RemotePort);
@@ -1190,6 +1192,7 @@ void TCP_INT_SendDataPacket(tTCPConnection *Connection, size_t Length, const voi
 	packet->AcknowlegementNumber = htonl(Connection->NextSequenceRcv);
 	packet->SequenceNumber = htonl(Connection->NextSequenceSend);
 	packet->Flags = TCP_FLAG_PSH|TCP_FLAG_ACK;	// Hey, ACK if you can!
+	packet->UrgentPointer = 0;
 	
 	memcpy(packet->Options, Data, Length);
 	

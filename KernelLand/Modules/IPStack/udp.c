@@ -38,7 +38,7 @@ tVFS_NodeType	gUDP_NodeType = {
 	.IOCtl = UDP_Channel_IOCtl,
 	.Close = UDP_Channel_Close
 };
-tMutex	glUDP_Channels;
+tMutex	glUDP_Channels;	// TODO: Replace with a RWLock
 tUDPChannel	*gpUDP_Channels;
 
 tMutex	glUDP_Ports;

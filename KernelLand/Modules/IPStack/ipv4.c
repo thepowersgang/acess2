@@ -186,7 +186,8 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	// TODO: Handle packet fragmentation
 	
 	#if IPV4_TRACE
-	Log_Debug("IPv4", " From %i.%i.%i.%i to %i.%i.%i.%i",
+	Log_Debug("IPv4", "Proto 0x%x From %i.%i.%i.%i to %i.%i.%i.%i",
+		hdr->Protocol,
 		hdr->Source.B[0], hdr->Source.B[1], hdr->Source.B[2], hdr->Source.B[3],
 		hdr->Destination.B[0], hdr->Destination.B[1], hdr->Destination.B[2], hdr->Destination.B[3]
 		);
