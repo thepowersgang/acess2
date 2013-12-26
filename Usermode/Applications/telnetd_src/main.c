@@ -11,6 +11,8 @@
 #include <stdlib.h>
 #include <acess/sys.h>
 #include <assert.h>
+#include <errno.h>
+#include <acess/devices/pty.h>
 
 // === TYPES ===
 enum eTelnetMode
@@ -28,8 +30,6 @@ typedef struct sClient
 	enum eTelnetMode	Mode;
 	 int	Socket;
 	 int	pty;
-	 int	stdin;
-	 int	stdout;
 } tClient;
 
 // === PROTOTYPES ===
@@ -89,8 +89,6 @@ void EventLoop(void)
 		for( int i = 0; i < giConfig_MaxClients; i ++ )
 		{
 			if( gaClients[i].Socket == 0 )	continue ;
-			_SysDebug("Socket = %i, pty = %i",
-				gaClients[i].Socket, gaClients[i].pty);
 			FD_SET_MAX(&fds, gaClients[i].Socket, &maxfd);
 			FD_SET_MAX(&fds, gaClients[i].pty,  &maxfd);
 		}
@@ -144,14 +142,28 @@ void Server_NewClient(int FD)
 	clt->Socket = _SysOpenChild(FD, "", OPENFLAG_READ|OPENFLAG_WRITE);
 	giNumClients ++;
 	
-	// Create stdin/stdout
+	// Create PTY
 	// TODO: Use PTYs
-	clt->stdin = _SysOpen("/Devices/fifo/anon", OPENFLAG_READ|OPENFLAG_WRITE);
-	clt->stdout = _SysOpen("/Devices/fifo/anon", OPENFLAG_READ|OPENFLAG_WRITE);
+	clt->pty = _SysOpen("/Devices/pts/ptmx", OPENFLAG_READ|OPENFLAG_WRITE);
+	if( clt->pty < 0 ) {
+		perror("Unable to create/open PTY");
+		_SysDebug("Unable to create/open PTY: %s", strerror(errno));
+		_SysClose(clt->Socket);
+		clt->Socket = 0;
+		return ;
+	}
+	// - Initialise
+	{
+		_SysIOCtl(clt->pty, PTY_IOCTL_SETID, "telnetd0");
+		struct ptymode	mode = {.InputMode = 0, .OutputMode=0};
+		struct ptydims	dims = {.W = 80, .H = 25};
+		_SysIOCtl(clt->pty, PTY_IOCTL_SETMODE, &mode);
+		_SysIOCtl(clt->pty, PTY_IOCTL_SETDIMS, &dims);
+	}
 	
 	// TODO: Arguments and envp
 	{
-		 int	clientfd = _SysOpen("/Devices/pts/telnetd0c", OPENFLAG_READ|OPENFLAG_WRITE);
+		 int	clientfd = _SysOpen("/Devices/pts/telnetd0", OPENFLAG_READ|OPENFLAG_WRITE);
 		if(clientfd < 0) {
 			perror("Unable to open login PTY");
 			_SysClose(clt->Socket);
@@ -186,6 +198,8 @@ void HandleServerBoundData(tClient *Client)
 			switch(buf[i])
 			{
 			case 240:	// End of subnegotiation parameters
+				_SysDebug("End Subnegotiation");
+				break;
 			case 241:	// Nop
 				break;
 			case 242:	// SYNCH
@@ -198,19 +212,21 @@ void HandleServerBoundData(tClient *Client)
 			case 247:	// Function 'EC'
 			case 248:	// Function 'EL'
 			case 249:	// GA Signal
+				break;
 			case 250:	// Subnegotation
+				_SysDebug("Subnegotiation");
 				break;
 			case 251:	// WILL
 				Client->Mode = MODE_WILL;
 				break;
 			case 252:	// WONT
-				Client->Mode = MODE_WILL;
+				Client->Mode = MODE_WONT;
 				break;
 			case 253:	// DO
-				Client->Mode = MODE_WILL;
+				Client->Mode = MODE_DO;
 				break;
 			case 254:	// DONT
-				Client->Mode = MODE_WILL;
+				Client->Mode = MODE_DONT;
 				break;
 			case 255:	// Literal 255
 				Client->Mode = MODE_DATA;
