@@ -205,6 +205,7 @@ int E1000_SendPacket(void *Ptr, tIPStackBuffer *Buffer)
 	 int txd = first_txd;
 	while( (idx = IPStack_Buffer_GetBuffer(Buffer, idx, &len, &ptr)) != -1 )
 	{
+		//Debug_HexDump("E100 SendPacket", ptr, len);
 		if( MM_GetPhysAddr(ptr) + len-1 != MM_GetPhysAddr((char*)ptr + len-1) )
 		{
 			size_t	remlen = PAGE_SIZE - ((tVAddr)ptr & (PAGE_SIZE-1));
