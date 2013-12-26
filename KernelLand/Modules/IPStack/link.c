@@ -12,7 +12,7 @@
 #include "include/adapters_int.h"
 
 // === CONSTANTS ===
-#define LINK_LOGPACKETS	0
+#define LINK_LOGPACKETS	1
 #define VALIDATE_CHECKSUM	0
 #define	MAX_PACKET_SIZE	2048
 
@@ -143,8 +143,9 @@ int Link_HandlePacket(tAdapter *Adapter, tIPStackBuffer *Buffer)
 	
 	#if LINK_LOGPACKETS
 	Log_Log("Net Link",
-		"Packet from %02x:%02x:%02x:%02x:%02x:%02x"
+		"eth%i Packet from %02x:%02x:%02x:%02x:%02x:%02x"
 		" to %02x:%02x:%02x:%02x:%02x:%02x (Type=%04x)",
+		Adapter->Index,
 		hdr->Src.B[0], hdr->Src.B[1], hdr->Src.B[2],
 		hdr->Src.B[3], hdr->Src.B[4], hdr->Src.B[5],
 		hdr->Dest.B[0], hdr->Dest.B[1], hdr->Dest.B[2],
@@ -178,7 +179,7 @@ int Link_HandlePacket(tAdapter *Adapter, tIPStackBuffer *Buffer)
 		}
 	}
 	// No? Ignore it
-	Log_Log("Net Link", "Unregistered type 0x%04x", type);
+	Log_Log("Net Link", "eth%i Unregistered type 0x%04x", Adapter->Index, type);
 	
 	free(data);	
 	return 1;

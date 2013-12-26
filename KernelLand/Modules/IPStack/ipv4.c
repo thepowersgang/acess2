@@ -10,7 +10,7 @@
 
 // === CONSTANTS ===
 #define DEFAULT_TTL	32
-#define IPV4_TRACE	0	// set to 1 to enable packet tracing
+#define IPV4_TRACE	1	// set to 1 to enable packet tracing
 
 // === IMPORTS ===
 extern tInterface	*gIP_Interfaces;
@@ -191,14 +191,14 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 		hdr->Destination.B[0], hdr->Destination.B[1], hdr->Destination.B[2], hdr->Destination.B[3]
 		);
 	#endif
-
-	// TODO: Should ARP sniffing be used?
-	// - If we get a packet, cache the source MAC
-	ARP_UpdateCache4(hdr->Source, From);
 	
 	// Get Data and Data Length
 	dataLength = ntohs(hdr->TotalLength) - sizeof(tIPv4Header);
 	data = &hdr->Options[0];
+
+	// Populate ARP cache from sniffing.
+	// - Downside: Poisoning, polluting from routed packets
+	//ARP_UpdateCache4(hdr->Source, From);
 	
 	// Get Interface (allowing broadcasts)
 	iface = IPv4_GetInterface(Adapter, hdr->Destination, 1);
@@ -274,6 +274,10 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 		
 		return ;
 	}
+
+	// Populate ARP cache from recieved packets
+	// - Should be safe
+	ARP_UpdateCache4(hdr->Source, From);
 	
 	// Send it on
 	if( !gaIPv4_Callbacks[hdr->Protocol] ) {

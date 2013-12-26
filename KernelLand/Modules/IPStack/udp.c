@@ -27,6 +27,9 @@ void	UDP_Channel_Close(tVFS_Node *Node);
 Uint16	UDP_int_AllocatePort(tUDPChannel *Channel);
  int	UDP_int_ClaimPort(tUDPChannel *Channel, Uint16 Port);
 void	UDP_int_FreePort(Uint16 Port);
+Uint16	UDP_int_MakeChecksum(tInterface *Iface, const void *Dest, tUDPHeader *Hdr, size_t Len, const void *Data); 
+Uint16	UDP_int_PartialChecksum(Uint16 Prev, size_t Len, const void *Data);
+Uint16	UDP_int_FinaliseChecksum(Uint16 Value);
 
 // === GLOBALS ===
 tVFS_NodeType	gUDP_NodeType = {
@@ -119,8 +122,16 @@ void UDP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 {
 	tUDPHeader	*hdr = Buffer;
 	
-	Log_Debug("UDP", "%i bytes :%i->:%i (Cksum 0x%04x)",
-		ntohs(hdr->Length), ntohs(hdr->SourcePort), ntohs(hdr->Length), ntohs(hdr->Checksum));
+	#if 1
+	size_t len = strlen( IPStack_PrintAddress(Interface->Type, Address) );
+	char	tmp[len+1];
+	strcpy(tmp, IPStack_PrintAddress(Interface->Type, Address));
+	Log_Debug("UDP", "%i bytes %s:%i -> %s:%i (Cksum 0x%04x)",
+		ntohs(hdr->Length),
+		tmp, ntohs(hdr->SourcePort),
+		IPStack_PrintAddress(Interface->Type, Interface->Address), ntohs(hdr->DestPort),
+		ntohs(hdr->Checksum));
+	#endif
 	
 	// Check registered connections
 	Mutex_Acquire(&glUDP_Channels);
@@ -148,20 +159,26 @@ void UDP_SendPacketTo(tUDPChannel *Channel, int AddrType, const void *Address, U
 
 	if(Channel->Interface && Channel->Interface->Type != AddrType)	return ;
 	
+	// Create the packet
+	hdr.SourcePort = htons( Channel->LocalPort );
+	hdr.DestPort = htons( Port );
+	hdr.Length = htons( sizeof(tUDPHeader) + Length );
+	hdr.Checksum = 0;
+	hdr.Checksum = htons( UDP_int_MakeChecksum(Channel->Interface, Address, &hdr, Length, Data) );
+	
+	tIPStackBuffer	*buffer;
 	switch(AddrType)
 	{
 	case 4:
-		// Create the packet
-		hdr.SourcePort = htons( Channel->LocalPort );
-		hdr.DestPort = htons( Port );
-		hdr.Length = htons( sizeof(tUDPHeader) + Length );
-		hdr.Checksum = 0;	// Checksum can be zero on IPv4
 		// Pass on the the IPv4 Layer
-		tIPStackBuffer	*buffer = IPStack_Buffer_CreateBuffer(2 + IPV4_BUFFERS);
+		buffer = IPStack_Buffer_CreateBuffer(2 + IPV4_BUFFERS);
 		IPStack_Buffer_AppendSubBuffer(buffer, Length, 0, Data, NULL, NULL);
 		IPStack_Buffer_AppendSubBuffer(buffer, sizeof(hdr), 0, &hdr, NULL, NULL);
 		// TODO: What if Channel->Interface is NULL here?
 		IPv4_SendPacket(Channel->Interface, *(tIPv4*)Address, IP4PROT_UDP, 0, buffer);
+		break;
+	default:
+		Log_Warning("UDP", "TODO: Implement on proto %i", AddrType);
 		break;
 	}
 }
@@ -462,4 +479,60 @@ void UDP_int_FreePort(Uint16 Port)
 	Mutex_Acquire(&glUDP_Ports);
 	gUDP_Ports[Port/32] &= ~(1 << (Port%32));
 	Mutex_Release(&glUDP_Ports);
+}
+
+/**
+ *
+ */
+Uint16 UDP_int_MakeChecksum(tInterface *Interface, const void *Dest, tUDPHeader *Hdr, size_t Len, const void *Data)
+{
+	size_t	addrsize = IPStack_GetAddressSize(Interface->Type);
+	struct {
+		Uint8	Zeroes;
+		Uint8	Protocol;
+		Uint16	UDPLength;
+	} pheader;
+	
+	pheader.Zeroes = 0;
+	switch(Interface->Type)
+	{
+	case 4:	pheader.Protocol = IP4PROT_UDP;	break;
+	//case 6:	pheader.Protocol = IP6PROT_UDP;	break;
+	default:
+		Log_Warning("UDP", "Unimplemented _MakeChecksum proto %i", Interface->Type);
+		return 0;
+	}
+	pheader.UDPLength = Hdr->Length;
+	
+	Uint16	csum = 0;
+	csum = UDP_int_PartialChecksum(csum, addrsize, Interface->Address);
+	csum = UDP_int_PartialChecksum(csum, addrsize, Dest);
+	csum = UDP_int_PartialChecksum(csum, sizeof(pheader), &pheader);
+	csum = UDP_int_PartialChecksum(csum, sizeof(tUDPHeader), Hdr);
+	csum = UDP_int_PartialChecksum(csum, Len, Data);
+	
+	return UDP_int_FinaliseChecksum(csum);
+}
+
+static inline Uint16 _add_ones_complement16(Uint16 a, Uint16 b)
+{
+	// One's complement arithmatic, overflows increment bottom bit
+	return a + b + (b > 0xFFFF - a ? 1 : 0);
+}
+
+Uint16 UDP_int_PartialChecksum(Uint16 Prev, size_t Len, const void *Data)
+{
+	Uint16	ret = Prev;
+	const Uint16	*data = Data;
+	for( int i = 0; i < Len/2; i ++ )
+		ret = _add_ones_complement16(ret, htons(*data++));
+	if( Len % 2 == 1 )
+		ret = _add_ones_complement16(ret, htons(*(const Uint8*)data));
+	return ret;
+}
+
+Uint16 UDP_int_FinaliseChecksum(Uint16 Value)
+{
+	Value = ~Value;	// One's complement it
+	return (Value == 0 ? 0xFFFF : Value);
 }
