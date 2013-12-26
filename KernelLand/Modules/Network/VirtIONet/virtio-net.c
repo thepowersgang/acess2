@@ -92,7 +92,9 @@ void VirtIONet_AddCard(Uint16 IOBase, Uint IRQ)
 	// Should be a VirtIO Network device
 	tVirtIO_Dev *dev = VirtIO_InitDev(
 		IOBase, IRQ,
-		VIRTIO_NET_F_MAC|VIRTIO_NET_F_STATUS|VIRTIO_NET_F_CSUM|VIRTIO_NET_F_MRG_RXBUF
+		VIRTIO_NET_F_MAC|VIRTIO_NET_F_STATUS
+			|VIRTIO_NET_F_CSUM
+			|VIRTIO_NET_F_MRG_RXBUF
 			|VIRTIO_F_NOTIFY_ON_EMPTY,
 		3,
 		sizeof(struct sVirtIONet_Dev)
@@ -238,8 +240,10 @@ int VirtIONet_SendPacket(void *Ptr, tIPStackBuffer *Buffer)
 	buflens[0] = sizeof(hdr) - ((NDev->Features & VIRTIO_NET_F_MRG_RXBUF) ? 0 : 2);
 	bufptrs[0] = &hdr;
 	 int	i = 1;
-	for( int idx = -1; (idx = IPStack_Buffer_GetBuffer(Buffer, idx, &buflens[i], &bufptrs[i])) != -1; )
+	for( int idx = -1; (idx = IPStack_Buffer_GetBuffer(Buffer, idx, &buflens[i], &bufptrs[i])) != -1; ) {
+		//Debug_HexDump("VirtIO SendPacket", bufptrs[i], buflens[i]);
 		i ++;
+	}
 	
 	IPStack_Buffer_LockBuffer(Buffer);
 	VirtIO_SendBuffers(VIODev, VIRTIONET_QUEUE_TX, nBufs+1, buflens, bufptrs, Buffer);
