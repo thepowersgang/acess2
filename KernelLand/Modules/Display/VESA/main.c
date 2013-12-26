@@ -15,9 +15,7 @@
 #include <timers.h>
 
 // === CONSTANTS ===
-#define	FLAG_LFB	0x1
-#define FLAG_POPULATED	0x2
-#define FLAG_VALID	0x4
+#define USE_BIOS	1
 #define VESA_DEFAULT_FRAMEBUFFER	(KERNEL_BASE|0xA0000)
 #define BLINKING_CURSOR	0
 #if BLINKING_CURSOR
@@ -83,8 +81,6 @@ bool	gbVesa_DisableBIOSCalls;	// Disables calls to the BIOS
 // === CODE ===
 int Vesa_Install(char **Arguments)
 {
-	 int	rv;
-
 	for( int i = 0; Arguments && Arguments[i]; i ++ )
 	{
 		if( strcmp(Arguments[i], "nobios") == 0 )
@@ -96,13 +92,15 @@ int Vesa_Install(char **Arguments)
 		}
 	}
 
+	#if USE_BIOS
 	if( !gbVesa_DisableBIOSCalls )
 	{
 		gpVesa_BiosState = VM8086_Init();
 		
-		if( (rv = VBE_int_GetModeList()) )
-			return rv;
+		int rv = VBE_int_GetModeList();
+		if(rv)	return rv;
 	}
+	#endif
 		
 	#if BLINKING_CURSOR
 	// Create blink timer
@@ -116,6 +114,7 @@ int Vesa_Install(char **Arguments)
 	return MODULE_ERR_OK;
 }
 
+#if USE_BIOS
 int VBE_int_GetModeList(void)
 {
 	tVesa_CallInfo	*info;
@@ -174,6 +173,7 @@ int VBE_int_GetModeInfo(Uint16 Code, tFarPtr *BufPtr)
 	}
 	return 0;
 }
+#endif
 
 
 void VBE_int_FillMode_Int(tVesa_Mode *Mode, const tVesa_CallModeInfo *vbeinfo)
@@ -220,8 +220,9 @@ void VBE_int_FillMode_Int(tVesa_Mode *Mode, const tVesa_CallModeInfo *vbeinfo)
 	S_LOG(*vbeinfo, image_count_lfb, "%i");
 	LOG("}");
 	#endif
-
+	
 	Mode->flags = FLAG_POPULATED;
+	// Check if this mode is supported by hardware
 	if( !(vbeinfo->attributes & 1) )
 	{
 		#if DEBUG
@@ -245,7 +246,7 @@ void VBE_int_FillMode_Int(tVesa_Mode *Mode, const tVesa_CallModeInfo *vbeinfo)
 		Mode->bpp = 0;
 		return ;
 	case 0x90:
-		Mode->flags |= FLAG_LFB;
+		Mode->flags |= FLAG_LFB|FLAG_GRAPHICS;
 		Mode->framebuffer = vbeinfo->physbase;
 		Mode->fbSize = vbeinfo->Yres*vbeinfo->pitch;
 		break;
@@ -271,6 +272,7 @@ void VBE_int_SetBootMode(Uint16 ModeID, const void *ModeInfo)
 
 void Vesa_int_FillModeList(void)
 {
+	#if USE_BIOS
 	if( !gbVesaModesChecked && !gbVesa_DisableBIOSCalls )
 	{
 		tVesa_CallModeInfo	*modeinfo;
@@ -288,6 +290,7 @@ void Vesa_int_FillModeList(void)
 		
 		gbVesaModesChecked = 1;
 	}
+	#endif
 }
 
 /**
@@ -295,35 +298,43 @@ void Vesa_int_FillModeList(void)
  */
 size_t Vesa_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void *Buffer, Uint Flags)
 {
-	// Framebuffer modes - just pass on
-	if( gpVesaCurMode->flags & FLAG_LFB )
-		return DrvUtil_Video_WriteLFB(&gVesa_BufInfo, Offset, Length, Buffer);
-	
-	// EGA text mode translation
-	switch( gVesa_BufInfo.BufferFormat )
+	switch( gpVesaCurMode->flags & (FLAG_LFB|FLAG_GRAPHICS) )
 	{
-	case VIDEO_BUFFMT_TEXT: {
-		 int	num = Length / sizeof(tVT_Char);
-		 int	ofs = Offset / sizeof(tVT_Char);
-		 int	i = 0;
-		const tVT_Char	*chars = Buffer;
-		Uint16	word;
-		
-		for( ; num--; i ++, ofs ++)
+	case 0:
+		// EGA text mode translation
+		switch( gVesa_BufInfo.BufferFormat )
 		{
-			word = VBE_int_GetWord( &chars[i] );
-			((Uint16*)gVesa_BufInfo.Framebuffer)[ ofs ] = word;
+		case VIDEO_BUFFMT_TEXT: {
+			 int	num = Length / sizeof(tVT_Char);
+			 int	ofs = Offset / sizeof(tVT_Char);
+			 int	i = 0;
+			const tVT_Char	*chars = Buffer;
+			
+			for( ; num--; i ++, ofs ++)
+			{
+				Uint16	word = VBE_int_GetWord( &chars[i] );
+				((Uint16*)gVesa_BufInfo.Framebuffer)[ ofs ] = word;
+			}
+			
+			return Length; }
+		case VIDEO_BUFFMT_2DSTREAM:
+			return DrvUtil_Video_2DStream(NULL, Buffer, Length,
+				&gVBE_Text2DFunctions, sizeof(gVBE_Text2DFunctions));
+		default:
+			Log_Warning("VBE", "TODO: Alternate modes in EGA text mode");
+			return 0;
 		}
-		
-		return Length; }
-	case VIDEO_BUFFMT_2DSTREAM:
-		return DrvUtil_Video_2DStream(NULL, Buffer, Length,
-			&gVBE_Text2DFunctions, sizeof(gVBE_Text2DFunctions));
+		return 0;
+	case FLAG_LFB|FLAG_GRAPHICS:
+		// Framebuffer modes - use DrvUtil Video
+		return DrvUtil_Video_WriteLFB(&gVesa_BufInfo, Offset, Length, Buffer);
 	default:
-		Log_Warning("VBE", "TODO: Alternate modes in EGA text mode");
+		Log_Warning("VBE", "TODO: _Write %s%s",
+			(gpVesaCurMode->flags & FLAG_LFB ? "FLAG_LFB" : ""),
+			(gpVesaCurMode->flags & FLAG_GRAPHICS ? "FLAG_GRAPHICS" : "")
+			);
 		return 0;
 	}
-
 }
 
 const char *csaVESA_IOCtls[] = {DRV_IOCTLNAMES, DRV_VIDEO_IOCTLNAMES, NULL};
@@ -394,7 +405,8 @@ int Vesa_Int_SetMode(int mode)
 	#endif
 	
 	Mutex_Acquire( &glVesa_Lock );
-	
+
+	#if USE_BIOS
 	if( gbVesa_DisableBIOSCalls )
 	{
 		ASSERT(mode == -1);
@@ -413,6 +425,9 @@ int Vesa_Int_SetMode(int mode)
 
 		LOG("Out: AX = %04x", gpVesa_BiosState->AX);
 	}
+	#else
+	ASSERT(mode == -1);
+	#endif
 	
 	// Map Framebuffer
 	if( gpVesaCurMode )
