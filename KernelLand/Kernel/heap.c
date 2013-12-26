@@ -8,6 +8,7 @@
 #include <acess.h>
 #include <mm_virt.h>
 #include <heap_int.h>
+#include <limits.h>
 
 #define WARNINGS	1	// Warn and dump on heap errors
 #define	DEBUG_TRACE	0	// Enable tracing of allocations
@@ -51,13 +52,24 @@ void Heap_Install(void)
 	Heap_Extend(HEAP_INIT_SIZE);
 }
 
+static inline tHeapHead *Heap_NextHead(tHeapHead *Head) {
+	return (void*)( (char*)Head + Head->Size );
+}
+static inline tHeapFoot *Heap_ThisFoot(tHeapHead *Head) {
+	return (void*)( (char*)Head + Head->Size - sizeof(tHeapFoot) );
+}
+static inline tHeapFoot *Heap_PrevFoot(tHeapHead *Head) {
+	//ASSERT(Head != gHeapStart);
+	return (void*)( (char*)Head - sizeof(tHeapFoot) );
+}
+
 /**
  * \brief Extend the size of the heap
  */
 void *Heap_Extend(size_t Bytes)
 {
-	tHeapHead	*head = gHeapEnd;
-	tHeapFoot	*foot;
+
+	Debug("Heap_Extend(0x%x)", Bytes);
 	
 	// Bounds Check
 	if( gHeapEnd == (tHeapHead*)MM_KHEAP_MAX ) {
@@ -85,19 +97,20 @@ void *Heap_Extend(size_t Bytes)
 	{
 		if( !MM_Allocate( (tVAddr)gHeapEnd+(i<<12) ) )
 		{
-			Warning("OOM - Heap_Extend");
+			Warning("OOM - Heap_Extend (%i bytes)");
 			Heap_Dump(1);
 			return NULL;
 		}
 	}
 	
 	// Increase heap end
+	tHeapHead	*head = gHeapEnd;
 	gHeapEnd = new_end;
 	
 	// Create Block
 	head->Size = (Bytes+0xFFF)&~0xFFF;
 	head->Magic = MAGIC_FREE;
-	foot = (void*)( (Uint)gHeapEnd - sizeof(tHeapFoot) );
+	tHeapFoot *foot = Heap_ThisFoot(head);
 	foot->Head = head;
 	foot->Magic = MAGIC_FOOT;
 	
@@ -115,11 +128,12 @@ void *Heap_Merge(tHeapHead *Head)
 	
 	//Log("Heap_Merge: (Head=%p)", Head);
 	
-	thisFoot = (void*)( (Uint)Head + Head->Size - sizeof(tHeapFoot) );
-	if((Uint)thisFoot > (Uint)gHeapEnd)	return NULL;
+	thisFoot = Heap_ThisFoot(Head);
+	if( (void*)thisFoot > (void*)gHeapEnd )
+		return NULL;
 	
 	// Merge Left (Down)
-	foot = (void*)( (Uint)Head - sizeof(tHeapFoot) );
+	foot = Heap_PrevFoot(Head);
 	if( ((Uint)foot < (Uint)gHeapEnd && (Uint)foot > (Uint)gHeapStart)
 	&& foot->Head->Magic == MAGIC_FREE) {
 		foot->Head->Size += Head->Size;	// Increase size
@@ -132,11 +146,11 @@ void *Heap_Merge(tHeapHead *Head)
 	}
 	
 	// Merge Right (Upwards)
-	head = (void*)( (Uint)Head + Head->Size );
+	head = Heap_NextHead(Head);
 	if((Uint)head < (Uint)gHeapEnd && head->Magic == MAGIC_FREE)
 	{
 		Head->Size += head->Size;
-		foot = (void*)( (Uint)Head + Head->Size - sizeof(tHeapFoot) );
+		foot = Heap_ThisFoot(Head);
 		foot->Head = Head;	// Update Backlink
 		thisFoot->Head = NULL;	// Clear old footer
 		thisFoot->Magic = 0;
@@ -155,10 +169,10 @@ void *Heap_Merge(tHeapHead *Head)
  */
 void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 {
-	tHeapHead	*head, *newhead;
+	tHeapHead	*newhead;
 	tHeapFoot	*foot, *newfoot;
 	tHeapHead	*best = NULL;
-	Uint	bestSize = 0;	// Speed hack
+	Uint	bestSize = UINT_MAX;	// Speed hack
 	size_t	Bytes;
 
 	if( __Bytes == 0 ) {
@@ -178,7 +192,7 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 	Mutex_Acquire(&glHeap);
 	
 	// Traverse Heap
-	for( head = gHeapStart; head < gHeapEnd; head = (void*)((Uint)head + head->Size) )
+	for( tHeapHead *head = gHeapStart; head < gHeapEnd; head = Heap_NextHead(head) )
 	{
 		// Alignment Check
 		#if POW2_SIZES
@@ -188,7 +202,8 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 		#endif
 			Mutex_Release(&glHeap);	// Release spinlock
 			#if WARNINGS
-			Log_Warning("Heap", "Size of heap address %p is invalid - not aligned (0x%x) [at paddr 0x%x]",
+			Log_Warning("Heap", "Size of heap address %p is invalid"
+				" - not aligned (0x%x) [at paddr 0x%x]",
 				head, head->Size, MM_GetPhysAddr(&head->Size));
 			Heap_Dump(VERBOSE_DUMP);
 			#endif
@@ -196,14 +211,16 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 		}
 		if( head->Size < MIN_SIZE ) {
 			Mutex_Release(&glHeap);
-			Log_Warning("Heap", "Size of heap address %p is invalid - Too small (0x%x) [at paddr 0x%x]",
+			Log_Warning("Heap", "Size of heap address %p is invalid"
+				" - Too small (0x%x) [at paddr 0x%x]",
 				head, head->Size, MM_GetPhysAddr(&head->Size));
 			Heap_Dump(VERBOSE_DUMP);
 			return NULL;
 		}
 		if( head->Size > (2<<30) ) {
 			Mutex_Release(&glHeap);
-			Log_Warning("Heap", "Size of heap address %p is invalid - Over 2GiB (0x%x) [at paddr 0x%x]",
+			Log_Warning("Heap", "Size of heap address %p is invalid"
+				" - Over 2GiB (0x%x) [at paddr 0x%x]",
 				head, head->Size, MM_GetPhysAddr(&head->Size));
 			Heap_Dump(VERBOSE_DUMP);
 			return NULL;
@@ -260,6 +277,7 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 		best = Heap_Extend( Bytes );
 		// Check for errors
 		if(!best) {
+			Warning("OOM when allocating 0x%x bytes", Bytes);
 			Mutex_Release(&glHeap);	// Release spinlock
 			return NULL;
 		}
@@ -280,21 +298,29 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 	}
 	
 	// Split Block
-	newhead = (void*)( (Uint)best + Bytes );
-	newfoot = (void*)( (Uint)best + Bytes - sizeof(tHeapFoot) );
-	foot = (void*)( (Uint)best + best->Size - sizeof(tHeapFoot) );
-	
-	newfoot->Head = best;	// Create new footer
-	newfoot->Magic = MAGIC_FOOT;
-	newhead->Size = best->Size - Bytes;	// Create new header
-	newhead->Magic = MAGIC_FREE;
-	foot->Head = newhead;	// Update backlink in old footer
+	// - Save size for new block
+	size_t	newsize = best->Size - Bytes;
+	// - Allocate beginning of old block
 	best->Size = Bytes;		// Update size in old header
 	best->ValidSize = __Bytes;
 	best->Magic = MAGIC_USED;	// Mark block as used
 	best->File = File;
 	best->Line = Line;
 	best->AllocateTime = now();
+	// - Create a new foot on old block
+	newfoot = Heap_ThisFoot(best);
+	newfoot->Head = best;	// Create new footer
+	newfoot->Magic = MAGIC_FOOT;
+	// - Create a new header after resized old
+	newhead = Heap_NextHead(best);
+	newhead->Size = newsize;
+	newhead->Magic = MAGIC_FREE;
+	newhead->ValidSize = 0;
+	newhead->File = NULL;
+	newhead->Line = 0;
+	// - Update footer
+	foot = Heap_ThisFoot(newhead);
+	foot->Head = newhead;
 	
 	Mutex_Release(&glHeap);	// Release spinlock
 	#if DEBUG_TRACE
@@ -309,15 +335,12 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
  */
 void Heap_Deallocate(const char *File, int Line, void *Ptr)
 {
-	tHeapHead	*head = (void*)( (Uint)Ptr - sizeof(tHeapHead) );
-	tHeapFoot	*foot;
-	
 	// INVLPTR is returned from Heap_Allocate when the allocation
 	// size is zero.
 	if( Ptr == INVLPTR )	return;
 	
 	// Alignment Check
-	if( (Uint)Ptr & (sizeof(Uint)-1) ) {
+	if( (tVAddr)Ptr % sizeof(void*) != 0 ) {
 		Log_Warning("Heap", "free - Passed a non-aligned address (%p)", Ptr);
 		return;
 	}
@@ -331,7 +354,7 @@ void Heap_Deallocate(const char *File, int Line, void *Ptr)
 	}
 	
 	// Check memory block - Header
-	head = (void*)( (Uint)Ptr - sizeof(tHeapHead) );
+	tHeapHead *head = (void*)( (Uint)Ptr - sizeof(tHeapHead) );
 	if(head->Magic == MAGIC_FREE) {
 		Log_Warning("Heap", "free - Passed a freed block (%p) by %s:%i (was freed by %s:%i)",
 			head, File, Line,
@@ -345,14 +368,15 @@ void Heap_Deallocate(const char *File, int Line, void *Ptr)
 	}
 	
 	// Check memory block - Footer
-	foot = (void*)( (Uint)head + head->Size - sizeof(tHeapFoot) );
+	tHeapFoot *foot = Heap_ThisFoot(head);
 	if(foot->Head != head) {
 		Log_Warning("Heap", "free - Footer backlink is incorrect (%p, 0x%x)", head, foot->Head);
 		Log_Notice("Heap", "Allocated by %s:%i", head->File, head->Line);
 		return;
 	}
 	if(foot->Magic != MAGIC_FOOT) {
-		Log_Warning("Heap", "free - Footer magic is invalid (%p, %p = 0x%x)", head, &foot->Magic, foot->Magic);
+		Log_Warning("Heap", "free - Footer magic is invalid (%p, %p = 0x%x)",
+			head, &foot->Magic, foot->Magic);
 		Log_Notice("Heap", "Allocated by %s:%i", head->File, head->Line);
 		return;
 	}
@@ -398,13 +422,13 @@ void *Heap_Reallocate(const char *File, int Line, void *__ptr, size_t __size)
 	if(newSize <= head->Size)	return __ptr;
 	
 	// Check if next block is free
-	nextHead = (void*)( (Uint)head + head->Size );
+	nextHead = Heap_NextHead(head);
 	
 	// Extend into next block
 	if(nextHead->Magic == MAGIC_FREE && nextHead->Size+head->Size >= newSize)
 	{
 		Uint	size = nextHead->Size + head->Size;
-		foot = (void*)( (Uint)nextHead + nextHead->Size - sizeof(tHeapFoot) );
+		foot = Heap_ThisFoot(nextHead);
 		// Exact Fit
 		if(size == newSize) {
 			head->Size = newSize;
@@ -417,23 +441,26 @@ void *Heap_Reallocate(const char *File, int Line, void *__ptr, size_t __size)
 			return __ptr;
 		}
 		// Create a new heap block
-		nextHead = (void*)( (Uint)head + newSize );
-		nextHead->Size = size - newSize;
-		nextHead->Magic = MAGIC_FREE;
-		foot->Head = nextHead;	// Edit 2nd footer
-		head->Size = newSize;	// Edit first header
-		head->File = File;
+		// - Update old with new information
+		head->Size = newSize;
+		head->File = File;	// Kinda counts as a new allocation
 		head->Line = Line;
 		head->ValidSize = __size;
-		// Create new footer
-		foot = (void*)( (Uint)head + newSize - sizeof(tHeapFoot) );
+		// - Create new footer
+		foot = Heap_ThisFoot(head);
 		foot->Head = head;
 		foot->Magic = MAGIC_FOOT;
+		// - Create new header
+		nextHead = Heap_NextHead(head);
+		nextHead->Size = size - newSize;
+		nextHead->Magic = MAGIC_FREE;
+		// - Update old footer
+		foot->Head = nextHead;
 		return __ptr;
 	}
 	
 	// Extend downwards?
-	foot = (void*)( (Uint)head - sizeof(tHeapFoot) );
+	foot = Heap_PrevFoot(head);
 	nextHead = foot->Head;
 	if(nextHead->Magic == MAGIC_FREE && nextHead->Size+head->Size >= newSize)
 	{
@@ -441,34 +468,30 @@ void *Heap_Reallocate(const char *File, int Line, void *__ptr, size_t __size)
 		// Inexact fit, split things up
 		if(size > newSize)
 		{
-			// TODO
+			// TODO: Handle splitting of downwards blocks
 			Warning("[Heap   ] TODO: Space efficient realloc when new size is smaller");
 		}
 		
 		// Exact fit
-		if(size >= newSize)
-		{
-			Uint	oldDataSize;
-			// Set 1st (new/lower) header
-			nextHead->Magic = MAGIC_USED;
-			nextHead->Size = newSize;
-			nextHead->File = File;
-			nextHead->Line = Line;
-			nextHead->ValidSize = __size;
-			// Get 2nd (old) footer
-			foot = (void*)( (Uint)nextHead + newSize );
-			foot->Head = nextHead;
-			// Save old data size
-			oldDataSize = head->Size - sizeof(tHeapFoot) - sizeof(tHeapHead);
-			// Clear old header
-			head->Size = 0;
-			head->Magic = 0;
-			// Copy data
-			memcpy(nextHead->Data, __ptr, oldDataSize);
-			// Return
-			return nextHead->Data;
-		}
-		// On to the expensive then
+		Uint	oldDataSize;
+		// Set 1st (new/lower) header
+		nextHead->Magic = MAGIC_USED;
+		nextHead->Size = newSize;
+		nextHead->File = File;
+		nextHead->Line = Line;
+		nextHead->ValidSize = __size;
+		// Get 2nd (old) footer
+		foot = Heap_ThisFoot(nextHead);
+		foot->Head = nextHead;
+		// Save old data size
+		oldDataSize = head->Size - sizeof(tHeapFoot) - sizeof(tHeapHead);
+		// Clear old header
+		head->Size = 0;
+		head->Magic = 0;
+		// Copy data
+		memmove(nextHead->Data, __ptr, oldDataSize);
+		// Return
+		return nextHead->Data;
 	}
 	
 	// Well, darn
@@ -547,11 +570,11 @@ void Heap_Dump(int bVerbose)
 	head = gHeapStart;
 	while( (Uint)head < (Uint)gHeapEnd )
 	{		
-		foot = (void*)( (Uint)head + head->Size - sizeof(tHeapFoot) );
+		foot = Heap_ThisFoot(head);
 		
 		if( bVerbose )
 		{
-			Log_Log("Heap", "%p (0x%P): 0x%08x (%i) %4C",
+			Log_Log("Heap", "%p (%P): 0x%08x (%i) %4C",
 				head, MM_GetPhysAddr(head), head->Size, head->ValidSize, &head->Magic);
 			Log_Log("Heap", "%p %4C", foot->Head, &foot->Magic);
 			if(head->File) {
@@ -623,7 +646,7 @@ void Heap_Dump(int bVerbose)
 	badHead = head;
 	
 	// Work backwards
-	foot = (void*)( (tVAddr)gHeapEnd - sizeof(tHeapFoot) );
+	foot = Heap_PrevFoot(gHeapEnd);
 	Log_Log("Heap", "==== Going Backwards ==== (from %p)", foot);
 	head = foot->Head;
 	while( (tVAddr)head >= (tVAddr)badHead )
@@ -663,7 +686,7 @@ void Heap_Dump(int bVerbose)
 		
 		if(head == badHead)	break;
 		
-		foot = (void*)( (tVAddr)head - sizeof(tHeapFoot) );
+		foot = Heap_PrevFoot(head);
 		head = foot->Head;
 		Log_Debug("Heap", "head=%p", head);
 	}
@@ -680,7 +703,7 @@ void Heap_Stats(void)
 	 int	maxAlloc=0, minAlloc=-1;
 	 int	avgAlloc, frag, overhead;
 	
-	for(tHeapHead *head = gHeapStart; head < gHeapEnd; head = (void*)( (tVAddr)head + head->Size ) )
+	for( tHeapHead *head = gHeapStart; head < gHeapEnd; head = Heap_NextHead(head) )
 	{	
 		nBlocks ++;
 		totalBytes += head->Size;
