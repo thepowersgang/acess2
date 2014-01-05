@@ -42,8 +42,8 @@ int Serial_Install(char **Arguments)
 tSerialPort *Serial_CreatePort(tSerial_OutFcn output, void *handle)
 {
 	tSerialPort	*ret = malloc( sizeof(tSerialPort) );
-	// TODO: Make PTY code handle 'serial#' and auto-number
-	ret->PTY = PTY_Create("serial0", ret, Serial_int_PTYOutput, Serial_int_PTYSetDims, Serial_int_PTYSetArrib);
+	// Automatically indexed
+	ret->PTY = PTY_Create("serial#", ret, Serial_int_PTYOutput, Serial_int_PTYSetDims, Serial_int_PTYSetArrib);
 	ret->OutputFcn = output;
 	ret->OutHandle = handle;
 	struct ptymode mode = {
@@ -62,6 +62,34 @@ void Serial_ByteReceived(tSerialPort *Port, char Ch)
 {
 	if( !Port )
 		return ;
+	if( Port == gSerial_KernelDebugPort )
+	{
+		static int serial_debug_mode = 0;
+		// Kernel serial debug hooks.
+		if( serial_debug_mode )
+		{
+			switch(Ch)
+			{
+			case 'p':
+				Threads_Dump();
+				break;
+			case 'X'-'A'+1:
+				PTY_SendInput(Port->PTY, &Ch, 1);
+				break;
+			}
+			serial_debug_mode = 0;
+			return ;
+		}
+		else if( Ch == 'X'-'A'+1 )
+		{
+			serial_debug_mode = 1;
+			return ;
+		}
+		else
+		{
+			// Fall
+		}
+	}
 	if( Ch == '\r' )
 		Ch = '\n';
 	PTY_SendInput(Port->PTY, &Ch, 1);
