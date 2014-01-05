@@ -1,0 +1,9 @@
+lvm Tools/Systest/DiskTool/HDD0.img hdd0
+mount :hdd0/0 hdd0-0
+cp Tools/Systest/DiskTool/testfile1 hdd0-0:testfile1
+cp hdd0-0:testfile1 Tools/Systest/DiskTool/testfile1.out
+
+mount Tools/Systest/DiskTool/FDD.img fdd
+mkdir fdd:testdir1
+cp Tools/Systest/DiskTool/testfile2 fdd:testdir1/testfile2
+cp fdd:testdir1/testfile2 Tools/Systest/DiskTool/testfile2.out
