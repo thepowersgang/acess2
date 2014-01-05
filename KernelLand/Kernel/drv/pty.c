@@ -54,8 +54,7 @@ struct sPTY
 	tVFS_Node	ClientNode;
 	tVFS_ACL	OwnerRW;
 
-	tPGID	ControllingProcGroup;	
-	// TODO: Maintain list of client PIDs
+	tPGID	ControllingProcGroup;
 };
 
 // === PROTOTYPES ===
@@ -127,7 +126,53 @@ tPTY *PTY_Create(const char *Name, void *Handle, tPTY_OutputFcn Output, tPTY_Req
 	tPTY	**prev_np = NULL;
 	size_t	namelen;
 	 int	idx = 1;
-	if( Name && Name[0] )
+	if( !Name || Name[0] == '\0' )
+	{
+		RWLock_AcquireWrite(&glPTY_NumPTYs);
+		// Get a pty ID if Name==NULL
+		prev_np = &gpPTY_FirstNumPTY;
+		for( tPTY *pty = gpPTY_FirstNumPTY; pty; prev_np = &pty->Next, pty = pty->Next )
+		{
+			if( pty->NumericName > idx )
+				break;
+			idx ++;
+		}
+		namelen = snprintf(NULL,0, "%u", idx);
+	}
+	else if( Name[strlen(Name)-1] == '#' )
+	{
+		// Sequenced PTYs
+		// - "gui#" would translate to "gui0", "gui1", "gui2", ...
+		//   whichever is free
+		prev_np = &gpPTY_FirstNamedPTY;
+
+		idx = 0;
+		namelen = strlen(Name)-1;
+		for( tPTY *pty = gpPTY_FirstNamedPTY; pty; prev_np = &pty->Next, pty = pty->Next )
+		{
+			 int	cmp = strncmp(pty->Name, Name, namelen);
+			if( cmp < 0 )
+				continue ;
+			if( cmp > 0 )
+				break;
+
+			// Skip non-numbered
+			if( pty->Name[namelen] == '\0' )
+				continue ;			
+
+			// Find an unused index
+			char	*name_end;
+			 int	this_idx = strtol(pty->Name+namelen, &name_end, 10);
+			if( *name_end != '\0' )
+				continue;
+			if( this_idx > idx )
+				break;
+			idx ++;
+		}
+		
+		namelen += snprintf(NULL, 0, "%u", idx);
+	}
+	else
 	{
 		prev_np = &gpPTY_FirstNamedPTY;
 		
@@ -137,7 +182,7 @@ tPTY *PTY_Create(const char *Name, void *Handle, tPTY_OutputFcn Output, tPTY_Req
 			errno = EINVAL;
 			return NULL;
 		}
-		
+
 		RWLock_AcquireWrite(&glPTY_NamedPTYs);
 		// Detect duplicates
 		for( tPTY *pty = gpPTY_FirstNamedPTY; pty; prev_np = &pty->Next, pty = pty->Next )
@@ -155,19 +200,6 @@ tPTY *PTY_Create(const char *Name, void *Handle, tPTY_OutputFcn Output, tPTY_Req
 		namelen = strlen(Name);
 		idx = -1;
 	}
-	else
-	{
-		RWLock_AcquireWrite(&glPTY_NumPTYs);
-		// Get a pty ID if Name==NULL
-		prev_np = &gpPTY_FirstNumPTY;
-		for( tPTY *pty = gpPTY_FirstNumPTY; pty; prev_np = &pty->Next, pty = pty->Next )
-		{
-			if( pty->NumericName > idx )
-				break;
-			idx ++;
-		}
-		namelen = snprintf(NULL,0, "%u", idx);
-	}
 	
 	tPTY *ret = calloc(sizeof(tPTY) + namelen + 1, 1);
 	if(!ret) {
@@ -180,10 +212,12 @@ tPTY *PTY_Create(const char *Name, void *Handle, tPTY_OutputFcn Output, tPTY_Req
 	*prev_np = ret;
 	// - PTY Name (Used by VT)
 	ret->Name = (char*)(ret + 1);
-	if(Name)
+	if( idx == -1 )
 		strcpy(ret->Name, Name);
-	else
-		sprintf(ret->Name, "%u", idx);
+	else {
+		if(!Name)	Name = "";
+		sprintf(ret->Name, "%.*s%u", strlen(Name)-1, Name, idx);
+	}
 	ret->NumericName = idx;
 	// - Output function and handle (same again)
 	ret->OutputHandle = Handle;
@@ -218,6 +252,7 @@ int PTY_SetAttrib(tPTY *PTY, const struct ptydims *Dims, const struct ptymode *M
 	if( Mode )
 	{
 		// (for now) userland terminals can't be put into framebuffer mode
+		// - Userland PTYs are streams, framebuffer is a block
 		if( !PTY->OutputFcn && (Mode->OutputMode & PTYOMODE_BUFFMT) == PTYBUFFMT_FB ) {
 			errno = EINVAL;
 			return -1;
@@ -231,14 +266,15 @@ int PTY_SetAttrib(tPTY *PTY, const struct ptydims *Dims, const struct ptymode *M
 			}
 			else if( !PTY->OutputFcn )
 			{
-				Log_Warning("PTY", "TODO: Need to stop client output until modeset has been ACKed");
-				// Block write until acked
-				// ACK by server doing GETMODE
+				Log_Warning("PTY", "TODO: Inform server of client SETMODE, halt output");
+				// Block slave write until master ACKs
+				// 0-length read on master indicates need to GETMODE
 			}
 		}
 		else
 		{
 			// Should the client be informed that the server just twiddled the modes?
+			Log_Warning("PTY", "Server changed mode, TODO: inform client?");
 		}
 		LOG("PTY %p mode set to {0%o, 0%o}", PTY, Mode->InputMode, Mode->OutputMode);
 		PTY->Mode = *Mode;
@@ -256,11 +292,13 @@ int PTY_SetAttrib(tPTY *PTY, const struct ptydims *Dims, const struct ptymode *M
 			else if( !PTY->OutputFcn )
 			{
 				// Inform server process... somehow
+				Log_Warning("PTY", "TODO: Inform server of client resize request");
 			}
 		}
 		else
 		{
 			// SIGWINSZ to client
+			Threads_SignalGroup(PTY->ControllingProcGroup, SIGWINCH);
 		}
 		LOG("PTY %p dims set to %ix%i", PTY, Dims->W, Dims->H);
 		PTY->Dims = *Dims;
@@ -342,8 +380,8 @@ size_t PTY_int_SendInput(tPTY *PTY, const char *Input, size_t Length)
 		switch(Input[0])
 		{
 		case 3:	// INTR - ^C
-			// TODO: Send SIGINT
-			// Threads_PostSignalExt(PTY->ClientThreads, SIGINT);
+			// Send SIGINT
+			Threads_SignalGroup(PTY->ControllingProcGroup, SIGINT);
 			print = 0;
 			break;
 		case 4:	// EOF - ^D
