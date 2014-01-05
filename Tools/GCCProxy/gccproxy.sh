@@ -73,6 +73,10 @@ while [[ $# -gt 0 ]]; do
 		echo $0 --inv=ld
 		exit 0
 		;;
+	-print-multi-os-directory)
+		_compile=1
+		_cflags=$_cflags" $1"
+		;;
 	-dumpspecs)
 		_compile=1
 		_miscargs=$_miscargs" $1"
