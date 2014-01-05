@@ -8,6 +8,8 @@
 #ifndef _SIGNAL_H_
 #define _SIGNAL_H_
 
+#include "signal_list.h"
+
 typedef void (*sighandler_t)(int);
 
 //! Atomic integer type
@@ -17,32 +19,9 @@ typedef volatile int	sig_atomic_t;
 #define SIG_DFL	((void*)0)
 #define SIG_ERR	((void*)-1)
 
-#define SIGINT	2	// C99
-#define SIGILL	4	// C99
-#define	SIGABRT	6	// C99
-#define SIGFPE	8	// C99
-#define SIGSEGV	11	// C99
-#define SIGTERM	15	// C99
-
 extern sighandler_t	signal(int signum, sighandler_t handler);
 
 extern int	raise(int sig);
-
-// POSIX Signals
-#define SIGHUP	1
-#define SIGQUIT	3
-#define SIGKILL	9
-#define SIGALRM	14
-#define SIGUSR1	16
-#define SIGUSR2	17
-
-#define SIGSTOP	30	// Stop process
-#define SIGTSTP	31	// ? ^Z
-#define SIGTTIN	32	// Background process read TTY
-#define SIGTTOU	33	// Background process write TTY
-#define SIGPIPE	34
-#define SIGCHLD	35
-#define SIGWINCH	36
 
 #include <sys/types.h>	// libposix
 

@@ -1,0 +1,35 @@
+#ifndef _ACESSLIBC__SIGNAL_LIST_H_
+#define _ACESSLIBC__SIGNAL_LIST_H_
+
+enum {
+	SIGNONE,
+	SIGHUP, 	// POSIX
+	SIGINT, 	// C99
+	SIGQUIT,	// POSIX
+	SIGILL, 	// C99
+	_SIGNAL_5,
+	SIGABRT,	// C99
+	_SIGNAL_7,
+	SIGFPE, 	// C99
+	SIGKILL,	// POSIX
+	_SIGNAL_10,
+	SIGSEGV,	// C99
+	SIGALRM,	// POSIX
+	SIGTERM,	// C99
+	SIGUSR1,	// POSIX
+	SIGUSR2,	// POSIX
+
+	// = 16
+	SIGSTOP,	// POSIX - Stop process
+	SIGTSTP,	// POSIX - ? ^Z
+	SIGTTIN,	// POSIX - Background process read TTY
+	SIGTTOU,	// POSIX - Background process write TTY
+	SIGPIPE,	// POSIX
+	SIGCHLD,	// POSIX
+	SIGWINCH,	// POSIX
+
+	NSIGNALS
+};
+
+#endif
+
