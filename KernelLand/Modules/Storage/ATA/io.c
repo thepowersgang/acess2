@@ -203,6 +203,14 @@ int ATA_SetupIO(void)
 	outb(IDE_SEC_BASE+1, 1);
 	outb(IDE_PRI_CTRL, 0);
 	outb(IDE_SEC_CTRL, 0);
+
+	
+	// Soft reset all drives
+	outb(IDE_PRI_CTRL, 4);
+	outb(IDE_SEC_CTRL, 4);
+	IO_DELAY();
+	outb(IDE_PRI_CTRL, 0);
+	outb(IDE_SEC_CTRL, 0);
 	
 	// Make sure interrupts are ACKed
 	ATA_int_BusMasterWriteByte(2, 0x4);
@@ -362,21 +370,6 @@ int ATA_DoDMA(Uint8 Disk, Uint64 Address, Uint Count, int bWrite, void *Buffer)
 
 	// Reset IRQ Flag
 	gaATA_IRQs[cont] = 0;
-
-	
-	// TODO: What the ____ does this do?
-	#if 1
-	if( cont == 0 ) {
-		outb(IDE_PRI_CTRL, 4);
-		IO_DELAY();
-		outb(IDE_PRI_CTRL, 0);
-	}
-	else {
-		outb(IDE_SEC_CTRL, 4);
-		IO_DELAY();
-		outb(IDE_SEC_CTRL, 0);
-	}
-	#endif
 
 	// Set up transfer
 	if( Address > 0x0FFFFFFF )	// Use LBA48
