@@ -163,7 +163,7 @@ int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set 
 	// Wait for things	
 	if( !Timeout )
 	{
-		LOG("Semaphore_Wait()");
+		LOG("Waiting for VFS/SIGNAL events (Plus 0x%x)", ExtraEvents);
 		// TODO: Actual timeout
 		Threads_WaitEvents( THREAD_EVENT_VFS|THREAD_EVENT_SIGNAL|ExtraEvents );
 	}
@@ -180,6 +180,7 @@ int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set 
 		Time_FreeTimer(t);
 	}
 	// Fill output (modify *Handles)
+	LOG("De-registering");
 	// - Also, de-register
 	ret  = VFS_int_Select_Deregister(thisthread, MaxHandle, ReadHandles, 0, IsKernel);
 	ret += VFS_int_Select_Deregister(thisthread, MaxHandle, WriteHandles, 1, IsKernel);
