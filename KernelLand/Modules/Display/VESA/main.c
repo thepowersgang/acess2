@@ -2,7 +2,7 @@
  * AcessOS 1
  * Video BIOS Extensions (Vesa) Driver
  */
-#define DEBUG	1
+#define DEBUG	0
 #define VERSION	0x100
 
 #include <acess.h>
@@ -13,6 +13,7 @@
 #include <vm8086.h>
 #include "common.h"
 #include <timers.h>
+#include <limits.h>
 
 // === CONSTANTS ===
 #define USE_BIOS	1
@@ -54,7 +55,7 @@ tVM8086	*gpVesa_BiosState;
  int	giVesaCurrentMode = 0;
 tVesa_Mode	gVesa_BootMode = {0x03, 80*8, 25*16, 80*8*2, 12, FLAG_POPULATED, 80*25*2, 0xB8000};
 tVesa_Mode	*gVesa_Modes;
-tVesa_Mode	*gpVesaCurMode;
+tVesa_Mode	*gpVesaCurMode = &gVesa_BootMode;
  int	giVesaModeCount = 0;
  int	gbVesaModesChecked;
 // --- Framebuffer ---
@@ -470,6 +471,11 @@ int Vesa_Int_SetMode(int mode)
 
 int VBE_int_MatchModes(tVideo_IOCtl_Mode *ReqMode, tVesa_Mode *ThisMode)
 {
+	if( ThisMode->bpp == 0 ) {
+		Log_Warning("VBE", "VESA mode %x (%ix%i) has 0bpp",
+			ThisMode->code, ThisMode->width, ThisMode->height);
+		return INT_MAX;
+	}
 	LOG("Matching %ix%i %ibpp", ThisMode->width, ThisMode->height, ThisMode->bpp);
 	if(ThisMode->width == ReqMode->width && ThisMode->height == ReqMode->height)
 	{
@@ -580,7 +586,7 @@ void Vesa_int_HideCursor(void)
 
 void Vesa_int_ShowCursor(void)
 {
-	if( gpVesaCurMode->flags & FLAG_LFB )
+	if( gpVesaCurMode && gpVesaCurMode->flags & FLAG_LFB )
 	{
 		gbVesa_CursorVisible = (giVesaCursorX >= 0);
 		if(gVesa_BufInfo.BufferFormat == VIDEO_BUFFMT_TEXT)
@@ -615,7 +621,7 @@ void Vesa_FlipCursor(void *Arg)
 	if( gVesa_BufInfo.BufferFormat != VIDEO_BUFFMT_TEXT )
 		return ;
 
-	if( gpVesaCurMode->flags & FLAG_LFB )
+	if( gpVesaCurMode && gpVesaCurMode->flags & FLAG_LFB )
 	{
 		if( gbVesa_CursorVisible )
 			DrvUtil_Video_RemoveCursor(&gVesa_BufInfo);
