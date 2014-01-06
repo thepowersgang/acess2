@@ -68,7 +68,6 @@ static inline tHeapFoot *Heap_PrevFoot(tHeapHead *Head) {
  */
 void *Heap_Extend(size_t Bytes)
 {
-
 	Debug("Heap_Extend(0x%x)", Bytes);
 	
 	// Bounds Check
@@ -88,7 +87,7 @@ void *Heap_Extend(size_t Bytes)
 	if( new_end > (tHeapHead*)MM_KHEAP_MAX )
 	{
 		Log_Error("Heap", "Heap limit exceeded (%p)", (void*)new_end);
-		// TODO: Clip allocation to avaliable space, and have caller check returned block
+		// TODO: Clip allocation to available space, and have caller check returned block
 		return NULL;
 	}
 	
@@ -118,7 +117,7 @@ void *Heap_Extend(size_t Bytes)
 }
 
 /**
- * \brief Merges two ajacent heap blocks
+ * \brief Merges two adjacent heap blocks
  */
 void *Heap_Merge(tHeapHead *Head)
 {
