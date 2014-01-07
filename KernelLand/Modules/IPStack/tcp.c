@@ -252,6 +252,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 		}
 		
 		conn->NextSequenceRcv = ntohl( hdr->SequenceNumber ) + 1;
+		conn->HighestSequenceRcvd = conn->NextSequenceRcv;
 		conn->NextSequenceSend = rand();
 		
 		conn->Node.ImplInt = srv->NextID ++;
@@ -334,6 +335,10 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 		if( Connection->LastACKSequence != Connection->NextSequenceRcv )
 			TCP_INT_SendACK(Connection, "SYN");
 		Connection->NextSequenceRcv = ntohl(Header->SequenceNumber);
+		// TODO: Process HighestSequenceRcvd
+		// HACK!
+		if( Connection->HighestSequenceRcvd == 0 )
+			Connection->HighestSequenceRcvd = Connection->NextSequenceRcv;
 		Connection->LastACKSequence = Connection->NextSequenceRcv;
 	}
 	
@@ -365,6 +370,8 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 	case TCP_ST_SYN_SENT:
 		if( Header->Flags & TCP_FLAG_SYN )
 		{
+			if( Connection->HighestSequenceRcvd == Connection->NextSequenceRcv )
+				Connection->HighestSequenceRcvd ++;
 			Connection->NextSequenceRcv ++;
 			
 			if( Header->Flags & TCP_FLAG_ACK )
@@ -422,17 +429,12 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 				Log_Log("TCP", "ACK only packet");
 				return ;
 			}
-			Connection->NextSequenceRcv ++;	// TODO: Is this right? (empty packet counts as one byte)
+			// TODO: Is this right? (empty packet counts as one byte)
+			if( Connection->HighestSequenceRcvd == Connection->NextSequenceRcv )
+				Connection->HighestSequenceRcvd ++;
+			Connection->NextSequenceRcv ++;
 			Log_Log("TCP", "Empty Packet, inc and ACK the current sequence number");
 			TCP_INT_SendACK(Connection, "Empty");
-			#if 0
-			Header->DestPort = Header->SourcePort;
-			Header->SourcePort = htons(Connection->LocalPort);
-			Header->AcknowlegementNumber = htonl(Connection->NextSequenceRcv);
-			Header->SequenceNumber = htonl(Connection->NextSequenceSend);
-			Header->Flags |= TCP_FLAG_ACK;
-			TCP_SendPacket( Connection, Header, 0, NULL );
-			#endif
 			return ;
 		}
 		
@@ -463,6 +465,8 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 				break;
 			}
 			LOG("0x%08x += %i", Connection->NextSequenceRcv, dataLen);
+			if( Connection->HighestSequenceRcvd == Connection->NextSequenceRcv )
+				Connection->HighestSequenceRcvd += dataLen;
 			Connection->NextSequenceRcv += dataLen;
 			
 			// TODO: This should be moved out of the watcher thread,
@@ -691,6 +695,7 @@ void TCP_INT_UpdateRecievedFromFuture(tTCPConnection *Connection)
 	// Calculate length of contiguous bytes
 	 int	length = Connection->HighestSequenceRcvd - Connection->NextSequenceRcv;
 	Uint32	index = Connection->NextSequenceRcv % TCP_WINDOW_SIZE;
+	LOG("length=%i, index=%i", length, index);
 	for( int i = 0; i < length; i ++ )
 	{
 		 int	bit = index % 8;
@@ -730,10 +735,10 @@ void TCP_INT_UpdateRecievedFromFuture(tTCPConnection *Connection)
 	
 	// Mark (now saved) bytes as invalid
 	// - Align index
-	while(index % 8 && length)
+	while(index % 8 && length > 0)
 	{
 		Connection->FuturePacketData[index] = 0;
-		Connection->FuturePacketData[index/8] &= ~(1 << (index%8));
+		Connection->FuturePacketValidBytes[index/8] &= ~(1 << (index%8));
 		index ++;
 		if(index > TCP_WINDOW_SIZE)
 			index -= TCP_WINDOW_SIZE;
@@ -791,6 +796,8 @@ void TCP_INT_UpdateRecievedFromFuture(tTCPConnection *Connection)
 		
 		// Looks like we found one
 		TCP_INT_AppendRecieved(Connection, pkt->Data, pkt->Length);
+		if( Connection->HighestSequenceRcvd == Connection->NextSequenceRcv )
+			Connection->HighestSequenceRcvd += pkt->Length;
 		Connection->NextSequenceRcv += pkt->Length;
 		free(pkt);
 	}
