@@ -108,6 +108,13 @@ enum
 	SHUT_RDWR
 };
 
+// flags for send*
+//#define MSG_CONFIRM	0x01
+#define MSG_DONTROUTE	0x02
+#define MSG_OOB 	0x40
+// flags for recv
+#define MSG_PEEK	0x100
+
 /**
  * \brief Create a new socket descriptor
  * \param domain	Address family
