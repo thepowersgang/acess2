@@ -126,7 +126,11 @@ tPTY *PTY_Create(const char *Name, void *Handle, tPTY_OutputFcn Output, tPTY_Req
 	tPTY	**prev_np = NULL;
 	size_t	namelen;
 	 int	idx = 1;
-	if( !Name || Name[0] == '\0' )
+	
+	if( !Name )
+		Name = "";
+	
+	if( Name[0] == '\0' )
 	{
 		RWLock_AcquireWrite(&glPTY_NumPTYs);
 		// Get a pty ID if Name==NULL
@@ -146,6 +150,7 @@ tPTY *PTY_Create(const char *Name, void *Handle, tPTY_OutputFcn Output, tPTY_Req
 		//   whichever is free
 		prev_np = &gpPTY_FirstNamedPTY;
 
+		RWLock_AcquireWrite(&glPTY_NamedPTYs);
 		idx = 0;
 		namelen = strlen(Name)-1;
 		for( tPTY *pty = gpPTY_FirstNamedPTY; pty; prev_np = &pty->Next, pty = pty->Next )
@@ -214,10 +219,10 @@ tPTY *PTY_Create(const char *Name, void *Handle, tPTY_OutputFcn Output, tPTY_Req
 	ret->Name = (char*)(ret + 1);
 	if( idx == -1 )
 		strcpy(ret->Name, Name);
-	else {
-		if(!Name)	Name = "";
+	else if( Name[0] )
 		sprintf(ret->Name, "%.*s%u", strlen(Name)-1, Name, idx);
-	}
+	else
+		sprintf(ret->Name, "%u", idx);
 	ret->NumericName = idx;
 	// - Output function and handle (same again)
 	ret->OutputHandle = Handle;
@@ -235,7 +240,7 @@ tPTY *PTY_Create(const char *Name, void *Handle, tPTY_OutputFcn Output, tPTY_Req
 	ret->OwnerRW.Ent.ID = Threads_GetUID();
 	ret->OwnerRW.Perm.Perms = -1;
 
-	if( Name && Name[0] ) {
+	if( Name[0] ) {
 		giPTY_NamedCount ++;
 		RWLock_Release(&glPTY_NamedPTYs);
 	}
