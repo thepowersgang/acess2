@@ -10,6 +10,7 @@
 #include <errno.h>
 #include <hal_proc.h>
 #include <semaphore.h>
+#include <rwlock.h>
 #include <vfs_threads.h>	// VFS Handle maintainence
 #include <events.h>
 
@@ -1250,6 +1251,11 @@ void Threads_int_DumpThread(tThread *thread)
 	{
 	case THREAD_STAT_MUTEXSLEEP:
 		Log("  Mutex Pointer: %p", thread->WaitPointer);
+		break;
+	case THREAD_STAT_RWLOCKSLEEP:
+		Log("  Lock Pointer: %p", thread->WaitPointer);
+		Log("  Lock Name: %s",
+			((tRWLock*)thread->WaitPointer)->Name);
 		break;
 	case THREAD_STAT_SEMAPHORESLEEP:
 		Log("  Semaphore Pointer: %p", thread->WaitPointer);
