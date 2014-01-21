@@ -8,8 +8,10 @@ fi
 
 if [ $# -ge 2 ]; then
 	PLATFORM=$2
+	PSUFFIX=-$2
 else
 	PLATFORM=default
+	PSUFFIX=""
 fi
 
 mkdir -p Releases/
@@ -22,5 +24,5 @@ tar --transform="s|Dist/($ARCH/)*|Acess/|x" -zcf Releases/Acess2_latest_${ARCH}_
 IMGNAME=AcessRelease.img
 ./Tools/BootFloppy/MakeDiskImage $IMGNAME
 mcopy -i $IMGNAME -s Dist/$ARCH/ ::/Acess2
-mcopy -i $IMGNAME Dist/Acess2* ::/Acess2/Acess2.gz
-gzip -c AcessRelease.img > Releases/Acess2_latest_${ARCH}.img.gz
+mcopy -i $IMGNAME Dist/Acess2.$ARCH$PSUFFIX.gz ::/Acess2/Acess2.gz
+gzip -c AcessRelease.img > Releases/Acess2_latest_${ARCH}$PSUFFIX.img.gz
