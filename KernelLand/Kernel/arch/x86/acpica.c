@@ -118,6 +118,7 @@ ACPI_STATUS AcpiOsPhysicalTableOverride(ACPI_TABLE_HEADER *ExisitingTable, ACPI_
 }
 
 // -- Memory Management ---
+#if USE_ACESS_ACPI_CACHE
 struct sACPICache
 {
 	Uint16	nObj;
@@ -231,6 +232,7 @@ ACPI_STATUS AcpiOsReleaseObject(ACPI_CACHE_T *Cache, void *Object)
 	LEAVE('i', AE_OK);
 	return AE_OK;
 }
+#endif
 
 void *AcpiOsMapMemory(ACPI_PHYSICAL_ADDRESS PhysicalAddress, ACPI_SIZE Length)
 {
