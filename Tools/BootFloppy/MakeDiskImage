@@ -5,11 +5,16 @@ if [[ $# -ne 1 ]]; then
 fi
 DIR=`dirname $0`
 IMGNAME=$1
+# Create and format floppy image
 dd if=/dev/zero of="$IMGNAME" bs=512 count=2880
 mformat -i "$IMGNAME" ::/ -f 1440 -v Acess
+# Copy grub's stage1 (ignoring the FAT area)
 dd if=$DIR/stage1 bs=1 seek=0 count=3 "of=$IMGNAME" conv=notrunc
 dd if=$DIR/stage1 bs=1 skip=$((0x3E)) seek=$((0x3E)) "of=$IMGNAME" conv=notrunc
+# Copy grub images to ::/boot
 mmd -i "$IMGNAME" ::/boot
 mcopy $DIR/stage1 $DIR/stage2 -i "$IMGNAME" ::/boot/
+# Patch stage2 location
 /bin/echo -ne '\x23' | dd seek=$((0x44)) bs=1 count=1 "of=$IMGNAME" conv=notrunc
+# Copy grub config file
 mcopy $DIR/menu.lst -i "$IMGNAME" ::/boot/
