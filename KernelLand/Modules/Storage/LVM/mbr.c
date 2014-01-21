@@ -11,6 +11,7 @@
 #include "mbr.h"
 
 // === PROTOTYPES ===
+ int	LVM_MBR_Detect(tLVM_Vol *Volume);
  int	LVM_MBR_CountSubvolumes(tLVM_Vol *Volume, void *FirstSector);
 void	LVM_MBR_PopulateSubvolumes(tLVM_Vol *Volume, void *FirstSector);
 Uint64	LVM_MBR_int_ReadExt(tLVM_Vol *Volume, Uint64 Addr, Uint64 *Base, Uint64 *Length);
@@ -23,13 +24,25 @@ tLVM_Format	gLVM_MBRType = {
 };
 
 // === CODE ===
+int LVM_MBR_Detect(tLVM_Vol *Volume)
+{
+	tMBR	mbr;
+	// TODO: handle non-512 byte sectors
+	if( LVM_int_ReadVolume( Volume, 0, 1, &mbr ) != 0 )
+		return -1;	// Stop on Errors
+
+	if( mbr.BootFlag != LittleEndian16(0xAA55) )
+		return 0;
+
+	return 1;
+}
+
 /**
  * \brief Initialise a volume as 
  */
 int LVM_MBR_CountSubvolumes(tLVM_Vol *Volume, void *FirstSector)
 {
 	tMBR	*MBR = FirstSector;
-	 int	i;
 	Uint64	extendedLBA;
 	Uint64	base, len;
 	 int	numPartitions = 0;
@@ -39,7 +52,7 @@ int LVM_MBR_CountSubvolumes(tLVM_Vol *Volume, void *FirstSector)
 	// Count Partitions
 	numPartitions = 0;
 	extendedLBA = 0;
-	for( i = 0; i < 4; i ++ )
+	for( int i = 0; i < 4; i ++ )
 	{
 		if( MBR->Parts[i].SystemID == 0 )	continue;
 	
