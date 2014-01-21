@@ -84,7 +84,7 @@ if [ "x$_NOUSB" != "xyes" ] ; then
 	QEMU_PARAMS=$QEMU_PARAMS" -drive id=test_usb_image,file=USB_Test_Image.img,if=none"
 	QEMU_PARAMS=$QEMU_PARAMS" -device usb-storage,drive=test_usb_image"
 	QEMU_PARAMS=$QEMU_PARAMS" -usbdevice mouse"
-	QEMU_PARAMS=$QEMU_PARAMS" -usbdevice keyboard"
+#	QEMU_PARAMS=$QEMU_PARAMS" -usbdevice keyboard"
 fi
 
 if [ "x$_NOTEE" = "xyes" ] ; then
