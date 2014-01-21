@@ -73,6 +73,9 @@ void Serial_ByteReceived(tSerialPort *Port, char Ch)
 			case 'p':
 				Threads_Dump();
 				break;
+			case 'h':
+				Heap_Dump();
+				break;
 			case 'X'-'A'+1:
 				PTY_SendInput(Port->PTY, &Ch, 1);
 				break;
