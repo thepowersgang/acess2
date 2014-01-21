@@ -109,6 +109,13 @@ void Error_Handler(tRegs *Regs)
 		__asm__ __volatile__ ("hlt");
 }
 
+void Proc_PrintBacktrace(void)
+{
+	Uint64	*rbp;
+	__asm__ __volatile__ ("mov %%rbp, %0" : "=r" (rbp));
+	Error_Backtrace( rbp[1], rbp[0] );
+}
+
 /**
  * \fn void Error_Backtrace(Uint eip, Uint ebp)
  * \brief Unrolls the stack to trace execution
