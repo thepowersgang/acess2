@@ -24,6 +24,7 @@ while [ $# -ne 0 ]; do
 		# - Toshiba AC100
 		_SYSTEM="ac100"
 		_KERNEL=Acess2.armv7-tegra2.bin
+		QEMU_PARAMS=$QEMU_PARAMS" -net nic,model=rtl8169"
 		QEMU_PARAMS=$QEMU_PARAMS" -drive id=test_usb_image,file=USB_Test_Image.img,if=none"
 		QEMU_PARAMS=$QEMU_PARAMS" -device usb-storage,drive=test_usb_image"
 		;;
@@ -50,8 +51,8 @@ while [ $# -ne 0 ]; do
 	esac
 	shift
 done
-QEMU_PARAMS="-M $_SYSTEM -kernel KernelLand/$_KERNEL -net nic -net $_NETTYPE"$QEMU_PARAMS
+QEMU_PARAMS="-M $_SYSTEM -kernel KernelLand/$_KERNEL -net $_NETTYPE"$QEMU_PARAMS
 
 #	/home/tpg/apps/bin/qemu-system-x86_64 $QEMU_PARAMS -serial stdio -serial file:QemuLog.txt
 #	qemu-system-x86_64 $QEMU_PARAMS -serial stdio | tee QemuLog.txt
-$QEMU $QEMU_PARAMS -serial stdio $TEE
+eval $QEMU $QEMU_PARAMS -serial stdio $TEE
