@@ -5,16 +5,19 @@
 REL_DOT=`grep 'ACESS_VERSION =' Makefile.Version.cfg | sed -r 's/.*([0-9]+\.[0-9]+).*/\1/'`
 REL=`echo $REL_DOT | sed -r 's/\.//g'`
 
-_RELDIR=/serenade/http/www/Downloads/Acess2/
+_RELDIR=/home/http/www/Downloads/Acess2/
 
 ./MakeReleaseSet x86 smp
 ./MakeReleaseSet x86_64
+./MakeReleaseSet armv7 realview_pb
 ./MakeReleaseSet armv7 tegra2
 
-for arch in x86 x86_64 armv7; do
-	cp Releases/Acess2_latest_${arch}-bin.tar.gz ${_RELDIR}Acess2_${REL}_${arch}-bin.tar.gz
-	cp Releases/Acess2_latest_${arch}.img.gz ${_RELDIR}Acess2_${REL}_${arch}.img.gz
+for f in Releases/*.gz; do
+	newname=${f/_latest_/_${REL}_}
+	cp $f $newname
 done
+rm Releases/*_armv7-*.img.gz
+cp Releases/* ${_RELDIR}
 
 git archive --format=tar --prefix=Acess2/ HEAD | gzip > ${_RELDIR}Acess2_git.tar.gz
 git tag rel${REL_DOT}
