@@ -480,7 +480,8 @@ void DrvUtil_Video_RenderCursor(tDrvUtil_Video_BufInfo *Buf)
 	{
 	case 15:
 	case 16:
-		Log_Warning("DrvUtil", "TODO: Support 15/16 bpp modes in cursor draw");
+		//Log_Warning("DrvUtil", "TODO: Support 15/16 bpp modes in cursor draw");
+		//Proc_PrintBacktrace();
 		break;
 	case 24:
 		LOG("24-bit render");
