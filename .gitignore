@@ -27,6 +27,7 @@ serial.txt
 *.vmdk
 SrcDoc/
 APIDoc/
+Usermode/*/*/UTEST/stage
 Usermode/Output/
 Usermode/include
 gitstats/
