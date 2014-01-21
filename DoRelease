@@ -1,4 +1,5 @@
-#!/bin/sh
+#!/bin/bash
+set -x
 
 # NOTE: This is rather specific to my setup :)
 
@@ -12,15 +13,17 @@ _RELDIR=/home/http/www/Downloads/Acess2/
 ./MakeReleaseSet armv7 realview_pb
 ./MakeReleaseSet armv7 tegra2
 
+rm -f Releases/*_armv7-*.img.gz
 for f in Releases/*.gz; do
-	newname=${f/_latest_/_${REL}_}
+	newname=${f/latest/$REL}
 	cp $f $newname
 done
-rm Releases/*_armv7-*.img.gz
 cp Releases/* ${_RELDIR}
 
-git archive --format=tar --prefix=Acess2/ HEAD | gzip > ${_RELDIR}Acess2_git.tar.gz
-git tag rel${REL_DOT}
+if [[ $# -lt 2 ]] || [[ "$1" != "-n" ]]; then
+	git archive --format=tar --prefix=Acess2/ HEAD | gzip > ${_RELDIR}Acess2_git.tar.gz
+	git tag rel${REL_DOT}
+fi
 
 cd ${_RELDIR}
 cp Acess2_git.tar.gz Acess2_${REL}.tar.gz
