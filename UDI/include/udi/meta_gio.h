@@ -13,8 +13,8 @@ typedef struct udi_gio_event_cb_s	udi_gio_event_cb_t;
 
 typedef void	udi_gio_bind_req_op_t(udi_gio_bind_cb_t *cb);
 typedef void	udi_gio_unbind_req_op_t(udi_gio_bind_cb_t *cb);
-typedef void	udi_gio_xfer_req_op_t(udi_gio_bind_cb_t *cb);
-typedef void	udi_gio_event_res_op_t(udi_gio_bind_cb_t *cb);
+typedef void	udi_gio_xfer_req_op_t(udi_gio_xfer_cb_t *cb);
+typedef void	udi_gio_event_res_op_t(udi_gio_event_cb_t *cb);
 
 typedef void	udi_gio_bind_ack_op_t(
 	udi_gio_bind_cb_t *cb,
