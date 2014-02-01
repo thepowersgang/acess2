@@ -1,0 +1,39 @@
+properties_version 0x101
+supplier 1
+message 1 John Hodge (thePowersGang)
+contact 2
+message 2 udi@mutabah.net
+name 3
+message 3 16c550 UART Driver
+shortname uart16c550
+release 5 1.0
+message	5 uart16c550
+
+requires udi 0x101
+requires udi_physio 0x101
+requires udi_bridge 0x101
+requires udi_gio 0x101
+
+meta 1 udi_bridge
+meta 2 udi_gio
+
+parent_bind_ops 1 0 1 1	# bridge metalang, rgn 0, ops 1, cb 1
+child_bind_ops 2 0 2	# GIO metalang, rgn 0, ops 2
+
+# PC Serial Port
+device 101 1  bus_type string system  sysbus_io_addr_lo ubit32 0x3F8  sysbus_io_size ubit32 16  sysbus_intr0 ubit32 4
+message 101	PC Serial (COM1)
+device 102 1  bus_type string system  sysbus_io_addr_lo ubit32 0x2F8  sysbus_io_size ubit32 16  sysbus_intr0 ubit32 3
+message 102	PC Serial (COM2)
+
+# PCI 16550 compatibles
+device 103 1  bus_type string pci  pci_baseclass ubit32 0x07  pci_sub_class ubit32 0x00  pci_prog_if ubit32 0x02
+message 103	PCI 16550 Compatible
+
+module uart16c550
+region 0
+
+# Source-only udiprops
+compile_options -DUART_META_BUS=1 -DUART_META_GIO=2
+source_files uart16c550.c
+
