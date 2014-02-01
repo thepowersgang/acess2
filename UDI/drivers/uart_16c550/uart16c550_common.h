@@ -28,6 +28,7 @@ typedef struct {
 	
 	udi_pio_handle_t	pio_handles[N_PIO];
 	udi_channel_t	interrupt_channel;
+	udi_buf_t	*rx_buffer;
 } rdata_t;
 
 // === MACROS ===

@@ -14,9 +14,11 @@
 
 #define __EXPJOIN(a,b)	a##b
 #define _EXPJOIN(a,b)	__EXPJOIN(a,b)
-#define CONTIN(suffix, call, params, args...)	extern void _EXPJOIN(suffix##__,__LINE__) params;\
-	call(_EXPJOIN(suffix##__,__LINE__), gcb,## args); } \
-	void _EXPJOIN(suffix##__,__LINE__) params { \
+#define _EXPLODE(params...)	params
+#define _ADDGCB(params...)	(udi_cb_t *gcb, params)
+#define CONTIN(suffix, call, args, params)	extern void _EXPJOIN(suffix##__,__LINE__) _ADDGCB params;\
+	call( _EXPJOIN(suffix##__,__LINE__), gcb, _EXPLODE args); } \
+	void _EXPJOIN(suffix##__,__LINE__) _ADDGCB params { \
 	rdata_t	*rdata = gcb->context;
 
 // --- Management Metalang
@@ -38,7 +40,7 @@ void uart_enumerate_req(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_level)
 	{
 	case UDI_ENUMERATE_START:
 	case UDI_ENUMERATE_START_RESCAN:
-		DPT_SET_ATTR_STRING(attr_list, "if_num", "uart", 4);
+		DPT_SET_ATTR_STRING(attr_list, "gio_type", "uart", 4);
 		attr_list ++;
 		cb->attr_valid_length = attr_list - cb->attr_list;
 		udi_enumerate_ack(cb, UDI_ENUMERATE_OK, UART_OPS_GIO);
@@ -109,22 +111,15 @@ void uart_bus_dev_bind__pio_map(udi_cb_t *gcb, udi_pio_handle_t new_pio_handle)
 		return ;
 	}
 
-	CONTIN( uart_bus_dev_bind, udi_channel_spawn, (udi_cb_t *gcb, udi_channel_t new_channel), gcb->channel, 0, UART_OPS_IRQ, rdata)
-//	udi_channel_spawn(uart_bus_dev_bind__intr_chanel, gcb, gcb->channel, 0, UART_OPS_IRQ, rdata);
-//}
-//void uart_bus_dev_bind__intr_chanel(udi_cb_t *gcb, udi_channel_t new_channel)
-//{
-//	rdata_t	*rdata = gcb->context;
+	CONTIN( uart_bus_dev_bind, udi_channel_spawn, (gcb->channel, 0, UART_OPS_IRQ, rdata),
+		(udi_channel_t new_channel))
+	// new function
 	
 	rdata->interrupt_channel = new_channel;
 	
-	CONTIN( uart_bus_dev_bind, udi_cb_alloc, (udi_cb_t *gcb, udi_cb_t *new_cb), UART_CB_INTR, gcb->channel)
-//	udi_cb_alloc(uart_bus_dev_bind__intr_attach, gcb, NE2K_CB_INTR, gcb->channel);
-//	// V V V V
-//}
-//void uart_bus_dev_bind__intr_attach(udi_cb_t *gcb, udi_cb_t *new_cb)
-//{
-//	rdata_t	*rdata = gcb->context;
+	CONTIN( uart_bus_dev_bind, udi_cb_alloc, (UART_CB_INTR, gcb->channel),
+		(udi_cb_t *new_cb))
+	// new function
 	if( !new_cb )
 	{
 		// Oh...
@@ -163,17 +158,72 @@ void uart_bus_irq_intr_event_ind(udi_intr_event_cb_t *cb, udi_ubit8_t flags)
 	udi_intr_event_rdy(cb);
 }
 // ---
+void uart_gio_prov_channel_event_ind(udi_channel_event_cb_t *cb);
+void uart_gio_prov_bind_req(udi_gio_bind_cb_t *cb);
+void uart_gio_prov_xfer_req(udi_gio_xfer_cb_t *cb);
+void uart_gio_read_complete(udi_cb_t *gcb, udi_buf_t *new_buf);
+void uart_gio_write_complete(udi_cb_t *gcb, udi_buf_t *new_buf, udi_status_t status, udi_ubit16_t res);
+void uart_gio_prov_event_res(udi_gio_event_cb_t *cb);
+
 void uart_gio_prov_channel_event_ind(udi_channel_event_cb_t *cb)
 {
 }
 void uart_gio_prov_bind_req(udi_gio_bind_cb_t *cb)
 {
+	udi_gio_bind_ack(cb, 0, 0, UDI_OK);
 }
 void uart_gio_prov_unbind_req(udi_gio_bind_cb_t *cb)
 {
+	udi_gio_unbind_ack(cb);
 }
 void uart_gio_prov_xfer_req(udi_gio_xfer_cb_t *cb)
 {
+	udi_cb_t	*gcb = UDI_GCB(cb);
+	rdata_t	*rdata = gcb->context;
+	switch(cb->op)
+	{
+	case UDI_GIO_OP_READ:
+		// Read from local FIFO
+		if( rdata->rx_buffer->buf_size < cb->data_buf->buf_size ) {
+			// Local FIFO was empty
+			udi_gio_xfer_nak(cb, UDI_STAT_DATA_UNDERRUN);
+		}
+		else {
+			udi_buf_copy(uart_gio_read_complete, gcb,
+				rdata->rx_buffer,
+				0, cb->data_buf->buf_size,
+				cb->data_buf,
+				0, cb->data_buf->buf_size,
+				UDI_NULL_BUF_PATH);
+		}
+		break;
+	case UDI_GIO_OP_WRITE:
+		// Send to device
+		udi_pio_trans(uart_gio_write_complete, gcb,
+			rdata->pio_handles[PIO_TX], 0, cb->data_buf, NULL);
+		break;
+	default:
+		udi_gio_xfer_nak(cb, UDI_STAT_NOT_SUPPORTED);
+		break;
+	}
+}
+void uart_gio_read_complete(udi_cb_t *gcb, udi_buf_t *new_buf)
+{
+	rdata_t	*rdata = gcb->context;
+	udi_gio_xfer_cb_t	*cb = UDI_MCB(gcb, udi_gio_xfer_cb_t);
+	cb->data_buf = new_buf;
+	// Delete read bytes from the RX buffer
+	CONTIN(uart_gio_read_complete, udi_buf_write, (NULL, 0, rdata->rx_buffer, 0, cb->data_buf->buf_size, UDI_NULL_BUF_PATH),
+		(udi_buf_t *new_buf))
+	udi_gio_xfer_cb_t	*cb = UDI_MCB(gcb, udi_gio_xfer_cb_t);
+	rdata->rx_buffer = new_buf;
+	udi_gio_xfer_ack(cb);
+}
+void uart_gio_write_complete(udi_cb_t *gcb, udi_buf_t *new_buf, udi_status_t status, udi_ubit16_t res)
+{
+	udi_gio_xfer_cb_t	*cb = UDI_MCB(gcb, udi_gio_xfer_cb_t);
+	cb->data_buf = new_buf;
+	udi_gio_xfer_ack(cb);
 }
 void uart_gio_prov_event_res(udi_gio_event_cb_t *cb)
 {
