@@ -20,6 +20,8 @@ enum {
 	N_PIO
 };
 
+#define RX_BUFFER_SIZE	32
+
 typedef struct {
 	udi_cb_t	*active_cb;
 	struct {
@@ -28,6 +30,8 @@ typedef struct {
 	
 	udi_pio_handle_t	pio_handles[N_PIO];
 	udi_channel_t	interrupt_channel;
+	
+	udi_ubit8_t	rx_bytes;
 	udi_buf_t	*rx_buffer;
 } rdata_t;
 

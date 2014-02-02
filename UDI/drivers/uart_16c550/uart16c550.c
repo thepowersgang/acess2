@@ -111,15 +111,27 @@ void uart_bus_dev_bind__pio_map(udi_cb_t *gcb, udi_pio_handle_t new_pio_handle)
 		return ;
 	}
 
+	// Spawn the interrupt channel
 	CONTIN( uart_bus_dev_bind, udi_channel_spawn, (gcb->channel, 0, UART_OPS_IRQ, rdata),
 		(udi_channel_t new_channel))
-	// new function
 	
 	rdata->interrupt_channel = new_channel;
-	
+
+	// Allocate an RX buffer
+	CONTIN( uart_bus_dev_bind, udi_buf_write, (NULL, RX_BUFFER_SIZE, NULL, 0, 0, UDI_NULL_BUF_PATH),
+		(udi_buf_t *new_buf));	
+	if( !new_buf )
+	{
+		// Oh...
+		udi_channel_event_complete( UDI_MCB(rdata->active_cb, udi_channel_event_cb_t),
+			UDI_STAT_RESOURCE_UNAVAIL );
+		return ;
+	}
+	rdata->rx_buffer = new_buf;
+
+	// Create interrupt CB
 	CONTIN( uart_bus_dev_bind, udi_cb_alloc, (UART_CB_INTR, gcb->channel),
 		(udi_cb_t *new_cb))
-	// new function
 	if( !new_cb )
 	{
 		// Oh...
@@ -131,6 +143,8 @@ void uart_bus_dev_bind__pio_map(udi_cb_t *gcb, udi_pio_handle_t new_pio_handle)
 	intr_cb->interrupt_idx = 0;
 	intr_cb->min_event_pend = 2;
 	intr_cb->preprocessing_handle = rdata->pio_handles[PIO_RX];
+	
+	// Attach interrupt
 	udi_intr_attach_req(intr_cb);
 	// continued in uart_bus_dev_intr_attach_ack
 }
@@ -184,7 +198,7 @@ void uart_gio_prov_xfer_req(udi_gio_xfer_cb_t *cb)
 	{
 	case UDI_GIO_OP_READ:
 		// Read from local FIFO
-		if( rdata->rx_buffer->buf_size < cb->data_buf->buf_size ) {
+		if( rdata->rx_bytes < cb->data_buf->buf_size ) {
 			// Local FIFO was empty
 			udi_gio_xfer_nak(cb, UDI_STAT_DATA_UNDERRUN);
 		}
@@ -200,7 +214,7 @@ void uart_gio_prov_xfer_req(udi_gio_xfer_cb_t *cb)
 	case UDI_GIO_OP_WRITE:
 		// Send to device
 		udi_pio_trans(uart_gio_write_complete, gcb,
-			rdata->pio_handles[PIO_TX], 0, cb->data_buf, NULL);
+			rdata->pio_handles[PIO_TX], 0, cb->data_buf, &cb->data_buf->buf_size);
 		break;
 	default:
 		udi_gio_xfer_nak(cb, UDI_STAT_NOT_SUPPORTED);
