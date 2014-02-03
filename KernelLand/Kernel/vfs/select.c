@@ -196,6 +196,7 @@ int VFS_Select(int MaxHandle, fd_set *ReadHandles, fd_set *WriteHandles, fd_set 
 // Mark a node as having data ready for reading
 int VFS_MarkAvaliable(tVFS_Node *Node, BOOL IsDataAvaliable)
 {
+	ASSERTR(Node, 1);
 	ENTER("pNode bIsDataAvaliable", Node, IsDataAvaliable);
 	Node->DataAvaliable = !!IsDataAvaliable;
 	if( Node->DataAvaliable )
@@ -207,6 +208,7 @@ int VFS_MarkAvaliable(tVFS_Node *Node, BOOL IsDataAvaliable)
 // Mark a node as having a full buffer
 int VFS_MarkFull(tVFS_Node *Node, BOOL IsBufferFull)
 {
+	ASSERTR(Node, 1);
 	ENTER("pNode bIsBufferFull", Node, IsBufferFull);
 	Node->BufferFull = !!IsBufferFull;
 	if( !Node->BufferFull )
@@ -218,6 +220,7 @@ int VFS_MarkFull(tVFS_Node *Node, BOOL IsBufferFull)
 // Mark a node as errored
 int VFS_MarkError(tVFS_Node *Node, BOOL IsErrorState)
 {
+	ASSERTR(Node, 1);
 	ENTER("pNode bIsErrorState", Node, IsErrorState);
 	Node->ErrorOccurred = !!IsErrorState;
 	if( Node->ErrorOccurred )
