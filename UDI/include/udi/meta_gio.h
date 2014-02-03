@@ -23,9 +23,9 @@ typedef void	udi_gio_bind_ack_op_t(
 	udi_status_t	status
 	);
 typedef void	udi_gio_unbind_ack_op_t(udi_gio_bind_cb_t *cb);
-typedef void	udi_gio_xfer_ack_op_t(udi_gio_bind_cb_t *cb);
-typedef void	udi_gio_xfer_nak_op_t(udi_gio_bind_cb_t *cb, udi_status_t status);
-typedef void	udi_gio_event_ind_op_t(udi_gio_bind_cb_t *cb);
+typedef void	udi_gio_xfer_ack_op_t(udi_gio_xfer_cb_t *cb);
+typedef void	udi_gio_xfer_nak_op_t(udi_gio_xfer_cb_t *cb, udi_status_t status);
+typedef void	udi_gio_event_ind_op_t(udi_gio_event_cb_t *cb);
 
 typedef udi_ubit8_t	udi_gio_op_t;
 /* Limit values for udi_gio_op_t */
@@ -98,23 +98,19 @@ struct udi_gio_event_cb_s
 #define UDI_GIO_EVENT_CB_NUM     3
 
 
-extern void udi_gio_bind_req(udi_gio_bind_cb_t *cb);
-extern void udi_gio_bind_ack(
-	udi_gio_bind_cb_t	*cb,
-	udi_ubit32_t	device_size_lo,
-	udi_ubit32_t	device_size_hi,
-	udi_status_t	status
-	);
+extern udi_gio_bind_req_op_t	udi_gio_bind_req;
+extern udi_gio_bind_ack_op_t	udi_gio_bind_ack;
 
-extern void udi_gio_unbind_req(udi_gio_bind_cb_t *cb);
-extern void udi_gio_unbind_ack(udi_gio_bind_cb_t *cb);
+extern udi_gio_unbind_req_op_t	udi_gio_unbind_req;
+extern udi_gio_unbind_ack_op_t	udi_gio_unbind_ack;
 
-extern void udi_gio_xfer_req(udi_gio_xfer_cb_t *cb);
-extern void udi_gio_xfer_ack(udi_gio_xfer_cb_t *cb);
-extern void udi_gio_xfer_nak(udi_gio_xfer_cb_t *cb, udi_status_t status);
+extern udi_gio_xfer_req_op_t	udi_gio_xfer_req;
+extern udi_gio_xfer_ack_op_t	udi_gio_xfer_ack;
+extern udi_gio_xfer_nak_op_t	udi_gio_xfer_nak;
 
-extern void udi_gio_event_res(udi_gio_event_cb_t *cb);
-extern void udi_gio_event_ind(udi_gio_event_cb_t *cb);
-extern void udi_gio_event_res_unused(udi_gio_event_cb_t *cb);
+extern udi_gio_event_ind_op_t	udi_gio_event_ind;
+extern udi_gio_event_ind_op_t	udi_gio_event_res_unused;
+extern udi_gio_event_res_op_t	udi_gio_event_res;
+extern udi_gio_event_res_op_t	udi_gio_event_res_unused;
 
 #endif
