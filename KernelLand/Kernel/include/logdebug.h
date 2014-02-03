@@ -64,7 +64,7 @@ extern void	Debug_HexDump(const char *Header, const void *Data, size_t Length);
 #endif
 #if !DISABLE_ASSERTS
 # define ASSERTV(expr,msg,args...) do{if(!(expr))Panic("%s:%i - %s: Assertion '"#expr"' failed"msg,__FILE__,__LINE__,(char*)__func__,##args);}while(0)
-# define ASSERTRV(expr,rv,msg,args...)	do{if(!(expr)){Warning("%s:%i: Assertion '"#expr"' failed"msg,__FILE__,__LINE__,(char*)__func__ , ##args);return rv;}}while(0)
+# define ASSERTRV(expr,rv,msg,args...)	do{if(!(expr)){Warning("%s:%i - %s: Assertion '"#expr"' failed"msg,__FILE__,__LINE__,(char*)__func__ , ##args);return rv;}}while(0)
 #else
 # define ASSERTV(expr)
 # define ASSERTRV(expr)
