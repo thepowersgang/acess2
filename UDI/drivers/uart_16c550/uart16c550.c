@@ -141,8 +141,8 @@ void uart_bus_dev_bind__pio_map(udi_cb_t *gcb, udi_pio_handle_t new_pio_handle)
 	}
 	udi_intr_attach_cb_t	*intr_cb = UDI_MCB(new_cb, udi_intr_attach_cb_t);
 	intr_cb->interrupt_idx = 0;
-	intr_cb->min_event_pend = 2;
-	intr_cb->preprocessing_handle = rdata->pio_handles[PIO_RX];
+	intr_cb->min_event_pend = 1;
+	intr_cb->preprocessing_handle = rdata->pio_handles[PIO_INTR];
 	
 	// Attach interrupt
 	udi_intr_attach_req(intr_cb);
@@ -153,6 +153,20 @@ void uart_bus_dev_bus_unbind_ack(udi_bus_bind_cb_t *cb)
 }
 void uart_bus_dev_intr_attach_ack(udi_intr_attach_cb_t *intr_attach_cb, udi_status_t status)
 {
+	udi_cb_t	*gcb = UDI_GCB(intr_attach_cb);
+	rdata_t	*rdata = gcb->context;
+
+	// TODO: Allocate interrupt cbs
+	CONTIN(uart_bus_dev_intr_attach_ack, udi_cb_alloc, (UART_CB_INTR_EVENT, rdata->interrupt_channel),
+		(udi_cb_t *new_cb))
+
+	udi_intr_event_cb_t *cb = UDI_MCB(new_cb, udi_intr_event_cb_t);
+	udi_intr_event_rdy(cb);
+
+	udi_channel_event_cb_t	*channel_cb = UDI_MCB(rdata->active_cb, udi_channel_event_cb_t);
+	
+	udi_channel_event_complete(channel_cb, UDI_OK);
+	// = = = = =
 }
 void uart_bus_dev_intr_detach_ack(udi_intr_detach_cb_t *intr_detach_cb)
 {

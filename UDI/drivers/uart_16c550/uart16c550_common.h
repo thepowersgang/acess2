@@ -16,13 +16,15 @@ enum {
 enum {
 	PIO_RESET,
 	PIO_TX,
-	PIO_RX,
+	PIO_INTR,
 	N_PIO
 };
 
 #define RX_BUFFER_SIZE	32
 
 typedef struct {
+	udi_init_context_t	init_context;
+
 	udi_cb_t	*active_cb;
 	struct {
 		udi_index_t	pio_index;
