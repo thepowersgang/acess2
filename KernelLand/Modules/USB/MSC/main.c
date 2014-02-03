@@ -179,9 +179,9 @@ int MSC_RecvData(tUSBInterface *Dev, size_t CmdLen, const void *CmdData, size_t 
 	// Read CSW
 	USB_RecvData(Dev, endpoint_in, sizeof(csw), &csw);
 	
-	Debug_HexDump("MSC RecvData, cbw=", &cbw, sizeof(cbw));
-	Debug_HexDump("MSC RecvData, csw=", &csw, sizeof(csw));
-	Debug_HexDump("MSC RecvData, Data=", Data, DataLen);
+	//Debug_HexDump("MSC RecvData, cbw=", &cbw, sizeof(cbw));
+	//Debug_HexDump("MSC RecvData, csw=", &csw, sizeof(csw));
+	//Debug_HexDump("MSC RecvData, Data=", Data, DataLen);
 	
 	// TODO: Validate CSW
 	if( LittleEndian32(csw.dCSWSignature) != MSC_CSW_SIGNATURE ) {
