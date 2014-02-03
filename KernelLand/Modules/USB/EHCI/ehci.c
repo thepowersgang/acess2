@@ -901,6 +901,7 @@ void EHCI_int_ReclaimQHs(tEHCI_Controller *Cont)
 void EHCI_int_InterruptThread(void *ControllerPtr)
 {
 	tEHCI_Controller	*Cont = ControllerPtr;
+	Threads_SetName("EHCI Interrupt Worker");
 	while(Cont->OpRegs)
 	{
 		Uint32	events;
