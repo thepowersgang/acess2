@@ -26,6 +26,7 @@ tUDI_DriverInstance *UDI_MA_CreateInstance(tUDI_DriverModule *DriverModule,
 	udi_primary_init_t	*pri_init = DriverModule->InitInfo->primary_init_info;
 	inst->Module = DriverModule;
 	inst->Regions[0] = UDI_MA_InitRegion(inst, 0, 0, pri_init->rdata_size);
+	if( !inst->Regions[0] )	goto _error;
 	udi_secondary_init_t	*sec_init = DriverModule->InitInfo->secondary_init_list;
 	if( sec_init )
 	{
@@ -33,6 +34,7 @@ tUDI_DriverInstance *UDI_MA_CreateInstance(tUDI_DriverModule *DriverModule,
 		{
 			inst->Regions[1+i] = UDI_MA_InitRegion(inst, i,
 				sec_init[i].region_idx, sec_init[i].rdata_size);
+			if( !inst->Regions[1+i] )	goto _error;
 		}
 	}
 
@@ -70,6 +72,11 @@ tUDI_DriverInstance *UDI_MA_CreateInstance(tUDI_DriverModule *DriverModule,
 	// udi_usage_res causes next state transition
 	
 	return inst;
+_error:
+	for( int i = 0; i < DriverModule->nRegions; i++ )
+		free(inst->Regions[i]);
+	free(inst);
+	return NULL;
 }
 
 tUDI_DriverRegion *UDI_MA_InitRegion(tUDI_DriverInstance *Inst,
@@ -176,7 +183,7 @@ void UDI_MA_AddChild(udi_enumerate_cb_t *cb, udi_index_t ops_idx)
 		}
 	}
 	if( !child->BindOps ) {
-		Log_Error("UDI", "Driver '%s' doesn't have a 'child_bind_ops' for %i",
+		Log_Error("UDI", "Driver '%s' doesn't have a 'child_bind_ops' for ops_idx %i",
 			inst->Module->ModuleName, ops_idx);
 		free(child);
 		return ;

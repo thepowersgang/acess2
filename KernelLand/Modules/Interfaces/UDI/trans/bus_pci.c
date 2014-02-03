@@ -5,7 +5,7 @@
  * trans/bus_pci.c
  * - PCI Bus Driver
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <udi.h>
 #include <udi_physio.h>
 #include <udi_pci.h>
@@ -155,6 +155,13 @@ void pci_enumerate_req(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_level)
 			DPT_SET_ATTR32(attr_list, "pci_vendor_id", ven);
 			attr_list ++;
 			DPT_SET_ATTR32(attr_list, "pci_device_id", dev);
+			attr_list ++;
+			
+			DPT_SET_ATTR32(attr_list, "pci_baseclass", class >> 16);
+			attr_list ++;
+			DPT_SET_ATTR32(attr_list, "pci_sub_class", (class >> 8) & 0xFF);
+			attr_list ++;
+			DPT_SET_ATTR32(attr_list, "pci_prog_if", (class >> 0) & 0xFF);
 			attr_list ++;
 
 			cb->attr_valid_length = attr_list - cb->attr_list;
@@ -384,7 +391,7 @@ udi_primary_init_t	pci_pri_init = {
 	.mgmt_ops = &pci_mgmt_ops,
 	.mgmt_op_flags = pci_mgmt_op_flags,
 	.mgmt_scratch_requirement = 0,
-	.enumeration_attr_list_length = 4,
+	.enumeration_attr_list_length = 7,
 	.rdata_size = sizeof(pci_rdata_t),
 	.child_data_size = 0,
 	.per_parent_paths = 0

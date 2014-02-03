@@ -375,6 +375,7 @@ void udi_pio_trans(udi_pio_trans_call_t *callback, udi_cb_t *gcb,
 			case UDI_PIO_IN:
 				pio_handle->IOFunc(pio_handle->ChildID, pio_handle->RegSet,
 					operand, tran_size, &tmpval, false);
+				LOG("IN %x = %i %x", operand, tran_size, tmpval.words[0]);
 				_write_mem(gcb, buf, mem_ptr, (pio_op&0x18), tran_size, reg, &tmpval);
 				break;
 			case UDI_PIO_OUT:
@@ -385,9 +386,11 @@ void udi_pio_trans(udi_pio_trans_call_t *callback, udi_cb_t *gcb,
 				break;
 			case UDI_PIO_LOAD:
 				_read_mem(gcb, buf, mem_ptr, (pio_op&0x18), tran_size, reg, &registers[operand]);
+				LOG("LOAD R%x = %i %x", operand, tran_size, registers[operand].words[0]);
 				_zero_upper(tran_size, &registers[operand]);
 				break;
 			case UDI_PIO_STORE:
+				LOG("STORE R%x (%i %x)", operand, tran_size, registers[operand].words[0]);
 				_write_mem(gcb, buf, mem_ptr, (pio_op&0x18), tran_size, reg, &registers[operand]);
 				break;
 			}
@@ -425,6 +428,7 @@ void udi_pio_trans(udi_pio_trans_call_t *callback, udi_cb_t *gcb,
 					reg->words[0] = operand;
 					break;
 				}
+				LOG("LOAD IMM ");
 				_zero_upper(tran_size, reg);
 				ip += (1<<tran_size)/2-1;
 				break;
@@ -455,11 +459,13 @@ void udi_pio_trans(udi_pio_trans_call_t *callback, udi_cb_t *gcb,
 				}
 				break; }
 			case UDI_PIO_IN_IND:
+				LOG("IN IND");
 				pio_handle->IOFunc(pio_handle->ChildID, pio_handle->RegSet,
 					registers[operand].words[0], tran_size, reg, false);
 				_zero_upper(tran_size, reg);
 				break;
 			case UDI_PIO_OUT_IND:
+				LOG("OUT IND");
 				pio_handle->IOFunc(pio_handle->ChildID, pio_handle->RegSet,
 					registers[operand].words[0], tran_size, reg, true);
 				break;
@@ -522,10 +528,12 @@ void udi_pio_trans(udi_pio_trans_call_t *callback, udi_cb_t *gcb,
 			switch(pio_op)
 			{
 			case UDI_PIO_BRANCH:
+				LOG("BRANCH %i", operand);
 				ip = _get_label(pio_handle, operand);
 				break;
 			case UDI_PIO_LABEL:
 				// nop
+				LOG("LABEL %i", operand);
 				break;
 			case UDI_PIO_REP_IN_IND:
 			case UDI_PIO_REP_OUT_IND: {
@@ -594,8 +602,10 @@ void udi_pio_trans(udi_pio_trans_call_t *callback, udi_cb_t *gcb,
 					ret_status = registers[operand].words[0] & 0xFFFF;
 				else
 					ret_status = registers[operand].words[0] & 0xFF;
+				LOG("END R%i 0x%x", operand, ret_status);
 				goto end;
 			case UDI_PIO_END_IMM:
+				LOG("END IMM 0x%x", operand);
 				ASSERTC(tran_size, ==, UDI_PIO_2BYTE);
 				ret_status = operand;
 				goto end;

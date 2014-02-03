@@ -333,7 +333,7 @@ void acessnsr_SendPacket__buf_write_complete(udi_cb_t *gcb, udi_buf_t *buf)
 	udi_nd_tx_req(cb);
 	// continued in acessnsr_tx_rdy
 }
-void _FreeHeapSubBuf(void *Arg, size_t Pre, size_t Post, const void *DataBuf)
+static void _FreeHeapSubBuf(void *Arg, size_t Pre, size_t Post, const void *DataBuf)
 {
 	free(Arg);
 }

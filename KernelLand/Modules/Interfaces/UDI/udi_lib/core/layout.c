@@ -24,10 +24,10 @@
 	ofs += sizeof(type); \
 }while(0)
 
-size_t _udi_marshal_step(void *buf, size_t cur_ofs, udi_layout_t **layoutp, va_list *values)
+size_t _udi_marshal_step(void *buf, size_t cur_ofs, const udi_layout_t **layoutp, va_list *values)
 {
 	size_t	ofs = cur_ofs;
-	udi_layout_t	*layout = *layoutp;
+	const udi_layout_t	*layout = *layoutp;
 	switch(*layout++)
 	{
 	case UDI_DL_UBIT8_T:	_PUT(udi_ubit8_t, UDI_VA_UBIT8_T);	break;
@@ -51,16 +51,32 @@ size_t _udi_marshal_step(void *buf, size_t cur_ofs, udi_layout_t **layoutp, va_l
 	case UDI_DL_CB:
 		_PUT(udi_cb_t*,UDI_VA_POINTER);
 		break;
+	case UDI_DL_INLINE_UNTYPED:
+		_PUT(void*,UDI_VA_POINTER);
+		break;
+	case UDI_DL_INLINE_DRIVER_TYPED:
+		_PUT(void*,UDI_VA_POINTER);
+		break;
+	case UDI_DL_MOVABLE_UNTYPED:
+		_PUT(void*,UDI_VA_POINTER);
+		break;
+	
+	case UDI_DL_INLINE_TYPED:
+	case UDI_DL_MOVABLE_TYPED:
+		_PUT(void*,UDI_VA_POINTER);
+		while(*layout++ != UDI_DL_END)
+			;
+		break;
 
 	default:
-		Log_Error("UDI", "_udi_marshal_values - Unknown layout code %i", layout[-1]);
+		Log_Error("UDI", "_udi_marshal_step - Unknown layout code %i", layout[-1]);
 		return 0;
 	}
 	*layoutp = layout;
 	return ofs;
 }
 
-size_t _udi_marshal_values(void *buf, udi_layout_t *layout, va_list values)
+size_t _udi_marshal_values(void *buf, const udi_layout_t *layout, va_list values)
 {
 	size_t	ofs = 0;
 	while( *layout != UDI_DL_END )

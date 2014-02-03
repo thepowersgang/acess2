@@ -14,6 +14,7 @@
 #include <udi_internal_ma.h>
 #include <trans_pci.h>
 #include <trans_nsr.h>
+#include <trans_uart.h>
 
 // === PROTOTYPES ===
  int	UDI_Install(char **Arguments);
@@ -42,6 +43,7 @@ int UDI_Install(char **Arguments)
 
 	UDI_int_LoadDriver(NULL, &pci_init, pci_udiprops, pci_udiprops_size);
 	UDI_int_LoadDriver(NULL, &acessnsr_init, acessnsr_udiprops, acessnsr_udiprops_size);
+	UDI_int_LoadDriver(NULL, &acessuart_init, acessuart_udiprops, acessuart_udiprops_size);
 
 	return MODULE_ERR_OK;
 }
@@ -406,6 +408,7 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, const udi_init_t *info, co
 	driver_module->Devices      = NEW(tUDI_PropDevSpec*,* driver_module->nDevices);
 
 	// Populate
+	bool	error_hit = false;
 	 int	cur_locale = 0;
 	 int	msg_index = 0;
 	 int	ml_index = 0;
@@ -424,13 +427,13 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, const udi_init_t *info, co
 		case UDIPROPS__properties_version:
 			if( _get_token_uint32(str, &str) != 0x101 ) {
 				Log_Warning("UDI", "Properties version mismatch.");
+				error_hit = true;
 			}
 			break;
 		case UDIPROPS__module:
 			driver_module->ModuleName = str;
 			break;
-		case UDIPROPS__meta:
-			{
+		case UDIPROPS__meta: {
 			tUDI_MetaLangRef *ml = &driver_module->MetaLangs[ml_index++];
 			ml->meta_idx = _get_token_idx(str, &str);
 			if( !str )	continue;
@@ -440,9 +443,10 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, const udi_init_t *info, co
 			if( !ml->metalang ) {
 				Log_Error("UDI", "Module %s referenced unsupported metalang %s",
 					driver_module->ModuleName, ml->interface_name);
+				error_hit = true;
+				// TODO: error
 			}
-			break;
-			}
+			break; }
 		case UDIPROPS__message:
 			{
 			tUDI_PropMessage *msg = &driver_module->Messages[msg_index++];
@@ -641,6 +645,7 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, const udi_init_t *info, co
 					// TODO: Array
 					Log_Warning("UDI", "TODO: Parse 'array' attribute in 'device'");
 					_get_token_str(str, &str, NULL);
+					error_hit = true;
 					break;
 				case 3:	// ubit32
 					at->attr_length = sizeof(udi_ubit32_t);
@@ -666,6 +671,20 @@ tUDI_DriverModule *UDI_int_LoadDriver(void *LoadBase, const udi_init_t *info, co
 		}
 	}
 	free(udipropsptrs);
+	if( error_hit ) {
+		Log_Error("UDI", "Error encountered while parsing udiprops for '%s' (%p), bailing",
+			driver_module->ModuleName, LoadBase);
+		for( int i = 0; i < device_index; i ++ )
+			free(driver_module->Devices[i]);
+		free(driver_module->Messages);
+		free(driver_module->RegionTypes);
+		free(driver_module->MetaLangs);
+		free(driver_module->Parents);
+		free(driver_module->ChildBindOps);
+		free(driver_module->Devices);
+		free(driver_module);
+		return NULL;
+	}
 
 	for( int i = 0; i < driver_module->nDevices; i ++ )
 		driver_module->Devices[i]->Metalang = UDI_int_GetMetaLang(driver_module,
@@ -790,9 +809,11 @@ const tUDI_MetaLang *UDI_int_GetMetaLangByName(const char *Name)
 {
 	//extern tUDI_MetaLang	cMetaLang_Management;
 	extern tUDI_MetaLang	cMetaLang_BusBridge;
+	extern tUDI_MetaLang	cMetaLang_GIO;
 	extern tUDI_MetaLang	cMetaLang_NIC;
 	const tUDI_MetaLang	*langs[] = {
 		&cMetaLang_BusBridge,
+		&cMetaLang_GIO,
 		&cMetaLang_NIC,
 		NULL
 	};

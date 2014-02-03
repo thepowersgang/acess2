@@ -160,7 +160,14 @@ void udi_cb_alloc_batch(
 				// No-op	
 			}
 			
-			cur_ofs += _udi_marshal_step(NULL, 0, &layout, NULL);
+			size_t	sz = _udi_marshal_step(NULL, 0, &layout, NULL);
+			if( sz == 0 ) {
+				Log_Warning("UDI", "Metalang CB %s:%i has an invalid layout",
+					metalang->Name, cb_init->meta_cb_num);
+				callback(gcb, NULL);
+				return ;
+			}
+			cur_ofs += sz;
 		}
 	}
 

@@ -35,7 +35,7 @@ void udi_mei_call(udi_cb_t *gcb, udi_mei_init_t *meta_info, udi_index_t meta_ops
 		for( ; ops->meta_ops_num && ops->meta_ops_num != meta_ops_num; ops ++ )
 			;
 		if( !ops->meta_ops_num ) {
-			LEAVE('-');
+//			LEAVE('-');
 			return ;
 		}
 		mei_op = &ops->op_template_list[vec_idx-1];
@@ -82,6 +82,11 @@ void udi_mei_call(udi_cb_t *gcb, udi_mei_init_t *meta_info, udi_index_t meta_ops
 		va_list	args;
 		va_start(args, vec_idx);
 		size_t	marshal_size = _udi_marshal_values(NULL, mei_op->marshal_layout, args);
+		if( marshal_size == 0 && mei_op->marshal_layout[0] != UDI_DL_END ) {
+			Warning("udi_mei_call(%s) - Marshalling failure", mei_op->op_name);
+//			LEAVE('-');
+			return ;
+		}
 		va_end(args);
 		tUDI_MeiCall	*call = malloc(sizeof(tUDI_MeiCall) + marshal_size);
 		call->DCall.Next = NULL;

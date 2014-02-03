@@ -12,7 +12,7 @@ LIB_OBJS += physio.o physio/meta_bus.o physio/pio.o physio/dma.o
 LIB_OBJS += scsi.o
 LIB_OBJS += udi_nic.o
 # - UDI->Acess Translation Layer
-TRANS_OBJS := bus_pci.o nsr.o
+TRANS_OBJS := bus_pci.o nsr.o gio_uart.o
 
 OBJ  = main.o channels.o deferred_calls.o management_agent.o
 OBJ += $(LIB_OBJS:%=udi_lib/%) $(TRANS_OBJS:%=trans/%)
