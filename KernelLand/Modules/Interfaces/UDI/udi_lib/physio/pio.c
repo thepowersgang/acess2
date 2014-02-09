@@ -2,7 +2,7 @@
  * \file udi_lib/physio/pio.c
  * \author John Hodge (thePowersGang)
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <udi.h>
 #include <udi_physio.h>
 #include <acess.h>
@@ -479,6 +479,7 @@ void udi_pio_trans(udi_pio_trans_call_t *callback, udi_cb_t *gcb,
 				_operation_and(tran_size, reg, &registers[operand]);
 				break;
 			case UDI_PIO_AND_IMM:
+				LOG("AND_IMM R%i &= 0x%x", reg_num, operand);
 				tmpval.words[0] = operand;
 				_zero_upper(UDI_PIO_2BYTE, &tmpval);
 				_operation_and(tran_size, reg, &tmpval);
@@ -487,6 +488,7 @@ void udi_pio_trans(udi_pio_trans_call_t *callback, udi_cb_t *gcb,
 				_operation_or(tran_size, reg, &registers[operand]);
 				break;
 			case UDI_PIO_OR_IMM:
+				LOG("OR_IMM R%i |= 0x%x", reg_num, operand);
 				tmpval.words[0] = operand;
 				_zero_upper(UDI_PIO_4BYTE, &tmpval);
 				_operation_or(tran_size, reg, &tmpval);
@@ -622,10 +624,10 @@ void udi_pio_trans(udi_pio_trans_call_t *callback, udi_cb_t *gcb,
 			ops);
 	}
 end:
-	callback(gcb, NULL, UDI_OK, ret_status);
+	callback(gcb, buf, UDI_OK, ret_status);
 	return ;
 error:
-	callback(gcb, NULL, UDI_STAT_HW_PROBLEM, 0);
+	callback(gcb, buf, UDI_STAT_HW_PROBLEM, 0);
 }
 
 void udi_pio_probe(udi_pio_probe_call_t *callback, udi_cb_t *gcb,
