@@ -13,6 +13,7 @@
 #define WARNINGS	1	// Warn and dump on heap errors
 #define	DEBUG_TRACE	0	// Enable tracing of allocations
 #define	VERBOSE_DUMP	0	// Set to 1 to enable a verbose dump when heap errors are encountered
+#define VALIDATE_ON_ALLOC	1	// Set to 1 to enable validation of the heap on all malloc() calls
 
 // === CONSTANTS ===
 #define	HEAP_INIT_SIZE	0x8000	// 32 KiB
@@ -178,6 +179,10 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 		return NULL;	// TODO: Return a known un-mapped range.
 //		return INVLPTR;
 	}
+
+	#if VALIDATE_ON_ALLOC
+	Heap_Dump(0);
+	#endif
 	
 	// Get required size
 	#if POW2_SIZES
@@ -358,6 +363,7 @@ void Heap_Deallocate(const char *File, int Line, void *Ptr)
 		Log_Warning("Heap", "free - Passed a freed block (%p) by %s:%i (was freed by %s:%i)",
 			head, File, Line,
 			head->File, head->Line);
+		Proc_PrintBacktrace();
 		return;
 	}
 	if(head->Magic != MAGIC_USED) {
@@ -626,7 +632,7 @@ void Heap_Dump(int bVerbose)
 		in_heap_dump = 0;
 		return ;
 	}
-
+	
 	// If not verbose, we need to dump the failing block
 	if( !bVerbose )
 	{
@@ -640,8 +646,7 @@ void Heap_Dump(int bVerbose)
 		}
 		Log_Log("Heap", "");
 	}
-	
-	
+		
 	badHead = head;
 	
 	// Work backwards
@@ -690,7 +695,7 @@ void Heap_Dump(int bVerbose)
 		Log_Debug("Heap", "head=%p", head);
 	}
 	
-	Panic("Heap_Dump - Heap is corrupted, kernel panic!");
+	Panic("Heap_Dump - Heap is corrupted, kernel panic! (%p)", badHead);
 }
 
 void Heap_Stats(void)
