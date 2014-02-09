@@ -74,6 +74,9 @@ void Timer_CallbackThread(void *Unused)
  */
 void Timer_CallTimers()
 {
+	// Tick the random number generator every time timers are checked
+	rand();
+	
 	SHORTLOCK(&gTimers_ListLock);
 	while( gTimers && gTimers->FiresAfter < now() )
 	{
