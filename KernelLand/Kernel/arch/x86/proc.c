@@ -24,11 +24,14 @@
 #define DEBUG_DISABLE_DOUBLEFAULT	1
 #define DEBUG_VERY_SLOW_PERIOD	0
 #define DEBUG_NOPREEMPT	1
+#define DISABLE_PIT	0
 
 // === CONSTANTS ===
 // Base is 1193182
 #define TIMER_BASE      1193182
-#if DEBUG_VERY_SLOW_PERIOD
+#if DISABLE_PIT
+# define TIMER_DIVISOR	0xFFFF
+#elif DEBUG_VERY_SLOW_PERIOD
 # define TIMER_DIVISOR	1193	//~10Hz switch, with 10 quantum = 1s per thread
 #else
 # define TIMER_DIVISOR	11932	//~100Hz
