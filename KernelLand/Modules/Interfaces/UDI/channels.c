@@ -15,6 +15,11 @@
  * TODO: This should actually lock the GCB, not the channel
  */
 #define LOCK_CHANNELS	0
+/*
+ * TRACE_ENDPOINTS
+ * - Emit a log message with names/indexes of both endpoints
+ */
+#define TRACE_ENDPOINTS	1
 
 #define MAX_SPAWN_IDX	6
 
@@ -194,6 +199,13 @@ const void *UDI_int_ChannelPrepForCall(udi_cb_t *gcb, tUDI_MetaLang *metalang, u
 			return NULL;
 		}
 	}
+
+	#if TRACE_ENDPOINTS
+	struct sUDI_ChannelSide	*thisside = UDI_int_ChannelGetSide(gcb->channel, false);
+	Log("%s:%i -> %s:%i",
+		(thisside->Instance ? thisside->Instance->Module->ModuleName : "MA"), thisside->RegionIdx,
+		(newside->Instance ? newside->Instance->Module->ModuleName : "MA"), newside->RegionIdx);
+	#endif
 
 	gcb->channel = (udi_channel_t)&newside->BackPtr;
 	gcb->context = newside->Context;
