@@ -92,8 +92,6 @@ int PCnet3_Install(char **Options)
 	tCard	*card;
 	
 	giPCnet3_CardCount = PCI_CountDevices(VENDOR_ID, DEVICE_ID);
-	Log_Debug("PCnet3", "%i cards", giPCnet3_CardCount);
-	
 	if( giPCnet3_CardCount == 0 )	return MODULE_ERR_NOTNEEDED;
 
 	gpPCnet3_InitBlock = &gPCnet3_StaticInitBlock;
