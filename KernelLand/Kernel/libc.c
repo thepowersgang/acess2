@@ -391,12 +391,19 @@ int vsnprintf(char *__s, const size_t __maxlen, const char *__format, va_list ar
 		
 		case 'C':	// Non-Null Terminated Character Array
 			p = va_arg(args, char*);
-			if( !CheckMem(p, minSize) )	continue;	// No #PFs please
+			if( !CheckMem(p, minSize) ) {
+				p = "(inval)";
+				goto printString;
+			}
 			if(!p)	goto printString;
 			while(minSize--) {
 				if(*p == '\0') {
 					PUTCH('\\');
 					PUTCH('0');
+				}
+				else if(*p == '\\') {
+					PUTCH('\\');
+					PUTCH('\\');
 				}
 				else {
 					PUTCH(*p);
