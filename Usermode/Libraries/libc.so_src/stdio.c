@@ -774,6 +774,7 @@ EXPORT int fgetc(FILE *fp)
 
 EXPORT int getchar(void)
 {
+	fflush(stdout);
 	return fgetc(stdin);
 }
 
