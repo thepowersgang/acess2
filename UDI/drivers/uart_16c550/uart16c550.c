@@ -9,8 +9,13 @@
 #include <udi_physio.h>
 #include "uart16c550_common.h"
 
-
 #include "uart16c550_pio.h"
+
+#if 0
+# define DEBUG_OUT(fmt, v...)	udi_debug_printf("%s: "fmt"\n", __func__ ,## v) 
+#else
+# define DEBUG_OUT(...)	do{}while(0)
+#endif
 
 #define __EXPJOIN(a,b)	a##b
 #define _EXPJOIN(a,b)	__EXPJOIN(a,b)
@@ -25,6 +30,7 @@
 void uart_usage_ind(udi_usage_cb_t *cb, udi_ubit8_t resource_level)
 {
 	rdata_t	*rdata = UDI_GCB(cb)->context;
+	//udi_trace_write(rdata->init_context, UDI_TREVENT_LOCAL_PROC_ENTRY, 0, );
 
 	// TODO: Set up region data	
 
@@ -187,7 +193,7 @@ void uart_bus_irq_intr_event_ind(udi_intr_event_cb_t *cb, udi_ubit8_t flags)
 	udi_cb_t	*gcb = UDI_GCB(cb);
 	rdata_t	*rdata = gcb->context;
 	
-	udi_debug_printf("%s: flags=%x, intr_result=%x\n", __func__, flags, cb->intr_result);
+	DEBUG_OUT("flags=%x, intr_result=%x", flags, cb->intr_result);
 	if( cb->intr_result == 0 )
 	{
 		// An IRQ from something other than RX
@@ -198,7 +204,7 @@ void uart_bus_irq_intr_event_ind(udi_intr_event_cb_t *cb, udi_ubit8_t flags)
 	if( rdata->rx_buffer && rdata->rx_buffer->buf_size + cb->intr_result > MAX_RX_BUFFER_SIZE )
 	{
 		// Drop, buffer is full
-		udi_debug_printf("%s: dropping %i bytes, full rx buffer\n", __func__, cb->intr_result);
+		DEBUG_OUT("dropping %i bytes, full rx buffer", cb->intr_result);
 		udi_intr_event_rdy(cb);
 		return ;
 	}
@@ -214,7 +220,7 @@ void uart_bus_irq_intr_event_ind(udi_intr_event_cb_t *cb, udi_ubit8_t flags)
 	
 	rdata->rx_buffer = new_buf;
 
-	udi_debug_printf("%s: copied %i bytes\n", __func__, cb->intr_result);
+	DEBUG_OUT("copied %i bytes", cb->intr_result);
 
 	// Emit a signal to GIO client
 	if( rdata->event_cb && !rdata->event_cb_used )
@@ -225,8 +231,8 @@ void uart_bus_irq_intr_event_ind(udi_intr_event_cb_t *cb, udi_ubit8_t flags)
 	}
 	else
 	{
-		udi_debug_printf("%s: event_cb=%p, event_cb_used=%i - Queueing\n",
-			__func__, rdata->event_cb, rdata->event_cb_used);
+		DEBUG_OUT("event_cb=%p, event_cb_used=%i - Queueing",
+			rdata->event_cb, rdata->event_cb_used);
 		rdata->event_pending = TRUE;
 	}
 
@@ -251,7 +257,7 @@ void uart_gio_prov_bind_req(udi_gio_bind_cb_t *cb)
 	
 	// TODO: Should this device allow multiple children?
 	if( rdata->event_cb ) {
-		udi_debug_printf("%s: only one client allowed\n", __func__);
+		DEBUG_OUT("only one client allowed");
 		udi_gio_bind_ack(cb, 0, 0, UDI_STAT_CANNOT_BIND_EXCL);
 		return;
 	}
@@ -293,7 +299,7 @@ void uart_gio_prov_xfer_req(udi_gio_xfer_cb_t *cb)
 			len = cb->data_buf->buf_size;
 			callback = uart_gio_read_complete;
 		}
-		udi_debug_printf("%s: Read %i/%i bytes\n", __func__, len, rdata->rx_buffer->buf_size);
+		DEBUG_OUT("Read %i/%i bytes", len, rdata->rx_buffer->buf_size);
 		// Replace entire destination buffer with `len` bytes from source
 		udi_buf_copy(callback, gcb,
 			rdata->rx_buffer, 0, len,
