@@ -157,7 +157,12 @@ int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
 
 		if( ret != 0 ) {
 			inc_len = 0;
-			assert(ret > old_inc_len);
+			// Check that we actually used the new data (as should have happened)
+			if( ret <= old_inc_len ) {
+				_SysDebug("Term_HandleVT100: ret(%i) <= old_inc_len(%i) '%.*s'\n",
+					ret, old_inc_len, inc_len, inc_buf);
+				assert(ret > old_inc_len);
+			}
 			//_SysDebug("%i bytes of escape code '%.*s' (return %i)",
 			//	ret, ret, inc_buf, ret-old_inc_len);
 			ret -= old_inc_len;	// counter cached bytes
@@ -329,6 +334,9 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 			case  1:	// Aplication cursor keys
 				_SysDebug("TODO: \\e[?1%c Application cursor keys", c);
 				break;
+			case 12:
+				_SysDebug("TODO: \\e[?25%c Start/Stop blinking cursor", c);
+				break;
 			case 25:	// Hide cursor
 				_SysDebug("TODO: \\e[?25%c Show/Hide cursor", c);
 				break;
@@ -373,7 +381,8 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 			if( argc != 2 ) {
 			}
 			else {
-				Display_SetCursor(Term, args[0], args[1]);
+				// Adjust 1-based cursor position to 0-based
+				Display_SetCursor(Term, args[0]-1, args[1]-1);
 			}
 			break;
 		case 'J':	// Clear lines
