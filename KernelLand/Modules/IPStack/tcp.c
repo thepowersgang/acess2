@@ -8,7 +8,6 @@
 #include "ipv6.h"
 #include "tcp.h"
 
-#define USE_SELECT	1
 #define HEXDUMP_INCOMING	0
 #define HEXDUMP_OUTGOING	0
 
@@ -87,7 +86,7 @@ Uint32	gaTCP_PortBitmap[0x800];
  */
 void TCP_Initialise(void)
 {
-	giTCP_NextOutPort += rand()%32;
+	giTCP_NextOutPort += rand()%128;
 	IPStack_AddFile(&gTCP_ServerFile);
 	IPStack_AddFile(&gTCP_ClientFile);
 	IPv4_RegisterCallback(IP4PROT_TCP, TCP_GetPacket);
