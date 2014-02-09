@@ -159,6 +159,8 @@ void pci_enumerate_req(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_level)
 			
 			DPT_SET_ATTR32(attr_list, "pci_baseclass", class >> 16);
 			attr_list ++;
+			DPT_SET_ATTR32(attr_list, "pci_base_class", class >> 16);	// E20010702.1
+			attr_list ++;
 			DPT_SET_ATTR32(attr_list, "pci_sub_class", (class >> 8) & 0xFF);
 			attr_list ++;
 			DPT_SET_ATTR32(attr_list, "pci_prog_if", (class >> 0) & 0xFF);
@@ -247,7 +249,7 @@ void pci_intr_event_rdy(udi_intr_event_cb_t *cb)
 	ASSERTC(context->event_cb_rd_ofs, <, PCI_MAX_EVENT_CBS);
 	ASSERTC(context->event_cb_wr_ofs, <, PCI_MAX_EVENT_CBS);
 
-	LOG("Rd %i, Wr %i [WR %p]", context->event_cb_rd_ofs, context->event_cb_wr_ofs, cb);
+	LOG("Rd %i, Wr %i [WR %p{%p}]", context->event_cb_rd_ofs, context->event_cb_wr_ofs, cb, cb->event_buf);
 	if( context->event_cbs[context->event_cb_wr_ofs] )
 	{
 		// oops, overrun.
@@ -266,7 +268,7 @@ void pci_intr_event_rdy(udi_intr_event_cb_t *cb)
 }
 void pci_intr_event_rdy__irqs_enabled(udi_cb_t *gcb, udi_buf_t *newbuf, udi_status_t status, udi_ubit16_t result)
 {
-	// nothing
+	// Do nothing
 }
 
 void pci_intr_handler(int irq, void *void_context)
@@ -290,27 +292,54 @@ void pci_intr_handler(int irq, void *void_context)
 	if( context->event_cb_rd_ofs == PCI_MAX_EVENT_CBS )
 		context->event_cb_rd_ofs = 0;
 	ASSERT(cb);
+	ASSERT(cb->gcb.scratch);
 	
 	if( UDI_HANDLE_IS_NULL(context->intr_preprocessing, udi_pio_handle_t) )
 	{
+		// TODO: Ensure region is an interrupt region
 		udi_intr_event_ind(cb, 0);
 	}
 	else
 	{
 		// Processing
+		*(udi_ubit8_t*)(cb->gcb.scratch) = 0;
 		// - no event info, so mem_ptr=NULL
 		udi_pio_trans(pci_intr_handle__trans_done, UDI_GCB(cb),
 			context->intr_preprocessing, 1, cb->event_buf, NULL);
+		// V V V
 	}
 }
 
 void pci_intr_handle__trans_done(udi_cb_t *gcb, udi_buf_t *new_buf, udi_status_t status, udi_ubit16_t result)
 {
 	udi_intr_event_cb_t *cb = UDI_MCB(gcb, udi_intr_event_cb_t);
+	LOG("cb(%p)->event_buf=%p, new_buf=%p",
+		cb, cb->event_buf, new_buf);
 	
+	// TODO: Buffers should not change
+	cb->event_buf = new_buf;
 	cb->intr_result = result;
 	
-	udi_intr_event_ind(cb, UDI_INTR_PREPROCESSED);	
+	udi_ubit8_t	intr_status = *(udi_ubit8_t*)(gcb->scratch);
+	if( intr_status & UDI_INTR_UNCLAIMED )
+	{
+		// Not claimed, next please.
+		// NOTE: Same as no event in the acess model
+		LOG("Unclaimed");
+		pci_intr_event_rdy(cb);
+	}
+	else if( intr_status & UDI_INTR_NO_EVENT )
+	{
+		// No event should be generated, return cb to pool
+		// EVIL!
+		pci_intr_event_rdy(cb);
+		LOG("No event, return cb to pool");
+	}
+	else
+	{
+		LOG("Inform driver");
+		udi_intr_event_ind(cb, UDI_INTR_PREPROCESSED);	
+	}
 }
 
 // - physio hooks
