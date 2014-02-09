@@ -612,8 +612,8 @@ size_t _fread_memstream(void *ptr, size_t size, size_t num, FILE *fp)
 
 size_t _fread_buffered(void *ptr, size_t size, FILE *fp)
 {
-	_SysDebug("%p: %i-%i <= %i", fp,
-		(int)fp->Pos, (int)fp->BufferOfs, (int)fp->BufferPos);
+	//_SysDebug("%p: %i-%i <= %i", fp,
+	//	(int)fp->Pos, (int)fp->BufferOfs, (int)fp->BufferPos);
 	if( fp->BufferPos > 0 ) {
 		assert( fp->Pos - fp->BufferOfs <= (int)fp->BufferPos );
 	}
