@@ -12,14 +12,14 @@ MODULES += Network/PRO100
 MODULES += Display/VESA
 MODULES += Display/BochsGA
 #MODULES += Display/VIAVideo
-MODULES += x86/ISADMA x86/VGAText
+MODULES += x86/ISADMA
 
 MODULES += USB/Core
 MODULES += USB/EHCI
 MODULES += USB/UHCI
 #USB/OHCI
 MODULES += USB/HID USB/MSC
-#MODULES += Interfaces/UDI
+MODULES += Interfaces/UDI
 
 MODULES += Libraries/VirtIO
 MODULES += Network/VirtIONet
