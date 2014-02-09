@@ -125,6 +125,7 @@ extern void	VT_int_PutRawString(tVTerm *Term, const Uint8 *String, size_t Bytes)
 extern void	VT_int_PutChar(tVTerm *Term, Uint32 Ch);
 extern void	VT_int_ScrollText(tVTerm *Term, int Count);
 extern void	VT_int_ClearLine(tVTerm *Term, int Num);
+extern void	VT_int_ClearInLine(tVTerm *Term, int Row, int FirstCol, int LastCol);
 extern void	VT_int_Resize(tVTerm *Term, int NewWidth, int NewHeight);
 extern void	VT_int_ToggleAltBuffer(tVTerm *Term, int Enabled);
 

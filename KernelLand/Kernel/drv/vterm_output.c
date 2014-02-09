@@ -133,17 +133,15 @@ void VT_int_UpdateCursor( tVTerm *Term, int bShow )
  */
 void VT_int_UpdateScreen( tVTerm *Term, int UpdateAll )
 {
-	tVT_Char	*buffer;
-	 int	view_pos, write_pos;
 	// Only update if this is the current terminal
 	if( Term != gpVT_CurTerm )	return;
 	
 	switch( Term->Mode )
 	{
-	case TERM_MODE_TEXT:
-		view_pos = (Term->Flags & VT_FLAG_ALTBUF) ? 0 : Term->ViewPos;
-		write_pos = (Term->Flags & VT_FLAG_ALTBUF) ? Term->AltWritePos : Term->WritePos;
-		buffer = (Term->Flags & VT_FLAG_ALTBUF) ? Term->AltBuf : Term->Text;
+	case TERM_MODE_TEXT: {
+		size_t view_pos = (Term->Flags & VT_FLAG_ALTBUF) ? 0 : Term->ViewPos;
+		size_t write_pos = (Term->Flags & VT_FLAG_ALTBUF) ? Term->AltWritePos : Term->WritePos;
+		const tVT_Char *buffer = (Term->Flags & VT_FLAG_ALTBUF) ? Term->AltBuf : Term->Text;
 		// Re copy the entire screen?
 		if(UpdateAll) {
 			VFS_WriteAt(
@@ -163,7 +161,7 @@ void VT_int_UpdateScreen( tVTerm *Term, int UpdateAll )
 				&buffer[ofs]
 				);
 		}
-		break;
+		break; }
 	case TERM_MODE_FB:
 		break;
 	}

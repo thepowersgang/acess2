@@ -119,28 +119,25 @@ void Display_RestoreCursor(tTerminal *Term)
 // 0: All, 1: Forward, -1: Reverse
 void Display_ClearLine(tTerminal *Term, int Dir)
 {
-	 int	*wrpos = (Term->Flags & VT_FLAG_ALTBUF ? &Term->AltWritePos : &Term->WritePos);
-	tVT_Char	*buffer = (Term->Flags & VT_FLAG_ALTBUF ? Term->AltBuf : Term->Text);
+	const int	wrpos = (Term->Flags & VT_FLAG_ALTBUF ? Term->AltWritePos : Term->WritePos);
+	const int	row = wrpos / Term->TextWidth;
+	const int	col = wrpos % Term->TextWidth;
 
-	LOG("(Dir=%i)", Dir);	
+	LOG("(Dir=%i)", Dir);
 
 	// Erase all
 	if( Dir == 0 ) {
-		VT_int_ClearLine(Term, *wrpos / Term->Width);
+		VT_int_ClearLine(Term, row);
 		VT_int_UpdateScreen(Term, 0);
 	}
 	// Erase to right
 	else if( Dir == 1 ) {
-		int max = Term->Width - *wrpos % Term->Width;
-		for( int i = 0; i < max; i ++ )
-			buffer[*wrpos+i].Ch = 0;
+		VT_int_ClearInLine(Term, row, col, Term->TextWidth);
 		VT_int_UpdateScreen(Term, 0);
 	}
 	// Erase to left
 	else if( Dir == -1 ) {
-		int start = *wrpos - *wrpos % Term->Width;
-		for( int i = start; i < *wrpos; i ++ )
-			buffer[i].Ch = 0;
+		VT_int_ClearInLine(Term, row, 0, col);
 		VT_int_UpdateScreen(Term, 0);
 	}
 	else {

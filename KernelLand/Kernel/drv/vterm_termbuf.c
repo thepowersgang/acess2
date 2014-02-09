@@ -6,7 +6,14 @@
  * - Virtual Terminal - Terminal buffer manipulation
  */
 #define DEBUG	0
+#define DEBUG_CHECKHEAP	0
 #include "vterm.h"
+
+#if DEBUG_CHECKHEAP
+# define HEAP_VALIDATE()	Heap_Validate()
+#else
+# define HEAP_VALIDATE()	do{}while(0)
+#endif
 
 extern int	Term_HandleVT100(tVTerm *Term, int Len, const char *Buf);
 
@@ -59,6 +66,8 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 	 int	write_pos;
 	 int	limit;
 	
+	HEAP_VALIDATE();
+	
 	if(Term->Flags & VT_FLAG_ALTBUF) {
 		buffer = Term->AltBuf;
 		write_pos = Term->AltWritePos;
@@ -70,9 +79,13 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 		limit = Term->TextHeight*(giVT_Scrollback+1) * Term->TextWidth;
 	}
 	
+	// TODO: Can the write position be equal to the end of screen?
+	ASSERTC(write_pos, <, limit);
+	
 	switch(Ch)
 	{
-	case '\0':	return;	// Ignore NULL byte
+	case '\0':	// Ignore NULL byte
+		return;
 	case '\n':
 		VT_int_UpdateScreen( Term, 0 );	// Update the line before newlining
 		write_pos += Term->TextWidth;
@@ -81,14 +94,13 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 		break;
 	
 	case '\t': {
-		int line = write_pos / Term->TextWidth;
-		write_pos %= Term->TextWidth;
+		size_t	col =  write_pos % Term->TextWidth;
 		do {
 			buffer[ write_pos ].Ch = '\0';
 			buffer[ write_pos ].Colour = Term->CurColour;
 			write_pos ++;
-		} while(write_pos & 7);
-		write_pos += line * Term->TextWidth;
+			col ++;
+		} while( (col & 7) && col < Term->TextWidth );
 		break; }
 	
 	case '\b':
@@ -114,7 +126,6 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 		break;
 	
 	default:
-		ASSERTC(write_pos,<,limit);
 		buffer[ write_pos ].Ch = Ch;
 		buffer[ write_pos ].Colour = Term->CurColour;
 		// Update the line before wrapping
@@ -161,6 +172,8 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 			Term->ViewPos += Term->TextWidth;
 		}
 	}
+
+	HEAP_VALIDATE();
 	
 	//LEAVE('-');
 }
@@ -168,16 +181,18 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 void VT_int_ScrollText(tVTerm *Term, int Count)
 {
 	tVT_Char	*buf;
-	 int	height, init_write_pos;
-	 int	len, i;
+	 int	*write_pos_ptr;
+	 int	height;
 	 int	scroll_top, scroll_height;
+	
+	HEAP_VALIDATE();
 
 	// Get buffer pointer and attributes	
 	if( Term->Flags & VT_FLAG_ALTBUF )
 	{
 		buf = Term->AltBuf;
 		height = Term->TextHeight;
-		init_write_pos = Term->AltWritePos;
+		write_pos_ptr = &Term->AltWritePos;
 		scroll_top = Term->ScrollTop;
 		scroll_height = Term->ScrollHeight;
 	}
@@ -185,32 +200,32 @@ void VT_int_ScrollText(tVTerm *Term, int Count)
 	{
 		buf = Term->Text;
 		height = Term->TextHeight*(giVT_Scrollback+1);
-		init_write_pos = Term->WritePos;
+		write_pos_ptr = &Term->WritePos;
 		scroll_top = 0;
 		scroll_height = height;
 	}
+	
+	const int init_write_pos = *write_pos_ptr;
 
 	// Scroll text upwards (more space at bottom)
 	if( Count > 0 )
 	{
-		 int	base;
-	
 		// Set up
 		if(Count > scroll_height)	Count = scroll_height;
-		base = Term->TextWidth*(scroll_top + scroll_height - Count);
-		len = Term->TextWidth*(scroll_height - Count);
+		size_t	chars = Term->TextWidth*Count;
+		size_t	base = Term->TextWidth*scroll_top;
+		size_t	len = Term->TextWidth*(scroll_height - Count);
 		
 		// Scroll terminal cache
-		memmove(
-			&buf[Term->TextWidth*scroll_top],
-			&buf[Term->TextWidth*(scroll_top+Count)],
-			len*sizeof(tVT_Char)
-			);
+		ASSERTC( base + chars + len, <=, Term->TextWidth*height );
+		memmove( &buf[base], &buf[base+chars], len*sizeof(tVT_Char) );
+		
 		// Clear last rows
-		for( i = 0; i < Term->TextWidth*Count; i ++ )
+		for( int i = 0; i < chars; i ++ )
 		{
-			buf[ base + i ].Ch = 0;
-			buf[ base + i ].Colour = Term->CurColour;
+			ASSERTC(base + len + i, <, Term->TextWidth*height);
+			buf[ base + len + i ].Ch = 0;
+			buf[ base + len + i ].Colour = Term->CurColour;
 		}
 		
 		// Update Screen
@@ -219,13 +234,10 @@ void VT_int_ScrollText(tVTerm *Term, int Count)
 			Term->AltWritePos = base;
 		else
 			Term->WritePos = Term->ViewPos + Term->TextWidth*(Term->TextHeight - Count);
-		for( i = 0; i < Count; i ++ )
+		for( int i = 0; i < Count; i ++ )
 		{
 			VT_int_UpdateScreen( Term, 0 );
-			if( Term->Flags & VT_FLAG_ALTBUF )
-				Term->AltWritePos += Term->TextWidth;
-			else
-				Term->WritePos += Term->TextWidth;
+			*write_pos_ptr += Term->TextWidth;
 		}
 	}
 	else
@@ -233,40 +245,36 @@ void VT_int_ScrollText(tVTerm *Term, int Count)
 		Count = -Count;
 		if(Count > scroll_height)	Count = scroll_height;
 		
-		len = Term->TextWidth*(scroll_height - Count);
+		size_t	chars = Term->TextWidth*Count;
+		size_t	base = Term->TextWidth*scroll_top;
+		size_t	len = Term->TextWidth*scroll_height - chars;
 		
 		// Scroll terminal cache
-		memmove(
-			&buf[Term->TextWidth*(scroll_top+Count)],
-			&buf[Term->TextWidth*scroll_top],
-			len*sizeof(tVT_Char)
-			);
+		ASSERTC( base + chars + len, <=, Term->TextWidth*height );
+		memmove( &buf[base+chars], &buf[base], len*sizeof(tVT_Char) );
+
 		// Clear preceding rows
-		for( i = 0; i < Term->TextWidth*Count; i ++ )
+		for( int i = 0; i < chars; i ++ )
 		{
 			buf[ i ].Ch = 0;
 			buf[ i ].Colour = Term->CurColour;
 		}
 		
+		// Update screen (shift framebuffer, re-render revealed lines)
 		VT_int_ScrollFramebuffer( Term, -Count );
 		if( Term->Flags & VT_FLAG_ALTBUF )
 			Term->AltWritePos = Term->TextWidth*scroll_top;
 		else
 			Term->WritePos = Term->ViewPos;
-		for( i = 0; i < Count; i ++ )
+		for( int i = 0; i < Count; i ++ )
 		{
 			VT_int_UpdateScreen( Term, 0 );
-			if( Term->Flags & VT_FLAG_ALTBUF )
-				Term->AltWritePos += Term->TextWidth;
-			else
-				Term->WritePos += Term->TextWidth;
 		}
 	}
 	
-	if( Term->Flags & VT_FLAG_ALTBUF )
-		Term->AltWritePos = init_write_pos;
-	else
-		Term->WritePos = init_write_pos;
+	*write_pos_ptr = init_write_pos;
+
+	HEAP_VALIDATE();
 }
 
 /**
@@ -274,19 +282,48 @@ void VT_int_ScrollText(tVTerm *Term, int Count)
  * \param Term	Terminal to modify
  * \param Num	Line number to clear
  */
-void VT_int_ClearLine(tVTerm *Term, int Num)
+void VT_int_ClearLine(tVTerm *Term, int Row)
 {
-	 int	limit = Term->TextHeight * (Term->Flags & VT_FLAG_ALTBUF ? 1 : giVT_Scrollback + 1);
-	tVT_Char	*buffer = (Term->Flags & VT_FLAG_ALTBUF ? Term->AltBuf : Term->Text);
-	if( Num < 0 || Num >= limit )	return ;
+	HEAP_VALIDATE();
 	
-	tVT_Char	*cell = &buffer[ Num*Term->TextWidth ];
+	size_t	height = Term->TextHeight * (Term->Flags & VT_FLAG_ALTBUF ? 1 : giVT_Scrollback + 1);
+	tVT_Char	*buffer = (Term->Flags & VT_FLAG_ALTBUF ? Term->AltBuf : Term->Text);
+	ASSERTCR(Row, >=, 0, );
+	ASSERTCR(Row, <, height, );
+	
+	size_t	base = Row * Term->TextWidth;
 	
 	for( int i = 0; i < Term->TextWidth; i ++ )
 	{
-		cell[ i ].Ch = 0;
-		cell[ i ].Colour = Term->CurColour;
+		buffer[ base + i ].Ch = 0;
+		buffer[ base + i ].Colour = Term->CurColour;
 	}
+	
+	HEAP_VALIDATE();
+}
+
+void VT_int_ClearInLine(tVTerm *Term, int Row, int FirstCol, int LastCol)
+{
+	HEAP_VALIDATE();
+	
+	size_t	height = Term->TextHeight * (Term->Flags & VT_FLAG_ALTBUF ? 1 : giVT_Scrollback + 1);
+	tVT_Char	*buffer = (Term->Flags & VT_FLAG_ALTBUF ? Term->AltBuf : Term->Text);
+	ASSERTCR(Row, >=, 0, );
+	ASSERTCR(Row, <, height, );
+
+	ASSERTCR(FirstCol, <=, LastCol, );
+	ASSERTCR(FirstCol, <, Term->TextWidth, );
+	ASSERTCR(LastCol, <=, Term->TextWidth, );
+	
+	size_t	base = Row * Term->TextWidth;
+	for( int i = FirstCol; i < LastCol; i ++ )
+	{
+		ASSERTC(base + i, <, height * Term->TextWidth);
+		buffer[ base + i ].Ch = 0;
+		buffer[ base + i ].Colour = Term->CurColour;
+	}
+	
+	HEAP_VALIDATE();
 }
 
 /**
@@ -304,7 +341,9 @@ void VT_int_Resize(tVTerm *Term, int NewWidth, int NewHeight)
 	 int	oldTH = Term->TextHeight;
 	tVT_Char	*oldTBuf = Term->Text;
 	Uint32	*oldFB = Term->Buffer;
-	 int	w, h, i;
+	 int	w, h;
+	
+	HEAP_VALIDATE();
 	
 	// TODO: Increase RealWidth/RealHeight when this happens
 	if(NewWidth > giVT_RealWidth)	NewWidth = giVT_RealWidth;
@@ -332,7 +371,7 @@ void VT_int_Resize(tVTerm *Term, int NewWidth, int NewHeight)
 		w = (oldTW > Term->TextWidth) ? Term->TextWidth : oldTW;
 		h = (oldTH > Term->TextHeight) ? Term->TextHeight : oldTH;
 		h *= giVT_Scrollback + 1;
-		for( i = 0; i < h; i ++ )
+		for( int i = 0; i < h; i ++ )
 		{
 			memcpy(
 				&Term->Text[i*Term->TextWidth],
@@ -355,7 +394,7 @@ void VT_int_Resize(tVTerm *Term, int NewWidth, int NewHeight)
 		// Copy old buffer
 		w = (oldW > Term->Width) ? Term->Width : oldW;
 		h = (oldH > Term->Height) ? Term->Height : oldH;
-		for( i = 0; i < h; i ++ )
+		for( int i = 0; i < h; i ++ )
 		{
 			memcpy(
 				&Term->Buffer[i*Term->Width],
@@ -383,6 +422,8 @@ void VT_int_Resize(tVTerm *Term, int NewWidth, int NewHeight)
 	//	return;
 	}
 	#endif
+
+	HEAP_VALIDATE();
 }
 
 
