@@ -114,6 +114,7 @@ void Debug_FmtS(int bUseKTerm, const char *format, ...)
 
 void Debug_KernelPanic(void)
 {
+	// 5 nested panics? Fuck it
 	if( gbDebug_IsKPanic > 5 )
 		HALT_CPU();
 	gbDebug_IsKPanic ++;
@@ -124,7 +125,6 @@ void Debug_KernelPanic(void)
 		#endif
 		VT_SetTerminal(7);
 	}
-	// 5 nested panics? Fuck it
 	KernelPanic_SetMode();
 }
 
