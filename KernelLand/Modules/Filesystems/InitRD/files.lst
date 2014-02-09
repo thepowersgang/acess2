@@ -19,6 +19,7 @@ Dir "Bin" {
 	File "__BIN__/Bin/bomb"
 	
 	OptFile	"__EXT__/bin/dbclient"
+	OptFile	"__EXT__/bin/vttest"
 }
 Dir "Libs" {
 	File "__BIN__/Libs/ld-acess.so"
