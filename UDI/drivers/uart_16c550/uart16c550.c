@@ -118,7 +118,7 @@ void uart_bus_dev_bind__pio_map(udi_cb_t *gcb, udi_pio_handle_t new_pio_handle)
 	rdata->interrupt_channel = new_channel;
 
 	// Allocate an RX buffer
-	CONTIN( uart_bus_dev_bind, udi_buf_write, (NULL, RX_BUFFER_SIZE, NULL, 0, 0, UDI_NULL_BUF_PATH),
+	CONTIN( uart_bus_dev_bind, udi_buf_write, (NULL, 0, NULL, 0, 0, UDI_NULL_BUF_PATH),
 		(udi_buf_t *new_buf));	
 	if( !new_buf )
 	{
@@ -156,12 +156,19 @@ void uart_bus_dev_intr_attach_ack(udi_intr_attach_cb_t *intr_attach_cb, udi_stat
 	udi_cb_t	*gcb = UDI_GCB(intr_attach_cb);
 	rdata_t	*rdata = gcb->context;
 
-	// TODO: Allocate interrupt cbs
-	CONTIN(uart_bus_dev_intr_attach_ack, udi_cb_alloc, (UART_CB_INTR_EVENT, rdata->interrupt_channel),
-		(udi_cb_t *new_cb))
+	// Allocate interrupt cbs
+	CONTIN(uart_bus_dev_intr_attach_ack, udi_cb_alloc_batch,
+		(UART_CB_INTR_EVENT, NUM_INTR_CBS, TRUE, INTR_CB_BUF_SIZE, UDI_NULL_BUF_PATH),
+		(udi_cb_t *first_new_cb))
 
-	udi_intr_event_cb_t *cb = UDI_MCB(new_cb, udi_intr_event_cb_t);
-	udi_intr_event_rdy(cb);
+	while( first_new_cb )
+	{
+		udi_intr_event_cb_t *cb = UDI_MCB(first_new_cb, udi_intr_event_cb_t);
+		first_new_cb = first_new_cb->initiator_context;
+		// - Set channel (udi_cb_alloc_batch sets the channel to gcb->channel)
+		cb->gcb.channel = rdata->interrupt_channel;
+		udi_intr_event_rdy(cb);
+	}
 
 	udi_channel_event_cb_t	*channel_cb = UDI_MCB(rdata->active_cb, udi_channel_event_cb_t);
 	
@@ -177,18 +184,59 @@ void uart_bus_irq_channel_event_ind(udi_channel_event_cb_t *cb)
 }
 void uart_bus_irq_intr_event_ind(udi_intr_event_cb_t *cb, udi_ubit8_t flags)
 {
+	udi_cb_t	*gcb = UDI_GCB(cb);
+	rdata_t	*rdata = gcb->context;
+	
 	udi_debug_printf("%s: flags=%x, intr_result=%x\n", __func__, flags, cb->intr_result);
-	if( cb->intr_result & 0x01 )
+	if( cb->intr_result == 0 )
 	{
-		//ne2k_intr__rx_ok( UDI_GCB(cb) );
+		// An IRQ from something other than RX
+		udi_intr_event_rdy(cb);
+		return ;
 	}
-	// TODO: TX IRQs
+
+	if( rdata->rx_buffer && rdata->rx_buffer->buf_size + cb->intr_result > MAX_RX_BUFFER_SIZE )
+	{
+		// Drop, buffer is full
+		udi_debug_printf("%s: dropping %i bytes, full rx buffer\n", __func__, cb->intr_result);
+		udi_intr_event_rdy(cb);
+		return ;
+	}
+
+	// Copy cb->intr_result bytes into the RX buffer
+	CONTIN(uart_bus_irq_intr_event_ind, udi_buf_copy,
+		(cb->event_buf, 0, cb->intr_result,
+			rdata->rx_buffer, rdata->rx_buffer->buf_size, 0,
+			UDI_NULL_BUF_PATH),
+		(udi_buf_t *new_buf));
+	
+	udi_intr_event_cb_t	*cb = UDI_MCB(gcb, udi_intr_event_cb_t);
+	
+	rdata->rx_buffer = new_buf;
+
+	udi_debug_printf("%s: copied %i bytes\n", __func__, cb->intr_result);
+
+	// Emit a signal to GIO client
+	if( rdata->event_cb && !rdata->event_cb_used )
+	{
+		rdata->event_pending = FALSE;
+		rdata->event_cb_used = TRUE;
+		udi_gio_event_ind(rdata->event_cb);
+	}
+	else
+	{
+		udi_debug_printf("%s: event_cb=%p, event_cb_used=%i - Queueing\n",
+			__func__, rdata->event_cb, rdata->event_cb_used);
+		rdata->event_pending = TRUE;
+	}
+
 	udi_intr_event_rdy(cb);
 }
 // ---
 void uart_gio_prov_channel_event_ind(udi_channel_event_cb_t *cb);
 void uart_gio_prov_bind_req(udi_gio_bind_cb_t *cb);
 void uart_gio_prov_xfer_req(udi_gio_xfer_cb_t *cb);
+void uart_gio_read_complete_short(udi_cb_t *gcb, udi_buf_t *new_buf);
 void uart_gio_read_complete(udi_cb_t *gcb, udi_buf_t *new_buf);
 void uart_gio_write_complete(udi_cb_t *gcb, udi_buf_t *new_buf, udi_status_t status, udi_ubit16_t res);
 void uart_gio_prov_event_res(udi_gio_event_cb_t *cb);
@@ -198,10 +246,33 @@ void uart_gio_prov_channel_event_ind(udi_channel_event_cb_t *cb)
 }
 void uart_gio_prov_bind_req(udi_gio_bind_cb_t *cb)
 {
+	udi_cb_t	*gcb = UDI_GCB(cb);
+	rdata_t	*rdata = gcb->context;
+	
+	// TODO: Should this device allow multiple children?
+	if( rdata->event_cb ) {
+		udi_debug_printf("%s: only one client allowed\n", __func__);
+		udi_gio_bind_ack(cb, 0, 0, UDI_STAT_CANNOT_BIND_EXCL);
+		return;
+	}
+	
+	// Allocate the event CB
+	CONTIN( uart_gio_prov_bind_req, udi_cb_alloc, (UART_CB_GIO_EVENT, gcb->channel),
+		(udi_cb_t *new_cb));
+	udi_gio_bind_cb_t	*cb = UDI_MCB(gcb, udi_gio_bind_cb_t);
+	
+	rdata->event_cb = UDI_MCB(new_cb, udi_gio_event_cb_t);
+	rdata->event_cb_used = FALSE;
+	
 	udi_gio_bind_ack(cb, 0, 0, UDI_OK);
 }
 void uart_gio_prov_unbind_req(udi_gio_bind_cb_t *cb)
 {
+	udi_cb_t	*gcb = UDI_GCB(cb);
+	rdata_t	*rdata = gcb->context;
+	
+	rdata->event_cb = NULL;
+	rdata->event_cb_used = FALSE;
 	udi_gio_unbind_ack(cb);
 }
 void uart_gio_prov_xfer_req(udi_gio_xfer_cb_t *cb)
@@ -210,21 +281,25 @@ void uart_gio_prov_xfer_req(udi_gio_xfer_cb_t *cb)
 	rdata_t	*rdata = gcb->context;
 	switch(cb->op)
 	{
-	case UDI_GIO_OP_READ:
+	case UDI_GIO_OP_READ: {
+		udi_buf_copy_call_t	*callback;
+		udi_size_t	len;
 		// Read from local FIFO
-		if( rdata->rx_bytes < cb->data_buf->buf_size ) {
-			// Local FIFO was empty
-			udi_gio_xfer_nak(cb, UDI_STAT_DATA_UNDERRUN);
+		if( rdata->rx_buffer->buf_size < cb->data_buf->buf_size ) {
+			len = rdata->rx_buffer->buf_size;
+			callback = uart_gio_read_complete_short;
 		}
 		else {
-			udi_buf_copy(uart_gio_read_complete, gcb,
-				rdata->rx_buffer,
-				0, cb->data_buf->buf_size,
-				cb->data_buf,
-				0, cb->data_buf->buf_size,
-				UDI_NULL_BUF_PATH);
+			len = cb->data_buf->buf_size;
+			callback = uart_gio_read_complete;
 		}
-		break;
+		udi_debug_printf("%s: Read %i/%i bytes\n", __func__, len, rdata->rx_buffer->buf_size);
+		// Replace entire destination buffer with `len` bytes from source
+		udi_buf_copy(callback, gcb,
+			rdata->rx_buffer, 0, len,
+			cb->data_buf, 0, cb->data_buf->buf_size,
+			UDI_NULL_BUF_PATH);
+		break; }
 	case UDI_GIO_OP_WRITE:
 		// Send to device
 		udi_pio_trans(uart_gio_write_complete, gcb,
@@ -235,16 +310,35 @@ void uart_gio_prov_xfer_req(udi_gio_xfer_cb_t *cb)
 		break;
 	}
 }
+void uart_gio_read_complete_short(udi_cb_t *gcb, udi_buf_t *new_buf)
+{
+	rdata_t	*rdata = gcb->context;
+	udi_gio_xfer_cb_t	*cb = UDI_MCB(gcb, udi_gio_xfer_cb_t);
+	cb->data_buf = new_buf;
+	
+	// Delete read bytes from the RX buffer
+	CONTIN(uart_gio_read_complete, udi_buf_write,
+		(NULL, 0, rdata->rx_buffer, 0, cb->data_buf->buf_size, UDI_NULL_BUF_PATH),
+		(udi_buf_t *new_buf))
+	udi_gio_xfer_cb_t	*cb = UDI_MCB(gcb, udi_gio_xfer_cb_t);
+	rdata->rx_buffer = new_buf;
+	
+	// Return underrun
+	udi_gio_xfer_nak(cb, UDI_STAT_DATA_UNDERRUN);
+}
 void uart_gio_read_complete(udi_cb_t *gcb, udi_buf_t *new_buf)
 {
 	rdata_t	*rdata = gcb->context;
 	udi_gio_xfer_cb_t	*cb = UDI_MCB(gcb, udi_gio_xfer_cb_t);
 	cb->data_buf = new_buf;
 	// Delete read bytes from the RX buffer
-	CONTIN(uart_gio_read_complete, udi_buf_write, (NULL, 0, rdata->rx_buffer, 0, cb->data_buf->buf_size, UDI_NULL_BUF_PATH),
+	CONTIN(uart_gio_read_complete, udi_buf_write,
+		(NULL, 0, rdata->rx_buffer, 0, cb->data_buf->buf_size, UDI_NULL_BUF_PATH),
 		(udi_buf_t *new_buf))
 	udi_gio_xfer_cb_t	*cb = UDI_MCB(gcb, udi_gio_xfer_cb_t);
 	rdata->rx_buffer = new_buf;
+	
+	// Return completed
 	udi_gio_xfer_ack(cb);
 }
 void uart_gio_write_complete(udi_cb_t *gcb, udi_buf_t *new_buf, udi_status_t status, udi_ubit16_t res)
@@ -255,6 +349,20 @@ void uart_gio_write_complete(udi_cb_t *gcb, udi_buf_t *new_buf, udi_status_t sta
 }
 void uart_gio_prov_event_res(udi_gio_event_cb_t *cb)
 {
+	udi_cb_t	*gcb = UDI_GCB(cb);
+	rdata_t	*rdata = gcb->context;
+	
+	// If there was an event during dispatch, re-send
+	if( rdata->event_pending )
+	{
+		udi_gio_event_ind(cb);
+		rdata->event_pending = FALSE;
+	}
+	// otherwise, clear 'Event CB used' flag
+	else
+	{
+		rdata->event_cb_used = FALSE;
+	}
 }
 
 // ====================================================================
@@ -325,6 +433,7 @@ udi_cb_init_t uart_cb_init_list[] = {
 	{UART_CB_BUS_BIND,   UART_META_BUS, UDI_BUS_BIND_CB_NUM, 0, 0,NULL},
 	{UART_CB_INTR,       UART_META_BUS, UDI_BUS_INTR_ATTACH_CB_NUM, 0, 0,NULL},
 	{UART_CB_INTR_EVENT, UART_META_BUS, UDI_BUS_INTR_EVENT_CB_NUM, 0, 0,NULL},
+	{UART_CB_GIO_EVENT,  UART_META_GIO, UDI_GIO_EVENT_CB_NUM, 0, 0,NULL},
 	{0}
 };
 const udi_init_t	udi_init_info = {

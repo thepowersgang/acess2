@@ -28,11 +28,11 @@ device 102 1  bus_type string system  sysbus_io_addr_lo ubit32 0x2F8  sysbus_io_
 message 102	PC Serial (COM2)
 
 # Generic XT-Compatible Serial Controller
-device 103 1  bus_type string pci  pci_baseclass ubit32 0x07  pci_sub_class ubit32 0x00  pci_prog_if ubit32 0x00
+device 103 1  bus_type string pci  pci_base_class ubit32 0x07  pci_sub_class ubit32 0x00  pci_prog_if ubit32 0x00
 message 103	Generic XT-Compatible Serial Controller
 
 # PCI 16550 compatibles
-device 104 1  bus_type string pci  pci_baseclass ubit32 0x07  pci_sub_class ubit32 0x00  pci_prog_if ubit32 0x02
+device 104 1  bus_type string pci  pci_base_class ubit32 0x07  pci_sub_class ubit32 0x00  pci_prog_if ubit32 0x02
 message 104	PCI 16550 Compatible
 
 module uart16c550

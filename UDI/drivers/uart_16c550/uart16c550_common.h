@@ -11,6 +11,7 @@ enum {
 	UART_CB_BUS_BIND = 1,
 	UART_CB_INTR,
 	UART_CB_INTR_EVENT,
+	UART_CB_GIO_EVENT,
 };
 
 enum {
@@ -20,7 +21,9 @@ enum {
 	N_PIO
 };
 
-#define RX_BUFFER_SIZE	32
+#define NUM_INTR_CBS	2
+#define INTR_CB_BUF_SIZE	16	// 16550 has a 16-byte fifo
+#define MAX_RX_BUFFER_SIZE	32
 
 typedef struct {
 	udi_init_context_t	init_context;
@@ -33,8 +36,11 @@ typedef struct {
 	udi_pio_handle_t	pio_handles[N_PIO];
 	udi_channel_t	interrupt_channel;
 	
-	udi_ubit8_t	rx_bytes;
 	udi_buf_t	*rx_buffer;
+	
+	udi_boolean_t	event_cb_used;
+	udi_boolean_t	event_pending;
+	udi_gio_event_cb_t	*event_cb;
 } rdata_t;
 
 // === MACROS ===

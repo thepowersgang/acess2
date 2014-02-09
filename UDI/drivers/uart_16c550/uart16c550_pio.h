@@ -23,8 +23,6 @@ udi_pio_trans_t	uart_pio_reset[] = {
 	PIO_OUT_RI1(R0, 2),	// +2 = 0xC7 - Clear FIFO, 14-byte threshold
 	PIO_MOV_RI1(R0, 0x0B),
 	PIO_OUT_RI1(R0, 4),	// +4 = 0x0B - IRQs enabled, RTS/DSR set
-	PIO_MOV_RI1(R0, 0x0B),
-	PIO_OUT_RI1(R0, 1),	// +1 = 0x05 - Enable ERBFI (Rx Full), ELSI (Line Status)
 	{UDI_PIO_END, UDI_PIO_2BYTE, 0}
 };
 //
@@ -76,24 +74,51 @@ udi_pio_trans_t	uart_pio_tx[] = {
 //
 udi_pio_trans_t	uart_pio_intr[] = {
 	// 0: Enable interrupts 
+	PIO_MOV_RI1(R0, 0x09),
+	PIO_OUT_RI1(R0, 1),	// +1 = EDSSI (Delta Line status), ELSI (Line Status), ERBFI (Rx Full)
 	{UDI_PIO_END, UDI_PIO_2BYTE, 0},
 	// 1: Interrupt
-	// if( (inb(SERIAL_PORT+5) & 0x01) == 0 )
-	//	return -1;
+	// - Check if the interrupt was for this device,
+	//   if so rx into buffer and return byte count
 	// return inb(SERIAL_PORT); 
 	{UDI_PIO_LABEL, 0, 1},
+	// if( (inb(SERIAL_PORT+5) & 0x01) == 0 ) {
 	PIO_IN_RI1(R0, 5),
 	PIO_op_RI(AND_IMM, R0, 1, 0x01),
 	{UDI_PIO_CSKIP+UDI_PIO_R0, UDI_PIO_1BYTE, UDI_PIO_Z},
-	{UDI_PIO_END, UDI_PIO_2BYTE, 0},
+	{UDI_PIO_BRANCH, 0, 3},
+	//	SetUnclaimed()
 	PIO_MOV_RI1(R2, 0),
 	PIO_MOV_RI1(R1, UDI_INTR_UNCLAIMED),
 	{UDI_PIO_STORE+UDI_PIO_SCRATCH+UDI_PIO_R2, UDI_PIO_1BYTE, UDI_PIO_R1},
-	{UDI_PIO_END, UDI_PIO_2BYTE, 0},
+	//	return 0;
+	{UDI_PIO_END_IMM, UDI_PIO_2BYTE, 0},
+	// }
+	// else {
+	{UDI_PIO_LABEL, 0, 3},
+	//	buf_ofs = 0;
+	PIO_MOV_RI2(R2, 0),	// Buffer offset
+	//	do {
+	{UDI_PIO_LABEL, 0, 4},
+	//		buffer[buf_ofs] = inb(SERIAL_PORT+0);
+	PIO_IN_RI1(R0, 0),
+	{UDI_PIO_STORE+UDI_PIO_BUF+UDI_PIO_R2, UDI_PIO_1BYTE, UDI_PIO_R0},
+	//		buf_ofs ++;
+	PIO_op_RI(ADD_IMM, R2, 1, 0x01),
+	//	} while( inb(SERIAL_PORT+5) & 0x01 );
+	PIO_IN_RI1(R0, 5),
+	PIO_op_RI(AND_IMM, R0, 1, 0x01),
+	{UDI_PIO_CSKIP+UDI_PIO_R0, UDI_PIO_1BYTE, UDI_PIO_Z},
+	{UDI_PIO_BRANCH, 0, 4},
+	//	return 0;
+	{UDI_PIO_END, UDI_PIO_1BYTE, UDI_PIO_R2},
+	// }
 	
 	// 2: Interrupt Overrun
 	{UDI_PIO_LABEL, 0, 2},
-	{UDI_PIO_END, UDI_PIO_2BYTE, 0}
+	PIO_MOV_RI1(R0, 0x08),	// EDSSI only
+	PIO_OUT_RI1(R0, 1),
+	{UDI_PIO_END_IMM, UDI_PIO_2BYTE, 0}
 };
 
 #define ARRAY_SIZEOF(arr)	(sizeof(arr)/sizeof(arr[0]))
