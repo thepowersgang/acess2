@@ -40,6 +40,14 @@ static inline int isspace(int ch) {
 	if(ch == '\n')	return 1;
 	return 0;
 }
+
+static inline int isxdigit(int ch) {
+	if('0'<=ch&&ch<='9')	return 1;
+	if('a'<=ch&&ch<='f')	return 1;
+	if('F'<=ch&&ch<='F')	return 1;
+	return 0;
+}
+
 // C99
 static inline int isblank(int ch) {
 	if(ch == ' ')	return 1;
