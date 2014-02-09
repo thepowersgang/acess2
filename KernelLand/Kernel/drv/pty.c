@@ -121,7 +121,7 @@ int PTY_Install(char **Arguments)
 }
 
 // --- Management ---
-tPTY *PTY_Create(const char *Name, void *Handle, tPTY_OutputFcn Output, tPTY_ReqResize ReqResize, tPTY_ModeSet ModeSet)
+tPTY *PTY_Create(const char *Name, void *Handle, tPTY_OutputFcn Output, tPTY_ReqResize ReqResize, tPTY_ModeSet ModeSet, const struct ptydims *InitialDims, const struct ptymode *InitialMode)
 {
 	tPTY	**prev_np = NULL;
 	size_t	namelen;
@@ -229,6 +229,11 @@ tPTY *PTY_Create(const char *Name, void *Handle, tPTY_OutputFcn Output, tPTY_Req
 	ret->OutputFcn = Output;
 	ret->ReqResize = ReqResize;
 	ret->ModeSet = ModeSet;
+	// - Initialise modes
+	if( InitialDims )
+		ret->Dims = *InitialDims;
+	if( InitialMode )
+		ret->Mode = *InitialMode;
 	// - Client node
 	ret->ClientNode.ImplPtr = ret;
 	ret->ClientNode.Type = &gPTY_NodeType_Client;
@@ -825,7 +830,7 @@ int PTY_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	case PTY_IOCTL_SETID:
 		if( Data && !CheckString(Data) ) { errno = EINVAL; return -1; }
 		if( pty )	return EALREADY;
-		pty = PTY_Create(Data, NULL, NULL,NULL, NULL);
+		pty = PTY_Create(Data, NULL, NULL,NULL, NULL, NULL,NULL);
 		if(pty == NULL)
 			return 1;
 		Node->ImplPtr = pty;

@@ -106,22 +106,23 @@ void acessuart_bind_ack(udi_gio_bind_cb_t *cb, udi_ubit32_t device_size_lo, udi_
 		return ;
 	}
 	
-	// bound, create PTY instance
-	rdata->PTYInstance = PTY_Create("serial#", rdata, acessuart_pty_output, NULL, NULL);
-	if( !rdata->PTYInstance ) {
-		udi_channel_event_complete(channel_cb, UDI_STAT_RESOURCE_UNAVAIL);
-		return ;
-	}
-	
-	struct ptymode mode = {
-		.OutputMode = PTYBUFFMT_TEXT,
-		.InputMode = PTYIMODE_CANON|PTYIMODE_ECHO
-	};
+	// We're bound on the GIO channel, create a PTY for this UART
 	struct ptydims dims = {
 		.W = 80, .H = 25,
 		.PW = 0, .PH = 0
 	};
-	PTY_SetAttrib(rdata->PTYInstance, &dims, &mode, 0);
+	struct ptymode mode = {
+		.OutputMode = PTYBUFFMT_TEXT,
+		.InputMode = PTYIMODE_CANON|PTYIMODE_ECHO
+	};
+	rdata->PTYInstance = PTY_Create("serial#", rdata, acessuart_pty_output,
+		NULL, NULL,
+		&dims, &mode
+		);
+	if( !rdata->PTYInstance ) {
+		udi_channel_event_complete(channel_cb, UDI_STAT_RESOURCE_UNAVAIL);
+		return ;
+	}
 	
 	udi_channel_event_complete(channel_cb, UDI_OK);
 }

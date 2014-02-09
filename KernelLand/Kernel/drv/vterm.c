@@ -176,19 +176,19 @@ int VT_Install(char **Arguments)
 		VT_int_Resize( &gVT_Terminals[i], giVT_RealWidth, giVT_RealHeight );
 		gVT_Terminals[i].Mode = PTYBUFFMT_TEXT;
 		char	name[] = {'v','t','0'+i,'\0'};
-		gVT_Terminals[i].PTY = PTY_Create(name, &gVT_Terminals[i],
-			VT_PTYOutput, VT_PTYResize, VT_PTYModeset);
-		struct ptymode mode = {
-			.OutputMode = PTYBUFFMT_TEXT,
-			.InputMode = PTYIMODE_CANON|PTYIMODE_ECHO
-		};
 		struct ptydims dims = {
 			.W = giVT_RealWidth / giVT_CharWidth,
 			.H = giVT_RealHeight / giVT_CharHeight,
 			.PW = giVT_RealWidth,
 			.PH = giVT_RealHeight
 		};
-		PTY_SetAttrib(gVT_Terminals[i].PTY, &dims, &mode, 0);
+		struct ptymode mode = {
+			.OutputMode = PTYBUFFMT_TEXT,
+			.InputMode = PTYIMODE_CANON|PTYIMODE_ECHO
+		};
+		gVT_Terminals[i].PTY = PTY_Create(name, &gVT_Terminals[i],
+			VT_PTYOutput, VT_PTYResize, VT_PTYModeset,
+			&dims, &mode);
 	}
 	
 	// Add to DevFS

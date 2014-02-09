@@ -10,6 +10,7 @@
 #include <fs_devfs.h>
 #include <drv_serial.h>
 #include <drv_pty.h>
+#include <debug_hooks.h>
 
 // === TYPES ===
 struct sSerialPort
@@ -43,18 +44,20 @@ tSerialPort *Serial_CreatePort(tSerial_OutFcn output, void *handle)
 {
 	tSerialPort	*ret = malloc( sizeof(tSerialPort) );
 	// Automatically indexed
-	ret->PTY = PTY_Create("serial#", ret, Serial_int_PTYOutput, Serial_int_PTYSetDims, Serial_int_PTYSetArrib);
-	ret->OutputFcn = output;
-	ret->OutHandle = handle;
-	struct ptymode mode = {
-		.OutputMode = PTYBUFFMT_TEXT,
-		.InputMode = PTYIMODE_CANON|PTYIMODE_ECHO
-	};
 	struct ptydims dims = {
 		.W = 80, .H = 25,
 		.PW = 0, .PH = 0
 	};
-	PTY_SetAttrib(ret->PTY, &dims, &mode, 0);
+	struct ptymode mode = {
+		.OutputMode = PTYBUFFMT_TEXT,
+		.InputMode = PTYIMODE_CANON|PTYIMODE_ECHO
+	};
+	ret->PTY = PTY_Create("serial#", ret,
+		Serial_int_PTYOutput, Serial_int_PTYSetDims, Serial_int_PTYSetArrib,
+		&dims, &mode
+		);
+	ret->OutputFcn = output;
+	ret->OutHandle = handle;
 	return ret;
 }
 
