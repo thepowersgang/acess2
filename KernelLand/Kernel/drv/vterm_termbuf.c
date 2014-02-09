@@ -78,9 +78,42 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 		write_pos = Term->WritePos;
 		limit = Term->TextHeight*(giVT_Scrollback+1) * Term->TextWidth;
 	}
-	
-	// TODO: Can the write position be equal to the end of screen?
-	ASSERTC(write_pos, <, limit);
+
+	ASSERTC(write_pos, >=, 0);
+
+	// Scroll entire buffer (about to write outside limit)
+	if( write_pos >= limit )
+	{
+		ASSERTC(write_pos, <, limit + Term->TextWidth);
+		VT_int_ScrollText(Term, 1);
+		write_pos -= Term->TextWidth;
+	}
+
+	// Bring written cell into view
+	if( !(Term->Flags & VT_FLAG_ALTBUF) )
+	{
+		size_t	onescreen = Term->TextWidth*Term->TextHeight;
+		if( write_pos >= Term->ViewPos + onescreen )
+		{
+			size_t	new_pos = write_pos - (write_pos % Term->TextWidth) - onescreen + Term->TextWidth;
+			size_t	count = (new_pos - Term->ViewPos) / Term->TextWidth;
+			VT_int_ScrollFramebuffer(Term, count);
+			//Debug("VT_int_PutChar: VScroll down to %i", new_pos/Term->TextWidth);
+			Term->ViewPos = new_pos;
+		}
+		else if( write_pos < Term->ViewPos )
+		{
+			size_t	new_pos = write_pos - (write_pos % Term->TextWidth);
+			size_t	count = (Term->ViewPos - new_pos) / Term->TextWidth;
+			VT_int_ScrollFramebuffer(Term, -count);
+			//Debug("VT_int_PutChar: VScroll up to %i", new_pos/Term->TextWidth);
+			Term->ViewPos = new_pos;
+		}
+		else
+		{
+			// no action, cell is visible
+		}
+	}
 	
 	switch(Ch)
 	{
@@ -89,6 +122,7 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 	case '\n':
 		VT_int_UpdateScreen( Term, 0 );	// Update the line before newlining
 		write_pos += Term->TextWidth;
+		// TODO: Scroll display down if needed
 	case '\r':
 		write_pos -= write_pos % Term->TextWidth;
 		break;
@@ -135,42 +169,14 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 		break;
 	}
 	
+	ASSERTC(write_pos, <=, limit);
 	if(Term->Flags & VT_FLAG_ALTBUF)
 	{
 		Term->AltWritePos = write_pos;
-		
-		if(Term->AltWritePos >= limit)
-		{
-			Term->AltWritePos -= Term->TextWidth;
-			VT_int_ScrollText(Term, 1);
-		}
 	}
 	else
 	{
 		Term->WritePos = write_pos;
-		// Move Screen
-		// - Check if we need to scroll the entire scrollback buffer
-		if(Term->WritePos >= limit)
-		{
-			 int	base;
-			
-			// Update view position
-			base = Term->TextWidth*Term->TextHeight*(giVT_Scrollback);
-			if(Term->ViewPos < base)
-				Term->ViewPos += Term->Width;
-			if(Term->ViewPos > base)
-				Term->ViewPos = base;
-			
-			VT_int_ScrollText(Term, 1);
-			Term->WritePos -= Term->TextWidth;
-		}
-		// Ok, so we only need to scroll the screen
-		else if(Term->WritePos >= Term->ViewPos + Term->TextWidth*Term->TextHeight)
-		{
-			VT_int_ScrollFramebuffer( Term, 1 );
-			
-			Term->ViewPos += Term->TextWidth;
-		}
 	}
 
 	HEAP_VALIDATE();
