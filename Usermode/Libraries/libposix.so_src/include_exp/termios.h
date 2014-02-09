@@ -63,6 +63,22 @@ typedef unsigned short	tcflag_t;
 
 // c_cflag
 #define CBAUD	(037 << 0)	// Baud speed
+#define B0	(0 << 0)
+#define B50	(1 << 0)
+#define B75	(2 << 0)
+#define B110	(3 << 0)
+#define B134	(4 << 0)
+#define B150	(5 << 0)
+#define B200	(6 << 0)
+#define B300	(7 << 0)
+#define B600	(8 << 0)
+#define B1200	(9 << 0)
+#define B1800	(10 << 0)
+#define B2400	(11 << 0)
+#define B4800	(12 << 0)
+#define B9600	(13 << 0)
+#define B19200	(14 << 0)
+#define B38400	(15 << 0)
 #define CSIZE	(3 << 5)	// Character size mask
 #define CS5	(0 << 5)
 #define CS6	(1 << 5)
@@ -121,6 +137,7 @@ enum
 	VWERASE,
 	NCCS
 };
+#define _POSIX_VDISABLE	255
 
 struct termios
 {
@@ -130,6 +147,8 @@ struct termios
 	tcflag_t	c_lflag;
 	cc_t	c_cc[NCCS];
 };
+
+extern speed_t	cfgetospeed(const struct termios *termios_p);
 
 extern int tcgetattr(int fd, struct termios *termios_p);
 

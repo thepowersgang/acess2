@@ -12,6 +12,11 @@
 #include <acess/devices/pty.h>
 
 // === CODE ===
+speed_t cfgetospeed(const struct termios *termios_p)
+{
+	return termios_p->c_oflag & CBAUD;
+}
+
 int tcgetattr(int fd, struct termios *termios_p)
 {
 	if( fd == -1 ) {
