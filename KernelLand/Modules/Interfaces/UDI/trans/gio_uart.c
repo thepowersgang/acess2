@@ -13,7 +13,8 @@
 #include <trans_uart.h>
 #include <workqueue.h>
 
-#define NUM_TX_CBS	1
+#define NUM_TX_CBS	2
+#define RX_SIZE	32	// Size of a read request
 
 typedef struct {
 	udi_init_context_t	init_context;
@@ -56,6 +57,7 @@ void acessuart_final_cleanup_req(udi_mgmt_cb_t *cb)
 void acessuart_channel_event_ind(udi_channel_event_cb_t *cb);
 void acessuart_channel_event_ind__tx_cbs_allocated(udi_cb_t *gcb, udi_cb_t *first_cb);
 void acessuart_bind_ack(udi_gio_bind_cb_t *cb, udi_ubit32_t device_size_lo, udi_ubit32_t device_size_hi, udi_status_t status);
+void acessuart_event_ind__buf_allocated(udi_cb_t *gcb, udi_buf_t *buffer);
 
 void acessuart_channel_event_ind(udi_channel_event_cb_t *cb)
 {
@@ -111,6 +113,16 @@ void acessuart_bind_ack(udi_gio_bind_cb_t *cb, udi_ubit32_t device_size_lo, udi_
 		return ;
 	}
 	
+	struct ptymode mode = {
+		.OutputMode = PTYBUFFMT_TEXT,
+		.InputMode = PTYIMODE_CANON|PTYIMODE_ECHO
+	};
+	struct ptydims dims = {
+		.W = 80, .H = 25,
+		.PW = 0, .PH = 0
+	};
+	PTY_SetAttrib(rdata->PTYInstance, &dims, &mode, 0);
+	
 	udi_channel_event_complete(channel_cb, UDI_OK);
 }
 void acessuart_unbind_ack(udi_gio_bind_cb_t *cb)
@@ -124,12 +136,13 @@ void acessuart_xfer_ack(udi_gio_xfer_cb_t *cb)
 	if( cb->op == UDI_GIO_OP_WRITE ) {
 		// Write, no action required except returning the CB to the pool
 		udi_buf_free(cb->data_buf);
+		//cb->data_buf = NULL;
 		Workqueue_AddWork(&rdata->CBWorkQueue, cb);
-		return ;
 	}
 	else if( cb->op == UDI_GIO_OP_READ ) {
 		// Send data to PTY
 		UNIMPLEMENTED();
+		// TODO: Since this was a full ACK, request more?
 	}
 	else {
 		// Well, that was unexpected
@@ -137,12 +150,66 @@ void acessuart_xfer_ack(udi_gio_xfer_cb_t *cb)
 }
 void acessuart_xfer_nak(udi_gio_xfer_cb_t *cb, udi_status_t status)
 {
-	UNIMPLEMENTED();
+	udi_cb_t	*gcb = UDI_GCB(cb);
+	rdata_t	*rdata = gcb->context;
+	if( cb->op == UDI_GIO_OP_READ && status == UDI_STAT_DATA_UNDERRUN )
+	{
+		udi_size_t	len = cb->data_buf->buf_size;
+		if( len == 0 )
+		{
+			udi_debug_printf("%s: no data read, rx buffer must be empty\n", __func__, len);
+			ASSERT(status != UDI_OK);
+		}
+		else
+		{
+			char	tmp[len];
+			udi_buf_read(cb->data_buf, 0, len, tmp);
+			for( int i = 0; i < len; i ++ ) {
+				if( tmp[i] == '\r' )
+					tmp[i] = '\n';
+			}
+			
+			udi_debug_printf("%s: %i bytes '%.*s'\n", __func__, len, len, tmp);
+			PTY_SendInput(rdata->PTYInstance, tmp, len);
+		}
+		
+		udi_buf_free(cb->data_buf);
+		
+		// if status == OK, then all bytes we requested were read.
+		// - In which case, we want to request more
+		if( status == UDI_OK ) {
+			UDI_BUF_ALLOC(acessuart_event_ind__buf_allocated, gcb, NULL, RX_SIZE, UDI_NULL_BUF_PATH);
+			return ;
+		}
+		
+		Workqueue_AddWork(&rdata->CBWorkQueue, cb);
+	}
+	else {
+		UNIMPLEMENTED();
+	}
 }
 void acessuart_event_ind(udi_gio_event_cb_t *cb)
 {
-	// grab the input CB, and request data
-	UNIMPLEMENTED();
+	udi_cb_t	*gcb = UDI_GCB(cb);
+	rdata_t	*rdata = gcb->context;
+
+	// ACK event before requesting read
+	udi_gio_event_res(cb);
+	
+	// Begin read request
+	udi_gio_xfer_cb_t	*read_cb = Workqueue_GetWork(&rdata->CBWorkQueue);
+	UDI_BUF_ALLOC(acessuart_event_ind__buf_allocated, UDI_GCB(read_cb), NULL, RX_SIZE, UDI_NULL_BUF_PATH);
+}
+void acessuart_event_ind__buf_allocated(udi_cb_t *gcb, udi_buf_t *buffer)
+{
+	udi_gio_xfer_cb_t	*cb = UDI_MCB(gcb, udi_gio_xfer_cb_t);
+
+	cb->op = UDI_GIO_OP_READ;
+	cb->tr_params = NULL;
+	cb->data_buf = buffer;
+	
+	udi_gio_xfer_req(cb);
+	// Continued in acessuart_xfer_ack/nak
 }
 
 
@@ -159,6 +226,7 @@ void acessuart_pty_output(void *Handle, size_t Length, const void *Data)
 	
 	UDI_BUF_ALLOC(acessuart_pty_output__buf_allocated, gcb, Data, Length, UDI_NULL_BUF_PATH);
 	// don't bother waiting for tx to complete, workqueue will block when everything is in use
+	// - And once buf_alloc returns, the data is copied
 }
 void acessuart_pty_output__buf_allocated(udi_cb_t *gcb, udi_buf_t *buffer)
 {
