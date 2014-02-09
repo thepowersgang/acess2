@@ -17,6 +17,7 @@
 #define PTYIMODE_CANON	0x001	//!< Line-buffered input
 #define PTYIMODE_ECHO	0x002	//!< Echo input characters
 #define PTYIMODE_RAW	0x004	//!< Disable all input processing
+#define PTYIMODE_NLCR	0x008	//!< Translate '\n' to '\r' (for old apps)
 
 #define PTYOMODE_BUFFMT	0x003
 #define PTYBUFFMT_TEXT	 0x000

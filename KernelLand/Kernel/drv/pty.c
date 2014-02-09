@@ -377,10 +377,10 @@ size_t PTY_int_SendInput(tPTY *PTY, const char *Input, size_t Length)
 	size_t	ret = 1, print = 1;
 	
 	// Input mode stuff only counts for text output mode
-	// - Any other is Uint32 keypresses
+	// - Any other mode sends Uint32 keypresses
 	if( (PTY->Mode.OutputMode & PTYOMODE_BUFFMT) != PTYBUFFMT_TEXT )
 		return PTY_int_WriteInput(PTY, Input, Length);
-	// If in raw mode, flush directlr
+	// If in raw mode, flush directly
 	if( (PTY->Mode.InputMode & PTYIMODE_RAW) )
 		return PTY_int_WriteInput(PTY, Input, Length);
 	
@@ -444,7 +444,24 @@ size_t PTY_int_SendInput(tPTY *PTY, const char *Input, size_t Length)
 	}
 	else
 	{
-		ret = PTY_int_WriteInput(PTY, Input, Length);
+		#if 0
+		if( PTY->Mode.InputMode & PTYIMODE_NLCR )
+		{
+			if( Input[0] == '\n' ) {
+				char ch = '\r';
+				ret = PTY_int_WriteInput(PTY, &ch, 1);
+			}
+			else {
+				 int	i;
+				for( i = 0; i < Length && Input[i] != '\n'; i ++ )
+					;
+				ret = PTY_int_WriteInput(PTY, Input, i);
+			}
+		}
+		// TODO: CRNL mode?
+		else
+		#endif
+			ret = PTY_int_WriteInput(PTY, Input, Length);
 	}
 	
 	// Echo if requested
