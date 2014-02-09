@@ -30,34 +30,63 @@ $lStack = array( array("",array()) );
 foreach($lines as $line)
 {
 	$line = trim($line);
-	if($line[0] == "#")	continue;
+	if($line == "" || $line[0] == "#")	continue;
 	// Directory
 	if(preg_match('/^Dir\s+"([^"]+)"\s+{$/', $line, $matches))
 	{
 		$new = array($matches[1], array());
 		array_push($lStack, $new);
 		$lDepth ++;
-		continue;
 	}
 	// End of a block
-	if($line == "}")
+	elseif($line == "}")
 	{
 		$lDepth --;
 		$lStack[$lDepth][1][] = array_pop($lStack);
-		continue;
 	}
 	// File
-	if(preg_match('/^File\s+"([^"]+)"(?:\s+"([^"]+)")?$/', $line, $matches))
+	elseif(preg_match('/^((?:Opt)?)File\s+"([^"]+)"(?:\s+"([^"]+)")?$/', $line, $matches))
 	{
-		if( !isset($matches[2]) ) {
-			$matches[2] = $matches[1];
-			$matches[1] = basename($matches[2]);
+		$isOptional = $matches[1];
+		$dstfile = $matches[2];
+		$path = isset($matches[3]) ? $matches[3] : "";
+		
+		if( $path == "" ) {
+			$path = $dstfile;
+			$dstfile = basename($dstfile);
 		}
-		$lStack[$lDepth][1][] = array($matches[1], $matches[2]);
-		continue;
+		
+		// Parse path components
+		$path = str_replace("__EXT__", "$ACESSDIR/Externals/Output/$ARCH", $path);
+		$path = str_replace("__BIN__", "$ACESSDIR/Usermode/Output/$ARCH", $path);
+		$path = str_replace("__FS__", "$ACESSDIR/Usermode/Filesystem", $path);
+		$path = str_replace("__SRC__", "$ACESSDIR", $path);
+
+		$gDependencies[] = $path;
+		
+		if( !file_exists($path) )
+		{
+			if( $isOptional == "" )
+			{
+				// Oops
+				echo "ERROR: '{$path}' does not exist\n", 
+				exit(1);
+			}
+			else
+			{
+				// optional file
+			}
+		}
+		else
+		{
+			$lStack[$lDepth][1][] = array($dstfile, $path, $isOptional);
+		}
 	}
-	echo "ERROR: $line\n";
-	exit(0);
+	else
+	{
+		echo "ERROR: $line\n";
+		exit(0);
+	}
 }
 
 function hd($fp)
@@ -114,19 +143,7 @@ EOF;
 		{
 			$path = $item[1];
 			
-			// Parse path components
-			$path = str_replace("__BIN__", "$ACESSDIR/Usermode/Output/$ARCH", $path);
-			$path = str_replace("__FS__", "$ACESSDIR/Usermode/Filesystem", $path);
-			$path = str_replace("__SRC__", "$ACESSDIR", $path);
 			echo $path,"\n";
-			// ---
-			
-			$gDependencies[] = $path;
-
-			if(!file_exists($path)) {
-				echo "ERROR: '{$path}' does not exist\n", 
-				exit(1);
-			}
 			$size = filesize($path);
 	
 			$_sym = "_binary_".str_replace(array("/","-","."), "_", $path)."_start";
@@ -217,8 +234,10 @@ fclose($fp);
 if($gDepFile !== false)
 {
 	$fp = fopen($gDepFile, "w");
-	$line = $gOutputFile.":\t".implode(" ", $gDependencies);
+	$line = $gOutputFile.":\t".implode(" ", $gDependencies)."\n";
 	fputs($fp, $line);
+	foreach( $gDependencies as $dep )
+		fputs($fp, "$dep: \n");
 	fclose($fp);
 }
 
