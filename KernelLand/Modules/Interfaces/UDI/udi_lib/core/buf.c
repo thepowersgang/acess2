@@ -52,7 +52,23 @@ void udi_buf_copy(
 	udi_buf_path_t	path_handle
 	)
 {
-	UNIMPLEMENTED();
+	if( !src_len ) {
+		// why?
+	}
+	// Quick and evil option - allocate temp buffer, udi_buf_read + udi_buf_write
+	void	*tmp = malloc(src_len);
+	udi_buf_read(src_buf, src_off, src_len, tmp);
+
+	void tmp_callback(udi_cb_t *gcb, udi_buf_t *new_buf) {
+		dst_buf = new_buf;
+	}	
+
+	udi_buf_write(tmp_callback, NULL, tmp, src_len, dst_buf, dst_off, dst_len, path_handle);
+	free(tmp);
+	
+	if( callback ) {
+		callback(gcb, dst_buf);
+	}
 }
 
 tUDI_BufSect *UDI_int_BufAddSect(size_t data_len, size_t relofs, tUDI_BufSect **prevptr, const void *data,
@@ -113,6 +129,9 @@ void udi_buf_write(
 	udi_buf_path_t path_handle
 	)
 {
+	ENTER("psrc_mem isrc_len pdst_buf idst_off idst_len",
+		src_mem, src_len, dst_buf, dst_off, dst_len);
+	
 	tUDI_BufInt	*dst = (void*)dst_buf;
 	if( !dst ) {
 		dst = NEW(tUDI_BufInt,);
@@ -130,6 +149,8 @@ void udi_buf_write(
 			break ;
 		dst_off -= sect->RelOfs + sect->Length;
 	}
+	
+	LOG("sect = %p", sect);
 
 	// Overwrite MIN(src_len,dst_len) bytes
 	// then delete/append remainder
@@ -138,9 +159,10 @@ void udi_buf_write(
 	dst_len -= len;
 	while( len > 0 )
 	{
+		LOG("Overwriting %i bytes", len);
 		// Create new section
 		if( !sect || sect->RelOfs > dst_off ) {
-			size_t	newsize = MIN(sect->RelOfs - dst_off, len);
+			size_t	newsize = (sect && sect->RelOfs - dst_off < len) ? sect->RelOfs - dst_off : len;
 			sect = UDI_int_BufAddSect(len, dst_off, prevptr, src_mem, path_handle);
 			len -= newsize;
 			src_mem += newsize;
@@ -150,6 +172,7 @@ void udi_buf_write(
 		}
 		if( len == 0 )
 			break;
+		LOG("- dst_off = %i, data=%p", dst_off, sect->Data);
 		
 		// Update existing section
 		size_t	bytes = MIN(len, sect->Length - dst_off);
@@ -157,12 +180,18 @@ void udi_buf_write(
 		len -= bytes;
 		src_mem += bytes;
 		
-		prevptr = &sect->Next;
-		sect = sect->Next;
+		dst_off += bytes;
+		if( dst_off == sect->Length )
+		{
+			prevptr = &sect->Next;
+			sect = sect->Next;
+			dst_off = 0;
+		}
 	}
 
 	if( dst_len > 0 )
 	{
+		LOG("Deleting %i bytes at %i", dst_len, dst_off);
 		ASSERT(src_len == 0);
 		// Delete
 		while( dst_len > 0 )
@@ -211,6 +240,7 @@ void udi_buf_write(
 	}
 	else if( src_len > 0 )
 	{
+		LOG("Inserting %i bytes", src_len);
 		ASSERT(dst_len == 0);
 		// Insert
 		if( !sect || sect->RelOfs > dst_off ) {
@@ -223,6 +253,7 @@ void udi_buf_write(
 			size_t	avail = sect->Space - sect->Length;
 			if( avail ) {
 				size_t	bytes = MIN(avail, src_len);
+				ASSERT(src_mem);
 				memcpy(sect->Data + sect->Length, src_mem, bytes);
 				src_mem += bytes;
 				src_len -= bytes;
@@ -240,9 +271,12 @@ void udi_buf_write(
 	}
 	else
 	{
+		LOG("No insert/delete, ovr only");
 		// No-op
 	}
-	
+
+	LOG("dst_buf->size = %i", dst->buf.buf_size);
+	LEAVE('p', &dst->buf);
 	// HACK: udi_pio_trans calls this with a NULL cb, so handle that
 	if( callback ) {
 		callback(gcb, &dst->buf);
@@ -299,7 +333,29 @@ void udi_buf_read(
 	LEAVE('-');
 }
 
-void udi_buf_free(udi_buf_t *buf)
+void udi_buf_free(udi_buf_t *buf_ptr)
 {
-	UNIMPLEMENTED();
+	if( buf_ptr )
+	{
+		tUDI_BufInt	*buf = (void*)buf_ptr;
+		
+		while( buf->Tags )
+		{
+			tUDI_BufTag *tag = buf->Tags;
+			buf->Tags = tag->Next;
+			
+			free(tag);
+		}
+		
+		while( buf->Sections )
+		{
+			tUDI_BufSect *sect = buf->Sections;
+			buf->Sections = sect->Next;
+			
+			free(sect);
+		}
+		
+		free(buf);
+	}
 }
+
