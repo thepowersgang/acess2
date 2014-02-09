@@ -5,7 +5,7 @@
  * trans/gio_uart.c
  * - GIO UART translation (presents "uart" type GIO drivers as serial ports)
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <udi.h>
 //#include <udi_gio.h>
 #include <acess.h>
