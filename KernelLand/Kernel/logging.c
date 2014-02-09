@@ -29,7 +29,10 @@ const char	*csaLevelColours[] = {
 		"\x1B[35m", "\x1B[34m", "\x1B[36m", "\x1B[31m",
 		"\x1B[33m", "\x1B[32m", "\x1B[0m", "\x1B[0m"
 		};
-const char	*csaLevelCodes[] =  {"k","p","f","e","w","n","l","d"};
+const char	*csaLevelCodes[] =  {
+		"k","p","f","e",
+		"w","n","l","d"
+		};
 
 // === TYPES ===
 typedef struct sLogEntry
