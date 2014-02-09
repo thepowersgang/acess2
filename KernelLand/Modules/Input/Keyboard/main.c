@@ -17,15 +17,9 @@
 #include "keymap_int.h"
 #include "layout_kbdus.h"
 #include <hal_proc.h>
+#include <debug_hooks.h>
 
 #define USE_KERNEL_MAGIC	1
-
-// === IMPORTS ===
-#if USE_KERNEL_MAGIC
-extern void	Threads_ToggleTrace(int TID);
-extern void	Threads_Dump(void);
-extern void	Heap_Stats(void);
-#endif
 
 // === PROTOTYPES ===
  int	Keyboard_Install(char **Arguments);

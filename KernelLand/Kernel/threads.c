@@ -13,6 +13,7 @@
 #include <rwlock.h>
 #include <vfs_threads.h>	// VFS Handle maintainence
 #include <events.h>
+#include <debug_hooks.h>
 
 // Configuration
 #define DEBUG_TRACE_ACTIVEQUEUE	0	// Trace adds/removals from the active queue
@@ -70,8 +71,8 @@ void	Threads_Sleep(void);
  int	Threads_Wake(tThread *Thread);
 void	Threads_AddActive(tThread *Thread);
 tThread	*Threads_RemActive(void);
-#endif
 void	Threads_ToggleTrace(int TID);
+#endif
 void	Threads_Fault(int Num);
 void	Threads_SegFault(tVAddr Addr);
 void	Threads_PostSignalTo(tThread *Thread, int SignalNum);
@@ -91,7 +92,9 @@ tGID	Threads_GetGID(void);
  int	Threads_SetGID(Uint *Errno, tUID ID);
 #endif
 void	Threads_int_DumpThread(tThread *thread);
+#if 0
 void	Threads_Dump(void);
+#endif
 void	Threads_DumpActive(void);
 tThread	*Threads_int_GetRunnable(void);
 

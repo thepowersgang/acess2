@@ -9,6 +9,7 @@
 #include <mm_virt.h>
 #include <heap_int.h>
 #include <limits.h>
+#include <debug_hooks.h>
 
 #define WARNINGS	1	// Warn and dump on heap errors
 #define	DEBUG_TRACE	0	// Enable tracing of allocations
@@ -37,8 +38,9 @@ void	*Heap_Merge(tHeapHead *Head);
 //void	*Heap_AllocateZero(const char *File, int Line, size_t Bytes);
 //void	*Heap_Reallocate(const char *File, int Line, void *Ptr, size_t Bytes);
 //void	Heap_Deallocate(const char *File, int Line, void *Ptr);
-void	Heap_Dump(int bVerbose);
-void	Heap_Stats(void);
+//void	Heap_Dump(void);
+void	Heap_ValidateDump(int bVerbose);
+//void	Heap_Stats(void);
 
 // === GLOBALS ===
 tMutex	glHeap;
@@ -98,7 +100,7 @@ void *Heap_Extend(size_t Bytes)
 		if( !MM_Allocate( (tVAddr)gHeapEnd+(i<<12) ) )
 		{
 			Warning("OOM - Heap_Extend (%i bytes)");
-			Heap_Dump(1);
+			Heap_Dump();
 			return NULL;
 		}
 	}
@@ -181,7 +183,7 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 	}
 
 	#if VALIDATE_ON_ALLOC
-	Heap_Dump(0);
+	Heap_Validate();
 	#endif
 	
 	// Get required size
@@ -209,7 +211,7 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 			Log_Warning("Heap", "Size of heap address %p is invalid"
 				" - not aligned (0x%x) [at paddr 0x%x]",
 				head, head->Size, MM_GetPhysAddr(&head->Size));
-			Heap_Dump(VERBOSE_DUMP);
+			Heap_ValidateDump(VERBOSE_DUMP);
 			#endif
 			return NULL;
 		}
@@ -218,7 +220,7 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 			Log_Warning("Heap", "Size of heap address %p is invalid"
 				" - Too small (0x%x) [at paddr 0x%x]",
 				head, head->Size, MM_GetPhysAddr(&head->Size));
-			Heap_Dump(VERBOSE_DUMP);
+			Heap_ValidateDump(VERBOSE_DUMP);
 			return NULL;
 		}
 		if( head->Size > (2<<30) ) {
@@ -226,7 +228,7 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 			Log_Warning("Heap", "Size of heap address %p is invalid"
 				" - Over 2GiB (0x%x) [at paddr 0x%x]",
 				head, head->Size, MM_GetPhysAddr(&head->Size));
-			Heap_Dump(VERBOSE_DUMP);
+			Heap_ValidateDump(VERBOSE_DUMP);
 			return NULL;
 		}
 		
@@ -238,7 +240,7 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 			#if WARNINGS
 			Log_Warning("Heap", "Magic of heap address %p is invalid (%p = 0x%x)",
 				head, &head->Magic, head->Magic);
-			Heap_Dump(VERBOSE_DUMP);
+			Heap_ValidateDump(VERBOSE_DUMP);
 			#endif
 			return NULL;
 		}
@@ -559,10 +561,15 @@ void Heap_Validate(void)
 {
 	// Call dump non-verbosely.
 	// - If a heap error is detected, it'll print
-	Heap_Dump(0);
+	Heap_ValidateDump(0);
 }
 
-void Heap_Dump(int bVerbose)
+void Heap_Dump(void)
+{
+	Heap_ValidateDump(1);
+}
+
+void Heap_ValidateDump(int bVerbose)
 {
 	tHeapHead	*head, *badHead;
 	tHeapFoot	*foot = NULL;
