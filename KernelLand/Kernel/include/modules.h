@@ -102,7 +102,7 @@ typedef struct sModuleLoader
 	struct sModuleLoader	*Next;	//!< Kernel Only - Next loader in list
 	char	*Name;	//!< Friendly name for the loader
 	 int	(*Detector)(void *Base);	//!< Simple detector function
-	 int	(*Loader)(void *Base);	//!< Initialises the module
+	 int	(*Loader)(void *Base, const char *ArgumentString);	//!< Initialises the module
 	 int	(*Unloader)(void *Base);	//!< Calls module's cleanup
 } PACKED tModuleLoader;
 

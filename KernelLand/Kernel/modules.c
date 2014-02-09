@@ -383,7 +383,7 @@ int Module_LoadFile(const char *Path, const char *ArgString)
 
 	if( loader )
 	{
-		if( loader->Loader(base) )
+		if( loader->Loader(base, ArgString) )
 		{
 			Binary_Unload(base);
 			return EINVAL;

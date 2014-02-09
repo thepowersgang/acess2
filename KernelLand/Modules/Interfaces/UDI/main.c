@@ -19,7 +19,7 @@
 // === PROTOTYPES ===
  int	UDI_Install(char **Arguments);
  int	UDI_DetectDriver(void *Base);
- int	UDI_LoadDriver(void *Base);
+ int	UDI_LoadDriver(void *Base, const char *ArgumentString);
 tUDI_DriverModule	*UDI_int_LoadDriver(void *LoadBase, const udi_init_t *info, const char *udiprops, size_t udiprops_size);
 const tUDI_MetaLang	*UDI_int_GetMetaLangByName(const char *Name);
 
@@ -73,7 +73,7 @@ int UDI_DetectDriver(void *Base)
 /**
  * \fn int UDI_LoadDriver(void *Base)
  */
-int UDI_LoadDriver(void *Base)
+int UDI_LoadDriver(void *Base, const char *ArgumentString)
 {
 	udi_init_t	*info;
 	char	*udiprops = NULL;
@@ -89,6 +89,9 @@ int UDI_LoadDriver(void *Base)
 	Log_Debug("UDI", "udiprops = %p, udiprops_end = %p", udiprops, udiprops_end);
 
 	UDI_int_LoadDriver(Base, info, udiprops, udiprops_end - udiprops);
+	
+	// TODO: Parse 'ArgumentString' and extract properties for module/instances
+	// - Including debug flag
 	
 	return 0;
 }
