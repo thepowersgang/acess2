@@ -9,6 +9,7 @@ QEMU_PARAMS=""
 QEMU_PARAMS=$QEMU_PARAMS" -hda AcessHDD.img"
 QEMU_PARAMS=$QEMU_PARAMS" -vga std"
 QEMU_PARAMS=$QEMU_PARAMS" -smp 2"
+MODS=""
 
 _NETTYPE="user,hostfwd=tcp::5555-:23"
 _NETMODEL=e1000
@@ -20,6 +21,10 @@ while [ $# -ne 0 ]; do
 	-gdb)
 		QEMU_PARAMS=$QEMU_PARAMS" -s -S"
 		;;
+	-mod)
+		shift
+		MODS=$MODS","$1
+		;;
 	-dbin)
 		shift
 		if [ "x$2" = "xdefault" ] || [ "x$2" = "x" ]; then
@@ -28,7 +33,7 @@ while [ $# -ne 0 ]; do
 			_kfile="KernelLand/Acess2.$1-$2.bin"
 		fi
 		BOOTOPT="-kernel $_kfile"
-		BOOTOPT=$BOOTOPT" -initrd KernelLand/Modules/Filesystems/FS_InitRD.kmd.$1 -append \"$3\""
+		BOOTOPT=$BOOTOPT" -initrd KernelLand/Modules/Filesystems/FS_InitRD.kmd.$1$MODS -append \"$3\""
 		shift
 		shift
 		;;
@@ -70,6 +75,10 @@ while [ $# -ne 0 ]; do
 	-netmodel)
 		shift
 		_NETMODEL=$1
+		;;
+	-pciserial)
+		QEMU_PARAMS=$QEMU_PARAMS" -device pci-serial,chardev=serial2"
+		QEMU_PARAMS=$QEMU_PARAMS" -chardev socket,id=serial2,host=localhost,port=10023,server,telnet"
 		;;
 	esac
 	shift
