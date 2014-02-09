@@ -30,6 +30,7 @@ static inline int MAX(int a, int b) { return (a > b ? a : b); }
 
 // === EXTERN ==
 extern tHWND	gMainWindow;
+extern int	giPTYHandle;
 
 typedef struct sLine	tLine;
 
@@ -104,6 +105,11 @@ void *Display_GetTermState(tTerminal *Term) {
 }
 void Display_SetTermState(tTerminal *Term, void *State) {
 	Term->TermState = State;
+}
+
+void Display_SendInput(tTerminal *Term, const char *String)
+{
+	_SysWrite(giPTYHandle, String, strlen(String));
 }
 
 // Return the byte length of a single on-screen character

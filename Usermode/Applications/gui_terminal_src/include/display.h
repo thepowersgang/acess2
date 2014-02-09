@@ -20,6 +20,8 @@ extern tTerminal	*Display_Init(int Cols, int Lines, int ExtraScrollbackLines);
 extern void	*Display_GetTermState(tTerminal *Term);
 extern void	Display_SetTermState(tTerminal *Term, void *State);
 
+extern void	Display_SendInput(tTerminal *Term, const char *String);
+
 extern void	Display_AddText(tTerminal *Term, size_t Length, const char *UTF8Text);
 extern void	Display_Newline(tTerminal *Term, bool bCarriageReturn);
 extern void	Display_SetScrollArea(tTerminal *Term, int Start, int Count);	// Only valid in AltBuffer

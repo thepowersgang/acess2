@@ -31,10 +31,14 @@ enum eStringType {
 #define FLAG_BOLD	0x01
 #define FLAG_REVERSE	0x02
 
+#define	MAX_VT100_ESCAPE_LEN	32
 typedef struct {
 	uint32_t	Flags;
 	int	CurFG, CurBG;
-	
+
+	char	cache[MAX_VT100_ESCAPE_LEN];
+	 int	cache_len;	
+
 	enum eExcapeMode	Mode;
 	
 	enum eStringType	StringType;
@@ -75,9 +79,6 @@ int _locate_eos(size_t Len, const char *Buf)
 
 int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
 {
-	#define	MAX_VT100_ESCAPE_LEN	16
-	static char	inc_buf[MAX_VT100_ESCAPE_LEN];
-	static int	inc_len = 0;
 	tVT100State	*st = Display_GetTermState(Term);
 	
 	if( st == NULL ) {
@@ -133,42 +134,45 @@ int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
 		// fall through
 	}
 
-	if( inc_len > 0	|| *Buf == '\x1b' )
+	if( st->cache_len > 0	|| *Buf == '\x1b' )
 	{
 		// Handle VT100 (like) escape sequence
-		 int	new_bytes = min(MAX_VT100_ESCAPE_LEN - inc_len, Len);
+		 int	new_bytes = min(MAX_VT100_ESCAPE_LEN - st->cache_len, Len);
 		 int	ret = 0;
-		 int	old_inc_len = inc_len;
-		memcpy(inc_buf + inc_len, Buf, new_bytes);
+		 int	old_inc_len = st->cache_len;
+		
+		memcpy(st->cache + st->cache_len, Buf, new_bytes);
 
 		if( new_bytes == 0 ) {
 			_SysDebug("Term_HandleVT100: Hit max? (Len=%i) Flushing cache", Len);
-			inc_len = 0;
+			st->cache_len = 0;
 			return 0;
 		}
 
-		inc_len += new_bytes;
-		//_SysDebug("inc_buf = %i '%.*s'", inc_len, inc_len, inc_buf);
+		st->cache_len += new_bytes;
+		assert(st->cache_len > old_inc_len);
 
-		if( inc_len <= 1 )
+		if( st->cache_len <= 1 )
 			return 1;	// Skip 1 character (the '\x1b')
 
-		ret = Term_HandleVT100_Short(Term, inc_len, inc_buf);
+		ret = Term_HandleVT100_Short(Term, st->cache_len, st->cache);
 
 		if( ret != 0 ) {
-			inc_len = 0;
 			// Check that we actually used the new data (as should have happened)
 			if( ret <= old_inc_len ) {
-				_SysDebug("Term_HandleVT100: ret(%i) <= old_inc_len(%i) '%.*s'\n",
-					ret, old_inc_len, inc_len, inc_buf);
+				_SysDebug("Term_HandleVT100: ret(%i) <= old_inc_len(%i), inc_len=%i, '%*C'",
+					ret, old_inc_len, st->cache_len, st->cache_len, st->cache);
 				assert(ret > old_inc_len);
 			}
+			st->cache_len = 0;
 			//_SysDebug("%i bytes of escape code '%.*s' (return %i)",
 			//	ret, ret, inc_buf, ret-old_inc_len);
 			ret -= old_inc_len;	// counter cached bytes
 		}
-		else
+		else {
 			ret = new_bytes;
+			_SysDebug("Term_HandleVT100: Caching %i bytes '%*C'", ret, ret, st->cache);
+		}
 		return ret;
 	}
 
@@ -183,6 +187,7 @@ int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
 	case '\t':
 		// TODO: tab (get current cursor pos, space until multiple of 8)
 		_SysDebug("TODO: VT100 Support \\t tab");
+		Display_AddText(Term, 1, "\t");	// pass the buck for now
 		return 1;
 	case '\n':
 		// TODO: Support disabling CR after NL
@@ -237,6 +242,21 @@ int Term_HandleVT100_Short(tTerminal *Term, int Len, const char *Buf)
 		if( tmp == 0 )
 			return 0;
 		return tmp + 2;
+	
+	case '#':
+		if( Len == 2 )
+			return 0;
+		switch(Buf[2])
+		{
+		case 8:
+			_SysDebug("TODO \\e#%c - Fill screen with 'E'", Buf[2]);
+			break;
+		default:
+			_SysDebug("Unknown \\e#%c", Buf[2]);
+			break;
+		}
+		return 3;
+		
 	case '=':
 		_SysDebug("TODO: \\e= Application Keypad");
 		return 2;
@@ -263,16 +283,27 @@ int Term_HandleVT100_Short(tTerminal *Term, int Len, const char *Buf)
 			break;
 		}
 		return 3;
-	// xterm C1 \eD and \eM are 'Index' and 'Reverse Index'
-	// - Aparently scroll?
-	//case 'D':
-	//	Display_ScrollDown(Term, 1);
-	//	ret = 2;
-	//	break;
-	//case 'M':
-	//	Display_ScrollDown(Term, -1);
-	//	ret = 2;
-	//	break;
+	case '7':
+		// Save cursor
+		Display_SaveCursor(Term);
+		return 2;
+	case '8':
+		// Restore cursor
+		Display_RestoreCursor(Term);
+		return 2;
+	case 'D':
+		// Cursor down, if at bottom scroll
+		Display_MoveCursor(Term, 1, 0);
+		// TODO: Scroll if at bottom (impl in _MoveCursor)
+		return 2;
+	case 'E':
+		Display_MoveCursor(Term, 1, INT_MIN);
+		// TODO: Scroll if at bottom (impl in _MoveCursor)
+		return 2;
+	case 'M':
+		// Cursor up, scroll if at top
+		Display_MoveCursor(Term, -1, 0);
+		return 2;
 	default:
 		_SysDebug("Unknown VT100 \\e%c", Buf[1]);
 		return 2;
@@ -290,13 +321,16 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 	// Get Arguments
 	if(j == Len)	return 0;
 	c = Buffer[j++];
-	if(c == '?') {
+	if(c == '?')
+	{
 		bQuestionMark = 1;
 		if(j == Len)	return 0;
 		c = Buffer[j++];
 	}
-	if( '0' <= c && c <= '9' )
+	if( ('0' <= c && c <= '9') || c == ';' )
 	{
+		if(c == ';')
+			argc ++;
 		do {
 			if(c == ';') {
 				if(j == Len)	return 0;
@@ -334,11 +368,25 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 			case  1:	// Aplication cursor keys
 				_SysDebug("TODO: \\e[?1%c Application cursor keys", c);
 				break;
+			case  3:	// 132 Column mode
+				_SysDebug("TODO: \\e[?3%c 132 Column mode", c);
+				break;
+			case  4:	// Smooth (Slow) Scroll
+				_SysDebug("TODO: \\e[?4%c Smooth (Slow) Scroll", c);
+				break;
+			case  5:	// Reverse Video
+				_SysDebug("TODO: \\e[?5%c Reverse Video", c);
+				break;
+			case  6:	// Origin Mode
+				_SysDebug("TODO: \\e[?6%c Origin Mode", c);
+				break;
 			case 12:
-				_SysDebug("TODO: \\e[?25%c Start/Stop blinking cursor", c);
+				//_SysDebug("TODO: \\e[?25%c Start/Stop blinking cursor", c);
+				//Display_SolidCursor(Term, !set);
 				break;
 			case 25:	// Hide cursor
-				_SysDebug("TODO: \\e[?25%c Show/Hide cursor", c);
+				//_SysDebug("TODO: \\e[?25%c Show/Hide cursor", c);
+				//Display_ShowCursor(Term, set);
 				break;
 			case 1047:	// Alternate buffer
 				Display_ShowAltBuffer(Term, set);
@@ -424,6 +472,40 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 		case 'T':	// Scroll down n=1
 			Display_ScrollDown(Term, (argc >= 1 ? args[0] : 1));
 			break;
+		case 'c':	// Send Device Attributes
+			switch(args[0])
+			{
+			case 0:	// Request attributes from terminal
+				// "VT100 with Advanced Video Option" (same as screen returns)
+				Display_SendInput(Term, "\x1b[?1;2c");
+				break;
+			default:
+				_SysDebug("TODO: Request device attributes \\e[%ic", args[0]);
+				break;
+			}
+			break;
+		case 'f':
+			if( argc != 2 ) {
+				Display_SetCursor(Term, 0, 0);
+			}
+			else {
+				// Adjust 1-based cursor position to 0-based
+				Display_SetCursor(Term, args[0]-1, args[1]-1);
+			}
+			break;
+		case 'h':
+		case 'l':
+			for( int i = 0; i < argc; i ++ )
+			{
+				switch(args[i])
+				{
+				default:
+					_SysDebug("Unknown VT100 mode \e[%i%c",
+						args[i], c);
+					break;
+				}
+			}
+			break;
 		case 'm':
 			if( argc == 0 )
 			{
@@ -445,7 +527,16 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 						Display_SetForeground( Term, caVT100Colours[st->CurFG + 8] );
 						break;
 					case 2:
-						_SysDebug("TODO: VT100 \\e[1m - Reverse");
+						_SysDebug("TODO: \\e[2m - Reverse");
+						break;
+					case 4:
+						_SysDebug("TODO: \\e[4m - Underscore");
+						break;
+					case 7:
+						_SysDebug("TODO: \\e[7m - Reverse");
+						break;
+					case 24:	// Not underlined
+					case 27:	// Not inverse
 						break;
 					case 30 ... 37:
 						st->CurFG = args[i]-30;
@@ -463,11 +554,14 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 						Display_SetBackground( Term, caVT100Colours[ st->CurBG ] );
 						break;
 					default:
-						_SysDebug("TODO: VT100 \\e[%im", args[i]);
+						_SysDebug("Unknown mode set \\e[%im", args[i]);
 						break;
 					} 
 				}
 			}
+			break;
+		// Device Status Report
+		case 'n':
 			break;
 		// Set scrolling region
 		case 'r':

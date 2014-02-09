@@ -12,10 +12,15 @@
 #include "../../../Usermode/Applications/gui_terminal_src/vt100.c"
 
 void *Display_GetTermState(tTerminal *Term) {
-	return Term->VT100Info;;
+	return Term->VT100Info;
 }
 void Display_SetTermState(tTerminal *Term, void *State) {
 	Term->VT100Info = State;
+}
+
+void Display_SendInput(tTerminal *Term, const char *String)
+{
+	PTY_SendInput(Term->PTY, String, strlen(String));
 }
 
 void Display_AddText(tTerminal *Term, size_t Length, const char *UTF8Text)
@@ -65,6 +70,12 @@ void Display_MoveCursor(tTerminal *Term, int RelRow, int RelCol)
 {
 	LOG("(R+%i,C+%i)", RelRow, RelCol);
 	int	*wrpos = (Term->Flags & VT_FLAG_ALTBUF ? &Term->AltWritePos : &Term->WritePos);
+
+	// TODO: Support scrolling if cursor goes offscreen
+	// if( bScrollIfNeeded )
+	//	Display_ScrollDown(extra);
+	// else
+	//	clip
 
 	if( RelCol != 0 )
 	{
@@ -150,18 +161,15 @@ void Display_ClearLines(tTerminal *Term, int Dir)
 {
 	LOG("(Dir=%i)", Dir);	
 	 int	*wrpos = (Term->Flags & VT_FLAG_ALTBUF ? &Term->AltWritePos : &Term->WritePos);
+	 int	height = Term->TextHeight * (Term->Flags & VT_FLAG_ALTBUF ? 1 : giVT_Scrollback + 1);
 	
 	// All
 	if( Dir == 0 ) {
-		int count;
 		
-		if( Term->Flags & VT_FLAG_ALTBUF ) {
-			count = Term->TextHeight;
-		}
-		else {
-			count = Term->TextHeight * (giVT_Scrollback + 1);
+		if( !(Term->Flags & VT_FLAG_ALTBUF) ) {
 			Term->ViewPos = 0;
 		}
+		int count = height;
 		while( count -- )
 			VT_int_ClearLine(Term, count);
 		*wrpos = 0;
@@ -169,11 +177,15 @@ void Display_ClearLines(tTerminal *Term, int Dir)
 	}
 	// Downwards
 	else if( Dir == 1 ) {
-		Log_Warning("VTerm", "TODO: ClearLines Down");
+		for( int row = *wrpos / Term->TextWidth; row < height; row ++ )
+			VT_int_ClearLine(Term, row);
+		VT_int_UpdateScreen(Term, 1);
 	}
 	// Upwards
 	else if( Dir == -1 ) {
-		Log_Warning("VTerm", "TODO: ClearLines Up");
+		for( int row = 0; row < *wrpos / Term->TextWidth; row ++ )
+			VT_int_ClearLine(Term, row);
+		VT_int_UpdateScreen(Term, 1);
 	}
 	else {
 		// ERROR!
