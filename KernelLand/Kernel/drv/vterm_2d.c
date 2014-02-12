@@ -20,10 +20,9 @@ void VT_int_SetCursorPos(tVTerm *Term, int X, int Y)
 {
 	if( Term->Mode == PTYBUFFMT_TEXT )
 	{
-		if(Term->Flags & VT_FLAG_ALTBUF)
-			Term->AltWritePos = X + Y * Term->TextWidth;
-		else
-			Term->WritePos = X + Y * Term->TextWidth + Term->ViewPos;
+		tVT_Pos	*wrpos = VT_int_GetWritePosPtr(Term);
+		wrpos->Row = X;
+		wrpos->Col = Y + (Term->Flags & VT_FLAG_ALTBUF ? 0 : Term->ViewTopRow);
 		VT_int_UpdateCursor(Term, 0);
 	}
 	else

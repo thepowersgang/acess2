@@ -163,18 +163,12 @@ int VT_Install(char **Arguments)
 	Log_Debug("VTerm", "Initialising nodes (and creating buffers)");
 	for( i = 0; i < NUM_VTS; i++ )
 	{
-		gVT_Terminals[i].Mode = TERM_MODE_TEXT;
-		gVT_Terminals[i].Flags = 0;
 //		gVT_Terminals[i].Flags = VT_FLAG_HIDECSR;	//HACK - Stop all those memcpy calls
 		gVT_Terminals[i].CurColour = DEFAULT_COLOUR;
-		gVT_Terminals[i].WritePos = 0;
-		gVT_Terminals[i].AltWritePos = 0;
-		gVT_Terminals[i].ViewPos = 0;
-		gVT_Terminals[i].ScrollHeight = 0;
+		gVT_Terminals[i].Mode = PTYBUFFMT_TEXT;
 		
 		// Initialise
 		VT_int_Resize( &gVT_Terminals[i], giVT_RealWidth, giVT_RealHeight );
-		gVT_Terminals[i].Mode = PTYBUFFMT_TEXT;
 		char	name[] = {'v','t','0'+i,'\0'};
 		struct ptydims dims = {
 			.W = giVT_RealWidth / giVT_CharWidth,

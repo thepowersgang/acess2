@@ -5,7 +5,7 @@
  * drv/vterm_termbuf.c
  * - Virtual Terminal - Terminal buffer manipulation
  */
-#define DEBUG	0
+#define DEBUG	1
 #define DEBUG_CHECKHEAP	0
 #include "vterm.h"
 
@@ -65,60 +65,71 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 	
 	HEAP_VALIDATE();
 	
-	size_t	limit = VT_int_GetBufferRows(Term) * Term->TextWidth;
-	size_t	write_pos = *VT_int_GetWritePosPtr(Term);
+	const size_t	maxrows = VT_int_GetBufferRows(Term);
+	const size_t	limit = maxrows * Term->TextWidth;
+	tVT_Pos	*wrpos = VT_int_GetWritePosPtr(Term);
 	tVT_Char	*buffer = (Term->Flags & VT_FLAG_ALTBUF ? Term->AltBuf : Term->Text);
 
-	ASSERTC(write_pos, >=, 0);
+	// If writing with the cursor on righthand edge, wrap down to next line
+	// TODO: Wrap to same line?
+	if( wrpos->Col >= Term->TextWidth )
+	{
+		ASSERTC(wrpos->Col, <=, Term->TextWidth);
+		VT_int_UpdateScreen( Term, 0 );
+		//wrpos->Row ++;
+		wrpos->Col = 0;
+	}
 
 	// Scroll entire buffer (about to write outside limit)
-	if( write_pos >= limit )
+	if( wrpos->Row >= maxrows )
 	{
-		ASSERTC(write_pos, <, limit + Term->TextWidth);
+		ASSERTC(wrpos->Row, <, maxrows + 1);
 		VT_int_ScrollText(Term, 1);
-		write_pos -= Term->TextWidth;
+		wrpos->Row --;
 	}
 
 	// Bring written cell into view
 	if( !(Term->Flags & VT_FLAG_ALTBUF) )
 	{
-		size_t	onescreen = Term->TextWidth*Term->TextHeight;
-		if( write_pos >= Term->ViewPos + onescreen )
+		if( wrpos->Row >= Term->ViewTopRow + Term->TextHeight )
 		{
-			size_t	new_pos = write_pos - (write_pos % Term->TextWidth) - onescreen + Term->TextWidth;
-			size_t	count = (new_pos - Term->ViewPos) / Term->TextWidth;
+			size_t	new_pos = wrpos->Row - (Term->TextHeight - 1);
+			size_t	count = new_pos - Term->ViewTopRow;
 			VT_int_ScrollFramebuffer(Term, count);
-			//Debug("VT_int_PutChar: VScroll down to %i", new_pos/Term->TextWidth);
-			Term->ViewPos = new_pos;
+			//Debug("VT_int_PutChar: VScroll down to %i", new_pos);
+			Term->ViewTopRow = new_pos;
 		}
-		else if( write_pos < Term->ViewPos )
+		else if( wrpos->Row < Term->ViewTopRow )
 		{
-			size_t	new_pos = write_pos - (write_pos % Term->TextWidth);
-			size_t	count = (Term->ViewPos - new_pos) / Term->TextWidth;
+			size_t	new_pos = wrpos->Row;
+			size_t	count = Term->ViewTopRow - new_pos;
 			VT_int_ScrollFramebuffer(Term, -count);
-			//Debug("VT_int_PutChar: VScroll up to %i", new_pos/Term->TextWidth);
-			Term->ViewPos = new_pos;
+			//Debug("VT_int_PutChar: VScroll up to %i", new_pos);
+			Term->ViewTopRow = new_pos;
 		}
 		else
 		{
 			// no action, cell is visible
 		}
 	}
-	
+
+	size_t	write_pos = wrpos->Row * Term->TextWidth + wrpos->Col;
+	ASSERTC(write_pos, <, limit);
+
 	switch(Ch)
 	{
 	case '\0':	// Ignore NULL byte
 		return;
 	case '\n':
 		VT_int_UpdateScreen( Term, 0 );	// Update the line before newlining
-		write_pos += Term->TextWidth;
-		// TODO: Scroll display down if needed
+		wrpos->Row ++;
+		// TODO: Force scroll?
 	case '\r':
-		write_pos -= write_pos % Term->TextWidth;
+		wrpos->Col = 0;
 		break;
 	
 	case '\t': {
-		size_t	col =  write_pos % Term->TextWidth;
+		size_t	col = wrpos->Col;
 		do {
 			buffer[ write_pos ].Ch = '\0';
 			buffer[ write_pos ].Colour = Term->CurColour;
@@ -147,6 +158,7 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 		} while(write_pos && i-- && buffer[ write_pos ].Ch == '\0');
 		if(buffer[ write_pos ].Ch != '\0')
 			write_pos ++;
+		wrpos->Col = write_pos % Term->TextWidth;
 		break;
 	
 	default:
@@ -156,11 +168,11 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 		if( (write_pos + 1) % Term->TextWidth == 0 )
 			VT_int_UpdateScreen( Term, 0 );
 		write_pos ++;
+		wrpos->Col ++;
 		break;
 	}
 	
 	ASSERTC(write_pos, <=, limit);
-	*VT_int_GetWritePosPtr(Term) = write_pos;
 
 	HEAP_VALIDATE();
 	
@@ -176,7 +188,7 @@ void VT_int_ScrollText(tVTerm *Term, int Count)
 
 	// Get buffer pointer and attributes	
 	size_t	height = VT_int_GetBufferRows(Term);
-	size_t	*write_pos_ptr = VT_int_GetWritePosPtr(Term);
+	tVT_Pos	*wrpos = VT_int_GetWritePosPtr(Term);
 	
 	if( Term->Flags & VT_FLAG_ALTBUF )
 	{
@@ -191,7 +203,7 @@ void VT_int_ScrollText(tVTerm *Term, int Count)
 		scroll_height = height;
 	}
 	
-	const int init_write_pos = *write_pos_ptr;
+	const tVT_Pos init_wrpos = *wrpos;
 
 	// Scroll text upwards (more space at bottom)
 	if( Count > 0 )
@@ -217,13 +229,13 @@ void VT_int_ScrollText(tVTerm *Term, int Count)
 		// Update Screen
 		VT_int_ScrollFramebuffer( Term, Count );
 		if( Term->Flags & VT_FLAG_ALTBUF )
-			Term->AltWritePos = base;
+			wrpos->Row = scroll_top;
 		else
-			Term->WritePos = Term->ViewPos + Term->TextWidth*(Term->TextHeight - Count);
+			wrpos->Row = Term->ViewTopRow + (Term->TextHeight - Count);
 		for( int i = 0; i < Count; i ++ )
 		{
 			VT_int_UpdateScreen( Term, 0 );
-			*write_pos_ptr += Term->TextWidth;
+			wrpos->Row ++;
 		}
 	}
 	else
@@ -249,16 +261,17 @@ void VT_int_ScrollText(tVTerm *Term, int Count)
 		// Update screen (shift framebuffer, re-render revealed lines)
 		VT_int_ScrollFramebuffer( Term, -Count );
 		if( Term->Flags & VT_FLAG_ALTBUF )
-			Term->AltWritePos = Term->TextWidth*scroll_top;
+			wrpos->Row = scroll_top;
 		else
-			Term->WritePos = Term->ViewPos;
+			wrpos->Row = Term->ViewTopRow;
 		for( int i = 0; i < Count; i ++ )
 		{
 			VT_int_UpdateScreen( Term, 0 );
+			// Increment?
 		}
 	}
 	
-	*write_pos_ptr = init_write_pos;
+	*wrpos = init_wrpos;
 
 	HEAP_VALIDATE();
 }
@@ -422,7 +435,7 @@ void VT_int_ToggleAltBuffer(tVTerm *Term, int Enabled)
 	VT_int_UpdateScreen(Term, 1);
 }
 
-size_t *VT_int_GetWritePosPtr(tVTerm *Term)
+tVT_Pos *VT_int_GetWritePosPtr(tVTerm *Term)
 {
 	return ((Term->Flags & VT_FLAG_ALTBUF) ? &Term->AltWritePos : &Term->WritePos);
 }

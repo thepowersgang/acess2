@@ -5,7 +5,7 @@
  * drv/vterm_vt100.c
  * - Virtual Terminal - VT100 (Kinda) Emulation
  */
-#define DEBUG	0
+#define DEBUG	1
 #include "vterm.h"
 
 #define sTerminal	sVTerm
@@ -47,12 +47,12 @@ void Display_ScrollDown(tTerminal *Term, int CountDown)
 		VT_int_ScrollText(Term, CountDown);
 	else
 	{
-		if(Term->ViewPos/Term->TextWidth + CountDown < 0)
+		if(Term->ViewTopRow + CountDown < 0)
 			return ;
-		if(Term->ViewPos/Term->TextWidth + CountDown  > Term->TextHeight * (giVT_Scrollback + 1))
+		if(Term->ViewTopRow + CountDown  > Term->TextHeight * (giVT_Scrollback + 1))
 			return ;
 		
-		Term->ViewPos += Term->TextWidth * CountDown;
+		Term->ViewTopRow += CountDown;
 	}
 }
 void Display_SetCursor(tTerminal *Term, int Row, int Col)
@@ -64,12 +64,13 @@ void Display_SetCursor(tTerminal *Term, int Row, int Col)
 	ASSERTCR( Row, <, maxrows, );
 	ASSERTCR( Col, >=, 0, );
 	ASSERTCR( Col, <, Term->TextWidth, );
-	*VT_int_GetWritePosPtr(Term) = Row*Term->TextWidth + Col;
+	VT_int_GetWritePosPtr(Term)->Row = Row;
+	VT_int_GetWritePosPtr(Term)->Col = Col;
 }
 void Display_MoveCursor(tTerminal *Term, int RelRow, int RelCol)
 {
 	LOG("(R+%i,C+%i)", RelRow, RelCol);
-	size_t	*wrpos = VT_int_GetWritePosPtr(Term);
+	tVT_Pos	*wrpos = VT_int_GetWritePosPtr(Term);
 
 	// TODO: Support scrolling if cursor goes offscreen
 	// if( bScrollIfNeeded )
@@ -82,21 +83,21 @@ void Display_MoveCursor(tTerminal *Term, int RelRow, int RelCol)
 		// 
 		if( RelCol < 0 )
 		{
-			 int	max = *wrpos % Term->TextWidth;
+			 int	max = wrpos->Col;
 			if( RelCol < -max )
 				RelCol = -max;
 		}
 		else
 		{
-			size_t	max = Term->TextWidth - (*wrpos % Term->TextWidth) - 1;
+			size_t	max = Term->TextWidth - wrpos->Col - 1;
 			if(RelCol > max)
 				RelCol = max;
 		}
-		*wrpos += RelCol;
+		wrpos->Col += RelCol;
 	}
 	if( RelRow != 0 )
 	{
-		 int	currow = *wrpos / Term->TextWidth;
+		 int	currow = wrpos->Row;
 		 int	maxrows = VT_int_GetBufferRows(Term);
 		if( RelRow < 0 )
 		{
@@ -108,9 +109,9 @@ void Display_MoveCursor(tTerminal *Term, int RelRow, int RelCol)
 			if( currow + RelRow > maxrows-1 )
 				RelRow = maxrows-1 - currow;
 		}
-		*wrpos += RelRow*Term->TextWidth;
+		wrpos->Row += RelRow;
 	}
-	LOG("=(R%i,C%i)", *wrpos / Term->TextWidth, *wrpos % Term->TextWidth);
+	LOG("=(R%i,C%i)", wrpos->Row, wrpos->Col);
 }
 void Display_SaveCursor(tTerminal *Term)
 {
@@ -119,33 +120,35 @@ void Display_SaveCursor(tTerminal *Term)
 }
 void Display_RestoreCursor(tTerminal *Term)
 {
-	size_t	max = VT_int_GetBufferRows(Term) * Term->TextWidth;
-	size_t	*wrpos = VT_int_GetWritePosPtr(Term);
-	*wrpos = MIN(Term->SavedWritePos, max-1);
-	LOG("Restored %i", *wrpos);
+	size_t	maxrow = VT_int_GetBufferRows(Term);
+	tVT_Pos	*wrpos = VT_int_GetWritePosPtr(Term);
+	*wrpos = Term->SavedWritePos;
+	if(wrpos->Row >= maxrow)
+		wrpos->Row = maxrow-1;
+	if(wrpos->Col >= Term->TextWidth )
+		wrpos->Col = Term->TextWidth-1;
+	LOG("Restored (R%i,C%i)", wrpos->Row, wrpos->Col);
 }
 // 0: All, 1: Forward, -1: Reverse
 void Display_ClearLine(tTerminal *Term, int Dir)
 {
-	const size_t	wrpos = *VT_int_GetWritePosPtr(Term);
-	const int	row = wrpos / Term->TextWidth;
-	const int	col = wrpos % Term->TextWidth;
+	const tVT_Pos	*wrpos = VT_int_GetWritePosPtr(Term);
 
 	LOG("(Dir=%i)", Dir);
 
 	// Erase all
 	if( Dir == 0 ) {
-		VT_int_ClearLine(Term, row);
+		VT_int_ClearLine(Term, wrpos->Row);
 		VT_int_UpdateScreen(Term, 0);
 	}
 	// Erase to right
 	else if( Dir == 1 ) {
-		VT_int_ClearInLine(Term, row, col, Term->TextWidth);
+		VT_int_ClearInLine(Term, wrpos->Row, wrpos->Col, Term->TextWidth);
 		VT_int_UpdateScreen(Term, 0);
 	}
 	// Erase to left
 	else if( Dir == -1 ) {
-		VT_int_ClearInLine(Term, row, 0, col);
+		VT_int_ClearInLine(Term, wrpos->Row, 0, wrpos->Col);
 		VT_int_UpdateScreen(Term, 0);
 	}
 	else {
@@ -157,30 +160,31 @@ void Display_ClearLine(tTerminal *Term, int Dir)
 void Display_ClearLines(tTerminal *Term, int Dir)
 {
 	LOG("(Dir=%i)", Dir);	
-	size_t	*wrpos = VT_int_GetWritePosPtr(Term);
+	tVT_Pos	*wrpos = VT_int_GetWritePosPtr(Term);
 	size_t	height = VT_int_GetBufferRows(Term);
 	
 	// All
 	if( Dir == 0 ) {
 		
 		if( !(Term->Flags & VT_FLAG_ALTBUF) ) {
-			Term->ViewPos = 0;
+			Term->ViewTopRow = 0;
 		}
 		int count = height;
 		while( count -- )
 			VT_int_ClearLine(Term, count);
-		*wrpos = 0;
+		wrpos->Col = 0;
+		wrpos->Row = 0;
 		VT_int_UpdateScreen(Term, 1);
 	}
 	// Downwards
 	else if( Dir == 1 ) {
-		for( int row = *wrpos / Term->TextWidth; row < height; row ++ )
+		for( int row = wrpos->Row; row < height; row ++ )
 			VT_int_ClearLine(Term, row);
 		VT_int_UpdateScreen(Term, 1);
 	}
 	// Upwards
 	else if( Dir == -1 ) {
-		for( int row = 0; row < *wrpos / Term->TextWidth; row ++ )
+		for( int row = 0; row < wrpos->Row; row ++ )
 			VT_int_ClearLine(Term, row);
 		VT_int_UpdateScreen(Term, 1);
 	}

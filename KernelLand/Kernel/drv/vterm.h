@@ -42,6 +42,12 @@ enum eVT_InModes {
 typedef struct sVTerm	tVTerm;
 
 // === STRUCTURES ===
+typedef struct
+{
+	unsigned short	Row;
+	unsigned short	Col;
+} tVT_Pos;
+
 struct sVTerm
 {
 	 int	Mode;	//!< Current Mode (see ::eTplTerminal_Modes)
@@ -56,15 +62,15 @@ struct sVTerm
 	
 	Uint32	CurColour;	//!< Current Text Colour
 	
-	size_t	ViewPos;	//!< View Buffer Offset (Text Only)
-	size_t	WritePos;	//!< Write Buffer Offset (Text Only)
+	size_t	ViewTopRow;	//!< View Buffer Offset (Text Only)
+	tVT_Pos	WritePos;	//!< Write Buffer Offset (Text Only)
 	tVT_Char	*Text;
 	
+	tVT_Pos	AltWritePos;	//!< Alternate write position
 	tVT_Char	*AltBuf;	//!< Alternate Screen Buffer
-	size_t	AltWritePos;	//!< Alternate write position
 	short	ScrollTop;	//!< Top of scrolling region (smallest)
 	short	ScrollHeight;	//!< Length of scrolling region
-	size_t	SavedWritePos;	//!< Saved cursor position (\e[s and \e[u)
+	tVT_Pos	SavedWritePos;	//!< Saved cursor position (\e[s and \e[u)
 
 	char	EscapeCodeCache[16];
 	size_t	EscapeCodeLen;
@@ -129,7 +135,7 @@ extern void	VT_int_ClearInLine(tVTerm *Term, int Row, int FirstCol, int LastCol)
 extern void	VT_int_Resize(tVTerm *Term, int NewWidth, int NewHeight);
 extern void	VT_int_ToggleAltBuffer(tVTerm *Term, int Enabled);
 
-extern size_t	*VT_int_GetWritePosPtr(tVTerm *Term);
+extern tVT_Pos	*VT_int_GetWritePosPtr(tVTerm *Term);
 extern size_t	VT_int_GetBufferRows(tVTerm *Term);
 
 #endif

@@ -101,16 +101,14 @@ void VT_KBCallBack(Uint32 Codepoint)
 		case KEYSYM_PGUP:
 			if( term->Flags & VT_FLAG_ALTBUF )
 				return ;
-			term->ViewPos = MAX( 0, term->ViewPos - term->Width );
+			term->ViewTopRow = MAX(0, term->ViewTopRow - 1);
 			VT_int_UpdateScreen(term, 1);
 			return;
 		case KEYSYM_PGDN:
 			if( term->Flags & VT_FLAG_ALTBUF )
 				return ;
-			term->ViewPos = MIN(
-				term->ViewPos + term->Width,
-				term->Width * term->Height * giVT_Scrollback
-				);
+			// Note the lack of giVT_Scrollback+1, view top can't go above size-onescreen
+			term->ViewTopRow = MIN(term->ViewTopRow + 1, term->Height * giVT_Scrollback);
 			VT_int_UpdateScreen(term, 1);
 			return;
 		}

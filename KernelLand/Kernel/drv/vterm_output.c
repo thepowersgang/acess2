@@ -96,8 +96,6 @@ void VT_int_UpdateCursor( tVTerm *Term, int bShow )
 	}
 	else if( Term->Mode == TERM_MODE_TEXT )
 	{
-		 int	offset;
-		
 //		if( !(Term->Flags & VT_FLAG_SHOWCSR)
 //		 && ( (Term->Flags & VT_FLAG_HIDECSR) || !Term->Node.ReadThreads)
 //		  )
@@ -108,13 +106,9 @@ void VT_int_UpdateCursor( tVTerm *Term, int bShow )
 		}
 		else
 		{
-			if(Term->Flags & VT_FLAG_ALTBUF)
-				offset = Term->AltWritePos;
-			else
-				offset = Term->WritePos - Term->ViewPos;
-					
-			csr_pos.x = offset % Term->TextWidth;
-			csr_pos.y = offset / Term->TextWidth;
+			const tVT_Pos	*wrpos = VT_int_GetWritePosPtr(Term);
+			csr_pos.x = wrpos->Col;
+			csr_pos.y = wrpos->Row - (Term->Flags & VT_FLAG_ALTBUF ? 0 : Term->ViewTopRow);
 			if( 0 > csr_pos.y || csr_pos.y >= Term->TextHeight )
 				csr_pos.y = -1, csr_pos.x = -1;
 		}
@@ -139,8 +133,8 @@ void VT_int_UpdateScreen( tVTerm *Term, int UpdateAll )
 	switch( Term->Mode )
 	{
 	case TERM_MODE_TEXT: {
-		size_t view_pos = (Term->Flags & VT_FLAG_ALTBUF) ? 0 : Term->ViewPos;
-		size_t write_pos = (Term->Flags & VT_FLAG_ALTBUF) ? Term->AltWritePos : Term->WritePos;
+		size_t view_pos = (Term->Flags & VT_FLAG_ALTBUF) ? 0 : Term->ViewTopRow*Term->TextWidth;
+		const tVT_Pos *wrpos = VT_int_GetWritePosPtr(Term);
 		const tVT_Char *buffer = (Term->Flags & VT_FLAG_ALTBUF) ? Term->AltBuf : Term->Text;
 		// Re copy the entire screen?
 		if(UpdateAll) {
@@ -153,7 +147,7 @@ void VT_int_UpdateScreen( tVTerm *Term, int UpdateAll )
 		}
 		// Only copy the current line
 		else {
-			 int	ofs = write_pos - write_pos % Term->TextWidth;
+			size_t	ofs = wrpos->Row * Term->TextWidth;
 			VFS_WriteAt(
 				giVT_OutputDevHandle,
 				(ofs - view_pos)*sizeof(tVT_Char),
