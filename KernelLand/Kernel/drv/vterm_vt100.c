@@ -59,17 +59,17 @@ void Display_SetCursor(tTerminal *Term, int Row, int Col)
 {
 	LOG("(R%i,C%i)", Row, Col);
 	VT_int_UpdateScreen(Term, 0);
-	 int	maxrows = ((Term->Flags & VT_FLAG_ALTBUF) ? 1 : (giVT_Scrollback+1))*Term->TextHeight;
+	 int	maxrows = VT_int_GetBufferRows(Term);
 	ASSERTCR( Row, >=, 0, );
 	ASSERTCR( Row, <, maxrows, );
 	ASSERTCR( Col, >=, 0, );
 	ASSERTCR( Col, <, Term->TextWidth, );
-	*(Term->Flags & VT_FLAG_ALTBUF ? &Term->AltWritePos : &Term->WritePos) = Row*Term->TextWidth + Col;
+	*VT_int_GetWritePosPtr(Term) = Row*Term->TextWidth + Col;
 }
 void Display_MoveCursor(tTerminal *Term, int RelRow, int RelCol)
 {
 	LOG("(R+%i,C+%i)", RelRow, RelCol);
-	int	*wrpos = (Term->Flags & VT_FLAG_ALTBUF ? &Term->AltWritePos : &Term->WritePos);
+	size_t	*wrpos = VT_int_GetWritePosPtr(Term);
 
 	// TODO: Support scrolling if cursor goes offscreen
 	// if( bScrollIfNeeded )
@@ -82,22 +82,22 @@ void Display_MoveCursor(tTerminal *Term, int RelRow, int RelCol)
 		// 
 		if( RelCol < 0 )
 		{
-			 int	avail = *wrpos % Term->TextWidth;
-			if( RelCol < -avail )
-				RelCol = -avail;
+			 int	max = *wrpos % Term->TextWidth;
+			if( RelCol < -max )
+				RelCol = -max;
 		}
 		else
 		{
-			size_t	avail = Term->TextWidth - (*wrpos % Term->TextWidth);
-			if(RelCol > avail)
-				RelCol = avail;
+			size_t	max = Term->TextWidth - (*wrpos % Term->TextWidth) - 1;
+			if(RelCol > max)
+				RelCol = max;
 		}
 		*wrpos += RelCol;
 	}
 	if( RelRow != 0 )
 	{
 		 int	currow = *wrpos / Term->TextWidth;
-		 int	maxrows = ((Term->Flags & VT_FLAG_ALTBUF) ? 1 : (giVT_Scrollback+1))*Term->TextHeight;
+		 int	maxrows = VT_int_GetBufferRows(Term);
 		if( RelRow < 0 )
 		{
 			if( RelRow < -currow )
@@ -114,23 +114,20 @@ void Display_MoveCursor(tTerminal *Term, int RelRow, int RelCol)
 }
 void Display_SaveCursor(tTerminal *Term)
 {
-	Term->SavedWritePos = (Term->Flags & VT_FLAG_ALTBUF) ? Term->AltWritePos : Term->WritePos;
+	Term->SavedWritePos = *VT_int_GetWritePosPtr(Term);
 	LOG("Saved = %i", Term->SavedWritePos);
 }
 void Display_RestoreCursor(tTerminal *Term)
 {
-	 int	max = ((Term->Flags & VT_FLAG_ALTBUF) ? 1 : (giVT_Scrollback+1))*Term->TextHeight * Term->TextWidth;
-	 int	*wrpos = ((Term->Flags & VT_FLAG_ALTBUF) ? &Term->AltWritePos : &Term->WritePos);
-	if( Term->SavedWritePos >= max )
-		*wrpos = max-1;
-	else
-		*wrpos = Term->SavedWritePos;
+	size_t	max = VT_int_GetBufferRows(Term) * Term->TextWidth;
+	size_t	*wrpos = VT_int_GetWritePosPtr(Term);
+	*wrpos = MIN(Term->SavedWritePos, max-1);
 	LOG("Restored %i", *wrpos);
 }
 // 0: All, 1: Forward, -1: Reverse
 void Display_ClearLine(tTerminal *Term, int Dir)
 {
-	const int	wrpos = (Term->Flags & VT_FLAG_ALTBUF ? Term->AltWritePos : Term->WritePos);
+	const size_t	wrpos = *VT_int_GetWritePosPtr(Term);
 	const int	row = wrpos / Term->TextWidth;
 	const int	col = wrpos % Term->TextWidth;
 
@@ -160,8 +157,8 @@ void Display_ClearLine(tTerminal *Term, int Dir)
 void Display_ClearLines(tTerminal *Term, int Dir)
 {
 	LOG("(Dir=%i)", Dir);	
-	 int	*wrpos = (Term->Flags & VT_FLAG_ALTBUF ? &Term->AltWritePos : &Term->WritePos);
-	 int	height = Term->TextHeight * (Term->Flags & VT_FLAG_ALTBUF ? 1 : giVT_Scrollback + 1);
+	size_t	*wrpos = VT_int_GetWritePosPtr(Term);
+	size_t	height = VT_int_GetBufferRows(Term);
 	
 	// All
 	if( Dir == 0 ) {

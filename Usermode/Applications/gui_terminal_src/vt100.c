@@ -16,6 +16,11 @@
 # include <string.h>
 # include <assert.h>
 # include <stdlib.h>	// malloc/free
+
+static inline int MIN(int a, int b)
+{
+	return a < b ? a : b;
+}
 #endif
 
 enum eExcapeMode {
@@ -57,11 +62,6 @@ const uint32_t	caVT100Colours[] = {
  int	Term_HandleVT100_Short(tTerminal *Term, int Len, const char *Buf);
  int	Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buf);
  int	Term_HandleVT100_OSC(tTerminal *Term, int Len, const char *Buf);
-
-static inline int min(int a, int b)
-{
-	return a < b ? a : b;
-}
 
 int _locate_eos(size_t Len, const char *Buf)
 {
@@ -137,7 +137,7 @@ int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
 	if( st->cache_len > 0	|| *Buf == '\x1b' )
 	{
 		// Handle VT100 (like) escape sequence
-		 int	new_bytes = min(MAX_VT100_ESCAPE_LEN - st->cache_len, Len);
+		 int	new_bytes = MIN(MAX_VT100_ESCAPE_LEN - st->cache_len, Len);
 		 int	ret = 0;
 		 int	old_inc_len = st->cache_len;
 		
@@ -178,11 +178,11 @@ int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
 
 	switch( *Buf )
 	{
-	// TODO: Need to handle \t and ^A-Z
 	case '\b':
+		// backspace is aprarently just supposed to cursor left (if possible)
 		Display_MoveCursor(Term, 0, -1);
-		Display_AddText(Term, 1, " ");
-		Display_MoveCursor(Term, 0, -1);
+		//Display_AddText(Term, 1, " ");
+		//Display_MoveCursor(Term, 0, -1);
 		return 1;
 	case '\t':
 		// TODO: tab (get current cursor pos, space until multiple of 8)
@@ -249,7 +249,7 @@ int Term_HandleVT100_Short(tTerminal *Term, int Len, const char *Buf)
 		switch(Buf[2])
 		{
 		case 8:
-			_SysDebug("TODO \\e#%c - Fill screen with 'E'", Buf[2]);
+			_SysDebug("TODO \\e#%c DECALN - Fill screen with 'E'", Buf[2]);
 			break;
 		default:
 			_SysDebug("Unknown \\e#%c", Buf[2]);
@@ -414,16 +414,16 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 		switch( c )
 		{
 		case 'A':
-			Display_MoveCursor(Term, -(argc >= 1 ? args[0] : 1), 0);
+			Display_MoveCursor(Term, -(args[0] != 0 ? args[0] : 1), 0);
 			break;
 		case 'B':
-			Display_MoveCursor(Term, (argc >= 1 ? args[0] : 1), 0);
+			Display_MoveCursor(Term, (args[0] != 0 ? args[0] : 1), 0);
 			break;
 		case 'C':
-			Display_MoveCursor(Term, 0, (argc >= 1 ? args[0] : 1));
+			Display_MoveCursor(Term, 0, (args[0] != 0 ? args[0] : 1));
 			break;
 		case 'D':
-			Display_MoveCursor(Term, 0, -(argc >= 1 ? args[0] : 1));
+			Display_MoveCursor(Term, 0, -(args[0] != 0 ? args[0] : 1));
 			break;
 		case 'H':
 			if( argc != 2 ) {

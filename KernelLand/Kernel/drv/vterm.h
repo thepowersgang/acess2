@@ -56,15 +56,15 @@ struct sVTerm
 	
 	Uint32	CurColour;	//!< Current Text Colour
 	
-	 int	ViewPos;	//!< View Buffer Offset (Text Only)
-	 int	WritePos;	//!< Write Buffer Offset (Text Only)
+	size_t	ViewPos;	//!< View Buffer Offset (Text Only)
+	size_t	WritePos;	//!< Write Buffer Offset (Text Only)
 	tVT_Char	*Text;
 	
 	tVT_Char	*AltBuf;	//!< Alternate Screen Buffer
-	 int	AltWritePos;	//!< Alternate write position
+	size_t	AltWritePos;	//!< Alternate write position
 	short	ScrollTop;	//!< Top of scrolling region (smallest)
 	short	ScrollHeight;	//!< Length of scrolling region
-	 int	SavedWritePos;	//!< Saved cursor position (\e[s and \e[u)
+	size_t	SavedWritePos;	//!< Saved cursor position (\e[s and \e[u)
 
 	char	EscapeCodeCache[16];
 	size_t	EscapeCodeLen;
@@ -128,6 +128,9 @@ extern void	VT_int_ClearLine(tVTerm *Term, int Num);
 extern void	VT_int_ClearInLine(tVTerm *Term, int Row, int FirstCol, int LastCol);
 extern void	VT_int_Resize(tVTerm *Term, int NewWidth, int NewHeight);
 extern void	VT_int_ToggleAltBuffer(tVTerm *Term, int Enabled);
+
+extern size_t	*VT_int_GetWritePosPtr(tVTerm *Term);
+extern size_t	VT_int_GetBufferRows(tVTerm *Term);
 
 #endif
 

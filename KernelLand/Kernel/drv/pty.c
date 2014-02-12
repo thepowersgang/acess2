@@ -386,7 +386,7 @@ size_t PTY_int_SendInput(tPTY *PTY, const char *Input, size_t Length)
 	
 	if( PTY->Mode.InputMode & PTYIMODE_CANON )
 	{
-		const char	char_bs = '\b';
+		
 		switch(Input[0])
 		{
 		case 3:	// INTR - ^C
@@ -401,17 +401,21 @@ size_t PTY_int_SendInput(tPTY *PTY, const char *Input, size_t Length)
 			print = 0;
 			break;
 		case 8:	// Backspace
-			if(PTY->LineLength != 0)
+			if(PTY->LineLength != 0) {
 				PTY->LineLength --;
+				PTY_WriteClient(&PTY->ClientNode, 0, 3, "\b \b", 0);
+			}
+			print = 0;
 			break;
 		case 'w'-'a':	// Word erase
 			while(PTY->LineLength != 0 && isalnum(PTY->LineData[--PTY->LineLength]))
-				PTY_WriteClient(&PTY->ClientNode, 0, 1, &char_bs, 0);
+				PTY_WriteClient(&PTY->ClientNode, 0, 1, "\b", 0);
+			PTY_WriteClient(&PTY->ClientNode, 0, 3, "\x1b[K", 0);
 			print = 0;
 			break;
 		case 'u'-'a':	// Kill
-			while(PTY->LineLength > 0)
-				PTY_WriteClient(&PTY->ClientNode, 0, 1, &char_bs, 0);
+			PTY_WriteClient(&PTY->ClientNode, 0, 8, "\x1b[2K\x1b[0G", 0);
+			PTY->LineLength = 0;
 			print = 0;
 			break;
 		case 'v'-'a':

@@ -62,22 +62,12 @@ void VT_int_PutRawString(tVTerm *Term, const Uint8 *String, size_t Bytes)
 void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 {
 	 int	i;
-	tVT_Char	*buffer;
-	 int	write_pos;
-	 int	limit;
 	
 	HEAP_VALIDATE();
 	
-	if(Term->Flags & VT_FLAG_ALTBUF) {
-		buffer = Term->AltBuf;
-		write_pos = Term->AltWritePos;
-		limit = Term->TextHeight * Term->TextWidth;
-	}
-	else {
-		buffer = Term->Text;
-		write_pos = Term->WritePos;
-		limit = Term->TextHeight*(giVT_Scrollback+1) * Term->TextWidth;
-	}
+	size_t	limit = VT_int_GetBufferRows(Term) * Term->TextWidth;
+	size_t	write_pos = *VT_int_GetWritePosPtr(Term);
+	tVT_Char	*buffer = (Term->Flags & VT_FLAG_ALTBUF ? Term->AltBuf : Term->Text);
 
 	ASSERTC(write_pos, >=, 0);
 
@@ -170,14 +160,7 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 	}
 	
 	ASSERTC(write_pos, <=, limit);
-	if(Term->Flags & VT_FLAG_ALTBUF)
-	{
-		Term->AltWritePos = write_pos;
-	}
-	else
-	{
-		Term->WritePos = write_pos;
-	}
+	*VT_int_GetWritePosPtr(Term) = write_pos;
 
 	HEAP_VALIDATE();
 	
@@ -187,26 +170,23 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 void VT_int_ScrollText(tVTerm *Term, int Count)
 {
 	tVT_Char	*buf;
-	 int	*write_pos_ptr;
-	 int	height;
 	 int	scroll_top, scroll_height;
 	
 	HEAP_VALIDATE();
 
 	// Get buffer pointer and attributes	
+	size_t	height = VT_int_GetBufferRows(Term);
+	size_t	*write_pos_ptr = VT_int_GetWritePosPtr(Term);
+	
 	if( Term->Flags & VT_FLAG_ALTBUF )
 	{
 		buf = Term->AltBuf;
-		height = Term->TextHeight;
-		write_pos_ptr = &Term->AltWritePos;
 		scroll_top = Term->ScrollTop;
 		scroll_height = Term->ScrollHeight;
 	}
 	else
 	{
 		buf = Term->Text;
-		height = Term->TextHeight*(giVT_Scrollback+1);
-		write_pos_ptr = &Term->WritePos;
 		scroll_top = 0;
 		scroll_height = height;
 	}
@@ -292,7 +272,7 @@ void VT_int_ClearLine(tVTerm *Term, int Row)
 {
 	HEAP_VALIDATE();
 	
-	size_t	height = Term->TextHeight * (Term->Flags & VT_FLAG_ALTBUF ? 1 : giVT_Scrollback + 1);
+	size_t	height = VT_int_GetBufferRows(Term);
 	tVT_Char	*buffer = (Term->Flags & VT_FLAG_ALTBUF ? Term->AltBuf : Term->Text);
 	ASSERTCR(Row, >=, 0, );
 	ASSERTCR(Row, <, height, );
@@ -312,7 +292,7 @@ void VT_int_ClearInLine(tVTerm *Term, int Row, int FirstCol, int LastCol)
 {
 	HEAP_VALIDATE();
 	
-	size_t	height = Term->TextHeight * (Term->Flags & VT_FLAG_ALTBUF ? 1 : giVT_Scrollback + 1);
+	size_t	height = VT_int_GetBufferRows(Term);
 	tVT_Char	*buffer = (Term->Flags & VT_FLAG_ALTBUF ? Term->AltBuf : Term->Text);
 	ASSERTCR(Row, >=, 0, );
 	ASSERTCR(Row, <, height, );
@@ -440,5 +420,15 @@ void VT_int_ToggleAltBuffer(tVTerm *Term, int Enabled)
 	else
 		Term->Flags &= ~VT_FLAG_ALTBUF;
 	VT_int_UpdateScreen(Term, 1);
+}
+
+size_t *VT_int_GetWritePosPtr(tVTerm *Term)
+{
+	return ((Term->Flags & VT_FLAG_ALTBUF) ? &Term->AltWritePos : &Term->WritePos);
+}
+
+size_t VT_int_GetBufferRows(tVTerm *Term)
+{
+	return ((Term->Flags & VT_FLAG_ALTBUF) ? 1 : (giVT_Scrollback+1))*Term->TextHeight;
 }
 
