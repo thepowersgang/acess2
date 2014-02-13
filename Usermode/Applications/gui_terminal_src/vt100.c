@@ -466,6 +466,7 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 				_SysDebug("Unknown VT100 %i K", args[0]);
 				break;
 			}
+			break;
 		case 'S':	// Scroll up n=1
 			Display_ScrollDown(Term, -(argc >= 1 ? args[0] : 1));
 			break;
