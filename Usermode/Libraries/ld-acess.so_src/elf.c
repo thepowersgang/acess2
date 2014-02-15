@@ -43,6 +43,7 @@ void	*Elf32Relocate(void *Base, char **envp, const char *Filename);
  int	elf_doRelocate_arm(uint32_t r_info, uint32_t *ptr, Elf32_Addr addend, int type, int bRela, const char *Sym, intptr_t iBaseDiff);
  int	elf_doRelocate_unk(uint32_t , uint32_t *, Elf32_Addr , int , int , const char *, intptr_t);
 #ifdef SUPPORT_ELF64
+int	_Elf64DoReloc_X86_64(void *Base, const char *strtab, Elf64_Sym *symtab, Elf64_Xword r_info, void *ptr, Elf64_Sxword addend);
 void	*Elf64Relocate(void *Base, char **envp, const char *Filename);
  int	Elf64GetSymbol(void *Base, const char *Name, void **Ret, size_t *Size);
 #endif

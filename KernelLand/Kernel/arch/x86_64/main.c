@@ -117,13 +117,14 @@ void Arch_LoadBootModules(void)
 		
 		// Unmap and free
 		numPages = (gaArch_BootModules[i].Size + ((Uint)gaArch_BootModules[i].Base&0xFFF) + 0xFFF) >> 12;
-		MM_UnmapHWPages( (tVAddr)gaArch_BootModules[i].Base, numPages );
+		MM_UnmapHWPages( gaArch_BootModules[i].Base, numPages );
 		
 		for( j = 0; j < numPages; j++ )
 			MM_DerefPhys( gaArch_BootModules[i].PBase + (j << 12) );
 		
+		// TODO: What the fuck?
 		if( (tVAddr) gaArch_BootModules[i].ArgString < KERNEL_BASE )
-			MM_UnmapHWPages( (tVAddr)gaArch_BootModules[i].ArgString, 2 );
+			MM_UnmapHWPages( gaArch_BootModules[i].ArgString, 2 );
 	}
 	Log_Log("Arch", "Boot modules loaded");
 	if( gaArch_BootModules )

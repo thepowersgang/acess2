@@ -20,6 +20,7 @@ extern void	*Proc_GetCurThread(void);
 
 // === PROTOTYPEs ===
  int	putDebugChar(char ch);
+void	Debug_SerialIRQHandler(int irq, void *unused);
 
 // === CODE ===
 /**

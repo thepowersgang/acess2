@@ -9,6 +9,7 @@
  * 
  * Uses 4.125+PtrSize bytes per page
  */
+#include <debug_hooks.h>
 
 #define MM_PAGE_REFCOUNTS	MM_PMM_BASE
 #define MM_PAGE_NODES	(MM_PMM_BASE+(MM_MAXPHYSPAGE*sizeof(Uint32)))
@@ -27,7 +28,6 @@
  int	MM_int_GetRangeID( tPAddr Addr );
  int	MM_int_GetMapEntry( void *Data, int Index, tPAddr *Start, tPAddr *Length );
 void	MM_Tpl_InitPhys(int MaxRAMPage, void *MemoryMap);
-void	MM_DumpStatistics(void);
 
 // === GLOBALS ===
 tMutex	glPhysicalPages;
@@ -84,7 +84,7 @@ void MM_Tpl_InitPhys(int MaxRAMPage, void *MemoryMap)
 
 		// Only need to allocate bitmaps
 		if( !MM_GetPhysAddr( (void*)bitmap_page ) ) {
-			if( !MM_Allocate( bitmap_page ) ) {
+			if( !MM_Allocate( (void*)bitmap_page ) ) {
 				Log_KernelPanic("PMM", "Out of memory during init, this is bad");
 				return ;
 			}
@@ -326,7 +326,7 @@ void MM_RefPhys(tPAddr PAddr)
 		if( !MM_GetPhysAddr( (void*)refpage ) )
 		{
 			 int	pages_per_page, basepage, i;
-			if( MM_Allocate(refpage) == 0 ) {
+			if( MM_Allocate( (void*) refpage) == 0 ) {
 				// Out of memory, can this be resolved?
 				// TODO: Reclaim memory
 				Log_Error("PMM", "Out of memory (MM_RefPhys)");
@@ -422,7 +422,7 @@ int MM_SetPageNode(tPAddr PAddr, void *Node)
 	if( !MM_GetRefCount(PAddr) )	return 1;
 	
 	if( !MM_GetPhysAddr( (void*)node_page ) ) {
-		if( !MM_Allocate(node_page) )
+		if( !MM_Allocate( (void*)node_page) )
 			return -1;
 		memset( (void*)node_page, 0, PAGE_SIZE );
 	}

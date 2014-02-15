@@ -86,11 +86,6 @@ extern void	MM_ClearUser(void);
 extern void	MM_DumpTables(tVAddr Start, tVAddr End);
 
 /**
- * \brief Dump physical memory usage statistics to the debug channel
- */
-extern void	MM_DumpStatistics(void);
-
-/**
  * \brief Check if a buffer is valid (and all user if originally user)
  * \param Addr	Base address
  * \param Size	Size of the buffer in bytes

@@ -16,7 +16,6 @@
 #include <Input/Keyboard/include/keyboard.h>
 #include "keymap_int.h"
 #include "layout_kbdus.h"
-#include <hal_proc.h>
 #include <debug_hooks.h>
 
 #define USE_KERNEL_MAGIC	1

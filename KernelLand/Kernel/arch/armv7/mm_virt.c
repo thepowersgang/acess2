@@ -54,7 +54,7 @@ void	MM_int_GetTables(tVAddr VAddr, Uint32 **Table0, Uint32 **Table1);
  int	MM_int_SetPageInfo(tVAddr VAddr, tMM_PageInfo *pi);
  int	MM_int_GetPageInfo(tVAddr VAddr, tMM_PageInfo *pi);
 tVAddr	MM_NewUserStack(void);
-tPAddr	MM_AllocateZero(tVAddr VAddr);
+//tPAddr	MM_AllocateZero(volatile void *VAddr);
 tPAddr	MM_AllocateRootTable(void);
 void	MM_int_CloneTable(Uint32 *DestEnt, int Table);
 tPAddr	MM_Clone(int ClearUser);
@@ -336,12 +336,12 @@ tPAddr MM_GetPhysAddr(volatile const void *Ptr)
 	return pi.PhysAddr | ((tVAddr)Ptr & ((1 << pi.Size)-1));
 }
 
-Uint MM_GetFlags(tVAddr VAddr)
+Uint MM_GetFlags(const volatile void *VAddr)
 {
 	tMM_PageInfo	pi;
 	 int	ret;
 
-	if( MM_int_GetPageInfo(VAddr, &pi) )
+	if( MM_int_GetPageInfo((tVAddr)VAddr, &pi) )
 		return 0;
 
 	ret = 0;
@@ -370,12 +370,12 @@ Uint MM_GetFlags(tVAddr VAddr)
 	return ret;
 }
 
-void MM_SetFlags(tVAddr VAddr, Uint Flags, Uint Mask)
+void MM_SetFlags(volatile void *VAddr, Uint Flags, Uint Mask)
 {
 	tMM_PageInfo	pi;
 	Uint	curFlags;
 	
-	if( MM_int_GetPageInfo(VAddr, &pi) )
+	if( MM_int_GetPageInfo((tVAddr)VAddr, &pi) )
 		return ;
 	
 	curFlags = MM_GetFlags(VAddr);
@@ -403,7 +403,7 @@ void MM_SetFlags(tVAddr VAddr, Uint Flags, Uint Mask)
 	
 	pi.bExecutable = !!(curFlags & MM_PFLAG_EXEC);
 
-	MM_int_SetPageInfo(VAddr, &pi);
+	MM_int_SetPageInfo((tVAddr)VAddr, &pi);
 }
 
 int MM_IsValidBuffer(tVAddr Addr, size_t Size)
@@ -414,7 +414,7 @@ int MM_IsValidBuffer(tVAddr Addr, size_t Size)
 	Size += Addr & (PAGE_SIZE-1);
 	Addr &= ~(PAGE_SIZE-1);
 
-	if( MM_int_GetPageInfo(Addr, &pi) )	return 0;
+	if( MM_int_GetPageInfo((tVAddr)Addr, &pi) )	return 0;
 	Addr += PAGE_SIZE;
 
 	if(pi.AP != AP_KRW_ONLY && pi.AP != AP_KRO_ONLY)
@@ -433,28 +433,27 @@ int MM_IsValidBuffer(tVAddr Addr, size_t Size)
 	return 1;
 }
 
-int MM_Map(tVAddr VAddr, tPAddr PAddr)
+int MM_Map(volatile void *VAddr, tPAddr PAddr)
 {
 	tMM_PageInfo	pi = {0};
 	#if TRACE_MAPS
 	Log("MM_Map %P=>%p", PAddr, VAddr);
 	#endif
 	
+	// TODO: Double check that an address isn't being clobbered
+	
 	pi.PhysAddr = PAddr;
 	pi.Size = 12;
-	if(VAddr < USER_STACK_TOP)
-		pi.AP = AP_RW_BOTH;
-	else
-		pi.AP = AP_KRW_ONLY;	// Kernel Read/Write
+	pi.AP = ( (tVAddr)VAddr < USER_STACK_TOP ? AP_RW_BOTH : AP_KRW_ONLY );
 	pi.bExecutable = 1;
-	if( MM_int_SetPageInfo(VAddr, &pi) ) {
+	if( MM_int_SetPageInfo( (tVAddr)VAddr, &pi) ) {
 //		MM_DerefPhys(pi.PhysAddr);
 		return 0;
 	}
 	return pi.PhysAddr;
 }
 
-tPAddr MM_Allocate(tVAddr VAddr)
+tPAddr MM_Allocate(volatile void *VAddr)
 {
 	tMM_PageInfo	pi = {0};
 	
@@ -463,12 +462,10 @@ tPAddr MM_Allocate(tVAddr VAddr)
 	pi.PhysAddr = MM_AllocPhys();
 	if( pi.PhysAddr == 0 )	LEAVE_RET('i', 0);
 	pi.Size = 12;
-	if(VAddr < USER_STACK_TOP)
-		pi.AP = AP_RW_BOTH;
-	else
-		pi.AP = AP_KRW_ONLY;
+	pi.AP = ( (tVAddr)VAddr < USER_STACK_TOP ? AP_RW_BOTH : AP_KRW_ONLY );
 	pi.bExecutable = 0;
-	if( MM_int_SetPageInfo(VAddr, &pi) ) {
+	if( MM_int_SetPageInfo( (tVAddr)VAddr, &pi ) )
+	{
 		MM_DerefPhys(pi.PhysAddr);
 		LEAVE('i', 0);
 		return 0;
@@ -477,7 +474,7 @@ tPAddr MM_Allocate(tVAddr VAddr)
 	return pi.PhysAddr;
 }
 
-tPAddr MM_AllocateZero(tVAddr VAddr)
+void MM_AllocateZero(volatile void *VAddr)
 {
 	if( !giMM_ZeroPage ) {
 		giMM_ZeroPage = MM_Allocate(VAddr);
@@ -489,21 +486,20 @@ tPAddr MM_AllocateZero(tVAddr VAddr)
 		MM_Map(VAddr, giMM_ZeroPage);
 	}
 	MM_SetFlags(VAddr, MM_PFLAG_COW, MM_PFLAG_COW);
-	return giMM_ZeroPage;
 }
 
-void MM_Deallocate(tVAddr VAddr)
+void MM_Deallocate(volatile void *VAddr)
 {
 	tMM_PageInfo	pi;
 	
-	if( MM_int_GetPageInfo(VAddr, &pi) )	return ;
+	if( MM_int_GetPageInfo((tVAddr)VAddr, &pi) )	return ;
 	if( pi.PhysAddr == 0 )	return;
 	MM_DerefPhys(pi.PhysAddr);
 	
 	pi.PhysAddr = 0;
 	pi.AP = 0;
 	pi.bExecutable = 0;
-	MM_int_SetPageInfo(VAddr, &pi);
+	MM_int_SetPageInfo((tVAddr)VAddr, &pi);
 }
 
 tPAddr MM_AllocateRootTable(void)
@@ -771,17 +767,16 @@ void MM_ClearUser(void)
 
 void *MM_MapTemp(tPAddr PAddr)
 {
-	tVAddr	ret;
-	tMM_PageInfo	pi;
-
-	for( ret = MM_TMPMAP_BASE; ret < MM_TMPMAP_END - PAGE_SIZE; ret += PAGE_SIZE )
+	for( tVAddr ret = MM_TMPMAP_BASE; ret < MM_TMPMAP_END - PAGE_SIZE; ret += PAGE_SIZE )
 	{
+		tMM_PageInfo	pi;
+
 		if( MM_int_GetPageInfo(ret, &pi) == 0 )
 			continue;
 
 //		Log("MapTemp %P at %p by %p", PAddr, ret, __builtin_return_address(0));
 		MM_RefPhys(PAddr);	// Counter the MM_Deallocate in FreeTemp
-		MM_Map(ret, PAddr);
+		MM_Map( (void*)ret, PAddr );
 		
 		return (void*)ret;
 	}
@@ -797,7 +792,7 @@ void MM_FreeTemp(void *Ptr)
 		return ;
 	}
 	
-	MM_Deallocate(VAddr);
+	MM_Deallocate(Ptr);
 }
 
 void *MM_MapHWPages(tPAddr PAddr, Uint NPages)
@@ -827,7 +822,7 @@ void *MM_MapHWPages(tPAddr PAddr, Uint NPages)
 	
 		// Map the pages	
 		for( i = 0; i < NPages; i ++ )
-			MM_Map(ret+i*PAGE_SIZE, PAddr+i*PAGE_SIZE);
+			MM_Map( (tPage*)ret + i, PAddr+i*PAGE_SIZE);
 		// and return
 		LEAVE('p', ret);
 		return (void*)ret;
@@ -859,7 +854,7 @@ void *MM_AllocDMA(int Pages, int MaxBits, tPAddr *PAddr)
 	return ret;
 }
 
-void MM_UnmapHWPages(tVAddr Vaddr, Uint Number)
+void MM_UnmapHWPages(volatile void *VAddr, Uint Number)
 {
 	Log_Error("MMVirt", "TODO: Implement MM_UnmapHWPages");
 }
@@ -891,14 +886,15 @@ tVAddr MM_NewKStack(int bShared)
 	}
 
 	// 1 guard page
+	tPage	*pageptr = (void*)(addr + PAGE_SIZE);
 	for( ofs = PAGE_SIZE; ofs < MM_KSTACK_SIZE; ofs += PAGE_SIZE )
 	{
-		if( MM_Allocate(addr + ofs) == 0 )
+		if( MM_Allocate( pageptr ) == 0 )
 		{
 			while(ofs)
 			{
 				ofs -= PAGE_SIZE;
-				MM_Deallocate(addr + ofs);
+				MM_Deallocate( pageptr-- );
 			}
 			Log_Warning("MMVirt", "MM_NewKStack: Unable to allocate");
 			return 0;
@@ -921,24 +917,26 @@ tVAddr MM_NewUserStack(void)
 	}
 
 	// 1 guard page
-	for( ofs = PAGE_SIZE; ofs < USER_STACK_SIZE; ofs += PAGE_SIZE )
+	tPage	*pageptr = (void*)addr;
+	for( ofs = PAGE_SIZE; ofs < USER_STACK_SIZE; ofs += PAGE_SIZE, pageptr ++ )
 	{
-		tPAddr	rv;
-		if(ofs >= USER_STACK_SIZE - USER_STACK_COMM)
-			rv = MM_Allocate(addr + ofs);
-		else
-			rv = MM_AllocateZero(addr + ofs);
-		if(rv == 0)
-		{
-			while(ofs)
+		if(ofs >= USER_STACK_SIZE - USER_STACK_COMM) {
+			tPAddr	rv = MM_Allocate(pageptr);
+			if(rv == 0)
 			{
-				ofs -= PAGE_SIZE;
-				MM_Deallocate(addr + ofs);
+				while(ofs)
+				{
+					ofs -= PAGE_SIZE;
+					MM_Deallocate(pageptr --);
+				}
+				Log_Warning("MMVirt", "MM_NewUserStack: Unable to allocate");
+				return 0;
 			}
-			Log_Warning("MMVirt", "MM_NewUserStack: Unable to allocate");
-			return 0;
 		}
-		MM_SetFlags(addr+ofs, 0, MM_PFLAG_KERNEL);
+		else {
+			MM_AllocateZero(pageptr);
+		}
+		MM_SetFlags(pageptr, 0, MM_PFLAG_KERNEL);
 	}
 	Log("Return %p", addr + ofs);
 //	MM_DumpTables(0, 0x80000000);

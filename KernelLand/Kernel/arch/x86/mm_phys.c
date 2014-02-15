@@ -8,15 +8,13 @@
 #include <pmemmap.h>
 #include <hal_proc.h>
 #include <semaphore.h>
+#include <debug_hooks.h>
 
 //#define USE_STACK	1
 #define TRACE_ALLOCS	0	// Print trace messages on AllocPhys/DerefPhys
 
 static const int addrClasses[] = {0,16,20,24,32,64};
 static const int numAddrClasses = sizeof(addrClasses)/sizeof(addrClasses[0]);
-
-// === IMPORTS ===
-extern void	Proc_PrintBacktrace(void);
 
 // === PROTOTYPES ===
 void	MM_Install(int NPMemRanges, tPMemMapEnt *PMemRanges);

@@ -6,6 +6,7 @@
 #include <proc.h>
 #include <mm_virt.h>
 #include <threads_int.h>	// Needed for SSE handling
+#include <debug_hooks.h>
 
 #define MAX_BACKTRACE	6
 
@@ -13,7 +14,6 @@
 extern int	MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs);
 extern void	Error_Backtrace(Uint IP, Uint BP);
 extern void	Proc_EnableSSE(void);
-extern void	Threads_Dump(void);
 extern void	Proc_RestoreSSE(Uint32 Data);
 
 // === PROTOTYPES ===

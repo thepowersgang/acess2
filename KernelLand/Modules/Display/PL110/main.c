@@ -308,11 +308,11 @@ int PL110_int_SetResolution(int W, int H)
 	gpPL110_IOMem->LCDTiming3 = 0;
 
 	if( gpPL110_Framebuffer ) {
-		MM_UnmapHWPages((tVAddr)gpPL110_Framebuffer, (giPL110_FramebufferSize+0xFFF)>>12);
+		MM_UnmapHWPages(gpPL110_Framebuffer, (giPL110_FramebufferSize+0xFFF)>>12);
 	}
 	giPL110_FramebufferSize = W*H*4;
 
-	gpPL110_Framebuffer = (void*)MM_AllocDMA( (giPL110_FramebufferSize+0xFFF)>>12, 32, &gPL110_FramebufferPhys );
+	gpPL110_Framebuffer = MM_AllocDMA( (giPL110_FramebufferSize+0xFFF)>>12, 32, &gPL110_FramebufferPhys );
 	gpPL110_IOMem->LCDUPBase = gPL110_FramebufferPhys;
 	gpPL110_IOMem->LCDLPBase = 0;
 

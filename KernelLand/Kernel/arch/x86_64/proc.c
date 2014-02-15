@@ -324,7 +324,7 @@ void ArchThreads_Init(void)
 	outb(0x40, (PIT_TIMER_DIVISOR>>8)&0xFF);	// High Byte
 	
 	// Create Per-Process Data Block
-	if( !MM_Allocate(MM_PPD_CFG) )
+	if( !MM_Allocate( (void*)MM_PPD_CFG ) )
 	{
 		Warning("Oh, hell, Unable to allocate PPD for Thread#0");
 	}
@@ -573,39 +573,39 @@ tThread *Proc_SpawnWorker(void (*Fcn)(void*), void *Data)
  */
 Uint Proc_MakeUserStack(void)
 {
-	 int	i;
-	Uint	base = USER_STACK_TOP - USER_STACK_SZ;
+	tPage	*base = (void*)(USER_STACK_TOP - USER_STACK_SZ);
 	
 	// Check Prospective Space
-	for( i = USER_STACK_SZ >> 12; i--; )
+	for( int i = USER_STACK_SZ/PAGE_SIZE; i--; )
 	{
-		if( MM_GetPhysAddr( (void*)(base + (i<<12)) ) != 0 )
-			break;
-	}
-	
-	if(i != -1)	return 0;
-	
-	// Allocate Stack - Allocate incrementally to clean up MM_Dump output
-	// - Most of the user stack is the zero page
-	for( i = 0; i < (USER_STACK_SZ-USER_STACK_PREALLOC)/0x1000; i++ )
-	{
-		MM_AllocateZero( base + (i<<12) );
-	}
-	// - but the top USER_STACK_PREALLOC pages are actually allocated
-	for( ; i < USER_STACK_SZ/0x1000; i++ )
-	{
-		tPAddr	alloc = MM_Allocate( base + (i<<12) );
-		if( !alloc )
+		if( MM_GetPhysAddr( base + i ) != 0 )
 		{
-			// Error
-			Log_Error("Proc", "Unable to allocate user stack (%i pages requested)", USER_STACK_SZ/0x1000);
-			while( i -- )
-				MM_Deallocate( base + (i<<12) );
 			return 0;
 		}
 	}
 	
-	return base + USER_STACK_SZ;
+	// Allocate Stack - Allocate incrementally to clean up MM_Dump output
+	// - Most of the user stack is the zero page
+	int i = 0;
+	for( ; i < (USER_STACK_SZ-USER_STACK_PREALLOC)/PAGE_SIZE; i++ )
+	{
+		MM_AllocateZero( base + i );
+	}
+	// - but the top USER_STACK_PREALLOC pages are actually allocated
+	for( ; i < USER_STACK_SZ/PAGE_SIZE; i++ )
+	{
+		tPAddr	alloc = MM_Allocate( base + i );
+		if( !alloc )
+		{
+			// Error
+			Log_Error("Proc", "Unable to allocate user stack (%i pages requested)", USER_STACK_SZ/PAGE_SIZE);
+			while( i -- )
+				MM_Deallocate( base + i );
+			return 0;
+		}
+	}
+	
+	return (tVAddr)( base + USER_STACK_SZ/PAGE_SIZE );
 }
 
 void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, const char **ArgV, int DataSize)

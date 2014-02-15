@@ -9,6 +9,7 @@
  */
 #include <acess.h>
 #include <drv_serial.h>
+#include <debug_hooks.h>
 
 // === CONSTANTS ===
 //#define UART0_BASE	0x10009000

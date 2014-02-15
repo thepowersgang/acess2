@@ -8,6 +8,7 @@
 #include <archinit.h>
 #include <pmemmap.h>
 #include <mm_virt.h>
+#include <debug_hooks.h>
 
 #define TRACE_REF	0
 
@@ -71,7 +72,7 @@ void MM_InitPhys(int NPMemRanges, tPMemMapEnt *PMemRanges)
 	 int	i;
 	Uint64	base, size;
 	tVAddr	vaddr;
-	tPAddr	paddr, firstFreePage;
+	tPAddr	paddr;
 	
 	ENTER("iNPMemRanges pPMemRanges",
 		NPMemRanges, PMemRanges);
@@ -132,7 +133,7 @@ void MM_InitPhys(int NPMemRanges, tPMemMapEnt *PMemRanges)
 		if( i == NUM_STATIC_ALLOC )
 		{
 			// Map
-			MM_Map(vaddr, paddr);
+			MM_Map((void*)vaddr, paddr);
 			todo --;
 			
 			// Update virtual pointer
@@ -159,7 +160,7 @@ void MM_InitPhys(int NPMemRanges, tPMemMapEnt *PMemRanges)
 	PMemMap_DumpBlocks(PMemRanges, NPMemRanges);
 
 	// Save the current value of paddr to simplify the allocation later
-	firstFreePage = paddr;
+	giFirstFreePage = paddr;
 	
 	LOG("Clearing multi bitmap");
 	// Fill the bitmaps (set most to "allocated")
@@ -258,6 +259,7 @@ void MM_InitPhys(int NPMemRanges, tPMemMapEnt *PMemRanges)
 void MM_DumpStatistics(void)
 {
 	// TODO: Statistics for x86_64 PMM
+	Log_Warning("PMem", "TODO: Dump statistics");
 }
 
 /**
@@ -297,7 +299,7 @@ tPAddr MM_AllocPhysRange(int Pages, int MaxBits)
 		// TODO: Page out
 		// ATM. Just Warning
 		Warning(" MM_AllocPhysRange: Out of free pages");
-		Log_Warning("Arch",
+		Log_Warning("PMem",
 			"Out of memory (unable to fulfil request for %i pages), zero remaining",
 			Pages
 			);
@@ -365,7 +367,7 @@ tPAddr MM_AllocPhysRange(int Pages, int MaxBits)
 		// TODO: Page out
 		// ATM. Just Warning
 		Warning(" MM_AllocPhysRange: Out of memory (unable to fulfil request for %i pages)", Pages);
-		Log_Warning("Arch",
+		Log_Warning("PMem",
 			"Out of memory (unable to fulfil request for %i pages)",
 			Pages	
 			);
@@ -448,8 +450,8 @@ void MM_RefPhys(tPAddr PAddr)
 			const int	pages_per_refpage = PAGE_SIZE/sizeof(gaiPageReferences[0]);
 			 int	i;
 			 int	page_base = page / pages_per_refpage * pages_per_refpage;
-			if( !MM_Allocate( ref_base ) ) {
-				Log_Error("Arch", "Out of memory when allocating reference count page");
+			if( !MM_Allocate( (void*)ref_base ) ) {
+				Log_Error("PMem", "Out of memory when allocating reference count page");
 				return ;
 			}
 			// Fill block
@@ -555,14 +557,14 @@ int MM_int_GetRangeID( tPAddr Addr )
 int MM_SetPageNode(tPAddr PAddr, void *Node)
 {
 	tPAddr	page = PAddr >> 12;
-	tVAddr	node_page = ((tVAddr)&gapPageNodes[page]) & ~(PAGE_SIZE-1);
+	void	*node_page = (void*)( ((tVAddr)&gapPageNodes[page]) & ~(PAGE_SIZE-1) );
 
 //	if( !MM_GetRefCount(PAddr) )	return 1;
 	
-	if( !MM_GetPhysAddr((void*)node_page) ) {
+	if( !MM_GetPhysAddr(node_page) ) {
 		if( !MM_Allocate(node_page) )
 			return -1;
-		memset( (void*)node_page, 0, PAGE_SIZE );
+		memset( node_page, 0, PAGE_SIZE );
 	}
 
 	gapPageNodes[page] = Node;

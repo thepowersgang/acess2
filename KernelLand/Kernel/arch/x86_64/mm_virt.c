@@ -70,7 +70,7 @@ void	MM_int_ClonePageEnt( Uint64 *Ent, void *NextLevel, tVAddr Addr, int bTable 
 void	MM_int_DumpTablesEnt(tVAddr RangeStart, size_t Length, tPAddr Expected);
 //void	MM_DumpTables(tVAddr Start, tVAddr End);
  int	MM_GetPageEntryPtr(tVAddr Addr, BOOL bTemp, BOOL bAllocate, BOOL bLargePage, tPAddr **Pointer);
- int	MM_MapEx(tVAddr VAddr, tPAddr PAddr, BOOL bTemp, BOOL bLarge);
+ int	MM_MapEx(volatile void *VAddr, tPAddr PAddr, BOOL bTemp, BOOL bLarge);
 // int	MM_Map(tVAddr VAddr, tPAddr PAddr);
 void	MM_Unmap(tVAddr VAddr);
 void	MM_int_ClearTableLevel(tVAddr VAddr, int LevelBits, int MaxEnts);
@@ -79,6 +79,7 @@ void	MM_int_ClearTableLevel(tVAddr VAddr, int LevelBits, int MaxEnts);
 
 // === GLOBALS ===
 tMutex	glMM_TempFractalLock;
+tShortSpinlock	glMM_ZeroPage;
 tPAddr	gMM_ZeroPage;
 
 // === CODE ===
@@ -470,7 +471,7 @@ int MM_GetPageEntryPtr(tVAddr Addr, BOOL bTemp, BOOL bAllocate, BOOL bLargePage,
  * \param bTemp	Use tempoary mappings
  * \param bLarge	Treat as a large page
  */
-int MM_MapEx(tVAddr VAddr, tPAddr PAddr, BOOL bTemp, BOOL bLarge)
+int MM_MapEx(volatile void *VAddr, tPAddr PAddr, BOOL bTemp, BOOL bLarge)
 {
 	tPAddr	*ent;
 	 int	rv;
@@ -478,16 +479,15 @@ int MM_MapEx(tVAddr VAddr, tPAddr PAddr, BOOL bTemp, BOOL bLarge)
 	ENTER("pVAddr PPAddr", VAddr, PAddr);
 	
 	// Get page pointer (Allow allocating)
-	rv = MM_GetPageEntryPtr(VAddr, bTemp, 1, bLarge, &ent);
+	rv = MM_GetPageEntryPtr( (tVAddr)VAddr, bTemp, 1, bLarge, &ent);
 	if(rv < 0)	LEAVE_RET('i', 0);
 	
 	if( *ent & 1 )	LEAVE_RET('i', 0);
 	
 	*ent = PAddr | 3;
 
-	if( VAddr < 0x800000000000 )
+	if( (tVAddr)VAddr < USER_MAX )
 		*ent |= PF_USER;
-
 	INVLPG( VAddr );
 
 	LEAVE('i', 1);	
@@ -499,7 +499,7 @@ int MM_MapEx(tVAddr VAddr, tPAddr PAddr, BOOL bTemp, BOOL bLarge)
  * \param VAddr	Target virtual address
  * \param PAddr	Physical address of page
  */
-int MM_Map(tVAddr VAddr, tPAddr PAddr)
+int MM_Map(volatile void *VAddr, tPAddr PAddr)
 {
 	return MM_MapEx(VAddr, PAddr, 0, 0);
 }
@@ -516,21 +516,22 @@ void MM_Unmap(tVAddr VAddr)
 	// Check Page Dir
 	if( !(PAGEDIR(VAddr >> 21) & 1) )	return ;
 
-	PAGETABLE(VAddr >> PTAB_SHIFT) = 0;
+	tPAddr	*ent = &PAGETABLE(VAddr >> PTAB_SHIFT);
+	*ent = 0;
 	INVLPG( VAddr );
 }
 
 /**
  * \brief Allocate a block of memory at the specified virtual address
  */
-tPAddr MM_Allocate(tVAddr VAddr)
+tPAddr MM_Allocate(volatile void *VAddr)
 {
 	tPAddr	ret;
 	
-	ENTER("xVAddr", VAddr);
+	ENTER("pVAddr", VAddr);
 	
 	// Ensure the tables are allocated before the page (keeps things neat)
-	MM_GetPageEntryPtr(VAddr, 0, 1, 0, NULL);
+	MM_GetPageEntryPtr( (tVAddr)VAddr, 0, 1, 0, NULL );
 	
 	// Allocate the page
 	ret = MM_AllocPhys();
@@ -549,37 +550,39 @@ tPAddr MM_Allocate(tVAddr VAddr)
 	return ret;
 }
 
-tPAddr MM_AllocateZero(tVAddr VAddr)
+void MM_AllocateZero(volatile void *VAddr)
 {
-	tPAddr	ret = gMM_ZeroPage;
-	
-	MM_GetPageEntryPtr(VAddr, 0, 1, 0, NULL);
+	// Ensure dir is populated
+	MM_GetPageEntryPtr((tVAddr)VAddr, 0, 1, 0, NULL);
 
-	if(!gMM_ZeroPage) {
-		ret = gMM_ZeroPage = MM_AllocPhys();
-		MM_RefPhys(ret);	// Don't free this please
-		MM_Map(VAddr, ret);
-		memset((void*)VAddr, 0, 0x1000);
+	if(!gMM_ZeroPage)
+	{
+		SHORTLOCK(&glMM_ZeroPage);
+		if( !gMM_ZeroPage )
+		{
+			gMM_ZeroPage = MM_AllocPhys();
+			MM_Map(VAddr, gMM_ZeroPage);
+			memset((void*)VAddr, 0, PAGE_SIZE);
+		}
+		SHORTREL(&glMM_ZeroPage);
 	}
-	else {
-		MM_Map(VAddr, ret);
+	else
+	{
+		MM_Map(VAddr, gMM_ZeroPage);
 	}
-	MM_RefPhys(ret);	// Refernce for this map
+	MM_RefPhys(gMM_ZeroPage);	// Refernce for this map
 	MM_SetFlags(VAddr, MM_PFLAG_COW, MM_PFLAG_COW);
-	return ret;
 }
 
 /**
  * \brief Deallocate a page at a virtual address
  */
-void MM_Deallocate(tVAddr VAddr)
+void MM_Deallocate(volatile void *VAddr)
 {
-	tPAddr	phys;
-	
-	phys = MM_GetPhysAddr( (void*)VAddr );
+	tPAddr	phys = MM_GetPhysAddr( VAddr );
 	if(!phys)	return ;
 	
-	MM_Unmap(VAddr);
+	MM_Unmap((tVAddr)VAddr);
 	
 	MM_DerefPhys(phys);
 }
@@ -626,13 +629,13 @@ tPAddr MM_GetPhysAddr(volatile const void *Ptr)
 /**
  * \brief Sets the flags on a page
  */
-void MM_SetFlags(tVAddr VAddr, Uint Flags, Uint Mask)
+void MM_SetFlags(volatile void *VAddr, Uint Flags, Uint Mask)
 {
 	tPAddr	*ent;
 	 int	rv;
 	
 	// Get pointer
-	rv = MM_GetPageEntryPtr(VAddr, 0, 0, 0, &ent);
+	rv = MM_GetPageEntryPtr( (tVAddr)VAddr, 0, 0, 0, &ent);
 	if(rv < 0)	return ;
 	
 	// Ensure the entry is valid
@@ -666,7 +669,6 @@ void MM_SetFlags(tVAddr VAddr, Uint Flags, Uint Mask)
 		if( Flags & MM_PFLAG_COW ) {
 			*ent &= ~PF_WRITE;
 			*ent |= PF_COW;
-	INVLPG_ALL();
 		}
 		else {
 			*ent &= ~PF_COW;
@@ -689,12 +691,12 @@ void MM_SetFlags(tVAddr VAddr, Uint Flags, Uint Mask)
 /**
  * \brief Get the flags applied to a page
  */
-Uint MM_GetFlags(tVAddr VAddr)
+Uint MM_GetFlags(volatile const void *VAddr)
 {
 	tPAddr	*ent;
 	 int	rv, ret = 0;
 	
-	rv = MM_GetPageEntryPtr(VAddr, 0, 0, 0, &ent);
+	rv = MM_GetPageEntryPtr((tVAddr)VAddr, 0, 0, 0, &ent);
 	if(rv < 0)	return 0;
 	
 	if( !(*ent & 1) )	return 0;
@@ -799,32 +801,31 @@ int MM_IsValidBuffer(tVAddr Addr, size_t Size)
  */
 void *MM_MapHWPages(tPAddr PAddr, Uint Number)
 {
-	tVAddr	ret;
-	 int	num;
-	
 	//TODO: Add speedups (memory of first possible free)
-	for( ret = MM_HWMAP_BASE; ret < MM_HWMAP_TOP; ret += 0x1000 )
+	for( tPage *ret = (void*)MM_HWMAP_BASE; ret < (tPage*)MM_HWMAP_TOP; ret ++ )
 	{
-		for( num = Number; num -- && ret < MM_HWMAP_TOP; ret += 0x1000 )
+		// Check if this region has already been used
+		 int	num;
+		for( num = Number; num -- && ret < (tPage*)MM_HWMAP_TOP; ret ++ )
 		{
-			if( MM_GetPhysAddr( (void*)ret ) != 0 )
+			if( MM_GetPhysAddr( ret ) != 0 )
 				break;
 		}
 		if( num >= 0 )	continue;
 		
 //		Log_Debug("MMVirt", "Mapping %i pages to %p (base %P)", Number, ret-Number*0x1000, PAddr);
 
+		// Map backwards (because `ret` is at the top of the region atm)
 		PAddr += 0x1000 * Number;
-		
 		while( Number -- )
 		{
-			ret -= 0x1000;
+			ret --;
 			PAddr -= 0x1000;
 			MM_Map(ret, PAddr);
 			MM_RefPhys(PAddr);
 		}
 		
-		return (void*)ret;
+		return ret;
 	}
 	
 	Log_Error("MM", "MM_MapHWPages - No space for %i pages", Number);
@@ -834,14 +835,15 @@ void *MM_MapHWPages(tPAddr PAddr, Uint Number)
 /**
  * \brief Free a range of hardware pages
  */
-void MM_UnmapHWPages(tVAddr VAddr, Uint Number)
+void MM_UnmapHWPages(volatile void *VAddr, Uint Number)
 {
 //	Log_KernelPanic("MM", "TODO: Implement MM_UnmapHWPages");
+	tPage	*page = (void*)VAddr;
 	while( Number -- )
 	{
-		MM_DerefPhys( MM_GetPhysAddr((void*)VAddr) );
-		MM_Unmap(VAddr);
-		VAddr += 0x1000;
+		MM_DerefPhys( MM_GetPhysAddr(page) );
+		MM_Unmap((tVAddr)page);
+		page ++;
 	}
 }
 
@@ -918,8 +920,7 @@ void *MM_MapTemp(tPAddr PAddr)
 
 void MM_FreeTemp(void *Ptr)
 {
-	MM_Deallocate((tVAddr)Ptr);
-	return ;
+	MM_Deallocate(Ptr);
 }
 
 
@@ -928,7 +929,6 @@ tPAddr MM_Clone(int bNoUserCopy)
 {
 	tPAddr	ret;
 	 int	i;
-	tVAddr	kstackbase;
 
 	// #1 Create a copy of the PML4
 	ret = MM_AllocPhys();
@@ -991,19 +991,20 @@ tPAddr MM_Clone(int bNoUserCopy)
 	// #6 Create kernel stack
 	//  tThread->KernelStack is the top
 	//  There is 1 guard page below the stack
-	kstackbase = Proc_GetCurThread()->KernelStack - KERNEL_STACK_SIZE;
+	tPage *kstackbase = (void*)( Proc_GetCurThread()->KernelStack - KERNEL_STACK_SIZE );
 
 	// Clone stack
 	TMPMAPLVL4(MM_KSTACK_BASE >> PML4_SHIFT) = 0;
-	for( i = 1; i < KERNEL_STACK_SIZE/0x1000; i ++ )
+	for( i = 1; i < KERNEL_STACK_SIZE/PAGE_SIZE; i ++ )
 	{
 		tPAddr	phys = MM_AllocPhys();
 		void	*tmpmapping;
-		MM_MapEx(kstackbase+i*0x1000, phys, 1, 0);
+		MM_MapEx(kstackbase + i, phys, 1, 0);
 		
 		tmpmapping = MM_MapTemp(phys);
-		if( MM_GetPhysAddr( (void*)(kstackbase+i*0x1000) ) )
-			memcpy(tmpmapping, (void*)(kstackbase+i*0x1000), 0x1000);
+		// If the current thread's stack is shorter than the new one, zero
+		if( MM_GetPhysAddr( kstackbase + i ) )
+			memcpy(tmpmapping, kstackbase + i, 0x1000);
 		else
 			memset(tmpmapping, 0, 0x1000);
 //		if( i == 0xF )
@@ -1087,8 +1088,9 @@ tVAddr MM_NewWorkerStack(void *StackData, size_t StackSize)
 			Log_Error("MM", "MM_NewWorkerStack - Unable to allocate page");
 			return 0;
 		}
-		MM_MapEx(ret + i*0x1000, phys, 1, 0);
-		MM_SetFlags(ret + i*0x1000, MM_PFLAG_KERNEL|MM_PFLAG_RO, MM_PFLAG_KERNEL);
+		MM_MapEx( (void*)(ret + i*0x1000), phys, 1, 0);
+		// XXX: ... this doesn't change the correct address space
+		MM_SetFlags( (void*)(ret + i*0x1000), MM_PFLAG_KERNEL|MM_PFLAG_RO, MM_PFLAG_KERNEL);
 	}
 
 	// Copy data
@@ -1124,11 +1126,11 @@ tVAddr MM_NewKStack(void)
 		//Log("MM_NewKStack: Found one at %p", base + KERNEL_STACK_SIZE);
 		for( i = 0x1000; i < KERNEL_STACK_SIZE; i += 0x1000)
 		{
-			if( !MM_Allocate(base+i) )
+			if( !MM_Allocate( (void*)(base+i) ) )
 			{
 				Log_Warning("MM", "MM_NewKStack - Allocation failed");
 				for( i -= 0x1000; i; i -= 0x1000)
-					MM_Deallocate(base+i);
+					MM_Deallocate((void*)(base+i));
 				return 0;
 			}
 		}
