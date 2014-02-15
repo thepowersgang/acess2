@@ -76,15 +76,16 @@ int VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode)
 		// Allocate Buffer
 		if( MM_GetPhysAddr( gaUserHandles ) == 0 )
 		{
-			Uint	addr, size;
-			size = max_handles * sizeof(tVFS_Handle);
-			for(addr = 0; addr < size; addr += 0x1000)
+			tPage	*pageptr = (void*)gaUserHandles;
+			size_t	size = max_handles * sizeof(tVFS_Handle);
+			for( size_t ofs = 0; ofs < size; ofs ++)
 			{
-				if( !MM_Allocate( (tVAddr)gaUserHandles + addr ) )
+				if( !MM_Allocate( pageptr ) )
 				{
 					Warning("OOM - VFS_AllocHandle");
 					Threads_Exit(0, 0xFF);	// Terminate user
 				}
+				pageptr ++;
 			}
 			memset( gaUserHandles, 0, size );
 		}
@@ -103,15 +104,15 @@ int VFS_AllocHandle(int bIsUser, tVFS_Node *Node, int Mode)
 		// Allocate space if not already
 		if( MM_GetPhysAddr( gaKernelHandles ) == 0 )
 		{
-			Uint	addr, size;
-			size = MAX_KERNEL_FILES * sizeof(tVFS_Handle);
-			for(addr = 0; addr < size; addr += 0x1000)
+			tPage	*pageptr = (void*)gaKernelHandles;
+			size_t	size = MAX_KERNEL_FILES * sizeof(tVFS_Handle);
+			for(size_t ofs = 0; ofs < size; ofs += size)
 			{
-				if( !MM_Allocate( (tVAddr)gaKernelHandles + addr ) )
+				if( !MM_Allocate( pageptr ) )
 				{
 					Panic("OOM - VFS_AllocHandle");
-					Threads_Exit(0, 0xFF);	// Terminate application (get some space back)
 				}
+				pageptr ++;
 			}
 			memset( gaKernelHandles, 0, size );
 		}
@@ -151,14 +152,13 @@ void VFS_ReferenceUserHandles(void)
 
 void VFS_CloseAllUserHandles(void)
 {
-	 int	i;
 	 int	max_handles = *Threads_GetMaxFD();
 
 	// Check if this process has any handles
 	if( MM_GetPhysAddr( gaUserHandles ) == 0 )
 		return ;
 	
-	for( i = 0; i < max_handles; i ++ )
+	for( int i = 0; i < max_handles; i ++ )
 	{
 		tVFS_Handle	*h;
 		h = &gaUserHandles[i];
@@ -249,7 +249,7 @@ void VFS_RestoreHandles(int NumFDs, void *Handles)
 		if( !MM_GetPhysAddr(h) )
 		{
 			void	*pg = (void*)( (tVAddr)h & ~(PAGE_SIZE-1) );
-			if( !MM_Allocate( (tVAddr)pg ) ) 
+			if( !MM_Allocate( pg ) ) 
 			{
 				// OOM?
 				return ;

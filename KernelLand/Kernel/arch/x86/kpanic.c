@@ -77,18 +77,27 @@ const struct {
  */
 void KernelPanic_SetMode(void)
 {
-	 int	i;
-
 	__asm__ __volatile__ ("cli");	// Stop the processor!
 	
 	// This function is called by Panic(), but MM_PageFault and the
 	// CPU exception handers also call it, so let's not clear the screen
 	// twice
 	if( giKP_Pos )	return ;
+
+	#if USE_MP
+	// Send halt to all processors
+	for( int i = 0; i < giNumCPUs; i ++ )
+	{
+		if(i == GetCPUNum())	continue ;
+		FB[i] = BGC|('A'+i);
+		MP_SendIPIVector(i, 0xED);
+	}
+	#endif
 	
+	#if ENABLE_KPANIC_MODE
 	// Restore VGA 0xB8000 text mode
 	#if 0
-	for( i = 0; i < NUM_REGVALUES; i++ )
+	for( int i = 0; i < NUM_REGVALUES; i++ )
 	{
 		// Reset Flip-Flop
 		if( caRegValues[i].IdxPort == 0x3C0 )	inb(0x3DA);
@@ -101,20 +110,9 @@ void KernelPanic_SetMode(void)
 	inb(0x3DA);
 	outb(0x3C0, 0x20);
 	#endif
-
-	#if USE_MP
-	// Send halt to all processors
-	for( i = 0; i < giNumCPUs; i ++ )
-	{
-		if(i == GetCPUNum())	continue ;
-		FB[i] = BGC|('A'+i);
-		MP_SendIPIVector(i, 0xED);
-	}
-	#endif
 	
-	#if ENABLE_KPANIC_MODE
 	// Clear Screen
-	for( i = 0; i < 80*25; i++ )
+	for( int i = 0; i < 80*25; i++ )
 	{
 		FB[i] = BGC;
 	}

@@ -19,6 +19,8 @@
 #include <arch_int.h>
 #include <semaphore.h>
 
+#define TRACE_MAPS	0
+
 #define TAB	22
 
 #define WORKER_STACKS		0x00100000	// Thread0 Only!
@@ -68,11 +70,11 @@
 typedef Uint32	tTabEnt;
 
 // === IMPORTS ===
-extern char	_UsertextEnd[], _UsertextBase[];
+extern tPage	_UsertextEnd;
+extern tPage	_UsertextBase;
 extern Uint32	gaInitPageDir[1024];
 extern Uint32	gaInitPageTable[1024];
 extern void	Threads_SegFault(tVAddr Addr);
-extern void	Error_Backtrace(Uint eip, Uint ebp);
 
 // === PROTOTYPES ===
 void	MM_PreinitVirtual(void);
@@ -109,6 +111,9 @@ struct sPageInfo {
 	 int	Length;
 	 int	Flags;
 }	*gaMappedRegions;	// sizeof = 24 bytes
+// - Zero page
+tShortSpinlock	glMM_ZeroPage;
+tPAddr	giMM_ZeroPage;
 
 // === CODE ===
 /**
@@ -145,8 +150,11 @@ void MM_InstallVirtual(void)
 	}
 	
 	// Unset kernel on the User Text pages
-	for( int i = ((tVAddr)&_UsertextEnd-(tVAddr)&_UsertextBase+0xFFF)/4096; i--; ) {
-		MM_SetFlags( (tVAddr)&_UsertextBase + i*4096, 0, MM_PFLAG_KERNEL );
+	ASSERT( ((tVAddr)&_UsertextBase & (PAGE_SIZE-1)) == 0 );
+	//ASSERT( ((tVAddr)&_UsertextEnd & (PAGE_SIZE-1)) == 0 );
+	for( tPage *page = &_UsertextBase; page < &_UsertextEnd; page ++ )
+	{
+		MM_SetFlags( page, 0, MM_PFLAG_KERNEL );
 	}
 	
 	*gpTmpCR3 = 0;
@@ -342,74 +350,125 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 /**
  * \fn tPAddr MM_Allocate(tVAddr VAddr)
  */
-tPAddr MM_Allocate(tVAddr VAddr)
+tPAddr MM_Allocate(volatile void * VAddr)
 {
-	tPAddr	paddr;
-	//ENTER("xVAddr", VAddr);
-	//__ASM__("xchg %bx,%bx");
-	// Check if the directory is mapped
-	if( gaPageDir[ VAddr >> 22 ] == 0 )
-	{
-		// Allocate directory
-		paddr = MM_AllocPhys();
-		if( paddr == 0 ) {
-			Warning("MM_Allocate - Out of Memory (Called by %p)", __builtin_return_address(0));
-			//LEAVE('i',0);
-			return 0;
-		}
-		// Map and mark as user (if needed)
-		gaPageDir[ VAddr >> 22 ] = paddr | 3;
-		if(VAddr < MM_USER_MAX)	gaPageDir[ VAddr >> 22 ] |= PF_USER;
-		
-		INVLPG( &gaPageDir[ VAddr >> 22 ] );
-		memsetd( &gaPageTable[ (VAddr >> 12) & ~0x3FF ], 0, 1024 );
+	tPAddr	paddr = MM_AllocPhys();
+	if( MM_Map(VAddr, paddr) ) {
+		return paddr;
 	}
-	// Check if the page is already allocated
-	else if( gaPageTable[ VAddr >> 12 ] != 0 ) {
+	
+	// Error of some form, either an overwrite or OOM
+	MM_DerefPhys(paddr);
+	
+	// Check for overwrite
+	paddr = MM_GetPhysAddr(VAddr);
+	if( paddr != 0 ) {
 		Warning("MM_Allocate - Allocating to used address (%p)", VAddr);
-		//LEAVE('X', gaPageTable[ VAddr >> 12 ] & ~0xFFF);
-		return gaPageTable[ VAddr >> 12 ] & ~0xFFF;
+		return paddr;
 	}
 	
-	// Allocate
-	paddr = MM_AllocPhys();
-	//LOG("paddr = 0x%llx", paddr);
-	if( paddr == 0 ) {
-		Warning("MM_Allocate - Out of Memory when allocating at %p (Called by %p)",
-			VAddr, __builtin_return_address(0));
-		//LEAVE('i',0);
-		return 0;
+	// OOM
+	Warning("MM_Allocate - Out of Memory (Called by %p)", __builtin_return_address(0));
+	return 0;
+}
+
+void MM_AllocateZero(volatile void *VAddr)
+{
+	if( MM_GetPhysAddr(VAddr) ) {
+		Warning("MM_AllocateZero - Attempted overwrite at %p", VAddr);
+		return ;
 	}
-	// Map
-	gaPageTable[ VAddr >> 12 ] = paddr | 3;
-	// Mark as user
-	if(VAddr < MM_USER_MAX)	gaPageTable[ VAddr >> 12 ] |= PF_USER;
-	// Invalidate Cache for address
-	INVLPG( VAddr & ~0xFFF );
-	
-	//LEAVE('X', paddr);
-	return paddr;
+	if( !giMM_ZeroPage )
+	{
+		SHORTLOCK(&glMM_ZeroPage);
+		// Check again within the lock (just in case we lost the race)
+		if( giMM_ZeroPage == 0 )
+		{
+			giMM_ZeroPage = MM_Allocate(VAddr);
+			// - Reference a second time to prevent it from being freed
+			MM_RefPhys(giMM_ZeroPage);
+			memset((void*)VAddr, 0, PAGE_SIZE);
+		}
+		SHORTREL(&glMM_ZeroPage);
+	}
+	else
+	{
+		MM_Map(VAddr, giMM_ZeroPage);
+	}
+	MM_SetFlags(VAddr, MM_PFLAG_COW, MM_PFLAG_COW);
 }
 
 /**
- * \fn void MM_Deallocate(tVAddr VAddr)
+ * \fn int MM_Map(tVAddr VAddr, tPAddr PAddr)
+ * \brief Map a physical page to a virtual one
  */
-void MM_Deallocate(tVAddr VAddr)
+int MM_Map(volatile void *VAddr, tPAddr PAddr)
 {
-	if( gaPageDir[ VAddr >> 22 ] == 0 ) {
+	Uint	pagenum = (tVAddr)VAddr >> 12;
+	
+	#if TRACE_MAPS
+	Debug("MM_Map(%p, %P)", VAddr, PAddr);
+	#endif
+
+	// Sanity check
+	if( PAddr & 0xFFF || (tVAddr)VAddr & 0xFFF ) {
+		Log_Warning("MM_Virt", "MM_Map - Physical or Virtual Addresses are not aligned (0x%P and %p)",
+			PAddr, VAddr);
+		//LEAVE('i', 0);
+		return 0;
+	}
+	
+	bool	is_user = ((tVAddr)VAddr < MM_USER_MAX);
+
+	// Check if the directory is mapped
+	if( gaPageDir[ pagenum >> 10 ] == 0 )
+	{
+		tPAddr	tmp = MM_AllocPhys();
+		if( tmp == 0 )
+			return 0;
+		gaPageDir[ pagenum >> 10 ] = tmp | 3 | (is_user ? PF_USER : 0);
+		
+		INVLPG( &gaPageTable[ pagenum & ~0x3FF ] );
+		memsetd( &gaPageTable[ pagenum & ~0x3FF ], 0, 1024 );
+	}
+	// Check if the page is already allocated
+	else if( gaPageTable[ pagenum ] != 0 ) {
+		Warning("MM_Map - Allocating to used address");
+		//LEAVE('i', 0);
+		return 0;
+	}
+	
+	// Map
+	gaPageTable[ pagenum ] = PAddr | 3 | (is_user ? PF_USER : 0);
+	
+	// Reference
+	MM_RefPhys( PAddr );
+	
+	INVLPG( VAddr );
+	
+	return 1;
+}
+
+/*
+ * A.k.a MM_Unmap
+ */
+void MM_Deallocate(volatile void *VAddr)
+{
+	Uint	pagenum = (tVAddr)VAddr >> 12;
+	if( gaPageDir[pagenum>>10] == 0 ) {
 		Warning("MM_Deallocate - Directory not mapped");
 		return;
 	}
 	
-	if(gaPageTable[ VAddr >> 12 ] == 0) {
+	if(gaPageTable[pagenum] == 0) {
 		Warning("MM_Deallocate - Page is not allocated");
 		return;
 	}
 	
-	// Dereference page
-	MM_DerefPhys( gaPageTable[ VAddr >> 12 ] & ~0xFFF );
-	// Clear page
-	gaPageTable[ VAddr >> 12 ] = 0;
+	// Dereference and clear page
+	tPAddr	paddr = gaPageTable[pagenum] & ~0xFFF;
+	gaPageTable[pagenum] = 0;
+	MM_DerefPhys( paddr );
 }
 
 /**
@@ -433,63 +492,6 @@ tPAddr MM_GetPhysAddr(volatile const void *Addr)
 void MM_SetCR3(Uint CR3)
 {
 	__ASM__("mov %0, %%cr3"::"r"(CR3));
-}
-
-/**
- * \fn int MM_Map(tVAddr VAddr, tPAddr PAddr)
- * \brief Map a physical page to a virtual one
- */
-int MM_Map(tVAddr VAddr, tPAddr PAddr)
-{
-	//ENTER("xVAddr xPAddr", VAddr, PAddr);
-	// Sanity check
-	if( PAddr & 0xFFF || VAddr & 0xFFF ) {
-		Log_Warning("MM_Virt", "MM_Map - Physical or Virtual Addresses are not aligned (0x%P and %p)",
-			PAddr, VAddr);
-		//LEAVE('i', 0);
-		return 0;
-	}
-	
-	// Align addresses
-	PAddr &= ~0xFFF;	VAddr &= ~0xFFF;
-	
-	// Check if the directory is mapped
-	if( gaPageDir[ VAddr >> 22 ] == 0 )
-	{
-		tPAddr	tmp = MM_AllocPhys();
-		if( tmp == 0 )
-			return 0;
-		gaPageDir[ VAddr >> 22 ] = tmp | 3;
-		
-		// Mark as user
-		if(VAddr < MM_USER_MAX)	gaPageDir[ VAddr >> 22 ] |= PF_USER;
-		
-		INVLPG( &gaPageTable[ (VAddr >> 12) & ~0x3FF ] );
-		memsetd( &gaPageTable[ (VAddr >> 12) & ~0x3FF ], 0, 1024 );
-	}
-	// Check if the page is already allocated
-	else if( gaPageTable[ VAddr >> 12 ] != 0 ) {
-		Warning("MM_Map - Allocating to used address");
-		//LEAVE('i', 0);
-		return 0;
-	}
-	
-	// Map
-	gaPageTable[ VAddr >> 12 ] = PAddr | 3;
-	// Mark as user
-	if(VAddr < MM_USER_MAX)	gaPageTable[ VAddr >> 12 ] |= PF_USER;
-	
-	//LOG("gaPageTable[ 0x%x ] = (Uint)%p = 0x%x",
-	//	VAddr >> 12, &gaPageTable[ VAddr >> 12 ], gaPageTable[ VAddr >> 12 ]);
-	
-	// Reference
-	MM_RefPhys( PAddr );
-	
-	//LOG("INVLPG( 0x%x )", VAddr);
-	INVLPG( VAddr );
-	
-	//LEAVE('i', 1);
-	return 1;
 }
 
 /**
@@ -715,18 +717,16 @@ tPAddr MM_Clone(int bNoUserCopy)
  */
 tVAddr MM_NewKStack(void)
 {
-	tVAddr	base;
-	Uint	i;
-	for(base = MM_KERNEL_STACKS; base < MM_KERNEL_STACKS_END; base += MM_KERNEL_STACK_SIZE)
+	for(tVAddr base = MM_KERNEL_STACKS; base < MM_KERNEL_STACKS_END; base += MM_KERNEL_STACK_SIZE)
 	{
+		tPage	*pageptr = (void*)base;
 		// Check if space is free
-		if(MM_GetPhysAddr( (void*) base) != 0)
+		if(MM_GetPhysAddr(pageptr) != 0)
 			continue;
 		// Allocate
-		//for(i = MM_KERNEL_STACK_SIZE; i -= 0x1000 ; )
-		for(i = 0; i < MM_KERNEL_STACK_SIZE; i += 0x1000 )
+		for(Uint i = 0; i < MM_KERNEL_STACK_SIZE/PAGE_SIZE; i ++ )
 		{
-			if( MM_Allocate(base+i) == 0 )
+			if( MM_Allocate(pageptr + i) == 0 )
 			{
 				// On error, print a warning and return error
 				Warning("MM_NewKStack - Out of memory");
@@ -826,13 +826,13 @@ tVAddr MM_NewWorkerStack(Uint *StackContents, size_t ContentsSize)
  * \fn void MM_SetFlags(tVAddr VAddr, Uint Flags, Uint Mask)
  * \brief Sets the flags on a page
  */
-void MM_SetFlags(tVAddr VAddr, Uint Flags, Uint Mask)
+void MM_SetFlags(volatile void *VAddr, Uint Flags, Uint Mask)
 {
-	tTabEnt	*ent;
-	if( !(gaPageDir[VAddr >> 22] & 1) )	return ;
-	if( !(gaPageTable[VAddr >> 12] & 1) )	return ;
+	Uint	pagenum = (tVAddr)VAddr >> 12;
+	if( !(gaPageDir[pagenum >> 10] & 1) )	return ;
+	if( !(gaPageTable[pagenum] & 1) )	return ;
 	
-	ent = &gaPageTable[VAddr >> 12];
+	tTabEnt	*ent = &gaPageTable[pagenum];
 	
 	// Read-Only
 	if( Mask & MM_PFLAG_RO )
@@ -841,7 +841,7 @@ void MM_SetFlags(tVAddr VAddr, Uint Flags, Uint Mask)
 			*ent &= ~PF_WRITE;
 		}
 		else {
-			gaPageDir[VAddr >> 22] |= PF_WRITE;
+			gaPageDir[pagenum >> 10] |= PF_WRITE;
 			*ent |= PF_WRITE;
 		}
 	}
@@ -853,7 +853,7 @@ void MM_SetFlags(tVAddr VAddr, Uint Flags, Uint Mask)
 			*ent &= ~PF_USER;
 		}
 		else {
-			gaPageDir[VAddr >> 22] |= PF_USER;
+			gaPageDir[pagenum >> 10] |= PF_USER;
 			*ent |= PF_USER;
 		}
 	}
@@ -878,17 +878,17 @@ void MM_SetFlags(tVAddr VAddr, Uint Flags, Uint Mask)
 /**
  * \brief Get the flags on a page
  */
-Uint MM_GetFlags(tVAddr VAddr)
+Uint MM_GetFlags(volatile const void *VAddr)
 {
-	tTabEnt	*ent;
-	Uint	ret = 0;
+	Uint	pagenum = (tVAddr)VAddr >> 12;
 	
 	// Validity Check
-	if( !(gaPageDir[VAddr >> 22] & 1) )	return 0;
-	if( !(gaPageTable[VAddr >> 12] & 1) )	return 0;
+	if( !(gaPageDir[pagenum >> 10] & 1) )	return 0;
+	if( !(gaPageTable[pagenum] & 1) )	return 0;
 	
-	ent = &gaPageTable[VAddr >> 12];
+	tTabEnt	*ent = &gaPageTable[pagenum];
 	
+	Uint	ret = 0;
 	// Read-Only
 	if( !(*ent & PF_WRITE) )	ret |= MM_PFLAG_RO;
 	// Kernel
@@ -1145,28 +1145,28 @@ void *MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
  * \fn void MM_UnmapHWPages(tVAddr VAddr, Uint Number)
  * \brief Unmap a hardware page
  */
-void MM_UnmapHWPages(tVAddr VAddr, Uint Number)
+void MM_UnmapHWPages(volatile void *Base, Uint Number)
 {
-	 int	i, j;
-	
+	tVAddr	VAddr = (tVAddr)Base;
 	//Log_Debug("VirtMem", "MM_UnmapHWPages: (VAddr=0x%08x, Number=%i)", VAddr, Number);
 
 	//
 	if( KERNEL_BASE <= VAddr && VAddr < KERNEL_BASE + 1024*1024 )
-		return ;	
+		return ;
+	
+	Uint pagenum = VAddr >> 12;
 
 	// Sanity Check
 	if(VAddr < HW_MAP_ADDR || VAddr+Number*0x1000 > HW_MAP_MAX)	return;
 	
-	i = VAddr >> 12;
 	
 	Mutex_Acquire( &glTempMappings );	// Temp and HW share a directory, so they share a lock
 	
-	for( j = 0; j < Number; j++ )
+	for( Uint i = 0; i < Number; i ++ )
 	{
-		MM_DerefPhys( gaPageTable[ i + j ] & ~0xFFF );
-		gaPageTable[ i + j ] = 0;
-		INVLPG( (tVAddr)(i+j) << 12 );
+		MM_DerefPhys( gaPageTable[ pagenum + i ] & ~0xFFF );
+		gaPageTable[ pagenum + i ] = 0;
+		INVLPG( (tVAddr)(pagenum + i) << 12 );
 	}
 	
 	Mutex_Release( &glTempMappings );

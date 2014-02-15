@@ -213,7 +213,7 @@ void ArchThreads_Init(void)
 	gProcessZero.MemState.CR3 = (Uint)gaInitPageDir - KERNEL_BASE;
 	
 	// Create Per-Process Data Block
-	if( !MM_Allocate(MM_PPD_CFG) )
+	if( MM_Allocate( (void*)MM_PPD_CFG ) == 0 )
 	{
 		Panic("OOM - No space for initial Per-Process Config");
 	}
@@ -553,27 +553,28 @@ tThread *Proc_SpawnWorker(void (*Fcn)(void*), void *Data)
  */
 Uint Proc_MakeUserStack(void)
 {
-	 int	i;
-	Uint	base = USER_STACK_TOP - USER_STACK_SZ;
+	tPage	*base = (void*)(USER_STACK_TOP - USER_STACK_SZ);
 	
 	// Check Prospective Space
-	for( i = USER_STACK_SZ >> 12; i--; )
-		if( MM_GetPhysAddr( (void*)(base + (i<<12)) ) != 0 )
-			break;
-	
-	if(i != -1)	return 0;
-	
-	// Allocate Stack - Allocate incrementally to clean up MM_Dump output
-	for( i = 0; i < USER_STACK_SZ/0x1000; i++ )
+	for( Uint i = USER_STACK_SZ/PAGE_SIZE; i--; )
 	{
-		if( !MM_Allocate( base + (i<<12) ) )
+		if( MM_GetPhysAddr( base + i ) != 0 )
+		{
+			Warning("Proc_MakeUserStack: Address %p in use", base + i);
+			return 0;
+		}
+	}
+	// Allocate Stack - Allocate incrementally to clean up MM_Dump output
+	for( Uint i = 0; i < USER_STACK_SZ/PAGE_SIZE; i++ )
+	{
+		if( MM_Allocate( base + i ) == 0 )
 		{
 			Warning("OOM: Proc_MakeUserStack");
 			return 0;
 		}
 	}
 	
-	return base + USER_STACK_SZ;
+	return (tVAddr)( base + USER_STACK_SZ/PAGE_SIZE );
 }
 
 void Proc_StartUser(Uint Entrypoint, Uint Base, int ArgC, const char **ArgV, int DataSize)

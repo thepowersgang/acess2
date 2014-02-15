@@ -140,7 +140,7 @@ int BGA_Install(char **Arguments)
 void BGA_Uninstall(void)
 {
 	DevFS_DelDevice( &gBGA_DriverStruct );
-	MM_UnmapHWPages( (tVAddr)gBGA_Framebuffer, 768 );
+	MM_UnmapHWPages( gBGA_Framebuffer, 768 );
 }
 
 /**

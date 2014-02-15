@@ -44,7 +44,7 @@ extern Uint	Binary_Load(const char *file, Uint *entryPoint);
 void	SyscallHandler(tSyscallRegs *Regs);
  int	Syscall_ValidString(const char *Addr);
  int	Syscall_Valid(int Size, const void *Addr);
- int	Syscall_MM_SetFlags(const void *Addr, Uint Flags, Uint Mask);
+ int	Syscall_MM_SetFlags(void *Addr, Uint Flags, Uint Mask);
 
 // === CODE ===
 // TODO: Do sanity checking on arguments, ATM the user can really fuck with the kernel
@@ -117,13 +117,13 @@ void SyscallHandler(tSyscallRegs *Regs)
 		break;
 	
 	// -- Map an address
-	case SYS_MAP:	MM_Map(Regs->Arg1, Regs->Arg2);	break;
+	case SYS_MAP:	MM_Map((void*)Regs->Arg1, Regs->Arg2);	break;
 	
 	// -- Allocate an address
-	case SYS_ALLOCATE:	ret = MM_Allocate(Regs->Arg1);	break;
+	case SYS_ALLOCATE:	ret = MM_Allocate((void*)Regs->Arg1);	break;
 	
 	// -- Unmap an address
-	case SYS_UNMAP:		MM_Deallocate(Regs->Arg1);	break;
+	case SYS_UNMAP:		MM_Deallocate((void*)Regs->Arg1);	break;
 	
 	// -- Change the protection on an address
 	case SYS_SETFLAGS:
@@ -454,7 +454,7 @@ int Syscall_Valid(int Size, const void *Addr)
 	return CheckMem( Addr, Size );
 }
 
-int Syscall_MM_SetFlags(const void *Addr, Uint Flags, Uint Mask)
+int Syscall_MM_SetFlags(void *Addr, Uint Flags, Uint Mask)
 {
 	tPAddr	paddr = MM_GetPhysAddr(Addr);
 	Flags &= MM_PFLAG_RO|MM_PFLAG_EXEC;
@@ -471,6 +471,6 @@ int Syscall_MM_SetFlags(const void *Addr, Uint Flags, Uint Mask)
 			Mask |= MM_PFLAG_COW;
 		}
 	}
-	MM_SetFlags((tVAddr)Addr, Flags, Mask);
+	MM_SetFlags(Addr, Flags, Mask);
 	return 0;
 }

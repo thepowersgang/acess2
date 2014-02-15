@@ -236,12 +236,14 @@ ACPI_STATUS AcpiOsReleaseObject(ACPI_CACHE_T *Cache, void *Object)
 
 void *AcpiOsMapMemory(ACPI_PHYSICAL_ADDRESS PhysicalAddress, ACPI_SIZE Length)
 {
-	if( PhysicalAddress < ONEMEG )
+	if( PhysicalAddress < ONEMEG ) {
+		ASSERTCR(Length, <=, ONEMEG-PhysicalAddress, NULL);
 		return (void*)(KERNEL_BASE | PhysicalAddress);
+	}
 	
 	Uint	ofs = PhysicalAddress & (PAGE_SIZE-1);
 	int npages = (ofs + Length + (PAGE_SIZE-1)) / PAGE_SIZE;
-	char *maploc = (void*)MM_MapHWPages(PhysicalAddress, npages);
+	char *maploc = MM_MapHWPages(PhysicalAddress, npages);
 	if(!maploc) {
 		LOG("Mapping %P+0x%x failed", PhysicalAddress, Length);
 		return NULL;
@@ -254,15 +256,16 @@ void *AcpiOsMapMemory(ACPI_PHYSICAL_ADDRESS PhysicalAddress, ACPI_SIZE Length)
 
 void AcpiOsUnmapMemory(void *LogicalAddress, ACPI_SIZE Length)
 {
-	if( (tVAddr)LogicalAddress - KERNEL_BASE < ONEMEG )
+	if( (tVAddr)LogicalAddress - KERNEL_BASE < ONEMEG ) {
 		return ;
+	}
 
 	LOG("%p", LogicalAddress);
 
 	Uint	ofs = (tVAddr)LogicalAddress & (PAGE_SIZE-1);
 	int npages = (ofs + Length + (PAGE_SIZE-1)) / PAGE_SIZE;
 	// TODO: Validate `Length` is the same as was passed to AcpiOsMapMemory
-	MM_UnmapHWPages( (tVAddr)LogicalAddress, npages);
+	MM_UnmapHWPages( LogicalAddress, npages);
 }
 
 ACPI_STATUS AcpiOsGetPhysicalAddress(void *LogicalAddress, ACPI_PHYSICAL_ADDRESS *PhysicalAddress)

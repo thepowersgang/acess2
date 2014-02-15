@@ -28,6 +28,7 @@ CPPFLAGS	+= -D ARCH=$(ARCH) -D ARCHDIR=$(ARCHDIR) -D PLATFORM=\"$(PLATFORM)\" -D
 CPPFLAGS	+= -D KERNEL_VERSION=$(KERNEL_VERSION) -ffreestanding
 CFLAGS  	+= -Wall -fno-stack-protector -Wstrict-prototypes -std=gnu99 -g -fno-omit-frame-pointer
 CFLAGS  	+= -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings -Wmissing-prototypes -Wmissing-declarations -Wredundant-decls -Wnested-externs -Winline -Wuninitialized
+CFLAGS		+= -Werror
 CFLAGS          += -O3
 LDFLAGS		+= -T arch/$(ARCHDIR)/link.ld -g
 LIBGCC_PATH     := $(shell $(CC) -print-libgcc-file-name)

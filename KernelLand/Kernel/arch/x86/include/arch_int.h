@@ -18,5 +18,10 @@ extern void	__AtomicTestSetLoop(Uint *Ptr, Uint Value);
  */
 extern void	MM_ClearSpace(Uint32 CR3);
 
+/**
+ * \brief Print a backtrace using the supplied IP/BP
+ */
+void	Error_Backtrace(Uint EIP, Uint EBP);
+
 #endif
 

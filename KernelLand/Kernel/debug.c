@@ -4,17 +4,17 @@
  */
 #include <acess.h>
 #include <stdarg.h>
+#include <debug_hooks.h>
 
 #define	DEBUG_MAX_LINE_LEN	256
 #define	LOCK_DEBUG_OUTPUT	1	// Avoid interleaving of output lines?
 #define TRACE_TO_KTERM  	0	// Send ENTER/DEBUG/LEAVE to debug?
 
 // === IMPORTS ===
-extern void	Threads_Dump(void);
-extern void	Heap_Dump(void);
 extern void	KernelPanic_SetMode(void);
 extern void	KernelPanic_PutChar(char Ch);
 extern void	IPStack_SendDebugText(const char *Text);
+extern void	VT_SetTerminal(int TerminalID);
 
 // === PROTOTYPES ===
 static void	Debug_Putchar(char ch);

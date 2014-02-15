@@ -97,7 +97,7 @@ void *Heap_Extend(size_t Bytes)
 	// Heap expands in pages
 	for( Uint i = 0; i < pages; i ++ )
 	{
-		if( !MM_Allocate( (tVAddr)gHeapEnd+(i<<12) ) )
+		if( !MM_Allocate( (tPage*)gHeapEnd + i ) )
 		{
 			Warning("OOM - Heap_Extend (%i bytes)");
 			Heap_Dump();

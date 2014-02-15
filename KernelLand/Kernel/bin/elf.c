@@ -33,10 +33,10 @@ static int	_SysSetMemFlags(tVAddr addr, int flag, int mask) {
 	if( mask & 1 ) {
 		if( flag ) {
 			// Re-set RO, clear COW
-			MM_SetFlags(addr, MM_PFLAG_RO, MM_PFLAG_RO|MM_PFLAG_COW);
+			MM_SetFlags((void*)addr, MM_PFLAG_RO, MM_PFLAG_RO|MM_PFLAG_COW);
 		}
 		else {
-			MM_SetFlags(addr, MM_PFLAG_RO|MM_PFLAG_COW, MM_PFLAG_RO|MM_PFLAG_COW);
+			MM_SetFlags((void*)addr, MM_PFLAG_RO|MM_PFLAG_COW, MM_PFLAG_RO|MM_PFLAG_COW);
 		}
 	}
 	return 0;

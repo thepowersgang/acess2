@@ -13,4 +13,6 @@ extern void	Threads_Dump(void);
 extern void	Threads_ToggleTrace(int TID);
 extern void	Heap_Stats(void);
 
+extern void	Proc_PrintBacktrace(void);
+
 #endif

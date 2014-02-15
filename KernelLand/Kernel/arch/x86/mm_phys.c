@@ -391,20 +391,36 @@ void MM_RefPhys(tPAddr PAddr)
 	{
 		if( MM_GetPhysAddr( &gaPageReferences[PAddr] ) == 0 )
 		{
-			 int	i, base;
-			tVAddr	addr = ((tVAddr)&gaPageReferences[PAddr]) & ~0xFFF;
-//			Log_Debug("PMem", "MM_RefPhys: Allocating info for %X", PAddr);
+			Uint base = PAddr & ~(1024-1);
 			Mutex_Release( &glPhysAlloc );
-			if( MM_Allocate( addr ) == 0 ) {
+			// No infinite recursion, AllocPhys doesn't need the reference array
+			// TODO: Race condition? (racy on populating)
+			if( MM_Allocate( &gaPageReferences[base] ) == 0 )
+			{
 				Log_KernelPanic("PMem",
 					"MM_RefPhys: Out of physical memory allocating info for %X",
 					PAddr*PAGE_SIZE
 					);
+				for(;;);
 			}
 			Mutex_Acquire( &glPhysAlloc );
+			// TODO: Solve race condition. (see below)
+			// [1] See unallocated
+			//     Release lock
+			// [2] Acquire lock
+			//     See unallocated
+			//     Release lock
+			//     Allocate
+			// [1] Allocate
+			//     Acquire lock
+			//     Populate
+			//     Release lock
+			// [2] Acquire lock
+			//     Populate (clobbering)
 			
-			base = PAddr & ~(1024-1);
-			for( i = 0; i < 1024; i ++ ) {
+			// Fill references from allocated bitmap
+			for( int i = 0; i < 1024; i ++ )
+			{
 				gaPageReferences[base + i] = (gaPageBitmap[(base+i)/32] & (1 << (base+i)%32)) ? 1 : 0;
 			}
 		}
@@ -494,22 +510,19 @@ int MM_GetRefCount(tPAddr PAddr)
 
 int MM_SetPageNode(tPAddr PAddr, void *Node)
 {
-	tVAddr	block_addr;
-	
 	if( MM_GetRefCount(PAddr) == 0 )	return 1;
 	 
 	PAddr /= PAGE_SIZE;
 
-	block_addr = (tVAddr) &gaPageNodes[PAddr];
-	block_addr &= ~(PAGE_SIZE-1);
+	void *page_ptr = (void*)( (tVAddr)&gaPageNodes[PAddr] & ~(PAGE_SIZE-1) );
 	
-	if( !MM_GetPhysAddr( (void*)block_addr ) )
+	if( !MM_GetPhysAddr( page_ptr ) )
 	{
-		if( !MM_Allocate( block_addr ) ) {
+		if( !MM_Allocate( page_ptr ) ) {
 			Log_Warning("PMem", "Unable to allocate Node page");
 			return -1;
 		}
-		memset( (void*)block_addr, 0, PAGE_SIZE );
+		memset( page_ptr, 0, PAGE_SIZE );
 	}
 
 	gaPageNodes[PAddr] = Node;

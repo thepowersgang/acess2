@@ -153,8 +153,9 @@ int PCnet3_Install(char **Options)
 		i ++;
 	}
 
-	if( gpPCnet3_InitBlock != &gPCnet3_StaticInitBlock ) {
-		MM_UnmapHWPages( (tVAddr)gpPCnet3_InitBlock, 1 );
+	if( gpPCnet3_InitBlock != &gPCnet3_StaticInitBlock )
+	{
+		MM_UnmapHWPages( gpPCnet3_InitBlock, 1 );
 	}
 	
 	return MODULE_ERR_OK;

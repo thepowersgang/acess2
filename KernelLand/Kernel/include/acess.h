@@ -53,6 +53,7 @@ typedef Sint64	tTime;	//!< Same again
 typedef struct sShortSpinlock	tShortSpinlock;	//!< Opaque (kinda) spinlock
 typedef int	bool;	//!< Boolean type
 typedef Uint64	off_t;	//!< VFS Offset
+typedef struct { char _[PAGE_SIZE];}	tPage;	// Representation of a page for pointer arithmatic
 
 // --- Helper Macros ---
 /**
@@ -188,19 +189,25 @@ extern Uint64	inq(Uint16 Port);
  * \param VAddr	Virtual Address to allocate at
  * \return Physical address allocated
  */
-extern tPAddr	MM_Allocate(tVAddr VAddr) __attribute__ ((warn_unused_result));
+extern tPAddr	MM_Allocate(volatile void *VAddr) __attribute__ ((warn_unused_result));
+/**
+ * \breif Allocate a zeroed COW page to \a VAddr
+ * \param VAddr	Virtual address to allocate at
+ * \return Physical address allocated (don't cache)
+ */
+extern void	MM_AllocateZero(volatile void *VAddr);
 /**
  * \brief Deallocate a page
  * \param VAddr	Virtual address to unmap
  */
-extern void	MM_Deallocate(tVAddr VAddr);
+extern void	MM_Deallocate(volatile void *VAddr);
 /**
  * \brief Map a physical page at \a PAddr to \a VAddr
  * \param VAddr	Target virtual address
  * \param PAddr	Physical address to map
  * \return Boolean Success
  */
-extern int	MM_Map(tVAddr VAddr, tPAddr PAddr);
+extern int	MM_Map(volatile void * VAddr, tPAddr PAddr);
 /**
  * \brief Get the physical address of \a Addr
  * \param Addr	Address of the page to get the physical address of
@@ -213,19 +220,19 @@ extern tPAddr	MM_GetPhysAddr(volatile const void *Addr);
  * \param Flags New flags value
  * \param Mask	Flags to set
  */
-extern void	MM_SetFlags(tVAddr VAddr, Uint Flags, Uint Mask);
+extern void	MM_SetFlags(volatile void *VAddr, Uint Flags, Uint Mask);
 /**
  * \brief Get the flags on a flag
  * \param VAddr	Virtual address of page
  * \return Flags value of the page
  */
-extern Uint	MM_GetFlags(tVAddr VAddr);
+extern Uint	MM_GetFlags(volatile const void *VAddr);
 /**
  * \brief Checks is a memory range is user accessable
  * \param VAddr	Base address to check
  * \return 1 if the memory is all user-accessable, 0 otherwise
  */
-#define MM_IsUser(VAddr)	(!(MM_GetFlags((tVAddr)(VAddr))&MM_PFLAG_KERNEL))
+#define MM_IsUser(VAddr)	(!(MM_GetFlags((const void*)(VAddr))&MM_PFLAG_KERNEL))
 /**
  * \brief Temporarily map a page into the address space
  * \param PAddr	Physical addres to map
@@ -257,7 +264,7 @@ extern void	*MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr);
  * \param VAddr	Virtual address allocate by ::MM_MapHWPages or ::MM_AllocDMA
  * \param Number	Number of pages to free
  */
-extern void	MM_UnmapHWPages(tVAddr VAddr, Uint Number);
+extern void	MM_UnmapHWPages(volatile void *VAddr, Uint Number);
 /**
  * \brief Allocate a single physical page
  * \return Physical address allocated

@@ -258,11 +258,11 @@ int EHCI_InitController(tPAddr BaseAddress, Uint8 InterruptNum)
 _error:
 	cont->PhysBase = 0;
 	if( cont->CapRegs )
-		MM_Deallocate( (tVAddr)cont->CapRegs );
+		MM_Deallocate( cont->CapRegs );
 	if( cont->PeriodicQueue )
-		MM_Deallocate( (tVAddr)cont->PeriodicQueue );
+		MM_Deallocate( cont->PeriodicQueue );
 	if( cont->TDPool )
-		MM_Deallocate( (tVAddr)cont->TDPool );
+		MM_Deallocate( cont->TDPool );
 	LEAVE('i', 2);
 	return 2;
 }

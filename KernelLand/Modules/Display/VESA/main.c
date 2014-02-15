@@ -433,16 +433,10 @@ int Vesa_Int_SetMode(int mode)
 	// Map Framebuffer
 	if( gpVesaCurMode )
 	{
-		if( gpVesaCurMode->framebuffer < 1024*1024 )
-			;
-		else
-			MM_UnmapHWPages((tVAddr)gpVesa_Framebuffer, giVesaPageCount);
+		MM_UnmapHWPages(gpVesa_Framebuffer, giVesaPageCount);
 	}
 	giVesaPageCount = (modeptr->fbSize + 0xFFF) >> 12;
-	if( modeptr->framebuffer < 1024*1024 )
-		gpVesa_Framebuffer = (void*)(KERNEL_BASE|modeptr->framebuffer);
-	else
-		gpVesa_Framebuffer = (void*)MM_MapHWPages(modeptr->framebuffer, giVesaPageCount);
+	gpVesa_Framebuffer = MM_MapHWPages(modeptr->framebuffer, giVesaPageCount);
 	
 	Log_Log("VBE", "Setting mode to %i 0x%x (%ix%i %ibpp) %p[0x%x] maps %P",
 		mode, modeptr->code,
