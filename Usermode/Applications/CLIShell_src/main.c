@@ -9,6 +9,7 @@
 #include "header.h"
 #include <readline.h>
 #include <errno.h>
+#include <acess/devices/pty.h>
 
 #define _stdin	0
 #define _stdout	1
@@ -213,13 +214,27 @@ void CallCommand(char **Args)
 	
 	// Create new process
 	int fds[] = {0, 1, 2};
+	 int	status;
 	pid = _SysSpawn(sTmpBuffer, (const char **)Args, (const char **)gasEnvironment, 3, fds, NULL);
 	if(pid <= 0) {
 		printf("Unable to create process: `%s'\n", sTmpBuffer);	// Error Message
+		status = 0;
 	}
 	else {
-		 int	status;
+		_SysIOCtl(0, PTY_IOCTL_SETPGRP, &pid);
 		_SysWaitTID(pid, &status);
+	}
+	
+	// Return terminal to a sane state
+	{
+		int zero = 0;
+		_SysIOCtl(0, PTY_IOCTL_SETPGRP, &zero);
+		printf("\x1b[0m");
+	}
+	// Print a status message if termination was non-clean
+	if( status )
+	{
+		printf("[%i] exited %i\n", pid, status);
 	}
 }
 

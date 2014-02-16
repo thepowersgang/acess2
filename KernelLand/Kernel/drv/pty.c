@@ -308,7 +308,8 @@ int PTY_SetAttrib(tPTY *PTY, const struct ptydims *Dims, const struct ptymode *M
 		else
 		{
 			// SIGWINSZ to client
-			Threads_SignalGroup(PTY->ControllingProcGroup, SIGWINCH);
+			if( PTY->ControllingProcGroup > 0 )
+				Threads_SignalGroup(PTY->ControllingProcGroup, SIGWINCH);
 		}
 		LOG("PTY %p dims set to %ix%i", PTY, Dims->W, Dims->H);
 		PTY->Dims = *Dims;
@@ -391,7 +392,8 @@ size_t PTY_int_SendInput(tPTY *PTY, const char *Input, size_t Length)
 		{
 		case 3:	// INTR - ^C
 			// Send SIGINT
-			Threads_SignalGroup(PTY->ControllingProcGroup, SIGINT);
+			if( PTY->ControllingProcGroup > 0 )
+				Threads_SignalGroup(PTY->ControllingProcGroup, SIGINT);
 			print = 0;
 			break;
 		case 4:	// EOF - ^D

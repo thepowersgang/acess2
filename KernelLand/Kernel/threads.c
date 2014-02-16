@@ -355,7 +355,7 @@ tThread *Threads_CloneTCB(Uint Flags)
 	if(Flags & CLONE_VM) {
 		tProcess	*newproc, *oldproc;
 		oldproc = cur->Process;
-		new->Process = malloc( sizeof(struct sProcess) );
+		new->Process = calloc( sizeof(struct sProcess), 1 );
 		newproc = new->Process;
 		newproc->PID = new->TID;
 		if( Flags & CLONE_PGID )
