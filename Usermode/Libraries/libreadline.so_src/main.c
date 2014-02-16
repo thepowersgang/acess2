@@ -282,7 +282,7 @@ int Readline_int_ParseCharacter(tReadline *Info, char *Input)
 	case '\b':
 		if(Info->BufferWritePos <= 0)	break;	// Protect against underflows
 		// Write the backsapce
-		_SysWrite(STDOUT_FD, &ch, 1);
+		_SysWrite(STDOUT_FD, "\b \b", 3);
 		if(Info->BufferWritePos == Info->BufferUsed)	// Simple case: End of string
 		{
 			Info->BufferUsed --;
