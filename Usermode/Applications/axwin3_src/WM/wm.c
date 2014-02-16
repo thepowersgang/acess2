@@ -601,6 +601,7 @@ void WM_int_BlitWindow(tWindow *Window, int bForceReblit)
 		bForceReblit = 1;
 	}
 	
+	// Draw cursor
 	if( Window == gpWM_FocusedWindow && Window->CursorW )
 	{
 		Video_FillRect(

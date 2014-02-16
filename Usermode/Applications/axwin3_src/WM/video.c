@@ -89,6 +89,7 @@ void Video_Setup(void)
 	
 	// Create local framebuffer (back buffer)
 	gpScreenBuffer = malloc( giScreenWidth*giScreenHeight*4 );
+	//gpScreenBuffer = _SysMemMap( giTerminalFD, 0, giScreenWidth*giScreenHeight*4, NULL);
 
 	// Set cursor position and bitmap
 	{
@@ -159,19 +160,17 @@ void Video_SetCursorPos(short X, short Y)
 
 void Video_FillRect(int X, int Y, int W, int H, uint32_t Colour)
 {
-	uint32_t	*dest;
-	 int	i;
-	
 	if(X < 0 || Y < 0)	return;
+	if(W < 0 || H < 0)	return;
 	if(W >= giScreenWidth)	return;
 	if(H >= giScreenHeight)	return;
 	if(X + W >= giScreenWidth)	W = giScreenWidth - W;
 	if(Y + H >= giScreenHeight)	W = giScreenHeight - H;
 	
-	dest = gpScreenBuffer + Y * giScreenWidth + X;
+	uint32_t	*dest = gpScreenBuffer + Y * giScreenWidth + X;
 	while(H --)
 	{
-		for( i = W; i --; dest ++ )	*dest = Colour;
+		for( int i = W; i --; dest ++ )	*dest = Colour;
 		dest += giScreenWidth - W;
 	}
 }
