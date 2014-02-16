@@ -25,6 +25,7 @@ struct sVFS_MMapPageBlock
 // === PROTOTYPES ===
 //void	*VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD, Uint64 Offset);
 void	*VFS_MMap_Anon(void *Destination, size_t Length, Uint FlagsSet, Uint FlagsMask);
+//int	VFS_MUnmap(void *Addr, size_t Length);
 
 // === CODE ===
 void *VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD, Uint64 Offset)
