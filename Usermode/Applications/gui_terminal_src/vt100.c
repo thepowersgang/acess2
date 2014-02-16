@@ -77,6 +77,14 @@ int _locate_eos(size_t Len, const char *Buf)
 	return -1;
 }
 
+/**
+ * \brief Detect and handle VT100/ANSI/xterm escape sequences
+ * \param Term	Terminal handle (opaque)
+ * \param Len	Number of avaliable bytes
+ * \param Buf	Input buffer (\a Len bytes long)
+ * \return -ve   : Number of bytes that should be sent to screen
+ * \return +ve/0 : Number of bytes consumed by this function
+ */
 int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
 {
 	tVT100State	*st = Display_GetTermState(Term);
@@ -181,8 +189,6 @@ int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
 	case '\b':
 		// backspace is aprarently just supposed to cursor left (if possible)
 		Display_MoveCursor(Term, 0, -1);
-		//Display_AddText(Term, 1, " ");
-		//Display_MoveCursor(Term, 0, -1);
 		return 1;
 	case '\t':
 		// TODO: tab (get current cursor pos, space until multiple of 8)
@@ -225,6 +231,11 @@ int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
 	return -ret;
 }
 
+/**
+ * \brief Handle an escape code beginning with '\x1b'
+ * \return 0 : Insufficient data in buffer, wait for more
+ * \return +ve : Number of bytes in escape sequence
+ */
 int Term_HandleVT100_Short(tTerminal *Term, int Len, const char *Buf)
 {
 	 int	tmp;
@@ -310,6 +321,11 @@ int Term_HandleVT100_Short(tTerminal *Term, int Len, const char *Buf)
 	}
 }
 
+/**
+ * \brief Handle CSI escape sequences '\x1b['
+ * \return 0   : insufficient data
+ * \return +ve : Number of bytes consumed
+ */
 int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 {
 	tVT100State	*st = Display_GetTermState(Term);
@@ -467,11 +483,11 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 				break;
 			}
 			break;
-		case 'S':	// Scroll up n=1
-			Display_ScrollDown(Term, -(argc >= 1 ? args[0] : 1));
-			break;
-		case 'T':	// Scroll down n=1
+		case 'S':	// Scroll text up n=1
 			Display_ScrollDown(Term, (argc >= 1 ? args[0] : 1));
+			break;
+		case 'T':	// Scroll text down n=1
+			Display_ScrollDown(Term, -(argc >= 1 ? args[0] : 1));
 			break;
 		case 'c':	// Send Device Attributes
 			switch(args[0])
