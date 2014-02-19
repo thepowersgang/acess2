@@ -142,18 +142,26 @@ tBootModule *Multiboot_LoadModules(tMBoot_Info *MBInfo, tVAddr MapOffset, int *M
 		ret[i].Base = (void*)( (tVAddr)MM_MapHWPages(mods[i].Start, (ret[i].Size+ofs+0xFFF) / 0x1000)
 			+ ofs );
 		
-		// Only map the string if needed
-		if( !MM_GetPhysAddr( (void*)(mods[i].String + MapOffset) ) )
-		{
-			// Assumes the string is < 4096 bytes long)
-			ret[i].ArgString = (void*)(
-				(tVAddr)MM_MapHWPages(mods[i].String, 2) + (mods[i].String&0xFFF)
-				);
-		}
-		else
-			ret[i].ArgString = (char*)(tVAddr)mods[i].String + MapOffset;
+		// Assumes the string is < 4096 bytes long)
+		ret[i].ArgString = (char*)MM_MapHWPages(mods[i].String, 2) + (mods[i].String&0xFFF);
 	}
 
 	return ret;
+}
+
+void Multiboot_FreeModules(const int ModuleCount, tBootModule *Modules)
+{
+	for( int i = 0; i < ModuleCount; i ++ )
+	{
+		Uint	ofs = Modules[i].PBase % PAGE_SIZE;
+		Uint	nPages = (Modules[i].Size+ofs+PAGE_SIZE-1) / PAGE_SIZE;
+		MM_UnmapHWPages(Modules[i].Base, nPages);
+		MM_UnmapHWPages(Modules[i].ArgString, 2);
+		
+		// TODO: handle previous freeing of this page
+		for( int pg = 0; pg < nPages; pg ++ )
+			MM_DerefPhys( Modules[i].PBase + pg*PAGE_SIZE );
+	}
+	free(Modules);
 }
 

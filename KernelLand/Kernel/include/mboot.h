@@ -63,5 +63,6 @@ typedef struct {
 
 extern int	Multiboot_LoadMemoryMap(tMBoot_Info *MBInfo, tVAddr MapOffset, tPMemMapEnt *Map, const int MapSize, tPAddr KStart, tPAddr KEnd);
 extern tBootModule	*Multiboot_LoadModules(tMBoot_Info *MBInfo, tVAddr MapOffset, int *ModuleCount);
+extern void	Multiboot_FreeModules(const int ModuleCount, tBootModule *Modules);
 
 #endif

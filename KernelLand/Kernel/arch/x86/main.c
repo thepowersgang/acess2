@@ -134,20 +134,9 @@ void Arch_LoadBootModules(void)
 			Log_Warning("Arch", "Unable to load module");
 			continue ;
 		}
-		
-		#if 0
-		// Unmap and free
-		int numPages = (mod->Size + ((tVAddr)mod->Base&0xFFF) + 0xFFF) >> 12;
-		MM_UnmapHWPages( (tVAddr)gaArch_BootModules[i].Base, numPages );
-		
-		//for( int j = 0; j < numPages; j++ )
-		//	MM_DerefPhys( mod->PBase + (j << 12) );
-		
-		if( (tVAddr) mod->ArgString > MAX_ARGSTR_POS )
-			MM_UnmapHWPages( (tVAddr)mod->ArgString, 2 );
-		#endif
 	}
 	Log_Log("Arch", "Boot modules loaded");
-	if( gaArch_BootModules )
-		free( gaArch_BootModules );
+	Multiboot_FreeModules(giArch_NumBootModules, gaArch_BootModules);
+	giArch_NumBootModules = 0;
+	gaArch_BootModules = NULL;
 }
