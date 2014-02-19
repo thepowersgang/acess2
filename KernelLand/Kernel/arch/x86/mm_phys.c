@@ -121,29 +121,47 @@ void MM_Install(int NPMemRanges, tPMemMapEnt *PMemRanges)
 
 void MM_DumpStatistics(void)
 {
-	 int	i, pg;
-	for( i = 1; i < numAddrClasses; i ++ )
+	for( int i = 1; i < numAddrClasses; i ++ )
 	{
-		 int	first = (i == 1 ? 0 : (1UL << (addrClasses[i-1] - 12)));
-		 int	last  = (1UL << (addrClasses[i] - 12)) - 1;
+		const int	first = (i == 1 ? 0 : (1UL << (addrClasses[i-1] - 12)));
+		const int	last  = MIN( (1UL << (addrClasses[i] - 12)) - 1, giPageCount );
+		const int	total = last - first + 1;
+		
 		 int	nFree = 0;
 		 int	nMultiRef = 0;
 		 int	totalRefs = 0;
-
-		if( last > giPageCount )
-			last = giPageCount;
+		bool	refpage_valid = !!MM_GetPhysAddr(&gaPageReferences[first]);
 		
-		 int	total = last - first + 1;
-	
-		for( pg = first; pg < last; pg ++ )
+		for( Uint pg = first; pg < last; pg ++ )
 		{
-			if( !MM_GetPhysAddr(&gaPageReferences[pg]) || gaPageReferences[pg] == 0 ) {
+			// Free chunk
+			if( gaPageBitmap[pg/32] == 0 )
+			{
+				int count = 32 - pg%32;
+				nFree += count;
+				pg += count - 1;
+				continue ;
+			}
+			
+			// Single free
+			if( !(gaPageBitmap[pg/32] & (1 << pg%32)) )
+			{
 				nFree ++;
 				continue ;
 			}
-			totalRefs += gaPageReferences[pg];
-			if(gaPageReferences[pg] > 1)
+			
+			// Check if reference page is valid
+			if( pg % (PAGE_SIZE/sizeof(gaPageReferences[0])) == 0 ) {
+				refpage_valid = !!MM_GetPhysAddr(&gaPageReferences[pg]);
+			}
+			
+			// 
+			if( refpage_valid && gaPageReferences[pg] > 1 ) {
+				totalRefs += gaPageReferences[pg];
 				nMultiRef ++;
+			}
+			else
+				totalRefs ++;
 		}
 		
 		 int	nUsed = (total - nFree);
@@ -151,12 +169,45 @@ void MM_DumpStatistics(void)
 			addrClasses[i], nUsed, total, nMultiRef,
 			nMultiRef ? (totalRefs-(nUsed - nMultiRef)) / nMultiRef : 0
 			);
+		// TODO: Calculate fragentation of physical memory.
+		// > Somehow support defragmenting?
 		
 		if( last == giPageCount )
 			break;
 	}
 	Log_Log("MMPhys", "%lli/%lli total pages used, 0 - %i possible free range",
 		giPhysAlloc, giTotalMemorySize, giLastPossibleFree);
+	
+	 int	startpage = 0;
+	 int	last_refcnt = 0;
+	void	*last_node = NULL;
+	for( int pg = 0; pg < giPageCount; pg ++ )
+	{
+		bool	output = 0;
+		 int	refcount = 0;
+		void	*node = NULL;
+		if( !(gaPageBitmap[pg/32] & (1 << pg%32)) )
+		{
+			// free
+			output = 1;
+		}
+		else
+		{
+			refcount = MM_GetPhysAddr(&gaPageReferences[pg]) ? gaPageReferences[pg] : 1;
+			node = MM_GetPhysAddr(&gaPageNodes[pg]) ? gaPageNodes[pg] : NULL;
+			
+			if( last_refcnt != refcount || last_node != node )
+				output = 1;
+		}
+		if( output || pg == giPageCount-1 )
+		{
+			if( last_refcnt > 0 )
+				Debug("0x%4x+%i: node=%p refcount=%i", pg-startpage, last_node, last_refcnt);
+			startpage = pg;
+		}
+		last_refcnt = refcount;
+		last_node = node;
+	}
 }
 
 /**
@@ -378,6 +429,8 @@ void MM_RefPhys(tPAddr PAddr)
 	// Get page number
 	PAddr >>= 12;
 
+	//if( PAddr == 0x15FA000/PAGE_SIZE )	Debug("%p refed %P", __builtin_return_address(0), PAddr*PAGE_SIZE);
+
 	// We don't care about non-ram pages
 	if(PAddr >= giPageCount)	return;
 	
@@ -449,12 +502,16 @@ void MM_DerefPhys(tPAddr PAddr)
 	// Get page number
 	PAddr >>= 12;
 
+	//if( PAddr == 0x196000/PAGE_SIZE )	Debug("%p derefed %P", __builtin_return_address(0), PAddr*PAGE_SIZE);
+
 	// We don't care about non-ram pages
 	if(PAddr >= giPageCount)	return;
 	
 	// Check if it is freed
 	if( !(gaPageBitmap[PAddr / 32] & (1 << PAddr%32)) ) {
-		Log_Warning("MMVirt", "MM_DerefPhys - Non-referenced memory dereferenced");
+		Log_Warning("MMVirt", "MM_DerefPhys - Non-referenced memory (%P) dereferenced",
+			PAddr * PAGE_SIZE);
+		Proc_PrintBacktrace();
 		return;
 	}
 	
@@ -495,7 +552,7 @@ int MM_GetRefCount(tPAddr PAddr)
 {
 	// Get page number
 	PAddr >>= 12;
-	
+
 	// We don't care about non-ram pages
 	if(PAddr >= giPageCount)	return -1;
 
