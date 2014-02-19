@@ -1,0 +1,32 @@
+
+#ifndef _VMEM_LAYOUT_H_
+#define _VMEM_LAYOUT_H_
+
+#define WORKER_STACKS		0x00100000	// Thread0 Only!
+#define	WORKER_STACK_SIZE	MM_KERNEL_STACK_SIZE
+#define WORKER_STACKS_END	0xB0000000
+#define	NUM_WORKER_STACKS	((WORKER_STACKS_END-WORKER_STACKS)/WORKER_STACK_SIZE)
+
+#define PAE_PAGE_TABLE_ADDR	0xFC000000	// 16 MiB
+#define PAE_PAGE_DIR_ADDR	0xFCFC0000	// 16 KiB
+#define PAE_PAGE_PDPT_ADDR	0xFCFC3F00	// 32 bytes
+#define PAE_TMP_PDPT_ADDR	0xFCFC3F20	// 32 bytes
+#define PAE_TMP_DIR_ADDR	0xFCFE0000	// 16 KiB
+#define PAE_TMP_TABLE_ADDR	0xFD000000	// 16 MiB
+
+#define PAGE_TABLE_ADDR	0xFC000000
+#define PAGE_DIR_ADDR	0xFC3F0000
+#define PAGE_CR3_ADDR	0xFC3F0FC0
+#define TMP_CR3_ADDR	0xFC3F0FC4	// Part of core instead of temp
+#define TMP_DIR_ADDR	0xFC3F1000	// Same
+#define TMP_TABLE_ADDR	0xFC400000
+
+#define HW_MAP_ADDR		0xFE000000
+#define	HW_MAP_MAX		0xFFEF0000
+#define	NUM_HW_PAGES	((HW_MAP_MAX-HW_MAP_ADDR)/0x1000)
+#define	TEMP_MAP_ADDR	0xFFEF0000	// Allows 16 "temp" pages
+#define	NUM_TEMP_PAGES	16
+#define LAST_BLOCK_ADDR	0xFFFF0000	// Free space for kernel provided user code/ *(-1) protection
+
+#endif
+

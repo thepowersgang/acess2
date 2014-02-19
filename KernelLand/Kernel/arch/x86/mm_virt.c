@@ -19,35 +19,11 @@
 #include <arch_int.h>
 #include <semaphore.h>
 
+#include "include/vmem_layout.h"
+
 #define TRACE_MAPS	0
 
 #define TAB	22
-
-#define WORKER_STACKS		0x00100000	// Thread0 Only!
-#define	WORKER_STACK_SIZE	MM_KERNEL_STACK_SIZE
-#define WORKER_STACKS_END	0xB0000000
-#define	NUM_WORKER_STACKS	((WORKER_STACKS_END-WORKER_STACKS)/WORKER_STACK_SIZE)
-
-#define PAE_PAGE_TABLE_ADDR	0xFC000000	// 16 MiB
-#define PAE_PAGE_DIR_ADDR	0xFCFC0000	// 16 KiB
-#define PAE_PAGE_PDPT_ADDR	0xFCFC3F00	// 32 bytes
-#define PAE_TMP_PDPT_ADDR	0xFCFC3F20	// 32 bytes
-#define PAE_TMP_DIR_ADDR	0xFCFE0000	// 16 KiB
-#define PAE_TMP_TABLE_ADDR	0xFD000000	// 16 MiB
-
-#define PAGE_TABLE_ADDR	0xFC000000
-#define PAGE_DIR_ADDR	0xFC3F0000
-#define PAGE_CR3_ADDR	0xFC3F0FC0
-#define TMP_CR3_ADDR	0xFC3F0FC4	// Part of core instead of temp
-#define TMP_DIR_ADDR	0xFC3F1000	// Same
-#define TMP_TABLE_ADDR	0xFC400000
-
-#define HW_MAP_ADDR		0xFE000000
-#define	HW_MAP_MAX		0xFFEF0000
-#define	NUM_HW_PAGES	((HW_MAP_MAX-HW_MAP_ADDR)/0x1000)
-#define	TEMP_MAP_ADDR	0xFFEF0000	// Allows 16 "temp" pages
-#define	NUM_TEMP_PAGES	16
-#define LAST_BLOCK_ADDR	0xFFFF0000	// Free space for kernel provided user code/ *(-1) protection
 
 #define	PF_PRESENT	0x1
 #define	PF_WRITE	0x2
@@ -72,6 +48,7 @@ typedef Uint32	tTabEnt;
 // === IMPORTS ===
 extern tPage	_UsertextEnd;
 extern tPage	_UsertextBase;
+extern tPage	gKernelEnd;	// defined as page aligned
 extern Uint32	gaInitPageDir[1024];
 extern Uint32	gaInitPageTable[1024];
 extern void	Threads_SegFault(tVAddr Addr);
@@ -134,10 +111,15 @@ void MM_PreinitVirtual(void)
  */
 void MM_InstallVirtual(void)
 {
+	// Don't bother referencing, as it'a in the kernel area
+	//MM_RefPhys( gaInitPageDir[ PAGE_TABLE_ADDR >> 22 ] );
 	// --- Pre-Allocate kernel tables
 	for( int i = KERNEL_BASE>>22; i < 1024; i ++ )
 	{
-		if( gaPageDir[ i ] )	continue;
+		if( gaPageDir[ i ] ) {
+		//	MM_RefPhys( gaPageDir[ i ] & ~0xFFF );
+			continue;
+		}	
 		// Skip stack tables, they are process unique
 		if( i > MM_KERNEL_STACKS >> 22 && i < MM_KERNEL_STACKS_END >> 22) {
 			gaPageDir[ i ] = 0;
@@ -156,7 +138,17 @@ void MM_InstallVirtual(void)
 	{
 		MM_SetFlags( page, 0, MM_PFLAG_KERNEL );
 	}
-	
+
+	// Unmap the area between end of kernel image and the heap
+	// DISABLED: Assumptions in main.c
+	#if 0
+	for( tPage *page = &gKernelEnd; page < (tPage*)(KERNEL_BASE+4*1024*1024); page ++ )
+	{
+		gaPageTable[ (tVAddr)page / PAGE_SIZE ] = 0;
+		//MM_Deallocate(page);
+	}
+	#endif
+
 	*gpTmpCR3 = 0;
 }
 
@@ -353,7 +345,8 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 tPAddr MM_Allocate(volatile void * VAddr)
 {
 	tPAddr	paddr = MM_AllocPhys();
-	if( MM_Map(VAddr, paddr) ) {
+	if( MM_Map(VAddr, paddr) )
+	{
 		return paddr;
 	}
 	
@@ -394,6 +387,7 @@ void MM_AllocateZero(volatile void *VAddr)
 	else
 	{
 		MM_Map(VAddr, giMM_ZeroPage);
+		MM_RefPhys(giMM_ZeroPage);
 	}
 	MM_SetFlags(VAddr, MM_PFLAG_COW, MM_PFLAG_COW);
 }
@@ -440,9 +434,6 @@ int MM_Map(volatile void *VAddr, tPAddr PAddr)
 	
 	// Map
 	gaPageTable[ pagenum ] = PAddr | 3 | (is_user ? PF_USER : 0);
-	
-	// Reference
-	MM_RefPhys( PAddr );
 	
 	INVLPG( VAddr );
 	
@@ -588,7 +579,6 @@ tPAddr MM_Clone(int bNoUserCopy)
 	tPAddr	ret;
 	Uint	page = 0;
 	tVAddr	kStackBase = Proc_GetCurThread()->KernelStack - MM_KERNEL_STACK_SIZE;
-	void	*tmp;
 	
 	// Create Directory Table
 	ret = MM_AllocPhys();
@@ -697,10 +687,8 @@ tPAddr MM_Clone(int bNoUserCopy)
 			// Allocate page
 			gaTmpTable[i*1024+j] = MM_AllocPhys() | 3;
 			
-			MM_RefPhys( gaTmpTable[i*1024+j] & ~0xFFF );
-			
-			tmp = MM_MapTemp( gaTmpTable[i*1024+j] & ~0xFFF );
-			memcpy( tmp, (void *)( (i*1024+j)*0x1000 ), 0x1000 );
+			void *tmp = MM_MapTemp( gaTmpTable[i*1024+j] & ~0xFFF );
+			memcpy( tmp, (void *)( (i*1024+j)*PAGE_SIZE ), PAGE_SIZE );
 			MM_FreeTemp( tmp );
 		}
 	}
@@ -1127,10 +1115,10 @@ void *MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 	
 	// Allocated successfully, now map
 	ret = MM_MapHWPages(phys, Pages);
+	// - MapHWPages references the memory, so release references
+	for( int i = 0; i < Pages; i ++ )
+		MM_DerefPhys(phys + i*PAGE_SIZE);
 	if( ret == 0 ) {
-		// If it didn't map, free then return 0
-		for(;Pages--;phys+=0x1000)
-			MM_DerefPhys(phys);
 		LEAVE('i', 0);
 		return 0;
 	}
