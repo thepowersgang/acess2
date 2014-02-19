@@ -71,7 +71,7 @@ static inline tHeapFoot *Heap_PrevFoot(tHeapHead *Head) {
  */
 void *Heap_Extend(size_t Bytes)
 {
-	Debug("Heap_Extend(0x%x)", Bytes);
+	//Debug("Heap_Extend(0x%x)", Bytes);
 	
 	// Bounds Check
 	if( gHeapEnd == (tHeapHead*)MM_KHEAP_MAX ) {
