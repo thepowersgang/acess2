@@ -96,13 +96,16 @@ int VM8086_Install(char **Arguments)
 
 		// Map ROM Area
 		for(i=0xA0;i<0x100;i++) {
+			MM_RefPhys(i * 0x1000);
 			MM_Map( (void*)(i * 0x1000), i * 0x1000 );
 		}
+		MM_RefPhys(0);
 		MM_Map( (void*)0, 0 );	// IVT / BDA
 		if( MM_GetRefCount(0x00000) > 2 ) {
 			Log_Notice("VM8086", "Ok, who's touched the IVT? (%i)",
 				MM_GetRefCount(0x00000));
 		}
+		MM_RefPhys(0x9F000);
 		MM_Map( (void*)0x9F000, 0x9F000 );	// Stack / EBDA
 		if( MM_GetRefCount(0x9F000) > 2 ) {
 			Log_Notice("VM8086", "And who's been playing with my EBDA? (%i)",
@@ -222,6 +225,7 @@ void VM8086_GPF(tRegs *Regs)
 		{
 			if( !gpVM8086_State->Internal->AllocatedPages[i].VirtBase )
 				continue ;
+			MM_RefPhys( gpVM8086_State->Internal->AllocatedPages[i].PhysAddr );
 			MM_Map( (tPage*)VM8086_USER_BASE + i, gpVM8086_State->Internal->AllocatedPages[i].PhysAddr );
 		}
 
