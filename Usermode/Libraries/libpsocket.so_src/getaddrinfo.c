@@ -235,3 +235,8 @@ const char *gai_strerror(int errnum)
 	}
 }
 
+struct hostent *gethostbyname(const char *name)
+{
+	return NULL;
+}
+

@@ -14,6 +14,10 @@
 #endif
 #include <stdint.h>	// uint32_t
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef uint32_t	socklen_t;
 
 typedef enum
@@ -23,8 +27,9 @@ typedef enum
 	AF_LOCAL 	= 2,
 	AF_INET 	= 4,
 	AF_INET6	= 6,
-} sa_family_t;
+};
 #define AF_UNIX	AF_LOCAL
+typedef uint8_t	sa_family_t;	// I would use an enum, but cast issues
 
 struct sockaddr
 {
@@ -141,6 +146,8 @@ extern int	connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
  */
 extern int	listen(int sockfd, int backlog);
 
+#define SOMAXCONN	128	// Maximum size of backlog (actually far higher)
+
 /**
  * \brief Accept an incoming connection
  */
@@ -163,6 +170,10 @@ extern void	endhostent(void);
 extern void	herror(const char *s);
 extern const char	*hstrerror(int err);
 extern struct hostent *gethostent(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

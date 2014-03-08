@@ -6,7 +6,7 @@ CPPFLAGS +=
 CFLAGS   += -Wall
 LDFLAGS  += -lc -soname libpsocket.so -lnet
 
-OBJ = main.o getaddrinfo.o socket.o pton.o
+OBJ = main.o getaddrinfo.o socket.o pton.o byteordering.o
 BIN = libpsocket.so
 
 include ../Makefile.tpl

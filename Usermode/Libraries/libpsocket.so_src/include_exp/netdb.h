@@ -3,6 +3,11 @@
 
 #include <sys/socket.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 struct hostent
 {
 	char	*h_name;
@@ -11,6 +16,7 @@ struct hostent
 	 int	h_length;
 	char	**h_addr_list;
 };
+#define h_addr h_addr_list[0]	// backwards compataibility
 
 struct netent
 {
@@ -96,9 +102,16 @@ const char	*gai_strerror(int errorcode);
 extern struct servent	*getservbyname(const char *name, const char *proto);
 extern struct servent	*getservbyport(int port, const char *proto);
 
+extern struct hostent	*gethostbyname(const char *name);
+extern struct hostent	*gethostbyaddr(const void *addr, socklen_t len, int type);
+
 extern void	setservent(int stayopen);
 extern struct servent	*getservent(void);
 extern void	enservent(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 
