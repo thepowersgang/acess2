@@ -8,6 +8,10 @@
 #ifndef _LIBC_SETJMP_H_
 #define _LIBC_SETJMP_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #if defined(__i386__)
 typedef void	*jmp_buf[8];
 #elif defined(__amd64__)
@@ -18,6 +22,10 @@ typedef void	*jmp_buf[16];
 
 extern int	setjmp(jmp_buf buf);
 extern void	longjmp(jmp_buf buf, int val);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

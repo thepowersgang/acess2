@@ -9,6 +9,10 @@
 #include <stdarg.h>
 #include <sys/types.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define EXIT_FAILURE	1
 #define EXIT_SUCCESS	0
 
@@ -30,6 +34,8 @@
 # define abs	acess_abs
 # define labs	acess_labs
 # define llabs	acess_llabs
+
+# define mktemp	acess_mktemp
 
 # define getenv	acess_getenv
 # define putenv	acess_putenv
@@ -62,6 +68,8 @@ extern long	strtol(const char *ptr, char **end, int base);
 extern unsigned long long	strtoull(const char *ptr, char **end, int base);
 extern unsigned long	strtoul(const char *ptr, char **end, int base);
 extern int	atoi(const char *ptr);
+extern long	atol(const char *ptr);
+extern long long	atoll(const char *ptr);
 
 extern double	strtod(const char *ptr, char **end);
 extern float	strtof(const char *ptr, char **end);
@@ -73,6 +81,8 @@ extern void	atexit(void (*__func)(void));
 extern int	abs(int j);
 extern long int	labs(long int j);
 extern long long int	llabs(long long int j);
+
+extern char	*mktemp(char *__template);
 
 /* --- Environment --- */
 extern char	*getenv(const char *name);
@@ -101,5 +111,11 @@ extern int	rand_p(unsigned int *seedp);
 # define SEEK_SET	1
 # define SEEK_END	(-1)
 #endif
+
+#ifdef __cplusplus
+}
+#endif
+
+#include <libposix_stdlib.h>
 
 #endif

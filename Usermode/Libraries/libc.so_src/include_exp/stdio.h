@@ -9,6 +9,10 @@
 #include <stdarg.h>
 #include <stddef.h>	// size_t
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* === Types === */
 typedef struct sFILE	FILE;
 
@@ -58,6 +62,8 @@ typedef struct sFILE	FILE;
 #define getchar	acess_getchar
 #define putchar	acess_putchar
 
+#define rename	acess_rename
+
 #define fprintf 	acess_fprintf
 #define vfprintf	acess_vfprintf
 
@@ -86,10 +92,13 @@ extern FILE	*freopen(const char *file, const char *mode, FILE *fp);
 extern FILE	*fmemopen(void *buffer, size_t length, const char *mode);
 extern FILE	*open_memstream(char **bufferptr, size_t *lengthptr);
 extern FILE	*fdopen(int fd, const char *modes);
+extern FILE	*tmpfile(void);
 extern int	fclose(FILE *fp);
 extern void	fflush(FILE *fp);
 extern off_t	ftell(FILE *fp);
+extern off_t	ftello(FILE *fp);
 extern int	fseek(FILE *fp, long int amt, int whence);
+extern int	fseeko(FILE *fp, off_t amt, int whence);
 extern void	clearerr(FILE *stream);
 extern int	feof(FILE *stream);
 extern int	ferror(FILE *stream);
@@ -109,6 +118,8 @@ extern int	putchar(int ch);
 extern int	fprintf(FILE *fp, const char *format, ...);
 extern int	vfprintf(FILE *fp, const char *format, va_list args);
 
+extern int	rename(const char *oldpath, const char *newpath);
+
 // scanf
 extern int	scanf(const char *format, ...);
 extern int	fscanf(FILE *stream, const char *format, ...);
@@ -120,6 +131,10 @@ extern int	vfscanf(FILE *stream, const char *format, va_list ap);
 extern FILE	*stdin;
 extern FILE	*stdout;
 extern FILE	*stderr;
+
+#if __cplusplus
+}
+#endif
 
 #endif
 

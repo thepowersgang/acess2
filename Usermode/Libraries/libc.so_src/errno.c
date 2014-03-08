@@ -45,6 +45,7 @@ EXPORT char *strerror(int errnum)
 	case EPERM:	return "Operation not permitted";
 	case ENOTTY:	return "Not a TTY";
 	case EAGAIN:	return "Try again";
+	case EFBIG:	return "File too big";
 	case EALREADY:	return "Operation was no-op";
 	case EAFNOSUPPORT:	return "Address family not supported";
 	case EINTERNAL:	return "Internal error";
