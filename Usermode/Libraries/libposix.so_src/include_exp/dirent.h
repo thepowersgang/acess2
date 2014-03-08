@@ -10,6 +10,10 @@
 
 #include "sys/stat.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define NAME_MAX	255
 
 struct dirent
@@ -27,6 +31,10 @@ extern int	readdir_r(DIR *, struct dirent *, struct dirent **);
 extern void	rewinddir(DIR *);
 extern void	seekdir(DIR *, long int);
 extern long int	telldir(DIR *);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

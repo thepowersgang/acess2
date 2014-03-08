@@ -183,6 +183,17 @@ int usleep(useconds_t usec)
 	return 0;
 }
 
+unsigned int alarm(unsigned int seconds)
+{
+	static int64_t	alarm_time;
+	if( seconds > 0 )
+	{
+		alarm_time = _SysTimestamp() + seconds * 1000;
+		// TODO: Schedule SIGALRM
+	}
+	return (alarm_time - _SysTimestamp()) / 1000;
+}
+
 int kill(pid_t pid, int signal)
 {
 	// TODO: Need special handling?

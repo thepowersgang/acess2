@@ -11,6 +11,10 @@
 #include <stdint.h>
 #include "sys/types.h"	// off_t
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef void	*dev_t;	/* TODO: How to identify a device with Acess */
 typedef uint64_t	ino_t;
 typedef unsigned int	blksize_t;
@@ -27,6 +31,9 @@ typedef uint32_t	mode_t;
 #define		S_IFSOCK	0140000	/* socket */
 #define		S_IFIFO	0010000	/* fifo */
 
+#define S_ISDIR(mode)	(((mode) & S_IFMT) == S_IFDIR)
+#define S_ISREG(mode)	(((mode) & S_IFMT) == S_IFREG)
+#define S_ISCHR(mode)	(((mode) & S_IFMT) == S_IFCHR)
 
 struct stat
 {
@@ -49,5 +56,9 @@ extern int stat(const char *path, struct stat *buf);
 extern int lstat(const char *path, struct stat *buf);
 extern int fstat(int fd, struct stat *buf);
 extern int mkdir(const char *pathname, mode_t mode);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
