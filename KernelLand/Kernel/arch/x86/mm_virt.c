@@ -57,6 +57,7 @@ extern void	Threads_SegFault(tVAddr Addr);
 void	MM_PreinitVirtual(void);
 void	MM_InstallVirtual(void);
 void	MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs);
+void	MM_DumpTables_Print(tVAddr Start, Uint32 Orig, size_t Size, void *Node);
 //void	MM_DumpTables(tVAddr Start, tVAddr End);
 //void	MM_ClearUser(void);
 tPAddr	MM_DuplicatePage(tVAddr VAddr);
@@ -256,6 +257,37 @@ void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 	Panic("Page Fault at 0x%x (Accessed 0x%x)", Regs->eip, Addr);
 }
 
+void MM_DumpTables_Print(tVAddr Start, Uint32 Orig, size_t Size, void *Node)
+{
+	if( (Orig & ~(PAGE_SIZE-1)) == giMM_ZeroPage )
+	{
+		Log( "0x%08x => ZERO + 0x%08x (%s%s%s%s%s) %p",
+			Start,
+			Size,
+			(Orig & PF_NOPAGE ? "P" : "-"),
+			(Orig & PF_COW ? "C" : "-"),
+			(Orig & PF_GLOBAL ? "G" : "-"),
+			(Orig & PF_USER ? "U" : "-"),
+			(Orig & PF_WRITE ? "W" : "-"),
+			Node
+			);
+	}
+	else
+	{
+		Log(" 0x%08x => 0x%08x + 0x%08x (%s%s%s%s%s) %p",
+			Start,
+			Orig & ~0xFFF,
+			Size,
+			(Orig & PF_NOPAGE ? "P" : "-"),
+			(Orig & PF_COW ? "C" : "-"),
+			(Orig & PF_GLOBAL ? "G" : "-"),
+			(Orig & PF_USER ? "U" : "-"),
+			(Orig & PF_WRITE ? "W" : "-"),
+			Node
+			);
+	}
+}
+
 /**
  * \fn void MM_DumpTables(tVAddr Start, tVAddr End)
  * \brief Dumps the layout of the page tables
@@ -299,17 +331,7 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 		{
 			if(expected) {
 				tPAddr	orig = gaPageTable[rangeStart>>12];
-				Log(" 0x%08x => 0x%08x - 0x%08x (%s%s%s%s%s) %p",
-					rangeStart,
-					orig & ~0xFFF,
-					curPos - rangeStart,
-					(orig & PF_NOPAGE ? "P" : "-"),
-					(orig & PF_COW ? "C" : "-"),
-					(orig & PF_GLOBAL ? "G" : "-"),
-					(orig & PF_USER ? "U" : "-"),
-					(orig & PF_WRITE ? "W" : "-"),
-					expected_node
-					);
+				MM_DumpTables_Print(rangeStart, orig, curPos - rangeStart, expected_node);
 				expected = 0;
 			}
 			if( !(gaPageDir[curPos>>22] & PF_PRESENT) )	continue;
@@ -319,22 +341,13 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 			MM_GetPageNode(expected, &expected_node);
 			rangeStart = curPos;
 		}
-		if(expected)	expected += 0x1000;
+		if(expected && (expected & ~(PAGE_SIZE-1)) != giMM_ZeroPage)
+			expected += 0x1000;
 	}
 	
 	if(expected) {
 		tPAddr	orig = gaPageTable[rangeStart>>12];
-		Log("0x%08x => 0x%08x - 0x%08x (%s%s%s%s%s) %p",
-			rangeStart,
-			orig & ~0xFFF,
-			curPos - rangeStart,
-			(orig & PF_NOPAGE ? "p" : "-"),
-			(orig & PF_COW ? "C" : "-"),
-			(orig & PF_GLOBAL ? "G" : "-"),
-			(orig & PF_USER ? "U" : "-"),
-			(orig & PF_WRITE ? "W" : "-"),
-			expected_node
-			);
+		MM_DumpTables_Print(rangeStart, orig, curPos - rangeStart, expected_node);
 		expected = 0;
 	}
 }
@@ -405,9 +418,9 @@ int MM_Map(volatile void *VAddr, tPAddr PAddr)
 	#endif
 
 	// Sanity check
-	if( PAddr & 0xFFF || (tVAddr)VAddr & 0xFFF ) {
-		Log_Warning("MM_Virt", "MM_Map - Physical or Virtual Addresses are not aligned (0x%P and %p)",
-			PAddr, VAddr);
+	if( (PAddr & 0xFFF) || ((tVAddr)VAddr & 0xFFF) ) {
+		Log_Warning("MM_Virt", "MM_Map - Physical or Virtual Addresses are not aligned (%P and %p) - %p",
+			PAddr, VAddr, __builtin_return_address(0));
 		//LEAVE('i', 0);
 		return 0;
 	}
