@@ -8,6 +8,10 @@
 #include <stddef.h>	// size_t
 #include "syscall_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // === CONSTANTS ===
 #ifndef NULL
 # define NULL	((void*)0)
@@ -70,8 +74,8 @@ extern void	_SysTimedSleep(int64_t Delay);
 // --- Permissions ---
 extern int	_SysGetUID(void);
 extern int	_SysGetGID(void);
-extern void	setuid(int id);
-extern void	setgid(int id);
+extern int	setuid(int id);
+extern int	setgid(int id);
 
 // --- VFS ---
 extern int	_SysChdir(const char *dir);
@@ -110,5 +114,9 @@ extern uint32_t	_SysSetMemFlags(uintptr_t vaddr, uint32_t flags, uint32_t mask);
 extern void	*_SysLoadBin(const char *path, void **entry);
 extern int	_SysUnloadBin(void *base);
 extern void	SysSetFaultHandler(int (*Hanlder)(int));
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
