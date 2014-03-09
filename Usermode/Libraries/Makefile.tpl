@@ -92,6 +92,11 @@ $(_OBJPREFIX)%.o: %.c
 	@mkdir -p $(dir $@)
 	$V$(CC) $(CFLAGS) $(CPPFLAGS) -o $@ -c $< -MMD -MP -MT $@ -MF $@.dep
 
+$(_OBJPREFIX)%.o: %.cc
+	@echo [CXX] -o $@
+	@mkdir -p $(dir $@)
+	$V$(CXX) $(CXXFLAGS) $(CPPFLAGS) -o $@ -c $< -MMD -MP -MT $@ -MF $@.dep
+
 $(_OBJPREFIX)%.ao: %.$(ASSUFFIX)
 	@echo [AS] -o $@
 	@mkdir -p $(dir $@)
