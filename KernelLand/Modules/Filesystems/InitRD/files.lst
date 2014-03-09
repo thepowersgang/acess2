@@ -6,7 +6,7 @@ Dir "SBin" {
 	File "__BIN__/SBin/insmod"
 	File "__BIN__/SBin/automount"
 	
-	OptFile	"__EXT__/sbin/dropbear"
+	OptFile	"__EXT__/Acess/usr/sbin/dropbear"
 }
 Dir "Bin" {
 	File "__BIN__/Bin/CLIShell"
@@ -20,9 +20,9 @@ Dir "Bin" {
 	File "__BIN__/Bin/irc"
 	File "__BIN__/Bin/bomb"
 	
-	OptFile	"__EXT__/bin/dbclient"
-	OptFile	"__EXT__/bin/vttest"
-	OptFile	"__EXT__/bin/bochs"
+	OptFile	"__EXT__/Acess/usr/bin/dbclient"
+	OptFile	"__EXT__/Acess/usr/bin/vttest"
+	OptFile	"__EXT__/Acess/usr/bin/bochs"
 }
 Dir "Libs" {
 	File "__BIN__/Libs/ld-acess.so"
@@ -41,6 +41,13 @@ Dir "Libs" {
 }
 Dir "Conf" {
 	File "__FS__/Conf/inittab"
+}
+Dir "usr" {
+	Dir "share" {
+		Dir "bochs" {
+			OptFile "__EXT__/Acess/usr/share/bochs/BIOS-bochs-latest"
+		}
+	}
 }
 Dir "Apps" {
 	Dir "AxWin" {
