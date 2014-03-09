@@ -1,5 +1,7 @@
 #!/bin/bash
 
+toolname=${0##*-}
+
 # Get invocation path (which could be a symlink in $PATH)
 fullpath=`which "$0"`
 if [[ !$? ]]; then
@@ -16,7 +18,9 @@ _miscargs=""
 _compile=0
 _linktype=Applications
 
-echo [GCCProxy] $* >&2
+echo [GCCProxy] $toolname $* >&2
+
+
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
@@ -73,6 +77,10 @@ while [[ $# -gt 0 ]]; do
 		echo $0 --inv=ld
 		exit 0
 		;;
+	-print-search-dirs)
+		_compile=1
+		_cflags=$_cflags" $1"
+		;;
 	-print-multi-os-directory)
 		_compile=1
 		_cflags=$_cflags" $1"
@@ -110,6 +118,16 @@ rm $cfgfile
 
 #echo "_compile = $_compile, _preproc = $_preproc"
 
+if [[ "$toolname" == "g++" ]]; then
+	COMPILER=$_CXX
+	_libs="-lc++ $_libs"
+elif [[ "$toolname" == "gcc" ]]; then
+	COMPILER=$_CC
+else
+	echo "ERROR: Unknown tool name $toolname" >&2
+	exit 1
+fi
+
 if [[ "x$_verarg" != "x" ]]; then
 	if [[ "x$_actas" == "xld" ]]; then
 		run $_LD $_miscargs $_verarg
@@ -137,11 +155,11 @@ elif [[ $_compile -eq 1 ]]; then
 elif echo " $_miscargs" | grep '\.c' >/dev/null; then
 	tmpout=`mktemp acess_gccproxy.XXXXXXXXXX.o --tmpdir`
 	run $_CC $CFLAGS $_cflags $_miscargs -c -o $tmpout
-	run $_LD $LDFLAGS $_ldflags $_libs $tmpout $_outfile $_libs $LIBGCC_PATH
+	run $_LD $LDFLAGS $_ldflags $CRTBEGIN $_libs $tmpout $_outfile $_libs $LIBGCC_PATH $CRTEND
 	_rv=$?
 	rm $tmpout
 	exit $_rv
 else
-	run $_LD $_ldflags $_miscargs $_outfile $LDFLAGS $_libs $LIBGCC_PATH
+	run $_LD $_ldflags $CRTBEGIN $_miscargs $_outfile $LDFLAGS $_libs $LIBGCC_PATH $CRTEND
 fi
 
