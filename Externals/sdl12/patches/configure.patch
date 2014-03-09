@@ -1,0 +1,19 @@
+--- configure
++++ configure
+@@ -30162,4 +30162,16 @@
+         # The RISC OS platform requires special setup.
+         EXTRA_LDFLAGS="$EXTRA_LDFLAGS -ljpeg -ltiff -lpng -lz"
+         ;;
++    *-acess*)
++        ARCH=acess
++        # Set up files for the video library
++        if test x$enable_video = xyes; then
++            cat >>confdefs.h <<\_ACEOF
++#define SDL_VIDEO_DRIVER_ACESS 1
++_ACEOF
++            SOURCES="$SOURCES $srcdir/src/video/acess/*.c"
++            have_video=yes
++        fi
++       # TODO: Joystick
++        ;;
+     *)

@@ -7,7 +7,8 @@
     builtin_assert ("system=unix");   \
   } while(0);
 
-#define LIB_SPEC	"-lc -lld-acess"
+#define LIB_SPEC	"-lc -lld-acess -lposix"
+#define LIBSTDCXX "c++"
 
 /*
 #undef TARGET_VERSION                                     // note that adding these two lines cause an error in gcc-4.7.0

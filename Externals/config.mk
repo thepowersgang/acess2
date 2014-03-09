@@ -16,5 +16,9 @@ endif
 PREFIX=$(ACESSDIR)/Externals/Output/$(ARCH)
 EPREFIX=$(PREFIX)
 SYSROOT=$(ACESSDIR)/Externals/Output/sysroot-$(BFD)
-HOST=$(BFD)-acess_proxy-elf
+HOST=$(BFD)-pc-acess2
+PATH:=$(PREFIX)-BUILD/bin:$(PATH)
+INCLUDE_DIR=$(SYSROOT)/usr/include
+
+PARLEVEL ?= 1
 

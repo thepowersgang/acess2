@@ -44,7 +44,7 @@ endif
 DIR := $(patsubst $(TARBALL_TO_DIR_L),$(TARBALL_TO_DIR_R),$(ARCHIVE))
 
 ifeq ($(NOBDIR),)
- BDIR := build-$(DIR)
+ BDIR := build-$(ARCH)
 else
  BDIR := $(DIR)
 endif
@@ -57,14 +57,9 @@ all: $(DIR) _patch _build
 clean:
 	rm -rf $(DIR) $(BDIR)
 
-$(DIR): $(ARCHIVE) patches/UNIFIED.patch
+$(DIR): $(ARCHIVE)
 	tar -xf $(ARCHIVE)
-ifneq ($(wildcard patches/UNIFIED.patch),)
-	cd $(DIR) && patch -p1 < ../patches/UNIFIED.patch
-endif
 
-patches/UNIFIED.patch:
-	
 
 $(DIR)/%: patches/%.patch
 	@echo [PATCH] $@
@@ -77,4 +72,8 @@ $(DIR)/%: patches/%
 	@cp $< $@
 
 PATCHED_FILES := $(addprefix $(DIR)/,$(PATCHES))
-_patch: $(DIR) $(PATCHED_FILES)
+
+_patch: $(DIR) $(PATCHED_FILES) $(wildcard patches/UNIFIED.patch)
+ifneq ($(wildcard patches/UNIFIED.patch),)
+	cd $(DIR) && patch -p1 < ../patches/UNIFIED.patch
+endif

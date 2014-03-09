@@ -17,16 +17,16 @@ $(warning $(CONFIGSCRIPT): $(PATCHED_ACFILES))
 $(CONFIGSCRIPT): $(PATCHED_ACFILES)
 ifeq ($(AUTORECONF),)
 else
-	cd $(DIR) && autoreconf --force --install
+#	cd $(DIR) && aclocal --force -I acinclude
+#	cd $(DIR) && libtoolize --force
+	cd $(DIR) && autoreconf --force --install $(AUTORECONF_ARGS)
 endif
 
-$(BDIR)/Makefile: _patch $(CONFIGSCRIPT) ../common.mk Makefile 
+$(BDIR)/Makefile: _patch $(CONFIGSCRIPT) ../common_automake.mk Makefile 
 	mkdir -p $(BDIR)
-	cd $(BDIR) && PATH=$(PREFIX)-BUILD/bin:$(PATH) $(CONFIGURE_LINE)
+	cd $(BDIR) && $(CONFIGURE_ENV) PATH=$(PATH) $(CONFIGURE_LINE)
 
 _build: $(BDIR)/Makefile
-	cd $(BDIR) && make $(BTARGETS)
-
-install: all
-	cd $(BDIR) && make $(ITARGETS)
+	PATH=$(PATH) make $(BTARGETS) -C $(BDIR)
+	PATH=$(PATH) make $(ITARGETS) -C $(BDIR)
 

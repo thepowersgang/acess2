@@ -1,0 +1,9 @@
+--- config.sub
++++ config.sub
+@@ -1344,3 +1344,6 @@
+ 		os=-mint
+ 		;;
++	-acess2)
++		os=-acess2
++		;;
+ 	-aros*)

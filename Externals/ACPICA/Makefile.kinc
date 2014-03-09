@@ -1,7 +1,9 @@
-CPPFLAGS += -I $(ACESSDIR)/Externals/ACPICA/include -D_ACESS -D__KERNEL__
-EXTERN_OBJS += $(ACESSDIR)/Externals/bin-$(ARCH)/libacpica.a
+ACPICA_OBJECT := $(ACESSDIR)/Externals/Output/$(ARCH)-kernel/libacpica.a
 
-$(ACESSDIR)/Externals/bin-$(ARCH)/libacpica.a:
+CPPFLAGS += -I $(ACESSDIR)/Externals/ACPICA/include -D_ACESS -D__KERNEL__
+EXTERN_OBJS += $(ACPICA_OBJECT)
+
+$(ACPICA_OBJECT):
 	@make -C $(ACESSDIR)/Externals/ACPICA
 	@make -C $(ACESSDIR)/Externals/ACPICA
 

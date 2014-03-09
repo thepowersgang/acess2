@@ -4,7 +4,7 @@ include $(dir $(lastword $(MAKEFILE_LIST)))../../Makefile.cfg
 
 ACPI_DEBUG ?= no
 
-BIN := ../bin-$(ARCH)/libacpica.a
+BIN := ../Output/$(ARCH)-kernel/libacpica.a
 
 _VERS := $(patsubst acpica-unix-%.tar.gz,%,$(wildcard acpica-unix-*.tar.gz))
 _VERS := $(sort $(_VERS))

@@ -1,0 +1,6 @@
+--- bochs-2.6.2_orig/config.h.in	2013-06-17 11:39:39.670720710 +0800
++++ bochs-2.6.2/config.h.in	2013-06-17 11:48:09.149384231 +0800
+@@ -57,2 +57,2 @@
+ // Define to 1 if you have <locale.h>
+-#define HAVE_LOCALE_H 0
++#undef HAVE_LOCALE_H
