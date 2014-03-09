@@ -755,7 +755,7 @@ EXPORT size_t fread(void *ptr, size_t size, size_t num, FILE *fp)
 EXPORT int fputs(const char *s, FILE *fp)
 {
 	int len = strlen(s);
-	return fwrite(s, 1, len, fp);
+	return fwrite(s, len, 1, fp);
 }
 
 /**

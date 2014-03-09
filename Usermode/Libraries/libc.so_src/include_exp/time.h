@@ -55,7 +55,7 @@ extern char *asctime_r(const struct tm *timeptr, char *buf);
 
 //! asctime(localtime(timer))
 extern char *ctime(const time_t *timer);
-extern char *ctime_r(const time_t *timer, struct tm *result);
+extern char *ctime_r(const time_t *timer, char *buf);
 
 //! Convert \a timter into UTC
 extern struct tm *gmtime(const time_t *timer);

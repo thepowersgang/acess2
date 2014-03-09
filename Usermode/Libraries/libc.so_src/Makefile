@@ -10,9 +10,10 @@ LDFLAGS  += -Map map.txt
 
 INCFILES := stdio.h stdlib.h
 
-OBJ  = stub.o heap.o stdlib.o env.o stdio.o string.o rand.o
-OBJ += scanf.o signals.o strtoi.o strtof.o
+OBJ  = stub.o heap.o stdlib.o env.o string.o rand.o
+OBJ += scanf.o signals.o strtoi.o strtof.o 
 OBJ += printf.o time.o timeconv.o errno.o ctype.o
+OBJ += stdio.o stdio_files.o
 OBJ += arch/$(ARCHDIR).ao
 # signals.o
 DEPFILES := $(OBJ:%.o=%.d)
