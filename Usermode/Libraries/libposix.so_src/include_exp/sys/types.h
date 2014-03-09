@@ -5,10 +5,14 @@
 
 #include <stddef.h>
 
+#define __USE_BSD	1
+
 //typedef signed int	ssize_t;
-//#ifdef  __USE_BSD
+
+#ifdef  __USE_BSD
+typedef unsigned long	u_long;
 typedef unsigned int	u_int;
-//#endif
+#endif
 
 typedef struct stat	t_fstat;
 

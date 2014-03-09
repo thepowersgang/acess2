@@ -50,6 +50,12 @@ int open(const char *path, int openmode, ...)
 	return ret;
 }
 
+int access(const char *path, int openmode)
+{
+	errno = EINVAL;
+	return -1;
+}
+
 int creat(const char *path, mode_t mode)
 {
 	// TODO: Make native call to do this cheaper
