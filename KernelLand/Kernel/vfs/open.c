@@ -296,7 +296,7 @@ restart_parse:
 		pathEle[nextSlash] = 0;
 	
 		// Check permissions on root of filesystem
-		if( !VFS_CheckACL(curNode, VFS_PERM_EXECUTE) ) {
+		if( !VFS_CheckACL(curNode, VFS_PERM_EXEC) ) {
 			LOG("Permissions failure on '%s'", Path);
 			errno = EPERM;
 			goto _error;
@@ -474,7 +474,7 @@ int VFS_int_CreateHandle( tVFS_Node *Node, tVFS_Mount *Mount, int Mode )
 	ENTER("pNode pMount xMode", Node, Mount, Mode);
 
 	i = 0;
-	i |= (Mode & VFS_OPENFLAG_EXEC) ? VFS_PERM_EXECUTE : 0;
+	i |= (Mode & VFS_OPENFLAG_EXEC) ? VFS_PERM_EXEC : 0;
 	i |= (Mode & VFS_OPENFLAG_READ) ? VFS_PERM_READ : 0;
 	i |= (Mode & VFS_OPENFLAG_WRITE) ? VFS_PERM_WRITE : 0;
 	
@@ -557,7 +557,7 @@ int VFS_OpenEx(const char *Path, Uint Flags, Uint Mode)
 		}
 
 		// Check ACLs on the parent
-		if( !VFS_CheckACL(pnode, VFS_PERM_EXECUTE|VFS_PERM_WRITE) ) {
+		if( !VFS_CheckACL(pnode, VFS_PERM_EXEC|VFS_PERM_WRITE) ) {
 			errno = EACCES;
 			goto _pnode_err;
 		}

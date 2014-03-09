@@ -39,8 +39,8 @@ tVFS_ACL	RootFS_DirACLs[3] = {
 	{{0,-1}, {0,VFS_PERM_ALL^VFS_PERM_WRITE}}	// World (Nobody)
 };
 tVFS_ACL	RootFS_FileACLs[3] = {
-	{{0,0}, {0,VFS_PERM_ALL^VFS_PERM_EXECUTE}},	// Owner (Root)
-	{{1,0}, {0,VFS_PERM_ALL^VFS_PERM_EXECUTE}},	// Group (Root)
+	{{0,0}, {0,VFS_PERM_ALL^VFS_PERM_EXEC}},	// Owner (Root)
+	{{1,0}, {0,VFS_PERM_ALL^VFS_PERM_EXEC}},	// Group (Root)
 	{{0,-1}, {0,VFS_PERM_READ}}	// World (Nobody)
 };
 tVFS_NodeType	gRootFS_DirType = {

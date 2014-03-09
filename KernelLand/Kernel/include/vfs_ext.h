@@ -60,31 +60,12 @@ enum eVFS_SeekDirs
  * \name ACL Permissions
  * \{
  */
-/**
- * \brief Readable
- */
-#define VFS_PERM_READ	0x00000001
-/**
- * \brief Writeable
- */
-#define VFS_PERM_WRITE	0x00000002
-/**
- * \brief Append allowed
- */
-#define VFS_PERM_APPEND	0x00000004
-/**
- * \brief Executable
- */
-#define VFS_PERM_EXECUTE	0x00000008
-/**
- * \brief All permissions granted
- */
-#define VFS_PERM_ALL	0x7FFFFFFF	// Mask for permissions
-/**
- * \brief Denies instead of granting permissions
- * \note Denials take precedence
- */
-#define VFS_PERM_DENY	0x80000000	// Inverts permissions
+#define VFS_PERM_READ	0x00000001	//!< Readable
+#define VFS_PERM_WRITE	0x00000002	//!< Writable
+#define VFS_PERM_APPEND	0x00000004	//!< Appendable (/create file)
+#define VFS_PERM_EXEC	0x00000008	//!< Executable (/Traversable)
+#define VFS_PERM_ALL	0x7FFFFFFF	//!< All permission bits
+#define VFS_PERM_DENY	0x80000000	//!< Flag for denying a permission set (higher precedence)
 /**
  * \}
  */

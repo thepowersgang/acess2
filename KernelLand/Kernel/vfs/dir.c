@@ -74,7 +74,7 @@ int VFS_MkNod(const char *Path, Uint Flags)
 	}
 
 	// Permissions Check
-	if( !VFS_CheckACL(parent, VFS_PERM_EXECUTE|VFS_PERM_WRITE) ) {
+	if( !VFS_CheckACL(parent, VFS_PERM_EXEC|VFS_PERM_WRITE) ) {
 		errno = EACCES;
 		goto _error;
 	}

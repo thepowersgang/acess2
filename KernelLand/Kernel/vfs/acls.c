@@ -10,8 +10,8 @@ Uint	VFS_int_CheckACLs(tVFS_ACL *ACLs, int Num, int bDeny, Uint Perms, tUID UID,
 
 // === GLOBALS ===
 tVFS_ACL	gVFS_ACL_EveryoneRWX = { {1,-1}, {0,VFS_PERM_ALL} };
-tVFS_ACL	gVFS_ACL_EveryoneRW = { {1,-1}, {0,VFS_PERM_ALL^VFS_PERM_EXECUTE} };
-tVFS_ACL	gVFS_ACL_EveryoneRX = { {1,-1}, {0,VFS_PERM_READ|VFS_PERM_EXECUTE} };
+tVFS_ACL	gVFS_ACL_EveryoneRW = { {1,-1}, {0,VFS_PERM_ALL^VFS_PERM_EXEC} };
+tVFS_ACL	gVFS_ACL_EveryoneRX = { {1,-1}, {0,VFS_PERM_READ|VFS_PERM_EXEC} };
 tVFS_ACL	gVFS_ACL_EveryoneRO = { {1,-1}, {0,VFS_PERM_READ} };
 
 // === CODE ===
@@ -139,21 +139,21 @@ tVFS_ACL *VFS_UnixToAcessACL(Uint Mode, Uint Owner, Uint Group)
 	ret[0].Perm.Inv = 0;  ret[0].Perm.Perms = 0;
 	if(Mode & 0400)	ret[0].Perm.Perms |= VFS_PERM_READ;
 	if(Mode & 0200)	ret[0].Perm.Perms |= VFS_PERM_WRITE;
-	if(Mode & 0100)	ret[0].Perm.Perms |= VFS_PERM_EXECUTE;
+	if(Mode & 0100)	ret[0].Perm.Perms |= VFS_PERM_EXEC;
 	
 	// Group
 	ret[1].Ent.Group = 1; ret[1].Ent.ID = Group;
 	ret[1].Perm.Inv = 0;  ret[1].Perm.Perms = 0;
 	if(Mode & 0040)	ret[1].Perm.Perms |= VFS_PERM_READ;
 	if(Mode & 0020)	ret[1].Perm.Perms |= VFS_PERM_WRITE;
-	if(Mode & 0010)	ret[1].Perm.Perms |= VFS_PERM_EXECUTE;
+	if(Mode & 0010)	ret[1].Perm.Perms |= VFS_PERM_EXEC;
 	
 	// Global
 	ret[2].Ent.Group = 1; ret[2].Ent.ID = -1;
 	ret[2].Perm.Inv = 0;  ret[2].Perm.Perms = 0;
 	if(Mode & 0004)	ret[2].Perm.Perms |= VFS_PERM_READ;
 	if(Mode & 0002)	ret[2].Perm.Perms |= VFS_PERM_WRITE;
-	if(Mode & 0001)	ret[2].Perm.Perms |= VFS_PERM_EXECUTE;
+	if(Mode & 0001)	ret[2].Perm.Perms |= VFS_PERM_EXEC;
 	
 	// Return buffer
 	return ret;
