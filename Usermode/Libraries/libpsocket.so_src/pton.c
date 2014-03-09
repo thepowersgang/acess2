@@ -8,6 +8,7 @@
 #include <netinet/in.h>
 #include <net.h>	// Net_PrintAddress
 #include <acess/sys.h>	// _SysDebug
+#include <string.h>
 
 // === CODE ===
 int inet_pton(int af, const char *src, void *dst)
@@ -22,7 +23,7 @@ const char *inet_ntop(int af, const void *src, char *dest, size_t len)
 	switch(af)
 	{
 	case AF_INET:
-		str = Net_PrintAddress(4, ((struct in_addr*)src)->s_addr);
+		str = Net_PrintAddress(4, &((struct in_addr*)src)->s_addr);
 		break;
 	case AF_INET6:
 		str = Net_PrintAddress(6, ((struct in6_addr*)src)->s6_addr);
@@ -33,5 +34,10 @@ const char *inet_ntop(int af, const void *src, char *dest, size_t len)
 	}
 	strncpy(dest, str, len);
 	return dest;
+}
+
+char *inet_ntoa(struct in_addr in)
+{
+	return Net_PrintAddress(4, &in.s_addr);
 }
 

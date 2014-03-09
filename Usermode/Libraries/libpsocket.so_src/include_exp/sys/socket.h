@@ -20,7 +20,7 @@ extern "C" {
 
 typedef uint32_t	socklen_t;
 
-typedef enum
+enum
 {
 	AF_UNSPEC	= 0,
 	AF_PACKET	= 1,
