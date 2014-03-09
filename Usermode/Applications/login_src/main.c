@@ -9,8 +9,8 @@
 #define BUFLEN	1024
 
 // === PROTOTYPES ===
-char	*GetUsername();
-char	*GetPassword();
+char	*GetUsername(void);
+char	*GetPassword(void);
 
 // === CODE ===
 int main(int argc, char *argv[])
@@ -130,10 +130,6 @@ char *_GetString(int bEcho)
  */
 char *GetUsername()
 {
-	char	ret[BUFLEN] = {0};
-	 int	pos = 0;
-	char	ch;
-	
 	// Prompt the user
 	printf("Username: ");
 	fflush(stdout);
