@@ -28,5 +28,5 @@ $(BDIR)/Makefile: _patch $(CONFIGSCRIPT) ../common_automake.mk Makefile
 
 _build: $(BDIR)/Makefile
 	PATH=$(PATH) make $(BTARGETS) -C $(BDIR)
-	PATH=$(PATH) make $(ITARGETS) -C $(BDIR)
+	PATH=$(PATH) make DESTDIR=$(OUTDIR) $(ITARGETS) -C $(BDIR)
 

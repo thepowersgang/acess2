@@ -15,7 +15,7 @@ TARGET=$(HOST)
 GCC_TARGETS := gcc target-libgcc
 # target-libstdc++-v3 
 
-PREFIX := $(PREFIX)-BUILD
+PREFIX := $(OUTDIR)-BUILD
 BDIR_GCC := build-$(ARCH)/gcc
 BDIR_BINUTILS := build-$(ARCH)/binutils
 

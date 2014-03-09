@@ -11,14 +11,17 @@ else
  $(error No BFD translation for $(ARCH) in Externals/config.mk)
 endif
 
-#PREFIX=$(ACESSDIR)/Externals/Output
-#EPREFIX=$(ACESSDIR)/Externals/Output/$(BFD)
-PREFIX=$(ACESSDIR)/Externals/Output/$(ARCH)
-EPREFIX=$(PREFIX)
+OUTDIR=$(ACESSDIR)/Externals/Output/$(ARCH)
+BUILD_OUTDIR=$(OUTDIR)-BUILD
 SYSROOT=$(ACESSDIR)/Externals/Output/sysroot-$(BFD)
-HOST=$(BFD)-pc-acess2
-PATH:=$(PREFIX)-BUILD/bin:$(PATH)
+
+PATH:=$(BUILD_OUTDIR)/bin:$(PATH)
 INCLUDE_DIR=$(SYSROOT)/usr/include
+
+# Runtime Options
+PREFIX=/Acess/usr/
+EPREFIX=$(PREFIX)
+HOST=$(BFD)-pc-acess2
 
 PARLEVEL ?= 1
 
