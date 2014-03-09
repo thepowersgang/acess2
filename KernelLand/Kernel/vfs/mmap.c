@@ -71,7 +71,7 @@ void *VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD,
 	// - Sorted list of 16 page blocks
 	for(
 		pb = h->Node->MMapInfo, prev = NULL;
-		pb && pb->BaseOffset + MMAP_PAGES_PER_BLOCK < pagenum;
+		pb && pb->BaseOffset + MMAP_PAGES_PER_BLOCK <= pagenum;
 		prev = pb, pb = pb->Next
 		)
 		;
@@ -98,6 +98,8 @@ void *VFS_MMap(void *DestHint, size_t Length, int Protection, int Flags, int FD,
 	// - Map (and allocate) pages
 	while( npages -- )
 	{
+		assert( pagenum >= pb->BaseOffset );
+		assert( pagenum - pb->BaseOffset < MMAP_PAGES_PER_BLOCK );
 		if( MM_GetPhysAddr( mapping_dest ) == 0 )
 		{
 			if( pb->PhysAddrs[pagenum - pb->BaseOffset] == 0 )
