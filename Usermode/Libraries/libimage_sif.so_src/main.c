@@ -6,9 +6,13 @@
 #include <string.h>
 #include <image.h>
 //#include <image_sif.h>
-#include <acess/sys.h>	// _SysDebug
+#include <acess/sys.h>	// DEBUGS
 
-#define	_SysDebug(...)	do{}while(0)
+#if ENABLE_DEBUG
+# define DEBUGS(v...)	_SysDebug(v)
+#else
+#define	DEBUGS(...)	do{}while(0)
+#endif
 
 // === STRUCTURES ===
 struct sHeader
@@ -63,7 +67,7 @@ tImage *Image_SIF_Parse(void *Buffer, size_t Size)
 	 int	sampleSize;
 	struct sHeader	*hdr = Buffer;
 	 
-	_SysDebug("Image_SIF_Parse: (Buffer=%p, Size=0x%x)", Buffer, Size);
+	DEBUGS("Image_SIF_Parse: (Buffer=%p, Size=0x%x)", Buffer, Size);
 	
 	// Get magic word and determine byte ordering
 	if(hdr->Magic == 0x51F0)	// Little Endian
@@ -71,11 +75,11 @@ tImage *Image_SIF_Parse(void *Buffer, size_t Size)
 	else if(hdr->Magic == 0xF051)	// Big Endian
 		bRevOrder = 1;
 	else {
-		_SysDebug(" Image_SIF_Parse: Magic invalid (0x%x)", hdr->Magic);
+		DEBUGS(" Image_SIF_Parse: Magic invalid (0x%x)", hdr->Magic);
 		return NULL;
 	}
 	
-	_SysDebug(" Image_SIF_Parse: bRevOrder = %i", bRevOrder);
+	DEBUGS(" Image_SIF_Parse: bRevOrder = %i", bRevOrder);
 	
 	// Read flags
 	comp = hdr->Flags & 7;
@@ -85,7 +89,7 @@ tImage *Image_SIF_Parse(void *Buffer, size_t Size)
 	w = hdr->Width;
 	h = hdr->Height;
 	
-	_SysDebug(" Image_SIF_Parse: Dimensions %ix%i", w, h);
+	DEBUGS(" Image_SIF_Parse: Dimensions %ix%i", w, h);
 	
 	// Get image format
 	switch(fmt)
@@ -102,7 +106,7 @@ tImage *Image_SIF_Parse(void *Buffer, size_t Size)
 		return NULL;
 	}
 	
-	_SysDebug(" Image_SIF_Parse: sampleSize = %i, fmt = %i", sampleSize, fmt);
+	DEBUGS(" Image_SIF_Parse: sampleSize = %i, fmt = %i", sampleSize, fmt);
 	
 	fileOfs = sizeof(struct sHeader);
 	
@@ -164,7 +168,7 @@ tImage *Image_SIF_Parse(void *Buffer, size_t Size)
 		}
 		if(bRevOrder)
 			flip_buffer_endian(ret->Data, sampleSize, w*h);
-		_SysDebug("Image_SIF_Parse: Complete at %i bytes", fileOfs);
+		DEBUGS("Image_SIF_Parse: Complete at %i bytes", fileOfs);
 		return ret;
 	
 	// Channel 1.7.8 RLE
