@@ -1,0 +1,9 @@
+--- builds/unix/config.sub
++++ builds/unix/config.sub
+@@ -1498,3 +1498,6 @@
+ 		;;
++	-acess2)
++		os=-acess2
++		;;
+ 	-aros*)
+ 		os=-aros
