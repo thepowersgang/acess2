@@ -30,7 +30,7 @@ N_OBJ := main.o net_wrap.o
 # - Local objects (use the kernel includes)
 OBJ := helpers.o threads.o threads_glue.o server.o syscalls.o time.o
 OBJ += video.o keyboard.o mouse.o nativefs.o vfs_handle.o ui_sdl.o
-OBJ += net.o
+OBJ += net.o syscall_getpath.o
 
 BUILDINFO_OBJ := obj-$(PLATFORM)/buildinfo.o
 BUILDINFO_SRC := $(BUILDINFO_OBJ:%.o=%.c)

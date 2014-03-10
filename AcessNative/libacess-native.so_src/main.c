@@ -5,10 +5,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-
-extern int	giSyscall_ClientID;
-extern void	Request_Preinit(void);
-extern int	acess__SysOpen(const char *Path, unsigned int flags);
+#include <stdbool.h>
+#include "common.h"
+#include <stdint.h>
+#include "../ld-acess_src/exports.h"
 
 #ifdef __WINDOWS__
 int DllMain(void)
@@ -40,7 +40,7 @@ int libacessnative_init(int argc, char *argv[], char **envp)
 {
 	Request_Preinit();
 	
-	const char *preopens = getenv_p(envp, "AN_PREOPEN");
+	const char *preopens = getenv_p(envp, ENV_VAR_PREOPENS);
 	printf("preopens = %s\n", preopens);
 	if( preopens )
 	{
@@ -68,12 +68,44 @@ int libacessnative_init(int argc, char *argv[], char **envp)
 		}
 	}
 
-//	if( !getenv("ACESSNATIVE_ID")
+//	if( !getenv(ENV_VAR_KEY)
 	
 	return 0;
 }
 #endif
 
+int acessnative_spawn(const char *Binary, int SyscallID, const char * const * argv, const char * const * envp)
+{
+	 int	envc = 0;
+	while( envp[envc++] )
+		envc ++;
+
+	// Set environment variables for libacess-native
+	// > ACESSNATIVE_KEY=`newID`
+	size_t keystr_len = snprintf(NULL, 0, "%s=%i", ENV_VAR_KEY, SyscallID);
+	char keystr[keystr_len+1];
+	snprintf(keystr, keystr_len+1, "%s=%i", ENV_VAR_KEY, SyscallID);
+	bool	bKeyHit = false;
+	
+	const char *newenv[envc+2+1];
+	 int	i = 0;
+	for( ; envp[i]; i ++ )
+	{
+		const char	*ev = envp[i];
+		if( strncmp(ev, ENV_VAR_KEY"=", sizeof(ENV_VAR_KEY"=")) == 0 ) {
+			ev = keystr;
+			bKeyHit = true;
+		}
+		newenv[i] = ev;
+	}
+	if( !bKeyHit )
+		newenv[i++] = keystr;
+	newenv[i++] = "LD_LIBRARY_PATH=Libs/";	// HACK
+	newenv[i] = NULL;
+	
+	// TODO: Detect native_spawn failing
+	return native_spawn(Binary, argv, newenv);
+}
 
 void Debug(const char *format, ...)
 {
@@ -101,5 +133,11 @@ void __libc_csu_fini()
 
 void __libc_csu_init()
 {
+}
+
+void __stack_chk_fail(void)
+{
+	fprintf(stderr, "__stack_chk_fail");
+	exit(1);
 }
 

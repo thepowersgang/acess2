@@ -22,7 +22,7 @@ endif
 
 CFLAGS   += -Wall
 CFLAGS   += -Werror
-CFLAGS   += -g
+CFLAGS   += -g -std=c99
 CPPFLAGS += -DARCHDIR_is_x86_64=1
 LDFLAGS  += -g -Wl,-T,obj-$(PLATFORM)/link.ld
 

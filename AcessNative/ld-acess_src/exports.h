@@ -9,6 +9,7 @@
 #define _EXPORTS_H_
 
 #include <stddef.h>
+#include <stdint.h>
 
 // Syscall request (used by acess_*)
 extern uint64_t	_Syscall(int SyscallID, const char *ArgTypes, ...);
@@ -26,7 +27,7 @@ extern int	native_execve(const char *filename, const char *const argv[], const c
 extern int	native_spawn(const char *filename, const char *const argv[], const char *const envp[]);
 
 // Syscalls used by the linker
-extern int	acess__SysOpen(const char *Path, int Flags);
+extern int	acess__SysOpen(const char *Path, unsigned int Flags);
 extern void	acess__SysClose(int FD);
 extern size_t	acess__SysRead(int FD, void *Dest, size_t Bytes);
 extern int	acess__SysSeek(int FD, int64_t Offset, int Dir);

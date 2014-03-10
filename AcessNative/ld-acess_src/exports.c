@@ -49,7 +49,7 @@ int acess__SysChdir(const char *Path)
 	return _Syscall(SYS_CHDIR, ">s", Path);
 }
 
-int acess__SysOpen(const char *Path, int Flags)
+int acess__SysOpen(const char *Path, unsigned int Flags)
 {
 	if( strncmp(Path, "$$$$", 4) == 0 )
 	{
@@ -342,7 +342,8 @@ int acess__SysSpawn(const char *binary, const char **argv, const char **envp, in
 
 	 int	kernel_tid;
 	 int	newID;
-	newID = _Syscall(SYS_AN_SPAWN, "<d >d >d", sizeof(int), &kernel_tid,
+	newID = _Syscall(SYS_AN_SPAWN, "<d >d >d",
+		sizeof(int), &kernel_tid,
 		nfd*sizeof(int), fds,
 		info ? sizeof(*info) : 0, info);
 

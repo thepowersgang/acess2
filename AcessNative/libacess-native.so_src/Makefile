@@ -15,6 +15,8 @@ endif
 ifeq ($(PLATFORM),lin)
 	BIN := ../libacess-native.so
 endif
+BINLINK := ../../Usermode/Output/native/Libs/$(notdir $(BIN))
+$(warning $(BINLINK))
 
 CFLAGS   += -Wall
 CFLAGS   += -Werror
@@ -27,7 +29,7 @@ DEPFILES := $(DEPFILES:%=%.dep)
 
 .PHONY: all clean
 
-all: $(BIN)
+all: $(BIN) $(BINLINK)
 
 clean:
 	$(RM) $(BIN) $(OBJ) $(DEPFILES)
@@ -35,6 +37,10 @@ clean:
 $(BIN): $(OBJ)
 	$(CC) -o $@ $(OBJ) $(LDFLAGS)
 	objdump -S $@ > $@.dsm
+
+$(BINLINK): $(BIN)
+	@mkdir -p $(dir $@)
+	@cd $(dir $@) && ln -sf ../../../../AcessNative/$(notdir $@)
 
 obj-$(PLATFORM)/%.o: %.c
 	@mkdir -p $(dir $@)

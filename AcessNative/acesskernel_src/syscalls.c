@@ -16,14 +16,22 @@
 // === IMPORTS ===
 extern int	Threads_Fork(void);	// AcessNative only function
 extern int	Threads_Spawn(int nFD, int FDs[], const void *info);
+extern int	Syscall_AN_GetPath_Real(char *Dest, size_t DstLen, const char *Path);
 
 // === TYPES ===
 typedef int	(*tSyscallHandler)(Uint *Errno, const char *Format, void *Args, int *Sizes);
 
 // === MACROS ===
+#define _SYSCALL_CHKFMT(_name,_fmtstr,Fmt) do{ \
+	if(strcmp(Fmt,_fmtstr) != 0) {\
+		*Errno = EINVAL;\
+		Log_Error("Syscalls", "Call %s takes args '%s', given '%s'", #_name, _fmtstr, Fmt);\
+		return -1;\
+	}\
+} while(0)
 #define SYSCALL6(_name, _fmtstr, _t0, _t1, _t2, _t3, _t4, _t5, _call) int _name(Uint*Errno,const char*Fmt,void*Args,int*Sizes){\
 	_t0 a0;_t1 a1;_t2 a2;_t3 a3;_t4 a4;_t5 a5;\
-	if(strcmp(Fmt,_fmtstr)!=0)return 0;\
+	_SYSCALL_CHKFMT(_name,_fmtstr,Fmt);\
 	a0 = *(_t0*)Args;Args+=sizeof(_t0);\
 	a1 = *(_t1*)Args;Args+=sizeof(_t1);\
 	a2 = *(_t2*)Args;Args+=sizeof(_t2);\
@@ -35,7 +43,7 @@ typedef int	(*tSyscallHandler)(Uint *Errno, const char *Format, void *Args, int 
 }
 #define SYSCALL5(_name, _fmtstr, _t0, _t1, _t2, _t3, _t4, _call) int _name(Uint*Errno,const char*Fmt,void*Args,int*Sizes){\
 	_t0 a0;_t1 a1;_t2 a2;_t3 a3;_t4 a4;\
-	if(strcmp(Fmt,_fmtstr)!=0)return 0;\
+	_SYSCALL_CHKFMT(_name,_fmtstr,Fmt);\
 	a0 = *(_t0*)Args;Args+=sizeof(_t0);\
 	a1 = *(_t1*)Args;Args+=sizeof(_t1);\
 	a2 = *(_t2*)Args;Args+=sizeof(_t2);\
@@ -46,7 +54,7 @@ typedef int	(*tSyscallHandler)(Uint *Errno, const char *Format, void *Args, int 
 }
 #define SYSCALL4(_name, _fmtstr, _t0, _t1, _t2, _t3, _call) int _name(Uint*Errno,const char*Fmt,void*Args,int*Sizes){\
 	_t0 a0;_t1 a1;_t2 a2;_t3 a3;\
-	if(strcmp(Fmt,_fmtstr)!=0)return 0;\
+	_SYSCALL_CHKFMT(_name,_fmtstr,Fmt);\
 	a0 = *(_t0*)Args;Args+=sizeof(_t0);\
 	a1 = *(_t1*)Args;Args+=sizeof(_t1);\
 	a2 = *(_t2*)Args;Args+=sizeof(_t2);\
@@ -57,7 +65,7 @@ typedef int	(*tSyscallHandler)(Uint *Errno, const char *Format, void *Args, int 
 
 #define SYSCALL3(_name, _fmtstr, _t0, _t1, _t2, _call) int _name(Uint*Errno,const char*Fmt,void*Args,int*Sizes){\
 	_t0 a0;_t1 a1;_t2 a2;\
-	if(strcmp(Fmt,_fmtstr)!=0)return 0;\
+	_SYSCALL_CHKFMT(_name,_fmtstr,Fmt);\
 	a0 = *(_t0*)Args;Args+=sizeof(_t0);\
 	a1 = *(_t1*)Args;Args+=sizeof(_t1);\
 	a2 = *(_t2*)Args;Args+=sizeof(_t2);\
@@ -67,7 +75,7 @@ typedef int	(*tSyscallHandler)(Uint *Errno, const char *Format, void *Args, int 
 
 #define SYSCALL2(_name, _fmtstr, _t0, _t1, _call) int _name(Uint*Errno,const char*Fmt,void*Args,int*Sizes){\
 	_t0 a0;_t1 a1;\
-	if(strcmp(Fmt,_fmtstr)!=0)return 0;\
+	_SYSCALL_CHKFMT(_name,_fmtstr,Fmt);\
 	a0 = *(_t0*)Args;Args+=sizeof(_t0);\
 	a1 = *(_t1*)Args;Args+=sizeof(_t1);\
 	LOG("SYSCALL2 '%s' %p %p", Fmt, (intptr_t)a0,(intptr_t)a1);\
@@ -76,14 +84,14 @@ typedef int	(*tSyscallHandler)(Uint *Errno, const char *Format, void *Args, int 
 
 #define SYSCALL1(_name, _fmtstr, _t0, _call) int _name(Uint*Errno,const char*Fmt, void*Args,int*Sizes){\
 	_t0 a0;\
-	if(strcmp(Fmt,_fmtstr)!=0)return 0;\
+	_SYSCALL_CHKFMT(_name,_fmtstr,Fmt);\
 	a0 = *(_t0*)Args;Args+=sizeof(_t0);\
 	LOG("SYSCALL1 '%s' %p", Fmt,(intptr_t)a0);\
 	_call;\
 }
 
 #define SYSCALL0(_name, _call) int _name(Uint*Errno,const char*Fmt, void*Args,int*Sizes){\
-	if(strcmp(Fmt,"")!=0)return 0;\
+	_SYSCALL_CHKFMT(_name,"",Fmt);\
 	LOG("SYSCALL0");\
 	_call;\
 }
@@ -167,6 +175,11 @@ SYSCALL4(Syscall_Mount, "ssss", const char *, const char *, const char *, const 
 SYSCALL1(Syscall_Chdir, "s", const char *,
 	return VFS_ChDir(a0);
 );
+
+SYSCALL2(Syscall_AN_Getpath, "ds", char *, const char *,
+	return Syscall_AN_GetPath_Real(a0, Sizes[0], a1);
+);
+
 SYSCALL0(Syscall_Sleep,
 	Threads_Sleep();
 	return 0;
@@ -254,6 +267,7 @@ const tSyscallHandler	caSyscalls[] = {
 	[SYS_MOUNT]	= Syscall_Mount,
 	[SYS_REOPEN]	= NULL,	// SYS_REOPEN
 	[SYS_CHDIR]	= Syscall_Chdir,
+	[SYS_AN_GETPATH] = Syscall_AN_Getpath,
 	
 	[SYS_WAITTID]	= Syscall_WaitTID,
 	[SYS_SETUID]	= Syscall_SetUID,
@@ -265,8 +279,8 @@ const tSyscallHandler	caSyscalls[] = {
 	Syscall_GetGID,
 
 	Syscall_Sleep,
-	Syscall_AN_Fork,
-	Syscall_AN_Spawn,
+	[SYS_AN_FORK]  = Syscall_AN_Fork,
+	[SYS_AN_SPAWN] = Syscall_AN_Spawn,
 
 	Syscall_SendMessage,
 	Syscall_GetMessage,

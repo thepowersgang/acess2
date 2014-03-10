@@ -342,12 +342,18 @@ int native_execve(const char *filename, const char *const argv[], const char *co
 int native_spawn(const char *filename, const char *const argv[], const char *const envp[])
 {
 	int rv;
-	
+
+	fprintf(stderr, "native_spawn('%s')\n", filename);
+
 	#if __WIN32__
 	rv = _spawnve(_P_NOWAIT, filename, argv, envp);
 	#else
 	rv = posix_spawn(NULL, filename, NULL, NULL, (void*)argv, (void*)envp);
 	#endif
+	
+	if( rv == 0 ) {
+		perror("native_spawn");
+	}
 	
 	return rv;
 }

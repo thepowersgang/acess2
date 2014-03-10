@@ -39,7 +39,7 @@ extern const char	gsGitHash[];
 extern int	giBuildNumber;
 
 // === GLOBALS ===
-const char	*gsAcessDir = "../Usermode/Output/x86_64";
+const char	*gsAcessDir = "../Usermode/Output/native";
 
 // === CODE ===
 #ifndef __WIN32__
