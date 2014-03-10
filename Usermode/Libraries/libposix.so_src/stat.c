@@ -40,13 +40,33 @@ int fstat(int fd, struct stat *buf)
 	t_sysFInfo	info;
 	
 	int rv = _SysFInfo(fd, &info, 0);
-	if( !rv ) {
+	if( rv == -1 ) {
 		return -1;
 	}
 
+	_SysDebug("fstat(fd=%i,buf=%p)", fd, buf);
+
 	// TODO: Populate buf
-	buf->st_mode = 0;
-//	memset(buf, 0, sizeof(*buf));
+	buf->st_dev = info.mount;
+	buf->st_ino = info.inode;
+	if( info.flags & FILEFLAG_SYMLINK )
+		buf->st_mode = S_IFLNK;
+	else if( info.flags & FILEFLAG_DIRECTORY )
+		buf->st_mode = S_IFDIR;
+	else
+		buf->st_mode = S_IFREG;
+	// TODO: User modes (assume 660)
+	buf->st_mode |= 0660;
+	buf->st_nlink = 1;
+	buf->st_uid = info.uid;
+	buf->st_gid = info.gid;
+	buf->st_rdev = NULL;
+	buf->st_size = info.size;
+	buf->st_blksize = 512;
+	buf->st_blocks = (info.size+511)/512;
+	buf->st_atime = info.atime;
+	buf->st_mtime = info.mtime;
+	buf->st_ctime = info.ctime;
 	
 	return 0;
 }
