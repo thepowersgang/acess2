@@ -25,7 +25,7 @@ extern int	Net_ParseAddress(const char *String, void *Addr);
  * \param AddressType	Address family as returned by Net_ParseAddress
  * \param Address	Address data
  */
-extern const char *Net_PrintAddress(int AddressType, void *Address);
+extern const char *Net_PrintAddress(int AddressType, const void *Address);
 
 /**
  * \brief Get the size in bytes of an address type

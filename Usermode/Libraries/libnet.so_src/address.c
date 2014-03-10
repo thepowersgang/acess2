@@ -160,8 +160,8 @@ static int Net_ParseIPv6Addr(const char *String, uint8_t *Addr)
 	k = 0;
 	for( ; j < 8; j ++, k++)
 	{
-		Addr[j*2] = hi[k]>>8;
-		Addr[j*2+1] = hi[k]&0xFF;
+		Addr[j*2] = low[k]>>8;
+		Addr[j*2+1] = low[k]&0xFF;
 	}
 	
 	return 1;
@@ -187,7 +187,7 @@ int Net_ParseAddress(const char *String, void *Addr)
 	return 0;
 }
 
-static const char *Net_PrintIPv4Address(uint8_t *Address)
+static const char *Net_PrintIPv4Address(const uint8_t *Address)
 {
 	static __thread char	ret[4*3+3+1];	// '255.255.255.255\0'
 	
@@ -196,7 +196,7 @@ static const char *Net_PrintIPv4Address(uint8_t *Address)
 	return ret;
 }
 
-static const char *Net_PrintIPv6Address(uint16_t *Address)
+static const char *Net_PrintIPv6Address(const uint16_t *Address)
 {
 	static __thread char	ret[8*4+7+1];	// 'FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF\0'
 	#if 0
@@ -215,7 +215,7 @@ static const char *Net_PrintIPv6Address(uint16_t *Address)
 	return ret;
 }
 
-const char *Net_PrintAddress(int AddressType, void *Address)
+const char *Net_PrintAddress(int AddressType, const void *Address)
 {
 	switch( AddressType )
 	{
