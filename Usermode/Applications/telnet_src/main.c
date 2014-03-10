@@ -54,7 +54,7 @@ int main(int argc, char *argv[], char *envp[])
 		FD_SET(server_fd, &fds);	FD_SET(server_fd, &err_fds);
 		
 		// Wait for data (no timeout)
-		rv = select(server_fd+1, &fds, NULL, &err_fds, NULL);
+		rv = _SysSelect(server_fd+1, &fds, NULL, &err_fds, NULL, 0);
 		if( rv < 0 )	break;
 		
 		// Check for remote data avaliable
