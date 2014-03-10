@@ -64,7 +64,7 @@ tURI *URI_Parse(const char *String)
 	// true URI
 	if(tmp[0] == ':' && tmp[1] == '/' && tmp[2] == '/')
 	{
-		 int	hostlen, portlen, pathlen;
+		 int	hostlen, portlen;
 		tmp += 3;	// Eat '://'
 		ret = malloc(sizeof(tURI) + protolen + 1 + strlen(tmp) + 1);
 		
