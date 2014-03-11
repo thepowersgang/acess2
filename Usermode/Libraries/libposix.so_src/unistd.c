@@ -191,7 +191,7 @@ int kill(pid_t pid, int signal)
 
 int select(int nfd, fd_set *rfd, fd_set *wfd, fd_set *efd, struct timeval *timeout)
 {
-	long long int	ltimeout = 0, *ltimeoutp = NULL;
+	int64_t	ltimeout = 0, *ltimeoutp = NULL;
 	if( timeout )
 	{
 		ltimeout = timeout->tv_sec*1000 + timeout->tv_usec / 1000;
