@@ -5,11 +5,11 @@
  	tmake_file="$tmake_file i386/t-crtstuff t-crtstuff-pic t-libgcc-pic"
  	;;
 +i[3-7]86-*-acess2*)
-+	extra_parts="crt0.o crtbegin.o crtend.o"
++	extra_parts="crtbegin.o crtend.o"
 +	tmake_file="$tmake_file i386/t-crtstuff"
 +	;;
 +x86_64-*-acess2*)
-+	extra_parts="crt0.o crtbegin.o crtend.o"
++	extra_parts="crtbegin.o crtend.o"
 +	tmake_file="$tmake_file i386/t-crtstuff t-crtstuff-pic t-libgcc-pic"
 +	;;
  i[34567]86-*-freebsd*)

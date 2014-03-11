@@ -223,6 +223,33 @@ EXPORT FILE *open_memstream(char **bufferptr, size_t *lengthptr)
 	return ret;
 }
 
+EXPORT FILE *fdopen(int fd, const char *mode)
+{
+	FILE	*ret;
+	
+	if( fd < 0 || !mode )	return NULL;
+	
+	ret = get_file_struct();
+	
+	ret->FD = fd;
+	ret->Flags = _fopen_modetoflags(mode);
+	if(ret->Flags == -1) {
+		ret->Flags = 0;
+		return NULL;
+	}
+	
+	ret->Buffer = NULL;
+	ret->BufferPos = 0;
+	ret->BufferSpace = 0;
+	
+	return ret;
+}
+
+EXPORT FILE *tmpfile(void)
+{
+	return NULL;
+}
+
 EXPORT int fclose(FILE *fp)
 {
 	if( !(fp->Flags & FILE_FLAG_ALLOC) )
@@ -452,7 +479,7 @@ int _fseek_memstream(FILE *fp, long int amt, int whence)
 	return 0;
 }
 
-EXPORT int fseek(FILE *fp, long int amt, int whence)
+EXPORT int fseeko(FILE *fp, off_t amt, int whence)
 {
 	if(!fp || fp->FD == FD_NOTOPEN) {
 		errno = EBADF;
@@ -471,6 +498,11 @@ EXPORT int fseek(FILE *fp, long int amt, int whence)
 		fp->Pos = _SysTell(fp->FD);
 		return 0;
 	}
+}
+
+EXPORT int fseek(FILE *fp, long int amt, int whence)
+{
+	return fseeko(fp, amt, whence);
 }
 
 size_t _fwrite_unbuffered(FILE *fp, size_t size, size_t num, const void *data)
@@ -723,7 +755,7 @@ EXPORT size_t fread(void *ptr, size_t size, size_t num, FILE *fp)
 EXPORT int fputs(const char *s, FILE *fp)
 {
 	int len = strlen(s);
-	return fwrite(s, 1, len, fp);
+	return fwrite(s, len, 1, fp);
 }
 
 /**

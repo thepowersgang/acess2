@@ -8,6 +8,10 @@
 #ifndef _SIGNAL_H_
 #define _SIGNAL_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "signal_list.h"
 
 typedef void (*sighandler_t)(int);
@@ -15,9 +19,9 @@ typedef void (*sighandler_t)(int);
 //! Atomic integer type
 typedef volatile int	sig_atomic_t;
 
-#define SIG_IGN	((void*)1)
-#define SIG_DFL	((void*)0)
-#define SIG_ERR	((void*)-1)
+#define SIG_IGN	((sighandler_t)1)
+#define SIG_DFL	((sighandler_t)0)
+#define SIG_ERR	((sighandler_t)-1)
 
 extern sighandler_t	signal(int signum, sighandler_t handler);
 
@@ -54,6 +58,10 @@ struct sigaction
 #define SA_NOCLDSTOP	0x001
 
 extern int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact);
+
+#if __cplusplus
+}
+#endif
 
 #endif
 

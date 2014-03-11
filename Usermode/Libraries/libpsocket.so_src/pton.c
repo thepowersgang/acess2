@@ -36,3 +36,8 @@ const char *inet_ntop(int af, const void *src, char *dest, size_t len)
 	return dest;
 }
 
+char *inet_ntoa(struct in_addr in)
+{
+	return Net_PrintAddress(4, &in.s_addr);
+}
+

@@ -58,5 +58,7 @@ struct sockaddr_in6
 	uint32_t	sin6_scope_id;
 };
 
+#include <arpa/inet.h>	// for hton*/ntoh* (bochs)
+
 #endif
 

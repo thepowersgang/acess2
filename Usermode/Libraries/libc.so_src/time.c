@@ -8,10 +8,33 @@
 #include <time.h>
 #include <acess/sys.h>
 #include <string.h>
+#include "timeconv.h"
+#include <errno.h>
+#include <stdio.h>	// sprintf
+
+#define UNIX_TO_2K	((30*365*3600*24) + (7*3600*24))	//Normal years + leap years
 
 clock_t clock(void)
 {
 	return _SysTimestamp();
+}
+
+time_t mktime(struct tm *timeptr)
+{
+	time_t ret = seconds_since_y2k(
+		timeptr->tm_year - 2000,
+		timeptr->tm_mon,
+		timeptr->tm_mday,
+		timeptr->tm_hour,
+		timeptr->tm_min,
+		timeptr->tm_sec
+		);
+	if( ret == 0 && errno ) {
+		// Bad date
+	}
+	ret += UNIX_TO_2K;
+	
+	return ret;
 }
 
 time_t time(time_t *t)
@@ -22,26 +45,79 @@ time_t time(time_t *t)
 	return ret;
 }
 
+//! Convert the time structure into a string of form 'Sun Sep 16 01:03:52 1973\n\0'
+char *asctime(const struct tm *timeptr)
+{
+	static char staticbuf[sizeof("Sun Sep 16 01:03:52 1973\n")];
+	return asctime_r(timeptr, staticbuf);
+}
+char *asctime_r(const struct tm *timeptr, char *buf)
+{
+	const char *WDAYS[] = {"Sun","Mon","Tue","Wed","Thu","Fri","Sat","Sun"};
+	const char *MONS[] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"};
+	sprintf(buf,
+		"%s %s %i %02i:%02i:%02i %4i\n",
+		WDAYS[timeptr->tm_wday],
+		MONS[timeptr->tm_mon],
+		timeptr->tm_mday,
+		timeptr->tm_hour,
+		timeptr->tm_min,
+		timeptr->tm_sec,
+		timeptr->tm_year
+		);
+	return buf;
+}
+
+//! asctime(localtime(timer))
+char *ctime(const time_t *timer)
+{
+	struct tm	time_buf;
+	localtime_r(timer, &time_buf);
+	return asctime(&time_buf);
+}
+extern char *ctime_r(const time_t *timer, char *buf)
+{
+	struct tm	time_buf;
+	localtime_r(timer, &time_buf);
+	return asctime_r(&time_buf, buf);
+}
+
+//! Convert \a timter into UTC
+struct tm *gmtime(const time_t *timer)
+{
+	// Ignore UTC
+	return localtime(timer);
+}
+struct tm *gmtime_r(const time_t *timer, struct tm *result)
+{
+	return localtime_r(timer, result);
+}
+
 static struct tm	static_tm;
 
 struct tm *localtime(const time_t *timer)
 {
-	struct tm *ret = &static_tm;
+	return localtime_r(timer, &static_tm);
 
-	// TODO: This breaks on negative timestamps
+}
+struct tm *localtime_r(const time_t *timer, struct tm *ret)
+{
+	// Hours, Mins, Seconds
+	int64_t	days = get_days_since_y2k(*timer, &ret->tm_hour, &ret->tm_min, &ret->tm_sec);
+	
+	// Week day
+	ret->tm_wday = (days + 6) % 7;	// Sun = 0, 1 Jan 2000 was Sat (6)
+	
+	// Year and Day of Year
+	bool	is_ly;
+	ret->tm_year = 2000 + get_years_since_y2k(days, &is_ly, &ret->tm_yday);
 
-	int64_t	day = *timer / (1000*60*60*24);
-	int64_t	iday = *timer % (1000*60*60*24);	
-
-	ret->tm_sec = (iday / 1000) % 60;;
-	ret->tm_min = (iday / (1000*60)) % 60;
-	ret->tm_hour = (iday / (1000*60*60));
-	ret->tm_year = 0;
-	ret->tm_mon = 0;
-	ret->tm_mday = 0;
-	ret->tm_wday = (day + 6) % 7;	// 1 Jan 2000 was a saturday
-	ret->tm_yday = 0;
+	// Month and Day of Month
+	get_month_day(ret->tm_yday, is_ly, &ret->tm_mon, &ret->tm_mday);
+	ret->tm_mon --;
+	
 	ret->tm_isdst = 0;	// Fuck DST
+	
 	return ret;
 }
 

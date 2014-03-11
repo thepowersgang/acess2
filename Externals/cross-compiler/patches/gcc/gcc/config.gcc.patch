@@ -4,7 +4,7 @@
  # Common parts for widely ported systems.
  case ${target} in
 +*-*-acess2*)
-+  extra_parts="crt0.o crtbegin.o crtend.o"
++  extra_parts="crtbegin.o crtend.o"
 +  gas=yes
 +  gnu_ld=yes
 +  default_use_cxa_atexit=yes

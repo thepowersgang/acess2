@@ -50,6 +50,12 @@ int open(const char *path, int openmode, ...)
 	return ret;
 }
 
+int access(const char *path, int openmode)
+{
+	errno = EINVAL;
+	return -1;
+}
+
 int creat(const char *path, mode_t mode)
 {
 	// TODO: Make native call to do this cheaper
@@ -181,6 +187,17 @@ int usleep(useconds_t usec)
 {
 	_SysTimedSleep( (usec+999)/1000 );
 	return 0;
+}
+
+unsigned int alarm(unsigned int seconds)
+{
+	static int64_t	alarm_time;
+	if( seconds > 0 )
+	{
+		alarm_time = _SysTimestamp() + seconds * 1000;
+		// TODO: Schedule SIGALRM
+	}
+	return (alarm_time - _SysTimestamp()) / 1000;
 }
 
 int kill(pid_t pid, int signal)

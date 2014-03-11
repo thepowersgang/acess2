@@ -10,6 +10,10 @@
 
 #include <stddef.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 //! \brief flags for open(2)
 #define O_WRONLY	0x01
 #define O_RDONLY	0x02
@@ -65,6 +69,10 @@ extern int	chown(const char *path, uid_t owner, gid_t group);
 #define S_IXOTH	00001
 extern int	chmod(const char *path, mode_t mode);
 
+extern int	unlink(const char *pathname);
+
+extern int	access(const char *pathname, int mode);
+
 extern pid_t	setsid(void);
 
 extern uid_t	getuid(void);
@@ -79,6 +87,7 @@ typedef uint32_t	useconds_t;
 
 extern unsigned int	sleep(unsigned int seconds);
 extern int	usleep(useconds_t usec);
+extern unsigned int	alarm(unsigned int seconds);
 
 // - crypt.c
 extern char	*crypt(const char *key, const char *salt);
@@ -96,6 +105,10 @@ extern int	rmdir(const char *pathname);
 // Deprecated POSIX.1-2001
 #define PASS_MAX	63
 extern char *getpass(const char *prompt);
+
+#if __cplusplus
+}
+#endif
 
 #endif
 

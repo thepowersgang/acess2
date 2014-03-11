@@ -11,6 +11,10 @@
 #include <netinet/in.h>
 #include <stdint.h>	// Should be inttypes.h?
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 extern uint32_t htonl(uint32_t hostlong);
 extern uint16_t htons(uint16_t hostshort);
 extern uint32_t ntohl(uint32_t netlong);
@@ -22,6 +26,10 @@ extern struct in_addr	inet_makeaddr(in_addr_t net, in_addr_t lna);
 extern in_addr_t	inet_netof(struct in_addr in);
 extern in_addr_t	inet_network(const char *cp);
 extern char	*inet_ntoa(struct in_addr in);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

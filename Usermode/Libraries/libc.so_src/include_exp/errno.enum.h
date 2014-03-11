@@ -27,6 +27,8 @@ enum libc_eErrorNumbers {
 
 	EAGAIN,	// Try again
 	EALREADY,	// Operation was a NOP
+	
+	EFBIG,	// File too large
 
 	// psockets
 	EAFNOSUPPORT,	

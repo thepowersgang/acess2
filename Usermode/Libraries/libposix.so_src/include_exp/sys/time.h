@@ -10,6 +10,10 @@
 
 #include <time.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef unsigned long	suseconds_t;
 
 struct timeval
@@ -54,6 +58,10 @@ extern int	gettimeofday(struct timeval *tv, struct timezone *tz);
 // extern int	settimeofday(const struct timeval *tv, const struct timezone *tz); //ifdef _BSD_SOURCE
 // select
 extern int	utimes(const char *, const struct timeval [2]);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

@@ -7,6 +7,10 @@
 
 #include <stddef.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Strings */
 extern size_t	strlen(const char *string);
 extern size_t	strnlen(const char *string, size_t maxlen);
@@ -26,11 +30,18 @@ extern char	*strstr(const char *str1, const char *str2);
 extern size_t	strcspn(const char *haystack, const char *reject);
 extern size_t	strspn(const char *haystack, const char *accept);
 
+extern char	*strtok(char *str, const char *delim);
+extern char	*strtok_r(char *str, const char *delim, char **saveptr);
+
 /* Memory */
 extern void *memset(void *dest, int val, size_t count);
 extern void *memcpy(void *dest, const void *src, size_t count);
 extern void *memmove(void *dest, const void *src, size_t count);
 extern int	memcmp(const void *mem1, const void *mem2, size_t count);
 extern void	*memchr(const void *ptr, int value, size_t num);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -146,7 +146,7 @@ EOF;
 			echo $path,"\n";
 			$size = filesize($path);
 	
-			$_sym = "_binary_".str_replace(array("/","-","."), "_", $path)."_start";
+			$_sym = "_binary_".str_replace(array("/","-",".","+"), "_", $path)."_start";
 			$gOutput .= "extern Uint8 {$_sym}[];";
 			$gSymFiles[] = $path;
 			$gOutput .= <<<EOF

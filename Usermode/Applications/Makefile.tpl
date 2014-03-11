@@ -48,7 +48,7 @@ install: $(_BIN)
 $(_BIN): $(OUTPUTDIR)Libs/acess.ld $(OUTPUTDIR)Libs/crt0.o $(_LIBS) $(OBJ)
 	@mkdir -p $(dir $(_BIN))
 	@echo [LD] -o $@
-	$V$(LD) -g $(LDFLAGS) -o $@ $(OBJ) $(LIBGCC_PATH)
+	$V$(LD) -g $(LDFLAGS) -o $@ $(CRTBEGIN) $(OBJ) $(LIBGCC_PATH) $(CRTEND)
 	$V$(DISASM) $(_BIN) > $(_OBJPREFIX)$(BIN).dsm
 
 $(OBJ): $(_OBJPREFIX)%.o: %.c

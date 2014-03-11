@@ -11,6 +11,10 @@
 #include <sys/types.h>	// time_t
 #include <stddef.h>	// size_t
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct tm
 {
 	 int	tm_sec;	// 0-60
@@ -47,16 +51,24 @@ extern time_t	time(time_t *t);
 //
 //! Convert the time structure into a string of form 'Sun Sep 16 01:03:52 1973\n\0'
 extern char *asctime(const struct tm *timeptr);
+extern char *asctime_r(const struct tm *timeptr, char *buf);
 
 //! asctime(localtime(timer))
 extern char *ctime(const time_t *timer);
+extern char *ctime_r(const time_t *timer, char *buf);
 
 //! Convert \a timter into UTC
 extern struct tm *gmtime(const time_t *timer);
+extern struct tm *gmtime_r(const time_t *timer, struct tm *result);
 
 extern struct tm *localtime(const time_t *timer);
+extern struct tm *localtime_r(const time_t *timep, struct tm *result);
 
-extern size_t strftime(char*restrict s, size_t maxsize, const char*restrict format, const struct tm*restrict timeptr);
+extern size_t strftime(char*s, size_t maxsize, const char*format, const struct tm*timeptr);
+
+#ifdef __cplusplus
+};
+#endif
 
 #include <libposix_time.h>
 

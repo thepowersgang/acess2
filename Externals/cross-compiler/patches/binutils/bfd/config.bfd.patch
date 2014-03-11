@@ -1,14 +1,18 @@
 --- bfd/config.bfd 2011-07-29 00:00:00.000000 +0000
 +++ bfd/config.bfd 2013-03-01 10:45:00.000000 +0800
-@@ -1576,2 +1576,11 @@
+@@ -1576,2 +1576,15 @@
    ;;
 +  i[3-7]86-*-acess2)
 +    targ_defvec=bfd_elf32_i386_vec
-+    targ_selvecs=i386coff_vec
++    targ_selvecs="bfd_elf32_i386_vec i386coff_vec"
 +    ;;
 +  x86_64-*-acess2)
 +    targ_defvec=bfd_elf64_x86_64_vec
 +    targ_selvecs="bfd_elf32_i386_vec bfd_elf32_x86_64_vec i386linux_vec i386pei_vec x86_64pei_vec bfd_elf64_l1om_vec bfd_elf64_k1om_vec"
 +    want64=true
++    ;;
++  arm-*-acess2)
++    targ_defvec=bfd_elf32_arm_vec
++    targ_selvecs="bfd_elf32_arm_vec"
 +    ;;
  # END OF targmatch.h

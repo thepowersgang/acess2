@@ -1,7 +1,9 @@
 --- ld/Makefile.in
 +++ ld/Makefile.in
-@@ -2627,2 +2627,4 @@
+@@ -2627,2 +2627,6 @@
  	${GENSCRIPTS} elf32xtensa "$(tdir_elf32xtensa)"
 +eacess2_i386.c: $(srcdir)/emulparams/acess2_i386.sh $(ELF_DEPS) $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
 +	${GENSCRIPTS} acess2_i386 "$(tdir_acess2_i386)"
++eacess2_amd64.c: $(srcdir)/emulparams/acess2_amd64.sh $(ELF_DEPS) $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
++	${GENSCRIPTS} acess2_amd64 "$(tdir_acess2_amd64)"
  eelf_i386.c: $(srcdir)/emulparams/elf_i386.sh \

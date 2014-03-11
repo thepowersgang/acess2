@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <ctype.h>
 #include "lib.h"
+#include <string.h>
 
 /**
  * \fn EXPORT int strcmp(const char *s1, const char *s2)
@@ -367,3 +368,35 @@ EXPORT size_t strspn(const char *haystack, const char *accept)
 	}
 	return ret;
 }
+
+char *strtok(char *str, const char *delim)
+{
+	static char *__saveptr;
+	return strtok_r(str, delim, &__saveptr);
+}
+char *strtok_r(char *str, const char *delim, char **saveptr)
+{
+	char *pos = (str ? str : *saveptr);
+	
+	while( strchr(delim, *pos) )
+		pos ++;
+
+	if( *pos == '\0' )
+		return NULL;
+
+	char *ret = pos;
+	while( !strchr(delim, *pos) )
+		pos ++;
+	
+	// Cap the returned string
+	// - If we're at the end of the original string, don't shift pos
+	if( *pos != '\0' ) {
+		*pos = '\0';
+		pos ++;
+	}
+	
+	*saveptr = pos;
+	
+	return ret;
+}
+
