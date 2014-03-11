@@ -113,9 +113,9 @@ int getaddrinfo(const char *node, const char *service, const struct addrinfo *hi
 	// Convert `node` into types
 	if( service )
 	{
-		char *end;
+		const char *end;
 		
-		default_port = strtol(service, &end, 0);
+		default_port = strtol(service, (char**)&end, 0);
 		if( *end != '\0' && (hints->ai_flags & AI_NUMERICSERV) )
 		{
 			return EAI_NONAME;
