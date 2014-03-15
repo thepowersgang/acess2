@@ -729,7 +729,9 @@ void Proc_DumpThreadCPUState(tThread *Thread)
 		Error_Backtrace(regs->eip, regs->ebp);
 		return ;
 	}
-	
+
+	Log(" Saved = %p (SP=%p)", Thread->SavedState.EIP, Thread->SavedState.ESP);	
+
 	tVAddr	diffFromScheduler = Thread->SavedState.EIP - (tVAddr)SwitchTasks;
 	tVAddr	diffFromClone = Thread->SavedState.EIP - (tVAddr)Proc_CloneInt;
 	tVAddr	diffFromSpawn = Thread->SavedState.EIP - (tVAddr)NewTaskHeader;
