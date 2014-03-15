@@ -21,6 +21,7 @@ struct sWorkqueue
 	void	*Head;
 	void	*Tail;
 	struct sThread	*Sleeper;
+	struct sThread	*SleepTail;
 };
 
 extern void	Workqueue_Init(tWorkqueue *Queue, const char *Name, size_t NextOfset);
