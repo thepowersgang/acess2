@@ -43,7 +43,7 @@ void __udi_assert(const char *expr, const char *file, int line)
 	UNIMPLEMENTED();
 }
 
-void udi_assert(udi_boolean_t bool)
+void udi_assert(udi_boolean_t bool_value)
 {
 	UNIMPLEMENTED();
 }
