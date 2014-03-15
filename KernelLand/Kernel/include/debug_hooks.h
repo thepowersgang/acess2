@@ -8,6 +8,15 @@
 #ifndef _DEBUG_HOOKS_H_
 #define _DEBUG_HOOKS_H_
 
+
+typedef struct sDebugHook {
+	//tDebugHookOutput	Output;
+	Uint	Value;
+	// TODO: Console support?
+} tDebugHook;
+
+extern void	DebugHook_HandleInput(tDebugHook *HookHandle, size_t Length, const char *Input);
+
 extern void	Heap_Dump(void);
 extern void	Threads_Dump(void);
 extern void	Threads_ToggleTrace(int TID);

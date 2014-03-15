@@ -12,6 +12,8 @@
 #include <drv_pty.h>
 #include <debug_hooks.h>
 
+extern void	Validate_VirtualMemoryUsage(void);
+
 // === TYPES ===
 struct sSerialPort
 {
@@ -67,23 +69,32 @@ void Serial_ByteReceived(tSerialPort *Port, char Ch)
 		return ;
 	if( Port == gSerial_KernelDebugPort )
 	{
+		static tDebugHook	info;
 		static int serial_debug_mode = 0;
 		// Kernel serial debug hooks.
-		if( serial_debug_mode )
+		if( serial_debug_mode == 2 )
 		{
-			switch(Ch)
-			{
-			case 'p':
-				Threads_Dump();
-				break;
-			case 'h':
-				Heap_Dump();
-				break;
-			case 'X'-'A'+1:
+			// Leave latched mode
+			if( Ch == '.' )
+				serial_debug_mode = 0;
+			else
+				DebugHook_HandleInput(&info, 1, &Ch);
+			return ;
+		}
+		else if( serial_debug_mode )
+		{
+			if( Ch == 'X'-'A'+1 ) {
 				PTY_SendInput(Port->PTY, &Ch, 1);
-				break;
+				serial_debug_mode = 0;
 			}
-			serial_debug_mode = 0;
+			else if( Ch == '~' ) {
+				// Enter latched mode
+				serial_debug_mode = 2;
+			}
+			else {
+				DebugHook_HandleInput(&info, 1, &Ch);
+				serial_debug_mode = 0;
+			}
 			return ;
 		}
 		else if( Ch == 'X'-'A'+1 )
