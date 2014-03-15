@@ -9,7 +9,7 @@ TARBALL_TO_DIR_L := %.tar.xz
 TARBALL_TO_DIR_R := %
 CONFIGURE_LINE = $(SDIR)/configure --cc=$(HOST)-gcc --prefix=$(PREFIX)
 PATCHES := 
-NOBDIR = yes
+NOBDIR = no
 
-include ../common.mk
+include ../common_automake.mk
 

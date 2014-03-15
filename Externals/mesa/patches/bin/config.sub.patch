@@ -1,0 +1,7 @@
+--- config.sub	2013-06-17 11:39:39.670720710 +0800
++++ config.sub	2013-06-17 11:48:09.149384231 +0800
+@@ -1350,2 +1350,3 @@
+ 	      | -amigaos* | -amigados* | -msdos* | -newsos* | -unicos* | -aof* \
++	      | -acess2 \
+ 	      | -aos* | -aros* \
+
