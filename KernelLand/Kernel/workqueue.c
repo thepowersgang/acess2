@@ -16,6 +16,8 @@ void Workqueue_Init(tWorkqueue *Queue, const char *Name, size_t NextOfset)
 {
 	Queue->Name = Name;
 	Queue->NextOffset = NextOfset;
+	Queue->Sleeper = NULL;
+	Queue->SleepTail = NULL;
 }
 
 void *Workqueue_GetWork(tWorkqueue *Queue)
@@ -36,7 +38,7 @@ void *Workqueue_GetWork(tWorkqueue *Queue)
 		
 		Threads_int_Sleep(THREAD_STAT_QUEUESLEEP,
 			Queue, 0,
-			&Queue->Sleeper, NULL, &Queue->Protector);
+			&Queue->Sleeper, &Queue->SleepTail, &Queue->Protector);
 	}
 }
 
@@ -53,9 +55,12 @@ void Workqueue_AddWork(tWorkqueue *Queue, void *Ptr)
 
 	if( Queue->Sleeper )
 	{	
-		if( Queue->Sleeper->Status != THREAD_STAT_ACTIVE )
-			Threads_AddActive(Queue->Sleeper);
-		Queue->Sleeper = NULL;
+		ASSERTC( Queue->Sleeper->Status, !=, THREAD_STAT_ACTIVE );
+		tThread	*next_sleeper = Queue->Sleeper->Next;
+		Threads_AddActive(Queue->Sleeper);
+		Queue->Sleeper = next_sleeper;
+		if(!next_sleeper)
+			Queue->SleepTail = NULL;
 	}
 	SHORTREL(&Queue->Protector);
 }

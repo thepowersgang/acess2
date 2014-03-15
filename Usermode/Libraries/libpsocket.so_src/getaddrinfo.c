@@ -86,6 +86,8 @@ int getaddrinfo(const char *node, const char *service, const struct addrinfo *hi
 			// TODO: DNS Lookups
 			// ? /Acess/Conf/Nameservers
 			// ? /Acess/Conf/Hosts
+			//count = Net_LookupDNS(node, service, NULL);
+			//
 		}
 		
 		// 3. No Match, chuck sad
@@ -142,8 +144,7 @@ int getaddrinfo(const char *node, const char *service, const struct addrinfo *hi
 		}
 	}
 
-	struct addrinfo	*ai;
-	for( ai = ret; ai; ai = ai->ai_next)
+	for( struct addrinfo *ai = ret; ai; ai = ai->ai_next)
 	{
 		struct sockaddr_in	*in = (void*)ai->ai_addr;
 		struct sockaddr_in6	*in6 = (void*)ai->ai_addr;

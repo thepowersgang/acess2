@@ -7,8 +7,8 @@ DEPS :=
 TARBALL_PATTERN := freetype-*.tar.bz2
 TARBALL_TO_DIR_L := %.tar.bz2
 TARBALL_TO_DIR_R := %
-PATCHES := 
+PATCHES := builds/unix/config.sub
 CONFIGURE_ARGS = 
 
-include ../common.mk
+include ../common_automake.mk
 

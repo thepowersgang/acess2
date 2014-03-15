@@ -54,6 +54,11 @@ extern void	Time_ScheduleTimer(tTimer *Timer, int Delta);
 extern void	Time_RemoveTimer(tTimer *Timer);
 
 /**
+ * Schedule a THREAD_EVENT_TIMER to fire in \a Delay milliseconds
+ */
+extern void	Time_ScheduleEvent(int Delay);
+
+/**
  * \brief Wait for a period of milliseconds
  */
 extern void	Time_Delay(int Delay);

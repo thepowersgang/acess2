@@ -783,8 +783,12 @@ int Threads_int_Sleep(enum eThreadStatus Status, void *Ptr, int Num, tThread **L
 		}
 		*ListTail = us;
 	}
-	else {
+	else if( ListHead ) {
+		us->Next = *ListHead;
 		*ListHead = us;
+	}
+	else {
+		// Nothing
 	}
 	
 	//if( Proc_ThreadSync(us) )

@@ -120,8 +120,9 @@ static const tMacAddr cMAC_ZERO = {{0x00,0x00,0x00,0x00,0x00,0x00}};
 extern int	IPStack_AddFile(tSocketFile *File);
 extern int	IPStack_GetAddressSize(int AddressType);
 extern int	IPStack_CompareAddress(int AddressType, const void *Address1, const void *Address2, int CheckBits);
+extern bool	IPStack_AddressIsBroadcast(int AddrType, const void *Addr, int SubnetBits);
 extern const char	*IPStack_PrintAddress(int AddressType, const void *Address);
 
-extern tRoute	*IPStack_FindRoute(int AddressType, tInterface *Interface, void *Address);
+extern tRoute	*IPStack_FindRoute(int AddressType, tInterface *Interface, const void *Address);
 
 #endif

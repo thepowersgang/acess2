@@ -231,6 +231,14 @@ void Time_FreeTimer(tTimer *Timer)
 	LOG("%p deallocated %p", __builtin_return_address(0), Timer);
 }
 
+void Time_ScheduleEvent(int Delay)
+{
+	tTimer	*t = &Proc_GetCurThread()->ThreadTimer;
+	Time_RemoveTimer(t);
+	Time_InitTimer(t, NULL, NULL);
+	Time_ScheduleTimer(t, Delay);
+}
+
 /**
  * \fn void Time_Delay(int Delay)
  * \brief Delay for a small ammount of time
@@ -238,9 +246,8 @@ void Time_FreeTimer(tTimer *Timer)
 void Time_Delay(int Delay)
 {
 	LOG("(%i)", Delay);
-	tTimer	*t = &Proc_GetCurThread()->ThreadTimer;
-	Time_InitTimer(t, NULL, NULL);
-	Time_ScheduleTimer(t, Delay);
+	Threads_ClearEvent(THREAD_EVENT_TIMER);
+	Time_ScheduleEvent(Delay);
 	Threads_WaitEvents(THREAD_EVENT_TIMER);
 }
 

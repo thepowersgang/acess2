@@ -11,24 +11,11 @@
 #include "include/adapters_int.h"	// for MAC addr
 #include <semaphore.h>
 #include <timers.h>
+#include "hwaddr_cache.h"
 
 #define ARPv6	0
 #define	ARP_CACHE_SIZE	128
 #define	ARP_MAX_AGE		(60*60*1000)	// 1Hr
-
-typedef struct sARP_CacheEnt
-{
-	void	*Layer3Addr;
-	tMacAddr	L2Addr;
-	Sint64	LastUpdate;
-	Sint64	LastUsed;
-} tARP_CacheEnt;
-typedef struct sARP_Cache
-{
-	size_t	AddrSize;
-	 int	nCacheEnts;
-	tARP_CacheEnt	Cache[];
-} tARP_Cache;
 
 // === IMPORTS ===
 extern tInterface	*IPv4_GetInterface(tAdapter *Adapter, tIPv4 Address, int Broadcast);
@@ -38,154 +25,24 @@ extern tInterface	*IPv6_GetInterface(tAdapter *Adapter, tIPv6 Address, int Broad
 
 // === PROTOTYPES ===
  int	ARP_Initialise();
-tMacAddr	ARP_Resolve4(tInterface *Interface, tIPv4 Address);
 void	ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffer);
 
 // === GLOBALS ===
- int	giARP_WaitingThreads;
-struct sARP_Cache4 {
-	tIPv4	IP;
-	tMacAddr	MAC;
-	Sint64	LastUpdate;
-	Sint64	LastUsed;
-}	*gaARP_Cache4;
- int	giARP_Cache4Space;
-tMutex	glARP_Cache4;
-tSemaphore	gARP_Cache4Semaphore;
-#if ARPv6
-struct sARP_Cache6 {
-	tIPv6	IP;
-	tMacAddr	MAC;
-	Sint64	LastUpdate;
-	Sint64	LastUsed;
-}	*gaARP_Cache6;
- int	giARP_Cache6Space;
-tMutex	glARP_Cache6;
-#endif
 
 // === CODE ===
-tARP_Cache *ARP_int_CreateCache(unsigned int NumCacheEntries, size_t AddrSize)
-{
-	size_t	len = sizeof(tARP_Cache) + NumCacheEntries * (sizeof(tARP_CacheEnt) + AddrSize);
-	tARP_Cache	*ret = calloc(len, 1);
-	
-	ret->nCacheEnts = NumCacheEntries;
-	ret->AddrSize = AddrSize;
-	
-	char	*addr_storage_pos = (void*)&ret->Cache[NumCacheEntries];
-	
-	for( int i = 0; i < NumCacheEntries; i ++ )
-	{
-		ret->Cache[i].Layer3Addr = addr_storage_pos;
-		addr_storage_pos += AddrSize;
-	}
-	
-	return ret;
-}
 /**
  * \fn int ARP_Initialise()
  * \brief Initalise the ARP section
  */
 int ARP_Initialise()
 {
-	gaARP_Cache4 = malloc( ARP_CACHE_SIZE * sizeof(struct sARP_Cache4) );
-	memset( gaARP_Cache4, 0, ARP_CACHE_SIZE * sizeof(struct sARP_Cache4) );
-	giARP_Cache4Space = ARP_CACHE_SIZE;
-	
-	#if ARPv6
-	gaARP_Cache6 = malloc( ARP_CACHE_SIZE * sizeof(struct sARP_Cache6) );
-	memset( gaARP_Cache6, 0, ARP_CACHE_SIZE * sizeof(struct sARP_Cache6) );
-	giARP_Cache6Space = ARP_CACHE_SIZE;
-	#endif
-	
 	Link_RegisterType(0x0806, ARP_int_GetPacket);
-	Semaphore_Init(&gARP_Cache4Semaphore, 0, 0, "ARP4", "Cache Changes");
 	return 1;
 }
 
-tMacAddr ARP_Resolve(tInterface *Interface, void *Address)
+void ARP_Request4(tInterface *Interface, tIPv4 Address)
 {
-	switch(Interface->Type)
-	{
-	case AF_INET4:
-		return ARP_Resolve4(Interface, *(tIPv4*)Address);
-//	case AF_INET6:
-//		ret = ARP_int_CacheLookup(Interface, 16, Address);
-//		if(ret == cMAC_ZERO) {
-//			// TODO: Send ICMPv6 ND requests
-//		}
-//		return ret;
-	}
-	return cMAC_ZERO;
-}
-
-/**
- * \brief Resolves a MAC address from an IPv4 address
- */
-tMacAddr ARP_Resolve4(tInterface *Interface, tIPv4 Address)
-{
-	 int	i;
 	struct sArpRequest4	req;
-	
-	ENTER("pInterface xAddress", Interface, Address);
-	
-	// Check for broadcast
-	if( Address.L == -1 )
-	{
-		LOG("Broadcast");
-		LEAVE('-');
-		return cMAC_BROADCAST;
-	}
-
-	// Check routing tables if not on this subnet
-	if( IPStack_CompareAddress(4, &Address, Interface->Address, Interface->SubnetBits) == 0 )
-	{
-		tRoute	*route = IPStack_FindRoute(4, Interface, &Address);
-		// If the next hop is defined, use it
-		// - 0.0.0.0 as the next hop means "no next hop / direct"
-		if( route && ((tIPv4*)route->NextHop)->L != 0 )
-		{
-			// Recursion: see /Recursion/
-			LOG("Recursing with %s", IPStack_PrintAddress(4, route->NextHop));
-			LEAVE('-');
-			return ARP_Resolve4(Interface, *(tIPv4*)route->NextHop);
-		}
-		// No route, fall though
-	}
-	else
-	{
-		Uint32	netmask;
-		// Check for broadcast
-		netmask = IPv4_Netmask(Interface->SubnetBits);
-		if( (Address.L & ~netmask) == (0xFFFFFFFF & ~netmask) )
-		{
-			LOG("Local Broadcast");
-			LEAVE('-');
-			return cMAC_BROADCAST;
-		}
-	}
-	
-	// Check ARP Cache
-	Mutex_Acquire( &glARP_Cache4 );
-	for( i = 0; i < giARP_Cache4Space; i++ )
-	{
-		if(gaARP_Cache4[i].IP.L != Address.L)	continue;
-		
-		// Check if the entry needs to be refreshed
-		if( now() - gaARP_Cache4[i].LastUpdate > ARP_MAX_AGE )	break;
-		
-		Mutex_Release( &glARP_Cache4 );
-		LOG("Return %x:%x:%x:%x:%x:%x",
-			gaARP_Cache4[i].MAC.B[0], gaARP_Cache4[i].MAC.B[1],
-			gaARP_Cache4[i].MAC.B[2], gaARP_Cache4[i].MAC.B[3],
-			gaARP_Cache4[i].MAC.B[4], gaARP_Cache4[i].MAC.B[5]
-			);
-		LEAVE('-');
-		return gaARP_Cache4[i].MAC;
-	}
-	giARP_WaitingThreads ++;
-	Mutex_Release( &glARP_Cache4 );
-	
 	// Create request
 	Log_Log("ARP4", "Asking for address %i.%i.%i.%i",
 		Address.B[0], Address.B[1], Address.B[2], Address.B[3]
@@ -206,118 +63,7 @@ tMacAddr ARP_Resolve4(tInterface *Interface, tIPv4 Address)
 
 	// Send Request
 	Link_SendPacket(Interface->Adapter, 0x0806, req.DestMac, buffer);
-	
-	// Wait for a reply
-	Time_ScheduleTimer(NULL, Interface->TimeoutDelay);
-	for(;;)
-	{
-		if( Semaphore_Wait(&gARP_Cache4Semaphore, 1) != 1 )
-		{
-			giARP_WaitingThreads --;
-			Log_Log("ARP4", "Timeout");
-			break;
-		}
-		Log_Debug("ARP4", "Cache change");
-		
-		Mutex_Acquire( &glARP_Cache4 );
-		for( i = 0; i < giARP_Cache4Space; i++ )
-		{
-			if(gaARP_Cache4[i].IP.L != Address.L)	continue;
-			
-			giARP_WaitingThreads --;
-			Mutex_Release( &glARP_Cache4 );
-			Log_Debug("ARP4", "Return %02x:%02x:%02x:%02x:%02x:%02x",
-				gaARP_Cache4[i].MAC.B[0], gaARP_Cache4[i].MAC.B[1], 
-				gaARP_Cache4[i].MAC.B[2], gaARP_Cache4[i].MAC.B[3], 
-				gaARP_Cache4[i].MAC.B[4], gaARP_Cache4[i].MAC.B[5]);
-			return gaARP_Cache4[i].MAC;
-		}
-		Mutex_Release( &glARP_Cache4 );
-	}
-	{
-		tMacAddr	ret = {{0,0,0,0,0,0}};
-		return ret;
-	}
 }
-
-/**
- * \brief Updates the ARP Cache entry for an IPv4 Address
- */
-void ARP_UpdateCache4(tIPv4 SWAddr, tMacAddr HWAddr)
-{
-	 int	i;
-	 int	free = -1;
-	 int	oldest = 0;
-	
-	// Find an entry for the IP address in the cache
-	Mutex_Acquire(&glARP_Cache4);
-	for( i = giARP_Cache4Space; i--; )
-	{
-		if(gaARP_Cache4[oldest].LastUpdate > gaARP_Cache4[i].LastUpdate) {
-			oldest = i;
-		}
-		if( gaARP_Cache4[i].IP.L == SWAddr.L )	break;
-		if( gaARP_Cache4[i].LastUpdate == 0 && free == -1 )	free = i;
-	}
-	// If there was no match, we need to make one
-	if(i == -1) {
-		if(free != -1)
-			i = free;
-		else
-			i = oldest;
-	}
-
-	if( memcmp(&gaARP_Cache4[i].MAC, &HWAddr, sizeof(HWAddr)) != 0 )
-	{
-		Log_Log("ARP4", "Caching %i.%i.%i.%i (%02x:%02x:%02x:%02x:%02x:%02x) in %i",
-			SWAddr.B[0], SWAddr.B[1], SWAddr.B[2], SWAddr.B[3],
-			HWAddr.B[0], HWAddr.B[1], HWAddr.B[2], HWAddr.B[3], HWAddr.B[4], HWAddr.B[5],
-			i
-			);
-		
-		gaARP_Cache4[i].IP = SWAddr;
-		gaARP_Cache4[i].MAC = HWAddr;
-		gaARP_Cache4[i].LastUpdate = now();
-		Semaphore_Signal(&gARP_Cache4Semaphore, giARP_WaitingThreads);
-	}
-	Mutex_Release(&glARP_Cache4);
-}
-
-#if ARPv6
-/**
- * \brief Updates the ARP Cache entry for an IPv6 Address
- */
-void ARP_UpdateCache6(tIPv6 SWAddr, tMacAddr HWAddr)
-{
-	 int	i;
-	 int	free = -1;
-	 int	oldest = 0;
-	
-	// Find an entry for the MAC address in the cache
-	Mutex_Acquire(&glARP_Cache6);
-	for( i = giARP_Cache6Space; i--; )
-	{
-		if(gaARP_Cache6[oldest].LastUpdate > gaARP_Cache6[i].LastUpdate) {
-			oldest = i;
-		}
-		if( MAC_EQU(gaARP_Cache6[i].MAC, HWAddr) )	break;
-		if( gaARP_Cache6[i].LastUpdate == 0 && free == -1 )	free = i;
-	}
-	// If there was no match, we need to make one
-	if(i == -1) {
-		if(free != -1)
-			i = free;
-		else
-			i = oldest;
-		gaARP_Cache6[i].MAC = HWAddr;
-	}
-	
-	gaARP_Cache6[i].IP = SWAddr;
-	gaARP_Cache6[i].LastUpdate = now();
-	giARP_LastUpdateID ++;
-	Mutex_Release(&glARP_Cache6);
-}
-#endif
 
 /**
  * \fn void ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffer)
@@ -376,7 +122,8 @@ void ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffe
 					req4->SourceMac.B[0], req4->SourceMac.B[1],
 					req4->SourceMac.B[2], req4->SourceMac.B[3],
 					req4->SourceMac.B[4], req4->SourceMac.B[5]);
-				ARP_UpdateCache4(req4->SourceIP, req4->SourceMac);
+				// Someone has ARPed us, let's cache them
+				HWCache_Set(Adapter, 4, &req4->SourceIP, &req4->SourceMac);
 				
 				req4->DestIP = req4->SourceIP;
 				req4->DestMac = req4->SourceMac;
@@ -434,7 +181,7 @@ void ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffe
 		switch( req4->SWSize )
 		{
 		case 4:
-			ARP_UpdateCache4( req4->SourceIP, From );
+			HWCache_Set(Adapter, 4, &req4->SourceIP, &From);
 			break;
 		#if ARPv6
 		case 6:
@@ -442,7 +189,7 @@ void ARP_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buffe
 				Log_Debug("ARP", "Recieved undersized packet (IPv6)");
 				return ;
 			}
-			ARP_UpdateCache6( req6->SourceIP, From );
+			HWCache_Set(Adapter, 6, &req6->SourceIP, &From );
 			break;
 		#endif
 		default:

@@ -108,6 +108,26 @@ int IPStack_CompareAddress(int AddressType, const void *Address1, const void *Ad
 	return 0;
 }
 
+bool IPStack_AddressIsBroadcast(int AddrType, const void *Addr, int SubnetBits)
+{
+	const size_t	addrsize = IPStack_GetAddressSize(AddrType);
+	const Uint8	*addr = Addr;
+	
+	ASSERTC( SubnetBits, >=, 0 );
+	ASSERTC( SubnetBits, <=, addrsize * 8 );
+	const size_t	host_bits = addrsize*8 - SubnetBits;
+	
+	for( int i = 0; i < host_bits/8; i ++ )
+	{
+		if( addr[addrsize-i-1] != 0xFF )
+			return false;
+	}
+	Uint8	mask = 0xFF >> (8-(host_bits%8));
+	if( (addr[addrsize-host_bits/8-1] & mask) != mask )
+		return false;
+	return true;
+}
+
 const char *IPStack_PrintAddress(int AddressType, const void *Address)
 {
 	switch( AddressType )

@@ -10,6 +10,7 @@
  */
 
 #include <stddef.h>
+#include <stdbool.h>
 #include <arch.h>
 
 #ifndef HALT_CPU
@@ -51,7 +52,6 @@ typedef Uint32	tGID;	//!< Group ID Type
 typedef Sint64	tTimestamp;	//!< Timestamp (miliseconds since 00:00 1 Jan 1970)
 typedef Sint64	tTime;	//!< Same again
 typedef struct sShortSpinlock	tShortSpinlock;	//!< Opaque (kinda) spinlock
-typedef int	bool;	//!< Boolean type
 typedef Uint64	off_t;	//!< VFS Offset
 typedef struct { char _[PAGE_SIZE];}	tPage;	// Representation of a page for pointer arithmatic
 

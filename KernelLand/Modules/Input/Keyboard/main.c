@@ -20,6 +20,8 @@
 
 #define USE_KERNEL_MAGIC	1
 
+extern void	Validate_VirtualMemoryUsage(void);
+
 // === PROTOTYPES ===
  int	Keyboard_Install(char **Arguments);
  int	Keyboard_Cleanup(void);
@@ -43,8 +45,7 @@ tDevFS_Driver	gKB_DevInfo = {
 	{ .Type = &gKB_NodeType }
 };
 #if USE_KERNEL_MAGIC
- int	giKB_MagicAddress = 0;
- int	giKB_MagicAddressPos = 0;
+tDebugHook	gKB_DebugHookInfo;
 #endif
 
 // === CODE ===
@@ -144,6 +145,11 @@ void Keyboard_RemoveInstance(tKeyboard *Instance)
 {
 	// TODO: Implement
 	Log_Error("Keyboard", "TODO: Implement Keyboard_RemoveInstance");
+}
+
+inline bool IsPressed(tKeyboard *Kb, Uint8 KeySym)
+{
+	return !!(Kb->KeyStates[KeySym/8] & (1 << (KeySym&7)));
 }
 
 /*
@@ -249,52 +255,29 @@ void Keyboard_HandleKey(tKeyboard *Source, Uint32 HIDKeySym)
 		break;
 	}
 
-	// --- Check for Kernel Magic Combos
+	// Magic debug hooks
 	#if USE_KERNEL_MAGIC
-	if(bPressed
-	&& Source->KeyStates[KEYSYM_LEFTCTRL/8] & (1 << (KEYSYM_LEFTCTRL&7))
-	&& Source->KeyStates[KEYSYM_LEFTALT/8]  & (1 << (KEYSYM_LEFTALT &7)) )
+	if(bPressed && IsPressed(Source, KEYSYM_LEFTCTRL) && IsPressed(Source, KEYSYM_LEFTALT))
 	{
-		 int	val;
-		switch(trans)
-		{
-		case '0': val = 0;  goto _av;	case '1': val = 1;  goto _av;
-		case '2': val = 2;  goto _av;	case '3': val = 3;  goto _av;
-		case '4': val = 4;  goto _av;	case '5': val = 5;  goto _av;
-		case '6': val = 6;  goto _av;	case '7': val = 7;  goto _av;
-		case '8': val = 8;  goto _av;	case '9': val = 9;  goto _av;
-		case 'a': val = 10; goto _av;	case 'b': val = 11; goto _av;
-		case 'c': val = 12; goto _av;	case 'd': val = 13; goto _av;
-		case 'e': val = 14; goto _av;	case 'f': val = 15; goto _av;
-		_av:
-			if(giKB_MagicAddressPos == BITS/4)	break;
-			giKB_MagicAddress |= (Uint)val << giKB_MagicAddressPos;
-			giKB_MagicAddressPos ++;
-			break;
-		
-		// Instruction Tracing
-		case 't':
-			Log("Toggle instruction tracing on %i\n", giKB_MagicAddress);
-			Threads_ToggleTrace( giKB_MagicAddress );
-			giKB_MagicAddress = 0;	giKB_MagicAddressPos = 0;
-			return;
-		
-		// Thread List Dump
-		case 'p':	Threads_Dump();	return;
-		// Heap Statistics
-		case 'h':	Heap_Stats();	return;
-		// PMem Statistics
-		case 'm':	MM_DumpStatistics();	return;
-		// Dump Structure
-		case 's':	return;
+		if( trans == '~' ) {
+			// TODO: Latch mode
 		}
+		else {
+			char	str[5];	// utf8 only supports 8 bytes
+			size_t	len = WriteUTF8((Uint8*)str, trans);
+			str[len] = '\0';
+			DebugHook_HandleInput(&gKB_DebugHookInfo, len, str);
+		}
+		return ;
 	}
 	#endif
 
+	// Ctrl-Alt-Del == Reboot
 	#if defined(ARCHDIR_is_x86) || defined(ARCHDIR_is_x86_64)
 	if(bPressed
-	&& Source->KeyStates[KEYSYM_LEFTCTRL/8] & (1 << (KEYSYM_LEFTCTRL&7))
-	&& Source->KeyStates[KEYSYM_LEFTALT/8]  & (1 << (KEYSYM_LEFTALT &7)) )
+	  && (IsPressed(Source, KEYSYM_LEFTCTRL) || IsPressed(Source, KEYSYM_RIGHTCTRL))
+	  && (IsPressed(Source, KEYSYM_LEFTALT)  || IsPressed(Source, KEYSYM_LEFTALT))
+	  )
 	{
 		if( HIDKeySym == KEYSYM_DELETE )
 		{

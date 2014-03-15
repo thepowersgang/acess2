@@ -5,7 +5,7 @@
  * drv/vterm_termbuf.c
  * - Virtual Terminal - Terminal buffer manipulation
  */
-#define DEBUG	1
+#define DEBUG	0
 #define DEBUG_CHECKHEAP	0
 #include "vterm.h"
 

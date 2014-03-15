@@ -51,13 +51,20 @@ $(_BIN): $(OUTPUTDIR)Libs/acess.ld $(OUTPUTDIR)Libs/crt0.o $(_LIBS) $(OBJ)
 	$V$(LD) -g $(LDFLAGS) -o $@ $(CRTBEGIN) $(OBJ) $(LIBGCC_PATH) $(CRTEND)
 	$V$(DISASM) $(_BIN) > $(_OBJPREFIX)$(BIN).dsm
 
-$(OBJ): $(_OBJPREFIX)%.o: %.c
+$(_OBJPREFIX)%.o: %.c
 	@echo [CC] -o $@
 ifneq ($(_OBJPREFIX),)
 	@mkdir -p $(dir $@)
 endif
 	$V$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 	$V$(CC) -M -MP -MT $@ $(CPPFLAGS) $< -o $(_OBJPREFIX)$*.dep
+
+$(_OBJPREFIX)%.o: %.cpp
+	@echo [CXX] -o $@
+ifneq ($(_OBJPREFIX),)
+	@mkdir -p $(dir $@)
+endif
+	$V$(CXX) $(CXXFLAGS) $(CPPFLAGS) -c $< -o $@ -MQ $@ -MP -MD -MF $(_OBJPREFIX)$*.dep
 
 $(OUTPUTDIR)Libs/libld-acess.so:
 	@make -C $(ACESSDIR)/Usermode/Libraries/ld-acess.so_src/
