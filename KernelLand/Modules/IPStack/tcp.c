@@ -148,7 +148,7 @@ void TCP_SendPacket( tTCPConnection *Conn, tTCPHeader *Header, size_t Length, co
 			checksum[0] = htons( ~IPv4_Checksum(buf, sizeof(buf)) );	// Partial checksum
 		}
 		Header->Checksum = htons( IPv4_Checksum(checksum, sizeof(checksum)) );	// Combine the two
-		IPv6_SendPacket(Conn->Interface, Conn->RemoteIP.v6, IP4PROT_TCP, Length, Data);
+		IPv6_SendPacket(Conn->Interface, Conn->RemoteIP.v6, IP4PROT_TCP, buffer);
 		break;
 	}
 }

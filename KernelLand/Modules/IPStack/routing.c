@@ -27,8 +27,8 @@ tRoute	*_Route_FindExactRoute(int Type, void *Network, int Subnet, int Metric);
 // - Route Management
 tRoute	*IPStack_Route_Create(int AddrType, void *Network, int SubnetBits, int Metric);
 tRoute	*IPStack_AddRoute(const char *Interface, void *Network, int SubnetBits, void *NextHop, int Metric);
-tRoute	*_Route_FindInterfaceRoute(int AddressType, void *Address);
-tRoute	*IPStack_FindRoute(int AddressType, tInterface *Interface, void *Address);
+tRoute	*_Route_FindInterfaceRoute(int AddressType, const void *Address);
+tRoute	*IPStack_FindRoute(int AddressType, tInterface *Interface, const void *Address);
 // - Individual Routes
  int	IPStack_Route_IOCtl(tVFS_Node *Node, int ID, void *Data);
 
@@ -444,7 +444,7 @@ tRoute *IPStack_AddRoute(const char *Interface, void *Network, int SubnetBits, v
 /**
  * \brief Locates what interface should be used to get directly to an address
  */
-tRoute *_Route_FindInterfaceRoute(int AddressType, void *Address)
+tRoute *_Route_FindInterfaceRoute(int AddressType, const void *Address)
 {
 	tRoute	*best = NULL, *rt;
 	 int addrSize = IPStack_GetAddressSize(AddressType);
@@ -487,7 +487,7 @@ tRoute *_Route_FindInterfaceRoute(int AddressType, void *Address)
 
 /**
  */
-tRoute *IPStack_FindRoute(int AddressType, tInterface *Interface, void *Address)
+tRoute *IPStack_FindRoute(int AddressType, tInterface *Interface, const void *Address)
 {
 	tRoute	*rt;
 	tRoute	*best = NULL;

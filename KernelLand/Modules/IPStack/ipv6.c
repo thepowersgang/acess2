@@ -6,6 +6,7 @@
 #include "link.h"
 #include "ipv6.h"
 #include "firewall.h"
+#include "hwaddr_cache.h"
 
 // === IMPORTS ===
 extern tInterface	*gIP_Interfaces;
@@ -52,9 +53,34 @@ int IPv6_RegisterCallback(int ID, tIPCallback Callback)
  * \param Data	Packet Data
  * \return Boolean Success
  */
-int IPv6_SendPacket(tInterface *Iface, tIPv6 Destination, int Protocol, size_t Length, const void *Data)
+int IPv6_SendPacket(tInterface *Iface, tIPv6 Destination, int Protocol, tIPStackBuffer *Buffer)
 {
-	return 0;
+	size_t length = IPStack_Buffer_GetLength(Buffer);
+	
+	// Resolve destination
+	tMacAddr to = HWCache_Resolve(Iface, &Destination);
+	if( MAC_EQU(to, cMAC_ZERO) ) {
+		// No route to host
+		return 0;
+	}
+	
+	// Build up header
+	tIPv6Header	hdr;
+	hdr.Version = 6;
+	hdr.TrafficClass = 0;
+	hdr.FlowLabel = 0;
+	hdr.Head = htonl(hdr.Head);
+	hdr.PayloadLength = htons(length);
+	hdr.NextHeader = Protocol;	// TODO: Routing header?
+	hdr.HopLimit = 64;	// TODO: Configurable TTL
+	hdr.Source = *(tIPv6*)Iface->Address;
+	hdr.Destination = Destination;
+	
+	IPStack_Buffer_AppendSubBuffer(Buffer, sizeof(hdr), 0, &hdr, NULL, NULL);
+	
+	Link_SendPacket(Iface->Adapter, IPV6_ETHERNET_ID, to, Buffer);
+
+	return 1;
 }
 
 /**
@@ -117,6 +143,7 @@ void IPv6_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 		if(nextHeader == 0)
 		{
 			// TODO: Parse the options (actually, RFC2460 doesn't specify any)
+			// Two Defined: Pad1 and PadN
 		}
 		// Routing Options
 		else if(nextHeader == 43)
@@ -125,7 +152,7 @@ void IPv6_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 		}
 		else
 		{
-			break;	// Unknown, pass on
+			break;	// Unknown, pass to next layer
 		}
 		nextHeader = optionHdr->NextHeader;
 		dataPtr += (optionHdr->Length + 1) * 8;	// 8-octet length (0 = 8 bytes long)
@@ -145,6 +172,21 @@ void IPv6_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	}
 	else {
 		// Routed packets
+		
+		// If routing is disabled globally, or if it's disabled for v6 only, drop
+		if( false || false )
+		{
+			return ;
+		}
+		// TODO: Defer routing of packet
+		LOG("Route the packet");
+		// Drop the packet if the TTL is zero
+		if( hdr->HopLimit == 0 ) {
+			Log_Warning("IPv6", "TODO: Send ICMP-Timeout when TTL exceeded");
+			return ;
+		}
+		hdr->HopLimit --;
+		
 		ret = IPTables_TestChain("FORWARD",
 			6, &hdr->Source, &hdr->Destination,
 			hdr->NextHeader, 0,
@@ -168,28 +210,16 @@ void IPv6_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	// Routing
 	if(!iface)
 	{
-		#if 0
-		tMacAddr	to;
-		tRoute	*rt;
-		
-		Log_Debug("IPv6", "Route the packet");
-		// Drop the packet if the TTL is zero
-		if( hdr->HopLimit == 0 ) {
-			Log_Warning("IPv6", "TODO: Sent ICMP-Timeout when TTL exceeded");
-			return ;
-		}
-		
-		hdr->HopLimit --;
-		
-		rt = IPStack_FindRoute(6, NULL, &hdr->Destination);	// Get the route (gets the interface)
-		to = ICMP6_ResolveHWAddr(rt->Interface, hdr->Destination);	// Resolve address
-		
-		// Send packet
-		Log_Log("IPv6", "Forwarding packet");
-		Link_SendPacket(rt->Interface->Adapter, IPV6_ETHERNET_ID, to, Length, Buffer);
-		#endif
-		
+		// TODO: Use tIPStackBuffer instead, for refcounting
+		//IPStack_RoutePacket(6, &hdr->Destination, Length, Buffer);
 		return ;
+	}
+	
+	// Populate cache
+	// - TODO: Populate when routing using source address match for iface
+	if( IPStack_CompareAddress(6, &hdr->Source, iface->Address, iface->SubnetBits) )
+	{
+		HWCache_Set(Adapter, 6, &hdr->Source, &From);
 	}
 	
 	// Send it on

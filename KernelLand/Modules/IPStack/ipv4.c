@@ -6,6 +6,7 @@
 #include "ipstack.h"
 #include "link.h"
 #include "ipv4.h"
+#include "hwaddr_cache.h"
 #include "firewall.h"
 
 // === CONSTANTS ===
@@ -16,8 +17,6 @@
 extern tInterface	*gIP_Interfaces;
 extern void	ICMP_Initialise();
 extern  int	ICMP_Ping(tInterface *Interface, tIPv4 Addr);
-extern tMacAddr	ARP_Resolve4(tInterface *Interface, tIPv4 Address);
-extern void	ARP_UpdateCache4(tIPv4 SWAddr, tMacAddr HWAddr);
 
 // === PROTOTYPES ===
  int	IPv4_Initialise();
@@ -74,7 +73,7 @@ int IPv4_SendPacket(tInterface *Iface, tIPv4 Address, int Protocol, int ID, tIPS
 	length = IPStack_Buffer_GetLength(Buffer);
 	
 	// --- Resolve destination MAC address
-	to = ARP_Resolve4(Iface, Address);
+	to = HWCache_Resolve(Iface, &Address);
 	if( MAC_EQU(to, cMAC_ZERO) ) {
 		// No route to host
 		Log_Notice("IPv4", "No route to host %i.%i.%i.%i",
@@ -196,10 +195,6 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	// Get Data and Data Length
 	dataLength = ntohs(hdr->TotalLength) - sizeof(tIPv4Header);
 	data = &hdr->Options[0];
-
-	// Populate ARP cache from sniffing.
-	// - Downside: Poisoning, polluting from routed packets
-	//ARP_UpdateCache4(hdr->Source, From);
 	
 	// Get Interface (allowing broadcasts)
 	iface = IPv4_GetInterface(Adapter, hdr->Destination, 1);
@@ -215,6 +210,13 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	}
 	else {
 		// Routed packets
+		// Drop the packet if the TTL is zero
+		if( hdr->TTL == 0 ) {
+			Log_Warning("IPv4", "TODO: Send ICMP-Timeout when TTL exceeded");
+			return ;
+		}
+		hdr->TTL --;
+
 		ret = IPTables_TestChain("FORWARD",
 			4, &hdr->Source, &hdr->Destination,
 			hdr->Protocol, 0,
@@ -241,44 +243,16 @@ void IPv4_int_GetPacket(tAdapter *Adapter, tMacAddr From, int Length, void *Buff
 	// Routing
 	if(!iface)
 	{
-		#if 0
-		tMacAddr	to;
-		tRoute	*rt;
-	
-
-		// TODO: Put this in another thread to avoid delays in the RX thread	
-		Log_Debug("IPv4", "Route the packet");
-		// Drop the packet if the TTL is zero
-		if( hdr->TTL == 0 ) {
-			Log_Warning("IPv4", "TODO: Send ICMP-Timeout when TTL exceeded");
-			return ;
-		}
-		
-		hdr->TTL --;
-		
-		rt = IPStack_FindRoute(4, NULL, &hdr->Destination);	// Get the route (gets the interface)
-		if( !rt || !rt->Interface )
-			return ;
-		to = ARP_Resolve4(rt->Interface, hdr->Destination);	// Resolve address
-		if( MAC_EQU(to, cMAC_ZERO) )
-			return ;
-		
-		// Send packet
-		Log_Log("IPv4", "Forwarding packet to %i.%i.%i.%i (via %i.%i.%i.%i)",
-			hdr->Destination.B[0], hdr->Destination.B[1],
-			hdr->Destination.B[2], hdr->Destination.B[3],
-			((tIPv4*)rt->NextHop)->B[0], ((tIPv4*)rt->NextHop)->B[1],
-			((tIPv4*)rt->NextHop)->B[2], ((tIPv4*)rt->NextHop)->B[3]);
-		Log_Warning("IPv4", "TODO: Implement forwarding with tIPStackBuffer");
-//		Link_SendPacket(rt->Interface->Adapter, IPV4_ETHERNET_ID, to, Length, Buffer);
-		#endif
-		
+		//IPStack_RoutePacket(4, &hdr->Destination, Length, Buffer);
 		return ;
 	}
 
 	// Populate ARP cache from recieved packets
 	// - Should be safe
-	ARP_UpdateCache4(hdr->Source, From);
+	if( IPStack_CompareAddress(4, &hdr->Source, iface->Address, iface->SubnetBits) )
+	{
+		HWCache_Set(Adapter, 4, &hdr->Source, &From);
+	}
 	
 	// Send it on
 	if( !gaIPv4_Callbacks[hdr->Protocol] ) {
