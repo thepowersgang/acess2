@@ -13,6 +13,7 @@
 #include <wm_messages.h>
 #include <decorator.h>
 #include <axwin3/keysyms.h>
+#include <wm_hotkeys.h>
 
 // === IMPORTS ===
 extern int	Renderer_Menu_Init(void);
