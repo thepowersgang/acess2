@@ -25,8 +25,10 @@ typedef struct {
 // === CODE ===
 uint16_t IP_Checksum(uint16_t Prev, size_t Length, const void *Data)
 {
+	//test_trace_hexdump("IP Checksum", Data, Length);
+	
 	const uint16_t	*words = Data;
-	uint32_t	ret = ~Prev;
+	uint32_t	ret = 0;
 	for( int i = 0; i < Length/2; i ++ )
 	{
 		ret += ntohs(*words);
@@ -35,6 +37,12 @@ uint16_t IP_Checksum(uint16_t Prev, size_t Length, const void *Data)
 	if( Length & 1 )
 		ret += ntohs(*(uint8_t*)words);
 	
+	while( ret >> 16 )
+		ret = (ret & 0xFFFF) + (ret >> 16);
+	
+	//test_trace("IP Checksum = %04x + 0x%x", ret, (~Prev) & 0xFFFF);
+	
+	ret += (~Prev) & 0xFFFF;
 	while( ret >> 16 )
 		ret = (ret & 0xFFFF) + (ret >> 16);
 	
@@ -102,8 +110,8 @@ bool IP_Pkt_Check(size_t len, const void *data, size_t *ofs_out, int AF, const v
 		TEST_ASSERT_REL(hdr.TTL, >, 1);	// >1 because there's no intervening hops
 		TEST_ASSERT_REL(hdr.Protocol, ==, proto);
 
-		TEST_ASSERT( memcmp(hdr.SrcAddr, Src, 4) == 0 );
-		TEST_ASSERT( memcmp(hdr.DstAddr, Dst, 4) == 0 );
+		if(Src)	TEST_ASSERT( memcmp(hdr.SrcAddr, Src, 4) == 0 );
+		if(Dst)	TEST_ASSERT( memcmp(hdr.DstAddr, Dst, 4) == 0 );
 	
 		*ofs_out = ofs + (hdr.VerLen & 0xF) * 4;
 		return true;

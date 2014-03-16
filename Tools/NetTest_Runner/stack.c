@@ -111,6 +111,8 @@ int Stack_Start(const char *Subcommand)
 		fprintf(stderr, "posix_spawn failed: %s", strerror(rv));
 		return 1;
 	}
+	
+	posix_spawn_file_actions_destroy(&fa);
 
 	return 0;
 }

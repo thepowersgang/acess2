@@ -28,6 +28,9 @@ uint16_t TCP_int_GetPseudoHeader(int AF, const void *SrcAddr, const void *DstAdd
 		phdr[8] = 0;
 		phdr[9] = pctl;
 		*(uint16_t*)(phdr+10) = htons(Len);
+		
+		//test_trace_hexdump("TCP IPv4 PHdr", phdr, sizeof(phdr));
+		
 		return IP_Checksum(IP_CHECKSUM_START, 12, phdr);
 	}
 	else {

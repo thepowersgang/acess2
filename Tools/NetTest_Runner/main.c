@@ -33,11 +33,11 @@ int main(int argc, char *argv[])
 	FILE	*fp;
 	fp = fopen("stdout.txt", "w");	fclose(fp);
 	fp = fopen("stderr.txt", "w");	fclose(fp);
+	
+	Net_Open(0, "/tmp/acess2net");
 
 	for(int i = 0; tests[i]; i ++ )
 	{
-		Net_Open(0, "/tmp/acess2net");
-		
 		Stack_AddDevice("/tmp/acess2net", (char[]){TEST_MAC});
 		Stack_AddInterface("eth0", 4, (const char[]){TEST_IP}, 24);
 		Stack_AddRoute(4, "\0\0\0\0", 0, (const char[]){HOST_IP});
@@ -54,9 +54,9 @@ int main(int argc, char *argv[])
 	
 	teardown:
 		Stack_Kill();
-		Net_Close(0);
-		unlink("/tmp/acess2net");
 	}
+	Net_Close(0);
+	unlink("/tmp/acess2net");
 
 	return 0;
 }
@@ -117,5 +117,45 @@ void test_assertion_fail(const char *filename, int line, const char *fmt, ...)
 	vfprintf(stderr, fmt, args);
 	va_end(args);
 	fprintf(stderr, "\n");
+}
+
+void test_trace(const char *msg, ...)
+{
+	printf("TRACE: [%s] ", gsTestName);
+	va_list args;
+	va_start(args, msg);
+	vfprintf(stdout, msg, args);
+	va_end(args);
+	printf("\n");
+}
+void test_trace_hexdump(const char *hdr, const void *data, size_t len)
+{
+	printf("TRACE: [%s] %s - %zi bytes\n", gsTestName, hdr, len);
+	const uint8_t	*data8 = data;
+	while( len > 16 )
+	{
+		printf("TRACE: %02x %02x %02x %02x %02x %02x %02x %02x  %02x %02x %02x %02x %02x %02x %02x %02x\n",
+			data8[0], data8[1], data8[ 2], data8[ 3], data8[ 4], data8[ 5], data8[ 6], data8[ 7],
+			data8[8], data8[9], data8[10], data8[11], data8[12], data8[13], data8[14], data8[15]
+			);
+		len -= 16;
+		data8 += 16;
+	}
+	printf("TRACE: ");
+	while( len > 8 )
+	{
+		printf("%02x %02x %02x %02x %02x %02x %02x %02x  ",
+			data8[0], data8[1], data8[ 2], data8[ 3], data8[ 4], data8[ 5], data8[ 6], data8[ 7]
+			);
+		len -= 8;
+		data8 += 8;
+	}
+	while(len > 0)
+	{
+		printf("%02x ", data8[0]);
+		len --;
+		data8 ++;
+	}
+	printf("\n");
 }
 

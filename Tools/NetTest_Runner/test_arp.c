@@ -18,7 +18,7 @@ bool Test_ARP_Basic(void)
 	TEST_ASSERT( ARP_Pkt_IsResponse(rxlen, rxbuf, BLOB(TEST_IP), BLOB(TEST_MAC)) );
 
 	// Request host machine's IP
-	ARP_SendRequest(0, HOST_IP_STR);
+	ARP_SendRequest(0, BLOB(HOST_IP));
 	TEST_ASSERT( Net_Receive(0, sizeof(rxbuf), rxbuf, 1000) == 0 );
 
 	#if 0	

@@ -5,7 +5,7 @@
  * threads.c
  * - Threads handling
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include <threads.h>
 #include <threads_int.h>
