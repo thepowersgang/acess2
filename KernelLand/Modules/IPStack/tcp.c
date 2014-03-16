@@ -135,7 +135,7 @@ void TCP_int_SendPacket(tInterface *Interface, const void *Dest, tTCPHeader *Hea
 			Uint32	buf[3];
 			buf[0] = ((tIPv4*)Interface->Address)->L;
 			buf[1] = ((tIPv4*)Dest)->L;
-			buf[2] = (htons(packlen)<<16) | (6<<8) | 0;
+			buf[2] = htonl( (packlen) | (IP4PROT_TCP<<16) | (0<<24) );
 			checksum[0] = htons( ~IPv4_Checksum(buf, sizeof(buf)) );	// Partial checksum
 		}
 		// - Combine checksums
@@ -150,13 +150,34 @@ void TCP_int_SendPacket(tInterface *Interface, const void *Dest, tTCPHeader *Hea
 			memcpy(buf, Interface->Address, 16);
 			memcpy(&buf[4], Dest, 16);
 			buf[8] = htonl(packlen);
-			buf[9] = htonl(6);
+			buf[9] = htonl(IP4PROT_TCP);
 			checksum[0] = htons( ~IPv4_Checksum(buf, sizeof(buf)) );	// Partial checksum
 		}
 		Header->Checksum = htons( IPv4_Checksum(checksum, sizeof(checksum)) );	// Combine the two
 		IPv6_SendPacket(Interface, *(tIPv6*)Dest, IP4PROT_TCP, buffer);
 		break;
 	}
+}
+
+void TCP_int_SendRSTTo(tInterface *Interface, void *Address, size_t Length, const tTCPHeader *Header)
+{
+	tTCPHeader	out_hdr = {0};
+	
+	out_hdr.DataOffset = (sizeof(out_hdr)/4) << 4;
+	out_hdr.DestPort = Header->SourcePort;
+	out_hdr.SourcePort = Header->DestPort;
+
+	size_t	data_len = Length - (Header->DataOffset>>4)*4;
+	out_hdr.AcknowlegementNumber = htonl( ntohl(Header->SequenceNumber) + data_len );
+	if( Header->Flags & TCP_FLAG_ACK ) {
+		out_hdr.Flags = TCP_FLAG_RST;
+		out_hdr.SequenceNumber = Header->AcknowlegementNumber;
+	}
+	else {
+		out_hdr.Flags = TCP_FLAG_RST|TCP_FLAG_ACK;
+		out_hdr.SequenceNumber = 0;
+	}
+	TCP_int_SendPacket(Interface, Address, &out_hdr, 0, NULL);
 }
 
 /**
@@ -235,12 +256,21 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 			return;
 		}
 
-		Log_Log("TCP", "TCP_GetPacket: Opening Connection");
-		// Open a new connection (well, check that it's a SYN)
-		if(hdr->Flags != TCP_FLAG_SYN) {
-			Log_Log("TCP", "TCP_GetPacket: Packet is not a SYN");
+		
+		if( hdr->Flags & TCP_FLAG_RST ) {
+			LOG("RST, ignore");
 			return ;
 		}
+		else if( hdr->Flags & TCP_FLAG_ACK ) {
+			LOG("ACK, send RST");
+			TCP_int_SendRSTTo(Interface, Address, Length, hdr);
+			return ;
+		}
+		else if( !(hdr->Flags & TCP_FLAG_SYN) ) {
+			LOG("Other, ignore");
+			return ;
+		}
+		Log_Log("TCP", "TCP_GetPacket: Opening Connection");
 		
 		// TODO: Check for halfopen max
 		
@@ -252,6 +282,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 		{
 		case 4:	conn->RemoteIP.v4 = *(tIPv4*)Address;	break;
 		case 6:	conn->RemoteIP.v6 = *(tIPv6*)Address;	break;
+		default:	ASSERTC(Interface->Type,==,4);	return;
 		}
 		
 		conn->NextSequenceRcv = ntohl( hdr->SequenceNumber ) + 1;
@@ -315,23 +346,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 	// If not a RST, send a RST
 	if( !(hdr->Flags & TCP_FLAG_RST) )
 	{
-		tTCPHeader	out_hdr = {0};
-		
-		out_hdr.DataOffset = (sizeof(out_hdr)/4) << 4;
-		out_hdr.DestPort = hdr->SourcePort;
-		out_hdr.SourcePort = hdr->DestPort;
-	
-		size_t	data_len = Length - (hdr->DataOffset>>4)*4;
-		out_hdr.AcknowlegementNumber = htonl( ntohl(hdr->SequenceNumber) + data_len );
-		if( hdr->Flags & TCP_FLAG_ACK ) {
-			out_hdr.Flags = TCP_FLAG_RST;
-			out_hdr.SequenceNumber = hdr->AcknowlegementNumber;
-		}
-		else {
-			out_hdr.Flags = TCP_FLAG_RST|TCP_FLAG_ACK;
-			out_hdr.SequenceNumber = 0;
-		}
-		TCP_int_SendPacket(Interface, Address, &out_hdr, 0, NULL);
+		TCP_int_SendRSTTo(Interface, Address, Length, hdr);
 	}
 }
 
