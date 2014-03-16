@@ -13,8 +13,6 @@
 #define STR(x) #x
 #define EXPAND_STR(x) STR(x)
 
-#define ASSERT(x)	do{}while(0)
-
 extern char	__buildnum[];
 #define BUILD_NUM	((int)(Uint)&__buildnum)
 extern const char gsGitHash[];
@@ -25,6 +23,7 @@ extern const char gsBuildInfo[];
 #define BITS	32
 #define NULL	((void*)0)
 #include <stdint.h>
+#include <stdbool.h>
 
 typedef uintptr_t	Uint;
 //typedef unsigned int	size_t;
@@ -49,6 +48,7 @@ typedef uint32_t	tPAddr;
 typedef uint32_t	tUID;
 typedef uint32_t	tGID;
 typedef uint32_t	tTID;
+typedef uint32_t	tPGID;
 
 typedef int64_t	tTime;
 extern tTime	now(void);
@@ -71,7 +71,27 @@ extern void	free(void *buffer);
 extern char	*strdup(const char *str);
 
 #include <errno.h>
-#include <acess_logging.h>
+//#include <acess_logging.h>
+#include <logdebug.h>
+
+extern void	Debug_TraceEnter(const char *Function, const char *Format, ...);
+extern void	Debug_TraceLog(const char *Function, const char *Format, ...);
+extern void	Debug_TraceLeave(const char *Function, char Type, ...);
+#undef ENTER
+#undef LOG
+#undef LEAVE
+#undef LEAVE_RET
+#if DEBUG
+# define ENTER(str, v...)	Debug_TraceEnter(__func__, str, ##v)
+# define LOG(fmt, v...) 	Debug_TraceLog(__func__, fmt, ##v)
+# define LEAVE(t, v...)     	Debug_TraceLeave(__func__, t, ##v)
+# define LEAVE_RET(t,v)	do{LEAVE('-');return v;}while(0)
+#else
+# define ENTER(...)	do{}while(0)
+# define LOG(...)	do{}while(0)
+# define LEAVE(...)	do{}while(0)
+# define LEAVE_RET(t,v)	do{return v;}while(0)
+#endif
 
 // Threads
 extern void	**Threads_GetHandlesPtr(void);

@@ -19,16 +19,23 @@ extern int	Threads_GetTID();
 #define LOGHDR(col,type)	fprintf(stderr, "\e["col"m[%-8.8s]"type"%2i ", Ident, Threads_GetTID())
 #define LOGTAIL()	fprintf(stderr, "\e[0m\n")
 
-#define PUTERR(col,type)	{\
+#define	LOG_LOCK_ACQUIRE()	do{ \
 	if(!gbThreadInLog) 	SHORTLOCK(&glDebugLock); \
 	gbThreadInLog ++; \
+}while(0)
+#define LOG_LOCK_RELEASE()	do {\
+	gbThreadInLog --; \
+	if(!gbThreadInLog)	SHORTREL(&glDebugLock); \
+} while(0)
+
+#define PUTERR(col,type)	{\
+	LOG_LOCK_ACQUIRE(); \
 	LOGHDR(col,type);\
 	va_list	args; va_start(args, Message);\
 	vfprintf(stderr, Message, args);\
 	va_end(args);\
 	LOGTAIL();\
-	gbThreadInLog --; \
-	if(!gbThreadInLog)	SHORTREL(&glDebugLock); \
+	LOG_LOCK_RELEASE(); \
 }
 
 // === GLOBALS ===
@@ -66,11 +73,16 @@ void Log(const char *Message, ...) {
 	const char *Ident = "";
 	PUTERR("37", "L")
 }
+void Debug(const char *Message, ...) {
+	const char *Ident = "";
+	PUTERR("38", "D")
+}
 
 void Debug_HexDump(const char *Prefix, const void *Data, size_t Length)
 {
 	const uint8_t *data = Data;
 	size_t	ofs;
+	LOG_LOCK_ACQUIRE();
 	fprintf(stderr, "[HexDump ]d %s: %i bytes\n", Prefix, (int)Length);
 	for( ofs = 0; ofs + 16 <= Length; ofs += 16 )
 	{
@@ -91,6 +103,7 @@ void Debug_HexDump(const char *Prefix, const void *Data, size_t Length)
 		fprintf(stderr, " %02x", data[ofs%16]);
 	}
 	fprintf(stderr, "\n");
+	LOG_LOCK_RELEASE();
 }
 
  int	giDebug_TraceLevel = 0;
@@ -98,6 +111,7 @@ void Debug_HexDump(const char *Prefix, const void *Data, size_t Length)
 void Debug_TraceEnter(const char *Function, const char *Format, ...)
 {
 	const char *Ident = "Trace";
+	LOG_LOCK_ACQUIRE();
 	LOGHDR("37","T");
 	for( int i = 0; i < giDebug_TraceLevel; i ++ )
 		fprintf(stderr, " ");
@@ -152,11 +166,13 @@ void Debug_TraceEnter(const char *Function, const char *Format, ...)
 	fprintf(stderr, ")");
 	LOGTAIL();
 	giDebug_TraceLevel ++;
+	LOG_LOCK_RELEASE();
 }
 
 void Debug_TraceLog(const char *Function, const char *Format, ...)
 {
 	const char *Ident = "Trace";
+	LOG_LOCK_ACQUIRE();
 	LOGHDR("37","T");
 	
 	for( int i = 0; i < giDebug_TraceLevel; i ++ )
@@ -170,6 +186,7 @@ void Debug_TraceLog(const char *Function, const char *Format, ...)
 	
 	va_end(args);
 	LOGTAIL();
+	LOG_LOCK_RELEASE();
 }
 
 void Debug_TraceLeave(const char *Function, char Type, ...)
@@ -179,6 +196,7 @@ void Debug_TraceLeave(const char *Function, char Type, ...)
 	}
 	
 	const char *Ident = "Trace";
+	LOG_LOCK_ACQUIRE();
 	LOGHDR("37","T");
 	
 	va_list args;
@@ -220,5 +238,6 @@ void Debug_TraceLeave(const char *Function, char Type, ...)
 	
 	va_end(args);
 	LOGTAIL();
+	LOG_LOCK_RELEASE();
 }
 
