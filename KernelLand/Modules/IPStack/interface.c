@@ -279,6 +279,8 @@ tInterface *IPStack_AddInterface(const char *Device, int Type, const char *Name)
 		sprintf(iface->Name, "%i", (int)iface->Node.ImplInt);
 	}
 	
+	LOG("Creating interface '%s'", iface->Name);
+	
 	// Append to list
 	SHORTLOCK( &glIP_Interfaces );
 	if( gIP_Interfaces ) {
@@ -339,9 +341,13 @@ tVFS_Node *IPStack_Iface_FindDir(tVFS_Node *Node, const char *Name, Uint Flags)
 	{
 		if( strcmp(file->Name, Name) == 0 )	break;
 	}
-	if(!file)	return NULL;
+	if(!file) {
+		LOG("File '%s' unknown", Name);
+		return NULL;
+	}
 	
 	// Pass the buck!
+	LOG("File '%s' calling %p", file->Init);
 	return file->Init(Node->ImplPtr);
 }
 

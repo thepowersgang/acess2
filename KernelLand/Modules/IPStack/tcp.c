@@ -26,6 +26,7 @@
 void	TCP_Initialise(void);
 void	TCP_StartConnection(tTCPConnection *Conn);
 void	TCP_SendPacket(tTCPConnection *Conn, tTCPHeader *Header, size_t DataLen, const void *Data);
+void	TCP_int_SendPacket(tInterface *Interface, const void *Dest, tTCPHeader *Header, size_t Length, const void *Data);
 void	TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffer);
 void	TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Header, int Length);
 int	TCP_INT_AppendRecieved(tTCPConnection *Connection, const void *Data, size_t Length);
@@ -101,6 +102,11 @@ void TCP_Initialise(void)
  */
 void TCP_SendPacket( tTCPConnection *Conn, tTCPHeader *Header, size_t Length, const void *Data )
 {
+	TCP_int_SendPacket(Conn->Interface, &Conn->RemoteIP, Header, Length, Data);
+}
+
+void TCP_int_SendPacket(tInterface *Interface, const void *Dest, tTCPHeader *Header, size_t Length, const void *Data )
+{
 	tIPStackBuffer	*buffer;
 	Uint16	checksum[3];
 	 int	packlen = sizeof(*Header) + Length;
@@ -111,8 +117,8 @@ void TCP_SendPacket( tTCPConnection *Conn, tTCPHeader *Header, size_t Length, co
 	IPStack_Buffer_AppendSubBuffer(buffer, sizeof(*Header), 0, Header, NULL, NULL);
 
 	LOG("Sending %i+%i to %s:%i", sizeof(*Header), Length,
-		IPStack_PrintAddress(Conn->Interface->Type, &Conn->RemoteIP),
-		Conn->RemotePort
+		IPStack_PrintAddress(Interface->Type, Dest),
+		ntohs(Header->RemotePort)
 		);
 
 	Header->Checksum = 0;
@@ -121,34 +127,34 @@ void TCP_SendPacket( tTCPConnection *Conn, tTCPHeader *Header, size_t Length, co
 	
 	// TODO: Fragment packet
 	
-	switch( Conn->Interface->Type )
+	switch( Interface->Type )
 	{
 	case 4:
 		// Get IPv4 pseudo-header checksum
 		{
 			Uint32	buf[3];
-			buf[0] = ((tIPv4*)Conn->Interface->Address)->L;
-			buf[1] = Conn->RemoteIP.v4.L;
+			buf[0] = ((tIPv4*)Interface->Address)->L;
+			buf[1] = ((tIPv4*)Dest)->L;
 			buf[2] = (htons(packlen)<<16) | (6<<8) | 0;
 			checksum[0] = htons( ~IPv4_Checksum(buf, sizeof(buf)) );	// Partial checksum
 		}
 		// - Combine checksums
 		Header->Checksum = htons( IPv4_Checksum(checksum, sizeof(checksum)) );
-		IPv4_SendPacket(Conn->Interface, Conn->RemoteIP.v4, IP4PROT_TCP, 0, buffer);
+		IPv4_SendPacket(Interface, *(tIPv4*)Dest, IP4PROT_TCP, 0, buffer);
 		break;
 		
 	case 6:
 		// Append IPv6 Pseudo Header
 		{
 			Uint32	buf[4+4+1+1];
-			memcpy(buf, Conn->Interface->Address, 16);
-			memcpy(&buf[4], &Conn->RemoteIP, 16);
+			memcpy(buf, Interface->Address, 16);
+			memcpy(&buf[4], Dest, 16);
 			buf[8] = htonl(packlen);
 			buf[9] = htonl(6);
 			checksum[0] = htons( ~IPv4_Checksum(buf, sizeof(buf)) );	// Partial checksum
 		}
 		Header->Checksum = htons( IPv4_Checksum(checksum, sizeof(checksum)) );	// Combine the two
-		IPv6_SendPacket(Conn->Interface, Conn->RemoteIP.v6, IP4PROT_TCP, buffer);
+		IPv6_SendPacket(Interface, *(tIPv6*)Dest, IP4PROT_TCP, buffer);
 		break;
 	}
 }
@@ -163,8 +169,6 @@ void TCP_SendPacket( tTCPConnection *Conn, tTCPHeader *Header, size_t Length, co
 void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffer)
 {
 	tTCPHeader	*hdr = Buffer;
-	tTCPListener	*srv;
-	tTCPConnection	*conn;
 
 	#if TCP_DEBUG
 	Log_Log("TCP", "TCP_GetPacket: <Local>:%i from [%s]:%i, Flags = %s%s%s%s%s%s%s%s",
@@ -195,7 +199,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 	}
 
 	// Check Servers
-	for( srv = gTCP_Listeners; srv; srv = srv->Next )
+	for( tTCPListener *srv = gTCP_Listeners; srv; srv = srv->Next )
 	{
 		// Check if the server is active
 		if(srv->Port == 0)	continue;
@@ -206,7 +210,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 		
 		Log_Log("TCP", "TCP_GetPacket: Matches server %p", srv);
 		// Is this in an established connection?
-		for( conn = srv->Connections; conn; conn = conn->Next )
+		for( tTCPConnection *conn = srv->Connections; conn; conn = conn->Next )
 		{
 			// Check that it is coming in on the same interface
 			if(conn->Interface != Interface)	continue;
@@ -240,7 +244,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 		
 		// TODO: Check for halfopen max
 		
-		conn = TCP_int_CreateConnection(Interface, TCP_ST_SYN_RCVD);
+		tTCPConnection *conn = TCP_int_CreateConnection(Interface, TCP_ST_SYN_RCVD);
 		conn->LocalPort = srv->Port;
 		conn->RemotePort = ntohs(hdr->SourcePort);
 		
@@ -288,7 +292,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 
 	// Check Open Connections
 	{
-		for( conn = gTCP_OutbountCons; conn; conn = conn->Next )
+		for( tTCPConnection *conn = gTCP_OutbountCons; conn; conn = conn->Next )
 		{
 			// Check that it is coming in on the same interface
 			if(conn->Interface != Interface)	continue;
@@ -308,6 +312,27 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 	}
 	
 	Log_Log("TCP", "TCP_GetPacket: No Match");
+	// If not a RST, send a RST
+	if( !(hdr->Flags & TCP_FLAG_RST) )
+	{
+		tTCPHeader	out_hdr = {0};
+		
+		out_hdr.DataOffset = (sizeof(out_hdr)/4) << 4;
+		out_hdr.DestPort = hdr->SourcePort;
+		out_hdr.SourcePort = hdr->DestPort;
+	
+		size_t	data_len = Length - (hdr->DataOffset>>4)*4;
+		out_hdr.AcknowlegementNumber = htonl( ntohl(hdr->SequenceNumber) + data_len );
+		if( hdr->Flags & TCP_FLAG_ACK ) {
+			out_hdr.Flags = TCP_FLAG_RST;
+			out_hdr.SequenceNumber = hdr->AcknowlegementNumber;
+		}
+		else {
+			out_hdr.Flags = TCP_FLAG_RST|TCP_FLAG_ACK;
+			out_hdr.SequenceNumber = 0;
+		}
+		TCP_int_SendPacket(Interface, Address, &out_hdr, 0, NULL);
+	}
 }
 
 /**
