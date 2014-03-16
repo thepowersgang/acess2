@@ -110,6 +110,9 @@ enum eTCPConnectionState
 struct sTCPConnection
 {
 	struct sTCPConnection	*Next;
+	struct sTCPConnection	*Prev;
+	struct sTCPListener	*Server;
+	
 	enum eTCPConnectionState	State;	//!< Connection state (see ::eTCPConnectionState)
 	Uint16	LocalPort;	//!< Local port
 	Uint16	RemotePort;	//!< Remote port

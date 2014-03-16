@@ -37,6 +37,7 @@ Uint16	TCP_GetUnusedPort();
  int	TCP_AllocatePort(Uint16 Port);
  int	TCP_DeallocatePort(Uint16 Port);
 tTCPConnection	*TCP_int_CreateConnection(tInterface *Interface, enum eTCPConnectionState State);
+void	TCP_int_FreeTCB(tTCPConnection *Connection);
 // --- Server
 tVFS_Node	*TCP_Server_Init(tInterface *Interface);
  int	TCP_Server_ReadDir(tVFS_Node *Node, int Pos, char Name[FILENAME_MAX]);
@@ -298,10 +299,16 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 		// Oh, wait, there is a case where a wildcard can be used
 		// (srv->Interface == NULL) so having the lock is a good idea
 		SHORTLOCK(&srv->lConnections);
-		if( !srv->Connections )
-			srv->Connections = conn;
-		else
+		conn->Server = srv;
+		conn->Prev = srv->ConnectionsTail;
+		if(srv->Connections) {
+			ASSERT(srv->ConnectionsTail);
 			srv->ConnectionsTail->Next = conn;
+		}
+		else {
+			ASSERT(!srv->ConnectionsTail);
+			srv->Connections = conn;
+		}
 		srv->ConnectionsTail = conn;
 		if(!srv->NewConnections)
 			srv->NewConnections = conn;
@@ -453,12 +460,11 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 		if( Header->Flags & TCP_FLAG_FIN ) {
 			Log_Log("TCP", "Conn %p closed, recieved FIN", Connection);
 			VFS_MarkError(&Connection->Node, 1);
+			Connection->NextSequenceRcv ++;
+			TCP_INT_SendACK(Connection, "FIN Received");
 			Connection->State = TCP_ST_CLOSE_WAIT;
-//			Header->Flags &= ~TCP_FLAG_FIN;
-			// CLOSE WAIT requires the client to close (or does it?)
-			#if 0
-			
-			#endif
+			// CLOSE WAIT requires the client to close
+			return ;
 		}
 	
 		// Check for an empty packet
@@ -615,7 +621,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 		{
 			Connection->State = TCP_ST_FINISHED;	// Connection completed
 			Log_Log("TCP", "LAST-ACK to CLOSED - Connection remote closed");
-			// TODO: Destrory the TCB
+			TCP_int_FreeTCB(Connection);
 		}
 		break;
 	
@@ -956,6 +962,47 @@ tTCPConnection *TCP_int_CreateConnection(tInterface *Interface, enum eTCPConnect
 	return conn;
 }
 
+void TCP_int_FreeTCB(tTCPConnection *Connection)
+{
+	ASSERTC(Connection->State, ==, TCP_ST_FINISHED);
+	ASSERTC(Connection->Node.ReferenceCount, ==, 0);
+
+	if( Connection->Server )
+	{
+		tTCPListener	*srv = Connection->Server;
+		SHORTLOCK(&srv->lConnections);
+		if(Connection->Prev)
+			Connection->Prev->Next = Connection->Next;
+		else
+			srv->Connections = Connection->Next;
+		if(Connection->Next)
+			Connection->Next->Prev = Connection->Prev;
+		else {
+			ASSERT(srv->ConnectionsTail == Connection);
+			srv->ConnectionsTail = Connection->Prev;
+		}
+		SHORTREL(&srv->lConnections);
+	}
+	else
+	{
+		SHORTLOCK(&glTCP_OutbountCons);
+		if(Connection->Prev)
+			Connection->Prev->Next = Connection->Next;
+		else
+			gTCP_OutbountCons = Connection->Next;
+		if(Connection->Next)
+			Connection->Next->Prev = Connection->Prev;
+		else
+			;
+		SHORTREL(&glTCP_OutbountCons);
+	}
+
+	RingBuffer_Free(Connection->RecievedBuffer);
+	Time_FreeTimer(Connection->DeferredACKTimer);
+	// TODO: Force VFS to close handles? (they should all be closed);
+	free(Connection);
+}
+
 // --- Server
 tVFS_Node *TCP_Server_Init(tInterface *Interface)
 {
@@ -1151,7 +1198,10 @@ tVFS_Node *TCP_Client_Init(tInterface *Interface)
 	tTCPConnection	*conn = TCP_int_CreateConnection(Interface, TCP_ST_CLOSED);
 
 	SHORTLOCK(&glTCP_OutbountCons);
+	conn->Server = NULL;
+	conn->Prev = NULL;
 	conn->Next = gTCP_OutbountCons;
+	gTCP_OutbountCons->Prev = conn;
 	gTCP_OutbountCons = conn;
 	SHORTREL(&glTCP_OutbountCons);
 
@@ -1440,27 +1490,27 @@ void TCP_Client_Close(tVFS_Node *Node)
 		TCP_SendPacket( conn, &packet, 0, NULL );
 	}
 	
+	Time_RemoveTimer(conn->DeferredACKTimer);
+	
 	switch( conn->State )
 	{
 	case TCP_ST_CLOSED:
 		Log_Warning("TCP", "Closing connection that was never opened");
+		TCP_int_FreeTCB(conn);
 		break;
 	case TCP_ST_CLOSE_WAIT:
 		conn->State = TCP_ST_LAST_ACK;
 		break;
 	case TCP_ST_OPEN:
 		conn->State = TCP_ST_FIN_WAIT1;
-		while( conn->State == TCP_ST_FIN_WAIT1 )	Threads_Yield();
+		while( conn->State == TCP_ST_FIN_WAIT1 )
+			Threads_Yield();
 		break;
 	default:
 		Log_Warning("TCP", "Unhandled connection state %i in TCP_Client_Close",
 			conn->State);
 		break;
 	}
-	
-	Time_RemoveTimer(conn->DeferredACKTimer);
-	Time_FreeTimer(conn->DeferredACKTimer);
-	free(conn);
 	
 	LEAVE('-');
 }

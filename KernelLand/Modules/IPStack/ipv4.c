@@ -362,6 +362,7 @@ Uint32 IPv4_Netmask(int FixedBits)
  */
 Uint16 IPv4_Checksum(const void *Buf, size_t Length)
 {
+	//Debug_HexDump("IPv4_Checksum", Buf, Length);
 	const Uint16	*words = Buf;
 	Uint32	sum = 0;
 	 int	i;
