@@ -425,20 +425,14 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 				Log_Log("TCP", "ACKing SYN-ACK");
 				Connection->State = TCP_ST_OPEN;
 				VFS_MarkFull(&Connection->Node, 0);
+				TCP_INT_SendACK(Connection, "SYN-ACK");
 			}
 			else
 			{
 				Log_Log("TCP", "ACKing SYN");
 				Connection->State = TCP_ST_SYN_RCVD;
+				TCP_INT_SendACK(Connection, "SYN");
 			}
-			Header->DestPort = Header->SourcePort;
-			Header->SourcePort = htons(Connection->LocalPort);
-			Header->AcknowlegementNumber = htonl(Connection->NextSequenceRcv);
-			Header->SequenceNumber = htonl(Connection->NextSequenceSend);
-			Header->WindowSize = htons(TCP_WINDOW_SIZE);
-			Header->Flags = TCP_FLAG_ACK;
-			Header->DataOffset = (sizeof(tTCPHeader)/4) << 4;
-			TCP_SendPacket( Connection, Header, 0, NULL );
 		}
 		break;
 	
@@ -633,14 +627,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 			Log_Debug("TCP", "Conn %p closed, sent FIN and recieved FIN", Connection);
 			VFS_MarkError(&Connection->Node, 1);
 			
-			// ACK Packet
-			Header->DestPort = Header->SourcePort;
-			Header->SourcePort = htons(Connection->LocalPort);
-			Header->AcknowlegementNumber = Header->SequenceNumber;
-			Header->SequenceNumber = htonl(Connection->NextSequenceSend);
-			Header->WindowSize = htons(TCP_WINDOW_SIZE);
-			Header->Flags = TCP_FLAG_ACK;
-			TCP_SendPacket( Connection, Header, 0, NULL );
+			TCP_INT_SendACK(Connection, "FINWAIT-1 FIN");
 			break ;
 		}
 		
@@ -658,15 +645,8 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 		if( Header->Flags & TCP_FLAG_FIN )
 		{
 			Connection->State = TCP_ST_TIME_WAIT;
-			Log_Debug("TCP", "FIN sent and recieved, ACKing and going into TIME WAIT %p FINWAIT-2 -> TIME WAIT", Connection);
-			// Send ACK
-			Header->DestPort = Header->SourcePort;
-			Header->SourcePort = htons(Connection->LocalPort);
-			Header->AcknowlegementNumber = Header->SequenceNumber;
-			Header->SequenceNumber = htonl(Connection->NextSequenceSend);
-			Header->WindowSize = htons(TCP_WINDOW_SIZE);
-			Header->Flags = TCP_FLAG_ACK;
-			TCP_SendPacket( Connection, Header, 0, NULL );
+			Log_Debug("TCP", "Conn %p FINWAIT-2 -> TIME WAIT", Connection);
+			TCP_INT_SendACK(Connection, "FINWAIT-2 FIN");
 		}
 		break;
 	
@@ -1475,6 +1455,7 @@ void TCP_Client_Close(tVFS_Node *Node)
 		LEAVE('-');
 		return ;
 	}
+	Node->ReferenceCount --;
 	
 	if( conn->State == TCP_ST_CLOSE_WAIT || conn->State == TCP_ST_OPEN )
 	{
@@ -1505,6 +1486,7 @@ void TCP_Client_Close(tVFS_Node *Node)
 		conn->State = TCP_ST_FIN_WAIT1;
 		while( conn->State == TCP_ST_FIN_WAIT1 )
 			Threads_Yield();
+		// No free, freed after TIME_WAIT
 		break;
 	default:
 		Log_Warning("TCP", "Unhandled connection state %i in TCP_Client_Close",
