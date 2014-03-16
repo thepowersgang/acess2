@@ -94,8 +94,19 @@ bool IP_Pkt_Check(size_t len, const void *data, size_t *ofs_out, int AF, const v
 		tIPv4Hdr hdr;
 		memcpy(&hdr, (const uint8_t*)data + ofs, sizeof(hdr));
 		TEST_ASSERT_REL(hdr.VerLen >> 4, ==, 4);
+		TEST_ASSERT_REL(IP_Checksum(IP_CHECKSUM_START, sizeof(hdr), &hdr), ==, 0);
+		
+		TEST_ASSERT_REL(ntohs(hdr.TotalLength), <=, len - ofs);
+		TEST_ASSERT_REL(ntohs(hdr.FragmentInfo), ==, 0);
+		
+		TEST_ASSERT_REL(hdr.TTL, >, 1);	// >1 because there's no intervening hops
+		TEST_ASSERT_REL(hdr.Protocol, ==, proto);
+
+		TEST_ASSERT( memcmp(hdr.SrcAddr, Src, 4) == 0 );
+		TEST_ASSERT( memcmp(hdr.DstAddr, Dst, 4) == 0 );
 	
-		return false;
+		*ofs_out = ofs + (hdr.VerLen & 0xF) * 4;
+		return true;
 	}
 	else {
 		TEST_WARN("Invalid AF(%i) in IP_Pkt_Check", AF);

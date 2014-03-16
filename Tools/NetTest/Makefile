@@ -18,9 +18,9 @@ K_OBJ += vfs/acls.o vfs/io.o vfs/fs/devfs.o
 # Modules
 MODULES := IPStack
 # Local kernel soruces (same as above, but located in same directory as Makefile)
-L_OBJ = vfs_shim.o nic.o tcpclient.o tcpserver.o helpers.o mode_cmdline.o
+L_OBJ = vfs_shim.o nic.o tcpclient.o tcpserver.o helpers.o cmdline_backend.o
 # Native Sources (compiled as usual)
-N_OBJ = main.o tap.o
+N_OBJ = main.o tap.o mode_cmdline.o
 
 # Compilation Options
 CFLAGS := -Wall -std=gnu99 -g -Werror -O0 -pthread

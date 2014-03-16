@@ -5,6 +5,7 @@
  * threads.c
  * - Threads handling
  */
+#define DEBUG	1
 #include <acess.h>
 #include <threads.h>
 #include <threads_int.h>
@@ -84,6 +85,7 @@ void Threads_AddActive(tThread *Thread)
 {
 	Thread->Status = THREAD_STAT_ACTIVE;
 	// Increment state-change semaphore
+	LOG("Waking %p(%i %s)", Thread, Thread->TID, Thread->ThreadName);
 	Threads_int_SemSignal(Thread->WaitSemaphore);
 }
 
@@ -149,6 +151,7 @@ void Threads_int_WaitForStatusEnd(enum eThreadStatus Status)
 			Log_Warning("Threads", "Thread %p(%i %s) rescheduled while in %s state",
 				us, us->TID, us->ThreadName, casTHREAD_STAT[Status]);
 	}
+	LOG("%p(%i %s) Awake", us, us->TID, us->ThreadName);
 }
 
 int Threads_int_Sleep(enum eThreadStatus Status, void *Ptr, int Num, tThread **ListHead, tThread **ListTail, tShortSpinlock *Lock)

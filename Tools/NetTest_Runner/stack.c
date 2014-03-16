@@ -123,9 +123,18 @@ void Stack_Kill(void)
 	}
 }
 
-int Stack_SendCommand(const char *CommandString)
+int Stack_SendCommand(const char *Fmt, ...)
 {
-	write(giStack_InFD, CommandString, strlen(CommandString));
+	va_list	args;
+	va_start(args, Fmt);
+	size_t len = vsnprintf(NULL, 0, Fmt, args);
+	va_end(args);
+	char command[len+1];
+	va_start(args, Fmt);
+	vsnprintf(command, len+1, Fmt, args);
+	va_end(args);
+	
+	write(giStack_InFD, command, len);
 	write(giStack_InFD, "\n", 1);
 	return 0;
 }

@@ -38,8 +38,8 @@ bool Link_Pkt_Check(size_t len, const void *data, size_t *ofs_out,
 	const uint8_t	*data8 = data;
 	TEST_ASSERT_REL(len, >=, 6+6+2);
 
-	if(Src)	TEST_ASSERT( memcmp(data8+0, Src, 6) == 0 );
-	if(Dst)	TEST_ASSERT( memcmp(data8+6, Dst, 6) == 0 );
+	if(Dst)	TEST_ASSERT( memcmp(data8+0, Dst, 6) == 0 );
+	if(Src)	TEST_ASSERT( memcmp(data8+6, Src, 6) == 0 );
 	
 	TEST_ASSERT_REL( ntohs(*(uint16_t*)(data8+12)), ==, Proto );
 

@@ -110,9 +110,9 @@ void Debug_HexDump(const char *Prefix, const void *Data, size_t Length)
 
 void Debug_TraceEnter(const char *Function, const char *Format, ...)
 {
-	const char *Ident = "Trace";
 	LOG_LOCK_ACQUIRE();
-	LOGHDR("37","T");
+	//const char *Ident = "Trace";
+	//LOGHDR("37","T");
 	for( int i = 0; i < giDebug_TraceLevel; i ++ )
 		fprintf(stderr, " ");
 	fprintf(stderr, "%s: (", Function);
@@ -171,9 +171,9 @@ void Debug_TraceEnter(const char *Function, const char *Format, ...)
 
 void Debug_TraceLog(const char *Function, const char *Format, ...)
 {
-	const char *Ident = "Trace";
 	LOG_LOCK_ACQUIRE();
-	LOGHDR("37","T");
+	//const char *Ident = "Trace";
+	//LOGHDR("37","T");
 	
 	for( int i = 0; i < giDebug_TraceLevel; i ++ )
 		fprintf(stderr, " ");
@@ -195,9 +195,9 @@ void Debug_TraceLeave(const char *Function, char Type, ...)
 		Log_Error("Debug", "Function %s called LEAVE without ENTER", Function);
 	}
 	
-	const char *Ident = "Trace";
 	LOG_LOCK_ACQUIRE();
-	LOGHDR("37","T");
+	//const char *Ident = "Trace";
+	//LOGHDR("37","T");
 	
 	va_list args;
 	va_start(args, Type);

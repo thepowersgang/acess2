@@ -15,7 +15,7 @@ extern void	Stack_AddArg(const char *Fmt, ...);
 extern int	Stack_Start(const char *Subcommand);
 extern void	Stack_Kill(void);
 
-extern int	Stack_SendCommand(const char *CommandString);
+extern int	Stack_SendCommand(const char *CommandString, ...);
 
 #endif
 

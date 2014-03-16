@@ -8,6 +8,7 @@
  * POSIX Mutex/Semaphore management
  * Wait state
  */
+#define DEBUG	1
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -109,9 +110,12 @@ void Threads_int_SemWaitAll(tThreadIntSem *Sem)
 	if( Threads_int_ThreadingEnabled() )
 	{
 		// TODO: Handle multiples
+		LOG("Waiting on %p", Sem);
 		sem_wait( (void*)Sem );
-		while( sem_trywait((void*)Sem) )
+		LOG("Wait 1 done, cleaning up");
+		while( sem_trywait((void*)Sem) == 0 )
 			;
+		LOG("Wait over");
 	}
 	else
 	{
