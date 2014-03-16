@@ -5,6 +5,7 @@
  * tcpserver.c
  * - TCP Client tester
  */
+#define DEBUG	1
 #include <vfs.h>
 #include <vfs_ext.h>
 #include <nettest.h>
@@ -45,10 +46,9 @@ void NetTest_TCPServer_Close(tNetTest_TCPServer *Srv)
 
 int NetTest_TCPServer_FillSelect(tNetTest_TCPServer *Srv, fd_set *fds)
 {
-	ASSERT(Srv->ServerFD >= 0);
 	 int	max = -1;
 	
-	if( Srv->nClients == MAX_CLIENTS ) {
+	if( Srv->nClients < MAX_CLIENTS ) {
 		max = Srv->ServerFD;
 		FD_SET(Srv->ServerFD, fds);
 	}
@@ -63,12 +63,21 @@ int NetTest_TCPServer_FillSelect(tNetTest_TCPServer *Srv, fd_set *fds)
 
 void NetTest_TCPServer_HandleSelect(tNetTest_TCPServer *Srv, const fd_set *rfds, const fd_set *wfds, const fd_set *efds)
 {
+	LOG("Srv=%p", Srv);
 	if( FD_ISSET(Srv->ServerFD, rfds) )
 	{
 		// New connection!
 		ASSERT(Srv->nClients != MAX_CLIENTS);
 		struct sClient *client = &Srv->Clients[Srv->nClients++];
+		LOG("Child?");
 		client->FD = VFS_OpenChild(Srv->ServerFD, "", VFS_OPENFLAG_READ|VFS_OPENFLAG_WRITE);
+		LOG("client->FD = %i", client->FD);
+	}
+	if( FD_ISSET(Srv->ServerFD, efds) )
+	{
+		LOG("Oops, error on server");
+		VFS_Close(Srv->ServerFD);
+		Srv->ServerFD = -1;
 	}
 
 	for( int i = 0; i < Srv->nClients; i ++ )
@@ -77,6 +86,11 @@ void NetTest_TCPServer_HandleSelect(tNetTest_TCPServer *Srv, const fd_set *rfds,
 		if( FD_ISSET(client->FD, rfds) )
 		{
 			// RX'd data on client
+			// TODO: Do something other than echo back
+			char	buf[1024];
+			size_t len = VFS_Read(client->FD, sizeof(buf), buf);
+			Debug_HexDump("TCP Srv Rx", buf, len);
+			VFS_Write(client->FD, len, buf);
 		}
 		
 		if( FD_ISSET(client->FD, efds) )

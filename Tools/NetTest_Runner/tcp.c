@@ -76,17 +76,17 @@ void TCP_SkipCheck_Seq(bool Skip) {
 	gTCP_Skips.Seq = Skip;
 }
 
-bool TCP_Pkt_Check(size_t len, const void *data, size_t *out_ofs,
+bool TCP_Pkt_Check(size_t len, const void *data, size_t *out_ofs, size_t *len_out,
 	int AF, const void *IP, short sport, short dport,
 	uint32_t seq, uint32_t ack, uint8_t flags)
 {
-	size_t	ofs;
-	if( !IP_Pkt_Check(len, data, &ofs, AF, IP, BLOB(HOST_IP), IPPROTO_TCP) )
+	size_t	ofs, rlen;
+	if( !IP_Pkt_Check(len, data, &ofs, &rlen, AF, IP, BLOB(HOST_IP), IPPROTO_TCP) )
 		return false;
 	// TODO: IP has its own length field, use that?
 	
 	tTCPHeader	hdr;
-	TEST_ASSERT_REL(len - ofs, >=, sizeof(hdr));	
+	TEST_ASSERT_REL(rlen, >=, sizeof(hdr));	
 	memcpy(&hdr, (char*)data + ofs, sizeof(hdr));
 	
 	TEST_ASSERT_REL( hdr.DataOfs >> 4, >=, sizeof(hdr)/4 );
@@ -99,20 +99,21 @@ bool TCP_Pkt_Check(size_t len, const void *data, size_t *out_ofs,
 	uint16_t	real_cksum = htons(hdr.Checksum);
 	hdr.Checksum = 0;
 	uint16_t	calc_cksum;
-	calc_cksum = TCP_int_GetPseudoHeader(AF, IP, BLOB(HOST_IP), IPPROTO_TCP, len-ofs);
+	calc_cksum = TCP_int_GetPseudoHeader(AF, IP, BLOB(HOST_IP), IPPROTO_TCP, rlen);
 	calc_cksum = IP_Checksum(calc_cksum, sizeof(hdr), &hdr);
-	calc_cksum = IP_Checksum(calc_cksum, len - ofs - sizeof(hdr), (char*)data+ofs+sizeof(hdr));
+	calc_cksum = IP_Checksum(calc_cksum, rlen - sizeof(hdr), (char*)data+ofs+sizeof(hdr));
 	TEST_ASSERT_REL( real_cksum, ==, calc_cksum );
 
 	memset(&gTCP_Skips, 0, sizeof(gTCP_Skips));
 
 	*out_ofs = ofs + sizeof(hdr);
+	*len_out = rlen - sizeof(hdr);
 	return true;
 }
 
 uint32_t TCP_Pkt_GetSeq(size_t len, const void *data, int AF) {
-	size_t	ofs;
-	IP_Pkt_Check(len, data, &ofs, AF, NULL, NULL, IPPROTO_TCP);
+	size_t	ofs, rlen;
+	IP_Pkt_Check(len, data, &ofs, &rlen, AF, NULL, NULL, IPPROTO_TCP);
 	
 	tTCPHeader	hdr;
 	memcpy(&hdr, (char*)data + ofs, sizeof(hdr));

@@ -11,6 +11,7 @@
 #include "stack.h"
 #include "arp.h"
 #include "tcp.h"
+#include <string.h>
 
 #define TEST_ASSERT_rx()	TEST_ASSERT( rxlen = Net_Receive(0, sizeof(rxbuf), rxbuf, ERX_TIMEOUT) )
 #define TEST_ASSERT_no_rx()	TEST_ASSERT( Net_Receive(0, sizeof(rxbuf), rxbuf, NRX_TIMEOUT) == 0 )
@@ -18,7 +19,7 @@
 bool Test_TCP_Basic(void)
 {
 	TEST_SETNAME(__func__);
-	size_t	rxlen, ofs;
+	size_t	rxlen, ofs, len;
 	char rxbuf[MTU];
 	const int	ERX_TIMEOUT = 1000;	// Expect RX timeout (timeout=failure)
 	const int	NRX_TIMEOUT = 250;	// Not expect RX timeout (timeout=success)
@@ -36,7 +37,7 @@ bool Test_TCP_Basic(void)
 	TCP_Send(0, 4, BLOB(TEST_IP), 1234, 80, seq_tx, seq_exp, TCP_SYN, 0x1000, testblob_len, testblob);
 	// Expect a TCP_RST|TCP_ACK with SEQ=0,ACK=SEQ+LEN
 	TEST_ASSERT_rx();
-	TEST_ASSERT( TCP_Pkt_Check(rxlen, rxbuf, &ofs, 4, BLOB(TEST_IP), 80, 1234,
+	TEST_ASSERT( TCP_Pkt_Check(rxlen, rxbuf, &ofs, &len, 4, BLOB(TEST_IP), 80, 1234,
 		0, seq_tx+testblob_len, TCP_RST|TCP_ACK) );
 	TEST_ASSERT_REL(ofs, ==, rxlen);
 	
@@ -44,7 +45,7 @@ bool Test_TCP_Basic(void)
 	TCP_Send(0, 4, BLOB(TEST_IP), 1234, 80, seq_tx, seq_exp, TCP_SYN|TCP_ACK, 0x1000, 0, NULL);
 	// Expect a TCP_RST with SEQ=ACK
 	TEST_ASSERT_rx();
-	TEST_ASSERT( TCP_Pkt_Check(rxlen, rxbuf, &ofs, 4, BLOB(TEST_IP), 80, 1234, seq_exp, seq_tx+0, TCP_RST) );
+	TEST_ASSERT( TCP_Pkt_Check(rxlen, rxbuf, &ofs, &len, 4, BLOB(TEST_IP), 80, 1234, seq_exp, seq_tx+0, TCP_RST) );
 	TEST_ASSERT_REL(ofs, ==, rxlen);
 	
 	// 1.3. Send a RST packet
@@ -59,7 +60,7 @@ bool Test_TCP_Basic(void)
 
 	
 	// 2. Establishing connection with a server
-	const int server_port = 1024;
+	const int server_port = 7;
 	const int local_port = 11234;
 	Stack_SendCommand("tcp_echo_server %i", server_port);
 
@@ -73,7 +74,7 @@ bool Test_TCP_Basic(void)
 	TCP_Send(0, 4, BLOB(TEST_IP), local_port, server_port, seq_tx, seq_exp, TCP_ACK, our_window, 0, NULL);
 	// - Expect RST
 	TEST_ASSERT_rx();
-	TEST_ASSERT( TCP_Pkt_Check(rxlen, rxbuf, &ofs, 4, BLOB(TEST_IP),
+	TEST_ASSERT( TCP_Pkt_Check(rxlen, rxbuf, &ofs, &len, 4, BLOB(TEST_IP),
 		server_port, local_port, seq_exp, seq_tx+0, TCP_RST) );
 
 	// 2.3. Begin hanshake (SYN)
@@ -82,7 +83,7 @@ bool Test_TCP_Basic(void)
 	// - Expect SYN,ACK with ACK == SEQ+1
 	TEST_ASSERT_rx();
 	TCP_SkipCheck_Seq(true);
-	TEST_ASSERT( TCP_Pkt_Check(rxlen, rxbuf, &ofs, 4, BLOB(TEST_IP),
+	TEST_ASSERT( TCP_Pkt_Check(rxlen, rxbuf, &ofs, &len, 4, BLOB(TEST_IP),
 		server_port, local_port, 0, seq_tx+1, TCP_SYN|TCP_ACK) );
 	seq_exp = TCP_Pkt_GetSeq(rxlen, rxbuf, 4);
 
@@ -99,6 +100,49 @@ bool Test_TCP_Basic(void)
 	// >>> STATE: ESTABLISHED
 	
 	// 2.5. Send data
+	TCP_Send(0,4,BLOB(TEST_IP), local_port, server_port, seq_tx, seq_exp,
+		TCP_ACK|TCP_PSH, our_window, testblob_len, testblob);
+	seq_tx += testblob_len;
+	// Expect burst delayed ACK
+	TEST_ASSERT_rx();
+	TEST_ASSERT( TCP_Pkt_Check(rxlen, rxbuf, &ofs, &len, 4, BLOB(TEST_IP),
+		server_port, local_port, seq_exp, seq_tx, TCP_ACK) );
+	TEST_ASSERT_REL( len, ==, 0 );
+
+	// Expect echoed reponse with ACK
+	TEST_ASSERT_rx();
+	TEST_ASSERT( TCP_Pkt_Check(rxlen, rxbuf, &ofs, &len, 4, BLOB(TEST_IP),
+		server_port, local_port, seq_exp, seq_tx, TCP_ACK|TCP_PSH) );
+	TEST_ASSERT_REL( len, ==, testblob_len );
+	TEST_ASSERT( memcmp(rxbuf + ofs, testblob, testblob_len) == 0 );
+	seq_exp += testblob_len;
+	
+	// 2.6. Close connection (TCP FIN)
+	TCP_Send(0,4,BLOB(TEST_IP), local_port, server_port, seq_tx, seq_exp,
+		TCP_ACK|TCP_FIN, our_window, 0, NULL);
+	seq_tx ++;	// Empty = 1 byte
+	// Expect ACK? (Does acess do delayed ACKs here?)
+	TEST_ASSERT_rx();
+	TEST_ASSERT( TCP_Pkt_Check(rxlen, rxbuf, &ofs, &len, 4, BLOB(TEST_IP),
+		server_port, local_port, seq_exp, seq_tx, TCP_ACK) );
+	TEST_ASSERT_REL( len, ==, 0 );
+	// >>> STATE: CLOSE WAIT
+	
+	// Expect FIN
+	TEST_ASSERT_rx();
+	TEST_ASSERT( TCP_Pkt_Check(rxlen, rxbuf, &ofs, &len, 4, BLOB(TEST_IP),
+		server_port, local_port, seq_exp, 0, TCP_FIN) );
+	TEST_ASSERT_REL( len, ==, 0 );
+	
+	// >>> STATE: LAST-ACK
+
+	// 2.7 Send ACK of FIN
+	TCP_Send(0,4,BLOB(TEST_IP), local_port, server_port, seq_tx, seq_exp,
+		TCP_ACK, our_window, 0, NULL);
+	// Expect no response
+	TEST_ASSERT_no_rx();
+	
+	// >>> STATE: CLOSED
 	
 	return true;
 }

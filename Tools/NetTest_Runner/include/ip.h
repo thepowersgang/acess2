@@ -18,7 +18,7 @@ extern uint16_t	IP_Checksum(uint16_t Prev, size_t Length, const void *Data);
 extern void	IP_Send(int IfNum, int AF, const void *Src, const void *Dst, uint8_t proto,
 	int BufCount, size_t BufLens[], const void *Bufs[]);
 
-extern bool	IP_Pkt_Check(size_t len, const void *data, size_t *ofs, int AF, const void *Src, const void *Dst, uint8_t proto);
+extern bool	IP_Pkt_Check(size_t len, const void *data, size_t *out_ofs, size_t *out_len, int AF, const void *Src, const void *Dst, uint8_t proto);
 
 #endif
 

@@ -30,16 +30,17 @@ void Cmdline_Backend_Thread(void *unused)
 		 int	max = -1;
 		
 		FD_ZERO(&rfd);
+		FD_ZERO(&wfd);
 		
 		LOG("gpCmdline_TCPEchoServer = %p", gpCmdline_TCPEchoServer);
 		if(gpCmdline_TCPEchoServer)
 			max = MAX(max, NetTest_TCPServer_FillSelect(gpCmdline_TCPEchoServer, &rfd));
 		
-		memcpy(&wfd, &rfd, sizeof(rfd));
+		//memcpy(&wfd, &rfd, sizeof(rfd));
 		memcpy(&efd, &rfd, sizeof(rfd));
 		
 		LOG("max = %i", max);
-		int rv = VFS_Select(max+1, &rfd, &wfd, &efd, NULL, THREAD_EVENT_USER1, true);
+		int rv = VFS_Select(max+1, &rfd, &wfd, &efd, NULL, THREAD_EVENT_USER1, false);
 		LOG("rv = %i", rv);
 		
 		if(gpCmdline_TCPEchoServer)
