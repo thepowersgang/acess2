@@ -156,14 +156,9 @@ struct sTCPConnection
 	 * \todo Convert this to a ring buffer and a bitmap of valid bytes
 	 * \{
 	 */
-	#if CACHE_FUTURE_PACKETS_IN_BYTES
 	Uint32	HighestSequenceRcvd;	//!< Highest sequence number (within window) recieved
 	Uint8	*FuturePacketData;	//!< Future packet data (indexed by sequence number)
 	Uint8	*FuturePacketValidBytes;	//!< Valid byte bitmap (WINDOW_SIZE/8 bytes)
-	#else
-	tShortSpinlock	lFuturePackets;	//!< Future packets spinlock
-	tTCPStoredPacket	*FuturePackets;	//!< Out of sequence packets
-	#endif
 	/**
 	 * \}
 	 */
