@@ -78,6 +78,10 @@ void Debug(const char *Message, ...) {
 	PUTERR("38", "D")
 }
 
+char _prn(char byte)
+{
+	return (' ' <= byte && byte <= 'z') ? byte : '.';
+}
 void Debug_HexDump(const char *Prefix, const void *Data, size_t Length)
 {
 	const uint8_t *data = Data;
@@ -86,23 +90,44 @@ void Debug_HexDump(const char *Prefix, const void *Data, size_t Length)
 	fprintf(stderr, "[HexDump ]d %s: %i bytes\n", Prefix, (int)Length);
 	for( ofs = 0; ofs + 16 <= Length; ofs += 16 )
 	{
+		const uint8_t	*d = data + ofs;
 		fprintf(stderr, "[HexDump ]d %s:", Prefix);
 		fprintf(stderr, "  %02x %02x %02x %02x %02x %02x %02x %02x",
-			data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]);
-		data += 8;
+			d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7]);
 		fprintf(stderr, "  %02x %02x %02x %02x %02x %02x %02x %02x",
-			data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]);
-		data += 8;
+			d[8], d[9], d[10], d[11], d[12], d[13], d[14], d[15]);
+		fprintf(stderr, " |%c%c%c%c""%c%c%c%c %c%c%c%c""%c%c%c%c",
+			_prn(d[ 0]), _prn(d[ 1]), _prn(d[ 2]), _prn(d[ 3]),
+			_prn(d[ 4]), _prn(d[ 5]), _prn(d[ 6]), _prn(d[ 7]),
+			_prn(d[ 8]), _prn(d[ 9]), _prn(d[10]), _prn(d[11]),
+			_prn(d[12]), _prn(d[13]), _prn(d[14]), _prn(d[15])
+			);
 		fprintf(stderr, "\n");
 	}
 	
-	fprintf(stderr, "[HexDump ]d %s:", Prefix);
-	for( ; ofs < Length; ofs ++ )
+	if( ofs < Length )
 	{
-		if( ofs % 8 == 0 )	fprintf(stderr, " ");
-		fprintf(stderr, " %02x", data[ofs%16]);
+		const uint8_t	*d = data + ofs;
+		fprintf(stderr, "[HexDump ]d %s: ", Prefix);
+		for( int i = 0; i < Length - ofs; i ++ )
+		{
+			if( i == 8 )	fprintf(stderr, " ");
+			fprintf(stderr, " %02x", d[i]);
+		}
+		for( int i = Length - ofs; i < 16; i ++ )
+		{
+			if( i == 8 )	fprintf(stderr, " ");
+			fprintf(stderr, "   ");
+		}
+		fprintf(stderr, " |");
+		for( int i = 0; i < Length - ofs; i ++ )
+		{
+			if( i == 8 )	fprintf(stderr, " ");
+			fprintf(stderr, "%c", _prn(d[i]));
+		}
+		
+		fprintf(stderr, "\n");
 	}
-	fprintf(stderr, "\n");
 	LOG_LOCK_RELEASE();
 }
 

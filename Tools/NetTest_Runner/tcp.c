@@ -39,6 +39,11 @@ uint16_t TCP_int_GetPseudoHeader(int AF, const void *SrcAddr, const void *DstAdd
 	}
 }
 
+void TCP_SendC(const tTCPConn *Conn, uint8_t flags, size_t data_len, const void *data)
+{
+	TCP_Send(Conn->IFNum, Conn->AF, Conn->RAddr, Conn->LPort, Conn->RPort,
+		Conn->LSeq, Conn->RSeq, flags, Conn->Window, data_len, data);
+}
 void TCP_Send(int IF, int AF, const void *IP, short sport, short dport,
 	uint32_t seq, uint32_t ack, uint8_t flags, uint16_t window,
 	size_t data_len, const void *data
@@ -76,6 +81,15 @@ void TCP_SkipCheck_Seq(bool Skip) {
 	gTCP_Skips.Seq = Skip;
 }
 
+
+bool TCP_Pkt_CheckC(size_t len, const void *data, size_t *out_ofs, size_t *len_out,
+	const tTCPConn *conn, uint8_t flags)
+{
+	return TCP_Pkt_Check(len, data, out_ofs, len_out,
+		conn->AF, conn->RAddr, conn->RPort, conn->LPort, conn->RSeq, conn->LSeq, flags
+		);
+}
+
 bool TCP_Pkt_Check(size_t len, const void *data, size_t *out_ofs, size_t *len_out,
 	int AF, const void *IP, short sport, short dport,
 	uint32_t seq, uint32_t ack, uint8_t flags)
@@ -83,7 +97,6 @@ bool TCP_Pkt_Check(size_t len, const void *data, size_t *out_ofs, size_t *len_ou
 	size_t	ofs, rlen;
 	if( !IP_Pkt_Check(len, data, &ofs, &rlen, AF, IP, BLOB(HOST_IP), IPPROTO_TCP) )
 		return false;
-	// TODO: IP has its own length field, use that?
 	
 	tTCPHeader	hdr;
 	TEST_ASSERT_REL(rlen, >=, sizeof(hdr));	
@@ -93,7 +106,7 @@ bool TCP_Pkt_Check(size_t len, const void *data, size_t *out_ofs, size_t *len_ou
 	if( !gTCP_Skips.SPort )	TEST_ASSERT_REL( ntohs(hdr.SPort), ==, sport );
 	TEST_ASSERT_REL( ntohs(hdr.DPort), ==, dport );
 	if( !gTCP_Skips.Seq )	TEST_ASSERT_REL( ntohl(hdr.Seq), ==, seq );
-	if( !gTCP_Skips.Ack )	TEST_ASSERT_REL( ntohl(hdr.Ack), ==, ack );
+	if( flags & TCP_ACK )	TEST_ASSERT_REL( ntohl(hdr.Ack), ==, ack );
 	TEST_ASSERT_REL( hdr.Flags, ==, flags);
 
 	uint16_t	real_cksum = htons(hdr.Checksum);
@@ -111,7 +124,8 @@ bool TCP_Pkt_Check(size_t len, const void *data, size_t *out_ofs, size_t *len_ou
 	return true;
 }
 
-uint32_t TCP_Pkt_GetSeq(size_t len, const void *data, int AF) {
+uint32_t TCP_Pkt_GetSeq(size_t len, const void *data, int AF)
+{
 	size_t	ofs, rlen;
 	IP_Pkt_Check(len, data, &ofs, &rlen, AF, NULL, NULL, IPPROTO_TCP);
 	
