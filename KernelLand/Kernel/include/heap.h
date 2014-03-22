@@ -13,6 +13,12 @@ extern void	*Heap_Reallocate(const char *File, int Line, void *Ptr, size_t Bytes
 extern void	Heap_Deallocate(const char *File, int Line, void *Ptr);
 extern int	Heap_IsHeapAddr(void *Ptr);
 extern void	Heap_Validate(void);
+/**
+ * \brief Hint to the heap code to put a watchpoint on this block's memory
+ *
+ * Use sparingly, watchpoints are limited and/or very expensive (or not even implemented)
+ */
+extern int	Heap_WatchBlock(void *Ptr);
 
 #define malloc(size)	Heap_Allocate(_MODULE_NAME_"/"__FILE__, __LINE__, (size))
 #define calloc(num,size)	Heap_AllocateZero(_MODULE_NAME_"/"__FILE__, __LINE__, (num)*(size))
