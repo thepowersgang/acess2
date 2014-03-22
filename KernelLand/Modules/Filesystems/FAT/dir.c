@@ -447,15 +447,12 @@ int FAT_int_WriteDirEntry(tVFS_Node *Node, int ID, fat_filetable *Entry)
  */
 Uint16 *FAT_int_GetLFN(tVFS_Node *Node, int ID)
 {
-	tFAT_LFNCache	*cache;
-	 int	i, firstFree;
-	
 	if( Mutex_Acquire( &Node->Lock ) ) {
 		return NULL;
 	}
 	
 	// TODO: Thread Safety (Lock things)
-	cache = Node->Data;
+	tFAT_LFNCache	*cache = Node->Data;
 	
 	// Create a cache if it isn't there
 	if(!cache) {
@@ -469,8 +466,8 @@ Uint16 *FAT_int_GetLFN(tVFS_Node *Node, int ID)
 	}
 	
 	// Scan for this entry
-	firstFree = -1;
-	for( i = 0; i < cache->NumEntries; i++ )
+	int firstFree = -1;
+	for( int i = 0; i < cache->NumEntries; i++ )
 	{
 		if( cache->Entries[i].ID == ID ) {
 			Mutex_Release( &Node->Lock );
@@ -481,31 +478,35 @@ Uint16 *FAT_int_GetLFN(tVFS_Node *Node, int ID)
 			firstFree = i;
 	}
 	
-	if(firstFree == -1) {
-		// Use `i` for temp length
-		i = sizeof(tFAT_LFNCache) + (cache->NumEntries+1)*sizeof(tFAT_LFNCacheEnt);
-		Node->Data = realloc( Node->Data, i );
-		if( !Node->Data ) {
-			Log_Error("FAT", "realloc() fail, unable to allocate %i for LFN cache", i);
+	 int	cache_entry = firstFree;
+	
+	if(firstFree == -1)
+	{
+		size_t newsize = offsetof(tFAT_LFNCache, Entries[cache->NumEntries+1]);
+		tFAT_LFNCache *new_alloc = realloc( Node->Data, newsize );
+		if( !new_alloc ) {
+			Log_Error("FAT", "realloc() fail, unable to allocate %zi for LFN cache", newsize);
 			Mutex_Release( &Node->Lock );
 			return NULL;
 		}
+		Node->Data = new_alloc;
 		//Log_Debug("FAT", "Realloc (%i)\n", i);
 		cache = Node->Data;
-		i = cache->NumEntries;
+		cache_entry = cache->NumEntries;
 		cache->NumEntries ++;
 	}
-	else {
-		i = firstFree;
+	else
+	{
+		cache_entry = firstFree;
 	}
 	
 	// Create new entry
-	cache->Entries[ i ].ID = ID;
-	cache->Entries[ i ].Data[0] = '\0';
+	cache->Entries[ cache_entry ].ID = ID;
+	cache->Entries[ cache_entry ].Data[0] = '\0';
 	
 	Mutex_Release( &Node->Lock );
 	//Log_Debug("FAT", "Return = %p (firstFree, i = %i)", cache->Entries[i].Data, i);
-	return cache->Entries[ i ].Data;
+	return cache->Entries[ cache_entry ].Data;
 }
 
 /**
