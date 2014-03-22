@@ -1,6 +1,11 @@
 /*
+ * Acess2 Network Tester
+ * - By John Hodge (thePowersGang)
+ *
+ * cmdline_backend.c
+ * - Backend Thread for 'cmdline' suite
  */
-#define DEBUG	1
+#define DEBUG	0
 #include "cmdline.h"
 #include "tcpserver.h"
 #include <vfs_ext.h>
@@ -42,6 +47,14 @@ void Cmdline_Backend_Thread(void *unused)
 		LOG("max = %i", max);
 		int rv = VFS_Select(max+1, &rfd, &wfd, &efd, NULL, THREAD_EVENT_USER1, false);
 		LOG("rv = %i", rv);
+		
+		if( rv < 0 ) {
+			// Oh, shite
+		}
+		
+		// Woken with no file changes, skip checking
+		if( rv == 0 )
+			continue ;
 		
 		if(gpCmdline_TCPEchoServer)
 			NetTest_TCPServer_HandleSelect(gpCmdline_TCPEchoServer, &rfd, &wfd, &efd);

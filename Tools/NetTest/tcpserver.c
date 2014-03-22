@@ -86,7 +86,7 @@ void NetTest_TCPServer_HandleSelect(tNetTest_TCPServer *Srv, const fd_set *rfds,
 		if( FD_ISSET(client->FD, rfds) )
 		{
 			// RX'd data on client
-			// TODO: Do something other than echo back
+			// TODO: Cache until '.' is seen, and send all data before+incl that character
 			char	buf[1024];
 			size_t len = VFS_Read(client->FD, sizeof(buf), buf);
 			Debug_HexDump("TCP Srv Rx", buf, len);

@@ -26,6 +26,7 @@ int main(int argc, char *argv[])
 	t_test	*tests[] = {
 		Test_ARP_Basic,
 		Test_TCP_Basic,
+		Test_TCP_WindowSizes,
 		NULL
 		};
 

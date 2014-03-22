@@ -15,18 +15,18 @@
 
 #define TEST_ASSERT_rx()	TEST_ASSERT( rxlen = Net_Receive(0, sizeof(rxbuf), rxbuf, ERX_TIMEOUT) )
 #define TEST_ASSERT_no_rx()	TEST_ASSERT( Net_Receive(0, sizeof(rxbuf), rxbuf, NRX_TIMEOUT) == 0 )
+const int	ERX_TIMEOUT = 1000;	// Expect RX timeout (timeout=failure)
+const int	NRX_TIMEOUT = 250;	// Not expect RX timeout (timeout=success)
+const int	RETX_TIMEOUT = 1000;	// OS PARAM - Retransmit timeout
+const int	LOST_TIMEOUT = 1000;	// OS PARAM - Time before sending an ACK 
+const int	DACK_TIMEOUT = 500;	// OS PARAM - Timeout for delayed ACKs
+const size_t	DACK_BYTES = 4096;	// OS PARAM - Threshold for delayed ACKs
 
 bool Test_TCP_Basic(void)
 {
 	TEST_SETNAME(__func__);
 	size_t	rxlen, ofs, len;
 	char rxbuf[MTU];
-	const int	ERX_TIMEOUT = 1000;	// Expect RX timeout (timeout=failure)
-	const int	NRX_TIMEOUT = 250;	// Not expect RX timeout (timeout=success)
-	const int	RETX_TIMEOUT = 1000;	// OS PARAM - Retransmit timeout
-	const int	LOST_TIMEOUT = 1000;	// OS PARAM - Time before sending an ACK 
-	const int	DACK_TIMEOUT = 500;	// OS PARAM - Timeout for delayed ACKs
-	const size_t	DACK_BYTES = 4096;	// OS PARAM - Threshold for delayed ACKs
 
 	tTCPConn	testconn = {
 		.IFNum = 0, .AF = 4,
@@ -39,9 +39,11 @@ bool Test_TCP_Basic(void)
 		.RSeq = 0,
 	};
 
-	const char testblob[] = "HelloWorld, this is some random testing data for TCP\xFF\x00\x66\x12\x12";
+	const char testblob[] = "HelloWorld, this is some random testing data for TCP\xFF\x00\x66\x12\x12.";
 	const size_t	testblob_len = sizeof(testblob);
-	
+
+	// TODO: Check checksum failures	
+
 	// 1. Test packets to closed port
 	// > RFC793 Pg.65
 	
@@ -206,8 +208,64 @@ bool Test_TCP_Basic(void)
 
 bool Test_TCP_SYN_RECEIVED(void)
 {
+	TEST_SETNAME(__func__);
 	// 1. Get into SYN-RECEIVED
 	
 	// 2. Send various non-ACK packets
+	return false;
+}
+
+bool Test_TCP_WindowSizes(void)
+{
+	TEST_SETNAME(__func__);
+	size_t	rxlen, ofs, len;
+	char rxbuf[MTU];
+	tTCPConn	testconn = {
+		.IFNum = 0,
+		.AF = 4,
+		.LAddr = BLOB(HOST_IP),
+		.RAddr = BLOB(TEST_IP),
+		.LPort = 44359,
+		.RPort = 9,
+		.LSeq = 0x600,
+		.RSeq = 0x600,
+		.Window = 128
+	};
+	char	testdata[152];
+	memset(testdata, 0xAB, sizeof(testdata));
+	
+	Stack_SendCommand("tcp_echo_server %i", testconn.RPort);
+	// > Open Connection
+	TCP_SendC(&testconn, TCP_SYN, 0, NULL);
+	testconn.LSeq ++;
+	TEST_ASSERT_rx();
+	TCP_SkipCheck_Seq(true);
+	TEST_ASSERT( TCP_Pkt_CheckC(rxlen, rxbuf, &ofs, &len, &testconn, TCP_SYN|TCP_ACK) );
+	TEST_ASSERT_REL(len, ==, 0);
+	testconn.RSeq = TCP_Pkt_GetSeq(rxlen, rxbuf, testconn.AF) + 1;
+	TCP_SendC(&testconn, TCP_ACK, 0, NULL);
+	TEST_ASSERT_no_rx();
+	
+	// 1. Test remote respecting our transmission window (>=1 byte)
+	// > Send more data than our RX window
+	TCP_SendC(&testconn, TCP_PSH, sizeof(testdata), testdata);
+	testconn.LSeq += sizeof(testdata);
+	// Expect our RX window back
+	TEST_ASSERT_rx();
+	TEST_ASSERT( TCP_Pkt_CheckC(rxlen, rxbuf, &ofs, &len, &testconn, TCP_ACK|TCP_PSH) );
+	TEST_ASSERT_REL(len, ==, testconn.Window);
+	testconn.RSeq += len;
+	// > Send ACK and reduce window to 1 byte
+	testconn.Window = 1;
+	TCP_SendC(&testconn, TCP_ACK, 0, NULL);
+	testconn.LSeq += sizeof(testdata);
+	// > Expect 1 byte back
+	TEST_ASSERT_rx();
+	TEST_ASSERT( TCP_Pkt_CheckC(rxlen, rxbuf, &ofs, &len, &testconn, TCP_ACK|TCP_PSH) );
+	TEST_ASSERT_REL(len, ==, 1);
+	testconn.RSeq += len;
+	// 2. Test remote handling our window being 0 (should only send ACKs)
+	// 3. Test that remote drops data outside of its RX window
+	// 3.1. Ensure that data that wraps the end of the RX window is handled correctly
 	return false;
 }

@@ -44,7 +44,7 @@ void TCP_SendC(const tTCPConn *Conn, uint8_t flags, size_t data_len, const void 
 	TCP_Send(Conn->IFNum, Conn->AF, Conn->RAddr, Conn->LPort, Conn->RPort,
 		Conn->LSeq, Conn->RSeq, flags, Conn->Window, data_len, data);
 }
-void TCP_Send(int IF, int AF, const void *IP, short sport, short dport,
+void TCP_Send(int IF, int AF, const void *IP, uint16_t sport, uint16_t dport,
 	uint32_t seq, uint32_t ack, uint8_t flags, uint16_t window,
 	size_t data_len, const void *data
 	)
@@ -91,7 +91,7 @@ bool TCP_Pkt_CheckC(size_t len, const void *data, size_t *out_ofs, size_t *len_o
 }
 
 bool TCP_Pkt_Check(size_t len, const void *data, size_t *out_ofs, size_t *len_out,
-	int AF, const void *IP, short sport, short dport,
+	int AF, const void *IP, uint16_t sport, uint16_t dport,
 	uint32_t seq, uint32_t ack, uint8_t flags)
 {
 	size_t	ofs, rlen;
@@ -105,9 +105,9 @@ bool TCP_Pkt_Check(size_t len, const void *data, size_t *out_ofs, size_t *len_ou
 	TEST_ASSERT_REL( hdr.DataOfs >> 4, >=, sizeof(hdr)/4 );
 	if( !gTCP_Skips.SPort )	TEST_ASSERT_REL( ntohs(hdr.SPort), ==, sport );
 	TEST_ASSERT_REL( ntohs(hdr.DPort), ==, dport );
+	TEST_ASSERT_REL( hdr.Flags, ==, flags);
 	if( !gTCP_Skips.Seq )	TEST_ASSERT_REL( ntohl(hdr.Seq), ==, seq );
 	if( flags & TCP_ACK )	TEST_ASSERT_REL( ntohl(hdr.Ack), ==, ack );
-	TEST_ASSERT_REL( hdr.Flags, ==, flags);
 
 	uint16_t	real_cksum = htons(hdr.Checksum);
 	hdr.Checksum = 0;
