@@ -23,14 +23,22 @@
 
 #define TRACE_MAPS	0
 
+#define	KWATCH_BUCKETS	512
+
 #define TAB	22
 
-#define	PF_PRESENT	0x1
-#define	PF_WRITE	0x2
-#define	PF_USER		0x4
-#define PF_GLOBAL	0x80
-#define	PF_COW		0x200
-#define	PF_NOPAGE	0x400
+#define	PF_PRESENT	0x01
+#define	PF_WRITE	0x02
+#define	PF_USER		0x04
+#define PF_PAGEWT	0x08	// Page-level write through
+#define PF_PAGECD	0x10	// Page-level cache disable
+#define PF_ACCESSED	0x20
+#define PF_DIRTY	0x40
+#define PF_PAT  	0x80	// ?
+#define PF_GLOBAL	0x100	// Global Page
+#define	PF_COW		0x200	// [ 9] Ignored - Copy-on-write
+#define	PF_NOPAGE	0x400	// [10] Ignored - Disable page-out
+#define PF_WATCHED	0x800	// [11] Ignored - Watchpointing enabled
 
 #define INVLPG(addr)	__asm__ __volatile__ ("invlpg (%0)"::"r"(addr))
 
@@ -52,6 +60,13 @@ extern tPage	gKernelEnd;	// defined as page aligned
 extern Uint32	gaInitPageDir[1024];
 extern Uint32	gaInitPageTable[1024];
 extern void	Threads_SegFault(tVAddr Addr);
+
+typedef struct sWatchpoint
+{
+	struct sWatchpoint	*Next;
+	Uint	PageNum;
+	Uint8	Bitmap[PAGE_SIZE/4/8];
+} tWatchpoint;
 
 // === PROTOTYPES ===
 void	MM_PreinitVirtual(void);
@@ -92,6 +107,7 @@ struct sPageInfo {
 // - Zero page
 tShortSpinlock	glMM_ZeroPage;
 tPAddr	giMM_ZeroPage;
+tWatchpoint	*gapKernelWatchpoints[KWATCH_BUCKETS];
 
 // === CODE ===
 /**
@@ -167,32 +183,65 @@ void MM_FinishVirtualInit(void)
  */
 void MM_PageFault(tVAddr Addr, Uint ErrorCode, tRegs *Regs)
 {
+	Uint32	*pde = &gaPageDir[Addr>>22];
+	Uint32	*pte = &gaPageTable[Addr>>12];
 	//ENTER("xAddr bErrorCode", Addr, ErrorCode);
 	
 	// -- Check for COW --
-	if( gaPageDir  [Addr>>22] & PF_PRESENT  && gaPageTable[Addr>>12] & PF_PRESENT
-	 && gaPageTable[Addr>>12] & PF_COW )
+	if( (*pde & PF_PRESENT) && (*pte & PF_PRESENT) && (*pte & PF_COW) )
 	{
 		tPAddr	paddr;
 		__asm__ __volatile__ ("sti");
-		if(MM_GetRefCount( gaPageTable[Addr>>12] & ~0xFFF ) == 1)
+		if( MM_GetRefCount( *pte & ~0xFFF ) == 1 )
 		{
-			gaPageTable[Addr>>12] &= ~PF_COW;
-			gaPageTable[Addr>>12] |= PF_PRESENT|PF_WRITE;
+			*pte &= ~PF_COW;
+			*pte |= PF_PRESENT|PF_WRITE;
 		}
 		else
 		{
 			//Log("MM_PageFault: COW - MM_DuplicatePage(0x%x)", Addr);
 			paddr = MM_DuplicatePage( Addr );
-			MM_DerefPhys( gaPageTable[Addr>>12] & ~0xFFF );
-			gaPageTable[Addr>>12] &= PF_USER;
-			gaPageTable[Addr>>12] |= paddr|PF_PRESENT|PF_WRITE;
+			MM_DerefPhys( *pte & ~0xFFF );
+			*pte &= PF_USER;
+			*pte |= paddr|PF_PRESENT|PF_WRITE;
 		}
 		
 //		Log_Debug("MMVirt", "COW for %p (%P)", Addr, gaPageTable[Addr>>12]);
 		
 		INVLPG( Addr & ~0xFFF );
 		return;
+	}
+
+	// --- Check for write to controlled area ---
+	// TODO: Catch user access
+	if( (*pde & PF_PRESENT) && (*pte & PF_PRESENT) && !(*pte & PF_WRITE) && (*pte & PF_WATCHED) )
+	{
+		Uint	page = Addr >> 12;
+		Uint	ofs = Addr & 0xFFF;
+		// Watchpoints are active for this page.
+		// > Locate watchpoint bitmap for page (dword granuality)
+		tWatchpoint	*wp = ( Addr >= KERNEL_BASE ? gapKernelWatchpoints[page%KWATCH_BUCKETS] : NULL);
+		while( wp && wp->PageNum == page )
+			wp = wp->Next;
+		if( !wp )
+		{
+			Log_Warning("MMVirt", "PF_WATCHED set on %p but no watchpoint info avaliable", Addr);
+		}
+		else
+		{
+			// > If bit set, log/raise
+			if( wp->Bitmap[ (ofs/4)/8 ] & (1 << (ofs/4)%8) )
+			{
+				Log_Error("DEBUG", "Watchpoint %p written by %x:%p",
+					Addr, Regs->cs, Regs->eip);
+			}
+			Regs->eflags |= 1<<8;
+			//Proc_GetCurThread()->Proc.WPPage = Addr;
+		}
+		// > Clear write protection, set tracing
+		*pte |= PF_WRITE;
+		INVLPG( Addr & ~0xFFF );
+		return ;
 	}
 
 	// Disable instruction tracing	

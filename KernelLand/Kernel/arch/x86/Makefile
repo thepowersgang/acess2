@@ -27,7 +27,7 @@ A_OBJ += proc.o proc.ao time.o vm8086.o
 ifeq ($(USE_MP),1)
 A_OBJ += mptable.o
 endif
-A_OBJ += kpanic.o pci.o vpci.o
+A_OBJ += kpanic.o pci.o vpci.o validate_vmem.o
 
 ifeq ($(USE_ACPICA),1)
 A_OBJ += acpica.o
