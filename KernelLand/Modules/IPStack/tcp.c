@@ -107,14 +107,42 @@ void TCP_SendPacket( tTCPConnection *Conn, tTCPHeader *Header, size_t Length, co
 	TCP_int_SendPacket(Conn->Interface, &Conn->RemoteIP, Header, Length, Data);
 }
 
+Uint16 TCP_int_CalculateChecksum(int AddrType, const void *LAddr, const void *RAddr,
+	size_t HeaderLength, const tTCPHeader *Header, size_t DataLength, const void *Data)
+{
+	size_t packlen = HeaderLength + DataLength;
+	Uint16	checksum[3];
+
+	switch(AddrType)
+	{
+	case 4: {
+		Uint32	buf[3];
+		buf[0] = ((tIPv4*)LAddr)->L;
+		buf[1] = ((tIPv4*)RAddr)->L;
+		buf[2] = htonl( (packlen) | (IP4PROT_TCP<<16) | (0<<24) );
+		checksum[0] = htons( ~IPv4_Checksum(buf, sizeof(buf)) );	// Partial checksum
+		break; }
+	case 6: {
+		Uint32	buf[4+4+1+1];
+		memcpy(&buf[0], LAddr, 16);
+		memcpy(&buf[4], RAddr, 16);
+		buf[8] = htonl(packlen);
+		buf[9] = htonl(IP4PROT_TCP);
+		checksum[0] = htons( ~IPv4_Checksum(buf, sizeof(buf)) );	// Partial checksum
+		break; }
+	default:
+		return 0;
+	}
+	checksum[1] = htons( ~IPv4_Checksum(Header, HeaderLength) );
+	checksum[2] = htons( ~IPv4_Checksum(Data, DataLength) );
+
+	return htons( IPv4_Checksum(checksum, sizeof(checksum)) );
+}
+
 void TCP_int_SendPacket(tInterface *Interface, const void *Dest, tTCPHeader *Header, size_t Length, const void *Data )
 {
-	tIPStackBuffer	*buffer;
-	Uint16	checksum[3];
-	 int	packlen = sizeof(*Header) + Length;
-	
-	buffer = IPStack_Buffer_CreateBuffer(2 + IPV4_BUFFERS);
-	if( Data && Length )
+	tIPStackBuffer	*buffer = IPStack_Buffer_CreateBuffer(2 + IPV4_BUFFERS);
+	if( Length > 0 )
 		IPStack_Buffer_AppendSubBuffer(buffer, Length, 0, Data, NULL, NULL);
 	IPStack_Buffer_AppendSubBuffer(buffer, sizeof(*Header), 0, Header, NULL, NULL);
 
@@ -124,38 +152,17 @@ void TCP_int_SendPacket(tInterface *Interface, const void *Dest, tTCPHeader *Hea
 		);
 
 	Header->Checksum = 0;
-	checksum[1] = htons( ~IPv4_Checksum(Header, sizeof(tTCPHeader)) );
-	checksum[2] = htons( ~IPv4_Checksum(Data, Length) );
+	Header->Checksum = TCP_int_CalculateChecksum(Interface->Type, Interface->Address, Dest,
+		sizeof(tTCPHeader), Header, Length, Data);
 	
 	// TODO: Fragment packet
 	
 	switch( Interface->Type )
 	{
 	case 4:
-		// Get IPv4 pseudo-header checksum
-		{
-			Uint32	buf[3];
-			buf[0] = ((tIPv4*)Interface->Address)->L;
-			buf[1] = ((tIPv4*)Dest)->L;
-			buf[2] = htonl( (packlen) | (IP4PROT_TCP<<16) | (0<<24) );
-			checksum[0] = htons( ~IPv4_Checksum(buf, sizeof(buf)) );	// Partial checksum
-		}
-		// - Combine checksums
-		Header->Checksum = htons( IPv4_Checksum(checksum, sizeof(checksum)) );
 		IPv4_SendPacket(Interface, *(tIPv4*)Dest, IP4PROT_TCP, 0, buffer);
 		break;
-		
 	case 6:
-		// Append IPv6 Pseudo Header
-		{
-			Uint32	buf[4+4+1+1];
-			memcpy(buf, Interface->Address, 16);
-			memcpy(&buf[4], Dest, 16);
-			buf[8] = htonl(packlen);
-			buf[9] = htonl(IP4PROT_TCP);
-			checksum[0] = htons( ~IPv4_Checksum(buf, sizeof(buf)) );	// Partial checksum
-		}
-		Header->Checksum = htons( IPv4_Checksum(checksum, sizeof(checksum)) );	// Combine the two
 		IPv6_SendPacket(Interface, *(tIPv6*)Dest, IP4PROT_TCP, buffer);
 		break;
 	}
