@@ -120,7 +120,7 @@ int main(int argc, const char *argv[], const char *envp[])
 	printf("\x1B[?1047h");
 	printf("\x1B[%i;%ir", 0, giTerminal_Height-1);
 	
-	SetCursorPos(giTerminal_Height-1, 0);
+	SetCursorPos(giTerminal_Height-1, 1);
 	printf("[(status)] ");
 	
 	// HACK: Static server entry
@@ -145,7 +145,7 @@ int main(int argc, const char *argv[], const char *envp[])
 
 int MainLoop(void)
 {
-	SetCursorPos(giTerminal_Height-1, 0);
+	SetCursorPos(giTerminal_Height-1, 1);
 	printf("[(status)] ");
 	fflush(stdout);
 	
@@ -186,7 +186,7 @@ int MainLoop(void)
 				}
 				free(cmd);
 				// Prompt
-				SetCursorPos(giTerminal_Height-1, 0);
+				SetCursorPos(giTerminal_Height-1, 1);
 				printf("\x1B[2K");	// Clear line
 				if( gpCurrentWindow->Name[0] )
 					printf("[%s:%s] ",
@@ -486,7 +486,7 @@ tMessage *Message_Append(tServer *Server, int Type, const char *Source, const ch
 	{
 		printf("\33[s");
 		printf("\33[T");	// Scroll down 1 (free space below)
-		SetCursorPos(giTerminal_Height-2, 0);
+		SetCursorPos(giTerminal_Height-2, 1);
 		 int	prefixlen = strlen(Source) + 3;
 		 int	avail = giTerminal_Width - prefixlen;
 		 int	msglen = strlen(Message);
@@ -495,7 +495,7 @@ tMessage *Message_Append(tServer *Server, int Type, const char *Source, const ch
 			msglen -= avail;
 			Message += avail;
 			printf("\33[T");
-			SetCursorPos(giTerminal_Height-2, prefixlen);
+			SetCursorPos(giTerminal_Height-2, prefixlen+1);
 			printf("%.*s", avail, Message);
 		}
 		printf("\x1b[u");
@@ -555,13 +555,13 @@ void Redraw_Screen(void)
 		 int	i = 0, done = 0;
 		
 		y -= msglen / line_avail;	// Extra lines (y-- above handles the 1 line case)
-		SetCursorPos(y, 0);
+		SetCursorPos(y, 1);
 		printf("[%s] ", msg->Source);
 		
 		while(done < msglen) {
 			done += printf("%.*s", line_avail, msg->Data+done);
 			i ++;
-			SetCursorPos(y+i, prefix_len);
+			SetCursorPos(y+i, prefix_len+1);
 		}
 	}
 
@@ -710,8 +710,7 @@ void ParseServerLine(tServer *Server, char *Line)
 		const char *cmd = GetValue(Line, &pos);
 		
 		if( strcmp(cmd, "PING") == 0 ) {
-			writef(Server->FD, "PONG %s\n", gsHostname);
-			
+			writef(Server->FD, "PONG %s\n", Line+pos);
 		}
 		else {
 			// Command to client
