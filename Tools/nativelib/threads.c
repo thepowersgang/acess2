@@ -5,9 +5,11 @@
  * threads.c
  * - Threads handling
  */
+#define DEBUG	0
 #include <acess.h>
 #include <threads.h>
 #include <threads_int.h>
+#include <mutex.h>
 
 // === PROTOTYPES ===
 void	Threads_int_Init(void)	__attribute__((constructor(101)));
@@ -33,43 +35,6 @@ tThread *Proc_GetCurThread(void)
 	return lpThreads_This;
 }
 
-void Threads_PostEvent(tThread *Thread, Uint32 Events)
-{
-	if( !Thread ) {
-		// nope.avi
-		return ;
-	}
-	SHORTLOCK( &Thread->IsLocked );
-	Thread->PendingEvents |= Events;
-	if( Thread->WaitingEvents & Events )
-		Threads_int_SemSignal(Thread->WaitSemaphore);
-	SHORTREL( &Thread->IsLocked );
-}
-
-Uint32 Threads_WaitEvents(Uint32 Events)
-{
-	if( !Threads_int_ThreadingEnabled() ) {
-		Log_Notice("Threads", "_WaitEvents: Threading disabled");
-		return 0;
-	}
-	lpThreads_This->WaitingEvents = Events;
-	Threads_int_SemWaitAll(lpThreads_This->WaitSemaphore);
-	lpThreads_This->WaitingEvents = 0;
-	Uint32	rv = lpThreads_This->PendingEvents;
-	return rv;
-}
-
-void Threads_ClearEvent(Uint32 Mask)
-{
-	if( !Threads_int_ThreadingEnabled() ) {
-		Log_Notice("Threads", "_ClearEvent: Threading disabled");
-		return ;
-	}
-	SHORTLOCK(&lpThreads_This->IsLocked);
-	lpThreads_This->PendingEvents &= ~Mask;
-	SHORTREL(&lpThreads_This->IsLocked);
-}
-
 tUID Threads_GetUID(void) { return 0; }
 tGID Threads_GetGID(void) { return 0; }
 
@@ -89,12 +54,6 @@ void Threads_Yield(void)
 void Threads_Sleep(void)
 {
 	Log_Warning("Threads", "Threads_Sleep shouldn't be used");
-}
-
-void Threads_int_WaitForStatusEnd(enum eThreadStatus Status)
-{
-	while( lpThreads_This->Status != Status )
-		Threads_int_SemWaitAll(lpThreads_This->WaitSemaphore);
 }
 
 int Threads_SetName(const char *Name)
@@ -126,6 +85,7 @@ void Threads_AddActive(tThread *Thread)
 {
 	Thread->Status = THREAD_STAT_ACTIVE;
 	// Increment state-change semaphore
+	LOG("Waking %p(%i %s)", Thread, Thread->TID, Thread->ThreadName);
 	Threads_int_SemSignal(Thread->WaitSemaphore);
 }
 
@@ -176,5 +136,56 @@ struct sThread *Proc_SpawnWorker(void (*Fcn)(void*), void *Data)
 		Threads_int_CreateThread(ret);
 		return ret;
 	}
+}
+
+void Threads_int_WaitForStatusEnd(enum eThreadStatus Status)
+{
+	tThread	*us = Proc_GetCurThread();
+	assert(Status != THREAD_STAT_ACTIVE);
+	assert(Status != THREAD_STAT_DEAD);
+	LOG("%i(%s) - %i", us->TID, us->ThreadName, Status);
+	while( us->Status == Status )
+	{
+		Threads_int_SemWaitAll(us->WaitSemaphore);
+		if( us->Status == Status )
+			Log_Warning("Threads", "Thread %p(%i %s) rescheduled while in %s state",
+				us, us->TID, us->ThreadName, casTHREAD_STAT[Status]);
+	}
+	LOG("%p(%i %s) Awake", us, us->TID, us->ThreadName);
+}
+
+int Threads_int_Sleep(enum eThreadStatus Status, void *Ptr, int Num, tThread **ListHead, tThread **ListTail, tShortSpinlock *Lock)
+{
+	tThread	*us = Proc_GetCurThread();
+	us->Next = NULL;
+	// - Mark as sleeping
+	us->Status = Status;
+	us->WaitPointer = Ptr;
+	us->RetStatus = Num;	// Use RetStatus as a temp variable
+		
+	// - Add to waiting
+	if( ListTail ) {
+		if(*ListTail) {
+			(*ListTail)->Next = us;
+		}
+		else {
+			*ListHead = us;
+		}
+		*ListTail = us;
+	}
+	else if(ListHead) {
+		us->Next = *ListHead;
+		*ListHead = us;
+	}
+	else {
+		// nothing
+	}
+	
+	if( Lock ) {
+		SHORTREL( Lock );
+	}
+	Threads_int_WaitForStatusEnd(Status);
+	us->WaitPointer = NULL;
+	return us->RetStatus;
 }
 

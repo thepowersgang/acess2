@@ -69,6 +69,8 @@ struct sShortSpinlock {
 // TODO: SMP halt request too
 #define HALT_CPU()	for(;;) { __asm__ __volatile__ ("cli; hlt"); }
 
+#define ASM(v...)	__asm__ __volatile__ (v)
+
 // === TYPES ===
 typedef unsigned int	Uint;	// Unsigned machine native integer
 typedef unsigned char	Uint8;

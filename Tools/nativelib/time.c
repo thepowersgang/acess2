@@ -7,6 +7,7 @@
  */
 #include <acess.h>
 #include <timers.h>
+#include <events.h>
 
 // === CODE ===
 tTimer *Time_AllocateTimer(tTimerCallback *Callback, void *Argument)
@@ -35,6 +36,17 @@ void Time_RemoveTimer(tTimer *Timer)
 void Time_FreeTimer(tTimer *Timer)
 {
 	
+}
+
+void Time_ScheduleEvent(int Delay)
+{
+	Log_Warning("Time", "TODO: EVENT_TIMER in %ims", Delay);
+}
+
+void Time_Delay(int Delay)
+{
+	Time_ScheduleEvent(Delay);
+	Threads_WaitEvents(THREAD_EVENT_TIMER);
 }
 
 Sint64 now(void)

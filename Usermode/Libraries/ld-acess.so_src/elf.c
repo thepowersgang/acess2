@@ -15,7 +15,9 @@
 
 #include "common.h"
 #include <stdint.h>
-#include <assert.h>
+#ifndef assert
+# include <assert.h>
+#endif
 #include "elf32.h"
 #include "elf64.h"
 

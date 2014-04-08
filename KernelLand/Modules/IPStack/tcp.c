@@ -2,7 +2,7 @@
  * Acess2 IP Stack
  * - TCP Handling
  */
-#define DEBUG	0
+#define DEBUG	1
 #include "ipstack.h"
 #include "ipv4.h"
 #include "ipv6.h"
@@ -26,6 +26,7 @@
 void	TCP_Initialise(void);
 void	TCP_StartConnection(tTCPConnection *Conn);
 void	TCP_SendPacket(tTCPConnection *Conn, tTCPHeader *Header, size_t DataLen, const void *Data);
+void	TCP_int_SendPacket(tInterface *Interface, const void *Dest, tTCPHeader *Header, size_t Length, const void *Data);
 void	TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffer);
 void	TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Header, int Length);
 int	TCP_INT_AppendRecieved(tTCPConnection *Connection, const void *Data, size_t Length);
@@ -36,6 +37,7 @@ Uint16	TCP_GetUnusedPort();
  int	TCP_AllocatePort(Uint16 Port);
  int	TCP_DeallocatePort(Uint16 Port);
 tTCPConnection	*TCP_int_CreateConnection(tInterface *Interface, enum eTCPConnectionState State);
+void	TCP_int_FreeTCB(tTCPConnection *Connection);
 // --- Server
 tVFS_Node	*TCP_Server_Init(tInterface *Interface);
  int	TCP_Server_ReadDir(tVFS_Node *Node, int Pos, char Name[FILENAME_MAX]);
@@ -50,6 +52,7 @@ size_t	TCP_Client_Write(tVFS_Node *Node, off_t Offset, size_t Length, const void
 void	TCP_Client_Close(tVFS_Node *Node);
 // --- Helpers
  int	WrapBetween(Uint32 Lower, Uint32 Value, Uint32 Higher, Uint32 MaxValue);
+Uint32	GetRelative(Uint32 Base, Uint32 Value);
 
 // === TEMPLATES ===
 tSocketFile	gTCP_ServerFile = {NULL, "tcps", TCP_Server_Init};
@@ -101,56 +104,89 @@ void TCP_Initialise(void)
  */
 void TCP_SendPacket( tTCPConnection *Conn, tTCPHeader *Header, size_t Length, const void *Data )
 {
-	tIPStackBuffer	*buffer;
+	TCP_int_SendPacket(Conn->Interface, &Conn->RemoteIP, Header, Length, Data);
+}
+
+Uint16 TCP_int_CalculateChecksum(int AddrType, const void *LAddr, const void *RAddr,
+	size_t HeaderLength, const tTCPHeader *Header, size_t DataLength, const void *Data)
+{
+	size_t packlen = HeaderLength + DataLength;
 	Uint16	checksum[3];
-	 int	packlen = sizeof(*Header) + Length;
-	
-	buffer = IPStack_Buffer_CreateBuffer(2 + IPV4_BUFFERS);
-	if( Data && Length )
+
+	switch(AddrType)
+	{
+	case 4: {
+		Uint32	buf[3];
+		buf[0] = ((tIPv4*)LAddr)->L;
+		buf[1] = ((tIPv4*)RAddr)->L;
+		buf[2] = htonl( (packlen) | (IP4PROT_TCP<<16) | (0<<24) );
+		checksum[0] = htons( ~IPv4_Checksum(buf, sizeof(buf)) );	// Partial checksum
+		break; }
+	case 6: {
+		Uint32	buf[4+4+1+1];
+		memcpy(&buf[0], LAddr, 16);
+		memcpy(&buf[4], RAddr, 16);
+		buf[8] = htonl(packlen);
+		buf[9] = htonl(IP4PROT_TCP);
+		checksum[0] = htons( ~IPv4_Checksum(buf, sizeof(buf)) );	// Partial checksum
+		break; }
+	default:
+		return 0;
+	}
+	checksum[1] = htons( ~IPv4_Checksum(Header, HeaderLength) );
+	checksum[2] = htons( ~IPv4_Checksum(Data, DataLength) );
+
+	return htons( IPv4_Checksum(checksum, sizeof(checksum)) );
+}
+
+void TCP_int_SendPacket(tInterface *Interface, const void *Dest, tTCPHeader *Header, size_t Length, const void *Data )
+{
+	tIPStackBuffer	*buffer = IPStack_Buffer_CreateBuffer(2 + IPV4_BUFFERS);
+	if( Length > 0 )
 		IPStack_Buffer_AppendSubBuffer(buffer, Length, 0, Data, NULL, NULL);
 	IPStack_Buffer_AppendSubBuffer(buffer, sizeof(*Header), 0, Header, NULL, NULL);
 
 	LOG("Sending %i+%i to %s:%i", sizeof(*Header), Length,
-		IPStack_PrintAddress(Conn->Interface->Type, &Conn->RemoteIP),
-		Conn->RemotePort
+		IPStack_PrintAddress(Interface->Type, Dest),
+		ntohs(Header->DestPort)
 		);
 
 	Header->Checksum = 0;
-	checksum[1] = htons( ~IPv4_Checksum(Header, sizeof(tTCPHeader)) );
-	checksum[2] = htons( ~IPv4_Checksum(Data, Length) );
+	Header->Checksum = TCP_int_CalculateChecksum(Interface->Type, Interface->Address, Dest,
+		sizeof(tTCPHeader), Header, Length, Data);
 	
 	// TODO: Fragment packet
 	
-	switch( Conn->Interface->Type )
+	switch( Interface->Type )
 	{
 	case 4:
-		// Get IPv4 pseudo-header checksum
-		{
-			Uint32	buf[3];
-			buf[0] = ((tIPv4*)Conn->Interface->Address)->L;
-			buf[1] = Conn->RemoteIP.v4.L;
-			buf[2] = (htons(packlen)<<16) | (6<<8) | 0;
-			checksum[0] = htons( ~IPv4_Checksum(buf, sizeof(buf)) );	// Partial checksum
-		}
-		// - Combine checksums
-		Header->Checksum = htons( IPv4_Checksum(checksum, sizeof(checksum)) );
-		IPv4_SendPacket(Conn->Interface, Conn->RemoteIP.v4, IP4PROT_TCP, 0, buffer);
+		IPv4_SendPacket(Interface, *(tIPv4*)Dest, IP4PROT_TCP, 0, buffer);
 		break;
-		
 	case 6:
-		// Append IPv6 Pseudo Header
-		{
-			Uint32	buf[4+4+1+1];
-			memcpy(buf, Conn->Interface->Address, 16);
-			memcpy(&buf[4], &Conn->RemoteIP, 16);
-			buf[8] = htonl(packlen);
-			buf[9] = htonl(6);
-			checksum[0] = htons( ~IPv4_Checksum(buf, sizeof(buf)) );	// Partial checksum
-		}
-		Header->Checksum = htons( IPv4_Checksum(checksum, sizeof(checksum)) );	// Combine the two
-		IPv6_SendPacket(Conn->Interface, Conn->RemoteIP.v6, IP4PROT_TCP, buffer);
+		IPv6_SendPacket(Interface, *(tIPv6*)Dest, IP4PROT_TCP, buffer);
 		break;
 	}
+}
+
+void TCP_int_SendRSTTo(tInterface *Interface, void *Address, size_t Length, const tTCPHeader *Header)
+{
+	tTCPHeader	out_hdr = {0};
+	
+	out_hdr.DataOffset = (sizeof(out_hdr)/4) << 4;
+	out_hdr.DestPort = Header->SourcePort;
+	out_hdr.SourcePort = Header->DestPort;
+
+	size_t	data_len = Length - (Header->DataOffset>>4)*4;
+	out_hdr.AcknowlegementNumber = htonl( ntohl(Header->SequenceNumber) + data_len );
+	if( Header->Flags & TCP_FLAG_ACK ) {
+		out_hdr.Flags = TCP_FLAG_RST;
+		out_hdr.SequenceNumber = Header->AcknowlegementNumber;
+	}
+	else {
+		out_hdr.Flags = TCP_FLAG_RST|TCP_FLAG_ACK;
+		out_hdr.SequenceNumber = 0;
+	}
+	TCP_int_SendPacket(Interface, Address, &out_hdr, 0, NULL);
 }
 
 /**
@@ -163,8 +199,6 @@ void TCP_SendPacket( tTCPConnection *Conn, tTCPHeader *Header, size_t Length, co
 void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffer)
 {
 	tTCPHeader	*hdr = Buffer;
-	tTCPListener	*srv;
-	tTCPConnection	*conn;
 
 	#if TCP_DEBUG
 	Log_Log("TCP", "TCP_GetPacket: <Local>:%i from [%s]:%i, Flags = %s%s%s%s%s%s%s%s",
@@ -195,7 +229,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 	}
 
 	// Check Servers
-	for( srv = gTCP_Listeners; srv; srv = srv->Next )
+	for( tTCPListener *srv = gTCP_Listeners; srv; srv = srv->Next )
 	{
 		// Check if the server is active
 		if(srv->Port == 0)	continue;
@@ -206,7 +240,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 		
 		Log_Log("TCP", "TCP_GetPacket: Matches server %p", srv);
 		// Is this in an established connection?
-		for( conn = srv->Connections; conn; conn = conn->Next )
+		for( tTCPConnection *conn = srv->Connections; conn; conn = conn->Next )
 		{
 			// Check that it is coming in on the same interface
 			if(conn->Interface != Interface)	continue;
@@ -231,16 +265,25 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 			return;
 		}
 
-		Log_Log("TCP", "TCP_GetPacket: Opening Connection");
-		// Open a new connection (well, check that it's a SYN)
-		if(hdr->Flags != TCP_FLAG_SYN) {
-			Log_Log("TCP", "TCP_GetPacket: Packet is not a SYN");
+		
+		if( hdr->Flags & TCP_FLAG_RST ) {
+			LOG("RST, ignore");
 			return ;
 		}
+		else if( hdr->Flags & TCP_FLAG_ACK ) {
+			LOG("ACK, send RST");
+			TCP_int_SendRSTTo(Interface, Address, Length, hdr);
+			return ;
+		}
+		else if( !(hdr->Flags & TCP_FLAG_SYN) ) {
+			LOG("Other, ignore");
+			return ;
+		}
+		Log_Log("TCP", "TCP_GetPacket: Opening Connection");
 		
 		// TODO: Check for halfopen max
 		
-		conn = TCP_int_CreateConnection(Interface, TCP_ST_SYN_RCVD);
+		tTCPConnection *conn = TCP_int_CreateConnection(Interface, TCP_ST_SYN_RCVD);
 		conn->LocalPort = srv->Port;
 		conn->RemotePort = ntohs(hdr->SourcePort);
 		
@@ -248,11 +291,13 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 		{
 		case 4:	conn->RemoteIP.v4 = *(tIPv4*)Address;	break;
 		case 6:	conn->RemoteIP.v6 = *(tIPv6*)Address;	break;
+		default:	ASSERTC(Interface->Type,==,4);	return;
 		}
 		
 		conn->NextSequenceRcv = ntohl( hdr->SequenceNumber ) + 1;
 		conn->HighestSequenceRcvd = conn->NextSequenceRcv;
 		conn->NextSequenceSend = rand();
+		conn->LastACKSequence = ntohl( hdr->SequenceNumber );
 		
 		conn->Node.ImplInt = srv->NextID ++;
 		
@@ -263,10 +308,16 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 		// Oh, wait, there is a case where a wildcard can be used
 		// (srv->Interface == NULL) so having the lock is a good idea
 		SHORTLOCK(&srv->lConnections);
-		if( !srv->Connections )
-			srv->Connections = conn;
-		else
+		conn->Server = srv;
+		conn->Prev = srv->ConnectionsTail;
+		if(srv->Connections) {
+			ASSERT(srv->ConnectionsTail);
 			srv->ConnectionsTail->Next = conn;
+		}
+		else {
+			ASSERT(!srv->ConnectionsTail);
+			srv->Connections = conn;
+		}
 		srv->ConnectionsTail = conn;
 		if(!srv->NewConnections)
 			srv->NewConnections = conn;
@@ -288,7 +339,7 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 
 	// Check Open Connections
 	{
-		for( conn = gTCP_OutbountCons; conn; conn = conn->Next )
+		for( tTCPConnection *conn = gTCP_OutbountCons; conn; conn = conn->Next )
 		{
 			// Check that it is coming in on the same interface
 			if(conn->Interface != Interface)	continue;
@@ -308,6 +359,11 @@ void TCP_GetPacket(tInterface *Interface, void *Address, int Length, void *Buffe
 	}
 	
 	Log_Log("TCP", "TCP_GetPacket: No Match");
+	// If not a RST, send a RST
+	if( !(hdr->Flags & TCP_FLAG_RST) )
+	{
+		TCP_int_SendRSTTo(Interface, Address, Length, hdr);
+	}
 }
 
 /**
@@ -378,20 +434,14 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 				Log_Log("TCP", "ACKing SYN-ACK");
 				Connection->State = TCP_ST_OPEN;
 				VFS_MarkFull(&Connection->Node, 0);
+				TCP_INT_SendACK(Connection, "SYN-ACK");
 			}
 			else
 			{
 				Log_Log("TCP", "ACKing SYN");
 				Connection->State = TCP_ST_SYN_RCVD;
+				TCP_INT_SendACK(Connection, "SYN");
 			}
-			Header->DestPort = Header->SourcePort;
-			Header->SourcePort = htons(Connection->LocalPort);
-			Header->AcknowlegementNumber = htonl(Connection->NextSequenceRcv);
-			Header->SequenceNumber = htonl(Connection->NextSequenceSend);
-			Header->WindowSize = htons(TCP_WINDOW_SIZE);
-			Header->Flags = TCP_FLAG_ACK;
-			Header->DataOffset = (sizeof(tTCPHeader)/4) << 4;
-			TCP_SendPacket( Connection, Header, 0, NULL );
 		}
 		break;
 	
@@ -413,12 +463,11 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 		if( Header->Flags & TCP_FLAG_FIN ) {
 			Log_Log("TCP", "Conn %p closed, recieved FIN", Connection);
 			VFS_MarkError(&Connection->Node, 1);
+			Connection->NextSequenceRcv ++;
+			TCP_INT_SendACK(Connection, "FIN Received");
 			Connection->State = TCP_ST_CLOSE_WAIT;
-//			Header->Flags &= ~TCP_FLAG_FIN;
-			// CLOSE WAIT requires the client to close (or does it?)
-			#if 0
-			
-			#endif
+			// CLOSE WAIT requires the client to close
+			return ;
 		}
 	
 		// Check for an empty packet
@@ -476,7 +525,9 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 
 			#if 1
 			// - Only send an ACK if we've had a burst
-			if( Connection->NextSequenceRcv > (Uint32)(TCP_DACK_THRESHOLD + Connection->LastACKSequence) )
+			Uint32	bytes_since_last_ack = Connection->NextSequenceRcv - Connection->LastACKSequence;
+			LOG("bytes_since_last_ack = 0x%x", bytes_since_last_ack);
+			if( bytes_since_last_ack > TCP_DACK_THRESHOLD )
 			{
 				TCP_INT_SendACK(Connection, "DACK Burst");
 				// - Extend TCP deferred ACK timer
@@ -489,14 +540,13 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 			#endif
 		}
 		// Check if the packet is in window
-		else if( WrapBetween(Connection->NextSequenceRcv, sequence_num,
-				Connection->NextSequenceRcv+TCP_WINDOW_SIZE, 0xFFFFFFFF) )
+		else if( sequence_num - Connection->NextSequenceRcv < TCP_WINDOW_SIZE )
 		{
 			Uint8	*dataptr = (Uint8*)Header + (Header->DataOffset>>4)*4;
-			#if CACHE_FUTURE_PACKETS_IN_BYTES
-			Uint32	index;
-			
-			index = sequence_num % TCP_WINDOW_SIZE;
+			Uint32	index = sequence_num % TCP_WINDOW_SIZE;
+			Uint32	max = Connection->NextSequenceRcv % TCP_WINDOW_SIZE;
+			if( !(Connection->FuturePacketValidBytes[index/8] & (1 << (index%8))) )
+				TCP_INT_SendACK(Connection, "Lost packet");
 			for( int i = 0; i < dataLen; i ++ )
 			{
 				Connection->FuturePacketValidBytes[index/8] |= 1 << (index%8);
@@ -504,52 +554,15 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 				// Do a wrap increment
 				index ++;
 				if(index == TCP_WINDOW_SIZE)	index = 0;
+				if(index == max)	break;
 			}
-			#else
-			tTCPStoredPacket	*pkt, *tmp, *prev = NULL;
-			
-			// Allocate and fill cached packet
-			pkt = malloc( sizeof(tTCPStoredPacket) + dataLen );
-			pkt->Next = NULL;
-			pkt->Sequence = ntohl(Header->SequenceNumber);
-			pkt->Length = dataLen;
-			memcpy(pkt->Data, dataptr, dataLen);
-			
-			Log_Log("TCP", "We missed a packet, caching",
-				pkt->Sequence, Connection->NextSequenceRcv);
-			
-			// No? Well, let's cache it and look at it later
-			SHORTLOCK( &Connection->lFuturePackets );
-			for(tmp = Connection->FuturePackets;
-				tmp;
-				prev = tmp, tmp = tmp->Next)
+			Uint32	rel_highest = Connection->HighestSequenceRcvd - Connection->NextSequenceRcv;
+			Uint32	rel_this = index - Connection->NextSequenceRcv;
+			LOG("Updating highest this(0x%x) > highest(%x)", rel_this, rel_highest);
+			if( rel_this > rel_highest )
 			{
-				if(tmp->Sequence >= pkt->Sequence)	break;
+				Connection->HighestSequenceRcvd = index;
 			}
-			
-			// Add if before first, or sequences don't match 
-			if( !tmp || tmp->Sequence != pkt->Sequence )
-			{
-				if(prev)
-					prev->Next = pkt;
-				else
-					Connection->FuturePackets = pkt;
-				pkt->Next = tmp;
-			}
-			// Replace if larger
-			else if(pkt->Length > tmp->Length)
-			{
-				if(prev)
-					prev->Next = pkt;
-				pkt->Next = tmp->Next;
-				free(tmp);
-			}
-			else
-			{
-				free(pkt);	// TODO: Find some way to remove this
-			}
-			SHORTREL( &Connection->lFuturePackets );
-			#endif
 		}
 		// Badly out of sequence packet
 		else
@@ -575,7 +588,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 		{
 			Connection->State = TCP_ST_FINISHED;	// Connection completed
 			Log_Log("TCP", "LAST-ACK to CLOSED - Connection remote closed");
-			// TODO: Destrory the TCB
+			TCP_int_FreeTCB(Connection);
 		}
 		break;
 	
@@ -587,14 +600,7 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 			Log_Debug("TCP", "Conn %p closed, sent FIN and recieved FIN", Connection);
 			VFS_MarkError(&Connection->Node, 1);
 			
-			// ACK Packet
-			Header->DestPort = Header->SourcePort;
-			Header->SourcePort = htons(Connection->LocalPort);
-			Header->AcknowlegementNumber = Header->SequenceNumber;
-			Header->SequenceNumber = htonl(Connection->NextSequenceSend);
-			Header->WindowSize = htons(TCP_WINDOW_SIZE);
-			Header->Flags = TCP_FLAG_ACK;
-			TCP_SendPacket( Connection, Header, 0, NULL );
+			TCP_INT_SendACK(Connection, "FINWAIT-1 FIN");
 			break ;
 		}
 		
@@ -612,15 +618,8 @@ void TCP_INT_HandleConnectionPacket(tTCPConnection *Connection, tTCPHeader *Head
 		if( Header->Flags & TCP_FLAG_FIN )
 		{
 			Connection->State = TCP_ST_TIME_WAIT;
-			Log_Debug("TCP", "FIN sent and recieved, ACKing and going into TIME WAIT %p FINWAIT-2 -> TIME WAIT", Connection);
-			// Send ACK
-			Header->DestPort = Header->SourcePort;
-			Header->SourcePort = htons(Connection->LocalPort);
-			Header->AcknowlegementNumber = Header->SequenceNumber;
-			Header->SequenceNumber = htonl(Connection->NextSequenceSend);
-			Header->WindowSize = htons(TCP_WINDOW_SIZE);
-			Header->Flags = TCP_FLAG_ACK;
-			TCP_SendPacket( Connection, Header, 0, NULL );
+			Log_Debug("TCP", "Conn %p FINWAIT-2 -> TIME WAIT", Connection);
+			TCP_INT_SendACK(Connection, "FINWAIT-2 FIN");
 		}
 		break;
 	
@@ -690,17 +689,18 @@ int TCP_INT_AppendRecieved(tTCPConnection *Connection, const void *Data, size_t 
  */
 void TCP_INT_UpdateRecievedFromFuture(tTCPConnection *Connection)
 {
-	#if CACHE_FUTURE_PACKETS_IN_BYTES
 	// Calculate length of contiguous bytes
-	 int	length = Connection->HighestSequenceRcvd - Connection->NextSequenceRcv;
+	const int	length = Connection->HighestSequenceRcvd - Connection->NextSequenceRcv;
 	Uint32	index = Connection->NextSequenceRcv % TCP_WINDOW_SIZE;
-	LOG("length=%i, index=%i", length, index);
+	size_t	runlength = length;
+	LOG("length=%i, index=0x%x", length, index);
 	for( int i = 0; i < length; i ++ )
 	{
 		 int	bit = index % 8;
 		Uint8	bitfield_byte = Connection->FuturePacketValidBytes[index / 8];
 		if( (bitfield_byte & (1 << bit)) == 0 ) {
-			length = i;
+			runlength = i;
+			LOG("Hit missing, break");
 			break;
 		}
 
@@ -717,90 +717,51 @@ void TCP_INT_UpdateRecievedFromFuture(tTCPConnection *Connection)
 	}
 	
 	index = Connection->NextSequenceRcv % TCP_WINDOW_SIZE;
+	Connection->NextSequenceRcv += runlength;
 	
 	// Write data to to the ring buffer
-	if( TCP_WINDOW_SIZE - index > length )
+	if( TCP_WINDOW_SIZE - index > runlength )
 	{
 		// Simple case
-		RingBuffer_Write( Connection->RecievedBuffer, Connection->FuturePacketData + index, length );
+		RingBuffer_Write( Connection->RecievedBuffer, Connection->FuturePacketData + index, runlength );
 	}
 	else
 	{
 		 int	endLen = TCP_WINDOW_SIZE - index;
 		// 2-part case
 		RingBuffer_Write( Connection->RecievedBuffer, Connection->FuturePacketData + index, endLen );
-		RingBuffer_Write( Connection->RecievedBuffer, Connection->FuturePacketData, endLen - length );
+		RingBuffer_Write( Connection->RecievedBuffer, Connection->FuturePacketData, endLen - runlength );
 	}
 	
 	// Mark (now saved) bytes as invalid
 	// - Align index
-	while(index % 8 && length > 0)
+	while(index % 8 && runlength > 0)
 	{
 		Connection->FuturePacketData[index] = 0;
 		Connection->FuturePacketValidBytes[index/8] &= ~(1 << (index%8));
 		index ++;
 		if(index > TCP_WINDOW_SIZE)
 			index -= TCP_WINDOW_SIZE;
-		length --;
+		runlength --;
 	}
-	while( length > 7 )
+	while( runlength > 7 )
 	{
 		Connection->FuturePacketData[index] = 0;
 		Connection->FuturePacketValidBytes[index/8] = 0;
-		length -= 8;
+		runlength -= 8;
 		index += 8;
 		if(index > TCP_WINDOW_SIZE)
 			index -= TCP_WINDOW_SIZE;
 	}
-	while(length)
+	while( runlength > 0)
 	{
 		Connection->FuturePacketData[index] = 0;
 		Connection->FuturePacketData[index/8] &= ~(1 << (index%8));
 		index ++;
 		if(index > TCP_WINDOW_SIZE)
 			index -= TCP_WINDOW_SIZE;
-		length --;
+		runlength --;
 	}
-	
-	#else
-	tTCPStoredPacket	*pkt;
-	for(;;)
-	{
-		SHORTLOCK( &Connection->lFuturePackets );
-		
-		// Clear out duplicates from cache
-		// - If a packet has just been recieved, and it is expected, then
-		//   (since NextSequenceRcv = rcvd->Sequence + rcvd->Length) all
-		//   packets in cache that are smaller than the next expected
-		//   are now defunct.
-		pkt = Connection->FuturePackets;
-		while(pkt && pkt->Sequence < Connection->NextSequenceRcv)
-		{
-			tTCPStoredPacket	*next = pkt->Next;
-			free(pkt);
-			pkt = next;
-		}
-		
-		// If there's no packets left in cache, stop looking
-		if(!pkt || pkt->Sequence > Connection->NextSequenceRcv) {
-			SHORTREL( &Connection->lFuturePackets );
-			return;
-		}
-		
-		// Delete packet from future list
-		Connection->FuturePackets = pkt->Next;
-		
-		// Release list
-		SHORTREL( &Connection->lFuturePackets );
-		
-		// Looks like we found one
-		TCP_INT_AppendRecieved(Connection, pkt->Data, pkt->Length);
-		if( Connection->HighestSequenceRcvd == Connection->NextSequenceRcv )
-			Connection->HighestSequenceRcvd += pkt->Length;
-		Connection->NextSequenceRcv += pkt->Length;
-		free(pkt);
-	}
-	#endif
 }
 
 void TCP_int_SendDelayedACK(void *ConnPtr)
@@ -914,6 +875,47 @@ tTCPConnection *TCP_int_CreateConnection(tInterface *Interface, enum eTCPConnect
 
 	conn->DeferredACKTimer = Time_AllocateTimer( TCP_int_SendDelayedACK, conn);
 	return conn;
+}
+
+void TCP_int_FreeTCB(tTCPConnection *Connection)
+{
+	ASSERTC(Connection->State, ==, TCP_ST_FINISHED);
+	ASSERTC(Connection->Node.ReferenceCount, ==, 0);
+
+	if( Connection->Server )
+	{
+		tTCPListener	*srv = Connection->Server;
+		SHORTLOCK(&srv->lConnections);
+		if(Connection->Prev)
+			Connection->Prev->Next = Connection->Next;
+		else
+			srv->Connections = Connection->Next;
+		if(Connection->Next)
+			Connection->Next->Prev = Connection->Prev;
+		else {
+			ASSERT(srv->ConnectionsTail == Connection);
+			srv->ConnectionsTail = Connection->Prev;
+		}
+		SHORTREL(&srv->lConnections);
+	}
+	else
+	{
+		SHORTLOCK(&glTCP_OutbountCons);
+		if(Connection->Prev)
+			Connection->Prev->Next = Connection->Next;
+		else
+			gTCP_OutbountCons = Connection->Next;
+		if(Connection->Next)
+			Connection->Next->Prev = Connection->Prev;
+		else
+			;
+		SHORTREL(&glTCP_OutbountCons);
+	}
+
+	RingBuffer_Free(Connection->RecievedBuffer);
+	Time_FreeTimer(Connection->DeferredACKTimer);
+	// TODO: Force VFS to close handles? (they should all be closed);
+	free(Connection);
 }
 
 // --- Server
@@ -1111,7 +1113,10 @@ tVFS_Node *TCP_Client_Init(tInterface *Interface)
 	tTCPConnection	*conn = TCP_int_CreateConnection(Interface, TCP_ST_CLOSED);
 
 	SHORTLOCK(&glTCP_OutbountCons);
+	conn->Server = NULL;
+	conn->Prev = NULL;
 	conn->Next = gTCP_OutbountCons;
+	gTCP_OutbountCons->Prev = conn;
 	gTCP_OutbountCons = conn;
 	SHORTREL(&glTCP_OutbountCons);
 
@@ -1189,6 +1194,8 @@ void TCP_INT_SendDataPacket(tTCPConnection *Connection, size_t Length, const voi
 
 	// - Stop Delayed ACK timer (as this data packet ACKs)
 	Time_RemoveTimer(Connection->DeferredACKTimer);
+
+	// TODO: Don't exceed window size
 	
 	packet->SourcePort = htons(Connection->LocalPort);
 	packet->DestPort = htons(Connection->RemotePort);
@@ -1385,6 +1392,7 @@ void TCP_Client_Close(tVFS_Node *Node)
 		LEAVE('-');
 		return ;
 	}
+	Node->ReferenceCount --;
 	
 	if( conn->State == TCP_ST_CLOSE_WAIT || conn->State == TCP_ST_OPEN )
 	{
@@ -1400,27 +1408,28 @@ void TCP_Client_Close(tVFS_Node *Node)
 		TCP_SendPacket( conn, &packet, 0, NULL );
 	}
 	
+	Time_RemoveTimer(conn->DeferredACKTimer);
+	
 	switch( conn->State )
 	{
 	case TCP_ST_CLOSED:
 		Log_Warning("TCP", "Closing connection that was never opened");
+		TCP_int_FreeTCB(conn);
 		break;
 	case TCP_ST_CLOSE_WAIT:
 		conn->State = TCP_ST_LAST_ACK;
 		break;
 	case TCP_ST_OPEN:
 		conn->State = TCP_ST_FIN_WAIT1;
-		while( conn->State == TCP_ST_FIN_WAIT1 )	Threads_Yield();
+		while( conn->State == TCP_ST_FIN_WAIT1 )
+			Threads_Yield();
+		// No free, freed after TIME_WAIT
 		break;
 	default:
 		Log_Warning("TCP", "Unhandled connection state %i in TCP_Client_Close",
 			conn->State);
 		break;
 	}
-	
-	Time_RemoveTimer(conn->DeferredACKTimer);
-	Time_FreeTimer(conn->DeferredACKTimer);
-	free(conn);
 	
 	LEAVE('-');
 }
@@ -1461,4 +1470,11 @@ int WrapBetween(Uint32 Lower, Uint32 Value, Uint32 Higher, Uint32 MaxValue)
 	}
 	
 	return 0;
+}
+Uint32 GetRelative(Uint32 Base, Uint32 Value)
+{
+	if( Value < Base )
+		return Value - Base + 0xFFFFFFFF;
+	else
+		return Value - Base;
 }

@@ -24,6 +24,12 @@ typedef struct sRingBuffer
  * \return Pointer to the buffer structure
  */
 extern tRingBuffer	*RingBuffer_Create(size_t Space);
+
+/**
+ * \brief Free a ring buffer
+ */
+extern void	RingBuffer_Free(tRingBuffer *Buffer);
+
 /**
  * \brief Read at most \a Length bytes from the buffer
  * \param Dest	Destinaton buffer

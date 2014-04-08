@@ -4,7 +4,11 @@
  *
  * threads_int.c
  * - Internal threading functions
+ *
+ * POSIX Mutex/Semaphore management
+ * Wait state
  */
+#define DEBUG	0
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -28,7 +32,7 @@ int Threads_int_ThreadingEnabled(void)
 
 tThreadIntMutex *Threads_int_MutexCreate(void)
 {
-	if( pthread_mutex_init )
+	if( Threads_int_ThreadingEnabled() )
 	{
 		tThreadIntMutex	*ret = malloc(sizeof(pthread_mutex_t));
 		pthread_mutex_init( (void*)ret, NULL );
@@ -45,7 +49,7 @@ void Threads_int_MutexLock(tThreadIntMutex *Mutex)
 	if( !Mutex ) {
 		return ;
 	}
-	if( pthread_mutex_lock )
+	if( Threads_int_ThreadingEnabled() )
 	{
 		pthread_mutex_lock( (void*)Mutex );
 	}
@@ -63,7 +67,7 @@ void Threads_int_MutexRelease(tThreadIntMutex *Mutex)
 		return ;
 	}
 
-	if( pthread_mutex_unlock )
+	if( Threads_int_ThreadingEnabled() )
 	{
 		pthread_mutex_unlock( (void*)Mutex );
 	}
@@ -77,7 +81,7 @@ void Threads_int_MutexRelease(tThreadIntMutex *Mutex)
 
 tThreadIntSem *Threads_int_SemCreate(void)
 {
-	if( sem_init )
+	if( Threads_int_ThreadingEnabled() )
 	{
 		tThreadIntSem *ret = malloc(sizeof(sem_t));
 		sem_init( (void*)ret, 0, 0 );
@@ -91,7 +95,7 @@ tThreadIntSem *Threads_int_SemCreate(void)
 
 void Threads_int_SemSignal(tThreadIntSem *Sem)
 {
-	if( sem_post )
+	if( Threads_int_ThreadingEnabled() )
 	{
 		sem_post( (void*)Sem );
 	}
@@ -103,12 +107,15 @@ void Threads_int_SemSignal(tThreadIntSem *Sem)
 
 void Threads_int_SemWaitAll(tThreadIntSem *Sem)
 {
-	if( sem_wait )
+	if( Threads_int_ThreadingEnabled() )
 	{
 		// TODO: Handle multiples
+		LOG("Waiting on %p", Sem);
 		sem_wait( (void*)Sem );
-		while( sem_trywait((void*)Sem) )
+		LOG("Wait 1 done, cleaning up");
+		while( sem_trywait((void*)Sem) == 0 )
 			;
+		LOG("Wait over");
 	}
 	else
 	{
@@ -129,7 +136,7 @@ void *Threads_int_ThreadRoot(void *ThreadPtr)
 
 int Threads_int_CreateThread(tThread *Thread)
 {
-	if( pthread_create )
+	if( Threads_int_ThreadingEnabled() )
 	{
 		pthread_t *pthread = malloc(sizeof(pthread_t));
 		Thread->ThreadHandle = pthread;
@@ -144,12 +151,7 @@ int Threads_int_CreateThread(tThread *Thread)
 
 void SHORTLOCK(tShortSpinlock *Lock)
 {
-	if( !pthread_mutex_init )
-	{
-		if(*Lock)	Log_KernelPanic("---", "Double short lock");
-		*Lock = (void*)1;
-	}
-	else
+	if( Threads_int_ThreadingEnabled() )
 	{
 		if( !*Lock ) {
 			*Lock = malloc(sizeof(pthread_mutex_t));
@@ -159,24 +161,36 @@ void SHORTLOCK(tShortSpinlock *Lock)
 		pthread_mutex_lock(*Lock);
 //		printf("%p: SHORTLOCK held %p\n", lpThreads_This, __builtin_return_address(0));
 	}
+	else
+	{
+		if(*Lock)	Log_KernelPanic("---", "Double short lock");
+		*Lock = (void*)1;
+	}
 }
 
 void SHORTREL(tShortSpinlock *Lock)
 {
-	if( !pthread_mutex_init )
-	{
-		if(!*Lock)	Log_Notice("---", "Short release when not held");
-		*Lock = NULL;
-	}
-	else
+	if( Threads_int_ThreadingEnabled() )
 	{
 		pthread_mutex_unlock(*Lock);
 //		printf("%p: SHORTLOCK rel\n", lpThreads_This);
+	}
+	else
+	{
+		if(!*Lock)	Log_Notice("---", "Short release when not held");
+		*Lock = NULL;
 	}
 }
 
 int CPU_HAS_LOCK(tShortSpinlock *Lock)
 {
-	return 0;
+	if( Threads_int_ThreadingEnabled() )
+	{
+		Log_KernelPanic("---", "TODO: CPU_HAS_LOCK with threading enabled");
+		return 0;
+	}
+	else
+	{
+		return 0;
+	}
 }
-

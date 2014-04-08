@@ -5,6 +5,7 @@
 *~
 *.o
 *.d
+*.gch
 *.ao
 *.ao.*
 *.so
@@ -55,7 +56,10 @@ Tools/*/obj/
 Tools/*/Makefile.BuildNum
 Tools/disktool
 Tools/nettest
+Tools/nettest_runner
 Tools/img2sif
+Tools/stdout.txt
+Tools/stderr.txt
 
 *.udi
 UDI/drivers/*/bin

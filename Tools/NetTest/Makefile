@@ -18,14 +18,14 @@ K_OBJ += vfs/acls.o vfs/io.o vfs/fs/devfs.o
 # Modules
 MODULES := IPStack
 # Local kernel soruces (same as above, but located in same directory as Makefile)
-L_OBJ = vfs_shim.o nic.o tcpclient.o tcpserver.o helpers.o
+L_OBJ = vfs_shim.o nic.o tcpclient.o tcpserver.o helpers.o cmdline_backend.o
 # Native Sources (compiled as usual)
-N_OBJ = main.o tap.o
+N_OBJ = main.o tap.o mode_cmdline.o
 
 # Compilation Options
 CFLAGS := -Wall -std=gnu99 -g -Werror -O0 -pthread
 CPPFLAGS := -I include/ -I ../nativelib/include
-K_CPPFLAGS := -I $(KERNEL_SRC)include -I $(MODULE_SRC)
+K_CPPFLAGS := -I $(KERNEL_SRC)include -I $(MODULE_SRC) -I ../../Usermode/Libraries/ld-acess.so_src/include_exp/
 LDFLAGS += -Wl,--defsym,__buildnum=$(BUILD_NUM) -g -L .. -lpthread -lnativelib
 
 BUILDINFO_OBJ := obj/$(TARGET)/buildinfo.o

@@ -17,6 +17,11 @@ tRingBuffer *RingBuffer_Create(size_t Space)
 	return ret;
 }
 
+void RingBuffer_Free(tRingBuffer *Buffer)
+{
+	free(Buffer);
+}
+
 size_t RingBuffer_Read(void *Dest, tRingBuffer *Buffer, size_t Length)
 {
 	size_t	tmpLen;

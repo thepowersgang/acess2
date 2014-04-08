@@ -20,8 +20,8 @@ tIPStackBuffer	*NativeNic_WaitForPacket(void *Ptr);
 // === GLOBALS ===
 tIPStack_AdapterType	gNativeNIC_AdapterType = {
 	.Name = "NativeNIC",
-	.Type = 0,	// TODO: Differentiate differnet wire protos and speeds
-	.Flags = 0,	// TODO: IP checksum offloading, MAC checksum offloading etc
+	.Type = 0,
+	.Flags = 0,
 	.SendPacket = NativeNic_SendPacket,
 	.WaitForPacket = NativeNic_WaitForPacket
 	};
@@ -30,12 +30,30 @@ tIPStack_AdapterType	gNativeNIC_AdapterType = {
 int NativeNic_AddDev(char *DevDesc)
 {
 	Uint8	macaddr[6];
+	// Parse descriptor into mac address and path
+	// 123456789ABC:tun:ifname
+	// 123456789ABC:unix:/path
+	// 123456789ABC:file:/path
+	// 123456789ABC:tcp:host_desc
 	char *colonpos = strchr(DevDesc, ':');
 	if( !colonpos )
 		return -1;
 	if( UnHex(macaddr, 6, DevDesc) != 6 )
 		return -1;
-	void *ptr = NetTest_OpenTap(colonpos+1);
+	
+	char *class = colonpos + 1;
+	colonpos = strchr(class, ':');
+	void *ptr;
+	if( strncmp(class, "tun:", 4) == 0 ) {
+		ptr = NetTest_OpenTap(colonpos+1);
+	}
+	else if( strncmp(class, "unix:", 5) == 0 ) {
+		ptr = NetTest_OpenUnix(colonpos+1);
+	}
+	else {
+		Log_Warning("NIC", "Unknown opener '%.*s'", colonpos-class, class);
+		ptr = NULL;
+	}
 	if( !ptr )
 		return 1;
 	IPStack_Adapter_Add(&gNativeNIC_AdapterType, ptr, macaddr);
@@ -57,6 +75,9 @@ tIPStackBuffer *NativeNic_WaitForPacket(void *Ptr)
 
 	tIPStackBuffer	*ret = IPStack_Buffer_CreateBuffer(1);
 	IPStack_Buffer_AppendSubBuffer(ret, len, 0, buf, NativeNic_int_FreePacket, Ptr);
+	
+	Debug_HexDump("NativeNic: RX", buf, len);
+	
 	return ret;
 }
 
@@ -71,6 +92,8 @@ int NativeNic_SendPacket(void *Ptr, tIPStackBuffer *Buffer)
 	// Serialise into stack
 	char	buf[len];
 	IPStack_Buffer_GetData(Buffer, buf, len);
+
+	Debug_HexDump("NativeNic: TX", buf, len);
 	
 	NetTest_WritePacket(Ptr, len, buf);
 	return 0;

@@ -6,6 +6,7 @@
 #define _IPV6_H_
 
 #include "ipstack.h"
+#include "include/buffer.h"
 
 typedef struct sIPv6Header	tIPv6Header;
 

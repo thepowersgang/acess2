@@ -4,7 +4,7 @@
  * hwaddr_resolution.c
  * - Resolution/caching of hardware addresses
  */
-#define DEBUG	1
+#define DEBUG	0
 #include "ipstack.h"
 #include "icmp.h"
 #include "include/adapters_int.h"

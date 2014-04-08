@@ -20,7 +20,6 @@
 #define	NUM_VTS	8
 //#define DEFAULT_OUTPUT	"BochsGA"
 #define DEFAULT_OUTPUT	"Vesa"
-#define FALLBACK_OUTPUT	"x86_VGAText"
 #define DEFAULT_INPUT	"Keyboard"
 #define	DEFAULT_WIDTH	640
 #define	DEFAULT_HEIGHT	480
@@ -126,9 +125,9 @@ int VT_Install(char **Arguments)
 	// Apply Defaults
 	if(!gsVT_OutputDevice)	gsVT_OutputDevice = (char*)DEFAULT_OUTPUT;
 	else if( Module_EnsureLoaded( gsVT_OutputDevice ) )	gsVT_OutputDevice = (char*)DEFAULT_OUTPUT;
-	if( Module_EnsureLoaded( gsVT_OutputDevice ) )	gsVT_OutputDevice = (char*)FALLBACK_OUTPUT;
+	//if( Module_EnsureLoaded( gsVT_OutputDevice ) )	gsVT_OutputDevice = (char*)FALLBACK_OUTPUT;
 	if( Module_EnsureLoaded( gsVT_OutputDevice ) ) {
-		Log_Error("VTerm", "Fallback video '%s' is not avaliable, giving up", FALLBACK_OUTPUT);
+		Log_Error("VTerm", "Video device '%s' is not avaliable, giving up", gsVT_OutputDevice);
 		return MODULE_ERR_MISC;
 	}
 	

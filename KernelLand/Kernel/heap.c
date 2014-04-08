@@ -34,10 +34,13 @@
 void	Heap_Install(void);
 void	*Heap_Extend(size_t Bytes);
 void	*Heap_Merge(tHeapHead *Head);
+static const size_t	Heap_int_GetBlockSize(size_t AllocSize);
 //void	*Heap_Allocate(const char *File, int Line, size_t Bytes);
 //void	*Heap_AllocateZero(const char *File, int Line, size_t Bytes);
 //void	*Heap_Reallocate(const char *File, int Line, void *Ptr, size_t Bytes);
 //void	Heap_Deallocate(const char *File, int Line, void *Ptr);
+ int	Heap_int_ApplyWatchpont(void *Addr, bool Enabled);
+void	Heap_int_WatchBlock(tHeapHead *Head, bool Enabled);
 //void	Heap_Dump(void);
 void	Heap_ValidateDump(int bVerbose);
 //void	Heap_Stats(void);
@@ -124,20 +127,15 @@ void *Heap_Extend(size_t Bytes)
  */
 void *Heap_Merge(tHeapHead *Head)
 {
-	tHeapFoot	*foot;
-	tHeapFoot	*thisFoot;
-	tHeapHead	*head;
-	
 	//Log("Heap_Merge: (Head=%p)", Head);
+	tHeapFoot *thisFoot = Heap_ThisFoot(Head);
 	
-	thisFoot = Heap_ThisFoot(Head);
-	if( (void*)thisFoot > (void*)gHeapEnd )
-		return NULL;
+	ASSERT( Heap_NextHead(Head) <= gHeapEnd );
 	
 	// Merge Left (Down)
-	foot = Heap_PrevFoot(Head);
-	if( ((Uint)foot < (Uint)gHeapEnd && (Uint)foot > (Uint)gHeapStart)
-	&& foot->Head->Magic == MAGIC_FREE) {
+	tHeapFoot *foot = Heap_PrevFoot(Head);
+	if( Head > gHeapStart && foot->Head->Magic == MAGIC_FREE)
+	{
 		foot->Head->Size += Head->Size;	// Increase size
 		thisFoot->Head = foot->Head;	// Change backlink
 		Head->Magic = 0;	// Clear old head
@@ -148,20 +146,32 @@ void *Heap_Merge(tHeapHead *Head)
 	}
 	
 	// Merge Right (Upwards)
-	head = Heap_NextHead(Head);
-	if((Uint)head < (Uint)gHeapEnd && head->Magic == MAGIC_FREE)
+	tHeapHead *nexthead = Heap_NextHead(Head);
+	if(nexthead < gHeapEnd && nexthead->Magic == MAGIC_FREE)
 	{
-		Head->Size += head->Size;
+		Head->Size += nexthead->Size;
 		foot = Heap_ThisFoot(Head);
 		foot->Head = Head;	// Update Backlink
 		thisFoot->Head = NULL;	// Clear old footer
 		thisFoot->Magic = 0;
-		head->Size = 0;		// Clear old header
-		head->Magic = 0;
+		nexthead->Size = 0;		// Clear old header
+		nexthead->Magic = 0;
 	}
 	
 	// Return new address
 	return Head;
+}
+
+static const size_t Heap_int_GetBlockSize(size_t AllocSize)
+{
+	size_t Bytes;
+	#if POW2_SIZES
+	Bytes = AllocSize + sizeof(tHeapHead) + sizeof(tHeapFoot);
+	Bytes = 1UUL << LOG2(Bytes);
+	#else
+	Bytes = (AllocSize + sizeof(tHeapHead) + sizeof(tHeapFoot) + MIN_SIZE-1) & ~(MIN_SIZE-1);
+	#endif
+	return Bytes;
 }
 
 /**
@@ -187,12 +197,7 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 	#endif
 	
 	// Get required size
-	#if POW2_SIZES
-	Bytes = __Bytes + sizeof(tHeapHead) + sizeof(tHeapFoot);
-	Bytes = 1UUL << LOG2(__Bytes);
-	#else
-	Bytes = (__Bytes + sizeof(tHeapHead) + sizeof(tHeapFoot) + MIN_SIZE-1) & ~(MIN_SIZE-1);
-	#endif
+	Bytes = Heap_int_GetBlockSize(__Bytes);
 	
 	// Lock Heap
 	Mutex_Acquire(&glHeap);
@@ -217,18 +222,22 @@ void *Heap_Allocate(const char *File, int Line, size_t __Bytes)
 		}
 		if( head->Size < MIN_SIZE ) {
 			Mutex_Release(&glHeap);
+			#if WARNINGS
 			Log_Warning("Heap", "Size of heap address %p is invalid"
 				" - Too small (0x%x) [at paddr 0x%x]",
 				head, head->Size, MM_GetPhysAddr(&head->Size));
 			Heap_ValidateDump(VERBOSE_DUMP);
+			#endif
 			return NULL;
 		}
 		if( head->Size > (2<<30) ) {
 			Mutex_Release(&glHeap);
+			#if WARNINGS
 			Log_Warning("Heap", "Size of heap address %p is invalid"
 				" - Over 2GiB (0x%x) [at paddr 0x%x]",
 				head, head->Size, MM_GetPhysAddr(&head->Size));
 			Heap_ValidateDump(VERBOSE_DUMP);
+			#endif
 			return NULL;
 		}
 		
@@ -360,7 +369,7 @@ void Heap_Deallocate(const char *File, int Line, void *Ptr)
 	}
 	
 	// Check memory block - Header
-	tHeapHead *head = (void*)( (Uint)Ptr - sizeof(tHeapHead) );
+	tHeapHead *head = (tHeapHead*)Ptr - 1;
 	if(head->Magic == MAGIC_FREE) {
 		Log_Warning("Heap", "free - Passed a freed block (%p) by %s:%i (was freed by %s:%i)",
 			head, File, Line,
@@ -395,7 +404,9 @@ void Heap_Deallocate(const char *File, int Line, void *Ptr)
 	
 	// Lock
 	Mutex_Acquire( &glHeap );
-	
+
+	Heap_int_WatchBlock(head, false);
+
 	// Mark as free
 	head->Magic = MAGIC_FREE;
 	head->File = File;
@@ -417,16 +428,36 @@ void Heap_Deallocate(const char *File, int Line, void *Ptr)
  */
 void *Heap_Reallocate(const char *File, int Line, void *__ptr, size_t __size)
 {
-	tHeapHead	*head = (void*)( (Uint)__ptr-sizeof(tHeapHead) );
+	tHeapHead	*head = (tHeapHead*)__ptr - 1;
 	tHeapHead	*nextHead;
 	tHeapFoot	*foot;
-	Uint	newSize = (__size + sizeof(tHeapFoot)+sizeof(tHeapHead)+MIN_SIZE-1)&~(MIN_SIZE-1);
+	Uint	newSize = Heap_int_GetBlockSize(__size);
 	
 	// Check for reallocating NULL
-	if(__ptr == NULL)	return Heap_Allocate(File, Line, __size);
+	if(__ptr == NULL)
+		return Heap_Allocate(File, Line, __size);
+	
+	if( !Heap_IsHeapAddr(__ptr)) {
+		Log_Error("Heap", "%s:%i passed non-heap address %p when reallocating to %zi",
+			File, Line, __ptr, __size);
+		return NULL;
+	}
 	
 	// Check if resize is needed
-	if(newSize <= head->Size)	return __ptr;
+	// TODO: Reduce size of block if needed
+	if(newSize <= head->Size) {
+		#if DEBUG_TRACE
+		Log_Debug("Heap", "realloc maintain %p (0x%x >= 0x%x), returning to %s:%i",
+			head->Data, head->Size, newSize, File, Line);
+		#endif
+		return __ptr;
+	}
+
+	#if VALIDATE_ON_ALLOC
+	Heap_Validate();
+	#endif
+	
+	Heap_int_WatchBlock(head, false);
 	
 	// Check if next block is free
 	nextHead = Heap_NextHead(head);
@@ -434,6 +465,10 @@ void *Heap_Reallocate(const char *File, int Line, void *__ptr, size_t __size)
 	// Extend into next block
 	if(nextHead->Magic == MAGIC_FREE && nextHead->Size+head->Size >= newSize)
 	{
+		#if DEBUG_TRACE
+		Log_Debug("Heap", "realloc expand %p (0x%x to 0x%x), returning to %s:%i",
+			head->Data, head->Size, newSize, File, Line);
+		#endif
 		Uint	size = nextHead->Size + head->Size;
 		foot = Heap_ThisFoot(nextHead);
 		// Exact Fit
@@ -462,7 +497,7 @@ void *Heap_Reallocate(const char *File, int Line, void *__ptr, size_t __size)
 		nextHead->Size = size - newSize;
 		nextHead->Magic = MAGIC_FREE;
 		// - Update old footer
-		foot->Head = nextHead;
+		Heap_ThisFoot(nextHead)->Head = nextHead;
 		return __ptr;
 	}
 	
@@ -478,6 +513,11 @@ void *Heap_Reallocate(const char *File, int Line, void *__ptr, size_t __size)
 			// TODO: Handle splitting of downwards blocks
 			Warning("[Heap   ] TODO: Space efficient realloc when new size is smaller");
 		}
+		
+		#if DEBUG_TRACE
+		Log_Debug("Heap", "realloc expand down %p (0x%x to 0x%x), returning to %s:%i",
+			head->Data, head->Size, newSize, File, Line);
+		#endif
 		
 		// Exact fit
 		Uint	oldDataSize;
@@ -509,6 +549,8 @@ void *Heap_Reallocate(const char *File, int Line, void *__ptr, size_t __size)
 	nextHead->Line = Line;
 	nextHead->ValidSize = __size;
 	
+	ASSERTC(head->Size, <, nextHead->Size);
+	ASSERTC(__ptr, ==, head->Data);
 	memcpy(
 		nextHead->Data,
 		__ptr,
@@ -516,7 +558,8 @@ void *Heap_Reallocate(const char *File, int Line, void *__ptr, size_t __size)
 		);
 	
 	free(__ptr);
-	
+	Heap_Validate();
+
 	return nextHead->Data;
 }
 
@@ -553,6 +596,80 @@ int Heap_IsHeapAddr(void *Ptr)
 		return 0;
 	
 	return 1;
+}
+
+int Heap_int_ApplyWatchpont(void *Word, bool enabled)
+{
+	#if ARCHDIR_IS_x86
+	static void	*active_wps[4];
+	unsigned int	dr;
+	for( dr = 2; dr < 4; dr ++ )
+	{
+		if( (enabled && active_wps[dr] == NULL) || active_wps[dr] == Word)
+			break;
+	}
+	if(dr == 4) {
+		return 1;
+	}
+	if( enabled )
+	{
+		active_wps[dr] = Word;
+		switch(dr)
+		{
+		//case 0:	ASM("mov %0, %%dr0" : : "r" (Word));	break;
+		//case 1:	ASM("mov %0, %%dr1" : : "r" (Word));	break;
+		case 2:	ASM("mov %0, %%dr2" : : "r" (Word));	break;
+		case 3:	ASM("mov %0, %%dr3" : : "r" (Word));	break;
+		default:	ASSERTC(dr,<,4);	return 1;
+		}
+	}
+	else
+	{
+		active_wps[dr] = NULL;
+	}
+	Uint32	dr7flag;
+	ASM("MOV %%dr7, %0" : "=r" (dr7flag));
+	dr7flag &= ~(0x2 << (dr*2));
+	dr7flag &= ~(0xF000 << (dr*4));
+	if( enabled ) {
+		dr7flag |= 0x2 << (dr*2);
+		dr7flag |= 0xD000 << (dr*4);	// 4 bytes, write
+		Debug("Heap_int_ApplyWatchpont: Watchpoint #%i %p ENABLED", dr, Word);
+	}
+	else {
+		Debug("Heap_int_ApplyWatchpont: Watchpoint #%i %p disabled", dr, Word);
+	}
+	ASM("MOV %0, %%dr7" : : "r" (dr7flag));
+	return 0;
+	#else
+	return 1;
+	#endif
+}
+
+void Heap_int_WatchBlock(tHeapHead *Head, bool Enabled)
+{
+	int rv;
+	rv = Heap_int_ApplyWatchpont( &Head->Size, Enabled );
+	//rv = Heap_int_ApplyWatchpont( &Head->Magic, Enabled );
+	rv = rv + Heap_int_ApplyWatchpont( &Heap_ThisFoot(Head)->Head, Enabled );
+	if(rv && Enabled) {
+		Warning("Can't apply watch on %p", Head);
+	}
+}
+
+int Heap_WatchBlock(void *Ptr)
+{
+	//Heap_int_ApplyWatchpont();
+	tHeapHead	*head;
+	if((Uint)Ptr < (Uint)gHeapStart)	return 0;
+	if((Uint)Ptr > (Uint)gHeapEnd)	return 0;
+	if((Uint)Ptr & (sizeof(Uint)-1))	return 0;
+	
+	head = (tHeapHead*)Ptr - 1;
+	
+	Heap_int_WatchBlock( head, true );
+	
+	return 0;
 }
 
 /**
