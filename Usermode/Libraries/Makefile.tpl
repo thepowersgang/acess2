@@ -115,10 +115,10 @@ $(OUTPUTDIR)Libs/%:
 
 obj-native/%.no: %.c
 	@mkdir -p $(dir $@)
-	$(NCC) -c $< -o $@ -Wall -std=gnu99 -MD -MP -MF $@.dep
+	$(NCC) -g -c $< -o $@ -Wall -std=gnu99 -MD -MP -MF $@.dep '-D_SysDebug(f,v...)=fprintf(stderr,"DEBUG "f"\n",##v)' -include stdio.h
 
 TEST_%: obj-native/TEST_%.no obj-native/%.no
-	$(NCC) -o $@ $^
+	$(NCC) -g -o $@ $^
 
 -include $(UTESTS:%=obj-native/TEST_%.no.dep)
 -include $(UTESTS:%=obj-native/%.no.dep)

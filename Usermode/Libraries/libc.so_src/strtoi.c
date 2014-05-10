@@ -27,7 +27,7 @@ unsigned long long strtoull(const char *str, char **end, int base)
 	
 	// Handle base detection for hex
 	if( base == 0 || base == 16 ) {
-		if( *str == '0' && str[1] == 'x' ) {
+		if( *str == '0' && (str[1] == 'x' || str[1] == 'X') && isxdigit(str[2]) ) {
 			str += 2;
 			base = 16;
 		}
@@ -60,6 +60,21 @@ unsigned long long strtoull(const char *str, char **end, int base)
 		}
 		if( next < 0 )
 			break;
+		
+		if( ret == ULLONG_MAX ) {
+			errno = ERANGE;
+			str ++;
+			// Keep eating until first unrecognised character
+			continue;
+		}
+		if( ret > (ULLONG_MAX-next)/base ) {
+			//_SysDebug("strtoull - Out of range (0x%llx > 0x%llx)", ret, (ULLONG_MAX-next)/base);
+			//_SysDebug("strtoull -              (%llu > %llu)", ret, (ULLONG_MAX-next)/base);
+			ret = ULLONG_MAX;
+			errno = ERANGE;
+			str ++;
+			continue;
+		}
 		ret *= base;
 		ret += next;
 		str ++;
@@ -85,7 +100,6 @@ unsigned long strtoul(const char *ptr, char **end, int base)
 long long strtoll(const char *str, char **end, int base)
 {
 	 int	neg = 0;
-	unsigned long long	ret;
 
 	if( !str ) {
 		errno = EINVAL;
@@ -96,17 +110,36 @@ long long strtoll(const char *str, char **end, int base)
 		str++;
 	
 	// Check for negative (or positive) sign
-	if(*str == '-' || *str == '+') {
+	if(*str == '-' || *str == '+')
+	{
+		//_SysDebug("strtoll - str[0:1] = '%.2s'", str);
+		if( !isdigit(str[1]) ) {
+			// Non-digit, invalid string
+			if(end)	*end = (char*)str;
+			return 0;
+		}
 		neg = (*str == '-');
 		str++;
 	}
 
-	ret = strtoull(str, end, base);	
+	unsigned long long ret = strtoull(str, end, base);	
+	//_SysDebug("strtoll - neg=%i,ret=%llu", neg, ret);
 
-	if( neg )
+	if( neg ) {
+		if( -ret < LLONG_MIN ) {
+			errno = ERANGE;
+			return LLONG_MIN;
+		}
 		return -ret;
+	}
 	else
+	{
+		if( ret > LLONG_MAX ) {
+			errno = ERANGE;
+			return LLONG_MAX;
+		}
 		return ret;
+	}
 }
 
 long strtol(const char *str, char **end, int base)
