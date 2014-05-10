@@ -6,4 +6,4 @@ compiler: clang
 #env:
 # - ARCH=host HOST_ARCH=x86 USE_ACPICA=0
 # - ARCH=host HOST_ARCH=x86_64 CC="$CC -m64"
-script: "make utest mtest"
+script: "make -k utest mtest"
