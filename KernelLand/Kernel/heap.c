@@ -353,6 +353,8 @@ void Heap_Deallocate(const char *File, int Line, void *Ptr)
 	// INVLPTR is returned from Heap_Allocate when the allocation
 	// size is zero.
 	if( Ptr == INVLPTR )	return;
+	// free(NULL) is a no-op
+	if( Ptr == NULL )	return;
 	
 	// Alignment Check
 	if( (tVAddr)Ptr % sizeof(void*) != 0 ) {
