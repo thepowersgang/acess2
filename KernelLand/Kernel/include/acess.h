@@ -85,11 +85,11 @@ extern const char	gsBuildInfo[];
  * \{
  * \todo Move to mm_virt.h
  */
-#define	MM_PFLAG_RO		0x01	// Writes disallowed
-#define	MM_PFLAG_EXEC	0x02	// Allow execution
-#define	MM_PFLAG_NOPAGE	0x04	// Prevent from being paged out
-#define	MM_PFLAG_COW	0x08	// Copy-On-Write
-#define	MM_PFLAG_KERNEL	0x10	// Kernel-Only (Ring0)
+#define	MM_PFLAG_RO	0x01	//!< Writes disallowed
+#define	MM_PFLAG_EXEC	0x02	//!< Allow execution
+#define	MM_PFLAG_NOPAGE	0x04	//!< Prevent from being paged out
+#define	MM_PFLAG_COW	0x08	//!< Copy-On-Write
+#define	MM_PFLAG_KERNEL	0x10	//!< Kernel-Only (Ring0)
 /**
  * \}
  */
@@ -143,7 +143,9 @@ typedef struct sKernelSymbol {
  * \name IRQ hander registration
  * \{
  */
+//! Register a callback for when an IRQ is raised
 extern int	IRQ_AddHandler(int Num, void (*Callback)(int, void*), void *Ptr);
+//! Remove a previously registered IRQ handler
 extern void	IRQ_RemHandler(int Handle);
 /**
  * \}

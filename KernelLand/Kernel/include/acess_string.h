@@ -10,7 +10,7 @@
 #include <stdarg.h>
 
 /**
- * \name Strings
+ * \name String Manipulation
  * \{
  */
 // - stdio.h in userland
@@ -38,6 +38,7 @@ extern unsigned long	strtoul(const char *str, char **end, int base);
 extern signed long long	strtoll(const char *str, char **end, int base);
 extern signed long	strtol(const char *str, char **end, int base);
 
+//! \brief String comparison (case-insensitive)
 extern int	strucmp(const char *Str1, const char *Str2);
 extern int	strpos(const char *Str, char Ch);
 extern int	strpos8(const char *str, Uint32 search);
