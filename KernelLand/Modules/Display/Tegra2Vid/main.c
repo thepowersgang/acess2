@@ -193,7 +193,7 @@ int Tegra2Vid_IOCtl(tVFS_Node *Node, int ID, void *Data)
 	
 	switch(ID)
 	{
-	BASE_IOCTLS(DRV_TYPE_VIDEO, "PL110", VERSION, csaTegra2Vid_IOCtls);
+	BASE_IOCTLS(DRV_TYPE_VIDEO, "Tegra2", VERSION, csaTegra2Vid_IOCtls);
 
 	case VIDEO_IOCTL_SETBUFFORMAT:
 		DrvUtil_Video_RemoveCursor( &gTegra2Vid_DrvUtil_BufInfo );
