@@ -74,6 +74,7 @@ EXPORT(CheckMem);
 // === CODE ===
 // - Import userland stroi.c file
 #define _LIB_H_
+#define _SysDebug(f,v...)	Log_Debug("libc", f ,## v)
 #include "../../Usermode/Libraries/libc.so_src/strtoi.c"
 
 int ParseInt(const char *string, int *Val)
