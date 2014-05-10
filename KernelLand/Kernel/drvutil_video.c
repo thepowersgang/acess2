@@ -5,7 +5,7 @@
  * drvutil.c
  * - Video Driver Helper Functions
  */
-#define DEBUG	1
+#define DEBUG	0
 #include <acess.h>
 #include <api_drv_video.h>
 
