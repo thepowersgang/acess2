@@ -12,7 +12,7 @@
 
 unsigned long long strtoull(const char *str, char **end, int base)
 {
-	long long	ret = 0;
+	unsigned long long	ret = 0;
 	
 	if( !str || base < 0 || base > 36 || base == 1 ) {
 		if(end)
@@ -138,7 +138,7 @@ long long strtoll(const char *str, char **end, int base)
 	//_SysDebug("strtoll - neg=%i,ret=%llu", neg, ret);
 
 	if( neg ) {
-		if( -ret < LLONG_MIN ) {
+		if( ret + LLONG_MIN > 0 ) {
 			errno = ERANGE;
 			return LLONG_MIN;
 		}
