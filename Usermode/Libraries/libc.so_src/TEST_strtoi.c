@@ -41,6 +41,8 @@ int main(int argc, char *argv[])
 	TST(unsigned long long, ull, 0, "01234567", 01234567, "%llo", 8, 0);
 	TST(unsigned long long, ull, 0, "1234567", 1234567, "%lld", 7, 0);
 	TST(long long, ll, 0, "-1", -1, "%lld", 2, 0);	// -1
+	TST(long long, ll, 0, "100113", 100113, "%lld", strlen(in), 0);
+	TST(long long, ll, 0, "0x101", 0x101, "0x%llx", strlen(in), 0);
 	
 	// Invalid strings
 	TST(unsigned long long, ull, 0, "0x",  0, "%llx", 1, 0);	// Single 0

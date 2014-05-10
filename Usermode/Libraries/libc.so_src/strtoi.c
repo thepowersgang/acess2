@@ -43,6 +43,10 @@ unsigned long long strtoull(const char *str, char **end, int base)
 	if( base == 0 )
 		base = 10;
 
+	// Value before getting within 1 digit of ULLONG_MAX
+	// - Used to avoid overflow in more accurate check
+	unsigned long long	max_before_ullong_max = ULLONG_MAX / base;
+	unsigned int	space_above = ULLONG_MAX - max_before_ullong_max * base;
 	while( *str )
 	{
 		 int	next = -1;
@@ -58,22 +62,30 @@ unsigned long long strtoull(const char *str, char **end, int base)
 			if( 'a' <= *str && *str <= 'a'+base-10-1 )
 				next = *str - 'a' + 10;
 		}
+		//_SysDebug("strtoull - ret=0x%llx,next=%i,str='%s'", ret, next, str);
 		if( next < 0 )
 			break;
 		
+		// If we're already out of range, keep eating
 		if( ret == ULLONG_MAX ) {
 			errno = ERANGE;
 			str ++;
 			// Keep eating until first unrecognised character
 			continue;
 		}
-		if( ret > (ULLONG_MAX-next)/base ) {
-			//_SysDebug("strtoull - Out of range (0x%llx > 0x%llx)", ret, (ULLONG_MAX-next)/base);
-			//_SysDebug("strtoull -              (%llu > %llu)", ret, (ULLONG_MAX-next)/base);
-			ret = ULLONG_MAX;
-			errno = ERANGE;
-			str ++;
-			continue;
+	
+		// Rough then accurate check against max value
+		if( ret >= max_before_ullong_max )
+		{
+			//_SysDebug("strtoull - 0x%llx>0x%llx", ret, max_before_ullong_max);
+			if( (ret - max_before_ullong_max) * base + next > space_above ) {
+				//_SysDebug("strtoull - %u*%u+%u (%u) > %u",
+				//	(unsigned int)(ret - max_before_ullong_max), base, next, space_above);
+				ret = ULLONG_MAX;
+				errno = ERANGE;
+				str ++;
+				continue;
+			}
 		}
 		ret *= base;
 		ret += next;
