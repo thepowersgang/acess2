@@ -8,6 +8,7 @@
 #include <acess/sys.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 #include "lib.h"
 
 #if 0
@@ -308,7 +309,8 @@ EXPORT void *realloc(void *oldPos, size_t bytes)
 	
 	// Check for free space after the block
 	heap_head *nexthead = NEXT_HEAD(head);
-	if( nexthead && nexthead->magic == MAGIC_FREE && head->size + nexthead->size >= reqd_size )
+	assert( nexthead <= _heap_end );
+	if( nexthead != _heap_end && nexthead->magic == MAGIC_FREE && head->size + nexthead->size >= reqd_size )
 	{
 		// Split next block
 		if( head->size + nexthead->size > reqd_size )
@@ -337,12 +339,12 @@ EXPORT void *realloc(void *oldPos, size_t bytes)
 	void *ret = _malloc(bytes, __builtin_return_address(0));
 	if(ret == NULL)
 		return NULL;
+	heap_head *newhead = (heap_head*)ret - 1;
 	
-	//Copy Old Data
+	// Copy Old Data
+	assert( head->size < newhead->size );
 	size_t copy_size = head->size-sizeof(heap_head)-sizeof(heap_foot);
-	if( copy_size > bytes )
-		copy_size = bytes;
-	memcpy(ret, oldPos, bytes);
+	memcpy(ret, oldPos, copy_size);
 	free(oldPos);
 	
 	//Return
