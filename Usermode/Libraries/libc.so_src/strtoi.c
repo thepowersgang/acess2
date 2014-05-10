@@ -138,7 +138,8 @@ long long strtoll(const char *str, char **end, int base)
 	//_SysDebug("strtoll - neg=%i,ret=%llu", neg, ret);
 
 	if( neg ) {
-		if( ret + LLONG_MIN > 0 ) {
+		// Abuses unsigned integer overflow
+		if( ret + LLONG_MIN < ret ) {
 			errno = ERANGE;
 			return LLONG_MIN;
 		}
