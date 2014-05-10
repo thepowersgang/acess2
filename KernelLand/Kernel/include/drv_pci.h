@@ -82,5 +82,6 @@ extern Uint8	PCI_GetIRQ(tPCIDev id);
 extern Uint32	PCI_GetBAR(tPCIDev id, int BAR);
 extern Uint64	PCI_GetValidBAR(tPCIDev id, int BAR, tPCI_BARType BARType);
 //extern Uint16	PCI_AssignPort(tPCIDev id, int bar, int count);
+//extern void*	PCI_MapMemBAR(tPCIDev id, int BAR, tPCI_BARType BARType, size_t* Size, tPAddr* PAddr);
 
 #endif
