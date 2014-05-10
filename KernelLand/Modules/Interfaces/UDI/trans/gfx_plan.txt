@@ -1,0 +1,12 @@
+
+Upon binding:
+
+1. Enumerate connectors (types and possible inputs)
+2. For all engines that can have their input be -1, get pixel format
+  a. Parse operator list into a tree
+3. Create MIN(n_conns,n_edge) video devices
+  a. Each device represents an edge engine (engine selected on modeset)
+
+Notes:
+- Need to figure out what engine(s) to use as framebuffer, and what ones to use as cursor
+ > Allow user/admin intervention to set these relations (based on an identifier from the driver)
