@@ -73,8 +73,14 @@ $(USRLIBS:%=utest-%): utest-%:
 	@CC=$(NCC) $(SUBMAKE) -C Usermode/Libraries/$*_src utest -k
 
 # TODO: Module tests using DiskTool and NetTest
-mtest:
+mtest: mtest-Network
 	@echo > /dev/null
+
+mtest-Network:
+	@$(SUBMAKE) -C Tools/nativelib
+	@$(SUBMAKE) -C Tools/NetTest
+	@$(SUBMAKE) -C Tools/NetTest_Runner
+	@cd Tools && ./nettest_runner
 
 SyscallList: include/syscalls.h
 include/syscalls.h: KernelLand/Kernel/Makefile KernelLand/Kernel/syscalls.lst
