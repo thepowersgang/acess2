@@ -5,7 +5,7 @@
  * drvutil.c
  * - Video Driver Helper Functions
  */
-#define DEBUG	0
+#define DEBUG	1
 #include <acess.h>
 #include <api_drv_video.h>
 
@@ -536,8 +536,6 @@ void DrvUtil_Video_RenderCursor(tDrvUtil_Video_BufInfo *Buf)
 void DrvUtil_Video_RemoveCursor(tDrvUtil_Video_BufInfo *Buf)
 {
 	 int	bytes_per_px = (Buf->Depth + 7) / 8;
-	 int	y, save_pitch;
-	Uint8	*dest, *src;
 
 	// Just a little sanity
 	if( !Buf->CursorBitmap || Buf->CursorX == -1 )	return ;
@@ -546,16 +544,21 @@ void DrvUtil_Video_RemoveCursor(tDrvUtil_Video_BufInfo *Buf)
 //	Debug("DrvUtil_Video_RemoveCursor: (Buf=%p) dest_x=%i, dest_y=%i", Buf, Buf->CursorDestX, Buf->CursorDestY);
 
 	// Set up
-	save_pitch = Buf->CursorBitmap->W * bytes_per_px;
-	dest = (Uint8*)Buf->Framebuffer + Buf->CursorDestY * Buf->Pitch + Buf->CursorDestX*bytes_per_px;
-	src = Buf->CursorSaveBuf;
-	
+	size_t	save_pitch = Buf->CursorBitmap->W * bytes_per_px;
+	Uint8	*dst = (Uint8*)Buf->Framebuffer + Buf->CursorDestY * Buf->Pitch + Buf->CursorDestX*bytes_per_px;
+	const Uint8	*src = Buf->CursorSaveBuf;
+
+	ASSERT(Buf->Framebuffer);
+	ASSERT(src);
+	ASSERT(CheckMem(dst, Buf->CursorRenderH*Buf->Pitch));
+	ASSERT(CheckMem(src, Buf->CursorRenderH*save_pitch));
+
 	// Copy each line back
-	for( y = 0; y < Buf->CursorRenderH; y ++ )
+	for( int y = 0; y < Buf->CursorRenderH; y ++ )
 	{
-		memcpy( dest, src, Buf->CursorRenderW * bytes_per_px );
+		memcpy( dst, src, Buf->CursorRenderW * bytes_per_px );
 		src += save_pitch;
-		dest += Buf->Pitch;
+		dst += Buf->Pitch;
 	}
 	
 	// Set the cursor as removed
