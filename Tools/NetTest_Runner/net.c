@@ -9,6 +9,8 @@
 #include <sys/select.h>
 #include "net.h"
 #include <stdint.h>
+#include <unistd.h>	// unlink/...
+#include <sys/time.h>	// gettimeofday
 
 #define CONNECT_TIMEOUT	10*1000
 #define MAX_IFS	4
@@ -145,7 +147,7 @@ size_t Net_Receive(int IfNum, size_t MaxLen, void *DestBuf, unsigned int Timeout
 	
 	if( Net_int_EnsureConnected(IfNum) && WaitOnFD(If->FD, false, Timeout) )
 	{
-		size_t rv = recvfrom(If->FD, DestBuf, MaxLen, 0, &If->addr, &If->addrlen);
+		size_t rv = recvfrom(If->FD, DestBuf, MaxLen, 0, (struct sockaddr*)&If->addr, &If->addrlen);
 		Net_int_SavePacket(If, rv, DestBuf);
 		return rv;
 	}
@@ -160,7 +162,7 @@ void Net_Send(int IfNum, size_t Length, const void *Buf)
 	if( !WaitOnFD(If->FD, true, CONNECT_TIMEOUT) )
 		return ;
 	Net_int_SavePacket(If, Length, Buf);
-	int rv = sendto(If->FD, Buf, Length, 0, &If->addr, If->addrlen);
+	int rv = sendto(If->FD, Buf, Length, 0, (struct sockaddr*)&If->addr, If->addrlen);
 	if( rv < 0 )
 		perror("Net_Send - send");
 }

@@ -8,8 +8,7 @@
 
 .PHONY: all clean SyscallList all-user
 
-SUBMAKE = $(MAKE)
-# --no-print-directory
+SUBMAKE = $(MAKE) --no-print-directory
 
 USRLIBS := crt0.o acess.ld ld-acess.so libc.so libc++.so libposix.so
 USRLIBS += libreadline.so libnet.so liburi.so libpsocket.so

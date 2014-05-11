@@ -50,9 +50,8 @@ tVFS_NodeType	gSysFS_DirNodeType = {
 	.FindDir = SysFS_Comm_FindDir
 	};
 tSysFS_Ent	gSysFS_Version_Kernel = {
-	NULL, NULL,	// Nexts
-	&gSysFS_Version,	// Parent
-	{
+	.Parent = &gSysFS_Version,	// Parent
+	.Node = {
 		.Inode = 1,	// File #1
 		.ImplPtr = NULL,
 		.ImplInt = (Uint)&gSysFS_Version_Kernel,	// Self-Link
@@ -61,12 +60,11 @@ tSysFS_Ent	gSysFS_Version_Kernel = {
 		.ACLs = &gVFS_ACL_EveryoneRO,
 		.Type = &gSysFS_FileNodeType
 	},
-	"Kernel"
+	.Name = {"Kernel"}
 };
 tSysFS_Ent	gSysFS_Version = {
-	NULL, NULL,
-	&gSysFS_Root,
-	{
+	.Parent = &gSysFS_Root,
+	.Node = {
 		.Size = 1,
 		.ImplPtr = &gSysFS_Version_Kernel,
 		.ImplInt = (Uint)&gSysFS_Version,	// Self-Link
@@ -75,7 +73,7 @@ tSysFS_Ent	gSysFS_Version = {
 		.Flags = VFS_FFLAG_DIRECTORY,
 		.Type = &gSysFS_DirNodeType
 	},
-	"Version"
+	.Name = {"Version"}
 };
 // Root of the SysFS tree (just used to keep the code clean)
 tSysFS_Ent	gSysFS_Root = {
@@ -86,7 +84,7 @@ tSysFS_Ent	gSysFS_Root = {
 		.ImplPtr = &gSysFS_Version,
 		.ImplInt = (Uint)&gSysFS_Root	// Self-Link
 	},
-	"/"
+	{"/"}
 };
 tDevFS_Driver	gSysFS_DriverInfo = {
 	NULL, "system",
