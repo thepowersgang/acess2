@@ -30,12 +30,15 @@ enum libc_eErrorNumbers {
 
 	EAGAIN,	// Try again
 	EALREADY,	// Operation was a NOP
+	ENOSPC,	// (POSIX) No space left on device
 	
 	EFBIG,	// File too large
 	E2BIG,	// Argument list too large
 
 	// psockets
 	EAFNOSUPPORT,	
+	EADDRINUSE,	// Specified addres is already in use
+	ETIMEDOUT,
 	
 	EINTERNAL	// Internal Error
 };

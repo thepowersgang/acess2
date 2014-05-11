@@ -51,7 +51,12 @@ EXPORT char *strerror(int errnum)
 	case EFBIG:	return "File too big";
 	case E2BIG:	return "Value too big";
 	case EALREADY:	return "Operation was no-op";
+	case ENOSPC:	return "No space left on the device";
+
 	case EAFNOSUPPORT:	return "Address family not supported";
+	case EADDRINUSE:	return "Address already in use";
+	case ETIMEDOUT:	return "Operation timed out";
+
 	case EINTERNAL:	return "Internal error";
 	}
 	_SysDebug("strerror: errnum=%i unk", errnum);

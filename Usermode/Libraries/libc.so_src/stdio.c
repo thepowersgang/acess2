@@ -374,22 +374,23 @@ int _fflush_int(FILE *fp)
 	return ret;
 }
 
-EXPORT void fflush(FILE *fp)
+EXPORT int fflush(FILE *fp)
 {
 	if( !fp || fp->FD == FD_NOTOPEN )
-		return ;
+		return EBADF;
 	
 	// Nothing to do for memory files
 	if( fp->FD == FD_MEMFILE )
-		return ;
+		return 0;
 	// Memory streams, update pointers
 	if( fp->FD == FD_MEMSTREAM ) {
 		*fp->BufPtr = fp->Buffer;
 		*fp->LenPtr = fp->BufferPos;
-		return ;
+		return 0;
 	}
 	
 	_fflush_int(fp);
+	return 0;
 }
 
 EXPORT void clearerr(FILE *fp)
