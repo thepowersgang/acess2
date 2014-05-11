@@ -1,0 +1,41 @@
+Layers:
+
+IPC / Client management
+
+Renderers
+Window Management
+> "WM_CreateWindow(Parent, Class, Name)"
+Window Drawing
+> "WD_Fill"
+> "WD_Blit"
+> "WD_LockSurface"
+> "WD_UnlockSurface"
+Decorations
+> ".InitWindow"
+> ".Render"
++ "WM_SetBorder"
+Compositing
+> Dirty rectangling, use 2DCmd to selectively blit
+> Request kernel/server buffers if possible
+
+
+Server-side rendering primitives:
+ # Apply to regions, rendered in fixed order, each has an ID
+> Auto-scaling bitmaps
+ - Control backed by an image with three five regions per axis
+  Edge Fixed, Fill, Center Fixed, Fill, Edge Fixed
+ - Definition is via two pixel counts (edge width, fill width), rest is derived
+ - Command to switch backing image to another already provided
+> Tiling bitmaps + filled rects
+> Text (single line)
+> Canvas (Takes drawing commands, draws to internal buffer)
+> Shared buffer (of an unspecified pixel format)
+
+=== Config options ===
+- Root App
+- Display device (- = stdout)
+- Keyboard device (- = stdin)
+- Mouse device
+- Pipe suffix, port number, etc.
+- Key bindings
+
