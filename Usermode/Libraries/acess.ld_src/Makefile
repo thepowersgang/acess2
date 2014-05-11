@@ -8,7 +8,7 @@
 
 BIN = $(OUTPUTDIR)Libs/acess.ld
 
-.PHONY: all clean install utest generate_exp
+.PHONY: all clean install utest utest-build utest-run generate_exp
 
 all: $(BIN)
 
@@ -18,7 +18,7 @@ clean:
 install: $(BIN)
 
 # How does one unit test a linker script?
-utest generate_exp:
+utest generate_exp utest-build utest-run:
 	@echo > /dev/null
 
 $(BIN):	acess_$(ARCHDIR).ld.h

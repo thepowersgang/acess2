@@ -42,8 +42,9 @@ all: _libs $(_BIN) $(_XBIN)
 
 .PHONY: _libs
 
+.PRECIOUS: .no
 
-HEADERS := $(patsubst include_exp/%,../../include/%,$(shell find include_exp/ -name \*.h))
+HEADERS := $(patsubst include_exp/%,../../include/%,$(shell find include_exp/ -name \*.h 2>/dev/null))
 _libs: $(HEADERS)
 
 ../../include/%: include_exp/%
@@ -58,6 +59,7 @@ generate_exp: $(UTESTS:%=EXP_%.txt)
 	@echo > /dev/null
 
 utest-build: $(UTESTS:%=TEST_%)
+	@echo > /dev/null
 
 utest-run: $(UTESTS:%=runtest-%)
 	@echo > /dev/null
