@@ -73,7 +73,14 @@ $(DIR)/%: patches/%
 
 PATCHED_FILES := $(addprefix $(DIR)/,$(PATCHES))
 
-_patch: $(DIR) $(PATCHED_FILES) $(wildcard patches/UNIFIED.patch)
 ifneq ($(wildcard patches/UNIFIED.patch),)
+$(DIR)/_unified_applied: $(wildcard patches/UNIFIED.patch)
 	cd $(DIR) && patch -p1 < ../patches/UNIFIED.patch
+	touch $@
+UNIFIED_TARGET=$(DIR)/_unified_applied
+else
+UNIFIED_TARGET=
 endif
+
+_patch: $(DIR) $(PATCHED_FILES) $(UNIFIED_TARGET)
+
