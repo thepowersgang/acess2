@@ -122,6 +122,8 @@ obj-native/%.no: %.c
 TEST_%: obj-native/TEST_%.no obj-native/%.no
 	$(NCC) -g -o $@ $^
 
+.SECONDARY: %.no
+
 -include $(UTESTS:%=obj-native/TEST_%.no.dep)
 -include $(UTESTS:%=obj-native/%.no.dep)
 
