@@ -19,7 +19,7 @@ KOBJ := $(KOBJ:%.o=obj/_Kernel/%.o)
 OBJ := $(NOBJ) $(LOBJ) $(KOBJ)
 BIN := ../libnativelib.a
 
-CFLAGS := -Wall -std=c99 -Werror
+CFLAGS := -Wall -std=c99
 CPPFLAGS := -I include
 
 
