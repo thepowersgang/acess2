@@ -1,7 +1,7 @@
 
 include ../../Makefile.cfg
 
-CPPFLAGS := -Iinclude/
+CPPFLAGS += -Iinclude/
 OBJ := IWindow.o
 BIN := AxWinServer
 

@@ -1,7 +1,9 @@
 /*
  */
+#include <CConfig.hpp>
 #include <ipc.hpp>
 #include <input.hpp>
+#include <video.hpp>
 #include <timing.hpp>
 
 using namespace AxWin;
@@ -10,14 +12,26 @@ using namespace AxWin;
 int main(int argc, char *argv[])
 {
 	// - Load configuration (from file and argv)
+	CConfig	config;
+	try {
+		config.parseCommandline(argc, argv);
+	}
+	catch(const std::exception& e) {
+		fprintf(stderr, "Exception: %s\n", e.what());
+		return 1;
+	}
 	// - Open graphics
-	Graphics::Open(/*config.m_displayDevice*/);
+	Graphics::Initialise(config.m_video);
 	// - Open input
+	Input::Initialise(config.m_input);
+	//  > Handles hotkeys?
 	// - Initialise compositor structures
-	// - Prepare global hotkeys
+	Compositor::Initialise(config.m_compositor);
 	// - Bind IPC channels
+	IPC::Initialise(config.m_ipc);
 	// - Start root child process (from config)
-	
+	// TODO: Spin up child process
+
 	// - Event loop
 	for( ;; )
 	{
@@ -35,6 +49,8 @@ int main(int argc, char *argv[])
 		
 		Input::HandleSelect(&rfds);
 		IPC::HandleSelect(&rfds);
+		
+		Compositor::Redraw();
 	}
 	return 0;
 }

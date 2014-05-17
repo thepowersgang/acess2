@@ -1,6 +1,8 @@
 Layers:
 
 IPC / Client management
+Compositor / Window Manager
+Renderer / Window Contents
 
 Renderers
 Window Management
@@ -18,6 +20,10 @@ Compositing
 > Dirty rectangling, use 2DCmd to selectively blit
 > Request kernel/server buffers if possible
 
+
+Clients own windows
+Windows are composed of multiple regions that conform to several types (see below)
+- Re-draw is handled by using these regions
 
 Server-side rendering primitives:
  # Apply to regions, rendered in fixed order, each has an ID
