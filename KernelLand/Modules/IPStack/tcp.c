@@ -2,7 +2,7 @@
  * Acess2 IP Stack
  * - TCP Handling
  */
-#define DEBUG	1
+#define DEBUG	0
 #include "ipstack.h"
 #include "ipv4.h"
 #include "ipv6.h"
@@ -20,7 +20,7 @@
 #define TCP_DACK_THRESHOLD	4096
 #define TCP_DACK_TIMEOUT	100
 
-#define TCP_DEBUG	1	// Set to non-0 to enable TCP packet logging
+#define TCP_DEBUG	0	// Set to non-0 to enable TCP packet logging
 
 // === PROTOTYPES ===
 void	TCP_Initialise(void);
