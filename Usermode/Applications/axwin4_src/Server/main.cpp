@@ -4,7 +4,15 @@
 #include <ipc.hpp>
 #include <input.hpp>
 #include <video.hpp>
+#include <CCompositor.hpp>
 #include <timing.hpp>
+#include <exception>
+#include <algorithm>
+
+extern "C" {
+#include <stdio.h>
+#include <stdint.h>
+};
 
 using namespace AxWin;
 
@@ -22,13 +30,13 @@ int main(int argc, char *argv[])
 	}
 	// - Open graphics
 	Graphics::Initialise(config.m_video);
+	// - Initialise compositor structures
+	CCompositor* compositor = new CCompositor(/*config.m_compositor*/);
 	// - Open input
 	Input::Initialise(config.m_input);
 	//  > Handles hotkeys?
-	// - Initialise compositor structures
-	Compositor::Initialise(config.m_compositor);
 	// - Bind IPC channels
-	IPC::Initialise(config.m_ipc);
+	IPC::Initialise(config.m_ipc, compositor);
 	// - Start root child process (from config)
 	// TODO: Spin up child process
 
@@ -38,19 +46,19 @@ int main(int argc, char *argv[])
 		 int	nfd = 0;
 		fd_set	rfds;
 		
-		Input::FillSelect(&nfd, &rfds);
-		IPC::FillSelect(&nfd, &rfds);
+		nfd = ::std::max(nfd, Input::FillSelect(rfds));
+		nfd = ::std::max(nfd, IPC::FillSelect(rfds));
 		
-		// TODO: Timer events
+		// TODO: Support _SysSendMessage IPC?
 		int64_t	timeout = Timing::GetTimeToNextEvent();
-		int rv = ::_SysSelect(nfd, &rfds, NULL, &rfds, NULL, 0);
+		int rv = ::_SysSelect(nfd, &rfds, NULL, &rfds, &timeout, 0);
 		
 		Timing::CheckEvents();
 		
-		Input::HandleSelect(&rfds);
-		IPC::HandleSelect(&rfds);
+		Input::HandleSelect(rfds);
+		IPC::HandleSelect(rfds);
 		
-		Compositor::Redraw();
+		compositor->Redraw();
 	}
 	return 0;
 }

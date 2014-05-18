@@ -10,6 +10,7 @@
 
 #include <string>
 #include <vector>
+#include <cstdint>
 #include "CRect.hpp"
 
 namespace AxWin {
@@ -17,14 +18,14 @@ namespace AxWin {
 class IWindow
 {
 public:
-	virtual IWindow(const ::std::string &name);
+	IWindow(const ::std::string &name);
 	virtual ~IWindow();
 	
 	virtual void Repaint() = 0;
 	
 	virtual void MouseButton(int ButtonID, int X, int Y, bool Down);
 	virtual void MouseMove(int NewX, int NewY);
-	virtual void KeyEvent(uint32_t Scancode, const ::std::string &Translated, bool Down);
+	virtual void KeyEvent(::uint32_t Scancode, const ::std::string &Translated, bool Down);
 protected:
 	const ::std::string	m_name;
 };

@@ -5,28 +5,20 @@
  * compositor.cpp
  * - Window compositor
  */
-#include <CVideo.hpp>
+#include <video.hpp>
+#include <compositor.hpp>
 #include <CCompositor.hpp>
 
 namespace AxWin {
 
-CCompositor*	CCompositor::s_instance;
-
-void CCompositor::Initialise(const CConfigCompositor& config)
-{
-	assert(!CCompositor::s_instance);
-	CCompositor::s_instance = new CCompositor(config);
-}
-
-CCompositor::CCompositor(const CConfigCompositor& config):
-	m_config(config)
+CCompositor::CCompositor()
 {
 	// 
 }
 
-IWindow* CCompositor::CreateWindow(CClient& client)
+CWindow* CCompositor::CreateWindow(CClient& client)
 {
-	return new CWindow(client);
+	return new CWindow(client, "TODO");
 }
 
 void CCompositor::Redraw()
@@ -35,12 +27,28 @@ void CCompositor::Redraw()
 	if( m_damageRects.empty() )
 		return ;
 	
-	// For all windows, check for intersection with damage rect
+	// Build up foreground grid (Rects and windows)
+	// - This should already be built (mutated on window move/resize/reorder)
+	
+	// For all windows, check for intersection with damage rects
+	for( auto rect : m_damageRects )
+	{
+		for( auto window : m_windows )
+		{
+			if( rect.Contains( window->m_rect ) )
+			{
+				window->Repaint( rect );
+			}
+		}
+	}
+
+	m_damageRects.clear();
 }
 
-void CCompositor::DamageArea(const Rect& area)
+void CCompositor::DamageArea(const CRect& area)
 {
-
+	// 1. Locate intersection with any existing damaged areas
+	// 2. Append after removing intersections
 }
 
 }	// namespace AxWin
