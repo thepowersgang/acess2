@@ -463,6 +463,14 @@ tTID Proc_NewKThread(void (*Fcn)(void*), void *Data)
 	return newThread->TID;
 }
 
+#if 0
+tPID Proc_NewProcess(Uint Flags, void (*Fcn)(void*), size_t SaveSize, const void *Data)
+{
+	tThread	*newThread = Threads_CloneTCB(CLONE_VM);
+	return 0;
+}
+#endif
+
 /**
  * \fn int Proc_Clone(Uint *Err, Uint Flags)
  * \brief Clone the current process
@@ -473,6 +481,7 @@ tPID Proc_Clone(Uint Flags)
 	tThread	*cur = Proc_GetCurThread();
 	Uint	eip;
 
+	Log_Warning("Proc", "Proc_Clone is deprecated");
 	// Sanity, please
 	if( !(Flags & CLONE_VM) ) {
 		Log_Error("Proc", "Proc_Clone: Don't leave CLONE_VM unset, use Proc_NewKThread instead");
@@ -482,6 +491,9 @@ tPID Proc_Clone(Uint Flags)
 	// New thread
 	newThread = Threads_CloneTCB(Flags);
 	if(!newThread)	return -1;
+	ASSERT(newThread->Process);
+	//ASSERT(CheckMem(newThread->Process, sizeof(tProcess)));
+	//LOG("newThread->Process = %p", newThread->Process);
 
 	newThread->KernelStack = cur->KernelStack;
 
@@ -490,6 +502,9 @@ tPID Proc_Clone(Uint Flags)
 	if( eip == 0 ) {
 		return 0;
 	}
+	//ASSERT(newThread->Process);
+	//ASSERT(CheckMem(newThread->Process, sizeof(tProcess)));
+	//LOG("newThread->Process = %p", newThread->Process);
 	newThread->SavedState.EIP = eip;
 	newThread->SavedState.SSE = NULL;
 	newThread->SavedState.bSSEModified = 0;

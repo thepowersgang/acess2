@@ -38,7 +38,7 @@ Proc_CloneInt:
 	mov esi, [esp+0x20+8]
 	mov [esi], eax
 	; Undo the pusha
-	add esp, 0x20
+	popa
 	mov eax, .newTask
 	ret
 .newTask:
