@@ -118,7 +118,7 @@ void Widget_TextInput_Init(tElement *Element)
 	info->DrawOfs = 0;
 	info->CursorXOfs = 0;
 	info->CursorByteOfs = 0;
-	info->Length = NULL;
+	info->Length = 0;
 
 	// No need to explicitly update parent min dims, as the AddElement routine does that	
 }
