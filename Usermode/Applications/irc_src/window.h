@@ -24,6 +24,8 @@ extern void	Window_AppendMessage(tWindow *Window, enum eMessageClass Class, cons
 extern void	Window_AppendMsg_Join(tWindow *Window, const char *Usermask);
 extern void	Window_AppendMsg_Quit(tWindow *Window, const char *Usermask, const char *Reason);
 extern void	Window_AppendMsg_Part(tWindow *Window, const char *Usermask, const char *Reason);
+extern void	Window_AppendMsg_Kick(tWindow *Window, const char *Operator, const char *Nick, const char *Reason);
+extern void	Window_AppendMsg_Mode(tWindow *Window, const char *Operator, const char *Flags, const char *Args);
 extern void	Window_AppendMsg_Topic(tWindow *Window, const char *Topic);
 extern void	Window_AppendMsg_TopicTime(tWindow *Window, const char *User, const char *Timestmap);
 

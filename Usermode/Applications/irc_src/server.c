@@ -16,8 +16,9 @@ void	ParseServerLine(tServer *Server, char *Line);
 // === GLOBALS ===
 const char	*gsUsername = "user";
 const char	*gsHostname = "acess";
-const char	*gsRealName = "Acess2 IRC Client";
+const char	*gsRealName = "An Acess User";
 const char	*gsNickname = "acess";
+const char	*gsVersionResponse = "Acess2 IRC Client / Running on some VM probably";
 tServer	*gpServers;
 
 // === CODE ===
@@ -109,7 +110,11 @@ tServer *Server_Connect(const char *Name, const char *AddressString, short PortN
 
 const char *Server_GetNick(const tServer *Server)
 {
-	return Server->Nick;
+	return Server ? Server->Nick : "NULL";
+}
+const char *Server_GetName(const tServer *Server)
+{
+	return Server ? Server->Name : "NULL";
 }
 
 void Server_SendCommand(tServer *Server, const char *Format, ...)
@@ -134,16 +139,40 @@ void Cmd_PRIVMSG(tServer *Server, const char *Dest, const char *Src, const char 
 {
 	tWindow *win;
 	if( strcmp(Dest, Server->Nick) == 0 ) {
-		win = Windows_GetByName(Server, Src);
-		if(!win)
-			win = Window_Create(Server, Src);
+		win = Windows_GetByNameOrCreate(Server, Src);
 	}
 	else {
-		win = Windows_GetByName(Server, Dest);
-		if(!win)
-			win = Window_Create(Server, Dest);
+		win = Windows_GetByNameOrCreate(Server, Dest);
 	}
-	Window_AppendMessage(win, MSG_CLASS_MESSAGE, Src, "%s", Message);
+	
+	// Detect CTCP
+	if( Message[0] == '\1' && Message[strlen(Message)-1] == '\1' )
+	{
+		Message += 1;
+		// message is a CTCP command
+		if( strcmp(Message, "VERSION\1") == 0 )
+		{
+			// Put a message in the status window, and reply
+			Window_AppendMessage(WINDOW_STATUS, MSG_CLASS_CLIENT, Server->Name, "CTCP VERSION request from %s", Src);
+			// - Always reply via NOTICE
+			Server_SendCommand(Server, "NOTICE %s :\1VERSION %s\1", Src, gsVersionResponse);
+		}
+		else if( strncmp(Message, "ACTION ", 7) == 0 )
+		{
+			Message += 7;
+			// Put a message in the status window, and reply
+			Window_AppendMessage(win, MSG_CLASS_ACTION, Src, "%.*s", (int)(strlen(Message)-1), Message);
+		}
+		else
+		{
+			Window_AppendMessage(WINDOW_STATUS, MSG_CLASS_CLIENT, Server->Name, "Unknown CTCP '%s' from %s",
+				Message, Src);
+		}
+	}
+	else
+	{
+		Window_AppendMessage(win, MSG_CLASS_MESSAGE, Src, "%s", Message);
+	}
 }
 
 /**
@@ -226,20 +255,38 @@ void ParseServerLine_Numeric(tServer *Server, const char *ident, int Num, char *
 		Window_AppendMsg_TopicTime( Windows_GetByNameOrCreate(Server, user), message, timestamp );
 		break;
 	case 353:	// /NAMES list
+		// TODO: Parse the /names list and store it locally, dump to window when end is seen
 		// <user> = <channel> :list
 		// '=' was eaten in and set to message
 		user = GetValue(Line, &pos);	// Actually channel
 		message = Line + pos + 1;	// List
-		// TODO: parse and store
 		Window_AppendMessage( Windows_GetByNameOrCreate(Server, user), MSG_CLASS_CLIENT, "NAMES", message );
 		break;
 	case 366:	// end of /NAMES list
 		// <user> <channel> :msg
 		// - Ignored
 		break;
+
+	case   1:	// welcome
+	case   2:	// host name and version (text)
+	case   3:	// host uptime
+	case   4:	// host name, version, and signature
+	case   5:	// parameters
+	
+	case 250:	// Highest connection count
+	case 251:	// user count (network)
+	case 252:	// Operator count
+	case 253:	// Unidentified connections
+	case 254:	// Channel count
+	case 255:	// Server's stats
+	case 265:	// Local users -- min max :Text representation
+	case 266:	// Global users (same as above)
+	
 	case 372:	// MOTD Data
 	case 375:	// MOTD Start
 	case 376:	// MOTD End
+		Window_AppendMessage( WINDOW_STATUS, MSG_CLASS_WALL, Server->Name, "%s", message);
+		break;
 		
 	default:
 		//printf("[%s] %i %s\n", Server->Name, num, message);
@@ -255,11 +302,9 @@ void ParseServerLine_String(tServer *Server, const char *ident, const char *cmd,
 	if( strcmp(cmd, "NOTICE") == 0 )
 	{
 		const char *class = GetValue(Line, &pos);
+		const char *message = (Line[pos] == ':') ? Line + pos + 1 : GetValue(Line, &pos);
 		_SysDebug("NOTICE class='%s'", class);
 		
-		const char *message = (Line[pos] == ':') ? Line + pos + 1 : GetValue(Line, &pos);
-		
-		//printf("[%s] NOTICE %s: %s\n", Server->Name, ident, message);
 		char *ident_bang = strchr(ident, '!');
 		if( ident_bang ) {
 			*ident_bang = '\0';
@@ -289,6 +334,28 @@ void ParseServerLine_String(tServer *Server, const char *ident, const char *cmd,
 		const char	*channel = Line + pos + 1;
 		
 		Window_AppendMsg_Part( Windows_GetByNameOrCreate(Server, channel), ident, "" );
+	}
+	else if( strcmp(cmd, "MODE" ) == 0 )
+	{
+		// ident MODE channel flags nick[ nick...]
+		const char	*channel = GetValue(Line, &pos);
+		const char	*flags = GetValue(Line, &pos);
+		const char	*args = Line + pos;
+		
+		Window_AppendMsg_Mode( Windows_GetByNameOrCreate(Server, channel), ident, flags, args );
+	}
+	else if( strcmp(cmd, "KICK" ) == 0 )
+	{
+		// ident KICK channel nick :reason
+		const char	*channel = GetValue(Line, &pos);
+		const char	*nick = GetValue(Line, &pos);
+		const char	*message = Line + pos + 1;
+		
+		Window_AppendMsg_Kick( Windows_GetByNameOrCreate(Server, channel), ident, nick, message );
+		if( strcmp(nick, Server->Nick) == 0 ) {
+			// Oh, that was me :(
+			// - what do?
+		}
 	}
 	else
 	{

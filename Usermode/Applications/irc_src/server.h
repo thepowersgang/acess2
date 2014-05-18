@@ -22,6 +22,7 @@ extern tServer	*Server_Connect(const char *Name, const char *AddressString, shor
 extern  int	Server_HandleIncoming(tServer *Server);
 
 extern const char	*Server_GetNick(const tServer *Server);
+extern const char	*Server_GetName(const tServer *Server);
 
 extern void	Server_SendCommand(tServer *Server, const char *Format, ...) __attribute__((format(__printf__,2,3)));
 

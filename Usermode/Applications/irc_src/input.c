@@ -42,9 +42,11 @@ void Input_HandleSelect(int nfds, const fd_set *rfds)
 			}
 			free(cmd);
 			// Prompt
-			SetCursorPos(giTerminal_Height-1, 1);
+			SetCursorPos(giTerminal_Height, 1);
 			printf("\x1B[2K");	// Clear line
-			printf("[%s]", Window_GetName(NULL));
+			int prompt_len = printf("[%s] ", Window_GetName(NULL));
+			SetCursorPos(giTerminal_Height, prompt_len+1);
+			fflush(stdout);
 		}
 	}
 }
@@ -101,6 +103,15 @@ void Cmd_window(char *ArgString)
 		{
 			Window_AppendMessage(WINDOW_STATUS, MSG_CLASS_CLIENT, NULL, "%i: %s", window_num, Window_GetName(win));
 		}
+	}
+}
+
+void Cmd_me(char *ArgString)
+{
+	tServer	*srv = Window_GetServer(NULL);
+	if( srv && Window_IsChat(NULL) ) {
+		Window_AppendMessage(NULL, MSG_CLASS_ACTION, Server_GetNick(srv), "%s", ArgString);
+		Server_SendCommand(srv, "PRIVMSG %s :\1ACTION %s\1\n", Window_GetName(NULL), ArgString);
 	}
 }
 

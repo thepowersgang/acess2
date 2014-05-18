@@ -7,6 +7,7 @@
 #include <string.h>
 #include <net.h>
 #include <stdarg.h>
+#include <acess/devices/pty.h>
 
 #include "common.h"
 #include "input.h"
@@ -35,6 +36,11 @@ void ExitHandler(void)
 {
 	printf("\x1B[?1047l");
 	printf("Quit: %s\n", gsExitReason);
+
+	// stty +echo,canon
+	struct ptymode	mode = {.InputMode = 0, .OutputMode = 0};
+	mode.InputMode = PTYIMODE_CANON|PTYIMODE_ECHO;
+	_SysIOCtl(0, PTY_IOCTL_SETMODE, &mode);
 }
 
 void Exit(const char *Reason)
@@ -55,24 +61,21 @@ int main(int argc, const char *argv[], const char *envp[])
 	ACurses_Init();
 	
 	printf("\x1B[?1047h");
-	printf("\x1B[%i;%ir", 1, giTerminal_Height-1);
-	
-	SetCursorPos(giTerminal_Height-1, 1);
-	printf("[(status)] ");
+	printf("\x1B[%i;%ir", 2, giTerminal_Height-2);
 	
 	// HACK: Static server entry
 	// UCC (University [of Western Australia] Computer Club) IRC Server
-	tServer	*starting_server = Server_Connect( "UCC", "130.95.13.18", 6667 );
+//	tServer	*starting_server = Server_Connect( "UCC", "130.95.13.18", 6667 );
 	// Freenode (#osdev)
-//	gWindow_Status.Server = Server_Connect( "Freenode", "89.16.176.16", 6667 );
+	tServer *starting_server = Server_Connect( "Freenode", "84.240.3.129", 6667 );
 	// Local servers
 //	gWindow_Status.Server = Server_Connect( "VMHost", "10.0.2.2", 6667 );
 //	gWindow_Status.Server = Server_Connect( "BitlBee", "192.168.1.39", 6667 );
 	
-	if( !starting_server )
-		return -1;
-	
 	Windows_SetStatusServer(starting_server);
+	Windows_RepaintCurrent();
+	SetCursorPos(giTerminal_Height-1, 1);
+	printf("[(status)] ");
 	
 	MainLoop();
 
@@ -83,9 +86,13 @@ int main(int argc, const char *argv[], const char *envp[])
 
 int MainLoop(void)
 {
-	SetCursorPos(giTerminal_Height-1, 1);
+	SetCursorPos(giTerminal_Height, 1);
 	printf("[(status)] ");
 	fflush(stdout);
+	
+	// stty -echo,canon
+	struct ptymode	mode = {.InputMode = 0, .OutputMode = 0};
+	_SysIOCtl(0, PTY_IOCTL_SETMODE, &mode);
 	
 	for( ;; )
 	{
@@ -121,7 +128,7 @@ int ParseArguments(int argc, const char *argv[])
 void Redraw_Screen(void)
 {
 	printf("\x1B[2J");	// Clear screen
-	printf("\x1B[0;0H");	// Reset cursor
+	printf("\x1B[H");	// Reset cursor
 
 	Windows_RepaintCurrent();
 }
