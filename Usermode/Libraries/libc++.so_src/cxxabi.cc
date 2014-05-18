@@ -4,6 +4,10 @@
  *
  * cxxabi.cc
  * - C++ ABI Namespace
+ * 
+ * NOTE: GCC follows the Itanium™ C++ ABI on all platforms
+ * http://mentorembedded.github.io/cxx-abi/abi.html
+ * http://libcxxabi.llvm.org/spec.html
  */
 #include <cxxabi.h>
 

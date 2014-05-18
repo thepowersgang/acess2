@@ -31,7 +31,7 @@ public:
 	
 	allocator() throw() {
 	}
-	allocator(const allocator& alloc) throw() {
+	allocator(const allocator& alloc __attribute__((unused))) throw() {
 	}
 	template <class U>
 	allocator(const allocator<U>& alloc) throw() {
@@ -46,9 +46,11 @@ public:
 		return &x;
 	}
 	pointer allocate(size_type n, const void* hint=0) {
-		::operator new (n * sizeof(value_type));
+		hint = hint;
+		return static_cast<pointer>( ::operator new (n * sizeof(value_type)) );
 	}
 	void deallocate(pointer p, size_type n) {
+		n=n;
 		::operator delete(p);
 	}
 };

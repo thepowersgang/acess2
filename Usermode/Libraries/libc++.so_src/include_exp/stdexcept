@@ -16,14 +16,14 @@ class logic_error:
 	public exception
 {
 public:
-	explicit logic_error(const basic_string<char>& what_arg);
+	explicit logic_error(const string& what_arg);
 };
 
 class runtime_error:
 	public exception
 {
 public:
-	explicit runtime_error(const basic_string<char>& what_arg);
+	explicit runtime_error(const string& what_arg);
 };
 
 class out_of_range:
@@ -33,7 +33,7 @@ public:
 	explicit out_of_range(const string& what_arg);
 };
 
-}	// namespace std
+};	// namespace std
 
 #endif
 

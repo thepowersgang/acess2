@@ -61,18 +61,9 @@ struct char_traits<wchar_t>
 	}
 };
 
+extern void _throw_out_of_range(const char *message);
+
 template < class charT, class traits=char_traits<charT>, class Alloc=allocator<charT> >
-class basic_string;
-
-typedef basic_string<char>	string;
-
-};	// namespace std
-
-#include <stdexcept>
-
-namespace std {
-
-template < class charT, class traits, class Alloc >
 class basic_string
 {
 public:
@@ -83,16 +74,40 @@ public:
 	typedef typename allocator_type::const_reference	const_reference;
 	typedef size_t	size_type;
 
+private:
+	struct dynamic_info
+	{
+		allocator_type	m_allocator;
+		 int	m_ref_count = 1;
+		size_type	m_capacity = 0;
+		size_type	m_size = 0;
+		typename allocator_type::pointer m_data = 0;
+		dynamic_info(const allocator_type& alloc):
+			m_allocator(alloc)
+		{
+		}
+		dynamic_info(const dynamic_info& other):
+			m_allocator(other.m_allocator),
+			m_ref_count(1),
+			m_capacity(other.m_capacity),
+			m_size(other.m_size)
+		{
+			m_data = m_allocator.allocate(m_capacity);
+			for( size_type i = 0; i < m_size; i ++ )
+				m_data[i] = other.m_data[i];
+		}
+	};
+
+public:
 	basic_string(const allocator_type& alloc = allocator_type()):
 		m_allocator(alloc),
-		m_capacity(0),
-		m_length(0),
-		m_data(0)
+		m_content(0)
 	{
 	}
-	basic_string(const basic_string& str):
-		basic_string(str, allocator_type())
+	basic_string(const basic_string& str) throw():
+		basic_string(allocator_type())
 	{
+		*this = str;
 	}
 	basic_string(const basic_string& str, const allocator_type& alloc):
 		basic_string(str, 0, str.length(), alloc)
@@ -107,8 +122,8 @@ public:
 				len = str.length() - pos;
 			reserve(len);
 			for( size_type i = 0; i < len; i ++ )
-				m_data[i] = str.m_data[pos+i];
-			m_length = len;
+				m_content->m_data[i] = str.m_content->m_data[pos+i];
+			m_content->m_size = len;
 		}
 	}
 	basic_string(const charT *s, const allocator_type& alloc = allocator_type()):
@@ -122,8 +137,8 @@ public:
 		{
 			reserve(n);
 			for( size_type i = 0; i < n; i ++ )
-				m_data[i] = s[i];
-			m_length = n;
+				m_content->m_data[i] = s[i];
+			m_content->m_size = n;
 		}
 	}
 	basic_string(size_type n, charT c, const allocator_type& alloc = allocator_type()):
@@ -133,16 +148,29 @@ public:
 		{
 			reserve(n);
 			for( size_type i = 0; i < n; i ++ )
-				m_data[i] = c;
-			m_length = n;
+				m_content->m_data[i] = c;
+			m_content->m_size = n;
 		}
+	}
+	~basic_string()
+	{
+		release_content();
+	}
+	basic_string& operator=(const basic_string& str) throw() {
+		return assign(str);
+	}
+	basic_string& operator=(const charT* s) {
+		return assign(s);
+	}
+	basic_string& operator=(charT c) {
+		return assign(c);
 	}
 	
 	// iterators
 	
 	// capacity
 	size_type size() const {
-		return m_size;
+		return m_content ? m_content->m_size : 0;
 	}
 	size_type length() const {
 		return size();
@@ -152,29 +180,31 @@ public:
 	}
 	void resize(size_type size, charT c = 0) {
 		reserve(size);
-		if( m_size < size ) {
-			for( size_type ofs = m_size; ofs < size; ofs ++ )
-				m_data[ofs] = c;
+		if( m_content->m_size < size ) {
+			for( size_type ofs = m_content->m_size; ofs < size; ofs ++ )
+				m_content->m_data[ofs] = c;
 		}
-		m_size = size;
-		m_data[m_size] = 0;
+		m_content->m_size = size;
+		m_content->m_data[size] = 0;
 	}
 	size_type capacity() const {
-		return m_capacity;
+		return m_content ? m_content->m_capacity : 0;
 	}
 	void reserve(size_type size) {
+		own_content();
 		size = (size+1 + 31) & ~31;
-		if( size > m_capacity ) {
+		if( size > m_content->m_capacity ) {
 			auto new_area = m_allocator.allocate(size);
-			for( size_type i = 0; i < m_length; i ++ )
-				new_area[i] = m_data[i];
-			m_allocator.deallocate(m_data, m_capacity);
-			m_data = new_area;
-			m_capacity = size;
+			for( size_type i = 0; i < m_content->m_size; i ++ )
+				new_area[i] = m_content->m_data[i];
+			m_allocator.deallocate(m_content->m_data, m_content->m_capacity);
+			m_content->m_data = new_area;
+			m_content->m_capacity = size;
 		}
 	}
 	void clear() {
-		m_size = 0;
+		own_content();
+		m_content->m_size = 0;
 	}
 	bool empty() const {
 		return length() == 0;
@@ -182,37 +212,100 @@ public:
 	
 	// Access
 	reference operator[] (size_type pos) {
-		return m_data[pos];
+		own_content();
+		return m_content->m_data[pos];
 	}
 	const_reference operator[] (size_type pos) const {
-		return m_data[pos];
+		return (m_content ? m_content->m_data[pos] : *(const charT*)0);
 	}
 	reference at(size_type pos) {
-		if(pos >= m_size)	throw ::std::out_of_range("basic_string - at");
-		return m_data[pos];
+		own_content();
+		if(pos >= m_content->m_size)
+			_throw_out_of_range("basic_string - at");
+		return m_content->m_data[pos];
 	}
 	const_reference at(size_type pos) const {
-		if(pos >= m_size)	throw ::std::out_of_range("basic_string - at");
-		return m_data[pos];
+		if(!m_content || pos >= m_content.m_size)
+			_throw_out_of_range("basic_string - at");
+		return m_content->m_data[pos];
 	}
 	
 	// Modifiers
-	basic_string& operator +=(const basic_string& str);
-	basic_string& operator +=(const charT* s);
-	basic_string& operator +=(charT c);
+	basic_string& operator +=(const basic_string& str) {
+		return append(str);
+	}
+	basic_string& operator +=(const charT* s) {
+		return append(s);
+	}
+	basic_string& operator +=(charT c) {
+		push_back(c);
+		return *this;
+	}
+	basic_string& append(const basic_string& str) {
+		return append(str, 0, npos);
+	}
+	basic_string& append(const basic_string& str, size_type subpos, size_type sublen);
+	basic_string& append(const charT* s) {
+		return append(s, traits::length(s));
+	}
+	basic_string& append(const charT* s, size_type n);
+	basic_string& append(size_type n, charT c);
+	void push_back(charT c);
+	basic_string& assign(const basic_string& str) throw() {
+		// Special case, triggers copy-on-write.
+		release_content();
+		m_content = str.m_content;
+		m_content->m_ref_count ++;
+		return *this;
+	}
+	basic_string& assign(const basic_string& str, size_type subpos, size_type sublen);
+	
+	// String operations
+	const char *c_str() const {
+		// TODO: this is const, but also might need to do processing
+		return (m_content ? m_content->m_data : "");
+	}
+	const char *data() const {
+		return (m_content ? m_content->m_data : NULL);
+	}
 	
 	static const size_type npos = -1;
 private:
 	allocator_type	m_allocator;
-	size_type	m_capacity;
-	size_type	m_size;
-	size_type	m_length;
-	typename allocator_type::pointer m_data;
+	dynamic_info	*m_content;
+
+	void own_content() {
+		if(!m_content)
+		{
+			m_content = new dynamic_info(m_allocator);
+		}
+		else if( m_content->m_ref_count > 1 )
+		{
+			dynamic_info *new_cont = new dynamic_info(*m_content);
+			m_content->m_ref_count --;
+			m_content = new_cont;
+		}
+		else
+		{
+			// already owned
+		}
+	}
+	void release_content() {
+		if( m_content )
+		{
+			m_content->m_ref_count --;
+			if( m_content->m_ref_count == 0 ) {
+				m_allocator.deallocate(m_content->m_data, m_content->m_capacity);
+				delete m_content;
+			}
+			m_content = NULL;
+		}
+	}
 };
 
-};
+typedef basic_string<char>	string;
 
-#include <stdexcept>
+};
 
 #endif
 
