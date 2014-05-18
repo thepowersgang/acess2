@@ -17,6 +17,8 @@
 # include <assert.h>
 # include <stdlib.h>	// malloc/free
 
+# define ASSERTC(a, r, b)	assert(a r b)
+
 static inline int MIN(int a, int b)
 {
 	return a < b ? a : b;
@@ -170,7 +172,7 @@ int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
 			if( ret <= old_inc_len ) {
 				_SysDebug("Term_HandleVT100: ret(%i) <= old_inc_len(%i), inc_len=%i, '%*C'",
 					ret, old_inc_len, st->cache_len, st->cache_len, st->cache);
-				assert(ret > old_inc_len);
+				ASSERTC(ret, >, old_inc_len);
 			}
 			st->cache_len = 0;
 			//_SysDebug("%i bytes of escape code '%.*s' (return %i)",
@@ -446,9 +448,13 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 			Display_MoveCursor(Term, 0, -(args[0] != 0 ? args[0] : 1));
 			break;
 		case 'H':
-			if( argc != 2 ) {
+			if( argc == 0 ) {
+				Display_SetCursor(Term, 0, 0);
 			}
-			else {
+			else if( argc == 1 ) {
+				Display_SetCursor(Term, args[0]-1, 0);
+			}
+			else if( argc == 2 ) {
 				// Adjust 1-based cursor position to 0-based
 				Display_SetCursor(Term, args[0]-1, args[1]-1);
 			}
@@ -631,7 +637,7 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 			break;
 		// Set scrolling region
 		case 'r':
-			Display_SetScrollArea(Term, args[0], (args[1] - args[0]));
+			Display_SetScrollArea(Term, args[0]-1, (args[1] - args[0])+1);
 			break;
 		
 		case 's':
