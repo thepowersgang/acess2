@@ -861,15 +861,16 @@ void *MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 	void	*ret;
 	
 	// Sanity Check
-	if(MaxBits < 12 || !PhysAddr)	return 0;
+	ASSERTCR(MaxBits, >=, 12, NULL);
 	
 	// Fast Allocate
 	if(Pages == 1 && MaxBits >= PHYS_BITS)
 	{
 		phys = MM_AllocPhys();
-		*PhysAddr = phys;
 		ret = MM_MapHWPages(phys, 1);
 		MM_DerefPhys(phys);
+		if(PhysAddr)
+			*PhysAddr = phys;
 		return ret;
 	}
 	
@@ -880,7 +881,8 @@ void *MM_AllocDMA(int Pages, int MaxBits, tPAddr *PhysAddr)
 	
 	// Allocated successfully, now map
 	ret = MM_MapHWPages(phys, Pages);
-	*PhysAddr = phys;
+	if(PhysAddr)
+		*PhysAddr = phys;
 	// MapHWPages references the pages, so deref them back down to 1
 	for(;Pages--;phys+=0x1000)
 		MM_DerefPhys(phys);
@@ -897,9 +899,8 @@ void *MM_MapTemp(tPAddr PAddr)
 {
 	const int max_slots = (MM_TMPMAP_END - MM_TMPMAP_BASE) / PAGE_SIZE;
 	tVAddr	ret = MM_TMPMAP_BASE;
-	 int	i;
 	
-	for( i = 0; i < max_slots; i ++, ret += PAGE_SIZE )
+	for( int i = 0; i < max_slots; i ++, ret += PAGE_SIZE )
 	{
 		tPAddr	*ent;
 		if( MM_GetPageEntryPtr( ret, 0, 1, 0, &ent) < 0 ) {

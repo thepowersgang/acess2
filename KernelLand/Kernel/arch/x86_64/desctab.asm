@@ -404,7 +404,7 @@ SyscallStub:
 	mov [rsp+0x10], rdi	; Arg1
 	mov [rsp+0x18], rsi	; Arg2
 	mov [rsp+0x20], rdx	; Arg3
-	mov [rsp+0x28], r10	; Arg4
+	mov [rsp+0x28], r10	; Arg4 (r10 used in place of rcx)
 	mov [rsp+0x30], r8	; Arg5
 	mov [rsp+0x38], r9	; Arg6
 
