@@ -56,8 +56,7 @@ $(_OBJPREFIX)%.o: %.c
 ifneq ($(_OBJPREFIX),)
 	@mkdir -p $(dir $@)
 endif
-	$V$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
-	$V$(CC) -M -MP -MT $@ $(CPPFLAGS) $< -o $(_OBJPREFIX)$*.dep
+	$V$(CC)  $(CFLAGS)   $(CPPFLAGS) -c $< -o $@ -MQ $@ -MP -MD -MF $(_OBJPREFIX)$*.dep
 
 $(_OBJPREFIX)%.o: %.cpp
 	@echo [CXX] -o $@
