@@ -7,8 +7,8 @@
  */
 #define DEBUG	0
 #include <acess.h>
-#include <threads_int.h>
 #include <events.h>
+#include <threads_int.h>
 
 // === CODE ===
 void Threads_PostEvent(tThread *Thread, Uint32 EventMask)

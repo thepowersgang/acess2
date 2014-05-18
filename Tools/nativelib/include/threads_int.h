@@ -103,12 +103,12 @@ extern int	Threads_int_CreateThread(struct sThread *Thread);
 extern int	Threads_int_ThreadingEnabled(void);
 
 
-extern tThread	*Proc_GetCurThread(void);
-extern tThread	*Threads_RemActive(void);
-extern void	Threads_AddActive(tThread *Thread);
+extern struct sThread	*Proc_GetCurThread(void);
+extern struct sThread	*Threads_RemActive(void);
+extern void	Threads_AddActive(struct sThread *Thread);
 extern void	Threads_int_WaitForStatusEnd(enum eThreadStatus Status);
-extern int	Threads_int_Sleep(enum eThreadStatus Status, void *Ptr, int Num, tThread **ListHead, tThread **ListTail, tShortSpinlock *Lock);
-extern void	Semaphore_ForceWake(tThread *Thread);
+extern int	Threads_int_Sleep(enum eThreadStatus Status, void *Ptr, int Num, struct sThread **ListHead, struct sThread **ListTail, tShortSpinlock *Lock);
+extern void	Semaphore_ForceWake(struct sThread *Thread);
 
 extern tThreadIntMutex	*Threads_int_MutexCreate(void);
 extern void	Threads_int_MutexDestroy(tThreadIntMutex *Mutex);

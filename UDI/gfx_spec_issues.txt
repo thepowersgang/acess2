@@ -1,0 +1,31 @@
+
+
+- Indexed engine operator list (would be better as second set of calls)
+ > Arguments can be passed using custom attributes
+- GL-centric operations (would be better with read_buffer/write_buffer calls)
+- No status returned from operations most
+- Input data format specifcation
+ > Engine operator list specifies it, but in an abstract way (which would require quite smart code to determine)
+ > Doable though, but having a RO property on the engine that notes if it uses a standard pixel format would be nice
+
+
+Engine inspection API:
+> Readonly? Property for number of operations
+ - Readonly because modifcation of the count is not possible
+ - Attributes can be read, so that's your config mechanisim
+> udi_gfx_engine_getop_req(udi_gfx_state_cb_t *cb);
+> udi_gfx_engine_getop_ack(udi_gfx_state_cb_t *cb, udi_ubit8_t operation, udi_ubit32_t arg1, udi_ubit32_t arg2, udi_ubit32_t arg3);
+
+
+Buffer manipulation API:
+
+  struct {
+      udi_cb_t	gcb;
+      udi_index_t buffer_idx;
+      udi_ubit32_t offset;
+      udi_buffer_t *data;
+  } udi_gfx_buffer_cb_t;
+
+> udi_gfx_buffer_write_req(udi_gfx_buffer_cb_t *cb);
+> udi_gfx_buffer_write_ack(udi_gfx_buffer_cb_t *cb, udi_status_t status);
+> (OPTIONAL) udi_gfx_buffer_read_req(udi_gfx_buffer_cb_t *cb);

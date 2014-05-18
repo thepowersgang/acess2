@@ -6,7 +6,7 @@
 
 BIN = $(OUTPUTDIR)Libs/crt0.o $(OUTPUTDIR)Libs/crtbegin.o $(OUTPUTDIR)Libs/crtend.o
 
-.PHONY: all clean install utest generate_exp
+.PHONY: all clean install utest utest-build generate_exp
 
 all: $(BIN)
 
@@ -16,7 +16,7 @@ clean:
 	$(RM) $(BIN)
 
 # Disabled unit tests
-utest generate_exp:
+utest generate_exp utest-build utest-run:
 	@echo > /dev/null
 
 $(OUTPUTDIR)Libs/%.o: %.c

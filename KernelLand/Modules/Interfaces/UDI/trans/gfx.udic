@@ -1,0 +1,71 @@
+/*
+ * Acess2 UDI Layer
+ * - By John Hodge (thePowersGang)
+ *
+ * trans/gfx.c
+ * - Graphics interface
+ */
+#define DEBUG	1
+#define UDI_VERSION 0x101
+#define UDI_GFX_VERSION 0x101
+#include <udi.h>
+#include <udi_gfx.h>
+#include <acess.h>
+#include <api_drv_video.h>
+
+// === TYPES ===
+typedef struct rdata_s
+{
+	
+} rdata_t;
+
+// === CODE ===
+void usage_ind(udi_usage_cb_t *cb, udi_ubit8_t resource_level)
+{
+	// Set up structures that don't need interegating the card to do
+	
+}
+
+@GFX_CLIENT channel_event_ind(udi_channel_event_cb_t *cb)
+{
+	udi_gfx_bind_cb_t	*bind_cb = cb->params.parent_bound.bind_cb;
+	switch(cb->event)
+	{
+	case UDI_CHANNEL_CLOSED:
+		return;
+	case UDI_CHANNEL_BOUND:
+		[sockets, engines, status] = udi_gfx_bind_req(bind_cb);
+		if( status != UDI_OK ) {
+			return;
+		}
+		// allocate a CB
+		[new_cb] = udi_cb_alloc(bind_cb, ACESSGFX_CB_STATE);
+		udi_gfx_state_cb_t *state_cb = new_cb;
+		for( int i = 0; i < engines; i ++ )
+		{
+			state_cb->subsystem = i;
+			state_cb->attribute = UDI_GFX_PROP_PIXELFORMAT;
+			[pixfmt] = udi_gfx_get_engine_req(state_cb);
+			
+			// TODO: Annotate udi_gfx_state_cb_t to note values are kept?
+			state_cb->subsystem = i;
+			state_cb->attribute = UDI_GFX_PROP_OPERATOR_INDEX;
+			[count] = udi_gfx_get_engine_req(state_cb);
+			for( int j = 0; j < count; j ++ )
+			{
+				state_cb->attribute = j;
+				[operator, arg_1, arg_2, arg_3] = udi_gfx_engine_getop_req(state_cb);
+				Log_Debug("UDIGFX", "%i/%i: %i 0x%x 0x%x 0x%x",
+					i, j,
+					operator, arg_1, arg_2, arg_3);
+			}
+		}
+		return;
+	default:
+		// TODO: emit an error of some form?
+		return;
+	}
+}
+
+// === UDI Bindings ===
+

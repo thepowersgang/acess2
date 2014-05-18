@@ -56,9 +56,11 @@ _errno:	dw	0	; Placed in .text, to allow use of relative addressing
 [global %1:func]
 %1:
 	push rbx
+	push rbp
 	mov eax, %2
 	SYSCALL_OP
 	mov [DWORD rel _errno], ebx
+	pop rbp
 	pop rbx
 	ret
 %endmacro

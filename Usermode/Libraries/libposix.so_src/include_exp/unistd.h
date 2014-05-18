@@ -71,6 +71,10 @@ extern int	chmod(const char *path, mode_t mode);
 
 extern int	unlink(const char *pathname);
 
+#define F_OK	00
+#define R_OK	04
+#define W_OK	02
+#define X_OK	01
 extern int	access(const char *pathname, int mode);
 
 extern pid_t	setsid(void);
@@ -93,6 +97,7 @@ extern unsigned int	alarm(unsigned int seconds);
 extern char	*crypt(const char *key, const char *salt);
 
 // - pty.c
+extern int	isatty(int fd);
 extern char	*ttyname(int fd);
 extern int	ttyname_r(int fd, char *buf, size_t buflen);
 

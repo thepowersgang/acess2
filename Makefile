@@ -66,15 +66,27 @@ all-install:	install-Filesystem SyscallList ai-user ai-kmode
 clean:	clean-kmode clean-user
 install:	install-Filesystem SyscallList install-user install-kmode
 
-utest: $(USRLIBS:%=utest-%)
+utest-build: $(USRLIBS:%=utest-build-%)
+utest-run: $(USRLIBS:%=utest-run-%)
+utest: utest-build utest-run
 
-$(USRLIBS:%=utest-%): utest-%:
+utest-build-%:
 	@CC=$(NCC) $(SUBMAKE) -C Usermode/Libraries/$*_src generate_exp
-	@CC=$(NCC) $(SUBMAKE) -C Usermode/Libraries/$*_src utest -k
+	@CC=$(NCC) $(SUBMAKE) -C Usermode/Libraries/$*_src utest-build
+utest-run-%:
+	@CC=$(NCC) $(SUBMAKE) -C Usermode/Libraries/$*_src utest-run -k
 
 # TODO: Module tests using DiskTool and NetTest
-mtest:
+mtest: mtest-build mtest-run
 	@echo > /dev/null
+mtest-build:
+	# Network
+	@CC=$(NCC) $(SUBMAKE) -C Tools/nativelib
+	@CC=$(NCC) $(SUBMAKE) -C Tools/NetTest
+	@CC=$(NCC) $(SUBMAKE) -C Tools/NetTest_Runner
+mtest-run:
+	@echo "=== Network Module Test ==="
+	@cd Tools && ./nettest_runner
 
 SyscallList: include/syscalls.h
 include/syscalls.h: KernelLand/Kernel/Makefile KernelLand/Kernel/syscalls.lst

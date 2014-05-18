@@ -27,16 +27,19 @@ int main(int argc, char *argv[])
 		Test_ARP_Basic,
 		Test_TCP_Basic,
 		Test_TCP_WindowSizes,
+		Test_TCP_Reset,
 		NULL
 		};
 
+	// Truncate the two output files
 	// TODO: Move to stack.c
-	FILE	*fp;
-	fp = fopen("stdout.txt", "w");	fclose(fp);
-	fp = fopen("stderr.txt", "w");	fclose(fp);
+	fclose( fopen("stdout.txt", "w") );
+	fclose( fopen("stderr.txt", "w") );
 	
 	Net_Open(0, "/tmp/acess2net");
 
+	 int	n_pass = 0;
+	 int	n_fail = 0;
 	for(int i = 0; tests[i]; i ++ )
 	{
 		Stack_AddDevice("/tmp/acess2net", (char[]){TEST_MAC});
@@ -48,18 +51,22 @@ int main(int argc, char *argv[])
 		if( Net_Receive(0, 1, &argc, 1000) == 0 )
 			goto teardown;
 		
-		if( tests[i]() )
-			printf("%s: PASS\n", gsTestName);
+		bool	result = tests[i]();
+		
+		printf("%s: %s\n", gsTestName, (result ? "PASS" : "FAIL"));
+		if(result)
+			n_pass ++;
 		else
-			printf("%s: FAIL\n", gsTestName);
+			n_fail ++;
 	
 	teardown:
 		Stack_Kill();
 	}
 	Net_Close(0);
 	unlink("/tmp/acess2net");
+	printf("--- All tests done %i pass, %i fail\n", n_pass, n_fail);
 
-	return 0;
+	return n_fail;
 }
 
 void PrintUsage(const char *ProgName)

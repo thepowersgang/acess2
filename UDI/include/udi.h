@@ -4,6 +4,16 @@
 #ifndef _UDI_H_
 #define _UDI_H_
 
+#ifndef UDI_VERSION
+# error "Please define UDI_VERSION before including"
+#endif
+#if UDI_VERSION < 0x100
+# error "Requesting an unsupported UDI version (pre 1.0)"
+#endif
+#if UDI_VERSION > 0x101
+# error "Requesting an unsupported UDI version (post 1.01)"
+#endif
+
 #include <stdint.h>
 #include <stdarg.h>
 

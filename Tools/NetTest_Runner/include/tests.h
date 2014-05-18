@@ -10,6 +10,7 @@
 
 extern bool	Test_ARP_Basic(void);
 extern bool	Test_TCP_Basic(void);
+extern bool	Test_TCP_Reset(void);
 extern bool	Test_TCP_WindowSizes(void);
 
 #endif

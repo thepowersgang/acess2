@@ -21,13 +21,16 @@ EXPORT char *strerror(int errnum)
 	switch((enum libc_eErrorNumbers)errnum)
 	{
 	case EOK:	return "Success";
+	case ERANGE:	return "Value out of range";
+	case EDOM:	return "Value out of domain";
+	case EILSEQ:	return "Illegal character sequence";
+
 	case ENOSYS:	return "Invalid instruction/syscall";
 	case EINVAL:	return "Bad argument(s)";
 	case EBADF:	return "Invalid file";
 	case ENOMEM:	return "No free memory";
 	case EACCES:	return "Not permitted";
 	case EBUSY:	return "Resource is busy";
-	case ERANGE:	return "Value out of range";
 	case ENOTFOUND:	return "Item not found";
 	case EROFS:	return "Read only filesystem";
 	case ENOTIMPL:	return "Not implimented";
@@ -46,8 +49,14 @@ EXPORT char *strerror(int errnum)
 	case ENOTTY:	return "Not a TTY";
 	case EAGAIN:	return "Try again";
 	case EFBIG:	return "File too big";
+	case E2BIG:	return "Value too big";
 	case EALREADY:	return "Operation was no-op";
+	case ENOSPC:	return "No space left on the device";
+
 	case EAFNOSUPPORT:	return "Address family not supported";
+	case EADDRINUSE:	return "Address already in use";
+	case ETIMEDOUT:	return "Operation timed out";
+
 	case EINTERNAL:	return "Internal error";
 	}
 	_SysDebug("strerror: errnum=%i unk", errnum);

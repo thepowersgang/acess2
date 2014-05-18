@@ -186,6 +186,10 @@ int Term_HandleVT100(tTerminal *Term, int Len, const char *Buf)
 
 	switch( *Buf )
 	{
+	case '\a':
+		// Alarm, aka bell
+		//Display_SoundBell(Term);
+		break;
 	case '\b':
 		// backspace is aprarently just supposed to cursor left (if possible)
 		Display_MoveCursor(Term, 0, -1);
@@ -529,6 +533,40 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 				// Reset
 				Display_ResetAttributes(Term);
 			}
+			else if( args[0] == 48 )
+			{
+				// ISO-8613-3 Background
+				if( args[1] == 2 ) {
+					uint32_t	col = 0;
+					col |= (uint32_t)args[2] << 16;
+					col |= (uint32_t)args[3] << 8;
+					col |= (uint32_t)args[4] << 0;
+					Display_SetBackground(Term, col);
+				}
+				else if( args[1] == 5 ) {
+					_SysDebug("TODO: Support xterm palette BG %i", args[2]);
+				}
+				else {
+					_SysDebug("VT100 Unknown mode set \e[48;%im", args[1]);
+				}
+			}
+			else if( args[0] == 38 )
+			{
+				// ISO-8613-3 Foreground
+				if( args[1] == 2 ) {
+					uint32_t	col = 0;
+					col |= (uint32_t)args[2] << 16;
+					col |= (uint32_t)args[3] << 8;
+					col |= (uint32_t)args[4] << 0;
+					Display_SetForeground(Term, col);
+				}
+				else if( args[1] == 5 ) {
+					_SysDebug("TODO: Support xterm palette FG %i", args[2]);
+				}
+				else {
+					_SysDebug("VT100 Unknown mode set \e[38;%im", args[1]);
+				}
+			}
 			else
 			{
 				for( int i = 0; i < argc; i ++ )
@@ -549,6 +587,9 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 					case 4:
 						_SysDebug("TODO: \\e[4m - Underscore");
 						break;
+					//case 5:
+					//	_SysDebug("TODO: \\e[5m - Blink/bold");
+					//	break;
 					case 7:
 						_SysDebug("TODO: \\e[7m - Reverse");
 						break;
@@ -570,6 +611,14 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 						st->CurBG = 0;
 						Display_SetBackground( Term, caVT100Colours[ st->CurBG ] );
 						break;
+					case 90 ... 97:
+						st->CurFG = args[i]-90 + 8;
+						Display_SetForeground( Term, caVT100Colours[ st->CurBG ] );
+						break;;
+					case 100 ... 107:
+						st->CurBG = args[i]-100 + 8;
+						Display_SetBackground( Term, caVT100Colours[ st->CurBG ] );
+						break;;
 					default:
 						_SysDebug("Unknown mode set \\e[%im", args[i]);
 						break;

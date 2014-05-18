@@ -94,7 +94,7 @@ extern FILE	*open_memstream(char **bufferptr, size_t *lengthptr);
 extern FILE	*fdopen(int fd, const char *modes);
 extern FILE	*tmpfile(void);
 extern int	fclose(FILE *fp);
-extern void	fflush(FILE *fp);
+extern int	fflush(FILE *fp);
 extern off_t	ftell(FILE *fp);
 extern off_t	ftello(FILE *fp);
 extern int	fseek(FILE *fp, long int amt, int whence);

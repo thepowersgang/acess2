@@ -301,8 +301,6 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 	const tPAddr	MASK = ~CHANGEABLE_BITS;	// Physical address and access bits
 	tVAddr	rangeStart = 0;
 	tPAddr	expected = CHANGEABLE_BITS;	// CHANGEABLE_BITS is used because it's not a vaild value
-	tVAddr	curPos;
-	Uint	page;
 	tPAddr	expected_pml4 = PF_WRITE|PF_USER;	
 	tPAddr	expected_pdp = PF_WRITE|PF_USER;	
 	tPAddr	expected_pd = PF_WRITE|PF_USER;	
@@ -311,11 +309,12 @@ void MM_DumpTables(tVAddr Start, tVAddr End)
 	
 	End &= (1L << 48) - 1;
 	
-	Start >>= 12;	End >>= 12;
+	Start >>= 12;
+	End >>= 12;
 	
-	for(page = Start, curPos = Start<<12;
-		page < End;
-		curPos += 0x1000, page++)
+	// `page` will not overflow, End is 48-12 bits
+	tVAddr	curPos = Start << 12;
+	for(Uint page = Start; page <= End; curPos += 0x1000, page++)
 	{
 		//Debug("&PAGEMAPLVL4(%i page>>27) = %p", page>>27, &PAGEMAPLVL4(page>>27));
 		//Debug("&PAGEDIRPTR(%i page>>18) = %p", page>>18, &PAGEDIRPTR(page>>18));
@@ -486,7 +485,7 @@ int MM_MapEx(volatile void *VAddr, tPAddr PAddr, BOOL bTemp, BOOL bLarge)
 	
 	*ent = PAddr | 3;
 
-	if( (tVAddr)VAddr < USER_MAX )
+	if( (tVAddr)VAddr <= USER_MAX )
 		*ent |= PF_USER;
 	INVLPG( VAddr );
 

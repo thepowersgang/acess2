@@ -13,6 +13,13 @@
 #include "tcp.h"
 #include <string.h>
 
+#define RX_HEADER \
+	size_t	rxlen, ofs, len; \
+	char rxbuf[MTU]
+#define TEST_HEADER \
+	TEST_SETNAME(__func__);\
+	RX_HEADER
+
 #define TEST_ASSERT_rx()	TEST_ASSERT( rxlen = Net_Receive(0, sizeof(rxbuf), rxbuf, ERX_TIMEOUT) )
 #define TEST_ASSERT_no_rx()	TEST_ASSERT( Net_Receive(0, sizeof(rxbuf), rxbuf, NRX_TIMEOUT) == 0 )
 const int	ERX_TIMEOUT = 1000;	// Expect RX timeout (timeout=failure)
@@ -24,9 +31,7 @@ const size_t	DACK_BYTES = 4096;	// OS PARAM - Threshold for delayed ACKs
 
 bool Test_TCP_Basic(void)
 {
-	TEST_SETNAME(__func__);
-	size_t	rxlen, ofs, len;
-	char rxbuf[MTU];
+	TEST_HEADER;
 
 	tTCPConn	testconn = {
 		.IFNum = 0, .AF = 4,
@@ -206,20 +211,100 @@ bool Test_TCP_Basic(void)
 	return true;
 }
 
+bool Test_TCP_int_OpenConnection(tTCPConn *Conn)
+{
+	RX_HEADER;
+	// >> SYN
+	TCP_SendC(Conn, TCP_SYN, 0, NULL);
+	Conn->LSeq ++;
+	TEST_ASSERT_rx();
+	// << SYN|ACK (save remote sequence number)
+	TCP_SkipCheck_Seq(true);
+	TEST_ASSERT( TCP_Pkt_CheckC(rxlen, rxbuf, &ofs, &len, Conn, TCP_SYN|TCP_ACK) );
+	TEST_ASSERT_REL(len, ==, 0);
+	Conn->RSeq = TCP_Pkt_GetSeq(rxlen, rxbuf, Conn->AF) + 1;
+	// >> ACK
+	TCP_SendC(Conn, TCP_ACK, 0, NULL);
+	TEST_ASSERT_no_rx();
+	return true;
+}
+
+#if 0
 bool Test_TCP_SYN_RECEIVED(void)
 {
-	TEST_SETNAME(__func__);
+	TEST_HEADER;
+	
 	// 1. Get into SYN-RECEIVED
+	TCP_SendC(&testconn, TCP_SYN, 0, NULL);
 	
 	// 2. Send various non-ACK packets
 	return false;
 }
+#endif
+
+bool Test_TCP_Reset(void)
+{
+	TEST_HEADER;
+	
+	tTCPConn	testconn = {
+		.IFNum = 0,
+		.AF = 4,
+		.LAddr = BLOB(HOST_IP),
+		.RAddr = BLOB(TEST_IP),
+		.LPort = 44359,
+		.RPort = 9,
+		.LSeq = 0x600,
+		.RSeq = 0x600,
+		.Window = 128
+	};
+
+	Stack_SendCommand("tcp_echo_server %i", testconn.RPort);
+
+	// 1. Response in listen-based SYN-RECEIVED
+	// >> SYN
+	TCP_SendC(&testconn, TCP_SYN, 0, NULL);
+	testconn.LSeq ++;
+	// << SYN|ACK :: Now in SYN-RECEIVED
+	TEST_ASSERT_rx();
+	TCP_SkipCheck_Seq(true);
+	TEST_ASSERT( TCP_Pkt_CheckC(rxlen, rxbuf, &ofs, &len, &testconn, TCP_SYN|TCP_ACK) );
+	TEST_ASSERT_REL(len, ==, 0);
+	testconn.RSeq = TCP_Pkt_GetSeq(rxlen, rxbuf, testconn.AF) + 1;
+	// >> RST (not ACK)
+	TCP_SendC(&testconn, TCP_RST, 0, NULL);
+	// << nothing (connection should now be dead)
+	TEST_ASSERT_no_rx();
+	// >> ACK (this should be to a closed conneciton, see LISTEN[ACK] above)
+	TCP_SendC(&testconn, TCP_ACK, 0, NULL);
+	// << RST
+	TEST_ASSERT_rx();
+	TEST_ASSERT( TCP_Pkt_CheckC(rxlen, rxbuf, &ofs, &len, &testconn, TCP_RST) );
+	TEST_ASSERT_REL(len, ==, 0);
+	
+	// 2. Response in open-based SYN-RECEIVED? (What is that?)
+	TEST_WARN("TODO: RFC793 pg70 mentions OPEN-based SYN-RECEIVED");
+	
+	testconn.LPort += 1234;
+	// ESTABLISHED[RST] - RFC793:Pg70
+	// 2. Response in ESTABLISHED 
+	TEST_ASSERT( Test_TCP_int_OpenConnection(&testconn) );
+	// >> RST
+	TCP_SendC(&testconn, TCP_RST, 0, NULL);
+	// << no response, connection closed
+	TEST_ASSERT_no_rx();
+	// >> ACK (LISTEN[ACK])
+	TCP_SendC(&testconn, TCP_ACK, 0, NULL);
+	// << RST
+	TEST_ASSERT_rx();
+	TEST_ASSERT( TCP_Pkt_CheckC(rxlen, rxbuf, &ofs, &len, &testconn, TCP_RST) );
+	TEST_ASSERT_REL(len, ==, 0);
+	
+	return true;
+}
 
 bool Test_TCP_WindowSizes(void)
 {
-	TEST_SETNAME(__func__);
-	size_t	rxlen, ofs, len;
-	char rxbuf[MTU];
+	TEST_HEADER;
 	tTCPConn	testconn = {
 		.IFNum = 0,
 		.AF = 4,
@@ -236,15 +321,7 @@ bool Test_TCP_WindowSizes(void)
 	
 	Stack_SendCommand("tcp_echo_server %i", testconn.RPort);
 	// > Open Connection
-	TCP_SendC(&testconn, TCP_SYN, 0, NULL);
-	testconn.LSeq ++;
-	TEST_ASSERT_rx();
-	TCP_SkipCheck_Seq(true);
-	TEST_ASSERT( TCP_Pkt_CheckC(rxlen, rxbuf, &ofs, &len, &testconn, TCP_SYN|TCP_ACK) );
-	TEST_ASSERT_REL(len, ==, 0);
-	testconn.RSeq = TCP_Pkt_GetSeq(rxlen, rxbuf, testconn.AF) + 1;
-	TCP_SendC(&testconn, TCP_ACK, 0, NULL);
-	TEST_ASSERT_no_rx();
+	TEST_ASSERT( Test_TCP_int_OpenConnection(&testconn) );
 	
 	// 1. Test remote respecting our transmission window (>=1 byte)
 	// > Send more data than our RX window

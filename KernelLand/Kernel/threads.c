@@ -1314,22 +1314,16 @@ void Threads_int_DumpThread(tThread *thread)
  */
 void Threads_DumpActive(void)
 {
-	tThread	*thread;
-	tThreadList	*list;
-	#if SCHEDULER_TYPE == SCHED_RR_PRI
-	 int	i;
-	#endif
-	
 	Log("Active Threads: (%i reported)", giNumActiveThreads);
 	
 	#if SCHEDULER_TYPE == SCHED_RR_PRI
-	for( i = 0; i < MIN_PRIORITY+1; i++ )
+	for( int i = 0; i < MIN_PRIORITY+1; i++ )
 	{
-		list = &gaActiveThreads[i];
+		tThreadList *list = &gaActiveThreads[i];
 	#else
-		list = &gActiveThreads;
+		tThreadList *list = &gActiveThreads;
 	#endif
-		for(thread=list->Head;thread;thread=thread->Next)
+		for(tThread *thread = list->Head; thread; thread = thread->Next)
 		{
 			Threads_int_DumpThread(thread);
 			if(thread->Status != THREAD_STAT_ACTIVE)

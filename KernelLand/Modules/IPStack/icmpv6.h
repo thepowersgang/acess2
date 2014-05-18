@@ -26,32 +26,32 @@ typedef struct {
 	Uint16	RouterLifetime;	// Seconds, life time as a default router (wtf does that mean?)
 	Uint32	ReachableTime;
 	Uint32	RetransTimer;	// Miliseconds, time between transmissions of RAs from this router
-	Uint8	Options[];
+	Uint8	Options[0];
 } PACKED tICMPv6_RA;
 
 typedef struct {
 	Uint32	Reserved;
 	tIPv6	TargetAddress;
-	Uint8	Options[];
+	Uint8	Options[0];
 } PACKED tICMPv6_NS;
 
 typedef struct {
 	Uint32	Flags;
 	tIPv6	TargetAddress;
-	Uint8	Options[];
+	Uint8	Options[0];
 } PACKED tICMPv6_NA;
 
 typedef struct {
 	Uint32	Reserved;
 	tIPv6	TargetAddress;
 	tIPv6	DestinationAddress;
-	Uint8	Options[];
+	Uint8	Options[0];
 } PACKED tICMPv6_Redirect;
 
 typedef struct {
 	Uint8	Type;	// 1,2
 	Uint8	Length;	// Length of field in units of 8 bytes (incl header), typically 1
-	Uint8	Address[];
+	Uint8	Address[0];
 } PACKED tICMPv6_Opt_LinkAddr;
 
 typedef struct {
@@ -62,7 +62,7 @@ typedef struct {
 	Uint32	ValidLifetime;
 	Uint32	PreferredLifetime;
 	Uint32	_reserved2;
-	tIPv6	Prefix[];
+	tIPv6	Prefix[0];
 } PACKED tICMPv6_Opt_Prefix;
 
 typedef struct {
@@ -70,7 +70,7 @@ typedef struct {
 	Uint8	Length;
 	Uint16	_rsvd1;
 	Uint32	_rsvd2;
-	Uint8	Data[];	// All or part of the redirected message (not exceeding MTU)
+	Uint8	Data[0];	// All or part of the redirected message (not exceeding MTU)
 } PACKED tICMPv6_Opt_Redirect;
 
 typedef struct {

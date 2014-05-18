@@ -12,7 +12,7 @@
 
 unsigned long long strtoull(const char *str, char **end, int base)
 {
-	long long	ret = 0;
+	unsigned long long	ret = 0;
 	
 	if( !str || base < 0 || base > 36 || base == 1 ) {
 		if(end)
@@ -27,7 +27,7 @@ unsigned long long strtoull(const char *str, char **end, int base)
 	
 	// Handle base detection for hex
 	if( base == 0 || base == 16 ) {
-		if( *str == '0' && str[1] == 'x' ) {
+		if( *str == '0' && (str[1] == 'x' || str[1] == 'X') && isxdigit(str[2]) ) {
 			str += 2;
 			base = 16;
 		}
@@ -43,6 +43,10 @@ unsigned long long strtoull(const char *str, char **end, int base)
 	if( base == 0 )
 		base = 10;
 
+	// Value before getting within 1 digit of ULLONG_MAX
+	// - Used to avoid overflow in more accurate check
+	unsigned long long	max_before_ullong_max = ULLONG_MAX / base;
+	unsigned int	space_above = ULLONG_MAX - max_before_ullong_max * base;
 	while( *str )
 	{
 		 int	next = -1;
@@ -58,8 +62,31 @@ unsigned long long strtoull(const char *str, char **end, int base)
 			if( 'a' <= *str && *str <= 'a'+base-10-1 )
 				next = *str - 'a' + 10;
 		}
+		//_SysDebug("strtoull - ret=0x%llx,next=%i,str='%s'", ret, next, str);
 		if( next < 0 )
 			break;
+		
+		// If we're already out of range, keep eating
+		if( ret == ULLONG_MAX ) {
+			errno = ERANGE;
+			str ++;
+			// Keep eating until first unrecognised character
+			continue;
+		}
+	
+		// Rough then accurate check against max value
+		if( ret >= max_before_ullong_max )
+		{
+			//_SysDebug("strtoull - 0x%llx>0x%llx", ret, max_before_ullong_max);
+			if( (ret - max_before_ullong_max) * base + next > space_above ) {
+				//_SysDebug("strtoull - %u*%u+%u (%u) > %u",
+				//	(unsigned int)(ret - max_before_ullong_max), base, next, space_above);
+				ret = ULLONG_MAX;
+				errno = ERANGE;
+				str ++;
+				continue;
+			}
+		}
 		ret *= base;
 		ret += next;
 		str ++;
@@ -85,7 +112,6 @@ unsigned long strtoul(const char *ptr, char **end, int base)
 long long strtoll(const char *str, char **end, int base)
 {
 	 int	neg = 0;
-	unsigned long long	ret;
 
 	if( !str ) {
 		errno = EINVAL;
@@ -96,17 +122,37 @@ long long strtoll(const char *str, char **end, int base)
 		str++;
 	
 	// Check for negative (or positive) sign
-	if(*str == '-' || *str == '+') {
+	if(*str == '-' || *str == '+')
+	{
+		//_SysDebug("strtoll - str[0:1] = '%.2s'", str);
+		if( !isdigit(str[1]) ) {
+			// Non-digit, invalid string
+			if(end)	*end = (char*)str;
+			return 0;
+		}
 		neg = (*str == '-');
 		str++;
 	}
 
-	ret = strtoull(str, end, base);	
+	unsigned long long ret = strtoull(str, end, base);	
+	//_SysDebug("strtoll - neg=%i,ret=%llu", neg, ret);
 
-	if( neg )
+	if( neg ) {
+		// Abuses unsigned integer overflow
+		if( ret + LLONG_MIN < ret ) {
+			errno = ERANGE;
+			return LLONG_MIN;
+		}
 		return -ret;
+	}
 	else
+	{
+		if( ret > LLONG_MAX ) {
+			errno = ERANGE;
+			return LLONG_MAX;
+		}
 		return ret;
+	}
 }
 
 long strtol(const char *str, char **end, int base)

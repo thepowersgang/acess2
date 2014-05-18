@@ -1,13 +1,16 @@
 
 enum libc_eErrorNumbers {
 	EOK,
+	EDOM,	// (C99) Value out of domain
+	EILSEQ,	// (C99) Illegal multi-byte sequence
+	ERANGE,	// (C99) Value out of range
+	
 	ENOSYS,	// Invalid Instruction
 	EINVAL,	// Invalid Paramater
 	EBADF,	// Bad FD
 	ENOMEM,	// No free memory
 	EACCES,	// Not permitted
 	EBUSY,	// Resource is busy
-	ERANGE,	// Value out of range
 	ENOTFOUND,	// Item not found
 	EROFS,	// Read only
 	ENOTIMPL,	// Not implemented
@@ -27,11 +30,15 @@ enum libc_eErrorNumbers {
 
 	EAGAIN,	// Try again
 	EALREADY,	// Operation was a NOP
+	ENOSPC,	// (POSIX) No space left on device
 	
 	EFBIG,	// File too large
+	E2BIG,	// Argument list too large
 
 	// psockets
 	EAFNOSUPPORT,	
+	EADDRINUSE,	// Specified addres is already in use
+	ETIMEDOUT,
 	
 	EINTERNAL	// Internal Error
 };

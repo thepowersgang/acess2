@@ -42,8 +42,9 @@ all: _libs $(_BIN) $(_XBIN)
 
 .PHONY: _libs
 
+.PRECIOUS: .no
 
-HEADERS := $(patsubst include_exp/%,../../include/%,$(shell find include_exp/ -name \*.h))
+HEADERS := $(patsubst include_exp/%,../../include/%,$(shell find include_exp/ -name \*.h 2>/dev/null))
 _libs: $(HEADERS)
 
 ../../include/%: include_exp/%
@@ -58,6 +59,7 @@ generate_exp: $(UTESTS:%=EXP_%.txt)
 	@echo > /dev/null
 
 utest-build: $(UTESTS:%=TEST_%)
+	@echo > /dev/null
 
 utest-run: $(UTESTS:%=runtest-%)
 	@echo > /dev/null
@@ -115,10 +117,12 @@ $(OUTPUTDIR)Libs/%:
 
 obj-native/%.no: %.c
 	@mkdir -p $(dir $@)
-	$(NCC) -c $< -o $@ -Wall -std=gnu99 -MD -MP -MF $@.dep
+	$(NCC) -g -c $< -o $@ -Wall -std=gnu99 -MD -MP -MF $@.dep '-D_SysDebug(f,v...)=fprintf(stderr,"DEBUG "f"\n",##v)' -include stdio.h
 
 TEST_%: obj-native/TEST_%.no obj-native/%.no
-	$(NCC) -o $@ $^
+	$(NCC) -g -o $@ $^
+
+.SECONDARY: %.no
 
 -include $(UTESTS:%=obj-native/TEST_%.no.dep)
 -include $(UTESTS:%=obj-native/%.no.dep)

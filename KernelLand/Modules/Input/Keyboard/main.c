@@ -117,19 +117,16 @@ int Keyboard_IOCtl(tVFS_Node *Node, int Id, void *Data)
  */
 tKeyboard *Keyboard_CreateInstance(int MaxSym, const char *Name)
 {
-	tKeyboard	*ret;
-	 int	sym_bitmap_size = (MaxSym + 7)/8;
-	 int	string_size = strlen(Name) + 1;
+	size_t	sym_bitmap_size = (MaxSym + 7)/8;
+	size_t	string_size = strlen(Name) + 1;
 
-	ret = malloc( sizeof(tKeyboard) + sym_bitmap_size + string_size );
+	tKeyboard *ret = calloc( 1, sizeof(tKeyboard) + sym_bitmap_size + string_size );
 	if( !ret ) {
 		return NULL;
 	}
-	// Clear
-	memset(ret, 0, sizeof(tKeyboard) + sym_bitmap_size );
 	// Set name
-	ret->Name = (char*)ret + sizeof(tKeyboard) + sym_bitmap_size;
-	memcpy(ret->Name, Name, string_size);
+	ret->Name = (char*)( &ret->KeyStates[sym_bitmap_size] );
+	strcpy(ret->Name, Name);
 	// Set node and default keymap
 	ret->Node = &gKB_DevInfo.RootNode;
 	ret->Keymap = &gKeymap_KBDUS;

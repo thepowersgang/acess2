@@ -497,15 +497,13 @@ int SpawnDaemon(tInitProgram *Program)
 		char	buffer[101];
 		size_t len = snprintf(buffer, 100, "[%lli] init spawning ", _SysTimestamp());
 		_SysWrite(out, buffer, len);
-		char ch = '\'';
 		for( int i = 0; Program->Command[i]; i ++ )
 		{
-			_SysWrite(out, &ch, 1);
+			_SysWrite(out, "'", 1);
 			_SysWrite(out, Program->Command[i], strlen(Program->Command[i]));
-			_SysWrite(out, &ch, 1);
+			_SysWrite(out, "'", 1);
 		}
-		ch = '\n';
-		_SysWrite(out, &ch, 1);
+		_SysWrite(out, "\n", 1);
 	}
 	
 	return SpawnCommand(in, out, err, Program->Command, NULL);

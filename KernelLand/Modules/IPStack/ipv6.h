@@ -32,7 +32,7 @@ struct sIPv6Header
 	Uint8	HopLimit;
 	tIPv6	Source;
 	tIPv6	Destination;
-	char	Data[];
+	char	Data[0];
 };
 
 #define IPV6_ETHERNET_ID	0x86DD

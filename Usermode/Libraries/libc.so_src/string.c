@@ -369,6 +369,19 @@ EXPORT size_t strspn(const char *haystack, const char *accept)
 	return ret;
 }
 
+EXPORT char *strpbrk(const char *haystack, const char *accept)
+{
+	while( *haystack )
+	{
+		for( int i = 0; accept[i]; i ++ )
+		{
+			if( accept[i] == *haystack )
+				return (char*)haystack;
+		}
+	}
+	return NULL;
+}
+
 char *strtok(char *str, const char *delim)
 {
 	static char *__saveptr;
