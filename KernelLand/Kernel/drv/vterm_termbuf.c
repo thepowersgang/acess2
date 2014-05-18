@@ -176,6 +176,8 @@ void VT_int_PutChar(tVTerm *Term, Uint32 Ch)
 
 	HEAP_VALIDATE();
 	
+	// TODO: Schedule a delayed screen update
+	
 	//LEAVE('-');
 }
 

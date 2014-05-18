@@ -5,7 +5,7 @@
  * drv/vterm_vt100.c
  * - Virtual Terminal - VT100 (Kinda) Emulation
  */
-#define DEBUG	0
+#define DEBUG	1
 #include "vterm.h"
 
 #define sTerminal	sVTerm
@@ -44,7 +44,7 @@ void Display_ScrollDown(tTerminal *Term, int CountDown)
 	LOG("(%i)", CountDown);
 	VT_int_UpdateScreen(Term, 0);
 	if( Term->Flags & VT_FLAG_ALTBUF )
-		VT_int_ScrollText(Term, CountDown);
+		VT_int_ScrollText(Term, -CountDown);
 	else
 	{
 		if(Term->ViewTopRow + CountDown < 0)
