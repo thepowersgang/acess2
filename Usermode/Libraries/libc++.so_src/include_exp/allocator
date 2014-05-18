@@ -1,0 +1,61 @@
+/*
+ * Acess2 C++ Library
+ * - By John Hodge (thePowersGang)
+ *
+ * string (header)
+ * - C++'s String type
+ */
+#ifndef _LIBCXX_ALLOCATOR_
+#define _LIBCXX_ALLOCATOR_
+
+#include "cstddef"
+
+namespace std {
+
+template <class T> class allocator
+{
+public:
+	typedef T	value_type;
+	typedef T*	pointer;
+	typedef T&	reference;
+	typedef const T* const_pointer;
+	typedef const T&	const_reference;
+	typedef size_t	size_type;
+	typedef ptrdiff_t	difference_type;
+	
+	template <class Type>
+	struct rebind
+	{
+		typedef allocator<Type> other;
+	};
+	
+	allocator() throw() {
+	}
+	allocator(const allocator& alloc) throw() {
+	}
+	template <class U>
+	allocator(const allocator<U>& alloc) throw() {
+	}
+	~allocator() throw() {
+	}
+	
+	pointer address(reference x) const {
+		return &x;
+	}
+	const_pointer address(const_reference x) const {
+		return &x;
+	}
+	pointer allocate(size_type n, const void* hint=0) {
+		::operator new (n * sizeof(value_type));
+	}
+	void deallocate(pointer p, size_type n) {
+		::operator delete(p);
+	}
+};
+
+};
+
+#endif
+
+// vim: ft=cpp
+

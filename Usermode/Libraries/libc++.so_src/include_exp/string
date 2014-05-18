@@ -1,0 +1,219 @@
+/*
+ * Acess2 C++ Library
+ * - By John Hodge (thePowersGang)
+ *
+ * string (header)
+ * - C++'s String type
+ */
+#ifndef _LIBCXX_STRING_
+#define _LIBCXX_STRING_
+
+#include <allocator>
+
+namespace std {
+
+template <class charT>
+struct char_traits
+{
+};
+
+template <>
+struct char_traits<char>
+{
+	typedef char	char_type;
+	typedef int	int_type;
+	//typedef streamoff	off_type;
+	//typedef streampos	pos_type;
+	//typedef mbstate_t	state_type;
+	
+	static bool eq(const char_type& c, const char_type& d) {
+		return c == d;
+	}
+	static bool lt(const char_type& c, const char_type& d) {
+		return c < d;
+	}
+	static size_t length(const char_type* s) {
+		size_t	ret = 0;
+		while(*s++)	ret ++;
+		return ret;
+	}
+};
+
+template <>
+struct char_traits<wchar_t>
+{
+	typedef wchar_t	char_type;
+	typedef int	int_type;
+	//typedef streamoff	off_type;
+	//typedef streampos	pos_type;
+	//typedef mbstate_t	state_type;
+	
+	static size_t length(const char_type* s) {
+		size_t	ret = 0;
+		while(*s++)	ret ++;
+		return ret;
+	}
+	static bool eq(const char_type& c, const char_type& d) {
+		return c == d;
+	}
+	static bool lt(const char_type& c, const char_type& d) {
+		return c < d;
+	}
+};
+
+template < class charT, class traits=char_traits<charT>, class Alloc=allocator<charT> >
+class basic_string;
+
+typedef basic_string<char>	string;
+
+};	// namespace std
+
+#include <stdexcept>
+
+namespace std {
+
+template < class charT, class traits, class Alloc >
+class basic_string
+{
+public:
+	typedef traits	traits_type;
+	typedef Alloc	allocator_type;
+	typedef charT	value_type;
+	typedef typename allocator_type::reference	reference;
+	typedef typename allocator_type::const_reference	const_reference;
+	typedef size_t	size_type;
+
+	basic_string(const allocator_type& alloc = allocator_type()):
+		m_allocator(alloc),
+		m_capacity(0),
+		m_length(0),
+		m_data(0)
+	{
+	}
+	basic_string(const basic_string& str):
+		basic_string(str, allocator_type())
+	{
+	}
+	basic_string(const basic_string& str, const allocator_type& alloc):
+		basic_string(str, 0, str.length(), alloc)
+	{
+	}
+	basic_string(const basic_string& str, size_type pos, size_type len = npos, const allocator_type& alloc = allocator_type()):
+		basic_string(alloc)
+	{
+		if( pos < str.length() )
+		{
+			if( len > str.length() - pos )
+				len = str.length() - pos;
+			reserve(len);
+			for( size_type i = 0; i < len; i ++ )
+				m_data[i] = str.m_data[pos+i];
+			m_length = len;
+		}
+	}
+	basic_string(const charT *s, const allocator_type& alloc = allocator_type()):
+		basic_string(s, traits::length(s), alloc)
+	{
+	}
+	basic_string(const charT *s, size_type n, const allocator_type& alloc = allocator_type()):
+		basic_string(alloc)
+	{
+		if( n > 0 )
+		{
+			reserve(n);
+			for( size_type i = 0; i < n; i ++ )
+				m_data[i] = s[i];
+			m_length = n;
+		}
+	}
+	basic_string(size_type n, charT c, const allocator_type& alloc = allocator_type()):
+		basic_string(alloc)
+	{
+		if( n > 0 )
+		{
+			reserve(n);
+			for( size_type i = 0; i < n; i ++ )
+				m_data[i] = c;
+			m_length = n;
+		}
+	}
+	
+	// iterators
+	
+	// capacity
+	size_type size() const {
+		return m_size;
+	}
+	size_type length() const {
+		return size();
+	}
+	size_type max_size() const {
+		return -1;
+	}
+	void resize(size_type size, charT c = 0) {
+		reserve(size);
+		if( m_size < size ) {
+			for( size_type ofs = m_size; ofs < size; ofs ++ )
+				m_data[ofs] = c;
+		}
+		m_size = size;
+		m_data[m_size] = 0;
+	}
+	size_type capacity() const {
+		return m_capacity;
+	}
+	void reserve(size_type size) {
+		size = (size+1 + 31) & ~31;
+		if( size > m_capacity ) {
+			auto new_area = m_allocator.allocate(size);
+			for( size_type i = 0; i < m_length; i ++ )
+				new_area[i] = m_data[i];
+			m_allocator.deallocate(m_data, m_capacity);
+			m_data = new_area;
+			m_capacity = size;
+		}
+	}
+	void clear() {
+		m_size = 0;
+	}
+	bool empty() const {
+		return length() == 0;
+	}
+	
+	// Access
+	reference operator[] (size_type pos) {
+		return m_data[pos];
+	}
+	const_reference operator[] (size_type pos) const {
+		return m_data[pos];
+	}
+	reference at(size_type pos) {
+		if(pos >= m_size)	throw ::std::out_of_range("basic_string - at");
+		return m_data[pos];
+	}
+	const_reference at(size_type pos) const {
+		if(pos >= m_size)	throw ::std::out_of_range("basic_string - at");
+		return m_data[pos];
+	}
+	
+	// Modifiers
+	basic_string& operator +=(const basic_string& str);
+	basic_string& operator +=(const charT* s);
+	basic_string& operator +=(charT c);
+	
+	static const size_type npos = -1;
+private:
+	allocator_type	m_allocator;
+	size_type	m_capacity;
+	size_type	m_size;
+	size_type	m_length;
+	typename allocator_type::pointer m_data;
+};
+
+};
+
+#include <stdexcept>
+
+#endif
+
+// vim: ft=cpp

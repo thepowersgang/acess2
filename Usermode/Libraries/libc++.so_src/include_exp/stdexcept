@@ -1,0 +1,41 @@
+/*
+ * Acess2 C++ Library
+ * - By John Hodge (thePowersGang)
+ *
+ * string (header)
+ * - C++'s String type
+ */
+#ifndef _LIBCXX_STDEXCEPT_
+#define _LIBCXX_STDEXCEPT_
+
+#include "exception"
+
+namespace std {
+
+class logic_error:
+	public exception
+{
+public:
+	explicit logic_error(const basic_string<char>& what_arg);
+};
+
+class runtime_error:
+	public exception
+{
+public:
+	explicit runtime_error(const basic_string<char>& what_arg);
+};
+
+class out_of_range:
+	public logic_error
+{
+public:
+	explicit out_of_range(const string& what_arg);
+};
+
+}	// namespace std
+
+#endif
+
+// vim: ft=cpp
+

@@ -1,0 +1,20 @@
+
+#ifndef _LIBCXX_MEMORY_
+#define _LIBCXX_MEMORY_
+
+namespace std {
+
+template <>
+class allocator<void>
+{
+public:
+  typedef void* pointer;
+  typedef const void* const_pointer;
+  typedef void value_type;
+  template <class U> struct rebind { typedef allocator<U> other; };
+};
+
+}
+
+#endif
+

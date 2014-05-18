@@ -1,0 +1,134 @@
+/*
+ * Acess2 C++ Library
+ * - By John Hodge (thePowersGang)
+ *
+ * list (header)
+ * - List container
+ */
+#ifndef _LIBCXX_LIST_
+#define _LIBCXX_LIST_
+
+#include <cstddef>
+
+namespace std {
+
+namespace _bits {
+template <class T> class list_iterator;
+template <class T> class list_item;
+}
+
+template <class T>
+class list
+{
+	friend class ::std::_bits::list_iterator<T>;
+	
+	typedef ::std::_bits::list_item<T>	item_type;
+	item_type	*m_start;
+	item_type	*m_end;
+public:
+	typedef T value_type;
+	typedef value_type& reference;
+	typedef const value_type& const_reference;
+	typedef _bits::list_iterator<value_type>	iterator;
+	typedef _bits::list_iterator<const value_type>	const_iterator;
+	
+	list():
+		m_start(0), m_end(0)
+	{
+	}
+	list(size_t n, const value_type& val = value_type());
+	list(const list& x);
+	~list() {
+		clear();
+	}
+	
+	list& operator =(const list& x);
+	
+	iterator begin() {
+		return iterator(m_start);
+	}
+	const_iterator begin() const {
+		return const_iterator(m_start);
+	}
+
+	iterator end() {
+		return iterator(0);
+	}
+	const_iterator end() const {
+		return const_iterator(0);
+	}
+	
+	bool empty() const {
+		return !m_start;
+	}
+	size_t size() const;
+	size_t max_size() const;
+	
+	T& front();
+	const T& front() const;
+	T& back();
+	const T& back() const;
+	
+	void clear() {
+		while( m_start ) {
+			item_type* item = m_start;
+			m_start = m_start->next;
+			delete item;
+		}
+	}
+};
+
+
+namespace _bits {
+
+template <class T>
+struct list_item
+{
+	list_item<T>	*next;
+	list_item<T>	*prev;
+	T	value;
+};
+
+template <class T>
+class list_iterator//:
+	//public bidirectional_iterator_tag;
+{
+	friend class list<T>;
+
+	list_item<T>	*cur;
+public:
+	bool operator == (const list_iterator& other) const {
+		return cur == other.cur;
+	}
+	bool operator != (const list_iterator& other) const {
+		return cur != other.cur;
+	}
+	
+	T& operator * () {
+		return cur->value;
+	}
+	T& operator -> () {
+		return cur->value;
+	}
+	list_iterator& operator ++ () {
+		cur = cur->next;
+	}
+	list_iterator& operator -- () {
+		cur = cur->prev;
+	}
+
+private:
+	list_iterator(list_item<T> *item):
+		cur(item)
+	{
+	}
+};
+
+};	// namespace _bits
+
+};	// namespace std
+
+#endif
+
+// vim: ft=cpp
+

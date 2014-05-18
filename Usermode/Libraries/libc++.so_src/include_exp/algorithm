@@ -1,0 +1,42 @@
+/*
+ * Acess2 C++ Library
+ * - By John Hodge (thePowersGang)
+ *
+ * string (header)
+ * - C++'s String type
+ */
+#ifndef _LIBCXX_ALGORITHM_
+#define _LIBCXX_ALGORITHM_
+
+namespace std {
+
+// Maximum
+template <class T>
+const T& max(const T& a, const T& b)
+{
+	return (a<b) ? b : a;
+}
+
+template <class T, class Compare>
+const T& max(const T& a, const T& b, Compare comp)
+{
+	return comp(a, b) ? b : a;
+}
+
+template <class T>
+const T& min(const T& a, const T& b)
+{
+	return (a<b) ? a : b;
+}
+
+template <class T, class Compare>
+const T& min(const T& a, const T& b, Compare comp)
+{
+	return comp(a, b) ? a : b;
+}
+
+};	// namespace std
+
+#endif
+
+// vim: ft=cpp

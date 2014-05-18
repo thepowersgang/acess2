@@ -1,0 +1,29 @@
+/*
+ * Acess2 C++ Library
+ * - By John Hodge (thePowersGang)
+ *
+ * exception (header)
+ * - C++'s base exception type
+ */
+#ifndef _LIBCXX_EXCEPTION_
+#define _LIBCXX_EXCEPTION_
+
+#define noexcept	throw()
+
+namespace std {
+
+class exception
+{
+public:
+	exception() noexcept;
+	exception(const exception& e) noexcept;
+	exception& operator= (const exception& e) noexcept;
+	virtual ~exception() noexcept;
+	virtual const char* what() const noexcept;
+};
+
+};	// namespace std
+
+#endif
+// vim: ft=cpp
+
