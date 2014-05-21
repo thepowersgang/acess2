@@ -1,4 +1,9 @@
 /*
+ * Acess2 GUI v4 (AxWin4)
+ * - By John Hodge (thePowesGang)
+ * 
+ * main.cpp
+ * - Program main
  */
 #include <CConfig.hpp>
 #include <ipc.hpp>
@@ -8,6 +13,7 @@
 #include <timing.hpp>
 #include <exception>
 #include <algorithm>
+#include <common.hpp>
 
 extern "C" {
 #include <stdio.h>
@@ -29,9 +35,9 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 	// - Open graphics
-	Graphics::Initialise(config.m_video);
+	CVideo* vid = new CVideo(config.m_video);
 	// - Initialise compositor structures
-	CCompositor* compositor = new CCompositor(/*config.m_compositor*/);
+	CCompositor* compositor = new CCompositor(/*config.m_compositor,*/ *vid);
 	// - Open input
 	Input::Initialise(config.m_input);
 	//  > Handles hotkeys?
@@ -61,5 +67,15 @@ int main(int argc, char *argv[])
 		compositor->Redraw();
 	}
 	return 0;
+}
+
+namespace AxWin {
+
+const char* InitFailure::what() const throw()
+{
+	return m_what;
+}
+
+
 }
 

@@ -12,6 +12,7 @@
 #include <vector>
 #include <cstdint>
 #include "CRect.hpp"
+#include "CSurface.hpp"
 
 namespace AxWin {
 
@@ -19,7 +20,6 @@ class CClient;
 
 class CWindow
 {
-	CClient&	m_client;
 public:
 	CWindow(CClient& client, const ::std::string &name);
 	~CWindow();
@@ -30,9 +30,11 @@ public:
 	void MouseMove(int NewX, int NewY);
 	void KeyEvent(::uint32_t Scancode, const ::std::string &Translated, bool Down);
 
-	CRect	m_rect;
+	CSurface	m_surface;
 private:
 	const ::std::string	m_name;
+	CClient&	m_client;
+	//::std::list<CRegion*>	m_regions;
 };
 
 };	// namespace AxWin

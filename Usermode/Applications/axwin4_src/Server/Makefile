@@ -5,7 +5,7 @@ CPPFLAGS += -Iinclude/
 OBJ := main.o ipc.o CConfig.o video.o input.o timing.o
 OBJ += compositor.o CWindow.o
 OBJ += serialisation.o CClient.o
-OBJ += CRect.o
+OBJ += CRect.o CSurface.o
 BIN := AxWinServer
 
 LDFLAGS += -lc++

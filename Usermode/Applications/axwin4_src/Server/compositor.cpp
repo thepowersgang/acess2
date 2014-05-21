@@ -11,7 +11,8 @@
 
 namespace AxWin {
 
-CCompositor::CCompositor()
+CCompositor::CCompositor(CVideo& video):
+	m_video(video)
 {
 	// 
 }
@@ -35,9 +36,12 @@ void CCompositor::Redraw()
 	{
 		for( auto window : m_windows )
 		{
-			if( rect.Contains( window->m_rect ) )
+			if( rect.HasIntersection( window->m_surface.m_rect ) )
 			{
-				window->Repaint( rect );
+				// TODO: just reblit
+				CRect	rel_rect = window->m_surface.m_rect.RelativeIntersection(rect);
+				BlitFromSurface( window->m_surface, rel_rect );
+				//window->Repaint( rel_rect );
 			}
 		}
 	}
@@ -49,6 +53,19 @@ void CCompositor::DamageArea(const CRect& area)
 {
 	// 1. Locate intersection with any existing damaged areas
 	// 2. Append after removing intersections
+}
+
+void CCompositor::BlitFromSurface(const CSurface& dest, const CRect& src_rect)
+{
+	for( unsigned int i = 0; i < src_rect.m_h; i ++ )
+	{
+		m_video.BlitLine(
+			dest.GetScanline(src_rect.m_y, src_rect.m_y),
+			dest.m_rect.m_y + src_rect.m_y + i,
+			dest.m_rect.m_x + src_rect.m_x,
+			src_rect.m_w
+			);
+	}
 }
 
 }	// namespace AxWin
