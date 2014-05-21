@@ -5,6 +5,8 @@
  * ne2000_core.c
  * - UDI initialisation 
  */
+#define UDI_VERSION	0x101
+#define UDI_NIC_VERSION	0x101
 #include <udi.h>
 #include <udi_nic.h>
 #include "ne2000_common.h"
