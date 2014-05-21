@@ -6,6 +6,7 @@
  * - UDI initialisation 
  */
 #define UDI_VERSION	0x101
+#define UDI_PHYSIO_VERSION	0x101
 #include <udi.h>
 #include <udi_physio.h>
 #include "uart16c550_common.h"

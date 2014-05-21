@@ -8,6 +8,10 @@
 #ifndef _NE2000_COMMON_H_
 #define _NE2000_COMMON_H_
 
+#define UDI_VERSION	0x101
+#define UDI_PHYSIO_VERSION	0x101
+#define UDI_NIC_VERSION	0x101
+
 #include <udi.h>
 #include <udi_physio.h>
 #include <udi_nic.h>

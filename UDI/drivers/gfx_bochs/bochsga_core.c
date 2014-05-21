@@ -6,6 +6,7 @@
  * - Core Code
  */
 #define UDI_VERSION	0x101
+#define UDI_PHYSIO_VERSION	0x101
 #define UDI_GFX_VERSION	0x101
 #include <udi.h>
 #include <udi_physio.h>
