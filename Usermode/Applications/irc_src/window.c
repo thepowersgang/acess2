@@ -141,7 +141,9 @@ size_t Windows_int_PaintMessagePrefix(const tMessage *Message, bool EnablePrint)
 
 size_t Windows_int_PaintMessageLine(const tMessage *Message, size_t Offset, bool EnablePrint)
 {
-	if( Message->Data[Offset] == '\0' ) {
+	_SysDebug("Windows_int_PaintMessageLine: Message=%p,Offset=%zi, EnablePrint=%b",
+		Message, Offset, EnablePrint);
+	if( Offset > strlen(Message->Data) ) {
 		return 0;
 	}
 	
@@ -308,7 +310,7 @@ void Window_AppendMessage(tWindow *Window, enum eMessageClass Class, const char 
 		do {
 			printf("\33[T");	// Scroll down 1 (free space below)
 			SetCursorPos(giTerminal_Height-2, 1);
-			len = Windows_int_PaintMessageLine(Message, offset, true);
+			len = Windows_int_PaintMessageLine(msg, offset, true);
 			offset += len;
 		} while( len > 0 );
 		printf("\33[u");	// Restore cursor
