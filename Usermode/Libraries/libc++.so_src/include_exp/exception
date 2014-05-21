@@ -27,6 +27,22 @@ protected:
 	exception(const string& what_str) noexcept;
 };
 
+class bad_exception:
+	public exception
+{
+public:
+	bad_exception() noexcept;
+};
+
+typedef void (*terminate_handler)();
+typedef void (*unexpected_handler)();
+
+extern void set_terminate(terminate_handler f) throw();
+extern void set_unexpected(unexpected_handler f) throw();
+extern void terminate();
+extern void unexpected();
+extern bool uncaught_exception() throw();
+
 };	// namespace std
 
 #endif

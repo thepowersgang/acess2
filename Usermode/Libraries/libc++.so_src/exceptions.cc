@@ -8,6 +8,7 @@
 #include <string>
 #include <exception>
 #include <stdexcept>
+#include <acess/sys.h>
 
 // === CODE ===
 ::std::exception::exception() throw():
@@ -35,6 +36,12 @@ const char* ::std::exception::what() const throw()
 	return m_what_str.c_str();
 }
 
+void ::std::terminate()
+{
+	_exit(0);
+}
+
+// --- Standar Exceptions ---
 ::std::logic_error::logic_error(const ::std::string& what_str):
 	exception(what_str)
 {

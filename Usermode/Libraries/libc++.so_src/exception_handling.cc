@@ -2,66 +2,79 @@
  */
 #include <typeinfo>
 #include <cstdint>
+#include <cstddef>
+#include <cstdlib>
+#include <cstring>
+#include <exception>
+#include "exception_handling.h"
 
-typedef void *(unexpected_handler)(void);
-typedef void *(terminate_handler)(void);
-
-struct _Unwind_Context;
-
-typedef enum {
-	_URC_NO_REASON = 0,
-	_URC_FOREIGN_EXCEPTION_CAUGHT = 1,
-	_URC_FATAL_PHASE2_ERROR = 2,
-	_URC_FATAL_PHASE1_ERROR = 3,
-	_URC_NORMAL_STOP = 4,
-	_URC_END_OF_STACK = 5,
-	_URC_HANDLER_FOUND = 6,
-	_URC_INSTALL_CONTEXT = 7,
-	_URC_CONTINUE_UNWIND = 8
-} _Unwind_Reason_Code;
-
-typedef void	(*_Unwind_Exception_Cleanup_Fn)(_Unwind_Reason_Code reason, struct _Unwind_Exception *exc);
-
-struct _Unwind_Exception
-{
-	uint64_t	exception_class;
-	_Unwind_Exception_Cleanup_Fn	exception_cleanup;
-	uint64_t	private_1;
-	uint64_t	private_2;
-};
-
-struct __cxa_exception
-{
-	std::type_info*	exceptionType;
-	void (*exceptionDestructor)(void *);
-	unexpected_handler	unexpectedHandler;
-	terminate_handler	terminateHandler;
-	__cxa_exception*	nextException;
-	
-	int	handlerCount;
-	
-	int	handlerSwitchValue;
-	const char*	actionRecord;
-	const char*	languageSpecificData;
-	void*	catchTemp;
-	void*	adjustedPtr;
-	
-	_Unwind_Exception	unwindHeader;
-};
 
  int	uncaught_exception_count;
 __cxa_exception	*uncaught_exception_top;
 
+/*__thread*/ struct {
+	__cxa_exception	info;
+	char	buf[32];
+} emergency_exception;
+/*__thread*/ bool	emergency_exception_used;
+
+static bool TEST_AND_SET(bool& flag) {
+	bool ret = flag;
+	flag = true;
+	return ret;
+}
+
+// === CODE ===
 extern "C" void __cxa_call_unexpected(void *)
 {
 	// An unexpected exception was thrown from a function that lists its possible exceptions
 	for(;;);
 }
 
+extern "C" void *__cxa_allocate_exception(size_t thrown_size)
+{
+	__cxa_exception	*ret = static_cast<__cxa_exception*>( malloc( sizeof(__cxa_exception) + thrown_size ) );
+	if( !ret ) {
+		if( thrown_size <= sizeof(emergency_exception.buf) && TEST_AND_SET(emergency_exception_used) )
+		{
+			ret = &emergency_exception.info;
+		}
+	}
+	if( !ret ) {
+		::std::terminate();
+	}
+	return ret;
+}
+
+extern "C" void __cxa_free_exception(void *thrown_exception)
+{
+	if(thrown_exception == &emergency_exception.buf) {
+		//assert(emergency_exception_used);
+		emergency_exception_used = false;
+	}
+	else {
+		__cxa_exception	*except = static_cast<__cxa_exception*>( thrown_exception ) - 1;
+		free(except);
+	}
+}
+
+extern "C" void __cxa_throw(void *thrown_exception, std::type_info *tinfo, void (*dest)(void*))
+{
+	__cxa_exception	*except = static_cast<__cxa_exception*>( thrown_exception ) - 1;
+	
+	except->exceptionType = tinfo;
+	except->exceptionDestructor = dest;
+	memcpy(&except->unwindHeader.exception_class, "Ac20C++\0", 8);
+	uncaught_exception_top ++;
+	
+	_Unwind_RaiseException(thrown_exception);
+	
+	::std::terminate();
+}
+
 extern "C" void *__cxa_begin_catch(void *exceptionObject)
 {
-	struct __cxa_exception	*except = static_cast<__cxa_exception*>( exceptionObject );
-	except --;
+	__cxa_exception	*except = static_cast<__cxa_exception*>( exceptionObject ) - 1;
 	
 	except->handlerCount ++;
 	
@@ -80,7 +93,7 @@ extern "C" void __cxa_end_catch()
 	uncaught_exception_top = except->nextException;
 	
 	if( except->handlerCount == 0 ) {
-		//__cxa_free_exception(except+1);
+		__cxa_free_exception(except+1);
 	}
 }
 
