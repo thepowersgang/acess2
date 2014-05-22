@@ -141,26 +141,33 @@ size_t Windows_int_PaintMessagePrefix(const tMessage *Message, bool EnablePrint)
 
 size_t Windows_int_PaintMessageLine(const tMessage *Message, size_t Offset, bool EnablePrint)
 {
-	_SysDebug("Windows_int_PaintMessageLine: Message=%p,Offset=%zi, EnablePrint=%b",
-		Message, Offset, EnablePrint);
+	_SysDebug("Windows_int_PaintMessageLine: Message=%p,Offset=%i,EnablePrint=%b",
+		Message, (int)Offset, EnablePrint);
 	if( Offset > strlen(Message->Data) ) {
+		_SysDebug("Windows_int_PaintMessageLine: No message left");
 		return 0;
 	}
+	_SysDebug("Windows_int_PaintMessageLine: Message->Data=\"%.*s\"+\"%s\"",
+		(int)Offset, Message->Data, Message->Data+Offset);
 	
 	size_t	avail = giTerminal_Width - Message->PrefixLen;
 	const char *msg_data = Message->Data + Offset;
-	int used = WordBreak(msg_data+Offset, avail);
+	int used = WordBreak(msg_data, avail);
 	
 	if( EnablePrint )
 	{
 		if( Offset == 0 )
 			Windows_int_PaintMessagePrefix(Message, true);
-		else
-			printf("\x1b[%iC", Message->PrefixLen);
+		else {
+			for(int i = 0; i < Message->PrefixLen; i ++)
+				printf(" ");
+			//printf("\x1b[%iC", Message->PrefixLen);
+		}
 		printf("%.*s", used, msg_data);
 	}
 	
-	if( msg_data[used] == '\0' )
+	_SysDebug("used(%i) >= strlen(msg_data)(%i)", used, strlen(msg_data));
+	if( used >= strlen(msg_data) )
 		return 0;
 	
 	return Offset + used;
@@ -308,7 +315,7 @@ void Window_AppendMessage(tWindow *Window, enum eMessageClass Class, const char 
 		printf("\33[s");	// Save cursor
 		size_t	offset = 0, len;
 		do {
-			printf("\33[T");	// Scroll down 1 (free space below)
+			printf("\33[S");	// Scroll down 1 (free space below)
 			SetCursorPos(giTerminal_Height-2, 1);
 			len = Windows_int_PaintMessageLine(msg, offset, true);
 			offset += len;

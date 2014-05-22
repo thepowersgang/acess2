@@ -493,11 +493,11 @@ int Term_HandleVT100_Long(tTerminal *Term, int Len, const char *Buffer)
 				break;
 			}
 			break;
-		case 'S':	// Scroll text up n=1
-			Display_ScrollDown(Term, (argc >= 1 ? args[0] : 1));
-			break;
-		case 'T':	// Scroll text down n=1
+		case 'S':	// Scroll text up n=1 (expose bottom)
 			Display_ScrollDown(Term, -(argc >= 1 ? args[0] : 1));
+			break;
+		case 'T':	// Scroll text down n=1 (expose top)
+			Display_ScrollDown(Term, (argc >= 1 ? args[0] : 1));
 			break;
 		case 'c':	// Send Device Attributes
 			switch(args[0])
