@@ -11,16 +11,24 @@
 extern "C" {
 #include <assert.h>
 };
+#include <CIPCChannel_AcessIPCPipe.hpp>
 
 namespace AxWin {
 namespace IPC {
 
 CCompositor*	gpCompositor;
-::std::list<IIPCChannel*>	channels;
+::std::list<IIPCChannel*>	glChannels;
+//::std::map<uint16_t,CClient*>	glClients;
 
-void Initialise(const CConfigIPC& config, CCompositor* compositor)
+void Initialise(const CConfigIPC& config, CCompositor& compositor)
 {
-	gpCompositor = compositor;
+	gpCompositor = &compositor;
+	
+	::std::string pipe_basepath = "axwin4";
+	glChannels.push_back( new CIPCChannel_AcessIPCPipe( pipe_basepath ) );
+
+	//glChannels.push_back( new CIPCChannel_TCP("0.0.0.0:2100") );
+	
 	//for( auto channel : config.m_channels )
 	//{
 	//	channels.push_back(  );
@@ -30,7 +38,7 @@ void Initialise(const CConfigIPC& config, CCompositor* compositor)
 int FillSelect(fd_set& rfds)
 {
 	int ret = 0;
-	for( auto channel : channels )
+	for( auto channel : glChannels )
 	{
 		ret = ::std::max(ret, channel->FillSelect(rfds));
 	}
@@ -39,12 +47,22 @@ int FillSelect(fd_set& rfds)
 
 void HandleSelect(fd_set& rfds)
 {
-	
+	for( auto channel : glChannels )
+	{
+		channel->HandleSelect(rfds);
+	}
 }
 
-void RegisterClient(IIPCChannel& channel, CClient& client)
+void RegisterClient(CClient& client)
 {
-	
+	// allocate a client ID, and save
+	//client.m_id = 123;
+	//glClients[client.m_id] = &client;
+}
+
+void DeregisterClient(CClient& client)
+{
+	//glClients.erase( client.m_id );
 }
 
 
@@ -163,6 +181,11 @@ void HandleMessage_SendIPC(CClient& client, CDeserialiser& message)
 	assert(!"TODO");
 }
 
-};
+};	// namespace IPC
+
+IIPCChannel::~IIPCChannel()
+{
+}
+
 };	// namespace AxWin
 

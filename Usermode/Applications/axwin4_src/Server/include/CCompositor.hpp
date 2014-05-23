@@ -24,6 +24,15 @@ struct TWindowID
 	uint16_t	Window;
 };
 
+enum eMouseButton
+{
+	MOUSEBTN_MAIN,	// Left
+	MOUSEBTN_SECONDARY,	// Right
+	MOUSEBTN_MIDDLE,	// Scroll wheel
+	MOUSEBTN_BTN4,
+	MOUSEBTN_BTN5,
+};
+
 class CCompositor
 {
 	CVideo&	m_video;
@@ -41,6 +50,11 @@ public:
 	void	Redraw();
 	void	DamageArea(const CRect& rect);
 	void	BlitFromSurface(const CSurface& dest, const CRect& src_rect);
+	
+	void	MouseMove(unsigned int CursorID,  unsigned int X, unsigned int Y,  int dX, int dY);
+	void	MouseButton(unsigned int CursorID,  unsigned int X, unsigned int Y,  eMouseButton Button, bool Press);
+	
+	void	KeyState(unsigned int KeyboardID, uint32_t KeySym, bool Press, uint32_t Codepoint);
 };
 
 

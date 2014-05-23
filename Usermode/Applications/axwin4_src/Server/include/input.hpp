@@ -11,14 +11,21 @@
 #include <acess/sys.h>
 
 namespace AxWin {
-namespace Input {
 
-extern void	Initialise(const CConfigInput& config);
-extern int	FillSelect(::fd_set& rfds);
-extern void	HandleSelect(::fd_set& rfds);
+class CCompositor;
 
+class CInput
+{
+	CCompositor&	m_compositor;
+	 int	m_keyboardFD;
+	 int	m_mouseFD;
+public:
+	CInput(const CConfigInput& config, CCompositor& compositor);
+	 int FillSelect(::fd_set& rfds);
+	void HandleSelect(::fd_set& rfds);
 };
-};
+
+};	// namespace AxWin
 
 #endif
 

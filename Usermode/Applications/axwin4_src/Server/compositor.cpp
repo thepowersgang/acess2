@@ -34,6 +34,7 @@ void CCompositor::Redraw()
 	// For all windows, check for intersection with damage rects
 	for( auto rect : m_damageRects )
 	{
+		// window list should be sorted by draw order (lowest first)
 		for( auto window : m_windows )
 		{
 			if( rect.HasIntersection( window->m_surface.m_rect ) )
@@ -44,6 +45,8 @@ void CCompositor::Redraw()
 				//window->Repaint( rel_rect );
 			}
 		}
+		
+		// TODO: Blit from windows to a local surface, then blit from there to screen here
 	}
 
 	m_damageRects.clear();
@@ -51,6 +54,7 @@ void CCompositor::Redraw()
 
 void CCompositor::DamageArea(const CRect& area)
 {
+	m_damageRects.push_back( area );
 	// 1. Locate intersection with any existing damaged areas
 	// 2. Append after removing intersections
 }

@@ -19,7 +19,7 @@ class CCompositor;
 
 namespace IPC {
 
-extern void	Initialise(const CConfigIPC& config, CCompositor* compositor);
+extern void	Initialise(const CConfigIPC& config, CCompositor& compositor);
 extern int	FillSelect(::fd_set& rfds);
 extern void	HandleSelect(::fd_set& rfds);
 

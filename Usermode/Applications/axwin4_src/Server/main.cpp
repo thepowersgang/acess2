@@ -39,10 +39,10 @@ int main(int argc, char *argv[])
 	// - Initialise compositor structures
 	CCompositor* compositor = new CCompositor(/*config.m_compositor,*/ *vid);
 	// - Open input
-	Input::Initialise(config.m_input);
+	CInput* input = new CInput(config.m_input, *compositor);
 	//  > Handles hotkeys?
 	// - Bind IPC channels
-	IPC::Initialise(config.m_ipc, compositor);
+	IPC::Initialise(config.m_ipc, *compositor);
 	// - Start root child process (from config)
 	// TODO: Spin up child process
 
@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
 		 int	nfd = 0;
 		fd_set	rfds;
 		
-		nfd = ::std::max(nfd, Input::FillSelect(rfds));
+		nfd = ::std::max(nfd, input->FillSelect(rfds));
 		nfd = ::std::max(nfd, IPC::FillSelect(rfds));
 		
 		// TODO: Support _SysSendMessage IPC?
@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
 		
 		Timing::CheckEvents();
 		
-		Input::HandleSelect(rfds);
+		input->HandleSelect(rfds);
 		IPC::HandleSelect(rfds);
 		
 		compositor->Redraw();
