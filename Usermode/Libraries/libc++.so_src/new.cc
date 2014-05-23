@@ -13,10 +13,20 @@ void *operator new( size_t size )
 {
 	return malloc( size );
 }
+void *operator new( size_t size, void* ptr )
+{
+	size = size;
+	return ptr;
+}
 
 void *operator new[]( size_t size )
 {
 	return malloc( size );
+}
+void *operator new[]( size_t size, void* ptr )
+{
+	size = size;
+	return ptr;
 }
 
 void operator delete(void *ptr)

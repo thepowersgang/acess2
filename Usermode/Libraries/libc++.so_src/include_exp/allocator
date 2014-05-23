@@ -8,6 +8,7 @@
 #ifndef _LIBCXX_ALLOCATOR_
 #define _LIBCXX_ALLOCATOR_
 
+#include "new"
 #include "cstddef"
 
 namespace std {
@@ -57,7 +58,7 @@ public:
 		return ((size_type)-1) / sizeof(value_type);
 	}
 	void construct( pointer p, const_reference val ) {
-		::new ((void*)p) value_type (val);
+		new ((void*)p) value_type (val);
 	}
 	// C++11
 	//template<class U, class... Args>

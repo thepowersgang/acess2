@@ -1,0 +1,24 @@
+/*
+ * Acess2 C++ Library
+ * - By John Hodge (thePowersGang)
+ *
+ * new (header)
+ * - C++'s new operators
+ */
+#ifndef _LIBCXX_NEW_
+#define _LIBCXX_NEW_
+
+#include "cstddef"
+
+//extern void* operator new(size_t size) throw (::std::bad_alloc);
+//extern void* operator new(size_t size, const std::nothrow_t& nothrow_value) throw();
+extern void* operator new(size_t size, void* ptr) throw();
+
+//extern void* operator new[](size_t size) throw (::std::bad_alloc);
+//extern void* operator new[](size_t size, const std::nothrow_t& nothrow_value) throw();
+extern void* operator new[](size_t size, void* ptr) throw();
+
+#endif
+
+// vim: ft=cpp
+

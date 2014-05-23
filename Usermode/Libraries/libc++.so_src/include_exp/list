@@ -9,34 +9,53 @@
 #define _LIBCXX_LIST_
 
 #include <cstddef>
+#include "allocator"
 
 namespace std {
 
 namespace _bits {
-template <class T> class list_iterator;
+template <class T,class Alloc> class list_iterator;
 template <class T> class list_item;
 }
 
-template <class T>
+template <class T, class Alloc = allocator<T> >
 class list
 {
-	friend class ::std::_bits::list_iterator<T>;
-	
 	typedef ::std::_bits::list_item<T>	item_type;
-	item_type	*m_start;
-	item_type	*m_end;
+	typedef ::std::_bits::list_item<const T>	const_item_type;
+	friend class ::std::_bits::list_iterator<item_type,Alloc>;
+	
+	typedef typename Alloc::template rebind<item_type>::other	item_allocator;
 public:
 	typedef T value_type;
-	typedef value_type& reference;
-	typedef const value_type& const_reference;
-	typedef _bits::list_iterator<value_type>	iterator;
-	typedef _bits::list_iterator<const value_type>	const_iterator;
-	
-	list():
+	typedef Alloc	allocator_type;
+	typedef typename allocator_type::reference	reference;
+	typedef typename allocator_type::const_reference	const_reference;
+	typedef typename allocator_type::pointer	pointer;
+	typedef typename allocator_type::const_pointer	const_pointer;
+	typedef _bits::list_iterator<T,Alloc>	iterator;
+	typedef _bits::list_iterator<const T,Alloc>	const_iterator;
+	typedef int	difference_type;
+	typedef size_t	size_type;
+
+private:
+	item_allocator	m_item_allocator;
+	allocator_type	m_allocator;
+	item_type	*m_start;
+	item_type	*m_end;
+
+public:
+	list(const allocator_type& alloc = allocator_type()):
+		m_item_allocator(),
+		m_allocator(alloc),
 		m_start(0), m_end(0)
 	{
 	}
-	list(size_t n, const value_type& val = value_type());
+	list(size_t n, const value_type& val = value_type(), const allocator_type& alloc = allocator_type()):
+		list()
+	{
+		assign(n, val);
+	}
 	list(const list& x);
 	~list() {
 		clear();
@@ -69,6 +88,78 @@ public:
 	T& back();
 	const T& back() const;
 	
+	void assign(size_type n, const value_type& val) {
+		clear();
+		for( size_t i = 0; i < n; i ++ )
+		{
+			push_back(val);
+		}
+	}
+	
+	void push_front(const value_type& val) {
+		insert(front(), val);
+	}
+	void pop_front() {
+		erase(front());
+	}
+	void push_back(const value_type& val) {
+		insert(end(), val);
+	}
+	void pop_back() {
+		erase(end());
+	}
+	
+	iterator insert(iterator position, const value_type& val) {
+		item_type *newi = m_item_allocator.allocate(1);
+		m_allocator.construct(&newi->value, val);
+		if( position == end() ) {
+			newi->next = 0;
+			newi->prev = m_end;
+			m_end->next = newi;
+			m_end = newi;
+		}
+		else if( position == begin() ) {
+			newi->next = m_start;
+			newi->prev = 0;
+			m_start->prev = newi;
+			m_start = newi;
+		}
+		else {
+			newi->prev = position.cur->prev;
+			newi->next = position.cur;
+			position.cur->prev->next = newi;
+			position.cur->prev = newi;
+		}
+		return ++position;
+	}
+	void insert(iterator position, size_type n, const value_type& val) {
+		for( size_type i = 0; i < n; i ++ )
+		{
+			position = insert(position, val);
+		}
+	}
+	iterator erase(iterator position) {
+		if( position == end() ) {
+		}
+		else {
+			item_type *oldi = position.cur;
+			position ++;
+			
+			if(oldi->prev)
+				oldi->prev->next = oldi->next;
+			else
+				m_start = oldi->next;
+			if(oldi->next)
+				oldi->next->prev = oldi->prev;
+			else
+				m_end = oldi->prev;
+			
+			m_allocator.destroy(&oldi->value);
+			m_item_allocator.deallocate(oldi, 1);
+		}
+		return position;
+	}
+	
 	void clear() {
 		while( m_start ) {
 			item_type* item = m_start;
@@ -84,18 +175,18 @@ namespace _bits {
 template <class T>
 struct list_item
 {
+	typedef T	value_type;
 	list_item<T>	*next;
 	list_item<T>	*prev;
-	T	value;
+	value_type	value;
 };
 
-template <class T>
+template <class T, class Alloc>
 class list_iterator//:
 	//public bidirectional_iterator_tag;
 {
-	friend class list<T>;
-
 	list_item<T>	*cur;
+	friend class ::std::list<T, Alloc>;
 public:
 	bool operator == (const list_iterator& other) const {
 		return cur == other.cur;
