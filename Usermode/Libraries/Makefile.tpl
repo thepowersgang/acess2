@@ -65,7 +65,8 @@ utest-run: $(UTESTS:%=runtest-%)
 	@echo > /dev/null
 
 $(UTESTS:%=runtest-%): runtest-%: TEST_% EXP_%.txt
-	./TEST_$* | diff EXP_$*.txt -
+	@echo --- [TEST] $*
+	@./TEST_$* | diff EXP_$*.txt -
 
 clean:
 	$(RM) $(_BIN) $(_XBIN) $(OBJ) $(_BIN).dsm $(DEPFILES) $(EXTRACLEAN)
@@ -117,12 +118,14 @@ $(OUTPUTDIR)Libs/%:
 
 obj-native/%.no: %.c
 	@mkdir -p $(dir $@)
-	$(NCC) -g -c $< -o $@ -Wall -std=gnu99 -MD -MP -MF $@.dep '-D_SysDebug(f,v...)=fprintf(stderr,"DEBUG "f"\n",##v)' -include stdio.h
+	@echo [CC Native] -o $@
+	@$(NCC) -g -c $< -o $@ -Wall -std=gnu99 -MD -MP -MF $@.dep '-D_SysDebug(f,v...)=fprintf(stderr,"DEBUG "f"\n",##v)' -include stdio.h
 
 TEST_%: obj-native/TEST_%.no obj-native/%.no
-	$(NCC) -g -o $@ $^
+	@echo [CC Native] -o $@
+	@$(NCC) -g -o $@ $^
 
-.SECONDARY: %.no
+.PRECIOUS: $(UTESTS:%=obj-native/%.no) $(UTESTS:%=obj-native/TEST_%.no)
 
 -include $(UTESTS:%=obj-native/TEST_%.no.dep)
 -include $(UTESTS:%=obj-native/%.no.dep)
