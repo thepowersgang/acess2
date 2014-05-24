@@ -1,0 +1,54 @@
+/*
+ * Acess2 C++ Library
+ * - By John Hodge (thePowersGang)
+ *
+ * string (header)
+ * - C++'s String type
+ */
+#ifndef _LIBCXX_UTILITY_
+#define _LIBCXX_UTILITY_
+
+namespace std {
+
+template <class T1, class T2>
+class pair
+{
+public:
+	typedef T1	first_type;
+	typedef T2	second_type;
+	
+	first_type	first;
+	second_type	second;
+	
+	pair()
+	{
+	}
+	template <class U, class V>
+	pair(const pair<U,V>& pr):
+		first (pr.first),
+		second(pr.second)
+	{
+	}
+	pair(const first_type& a, const second_type& b):
+		first (a),
+		second(b)
+	{
+	}
+	// operator = is implicit
+};
+
+template <class T1, class T2>	
+bool operator== (const pair<T1,T2>& lhs, const pair<T1,T2>& rhs) {
+	return lhs.first == rhs.first && lhs.second == rhs.second;
+}
+template <class T1, class T2>	
+bool operator!= (const pair<T1,T2>& lhs, const pair<T1,T2>& rhs) {
+	return !(lhs == rhs);
+}
+
+};	// namespace std
+
+#endif
+
+// vim: ft=cpp
+

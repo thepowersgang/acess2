@@ -152,6 +152,18 @@ public:
 			m_content->m_size = n;
 		}
 	}
+	#if __cplusplus < 199711L
+	basic_string(basic_string&& str) noexcept:
+		basic_string(allocator_type())
+	{
+	}
+	basic_string(basic_string&& str, const allocator_type& alloc) noexcept:
+		basic_string(alloc)
+	{
+		m_content = str.m_content;
+		str.m_content = 0;
+	}
+	#endif
 	~basic_string()
 	{
 		release_content();
