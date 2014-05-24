@@ -1,0 +1,186 @@
+/*
+ * Acess2 C++ Library
+ * - By John Hodge (thePowersGang)
+ *
+ * system_error (header)
+ * - C++11's system_error exception
+ */
+#ifndef _LIBCXX_SYSTEM_ERROR_
+#define _LIBCXX_SYSTEM_ERROR_
+
+#if __cplusplus <= 199711L	// C++11 check
+# error "This header requires C++11 support enabled"
+#endif
+
+#include <exception>
+
+namespace std {
+
+class error_category;
+class error_condition;
+class error_code;
+
+bool operator==(const error_condition& lhs, const error_condition& rhs) noexcept;
+bool operator!=(const error_condition& lhs, const error_condition& rhs) noexcept;
+bool operator< (const error_condition& lhs, const error_condition& rhs) noexcept;
+bool operator==(const error_condition& lhs, const error_code& rhs) noexcept;
+bool operator==(const error_code& lhs, const error_condition& rhs) noexcept;
+bool operator!=(const error_condition& lhs, const error_code& rhs) noexcept;
+bool operator!=(const error_code& lhs, const error_condition& rhs) noexcept;
+
+extern const error_category&	generic_category() noexcept;
+extern const error_category&	system_category() noexcept;
+
+class error_condition
+{
+	 int	m_val;
+	const error_category*	m_cat;
+public:
+	error_condition() noexcept:
+		error_condition(0, ::std::generic_category())
+	{
+	}
+	error_condition(int val, const error_category& cat) noexcept:
+		m_val(val),
+		m_cat(&cat)
+	{
+	}
+	//template <class ErrorConditionEnum> error_condition(ErrorConditionEnum e) noexcept;
+	//template <class ErrorConditionEnum> error_condition& operator=(ErrorConditionEnum e) noexcept;
+	void assign(int val, const error_category& cat) noexcept {
+		m_val = val;
+		m_cat = &cat;
+	}
+	void clear() noexcept {
+		assign(0, ::std::generic_category());
+	}
+	int value() const noexcept {
+		return m_val;
+	}
+	const error_category& category() const noexcept {
+		return *m_cat;
+	}
+	string message() const;
+	explicit operator bool() const noexcept {
+		return m_val != 0;
+	}
+};
+
+class error_category
+{
+public:
+	error_category() {
+	}
+	error_category(const error_category&) = delete;	// disallow copying
+	virtual ~error_category() noexcept {
+	}
+	bool operator==(const error_category& rhs) const noexcept {
+		return this == &rhs;
+	}
+	bool operator!=(const error_category& rhs) const noexcept {
+		return !(*this == rhs);
+	}
+	bool operator<(const error_category& rhs) const noexcept {
+		return this < &rhs;
+	}
+	virtual const char* name() const noexcept = 0;
+	virtual error_condition default_error_condition(int val) const noexcept {
+		return error_condition(val, *this);
+	}
+	virtual bool equivalent(int valcode, const ::std::error_condition& cond) const noexcept {
+		return default_error_condition(valcode) == cond;
+	}
+	virtual bool equivalent(const error_code& code, int valcond) const noexcept;	// in system_error.cc
+	virtual ::std::string message(int val) const = 0;
+};
+
+class error_code
+{
+	int	m_ev;
+	const ::std::error_category*	m_ecat;
+public:
+	error_code() noexcept:
+		error_code(0, ::std::generic_category())
+	{
+	}
+	error_code(int ev, const ::std::error_category& ecat) noexcept:
+		m_ev(ev),
+		m_ecat(&ecat)
+	{
+	}
+	//template <class ErrorCodeEnum>
+	//error_code(ErrorCodeEnum e) noexcept;
+	void assign(int val, const error_category& ecat) noexcept {
+		m_ev = val;
+		m_ecat = &ecat;
+	}
+	//template <class ErrorCodeEnum>
+	//error_code& operator= (ErrorCodeEnum e) noexcept;
+	void clear() noexcept {
+		m_ev = 0;
+		m_ecat = 0;
+	}
+	int value() const noexcept {
+		return m_ev;
+	}
+	const error_category& category() const noexcept {
+		return *m_ecat;
+	}
+	error_condition default_error_condition() const noexcept {
+		return category().default_error_condition(value());
+	}
+	::std::string message() const {
+		return category().message(value());
+	}
+	operator bool() const noexcept {
+		return m_ev != 0;
+	}
+};
+
+class system_error:
+	public ::std::exception
+{
+	const error_code	m_error_code;
+	::std::string	m_what_str;
+public:
+	system_error(::std::error_code ec);
+	system_error(::std::error_code ec, const ::std::string& what_arg);
+	system_error(::std::error_code ec, const char* what_arg);
+	system_error(int ev, const ::std::error_category& ecat);
+	system_error(int ev, const ::std::error_category& ecat, const ::std::string& what_arg);
+	system_error(int ev, const ::std::error_category& ecat, const char* what_arg);
+	~system_error() noexcept;
+	
+	const char* what() const noexcept;
+};
+
+bool operator==(const error_condition& lhs, const error_condition& rhs) noexcept {
+	return lhs.category() == rhs.category() && lhs.value() == rhs.value();
+}
+bool operator!=(const error_condition& lhs, const error_condition& rhs) noexcept {
+	return !(lhs == rhs);
+}
+bool operator< (const error_condition& lhs, const error_condition& rhs) noexcept {
+	return lhs.category() < rhs.category() || lhs.value() < rhs.value();
+}
+bool operator==(const error_condition& lhs, const error_code& rhs) noexcept {
+	return lhs.category().equivalent(rhs, lhs.value()) || rhs.category().equivalent(rhs.value(), lhs);
+}
+bool operator==(const error_code& lhs, const error_condition& rhs) noexcept {
+	return lhs.category().equivalent(lhs.value(),rhs) || rhs.category().equivalent(lhs,rhs.value());
+}
+bool operator!=(const error_condition& lhs, const error_code& rhs) noexcept {
+	return !(lhs == rhs);
+}
+bool operator!=(const error_code& lhs, const error_condition& rhs) noexcept {
+	return !(lhs == rhs);
+}
+
+
+
+};	// namespace std
+
+#endif
+
+// vim: ft=cpp
+

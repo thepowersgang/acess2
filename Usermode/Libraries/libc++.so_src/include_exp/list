@@ -203,9 +203,11 @@ public:
 	}
 	list_iterator& operator ++ () {
 		cur = cur->next;
+		return *this;
 	}
 	list_iterator& operator -- () {
 		cur = cur->prev;
+		return *this;
 	}
 
 private:

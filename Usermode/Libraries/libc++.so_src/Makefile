@@ -11,7 +11,7 @@ LDFLAGS  += -Map map.txt -lc
 
 OBJ  = misc.o new.o guard.o cxxabi.o typeinfo.o
 OBJ += string.o
-OBJ += exceptions.o exception_handling.o
+OBJ += exceptions.o exception_handling.o system_error.o
 DEPFILES := $(OBJ:%.o=%.d)
 BIN = libc++.so
 ifeq ($(ARCHDIR),native)

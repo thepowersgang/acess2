@@ -256,13 +256,36 @@ public:
 	basic_string& append(const basic_string& str) {
 		return append(str, 0, npos);
 	}
-	basic_string& append(const basic_string& str, size_type subpos, size_type sublen);
+	basic_string& append(const basic_string& str, size_type subpos, size_type sublen) {
+		if(subpos >= str.size())
+			_throw_out_of_range("basic_string - assign source");
+		if( sublen > str.size() - subpos )
+			sublen = str.size() - subpos;
+		append( str.data() + subpos, sublen );
+		return *this;
+	}
 	basic_string& append(const charT* s) {
 		return append(s, traits::length(s));
 	}
-	basic_string& append(const charT* s, size_type n);
-	basic_string& append(size_type n, charT c);
-	void push_back(charT c);
+	basic_string& append(const charT* s, size_type n) {
+		reserve(size() + n);
+		for( size_type i = 0; i < n; i ++ )
+			m_content->m_data[size() + i] = s[i];
+		m_content->m_data[size()+n] = '\0';
+		m_content->m_size += n;
+		return *this;
+	}
+	basic_string& append(size_type n, charT c) {
+		reserve(size() + n);
+		for( size_type i = 0; i < n; i ++ )
+			m_content->m_data[size() + i] = c;
+		m_content->m_data[size()+n] = '\0';
+		m_content->m_size += n;
+		return *this;
+	}
+	void push_back(charT c) {
+		append(1, c);
+	}
 	basic_string& assign(const basic_string& str) throw() {
 		// Special case, triggers copy-on-write.
 		release_content();
@@ -270,7 +293,35 @@ public:
 		m_content->m_ref_count ++;
 		return *this;
 	}
-	basic_string& assign(const basic_string& str, size_type subpos, size_type sublen);
+	basic_string& assign(const basic_string& str, size_type subpos, size_type sublen) {
+		if(subpos >= str.size())
+			_throw_out_of_range("basic_string - assign source");
+		if( sublen > str.size() - subpos )
+			sublen = str.size() - subpos;
+		
+		return assign(str.data() + subpos, sublen);
+	}
+	basic_string& assign(const charT* s) {
+		return assign(s, traits::length(s));
+	}
+	basic_string& assign(const charT* s, size_type n) {
+		release_content();
+		reserve(n);
+		for( size_type i = 0; i < n; i ++ )
+			m_content->m_data[i] = s[i];
+		m_content->m_data[n] = '\0';
+		m_content->m_size = n;
+		return *this;
+	}
+	basic_string& assign(size_type n, charT c) {
+		release_content();
+		reserve(n);
+		for( size_type i = 0; i < n; i ++ )
+			m_content->m_data[i] = c;
+		m_content->m_data[n] = '\0';
+		m_content->m_size = n;
+		return *this;
+	}
 	
 	// String operations
 	const char *c_str() const {
@@ -316,6 +367,52 @@ private:
 };
 
 typedef basic_string<char>	string;
+
+template <class charT, class traits, class Alloc>
+basic_string<charT,traits,Alloc> operator+(const basic_string<charT,traits,Alloc>& lhs, const basic_string<charT,traits,Alloc>& rhs)
+{
+	basic_string<charT,traits,Alloc>	ret;
+	ret.reserve(lhs.size() + rhs.size());
+	ret += lhs;
+	ret += rhs;
+	return ret;
+}
+template <class charT, class traits, class Alloc>
+basic_string<charT,traits,Alloc> operator+(const basic_string<charT,traits,Alloc>& lhs, const charT* rhs)
+{
+	basic_string<charT,traits,Alloc>	ret;
+	ret.reserve(lhs.size() + traits::length(rhs));
+	ret += lhs;
+	ret += rhs;
+	return ret;
+}
+template <class charT, class traits, class Alloc>
+basic_string<charT,traits,Alloc> operator+(const charT* lhs, const basic_string<charT,traits,Alloc>& rhs)
+{
+	basic_string<charT,traits,Alloc>	ret;
+	ret.reserve(traits::length(lhs) + rhs.size());
+	ret += lhs;
+	ret += rhs;
+	return ret;
+}
+template <class charT, class traits, class Alloc>
+basic_string<charT,traits,Alloc> operator+(const basic_string<charT,traits,Alloc>& lhs, const charT rhs)
+{
+	basic_string<charT,traits,Alloc>	ret;
+	ret.reserve(lhs.size() + 1);
+	ret += lhs;
+	ret += rhs;
+	return ret;
+}
+template <class charT, class traits, class Alloc>
+basic_string<charT,traits,Alloc> operator+(const charT lhs, const basic_string<charT,traits,Alloc>& rhs)
+{
+	basic_string<charT,traits,Alloc>	ret;
+	ret.reserve(1 + rhs.size());
+	ret += lhs;
+	ret += rhs;
+	return ret;
+}
 
 };
 

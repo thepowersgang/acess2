@@ -1,0 +1,6 @@
+/*
+ */
+extern "C" {
+#include <errno.h>
+}
+// vim: ft=cpp
