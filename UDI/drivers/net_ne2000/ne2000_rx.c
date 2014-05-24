@@ -47,7 +47,7 @@ void ne2k_intr__rx_ok(udi_cb_t *gcb)
 		rdata->rx_next_cb = rx_cb->chain;
 		rx_cb->chain = NULL;
 		udi_debug_printf("ne2k_intr__rx_ok: Initialising buffer\n");
-		udi_buf_write(ne2k_rx__buf_allocated, UDI_GCB(rx_cb), NULL, 1520, rx_cb->rx_buf, 0, 0, NULL);
+		udi_buf_write(ne2k_rx__buf_allocated, UDI_GCB(rx_cb), NULL, 1520, rx_cb->rx_buf, 0, 0, UDI_NULL_BUF_PATH);
 	}
 	else
 	{

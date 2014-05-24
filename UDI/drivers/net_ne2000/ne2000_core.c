@@ -64,6 +64,9 @@ void ne2k_enumerate_req(udi_enumerate_cb_t *cb, udi_ubit8_t enumeration_level)
 	case UDI_ENUMERATE_NEXT:
 		udi_enumerate_ack(cb, UDI_ENUMERATE_DONE, 0);
 		break;
+	default:
+		udi_assert(!"invalid enumeration_level");
+		break;
 	}
 }
 void ne2k_devmgmt_req(udi_mgmt_cb_t *cb, udi_ubit8_t mgmt_op, udi_ubit8_t parent_ID)
@@ -88,6 +91,9 @@ void ne2k_bus_dev_channel_event_ind(udi_channel_event_cb_t *cb)
 		udi_bus_bind_req( bus_bind_cb );
 		// continue at ne2k_bus_dev_bus_bind_ack
 		return; }
+	default:
+		udi_assert(!"invalid channel event");
+		break;
 	}
 }
 void ne2k_bus_dev_bus_bind_ack(udi_bus_bind_cb_t *cb,
@@ -238,7 +244,7 @@ void ne2k_nd_ctrl_bind__rx_chan_ok(udi_cb_t *gcb, udi_channel_t new_channel)
 	cb->max_perfect_multicast = 0;
 	cb->max_total_multicast = 0;
 	cb->mac_addr_len = 6;
-	memcpy(cb->mac_addr, rdata->macaddr, 6);
+	udi_memcpy(cb->mac_addr, rdata->macaddr, 6);
 	udi_nsr_bind_ack( cb, UDI_OK );
 	// = = = =
 }
