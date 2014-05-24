@@ -17,14 +17,22 @@
 namespace AxWin {
 
 class CClient;
+class CCompositor;
+class CRegion;
 
 class CWindow
 {
 public:
-	CWindow(CClient& client, const ::std::string &name);
+	CWindow(CCompositor& compositor, CClient& client, const ::std::string &name);
 	~CWindow();
 	
 	void Repaint(const CRect& rect);
+
+	void Show(bool bShow);	
+	void Move(int X, int Y);
+	void Resize(unsigned int W, unsigned int H);
+	
+	uint64_t ShareSurface();
 	
 	void MouseButton(int ButtonID, int X, int Y, bool Down);
 	void MouseMove(int NewX, int NewY);
@@ -32,9 +40,10 @@ public:
 
 	CSurface	m_surface;
 private:
-	const ::std::string	m_name;
+	CCompositor&	m_compositor;
 	CClient&	m_client;
-	//::std::list<CRegion*>	m_regions;
+	const ::std::string	m_name;
+	::std::vector<CRegion*>	m_regions;
 };
 
 };	// namespace AxWin

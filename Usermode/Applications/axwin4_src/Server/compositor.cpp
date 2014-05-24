@@ -6,8 +6,8 @@
  * - Window compositor
  */
 #include <video.hpp>
-#include <compositor.hpp>
 #include <CCompositor.hpp>
+#include <cassert>
 
 namespace AxWin {
 
@@ -17,9 +17,25 @@ CCompositor::CCompositor(CVideo& video):
 	// 
 }
 
-CWindow* CCompositor::CreateWindow(CClient& client)
+CWindow* CCompositor::CreateWindow(CClient& client, const ::std::string& name)
 {
-	return new CWindow(client, "TODO");
+	return new CWindow(*this, client, name);
+}
+
+bool CCompositor::GetScreenDims(unsigned int ScreenID, unsigned int* W, unsigned int* H)
+{
+	assert(W && H);
+	if( ScreenID != 0 )
+	{
+		*W = 0;
+		*H = 0;
+		return false;
+	}
+	else
+	{
+		m_video.GetDims(*W, *H);
+		return true;
+	}
 }
 
 void CCompositor::Redraw()
@@ -50,6 +66,7 @@ void CCompositor::Redraw()
 	}
 
 	m_damageRects.clear();
+	m_video.Flush();
 }
 
 void CCompositor::DamageArea(const CRect& area)

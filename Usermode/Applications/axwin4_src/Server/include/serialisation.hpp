@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <cstddef>
 #include <exception>
+#include <string>
 
 namespace AxWin {
 
@@ -25,6 +26,8 @@ public:
 	CDeserialiser(size_t Length, const void *Buffer);
 	::uint8_t	ReadU8();
 	::uint16_t	ReadU16();
+	::int16_t	ReadS16();
+	::std::string	ReadString();
 };
 
 class CSerialiser

@@ -8,6 +8,7 @@
 #ifndef _CCOMPOSITOR_H_
 #define _CCOMPOSITOR_H_
 
+#include <string>
 #include <list>
 #include <vector>
 #include "CRect.hpp"
@@ -45,7 +46,9 @@ class CCompositor
 public:
 	CCompositor(CVideo& video);
 
-	CWindow* CreateWindow(CClient& client);
+	CWindow* CreateWindow(CClient& client, const ::std::string& name);
+
+	bool	GetScreenDims(unsigned int ScrenID, unsigned int *Width, unsigned int *Height);
 
 	void	Redraw();
 	void	DamageArea(const CRect& rect);

@@ -24,11 +24,25 @@ CDeserialiser::CDeserialiser(size_t Length, const void *Buffer)
 	return 0;
 }
 
+::int16_t CDeserialiser::ReadS16()
+{
+	return 0;
+}
+
+::std::string CDeserialiser::ReadString()
+{
+	return "";
+}
+
 CSerialiser::CSerialiser()
 {
 }
 
 void CSerialiser::WriteU8(::uint8_t Value)
+{
+}
+
+void CSerialiser::WriteU16(::uint16_t Value)
 {
 }
 

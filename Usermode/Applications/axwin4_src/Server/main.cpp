@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
 	IPC::Initialise(config.m_ipc, *compositor);
 	// - Start root child process (from config)
 	// TODO: Spin up child process
-
+	
 	// - Event loop
 	for( ;; )
 	{

@@ -1,5 +1,6 @@
 /*
  */
+#define __STDC_LIMIT_MACROS
 #include <ipc.hpp>
 #include <list>
 #include <IIPCChannel.hpp>
@@ -67,46 +68,9 @@ void DeregisterClient(CClient& client)
 
 
 
-typedef void	MessageHandler_op_t(CClient& client, CDeserialiser& message);
-MessageHandler_op_t	HandleMessage_Ping;
-MessageHandler_op_t	HandleMessage_GetWindowAttr;
-MessageHandler_op_t	HandleMessage_Reply;
-MessageHandler_op_t	HandleMessage_CreateWindow;
-MessageHandler_op_t	HandleMessage_CloseWindow;
-MessageHandler_op_t	HandleMessage_SetWindowAttr;
-MessageHandler_op_t	HandleMessage_AddRegion;
-MessageHandler_op_t	HandleMessage_DelRegion;
-MessageHandler_op_t	HandleMessage_SetRegionAttr;
-MessageHandler_op_t	HandleMessage_PushData;
-MessageHandler_op_t	HandleMessage_SendIPC;
-
-MessageHandler_op_t	*message_handlers[] = {
-	[IPCMSG_PING]       = &HandleMessage_Ping,
-	[IPCMSG_REPLY]      = &HandleMessage_Reply,
-	
-	[IPCMSG_CREATEWIN]  = &HandleMessage_CreateWindow,
-	[IPCMSG_CLOSEWIN]   = &HandleMessage_CloseWindow,
-	[IPCMSG_SETWINATTR] = &HandleMessage_SetWindowAttr,
-	[IPCMSG_GETWINATTR] = &HandleMessage_GetWindowAttr,
-	
-	[IPCMSG_RGNADD]     = &HandleMessage_AddRegion,
-	[IPCMSG_RGNDEL]     = &HandleMessage_DelRegion,
-	[IPCMSG_RGNSETATTR] = &HandleMessage_SetRegionAttr,
-	[IPCMSG_RGNPUSHDATA]= &HandleMessage_PushData,	// to a region
-	[IPCMSG_SENDIPC]    = &HandleMessage_SendIPC,	// Use the GUI server for low-bandwith inter-process messaging
-};
-
-void HandleMessage(CClient& client, CDeserialiser& message)
+void HandleMessage_Nop(CClient& client, CDeserialiser& message)
 {
-	unsigned int command = message.ReadU8();
-	if( command >= sizeof(message_handlers)/sizeof(IPC::MessageHandler_op_t*) ) {
-		// Drop, invalid command
-		return ;
-	}
-	
-	(message_handlers[command])(client, message);
 }
-
 void HandleMessage_Reply(CClient& client, CDeserialiser& message)
 {
 	// Reply to a sent message
@@ -132,23 +96,100 @@ void HandleMessage_Ping(CClient& client, CDeserialiser& message)
 	client.SendMessage(reply);
 }
 
-void HandleMessage_CreateWindow(CClient& client, CDeserialiser& message)
+void HandleMessage_GetGlobalAttr(CClient& client, CDeserialiser& message)
 {
-	uint16_t	parent_id = message.ReadU16();
-	uint16_t	new_id = message.ReadU16();
-	CWindow* parent = client.GetWindow( parent_id );
+	uint16_t	attr_id = message.ReadU16();
 	
-	client.SetWindow( new_id, gpCompositor->CreateWindow(client) );
+	CSerialiser	reply;
+	reply.WriteU8(IPCMSG_REPLY);
+	reply.WriteU8(IPCMSG_GETGLOBAL);
+	reply.WriteU16(attr_id);
+	
+	switch(attr_id)
+	{
+	case IPC_GLOBATTR_SCREENDIMS: {
+		uint8_t	screen_id = message.ReadU8();
+		unsigned int w, h;
+		gpCompositor->GetScreenDims(screen_id, &w, &h);
+		reply.WriteU16( (w <= UINT16_MAX ? w : UINT16_MAX) );
+		reply.WriteU16( (h <= UINT16_MAX ? h : UINT16_MAX) );
+		break; }
+	default:
+		throw IPC::CClientFailure("Bad global attribute ID");
+	}
+	
+	client.SendMessage(reply);
 }
 
-void HandleMessage_CloseWindow(CClient& client, CDeserialiser& message)
+void HandleMessage_SetGlobalAttr(CClient& client, CDeserialiser& message)
 {
-	assert(!"TODO");
+	uint16_t	attr_id = message.ReadU16();
+	
+	switch(attr_id)
+	{
+	case IPC_GLOBATTR_SCREENDIMS:
+		// Setting readonly
+		break;
+	case IPC_GLOBATTR_MAXAREA:
+		assert(!"TODO: IPC_GLOBATTR_MAXAREA");
+		break;
+	default:
+		throw IPC::CClientFailure("Bad global attribute ID");
+	}
+}
+
+void HandleMessage_CreateWindow(CClient& client, CDeserialiser& message)
+{
+	uint16_t	new_id = message.ReadU16();
+	//uint16_t	parent_id = message.ReadU16();
+	//CWindow* parent = client.GetWindow( parent_id );
+	::std::string	name = message.ReadString();
+	
+	client.SetWindow( new_id, gpCompositor->CreateWindow(client, name) );
+}
+
+void HandleMessage_DestroyWindow(CClient& client, CDeserialiser& message)
+{
+	uint16_t	win_id = message.ReadU16();
+	
+	CWindow*	win = client.GetWindow(win_id);
+	if(!win) {
+		throw IPC::CClientFailure("Bad window");
+	}
+	client.SetWindow(win_id, 0);	
+	
+	// TODO: Directly inform compositor?
+	delete win;
 }
 
 void HandleMessage_SetWindowAttr(CClient& client, CDeserialiser& message)
 {
-	assert(!"TODO");
+	uint16_t	win_id = message.ReadU16();
+	uint16_t	attr_id = message.ReadU16();
+
+	CWindow*	win = client.GetWindow(win_id);
+	if(!win) {
+		throw IPC::CClientFailure("Bad window");
+	}
+	
+	switch(attr_id)
+	{
+	case IPC_WINATTR_DIMENSIONS: {
+		uint16_t new_w = message.ReadU16();
+		uint16_t new_h = message.ReadU16();
+		win->Resize(new_w, new_h);
+		assert(!"TODO: IPC_WINATTR_DIMENSIONS");
+		break; }
+	case IPC_WINATTR_POSITION: {
+		int16_t new_x = message.ReadS16();
+		int16_t new_y = message.ReadS16();
+		win->Move(new_x, new_y);
+		assert(!"TODO: IPC_WINATTR_POSITION");
+		break; }
+	default:
+		_SysDebug("HandleMessage_SetWindowAttr - Bad attr %u", attr_id);
+		throw IPC::CClientFailure("Bad window attr");
+	}
 }
 
 void HandleMessage_GetWindowAttr(CClient& client, CDeserialiser& message)
@@ -156,17 +197,12 @@ void HandleMessage_GetWindowAttr(CClient& client, CDeserialiser& message)
 	assert(!"TODO");
 }
 
-void HandleMessage_AddRegion(CClient& client, CDeserialiser& message)
+void HandleMessage_SendIPC(CClient& client, CDeserialiser& message)
 {
 	assert(!"TODO");
 }
 
-void HandleMessage_DelRegion(CClient& client, CDeserialiser& message)
-{
-	assert(!"TODO");
-}
-
-void HandleMessage_SetRegionAttr(CClient& client, CDeserialiser& message)
+void HandleMessage_GetWindowBuffer(CClient& client, CDeserialiser& message)
 {
 	assert(!"TODO");
 }
@@ -175,10 +211,61 @@ void HandleMessage_PushData(CClient& client, CDeserialiser& message)
 {
 	assert(!"TODO");
 }
-
-void HandleMessage_SendIPC(CClient& client, CDeserialiser& message)
+void HandleMessage_Blit(CClient& client, CDeserialiser& message)
 {
 	assert(!"TODO");
+}
+void HandleMessage_DrawCtl(CClient& client, CDeserialiser& message)
+{
+	assert(!"TODO");
+}
+void HandleMessage_DrawText(CClient& client, CDeserialiser& message)
+{
+	assert(!"TODO");
+}
+
+typedef void	MessageHandler_op_t(CClient& client, CDeserialiser& message);
+
+MessageHandler_op_t	*message_handlers[] = {
+	[IPCMSG_NULL]       = &HandleMessage_Nop,
+	[IPCMSG_REPLY]      = &HandleMessage_Reply,
+	[IPCMSG_PING]       = &HandleMessage_Ping,
+	[IPCMSG_GETGLOBAL]  = &HandleMessage_GetGlobalAttr,
+	[IPCMSG_SETGLOBAL]  = &HandleMessage_SetGlobalAttr,
+	
+	[IPCMSG_CREATEWIN]  = &HandleMessage_CreateWindow,
+	[IPCMSG_CLOSEWIN]   = &HandleMessage_DestroyWindow,
+	[IPCMSG_SETWINATTR] = &HandleMessage_SetWindowAttr,
+	[IPCMSG_GETWINATTR] = &HandleMessage_GetWindowAttr,
+	[IPCMSG_SENDIPC]    = &HandleMessage_SendIPC,	// Use the GUI server for low-bandwith IPC
+	[IPCMSG_GETWINBUF]  = &HandleMessage_GetWindowBuffer,
+	[IPCMSG_PUSHDATA]   = &HandleMessage_PushData,	// to a window's buffer
+	[IPCMSG_BLIT]       = &HandleMessage_Blit,	// Copy data from one part of the window to another
+	[IPCMSG_DRAWCTL]    = &HandleMessage_DrawCtl,	// Draw a control
+	[IPCMSG_DRAWTEXT]   = &HandleMessage_DrawText,	// Draw text
+};
+
+void HandleMessage(CClient& client, CDeserialiser& message)
+{
+	unsigned int command = message.ReadU8();
+	if( command >= sizeof(message_handlers)/sizeof(IPC::MessageHandler_op_t*) ) {
+		// Drop, invalid command
+		return ;
+	}
+	
+	(message_handlers[command])(client, message);
+}
+
+CClientFailure::CClientFailure(std::string&& what):
+	m_what(what)
+{
+}
+const char *CClientFailure::what() const throw()
+{
+	return m_what.c_str();
+}
+CClientFailure::~CClientFailure() throw()
+{
 }
 
 };	// namespace IPC
