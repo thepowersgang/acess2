@@ -37,15 +37,16 @@ enum
 enum eIPC_GlobalAttrs
 {
 	IPC_GLOBATTR_SCREENDIMS,	// Screen dimensions - Readonly
-	IPC_GLOBATTR_MAXAREA,	// Maximum window area for screen (hint, not enforced)
+	IPC_GLOBATTR_MAXAREA,	// Maximum window area for screen (hint only, not enforced)
 };
 
 enum eIPC_WinAttrs
 {
-	IPC_WINATTR_SHOW,
-	IPC_WINATTR_FLAGS,	// Decoration enabled, always-on-top
-	IPC_WINATTR_POSITION,
-	IPC_WINATTR_DIMENSIONS,
+	IPC_WINATTR_SHOW,	// u8	- Window shown
+	IPC_WINATTR_FLAGS,	// u32	- Decoration enabled, always-on-top
+	IPC_WINATTR_POSITION,	// s16, s16
+	IPC_WINATTR_DIMENSIONS,	// u16, u16
+	IPC_WINATTR_TITLE,	// string
 };
 
 };

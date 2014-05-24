@@ -100,6 +100,11 @@ $(_OBJPREFIX)%.o: %.cc
 	@mkdir -p $(dir $@)
 	$V$(CXX) $(CXXFLAGS) $(CPPFLAGS) -o $@ -c $< -MMD -MP -MT $@ -MF $@.dep
 
+$(_OBJPREFIX)%.o: %.cpp
+	@echo [CXX] -o $@
+	@mkdir -p $(dir $@)
+	$V$(CXX) $(CXXFLAGS) $(CPPFLAGS) -o $@ -c $< -MMD -MP -MT $@ -MF $@.dep
+
 $(_OBJPREFIX)%.ao: %.$(ASSUFFIX)
 	@echo [AS] -o $@
 	@mkdir -p $(dir $@)
