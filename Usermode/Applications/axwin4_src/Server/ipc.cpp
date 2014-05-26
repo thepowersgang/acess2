@@ -39,17 +39,21 @@ void Initialise(const CConfigIPC& config, CCompositor& compositor)
 int FillSelect(fd_set& rfds)
 {
 	int ret = 0;
+	_SysDebug("IPC::FillSelect");
 	for( auto channel : glChannels )
 	{
+		_SysDebug("IPC::FillSelect - channel=%p", channel);
 		ret = ::std::max(ret, channel->FillSelect(rfds));
 	}
 	return ret;
 }
 
-void HandleSelect(fd_set& rfds)
+void HandleSelect(const fd_set& rfds)
 {
+	_SysDebug("IPC::HandleSelect");
 	for( auto channel : glChannels )
 	{
+		_SysDebug("IPC::HandleSelect - channel=%p", channel);
 		channel->HandleSelect(rfds);
 	}
 }

@@ -12,7 +12,7 @@ namespace Timing {
 
 int64_t GetTimeToNextEvent()
 {
-	return 10*1000;
+	return -1;
 }
 
 void CheckEvents()

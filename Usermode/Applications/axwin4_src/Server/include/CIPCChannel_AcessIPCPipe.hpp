@@ -9,20 +9,31 @@
 #define _CIPCCHANNEL_ACESSIPCPIPE_HPP_
 
 #include <IIPCChannel.hpp>
+#include <CClient.hpp>
 #include <string>
 #include <list>
 
 namespace AxWin {
 
-class CClient_AcessIPCPipe
+class CClient_AcessIPCPipe:
+	public CClient
 {
+	friend class CIPCChannel_AcessIPCPipe;
+	 int	m_fd;
+	::std::vector<uint8_t>	m_rxbuf;
 public:
+	CClient_AcessIPCPipe(IIPCChannel& channel, int fd);
+	~CClient_AcessIPCPipe();
+	
+	void SendMessage(CSerialiser& message);
+	
+	void HandleReceive();
 };
 
 class CIPCChannel_AcessIPCPipe:
 	public IIPCChannel
 {
-	 int	m_mainFD;
+	 int	m_fd;
 	::std::list<CClient_AcessIPCPipe>	m_clients;
 public:
 	CIPCChannel_AcessIPCPipe(const ::std::string& suffix);

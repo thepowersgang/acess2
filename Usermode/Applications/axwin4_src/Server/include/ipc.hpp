@@ -14,16 +14,22 @@ extern "C" {
 #include <acess/sys.h>
 };
 
+#include <serialisation.hpp>
 #include <CConfigIPC.hpp>
 
 namespace AxWin {
+
 class CCompositor;
+class CClient;
 
 namespace IPC {
 
 extern void	Initialise(const CConfigIPC& config, CCompositor& compositor);
 extern int	FillSelect(::fd_set& rfds);
-extern void	HandleSelect(::fd_set& rfds);
+extern void	HandleSelect(const ::fd_set& rfds);
+extern void	RegisterClient(CClient& client);
+extern void	DeregisterClient(CClient& client);
+extern void	HandleMessage(CClient& client, CDeserialiser& message);
 
 class CClientFailure:
 	public ::std::exception

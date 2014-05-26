@@ -7,6 +7,7 @@
  */
 #include <serialisation.hpp>
 #include <cstddef>
+#include <stdexcept>
 
 namespace AxWin {
 
@@ -17,24 +18,52 @@ CDeserialiser::CDeserialiser(size_t Length, const uint8_t *Buffer):
 {
 }
 
+bool CDeserialiser::IsConsumed() const
+{
+	return m_offset == m_length;
+}
+
 ::uint8_t CDeserialiser::ReadU8()
 {
-	return 0;
+	if( m_offset + 1 >= m_length )
+		throw ::std::out_of_range("CDeserialiser::ReadU8");
+	uint8_t rv = m_data[m_offset];
+	m_offset ++;
+	return rv;
 }
 
 ::uint16_t CDeserialiser::ReadU16()
 {
-	return 0;
+	if( m_offset + 2 >= m_length )
+		throw ::std::out_of_range("CDeserialiser::ReadU16");
+	
+	uint16_t rv = m_data[m_offset] | ((uint16_t)m_data[m_offset+1] << 8);
+	m_offset += 2;
+	return rv;
 }
 
 ::int16_t CDeserialiser::ReadS16()
 {
-	return 0;
+	uint16_t rv_u = ReadU16();
+	if( rv_u < 0x8000 )
+		return rv_u;
+	else
+		return ~rv_u + 1;
 }
 
-::std::string CDeserialiser::ReadString()
+const ::std::string CDeserialiser::ReadString()
 {
-	return "";
+	if( m_offset + 1 >= m_length )
+		throw ::std::out_of_range("CDeserialiser::ReadString");
+	uint8_t len = m_data[m_offset];
+	m_offset ++;
+	
+	if( m_offset + len >= m_length )
+		throw ::std::out_of_range("CDeserialiser::ReadString");
+	
+	::std::string ret( reinterpret_cast<const char*>(m_data+m_offset), len );
+	m_offset += len;
+	return ret;
 }
 
 CSerialiser::CSerialiser()
@@ -65,20 +94,38 @@ void CSerialiser::WriteS16(::int16_t Value)
 	}
 }
 
+void CSerialiser::WriteBuffer(size_t n, const void* val)
+{
+	const uint8_t*	val8 = static_cast<const uint8_t*>(val);
+	if( n > 0xFFFF )
+		throw ::std::length_error("CSerialiser::WriteBuffer");
+	m_data.reserve( m_data.size() + 2 + n );
+	WriteU16(n);
+	for( size_t i = 0; i < n; i ++ )
+		m_data.push_back(val8[i]);
+}
+
 void CSerialiser::WriteString(const char* val, size_t n)
 {
-	//if( n >= 256 )
-	//	throw ::std::out_of_range("CSerialiser::WriteString");
+	if( n > 0xFF )
+		throw ::std::length_error("CSerialiser::WriteString");
+	m_data.reserve( m_data.size() + 1 + n );
 	WriteU8(n);
 	for( size_t i = 0; i < n; i ++ )
-		WriteU8(val[i]);
+		m_data.push_back(val[i]);
 }
 
 void CSerialiser::WriteSub(const CSerialiser& val)
 {
+	// TODO: Append reference to sub-buffer contents
 	m_data.reserve( m_data.size() + val.m_data.size() );
 	for( auto byte : val.m_data )
 		m_data.push_back( byte );
+}
+
+const ::std::vector<uint8_t>& CSerialiser::Compact()
+{
+	return m_data;
 }
 
 };	// namespace AxWin

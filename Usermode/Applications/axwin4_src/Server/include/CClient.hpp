@@ -11,9 +11,9 @@
 #include "CWindow.hpp"
 #include "serialisation.hpp"
 
-class IIPCChannel;
-
 namespace AxWin {
+
+class IIPCChannel;
 
 class CClient
 {
@@ -22,13 +22,14 @@ class CClient
 	//::std::map<unsigned int,CWindow*>	m_windows;
 	CWindow*	m_windows[1];
 public:
-	CClient(IIPCChannel& channel);
-	~CClient();
+	CClient(::AxWin::IIPCChannel& channel);
+	virtual ~CClient();
 	
 	CWindow*	GetWindow(int ID);
 	void	SetWindow(int ID, CWindow* window);
 	
-	void	SendMessage(CSerialiser& reply);
+	virtual void	SendMessage(CSerialiser& reply) = 0;
+	void	HandleMessage(CDeserialiser& message);
 };
 
 

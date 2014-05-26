@@ -1,6 +1,8 @@
 
 include ../../Makefile.cfg
 
+DIR := Apps/AxWin/4.0
+
 CPPFLAGS += -Iinclude/ -I../Common/include/
 OBJ := main.o ipc.o CConfig.o video.o input.o timing.o
 OBJ += compositor.o CWindow.o

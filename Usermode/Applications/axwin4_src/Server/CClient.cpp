@@ -6,13 +6,20 @@
  * - IPC Client
  */
 #include <CClient.hpp>
+#include <IIPCChannel.hpp>
+#include <ipc.hpp>
 
 namespace AxWin {
 
-CClient::CClient(IIPCChannel& channel):
+CClient::CClient(::AxWin::IIPCChannel& channel):
 	m_channel(channel)
 {
 	
+}
+
+CClient::~CClient()
+{
+	::AxWin::IPC::DeregisterClient(*this);
 }
 
 CWindow* CClient::GetWindow(int ID)
@@ -31,8 +38,23 @@ void CClient::SetWindow(int ID, CWindow* window)
 	m_windows[ID] = window;
 }
 
-void CClient::SendMessage(CSerialiser& reply)
+void CClient::HandleMessage(CDeserialiser& message)
 {
+	try {
+		IPC::HandleMessage(*this, message);
+		if( !message.IsConsumed() )
+		{
+			_SysDebug("NOTICE - CClient::HandleMessage - Trailing data in message");
+		}
+	}
+	catch( const ::std::exception& e )
+	{
+		_SysDebug("ERROR - Exception while processing message from client: %s", e.what());
+	}
+	catch( ... )
+	{
+		_SysDebug("ERROR - Unknown exception while processing message from client");
+	}
 }
 
 };	// namespace AxWin
