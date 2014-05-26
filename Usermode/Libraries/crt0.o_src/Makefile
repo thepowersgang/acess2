@@ -4,7 +4,7 @@
 
 -include ../Makefile.cfg
 
-BIN = $(OUTPUTDIR)Libs/crt0.o $(OUTPUTDIR)Libs/crtbegin.o $(OUTPUTDIR)Libs/crtend.o
+BIN = $(OUTPUTDIR)Libs/crt0.o $(OUTPUTDIR)Libs/crti.o $(OUTPUTDIR)Libs/crtn.o
 
 .PHONY: all clean install utest utest-build generate_exp
 
@@ -20,6 +20,9 @@ utest generate_exp utest-build utest-run:
 	@echo > /dev/null
 
 $(OUTPUTDIR)Libs/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(CC) -c $< -o $@
+$(OUTPUTDIR)Libs/%.o: $(ARCHDIR)-%.S
 	@mkdir -p $(dir $@)
 	$(CC) -c $< -o $@
 
