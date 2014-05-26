@@ -22,6 +22,8 @@ extern bool	AxWin4_WaitEventQueueSelect(int nFDs, fd_set *rfds, fd_set *wfds, fd
 extern tAxWin4_Window	*AxWin4_CreateWindow(const char *Name);
 extern void	AxWin4_ShowWindow(tAxWin4_Window *Window);
 extern void	AxWin4_SetTitle(tAxWin4_Window *Window, const char *Title);
+extern void	AxWin4_MoveWindow(tAxWin4_Window *Window, int X, int Y);
+extern void	AxWin4_ResizeWindow(tAxWin4_Window *Window, unsigned int W, unsigned int H);
 extern void	AxWin4_DrawBitmap(tAxWin4_Window *Window, int X, int Y, unsigned int W, unsigned int H, void *Data);
 
 

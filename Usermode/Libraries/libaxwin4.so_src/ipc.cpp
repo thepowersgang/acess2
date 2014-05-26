@@ -20,16 +20,18 @@ IIPCChannel*	gIPCChannel;
 
 extern "C" bool AxWin4_Connect(const char *URI)
 {
+	_SysDebug("AxWin4_Connect('%s')", URI);
 	if( gIPCChannel ) {
 		return false;
 	}
 	try {
 		if( strncmp(URI, "ipcpipe://", 3+4+3) == 0 )
 		{
-			gIPCChannel = new CIPCChannel_AcessIPCPipe(URI);
+			gIPCChannel = new CIPCChannel_AcessIPCPipe(URI+3+4+3);
 		}
 		else
 		{
+			_SysDebug("Unknown protocol");
 			return false;
 		}
 	}
@@ -54,8 +56,10 @@ extern "C" bool AxWin4_WaitEventQueue(uint64_t Timeout)
 extern "C" bool AxWin4_WaitEventQueueSelect(int nFDs, fd_set *rfds, fd_set *wfds, fd_set *efds, uint64_t Timeout)
 {
 	fd_set	local_rfds;
-	if( !rfds )
+	if( !rfds ) {
+		FD_ZERO(&local_rfds);
 		rfds = &local_rfds;
+	}
 	
 	int64_t	select_timeout = Timeout;
 	int64_t	*select_timeout_p = (Timeout ? &select_timeout : 0);

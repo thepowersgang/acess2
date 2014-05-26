@@ -39,7 +39,12 @@ bool CIPCChannel_AcessIPCPipe::HandleSelect(const fd_set& fds)
 
 void CIPCChannel_AcessIPCPipe::Send(CSerialiser& message)
 {
-	// TODO:
+	const ::std::vector<uint8_t>& serialised = message.Compact();
+	if(serialised.size() > 0x1000 ) {
+		throw ::std::length_error("CIPCChannel_AcessIPCPipe::Send");
+	}
+	_SysDebug("Send %i bytes", serialised.size());
+	_SysWrite(m_fd, serialised.data(), serialised.size());
 }
 
 
